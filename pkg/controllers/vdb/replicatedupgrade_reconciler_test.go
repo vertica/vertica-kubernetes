@@ -152,7 +152,7 @@ var _ = Describe("replicatedupgrade_reconciler", func() {
 		Ω(sbScs).Should(HaveKey(pri2.Annotations[vmeta.ChildSubclusterAnnotation]))
 
 		// Should clear annotation at end of upgrade
-		Ω(rr.Manager.finishUpgrade(ctx)).Should(Equal(ctrl.Result{}))
+		Ω(rr.finishUpgrade(ctx)).Should(Equal(ctrl.Result{}))
 		Ω(k8sClient.Get(ctx, vdb.ExtractNamespacedName(), vdb)).Should(Succeed())
 		Ω(vmeta.GetReplicatedUpgradeSandbox(vdb.Annotations)).Should(Equal(""))
 	})
@@ -288,7 +288,7 @@ var _ = Describe("replicatedupgrade_reconciler", func() {
 		Ω(rr.waitForReplicateToReplicaGroupB(ctx)).Should(Equal(ctrl.Result{}))
 
 		// Annotations should be cleared when we finish the upgrade
-		Ω(rr.Manager.finishUpgrade(ctx)).Should(Equal(ctrl.Result{}))
+		Ω(rr.finishUpgrade(ctx)).Should(Equal(ctrl.Result{}))
 		Ω(k8sClient.Get(ctx, vdb.ExtractNamespacedName(), vdb)).Should(Succeed())
 		Ω(vmeta.GetReplicatedUpgradeReplicator(vdb.Annotations)).Should(Equal(""))
 	})
@@ -430,10 +430,12 @@ var _ = Describe("replicatedupgrade_reconciler", func() {
 			Ω(found).Should(BeTrue())
 			expSbTarget, found := expectedMapping[sc.Name]
 			Ω(found).Should(BeTrue())
+			targetSc, found := scMap[expSbTarget]
+			Ω(found).Should(BeTrue())
 			svcNm := names.GenExtSvcName(vdb, sc)
 			svc := v1.Service{}
 			Ω(k8sClient.Get(ctx, svcNm, &svc)).Should(Succeed(), "svc name is %v", svcNm)
-			Ω(svc.Spec.Selector).Should(HaveKeyWithValue(vmeta.SubclusterNameLabel, expSbTarget), "svc name is %v", svcNm)
+			Ω(svc.Spec.Selector).Should(HaveKeyWithValue(vmeta.SubclusterSelectorLabel, targetSc.GetStatefulSetName(vdb)), "svc name is %v", svcNm)
 			Ω(svc.Spec.Selector).ShouldNot(HaveKey(vmeta.SubclusterSvcNameLabel), "svc name is %v", svcNm)
 		}
 	})

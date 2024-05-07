@@ -152,13 +152,13 @@ var _ = Describe("onlineupgrade_reconcile", func() {
 		svc := &corev1.Service{}
 		Expect(k8sClient.Get(ctx, names.GenExtSvcName(vdb, sc), svc)).Should(Succeed())
 		Expect(svc.Spec.Selector[vmeta.SubclusterSvcNameLabel]).Should(Equal(""))
-		Expect(svc.Spec.Selector[vmeta.SubclusterNameLabel]).Should(Equal(TransientScName))
+		Expect(svc.Spec.Selector[vmeta.SubclusterSelectorLabel]).Should(ContainSubstring(TransientScName))
 
 		// Route back to original subcluster
 		Expect(r.routeClientTraffic(ctx, ScName, false)).Should(Succeed())
 		Expect(k8sClient.Get(ctx, names.GenExtSvcName(vdb, sc), svc)).Should(Succeed())
 		Expect(svc.Spec.Selector[vmeta.SubclusterSvcNameLabel]).Should(Equal(sc.GetServiceName()))
-		Expect(svc.Spec.Selector[vmeta.SubclusterNameLabel]).Should(Equal(""))
+		Expect(svc.Spec.Selector[vmeta.SubclusterSelectorLabel]).Should(Equal(""))
 	})
 
 	It("should not route client traffic to transient subcluster since it doesn't exist", func() {
@@ -191,7 +191,7 @@ var _ = Describe("onlineupgrade_reconcile", func() {
 		svc := &corev1.Service{}
 		Expect(k8sClient.Get(ctx, names.GenExtSvcName(vdb, sc), svc)).Should(Succeed())
 		Expect(svc.Spec.Selector[vmeta.SubclusterSvcNameLabel]).Should(Equal(""))
-		Expect(svc.Spec.Selector[vmeta.SubclusterNameLabel]).Should(Equal(ScName))
+		Expect(svc.Spec.Selector[vmeta.SubclusterSelectorLabel]).Should(ContainSubstring(ScName))
 		Expect(svc.Spec.Selector[vmeta.ClientRoutingLabel]).Should(Equal(vmeta.ClientRoutingVal))
 	})
 
@@ -249,19 +249,17 @@ var _ = Describe("onlineupgrade_reconcile", func() {
 		// Route for primary subcluster
 		Expect(r.routeClientTraffic(ctx, PriScName, true)).Should(Succeed())
 		Expect(k8sClient.Get(ctx, names.GenExtSvcName(vdb, &vdb.Spec.Subclusters[0]), svc)).Should(Succeed())
-		Expect(svc.Spec.Selector[vmeta.SubclusterTransientLabel]).Should(Equal(""))
 		Expect(svc.Spec.Selector[vmeta.SubclusterSvcNameLabel]).Should(Equal(""))
-		Expect(svc.Spec.Selector[vmeta.SubclusterNameLabel]).Should(Equal(SecScName))
+		Expect(svc.Spec.Selector[vmeta.SubclusterSelectorLabel]).Should(ContainSubstring(SecScName))
 		Expect(r.routeClientTraffic(ctx, PriScName, false)).Should(Succeed())
 		Expect(k8sClient.Get(ctx, names.GenExtSvcName(vdb, &vdb.Spec.Subclusters[0]), svc)).Should(Succeed())
-		Expect(svc.Spec.Selector[vmeta.SubclusterTransientLabel]).Should(Equal(""))
 		Expect(svc.Spec.Selector[vmeta.SubclusterSvcNameLabel]).Should(Equal(vdb.Spec.Subclusters[0].GetServiceName()))
-		Expect(svc.Spec.Selector[vmeta.SubclusterNameLabel]).Should(Equal(""))
+		Expect(svc.Spec.Selector[vmeta.SubclusterSelectorLabel]).Should(Equal(""))
 
 		// Route for secondary subcluster
 		Expect(r.routeClientTraffic(ctx, SecScName, true)).Should(Succeed())
 		Expect(k8sClient.Get(ctx, names.GenExtSvcName(vdb, &vdb.Spec.Subclusters[1]), svc)).Should(Succeed())
-		Expect(svc.Spec.Selector[vmeta.SubclusterNameLabel]).Should(Equal(PriScName))
+		Expect(svc.Spec.Selector[vmeta.SubclusterSelectorLabel]).Should(ContainSubstring(PriScName))
 		Expect(r.routeClientTraffic(ctx, SecScName, false)).Should(Succeed())
 		Expect(k8sClient.Get(ctx, names.GenExtSvcName(vdb, &vdb.Spec.Subclusters[1]), svc)).Should(Succeed())
 		Expect(svc.Spec.Selector[vmeta.SubclusterSvcNameLabel]).Should(Equal(SecScName))
@@ -449,7 +447,7 @@ var _ = Describe("onlineupgrade_reconcile", func() {
 		Expect(k8sClient.Update(ctx, vdb)).Should(Succeed())
 
 		r := createOnlineUpgradeReconciler(ctx, vdb)
-		Expect(r.Manager.startUpgrade(ctx)).Should(Equal(ctrl.Result{}))
+		Expect(r.startUpgrade(ctx)).Should(Equal(ctrl.Result{}))
 		Expect(r.loadSubclusterState(ctx)).Should(Equal(ctrl.Result{}))
 		Expect(r.addTransientToVdb(ctx)).Should(Equal(ctrl.Result{}))
 		Expect(r.createTransientSts(ctx)).Should(Equal(ctrl.Result{}))

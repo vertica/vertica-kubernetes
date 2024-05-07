@@ -145,3 +145,8 @@ func (r *VerticaReplicatorReconciler) GetClient() client.Client {
 func (r *VerticaReplicatorReconciler) GetEventRecorder() record.EventRecorder {
 	return r.EVRec
 }
+
+// GetConfig gives access to *rest.Config
+func (r *VerticaReplicatorReconciler) GetConfig() *rest.Config {
+	return r.Cfg
+}

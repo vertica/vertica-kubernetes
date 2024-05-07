@@ -11,29 +11,26 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1beta1
-kind: VerticaDB
-metadata:
-  name: v-base-upgrade
-status:
-  upgradeStatus: "Restarting vertica in secondary subcluster 'sec'"
----
 apiVersion: v1
-kind: Service
+kind: ConfigMap
 metadata:
-  name: v-base-upgrade-sec
-spec:
-  selector:
-    app.kubernetes.io/instance: v-base-upgrade
-    vertica.com/subcluster-selector-name: v-base-upgrade-transient
-    vertica.com/client-routing: "true"
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: v-base-upgrade-pri
-spec:
-  selector:
-    app.kubernetes.io/instance: v-base-upgrade
-    vertica.com/subcluster-svc: pri
-    vertica.com/client-routing: "true"
+  annotations:
+    vertica.com/operator-deployment-method: helm
+  labels:
+    app.kubernetes.io/component: database
+    app.kubernetes.io/instance: v-sandbox
+    app.kubernetes.io/managed-by: verticadb-operator
+    app.kubernetes.io/name: vertica
+    vertica.com/database: sandbox_db
+    vertica.com/watched-by-sandbox-controller: "true"
+  name: v-sandbox-sandbox1
+  ownerReferences:
+  - apiVersion: vertica.com/v1
+    blockOwnerDeletion: false
+    controller: true
+    kind: VerticaDB
+    name: v-sandbox
+data:
+  sandboxName: sandbox1
+  verticaDBName: sandbox_db
+immutable: true

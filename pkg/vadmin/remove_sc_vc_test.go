@@ -36,7 +36,7 @@ func (m *MockVClusterOps) VRemoveSubcluster(options *vops.VRemoveScOptions) (vop
 	}
 
 	// verify basic options
-	if *options.SubclusterToRemove != TestSCName {
+	if options.SubclusterToRemove != TestSCName {
 		return vdb, fmt.Errorf("failed to retrieve subcluster name")
 	}
 

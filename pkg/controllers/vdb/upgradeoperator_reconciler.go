@@ -29,42 +29,42 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-// UpgradeOperator120Reconciler will handle any upgrade actions for k8s
-// objects created in 1.2.0 or prior.
-type UpgradeOperator120Reconciler struct {
+// UpgradeOperatorReconciler will handle any upgrade actions for k8s
+// objects created in older operators.
+type UpgradeOperatorReconciler struct {
 	VRec *VerticaDBReconciler
 	Log  logr.Logger
 	Vdb  *vapi.VerticaDB // Vdb is the CRD we are acting on.
 }
 
-// MakeUpgradeOperator120Reconciler will build a UpgradeOperatorFrom120Reconciler object
-func MakeUpgradeOperator120Reconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
+// MakeUpgradeOperatorReconciler will build a UpgradeOperatorFromReconciler object
+func MakeUpgradeOperatorReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
 	vdb *vapi.VerticaDB) controllers.ReconcileActor {
-	return &UpgradeOperator120Reconciler{VRec: vdbrecon, Log: log.WithName("UpgradeOperator120Reconciler"), Vdb: vdb}
+	return &UpgradeOperatorReconciler{VRec: vdbrecon, Log: log.WithName("UpgradeOperatorReconciler"), Vdb: vdb}
 }
 
-// Reconcile will handle any upgrade actions for k8s objects created in 1.2.0 or prior.
-func (u *UpgradeOperator120Reconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
+// Reconcile will handle any upgrade actions for k8s objects created in older operators.
+func (u *UpgradeOperatorReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
 	finder := iter.MakeSubclusterFinder(u.VRec.Client, u.Vdb)
 	stss, err := finder.FindStatefulSets(ctx, iter.FindExisting, vapi.MainCluster)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 
-	// In 1.3.0, we changed the selector labels for statefulsets.  But selector
+	// In 2.2.0, we changed the selector labels for statefulsets.  But selector
 	// labels are immutable.  So to upgrade to this current version we need to
 	// delete any sts created in prior releases.
 	for i := range stss.Items {
 		sts := &stss.Items[i]
 		opVer, ok := sts.ObjectMeta.Labels[vmeta.OperatorVersionLabel]
 		if !ok {
+			u.Log.Info("skipping object since we could not find operator version label", "name", sts.Name)
 			continue
 		}
-		switch opVer {
-		case vmeta.OperatorVersion120, vmeta.OperatorVersion110, vmeta.OperatorVersion100:
+		if opVer < vmeta.OperatorVersion220 {
 			u.VRec.Event(u.Vdb, corev1.EventTypeNormal, events.OperatorUpgrade,
-				fmt.Sprintf("Deleting statefulset '%s' because it was created by an old operator (pre-%s)",
-					sts.Name, vmeta.OperatorVersion130))
+				fmt.Sprintf("Deleting statefulset '%s' because it was created by an older version of the operator (%s)",
+					sts.Name, opVer))
 			if err := u.VRec.Client.Delete(ctx, sts); err != nil {
 				u.Log.Info("Error deleting old statefulset", "opVer", opVer)
 				return ctrl.Result{}, err

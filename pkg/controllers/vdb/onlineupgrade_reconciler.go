@@ -18,7 +18,6 @@ package vdb
 import (
 	"context"
 	"fmt"
-	"strconv"
 	"strings"
 
 	"github.com/go-logr/logr"
@@ -84,7 +83,7 @@ func (o *OnlineUpgradeReconciler) Reconcile(ctx context.Context, _ *ctrl.Request
 	// Functions to perform when the image changes.  Order matters.
 	funcs := []func(context.Context) (ctrl.Result, error){
 		// Initiate an upgrade by setting condition and event recording
-		o.Manager.startUpgrade,
+		o.startUpgrade,
 		o.logEventIfThisUpgradeWasNotChosen,
 		// Load up state that is used for the subsequent steps
 		o.loadSubclusterState,
@@ -115,7 +114,7 @@ func (o *OnlineUpgradeReconciler) Reconcile(ctx context.Context, _ *ctrl.Request
 		o.postNextStatusMsg,
 		o.installPackages,
 		// Cleanup up the condition and event recording for a completed upgrade
-		o.Manager.finishUpgrade,
+		o.finishUpgrade,
 	}
 	for _, fn := range funcs {
 		if res, err := fn(ctx); verrors.IsReconcileAborted(res, err) {
@@ -129,6 +128,14 @@ func (o *OnlineUpgradeReconciler) Reconcile(ctx context.Context, _ *ctrl.Request
 	}
 
 	return ctrl.Result{}, o.Manager.logUpgradeSucceeded(sandbox)
+}
+
+func (o *OnlineUpgradeReconciler) startUpgrade(ctx context.Context) (ctrl.Result, error) {
+	return o.Manager.startUpgrade(ctx, o.PFacts.GetSandboxName())
+}
+
+func (o *OnlineUpgradeReconciler) finishUpgrade(ctx context.Context) (ctrl.Result, error) {
+	return o.Manager.finishUpgrade(ctx, o.PFacts.GetSandboxName())
 }
 
 // logEventIfThisUpgradeWasNotChosen will write an event log if we are doing this
@@ -192,7 +199,7 @@ func (o *OnlineUpgradeReconciler) precomputeStatusMsgs(ctx context.Context) (ctr
 // postNextStatusMsg will set the next status message for an online upgrade
 func (o *OnlineUpgradeReconciler) postNextStatusMsg(ctx context.Context) (ctrl.Result, error) {
 	o.MsgIndex++
-	return ctrl.Result{}, o.Manager.postNextStatusMsg(ctx, o.StatusMsgs, o.MsgIndex)
+	return ctrl.Result{}, o.Manager.postNextStatusMsg(ctx, o.StatusMsgs, o.MsgIndex, o.PFacts.GetSandboxName())
 }
 
 // postNextStatusMsgForSts will set the next status message for the online image
@@ -349,9 +356,8 @@ func (o *OnlineUpgradeReconciler) iterateSubclusterType(ctx context.Context, scT
 
 	for i := range stss.Items {
 		sts := &stss.Items[i]
-		if matches, err := o.isMatchingSubclusterType(sts, scType); err != nil {
-			return ctrl.Result{}, err
-		} else if !matches {
+		matches := o.isMatchingSubclusterType(sts, scType)
+		if !matches {
 			continue
 		}
 
@@ -426,12 +432,17 @@ func (o *OnlineUpgradeReconciler) processSecondary(ctx context.Context, sts *app
 
 // isMatchingSubclusterType will return true if the subcluster type matches the
 // input string.  Always returns false for the transient subcluster.
-func (o *OnlineUpgradeReconciler) isMatchingSubclusterType(sts *appsv1.StatefulSet, scType string) (bool, error) {
-	isTransient, err := strconv.ParseBool(sts.Labels[vmeta.SubclusterTransientLabel])
-	if err != nil {
-		return false, fmt.Errorf("could not parse label %s: %w", vmeta.SubclusterTransientLabel, err)
+func (o *OnlineUpgradeReconciler) isMatchingSubclusterType(sts *appsv1.StatefulSet, scType string) bool {
+	stsScType := sts.Labels[vmeta.SubclusterTypeLabel]
+	if stsScType != scType {
+		return false
 	}
-	return sts.Labels[vmeta.SubclusterTypeLabel] == scType && !isTransient, nil
+
+	transientName, hasTransient := o.Vdb.GetTransientSubclusterName()
+	if !hasTransient {
+		return true
+	}
+	return sts.Labels[vmeta.SubclusterNameLabel] != transientName
 }
 
 // drainSubcluster will reroute traffic away from a subcluster and wait for it to be idle.

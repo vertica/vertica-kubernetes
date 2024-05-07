@@ -60,6 +60,11 @@ func GenStsName(vdb *vapi.VerticaDB, sc *vapi.Subcluster) types.NamespacedName {
 	return GenNamespacedName(vdb, sc.GetStatefulSetName(vdb))
 }
 
+// GenSandboxConfigMapName returns the name of the sandbox config map
+func GenSandboxConfigMapName(vdb *vapi.VerticaDB, sandbox string) types.NamespacedName {
+	return GenNamespacedName(vdb, vdb.Name+"-"+sandbox)
+}
+
 // GenCommunalCredSecretName returns the name of the secret that has the credentials to access s3
 func GenCommunalCredSecretName(vdb *vapi.VerticaDB) types.NamespacedName {
 	return GenNamespacedName(vdb, vdb.Spec.Communal.CredentialSecret)

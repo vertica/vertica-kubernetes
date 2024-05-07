@@ -23,6 +23,7 @@ import (
 	. "github.com/onsi/gomega" //nolint:stylecheck
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/builder"
+	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -88,6 +89,26 @@ func CreateSts(ctx context.Context, c client.Client, vdb *vapi.VerticaDB, sc *va
 	sts.Status.Replicas = sc.Size
 	sts.Status.ReadyReplicas = sc.Size
 	ExpectWithOffset(offset, c.Status().Update(ctx, sts))
+}
+
+func CreateConfigMap(ctx context.Context, c client.Client, vdb *vapi.VerticaDB, id, sbName string) {
+	nm := names.GenSandboxConfigMapName(vdb, sbName)
+	cm := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Annotations: map[string]string{
+				vmeta.SandboxControllerTriggerID: id,
+				vmeta.VersionAnnotation:          "v23.4.0",
+			},
+			Name:      nm.Name,
+			Namespace: vdb.Namespace,
+		},
+		Data: map[string]string{
+			vapi.VerticaDBNameKey: vdb.Name,
+			vapi.SandboxNameKey:   sbName,
+		},
+	}
+	Expect(c.Create(ctx, cm)).Should(Succeed())
+	Expect(cm.Annotations[vmeta.SandboxControllerTriggerID]).Should(Equal(id))
 }
 
 func ScaleDownSubcluster(ctx context.Context, c client.Client, vdb *vapi.VerticaDB, sc *vapi.Subcluster, newSize int32) {
@@ -184,6 +205,15 @@ func DeleteStorageClass(ctx context.Context, c client.Client) {
 	err := c.Get(ctx, types.NamespacedName{Name: builder.TestStorageClassName}, stoclass)
 	if !kerrors.IsNotFound(err) {
 		Expect(c.Delete(ctx, stoclass)).Should(Succeed())
+	}
+}
+
+func DeleteConfigMap(ctx context.Context, c client.Client, vdb *vapi.VerticaDB, sbName string) {
+	cm := &corev1.ConfigMap{}
+	nm := names.GenSandboxConfigMapName(vdb, sbName)
+	err := c.Get(ctx, nm, cm)
+	if !kerrors.IsNotFound(err) {
+		Expect(c.Delete(ctx, cm)).Should(Succeed())
 	}
 }
 

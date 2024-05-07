@@ -58,26 +58,26 @@ func (m *MockVClusterOps) VCreateDatabase(options *vops.VCreateDatabaseOptions) 
 	if err != nil {
 		return vdb, err
 	}
-	err = m.VerifyCommunalStorageOptions(*options.CommunalStorageLocation, options.ConfigurationParameters)
+	err = m.VerifyCommunalStorageOptions(options.CommunalStorageLocation, options.ConfigurationParameters)
 	if err != nil {
 		return vdb, err
 	}
-	if *options.CatalogPrefix != TestCatalogPath {
+	if options.CatalogPrefix != TestCatalogPath {
 		return vdb, fmt.Errorf("failed to retrieve catalog path")
 	}
-	if *options.DepotPrefix != TestDepotPath {
+	if options.DepotPrefix != TestDepotPath {
 		return vdb, fmt.Errorf("failed to retrieve depot path")
 	}
-	if *options.DataPrefix != TestDataPath {
+	if options.DataPrefix != TestDataPath {
 		return vdb, fmt.Errorf("failed to retrieve data path")
 	}
-	if *options.LicensePathOnNode != TestLicensePath {
+	if options.LicensePathOnNode != TestLicensePath {
 		return vdb, fmt.Errorf("failed to retrieve license path")
 	}
-	if *options.ShardCount != TestShardCount {
+	if options.ShardCount != TestShardCount {
 		return vdb, fmt.Errorf("failed to retrieve shard count")
 	}
-	if *options.SkipPackageInstall != TestSkipPackageInstall {
+	if options.SkipPackageInstall != TestSkipPackageInstall {
 		return vdb, fmt.Errorf("failed to retrieve SkipPackageInstall")
 	}
 
@@ -95,8 +95,8 @@ func (m *MockVClusterOps) VCreateDatabase(options *vops.VCreateDatabaseOptions) 
 	}
 
 	// verify TimeoutNodeStartupSeconds
-	if m.VerifyTimeoutNodeStartupSeconds && *options.TimeoutNodeStartupSeconds != TestTimeoutNodeStartupSeconds {
-		return vdb, fmt.Errorf("fail to read TimeoutNodeStartupSeconds from annotations: %d", *options.TimeoutNodeStartupSeconds)
+	if m.VerifyTimeoutNodeStartupSeconds && options.TimeoutNodeStartupSeconds != TestTimeoutNodeStartupSeconds {
+		return vdb, fmt.Errorf("fail to read TimeoutNodeStartupSeconds from annotations: %d", options.TimeoutNodeStartupSeconds)
 	}
 
 	return vdb, nil

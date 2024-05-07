@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"os"
 	"sort"
-	"strconv"
 	"strings"
 	"time"
 
@@ -377,7 +376,7 @@ func (p *PodFacts) collectPodByStsIndex(ctx context.Context, vdb *vapi.VerticaDB
 		pf.dnsName = fmt.Sprintf("%s.%s.%s", pod.Spec.Hostname, pod.Spec.Subdomain, pod.Namespace)
 		pf.podIP = pod.Status.PodIP
 		pf.creationTimestamp = pod.CreationTimestamp.Format(time.DateTime)
-		pf.isTransient, _ = strconv.ParseBool(pod.Labels[vmeta.SubclusterTransientLabel])
+		pf.isTransient = sc.IsTransient()
 		pf.isPendingDelete = podIndex >= sc.Size
 		// Let's just pick the first container image
 		pf.image, err = vk8s.GetServerImage(pod.Spec.Containers)
@@ -393,7 +392,7 @@ func (p *PodFacts) collectPodByStsIndex(ctx context.Context, vdb *vapi.VerticaDB
 		// we get the sandbox name from the sts labels if the subcluster
 		// belongs to a sandbox. If the node is up, we will later retrieve
 		// the sandbox state from the catalog
-		pf.sandbox = p.SandboxName
+		pf.sandbox = sts.Labels[vmeta.SandboxNameLabel]
 		setSandboxNodeType(&pf)
 	}
 
@@ -1150,7 +1149,18 @@ func (p *PodFacts) GetSandboxName() string {
 		// the same sandbox or the main cluster
 		return v.sandbox
 	}
-	return ""
+	// In case collection has not happened yet
+	return p.SandboxName
+}
+
+// GetClusterExtendedName returns the extended name of the cluster
+// handled by the podfacts
+func (p *PodFacts) GetClusterExtendedName() string {
+	sbName := p.GetSandboxName()
+	if sbName == vapi.MainCluster {
+		return "main cluster"
+	}
+	return fmt.Sprintf("sandbox %s", sbName)
 }
 
 // setSandboxNodeType sets the isPrimary state for a sandboxed

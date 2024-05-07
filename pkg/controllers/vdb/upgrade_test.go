@@ -185,8 +185,8 @@ var _ = Describe("upgrade", func() {
 
 		mgr := MakeUpgradeManager(vdbRec, logger, vdb, vapi.OfflineUpgradeInProgress,
 			func(vdb *vapi.VerticaDB) bool { return true })
-		Expect(mgr.startUpgrade(ctx)).Should(Equal(ctrl.Result{}))
-		Expect(mgr.setUpgradeStatus(ctx, "doing the change")).Should(Succeed())
+		Expect(mgr.startUpgrade(ctx, vapi.MainCluster)).Should(Equal(ctrl.Result{}))
+		Expect(mgr.setUpgradeStatus(ctx, "doing the change", vapi.MainCluster)).Should(Succeed())
 
 		fetchedVdb := &vapi.VerticaDB{}
 		Expect(k8sClient.Get(ctx, vdb.ExtractNamespacedName(), fetchedVdb)).Should(Succeed())
@@ -194,7 +194,7 @@ var _ = Describe("upgrade", func() {
 		Expect(fetchedVdb.IsStatusConditionTrue(vapi.OfflineUpgradeInProgress)).Should(BeTrue())
 		Expect(fetchedVdb.Status.UpgradeStatus).ShouldNot(Equal(""))
 
-		Expect(mgr.finishUpgrade(ctx)).Should(Equal(ctrl.Result{}))
+		Expect(mgr.finishUpgrade(ctx, vapi.MainCluster)).Should(Equal(ctrl.Result{}))
 		Expect(k8sClient.Get(ctx, vdb.ExtractNamespacedName(), fetchedVdb)).Should(Succeed())
 		Expect(fetchedVdb.IsStatusConditionFalse(vapi.UpgradeInProgress)).Should(BeTrue())
 		Expect(fetchedVdb.IsStatusConditionFalse(vapi.OfflineUpgradeInProgress)).Should(BeTrue())
@@ -211,30 +211,30 @@ var _ = Describe("upgrade", func() {
 
 		mgr := MakeUpgradeManager(vdbRec, logger, vdb, vapi.OfflineUpgradeInProgress,
 			func(vdb *vapi.VerticaDB) bool { return true })
-		Expect(mgr.postNextStatusMsg(ctx, statusMsgs, 1)).Should(Succeed()) // no-op
+		Expect(mgr.postNextStatusMsg(ctx, statusMsgs, 1, vapi.MainCluster)).Should(Succeed()) // no-op
 
 		fetchedVdb := &vapi.VerticaDB{}
 		Expect(k8sClient.Get(ctx, vdb.ExtractNamespacedName(), fetchedVdb)).Should(Succeed())
 		Expect(fetchedVdb.Status.UpgradeStatus).Should(Equal(""))
 
-		Expect(mgr.postNextStatusMsg(ctx, statusMsgs, 0)).Should(Succeed())
+		Expect(mgr.postNextStatusMsg(ctx, statusMsgs, 0, vapi.MainCluster)).Should(Succeed())
 		Expect(k8sClient.Get(ctx, vdb.ExtractNamespacedName(), fetchedVdb)).Should(Succeed())
 		Expect(fetchedVdb.Status.UpgradeStatus).Should(Equal(statusMsgs[0]))
 
 		// Skip msg2
-		Expect(mgr.postNextStatusMsg(ctx, statusMsgs, 2)).Should(Succeed())
+		Expect(mgr.postNextStatusMsg(ctx, statusMsgs, 2, vapi.MainCluster)).Should(Succeed())
 		Expect(k8sClient.Get(ctx, vdb.ExtractNamespacedName(), fetchedVdb)).Should(Succeed())
 		Expect(fetchedVdb.Status.UpgradeStatus).Should(Equal(statusMsgs[2]))
 
-		Expect(mgr.postNextStatusMsg(ctx, statusMsgs, 2)).Should(Succeed()) // no change
+		Expect(mgr.postNextStatusMsg(ctx, statusMsgs, 2, vapi.MainCluster)).Should(Succeed()) // no change
 		Expect(k8sClient.Get(ctx, vdb.ExtractNamespacedName(), fetchedVdb)).Should(Succeed())
 		Expect(fetchedVdb.Status.UpgradeStatus).Should(Equal(statusMsgs[2]))
 
-		Expect(mgr.postNextStatusMsg(ctx, statusMsgs, 3)).Should(Succeed())
+		Expect(mgr.postNextStatusMsg(ctx, statusMsgs, 3, vapi.MainCluster)).Should(Succeed())
 		Expect(k8sClient.Get(ctx, vdb.ExtractNamespacedName(), fetchedVdb)).Should(Succeed())
 		Expect(fetchedVdb.Status.UpgradeStatus).Should(Equal(statusMsgs[3]))
 
-		Expect(mgr.postNextStatusMsg(ctx, statusMsgs, 9)).ShouldNot(Succeed()) // fail - out of bounds
+		Expect(mgr.postNextStatusMsg(ctx, statusMsgs, 9, vapi.MainCluster)).ShouldNot(Succeed()) // fail - out of bounds
 	})
 
 	It("should delete sts if upgrading a monolithic NMA deployment", func() {
@@ -292,7 +292,7 @@ var _ = Describe("upgrade", func() {
 
 		mgr := MakeUpgradeManager(vdbRec, logger, vdb, vapi.OfflineUpgradeInProgress,
 			func(vdb *vapi.VerticaDB) bool { return true })
-		Expect(mgr.startUpgrade(ctx)).Should(Equal(ctrl.Result{}))
+		Expect(mgr.startUpgrade(ctx, vapi.MainCluster)).Should(Equal(ctrl.Result{}))
 		vdb.Spec.Subclusters[0].Annotations = map[string]string{
 			vmeta.ReplicaGroupAnnotation:     vmeta.ReplicaGroupAValue,
 			vmeta.ParentSubclusterAnnotation: "main",
@@ -306,7 +306,7 @@ var _ = Describe("upgrade", func() {
 		Expect(fetchedVdb.Spec.Subclusters[0].Annotations).Should(HaveKey(vmeta.ParentSubclusterAnnotation))
 		Expect(fetchedVdb.Spec.Subclusters[0].Annotations).Should(HaveKey(vmeta.ChildSubclusterAnnotation))
 
-		Expect(mgr.finishUpgrade(ctx)).Should(Equal(ctrl.Result{}))
+		Expect(mgr.finishUpgrade(ctx, vapi.MainCluster)).Should(Equal(ctrl.Result{}))
 		Expect(k8sClient.Get(ctx, vdb.ExtractNamespacedName(), fetchedVdb)).Should(Succeed())
 		Expect(fetchedVdb.Spec.Subclusters[0].Annotations).ShouldNot(HaveKey(vmeta.ReplicaGroupAnnotation))
 		Expect(fetchedVdb.Spec.Subclusters[0].Annotations).ShouldNot(HaveKey(vmeta.ParentSubclusterAnnotation))

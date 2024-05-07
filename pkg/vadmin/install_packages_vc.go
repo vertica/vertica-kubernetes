@@ -46,7 +46,7 @@ func (v *VClusterOps) InstallPackages(_ context.Context, opts ...installpackages
 		return status, err
 	}
 
-	v.Log.Info("Packages installation finished", "dbName", *vopts.DBName,
+	v.Log.Info("Packages installation finished", "dbName", vopts.DBName,
 		"installPackageStatus", *status)
 	return status, nil
 }
@@ -58,15 +58,15 @@ func (v *VClusterOps) genInstallPackagesOptions(i *installpackages.Parms) vops.V
 	v.Log.Info("Setup install packages options", "hosts", opts.RawHosts[0])
 	opts.IPv6 = net.IsIPv6(i.InitiatorIP)
 
-	opts.DBName = &v.VDB.Spec.DBName
+	opts.DBName = v.VDB.Spec.DBName
 	opts.IsEon = v.VDB.IsEON()
 
 	// auth options
-	*opts.UserName = v.VDB.GetVerticaUser()
+	opts.UserName = v.VDB.GetVerticaUser()
 	opts.Password = &v.Password
 
 	// force reinstall option
-	*opts.ForceReinstall = i.ForceReinstall
+	opts.ForceReinstall = i.ForceReinstall
 
 	return opts
 }
