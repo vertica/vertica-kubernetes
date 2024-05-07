@@ -267,6 +267,7 @@ func (r *ReplicationReconciler) buildOpts() []replicationstart.Option {
 		replicationstart.WithTargetUserName(r.TargetInfo.Username),
 		replicationstart.WithTargetPassword(r.TargetInfo.Password),
 		replicationstart.WithSourceTLSConfig(r.Vrep.Spec.TLSConfig),
+		replicationstart.WithSourceSandboxName(r.Vrep.Spec.Source.SandboxName),
 	}
 	return opts
 }
