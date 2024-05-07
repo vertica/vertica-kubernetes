@@ -11,13 +11,43 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: v1
-kind: Pod
+
+apiVersion: apps/v1
+kind: StatefulSet
 metadata:
-  name: test-create-source-data
+  name: v-target-sc2
+  labels:
+    vertica.com/sandbox: sandbox1
 status:
-  containerStatuses:
-    - name: test
-      state:
-        terminated:
-          exitCode: 0 
+  replicas: 1
+  readyReplicas: 1
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: v-target-sc3
+  labels:
+    vertica.com/sandbox: sandbox2
+status:
+  replicas: 1
+  readyReplicas: 1
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: v-target-sc4
+  labels:
+    vertica.com/sandbox: sandbox3
+status:
+  replicas: 1
+  readyReplicas: 1
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: v-target-sc5
+  labels:
+    vertica.com/sandbox: sandbox4
+status:
+  replicas: 1
+  readyReplicas: 1

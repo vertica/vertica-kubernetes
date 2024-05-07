@@ -160,8 +160,14 @@ func (m *MockVClusterOps) VerifyTargetDBNameUserNamePassword(options *vops.VRepl
 	if options.TargetUserName != TestTargetUserName {
 		return fmt.Errorf("failed to retrieve target username")
 	}
-	if *options.TargetPassword != TestTargetPassword {
-		return fmt.Errorf("failed to retrieve target password")
+	if options.SourceTLSConfig != "" {
+		if options.TargetPassword != nil {
+			return fmt.Errorf("target password is not nil when source TLS config is set")
+		}
+	} else {
+		if *options.TargetPassword != TestTargetPassword {
+			return fmt.Errorf("failed to retrieve target password")
+		}
 	}
 	return nil
 }

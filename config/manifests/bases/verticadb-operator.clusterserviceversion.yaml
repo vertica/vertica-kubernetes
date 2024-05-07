@@ -2107,7 +2107,8 @@ spec:
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:text
       - description: The username to connect to Vertica with. If no username is specified,
-          the database's superuser will be assumed.
+          the database's superuser will be assumed. Custom username for source database
+          is not supported yet.
         displayName: User Name
         path: source.userName
         x-descriptors:
@@ -2144,7 +2145,8 @@ spec:
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:text
       - description: The username to connect to Vertica with. If no username is specified,
-          the database's superuser will be assumed.
+          the database's superuser will be assumed. Custom username for source database
+          is not supported yet.
         displayName: User Name
         path: target.userName
         x-descriptors:
@@ -2155,8 +2157,12 @@ spec:
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:text
       - description: Optional TLS configuration to use when connecting from the source
-          database to the target database; it refers to an existing TLS config that
-          already exists in the source
+          database to the target database. It refers to an existing TLS config that
+          already exists in the source. Using TLS configuration for target database
+          authentication requires the same username to be used for both source and
+          target databases. It also requires security config parameter EnableConnectCredentialForwarding
+          to be enabled on the source database. Custom username for source and target
+          databases is not supported yet when TLS configuration is used.
         displayName: TLSConfig
         path: tlsConfig
         x-descriptors:
