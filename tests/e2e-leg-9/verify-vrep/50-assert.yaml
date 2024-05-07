@@ -12,28 +12,12 @@
 # limitations under the License.
 
 apiVersion: v1
-kind: Event
-reason: ReplicationStarted
-source:
-  component: verticadb-operator
-involvedObject:
-  apiVersion: vertica.com/v1beta1
-  kind: VerticaReplicator
-  name: vrep-test-target-main
----
-apiVersion: v1
-kind: Event
-reason: ReplicationSucceeded
-source:
-  component: verticadb-operator
-involvedObject:
-  apiVersion: vertica.com/v1beta1
-  kind: VerticaReplicator
-  name: vrep-test-target-main
----
-apiVersion: vertica.com/v1beta1
-kind: VerticaReplicator
+kind: Pod
 metadata:
-  name: vrep-test-target-main
+  name: test-verify-target-sandbox-data-custom-users
 status:
-  state: "Replication successful"
+  containerStatuses:
+    - name: test
+      state:
+        terminated:
+          exitCode: 0 

@@ -14,7 +14,7 @@
 apiVersion: v1
 kind: Pod
 metadata:
-  name: test-create-target-sandbox-data
+  name: test-verify-targetdb-sandbox-data
 status:
   containerStatuses:
     - name: test

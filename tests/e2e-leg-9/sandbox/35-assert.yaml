@@ -12,18 +12,25 @@
 # limitations under the License.
 
 apiVersion: v1
-kind: Secret
+kind: ConfigMap
 metadata:
-  name: su-passwd
-type: Opaque
+  annotations:
+    vertica.com/operator-deployment-method: helm
+  labels:
+    app.kubernetes.io/component: database
+    app.kubernetes.io/instance: v-sandbox
+    app.kubernetes.io/managed-by: verticadb-operator
+    app.kubernetes.io/name: vertica
+    vertica.com/database: sandbox_db
+    vertica.com/watched-by-sandbox-controller: "true"
+  name: v-sandbox-sandbox1
+  ownerReferences:
+  - apiVersion: vertica.com/v1
+    blockOwnerDeletion: false
+    controller: true
+    kind: VerticaDB
+    name: v-sandbox
 data:
-  password: c3VwZXJ1c2Vy
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: su-passwd-custom
-type: Opaque
-data:
-  ## base64 encoded (echo -n 'topsecret' | base64)
-  password: dG9wc2VjcmV0
+  sandboxName: sandbox1
+  verticaDBName: sandbox_db
+immutable: true

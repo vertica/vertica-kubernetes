@@ -11,13 +11,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: v1
-kind: Pod
-metadata:
-  name: test-verify-target-main-data
-status:
-  containerStatuses:
-    - name: test
-      state:
-        terminated:
-          exitCode: 0 
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+    # verifying type:"ReplicationReady" and "ReplicationComplete", and status:"True"
+    - script: kubectl wait --for=condition=ReplicationReady=True -n $NAMESPACE vrep/vrep-test-sandbox-custom-user-tls-config --timeout=600s
+    - script: kubectl wait --for=condition=ReplicationComplete=True -n $NAMESPACE vrep/vrep-test-sandbox-custom-user-tls-config --timeout=600s

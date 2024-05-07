@@ -30,13 +30,6 @@ spec:
     - name: sc1
       size: 1
       type: primary
-    - name: sc2
-      size: 1
-      type: secondary
-  sandboxes:
-    - name: sandbox2
-      subclusters:
-        - name: sc2
   certSecrets: []
   imagePullSecrets: []
   volumes: []

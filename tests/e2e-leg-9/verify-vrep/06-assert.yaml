@@ -11,13 +11,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1beta1
-kind: VerticaReplicator
+apiVersion: v1
+kind: Pod
 metadata:
-  name: vrep-test-target-main
-spec:
-  source:
-    verticaDB: "v-source"
-    sandboxName: "sandbox2"
-  target:
-    verticaDB: "v-target"
+  name: test-create-source-data
+status:
+  containerStatuses:
+    - name: test
+      state:
+        terminated:
+          exitCode: 0 
