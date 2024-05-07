@@ -11,41 +11,46 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: apps/v1
-kind: StatefulSet
+apiVersion: vertica.com/v1
+kind: VerticaDB
 metadata:
-  name: v-sandbox-pri1
-status:
-  currentReplicas: 3
-  readyReplicas: 3
+  name: v-sandbox
+spec:
+  sandboxes:
+  - name: sandbox1
+    subclusters:
+      - name: sec1
+      - name: sec3
+  - name: sandbox2
+    subclusters:
+      - name: sec2
 ---
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: v-sandbox-sec1
+  labels:
+    vertica.com/sandbox: sandbox1
 status:
-  currentReplicas: 3
   readyReplicas: 3
+  replicas: 3
 ---
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: v-sandbox-sec2
+  labels:
+    vertica.com/sandbox: sandbox2
 status:
-  currentReplicas: 3
   readyReplicas: 3
+  replicas: 3
 ---
-apiVersion: vertica.com/v1
-kind: VerticaDB
+apiVersion: apps/v1
+kind: StatefulSet
 metadata:
-  name: v-sandbox
+  name: v-sandbox-sec3
+  labels:
+    vertica.com/sandbox: sandbox1
 status:
-  subclusters:
-    - addedToDBCount: 3
-      upNodeCount: 3
-    - addedToDBCount: 3
-      upNodeCount: 3
-    - addedToDBCount: 3
-      upNodeCount: 3
-    - addedToDBCount: 1
-      upNodeCount: 1
+  readyReplicas: 1
+  replicas: 1

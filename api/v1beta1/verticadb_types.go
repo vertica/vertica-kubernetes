@@ -778,6 +778,14 @@ type Subcluster struct {
 
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:hidden"
+	// A sandbox primary subcluster is a secondary subcluster that was the first
+	// subcluster in a sandbox. These subclusters are primaries when they are
+	// sandboxed. When unsandboxed, they will go back to being just a secondary
+	// subcluster
+	IsSandboxPrimary bool `json:"isSandboxPrimary"`
+
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:hidden"
 	// This allows a different image to be used for the subcluster than the one
 	// in VerticaDB.  This is intended to be used internally by the online image
 	// change process.

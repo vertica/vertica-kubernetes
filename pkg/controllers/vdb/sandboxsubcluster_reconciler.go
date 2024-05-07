@@ -18,18 +18,21 @@ package vdb
 import (
 	"context"
 	"errors"
+	"fmt"
 	"reflect"
 
 	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/builder"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
+	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/sandboxsc"
 	"github.com/vertica/vertica-kubernetes/pkg/vdbstatus"
+	"github.com/vertica/vertica-kubernetes/pkg/vk8s"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -38,12 +41,12 @@ import (
 
 // SandboxSubclusterReconciler will add subclusters to sandboxes
 type SandboxSubclusterReconciler struct {
-	VRec        *VerticaDBReconciler
-	Log         logr.Logger
-	Vdb         *vapi.VerticaDB // Vdb is the CRD we are acting on
-	PFacts      *PodFacts
-	InitiatorIP string // The IP of the pod that we run vclusterOps from
-	Dispatcher  vadmin.Dispatcher
+	VRec         *VerticaDBReconciler
+	Log          logr.Logger
+	Vdb          *vapi.VerticaDB // Vdb is the CRD we are acting on
+	PFacts       *PodFacts
+	InitiatorIPs map[string]string // IPs from main cluster and sandboxes that should be passed down to vcluster
+	Dispatcher   vadmin.Dispatcher
 	client.Client
 }
 
@@ -51,12 +54,13 @@ type SandboxSubclusterReconciler struct {
 func MakeSandboxSubclusterReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger, vdb *vapi.VerticaDB,
 	pfacts *PodFacts, dispatcher vadmin.Dispatcher, cli client.Client) controllers.ReconcileActor {
 	return &SandboxSubclusterReconciler{
-		VRec:       vdbrecon,
-		Log:        log.WithName("SandboxSubclusterReconciler"),
-		Vdb:        vdb,
-		PFacts:     pfacts,
-		Dispatcher: dispatcher,
-		Client:     cli,
+		VRec:         vdbrecon,
+		Log:          log.WithName("SandboxSubclusterReconciler"),
+		Vdb:          vdb,
+		InitiatorIPs: make(map[string]string),
+		PFacts:       pfacts,
+		Dispatcher:   dispatcher,
+		Client:       cli,
 	}
 }
 
@@ -131,20 +135,21 @@ func (s *SandboxSubclusterReconciler) sandboxSubclusters(ctx context.Context) (c
 		return ctrl.Result{}, nil
 	}
 
-	// find an initiator to call vclusterOps
+	// find an initiator from the main cluster that we can use to pass down to
+	// vclusterOps.
 	initiator, ok := s.PFacts.findFirstPodSorted(func(v *PodFact) bool {
 		return v.sandbox == vapi.MainCluster && v.isPrimary && v.upNode
 	})
 	if ok {
-		s.InitiatorIP = initiator.podIP
+		s.InitiatorIPs[vapi.MainCluster] = initiator.podIP
 	} else {
 		s.Log.Info("Requeue because there are no UP nodes in main cluster to execute sandbox operation")
 		return ctrl.Result{Requeue: true}, nil
 	}
 
-	err := s.executeSandboxCommand(ctx, scSbMap)
-	if err != nil {
-		return ctrl.Result{}, err
+	res, err := s.executeSandboxCommand(ctx, scSbMap)
+	if verrors.IsReconcileAborted(res, err) {
+		return res, err
 	}
 	s.PFacts.Invalidate()
 
@@ -153,27 +158,86 @@ func (s *SandboxSubclusterReconciler) sandboxSubclusters(ctx context.Context) (c
 
 // executeSandboxCommand will call sandbox API in vclusterOps, create/update sandbox config maps,
 // and update sandbox status in vdb
-func (s *SandboxSubclusterReconciler) executeSandboxCommand(ctx context.Context, scSbMap map[string]string) error {
+func (s *SandboxSubclusterReconciler) executeSandboxCommand(ctx context.Context, scSbMap map[string]string) (ctrl.Result, error) {
 	succeedSbScMap := make(map[string][]string)
 	seenSandboxes := make(map[string]any)
-	for sc, sb := range scSbMap {
-		err := s.sandboxSubcluster(ctx, sc, sb)
-		if err != nil {
-			// when one subcluster failed to be sandboxed, update sandbox status and return error
-			return errors.Join(err, s.updateSandboxStatus(ctx, succeedSbScMap))
-		}
-		succeedSbScMap[sb] = append(succeedSbScMap[sb], sc)
-		// create/update a sandbox config map
-		if _, ok := seenSandboxes[sb]; !ok {
-			err = s.checkSandboxConfigMap(ctx, sb)
-			if err != nil {
-				// when creating/updating sandbox config map failed, update sandbox status and return error
-				return errors.Join(err, s.updateSandboxStatus(ctx, succeedSbScMap))
+
+	// We can simply loop over the scSbMap and sandbox each subcluster. However,
+	// we want to sandbox in a determinstic order because the first subcluster
+	// in a sandbox is the primary.
+	for i := range s.Vdb.Spec.Sandboxes {
+		vdbSb := &s.Vdb.Spec.Sandboxes[i]
+		for j := range vdbSb.Subclusters {
+			sc := vdbSb.Subclusters[j].Name
+			sb, found := scSbMap[sc]
+			if !found {
+				// assume it is already sandboxed
+				continue
 			}
+			// The first subcluster in a sandbox turns into a primary. Set
+			// state in the vdb to indicate that.
+			if j == 0 {
+				_, err := vk8s.UpdateVDBWithRetry(ctx, s.VRec, s.Vdb, func() (bool, error) {
+					scMap := s.Vdb.GenSubclusterMap()
+					vdbSc, found := scMap[sc]
+					if !found {
+						return false, fmt.Errorf("subcluster %q missing in vdb %q", sc, s.Vdb.Name)
+					}
+					vdbSc.Type = vapi.SandboxPrimarySubcluster
+					return true, nil
+				})
+				if err != nil {
+					return ctrl.Result{}, errors.Join(err, s.updateSandboxStatus(ctx, succeedSbScMap))
+				}
+			}
+			res, err := s.sandboxSubcluster(ctx, sc, sb)
+			if verrors.IsReconcileAborted(res, err) {
+				// when one subcluster failed to be sandboxed, update sandbox status and return error
+				return res, errors.Join(err, s.updateSandboxStatus(ctx, succeedSbScMap))
+			}
+			succeedSbScMap[sb] = append(succeedSbScMap[sb], sc)
+			// create/update a sandbox config map
+			if _, ok := seenSandboxes[sb]; !ok {
+				err = s.checkSandboxConfigMap(ctx, sb)
+				if err != nil {
+					// when creating/updating sandbox config map failed, update sandbox status and return error
+					return ctrl.Result{}, errors.Join(err, s.updateSandboxStatus(ctx, succeedSbScMap))
+				}
+			}
+			seenSandboxes[sb] = struct{}{}
 		}
-		seenSandboxes[sb] = struct{}{}
 	}
-	return s.updateSandboxStatus(ctx, succeedSbScMap)
+	return ctrl.Result{}, s.updateSandboxStatus(ctx, succeedSbScMap)
+}
+
+// findInitiatorIPs returns the IPs to pass down to vclusterops as the initiator
+// nodes. The number of IPs could be one or two. If two, they are separated with
+// a comma.
+func (s *SandboxSubclusterReconciler) findInitiatorIPs(ctx context.Context, sandbox string) ([]string, ctrl.Result, error) {
+	// We already have an IP of an up pod from the main cluster. If we are
+	// adding to an existing sandbox, then we need to find an IP from a pod in
+	// that sandbox too.
+	_, found := s.InitiatorIPs[sandbox]
+	if !found {
+		pfs := s.PFacts.Copy(sandbox)
+		if err := pfs.Collect(ctx, s.Vdb); err != nil {
+			return nil, ctrl.Result{}, err
+		}
+		// If this is the first pod in the sandbox, then only an API from the
+		// main cluster is needed.
+		if len(pfs.Detail) == 0 {
+			return []string{s.InitiatorIPs[vapi.MainCluster]}, ctrl.Result{}, nil
+		}
+		pf, found := pfs.findFirstPodSorted(func(v *PodFact) bool {
+			return v.upNode
+		})
+		if !found {
+			s.Log.Info("Requeue because there are no UP nodes in the target sandbox", "sandbox", sandbox)
+			return nil, ctrl.Result{Requeue: true}, nil
+		}
+		s.InitiatorIPs[sandbox] = pf.podIP
+	}
+	return []string{s.InitiatorIPs[vapi.MainCluster], s.InitiatorIPs[sandbox]}, ctrl.Result{}, nil
 }
 
 // checkSandboxConfigMap will create or update a sandbox config map if needed
@@ -273,22 +337,27 @@ func (s *SandboxSubclusterReconciler) fetchSubclustersWithSandboxes() (map[strin
 }
 
 // sandboxSubcluster will add a subcluster to a sandbox by calling vclusterOps
-func (s *SandboxSubclusterReconciler) sandboxSubcluster(ctx context.Context, subcluster, sandbox string) error {
+func (s *SandboxSubclusterReconciler) sandboxSubcluster(ctx context.Context, subcluster, sandbox string) (ctrl.Result, error) {
+	initiatorIPs, res, err := s.findInitiatorIPs(ctx, sandbox)
+	if verrors.IsReconcileAborted(res, err) {
+		return res, err
+	}
+
 	s.VRec.Eventf(s.Vdb, corev1.EventTypeNormal, events.SandboxSubclusterStart,
 		"Starting add subcluster %q to sandbox %q", subcluster, sandbox)
-	err := s.Dispatcher.SandboxSubcluster(ctx,
-		sandboxsc.WithInitiator(s.InitiatorIP),
+	err = s.Dispatcher.SandboxSubcluster(ctx,
+		sandboxsc.WithInitiators(initiatorIPs),
 		sandboxsc.WithSubcluster(subcluster),
 		sandboxsc.WithSandbox(sandbox),
 	)
 	if err != nil {
 		s.VRec.Eventf(s.Vdb, corev1.EventTypeWarning, events.SandboxSubclusterFailed,
 			"Failed to add subcluster %q to sandbox %q", subcluster, sandbox)
-		return err
+		return ctrl.Result{}, err
 	}
 	s.VRec.Eventf(s.Vdb, corev1.EventTypeNormal, events.SandboxSubclusterSucceeded,
 		"Successfully added subcluster %q to sandbox %q", subcluster, sandbox)
-	return nil
+	return ctrl.Result{}, nil
 }
 
 // updateSandboxStatus will update sandbox status in vdb

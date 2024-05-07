@@ -18,12 +18,16 @@ package vdb
 import (
 	"context"
 
+	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/vertica/vcluster/vclusterops"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
+	"github.com/vertica/vertica-kubernetes/pkg/mockvops"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/test"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -285,4 +289,73 @@ var _ = Describe("sandboxsubcluster_reconcile", func() {
 		Expect(cm.Data[vapi.VerticaDBNameKey]).Should(Equal(r.Vdb.Spec.DBName))
 		Expect(cm.Annotations[testAnnotation]).Should(Equal(testValue))
 	})
+
+	It("should use correct initiator IPs", func() {
+		vdb := vapi.MakeVDBForVclusterOps()
+		vdb.Spec.Subclusters = []vapi.Subcluster{
+			{Name: maincluster, Size: 3, Type: vapi.PrimarySubcluster},
+			{Name: subcluster1, Size: 1, Type: vapi.SecondarySubcluster},
+			{Name: subcluster2, Size: 1, Type: vapi.SecondarySubcluster},
+		}
+		test.CreateVDB(ctx, k8sClient, vdb)
+		defer test.DeleteVDB(ctx, k8sClient, vdb)
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
+
+		fpr := &cmds.FakePodRunner{}
+		pfacts := createPodFactsDefault(fpr)
+		Ω(pfacts.Collect(ctx, vdb)).Should(Succeed())
+		pn := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)
+		mainPf := pfacts.Detail[pn]
+		Ω(mainPf).ShouldNot(BeNil())
+		pn = names.GenPodName(vdb, &vdb.Spec.Subclusters[1], 0)
+		sbPf := pfacts.Detail[pn]
+		Ω(sbPf).ShouldNot(BeNil())
+
+		// Sandbox the first subcluster. Only use IP from a host in the main cluster.
+		Ω(k8sClient.Get(ctx, vdb.ExtractNamespacedName(), vdb)).Should(Succeed())
+		vdb.Spec.Sandboxes = []vapi.Sandbox{
+			{Name: sandbox1, Subclusters: []vapi.SubclusterName{{Name: subcluster1}}},
+		}
+		Ω(k8sClient.Update(ctx, vdb)).Should(Succeed())
+
+		var initiatorIPs []string
+		setupAPIFunc := func(logr.Logger, string) (vadmin.VClusterProvider, logr.Logger) {
+			return &sandboxSubclusterVOps{initiatorIPs: &initiatorIPs}, logr.Logger{}
+		}
+		dispatcher := mockvops.MakeMockVClusterOpsDispatcher(vdb, logger, k8sClient, setupAPIFunc)
+		r := MakeSandboxSubclusterReconciler(vdbRec, logger, vdb, pfacts, dispatcher, k8sClient)
+
+		Ω(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
+		cmNm := names.GenSandboxConfigMapName(vdb, sandbox1)
+		defer deleteConfigMap(ctx, vdb, cmNm.Name)
+		Ω(initiatorIPs).ShouldNot(BeNil())
+		Ω(initiatorIPs).Should(HaveLen(1))
+		Ω(initiatorIPs[0]).Should(Equal(mainPf.podIP))
+
+		// Sandbox another subcluster in the same sandbox. We should use two
+		// different hosts now. One from the main cluster and one from the
+		// existing sandbox.
+		Ω(k8sClient.Get(ctx, vdb.ExtractNamespacedName(), vdb)).Should(Succeed())
+		vdb.Spec.Sandboxes[0].Subclusters = append(vdb.Spec.Sandboxes[0].Subclusters,
+			vapi.SubclusterName{Name: subcluster2})
+		Ω(k8sClient.Update(ctx, vdb)).Should(Succeed())
+
+		Ω(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
+		Ω(initiatorIPs).ShouldNot(BeNil())
+		Ω(initiatorIPs).Should(HaveLen(2))
+		Ω(initiatorIPs[0]).Should(Equal(mainPf.podIP))
+		Ω(initiatorIPs[1]).Should(Equal(sbPf.podIP))
+	})
 })
+
+type sandboxSubclusterVOps struct {
+	mockvops.MockVClusterOps
+	initiatorIPs *[]string
+}
+
+func (s *sandboxSubclusterVOps) VSandbox(opts *vclusterops.VSandboxOptions) error {
+	// Save off the hosts used so we can compare in the test
+	*s.initiatorIPs = opts.RawHosts
+	return nil
+}
