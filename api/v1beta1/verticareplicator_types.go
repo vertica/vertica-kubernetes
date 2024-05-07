@@ -34,8 +34,14 @@ type VerticaReplicatorSpec struct {
 
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:text"
-	// Optional TLS configuration to use when connecting from the source database to the target database;
-	// it refers to an existing TLS config that already exists in the source
+	// Optional TLS configuration to use when connecting from the source
+	// database to the target database.
+	// It refers to an existing TLS config that already exists in the source.
+	// Using TLS configuration for target database authentication requires the
+	// same username to be used for both source and target databases. It also
+	// requires security config parameter EnableConnectCredentialForwarding to
+	// be enabled on the source database. Custom username for source and target
+	// databases is not supported yet when TLS configuration is used.
 	TLSConfig string `json:"tlsConfig,omitempty"`
 }
 
@@ -54,7 +60,8 @@ type VerticaReplicatorDatabaseInfo struct {
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:text"
 	// The username to connect to Vertica with. If no username is specified, the
-	// database's superuser will be assumed.
+	// database's superuser will be assumed. Custom username for source database
+	// is not supported yet.
 	UserName string `json:"userName,omitempty"`
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:io.kubernetes:Secret"

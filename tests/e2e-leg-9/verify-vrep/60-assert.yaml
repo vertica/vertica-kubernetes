@@ -12,18 +12,28 @@
 # limitations under the License.
 
 apiVersion: v1
-kind: Secret
-metadata:
-  name: su-passwd
-type: Opaque
-data:
-  password: c3VwZXJ1c2Vy
+kind: Event
+reason: ReplicationStarted
+source:
+  component: verticadb-operator
+involvedObject:
+  apiVersion: vertica.com/v1beta1
+  kind: VerticaReplicator
+  name: vrep-test-sandbox-custom-user-tls-config
 ---
 apiVersion: v1
-kind: Secret
+kind: Event
+reason: ReplicationSucceeded
+source:
+  component: verticadb-operator
+involvedObject:
+  apiVersion: vertica.com/v1beta1
+  kind: VerticaReplicator
+  name: vrep-test-sandbox-custom-user-tls-config
+---
+apiVersion: vertica.com/v1beta1
+kind: VerticaReplicator
 metadata:
-  name: su-passwd-custom
-type: Opaque
-data:
-  ## base64 encoded (echo -n 'topsecret' | base64)
-  password: dG9wc2VjcmV0
+  name: vrep-test-sandbox-custom-user-tls-config
+status:
+  state: "Replication successful"
