@@ -18,7 +18,6 @@ package sandbox
 import (
 	"context"
 	"errors"
-	"fmt"
 
 	"github.com/go-logr/logr"
 	vutil "github.com/vertica/vcluster/vclusterops/util"
@@ -123,19 +122,14 @@ func (r *UnsandboxSubclusterReconciler) reconcileSandboxStatus(ctx context.Conte
 	return nil
 }
 
-// reconcileSandboxConfigMap will delete sandbox config map if it expires
+// reconcileSandboxConfigMap will update/delete sandbox config map if it expires, this function will return
+// an error and a boolean to indicate if sandbox config map is deleted
 func (r *UnsandboxSubclusterReconciler) reconcileSandboxConfigMap(ctx context.Context) (error, bool) {
-	foundSbInStatus := false
-	for _, sb := range r.Vdb.Status.Sandboxes {
-		if sb.Name == r.ConfigMap.Data[vapi.SandboxNameKey] {
-			foundSbInStatus = true
-			break
-		}
-	}
-	// if we cannot find the sandbox in status, it means the sandbox has been unsandboxed
-	// or does not exist
-	if !foundSbInStatus {
-		cmName := r.ConfigMap.Name
+	sbName := r.ConfigMap.Data[vapi.SandboxNameKey]
+	cmName := r.ConfigMap.Name
+	sb := r.Vdb.GetSandboxStatus(sbName)
+	// if the sandbox doesn't have any subclusters, we delete the config map
+	if sb == nil || len(sb.Subclusters) == 0 {
 		err := r.Client.Delete(ctx, r.ConfigMap)
 		if err != nil {
 			r.Log.Error(err, "failed to delete expired sandbox config map", "configMapName", cmName)
@@ -143,6 +137,21 @@ func (r *UnsandboxSubclusterReconciler) reconcileSandboxConfigMap(ctx context.Co
 		}
 		r.Log.Info("deleted expired sandbox config map", "configMapName", cmName)
 		return nil, true
+	}
+	if r.ConfigMap.Annotations[vmeta.SandboxControllerUnsandboxTriggerID] != "" {
+		unsandboxSbScMap := r.Vdb.GenSandboxSubclusterMapForUnsandbox()
+		_, found := unsandboxSbScMap[sbName]
+		// if the subclusters in the sandbox does not need to be unsandboxed, we remove
+		// unsandbox trigger ID from the config map
+		if !found {
+			delete(r.ConfigMap.Annotations, vmeta.SandboxControllerUnsandboxTriggerID)
+			err := r.Client.Update(ctx, r.ConfigMap)
+			if err != nil {
+				r.Log.Error(err, "failed to remove unsandbox trigger ID from sandbox config map", "configMapName", cmName)
+				return err, false
+			}
+			r.Log.Info("Successfully removed unsandbox trigger ID from sandbox config map", "configMapName", cmName)
+		}
 	}
 
 	return nil, false
@@ -171,13 +180,15 @@ func (r *UnsandboxSubclusterReconciler) unsandboxSubclusters(ctx context.Context
 // executeUnsandboxCommand will move subclusters from a sandbox to main cluster, update sandbox
 // status, and delete the config map
 func (r *UnsandboxSubclusterReconciler) executeUnsandboxCommand(ctx context.Context) error {
+	unsandboxSbScMap := r.Vdb.GenSandboxSubclusterMapForUnsandbox()
 	sbName := r.ConfigMap.Data[vapi.SandboxNameKey]
-	sb := r.Vdb.GetSandboxStatus(sbName)
-	if sb == nil {
-		return fmt.Errorf("failed to retrieve sandbox %q from vdb status", sbName)
+	scs, found := unsandboxSbScMap[sbName]
+	if !found {
+		r.Log.Info("Ignore the config map because the sandbox inside it does not need to be unsandboxed")
+		return nil
 	}
 	succeedScs := []string{}
-	for _, sc := range sb.Subclusters {
+	for _, sc := range scs {
 		err := r.unsandboxSubcluster(ctx, sc)
 		if err != nil {
 			// when failed to unsandbox a subcluster, update sandbox status and return error
@@ -187,22 +198,34 @@ func (r *UnsandboxSubclusterReconciler) executeUnsandboxCommand(ctx context.Cont
 	}
 	err := r.updateSandboxStatus(ctx, sbName, succeedScs)
 	if err != nil {
-		// when failed to update sandbox status, we will still try to delete the sandbox config map
-		return errors.Join(err, r.deleteConfigMap(ctx))
+		// when failed to update sandbox status, we will still try to process the sandbox config map
+		return errors.Join(err, r.processConfigMap(ctx))
 	}
-	return r.deleteConfigMap(ctx)
+	return r.processConfigMap(ctx)
 }
 
-// deleteConfigMap will delete the sandbox config map
-func (r *UnsandboxSubclusterReconciler) deleteConfigMap(ctx context.Context) error {
+// processConfigMap will delete the sandbox config map if the sandbox doesn't contain any subclusters,
+// otherwise it will remove unsandbox trigger ID in that config map
+func (r *UnsandboxSubclusterReconciler) processConfigMap(ctx context.Context) error {
 	cmName := r.ConfigMap.Name
-	err := r.Client.Delete(ctx, r.ConfigMap)
+	sb := r.Vdb.GetSandboxStatus(r.ConfigMap.Data[vapi.SandboxNameKey])
+	if sb == nil || len(sb.Subclusters) == 0 {
+		err := r.Client.Delete(ctx, r.ConfigMap)
+		if err != nil {
+			r.Log.Error(err, "failed to delete sandbox config map", "configMapName", cmName)
+			return err
+		}
+		r.Log.Info("Successfully deleted sandbox config map", "configMapName", cmName)
+		return nil
+	}
+	delete(r.ConfigMap.Annotations, vmeta.SandboxControllerUnsandboxTriggerID)
+	err := r.Client.Update(ctx, r.ConfigMap)
 	if err != nil {
-		r.Log.Error(err, "failed to delete sandbox config map", "configMapName", cmName)
+		r.Log.Error(err, "failed to remove unsandbox trigger ID from sandbox config map", "configMapName", cmName)
 		return err
 	}
+	r.Log.Info("Successfully removed unsandbox trigger ID from sandbox config map", "configMapName", cmName)
 
-	r.Log.Info("Successfully deleted sandbox config map", "configMapName", cmName)
 	return nil
 }
 

@@ -24,6 +24,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/builder"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	vdbcontroller "github.com/vertica/vertica-kubernetes/pkg/controllers/vdb"
+	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/test"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
@@ -36,6 +37,7 @@ var _ = Describe("sandboxsubcluster_reconcile", func() {
 	ctx := context.Background()
 	maincluster := "main"
 	subcluster1 := "sc1"
+	subcluster2 := "sc2"
 	sandbox1 := "sandbox1"
 
 	It("should exit without error if not using an EON database", func() {
@@ -109,11 +111,14 @@ var _ = Describe("sandboxsubcluster_reconcile", func() {
 		Expect(newVdb.Status.Sandboxes).Should(BeEmpty())
 	})
 
-	It("should delete expired sandbox config map", func() {
+	It("should update or delete expired sandbox config map", func() {
 		vdb := vapi.MakeVDBForVclusterOps()
 		vdb.Spec.Subclusters = []vapi.Subcluster{
 			{Name: maincluster, Size: 1, Type: vapi.PrimarySubcluster},
 			{Name: subcluster1, Size: 1, Type: vapi.SecondarySubcluster},
+		}
+		vdb.Spec.Sandboxes = []vapi.Sandbox{
+			{Name: sandbox1, Subclusters: []vapi.SubclusterName{{Name: subcluster1}}},
 		}
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
@@ -122,14 +127,28 @@ var _ = Describe("sandboxsubcluster_reconcile", func() {
 		Expect(k8sClient.Create(ctx, cm)).Should(Succeed())
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
+		vdb.Status.Sandboxes = []vapi.SandboxStatus{
+			{Name: sandbox1, Subclusters: []string{subcluster1}},
+		}
+		Expect(k8sClient.Status().Update(ctx, vdb)).Should(Succeed())
 
 		fpr := &cmds.FakePodRunner{}
 		pfacts := vdbcontroller.MakePodFacts(sbRec, fpr, logger, TestPassword)
 		dispatcher := vadmin.MakeVClusterOps(logger, vdb, k8sClient, TestPassword, sbRec.EVRec, vadmin.SetupVClusterOps)
 		rec := MakeUnsandboxSubclusterReconciler(sbRec, vdb, logger, k8sClient, &pfacts, dispatcher, cm)
 		r := rec.(*UnsandboxSubclusterReconciler)
-		// now sandbox status is empty, the config map should be deleted
+		// subcluster1 doesn't need to be unsandboxed so we should remove the unsandbox trigger ID
 		err, deleted := r.reconcileSandboxConfigMap(ctx)
+		Expect(err).Should(BeNil())
+		Expect(deleted).Should(BeFalse())
+		newCM := &corev1.ConfigMap{}
+		Expect(r.Client.Get(ctx, nm, newCM)).Should(BeNil())
+		Expect(newCM.Annotations[vmeta.SandboxControllerUnsandboxTriggerID]).Should(BeEmpty())
+
+		// now sandbox status is empty, the config map should be deleted
+		vdb.Status.Sandboxes = []vapi.SandboxStatus{}
+		Expect(k8sClient.Status().Update(ctx, vdb)).Should(Succeed())
+		err, deleted = r.reconcileSandboxConfigMap(ctx)
 		Expect(err).Should(BeNil())
 		Expect(deleted).Should(BeTrue())
 		// the map should be deleted and cannot be found any more
@@ -167,7 +186,7 @@ var _ = Describe("sandboxsubcluster_reconcile", func() {
 		Expect(newVdb.Status.Sandboxes).Should(BeEmpty())
 	})
 
-	It("should delete a sandbox config map correctly", func() {
+	It("should update or delete a sandbox config map correctly", func() {
 		vdb := vapi.MakeVDBForVclusterOps()
 		vdb.Spec.Subclusters = []vapi.Subcluster{
 			{Name: maincluster, Size: 1, Type: vapi.PrimarySubcluster},
@@ -180,15 +199,26 @@ var _ = Describe("sandboxsubcluster_reconcile", func() {
 		Expect(k8sClient.Create(ctx, cm)).Should(Succeed())
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
+		vdb.Status.Sandboxes = []vapi.SandboxStatus{
+			{Name: sandbox1, Subclusters: []string{subcluster2}},
+		}
+		Expect(k8sClient.Status().Update(ctx, vdb)).Should(Succeed())
 
 		fpr := &cmds.FakePodRunner{}
 		pfacts := vdbcontroller.MakePodFacts(sbRec, fpr, logger, TestPassword)
 		dispatcher := vadmin.MakeVClusterOps(logger, vdb, k8sClient, TestPassword, sbRec.EVRec, vadmin.SetupVClusterOps)
 		rec := MakeUnsandboxSubclusterReconciler(sbRec, vdb, logger, k8sClient, &pfacts, dispatcher, cm)
 		r := rec.(*UnsandboxSubclusterReconciler)
-		// after we removed subcluster1 from sandbox1, we will delete the config map
-		Expect(r.deleteConfigMap(ctx)).Should(BeNil())
-		// the map should be deleted and cannot be found any more
+		// sandbox1 is not empty so we should remove the unsandbox trigger ID
+		Expect(r.processConfigMap(ctx)).Should(BeNil())
+		newCM := &corev1.ConfigMap{}
+		Expect(r.Client.Get(ctx, nm, newCM)).Should(BeNil())
+		Expect(newCM.Annotations[vmeta.SandboxControllerUnsandboxTriggerID]).Should(BeEmpty())
+
+		vdb.Status.Sandboxes = []vapi.SandboxStatus{}
+		Expect(k8sClient.Status().Update(ctx, vdb)).Should(Succeed())
+		// sandbox1 doesn't exist the status so the config map should be deleted
+		Expect(r.processConfigMap(ctx)).Should(BeNil())
 		oldCM := &corev1.ConfigMap{}
 		err := r.Client.Get(ctx, nm, oldCM)
 		Expect(kerrors.IsNotFound(err)).Should(BeTrue())
