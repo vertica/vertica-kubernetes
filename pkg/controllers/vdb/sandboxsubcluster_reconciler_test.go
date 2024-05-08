@@ -267,7 +267,7 @@ var _ = Describe("sandboxsubcluster_reconcile", func() {
 		Expect(err).Should(Succeed())
 		Expect(res).Should(Equal(ctrl.Result{}))
 		Expect(cm.Data[vapi.SandboxNameKey]).Should(Equal(sandbox1))
-		Expect(cm.Data[vapi.VerticaDBNameKey]).Should(Equal(r.Vdb.Spec.DBName))
+		Expect(cm.Data[vapi.VerticaDBNameKey]).Should(Equal(r.Vdb.Name))
 
 		testAnnotation := "test-annotation"
 		testValue := "test-value"
@@ -282,7 +282,7 @@ var _ = Describe("sandboxsubcluster_reconcile", func() {
 		Expect(err).Should(Succeed())
 		Expect(res).Should(Equal(ctrl.Result{}))
 		Expect(cm.Data[vapi.SandboxNameKey]).Should(Equal(sandbox1))
-		Expect(cm.Data[vapi.VerticaDBNameKey]).Should(Equal(r.Vdb.Spec.DBName))
+		Expect(cm.Data[vapi.VerticaDBNameKey]).Should(Equal(r.Vdb.Name))
 		Expect(cm.Annotations[testAnnotation]).Should(Equal(testValue))
 	})
 })

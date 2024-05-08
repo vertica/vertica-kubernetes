@@ -1308,7 +1308,7 @@ func BuildSandboxConfigMap(nm types.NamespacedName, vdb *vapi.VerticaDB, sandbox
 		// the data should be immutable since dbName and sandboxName are fixed
 		Immutable: &immutable,
 		Data: map[string]string{
-			vapi.VerticaDBNameKey: vdb.Spec.DBName,
+			vapi.VerticaDBNameKey: vdb.Name,
 			vapi.SandboxNameKey:   sandbox,
 		},
 	}
