@@ -16,7 +16,7 @@ require (
 	github.com/onsi/gomega v1.24.2
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.14.0
-	github.com/vertica/vcluster v1.2.1-0.20240430113909-05f5afab3e7f
+	github.com/vertica/vcluster v0.0.0
 	github.com/vertica/vertica-sql-go v1.1.1
 	go.uber.org/zap v1.25.0
 	golang.org/x/text v0.14.0
@@ -100,3 +100,5 @@ require (
 	sigs.k8s.io/structured-merge-diff/v4 v4.2.3 // indirect
 	sigs.k8s.io/yaml v1.3.0 // indirect
 )
+
+replace github.com/vertica/vcluster v0.0.0 => github.com/chinhtranvan/vcluster v1.1.3
