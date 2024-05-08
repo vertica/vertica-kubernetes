@@ -469,7 +469,7 @@ func (v *VerticaDB) getClusterSize() int {
 		// we calculate the cluster size on the primary nodes only
 		for i := range v.Spec.Subclusters {
 			sc := &v.Spec.Subclusters[i]
-			if sc.IsPrimary() {
+			if sc.IsPrimary() && !sc.IsSandboxPrimary() {
 				sizeSum += int(sc.Size)
 			}
 		}
