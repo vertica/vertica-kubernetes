@@ -32,5 +32,5 @@ metadata:
     name: v-sandbox
 data:
   sandboxName: sandbox2
-  verticaDBName: sandbox_db
+  verticaDBName: v-sandbox
 immutable: true
