@@ -54,6 +54,9 @@ const (
 	SandboxSubclusterFailed         = "SandboxSubclusterFailed"
 	SandboxSubclusterStart          = "SandboxSubclusterStart"
 	SandboxSubclusterSucceeded      = "SandboxSubclusterSucceeded"
+	UnsandboxSubclusterFailed       = "UnsandboxSubclusterFailed"
+	UnsandboxSubclusterStart        = "UnsandboxSubclusterStart" //nolint:gosec
+	UnsandboxSubclusterSucceeded    = "UnsandboxSubclusterSucceeded"
 	SlowRestartDetected             = "SlowRestartDetected"
 	SubclusterAdded                 = "SubclusterAdded"
 	SubclusterRemoved               = "SubclusterRemoved"

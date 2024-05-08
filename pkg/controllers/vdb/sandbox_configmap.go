@@ -60,7 +60,7 @@ func (s *SandboxConfigMapManager) triggerSandboxController(ctx context.Context) 
 		// This will ensure that we always set a new value
 		// for this annotation which will wake up the sandbox
 		// controller
-		vmeta.SandboxControllerTriggerID: triggerID,
+		vmeta.SandboxControllerUpgradeTriggerID: triggerID,
 	}
 	chgs := vk8s.MetaChanges{
 		NewAnnotations: anns,

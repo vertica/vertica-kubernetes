@@ -96,8 +96,8 @@ func CreateConfigMap(ctx context.Context, c client.Client, vdb *vapi.VerticaDB, 
 	cm := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Annotations: map[string]string{
-				vmeta.SandboxControllerTriggerID: id,
-				vmeta.VersionAnnotation:          "v23.4.0",
+				vmeta.SandboxControllerUpgradeTriggerID: id,
+				vmeta.VersionAnnotation:                 "v23.4.0",
 			},
 			Name:      nm.Name,
 			Namespace: vdb.Namespace,
@@ -108,7 +108,7 @@ func CreateConfigMap(ctx context.Context, c client.Client, vdb *vapi.VerticaDB, 
 		},
 	}
 	Expect(c.Create(ctx, cm)).Should(Succeed())
-	Expect(cm.Annotations[vmeta.SandboxControllerTriggerID]).Should(Equal(id))
+	Expect(cm.Annotations[vmeta.SandboxControllerUpgradeTriggerID]).Should(Equal(id))
 }
 
 func ScaleDownSubcluster(ctx context.Context, c client.Client, vdb *vapi.VerticaDB, sc *vapi.Subcluster, newSize int32) {

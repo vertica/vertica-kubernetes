@@ -1164,3 +1164,32 @@ func checkIfNodeUpCmd(podIP string) string {
 	curlCmd := "curl -k -s -o /dev/null -w '%{http_code}'"
 	return fmt.Sprintf("%s %s", curlCmd, url)
 }
+
+// FindFirstPrimaryUpPodIP returns the ip of first pod that
+// has a primary up Vertica node, and a boolean that indicates
+// if we found such a pod
+func (p *PodFacts) FindFirstPrimaryUpPodIP() (string, bool) {
+	initiator, ok := p.findFirstPodSorted(func(v *PodFact) bool {
+		return v.sandbox == vapi.MainCluster && v.isPrimary && v.upNode
+	})
+	return initiator.podIP, ok
+}
+
+// FindUnsandboxedSubclustersStillInSandboxStatus returns a sandbox-subclustesrs map
+// that contains subclustesrs which has been unsandboxed but hasn't been removed
+// from sandbox status of VDB
+func (p *PodFacts) FindUnsandboxedSubclustersStillInSandboxStatus(scSbInVdbStatus map[string]string) map[string][]string {
+	sbScMap := make(map[string][]string)
+	seenScs := make(map[string]any)
+	for _, v := range p.Detail {
+		if _, ok := seenScs[v.subclusterName]; ok {
+			continue
+		}
+		sb, foundScInSbStatus := scSbInVdbStatus[v.subclusterName]
+		if foundScInSbStatus && v.sandbox == vapi.MainCluster {
+			sbScMap[sb] = append(sbScMap[sb], v.subclusterName)
+		}
+		seenScs[v.subclusterName] = struct{}{}
+	}
+	return sbScMap
+}
