@@ -30,6 +30,7 @@ import (
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
+	"github.com/vertica/vertica-kubernetes/pkg/vk8s"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -208,7 +209,7 @@ func (r *ReplicatedUpgradeReconciler) assignSubclustersToReplicaGroupA(ctx conte
 	// We simply assign all subclusters to the first group. This is used by
 	// webhooks to prevent new subclusters being added that aren't part of the
 	// upgrade.
-	_, err := r.Manager.updateVDBWithRetry(ctx, r.assignSubclustersToReplicaGroupACallback)
+	_, err := vk8s.UpdateVDBWithRetry(ctx, r.VRec, r.VDB, r.assignSubclustersToReplicaGroupACallback)
 	return ctrl.Result{}, err
 }
 
@@ -259,7 +260,7 @@ func (r *ReplicatedUpgradeReconciler) assignSubclustersToReplicaGroupB(ctx conte
 		return ctrl.Result{}, nil
 	}
 
-	updated, err := r.Manager.updateVDBWithRetry(ctx, r.addNewSubclustersForPrimaries)
+	updated, err := vk8s.UpdateVDBWithRetry(ctx, r.VRec, r.VDB, r.addNewSubclustersForPrimaries)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed trying to update VDB with new subclusters: %w", err)
 	}
@@ -282,7 +283,7 @@ func (r *ReplicatedUpgradeReconciler) sandboxReplicaGroupB(ctx context.Context) 
 		return ctrl.Result{}, nil
 	}
 
-	_, err := r.Manager.updateVDBWithRetry(ctx, r.moveReplicaGroupBSubclusterToSandbox)
+	_, err := vk8s.UpdateVDBWithRetry(ctx, r.VRec, r.VDB, r.moveReplicaGroupBSubclusterToSandbox)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed trying to update VDB for sandboxing: %w", err)
 	}
@@ -345,7 +346,7 @@ func (r *ReplicatedUpgradeReconciler) upgradeSandbox(ctx context.Context) (ctrl.
 		return ctrl.Result{}, nil
 	}
 
-	updated, err := r.Manager.updateVDBWithRetry(ctx, r.setImageInSandbox)
+	updated, err := vk8s.UpdateVDBWithRetry(ctx, r.VRec, r.VDB, r.setImageInSandbox)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed trying to update image in sandbox: %w", err)
 	}
@@ -456,7 +457,7 @@ func (r *ReplicatedUpgradeReconciler) startReplicationToReplicaGroupB(ctx contex
 		r.VDB.Annotations[vmeta.ReplicatedUpgradeReplicatorAnnotation] = vrep.Name
 		return true, nil
 	}
-	_, err = r.Manager.updateVDBWithRetry(ctx, annotationUpdate)
+	_, err = vk8s.UpdateVDBWithRetry(ctx, r.VRec, r.VDB, annotationUpdate)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to add replicator annotation to vdb: %w", err)
 	}
