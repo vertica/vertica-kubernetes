@@ -80,6 +80,7 @@ var _ = Describe("unsandboxsubcluster_reconcile", func() {
 		nm := names.GenSandboxConfigMapName(vdb, sandbox1)
 		cm := builder.BuildSandboxConfigMap(nm, vdb, sandbox1)
 		Expect(k8sClient.Create(ctx, cm)).Should(Succeed())
+		defer test.DeleteConfigMap(ctx, k8sClient, vdb, sandbox1)
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
 		vdb.Status.Sandboxes = []vapi.SandboxStatus{
