@@ -229,7 +229,7 @@ func (s *SandboxSubclusterReconciler) findInitiatorIPs(ctx context.Context, sand
 			return []string{s.InitiatorIPs[vapi.MainCluster]}, ctrl.Result{}, nil
 		}
 		pf, found := pfs.findFirstPodSorted(func(v *PodFact) bool {
-			return v.upNode
+			return v.upNode && v.isPrimary
 		})
 		if !found {
 			s.Log.Info("Requeue because there are no UP nodes in the target sandbox", "sandbox", sandbox)
