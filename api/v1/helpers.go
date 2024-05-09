@@ -191,9 +191,9 @@ func (v *VerticaDB) GenSubclusterSandboxMap() map[string]string {
 	return scSbMap
 }
 
-// GenStatusSubclusterSandboxMap will scan sandbox status and return a map
+// GenSubclusterSandboxStatusMap will scan sandbox status and return a map
 // with subcluster name as the key and sandbox name as the value
-func (v *VerticaDB) GenStatusSubclusterSandboxMap() map[string]string {
+func (v *VerticaDB) GenSubclusterSandboxStatusMap() map[string]string {
 	scSbMap := make(map[string]string)
 	for i := range v.Status.Sandboxes {
 		sb := &v.Status.Sandboxes[i]
@@ -210,7 +210,7 @@ func (v *VerticaDB) GenStatusSubclusterSandboxMap() map[string]string {
 func (v *VerticaDB) GenSandboxSubclusterMapForUnsandbox() map[string][]string {
 	unsandboxSbScMap := make(map[string][]string)
 	vdbScSbMap := v.GenSubclusterSandboxMap()
-	statusScSbMap := v.GenStatusSubclusterSandboxMap()
+	statusScSbMap := v.GenSubclusterSandboxStatusMap()
 	for sc, sbInStatus := range statusScSbMap {
 		sbInVdb, found := vdbScSbMap[sc]
 		// if a subcluster is removed or put into another sandbox in spec.sandboxes,

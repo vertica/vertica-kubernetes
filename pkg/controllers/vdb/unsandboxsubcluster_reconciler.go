@@ -22,9 +22,6 @@ import (
 	"github.com/google/uuid"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
-	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
-	"github.com/vertica/vertica-kubernetes/pkg/names"
-	corev1 "k8s.io/api/core/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -32,16 +29,18 @@ import (
 // UnsandboxSubclusterReconciler will update sandbox config maps for letting
 // sandbox controller to unsandbox the subclusters
 type UnsandboxSubclusterReconciler struct {
-	Log logr.Logger
-	Vdb *vapi.VerticaDB
+	VRec *VerticaDBReconciler
+	Log  logr.Logger
+	Vdb  *vapi.VerticaDB
 	client.Client
 }
 
 // MakeUnsandboxSubclusterReconciler will build a UnsandboxSubclusterReconciler object
-func MakeUnsandboxSubclusterReconciler(log logr.Logger, vdb *vapi.VerticaDB,
+func MakeUnsandboxSubclusterReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger, vdb *vapi.VerticaDB,
 	cli client.Client) controllers.ReconcileActor {
 	return &UnsandboxSubclusterReconciler{
-		Log:    log.WithName("VdbControllerUnsandboxSubclusterReconciler"),
+		VRec:   vdbrecon,
+		Log:    log.WithName("UnsandboxSubclusterReconciler"),
 		Vdb:    vdb,
 		Client: cli,
 	}
@@ -52,11 +51,6 @@ func (r *UnsandboxSubclusterReconciler) Reconcile(ctx context.Context, _ *ctrl.R
 	// no-op for ScheduleOnly init policy or enterprise db
 	if r.Vdb.Spec.InitPolicy == vapi.CommunalInitPolicyScheduleOnly || !r.Vdb.IsEON() {
 		return ctrl.Result{}, nil
-	}
-
-	// delete expired sandbox config maps
-	if err := r.deleteExpiredSandboxConfigMaps(ctx); err != nil {
-		return ctrl.Result{}, err
 	}
 
 	// update sandbox config maps for sandboxes that need to be unsandboxed
@@ -71,60 +65,15 @@ func (r *UnsandboxSubclusterReconciler) Reconcile(ctx context.Context, _ *ctrl.R
 func (r *UnsandboxSubclusterReconciler) updateSandboxConfigMaps(ctx context.Context) error {
 	unsandboxSbScMap := r.Vdb.GenSandboxSubclusterMapForUnsandbox()
 	for sb := range unsandboxSbScMap {
-		nm := names.GenSandboxConfigMapName(r.Vdb, sb)
-		cm := &corev1.ConfigMap{}
-		err := r.Client.Get(ctx, nm, cm)
-		if err != nil {
-			r.Log.Error(err, "failed to retrieve sandbox config map", "configMapName", nm.Name)
+		triggerUUID := uuid.NewString()
+		sbMan := MakeSandboxConfigMapManager(r.VRec, r.Vdb, sb, triggerUUID)
+		triggered, err := sbMan.triggerSandboxController(ctx, Unsandbox)
+		if triggered {
+			r.Log.Info("Sandbox ConfigMap updated. The sandbox controller will drive the unsandbox",
+				"trigger-uuid", triggerUUID, "Sandbox", sb)
+		} else {
+			r.Log.Error(err, "failed to update sandbox config map", "sandbox", sb)
 			return err
-		}
-		cm.Annotations[vmeta.SandboxControllerUnsandboxTriggerID] = uuid.NewString()
-		err = r.Client.Update(ctx, cm)
-		if err != nil {
-			r.Log.Error(err, "failed to update sandbox config map", "configMapName", nm.Name)
-			return err
-		}
-		r.Log.Info("Successfully updated sandbox config map", "configMapName", nm.Name)
-	}
-
-	return nil
-}
-
-// deleteExpiredSandboxConfigMaps will delete sandbox config maps for non-existing sandboxes
-func (r *UnsandboxSubclusterReconciler) deleteExpiredSandboxConfigMaps(ctx context.Context) error {
-	cmList := &corev1.ConfigMapList{}
-	namespace := r.Vdb.GetNamespace()
-	err := r.Client.List(ctx, cmList, client.InNamespace(namespace))
-	if err != nil {
-		r.Log.Error(err, "failed to retrieve config map list")
-		return err
-	}
-	existingSbs := make(map[string]any)
-	for _, sb := range r.Vdb.Status.Sandboxes {
-		existingSbs[sb.Name] = struct{}{}
-	}
-	for i := range cmList.Items {
-		cm := &cmList.Items[i]
-		// only process the config maps for unsandbox operation
-		if cm.Annotations[vmeta.SandboxControllerUnsandboxTriggerID] != "" &&
-			cm.Data[vapi.SandboxNameKey] != "" {
-			if cm.Data[vapi.VerticaDBNameKey] != r.Vdb.Name {
-				r.Log.Info("Vdb name in sandbox config map doesn't match current vdb's, skip processing this config map",
-					"configMapName", cm.Name, "vdbNameInConfigMap", cm.Data[vapi.VerticaDBNameKey], "currentVdbName", r.Vdb.Name)
-				continue
-			}
-			sb := cm.Data[vapi.SandboxNameKey]
-			_, exists := existingSbs[sb]
-			// delete sandbox config maps for the non-existing sandboxes
-			if !exists {
-				cmName := cm.Name
-				err = r.Client.Delete(ctx, cm)
-				if err != nil {
-					r.Log.Error(err, "failed to delete sandbox config map", "configMapName", cmName)
-					return err
-				}
-				r.Log.Info("deleted expired sandbox config map", "configMapName", cmName)
-			}
 		}
 	}
 

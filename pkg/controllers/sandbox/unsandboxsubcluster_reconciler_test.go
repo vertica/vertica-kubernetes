@@ -91,11 +91,15 @@ var _ = Describe("sandboxsubcluster_reconcile", func() {
 		defer test.DeletePods(ctx, k8sClient, vdb)
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
+		nm := names.GenSandboxConfigMapName(vdb, sandbox1)
+		cm := builder.BuildSandboxConfigMap(nm, vdb, sandbox1)
+		Expect(k8sClient.Create(ctx, cm)).Should(Succeed())
+		defer test.DeleteConfigMap(ctx, k8sClient, vdb, sandbox1)
 
 		fpr := &cmds.FakePodRunner{}
 		pfacts := vdbcontroller.MakePodFacts(sbRec, fpr, logger, TestPassword)
 		dispatcher := vadmin.MakeVClusterOps(logger, vdb, k8sClient, TestPassword, sbRec.EVRec, vadmin.SetupVClusterOps)
-		rec := MakeUnsandboxSubclusterReconciler(sbRec, vdb, logger, k8sClient, &pfacts, dispatcher, nil)
+		rec := MakeUnsandboxSubclusterReconciler(sbRec, vdb, logger, k8sClient, &pfacts, dispatcher, cm)
 		r := rec.(*UnsandboxSubclusterReconciler)
 		Expect(r.PFacts.Collect(ctx, vdb)).Should(Succeed())
 		// fill the sandbox status with wrong info, we expect the wrong info to be cleaned

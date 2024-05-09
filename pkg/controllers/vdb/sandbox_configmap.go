@@ -49,18 +49,29 @@ func MakeSandboxConfigMapManager(recon config.ReconcilerInterface, vdb *vapi.Ver
 	}
 }
 
+type TriggerPurpose int
+
+const (
+	SandboxUpgrade = iota
+	Unsandbox
+)
+
 // triggerSandboxController will wake up the sandbox controller by setting
 // a uuid in the sandbox configmap annotations
-func (s *SandboxConfigMapManager) triggerSandboxController(ctx context.Context) (bool, error) {
+func (s *SandboxConfigMapManager) triggerSandboxController(ctx context.Context, purpose TriggerPurpose) (bool, error) {
 	if err := s.fetchConfigMap(ctx); err != nil {
 		return false, err
 	}
 	triggerID := s.getTriggerID()
-	anns := map[string]string{
-		// This will ensure that we always set a new value
-		// for this annotation which will wake up the sandbox
-		// controller
-		vmeta.SandboxControllerUpgradeTriggerID: triggerID,
+	anns := make(map[string]string)
+	// This will ensure that we always set a new value
+	// for this annotation which will wake up the sandbox
+	// controller
+	switch purpose {
+	case SandboxUpgrade:
+		anns[vmeta.SandboxControllerUpgradeTriggerID] = triggerID
+	case Unsandbox:
+		anns[vmeta.SandboxControllerUnsandboxTriggerID] = triggerID
 	}
 	chgs := vk8s.MetaChanges{
 		NewAnnotations: anns,

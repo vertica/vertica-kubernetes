@@ -76,7 +76,7 @@ func (s *SandboxUpgradeReconciler) reconcileSandboxImage(ctx context.Context, sb
 	// that will update that sandbox's configmap watched by the sandbox controller
 	triggerUUID := uuid.NewString()
 	sbMan := MakeSandboxConfigMapManager(s.VRec, s.Vdb, sbName, triggerUUID)
-	triggered, err := sbMan.triggerSandboxController(ctx)
+	triggered, err := sbMan.triggerSandboxController(ctx, SandboxUpgrade)
 	if triggered {
 		s.Log.Info("Sandbox ConfigMap updated. The sandbox controller will drive the upgrade",
 			"trigger-uuid", triggerUUID, "Sandbox", sbName)

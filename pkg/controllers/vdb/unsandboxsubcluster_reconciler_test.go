@@ -48,7 +48,7 @@ var _ = Describe("unsandboxsubcluster_reconcile", func() {
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		Expect(vdb.IsEON()).Should(BeFalse())
-		r := MakeUnsandboxSubclusterReconciler(logger, vdb, k8sClient)
+		r := MakeUnsandboxSubclusterReconciler(vdbRec, logger, vdb, k8sClient)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 	})
 
@@ -65,11 +65,11 @@ var _ = Describe("unsandboxsubcluster_reconcile", func() {
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
-		r := MakeUnsandboxSubclusterReconciler(logger, vdb, k8sClient)
+		r := MakeUnsandboxSubclusterReconciler(vdbRec, logger, vdb, k8sClient)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 	})
 
-	It("should update and delete sandbox config maps correctly", func() {
+	It("should update sandbox config maps correctly", func() {
 		vdb := vapi.MakeVDBForVclusterOps()
 		vdb.Spec.Subclusters = []vapi.Subcluster{
 			{Name: maincluster, Size: 1, Type: vapi.PrimarySubcluster},
@@ -87,7 +87,7 @@ var _ = Describe("unsandboxsubcluster_reconcile", func() {
 		}
 		Expect(k8sClient.Status().Update(ctx, vdb)).Should(Succeed())
 
-		r := MakeUnsandboxSubclusterReconciler(logger, vdb, k8sClient)
+		r := MakeUnsandboxSubclusterReconciler(vdbRec, logger, vdb, k8sClient)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 		// should update the config map with unsandbox trigger ID
 		newCM, res, err := getConfigMap(ctx, vdbRec, vdb, nm)
@@ -95,13 +95,5 @@ var _ = Describe("unsandboxsubcluster_reconcile", func() {
 		Expect(res).Should(Equal(ctrl.Result{}))
 		Expect(newCM.Data[vapi.SandboxNameKey]).Should(Equal(sandbox1))
 		Expect(newCM.Annotations[vmeta.SandboxControllerUnsandboxTriggerID]).ShouldNot(BeEmpty())
-
-		// clean the sandbox status for invalidate the sandbox config map
-		vdb.Status.Sandboxes = []vapi.SandboxStatus{}
-		r = MakeUnsandboxSubclusterReconciler(logger, vdb, k8sClient)
-		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
-		// if we cannot find the map, res will be set to {Requeue: true}
-		_, res, _ = getConfigMap(ctx, vdbRec, vdb, nm)
-		Expect(res).Should(Equal(ctrl.Result{Requeue: true}))
 	})
 })

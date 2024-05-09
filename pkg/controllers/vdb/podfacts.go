@@ -1175,8 +1175,8 @@ func (p *PodFacts) FindFirstPrimaryUpPodIP() (string, bool) {
 	return initiator.podIP, ok
 }
 
-// FindUnsandboxedSubclustersStillInSandboxStatus returns a sandbox-subclustesrs map
-// that contains subclustesrs which has been unsandboxed but hasn't been removed
+// FindUnsandboxedSubclustersStillInSandboxStatus returns a sandbox-subclusters map
+// that contains subclusters which has been unsandboxed but hasn't been removed
 // from sandbox status of VDB
 func (p *PodFacts) FindUnsandboxedSubclustersStillInSandboxStatus(scSbInVdbStatus map[string]string) map[string][]string {
 	sbScMap := make(map[string][]string)

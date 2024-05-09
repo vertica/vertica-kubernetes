@@ -40,23 +40,25 @@ type UnsandboxSubclusterReconciler struct {
 	Vdb  *vapi.VerticaDB
 	Log  logr.Logger
 	client.Client
-	Dispatcher  vadmin.Dispatcher
-	PFacts      *vdbcontroller.PodFacts
-	ConfigMap   *corev1.ConfigMap
-	InitiatorIP string // The IP of the pod that we run vclusterOps from
+	Dispatcher     vadmin.Dispatcher
+	PFacts         *vdbcontroller.PodFacts
+	OriginalPFacts *vdbcontroller.PodFacts
+	ConfigMap      *corev1.ConfigMap
+	InitiatorIP    string // The IP of the pod that we run vclusterOps from
 }
 
 func MakeUnsandboxSubclusterReconciler(r *SandboxConfigMapReconciler, vdb *vapi.VerticaDB, log logr.Logger,
 	cli client.Client, pfacts *vdbcontroller.PodFacts, dispatcher vadmin.Dispatcher, configMap *corev1.ConfigMap) controllers.ReconcileActor {
 	pfactsForMainCluster := pfacts.Copy(vapi.MainCluster)
 	return &UnsandboxSubclusterReconciler{
-		SRec:       r,
-		Log:        log.WithName("SandboxControllerUnsandboxSubclusterReconciler"),
-		Vdb:        vdb,
-		Client:     cli,
-		Dispatcher: dispatcher,
-		PFacts:     &pfactsForMainCluster,
-		ConfigMap:  configMap,
+		SRec:           r,
+		Log:            log.WithName("UnsandboxSubclusterReconciler"),
+		Vdb:            vdb,
+		Client:         cli,
+		Dispatcher:     dispatcher,
+		PFacts:         &pfactsForMainCluster,
+		OriginalPFacts: pfacts,
+		ConfigMap:      configMap,
 	}
 }
 
@@ -90,13 +92,6 @@ func (r *UnsandboxSubclusterReconciler) Reconcile(ctx context.Context, _ *ctrl.R
 	// only execute unsandbox op when unsandbox trigger id and sandbox name are set
 	if r.ConfigMap.Annotations[vmeta.SandboxControllerUnsandboxTriggerID] != "" &&
 		r.ConfigMap.Data[vapi.SandboxNameKey] != "" {
-		// we ignore the config map that contains wrong data,
-		// this kind of config map could be old or created by others
-		if r.ConfigMap.Data[vapi.VerticaDBNameKey] != r.Vdb.Name {
-			r.Log.Info("Vdb name in sandbox config map doesn't match current vdb's, skip unsandbox operation for this config map",
-				"configMapName", r.ConfigMap.Name, "vdbNameInConfigMap", r.ConfigMap.Data[vapi.VerticaDBNameKey], "currentVdbName", r.Vdb.Name)
-			return ctrl.Result{}, nil
-		}
 		return r.unsandboxSubclusters(ctx)
 	}
 	return ctrl.Result{}, nil
@@ -104,18 +99,16 @@ func (r *UnsandboxSubclusterReconciler) Reconcile(ctx context.Context, _ *ctrl.R
 
 // reconcileSandboxStatus will update sandbox status for the subclusters that are already unsandboxed
 func (r *UnsandboxSubclusterReconciler) reconcileSandboxStatus(ctx context.Context) error {
-	scSbInStatus := make(map[string]string)
-	for _, sb := range r.Vdb.Status.Sandboxes {
-		for _, sc := range sb.Subclusters {
-			scSbInStatus[sc] = sb.Name
-		}
-	}
+	scSbInStatus := r.Vdb.GenSubclusterSandboxStatusMap()
 	sbScMap := r.PFacts.FindUnsandboxedSubclustersStillInSandboxStatus(scSbInStatus)
 	for sb, scs := range sbScMap {
-		err := r.updateSandboxStatus(ctx, sb, scs)
-		if err != nil {
-			r.Log.Error(err, "failed to update sandbox status", "sandbox", sb, "new subclusters", scs)
-			return err
+		if sb == r.ConfigMap.Data[vapi.SandboxNameKey] {
+			err := r.updateSandboxStatus(ctx, sb, scs)
+			if err != nil {
+				r.Log.Error(err, "failed to update sandbox status", "sandbox", sb, "new subclusters", scs)
+				return err
+			}
+			break
 		}
 	}
 
@@ -172,7 +165,7 @@ func (r *UnsandboxSubclusterReconciler) unsandboxSubclusters(ctx context.Context
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	r.PFacts.Invalidate()
+	r.OriginalPFacts.Invalidate()
 
 	return ctrl.Result{}, nil
 }
@@ -248,16 +241,18 @@ func (r *UnsandboxSubclusterReconciler) unsandboxSubcluster(ctx context.Context,
 }
 
 // updateSandboxStatus will update sandbox status in vdb
-func (r *UnsandboxSubclusterReconciler) updateSandboxStatus(ctx context.Context, sbName string, scNames []string) error {
+func (r *UnsandboxSubclusterReconciler) updateSandboxStatus(ctx context.Context, sbName string, unsandboxedScNames []string) error {
 	updateStatus := func(vdbChg *vapi.VerticaDB) error {
 		// update the sandbox's subclusters in sandbox status
 		for i := len(vdbChg.Status.Sandboxes) - 1; i >= 0; i-- {
-			if vdbChg.Status.Sandboxes[i].Name == sbName {
-				vdbChg.Status.Sandboxes[i].Subclusters = vutil.SliceDiff(vdbChg.Status.Sandboxes[i].Subclusters, scNames)
+			if vdbChg.Status.Sandboxes[i].Name != sbName {
+				continue
 			}
+			vdbChg.Status.Sandboxes[i].Subclusters = vutil.SliceDiff(vdbChg.Status.Sandboxes[i].Subclusters, unsandboxedScNames)
 			if len(vdbChg.Status.Sandboxes[i].Subclusters) == 0 {
 				vdbChg.Status.Sandboxes = append(vdbChg.Status.Sandboxes[:i], vdbChg.Status.Sandboxes[i+1:]...)
 			}
+			break
 		}
 
 		return nil
