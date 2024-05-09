@@ -250,7 +250,7 @@ func (i *UpgradeManager) setUpgradeStatus(ctx context.Context, msg, sbName strin
 
 // clearReplicatedUpgradeAnnotations will clear the annotation we set for replicated upgrade
 func (i *UpgradeManager) clearReplicatedUpgradeAnnotations(ctx context.Context) error {
-	_, err := i.updateVDBWithRetry(ctx, i.clearReplicatedUpgradeAnnotationCallback)
+	_, err := vk8s.UpdateVDBWithRetry(ctx, i.Rec, i.Vdb, i.clearReplicatedUpgradeAnnotationCallback)
 	return err
 }
 
@@ -481,32 +481,6 @@ func (i *UpgradeManager) changeNMASidecarDeploymentIfNeeded(ctx context.Context,
 	return ctrl.Result{Requeue: true}, nil
 }
 
-// updateVDBWithRetry will update the VDB by way of a callback. This is done in a retry
-// loop in case there is a write conflict.
-func (i *UpgradeManager) updateVDBWithRetry(ctx context.Context, callbackFn func() (bool, error)) (updated bool, err error) {
-	err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-		err := i.Rec.GetClient().Get(ctx, i.Vdb.ExtractNamespacedName(), i.Vdb)
-		if err != nil {
-			return err
-		}
-
-		needToUpdate, err := callbackFn()
-		if err != nil {
-			return err
-		}
-
-		if !needToUpdate {
-			return nil
-		}
-		err = i.Rec.GetClient().Update(ctx, i.Vdb)
-		if err == nil {
-			updated = true
-		}
-		return err
-	})
-	return
-}
-
 // postNextStatusMsg will set the next status message.  This will only
 // transition to a message, defined by msgIndex, if the current status equals
 // the previous one.
@@ -568,7 +542,7 @@ func (i *UpgradeManager) cachePrimaryImages(ctx context.Context, sandbox string)
 	}
 	for inx := range stss.Items {
 		sts := &stss.Items[inx]
-		if i.isPrimary(sts.Labels, sandbox) {
+		if i.isPrimary(sts.Labels) {
 			img, err := vk8s.GetServerImage(sts.Spec.Template.Spec.Containers)
 			if err != nil {
 				return err
@@ -623,13 +597,8 @@ func (i *UpgradeManager) getTargetImage(sandbox string) (string, error) {
 }
 
 // isPrimary returns true if the subcluster is primary
-func (i *UpgradeManager) isPrimary(l map[string]string, sandbox string) bool {
-	if sandbox != vapi.MainCluster {
-		// For now, there can be only one subcluster
-		// in a sandbox and so it is primary
-		return true
-	}
-	return l[vmeta.SubclusterTypeLabel] == vapi.PrimarySubcluster
+func (i *UpgradeManager) isPrimary(l map[string]string) bool {
+	return l[vmeta.SubclusterTypeLabel] == vapi.PrimarySubcluster || l[vmeta.SubclusterTypeLabel] == vapi.SandboxPrimarySubcluster
 }
 
 func (i *UpgradeManager) traceActorReconcile(actor controllers.ReconcileActor) {

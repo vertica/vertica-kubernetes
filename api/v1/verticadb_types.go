@@ -902,6 +902,11 @@ const (
 	PrimarySubcluster   = "primary"
 	SecondarySubcluster = "secondary"
 	TransientSubcluster = "transient"
+	// A sandbox primary subcluster is a secondary subcluster that was the first
+	// subcluster in a sandbox. These subclusters are primaries when they are
+	// sandboxed. When unsandboxed, they will go back to being just a secondary
+	// subcluster
+	SandboxPrimarySubcluster = "sandboxprimary"
 )
 
 // SubclusterStatus defines the per-subcluster status that we track
