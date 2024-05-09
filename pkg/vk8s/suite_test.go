@@ -25,16 +25,19 @@ import (
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 
 var k8sClient client.Client
 var testEnv *envtest.Environment
 var logger logr.Logger
 var restCfg *rest.Config
+var mgr manager.Manager
 
 var _ = BeforeSuite(func() {
 	logger = zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true))
@@ -55,6 +58,12 @@ var _ = BeforeSuite(func() {
 	ExpectWithOffset(1, err).NotTo(HaveOccurred())
 
 	k8sClient, err = client.New(restCfg, client.Options{Scheme: scheme.Scheme})
+	ExpectWithOffset(1, err).NotTo(HaveOccurred())
+
+	mgr, err = ctrl.NewManager(cfg, ctrl.Options{
+		Scheme:             scheme.Scheme,
+		MetricsBindAddress: "0", // Disable metrics for the test
+	})
 	ExpectWithOffset(1, err).NotTo(HaveOccurred())
 })
 

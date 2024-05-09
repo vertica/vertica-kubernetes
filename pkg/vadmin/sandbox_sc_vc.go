@@ -50,9 +50,9 @@ func (v *VClusterOps) genSandboxSubclusterOptions(s *sandboxsc.Params) vops.VSan
 
 	opts.DBName = v.VDB.Spec.DBName
 	opts.IsEon = v.VDB.IsEON()
-	opts.RawHosts = append(opts.RawHosts, s.InitiatorIP)
-	v.Log.Info("Setup sandbox subcluster options", "hosts", opts.RawHosts[0])
-	opts.IPv6 = net.IsIPv6(s.InitiatorIP)
+	opts.RawHosts = append(opts.RawHosts, s.InitiatorIPs...)
+	v.Log.Info("Setup sandbox subcluster options", "hosts", opts.RawHosts)
+	opts.IPv6 = net.IsIPv6(s.InitiatorIPs[0])
 
 	opts.SandboxName = s.Sandbox
 	opts.SCName = s.Subcluster

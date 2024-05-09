@@ -25,6 +25,16 @@ apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
   name: v-sandbox
+spec:
+  subclusters:
+  - name: pri1
+    type: primary
+  - name: sec1
+    type: sandboxprimary
+  - name: sec2
+    type: secondary
+  - name: sec3
+    type: secondary
 status:
   sandboxes:
     - name: sandbox1

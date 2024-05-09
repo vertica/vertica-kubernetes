@@ -59,7 +59,7 @@ var _ = Describe("sandbox_sc_vc", func() {
 		dispatcher := mockVClusterOpsDispatcher()
 		dispatcher.VDB.Spec.DBName = TestDBName
 		Ω(dispatcher.SandboxSubcluster(ctx,
-			sandboxsc.WithInitiator(TestInitiatorIP),
+			sandboxsc.WithInitiators([]string{TestInitiatorIP}),
 			sandboxsc.WithSubcluster(TestSCName),
 			sandboxsc.WithSandbox(TestSandboxName))).Should(Succeed())
 	})

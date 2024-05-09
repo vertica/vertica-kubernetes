@@ -168,6 +168,16 @@ func (v *VerticaDB) GenSubclusterMap() map[string]*Subcluster {
 	return scMap
 }
 
+// GenSandboxMap will build a map that can find a sandbox by name.
+func (v *VerticaDB) GenSandboxMap() map[string]*Sandbox {
+	sbMap := map[string]*Sandbox{}
+	for i := range v.Spec.Sandboxes {
+		sb := &v.Spec.Sandboxes[i]
+		sbMap[sb.Name] = sb
+	}
+	return sbMap
+}
+
 // GenSubclusterSandboxMap will scan all sandboxes and return a map
 // with subcluster name as the key and sandbox name as the value
 func (v *VerticaDB) GenSubclusterSandboxMap() map[string]string {
@@ -187,6 +197,17 @@ func (v *VerticaDB) GenSubclusterIndexMap() map[string]int {
 	m := make(map[string]int)
 	for i := range v.Spec.Subclusters {
 		m[v.Spec.Subclusters[i].Name] = i
+	}
+	return m
+}
+
+// GenSandboxIndexMap will create a map that allows us to figure out the index
+// in vdb.Spec.Sandboxes for each sandbox. Returns a map of sandbox name to its
+// index position.
+func (v *VerticaDB) GenSandboxIndexMap() map[string]int {
+	m := make(map[string]int)
+	for i := range v.Spec.Sandboxes {
+		m[v.Spec.Sandboxes[i].Name] = i
 	}
 	return m
 }
@@ -704,7 +725,11 @@ func (v *VerticaDB) GetKerberosServiceName() string {
 }
 
 func (s *Subcluster) IsPrimary() bool {
-	return s.Type == PrimarySubcluster
+	return s.Type == PrimarySubcluster || s.Type == SandboxPrimarySubcluster
+}
+
+func (s *Subcluster) IsSandboxPrimary() bool {
+	return s.Type == SandboxPrimarySubcluster
 }
 
 func (s *Subcluster) IsSecondary() bool {
