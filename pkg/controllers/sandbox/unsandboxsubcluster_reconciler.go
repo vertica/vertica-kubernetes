@@ -29,6 +29,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/unsandboxsc"
 	"github.com/vertica/vertica-kubernetes/pkg/vdbstatus"
+	"github.com/vertica/vertica-kubernetes/pkg/vk8s"
 	corev1 "k8s.io/api/core/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -75,7 +76,7 @@ func (r *UnsandboxSubclusterReconciler) Reconcile(ctx context.Context, _ *ctrl.R
 	}
 
 	// reconcile sandbox status for the subclusters that are already unsandboxed
-	if err := r.reconcileSandboxStatus(ctx); err != nil {
+	if err := r.reconcileSandboxInfoInVdb(ctx); err != nil {
 		return ctrl.Result{}, err
 	}
 
@@ -97,13 +98,13 @@ func (r *UnsandboxSubclusterReconciler) Reconcile(ctx context.Context, _ *ctrl.R
 	return ctrl.Result{}, nil
 }
 
-// reconcileSandboxStatus will update sandbox status for the subclusters that are already unsandboxed
-func (r *UnsandboxSubclusterReconciler) reconcileSandboxStatus(ctx context.Context) error {
+// reconcileSandboxStatus will update vdb for the subclusters that are already unsandboxed
+func (r *UnsandboxSubclusterReconciler) reconcileSandboxInfoInVdb(ctx context.Context) error {
 	scSbInStatus := r.Vdb.GenSubclusterSandboxStatusMap()
 	sbScMap := r.PFacts.FindUnsandboxedSubclustersStillInSandboxStatus(scSbInStatus)
 	for sb, scs := range sbScMap {
 		if sb == r.ConfigMap.Data[vapi.SandboxNameKey] {
-			err := r.updateSandboxStatus(ctx, sb, scs)
+			err := r.updateSandboxInfoInVdb(ctx, sb, scs)
 			if err != nil {
 				r.Log.Error(err, "failed to update sandbox status", "sandbox", sb, "new subclusters", scs)
 				return err
@@ -185,11 +186,11 @@ func (r *UnsandboxSubclusterReconciler) executeUnsandboxCommand(ctx context.Cont
 		err := r.unsandboxSubcluster(ctx, sc)
 		if err != nil {
 			// when failed to unsandbox a subcluster, update sandbox status and return error
-			return errors.Join(err, r.updateSandboxStatus(ctx, sbName, succeedScs))
+			return errors.Join(err, r.updateSandboxInfoInVdb(ctx, sbName, succeedScs))
 		}
 		succeedScs = append(succeedScs, sc)
 	}
-	err := r.updateSandboxStatus(ctx, sbName, succeedScs)
+	err := r.updateSandboxInfoInVdb(ctx, sbName, succeedScs)
 	if err != nil {
 		// when failed to update sandbox status, we will still try to process the sandbox config map
 		return errors.Join(err, r.processConfigMap(ctx))
@@ -240,8 +241,20 @@ func (r *UnsandboxSubclusterReconciler) unsandboxSubcluster(ctx context.Context,
 	return nil
 }
 
-// updateSandboxStatus will update sandbox status in vdb
-func (r *UnsandboxSubclusterReconciler) updateSandboxStatus(ctx context.Context, sbName string, unsandboxedScNames []string) error {
+// updateSandboxInfoInVdb will update subcluster type and sandbox status in vdb
+func (r *UnsandboxSubclusterReconciler) updateSandboxInfoInVdb(ctx context.Context, sbName string, unsandboxedScNames []string) error {
+	// update the subcluster type in the spec
+	_, err := vk8s.UpdateVDBWithRetry(ctx, r.SRec, r.Vdb, func() (bool, error) {
+		for _, unsandboxSc := range unsandboxedScNames {
+			for i := range r.Vdb.Spec.Subclusters {
+				if unsandboxSc == r.Vdb.Spec.Subclusters[i].Name && r.Vdb.Spec.Subclusters[i].IsSandboxPrimary() {
+					r.Vdb.Spec.Subclusters[i].Type = vapi.SecondarySubcluster
+				}
+			}
+		}
+		return true, nil
+	})
+
 	updateStatus := func(vdbChg *vapi.VerticaDB) error {
 		// update the sandbox's subclusters in sandbox status
 		for i := len(vdbChg.Status.Sandboxes) - 1; i >= 0; i-- {
@@ -258,5 +271,5 @@ func (r *UnsandboxSubclusterReconciler) updateSandboxStatus(ctx context.Context,
 		return nil
 	}
 
-	return vdbstatus.Update(ctx, r.Client, r.Vdb, updateStatus)
+	return errors.Join(err, vdbstatus.Update(ctx, r.Client, r.Vdb, updateStatus))
 }

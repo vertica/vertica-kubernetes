@@ -1610,8 +1610,9 @@ func (v *VerticaDB) checkImmutableSubclusterInSandbox(oldObj *VerticaDB, allErrs
 	}
 
 	newScInSandbox := v.GenSubclusterSandboxMap()
-	oldSbIndexMap := v.GenSandboxIndexMap()
-	oldSbMap := v.GenSandboxMap()
+	oldSbIndexMap := oldObj.GenSandboxIndexMap()
+	oldSbMap := oldObj.GenSandboxMap()
+	newSbMap := v.GenSandboxMap()
 
 	// This loop ensures a couple of things:
 	// - a sandbox primary subcluster cannot be moved to another sandbox
@@ -1622,6 +1623,10 @@ func (v *VerticaDB) checkImmutableSubclusterInSandbox(oldObj *VerticaDB, allErrs
 		newSbName, newFound := newScInSandbox[oldScName]
 		sc := oldScMap[oldScName]
 
+		// sandbox is removed
+		if _, sandboxExist := newSbMap[oldSbName]; !sandboxExist {
+			continue
+		}
 		if !newFound && sc.Type == SandboxPrimarySubcluster {
 			i := oldScIndexMap[oldScName]
 			err := field.Invalid(path.Index(i),
