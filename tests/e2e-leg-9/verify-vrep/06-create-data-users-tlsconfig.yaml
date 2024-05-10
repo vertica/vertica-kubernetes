@@ -1,0 +1,114 @@
+# (c) Copyright [2021-2024] Open Text.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# You may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: script-create-source-data
+data:
+  entrypoint.sh: |-
+    #!/bin/bash
+    set -o errexit
+    set -o xtrace
+
+    POD_NAME=v-source-sc1-0
+
+    kubectl exec $POD_NAME -i -c server -- bash -c "vsql -U dbadmin -w superuser -tAc \"ALTER DATABASE DEFAULT SET EnableConnectCredentialForwarding = 1;\""
+
+    kubectl exec $POD_NAME -i -c server -- bash -c "vsql -U dbadmin -w superuser -tAc \"CREATE KEY mtls_root_key TYPE 'RSA' LENGTH 2048;\""
+    kubectl exec $POD_NAME -i -c server -- bash -c "vsql -U dbadmin -w superuser -tAc \"CREATE CA CERTIFICATE mtls_root_cert \
+    SUBJECT '/C=US/ST=Massachusetts/L=Burlington/O=OpenText/OU=Vertica/CN=Vertica Root CA' \
+    VALID FOR 3650 \
+    EXTENSIONS 'authorityKeyIdentifier' = 'keyid:always,issuer', 'nsComment' = 'Vertica generated root CA cert' \
+    KEY mtls_root_key;\""
+
+    kubectl exec $POD_NAME -i -c server -- bash -c "vsql -U dbadmin -w superuser -tAc \"CREATE KEY mtls_client_key TYPE 'RSA' LENGTH 2048;\""
+    kubectl exec $POD_NAME -i -c server -- bash -c "vsql -U dbadmin -w superuser -tAc \"CREATE CERTIFICATE mtls_client_cert \
+    SUBJECT '/C=US/ST=Massachusetts/L=Burlington/O=OpenText/OU=Vertica/CN=dbadmin' \
+    SIGNED BY mtls_root_cert \
+    EXTENSIONS 'nsComment' = 'Vertica client cert', 'extendedKeyUsage' = 'clientAuth' \
+    KEY mtls_client_key;\""
+
+    kubectl exec $POD_NAME -i -c server -- bash -c "vsql -U dbadmin -w superuser -tAc \"CREATE KEY mtls_server_key TYPE 'RSA' LENGTH 2048;\""
+    kubectl exec $POD_NAME -i -c server -- bash -c "vsql -U dbadmin -w superuser -tAc \"CREATE CERTIFICATE mtls_server_cert \
+    SUBJECT '/C=US/ST=Massachusetts/L=Burlington/O=OpenText/OU=Vertica/CN=vertica-rnd@opentext.com' \
+    SIGNED BY mtls_root_cert \
+    EXTENSIONS 'nsComment' = 'Vertica server cert', 'extendedKeyUsage' = 'serverAuth' \
+    KEY mtls_server_key;\""
+
+    kubectl exec $POD_NAME -i -c server -- bash -c "vsql -U dbadmin -w superuser -tAc \"CREATE TLS CONFIGURATION mtls;\""
+    kubectl exec $POD_NAME -i -c server -- bash -c "vsql -U dbadmin -w superuser -tAc \"ALTER TLS CONFIGURATION mtls CERTIFICATE mtls_client_cert ADD CA CERTIFICATES mtls_root_cert TLSMODE 'ENABLE';\""
+
+    mtls_root_cert_text=$(kubectl exec $POD_NAME -i -c server -- bash -c "vsql -U dbadmin -w superuser -tAc \"SELECT certificate_text FROM certificates WHERE name = 'mtls_root_cert';\" | tr -d '\n'")
+    mtls_server_key_text=$(kubectl exec $POD_NAME -i -c server -- bash -c "vsql -U dbadmin -w superuser -tAc \"SELECT key FROM CRYPTOGRAPHIC_KEYS WHERE name = 'mtls_server_key';\" | tr -d '\n'")
+    mtls_server_cert_text=$(kubectl exec $POD_NAME -i -c server -- bash -c "vsql -U dbadmin -w superuser -tAc \"SELECT certificate_text FROM certificates WHERE name = 'mtls_server_cert';\" | tr -d '\n'")
+
+    kubectl exec $POD_NAME -i -c server -- bash -c "vsql -U dbadmin -w superuser -tAc \"CREATE TABLE public.test_table (val INTEGER);\""
+    kubectl exec $POD_NAME -i -c server -- bash -c "vsql -U dbadmin -w superuser -tAc \"INSERT INTO public.test_table VALUES (99); COMMIT;\""
+    result=$(kubectl exec $POD_NAME -i -c server -- bash -c "vsql -U dbadmin -w superuser -tAc \"SELECT * FROM public.test_table ORDER BY val;\"")
+    echo "$result" | grep -Pzo "^99\n$" > /dev/null
+    if [ $? -ne 0 ]; then
+      echo "Assertion failed: expected 99, got $result"
+      exit 1
+    fi
+    result=$(kubectl exec $POD_NAME -i -c server -- bash -c "vsql -U dbadmin -w superuser -tAc \"SELECT COUNT(*) FROM tables;\"")
+    echo "$result" | grep -Pzo "^1\n$" > /dev/null
+    if [ $? -ne 0 ]; then
+      echo "Assertion failed: expected 1, got $result"
+      exit 1
+    fi
+
+    POD_NAMES=("v-target-sc5-0" "v-target-sc4-0" "v-target-sc3-0" "v-target-sc2-0" "v-target-sc1-0")
+
+    for POD_NAME in "${POD_NAMES[@]}"; do
+      kubectl exec $POD_NAME -i -c server -- bash -c "vsql -U dbadmin -tAc \"CREATE USER custom_user_with_password IDENTIFIED BY 'topsecret'; GRANT PSEUDOSUPERUSER TO custom_user_with_password; ALTER USER custom_user_with_password DEFAULT ROLE PSEUDOSUPERUSER;\""
+      kubectl exec $POD_NAME -i -c server -- bash -c "vsql -U dbadmin -tAc \"CREATE USER custom_user; GRANT PSEUDOSUPERUSER TO custom_user; ALTER USER custom_user DEFAULT ROLE PSEUDOSUPERUSER;\""
+      result=$(kubectl exec $POD_NAME -i -c server -- bash -c "vsql -U dbadmin -tAc \"SELECT COUNT(*) FROM tables;\"")
+      echo "$result" | grep -Pzo "^0\n$" > /dev/null
+      if [ $? -ne 0 ]; then
+        echo "Assertion failed: expected 0, got $result"
+        exit 1
+      fi
+    done
+
+    POD_NAME=v-target-sc5-0
+    kubectl exec $POD_NAME -i -c server -- bash -c "vsql -U dbadmin -tAc \"CREATE CA CERTIFICATE mtls_root_cert AS '${mtls_root_cert_text}';\""
+    kubectl exec $POD_NAME -i -c server -- bash -c "vsql -U dbadmin -tAc \"CREATE KEY mtls_server_key TYPE 'RSA' AS '${mtls_server_key_text}';\""
+    kubectl exec $POD_NAME -i -c server -- bash -c "vsql -U dbadmin -tAc \"CREATE CERTIFICATE mtls_server_cert AS '${mtls_server_cert_text}' KEY mtls_server_key;\""
+
+    kubectl exec $POD_NAME -i -c server -- bash -c "vsql -U dbadmin -tAc \"ALTER TLS CONFIGURATION server CERTIFICATE mtls_server_cert ADD CA CERTIFICATES mtls_root_cert TLSMODE 'TRY_VERIFY';\""
+    kubectl exec $POD_NAME -i -c server -- bash -c "vsql -U dbadmin -tAc \"CREATE AUTHENTICATION mtls_auth METHOD 'tls' HOST TLS '0.0.0.0/0';\""
+    kubectl exec $POD_NAME -i -c server -- bash -c "vsql -U dbadmin -tAc \"GRANT AUTHENTICATION mtls_auth TO dbadmin;\""
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-create-source-data
+  labels:
+    stern: include
+spec:
+  restartPolicy: Never
+  containers:
+    - name: test
+      image: bitnami/kubectl:1.20.4
+      command: ["/bin/entrypoint.sh"]
+      volumeMounts:
+        - name: entrypoint-volume
+          mountPath: /bin/entrypoint.sh
+          readOnly: true
+          subPath: entrypoint.sh
+  volumes:
+    - name: entrypoint-volume
+      configMap:
+        defaultMode: 0777
+        name: script-create-source-data

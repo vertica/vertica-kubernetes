@@ -158,6 +158,9 @@ var _ = Describe("sc_finder", func() {
 		vdb.Spec.Sandboxes = []vapi.Sandbox{
 			{Name: sbName, Subclusters: []vapi.SubclusterName{{Name: scNames[0]}}},
 		}
+		vdb.Status.Sandboxes = []vapi.SandboxStatus{
+			{Name: sbName, Subclusters: []string{scNames[0]}},
+		}
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		vdbCopy := *vdb // Make a copy for cleanup since we will mutate vdb
 		defer test.DeletePods(ctx, k8sClient, &vdbCopy)
@@ -170,7 +173,6 @@ var _ = Describe("sc_finder", func() {
 		// Change the image in the vdb spec to prove that we fill in the image
 		// from the statefulset
 		vdb.Spec.Image = "should-not-report-this-image"
-
 		finder := MakeSubclusterFinder(k8sClient, vdb)
 		sts, err := finder.FindStatefulSets(ctx, FindExisting, vapi.MainCluster)
 		Expect(err).Should(Succeed())
@@ -205,6 +207,9 @@ var _ = Describe("sc_finder", func() {
 		const sbName = "sand"
 		vdb.Spec.Sandboxes = []vapi.Sandbox{
 			{Name: sbName, Subclusters: []vapi.SubclusterName{{Name: scNames[0]}}},
+		}
+		vdb.Status.Sandboxes = []vapi.SandboxStatus{
+			{Name: sbName, Subclusters: []string{scNames[0]}},
 		}
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)

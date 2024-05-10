@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"os"
 	"sort"
-	"strconv"
 	"strings"
 	"time"
 
@@ -377,7 +376,7 @@ func (p *PodFacts) collectPodByStsIndex(ctx context.Context, vdb *vapi.VerticaDB
 		pf.dnsName = fmt.Sprintf("%s.%s.%s", pod.Spec.Hostname, pod.Spec.Subdomain, pod.Namespace)
 		pf.podIP = pod.Status.PodIP
 		pf.creationTimestamp = pod.CreationTimestamp.Format(time.DateTime)
-		pf.isTransient, _ = strconv.ParseBool(pod.Labels[vmeta.SubclusterTransientLabel])
+		pf.isTransient = sc.IsTransient()
 		pf.isPendingDelete = podIndex >= sc.Size
 		// Let's just pick the first container image
 		pf.image, err = vk8s.GetServerImage(pod.Spec.Containers)
@@ -393,8 +392,7 @@ func (p *PodFacts) collectPodByStsIndex(ctx context.Context, vdb *vapi.VerticaDB
 		// we get the sandbox name from the sts labels if the subcluster
 		// belongs to a sandbox. If the node is up, we will later retrieve
 		// the sandbox state from the catalog
-		pf.sandbox = p.SandboxName
-		setSandboxNodeType(&pf)
+		pf.sandbox = sts.Labels[vmeta.SandboxNameLabel]
 	}
 
 	fns := []CheckerFunc{
@@ -1162,19 +1160,6 @@ func (p *PodFacts) GetClusterExtendedName() string {
 		return "main cluster"
 	}
 	return fmt.Sprintf("sandbox %s", sbName)
-}
-
-// setSandboxNodeType sets the isPrimary state for a sandboxed
-// subcluster's node
-func setSandboxNodeType(pf *PodFact) {
-	// For nodes that belong to a sandboxed subcluster, we cannot rely
-	// on the VDB subcluster state. There is still some work needed in
-	// order to figure out how to get the subcluster type for a sandboxed
-	// node. In the meantime, we are going to limit a sandbox size to
-	// one subcluster and default its type to primary
-	if pf.sandbox != vapi.MainCluster {
-		pf.isPrimary = true
-	}
 }
 
 // checkIfNodeUpCmd builds and returns the command to check

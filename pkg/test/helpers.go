@@ -92,7 +92,7 @@ func CreateSts(ctx context.Context, c client.Client, vdb *vapi.VerticaDB, sc *va
 }
 
 func CreateConfigMap(ctx context.Context, c client.Client, vdb *vapi.VerticaDB, id, sbName string) {
-	nm := names.GenConfigMapName(vdb, sbName)
+	nm := names.GenSandboxConfigMapName(vdb, sbName)
 	cm := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Annotations: map[string]string{
@@ -210,7 +210,7 @@ func DeleteStorageClass(ctx context.Context, c client.Client) {
 
 func DeleteConfigMap(ctx context.Context, c client.Client, vdb *vapi.VerticaDB, sbName string) {
 	cm := &corev1.ConfigMap{}
-	nm := names.GenConfigMapName(vdb, sbName)
+	nm := names.GenSandboxConfigMapName(vdb, sbName)
 	err := c.Get(ctx, nm, cm)
 	if !kerrors.IsNotFound(err) {
 		Expect(c.Delete(ctx, cm)).Should(Succeed())

@@ -18,7 +18,6 @@ package vdb
 import (
 	"context"
 	"fmt"
-	"strconv"
 	"strings"
 
 	"errors"
@@ -251,7 +250,7 @@ func (i *UpgradeManager) setUpgradeStatus(ctx context.Context, msg, sbName strin
 
 // clearReplicatedUpgradeAnnotations will clear the annotation we set for replicated upgrade
 func (i *UpgradeManager) clearReplicatedUpgradeAnnotations(ctx context.Context) error {
-	_, err := i.updateVDBWithRetry(ctx, i.clearReplicatedUpgradeAnnotationCallback)
+	_, err := vk8s.UpdateVDBWithRetry(ctx, i.Rec, i.Vdb, i.clearReplicatedUpgradeAnnotationCallback)
 	return err
 }
 
@@ -284,6 +283,8 @@ func (i *UpgradeManager) clearReplicatedUpgradeAnnotationCallback() (updated boo
 func (i *UpgradeManager) updateImageInStatefulSets(ctx context.Context, sandbox string) (int, error) {
 	numStsChanged := 0 // Count to keep track of the nubmer of statefulsets updated
 
+	transientName, hasTransient := i.Vdb.GetTransientSubclusterName()
+
 	// We use FindExisting for the finder because we only want to work with sts
 	// that already exist.  This is necessary incase the upgrade was paired
 	// with a scaling operation.  The pod change due to the scaling operation
@@ -295,11 +296,7 @@ func (i *UpgradeManager) updateImageInStatefulSets(ctx context.Context, sandbox 
 	for inx := range stss.Items {
 		sts := &stss.Items[inx]
 
-		isTransient, err := strconv.ParseBool(sts.Labels[vmeta.SubclusterTransientLabel])
-		if err != nil {
-			return numStsChanged, err
-		}
-		if isTransient {
+		if hasTransient && transientName == sts.Labels[vmeta.SubclusterNameLabel] {
 			continue
 		}
 
@@ -367,8 +364,16 @@ func (i *UpgradeManager) deletePodsRunningOldImage(ctx context.Context, scName, 
 
 		// If scName was passed in, we only delete for a specific subcluster
 		if scName != "" {
-			scNameFromLabel, ok := pod.Labels[vmeta.SubclusterNameLabel]
-			if ok && scNameFromLabel != scName {
+			stsName, found := pod.Labels[vmeta.SubclusterSelectorLabel]
+			if !found {
+				return 0, fmt.Errorf("could not derive the statefulset name from the pod %q", pod.Name)
+			}
+			scNameFromLabel, err := i.getSubclusterNameFromSts(ctx, stsName)
+			if err != nil {
+				return 0, err
+			}
+
+			if scNameFromLabel != scName {
 				continue
 			}
 		}
@@ -476,32 +481,6 @@ func (i *UpgradeManager) changeNMASidecarDeploymentIfNeeded(ctx context.Context,
 	return ctrl.Result{Requeue: true}, nil
 }
 
-// updateVDBWithRetry will update the VDB by way of a callback. This is done in a retry
-// loop in case there is a write conflict.
-func (i *UpgradeManager) updateVDBWithRetry(ctx context.Context, callbackFn func() (bool, error)) (updated bool, err error) {
-	err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-		err := i.Rec.GetClient().Get(ctx, i.Vdb.ExtractNamespacedName(), i.Vdb)
-		if err != nil {
-			return err
-		}
-
-		needToUpdate, err := callbackFn()
-		if err != nil {
-			return err
-		}
-
-		if !needToUpdate {
-			return nil
-		}
-		err = i.Rec.GetClient().Update(ctx, i.Vdb)
-		if err == nil {
-			updated = true
-		}
-		return err
-	})
-	return
-}
-
 // postNextStatusMsg will set the next status message.  This will only
 // transition to a message, defined by msgIndex, if the current status equals
 // the previous one.
@@ -563,7 +542,7 @@ func (i *UpgradeManager) cachePrimaryImages(ctx context.Context, sandbox string)
 	}
 	for inx := range stss.Items {
 		sts := &stss.Items[inx]
-		if i.isPrimary(sts.Labels, sandbox) {
+		if i.isPrimary(sts.Labels) {
 			img, err := vk8s.GetServerImage(sts.Spec.Template.Spec.Containers)
 			if err != nil {
 				return err
@@ -618,13 +597,8 @@ func (i *UpgradeManager) getTargetImage(sandbox string) (string, error) {
 }
 
 // isPrimary returns true if the subcluster is primary
-func (i *UpgradeManager) isPrimary(l map[string]string, sandbox string) bool {
-	if sandbox != vapi.MainCluster {
-		// For now, there can be only one subcluster
-		// in a sandbox and so it is primary
-		return true
-	}
-	return l[vmeta.SubclusterTypeLabel] == vapi.PrimarySubcluster
+func (i *UpgradeManager) isPrimary(l map[string]string) bool {
+	return l[vmeta.SubclusterTypeLabel] == vapi.PrimarySubcluster || l[vmeta.SubclusterTypeLabel] == vapi.SandboxPrimarySubcluster
 }
 
 func (i *UpgradeManager) traceActorReconcile(actor controllers.ReconcileActor) {
@@ -702,4 +676,20 @@ func (i *UpgradeManager) logEventIfRequestedUpgradeIsDifferent(actualUpgrade vap
 		i.Rec.Eventf(i.Vdb, corev1.EventTypeNormal, events.IncompatibleUpgradeRequested,
 			"Requested upgrade is incompatible with the Vertica deployment. Falling back to %s upgrade.", actualUpgradeAsText)
 	}
+}
+
+// getSubclusterNameFromSts returns the name of the subcluster from the given statefulset name
+func (i *UpgradeManager) getSubclusterNameFromSts(ctx context.Context, stsName string) (string, error) {
+	sts := appsv1.StatefulSet{}
+	nm := names.GenNamespacedName(i.Vdb, stsName)
+	err := i.Rec.GetClient().Get(ctx, nm, &sts)
+	if err != nil {
+		return "", fmt.Errorf("could not find statefulset %q: %w", stsName, err)
+	}
+
+	scNameFromLabel, ok := sts.Labels[vmeta.SubclusterNameLabel]
+	if !ok {
+		return "", fmt.Errorf("could not find subcluster name label %q in %q", vmeta.SubclusterNameLabel, stsName)
+	}
+	return scNameFromLabel, nil
 }

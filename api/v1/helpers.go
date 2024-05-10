@@ -168,6 +168,16 @@ func (v *VerticaDB) GenSubclusterMap() map[string]*Subcluster {
 	return scMap
 }
 
+// GenSandboxMap will build a map that can find a sandbox by name.
+func (v *VerticaDB) GenSandboxMap() map[string]*Sandbox {
+	sbMap := map[string]*Sandbox{}
+	for i := range v.Spec.Sandboxes {
+		sb := &v.Spec.Sandboxes[i]
+		sbMap[sb.Name] = sb
+	}
+	return sbMap
+}
+
 // GenSubclusterSandboxMap will scan all sandboxes and return a map
 // with subcluster name as the key and sandbox name as the value
 func (v *VerticaDB) GenSubclusterSandboxMap() map[string]string {
@@ -187,6 +197,17 @@ func (v *VerticaDB) GenSubclusterIndexMap() map[string]int {
 	m := make(map[string]int)
 	for i := range v.Spec.Subclusters {
 		m[v.Spec.Subclusters[i].Name] = i
+	}
+	return m
+}
+
+// GenSandboxIndexMap will create a map that allows us to figure out the index
+// in vdb.Spec.Sandboxes for each sandbox. Returns a map of sandbox name to its
+// index position.
+func (v *VerticaDB) GenSandboxIndexMap() map[string]int {
+	m := make(map[string]int)
+	for i := range v.Spec.Sandboxes {
+		m[v.Spec.Sandboxes[i].Name] = i
 	}
 	return m
 }
@@ -338,6 +359,16 @@ func (v *VerticaDB) RequiresTransientSubcluster() bool {
 	return v.Spec.TemporarySubclusterRouting != nil &&
 		v.Spec.TemporarySubclusterRouting.Template.Name != "" &&
 		v.Spec.TemporarySubclusterRouting.Template.Size > 0
+}
+
+// GetTransientSubclusterName returns the name of the transient subcluster, if
+// it should exist. The bool output parameter will be false if no transient is
+// used.
+func (v *VerticaDB) GetTransientSubclusterName() (string, bool) {
+	if !v.RequiresTransientSubcluster() {
+		return "", false
+	}
+	return v.Spec.TemporarySubclusterRouting.Template.Name, true
 }
 
 // IsOnlineUpgradeInProgress returns true if an online upgrade is in progress
@@ -694,7 +725,11 @@ func (v *VerticaDB) GetKerberosServiceName() string {
 }
 
 func (s *Subcluster) IsPrimary() bool {
-	return s.Type == PrimarySubcluster
+	return s.Type == PrimarySubcluster || s.Type == SandboxPrimarySubcluster
+}
+
+func (s *Subcluster) IsSandboxPrimary() bool {
+	return s.Type == SandboxPrimarySubcluster
 }
 
 func (s *Subcluster) IsSecondary() bool {
@@ -828,10 +863,10 @@ func (v *VerticaDB) GetSubclusterStatusMap() map[string]*SubclusterStatus {
 }
 
 func (v *VerticaDB) GetSubclusterSandboxName(scName string) string {
-	for i := range v.Spec.Sandboxes {
-		for j := range v.Spec.Sandboxes[i].Subclusters {
-			if scName == v.Spec.Sandboxes[i].Subclusters[j].Name {
-				return v.Spec.Sandboxes[i].Name
+	for i := range v.Status.Sandboxes {
+		for j := range v.Status.Sandboxes[i].Subclusters {
+			if scName == v.Status.Sandboxes[i].Subclusters[j] {
+				return v.Status.Sandboxes[i].Name
 			}
 		}
 	}

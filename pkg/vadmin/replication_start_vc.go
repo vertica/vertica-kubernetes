@@ -49,7 +49,7 @@ func (v *VClusterOps) ReplicateDB(ctx context.Context, opts ...replicationstart.
 		return ctrl.Result{}, err
 	}
 
-	v.Log.Info("Successfully replicated a database", "sourceDBName", *vopts.DBName,
+	v.Log.Info("Successfully replicated a database", "sourceDBName", vopts.DBName,
 		"targetDBName", vopts.TargetDB)
 	return ctrl.Result{}, nil
 }
@@ -57,12 +57,13 @@ func (v *VClusterOps) ReplicateDB(ctx context.Context, opts ...replicationstart.
 func (v *VClusterOps) genReplicateDBOptions(s *replicationstart.Parms, certs *HTTPSCerts) *vops.VReplicationDatabaseOptions {
 	opts := vops.VReplicationDatabaseFactory()
 	opts.RawHosts = append(opts.RawHosts, s.SourceIP)
-	opts.DBName = &v.VDB.Spec.DBName
-	opts.UserName = &s.SourceUserName
+	opts.DBName = v.VDB.Spec.DBName
+	opts.UserName = s.SourceUserName
 	opts.Password = &v.Password
 	opts.TargetDB = s.TargetDBName
 	opts.TargetUserName = s.TargetUserName
-	if s.SourceTLSConfig == "" {
+	opts.Sandbox = s.SourceSandboxName
+	if s.SourceTLSConfig != "" {
 		opts.TargetPassword = nil
 	} else {
 		opts.TargetPassword = &s.TargetPassword

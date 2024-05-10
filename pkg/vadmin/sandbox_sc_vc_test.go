@@ -42,10 +42,10 @@ func (m *MockVClusterOps) VSandbox(options *vops.VSandboxOptions) error {
 	}
 
 	// verify basic options
-	if *options.SCName != TestSCName {
+	if options.SCName != TestSCName {
 		return fmt.Errorf("failed to retrieve subcluster name")
 	}
-	if *options.SandboxName != TestSandboxName {
+	if options.SandboxName != TestSandboxName {
 		return fmt.Errorf("failed to retrieve sandbox name")
 	}
 
@@ -59,7 +59,7 @@ var _ = Describe("sandbox_sc_vc", func() {
 		dispatcher := mockVClusterOpsDispatcher()
 		dispatcher.VDB.Spec.DBName = TestDBName
 		Ω(dispatcher.SandboxSubcluster(ctx,
-			sandboxsc.WithInitiator(TestInitiatorIP),
+			sandboxsc.WithInitiators([]string{TestInitiatorIP}),
 			sandboxsc.WithSubcluster(TestSCName),
 			sandboxsc.WithSandbox(TestSandboxName))).Should(Succeed())
 	})

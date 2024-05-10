@@ -17,9 +17,9 @@ package sandboxsc
 
 // Params holds all of the option for a sandbox subcluster invocation.
 type Params struct {
-	InitiatorIP string
-	Subcluster  string
-	Sandbox     string
+	InitiatorIPs []string
+	Subcluster   string
+	Sandbox      string
 }
 
 type Option func(*Params)
@@ -31,9 +31,9 @@ func (s *Params) Make(opts ...Option) {
 	}
 }
 
-func WithInitiator(initiatorIP string) Option {
+func WithInitiators(initiatorIPs []string) Option {
 	return func(s *Params) {
-		s.InitiatorIP = initiatorIP
+		s.InitiatorIPs = append(s.InitiatorIPs, initiatorIPs...)
 	}
 }
 

@@ -47,3 +47,5 @@ status:
       upNodeCount: 3
     - addedToDBCount: 3
       upNodeCount: 3
+    - addedToDBCount: 1
+      upNodeCount: 1

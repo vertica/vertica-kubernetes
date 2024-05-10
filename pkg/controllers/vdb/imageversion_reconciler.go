@@ -281,7 +281,7 @@ func (v *ImageVersionReconciler) updateVDBAnnotations(ctx context.Context, versi
 // updateConfigMapAnnotations updates the sandbox's configmap annotations with
 // the version
 func (v *ImageVersionReconciler) updateConfigMapAnnotations(ctx context.Context, versionAnn map[string]string) error {
-	nm := names.GenConfigMapName(v.Vdb, v.PFacts.SandboxName)
+	nm := names.GenSandboxConfigMapName(v.Vdb, v.PFacts.SandboxName)
 
 	chgs := vk8s.MetaChanges{
 		NewAnnotations: map[string]string{
