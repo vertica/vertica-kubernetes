@@ -101,4 +101,4 @@ require (
 	sigs.k8s.io/yaml v1.3.0 // indirect
 )
 
-replace github.com/vertica/vcluster v0.0.0 => github.com/chinhtranvan/vcluster v1.1.8
+replace github.com/vertica/vcluster v0.0.0 => github.com/chinhtranvan/vcluster v1.2.0
