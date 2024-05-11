@@ -57,7 +57,7 @@ var _ = Describe("sc_finder", func() {
 		verifySubclusters(ctx, vdb, scNames[2:], scSizes[2:], vapi.MainCluster, FindInVdb)
 	})
 
-	It("should find all subclusters regardless of cluster", func() {
+	It("should find all subclusters regardless of sandbox", func() {
 		vdb := vapi.MakeVDB()
 		scNames := []string{"sc1", "sc2", "sc3"}
 		scSizes := []int32{10, 5, 8}
@@ -70,7 +70,7 @@ var _ = Describe("sc_finder", func() {
 		vdb.Status.Sandboxes = []vapi.SandboxStatus{
 			{Name: sbName, Subclusters: scNames[:2]},
 		}
-		verifySubclusters(ctx, vdb, scNames, scSizes, sbName, FindAllClusters)
+		verifySubclusters(ctx, vdb, scNames, scSizes, sbName, FindAllAcrossSandboxes)
 	})
 
 	It("should find subclusters that don't exist in the vdb", func() {

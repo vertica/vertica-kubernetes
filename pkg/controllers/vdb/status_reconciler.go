@@ -73,23 +73,24 @@ func (s *StatusReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl
 
 // updateStatusFields will refresh the status fields in the vdb
 func (s *StatusReconciler) updateStatusFields(ctx context.Context) error {
-	// Use all subclusters without cluster consideration(main cluster or sandbox),
+	// Use all subclusters regardless of the sandbox they belong to,
 	// even ones that are scheduled for removal. We keep
 	// reporting status on the deleted ones until the statefulsets are gone.
 	finder := iter.MakeSubclusterFinder(s.Client, s.Vdb)
-	subclusters, err := finder.FindSubclusters(ctx, iter.FindAllClusters, s.PFacts.GetSandboxName())
+	subclusters, err := finder.FindSubclusters(ctx, iter.FindAllAcrossSandboxes, s.PFacts.GetSandboxName())
 	if err != nil {
 		return err
 	}
 
-	scSbMap := s.Vdb.GetSubclusterSandboxStatusMap()
-	scMap := s.Vdb.GetSubclusterStatusMap()
-
 	refreshStatus := func(vdbChg *vapi.VerticaDB) error {
+		scSbMap := s.Vdb.GenSubclusterSandboxStatusMap()
+		scMap := s.Vdb.GenSubclusterStatusMap()
 		vdbChg.Status.Subclusters = []vapi.SubclusterStatus{}
 		for i := range subclusters {
 			if i == len(vdbChg.Status.Subclusters) {
-				vdbChg.Status.Subclusters = append(vdbChg.Status.Subclusters, vapi.SubclusterStatus{})
+				vdbChg.Status.Subclusters = append(vdbChg.Status.Subclusters, vapi.SubclusterStatus{
+					Detail: make([]vapi.VerticaDBPodStatus, 0),
+				})
 			}
 			sc := scMap[subclusters[i].Name]
 			// A subcluster not being in status can only happen in
@@ -111,11 +112,6 @@ func (s *StatusReconciler) updateStatusFields(ctx context.Context) error {
 			// The reconciler controls subclusters that are
 			// part of the same cluster(main cluster or a sandbox)
 			if sbName != s.PFacts.GetSandboxName() {
-				if sc == nil {
-					// It is very unlikely to get here but just in case let's initialize
-					// subcluster[].detail
-					vdbChg.Status.Subclusters[i].Detail = make([]vapi.VerticaDBPodStatus, 0)
-				}
 				continue
 			}
 

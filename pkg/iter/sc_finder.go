@@ -51,13 +51,13 @@ const (
 	// Find will return a list of objects that are sorted by their name
 	FindSorted
 	// Find will return a list of objects without filtering based on the
-	// cluster
-	FindNoClusterFilter
+	// sandbox
+	FindSkipSandboxFilter
 	// Find all subclusters, both in the vdb and not in the vdb.
 	FindAll = FindInVdb | FindNotInVdb
 	// Find all subclusters, both in the vdb and not in the vdb, regardless
-	// of the cluster they belong to.
-	FindAllClusters = FindAll | FindNoClusterFilter
+	// of the sandbox they belong to.
+	FindAllAcrossSandboxes = FindAll | FindSkipSandboxFilter
 )
 
 func MakeSubclusterFinder(cli client.Client, vdb *vapi.VerticaDB) SubclusterFinder {
@@ -121,9 +121,9 @@ func (m *SubclusterFinder) FindSubclusters(ctx context.Context, flags FindFlags,
 
 	if flags&FindInVdb != 0 {
 		// This is true when we want to get all subclusters without any
-		// cluster distinction
-		ignoreCluster := flags&FindNoClusterFilter != 0
-		subclusters = append(subclusters, m.getVdbSubclusters(sandbox, ignoreCluster)...)
+		// sandbox distinction
+		ignoreSandbox := flags&FindSkipSandboxFilter != 0
+		subclusters = append(subclusters, m.getVdbSubclusters(sandbox, ignoreSandbox)...)
 	}
 
 	if flags&FindNotInVdb != 0 || flags&FindExisting != 0 {
@@ -171,7 +171,7 @@ func (m *SubclusterFinder) buildObjList(ctx context.Context, list client.ObjectL
 	if err := listObjectsOwnedByOperator(ctx, m.Client, m.Vdb, list); err != nil {
 		return err
 	}
-	ignoreCluster := flags&FindNoClusterFilter != 0
+	ignoreSandbox := flags&FindSkipSandboxFilter != 0
 	rawObjs := []runtime.Object{}
 	if err := meta.EachListItem(list, func(obj runtime.Object) error {
 		l, err := m.getLabelsFromObject(ctx, obj)
@@ -182,7 +182,7 @@ func (m *SubclusterFinder) buildObjList(ctx context.Context, list client.ObjectL
 			// When FindAll is passed, we want the entire list to be returned,
 			// but still want to filter out objects that do not belong to the given
 			// sandbox or main cluster.
-			if ignoreCluster || !shouldSkipBasedOnSandboxState(l, sandbox) {
+			if ignoreSandbox || !shouldSkipBasedOnSandboxState(l, sandbox) {
 				rawObjs = append(rawObjs, obj)
 			}
 			return nil
@@ -195,7 +195,7 @@ func (m *SubclusterFinder) buildObjList(ctx context.Context, list client.ObjectL
 		}
 
 		// Skip if the object does not belong to the given sandbox
-		if !ignoreCluster && shouldSkipBasedOnSandboxState(l, sandbox) {
+		if !ignoreSandbox && shouldSkipBasedOnSandboxState(l, sandbox) {
 			return nil
 		}
 
@@ -284,13 +284,13 @@ func getStatefulSetOwnerName(pod *corev1.Pod) (types.NamespacedName, error) {
 }
 
 // getVdbSubclusters returns the subclusters that are in the vdb
-func (m *SubclusterFinder) getVdbSubclusters(sandbox string, ignoreCluster bool) []*vapi.Subcluster {
+func (m *SubclusterFinder) getVdbSubclusters(sandbox string, ignoreSandbox bool) []*vapi.Subcluster {
 	subclusters := []*vapi.Subcluster{}
-	scMap := m.Vdb.GetSubclusterSandboxStatusMap()
+	scMap := m.Vdb.GenSubclusterSandboxStatusMap()
 	for i := range m.Vdb.Spec.Subclusters {
 		sc := &m.Vdb.Spec.Subclusters[i]
 		sbName := scMap[sc.Name]
-		if ignoreCluster || sbName == sandbox {
+		if ignoreSandbox || sbName == sandbox {
 			subclusters = append(subclusters, sc)
 		}
 	}
