@@ -11,34 +11,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1
-kind: VerticaDB
-metadata:
-  name: v-sandbox
-spec:
-  subclusters:
-  - name: pri1
-    type: primary
-  - name: sec1
-    type: sandboxprimary
-  - name: sec2
-    type: sandboxprimary
-  - name: sec3
-    type: secondary
-status:
-  sandboxes:
-    - name: sandbox1
-      subclusters:
-        - sec1
-    - name: sandbox2
-      subclusters:
-        - sec2
-  subclusters:
-    - addedToDBCount: 3
-      name: pri1
-    - addedToDBCount: 3
-      name: sec1
-    - addedToDBCount: 3
-      name: sec2
-    - addedToDBCount: 1
-      name: sec3
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - command: bash -c "../../../scripts/wait-for-verticadb-steady-state.sh -n verticadb-operator -t 360 $NAMESPACE"

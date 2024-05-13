@@ -13,39 +13,27 @@
 
 apiVersion: v1
 kind: Event
-reason: SandboxSubclusterSucceeded
+reason: ReplicationStarted
 source:
   component: verticadb-operator
 involvedObject:
-  apiVersion: vertica.com/v1
-  kind: VerticaDB
-  name: v-sandbox
+  apiVersion: vertica.com/v1beta1
+  kind: VerticaReplicator
+  name: vrep-test-empty
 ---
-apiVersion: vertica.com/v1
-kind: VerticaDB
+apiVersion: v1
+kind: Event
+reason: ReplicationSucceeded
+source:
+  component: verticadb-operator
+involvedObject:
+  apiVersion: vertica.com/v1beta1
+  kind: VerticaReplicator
+  name: vrep-test-empty
+---
+apiVersion: vertica.com/v1beta1
+kind: VerticaReplicator
 metadata:
-  name: v-sandbox
-spec:
-  subclusters:
-  - name: pri1
-    type: primary
-  - name: sec1
-    type: sandboxprimary
-  - name: sec2
-    type: secondary
-  - name: sec3
-    type: secondary
+  name: vrep-test-empty
 status:
-  sandboxes:
-    - name: sandbox1
-      subclusters:
-        - sec1
-  subclusters:
-    - addedToDBCount: 3
-      name: pri1
-    - addedToDBCount: 3
-      name: sec1
-    - addedToDBCount: 3
-      name: sec2
-    - addedToDBCount: 1
-      name: sec3
+  state: "Replication successful"

@@ -70,6 +70,49 @@ var _ = Describe("status_reconcile", func() {
 		Expect(stat.SubclusterCount).Should(Equal(int32(1)))
 	})
 
+	It("Should not remove sandboxed subclusters status", func() {
+		vdb := vapi.MakeVDB()
+		scNames := []string{"sc1", "sc2"}
+		scSizes := []int32{1, 2}
+		const sbName = "sand"
+		vdb.Spec.Subclusters = []vapi.Subcluster{
+			{Name: scNames[0], Size: scSizes[0]},
+			{Name: scNames[1], Size: scSizes[1]},
+		}
+		test.CreateVDB(ctx, k8sClient, vdb)
+		defer test.DeleteVDB(ctx, k8sClient, vdb)
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
+
+		vdb.Status.Sandboxes = []vapi.SandboxStatus{
+			{Name: sbName, Subclusters: scNames[1:]},
+		}
+		vdb.Status.Subclusters = []vapi.SubclusterStatus{
+			{Name: scNames[1], AddedToDBCount: scSizes[1], Detail: []vapi.VerticaDBPodStatus{
+				{Installed: true, AddedToDB: true},
+				{Installed: true, AddedToDB: true},
+			}, UpNodeCount: scSizes[1]},
+		}
+		Expect(k8sClient.Status().Update(ctx, vdb)).Should(Succeed())
+
+		fpr := &cmds.FakePodRunner{}
+		pfacts := createPodFactsDefault(fpr)
+		r := MakeStatusReconciler(k8sClient, scheme.Scheme, logger, vdb, pfacts)
+		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
+
+		fetchVdb := &vapi.VerticaDB{}
+		Expect(k8sClient.Get(ctx, vapi.MakeVDBName(), fetchVdb)).Should(Succeed())
+		Expect(len(fetchVdb.Status.Sandboxes)).Should(Equal(1))
+		Expect(len(fetchVdb.Status.Subclusters)).Should(Equal(2))
+		Expect(fetchVdb.Status.Subclusters[0].InstallCount()).Should(Equal(int32(1)))
+		Expect(fetchVdb.Status.Subclusters[0].AddedToDBCount).Should(Equal(int32(1)))
+		Expect(fetchVdb.Status.Subclusters[0].UpNodeCount).Should(Equal(int32(1)))
+		Expect(fetchVdb.Status.Subclusters[1].InstallCount()).Should(Equal(int32(2)))
+		Expect(fetchVdb.Status.Subclusters[1].AddedToDBCount).Should(Equal(int32(2)))
+		Expect(fetchVdb.Status.Subclusters[1].UpNodeCount).Should(Equal(int32(2)))
+
+	})
+
 	It("should handle multiple subclusters", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Spec.Subclusters[0].Size = 1

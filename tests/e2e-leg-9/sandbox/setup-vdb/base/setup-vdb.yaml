@@ -36,6 +36,9 @@ spec:
     - name: sec2
       size: 3
       type: secondary
+    - name: sec3
+      size: 1
+      type: secondary
   certSecrets: []
   imagePullSecrets: []
   volumes: []
