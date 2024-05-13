@@ -40,3 +40,12 @@ status:
     - name: sandbox1
       subclusters:
         - sec1
+  subclusters:
+    - addedToDBCount: 3
+      name: pri1
+    - addedToDBCount: 3
+      name: sec1
+    - addedToDBCount: 3
+      name: sec2
+    - addedToDBCount: 1
+      name: sec3
