@@ -750,8 +750,8 @@ func (p *PodFacts) checkIsDBCreated(_ context.Context, vdb *vapi.VerticaDB, pf *
 		return nil
 	}
 	// It can happen that gs.DBExists is false because the catalog dir
-	// has been deleted after unsandbox. In that we use the subcluster
-	// status
+	// has been deleted after unsandbox. In that case we use the subcluster
+	// status too to set dbExists in the pod facts.
 	pf.dbExists = gs.DBExists || dbExistsFromStatus
 	pf.vnodeName = gs.VNodeName
 	return nil
