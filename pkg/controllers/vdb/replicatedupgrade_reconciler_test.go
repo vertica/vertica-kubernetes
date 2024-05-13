@@ -242,6 +242,7 @@ var _ = Describe("replicatedupgrade_reconciler", func() {
 		rr := createReplicatedUpgradeReconciler(ctx, vdb)
 		Ω(rr.assignSubclustersToReplicaGroupB(ctx)).Should(Equal(ctrl.Result{}))
 		Ω(rr.sandboxReplicaGroupB(ctx)).Should(Equal(ctrl.Result{}))
+		mockCompletionOfSandbox(ctx, vdb)
 
 		Ω(k8sClient.Get(ctx, vdb.ExtractNamespacedName(), vdb)).Should(Succeed())
 		Ω(vdb.Spec.Sandboxes).Should(HaveLen(1))
