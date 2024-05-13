@@ -733,6 +733,7 @@ func (p *PodFacts) checkIsDBCreated(_ context.Context, vdb *vapi.VerticaDB, pf *
 	pf.dbExists = false
 
 	scs, ok := vdb.FindSubclusterStatus(pf.subclusterName)
+	dbExistsFromStatus := false
 	if ok {
 		// Set the db exists indicator first based on the count in the status
 		// field.  We continue to check the path as we do that to figure out the
@@ -741,13 +742,17 @@ func (p *PodFacts) checkIsDBCreated(_ context.Context, vdb *vapi.VerticaDB, pf *
 		// Inherit the vnode name if present
 		if int(pf.podIndex) < len(scs.Detail) {
 			pf.vnodeName = scs.Detail[pf.podIndex].VNodeName
+			dbExistsFromStatus = scs.Detail[pf.podIndex].AddedToDB
 		}
 	}
 	// Nothing else can be gathered if the pod isn't running.
 	if !pf.isPodRunning {
 		return nil
 	}
-	pf.dbExists = gs.DBExists
+	// It can happen that gs.DBExists is false because the catalog dir
+	// has been deleted after unsandbox. In that we use the subcluster
+	// status
+	pf.dbExists = gs.DBExists || dbExistsFromStatus
 	pf.vnodeName = gs.VNodeName
 	return nil
 }
