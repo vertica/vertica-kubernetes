@@ -195,6 +195,9 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 			ObjReconcileModePreserveScaling|ObjReconcileModePreserveUpdateStrategy),
 		// Add annotations/labels to each pod about the host running them
 		MakeAnnotateAndLabelPodReconciler(r, log, vdb, pfacts),
+		// For any sandboxes with an empty image, set the image to be equal
+		// to the one in spec.image field.
+		MakeSandboxImageReconciler(r, log, vdb),
 		// Handles vertica server upgrade (i.e., when spec.image changes)
 		MakeOfflineUpgradeReconciler(r, log, vdb, prunner, pfacts, dispatcher),
 		MakeOnlineUpgradeReconciler(r, log, vdb, prunner, pfacts, dispatcher),
