@@ -17,4 +17,4 @@ commands:
   - script: |-
       mainImage="$(kubectl get vdb v-sandbox -o json -n $NAMESPACE | jq -r '.spec.image')"
       sbImage="$(kubectl get vdb v-sandbox -o json -n $NAMESPACE | jq -r '.spec.sandboxes[] | select(.name=="sandbox1") | .image')"
-      [[ "$mainImage" == "$sbImage" ]] && echo "sandbox and maincluster have the same image" || exit 1
+      if [[ "$mainImage" == "$sbImage" ]]; then  echo "sandbox and maincluster have the same image"; else exit 1; fi
