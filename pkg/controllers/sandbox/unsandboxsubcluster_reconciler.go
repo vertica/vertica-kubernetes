@@ -76,7 +76,9 @@ func (r *UnsandboxSubclusterReconciler) Reconcile(ctx context.Context, _ *ctrl.R
 	}
 
 	// reconcile sandbox status for the subclusters that are already unsandboxed
-	r.reconcileSandboxInfoInVdb(ctx)
+	if err := r.reconcileSandboxInfoInVdb(ctx); err != nil {
+		return ctrl.Result{}, err
+	}
 
 	// reconcile the sandbox config map if it expires
 	err, deleted := r.reconcileSandboxConfigMap(ctx)
@@ -97,7 +99,7 @@ func (r *UnsandboxSubclusterReconciler) Reconcile(ctx context.Context, _ *ctrl.R
 }
 
 // reconcileSandboxStatus will update vdb for the subclusters that are already unsandboxed
-func (r *UnsandboxSubclusterReconciler) reconcileSandboxInfoInVdb(ctx context.Context) {
+func (r *UnsandboxSubclusterReconciler) reconcileSandboxInfoInVdb(ctx context.Context) error {
 	scSbInStatus := r.Vdb.GenSubclusterSandboxStatusMap()
 	sbScMap := r.PFacts.FindUnsandboxedSubclustersStillInSandboxStatus(scSbInStatus)
 	for sb, scs := range sbScMap {
@@ -105,10 +107,13 @@ func (r *UnsandboxSubclusterReconciler) reconcileSandboxInfoInVdb(ctx context.Co
 			err := r.updateSandboxInfoInVdb(ctx, sb, scs)
 			if err != nil {
 				r.Log.Info("failed to update sandbox status", "sandbox", sb, "new subclusters", scs)
+				return err
 			}
 			break
 		}
 	}
+
+	return nil
 }
 
 // reconcileSandboxConfigMap will update/delete sandbox config map if it expires, this function will return

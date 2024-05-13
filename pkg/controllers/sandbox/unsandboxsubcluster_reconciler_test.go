@@ -107,7 +107,7 @@ var _ = Describe("sandboxsubcluster_reconcile", func() {
 			{Name: sandbox1, Subclusters: []string{subcluster1}},
 		}
 		Expect(k8sClient.Status().Update(ctx, vdb)).Should(Succeed())
-		r.reconcileSandboxInfoInVdb(ctx)
+		Expect(r.reconcileSandboxInfoInVdb(ctx)).Should(BeNil())
 
 		// sandbox status should be updated
 		newVdb := &vapi.VerticaDB{}
