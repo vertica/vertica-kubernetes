@@ -73,16 +73,16 @@ func (s *StatusReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl
 
 // updateStatusFields will refresh the status fields in the vdb
 func (s *StatusReconciler) updateStatusFields(ctx context.Context) error {
-	// Use all subclusters regardless of the sandbox they belong to,
-	// even ones that are scheduled for removal. We keep
-	// reporting status on the deleted ones until the statefulsets are gone.
 	finder := iter.MakeSubclusterFinder(s.Client, s.Vdb)
-	subclusters, err := finder.FindSubclusters(ctx, iter.FindAllAcrossSandboxes, s.PFacts.GetSandboxName())
-	if err != nil {
-		return err
-	}
 
 	refreshStatus := func(vdbChg *vapi.VerticaDB) error {
+		// Use all subclusters regardless of the sandbox they belong to,
+		// even ones that are scheduled for removal. We keep
+		// reporting status on the deleted ones until the statefulsets are gone.
+		subclusters, err := finder.FindSubclusters(ctx, iter.FindAllAcrossSandboxes, s.PFacts.GetSandboxName())
+		if err != nil {
+			return err
+		}
 		scSbMap := s.Vdb.GenSubclusterSandboxStatusMap()
 		scMap := s.Vdb.GenSubclusterStatusMap()
 		vdbChg.Status.Subclusters = []vapi.SubclusterStatus{}
