@@ -285,13 +285,16 @@ func (r *ReplicatedUpgradeReconciler) postSandboxSubclustersMsg(ctx context.Cont
 
 // sandboxReplicaGroupB will move all of the subclusters in replica B to a new sandbox
 func (r *ReplicatedUpgradeReconciler) sandboxReplicaGroupB(ctx context.Context) (ctrl.Result, error) {
-	// We can skip this step if the replica sandbox is already created.
+	// We can skip this step if the replica sandbox is already created and fully
+	// sandboxed (according to status).
 	if r.sandboxName != "" && r.VDB.GetSandboxStatus(r.sandboxName) != nil {
 		return ctrl.Result{}, nil
 	}
 
 	r.Log.Info("Start sandbox of replica group B", "sandboxName", r.sandboxName)
 
+	// If the sandbox is not yet created, update the VDB. We can skip this if we
+	// are simply waiting for the sandbox to complete.
 	if r.sandboxName == "" {
 		_, err := vk8s.UpdateVDBWithRetry(ctx, r.VRec, r.VDB, r.moveReplicaGroupBSubclusterToSandbox)
 		if err != nil {
@@ -361,7 +364,10 @@ func (r *ReplicatedUpgradeReconciler) upgradeSandbox(ctx context.Context) (ctrl.
 		}
 		sbPFacts.Invalidate()
 	}
-	return ctrl.Result{}, nil
+
+	act := MakeSandboxUpgradeReconciler(r.VRec, r.Log, r.VDB)
+	r.Manager.traceActorReconcile(act)
+	return act.Reconcile(ctx, &ctrl.Request{})
 }
 
 // waitForSandboxUpgrade will wait for the sandbox upgrade to finish. It will
@@ -822,7 +828,8 @@ func (r *ReplicatedUpgradeReconciler) duplicateSubclusterForReplicaGroupB(
 	newSc.Type = vapi.SecondarySubcluster
 	// Copy over the service name and all fields related to the service object.
 	// They have to be the same. The client-routing label will be left off of
-	// the sandbox pods. So, no traffic will hit them until they are added.
+	// the sandbox pods. So, no traffic will hit them until they are added (see
+	// MakeClientRoutingLabelReconciler).
 	newSc.ServiceType = baseSc.ServiceType
 	newSc.ClientNodePort = baseSc.ClientNodePort
 	newSc.ExternalIPs = baseSc.ExternalIPs
@@ -866,12 +873,15 @@ func (r *ReplicatedUpgradeReconciler) redirectConnectionsForSubcluster(ctx conte
 		return ctrl.Result{}, errors.New("sandbox name not cached")
 	}
 
-	// When directing primary->primary, we rely on the shared service object to
-	// route traffic to the sandbox. This works because the primary in the
-	// sandbox will own the service object anyway. But for secondaries, we need
-	// to setup temporary routing in the service object. We do this by picking a
-	// different set of labels. This will revert back once we create the
-	// secondaries in replica group B at the end of upgrade.
+	// For primary nodes, we avoid temporary routing. When new subclusters are
+	// added to replicate the primaries, they inherit the same service level
+	// information, sharing the same service object. However, for secondary
+	// nodes, the secondaries in replica group B have not been created yet.
+	// Therefore, temporary routing needs to be established. This routing
+	// involves selecting one of the primary subclusters using the
+	// vertica.com/subcluster-selector-name label. After promoting the sandbox
+	// to the main cluster, we will recreate the secondaries. At that point,
+	// we will remove the temporary routing and set up the final configurations.
 	if !sourceSc.IsPrimary() {
 		selectorLabels := builder.MakeSvcSelectorLabelsForSubclusterNameRouting(r.VDB, targetSc)
 		// The service object that we manipulate will always be from the main

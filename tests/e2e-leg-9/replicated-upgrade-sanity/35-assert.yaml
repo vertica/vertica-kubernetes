@@ -31,5 +31,5 @@ spec:
   subclusters:
   - name: pri1
   - name: pri1-sb
-    type: secondary
+    type: sandboxprimary
     size: 3
