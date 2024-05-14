@@ -11,25 +11,5 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: apps/v1
-kind: StatefulSet
-metadata:
-  name: v-base-upgrade-pri1-sb
-  annotations:
-    vertica.com/statefulset-name-override: "v-base-upgrade-pri1-sb"
-  labels:
-    vertica.com/sandbox: replica-group-b
-status:
-  currentReplicas: 3
-  readyReplicas: 3
----
-apiVersion: vertica.com/v1
-kind: VerticaDB
-metadata:
-  name: v-base-upgrade
-spec:
-  subclusters:
-  - name: pri1
-  - name: pri1-sb
-    type: sandboxprimary
-    size: 3
+resources:
+  - verify-sandbox-connection.yaml
