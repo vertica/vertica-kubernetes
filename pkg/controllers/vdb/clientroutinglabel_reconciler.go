@@ -112,6 +112,7 @@ func (c *ClientRoutingLabelReconciler) reconcilePod(ctx context.Context, pn type
 		if err != nil {
 			return err
 		}
+		c.Log.Info("pod has been patched", "name", pod.Name, "labels", pod.Labels)
 
 		if c.ApplyMethod == AddNodeApplyMethod && c.Vdb.IsEON() && pf.upNode && pf.shardSubscriptions == 0 && !pf.isPendingDelete {
 			c.Log.Info("Will requeue reconciliation because pod does not have any shard subscriptions yet", "name", pf.name)
