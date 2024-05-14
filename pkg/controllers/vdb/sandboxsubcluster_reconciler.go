@@ -196,18 +196,24 @@ func (s *SandboxSubclusterReconciler) executeSandboxCommand(ctx context.Context,
 				return res, errors.Join(err, s.updateSandboxStatus(ctx, succeedSbScMap))
 			}
 			succeedSbScMap[sb] = append(succeedSbScMap[sb], sc)
-			// create/update a sandbox config map
-			if _, ok := seenSandboxes[sb]; !ok {
-				err = s.checkSandboxConfigMap(ctx, sb)
-				if err != nil {
-					// when creating/updating sandbox config map failed, update sandbox status and return error
-					return ctrl.Result{}, errors.Join(err, s.updateSandboxStatus(ctx, succeedSbScMap))
-				}
-			}
 			seenSandboxes[sb] = struct{}{}
 		}
 	}
-	return ctrl.Result{}, s.updateSandboxStatus(ctx, succeedSbScMap)
+	err := s.updateSandboxStatus(ctx, succeedSbScMap)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	// create/update a sandbox config map
+	for sb := range seenSandboxes {
+		err := s.checkSandboxConfigMap(ctx, sb)
+		if err != nil {
+			// when creating/updating sandbox config map failed, update sandbox status and return error
+			return ctrl.Result{}, err
+		}
+	}
+
+	return ctrl.Result{}, nil
 }
 
 // findInitiatorIPs returns the IPs to pass down to vclusterops as the initiator
