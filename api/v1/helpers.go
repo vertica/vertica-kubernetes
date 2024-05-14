@@ -191,6 +191,37 @@ func (v *VerticaDB) GenSubclusterSandboxMap() map[string]string {
 	return scSbMap
 }
 
+// GenSubclusterSandboxStatusMap will scan sandbox status and return a map
+// with subcluster name as the key and sandbox name as the value
+func (v *VerticaDB) GenSubclusterSandboxStatusMap() map[string]string {
+	scSbMap := make(map[string]string)
+	for i := range v.Status.Sandboxes {
+		sb := &v.Status.Sandboxes[i]
+		for _, sc := range sb.Subclusters {
+			scSbMap[sc] = sb.Name
+		}
+	}
+	return scSbMap
+}
+
+// GenSandboxSubclusterMapForUnsandbox will compare sandbox status and spec
+// for finding subclusters that need to be unsandboxed, this function returns a map
+// with sandbox name as the key and its subclusters (need to be unsandboxed) as the value
+func (v *VerticaDB) GenSandboxSubclusterMapForUnsandbox() map[string][]string {
+	unsandboxSbScMap := make(map[string][]string)
+	vdbScSbMap := v.GenSubclusterSandboxMap()
+	statusScSbMap := v.GenSubclusterSandboxStatusMap()
+	for sc, sbInStatus := range statusScSbMap {
+		sbInVdb, found := vdbScSbMap[sc]
+		// if a subcluster is removed or put into another sandbox in spec.sandboxes,
+		// we need to unsandbox the subcluster
+		if !found || sbInVdb != sbInStatus {
+			unsandboxSbScMap[sbInStatus] = append(unsandboxSbScMap[sbInStatus], sc)
+		}
+	}
+	return unsandboxSbScMap
+}
+
 // GenSubclusterIndexMap will organize all of the subclusters into a map so we
 // can quickly find its index in the spec.subclusters[] array.
 func (v *VerticaDB) GenSubclusterIndexMap() map[string]int {
@@ -836,19 +867,6 @@ func (v *VerticaDB) IsHTTPSTLSConfGenerationEnabled() (bool, error) {
 		return false, err
 	}
 	return !inf.IsEqualOrNewer(AutoGenerateHTTPSCertsForNewDatabasesMinVersion), nil
-}
-
-// GenSubclusterSandboxStatusMap returns a map that contains sandboxed
-// subclusters
-func (v *VerticaDB) GenSubclusterSandboxStatusMap() map[string]string {
-	scMap := map[string]string{}
-	for i := range v.Status.Sandboxes {
-		sb := &v.Status.Sandboxes[i]
-		for _, sc := range sb.Subclusters {
-			scMap[sc] = sb.Name
-		}
-	}
-	return scMap
 }
 
 // GenSubclusterStatusMap returns a map that has a subcluster name as key
