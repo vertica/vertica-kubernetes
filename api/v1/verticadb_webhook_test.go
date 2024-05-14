@@ -470,6 +470,31 @@ var _ = Describe("verticadb_webhook", func() {
 		Expect(vdb.Spec.Communal.Endpoint).Should(Equal(DefaultGCloudEndpoint))
 	})
 
+	It("should fill in the default sandbox image if omitted", func() {
+		vdb := MakeVDB()
+		const (
+			sb1 = "sb1"
+			sb2 = "sb2"
+			sb3 = "sb3"
+			img = "vertica:test"
+		)
+		vdb.Spec.Subclusters = []Subcluster{
+			{Name: "default", Size: 1, Type: PrimarySubcluster},
+			{Name: "sc1", Size: 1, Type: SecondarySubcluster},
+			{Name: "sc2", Size: 1, Type: SecondarySubcluster},
+			{Name: "sc3", Size: 1, Type: SecondarySubcluster},
+		}
+		vdb.Spec.Sandboxes = []Sandbox{
+			{Name: sb1, Image: img, Subclusters: []SubclusterName{{Name: vdb.Spec.Subclusters[1].Name}}},
+			{Name: sb2, Subclusters: []SubclusterName{{Name: vdb.Spec.Subclusters[2].Name}}},
+			{Name: sb3, Subclusters: []SubclusterName{{Name: vdb.Spec.Subclusters[3].Name}}},
+		}
+		vdb.Default()
+		Expect(vdb.Spec.Sandboxes[0].Image).Should(Equal(img))
+		Expect(vdb.Spec.Sandboxes[1].Image).Should(Equal(vdb.Spec.Image))
+		Expect(vdb.Spec.Sandboxes[2].Image).Should(Equal(vdb.Spec.Image))
+	})
+
 	It("should prevent volumeMount paths to use same path as internal mount points", func() {
 		vdb := createVDBHelper()
 		vdb.Spec.VolumeMounts = []v1.VolumeMount{
