@@ -95,6 +95,7 @@ func (v *VerticaDB) Default() {
 		v.Spec.TemporarySubclusterRouting.Template.Type = SecondarySubcluster
 	}
 	v.setDefaultServiceName()
+	v.setDefaultSandboxImages()
 }
 
 var _ webhook.Validator = &VerticaDB{}
@@ -1703,6 +1704,17 @@ func (v *VerticaDB) setDefaultServiceName() {
 		sc := &v.Spec.Subclusters[i]
 		if sc.ServiceName == "" {
 			sc.ServiceName = sc.GetServiceName()
+		}
+	}
+}
+
+// setDefaultSandboxImages will explicitly set the image in any sandbox
+// that omitted it
+func (v *VerticaDB) setDefaultSandboxImages() {
+	for i := range v.Spec.Sandboxes {
+		sb := &v.Spec.Sandboxes[i]
+		if sb.Image == "" {
+			sb.Image = v.Spec.Image
 		}
 	}
 }
