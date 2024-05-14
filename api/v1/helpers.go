@@ -869,19 +869,6 @@ func (v *VerticaDB) IsHTTPSTLSConfGenerationEnabled() (bool, error) {
 	return !inf.IsEqualOrNewer(AutoGenerateHTTPSCertsForNewDatabasesMinVersion), nil
 }
 
-// GenSubclusterSandboxStatusMap returns a map that contains sandboxed
-// subclusters
-func (v *VerticaDB) GenSubclusterSandboxStatusMap() map[string]string {
-	scMap := map[string]string{}
-	for i := range v.Status.Sandboxes {
-		sb := &v.Status.Sandboxes[i]
-		for _, sc := range sb.Subclusters {
-			scMap[sc] = sb.Name
-		}
-	}
-	return scMap
-}
-
 // GenSubclusterStatusMap returns a map that has a subcluster name as key
 // and its status as value
 func (v *VerticaDB) GenSubclusterStatusMap() map[string]*SubclusterStatus {
