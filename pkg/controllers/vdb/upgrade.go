@@ -595,10 +595,10 @@ func (i *UpgradeManager) getTargetImage(sandbox string) (string, error) {
 	}
 	// if the target cluster is a sandbox, the target image
 	// is the one set for that specific sandbox
-	if sb.Image != "" {
-		return sb.Image, nil
+	if sb.Image == "" {
+		return "", fmt.Errorf("could not find image for sandbox %q", sandbox)
 	}
-	return i.Vdb.Spec.Image, nil
+	return sb.Image, nil
 }
 
 // isPrimary returns true if the subcluster is primary
