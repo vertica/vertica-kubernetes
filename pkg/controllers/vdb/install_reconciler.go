@@ -240,7 +240,7 @@ func (d *InstallReconciler) getInstallTargets(ctx context.Context) ([]*PodFact, 
 			if !ok {
 				break
 			}
-			if v.isInstalled || v.dbExists {
+			if v.isInstalled || v.doesDBExist(true) {
 				continue
 			}
 			// To ensure we only install pods in pod-index order, we stop the

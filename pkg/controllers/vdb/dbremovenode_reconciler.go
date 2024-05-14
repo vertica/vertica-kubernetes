@@ -189,13 +189,13 @@ func (d *DBRemoveNodeReconciler) findPodsSuitableForScaleDown(sc *vapi.Subcluste
 			requeueNeeded = true
 			continue
 		}
-		if podFact.dbExists && !podFact.isPodRunning {
+		if podFact.doesDBExist(true) && !podFact.isPodRunning {
 			d.Log.Info("Pod requires scale down but isn't running yet", "pod", removeNodePod)
 			requeueNeeded = true
 			continue
 		}
 		// Fine to skip if we never added a database to this pod
-		if !podFact.dbExists {
+		if !podFact.doesDBExist(true) {
 			continue
 		}
 		pods = append(pods, podFact)
