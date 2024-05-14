@@ -41,6 +41,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/showrestorepoints"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/startdb"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/stopdb"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/unsandboxsc"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -105,6 +106,9 @@ type Dispatcher interface {
 
 	// SandboxSubcluster will add a subcluster in a sandbox of the database
 	SandboxSubcluster(ctx context.Context, opts ...sandboxsc.Option) error
+
+	// UnsandboxSubcluster will move a subcluster from a sandbox to main cluster
+	UnsandboxSubcluster(ctx context.Context, opts ...unsandboxsc.Option) error
 }
 
 const (
@@ -230,4 +234,5 @@ type VClusterProvider interface {
 	VReplicateDatabase(options *vops.VReplicationDatabaseOptions) error
 	VFetchNodesDetails(options *vops.VFetchNodesDetailsOptions) (vops.NodesDetails, error)
 	VSandbox(options *vops.VSandboxOptions) error
+	VUnsandbox(options *vops.VUnsandboxOptions) error
 }

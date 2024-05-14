@@ -11,6 +11,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+apiVersion: v1
+kind: Event
+reason: UnsandboxSubclusterSucceeded
+source:
+  component: verticadb-operator
+involvedObject:
+  apiVersion: vertica.com/v1
+  kind: VerticaDB
+  name: v-sandbox
+---
 apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
@@ -22,7 +32,7 @@ spec:
   - name: sec1
     type: sandboxprimary
   - name: sec2
-    type: sandboxprimary
+    type: secondary
   - name: sec3
     type: secondary
 status:
@@ -31,15 +41,23 @@ status:
       subclusters:
         - sec1
         - sec3
-    - name: sandbox2
-      subclusters:
-        - sec2
-  subclusters:
-    - addedToDBCount: 3
-      name: pri1
-    - addedToDBCount: 3
-      name: sec1
-    - addedToDBCount: 3
-      name: sec2
-    - addedToDBCount: 1
-      name: sec3
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: v-sandbox-sec1
+  labels:
+    vertica.com/sandbox: sandbox1
+status:
+  readyReplicas: 3
+  replicas: 3
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: v-sandbox-sec3
+  labels:
+    vertica.com/sandbox: sandbox1
+status:
+  readyReplicas: 1
+  replicas: 1

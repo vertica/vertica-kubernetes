@@ -1164,3 +1164,38 @@ func checkIfNodeUpCmd(podIP string) string {
 	curlCmd := "curl -k -s -o /dev/null -w '%{http_code}'"
 	return fmt.Sprintf("%s %s", curlCmd, url)
 }
+
+// FindFirstPrimaryUpPodIP returns the ip of first pod that
+// has a primary up Vertica node, and a boolean that indicates
+// if we found such a pod
+func (p *PodFacts) FindFirstPrimaryUpPodIP() (string, bool) {
+	initiator, ok := p.findFirstPodSorted(func(v *PodFact) bool {
+		return v.sandbox == vapi.MainCluster && v.isPrimary && v.upNode
+	})
+	if initiator == nil {
+		return "", false
+	}
+	return initiator.podIP, ok
+}
+
+// FindUnsandboxedSubclustersStillInSandboxStatus returns a sandbox-subclusters map
+// that contains subclusters which has been unsandboxed but hasn't been removed
+// from sandbox status of VDB. In pod facts, we can get the latest sandbox info from
+// the /nodes endpoint which reflects the latest version from the catalog. We compare
+// the sandbox info in each pod with the sandbox info in vdb to know which subcluster
+// has been unsandboxed but not reflected on vdb.
+func (p *PodFacts) FindUnsandboxedSubclustersStillInSandboxStatus(scSbInVdbStatus map[string]string) map[string][]string {
+	sbScMap := make(map[string][]string)
+	seenScs := make(map[string]any)
+	for _, v := range p.Detail {
+		if _, ok := seenScs[v.subclusterName]; ok {
+			continue
+		}
+		sb, foundScInSbStatus := scSbInVdbStatus[v.subclusterName]
+		if foundScInSbStatus && v.sandbox == vapi.MainCluster {
+			sbScMap[sb] = append(sbScMap[sb], v.subclusterName)
+		}
+		seenScs[v.subclusterName] = struct{}{}
+	}
+	return sbScMap
+}
