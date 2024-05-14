@@ -121,14 +121,14 @@ func (r *SandboxConfigMapReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	if res, err = vk8s.FetchVDB(ctx, r, configMap, nm, vdb); verrors.IsReconcileAborted(res, err) {
 		return res, err
 	}
-	log = log.WithValues("verticadb", vdb.Name)
+	sandboxName := configMap.Data[v1.SandboxNameKey]
+	log = log.WithValues("verticadb", vdb.Name, "sandbox", sandboxName)
 
 	passwd, err := vk8s.GetSuperuserPassword(ctx, r.Client, log, r, vdb)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 	prunner := cmds.MakeClusterPodRunner(log, r.Cfg, vdb.GetVerticaUser(), passwd)
-	sandboxName := configMap.Data[v1.SandboxNameKey]
 	pfacts := vdbcontroller.MakePodFactsForSandbox(r, prunner, log, passwd, sandboxName)
 	dispatcher := vadmin.MakeVClusterOps(log, vdb, r.Client, passwd, r.EVRec, vadmin.SetupVClusterOps)
 
@@ -154,9 +154,15 @@ func (r *SandboxConfigMapReconciler) constructActors(vdb *v1.VerticaDB, log logr
 	prunner *cmds.ClusterPodRunner, pfacts *vdbcontroller.PodFacts, dispatcher vadmin.Dispatcher) []controllers.ReconcileActor {
 	// The actors that will be applied, in sequence, to reconcile a sandbox configmap.
 	return []controllers.ReconcileActor{
+		// Ensure we support sandboxing and vclusterops
 		MakeVerifyDeploymentReconciler(r, vdb, log),
+		// Update the vdb status for the sandbox nodes/pods
 		vdbcontroller.MakeStatusReconciler(r.Client, r.Scheme, log, vdb, pfacts),
+		// Upgrade the sandbox using the offline method
 		vdbcontroller.MakeOfflineUpgradeReconciler(r, log, vdb, prunner, pfacts, dispatcher),
+		// Add annotations/labels to each pod about the host running them
+		vdbcontroller.MakeAnnotateAndLabelPodReconciler(r, log, vdb, pfacts),
+		// Restart any down pods
 		vdbcontroller.MakeRestartReconciler(r, log, vdb, prunner, pfacts, true, dispatcher),
 	}
 }
@@ -287,9 +293,12 @@ func (r *SandboxConfigMapReconciler) findObjectsForStatesulSet(sts client.Object
 // a sandbox and a verticaDB
 func validateConfigMapData(cm *corev1.ConfigMap) error {
 	_, hasVDBName := cm.Data[v1.VerticaDBNameKey]
-	_, hasSandbox := cm.Data[v1.SandboxNameKey]
+	sandbox, hasSandbox := cm.Data[v1.SandboxNameKey]
 	if !hasVDBName || !hasSandbox {
 		return fmt.Errorf("configmap data must contain '%q' and '%q'", v1.VerticaDBNameKey, v1.SandboxNameKey)
+	}
+	if sandbox == v1.MainCluster {
+		return fmt.Errorf("configmap sandbox must be set")
 	}
 	return nil
 }

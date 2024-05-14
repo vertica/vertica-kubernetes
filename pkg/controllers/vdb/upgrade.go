@@ -177,8 +177,12 @@ func (i *UpgradeManager) finishUpgrade(ctx context.Context, sbName string) (ctrl
 		return ctrl.Result{}, err
 	}
 
-	if err := i.clearReplicatedUpgradeAnnotations(ctx); err != nil {
-		return ctrl.Result{}, err
+	// The state for replicated upgrade only is cleared when upgrading the main
+	// cluster. You cannot use replicated upgrade for an upgrade of a sandbox.
+	if sbName == vapi.MainCluster {
+		if err := i.clearReplicatedUpgradeAnnotations(ctx); err != nil {
+			return ctrl.Result{}, err
+		}
 	}
 
 	if err := i.toggleUpgradeInProgress(ctx, metav1.ConditionFalse, sbName); err != nil {
@@ -345,6 +349,7 @@ func (i *UpgradeManager) updateImageInStatefulSet(ctx context.Context, sts *apps
 // number of pods that were deleted.  Callers can control whether to delete pods
 // for a specific subcluster or all -- passing an empty string for scName will delete all.
 func (i *UpgradeManager) deletePodsRunningOldImage(ctx context.Context, scName, sandbox string) (int, error) {
+	i.Log.Info("deleting pods with old image", "sandbox", sandbox, "scName", scName)
 	numPodsDeleted := 0 // Tracks the number of pods that were deleted
 
 	// We use FindExisting for the finder because we only want to work with pods
