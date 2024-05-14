@@ -63,8 +63,8 @@ var _ = Describe("sandboxupgrade_reconciler", func() {
 		cm := &corev1.ConfigMap{}
 		nm := names.GenSandboxConfigMapName(vdb, sandbox1)
 		Expect(k8sClient.Get(ctx, nm, cm)).Should(Succeed())
-		Expect(cm.Annotations[vmeta.SandboxControllerTriggerID]).ShouldNot(Equal(""))
-		Expect(cm.Annotations[vmeta.SandboxControllerTriggerID]).ShouldNot(Equal(tID))
+		Expect(cm.Annotations[vmeta.SandboxControllerUpgradeTriggerID]).ShouldNot(Equal(""))
+		Expect(cm.Annotations[vmeta.SandboxControllerUpgradeTriggerID]).ShouldNot(Equal(tID))
 	})
 
 	It("should exit without error", func() {
