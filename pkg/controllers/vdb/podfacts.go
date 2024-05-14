@@ -732,14 +732,8 @@ func (p *PodFacts) getEnvValueFromPod(cnt *corev1.Container, envName string) (st
 func (p *PodFacts) checkIsDBCreated(_ context.Context, vdb *vapi.VerticaDB, pf *PodFact, gs *GatherState) error {
 	pf.dbExists = false
 
-	// The gather state is empty if the pod isn't running.
-	if pf.isPodRunning {
-		pf.dbExists = gs.DBExists
-		pf.vnodeName = gs.VNodeName
-	}
-
-	// Overwrite dbExists and vnodeName from state found in the vdb.status. We
-	// cannot always trust on disk. When a pod is unsandboxed, the catalog is
+	// Set dbExists and vnodeName from state found in the vdb.status. We
+	// cannot always trust the state on disk. When a pod is unsandboxed, the catalog is
 	// removed for instance.
 	scs, ok := vdb.FindSubclusterStatus(pf.subclusterName)
 	if ok {
@@ -752,6 +746,15 @@ func (p *PodFacts) checkIsDBCreated(_ context.Context, vdb *vapi.VerticaDB, pf *
 			pf.vnodeName = scs.Detail[pf.podIndex].VNodeName
 			pf.dbExists = scs.Detail[pf.podIndex].AddedToDB
 		}
+	}
+	// The gather state is empty if the pod isn't running.
+	if !pf.isPodRunning {
+		return nil
+	}
+
+	pf.dbExists = gs.DBExists || pf.dbExists
+	if pf.vnodeName == "" {
+		pf.vnodeName = gs.VNodeName
 	}
 	return nil
 }
