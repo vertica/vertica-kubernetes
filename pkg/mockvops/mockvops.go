@@ -81,6 +81,9 @@ func (*MockVClusterOps) VFetchNodesDetails(_ *vclusterops.VFetchNodesDetailsOpti
 func (*MockVClusterOps) VSandbox(_ *vclusterops.VSandboxOptions) error {
 	return nil
 }
+func (*MockVClusterOps) VUnsandbox(_ *vclusterops.VUnsandboxOptions) error {
+	return nil
+}
 
 // MakeMockVClusterOpsDispatch will create a mock vcluster dispatcher
 func MakeMockVClusterOpsDispatcher(vdb *vapi.VerticaDB, logger logr.Logger, cl client.Client,

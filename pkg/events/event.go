@@ -13,6 +13,7 @@
  limitations under the License.
 */
 
+//nolint:gosec
 package events
 
 // Constants for VerticaDB reconciler
@@ -35,7 +36,7 @@ const (
 	ReviveDBRestorePointNotFound    = "ReviveDBRestorePointNotFound"
 	ReviveOrderBad                  = "ReviveOrderBad"
 	ObjectNotFound                  = "ObjectNotFound"
-	CommunalCredsWrongKey           = "CommunalCredsWrongKey" //nolint:gosec
+	CommunalCredsWrongKey           = "CommunalCredsWrongKey"
 	CommunalEndpointIssue           = "CommunalEndpointIssue"
 	S3BucketDoesNotExist            = "S3BucketDoesNotExist"
 	S3WrongRegion                   = "S3WrongRegion"
@@ -54,6 +55,9 @@ const (
 	SandboxSubclusterFailed         = "SandboxSubclusterFailed"
 	SandboxSubclusterStart          = "SandboxSubclusterStart"
 	SandboxSubclusterSucceeded      = "SandboxSubclusterSucceeded"
+	UnsandboxSubclusterFailed       = "UnsandboxSubclusterFailed"
+	UnsandboxSubclusterStart        = "UnsandboxSubclusterStart"
+	UnsandboxSubclusterSucceeded    = "UnsandboxSubclusterSucceeded"
 	SlowRestartDetected             = "SlowRestartDetected"
 	SubclusterAdded                 = "SubclusterAdded"
 	SubclusterRemoved               = "SubclusterRemoved"

@@ -133,7 +133,7 @@ func (r *SandboxConfigMapReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	dispatcher := vadmin.MakeVClusterOps(log, vdb, r.Client, passwd, r.EVRec, vadmin.SetupVClusterOps)
 
 	// Iterate over each actor
-	actors := r.constructActors(vdb, log, prunner, &pfacts, dispatcher)
+	actors := r.constructActors(vdb, log, prunner, &pfacts, dispatcher, configMap)
 	for _, act := range actors {
 		log.Info("starting actor", "name", fmt.Sprintf("%T", act))
 		res, err = act.Reconcile(ctx, &req)
@@ -150,12 +150,14 @@ func (r *SandboxConfigMapReconciler) Reconcile(ctx context.Context, req ctrl.Req
 // constructActors will a list of actors that should be run for the reconcile.
 // Order matters in that some actors depend on the successeful execution of
 // earlier ones.
-func (r *SandboxConfigMapReconciler) constructActors(vdb *v1.VerticaDB, log logr.Logger,
-	prunner *cmds.ClusterPodRunner, pfacts *vdbcontroller.PodFacts, dispatcher vadmin.Dispatcher) []controllers.ReconcileActor {
+func (r *SandboxConfigMapReconciler) constructActors(vdb *v1.VerticaDB, log logr.Logger, prunner *cmds.ClusterPodRunner,
+	pfacts *vdbcontroller.PodFacts, dispatcher vadmin.Dispatcher, configMap *corev1.ConfigMap) []controllers.ReconcileActor {
 	// The actors that will be applied, in sequence, to reconcile a sandbox configmap.
 	return []controllers.ReconcileActor{
 		// Ensure we support sandboxing and vclusterops
 		MakeVerifyDeploymentReconciler(r, vdb, log),
+		// Move the subclusters from a sandbox to the main cluster
+		MakeUnsandboxSubclusterReconciler(r, vdb, log, r.Client, pfacts, dispatcher, configMap),
 		// Update the vdb status for the sandbox nodes/pods
 		vdbcontroller.MakeStatusReconciler(r.Client, r.Scheme, log, vdb, pfacts),
 		// Upgrade the sandbox using the offline method
