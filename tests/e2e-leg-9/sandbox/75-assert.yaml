@@ -27,15 +27,11 @@ metadata:
   name: v-sandbox
 status:
   subclusters:
-    - addedToDBCount: 3
-      name: pri1
+    - name: pri1
       upNodeCount: 3
-    - addedToDBCount: 3
-      name: sec1
+    - name: sec1
       upNodeCount: 3
-    - addedToDBCount: 3
-      name: sec2
+    - name: sec2
       upNodeCount: 3
-    - addedToDBCount: 1
-      name: sec3
+    - name: sec3
       upNodeCount: 1
