@@ -30,6 +30,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/removenode"
+	"github.com/vertica/vertica-kubernetes/pkg/vdbstatus"
 	corev1 "k8s.io/api/core/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -140,6 +141,10 @@ func (d *DBRemoveNodeReconciler) removeNodesInSubcluster(ctx context.Context, sc
 			return ctrl.Result{}, fmt.Errorf("failed to call remove node: %w", err)
 		}
 
+		if err := d.updateSubclusterStatus(ctx, podsToRemove); err != nil {
+			return ctrl.Result{}, fmt.Errorf("failed to update subcluster status: %w", err)
+		}
+
 		// We successfully called db_remove_node, invalidate the pod facts cache
 		// so that it is refreshed the next time we need it.
 		d.PFacts.Invalidate()
@@ -189,16 +194,34 @@ func (d *DBRemoveNodeReconciler) findPodsSuitableForScaleDown(sc *vapi.Subcluste
 			requeueNeeded = true
 			continue
 		}
-		if podFact.doesDBExist(true) && !podFact.isPodRunning {
+		if podFact.dbExists && !podFact.isPodRunning {
 			d.Log.Info("Pod requires scale down but isn't running yet", "pod", removeNodePod)
 			requeueNeeded = true
 			continue
 		}
 		// Fine to skip if we never added a database to this pod
-		if !podFact.doesDBExist(true) {
+		if !podFact.dbExists {
 			continue
 		}
 		pods = append(pods, podFact)
 	}
 	return pods, requeueNeeded
+}
+
+// updateSubclusterStatus updates the detail in subcluster status for all
+// of the removed pods
+func (d *DBRemoveNodeReconciler) updateSubclusterStatus(ctx context.Context, removedPods []*PodFact) error {
+	refreshInPlace := func(vdb *vapi.VerticaDB) error {
+		scMap := vdb.GenSubclusterStatusMap()
+		for _, p := range removedPods {
+			scs := scMap[p.subclusterName]
+			if scs != nil {
+				if int(p.podIndex) < len(scs.Detail) {
+					scs.Detail[p.podIndex].AddedToDB = false
+				}
+			}
+		}
+		return nil
+	}
+	return vdbstatus.Update(ctx, d.VRec.Client, d.Vdb, refreshInPlace)
 }

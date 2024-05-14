@@ -56,7 +56,7 @@ var _ = Describe("podfacts", func() {
 		fpr := &cmds.FakePodRunner{}
 		pfacts := MakePodFacts(vdbRec, fpr, logger, TestPassword)
 		vdb.Status.Subclusters = []vapi.SubclusterStatus{
-			{Name: sc.Name, AddedToDBCount: sc.Size, Detail: []vapi.VerticaDBPodStatus{{Installed: true}}},
+			{Name: sc.Name, AddedToDBCount: sc.Size, Detail: []vapi.VerticaDBPodStatus{{Installed: true, AddedToDB: true}}},
 		}
 		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
 		pf, ok := pfacts.Detail[nm]
@@ -65,7 +65,7 @@ var _ = Describe("podfacts", func() {
 		Expect(pf.dbExists).Should(BeTrue())
 
 		vdb.Status.Subclusters = []vapi.SubclusterStatus{
-			{Name: sc.Name, AddedToDBCount: 0, Detail: []vapi.VerticaDBPodStatus{{Installed: false}}},
+			{Name: sc.Name, AddedToDBCount: 0, Detail: []vapi.VerticaDBPodStatus{{Installed: false, AddedToDB: false}}},
 		}
 		pfacts.Invalidate()
 		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())

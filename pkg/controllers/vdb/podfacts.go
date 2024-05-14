@@ -109,12 +109,6 @@ type PodFact struct {
 	// created and this pod has been added to the vertica cluster.
 	dbExists bool
 
-	// This has the same meaning as dbExists but depends on the subcluster status
-	// rather than the script we run in the pod. This is helpful when the catalog
-	// dir has been deleted but we still want to know if the node is already part of
-	// the cluster
-	dbExistsInStatus bool
-
 	// Does the admintools bin exist at this pod? This is true if the image
 	// was deployed by Admintools
 	admintoolsExists bool
@@ -689,7 +683,7 @@ func (p *PodFact) setNodeState(gs *GatherState, useVclusterOps bool) {
 	// At one point, we ran a query against the nodes table. But it became
 	// tricker to decipher what query failure meant -- is vertica down or is it
 	// a problem with the query?
-	p.upNode = p.doesDBExist(true) && gs.VerticaPIDRunning
+	p.upNode = p.dbExists && gs.VerticaPIDRunning
 }
 
 // checkDCTableAnnotations will check if the pod has the necessary annotations
@@ -737,8 +731,16 @@ func (p *PodFacts) getEnvValueFromPod(cnt *corev1.Container, envName string) (st
 // If a db is found, we will set the vertica node name.
 func (p *PodFacts) checkIsDBCreated(_ context.Context, vdb *vapi.VerticaDB, pf *PodFact, gs *GatherState) error {
 	pf.dbExists = false
-	pf.dbExistsInStatus = false
 
+	// The gather state is empty if the pod isn't running.
+	if pf.isPodRunning {
+		pf.dbExists = gs.DBExists
+		pf.vnodeName = gs.VNodeName
+	}
+
+	// Overwrite dbExists and vnodeName from state found in the vdb.status. We
+	// cannot always trust on disk. When a pod is unsandboxed, the catalog is
+	// removed for instance.
 	scs, ok := vdb.FindSubclusterStatus(pf.subclusterName)
 	if ok {
 		// Set the db exists indicator first based on the count in the status
@@ -748,15 +750,9 @@ func (p *PodFacts) checkIsDBCreated(_ context.Context, vdb *vapi.VerticaDB, pf *
 		// Inherit the vnode name if present
 		if int(pf.podIndex) < len(scs.Detail) {
 			pf.vnodeName = scs.Detail[pf.podIndex].VNodeName
-			pf.dbExistsInStatus = scs.Detail[pf.podIndex].AddedToDB
+			pf.dbExists = scs.Detail[pf.podIndex].AddedToDB
 		}
 	}
-	// Nothing else can be gathered if the pod isn't running.
-	if !pf.isPodRunning {
-		return nil
-	}
-	pf.dbExists = gs.DBExists
-	pf.vnodeName = gs.VNodeName
 	return nil
 }
 
@@ -807,7 +803,7 @@ func (p *PodFacts) checkNodeDetails(ctx context.Context, vdb *vapi.VerticaDB, pf
 // running but not yet ready for connections.
 func (p *PodFacts) checkIfNodeIsDoingStartup(_ context.Context, _ *vapi.VerticaDB, pf *PodFact, gs *GatherState) error {
 	pf.startupInProgress = false
-	if !pf.doesDBExist(true) || !pf.isPodRunning || pf.upNode || !gs.VerticaPIDRunning {
+	if !pf.dbExists || !pf.isPodRunning || pf.upNode || !gs.VerticaPIDRunning {
 		return nil
 	}
 	pf.startupInProgress = !gs.StartupComplete
@@ -826,7 +822,7 @@ func (p *PodFacts) doesDBExist() bool {
 		if !v.isPrimary {
 			continue
 		}
-		if v.doesDBExist(true) {
+		if v.dbExists {
 			return true
 		}
 	}
@@ -919,7 +915,7 @@ func (p *PodFacts) findRestartablePods(restartReadOnly, restartTransient, restar
 			return false
 		}
 		return (!v.upNode || (restartReadOnly && v.readOnly)) &&
-			v.doesDBExist(false) &&
+			v.dbExists &&
 			v.isPodRunning &&
 			v.hasDCTableAnnotations &&
 			(restartPendingDelete || !v.isPendingDelete)
@@ -943,9 +939,9 @@ func (p *PodFacts) findReIPPods(chk dBCheckType) []*PodFact {
 		}
 		switch chk {
 		case dBCheckOnlyWithDBs:
-			return pod.doesDBExist(true)
+			return pod.dbExists
 		case dBCheckOnlyWithoutDBs:
-			return !pod.doesDBExist(true)
+			return !pod.dbExists
 		case dBCheckAny:
 			return true
 		default:
@@ -1038,7 +1034,7 @@ func (p *PodFacts) countNotRestartablePods(vclusterOps bool) int {
 		// - We check install state only for admintools deployments because
 		// installed pods are in admintools.conf and need the restart reconciler
 		// to update its IP.
-		if ((!vclusterOps && v.isInstalled) || v.doesDBExist(true)) && v.managedByParent &&
+		if ((!vclusterOps && v.isInstalled) || v.dbExists) && v.managedByParent &&
 			(!v.isPodRunning || !v.hasDCTableAnnotations) {
 			return 1
 		}
@@ -1140,7 +1136,7 @@ func (p *PodFacts) findExpectedNodeNames() []string {
 	var expectedNodeNames []string
 
 	for _, v := range p.Detail {
-		if v.doesDBExist(false) {
+		if v.dbExists {
 			expectedNodeNames = append(expectedNodeNames, v.vnodeName)
 		}
 	}
@@ -1158,16 +1154,6 @@ func (p *PodFacts) GetSandboxName() string {
 	}
 	// In case collection has not happened yet
 	return p.SandboxName
-}
-
-// doesDBExist return true if the pod has been added to the cluster.
-// if the bool argument is true, we also use the subcluster status as it
-// can happen that the catalog has been deleted
-func (p *PodFact) doesDBExist(inStatus bool) bool {
-	if !inStatus {
-		return p.dbExists
-	}
-	return p.dbExists || p.dbExistsInStatus
 }
 
 // GetClusterExtendedName returns the extended name of the cluster

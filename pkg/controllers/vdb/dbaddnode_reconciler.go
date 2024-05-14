@@ -99,7 +99,7 @@ func (d *DBAddNodeReconciler) findAddNodePods(scName string) ([]*PodFact, ctrl.R
 		if v.subclusterName != scName {
 			continue
 		}
-		if !v.doesDBExist(true) {
+		if !v.dbExists {
 			if !v.isPodRunning || !v.isInstalled {
 				// We want to group all of the add nodes in a single admintools call.
 				// Doing so limits the impact on any running queries.  So if there is at
