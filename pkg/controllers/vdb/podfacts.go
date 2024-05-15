@@ -753,9 +753,7 @@ func (p *PodFacts) checkIsDBCreated(_ context.Context, vdb *vapi.VerticaDB, pf *
 	}
 
 	pf.dbExists = gs.DBExists || pf.dbExists
-	if pf.vnodeName == "" {
-		pf.vnodeName = gs.VNodeName
-	}
+	pf.vnodeName = gs.VNodeName
 	return nil
 }
 
