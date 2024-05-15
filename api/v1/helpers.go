@@ -874,8 +874,8 @@ func (v *VerticaDB) IsHTTPSTLSConfGenerationEnabled() (bool, error) {
 func (v *VerticaDB) GenSubclusterStatusMap() map[string]*SubclusterStatus {
 	scMap := map[string]*SubclusterStatus{}
 	for i := range v.Status.Subclusters {
-		sb := &v.Status.Subclusters[i]
-		scMap[sb.Name] = sb
+		sc := &v.Status.Subclusters[i]
+		scMap[sc.Name] = sc
 	}
 	return scMap
 }
