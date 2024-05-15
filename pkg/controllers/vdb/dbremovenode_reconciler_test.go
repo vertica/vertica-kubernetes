@@ -50,6 +50,8 @@ var _ = Describe("dbremovenode_reconcile", func() {
 		vdb := vapi.MakeVDB()
 		sc := &vdb.Spec.Subclusters[0]
 		sc.Size = 2
+		test.CreateVDB(ctx, k8sClient, vdb)
+		defer test.DeleteVDB(ctx, k8sClient, vdb)
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
@@ -82,6 +84,15 @@ var _ = Describe("dbremovenode_reconcile", func() {
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdbCopy)
 
+		vdb.Status.Subclusters = []vapi.SubclusterStatus{
+			{Name: sc.Name, Detail: []vapi.VerticaDBPodStatus{
+				{AddedToDB: true},
+				{AddedToDB: true},
+				{AddedToDB: true},
+			}},
+		}
+		Expect(k8sClient.Status().Update(ctx, vdb)).Should(Succeed())
+
 		// Resize the subcluster to remove two nodes
 		nm := vdb.ExtractNamespacedName()
 		fetchedVdb := &vapi.VerticaDB{}
@@ -109,6 +120,12 @@ var _ = Describe("dbremovenode_reconcile", func() {
 			"--hosts",
 			fmt.Sprintf("%s,%s", pfacts.Detail[uninstallPods[0]].dnsName, pfacts.Detail[uninstallPods[1]].dnsName),
 		))
+
+		Expect(k8sClient.Get(ctx, nm, fetchedVdb)).Should(Succeed())
+		Expect(len(fetchedVdb.Status.Subclusters[0].Detail)).Should(Equal(int(sc.Size)))
+		Expect(fetchedVdb.Status.Subclusters[0].Detail[0].AddedToDB).Should(BeTrue())
+		Expect(fetchedVdb.Status.Subclusters[0].Detail[1].AddedToDB).Should(BeFalse())
+		Expect(fetchedVdb.Status.Subclusters[0].Detail[2].AddedToDB).Should(BeFalse())
 	})
 
 	It("should skip remove node and requeue because pod we need to remove node from isn't running", func() {
