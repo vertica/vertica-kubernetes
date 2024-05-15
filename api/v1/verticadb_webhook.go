@@ -95,6 +95,7 @@ func (v *VerticaDB) Default() {
 		v.Spec.TemporarySubclusterRouting.Template.Type = SecondarySubcluster
 	}
 	v.setDefaultServiceName()
+	v.setDefaultSandboxImages()
 }
 
 var _ webhook.Validator = &VerticaDB{}
@@ -1610,8 +1611,9 @@ func (v *VerticaDB) checkImmutableSubclusterInSandbox(oldObj *VerticaDB, allErrs
 	}
 
 	newScInSandbox := v.GenSubclusterSandboxMap()
-	oldSbIndexMap := v.GenSandboxIndexMap()
-	oldSbMap := v.GenSandboxMap()
+	oldSbIndexMap := oldObj.GenSandboxIndexMap()
+	oldSbMap := oldObj.GenSandboxMap()
+	newSbMap := v.GenSandboxMap()
 
 	// This loop ensures a couple of things:
 	// - a sandbox primary subcluster cannot be moved to another sandbox
@@ -1622,6 +1624,10 @@ func (v *VerticaDB) checkImmutableSubclusterInSandbox(oldObj *VerticaDB, allErrs
 		newSbName, newFound := newScInSandbox[oldScName]
 		sc := oldScMap[oldScName]
 
+		// sandbox is removed
+		if _, sandboxExist := newSbMap[oldSbName]; !sandboxExist {
+			continue
+		}
 		if !newFound && sc.Type == SandboxPrimarySubcluster {
 			i := oldScIndexMap[oldScName]
 			err := field.Invalid(path.Index(i),
@@ -1689,6 +1695,17 @@ func (v *VerticaDB) setDefaultServiceName() {
 		sc := &v.Spec.Subclusters[i]
 		if sc.ServiceName == "" {
 			sc.ServiceName = sc.GetServiceName()
+		}
+	}
+}
+
+// setDefaultSandboxImages will explicitly set the image in any sandbox
+// that omitted it
+func (v *VerticaDB) setDefaultSandboxImages() {
+	for i := range v.Spec.Sandboxes {
+		sb := &v.Spec.Sandboxes[i]
+		if sb.Image == "" {
+			sb.Image = v.Spec.Image
 		}
 	}
 }

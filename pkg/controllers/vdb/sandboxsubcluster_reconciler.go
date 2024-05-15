@@ -196,18 +196,24 @@ func (s *SandboxSubclusterReconciler) executeSandboxCommand(ctx context.Context,
 				return res, errors.Join(err, s.updateSandboxStatus(ctx, succeedSbScMap))
 			}
 			succeedSbScMap[sb] = append(succeedSbScMap[sb], sc)
-			// create/update a sandbox config map
-			if _, ok := seenSandboxes[sb]; !ok {
-				err = s.checkSandboxConfigMap(ctx, sb)
-				if err != nil {
-					// when creating/updating sandbox config map failed, update sandbox status and return error
-					return ctrl.Result{}, errors.Join(err, s.updateSandboxStatus(ctx, succeedSbScMap))
-				}
-			}
 			seenSandboxes[sb] = struct{}{}
 		}
 	}
-	return ctrl.Result{}, s.updateSandboxStatus(ctx, succeedSbScMap)
+	err := s.updateSandboxStatus(ctx, succeedSbScMap)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	// create/update a sandbox config map
+	for sb := range seenSandboxes {
+		err := s.checkSandboxConfigMap(ctx, sb)
+		if err != nil {
+			// when creating/updating sandbox config map failed, update sandbox status and return error
+			return ctrl.Result{}, err
+		}
+	}
+
+	return ctrl.Result{}, nil
 }
 
 // findInitiatorIPs returns the IPs to pass down to vclusterops as the initiator
@@ -262,14 +268,20 @@ func (s *SandboxSubclusterReconciler) checkSandboxConfigMap(ctx context.Context,
 // if so, we will update the content of that config map and return true
 func (s *SandboxSubclusterReconciler) updateSandboxConfigMapFields(curCM, newCM *corev1.ConfigMap) bool {
 	updated := false
-	// exclude sandbox controller trigger ID from the annotations because
-	// vdb controller will set this in current config map, and the new
+	// exclude sandbox controller upgrade & unsandbox trigger ID from the annotations
+	// because vdb controller will set this in current config map, and the new
 	// config map cannot get it
-	triggerID, hasTriggerID := curCM.Annotations[vmeta.SandboxControllerTriggerID]
-	if hasTriggerID {
-		delete(curCM.Annotations, vmeta.SandboxControllerTriggerID)
+	upgradeTriggerID, hasUpgradeTriggerID := curCM.Annotations[vmeta.SandboxControllerUpgradeTriggerID]
+	if hasUpgradeTriggerID {
+		delete(curCM.Annotations, vmeta.SandboxControllerUpgradeTriggerID)
 	}
-	delete(newCM.Annotations, vmeta.SandboxControllerTriggerID)
+	delete(newCM.Annotations, vmeta.SandboxControllerUpgradeTriggerID)
+	unsandboxTriggerID, hasUnsandboxTriggerID := curCM.Annotations[vmeta.SandboxControllerUnsandboxTriggerID]
+	if hasUnsandboxTriggerID {
+		delete(curCM.Annotations, vmeta.SandboxControllerUnsandboxTriggerID)
+	}
+	delete(newCM.Annotations, vmeta.SandboxControllerUnsandboxTriggerID)
+
 	// exclude version annotation because vdb controller can set a different
 	// vertica version annotation for a sandbox in current config map
 	version, hasVersion := curCM.Annotations[vmeta.VersionAnnotation]
@@ -277,18 +289,24 @@ func (s *SandboxSubclusterReconciler) updateSandboxConfigMapFields(curCM, newCM 
 		delete(curCM.Annotations, vmeta.VersionAnnotation)
 	}
 	delete(newCM.Annotations, vmeta.VersionAnnotation)
+
 	if stringMapDiffer(curCM.ObjectMeta.Annotations, newCM.ObjectMeta.Annotations) {
 		updated = true
 		curCM.ObjectMeta.Annotations = newCM.ObjectMeta.Annotations
 	}
-	// add sandbox controller trigger ID back to the annotations
-	if hasTriggerID {
-		curCM.Annotations[vmeta.SandboxControllerTriggerID] = triggerID
+
+	// add sandbox controller upgrade & unsandbox trigger ID back to the annotations
+	if hasUpgradeTriggerID {
+		curCM.Annotations[vmeta.SandboxControllerUpgradeTriggerID] = upgradeTriggerID
+	}
+	if hasUnsandboxTriggerID {
+		curCM.Annotations[vmeta.SandboxControllerUnsandboxTriggerID] = unsandboxTriggerID
 	}
 	// add vertica version back to the annotations
 	if hasVersion {
 		curCM.Annotations[vmeta.VersionAnnotation] = version
 	}
+
 	if stringMapDiffer(curCM.ObjectMeta.Labels, newCM.ObjectMeta.Labels) {
 		updated = true
 		curCM.ObjectMeta.Labels = newCM.ObjectMeta.Labels

@@ -11,25 +11,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: apps/v1
-kind: StatefulSet
-metadata:
-  name: v-base-upgrade-pri1-sb
-  annotations:
-    vertica.com/statefulset-name-override: "v-base-upgrade-pri1-sb"
-  labels:
-    vertica.com/sandbox: replica-group-b
-status:
-  currentReplicas: 3
-  readyReplicas: 3
----
-apiVersion: vertica.com/v1
-kind: VerticaDB
-metadata:
-  name: v-base-upgrade
-spec:
-  subclusters:
-  - name: pri1
-  - name: pri1-sb
-    type: sandboxprimary
-    size: 3
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - script: |
+      mainImage=$(kubectl get vdb v-sandbox -o json -n $NAMESPACE | jq -r '.spec.image')
+      sbImage=$(kubectl get vdb v-sandbox -o json -n $NAMESPACE | jq -r '.spec.sandboxes[] | select(.name=="sandbox2") | .image')
+      if [ "$mainImage" = "$sbImage" ]; then
+        echo "sandbox and main cluster have the same image"
+      else
+        exit 1
+      fi

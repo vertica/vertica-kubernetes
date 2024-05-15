@@ -717,6 +717,7 @@ type Sandbox struct {
 	Name string `json:"name"`
 
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// +kubebuilder:default:=""
 	// +kubebuilder:validation:Optional
 	// The name of the image to use for the sandbox. If omitted, the image
 	// is inherited from the spec.image field.
