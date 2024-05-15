@@ -208,17 +208,19 @@ func (d *DBRemoveNodeReconciler) findPodsSuitableForScaleDown(sc *vapi.Subcluste
 	return pods, requeueNeeded
 }
 
-// updateSubclusterStatus updates the detail in subcluster status for all
-// of the removed pods
+// updateSubclusterStatus updates the removed nodes detail in their subcluster status
 func (d *DBRemoveNodeReconciler) updateSubclusterStatus(ctx context.Context, removedPods []*PodFact) error {
 	refreshInPlace := func(vdb *vapi.VerticaDB) error {
 		scMap := vdb.GenSubclusterStatusMap()
+		// The removed nodes belong to the same subcluster
+		// so we return if we don't find its status
+		scs := scMap[removedPods[0].subclusterName]
+		if scs == nil {
+			return nil
+		}
 		for _, p := range removedPods {
-			scs := scMap[p.subclusterName]
-			if scs != nil {
-				if int(p.podIndex) < len(scs.Detail) {
-					scs.Detail[p.podIndex].AddedToDB = false
-				}
+			if int(p.podIndex) < len(scs.Detail) {
+				scs.Detail[p.podIndex].AddedToDB = false
 			}
 		}
 		return nil
