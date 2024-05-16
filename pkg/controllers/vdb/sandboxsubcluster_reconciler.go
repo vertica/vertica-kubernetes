@@ -229,7 +229,7 @@ func (s *SandboxSubclusterReconciler) findInitiatorIPs(ctx context.Context, sand
 		if err := pfs.Collect(ctx, s.Vdb); err != nil {
 			return nil, ctrl.Result{}, err
 		}
-		// If this is the first pod in the sandbox, then only an API from the
+		// If this is the first pod in the sandbox, then only an ip from the
 		// main cluster is needed.
 		if len(pfs.Detail) == 0 {
 			ips := []string{s.InitiatorIPs[vapi.MainCluster]}
