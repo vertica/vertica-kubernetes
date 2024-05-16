@@ -17,7 +17,6 @@ package vdb
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"reflect"
 
@@ -159,7 +158,6 @@ func (s *SandboxSubclusterReconciler) sandboxSubclusters(ctx context.Context) (c
 // executeSandboxCommand will call sandbox API in vclusterOps, create/update sandbox config maps,
 // and update sandbox status in vdb
 func (s *SandboxSubclusterReconciler) executeSandboxCommand(ctx context.Context, scSbMap map[string]string) (ctrl.Result, error) {
-	succeedSbScMap := make(map[string][]string)
 	seenSandboxes := make(map[string]any)
 
 	// We can simply loop over the scSbMap and sandbox each subcluster. However,
@@ -187,21 +185,23 @@ func (s *SandboxSubclusterReconciler) executeSandboxCommand(ctx context.Context,
 					return true, nil
 				})
 				if err != nil {
-					return ctrl.Result{}, errors.Join(err, s.updateSandboxStatus(ctx, succeedSbScMap))
+					return ctrl.Result{}, err
 				}
 			}
 			res, err := s.sandboxSubcluster(ctx, sc, sb)
 			if verrors.IsReconcileAborted(res, err) {
-				// when one subcluster failed to be sandboxed, update sandbox status and return error
-				return res, errors.Join(err, s.updateSandboxStatus(ctx, succeedSbScMap))
+				return res, err
 			}
-			succeedSbScMap[sb] = append(succeedSbScMap[sb], sc)
 			seenSandboxes[sb] = struct{}{}
+
+			// Always update status as we go. When sandboxing two subclusters in
+			// the same sandbox, the second subcluster depends on the status
+			// update from the first subcluster in order to properly sandbox.
+			err = s.addSandboxedSubclusterToStatus(ctx, sc, sb)
+			if err != nil {
+				return ctrl.Result{}, err
+			}
 		}
-	}
-	err := s.updateSandboxStatus(ctx, succeedSbScMap)
-	if err != nil {
-		return ctrl.Result{}, err
 	}
 
 	// create/update a sandbox config map
@@ -232,7 +232,9 @@ func (s *SandboxSubclusterReconciler) findInitiatorIPs(ctx context.Context, sand
 		// If this is the first pod in the sandbox, then only an API from the
 		// main cluster is needed.
 		if len(pfs.Detail) == 0 {
-			return []string{s.InitiatorIPs[vapi.MainCluster]}, ctrl.Result{}, nil
+			ips := []string{s.InitiatorIPs[vapi.MainCluster]}
+			s.Log.Info("detected first subcluster added to a new sandbox", "initiatorIPs", ips)
+			return ips, ctrl.Result{}, nil
 		}
 		pf, found := pfs.findFirstPodSorted(func(v *PodFact) bool {
 			return v.upNode && v.isPrimary
@@ -243,7 +245,9 @@ func (s *SandboxSubclusterReconciler) findInitiatorIPs(ctx context.Context, sand
 		}
 		s.InitiatorIPs[sandbox] = pf.podIP
 	}
-	return []string{s.InitiatorIPs[vapi.MainCluster], s.InitiatorIPs[sandbox]}, ctrl.Result{}, nil
+	ips := []string{s.InitiatorIPs[vapi.MainCluster], s.InitiatorIPs[sandbox]}
+	s.Log.Info("found two initiator IPs", "main", ips[0], "sandbox", ips[1])
+	return ips, ctrl.Result{}, nil
 }
 
 // checkSandboxConfigMap will create or update a sandbox config map if needed
@@ -378,7 +382,8 @@ func (s *SandboxSubclusterReconciler) sandboxSubcluster(ctx context.Context, sub
 	return ctrl.Result{}, nil
 }
 
-// updateSandboxStatus will update sandbox status in vdb
+// updateSandboxStatus will update sandbox status in vdb. This is a bulk update
+// and can handle multiple subclusters at once.
 func (s *SandboxSubclusterReconciler) updateSandboxStatus(ctx context.Context, originalSbScMap map[string][]string) error {
 	updateStatus := func(vdbChg *vapi.VerticaDB) error {
 		// make a copy of originalSbScMap since we will modify the map, and
@@ -406,5 +411,25 @@ func (s *SandboxSubclusterReconciler) updateSandboxStatus(ctx context.Context, o
 		return nil
 	}
 
+	return vdbstatus.Update(ctx, s.Client, s.Vdb, updateStatus)
+}
+
+// addSandboxedSubclusterToStatus will add a single subcluster to the sandbox status.
+func (s *SandboxSubclusterReconciler) addSandboxedSubclusterToStatus(ctx context.Context, subcluster, sandbox string) error {
+	updateStatus := func(vdbChg *vapi.VerticaDB) error {
+		// for existing sandboxes, update their subclusters in sandbox status
+		for i := range vdbChg.Status.Sandboxes {
+			if vdbChg.Status.Sandboxes[i].Name == sandbox {
+				vdbChg.Status.Sandboxes[i].Subclusters = append(vdbChg.Status.Sandboxes[i].Subclusters, subcluster)
+				return nil
+			}
+		}
+
+		// If we get here, we didn't find the sandbox. So we are sandboxing the
+		// first subcluster in a sandbox.
+		newStatus := vapi.SandboxStatus{Name: sandbox, Subclusters: []string{subcluster}}
+		vdbChg.Status.Sandboxes = append(vdbChg.Status.Sandboxes, newStatus)
+		return nil
+	}
 	return vdbstatus.Update(ctx, s.Client, s.Vdb, updateStatus)
 }
