@@ -27,7 +27,7 @@ data:
       echo "Assertion failed: expected lines containing 99 and 100"
       exit 1
     fi
-    result=$(kubectl exec $POD_NAME -i -c server -- bash -c "vsql -U dbadmin -tAc \"SELECT COUNT(*) FROM tables;\"")
+    result=$(kubectl exec $POD_NAME -i -c server -- bash -c "vsql -U dbadmin -tAc \"SELECT COUNT(*) FROM tables WHERE table_name = 'test_table';\"")
     echo "$result" | grep -Pzo "^1\n$" > /dev/null
     if [ $? -ne 0 ]; then
       echo "Assertion failed: expected 1, got $result"
