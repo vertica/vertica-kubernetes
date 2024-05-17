@@ -21,6 +21,16 @@ involvedObject:
   kind: VerticaDB
   name: v-sandbox
 ---
+apiVersion: v1
+kind: Event
+reason: ClusterRestartSucceeded
+source:
+  component: verticadb-operator
+involvedObject:
+  apiVersion: vertica.com/v1
+  kind: VerticaDB
+  name: v-sandbox
+---
 apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
