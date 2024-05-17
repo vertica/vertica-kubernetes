@@ -23,7 +23,7 @@ involvedObject:
 ---
 apiVersion: v1
 kind: Event
-reason: ClusterRestartSucceeded
+reason: NodeRestartSucceeded
 source:
   component: verticadb-operator
 involvedObject:
@@ -37,14 +37,14 @@ metadata:
   name: v-sandbox
 spec:
   subclusters:
-  - name: pri1
-    type: primary
-  - name: sec1
-    type: sandboxprimary
-  - name: sec2
-    type: secondary
-  - name: sec3
-    type: secondary
+    - name: pri1
+      type: primary
+    - name: sec1
+      type: sandboxprimary
+    - name: sec2
+      type: secondary
+    - name: sec3
+      type: secondary
 status:
   sandboxes:
     - name: sandbox1
