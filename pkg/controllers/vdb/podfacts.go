@@ -1204,3 +1204,43 @@ func (p *PodFacts) FindUnsandboxedSubclustersStillInSandboxStatus(scSbInVdbStatu
 	}
 	return sbScMap
 }
+
+// FindSecondarySubclustersWithDifferentImage will scan the secondary subclusters in main cluster
+// and return the secondary subclusters that have different vertica image than main cluster
+func (p *PodFacts) FindSecondarySubclustersWithDifferentImage() []string {
+	scs := []string{}
+	mcImage := ""
+	// find vertica image in primary nodes of main cluster
+	for _, v := range p.Detail {
+		// we expect the pfacts only contains the main cluster pods so we ignore the sandbox pods
+		if v.sandbox != vapi.MainCluster {
+			continue
+		}
+		if v.isPrimary {
+			mcImage = v.image
+			break
+		}
+	}
+	// find secondary subclusters that has a different image
+	seenScs := make(map[string]any)
+	for _, v := range p.Detail {
+		// we expect the pfacts only contains the main cluster pods so we ignore the sandbox pods
+		if v.sandbox != vapi.MainCluster {
+			continue
+		}
+		if _, ok := seenScs[v.subclusterName]; ok {
+			continue
+		}
+		if !v.isPrimary && v.image != mcImage {
+			scs = append(scs, v.subclusterName)
+		}
+		seenScs[v.subclusterName] = struct{}{}
+	}
+	return scs
+}
+
+// SetImage can set the image of a pod, it should only be used in
+// unit test of verticaimage_reconciler
+func (p *PodFact) SetImage(image string) {
+	p.image = image
+}

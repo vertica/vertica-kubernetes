@@ -158,6 +158,8 @@ func (r *SandboxConfigMapReconciler) constructActors(vdb *v1.VerticaDB, log logr
 		MakeVerifyDeploymentReconciler(r, vdb, log),
 		// Move the subclusters from a sandbox to the main cluster
 		MakeUnsandboxSubclusterReconciler(r, vdb, log, r.Client, pfacts, dispatcher, configMap),
+		// Update the vertica image for unsandboxed subclusters
+		MakeVerticaImageReconciler(r, vdb, log, pfacts),
 		// Update the vdb status for the sandbox nodes/pods
 		vdbcontroller.MakeStatusReconciler(r.Client, r.Scheme, log, vdb, pfacts),
 		// Upgrade the sandbox using the offline method
