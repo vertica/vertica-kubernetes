@@ -480,9 +480,14 @@ func (r *RestartReconciler) restartCluster(ctx context.Context, downPods []*PodF
 			startdb.WithConfigurationParams(r.ConfigurationParams.GetMap()),
 		)
 	}
+	hostsInSandbox := true
 	for i := range downPods {
+		if downPods[i].sandbox == vapi.MainCluster {
+			hostsInSandbox = false
+		}
 		opts = append(opts, startdb.WithHost(downPods[i].podIP))
 	}
+	opts = append(opts, startdb.WithHostsInSandboxFlag(hostsInSandbox))
 	r.VRec.Event(r.Vdb, corev1.EventTypeNormal, events.ClusterRestartStarted,
 		"Starting restart of the cluster")
 	start := time.Now()
