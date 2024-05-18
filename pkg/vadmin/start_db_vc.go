@@ -73,6 +73,7 @@ func (v *VClusterOps) genStartDBOptions(s *startdb.Parms, certs *HTTPSCerts) (vo
 	opts.DBName = v.VDB.Spec.DBName
 	opts.IsEon = v.VDB.IsEON()
 	opts.ConfigurationParameters = s.ConfigurationParams
+	opts.HostsInSandbox = s.HostsInSandbox
 	if v.VDB.IsNMASideCarDeploymentEnabled() {
 		opts.StartUpConf = paths.StartupConfFile
 	}
@@ -91,7 +92,10 @@ func (v *VClusterOps) genStartDBOptions(s *startdb.Parms, certs *HTTPSCerts) (vo
 	opts.Password = &v.Password
 
 	// timeout option
-	opts.StatePollingTimeout = v.VDB.GetRestartTimeout()
+	vdbTimeout := v.VDB.GetRestartTimeout()
+	if vdbTimeout != 0 {
+		opts.StatePollingTimeout = vdbTimeout
+	}
 
 	// other options
 	opts.TrimHostList = true
