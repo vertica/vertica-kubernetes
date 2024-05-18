@@ -328,6 +328,7 @@ func convertFromSubcluster(src *v1.Subcluster) Subcluster {
 		Size:                src.Size,
 		IsPrimary:           src.IsPrimary(),
 		IsTransient:         src.IsTransient(),
+		IsSandboxPrimary:    src.IsSandboxPrimary(),
 		ImageOverride:       src.ImageOverride,
 		NodeSelector:        src.NodeSelector,
 		Affinity:            Affinity(src.Affinity),
@@ -503,16 +504,18 @@ func convertFromSubclusterStatus(src v1.SubclusterStatus) SubclusterStatus {
 // convertToSandboxStatus will convert to a v1 SubcluterStatus from a v1beta1 version
 func convertToSandboxStatus(src SandboxStatus) v1.SandboxStatus {
 	return v1.SandboxStatus{
-		Name:        src.Name,
-		Subclusters: src.Subclusters,
+		Name:         src.Name,
+		Subclusters:  src.Subclusters,
+		UpgradeState: v1.SandboxUpgradeState(src.UpgradeState),
 	}
 }
 
 // convertFromSandboxStatus will convert from a v1 SubcluterStatus to a v1beta1 version
 func convertFromSandboxStatus(src v1.SandboxStatus) SandboxStatus {
 	return SandboxStatus{
-		Name:        src.Name,
-		Subclusters: src.Subclusters,
+		Name:         src.Name,
+		Subclusters:  src.Subclusters,
+		UpgradeState: SandboxUpgradeState(src.UpgradeState),
 	}
 }
 
@@ -564,6 +567,9 @@ func convertFromStatusCondition(src *metav1.Condition) VerticaDBCondition {
 // convertToSubclusterType returns the v1 Subcluster type for a given v1beta1
 // Subcluster
 func convertToSubclusterType(src *Subcluster) string {
+	if src.IsSandboxPrimary {
+		return v1.SandboxPrimarySubcluster
+	}
 	if src.IsPrimary {
 		return v1.PrimarySubcluster
 	}

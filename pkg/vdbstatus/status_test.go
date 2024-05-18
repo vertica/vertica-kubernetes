@@ -114,6 +114,32 @@ var _ = Describe("status", func() {
 		}
 	})
 
+	It("should update sandbox upgrade state", func() {
+		vdb := vapi.MakeVDB()
+		const sbName = "sb1"
+		const scName = "sc1"
+		Expect(k8sClient.Create(ctx, vdb)).Should(Succeed())
+		defer func() { Expect(k8sClient.Delete(ctx, vdb)).Should(Succeed()) }()
+
+		vdb.Status.Sandboxes = []vapi.SandboxStatus{
+			{Name: sbName, Subclusters: []string{scName}},
+		}
+		Expect(k8sClient.Status().Update(ctx, vdb)).Should(Succeed())
+
+		state := vdb.Status.Sandboxes[0].UpgradeState.DeepCopy()
+		state.UpgradeInProgress = true
+		const msg = "test"
+		state.UpgradeStatus = msg
+		Expect(SetSandboxUpgradeState(ctx, k8sClient, vdb, sbName, state)).Should(Succeed())
+		fetchVdb := &vapi.VerticaDB{}
+		nm := types.NamespacedName{Namespace: vdb.Namespace, Name: vdb.Name}
+		Expect(k8sClient.Get(ctx, nm, fetchVdb)).Should(Succeed())
+		for _, v := range []*vapi.VerticaDB{vdb, fetchVdb} {
+			Expect(v.Status.Sandboxes[0].UpgradeState.UpgradeInProgress).Should(BeTrue())
+			Expect(v.Status.Sandboxes[0].UpgradeState.UpgradeStatus).Should(Equal(msg))
+		}
+	})
+
 	It("should be able to handle multiple status conditions", func() {
 		vdb := vapi.MakeVDB()
 		Expect(k8sClient.Create(ctx, vdb)).Should(Succeed())

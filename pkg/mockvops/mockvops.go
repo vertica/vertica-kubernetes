@@ -16,7 +16,14 @@ limitations under the License.
 
 package mockvops
 
-import "github.com/vertica/vcluster/vclusterops"
+import (
+	"github.com/go-logr/logr"
+	"github.com/vertica/vcluster/vclusterops"
+	vapi "github.com/vertica/vertica-kubernetes/api/v1"
+	"github.com/vertica/vertica-kubernetes/pkg/aterrors"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+)
 
 // MockVClusterOps is used to invoke mock vcluster-ops functions;
 // MockVClusterOps implements vadmin.VClusterProvider interface;
@@ -73,4 +80,19 @@ func (*MockVClusterOps) VFetchNodesDetails(_ *vclusterops.VFetchNodesDetailsOpti
 }
 func (*MockVClusterOps) VStopSubcluster(_ *vclusterops.VStopSubclusterOptions) error {
 	return nil
+}
+func (*MockVClusterOps) VSandbox(_ *vclusterops.VSandboxOptions) error {
+	return nil
+}
+func (*MockVClusterOps) VUnsandbox(_ *vclusterops.VUnsandboxOptions) error {
+	return nil
+}
+
+// MakeMockVClusterOpsDispatch will create a mock vcluster dispatcher
+func MakeMockVClusterOpsDispatcher(vdb *vapi.VerticaDB, logger logr.Logger, cl client.Client,
+	setupAPIFunc func(logr.Logger, string) (vadmin.VClusterProvider, logr.Logger)) *vadmin.VClusterOps {
+	evWriter := aterrors.TestEVWriter{}
+	const testPassword = "secret"
+	dispatcher := vadmin.MakeVClusterOps(logger, vdb, cl, testPassword, &evWriter, setupAPIFunc)
+	return dispatcher.(*vadmin.VClusterOps)
 }

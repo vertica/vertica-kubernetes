@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"os"
 	"sort"
-	"strconv"
 	"strings"
 	"time"
 
@@ -377,7 +376,7 @@ func (p *PodFacts) collectPodByStsIndex(ctx context.Context, vdb *vapi.VerticaDB
 		pf.dnsName = fmt.Sprintf("%s.%s.%s", pod.Spec.Hostname, pod.Spec.Subdomain, pod.Namespace)
 		pf.podIP = pod.Status.PodIP
 		pf.creationTimestamp = pod.CreationTimestamp.Format(time.DateTime)
-		pf.isTransient, _ = strconv.ParseBool(pod.Labels[vmeta.SubclusterTransientLabel])
+		pf.isTransient = sc.IsTransient()
 		pf.isPendingDelete = podIndex >= sc.Size
 		// Let's just pick the first container image
 		pf.image, err = vk8s.GetServerImage(pod.Spec.Containers)
@@ -393,8 +392,7 @@ func (p *PodFacts) collectPodByStsIndex(ctx context.Context, vdb *vapi.VerticaDB
 		// we get the sandbox name from the sts labels if the subcluster
 		// belongs to a sandbox. If the node is up, we will later retrieve
 		// the sandbox state from the catalog
-		pf.sandbox = p.SandboxName
-		setSandboxNodeType(&pf)
+		pf.sandbox = sts.Labels[vmeta.SandboxNameLabel]
 	}
 
 	fns := []CheckerFunc{
@@ -734,6 +732,9 @@ func (p *PodFacts) getEnvValueFromPod(cnt *corev1.Container, envName string) (st
 func (p *PodFacts) checkIsDBCreated(_ context.Context, vdb *vapi.VerticaDB, pf *PodFact, gs *GatherState) error {
 	pf.dbExists = false
 
+	// Set dbExists and vnodeName from state found in the vdb.status. We
+	// cannot always trust the state on disk. When a pod is unsandboxed, the catalog is
+	// removed for instance.
 	scs, ok := vdb.FindSubclusterStatus(pf.subclusterName)
 	if ok {
 		// Set the db exists indicator first based on the count in the status
@@ -743,13 +744,15 @@ func (p *PodFacts) checkIsDBCreated(_ context.Context, vdb *vapi.VerticaDB, pf *
 		// Inherit the vnode name if present
 		if int(pf.podIndex) < len(scs.Detail) {
 			pf.vnodeName = scs.Detail[pf.podIndex].VNodeName
+			pf.dbExists = scs.Detail[pf.podIndex].AddedToDB
 		}
 	}
-	// Nothing else can be gathered if the pod isn't running.
+	// The gather state is empty if the pod isn't running.
 	if !pf.isPodRunning {
 		return nil
 	}
-	pf.dbExists = gs.DBExists
+
+	pf.dbExists = gs.DBExists || pf.dbExists
 	pf.vnodeName = gs.VNodeName
 	return nil
 }
@@ -1155,25 +1158,17 @@ func (p *PodFacts) findExpectedNodeNames() []string {
 // GetSandboxName returns the name of the sandbox, or empty string
 // for main cluster, the pods belong to
 func (p *PodFacts) GetSandboxName() string {
-	for _, v := range p.Detail {
-		// all pods in the podfacts belong to either
-		// the same sandbox or the main cluster
-		return v.sandbox
-	}
-	return ""
+	return p.SandboxName
 }
 
-// setSandboxNodeType sets the isPrimary state for a sandboxed
-// subcluster's node
-func setSandboxNodeType(pf *PodFact) {
-	// For nodes that belong to a sandboxed subcluster, we cannot rely
-	// on the VDB subcluster state. There is still some work needed in
-	// order to figure out how to get the subcluster type for a sandboxed
-	// node. In the meantime, we are going to limit a sandbox size to
-	// one subcluster and default its type to primary
-	if pf.sandbox != vapi.MainCluster {
-		pf.isPrimary = true
+// GetClusterExtendedName returns the extended name of the cluster
+// handled by the podfacts
+func (p *PodFacts) GetClusterExtendedName() string {
+	sbName := p.GetSandboxName()
+	if sbName == vapi.MainCluster {
+		return "main cluster"
 	}
+	return fmt.Sprintf("sandbox %s", sbName)
 }
 
 // checkIfNodeUpCmd builds and returns the command to check
@@ -1183,4 +1178,39 @@ func checkIfNodeUpCmd(podIP string) string {
 		podIP, builder.VerticaHTTPPort, builder.HTTPServerVersionPath)
 	curlCmd := "curl -k -s -o /dev/null -w '%{http_code}'"
 	return fmt.Sprintf("%s %s", curlCmd, url)
+}
+
+// FindFirstPrimaryUpPodIP returns the ip of first pod that
+// has a primary up Vertica node, and a boolean that indicates
+// if we found such a pod
+func (p *PodFacts) FindFirstPrimaryUpPodIP() (string, bool) {
+	initiator, ok := p.findFirstPodSorted(func(v *PodFact) bool {
+		return v.sandbox == vapi.MainCluster && v.isPrimary && v.upNode
+	})
+	if initiator == nil {
+		return "", false
+	}
+	return initiator.podIP, ok
+}
+
+// FindUnsandboxedSubclustersStillInSandboxStatus returns a sandbox-subclusters map
+// that contains subclusters which has been unsandboxed but hasn't been removed
+// from sandbox status of VDB. In pod facts, we can get the latest sandbox info from
+// the /nodes endpoint which reflects the latest version from the catalog. We compare
+// the sandbox info in each pod with the sandbox info in vdb to know which subcluster
+// has been unsandboxed but not reflected on vdb.
+func (p *PodFacts) FindUnsandboxedSubclustersStillInSandboxStatus(scSbInVdbStatus map[string]string) map[string][]string {
+	sbScMap := make(map[string][]string)
+	seenScs := make(map[string]any)
+	for _, v := range p.Detail {
+		if _, ok := seenScs[v.subclusterName]; ok {
+			continue
+		}
+		sb, foundScInSbStatus := scSbInVdbStatus[v.subclusterName]
+		if foundScInSbStatus && v.sandbox == vapi.MainCluster {
+			sbScMap[sb] = append(sbScMap[sb], v.subclusterName)
+		}
+		seenScs[v.subclusterName] = struct{}{}
+	}
+	return sbScMap
 }

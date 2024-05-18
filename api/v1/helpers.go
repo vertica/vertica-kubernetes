@@ -44,6 +44,9 @@ const (
 	RFC1035DNSLabelNameRegex     = `^[a-z]([a-z0-9\-]{0,61}[a-z0-9])?$`
 
 	MainCluster = ""
+
+	VerticaDBNameKey = "verticaDBName"
+	SandboxNameKey   = "sandboxName"
 )
 
 // ExtractNamespacedName gets the name and returns it as a NamespacedName
@@ -154,7 +157,8 @@ func MakeVDBForScrutinize() *VerticaDB {
 	return vdb
 }
 
-// GenSubclusterMap will organize all of the subclusters into a map for quicker lookup
+// GenSubclusterMap will organize all of the subclusters into a map for quicker lookup.
+// The key is the subcluster name and the value is a pointer to its Subcluster struct.
 func (v *VerticaDB) GenSubclusterMap() map[string]*Subcluster {
 	scMap := map[string]*Subcluster{}
 	for i := range v.Spec.Subclusters {
@@ -162,6 +166,81 @@ func (v *VerticaDB) GenSubclusterMap() map[string]*Subcluster {
 		scMap[sc.Name] = sc
 	}
 	return scMap
+}
+
+// GenSandboxMap will build a map that can find a sandbox by name.
+func (v *VerticaDB) GenSandboxMap() map[string]*Sandbox {
+	sbMap := map[string]*Sandbox{}
+	for i := range v.Spec.Sandboxes {
+		sb := &v.Spec.Sandboxes[i]
+		sbMap[sb.Name] = sb
+	}
+	return sbMap
+}
+
+// GenSubclusterSandboxMap will scan all sandboxes and return a map
+// with subcluster name as the key and sandbox name as the value
+func (v *VerticaDB) GenSubclusterSandboxMap() map[string]string {
+	scSbMap := make(map[string]string)
+	for i := range v.Spec.Sandboxes {
+		sb := &v.Spec.Sandboxes[i]
+		for _, sc := range sb.Subclusters {
+			scSbMap[sc.Name] = sb.Name
+		}
+	}
+	return scSbMap
+}
+
+// GenSubclusterSandboxStatusMap will scan sandbox status and return a map
+// with subcluster name as the key and sandbox name as the value
+func (v *VerticaDB) GenSubclusterSandboxStatusMap() map[string]string {
+	scSbMap := make(map[string]string)
+	for i := range v.Status.Sandboxes {
+		sb := &v.Status.Sandboxes[i]
+		for _, sc := range sb.Subclusters {
+			scSbMap[sc] = sb.Name
+		}
+	}
+	return scSbMap
+}
+
+// GenSandboxSubclusterMapForUnsandbox will compare sandbox status and spec
+// for finding subclusters that need to be unsandboxed, this function returns a map
+// with sandbox name as the key and its subclusters (need to be unsandboxed) as the value
+func (v *VerticaDB) GenSandboxSubclusterMapForUnsandbox() map[string][]string {
+	unsandboxSbScMap := make(map[string][]string)
+	vdbScSbMap := v.GenSubclusterSandboxMap()
+	statusScSbMap := v.GenSubclusterSandboxStatusMap()
+	for sc, sbInStatus := range statusScSbMap {
+		sbInVdb, found := vdbScSbMap[sc]
+		// if a subcluster is removed or put into another sandbox in spec.sandboxes,
+		// we need to unsandbox the subcluster
+		if !found || sbInVdb != sbInStatus {
+			unsandboxSbScMap[sbInStatus] = append(unsandboxSbScMap[sbInStatus], sc)
+		}
+	}
+	return unsandboxSbScMap
+}
+
+// GenSubclusterIndexMap will organize all of the subclusters into a map so we
+// can quickly find its index in the spec.subclusters[] array.
+func (v *VerticaDB) GenSubclusterIndexMap() map[string]int {
+	m := make(map[string]int)
+	for i := range v.Spec.Subclusters {
+		m[v.Spec.Subclusters[i].Name] = i
+	}
+	return m
+}
+
+// GenSandboxIndexMap will create a map that allows us to figure out the index
+// in vdb.Spec.Sandboxes for each sandbox. Returns a map of sandbox name to its
+// index position.
+func (v *VerticaDB) GenSandboxIndexMap() map[string]int {
+	m := make(map[string]int)
+	for i := range v.Spec.Sandboxes {
+		m[v.Spec.Sandboxes[i].Name] = i
+	}
+	return m
 }
 
 func isValidRFC1123DNSSubdomainName(name string) bool {
@@ -273,6 +352,15 @@ func (s *Subcluster) GenCompatibleFQDN() string {
 	return m.ReplaceAllString(s.Name, "-")
 }
 
+// GetStatefulSetName returns the name of the statefulset for this subcluster
+func (s *Subcluster) GetStatefulSetName(vdb *VerticaDB) string {
+	stsOverrideName := vmeta.GetStsNameOverride(s.Annotations)
+	if stsOverrideName != "" {
+		return stsOverrideName
+	}
+	return fmt.Sprintf("%s-%s", vdb.Name, s.GenCompatibleFQDN())
+}
+
 // GetServiceName returns the name of the service object that route traffic to
 // this subcluster.
 func (s *Subcluster) GetServiceName() string {
@@ -304,6 +392,16 @@ func (v *VerticaDB) RequiresTransientSubcluster() bool {
 		v.Spec.TemporarySubclusterRouting.Template.Size > 0
 }
 
+// GetTransientSubclusterName returns the name of the transient subcluster, if
+// it should exist. The bool output parameter will be false if no transient is
+// used.
+func (v *VerticaDB) GetTransientSubclusterName() (string, bool) {
+	if !v.RequiresTransientSubcluster() {
+		return "", false
+	}
+	return v.Spec.TemporarySubclusterRouting.Template.Name, true
+}
+
 // IsOnlineUpgradeInProgress returns true if an online upgrade is in progress
 func (v *VerticaDB) IsOnlineUpgradeInProgress() bool {
 	return v.IsStatusConditionTrue(OnlineUpgradeInProgress)
@@ -324,6 +422,24 @@ func (v *VerticaDB) IsStatusConditionFalse(statusCondition string) bool {
 // FindStatusCondition finds the conditionType in conditions.
 func (v *VerticaDB) FindStatusCondition(conditionType string) *metav1.Condition {
 	return meta.FindStatusCondition(v.Status.Conditions, conditionType)
+}
+
+// IsSandBoxUpgradeInProgress returns true if is an upgrade
+// is already occurring in the given sandbox
+func (v *VerticaDB) IsSandBoxUpgradeInProgress(sbName string) bool {
+	sb := v.GetSandboxStatus(sbName)
+	return sb != nil && sb.UpgradeState.UpgradeInProgress
+}
+
+func (v *VerticaDB) GetUpgradeStatus(sbName string) (string, error) {
+	if sbName == MainCluster {
+		return v.Status.UpgradeStatus, nil
+	}
+	sb, err := v.GetSandboxStatusCheck(sbName)
+	if err != nil {
+		return "", err
+	}
+	return sb.UpgradeState.UpgradeStatus, nil
 }
 
 // buildTransientSubcluster creates a temporary read-only sc based on an existing subcluster
@@ -640,7 +756,11 @@ func (v *VerticaDB) GetKerberosServiceName() string {
 }
 
 func (s *Subcluster) IsPrimary() bool {
-	return s.Type == PrimarySubcluster
+	return s.Type == PrimarySubcluster || s.Type == SandboxPrimarySubcluster
+}
+
+func (s *Subcluster) IsSandboxPrimary() bool {
+	return s.Type == SandboxPrimarySubcluster
 }
 
 func (s *Subcluster) IsSecondary() bool {
@@ -749,13 +869,22 @@ func (v *VerticaDB) IsHTTPSTLSConfGenerationEnabled() (bool, error) {
 	return !inf.IsEqualOrNewer(AutoGenerateHTTPSCertsForNewDatabasesMinVersion), nil
 }
 
-// GetSubclusterSandboxName returns the sandbox the given subcluster belongs to,
-// or an empty string if it does not belong to any
+// GenSubclusterStatusMap returns a map that has a subcluster name as key
+// and its status as value
+func (v *VerticaDB) GenSubclusterStatusMap() map[string]*SubclusterStatus {
+	scMap := map[string]*SubclusterStatus{}
+	for i := range v.Status.Subclusters {
+		sc := &v.Status.Subclusters[i]
+		scMap[sc.Name] = sc
+	}
+	return scMap
+}
+
 func (v *VerticaDB) GetSubclusterSandboxName(scName string) string {
-	for i := range v.Spec.Sandboxes {
-		for j := range v.Spec.Sandboxes[i].Subclusters {
-			if scName == v.Spec.Sandboxes[i].Subclusters[j].Name {
-				return v.Spec.Sandboxes[i].Name
+	for i := range v.Status.Sandboxes {
+		for j := range v.Status.Sandboxes[i].Subclusters {
+			if scName == v.Status.Sandboxes[i].Subclusters[j] {
+				return v.Status.Sandboxes[i].Name
 			}
 		}
 	}
@@ -806,4 +935,26 @@ func (v *VerticaDB) GetSandbox(sbName string) *Sandbox {
 		}
 	}
 	return nil
+}
+
+// GetSandboxStatus returns the status of the sandbox given by name. A nil pointer is returned if
+// not found.
+func (v *VerticaDB) GetSandboxStatus(sbName string) *SandboxStatus {
+	for i := range v.Status.Sandboxes {
+		if v.Status.Sandboxes[i].Name == sbName {
+			return &v.Status.Sandboxes[i]
+		}
+	}
+	return nil
+}
+
+// GetSandboxStatusCheck is like GetSandboxStatus but returns an error if the sandbox
+// is missing in the status. Use this in places where it is a failure if the sandbox
+// is not in the status
+func (v *VerticaDB) GetSandboxStatusCheck(sbName string) (*SandboxStatus, error) {
+	sb := v.GetSandboxStatus(sbName)
+	if sb == nil {
+		return nil, fmt.Errorf("could not find sandbox %q in status", sbName)
+	}
+	return sb, nil
 }

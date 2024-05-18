@@ -717,6 +717,7 @@ type Sandbox struct {
 	Name string `json:"name"`
 
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// +kubebuilder:default:=""
 	// +kubebuilder:validation:Optional
 	// The name of the image to use for the sandbox. If omitted, the image
 	// is inherited from the spec.image field.
@@ -775,6 +776,14 @@ type Subcluster struct {
 	// temporarily to serve traffic for subclusters that are restarting with the
 	// new image.
 	IsTransient bool `json:"isTransient,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:hidden"
+	// A sandbox primary subcluster is a secondary subcluster that was the first
+	// subcluster in a sandbox. These subclusters are primaries when they are
+	// sandboxed. When unsandboxed, they will go back to being just a secondary
+	// subcluster
+	IsSandboxPrimary bool `json:"isSandboxPrimary"`
 
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:hidden"
@@ -917,6 +926,20 @@ type VerticaDBStatus struct {
 	Sandboxes []SandboxStatus `json:"sandboxes,omitempty"`
 }
 
+type SandboxUpgradeState struct {
+	// +operator-sdk:csv:customresourcedefinitions:type=status
+	// +optional
+	// UpgradeInProgress indicates if the sandbox is in the process
+	// of having its image change
+	UpgradeInProgress bool `json:"upgradeInProgress"`
+
+	// +operator-sdk:csv:customresourcedefinitions:type=status
+	// +optional
+	// Status message for the current running upgrade. If no upgrade
+	// is occurring, this message remains blank.
+	UpgradeStatus string `json:"upgradeStatus"`
+}
+
 type SandboxStatus struct {
 	// +operator-sdk:csv:customresourcedefinitions:type=status
 	// Name of the sandbox that was defined in the spec
@@ -926,6 +949,11 @@ type SandboxStatus struct {
 	// The names of subclusters that are currently a part of the given sandbox.
 	// This is updated as subclusters become sandboxed or unsandboxed.
 	Subclusters []string `json:"subclusters"`
+
+	// +operator-sdk:csv:customresourcedefinitions:type=status
+	// +optional
+	// State of the current running upgrade in the sandbox
+	UpgradeState SandboxUpgradeState `json:"upgradeState"`
 }
 
 // VerticaDBConditionType defines type for VerticaDBCondition

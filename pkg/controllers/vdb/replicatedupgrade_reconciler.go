@@ -18,7 +18,6 @@ package vdb
 import (
 	"context"
 	"fmt"
-	"sort"
 
 	"github.com/go-logr/logr"
 	"github.com/google/uuid"
@@ -30,7 +29,7 @@ import (
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
-	corev1 "k8s.io/api/core/v1"
+	"github.com/vertica/vertica-kubernetes/pkg/vk8s"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -39,6 +38,33 @@ import (
 
 // When we generate a sandbox for the upgrade, this is preferred name of that sandbox.
 const preferredSandboxName = "replica-group-b"
+
+// List of status messages for replicated upgrade. When adding a new entry here,
+// be sure to add a *StatusMsgInx const below.
+var replicatedUpgradeStatusMsgs = []string{
+	"Starting replicated upgrade",
+	"Create new subclusters to mimic the primaries",
+	"Sandbox subclusters",
+	"Upgrade sandbox to new version",
+	"Pause connections to main cluster",
+	"Replicate new data from main cluster to sandbox",
+	"Redirect connections to sandbox",
+	"Promote sandbox to main cluster",
+	"Recreate secondaries in new main cluster",
+}
+
+// Constants for each entry in replicatedUpgradeStatusMsgs
+const (
+	startReplicatedUpgradeStatusMsgInx = iota
+	createNewSubclustersStatusMsgInx
+	sandboxSubclustersMsgInx
+	upgradeSandboxMsgInx
+	pauseConnectionsMsgInx
+	startReplicationMsgInx
+	redirectToSandboxMsgInx
+	promoteSandboxMsgInx
+	recreateSecondariesMsgInx
+)
 
 // ReplicatedUpgradeReconciler will coordinate an online upgrade that allows
 // write. This is done by splitting the cluster into two separate replicas and
@@ -83,42 +109,51 @@ func (r *ReplicatedUpgradeReconciler) Reconcile(ctx context.Context, _ *ctrl.Req
 	// Functions to perform when the image changes.  Order matters.
 	funcs := []func(context.Context) (ctrl.Result, error){
 		// Initiate an upgrade by setting condition and event recording
-		r.Manager.startUpgrade,
+		r.startUpgrade,
+		r.postStartReplicatedUpgradeMsg,
 		// Load up state that is used for the subsequent steps
 		r.loadUpgradeState,
 		// Assign subclusters to upgrade to replica group A
 		r.assignSubclustersToReplicaGroupA,
 		// Create secondary subclusters for each of the primaries. These will be
 		// added to replica group B and ready to be sandboxed.
+		r.postCreateNewSubclustersMsg,
 		r.assignSubclustersToReplicaGroupB,
 		r.runObjReconcilerForMainCluster,
 		r.runAddSubclusterReconcilerForMainCluster,
 		r.runAddNodesReconcilerForMainCluster,
+		r.runRebalanceSandboxSubcluster,
 		// Sandbox all of the secondary subclusters that are destined for
 		// replica group B.
+		r.postSandboxSubclustersMsg,
 		r.sandboxReplicaGroupB,
-		r.waitForSandboxToFinish,
 		// Upgrade the version in the sandbox to the new version.
+		r.postUpgradeSandboxMsg,
 		r.upgradeSandbox,
 		r.waitForSandboxUpgrade,
 		// Pause all connections to replica A. This is to prepare for the
 		// replication below.
+		r.postPauseConnectionsMsg,
 		r.pauseConnectionsAtReplicaGroupA,
 		// Copy any new data that was added since the sandbox from replica group
 		// A to replica group B.
+		r.postStartReplicationMsg,
 		r.startReplicationToReplicaGroupB,
 		r.waitForReplicateToReplicaGroupB,
 		// Redirect all of the connections to replica group A to replica group B.
+		r.postRedirectToSandboxMsg,
 		r.redirectConnectionsToReplicaGroupB,
 		// Promote the sandbox to the main cluster and discard the pods for the
 		// old main.
+		r.postPromoteSandboxMsg,
 		r.promoteSandboxToMainCluster,
 		// Scale-out secondary subcluster in main cluster. We will recreate the
 		// secondary subcluster in replica group B that existed at the start of
 		// the upgrade.
+		r.postRecreateSecondariesMsg,
 		r.scaleOutSecondariesInReplicaGroupB,
 		// Cleanup up the condition and event recording for a completed upgrade
-		r.Manager.finishUpgrade,
+		r.finishUpgrade,
 	}
 	for _, fn := range funcs {
 		if res, err := fn(ctx); verrors.IsReconcileAborted(res, err) {
@@ -134,6 +169,20 @@ func (r *ReplicatedUpgradeReconciler) Reconcile(ctx context.Context, _ *ctrl.Req
 	return ctrl.Result{}, r.Manager.logUpgradeSucceeded(vapi.MainCluster)
 }
 
+func (r *ReplicatedUpgradeReconciler) startUpgrade(ctx context.Context) (ctrl.Result, error) {
+	return r.Manager.startUpgrade(ctx, vapi.MainCluster)
+}
+
+func (r *ReplicatedUpgradeReconciler) finishUpgrade(ctx context.Context) (ctrl.Result, error) {
+	return r.Manager.finishUpgrade(ctx, vapi.MainCluster)
+}
+
+// postStartReplicatedUpgradeMsg will update the status message to indicate that
+// we are starting replicated upgrade.
+func (r *ReplicatedUpgradeReconciler) postStartReplicatedUpgradeMsg(ctx context.Context) (ctrl.Result, error) {
+	return r.postNextStatusMsg(ctx, startReplicatedUpgradeStatusMsgInx)
+}
+
 // loadUpgradeState will load state into the reconciler that
 // is used in subsequent steps.
 func (r *ReplicatedUpgradeReconciler) loadUpgradeState(ctx context.Context) (ctrl.Result, error) {
@@ -143,6 +192,7 @@ func (r *ReplicatedUpgradeReconciler) loadUpgradeState(ctx context.Context) (ctr
 	}
 
 	r.sandboxName = vmeta.GetReplicatedUpgradeSandbox(r.VDB.Annotations)
+	r.Log.Info("load upgrade state", "sandboxName", r.sandboxName, "primaryImages", r.Manager.PrimaryImages)
 	return ctrl.Result{}, nil
 }
 
@@ -158,7 +208,7 @@ func (r *ReplicatedUpgradeReconciler) assignSubclustersToReplicaGroupA(ctx conte
 	// We simply assign all subclusters to the first group. This is used by
 	// webhooks to prevent new subclusters being added that aren't part of the
 	// upgrade.
-	_, err := r.Manager.updateVDBWithRetry(ctx, r.assignSubclustersToReplicaGroupACallback)
+	_, err := vk8s.UpdateVDBWithRetry(ctx, r.VRec, r.VDB, r.assignSubclustersToReplicaGroupACallback)
 	return ctrl.Result{}, err
 }
 
@@ -193,6 +243,20 @@ func (r *ReplicatedUpgradeReconciler) runAddNodesReconcilerForMainCluster(ctx co
 	return res, err
 }
 
+// runRebalanceSandboxSubcluster will run a rebalance against the subclusters that will be sandboxed.
+func (r *ReplicatedUpgradeReconciler) runRebalanceSandboxSubcluster(ctx context.Context) (ctrl.Result, error) {
+	pf := r.PFacts[vapi.MainCluster]
+	actor := MakeRebalanceShardsReconciler(r.VRec, r.Log, r.VDB, pf.PRunner, pf, "")
+	r.Manager.traceActorReconcile(actor)
+	return actor.Reconcile(ctx, &ctrl.Request{})
+}
+
+// postCreateNewSubclustersMsg will update the status message to indicate that
+// we are about to create new subclusters to mimic the primaries.
+func (r *ReplicatedUpgradeReconciler) postCreateNewSubclustersMsg(ctx context.Context) (ctrl.Result, error) {
+	return r.postNextStatusMsg(ctx, createNewSubclustersStatusMsgInx)
+}
+
 // assignSubclustersToReplicaGroupB will figure out the subclusters that make up
 // replica group B. We will add a secondary for each of the primaries that
 // exist. This is a pre-step to setting up replica group B, which will
@@ -203,7 +267,7 @@ func (r *ReplicatedUpgradeReconciler) assignSubclustersToReplicaGroupB(ctx conte
 		return ctrl.Result{}, nil
 	}
 
-	updated, err := r.Manager.updateVDBWithRetry(ctx, r.addNewSubclustersForPrimaries)
+	updated, err := vk8s.UpdateVDBWithRetry(ctx, r.VRec, r.VDB, r.addNewSubclustersForPrimaries)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed trying to update VDB with new subclusters: %w", err)
 	}
@@ -213,55 +277,64 @@ func (r *ReplicatedUpgradeReconciler) assignSubclustersToReplicaGroupB(ctx conte
 	return ctrl.Result{}, nil
 }
 
+// postSandboxSubclustersMsg will update the status message to indicate that
+// we are going to sandbox subclusters for replica group b.
+func (r *ReplicatedUpgradeReconciler) postSandboxSubclustersMsg(ctx context.Context) (ctrl.Result, error) {
+	return r.postNextStatusMsg(ctx, sandboxSubclustersMsgInx)
+}
+
 // sandboxReplicaGroupB will move all of the subclusters in replica B to a new sandbox
 func (r *ReplicatedUpgradeReconciler) sandboxReplicaGroupB(ctx context.Context) (ctrl.Result, error) {
-	// We can skip this step if the replica sandbox is already created.
-	if r.sandboxName != "" {
+	// We can skip this step if the replica sandbox is already created and fully
+	// sandboxed (according to status).
+	if r.sandboxName != "" && r.VDB.GetSandboxStatus(r.sandboxName) != nil {
 		return ctrl.Result{}, nil
 	}
 
-	_, err := r.Manager.updateVDBWithRetry(ctx, r.moveReplicaGroupBSubclusterToSandbox)
-	if err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed trying to update VDB for sandboxing: %w", err)
-	}
-	r.sandboxName = vmeta.GetReplicatedUpgradeSandbox(r.VDB.Annotations)
+	r.Log.Info("Start sandbox of replica group B", "sandboxName", r.sandboxName)
+
+	// If the sandbox is not yet created, update the VDB. We can skip this if we
+	// are simply waiting for the sandbox to complete.
 	if r.sandboxName == "" {
-		return ctrl.Result{}, errors.New("could not find sandbox name in annotations")
+		_, err := vk8s.UpdateVDBWithRetry(ctx, r.VRec, r.VDB, r.moveReplicaGroupBSubclusterToSandbox)
+		if err != nil {
+			return ctrl.Result{}, fmt.Errorf("failed trying to update VDB for sandboxing: %w", err)
+		}
+		r.sandboxName = vmeta.GetReplicatedUpgradeSandbox(r.VDB.Annotations)
+		if r.sandboxName == "" {
+			return ctrl.Result{}, errors.New("could not find sandbox name in annotations")
+		}
+		r.Log.Info("Created new sandbox in vdb", "sandboxName", r.sandboxName)
 	}
+
+	// The nodes in the subcluster to sandbox must be running in order for
+	// sandboxing to work. For this reason, we need to use the restart
+	// reconciler to restart any down nodes.
+	pf := r.PFacts[vapi.MainCluster]
+	const DoNotRestartReadOnly = false
+	actor := MakeRestartReconciler(r.VRec, r.Log, r.VDB, pf.PRunner, pf, DoNotRestartReadOnly, r.Dispatcher)
+	r.Manager.traceActorReconcile(actor)
+	res, err := actor.Reconcile(ctx, &ctrl.Request{})
+	if verrors.IsReconcileAborted(res, err) {
+		return res, err
+	}
+
+	// Drive the actual sandbox command. When this returns we know the sandbox is complete.
+	actor = MakeSandboxSubclusterReconciler(r.VRec, r.Log, r.VDB, r.PFacts[vapi.MainCluster], r.Dispatcher, r.VRec.Client)
+	r.Manager.traceActorReconcile(actor)
+	res, err = actor.Reconcile(ctx, &ctrl.Request{})
+	if verrors.IsReconcileAborted(res, err) {
+		return res, err
+	}
+
 	r.Log.Info("subclusters in replica group B have been sandboxed", "sandboxName", r.sandboxName)
 	return ctrl.Result{}, nil
 }
 
-// waitForSandboxToFinish will block the upgrade until the sandbox controller has
-// sandboxed the subclusters that are part of replica group B.
-func (r *ReplicatedUpgradeReconciler) waitForSandboxToFinish(ctx context.Context) (ctrl.Result, error) {
-	sb := r.VDB.GetSandbox(r.sandboxName)
-	if sb == nil {
-		return ctrl.Result{}, fmt.Errorf("could not find sandbox %q", r.sandboxName)
-	}
-	// If the image in the sandbox matches the image in the spec. We have
-	// already attempted to upgrade the sandbox. So, this implies it has been
-	// created already.
-	if sb.Image == r.VDB.Spec.Image {
-		return ctrl.Result{}, nil
-	}
-
-	// Check if we can skip this step if status already has the replicated
-	// upgrade sandbox and the nodes are up.
-	foundSandboxInStatus, err := r.isReplicatedUpgradeSandboxCreated()
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-
-	if foundSandboxInStatus {
-		r.Log.Info("sandboxes have been created")
-		// We need to check pod facts of the sandbox to wait here for the nodes
-		// in the sandbox to come up.
-		return ctrl.Result{}, nil
-	}
-	// We will requeue for now. But eventually, we will call necessary
-	// reconcilers here to drive the sandboxing.
-	return ctrl.Result{Requeue: true}, nil
+// postUpgradeSandboxMsg will update the status message to indicate that
+// we are going to upgrade the vertica version in the sandbox.
+func (r *ReplicatedUpgradeReconciler) postUpgradeSandboxMsg(ctx context.Context) (ctrl.Result, error) {
+	return r.postNextStatusMsg(ctx, upgradeSandboxMsgInx)
 }
 
 // upgradeSandbox will upgrade the nodes in replica group B (sandbox) to the new version.
@@ -277,23 +350,49 @@ func (r *ReplicatedUpgradeReconciler) upgradeSandbox(ctx context.Context) (ctrl.
 		return ctrl.Result{}, nil
 	}
 
-	updated, err := r.Manager.updateVDBWithRetry(ctx, r.setImageInSandbox)
+	updated, err := vk8s.UpdateVDBWithRetry(ctx, r.VRec, r.VDB, r.setImageInSandbox)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed trying to update image in sandbox: %w", err)
 	}
 	if updated {
 		r.Log.Info("update image in sandbox", "image", r.VDB.Spec.Image)
+
+		// Get the sandbox podfacts only to invalidate the cache
+		sbPFacts, err := r.getSandboxPodFacts(ctx, false)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+		sbPFacts.Invalidate()
 	}
-	return ctrl.Result{}, nil
+
+	act := MakeSandboxUpgradeReconciler(r.VRec, r.Log, r.VDB)
+	r.Manager.traceActorReconcile(act)
+	return act.Reconcile(ctx, &ctrl.Request{})
 }
 
 // waitForSandboxUpgrade will wait for the sandbox upgrade to finish. It will
 // continually check if the pods in the sandbox are up.
 func (r *ReplicatedUpgradeReconciler) waitForSandboxUpgrade(ctx context.Context) (ctrl.Result, error) {
-	// The way I think we should do this is to get podfacts for the sandbox.
-	// Then wait for the nodes to be up. Each time we find the nodes aren't up
-	// we should requeue using the upgrade requeue time (see GetUpgradeRequeueTimeDuration).
-	return ctrl.Result{}, errors.New("wait for sandbox upgrade is not yet implemented")
+	sbPFacts, err := r.getSandboxPodFacts(ctx, true)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	r.Log.Info("collected sandbox facts", "numPods", len(sbPFacts.Detail))
+	for _, pf := range sbPFacts.Detail {
+		r.Log.Info("sandbox pod fact", "pod", pf.name.Name, "image", pf.image, "up", pf.upNode)
+		if pf.image != r.VDB.Spec.Image || !pf.upNode {
+			r.Log.Info("Still waiting for sandbox to be upgraded")
+			return ctrl.Result{Requeue: true}, nil
+		}
+	}
+	return ctrl.Result{}, nil
+}
+
+// postPauseConnectionsMsg will update the status message to indicate that
+// client connections are being paused at the main cluster.
+func (r *ReplicatedUpgradeReconciler) postPauseConnectionsMsg(ctx context.Context) (ctrl.Result, error) {
+	return r.postNextStatusMsg(ctx, pauseConnectionsMsgInx)
 }
 
 // pauseConnectionsAtReplicaGroupA will pause all connections to replica A. This
@@ -332,6 +431,12 @@ func (r *ReplicatedUpgradeReconciler) pauseConnectionsAtReplicaGroupA(ctx contex
 	}
 
 	return ctrl.Result{}, nil
+}
+
+// postStartReplicationMsg will update the status message to indicate that
+// replication from the main to the sandbox is starting.
+func (r *ReplicatedUpgradeReconciler) postStartReplicationMsg(ctx context.Context) (ctrl.Result, error) {
+	return r.postNextStatusMsg(ctx, startReplicationMsgInx)
 }
 
 // startReplicationToReplicaGroupB will copy any new data that was added since
@@ -376,7 +481,7 @@ func (r *ReplicatedUpgradeReconciler) startReplicationToReplicaGroupB(ctx contex
 		r.VDB.Annotations[vmeta.ReplicatedUpgradeReplicatorAnnotation] = vrep.Name
 		return true, nil
 	}
-	_, err = r.Manager.updateVDBWithRetry(ctx, annotationUpdate)
+	_, err = vk8s.UpdateVDBWithRetry(ctx, r.VRec, r.VDB, annotationUpdate)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to add replicator annotation to vdb: %w", err)
 	}
@@ -422,6 +527,12 @@ func (r *ReplicatedUpgradeReconciler) waitForReplicateToReplicaGroupB(ctx contex
 		return ctrl.Result{}, fmt.Errorf("failed to delete the VerticaReplicator %s: %w", vrepName, err)
 	}
 	return ctrl.Result{}, nil
+}
+
+// postRedirectToSandboxMsg will update the status message to indicate that
+// we are diverting client connections to the sandbox now.
+func (r *ReplicatedUpgradeReconciler) postRedirectToSandboxMsg(ctx context.Context) (ctrl.Result, error) {
+	return r.postNextStatusMsg(ctx, redirectToSandboxMsgInx)
 }
 
 // redirectConnectionsToReplicaGroupB will redirect all of the connections
@@ -476,10 +587,22 @@ func (r *ReplicatedUpgradeReconciler) redirectConnectionsToReplicaGroupB(ctx con
 	return ctrl.Result{}, nil
 }
 
+// postPromoteSandboxMsg will update the status message to indicate that
+// we are going to promote the sandbox to the main cluster now.
+func (r *ReplicatedUpgradeReconciler) postPromoteSandboxMsg(ctx context.Context) (ctrl.Result, error) {
+	return r.postNextStatusMsg(ctx, promoteSandboxMsgInx)
+}
+
 // promoteSandboxToMainCluster will promote the sandbox to the main cluster and
 // discard the pods for the old main.
 func (r *ReplicatedUpgradeReconciler) promoteSandboxToMainCluster(ctx context.Context) (ctrl.Result, error) {
 	return ctrl.Result{}, errors.New("promote sandbox to main cluster is not yet implemented")
+}
+
+// postRecreateSecondariesMsg will update the status message to indicate that
+// we are going to start recreating the secondaries in replica group b.
+func (r *ReplicatedUpgradeReconciler) postRecreateSecondariesMsg(ctx context.Context) (ctrl.Result, error) {
+	return r.postNextStatusMsg(ctx, recreateSecondariesMsgInx)
 }
 
 // Scale-out secondary subcluster in main cluster. We will recreate the
@@ -515,7 +638,12 @@ func (r *ReplicatedUpgradeReconciler) addNewSubclustersForPrimaries() (bool, err
 			return false, err
 		}
 
-		newsc := r.duplicateSubclusterForReplicaGroupB(sc, newSCName, oldImage)
+		newStsName, err := r.genNewSubclusterStsName(newSCName, sc)
+		if err != nil {
+			return false, err
+		}
+
+		newsc := r.duplicateSubclusterForReplicaGroupB(sc, newSCName, newStsName, oldImage)
 		newSubclusters = append(newSubclusters, *newsc)
 		scMap[newSCName] = newsc
 	}
@@ -624,6 +752,35 @@ func (r *ReplicatedUpgradeReconciler) genNewSubclusterName(baseName string, scMa
 	return r.genNameWithUUID(baseName, func(nm string) bool { _, found := scMap[nm]; return found })
 }
 
+// genNewSubclusterStsName is a helper to generate the statefulset name of a new
+// subcluster. It will return a unique name as determined by looking at all of
+// the subclusters defined in the CR.
+func (r *ReplicatedUpgradeReconciler) genNewSubclusterStsName(newSCName string, scToMimic *vapi.Subcluster) (string, error) {
+	// Build up a map of all of the statefulset names defined for this database
+	stsNameMap := make(map[string]bool)
+	for i := range r.VDB.Spec.Subclusters {
+		stsNameMap[r.VDB.Spec.Subclusters[i].GetStatefulSetName(r.VDB)] = true
+	}
+
+	// Preference is to match the name of the new subcluster.
+	nm := fmt.Sprintf("%s-%s", r.VDB.Name, newSCName)
+	if _, found := stsNameMap[nm]; !found {
+		return nm, nil
+	}
+
+	// Then try using the original name of the subcluster. This may be available
+	// if this the 2nd, 4th, etc. replicated upgrade. The sandbox will oscilate
+	// between the name of the subcluster in the sandbox and its original name.
+	nm = fmt.Sprintf("%s-%s", r.VDB.Name, scToMimic.Name)
+	if _, found := stsNameMap[nm]; !found {
+		return nm, nil
+	}
+
+	// Otherwise, generate a name using a uuid suffix
+	return r.genNameWithUUID(fmt.Sprintf("%s-%s", r.VDB.Name, newSCName),
+		func(nm string) bool { _, found := stsNameMap[nm]; return found })
+}
+
 // getNewSandboxName returns a unique name to be used for a sandbox. A preferred
 // name can be passed in. If that name is already in use, then we will generate
 // a unique one using a UUID.
@@ -663,36 +820,40 @@ func (r *ReplicatedUpgradeReconciler) genNameWithUUID(baseName string, lookupFun
 // duplicateSubclusterForReplicaGroupB will return a new vapi.Subcluster that is based on
 // baseSc. This is used to mimic the primaries in replica group B.
 func (r *ReplicatedUpgradeReconciler) duplicateSubclusterForReplicaGroupB(
-	baseSc *vapi.Subcluster, newSCName, oldImage string) *vapi.Subcluster {
+	baseSc *vapi.Subcluster, newSCName, newStsName, oldImage string) *vapi.Subcluster {
 	newSc := baseSc.DeepCopy()
 	newSc.Name = newSCName
 	// The subcluster will be sandboxed. And only secondaries can be
 	// sandbox.
 	newSc.Type = vapi.SecondarySubcluster
-	// We don't want to duplicate the service object settings. These new
-	// subclusters will eventually reuse the service object of the primaries
-	// they are mimicing. But not until they are ready to accept
-	// connections. In the meantime, we will setup a simple ClusterIP style
-	// service object. No one should really be connecting to them.
-	newSc.ServiceType = corev1.ServiceTypeClusterIP
-	newSc.ClientNodePort = 0
-	newSc.ExternalIPs = nil
-	newSc.LoadBalancerIP = ""
-	newSc.ServiceAnnotations = nil
-	newSc.ServiceName = ""
-	newSc.VerticaHTTPNodePort = 0
+	// Copy over the service name and all fields related to the service object.
+	// They have to be the same. The client-routing label will be left off of
+	// the sandbox pods. So, no traffic will hit them until they are added (see
+	// MakeClientRoutingLabelReconciler).
+	newSc.ServiceType = baseSc.ServiceType
+	newSc.ClientNodePort = baseSc.ClientNodePort
+	newSc.ExternalIPs = baseSc.ExternalIPs
+	newSc.LoadBalancerIP = baseSc.LoadBalancerIP
+	newSc.ServiceAnnotations = baseSc.ServiceAnnotations
+	newSc.ServiceName = baseSc.GetServiceName()
+	newSc.VerticaHTTPNodePort = baseSc.VerticaHTTPNodePort
 	// The image in the vdb has already changed to the new one. We need to
 	// set the image override so that the new subclusters come up with the
 	// old image.
 	newSc.ImageOverride = oldImage
 
-	// Include annotations to indicate what replica group it is assigned to
-	// and provide a link back to the subcluster it is defined from.
+	// Include annotations to indicate what replica group it is assigned to,
+	// provide a link back to the subcluster it is defined from, and the desired
+	// name of the subclusters statefulset.
 	if newSc.Annotations == nil {
 		newSc.Annotations = make(map[string]string)
 	}
 	newSc.Annotations[vmeta.ReplicaGroupAnnotation] = vmeta.ReplicaGroupBValue
 	newSc.Annotations[vmeta.ParentSubclusterAnnotation] = baseSc.Name
+	// Picking a statefulset name is important because this subcluster will get
+	// renamed later but we want a consistent object name to avoid having to
+	// rebuild it.
+	newSc.Annotations[vmeta.StsNameOverrideAnnotation] = newStsName
 
 	// Create a linkage in the parent-child
 	if baseSc.Annotations == nil {
@@ -702,73 +863,69 @@ func (r *ReplicatedUpgradeReconciler) duplicateSubclusterForReplicaGroupB(
 	return newSc
 }
 
-// isReplicatedUpgradeSandboxCreated will check that the sandbox created for
-// replicated upgrade exists in the status.
-func (r *ReplicatedUpgradeReconciler) isReplicatedUpgradeSandboxCreated() (bool, error) {
-	scNames := r.getSubclustersForReplicaGroup(vmeta.ReplicaGroupBValue)
-	if len(scNames) == 0 {
-		return false, errors.New("cound not find any subclusters for replica group B")
-	}
-
-	foundSandbox := false
-	for i := range r.VDB.Status.Sandboxes {
-		sb := r.VDB.Status.Sandboxes[i]
-		if sb.Name != r.sandboxName {
-			continue
-		}
-		foundSandbox = true
-
-		// Sandbox was found. Do additional verification that the subclusters
-		// contained within it are correct.
-		if len(sb.Subclusters) != len(scNames) {
-			return false, fmt.Errorf("wrong subcluster names found: %v vs %v", sb.Subclusters, scNames)
-		}
-		// Sort the subclusters names so that we can simply match entry i with
-		// entry i.
-		sort.Strings(scNames)
-		sort.Strings(sb.Subclusters)
-		for j := range sb.Subclusters {
-			if sb.Subclusters[j] != scNames[j] {
-				return false, fmt.Errorf("unexpected subcluster name found: %s vs %s", sb.Subclusters[j], scNames[j])
-			}
-		}
-	}
-	return foundSandbox, nil
-}
-
 // redirectConnectionsForSubcluster will update the service object so that
 // connections for one subcluster get routed to another one. This will also set
 // the client-routing label in the pod so that it can accept traffic.
 func (r *ReplicatedUpgradeReconciler) redirectConnectionsForSubcluster(ctx context.Context, sourceSc, targetSc *vapi.Subcluster) (
 	ctrl.Result, error) {
+	r.Log.Info("Redirecting client connections", "source", sourceSc.Name, "target", targetSc.Name)
 	if r.sandboxName == "" {
 		return ctrl.Result{}, errors.New("sandbox name not cached")
 	}
 
-	selectorLabels := builder.MakeSvcSelectorLabelsForSubclusterNameRouting(r.VDB, targetSc)
-	// The service object that we manipulate will always be from the main
-	// cluster (ie. non-sandboxed).
-	err := r.Manager.routeClientTraffic(ctx, r.PFacts[vapi.MainCluster], sourceSc, selectorLabels)
-	if err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to update client routing for subcluster %q", sourceSc.Name)
+	// For primary nodes, we avoid temporary routing. When new subclusters are
+	// added to replicate the primaries, they inherit the same service level
+	// information, sharing the same service object. However, for secondary
+	// nodes, the secondaries in replica group B have not been created yet.
+	// Therefore, temporary routing needs to be established. This routing
+	// involves selecting one of the primary subclusters using the
+	// vertica.com/subcluster-selector-name label. After promoting the sandbox
+	// to the main cluster, we will recreate the secondaries. At that point,
+	// we will remove the temporary routing and set up the final configurations.
+	if !sourceSc.IsPrimary() {
+		selectorLabels := builder.MakeSvcSelectorLabelsForSubclusterNameRouting(r.VDB, targetSc)
+		// The service object that we manipulate will always be from the main
+		// cluster (ie. non-sandboxed).
+		err := r.Manager.routeClientTraffic(ctx, r.PFacts[vapi.MainCluster], sourceSc, selectorLabels)
+		if err != nil {
+			return ctrl.Result{}, fmt.Errorf("failed to update client routing for subcluster %q", sourceSc.Name)
+		}
 	}
 
+	sbPFacts, err := r.getSandboxPodFacts(ctx, true)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	// Add the client routing labels to pods in the target subcluster. This
+	// ensures the service object can reach them.  We use the podfacts for the
+	// sandbox as we will always route to pods in the sandbox.
+	actor := MakeClientRoutingLabelReconciler(r.VRec, r.Log, r.VDB, sbPFacts,
+		AddNodeApplyMethod, targetSc.Name)
+	r.Manager.traceActorReconcile(actor)
+	return actor.Reconcile(ctx, &ctrl.Request{})
+}
+
+// postNextStatusMsg will set the next status message for a replicated upgrade
+// according to msgIndex
+func (r *ReplicatedUpgradeReconciler) postNextStatusMsg(ctx context.Context, msgIndex int) (ctrl.Result, error) {
+	return ctrl.Result{}, r.Manager.postNextStatusMsg(ctx, replicatedUpgradeStatusMsgs, msgIndex, vapi.MainCluster)
+}
+
+// getSandboxPodFacts returns a cached copy of the podfacts for the sandbox. If
+// the podfacts aren't cached yet, it will cache them and optionally collect them.
+func (r *ReplicatedUpgradeReconciler) getSandboxPodFacts(ctx context.Context, doCollection bool) (*PodFacts, error) {
 	// Collect the podfacts for the sandbox if not already done. We are going to
 	// use the sandbox podfacts when we update the client routing label.
 	if _, found := r.PFacts[r.sandboxName]; !found {
 		sbPfacts := r.PFacts[vapi.MainCluster].Copy(r.sandboxName)
 		r.PFacts[r.sandboxName] = &sbPfacts
 	}
-	err = r.PFacts[r.sandboxName].Collect(ctx, r.VDB)
-	if err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to collect podfacts for sandbox: %w", err)
+	if doCollection {
+		err := r.PFacts[r.sandboxName].Collect(ctx, r.VDB)
+		if err != nil {
+			return nil, fmt.Errorf("failed to collect podfacts for sandbox: %w", err)
+		}
 	}
-
-	// Add the client routing labels to pods in the target subcluster. This
-	// ensures the service object can reach them.  We use the podfacts for the
-	// sandbox as we will always route to pods in the sandbox.
-	actor := MakeClientRoutingLabelReconciler(r.VRec, r.Log, r.VDB, r.PFacts[r.sandboxName],
-		AddNodeApplyMethod, targetSc.Name)
-	r.Manager.traceActorReconcile(actor)
-	return actor.Reconcile(ctx, &ctrl.Request{})
+	return r.PFacts[r.sandboxName], nil
 }

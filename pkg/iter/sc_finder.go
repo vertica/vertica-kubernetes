@@ -26,6 +26,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -49,8 +50,14 @@ const (
 	FindExisting
 	// Find will return a list of objects that are sorted by their name
 	FindSorted
+	// Find will return a list of objects without filtering based on the
+	// sandbox
+	FindSkipSandboxFilter
 	// Find all subclusters, both in the vdb and not in the vdb.
 	FindAll = FindInVdb | FindNotInVdb
+	// Find all subclusters, both in the vdb and not in the vdb, regardless
+	// of the sandbox they belong to.
+	FindAllAcrossSandboxes = FindAll | FindSkipSandboxFilter
 )
 
 func MakeSubclusterFinder(cli client.Client, vdb *vapi.VerticaDB) SubclusterFinder {
@@ -113,7 +120,10 @@ func (m *SubclusterFinder) FindSubclusters(ctx context.Context, flags FindFlags,
 	subclusters := []*vapi.Subcluster{}
 
 	if flags&FindInVdb != 0 {
-		subclusters = append(subclusters, m.getVdbSubclusters(sandbox)...)
+		// This is true when we want to get all subclusters without any
+		// sandbox distinction
+		ignoreSandbox := flags&FindSkipSandboxFilter != 0
+		subclusters = append(subclusters, m.getVdbSubclusters(sandbox, ignoreSandbox)...)
 	}
 
 	if flags&FindNotInVdb != 0 || flags&FindExisting != 0 {
@@ -127,7 +137,13 @@ func (m *SubclusterFinder) FindSubclusters(ctx context.Context, flags FindFlags,
 		// indication the subcluster is being removed.
 		for i := range missingSts.Items {
 			scName := missingSts.Items[i].Labels[vmeta.SubclusterNameLabel]
-			subclusters = append(subclusters, &vapi.Subcluster{Name: scName, Size: 0})
+			subclusters = append(subclusters, &vapi.Subcluster{
+				Name: scName,
+				Size: 0,
+				Annotations: map[string]string{
+					vmeta.StsNameOverrideAnnotation: missingSts.Items[i].ObjectMeta.Name,
+				},
+			})
 		}
 	}
 
@@ -139,7 +155,9 @@ func (m *SubclusterFinder) FindSubclusters(ctx context.Context, flags FindFlags,
 	return subclusters, nil
 }
 
-// hasSubclusterLabelFromVdb returns true if the given set of labels include a subcluster that is in the vdb
+// hasSubclusterLabelFromVdb returns true if the given set of labels include a
+// subcluster that is in the vdb. Note, for pods, objLabels will be from the
+// statefulset. So, it is safe to use SubclusterNameLabel.
 func (m *SubclusterFinder) hasSubclusterLabelFromVdb(objLabels map[string]string) bool {
 	scName := objLabels[vmeta.SubclusterNameLabel]
 	_, ok := m.Subclusters[scName]
@@ -153,21 +171,23 @@ func (m *SubclusterFinder) buildObjList(ctx context.Context, list client.ObjectL
 	if err := listObjectsOwnedByOperator(ctx, m.Client, m.Vdb, list); err != nil {
 		return err
 	}
+	ignoreSandbox := flags&FindSkipSandboxFilter != 0
 	rawObjs := []runtime.Object{}
 	if err := meta.EachListItem(list, func(obj runtime.Object) error {
-		l, ok := getLabelsFromObject(obj)
-		if !ok {
-			return fmt.Errorf("could not find labels from k8s object %s", obj)
+		l, err := m.getLabelsFromObject(ctx, obj)
+		if err != nil {
+			return err
 		}
 		if flags&FindAll == FindAll {
 			// When FindAll is passed, we want the entire list to be returned,
 			// but still want to filter out objects that do not belong to the given
 			// sandbox or main cluster.
-			if !shouldSkipBasedOnSandboxState(l, sandbox) {
+			if ignoreSandbox || !shouldSkipBasedOnSandboxState(l, sandbox) {
 				rawObjs = append(rawObjs, obj)
 			}
 			return nil
 		}
+
 		// Skip if object is not subcluster specific.  This is necessary for objects like
 		// the headless service object that is cluster wide.
 		if !hasSubclusterNameLabel(l) {
@@ -175,7 +195,7 @@ func (m *SubclusterFinder) buildObjList(ctx context.Context, list client.ObjectL
 		}
 
 		// Skip if the object does not belong to the given sandbox
-		if shouldSkipBasedOnSandboxState(l, sandbox) {
+		if !ignoreSandbox && shouldSkipBasedOnSandboxState(l, sandbox) {
 			return nil
 		}
 
@@ -199,13 +219,16 @@ func (m *SubclusterFinder) buildObjList(ctx context.Context, list client.ObjectL
 }
 
 // shouldSkipBasedOnSandboxState returns true if the object whose labels
-// is passed does not belong to the given sandbox or main cluster
+// is passed does not belong to the given sandbox or main cluster. Note, for a
+// pod, the labels passed in will be from the statefulset. So, it is fine to use
+// SubclusterNameLabel.
 func shouldSkipBasedOnSandboxState(l map[string]string, sandbox string) bool {
 	return l[vmeta.SandboxNameLabel] != sandbox
 }
 
 // hasSubclusterNameLabel returns true if there exists a label that indicates
-// the object is for a subcluster
+// the object is for a subcluster. Note, for a pod, the labels passed in will be
+// from the statefulset. So, it is fine to use SubclusterNameLabel.
 func hasSubclusterNameLabel(l map[string]string) bool {
 	_, ok := l[vmeta.SubclusterNameLabel]
 	if ok {
@@ -222,63 +245,53 @@ func hasSubclusterNameLabel(l map[string]string) bool {
 // If labels were not found then false is return for bool output.
 //
 //nolint:gocritic
-func getLabelsFromObject(obj runtime.Object) (map[string]string, bool) {
+func (m *SubclusterFinder) getLabelsFromObject(ctx context.Context, obj runtime.Object) (map[string]string, error) {
 	if sts, ok := obj.(*appsv1.StatefulSet); ok {
-		return sts.Labels, true
+		return sts.Labels, nil
 	} else if svc, ok := obj.(*corev1.Service); ok {
-		return svc.Labels, true
+		return svc.Labels, nil
 	} else if pod, ok := obj.(*corev1.Pod); ok {
-		return pod.Labels, true
+		// Instead of retrieving labels directly from the pod, we retrieve them
+		// from the StatefulSet that owns the pod. The labels we need, such as
+		// the subcluster name or sandbox, aren't present in the pods
+		// themselves. These values may change, and maintaining them becomes
+		// challenging because any modifications to the StatefulSet's pod
+		// template trigger a rolling update. Therefore, the solution is to
+		// obtain the labels from the owning object.
+		stsName, err := getStatefulSetOwnerName(pod)
+		if err != nil {
+			return nil, err
+		}
+		sts := appsv1.StatefulSet{}
+		err = m.Client.Get(ctx, stsName, &sts)
+		if err != nil {
+			return nil, err
+		}
+		return sts.Labels, nil
 	}
-	return nil, false
+	return nil, fmt.Errorf("unexpected object type: %v", obj.GetObjectKind().GroupVersionKind())
 }
 
-// getSubclusterSandboxStatusMap returns a map that contains sandboxed
-// subclusters
-func (m *SubclusterFinder) getSubclusterSandboxStatusMap() map[string]string {
-	scMap := map[string]string{}
-	for i := range m.Vdb.Status.Sandboxes {
-		sb := &m.Vdb.Status.Sandboxes[i]
-		for _, sc := range sb.Subclusters {
-			scMap[sc] = sb.Name
-		}
+func getStatefulSetOwnerName(pod *corev1.Pod) (types.NamespacedName, error) {
+	if stsName, found := pod.Labels[vmeta.SubclusterSelectorLabel]; found {
+		return types.NamespacedName{
+			Namespace: pod.Namespace,
+			Name:      stsName,
+		}, nil
 	}
-	return scMap
+	return types.NamespacedName{},
+		fmt.Errorf("could not find statefulset owner for pod %q in namespace %q", pod.Name, pod.Namespace)
 }
 
 // getVdbSubclusters returns the subclusters that are in the vdb
-func (m *SubclusterFinder) getVdbSubclusters(sandbox string) []*vapi.Subcluster {
-	if sandbox != vapi.MainCluster {
-		return m.getSandboxedSubclusters(sandbox)
-	}
-	return m.getMainSubclusters()
-}
-
-// getMainSubclusters returns the subclusters that are not part
-// of any sandboxes
-func (m *SubclusterFinder) getMainSubclusters() []*vapi.Subcluster {
+func (m *SubclusterFinder) getVdbSubclusters(sandbox string, ignoreSandbox bool) []*vapi.Subcluster {
 	subclusters := []*vapi.Subcluster{}
-	scMap := m.Vdb.GetSubclusterSandboxStatusMap()
+	scMap := m.Vdb.GenSubclusterSandboxStatusMap()
 	for i := range m.Vdb.Spec.Subclusters {
 		sc := &m.Vdb.Spec.Subclusters[i]
-		if _, ok := scMap[sc.Name]; !ok {
+		sbName := scMap[sc.Name]
+		if ignoreSandbox || sbName == sandbox {
 			subclusters = append(subclusters, sc)
-		}
-	}
-	return subclusters
-}
-
-// getSandboxedSubclusters returns the subclusters that belong to the given
-// sandbox
-func (m *SubclusterFinder) getSandboxedSubclusters(sandbox string) []*vapi.Subcluster {
-	subclusters := []*vapi.Subcluster{}
-	for i := range m.Vdb.Status.Sandboxes {
-		sb := &m.Vdb.Status.Sandboxes[i]
-		if sb.Name != sandbox {
-			continue
-		}
-		for _, scName := range sb.Subclusters {
-			subclusters = append(subclusters, m.Subclusters[scName])
 		}
 	}
 	return subclusters

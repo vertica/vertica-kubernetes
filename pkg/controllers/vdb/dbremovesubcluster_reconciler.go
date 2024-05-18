@@ -31,6 +31,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/removesc"
+	"github.com/vertica/vertica-kubernetes/pkg/vdbstatus"
 	corev1 "k8s.io/api/core/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -124,6 +125,14 @@ func (d *DBRemoveSubclusterReconciler) removeExtraSubclusters(ctx context.Contex
 		if err := d.removeSubcluster(ctx, subclusters[i].Name); err != nil {
 			return ctrl.Result{}, err
 		}
+
+		if err := d.updateSubclusterStatus(ctx, subclusters[i].Name); err != nil {
+			return ctrl.Result{}, fmt.Errorf("failed to update subcluster status: %w", err)
+		}
+
+		// We successfully called remove subcluster and updated the status, invalidate
+		// the pod facts cache so that it is refreshed the next time we need it.
+		d.PFacts.Invalidate()
 	}
 	return ctrl.Result{}, nil
 }
@@ -142,6 +151,27 @@ func (d *DBRemoveSubclusterReconciler) removeSubcluster(ctx context.Context, scN
 	return nil
 }
 
+// updateSubclusterStatus updates all of the given subcluster's nodes detail
+// in the status
+func (d *DBRemoveSubclusterReconciler) updateSubclusterStatus(ctx context.Context, scName string) error {
+	refreshInPlace := func(vdb *vapi.VerticaDB) error {
+		scMap := vdb.GenSubclusterStatusMap()
+		scs := scMap[scName]
+		if scs == nil {
+			return nil
+		}
+		for _, p := range d.PFacts.Detail {
+			if p.subclusterName == scName {
+				if int(p.podIndex) < len(scs.Detail) {
+					scs.Detail[p.podIndex].AddedToDB = false
+				}
+			}
+		}
+		return nil
+	}
+	return vdbstatus.Update(ctx, d.VRec.Client, d.Vdb, refreshInPlace)
+}
+
 // resetDefaultSubcluster will set the default subcluster to the first
 // subcluster that exists in the vdb.  This step is necessary before removing
 // any subclusters because you cannot remove the default subcluster.
@@ -157,17 +187,17 @@ func (d *DBRemoveSubclusterReconciler) resetDefaultSubcluster(ctx context.Contex
 	_, ok := scMap[defSc]
 	if !ok {
 		scFinder := iter.MakeSubclusterFinder(d.VRec.Client, d.Vdb)
-		// We use the FindServices() API to get subclusters that already exist.
+		// We use the FindStatefulSets() API to get subclusters that already exist.
 		// We can only change the default subcluster to one of those.
-		svcs, err := scFinder.FindServices(ctx, iter.FindInVdb, vapi.MainCluster)
+		stss, err := scFinder.FindStatefulSets(ctx, iter.FindInVdb, vapi.MainCluster)
 		if err != nil {
 			return err
 		}
 		// If we don't find a service object we don't fail.  The attempt to
 		// remove the default subcluster that we do later will fail.  That
 		// provides a better error message than anything we do here.
-		if len(svcs.Items) > 0 {
-			return d.changeDefaultSubcluster(ctx, svcs.Items[0].Labels[vmeta.SubclusterNameLabel])
+		if len(stss.Items) > 0 {
+			return d.changeDefaultSubcluster(ctx, stss.Items[0].Labels[vmeta.SubclusterNameLabel])
 		}
 	}
 	return nil

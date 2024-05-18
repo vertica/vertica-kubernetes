@@ -42,6 +42,8 @@ var cfg *rest.Config
 var k8sClient client.Client
 var testEnv *envtest.Environment
 
+const TestPassword = "test-pw"
+
 func TestAPIs(t *testing.T) {
 	RegisterFailHandler(Fail)
 

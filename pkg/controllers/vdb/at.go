@@ -24,6 +24,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
+	config "github.com/vertica/vertica-kubernetes/pkg/vdbconfig"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
@@ -33,7 +34,7 @@ import (
 // the basis for admintools.conf in subsequent iterations.  If copying to the
 // base pod is successful, then it will attempt to copy to all of the other pods
 // -- checking errors at the end to ensure we attempt at each pod.
-func distributeAdmintoolsConf(ctx context.Context, vdb *vapi.VerticaDB, vrec *VerticaDBReconciler,
+func distributeAdmintoolsConf(ctx context.Context, vdb *vapi.VerticaDB, rec config.ReconcilerInterface,
 	pf *PodFacts, pr cmds.PodRunner, atConfTempFile string) error {
 	// We always distribute to a well known base pod first. The admintools.conf
 	// on this pod is used as the base for any subsequent changes.
@@ -65,7 +66,7 @@ func distributeAdmintoolsConf(ctx context.Context, vdb *vapi.VerticaDB, vrec *Ve
 	}
 	// If at least one error occurred, log an event and return the first error.
 	if len(errs) > 0 {
-		vrec.Eventf(vdb, corev1.EventTypeWarning, events.ATConfPartiallyCopied,
+		rec.Eventf(vdb, corev1.EventTypeWarning, events.ATConfPartiallyCopied,
 			"Distributing new admintools.conf was successful only at some of the pods.  "+
 				"There was an error copying to %d of the pod(s).", len(errs))
 		return errs[0]

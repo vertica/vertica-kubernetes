@@ -99,7 +99,7 @@ func BuildExtSvc(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi.Subclust
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        nm.Name,
 			Namespace:   nm.Namespace,
-			Labels:      MakeLabelsForSvcObject(vdb, sc, "external"),
+			Labels:      MakeLabelsForSvcObject(vdb, sc, vmeta.SvcTypeExternal),
 			Annotations: MakeAnnotationsForSubclusterService(vdb, sc),
 		},
 		Spec: corev1.ServiceSpec{
@@ -121,7 +121,7 @@ func BuildHlSvc(nm types.NamespacedName, vdb *vapi.VerticaDB) *corev1.Service {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        nm.Name,
 			Namespace:   nm.Namespace,
-			Labels:      MakeLabelsForSvcObject(vdb, nil, "headless"),
+			Labels:      MakeLabelsForSvcObject(vdb, nil, vmeta.SvcTypeHeadless),
 			Annotations: MakeAnnotationsForObject(vdb),
 		},
 		Spec: corev1.ServiceSpec{
@@ -1290,6 +1290,30 @@ func BuildStsSpec(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi.Subclus
 	}
 }
 
+// BuildSandboxConfigMap builds a config map for sandbox controller
+func BuildSandboxConfigMap(nm types.NamespacedName, vdb *vapi.VerticaDB, sandbox string) *corev1.ConfigMap {
+	immutable := true
+	return &corev1.ConfigMap{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "ConfigMap",
+			APIVersion: "v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            nm.Name,
+			Namespace:       nm.Namespace,
+			Labels:          MakeLabelsForSandboxConfigMap(vdb),
+			Annotations:     MakeAnnotationsForSandboxConfigMap(vdb),
+			OwnerReferences: []metav1.OwnerReference{vdb.GenerateOwnerReference()},
+		},
+		// the data should be immutable since dbName and sandboxName are fixed
+		Immutable: &immutable,
+		Data: map[string]string{
+			vapi.VerticaDBNameKey: vdb.Name,
+			vapi.SandboxNameKey:   sandbox,
+		},
+	}
+}
+
 // BuildScrutinizePod construct the spec for the scrutinize pod
 func BuildScrutinizePod(vscr *v1beta1.VerticaScrutinize, vdb *vapi.VerticaDB, args []string) *corev1.Pod {
 	return &corev1.Pod{
@@ -1312,7 +1336,7 @@ func BuildPod(vdb *vapi.VerticaDB, sc *vapi.Subcluster, podIndex int32) *corev1.
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        nm.Name,
 			Namespace:   nm.Namespace,
-			Labels:      MakeLabelsForSandboxPodObject(vdb, sc),
+			Labels:      MakeLabelsForPodObject(vdb, sc),
 			Annotations: MakeAnnotationsForObject(vdb),
 		},
 		Spec: buildPodSpec(vdb, sc),

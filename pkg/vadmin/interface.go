@@ -37,10 +37,12 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/replicationstart"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/restartnode"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/revivedb"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/sandboxsc"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/showrestorepoints"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/startdb"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/stopdb"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/stopsc"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/unsandboxsc"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -104,6 +106,11 @@ type Dispatcher interface {
 	FetchNodeDetails(ctx context.Context, opts ...fetchnodedetails.Option) (vops.NodeDetails, error)
 
 	StopSubcluster(ctx context.Context, opts ...stopsc.Option) error
+	// SandboxSubcluster will add a subcluster in a sandbox of the database
+	SandboxSubcluster(ctx context.Context, opts ...sandboxsc.Option) error
+
+	// UnsandboxSubcluster will move a subcluster from a sandbox to main cluster
+	UnsandboxSubcluster(ctx context.Context, opts ...unsandboxsc.Option) error
 }
 
 const (
@@ -229,4 +236,6 @@ type VClusterProvider interface {
 	VReplicateDatabase(options *vops.VReplicationDatabaseOptions) error
 	VFetchNodesDetails(options *vops.VFetchNodesDetailsOptions) (vops.NodesDetails, error)
 	VStopSubcluster(options *vops.VStopSubclusterOptions) error
+	VSandbox(options *vops.VSandboxOptions) error
+	VUnsandbox(options *vops.VUnsandboxOptions) error
 }

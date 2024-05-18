@@ -32,10 +32,8 @@ metadata:
     app.kubernetes.io/managed-by: verticadb-operator
     app.kubernetes.io/name: vertica
     vertica.com/database: vdb
-    vertica.com/subcluster-name: cluster1
-    vertica.com/subcluster-type: primary
+    vertica.com/subcluster-selector-name: vdb-label-ant-cluster1
     vertica.com/subcluster-svc: cluster1
-    vertica.com/subcluster-transient: "false"
 status:
   phase: Running
 ---
@@ -55,8 +53,6 @@ metadata:
     vertica.com/database: vdb
     vertica.com/subcluster-name: cluster1
     vertica.com/subcluster-type: primary
-    vertica.com/subcluster-svc: cluster1
-    vertica.com/subcluster-transient: "false"
 ---
 apiVersion: v1
 kind: Service
@@ -72,10 +68,6 @@ metadata:
     app.kubernetes.io/managed-by: verticadb-operator
     app.kubernetes.io/name: vertica
     vertica.com/database: vdb
-    vertica.com/subcluster-name: cluster1
-    vertica.com/subcluster-type: primary
-    vertica.com/subcluster-svc: cluster1
-    vertica.com/subcluster-transient: "false"
 ---
 apiVersion: v1
 kind: Service

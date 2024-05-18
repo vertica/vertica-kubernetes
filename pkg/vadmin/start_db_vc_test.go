@@ -31,6 +31,7 @@ import (
 
 const TestCatalogPrefix = "/data"
 const TestTimeout = 10
+const TestHostsInSandboxFlag = true
 
 // mock version of VStartDatabase() that is invoked inside VClusterOps.StartDB()
 func (m *MockVClusterOps) VStartDatabase(options *vops.VStartDatabaseOptions) (*vops.VCoordinationDatabase, error) {
@@ -45,19 +46,24 @@ func (m *MockVClusterOps) VStartDatabase(options *vops.VStartDatabaseOptions) (*
 	if err != nil {
 		return nil, err
 	}
-	err = m.VerifyCommunalStorageOptions(*options.CommunalStorageLocation, options.ConfigurationParameters)
+	err = m.VerifyCommunalStorageOptions(options.CommunalStorageLocation, options.ConfigurationParameters)
 	if err != nil {
 		return nil, err
 	}
 
 	// verify catalog prefix
-	if *options.CatalogPrefix != TestCatalogPrefix {
+	if options.CatalogPrefix != TestCatalogPrefix {
 		return nil, fmt.Errorf("failed to retrieve catalog prefix")
 	}
 
 	// verify timeout
-	if *options.StatePollingTimeout != TestTimeout {
+	if options.StatePollingTimeout != TestTimeout {
 		return nil, fmt.Errorf("failed to retrieve timeout")
+	}
+
+	// verify hostsInSandbox
+	if options.HostsInSandbox != TestHostsInSandboxFlag {
+		return nil, fmt.Errorf("failed to retrieve hosts-in-sandbox")
 	}
 
 	return nil, nil
@@ -87,7 +93,8 @@ var _ = Describe("start_db_vc", func() {
 			startdb.WithHost(nodeIPs[1]),
 			startdb.WithHost(nodeIPs[2]),
 			startdb.WithCommunalPath(TestCommunalPath),
-			startdb.WithConfigurationParams(TestCommunalStorageParams))
+			startdb.WithConfigurationParams(TestCommunalStorageParams),
+			startdb.WithHostsInSandboxFlag(TestHostsInSandboxFlag))
 		Ω(err).Should(Succeed())
 		Ω(ctrlRes).Should(Equal(ctrl.Result{}))
 	})

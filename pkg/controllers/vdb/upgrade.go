@@ -18,7 +18,9 @@ package vdb
 import (
 	"context"
 	"fmt"
-	"strconv"
+	"strings"
+
+	"errors"
 
 	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
@@ -28,18 +30,23 @@ import (
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/metrics"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
+	config "github.com/vertica/vertica-kubernetes/pkg/vdbconfig"
 	"github.com/vertica/vertica-kubernetes/pkg/vdbstatus"
 	"github.com/vertica/vertica-kubernetes/pkg/vk8s"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
+const (
+	statusConditionEmpty = ""
+)
+
 type UpgradeManager struct {
-	VRec              *VerticaDBReconciler
+	Rec               config.ReconcilerInterface
 	Vdb               *vapi.VerticaDB
 	Log               logr.Logger
 	Finder            iter.SubclusterFinder
@@ -51,17 +58,27 @@ type UpgradeManager struct {
 }
 
 // MakeUpgradeManager will construct a UpgradeManager object
-func MakeUpgradeManager(vdbrecon *VerticaDBReconciler, log logr.Logger, vdb *vapi.VerticaDB,
+func MakeUpgradeManager(recon config.ReconcilerInterface, log logr.Logger, vdb *vapi.VerticaDB,
 	statusCondition string,
 	isAllowedForUpgradePolicyFunc func(vdb *vapi.VerticaDB) bool) *UpgradeManager {
 	return &UpgradeManager{
-		VRec:                          vdbrecon,
+		Rec:                           recon,
 		Vdb:                           vdb,
 		Log:                           log,
-		Finder:                        iter.MakeSubclusterFinder(vdbrecon.Client, vdb),
+		Finder:                        iter.MakeSubclusterFinder(recon.GetClient(), vdb),
 		StatusCondition:               statusCondition,
 		IsAllowedForUpgradePolicyFunc: isAllowedForUpgradePolicyFunc,
 	}
+}
+
+// MakeUpgradeManagerForSandboxOffline will construct a UpgradeManager object for
+// sandbox offline upgrade only
+func MakeUpgradeManagerForSandboxOffline(recon config.ReconcilerInterface, log logr.Logger, vdb *vapi.VerticaDB,
+	statusCondition string) *UpgradeManager {
+	// For sandbox upgrade, offline upgrade path must always be selected regardless
+	// of the upgrade policy set in vdb. Moreover, we don't use status conditions
+	// during sandbox upgrade
+	return MakeUpgradeManager(recon, log, vdb, statusConditionEmpty, func(vdb *vapi.VerticaDB) bool { return true })
 }
 
 // IsUpgradeNeeded checks whether an upgrade is needed and/or in
@@ -73,7 +90,7 @@ func (i *UpgradeManager) IsUpgradeNeeded(ctx context.Context, sandbox string) (b
 		return false, nil
 	}
 
-	if ok := i.isUpgradeInProgress(); ok {
+	if ok := i.isUpgradeInProgress(sandbox); ok {
 		return ok, nil
 	}
 
@@ -86,13 +103,20 @@ func (i *UpgradeManager) IsUpgradeNeeded(ctx context.Context, sandbox string) (b
 
 // isUpgradeInProgress returns true if state indicates that an upgrade
 // is already occurring.
-func (i *UpgradeManager) isUpgradeInProgress() bool {
+func (i *UpgradeManager) isUpgradeInProgress(sbName string) bool {
 	// We first check if the status condition indicates the upgrade is in progress
-	isSet := i.Vdb.IsStatusConditionTrue(i.StatusCondition)
+	isSet := i.isUpgradeStatusTrue(sbName)
 	if isSet {
 		i.ContinuingUpgrade = true
 	}
 	return isSet
+}
+
+func (i *UpgradeManager) isUpgradeStatusTrue(sbName string) bool {
+	if sbName == vapi.MainCluster {
+		return i.Vdb.IsStatusConditionTrue(i.StatusCondition)
+	}
+	return i.Vdb.IsSandBoxUpgradeInProgress(sbName)
 }
 
 // isVDBImageDifferent will check if an upgrade is needed based on the
@@ -133,14 +157,14 @@ func (i *UpgradeManager) logUpgradeStarted(sandbox string) error {
 }
 
 // startUpgrade handles condition status and event recording for start of an upgrade
-func (i *UpgradeManager) startUpgrade(ctx context.Context) (ctrl.Result, error) {
-	if err := i.toggleUpgradeInProgress(ctx, metav1.ConditionTrue); err != nil {
+func (i *UpgradeManager) startUpgrade(ctx context.Context, sbName string) (ctrl.Result, error) {
+	if err := i.toggleUpgradeInProgress(ctx, metav1.ConditionTrue, sbName); err != nil {
 		return ctrl.Result{}, err
 	}
 
 	// We only log an event message and bump a counter the first time we begin an upgrade.
 	if !i.ContinuingUpgrade {
-		i.VRec.Eventf(i.Vdb, corev1.EventTypeNormal, events.UpgradeStart,
+		i.Rec.Eventf(i.Vdb, corev1.EventTypeNormal, events.UpgradeStart,
 			"Vertica server upgrade has started.")
 		metrics.UpgradeCount.With(metrics.MakeVDBLabels(i.Vdb)).Inc()
 	}
@@ -148,16 +172,20 @@ func (i *UpgradeManager) startUpgrade(ctx context.Context) (ctrl.Result, error) 
 }
 
 // finishUpgrade handles condition status and event recording for the end of an upgrade
-func (i *UpgradeManager) finishUpgrade(ctx context.Context) (ctrl.Result, error) {
-	if err := i.setUpgradeStatus(ctx, ""); err != nil {
+func (i *UpgradeManager) finishUpgrade(ctx context.Context, sbName string) (ctrl.Result, error) {
+	if err := i.setUpgradeStatus(ctx, "", sbName); err != nil {
 		return ctrl.Result{}, err
 	}
 
-	if err := i.clearReplicatedUpgradeAnnotations(ctx); err != nil {
-		return ctrl.Result{}, err
+	// The state for replicated upgrade only is cleared when upgrading the main
+	// cluster. You cannot use replicated upgrade for an upgrade of a sandbox.
+	if sbName == vapi.MainCluster {
+		if err := i.clearReplicatedUpgradeAnnotations(ctx); err != nil {
+			return ctrl.Result{}, err
+		}
 	}
 
-	if err := i.toggleUpgradeInProgress(ctx, metav1.ConditionFalse); err != nil {
+	if err := i.toggleUpgradeInProgress(ctx, metav1.ConditionFalse, sbName); err != nil {
 		return ctrl.Result{}, err
 	}
 
@@ -171,7 +199,7 @@ func (i *UpgradeManager) logUpgradeSucceeded(sandbox string) error {
 		return err
 	}
 	i.Log.Info("The upgrade has completed successfully", "Sandbox", sandbox)
-	i.VRec.Eventf(i.Vdb, corev1.EventTypeNormal, events.UpgradeSucceeded,
+	i.Rec.Eventf(i.Vdb, corev1.EventTypeNormal, events.UpgradeSucceeded,
 		"Vertica server upgrade has completed successfully.  New image is '%s'", targetImage)
 	return nil
 }
@@ -179,30 +207,54 @@ func (i *UpgradeManager) logUpgradeSucceeded(sandbox string) error {
 // toggleUpgradeInProgress is a helper for updating the
 // UpgradeInProgress condition's.  We set the UpgradeInProgress plus the
 // one defined in i.StatusCondition.
-func (i *UpgradeManager) toggleUpgradeInProgress(ctx context.Context, newVal metav1.ConditionStatus) error {
+func (i *UpgradeManager) toggleUpgradeInProgress(ctx context.Context, newVal metav1.ConditionStatus, sbName string) error {
 	reason := "UpgradeStarted"
 	if newVal == metav1.ConditionFalse {
 		reason = "UpgradeFinished"
 	}
-	err := vdbstatus.UpdateCondition(ctx, i.VRec.Client, i.Vdb,
-		vapi.MakeCondition(vapi.UpgradeInProgress, newVal, reason),
-	)
+	return i.updateUpgradeStatus(ctx, newVal, reason, sbName)
+}
+
+// updateUpgradeStatus sets the upgrade status
+func (i *UpgradeManager) updateUpgradeStatus(ctx context.Context, newVal metav1.ConditionStatus,
+	reason, sbName string) error {
+	if sbName == vapi.MainCluster {
+		err := vdbstatus.UpdateCondition(ctx, i.Rec.GetClient(), i.Vdb,
+			vapi.MakeCondition(vapi.UpgradeInProgress, newVal, reason),
+		)
+		if err != nil {
+			return err
+		}
+		return vdbstatus.UpdateCondition(ctx, i.Rec.GetClient(), i.Vdb,
+			vapi.MakeCondition(i.StatusCondition, newVal, reason),
+		)
+	}
+	sb, err := i.Vdb.GetSandboxStatusCheck(sbName)
 	if err != nil {
 		return err
 	}
-	return vdbstatus.UpdateCondition(ctx, i.VRec.Client, i.Vdb,
-		vapi.MakeCondition(i.StatusCondition, newVal, reason),
-	)
+	state := sb.UpgradeState.DeepCopy()
+	state.UpgradeInProgress = newVal == metav1.ConditionTrue
+	return vdbstatus.SetSandboxUpgradeState(ctx, i.Rec.GetClient(), i.Vdb, sbName, state)
 }
 
 // setUpgradeStatus is a helper to set the upgradeStatus message.
-func (i *UpgradeManager) setUpgradeStatus(ctx context.Context, msg string) error {
-	return vdbstatus.SetUpgradeStatusMessage(ctx, i.VRec.Client, i.Vdb, msg)
+func (i *UpgradeManager) setUpgradeStatus(ctx context.Context, msg, sbName string) error {
+	if sbName == vapi.MainCluster {
+		return vdbstatus.SetUpgradeStatusMessage(ctx, i.Rec.GetClient(), i.Vdb, msg)
+	}
+	sb, err := i.Vdb.GetSandboxStatusCheck(sbName)
+	if err != nil {
+		return err
+	}
+	state := sb.UpgradeState.DeepCopy()
+	state.UpgradeStatus = msg
+	return vdbstatus.SetSandboxUpgradeState(ctx, i.Rec.GetClient(), i.Vdb, sbName, state)
 }
 
 // clearReplicatedUpgradeAnnotations will clear the annotation we set for replicated upgrade
 func (i *UpgradeManager) clearReplicatedUpgradeAnnotations(ctx context.Context) error {
-	_, err := i.updateVDBWithRetry(ctx, i.clearReplicatedUpgradeAnnotationCallback)
+	_, err := vk8s.UpdateVDBWithRetry(ctx, i.Rec, i.Vdb, i.clearReplicatedUpgradeAnnotationCallback)
 	return err
 }
 
@@ -235,6 +287,8 @@ func (i *UpgradeManager) clearReplicatedUpgradeAnnotationCallback() (updated boo
 func (i *UpgradeManager) updateImageInStatefulSets(ctx context.Context, sandbox string) (int, error) {
 	numStsChanged := 0 // Count to keep track of the nubmer of statefulsets updated
 
+	transientName, hasTransient := i.Vdb.GetTransientSubclusterName()
+
 	// We use FindExisting for the finder because we only want to work with sts
 	// that already exist.  This is necessary incase the upgrade was paired
 	// with a scaling operation.  The pod change due to the scaling operation
@@ -246,11 +300,7 @@ func (i *UpgradeManager) updateImageInStatefulSets(ctx context.Context, sandbox 
 	for inx := range stss.Items {
 		sts := &stss.Items[inx]
 
-		isTransient, err := strconv.ParseBool(sts.Labels[vmeta.SubclusterTransientLabel])
-		if err != nil {
-			return numStsChanged, err
-		}
-		if isTransient {
+		if hasTransient && transientName == sts.Labels[vmeta.SubclusterNameLabel] {
 			continue
 		}
 
@@ -287,7 +337,7 @@ func (i *UpgradeManager) updateImageInStatefulSet(ctx context.Context, sts *apps
 		// update has completed.  We don't explicitly change this back.  The
 		// ObjReconciler will handle it for us.
 		sts.Spec.UpdateStrategy.Type = appsv1.OnDeleteStatefulSetStrategyType
-		if err := i.VRec.Client.Update(ctx, sts); err != nil {
+		if err := i.Rec.GetClient().Update(ctx, sts); err != nil {
 			return false, err
 		}
 		stsUpdated = true
@@ -299,6 +349,7 @@ func (i *UpgradeManager) updateImageInStatefulSet(ctx context.Context, sts *apps
 // number of pods that were deleted.  Callers can control whether to delete pods
 // for a specific subcluster or all -- passing an empty string for scName will delete all.
 func (i *UpgradeManager) deletePodsRunningOldImage(ctx context.Context, scName, sandbox string) (int, error) {
+	i.Log.Info("deleting pods with old image", "sandbox", sandbox, "scName", scName)
 	numPodsDeleted := 0 // Tracks the number of pods that were deleted
 
 	// We use FindExisting for the finder because we only want to work with pods
@@ -318,8 +369,16 @@ func (i *UpgradeManager) deletePodsRunningOldImage(ctx context.Context, scName, 
 
 		// If scName was passed in, we only delete for a specific subcluster
 		if scName != "" {
-			scNameFromLabel, ok := pod.Labels[vmeta.SubclusterNameLabel]
-			if ok && scNameFromLabel != scName {
+			stsName, found := pod.Labels[vmeta.SubclusterSelectorLabel]
+			if !found {
+				return 0, fmt.Errorf("could not derive the statefulset name from the pod %q", pod.Name)
+			}
+			scNameFromLabel, err := i.getSubclusterNameFromSts(ctx, stsName)
+			if err != nil {
+				return 0, err
+			}
+
+			if scNameFromLabel != scName {
 				continue
 			}
 		}
@@ -331,7 +390,7 @@ func (i *UpgradeManager) deletePodsRunningOldImage(ctx context.Context, scName, 
 		}
 		if cntImage != targetImage {
 			i.Log.Info("Deleting pod that had old image", "name", pod.ObjectMeta.Name)
-			err = i.VRec.Client.Delete(ctx, pod)
+			err = i.Rec.GetClient().Delete(ctx, pod)
 			if err != nil {
 				return numPodsDeleted, err
 			}
@@ -360,7 +419,7 @@ func (i *UpgradeManager) deleteStsRunningOldImage(ctx context.Context, sandbox s
 		}
 		if cntImage != targetImage {
 			i.Log.Info("Deleting sts that had old image", "name", sts.ObjectMeta.Name)
-			err = i.VRec.Client.Delete(ctx, sts)
+			err = i.Rec.GetClient().Delete(ctx, sts)
 			if err != nil {
 				return err
 			}
@@ -381,7 +440,7 @@ func (i *UpgradeManager) changeNMASidecarDeploymentIfNeeded(ctx context.Context,
 	// Check the state of the first pod in the sts.
 	pn := names.GenPodNameFromSts(i.Vdb, sts, 0)
 	pod := &corev1.Pod{}
-	err := i.VRec.Client.Get(ctx, pn, pod)
+	err := i.Rec.GetClient().Get(ctx, pn, pod)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -410,7 +469,7 @@ func (i *UpgradeManager) changeNMASidecarDeploymentIfNeeded(ctx context.Context,
 	// creation of a sts with a sidecar. The actual true version will replace
 	// this dummy version we setup once the pods are running.
 	err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-		err = i.VRec.Client.Get(ctx, i.Vdb.ExtractNamespacedName(), i.Vdb)
+		err = i.Rec.GetClient().Get(ctx, i.Vdb.ExtractNamespacedName(), i.Vdb)
 		if err != nil {
 			return err
 		}
@@ -419,7 +478,7 @@ func (i *UpgradeManager) changeNMASidecarDeploymentIfNeeded(ctx context.Context,
 		}
 		i.Vdb.Annotations[vmeta.VersionAnnotation] = vapi.NMAInSideCarDeploymentMinVersion
 		i.Log.Info("Force a dummy version in the vdb to ensure NMA sidecar is created", "version", i.Vdb.Annotations[vmeta.VersionAnnotation])
-		return i.VRec.Client.Update(ctx, i.Vdb)
+		return i.Rec.GetClient().Update(ctx, i.Vdb)
 	})
 	if err != nil {
 		return ctrl.Result{}, err
@@ -427,43 +486,21 @@ func (i *UpgradeManager) changeNMASidecarDeploymentIfNeeded(ctx context.Context,
 	return ctrl.Result{Requeue: true}, nil
 }
 
-// updateVDBWithRetry will update the VDB by way of a callback. This is done in a retry
-// loop in case there is a write conflict.
-func (i *UpgradeManager) updateVDBWithRetry(ctx context.Context, callbackFn func() (bool, error)) (updated bool, err error) {
-	err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-		err := i.VRec.Get(ctx, i.Vdb.ExtractNamespacedName(), i.Vdb)
-		if err != nil {
-			return err
-		}
-
-		needToUpdate, err := callbackFn()
-		if err != nil {
-			return err
-		}
-
-		if !needToUpdate {
-			return nil
-		}
-		err = i.VRec.Update(ctx, i.Vdb)
-		if err == nil {
-			updated = true
-		}
-		return err
-	})
-	return
-}
-
 // postNextStatusMsg will set the next status message.  This will only
 // transition to a message, defined by msgIndex, if the current status equals
 // the previous one.
-func (i *UpgradeManager) postNextStatusMsg(ctx context.Context, statusMsgs []string, msgIndex int) error {
+func (i *UpgradeManager) postNextStatusMsg(ctx context.Context, statusMsgs []string, msgIndex int, sbName string) error {
 	if msgIndex >= len(statusMsgs) {
 		return fmt.Errorf("msgIndex out of bounds: %d must be between %d and %d", msgIndex, 0, len(statusMsgs)-1)
 	}
 
+	upgradeStatus, err := i.Vdb.GetUpgradeStatus(sbName)
+	if err != nil {
+		return err
+	}
 	if msgIndex == 0 {
-		if i.Vdb.Status.UpgradeStatus == "" {
-			return i.setUpgradeStatus(ctx, statusMsgs[msgIndex])
+		if upgradeStatus == "" {
+			return i.setUpgradeStatus(ctx, statusMsgs[msgIndex], sbName)
 		}
 		return nil
 	}
@@ -471,12 +508,17 @@ func (i *UpgradeManager) postNextStatusMsg(ctx context.Context, statusMsgs []str
 	// Compare with all status messages prior to msgIndex.  The current status
 	// in the vdb might not be the proceeding one if the vdb is stale.
 	for j := 0; j <= msgIndex-1; j++ {
-		if statusMsgs[j] == i.Vdb.Status.UpgradeStatus {
-			err := i.setUpgradeStatus(ctx, statusMsgs[msgIndex])
-			i.Log.Info("Status message after update", "msgIndex", msgIndex, "statusMsgs[msgIndex]", statusMsgs[msgIndex],
-				"UpgradeStatus", i.Vdb.Status.UpgradeStatus, "err", err)
-			return err
+		if statusMsgs[j] != upgradeStatus {
+			continue
 		}
+		errUpgrade := i.setUpgradeStatus(ctx, statusMsgs[msgIndex], sbName)
+		upgradeStatus, err = i.Vdb.GetUpgradeStatus(sbName)
+		if err != nil {
+			errUpgrade = errors.Join(errUpgrade, err)
+		}
+		i.Log.Info("Status message after update", "msgIndex", msgIndex, "statusMsgs[msgIndex]", statusMsgs[msgIndex],
+			"UpgradeStatus", upgradeStatus, "err", errUpgrade)
+		return errUpgrade
 	}
 	return nil
 }
@@ -505,7 +547,7 @@ func (i *UpgradeManager) cachePrimaryImages(ctx context.Context, sandbox string)
 	}
 	for inx := range stss.Items {
 		sts := &stss.Items[inx]
-		if i.isPrimary(sts.Labels, sandbox) {
+		if i.isPrimary(sts.Labels) {
 			img, err := vk8s.GetServerImage(sts.Spec.Template.Spec.Containers)
 			if err != nil {
 				return err
@@ -553,17 +595,15 @@ func (i *UpgradeManager) getTargetImage(sandbox string) (string, error) {
 	}
 	// if the target cluster is a sandbox, the target image
 	// is the one set for that specific sandbox
+	if sb.Image == "" {
+		return "", fmt.Errorf("could not find image for sandbox %q", sandbox)
+	}
 	return sb.Image, nil
 }
 
 // isPrimary returns true if the subcluster is primary
-func (i *UpgradeManager) isPrimary(l map[string]string, sandbox string) bool {
-	if sandbox != vapi.MainCluster {
-		// For now, there can be only one subcluster
-		// in a sandbox and so it is primary
-		return true
-	}
-	return l[vmeta.SubclusterTypeLabel] == vapi.PrimarySubcluster
+func (i *UpgradeManager) isPrimary(l map[string]string) bool {
+	return l[vmeta.SubclusterTypeLabel] == vapi.PrimarySubcluster || l[vmeta.SubclusterTypeLabel] == vapi.SandboxPrimarySubcluster
 }
 
 func (i *UpgradeManager) traceActorReconcile(actor controllers.ReconcileActor) {
@@ -596,7 +636,7 @@ func (i *UpgradeManager) isSubclusterIdle(ctx context.Context, pfacts *PodFacts,
 	// will rely on the UpgradeRequeueTime that is set to default
 	res := ctrl.Result{Requeue: anyActiveConnections(stdout)}
 	if res.Requeue {
-		i.VRec.Eventf(i.Vdb, corev1.EventTypeWarning, events.DrainSubclusterRetry,
+		i.Rec.Eventf(i.Vdb, corev1.EventTypeWarning, events.DrainSubclusterRetry,
 			"Subcluster '%s' has active connections preventing the drain from succeeding", scName)
 	}
 	return res, nil
@@ -605,7 +645,7 @@ func (i *UpgradeManager) isSubclusterIdle(ctx context.Context, pfacts *PodFacts,
 // routeClientTraffic will update service objects for the source subcluster to
 // route to the target subcluster
 func (i *UpgradeManager) routeClientTraffic(ctx context.Context, pfacts *PodFacts, sc *vapi.Subcluster, selectors map[string]string) error {
-	actor := MakeObjReconciler(i.VRec, i.Log, i.Vdb, pfacts, ObjReconcileModeAll)
+	actor := MakeObjReconciler(i.Rec, i.Log, i.Vdb, pfacts, ObjReconcileModeAll)
 	objRec := actor.(*ObjReconciler)
 
 	// We update the external service object to route traffic to the target
@@ -618,8 +658,8 @@ func (i *UpgradeManager) routeClientTraffic(ctx context.Context, pfacts *PodFact
 	// to the correct statefulset.  Other things, such as service type, stay the same.
 	svcName := names.GenExtSvcName(i.Vdb, sc)
 	svc := &corev1.Service{}
-	if err := i.VRec.Client.Get(ctx, svcName, svc); err != nil {
-		if errors.IsNotFound(err) {
+	if err := i.Rec.GetClient().Get(ctx, svcName, svc); err != nil {
+		if k8sErrors.IsNotFound(err) {
 			i.Log.Info("Skipping client traffic routing because service object for subcluster not found",
 				"scName", sc.Name, "svc", svcName)
 			return nil
@@ -630,4 +670,31 @@ func (i *UpgradeManager) routeClientTraffic(ctx context.Context, pfacts *PodFact
 	svc.Spec.Selector = selectors
 	i.Log.Info("Updating svc", "selector", svc.Spec.Selector)
 	return objRec.reconcileExtSvc(ctx, svc, sc)
+}
+
+// logEventIfRequestedUpgradeIsDifferent will log an event if the requested
+// upgrade, as per the upgrade policy, is different than the actual upgrade
+// chosen.
+func (i *UpgradeManager) logEventIfRequestedUpgradeIsDifferent(actualUpgrade vapi.UpgradePolicyType) {
+	if !i.ContinuingUpgrade && i.Vdb.Spec.UpgradePolicy != actualUpgrade && i.Vdb.Spec.UpgradePolicy != vapi.AutoUpgrade {
+		actualUpgradeAsText := strings.ToLower(string(actualUpgrade))
+		i.Rec.Eventf(i.Vdb, corev1.EventTypeNormal, events.IncompatibleUpgradeRequested,
+			"Requested upgrade is incompatible with the Vertica deployment. Falling back to %s upgrade.", actualUpgradeAsText)
+	}
+}
+
+// getSubclusterNameFromSts returns the name of the subcluster from the given statefulset name
+func (i *UpgradeManager) getSubclusterNameFromSts(ctx context.Context, stsName string) (string, error) {
+	sts := appsv1.StatefulSet{}
+	nm := names.GenNamespacedName(i.Vdb, stsName)
+	err := i.Rec.GetClient().Get(ctx, nm, &sts)
+	if err != nil {
+		return "", fmt.Errorf("could not find statefulset %q: %w", stsName, err)
+	}
+
+	scNameFromLabel, ok := sts.Labels[vmeta.SubclusterNameLabel]
+	if !ok {
+		return "", fmt.Errorf("could not find subcluster name label %q in %q", vmeta.SubclusterNameLabel, stsName)
+	}
+	return scNameFromLabel, nil
 }

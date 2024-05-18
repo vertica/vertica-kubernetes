@@ -14,6 +14,10 @@ on:
         - add helm chart
         - upload bundle for operatorhub OLM catalog
         - upload bundle for openshift OLM catalog
+      olm_catalog_fork_owner:
+        description: 'GitHub ID of the owner for the OLM catalog forks'
+        required: false
+        type: string
     secrets:
       DOCKERHUB_USERNAME:
         description: 'When working with images from docker.io, this is the username for login purposes'
@@ -97,7 +101,7 @@ jobs:
         token: ${{ secrets.PAT_TOKEN }}
         version: ${{ env.VERSION }}
         upstreamRepo: k8s-operatorhub/community-operators
-        forkRepo: spilchen/community-operators
+        forkRepo: ${{ inputs.olm_catalog_fork_owner }}/community-operators
         localRepoPath: community-operators
         bundlePath: vertica-kubernetes/ci-artifacts/${{ env.VERSION }}/olm-bundle
 
@@ -108,6 +112,6 @@ jobs:
         token: ${{ secrets.PAT_TOKEN }}
         version: ${{ env.VERSION }}
         upstreamRepo: redhat-openshift-ecosystem/community-operators-prod
-        forkRepo: spilchen/community-operators-prod
+        forkRepo: ${{ inputs.olm_catalog_fork_owner }}/community-operators-prod
         localRepoPath: community-operators-prod
         bundlePath: vertica-kubernetes/ci-artifacts/${{ env.VERSION }}/olm-bundle

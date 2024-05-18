@@ -52,9 +52,9 @@ type VerticaDBReconciler struct {
 	EVRec  record.EventRecorder
 }
 
-//+kubebuilder:rbac:groups=vertica.com,resources=verticadbs,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=vertica.com,resources=verticadbs/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=vertica.com,resources=verticadbs/finalizers,verbs=update
+// +kubebuilder:rbac:groups=vertica.com,resources=verticadbs,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=vertica.com,resources=verticadbs/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=vertica.com,resources=verticadbs/finalizers,verbs=update
 // +kubebuilder:rbac:groups=core,resources=services,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=core,resources=namespaces,verbs=get;list;watch
 // +kubebuilder:rbac:groups=core,resources=serviceaccounts,verbs=get;list;watch;create
@@ -66,7 +66,7 @@ type VerticaDBReconciler struct {
 // +kubebuilder:rbac:groups="",resources=pods/exec,verbs=create
 // +kubebuilder:rbac:groups="",resources=pods/status,verbs=update
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch;create;update
-// +kubebuilder:rbac:groups="",resources=configmaps,verbs=get;list;watch
+// +kubebuilder:rbac:groups="",resources=configmaps,verbs=get;list;watch;update;delete;create
 // +kubebuilder:rbac:groups="",resources=persistentvolumeclaims,verbs=get;list;watch;update
 // +kubebuilder:rbac:groups="",resources=events,verbs=create;patch
 
@@ -176,7 +176,7 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		MakeLocalDataCheckReconciler(r, vdb, pfacts),
 		// Handle upgrade actions for any k8s objects created in prior versions
 		// of the operator.
-		MakeUpgradeOperator120Reconciler(r, log, vdb),
+		MakeUpgradeOperatorReconciler(r, log, vdb),
 		// Create a TLS secret for the NMA service
 		MakeHTTPServerCertGenReconciler(r, log, vdb),
 		// Create ServiceAcount, Role and RoleBindings needed for vertica pods
@@ -256,6 +256,15 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		// Update the label in pods so that Service routing uses them if they
 		// have finished being rebalanced.
 		MakeClientRoutingLabelReconciler(r, log, vdb, pfacts, AddNodeApplyMethod, ""),
+		// Handle calls to add subclusters to sandboxes
+		MakeSandboxSubclusterReconciler(r, log, vdb, pfacts, dispatcher, r.Client),
+		// Handle calls to move subclusters from sandboxes to main cluster
+		MakeUnsandboxSubclusterReconciler(r, log, vdb, r.Client),
+		// Trigger sandbox upgrade when the image field for the sandbox
+		// is changed
+		MakeSandboxUpgradeReconciler(r, log, vdb),
+		// Add the label after update the sandbox subcluster status field
+		MakeObjReconciler(r, log, vdb, pfacts, ObjReconcileModeAll),
 		// Resize any PVs if the local data size changed in the vdb
 		MakeResizePVReconciler(r, log, vdb, prunner, pfacts),
 		// This must be the last reconciler. It makes sure that all dependent
@@ -323,4 +332,9 @@ func (r *VerticaDBReconciler) GetClient() client.Client {
 // GetEventRecorder gives access to the event recorder
 func (r *VerticaDBReconciler) GetEventRecorder() record.EventRecorder {
 	return r.EVRec
+}
+
+// GetConfig gives access to *rest.Config
+func (r *VerticaDBReconciler) GetConfig() *rest.Config {
+	return r.Cfg
 }

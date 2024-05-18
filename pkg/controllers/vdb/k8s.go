@@ -21,6 +21,7 @@ import (
 
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
+	config "github.com/vertica/vertica-kubernetes/pkg/vdbconfig"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
@@ -41,7 +42,7 @@ func getSecret(ctx context.Context, vrec *VerticaDBReconciler, vdb *vapi.Vertica
 // getConfigMap is like getSecret except that it works for configMap's.  It the
 // configMap is not found, then the ctrl.Result returned will indicate a requeue
 // is needed.
-func getConfigMap(ctx context.Context, vrec *VerticaDBReconciler, vdb *vapi.VerticaDB,
+func getConfigMap(ctx context.Context, vrec config.ReconcilerInterface, vdb *vapi.VerticaDB,
 	nm types.NamespacedName) (*corev1.ConfigMap, ctrl.Result, error) {
 	cm := &corev1.ConfigMap{}
 	res, err := getConfigMapOrSecret(ctx, vrec, vdb, nm, cm)
@@ -50,9 +51,9 @@ func getConfigMap(ctx context.Context, vrec *VerticaDBReconciler, vdb *vapi.Vert
 
 // getConfigMapOrSecret is a generic function to fetch a ConfigMap or a Secret.
 // It will handle logging an event if the configMap or secret is missing.
-func getConfigMapOrSecret(ctx context.Context, vrec *VerticaDBReconciler, vdb *vapi.VerticaDB,
+func getConfigMapOrSecret(ctx context.Context, vrec config.ReconcilerInterface, vdb *vapi.VerticaDB,
 	nm types.NamespacedName, obj client.Object) (ctrl.Result, error) {
-	if err := vrec.Client.Get(ctx, nm, obj); err != nil {
+	if err := vrec.GetClient().Get(ctx, nm, obj); err != nil {
 		if errors.IsNotFound(err) {
 			objType := ""
 			switch v := obj.(type) {

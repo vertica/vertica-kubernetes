@@ -30,7 +30,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("k8s/upgradeoperator120_reconciler", func() {
+var _ = Describe("k8s/upgradeoperator_reconciler", func() {
 	ctx := context.Background()
 
 	It("should delete sts that was created prior to current release", func() {
@@ -39,7 +39,7 @@ var _ = Describe("k8s/upgradeoperator120_reconciler", func() {
 		nm := names.GenStsName(vdb, sc)
 		sts := builder.BuildStsSpec(nm, vdb, sc)
 		// Set an old operator version to force the upgrade
-		sts.Labels[vmeta.OperatorVersionLabel] = vmeta.OperatorVersion110
+		sts.Labels[vmeta.OperatorVersionLabel] = "2.1.2"
 		Expect(k8sClient.Create(ctx, sts)).Should(Succeed())
 		defer func() {
 			delSts := &appsv1.StatefulSet{}
@@ -52,7 +52,7 @@ var _ = Describe("k8s/upgradeoperator120_reconciler", func() {
 		fetchedSts := &appsv1.StatefulSet{}
 		Expect(k8sClient.Get(ctx, nm, fetchedSts)).Should(Succeed())
 
-		r := MakeUpgradeOperator120Reconciler(vdbRec, logger, vdb)
+		r := MakeUpgradeOperatorReconciler(vdbRec, logger, vdb)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 
 		// Reconcile should have deleted the sts because it was created by an
