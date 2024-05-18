@@ -20,7 +20,6 @@ import (
 	"strconv"
 	"strings"
 
-	vutil "github.com/vertica/vcluster/vclusterops/util"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 )
@@ -77,7 +76,6 @@ const (
 	// The timeout, in seconds, to use when the operator restarts a node or the
 	// entire cluster.  If omitted, we use the default timeout of 20 minutes.
 	RestartTimeoutAnnotation = "vertica.com/restart-timeout"
-	RestartTimeoutDefault    = vutil.DefaultStatePollingTimeout
 
 	// The timeout, in seconds, to use when the operator creates a db and
 	// waits for its startup.  If omitted, we use the default timeout of 5 minutes.
@@ -312,7 +310,7 @@ func IgnoreUpgradePath(annotations map[string]string) bool {
 // GetRestartTimeout returns the timeout to use for restart node or start db. If
 // 0 is returned, this means to use the default.
 func GetRestartTimeout(annotations map[string]string) int {
-	return lookupIntAnnotation(annotations, RestartTimeoutAnnotation, RestartTimeoutDefault)
+	return lookupIntAnnotation(annotations, RestartTimeoutAnnotation, 0 /* default value */)
 }
 
 // GetCreateDBNodeStartTimeout returns the timeout to use for create db node startup. If
