@@ -183,13 +183,13 @@ func createPodFactsWithRestartNeeded(ctx context.Context, vdb *vapi.VerticaDB, s
 }
 
 func createPodFactsWithUpNodeStateSet(ctx context.Context, vdb *vapi.VerticaDB, sc *vapi.Subcluster,
-	fpr *cmds.FakePodRunner, podsByIndex []int32, upNode bool) *PodFacts {
+	fpr *cmds.FakePodRunner, podsByIndex []int32, upNode bool, sbName string) *PodFacts {
 	pfacts := createPodFactsDefault(fpr)
+	pfacts.SandboxName = sbName
 	ExpectWithOffset(1, pfacts.Collect(ctx, vdb)).Should(Succeed())
 	for _, podIndex := range podsByIndex {
 		podNm := names.GenPodName(vdb, sc, podIndex)
 		pfacts.Detail[podNm].upNode = upNode
-		pfacts.Detail[podNm].podIP = fmt.Sprintf("10.0.0.%d", podIndex)
 		pfacts.Detail[podNm].isPodRunning = upNode
 	}
 	return pfacts

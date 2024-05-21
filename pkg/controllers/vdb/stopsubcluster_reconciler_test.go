@@ -31,36 +31,8 @@ import (
 )
 
 var _ = Describe("stopsc_reconciler", func() {
+	const sbName = "test-sb"
 	ctx := context.Background()
-
-	It("Should return no error if sc is already down", func() {
-		vdb := vapi.MakeVDB()
-		scNames := []string{"sc1", "sc2"}
-		scSizes := []int32{3, 3}
-		vdb.Spec.Subclusters = []vapi.Subcluster{
-			{Name: scNames[0], Size: scSizes[0]},
-			{Name: scNames[1], Size: scSizes[1]},
-		}
-		vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
-		sc := &vdb.Spec.Subclusters[1]
-		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
-		defer test.DeletePods(ctx, k8sClient, vdb)
-
-		fpr := &cmds.FakePodRunner{}
-		pfacts := createPodFactsWithUpNodeStateSet(ctx, vdb, sc, fpr, []int32{0, 1, 2}, false)
-		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
-		r := MakeStopSubclusterReconciler(vdbRec, logger, vdb, sc.Name, pfacts, dispatcher)
-		res, err := r.Reconcile(ctx, &ctrl.Request{})
-		Expect(res).Should(Equal(ctrl.Result{}))
-		Expect(err).Should(Succeed())
-	})
-
-	It("Should fail if no subcluster is provided", func() {
-		r := MakeStopSubclusterReconciler(vdbRec, logger, vapi.MakeVDB(), "", nil, nil)
-		res, err := r.Reconcile(ctx, &ctrl.Request{})
-		Expect(res).Should(Equal(ctrl.Result{}))
-		Expect(err.Error()).Should(ContainSubstring("no subcluster provided"))
-	})
 
 	It("Should find subclusters that need to be shutdown", func() {
 		vdb := vapi.MakeVDB()
@@ -70,45 +42,56 @@ var _ = Describe("stopsc_reconciler", func() {
 			{Name: scNames[0], Size: scSizes[0]},
 			{Name: scNames[1], Size: scSizes[1]},
 		}
-		vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
-		const sbName = "test-sb"
 		const sbName2 = "test-sb2"
 		vdb.Spec.Sandboxes = []vapi.Sandbox{
-			{Name: sbName, Subclusters: []vapi.SubclusterName{{Name: scNames[0]}}},
 			{Name: sbName2, Subclusters: []vapi.SubclusterName{{Name: scNames[1]}}},
 		}
 		vdb.Status.Sandboxes = []vapi.SandboxStatus{
+			{Name: sbName, Subclusters: []string{scNames[0]}},
 			{Name: sbName2, Subclusters: []string{scNames[1]}},
 		}
 
 		pfacts := &PodFacts{NeedCollection: false, SandboxName: sbName}
-		fpr := &cmds.FakePodRunner{}
-		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
+		dispatcher := vadmin.MakeVClusterOps(logger, vdb, k8sClient, TestPassword, vdbRec.EVRec, vadmin.SetupVClusterOps)
 		act := MakeStopSubclusterReconciler(vdbRec, logger, vdb, pfacts, dispatcher)
 		r := act.(*StopSubclusterReconciler)
 		scs := r.findSubclustersWithShutdownNeeded()
 		Expect(len(scs)).Should(Equal(1))
-		Expect(scs[0].Name).Should(Equal(scNames[0]))
+		Expect(scs[0]).Should(Equal(scNames[0]))
 
 		vdb.Status.Sandboxes = append(vdb.Status.Sandboxes, vapi.SandboxStatus{
-			Name: sbName,
+			Name:        sbName,
 			Subclusters: []string{scNames[0]},
+		})
+		vdb.Spec.Sandboxes = append(vdb.Spec.Sandboxes, vapi.Sandbox{
+			Name:        sbName,
+			Subclusters: []vapi.SubclusterName{{Name: scNames[0]}},
 		})
 		act = MakeStopSubclusterReconciler(vdbRec, logger, vdb, pfacts, dispatcher)
 		r = act.(*StopSubclusterReconciler)
 		scs = r.findSubclustersWithShutdownNeeded()
 		Expect(len(scs)).Should(Equal(0))
-
-		vdb.Spec.Sandboxes = []vapi.Sandbox{}
-		act = MakeStopSubclusterReconciler(vdbRec, logger, vdb, pfacts, dispatcher)
-		r = act.(*StopSubclusterReconciler)
-		scs = r.findSubclustersWithShutdownNeeded()
-		Expect(len(scs)).Should(Equal(1))
-		Expect(scs[0].Name).Should(Equal(scNames[0]))
 	})
 
-	It("", func() {
-		
+	It("should requeue if pods are not running in sc to stop", func() {
+		vdb := vapi.MakeVDB()
+		vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
+		sc := &vdb.Spec.Subclusters[0]
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsNotRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
+
+		vdb.Status.Sandboxes = []vapi.SandboxStatus{
+			{Name: sbName, Subclusters: []string{sc.Name}},
+		}
+		fpr := &cmds.FakePodRunner{}
+		pfacts := createPodFactsDefault(fpr)
+		pfacts.SandboxName = sbName
+		dispatcher := vadmin.MakeVClusterOps(logger, vdb, k8sClient, TestPassword, vdbRec.EVRec, vadmin.SetupVClusterOps)
+		act := MakeStopSubclusterReconciler(vdbRec, logger, vdb, pfacts, dispatcher)
+		r := act.(*StopSubclusterReconciler)
+		res, err := r.Reconcile(ctx, &ctrl.Request{})
+		Expect(res).Should(Equal(ctrl.Result{Requeue: true}))
+		Expect(err).Should(Succeed())
 	})
 
 	It("Should successfully stop a subcluster", func() {
@@ -121,20 +104,23 @@ var _ = Describe("stopsc_reconciler", func() {
 		}
 		vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
 		sc := &vdb.Spec.Subclusters[1]
+		vdb.Status.Sandboxes = []vapi.SandboxStatus{
+			{Name: sbName, Subclusters: []string{sc.Name}},
+		}
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := createPodFactsWithUpNodeStateSet(ctx, vdb, sc, fpr, []int32{0, 1, 2}, true)
+		pfacts := createPodFactsWithUpNodeStateSet(ctx, vdb, sc, fpr, []int32{0, 1, 2}, true, sbName)
 		setupAPIFunc := func(logr.Logger, string) (vadmin.VClusterProvider, logr.Logger) {
 			return &mockvops.MockVClusterOps{}, logr.Logger{}
 		}
 		dispatcher := mockVClusterOpsDispatcherWithCustomSetup(vdb, setupAPIFunc)
-		act := MakeStopSubclusterReconciler(vdbRec, logger, vdb, sc.Name, pfacts, dispatcher)
+		act := MakeStopSubclusterReconciler(vdbRec, logger, vdb, pfacts, dispatcher)
 		r := act.(*StopSubclusterReconciler)
 		res, err := r.Reconcile(ctx, &ctrl.Request{})
 		Expect(res).Should(Equal(ctrl.Result{}))
 		Expect(err).Should(Succeed())
-		Expect(r.InitiatorPodIP).Should(Equal("10.0.0.0"))
+		Expect(r.PFacts.NeedCollection).Should(BeTrue())
 	})
 })

@@ -23,7 +23,6 @@ import (
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
-	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/stopsc"
@@ -71,15 +70,12 @@ func (s *StopSubclusterReconciler) Reconcile(ctx context.Context, _ *ctrl.Reques
 		needRequeue = true
 	}
 
-	if res, err := s.stopSubclusters(ctx, scsToStop); verrors.IsReconcileAborted(res, err) {
-		return res, err
+	if err := s.stopSubclusters(ctx, scsToStop); err != nil {
+		return ctrl.Result{}, err
 	}
 
-	// Invalidate the cached pod facts now that at least subcluster was shutdown
-	s.PFacts.Invalidate()
-
 	if needRequeue {
-		s.Log.Info("Some subclusters to need to be stopped have pods not running. Requeue reconciliation.")
+		s.Log.Info("Some subclusters that need shutdown have pods not running. Requeue reconciliation.")
 	}
 	return ctrl.Result{Requeue: needRequeue}, nil
 }
@@ -91,22 +87,24 @@ func (s *StopSubclusterReconciler) getFirstUpSCPodIP(scName string) (string, boo
 }
 
 // stopSubclusters call the stop subcluster api call on the given subclusters
-func (s *StopSubclusterReconciler) stopSubclusters(ctx context.Context, scs []*vapi.Subcluster) (ctrl.Result, error) {
+func (s *StopSubclusterReconciler) stopSubclusters(ctx context.Context, scs []string) error {
 	for _, sc := range scs {
 		// A subcluster needs to be shutdown only if at least
 		// one node is up. So we check for an up node and if we find
 		// one, we use it as initiator for stop subcluster, if we don't
 		// then we skip the current subcluster and move to next one
-		ip, ok := s.getFirstUpSCPodIP(sc.Name)
+		ip, ok := s.getFirstUpSCPodIP(sc)
 		if !ok {
 			continue
 		}
-		err := s.stopSubcluster(ctx, sc.Name, ip)
+		err := s.stopSubcluster(ctx, sc, ip)
 		if err != nil {
-			return ctrl.Result{}, err
+			return err
 		}
+		// Invalidate the cached pod facts now that at least one subcluster was shutdown
+		s.PFacts.Invalidate()
 	}
-	return ctrl.Result{}, nil
+	return nil
 }
 
 func (s *StopSubclusterReconciler) buildOpts(sc, ip string) []stopsc.Option {
@@ -132,36 +130,25 @@ func (s *StopSubclusterReconciler) stopSubcluster(ctx context.Context, scName, i
 }
 
 // findSubclustersWithShutdownNeeded finds subcluster candidates to a shutdown.
-// A subcluster may require a shutdown if it is defined in a sandbox(in vdb.spec.sandboxes)
-// but is still part of the main cluster(not in vdb.status.sandboxes) or vice-versa
-func (s *StopSubclusterReconciler) findSubclustersWithShutdownNeeded() []*vapi.Subcluster {
-	scs := []*vapi.Subcluster{}
-	if len(s.Vdb.Spec.Sandboxes) == 0 &&
-		len(s.Vdb.Status.Sandboxes) == 0 {
-		return scs
-	}
-
-	sbSpecSCMap := s.Vdb.GetSubclusterSandboxSpecMap()
-	sbStatusSCMap := s.Vdb.GetSubclusterSandboxStatusMap()
-	for i := range s.Vdb.Spec.Subclusters {
-		sc := &s.Vdb.Spec.Subclusters[i]
-		_, inSbSpec := sbSpecSCMap[sc.Name]
-		sbInStatusName, inSbStatus := sbStatusSCMap[sc.Name]
-		if inSbSpec != inSbStatus &&
-			sbInStatusName == s.PFacts.SandboxName {
-			scs = append(scs, sc)
-		}
-
-	}
-	return scs
-
+// A subcluster may require a shutdown if it is not defined in a sandbox(not in vdb.spec.sandboxes)
+// but is still part of a sandbox(in vdb.status.sandboxes)
+func (s *StopSubclusterReconciler) findSubclustersWithShutdownNeeded() []string {
+	unsandboxSbScMap := s.Vdb.GenSandboxSubclusterMapForUnsandbox()
+	return unsandboxSbScMap[s.PFacts.GetSandboxName()]
 }
 
-func (s *StopSubclusterReconciler) filterSubclustersWithRunningPods(scs []*vapi.Subcluster) []*vapi.Subcluster {
-	newSCs := []*vapi.Subcluster{}
+func (s *StopSubclusterReconciler) filterSubclustersWithRunningPods(scs []string) []string {
+	newSCs := []string{}
+	scMap := s.Vdb.GenSubclusterMap()
 	for _, sc := range scs {
-		runningPods := s.PFacts.CountRunningAndInstalled(sc.Name)
-		if int32(runningPods) == sc.Size {
+		subcluster := scMap[sc]
+		if subcluster == nil {
+			// It is very unlikely we reach this part because
+			// sandboxed subclusterare always in the vdb spec
+			continue
+		}
+		runningPods := s.PFacts.CountRunningAndInstalled(subcluster.Name)
+		if int32(runningPods) == subcluster.Size {
 			newSCs = append(newSCs, sc)
 		}
 	}

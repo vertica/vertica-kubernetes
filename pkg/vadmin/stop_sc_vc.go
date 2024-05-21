@@ -48,7 +48,7 @@ func (v *VClusterOps) StopSubcluster(_ context.Context, opts ...stopsc.Option) e
 func (v *VClusterOps) genStopSubclusterOptions(s *stopsc.Parms) vops.VStopSubclusterOptions {
 	opts := vops.VStopSubclusterOptionsFactory()
 
-	opts.DBName = &v.VDB.Spec.DBName
+	opts.DBName = v.VDB.Spec.DBName
 	opts.RawHosts = append(opts.RawHosts, s.InitiatorIP)
 
 	opts.IsEon = v.VDB.IsEON()
@@ -58,7 +58,7 @@ func (v *VClusterOps) genStopSubclusterOptions(s *stopsc.Parms) vops.VStopSubclu
 	// For now we shutdown the subcluster right away
 	opts.DrainSeconds = 0
 	// auth options
-	*opts.UserName = v.VDB.GetVerticaUser()
+	opts.UserName = v.VDB.GetVerticaUser()
 	opts.Password = &v.Password
 
 	return opts
