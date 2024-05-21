@@ -106,6 +106,9 @@ const (
 //+kubebuilder:object:root=true
 //+kubebuilder:resource:path=verticareplicators,singular=verticareplicator,categories=all;vertica,shortName=vrep
 //+kubebuilder:subresource:status
+//+kubebuilder:printcolumn:name="SourceVerticaDB",type="string",JSONPath=".spec.source.verticaDB"
+//+kubebuilder:printcolumn:name="TargetVerticaDB",type="string",JSONPath=".spec.target.verticaDB"
+//+kubebuilder:printcolumn:name="State",type="string",JSONPath=".status.state"
 //+operator-sdk:csv:customresourcedefinitions:resources={{VerticaDB,vertica.com/v1beta1,""}}
 
 // VerticaReplicator is the Schema for the verticareplicators API
