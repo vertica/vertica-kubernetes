@@ -365,12 +365,17 @@ func (s *SandboxSubclusterReconciler) sandboxSubcluster(ctx context.Context, sub
 		return res, err
 	}
 
+	// nodes' names and addresses in the subcluster to sandbox
+	nodeNameAddressMap := s.PFacts.FindNodeNameAndAddressInSubcluster(subcluster)
+
 	s.VRec.Eventf(s.Vdb, corev1.EventTypeNormal, events.SandboxSubclusterStart,
 		"Starting add subcluster %q to sandbox %q", subcluster, sandbox)
 	err = s.Dispatcher.SandboxSubcluster(ctx,
 		sandboxsc.WithInitiators(initiatorIPs),
 		sandboxsc.WithSubcluster(subcluster),
 		sandboxsc.WithSandbox(sandbox),
+		sandboxsc.WithUpHostInSandbox(s.InitiatorIPs[sandbox]),
+		sandboxsc.WithNodeNameAddressMap(nodeNameAddressMap),
 	)
 	if err != nil {
 		s.VRec.Eventf(s.Vdb, corev1.EventTypeWarning, events.SandboxSubclusterFailed,

@@ -42,7 +42,7 @@ spec:
     - name: sec1
       type: sandboxprimary
     - name: sec2
-      type: secondary
+      type: sandboxprimary
     - name: sec3
       type: secondary
 status:
@@ -50,24 +50,15 @@ status:
     - name: sandbox1
       subclusters:
         - sec1
-        - sec3
----
-apiVersion: apps/v1
-kind: StatefulSet
-metadata:
-  name: v-sandbox-sec1
-  labels:
-    vertica.com/sandbox: sandbox1
-status:
-  readyReplicas: 3
-  replicas: 3
----
-apiVersion: apps/v1
-kind: StatefulSet
-metadata:
-  name: v-sandbox-sec3
-  labels:
-    vertica.com/sandbox: sandbox1
-status:
-  readyReplicas: 1
-  replicas: 1
+    - name: sandbox2
+      subclusters:
+        - sec2
+  subclusters:
+    - name: pri1
+      upNodeCount: 3
+    - name: sec1
+      upNodeCount: 3
+    - name: sec2
+      upNodeCount: 3
+    - name: sec3
+      upNodeCount: 1
