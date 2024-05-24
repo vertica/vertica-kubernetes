@@ -236,7 +236,10 @@ func (r *UnsandboxSubclusterReconciler) unsandboxSubcluster(ctx context.Context,
 		return err
 	}
 
-	// nodes' names and addresses in the subcluster to unsandbox
+	// nodes' names and addresses in the subcluster to unsandbox. These names and addresses
+	// are the latest ones in the database, and vclusterOps will compare them with the ones in catalog
+	// of main cluster. If vclusterOps find catalog of main cluster has stale node addresses,
+	// it will use the correct addresses in this map to do a re-ip before unsandboxing.
 	nodeNameAddressMap := r.OriginalPFacts.FindNodeNameAndAddressInSubcluster(scName)
 
 	// remove startup.json in pod since vcluster unsandbox needs to poll node down.
@@ -249,7 +252,8 @@ func (r *UnsandboxSubclusterReconciler) unsandboxSubcluster(ctx context.Context,
 			r.Log.Error(err, "failed to remove startup.json in pod", "podName", podName)
 			return err
 		} else {
-			r.Log.Info("removed startup.json before unsandboxing", "podName", podName, "unsandboxed subcluster", scName)
+			r.Log.Info("removed startup.json before unsandboxing", "podName", podName,
+				"subcluster", scName, "sandbox", r.OriginalPFacts.GetSandboxName())
 		}
 	}
 
@@ -258,6 +262,7 @@ func (r *UnsandboxSubclusterReconciler) unsandboxSubcluster(ctx context.Context,
 	err := r.Dispatcher.UnsandboxSubcluster(ctx,
 		unsandboxsc.WithInitiator(r.InitiatorIP),
 		unsandboxsc.WithSubcluster(scName),
+		// vclusterOps needs correct node names and addresses to do re-ip
 		unsandboxsc.WithNodeNameAddressMap(nodeNameAddressMap),
 	)
 	if err != nil {
