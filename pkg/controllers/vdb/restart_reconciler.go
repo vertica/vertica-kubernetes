@@ -488,8 +488,8 @@ func (r *RestartReconciler) restartCluster(ctx context.Context, downPods []*PodF
 		opts = append(opts, startdb.WithHost(downPods[i].podIP))
 	}
 	opts = append(opts, startdb.WithHostsInSandboxFlag(hostsInSandbox))
-	r.VRec.Event(r.Vdb, corev1.EventTypeNormal, events.ClusterRestartStarted,
-		"Starting restart of the cluster")
+	r.VRec.Eventf(r.Vdb, corev1.EventTypeNormal, events.ClusterRestartStarted,
+		"Starting restart of the %s", r.PFacts.GetClusterExtendedName())
 	start := time.Now()
 	labels := metrics.MakeVDBLabels(r.Vdb)
 	res, err := r.Dispatcher.StartDB(ctx, opts...)
@@ -501,7 +501,7 @@ func (r *RestartReconciler) restartCluster(ctx context.Context, downPods []*PodF
 		return res, err
 	}
 	r.VRec.Eventf(r.Vdb, corev1.EventTypeNormal, events.ClusterRestartSucceeded,
-		"Successfully restarted the cluster and it took %ds", int(elapsedTimeInSeconds))
+		"Successfully restarted the %s and it took %ds", r.PFacts.GetClusterExtendedName(), int(elapsedTimeInSeconds))
 	return ctrl.Result{}, err
 }
 

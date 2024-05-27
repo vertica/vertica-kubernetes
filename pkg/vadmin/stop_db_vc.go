@@ -56,7 +56,7 @@ func (v *VClusterOps) genStopDBOptions(s *stopdb.Parms) vops.VStopDatabaseOption
 	opts.DBName = v.VDB.Spec.DBName
 	opts.IsEon = v.VDB.IsEON()
 
-	opts.Sandbox = s.Sandbox
+	opts.SandboxName = s.Sandbox
 	// We want to stop db on either the main cluster or a sandbox,
 	// not both
 	opts.MainCluster = s.Sandbox == vapi.MainCluster
