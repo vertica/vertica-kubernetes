@@ -225,6 +225,13 @@ func (r *ReplicationReconciler) collectPodFacts(ctx context.Context) (err error)
 // choose the source host and target host
 // (first host where db is up in the specified cluster)
 func (r *ReplicationReconciler) determineSourceAndTargetHosts() (err error) {
+	if len(r.SourcePFacts.Detail) == 0 && r.TargetPFacts.SandboxName != "" {
+		return fmt.Errorf("source sandbox '%s' does not exist or has no nodes assigned to it", r.SourcePFacts.SandboxName)
+	}
+	if len(r.TargetPFacts.Detail) == 0 && r.TargetPFacts.SandboxName != "" {
+		return fmt.Errorf("target sandbox '%s' does not exist or has no nodes assigned to it", r.TargetPFacts.SandboxName)
+	}
+
 	// assume source could be read-only, no subcluster constraints
 	upPodIP, ok := r.SourcePFacts.FindFirstUpPodIP(true, "")
 	if !ok {
