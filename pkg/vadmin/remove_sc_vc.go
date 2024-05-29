@@ -62,7 +62,7 @@ func (v *VClusterOps) genRemoveSubclusterOptions(s *removesc.Parms, certs *HTTPS
 
 	// required options
 	opts.DBName = v.VDB.Spec.DBName
-	opts.SubclusterToRemove = s.Subcluster
+	opts.SCName = s.Subcluster
 
 	opts.RawHosts = []string{s.InitiatorIP}
 	v.Log.Info("Setup remove subcluster options", "hosts", opts.RawHosts[0])
