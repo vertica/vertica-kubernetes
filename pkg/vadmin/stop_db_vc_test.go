@@ -42,7 +42,7 @@ func (m *MockVClusterOps) VStopDatabase(options *vops.VStopDatabaseOptions) erro
 		return err
 	}
 
-	if options.Sandbox != sbName {
+	if options.SandboxName != sbName {
 		return fmt.Errorf("failed to retrieve sandbox name")
 	}
 

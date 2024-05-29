@@ -24,18 +24,24 @@ import (
 )
 
 // AddSubcluster will create a subcluster in the vertica cluster.
-func (v *VClusterOps) AddSubcluster(_ context.Context, opts ...addsc.Option) error {
+func (v *VClusterOps) AddSubcluster(ctx context.Context, opts ...addsc.Option) error {
 	v.setupForAPICall("AddSubcluster")
 	defer v.tearDownForAPICall()
 	v.Log.Info("Starting vcluster AddSubcluster")
+
+	// get the certs
+	certs, err := v.retrieveNMACerts(ctx)
+	if err != nil {
+		return err
+	}
 
 	// get add_subcluster k8s configs
 	s := addsc.Parms{}
 	s.Make(opts...)
 
 	// call vcluster-ops library to add a subcluster
-	vopts := v.genAddSubclusterOptions(&s)
-	err := v.VAddSubcluster(&vopts)
+	vopts := v.genAddSubclusterOptions(&s, certs)
+	err = v.VAddSubcluster(&vopts)
 	if err != nil {
 		v.Log.Error(err, "failed to add a subcluster", "scName", vopts.SCName)
 		return err
@@ -45,7 +51,7 @@ func (v *VClusterOps) AddSubcluster(_ context.Context, opts ...addsc.Option) err
 	return nil
 }
 
-func (v *VClusterOps) genAddSubclusterOptions(s *addsc.Parms) vops.VAddSubclusterOptions {
+func (v *VClusterOps) genAddSubclusterOptions(s *addsc.Parms, certs *HTTPSCerts) vops.VAddSubclusterOptions {
 	opts := vops.VAddSubclusterOptionsFactory()
 
 	opts.RawHosts = append(opts.RawHosts, s.InitiatorIP)
@@ -58,6 +64,9 @@ func (v *VClusterOps) genAddSubclusterOptions(s *addsc.Parms) vops.VAddSubcluste
 	opts.IsPrimary = s.IsPrimary
 
 	// auth options
+	opts.Key = certs.Key
+	opts.Cert = certs.Cert
+	opts.CaCert = certs.CaCert
 	opts.UserName = v.VDB.GetVerticaUser()
 	opts.Password = &v.Password
 
