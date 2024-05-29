@@ -108,6 +108,11 @@ func (r *ReplicationReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) 
 		return ctrl.Result{}, err
 	}
 
+	err = r.checkSandboxExists()
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
 	// choose the source host and target host
 	// (first host where db is up in the specified cluster)
 	err = r.determineSourceAndTargetHosts()
@@ -222,16 +227,20 @@ func (r *ReplicationReconciler) collectPodFacts(ctx context.Context) (err error)
 	return
 }
 
+// return error if either source or destination sandbox doesn't exist or has no node assigned to it
+func (r *ReplicationReconciler) checkSandboxExists() error {
+	if len(r.SourcePFacts.Detail) == 0 && r.SourcePFacts.SandboxName != vapi.MainCluster {
+		return fmt.Errorf("source sandbox '%s' does not exist or has no nodes assigned to it", r.SourcePFacts.SandboxName)
+	}
+	if len(r.TargetPFacts.Detail) == 0 && r.TargetPFacts.SandboxName != vapi.MainCluster {
+		return fmt.Errorf("target sandbox '%s' does not exist or has no nodes assigned to it", r.TargetPFacts.SandboxName)
+	}
+	return nil
+}
+
 // choose the source host and target host
 // (first host where db is up in the specified cluster)
 func (r *ReplicationReconciler) determineSourceAndTargetHosts() (err error) {
-	if len(r.SourcePFacts.Detail) == 0 && r.TargetPFacts.SandboxName != "" {
-		return fmt.Errorf("source sandbox '%s' does not exist or has no nodes assigned to it", r.SourcePFacts.SandboxName)
-	}
-	if len(r.TargetPFacts.Detail) == 0 && r.TargetPFacts.SandboxName != "" {
-		return fmt.Errorf("target sandbox '%s' does not exist or has no nodes assigned to it", r.TargetPFacts.SandboxName)
-	}
-
 	// assume source could be read-only, no subcluster constraints
 	upPodIP, ok := r.SourcePFacts.FindFirstUpPodIP(true, "")
 	if !ok {
