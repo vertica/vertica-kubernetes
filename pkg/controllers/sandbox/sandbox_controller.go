@@ -156,6 +156,7 @@ func (r *SandboxConfigMapReconciler) constructActors(vdb *v1.VerticaDB, log logr
 	return []controllers.ReconcileActor{
 		// Ensure we support sandboxing and vclusterops
 		MakeVerifyDeploymentReconciler(r, vdb, log),
+		vdbcontroller.MakeStopSubclusterReconciler(r, log, vdb, pfacts, dispatcher),
 		// Move the subclusters from a sandbox to the main cluster
 		MakeUnsandboxSubclusterReconciler(r, vdb, log, r.Client, pfacts, dispatcher, configMap),
 		// Update the vdb status for the sandbox nodes/pods

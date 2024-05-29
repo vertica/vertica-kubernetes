@@ -41,6 +41,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/showrestorepoints"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/startdb"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/stopdb"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/stopsc"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/unsandboxsc"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -104,6 +105,7 @@ type Dispatcher interface {
 	// FetchNodeDetails will return details for a node, including its state, sandbox, and storage locations
 	FetchNodeDetails(ctx context.Context, opts ...fetchnodedetails.Option) (vops.NodeDetails, error)
 
+	StopSubcluster(ctx context.Context, opts ...stopsc.Option) error
 	// SandboxSubcluster will add a subcluster in a sandbox of the database
 	SandboxSubcluster(ctx context.Context, opts ...sandboxsc.Option) error
 
@@ -233,6 +235,7 @@ type VClusterProvider interface {
 	VInstallPackages(options *vops.VInstallPackagesOptions) (*vops.InstallPackageStatus, error)
 	VReplicateDatabase(options *vops.VReplicationDatabaseOptions) error
 	VFetchNodesDetails(options *vops.VFetchNodesDetailsOptions) (vops.NodesDetails, error)
+	VStopSubcluster(options *vops.VStopSubclusterOptions) error
 	VSandbox(options *vops.VSandboxOptions) error
 	VUnsandbox(options *vops.VUnsandboxOptions) error
 }
