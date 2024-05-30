@@ -177,10 +177,13 @@ var _ = Describe("replicatedupgrade_reconciler", func() {
 		vdb.Spec.Sandboxes = []vapi.Sandbox{
 			{Name: preferredSandboxName, Subclusters: []vapi.SubclusterName{{Name: "sec1"}}},
 		}
+		vdb.Spec.NMATLSSecret = "test-tls"
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
+		test.CreateFakeTLSSecret(ctx, vdb, k8sClient, vdb.Spec.NMATLSSecret)
+		defer test.DeleteSecret(ctx, k8sClient, vdb.Spec.NMATLSSecret)
 		vdb.Spec.Image = NewImageName // Trigger an upgrade
 		Ω(k8sClient.Update(ctx, vdb)).Should(Succeed())
 

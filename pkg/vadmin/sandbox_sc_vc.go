@@ -24,18 +24,24 @@ import (
 )
 
 // SandboxSubcluster will add a subcluster in a sandbox of the database
-func (v *VClusterOps) SandboxSubcluster(_ context.Context, opts ...sandboxsc.Option) error {
+func (v *VClusterOps) SandboxSubcluster(ctx context.Context, opts ...sandboxsc.Option) error {
 	v.setupForAPICall("SandboxSubcluster")
 	defer v.tearDownForAPICall()
 	v.Log.Info("Starting vcluster SandboxSubcluster")
+
+	// get the certs
+	certs, err := v.retrieveNMACerts(ctx)
+	if err != nil {
+		return err
+	}
 
 	// get sandbox_subcluster k8s configs
 	s := sandboxsc.Params{}
 	s.Make(opts...)
 
 	// call vclusterOps library to sandbox a subcluster
-	vopts := v.genSandboxSubclusterOptions(&s)
-	err := v.VSandbox(&vopts)
+	vopts := v.genSandboxSubclusterOptions(&s, certs)
+	err = v.VSandbox(&vopts)
 	if err != nil {
 		v.Log.Error(err, "failed to add a subcluster to a sandbox", "subcluster", vopts.SCName, "sandbox", vopts.SandboxName)
 		return err
@@ -45,7 +51,7 @@ func (v *VClusterOps) SandboxSubcluster(_ context.Context, opts ...sandboxsc.Opt
 	return nil
 }
 
-func (v *VClusterOps) genSandboxSubclusterOptions(s *sandboxsc.Params) vops.VSandboxOptions {
+func (v *VClusterOps) genSandboxSubclusterOptions(s *sandboxsc.Params, certs *HTTPSCerts) vops.VSandboxOptions {
 	opts := vops.VSandboxOptionsFactory()
 
 	opts.DBName = v.VDB.Spec.DBName
@@ -56,10 +62,17 @@ func (v *VClusterOps) genSandboxSubclusterOptions(s *sandboxsc.Params) vops.VSan
 
 	opts.SandboxName = s.Sandbox
 	opts.SCName = s.Subcluster
+	opts.SandboxPrimaryUpHost = s.UpHostInSandbox
+	if s.UpHostInSandbox != "" {
+		opts.NodeNameAddressMap = s.NodeNameAddressMap
+	}
 
 	// auth options
 	opts.UserName = v.VDB.GetVerticaUser()
 	opts.Password = &v.Password
+	opts.Key = certs.Key
+	opts.Cert = certs.Cert
+	opts.CaCert = certs.CaCert
 
 	return opts
 }

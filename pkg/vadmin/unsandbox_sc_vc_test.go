@@ -49,6 +49,12 @@ func (m *MockVClusterOps) VUnsandbox(options *vops.VUnsandboxOptions) error {
 		return fmt.Errorf("failed to set the options to let vcluster not auto-restart the subcluster")
 	}
 
+	// verify re-ip options
+	err = m.VerifyNodeNameAddressMap(options.NodeNameAddressMap)
+	if err != nil {
+		return err
+	}
+
 	// verify auth options
 	return m.VerifyCerts(&options.DatabaseOptions)
 }
@@ -64,6 +70,7 @@ var _ = Describe("unsandbox_sc_vc", func() {
 		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.NMATLSSecret)
 		Ω(dispatcher.UnsandboxSubcluster(ctx,
 			unsandboxsc.WithInitiator(TestInitiatorIP),
-			unsandboxsc.WithSubcluster(TestSCName))).Should(Succeed())
+			unsandboxsc.WithSubcluster(TestSCName),
+			unsandboxsc.WithNodeNameAddressMap(TestNodeNameAddressMap))).Should(Succeed())
 	})
 })
