@@ -18,7 +18,6 @@ package vdb
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo/v2"
@@ -86,7 +85,7 @@ var _ = Describe("replicatedupgrade_reconciler", func() {
 		Ω(rr.assignSubclustersToReplicaGroupB(ctx)).Should(Equal(ctrl.Result{}))
 
 		Ω(k8sClient.Get(ctx, vdb.ExtractNamespacedName(), vdb)).Should(Succeed())
-		Ω(vdb.Spec.Subclusters).Should(HaveLen(5))
+		Ω(vdb.Spec.Subclusters).Should(HaveLen(6))
 		sc1 := vdb.Spec.Subclusters[0]
 		sc3 := vdb.Spec.Subclusters[3]
 		Ω(sc3.Type).Should(Equal(vapi.SecondarySubcluster))
@@ -98,12 +97,21 @@ var _ = Describe("replicatedupgrade_reconciler", func() {
 		Ω(sc3.Annotations).Should(HaveKeyWithValue(vmeta.ReplicaGroupAnnotation, vmeta.ReplicaGroupBValue))
 		Ω(sc3.Annotations).Should(HaveKeyWithValue(vmeta.ParentSubclusterAnnotation, sc1.Name))
 		Ω(sc1.Annotations).Should(HaveKeyWithValue(vmeta.ChildSubclusterAnnotation, sc3.Name))
+		Ω(sc3.Annotations).Should(HaveKeyWithValue(vmeta.ParentSubclusterTypeAnnotation, vapi.PrimarySubcluster))
 
 		sc4 := vdb.Spec.Subclusters[4]
-		Ω(sc4.Name).Should(HavePrefix("sc3-"))
+		Ω(sc4.Name).Should(HavePrefix("sc2-"))
 		Ω(sc4.Type).Should(Equal(vapi.SecondarySubcluster))
-		Ω(sc4.Size).Should(Equal(int32(2)))
+		Ω(sc4.Size).Should(Equal(int32(3)))
 		Ω(sc4.Annotations).Should(HaveKeyWithValue(vmeta.ReplicaGroupAnnotation, vmeta.ReplicaGroupBValue))
+		Ω(sc4.Annotations).Should(HaveKeyWithValue(vmeta.ParentSubclusterTypeAnnotation, vapi.SecondarySubcluster))
+
+		sc5 := vdb.Spec.Subclusters[5]
+		Ω(sc5.Name).Should(HavePrefix("sc3-"))
+		Ω(sc5.Type).Should(Equal(vapi.SecondarySubcluster))
+		Ω(sc5.Size).Should(Equal(int32(2)))
+		Ω(sc5.Annotations).Should(HaveKeyWithValue(vmeta.ReplicaGroupAnnotation, vmeta.ReplicaGroupBValue))
+		Ω(sc5.Annotations).Should(HaveKeyWithValue(vmeta.ParentSubclusterTypeAnnotation, vapi.PrimarySubcluster))
 	})
 
 	It("should generate unique subcluster name on collision during scale out", func() {
@@ -123,11 +131,15 @@ var _ = Describe("replicatedupgrade_reconciler", func() {
 		Ω(rr.assignSubclustersToReplicaGroupB(ctx)).Should(Equal(ctrl.Result{}))
 
 		Ω(k8sClient.Get(ctx, vdb.ExtractNamespacedName(), vdb)).Should(Succeed())
-		Ω(vdb.Spec.Subclusters).Should(HaveLen(3))
+		Ω(vdb.Spec.Subclusters).Should(HaveLen(4))
 		sc3 := vdb.Spec.Subclusters[2]
+		sc4 := vdb.Spec.Subclusters[3]
 		Ω(sc3.Type).Should(Equal(vapi.SecondarySubcluster))
 		Ω(sc3.Name).Should(HavePrefix("sc1-"))
 		Ω(sc3.Name).ShouldNot(Equal("sc1-sb"))
+		Ω(sc4.Type).Should(Equal(vapi.SecondarySubcluster))
+		Ω(sc4.Name).Should(HavePrefix("sc1-sb-"))
+		Ω(sc4.Name).ShouldNot(Equal("sc1"))
 	})
 
 	It("should sandbox subclusters in replica group B", func() {
@@ -395,11 +407,11 @@ var _ = Describe("replicatedupgrade_reconciler", func() {
 
 		// Verify the subclusters and the replica groups
 		Ω(k8sClient.Get(ctx, vdb.ExtractNamespacedName(), vdb)).Should(Succeed())
-		Ω(vdb.Spec.Subclusters).Should(HaveLen(10))
+		Ω(vdb.Spec.Subclusters).Should(HaveLen(14))
 		groupAScNames := rr.getSubclustersForReplicaGroup(vmeta.ReplicaGroupAValue)
 		Ω(groupAScNames).Should(HaveLen(7))
 		groupBScNames := rr.getSubclustersForReplicaGroup(vmeta.ReplicaGroupBValue)
-		Ω(groupBScNames).Should(HaveLen(3))
+		Ω(groupBScNames).Should(HaveLen(7))
 
 		// Verify that the client routing label is present only for the
 		// subclusters in replica group B.
@@ -426,39 +438,28 @@ var _ = Describe("replicatedupgrade_reconciler", func() {
 
 		// Verify that the service objects for subclusters in replica group A,
 		// route to the pods in replica group B. We build a mapping of each
-		// subclusters expected mapping. The secondaries should round robin the
-		// ones cloned from the primaries.
+		// subclusters expected mapping.
 		expectedMapping := map[string]string{
 			"pri1": "pri1-sb",
 			"pri2": "pri2-sb",
 			"pri3": "pri3-sb",
-			"sec1": "pri1-sb",
-			"sec2": "pri2-sb",
-			"sec3": "pri3-sb",
-			"sec4": "pri1-sb",
+			"sec1": "sec1-sb",
+			"sec2": "sec2-sb",
+			"sec3": "sec3-sb",
+			"sec4": "sec4-sb",
 		}
 		for _, scName := range groupAScNames {
 			sc, found := scMap[scName]
 			Ω(found).Should(BeTrue())
-			expSbTarget, found := expectedMapping[sc.Name]
+			expScTarget, found := expectedMapping[sc.Name]
 			Ω(found).Should(BeTrue())
-			targetSc, found := scMap[expSbTarget]
+			targetSc, found := scMap[expScTarget]
 			Ω(found).Should(BeTrue())
 			svcNm := names.GenExtSvcName(vdb, sc)
 			svc := v1.Service{}
 			Ω(k8sClient.Get(ctx, svcNm, &svc)).Should(Succeed(), "svc name is %v", svcNm)
-			// For subclusters that were meant to mimic the primaries, they will
-			// share the same service name since that routing is permanent. We
-			// denote this as the one that start with "pri". Otherwise, for
-			// secondaries we expect the service object to have temporary
-			// routing to one of the primaries using the subcluster selector label.
-			if strings.HasPrefix(scName, "pri") {
-				Ω(svc.Spec.Selector).ShouldNot(HaveKey(vmeta.SubclusterSelectorLabel), "svc name is %v", svcNm)
-				Ω(svc.Spec.Selector).Should(HaveKeyWithValue(vmeta.SubclusterSvcNameLabel, targetSc.GetServiceName()), "svc name is %v", svcNm)
-			} else {
-				Ω(svc.Spec.Selector).Should(HaveKeyWithValue(vmeta.SubclusterSelectorLabel, targetSc.GetStatefulSetName(vdb)), "svc name is %v", svcNm)
-				Ω(svc.Spec.Selector).ShouldNot(HaveKey(vmeta.SubclusterSvcNameLabel), "svc name is %v", svcNm)
-			}
+			Ω(svc.Spec.Selector).ShouldNot(HaveKey(vmeta.SubclusterSelectorLabel), "svc name is %v", svcNm)
+			Ω(svc.Spec.Selector).Should(HaveKeyWithValue(vmeta.SubclusterSvcNameLabel, targetSc.GetServiceName()), "svc name is %v", svcNm)
 		}
 	})
 

@@ -23,6 +23,18 @@ status:
   currentReplicas: 3
   readyReplicas: 3
 ---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: v-base-upgrade-sec1-sb
+  annotations:
+    vertica.com/statefulset-name-override: "v-base-upgrade-sec1-sb"
+  labels:
+    vertica.com/sandbox: replica-group-b
+status:
+  currentReplicas: 3
+  readyReplicas: 3
+---
 apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
@@ -30,6 +42,10 @@ metadata:
 spec:
   subclusters:
   - name: pri1
+  - name: sec1
   - name: pri1-sb
     type: sandboxprimary
+    size: 3
+  - name: sec1-sb
+    type: secondary
     size: 3

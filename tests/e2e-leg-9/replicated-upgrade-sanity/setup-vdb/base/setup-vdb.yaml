@@ -31,6 +31,9 @@ spec:
     - name: pri1
       size: 3
       type: primary
+    - name: sec1
+      size: 3
+      type: secondary
   certSecrets: []
   imagePullSecrets: []
   volumes: []
