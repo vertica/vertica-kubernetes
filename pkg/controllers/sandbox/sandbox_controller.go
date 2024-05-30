@@ -157,7 +157,7 @@ func (r *SandboxConfigMapReconciler) constructActors(vdb *v1.VerticaDB, log logr
 		// Ensure we support sandboxing and vclusterops
 		MakeVerifyDeploymentReconciler(r, vdb, log),
 		// Move the subclusters from a sandbox to the main cluster
-		MakeUnsandboxSubclusterReconciler(r, vdb, log, r.Client, pfacts, dispatcher, configMap),
+		MakeUnsandboxSubclusterReconciler(r, vdb, log, r.Client, pfacts, dispatcher, configMap, prunner),
 		// Update the vdb status for the sandbox nodes/pods
 		vdbcontroller.MakeStatusReconciler(r.Client, r.Scheme, log, vdb, pfacts),
 		// Upgrade the sandbox using the offline method

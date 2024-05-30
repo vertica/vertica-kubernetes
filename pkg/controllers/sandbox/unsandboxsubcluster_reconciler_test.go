@@ -56,7 +56,7 @@ var _ = Describe("sandboxsubcluster_reconcile", func() {
 		fpr := &cmds.FakePodRunner{}
 		pfacts := vdbcontroller.MakePodFacts(sbRec, fpr, logger, TestPassword)
 		dispatcher := vadmin.MakeVClusterOps(logger, vdb, k8sClient, TestPassword, sbRec.EVRec, vadmin.SetupVClusterOps)
-		r := MakeUnsandboxSubclusterReconciler(sbRec, vdb, logger, k8sClient, &pfacts, dispatcher, nil)
+		r := MakeUnsandboxSubclusterReconciler(sbRec, vdb, logger, k8sClient, &pfacts, dispatcher, nil, fpr)
 		Expect(vdb.IsEON()).Should(BeFalse())
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 	})
@@ -77,7 +77,7 @@ var _ = Describe("sandboxsubcluster_reconcile", func() {
 		fpr := &cmds.FakePodRunner{}
 		pfacts := vdbcontroller.MakePodFacts(sbRec, fpr, logger, TestPassword)
 		dispatcher := vadmin.MakeVClusterOps(logger, vdb, k8sClient, TestPassword, sbRec.EVRec, vadmin.SetupVClusterOps)
-		r := MakeUnsandboxSubclusterReconciler(sbRec, vdb, logger, k8sClient, &pfacts, dispatcher, nil)
+		r := MakeUnsandboxSubclusterReconciler(sbRec, vdb, logger, k8sClient, &pfacts, dispatcher, nil, fpr)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 	})
 
@@ -99,7 +99,7 @@ var _ = Describe("sandboxsubcluster_reconcile", func() {
 		fpr := &cmds.FakePodRunner{}
 		pfacts := vdbcontroller.MakePodFacts(sbRec, fpr, logger, TestPassword)
 		dispatcher := vadmin.MakeVClusterOps(logger, vdb, k8sClient, TestPassword, sbRec.EVRec, vadmin.SetupVClusterOps)
-		rec := MakeUnsandboxSubclusterReconciler(sbRec, vdb, logger, k8sClient, &pfacts, dispatcher, cm)
+		rec := MakeUnsandboxSubclusterReconciler(sbRec, vdb, logger, k8sClient, &pfacts, dispatcher, cm, fpr)
 		r := rec.(*UnsandboxSubclusterReconciler)
 		Expect(r.PFacts.Collect(ctx, vdb)).Should(Succeed())
 		// fill the sandbox status with wrong info, we expect the wrong info to be cleaned
@@ -139,7 +139,7 @@ var _ = Describe("sandboxsubcluster_reconcile", func() {
 		fpr := &cmds.FakePodRunner{}
 		pfacts := vdbcontroller.MakePodFacts(sbRec, fpr, logger, TestPassword)
 		dispatcher := vadmin.MakeVClusterOps(logger, vdb, k8sClient, TestPassword, sbRec.EVRec, vadmin.SetupVClusterOps)
-		rec := MakeUnsandboxSubclusterReconciler(sbRec, vdb, logger, k8sClient, &pfacts, dispatcher, cm)
+		rec := MakeUnsandboxSubclusterReconciler(sbRec, vdb, logger, k8sClient, &pfacts, dispatcher, cm, fpr)
 		r := rec.(*UnsandboxSubclusterReconciler)
 		// subcluster1 doesn't need to be unsandboxed so we should remove the unsandbox trigger ID
 		err, deleted := r.reconcileSandboxConfigMap(ctx)
@@ -179,7 +179,7 @@ var _ = Describe("sandboxsubcluster_reconcile", func() {
 		fpr := &cmds.FakePodRunner{}
 		pfacts := vdbcontroller.MakePodFacts(sbRec, fpr, logger, TestPassword)
 		dispatcher := vadmin.MakeVClusterOps(logger, vdb, k8sClient, TestPassword, sbRec.EVRec, vadmin.SetupVClusterOps)
-		rec := MakeUnsandboxSubclusterReconciler(sbRec, vdb, logger, k8sClient, &pfacts, dispatcher, nil)
+		rec := MakeUnsandboxSubclusterReconciler(sbRec, vdb, logger, k8sClient, &pfacts, dispatcher, nil, fpr)
 		r := rec.(*UnsandboxSubclusterReconciler)
 		// after we removed subcluster1 from sandbox1, we will update sandbox status
 		Expect(r.updateSandboxInfoInVdb(ctx, sandbox1, []string{subcluster1})).Should(BeNil())
@@ -213,7 +213,7 @@ var _ = Describe("sandboxsubcluster_reconcile", func() {
 		fpr := &cmds.FakePodRunner{}
 		pfacts := vdbcontroller.MakePodFacts(sbRec, fpr, logger, TestPassword)
 		dispatcher := vadmin.MakeVClusterOps(logger, vdb, k8sClient, TestPassword, sbRec.EVRec, vadmin.SetupVClusterOps)
-		rec := MakeUnsandboxSubclusterReconciler(sbRec, vdb, logger, k8sClient, &pfacts, dispatcher, cm)
+		rec := MakeUnsandboxSubclusterReconciler(sbRec, vdb, logger, k8sClient, &pfacts, dispatcher, cm, fpr)
 		r := rec.(*UnsandboxSubclusterReconciler)
 		// sandbox1 is not empty so we should remove the unsandbox trigger ID
 		Expect(r.processConfigMap(ctx)).Should(BeNil())

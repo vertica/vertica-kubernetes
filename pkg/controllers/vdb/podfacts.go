@@ -1204,3 +1204,26 @@ func (p *PodFacts) FindUnsandboxedSubclustersStillInSandboxStatus(scSbInVdbStatu
 	}
 	return sbScMap
 }
+
+// FindNodeNameAndAddressInSubcluster collects node info in a subcluster and returns a map
+// with node name as the key and node address as the value.
+func (p *PodFacts) FindNodeNameAndAddressInSubcluster(scName string) map[string]string {
+	nodeNameAddressMap := make(map[string]string)
+	for _, v := range p.Detail {
+		if v.subclusterName == scName {
+			nodeNameAddressMap[v.vnodeName] = v.podIP
+		}
+	}
+	return nodeNameAddressMap
+}
+
+// FindPodNamesInSubcluster returns all pod names in a subcluster
+func (p *PodFacts) FindPodNamesInSubcluster(scName string) []types.NamespacedName {
+	podNames := []types.NamespacedName{}
+	for _, v := range p.Detail {
+		if v.subclusterName == scName {
+			podNames = append(podNames, v.name)
+		}
+	}
+	return podNames
+}

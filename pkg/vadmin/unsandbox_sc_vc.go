@@ -62,6 +62,8 @@ func (v *VClusterOps) genUnsandboxSubclusterOptions(s *unsandboxsc.Params, certs
 
 	opts.SCName = s.Subcluster
 	opts.RestartSC = false
+	opts.PrimaryUpHost = s.InitiatorIP
+	opts.NodeNameAddressMap = s.NodeNameAddressMap
 
 	// auth options
 	opts.UserName = v.VDB.GetVerticaUser()
