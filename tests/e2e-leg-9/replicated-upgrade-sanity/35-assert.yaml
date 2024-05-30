@@ -47,6 +47,16 @@ status:
   currentReplicas: 3
   readyReplicas: 3
 ---
+apiVersion: v1
+kind: Event
+reason: SandboxSubclusterSucceeded
+source:
+  component: verticadb-operator
+involvedObject:
+  apiVersion: vertica.com/v1
+  kind: VerticaDB
+  name: v-base-upgrade
+---
 apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
@@ -65,3 +75,8 @@ spec:
   - name: sec1-sb
     type: secondary
     size: 3
+status:
+  sandboxes:
+    - name: replica-group-b
+      subclusters:
+        - pri1-sb
