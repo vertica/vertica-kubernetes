@@ -365,12 +365,22 @@ func (s *SandboxSubclusterReconciler) sandboxSubcluster(ctx context.Context, sub
 		return res, err
 	}
 
+	// nodes' names and addresses in the subcluster to sandbox. These names and addresses
+	// are the latest ones in the database, and vclusterOps will compare them with the ones in catalog
+	// of the target sandbox. If vclusterOps find catalog of the target sandbox has stale node addresses,
+	// it will use the correct addresses in this map to do a re-ip before sandboxing.
+	nodeNameAddressMap := s.PFacts.FindNodeNameAndAddressInSubcluster(subcluster)
+
 	s.VRec.Eventf(s.Vdb, corev1.EventTypeNormal, events.SandboxSubclusterStart,
 		"Starting add subcluster %q to sandbox %q", subcluster, sandbox)
 	err = s.Dispatcher.SandboxSubcluster(ctx,
 		sandboxsc.WithInitiators(initiatorIPs),
 		sandboxsc.WithSubcluster(subcluster),
 		sandboxsc.WithSandbox(sandbox),
+		// vclusterOps needs an up host of the target sandbox to do re-ip
+		sandboxsc.WithUpHostInSandbox(s.InitiatorIPs[sandbox]),
+		// vclusterOps needs correct node names and addresses to do re-ip
+		sandboxsc.WithNodeNameAddressMap(nodeNameAddressMap),
 	)
 	if err != nil {
 		s.VRec.Eventf(s.Vdb, corev1.EventTypeWarning, events.SandboxSubclusterFailed,

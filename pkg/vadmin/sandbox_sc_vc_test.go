@@ -22,6 +22,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	vops "github.com/vertica/vcluster/vclusterops"
+	"github.com/vertica/vertica-kubernetes/pkg/test"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/sandboxsc"
 )
 
@@ -49,7 +50,11 @@ func (m *MockVClusterOps) VSandbox(options *vops.VSandboxOptions) error {
 		return fmt.Errorf("failed to retrieve sandbox name")
 	}
 
-	return nil
+	// verify re-ip options
+	if options.SandboxPrimaryUpHost != TestInitiatorPodIP {
+		return fmt.Errorf("failed to retrieve sandbox up host")
+	}
+	return m.VerifyNodeNameAddressMap(options.NodeNameAddressMap)
 }
 
 var _ = Describe("sandbox_sc_vc", func() {
@@ -58,9 +63,14 @@ var _ = Describe("sandbox_sc_vc", func() {
 	It("should call vclusterOps library with sandbox_subcluster task", func() {
 		dispatcher := mockVClusterOpsDispatcher()
 		dispatcher.VDB.Spec.DBName = TestDBName
+		dispatcher.VDB.Spec.NMATLSSecret = TestNMATLSSecret
+		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.NMATLSSecret)
+		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.NMATLSSecret)
 		Ω(dispatcher.SandboxSubcluster(ctx,
 			sandboxsc.WithInitiators([]string{TestInitiatorIP}),
 			sandboxsc.WithSubcluster(TestSCName),
-			sandboxsc.WithSandbox(TestSandboxName))).Should(Succeed())
+			sandboxsc.WithSandbox(TestSandboxName),
+			sandboxsc.WithUpHostInSandbox(TestInitiatorPodIP),
+			sandboxsc.WithNodeNameAddressMap(TestNodeNameAddressMap))).Should(Succeed())
 	})
 })

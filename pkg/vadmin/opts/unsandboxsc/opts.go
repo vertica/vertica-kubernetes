@@ -17,8 +17,9 @@ package unsandboxsc
 
 // Params holds all of the option for an unsandbox subcluster invocation.
 type Params struct {
-	InitiatorIP string
-	Subcluster  string
+	InitiatorIP        string
+	Subcluster         string
+	NodeNameAddressMap map[string]string
 }
 
 type Option func(*Params)
@@ -39,5 +40,11 @@ func WithInitiator(initiatorIP string) Option {
 func WithSubcluster(subcluster string) Option {
 	return func(s *Params) {
 		s.Subcluster = subcluster
+	}
+}
+
+func WithNodeNameAddressMap(nodeNameAddressMap map[string]string) Option {
+	return func(s *Params) {
+		s.NodeNameAddressMap = nodeNameAddressMap
 	}
 }
