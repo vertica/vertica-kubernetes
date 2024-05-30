@@ -119,6 +119,7 @@ const (
 )
 
 var TestCommunalStorageParams = map[string]string{"awsauth": "test-auth", "awsconnecttimeout": "10"}
+var TestNodeNameAddressMap = map[string]string{"v_sandbox_db_node0010": "10.244.0.134"}
 
 // VerifyDBNameAndIPv6 is used in vcluster-ops unit test for verifying db name and ipv6
 func (m *MockVClusterOps) VerifyDBNameAndIPv6(options *vops.DatabaseOptions) error {
@@ -296,4 +297,13 @@ func createNonEmptyFileHelper(res ctrl.Result, err error, fpr *cmds.FakePodRunne
 	Ω(len(hist)).Should(Equal(1))
 	expContent := fmt.Sprintf("%s = %s\n", TestParm, TestValue)
 	Expect(hist[0].Command).Should(ContainElement(fmt.Sprintf("cat > %s<<< '%s'", paths.AuthParmsFile, expContent)))
+}
+
+// VerifyNodeNameAddressMap is used in vcluster-ops unit test for verifying a map that contains correct
+// node names and node addresses
+func (m *MockVClusterOps) VerifyNodeNameAddressMap(nodeNameAddressMap map[string]string) error {
+	if !reflect.DeepEqual(nodeNameAddressMap, TestNodeNameAddressMap) {
+		return fmt.Errorf("failed to retrieve the map with node names and addresses")
+	}
+	return nil
 }

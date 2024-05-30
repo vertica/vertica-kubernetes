@@ -17,9 +17,11 @@ package sandboxsc
 
 // Params holds all of the option for a sandbox subcluster invocation.
 type Params struct {
-	InitiatorIPs []string
-	Subcluster   string
-	Sandbox      string
+	InitiatorIPs       []string
+	Subcluster         string
+	Sandbox            string
+	UpHostInSandbox    string
+	NodeNameAddressMap map[string]string
 }
 
 type Option func(*Params)
@@ -46,5 +48,17 @@ func WithSubcluster(subcluster string) Option {
 func WithSandbox(sandbox string) Option {
 	return func(s *Params) {
 		s.Sandbox = sandbox
+	}
+}
+
+func WithUpHostInSandbox(upHost string) Option {
+	return func(s *Params) {
+		s.UpHostInSandbox = upHost
+	}
+}
+
+func WithNodeNameAddressMap(nodeNameAddressMap map[string]string) Option {
+	return func(s *Params) {
+		s.NodeNameAddressMap = nodeNameAddressMap
 	}
 }
