@@ -244,5 +244,9 @@ var _ = Describe("query_reconcile", func() {
 		err = r.checkSandboxExists()
 		Expect(err).Should(HaveOccurred())
 		Expect(err.Error()).Should(Equal("target sandbox 'dne' does not exist or has no nodes assigned to it"))
+		// if both have nodes, even with sandboxes, shouldn't be an error
+		targetPodfacts.Detail = sourcePodfacts.Detail
+		err = r.checkSandboxExists()
+		Expect(err).ShouldNot(HaveOccurred())
 	})
 })
