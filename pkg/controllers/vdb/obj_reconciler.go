@@ -343,7 +343,7 @@ func (o *ObjReconciler) reconcileExtSvcFields(curSvc, expSvc *corev1.Service, sc
 		// differs from what is currently in use. Otherwise, they must stay the
 		// same. This protects us from changing the k8s generated node port each
 		// time there is a Service object update.
-		explicitNodePortByIndex := []int32{sc.ClientNodePort, sc.VerticaHTTPNodePort}
+		explicitNodePortByIndex := []int32{sc.ClientNodePort, sc.VerticaHTTPNodePort, builder.NMAPort}
 		for i := range curSvc.Spec.Ports {
 			if explicitNodePortByIndex[i] != 0 {
 				if expSvc.Spec.Ports[i].NodePort != curSvc.Spec.Ports[i].NodePort {

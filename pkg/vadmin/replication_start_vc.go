@@ -19,7 +19,6 @@ import (
 	"context"
 
 	vops "github.com/vertica/vcluster/vclusterops"
-	"github.com/vertica/vertica-kubernetes/pkg/net"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/replicationstart"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -56,7 +55,7 @@ func (v *VClusterOps) ReplicateDB(ctx context.Context, opts ...replicationstart.
 
 func (v *VClusterOps) genReplicateDBOptions(s *replicationstart.Parms, certs *HTTPSCerts) *vops.VReplicationDatabaseOptions {
 	opts := vops.VReplicationDatabaseFactory()
-	opts.RawHosts = append(opts.RawHosts, s.SourceIP)
+	opts.RawHosts = append(opts.RawHosts, s.SourceHostname)
 	opts.DBName = v.VDB.Spec.DBName
 	opts.UserName = s.SourceUserName
 	opts.Password = &v.Password
@@ -68,11 +67,9 @@ func (v *VClusterOps) genReplicateDBOptions(s *replicationstart.Parms, certs *HT
 	} else {
 		opts.TargetPassword = &s.TargetPassword
 	}
-	opts.TargetHosts = append(opts.TargetHosts, s.TargetIP)
+	opts.TargetHosts = append(opts.TargetHosts, s.TargetHostname)
 	opts.SourceTLSConfig = s.SourceTLSConfig
 	opts.IsEon = v.VDB.IsEON()
-
-	opts.IPv6 = net.IsIPv6(s.SourceIP)
 
 	// auth options
 	opts.Key = certs.Key

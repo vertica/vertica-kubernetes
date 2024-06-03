@@ -49,13 +49,12 @@ const (
 
 type ReplicationInfo struct {
 	Vdb      *vapi.VerticaDB
-	IP       string
+	Hostname string
 	Username string
 	Password string
 }
 
 type ReplicationReconciler struct {
-	client.Client
 	VRec         *VerticaReplicatorReconciler
 	Vrep         *v1beta1.VerticaReplicator
 	dispatcher   vadmin.Dispatcher
@@ -66,10 +65,9 @@ type ReplicationReconciler struct {
 	TargetInfo   *ReplicationInfo
 }
 
-func MakeReplicationReconciler(cli client.Client, r *VerticaReplicatorReconciler, vrep *v1beta1.VerticaReplicator,
+func MakeReplicationReconciler(r *VerticaReplicatorReconciler, vrep *v1beta1.VerticaReplicator,
 	log logr.Logger) controllers.ReconcileActor {
 	return &ReplicationReconciler{
-		Client:     cli,
 		VRec:       r,
 		Vrep:       vrep,
 		Log:        log.WithName("ReplicationReconciler"),
@@ -115,7 +113,7 @@ func (r *ReplicationReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) 
 
 	// choose the source host and target host
 	// (first host where db is up in the specified cluster)
-	err = r.determineSourceAndTargetHosts()
+	err = r.determineSourceAndTargetHosts(ctx)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -160,13 +158,13 @@ func (r *ReplicationReconciler) makeDispatcher() error {
 // determine usernames and passwords for both source and target VerticaDBs
 func (r *ReplicationReconciler) determineUsernameAndPassword(ctx context.Context) (err error) {
 	r.SourceInfo.Username, r.SourceInfo.Password, err = setUsernameAndPassword(ctx,
-		r.Client, r.Log, r.VRec, r.SourceInfo.Vdb, &r.Vrep.Spec.Source)
+		r.VRec.Client, r.Log, r.VRec, r.SourceInfo.Vdb, &r.Vrep.Spec.Source)
 	if err != nil {
 		return err
 	}
 
 	r.TargetInfo.Username, r.TargetInfo.Password, err = setUsernameAndPassword(ctx,
-		r.Client, r.Log, r.VRec, r.TargetInfo.Vdb, &r.Vrep.Spec.Target)
+		r.VRec.Client, r.Log, r.VRec, r.TargetInfo.Vdb, &r.Vrep.Spec.Target)
 	if err != nil {
 		return err
 	}
@@ -238,25 +236,68 @@ func (r *ReplicationReconciler) checkSandboxExists() error {
 	return nil
 }
 
-// choose the source host and target host
-// (first host where db is up in the specified cluster)
-func (r *ReplicationReconciler) determineSourceAndTargetHosts() (err error) {
-	// assume source could be read-only, no subcluster constraints
-	upPodIP, ok := r.SourcePFacts.FindFirstUpPodIP(true, "")
-	if !ok {
-		err = fmt.Errorf("cannot find any up hosts in source database cluster")
-		return
-	} else {
-		r.SourceInfo.IP = upPodIP
+// used below to avoid a really messy if condition
+func shouldPickService(vdb *vapi.VerticaDB, sc *vapi.Subcluster, sandboxName, svcName string) bool {
+	if vdb.GetSubclusterSandboxName(sc.Name) != sandboxName {
+		return false
 	}
-	// assume target must not be read-only, no subcluster constraints
-	upPodIP, ok = r.TargetPFacts.FindFirstUpPodIP(false, "")
-	if !ok {
-		err = fmt.Errorf("cannot find any up hosts in target database cluster")
-		return
-	} else {
-		r.TargetInfo.IP = upPodIP
+
+	if svcName != "" {
+		return sc.GetServiceName() == svcName
 	}
+
+	return sc.IsPrimary()
+}
+
+// filters services based on svcName if not empty and main/sandbox cluster
+// picks first service that matches. if svcName is empty this will be the first service assigned to the database
+// if svcName is non-empty it will be the service matching that name
+// returns a valid hostname for the service or an error if a valid matching service couldn't be found
+func (r *ReplicationReconciler) getServiceHostname(ctx context.Context, vdb *vapi.VerticaDB,
+	sandboxName, svcName string) (ip string, err error) {
+	for i := range vdb.Spec.Subclusters {
+		sc := &vdb.Spec.Subclusters[i]
+		if shouldPickService(vdb, sc, sandboxName, svcName) {
+			scSvcName := names.GenExtSvcName(vdb, sc)
+			srv := corev1.Service{}
+			if err = r.VRec.Client.Get(ctx, scSvcName, &srv); err != nil {
+				// if the user specified a service name and we couldn't find it error
+				// otherwise keep trying to find a valid service in the correct subcluster
+				if svcName != "" {
+					return "", err
+				}
+				r.Log.Info("encountered error %v while trying to validate service %s", err, scSvcName.String())
+			}
+			return fmt.Sprintf("%s.%s.svc.cluster.local", scSvcName.Name, scSvcName.Namespace), nil
+		}
+	}
+
+	clusterName := "the main cluster"
+	if sandboxName != vapi.MainCluster {
+		clusterName = "sandbox " + sandboxName
+	}
+	if svcName != "" {
+		return "", fmt.Errorf("could not find service %s in %s", svcName, clusterName)
+	}
+	return "", fmt.Errorf("could not find valid service in %s", clusterName)
+}
+
+// choose the source service (host) and target service (host)
+// filters services based on name if one is provided and main/sandbox cluster
+// picks first service that matches, returns an error if a valid matching service couldn't be found
+func (r *ReplicationReconciler) determineSourceAndTargetHosts(ctx context.Context) (err error) {
+	dbInfo := r.Vrep.Spec.Source
+	r.SourceInfo.Hostname, err = r.getServiceHostname(ctx, r.SourceInfo.Vdb, dbInfo.SandboxName, dbInfo.ServiceName)
+	if err != nil {
+		return
+	}
+
+	dbInfo = r.Vrep.Spec.Target
+	r.TargetInfo.Hostname, err = r.getServiceHostname(ctx, r.TargetInfo.Vdb, dbInfo.SandboxName, dbInfo.ServiceName)
+	if err != nil {
+		return
+	}
+
 	return
 }
 
@@ -264,7 +305,7 @@ func (r *ReplicationReconciler) determineSourceAndTargetHosts() (err error) {
 func (r *ReplicationReconciler) makePodFacts(ctx context.Context, vdb *vapi.VerticaDB,
 	sandboxName string) (*vdbcontroller.PodFacts, error) {
 	username := vdb.GetVerticaUser()
-	password, err := vk8s.GetSuperuserPassword(ctx, r.Client, r.Log, r.VRec, vdb)
+	password, err := vk8s.GetSuperuserPassword(ctx, r.VRec.Client, r.Log, r.VRec, vdb)
 	if err != nil {
 		return nil, err
 	}
@@ -276,9 +317,9 @@ func (r *ReplicationReconciler) makePodFacts(ctx context.Context, vdb *vapi.Vert
 // build all the opts from the cached values in reconciler
 func (r *ReplicationReconciler) buildOpts() []replicationstart.Option {
 	opts := []replicationstart.Option{
-		replicationstart.WithSourceIP(r.SourceInfo.IP),
+		replicationstart.WithSourceHostname(r.SourceInfo.Hostname),
 		replicationstart.WithSourceUsername(r.SourceInfo.Username),
-		replicationstart.WithTargetIP(r.TargetInfo.IP),
+		replicationstart.WithTargetHostname(r.TargetInfo.Hostname),
 		replicationstart.WithTargetDBName(r.TargetInfo.Vdb.Spec.DBName),
 		replicationstart.WithTargetUserName(r.TargetInfo.Username),
 		replicationstart.WithTargetPassword(r.TargetInfo.Password),

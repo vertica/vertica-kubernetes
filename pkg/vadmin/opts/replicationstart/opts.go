@@ -17,9 +17,9 @@ package replicationstart
 
 // Parms holds all of the option for a replication start invocation.
 type Parms struct {
-	SourceIP          string
+	SourceHostname    string
 	SourceUserName    string
-	TargetIP          string
+	TargetHostname    string
 	TargetDBName      string
 	TargetUserName    string
 	TargetPassword    string
@@ -36,9 +36,9 @@ func (s *Parms) Make(opts ...Option) {
 	}
 }
 
-func WithSourceIP(sourceIP string) Option {
+func WithSourceHostname(sourceHostname string) Option {
 	return func(s *Parms) {
-		s.SourceIP = sourceIP
+		s.SourceHostname = sourceHostname
 	}
 }
 
@@ -48,9 +48,9 @@ func WithSourceUsername(sourceUserName string) Option {
 	}
 }
 
-func WithTargetIP(targetIP string) Option {
+func WithTargetHostname(targetHostname string) Option {
 	return func(s *Parms) {
-		s.TargetIP = targetIP
+		s.TargetHostname = targetHostname
 	}
 }
 
