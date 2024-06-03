@@ -27,10 +27,12 @@ import (
 	"github.com/pkg/errors"
 )
 
+const pkKeySize = 4096
+
 // NewSelfSignedCACertificate creates and returns a CA certificate
-func NewSelfSignedCACertificate(keySize int) (Certificate, error) {
+func NewSelfSignedCACertificate() (Certificate, error) {
 	// Create the private key
-	caPK, err := rsa.GenerateKey(rand.Reader, keySize)
+	caPK, err := rsa.GenerateKey(rand.Reader, pkKeySize)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create private key")
 	}
@@ -60,7 +62,7 @@ func NewSelfSignedCACertificate(keySize int) (Certificate, error) {
 }
 
 // NewCertificate will create a certificate using the given CA.
-func NewCertificate(ca Certificate, keySize int, commonName string, dnsNames []string) (Certificate, error) {
+func NewCertificate(ca Certificate, commonName string, dnsNames []string) (Certificate, error) {
 	caCrt, err := ca.Buildx509()
 	if err != nil {
 		return nil, err
@@ -72,7 +74,7 @@ func NewCertificate(ca Certificate, keySize int, commonName string, dnsNames []s
 	}
 
 	// Create the private key
-	pk, err := rsa.GenerateKey(rand.Reader, keySize)
+	pk, err := rsa.GenerateKey(rand.Reader, pkKeySize)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create private key")
 	}

@@ -19,14 +19,12 @@ import (
 	"context"
 	"log"
 	"os"
-	"time"
 
 	// Allows us to pull in things generated from `go generate`
 	_ "embed"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
-	"net/http"
 	_ "net/http/pprof" //nolint:gosec
 
 	"k8s.io/apimachinery/pkg/runtime"
@@ -223,19 +221,6 @@ func main() {
 		"watchNamespace", opcfg.GetWatchNamespace(),
 		"webhooksEnabled", opcfg.GetIsWebhookEnabled(),
 		"controllersEnabled", opcfg.GetIsControllersEnabled())
-
-	if opcfg.GetIsProfilerEnabled() {
-		go func() {
-			server := &http.Server{
-				Addr:              "localhost:6060",
-				ReadHeaderTimeout: 3 * time.Second,
-			}
-			setupLog.Info("Opening profiling port", "addr", server.Addr)
-			if err := server.ListenAndServe(); err != nil {
-				setupLog.Error(err, "Profiling port closed")
-			}
-		}()
-	}
 
 	restCfg := ctrl.GetConfigOrDie()
 

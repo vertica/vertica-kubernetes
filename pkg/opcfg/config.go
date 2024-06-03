@@ -80,12 +80,6 @@ func GetMetricsAddr() string {
 	return lookupStringEnvVar("METRICS_ADDR", envCanNotExist)
 }
 
-// GetIsProfilerEnabled returns true if the memory profiler started with the
-// manager.
-func GetIsProfilerEnabled() bool {
-	return lookupBoolEnvVar("PROFILER_ENABLED", envMustExist)
-}
-
 // GetUseCertManager returns true if cert-manager is used to setup the webhook's
 // TLS certs.
 func GetUseCertManager() bool {
@@ -215,8 +209,8 @@ func dieIfNotFound(envName string) {
 	os.Exit(1)
 }
 
-func dieIfNotValid(envName, rawVal string) {
-	fmt.Fprintf(os.Stderr, "*** ERROR: Invalid value %q for environment variable %s", rawVal, envName)
+func dieIfNotValid(envName string) {
+	fmt.Fprintf(os.Stderr, "*** ERROR: Invalid value for environment variable %s", envName)
 	os.Exit(1)
 }
 
@@ -242,7 +236,7 @@ func lookupBoolEnvVar(envName string, mustExist bool) bool {
 	}
 	valBool, err := strconv.ParseBool(valStr)
 	if err != nil {
-		dieIfNotValid(envName, valStr)
+		dieIfNotValid(envName)
 		return false
 	}
 	return valBool
@@ -275,7 +269,7 @@ func lookupIntEnvVar(envName string, mustExist bool) int {
 	}
 	valInt, err := strconv.Atoi(valStr)
 	if err != nil {
-		dieIfNotValid(envName, valStr)
+		dieIfNotValid(envName)
 		return 0
 	}
 	return valInt
