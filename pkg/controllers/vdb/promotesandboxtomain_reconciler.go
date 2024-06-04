@@ -27,7 +27,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-// PromoteSandboxSubclusterToMainReconciler will  convert local sandbox to main cluster
+// PromoteSandboxSubclusterToMainReconciler will convert local sandbox to main cluster
 type PromoteSandboxSubclusterToMainReconciler struct {
 	VRec        *VerticaDBReconciler
 	Log         logr.Logger
@@ -37,7 +37,7 @@ type PromoteSandboxSubclusterToMainReconciler struct {
 	Dispatcher  vadmin.Dispatcher
 }
 
-// MakePromoteSandboxSubclusterToMainReconciler will build a SandboxSubclusterReconciler object
+// MakePromoteSandboxSubclusterToMainReconciler will build a promoteSandboxSubclusterToMainReconciler object
 func MakePromoteSandboxSubclusterToMainReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger, vdb *vapi.VerticaDB,
 	pfacts *PodFacts, dispatcher vadmin.Dispatcher) controllers.ReconcileActor {
 	return &PromoteSandboxSubclusterToMainReconciler{
@@ -62,23 +62,23 @@ func (s *PromoteSandboxSubclusterToMainReconciler) Reconcile(ctx context.Context
 		return ctrl.Result{}, err
 	}
 
-	sandboxName := s.PFacts.GetSandboxName()
-	return s.promoteSandboxToMain(ctx, sandboxName)
+	return s.promoteSandboxToMain(ctx)
 }
 
-// sandboxSubclusters will add subclusters to their sandboxes defined in the vdb
-func (s *PromoteSandboxSubclusterToMainReconciler) promoteSandboxToMain(ctx context.Context, sandboxName string) (ctrl.Result, error) {
+// promoteSandboxToMain call the vclusterOps API to convert local sandbox to main cluster
+func (s *PromoteSandboxSubclusterToMainReconciler) promoteSandboxToMain(ctx context.Context) (ctrl.Result, error) {
 	initiator, ok := s.PFacts.findFirstPodSorted(func(v *PodFact) bool {
-		return v.sandbox == vapi.MainCluster && v.isPrimary && v.upNode
+		return v.isPrimary && v.upNode
 	})
 	if !ok {
-		s.Log.Info("Requeue because there are no UP nodes in main cluster to execute sandbox operation")
+		s.Log.Info("No Up nodes found. Requeue reconciliation.")
 		return ctrl.Result{Requeue: true}, nil
 	}
+	// pick first sandbox to promote
+	sandboxName := s.Vdb.Spec.Sandboxes[0].Name
 	s.VRec.Eventf(s.Vdb, corev1.EventTypeNormal, events.PromoteSandboxToMainStart,
 		"Starting promote sandbox %q to main", sandboxName)
 
-	// find sandbox name
 	err := s.Dispatcher.PromoteSandboxToMain(ctx,
 		promotesandboxtomain.WithInitiator(initiator.podIP),
 		promotesandboxtomain.WithSandbox(sandboxName),

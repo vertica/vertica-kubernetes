@@ -596,7 +596,25 @@ func (r *ReplicatedUpgradeReconciler) postPromoteSandboxMsg(ctx context.Context)
 // promoteSandboxToMainCluster will promote the sandbox to the main cluster and
 // discard the pods for the old main.
 func (r *ReplicatedUpgradeReconciler) promoteSandboxToMainCluster(ctx context.Context) (ctrl.Result, error) {
-	return ctrl.Result{}, errors.New("promote sandbox to main cluster is not yet implemented")
+
+	sb := r.VDB.GetSandboxStatus(r.sandboxName)
+	if sb == nil {
+		return ctrl.Result{}, fmt.Errorf("could not find sandbox %q", r.sandboxName)
+	}
+	sbPFacts, err := r.getSandboxPodFacts(ctx, false)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	sbPFacts.Invalidate()
+	actor := MakePromoteSandboxSubclusterToMainReconciler(r.VRec, r.Log, r.VDB, sbPFacts, r.Dispatcher)
+	r.Manager.traceActorReconcile(actor)
+	res, err := actor.Reconcile(ctx, &ctrl.Request{})
+	if verrors.IsReconcileAborted(res, err) {
+		return res, err
+	}
+
+	r.Log.Info("sandbox have been promoted to main", "sandboxName", r.sandboxName)
+	return ctrl.Result{}, nil
 }
 
 // postRecreateSecondariesMsg will update the status message to indicate that
