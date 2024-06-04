@@ -24,8 +24,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/promotesandboxtomain"
 )
 
-// ShowRestorePoints can query the restore points from an archive. It can
-// show list restore points in a database
+// PromoteSandboxToMain can convert local sandbox to main cluster
 func (v *VClusterOps) PromoteSandboxToMain(ctx context.Context, opts ...promotesandboxtomain.Option) (err error) {
 	v.setupForAPICall("PromoteSandboxToMain")
 	defer v.tearDownForAPICall()

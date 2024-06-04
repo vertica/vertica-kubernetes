@@ -596,7 +596,6 @@ func (r *ReplicatedUpgradeReconciler) postPromoteSandboxMsg(ctx context.Context)
 // promoteSandboxToMainCluster will promote the sandbox to the main cluster and
 // discard the pods for the old main.
 func (r *ReplicatedUpgradeReconciler) promoteSandboxToMainCluster(ctx context.Context) (ctrl.Result, error) {
-
 	sb := r.VDB.GetSandboxStatus(r.sandboxName)
 	if sb == nil {
 		return ctrl.Result{}, fmt.Errorf("could not find sandbox %q", r.sandboxName)

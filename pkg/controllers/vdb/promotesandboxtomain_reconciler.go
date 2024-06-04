@@ -49,7 +49,6 @@ func MakePromoteSandboxSubclusterToMainReconciler(vdbrecon *VerticaDBReconciler,
 	}
 }
 
-// Reconcile will add subclusters to sandboxes if we found any qualified subclusters
 func (s *PromoteSandboxSubclusterToMainReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
 	// no-op for ScheduleOnly init policy or enterprise db or no sandboxes
 	if s.Vdb.Spec.InitPolicy == vapi.CommunalInitPolicyScheduleOnly ||

@@ -25,7 +25,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/promotesandboxtomain"
 )
 
-// mock version of VSandbox() that is invoked inside VClusterOps.SandboxSubcluster()
+// mock version of VPromoteSandboxToMain() that is invoked inside VClusterOps.PromoteSandboxToMain()
 func (m *MockVClusterOps) VPromoteSandboxToMain(options *vops.VPromoteSandboxToMainOptions) error {
 	// verify common options
 	err := m.VerifyCommonOptions(&options.DatabaseOptions)
