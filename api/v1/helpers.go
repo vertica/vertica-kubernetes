@@ -936,3 +936,15 @@ func (v *VerticaDB) GetSandboxStatusCheck(sbName string) (*SandboxStatus, error)
 	}
 	return sb, nil
 }
+
+// IsSubclusterInStatus will check if a subcluster in vdb status
+func (v *VerticaDB) IsSubclusterInStatus(scName string) bool {
+	found := false
+	for i := range v.Status.Subclusters {
+		if v.Status.Subclusters[i].Name == scName {
+			found = true
+			break
+		}
+	}
+	return found
+}

@@ -535,6 +535,73 @@ var _ = Describe("replicatedupgrade_reconciler", func() {
 		Ω(stsName).ShouldNot(Equal(fmt.Sprintf("%s-pri3-sb", vdb.Name)))
 		Ω(stsName).Should(HavePrefix(fmt.Sprintf("%s-pri3-sb", vdb.Name)))
 	})
+
+	It("should remove subclusters in replica group A in vdb", func() {
+		vdb := vapi.MakeVDBForVclusterOps()
+		vdb.Spec.Subclusters = []vapi.Subcluster{
+			{Name: "pri1", Type: vapi.PrimarySubcluster, Size: 2, Annotations: map[string]string{
+				vmeta.ReplicaGroupAnnotation: vmeta.ReplicaGroupAValue,
+			}},
+			{Name: "pri2", Type: vapi.PrimarySubcluster, Size: 2, Annotations: map[string]string{
+				vmeta.ReplicaGroupAnnotation: vmeta.ReplicaGroupAValue,
+			}},
+			{Name: "pri1-sb", Type: vapi.PrimarySubcluster, Size: 2, Annotations: map[string]string{
+				vmeta.ReplicaGroupAnnotation: vmeta.ReplicaGroupBValue,
+			}},
+			{Name: "pri2-sb", Type: vapi.PrimarySubcluster, Size: 2, Annotations: map[string]string{
+				vmeta.ReplicaGroupAnnotation: vmeta.ReplicaGroupBValue,
+			}},
+		}
+		test.CreateVDB(ctx, k8sClient, vdb)
+		defer test.DeleteVDB(ctx, k8sClient, vdb)
+
+		rr := createReplicatedUpgradeReconciler(ctx, vdb)
+
+		// subclusters group A should be removed
+		Ω(rr.removeReplicaGroupAFromVdb(ctx)).Should(Equal(ctrl.Result{}))
+
+		newVdb := &vapi.VerticaDB{}
+		Expect(k8sClient.Get(ctx, vapi.MakeVDBName(), newVdb)).Should(Succeed())
+		newVdbScNames := []string{}
+		for _, sc := range newVdb.Spec.Subclusters {
+			newVdbScNames = append(newVdbScNames, sc.Name)
+		}
+		// only subclusters in group B left
+		targetScNames := []string{"pri1-sb", "pri2-sb"}
+		Expect(newVdbScNames).Should(ConsistOf(targetScNames))
+	})
+
+	It("should rename subclusters in replica group B in vdb", func() {
+		vdb := vapi.MakeVDBForVclusterOps()
+		vdb.Spec.Subclusters = []vapi.Subcluster{
+			{Name: "pri1-sb", Type: vapi.PrimarySubcluster, Size: 2, Annotations: map[string]string{
+				vmeta.ReplicaGroupAnnotation: vmeta.ReplicaGroupBValue,
+			}},
+			{Name: "pri2-sb", Type: vapi.PrimarySubcluster, Size: 2, Annotations: map[string]string{
+				vmeta.ReplicaGroupAnnotation: vmeta.ReplicaGroupBValue,
+			}},
+		}
+		test.CreateVDB(ctx, k8sClient, vdb)
+		defer test.DeleteVDB(ctx, k8sClient, vdb)
+
+		rr := createReplicatedUpgradeReconciler(ctx, vdb)
+		rr.scNameMap = map[string]string{"pri1-sb": "pri1", "pri2-sb": "pri2"}
+
+		// subclusters group A should be removed
+		for scInGroupB, scInGroupA := range rr.scNameMap {
+			Ω(rr.updateSubclusterNamesInVdb(ctx, scInGroupB, scInGroupA)).Should(BeNil())
+		}
+
+		newVdb := &vapi.VerticaDB{}
+		Expect(k8sClient.Get(ctx, vapi.MakeVDBName(), newVdb)).Should(Succeed())
+		newVdbScNames := []string{}
+		for _, sc := range newVdb.Spec.Subclusters {
+			newVdbScNames = append(newVdbScNames, sc.Name)
+		}
+		// the subclusters should have the original name in group A
+		targetScNames := []string{"pri1", "pri2"}
+		Expect(newVdbScNames).Should(ConsistOf(targetScNames))
+	})
 })
 
 func createReplicatedUpgradeReconciler(ctx context.Context, vdb *vapi.VerticaDB) *ReplicatedUpgradeReconciler {

@@ -27,9 +27,12 @@ import (
 	"github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
+	"github.com/vertica/vertica-kubernetes/pkg/events"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/renamesc"
 	"github.com/vertica/vertica-kubernetes/pkg/vk8s"
+	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -51,7 +54,8 @@ var replicatedUpgradeStatusMsgs = []string{
 	"Replicate new data from main cluster to sandbox",
 	"Redirect connections to sandbox",
 	"Promote sandbox to main cluster",
-	"Recreate secondaries in new main cluster",
+	"Remove original main cluster",
+	"Rename subclusters in new main cluster",
 }
 
 // Constants for each entry in replicatedUpgradeStatusMsgs
@@ -65,7 +69,8 @@ const (
 	startReplicationMsgInx
 	redirectToSandboxMsgInx
 	promoteSandboxMsgInx
-	recreateSecondariesMsgInx
+	removeOriginalClusterMsgInx
+	renameScsInMainClusterMsgInx
 )
 
 // ReplicatedUpgradeReconciler will coordinate an online upgrade that allows
@@ -78,19 +83,25 @@ type ReplicatedUpgradeReconciler struct {
 	PFacts      map[string]*PodFacts // We have podfacts for main cluster and replica sandbox
 	Manager     UpgradeManager
 	Dispatcher  vadmin.Dispatcher
-	sandboxName string // name of the sandbox created for replica group B
+	sandboxName string   // name of the sandbox created for replica group B
+	scNamesInMC []string // names of the subclusters in replica group A
+	// a map with subcluster names in replica group B as the key, and the original subcluster names
+	// in replica group A as the value
+	scNameMap map[string]string
 }
 
 // MakeReplicatedUpgradeReconciler will build a ReplicatedUpgradeReconciler object
 func MakeReplicatedUpgradeReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
 	vdb *vapi.VerticaDB, pfacts *PodFacts, dispatcher vadmin.Dispatcher) controllers.ReconcileActor {
 	return &ReplicatedUpgradeReconciler{
-		VRec:       vdbrecon,
-		Log:        log.WithName("ReplicatedUpgradeReconciler"),
-		VDB:        vdb,
-		PFacts:     map[string]*PodFacts{vapi.MainCluster: pfacts},
-		Manager:    *MakeUpgradeManager(vdbrecon, log, vdb, vapi.ReplicatedUpgradeInProgress, replicatedUpgradeAllowed),
-		Dispatcher: dispatcher,
+		VRec:        vdbrecon,
+		Log:         log.WithName("ReplicatedUpgradeReconciler"),
+		VDB:         vdb,
+		PFacts:      map[string]*PodFacts{vapi.MainCluster: pfacts},
+		Manager:     *MakeUpgradeManager(vdbrecon, log, vdb, vapi.ReplicatedUpgradeInProgress, replicatedUpgradeAllowed),
+		Dispatcher:  dispatcher,
+		scNamesInMC: []string{},
+		scNameMap:   make(map[string]string),
 	}
 }
 
@@ -152,11 +163,17 @@ func (r *ReplicatedUpgradeReconciler) Reconcile(ctx context.Context, _ *ctrl.Req
 		// old main.
 		r.postPromoteSandboxMsg,
 		r.promoteSandboxToMainCluster,
-		// Scale-out secondary subcluster in main cluster. We will recreate the
-		// secondary subcluster in replica group B that existed at the start of
-		// the upgrade.
-		r.postRecreateSecondariesMsg,
-		r.scaleOutSecondariesInReplicaGroupB,
+		// Remove original main cluster. We will remove replica group A since
+		// replica group B is promoted to main cluster now.
+		r.postRemoveOriginalClusterMsg,
+		r.removeReplicaGroupAFromVdb,
+		r.removeClientRoutingLabelFromReplicaGroupA,
+		r.removeReplicaGroupA,
+		r.uninstallReplicaGroupANodes,
+		r.deleteReplicaGroupASts,
+		// Rename subclusters in new main cluster to match the original main cluster.
+		r.postRenameScsInMainClusterMsg,
+		r.renameReplicaGroupBFromVdb,
 		// Cleanup up the condition and event recording for a completed upgrade
 		r.finishUpgrade,
 	}
@@ -633,17 +650,16 @@ func (r *ReplicatedUpgradeReconciler) promoteSandboxToMainCluster(ctx context.Co
 	return ctrl.Result{}, nil
 }
 
-// postRecreateSecondariesMsg will update the status message to indicate that
-// we are going to start recreating the secondaries in replica group b.
-func (r *ReplicatedUpgradeReconciler) postRecreateSecondariesMsg(ctx context.Context) (ctrl.Result, error) {
-	return r.postNextStatusMsg(ctx, recreateSecondariesMsgInx)
+// postRemoveOriginalClusterMsg will update the status message to indicate that
+// we are going to remove original_cluster/replica_group_a.
+func (r *ReplicatedUpgradeReconciler) postRemoveOriginalClusterMsg(ctx context.Context) (ctrl.Result, error) {
+	return r.postNextStatusMsg(ctx, removeOriginalClusterMsgInx)
 }
 
-// Scale-out secondary subcluster in main cluster. We will recreate the
-// secondary subcluster in replica group B that existed at the start of
-// the upgrade.
-func (r *ReplicatedUpgradeReconciler) scaleOutSecondariesInReplicaGroupB(ctx context.Context) (ctrl.Result, error) {
-	return ctrl.Result{}, errors.New("scale out secondaries in replica group B is not yet implemented")
+// postRenameScsInMainClusterMsg will update the subcluster name in new main cluster.
+// We will rename the subclusters in replica group B to the ones in replica group A.
+func (r *ReplicatedUpgradeReconciler) postRenameScsInMainClusterMsg(ctx context.Context) (ctrl.Result, error) {
+	return r.postNextStatusMsg(ctx, renameScsInMainClusterMsgInx)
 }
 
 // addNewSubclusters will come up with a list of subclusters we
@@ -685,6 +701,8 @@ func (r *ReplicatedUpgradeReconciler) addNewSubclusters() (bool, error) {
 		newsc := r.duplicateSubclusterForReplicaGroupB(sc, newSCName, newStsName, oldImage)
 		newSubclusters = append(newSubclusters, *newsc)
 		scMap[newSCName] = newsc
+		r.scNamesInMC = append(r.scNamesInMC, sc.Name)
+		r.scNameMap[newSCName] = sc.Name
 	}
 
 	if len(newSubclusters) == 0 {
@@ -772,6 +790,30 @@ func (r *ReplicatedUpgradeReconciler) getSubclustersForReplicaGroup(groupName st
 		}
 	}
 	return scNames
+}
+
+// isGroupASubclusterInStatus is a helper to check if any subcluster of replica group A
+// is in vdb status.
+func (r *ReplicatedUpgradeReconciler) isGroupASubclusterInStatus() bool {
+	for _, scName := range r.scNamesInMC {
+		if r.VDB.IsSubclusterInStatus(scName) {
+			return true
+		}
+	}
+	return false
+}
+
+// areGroupBSubclustersRenamed is a helper to check if all subclusters of replica group B
+// have been renamed after sandbox promotion.
+func (r *ReplicatedUpgradeReconciler) areGroupBSubclustersRenamed() bool {
+	scNames := r.getSubclustersForReplicaGroup(vmeta.ReplicaGroupBValue)
+	for _, scName := range scNames {
+		_, found := r.scNameMap[scName]
+		if found {
+			return false
+		}
+	}
+	return true
 }
 
 // genNewSubclusterName is a helper to generate a new subcluster name. The scMap
@@ -951,4 +993,177 @@ func (r *ReplicatedUpgradeReconciler) getSandboxPodFacts(ctx context.Context, do
 		}
 	}
 	return r.PFacts[r.sandboxName], nil
+}
+
+// removeReplicaGroupAFromVdb will remove subclusters of replica group A from VerticaDB
+func (r *ReplicatedUpgradeReconciler) removeReplicaGroupAFromVdb(ctx context.Context) (ctrl.Result, error) {
+	// if the sandbox is still there or replica group A doesn't contain any subclustesr,
+	// we skip removing the old main cluster
+	if r.VDB.GetSandboxStatus(r.sandboxName) != nil ||
+		r.countSubclustersForReplicaGroup(vmeta.ReplicaGroupAValue) == 0 {
+		return ctrl.Result{}, nil
+	}
+
+	r.Log.Info("starting removal of replica group A from VerticaDB")
+
+	scNames := r.getSubclustersForReplicaGroup(vmeta.ReplicaGroupAValue)
+	scNameSetForGroupA := make(map[string]any)
+	for _, sc := range scNames {
+		scNameSetForGroupA[sc] = struct{}{}
+	}
+	updateSubclustersInVdb := func() (bool, error) {
+		// remove subclusters in replica group A
+		removed := false
+		for i := len(r.VDB.Spec.Subclusters) - 1; i >= 0; i-- {
+			_, found := scNameSetForGroupA[r.VDB.Spec.Subclusters[i].Name]
+			if found {
+				r.VDB.Spec.Subclusters = append(r.VDB.Spec.Subclusters[:i], r.VDB.Spec.Subclusters[i+1:]...)
+				removed = true
+			}
+		}
+		return removed, nil
+	}
+
+	updated, err := vk8s.UpdateVDBWithRetry(ctx, r.VRec, r.VDB, updateSubclustersInVdb)
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to delete subclusters in old main cluster: %w", err)
+	}
+	if updated {
+		r.Log.Info("deleted subclusters in old main cluster", "subclusters", scNames)
+	}
+	return ctrl.Result{}, nil
+}
+
+// removeClientRoutingLabelFromReplicaGroupA will remove the special routing
+// labels of replicate group A since we are about to remove it
+func (r *ReplicatedUpgradeReconciler) removeClientRoutingLabelFromReplicaGroupA(ctx context.Context) (ctrl.Result, error) {
+	// if the sandbox is still there or replica group A has removed, we skip removing the old main cluster
+	if r.VDB.GetSandboxStatus(r.sandboxName) != nil || !r.isGroupASubclusterInStatus() {
+		return ctrl.Result{}, nil
+	}
+
+	actor := MakeClientRoutingLabelReconciler(r.VRec, r.Log, r.VDB, r.PFacts[vapi.MainCluster], DelNodeApplyMethod, "")
+	r.Manager.traceActorReconcile(actor)
+	return actor.Reconcile(ctx, &ctrl.Request{})
+}
+
+// removeReplicaGroupA will remove the old main cluster
+func (r *ReplicatedUpgradeReconciler) removeReplicaGroupA(ctx context.Context) (ctrl.Result, error) {
+	// if the sandbox is still there or replica group A has removed, we skip removing the old main cluster
+	if r.VDB.GetSandboxStatus(r.sandboxName) != nil || !r.isGroupASubclusterInStatus() {
+		return ctrl.Result{}, nil
+	}
+
+	actor := MakeDBRemoveSubclusterReconciler(r.VRec, r.Log, r.VDB, r.PFacts[vapi.MainCluster].PRunner,
+		r.PFacts[vapi.MainCluster], r.Dispatcher)
+	r.Manager.traceActorReconcile(actor)
+	return actor.Reconcile(ctx, &ctrl.Request{})
+}
+
+// uninstallReplicaGroupANodes will drive uninstall logic for any nodes in replica group A.
+func (r *ReplicatedUpgradeReconciler) uninstallReplicaGroupANodes(ctx context.Context) (ctrl.Result, error) {
+	// if the sandbox is still there or replica group A has removed, we skip removing the old main cluster
+	if r.VDB.GetSandboxStatus(r.sandboxName) != nil || !r.isGroupASubclusterInStatus() {
+		return ctrl.Result{}, nil
+	}
+
+	actor := MakeUninstallReconciler(r.VRec, r.Log, r.VDB,
+		r.PFacts[vapi.MainCluster].PRunner, r.PFacts[vapi.MainCluster])
+	r.Manager.traceActorReconcile(actor)
+	return actor.Reconcile(ctx, &ctrl.Request{})
+}
+
+// deleteReplicaGroupASts will delete the statefulSet of replicate group A.
+func (r *ReplicatedUpgradeReconciler) deleteReplicaGroupASts(ctx context.Context) (ctrl.Result, error) {
+	// if the sandbox is still there or replica group A has removed, we skip removing the old main cluster
+	if r.VDB.GetSandboxStatus(r.sandboxName) != nil || !r.isGroupASubclusterInStatus() {
+		return ctrl.Result{}, nil
+	}
+
+	actor := MakeObjReconciler(r.VRec, r.Log, r.VDB, r.PFacts[vapi.MainCluster], ObjReconcileModeAll)
+	r.Manager.traceActorReconcile(actor)
+	return actor.Reconcile(ctx, &ctrl.Request{})
+}
+
+// renameReplicaGroupBFromVdb will rename the subclusters in promoted-sandbox/new-main-cluster to
+// match the ones in original main cluster
+func (r *ReplicatedUpgradeReconciler) renameReplicaGroupBFromVdb(ctx context.Context) (ctrl.Result, error) {
+	// if replica group A still exists or subclusters in replica group B have been renamed, we skip
+	// renaming the subclusters in replica group B
+	if r.countSubclustersForReplicaGroup(vmeta.ReplicaGroupAValue) > 0 ||
+		r.areGroupBSubclustersRenamed() {
+		return ctrl.Result{}, nil
+	}
+
+	initiator, found := r.PFacts[vapi.MainCluster].FindFirstPrimaryUpPodIP()
+	if !found {
+		r.Log.Info("Requeue because there are no primary UP nodes in main cluster to execute rename-subcluster operation")
+		return ctrl.Result{Requeue: true}, nil
+	}
+
+	scNames := r.getSubclustersForReplicaGroup(vmeta.ReplicaGroupBValue)
+	for _, scName := range scNames {
+		newScName, found := r.scNameMap[scName]
+		// ignore the subcluster that has been renamed
+		if !found {
+			continue
+		}
+		// rename the subcluster in vertica
+		err := r.renameSubcluster(ctx, initiator, scName, newScName)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+		// rename the subcluster in vdb
+		err = r.updateSubclusterNamesInVdb(ctx, scName, newScName)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+	return ctrl.Result{}, nil
+}
+
+// renameSubcluster will call vclusterOps to rename a subcluster in main cluster
+func (r *ReplicatedUpgradeReconciler) renameSubcluster(ctx context.Context, initiator, scName, newScName string) error {
+	opts := []renamesc.Option{
+		renamesc.WithInitiator(initiator),
+		renamesc.WithSubcluster(scName),
+		renamesc.WithNewSubclusterName(newScName),
+	}
+	r.VRec.Eventf(r.VDB, corev1.EventTypeNormal, events.SandboxSubclusterStart,
+		"Starting rename subcluster %q to %q", scName, newScName)
+	err := r.Dispatcher.RenameSubcluster(ctx, opts...)
+	if err != nil {
+		r.VRec.Eventf(r.VDB, corev1.EventTypeWarning, events.SandboxSubclusterFailed,
+			"Failed to rename subcluster %q to %q", scName, newScName)
+		return err
+	}
+	r.VRec.Eventf(r.VDB, corev1.EventTypeNormal, events.SandboxSubclusterSucceeded,
+		"Successfully rename subcluster %q to %q", scName, newScName)
+
+	return nil
+}
+
+// updateSubclusterNamesInVdb will update the names of subclusters in VerticaDB
+func (r *ReplicatedUpgradeReconciler) updateSubclusterNamesInVdb(ctx context.Context, scName, newScName string) error {
+	r.Log.Info("starting renaming subcluster in VerticaDB", "subcluster", scName, "new subcluster name", newScName)
+
+	updateSubclustersInVdb := func() (bool, error) {
+		// rename subcluster
+		for i := range r.VDB.Spec.Subclusters {
+			if r.VDB.Spec.Subclusters[i].Name == scName {
+				r.VDB.Spec.Subclusters[i].Name = newScName
+				return true, nil
+			}
+		}
+		return false, nil
+	}
+
+	updated, err := vk8s.UpdateVDBWithRetry(ctx, r.VRec, r.VDB, updateSubclustersInVdb)
+	if err != nil {
+		return fmt.Errorf("failed to rename subcluster %q to %q in VerticaDB: %w", scName, newScName, err)
+	}
+	if updated {
+		r.Log.Info("renamed subcluster in VerticaDB", "subcluster", scName, "new subcluster name", newScName)
+	}
+	return nil
 }
