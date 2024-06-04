@@ -84,6 +84,9 @@ func (*MockVClusterOps) VSandbox(_ *vclusterops.VSandboxOptions) error {
 func (*MockVClusterOps) VUnsandbox(_ *vclusterops.VUnsandboxOptions) error {
 	return nil
 }
+func (*MockVClusterOps) VPromoteSandboxToMain(_ *vclusterops.VPromoteSandboxToMainOptions) error {
+	return nil
+}
 
 // MakeMockVClusterOpsDispatch will create a mock vcluster dispatcher
 func MakeMockVClusterOpsDispatcher(vdb *vapi.VerticaDB, logger logr.Logger, cl client.Client,
