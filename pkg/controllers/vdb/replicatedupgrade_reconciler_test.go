@@ -66,12 +66,12 @@ var _ = Describe("replicatedupgrade_reconciler", func() {
 	It("should create new secondaries for each of the primaries", func() {
 		vdb := vapi.MakeVDBForVclusterOps()
 		vdb.Spec.Subclusters = []vapi.Subcluster{
+			{Name: "sc2", Type: vapi.SecondarySubcluster, Size: 3},
 			{Name: "sc1", Type: vapi.PrimarySubcluster, Size: 6,
 				ServiceType:         v1.ServiceTypeNodePort,
 				ClientNodePort:      32001,
 				VerticaHTTPNodePort: 32002,
 			},
-			{Name: "sc2", Type: vapi.SecondarySubcluster, Size: 3},
 			{Name: "sc3", Type: vapi.PrimarySubcluster, Size: 2},
 		}
 		test.CreateVDB(ctx, k8sClient, vdb)
@@ -86,7 +86,7 @@ var _ = Describe("replicatedupgrade_reconciler", func() {
 
 		Ω(k8sClient.Get(ctx, vdb.ExtractNamespacedName(), vdb)).Should(Succeed())
 		Ω(vdb.Spec.Subclusters).Should(HaveLen(6))
-		sc1 := vdb.Spec.Subclusters[0]
+		sc1 := vdb.Spec.Subclusters[1]
 		sc3 := vdb.Spec.Subclusters[3]
 		Ω(sc3.Type).Should(Equal(vapi.SecondarySubcluster))
 		Ω(sc3.Name).Should(HavePrefix("sc1-"))
@@ -99,19 +99,20 @@ var _ = Describe("replicatedupgrade_reconciler", func() {
 		Ω(sc1.Annotations).Should(HaveKeyWithValue(vmeta.ChildSubclusterAnnotation, sc3.Name))
 		Ω(sc3.Annotations).Should(HaveKeyWithValue(vmeta.ParentSubclusterTypeAnnotation, vapi.PrimarySubcluster))
 
-		sc4 := vdb.Spec.Subclusters[4]
+		sc5 := vdb.Spec.Subclusters[4]
+		Ω(sc5.Name).Should(HavePrefix("sc3-"))
+		Ω(sc5.Type).Should(Equal(vapi.SecondarySubcluster))
+		Ω(sc5.Size).Should(Equal(int32(2)))
+		Ω(sc5.Annotations).Should(HaveKeyWithValue(vmeta.ReplicaGroupAnnotation, vmeta.ReplicaGroupBValue))
+		Ω(sc5.Annotations).Should(HaveKeyWithValue(vmeta.ParentSubclusterTypeAnnotation, vapi.PrimarySubcluster))
+
+		sc4 := vdb.Spec.Subclusters[5]
 		Ω(sc4.Name).Should(HavePrefix("sc2-"))
 		Ω(sc4.Type).Should(Equal(vapi.SecondarySubcluster))
 		Ω(sc4.Size).Should(Equal(int32(3)))
 		Ω(sc4.Annotations).Should(HaveKeyWithValue(vmeta.ReplicaGroupAnnotation, vmeta.ReplicaGroupBValue))
 		Ω(sc4.Annotations).Should(HaveKeyWithValue(vmeta.ParentSubclusterTypeAnnotation, vapi.SecondarySubcluster))
 
-		sc5 := vdb.Spec.Subclusters[5]
-		Ω(sc5.Name).Should(HavePrefix("sc3-"))
-		Ω(sc5.Type).Should(Equal(vapi.SecondarySubcluster))
-		Ω(sc5.Size).Should(Equal(int32(2)))
-		Ω(sc5.Annotations).Should(HaveKeyWithValue(vmeta.ReplicaGroupAnnotation, vmeta.ReplicaGroupBValue))
-		Ω(sc5.Annotations).Should(HaveKeyWithValue(vmeta.ParentSubclusterTypeAnnotation, vapi.PrimarySubcluster))
 	})
 
 	It("should generate unique subcluster name on collision during scale out", func() {
@@ -266,7 +267,7 @@ var _ = Describe("replicatedupgrade_reconciler", func() {
 		Ω(vdb.Spec.Sandboxes[0].Image).Should(Equal(NewImageName))
 	})
 
-	It("should use VerticReplicator CR to handle replication", func() {
+	It("should use VerticaReplicator CR to handle replication", func() {
 		vdb := vapi.MakeVDBForVclusterOps()
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)

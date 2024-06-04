@@ -16,7 +16,14 @@ kind: StatefulSet
 metadata:
   name: v-base-upgrade-pri1
 status:
-  currentReplicas: 3
+  currentReplicas: 2
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: v-base-upgrade-pri2
+status:
+  currentReplicas: 1
 ---
 apiVersion: apps/v1
 kind: StatefulSet

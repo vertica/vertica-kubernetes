@@ -18,6 +18,7 @@ package vdb
 import (
 	"context"
 	"fmt"
+	"sort"
 
 	"github.com/go-logr/logr"
 	"github.com/google/uuid"
@@ -44,6 +45,7 @@ var replicatedUpgradeStatusMsgs = []string{
 	"Starting replicated upgrade",
 	"Create new subclusters to mimic subclusters in the main cluster",
 	"Sandbox subclusters",
+	"Promote secondaries whose base subcluster is primary",
 	"Upgrade sandbox to new version",
 	"Pause connections to main cluster",
 	"Replicate new data from main cluster to sandbox",
@@ -57,6 +59,7 @@ const (
 	startReplicatedUpgradeStatusMsgInx = iota
 	createNewSubclustersStatusMsgInx
 	sandboxSubclustersMsgInx
+	promoteSubclustersInSandboxInx
 	upgradeSandboxMsgInx
 	pauseConnectionsMsgInx
 	startReplicationMsgInx
@@ -126,6 +129,9 @@ func (r *ReplicatedUpgradeReconciler) Reconcile(ctx context.Context, _ *ctrl.Req
 		// replica group B.
 		r.postSandboxSubclustersMsg,
 		r.sandboxReplicaGroupB,
+		// Change replica b subcluster types to match the main cluster's
+		r.postPromoteSubclustersInSandboxMsg,
+		r.promoteReplicaBSubclusters,
 		// Upgrade the version in the sandbox to the new version.
 		r.postUpgradeSandboxMsg,
 		r.upgradeSandbox,
@@ -328,6 +334,35 @@ func (r *ReplicatedUpgradeReconciler) sandboxReplicaGroupB(ctx context.Context) 
 
 	r.Log.Info("subclusters in replica group B have been sandboxed", "sandboxName", r.sandboxName)
 	return ctrl.Result{}, nil
+}
+
+// postPromoteSubclustersInSandboxMsg will update the status message to indicate that
+// we are going to prmote subclusters in sandbox.
+func (r *ReplicatedUpgradeReconciler) postPromoteSubclustersInSandboxMsg(ctx context.Context) (ctrl.Result, error) {
+	return r.postNextStatusMsg(ctx, promoteSubclustersInSandboxInx)
+}
+
+// promoteReplicaBSubclusters promotes all of the secondaries in replica group B whose
+// parent subcluster is primary
+func (r *ReplicatedUpgradeReconciler) promoteReplicaBSubclusters(ctx context.Context) (ctrl.Result, error) {
+	sb := r.VDB.GetSandboxStatus(r.sandboxName)
+	if sb == nil {
+		return ctrl.Result{}, fmt.Errorf("could not find sandbox %q", r.sandboxName)
+	}
+	rgbSize := r.countSubclustersForReplicaGroup(vmeta.ReplicaGroupBValue)
+	if rgbSize != len(sb.Subclusters) {
+		r.Log.Info("sandboxing replica group b is not complete")
+		return ctrl.Result{Requeue: true}, nil
+	}
+	// Get the sandbox podfacts only to invalidate the cache
+	sbPFacts, err := r.getSandboxPodFacts(ctx, false)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	sbPFacts.Invalidate()
+	actor := MakeAlterSubclusterTypeReconciler(r.VRec, r.Log, r.VDB, sbPFacts, r.Dispatcher)
+	r.Manager.traceActorReconcile(actor)
+	return actor.Reconcile(ctx, &ctrl.Request{})
 }
 
 // postUpgradeSandboxMsg will update the status message to indicate that
@@ -603,7 +638,7 @@ func (r *ReplicatedUpgradeReconciler) scaleOutSecondariesInReplicaGroupB(ctx con
 }
 
 // addNewSubclusters will come up with a list of subclusters we
-// need to add to the VerticaDB to mimic the ones n the main cluster.
+// need to add to the VerticaDB to mimic the ones in the main cluster.
 // The new subclusters will be added directly to r.VDB. This is a callback function for
 // updateVDBWithRetry to prepare the vdb for update.
 func (r *ReplicatedUpgradeReconciler) addNewSubclusters() (bool, error) {
@@ -614,8 +649,15 @@ func (r *ReplicatedUpgradeReconciler) addNewSubclusters() (bool, error) {
 	newSubclusters := []vapi.Subcluster{}
 	scMap := r.VDB.GenSubclusterMap()
 	scSbMap := r.VDB.GenSubclusterSandboxMap()
-	for i := range r.VDB.Spec.Subclusters {
-		sc := &r.VDB.Spec.Subclusters[i]
+	scsByType := []vapi.Subcluster{}
+	scsByType = append(scsByType, r.VDB.Spec.Subclusters...)
+	// This will ensure that the primary of the sandbox is a copy
+	// of a primary of the main cluster so we wo't need to promote it
+	sort.Slice(scsByType, func(i, j int) bool {
+		return scsByType[i].Type < scsByType[j].Type
+	})
+	for i := range scsByType {
+		sc := scMap[scsByType[i].Name]
 		_, found := scSbMap[sc.Name]
 		// we don't mimic a subcluster that is already in a sandbox
 		if found {
@@ -838,7 +880,7 @@ func (r *ReplicatedUpgradeReconciler) duplicateSubclusterForReplicaGroupB(
 	}
 	newSc.Annotations[vmeta.ReplicaGroupAnnotation] = vmeta.ReplicaGroupBValue
 	newSc.Annotations[vmeta.ParentSubclusterAnnotation] = baseSc.Name
-	// When promoting this sc later we need to now the type of the subcluster
+	// When promoting this sc later we need to know the type of the subcluster
 	// it mimics
 	newSc.Annotations[vmeta.ParentSubclusterTypeAnnotation] = baseSc.Type
 	// Picking a statefulset name is important because this subcluster will get
