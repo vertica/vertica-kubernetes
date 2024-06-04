@@ -59,7 +59,7 @@ const (
 	startReplicatedUpgradeStatusMsgInx = iota
 	createNewSubclustersStatusMsgInx
 	sandboxSubclustersMsgInx
-	promoteSubclustersInSandboxInx
+	promoteSubclustersInSandboxMsgInx
 	upgradeSandboxMsgInx
 	pauseConnectionsMsgInx
 	startReplicationMsgInx
@@ -339,18 +339,15 @@ func (r *ReplicatedUpgradeReconciler) sandboxReplicaGroupB(ctx context.Context) 
 // postPromoteSubclustersInSandboxMsg will update the status message to indicate that
 // we are going to prmote subclusters in sandbox.
 func (r *ReplicatedUpgradeReconciler) postPromoteSubclustersInSandboxMsg(ctx context.Context) (ctrl.Result, error) {
-	return r.postNextStatusMsg(ctx, promoteSubclustersInSandboxInx)
+	return r.postNextStatusMsg(ctx, promoteSubclustersInSandboxMsgInx)
 }
 
 // promoteReplicaBSubclusters promotes all of the secondaries in replica group B whose
 // parent subcluster is primary
 func (r *ReplicatedUpgradeReconciler) promoteReplicaBSubclusters(ctx context.Context) (ctrl.Result, error) {
 	sb := r.VDB.GetSandboxStatus(r.sandboxName)
-	if sb == nil {
-		return ctrl.Result{}, fmt.Errorf("could not find sandbox %q", r.sandboxName)
-	}
 	rgbSize := r.countSubclustersForReplicaGroup(vmeta.ReplicaGroupBValue)
-	if rgbSize != len(sb.Subclusters) {
+	if sb == nil || rgbSize != len(sb.Subclusters) {
 		r.Log.Info("sandboxing replica group b is not complete")
 		return ctrl.Result{Requeue: true}, nil
 	}

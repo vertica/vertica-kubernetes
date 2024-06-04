@@ -22,7 +22,6 @@ import (
 	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
-	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
@@ -93,37 +92,40 @@ func (a *AlterSubclusterTypeReconciler) findSandboxSubclustersToAlter() ([]*vapi
 
 func (a *AlterSubclusterTypeReconciler) alterSubclusters(ctx context.Context, scs []*vapi.Subcluster) (ctrl.Result, error) {
 	for _, sc := range scs {
-		_, err := vk8s.UpdateVDBWithRetry(ctx, a.VRec, a.Vdb, func() (bool, error) {
-			scMap := a.Vdb.GenSubclusterMap()
-			vdbSc, found := scMap[sc.Name]
-			if !found {
-				return false, fmt.Errorf("subcluster %q missing in vdb %q", sc.Name, a.Vdb.Name)
-			}
-			vdbSc.Type = vapi.SandboxPrimarySubcluster
-			return true, nil
-		})
+		initiatorIP, requeue := a.getInitiatorIP()
+		if requeue {
+			return ctrl.Result{Requeue: requeue}, nil
+		}
+		err := a.alterSubclusterType(ctx, sc, initiatorIP)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
-		res, err := a.alterSubclusterType(ctx, sc)
-		if verrors.IsReconcileAborted(res, err) {
-			return res, err
-		}
 		a.PFacts.Invalidate()
+		err = a.updateSubclusterTypeInVDB(ctx, sc)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
 	}
 	return ctrl.Result{}, nil
 }
 
-// alterSubclusterType changes the given subcluster's type
-func (a *AlterSubclusterTypeReconciler) alterSubclusterType(ctx context.Context, sc *vapi.Subcluster) (ctrl.Result, error) {
-	initiator, ok := a.PFacts.findFirstPodSorted(func(v *PodFact) bool {
-		return v.isPrimary && v.upNode
+// updateSubclusterTypeInVDB updates the given subcluster's type in VDB
+func (a *AlterSubclusterTypeReconciler) updateSubclusterTypeInVDB(ctx context.Context, sc *vapi.Subcluster) error {
+	_, err := vk8s.UpdateVDBWithRetry(ctx, a.VRec, a.Vdb, func() (bool, error) {
+		scMap := a.Vdb.GenSubclusterMap()
+		vdbSc, found := scMap[sc.Name]
+		if !found {
+			return false, fmt.Errorf("subcluster %q missing in vdb %q", sc.Name, a.Vdb.Name)
+		}
+		vdbSc.Type = vapi.SandboxPrimarySubcluster
+		return true, nil
 	})
-	if !ok {
-		a.Log.Info("No Up nodes found. Requeue reconciliation.")
-		return ctrl.Result{Requeue: true}, nil
-	}
-	initiatorIP := initiator.podIP
+	return err
+}
+
+// alterSubclusterType changes the given subcluster's type
+func (a *AlterSubclusterTypeReconciler) alterSubclusterType(ctx context.Context, sc *vapi.Subcluster,
+	initiatorIP string) error {
 	scType := vapi.SecondarySubcluster
 	newType := vapi.PrimarySubcluster
 	if sc.IsPrimary() {
@@ -140,10 +142,23 @@ func (a *AlterSubclusterTypeReconciler) alterSubclusterType(ctx context.Context,
 	)
 	if err != nil {
 		a.VRec.Eventf(a.Vdb, corev1.EventTypeWarning, events.AlterSubclusterFailed,
-			"Failed to alter the type of subcluster %q", sc.Name)
-		return ctrl.Result{}, err
+			"Failed to alter the type of subcluster %q to %q", sc.Name, newType)
+		return err
 	}
 	a.VRec.Eventf(a.Vdb, corev1.EventTypeNormal, events.AlterSubclusterSucceeded,
 		"Successfully altered the type of subcluster %q to %q", sc.Name, newType)
-	return ctrl.Result{}, nil
+	return nil
+}
+
+// getInitiatorIP returns the initiator ip that will be used for
+// alterSubclusterType
+func (a *AlterSubclusterTypeReconciler) getInitiatorIP() (string, bool) {
+	initiator, ok := a.PFacts.findFirstPodSorted(func(v *PodFact) bool {
+		return v.isPrimary && v.upNode
+	})
+	if !ok {
+		a.Log.Info("No Up nodes found. Requeue reconciliation.")
+		return "", true
+	}
+	return initiator.podIP, false
 }

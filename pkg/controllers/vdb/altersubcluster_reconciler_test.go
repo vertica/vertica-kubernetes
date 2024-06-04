@@ -43,6 +43,9 @@ var _ = Describe("altersubcluster_reconcile", func() {
 				Type: vapi.PrimarySubcluster,
 			},
 			{
+				// we don't support demote subcluster for now so
+				// we are only going to find the subclusters that need
+				// promotion
 				Name:        "sc3",
 				Type:        vapi.SandboxPrimarySubcluster,
 				Annotations: annSec,

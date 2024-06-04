@@ -35,12 +35,6 @@ func (v *VClusterOps) AlterSubclusterType(ctx context.Context, opts ...altersc.O
 	defer v.tearDownForAPICall()
 	v.Log.Info("Starting vcluster AlterSubclusterType")
 
-	// get the certs
-	certs, err := v.retrieveNMACerts(ctx)
-	if err != nil {
-		return err
-	}
-
 	// get alter_subcluster_type k8s configs
 	s := altersc.Parms{}
 	s.Make(opts...)
@@ -49,8 +43,8 @@ func (v *VClusterOps) AlterSubclusterType(ctx context.Context, opts ...altersc.O
 	}
 
 	// call vcluster-ops library to alter a subcluster
-	vopts := v.genAlterSubclusterTypeOptions(&s, certs)
-	err = v.VAlterSubclusterType(&vopts)
+	vopts := v.genAlterSubclusterTypeOptions(&s)
+	err := v.VAlterSubclusterType(&vopts)
 	if err != nil {
 		v.Log.Error(err, "failed to alter a subcluster's type", "scName", vopts.SCName)
 		return err
@@ -64,7 +58,7 @@ func (v *VClusterOps) AlterSubclusterType(ctx context.Context, opts ...altersc.O
 	return nil
 }
 
-func (v *VClusterOps) genAlterSubclusterTypeOptions(s *altersc.Parms, certs *HTTPSCerts) vops.VAlterSubclusterTypeOptions {
+func (v *VClusterOps) genAlterSubclusterTypeOptions(s *altersc.Parms) vops.VAlterSubclusterTypeOptions {
 	opts := vops.VPromoteDemoteFactory()
 
 	opts.RawHosts = append(opts.RawHosts, s.InitiatorIP)
@@ -77,9 +71,6 @@ func (v *VClusterOps) genAlterSubclusterTypeOptions(s *altersc.Parms, certs *HTT
 	opts.Sandbox = s.Sandbox
 
 	// auth options
-	opts.Key = certs.Key
-	opts.Cert = certs.Cert
-	opts.CaCert = certs.CaCert
 	opts.UserName = v.VDB.GetVerticaUser()
 	opts.Password = &v.Password
 
