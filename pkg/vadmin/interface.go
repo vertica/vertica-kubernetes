@@ -26,6 +26,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/addnode"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/addsc"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/altersc"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/createdb"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/describedb"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/fetchnodedetails"
@@ -109,6 +110,8 @@ type Dispatcher interface {
 
 	// UnsandboxSubcluster will move a subcluster from a sandbox to main cluster
 	UnsandboxSubcluster(ctx context.Context, opts ...unsandboxsc.Option) error
+
+	AlterSubclusterType(ctx context.Context, opts ...altersc.Option) error
 }
 
 const (
@@ -235,4 +238,5 @@ type VClusterProvider interface {
 	VFetchNodesDetails(options *vops.VFetchNodesDetailsOptions) (vops.NodesDetails, error)
 	VSandbox(options *vops.VSandboxOptions) error
 	VUnsandbox(options *vops.VUnsandboxOptions) error
+	VAlterSubclusterType(options *vops.VAlterSubclusterTypeOptions) error
 }
