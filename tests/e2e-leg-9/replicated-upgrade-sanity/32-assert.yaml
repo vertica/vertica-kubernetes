@@ -11,28 +11,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: apps/v1
-kind: StatefulSet
-metadata:
-  name: v-base-upgrade-pri1
-status:
-  currentReplicas: 2
----
-apiVersion: apps/v1
-kind: StatefulSet
-metadata:
-  name: v-base-upgrade-pri2
-status:
-  currentReplicas: 1
----
-apiVersion: apps/v1
-kind: StatefulSet
-metadata:
-  name: v-base-upgrade-sec1
-status:
-  currentReplicas: 3
----
-apiVersion: vertica.com/v1
-kind: VerticaDB
-metadata:
+apiVersion: v1
+kind: Event
+reason: SandboxSubclusterStart
+source:
+  component: verticadb-operator
+involvedObject:
+  apiVersion: vertica.com/v1
+  kind: VerticaDB
   name: v-base-upgrade

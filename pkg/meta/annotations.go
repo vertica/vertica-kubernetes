@@ -255,6 +255,9 @@ const (
 	// establish the relationship.
 	ParentSubclusterAnnotation = "vertica.com/parent-subcluster"
 	ChildSubclusterAnnotation  = "vertica.com/child-subcluster"
+	// For each subcluster in replica group b, this is type of the associated
+	// subcluster in replica group a.
+	ParentSubclusterTypeAnnotation = "vertica.com/parent-subcluster-type"
 
 	// During replicated upgrade, we store an annotation in the VerticaDB that
 	// is the name of the sandbox for all subclusters part of replica group B.
