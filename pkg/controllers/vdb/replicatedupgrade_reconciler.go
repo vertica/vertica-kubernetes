@@ -653,9 +653,6 @@ func (r *ReplicatedUpgradeReconciler) postRecreateSecondariesMsg(ctx context.Con
 // secondary subcluster in replica group B that existed at the start of
 // the upgrade.
 func (r *ReplicatedUpgradeReconciler) scaleOutSecondariesInReplicaGroupB(ctx context.Context) (ctrl.Result, error) {
-	if !r.VDB.HasSecondarySubclusters() {
-		return ctrl.Result{}, nil
-	}
 	return ctrl.Result{}, errors.New("scale out secondaries in replica group B is not yet implemented")
 }
 
