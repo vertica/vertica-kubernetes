@@ -163,7 +163,9 @@ func (o *OfflineUpgradeReconciler) finishUpgrade(ctx context.Context) (ctrl.Resu
 // a method other than offline or auto.  We can fall into this codepath if we
 // are running a version of Vertica that doesn't support online upgrade.
 func (o *OfflineUpgradeReconciler) logEventIfThisUpgradeWasNotChosen(_ context.Context) (ctrl.Result, error) {
-	o.Manager.logEventIfRequestedUpgradeIsDifferent(vapi.OfflineUpgrade)
+	if o.PFacts.GetSandboxName() == vapi.MainCluster {
+		o.Manager.logEventIfRequestedUpgradeIsDifferent(vapi.OfflineUpgrade)
+	}
 	return ctrl.Result{}, nil
 }
 

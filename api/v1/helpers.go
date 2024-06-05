@@ -759,6 +759,10 @@ func (s *Subcluster) IsPrimary() bool {
 	return s.Type == PrimarySubcluster || s.Type == SandboxPrimarySubcluster
 }
 
+func (s *Subcluster) IsMainPrimary() bool {
+	return s.Type == PrimarySubcluster
+}
+
 func (s *Subcluster) IsSandboxPrimary() bool {
 	return s.Type == SandboxPrimarySubcluster
 }

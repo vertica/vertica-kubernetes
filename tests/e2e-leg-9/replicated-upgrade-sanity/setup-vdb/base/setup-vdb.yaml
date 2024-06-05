@@ -28,8 +28,14 @@ spec:
   # We pick a cluster size that is too big for the CE license. This relies on
   # having a license, which will be added by kustomize.
   subclusters:
-    - name: pri1
+    - name: sec1
       size: 3
+      type: secondary
+    - name: pri1
+      size: 2
+      type: primary
+    - name: pri2
+      size: 1
       type: primary
   certSecrets: []
   imagePullSecrets: []
