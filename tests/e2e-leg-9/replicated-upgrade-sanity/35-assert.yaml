@@ -80,3 +80,6 @@ status:
     - name: replica-group-b
       subclusters:
         - pri1-sb
+        - pri2-sb
+        - sec1-sb
+          
