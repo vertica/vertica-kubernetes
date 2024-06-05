@@ -37,7 +37,7 @@ var _ = Describe("promotesandboxtomain_reconcile", func() {
 		fpr := &cmds.FakePodRunner{}
 		pfacts := MakePodFacts(vdbRec, fpr, logger, TestPassword)
 		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
-		r := MakePromoteSandboxSubclusterToMainReconciler(vdbRec, logger, vdb, &pfacts, dispatcher)
+		r := MakePromoteSandboxToMainReconciler(vdbRec, logger, vdb, &pfacts, dispatcher, k8sClient)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 	})
 
@@ -60,7 +60,7 @@ var _ = Describe("promotesandboxtomain_reconcile", func() {
 		fpr := &cmds.FakePodRunner{}
 		pfacts := MakePodFacts(vdbRec, fpr, logger, TestPassword)
 		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
-		r := MakePromoteSandboxSubclusterToMainReconciler(vdbRec, logger, vdb, &pfacts, dispatcher)
+		r := MakePromoteSandboxToMainReconciler(vdbRec, logger, vdb, &pfacts, dispatcher, k8sClient)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 	})
 })

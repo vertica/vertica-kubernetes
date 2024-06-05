@@ -15,6 +15,7 @@ package vdb
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
@@ -22,50 +23,70 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/promotesandboxtomain"
+	"github.com/vertica/vertica-kubernetes/pkg/vdbstatus"
+	"github.com/vertica/vertica-kubernetes/pkg/vk8s"
 
 	corev1 "k8s.io/api/core/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// PromoteSandboxSubclusterToMainReconciler will convert local sandbox to main cluster
-type PromoteSandboxSubclusterToMainReconciler struct {
+// PromoteSandboxToMainReconciler will convert local sandbox to main cluster
+type PromoteSandboxToMainReconciler struct {
 	VRec        *VerticaDBReconciler
 	Log         logr.Logger
 	Vdb         *vapi.VerticaDB // Vdb is the CRD we are acting on
 	PFacts      *PodFacts
 	InitiatorIP string // The IP of the pod that we run vclusterOps from
 	Dispatcher  vadmin.Dispatcher
+	client.Client
 }
 
-// MakePromoteSandboxSubclusterToMainReconciler will build a promoteSandboxSubclusterToMainReconciler object
-func MakePromoteSandboxSubclusterToMainReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger, vdb *vapi.VerticaDB,
-	pfacts *PodFacts, dispatcher vadmin.Dispatcher) controllers.ReconcileActor {
-	return &PromoteSandboxSubclusterToMainReconciler{
+// MakePromoteSandboxToMainReconciler will build a promoteSandboxToMainReconciler object
+func MakePromoteSandboxToMainReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger, vdb *vapi.VerticaDB,
+	pfacts *PodFacts, dispatcher vadmin.Dispatcher, cli client.Client) controllers.ReconcileActor {
+	return &PromoteSandboxToMainReconciler{
 		VRec:       vdbrecon,
-		Log:        log.WithName("promoteSandboxSubclusterToMainReconciler"),
+		Log:        log.WithName("promoteSandboxToMainReconciler"),
 		Vdb:        vdb,
 		PFacts:     pfacts,
 		Dispatcher: dispatcher,
+		Client:     cli,
 	}
 }
 
-func (s *PromoteSandboxSubclusterToMainReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
+func (s *PromoteSandboxToMainReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
+	var res ctrl.Result
+
 	// no-op for ScheduleOnly init policy or enterprise db or no sandboxes
 	if s.Vdb.Spec.InitPolicy == vapi.CommunalInitPolicyScheduleOnly ||
 		!s.Vdb.IsEON() || len(s.Vdb.Spec.Sandboxes) == 0 {
-		return ctrl.Result{}, nil
+		return res, nil
 	}
 
 	// We need to collect pod facts for finding qualified subclusters
 	if err := s.PFacts.Collect(ctx, s.Vdb); err != nil {
-		return ctrl.Result{}, err
+		return res, nil
 	}
 
-	return s.promoteSandboxToMain(ctx)
+	sandboxName := s.PFacts.GetSandboxName()
+
+	res, err := s.promoteSandboxToMain(ctx, sandboxName)
+	if err != nil {
+		return res, err
+	}
+
+	s.PFacts.Invalidate()
+
+	err = s.updateSandboxScTypeInVdb(ctx, sandboxName)
+	if err != nil {
+		return res, err
+	}
+	return res, nil
 }
 
 // promoteSandboxToMain call the vclusterOps API to convert local sandbox to main cluster
-func (s *PromoteSandboxSubclusterToMainReconciler) promoteSandboxToMain(ctx context.Context) (ctrl.Result, error) {
+func (s *PromoteSandboxToMainReconciler) promoteSandboxToMain(ctx context.Context, sandboxName string) (ctrl.Result, error) {
 	initiator, ok := s.PFacts.findFirstPodSorted(func(v *PodFact) bool {
 		return v.isPrimary && v.upNode
 	})
@@ -73,8 +94,7 @@ func (s *PromoteSandboxSubclusterToMainReconciler) promoteSandboxToMain(ctx cont
 		s.Log.Info("No Up nodes found. Requeue reconciliation.")
 		return ctrl.Result{Requeue: true}, nil
 	}
-	// pick first sandbox to promote
-	sandboxName := s.Vdb.Spec.Sandboxes[0].Name
+
 	s.VRec.Eventf(s.Vdb, corev1.EventTypeNormal, events.PromoteSandboxToMainStart,
 		"Starting promote sandbox %q to main", sandboxName)
 
@@ -89,5 +109,46 @@ func (s *PromoteSandboxSubclusterToMainReconciler) promoteSandboxToMain(ctx cont
 	}
 	s.VRec.Eventf(s.Vdb, corev1.EventTypeNormal, events.PromoteSandboxToSucceeded,
 		"Successfully promote sandbox %q to main", sandboxName)
+
 	return ctrl.Result{}, nil
+}
+
+// updateSandboxScTypeInVdb update SandboxPrimarySubcluster to PrimarySubcluster in vdb.spec.subclusters.
+// and update sandbox status in vdb after promoting to main
+func (s *PromoteSandboxToMainReconciler) updateSandboxScTypeInVdb(ctx context.Context, sandboxName string) error {
+	scSbMap := s.Vdb.GenSubclusterSandboxMap()
+	for sc, sb := range scSbMap {
+		if sb == sandboxName {
+			_, err := vk8s.UpdateVDBWithRetry(ctx, s.VRec, s.Vdb, func() (bool, error) {
+				scMap := s.Vdb.GenSubclusterMap()
+				vdbSc, found := scMap[sc]
+				if !found {
+					return false, fmt.Errorf("subcluster %q missing in vdb %q", sc, s.Vdb.Name)
+				}
+				if vdbSc.Type == vapi.SandboxPrimarySubcluster {
+					vdbSc.Type = vapi.PrimarySubcluster
+				}
+				return true, nil
+			})
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	updateStatus := func(vdbChg *vapi.VerticaDB) error {
+		// update the sandbox's subclusters in sandbox status
+		for i := len(vdbChg.Status.Sandboxes) - 1; i >= 0; i-- {
+			if vdbChg.Status.Sandboxes[i].Name != sandboxName {
+				continue
+			}
+		}
+		// update the sandbox's subclusters to main cluster in sandbox status
+		for _, sc := range scSbMap {
+			newStatus := vapi.SandboxStatus{Name: vapi.MainCluster, Subclusters: []string{sc}}
+			vdbChg.Status.Sandboxes = append(vdbChg.Status.Sandboxes, newStatus)
+		}
+		return nil
+	}
+	return vdbstatus.Update(ctx, s.Client, s.Vdb, updateStatus)
 }

@@ -604,14 +604,13 @@ func (r *ReplicatedUpgradeReconciler) promoteSandboxToMainCluster(ctx context.Co
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	sbPFacts.Invalidate()
-	actor := MakePromoteSandboxSubclusterToMainReconciler(r.VRec, r.Log, r.VDB, sbPFacts, r.Dispatcher)
+	actor := MakePromoteSandboxToMainReconciler(r.VRec, r.Log, r.VDB, sbPFacts, r.Dispatcher, r.VRec.Client)
 	r.Manager.traceActorReconcile(actor)
 	res, err := actor.Reconcile(ctx, &ctrl.Request{})
 	if verrors.IsReconcileAborted(res, err) {
 		return res, err
 	}
-
+	r.PFacts[vapi.MainCluster].Invalidate()
 	r.Log.Info("sandbox have been promoted to main", "sandboxName", r.sandboxName)
 	return ctrl.Result{}, nil
 }
