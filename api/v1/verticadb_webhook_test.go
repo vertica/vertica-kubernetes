@@ -1218,7 +1218,7 @@ var _ = Describe("verticadb_webhook", func() {
 		Ω(newVdb.validateImmutableFields(oldVdb)).Should(HaveLen(2))
 	})
 
-	It("should not allow a sandbox to have multiple primary subclusters", func() {
+	It("should allow a sandbox to have multiple primary subclusters", func() {
 		vdb := MakeVDBForVclusterOps()
 		vdb.ObjectMeta.Annotations[vmeta.VersionAnnotation] = SandboxSupportedMinVersion
 		vdb.Spec.Subclusters = []Subcluster{
@@ -1229,8 +1229,6 @@ var _ = Describe("verticadb_webhook", func() {
 		vdb.Spec.Sandboxes = []Sandbox{
 			{Name: "sand1", Subclusters: []SubclusterName{{Name: "sc2"}, {Name: "sc3"}}},
 		}
-		Ω(vdb.validateVerticaDBSpec()).Should(HaveLen(1))
-		vdb.Spec.Subclusters[1].Type = SecondarySubcluster
 		Ω(vdb.validateVerticaDBSpec()).Should(HaveLen(0))
 	})
 

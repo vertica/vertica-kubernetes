@@ -21,13 +21,24 @@ data:
     set -o errexit
     set -o xtrace
 
-    # Access to subclusters through service should route to the sandbox.
+    # Access to subclusters through primary service should route to the sandbox.
     CONNECTION_NODE=$(vsql -U dbadmin -h v-base-upgrade-pri1 -tAc "select node_name from current_session")
 
     echo $CONNECTION_NODE
-    if [[ $CONNECTION_NODE == "v_repup_node0004" ]] || \
-       [[ $CONNECTION_NODE == "v_repup_node0005" ]] || \
-       [[ $CONNECTION_NODE == "v_repup_node0006" ]]
+    if [[ $CONNECTION_NODE == "v_repup_node0007" ]] || \
+       [[ $CONNECTION_NODE == "v_repup_node0008" ]] || \
+       [[ $CONNECTION_NODE == "v_repup_node0009" ]]
+    then
+      exit 0
+    fi
+
+    # Access to subclusters through secondary service should route to the sandbox.
+    CONNECTION_NODE=$(vsql -U dbadmin -h v-base-upgrade-sec1 -tAc "select node_name from current_session")
+
+    echo $CONNECTION_NODE
+    if [[ $CONNECTION_NODE == "v_repup_node0010" ]] || \
+       [[ $CONNECTION_NODE == "v_repup_node0011" ]] || \
+       [[ $CONNECTION_NODE == "v_repup_node0012" ]]
     then
       exit 0
     fi

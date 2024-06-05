@@ -1179,24 +1179,13 @@ func (v *VerticaDB) validateSubclustersInSandboxes(allErrs field.ErrorList) fiel
 
 	// check if a non-existing subcluster is defined in a sandbox
 	scMap := v.GenSubclusterMap()
-	// Also keep track of the number of sandbox primary in a sandbox. We can
-	// only have at most 1.
-	primarySubclustersInSandboxes := map[string]int{}
 	for sc, i := range seenScWithSbIndex {
 		if scInfo, ok := scMap[sc]; !ok {
 			err := field.Invalid(path.Index(i),
 				sandboxes[i],
 				fmt.Sprintf("subcluster %s does not exist", sc))
 			allErrs = append(allErrs, err)
-		} else if scInfo.IsSandboxPrimary() {
-			primarySubclustersInSandboxes[sandboxes[i].Name]++
-			if primarySubclustersInSandboxes[sandboxes[i].Name] > 1 {
-				err := field.Invalid(path.Index(i),
-					sandboxes[i],
-					"cannot have more than one sandbox primary in a sandbox")
-				allErrs = append(allErrs, err)
-			}
-		} else if scInfo.IsPrimary() {
+		} else if scInfo.IsMainPrimary() {
 			err := field.Invalid(path.Index(i),
 				sandboxes[i],
 				fmt.Sprintf("subcluster %s is a primary subcluster that is not allowed to be in a sandbox", sc))
