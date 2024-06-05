@@ -18,6 +18,7 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
+	vutil "github.com/vertica/vcluster/vclusterops/util"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
@@ -113,9 +114,25 @@ func (s *PromoteSandboxToMainReconciler) promoteSandboxToMain(ctx context.Contex
 	return ctrl.Result{}, nil
 }
 
-// updateSandboxScTypeInVdb update SandboxPrimarySubcluster to PrimarySubcluster in vdb.spec.subclusters.
-// and update sandbox status in vdb after promoting to main
+// updateSandboxScTypeInVdb update SandboxPrimarySubcluster to PrimarySubcluster in vdb.spec.subclusters
+// and remove sandbox spec and status in vdb after promoting to main
 func (s *PromoteSandboxToMainReconciler) updateSandboxScTypeInVdb(ctx context.Context, sandboxName string) error {
+	// remove sandbox in spec
+	for i := len(s.Vdb.Spec.Sandboxes) - 1; i >= 0; i-- {
+		_, err := vk8s.UpdateVDBWithRetry(ctx, s.VRec, s.Vdb, func() (bool, error) {
+			if s.Vdb.Spec.Sandboxes[i].Name == sandboxName {
+				s.Vdb.Spec.Sandboxes[i].Subclusters = []vapi.SubclusterName{}
+				s.Vdb.Spec.Sandboxes = append(s.Vdb.Spec.Sandboxes[:i], s.Vdb.Spec.Sandboxes[i+1:]...)
+			}
+			return true, nil
+		})
+		if err != nil {
+			return err
+
+		}
+	}
+
+	// update sandboxPrimarySubcluster to primarySubcluster in spec
 	scSbMap := s.Vdb.GenSubclusterSandboxMap()
 	for sc, sb := range scSbMap {
 		if sb == sandboxName {
@@ -136,17 +153,24 @@ func (s *PromoteSandboxToMainReconciler) updateSandboxScTypeInVdb(ctx context.Co
 		}
 	}
 
+	// remove sandbox in status
+	unsandboxSbScMap := s.Vdb.GenSandboxSubclusterMapForUnsandbox()
+	unsandboxedScNames, found := unsandboxSbScMap[sandboxName]
+	if !found {
+		s.Log.Info("the sandbox inside it does not need to be unsandboxed")
+		return nil
+	}
 	updateStatus := func(vdbChg *vapi.VerticaDB) error {
 		// update the sandbox's subclusters in sandbox status
 		for i := len(vdbChg.Status.Sandboxes) - 1; i >= 0; i-- {
 			if vdbChg.Status.Sandboxes[i].Name != sandboxName {
 				continue
 			}
-		}
-		// update the sandbox's subclusters to main cluster in sandbox status
-		for _, sc := range scSbMap {
-			newStatus := vapi.SandboxStatus{Name: vapi.MainCluster, Subclusters: []string{sc}}
-			vdbChg.Status.Sandboxes = append(vdbChg.Status.Sandboxes, newStatus)
+			vdbChg.Status.Sandboxes[i].Subclusters = vutil.SliceDiff(vdbChg.Status.Sandboxes[i].Subclusters, unsandboxedScNames)
+			if len(vdbChg.Status.Sandboxes[i].Subclusters) == 0 {
+				vdbChg.Status.Sandboxes = append(vdbChg.Status.Sandboxes[:i], vdbChg.Status.Sandboxes[i+1:]...)
+			}
+			break
 		}
 		return nil
 	}
