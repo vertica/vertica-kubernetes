@@ -128,7 +128,6 @@ func (s *PromoteSandboxToMainReconciler) updateSandboxScTypeInVdb(ctx context.Co
 		})
 		if err != nil {
 			return err
-
 		}
 	}
 

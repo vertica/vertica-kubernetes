@@ -27,9 +27,11 @@ import (
 	"github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
+	"github.com/vertica/vertica-kubernetes/pkg/events"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	"github.com/vertica/vertica-kubernetes/pkg/vk8s"
+	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -504,6 +506,8 @@ func (r *ReplicatedUpgradeReconciler) startReplicationToReplicaGroupB(ctx contex
 	}
 	r.Log.Info("VerticaReplicator created", "name", vrep.Name, "uuid", vrep.UID)
 
+	r.VRec.Eventf(r.VDB, corev1.EventTypeNormal, events.ReplicationStarted,
+		"Starting replication")
 	// Update the vdb with the name of the replicator that was created.
 	annotationUpdate := func() (bool, error) {
 		if r.VDB.Annotations == nil {
@@ -550,7 +554,8 @@ func (r *ReplicatedUpgradeReconciler) waitForReplicateToReplicaGroupB(ctx contex
 	}
 
 	r.Log.Info("Replication is completed", "vrepName", vrepName)
-
+	r.VRec.Eventf(r.VDB, corev1.EventTypeNormal, events.ReplicationSucceeded,
+		"Successfully replicated database")
 	// Delete the VerticaReplicator. We leave the annotation present in the
 	// VerticaDB so that we skip these steps until the upgrade is finished.
 	err = r.VRec.Client.Delete(ctx, &vrep)
@@ -623,6 +628,8 @@ func (r *ReplicatedUpgradeReconciler) promoteSandboxToMainCluster(ctx context.Co
 	if err != nil {
 		return ctrl.Result{}, err
 	}
+	r.VRec.Eventf(r.VDB, corev1.EventTypeNormal, events.PromoteSandboxToMainStart,
+		"Starting promote sandbox %q to main in the upgrade reconciler", r.sandboxName)
 	actor := MakePromoteSandboxToMainReconciler(r.VRec, r.Log, r.VDB, sbPFacts, r.Dispatcher, r.VRec.Client)
 	r.Manager.traceActorReconcile(actor)
 	res, err := actor.Reconcile(ctx, &ctrl.Request{})
@@ -631,6 +638,8 @@ func (r *ReplicatedUpgradeReconciler) promoteSandboxToMainCluster(ctx context.Co
 	}
 	r.PFacts[vapi.MainCluster].Invalidate()
 	r.Log.Info("sandbox have been promoted to main", "sandboxName", r.sandboxName)
+	r.VRec.Eventf(r.VDB, corev1.EventTypeNormal, events.PromoteSandboxToSucceeded,
+		"Successfully promote sandbox %q to main in the upgrade reconciler", r.sandboxName)
 	return ctrl.Result{}, nil
 }
 
