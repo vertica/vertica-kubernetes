@@ -16,6 +16,22 @@ kind: StatefulSet
 metadata:
   name: v-base-upgrade-pri1
 status:
+  currentReplicas: 2
+  readyReplicas: 2
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: v-base-upgrade-pri2
+status:
+  currentReplicas: 1
+  readyReplicas: 1
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: v-base-upgrade-sec1
+status:
   currentReplicas: 3
   readyReplicas: 3
 ---
@@ -27,3 +43,7 @@ status:
   subclusters:
     - addedToDBCount: 3
       upNodeCount: 3
+    - addedToDBCount: 2
+      upNodeCount: 2
+    - addedToDBCount: 1
+      upNodeCount: 1

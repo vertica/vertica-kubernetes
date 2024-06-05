@@ -11,28 +11,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: apps/v1
-kind: StatefulSet
+apiVersion: v1
+kind: Pod
 metadata:
-  name: v-base-upgrade-pri1
+  name: test-verify-data-in-sandbox
 status:
-  currentReplicas: 2
----
-apiVersion: apps/v1
-kind: StatefulSet
-metadata:
-  name: v-base-upgrade-pri2
-status:
-  currentReplicas: 1
----
-apiVersion: apps/v1
-kind: StatefulSet
-metadata:
-  name: v-base-upgrade-sec1
-status:
-  currentReplicas: 3
----
-apiVersion: vertica.com/v1
-kind: VerticaDB
-metadata:
-  name: v-base-upgrade
+  containerStatuses:
+    - name: test
+      state:
+        terminated:
+          exitCode: 0 
