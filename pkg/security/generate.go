@@ -27,7 +27,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-const pkKeySize = 4096
+const pkKeySize = 2048
 
 // NewSelfSignedCACertificate creates and returns a CA certificate
 func NewSelfSignedCACertificate() (Certificate, error) {
