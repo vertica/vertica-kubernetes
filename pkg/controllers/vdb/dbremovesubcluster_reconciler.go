@@ -139,9 +139,17 @@ func (d *DBRemoveSubclusterReconciler) removeExtraSubclusters(ctx context.Contex
 
 // removeSubcluster will call an admin function to remove the given subcluster from vertica
 func (d *DBRemoveSubclusterReconciler) removeSubcluster(ctx context.Context, scName string) error {
+	// nodes' names and addresses in the subcluster to remove subcluster. These names and addresses
+	// are the latest ones in the database, and vclusterOps will compare them with the ones in catalog.
+	// If vclusterOps find catalog of the cluster has stale node addresses, it will use the correct
+	// addresses in this map to do a re-ip before removing subcluster.
+	nodeNameAddressMap := d.PFacts.FindNodeNameAndAddressInSubcluster(scName)
+
 	err := d.Dispatcher.RemoveSubcluster(ctx,
 		removesc.WithInitiator(d.ATPod.name, d.ATPod.podIP),
 		removesc.WithSubcluster(scName),
+		// vclusterOps needs correct node names and addresses to do re-ip
+		removesc.WithNodeNameAddressMap(nodeNameAddressMap),
 	)
 	if err != nil {
 		return err
