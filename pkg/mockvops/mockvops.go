@@ -87,6 +87,9 @@ func (*MockVClusterOps) VUnsandbox(_ *vclusterops.VUnsandboxOptions) error {
 func (m *MockVClusterOps) VAlterSubclusterType(options *vclusterops.VAlterSubclusterTypeOptions) error {
 	return nil
 }
+func (m *MockVClusterOps) VSetConfigurationParameters(options *vclusterops.VSetConfigurationParameterOptions) error {
+	return nil
+}
 
 // MakeMockVClusterOpsDispatch will create a mock vcluster dispatcher
 func MakeMockVClusterOpsDispatcher(vdb *vapi.VerticaDB, logger logr.Logger, cl client.Client,

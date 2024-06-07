@@ -239,4 +239,5 @@ type VClusterProvider interface {
 	VSandbox(options *vops.VSandboxOptions) error
 	VUnsandbox(options *vops.VUnsandboxOptions) error
 	VAlterSubclusterType(options *vops.VAlterSubclusterTypeOptions) error
+	VSetConfigurationParameters(options *vops.VSetConfigurationParameterOptions) error
 }

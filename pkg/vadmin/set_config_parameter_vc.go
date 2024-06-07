@@ -17,7 +17,9 @@ package vadmin
 
 import (
 	"context"
+	"fmt"
 
+	vops "github.com/vertica/vcluster/vclusterops"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/setconfigparameter"
 )
 
@@ -28,25 +30,25 @@ func (v *VClusterOps) SetConfigurationParameter(ctx context.Context, opts ...set
 	defer v.tearDownForAPICall()
 	v.Log.Info("Starting vcluster SetConfigurationParameter")
 
-	// certs, err := v.retrieveNMACerts(ctx)
-	// if err != nil {
-	// 	return err
-	// }
+	certs, err := v.retrieveNMACerts(ctx)
+	if err != nil {
+		return err
+	}
 
-	// s := setconfigparameter.Parms{}
-	// s.Make(opts...)
+	s := setconfigparameter.Parms{}
+	s.Make(opts...)
 
-	// vcOpts := v.genSetConfigurationParameterOptions(&s, certs)
-	// err := v.VSetConfigurationParameters(vcOpts)
-	// if err != nil {
-	// 	return fmt.Errorf("failed to set configuration parameter: %w", err)
-	// }
+	vcOpts := v.genSetConfigurationParameterOptions(&s, certs)
+	err = v.VSetConfigurationParameters(vcOpts)
+	if err != nil {
+		return fmt.Errorf("failed to set configuration parameter: %w", err)
+	}
 
 	return nil
 }
 
-// func (v *VClusterOps) genSetConfigurationParameterOptions(s *setconfigparameter.Parms, certs *HTTPSCerts) *vops.VSetConfigurationParameterOptions {
-// 	opts := vops.VSetConfigurationParameterOptionsFactory()
+func (v *VClusterOps) genSetConfigurationParameterOptions(s *setconfigparameter.Parms, certs *HTTPSCerts) *vops.VSetConfigurationParameterOptions {
+	opts := vops.VSetConfigurationParameterOptionsFactory()
 
-// 	return &opts
-// }
+	return &opts
+}
