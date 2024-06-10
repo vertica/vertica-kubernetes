@@ -11,9 +11,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1
-kind: VerticaDB
+apiVersion: v1
+kind: Pod
 metadata:
-  name: v-base-upgrade
+  name: test-verify-sandbox-promotion
 status:
-  upgradeStatus: Promote sandbox to main cluster
+  containerStatuses:
+    - name: test
+      state:
+        terminated:
+          exitCode: 0 
