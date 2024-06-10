@@ -194,12 +194,6 @@ export CONTROLLERS_SCOPE
 METRICS_ADDR?=127.0.0.1:8080
 export METRICS_ADDR
 #
-# Set this to enable the memory profiler. Enables runtime profiling collection.
-# The profiling data can be inspected by connecting to port 6060 
-#"with the path /debug/pprof.  See https://golang.org/pkg/net/http/pprof/ for more info.
-PROFILER_ENABLED?=false
-export PROFILER_ENABLED
-#
 # The minimum logging level. Valid values are: debug, info, warn, and error.
 LOG_LEVEL?=info
 export LOG_LEVEL
