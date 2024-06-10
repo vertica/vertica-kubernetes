@@ -167,9 +167,7 @@ func (r *ReplicatedUpgradeReconciler) Reconcile(ctx context.Context, _ *ctrl.Req
 		// replica group B is promoted to main cluster now.
 		r.postRemoveOriginalClusterMsg,
 		r.removeReplicaGroupAFromVdb,
-		r.removeClientRoutingLabelFromReplicaGroupA,
 		r.removeReplicaGroupA,
-		r.uninstallReplicaGroupANodes,
 		r.deleteReplicaGroupASts,
 		// Rename subclusters in new main cluster to match the original main cluster.
 		r.postRenameScsInMainClusterMsg,
@@ -997,10 +995,13 @@ func (r *ReplicatedUpgradeReconciler) getSandboxPodFacts(ctx context.Context, do
 
 // removeReplicaGroupAFromVdb will remove subclusters of replica group A from VerticaDB
 func (r *ReplicatedUpgradeReconciler) removeReplicaGroupAFromVdb(ctx context.Context) (ctrl.Result, error) {
-	// if the sandbox is still there or replica group A doesn't contain any subclustesr,
+	// if the sandbox is still there, we wait for promote_sandbox to be done
+	if r.VDB.GetSandboxStatus(r.sandboxName) != nil {
+		return ctrl.Result{Requeue: true}, nil
+	}
+	// if replica group A doesn't contain any subclustesr,
 	// we skip removing the old main cluster
-	if r.VDB.GetSandboxStatus(r.sandboxName) != nil ||
-		r.countSubclustersForReplicaGroup(vmeta.ReplicaGroupAValue) == 0 {
+	if r.countSubclustersForReplicaGroup(vmeta.ReplicaGroupAValue) == 0 {
 		return ctrl.Result{}, nil
 	}
 
@@ -1034,23 +1035,14 @@ func (r *ReplicatedUpgradeReconciler) removeReplicaGroupAFromVdb(ctx context.Con
 	return ctrl.Result{}, nil
 }
 
-// removeClientRoutingLabelFromReplicaGroupA will remove the special routing
-// labels of replicate group A since we are about to remove it
-func (r *ReplicatedUpgradeReconciler) removeClientRoutingLabelFromReplicaGroupA(ctx context.Context) (ctrl.Result, error) {
-	// if the sandbox is still there or replica group A has removed, we skip removing the old main cluster
-	if r.VDB.GetSandboxStatus(r.sandboxName) != nil || !r.isGroupASubclusterInStatus() {
-		return ctrl.Result{}, nil
-	}
-
-	actor := MakeClientRoutingLabelReconciler(r.VRec, r.Log, r.VDB, r.PFacts[vapi.MainCluster], DelNodeApplyMethod, "")
-	r.Manager.traceActorReconcile(actor)
-	return actor.Reconcile(ctx, &ctrl.Request{})
-}
-
 // removeReplicaGroupA will remove the old main cluster
 func (r *ReplicatedUpgradeReconciler) removeReplicaGroupA(ctx context.Context) (ctrl.Result, error) {
-	// if the sandbox is still there or replica group A has removed, we skip removing the old main cluster
-	if r.VDB.GetSandboxStatus(r.sandboxName) != nil || !r.isGroupASubclusterInStatus() {
+	// if the sandbox is still there, we wait for promote_sandbox to be done
+	if r.VDB.GetSandboxStatus(r.sandboxName) != nil {
+		return ctrl.Result{Requeue: true}, nil
+	}
+	// if replica group A has removed, we skip removing the old main cluster
+	if !r.isGroupASubclusterInStatus() {
 		return ctrl.Result{}, nil
 	}
 
@@ -1060,23 +1052,14 @@ func (r *ReplicatedUpgradeReconciler) removeReplicaGroupA(ctx context.Context) (
 	return actor.Reconcile(ctx, &ctrl.Request{})
 }
 
-// uninstallReplicaGroupANodes will drive uninstall logic for any nodes in replica group A.
-func (r *ReplicatedUpgradeReconciler) uninstallReplicaGroupANodes(ctx context.Context) (ctrl.Result, error) {
-	// if the sandbox is still there or replica group A has removed, we skip removing the old main cluster
-	if r.VDB.GetSandboxStatus(r.sandboxName) != nil || !r.isGroupASubclusterInStatus() {
-		return ctrl.Result{}, nil
-	}
-
-	actor := MakeUninstallReconciler(r.VRec, r.Log, r.VDB,
-		r.PFacts[vapi.MainCluster].PRunner, r.PFacts[vapi.MainCluster])
-	r.Manager.traceActorReconcile(actor)
-	return actor.Reconcile(ctx, &ctrl.Request{})
-}
-
 // deleteReplicaGroupASts will delete the statefulSet of replicate group A.
 func (r *ReplicatedUpgradeReconciler) deleteReplicaGroupASts(ctx context.Context) (ctrl.Result, error) {
-	// if the sandbox is still there or replica group A has removed, we skip removing the old main cluster
-	if r.VDB.GetSandboxStatus(r.sandboxName) != nil || !r.isGroupASubclusterInStatus() {
+	// if the sandbox is still there, we wait for promote_sandbox to be done
+	if r.VDB.GetSandboxStatus(r.sandboxName) != nil {
+		return ctrl.Result{Requeue: true}, nil
+	}
+	// if replica group A has removed, we skip removing the old main cluster
+	if !r.isGroupASubclusterInStatus() {
 		return ctrl.Result{}, nil
 	}
 
@@ -1088,10 +1071,13 @@ func (r *ReplicatedUpgradeReconciler) deleteReplicaGroupASts(ctx context.Context
 // renameReplicaGroupBFromVdb will rename the subclusters in promoted-sandbox/new-main-cluster to
 // match the ones in original main cluster
 func (r *ReplicatedUpgradeReconciler) renameReplicaGroupBFromVdb(ctx context.Context) (ctrl.Result, error) {
-	// if replica group A still exists or subclusters in replica group B have been renamed, we skip
+	// if replica group A still exists, we wait for remove_replica_group_A to be done
+	if r.countSubclustersForReplicaGroup(vmeta.ReplicaGroupAValue) > 0 {
+		return ctrl.Result{Requeue: true}, nil
+	}
+	// if subclusters in replica group B have been renamed, we skip
 	// renaming the subclusters in replica group B
-	if r.countSubclustersForReplicaGroup(vmeta.ReplicaGroupAValue) > 0 ||
-		r.areGroupBSubclustersRenamed() {
+	if r.areGroupBSubclustersRenamed() {
 		return ctrl.Result{}, nil
 	}
 
