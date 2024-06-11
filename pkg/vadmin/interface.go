@@ -114,6 +114,7 @@ type Dispatcher interface {
 
 	AlterSubclusterType(ctx context.Context, opts ...altersc.Option) error
 
+	// SetConfigurationParameter will set a config parameter to a certain value at a certain level in a given cluster
 	SetConfigurationParameter(ctx context.Context, opts ...setconfigparameter.Option) error
 }
 
