@@ -76,6 +76,7 @@ func (s *SetConfigurationParameterReconciler) Reconcile(ctx context.Context, _ *
 
 // setConfigurationParameter calls the vclusterOps API to set a configuration parameter
 func (s *SetConfigurationParameterReconciler) setConfigurationParameter(ctx context.Context) (ctrl.Result, error) {
+	// select the first up (and not read-only) pod in the given cluster as the initiator
 	initiator, ok := s.PFacts.findFirstUpPod(false /*not allow read-only*/, "" /*arbitrary subcluster*/)
 	if !ok {
 		s.Log.Info("No Up nodes found. Requeue reconciliation.")
@@ -84,6 +85,7 @@ func (s *SetConfigurationParameterReconciler) setConfigurationParameter(ctx cont
 
 	levelForEvent := s.Level
 	if levelForEvent == "" {
+		// leave level empty implies database level
 		levelForEvent = "database"
 	}
 
@@ -93,7 +95,7 @@ func (s *SetConfigurationParameterReconciler) setConfigurationParameter(ctx cont
 	err := s.Dispatcher.SetConfigurationParameter(ctx,
 		setconfigparameter.WithUserName(s.Vdb.GetVerticaUser()),
 		setconfigparameter.WithInitiatorIP(initiator.podIP),
-		setconfigparameter.WithSandbox(s.PFacts.GetSandboxName()),
+		setconfigparameter.WithSandbox(s.PFacts.GetSandboxName()), // sandbox name is empty string for main cluster
 		setconfigparameter.WithConfigParameter(s.ConfigParameter),
 		setconfigparameter.WithValue(s.Value),
 		setconfigparameter.WithLevel(s.Level),
