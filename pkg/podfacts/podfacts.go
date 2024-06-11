@@ -833,7 +833,7 @@ func (p *PodFacts) doesDBExist() bool {
 // findFirstUpPod returns the first (sorted) pod that has an up vertica node
 // Will return false for second parameter if no pod could be found.
 func (p *PodFacts) findFirstUpPod(allowReadOnly bool, scName string) (*PodFact, bool) {
-	return p.findFirstPodSorted(func(v *PodFact) bool {
+	return p.FindFirstPodSorted(func(v *PodFact) bool {
 		return (scName == "" || v.subclusterName == scName) &&
 			v.upNode && (allowReadOnly || !v.readOnly)
 	})
@@ -855,22 +855,22 @@ func (p *PodFacts) findPodToRunAdminCmdAny() (*PodFact, bool) {
 	// - up and not read-only
 	// - up and read-only
 	// - has vertica installation
-	if pod, ok := p.findFirstPodSorted(func(v *PodFact) bool {
+	if pod, ok := p.FindFirstPodSorted(func(v *PodFact) bool {
 		return v.upNode && !v.readOnly && !v.isPendingDelete
 	}); ok {
 		return pod, ok
 	}
-	if pod, ok := p.findFirstPodSorted(func(v *PodFact) bool {
+	if pod, ok := p.FindFirstPodSorted(func(v *PodFact) bool {
 		return v.upNode && !v.readOnly
 	}); ok {
 		return pod, ok
 	}
-	if pod, ok := p.findFirstPodSorted(func(v *PodFact) bool {
+	if pod, ok := p.FindFirstPodSorted(func(v *PodFact) bool {
 		return v.upNode
 	}); ok {
 		return pod, ok
 	}
-	return p.findFirstPodSorted(func(v *PodFact) bool {
+	return p.FindFirstPodSorted(func(v *PodFact) bool {
 		return v.isInstalled && v.isPodRunning
 	})
 }
@@ -977,9 +977,9 @@ func (p *PodFacts) filterPods(filterFunc func(p *PodFact) bool) []*PodFact {
 	return pods
 }
 
-// findFirstPodSorted returns one pod that matches the filter function. All
+// FindFirstPodSorted returns one pod that matches the filter function. All
 // matching pods are sorted by pod name and the first one is returned.
-func (p *PodFacts) findFirstPodSorted(filterFunc func(p *PodFact) bool) (*PodFact, bool) {
+func (p *PodFacts) FindFirstPodSorted(filterFunc func(p *PodFact) bool) (*PodFact, bool) {
 	pods := p.filterPods(filterFunc)
 	if len(pods) == 0 {
 		return nil, false
@@ -1174,7 +1174,7 @@ func checkIfNodeUpCmd(podIP string) string {
 // has a primary up Vertica node, and a boolean that indicates
 // if we found such a pod
 func (p *PodFacts) FindFirstPrimaryUpPodIP() (string, bool) {
-	initiator, ok := p.findFirstPodSorted(func(v *PodFact) bool {
+	initiator, ok := p.FindFirstPodSorted(func(v *PodFact) bool {
 		return v.sandbox == vapi.MainCluster && v.isPrimary && v.upNode
 	})
 	if initiator == nil {
