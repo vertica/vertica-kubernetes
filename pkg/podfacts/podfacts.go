@@ -682,6 +682,11 @@ func (p *PodFact) GetPodIP() string {
 	return p.podIP
 }
 
+// GetPodIP returns the string value of upNode in PodFact
+func (p *PodFact) SetHasDCTableAnnotations(hasDCTableAnnotations bool) {
+	p.hasDCTableAnnotations = hasDCTableAnnotations
+}
+
 // setNodeState set the node state in the PodFact based on
 // vertica deployment method
 func (p *PodFact) setNodeState(gs *GatherState, useVclusterOps bool) {

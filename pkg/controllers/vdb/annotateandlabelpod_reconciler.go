@@ -22,6 +22,7 @@ import (
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
+	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
 	config "github.com/vertica/vertica-kubernetes/pkg/vdbconfig"
 	"github.com/vertica/vertica-kubernetes/pkg/vk8s"
 	corev1 "k8s.io/api/core/v1"
@@ -35,12 +36,12 @@ type AnnotateAndLabelPodReconciler struct {
 	Rec    config.ReconcilerInterface
 	Log    logr.Logger
 	Vdb    *vapi.VerticaDB
-	PFacts *PodFacts
+	PFacts *podfacts.PodFacts
 }
 
 // MakeAnnotateAndLabelPodReconciler will build a AnnotateAndLabelPodReconciler object
 func MakeAnnotateAndLabelPodReconciler(recon config.ReconcilerInterface, log logr.Logger,
-	vdb *vapi.VerticaDB, pfacts *PodFacts) controllers.ReconcileActor {
+	vdb *vapi.VerticaDB, pfacts *podfacts.PodFacts) controllers.ReconcileActor {
 	return &AnnotateAndLabelPodReconciler{
 		Rec:    recon,
 		Log:    log.WithName("AnnotateAndLabelPodReconciler"),
@@ -124,7 +125,7 @@ func (s *AnnotateAndLabelPodReconciler) applyAnnotationsAndLabels(ctx context.Co
 	if updated {
 		// We have added/updated the annotations.  Refresh the podfacts.
 		// This saves having to invalidate the entire thing.
-		s.PFacts.Detail[podName].hasDCTableAnnotations = true
+		s.PFacts.Detail[podName].SetHasDCTableAnnotations(true)
 	}
 	return err
 }
