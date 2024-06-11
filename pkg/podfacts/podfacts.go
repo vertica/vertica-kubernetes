@@ -667,6 +667,21 @@ func (p *PodFacts) checkForSimpleGatherStateMapping(_ context.Context, vdb *vapi
 	return nil
 }
 
+// GetIsPrimary returns the bool value of isPrimary in PodFact
+func (p *PodFact) GetIsPrimary() bool {
+	return p.isPrimary
+}
+
+// GetUpNode returns the bool value of upNode in PodFact
+func (p *PodFact) GetUpNode() bool {
+	return p.upNode
+}
+
+// GetPodIP returns the string value of upNode in PodFact
+func (p *PodFact) GetPodIP() string {
+	return p.podIP
+}
+
 // setNodeState set the node state in the PodFact based on
 // vertica deployment method
 func (p *PodFact) setNodeState(gs *GatherState, useVclusterOps bool) {
