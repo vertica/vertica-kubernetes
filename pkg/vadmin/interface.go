@@ -39,6 +39,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/restartnode"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/revivedb"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/sandboxsc"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/setconfigparameter"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/showrestorepoints"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/startdb"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/stopdb"
@@ -112,6 +113,8 @@ type Dispatcher interface {
 	UnsandboxSubcluster(ctx context.Context, opts ...unsandboxsc.Option) error
 
 	AlterSubclusterType(ctx context.Context, opts ...altersc.Option) error
+
+	SetConfigurationParameter(ctx context.Context, opts ...setconfigparameter.Option) error
 }
 
 const (

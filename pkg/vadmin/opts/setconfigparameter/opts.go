@@ -17,6 +17,7 @@ package setconfigparameter
 
 // Parms holds all of the options for a set config parameter invocation.
 type Parms struct {
+	UserName        string
 	InitiatorIP     string
 	Sandbox         string
 	ConfigParameter string
@@ -31,6 +32,13 @@ type Option func(*Parms)
 func (p *Parms) Make(opts ...Option) {
 	for _, opt := range opts {
 		opt(p)
+	}
+}
+
+// WithUserName sets the UserName field of the Parms struct.
+func WithUserName(userName string) Option {
+	return func(p *Parms) {
+		p.UserName = userName
 	}
 }
 

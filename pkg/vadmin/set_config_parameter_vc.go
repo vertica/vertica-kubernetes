@@ -20,6 +20,7 @@ import (
 	"fmt"
 
 	vops "github.com/vertica/vcluster/vclusterops"
+	"github.com/vertica/vertica-kubernetes/pkg/net"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/setconfigparameter"
 )
 
@@ -49,6 +50,24 @@ func (v *VClusterOps) SetConfigurationParameter(ctx context.Context, opts ...set
 
 func (v *VClusterOps) genSetConfigurationParameterOptions(s *setconfigparameter.Parms, certs *HTTPSCerts) *vops.VSetConfigurationParameterOptions {
 	opts := vops.VSetConfigurationParameterOptionsFactory()
+
+	opts.RawHosts = append(opts.RawHosts, s.InitiatorIP)
+	opts.DBName = v.VDB.Spec.DBName
+	opts.UserName = s.UserName
+	opts.Password = &v.Password
+
+	opts.Sandbox = s.Sandbox
+	opts.ConfigParameter = s.ConfigParameter
+	opts.Value = s.Value
+	opts.Level = s.Level
+
+	opts.IsEon = v.VDB.IsEON()
+	opts.IPv6 = net.IsIPv6(s.InitiatorIP)
+
+	// auth options
+	opts.Key = certs.Key
+	opts.Cert = certs.Cert
+	opts.CaCert = certs.CaCert
 
 	return &opts
 }

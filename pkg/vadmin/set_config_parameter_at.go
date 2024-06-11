@@ -20,9 +20,8 @@ import (
 	"errors"
 
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/setconfigparameter"
-	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-func (a *Admintools) SetConfigParameter(_ context.Context, _ ...setconfigparameter.Option) (ctrl.Result, error) {
-	return ctrl.Result{}, errors.New("set config parameter is not supported when the source uses admintools deployments")
+func (a *Admintools) SetConfigurationParameter(_ context.Context, _ ...setconfigparameter.Option) error {
+	return errors.New("set config parameter is not supported when the source uses admintools deployments")
 }

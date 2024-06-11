@@ -39,11 +39,22 @@ import (
 // When we generate a sandbox for the upgrade, this is preferred name of that sandbox.
 const preferredSandboxName = "replica-group-b"
 
+const ConfigParamLevelDatabase = ""
+
+const (
+	ConfigParamDisableNonReplicatableQueries           = "DisableNonReplicatableQueries"
+	ConfigParamDisableNonReplicatableQueriesValueTrue  = "1"
+	ConfigParamDisableNonReplicatableQueriesValueFalse = "0"
+	ConfigParamDisableNonReplicatableQueriesLevel      = ConfigParamLevelDatabase
+)
+
 // List of status messages for replicated upgrade. When adding a new entry here,
 // be sure to add a *StatusMsgInx const below.
 var replicatedUpgradeStatusMsgs = []string{
 	"Starting replicated upgrade",
 	"Create new subclusters to mimic subclusters in the main cluster",
+	// TODO: get the original value of the config parameter
+	fmt.Sprintf("Disable non-replicatable queries by setting config parameter %q", ConfigParamDisableNonReplicatableQueries),
 	"Sandbox subclusters",
 	"Promote secondaries whose base subcluster is primary",
 	"Upgrade sandbox to new version",
@@ -51,6 +62,7 @@ var replicatedUpgradeStatusMsgs = []string{
 	"Replicate new data from main cluster to sandbox",
 	"Redirect connections to sandbox",
 	"Promote sandbox to main cluster",
+	fmt.Sprintf("Restore original value of config parameter %q", ConfigParamDisableNonReplicatableQueries),
 	"Recreate secondaries in new main cluster",
 }
 
@@ -58,6 +70,7 @@ var replicatedUpgradeStatusMsgs = []string{
 const (
 	startReplicatedUpgradeStatusMsgInx = iota
 	createNewSubclustersStatusMsgInx
+	disableNonReplicatableQueriesMsgInx
 	sandboxSubclustersMsgInx
 	promoteSubclustersInSandboxMsgInx
 	upgradeSandboxMsgInx
@@ -65,6 +78,7 @@ const (
 	startReplicationMsgInx
 	redirectToSandboxMsgInx
 	promoteSandboxMsgInx
+	restoreConfigParamDisableNonReplicatableQueriesMsgInx
 	recreateSecondariesMsgInx
 )
 
@@ -72,13 +86,14 @@ const (
 // write. This is done by splitting the cluster into two separate replicas and
 // using failover strategies to keep the database online.
 type ReplicatedUpgradeReconciler struct {
-	VRec        *VerticaDBReconciler
-	Log         logr.Logger
-	VDB         *vapi.VerticaDB
-	PFacts      map[string]*PodFacts // We have podfacts for main cluster and replica sandbox
-	Manager     UpgradeManager
-	Dispatcher  vadmin.Dispatcher
-	sandboxName string // name of the sandbox created for replica group B
+	VRec                                             *VerticaDBReconciler
+	Log                                              logr.Logger
+	VDB                                              *vapi.VerticaDB
+	PFacts                                           map[string]*PodFacts // We have podfacts for main cluster and replica sandbox
+	Manager                                          UpgradeManager
+	Dispatcher                                       vadmin.Dispatcher
+	sandboxName                                      string // name of the sandbox created for replica group B
+	oldConfigParamDisableNonReplicatableQueriesValue string
 }
 
 // MakeReplicatedUpgradeReconciler will build a ReplicatedUpgradeReconciler object
@@ -125,6 +140,10 @@ func (r *ReplicatedUpgradeReconciler) Reconcile(ctx context.Context, _ *ctrl.Req
 		r.runAddSubclusterReconcilerForMainCluster,
 		r.runAddNodesReconcilerForMainCluster,
 		r.runRebalanceSandboxSubcluster,
+		// TODO: Get the original value of config parameter DisableNonReplicatableQueries
+		// Disable all non-replicatable queries by setting config parameter DisableNonReplicatableQueries
+		r.postDisableNonReplicatableQueriesMsg,
+		r.setConfigParamDisableNonReplicatableQueries,
 		// Sandbox all of the secondary subclusters that are destined for
 		// replica group B.
 		r.postSandboxSubclustersMsg,
@@ -152,6 +171,9 @@ func (r *ReplicatedUpgradeReconciler) Reconcile(ctx context.Context, _ *ctrl.Req
 		// old main.
 		r.postPromoteSandboxMsg,
 		r.promoteSandboxToMainCluster,
+		// Restore the original value of config parameter DisableNonReplicatableQueries
+		r.postRestoreConfigParamDisableNonReplicatableQueriesMsg,
+		r.restoreConfigParamDisableNonReplicatableQueries,
 		// Scale-out secondary subcluster in main cluster. We will recreate the
 		// secondary subcluster in replica group B that existed at the start of
 		// the upgrade.
@@ -280,6 +302,37 @@ func (r *ReplicatedUpgradeReconciler) assignSubclustersToReplicaGroupB(ctx conte
 		r.Log.Info("new secondary subclusters added to mimic the existing subclusters", "len(subclusters)", len(r.VDB.Spec.Subclusters))
 	}
 	return ctrl.Result{}, nil
+}
+
+// postDisableNonReplicatableQueriesMsg will update the status message to indicate that
+// we are going to disable non-replicatble queries by setting config parameter DisableNonReplicatableQueries.
+func (r *ReplicatedUpgradeReconciler) postDisableNonReplicatableQueriesMsg(ctx context.Context) (ctrl.Result, error) {
+	return r.postNextStatusMsg(ctx, disableNonReplicatableQueriesMsgInx)
+}
+
+// setConfigParamDisableNonReplicatableQueries will run the reconciler to set the config parameter
+// DisableNonReplicatableQueries to true ("1") at database level within main cluster
+func (r *ReplicatedUpgradeReconciler) setConfigParamDisableNonReplicatableQueries(ctx context.Context) (ctrl.Result, error) {
+	return r.setConfigParamDisableNonReplicatableQueriesImpl(ctx, ConfigParamDisableNonReplicatableQueriesValueTrue)
+}
+
+// restoreConfigParamDisableNonReplicatableQueries will run the reconciler to restore the old value of config parameter
+// DisableNonReplicatableQueries before upgrade within main cluster
+func (r *ReplicatedUpgradeReconciler) restoreConfigParamDisableNonReplicatableQueries(ctx context.Context) (ctrl.Result, error) {
+	return r.setConfigParamDisableNonReplicatableQueriesImpl(ctx, r.oldConfigParamDisableNonReplicatableQueriesValue)
+}
+
+// setConfigParamDisableNonReplicatableQueriesImpl will run the reconciler to set the config parameter
+// DisableNonReplicatableQueries to a certain value at database level within main cluster
+func (r *ReplicatedUpgradeReconciler) setConfigParamDisableNonReplicatableQueriesImpl(ctx context.Context, value string) (ctrl.Result, error) {
+	pf := r.PFacts[vapi.MainCluster]
+	actor := MakeSetConfigurationParameterReconciler(r.VRec, r.Log, r.VDB, pf, r.Dispatcher, r.VRec.Client,
+		ConfigParamDisableNonReplicatableQueries,
+		value,
+		ConfigParamDisableNonReplicatableQueriesLevel,
+	)
+	r.Manager.traceActorReconcile(actor)
+	return actor.Reconcile(ctx, &ctrl.Request{})
 }
 
 // postSandboxSubclustersMsg will update the status message to indicate that
@@ -618,6 +671,12 @@ func (r *ReplicatedUpgradeReconciler) promoteSandboxToMainCluster(ctx context.Co
 	return ctrl.Result{}, errors.New("promote sandbox to main cluster is not yet implemented")
 }
 
+// postRestoreConfigParamDisableNonReplicatableQueriesMsg will update the status message to indicate that
+// we are going to restore the original value of config parameter DisableNonReplicatableQueries before upgrade.
+func (r *ReplicatedUpgradeReconciler) postRestoreConfigParamDisableNonReplicatableQueriesMsg(ctx context.Context) (ctrl.Result, error) {
+	return r.postNextStatusMsg(ctx, restoreConfigParamDisableNonReplicatableQueriesMsgInx)
+}
+
 // postRecreateSecondariesMsg will update the status message to indicate that
 // we are going to start recreating the secondaries in replica group b.
 func (r *ReplicatedUpgradeReconciler) postRecreateSecondariesMsg(ctx context.Context) (ctrl.Result, error) {
@@ -649,7 +708,7 @@ func (r *ReplicatedUpgradeReconciler) addNewSubclusters() (bool, error) {
 	scsByType := []vapi.Subcluster{}
 	scsByType = append(scsByType, r.VDB.Spec.Subclusters...)
 	// This will ensure that the primary of the sandbox is a copy
-	// of a primary of the main cluster so we wo't need to promote it
+	// of a primary of the main cluster so we won't need to promote it
 	sort.Slice(scsByType, func(i, j int) bool {
 		return scsByType[i].Type < scsByType[j].Type
 	})
