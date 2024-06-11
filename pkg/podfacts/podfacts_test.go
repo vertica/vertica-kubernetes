@@ -13,7 +13,7 @@
  limitations under the License.
 */
 
-package vdb
+package podfacts
 
 import (
 	"context"
