@@ -24,9 +24,9 @@ import (
 	. "github.com/onsi/gomega"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	v1beta1 "github.com/vertica/vertica-kubernetes/api/v1beta1"
-	vdbcontroller "github.com/vertica/vertica-kubernetes/pkg/controllers/vdb"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/mockvops"
+	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/replicationstart"
 	vrepstatus "github.com/vertica/vertica-kubernetes/pkg/vrepstatus"
@@ -228,10 +228,10 @@ var _ = Describe("query_reconcile", func() {
 	})
 
 	It("should return a reasonable error message if the sandbox has no nodes", func() {
-		sourcePodfacts := vdbcontroller.PodFacts{SandboxName: "dne"}
-		targetPodfacts := vdbcontroller.PodFacts{SandboxName: "dne"}
-		targetPodfacts.Detail = make(vdbcontroller.PodFactDetail)
-		targetPodfacts.Detail[types.NamespacedName{}] = &vdbcontroller.PodFact{}
+		sourcePodfacts := podfacts.PodFacts{SandboxName: "dne"}
+		targetPodfacts := podfacts.PodFacts{SandboxName: "dne"}
+		targetPodfacts.Detail = make(podfacts.PodFactDetail)
+		targetPodfacts.Detail[types.NamespacedName{}] = &podfacts.PodFact{}
 		r := &ReplicationReconciler{
 			SourcePFacts: &sourcePodfacts,
 			TargetPFacts: &targetPodfacts,
@@ -240,7 +240,7 @@ var _ = Describe("query_reconcile", func() {
 		Expect(err).Should(HaveOccurred())
 		Expect(err.Error()).Should(Equal("source sandbox 'dne' does not exist or has no nodes assigned to it"))
 		sourcePodfacts.Detail = targetPodfacts.Detail
-		targetPodfacts.Detail = make(vdbcontroller.PodFactDetail)
+		targetPodfacts.Detail = make(podfacts.PodFactDetail)
 		err = r.checkSandboxExists()
 		Expect(err).Should(HaveOccurred())
 		Expect(err.Error()).Should(Equal("target sandbox 'dne' does not exist or has no nodes assigned to it"))

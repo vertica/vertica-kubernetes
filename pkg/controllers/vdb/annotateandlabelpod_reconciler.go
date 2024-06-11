@@ -67,7 +67,7 @@ func (s *AnnotateAndLabelPodReconciler) Reconcile(ctx context.Context, _ *ctrl.R
 
 	// Iterate over pod that exists.
 	for pn, pf := range s.PFacts.Detail {
-		if pf.exists {
+		if pf.GetExists() {
 			if err := s.applyAnnotationsAndLabels(ctx, pn, annotations, labels); err != nil {
 				return ctrl.Result{}, err
 			}

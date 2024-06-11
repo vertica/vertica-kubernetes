@@ -28,6 +28,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/iter"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
+	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/stopdb"
 	config "github.com/vertica/vertica-kubernetes/pkg/vdbconfig"
@@ -44,7 +45,7 @@ type OfflineUpgradeReconciler struct {
 	Log        logr.Logger
 	Vdb        *vapi.VerticaDB // Vdb is the CRD we are acting on.
 	PRunner    cmds.PodRunner
-	PFacts     *PodFacts
+	PFacts     *podfacts.PodFacts
 	Finder     iter.SubclusterFinder
 	Manager    UpgradeManager
 	Dispatcher vadmin.Dispatcher
@@ -66,7 +67,7 @@ var OfflineUpgradeStatusMsgs = []string{
 
 // MakeOfflineUpgradeReconciler will build an OfflineUpgradeReconciler object
 func MakeOfflineUpgradeReconciler(recon config.ReconcilerInterface, log logr.Logger, vdb *vapi.VerticaDB,
-	prunner cmds.PodRunner, pfacts *PodFacts, dispatcher vadmin.Dispatcher) controllers.ReconcileActor {
+	prunner cmds.PodRunner, pfacts *podfacts.PodFacts, dispatcher vadmin.Dispatcher) controllers.ReconcileActor {
 	return &OfflineUpgradeReconciler{
 		Rec:        recon,
 		Log:        log.WithName("OfflineUpgradeReconciler"),
@@ -177,14 +178,14 @@ func (o *OfflineUpgradeReconciler) postStoppingClusterMsg(ctx context.Context) (
 
 // stopCluster will shutdown the entire cluster
 func (o *OfflineUpgradeReconciler) stopCluster(ctx context.Context) (ctrl.Result, error) {
-	pf, found := o.PFacts.findRunningPod()
+	pf, found := o.PFacts.FindRunningPod()
 	if !found {
 		o.Log.Info("No pods running so skipping vertica shutdown")
 		// No running pod.  This isn't an error, it just means no vertica is
 		// running so nothing to shut down.
 		return ctrl.Result{}, nil
 	}
-	if o.PFacts.getUpNodeCount() == 0 {
+	if o.PFacts.GetUpNodeCount() == 0 {
 		o.Log.Info("No vertica process running so nothing to shutdown")
 		// No pods have vertica so we can avoid stop_db call
 		return ctrl.Result{}, nil
@@ -202,7 +203,7 @@ func (o *OfflineUpgradeReconciler) stopCluster(ctx context.Context) (ctrl.Result
 	}
 
 	opts := []stopdb.Option{
-		stopdb.WithInitiator(pf.name, pf.podIP),
+		stopdb.WithInitiator(pf.GetName(), pf.GetPodIP()),
 		stopdb.WithSandbox(o.PFacts.GetSandboxName()),
 	}
 	start := time.Now()
@@ -401,7 +402,7 @@ func (o *OfflineUpgradeReconciler) anyPodsRunningWithOldImage(ctx context.Contex
 		return false, err
 	}
 	for pn, pf := range o.PFacts.Detail {
-		if !pf.upNode {
+		if !pf.GetUpNode() {
 			continue
 		}
 

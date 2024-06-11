@@ -95,17 +95,17 @@ var _ = Describe("podfacts", func() {
 	It("should verify all doesDBExist return codes", func() {
 		pf := MakePodFacts(vdbRec, &cmds.FakePodRunner{}, logger, TestPassword)
 		pf.Detail[types.NamespacedName{Name: "p1"}] = &PodFact{dbExists: false, isPodRunning: true, isPrimary: true}
-		Expect(pf.doesDBExist()).Should(BeFalse())
+		Expect(pf.DoesDBExist()).Should(BeFalse())
 		pf.Detail[types.NamespacedName{Name: "p2"}] = &PodFact{dbExists: false, isPodRunning: false, isPrimary: true}
-		Expect(pf.doesDBExist()).Should(BeFalse())
+		Expect(pf.DoesDBExist()).Should(BeFalse())
 		pf.Detail[types.NamespacedName{Name: "p3"}] = &PodFact{dbExists: true, isPodRunning: true, isPrimary: true}
-		Expect(pf.doesDBExist()).Should(BeTrue())
+		Expect(pf.DoesDBExist()).Should(BeTrue())
 		// Change pf to be a secondary
 		pf.Detail[types.NamespacedName{Name: "p3"}] = &PodFact{dbExists: true, isPodRunning: true, isPrimary: false}
-		Expect(pf.doesDBExist()).Should(BeFalse())
+		Expect(pf.DoesDBExist()).Should(BeFalse())
 	})
 
-	It("should verify return of countNotReadOnlyWithOldImage", func() {
+	It("should verify return of CountNotReadOnlyWithOldImage", func() {
 		const OldImage = "image:v1"
 		const NewImage = "image:v2"
 		pf := MakePodFacts(vdbRec, &cmds.FakePodRunner{}, logger, TestPassword)
@@ -127,9 +127,9 @@ var _ = Describe("podfacts", func() {
 			readOnly:     false,
 			image:        NewImage,
 		}
-		Expect(pf.countNotReadOnlyWithOldImage(NewImage)).Should(Equal(1))
+		Expect(pf.CountNotReadOnlyWithOldImage(NewImage)).Should(Equal(1))
 		pf.Detail[types.NamespacedName{Name: "p1"}].readOnly = true
-		Expect(pf.countNotReadOnlyWithOldImage(NewImage)).Should(Equal(0))
+		Expect(pf.CountNotReadOnlyWithOldImage(NewImage)).Should(Equal(0))
 	})
 
 	It("should mark db is down if vsql fails", func() {
@@ -238,7 +238,7 @@ var _ = Describe("podfacts", func() {
 		pf.Detail[types.NamespacedName{Name: "p3"}] = &PodFact{
 			dnsName: "p3", dbExists: true,
 		}
-		p, ok := pf.findFirstPodSorted(func(p *PodFact) bool { return true })
+		p, ok := pf.FindFirstPodSorted(func(p *PodFact) bool { return true })
 		Expect(ok).Should(BeTrue())
 		Expect(p.dnsName).Should(Equal("p1"))
 	})
@@ -276,7 +276,7 @@ var _ = Describe("podfacts", func() {
 		pf.Detail[types.NamespacedName{Name: "p3"}] = &PodFact{
 			dnsName: "p3", dbExists: true, upNode: true, readOnly: false, isPendingDelete: false,
 		}
-		p, ok := pf.findPodToRunAdminCmdAny()
+		p, ok := pf.FindPodToRunAdminCmdAny()
 		Expect(ok).Should(BeTrue())
 		Expect(p.dnsName).Should(Equal("p3"))
 
@@ -291,7 +291,7 @@ var _ = Describe("podfacts", func() {
 		pf.Detail[types.NamespacedName{Name: "p3"}] = &PodFact{
 			dnsName: "p3", dbExists: true, upNode: true, readOnly: false,
 		}
-		p, ok = pf.findPodToRunAdminCmdAny()
+		p, ok = pf.FindPodToRunAdminCmdAny()
 		Expect(ok).Should(BeTrue())
 		Expect(p.dnsName).Should(Equal("p2"))
 
@@ -306,7 +306,7 @@ var _ = Describe("podfacts", func() {
 		pf.Detail[types.NamespacedName{Name: "p3"}] = &PodFact{
 			dnsName: "p3", dbExists: true, upNode: true, readOnly: true,
 		}
-		p, ok = pf.findPodToRunAdminCmdAny()
+		p, ok = pf.FindPodToRunAdminCmdAny()
 		Expect(ok).Should(BeTrue())
 		Expect(p.dnsName).Should(Equal("p2"))
 
@@ -324,7 +324,7 @@ var _ = Describe("podfacts", func() {
 		pf.Detail[types.NamespacedName{Name: "p4"}] = &PodFact{
 			dnsName: "p3", isInstalled: true, isPodRunning: true,
 		}
-		p, ok = pf.findPodToRunAdminCmdAny()
+		p, ok = pf.FindPodToRunAdminCmdAny()
 		Expect(ok).Should(BeTrue())
 		Expect(p.dnsName).Should(Equal("p2"))
 	})
@@ -363,18 +363,18 @@ var _ = Describe("podfacts", func() {
 
 func verifyReIP(pf *PodFacts) {
 	By("finding any installed pod")
-	pods := pf.findReIPPods(dBCheckAny)
+	pods := pf.FindReIPPods(dBCheckAny)
 	Ω(pods).Should(HaveLen(2))
 	Ω(pods[0].dnsName).Should(Equal("p1"))
 	Ω(pods[1].dnsName).Should(Equal("p2"))
 
 	By("finding pods with a db")
-	pods = pf.findReIPPods(dBCheckOnlyWithDBs)
+	pods = pf.FindReIPPods(dBCheckOnlyWithDBs)
 	Ω(pods).Should(HaveLen(1))
 	Ω(pods[0].dnsName).Should(Equal("p1"))
 
 	By("finding pods without a db")
-	pods = pf.findReIPPods(dBCheckOnlyWithoutDBs)
+	pods = pf.FindReIPPods(dBCheckOnlyWithoutDBs)
 	Ω(pods).Should(HaveLen(1))
 	Ω(pods[0].dnsName).Should(Equal("p2"))
 }

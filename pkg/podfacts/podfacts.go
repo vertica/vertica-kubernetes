@@ -221,9 +221,9 @@ type dBCheckType string
 
 // Constants for dbCheckType
 const (
-	dBCheckOnlyWithDBs    dBCheckType = "OnlyWithDBs"
-	dBCheckOnlyWithoutDBs dBCheckType = "OnlyWithoutDBs"
-	dBCheckAny            dBCheckType = "Any"
+	DBCheckOnlyWithDBs    dBCheckType = "OnlyWithDBs"
+	DBCheckOnlyWithoutDBs dBCheckType = "OnlyWithoutDBs"
+	DBCheckAny            dBCheckType = "Any"
 )
 
 // MakePodFacts will create a PodFacts object and return it
@@ -677,12 +677,127 @@ func (p *PodFact) GetUpNode() bool {
 	return p.upNode
 }
 
-// GetPodIP returns the string value of upNode in PodFact
+// GetSubclusterOid returns the string value of subclusterOid in PodFact
+func (p *PodFact) GetSubclusterOid() string {
+	return p.subclusterOid
+}
+
+// GetAdmintoolsExists returns the bool value of subclusterOid in PodFact
+func (p *PodFact) GetAdmintoolsExists() bool {
+	return p.admintoolsExists
+}
+
+// GetPodIP returns the string value of podIP in PodFact
 func (p *PodFact) GetPodIP() string {
 	return p.podIP
 }
 
-// GetPodIP returns the string value of upNode in PodFact
+// GetPodIndex returns the int32 value of podIndex in PodFact
+func (p *PodFact) GetPodIndex() int32 {
+	return p.podIndex
+}
+
+// GetIsPodRunning returns the bool value of isPodRunning in PodFact
+func (p *PodFact) GetIsPodRunning() bool {
+	return p.isPodRunning
+}
+
+// GetDNSName returns the string value of dnsName in PodFact
+func (p *PodFact) GetDNSName() string {
+	return p.dnsName
+}
+
+// GetExists returns the bool value of dnsName in PodFact
+func (p *PodFact) GetExists() bool {
+	return p.exists
+}
+
+// GetDBExists returns the bool value of dbExists in PodFact
+func (p *PodFact) GetDBExists() bool {
+	return p.dbExists
+}
+
+// GetFileExists returns the map[string]bool value of fileExists in PodFact
+func (p *PodFact) GetFileExists() map[string]bool {
+	return p.fileExists
+}
+
+// GetIsInstalled returns the bool value of isInstalled in PodFact
+func (p *PodFact) GetIsInstalled() bool {
+	return p.isInstalled
+}
+
+// GetIsInstalled returns the bool value of isPendingDelete in PodFact
+func (p *PodFact) GetIsPendingDelete() bool {
+	return p.isPendingDelete
+}
+
+// GetName returns the types.NamespacedName value of isPodRunning in PodFact
+func (p *PodFact) GetName() types.NamespacedName {
+	return p.name
+}
+
+// GetSubclusterName returns the string value of subclusterName in PodFact
+func (p *PodFact) GetSubclusterName() string {
+	return p.subclusterName
+}
+
+// GetCompat21NodeName returns the string value of compat21NodeName in PodFact
+func (p *PodFact) GetCompat21NodeName() string {
+	return p.compat21NodeName
+}
+
+// GetName returns the int value of shardSubscriptions in PodFact
+func (p *PodFact) GetShardSubscriptions() int {
+	return p.shardSubscriptions
+}
+
+// GetSandbox returns the string value of sandbox in PodFact
+func (p *PodFact) GetSandbox() string {
+	return p.sandbox
+}
+
+// GetReadOnly returns the bool value of readonly in PodFact
+func (p *PodFact) GetReadOnly() bool {
+	return p.readOnly
+}
+
+// GetStartupInProgress returns the bool value of startupInProgress in PodFact
+func (p *PodFact) GetStartupInProgress() bool {
+	return p.startupInProgress
+}
+
+// GetVnodeName returns the string value of vnodeName in PodFact
+func (p *PodFact) GetVnodeName() string {
+	return p.vnodeName
+}
+
+// GetHasNMASidecar returns the bool value of hasNMASidecar in PodFact
+func (p *PodFact) GetHasNMASidecar() bool {
+	return p.hasNMASidecar
+}
+
+// GetExecContainerName returns the string value of hasNMASidecar in PodFact
+func (p *PodFact) GetExecContainerName() string {
+	return p.execContainerName
+}
+
+// SetIsPendingDelete set the bool value of isPendingDelete in PodFact
+func (p *PodFact) SetIsPendingDelete(isPendingDelete bool) {
+	p.isPendingDelete = isPendingDelete
+}
+
+// SetUpNode set the bool value of upNode in PodFact
+func (p *PodFact) SetUpNode(upNode bool) {
+	p.upNode = upNode
+}
+
+// SetShardSubscriptions set the bool value of shardSubscriptions in PodFact
+func (p *PodFact) SetShardSubscriptions(shardSubscriptions int) {
+	p.shardSubscriptions = shardSubscriptions
+}
+
+// GetPodIP set the string value of upNode in PodFact
 func (p *PodFact) SetHasDCTableAnnotations(hasDCTableAnnotations bool) {
 	p.hasDCTableAnnotations = hasDCTableAnnotations
 }
@@ -834,7 +949,7 @@ func (p *PodFacts) checkIfNodeIsDoingStartup(_ context.Context, _ *vapi.VerticaD
 // doesDBExist will check if the database exists anywhere.
 // Returns false if we are 100% confident that the database doesn't
 // exist anywhere.
-func (p *PodFacts) doesDBExist() bool {
+func (p *PodFacts) DoesDBExist() bool {
 	for _, v := range p.Detail {
 		// dbExists check is based off the existence of the catalog. So, we only
 		// check pods from primary subclusters, as the check is only accurate
@@ -852,7 +967,7 @@ func (p *PodFacts) doesDBExist() bool {
 
 // findFirstUpPod returns the first (sorted) pod that has an up vertica node
 // Will return false for second parameter if no pod could be found.
-func (p *PodFacts) findFirstUpPod(allowReadOnly bool, scName string) (*PodFact, bool) {
+func (p *PodFacts) FindFirstUpPod(allowReadOnly bool, scName string) (*PodFact, bool) {
 	return p.FindFirstPodSorted(func(v *PodFact) bool {
 		return (scName == "" || v.subclusterName == scName) &&
 			v.upNode && (allowReadOnly || !v.readOnly)
@@ -860,16 +975,16 @@ func (p *PodFacts) findFirstUpPod(allowReadOnly bool, scName string) (*PodFact, 
 }
 
 func (p *PodFacts) FindFirstUpPodIP(allowReadOnly bool, scName string) (string, bool) {
-	if pod, ok := p.findFirstUpPod(allowReadOnly, scName); ok {
+	if pod, ok := p.FindFirstUpPod(allowReadOnly, scName); ok {
 		return pod.podIP, true
 	}
 	return "", false
 }
 
-// findPodToRunAdminCmdAny returns the name of the pod we will exec into into
+// FindPodToRunAdminCmdAny returns the name of the pod we will exec into into
 // order to run admintools.
 // Will return false for second parameter if no pod could be found.
-func (p *PodFacts) findPodToRunAdminCmdAny() (*PodFact, bool) {
+func (p *PodFacts) FindPodToRunAdminCmdAny() (*PodFact, bool) {
 	// Our preference for the pod is as follows:
 	// - up, not read-only and not pending delete
 	// - up and not read-only
@@ -895,9 +1010,9 @@ func (p *PodFacts) findPodToRunAdminCmdAny() (*PodFact, bool) {
 	})
 }
 
-// findPodToRunAdminCmdOffline will return a pod to run an offline admintools
+// FindPodToRunAdminCmdOffline will return a pod to run an offline admintools
 // command.  If nothing is found, the second parameter returned will be false.
-func (p *PodFacts) findPodToRunAdminCmdOffline() (*PodFact, bool) {
+func (p *PodFacts) FindPodToRunAdminCmdOffline() (*PodFact, bool) {
 	for _, v := range p.Detail {
 		if v.isInstalled && v.isPodRunning && !v.upNode {
 			return v, true
@@ -906,9 +1021,9 @@ func (p *PodFacts) findPodToRunAdminCmdOffline() (*PodFact, bool) {
 	return &PodFact{}, false
 }
 
-// findRunningPod returns the first running pod.  If no pods are running, this
+// FindRunningPod returns the first running pod.  If no pods are running, this
 // return false.
-func (p *PodFacts) findRunningPod() (*PodFact, bool) {
+func (p *PodFacts) FindRunningPod() (*PodFact, bool) {
 	for _, v := range p.Detail {
 		if v.isPodRunning {
 			return v, true
@@ -917,7 +1032,7 @@ func (p *PodFacts) findRunningPod() (*PodFact, bool) {
 	return &PodFact{}, false
 }
 
-// findRestartablePods returns a list of pod facts that can be restarted.
+// FindRestartablePods returns a list of pod facts that can be restarted.
 // An empty list implies there are no pods that need to be restarted.
 //
 // We allow read-only nodes to be treated as being restartable because they are
@@ -930,7 +1045,7 @@ func (p *PodFacts) findRunningPod() (*PodFact, bool) {
 // anymore. Plus, we are going to be removing them, so it makes little sense to
 // restart them. For start_db those pending delete pods may be needed for
 // quorum.
-func (p *PodFacts) findRestartablePods(restartReadOnly, restartTransient, restartPendingDelete bool) []*PodFact {
+func (p *PodFacts) FindRestartablePods(restartReadOnly, restartTransient, restartPendingDelete bool) []*PodFact {
 	return p.filterPods(func(v *PodFact) bool {
 		if !restartTransient && v.isTransient {
 			return false
@@ -950,20 +1065,20 @@ func (p *PodFacts) findInstalledPods() []*PodFact {
 	}))
 }
 
-// findReIPPods returns a list of pod facts that may need their IPs to be refreshed with re-ip.
+// FindReIPPods returns a list of pod facts that may need their IPs to be refreshed with re-ip.
 // An empty list implies there are no pods that match the criteria.
-func (p *PodFacts) findReIPPods(chk dBCheckType) []*PodFact {
+func (p *PodFacts) FindReIPPods(chk dBCheckType) []*PodFact {
 	return p.filterPods(func(pod *PodFact) bool {
 		// Only consider running pods that exist and have an installation
 		if !pod.exists || !pod.isPodRunning || !pod.isInstalled {
 			return false
 		}
 		switch chk {
-		case dBCheckOnlyWithDBs:
+		case DBCheckOnlyWithDBs:
 			return pod.dbExists
-		case dBCheckOnlyWithoutDBs:
+		case DBCheckOnlyWithoutDBs:
 			return !pod.dbExists
-		case dBCheckAny:
+		case DBCheckAny:
 			return true
 		default:
 			return true
@@ -1011,9 +1126,9 @@ func (p *PodFacts) FindFirstPodSorted(filterFunc func(p *PodFact) bool) (*PodFac
 	return pods[0], true
 }
 
-// areAllPodsRunningAndZeroInstalled returns true if all of the pods are running
+// AreAllPodsRunningAndZeroInstalled returns true if all of the pods are running
 // and none of the pods have an installation.
-func (p *PodFacts) areAllPodsRunningAndZeroInstalled() bool {
+func (p *PodFacts) AreAllPodsRunningAndZeroInstalled() bool {
 	for _, v := range p.Detail {
 		if ((!v.exists || !v.isPodRunning) && v.managedByParent) || v.isInstalled {
 			return false
@@ -1031,8 +1146,8 @@ func (p *PodFacts) countPods(countFunc func(p *PodFact) int) int {
 	return count
 }
 
-// countRunningAndInstalled returns number of pods that are running and have an install
-func (p *PodFacts) countRunningAndInstalled() int {
+// CountRunningAndInstalled returns number of pods that are running and have an install
+func (p *PodFacts) CountRunningAndInstalled() int {
 	return p.countPods(func(v *PodFact) int {
 		if v.isPodRunning && v.isInstalled {
 			return 1
@@ -1041,9 +1156,9 @@ func (p *PodFacts) countRunningAndInstalled() int {
 	})
 }
 
-// countNotRestartablePods returns number of pods that aren't yet
+// CountNotRestartablePods returns number of pods that aren't yet
 // running but the restart reconciler needs to handle them.
-func (p *PodFacts) countNotRestartablePods(vclusterOps bool) int {
+func (p *PodFacts) CountNotRestartablePods(vclusterOps bool) int {
 	return p.countPods(func(v *PodFact) int {
 		// Non-restartable pods are pods that aren't yet running, or don't have
 		// the necessary DC table annotations, but need to be handled by the
@@ -1063,8 +1178,8 @@ func (p *PodFacts) countNotRestartablePods(vclusterOps bool) int {
 	})
 }
 
-// countUpPrimaryNodes returns the number of primary nodes that are UP
-func (p *PodFacts) countUpPrimaryNodes() int {
+// CountUpPrimaryNodes returns the number of primary nodes that are UP
+func (p *PodFacts) CountUpPrimaryNodes() int {
 	return p.countPods(func(v *PodFact) int {
 		if v.upNode && v.isPrimary {
 			return 1
@@ -1073,11 +1188,11 @@ func (p *PodFacts) countUpPrimaryNodes() int {
 	})
 }
 
-// countNotReadOnlyWithOldImage will return a count of the number of pods that
+// CountNotReadOnlyWithOldImage will return a count of the number of pods that
 // are not read-only and are running an image different then newImage.  This is
 // used in online upgrade to wait until pods running the old image have gone
 // into read-only mode.
-func (p *PodFacts) countNotReadOnlyWithOldImage(newImage string) int {
+func (p *PodFacts) CountNotReadOnlyWithOldImage(newImage string) int {
 	return p.countPods(func(v *PodFact) int {
 		if v.isPodRunning && v.upNode && !v.readOnly && v.image != newImage {
 			return 1
@@ -1086,9 +1201,9 @@ func (p *PodFacts) countNotReadOnlyWithOldImage(newImage string) int {
 	})
 }
 
-// getUpNodeCount returns the number of up nodes.
+// GetUpNodeCount returns the number of up nodes.
 // A pod is considered down if it doesn't have a running vertica process.
-func (p *PodFacts) getUpNodeCount() int {
+func (p *PodFacts) GetUpNodeCount() int {
 	return p.countPods(func(v *PodFact) int {
 		if v.upNode {
 			return 1
@@ -1097,10 +1212,10 @@ func (p *PodFacts) getUpNodeCount() int {
 	})
 }
 
-// getUpNodeAndNotReadOnlyCount returns the number of nodes that are up and
+// GetUpNodeAndNotReadOnlyCount returns the number of nodes that are up and
 // writable.  Starting in 11.0SP2, nodes can be up but only in read-only state.
 // This function filters out those *up* nodes that are in read-only state.
-func (p *PodFacts) getUpNodeAndNotReadOnlyCount() int {
+func (p *PodFacts) GetUpNodeAndNotReadOnlyCount() int {
 	return p.countPods(func(v *PodFact) int {
 		if v.upNode && !v.readOnly {
 			return 1
@@ -1109,8 +1224,8 @@ func (p *PodFacts) getUpNodeAndNotReadOnlyCount() int {
 	})
 }
 
-// genPodNames will generate a string of pods names given a list of pods
-func genPodNames(pods []*PodFact) string {
+// GenPodNames will generate a string of pods names given a list of pods
+func GenPodNames(pods []*PodFact) string {
 	podNames := make([]string, 0, len(pods))
 	for _, pod := range pods {
 		podNames = append(podNames, pod.name.Name)
@@ -1153,7 +1268,7 @@ func getHostAndPodNameList(podList []*PodFact) ([]string, []types.NamespacedName
 
 // findExpectedNodeNames will return a list of pods that should have been in the database
 // before running db_add_node (which are also called expected nodes)
-func (p *PodFacts) findExpectedNodeNames() []string {
+func (p *PodFacts) FindExpectedNodeNames() []string {
 	var expectedNodeNames []string
 
 	for _, v := range p.Detail {
