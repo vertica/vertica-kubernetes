@@ -17,7 +17,6 @@ import (
 	"context"
 
 	"github.com/go-logr/logr"
-	vutil "github.com/vertica/vcluster/vclusterops/util"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
@@ -70,6 +69,9 @@ func (s *PromoteSandboxToMainReconciler) Reconcile(ctx context.Context, _ *ctrl.
 	}
 
 	sandboxName := s.PFacts.GetSandboxName()
+	if sandboxName == "" {
+		return res, nil
+	}
 
 	res, err := s.promoteSandboxToMain(ctx, sandboxName)
 	if err != nil {
@@ -78,7 +80,7 @@ func (s *PromoteSandboxToMainReconciler) Reconcile(ctx context.Context, _ *ctrl.
 
 	s.PFacts.Invalidate()
 
-	err = s.updateSandboxScTypeInVdb(ctx, sandboxName)
+	err = s.updateSandboxInVdb(ctx, sandboxName)
 	if err != nil {
 		return res, err
 	}
@@ -113,16 +115,27 @@ func (s *PromoteSandboxToMainReconciler) promoteSandboxToMain(ctx context.Contex
 	return ctrl.Result{}, nil
 }
 
-// updateSandboxScTypeInVdb update SandboxPrimarySubcluster to PrimarySubcluster in vdb.spec.subclusters
-// and remove sandbox spec and status in vdb after promoting to main
-func (s *PromoteSandboxToMainReconciler) updateSandboxScTypeInVdb(ctx context.Context, sandboxName string) error {
+// updateSandboxInVdb update SandboxPrimarySubcluster to PrimarySubcluster in vdb.spec.subclusters
+// and remove sandbox spec and status in vdb after promoting sandbox to main
+func (s *PromoteSandboxToMainReconciler) updateSandboxInVdb(ctx context.Context, sandboxName string) error {
+	err := s.updateSandboxInSpec(ctx, sandboxName)
+	if err != nil {
+		return err
+	}
+	err = s.updateSandboxInVdbStatus(ctx, sandboxName)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (s *PromoteSandboxToMainReconciler) updateSandboxInSpec(ctx context.Context, sandboxName string) error {
 	scSbMap := s.Vdb.GenSubclusterSandboxMap()
 
 	// remove sandbox in spec
 	for i := len(s.Vdb.Spec.Sandboxes) - 1; i >= 0; i-- {
 		_, err := vk8s.UpdateVDBWithRetry(ctx, s.VRec, s.Vdb, func() (bool, error) {
 			if s.Vdb.Spec.Sandboxes[i].Name == sandboxName {
-				s.Vdb.Spec.Sandboxes[i].Subclusters = []vapi.SubclusterName{}
 				s.Vdb.Spec.Sandboxes = append(s.Vdb.Spec.Sandboxes[:i], s.Vdb.Spec.Sandboxes[i+1:]...)
 			}
 			return true, nil
@@ -148,24 +161,17 @@ func (s *PromoteSandboxToMainReconciler) updateSandboxScTypeInVdb(ctx context.Co
 			}
 		}
 	}
+	return nil
+}
 
-	// remove sandbox in status
-	unsandboxSbScMap := s.Vdb.GenSandboxSubclusterMapForUnsandbox()
-	unsandboxedScNames, found := unsandboxSbScMap[sandboxName]
-	if !found {
-		s.Log.Info("the sandbox inside it does not need to be removed")
-		return nil
-	}
+func (s *PromoteSandboxToMainReconciler) updateSandboxInVdbStatus(ctx context.Context, sandboxName string) error {
 	updateStatus := func(vdbChg *vapi.VerticaDB) error {
 		// update the sandbox's subclusters in sandbox status
 		for i := len(vdbChg.Status.Sandboxes) - 1; i >= 0; i-- {
 			if vdbChg.Status.Sandboxes[i].Name != sandboxName {
 				continue
 			}
-			vdbChg.Status.Sandboxes[i].Subclusters = vutil.SliceDiff(vdbChg.Status.Sandboxes[i].Subclusters, unsandboxedScNames)
-			if len(vdbChg.Status.Sandboxes[i].Subclusters) == 0 {
-				vdbChg.Status.Sandboxes = append(vdbChg.Status.Sandboxes[:i], vdbChg.Status.Sandboxes[i+1:]...)
-			}
+			vdbChg.Status.Sandboxes = append(vdbChg.Status.Sandboxes[:i], vdbChg.Status.Sandboxes[i+1:]...)
 			break
 		}
 		return nil

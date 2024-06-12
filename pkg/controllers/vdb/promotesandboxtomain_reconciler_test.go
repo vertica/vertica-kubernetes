@@ -44,14 +44,14 @@ var _ = Describe("promotesandboxtomain_reconcile", func() {
 	It("should exit without error if not using an EON database", func() {
 		vdb := vapi.MakeVDBForVclusterOps()
 		vdb.Spec.ShardCount = 0 // Force enterprise database
+		vdb.Spec.Sandboxes = []vapi.Sandbox{
+			{Name: sandbox1, Subclusters: []vapi.SubclusterName{{Name: subcluster1}}},
+			{Name: sandbox2, Subclusters: []vapi.SubclusterName{{Name: subcluster2}}},
+		}
 		vdb.Spec.Subclusters = []vapi.Subcluster{
 			{Name: maincluster, Size: 3, Type: vapi.PrimarySubcluster},
 			{Name: subcluster1, Size: 1, Type: vapi.SecondarySubcluster},
 			{Name: subcluster2, Size: 1, Type: vapi.SecondarySubcluster},
-		}
-		vdb.Spec.Sandboxes = []vapi.Sandbox{
-			{Name: sandbox1, Subclusters: []vapi.SubclusterName{{Name: subcluster1}}},
-			{Name: sandbox2, Subclusters: []vapi.SubclusterName{{Name: subcluster2}}},
 		}
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
@@ -62,5 +62,32 @@ var _ = Describe("promotesandboxtomain_reconcile", func() {
 		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
 		r := MakePromoteSandboxToMainReconciler(vdbRec, logger, vdb, &pfacts, dispatcher, k8sClient)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
+	})
+
+	It("should update the sandboxprimary to primary type after promoting sandbox to main", func() {
+		vdb := vapi.MakeVDBForVclusterOps()
+		vdb.Spec.ShardCount = 4
+		vdb.Spec.Sandboxes = []vapi.Sandbox{
+			{Name: sandbox1, Subclusters: []vapi.SubclusterName{{Name: subcluster1}}},
+		}
+		vdb.Spec.Subclusters = []vapi.Subcluster{
+			{Name: maincluster, Size: 3, Type: vapi.PrimarySubcluster},
+			{Name: subcluster1, Size: 1, Type: vapi.SandboxPrimarySubcluster},
+		}
+		test.CreateVDB(ctx, k8sClient, vdb)
+		defer test.DeleteVDB(ctx, k8sClient, vdb)
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
+
+		fpr := &cmds.FakePodRunner{}
+		pfacts := MakePodFacts(vdbRec, fpr, logger, TestPassword)
+		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
+		rec := MakePromoteSandboxToMainReconciler(vdbRec, logger, vdb, &pfacts, dispatcher, k8sClient)
+		r := rec.(*PromoteSandboxToMainReconciler)
+		err := r.updateSandboxInVdb(ctx, sandbox1)
+		Expect(r.Vdb.Spec.Subclusters[1].Type).Should(Equal(vapi.PrimarySubcluster))
+		Expect(r.Vdb.Spec.Sandboxes).Should(BeEmpty())
+		Expect(r.Vdb.Status.Sandboxes).Should(BeEmpty())
+		Expect(err).Should(BeNil())
 	})
 })

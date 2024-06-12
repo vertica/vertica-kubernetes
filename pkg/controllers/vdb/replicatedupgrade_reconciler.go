@@ -616,7 +616,7 @@ func (r *ReplicatedUpgradeReconciler) postPromoteSandboxMsg(ctx context.Context)
 func (r *ReplicatedUpgradeReconciler) promoteSandboxToMainCluster(ctx context.Context) (ctrl.Result, error) {
 	sb := r.VDB.GetSandboxStatus(r.sandboxName)
 	if sb == nil {
-		return ctrl.Result{}, fmt.Errorf("could not find sandbox %q", r.sandboxName)
+		return ctrl.Result{}, nil
 	}
 	sbPFacts, err := r.getSandboxPodFacts(ctx, false)
 	if err != nil {
