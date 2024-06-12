@@ -28,6 +28,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
+	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	"github.com/vertica/vertica-kubernetes/pkg/vk8s"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -75,7 +76,7 @@ type ReplicatedUpgradeReconciler struct {
 	VRec        *VerticaDBReconciler
 	Log         logr.Logger
 	VDB         *vapi.VerticaDB
-	PFacts      map[string]*PodFacts // We have podfacts for main cluster and replica sandbox
+	PFacts      map[string]*podfacts.PodFacts // We have podfacts for main cluster and replica sandbox
 	Manager     UpgradeManager
 	Dispatcher  vadmin.Dispatcher
 	sandboxName string // name of the sandbox created for replica group B
@@ -83,12 +84,12 @@ type ReplicatedUpgradeReconciler struct {
 
 // MakeReplicatedUpgradeReconciler will build a ReplicatedUpgradeReconciler object
 func MakeReplicatedUpgradeReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
-	vdb *vapi.VerticaDB, pfacts *PodFacts, dispatcher vadmin.Dispatcher) controllers.ReconcileActor {
+	vdb *vapi.VerticaDB, pfacts *podfacts.PodFacts, dispatcher vadmin.Dispatcher) controllers.ReconcileActor {
 	return &ReplicatedUpgradeReconciler{
 		VRec:       vdbrecon,
 		Log:        log.WithName("ReplicatedUpgradeReconciler"),
 		VDB:        vdb,
-		PFacts:     map[string]*PodFacts{vapi.MainCluster: pfacts},
+		PFacts:     map[string]*podfacts.PodFacts{vapi.MainCluster: pfacts},
 		Manager:    *MakeUpgradeManager(vdbrecon, log, vdb, vapi.ReplicatedUpgradeInProgress, replicatedUpgradeAllowed),
 		Dispatcher: dispatcher,
 	}
@@ -411,8 +412,8 @@ func (r *ReplicatedUpgradeReconciler) waitForSandboxUpgrade(ctx context.Context)
 
 	r.Log.Info("collected sandbox facts", "numPods", len(sbPFacts.Detail))
 	for _, pf := range sbPFacts.Detail {
-		r.Log.Info("sandbox pod fact", "pod", pf.name.Name, "image", pf.image, "up", pf.upNode)
-		if pf.image != r.VDB.Spec.Image || !pf.upNode {
+		r.Log.Info("sandbox pod fact", "pod", pf.GetName().Name, "image", pf.GetImage(), "up", pf.GetUpNode())
+		if pf.GetImage() != r.VDB.Spec.Image || !pf.GetUpNode() {
 			r.Log.Info("Still waiting for sandbox to be upgraded")
 			return ctrl.Result{Requeue: true}, nil
 		}
@@ -925,7 +926,7 @@ func (r *ReplicatedUpgradeReconciler) postNextStatusMsg(ctx context.Context, msg
 
 // getSandboxPodFacts returns a cached copy of the podfacts for the sandbox. If
 // the podfacts aren't cached yet, it will cache them and optionally collect them.
-func (r *ReplicatedUpgradeReconciler) getSandboxPodFacts(ctx context.Context, doCollection bool) (*PodFacts, error) {
+func (r *ReplicatedUpgradeReconciler) getSandboxPodFacts(ctx context.Context, doCollection bool) (*podfacts.PodFacts, error) {
 	// Collect the podfacts for the sandbox if not already done. We are going to
 	// use the sandbox podfacts when we update the client routing label.
 	if _, found := r.PFacts[r.sandboxName]; !found {

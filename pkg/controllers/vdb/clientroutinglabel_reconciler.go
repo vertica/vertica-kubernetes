@@ -93,7 +93,8 @@ func (c *ClientRoutingLabelReconciler) Reconcile(ctx context.Context, _ *ctrl.Re
 }
 
 // reconcilePod will handle checking for the label of a single pod
-func (c *ClientRoutingLabelReconciler) reconcilePod(ctx context.Context, pn types.NamespacedName, pf *podfacts.PodFact) (ctrl.Result, error) {
+func (c *ClientRoutingLabelReconciler) reconcilePod(ctx context.Context, pn types.NamespacedName,
+	pf *podfacts.PodFact) (ctrl.Result, error) {
 	var res ctrl.Result
 	// We retry if case someone else updated the pod since we last fetched it
 	err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {

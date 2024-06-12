@@ -32,6 +32,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/opcfg"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
+	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
 	config "github.com/vertica/vertica-kubernetes/pkg/vdbconfig"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -43,13 +44,13 @@ type InstallReconciler struct {
 	Log      logr.Logger
 	Vdb      *vapi.VerticaDB // Vdb is the CRD we are acting on.
 	PRunner  cmds.PodRunner
-	PFacts   *PodFacts
+	PFacts   *podfacts.PodFacts
 	ATWriter atconf.Writer
 }
 
 // MakeInstallReconciler will build and return the InstallReconciler object.
 func MakeInstallReconciler(recon config.ReconcilerInterface, log logr.Logger,
-	vdb *vapi.VerticaDB, prunner cmds.PodRunner, pfacts *PodFacts) controllers.ReconcileActor {
+	vdb *vapi.VerticaDB, prunner cmds.PodRunner, pfacts *podfacts.PodFacts) controllers.ReconcileActor {
 	return &InstallReconciler{
 		Rec:      recon,
 		Log:      log.WithName("InstallReconciler"),
@@ -111,11 +112,11 @@ func (d *InstallReconciler) doInstall(ctx context.Context) (ctrl.Result, error) 
 
 	// We can only proceed with install if all of the installed pods are
 	// running.  This ensures we can properly sync admintools.conf.
-	if ok, podNotRunning := d.PFacts.anyInstalledPodsNotRunning(); ok {
+	if ok, podNotRunning := d.PFacts.AnyInstalledPodsNotRunning(); ok {
 		d.Log.Info("At least one installed pod isn't running.  Aborting the install.", "pod", podNotRunning)
 		return ctrl.Result{Requeue: true}, nil
 	}
-	if ok, podNotRunning := d.PFacts.anyUninstalledTransientPodsNotRunning(); ok {
+	if ok, podNotRunning := d.PFacts.AnyUninstalledTransientPodsNotRunning(); ok {
 		d.Log.Info("At least one transient pod isn't running and doesn't have an install", "pod", podNotRunning)
 		return ctrl.Result{Requeue: true}, nil
 	}
@@ -138,10 +139,10 @@ func (d *InstallReconciler) addHostsToATConf(ctx context.Context) error {
 		return nil
 	}
 
-	installedPods := d.PFacts.findInstalledPods()
+	installedPods := d.PFacts.FindInstalledPods()
 	ipsToInstall := []string{}
 	for _, p := range pods {
-		ipsToInstall = append(ipsToInstall, p.podIP)
+		ipsToInstall = append(ipsToInstall, p.GetPodIP())
 	}
 	installPod := types.NamespacedName{}
 	if len(installedPods) != 0 {
@@ -196,21 +197,21 @@ func (d *InstallReconciler) createConfigDirsIfNecessary(ctx context.Context) err
 // communicate with the Vertica's https server.
 func (d *InstallReconciler) generateHTTPCerts(ctx context.Context) error {
 	for _, p := range d.PFacts.Detail {
-		if !p.isPodRunning {
+		if !p.GetIsPodRunning() {
 			continue
 		}
-		if !p.fileExists[paths.HTTPTLSConfFile] {
+		if !p.GetFileExists()[paths.HTTPTLSConfFile] {
 			frwt := httpconf.FileWriter{}
 			secretName := names.GenNamespacedName(d.Vdb, d.Vdb.Spec.NMATLSSecret)
 			fname, err := frwt.GenConf(ctx, d.Rec.GetClient(), secretName)
 			if err != nil {
 				return errors.Wrap(err, fmt.Sprintf("failed generating the %s file", paths.HTTPTLSConfFileName))
 			}
-			_, _, err = d.PRunner.CopyToPod(ctx, p.name, names.ServerContainer, fname,
+			_, _, err = d.PRunner.CopyToPod(ctx, p.GetName(), names.ServerContainer, fname,
 				fmt.Sprintf("%s/%s", paths.HTTPTLSConfDir, paths.HTTPTLSConfFileName))
 			_ = os.Remove(fname)
 			if err != nil {
-				return errors.Wrap(err, fmt.Sprintf("failed to copy %s to the pod %s", fname, p.name))
+				return errors.Wrap(err, fmt.Sprintf("failed to copy %s to the pod %s", fname, p.GetName()))
 			}
 			// Invalidate the pod facts cache since its out of date due the https generation
 			d.PFacts.Invalidate()
@@ -220,8 +221,8 @@ func (d *InstallReconciler) generateHTTPCerts(ctx context.Context) error {
 }
 
 // getInstallTargets finds the list of hosts/pods that we need to initialize the config for
-func (d *InstallReconciler) getInstallTargets(ctx context.Context) ([]*PodFact, error) {
-	podList := make([]*PodFact, 0, len(d.PFacts.Detail))
+func (d *InstallReconciler) getInstallTargets(ctx context.Context) ([]*podfacts.PodFact, error) {
+	podList := make([]*podfacts.PodFact, 0, len(d.PFacts.Detail))
 	// We need to install pods in pod index order.  We do this because we can
 	// determine if a pod has an installation by looking at the install count
 	// for the subcluster.  For instance, if a subcluster of size 3 has no
@@ -240,18 +241,18 @@ func (d *InstallReconciler) getInstallTargets(ctx context.Context) ([]*PodFact, 
 			if !ok {
 				break
 			}
-			if v.isInstalled || v.dbExists {
+			if v.GetIsInstalled() || v.GetDBExists() {
 				continue
 			}
 			// To ensure we only install pods in pod-index order, we stop the
 			// install target search when we find a pod isn't running.
-			if !v.isPodRunning {
+			if !v.GetIsPodRunning() {
 				break
 			}
 			podList = append(podList, v)
 
-			if v.hasStaleAdmintoolsConf {
-				if _, _, err := d.PRunner.ExecInPod(ctx, v.name, names.ServerContainer, d.genCmdRemoveOldConfig()...); err != nil {
+			if v.GetHasStaleAdmintoolsConf() {
+				if _, _, err := d.PRunner.ExecInPod(ctx, v.GetName(), names.ServerContainer, d.genCmdRemoveOldConfig()...); err != nil {
 					return podList, fmt.Errorf("failed to remove old admintools.conf: %w", err)
 				}
 			}
@@ -261,16 +262,16 @@ func (d *InstallReconciler) getInstallTargets(ctx context.Context) ([]*PodFact, 
 }
 
 // createInstallIndicators will create the install indicator file for all pods passed in
-func (d *InstallReconciler) createInstallIndicators(ctx context.Context, pods []*PodFact) error {
+func (d *InstallReconciler) createInstallIndicators(ctx context.Context, pods []*podfacts.PodFact) error {
 	for _, v := range pods {
 		// Create the install indicator file. This is used to know that this
 		// instance of the vdb has setup the config for this pod. The
 		// /opt/vertica/config is backed by a PV, so it is possible that we
 		// see state in there for a prior instance of the vdb. We use the
 		// UID of the vdb to know the current instance.
-		d.Log.Info("create installer indicator file", "Pod", v.name)
+		d.Log.Info("create installer indicator file", "Pod", v.GetName())
 		cmd := d.genCmdCreateInstallIndicator(v)
-		if stdout, _, err := d.PRunner.ExecInPod(ctx, v.name, names.ServerContainer, cmd...); err != nil {
+		if stdout, _, err := d.PRunner.ExecInPod(ctx, v.GetName(), names.ServerContainer, cmd...); err != nil {
 			return fmt.Errorf("failed to create installer indicator with command '%s', output was '%s': %w", cmd, stdout, err)
 		}
 	}
@@ -278,9 +279,9 @@ func (d *InstallReconciler) createInstallIndicators(ctx context.Context, pods []
 }
 
 // genCmdCreateInstallIndicator generates the command to create the install indicator file
-func (d *InstallReconciler) genCmdCreateInstallIndicator(pf *PodFact) []string {
+func (d *InstallReconciler) genCmdCreateInstallIndicator(pf *podfacts.PodFact) []string {
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("grep -E '^node[0-9]{4} = %s,' %s", pf.podIP, paths.AdminToolsConf))
+	sb.WriteString(fmt.Sprintf("grep -E '^node[0-9]{4} = %s,' %s", pf.GetPodIP(), paths.AdminToolsConf))
 	sb.WriteString(" | head -1 | cut -d' ' -f1 | tee ")
 	// The install indicator file has the UID of the vdb. This allows us to know
 	// that we are working with a different life in the vdb is ever recreated.
@@ -300,7 +301,7 @@ func (d *InstallReconciler) genCmdRemoveOldConfig() []string {
 // genCreateConfigDirsScript will create a script to be run in a pod to create
 // the necessary dirs for install. This will return an empty string if nothing
 // needs to happen.
-func (d *InstallReconciler) genCreateConfigDirsScript(p *PodFact) (string, error) {
+func (d *InstallReconciler) genCreateConfigDirsScript(p *podfacts.PodFact) (string, error) {
 	var sb strings.Builder
 	sb.WriteString("set -o errexit\n")
 	numCmds := 0
@@ -311,39 +312,39 @@ func (d *InstallReconciler) genCreateConfigDirsScript(p *PodFact) (string, error
 	// Logrotate setup is only required for versions before 24.1.0 of the database.
 	// Starting from version 24.1.0, we use server-logrotate, which does not require logrotate setup.
 	if !vinf.IsEqualOrNewer(vapi.InDatabaseLogRotateMinVersion) {
-		if !p.dirExists[paths.ConfigLogrotatePath] {
+		if !p.GetDirExists()[paths.ConfigLogrotatePath] {
 			sb.WriteString(fmt.Sprintf("mkdir -p %s\n", paths.ConfigLogrotatePath))
 			numCmds++
 		}
 
-		if !p.fileExists[paths.LogrotateATFile] {
+		if !p.GetFileExists()[paths.LogrotateATFile] {
 			sb.WriteString(fmt.Sprintf("cp /home/dbadmin/logrotate/logrotate/%s %s\n", paths.LogrotateATFileName, paths.LogrotateATFile))
 			numCmds++
 		}
 
-		if !p.fileExists[paths.LogrotateBaseConfFile] {
+		if !p.GetFileExists()[paths.LogrotateBaseConfFile] {
 			sb.WriteString(fmt.Sprintf("cp /home/dbadmin/logrotate/%s %s\n", paths.LogrotateBaseConfFileName, paths.LogrotateBaseConfFile))
 			numCmds++
 		}
 	}
 
-	if !p.dirExists[paths.HTTPTLSConfDir] {
+	if !p.GetDirExists()[paths.HTTPTLSConfDir] {
 		sb.WriteString(fmt.Sprintf("mkdir -p %s\n", paths.HTTPTLSConfDir))
 		numCmds++
 	}
 
 	if !vmeta.UseVClusterOps(d.Vdb.Annotations) {
-		if !p.dirExists[paths.ConfigSharePath] {
+		if !p.GetDirExists()[paths.ConfigSharePath] {
 			sb.WriteString(fmt.Sprintf("mkdir %s\n", paths.ConfigSharePath))
 			numCmds++
 		}
 
-		if !p.dirExists[paths.ConfigLicensingPath] {
+		if !p.GetDirExists()[paths.ConfigLicensingPath] {
 			sb.WriteString(fmt.Sprintf("mkdir %s\n", paths.ConfigLicensingPath))
 			numCmds++
 		}
 
-		if !p.dirExists[paths.ConfigLicensingPath] || !p.fileExists[paths.CELicenseFile] {
+		if !p.GetDirExists()[paths.ConfigLicensingPath] || !p.GetFileExists()[paths.CELicenseFile] {
 			sb.WriteString(fmt.Sprintf("cp /home/dbadmin/licensing/ce/%s %s 2>/dev/null || true\n", paths.CELicenseFileName, paths.CELicenseFile))
 			numCmds++
 		}
@@ -356,8 +357,8 @@ func (d *InstallReconciler) genCreateConfigDirsScript(p *PodFact) (string, error
 }
 
 // createConfigDirsForPodIfNecesssary will setup the config dirs for a single pod.
-func (d *InstallReconciler) createConfigDirsForPodIfNecessary(ctx context.Context, p *PodFact) error {
-	if !p.isPodRunning {
+func (d *InstallReconciler) createConfigDirsForPodIfNecessary(ctx context.Context, p *podfacts.PodFact) error {
+	if !p.GetIsPodRunning() {
 		return nil
 	}
 	tmp, err := os.CreateTemp("", "create-config-dirs.sh.")
@@ -381,7 +382,7 @@ func (d *InstallReconciler) createConfigDirsForPodIfNecessary(ctx context.Contex
 	tmp.Close()
 
 	// Copy the script into the pod and execute it
-	_, _, err = d.PRunner.CopyToPod(ctx, p.name, names.ServerContainer, tmp.Name(), paths.CreateConfigDirsScript,
+	_, _, err = d.PRunner.CopyToPod(ctx, p.GetName(), names.ServerContainer, tmp.Name(), paths.CreateConfigDirsScript,
 		"bash", paths.CreateConfigDirsScript)
 	if err != nil {
 		return errors.Wrap(err, "failed to copy and execute the config dirs script")
@@ -390,8 +391,8 @@ func (d *InstallReconciler) createConfigDirsForPodIfNecessary(ctx context.Contex
 }
 
 // debugDumpAdmintoolsConfForPods will dump debug information for admintools.conf for a list of pods
-func debugDumpAdmintoolsConfForPods(ctx context.Context, prunner cmds.PodRunner, pods []*PodFact) {
+func debugDumpAdmintoolsConfForPods(ctx context.Context, prunner cmds.PodRunner, pods []*podfacts.PodFact) {
 	for _, pod := range pods {
-		prunner.DumpAdmintoolsConf(ctx, pod.name)
+		prunner.DumpAdmintoolsConf(ctx, pod.GetName())
 	}
 }

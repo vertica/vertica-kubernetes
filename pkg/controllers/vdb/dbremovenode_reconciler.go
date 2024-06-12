@@ -28,7 +28,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/iter"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
-	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
+	pf "github.com/vertica/vertica-kubernetes/pkg/podfacts"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/removenode"
 	"github.com/vertica/vertica-kubernetes/pkg/vdbstatus"
@@ -43,13 +43,13 @@ type DBRemoveNodeReconciler struct {
 	Log        logr.Logger
 	Vdb        *vapi.VerticaDB // Vdb is the CRD we are acting on.
 	PRunner    cmds.PodRunner
-	PFacts     *podfacts.PodFacts
+	PFacts     *pf.PodFacts
 	Dispatcher vadmin.Dispatcher
 }
 
 // MakeDBRemoveNodeReconciler will build and return the DBRemoveNodeReconciler object.
 func MakeDBRemoveNodeReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
-	vdb *vapi.VerticaDB, prunner cmds.PodRunner, pfacts *podfacts.PodFacts, dispatcher vadmin.Dispatcher) controllers.ReconcileActor {
+	vdb *vapi.VerticaDB, prunner cmds.PodRunner, pfacts *pf.PodFacts, dispatcher vadmin.Dispatcher) controllers.ReconcileActor {
 	return &DBRemoveNodeReconciler{
 		VRec:       vdbrecon,
 		Log:        log.WithName("DBRemoveNodeReconciler"),
@@ -159,8 +159,8 @@ func (d *DBRemoveNodeReconciler) removeNodesInSubcluster(ctx context.Context, sc
 
 // runRemoveNode will run the admin command to remove the node
 // This handles recording of the events.
-func (d *DBRemoveNodeReconciler) runRemoveNode(ctx context.Context, initiatorPod *podfacts.PodFact, pods []*podfacts.PodFact) error {
-	podNames := podfacts.GenPodNames(pods)
+func (d *DBRemoveNodeReconciler) runRemoveNode(ctx context.Context, initiatorPod *pf.PodFact, pods []*pf.PodFact) error {
+	podNames := pf.GenPodNames(pods)
 	d.VRec.Eventf(d.Vdb, corev1.EventTypeNormal, events.RemoveNodesStart,
 		"Starting database remove node for pods '%s'", podNames)
 	start := time.Now()
@@ -184,8 +184,8 @@ func (d *DBRemoveNodeReconciler) runRemoveNode(ctx context.Context, initiatorPod
 // If a pod was skipped that may require a scale down, then the bool return
 // comes back as true. It is the callers responsibility to requeue a
 // reconciliation if that is true.
-func (d *DBRemoveNodeReconciler) findPodsSuitableForScaleDown(sc *vapi.Subcluster, startPodIndex, endPodIndex int32) ([]*PodFact, bool) {
-	pods := []*podfacts.PodFact{}
+func (d *DBRemoveNodeReconciler) findPodsSuitableForScaleDown(sc *vapi.Subcluster, startPodIndex, endPodIndex int32) ([]*pf.PodFact, bool) {
+	pods := []*pf.PodFact{}
 	requeueNeeded := false
 	for podIndex := startPodIndex; podIndex <= endPodIndex; podIndex++ {
 		removeNodePod := names.GenPodName(d.Vdb, sc, podIndex)
@@ -210,7 +210,7 @@ func (d *DBRemoveNodeReconciler) findPodsSuitableForScaleDown(sc *vapi.Subcluste
 }
 
 // updateSubclusterStatus updates the removed nodes detail in their subcluster status
-func (d *DBRemoveNodeReconciler) updateSubclusterStatus(ctx context.Context, removedPods []*podfacts.PodFact) error {
+func (d *DBRemoveNodeReconciler) updateSubclusterStatus(ctx context.Context, removedPods []*pf.PodFact) error {
 	refreshInPlace := func(vdb *vapi.VerticaDB) error {
 		scMap := vdb.GenSubclusterStatusMap()
 		// The removed nodes belong to the same subcluster

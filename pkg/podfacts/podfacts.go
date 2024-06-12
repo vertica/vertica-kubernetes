@@ -722,6 +722,16 @@ func (p *PodFact) GetFileExists() map[string]bool {
 	return p.fileExists
 }
 
+// GetDirExists returns the map[string]bool value of fileExists in PodFact
+func (p *PodFact) GetDirExists() map[string]bool {
+	return p.dirExists
+}
+
+// GetHasStaleAdmintoolsConf returns the map[string]bool value of fileExists in PodFact
+func (p *PodFact) GetHasStaleAdmintoolsConf() bool {
+	return p.hasStaleAdmintoolsConf
+}
+
 // GetIsInstalled returns the bool value of isInstalled in PodFact
 func (p *PodFact) GetIsInstalled() bool {
 	return p.isInstalled
@@ -777,9 +787,39 @@ func (p *PodFact) GetHasNMASidecar() bool {
 	return p.hasNMASidecar
 }
 
+// GetImage returns the bool value of hasNMASidecar in PodFact
+func (p *PodFact) GetImage() string {
+	return p.image
+}
+
 // GetExecContainerName returns the string value of hasNMASidecar in PodFact
 func (p *PodFact) GetExecContainerName() string {
 	return p.execContainerName
+}
+
+// GetExecContainerName returns the string value of hasNMASidecar in PodFact
+func (p *PodFact) GetHasDCTableAnnotations() bool {
+	return p.hasDCTableAnnotations
+}
+
+// GetDepotDiskPercentSize returns the string value of hasNMASidecar in PodFact
+func (p *PodFact) GetDepotDiskPercentSize() string {
+	return p.depotDiskPercentSize
+}
+
+// GetMaxDepotSize returns the string value of hasNMASidecar in PodFact
+func (p *PodFact) GetMaxDepotSize() int {
+	return p.maxDepotSize
+}
+
+// GetLocalDataSize returns the string value of hasNMASidecar in PodFact
+func (p *PodFact) GetLocalDataSize() int {
+	return p.localDataSize
+}
+
+// GetExecContainerName returns the string value of hasNMASidecar in PodFact
+func (p *PodFact) GetEulaAccepted() bool {
+	return p.eulaAccepted
 }
 
 // SetIsPendingDelete set the bool value of isPendingDelete in PodFact
@@ -787,9 +827,89 @@ func (p *PodFact) SetIsPendingDelete(isPendingDelete bool) {
 	p.isPendingDelete = isPendingDelete
 }
 
+// SetIsPendingDelete set the bool value of isPendingDelete in PodFact
+func (p *PodFact) SetSubclusterName(subclusterName string) {
+	p.subclusterName = subclusterName
+}
+
+// SetVnodeName set the bool value of isPendingDelete in PodFact
+func (p *PodFact) SetVnodeName(vnodeName string) {
+	p.vnodeName = vnodeName
+}
+
+// SetVnodeName set the bool value of isPendingDelete in PodFact
+func (p *PodFact) SetEulaAccepted(eulaAccepted bool) {
+	p.eulaAccepted = eulaAccepted
+}
+
+// SetStartupInProgress set the bool value of isPendingDelete in PodFact
+func (p *PodFact) SetStartupInProgress(startupInProgress bool) {
+	p.startupInProgress = startupInProgress
+}
+
+// SetSubclusterOid set the bool value of isPendingDelete in PodFact
+func (p *PodFact) SetSubclusterOid(subclusterOid string) {
+	p.subclusterOid = subclusterOid
+}
+
+// SetDirExists set the bool value of isPendingDelete in PodFact
+func (p *PodFact) SetDirExists(dirExists map[string]bool) {
+	p.dirExists = dirExists
+}
+
+// SetCompat21NodeName set the bool value of isPendingDelete in PodFact
+func (p *PodFact) SetCompat21NodeName(compat21NodeName string) {
+	p.compat21NodeName = compat21NodeName
+}
+
+// SetIsPrimary set the bool value of isPendingDelete in PodFact
+func (p *PodFact) SetIsPrimary(isPrimary bool) {
+	p.isPrimary = isPrimary
+}
+
+// SetIsPendingDelete set the bool value of isPendingDelete in PodFact
+func (p *PodFact) SetHasNMASidecar(hasNMASidecar bool) {
+	p.hasNMASidecar = hasNMASidecar
+}
+
+// SetIsPendingDelete set the bool value of isPendingDelete in PodFact
+func (p *PodFact) SetReadOnly(readOnly bool) {
+	p.readOnly = readOnly
+}
+
+// SetDepotDiskPercentSize set the bool value of isPendingDelete in PodFact
+func (p *PodFact) SetDepotDiskPercentSize(depotDiskPercentSize string) {
+	p.depotDiskPercentSize = depotDiskPercentSize
+}
+
+// SetIsPendingDelete set the bool value of isPendingDelete in PodFact
+func (p *PodFact) SetAdmintoolsExists(admintoolsExists bool) {
+	p.admintoolsExists = admintoolsExists
+}
+
+// SetIsPendingDelete set the bool value of isPendingDelete in PodFact
+func (p *PodFact) SetIsPodRunning(isPodRunning bool) {
+	p.isPodRunning = isPodRunning
+}
+
+// SetLocalDataAvail set the bool value of isPendingDelete in PodFact
+func (p *PodFact) SetLocalDataAvail(localDataAvail int) {
+	p.localDataAvail = localDataAvail
+}
+
+// SetUpNode set the bool value of upNode in PodFact
+func (p *PodFact) SetIsInstalled(isInstalled bool) {
+	p.isInstalled = isInstalled
+}
+
 // SetUpNode set the bool value of upNode in PodFact
 func (p *PodFact) SetUpNode(upNode bool) {
 	p.upNode = upNode
+}
+
+// SetUpNode set the bool value of upNode in PodFact
+func (p *PodFact) SetDBExists(dbExists bool) {
+	p.dbExists = dbExists
 }
 
 // SetShardSubscriptions set the bool value of shardSubscriptions in PodFact
@@ -1058,8 +1178,8 @@ func (p *PodFacts) FindRestartablePods(restartReadOnly, restartTransient, restar
 	})
 }
 
-// findInstalledPods returns a list of pods that have had the installer run
-func (p *PodFacts) findInstalledPods() []*PodFact {
+// FindInstalledPods returns a list of pods that have had the installer run
+func (p *PodFacts) FindInstalledPods() []*PodFact {
 	return p.filterPods((func(v *PodFact) bool {
 		return v.isInstalled && v.isPodRunning
 	}))
@@ -1086,9 +1206,9 @@ func (p *PodFacts) FindReIPPods(chk dBCheckType) []*PodFact {
 	})
 }
 
-// findPodsLowOnDiskSpace returns a list of pods that have low disk space in
+// FindPodsLowOnDiskSpace returns a list of pods that have low disk space in
 // their local data persistent volume (PV).
-func (p *PodFacts) findPodsLowOnDiskSpace(availThreshold int) []*PodFact {
+func (p *PodFacts) FindPodsLowOnDiskSpace(availThreshold int) []*PodFact {
 	return p.filterPods((func(v *PodFact) bool {
 		return v.isPodRunning && v.localDataAvail <= availThreshold
 	}))
@@ -1233,9 +1353,9 @@ func GenPodNames(pods []*PodFact) string {
 	return strings.Join(podNames, ", ")
 }
 
-// anyInstalledPodsNotRunning returns true if any installed pod isn't running.  It will
+// AnyInstalledPodsNotRunning returns true if any installed pod isn't running.  It will
 // return the name of the first pod that isn't running.
-func (p *PodFacts) anyInstalledPodsNotRunning() (bool, types.NamespacedName) {
+func (p *PodFacts) AnyInstalledPodsNotRunning() (bool, types.NamespacedName) {
 	for _, v := range p.Detail {
 		if !v.isPodRunning && v.isInstalled {
 			return true, v.name
@@ -1244,9 +1364,9 @@ func (p *PodFacts) anyInstalledPodsNotRunning() (bool, types.NamespacedName) {
 	return false, types.NamespacedName{}
 }
 
-// anyUninstalledTransientPodsNotRunning will return true if it finds at least
+// AnyUninstalledTransientPodsNotRunning will return true if it finds at least
 // one transient pod that doesn't have an installation and isn't running.
-func (p *PodFacts) anyUninstalledTransientPodsNotRunning() (bool, types.NamespacedName) {
+func (p *PodFacts) AnyUninstalledTransientPodsNotRunning() (bool, types.NamespacedName) {
 	for _, v := range p.Detail {
 		if v.isTransient && !v.isPodRunning && !v.isInstalled {
 			return true, v.name
@@ -1255,8 +1375,8 @@ func (p *PodFacts) anyUninstalledTransientPodsNotRunning() (bool, types.Namespac
 	return false, types.NamespacedName{}
 }
 
-// getHostList will return a host and podName list from the given pods
-func getHostAndPodNameList(podList []*PodFact) ([]string, []types.NamespacedName) {
+// GetHostList will return a host and podName list from the given pods
+func GetHostAndPodNameList(podList []*PodFact) ([]string, []types.NamespacedName) {
 	hostList := make([]string, 0, len(podList))
 	podNames := make([]types.NamespacedName, 0, len(podList))
 	for _, pod := range podList {

@@ -170,7 +170,8 @@ func (v *ImageVersionReconciler) verifyNMADeployment(vinf *version.Info, pf *pod
 // logWarningIfVersionDoesNotSupportCGroupV2 will log a warning if it detects a
 // 12.0.0 server and cgroups v2.  In such an environment you cannot start the
 // server in k8s.
-func (v *ImageVersionReconciler) logWarningIfVersionDoesNotSupportsCGroupV2(ctx context.Context, vinf *version.Info, pod *podfacts.PodFact) {
+func (v *ImageVersionReconciler) logWarningIfVersionDoesNotSupportsCGroupV2(ctx context.Context,
+	vinf *version.Info, pod *podfacts.PodFact) {
 	ver12, _ := version.MakeInfoFromStr(vapi.CGroupV2UnsupportedVersion)
 	if !vinf.IsEqual(ver12) {
 		return
