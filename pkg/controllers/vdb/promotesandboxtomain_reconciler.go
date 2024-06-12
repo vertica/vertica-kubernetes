@@ -15,7 +15,6 @@ package vdb
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/go-logr/logr"
 	vutil "github.com/vertica/vcluster/vclusterops/util"
@@ -117,6 +116,8 @@ func (s *PromoteSandboxToMainReconciler) promoteSandboxToMain(ctx context.Contex
 // updateSandboxScTypeInVdb update SandboxPrimarySubcluster to PrimarySubcluster in vdb.spec.subclusters
 // and remove sandbox spec and status in vdb after promoting to main
 func (s *PromoteSandboxToMainReconciler) updateSandboxScTypeInVdb(ctx context.Context, sandboxName string) error {
+	scSbMap := s.Vdb.GenSubclusterSandboxMap()
+
 	// remove sandbox in spec
 	for i := len(s.Vdb.Spec.Sandboxes) - 1; i >= 0; i-- {
 		_, err := vk8s.UpdateVDBWithRetry(ctx, s.VRec, s.Vdb, func() (bool, error) {
@@ -132,17 +133,13 @@ func (s *PromoteSandboxToMainReconciler) updateSandboxScTypeInVdb(ctx context.Co
 	}
 
 	// update sandboxPrimarySubcluster to primarySubcluster in spec
-	scSbMap := s.Vdb.GenSubclusterSandboxMap()
 	for sc, sb := range scSbMap {
 		if sb == sandboxName {
 			_, err := vk8s.UpdateVDBWithRetry(ctx, s.VRec, s.Vdb, func() (bool, error) {
-				scMap := s.Vdb.GenSubclusterMap()
-				vdbSc, found := scMap[sc]
-				if !found {
-					return false, fmt.Errorf("subcluster %q missing in vdb %q", sc, s.Vdb.Name)
-				}
-				if vdbSc.Type == vapi.SandboxPrimarySubcluster {
-					vdbSc.Type = vapi.PrimarySubcluster
+				for j := range s.Vdb.Spec.Subclusters {
+					if s.Vdb.Spec.Subclusters[j].Name == sc && s.Vdb.Spec.Subclusters[j].Type == vapi.SandboxPrimarySubcluster {
+						s.Vdb.Spec.Subclusters[j].Type = vapi.PrimarySubcluster
+					}
 				}
 				return true, nil
 			})
@@ -156,7 +153,7 @@ func (s *PromoteSandboxToMainReconciler) updateSandboxScTypeInVdb(ctx context.Co
 	unsandboxSbScMap := s.Vdb.GenSandboxSubclusterMapForUnsandbox()
 	unsandboxedScNames, found := unsandboxSbScMap[sandboxName]
 	if !found {
-		s.Log.Info("the sandbox inside it does not need to be unsandboxed")
+		s.Log.Info("the sandbox inside it does not need to be removed")
 		return nil
 	}
 	updateStatus := func(vdbChg *vapi.VerticaDB) error {
