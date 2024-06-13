@@ -309,7 +309,8 @@ func (r *ReplicatedUpgradeReconciler) assignSubclustersToReplicaGroupB(ctx conte
 
 // postQueryOriginalConfigParamDisableNonReplicatableQueriesMsg will update the status message to indicate that
 // we are going to query the original value of config parameter DisableNonReplicatableQueries.
-func (r *ReplicatedUpgradeReconciler) postQueryOriginalConfigParamDisableNonReplicatableQueriesMsg(ctx context.Context) (ctrl.Result, error) {
+func (r *ReplicatedUpgradeReconciler) postQueryOriginalConfigParamDisableNonReplicatableQueriesMsg(
+	ctx context.Context) (ctrl.Result, error) {
 	return r.postNextStatusMsg(ctx, queryOriginalConfigParamDisableNonReplicatableQueriesMsgInx)
 }
 
@@ -346,7 +347,8 @@ func (r *ReplicatedUpgradeReconciler) restoreConfigParamDisableNonReplicatableQu
 
 // setConfigParamDisableNonReplicatableQueriesImpl will run the reconciler to set the config parameter
 // DisableNonReplicatableQueries to a certain value at database level within main cluster
-func (r *ReplicatedUpgradeReconciler) setConfigParamDisableNonReplicatableQueriesImpl(ctx context.Context, value string) (ctrl.Result, error) {
+func (r *ReplicatedUpgradeReconciler) setConfigParamDisableNonReplicatableQueriesImpl(ctx context.Context,
+	value string) (ctrl.Result, error) {
 	pf := r.PFacts[vapi.MainCluster]
 	actor := MakeSetConfigurationParameterReconciler(r.VRec, r.Log, r.VDB, pf, r.Dispatcher, r.VRec.Client,
 		ConfigParamDisableNonReplicatableQueries,

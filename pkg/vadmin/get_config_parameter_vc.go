@@ -47,7 +47,8 @@ func (v *VClusterOps) GetConfigurationParameter(ctx context.Context, opts ...get
 	return value, nil
 }
 
-func (v *VClusterOps) genGetConfigurationParameterOptions(s *getconfigparameter.Parms, certs *HTTPSCerts) *vops.VGetConfigurationParameterOptions {
+func (v *VClusterOps) genGetConfigurationParameterOptions(s *getconfigparameter.Parms,
+	certs *HTTPSCerts) *vops.VGetConfigurationParameterOptions {
 	opts := vops.VGetConfigurationParameterOptionsFactory()
 
 	opts.RawHosts = append(opts.RawHosts, s.InitiatorIP)
