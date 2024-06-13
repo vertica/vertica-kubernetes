@@ -63,13 +63,13 @@ func (s *PromoteSandboxToMainReconciler) Reconcile(ctx context.Context, _ *ctrl.
 		return res, nil
 	}
 
-	// We need to collect pod facts for finding qualified subclusters
-	if err := s.PFacts.Collect(ctx, s.Vdb); err != nil {
+	sandboxName := s.PFacts.GetSandboxName()
+	if sandboxName == vapi.MainCluster {
 		return res, nil
 	}
 
-	sandboxName := s.PFacts.GetSandboxName()
-	if sandboxName == "" {
+	// We need to collect pod facts for finding qualified subclusters
+	if err := s.PFacts.Collect(ctx, s.Vdb); err != nil {
 		return res, nil
 	}
 
