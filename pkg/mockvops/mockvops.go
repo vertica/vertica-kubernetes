@@ -90,6 +90,9 @@ func (m *MockVClusterOps) VAlterSubclusterType(options *vclusterops.VAlterSubclu
 func (m *MockVClusterOps) VSetConfigurationParameters(options *vclusterops.VSetConfigurationParameterOptions) error {
 	return nil
 }
+func (m *MockVClusterOps) VGetConfigurationParameters(options *vclusterops.VGetConfigurationParameterOptions) (string, error) {
+	return "", nil
+}
 
 // MakeMockVClusterOpsDispatch will create a mock vcluster dispatcher
 func MakeMockVClusterOpsDispatcher(vdb *vapi.VerticaDB, logger logr.Logger, cl client.Client,

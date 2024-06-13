@@ -16,12 +16,12 @@
 package vadmin
 
 import (
-	"context"
-	"errors"
-
-	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/setconfigparameter"
+	// . "github.com/onsi/ginkgo/v2"
+	// . "github.com/onsi/gomega"
+	vops "github.com/vertica/vcluster/vclusterops"
 )
 
-func (a *Admintools) SetConfigurationParameter(_ context.Context, _ ...setconfigparameter.Option) error {
-	return errors.New("set config parameter is not supported when the database uses admintools deployments")
+// mock version of VGetConfigurationParameters() that is invoked inside VClusterOps.GetConfigurationParameter()
+func (m *MockVClusterOps) VGetConfigurationParameters(options *vops.VGetConfigurationParameterOptions) (string, error) {
+	return "", nil
 }

@@ -19,9 +19,9 @@ import (
 	"context"
 	"errors"
 
-	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/setconfigparameter"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/getconfigparameter"
 )
 
-func (a *Admintools) SetConfigurationParameter(_ context.Context, _ ...setconfigparameter.Option) error {
-	return errors.New("set config parameter is not supported when the database uses admintools deployments")
+func (a *Admintools) GetConfigurationParameter(_ context.Context, _ ...getconfigparameter.Option) (string, error) {
+	return "", errors.New("get config parameter is not supported when the database uses admintools deployments")
 }

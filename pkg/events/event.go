@@ -101,6 +101,9 @@ const (
 	SetConfigurationParameterStarted   = "SetConfigurationParameterStarted"
 	SetConfigurationParameterFailed    = "SetConfigurationParameterFailed"
 	SetConfigurationParameterSucceeded = "SetConfigurationParameterSucceeded"
+	GetConfigurationParameterStarted   = "GetConfigurationParameterStarted"
+	GetConfigurationParameterFailed    = "GetConfigurationParameterFailed"
+	GetConfigurationParameterSucceeded = "GetConfigurationParameterSucceeded"
 )
 
 // Constants for VerticaAutoscaler reconciler

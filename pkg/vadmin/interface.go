@@ -31,6 +31,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/describedb"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/fetchnodedetails"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/fetchnodestate"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/getconfigparameter"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/installpackages"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/reip"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/removenode"
@@ -116,6 +117,9 @@ type Dispatcher interface {
 
 	// SetConfigurationParameter will set a config parameter to a certain value at a certain level in a given cluster
 	SetConfigurationParameter(ctx context.Context, opts ...setconfigparameter.Option) error
+
+	// GetConfigurationParameter will get the value of a config parameter at a certain level in a given cluster
+	GetConfigurationParameter(ctx context.Context, opts ...getconfigparameter.Option) (string, error)
 }
 
 const (
@@ -244,4 +248,5 @@ type VClusterProvider interface {
 	VUnsandbox(options *vops.VUnsandboxOptions) error
 	VAlterSubclusterType(options *vops.VAlterSubclusterTypeOptions) error
 	VSetConfigurationParameters(options *vops.VSetConfigurationParameterOptions) error
+	VGetConfigurationParameters(options *vops.VGetConfigurationParameterOptions) (string, error)
 }
