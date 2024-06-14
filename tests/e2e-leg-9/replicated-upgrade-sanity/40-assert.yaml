@@ -11,9 +11,48 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: v-base-upgrade-pri1-sb
+status:
+  currentReplicas: 2
+  readyReplicas: 2
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: v-base-upgrade-pri2-sb
+status:
+  currentReplicas: 1
+  readyReplicas: 1
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: v-base-upgrade-sec1-sb
+status:
+  currentReplicas: 3
+  readyReplicas: 3
+---
 apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
   name: v-base-upgrade
-status:
-  upgradeStatus: Promote sandbox to main cluster
+spec:
+  subclusters:
+  - name: sec1
+    type: secondary
+  - name: pri1
+    type: primary
+  - name: pri2
+    type: primary
+  - name: pri1-sb
+    type: primary    
+    size: 2
+  - name: pri2-sb
+    type: primary    
+    size: 1
+  - name: sec1-sb
+    type: secondary
+    size: 3        

@@ -55,7 +55,11 @@ func (v *VClusterOps) genStopDBOptions(s *stopdb.Parms) vops.VStopDatabaseOption
 
 	opts.DBName = v.VDB.Spec.DBName
 	opts.IsEon = v.VDB.IsEON()
-
+	// we use zero timeout to stop special sandbox for only replication upgrade
+	if s.ZeroDrain {
+		opts.DrainSeconds = new(int)
+		*opts.DrainSeconds = 0
+	}
 	opts.SandboxName = s.Sandbox
 	// We want to stop db on either the main cluster or a sandbox,
 	// not both
