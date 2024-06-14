@@ -32,6 +32,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/fetchnodedetails"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/fetchnodestate"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/installpackages"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/promotesandboxtomain"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/reip"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/removenode"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/removesc"
@@ -107,6 +108,9 @@ type Dispatcher interface {
 
 	// SandboxSubcluster will add a subcluster in a sandbox of the database
 	SandboxSubcluster(ctx context.Context, opts ...sandboxsc.Option) error
+
+	// PromoteSandboxToMain will convert local sandbox to main cluster
+	PromoteSandboxToMain(ctx context.Context, opts ...promotesandboxtomain.Option) error
 
 	// UnsandboxSubcluster will move a subcluster from a sandbox to main cluster
 	UnsandboxSubcluster(ctx context.Context, opts ...unsandboxsc.Option) error
@@ -236,6 +240,7 @@ type VClusterProvider interface {
 	VInstallPackages(options *vops.VInstallPackagesOptions) (*vops.InstallPackageStatus, error)
 	VReplicateDatabase(options *vops.VReplicationDatabaseOptions) error
 	VFetchNodesDetails(options *vops.VFetchNodesDetailsOptions) (vops.NodesDetails, error)
+	VPromoteSandboxToMain(options *vops.VPromoteSandboxToMainOptions) error
 	VSandbox(options *vops.VSandboxOptions) error
 	VUnsandbox(options *vops.VUnsandboxOptions) error
 	VAlterSubclusterType(options *vops.VAlterSubclusterTypeOptions) error

@@ -14,16 +14,14 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: script-verify-sandbox-connection
+  name: script-verify-new-main-cluster-connection
 data:
   verify.sh: |-
     #!/bin/bash
     set -o errexit
     set -o xtrace
-
-    # Access to subclusters through primary service should route to the sandbox.
+    # Access to subclusters through primary service should route to the new main cluster.
     CONNECTION_NODE=$(vsql -U dbadmin -h v-base-upgrade-pri1 -tAc "select node_name from current_session")
-
     echo $CONNECTION_NODE
     if [[ $CONNECTION_NODE == "v_repup_node0007" ]] || \
        [[ $CONNECTION_NODE == "v_repup_node0008" ]] || \
@@ -31,10 +29,8 @@ data:
     then
       exit 0
     fi
-
-    # Access to subclusters through secondary service should route to the sandbox.
+    # Access to subclusters through secondary service should route to the new main cluster.
     CONNECTION_NODE=$(vsql -U dbadmin -h v-base-upgrade-sec1 -tAc "select node_name from current_session")
-
     echo $CONNECTION_NODE
     if [[ $CONNECTION_NODE == "v_repup_node0010" ]] || \
        [[ $CONNECTION_NODE == "v_repup_node0011" ]] || \
@@ -47,7 +43,7 @@ data:
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: test-verify-sandbox-connection
+  name: test-verify-new-main-cluster-connection
   labels:
     stern: include
 spec:
@@ -67,4 +63,4 @@ spec:
         - name: test-script
           configMap:
             defaultMode: 0777
-            name: script-verify-sandbox-connection
+            name: script-verify-new-main-cluster-connection

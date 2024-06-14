@@ -550,7 +550,6 @@ func (r *ReplicatedUpgradeReconciler) waitForReplicateToReplicaGroupB(ctx contex
 	}
 
 	r.Log.Info("Replication is completed", "vrepName", vrepName)
-
 	// Delete the VerticaReplicator. We leave the annotation present in the
 	// VerticaDB so that we skip these steps until the upgrade is finished.
 	err = r.VRec.Client.Delete(ctx, &vrep)
@@ -615,7 +614,23 @@ func (r *ReplicatedUpgradeReconciler) postPromoteSandboxMsg(ctx context.Context)
 // promoteSandboxToMainCluster will promote the sandbox to the main cluster and
 // discard the pods for the old main.
 func (r *ReplicatedUpgradeReconciler) promoteSandboxToMainCluster(ctx context.Context) (ctrl.Result, error) {
-	return ctrl.Result{}, errors.New("promote sandbox to main cluster is not yet implemented")
+	sb := r.VDB.GetSandboxStatus(r.sandboxName)
+	if sb == nil {
+		return ctrl.Result{}, nil
+	}
+	sbPFacts, err := r.getSandboxPodFacts(ctx, false)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	actor := MakePromoteSandboxToMainReconciler(r.VRec, r.Log, r.VDB, sbPFacts, r.Dispatcher, r.VRec.Client)
+	r.Manager.traceActorReconcile(actor)
+	res, err := actor.Reconcile(ctx, &ctrl.Request{})
+	if verrors.IsReconcileAborted(res, err) {
+		return res, err
+	}
+	r.PFacts[vapi.MainCluster].Invalidate()
+	r.Log.Info("sandbox have been promoted to main", "sandboxName", r.sandboxName)
+	return ctrl.Result{}, nil
 }
 
 // postRecreateSecondariesMsg will update the status message to indicate that
@@ -628,9 +643,6 @@ func (r *ReplicatedUpgradeReconciler) postRecreateSecondariesMsg(ctx context.Con
 // secondary subcluster in replica group B that existed at the start of
 // the upgrade.
 func (r *ReplicatedUpgradeReconciler) scaleOutSecondariesInReplicaGroupB(ctx context.Context) (ctrl.Result, error) {
-	if !r.VDB.HasSecondarySubclusters() {
-		return ctrl.Result{}, nil
-	}
 	return ctrl.Result{}, errors.New("scale out secondaries in replica group B is not yet implemented")
 }
 
