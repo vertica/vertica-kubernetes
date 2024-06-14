@@ -84,6 +84,9 @@ func (*MockVClusterOps) VSandbox(_ *vclusterops.VSandboxOptions) error {
 func (*MockVClusterOps) VUnsandbox(_ *vclusterops.VUnsandboxOptions) error {
 	return nil
 }
+func (*MockVClusterOps) VPromoteSandboxToMain(_ *vclusterops.VPromoteSandboxToMainOptions) error {
+	return nil
+}
 func (m *MockVClusterOps) VAlterSubclusterType(options *vclusterops.VAlterSubclusterTypeOptions) error {
 	return nil
 }

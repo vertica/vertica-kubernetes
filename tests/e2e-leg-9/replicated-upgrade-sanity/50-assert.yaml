@@ -11,13 +11,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: v1
-kind: Pod
+apiVersion: batch/v1
+kind: Job
 metadata:
-  name: test-verify-sandbox-promotion
+  name: test-verify-new-main-cluster-connection
 status:
-  containerStatuses:
-    - name: test
-      state:
-        terminated:
-          exitCode: 0 
+  succeeded: 1

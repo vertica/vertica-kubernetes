@@ -11,10 +11,5 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Verifies access to the external service through port 5433.  It does this
-# by connecting using vsql
-
-apiVersion: kuttl.dev/v1beta1
-kind: TestStep
-commands:
-  - command: bash -c "kustomize build verify-sandbox-connection/overlay | kubectl -n $NAMESPACE apply -f - "
+resources:
+  - verify-new-main-cluster-connection.yaml
