@@ -452,7 +452,7 @@ jobs:
           dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}
           vlogger-image: ${{ needs.build.outputs.vlogger-image }}
           operator-image: ${{ needs.build.outputs.operator-image }}
-          vertica-image: ${{ needs.build.outputs.minimal-vertica-image }}
+          vertica-image: docker.io/opentext/vertica-k8s-private:20240606-minimal
           vertica-deployment-method: vclusterops
           communal-storage-type: s3
           minimum-vertica-image: '24.3.0'
