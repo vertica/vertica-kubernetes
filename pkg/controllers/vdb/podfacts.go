@@ -1227,3 +1227,24 @@ func (p *PodFacts) FindPodNamesInSubcluster(scName string) []types.NamespacedNam
 	}
 	return podNames
 }
+
+// findNodeNamesInSubclusters will return the names of the nodes in target subclusters
+func (p *PodFacts) findNodeNamesInSubclusters(scNames []string) []string {
+	nodeNames := []string{}
+	if len(scNames) == 0 {
+		return nodeNames
+	}
+	scNameSet := make(map[string]any)
+	for _, scName := range scNames {
+		scNameSet[scName] = struct{}{}
+	}
+
+	for _, v := range p.Detail {
+		_, found := scNameSet[v.subclusterName]
+		if found {
+			nodeNames = append(nodeNames, v.vnodeName)
+		}
+	}
+
+	return nodeNames
+}

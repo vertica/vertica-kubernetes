@@ -337,7 +337,7 @@ var _ = Describe("replicatedupgrade_reconciler", func() {
 		Ω(k8sClient.Get(ctx, vdb.ExtractNamespacedName(), vdb)).Should(Succeed())
 
 		// Before we do the pause, ensure the client routing label is present.
-		groupAScNames := rr.getSubclustersForReplicaGroup(vmeta.ReplicaGroupAValue)
+		groupAScNames := rr.VDB.GetSubclustersForReplicaGroup(vmeta.ReplicaGroupAValue)
 		Ω(groupAScNames).Should(HaveLen(2))
 		pod := v1.Pod{}
 		scMap := vdb.GenSubclusterMap()
@@ -412,9 +412,9 @@ var _ = Describe("replicatedupgrade_reconciler", func() {
 		// Verify the subclusters and the replica groups
 		Ω(k8sClient.Get(ctx, vdb.ExtractNamespacedName(), vdb)).Should(Succeed())
 		Ω(vdb.Spec.Subclusters).Should(HaveLen(14))
-		groupAScNames := rr.getSubclustersForReplicaGroup(vmeta.ReplicaGroupAValue)
+		groupAScNames := rr.VDB.GetSubclustersForReplicaGroup(vmeta.ReplicaGroupAValue)
 		Ω(groupAScNames).Should(HaveLen(7))
-		groupBScNames := rr.getSubclustersForReplicaGroup(vmeta.ReplicaGroupBValue)
+		groupBScNames := rr.VDB.GetSubclustersForReplicaGroup(vmeta.ReplicaGroupBValue)
 		Ω(groupBScNames).Should(HaveLen(7))
 
 		// Verify that the client routing label is present only for the
@@ -585,10 +585,10 @@ var _ = Describe("replicatedupgrade_reconciler", func() {
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
 
 		rr := createReplicatedUpgradeReconciler(ctx, vdb)
-		rr.scNameMap = map[string]string{"pri1-sb": "pri1", "pri2-sb": "pri2"}
+		scNameMap := map[string]string{"pri1-sb": "pri1", "pri2-sb": "pri2"}
 
 		// subclusters group A should be removed
-		for scInGroupB, scInGroupA := range rr.scNameMap {
+		for scInGroupB, scInGroupA := range scNameMap {
 			Ω(rr.updateSubclusterNamesInVdb(ctx, scInGroupB, scInGroupA)).Should(BeNil())
 		}
 

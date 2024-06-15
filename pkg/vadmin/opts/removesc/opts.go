@@ -25,6 +25,7 @@ type Parms struct {
 	InitiatorIP        string
 	Subcluster         string
 	NodeNameAddressMap map[string]string
+	NodesToPollSubs    []string
 }
 
 type Option func(*Parms)
@@ -52,5 +53,11 @@ func WithSubcluster(scName string) Option {
 func WithNodeNameAddressMap(nodeNameAddressMap map[string]string) Option {
 	return func(s *Parms) {
 		s.NodeNameAddressMap = nodeNameAddressMap
+	}
+}
+
+func WithNodesToPollSubs(nodesToPollSubs []string) Option {
+	return func(s *Parms) {
+		s.NodesToPollSubs = nodesToPollSubs
 	}
 }
