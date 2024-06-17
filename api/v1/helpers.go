@@ -477,9 +477,7 @@ func (v *VerticaDB) GetSSHSecretName() string {
 // IncludeUIDInPath will return true if the UID should be included in the
 // communal path to make it unique.
 func (v *VerticaDB) IncludeUIDInPath() bool {
-	// For revive_db we want to use the communal path as it is without appending
-	// the vdb uid.
-	return vmeta.IncludeUIDInPath(v.Annotations) && v.Spec.InitPolicy != CommunalInitPolicyRevive
+	return vmeta.IncludeUIDInPath(v.Annotations)
 }
 
 // IsHDFS returns true if the communal path is stored in an HDFS path
