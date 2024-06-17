@@ -670,7 +670,7 @@ func (r *ReplicatedUpgradeReconciler) promoteSandboxToMainCluster(ctx context.Co
 	}
 	r.PFacts[vapi.MainCluster].Invalidate()
 	r.Log.Info("sandbox has been promoted to main", "sandboxName", r.sandboxName)
-	return ctrl.Result{}, nil
+	return ctrl.Result{}, r.updateAnnotationForReplicatedUpgrade(ctx, vmeta.ReplicatedUpgradeSandboxPromotedAnnotation)
 }
 
 // postRemoveOriginalClusterMsg will update the status message to indicate that
@@ -1073,7 +1073,11 @@ func (r *ReplicatedUpgradeReconciler) removeReplicaGroupA(ctx context.Context) (
 	actor := MakeDBRemoveSubclusterReconciler(r.VRec, r.Log, r.VDB, r.PFacts[vapi.MainCluster].PRunner,
 		r.PFacts[vapi.MainCluster], r.Dispatcher, true)
 	r.Manager.traceActorReconcile(actor)
-	return actor.Reconcile(ctx, &ctrl.Request{})
+	res, err := actor.Reconcile(ctx, &ctrl.Request{})
+	if verrors.IsReconcileAborted(res, err) {
+		return res, err
+	}
+	return ctrl.Result{}, r.updateAnnotationForReplicatedUpgrade(ctx, vmeta.ReplicatedUpgradeReplicaARemovedAnnotation)
 }
 
 // deleteReplicaGroupASts will delete the statefulSet of replicate group A.
@@ -1186,6 +1190,33 @@ func (r *ReplicatedUpgradeReconciler) updateSubclusterNamesInVdb(ctx context.Con
 	}
 	if updated {
 		r.Log.Info("renamed subcluster in VerticaDB", "subcluster", scName, "new subcluster name", newScName)
+	}
+	return nil
+}
+
+var stepAnnotationWithValue = map[string]string{
+	vmeta.ReplicatedUpgradeSandboxPromotedAnnotation: vmeta.SandboxPromotedTrue,
+	vmeta.ReplicatedUpgradeReplicaARemovedAnnotation: vmeta.ReplicaARemovedTrue,
+}
+
+// updateAnnotationForReplicatedUpgrade updates the annotation for vdb to indicate
+// we have done a specific step in replicated upgrade
+func (r *ReplicatedUpgradeReconciler) updateAnnotationForReplicatedUpgrade(ctx context.Context, annotation string) error {
+	value, found := stepAnnotationWithValue[annotation]
+	if !found {
+		return fmt.Errorf("annotation %q cannot be recognized", annotation)
+	}
+	updateAnnotation := func() (bool, error) {
+		r.VDB.Annotations[annotation] = value
+		return true, nil
+	}
+
+	updated, err := vk8s.UpdateVDBWithRetry(ctx, r.VRec, r.VDB, updateAnnotation)
+	if err != nil {
+		return fmt.Errorf("failed to update annotation %q in VerticaDB: %w", annotation, err)
+	}
+	if updated {
+		r.Log.Info("updated annotation in VerticaDB", "annotation", annotation)
 	}
 	return nil
 }

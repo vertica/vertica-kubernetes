@@ -20,7 +20,6 @@ import (
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
-	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/promotesandboxtomain"
 	"github.com/vertica/vertica-kubernetes/pkg/vdbstatus"
@@ -175,8 +174,6 @@ func (s *PromoteSandboxToMainReconciler) updateSandboxInVdbStatus(ctx context.Co
 			vdbChg.Status.Sandboxes = append(vdbChg.Status.Sandboxes[:i], vdbChg.Status.Sandboxes[i+1:]...)
 			break
 		}
-		// update the annotation to show promote_sandbox has been done
-		vdbChg.Annotations[vmeta.ReplicatedUpgradeSandboxPromotedAnnotation] = vmeta.SandboxPromotedTrue
 		return nil
 	}
 	return vdbstatus.Update(ctx, s.Client, s.Vdb, updateStatus)

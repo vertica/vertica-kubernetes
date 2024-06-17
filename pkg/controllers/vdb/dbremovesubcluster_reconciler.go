@@ -33,7 +33,6 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/removesc"
 	"github.com/vertica/vertica-kubernetes/pkg/vdbstatus"
-	"github.com/vertica/vertica-kubernetes/pkg/vk8s"
 	corev1 "k8s.io/api/core/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -93,10 +92,6 @@ func (d *DBRemoveSubclusterReconciler) Reconcile(ctx context.Context, _ *ctrl.Re
 
 	if res, err := d.removeExtraSubclusters(ctx); verrors.IsReconcileAborted(res, err) {
 		return res, err
-	}
-
-	if d.CalledInReplicatedUpgrade {
-		return ctrl.Result{}, d.updateAnnotationForReplicatedUpgrade(ctx)
 	}
 
 	return ctrl.Result{}, nil
@@ -201,24 +196,6 @@ func (d *DBRemoveSubclusterReconciler) updateSubclusterStatus(ctx context.Contex
 		return nil
 	}
 	return vdbstatus.Update(ctx, d.VRec.Client, d.Vdb, refreshInPlace)
-}
-
-// updateAnnotationForReplicatedUpgrade updates the annotation ReplicatedUpgradeReplicaARemovedAnnotation
-// to indicate we have removed the subclusters in replica A successfully
-func (d *DBRemoveSubclusterReconciler) updateAnnotationForReplicatedUpgrade(ctx context.Context) error {
-	updateAnnotation := func() (bool, error) {
-		d.Vdb.Annotations[vmeta.ReplicatedUpgradeReplicaARemovedAnnotation] = vmeta.ReplicaARemovedTrue
-		return true, nil
-	}
-
-	updated, err := vk8s.UpdateVDBWithRetry(ctx, d.VRec, d.Vdb, updateAnnotation)
-	if err != nil {
-		return fmt.Errorf("failed to update annotation %q in VerticaDB: %w", vmeta.ReplicatedUpgradeReplicaARemovedAnnotation, err)
-	}
-	if updated {
-		d.Log.Info("updated annotation in VerticaDB", "annotation", vmeta.ReplicatedUpgradeReplicaARemovedAnnotation)
-	}
-	return nil
 }
 
 // resetDefaultSubcluster will set the default subcluster to the first
