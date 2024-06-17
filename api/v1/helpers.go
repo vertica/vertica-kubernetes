@@ -236,7 +236,7 @@ func (v *VerticaDB) GetCommunalPath() string {
 	// each new instance of vdb. This means we can't use the same base path for
 	// different databases and we don't require any cleanup if the vdb was
 	// recreated.
-	if !v.IncludeUIDInPath() || v.Spec.InitPolicy == CommunalInitPolicyRevive {
+	if !v.IncludeUIDInPath() {
 		return v.Spec.Communal.Path
 	}
 	return fmt.Sprintf("%s/%s", strings.TrimSuffix(v.Spec.Communal.Path, "/"), v.UID)
