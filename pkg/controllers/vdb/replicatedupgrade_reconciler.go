@@ -431,8 +431,8 @@ func (r *ReplicatedUpgradeReconciler) postPauseConnectionsMsg(ctx context.Contex
 // (momentarily) so that the two replica groups have the same data.
 func (r *ReplicatedUpgradeReconciler) pauseConnectionsAtReplicaGroupA(ctx context.Context) (ctrl.Result, error) {
 	// In lieu of actual pause semantics, which will come later, we are going to
-	// repurpose this step to do an old style drain. We need all connections to
-	// disconnect as we want to prevent writes from happening. Continuing to
+	// repurpose this step to close all existing sessions. We forcibly close all
+	// connections as we want to prevent writes from happening. Continuing to
 	// allow writes could potentially lead to data loss. We are about to
 	// replicate the data, if writes can happen after the replication to replica
 	// group B, they are going to be lost.
@@ -448,6 +448,12 @@ func (r *ReplicatedUpgradeReconciler) pauseConnectionsAtReplicaGroupA(ctx contex
 	res, err := actor.Reconcile(ctx, &ctrl.Request{})
 	if verrors.IsReconcileAborted(res, err) {
 		return res, err
+	}
+
+	// close all existing user sessions
+	err = r.Manager.closeAllSessions(ctx, r.PFacts[vapi.MainCluster])
+	if err != nil {
+		return ctrl.Result{}, err
 	}
 
 	// Iterate through the subclusters in replica group A. We check if there are
