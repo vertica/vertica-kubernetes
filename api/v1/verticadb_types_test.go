@@ -33,6 +33,14 @@ var _ = Describe("verticadb_types", func() {
 		Expect(vdb.GetCommunalPath()).Should(ContainSubstring(string(vdb.ObjectMeta.UID)))
 	})
 
+	It("should not include UID in path if revive_db", func() {
+		vdb := MakeVDB()
+		vdb.ObjectMeta.UID = FakeUID
+		vdb.Annotations[vmeta.IncludeUIDInPathAnnotation] = "true"
+		vdb.Spec.InitPolicy = CommunalInitPolicyRevive
+		Expect(vdb.GetCommunalPath()).ShouldNot(ContainSubstring(string(vdb.ObjectMeta.UID)))
+	})
+
 	It("should not include UID in path if IncludeUIDInPath is not set", func() {
 		vdb := MakeVDB()
 		vdb.ObjectMeta.UID = FakeUID

@@ -236,7 +236,7 @@ func (v *VerticaDB) GetCommunalPath() string {
 	// each new instance of vdb. This means we can't use the same base path for
 	// different databases and we don't require any cleanup if the vdb was
 	// recreated.
-	if !v.IncludeUIDInPath() {
+	if !v.IncludeUIDInPath() || v.Spec.InitPolicy == CommunalInitPolicyRevive {
 		return v.Spec.Communal.Path
 	}
 	return fmt.Sprintf("%s/%s", strings.TrimSuffix(v.Spec.Communal.Path, "/"), v.UID)
@@ -477,7 +477,9 @@ func (v *VerticaDB) GetSSHSecretName() string {
 // IncludeUIDInPath will return true if the UID should be included in the
 // communal path to make it unique.
 func (v *VerticaDB) IncludeUIDInPath() bool {
-	return vmeta.IncludeUIDInPath(v.Annotations)
+	// For revive_db we want to use the communal path as it is without appending
+	// the vdb uid.
+	return vmeta.IncludeUIDInPath(v.Annotations) && v.Spec.InitPolicy != CommunalInitPolicyRevive
 }
 
 // IsHDFS returns true if the communal path is stored in an HDFS path
