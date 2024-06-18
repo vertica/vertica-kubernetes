@@ -202,8 +202,8 @@ github.com/ianlancetaylor/demangle v0.0.0-20181102032728-5e5cf60278f6/go.mod h1:
 github.com/imdario/mergo v0.3.12 h1:b6R2BslTbIEToALKP7LxUvijTsNI9TAe80pLWN2g/HU=
 github.com/imdario/mergo v0.3.12/go.mod h1:jmQim1M+e3UYxmgPu/WyfjB3N3VflVyUjjjwH0dnCYA=
 github.com/jessevdk/go-flags v1.4.0/go.mod h1:4FA24M0QyGHXBuZZK/XkWh8h0e1EYbRYJSGM75WSRxI=
-github.com/jizhuoyu/vcluster v0.0.1 h1:9kPhbbAv3pPT0pi23mkQgjOd84N4oPfz60EXSSoHFDc=
-github.com/jizhuoyu/vcluster v0.0.1/go.mod h1:zkTLy1hF6LzTeWmXiGYLFzihbi397WTQhPZ9xX4B+FY=
+github.com/jizhuoyu/vcluster v0.0.4 h1:3Jo9W7IwoGt473PPhMkFhSWwQVIbnXc+YnDqfyc+Qa4=
+github.com/jizhuoyu/vcluster v0.0.4/go.mod h1:zkTLy1hF6LzTeWmXiGYLFzihbi397WTQhPZ9xX4B+FY=
 github.com/jmespath/go-jmespath v0.4.0 h1:BEgLn5cpjn8UN1mAw4NjwDrS35OdebyEtFe+9YPoQUg=
 github.com/jmespath/go-jmespath v0.4.0/go.mod h1:T8mJZnbsbmF+m6zOOFylbeCJqk5+pHWvzYPziyZiYoo=
 github.com/jmespath/go-jmespath/internal/testify v1.5.1 h1:shLQSRRSCCPj3f2gpwzGwWFoC7ycTf1rcQZHOlsJ6N8=
