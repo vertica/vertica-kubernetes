@@ -936,3 +936,24 @@ func (v *VerticaDB) GetSandboxStatusCheck(sbName string) (*SandboxStatus, error)
 	}
 	return sb, nil
 }
+
+// IsSubclusterInStatus will check if a subcluster in vdb status
+func (v *VerticaDB) IsSubclusterInStatus(scName string) bool {
+	for i := range v.Status.Subclusters {
+		if v.Status.Subclusters[i].Name == scName {
+			return true
+		}
+	}
+	return false
+}
+
+// GetSubclustersForReplicaGroup returns the names of the subclusters that are part of a replica group.
+func (v *VerticaDB) GetSubclustersForReplicaGroup(groupName string) []string {
+	scNames := []string{}
+	for i := range v.Spec.Subclusters {
+		if g, found := v.Spec.Subclusters[i].Annotations[vmeta.ReplicaGroupAnnotation]; found && g == groupName {
+			scNames = append(scNames, v.Spec.Subclusters[i].Name)
+		}
+	}
+	return scNames
+}

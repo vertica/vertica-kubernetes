@@ -13,51 +13,38 @@
  limitations under the License.
 */
 
-package removesc
-
-import (
-	"k8s.io/apimachinery/pkg/types"
-)
+package renamesc
 
 // Parms holds all of the option for a revive DB invocation.
-type Parms struct {
-	InitiatorName      types.NamespacedName
-	InitiatorIP        string
-	Subcluster         string
-	NodeNameAddressMap map[string]string
-	NodesToPollSubs    []string
+type Params struct {
+	InitiatorIP       string
+	Subcluster        string
+	NewSubclusterName string
 }
 
-type Option func(*Parms)
+type Option func(*Params)
 
 // Make will fill in the Parms based on the options chosen
-func (s *Parms) Make(opts ...Option) {
+func (s *Params) Make(opts ...Option) {
 	for _, opt := range opts {
 		opt(s)
 	}
 }
 
-func WithInitiator(nm types.NamespacedName, ip string) Option {
-	return func(s *Parms) {
-		s.InitiatorName = nm
+func WithInitiator(ip string) Option {
+	return func(s *Params) {
 		s.InitiatorIP = ip
 	}
 }
 
 func WithSubcluster(scName string) Option {
-	return func(s *Parms) {
+	return func(s *Params) {
 		s.Subcluster = scName
 	}
 }
 
-func WithNodeNameAddressMap(nodeNameAddressMap map[string]string) Option {
-	return func(s *Parms) {
-		s.NodeNameAddressMap = nodeNameAddressMap
-	}
-}
-
-func WithNodesToPollSubs(nodesToPollSubs []string) Option {
-	return func(s *Parms) {
-		s.NodesToPollSubs = nodesToPollSubs
+func WithNewSubclusterName(newScName string) Option {
+	return func(s *Params) {
+		s.NewSubclusterName = newScName
 	}
 }

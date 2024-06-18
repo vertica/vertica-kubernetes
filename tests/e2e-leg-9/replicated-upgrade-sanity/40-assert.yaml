@@ -41,18 +41,12 @@ metadata:
   name: v-base-upgrade
 spec:
   subclusters:
-  - name: sec1
-    type: secondary
   - name: pri1
-    type: primary
-  - name: pri2
-    type: primary
-  - name: pri1-sb
     type: primary    
     size: 2
-  - name: pri2-sb
+  - name: pri2
     type: primary    
     size: 1
-  - name: sec1-sb
+  - name: sec1
     type: secondary
     size: 3        
