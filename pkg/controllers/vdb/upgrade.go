@@ -644,9 +644,9 @@ func (i *UpgradeManager) isSubclusterIdle(ctx context.Context, pfacts *podfacts.
 }
 
 // closeAllSessions will run a query to close all active user sessions.
-func (i *UpgradeManager) closeAllSessions(ctx context.Context, pfacts *PodFacts) error {
-	pf, ok := pfacts.findFirstPodSorted(func(v *PodFact) bool {
-		return v.isPrimary && v.upNode
+func (i *UpgradeManager) closeAllSessions(ctx context.Context, pfacts *podfacts.PodFacts) error {
+	pf, ok := pfacts.FindFirstPodSorted(func(v *podfacts.PodFact) bool {
+		return v.GetIsPrimary() && v.GetUpNode()
 	})
 	if !ok {
 		i.Log.Info("No pod found to run vsql. Skipping close all sessions")
@@ -655,7 +655,7 @@ func (i *UpgradeManager) closeAllSessions(ctx context.Context, pfacts *PodFacts)
 
 	sql := "select close_all_sessions();"
 	cmd := []string{"-tAc", sql}
-	_, _, err := pfacts.PRunner.ExecVSQL(ctx, pf.name, names.ServerContainer, cmd...)
+	_, _, err := pfacts.PRunner.ExecVSQL(ctx, pf.GetName(), names.ServerContainer, cmd...)
 	if err != nil {
 		return err
 	}
