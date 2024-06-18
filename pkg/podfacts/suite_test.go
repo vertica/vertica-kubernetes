@@ -16,6 +16,7 @@
 package podfacts
 
 import (
+	"context"
 	"path/filepath"
 	"testing"
 
@@ -23,8 +24,14 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
+	"github.com/vertica/vertica-kubernetes/pkg/events"
+	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
+	"github.com/vertica/vertica-kubernetes/pkg/vk8s"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/record"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -36,13 +43,62 @@ var testEnv *envtest.Environment
 var logger logr.Logger
 var restCfg *rest.Config
 
+// VerticaDBReconciler reconciles a VerticaDB object
+type VerticaDBReconciler struct {
+	client.Client
+	Log    logr.Logger
+	Scheme *runtime.Scheme
+	Cfg    *rest.Config
+	EVRec  record.EventRecorder
+}
+
+// GetSuperuserPassword returns the superuser password if it has been provided
+func (r *VerticaDBReconciler) GetSuperuserPassword(ctx context.Context, log logr.Logger, vdb *vapi.VerticaDB) (string, error) {
+	return vk8s.GetSuperuserPassword(ctx, r.Client, log, r, vdb)
+}
+
+// Event a wrapper for Event() that also writes a log entry
+func (r *VerticaDBReconciler) Event(vdb runtime.Object, eventtype, reason, message string) {
+	evWriter := events.Writer{
+		Log:   r.Log,
+		EVRec: r.EVRec,
+	}
+	evWriter.Event(vdb, eventtype, reason, message)
+}
+
+// Eventf is a wrapper for Eventf() that also writes a log entry
+func (r *VerticaDBReconciler) Eventf(vdb runtime.Object, eventtype, reason, messageFmt string, args ...interface{}) {
+	evWriter := events.Writer{
+		Log:   r.Log,
+		EVRec: r.EVRec,
+	}
+	evWriter.Eventf(vdb, eventtype, reason, messageFmt, args...)
+}
+
+// GetClient gives access to the Kubernetes client
+func (r *VerticaDBReconciler) GetClient() client.Client {
+	return r.Client
+}
+
+// GetEventRecorder gives access to the event recorder
+func (r *VerticaDBReconciler) GetEventRecorder() record.EventRecorder {
+	return r.EVRec
+}
+
+// GetConfig gives access to *rest.Config
+func (r *VerticaDBReconciler) GetConfig() *rest.Config {
+	return r.Cfg
+}
+
+var vdbRec *VerticaDBReconciler
+
 var _ = BeforeSuite(func() {
 	logger = zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true))
 	logf.SetLogger(logger)
 
 	By("bootstrapping test environment")
 	testEnv = &envtest.Environment{
-		CRDDirectoryPaths:     []string{filepath.Join("..", "..", "config", "crd", "bases")},
+		CRDDirectoryPaths:     []string{filepath.Join("..", "..", "..", "config", "crd", "bases")},
 		ErrorIfCRDPathMissing: true,
 	}
 
@@ -56,6 +112,20 @@ var _ = BeforeSuite(func() {
 
 	k8sClient, err = client.New(restCfg, client.Options{Scheme: scheme.Scheme})
 	ExpectWithOffset(1, err).NotTo(HaveOccurred())
+
+	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
+		Scheme:             scheme.Scheme,
+		MetricsBindAddress: "0", // Disable metrics for the test
+	})
+	Expect(err).NotTo(HaveOccurred())
+
+	vdbRec = &VerticaDBReconciler{
+		Client: k8sClient,
+		Log:    logger,
+		Scheme: scheme.Scheme,
+		Cfg:    restCfg,
+		EVRec:  mgr.GetEventRecorderFor(vmeta.OperatorName),
+	}
 })
 
 var _ = AfterSuite(func() {

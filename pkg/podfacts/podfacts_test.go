@@ -19,74 +19,18 @@ import (
 	"context"
 	"errors"
 
-	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
-	"github.com/vertica/vertica-kubernetes/pkg/events"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/test"
 	appsv1 "k8s.io/api/apps/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/record"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const TestPassword = "test-pw"
-
-type VerticaDBReconciler struct {
-	client.Client
-	Log    logr.Logger
-	Scheme *runtime.Scheme
-	Cfg    *rest.Config
-	EVRec  record.EventRecorder
-}
-
-type ReconcilerInterface interface {
-	Event(vdb runtime.Object, eventType string, reason string, message string)
-	Eventf(vdb runtime.Object, eventType, reason, messageFmt string, args ...interface{})
-	GetClient() client.Client
-	GetEventRecorder() record.EventRecorder
-	GetConfig() *rest.Config
-}
-
-// GetClient gives access to the Kubernetes client
-func (v *VerticaDBReconciler) GetClient() client.Client {
-	return v.Client
-}
-
-// GetEventRecorder gives access to the event recorder
-func (v *VerticaDBReconciler) GetEventRecorder() record.EventRecorder {
-	return v.EVRec
-}
-
-// Event a wrapper for Event() that also writes a log entry
-func (v *VerticaDBReconciler) Event(vdb runtime.Object, eventType, reason, message string) {
-	evWriter := events.Writer{
-		Log:   v.Log,
-		EVRec: v.EVRec,
-	}
-	evWriter.Event(vdb, eventType, reason, message)
-}
-
-// Eventf is a wrapper for Eventf() that also writes a log entry
-func (v *VerticaDBReconciler) Eventf(vdb runtime.Object, eventtype, reason, messageFmt string, args ...interface{}) {
-	evWriter := events.Writer{
-		Log:   v.Log,
-		EVRec: v.EVRec,
-	}
-	evWriter.Eventf(vdb, eventtype, reason, messageFmt, args...)
-}
-
-func (v *VerticaDBReconciler) GetConfig() *rest.Config {
-	return v.Cfg
-}
-
-var vdbRec *VerticaDBReconciler
 
 var _ = Describe("podfacts", func() {
 	ctx := context.Background()
