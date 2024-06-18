@@ -643,6 +643,26 @@ func (i *UpgradeManager) isSubclusterIdle(ctx context.Context, pfacts *podfacts.
 	return res, nil
 }
 
+// closeAllSessions will run a query to close all active user sessions.
+func (i *UpgradeManager) closeAllSessions(ctx context.Context, pfacts *PodFacts) error {
+	pf, ok := pfacts.findFirstPodSorted(func(v *PodFact) bool {
+		return v.isPrimary && v.upNode
+	})
+	if !ok {
+		i.Log.Info("No pod found to run vsql. Skipping close all sessions")
+		return nil
+	}
+
+	sql := "select close_all_sessions();"
+	cmd := []string{"-tAc", sql}
+	_, _, err := pfacts.PRunner.ExecVSQL(ctx, pf.name, names.ServerContainer, cmd...)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // routeClientTraffic will update service objects for the source subcluster to
 // route to the target subcluster
 func (i *UpgradeManager) routeClientTraffic(ctx context.Context, pfacts *podfacts.PodFacts,

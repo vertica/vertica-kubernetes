@@ -33,6 +33,14 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
+const (
+	maincluster = "main"
+	subcluster1 = "sc1"
+	subcluster2 = "sc2"
+	sandbox1    = "sandbox1"
+	sandbox2    = "sandbox2"
+)
+
 // initPFacts is a helper function to initialize pod facts with some test information
 func initPFacts(pfacts *podfacts.PodFacts, vdb *vapi.VerticaDB, sc1, sc2 string) (pfmain, pfsc1 types.NamespacedName) {
 	pfmain = names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)
@@ -53,11 +61,6 @@ func initPFacts(pfacts *podfacts.PodFacts, vdb *vapi.VerticaDB, sc1, sc2 string)
 
 var _ = Describe("sandboxsubcluster_reconcile", func() {
 	ctx := context.Background()
-	maincluster := "main"
-	subcluster1 := "sc1"
-	subcluster2 := "sc2"
-	sandbox1 := "sandbox1"
-	sandbox2 := "sandbox2"
 
 	It("should exit without error if no sandboxes specified", func() {
 		vdb := vapi.MakeVDBForVclusterOps()

@@ -205,6 +205,7 @@ func (o *OfflineUpgradeReconciler) stopCluster(ctx context.Context) (ctrl.Result
 	opts := []stopdb.Option{
 		stopdb.WithInitiator(pf.GetName(), pf.GetPodIP()),
 		stopdb.WithSandbox(o.PFacts.GetSandboxName()),
+		stopdb.WithZeroDrain(true),
 	}
 	start := time.Now()
 	o.Rec.Eventf(o.Vdb, corev1.EventTypeNormal, events.ClusterShutdownStarted,
