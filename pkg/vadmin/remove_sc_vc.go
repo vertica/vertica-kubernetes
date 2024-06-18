@@ -72,6 +72,7 @@ func (v *VClusterOps) genRemoveSubclusterOptions(s *removesc.Parms, certs *HTTPS
 	opts.ForceDelete = true
 	opts.PrimaryUpHost = s.InitiatorIP
 	opts.NodeNameAddressMap = s.NodeNameAddressMap
+	opts.NodesToPullSubs = s.NodesToPollSubs
 
 	if v.VDB.Spec.Communal.Path != "" {
 		opts.DepotPrefix = v.VDB.Spec.Local.DepotPath
