@@ -682,7 +682,7 @@ func (p *PodFact) GetSubclusterOid() string {
 	return p.subclusterOid
 }
 
-// GetAdmintoolsExists returns the bool value of subclusterOid in PodFact
+// GetAdmintoolsExists returns the bool value of admintoolsExists in PodFact
 func (p *PodFact) GetAdmintoolsExists() bool {
 	return p.admintoolsExists
 }
@@ -707,7 +707,7 @@ func (p *PodFact) GetDNSName() string {
 	return p.dnsName
 }
 
-// GetExists returns the bool value of dnsName in PodFact
+// GetExists returns the bool value of exists in PodFact
 func (p *PodFact) GetExists() bool {
 	return p.exists
 }
@@ -722,12 +722,12 @@ func (p *PodFact) GetFileExists() map[string]bool {
 	return p.fileExists
 }
 
-// GetDirExists returns the map[string]bool value of fileExists in PodFact
+// GetDirExists returns the map[string]bool value of dirExists in PodFact
 func (p *PodFact) GetDirExists() map[string]bool {
 	return p.dirExists
 }
 
-// GetHasStaleAdmintoolsConf returns the map[string]bool value of fileExists in PodFact
+// GetHasStaleAdmintoolsConf returns the bool value of hasStaleAdmintoolsConf in PodFact
 func (p *PodFact) GetHasStaleAdmintoolsConf() bool {
 	return p.hasStaleAdmintoolsConf
 }
@@ -737,12 +737,12 @@ func (p *PodFact) GetIsInstalled() bool {
 	return p.isInstalled
 }
 
-// GetIsInstalled returns the bool value of isPendingDelete in PodFact
+// GetIsPendingDelete returns the bool value of isPendingDelete in PodFact
 func (p *PodFact) GetIsPendingDelete() bool {
 	return p.isPendingDelete
 }
 
-// GetName returns the types.NamespacedName value of isPodRunning in PodFact
+// GetName returns the types.NamespacedName value of name in PodFact
 func (p *PodFact) GetName() types.NamespacedName {
 	return p.name
 }
@@ -757,7 +757,7 @@ func (p *PodFact) GetCompat21NodeName() string {
 	return p.compat21NodeName
 }
 
-// GetName returns the int value of shardSubscriptions in PodFact
+// GetShardSubscriptions returns the int value of shardSubscriptions in PodFact
 func (p *PodFact) GetShardSubscriptions() int {
 	return p.shardSubscriptions
 }
@@ -787,37 +787,37 @@ func (p *PodFact) GetHasNMASidecar() bool {
 	return p.hasNMASidecar
 }
 
-// GetImage returns the bool value of hasNMASidecar in PodFact
+// GetImage returns the string value of image in PodFact
 func (p *PodFact) GetImage() string {
 	return p.image
 }
 
-// GetExecContainerName returns the string value of hasNMASidecar in PodFact
+// GetExecContainerName returns the string value of execContainerName in PodFact
 func (p *PodFact) GetExecContainerName() string {
 	return p.execContainerName
 }
 
-// GetExecContainerName returns the string value of hasNMASidecar in PodFact
+// GetHasDCTableAnnotations returns the bool value of hasDCTableAnnotations in PodFact
 func (p *PodFact) GetHasDCTableAnnotations() bool {
 	return p.hasDCTableAnnotations
 }
 
-// GetDepotDiskPercentSize returns the string value of hasNMASidecar in PodFact
+// GetDepotDiskPercentSize returns the string value of depotDiskPercentSize in PodFact
 func (p *PodFact) GetDepotDiskPercentSize() string {
 	return p.depotDiskPercentSize
 }
 
-// GetMaxDepotSize returns the string value of hasNMASidecar in PodFact
+// GetMaxDepotSize returns the int value of maxDepotSize in PodFact
 func (p *PodFact) GetMaxDepotSize() int {
 	return p.maxDepotSize
 }
 
-// GetLocalDataSize returns the string value of hasNMASidecar in PodFact
+// GetLocalDataSize returns the int value of localDataSize in PodFact
 func (p *PodFact) GetLocalDataSize() int {
 	return p.localDataSize
 }
 
-// GetExecContainerName returns the string value of hasNMASidecar in PodFact
+// GetEulaAccepted returns the bool value of eulaAccepted in PodFact
 func (p *PodFact) GetEulaAccepted() bool {
 	return p.eulaAccepted
 }
@@ -827,77 +827,77 @@ func (p *PodFact) SetIsPendingDelete(isPendingDelete bool) {
 	p.isPendingDelete = isPendingDelete
 }
 
-// SetIsPendingDelete set the bool value of isPendingDelete in PodFact
+// SetSubclusterName set the string value of subclusterName in PodFact
 func (p *PodFact) SetSubclusterName(subclusterName string) {
 	p.subclusterName = subclusterName
 }
 
-// SetVnodeName set the bool value of isPendingDelete in PodFact
+// SetVnodeName set the string value of vnodeName in PodFact
 func (p *PodFact) SetVnodeName(vnodeName string) {
 	p.vnodeName = vnodeName
 }
 
-// SetVnodeName set the bool value of isPendingDelete in PodFact
+// SetEulaAccepted set the bool value of eulaAccepted in PodFact
 func (p *PodFact) SetEulaAccepted(eulaAccepted bool) {
 	p.eulaAccepted = eulaAccepted
 }
 
-// SetStartupInProgress set the bool value of isPendingDelete in PodFact
+// SetStartupInProgress set the bool value of startupInProgress in PodFact
 func (p *PodFact) SetStartupInProgress(startupInProgress bool) {
 	p.startupInProgress = startupInProgress
 }
 
-// SetSubclusterOid set the bool value of isPendingDelete in PodFact
+// SetSubclusterOid set the bool value of subclusterOid in PodFact
 func (p *PodFact) SetSubclusterOid(subclusterOid string) {
 	p.subclusterOid = subclusterOid
 }
 
-// SetDirExists set the bool value of isPendingDelete in PodFact
+// SetDirExists set the map[string]bool value of dirExists in PodFact
 func (p *PodFact) SetDirExists(dirExists map[string]bool) {
 	p.dirExists = dirExists
 }
 
-// SetCompat21NodeName set the bool value of isPendingDelete in PodFact
+// SetCompat21NodeName set the string value of compat21NodeName in PodFact
 func (p *PodFact) SetCompat21NodeName(compat21NodeName string) {
 	p.compat21NodeName = compat21NodeName
 }
 
-// SetIsPrimary set the bool value of isPendingDelete in PodFact
+// SetIsPrimary set the bool value of isPrimary in PodFact
 func (p *PodFact) SetIsPrimary(isPrimary bool) {
 	p.isPrimary = isPrimary
 }
 
-// SetIsPendingDelete set the bool value of isPendingDelete in PodFact
+// SetHasNMASidecar set the bool value of hasNMASidecar in PodFact
 func (p *PodFact) SetHasNMASidecar(hasNMASidecar bool) {
 	p.hasNMASidecar = hasNMASidecar
 }
 
-// SetIsPendingDelete set the bool value of isPendingDelete in PodFact
+// SetReadOnly set the bool value of readOnly in PodFact
 func (p *PodFact) SetReadOnly(readOnly bool) {
 	p.readOnly = readOnly
 }
 
-// SetDepotDiskPercentSize set the bool value of isPendingDelete in PodFact
+// SetDepotDiskPercentSize set the string value of depotDiskPercentSize in PodFact
 func (p *PodFact) SetDepotDiskPercentSize(depotDiskPercentSize string) {
 	p.depotDiskPercentSize = depotDiskPercentSize
 }
 
-// SetIsPendingDelete set the bool value of isPendingDelete in PodFact
+// SetAdmintoolsExists set the bool value of admintoolsExists in PodFact
 func (p *PodFact) SetAdmintoolsExists(admintoolsExists bool) {
 	p.admintoolsExists = admintoolsExists
 }
 
-// SetIsPendingDelete set the bool value of isPendingDelete in PodFact
+// SetIsPodRunning set the bool value of isPodRunning in PodFact
 func (p *PodFact) SetIsPodRunning(isPodRunning bool) {
 	p.isPodRunning = isPodRunning
 }
 
-// SetLocalDataAvail set the bool value of isPendingDelete in PodFact
+// SetLocalDataAvail set the bool value of localDataAvail in PodFact
 func (p *PodFact) SetLocalDataAvail(localDataAvail int) {
 	p.localDataAvail = localDataAvail
 }
 
-// SetUpNode set the bool value of upNode in PodFact
+// SetIsInstalled set the bool value of isInstalled in PodFact
 func (p *PodFact) SetIsInstalled(isInstalled bool) {
 	p.isInstalled = isInstalled
 }
@@ -907,17 +907,17 @@ func (p *PodFact) SetUpNode(upNode bool) {
 	p.upNode = upNode
 }
 
-// SetUpNode set the bool value of upNode in PodFact
+// SetDBExists set the bool value of dbExists in PodFact
 func (p *PodFact) SetDBExists(dbExists bool) {
 	p.dbExists = dbExists
 }
 
-// SetShardSubscriptions set the bool value of shardSubscriptions in PodFact
+// SetShardSubscriptions set the int value of shardSubscriptions in PodFact
 func (p *PodFact) SetShardSubscriptions(shardSubscriptions int) {
 	p.shardSubscriptions = shardSubscriptions
 }
 
-// GetPodIP set the string value of upNode in PodFact
+// SetHasDCTableAnnotations set the bool value of hasDCTableAnnotations in PodFact
 func (p *PodFact) SetHasDCTableAnnotations(hasDCTableAnnotations bool) {
 	p.hasDCTableAnnotations = hasDCTableAnnotations
 }
