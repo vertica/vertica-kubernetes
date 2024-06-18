@@ -672,6 +672,8 @@ func (r *ReplicatedUpgradeReconciler) addNewSubclusters() (bool, error) {
 		if found {
 			continue
 		}
+		// replace underscore to hypen
+		sc.GenCompatibleFQDN()
 		newSCName, err := r.genNewSubclusterName(sc.Name, scMap)
 		if err != nil {
 			return false, err
