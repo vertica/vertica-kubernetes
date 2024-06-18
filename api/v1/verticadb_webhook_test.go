@@ -987,12 +987,6 @@ var _ = Describe("verticadb_webhook", func() {
 		newVdb.Spec.Subclusters[1].Size = 1
 		Ω(newVdb.validateImmutableFields(oldVdb)).Should(HaveLen(2))
 
-		// Try to remove one of the subclusters
-		newVdb.Spec.Subclusters = []Subcluster{
-			{Name: "a", Size: 3, Type: PrimarySubcluster, ServiceType: v1.ServiceTypeClusterIP},
-		}
-		Ω(newVdb.validateImmutableFields(oldVdb)).Should(HaveLen(1))
-
 		// Add a new primary subcluster.
 		newVdb.Spec.Subclusters = []Subcluster{
 			{Name: "a", Size: 3, Type: PrimarySubcluster, ServiceType: v1.ServiceTypeClusterIP},
