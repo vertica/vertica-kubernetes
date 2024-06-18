@@ -1254,8 +1254,10 @@ func (v *VerticaDB) checkImmutableBasic(oldObj *VerticaDB, allErrs field.ErrorLi
 			"local.storageClass cannot change after creation")
 		allErrs = append(allErrs, err)
 	}
-	// when update subcluster names, there should be at least one sc's name match its old name
-	if !v.canUpdateScName(oldObj) {
+	// when update subcluster names, there should be at least one sc's name match its old name.
+	// This limitation should not be hold in replicated upgrade since we need to rename all subclusters
+	// after sandbox promotion.
+	if !v.canUpdateScName(oldObj) && !v.isReplicatedUpgradeInProgress() {
 		err := field.Invalid(field.NewPath("spec").Child("subclusters"),
 			v.Spec.Subclusters,
 			"at least one subcluster name should match its old name")
@@ -1500,12 +1502,7 @@ func (v *VerticaDB) checkImmutableSubclusterDuringUpgrade(oldObj *VerticaDB, all
 	for scName := range allSubclusters {
 		oldSc, oldScFound := oldScMap[scName]
 		newSc, newScFound := newScMap[scName]
-		// Cannot remove a subcluster during upgrade
 		if !newScFound {
-			err := field.Invalid(path,
-				v.Spec.Subclusters,
-				fmt.Sprintf("Cannot remove subcluster %q during replicated upgrade", scName))
-			allErrs = append(allErrs, err)
 			continue
 		}
 		// The operator can create new subclusters that are used for the
@@ -1518,11 +1515,6 @@ func (v *VerticaDB) checkImmutableSubclusterDuringUpgrade(oldObj *VerticaDB, all
 				err := field.Invalid(path,
 					newSc,
 					"New subclusters cannot be added during replicated upgrade")
-				allErrs = append(allErrs, err)
-			} else if newSc.Type != SecondarySubcluster {
-				err := field.Invalid(path,
-					newSc,
-					fmt.Sprintf("New subclusters must be secondary not %q when added during replicated upgrade", newSc.Type))
 				allErrs = append(allErrs, err)
 			}
 			continue
