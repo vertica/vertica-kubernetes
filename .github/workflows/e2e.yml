@@ -158,7 +158,7 @@ jobs:
           dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}
           vlogger-image: ${{ needs.build.outputs.vlogger-image }}
           operator-image: ${{ needs.build.outputs.operator-image }}
-          vertica-image: ${{ needs.build.outputs.full-vertica-image }}
+          vertica-image: 'opentext/vertica-k8s-private:24.2.0-0-mbir'
           vertica-deployment-method: vclusterops
           communal-storage-type: azb
           deploy-with: olm
@@ -278,7 +278,7 @@ jobs:
           dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}
           vlogger-image: ${{ needs.build.outputs.vlogger-image }}
           operator-image: ${{ needs.build.outputs.operator-image }}
-          vertica-image: ${{ needs.build.outputs.full-vertica-image }}
+          vertica-image: 'opentext/vertica-k8s-private:24.2.0-0-mbir'
           vertica-deployment-method: vclusterops
           communal-storage-type: hostpath
 
@@ -389,7 +389,7 @@ jobs:
           dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}
           vlogger-image: ${{ needs.build.outputs.vlogger-image }}
           operator-image: ${{ needs.build.outputs.operator-image }}
-          vertica-image: ${{ needs.build.outputs.full-vertica-image }}
+          vertica-image: 'opentext/vertica-k8s-private:24.2.0-0-mbir'
           vertica-deployment-method: vclusterops
           communal-storage-type: hostpath
           minimum-vertica-image: '24.2.0'
@@ -409,7 +409,7 @@ jobs:
           dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}
           vlogger-image: ${{ needs.build.outputs.vlogger-image }}
           operator-image: ${{ needs.build.outputs.operator-image }}
-          vertica-image: ${{ needs.build.outputs.full-vertica-image }}
+          vertica-image: 'opentext/vertica-k8s-private:24.2.0-0-mbir'
           vertica-deployment-method: vclusterops
           communal-storage-type: hostpath
           minimum-vertica-image: '24.2.0'
@@ -534,6 +534,6 @@ jobs:
           vlogger-image: ${{ needs.build.outputs.vlogger-image }}
           operator-image: ${{ needs.build.outputs.operator-image }}
           # We must pass the full image since the minimal image cannot run Java UDx's
-          vertica-image: ${{ needs.build.outputs.full-vertica-image }}
+          vertica-image: 'opentext/vertica-k8s-private:24.2.0-0-mbir'
           vertica-deployment-method: vclusterops
           communal-storage-type: s3
