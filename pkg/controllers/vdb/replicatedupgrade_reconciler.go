@@ -18,6 +18,7 @@ package vdb
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"sort"
 
 	"github.com/go-logr/logr"
@@ -672,8 +673,6 @@ func (r *ReplicatedUpgradeReconciler) addNewSubclusters() (bool, error) {
 		if found {
 			continue
 		}
-		// replace underscore to hypen
-		sc.GenCompatibleFQDN()
 		newSCName, err := r.genNewSubclusterName(sc.Name, scMap)
 		if err != nil {
 			return false, err
@@ -805,6 +804,10 @@ func (r *ReplicatedUpgradeReconciler) genNewSubclusterStsName(newSCName string, 
 
 	// Preference is to match the name of the new subcluster.
 	nm := fmt.Sprintf("%s-%s", r.VDB.Name, newSCName)
+
+	// replace underscore to hypen for service name
+	m := regexp.MustCompile(`_`)
+	nm = m.ReplaceAllString(nm, "-")
 	if _, found := stsNameMap[nm]; !found {
 		return nm, nil
 	}
