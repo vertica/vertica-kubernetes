@@ -52,7 +52,7 @@ type DBRemoveSubclusterReconciler struct {
 
 // MakeDBRemoveSubclusterReconciler will build a DBRemoveSubclusterReconciler object
 func MakeDBRemoveSubclusterReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger, vdb *vapi.VerticaDB,
-	prunner cmds.PodRunner, pfacts *PodFacts, dispatcher vadmin.Dispatcher, calledInReplicatedUpgrade bool) controllers.ReconcileActor {
+	prunner cmds.PodRunner, pfacts *podfacts.PodFacts, dispatcher vadmin.Dispatcher, calledInReplicatedUpgrade bool) controllers.ReconcileActor {
 	return &DBRemoveSubclusterReconciler{
 		VRec:                      vdbrecon,
 		Log:                       log.WithName("DBRemoveSubclusterReconciler"),
@@ -160,7 +160,7 @@ func (d *DBRemoveSubclusterReconciler) removeSubcluster(ctx context.Context, scN
 	// sandbox.
 	if d.CalledInReplicatedUpgrade {
 		scNames := d.Vdb.GetSubclustersForReplicaGroup(vmeta.ReplicaGroupBValue)
-		nodesToPollSubs = d.PFacts.findNodeNamesInSubclusters(scNames)
+		nodesToPollSubs = d.PFacts.FindNodeNamesInSubclusters(scNames)
 	}
 
 	err := d.Dispatcher.RemoveSubcluster(ctx,
