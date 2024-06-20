@@ -805,7 +805,7 @@ func (r *ReplicatedUpgradeReconciler) genNewSubclusterStsName(newSCName string, 
 	// Preference is to match the name of the new subcluster.
 	nm := fmt.Sprintf("%s-%s", r.VDB.Name, newSCName)
 
-	// replace underscore to hypen for service name
+	// replace underscore to hypen for the statefulset name
 	m := regexp.MustCompile(`_`)
 	nm = m.ReplaceAllString(nm, "-")
 	if _, found := stsNameMap[nm]; !found {
