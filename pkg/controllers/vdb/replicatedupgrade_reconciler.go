@@ -18,7 +18,6 @@ package vdb
 import (
 	"context"
 	"fmt"
-	"regexp"
 	"sort"
 
 	"github.com/go-logr/logr"
@@ -806,8 +805,7 @@ func (r *ReplicatedUpgradeReconciler) genNewSubclusterStsName(newSCName string, 
 	nm := fmt.Sprintf("%s-%s", r.VDB.Name, newSCName)
 
 	// replace underscore to hypen for the statefulset name
-	m := regexp.MustCompile(`_`)
-	nm = m.ReplaceAllString(nm, "-")
+	nm = v1beta1.GenCompatibleFQDNHelper(nm)
 	if _, found := stsNameMap[nm]; !found {
 		return nm, nil
 	}
