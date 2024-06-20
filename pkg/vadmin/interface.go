@@ -37,6 +37,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/reip"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/removenode"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/removesc"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/renamesc"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/replicationstart"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/restartnode"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/revivedb"
@@ -124,6 +125,9 @@ type Dispatcher interface {
 
 	// GetConfigurationParameter will get the value of a config parameter at a certain level in a given cluster
 	GetConfigurationParameter(ctx context.Context, opts ...getconfigparameter.Option) (string, error)
+
+	// RenameSubcluster will rename a subcluster in main cluster
+	RenameSubcluster(ctx context.Context, opts ...renamesc.Option) error
 }
 
 const (
@@ -254,4 +258,5 @@ type VClusterProvider interface {
 	VAlterSubclusterType(options *vops.VAlterSubclusterTypeOptions) error
 	VSetConfigurationParameters(options *vops.VSetConfigurationParameterOptions) error
 	VGetConfigurationParameters(options *vops.VGetConfigurationParameterOptions) (string, error)
+	VRenameSubcluster(options *vops.VRenameSubclusterOptions) error
 }

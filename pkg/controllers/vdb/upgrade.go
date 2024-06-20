@@ -264,7 +264,8 @@ func (i *UpgradeManager) clearReplicatedUpgradeAnnotations(ctx context.Context) 
 func (i *UpgradeManager) clearReplicatedUpgradeAnnotationCallback() (updated bool, err error) {
 	for inx := range i.Vdb.Spec.Subclusters {
 		sc := &i.Vdb.Spec.Subclusters[inx]
-		for _, a := range []string{vmeta.ReplicaGroupAnnotation, vmeta.ChildSubclusterAnnotation, vmeta.ParentSubclusterAnnotation} {
+		for _, a := range []string{vmeta.ReplicaGroupAnnotation, vmeta.ChildSubclusterAnnotation,
+			vmeta.ParentSubclusterAnnotation, vmeta.ParentSubclusterTypeAnnotation} {
 			if _, annotationFound := sc.Annotations[a]; annotationFound {
 				delete(sc.Annotations, a)
 				updated = true
@@ -273,7 +274,8 @@ func (i *UpgradeManager) clearReplicatedUpgradeAnnotationCallback() (updated boo
 	}
 
 	// Clear annotations set in the VerticaDB's metadata.annotations.
-	for _, a := range []string{vmeta.ReplicatedUpgradeReplicatorAnnotation, vmeta.ReplicatedUpgradeSandboxAnnotation} {
+	for _, a := range []string{vmeta.ReplicatedUpgradeReplicatorAnnotation, vmeta.ReplicatedUpgradeSandboxAnnotation,
+		vmeta.ReplicatedUpgradeSandboxPromotedAnnotation, vmeta.ReplicatedUpgradeReplicaARemovedAnnotation} {
 		if _, annotationFound := i.Vdb.Annotations[a]; annotationFound {
 			delete(i.Vdb.Annotations, a)
 			updated = true
@@ -640,6 +642,26 @@ func (i *UpgradeManager) isSubclusterIdle(ctx context.Context, pfacts *PodFacts,
 			"Subcluster '%s' has active connections preventing the drain from succeeding", scName)
 	}
 	return res, nil
+}
+
+// closeAllSessions will run a query to close all active user sessions.
+func (i *UpgradeManager) closeAllSessions(ctx context.Context, pfacts *PodFacts) error {
+	pf, ok := pfacts.findFirstPodSorted(func(v *PodFact) bool {
+		return v.isPrimary && v.upNode
+	})
+	if !ok {
+		i.Log.Info("No pod found to run vsql. Skipping close all sessions")
+		return nil
+	}
+
+	sql := "select close_all_sessions();"
+	cmd := []string{"-tAc", sql}
+	_, _, err := pfacts.PRunner.ExecVSQL(ctx, pf.name, names.ServerContainer, cmd...)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // routeClientTraffic will update service objects for the source subcluster to

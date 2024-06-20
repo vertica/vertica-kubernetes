@@ -107,6 +107,9 @@ const (
 	GetConfigurationParameterStarted   = "GetConfigurationParameterStarted"
 	GetConfigurationParameterFailed    = "GetConfigurationParameterFailed"
 	GetConfigurationParameterSucceeded = "GetConfigurationParameterSucceeded"
+	RenameSubclusterFailed             = "RenameSubclusterFailed"
+	RenameSubclusterStart              = "RenameSubclusterStart"
+	RenameSubclusterSucceeded          = "RenameSubclusterSucceeded"
 )
 
 // Constants for VerticaAutoscaler reconciler
