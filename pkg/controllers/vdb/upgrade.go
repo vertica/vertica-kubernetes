@@ -265,7 +265,8 @@ func (i *UpgradeManager) clearReplicatedUpgradeAnnotations(ctx context.Context) 
 func (i *UpgradeManager) clearReplicatedUpgradeAnnotationCallback() (updated bool, err error) {
 	for inx := range i.Vdb.Spec.Subclusters {
 		sc := &i.Vdb.Spec.Subclusters[inx]
-		for _, a := range []string{vmeta.ReplicaGroupAnnotation, vmeta.ChildSubclusterAnnotation, vmeta.ParentSubclusterAnnotation} {
+		for _, a := range []string{vmeta.ReplicaGroupAnnotation, vmeta.ChildSubclusterAnnotation,
+			vmeta.ParentSubclusterAnnotation, vmeta.ParentSubclusterTypeAnnotation} {
 			if _, annotationFound := sc.Annotations[a]; annotationFound {
 				delete(sc.Annotations, a)
 				updated = true
@@ -274,7 +275,8 @@ func (i *UpgradeManager) clearReplicatedUpgradeAnnotationCallback() (updated boo
 	}
 
 	// Clear annotations set in the VerticaDB's metadata.annotations.
-	for _, a := range []string{vmeta.ReplicatedUpgradeReplicatorAnnotation, vmeta.ReplicatedUpgradeSandboxAnnotation} {
+	for _, a := range []string{vmeta.ReplicatedUpgradeReplicatorAnnotation, vmeta.ReplicatedUpgradeSandboxAnnotation,
+		vmeta.ReplicatedUpgradeSandboxPromotedAnnotation, vmeta.ReplicatedUpgradeReplicaARemovedAnnotation} {
 		if _, annotationFound := i.Vdb.Annotations[a]; annotationFound {
 			delete(i.Vdb.Annotations, a)
 			updated = true

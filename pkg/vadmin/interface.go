@@ -36,6 +36,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/reip"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/removenode"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/removesc"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/renamesc"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/replicationstart"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/restartnode"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/revivedb"
@@ -116,6 +117,9 @@ type Dispatcher interface {
 	UnsandboxSubcluster(ctx context.Context, opts ...unsandboxsc.Option) error
 
 	AlterSubclusterType(ctx context.Context, opts ...altersc.Option) error
+
+	// RenameSubcluster will rename a subcluster in main cluster
+	RenameSubcluster(ctx context.Context, opts ...renamesc.Option) error
 }
 
 const (
@@ -244,4 +248,5 @@ type VClusterProvider interface {
 	VSandbox(options *vops.VSandboxOptions) error
 	VUnsandbox(options *vops.VUnsandboxOptions) error
 	VAlterSubclusterType(options *vops.VAlterSubclusterTypeOptions) error
+	VRenameSubcluster(options *vops.VRenameSubclusterOptions) error
 }

@@ -217,7 +217,7 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		// Wait for any nodes that are pending delete with active connections to leave.
 		MakeDrainNodeReconciler(r, vdb, prunner, pfacts),
 		// Handles calls to remove subcluster from vertica catalog
-		MakeDBRemoveSubclusterReconciler(r, log, vdb, prunner, pfacts, dispatcher),
+		MakeDBRemoveSubclusterReconciler(r, log, vdb, prunner, pfacts, dispatcher, false),
 		MakeStatusReconciler(r.Client, r.Scheme, log, vdb, pfacts),
 		// Handles calls to remove a database node from the cluster
 		MakeDBRemoveNodeReconciler(r, log, vdb, prunner, pfacts, dispatcher),

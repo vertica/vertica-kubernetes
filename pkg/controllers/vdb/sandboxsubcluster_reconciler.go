@@ -162,7 +162,7 @@ func (s *SandboxSubclusterReconciler) executeSandboxCommand(ctx context.Context,
 	seenSandboxes := make(map[string]any)
 
 	// We can simply loop over the scSbMap and sandbox each subcluster. However,
-	// we want to sandbox in a determinstic order because the first subcluster
+	// we want to sandbox in a deterministic order because the first subcluster
 	// in a sandbox is the primary.
 	for i := range s.Vdb.Spec.Sandboxes {
 		vdbSb := &s.Vdb.Spec.Sandboxes[i]
@@ -173,10 +173,16 @@ func (s *SandboxSubclusterReconciler) executeSandboxCommand(ctx context.Context,
 				// assume it is already sandboxed
 				continue
 			}
+			res, err := s.sandboxSubcluster(ctx, sc, sb)
+			if verrors.IsReconcileAborted(res, err) {
+				return res, err
+			}
+			seenSandboxes[sb] = struct{}{}
+
 			// The first subcluster in a sandbox turns into a primary. Set
 			// state in the vdb to indicate that.
 			if j == 0 {
-				_, err := vk8s.UpdateVDBWithRetry(ctx, s.VRec, s.Vdb, func() (bool, error) {
+				_, err = vk8s.UpdateVDBWithRetry(ctx, s.VRec, s.Vdb, func() (bool, error) {
 					scMap := s.Vdb.GenSubclusterMap()
 					vdbSc, found := scMap[sc]
 					if !found {
@@ -189,11 +195,6 @@ func (s *SandboxSubclusterReconciler) executeSandboxCommand(ctx context.Context,
 					return ctrl.Result{}, err
 				}
 			}
-			res, err := s.sandboxSubcluster(ctx, sc, sb)
-			if verrors.IsReconcileAborted(res, err) {
-				return res, err
-			}
-			seenSandboxes[sb] = struct{}{}
 
 			// Always update status as we go. When sandboxing two subclusters in
 			// the same sandbox, the second subcluster depends on the status

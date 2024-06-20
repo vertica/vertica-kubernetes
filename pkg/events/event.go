@@ -101,6 +101,9 @@ const (
 	InstallPackagesStarted          = "InstallPackagesStarted"
 	InstallPackagesFailed           = "InstallPackagesFailed"
 	InstallPackagesFinished         = "InstallPackagesFinished"
+	RenameSubclusterFailed          = "RenameSubclusterFailed"
+	RenameSubclusterStart           = "RenameSubclusterStart"
+	RenameSubclusterSucceeded       = "RenameSubclusterSucceeded"
 )
 
 // Constants for VerticaAutoscaler reconciler

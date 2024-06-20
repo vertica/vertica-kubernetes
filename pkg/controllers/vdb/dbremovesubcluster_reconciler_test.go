@@ -38,7 +38,7 @@ var _ = Describe("dbremovedsubcluster_reconcile", func() {
 		fpr := &cmds.FakePodRunner{}
 		pfacts := podfacts.MakePodFacts(vdbRec, fpr, logger, TestPassword)
 		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
-		r := MakeDBRemoveSubclusterReconciler(vdbRec, logger, vdb, fpr, &pfacts, dispatcher)
+		r := MakeDBRemoveSubclusterReconciler(vdbRec, logger, vdb, fpr, &pfacts, dispatcher, false)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 	})
 
@@ -69,7 +69,7 @@ var _ = Describe("dbremovedsubcluster_reconcile", func() {
 		pfacts := createPodFactsDefault(fpr)
 		Expect(pfacts.Collect(ctx, fetchedVdb)).Should(Succeed())
 		dispatcher := vdbRec.makeDispatcher(logger, fetchedVdb, fpr, TestPassword)
-		r := MakeDBRemoveSubclusterReconciler(vdbRec, logger, fetchedVdb, fpr, pfacts, dispatcher)
+		r := MakeDBRemoveSubclusterReconciler(vdbRec, logger, fetchedVdb, fpr, pfacts, dispatcher, false)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 		// One command should be AT -t db_remove_subcluster and one should be
 		// changing the default subcluster

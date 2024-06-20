@@ -11,13 +11,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: v1
-kind: Pod
+apiVersion: apps/v1
+kind: StatefulSet
 metadata:
-  name: test-verify-new-main-cluster
-status:
-  containerStatuses:
-    - name: test
-      state:
-        terminated:
-          exitCode: 0 
+  name: v-base-upgrade-pri1
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: v-base-upgrade-pri2
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: v-base-upgrade-sec1

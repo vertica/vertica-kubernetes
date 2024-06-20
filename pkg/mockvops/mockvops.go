@@ -90,6 +90,9 @@ func (*MockVClusterOps) VPromoteSandboxToMain(_ *vclusterops.VPromoteSandboxToMa
 func (m *MockVClusterOps) VAlterSubclusterType(options *vclusterops.VAlterSubclusterTypeOptions) error {
 	return nil
 }
+func (*MockVClusterOps) VRenameSubcluster(_ *vclusterops.VRenameSubclusterOptions) error {
+	return nil
+}
 
 // MakeMockVClusterOpsDispatch will create a mock vcluster dispatcher
 func MakeMockVClusterOpsDispatcher(vdb *vapi.VerticaDB, logger logr.Logger, cl client.Client,
