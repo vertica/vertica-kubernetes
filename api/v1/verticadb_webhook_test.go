@@ -945,16 +945,18 @@ var _ = Describe("verticadb_webhook", func() {
 		vdb := MakeVDB()
 		vdb.Spec.UpgradePolicy = "NotValid"
 		Ω(vdb.validateVerticaDBSpec()).Should(HaveLen(1))
-		vdb.Spec.UpgradePolicy = ReplicatedUpgrade
+		vdb.Spec.UpgradePolicy = OnlineUpgrade
+		vdb.Annotations[vmeta.IsNewOnlineUpgradeAnnotation] = vmeta.IsNewOnlineUpgradeTrue
 		Ω(vdb.validateVerticaDBSpec()).Should(HaveLen(0))
 	})
 
 	It("should check the validity of the replicaGroups", func() {
 		vdb := MakeVDB()
+		vdb.Annotations[vmeta.IsNewOnlineUpgradeAnnotation] = vmeta.IsNewOnlineUpgradeTrue
 		vdb.Spec.Subclusters[0].Annotations = map[string]string{
 			vmeta.ReplicaGroupAnnotation: "invalid-value",
 		}
-		setReplicatedUpgradeInProgress(vdb)
+		setOnlineUpgradeInProgress(vdb)
 		Ω(vdb.validateVerticaDBSpec()).Should(HaveLen(1))
 		vdb.Spec.Subclusters[0].Annotations = map[string]string{
 			vmeta.ReplicaGroupAnnotation: vmeta.ReplicaGroupAValue,
@@ -964,11 +966,12 @@ var _ = Describe("verticadb_webhook", func() {
 
 	It("should check subcluster immutability during upgrade", func() {
 		newVdb := MakeVDB()
+		newVdb.Annotations[vmeta.IsNewOnlineUpgradeAnnotation] = vmeta.IsNewOnlineUpgradeTrue
 		newVdb.Spec.Subclusters = []Subcluster{
 			{Name: "a", Size: 3, Type: PrimarySubcluster, ServiceType: v1.ServiceTypeClusterIP},
 			{Name: "b", Size: 3, Type: PrimarySubcluster, ServiceType: v1.ServiceTypeClusterIP},
 		}
-		setReplicatedUpgradeInProgress(newVdb)
+		setOnlineUpgradeInProgress(newVdb)
 		Ω(newVdb.validateVerticaDBSpec()).Should(HaveLen(0))
 
 		oldVdb := newVdb.DeepCopy()
@@ -1289,6 +1292,6 @@ func resetStatusConditionsForCondition(v *VerticaDB, conditionType string, statu
 	meta.SetStatusCondition(&v.Status.Conditions, *cond)
 }
 
-func setReplicatedUpgradeInProgress(v *VerticaDB) {
-	v.Status.Conditions = append(v.Status.Conditions, *MakeCondition(ReplicatedUpgradeInProgress, metav1.ConditionTrue, "started"))
+func setOnlineUpgradeInProgress(v *VerticaDB) {
+	v.Status.Conditions = append(v.Status.Conditions, *MakeCondition(OnlineUpgradeInProgress, metav1.ConditionTrue, "started"))
 }

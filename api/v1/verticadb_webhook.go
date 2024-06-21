@@ -995,24 +995,22 @@ func (v *VerticaDB) hasValidCreateDBTimeout(allErrs field.ErrorList) field.Error
 }
 
 func (v *VerticaDB) hasValidUpgradePolicy(allErrs field.ErrorList) field.ErrorList {
-	switch v.Spec.UpgradePolicy {
-	case "":
-	case AutoUpgrade:
-	case OfflineUpgrade:
-	case OnlineUpgrade:
-	case ReplicatedUpgrade:
-	default:
-		err := field.Invalid(field.NewPath("spec").Child("upgradePolicy"),
-			v.Spec.UpgradePolicy, fmt.Sprintf("must be one of: %s, %s, %s or %s",
-				AutoUpgrade, OfflineUpgrade, OnlineUpgrade, ReplicatedUpgrade))
-		return append(allErrs, err)
+	if v.Spec.UpgradePolicy == "" ||
+		v.Spec.UpgradePolicy == AutoUpgrade ||
+		v.Spec.UpgradePolicy == OfflineUpgrade ||
+		v.Spec.UpgradePolicy == OnlineUpgrade {
+		return allErrs
 	}
-	return allErrs
+
+	err := field.Invalid(field.NewPath("spec").Child("upgradePolicy"),
+		v.Spec.UpgradePolicy, fmt.Sprintf("must be one of: %s, %s or %s",
+			AutoUpgrade, OfflineUpgrade, OnlineUpgrade))
+	return append(allErrs, err)
 }
 
 func (v *VerticaDB) hasValidReplicaGroups(allErrs field.ErrorList) field.ErrorList {
-	// Can be skipped if replicated upgrade is not in progress
-	if !v.isReplicatedUpgradeInProgress() {
+	// Can be skipped if Online upgrade is not in progress
+	if !v.isNewOnlineUpgradeInProgress() {
 		return allErrs
 	}
 
@@ -1186,8 +1184,12 @@ func (v *VerticaDB) isUpgradeInProgress() bool {
 	return v.IsStatusConditionTrue(UpgradeInProgress)
 }
 
-func (v *VerticaDB) isReplicatedUpgradeInProgress() bool {
-	return v.IsStatusConditionTrue(ReplicatedUpgradeInProgress)
+func (v *VerticaDB) isOnlineUpgradeInProgress() bool {
+	return v.IsStatusConditionTrue(OnlineUpgradeInProgress)
+}
+
+func (v *VerticaDB) isNewOnlineUpgradeInProgress() bool {
+	return v.isOnlineUpgradeInProgress() && vmeta.IsNewOnlineUpgrade(v.Annotations)
 }
 
 func (v *VerticaDB) isDBInitialized() bool {
@@ -1241,9 +1243,9 @@ func (v *VerticaDB) checkImmutableBasic(oldObj *VerticaDB, allErrs field.ErrorLi
 		allErrs = append(allErrs, err)
 	}
 	// when update subcluster names, there should be at least one sc's name match its old name.
-	// This limitation should not be hold in replicated upgrade since we need to rename all subclusters
+	// This limitation should not be hold in online upgrade since we need to rename all subclusters
 	// after sandbox promotion.
-	if !v.canUpdateScName(oldObj) && !v.isReplicatedUpgradeInProgress() {
+	if !v.canUpdateScName(oldObj) && !v.isNewOnlineUpgradeInProgress() {
 		err := field.Invalid(field.NewPath("spec").Child("subclusters"),
 			v.Spec.Subclusters,
 			"at least one subcluster name should match its old name")
@@ -1460,10 +1462,10 @@ func checkInt64PtrChange(prefix *field.Path, fieldName string,
 }
 
 // checkImmutableSubclusterDuringUpgrade will ensure we don't scale, add or
-// remove subclusters during a replicated upgrade.
+// remove subclusters during a online upgrade.
 func (v *VerticaDB) checkImmutableSubclusterDuringUpgrade(oldObj *VerticaDB, allErrs field.ErrorList) field.ErrorList {
-	// This entire check can be skipped if we aren't doing replicated upgrade.
-	if !v.isReplicatedUpgradeInProgress() {
+	// This entire check can be skipped if we aren't doing online upgrade.
+	if !v.isNewOnlineUpgradeInProgress() {
 		return allErrs
 	}
 
@@ -1500,7 +1502,7 @@ func (v *VerticaDB) checkImmutableSubclusterDuringUpgrade(oldObj *VerticaDB, all
 				(annotationVal != vmeta.ReplicaGroupAValue && annotationVal != vmeta.ReplicaGroupBValue) {
 				err := field.Invalid(path,
 					newSc,
-					"New subclusters cannot be added during replicated upgrade")
+					"New subclusters cannot be added during online upgrade")
 				allErrs = append(allErrs, err)
 			}
 			continue

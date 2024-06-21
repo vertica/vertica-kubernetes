@@ -128,20 +128,20 @@ type VerticaDBSpec struct {
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:select:Auto","urn:alm:descriptor:com.tectonic.ui:select:Online","urn:alm:descriptor:com.tectonic.ui:select:Offline"}
 	// +kubebuilder:default:=Auto
 	// This setting defines how the upgrade process will be managed. The
-	// available values are Offline, Online, Replicated, and Auto.
+	// available values are Offline, Online, and Auto.
 	//
 	// Offline: This option involves taking down the entire cluster and then
 	// bringing it back up with the new image.
 	//
 	// Online: With this option, the cluster remains operational for reads
-	// during the upgrade process. However, the data will be in read-only mode
-	// until the Vertica nodes from the primary subcluster re-form the cluster
-	// with the new image.
-	//
-	// Replicated: Similar to Online, this option keeps the cluster operational
-	// throughout the upgrade process but allows writes. The cluster is split
-	// into two replicas, and traffic is redirected to the active replica to
-	// facilitate writes.
+	// during the upgrade process.
+	// 		- For server version < 24.3.0, the data will be
+	// 		in read-only mode until the Vertica nodes from the primary subcluster re-form the cluster
+	// 		with the new image.
+	// 		- For server version >= 24.3.0, the cluster stays operational
+	// 		throughout the upgrade process and allows writes. The cluster is split
+	// 		into two replicas, and traffic is redirected to the active replica to
+	// 		facilitate writes.
 	//
 	// Auto: This option selects one of the above methods automatically based on
 	// compatibility with the version of Vertica you are running.
@@ -416,12 +416,14 @@ const (
 	// leaving the secondary subclusters in read-only mode.  When the primary
 	// subcluster comes back up, we restart/remove all of the secondary
 	// subclusters to take them out of read-only mode.
-	OnlineUpgrade UpgradePolicyType = "Online"
-	// Like online upgrade, however it allows for writes. This is done by
+	// This is only used internally by the operator to differentiate between
+	// the read-only and new online ugrade.
+	ReadOnlyOnlineUpgrade UpgradePolicyType = "ReadOnlyOnline"
+	// Like read-only online upgrade, however it allows for writes. This is done by
 	// splitting the vertica cluster into two replicas, then following a
 	// replication strategy where we failover to one of the replicas while the
 	// other is being upgraded.
-	ReplicatedUpgrade UpgradePolicyType = "Replicated"
+	OnlineUpgrade UpgradePolicyType = "Online"
 	// This automatically picks between offline and online upgrade.  Online
 	// can only be used if (a) a license secret exists since we may need to scale
 	// out, (b) we are already on a minimum Vertica engine version that supports
@@ -883,10 +885,9 @@ const (
 	// UpgradeInProgress indicates if the vertica server is in the process
 	// of having its image change.  We have additional conditions to
 	// distinguish between the different types of upgrade it is.
-	UpgradeInProgress           = "UpgradeInProgress"
-	OfflineUpgradeInProgress    = "OfflineUpgradeInProgress"
-	OnlineUpgradeInProgress     = "OnlineUpgradeInProgress"
-	ReplicatedUpgradeInProgress = "ReplicatedUpgradeInProgress"
+	UpgradeInProgress        = "UpgradeInProgress"
+	OfflineUpgradeInProgress = "OfflineUpgradeInProgress"
+	OnlineUpgradeInProgress  = "OnlineUpgradeInProgress"
 	// VerticaRestartNeeded is a condition that when set to true will force the
 	// operator to stop/start the vertica pods.
 	VerticaRestartNeeded = "VerticaRestartNeeded"

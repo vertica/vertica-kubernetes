@@ -40,22 +40,23 @@ var _ = Describe("upgrade", func() {
 		vdb.Spec.Subclusters = append(vdb.Spec.Subclusters, vapi.Subcluster{
 			Name: "sc1", Type: vapi.SecondarySubcluster, Size: 3,
 		})
-		vdb.Annotations[vmeta.VersionAnnotation] = vapi.ReplicatedUpgradeVersion
+		vdb.Annotations[vmeta.VersionAnnotation] = vapi.OnlineUpgradeVersion
 
 		vdb.Spec.UpgradePolicy = vapi.OfflineUpgrade
 		Expect(offlineUpgradeAllowed(vdb)).Should(BeTrue())
 		Expect(onlineUpgradeAllowed(vdb)).Should(BeFalse())
-		Expect(replicatedUpgradeAllowed(vdb)).Should(BeFalse())
+		Expect(onlineUpgradeAllowed(vdb)).Should(BeFalse())
 
 		vdb.Spec.UpgradePolicy = vapi.OnlineUpgrade
 		Expect(offlineUpgradeAllowed(vdb)).Should(BeFalse())
-		Expect(onlineUpgradeAllowed(vdb)).Should(BeTrue())
-		Expect(replicatedUpgradeAllowed(vdb)).Should(BeFalse())
-
-		vdb.Spec.UpgradePolicy = vapi.ReplicatedUpgrade
-		Expect(offlineUpgradeAllowed(vdb)).Should(BeFalse())
+		Expect(readOnlyOnlineUpgradeAllowed(vdb)).Should(BeTrue())
 		Expect(onlineUpgradeAllowed(vdb)).Should(BeFalse())
-		Expect(replicatedUpgradeAllowed(vdb)).Should(BeTrue())
+
+		vdb.Spec.UpgradePolicy = vapi.OnlineUpgrade
+		vdb.Annotations[vmeta.IsNewOnlineUpgradeAnnotation] = vmeta.IsNewOnlineUpgradeTrue
+		Expect(offlineUpgradeAllowed(vdb)).Should(BeFalse())
+		Expect(readOnlyOnlineUpgradeAllowed(vdb)).Should(BeFalse())
+		Expect(onlineUpgradeAllowed(vdb)).Should(BeTrue())
 	})
 
 	It("should not need an upgrade if images match in sts and vdb", func() {
@@ -284,7 +285,7 @@ var _ = Describe("upgrade", func() {
 		Expect(k8sClient.Get(ctx, stsnm, sts)).ShouldNot(Succeed())
 	})
 
-	It("should clear annotations set for replicated upgrade", func() {
+	It("should clear annotations set for online upgrade", func() {
 		vdb := vapi.MakeVDB()
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)

@@ -970,7 +970,6 @@ const (
 	ImageChangeInProgress       VerticaDBConditionType = "ImageChangeInProgress"
 	OfflineUpgradeInProgress    VerticaDBConditionType = "OfflineUpgradeInProgress"
 	OnlineUpgradeInProgress     VerticaDBConditionType = "OnlineUpgradeInProgress"
-	ReplicatedUpgradeInProgress VerticaDBConditionType = "ReplicatedUpgradeInProgress"
 	// VerticaRestartNeeded is a condition that when set to true will force the
 	// operator to stop/start the vertica pods.
 	VerticaRestartNeeded VerticaDBConditionType = "VerticaRestartNeeded"

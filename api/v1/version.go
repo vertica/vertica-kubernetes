@@ -30,10 +30,10 @@ const (
 	MinimumVersion = "v11.0.1"
 	// The version that added read-only state
 	NodesHaveReadOnlyStateVersion = "v11.0.2"
+	// The minimum version that allows for read-only online upgrade.
+	ReadOnlyOnlineUpgradeVersion = "v11.1.0"
 	// The minimum version that allows for online upgrade.
-	OnlineUpgradeVersion = "v11.1.0"
-	// The minimum version that allows for replicated upgrade.
-	ReplicatedUpgradeVersion = "v24.3.0"
+	OnlineUpgradeVersion = "v24.3.0"
 	// The version that added the --force option to reip to handle up nodes
 	ReIPAllowedWithUpNodesVersion = "v11.1.0"
 	// The version of the server that doesn't support cgroup v2

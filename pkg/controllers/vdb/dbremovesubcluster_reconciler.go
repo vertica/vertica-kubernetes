@@ -39,27 +39,27 @@ import (
 
 // DBRemoveSubclusterReconciler will remove subclusters from the database
 type DBRemoveSubclusterReconciler struct {
-	VRec                      *VerticaDBReconciler
-	Log                       logr.Logger
-	Vdb                       *vapi.VerticaDB // Vdb is the CRD we are acting on.
-	PRunner                   cmds.PodRunner
-	PFacts                    *PodFacts
-	ATPod                     *PodFact // The pod that we run admintools from
-	Dispatcher                vadmin.Dispatcher
-	CalledInReplicatedUpgrade bool // Indicate if the constructor is called from replicated upgrade reconciler
+	VRec                  *VerticaDBReconciler
+	Log                   logr.Logger
+	Vdb                   *vapi.VerticaDB // Vdb is the CRD we are acting on.
+	PRunner               cmds.PodRunner
+	PFacts                *PodFacts
+	ATPod                 *PodFact // The pod that we run admintools from
+	Dispatcher            vadmin.Dispatcher
+	CalledInOnlineUpgrade bool // Indicate if the constructor is called from online upgrade reconciler
 }
 
 // MakeDBRemoveSubclusterReconciler will build a DBRemoveSubclusterReconciler object
 func MakeDBRemoveSubclusterReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger, vdb *vapi.VerticaDB,
-	prunner cmds.PodRunner, pfacts *PodFacts, dispatcher vadmin.Dispatcher, calledInReplicatedUpgrade bool) controllers.ReconcileActor {
+	prunner cmds.PodRunner, pfacts *PodFacts, dispatcher vadmin.Dispatcher, calledInOnlineUpgrade bool) controllers.ReconcileActor {
 	return &DBRemoveSubclusterReconciler{
-		VRec:                      vdbrecon,
-		Log:                       log.WithName("DBRemoveSubclusterReconciler"),
-		Vdb:                       vdb,
-		PRunner:                   prunner,
-		PFacts:                    pfacts,
-		Dispatcher:                dispatcher,
-		CalledInReplicatedUpgrade: calledInReplicatedUpgrade,
+		VRec:                  vdbrecon,
+		Log:                   log.WithName("DBRemoveSubclusterReconciler"),
+		Vdb:                   vdb,
+		PRunner:               prunner,
+		PFacts:                pfacts,
+		Dispatcher:            dispatcher,
+		CalledInOnlineUpgrade: calledInOnlineUpgrade,
 	}
 }
 
@@ -153,11 +153,11 @@ func (d *DBRemoveSubclusterReconciler) removeSubcluster(ctx context.Context, scN
 	nodeNameAddressMap := d.PFacts.FindNodeNameAndAddressInSubcluster(scName)
 
 	nodesToPollSubs := []string{}
-	// when we remove nodes in replicated upgrade, we don't need to check node subscriptions
+	// when we remove nodes in online upgrade, we don't need to check node subscriptions
 	// on the nodes in old main cluster so we need to pass nodeToPollSubs to vclusterOps to
 	// let vclusterOps only check node subscriptions on the nodes that are promoted from the
 	// sandbox.
-	if d.CalledInReplicatedUpgrade {
+	if d.CalledInOnlineUpgrade {
 		scNames := d.Vdb.GetSubclustersForReplicaGroup(vmeta.ReplicaGroupBValue)
 		nodesToPollSubs = d.PFacts.findNodeNamesInSubclusters(scNames)
 	}
