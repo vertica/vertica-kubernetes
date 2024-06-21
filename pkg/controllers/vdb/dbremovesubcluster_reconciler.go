@@ -24,6 +24,7 @@ import (
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
+	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/iter"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
@@ -38,25 +39,27 @@ import (
 
 // DBRemoveSubclusterReconciler will remove subclusters from the database
 type DBRemoveSubclusterReconciler struct {
-	VRec       *VerticaDBReconciler
-	Log        logr.Logger
-	Vdb        *vapi.VerticaDB // Vdb is the CRD we are acting on.
-	PRunner    cmds.PodRunner
-	PFacts     *PodFacts
-	ATPod      *PodFact // The pod that we run admintools from
-	Dispatcher vadmin.Dispatcher
+	VRec                      *VerticaDBReconciler
+	Log                       logr.Logger
+	Vdb                       *vapi.VerticaDB // Vdb is the CRD we are acting on.
+	PRunner                   cmds.PodRunner
+	PFacts                    *PodFacts
+	ATPod                     *PodFact // The pod that we run admintools from
+	Dispatcher                vadmin.Dispatcher
+	CalledInReplicatedUpgrade bool // Indicate if the constructor is called from replicated upgrade reconciler
 }
 
 // MakeDBRemoveSubclusterReconciler will build a DBRemoveSubclusterReconciler object
-func MakeDBRemoveSubclusterReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
-	vdb *vapi.VerticaDB, prunner cmds.PodRunner, pfacts *PodFacts, dispatcher vadmin.Dispatcher) controllers.ReconcileActor {
+func MakeDBRemoveSubclusterReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger, vdb *vapi.VerticaDB,
+	prunner cmds.PodRunner, pfacts *PodFacts, dispatcher vadmin.Dispatcher, calledInReplicatedUpgrade bool) controllers.ReconcileActor {
 	return &DBRemoveSubclusterReconciler{
-		VRec:       vdbrecon,
-		Log:        log.WithName("DBRemoveSubclusterReconciler"),
-		Vdb:        vdb,
-		PRunner:    prunner,
-		PFacts:     pfacts,
-		Dispatcher: dispatcher,
+		VRec:                      vdbrecon,
+		Log:                       log.WithName("DBRemoveSubclusterReconciler"),
+		Vdb:                       vdb,
+		PRunner:                   prunner,
+		PFacts:                    pfacts,
+		Dispatcher:                dispatcher,
+		CalledInReplicatedUpgrade: calledInReplicatedUpgrade,
 	}
 }
 
@@ -87,7 +90,11 @@ func (d *DBRemoveSubclusterReconciler) Reconcile(ctx context.Context, _ *ctrl.Re
 		return ctrl.Result{Requeue: changed}, err
 	}
 
-	return d.removeExtraSubclusters(ctx)
+	if res, err := d.removeExtraSubclusters(ctx); verrors.IsReconcileAborted(res, err) {
+		return res, err
+	}
+
+	return ctrl.Result{}, nil
 }
 
 // removeExtraSubclusters will compare subclusters in vertica with vdb and remove any extra ones
@@ -145,11 +152,22 @@ func (d *DBRemoveSubclusterReconciler) removeSubcluster(ctx context.Context, scN
 	// addresses in this map to do a re-ip before removing subcluster.
 	nodeNameAddressMap := d.PFacts.FindNodeNameAndAddressInSubcluster(scName)
 
+	nodesToPollSubs := []string{}
+	// when we remove nodes in replicated upgrade, we don't need to check node subscriptions
+	// on the nodes in old main cluster so we need to pass nodeToPollSubs to vclusterOps to
+	// let vclusterOps only check node subscriptions on the nodes that are promoted from the
+	// sandbox.
+	if d.CalledInReplicatedUpgrade {
+		scNames := d.Vdb.GetSubclustersForReplicaGroup(vmeta.ReplicaGroupBValue)
+		nodesToPollSubs = d.PFacts.findNodeNamesInSubclusters(scNames)
+	}
+
 	err := d.Dispatcher.RemoveSubcluster(ctx,
 		removesc.WithInitiator(d.ATPod.name, d.ATPod.podIP),
 		removesc.WithSubcluster(scName),
 		// vclusterOps needs correct node names and addresses to do re-ip
 		removesc.WithNodeNameAddressMap(nodeNameAddressMap),
+		removesc.WithNodesToPollSubs(nodesToPollSubs),
 	)
 	if err != nil {
 		return err

@@ -266,6 +266,18 @@ const (
 	// This is the name of the VerticaReplicator that is generated during a replicated upgrade
 	ReplicatedUpgradeReplicatorAnnotation = "vertica.com/replicated-upgrade-replicator-name"
 
+	// During replicated upgrade, we store an annotation in the VerticaDB to indicate
+	// that we have done sandbox promotion.
+	ReplicatedUpgradeSandboxPromotedAnnotation = "vertica.com/replicated-upgrade-sandbox-promoted"
+	SandboxPromotedTrue                        = "true"
+	SandboxPromotedFalse                       = "false"
+
+	// During replicated upgrade, we store an annotation in the VerticaDB to indicate
+	// that we have removed old-main-cluster/replica-group-A.
+	ReplicatedUpgradeReplicaARemovedAnnotation = "vertica.com/replicated-upgrade-replica-A-removed"
+	ReplicaARemovedTrue                        = "true"
+	ReplicaARemovedFalse                       = "false"
+
 	// This will be set in a sandbox configMap by the vdb controller to wake up the sandbox
 	// controller for upgrading the sandboxes
 	SandboxControllerUpgradeTriggerID = "vertica.com/sandbox-controller-upgrade-trigger-id"
@@ -508,6 +520,16 @@ func GenScrutinizeMainContainerResourcesAnnotationName(resourceName corev1.Resou
 // GetReplicatedUpgradeSandbox returns the name of the sandbox used for replicated upgrade.
 func GetReplicatedUpgradeSandbox(annotations map[string]string) string {
 	return lookupStringAnnotation(annotations, ReplicatedUpgradeSandboxAnnotation, "")
+}
+
+// GetReplicatedUpgradeSandboxPromoted returns if sandbox has been promoted in replicated upgrade.
+func GetReplicatedUpgradeSandboxPromoted(annotations map[string]string) string {
+	return lookupStringAnnotation(annotations, ReplicatedUpgradeSandboxPromotedAnnotation, SandboxPromotedFalse)
+}
+
+// GetReplicatedUpgradeReplicaARemoved returns if replica A has been removed in replicated upgrade.
+func GetReplicatedUpgradeReplicaARemoved(annotations map[string]string) string {
+	return lookupStringAnnotation(annotations, ReplicatedUpgradeReplicaARemovedAnnotation, ReplicaARemovedFalse)
 }
 
 // GetReplicatedUpgradeReplicator returns the name of the VerticaReplicator
