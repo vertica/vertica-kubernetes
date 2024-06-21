@@ -26,9 +26,9 @@ status:
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: v-base-upgrade-pri2-sb
+  name: v-base-upgrade-pri-2-sb
   annotations:
-    vertica.com/statefulset-name-override: "v-base-upgrade-pri2-sb"
+    vertica.com/statefulset-name-override: "v-base-upgrade-pri-2-sb"
   labels:
     vertica.com/sandbox: replica-group-b
 status:
@@ -65,11 +65,11 @@ spec:
   subclusters:
   - name: sec1
   - name: pri1
-  - name: pri2
+  - name: pri_2
   - name: pri1-sb
     type: sandboxprimary
     size: 2
-  - name: pri2-sb
+  - name: pri_2-sb
     type: sandboxprimary
     size: 1
   - name: sec1-sb
@@ -80,6 +80,6 @@ status:
     - name: replica-group-b
       subclusters:
         - pri1-sb
-        - pri2-sb
+        - pri_2-sb
         - sec1-sb
           

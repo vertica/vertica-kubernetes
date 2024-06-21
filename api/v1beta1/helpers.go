@@ -17,6 +17,8 @@ limitations under the License.
 package v1beta1
 
 import (
+	"regexp"
+
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -215,4 +217,9 @@ func MakeVrep() *VerticaReplicator {
 		},
 	}
 	return vrep
+}
+
+func GenCompatibleFQDNHelper(scName string) string {
+	m := regexp.MustCompile(`_`)
+	return m.ReplaceAllString(scName, "-")
 }
