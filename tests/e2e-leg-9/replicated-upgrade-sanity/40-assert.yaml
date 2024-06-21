@@ -22,7 +22,7 @@ status:
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: v-base-upgrade-pri2-sb
+  name: v-base-upgrade-pri-2-sb
 status:
   currentReplicas: 1
   readyReplicas: 1
@@ -44,7 +44,7 @@ spec:
   - name: pri1
     type: primary    
     size: 2
-  - name: pri2
+  - name: pri_2
     type: primary    
     size: 1
   - name: sec1

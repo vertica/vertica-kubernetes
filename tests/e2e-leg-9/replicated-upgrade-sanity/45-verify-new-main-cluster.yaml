@@ -21,7 +21,7 @@ data:
     set -o errexit
     set -o xtrace
 
-    POD_NAMES=("v-base-upgrade-pri1-sb-0" "v-base-upgrade-pri2-sb-0" "v-base-upgrade-sec1-sb-0")
+    POD_NAMES=("v-base-upgrade-pri1-sb-0" "v-base-upgrade-pri-2-sb-0" "v-base-upgrade-sec1-sb-0")
 
     for POD_NAME in "${POD_NAMES[@]}"; do
       result=$(kubectl exec $POD_NAME -i -c server -- bash -c "vsql -U dbadmin -tAc \"SELECT COUNT(*) FROM nodes WHERE node_state = 'UP' and subcluster_name not like '%sb' and sandbox = '';\"")
