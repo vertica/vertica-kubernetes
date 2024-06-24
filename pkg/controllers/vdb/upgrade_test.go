@@ -64,7 +64,7 @@ var _ = Describe("upgrade", func() {
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
-		mgr := MakeUpgradeManager(vdbRec, logger, vdb, vapi.OnlineUpgradeInProgress,
+		mgr := MakeUpgradeManager(vdbRec, logger, vdb, vapi.ReadOnlyOnlineUpgrade, vapi.OnlineUpgradeInProgress,
 			func(vdb *vapi.VerticaDB) bool { return true })
 		Expect(mgr.IsUpgradeNeeded(ctx, vapi.MainCluster)).Should(Equal(false))
 	})
@@ -89,11 +89,11 @@ var _ = Describe("upgrade", func() {
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
 
 		// upgrade not needed on main cluster
-		mgr := MakeUpgradeManager(vdbRec, logger, vdb, vapi.OnlineUpgradeInProgress,
+		mgr := MakeUpgradeManager(vdbRec, logger, vdb, vapi.ReadOnlyOnlineUpgrade, vapi.OnlineUpgradeInProgress,
 			func(vdb *vapi.VerticaDB) bool { return true })
 		Expect(mgr.IsUpgradeNeeded(ctx, vapi.MainCluster)).Should(Equal(false))
 		// upgrade needed on sandbox
-		mgr = MakeUpgradeManager(vdbRec, logger, vdb, vapi.OnlineUpgradeInProgress,
+		mgr = MakeUpgradeManager(vdbRec, logger, vdb, vapi.ReadOnlyOnlineUpgrade, vapi.OnlineUpgradeInProgress,
 			func(vdb *vapi.VerticaDB) bool { return true })
 		Expect(mgr.IsUpgradeNeeded(ctx, sbName)).Should(Equal(true))
 	})
@@ -111,7 +111,7 @@ var _ = Describe("upgrade", func() {
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
 
-		mgr := MakeUpgradeManager(vdbRec, logger, vdb, vapi.OfflineUpgradeInProgress,
+		mgr := MakeUpgradeManager(vdbRec, logger, vdb, vapi.OfflineUpgrade, vapi.OfflineUpgradeInProgress,
 			func(vdb *vapi.VerticaDB) bool { return true })
 		Expect(mgr.IsUpgradeNeeded(ctx, vapi.MainCluster)).Should(Equal(true))
 		stsChange, err := mgr.updateImageInStatefulSets(ctx, vapi.MainCluster)
@@ -139,7 +139,7 @@ var _ = Describe("upgrade", func() {
 		defer test.DeletePods(ctx, k8sClient, vdb)
 		vdb.Spec.Image = NewImage // Change image to force pod deletion
 
-		mgr := MakeUpgradeManager(vdbRec, logger, vdb, vapi.OfflineUpgradeInProgress,
+		mgr := MakeUpgradeManager(vdbRec, logger, vdb, vapi.OfflineUpgrade, vapi.OfflineUpgradeInProgress,
 			func(vdb *vapi.VerticaDB) bool { return true })
 		numPodsDeleted, err := mgr.deletePodsRunningOldImage(ctx, "", vapi.MainCluster) // pods from primaries only
 		Expect(err).Should(Succeed())
@@ -160,7 +160,7 @@ var _ = Describe("upgrade", func() {
 		defer test.DeletePods(ctx, k8sClient, vdb)
 		vdb.Spec.Image = NewImage // Change image to force pod deletion
 
-		mgr := MakeUpgradeManager(vdbRec, logger, vdb, vapi.OfflineUpgradeInProgress,
+		mgr := MakeUpgradeManager(vdbRec, logger, vdb, vapi.OfflineUpgrade, vapi.OfflineUpgradeInProgress,
 			func(vdb *vapi.VerticaDB) bool { return true })
 		numPodsDeleted, err := mgr.deletePodsRunningOldImage(ctx, vdb.Spec.Subclusters[1].Name, vapi.MainCluster)
 		Expect(err).Should(Succeed())
@@ -183,7 +183,7 @@ var _ = Describe("upgrade", func() {
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
 		vdb.Spec.Image = NewImage // Change image to force pod deletion
 
-		mgr := MakeUpgradeManager(vdbRec, logger, vdb, vapi.OfflineUpgradeInProgress,
+		mgr := MakeUpgradeManager(vdbRec, logger, vdb, vapi.OfflineUpgrade, vapi.OfflineUpgradeInProgress,
 			func(vdb *vapi.VerticaDB) bool { return true })
 		Expect(mgr.startUpgrade(ctx, vapi.MainCluster)).Should(Equal(ctrl.Result{}))
 		Expect(mgr.setUpgradeStatus(ctx, "doing the change", vapi.MainCluster)).Should(Succeed())
@@ -209,7 +209,7 @@ var _ = Describe("upgrade", func() {
 
 		statusMsgs := []string{"msg1", "msg2", "msg3", "msg4"}
 
-		mgr := MakeUpgradeManager(vdbRec, logger, vdb, vapi.OfflineUpgradeInProgress,
+		mgr := MakeUpgradeManager(vdbRec, logger, vdb, vapi.OfflineUpgrade, vapi.OfflineUpgradeInProgress,
 			func(vdb *vapi.VerticaDB) bool { return true })
 		Expect(mgr.postNextStatusMsg(ctx, statusMsgs, 1, vapi.MainCluster)).Should(Succeed()) // no-op
 
@@ -273,7 +273,7 @@ var _ = Describe("upgrade", func() {
 		}
 		Expect(k8sClient.Status().Update(ctx, pod)).Should(Succeed())
 
-		mgr := MakeUpgradeManager(vdbRec, logger, vdb, vapi.OfflineUpgradeInProgress,
+		mgr := MakeUpgradeManager(vdbRec, logger, vdb, vapi.OfflineUpgrade, vapi.OfflineUpgradeInProgress,
 			func(vdb *vapi.VerticaDB) bool { return true })
 		Expect(mgr.changeNMASidecarDeploymentIfNeeded(ctx, sts)).Should(Equal(ctrl.Result{Requeue: true}))
 
@@ -290,7 +290,7 @@ var _ = Describe("upgrade", func() {
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
 
-		mgr := MakeUpgradeManager(vdbRec, logger, vdb, vapi.OfflineUpgradeInProgress,
+		mgr := MakeUpgradeManager(vdbRec, logger, vdb, vapi.OfflineUpgrade, vapi.OfflineUpgradeInProgress,
 			func(vdb *vapi.VerticaDB) bool { return true })
 		Expect(mgr.startUpgrade(ctx, vapi.MainCluster)).Should(Equal(ctrl.Result{}))
 		vdb.Spec.Subclusters[0].Annotations = map[string]string{

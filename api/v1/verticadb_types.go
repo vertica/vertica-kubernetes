@@ -888,6 +888,9 @@ const (
 	UpgradeInProgress        = "UpgradeInProgress"
 	OfflineUpgradeInProgress = "OfflineUpgradeInProgress"
 	OnlineUpgradeInProgress  = "OnlineUpgradeInProgress"
+	// NewOnlineUpgrade indicates that the online upgrade in progress
+	// is the one that allows writes too.
+	NewOnlineUpgrade = "NewOnlineUpgrade"
 	// VerticaRestartNeeded is a condition that when set to true will force the
 	// operator to stop/start the vertica pods.
 	VerticaRestartNeeded = "VerticaRestartNeeded"

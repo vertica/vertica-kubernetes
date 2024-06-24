@@ -43,7 +43,7 @@ func MakeSandboxUpgradeReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger
 		VRec:    vdbrecon,
 		Log:     log.WithName("SandboxUpgradeReconciler"),
 		Vdb:     vdb,
-		Manager: *MakeUpgradeManager(vdbrecon, log, vdb, vapi.OfflineUpgradeInProgress, fn),
+		Manager: *MakeUpgradeManager(vdbrecon, log, vdb, vapi.OfflineUpgrade, vapi.OfflineUpgradeInProgress, fn),
 	}
 }
 

@@ -94,7 +94,7 @@ func MakeOnlineUpgradeReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
 		Log:        log.WithName("OnlineUpgradeReconciler"),
 		VDB:        vdb,
 		PFacts:     map[string]*PodFacts{vapi.MainCluster: pfacts},
-		Manager:    *MakeUpgradeManager(vdbrecon, log, vdb, vapi.OnlineUpgradeInProgress, onlineUpgradeAllowed),
+		Manager:    *MakeUpgradeManager(vdbrecon, log, vdb, vapi.OnlineUpgrade, vapi.OnlineUpgradeInProgress, onlineUpgradeAllowed),
 		Dispatcher: dispatcher,
 	}
 }

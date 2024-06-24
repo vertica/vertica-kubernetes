@@ -286,6 +286,7 @@ const (
 	IsNewOnlineUpgradeAnnotation = "vertica.com/is-new-online-upgrade"
 	IsNewOnlineUpgradeTrue       = "true"
 	IsNewOnlineUpgradeFalse      = "false"
+
 	// This will be set in a sandbox configMap by the vdb controller to wake up the sandbox
 	// controller for upgrading the sandboxes
 	SandboxControllerUpgradeTriggerID = "vertica.com/sandbox-controller-upgrade-trigger-id"

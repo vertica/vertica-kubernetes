@@ -581,6 +581,12 @@ func (v *VerticaDB) GetUpgradePolicyToUse() UpgradePolicyType {
 	return OfflineUpgrade
 }
 
+// IsNewOnlineUpgrade returns true if the new online upgrade must be picked
+// over the read-only one.
+func (v *VerticaDB) IsNewOnlineUpgrade() bool {
+	return vmeta.IsNewOnlineUpgrade(v.Annotations)
+}
+
 // GetIgnoreClusterLease will check if the cluster lease should be ignored.
 func (v *VerticaDB) GetIgnoreClusterLease() bool {
 	return vmeta.IgnoreClusterLease(v.Annotations)

@@ -1262,6 +1262,13 @@ func (v *VerticaDB) checkImmutableUpgradePolicy(oldObj *VerticaDB, allErrs field
 		!oldObj.isUpgradeInProgress() {
 		return allErrs
 	}
+	if v.IsNewOnlineUpgrade() != oldObj.IsNewOnlineUpgrade() {
+		prefix := field.NewPath("metadata").Child("annotations")
+		err := field.Invalid(prefix.Key(vmeta.IsNewOnlineUpgradeAnnotation),
+			v.Annotations[vmeta.IsNewOnlineUpgradeAnnotation],
+			"this annotation cannot change because upgrade is in progress")
+		allErrs = append(allErrs, err)
+	}
 	err := field.Invalid(field.NewPath("spec").Child("upgradePolicy"),
 		v.Spec.UpgradePolicy,
 		"upgradePolicy cannot change because upgrade is in progress")
