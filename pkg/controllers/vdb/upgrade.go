@@ -117,8 +117,8 @@ func (i *UpgradeManager) isUpgradeInProgress(sbName string) bool {
 func (i *UpgradeManager) isUpgradeStatusTrue(sbName string) bool {
 	if sbName == vapi.MainCluster {
 		if i.StatusCondition == vapi.OnlineUpgradeInProgress {
-			if i.isNewOnlineUpgrade() &&
-				i.Vdb.IsStatusConditionFalse(vapi.NewOnlineUpgrade) {
+			if !i.isNewOnlineUpgrade() &&
+				i.Vdb.IsStatusConditionTrue(vapi.NewOnlineUpgrade) {
 				return false
 			}
 		}
