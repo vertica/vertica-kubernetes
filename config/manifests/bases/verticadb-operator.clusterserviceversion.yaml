@@ -1070,15 +1070,15 @@ spec:
       - description: "This setting defines how the upgrade process will be managed.
           The available values are Offline, Online, and Auto. \n Offline: This option
           involves taking down the entire cluster and then bringing it back up with
-          the new image. \n Online: With this option, the cluster remains operational
-          for reads during the upgrade process. - For server version < 24.3.0, the
-          data will be in read-only mode until the Vertica nodes from the primary
-          subcluster re-form the cluster with the new image. - For server version
-          >= 24.3.0, the cluster stays operational throughout the upgrade process
-          and allows writes. The cluster is split into two replicas, and traffic is
-          redirected to the active replica to facilitate writes. \n Auto: This option
-          selects one of the above methods automatically based on compatibility with
-          the version of Vertica you are running."
+          the new image. \n ReadOnlyOnline: With this option, the cluster remains
+          operational for reads during the upgrade process. However, the data will
+          be in read-only mode until the Vertica nodes from the primary subcluster
+          re-form the cluster with the new image. \n Online: Similar to Online, this
+          option keeps the cluster operational throughout the upgrade process but
+          allows writes. The cluster is split into two replicas, and traffic is redirected
+          to the active replica to facilitate writes. \n Auto: This option selects
+          one of the above methods automatically based on compatibility with the version
+          of Vertica you are running."
         displayName: Upgrade Policy
         path: upgradePolicy
         x-descriptors:
