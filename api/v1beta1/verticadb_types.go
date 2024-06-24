@@ -1191,8 +1191,7 @@ func (v *VerticaDB) GetCommunalPath() string {
 // GenCompatibleFQDN returns a name of the subcluster that is
 // compatible inside a fully-qualified domain name.
 func (s *Subcluster) GenCompatibleFQDN() string {
-	m := regexp.MustCompile(`_`)
-	return m.ReplaceAllString(s.Name, "-")
+	return GenCompatibleFQDNHelper(s.Name)
 }
 
 // GetServiceName returns the name of the service object that route traffic to

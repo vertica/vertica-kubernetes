@@ -873,6 +873,8 @@ func (r *OnlineUpgradeReconciler) genNewSubclusterStsName(newSCName string, scTo
 
 	// Preference is to match the name of the new subcluster.
 	nm := fmt.Sprintf("%s-%s", r.VDB.Name, newSCName)
+	// replace underscore to hypen for the statefulset name
+	nm = v1beta1.GenCompatibleFQDNHelper(nm)
 	if _, found := stsNameMap[nm]; !found {
 		return nm, nil
 	}
