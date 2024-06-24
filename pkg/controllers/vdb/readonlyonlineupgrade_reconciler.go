@@ -63,7 +63,7 @@ func MakeReadOnlyOnlineUpgradeReconciler(vdbrecon *VerticaDBReconciler, log logr
 		PRunner: prunner,
 		PFacts:  pfacts,
 		Finder:  iter.MakeSubclusterFinder(vdbrecon.Client, vdb),
-		Manager: *MakeUpgradeManager(vdbrecon, log, vdb, vapi.ReadOnlyOnlineUpgrade, vapi.OnlineUpgradeInProgress,
+		Manager: *MakeUpgradeManager(vdbrecon, log, vdb, vapi.ReadOnlyOnlineUpgradeInProgress,
 			readOnlyOnlineUpgradeAllowed),
 		Dispatcher: dispatcher,
 	}

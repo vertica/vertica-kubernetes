@@ -946,13 +946,11 @@ var _ = Describe("verticadb_webhook", func() {
 		vdb.Spec.UpgradePolicy = "NotValid"
 		Ω(vdb.validateVerticaDBSpec()).Should(HaveLen(1))
 		vdb.Spec.UpgradePolicy = OnlineUpgrade
-		vdb.Annotations[vmeta.IsNewOnlineUpgradeAnnotation] = vmeta.IsNewOnlineUpgradeTrue
 		Ω(vdb.validateVerticaDBSpec()).Should(HaveLen(0))
 	})
 
 	It("should check the validity of the replicaGroups", func() {
 		vdb := MakeVDB()
-		vdb.Annotations[vmeta.IsNewOnlineUpgradeAnnotation] = vmeta.IsNewOnlineUpgradeTrue
 		vdb.Spec.Subclusters[0].Annotations = map[string]string{
 			vmeta.ReplicaGroupAnnotation: "invalid-value",
 		}
@@ -966,7 +964,6 @@ var _ = Describe("verticadb_webhook", func() {
 
 	It("should check subcluster immutability during upgrade", func() {
 		newVdb := MakeVDB()
-		newVdb.Annotations[vmeta.IsNewOnlineUpgradeAnnotation] = vmeta.IsNewOnlineUpgradeTrue
 		newVdb.Spec.Subclusters = []Subcluster{
 			{Name: "a", Size: 3, Type: PrimarySubcluster, ServiceType: v1.ServiceTypeClusterIP},
 			{Name: "b", Size: 3, Type: PrimarySubcluster, ServiceType: v1.ServiceTypeClusterIP},

@@ -470,7 +470,6 @@ var _ = Describe("onlineupgrade_reconciler", func() {
 	It("should maintain upgrade status messages", func() {
 		vdb := vapi.MakeVDBForVclusterOps()
 		vdb.Spec.UpgradePolicy = vapi.OnlineUpgrade
-		vdb.ObjectMeta.Annotations[vmeta.IsNewOnlineUpgradeAnnotation] = vmeta.IsNewOnlineUpgradeTrue
 		vdb.ObjectMeta.Annotations[vmeta.VersionAnnotation] = vapi.OnlineUpgradeVersion
 		vdb.Spec.Subclusters = []vapi.Subcluster{
 			{Name: "pri1", Type: vapi.PrimarySubcluster, Size: 2},

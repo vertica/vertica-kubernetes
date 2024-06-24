@@ -278,15 +278,6 @@ const (
 	ReplicaARemovedTrue                    = "true"
 	ReplicaARemovedFalse                   = "false"
 
-	// This will be used to differentiate between the new online upgrade and the
-	// read-only online upgrade. Both online upgrades are enabled through the Online
-	// upgrade policy. Eventually a server version will only support one of them but
-	// until the new online upgrade is more robust, users will use to set this to pick
-	// the new online upgrade over the read-only one.
-	IsNewOnlineUpgradeAnnotation = "vertica.com/is-new-online-upgrade"
-	IsNewOnlineUpgradeTrue       = "true"
-	IsNewOnlineUpgradeFalse      = "false"
-
 	// This will be set in a sandbox configMap by the vdb controller to wake up the sandbox
 	// controller for upgrading the sandboxes
 	SandboxControllerUpgradeTriggerID = "vertica.com/sandbox-controller-upgrade-trigger-id"
@@ -545,12 +536,6 @@ func GetOnlineUpgradeReplicaARemoved(annotations map[string]string) string {
 // object used during online upgrade.
 func GetOnlineUpgradeReplicator(annotations map[string]string) string {
 	return lookupStringAnnotation(annotations, OnlineUpgradeReplicatorAnnotation, "")
-}
-
-// IsNewOnlineUpgrade returns true if the new online upgrade must be picked over
-// the read-only one.
-func IsNewOnlineUpgrade(annotations map[string]string) bool {
-	return lookupBoolAnnotation(annotations, IsNewOnlineUpgradeAnnotation, false /* default value */)
 }
 
 // GetStsNameOverride returns the override for the statefulset name. If one is

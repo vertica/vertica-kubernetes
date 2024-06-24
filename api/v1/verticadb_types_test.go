@@ -108,7 +108,6 @@ var _ = Describe("verticadb_types", func() {
 		// Ensure we don't pick online, if there is no evidence we can scale
 		// past 3 nodes.
 		vdb.Annotations[vmeta.VersionAnnotation] = OnlineUpgradeVersion
-		vdb.Annotations[vmeta.IsNewOnlineUpgradeAnnotation] = vmeta.IsNewOnlineUpgradeTrue
 		vdb.Spec.UpgradePolicy = OnlineUpgrade
 		vdb.Spec.LicenseSecret = ""
 		vdb.Spec.Subclusters = []Subcluster{
@@ -136,8 +135,7 @@ var _ = Describe("verticadb_types", func() {
 
 		// Online selection on latest version should pick read-only online
 		vdb.Annotations[vmeta.VersionAnnotation] = OnlineUpgradeVersion
-		vdb.Annotations[vmeta.IsNewOnlineUpgradeAnnotation] = vmeta.IsNewOnlineUpgradeFalse
-		vdb.Spec.UpgradePolicy = OnlineUpgrade
+		vdb.Spec.UpgradePolicy = ReadOnlyOnlineUpgrade
 		Ω(vdb.GetUpgradePolicyToUse()).Should(Equal(ReadOnlyOnlineUpgrade))
 
 		// Similarly for offline selection with newest version

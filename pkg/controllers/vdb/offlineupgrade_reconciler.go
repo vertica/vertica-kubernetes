@@ -84,7 +84,7 @@ func MakeOfflineUpgradeReconciler(recon config.ReconcilerInterface, log logr.Log
 func makeUpgradeManagerForOfflineUpgrade(recon config.ReconcilerInterface, log logr.Logger, vdb *vapi.VerticaDB,
 	sandbox string) *UpgradeManager {
 	if sandbox == vapi.MainCluster {
-		return MakeUpgradeManager(recon, log, vdb, vapi.OfflineUpgrade, vapi.OfflineUpgradeInProgress, offlineUpgradeAllowed)
+		return MakeUpgradeManager(recon, log, vdb, vapi.OfflineUpgradeInProgress, offlineUpgradeAllowed)
 	}
 	return MakeUpgradeManagerForSandboxOffline(recon, log, vdb, statusConditionEmpty)
 }

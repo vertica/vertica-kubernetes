@@ -133,15 +133,15 @@ type VerticaDBSpec struct {
 	// Offline: This option involves taking down the entire cluster and then
 	// bringing it back up with the new image.
 	//
-	// Online: With this option, the cluster remains operational for reads
-	// during the upgrade process.
-	// 		- For server version < 24.3.0, the data will be
-	// 		in read-only mode until the Vertica nodes from the primary subcluster re-form the cluster
-	// 		with the new image.
-	// 		- For server version >= 24.3.0, the cluster stays operational
-	// 		throughout the upgrade process and allows writes. The cluster is split
-	// 		into two replicas, and traffic is redirected to the active replica to
-	// 		facilitate writes.
+	// ReadOnlyOnline: With this option, the cluster remains operational for reads
+	// during the upgrade process. However, the data will be in read-only mode
+	// until the Vertica nodes from the primary subcluster re-form the cluster
+	// with the new image.
+	//
+	// Online: Similar to Online, this option keeps the cluster operational
+	// throughout the upgrade process but allows writes. The cluster is split
+	// into two replicas, and traffic is redirected to the active replica to
+	// facilitate writes.
 	//
 	// Auto: This option selects one of the above methods automatically based on
 	// compatibility with the version of Vertica you are running.
@@ -885,12 +885,10 @@ const (
 	// UpgradeInProgress indicates if the vertica server is in the process
 	// of having its image change.  We have additional conditions to
 	// distinguish between the different types of upgrade it is.
-	UpgradeInProgress        = "UpgradeInProgress"
-	OfflineUpgradeInProgress = "OfflineUpgradeInProgress"
-	OnlineUpgradeInProgress  = "OnlineUpgradeInProgress"
-	// NewOnlineUpgrade indicates that the online upgrade in progress
-	// is the one that allows writes too.
-	NewOnlineUpgrade = "NewOnlineUpgrade"
+	UpgradeInProgress               = "UpgradeInProgress"
+	OfflineUpgradeInProgress        = "OfflineUpgradeInProgress"
+	ReadOnlyOnlineUpgradeInProgress = "ReadOnlyOnlineUpgradeInProgress"
+	OnlineUpgradeInProgress         = "OnlineUpgradeInProgress"
 	// VerticaRestartNeeded is a condition that when set to true will force the
 	// operator to stop/start the vertica pods.
 	VerticaRestartNeeded = "VerticaRestartNeeded"

@@ -55,19 +55,17 @@ type UpgradeManager struct {
 	// Function that will check if the image policy allows for a type of upgrade (offline or online)
 	IsAllowedForUpgradePolicyFunc func(vdb *vapi.VerticaDB) bool
 	PrimaryImages                 []string // Known images in the primaries.  Should be of length 1 or 2.
-	UpgradePolicy                 vapi.UpgradePolicyType
 }
 
 // MakeUpgradeManager will construct a UpgradeManager object
 func MakeUpgradeManager(recon config.ReconcilerInterface, log logr.Logger, vdb *vapi.VerticaDB,
-	upgradePolicy vapi.UpgradePolicyType, statusCondition string,
+	statusCondition string,
 	isAllowedForUpgradePolicyFunc func(vdb *vapi.VerticaDB) bool) *UpgradeManager {
 	return &UpgradeManager{
 		Rec:                           recon,
 		Vdb:                           vdb,
 		Log:                           log,
 		Finder:                        iter.MakeSubclusterFinder(recon.GetClient(), vdb),
-		UpgradePolicy:                 upgradePolicy,
 		StatusCondition:               statusCondition,
 		IsAllowedForUpgradePolicyFunc: isAllowedForUpgradePolicyFunc,
 	}
@@ -80,7 +78,7 @@ func MakeUpgradeManagerForSandboxOffline(recon config.ReconcilerInterface, log l
 	// For sandbox upgrade, offline upgrade path must always be selected regardless
 	// of the upgrade policy set in vdb. Moreover, we don't use status conditions
 	// during sandbox upgrade
-	return MakeUpgradeManager(recon, log, vdb, vapi.OfflineUpgrade, statusConditionEmpty, func(vdb *vapi.VerticaDB) bool { return true })
+	return MakeUpgradeManager(recon, log, vdb, statusConditionEmpty, func(vdb *vapi.VerticaDB) bool { return true })
 }
 
 // IsUpgradeNeeded checks whether an upgrade is needed and/or in
@@ -116,21 +114,9 @@ func (i *UpgradeManager) isUpgradeInProgress(sbName string) bool {
 
 func (i *UpgradeManager) isUpgradeStatusTrue(sbName string) bool {
 	if sbName == vapi.MainCluster {
-		if i.StatusCondition == vapi.OnlineUpgradeInProgress {
-			if !i.isNewOnlineUpgrade() &&
-				i.Vdb.IsStatusConditionTrue(vapi.NewOnlineUpgrade) {
-				return false
-			}
-		}
 		return i.Vdb.IsStatusConditionTrue(i.StatusCondition)
 	}
 	return i.Vdb.IsSandBoxUpgradeInProgress(sbName)
-}
-
-// isNewOnlineUpgrade returns true if the owner of this object
-// is the new online upgrade reconciler.
-func (i *UpgradeManager) isNewOnlineUpgrade() bool {
-	return i.UpgradePolicy == vapi.OnlineUpgrade
 }
 
 // isVDBImageDifferent will check if an upgrade is needed based on the
@@ -238,14 +224,6 @@ func (i *UpgradeManager) updateUpgradeStatus(ctx context.Context, newVal metav1.
 		)
 		if err != nil {
 			return err
-		}
-		if i.isNewOnlineUpgrade() {
-			err = vdbstatus.UpdateCondition(ctx, i.Rec.GetClient(), i.Vdb,
-				vapi.MakeCondition(vapi.NewOnlineUpgrade, newVal, reason),
-			)
-			if err != nil {
-				return err
-			}
 		}
 		return vdbstatus.UpdateCondition(ctx, i.Rec.GetClient(), i.Vdb,
 			vapi.MakeCondition(i.StatusCondition, newVal, reason),
