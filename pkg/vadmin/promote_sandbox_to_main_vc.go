@@ -30,10 +30,16 @@ func (v *VClusterOps) PromoteSandboxToMain(ctx context.Context, opts ...promotes
 	defer v.tearDownForAPICall()
 	v.Log.Info("Starting vcluster PromoteSandboxToMain")
 
+	// get the certs
+	certs, err := v.retrieveNMACerts(ctx)
+	if err != nil {
+		return err
+	}
+
 	s := promotesandboxtomain.Params{}
 	s.Make(opts...)
 
-	vcOpts := v.genPromoteSandboxToMainOptions(&s)
+	vcOpts := v.genPromoteSandboxToMainOptions(&s, certs)
 	err = v.VPromoteSandboxToMain(vcOpts)
 	if err != nil {
 		return fmt.Errorf("failed to promote sandbox to main: %w", err)
@@ -42,7 +48,7 @@ func (v *VClusterOps) PromoteSandboxToMain(ctx context.Context, opts ...promotes
 	return nil
 }
 
-func (v *VClusterOps) genPromoteSandboxToMainOptions(s *promotesandboxtomain.Params) *vops.VPromoteSandboxToMainOptions {
+func (v *VClusterOps) genPromoteSandboxToMainOptions(s *promotesandboxtomain.Params, certs *HTTPSCerts) *vops.VPromoteSandboxToMainOptions {
 	opts := vops.VPromoteSandboxToMainFactory()
 
 	// required options
@@ -57,6 +63,9 @@ func (v *VClusterOps) genPromoteSandboxToMainOptions(s *promotesandboxtomain.Par
 	// auth options
 	opts.UserName = v.VDB.GetVerticaUser()
 	opts.Password = &v.Password
+	opts.Key = certs.Key
+	opts.Cert = certs.Cert
+	opts.CaCert = certs.CaCert
 
 	return &opts
 }
