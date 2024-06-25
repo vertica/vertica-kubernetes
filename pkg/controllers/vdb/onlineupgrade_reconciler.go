@@ -29,6 +29,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/iter"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
+	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	"github.com/vertica/vertica-kubernetes/pkg/vk8s"
 	appsv1 "k8s.io/api/apps/v1"
@@ -45,7 +46,7 @@ type OnlineUpgradeReconciler struct {
 	Vdb         *vapi.VerticaDB  // Vdb is the CRD we are acting on.
 	TransientSc *vapi.Subcluster // Set to the transient subcluster if applicable
 	PRunner     cmds.PodRunner
-	PFacts      *PodFacts
+	PFacts      *podfacts.PodFacts
 	Finder      iter.SubclusterFinder
 	Manager     UpgradeManager
 	Dispatcher  vadmin.Dispatcher
@@ -55,7 +56,7 @@ type OnlineUpgradeReconciler struct {
 
 // MakeOnlineUpgradeReconciler will build an OnlineUpgradeReconciler object
 func MakeOnlineUpgradeReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
-	vdb *vapi.VerticaDB, prunner cmds.PodRunner, pfacts *PodFacts, dispatcher vadmin.Dispatcher) controllers.ReconcileActor {
+	vdb *vapi.VerticaDB, prunner cmds.PodRunner, pfacts *podfacts.PodFacts, dispatcher vadmin.Dispatcher) controllers.ReconcileActor {
 	return &OnlineUpgradeReconciler{
 		VRec:    vdbrecon,
 		Log:     log.WithName("OnlineUpgradeReconciler"),
@@ -513,13 +514,13 @@ func (o *OnlineUpgradeReconciler) checkVersion(ctx context.Context, sts *appsv1.
 	// are working on.
 	vr := a.(*ImageVersionReconciler)
 	scName := sts.Labels[vmeta.SubclusterNameLabel]
-	vr.FindPodFunc = func() (*PodFact, bool) {
+	vr.FindPodFunc = func() (*podfacts.PodFact, bool) {
 		for _, v := range o.PFacts.Detail {
-			if v.isPodRunning && v.subclusterName == scName {
+			if v.GetIsPodRunning() && v.GetSubclusterName() == scName {
 				return v, true
 			}
 		}
-		return &PodFact{}, false
+		return &podfacts.PodFact{}, false
 	}
 	return vr.Reconcile(ctx, &ctrl.Request{})
 }
@@ -548,10 +549,10 @@ func (o *OnlineUpgradeReconciler) handleDeploymentChange(ctx context.Context, _ 
 func (o *OnlineUpgradeReconciler) getPodsWithDeploymentType(isPrimary, admintoolsDeployment bool) int {
 	count := 0
 	for _, v := range o.PFacts.Detail {
-		if !v.isPodRunning {
+		if !v.GetIsPodRunning() {
 			continue
 		}
-		if v.isPrimary == isPrimary && v.admintoolsExists == admintoolsDeployment {
+		if v.GetIsPrimary() == isPrimary && v.GetAdmintoolsExists() == admintoolsDeployment {
 			count++
 		}
 	}
@@ -581,7 +582,7 @@ func (o *OnlineUpgradeReconciler) waitForReadOnly(_ context.Context, sts *appsv1
 	// Early out if the primaries have restarted.  This wait is only meant to be
 	// done after we take down the primaries and are waiting for spread to move
 	// the remaining up nodes into read-only.
-	if o.PFacts.countUpPrimaryNodes() != 0 {
+	if o.PFacts.CountUpPrimaryNodes() != 0 {
 		return ctrl.Result{}, nil
 	}
 	newImage, err := vk8s.GetServerImage(sts.Spec.Template.Spec.Containers)
@@ -590,7 +591,7 @@ func (o *OnlineUpgradeReconciler) waitForReadOnly(_ context.Context, sts *appsv1
 	}
 	// If all the pods that are running the old image are read-only we are done
 	// our wait.
-	if o.PFacts.countNotReadOnlyWithOldImage(newImage) == 0 {
+	if o.PFacts.CountNotReadOnlyWithOldImage(newImage) == 0 {
 		return ctrl.Result{}, nil
 	}
 	o.Log.Info("Requeueing because at least 1 pod running the old image is still up and isn't considered read-only yet")
@@ -710,7 +711,7 @@ func (o *OnlineUpgradeReconciler) skipTransientSetup() bool {
 	// We skip creating the transient if the cluster is down.  We cannot add the
 	// transient if everything is down.  And there is nothing "online" with this
 	// upgrade if we start with everything down.
-	_, found := o.PFacts.findFirstUpPod(false, "")
+	_, found := o.PFacts.FindFirstUpPod(false, "")
 	return !found
 }
 

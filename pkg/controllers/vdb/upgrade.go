@@ -30,6 +30,7 @@ import (
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/metrics"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
+	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
 	config "github.com/vertica/vertica-kubernetes/pkg/vdbconfig"
 	"github.com/vertica/vertica-kubernetes/pkg/vdbstatus"
 	"github.com/vertica/vertica-kubernetes/pkg/vk8s"
@@ -615,8 +616,8 @@ func (i *UpgradeManager) traceActorReconcile(actor controllers.ReconcileActor) {
 // isSubclusterIdle will run a query to see the number of connections
 // that are active for a given subcluster.  It returns a requeue error if there
 // are still active connections.
-func (i *UpgradeManager) isSubclusterIdle(ctx context.Context, pfacts *PodFacts, scName string) (ctrl.Result, error) {
-	pf, ok := pfacts.findFirstUpPod(true, scName)
+func (i *UpgradeManager) isSubclusterIdle(ctx context.Context, pfacts *podfacts.PodFacts, scName string) (ctrl.Result, error) {
+	pf, ok := pfacts.FindFirstUpPod(true, scName)
 	if !ok {
 		i.Log.Info("No pod found to run vsql.  Skipping active connection check")
 		return ctrl.Result{}, nil
@@ -629,7 +630,7 @@ func (i *UpgradeManager) isSubclusterIdle(ctx context.Context, pfacts *PodFacts,
 			"       and subcluster_name = '%s';", scName)
 
 	cmd := []string{"-tAc", sql}
-	stdout, _, err := pfacts.PRunner.ExecVSQL(ctx, pf.name, names.ServerContainer, cmd...)
+	stdout, _, err := pfacts.PRunner.ExecVSQL(ctx, pf.GetName(), names.ServerContainer, cmd...)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -645,9 +646,9 @@ func (i *UpgradeManager) isSubclusterIdle(ctx context.Context, pfacts *PodFacts,
 }
 
 // closeAllSessions will run a query to close all active user sessions.
-func (i *UpgradeManager) closeAllSessions(ctx context.Context, pfacts *PodFacts) error {
-	pf, ok := pfacts.findFirstPodSorted(func(v *PodFact) bool {
-		return v.isPrimary && v.upNode
+func (i *UpgradeManager) closeAllSessions(ctx context.Context, pfacts *podfacts.PodFacts) error {
+	pf, ok := pfacts.FindFirstPodSorted(func(v *podfacts.PodFact) bool {
+		return v.GetIsPrimary() && v.GetUpNode()
 	})
 	if !ok {
 		i.Log.Info("No pod found to run vsql. Skipping close all sessions")
@@ -656,7 +657,7 @@ func (i *UpgradeManager) closeAllSessions(ctx context.Context, pfacts *PodFacts)
 
 	sql := "select close_all_sessions();"
 	cmd := []string{"-tAc", sql}
-	_, _, err := pfacts.PRunner.ExecVSQL(ctx, pf.name, names.ServerContainer, cmd...)
+	_, _, err := pfacts.PRunner.ExecVSQL(ctx, pf.GetName(), names.ServerContainer, cmd...)
 	if err != nil {
 		return err
 	}
@@ -666,7 +667,8 @@ func (i *UpgradeManager) closeAllSessions(ctx context.Context, pfacts *PodFacts)
 
 // routeClientTraffic will update service objects for the source subcluster to
 // route to the target subcluster
-func (i *UpgradeManager) routeClientTraffic(ctx context.Context, pfacts *PodFacts, sc *vapi.Subcluster, selectors map[string]string) error {
+func (i *UpgradeManager) routeClientTraffic(ctx context.Context, pfacts *podfacts.PodFacts,
+	sc *vapi.Subcluster, selectors map[string]string) error {
 	actor := MakeObjReconciler(i.Rec, i.Log, i.Vdb, pfacts, ObjReconcileModeAll)
 	objRec := actor.(*ObjReconciler)
 

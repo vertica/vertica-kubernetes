@@ -23,6 +23,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
+	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/stopdb"
 	"github.com/vertica/vertica-kubernetes/pkg/vdbstatus"
@@ -37,13 +38,13 @@ type StopDBReconciler struct {
 	VRec       *VerticaDBReconciler
 	Vdb        *vapi.VerticaDB // Vdb is the CRD we are acting on.
 	PRunner    cmds.PodRunner
-	PFacts     *PodFacts
+	PFacts     *podfacts.PodFacts
 	Dispatcher vadmin.Dispatcher
 }
 
 // MakeStopDBReconciler will build a StopDBReconciler object
 func MakeStopDBReconciler(
-	vdbrecon *VerticaDBReconciler, vdb *vapi.VerticaDB, prunner cmds.PodRunner, pfacts *PodFacts,
+	vdbrecon *VerticaDBReconciler, vdb *vapi.VerticaDB, prunner cmds.PodRunner, pfacts *podfacts.PodFacts,
 	dispatcher vadmin.Dispatcher,
 ) controllers.ReconcileActor {
 	return &StopDBReconciler{
@@ -63,7 +64,7 @@ func (s *StopDBReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl
 	}
 
 	// No-op if no database exists
-	if !s.PFacts.doesDBExist() {
+	if !s.PFacts.DoesDBExist() {
 		return ctrl.Result{}, nil
 	}
 
@@ -71,7 +72,7 @@ func (s *StopDBReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl
 	isSet := s.Vdb.IsStatusConditionTrue(vapi.VerticaRestartNeeded)
 	if isSet {
 		// Stop vertica if any pods are running
-		if s.PFacts.getUpNodeCount() > 0 {
+		if s.PFacts.GetUpNodeCount() > 0 {
 			err = s.stopVertica(ctx)
 			if err != nil {
 				return ctrl.Result{}, err
@@ -89,14 +90,14 @@ func (s *StopDBReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl
 
 // stopVertica will stop vertica on all of the running pods
 func (s *StopDBReconciler) stopVertica(ctx context.Context) error {
-	pf, ok := s.PFacts.findPodToRunAdminCmdAny()
+	pf, ok := s.PFacts.FindPodToRunAdminCmdAny()
 	if !ok {
 		// If no running pod found, then there is nothing to stop and we can just continue on
 		return nil
 	}
 
 	// Run the stop_db command
-	err := s.runATCmd(ctx, pf.name, pf.podIP)
+	err := s.runATCmd(ctx, pf.GetName(), pf.GetPodIP())
 
 	// Invalidate the pod facts now that vertica daemon has been stopped on all of the pods
 	s.PFacts.Invalidate()
