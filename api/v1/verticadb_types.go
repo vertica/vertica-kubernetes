@@ -125,10 +125,10 @@ type VerticaDBSpec struct {
 	RestorePoint *RestorePointPolicy `json:"restorePoint,omitempty"`
 
 	// +kubebuilder:validation:Optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:select:Auto","urn:alm:descriptor:com.tectonic.ui:select:Online","urn:alm:descriptor:com.tectonic.ui:select:Offline"}
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:select:Auto","urn:alm:descriptor:com.tectonic.ui:select:ReadOnlyOnline","urn:alm:descriptor:com.tectonic.ui:select:Online","urn:alm:descriptor:com.tectonic.ui:select:Offline"}
 	// +kubebuilder:default:=Auto
 	// This setting defines how the upgrade process will be managed. The
-	// available values are Offline, Online, and Auto.
+	// available values are Offline, ReadOnlyOnline, Online, and Auto.
 	//
 	// Offline: This option involves taking down the entire cluster and then
 	// bringing it back up with the new image.
@@ -416,8 +416,6 @@ const (
 	// leaving the secondary subclusters in read-only mode.  When the primary
 	// subcluster comes back up, we restart/remove all of the secondary
 	// subclusters to take them out of read-only mode.
-	// This is only used internally by the operator to differentiate between
-	// the read-only and new online ugrade.
 	ReadOnlyOnlineUpgrade UpgradePolicyType = "ReadOnlyOnline"
 	// Like read-only online upgrade, however it allows for writes. This is done by
 	// splitting the vertica cluster into two replicas, then following a
