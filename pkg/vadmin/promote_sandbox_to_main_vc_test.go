@@ -22,6 +22,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	vops "github.com/vertica/vcluster/vclusterops"
+	"github.com/vertica/vertica-kubernetes/pkg/test"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/promotesandboxtomain"
 )
 
@@ -44,7 +45,7 @@ func (m *MockVClusterOps) VPromoteSandboxToMain(options *vops.VPromoteSandboxToM
 		return fmt.Errorf("failed to verify sandbox name")
 	}
 
-	return nil
+	return m.VerifyCerts(&options.DatabaseOptions)
 }
 
 var _ = Describe("promote_sandbox_to_main_vc", func() {
@@ -53,6 +54,9 @@ var _ = Describe("promote_sandbox_to_main_vc", func() {
 	It("should call vclusterOps library with promote_sandbox_to_main task", func() {
 		dispatcher := mockVClusterOpsDispatcher()
 		dispatcher.VDB.Spec.DBName = TestDBName
+		dispatcher.VDB.Spec.NMATLSSecret = TestNMATLSSecret
+		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.NMATLSSecret)
+		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.NMATLSSecret)
 		Ω(dispatcher.PromoteSandboxToMain(ctx,
 			promotesandboxtomain.WithInitiator(TestInitiatorIP),
 			promotesandboxtomain.WithSandbox(TestSandboxName),
