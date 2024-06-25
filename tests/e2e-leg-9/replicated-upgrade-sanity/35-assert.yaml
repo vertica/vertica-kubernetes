@@ -57,6 +57,15 @@ involvedObject:
   kind: VerticaDB
   name: v-base-upgrade
 ---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: v-base-upgrade-replica-group-b
+data:
+  sandboxName: replica-group-b
+  verticaDBName: v-base-upgrade
+immutable: true
+---
 apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
