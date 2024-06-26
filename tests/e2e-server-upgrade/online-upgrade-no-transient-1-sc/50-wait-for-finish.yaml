@@ -16,5 +16,5 @@ kind: TestStep
 commands:
   - command: kubectl wait --for=condition=UpgradeInProgress=False vdb/v-base-upgrade --timeout=600s
     namespaced: true
-  - command: kubectl wait --for=condition=OnlineUpgradeInProgress=False vdb/v-base-upgrade --timeout=600s
+  - command: kubectl wait --for=condition=ReadOnlyOnlineUpgradeInProgress=False vdb/v-base-upgrade --timeout=600s
     namespaced: true
