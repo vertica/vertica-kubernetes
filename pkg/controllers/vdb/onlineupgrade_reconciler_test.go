@@ -32,6 +32,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/test"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	v1 "k8s.io/api/core/v1"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -316,6 +317,34 @@ var _ = Describe("onlineupgrade_reconciler", func() {
 		Ω(rr.finishUpgrade(ctx)).Should(Equal(ctrl.Result{}))
 		Ω(k8sClient.Get(ctx, vdb.ExtractNamespacedName(), vdb)).Should(Succeed())
 		Ω(vmeta.GetOnlineUpgradeReplicator(vdb.Annotations)).Should(Equal(""))
+	})
+
+	It("should delete sandbox config map", func() {
+		const sbName = "sb1"
+		vdb := vapi.MakeVDBForVclusterOps()
+		vdb.Status = vapi.VerticaDBStatus{
+			Sandboxes: []vapi.SandboxStatus{
+				{Name: sbName},
+			},
+		}
+
+		test.CreateConfigMap(ctx, k8sClient, vdb, "", sbName)
+		defer test.DeleteConfigMap(ctx, k8sClient, vdb, sbName)
+		rr := &OnlineUpgradeReconciler{
+			sandboxName: sbName,
+			VDB:         vdb,
+			VRec:        vdbRec,
+		}
+		// requeue because sandbox still exists in the status
+		Ω(rr.deleteSandboxConfigMap(ctx)).Should(Equal(ctrl.Result{Requeue: true}))
+
+		nm := names.GenSandboxConfigMapName(rr.VDB, rr.sandboxName)
+		cm := &v1.ConfigMap{}
+		Expect(k8sClient.Get(ctx, nm, cm)).Should(BeNil())
+		rr.VDB.Status.Sandboxes = []vapi.SandboxStatus{}
+		Ω(rr.deleteSandboxConfigMap(ctx)).Should(Equal(ctrl.Result{}))
+		err := k8sClient.Get(ctx, nm, cm)
+		Expect(kerrors.IsNotFound(err)).Should(BeTrue())
 	})
 
 	It("should remove the client routing label on replica group A subclusters for the pause", func() {

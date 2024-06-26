@@ -157,6 +157,7 @@ func (r *OnlineUpgradeReconciler) Reconcile(ctx context.Context, _ *ctrl.Request
 		// old main.
 		r.postPromoteSandboxMsg,
 		r.promoteSandboxToMainCluster,
+		r.deleteSandboxConfigMap,
 		// Remove original main cluster. We will remove replica group A since
 		// replica group B is promoted to main cluster now.
 		r.postRemoveOriginalClusterMsg,
@@ -677,6 +678,27 @@ func (r *OnlineUpgradeReconciler) promoteSandboxToMainCluster(ctx context.Contex
 	r.PFacts[vapi.MainCluster].Invalidate()
 	r.Log.Info("sandbox has been promoted to main", "sandboxName", r.sandboxName)
 	return ctrl.Result{}, r.updateAnnotationForOnlineUpgrade(ctx, vmeta.OnlineUpgradeSandboxPromotedAnnotation)
+}
+
+// deleteSandboxConfigMap deletes the sandbox(which is now the new main) configmap after
+// the sandbox promotion.
+func (r *OnlineUpgradeReconciler) deleteSandboxConfigMap(ctx context.Context) (ctrl.Result, error) {
+	sb := r.VDB.GetSandboxStatus(r.sandboxName)
+	if sb != nil {
+		// We requeue if the sandbox still exists in the status
+		return ctrl.Result{Requeue: true}, nil
+	}
+	sbMan := MakeSandboxConfigMapManager(r.VRec, r.VDB, r.sandboxName, "" /*no uuid*/)
+	calledDelete, err := sbMan.deleteConfigMap(ctx)
+	if !calledDelete {
+		return ctrl.Result{}, err
+	}
+	if err != nil {
+		r.Log.Error(err, "failed to delete sandbox config map", "configMapName", sbMan.configMap.Name)
+		return ctrl.Result{}, err
+	}
+	r.Log.Info("deleted sandbox config map", "configMapName", sbMan.configMap.Name)
+	return ctrl.Result{}, nil
 }
 
 // postRemoveOriginalClusterMsg will update the status message to indicate that
