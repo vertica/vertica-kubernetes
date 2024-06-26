@@ -17,6 +17,7 @@ package vrep
 
 import (
 	"context"
+	"fmt"
 	"reflect"
 
 	"github.com/go-logr/logr"
@@ -27,14 +28,15 @@ import (
 	vdbcontroller "github.com/vertica/vertica-kubernetes/pkg/controllers/vdb"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/mockvops"
+	"github.com/vertica/vertica-kubernetes/pkg/names"
+	"github.com/vertica/vertica-kubernetes/pkg/test"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/replicationstart"
 	vrepstatus "github.com/vertica/vertica-kubernetes/pkg/vrepstatus"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
-
-	"github.com/vertica/vertica-kubernetes/pkg/test"
 )
 
 const minimumVer = "v24.3.0"
@@ -77,10 +79,9 @@ var _ = Describe("query_reconcile", func() {
 		defer func() { Expect(k8sClient.Delete(ctx, vrep)).Should(Succeed()) }()
 
 		r := &ReplicationReconciler{
-			Client: k8sClient,
-			VRec:   vrepRec,
-			Vrep:   vrep,
-			Log:    logger,
+			VRec: vrepRec,
+			Vrep: vrep,
+			Log:  logger,
 		}
 		err := r.runReplicateDB(ctx, dispatcher, []replicationstart.Option{})
 		Expect(err).ShouldNot(HaveOccurred())
@@ -120,7 +121,7 @@ var _ = Describe("query_reconcile", func() {
 		Expect(k8sClient.Create(ctx, vrep)).Should(Succeed())
 		defer func() { Expect(k8sClient.Delete(ctx, vrep)).Should(Succeed()) }()
 
-		recon := MakeReplicationReconciler(k8sClient, vrepRec, vrep, logger)
+		recon := MakeReplicationReconciler(vrepRec, vrep, logger)
 		err := vrepstatus.Update(ctx, vrepRec.Client, vrepRec.Log, vrep,
 			[]*metav1.Condition{vapi.MakeCondition(v1beta1.ReplicationComplete,
 				metav1.ConditionTrue, "Succeeded")}, stateSucceededReplication)
@@ -128,7 +129,6 @@ var _ = Describe("query_reconcile", func() {
 		result, err := recon.Reconcile(ctx, &ctrl.Request{})
 
 		expected := &ReplicationReconciler{
-			Client:     k8sClient,
 			VRec:       vrepRec,
 			Vrep:       vrep,
 			Log:        logger.WithName("ReplicationReconciler"),
@@ -248,5 +248,73 @@ var _ = Describe("query_reconcile", func() {
 		targetPodfacts.Detail = sourcePodfacts.Detail
 		err = r.checkSandboxExists()
 		Expect(err).ShouldNot(HaveOccurred())
+	})
+
+	It("should correctly chose a hostname based on service addresses", func() {
+		sourceVdbName := v1beta1.MakeSourceVDBName()
+		sourceVdb := vapi.MakeVDB()
+		sourceVdb.Name = sourceVdbName.Name
+		sourceVdb.Namespace = sourceVdbName.Namespace
+		sourceVdb.Annotations[vmeta.VersionAnnotation] = minimumVer
+		sourceVdb.Spec.NMATLSSecret = testTLSSecretName
+		test.CreateVDB(ctx, k8sClient, sourceVdb)
+		defer test.DeleteVDB(ctx, k8sClient, sourceVdb)
+		test.CreateSvcs(ctx, k8sClient, sourceVdb)
+		defer test.DeleteSvcs(ctx, k8sClient, sourceVdb)
+		test.CreatePods(ctx, k8sClient, sourceVdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, sourceVdb)
+		sourceSvcName := names.GenExtSvcName(sourceVdb, &sourceVdb.Spec.Subclusters[0])
+		sourceSvcHostname := fmt.Sprintf("%s.%s.svc.cluster.local", sourceSvcName.Name, sourceSvcName.Namespace)
+
+		targetVdbName := v1beta1.MakeTargetVDBName()
+		targetSandboxName := "sb"
+		targetSandboxScName := "sb-sc"
+		targetVdb := vapi.MakeVDB()
+		targetVdb.Name = targetVdbName.Name
+		targetVdb.Namespace = targetVdbName.Namespace
+		targetVdb.Annotations[vmeta.VersionAnnotation] = minimumVer
+		targetVdb.UID = testTargetVdbUID
+		targetVdb.Spec.Subclusters = append(targetVdb.Spec.Subclusters, vapi.Subcluster{Name: targetSandboxScName, Size: 1,
+			ServiceType: corev1.ServiceTypeClusterIP, Type: vapi.SecondarySubcluster})
+		targetVdb.Spec.Sandboxes = []vapi.Sandbox{{Name: targetSandboxName, Subclusters: []vapi.SubclusterName{{Name: targetSandboxScName}}}}
+		test.CreateVDB(ctx, k8sClient, targetVdb)
+		defer test.DeleteVDB(ctx, k8sClient, targetVdb)
+		test.CreateSvcs(ctx, k8sClient, targetVdb)
+		defer test.DeleteSvcs(ctx, k8sClient, targetVdb)
+		test.CreatePods(ctx, k8sClient, targetVdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, targetVdb)
+		targetSvcName := names.GenExtSvcName(targetVdb, &targetVdb.Spec.Subclusters[0])
+		targetSvcHostname := fmt.Sprintf("%s.%s.svc.cluster.local", targetSvcName.Name, targetSvcName.Namespace)
+
+		vrep := v1beta1.MakeVrep()
+		Expect(k8sClient.Create(ctx, vrep)).Should(Succeed())
+		defer func() { Expect(k8sClient.Delete(ctx, vrep)).Should(Succeed()) }()
+
+		r := &ReplicationReconciler{
+			VRec:       vrepRec,
+			Vrep:       vrep,
+			Log:        logger.WithName("ReplicationReconciler"),
+			SourceInfo: &ReplicationInfo{Vdb: sourceVdb},
+			TargetInfo: &ReplicationInfo{Vdb: targetVdb},
+		}
+		err := r.determineSourceAndTargetHosts(ctx)
+		Expect(err).ShouldNot(HaveOccurred())
+		Expect(r.SourceInfo.Hostname).Should(Equal(sourceSvcHostname))
+		Expect(r.TargetInfo.Hostname).Should(Equal(targetSvcHostname))
+
+		// specifying a service should be fine
+		r.Vrep.Spec.Source.ServiceName = sourceVdb.Spec.Subclusters[0].Name
+		err = r.determineSourceAndTargetHosts(ctx)
+		Expect(err).ShouldNot(HaveOccurred())
+		Expect(r.SourceInfo.Hostname).Should(Equal(sourceSvcHostname))
+		Expect(r.TargetInfo.Hostname).Should(Equal(targetSvcHostname))
+
+		// should validate service is part of cluster
+		r.Vrep.Spec.Source.ServiceName = targetSandboxScName
+		err = r.determineSourceAndTargetHosts(ctx)
+		Expect(err).Should(HaveOccurred())
+		Expect(err.Error()).Should(ContainSubstring("could not find service"))
+		Expect(err.Error()).Should(ContainSubstring(r.Vrep.Spec.Source.ServiceName))
+		Expect(err.Error()).Should(ContainSubstring("the main cluster"))
 	})
 })

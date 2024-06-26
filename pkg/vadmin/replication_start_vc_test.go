@@ -77,8 +77,8 @@ var _ = Describe("replication_start_vc", func() {
 		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.NMATLSSecret)
 
 		_, err := dispatcher.ReplicateDB(ctx,
-			replicationstart.WithSourceIP(TestSourceIP),
-			replicationstart.WithTargetIP(TestTargetIP),
+			replicationstart.WithSourceHostname(TestSourceIP),
+			replicationstart.WithTargetHostname(TestTargetIP),
 			replicationstart.WithSourceUsername(vapi.SuperUser),
 			replicationstart.WithTargetDBName(TestTargetDBName),
 			replicationstart.WithTargetUserName(TestTargetUserName),
