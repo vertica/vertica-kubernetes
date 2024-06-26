@@ -105,38 +105,38 @@ var _ = Describe("verticadb_types", func() {
 	It("should pick the correct upgrade policy to use", func() {
 		vdb := MakeVDB()
 
-		// Ensure we don't pick replicated, if there is no evidence we can scale
+		// Ensure we don't pick online, if there is no evidence we can scale
 		// past 3 nodes.
-		vdb.Annotations[vmeta.VersionAnnotation] = ReplicatedUpgradeVersion
-		vdb.Spec.UpgradePolicy = ReplicatedUpgrade
+		vdb.Annotations[vmeta.VersionAnnotation] = OnlineUpgradeVersion
+		vdb.Spec.UpgradePolicy = OnlineUpgrade
 		vdb.Spec.LicenseSecret = ""
 		vdb.Spec.Subclusters = []Subcluster{
 			{Name: "pri1", Size: 3},
 		}
-		Ω(vdb.GetUpgradePolicyToUse()).Should(Equal(OnlineUpgrade))
+		Ω(vdb.GetUpgradePolicyToUse()).Should(Equal(ReadOnlyOnlineUpgrade))
 		vdb.Spec.Subclusters = []Subcluster{
 			{Name: "pri1", Size: 4},
 		}
-		Ω(vdb.GetUpgradePolicyToUse()).Should(Equal(ReplicatedUpgrade))
+		Ω(vdb.GetUpgradePolicyToUse()).Should(Equal(OnlineUpgrade))
 		vdb.Spec.Subclusters = []Subcluster{
 			{Name: "pri1", Size: 3},
 		}
 		vdb.Spec.LicenseSecret = "v-license"
-		Ω(vdb.GetUpgradePolicyToUse()).Should(Equal(ReplicatedUpgrade))
-
-		// If older version than what we support for replicated. We should revert to online upgrade.
-		vdb.Spec.UpgradePolicy = ReplicatedUpgrade
-		vdb.Annotations[vmeta.VersionAnnotation] = OnlineUpgradeVersion
 		Ω(vdb.GetUpgradePolicyToUse()).Should(Equal(OnlineUpgrade))
+
+		// If older version than what we support for online. We should revert to read-only online upgrade.
+		vdb.Spec.UpgradePolicy = OnlineUpgrade
+		vdb.Annotations[vmeta.VersionAnnotation] = ReadOnlyOnlineUpgradeVersion
+		Ω(vdb.GetUpgradePolicyToUse()).Should(Equal(ReadOnlyOnlineUpgrade))
 
 		// Removal of version should default to offline.
 		delete(vdb.Annotations, vmeta.VersionAnnotation)
 		Ω(vdb.GetUpgradePolicyToUse()).Should(Equal(OfflineUpgrade))
 
-		// Online selection on latest version should pick online
-		vdb.Annotations[vmeta.VersionAnnotation] = ReplicatedUpgradeVersion
-		vdb.Spec.UpgradePolicy = OnlineUpgrade
-		Ω(vdb.GetUpgradePolicyToUse()).Should(Equal(OnlineUpgrade))
+		// Online selection on latest version should pick read-only online
+		vdb.Annotations[vmeta.VersionAnnotation] = OnlineUpgradeVersion
+		vdb.Spec.UpgradePolicy = ReadOnlyOnlineUpgrade
+		Ω(vdb.GetUpgradePolicyToUse()).Should(Equal(ReadOnlyOnlineUpgrade))
 
 		// Similarly for offline selection with newest version
 		vdb.Spec.UpgradePolicy = OfflineUpgrade

@@ -29,7 +29,7 @@ spec:
   dbName: Upgrade
   # skip package install due to disk space limitation in GitHub CI
   initPolicy: CreateSkipPackageInstall
-  upgradePolicy: Online
+  upgradePolicy: ReadOnlyOnline
   encryptSpreadComm: disabled
   subclusters:
     - name: pri

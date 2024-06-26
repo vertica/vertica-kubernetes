@@ -244,7 +244,7 @@ const (
 	ScrutinizeMainContainerResourcesPrefixAnnotation = "vertica.com/scrutinize-main-container-resources"
 
 	// This is applied to the statefulset to identify what replica group it is
-	// in. Replica groups are assigned during replicated upgrade. Valid values
+	// in. Replica groups are assigned during online upgrade. Valid values
 	// are defined under the annotation name.
 	ReplicaGroupAnnotation = "vertica.com/replica-group"
 	ReplicaGroupAValue     = "a"
@@ -259,24 +259,24 @@ const (
 	// subcluster in replica group a.
 	ParentSubclusterTypeAnnotation = "vertica.com/parent-subcluster-type"
 
-	// During replicated upgrade, we store an annotation in the VerticaDB that
+	// During online upgrade, we store an annotation in the VerticaDB that
 	// is the name of the sandbox for all subclusters part of replica group B.
-	ReplicatedUpgradeSandboxAnnotation = "vertica.com/replicated-upgrade-sandbox"
+	OnlineUpgradeSandboxAnnotation = "vertica.com/online-upgrade-sandbox"
 
-	// This is the name of the VerticaReplicator that is generated during a replicated upgrade
-	ReplicatedUpgradeReplicatorAnnotation = "vertica.com/replicated-upgrade-replicator-name"
+	// This is the name of the VerticaReplicator that is generated during a online upgrade
+	OnlineUpgradeReplicatorAnnotation = "vertica.com/online-upgrade-replicator-name"
 
-	// During replicated upgrade, we store an annotation in the VerticaDB to indicate
+	// During online upgrade, we store an annotation in the VerticaDB to indicate
 	// that we have done sandbox promotion.
-	ReplicatedUpgradeSandboxPromotedAnnotation = "vertica.com/replicated-upgrade-sandbox-promoted"
-	SandboxPromotedTrue                        = "true"
-	SandboxPromotedFalse                       = "false"
+	OnlineUpgradeSandboxPromotedAnnotation = "vertica.com/online-upgrade-sandbox-promoted"
+	SandboxPromotedTrue                    = "true"
+	SandboxPromotedFalse                   = "false"
 
-	// During replicated upgrade, we store an annotation in the VerticaDB to indicate
+	// During online upgrade, we store an annotation in the VerticaDB to indicate
 	// that we have removed old-main-cluster/replica-group-A.
-	ReplicatedUpgradeReplicaARemovedAnnotation = "vertica.com/replicated-upgrade-replica-A-removed"
-	ReplicaARemovedTrue                        = "true"
-	ReplicaARemovedFalse                       = "false"
+	OnlineUpgradeReplicaARemovedAnnotation = "vertica.com/online-upgrade-replica-A-removed"
+	ReplicaARemovedTrue                    = "true"
+	ReplicaARemovedFalse                   = "false"
 
 	// This will be set in a sandbox configMap by the vdb controller to wake up the sandbox
 	// controller for upgrading the sandboxes
@@ -517,25 +517,25 @@ func GenScrutinizeMainContainerResourcesAnnotationName(resourceName corev1.Resou
 		resourceName)
 }
 
-// GetReplicatedUpgradeSandbox returns the name of the sandbox used for replicated upgrade.
-func GetReplicatedUpgradeSandbox(annotations map[string]string) string {
-	return lookupStringAnnotation(annotations, ReplicatedUpgradeSandboxAnnotation, "")
+// GetOnlineUpgradeSandbox returns the name of the sandbox used for online upgrade.
+func GetOnlineUpgradeSandbox(annotations map[string]string) string {
+	return lookupStringAnnotation(annotations, OnlineUpgradeSandboxAnnotation, "")
 }
 
-// GetReplicatedUpgradeSandboxPromoted returns if sandbox has been promoted in replicated upgrade.
-func GetReplicatedUpgradeSandboxPromoted(annotations map[string]string) string {
-	return lookupStringAnnotation(annotations, ReplicatedUpgradeSandboxPromotedAnnotation, SandboxPromotedFalse)
+// GetOnlineUpgradeSandboxPromoted returns if sandbox has been promoted in online upgrade.
+func GetOnlineUpgradeSandboxPromoted(annotations map[string]string) string {
+	return lookupStringAnnotation(annotations, OnlineUpgradeSandboxPromotedAnnotation, SandboxPromotedFalse)
 }
 
-// GetReplicatedUpgradeReplicaARemoved returns if replica A has been removed in replicated upgrade.
-func GetReplicatedUpgradeReplicaARemoved(annotations map[string]string) string {
-	return lookupStringAnnotation(annotations, ReplicatedUpgradeReplicaARemovedAnnotation, ReplicaARemovedFalse)
+// GetOnlineUpgradeReplicaARemoved returns if replica A has been removed in online upgrade.
+func GetOnlineUpgradeReplicaARemoved(annotations map[string]string) string {
+	return lookupStringAnnotation(annotations, OnlineUpgradeReplicaARemovedAnnotation, ReplicaARemovedFalse)
 }
 
-// GetReplicatedUpgradeReplicator returns the name of the VerticaReplicator
-// object used during replicated upgrade.
-func GetReplicatedUpgradeReplicator(annotations map[string]string) string {
-	return lookupStringAnnotation(annotations, ReplicatedUpgradeReplicatorAnnotation, "")
+// GetOnlineUpgradeReplicator returns the name of the VerticaReplicator
+// object used during online upgrade.
+func GetOnlineUpgradeReplicator(annotations map[string]string) string {
+	return lookupStringAnnotation(annotations, OnlineUpgradeReplicatorAnnotation, "")
 }
 
 // GetStsNameOverride returns the override for the statefulset name. If one is
