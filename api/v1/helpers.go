@@ -557,26 +557,26 @@ func (v *VerticaDB) GetUpgradePolicyToUse() UpgradePolicyType {
 		return OfflineUpgrade
 	}
 
-	// The Replicated option can only be chosen explicitly. Although eventually,
+	// The Online option can only be chosen explicitly. Although eventually,
 	// the Auto option will automatically select this method, we first need to
 	// complete the implementation of this new policy.
-	if v.Spec.UpgradePolicy == ReplicatedUpgrade {
-		// Replicated upgrade requires that we scale out the cluster. See if
+	if v.Spec.UpgradePolicy == OnlineUpgrade {
+		// Online upgrade requires that we scale out the cluster. See if
 		// there is evidence that we have already scaled past 3 nodes (CE
 		// license limit), or we have a license defined.
 		const ceLicenseLimit = 3
-		if vinf.IsEqualOrNewer(ReplicatedUpgradeVersion) &&
+		if vinf.IsEqualOrNewer(OnlineUpgradeVersion) &&
 			!v.IsKSafety0() &&
 			(v.getNumberOfNodes() > ceLicenseLimit || v.Spec.LicenseSecret != "") {
-			return ReplicatedUpgrade
-		} else if vinf.IsEqualOrNewer(OnlineUpgradeVersion) {
 			return OnlineUpgrade
+		} else if vinf.IsEqualOrNewer(ReadOnlyOnlineUpgradeVersion) {
+			return ReadOnlyOnlineUpgrade
 		}
 	}
 
-	if (v.Spec.UpgradePolicy == OnlineUpgrade || v.IsAutoUpgradePolicy()) &&
-		vinf.IsEqualOrNewer(OnlineUpgradeVersion) {
-		return OnlineUpgrade
+	if (v.Spec.UpgradePolicy == ReadOnlyOnlineUpgrade || v.IsAutoUpgradePolicy()) &&
+		vinf.IsEqualOrNewer(ReadOnlyOnlineUpgradeVersion) {
+		return ReadOnlyOnlineUpgrade
 	}
 
 	return OfflineUpgrade
