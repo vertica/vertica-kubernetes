@@ -17,6 +17,7 @@ package vdb
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
@@ -26,6 +27,7 @@ import (
 	config "github.com/vertica/vertica-kubernetes/pkg/vdbconfig"
 	"github.com/vertica/vertica-kubernetes/pkg/vk8s"
 	corev1 "k8s.io/api/core/v1"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 )
 
 // SandboxConfigMapManager allows to make some actions
@@ -117,4 +119,15 @@ func (s *SandboxConfigMapManager) getTriggerID() string {
 	}
 	// Let's generate an id if one is not set
 	return uuid.NewString()
+}
+
+func (s *SandboxConfigMapManager) deleteConfigMap(ctx context.Context) (bool, error) {
+	err := s.fetchConfigMap(ctx)
+	if err != nil {
+		if kerrors.IsNotFound(err) {
+			return false, nil
+		}
+		return false, fmt.Errorf("failed trying to fetch configmap: %w", err)
+	}
+	return true, s.vrec.GetClient().Delete(ctx, s.configMap)
 }
