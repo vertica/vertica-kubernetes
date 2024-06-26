@@ -24,7 +24,7 @@ spec:
   communal: {}
   local:
     requestSize: 100Mi
-  upgradePolicy: Online
+  upgradePolicy: ReadOnlyOnline
   subclusters:
     - name: pri
       size: 1

@@ -17,539 +17,684 @@ package vdb
 
 import (
 	"context"
-	"time"
+	"fmt"
 
+	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
+	"github.com/vertica/vertica-kubernetes/api/v1beta1"
+	"github.com/vertica/vertica-kubernetes/pkg/aterrors"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
-	"github.com/vertica/vertica-kubernetes/pkg/iter"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
+	"github.com/vertica/vertica-kubernetes/pkg/mockvops"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/test"
-	"github.com/vertica/vertica-kubernetes/pkg/vk8s"
-	appsv1 "k8s.io/api/apps/v1"
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
+	v1 "k8s.io/api/core/v1"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-var _ = Describe("onlineupgrade_reconcile", func() {
+var _ = Describe("onlineupgrade_reconciler", func() {
 	ctx := context.Background()
-	const OldImage = "old-image"
 	const NewImageName = "different-image"
 
-	It("should skip transient subcluster setup only when primaries have matching image", func() {
-		vdb := vapi.MakeVDB()
-		vdb.Spec.TemporarySubclusterRouting = &vapi.SubclusterSelection{
-			Template: vapi.Subcluster{Name: "transient", Size: 1, Type: vapi.SecondarySubcluster},
-		}
-		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
-		defer test.DeletePods(ctx, k8sClient, vdb)
-
-		r := createOnlineUpgradeReconciler(ctx, vdb)
-		Expect(r.loadSubclusterState(ctx)).Should(Equal(ctrl.Result{}))
-		Expect(r.skipTransientSetup()).Should(BeTrue())
-		r.Vdb.Spec.Image = NewImageName
-		Expect(r.skipTransientSetup()).Should(BeFalse())
-	})
-
-	It("should create and delete transient subcluster", func() {
-		vdb := vapi.MakeVDB()
-		scs := []vapi.Subcluster{
-			{Name: "sc1-secondary", Type: vapi.SecondarySubcluster, Size: 5},
-			{Name: "sc2-secondary", Type: vapi.SecondarySubcluster, Size: 1},
-			{Name: "sc3-primary", Type: vapi.PrimarySubcluster, Size: 3},
-		}
-		vdb.Spec.Subclusters = scs
-		vdb.Spec.TemporarySubclusterRouting = &vapi.SubclusterSelection{
-			Template: vapi.Subcluster{Name: "transient", Size: 1, Type: vapi.SecondarySubcluster},
-		}
-		test.CreateVDB(ctx, k8sClient, vdb)
-		defer test.DeleteVDB(ctx, k8sClient, vdb)
-		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
-		defer test.DeletePods(ctx, k8sClient, vdb)
-		defer test.DeleteSvcs(ctx, k8sClient, vdb)
-		vdb.Spec.Image = NewImageName // Trigger an upgrade
-		Expect(k8sClient.Update(ctx, vdb)).Should(Succeed())
-
-		r := createOnlineUpgradeReconciler(ctx, vdb)
-		Expect(r.loadSubclusterState(ctx)).Should(Equal(ctrl.Result{}))
-		Expect(r.addTransientToVdb(ctx)).Should(Equal(ctrl.Result{}))
-		Expect(r.createTransientSts(ctx)).Should(Equal(ctrl.Result{}))
-
-		var nilSc *vapi.Subcluster
-		transientSc := vdb.FindTransientSubcluster()
-		Expect(transientSc).ShouldNot(Equal(nilSc))
-
-		fetchedSts := &appsv1.StatefulSet{}
-		Expect(k8sClient.Get(ctx, names.GenStsName(vdb, transientSc), fetchedSts)).Should(Succeed())
-
-		Expect(r.removeTransientFromVdb(ctx)).Should(Equal(ctrl.Result{}))
-		Expect(vdb.FindTransientSubcluster()).Should(Equal(nilSc))
-
-		Expect(r.loadSubclusterState(ctx)).Should(Equal(ctrl.Result{})) // Collect state again for new pods/sts
-
-		// Override the pod facts so that newly created pod shows up as not
-		// install and db doesn't exist.  This is needed to allow the sts
-		// deletion to occur.
-		pn := names.GenPodName(vdb, transientSc, 0)
-		r.PFacts.Detail[pn].isInstalled = false
-		r.PFacts.Detail[pn].dbExists = false
-
-		Expect(r.deleteTransientSts(ctx)).Should(Equal(ctrl.Result{}))
-		Expect(k8sClient.Get(ctx, names.GenStsName(vdb, transientSc), fetchedSts)).ShouldNot(Succeed())
-	})
-
-	It("should be able to figure out what the old image was", func() {
-		vdb := vapi.MakeVDB()
-		vdb.Spec.Image = OldImage
-		test.CreateVDB(ctx, k8sClient, vdb)
-		defer test.DeleteVDB(ctx, k8sClient, vdb)
-		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
-		defer test.DeletePods(ctx, k8sClient, vdb)
-		vdb.Spec.Image = NewImageName // Trigger an upgrade
-		Expect(k8sClient.Update(ctx, vdb)).Should(Succeed())
-
-		r := createOnlineUpgradeReconciler(ctx, vdb)
-		Expect(r.loadSubclusterState(ctx)).Should(Equal(ctrl.Result{}))
-		oldImage, ok := r.Manager.fetchOldImage(vapi.MainCluster)
-		Expect(ok).Should(BeTrue())
-		Expect(oldImage).Should(Equal(OldImage))
-	})
-
-	It("should route client traffic to transient subcluster", func() {
-		vdb := vapi.MakeVDB()
-		const ScName = "sc1"
-		const TransientScName = "transient"
+	It("should correctly assign replica groups for both subcluster types", func() {
+		vdb := vapi.MakeVDBForVclusterOps()
 		vdb.Spec.Subclusters = []vapi.Subcluster{
-			{Name: ScName, Type: vapi.PrimarySubcluster, Size: 1},
+			{Name: "sc1", Type: vapi.PrimarySubcluster, Size: 6},
+			{Name: "sc2", Type: vapi.SecondarySubcluster, Size: 3},
+			{Name: "sc3", Type: vapi.SecondarySubcluster, Size: 2},
 		}
-		sc := &vdb.Spec.Subclusters[0]
-		vdb.Spec.TemporarySubclusterRouting = &vapi.SubclusterSelection{
-			Template: vapi.Subcluster{
-				Name: TransientScName,
-				Size: 1,
-				Type: vapi.SecondarySubcluster,
+		test.CreateVDB(ctx, k8sClient, vdb)
+		defer test.DeleteVDB(ctx, k8sClient, vdb)
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
+		vdb.Spec.Image = NewImageName // Trigger an upgrade
+		Ω(k8sClient.Update(ctx, vdb)).Should(Succeed())
+
+		onlineReconiler := createOnlineUpgradeReconciler(ctx, vdb)
+		Ω(onlineReconiler.assignSubclustersToReplicaGroupA(ctx)).Should(Equal(ctrl.Result{}))
+		Ω(vdb.Spec.Subclusters[0].Annotations).Should(HaveKeyWithValue(vmeta.ReplicaGroupAnnotation, vmeta.ReplicaGroupAValue))
+		Ω(vdb.Spec.Subclusters[1].Annotations).Should(HaveKeyWithValue(vmeta.ReplicaGroupAnnotation, vmeta.ReplicaGroupAValue))
+		Ω(vdb.Spec.Subclusters[2].Annotations).Should(HaveKeyWithValue(vmeta.ReplicaGroupAnnotation, vmeta.ReplicaGroupAValue))
+	})
+
+	It("should create new secondaries for each of the primaries", func() {
+		vdb := vapi.MakeVDBForVclusterOps()
+		vdb.Spec.Subclusters = []vapi.Subcluster{
+			{Name: "sc2", Type: vapi.SecondarySubcluster, Size: 3},
+			{Name: "sc1", Type: vapi.PrimarySubcluster, Size: 6,
+				ServiceType:         v1.ServiceTypeNodePort,
+				ClientNodePort:      32001,
+				VerticaHTTPNodePort: 32002,
+			},
+			{Name: "sc3", Type: vapi.PrimarySubcluster, Size: 2},
+		}
+		test.CreateVDB(ctx, k8sClient, vdb)
+		defer test.DeleteVDB(ctx, k8sClient, vdb)
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
+		vdb.Spec.Image = NewImageName // Trigger an upgrade
+		Ω(k8sClient.Update(ctx, vdb)).Should(Succeed())
+
+		rr := createOnlineUpgradeReconciler(ctx, vdb)
+		Ω(rr.assignSubclustersToReplicaGroupB(ctx)).Should(Equal(ctrl.Result{}))
+
+		Ω(k8sClient.Get(ctx, vdb.ExtractNamespacedName(), vdb)).Should(Succeed())
+		Ω(vdb.Spec.Subclusters).Should(HaveLen(6))
+		sc1 := vdb.Spec.Subclusters[1]
+		sc3 := vdb.Spec.Subclusters[3]
+		Ω(sc3.Type).Should(Equal(vapi.SecondarySubcluster))
+		Ω(sc3.Name).Should(HavePrefix("sc1-"))
+		Ω(sc3.ServiceType).Should(Equal(v1.ServiceTypeNodePort))
+		Ω(sc3.ClientNodePort).Should(Equal(int32(32001)))
+		Ω(sc3.VerticaHTTPNodePort).Should(Equal(int32(32002)))
+		Ω(sc3.Size).Should(Equal(int32(6)))
+		Ω(sc3.Annotations).Should(HaveKeyWithValue(vmeta.ReplicaGroupAnnotation, vmeta.ReplicaGroupBValue))
+		Ω(sc3.Annotations).Should(HaveKeyWithValue(vmeta.ParentSubclusterAnnotation, sc1.Name))
+		Ω(sc1.Annotations).Should(HaveKeyWithValue(vmeta.ChildSubclusterAnnotation, sc3.Name))
+		Ω(sc3.Annotations).Should(HaveKeyWithValue(vmeta.ParentSubclusterTypeAnnotation, vapi.PrimarySubcluster))
+
+		sc5 := vdb.Spec.Subclusters[4]
+		Ω(sc5.Name).Should(HavePrefix("sc3-"))
+		Ω(sc5.Type).Should(Equal(vapi.SecondarySubcluster))
+		Ω(sc5.Size).Should(Equal(int32(2)))
+		Ω(sc5.Annotations).Should(HaveKeyWithValue(vmeta.ReplicaGroupAnnotation, vmeta.ReplicaGroupBValue))
+		Ω(sc5.Annotations).Should(HaveKeyWithValue(vmeta.ParentSubclusterTypeAnnotation, vapi.PrimarySubcluster))
+
+		sc4 := vdb.Spec.Subclusters[5]
+		Ω(sc4.Name).Should(HavePrefix("sc2-"))
+		Ω(sc4.Type).Should(Equal(vapi.SecondarySubcluster))
+		Ω(sc4.Size).Should(Equal(int32(3)))
+		Ω(sc4.Annotations).Should(HaveKeyWithValue(vmeta.ReplicaGroupAnnotation, vmeta.ReplicaGroupBValue))
+		Ω(sc4.Annotations).Should(HaveKeyWithValue(vmeta.ParentSubclusterTypeAnnotation, vapi.SecondarySubcluster))
+
+	})
+
+	It("should generate unique subcluster name on collision during scale out", func() {
+		vdb := vapi.MakeVDBForVclusterOps()
+		vdb.Spec.Subclusters = []vapi.Subcluster{
+			{Name: "sc1", Type: vapi.PrimarySubcluster, Size: 6},
+			{Name: "sc1-sb", Type: vapi.SecondarySubcluster, Size: 3},
+		}
+		test.CreateVDB(ctx, k8sClient, vdb)
+		defer test.DeleteVDB(ctx, k8sClient, vdb)
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
+		vdb.Spec.Image = NewImageName // Trigger an upgrade
+		Ω(k8sClient.Update(ctx, vdb)).Should(Succeed())
+
+		rr := createOnlineUpgradeReconciler(ctx, vdb)
+		Ω(rr.assignSubclustersToReplicaGroupB(ctx)).Should(Equal(ctrl.Result{}))
+
+		Ω(k8sClient.Get(ctx, vdb.ExtractNamespacedName(), vdb)).Should(Succeed())
+		Ω(vdb.Spec.Subclusters).Should(HaveLen(4))
+		sc3 := vdb.Spec.Subclusters[2]
+		sc4 := vdb.Spec.Subclusters[3]
+		Ω(sc3.Type).Should(Equal(vapi.SecondarySubcluster))
+		Ω(sc3.Name).Should(HavePrefix("sc1-"))
+		Ω(sc3.Name).ShouldNot(Equal("sc1-sb"))
+		Ω(sc4.Type).Should(Equal(vapi.SecondarySubcluster))
+		Ω(sc4.Name).Should(HavePrefix("sc1-sb-"))
+		Ω(sc4.Name).ShouldNot(Equal("sc1"))
+	})
+
+	It("should sandbox subclusters in replica group B", func() {
+		vdb := vapi.MakeVDBForVclusterOps()
+		vdb.Spec.Subclusters = []vapi.Subcluster{
+			{Name: "pri1", Type: vapi.PrimarySubcluster, Size: 2},
+			{Name: "pri2", Type: vapi.PrimarySubcluster, Size: 2},
+		}
+		test.CreateVDB(ctx, k8sClient, vdb)
+		defer test.DeleteVDB(ctx, k8sClient, vdb)
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
+		vdb.Spec.Image = NewImageName // Trigger an upgrade
+		Ω(k8sClient.Update(ctx, vdb)).Should(Succeed())
+
+		rr := createOnlineUpgradeReconciler(ctx, vdb)
+		Ω(rr.assignSubclustersToReplicaGroupB(ctx)).Should(Equal(ctrl.Result{}))
+		Ω(rr.sandboxReplicaGroupB(ctx)).Should(Equal(ctrl.Result{}))
+
+		Ω(k8sClient.Get(ctx, vdb.ExtractNamespacedName(), vdb)).Should(Succeed())
+		Ω(vdb.Spec.Subclusters).Should(HaveLen(4))
+		sbName := vmeta.GetOnlineUpgradeSandbox(vdb.Annotations)
+		Ω(sbName).Should(Equal(preferredSandboxName))
+		pri1 := vdb.Spec.Subclusters[0]
+		pri2 := vdb.Spec.Subclusters[1]
+		Ω(pri1.Annotations).Should(HaveKey(vmeta.ChildSubclusterAnnotation))
+		Ω(pri2.Annotations).Should(HaveKey(vmeta.ChildSubclusterAnnotation))
+
+		sbMap := genSandboxMap(vdb)
+		sbScs, found := sbMap[sbName]
+		Ω(found).Should(BeTrue())
+		Ω(sbScs).Should(HaveKey(pri1.Annotations[vmeta.ChildSubclusterAnnotation]))
+		Ω(sbScs).Should(HaveKey(pri2.Annotations[vmeta.ChildSubclusterAnnotation]))
+
+		// Should clear annotation at end of upgrade
+		Ω(rr.finishUpgrade(ctx)).Should(Equal(ctrl.Result{}))
+		Ω(k8sClient.Get(ctx, vdb.ExtractNamespacedName(), vdb)).Should(Succeed())
+		Ω(vmeta.GetOnlineUpgradeSandbox(vdb.Annotations)).Should(Equal(""))
+	})
+
+	It("should handle collisions with the sandbox name", func() {
+		vdb := vapi.MakeVDBForVclusterOps()
+		vdb.Spec.Subclusters = []vapi.Subcluster{
+			{Name: "pri1", Type: vapi.PrimarySubcluster, Size: 2},
+			{Name: "sec1", Type: vapi.SecondarySubcluster, Size: 2},
+		}
+		vdb.Spec.Sandboxes = []vapi.Sandbox{
+			{Name: preferredSandboxName, Subclusters: []vapi.SubclusterName{{Name: "sec1"}}},
+		}
+		vdb.Spec.NMATLSSecret = "test-tls"
+		test.CreateVDB(ctx, k8sClient, vdb)
+		defer test.DeleteVDB(ctx, k8sClient, vdb)
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
+		test.CreateFakeTLSSecret(ctx, vdb, k8sClient, vdb.Spec.NMATLSSecret)
+		defer test.DeleteSecret(ctx, k8sClient, vdb.Spec.NMATLSSecret)
+		vdb.Spec.Image = NewImageName // Trigger an upgrade
+		Ω(k8sClient.Update(ctx, vdb)).Should(Succeed())
+
+		rr := createOnlineUpgradeReconciler(ctx, vdb)
+		Ω(rr.assignSubclustersToReplicaGroupB(ctx)).Should(Equal(ctrl.Result{}))
+		Ω(rr.sandboxReplicaGroupB(ctx)).Should(Equal(ctrl.Result{}))
+
+		Ω(k8sClient.Get(ctx, vdb.ExtractNamespacedName(), vdb)).Should(Succeed())
+		Ω(vdb.Spec.Subclusters).Should(HaveLen(3))
+		sbName := vmeta.GetOnlineUpgradeSandbox(vdb.Annotations)
+		Ω(sbName).ShouldNot(Equal(preferredSandboxName))
+		sbMap := genSandboxMap(vdb)
+		Ω(sbMap).Should(HaveKey(sbName))
+		Ω(sbMap).Should(HaveKey(preferredSandboxName))
+
+		pri1 := vdb.Spec.Subclusters[0]
+		Ω(pri1.Annotations).Should(HaveKey(vmeta.ChildSubclusterAnnotation))
+		repSb := sbMap[sbName]
+		Ω(repSb).Should(HaveKey(pri1.Annotations[vmeta.ChildSubclusterAnnotation]))
+		firstSb := sbMap[preferredSandboxName]
+		Ω(firstSb).Should(HaveKey("sec1"))
+	})
+
+	It("should treat sandbox as a no-op if already done", func() {
+		vdb := vapi.MakeVDBForVclusterOps()
+		vdb.Spec.Subclusters = []vapi.Subcluster{
+			{Name: "pri1", Type: vapi.PrimarySubcluster, Size: 2},
+			{Name: "pri2", Type: vapi.PrimarySubcluster, Size: 2},
+		}
+		test.CreateVDB(ctx, k8sClient, vdb)
+		defer test.DeleteVDB(ctx, k8sClient, vdb)
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
+		vdb.Spec.Image = NewImageName // Trigger an upgrade
+		Ω(k8sClient.Update(ctx, vdb)).Should(Succeed())
+
+		rr := createOnlineUpgradeReconciler(ctx, vdb)
+		Ω(rr.assignSubclustersToReplicaGroupB(ctx)).Should(Equal(ctrl.Result{}))
+		Ω(rr.sandboxReplicaGroupB(ctx)).Should(Equal(ctrl.Result{}))
+
+		// Mock completion of sandbox
+		Ω(k8sClient.Get(ctx, vdb.ExtractNamespacedName(), vdb)).Should(Succeed())
+		Ω(vdb.Spec.Subclusters).Should(HaveLen(4))
+		mockCompletionOfSandbox(ctx, vdb)
+
+		Ω(rr.sandboxReplicaGroupB(ctx)).Should(Equal(ctrl.Result{}))
+	})
+
+	It("should upgrade the vertica version in the sandbox", func() {
+		vdb := vapi.MakeVDBForVclusterOps()
+		test.CreateVDB(ctx, k8sClient, vdb)
+		defer test.DeleteVDB(ctx, k8sClient, vdb)
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
+		oldImageName := vdb.Spec.Image
+		vdb.Spec.Image = NewImageName // Trigger an upgrade
+		Ω(k8sClient.Update(ctx, vdb)).Should(Succeed())
+
+		rr := createOnlineUpgradeReconciler(ctx, vdb)
+		Ω(rr.assignSubclustersToReplicaGroupB(ctx)).Should(Equal(ctrl.Result{}))
+		Ω(rr.sandboxReplicaGroupB(ctx)).Should(Equal(ctrl.Result{}))
+		mockCompletionOfSandbox(ctx, vdb)
+
+		Ω(k8sClient.Get(ctx, vdb.ExtractNamespacedName(), vdb)).Should(Succeed())
+		Ω(vdb.Spec.Sandboxes).Should(HaveLen(1))
+		Ω(vdb.Spec.Sandboxes[0].Image).Should(Equal(oldImageName))
+
+		Ω(rr.upgradeSandbox(ctx)).Should(Equal(ctrl.Result{}))
+		Ω(k8sClient.Get(ctx, vdb.ExtractNamespacedName(), vdb)).Should(Succeed())
+		Ω(vdb.Spec.Sandboxes).Should(HaveLen(1))
+		Ω(vdb.Spec.Sandboxes[0].Image).Should(Equal(NewImageName))
+	})
+
+	It("should use VerticaReplicator CR to handle replication", func() {
+		vdb := vapi.MakeVDBForVclusterOps()
+		test.CreateVDB(ctx, k8sClient, vdb)
+		defer test.DeleteVDB(ctx, k8sClient, vdb)
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
+		vdb.Spec.Image = NewImageName // Trigger an upgrade
+		Ω(k8sClient.Update(ctx, vdb)).Should(Succeed())
+
+		rr := createOnlineUpgradeReconciler(ctx, vdb)
+		Ω(rr.assignSubclustersToReplicaGroupB(ctx)).Should(Equal(ctrl.Result{}))
+		Ω(rr.sandboxReplicaGroupB(ctx)).Should(Equal(ctrl.Result{}))
+		Ω(rr.startReplicationToReplicaGroupB(ctx)).Should(Equal(ctrl.Result{}))
+
+		Ω(k8sClient.Get(ctx, vdb.ExtractNamespacedName(), vdb)).Should(Succeed())
+		replicatorName := vmeta.GetOnlineUpgradeReplicator(vdb.Annotations)
+		vrep := v1beta1.VerticaReplicator{}
+		vrepNm := types.NamespacedName{
+			Name:      replicatorName,
+			Namespace: vdb.Namespace,
+		}
+		Ω(k8sClient.Get(ctx, vrepNm, &vrep)).Should(Succeed())
+
+		Ω(vrep.Spec.Source.VerticaDB).Should(Equal(vdb.Name))
+		Ω(vrep.Spec.Target.VerticaDB).Should(Equal(vdb.Name))
+		Ω(vrep.Spec.Target.SandboxName).Should(Equal(vmeta.GetOnlineUpgradeSandbox(vdb.Annotations)))
+
+		Ω(rr.waitForReplicateToReplicaGroupB(ctx)).Should(Equal(ctrl.Result{Requeue: true}))
+
+		// Mock completion of replicaton
+		meta.SetStatusCondition(&vrep.Status.Conditions,
+			*vapi.MakeCondition(v1beta1.ReplicationComplete, metav1.ConditionTrue, "Done"))
+		Ω(k8sClient.Status().Update(ctx, &vrep)).Should(Succeed())
+
+		Ω(rr.waitForReplicateToReplicaGroupB(ctx)).Should(Equal(ctrl.Result{}))
+
+		// Verify VerticaReplicator was deleted
+		Ω(k8sClient.Get(ctx, vrepNm, &vrep)).ShouldNot(Succeed())
+
+		// Another attempt through waiting for replicator should not fail
+		Ω(rr.waitForReplicateToReplicaGroupB(ctx)).Should(Equal(ctrl.Result{}))
+
+		// Annotations should be cleared when we finish the upgrade
+		Ω(rr.finishUpgrade(ctx)).Should(Equal(ctrl.Result{}))
+		Ω(k8sClient.Get(ctx, vdb.ExtractNamespacedName(), vdb)).Should(Succeed())
+		Ω(vmeta.GetOnlineUpgradeReplicator(vdb.Annotations)).Should(Equal(""))
+	})
+
+	It("should delete sandbox config map", func() {
+		const sbName = "sb1"
+		vdb := vapi.MakeVDBForVclusterOps()
+		vdb.Status = vapi.VerticaDBStatus{
+			Sandboxes: []vapi.SandboxStatus{
+				{Name: sbName},
 			},
 		}
-		vdb.Spec.Image = OldImage
-		test.CreateVDB(ctx, k8sClient, vdb)
-		defer test.DeleteVDB(ctx, k8sClient, vdb)
-		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
-		defer test.DeletePods(ctx, k8sClient, vdb)
-		test.CreateSvcs(ctx, k8sClient, vdb)
-		defer test.DeleteSvcs(ctx, k8sClient, vdb)
 
-		vdb.Spec.Image = NewImageName // Trigger an upgrade
-		Expect(k8sClient.Update(ctx, vdb)).Should(Succeed())
+		test.CreateConfigMap(ctx, k8sClient, vdb, "", sbName)
+		defer test.DeleteConfigMap(ctx, k8sClient, vdb, sbName)
+		rr := &OnlineUpgradeReconciler{
+			sandboxName: sbName,
+			VDB:         vdb,
+			VRec:        vdbRec,
+		}
+		// requeue because sandbox still exists in the status
+		Ω(rr.deleteSandboxConfigMap(ctx)).Should(Equal(ctrl.Result{Requeue: true}))
 
-		r := createOnlineUpgradeReconciler(ctx, vdb)
-		Expect(r.loadSubclusterState(ctx)).Should(Equal(ctrl.Result{}))
-		Expect(r.addTransientToVdb(ctx)).Should(Equal(ctrl.Result{}))
-		Expect(r.createTransientSts(ctx)).Should(Equal(ctrl.Result{}))
-		Expect(r.routeClientTraffic(ctx, ScName, true)).Should(Succeed())
-		svc := &corev1.Service{}
-		Expect(k8sClient.Get(ctx, names.GenExtSvcName(vdb, sc), svc)).Should(Succeed())
-		Expect(svc.Spec.Selector[vmeta.SubclusterSvcNameLabel]).Should(Equal(""))
-		Expect(svc.Spec.Selector[vmeta.SubclusterSelectorLabel]).Should(ContainSubstring(TransientScName))
-
-		// Route back to original subcluster
-		Expect(r.routeClientTraffic(ctx, ScName, false)).Should(Succeed())
-		Expect(k8sClient.Get(ctx, names.GenExtSvcName(vdb, sc), svc)).Should(Succeed())
-		Expect(svc.Spec.Selector[vmeta.SubclusterSvcNameLabel]).Should(Equal(sc.GetServiceName()))
-		Expect(svc.Spec.Selector[vmeta.SubclusterSelectorLabel]).Should(Equal(""))
+		nm := names.GenSandboxConfigMapName(rr.VDB, rr.sandboxName)
+		cm := &v1.ConfigMap{}
+		Expect(k8sClient.Get(ctx, nm, cm)).Should(BeNil())
+		rr.VDB.Status.Sandboxes = []vapi.SandboxStatus{}
+		Ω(rr.deleteSandboxConfigMap(ctx)).Should(Equal(ctrl.Result{}))
+		err := k8sClient.Get(ctx, nm, cm)
+		Expect(kerrors.IsNotFound(err)).Should(BeTrue())
 	})
 
-	It("should not route client traffic to transient subcluster since it doesn't exist", func() {
-		vdb := vapi.MakeVDB()
-		const ScName = "sc1"
+	It("should remove the client routing label on replica group A subclusters for the pause", func() {
+		vdb := vapi.MakeVDBForVclusterOps()
 		vdb.Spec.Subclusters = []vapi.Subcluster{
-			{Name: ScName, Type: vapi.PrimarySubcluster, Size: 1},
+			{Name: "pri1", Type: vapi.PrimarySubcluster, Size: 2},
+			{Name: "sec1", Type: vapi.SecondarySubcluster, Size: 2},
 		}
-		sc := &vdb.Spec.Subclusters[0]
-		vdb.Spec.TemporarySubclusterRouting = &vapi.SubclusterSelection{
-			Template: vapi.Subcluster{
-				Name: "some-sc-not-to-be-created",
-				Size: 1,
-				Type: vapi.SecondarySubcluster,
-			},
-		}
-		vdb.Spec.Image = OldImage
-		test.CreateVDB(ctx, k8sClient, vdb)
-		defer test.DeleteVDB(ctx, k8sClient, vdb)
-		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
-		defer test.DeletePods(ctx, k8sClient, vdb)
-		test.CreateSvcs(ctx, k8sClient, vdb)
-		defer test.DeleteSvcs(ctx, k8sClient, vdb)
-		vdb.Spec.Image = NewImageName // Trigger an upgrade
-		Expect(k8sClient.Update(ctx, vdb)).Should(Succeed())
-
-		r := createOnlineUpgradeReconciler(ctx, vdb)
-		Expect(r.loadSubclusterState(ctx)).Should(Equal(ctrl.Result{}))
-		Expect(r.routeClientTraffic(ctx, ScName, true)).Should(Succeed())
-		svc := &corev1.Service{}
-		Expect(k8sClient.Get(ctx, names.GenExtSvcName(vdb, sc), svc)).Should(Succeed())
-		Expect(svc.Spec.Selector[vmeta.SubclusterSvcNameLabel]).Should(Equal(""))
-		Expect(svc.Spec.Selector[vmeta.SubclusterSelectorLabel]).Should(ContainSubstring(ScName))
-		Expect(svc.Spec.Selector[vmeta.ClientRoutingLabel]).Should(Equal(vmeta.ClientRoutingVal))
-	})
-
-	It("should avoid creating transient if the cluster is down", func() {
-		vdb := vapi.MakeVDB()
-		const ScName = "sc1"
-		vdb.Spec.Subclusters = []vapi.Subcluster{
-			{Name: ScName, Type: vapi.PrimarySubcluster, Size: 1},
-		}
-		vdb.Spec.TemporarySubclusterRouting = &vapi.SubclusterSelection{
-			Template: vapi.Subcluster{Name: "wont-be-created"},
-		}
-		vdb.Spec.Image = OldImage
-		test.CreateVDB(ctx, k8sClient, vdb)
-		defer test.DeleteVDB(ctx, k8sClient, vdb)
-		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsNotRunning)
-		defer test.DeletePods(ctx, k8sClient, vdb)
-		test.CreateSvcs(ctx, k8sClient, vdb)
-		defer test.DeleteSvcs(ctx, k8sClient, vdb)
-		vdb.Spec.Image = NewImageName // Trigger an upgrade
-		Expect(k8sClient.Update(ctx, vdb)).Should(Succeed())
-
-		r := createOnlineUpgradeReconciler(ctx, vdb)
-		Expect(r.skipTransientSetup()).Should(BeTrue())
-	})
-
-	It("should route client traffic to existing subcluster", func() {
-		vdb := vapi.MakeVDB()
-		const PriScName = "pri"
-		const SecScName = "sec"
-		vdb.Spec.Subclusters = []vapi.Subcluster{
-			{Name: PriScName, Type: vapi.PrimarySubcluster, Size: 1},
-			{Name: SecScName, Type: vapi.SecondarySubcluster, Size: 1},
-		}
-		vdb.Spec.TemporarySubclusterRouting = &vapi.SubclusterSelection{
-			Names: []string{"dummy-non-existent", SecScName, PriScName},
-		}
-		vdb.Spec.Image = OldImage
-		test.CreateVDB(ctx, k8sClient, vdb)
-		defer test.DeleteVDB(ctx, k8sClient, vdb)
-		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
-		defer test.DeletePods(ctx, k8sClient, vdb)
-		test.CreateSvcs(ctx, k8sClient, vdb)
-		defer test.DeleteSvcs(ctx, k8sClient, vdb)
-		vdb.Spec.Image = NewImageName // Trigger an upgrade
-		Expect(k8sClient.Update(ctx, vdb)).Should(Succeed())
-
-		svc := &corev1.Service{}
-		Expect(k8sClient.Get(ctx, names.GenExtSvcName(vdb, &vdb.Spec.Subclusters[0]), svc)).Should(Succeed())
-		Expect(svc.Spec.Selector[vmeta.SubclusterSvcNameLabel]).Should(Equal(PriScName))
-
-		r := createOnlineUpgradeReconciler(ctx, vdb)
-		Expect(r.loadSubclusterState(ctx)).Should(Equal(ctrl.Result{}))
-
-		// Route for primary subcluster
-		Expect(r.routeClientTraffic(ctx, PriScName, true)).Should(Succeed())
-		Expect(k8sClient.Get(ctx, names.GenExtSvcName(vdb, &vdb.Spec.Subclusters[0]), svc)).Should(Succeed())
-		Expect(svc.Spec.Selector[vmeta.SubclusterSvcNameLabel]).Should(Equal(""))
-		Expect(svc.Spec.Selector[vmeta.SubclusterSelectorLabel]).Should(ContainSubstring(SecScName))
-		Expect(r.routeClientTraffic(ctx, PriScName, false)).Should(Succeed())
-		Expect(k8sClient.Get(ctx, names.GenExtSvcName(vdb, &vdb.Spec.Subclusters[0]), svc)).Should(Succeed())
-		Expect(svc.Spec.Selector[vmeta.SubclusterSvcNameLabel]).Should(Equal(vdb.Spec.Subclusters[0].GetServiceName()))
-		Expect(svc.Spec.Selector[vmeta.SubclusterSelectorLabel]).Should(Equal(""))
-
-		// Route for secondary subcluster
-		Expect(r.routeClientTraffic(ctx, SecScName, true)).Should(Succeed())
-		Expect(k8sClient.Get(ctx, names.GenExtSvcName(vdb, &vdb.Spec.Subclusters[1]), svc)).Should(Succeed())
-		Expect(svc.Spec.Selector[vmeta.SubclusterSelectorLabel]).Should(ContainSubstring(PriScName))
-		Expect(r.routeClientTraffic(ctx, SecScName, false)).Should(Succeed())
-		Expect(k8sClient.Get(ctx, names.GenExtSvcName(vdb, &vdb.Spec.Subclusters[1]), svc)).Should(Succeed())
-		Expect(svc.Spec.Selector[vmeta.SubclusterSvcNameLabel]).Should(Equal(SecScName))
-	})
-
-	It("should not match transient subclusters", func() {
-		vdb := vapi.MakeVDB()
-		const PriScName = "pri"
-		const SecScName = "sec"
-		const SubclusterTypeTrue = "true"
-		vdb.Spec.Subclusters = []vapi.Subcluster{
-			{Name: PriScName, Type: vapi.PrimarySubcluster, Size: 1},
-			{Name: SecScName, Type: vapi.SecondarySubcluster, Size: 1},
-		}
-		vdb.Spec.Image = OldImage
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
 		vdb.Spec.Image = NewImageName // Trigger an upgrade
-		Expect(k8sClient.Update(ctx, vdb)).Should(Succeed())
+		Ω(k8sClient.Update(ctx, vdb)).Should(Succeed())
 
-		r := createOnlineUpgradeReconciler(ctx, vdb)
+		rr := createOnlineUpgradeReconciler(ctx, vdb)
+		Ω(rr.assignSubclustersToReplicaGroupA(ctx)).Should(Equal(ctrl.Result{}))
 
-		sts := &appsv1.StatefulSet{}
-		Expect(k8sClient.Get(ctx, names.GenStsName(vdb, &vdb.Spec.Subclusters[0]), sts)).Should(Succeed())
-		Expect(r.isMatchingSubclusterType(sts, vapi.PrimarySubcluster)).Should(BeTrue())
-		Expect(r.isMatchingSubclusterType(sts, vapi.SecondarySubcluster)).Should(BeFalse())
+		Ω(k8sClient.Get(ctx, vdb.ExtractNamespacedName(), vdb)).Should(Succeed())
 
-		Expect(k8sClient.Get(ctx, names.GenStsName(vdb, &vdb.Spec.Subclusters[1]), sts)).Should(Succeed())
-		Expect(r.isMatchingSubclusterType(sts, vapi.PrimarySubcluster)).Should(BeFalse())
-		Expect(r.isMatchingSubclusterType(sts, vapi.SecondarySubcluster)).Should(BeTrue())
-
-		sts.Labels[vmeta.SubclusterTypeLabel] = SubclusterTypeTrue // Fake a transient subcluster
-		Expect(r.isMatchingSubclusterType(sts, vapi.PrimarySubcluster)).Should(BeFalse())
-		Expect(r.isMatchingSubclusterType(sts, vapi.SecondarySubcluster)).Should(BeFalse())
-	})
-
-	It("should update image in each sts", func() {
-		vdb := vapi.MakeVDB()
-		const Pri1ScName = "pri1"
-		const Pri2ScName = "pri2"
-		vdb.Spec.Subclusters = []vapi.Subcluster{
-			{Name: Pri1ScName, Type: vapi.PrimarySubcluster, Size: 1},
-			{Name: Pri2ScName, Type: vapi.PrimarySubcluster, Size: 1},
-		}
-		vdb.Spec.TemporarySubclusterRouting = &vapi.SubclusterSelection{
-			Names: []string{Pri2ScName, Pri1ScName},
-		}
-		vdb.Spec.Image = OldImage
-		vdb.Spec.UpgradePolicy = vapi.OnlineUpgrade
-		vdb.SetIgnoreUpgradePath(true)
-		vdb.ObjectMeta.Annotations[vmeta.VersionAnnotation] = vapi.OnlineUpgradeVersion
-		test.CreateVDB(ctx, k8sClient, vdb)
-		defer test.DeleteVDB(ctx, k8sClient, vdb)
-		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
-		defer test.DeletePods(ctx, k8sClient, vdb)
-		test.CreateSvcs(ctx, k8sClient, vdb)
-		defer test.DeleteSvcs(ctx, k8sClient, vdb)
-
-		vdb.Spec.Image = NewImageName // Trigger an upgrade
-		Expect(k8sClient.Update(ctx, vdb)).Should(Succeed())
-
-		r := createOnlineUpgradeReconciler(ctx, vdb)
-		// The reconcile will requeue when it waits for pods to come online that
-		// may need a restart.  It would have gotten far enough to update the
-		// sts for the primaries.
-		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(
-			ctrl.Result{Requeue: false, RequeueAfter: vdb.GetUpgradeRequeueTimeDuration()}))
-
-		sts := &appsv1.StatefulSet{}
-		Expect(k8sClient.Get(ctx, names.GenStsName(vdb, &vdb.Spec.Subclusters[0]), sts)).Should(Succeed())
-		Expect(vk8s.GetServerImage(sts.Spec.Template.Spec.Containers)).Should(Equal(NewImageName))
-		Expect(k8sClient.Get(ctx, names.GenStsName(vdb, &vdb.Spec.Subclusters[1]), sts)).Should(Succeed())
-		Expect(vk8s.GetServerImage(sts.Spec.Template.Spec.Containers)).Should(Equal(NewImageName))
-	})
-
-	It("should have an upgradeStatus set when it fails part way through", func() {
-		vdb := vapi.MakeVDB()
-		vdb.Spec.Subclusters = []vapi.Subcluster{
-			{Name: "sc1", Type: vapi.PrimarySubcluster, Size: 1},
-		}
-		vdb.Spec.TemporarySubclusterRouting = &vapi.SubclusterSelection{
-			Names: []string{vdb.Spec.Subclusters[0].Name},
-		}
-		vdb.Spec.Image = OldImage
-		vdb.Spec.UpgradePolicy = vapi.OnlineUpgrade
-		vdb.ObjectMeta.Annotations[vmeta.VersionAnnotation] = vapi.OnlineUpgradeVersion
-		test.CreateVDB(ctx, k8sClient, vdb)
-		defer test.DeleteVDB(ctx, k8sClient, vdb)
-		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
-		defer test.DeletePods(ctx, k8sClient, vdb)
-
-		vdb.Spec.Image = NewImageName // Trigger an upgrade
-		Expect(k8sClient.Update(ctx, vdb)).Should(Succeed())
-
-		Expect(k8sClient.Update(ctx, vdb)).Should(Succeed())
-
-		r := createOnlineUpgradeReconciler(ctx, vdb)
-		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: false, RequeueAfter: vdb.GetUpgradeRequeueTimeDuration()}))
-		Expect(vdb.Status.UpgradeStatus).Should(Equal("Checking if new version is compatible"))
-	})
-
-	It("should requeue if there are active connections in the subcluster", func() {
-		vdb := vapi.MakeVDB()
-		vdb.Spec.Subclusters = []vapi.Subcluster{
-			{Name: "sc1", Type: vapi.PrimarySubcluster, Size: 1},
-		}
-		sc := &vdb.Spec.Subclusters[0]
-		vdb.Spec.Image = OldImage
-		vdb.Spec.UpgradePolicy = vapi.OnlineUpgrade
-		test.CreateVDB(ctx, k8sClient, vdb)
-		defer test.DeleteVDB(ctx, k8sClient, vdb)
-		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
-		defer test.DeletePods(ctx, k8sClient, vdb)
-
-		vdb.Spec.Image = NewImageName // Trigger an upgrade
-		Expect(k8sClient.Update(ctx, vdb)).Should(Succeed())
-
-		r := createOnlineUpgradeReconciler(ctx, vdb)
-		pn := names.GenPodName(vdb, sc, 0)
-		Expect(r.PFacts.Collect(ctx, vdb)).Should(Succeed())
-		r.PFacts.Detail[pn].upNode = true
-		r.PFacts.Detail[pn].readOnly = false
-		fpr := r.PRunner.(*cmds.FakePodRunner)
-		fpr.Results[pn] = []cmds.CmdResult{
-			{Stdout: "  5\n"},
-		}
-		Expect(r.Manager.isSubclusterIdle(ctx, r.PFacts, vdb.Spec.Subclusters[0].Name)).Should(Equal(ctrl.Result{Requeue: true}))
-		fpr.Results[pn] = []cmds.CmdResult{
-			{Stdout: "  0\n"},
-		}
-		Expect(r.Manager.isSubclusterIdle(ctx, r.PFacts, vdb.Spec.Subclusters[0].Name)).Should(Equal(ctrl.Result{Requeue: false}))
-	})
-
-	It("should requeue after a specified UpgradeRequeueAfter time", func() {
-		vdb := vapi.MakeVDB()
-		vdb.Spec.Subclusters = []vapi.Subcluster{
-			{Name: "sc1", Type: vapi.PrimarySubcluster, Size: 1},
-		}
-		vdb.Spec.Image = OldImage
-		vdb.Spec.UpgradePolicy = vapi.OnlineUpgrade
-		vdb.Spec.TemporarySubclusterRouting = &vapi.SubclusterSelection{
-			Names: []string{vdb.Spec.Subclusters[0].Name},
-		}
-		vdb.Annotations[vmeta.UpgradeRequeueTimeAnnotation] = "100" // Set a non-default UpgradeRequeueTime for the test
-		vdb.ObjectMeta.Annotations[vmeta.VersionAnnotation] = vapi.OnlineUpgradeVersion
-
-		test.CreateVDB(ctx, k8sClient, vdb)
-		defer test.DeleteVDB(ctx, k8sClient, vdb)
-		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
-		defer test.DeletePods(ctx, k8sClient, vdb)
-
-		vdb.Spec.Image = NewImageName // Trigger an upgrade
-		Expect(k8sClient.Update(ctx, vdb)).Should(Succeed())
-
-		r := createOnlineUpgradeReconciler(ctx, vdb)
-		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: false, RequeueAfter: (time.Second * 100)}))
-	})
-
-	It("should return transient in the finder if doing online upgrade", func() {
-		vdb := vapi.MakeVDB()
-		const ScName = "sc1"
-		const TransientScName = "a-transient"
-		vdb.Spec.Subclusters = []vapi.Subcluster{
-			{Name: ScName, Type: vapi.PrimarySubcluster, Size: 1},
-		}
-		vdb.Spec.TemporarySubclusterRouting = &vapi.SubclusterSelection{
-			Template: vapi.Subcluster{
-				Name: TransientScName,
-				Size: 1,
-				Type: vapi.SecondarySubcluster,
-			},
-		}
-		vdb.Spec.Image = OldImage
-		test.CreateVDB(ctx, k8sClient, vdb)
-		defer test.DeleteVDB(ctx, k8sClient, vdb)
-		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
-		defer test.DeletePods(ctx, k8sClient, vdb)
-		test.CreateSvcs(ctx, k8sClient, vdb)
-		defer test.DeleteSvcs(ctx, k8sClient, vdb)
-		transientSc := vdb.BuildTransientSubcluster("")
-
-		vdb.Spec.Image = NewImageName // Trigger an upgrade
-		Expect(k8sClient.Update(ctx, vdb)).Should(Succeed())
-
-		r := createOnlineUpgradeReconciler(ctx, vdb)
-		Expect(r.startUpgrade(ctx)).Should(Equal(ctrl.Result{}))
-		Expect(r.loadSubclusterState(ctx)).Should(Equal(ctrl.Result{}))
-		Expect(r.addTransientToVdb(ctx)).Should(Equal(ctrl.Result{}))
-		Expect(r.createTransientSts(ctx)).Should(Equal(ctrl.Result{}))
-
-		// Confirm transient exists
-		sts := &appsv1.StatefulSet{}
-		Expect(k8sClient.Get(ctx, names.GenStsName(vdb, transientSc), sts)).Should(Succeed())
-
-		scs, err := r.Finder.FindSubclusters(ctx, iter.FindAll|iter.FindSorted, vapi.MainCluster)
-		Expect(err).Should(Succeed())
-		Expect(len(scs)).Should(Equal(2))
-		Expect(scs[0].Name).Should(Equal(TransientScName))
-		Expect(scs[1].Name).Should(Equal(ScName))
-	})
-
-	It("should route to existing cluster if temporarySubclusterRouting isn't set", func() {
-		vdb := vapi.MakeVDB()
-		const PriScName = "pri1"
-		const SecScName = "sec2"
-		vdb.Spec.Subclusters = []vapi.Subcluster{
-			{Name: PriScName, Type: vapi.PrimarySubcluster, Size: 1},
-		}
-
-		r := createOnlineUpgradeReconciler(ctx, vdb)
+		// Before we do the pause, ensure the client routing label is present.
+		groupAScNames := rr.VDB.GetSubclustersForReplicaGroup(vmeta.ReplicaGroupAValue)
+		Ω(groupAScNames).Should(HaveLen(2))
+		pod := v1.Pod{}
 		scMap := vdb.GenSubclusterMap()
-		routingSc := r.getSubclusterForTemporaryRouting(ctx, &vdb.Spec.Subclusters[0], scMap)
-		Expect(routingSc.Name).Should(Equal(PriScName))
-
-		r.Vdb.Spec.Subclusters = []vapi.Subcluster{
-			{Name: PriScName, Type: vapi.PrimarySubcluster, Size: 1},
-			{Name: SecScName, Type: vapi.SecondarySubcluster, Size: 1},
+		for _, scName := range groupAScNames {
+			sc, found := scMap[scName]
+			Ω(found).Should(BeTrue())
+			for i := int32(0); i < sc.Size; i++ {
+				nm := names.GenPodName(vdb, sc, i)
+				Ω(k8sClient.Get(ctx, nm, &pod)).Should(Succeed())
+				Ω(pod.Labels).Should(HaveKeyWithValue(vmeta.ClientRoutingLabel, vmeta.ClientRoutingVal), "podName is %v", nm)
+			}
 		}
-		scMap = vdb.GenSubclusterMap()
-		routingSc = r.getSubclusterForTemporaryRouting(ctx, &vdb.Spec.Subclusters[0], scMap)
-		Expect(routingSc.Name).Should(Equal(SecScName))
-		routingSc = r.getSubclusterForTemporaryRouting(ctx, &vdb.Spec.Subclusters[1], scMap)
-		Expect(routingSc.Name).Should(Equal(PriScName))
+
+		// Do the pause, which will remove the client routing label
+		Ω(rr.pauseConnectionsAtReplicaGroupA(ctx)).Should(Equal(ctrl.Result{}))
+
+		// Now check that the routing label was removed for the subclusters in
+		// replica group A
+		for _, scName := range groupAScNames {
+			sc, found := scMap[scName]
+			Ω(found).Should(BeTrue())
+			for i := int32(0); i < sc.Size; i++ {
+				nm := names.GenPodName(vdb, sc, i)
+				Ω(k8sClient.Get(ctx, nm, &pod)).Should(Succeed())
+				Ω(pod.Labels).ShouldNot(HaveKey(vmeta.ClientRoutingLabel))
+			}
+		}
 	})
 
-	It("should delete old STS of secondary if online upgrade and changing deployments", func() {
-		vdb := vapi.MakeVDB()
+	It("should route connections in replica group A to replica group B", func() {
+		vdb := vapi.MakeVDBForVclusterOps()
 		vdb.Spec.Subclusters = []vapi.Subcluster{
-			{Name: "sc1", Type: vapi.PrimarySubcluster, Size: 1},
-			{Name: "sc2", Type: vapi.SecondarySubcluster, Size: 1},
+			{Name: "pri1", Type: vapi.PrimarySubcluster, Size: 2},
+			{Name: "pri2", Type: vapi.PrimarySubcluster, Size: 2},
+			{Name: "pri3", Type: vapi.PrimarySubcluster, Size: 2},
+			{Name: "sec1", Type: vapi.SecondarySubcluster, Size: 2},
+			{Name: "sec2", Type: vapi.SecondarySubcluster, Size: 2},
+			{Name: "sec3", Type: vapi.SecondarySubcluster, Size: 2},
+			{Name: "sec4", Type: vapi.SecondarySubcluster, Size: 2},
 		}
-		vdb.Spec.Image = OldImage
-		vdb.Spec.UpgradePolicy = vapi.OnlineUpgrade
-		vdb.ObjectMeta.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationFalse
-		vdb.ObjectMeta.Annotations[vmeta.IgnoreUpgradePathAnnotation] = vmeta.IgnoreUpgradePathAnntationTrue
-
+		vdb.Spec.NMATLSSecret = "tls-abcdef"
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
+		test.CreateFakeTLSSecret(ctx, vdb, k8sClient, vdb.Spec.NMATLSSecret)
+		defer test.DeleteSecret(ctx, k8sClient, vdb.Spec.NMATLSSecret)
+		vdb.Spec.Image = NewImageName // Trigger an upgrade
+		Ω(k8sClient.Update(ctx, vdb)).Should(Succeed())
 
-		// Verify we created the sts for the secondary
-		sts := &appsv1.StatefulSet{}
-		Expect(k8sClient.Get(ctx, names.GenStsName(vdb, &vdb.Spec.Subclusters[1]), sts)).Should(Succeed())
+		rr := createOnlineUpgradeReconciler(ctx, vdb)
+		Ω(rr.assignSubclustersToReplicaGroupA(ctx)).Should(Equal(ctrl.Result{}))
+		Ω(rr.assignSubclustersToReplicaGroupB(ctx)).Should(Equal(ctrl.Result{}))
+		Ω(rr.runObjReconcilerForMainCluster(ctx)).Should(Equal(ctrl.Result{}))
+		defer test.DeleteSvcs(ctx, k8sClient, vdb)
+		// The above obj reconciler will create a statefulset for each new
+		// subcluster. But it doesn't create the pods. That's handled by k8s
+		// controller, which doesn't run in this mock environment. So, lets
+		// create each of the pods for the new statefulset. No defer is needed
+		// for this as we already have a defer to cleanup the pods.
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 
-		// Trigger an upgrade and change the deployment type to vclusterops
-		vdb.Spec.Image = NewImageName
-		vdb.ObjectMeta.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
-		vdb.ObjectMeta.Annotations[vmeta.VersionAnnotation] = vapi.NMAInSideCarDeploymentMinVersion
-		Expect(k8sClient.Update(ctx, vdb)).Should(Succeed())
+		Ω(rr.sandboxReplicaGroupB(ctx)).Should(Equal(ctrl.Result{}))
 
-		r := createOnlineUpgradeReconciler(ctx, vdb)
+		// Mock completion of sandbox
+		Ω(k8sClient.Get(ctx, vdb.ExtractNamespacedName(), vdb)).Should(Succeed())
+		mockCompletionOfSandbox(ctx, vdb)
 
-		// Setup the podfacts so that primary is down with new image and
-		// secondary is up with old image.
-		ppn := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)
-		r.PFacts.Detail[ppn].admintoolsExists = false
-		r.PFacts.Detail[ppn].upNode = false
-		spn := names.GenPodName(vdb, &vdb.Spec.Subclusters[1], 0)
-		r.PFacts.Detail[spn].admintoolsExists = true
-		r.PFacts.Detail[spn].upNode = true
+		Ω(rr.pauseConnectionsAtReplicaGroupA(ctx)).Should(Equal(ctrl.Result{}))
+		Ω(rr.redirectConnectionsToReplicaGroupB(ctx)).Should(Equal(ctrl.Result{}))
 
-		// The reconcile will fail because of processing that tries to read the
-		// pod, which has been deleted. It depends on the pod being regenerated,
-		// which doesn't happen in UT environments.
-		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
+		// Verify the subclusters and the replica groups
+		Ω(k8sClient.Get(ctx, vdb.ExtractNamespacedName(), vdb)).Should(Succeed())
+		Ω(vdb.Spec.Subclusters).Should(HaveLen(14))
+		groupAScNames := rr.VDB.GetSubclustersForReplicaGroup(vmeta.ReplicaGroupAValue)
+		Ω(groupAScNames).Should(HaveLen(7))
+		groupBScNames := rr.VDB.GetSubclustersForReplicaGroup(vmeta.ReplicaGroupBValue)
+		Ω(groupBScNames).Should(HaveLen(7))
 
-		// Verify reconciler deleted the old sts
-		err := k8sClient.Get(ctx, names.GenStsName(vdb, &vdb.Spec.Subclusters[1]), sts)
-		Expect(err).ShouldNot(Succeed())
-		Expect(errors.IsNotFound(err)).Should(BeTrue())
+		// Verify that the client routing label is present only for the
+		// subclusters in replica group B.
+		scMap := vdb.GenSubclusterMap()
+		pod := v1.Pod{}
+		for _, scName := range groupAScNames {
+			sc, found := scMap[scName]
+			Ω(found).Should(BeTrue())
+			for i := int32(0); i < sc.Size; i++ {
+				nm := names.GenPodName(vdb, sc, i)
+				Ω(k8sClient.Get(ctx, nm, &pod)).Should(Succeed(), "podName is %v", nm)
+				Ω(pod.Labels).ShouldNot(HaveKey(vmeta.ClientRoutingLabel), "podName is %v", nm)
+			}
+		}
+		for _, scName := range groupBScNames {
+			sc, found := scMap[scName]
+			Ω(found).Should(BeTrue())
+			for i := int32(0); i < sc.Size; i++ {
+				nm := names.GenPodName(vdb, sc, i)
+				Ω(k8sClient.Get(ctx, nm, &pod)).Should(Succeed(), "podName is %v", nm)
+				Ω(pod.Labels).Should(HaveKeyWithValue(vmeta.ClientRoutingLabel, vmeta.ClientRoutingVal), "podName is %v", nm)
+			}
+		}
+
+		// Verify that the service objects for subclusters in replica group A,
+		// route to the pods in replica group B. We build a mapping of each
+		// subclusters expected mapping.
+		expectedMapping := map[string]string{
+			"pri1": "pri1-sb",
+			"pri2": "pri2-sb",
+			"pri3": "pri3-sb",
+			"sec1": "sec1-sb",
+			"sec2": "sec2-sb",
+			"sec3": "sec3-sb",
+			"sec4": "sec4-sb",
+		}
+		for _, scName := range groupAScNames {
+			sc, found := scMap[scName]
+			Ω(found).Should(BeTrue())
+			expScTarget, found := expectedMapping[sc.Name]
+			Ω(found).Should(BeTrue())
+			targetSc, found := scMap[expScTarget]
+			Ω(found).Should(BeTrue())
+			svcNm := names.GenExtSvcName(vdb, sc)
+			svc := v1.Service{}
+			Ω(k8sClient.Get(ctx, svcNm, &svc)).Should(Succeed(), "svc name is %v", svcNm)
+			Ω(svc.Spec.Selector).ShouldNot(HaveKey(vmeta.SubclusterSelectorLabel), "svc name is %v", svcNm)
+			Ω(svc.Spec.Selector).Should(HaveKeyWithValue(vmeta.SubclusterSvcNameLabel, targetSc.GetServiceName()), "svc name is %v", svcNm)
+		}
 	})
 
+	It("should maintain upgrade status messages", func() {
+		vdb := vapi.MakeVDBForVclusterOps()
+		vdb.Spec.UpgradePolicy = vapi.OnlineUpgrade
+		vdb.ObjectMeta.Annotations[vmeta.VersionAnnotation] = vapi.OnlineUpgradeVersion
+		vdb.Spec.Subclusters = []vapi.Subcluster{
+			{Name: "pri1", Type: vapi.PrimarySubcluster, Size: 2},
+			{Name: "sec1", Type: vapi.SecondarySubcluster, Size: 2},
+		}
+		test.CreateVDB(ctx, k8sClient, vdb)
+		defer test.DeleteVDB(ctx, k8sClient, vdb)
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
+		defer test.DeleteSvcs(ctx, k8sClient, vdb)
+		vdb.Spec.Image = NewImageName // Trigger an upgrade
+		Ω(k8sClient.Update(ctx, vdb)).Should(Succeed())
+
+		rr := createOnlineUpgradeReconciler(ctx, vdb)
+		// Drive the upgrade, but we can only get so far.
+		Ω(rr.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{
+			Requeue: false, RequeueAfter: vdb.GetUpgradeRequeueTimeDuration(),
+		}))
+
+		Ω(k8sClient.Get(ctx, vdb.ExtractNamespacedName(), vdb)).Should(Succeed())
+		Ω(vdb.Status.UpgradeStatus).Should(Equal(onlineUpgradeStatusMsgs[createNewSubclustersStatusMsgInx]))
+
+		// Try to update message to earlier one. But status message will stay the same.
+		Ω(rr.postStartOnlineUpgradeMsg(ctx)).Should(Equal(ctrl.Result{}))
+		Ω(k8sClient.Get(ctx, vdb.ExtractNamespacedName(), vdb)).Should(Succeed())
+		Ω(vdb.Status.UpgradeStatus).Should(Equal(onlineUpgradeStatusMsgs[createNewSubclustersStatusMsgInx]))
+
+		// Updating to a later message will work though.
+		Ω(rr.postSandboxSubclustersMsg(ctx)).Should(Equal(ctrl.Result{}))
+		Ω(k8sClient.Get(ctx, vdb.ExtractNamespacedName(), vdb)).Should(Succeed())
+		Ω(vdb.Status.UpgradeStatus).Should(Equal(onlineUpgradeStatusMsgs[sandboxSubclustersMsgInx]))
+	})
+
+	It("should handle collisions with the sts name", func() {
+		vdb := vapi.MakeVDBForVclusterOps()
+		vdb.Spec.Subclusters = []vapi.Subcluster{
+			{Name: "pri1", Type: vapi.PrimarySubcluster, Size: 2},
+			{Name: "pri2", Type: vapi.PrimarySubcluster, Size: 2, Annotations: map[string]string{
+				vmeta.StsNameOverrideAnnotation: fmt.Sprintf("%s-pri2-sb", vdb.Name),
+			}},
+			{Name: "pri3", Type: vapi.PrimarySubcluster, Size: 2},
+			{Name: "pri3-sb-dummy", Type: vapi.PrimarySubcluster, Size: 2, Annotations: map[string]string{
+				vmeta.StsNameOverrideAnnotation: fmt.Sprintf("%s-pri3-sb", vdb.Name),
+			}},
+		}
+
+		rr := createOnlineUpgradeReconciler(ctx, vdb)
+
+		// Test using the sts name with the '-sb' suffix
+		stsName, err := rr.genNewSubclusterStsName("pri1-sb", &vdb.Spec.Subclusters[0])
+		Ω(err).Should(Succeed())
+		Ω(stsName).Should(Equal(fmt.Sprintf("%s-pri1-sb", vdb.Name)))
+
+		// Test oscillating back to the original name
+		stsName, err = rr.genNewSubclusterStsName("pri2-sb", &vdb.Spec.Subclusters[1])
+		Ω(err).Should(Succeed())
+		Ω(stsName).Should(Equal(fmt.Sprintf("%s-pri2", vdb.Name)))
+
+		// Test using a uuid for the sts name
+		stsName, err = rr.genNewSubclusterStsName("pri3-sb", &vdb.Spec.Subclusters[2])
+		Ω(err).Should(Succeed())
+		Ω(stsName).ShouldNot(Equal(fmt.Sprintf("%s-pri3", vdb.Name)))
+		Ω(stsName).ShouldNot(Equal(fmt.Sprintf("%s-pri3-sb", vdb.Name)))
+		Ω(stsName).Should(HavePrefix(fmt.Sprintf("%s-pri3-sb", vdb.Name)))
+	})
+
+	It("should remove subclusters in replica group A in vdb", func() {
+		vdb := vapi.MakeVDBForVclusterOps()
+		vdb.Spec.Subclusters = []vapi.Subcluster{
+			{Name: "pri1", Type: vapi.PrimarySubcluster, Size: 2, Annotations: map[string]string{
+				vmeta.ReplicaGroupAnnotation: vmeta.ReplicaGroupAValue,
+			}},
+			{Name: "pri2", Type: vapi.PrimarySubcluster, Size: 2, Annotations: map[string]string{
+				vmeta.ReplicaGroupAnnotation: vmeta.ReplicaGroupAValue,
+			}},
+			{Name: "pri1-sb", Type: vapi.PrimarySubcluster, Size: 2, Annotations: map[string]string{
+				vmeta.ReplicaGroupAnnotation: vmeta.ReplicaGroupBValue,
+			}},
+			{Name: "pri2-sb", Type: vapi.PrimarySubcluster, Size: 2, Annotations: map[string]string{
+				vmeta.ReplicaGroupAnnotation: vmeta.ReplicaGroupBValue,
+			}},
+		}
+		test.CreateVDB(ctx, k8sClient, vdb)
+		defer test.DeleteVDB(ctx, k8sClient, vdb)
+
+		rr := createOnlineUpgradeReconciler(ctx, vdb)
+
+		// subclusters group A should be removed
+		Ω(rr.removeReplicaGroupAFromVdb(ctx)).Should(Equal(ctrl.Result{}))
+
+		newVdb := &vapi.VerticaDB{}
+		Expect(k8sClient.Get(ctx, vapi.MakeVDBName(), newVdb)).Should(Succeed())
+		newVdbScNames := []string{}
+		for _, sc := range newVdb.Spec.Subclusters {
+			newVdbScNames = append(newVdbScNames, sc.Name)
+		}
+		// only subclusters in group B left
+		targetScNames := []string{"pri1-sb", "pri2-sb"}
+		Expect(newVdbScNames).Should(ConsistOf(targetScNames))
+	})
+
+	It("should rename subclusters in replica group B in vdb", func() {
+		vdb := vapi.MakeVDBForVclusterOps()
+		vdb.Spec.Subclusters = []vapi.Subcluster{
+			{Name: "pri1-sb", Type: vapi.PrimarySubcluster, Size: 2, Annotations: map[string]string{
+				vmeta.ReplicaGroupAnnotation: vmeta.ReplicaGroupBValue,
+			}},
+			{Name: "pri2-sb", Type: vapi.PrimarySubcluster, Size: 2, Annotations: map[string]string{
+				vmeta.ReplicaGroupAnnotation: vmeta.ReplicaGroupBValue,
+			}},
+		}
+		test.CreateVDB(ctx, k8sClient, vdb)
+		defer test.DeleteVDB(ctx, k8sClient, vdb)
+
+		rr := createOnlineUpgradeReconciler(ctx, vdb)
+		scNameMap := map[string]string{"pri1-sb": "pri1", "pri2-sb": "pri2"}
+
+		// subclusters group A should be removed
+		for scInGroupB, scInGroupA := range scNameMap {
+			Ω(rr.updateSubclusterNamesInVdb(ctx, scInGroupB, scInGroupA)).Should(BeNil())
+		}
+
+		newVdb := &vapi.VerticaDB{}
+		Expect(k8sClient.Get(ctx, vapi.MakeVDBName(), newVdb)).Should(Succeed())
+		newVdbScNames := []string{}
+		for _, sc := range newVdb.Spec.Subclusters {
+			newVdbScNames = append(newVdbScNames, sc.Name)
+		}
+		// the subclusters should have the original name in group A
+		targetScNames := []string{"pri1", "pri2"}
+		Expect(newVdbScNames).Should(ConsistOf(targetScNames))
+	})
 })
 
-// createOnlineUpgradeReconciler is a helper to run the OnlineUpgradeReconciler.
 func createOnlineUpgradeReconciler(ctx context.Context, vdb *vapi.VerticaDB) *OnlineUpgradeReconciler {
 	fpr := &cmds.FakePodRunner{Results: cmds.CmdResults{}}
-	pfacts := MakePodFacts(vdbRec, fpr, logger, TestPassword)
-	dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
-	actor := MakeOnlineUpgradeReconciler(vdbRec, logger, vdb, fpr, &pfacts, dispatcher)
+	pfacts := createPodFactsDefault(fpr)
+	dispatcher := mockVClusterOpsDispatcher(vdb)
+
+	// Add client-routing labels to all pods that exist
+	cr := MakeClientRoutingLabelReconciler(vdbRec, logger, vdb, pfacts, AddNodeApplyMethod, "")
+	Ω(cr.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
+
+	actor := MakeOnlineUpgradeReconciler(vdbRec, logger, vdb, pfacts, dispatcher)
 	r := actor.(*OnlineUpgradeReconciler)
-
-	// Ensure one pod is up so that we can do an online upgrade
-	Expect(r.PFacts.Collect(ctx, vdb)).Should(Succeed())
-	pn := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)
-	r.PFacts.Detail[pn].upNode = true
-	r.PFacts.Detail[pn].readOnly = false
-
+	Ω(r.loadUpgradeState(ctx)).Should(Equal(ctrl.Result{}))
 	return r
+}
+
+// SandboxMap will map the sandbox name to map of subcluster in that sandbox.
+type sandboxMap = map[string]map[string]*vapi.Subcluster
+
+// GenSandboxMap returns a map of sandboxes to a map of subclusters. This allows
+// you to get all of the subclusters for a sandbox and give you quick access to
+// each of the subclusters.
+func genSandboxMap(vdb *vapi.VerticaDB) sandboxMap {
+	if len(vdb.Spec.Sandboxes) == 0 {
+		return nil
+	}
+	scMap := vdb.GenSubclusterMap()
+	sbMap := sandboxMap{}
+	for i := range vdb.Spec.Sandboxes {
+		sb := vdb.Spec.Sandboxes[i].Name
+		sbMap[sb] = make(map[string]*vapi.Subcluster)
+		for j := range vdb.Spec.Sandboxes[i].Subclusters {
+			if sc, found := scMap[vdb.Spec.Sandboxes[i].Subclusters[j].Name]; found {
+				sbMap[sb][sc.Name] = sc
+			}
+		}
+	}
+	return sbMap
+}
+
+func mockCompletionOfSandbox(ctx context.Context, vdb *vapi.VerticaDB) {
+	sbMap := genSandboxMap(vdb)
+	for sbName := range sbMap {
+		sbs := vapi.SandboxStatus{
+			Name: sbName,
+		}
+		for _, scName := range sbMap[sbName] {
+			sbs.Subclusters = append(sbs.Subclusters, scName.Name)
+		}
+		vdb.Status.Sandboxes = append(vdb.Status.Sandboxes, sbs)
+	}
+	Ω(k8sClient.Status().Update(ctx, vdb)).Should(Succeed())
+}
+
+// mockVClusterOpsDispatcher will create an vcluster-ops dispatcher for test
+// purposes.
+func mockVClusterOpsDispatcher(vdb *vapi.VerticaDB) vadmin.Dispatcher {
+	// We use a function to construct the VClusterProvider. This is called
+	// ahead of each API rather than once so that we can setup a custom
+	// logger for each API call.
+	setupAPIFunc := func(log logr.Logger, apiName string) (vadmin.VClusterProvider, logr.Logger) {
+		return &mockvops.MockVClusterOps{}, logr.Logger{}
+	}
+	evWriter := aterrors.TestEVWriter{}
+	return vadmin.MakeVClusterOps(logger, vdb, k8sClient, "pwd", &evWriter, setupAPIFunc)
 }
