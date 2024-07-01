@@ -278,6 +278,10 @@ const (
 	ReplicaARemovedTrue                    = "true"
 	ReplicaARemovedFalse                   = "false"
 
+	// The sandbox name used for online upgrade contains a uuid. This annotation
+	// will allow to set a fixed name for testing purposes
+	OnlineUpgradeSandboxNameAnnotation = "vertica.com/online-upgrade-sandbox"
+
 	// This will be set in a sandbox configMap by the vdb controller to wake up the sandbox
 	// controller for upgrading the sandboxes
 	SandboxControllerUpgradeTriggerID = "vertica.com/sandbox-controller-upgrade-trigger-id"
@@ -536,6 +540,11 @@ func GetOnlineUpgradeReplicaARemoved(annotations map[string]string) string {
 // object used during online upgrade.
 func GetOnlineUpgradeReplicator(annotations map[string]string) string {
 	return lookupStringAnnotation(annotations, OnlineUpgradeReplicatorAnnotation, "")
+}
+
+// GetOnlineUpgradeSandboxName returns the sandbox name to use for online upgrade.
+func GetOnlineUpgradeSandboxName(annotations map[string]string) string {
+	return lookupStringAnnotation(annotations, OnlineUpgradeSandboxNameAnnotation, "")
 }
 
 // GetStsNameOverride returns the override for the statefulset name. If one is
