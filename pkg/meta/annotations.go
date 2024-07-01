@@ -542,7 +542,7 @@ func GetOnlineUpgradeReplicator(annotations map[string]string) string {
 	return lookupStringAnnotation(annotations, OnlineUpgradeReplicatorAnnotation, "")
 }
 
-// GetOnlineUpgradeSandboxName returns the sandbox name to use for online upgrade.
+// GetOnlineUpgradePreferredSandboxName returns the sandbox name to use for online upgrade.
 func GetOnlineUpgradePreferredSandboxName(annotations map[string]string) string {
 	return lookupStringAnnotation(annotations, OnlineUpgradePreferredSandboxAnnotation, "")
 }
