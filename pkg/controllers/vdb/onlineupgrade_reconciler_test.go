@@ -146,7 +146,7 @@ var _ = Describe("onlineupgrade_reconciler", func() {
 
 	It("should sandbox subclusters in replica group B", func() {
 		vdb := vapi.MakeVDBForVclusterOps()
-		vdb.Annotations[vmeta.OnlineUpgradeSandboxNameAnnotation] = preferredSandboxName
+		vdb.Annotations[vmeta.OnlineUpgradePreferredSandboxAnnotation] = preferredSandboxName
 		vdb.Spec.Subclusters = []vapi.Subcluster{
 			{Name: "pri1", Type: vapi.PrimarySubcluster, Size: 2},
 			{Name: "pri2", Type: vapi.PrimarySubcluster, Size: 2},
@@ -185,7 +185,7 @@ var _ = Describe("onlineupgrade_reconciler", func() {
 
 	It("should handle collisions with the sandbox name", func() {
 		vdb := vapi.MakeVDBForVclusterOps()
-		vdb.Annotations[vmeta.OnlineUpgradeSandboxNameAnnotation] = preferredSandboxName
+		vdb.Annotations[vmeta.OnlineUpgradePreferredSandboxAnnotation] = preferredSandboxName
 		vdb.Spec.Subclusters = []vapi.Subcluster{
 			{Name: "pri1", Type: vapi.PrimarySubcluster, Size: 2},
 			{Name: "sec1", Type: vapi.SecondarySubcluster, Size: 2},

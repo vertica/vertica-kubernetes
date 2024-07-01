@@ -925,7 +925,7 @@ func (r *OnlineUpgradeReconciler) getNewSandboxName(preferredName string) (strin
 
 	// To make this easier to test, we will favor the annotation's value as the
 	// sandbox name. If that's available that's our name.
-	sbName := vmeta.GetOnlineUpgradeSandboxName(r.VDB.Annotations)
+	sbName := vmeta.GetOnlineUpgradePreferredSandboxName(r.VDB.Annotations)
 	if _, found := sbNames[sbName]; sbName != "" && !found {
 		return sbName, nil
 	}
