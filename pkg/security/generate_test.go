@@ -22,15 +22,15 @@ import (
 
 var _ = Describe("security", func() {
 	It("generate a cert with no dns names", func() {
-		caCert, err := NewSelfSignedCACertificate(512)
+		caCert, err := NewSelfSignedCACertificate()
 		Expect(err).Should(Succeed())
-		verifyCerts(NewCertificate(caCert, 512, "dbadmin", nil))
+		verifyCerts(NewCertificate(caCert, "dbadmin", nil))
 	})
 
 	It("generate certs with multiple DNS names", func() {
-		caCert, err := NewSelfSignedCACertificate(512)
+		caCert, err := NewSelfSignedCACertificate()
 		Expect(err).Should(Succeed())
-		verifyCerts(NewCertificate(caCert, 512, "dbadmin", []string{"host1", "host2"}))
+		verifyCerts(NewCertificate(caCert, "dbadmin", []string{"host1", "host2"}))
 	})
 })
 

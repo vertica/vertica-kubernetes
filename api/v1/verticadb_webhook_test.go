@@ -291,6 +291,15 @@ var _ = Describe("verticadb_webhook", func() {
 		validateSpecValuesHaveErr(vdb, true)
 	})
 
+	It("should not include UID in path if revive_db", func() {
+		vdb := MakeVDB()
+		annotationName := vmeta.IncludeUIDInPathAnnotation
+		vdb.Annotations[annotationName] = "true"
+		validateSpecValuesHaveErr(vdb, false)
+		vdb.Spec.InitPolicy = CommunalInitPolicyRevive
+		validateSpecValuesHaveErr(vdb, true)
+	})
+
 	// validate immutable fields
 	It("should succeed without changing immutable fields", func() {
 		vdb := createVDBHelper()

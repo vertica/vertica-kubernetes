@@ -99,8 +99,7 @@ func PatchConversionWebhookFromSecret(ctx context.Context, log *logr.Logger, cfg
 // self-signed cert is used.
 func GenerateWebhookCert(ctx context.Context, log *logr.Logger, cfg *rest.Config, certDir, prefixName, ns string) error {
 	log.Info("Generating cert for webhook")
-	const PKKeySize = 1024
-	caCert, err := NewSelfSignedCACertificate(PKKeySize)
+	caCert, err := NewSelfSignedCACertificate()
 	if err != nil {
 		return errors.Wrap(err, "could not create self-signed CA for webhook")
 	}
@@ -108,7 +107,7 @@ func GenerateWebhookCert(ctx context.Context, log *logr.Logger, cfg *rest.Config
 		fmt.Sprintf("%s-webhook-service.%s.svc", prefixName, ns),
 		fmt.Sprintf("%s-webhook-service.%s.svc.cluster.local", prefixName, ns),
 	}
-	cert, err := NewCertificate(caCert, PKKeySize, dnsNames[0], dnsNames)
+	cert, err := NewCertificate(caCert, dnsNames[0], dnsNames)
 	if err != nil {
 		return errors.Wrap(err, "could not create webhook cert")
 	}

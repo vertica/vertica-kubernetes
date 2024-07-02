@@ -52,7 +52,6 @@ func MakeHTTPServerCertGenReconciler(vdbrecon *VerticaDBReconciler, log logr.Log
 
 // Reconcile will create a TLS secret for the http server if one is missing
 func (h *HTTPServerCertGenReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
-	const PKKeySize = 2048
 	// If the secret name is set, check that it exists.
 	if h.Vdb.Spec.NMATLSSecret != "" {
 		// As a convenience we will regenerate the secret using the same name. But
@@ -75,11 +74,11 @@ func (h *HTTPServerCertGenReconciler) Reconcile(ctx context.Context, _ *ctrl.Req
 			return ctrl.Result{}, nil
 		}
 	}
-	caCert, err := security.NewSelfSignedCACertificate(PKKeySize)
+	caCert, err := security.NewSelfSignedCACertificate()
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	cert, err := security.NewCertificate(caCert, PKKeySize, "dbadmin", h.getDNSNames())
+	cert, err := security.NewCertificate(caCert, "dbadmin", h.getDNSNames())
 	if err != nil {
 		return ctrl.Result{}, err
 	}

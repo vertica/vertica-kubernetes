@@ -199,6 +199,7 @@ func (v *VerticaDB) validateVerticaDBSpec() field.ErrorList {
 	allErrs = v.validateS3ServerSideEncryption(allErrs)
 	allErrs = v.validateAdditionalConfigParms(allErrs)
 	allErrs = v.validateCustomLabels(allErrs)
+	allErrs = v.validateIncludeUIDInPathAnnotation(allErrs)
 	allErrs = v.validateEndpoint(allErrs)
 	allErrs = v.hasValidSvcAndScName(allErrs)
 	allErrs = v.hasValidNodePort(allErrs)
@@ -376,6 +377,19 @@ func (v *VerticaDB) validateCustomLabels(allErrs field.ErrorList) field.ErrorLis
 				fmt.Sprintf("'%s' is a restricted label.", invalidLabel))
 			allErrs = append(allErrs, err)
 		}
+	}
+	return allErrs
+}
+
+func (v *VerticaDB) validateIncludeUIDInPathAnnotation(allErrs field.ErrorList) field.ErrorList {
+	if v.Spec.InitPolicy == CommunalInitPolicyRevive &&
+		v.IncludeUIDInPath() {
+		prefix := field.NewPath("metadata").Child("annotations")
+		annotationName := vmeta.IncludeUIDInPathAnnotation
+		err := field.Invalid(prefix.Key(annotationName),
+			v.Annotations[annotationName],
+			fmt.Sprintf("%s must always be false when reviving a db", annotationName))
+		allErrs = append(allErrs, err)
 	}
 	return allErrs
 }

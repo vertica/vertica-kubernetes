@@ -76,6 +76,10 @@ fi
 
 logInfo "Running $ITERATIONS_STR iterations of $TEST_STEPS steps"
 
+cp $CONFIG_FILE /tmp/
+tmpfile=/tmp/$CONFIG_FILE
+trap "rm $tmpfile" 0 2 3 15  # Ensure deletion on script exit
+
 curIter=0
 until [[ $curIter -eq $ITERATIONS ]]
 do

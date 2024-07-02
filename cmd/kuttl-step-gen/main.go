@@ -20,6 +20,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/ghodss/yaml"
 	"github.com/go-logr/logr"
@@ -32,6 +33,8 @@ const (
 	ConfigArg = iota
 	NumPositionalArgs
 )
+
+const configDir = "/tmp"
 
 func setupLog() logr.Logger {
 	cfg := zap.Config{
@@ -74,7 +77,12 @@ func main() {
 	}
 
 	configFileName := flag.Arg(ConfigArg)
-	configRaw, err := os.ReadFile(configFileName)
+	configPath := fmt.Sprintf("%s/%s", configDir, configFileName)
+	if !filepath.IsAbs(configPath) {
+		fmt.Printf("'%s' is not an absolute path", configPath)
+		os.Exit(1)
+	}
+	configRaw, err := os.ReadFile(configPath)
 	if err != nil {
 		fmt.Printf("Failed to read config file %s: %s", configFileName, err.Error())
 		os.Exit(1)
