@@ -923,10 +923,11 @@ func (r *OnlineUpgradeReconciler) getNewSandboxName(preferredName string) (strin
 		sbNames[r.VDB.Spec.Sandboxes[i].Name] = true
 	}
 
-	// To make this easier to test, we will favor the preferredName as the
+	// To make this easier to test, we will favor the annotation's value as the
 	// sandbox name. If that's available that's our name.
-	if _, found := sbNames[preferredName]; !found {
-		return preferredName, nil
+	sbName := vmeta.GetOnlineUpgradePreferredSandboxName(r.VDB.Annotations)
+	if _, found := sbNames[sbName]; sbName != "" && !found {
+		return sbName, nil
 	}
 
 	// Add a uuid suffix to the preferred name.
