@@ -529,12 +529,6 @@ The `sidecars[i].image` shown here is a container that Vertica publishes on its 
 kubectl logs <vertica-pod-name> -c vlogger
 ```
 
-## Memory Profiling
-
-The memory profiler lets you view where the big allocations are occurring and helps detect memory leaks. The toolset is Google's [pprof](https://golang.org/pkg/net/http/pprof/).
-
-By default, the memory profiler is disabled. To enable it, add a parameter when you start the operator. The following steps enable the memory profiler for a deployed operator.
-
 1. Use `kubectl edit` to open the running deployment for editing:
 
    ```shell

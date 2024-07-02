@@ -1,0 +1,5 @@
+kind: Removed
+body: Remove memory profiler from the operator.
+time: 2024-06-07T19:03:27.423177563+02:00
+custom:
+  Issue: "827"
