@@ -14,6 +14,10 @@ on:
         description: 'When changing the version of the operator, this is the new version to move to (e.g. 1.8.0).'
         type: string
         required: false
+      pr-owner:
+        description: 'GitHub ID of the pull request owner'
+        type: string
+        required: true
   workflow_call:
     inputs:
       action:
@@ -24,11 +28,12 @@ on:
         description: 'When changing the version of the operator, this is the new version to move to (e.g. 1.8.0).'
         type: string
         required: false
+      pr-owner:
+        description: 'GitHub ID of the pull request owner'
+        type: string
+        required: true
 
 run-name: "Pre-Release Action: ${{ inputs.action }}"
-
-env:
-  PR_OWNER: spilchen
 
 jobs:
 
@@ -52,8 +57,7 @@ jobs:
         signoff: true
         branch: change-operator-version-${{ inputs.new-operator-version }}
         delete-branch: true
-        assignees: ${{ env.PR_OWNER }}
-        reviewers: ${{ env.PR_OWNER }}
+        assignees: ${{ inputs.pr-owner }}
 
     - name: Print out details of the PR opened
       run: |
@@ -83,8 +87,7 @@ jobs:
         signoff: true
         branch: changelog-${{ inputs.new-operator-version }}
         delete-branch: true
-        assignees: ${{ env.PR_OWNER }}
-        reviewers: ${{ env.PR_OWNER }}
+        assignees: ${{ inputs.pr-owner }}
 
     - name: Print out details of the PR opened
       run: |
