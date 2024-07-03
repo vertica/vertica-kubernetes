@@ -99,6 +99,9 @@ export BASE_VERTICA_IMG
 # Image URL to use for the logger sidecar
 VLOGGER_IMG ?= $(IMG_REPO)vertica-logger:$(VLOGGER_VERSION)
 export VLOGGER_IMG
+# If the current leg in the CI tests is leg-9
+LEG9 ?= no
+export LEG9
 # What version of alpine does the vlogger image use
 VLOGGER_ALPINE_VERSION?=3.19
 # The port number for the local registry
@@ -457,6 +460,14 @@ ifeq ($(shell $(KIND_CHECK)), 1)
 endif
 endif
 
+.PHONY: docker-push-extra-vertica
+docker-push-extra-vertica: # Push a hard-coded image used in multi-online-upgrade test
+ifeq ($(LEG9), yes)
+ifeq ($(shell $(KIND_CHECK)), 1)
+	scripts/push-to-kind.sh -i opentext/vertica-k8s-private:20240626-minimal
+endif
+endif
+
 # PLATFORMS defines the target platforms that the image will be used for. Use
 # this with docker-build-crossplatform-* targets.
 PLATFORMS?=linux/arm64,linux/amd64
@@ -519,7 +530,7 @@ docker-push-olm-catalog:
 docker-build: docker-build-vertica docker-build-operator docker-build-vlogger ## Build all docker images except OLM catalog
 
 .PHONY: docker-push
-docker-push: docker-push-vertica docker-push-base-vertica docker-push-operator docker-push-vlogger ## Push all docker images except OLM catalog
+docker-push: docker-push-vertica docker-push-base-vertica docker-push-extra-vertica docker-push-operator docker-push-vlogger ## Push all docker images except OLM catalog
 
 .PHONY: echo-images
 echo-images:  ## Print the names of all of the images used
