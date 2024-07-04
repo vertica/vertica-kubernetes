@@ -289,7 +289,7 @@ var _ = Describe("upgrade", func() {
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
 
-		mgr := MakeUpgradeManager(vdbRec, logger, vdb, vapi.OfflineUpgradeInProgress,
+		mgr := MakeUpgradeManager(vdbRec, logger, vdb, vapi.OnlineUpgradeInProgress,
 			func(vdb *vapi.VerticaDB) bool { return true })
 		Expect(mgr.startUpgrade(ctx, vapi.MainCluster)).Should(Equal(ctrl.Result{}))
 		vdb.Spec.Subclusters[0].Annotations = map[string]string{
