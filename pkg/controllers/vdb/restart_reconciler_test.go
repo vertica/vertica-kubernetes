@@ -246,9 +246,9 @@ var _ = Describe("restart_reconciler", func() {
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 		// Check the command history.
 		upload := fpr.FindCommands("4.4.4.4", test.FakeIPForPod(0, 0)) // Verify we upload the map file
-		Expect(len(upload)).Should(Equal(0))                           // TODO: 1 -> 0 figure out why VER-93564
+		Expect(len(upload)).Should(Equal(1))
 		reip := fpr.FindCommands("/opt/vertica/bin/admintools", "-t", "re_ip")
-		Expect(len(reip)).Should(Equal(0)) // TODO: 1 -> 0 figure out why VER-93564
+		Expect(len(reip)).Should(Equal(1))
 		restart := fpr.FindCommands("/opt/vertica/bin/admintools", "-t", "start_db")
 		Expect(len(restart)).Should(Equal(1))
 	})

@@ -717,5 +717,5 @@ func (r *RestartReconciler) getReIPPods(isRestartNode bool) []*podfacts.PodFact 
 	if vmeta.UseVClusterOps(r.Vdb.Annotations) {
 		return r.PFacts.FindReIPPods(podfacts.DBCheckOnlyWithoutDBs)
 	}
-	return r.PFacts.FindReIPPods(podfacts.DBCheckOnlyWithoutDBs)
+	return r.PFacts.FindReIPPods(podfacts.DBCheckAny)
 }
