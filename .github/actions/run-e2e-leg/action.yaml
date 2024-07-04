@@ -163,6 +163,12 @@ runs:
           fi
         fi
 
+        # Set an env var that will later be checked to pull an extra
+        # vertica image used for multi-online-upgrade test
+        if [[ "${{ inputs.leg-identifier }}" == "leg-9" ]]; then
+          export LEG9=yes
+        fi
+
         # Special setup for e2e-udx
         if [[ "${{ inputs.leg-identifier }}" == "udx" ]]; then
           # Setup the udx environment by compiling examples in the vertica image.
