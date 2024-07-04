@@ -11,34 +11,38 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: v-base-upgrade-main
+  annotations:
+    vertica.com/statefulset-name-override: "v-base-upgrade-main"
+status:
+  currentReplicas: 3
+  readyReplicas: 3
+---
+apiVersion: v1
+kind: Event
+reason: SandboxSubclusterSucceeded
+source:
+  component: verticadb-operator
+involvedObject:
+  apiVersion: vertica.com/v1
+  kind: VerticaDB
+  name: v-base-upgrade
+---
 apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
   name: v-base-upgrade
-  annotations:
-    vertica.com/include-uid-in-path: true
-    vertica.com/online-upgrade-preferred-sandbox: "replica-group-b"
 spec:
-  image: kustomize-vertica-image
-  dbName: repUP
-  initPolicy: CreateSkipPackageInstall
-  upgradePolicy: Online
-  communal: {}
-  local:
-    requestSize: 250Mi
-  # We pick a cluster size that is too big for the CE license. This relies on
-  # having a license, which will be added by kustomize.
   subclusters:
-    - name: sec1
-      size: 3
-      type: secondary
-    - name: pri1
-      size: 2
-      type: primary
-    - name: pri_2
-      size: 1
-      type: primary
-  certSecrets: []
-  imagePullSecrets: []
-  volumes: []
-  volumeMounts: []
+  - name: main
+  - name: main-sb
+    type: sandboxprimary
+    size: 3
+status:
+  sandboxes:
+    - subclusters:
+        - main-sb
+          
