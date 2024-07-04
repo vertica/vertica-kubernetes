@@ -443,8 +443,8 @@ func (r *OnlineUpgradeReconciler) waitForSandboxUpgrade(ctx context.Context) (ct
 
 	r.Log.Info("collected sandbox facts", "numPods", len(sbPFacts.Detail))
 	for _, pf := range sbPFacts.Detail {
-		r.Log.Info("sandbox pod fact", "pod", pf.name.Name, "image", pf.image, "up", pf.upNode)
-		if pf.image != r.VDB.Spec.Image || !pf.upNode {
+		r.Log.Info("sandbox pod fact", "pod", pf.GetName().Name, "image", pf.GetImage(), "up", pf.GetUpNode())
+		if pf.GetImage() != r.VDB.Spec.Image || !pf.GetUpNode() {
 			r.Log.Info("Still waiting for sandbox to be upgraded")
 			return ctrl.Result{Requeue: true}, nil
 		}
@@ -1032,7 +1032,7 @@ func (r *OnlineUpgradeReconciler) postNextStatusMsg(ctx context.Context, msgInde
 
 // getSandboxPodFacts returns a cached copy of the podfacts for the sandbox. If
 // the podfacts aren't cached yet, it will cache them and optionally collect them.
-func (r *OnlineUpgradeReconciler) getSandboxPodFacts(ctx context.Context, doCollection bool) (*PodFacts, error) {
+func (r *OnlineUpgradeReconciler) getSandboxPodFacts(ctx context.Context, doCollection bool) (*podfacts.PodFacts, error) {
 	// Collect the podfacts for the sandbox if not already done. We are going to
 	// use the sandbox podfacts when we update the client routing label.
 	if _, found := r.PFacts[r.sandboxName]; !found {
