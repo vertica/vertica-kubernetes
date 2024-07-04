@@ -21,7 +21,7 @@ spec:
   image: kustomize-vertica-image
   dbName: repUP
   initPolicy: CreateSkipPackageInstall
-  upgradePolicy: Replicated
+  upgradePolicy: Online
   communal: {}
   local:
     requestSize: 250Mi

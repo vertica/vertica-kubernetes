@@ -198,8 +198,8 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		MakeAnnotateAndLabelPodReconciler(r, log, vdb, pfacts),
 		// Handles vertica server upgrade (i.e., when spec.image changes)
 		MakeOfflineUpgradeReconciler(r, log, vdb, prunner, pfacts, dispatcher),
-		MakeOnlineUpgradeReconciler(r, log, vdb, prunner, pfacts, dispatcher),
-		MakeReplicatedUpgradeReconciler(r, log, vdb, pfacts, dispatcher),
+		MakeReadOnlyOnlineUpgradeReconciler(r, log, vdb, prunner, pfacts, dispatcher),
+		MakeOnlineUpgradeReconciler(r, log, vdb, pfacts, dispatcher),
 		// Stop vertica if the status condition indicates
 		MakeStopDBReconciler(r, vdb, prunner, pfacts, dispatcher),
 		// Check the version information ahead of restart. The version is needed

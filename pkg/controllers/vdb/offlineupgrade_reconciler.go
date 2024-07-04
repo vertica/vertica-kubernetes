@@ -373,8 +373,8 @@ func (o *OfflineUpgradeReconciler) installPackages(ctx context.Context) (ctrl.Re
 // objects will route to the pods.  This is done after the pods have been
 // reschedulde and vertica restarted.
 func (o *OfflineUpgradeReconciler) addClientRoutingLabel(ctx context.Context) (ctrl.Result, error) {
-	// If this is done as part of replicated upgrade, we will skip this part to
-	// allow the vdb controller, which is driving the replicated upgrade, to add
+	// If this is done as part of online upgrade, we will skip this part to
+	// allow the vdb controller, which is driving the online upgrade, to add
 	// the routing client labels.
 	if o.PFacts.GetSandboxName() != vapi.MainCluster {
 		stss, err := o.Finder.FindStatefulSets(ctx, iter.FindExisting, o.PFacts.GetSandboxName())
@@ -384,7 +384,7 @@ func (o *OfflineUpgradeReconciler) addClientRoutingLabel(ctx context.Context) (c
 		for inx := range stss.Items {
 			sts := &stss.Items[inx]
 			if sts.Annotations[vmeta.ReplicaGroupAnnotation] == vmeta.ReplicaGroupBValue {
-				o.Log.Info("Skip adding client routing labels because replicated upgrade of sandbox detected")
+				o.Log.Info("Skip adding client routing labels because online upgrade of sandbox detected")
 				return ctrl.Result{}, nil
 			}
 		}

@@ -967,10 +967,10 @@ const (
 	// ImageChangeInProgress indicates if the vertica server is in the process
 	// of having its image change (aka upgrade).  We have two additional conditions to
 	// distinguish between online and offline upgrade.
-	ImageChangeInProgress       VerticaDBConditionType = "ImageChangeInProgress"
-	OfflineUpgradeInProgress    VerticaDBConditionType = "OfflineUpgradeInProgress"
-	OnlineUpgradeInProgress     VerticaDBConditionType = "OnlineUpgradeInProgress"
-	ReplicatedUpgradeInProgress VerticaDBConditionType = "ReplicatedUpgradeInProgress"
+	ImageChangeInProgress           VerticaDBConditionType = "ImageChangeInProgress"
+	OfflineUpgradeInProgress        VerticaDBConditionType = "OfflineUpgradeInProgress"
+	ReadOnlyOnlineUpgradeInProgress                        = "ReadOnlyOnlineUpgradeInProgress"
+	OnlineUpgradeInProgress                                = "OnlineUpgradeInProgress"
 	// VerticaRestartNeeded is a condition that when set to true will force the
 	// operator to stop/start the vertica pods.
 	VerticaRestartNeeded VerticaDBConditionType = "VerticaRestartNeeded"

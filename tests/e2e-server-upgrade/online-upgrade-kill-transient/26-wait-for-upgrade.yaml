@@ -14,5 +14,5 @@
 apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 commands:
-  - command: kubectl wait --for=condition=OnlineUpgradeInProgress=True vdb/v-base-upgrade --timeout=600s
+  - command: kubectl wait --for=condition=ReadOnlyOnlineUpgradeInProgress=True vdb/v-base-upgrade --timeout=600s
     namespaced: true

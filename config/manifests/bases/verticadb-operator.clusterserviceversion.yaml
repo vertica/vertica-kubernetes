@@ -227,6 +227,14 @@ spec:
         path: template.isPrimary
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
+      - description: A sandbox primary subcluster is a secondary subcluster that was
+          the first subcluster in a sandbox. These subclusters are primaries when
+          they are sandboxed. When unsandboxed, they will go back to being just a
+          secondary subcluster
+        displayName: Is Sandbox Primary
+        path: template.isSandboxPrimary
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:hidden
       - description: Internal state that indicates whether this is a transient read-only
           subcluster used for online upgrade.  A subcluster that exists temporarily
           to serve traffic for subclusters that are restarting with the new image.
@@ -1060,21 +1068,22 @@ spec:
         - urn:alm:descriptor:com.tectonic.ui:number
         - urn:alm:descriptor:com.tectonic.ui:advanced
       - description: "This setting defines how the upgrade process will be managed.
-          The available values are Offline, Online, Replicated, and Auto. \n Offline:
+          The available values are Offline, ReadOnlyOnline, Online, and Auto. \n Offline:
           This option involves taking down the entire cluster and then bringing it
-          back up with the new image. \n Online: With this option, the cluster remains
-          operational for reads during the upgrade process. However, the data will
-          be in read-only mode until the Vertica nodes from the primary subcluster
-          re-form the cluster with the new image. \n Replicated: Similar to Online,
-          this option keeps the cluster operational throughout the upgrade process
-          but allows writes. The cluster is split into two replicas, and traffic is
-          redirected to the active replica to facilitate writes. \n Auto: This option
-          selects one of the above methods automatically based on compatibility with
-          the version of Vertica you are running."
+          back up with the new image. \n ReadOnlyOnline: With this option, the cluster
+          remains operational for reads during the upgrade process. However, the data
+          will be in read-only mode until the Vertica nodes from the primary subcluster
+          re-form the cluster with the new image. \n Online: Similar to Online, this
+          option keeps the cluster operational throughout the upgrade process but
+          allows writes. The cluster is split into two replicas, and traffic is redirected
+          to the active replica to facilitate writes. \n Auto: This option selects
+          one of the above methods automatically based on compatibility with the version
+          of Vertica you are running."
         displayName: Upgrade Policy
         path: upgradePolicy
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:select:Auto
+        - urn:alm:descriptor:com.tectonic.ui:select:ReadOnlyOnline
         - urn:alm:descriptor:com.tectonic.ui:select:Online
         - urn:alm:descriptor:com.tectonic.ui:select:Offline
       - description: Additional volume mounts to include in the Vertica container.  These
@@ -1111,6 +1120,17 @@ spec:
           sandbox. This is updated as subclusters become sandboxed or unsandboxed.
         displayName: Subclusters
         path: sandboxes[0].subclusters
+      - description: State of the current running upgrade in the sandbox
+        displayName: Upgrade State
+        path: sandboxes[0].upgradeState
+      - description: UpgradeInProgress indicates if the sandbox is in the process
+          of having its image change
+        displayName: Upgrade In Progress
+        path: sandboxes[0].upgradeState.upgradeInProgress
+      - description: Status message for the current running upgrade. If no upgrade
+          is occurring, this message remains blank.
+        displayName: Upgrade Status
+        path: sandboxes[0].upgradeState.upgradeStatus
       - description: The number of subclusters in the database
         displayName: Subcluster Count
         path: subclusterCount
@@ -1675,6 +1695,14 @@ spec:
         path: subclusters[0].isPrimary
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
+      - description: A sandbox primary subcluster is a secondary subcluster that was
+          the first subcluster in a sandbox. These subclusters are primaries when
+          they are sandboxed. When unsandboxed, they will go back to being just a
+          secondary subcluster
+        displayName: Is Sandbox Primary
+        path: subclusters[0].isSandboxPrimary
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:hidden
       - description: Internal state that indicates whether this is a transient read-only
           subcluster used for online upgrade.  A subcluster that exists temporarily
           to serve traffic for subclusters that are restarting with the new image.
@@ -1847,6 +1875,14 @@ spec:
         path: temporarySubclusterRouting.template.isPrimary
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
+      - description: A sandbox primary subcluster is a secondary subcluster that was
+          the first subcluster in a sandbox. These subclusters are primaries when
+          they are sandboxed. When unsandboxed, they will go back to being just a
+          secondary subcluster
+        displayName: Is Sandbox Primary
+        path: temporarySubclusterRouting.template.isSandboxPrimary
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:hidden
       - description: Internal state that indicates whether this is a transient read-only
           subcluster used for online upgrade.  A subcluster that exists temporarily
           to serve traffic for subclusters that are restarting with the new image.
@@ -2015,6 +2051,17 @@ spec:
           sandbox. This is updated as subclusters become sandboxed or unsandboxed.
         displayName: Subclusters
         path: sandboxes[0].subclusters
+      - description: State of the current running upgrade in the sandbox
+        displayName: Upgrade State
+        path: sandboxes[0].upgradeState
+      - description: UpgradeInProgress indicates if the sandbox is in the process
+          of having its image change
+        displayName: Upgrade In Progress
+        path: sandboxes[0].upgradeState.upgradeInProgress
+      - description: Status message for the current running upgrade. If no upgrade
+          is occurring, this message remains blank.
+        displayName: Upgrade Status
+        path: sandboxes[0].upgradeState.upgradeStatus
       - description: The number of subclusters in the database
         displayName: Subcluster Count
         path: subclusterCount

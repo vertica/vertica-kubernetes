@@ -22,7 +22,7 @@ spec:
   local:
     requestSize: 100Mi
   kSafety: "0"
-  upgradePolicy: Online
+  upgradePolicy: ReadOnlyOnline
   subclusters:
     - name: pri
       size: 1

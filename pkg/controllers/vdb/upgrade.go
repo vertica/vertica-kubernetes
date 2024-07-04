@@ -178,10 +178,10 @@ func (i *UpgradeManager) finishUpgrade(ctx context.Context, sbName string) (ctrl
 		return ctrl.Result{}, err
 	}
 
-	// The state for replicated upgrade only is cleared when upgrading the main
-	// cluster. You cannot use replicated upgrade for an upgrade of a sandbox.
+	// The state for online upgrade only is cleared when upgrading the main
+	// cluster. You cannot use online upgrade for an upgrade of a sandbox.
 	if sbName == vapi.MainCluster {
-		if err := i.clearReplicatedUpgradeAnnotations(ctx); err != nil {
+		if err := i.clearOnlineUpgradeAnnotations(ctx); err != nil {
 			return ctrl.Result{}, err
 		}
 	}
@@ -253,16 +253,16 @@ func (i *UpgradeManager) setUpgradeStatus(ctx context.Context, msg, sbName strin
 	return vdbstatus.SetSandboxUpgradeState(ctx, i.Rec.GetClient(), i.Vdb, sbName, state)
 }
 
-// clearReplicatedUpgradeAnnotations will clear the annotation we set for replicated upgrade
-func (i *UpgradeManager) clearReplicatedUpgradeAnnotations(ctx context.Context) error {
-	_, err := vk8s.UpdateVDBWithRetry(ctx, i.Rec, i.Vdb, i.clearReplicatedUpgradeAnnotationCallback)
+// clearOnlineUpgradeAnnotations will clear the annotation we set for online upgrade
+func (i *UpgradeManager) clearOnlineUpgradeAnnotations(ctx context.Context) error {
+	_, err := vk8s.UpdateVDBWithRetry(ctx, i.Rec, i.Vdb, i.clearOnlineUpgradeAnnotationCallback)
 	return err
 }
 
-// clearReplicatedUpgradeAnnotationCallback is a callback function to perform
+// clearOnlineUpgradeAnnotationCallback is a callback function to perform
 // the actual update to the VDB. It will remove all annotations used by
-// replicated upgrade.
-func (i *UpgradeManager) clearReplicatedUpgradeAnnotationCallback() (updated bool, err error) {
+// online upgrade.
+func (i *UpgradeManager) clearOnlineUpgradeAnnotationCallback() (updated bool, err error) {
 	for inx := range i.Vdb.Spec.Subclusters {
 		sc := &i.Vdb.Spec.Subclusters[inx]
 		for _, a := range []string{vmeta.ReplicaGroupAnnotation, vmeta.ChildSubclusterAnnotation,
@@ -275,8 +275,8 @@ func (i *UpgradeManager) clearReplicatedUpgradeAnnotationCallback() (updated boo
 	}
 
 	// Clear annotations set in the VerticaDB's metadata.annotations.
-	for _, a := range []string{vmeta.ReplicatedUpgradeReplicatorAnnotation, vmeta.ReplicatedUpgradeSandboxAnnotation,
-		vmeta.ReplicatedUpgradeSandboxPromotedAnnotation, vmeta.ReplicatedUpgradeReplicaARemovedAnnotation} {
+	for _, a := range []string{vmeta.OnlineUpgradeReplicatorAnnotation, vmeta.OnlineUpgradeSandboxAnnotation,
+		vmeta.OnlineUpgradeSandboxPromotedAnnotation, vmeta.OnlineUpgradeReplicaARemovedAnnotation} {
 		if _, annotationFound := i.Vdb.Annotations[a]; annotationFound {
 			delete(i.Vdb.Annotations, a)
 			updated = true
@@ -532,14 +532,14 @@ func offlineUpgradeAllowed(vdb *vapi.VerticaDB) bool {
 }
 
 // onlineUpgradeAllowed returns true if upgrade must be done online
-func onlineUpgradeAllowed(vdb *vapi.VerticaDB) bool {
-	return vdb.GetUpgradePolicyToUse() == vapi.OnlineUpgrade
+func readOnlyOnlineUpgradeAllowed(vdb *vapi.VerticaDB) bool {
+	return vdb.GetUpgradePolicyToUse() == vapi.ReadOnlyOnlineUpgrade
 }
 
-// replicatedUpgradeAllowed returns true if upgrade must be done with the
-// replicated upgrade strategy.
-func replicatedUpgradeAllowed(vdb *vapi.VerticaDB) bool {
-	return vdb.GetUpgradePolicyToUse() == vapi.ReplicatedUpgrade
+// onlineUpgradeAllowed returns true if upgrade must be done with the
+// online upgrade strategy.
+func onlineUpgradeAllowed(vdb *vapi.VerticaDB) bool {
+	return vdb.GetUpgradePolicyToUse() == vapi.OnlineUpgrade
 }
 
 // cachePrimaryImages will update o.PrimaryImages with the names of all of the primary images
