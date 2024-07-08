@@ -178,9 +178,8 @@ func (i *UpgradeManager) finishUpgrade(ctx context.Context, sbName string) (ctrl
 		return ctrl.Result{}, err
 	}
 
-	// The state for online upgrade only is cleared when upgrading the main
-	// cluster. You cannot use online upgrade for an upgrade of a sandbox.
-	if sbName == vapi.MainCluster {
+	// We need to clear some annotations after online upgrade.
+	if i.StatusCondition == vapi.OnlineUpgradeInProgress {
 		if err := i.clearOnlineUpgradeAnnotations(ctx); err != nil {
 			return ctrl.Result{}, err
 		}
@@ -276,7 +275,8 @@ func (i *UpgradeManager) clearOnlineUpgradeAnnotationCallback() (updated bool, e
 
 	// Clear annotations set in the VerticaDB's metadata.annotations.
 	for _, a := range []string{vmeta.OnlineUpgradeReplicatorAnnotation, vmeta.OnlineUpgradeSandboxAnnotation,
-		vmeta.OnlineUpgradeSandboxPromotedAnnotation, vmeta.OnlineUpgradeReplicaARemovedAnnotation} {
+		vmeta.OnlineUpgradeSandboxPromotedAnnotation, vmeta.OnlineUpgradeReplicaARemovedAnnotation,
+		vmeta.OnlineUpgradePreferredSandboxAnnotation} {
 		if _, annotationFound := i.Vdb.Annotations[a]; annotationFound {
 			delete(i.Vdb.Annotations, a)
 			updated = true
