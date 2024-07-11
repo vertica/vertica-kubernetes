@@ -332,13 +332,18 @@ var _ = Describe("podfacts", func() {
 	It("should correctly return re-ip pods", func() {
 		pf := MakePodFacts(vdbRec, &cmds.FakePodRunner{}, logger, TestPassword)
 		pf.Detail[types.NamespacedName{Name: "p1"}] = &PodFact{
-			dnsName: "p1", vnodeName: "node1", dbExists: true, exists: true, isPodRunning: true, isInstalled: true, isNMAContainerReady: true,
+			dnsName: "p1", vnodeName: "node1", dbExists: true, exists: true, isPodRunning: true, isInstalled: true,
+			hasNMASidecar: true, isNMAContainerReady: true,
 		}
 		pf.Detail[types.NamespacedName{Name: "p2"}] = &PodFact{
 			dnsName: "p2", vnodeName: "node2", dbExists: false, exists: true, isPodRunning: true, isInstalled: true,
 		}
 		pf.Detail[types.NamespacedName{Name: "p3"}] = &PodFact{
 			dnsName: "p3", vnodeName: "node3", dbExists: false, exists: true, isPodRunning: true, isInstalled: false,
+		}
+		pf.Detail[types.NamespacedName{Name: "p4"}] = &PodFact{
+			dnsName: "p3", vnodeName: "node3", dbExists: true, exists: true, isPodRunning: true, isInstalled: false,
+			hasNMASidecar: true, isNMAContainerReady: false,
 		}
 		verifyReIP(&pf)
 	})
@@ -363,23 +368,18 @@ var _ = Describe("podfacts", func() {
 
 func verifyReIP(pf *PodFacts) {
 	By("finding any installed pod")
-	pods := pf.findReIPPods(dBCheckAny, false)
+	pods := pf.findReIPPods(dBCheckAny)
 	Ω(pods).Should(HaveLen(2))
 	Ω(pods[0].dnsName).Should(Equal("p1"))
 	Ω(pods[1].dnsName).Should(Equal("p2"))
 
 	By("finding pods with a db")
-	pods = pf.findReIPPods(dBCheckOnlyWithDBs, false)
+	pods = pf.findReIPPods(dBCheckOnlyWithDBs)
 	Ω(pods).Should(HaveLen(1))
 	Ω(pods[0].dnsName).Should(Equal("p1"))
 
 	By("finding pods without a db")
-	pods = pf.findReIPPods(dBCheckOnlyWithoutDBs, false)
+	pods = pf.findReIPPods(dBCheckOnlyWithoutDBs)
 	Ω(pods).Should(HaveLen(1))
 	Ω(pods[0].dnsName).Should(Equal("p2"))
-
-	By("finding any installed pod that use NMA as a sidecar")
-	pods = pf.findReIPPods(dBCheckAny, true)
-	Ω(pods).Should(HaveLen(1))
-	Ω(pods[0].dnsName).Should(Equal("p1"))
 }
