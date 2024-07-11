@@ -936,14 +936,14 @@ func (p *PodFacts) findInstalledPods() []*PodFact {
 
 // findReIPPods returns a list of pod facts that may need their IPs to be refreshed with re-ip.
 // An empty list implies there are no pods that match the criteria.
-func (p *PodFacts) findReIPPods(chk dBCheckType, useVClusterOps bool) []*PodFact {
+func (p *PodFacts) findReIPPods(chk dBCheckType, nmaAsSideCar bool) []*PodFact {
 	return p.filterPods(func(pod *PodFact) bool {
 		// Only consider running pods that exist and have an installation
 		if !pod.exists || !pod.isPodRunning || !pod.isInstalled {
 			return false
 		}
 		// NMA needs to be running before re-ip
-		if useVClusterOps && !pod.isNMAContainerReady {
+		if nmaAsSideCar && !pod.isNMAContainerReady {
 			return false
 		}
 		switch chk {

@@ -378,7 +378,7 @@ func verifyReIP(pf *PodFacts) {
 	Ω(pods).Should(HaveLen(1))
 	Ω(pods[0].dnsName).Should(Equal("p2"))
 
-	By("finding any installed pod that uses vclusterOps")
+	By("finding any installed pod that use NMA as a sidecar")
 	pods = pf.findReIPPods(dBCheckAny, true)
 	Ω(pods).Should(HaveLen(1))
 	Ω(pods[0].dnsName).Should(Equal("p1"))
