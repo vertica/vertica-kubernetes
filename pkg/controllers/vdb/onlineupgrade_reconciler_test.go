@@ -273,6 +273,25 @@ var _ = Describe("onlineupgrade_reconciler", func() {
 		Ω(vdb.Spec.Sandboxes[0].Image).Should(Equal(NewImageName))
 	})
 
+	It("should replace underscore with hyphen in sts name", func() {
+		vdb := vapi.MakeVDBForVclusterOps()
+		vdb.Spec.Subclusters = []vapi.Subcluster{
+			{Name: "sc_1"},
+		}
+		r := &OnlineUpgradeReconciler{
+			VDB: vdb,
+		}
+		sc := &r.VDB.Spec.Subclusters[0]
+		newSCName := "sc_1-sb"
+		stsName, _ := r.genNewSubclusterStsName(newSCName, sc)
+		Ω(stsName).Should(Equal(fmt.Sprintf("%s-sc-1-sb", r.VDB.Name)))
+		sc.Annotations = map[string]string{
+			vmeta.StsNameOverrideAnnotation: stsName,
+		}
+		stsName, _ = r.genNewSubclusterStsName(newSCName, sc)
+		Ω(stsName).Should(Equal(fmt.Sprintf("%s-sc-1", r.VDB.Name)))
+	})
+
 	It("should use VerticaReplicator CR to handle replication", func() {
 		vdb := vapi.MakeVDBForVclusterOps()
 		test.CreateVDB(ctx, k8sClient, vdb)
