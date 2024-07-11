@@ -171,6 +171,9 @@ type PodFact struct {
 	// true if the pod's spec includes a sidecar to run the NMA
 	hasNMASidecar bool
 
+	// true if NMA sidecar container is ready
+	isNMAContainerReady bool
+
 	// The name of the container to run exec commands on.
 	execContainerName string
 
@@ -389,6 +392,7 @@ func (p *PodFacts) collectPodByStsIndex(ctx context.Context, vdb *vapi.VerticaDB
 			return err
 		}
 		pf.hasNMASidecar = vk8s.HasNMAContainer(&pod.Spec)
+		pf.isNMAContainerReady = vk8s.IsNMAContainerReady(pod)
 		// we get the sandbox name from the sts labels if the subcluster
 		// belongs to a sandbox. If the node is up, we will later retrieve
 		// the sandbox state from the catalog
@@ -932,10 +936,14 @@ func (p *PodFacts) findInstalledPods() []*PodFact {
 
 // findReIPPods returns a list of pod facts that may need their IPs to be refreshed with re-ip.
 // An empty list implies there are no pods that match the criteria.
-func (p *PodFacts) findReIPPods(chk dBCheckType) []*PodFact {
+func (p *PodFacts) findReIPPods(chk dBCheckType, useVClusterOps bool) []*PodFact {
 	return p.filterPods(func(pod *PodFact) bool {
 		// Only consider running pods that exist and have an installation
 		if !pod.exists || !pod.isPodRunning || !pod.isInstalled {
+			return false
+		}
+		// NMA needs to be running before re-ip
+		if useVClusterOps && !pod.isNMAContainerReady {
 			return false
 		}
 		switch chk {

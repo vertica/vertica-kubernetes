@@ -211,7 +211,12 @@ func (r *RestartReconciler) reconcileCluster(ctx context.Context) (ctrl.Result, 
 
 	// re_ip nodes. This is done ahead of the db check in case we need to update
 	// the IP of nodes that have been installed but not yet added to the db.
-	if res, err := r.reipNodes(ctx, r.getReIPPods(false)); verrors.IsReconcileAborted(res, err) {
+	reIPPods := r.getReIPPods(false)
+	if len(reIPPods) != len(r.PFacts.Detail) {
+		r.Log.Info("Not all pods are running. Need to requeue restart reconciler")
+		return ctrl.Result{Requeue: true}, nil
+	}
+	if res, err := r.reipNodes(ctx, reIPPods); verrors.IsReconcileAborted(res, err) {
 		return res, err
 	}
 
@@ -708,13 +713,13 @@ func (r *RestartReconciler) getReIPPods(isRestartNode bool) []*PodFact {
 		if vmeta.UseVClusterOps(r.Vdb.Annotations) {
 			return nil
 		}
-		return r.PFacts.findReIPPods(dBCheckOnlyWithoutDBs)
+		return r.PFacts.findReIPPods(dBCheckOnlyWithoutDBs, false)
 	}
 	// For cluster restart, we re-ip all nodes that have been added to the DB.
 	// And if using admintools, we also need to re-ip installed pods that
 	// haven't been added to the db to keep admintools.conf in-sync.
 	if vmeta.UseVClusterOps(r.Vdb.Annotations) {
-		return r.PFacts.findReIPPods(dBCheckOnlyWithDBs)
+		return r.PFacts.findReIPPods(dBCheckOnlyWithDBs, true)
 	}
-	return r.PFacts.findReIPPods(dBCheckAny)
+	return r.PFacts.findReIPPods(dBCheckAny, false)
 }

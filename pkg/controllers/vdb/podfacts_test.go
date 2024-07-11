@@ -332,7 +332,7 @@ var _ = Describe("podfacts", func() {
 	It("should correctly return re-ip pods", func() {
 		pf := MakePodFacts(vdbRec, &cmds.FakePodRunner{}, logger, TestPassword)
 		pf.Detail[types.NamespacedName{Name: "p1"}] = &PodFact{
-			dnsName: "p1", vnodeName: "node1", dbExists: true, exists: true, isPodRunning: true, isInstalled: true,
+			dnsName: "p1", vnodeName: "node1", dbExists: true, exists: true, isPodRunning: true, isInstalled: true, isNMAContainerReady: true,
 		}
 		pf.Detail[types.NamespacedName{Name: "p2"}] = &PodFact{
 			dnsName: "p2", vnodeName: "node2", dbExists: false, exists: true, isPodRunning: true, isInstalled: true,
@@ -363,18 +363,23 @@ var _ = Describe("podfacts", func() {
 
 func verifyReIP(pf *PodFacts) {
 	By("finding any installed pod")
-	pods := pf.findReIPPods(dBCheckAny)
+	pods := pf.findReIPPods(dBCheckAny, false)
 	Ω(pods).Should(HaveLen(2))
 	Ω(pods[0].dnsName).Should(Equal("p1"))
 	Ω(pods[1].dnsName).Should(Equal("p2"))
 
 	By("finding pods with a db")
-	pods = pf.findReIPPods(dBCheckOnlyWithDBs)
+	pods = pf.findReIPPods(dBCheckOnlyWithDBs, false)
 	Ω(pods).Should(HaveLen(1))
 	Ω(pods[0].dnsName).Should(Equal("p1"))
 
 	By("finding pods without a db")
-	pods = pf.findReIPPods(dBCheckOnlyWithoutDBs)
+	pods = pf.findReIPPods(dBCheckOnlyWithoutDBs, false)
 	Ω(pods).Should(HaveLen(1))
 	Ω(pods[0].dnsName).Should(Equal("p2"))
+
+	By("finding any installed pod that uses vclusterOps")
+	pods = pf.findReIPPods(dBCheckAny, true)
+	Ω(pods).Should(HaveLen(1))
+	Ω(pods[0].dnsName).Should(Equal("p1"))
 }
