@@ -133,6 +133,32 @@ func (r *RestartReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctr
 	return r.reconcileNodes(ctx)
 }
 
+// reconcileClusterPreCheck will check if pods are ready to do cluster restart
+func (r *RestartReconciler) reconcileClusterPreCheck() ctrl.Result {
+	if r.PFacts.countRunningAndInstalled() == 0 {
+		// None of the running pods have Vertica installed.  Since there may be
+		// a pod that isn't running that may need Vertica restarted we are going
+		// to requeue to wait for that pod to start.
+		r.Log.Info("Waiting for pods to come online that may need a Vertica restart")
+		return ctrl.Result{Requeue: true}
+	}
+	// When using vclusterOps, we need to wait for enough primary nodes to be running so that we have quorum to do re-ip
+	if vmeta.UseVClusterOps(r.Vdb.Annotations) && !r.PFacts.quorumCheckForRestartCluster(r.RestartReadOnly) {
+		r.Log.Info("Waiting for enough pods that contain a primary node to come online before a cluster restart")
+		return ctrl.Result{Requeue: true}
+	}
+	// Check if cluster start needs to include all of the pods.
+	if r.Vdb.IsKSafety0() &&
+		r.PFacts.countNotRestartablePods(vmeta.UseVClusterOps(r.Vdb.Annotations)) > 0 {
+		// For k-safety 0, we need all of the pods because the absence of one
+		// will cause us not to have enough pods for cluster quorum.
+		r.Log.Info("Waiting for all installed pods to be running before attempt a cluster restart")
+		return ctrl.Result{Requeue: true}
+	}
+
+	return ctrl.Result{}
+}
+
 // reconcileCluster will handle restart when the entire cluster is down
 func (r *RestartReconciler) reconcileCluster(ctx context.Context) (ctrl.Result, error) {
 	r.Log.Info("Restart of entire cluster is needed")
@@ -141,20 +167,11 @@ func (r *RestartReconciler) reconcileCluster(ctx context.Context) (ctrl.Result, 
 		r.Log.Info("All pods are running and none of them have an installation.  Nothing to restart.")
 		return ctrl.Result{}, nil
 	}
-	if r.PFacts.countRunningAndInstalled() == 0 {
-		// None of the running pods have Vertica installed.  Since there may be
-		// a pod that isn't running that may need Vertica restarted we are going
-		// to requeue to wait for that pod to start.
-		r.Log.Info("Waiting for pods to come online that may need a Vertica restart")
-		return ctrl.Result{Requeue: true}, nil
-	}
-	// Check if cluster start needs to include all of the pods.
-	if r.Vdb.IsKSafety0() &&
-		r.PFacts.countNotRestartablePods(vmeta.UseVClusterOps(r.Vdb.Annotations)) > 0 {
-		// For k-safety 0, we need all of the pods because the absence of one
-		// will cause us not to have enough pods for cluster quorum.
-		r.Log.Info("Waiting for all installed pods to be running before attempt a cluster restart")
-		return ctrl.Result{Requeue: true}, nil
+
+	// check if pods are ready to restart
+	res := r.reconcileClusterPreCheck()
+	if res.Requeue {
+		return res, nil
 	}
 
 	// Find an initiator pod. You must pick one that has no vertica process running.
@@ -213,7 +230,7 @@ func (r *RestartReconciler) reconcileCluster(ctx context.Context) (ctrl.Result, 
 	// the IP of nodes that have been installed but not yet added to the db.
 	reIPPods := r.getReIPPods(false)
 	canReIPAllDownPods := containPods(reIPPods, downPods)
-	if !canReIPAllDownPods {
+	if vmeta.UseVClusterOps(r.Vdb.Annotations) && !canReIPAllDownPods {
 		r.Log.Info("Not all restartable pods are qualified to re-ip. Need to requeue restart reconciler")
 		return ctrl.Result{Requeue: true}, nil
 	}

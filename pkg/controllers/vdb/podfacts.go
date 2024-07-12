@@ -1256,3 +1256,21 @@ func (p *PodFacts) findNodeNamesInSubclusters(scNames []string) []string {
 
 	return nodeNames
 }
+
+// quorumCheckForRestartCluster checks if restartable pods have enough primary nodes to do re-ip
+func (p *PodFacts) quorumCheckForRestartCluster(restartOnly bool) bool {
+	pfacts := p.findRestartablePods(restartOnly, false /* restartTransient */, true /* restartPendingDelete */)
+	restartablePrimaryNodeCount := 0
+	for _, v := range pfacts {
+		if v.isPrimary {
+			restartablePrimaryNodeCount++
+		}
+	}
+	primaryNodeCount := p.countPods(func(v *PodFact) int {
+		if v.isPrimary {
+			return 1
+		}
+		return 0
+	})
+	return restartablePrimaryNodeCount >= (primaryNodeCount+1)/2
+}
