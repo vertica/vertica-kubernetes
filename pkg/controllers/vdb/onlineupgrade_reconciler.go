@@ -148,6 +148,7 @@ func (r *OnlineUpgradeReconciler) Reconcile(ctx context.Context, _ *ctrl.Request
 		// Copy any new data that was added since the sandbox from replica group
 		// A to replica group B.
 		r.postStartReplicationMsg,
+		r.prepareReplication,
 		r.startReplicationToReplicaGroupB,
 		r.waitForReplicateToReplicaGroupB,
 		// Redirect all of the connections to replica group A to replica group B.
@@ -264,7 +265,9 @@ func (r *OnlineUpgradeReconciler) runRebalanceSandboxSubcluster(ctx context.Cont
 	pf := r.PFacts[vapi.MainCluster]
 	actor := MakeRebalanceShardsReconciler(r.VRec, r.Log, r.VDB, pf.PRunner, pf, "" /*all subclusters*/)
 	r.Manager.traceActorReconcile(actor)
-	return actor.Reconcile(ctx, &ctrl.Request{})
+	res, err := actor.Reconcile(ctx, &ctrl.Request{})
+	r.PFacts[vapi.MainCluster].Invalidate()
+	return res, err
 }
 
 // postCreateNewSubclustersMsg will update the status message to indicate that
@@ -303,8 +306,12 @@ func (r *OnlineUpgradeReconciler) postSandboxSubclustersMsg(ctx context.Context)
 func (r *OnlineUpgradeReconciler) sandboxReplicaGroupB(ctx context.Context) (ctrl.Result, error) {
 	// We can skip this step if the replica sandbox is already created and fully
 	// sandboxed (according to status).
-	if r.sandboxName != "" && r.VDB.GetSandboxStatus(r.sandboxName) != nil {
-		return ctrl.Result{}, nil
+	if r.sandboxName != "" {
+		sb := r.VDB.GetSandboxStatus(r.sandboxName)
+		rgbSize := r.countSubclustersForReplicaGroup(vmeta.ReplicaGroupBValue)
+		if sb != nil && rgbSize == len(sb.Subclusters) {
+			return ctrl.Result{}, nil
+		}
 	}
 
 	// If we have already promoted sandbox to main, we don't need to sandbox replica B again
@@ -331,17 +338,13 @@ func (r *OnlineUpgradeReconciler) sandboxReplicaGroupB(ctx context.Context) (ctr
 	// The nodes in the subcluster to sandbox must be running in order for
 	// sandboxing to work. For this reason, we need to use the restart
 	// reconciler to restart any down nodes.
-	pf := r.PFacts[vapi.MainCluster]
-	const DoNotRestartReadOnly = false
-	actor := MakeRestartReconciler(r.VRec, r.Log, r.VDB, pf.PRunner, pf, DoNotRestartReadOnly, r.Dispatcher)
-	r.Manager.traceActorReconcile(actor)
-	res, err := actor.Reconcile(ctx, &ctrl.Request{})
+	res, err := r.restartMainCluster(ctx)
 	if verrors.IsReconcileAborted(res, err) {
 		return res, err
 	}
 
 	// Drive the actual sandbox command. When this returns we know the sandbox is complete.
-	actor = MakeSandboxSubclusterReconciler(r.VRec, r.Log, r.VDB, r.PFacts[vapi.MainCluster], r.Dispatcher, r.VRec.Client)
+	actor := MakeSandboxSubclusterReconciler(r.VRec, r.Log, r.VDB, r.PFacts[vapi.MainCluster], r.Dispatcher, r.VRec.Client)
 	r.Manager.traceActorReconcile(actor)
 	res, err = actor.Reconcile(ctx, &ctrl.Request{})
 	if verrors.IsReconcileAborted(res, err) {
@@ -366,12 +369,6 @@ func (r *OnlineUpgradeReconciler) promoteReplicaBSubclusters(ctx context.Context
 		return ctrl.Result{}, nil
 	}
 
-	sb := r.VDB.GetSandboxStatus(r.sandboxName)
-	rgbSize := r.countSubclustersForReplicaGroup(vmeta.ReplicaGroupBValue)
-	if sb == nil || rgbSize != len(sb.Subclusters) {
-		r.Log.Info("sandboxing replica group b is not complete")
-		return ctrl.Result{Requeue: true}, nil
-	}
 	// Get the sandbox podfacts only to invalidate the cache
 	sbPFacts, err := r.getSandboxPodFacts(ctx, false)
 	if err != nil {
@@ -510,6 +507,42 @@ func (r *OnlineUpgradeReconciler) pauseConnectionsAtReplicaGroupA(ctx context.Co
 // replication from the main to the sandbox is starting.
 func (r *OnlineUpgradeReconciler) postStartReplicationMsg(ctx context.Context) (ctrl.Result, error) {
 	return r.postNextStatusMsg(ctx, startReplicationMsgInx)
+}
+
+// prepareReplication makes sure there is at least an Up node in the main cluster
+// and the sandbox, to perform replication.
+// Once we start using services for replication, we will check only the scs served by the services.
+func (r *OnlineUpgradeReconciler) prepareReplication(ctx context.Context) (ctrl.Result, error) {
+	// Skip if the VerticaReplicator has already been created.
+	if vmeta.GetOnlineUpgradeReplicator(r.VDB.Annotations) != "" {
+		return ctrl.Result{}, nil
+	}
+	// we need fresh podfacts just in case some pods went down while
+	// sandbox upgrade was in progress.
+	r.PFacts[vapi.MainCluster].Invalidate()
+	err := r.PFacts[vapi.MainCluster].Collect(ctx, r.VDB)
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to collect podfacts for main cluster: %w", err)
+	}
+	_, ok := r.PFacts[vapi.MainCluster].FindFirstUpPodIP(true, "")
+	if !ok {
+		r.Log.Info("Cannot find any up hosts in main cluster. Restarting main cluster.")
+		var res ctrl.Result
+		res, err = r.restartMainCluster(ctx)
+		if verrors.IsReconcileAborted(res, err) {
+			return res, err
+		}
+	}
+	sbPFacts, err := r.getSandboxPodFacts(ctx, true)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	_, ok = sbPFacts.FindFirstUpPodIP(false, "")
+	if !ok {
+		r.Log.Info("Cannot find any up hosts in sandbox. Requeue.", "sandboxName", r.sandboxName)
+		return ctrl.Result{Requeue: true}, nil
+	}
+	return ctrl.Result{}, nil
 }
 
 // startReplicationToReplicaGroupB will copy any new data that was added since
@@ -665,9 +698,14 @@ func (r *OnlineUpgradeReconciler) promoteSandboxToMainCluster(ctx context.Contex
 	if sb == nil {
 		return ctrl.Result{}, nil
 	}
-	sbPFacts, err := r.getSandboxPodFacts(ctx, false)
+	sbPFacts, err := r.getSandboxPodFacts(ctx, true)
 	if err != nil {
 		return ctrl.Result{}, err
+	}
+	// All nodes in the sandbox must be up before sandbox promotion
+	if sbPFacts.getUpNodeCount() != len(sbPFacts.Detail) {
+		r.Log.Info("Waiting for all pods in sandbox to be up for promotion.", "sandboxName", r.sandboxName)
+		return ctrl.Result{Requeue: true}, nil
 	}
 	actor := MakePromoteSandboxToMainReconciler(r.VRec, r.Log, r.VDB, sbPFacts, r.Dispatcher, r.VRec.Client)
 	r.Manager.traceActorReconcile(actor)
@@ -1040,6 +1078,7 @@ func (r *OnlineUpgradeReconciler) getSandboxPodFacts(ctx context.Context, doColl
 		r.PFacts[r.sandboxName] = &sbPfacts
 	}
 	if doCollection {
+		r.PFacts[r.sandboxName].Invalidate()
 		err := r.PFacts[r.sandboxName].Collect(ctx, r.VDB)
 		if err != nil {
 			return nil, fmt.Errorf("failed to collect podfacts for sandbox: %w", err)
@@ -1124,7 +1163,9 @@ func (r *OnlineUpgradeReconciler) deleteReplicaGroupASts(ctx context.Context) (c
 
 	actor := MakeObjReconciler(r.VRec, r.Log, r.VDB, r.PFacts[vapi.MainCluster], ObjReconcileModeAll)
 	r.Manager.traceActorReconcile(actor)
-	return actor.Reconcile(ctx, &ctrl.Request{})
+	res, err := actor.Reconcile(ctx, &ctrl.Request{})
+	r.PFacts[vapi.MainCluster].Invalidate()
+	return res, err
 }
 
 // renameReplicaGroupBFromVdb will rename the subclusters in promoted-sandbox/new-main-cluster to
@@ -1250,4 +1291,14 @@ func (r *OnlineUpgradeReconciler) updateAnnotationForOnlineUpgrade(ctx context.C
 		r.Log.Info("updated annotation in VerticaDB", "annotation", annotation)
 	}
 	return nil
+}
+
+// restartMainCluster calls restart reconciler on the main cluster
+func (r *OnlineUpgradeReconciler) restartMainCluster(ctx context.Context) (ctrl.Result, error) {
+	// reconciler to restart any down nodes.
+	pf := r.PFacts[vapi.MainCluster]
+	const DoNotRestartReadOnly = false
+	actor := MakeRestartReconciler(r.VRec, r.Log, r.VDB, pf.PRunner, pf, DoNotRestartReadOnly, r.Dispatcher)
+	r.Manager.traceActorReconcile(actor)
+	return actor.Reconcile(ctx, &ctrl.Request{})
 }
