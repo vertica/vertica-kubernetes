@@ -209,11 +209,12 @@ func (r *RestartReconciler) reconcileCluster(ctx context.Context) (ctrl.Result, 
 		return ctrl.Result{}, err
 	}
 
-	// re_ip nodes. This is done ahead of the db check in case we need to update
+	// re-ip nodes. This is done ahead of the db check in case we need to update
 	// the IP of nodes that have been installed but not yet added to the db.
 	reIPPods := r.getReIPPods(false)
-	if len(reIPPods) != len(downPods) {
-		r.Log.Info("Not all restartable pods are running. Need to requeue restart reconciler")
+	canReIPAllDownPods := containPods(reIPPods, downPods)
+	if !canReIPAllDownPods {
+		r.Log.Info("Not all restartable pods are qualified to re-ip. Need to requeue restart reconciler")
 		return ctrl.Result{Requeue: true}, nil
 	}
 	if res, err := r.reipNodes(ctx, reIPPods); verrors.IsReconcileAborted(res, err) {
@@ -233,6 +234,21 @@ func (r *RestartReconciler) reconcileCluster(ctx context.Context) (ctrl.Result, 
 	r.PFacts.Invalidate()
 
 	return ctrl.Result{}, nil
+}
+
+// containPods will check if source pods contain target pods
+func containPods(source, target []*PodFact) bool {
+	sourcePodNames := make(map[string]any)
+	for _, sourcePod := range source {
+		sourcePodNames[sourcePod.name.Name] = struct{}{}
+	}
+	// check if all down pods can do re-ip
+	for _, targetPod := range target {
+		if _, ok := sourcePodNames[targetPod.name.Name]; !ok {
+			return false
+		}
+	}
+	return true
 }
 
 // reconcileNodes will handle a subset of the pods.  It will try to restart any
