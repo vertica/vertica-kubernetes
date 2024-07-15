@@ -223,7 +223,7 @@ OLM_TEST_CATALOG_SOURCE=e2e-test-catalog
 NAMESPACE?=verticadb-operator
 
 # The Go version that we will build the operator with
-GO_VERSION?=1.20
+GO_VERSION?=1.22.5
 GOPATH?=${HOME}/go
 TMPDIR?=$(PWD)
 HELM_UNITTEST_VERSION?=3.9.3-0.2.11
