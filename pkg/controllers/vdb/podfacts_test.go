@@ -333,12 +333,17 @@ var _ = Describe("podfacts", func() {
 		pf := MakePodFacts(vdbRec, &cmds.FakePodRunner{}, logger, TestPassword)
 		pf.Detail[types.NamespacedName{Name: "p1"}] = &PodFact{
 			dnsName: "p1", vnodeName: "node1", dbExists: true, exists: true, isPodRunning: true, isInstalled: true,
+			hasNMASidecar: true, isNMAContainerReady: true,
 		}
 		pf.Detail[types.NamespacedName{Name: "p2"}] = &PodFact{
 			dnsName: "p2", vnodeName: "node2", dbExists: false, exists: true, isPodRunning: true, isInstalled: true,
 		}
 		pf.Detail[types.NamespacedName{Name: "p3"}] = &PodFact{
 			dnsName: "p3", vnodeName: "node3", dbExists: false, exists: true, isPodRunning: true, isInstalled: false,
+		}
+		pf.Detail[types.NamespacedName{Name: "p4"}] = &PodFact{
+			dnsName: "p4", vnodeName: "node4", dbExists: true, exists: true, isPodRunning: true, isInstalled: false,
+			hasNMASidecar: true, isNMAContainerReady: false,
 		}
 		verifyReIP(&pf)
 	})
@@ -358,6 +363,37 @@ var _ = Describe("podfacts", func() {
 		vdb.Annotations["foo"] = "bar"
 		Ω(k8sClient.Update(ctx, vdb)).Should(Succeed())
 		Ω(pf.HasVerticaDBChangedSinceCollection(ctx, vdb)).Should(BeTrue())
+	})
+
+	It("should do quorum check correctly", func() {
+		pf := MakePodFacts(vdbRec, &cmds.FakePodRunner{}, logger, TestPassword)
+		pf.Detail[types.NamespacedName{Name: "p1"}] = &PodFact{
+			isPrimary: true, dbExists: true, hasDCTableAnnotations: true, isPodRunning: true, upNode: false,
+		}
+		pf.Detail[types.NamespacedName{Name: "p2"}] = &PodFact{
+			isPrimary: true, dbExists: true, hasDCTableAnnotations: true, isPodRunning: true, upNode: false,
+		}
+		pf.Detail[types.NamespacedName{Name: "p3"}] = &PodFact{
+			isPrimary: false, dbExists: true, hasDCTableAnnotations: true, isPodRunning: true, upNode: false,
+		}
+		pf.Detail[types.NamespacedName{Name: "p4"}] = &PodFact{
+			isPrimary: true, dbExists: false, hasDCTableAnnotations: true, isPodRunning: true, upNode: false,
+		}
+		pf.Detail[types.NamespacedName{Name: "p5"}] = &PodFact{
+			isPrimary: true, dbExists: false, hasDCTableAnnotations: true, isPodRunning: true, upNode: false,
+		}
+
+		// 4 primary nodes, 2 restartable primary nodes
+		result := pf.quorumCheckForRestartCluster(true)
+		Expect(result).Should(BeTrue())
+		// 5 primary nodes, 3 restartable primary nodes
+		pf.Detail[types.NamespacedName{Name: "p3"}].isPrimary = true
+		result = pf.quorumCheckForRestartCluster(true)
+		Expect(result).Should(BeTrue())
+		// 5 primary nodes, 2 restartable primary nodes
+		pf.Detail[types.NamespacedName{Name: "p3"}].dbExists = false
+		result = pf.quorumCheckForRestartCluster(true)
+		Expect(result).Should(BeFalse())
 	})
 })
 
