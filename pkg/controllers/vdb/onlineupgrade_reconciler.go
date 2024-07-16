@@ -895,23 +895,25 @@ func (r *OnlineUpgradeReconciler) genNewSubclusterStsName(newSCName string, scTo
 	}
 
 	// Preference is to match the name of the new subcluster.
-	nm := fmt.Sprintf("%s-%s", r.VDB.Name, newSCName)
+	preferredStsName := fmt.Sprintf("%s-%s", r.VDB.Name, newSCName)
+	// replace underscore to hypen for the statefulset name
+	preferredStsName = v1beta1.GenCompatibleFQDNHelper(preferredStsName)
+	if _, found := stsNameMap[preferredStsName]; !found {
+		return preferredStsName, nil
+	}
+
+	// Then try using the original name of the subcluster. This may be available
+	// if this the 2nd, 4th, etc. online upgrade. The sandbox will oscilate
+	// between the name of the subcluster in the sandbox and its original name.
+	nm := fmt.Sprintf("%s-%s", r.VDB.Name, scToMimic.Name)
 	// replace underscore to hypen for the statefulset name
 	nm = v1beta1.GenCompatibleFQDNHelper(nm)
 	if _, found := stsNameMap[nm]; !found {
 		return nm, nil
 	}
 
-	// Then try using the original name of the subcluster. This may be available
-	// if this the 2nd, 4th, etc. online upgrade. The sandbox will oscilate
-	// between the name of the subcluster in the sandbox and its original name.
-	nm = fmt.Sprintf("%s-%s", r.VDB.Name, scToMimic.Name)
-	if _, found := stsNameMap[nm]; !found {
-		return nm, nil
-	}
-
 	// Otherwise, generate a name using a uuid suffix
-	return r.genNameWithUUID(fmt.Sprintf("%s-%s", r.VDB.Name, newSCName),
+	return r.genNameWithUUID(preferredStsName,
 		func(nm string) bool { _, found := stsNameMap[nm]; return found })
 }
 
