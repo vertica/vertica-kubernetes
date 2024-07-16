@@ -566,19 +566,19 @@ jobs:
     name: Sync-vcluster-repo
     needs: e2e-udx-vcluster 
     runs-on: ubuntu-latest
-    if: success()
+    if: ${{ success() }}
     steps:
       - name: Check out
         uses: actions/checkout@v4
       - name: Run Sync script
         run: |
           echo "Running sync script"
-          scripts/vcluster-sync.sh
+          scripts/vcluster-sync.sh ${{ github.ref }}
   
   notification:
     name: team-notification
     runs-on: ubuntu-latest
-    if: always()
+    if: ${{ always() }}
     steps:
       - name: notification
         uses: jdcargile/ms-teams-notification@v1.4
