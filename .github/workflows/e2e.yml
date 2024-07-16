@@ -561,3 +561,29 @@ jobs:
           vertica-image: ${{ needs.build.outputs.full-vertica-image }}
           vertica-deployment-method: vclusterops
           communal-storage-type: s3
+  
+  sync-vcluster:
+    name: Sync-vcluster-repo
+    needs: e2e-udx-vcluster 
+    runs-on: ubuntu-latest
+    if: success()
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+      - name: Run Sync script
+        run: |
+          echo "Running sync script"
+          scripts/vcluster-sync.sh
+  
+  notification:
+    name: team-notification
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: notification
+        uses: jdcargile/ms-teams-notification@v1.4
+        with:
+          github-token: ${{ github.token }}
+          ms-teams-webhook-uri: ${{ secrets.MS_TEAMS_WEBHOOK_URI }}
+          notification-summary: ${{ github.job }} job in worflow ${{ github.workflow }} of ${{ github.repository }} has ${{ job.status }} on branch ${{ github.ref }}
+          verbose-logging: true
