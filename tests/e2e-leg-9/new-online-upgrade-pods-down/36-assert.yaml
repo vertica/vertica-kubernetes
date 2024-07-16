@@ -17,4 +17,3 @@ metadata:
   name: v-base-upgrade-main
 status:
   currentReplicas: 3
-  readyReplicas: 3
