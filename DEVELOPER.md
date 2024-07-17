@@ -22,7 +22,7 @@ This guide explains how to set up an environment to develop and test the Vertica
 Prior to developing, the following software needs to be installed manually.  There is other software that needed, but it is downloaded through make targets in the repo's bin directory.
 
 - [docker](https://docs.docker.com/get-docker/) (version 23.0)
-- [go](https://golang.org/doc/install) (version 1.20)
+- [go](https://golang.org/doc/install) (version 1.22.5)
 - [kubectl](https://kubernetes.io/docs/tasks/tools/install-kubectl/) (version 1.20.1)
 - [helm](https://helm.sh/docs/intro/install/) (version 3.5.0)
 - [kubectx](https://github.com/ahmetb/kubectx/releases/download/v0.9.1/kubectx) (version 0.9.1)
