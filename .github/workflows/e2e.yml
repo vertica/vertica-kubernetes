@@ -566,7 +566,7 @@ jobs:
     name: Sync-vcluster-repo
     needs: e2e-udx-vcluster 
     runs-on: ubuntu-latest
-    if: ${{ success() }}
+    if: ${{ success() }} && contains('k8s-sync', github.ref)
     steps:
       - name: Check out
         uses: actions/checkout@v4
