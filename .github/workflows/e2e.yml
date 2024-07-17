@@ -571,9 +571,10 @@ jobs:
       - name: Check out
         uses: actions/checkout@v4
       - name: Run Sync script
+        # TODO: change the test-master value
         run: |
           echo "Running sync script"
-          scripts/vcluster-sync.sh ${{ github.ref }}
+          scripts/vcluster-sync.sh ${{ github.ref }} test-master ${{ github.token }}
   
   notification:
     name: team-notification
