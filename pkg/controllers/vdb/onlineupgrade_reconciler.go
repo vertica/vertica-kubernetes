@@ -80,7 +80,6 @@ const (
 	addNodeInx
 	promoteSandbox
 	removeReplicaGroupA
-	lastStep
 )
 
 // OnlineUpgradeReconciler will coordinate an online upgrade that allows
