@@ -96,6 +96,7 @@ func (p *PodPollingReconciler) checkScrutinizeContainerStatus(ctx context.Contex
 	p.VRec.Eventf(p.Vscr, corev1.EventTypeNormal, events.VclusterOpsScrutinizeSucceeded,
 		"Successfully completed scrutinize run for the VerticaDB named '%s'", p.Vscr.Spec.VerticaDBName)
 	stat.TarballName = getTarballName(pod)
+	stat.LogAgeHours = getLogAgeHours(pod)
 	cond := v1.MakeCondition(v1beta1.ScrutinizeCollectionFinished, metav1.ConditionTrue, events.VclusterOpsScrutinizeSucceeded)
 	stat.State = "ScrutinizeSucceeded"
 	stat.Conditions = []metav1.Condition{*cond}
@@ -123,4 +124,31 @@ func getTarballName(pod *corev1.Pod) string {
 		return ""
 	}
 	return builder.GetTarballName(cnt.Command)
+}
+
+// getLogAgeOldestTime extracts the minimum timestamp for logs (default 24 hours ago)
+func getLogAgeOldestTime(pod *corev1.Pod) string {
+	cnt := vk8s.GetScrutinizeInitContainer(pod.Spec.InitContainers)
+	if cnt == nil {
+		return ""
+	}
+	return builder.GetLogAgeOldestTime(cnt.Command)
+}
+
+// getLogAgeNewestTime extracts the maximum timestamp for logs (default none)
+func getLogAgeNewestTime(pod *corev1.Pod) string {
+	cnt := vk8s.GetScrutinizeInitContainer(pod.Spec.InitContainers)
+	if cnt == nil {
+		return ""
+	}
+	return builder.GetLogAgeNewestTime(cnt.Command)
+}
+
+// getLogAgeHours extracts the maximum age in hours of logs (default 24 hours)
+func getLogAgeHours(pod *corev1.Pod) int {
+	cnt := vk8s.GetScrutinizeInitContainer(pod.Spec.InitContainers)
+	if cnt == nil {
+		return 0
+	}
+	return builder.GetLogAgeHours(cnt.Command)
 }
