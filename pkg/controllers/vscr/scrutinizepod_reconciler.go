@@ -17,6 +17,7 @@ package vscr
 
 import (
 	"context"
+	"strconv"
 	"strings"
 	"time"
 
@@ -85,6 +86,7 @@ func (s *ScrutinizePodReconciler) Reconcile(ctx context.Context, _ *ctrl.Request
 	if res, err := s.collectInfoFromVdb(ctx); verrors.IsReconcileAborted(res, err) {
 		return res, err
 	}
+	s.Vscr = &v1beta1.VerticaScrutinize{}
 	return ctrl.Result{}, s.createPod(ctx)
 }
 
@@ -112,7 +114,7 @@ func (s *ScrutinizePodReconciler) collectInfoFromVdb(ctx context.Context) (ctrl.
 // createPod creates the scrutinize pod
 func (s *ScrutinizePodReconciler) createPod(ctx context.Context) error {
 	s.ScrArgs.tarballName = generateScrutinizeID()
-	pod := builder.BuildScrutinizePod(s.Vscr, s.Vdb, s.ScrArgs.buildScrutinizeCmdArgs(s.Vdb))
+	pod := builder.BuildScrutinizePod(s.Vscr, s.Vdb, s.buildScrutinizeCmdArgs(s.Vdb, s.Vscr))
 	s.Log.Info("Creating scrutinize pod", "Name", s.Vscr.ExtractNamespacedName())
 	err := ctrl.SetControllerReference(s.Vscr, pod, s.VRec.Scheme)
 	if err != nil {
@@ -147,12 +149,12 @@ func (s *ScrutinizePodReconciler) getHostList(pods []corev1.Pod) []string {
 }
 
 // buildScrutinizeCmdArgs returns the arguments of vcluster scrutinize command
-func (s *ScrutinizeCmdArgs) buildScrutinizeCmdArgs(vdb *v1.VerticaDB) []string {
+func (s *ScrutinizePodReconciler) buildScrutinizeCmdArgs(vdb *v1.VerticaDB, vscr *v1beta1.VerticaScrutinize) []string {
 	cmd := []string{
-		"--db-user", s.username,
-		"--hosts", strings.Join(s.hosts, ","),
+		"--db-user", s.ScrArgs.username,
+		"--hosts", strings.Join(s.ScrArgs.hosts, ","),
 		"--log-path", paths.ScrutinizeLogFile,
-		"--tarball-name", s.tarballName,
+		"--tarball-name", s.ScrArgs.tarballName,
 	}
 	// if there is no password, we need to explicitly
 	// set the password flag with empty string as value,
@@ -164,6 +166,31 @@ func (s *ScrutinizeCmdArgs) buildScrutinizeCmdArgs(vdb *v1.VerticaDB) []string {
 		// container and have scrutinize read the password from the mounted file
 		cmd = append(cmd, "--password-file", paths.ScrutinizeDBPasswordFile)
 	}
+
+	s.Log.Info("debugging:", "logAgeHours", strconv.Itoa(vscr.Spec.LogAgeHours))
+	s.Log.Info("debugging:", "LogAgeOldestTime", vscr.Spec.LogAgeOldestTime)
+	s.Log.Info("debugging:", "LogAgeNewestTime", vscr.Spec.LogAgeNewestTime)
+
+	// --log-age-hours cannot be set alongside the *-time options,
+	// and if attempted, should issue an error indicating so.
+	if vscr.Spec.LogAgeHours != 0 && (vscr.Spec.LogAgeOldestTime != "" || vscr.Spec.LogAgeNewestTime != "") {
+		s.Log.Info("--log-age-hours cannot be set alongside the *-time options")
+		return cmd
+	}
+
+	// In order to facilitate diagnosing less recent problems,
+	// scrutinize should be able to collect an arbitrary time range of logs
+	if vscr.Spec.LogAgeHours != 0 {
+		cmd = append(cmd, "--log-age-hours", strconv.Itoa(vscr.Spec.LogAgeHours))
+	} else {
+		if vscr.Spec.LogAgeOldestTime != "" {
+			cmd = append(cmd, "--log-age-oldest-time", vscr.Spec.LogAgeOldestTime)
+		}
+		if vscr.Spec.LogAgeNewestTime != "" {
+			cmd = append(cmd, "--log-age-newest-time", vscr.Spec.LogAgeNewestTime)
+		}
+	}
+
 	return cmd
 }
 

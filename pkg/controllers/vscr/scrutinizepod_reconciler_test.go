@@ -17,6 +17,7 @@ package vscr
 
 import (
 	"context"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -97,28 +98,71 @@ var _ = Describe("scrutinizepod_reconciler", func() {
 
 	It("should append --password= or --password-file to args based on password", func() {
 		vdb := v1.MakeVDB()
+		vscr := v1beta1.MakeVscr()
+
 		scrArgs := &ScrutinizeCmdArgs{
 			hosts:       []string{"h1"},
 			username:    "dbadmin",
 			tarballName: "file.tar",
 		}
-		args := scrArgs.buildScrutinizeCmdArgs(vdb)
+
+		s := &ScrutinizePodReconciler{
+			ScrArgs: scrArgs,
+		}
+		args := s.buildScrutinizeCmdArgs(vdb, vscr)
 		Expect(len(args)).Should(Equal(9))
 		Expect(args).Should(ContainElement(ContainSubstring("--password=")))
 
 		// should not contain any password flag if the secret is not on k8s
 		vdb.Spec.PasswordSecret = "gsm://secret"
-		args = scrArgs.buildScrutinizeCmdArgs(vdb)
+		args = s.buildScrutinizeCmdArgs(vdb, vscr)
 		Expect(len(args)).Should(Equal(8))
 		Expect(args).ShouldNot(ContainElement(ContainSubstring("--password=")))
 		Expect(args).ShouldNot(ContainElement(ContainSubstring("--password-file")))
 
 		// should contain the password flag if secret is on k8s
 		vdb.Spec.PasswordSecret = "test-secret"
-		args = scrArgs.buildScrutinizeCmdArgs(vdb)
+		args = s.buildScrutinizeCmdArgs(vdb, vscr)
 		Expect(len(args)).Should(Equal(10))
 		Expect(args).ShouldNot(ContainElement(ContainSubstring("--password=")))
 		Expect(args).Should(ContainElement(ContainSubstring("--password-file")))
 		Expect(args).Should(ContainElement(ContainSubstring(paths.ScrutinizeDBPasswordFile)))
+	})
+
+	It("should append --log-age-hours, --log-age-oldest-time, or --log-age-newest-time to args", func() {
+		vdb := v1.MakeVDB()
+		vscr := v1beta1.MakeVscr()
+
+		scrArgs := &ScrutinizeCmdArgs{
+			hosts:       []string{"h1"},
+			username:    "dbadmin",
+			tarballName: "file.tar",
+		}
+
+		s := &ScrutinizePodReconciler{
+			ScrArgs: scrArgs,
+		}
+
+		const timeFmt = "2024-07-19 08" // using fixed reference time from pkg 'time'
+		currentTime := time.Now()
+		eightHoursAgo := currentTime.Add(-8 * time.Hour)
+
+		vscr.Spec.LogAgeHours = 3
+		args := s.buildScrutinizeCmdArgs(vdb, vscr)
+		Expect(len(args)).Should(Equal(10))
+		Expect(args).Should(ContainElement(ContainSubstring("--log-age-hours")))
+
+		vscr.Spec.LogAgeHours = 0
+		vscr.Spec.LogAgeOldestTime = eightHoursAgo.Format(timeFmt)
+		args = s.buildScrutinizeCmdArgs(vdb, vscr)
+		Expect(len(args)).Should(Equal(10))
+		Expect(args).ShouldNot(ContainElement(ContainSubstring("--log-age-hours")))
+		Expect(args).Should(ContainElement(ContainSubstring("--log-age-oldest-time")))
+
+		vscr.Spec.LogAgeNewestTime = currentTime.Format(timeFmt)
+		args = s.buildScrutinizeCmdArgs(vdb, vscr)
+		Expect(len(args)).Should(Equal(10))
+		Expect(args).ShouldNot(ContainElement(ContainSubstring("--log-age-hours")))
+		Expect(args).Should(ContainElement(ContainSubstring("--log-age-newest-time")))
 	})
 })
