@@ -29,10 +29,7 @@ import (
 	"go.uber.org/zap"
 )
 
-const (
-	ConfigArg = iota
-	NumPositionalArgs
-)
+const configPath = "/tmp/local-soak.cfg"
 
 const configDir = "/tmp"
 
@@ -70,26 +67,18 @@ func main() {
 		"The relative directory to the output directory where the repository scripts directory is located.")
 	flag.Parse()
 
-	if flag.NArg() < NumPositionalArgs {
-		fmt.Println("Not enough positional arguments.")
-		flag.Usage()
-		os.Exit(1)
-	}
-
-	configFileName := flag.Arg(ConfigArg)
-	configPath := fmt.Sprintf("%s/%s", configDir, configFileName)
 	if !filepath.IsAbs(configPath) {
 		fmt.Printf("'%s' is not an absolute path", configPath)
 		os.Exit(1)
 	}
 	configRaw, err := os.ReadFile(configPath)
 	if err != nil {
-		fmt.Printf("Failed to read config file %s: %s", configFileName, err.Error())
+		fmt.Printf("Failed to read config file %s: %s", configPath, err.Error())
 		os.Exit(1)
 	}
 	var config kstepgen.Config
 	if err := yaml.Unmarshal(configRaw, &config); err != nil {
-		fmt.Printf("Failed to parse config file %s: %s", configFileName, err.Error())
+		fmt.Printf("Failed to parse config file %s: %s", configPath, err.Error())
 		os.Exit(1)
 	}
 
