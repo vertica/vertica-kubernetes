@@ -83,6 +83,7 @@ var _ = Describe("onlineupgrade_reconciler", func() {
 		Ω(k8sClient.Update(ctx, vdb)).Should(Succeed())
 
 		rr := createOnlineUpgradeReconciler(ctx, vdb)
+		Ω(rr.assignSubclustersToReplicaGroupA(ctx)).Should(Equal(ctrl.Result{}))
 		Ω(rr.assignSubclustersToReplicaGroupB(ctx)).Should(Equal(ctrl.Result{}))
 
 		Ω(k8sClient.Get(ctx, vdb.ExtractNamespacedName(), vdb)).Should(Succeed())
@@ -130,6 +131,7 @@ var _ = Describe("onlineupgrade_reconciler", func() {
 		Ω(k8sClient.Update(ctx, vdb)).Should(Succeed())
 
 		rr := createOnlineUpgradeReconciler(ctx, vdb)
+		Ω(rr.assignSubclustersToReplicaGroupA(ctx)).Should(Equal(ctrl.Result{}))
 		Ω(rr.assignSubclustersToReplicaGroupB(ctx)).Should(Equal(ctrl.Result{}))
 
 		Ω(k8sClient.Get(ctx, vdb.ExtractNamespacedName(), vdb)).Should(Succeed())
@@ -159,6 +161,7 @@ var _ = Describe("onlineupgrade_reconciler", func() {
 		Ω(k8sClient.Update(ctx, vdb)).Should(Succeed())
 
 		rr := createOnlineUpgradeReconciler(ctx, vdb)
+		Ω(rr.assignSubclustersToReplicaGroupA(ctx)).Should(Equal(ctrl.Result{}))
 		Ω(rr.assignSubclustersToReplicaGroupB(ctx)).Should(Equal(ctrl.Result{}))
 		Ω(rr.sandboxReplicaGroupB(ctx)).Should(Equal(ctrl.Result{}))
 
@@ -204,6 +207,7 @@ var _ = Describe("onlineupgrade_reconciler", func() {
 		Ω(k8sClient.Update(ctx, vdb)).Should(Succeed())
 
 		rr := createOnlineUpgradeReconciler(ctx, vdb)
+		Ω(rr.assignSubclustersToReplicaGroupA(ctx)).Should(Equal(ctrl.Result{}))
 		Ω(rr.assignSubclustersToReplicaGroupB(ctx)).Should(Equal(ctrl.Result{}))
 		Ω(rr.sandboxReplicaGroupB(ctx)).Should(Equal(ctrl.Result{}))
 
@@ -237,6 +241,7 @@ var _ = Describe("onlineupgrade_reconciler", func() {
 		Ω(k8sClient.Update(ctx, vdb)).Should(Succeed())
 
 		rr := createOnlineUpgradeReconciler(ctx, vdb)
+		Ω(rr.assignSubclustersToReplicaGroupA(ctx)).Should(Equal(ctrl.Result{}))
 		Ω(rr.assignSubclustersToReplicaGroupB(ctx)).Should(Equal(ctrl.Result{}))
 		Ω(rr.sandboxReplicaGroupB(ctx)).Should(Equal(ctrl.Result{}))
 
@@ -259,6 +264,7 @@ var _ = Describe("onlineupgrade_reconciler", func() {
 		Ω(k8sClient.Update(ctx, vdb)).Should(Succeed())
 
 		rr := createOnlineUpgradeReconciler(ctx, vdb)
+		Ω(rr.assignSubclustersToReplicaGroupA(ctx)).Should(Equal(ctrl.Result{}))
 		Ω(rr.assignSubclustersToReplicaGroupB(ctx)).Should(Equal(ctrl.Result{}))
 		Ω(rr.sandboxReplicaGroupB(ctx)).Should(Equal(ctrl.Result{}))
 		mockCompletionOfSandbox(ctx, vdb)
@@ -302,6 +308,7 @@ var _ = Describe("onlineupgrade_reconciler", func() {
 		Ω(k8sClient.Update(ctx, vdb)).Should(Succeed())
 
 		rr := createOnlineUpgradeReconciler(ctx, vdb)
+		Ω(rr.assignSubclustersToReplicaGroupA(ctx)).Should(Equal(ctrl.Result{}))
 		Ω(rr.assignSubclustersToReplicaGroupB(ctx)).Should(Equal(ctrl.Result{}))
 		Ω(rr.sandboxReplicaGroupB(ctx)).Should(Equal(ctrl.Result{}))
 		Ω(rr.startReplicationToReplicaGroupB(ctx)).Should(Equal(ctrl.Result{}))
