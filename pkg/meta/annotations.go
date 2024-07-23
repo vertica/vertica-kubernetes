@@ -266,12 +266,6 @@ const (
 	// This is the name of the VerticaReplicator that is generated during a online upgrade
 	OnlineUpgradeReplicatorAnnotation = "vertica.com/online-upgrade-replicator-name"
 
-	// During online upgrade, we store an annotation in the VerticaDB to indicate
-	// that we have done sandbox promotion.
-	OnlineUpgradeSandboxPromotedAnnotation = "vertica.com/online-upgrade-sandbox-promoted"
-	SandboxPromotedTrue                    = "true"
-	SandboxPromotedFalse                   = "false"
-
 	// During online upgrade, this annotation store some steps that we have
 	// already passed. This will allow us to skip them.
 	OnlineUpgradeStepInxAnnotation = "vertica.com/online-upgrade-step-index"
@@ -528,11 +522,6 @@ func GenScrutinizeMainContainerResourcesAnnotationName(resourceName corev1.Resou
 // GetOnlineUpgradeSandbox returns the name of the sandbox used for online upgrade.
 func GetOnlineUpgradeSandbox(annotations map[string]string) string {
 	return lookupStringAnnotation(annotations, OnlineUpgradeSandboxAnnotation, "")
-}
-
-// GetOnlineUpgradeSandboxPromoted returns if sandbox has been promoted in online upgrade.
-func GetOnlineUpgradeSandboxPromoted(annotations map[string]string) string {
-	return lookupStringAnnotation(annotations, OnlineUpgradeSandboxPromotedAnnotation, SandboxPromotedFalse)
 }
 
 // GetOnlineUpgradeStepInx returns the online upgrade step we are in.
