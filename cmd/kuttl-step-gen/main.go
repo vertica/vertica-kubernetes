@@ -31,8 +31,6 @@ import (
 
 const configPath = "/tmp/local-soak.cfg"
 
-const configDir = "/tmp"
-
 func setupLog() logr.Logger {
 	cfg := zap.Config{
 		Level:       zap.NewAtomicLevelAt(zap.InfoLevel),
