@@ -86,7 +86,12 @@ func (s *ScrutinizePodReconciler) Reconcile(ctx context.Context, _ *ctrl.Request
 	if res, err := s.collectInfoFromVdb(ctx); verrors.IsReconcileAborted(res, err) {
 		return res, err
 	}
-	s.Vscr = &v1beta1.VerticaScrutinize{}
+
+	s.Log.Info("debugging:", "VerticaDBName", s.Vscr.Spec.VerticaDBName)
+	s.Log.Info("debugging:", "logAgeHours", strconv.Itoa(s.Vscr.Spec.LogAgeHours))
+	s.Log.Info("debugging:", "LogAgeOldestTime", s.Vscr.Spec.LogAgeOldestTime)
+	s.Log.Info("debugging:", "LogAgeNewestTime", s.Vscr.Spec.LogAgeNewestTime)
+
 	return ctrl.Result{}, s.createPod(ctx)
 }
 
@@ -156,20 +161,6 @@ func (s *ScrutinizePodReconciler) buildScrutinizeCmdArgs(vdb *v1.VerticaDB, vscr
 		"--log-path", paths.ScrutinizeLogFile,
 		"--tarball-name", s.ScrArgs.tarballName,
 	}
-	// if there is no password, we need to explicitly
-	// set the password flag with empty string as value,
-	// to still assume password as the authentication method
-	if vdb.Spec.PasswordSecret == "" {
-		cmd = append(cmd, "--password=")
-	} else if secrets.IsK8sSecret(vdb.Spec.PasswordSecret) {
-		// when the password secret is on k8s, we mount it into the
-		// container and have scrutinize read the password from the mounted file
-		cmd = append(cmd, "--password-file", paths.ScrutinizeDBPasswordFile)
-	}
-
-	s.Log.Info("debugging:", "logAgeHours", strconv.Itoa(vscr.Spec.LogAgeHours))
-	s.Log.Info("debugging:", "LogAgeOldestTime", vscr.Spec.LogAgeOldestTime)
-	s.Log.Info("debugging:", "LogAgeNewestTime", vscr.Spec.LogAgeNewestTime)
 
 	// --log-age-hours cannot be set alongside the *-time options,
 	// and if attempted, should issue an error indicating so.
@@ -189,6 +180,17 @@ func (s *ScrutinizePodReconciler) buildScrutinizeCmdArgs(vdb *v1.VerticaDB, vscr
 		if vscr.Spec.LogAgeNewestTime != "" {
 			cmd = append(cmd, "--log-age-newest-time", vscr.Spec.LogAgeNewestTime)
 		}
+	}
+
+	// if there is no password, we need to explicitly
+	// set the password flag with empty string as value,
+	// to still assume password as the authentication method
+	if vdb.Spec.PasswordSecret == "" {
+		cmd = append(cmd, "--password=")
+	} else if secrets.IsK8sSecret(vdb.Spec.PasswordSecret) {
+		// when the password secret is on k8s, we mount it into the
+		// container and have scrutinize read the password from the mounted file
+		cmd = append(cmd, "--password-file", paths.ScrutinizeDBPasswordFile)
 	}
 
 	return cmd
