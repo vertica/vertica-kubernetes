@@ -625,6 +625,18 @@ func (r *OnlineUpgradeReconciler) waitForReplicateToReplicaGroupB(ctx context.Co
 		return ctrl.Result{Requeue: true}, nil
 	}
 
+	cond := vrep.FindStatusCondition(v1beta1.ReplicationComplete)
+	if cond == nil || (cond != nil && cond.Status != metav1.ConditionTrue) {
+		r.Log.Info("Requeue replication is not finished", "vrepName", vrepName)
+		return ctrl.Result{Requeue: true}, nil
+	}
+
+	succeeded := cond.Reason == v1beta1.ReasonSucceeded
+	if succeeded {
+		r.Log.Info("Replication is completed", "vrepName", vrepName)
+	} else {
+		r.Log.Info("Replication has failed", "vrepName", vrepName)
+	}
 	r.Log.Info("Replication is completed", "vrepName", vrepName)
 	// Delete the VerticaReplicator. We leave the annotation present in the
 	// VerticaDB so that we skip these steps until the upgrade is finished.
@@ -649,41 +661,25 @@ func (r *OnlineUpgradeReconciler) redirectConnectionsToReplicaGroupB(ctx context
 		return ctrl.Result{}, nil
 	}
 
+	sbPFacts, err := r.getSandboxPodFacts(ctx, true)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
 	// In lieu of the redirect, we are simply going to update the service object
 	// to map to nodes in replica group B. There is no state to check to avoid
 	// this function. The updates themselves are idempotent and will simply be
 	// no-op if already done.
+	// Routing is easy since the sandbox is a copy of the main cluster.
 	//
-	// Routing is easy for any primary subcluster since there is a duplicate
-	// subcluster in replica group B. For secondaries, it is trickier. We need
-	// to choose one of the subclusters created from replica group A's primary.
-	// We will do a simple round robin for those ones.
-	repAScNames := r.VDB.GetSubclustersForReplicaGroup(vmeta.ReplicaGroupAValue)
+	// Add the client routing labels to pods in the target subcluster. This
+	// ensures the service object can reach them.  We use the podfacts for the
+	// sandbox as we will always route to pods in the sandbox.
+	actor := MakeClientRoutingLabelReconciler(r.VRec, r.Log, r.VDB, sbPFacts,
+		AddNodeApplyMethod, "")
+	r.Manager.traceActorReconcile(actor)
 
-	scMap := r.VDB.GenSubclusterMap()
-	for _, scName := range repAScNames {
-		sourceSc, found := scMap[scName]
-		if !found {
-			return ctrl.Result{}, fmt.Errorf("could not find subcluster %q in vdb", scName)
-		}
-
-		var targetScName string
-		targetScName, found = sourceSc.Annotations[vmeta.ChildSubclusterAnnotation]
-		if !found {
-			return ctrl.Result{}, fmt.Errorf("could not find the %q annotation for the subcluster %q",
-				vmeta.ChildSubclusterAnnotation, scName)
-		}
-		targetSc, found := scMap[targetScName]
-		if !found {
-			return ctrl.Result{}, fmt.Errorf("could not find subcluster %q in vdb", targetScName)
-		}
-
-		res, err := r.redirectConnectionsForSubcluster(ctx, sourceSc, targetSc)
-		if verrors.IsReconcileAborted(res, err) {
-			return res, err
-		}
-	}
-	return ctrl.Result{}, nil
+	return actor.Reconcile(ctx, &ctrl.Request{})
 }
 
 // postPromoteSandboxMsg will update the status message to indicate that
@@ -765,9 +761,15 @@ func (r *OnlineUpgradeReconciler) addNewSubclusters() (bool, error) {
 	scMap := r.VDB.GenSubclusterMap()
 	scSbMap := r.VDB.GenSubclusterSandboxMap()
 	scsByType := []vapi.Subcluster{}
-	scsByType = append(scsByType, r.VDB.Spec.Subclusters...)
+	for _, scName := range r.VDB.GetSubclustersForReplicaGroup(vmeta.ReplicaGroupAValue) {
+		sc := scMap[scName]
+		if sc == nil {
+			return false, errors.New("Could not find some replica group a subclusters")
+		}
+		scsByType = append(scsByType, *sc)
+	}
 	// This will ensure that the primary of the sandbox is a copy
-	// of a primary of the main cluster so we wo't need to promote it
+	// of a primary of the main cluster so we won't need to promote it
 	sort.Slice(scsByType, func(i, j int) bool {
 		return scsByType[i].Type < scsByType[j].Type
 	})
@@ -806,8 +808,14 @@ func (r *OnlineUpgradeReconciler) addNewSubclusters() (bool, error) {
 // the vdb for an update.
 func (r *OnlineUpgradeReconciler) assignSubclustersToReplicaGroupACallback() (bool, error) {
 	annotatedAtLeastOnce := false
+	scSbMap := r.VDB.GenSubclusterSandboxStatusMap()
 	for inx := range r.VDB.Spec.Subclusters {
 		sc := &r.VDB.Spec.Subclusters[inx]
+		// subclusters already in a sandbox must not be part of
+		// replica group A.
+		if _, found := scSbMap[sc.Name]; found {
+			continue
+		}
 		if val, found := sc.Annotations[vmeta.ReplicaGroupAnnotation]; !found ||
 			(val != vmeta.ReplicaGroupAValue && val != vmeta.ReplicaGroupBValue) {
 			if sc.Annotations == nil {
@@ -1039,30 +1047,6 @@ func (r *OnlineUpgradeReconciler) duplicateSubclusterForReplicaGroupB(
 	}
 	baseSc.Annotations[vmeta.ChildSubclusterAnnotation] = newSc.Name
 	return newSc
-}
-
-// redirectConnectionsForSubcluster will update the service object so that
-// connections for one subcluster get routed to another one. This will also set
-// the client-routing label in the pod so that it can accept traffic.
-func (r *OnlineUpgradeReconciler) redirectConnectionsForSubcluster(ctx context.Context, sourceSc, targetSc *vapi.Subcluster) (
-	ctrl.Result, error) {
-	r.Log.Info("Redirecting client connections", "source", sourceSc.Name, "target", targetSc.Name)
-	if r.sandboxName == "" {
-		return ctrl.Result{}, errors.New("sandbox name not cached")
-	}
-
-	sbPFacts, err := r.getSandboxPodFacts(ctx, true)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-
-	// Add the client routing labels to pods in the target subcluster. This
-	// ensures the service object can reach them.  We use the podfacts for the
-	// sandbox as we will always route to pods in the sandbox.
-	actor := MakeClientRoutingLabelReconciler(r.VRec, r.Log, r.VDB, sbPFacts,
-		AddNodeApplyMethod, targetSc.Name)
-	r.Manager.traceActorReconcile(actor)
-	return actor.Reconcile(ctx, &ctrl.Request{})
 }
 
 // postNextStatusMsg will set the next status message for a online upgrade
