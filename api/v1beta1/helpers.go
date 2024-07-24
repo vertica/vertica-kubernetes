@@ -18,6 +18,8 @@ package v1beta1
 
 import (
 	"regexp"
+	"strconv"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -116,6 +118,18 @@ func (vscr *VerticaScrutinize) CopyAnnotations() map[string]string {
 		annotations[k] = v
 	}
 	return annotations
+}
+
+// logAgeOldestTime and logAgeNewestTime should be formatted as: YYYY-MM-DD HH [+/-XX],
+// where [] is optional and +X represents X hours ahead of UTC.
+func (vscr *VerticaScrutinize) GenerateLogAgeTime(hourOffset time.Duration, timeZone string) string {
+	timeOffset := time.Now().Add(hourOffset * time.Hour)
+	timeOffsetFormatted := timeOffset.Format("2006-01-02") + " " + strconv.Itoa(timeOffset.Hour())
+
+	if timeZone != "" {
+		timeOffsetFormatted = timeOffsetFormatted + " " + timeZone
+	}
+	return timeOffsetFormatted
 }
 
 // FindStatusCondition finds the conditionType in conditions.
