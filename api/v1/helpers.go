@@ -567,7 +567,10 @@ func (v *VerticaDB) GetUpgradePolicyToUse() UpgradePolicyType {
 		const ceLicenseLimit = 3
 		if vinf.IsEqualOrNewer(OnlineUpgradeVersion) &&
 			!v.IsKSafety0() &&
-			(v.getNumberOfNodes() > ceLicenseLimit || v.Spec.LicenseSecret != "") {
+			(v.getNumberOfNodes() > ceLicenseLimit || v.Spec.LicenseSecret != "") &&
+			// online upgrade is not allowed if a there is already a sandbox
+			// in vertica
+			len(v.Status.Sandboxes) == 0 {
 			return OnlineUpgrade
 		} else if vinf.IsEqualOrNewer(ReadOnlyOnlineUpgradeVersion) {
 			return ReadOnlyOnlineUpgrade
