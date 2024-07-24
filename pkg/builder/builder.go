@@ -20,7 +20,6 @@ import (
 	"path/filepath"
 	"regexp"
 	"sort"
-	"strconv"
 	"strings"
 
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
@@ -91,11 +90,6 @@ const (
 	// The path to the scrutinize tarball
 	scrutinizeTarball = "SCRUTINIZE_TARBALL"
 	passwordMountName = "password"
-
-	// The parameters to collect an arbitrary time range of logs
-	logAgeNewestTime = "None"
-	logAgeOldestTime = "LOG_AGE_OLDEST_TIME"
-	logAgeHours      = "24"
 )
 
 // BuildExtSvc creates desired spec for the external service.
@@ -1661,37 +1655,4 @@ func GetTarballName(cmd []string) string {
 		}
 	}
 	return ""
-}
-
-// GetLogAgeOldestTime extracts the minimum timestamp for logs from scutinize command
-func GetLogAgeOldestTime(cmd []string) string {
-	for i := range cmd {
-		if cmd[i] == "--log-age-oldest-time" && i < len(cmd)-1 {
-			return cmd[i+1]
-		}
-	}
-	return ""
-}
-
-// GetLogAgeNewestTime extracts the maximum timestamp for logs from scutinize command
-func GetLogAgeNewestTime(cmd []string) string {
-	for i := range cmd {
-		if cmd[i] == "--log-age-newest-time" && i < len(cmd)-1 {
-			return cmd[i+1]
-		}
-	}
-	return ""
-}
-
-// GetLogAgeHours extracts the maximum hours of logs from scutinize command
-func GetLogAgeHours(cmd []string) int {
-	for i := range cmd {
-		if cmd[i] == "--log-age-hours" && i < len(cmd)-1 {
-			hr, er := strconv.Atoi(cmd[i+1])
-			if er != nil {
-				return hr
-			}
-		}
-	}
-	return 0
 }
