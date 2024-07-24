@@ -160,6 +160,18 @@ func (vrpq *VerticaRestorePointsQuery) IsStatusConditionPresent(statusCondition 
 	return meta.FindStatusCondition(vrpq.Status.Conditions, statusCondition) != nil
 }
 
+func (vrep *VerticaReplicator) IsStatusConditionTrue(statusCondition string) bool {
+	return meta.IsStatusConditionTrue(vrep.Status.Conditions, statusCondition)
+}
+
+func (vrep *VerticaReplicator) IsStatusConditionFalse(statusCondition string) bool {
+	return meta.IsStatusConditionFalse(vrep.Status.Conditions, statusCondition)
+}
+
+func (vrep *VerticaReplicator) IsStatusConditionPresent(statusCondition string) bool {
+	return meta.FindStatusCondition(vrep.Status.Conditions, statusCondition) != nil
+}
+
 func MakeSampleVrpqName() types.NamespacedName {
 	return types.NamespacedName{Name: "vrpq-sample", Namespace: "default"}
 }
