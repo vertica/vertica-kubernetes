@@ -146,7 +146,7 @@ func (vscr *VerticaScrutinize) ValidateTime(allErrs field.ErrorList) field.Error
 	for _, LogAgeTime := range logAgeArr {
 		if LogAgeTime != "" {
 			// to match pattern: YYYY-MM-DD HH [+/-XX]
-			var re = regexp.MustCompile(`^(\d{4}-\d{2}-\d{2} \d{1,2}) ?(\+|\-)?(?:\d{2})$`)
+			var re = regexp.MustCompile(`^(\d{4}-\d{2}-\d{2} \d{1,2}) ?(?:\+|\-)?(?:\d{2})?$`)
 			matches := re.FindAllStringSubmatch(LogAgeTime, -1)
 
 			if matches == nil {

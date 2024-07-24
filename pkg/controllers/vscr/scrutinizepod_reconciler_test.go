@@ -17,7 +17,6 @@ package vscr
 
 import (
 	"context"
-	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -129,7 +128,7 @@ var _ = Describe("scrutinizepod_reconciler", func() {
 		Expect(args).Should(ContainElement(ContainSubstring(paths.ScrutinizeDBPasswordFile)))
 	})
 
-	It("should append --log-age-hours, --log-age-oldest-time, or --log-age-newest-time to args", func() {
+	It("should append either --log-age-oldest-time, --log-age-newest-time or --log-age-hours to args", func() {
 		vdb := v1.MakeVDB()
 		vscr := v1beta1.MakeVscr()
 
@@ -143,28 +142,19 @@ var _ = Describe("scrutinizepod_reconciler", func() {
 			ScrArgs: scrArgs,
 		}
 
-		const timeFmt = "2024-07-19 08:30:00"
-		currentTime := time.Now()
-		eightHoursAgo := currentTime.Add(-8 * time.Hour)
-
-		logAgeOldestTime := time.Now().Add(-8 * time.Hour).Format(timeFmt)
-		logAgeNewestTime := time.Now().Add(+8 * time.Hour).Format(timeFmt)
-		vscr.Spec.LogAgeOldestTime = logAgeOldestTime[:len(logAgeOldestTime)-6] + " -05"
-		vscr.Spec.LogAgeNewestTime = logAgeNewestTime[:len(logAgeNewestTime)-6] + " +08"
-
 		vscr.Spec.LogAgeHours = 8
 		args := s.buildScrutinizeCmdArgs(vdb, vscr)
 		Expect(len(args)).Should(Equal(11))
 		Expect(args).Should(ContainElement(ContainSubstring("--log-age-hours")))
 
-		vscr.Spec.LogAgeHours = 0
-		vscr.Spec.LogAgeOldestTime = eightHoursAgo.Format(timeFmt)
+		vscr.Spec.LogAgeOldestTime = vscr.GenerateLogAgeTime(-8, "-05")
+		vscr.Spec.LogAgeNewestTime = vscr.GenerateLogAgeTime(24, "")
 		args = s.buildScrutinizeCmdArgs(vdb, vscr)
-		Expect(len(args)).Should(Equal(11))
+		Expect(len(args)).Should(Equal(9))
 		Expect(args).ShouldNot(ContainElement(ContainSubstring("--log-age-hours")))
 		Expect(args).Should(ContainElement(ContainSubstring("--log-age-oldest-time")))
 
-		vscr.Spec.LogAgeNewestTime = currentTime.Format(timeFmt)
+		vscr.Spec.LogAgeHours = 0
 		args = s.buildScrutinizeCmdArgs(vdb, vscr)
 		Expect(len(args)).Should(Equal(13))
 		Expect(args).ShouldNot(ContainElement(ContainSubstring("--log-age-hours")))

@@ -22,10 +22,6 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-const (
-	timeFmt = "2024-07-19 08:30:00"
-)
-
 var _ = Describe("verticascrutinize_webhook", func() {
 	It("should succeed with no log age times", func() {
 		vscr := MakeVscr()
@@ -42,10 +38,8 @@ var _ = Describe("verticascrutinize_webhook", func() {
 
 	It("should succeed with valid LogAgeOldestTime and LogAgeNewestTime", func() {
 		vscr := MakeVscr()
-		logAgeOldestTime := time.Now().Add(-8 * time.Hour).Format(timeFmt)
-		logAgeNewestTime := time.Now().Add(+8 * time.Hour).Format(timeFmt)
-		vscr.Spec.LogAgeOldestTime = logAgeOldestTime[:len(logAgeOldestTime)-6] + " -05"
-		vscr.Spec.LogAgeNewestTime = logAgeNewestTime[:len(logAgeNewestTime)-6] + " +08"
+		vscr.Spec.LogAgeOldestTime = vscr.GenerateLogAgeTime(-8, "-05")
+		vscr.Spec.LogAgeNewestTime = vscr.GenerateLogAgeTime(24, "")
 		Expect(vscr.ValidateCreate()).Should(Succeed())
 		Expect(vscr.ValidateUpdate(vscr)).Should(Succeed())
 	})
@@ -53,8 +47,8 @@ var _ = Describe("verticascrutinize_webhook", func() {
 	It("should fail if set LogAgeHours together with LogAgeOldestTime or LogAgeNewestTime", func() {
 		vscr := MakeVscr()
 		vscr.Spec.LogAgeHours = 8
-		vscr.Spec.LogAgeOldestTime = time.Now().Add(-8 * time.Hour).Format(timeFmt)
-		vscr.Spec.LogAgeNewestTime = time.Now().Add(+8 * time.Hour).Format(timeFmt)
+		vscr.Spec.LogAgeOldestTime = vscr.GenerateLogAgeTime(-8, "-05")
+		vscr.Spec.LogAgeNewestTime = vscr.GenerateLogAgeTime(24, "+08")
 		err := vscr.ValidateCreate()
 		Expect(err.Error()).To(ContainSubstring("logAgeHours cannot be set alongside logAgeOldestTime and logAgeNewestTime"))
 	})
@@ -68,26 +62,28 @@ var _ = Describe("verticascrutinize_webhook", func() {
 
 	It("should fail if LogAgeOldestTime is after current time", func() {
 		vscr := MakeVscr()
-		vscr.Spec.LogAgeOldestTime = time.Now().Add(+8 * time.Hour).Format(timeFmt)
+		vscr.Spec.LogAgeOldestTime = vscr.GenerateLogAgeTime(22, "+08")
 		err := vscr.ValidateCreate()
 		Expect(err.Error()).To(ContainSubstring("logAgeOldestTime cannot be set after current time"))
 	})
 
 	It("should fail if LogAgeNewestTime is before LogAgeOldestTime", func() {
 		vscr := MakeVscr()
-		vscr.Spec.LogAgeOldestTime = time.Now().Add(-4 * time.Hour).Format(timeFmt)
-		vscr.Spec.LogAgeNewestTime = time.Now().Add(-8 * time.Hour).Format(timeFmt)
+		vscr.Spec.LogAgeOldestTime = vscr.GenerateLogAgeTime(-4, "-05")
+		vscr.Spec.LogAgeNewestTime = vscr.GenerateLogAgeTime(-24, "-05")
 		err := vscr.ValidateCreate()
 		Expect(err.Error()).To(ContainSubstring("logAgeNewestTime cannot be set before logAgeOldestTime"))
 	})
 
+	// generate a time in RFC1123 format, for example: "Mon, 02 Jan 2006 15:04:05 MST"
 	It("should fail if LogAgeOldestTime is in wrong format", func() {
 		vscr := MakeVscr()
-		vscr.Spec.LogAgeOldestTime = time.Now().Add(-4 * time.Hour).String()
+		vscr.Spec.LogAgeOldestTime = time.Now().AddDate(0, 0, -1).Format(time.RFC1123)
 		err := vscr.ValidateCreate()
 		Expect(err.Error()).To(ContainSubstring("should be formatted as: YYYY-MM-DD HH [+/-XX]"))
 	})
 
+	// test with regular string
 	It("should fail if LogAgeNewestTime is in wrong format", func() {
 		vscr := MakeVscr()
 		vscr.Spec.LogAgeNewestTime = "invalid time format"
@@ -96,4 +92,3 @@ var _ = Describe("verticascrutinize_webhook", func() {
 	})
 
 })
-
