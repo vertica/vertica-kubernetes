@@ -143,25 +143,30 @@ var _ = Describe("scrutinizepod_reconciler", func() {
 			ScrArgs: scrArgs,
 		}
 
-		const timeFmt = "2024-07-19 08" // using fixed reference time from pkg 'time'
+		const timeFmt = "2024-07-19 08:30:00"
 		currentTime := time.Now()
 		eightHoursAgo := currentTime.Add(-8 * time.Hour)
 
-		vscr.Spec.LogAgeHours = 3
+		logAgeOldestTime := time.Now().Add(-8 * time.Hour).Format(timeFmt)
+		logAgeNewestTime := time.Now().Add(+8 * time.Hour).Format(timeFmt)
+		vscr.Spec.LogAgeOldestTime = logAgeOldestTime[:len(logAgeOldestTime)-6] + " -05"
+		vscr.Spec.LogAgeNewestTime = logAgeNewestTime[:len(logAgeNewestTime)-6] + " +08"
+
+		vscr.Spec.LogAgeHours = 8
 		args := s.buildScrutinizeCmdArgs(vdb, vscr)
-		Expect(len(args)).Should(Equal(10))
+		Expect(len(args)).Should(Equal(11))
 		Expect(args).Should(ContainElement(ContainSubstring("--log-age-hours")))
 
 		vscr.Spec.LogAgeHours = 0
 		vscr.Spec.LogAgeOldestTime = eightHoursAgo.Format(timeFmt)
 		args = s.buildScrutinizeCmdArgs(vdb, vscr)
-		Expect(len(args)).Should(Equal(10))
+		Expect(len(args)).Should(Equal(11))
 		Expect(args).ShouldNot(ContainElement(ContainSubstring("--log-age-hours")))
 		Expect(args).Should(ContainElement(ContainSubstring("--log-age-oldest-time")))
 
 		vscr.Spec.LogAgeNewestTime = currentTime.Format(timeFmt)
 		args = s.buildScrutinizeCmdArgs(vdb, vscr)
-		Expect(len(args)).Should(Equal(10))
+		Expect(len(args)).Should(Equal(13))
 		Expect(args).ShouldNot(ContainElement(ContainSubstring("--log-age-hours")))
 		Expect(args).Should(ContainElement(ContainSubstring("--log-age-newest-time")))
 	})
