@@ -87,11 +87,6 @@ func (s *ScrutinizePodReconciler) Reconcile(ctx context.Context, _ *ctrl.Request
 		return res, err
 	}
 
-	s.Log.Info("debugging:", "VerticaDBName", s.Vscr.Spec.VerticaDBName)
-	s.Log.Info("debugging:", "logAgeHours", strconv.Itoa(s.Vscr.Spec.LogAgeHours))
-	s.Log.Info("debugging:", "LogAgeOldestTime", s.Vscr.Spec.LogAgeOldestTime)
-	s.Log.Info("debugging:", "LogAgeNewestTime", s.Vscr.Spec.LogAgeNewestTime)
-
 	return ctrl.Result{}, s.createPod(ctx)
 }
 
