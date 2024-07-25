@@ -128,7 +128,7 @@ var _ = Describe("scrutinizepod_reconciler", func() {
 		Expect(args).Should(ContainElement(ContainSubstring(paths.ScrutinizeDBPasswordFile)))
 	})
 
-	It("should append either --log-age-oldest-time, --log-age-newest-time or --log-age-hours to args", func() {
+	It("should append either --log-age-hours or --log-age-*-time to args", func() {
 		vdb := v1.MakeVDB()
 		vscr := v1beta1.MakeVscr()
 
