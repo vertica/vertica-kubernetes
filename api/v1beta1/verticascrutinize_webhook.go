@@ -108,10 +108,7 @@ func (vscr *VerticaScrutinize) ValidateLogAge(allErrs field.ErrorList) field.Err
 		logAgeOldestTime := twentyFourHoursAgo
 
 		if vscr.Spec.LogAgeOldestTime != "" {
-			logAgeOldestTime, _ = time.Parse(
-				time.RFC1123,
-				vscr.Spec.LogAgeOldestTime,
-			)
+			logAgeOldestTime = vscr.ParseLogAgeTime(vscr.Spec.LogAgeOldestTime)
 			if logAgeOldestTime.After(currentTime) {
 				err := field.Invalid(field.NewPath("Spec").Child("LogAgeOldestTime"),
 					vscr.Spec.LogAgeOldestTime,
@@ -122,10 +119,7 @@ func (vscr *VerticaScrutinize) ValidateLogAge(allErrs field.ErrorList) field.Err
 		}
 
 		if vscr.Spec.LogAgeNewestTime != "" {
-			logAgeNewestTime, _ := time.Parse(
-				time.RFC1123,
-				vscr.Spec.LogAgeNewestTime,
-			)
+			logAgeNewestTime := vscr.ParseLogAgeTime(vscr.Spec.LogAgeNewestTime)
 			if logAgeNewestTime.Before(logAgeOldestTime) {
 				err := field.Invalid(field.NewPath("Spec").Child("LogAgeNewestTime"),
 					vscr.Spec.LogAgeNewestTime,
