@@ -142,22 +142,26 @@ var _ = Describe("scrutinizepod_reconciler", func() {
 			ScrArgs: scrArgs,
 		}
 
+		// --log-age-hours added
 		vscr.Spec.LogAgeHours = 8
 		args := s.buildScrutinizeCmdArgs(vdb, vscr)
 		Expect(len(args)).Should(Equal(11))
 		Expect(args).Should(ContainElement(ContainSubstring("--log-age-hours")))
 
+		// no --log-age-* added as all three are not empty
 		vscr.Spec.LogAgeOldestTime = vscr.GenerateLogAgeTime(-8, "-05")
 		vscr.Spec.LogAgeNewestTime = vscr.GenerateLogAgeTime(24, "")
 		args = s.buildScrutinizeCmdArgs(vdb, vscr)
-		Expect(len(args)).Should(Equal(9))
+		Expect(len(args)).Should(Equal(8))
 		Expect(args).ShouldNot(ContainElement(ContainSubstring("--log-age-hours")))
-		Expect(args).Should(ContainElement(ContainSubstring("--log-age-oldest-time")))
+		Expect(args).ShouldNot(ContainElement(ContainSubstring("--log-age-oldest-time")))
 
+		// both --log-age-oldest-time and --log-age-newest-time added
 		vscr.Spec.LogAgeHours = 0
 		args = s.buildScrutinizeCmdArgs(vdb, vscr)
 		Expect(len(args)).Should(Equal(13))
 		Expect(args).ShouldNot(ContainElement(ContainSubstring("--log-age-hours")))
+		Expect(args).Should(ContainElement(ContainSubstring("--log-age-oldest-time")))
 		Expect(args).Should(ContainElement(ContainSubstring("--log-age-newest-time")))
 	})
 })
