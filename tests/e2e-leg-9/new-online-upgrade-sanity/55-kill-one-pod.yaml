@@ -11,32 +11,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1beta1
-kind: VerticaDB
-metadata:
-  name: v-create-multi-sc
-spec:
-  image: kustomize-vertica-image
-  sidecars:
-    - name: vlogger
-      image: kustomize-vlogger-image
-  communal:
-    includeUIDInPath: false
-  initPolicy: CreateSkipPackageInstall
-  local:
-    dataPath: /data
-    depotPath: /depot
-    requestSize: 100Mi
-  dbName: vert_db
-  subclusters:
-    - name: main
-      isPrimary: true
-      size: 1
-    - name: secondary
-      isPrimary: false
-      size: 1
-  kSafety: "0"
-  certSecrets: []
-  imagePullSecrets: []
-  volumes: []
-  volumeMounts: []
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - command: kubectl delete pod v-base-upgrade-sec1-sb-0
+    namespaced: true

@@ -76,8 +76,8 @@ fi
 
 logInfo "Running $ITERATIONS_STR iterations of $TEST_STEPS steps"
 
-cp $CONFIG_FILE /tmp/
-tmpfile=/tmp/$CONFIG_FILE
+tmpfile=/tmp/local-soak.cfg
+cp $CONFIG_FILE $tmpfile
 trap "rm $tmpfile" 0 2 3 15  # Ensure deletion on script exit
 
 curIter=0
@@ -87,7 +87,7 @@ do
 
     # Generate the kuttl test steps for this iteration
     logInfo "\tGenerating test steps. Appending output to $KUTTL_STEP_GEN_OUT"
-    bin/kuttl-step-gen --output-dir=$STEP_OUTPUT_DIR --scripts-dir="../../../scripts" $CONFIG_FILE 2>> $KUTTL_STEP_GEN_OUT
+    bin/kuttl-step-gen --output-dir=$STEP_OUTPUT_DIR --scripts-dir="../../../scripts" 2>> $KUTTL_STEP_GEN_OUT
 
     KUTTL_CFG="kuttl-soak-test-iteration.yaml"
     logInfo "\tRunning kuttl.  Appending output to $KUTTL_OUT"
