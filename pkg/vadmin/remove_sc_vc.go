@@ -23,7 +23,7 @@ import (
 )
 
 // RemoveSubcluster will remove the given subcluster from the vertica cluster.
-func (v *VClusterOps) RemoveSubcluster(ctx context.Context, opts ...removesc.Option) error {
+func (v *VClusterOps) RemoveSubcluster(_ context.Context, opts ...removesc.Option) error {
 	v.Log.Info("Starting vcluster RemoveSubcluster")
 	s := removesc.Parms{}
 	s.Make(opts...)

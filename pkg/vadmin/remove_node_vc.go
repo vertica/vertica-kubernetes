@@ -23,7 +23,7 @@ import (
 )
 
 // RemoveNode will remove an existng vertica node from the cluster.
-func (v *VClusterOps) RemoveNode(ctx context.Context, opts ...removenode.Option) error {
+func (v *VClusterOps) RemoveNode(_ context.Context, opts ...removenode.Option) error {
 	v.Log.Info("Starting vcluster RemoveNode")
 	s := removenode.Parms{}
 	s.Make(opts...)

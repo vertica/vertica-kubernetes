@@ -26,7 +26,7 @@ import (
 // RestartNode will restart a subset of nodes. Use this when vertica has not
 // lost cluster quorum. The IP given for each vnode may not match the current IP
 // in the vertica catalogs.
-func (v *VClusterOps) RestartNode(ctx context.Context, opts ...restartnode.Option) (ctrl.Result, error) {
+func (v *VClusterOps) RestartNode(_ context.Context, opts ...restartnode.Option) (ctrl.Result, error) {
 	v.Log.Info("Starting vcluster RestartNode")
 	s := restartnode.Parms{}
 	s.Make(opts...)
