@@ -30,6 +30,7 @@ testDirs:
   - tests/e2e-leg-6
   - tests/e2e-leg-7
   - tests/e2e-leg-8
+  - tests/e2e-leg-9
   - tests/e2e-udx
   - tests/e2e-server-upgrade
   - tests/e2e-server-upgrade-at-only
@@ -66,6 +67,6 @@ commands:
   # specific namespace. When deploying the operator at the namespace scope, we
   # only deploy the webhook here.
   - script: make undeploy || true
-  - script: if [ "$CONTROLLERS_SCOPE" != "namespace" ]]; then NAMESPACE=verticadb-operator make deploy; fi
-  - script: if [ "$CONTROLLERS_SCOPE" = "namespace" ]]; then NAMESPACE=verticadb-operator make deploy-webhook; fi
+  - script: if [ "$CONTROLLERS_SCOPE" != "namespace" ]; then NAMESPACE=verticadb-operator make deploy; fi
+  - script: if [ "$CONTROLLERS_SCOPE" = "namespace" ]; then NAMESPACE=verticadb-operator make deploy-webhook; fi
 

@@ -42,6 +42,11 @@ const (
 
 	RFC1123DNSSubdomainNameRegex = `^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$`
 	RFC1035DNSLabelNameRegex     = `^[a-z]([a-z0-9\-]{0,61}[a-z0-9])?$`
+
+	MainCluster = ""
+
+	VerticaDBNameKey = "verticaDBName"
+	SandboxNameKey   = "sandboxName"
 )
 
 // ExtractNamespacedName gets the name and returns it as a NamespacedName
@@ -55,6 +60,20 @@ func (v *VerticaDB) ExtractNamespacedName() types.NamespacedName {
 // MakeVDBName is a helper that creates a sample name for test purposes
 func MakeVDBName() types.NamespacedName {
 	return types.NamespacedName{Name: "vertica-sample", Namespace: "default"}
+}
+
+// GenerateOwnerReference creates an owner reference for the current VerticaDB
+func (v *VerticaDB) GenerateOwnerReference() metav1.OwnerReference {
+	isController := true
+	blockOwnerDeletion := false
+	return metav1.OwnerReference{
+		APIVersion:         GroupVersion.String(),
+		Kind:               VerticaDBKind,
+		Name:               v.Name,
+		UID:                v.GetUID(),
+		Controller:         &isController,
+		BlockOwnerDeletion: &blockOwnerDeletion,
+	}
 }
 
 // FindTransientSubcluster will return a pointer to the transient subcluster if one exists
@@ -125,12 +144,21 @@ func MakeVDBForHTTP(httpServerTLSSecretName string) *VerticaDB {
 // vclusterops. This is intended for test purposes.
 func MakeVDBForVclusterOps() *VerticaDB {
 	vdb := MakeVDB()
-	vdb.Annotations[vmeta.VersionAnnotation] = ScrutinizeDBPasswdInSecretMinVersion
+	vdb.Annotations[vmeta.VersionAnnotation] = VcluseropsAsDefaultDeploymentMethodMinVersion
 	vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
 	return vdb
 }
 
-// GenSubclusterMap will organize all of the subclusters into a map for quicker lookup
+// MakeVDBForScrutinize is a helper that constructs a VerticaDB struct for
+// scrutinize. This is intended for test purposes.
+func MakeVDBForScrutinize() *VerticaDB {
+	vdb := MakeVDBForVclusterOps()
+	vdb.Annotations[vmeta.VersionAnnotation] = ScrutinizeDBPasswdInSecretMinVersion
+	return vdb
+}
+
+// GenSubclusterMap will organize all of the subclusters into a map for quicker lookup.
+// The key is the subcluster name and the value is a pointer to its Subcluster struct.
 func (v *VerticaDB) GenSubclusterMap() map[string]*Subcluster {
 	scMap := map[string]*Subcluster{}
 	for i := range v.Spec.Subclusters {
@@ -138,6 +166,81 @@ func (v *VerticaDB) GenSubclusterMap() map[string]*Subcluster {
 		scMap[sc.Name] = sc
 	}
 	return scMap
+}
+
+// GenSandboxMap will build a map that can find a sandbox by name.
+func (v *VerticaDB) GenSandboxMap() map[string]*Sandbox {
+	sbMap := map[string]*Sandbox{}
+	for i := range v.Spec.Sandboxes {
+		sb := &v.Spec.Sandboxes[i]
+		sbMap[sb.Name] = sb
+	}
+	return sbMap
+}
+
+// GenSubclusterSandboxMap will scan all sandboxes and return a map
+// with subcluster name as the key and sandbox name as the value
+func (v *VerticaDB) GenSubclusterSandboxMap() map[string]string {
+	scSbMap := make(map[string]string)
+	for i := range v.Spec.Sandboxes {
+		sb := &v.Spec.Sandboxes[i]
+		for _, sc := range sb.Subclusters {
+			scSbMap[sc.Name] = sb.Name
+		}
+	}
+	return scSbMap
+}
+
+// GenSubclusterSandboxStatusMap will scan sandbox status and return a map
+// with subcluster name as the key and sandbox name as the value
+func (v *VerticaDB) GenSubclusterSandboxStatusMap() map[string]string {
+	scSbMap := make(map[string]string)
+	for i := range v.Status.Sandboxes {
+		sb := &v.Status.Sandboxes[i]
+		for _, sc := range sb.Subclusters {
+			scSbMap[sc] = sb.Name
+		}
+	}
+	return scSbMap
+}
+
+// GenSandboxSubclusterMapForUnsandbox will compare sandbox status and spec
+// for finding subclusters that need to be unsandboxed, this function returns a map
+// with sandbox name as the key and its subclusters (need to be unsandboxed) as the value
+func (v *VerticaDB) GenSandboxSubclusterMapForUnsandbox() map[string][]string {
+	unsandboxSbScMap := make(map[string][]string)
+	vdbScSbMap := v.GenSubclusterSandboxMap()
+	statusScSbMap := v.GenSubclusterSandboxStatusMap()
+	for sc, sbInStatus := range statusScSbMap {
+		sbInVdb, found := vdbScSbMap[sc]
+		// if a subcluster is removed or put into another sandbox in spec.sandboxes,
+		// we need to unsandbox the subcluster
+		if !found || sbInVdb != sbInStatus {
+			unsandboxSbScMap[sbInStatus] = append(unsandboxSbScMap[sbInStatus], sc)
+		}
+	}
+	return unsandboxSbScMap
+}
+
+// GenSubclusterIndexMap will organize all of the subclusters into a map so we
+// can quickly find its index in the spec.subclusters[] array.
+func (v *VerticaDB) GenSubclusterIndexMap() map[string]int {
+	m := make(map[string]int)
+	for i := range v.Spec.Subclusters {
+		m[v.Spec.Subclusters[i].Name] = i
+	}
+	return m
+}
+
+// GenSandboxIndexMap will create a map that allows us to figure out the index
+// in vdb.Spec.Sandboxes for each sandbox. Returns a map of sandbox name to its
+// index position.
+func (v *VerticaDB) GenSandboxIndexMap() map[string]int {
+	m := make(map[string]int)
+	for i := range v.Spec.Sandboxes {
+		m[v.Spec.Sandboxes[i].Name] = i
+	}
+	return m
 }
 
 func isValidRFC1123DNSSubdomainName(name string) bool {
@@ -249,6 +352,15 @@ func (s *Subcluster) GenCompatibleFQDN() string {
 	return m.ReplaceAllString(s.Name, "-")
 }
 
+// GetStatefulSetName returns the name of the statefulset for this subcluster
+func (s *Subcluster) GetStatefulSetName(vdb *VerticaDB) string {
+	stsOverrideName := vmeta.GetStsNameOverride(s.Annotations)
+	if stsOverrideName != "" {
+		return stsOverrideName
+	}
+	return fmt.Sprintf("%s-%s", vdb.Name, s.GenCompatibleFQDN())
+}
+
 // GetServiceName returns the name of the service object that route traffic to
 // this subcluster.
 func (s *Subcluster) GetServiceName() string {
@@ -280,6 +392,16 @@ func (v *VerticaDB) RequiresTransientSubcluster() bool {
 		v.Spec.TemporarySubclusterRouting.Template.Size > 0
 }
 
+// GetTransientSubclusterName returns the name of the transient subcluster, if
+// it should exist. The bool output parameter will be false if no transient is
+// used.
+func (v *VerticaDB) GetTransientSubclusterName() (string, bool) {
+	if !v.RequiresTransientSubcluster() {
+		return "", false
+	}
+	return v.Spec.TemporarySubclusterRouting.Template.Name, true
+}
+
 // IsOnlineUpgradeInProgress returns true if an online upgrade is in progress
 func (v *VerticaDB) IsOnlineUpgradeInProgress() bool {
 	return v.IsStatusConditionTrue(OnlineUpgradeInProgress)
@@ -300,6 +422,24 @@ func (v *VerticaDB) IsStatusConditionFalse(statusCondition string) bool {
 // FindStatusCondition finds the conditionType in conditions.
 func (v *VerticaDB) FindStatusCondition(conditionType string) *metav1.Condition {
 	return meta.FindStatusCondition(v.Status.Conditions, conditionType)
+}
+
+// IsSandBoxUpgradeInProgress returns true if is an upgrade
+// is already occurring in the given sandbox
+func (v *VerticaDB) IsSandBoxUpgradeInProgress(sbName string) bool {
+	sb := v.GetSandboxStatus(sbName)
+	return sb != nil && sb.UpgradeState.UpgradeInProgress
+}
+
+func (v *VerticaDB) GetUpgradeStatus(sbName string) (string, error) {
+	if sbName == MainCluster {
+		return v.Status.UpgradeStatus, nil
+	}
+	sb, err := v.GetSandboxStatusCheck(sbName)
+	if err != nil {
+		return "", err
+	}
+	return sb.UpgradeState.UpgradeStatus, nil
 }
 
 // buildTransientSubcluster creates a temporary read-only sc based on an existing subcluster
@@ -368,7 +508,7 @@ func (v *VerticaDB) IsKnownDepotVolumeType() bool {
 	return false
 }
 
-// getFirstPrimarySubcluster returns the first primary subcluster defined in the vdb
+// GetFirstPrimarySubcluster returns the first primary subcluster defined in the vdb
 func (v *VerticaDB) GetFirstPrimarySubcluster() *Subcluster {
 	for i := range v.Spec.Subclusters {
 		sc := &v.Spec.Subclusters[i]
@@ -378,6 +518,68 @@ func (v *VerticaDB) GetFirstPrimarySubcluster() *Subcluster {
 	}
 	// We should never get here because the webhook prevents a vdb with no primary.
 	return nil
+}
+
+// HasSecondarySubclusters returns true if at least 1 secondary subcluster
+// exists in the database.
+func (v *VerticaDB) HasSecondarySubclusters() bool {
+	for i := range v.Spec.Subclusters {
+		if v.Spec.Subclusters[i].IsSecondary() {
+			return true
+		}
+	}
+	return false
+}
+
+// IsAutoUpgradePolicy returns true
+func (v *VerticaDB) IsAutoUpgradePolicy() bool {
+	return v.Spec.UpgradePolicy == "" || v.Spec.UpgradePolicy == AutoUpgrade
+}
+
+// GetUpgradePolicyToUse returns the upgrade policy that the db should use.
+// It will take into account the settings in the vdb as well as what is
+// supported in the server. This will never return the auto upgrade policy. If
+// you need the current value of that field, just refer to it by referencing
+// Spec.UpgradePolicy.
+func (v *VerticaDB) GetUpgradePolicyToUse() UpgradePolicyType {
+	if v.Spec.UpgradePolicy == OfflineUpgrade {
+		return OfflineUpgrade
+	}
+
+	if v.IsAutoUpgradePolicy() && v.IsKSafety0() {
+		return OfflineUpgrade
+	}
+
+	// If we cannot get the version, always default to offline. We cannot make
+	// any assumptions about what upgrade policy the server supports.
+	vinf, ok := v.MakeVersionInfo()
+	if !ok {
+		return OfflineUpgrade
+	}
+
+	// The Online option can only be chosen explicitly. Although eventually,
+	// the Auto option will automatically select this method, we first need to
+	// complete the implementation of this new policy.
+	if v.Spec.UpgradePolicy == OnlineUpgrade {
+		// Online upgrade requires that we scale out the cluster. See if
+		// there is evidence that we have already scaled past 3 nodes (CE
+		// license limit), or we have a license defined.
+		const ceLicenseLimit = 3
+		if vinf.IsEqualOrNewer(OnlineUpgradeVersion) &&
+			!v.IsKSafety0() &&
+			(v.getNumberOfNodes() > ceLicenseLimit || v.Spec.LicenseSecret != "") {
+			return OnlineUpgrade
+		} else if vinf.IsEqualOrNewer(ReadOnlyOnlineUpgradeVersion) {
+			return ReadOnlyOnlineUpgrade
+		}
+	}
+
+	if (v.Spec.UpgradePolicy == ReadOnlyOnlineUpgrade || v.IsAutoUpgradePolicy()) &&
+		vinf.IsEqualOrNewer(ReadOnlyOnlineUpgradeVersion) {
+		return ReadOnlyOnlineUpgrade
+	}
+
+	return OfflineUpgrade
 }
 
 // GetIgnoreClusterLease will check if the cluster lease should be ignored.
@@ -554,7 +756,15 @@ func (v *VerticaDB) GetKerberosServiceName() string {
 }
 
 func (s *Subcluster) IsPrimary() bool {
+	return s.Type == PrimarySubcluster || s.Type == SandboxPrimarySubcluster
+}
+
+func (s *Subcluster) IsMainPrimary() bool {
 	return s.Type == PrimarySubcluster
+}
+
+func (s *Subcluster) IsSandboxPrimary() bool {
+	return s.Type == SandboxPrimarySubcluster
 }
 
 func (s *Subcluster) IsSecondary() bool {
@@ -661,4 +871,94 @@ func (v *VerticaDB) IsHTTPSTLSConfGenerationEnabled() (bool, error) {
 		return false, err
 	}
 	return !inf.IsEqualOrNewer(AutoGenerateHTTPSCertsForNewDatabasesMinVersion), nil
+}
+
+// GenSubclusterStatusMap returns a map that has a subcluster name as key
+// and its status as value
+func (v *VerticaDB) GenSubclusterStatusMap() map[string]*SubclusterStatus {
+	scMap := map[string]*SubclusterStatus{}
+	for i := range v.Status.Subclusters {
+		sc := &v.Status.Subclusters[i]
+		scMap[sc.Name] = sc
+	}
+	return scMap
+}
+
+func (v *VerticaDB) GetSubclusterSandboxName(scName string) string {
+	for i := range v.Status.Sandboxes {
+		for j := range v.Status.Sandboxes[i].Subclusters {
+			if scName == v.Status.Sandboxes[i].Subclusters[j] {
+				return v.Status.Sandboxes[i].Name
+			}
+		}
+	}
+	return MainCluster
+}
+
+// getNumberOfNodes returns the number of nodes defined in the database, as per the CR.
+func (v *VerticaDB) getNumberOfNodes() int {
+	count := 0
+	for i := range v.Spec.Subclusters {
+		count += int(v.Spec.Subclusters[i].Size)
+	}
+	return count
+}
+
+// GetSandbox returns the sandbox given by name. A nil pointer is returned if
+// not found.
+func (v *VerticaDB) GetSandbox(sbName string) *Sandbox {
+	for i := range v.Spec.Sandboxes {
+		if v.Spec.Sandboxes[i].Name == sbName {
+			return &v.Spec.Sandboxes[i]
+		}
+	}
+	return nil
+}
+
+// GetSandboxStatus returns the status of the sandbox given by name. A nil pointer is returned if
+// not found.
+func (v *VerticaDB) GetSandboxStatus(sbName string) *SandboxStatus {
+	for i := range v.Status.Sandboxes {
+		if v.Status.Sandboxes[i].Name == sbName {
+			return &v.Status.Sandboxes[i]
+		}
+	}
+	return nil
+}
+
+// GetSandboxStatusCheck is like GetSandboxStatus but returns an error if the sandbox
+// is missing in the status. Use this in places where it is a failure if the sandbox
+// is not in the status
+func (v *VerticaDB) GetSandboxStatusCheck(sbName string) (*SandboxStatus, error) {
+	sb := v.GetSandboxStatus(sbName)
+	if sb == nil {
+		return nil, fmt.Errorf("could not find sandbox %q in status", sbName)
+	}
+	return sb, nil
+}
+
+// IsSubclusterInStatus will check if a subcluster in vdb status
+func (v *VerticaDB) IsSubclusterInStatus(scName string) bool {
+	for i := range v.Status.Subclusters {
+		if v.Status.Subclusters[i].Name == scName {
+			return true
+		}
+	}
+	return false
+}
+
+// GetSubclustersForReplicaGroup returns the names of the subclusters that are part of a replica group.
+func (v *VerticaDB) GetSubclustersForReplicaGroup(groupName string) []string {
+	scNames := []string{}
+	for i := range v.Spec.Subclusters {
+		if g, found := v.Spec.Subclusters[i].Annotations[vmeta.ReplicaGroupAnnotation]; found && g == groupName {
+			scNames = append(scNames, v.Spec.Subclusters[i].Name)
+		}
+	}
+	return scNames
+}
+
+// IsOnlineUpgradeSandboxPromoted will check if replica-group-b has been promoted to main cluster
+func (v *VerticaDB) IsOnlineUpgradeSandboxPromoted() bool {
+	return vmeta.GetOnlineUpgradeSandboxPromoted(v.Annotations) == vmeta.SandboxPromotedTrue
 }

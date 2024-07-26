@@ -37,49 +37,25 @@ var _ = Describe("upgrade", func() {
 
 	It("should correctly pick the upgrade type", func() {
 		vdb := vapi.MakeVDB()
-		vdb.Spec.TemporarySubclusterRouting = &vapi.SubclusterSelection{
-			Template: vapi.Subcluster{
-				Name: "t",
-				Size: 1,
-				Type: vapi.SecondarySubcluster,
-			},
-		}
+		vdb.Spec.Subclusters = append(vdb.Spec.Subclusters, vapi.Subcluster{
+			Name: "sc1", Type: vapi.SecondarySubcluster, Size: 3,
+		})
+		vdb.Annotations[vmeta.VersionAnnotation] = vapi.OnlineUpgradeVersion
 
-		// No version -- always pick offline
-		delete(vdb.ObjectMeta.Annotations, vmeta.VersionAnnotation)
 		vdb.Spec.UpgradePolicy = vapi.OfflineUpgrade
-		Expect(onlineUpgradeAllowed(vdb)).Should(Equal(false))
-		Expect(offlineUpgradeAllowed(vdb)).Should(Equal(true))
+		Expect(offlineUpgradeAllowed(vdb)).Should(BeTrue())
+		Expect(readOnlyOnlineUpgradeAllowed(vdb)).Should(BeFalse())
+		Expect(onlineUpgradeAllowed(vdb)).Should(BeFalse())
+
+		vdb.Spec.UpgradePolicy = vapi.ReadOnlyOnlineUpgrade
+		Expect(offlineUpgradeAllowed(vdb)).Should(BeFalse())
+		Expect(readOnlyOnlineUpgradeAllowed(vdb)).Should(BeTrue())
+		Expect(onlineUpgradeAllowed(vdb)).Should(BeFalse())
+
 		vdb.Spec.UpgradePolicy = vapi.OnlineUpgrade
-		Expect(onlineUpgradeAllowed(vdb)).Should(Equal(false))
-		Expect(offlineUpgradeAllowed(vdb)).Should(Equal(true))
-
-		// auto will pick offline because of no version
-		vdb.Spec.UpgradePolicy = vapi.AutoUpgrade
-		vdb.Spec.LicenseSecret = "license"
-		Expect(offlineUpgradeAllowed(vdb)).Should(Equal(true))
-
-		// Older version
-		vdb.ObjectMeta.Annotations[vmeta.VersionAnnotation] = "v11.0.0"
-		Expect(offlineUpgradeAllowed(vdb)).Should(Equal(true))
-
-		// Correct version
-		vdb.ObjectMeta.Annotations[vmeta.VersionAnnotation] = vapi.OnlineUpgradeVersion
-		Expect(onlineUpgradeAllowed(vdb)).Should(Equal(true))
-
-		// Missing license
-		vdb.Spec.LicenseSecret = ""
-		Expect(offlineUpgradeAllowed(vdb)).Should(Equal(true))
-		vdb.Spec.LicenseSecret = "license-again"
-
-		// k-safety 0
-		vdb.Annotations[vmeta.KSafetyAnnotation] = "0"
-		Expect(offlineUpgradeAllowed(vdb)).Should(Equal(true))
-
-		// Old version and online requested
-		vdb.ObjectMeta.Annotations[vmeta.VersionAnnotation] = "v11.0.2"
-		vdb.Spec.UpgradePolicy = vapi.OnlineUpgrade
-		Expect(offlineUpgradeAllowed(vdb)).Should(Equal(true))
+		Expect(offlineUpgradeAllowed(vdb)).Should(BeFalse())
+		Expect(readOnlyOnlineUpgradeAllowed(vdb)).Should(BeFalse())
+		Expect(onlineUpgradeAllowed(vdb)).Should(BeTrue())
 	})
 
 	It("should not need an upgrade if images match in sts and vdb", func() {
@@ -89,7 +65,36 @@ var _ = Describe("upgrade", func() {
 
 		mgr := MakeUpgradeManager(vdbRec, logger, vdb, vapi.OnlineUpgradeInProgress,
 			func(vdb *vapi.VerticaDB) bool { return true })
-		Expect(mgr.IsUpgradeNeeded(ctx)).Should(Equal(false))
+		Expect(mgr.IsUpgradeNeeded(ctx, vapi.MainCluster)).Should(Equal(false))
+	})
+
+	It("should need an upgrade if images don't match in sts and sandbox", func() {
+		vdb := vapi.MakeVDB()
+		vdb.Spec.Image = OldImage
+		vdb.Spec.Subclusters = []vapi.Subcluster{
+			{Name: "sc1", Size: 2, Type: vapi.PrimarySubcluster},
+			{Name: "sc2", Size: 1, Type: vapi.SecondarySubcluster},
+		}
+		const sbName = "sand"
+		vdb.Spec.Sandboxes = []vapi.Sandbox{
+			{Name: sbName, Image: "new-img", Subclusters: []vapi.SubclusterName{{Name: "sc2"}}},
+		}
+		vdb.Status.Sandboxes = []vapi.SandboxStatus{
+			{Name: sbName, Subclusters: []string{"sc2"}},
+		}
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
+		test.CreateVDB(ctx, k8sClient, vdb)
+		defer test.DeleteVDB(ctx, k8sClient, vdb)
+
+		// upgrade not needed on main cluster
+		mgr := MakeUpgradeManager(vdbRec, logger, vdb, vapi.OnlineUpgradeInProgress,
+			func(vdb *vapi.VerticaDB) bool { return true })
+		Expect(mgr.IsUpgradeNeeded(ctx, vapi.MainCluster)).Should(Equal(false))
+		// upgrade needed on sandbox
+		mgr = MakeUpgradeManager(vdbRec, logger, vdb, vapi.OnlineUpgradeInProgress,
+			func(vdb *vapi.VerticaDB) bool { return true })
+		Expect(mgr.IsUpgradeNeeded(ctx, sbName)).Should(Equal(true))
 	})
 
 	It("should change the image of both primaries and secondaries", func() {
@@ -107,8 +112,8 @@ var _ = Describe("upgrade", func() {
 
 		mgr := MakeUpgradeManager(vdbRec, logger, vdb, vapi.OfflineUpgradeInProgress,
 			func(vdb *vapi.VerticaDB) bool { return true })
-		Expect(mgr.IsUpgradeNeeded(ctx)).Should(Equal(true))
-		stsChange, err := mgr.updateImageInStatefulSets(ctx)
+		Expect(mgr.IsUpgradeNeeded(ctx, vapi.MainCluster)).Should(Equal(true))
+		stsChange, err := mgr.updateImageInStatefulSets(ctx, vapi.MainCluster)
 		Expect(err).Should(Succeed())
 		Expect(stsChange).Should(Equal(2))
 
@@ -135,7 +140,7 @@ var _ = Describe("upgrade", func() {
 
 		mgr := MakeUpgradeManager(vdbRec, logger, vdb, vapi.OfflineUpgradeInProgress,
 			func(vdb *vapi.VerticaDB) bool { return true })
-		numPodsDeleted, err := mgr.deletePodsRunningOldImage(ctx, "") // pods from primaries only
+		numPodsDeleted, err := mgr.deletePodsRunningOldImage(ctx, "", vapi.MainCluster) // pods from primaries only
 		Expect(err).Should(Succeed())
 		Expect(numPodsDeleted).Should(Equal(2))
 
@@ -156,7 +161,7 @@ var _ = Describe("upgrade", func() {
 
 		mgr := MakeUpgradeManager(vdbRec, logger, vdb, vapi.OfflineUpgradeInProgress,
 			func(vdb *vapi.VerticaDB) bool { return true })
-		numPodsDeleted, err := mgr.deletePodsRunningOldImage(ctx, vdb.Spec.Subclusters[1].Name)
+		numPodsDeleted, err := mgr.deletePodsRunningOldImage(ctx, vdb.Spec.Subclusters[1].Name, vapi.MainCluster)
 		Expect(err).Should(Succeed())
 		Expect(numPodsDeleted).Should(Equal(1))
 
@@ -164,7 +169,7 @@ var _ = Describe("upgrade", func() {
 		Expect(k8sClient.Get(ctx, names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0), pod)).Should(Succeed())
 		Expect(k8sClient.Get(ctx, names.GenPodName(vdb, &vdb.Spec.Subclusters[1], 0), pod)).ShouldNot(Succeed())
 
-		numPodsDeleted, err = mgr.deletePodsRunningOldImage(ctx, vdb.Spec.Subclusters[0].Name)
+		numPodsDeleted, err = mgr.deletePodsRunningOldImage(ctx, vdb.Spec.Subclusters[0].Name, vapi.MainCluster)
 		Expect(err).Should(Succeed())
 		Expect(numPodsDeleted).Should(Equal(1))
 
@@ -179,8 +184,8 @@ var _ = Describe("upgrade", func() {
 
 		mgr := MakeUpgradeManager(vdbRec, logger, vdb, vapi.OfflineUpgradeInProgress,
 			func(vdb *vapi.VerticaDB) bool { return true })
-		Expect(mgr.startUpgrade(ctx)).Should(Equal(ctrl.Result{}))
-		Expect(mgr.setUpgradeStatus(ctx, "doing the change")).Should(Succeed())
+		Expect(mgr.startUpgrade(ctx, vapi.MainCluster)).Should(Equal(ctrl.Result{}))
+		Expect(mgr.setUpgradeStatus(ctx, "doing the change", vapi.MainCluster)).Should(Succeed())
 
 		fetchedVdb := &vapi.VerticaDB{}
 		Expect(k8sClient.Get(ctx, vdb.ExtractNamespacedName(), fetchedVdb)).Should(Succeed())
@@ -188,7 +193,7 @@ var _ = Describe("upgrade", func() {
 		Expect(fetchedVdb.IsStatusConditionTrue(vapi.OfflineUpgradeInProgress)).Should(BeTrue())
 		Expect(fetchedVdb.Status.UpgradeStatus).ShouldNot(Equal(""))
 
-		Expect(mgr.finishUpgrade(ctx)).Should(Equal(ctrl.Result{}))
+		Expect(mgr.finishUpgrade(ctx, vapi.MainCluster)).Should(Equal(ctrl.Result{}))
 		Expect(k8sClient.Get(ctx, vdb.ExtractNamespacedName(), fetchedVdb)).Should(Succeed())
 		Expect(fetchedVdb.IsStatusConditionFalse(vapi.UpgradeInProgress)).Should(BeTrue())
 		Expect(fetchedVdb.IsStatusConditionFalse(vapi.OfflineUpgradeInProgress)).Should(BeTrue())
@@ -205,30 +210,30 @@ var _ = Describe("upgrade", func() {
 
 		mgr := MakeUpgradeManager(vdbRec, logger, vdb, vapi.OfflineUpgradeInProgress,
 			func(vdb *vapi.VerticaDB) bool { return true })
-		Expect(mgr.postNextStatusMsg(ctx, statusMsgs, 1)).Should(Succeed()) // no-op
+		Expect(mgr.postNextStatusMsg(ctx, statusMsgs, 1, vapi.MainCluster)).Should(Succeed()) // no-op
 
 		fetchedVdb := &vapi.VerticaDB{}
 		Expect(k8sClient.Get(ctx, vdb.ExtractNamespacedName(), fetchedVdb)).Should(Succeed())
 		Expect(fetchedVdb.Status.UpgradeStatus).Should(Equal(""))
 
-		Expect(mgr.postNextStatusMsg(ctx, statusMsgs, 0)).Should(Succeed())
+		Expect(mgr.postNextStatusMsg(ctx, statusMsgs, 0, vapi.MainCluster)).Should(Succeed())
 		Expect(k8sClient.Get(ctx, vdb.ExtractNamespacedName(), fetchedVdb)).Should(Succeed())
 		Expect(fetchedVdb.Status.UpgradeStatus).Should(Equal(statusMsgs[0]))
 
 		// Skip msg2
-		Expect(mgr.postNextStatusMsg(ctx, statusMsgs, 2)).Should(Succeed())
+		Expect(mgr.postNextStatusMsg(ctx, statusMsgs, 2, vapi.MainCluster)).Should(Succeed())
 		Expect(k8sClient.Get(ctx, vdb.ExtractNamespacedName(), fetchedVdb)).Should(Succeed())
 		Expect(fetchedVdb.Status.UpgradeStatus).Should(Equal(statusMsgs[2]))
 
-		Expect(mgr.postNextStatusMsg(ctx, statusMsgs, 2)).Should(Succeed()) // no change
+		Expect(mgr.postNextStatusMsg(ctx, statusMsgs, 2, vapi.MainCluster)).Should(Succeed()) // no change
 		Expect(k8sClient.Get(ctx, vdb.ExtractNamespacedName(), fetchedVdb)).Should(Succeed())
 		Expect(fetchedVdb.Status.UpgradeStatus).Should(Equal(statusMsgs[2]))
 
-		Expect(mgr.postNextStatusMsg(ctx, statusMsgs, 3)).Should(Succeed())
+		Expect(mgr.postNextStatusMsg(ctx, statusMsgs, 3, vapi.MainCluster)).Should(Succeed())
 		Expect(k8sClient.Get(ctx, vdb.ExtractNamespacedName(), fetchedVdb)).Should(Succeed())
 		Expect(fetchedVdb.Status.UpgradeStatus).Should(Equal(statusMsgs[3]))
 
-		Expect(mgr.postNextStatusMsg(ctx, statusMsgs, 9)).ShouldNot(Succeed()) // fail - out of bounds
+		Expect(mgr.postNextStatusMsg(ctx, statusMsgs, 9, vapi.MainCluster)).ShouldNot(Succeed()) // fail - out of bounds
 	})
 
 	It("should delete sts if upgrading a monolithic NMA deployment", func() {
@@ -277,5 +282,33 @@ var _ = Describe("upgrade", func() {
 
 		// Verify the sts is deleted
 		Expect(k8sClient.Get(ctx, stsnm, sts)).ShouldNot(Succeed())
+	})
+
+	It("should clear annotations set for online upgrade", func() {
+		vdb := vapi.MakeVDB()
+		test.CreateVDB(ctx, k8sClient, vdb)
+		defer test.DeleteVDB(ctx, k8sClient, vdb)
+
+		mgr := MakeUpgradeManager(vdbRec, logger, vdb, vapi.OnlineUpgradeInProgress,
+			func(vdb *vapi.VerticaDB) bool { return true })
+		Expect(mgr.startUpgrade(ctx, vapi.MainCluster)).Should(Equal(ctrl.Result{}))
+		vdb.Spec.Subclusters[0].Annotations = map[string]string{
+			vmeta.ReplicaGroupAnnotation:     vmeta.ReplicaGroupAValue,
+			vmeta.ParentSubclusterAnnotation: "main",
+			vmeta.ChildSubclusterAnnotation:  "child",
+		}
+		Expect(k8sClient.Update(ctx, vdb)).Should(Succeed())
+
+		fetchedVdb := &vapi.VerticaDB{}
+		Expect(k8sClient.Get(ctx, vdb.ExtractNamespacedName(), fetchedVdb)).Should(Succeed())
+		Expect(fetchedVdb.Spec.Subclusters[0].Annotations).Should(HaveKey(vmeta.ReplicaGroupAnnotation))
+		Expect(fetchedVdb.Spec.Subclusters[0].Annotations).Should(HaveKey(vmeta.ParentSubclusterAnnotation))
+		Expect(fetchedVdb.Spec.Subclusters[0].Annotations).Should(HaveKey(vmeta.ChildSubclusterAnnotation))
+
+		Expect(mgr.finishUpgrade(ctx, vapi.MainCluster)).Should(Equal(ctrl.Result{}))
+		Expect(k8sClient.Get(ctx, vdb.ExtractNamespacedName(), fetchedVdb)).Should(Succeed())
+		Expect(fetchedVdb.Spec.Subclusters[0].Annotations).ShouldNot(HaveKey(vmeta.ReplicaGroupAnnotation))
+		Expect(fetchedVdb.Spec.Subclusters[0].Annotations).ShouldNot(HaveKey(vmeta.ParentSubclusterAnnotation))
+		Expect(fetchedVdb.Spec.Subclusters[0].Annotations).ShouldNot(HaveKey(vmeta.ChildSubclusterAnnotation))
 	})
 })

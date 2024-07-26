@@ -19,22 +19,23 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"regexp"
 	"sort"
-	"strconv"
 	"strings"
 	"time"
 
 	"github.com/ghodss/yaml"
+	"github.com/go-logr/logr"
 	"github.com/lithammer/dedent"
 	"github.com/pkg/errors"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/builder"
+	"github.com/vertica/vertica-kubernetes/pkg/catalog"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/iter"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
+	config "github.com/vertica/vertica-kubernetes/pkg/vdbconfig"
 	"github.com/vertica/vertica-kubernetes/pkg/vk8s"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -61,6 +62,9 @@ type PodFact struct {
 
 	// The oid of the subcluster the pod is part of
 	subclusterOid string
+
+	// The sandbox a pod is part of
+	sandbox string
 
 	// true if this node is part of a primary subcluster
 	isPrimary bool
@@ -167,6 +171,9 @@ type PodFact struct {
 	// true if the pod's spec includes a sidecar to run the NMA
 	hasNMASidecar bool
 
+	// true if NMA sidecar container is ready
+	isNMAContainerReady bool
+
 	// The name of the container to run exec commands on.
 	execContainerName string
 
@@ -182,12 +189,15 @@ type CheckerFunc func(context.Context, *vapi.VerticaDB, *PodFact, *GatherState) 
 
 // A collection of facts for many pods.
 type PodFacts struct {
-	VRec               *VerticaDBReconciler
+	VRec               config.ReconcilerInterface
 	PRunner            cmds.PodRunner
+	Log                logr.Logger
 	Detail             PodFactDetail
 	VDBResourceVersion string // The resourceVersion of the VerticaDB at the time the pod facts were gathered
 	NeedCollection     bool
+	SandboxName        string
 	OverrideFunc       CheckerFunc // Set this if you want to be able to control the PodFact
+	VerticaSUPassword  string
 }
 
 // GatherState is the data exchanged with the gather pod facts script. We
@@ -220,8 +230,28 @@ const (
 )
 
 // MakePodFacts will create a PodFacts object and return it
-func MakePodFacts(vrec *VerticaDBReconciler, prunner cmds.PodRunner) PodFacts {
-	return PodFacts{VRec: vrec, PRunner: prunner, NeedCollection: true, Detail: make(PodFactDetail)}
+func MakePodFacts(vrec config.ReconcilerInterface, prunner cmds.PodRunner, log logr.Logger, password string) PodFacts {
+	return PodFacts{VRec: vrec, PRunner: prunner, Log: log, NeedCollection: true, Detail: make(PodFactDetail),
+		VerticaSUPassword: password, SandboxName: vapi.MainCluster}
+}
+
+// MakePodFactsForSandbox will create a PodFacts object for a sandbox
+func MakePodFactsForSandbox(vrec config.ReconcilerInterface, prunner cmds.PodRunner, log logr.Logger, password, sandbox string) PodFacts {
+	pf := MakePodFacts(vrec, prunner, log, password)
+	pf.SandboxName = sandbox
+	return pf
+}
+
+// Copy will make a new copy of the podfacts, but setup for the given sandbox name.
+func (p *PodFacts) Copy(sandbox string) PodFacts {
+	ret := *p
+	// Clear out fields we don't want to copy to the new copy.
+	ret.NeedCollection = true
+	ret.Detail = make(PodFactDetail)
+	// This function is intended to get a PodFacts for a different sandbox, so
+	// use the sandbox name that is passed in.
+	ret.SandboxName = sandbox
+	return ret
 }
 
 // Collect will gather up the for facts if a collection is needed
@@ -240,8 +270,8 @@ func (p *PodFacts) Collect(ctx context.Context, vdb *vapi.VerticaDB) error {
 	// Find all of the subclusters to collect facts for.  We want to include all
 	// subclusters, even ones that are scheduled to be deleted -- we keep
 	// collecting facts for those until the statefulsets are gone.
-	finder := iter.MakeSubclusterFinder(p.VRec.Client, vdb)
-	subclusters, err := finder.FindSubclusters(ctx, iter.FindAll)
+	finder := iter.MakeSubclusterFinder(p.VRec.GetClient(), vdb)
+	subclusters, err := finder.FindSubclusters(ctx, iter.FindAll, p.SandboxName)
 	if err != nil {
 		return nil
 	}
@@ -286,7 +316,7 @@ func (p *PodFacts) HasVerticaDBChangedSinceCollection(ctx context.Context, vdb *
 	}
 	// We always need to refetch the vdb to get the latest resource version
 	nm := vdb.ExtractNamespacedName()
-	if err := p.VRec.Client.Get(ctx, nm, vdb); err != nil {
+	if err := p.VRec.GetClient().Get(ctx, nm, vdb); err != nil {
 		return false, fmt.Errorf("failed to fetch vdb: %w", err)
 	}
 	return p.VDBResourceVersion != vdb.ResourceVersion, nil
@@ -298,7 +328,7 @@ func (p *PodFacts) collectSubcluster(ctx context.Context, vdb *vapi.VerticaDB, s
 	maxStsSize := sc.Size
 	// Attempt to fetch the sts.  We continue even for 'not found' errors
 	// because we want to populate the missing pods into the pod facts.
-	if err := p.VRec.Client.Get(ctx, names.GenStsName(vdb, sc), sts); err != nil && !k8sErrors.IsNotFound(err) {
+	if err := p.VRec.GetClient().Get(ctx, names.GenStsName(vdb, sc), sts); err != nil && !k8sErrors.IsNotFound(err) {
 		return fmt.Errorf("could not fetch statefulset for pod fact collection %s %w", sc.Name, err)
 	} else if sts.Spec.Replicas != nil && *sts.Spec.Replicas > maxStsSize {
 		maxStsSize = *sts.Spec.Replicas
@@ -329,7 +359,7 @@ func (p *PodFacts) collectPodByStsIndex(ctx context.Context, vdb *vapi.VerticaDB
 	}
 
 	pod := &corev1.Pod{}
-	if err := p.VRec.Client.Get(ctx, pf.name, pod); err != nil && !k8sErrors.IsNotFound(err) {
+	if err := p.VRec.GetClient().Get(ctx, pf.name, pod); err != nil && !k8sErrors.IsNotFound(err) {
 		return err
 	} else if err == nil {
 		// Treat not found errors as if the pod is not running.  We continue
@@ -349,7 +379,7 @@ func (p *PodFacts) collectPodByStsIndex(ctx context.Context, vdb *vapi.VerticaDB
 		pf.dnsName = fmt.Sprintf("%s.%s.%s", pod.Spec.Hostname, pod.Spec.Subdomain, pod.Namespace)
 		pf.podIP = pod.Status.PodIP
 		pf.creationTimestamp = pod.CreationTimestamp.Format(time.DateTime)
-		pf.isTransient, _ = strconv.ParseBool(pod.Labels[vmeta.SubclusterTransientLabel])
+		pf.isTransient = sc.IsTransient()
 		pf.isPendingDelete = podIndex >= sc.Size
 		// Let's just pick the first container image
 		pf.image, err = vk8s.GetServerImage(pod.Spec.Containers)
@@ -362,6 +392,11 @@ func (p *PodFacts) collectPodByStsIndex(ctx context.Context, vdb *vapi.VerticaDB
 			return err
 		}
 		pf.hasNMASidecar = vk8s.HasNMAContainer(&pod.Spec)
+		pf.isNMAContainerReady = vk8s.IsNMAContainerReady(pod)
+		// we get the sandbox name from the sts labels if the subcluster
+		// belongs to a sandbox. If the node is up, we will later retrieve
+		// the sandbox state from the catalog
+		pf.sandbox = sts.Labels[vmeta.SandboxNameLabel]
 	}
 
 	fns := []CheckerFunc{
@@ -369,10 +404,8 @@ func (p *PodFacts) collectPodByStsIndex(ctx context.Context, vdb *vapi.VerticaDB
 		p.checkIsInstalled,
 		p.checkIsDBCreated,
 		p.checkForSimpleGatherStateMapping,
-		p.checkNodeStatus,
+		p.checkNodeDetails,
 		p.checkIfNodeIsDoingStartup,
-		p.checkShardSubscriptions,
-		p.queryDepotDetails,
 		// Override function must be last one as we can use it to override any
 		// of the facts set earlier.
 		p.OverrideFunc,
@@ -388,7 +421,7 @@ func (p *PodFacts) collectPodByStsIndex(ctx context.Context, vdb *vapi.VerticaDB
 		}
 	}
 
-	p.VRec.Log.Info("pod fact", "name", pf.name, "details", fmt.Sprintf("%+v", pf))
+	p.Log.Info("pod fact", "name", pf.name, "details", fmt.Sprintf("%+v", pf))
 	p.Detail[pf.name] = &pf
 	return nil
 }
@@ -638,67 +671,6 @@ func (p *PodFacts) checkForSimpleGatherStateMapping(_ context.Context, vdb *vapi
 	return nil
 }
 
-// checkShardSubscriptions will count the number of shards that are subscribed
-// to the current node
-func (p *PodFacts) checkShardSubscriptions(ctx context.Context, _ *vapi.VerticaDB, pf *PodFact, _ *GatherState) error {
-	// This check depends on the vnode, which is only present if the pod is
-	// running and the database exists at the node.
-	if !pf.isPodRunning || !pf.upNode {
-		return nil
-	}
-	cmd := []string{
-		"-tAc",
-		fmt.Sprintf("select count(*) from v_catalog.node_subscriptions where node_name = '%s' and shard_name != 'replica'",
-			pf.vnodeName),
-	}
-	stdout, _, err := p.PRunner.ExecVSQL(ctx, pf.name, pf.execContainerName, cmd...)
-	if err != nil {
-		// An error implies the server is down, so skipping this check.
-		return nil
-	}
-	return setShardSubscription(stdout, pf)
-}
-
-// queryDepotDetails will query the database to get info about the depot for the node
-func (p *PodFacts) queryDepotDetails(ctx context.Context, _ *vapi.VerticaDB, pf *PodFact, _ *GatherState) error {
-	// This check depends on the database being up
-	if !pf.isPodRunning || !pf.upNode {
-		return nil
-	}
-	cmd := []string{
-		"-tAc",
-		fmt.Sprintf("select max_size, disk_percent from storage_locations "+
-			"where location_usage = 'DEPOT' and node_name = '%s'", pf.vnodeName),
-	}
-	stdout, _, err := p.PRunner.ExecVSQL(ctx, pf.name, pf.execContainerName, cmd...)
-	if err != nil {
-		// An error implies the server is down, so skipping this check.
-		return nil
-	}
-	return pf.setDepotDetails(stdout)
-}
-
-// setDepotDetails will set depot details in the PodFacts based on the query output
-func (p *PodFact) setDepotDetails(op string) error {
-	// For testing purposes, return without error if there is no output
-	if op == "" {
-		return nil
-	}
-	lines := strings.Split(op, "\n")
-	cols := strings.Split(lines[0], "|")
-	const ExpectedCols = 2
-	if len(cols) != ExpectedCols {
-		return fmt.Errorf("expected %d columns from storage_locations query but only got %d", ExpectedCols, len(cols))
-	}
-	var err error
-	p.maxDepotSize, err = strconv.Atoi(cols[0])
-	if err != nil {
-		return err
-	}
-	p.depotDiskPercentSize = cols[1]
-	return nil
-}
-
 // setNodeState set the node state in the PodFact based on
 // vertica deployment method
 func (p *PodFact) setNodeState(gs *GatherState, useVclusterOps bool) {
@@ -764,6 +736,9 @@ func (p *PodFacts) getEnvValueFromPod(cnt *corev1.Container, envName string) (st
 func (p *PodFacts) checkIsDBCreated(_ context.Context, vdb *vapi.VerticaDB, pf *PodFact, gs *GatherState) error {
 	pf.dbExists = false
 
+	// Set dbExists and vnodeName from state found in the vdb.status. We
+	// cannot always trust the state on disk. When a pod is unsandboxed, the catalog is
+	// removed for instance.
 	scs, ok := vdb.FindSubclusterStatus(pf.subclusterName)
 	if ok {
 		// Set the db exists indicator first based on the count in the status
@@ -773,52 +748,60 @@ func (p *PodFacts) checkIsDBCreated(_ context.Context, vdb *vapi.VerticaDB, pf *
 		// Inherit the vnode name if present
 		if int(pf.podIndex) < len(scs.Detail) {
 			pf.vnodeName = scs.Detail[pf.podIndex].VNodeName
+			pf.dbExists = scs.Detail[pf.podIndex].AddedToDB
 		}
 	}
-	// Nothing else can be gathered if the pod isn't running.
+	// The gather state is empty if the pod isn't running.
 	if !pf.isPodRunning {
 		return nil
 	}
-	pf.dbExists = gs.DBExists
+
+	pf.dbExists = gs.DBExists || pf.dbExists
 	pf.vnodeName = gs.VNodeName
 	return nil
 }
 
-// checkNodeStatus will query node state
-func (p *PodFacts) checkNodeStatus(ctx context.Context, vdb *vapi.VerticaDB, pf *PodFact, _ *GatherState) error {
-	if !pf.upNode {
+// makeNodeInfoFetcher will create a node-info Fetcher object based on the vclusterOps annotation
+// and the server version. If we are using vclusterops and server version is not older than v24.3.0,
+// the operator will call vclusterOps API to collect the node info. Otherwise, the operator will
+// execute vsql inside the pod to collect the node info.
+func (p *PodFacts) makeNodeInfoFetcher(vdb *vapi.VerticaDB, pf *PodFact) catalog.Fetcher {
+	verInfo, ok := vdb.MakeVersionInfo()
+	if verInfo != nil && ok {
+		if !verInfo.IsOlder(vapi.FetchNodeDetailsWithVclusterOpsMinVersion) && vmeta.UseVClusterOps(vdb.Annotations) {
+			return catalog.MakeVCluster(vdb, p.VerticaSUPassword, pf.podIP, p.Log, p.VRec.GetClient(), p.VRec.GetEventRecorder())
+		}
+	} else {
+		p.Log.Info("Cannot get a correct vertica version from the annotation",
+			"vertica version annotation", vdb.ObjectMeta.Annotations[vmeta.VersionAnnotation])
+	}
+	return catalog.MakeVSQL(vdb, p.PRunner, pf.name, pf.execContainerName, pf.vnodeName)
+}
+
+// checkNodeDetails will query node details and record them in the pod fact
+func (p *PodFacts) checkNodeDetails(ctx context.Context, vdb *vapi.VerticaDB, pf *PodFact, _ *GatherState) error {
+	// This check depends on the vnode, which is only present if the pod is
+	// running and the database exists at the node.
+	if !pf.isPodRunning || !pf.upNode {
 		return nil
 	}
 
-	// The first two columns are just for informational purposes.
-	cols := "n.node_name, node_state"
-	if vdb.IsEON() {
-		cols = fmt.Sprintf("%s, subcluster_oid", cols)
-	} else {
-		cols = fmt.Sprintf("%s, ''", cols)
+	nodeInfoFetcher := p.makeNodeInfoFetcher(vdb, pf)
+	nodeDetails, err := nodeInfoFetcher.FetchNodeDetails(ctx)
+	if err != nil {
+		p.Log.Info(err.Error())
+		return nil
 	}
-	// The read-only state is a new state added in 11.0.2.  So we can only query
-	// for it on levels 11.0.2+.  Otherwise, we always treat read-only as being
-	// disabled.
-	vinf, ok := vdb.MakeVersionInfo()
-	if ok && vinf.IsEqualOrNewer(vapi.NodesHaveReadOnlyStateVersion) {
-		cols = fmt.Sprintf("%s, is_readonly", cols)
+	if nodeDetails != nil {
+		pf.readOnly = nodeDetails.ReadOnly
+		pf.subclusterOid = nodeDetails.SubclusterOid
+		pf.sandbox = nodeDetails.SandboxName
+		pf.shardSubscriptions = nodeDetails.ShardSubscriptions
+		pf.maxDepotSize = nodeDetails.MaxDepotSize
+		pf.depotDiskPercentSize = nodeDetails.DepotDiskPercentSize
 	}
-	var sql string
-	if vdb.IsEON() {
-		sql = fmt.Sprintf(
-			"select %s "+
-				"from nodes as n, subclusters as s "+
-				"where s.node_oid = n.node_id and n.node_name in (select node_name from current_session)",
-			cols)
-	} else {
-		sql = fmt.Sprintf(
-			"select %s "+
-				"from nodes as n "+
-				"where n.node_name in (select node_name from current_session)",
-			cols)
-	}
-	return p.queryNodeStatus(ctx, pf, sql)
+
+	return nil
 }
 
 // checkIfNodeIsDoingStartup will determine if the pod has vertica process
@@ -829,82 +812,6 @@ func (p *PodFacts) checkIfNodeIsDoingStartup(_ context.Context, _ *vapi.VerticaD
 		return nil
 	}
 	pf.startupInProgress = !gs.StartupComplete
-	return nil
-}
-
-// queryNodeStatus will query the nodes system table for the following info:
-// node name, node is up, read-only state, and subcluster oid. It assumes the
-// database exists and the pod is running.
-func (p *PodFacts) queryNodeStatus(ctx context.Context, pf *PodFact, sql string) error {
-	cmd := []string{"-tAc", sql}
-	stdout, _, err := p.PRunner.ExecVSQL(ctx, pf.name, pf.execContainerName, cmd...)
-	if err != nil {
-		// Skip parsing that happens next. But otherwise continue collecting facts.
-		return nil
-	}
-	if pf.readOnly, pf.subclusterOid, err = parseNodeStateAndReadOnly(stdout); err != nil {
-		return err
-	}
-	return nil
-}
-
-// parseNodeStateAndReadOnly will parse query output from node state
-func parseNodeStateAndReadOnly(stdout string) (readOnly bool, scOid string, err error) {
-	// For testing purposes we early out with no error if there is no output
-	if stdout == "" {
-		return
-	}
-	// The stdout comes in the form like this:
-	// v_vertdb_node0001|UP|41231232423|t
-	// This means upNode is true, subcluster oid is 41231232423 and readOnly is
-	// true. The node name is included in the output for debug purposes, but
-	// otherwise not used.
-	//
-	// The 2nd column for node state is ignored in here. It is just for
-	// informational purposes. The fact that we got something implies the node
-	// was up.
-	lines := strings.Split(stdout, "\n")
-	cols := strings.Split(lines[0], "|")
-	const MinExpectedCols = 3
-	if len(cols) < MinExpectedCols {
-		err = fmt.Errorf("expected at least %d columns from node query but only got %d", MinExpectedCols, len(cols))
-		return
-	}
-	scOid = cols[2]
-	// Read-only can be missing on versions that don't support that state.
-	// Return false in those cases.
-	if len(cols) > MinExpectedCols {
-		readOnly = cols[3] == "t"
-	} else {
-		readOnly = false
-	}
-	return
-}
-
-// parseVerticaNodeName extract the vertica node name from the directory list
-func parseVerticaNodeName(stdout string) string {
-	re := regexp.MustCompile(`(v_.+_node\d+)_data`)
-	match := re.FindAllStringSubmatch(stdout, 1)
-	if len(match) > 0 && len(match[0]) > 0 {
-		return match[0][1]
-	}
-	return ""
-}
-
-// setShardSubscription will set the pf.shardSubscriptions based on the query
-// output
-func setShardSubscription(op string, pf *PodFact) error {
-	// For testing purposes we early out with no error if there is no output
-	if op == "" {
-		return nil
-	}
-
-	lines := strings.Split(op, "\n")
-	subs, err := strconv.Atoi(lines[0])
-	if err != nil {
-		return err
-	}
-	pf.shardSubscriptions = subs
 	return nil
 }
 
@@ -927,19 +834,20 @@ func (p *PodFacts) doesDBExist() bool {
 	return false
 }
 
-// findPodToRunVsql returns the name of the pod we will exec into in
-// order to run vsql
+// findFirstUpPod returns the first (sorted) pod that has an up vertica node
 // Will return false for second parameter if no pod could be found.
-func (p *PodFacts) findPodToRunVsql(allowReadOnly bool, scName string) (*PodFact, bool) {
-	for _, v := range p.Detail {
-		if scName != "" && v.subclusterName != scName {
-			continue
-		}
-		if v.upNode && (allowReadOnly || !v.readOnly) {
-			return v, true
-		}
+func (p *PodFacts) findFirstUpPod(allowReadOnly bool, scName string) (*PodFact, bool) {
+	return p.findFirstPodSorted(func(v *PodFact) bool {
+		return (scName == "" || v.subclusterName == scName) &&
+			v.upNode && (allowReadOnly || !v.readOnly)
+	})
+}
+
+func (p *PodFacts) FindFirstUpPodIP(allowReadOnly bool, scName string) (string, bool) {
+	if pod, ok := p.findFirstUpPod(allowReadOnly, scName); ok {
+		return pod.podIP, true
 	}
-	return &PodFact{}, false
+	return "", false
 }
 
 // findPodToRunAdminCmdAny returns the name of the pod we will exec into into
@@ -1032,6 +940,10 @@ func (p *PodFacts) findReIPPods(chk dBCheckType) []*PodFact {
 	return p.filterPods(func(pod *PodFact) bool {
 		// Only consider running pods that exist and have an installation
 		if !pod.exists || !pod.isPodRunning || !pod.isInstalled {
+			return false
+		}
+		// NMA needs to be running before re-ip
+		if pod.hasNMASidecar && !pod.isNMAContainerReady {
 			return false
 		}
 		switch chk {
@@ -1241,6 +1153,22 @@ func (p *PodFacts) findExpectedNodeNames() []string {
 	return expectedNodeNames
 }
 
+// GetSandboxName returns the name of the sandbox, or empty string
+// for main cluster, the pods belong to
+func (p *PodFacts) GetSandboxName() string {
+	return p.SandboxName
+}
+
+// GetClusterExtendedName returns the extended name of the cluster
+// handled by the podfacts
+func (p *PodFacts) GetClusterExtendedName() string {
+	sbName := p.GetSandboxName()
+	if sbName == vapi.MainCluster {
+		return "main cluster"
+	}
+	return fmt.Sprintf("sandbox %s", sbName)
+}
+
 // checkIfNodeUpCmd builds and returns the command to check
 // if a node is up using an HTTPS endpoint
 func checkIfNodeUpCmd(podIP string) string {
@@ -1248,4 +1176,101 @@ func checkIfNodeUpCmd(podIP string) string {
 		podIP, builder.VerticaHTTPPort, builder.HTTPServerVersionPath)
 	curlCmd := "curl -k -s -o /dev/null -w '%{http_code}'"
 	return fmt.Sprintf("%s %s", curlCmd, url)
+}
+
+// FindFirstPrimaryUpPodIP returns the ip of first pod that
+// has a primary up Vertica node, and a boolean that indicates
+// if we found such a pod
+func (p *PodFacts) FindFirstPrimaryUpPodIP() (string, bool) {
+	initiator, ok := p.findFirstPodSorted(func(v *PodFact) bool {
+		return v.sandbox == vapi.MainCluster && v.isPrimary && v.upNode
+	})
+	if initiator == nil {
+		return "", false
+	}
+	return initiator.podIP, ok
+}
+
+// FindUnsandboxedSubclustersStillInSandboxStatus returns a sandbox-subclusters map
+// that contains subclusters which has been unsandboxed but hasn't been removed
+// from sandbox status of VDB. In pod facts, we can get the latest sandbox info from
+// the /nodes endpoint which reflects the latest version from the catalog. We compare
+// the sandbox info in each pod with the sandbox info in vdb to know which subcluster
+// has been unsandboxed but not reflected on vdb.
+func (p *PodFacts) FindUnsandboxedSubclustersStillInSandboxStatus(scSbInVdbStatus map[string]string) map[string][]string {
+	sbScMap := make(map[string][]string)
+	seenScs := make(map[string]any)
+	for _, v := range p.Detail {
+		if _, ok := seenScs[v.subclusterName]; ok {
+			continue
+		}
+		sb, foundScInSbStatus := scSbInVdbStatus[v.subclusterName]
+		if foundScInSbStatus && v.sandbox == vapi.MainCluster {
+			sbScMap[sb] = append(sbScMap[sb], v.subclusterName)
+		}
+		seenScs[v.subclusterName] = struct{}{}
+	}
+	return sbScMap
+}
+
+// FindNodeNameAndAddressInSubcluster collects node info in a subcluster and returns a map
+// with node name as the key and node address as the value.
+func (p *PodFacts) FindNodeNameAndAddressInSubcluster(scName string) map[string]string {
+	nodeNameAddressMap := make(map[string]string)
+	for _, v := range p.Detail {
+		if v.subclusterName == scName {
+			nodeNameAddressMap[v.vnodeName] = v.podIP
+		}
+	}
+	return nodeNameAddressMap
+}
+
+// FindPodNamesInSubcluster returns all pod names in a subcluster
+func (p *PodFacts) FindPodNamesInSubcluster(scName string) []types.NamespacedName {
+	podNames := []types.NamespacedName{}
+	for _, v := range p.Detail {
+		if v.subclusterName == scName {
+			podNames = append(podNames, v.name)
+		}
+	}
+	return podNames
+}
+
+// findNodeNamesInSubclusters will return the names of the nodes in target subclusters
+func (p *PodFacts) findNodeNamesInSubclusters(scNames []string) []string {
+	nodeNames := []string{}
+	if len(scNames) == 0 {
+		return nodeNames
+	}
+	scNameSet := make(map[string]any)
+	for _, scName := range scNames {
+		scNameSet[scName] = struct{}{}
+	}
+
+	for _, v := range p.Detail {
+		_, found := scNameSet[v.subclusterName]
+		if found {
+			nodeNames = append(nodeNames, v.vnodeName)
+		}
+	}
+
+	return nodeNames
+}
+
+// quorumCheckForRestartCluster checks if restartable pods have enough primary nodes to do re-ip
+func (p *PodFacts) quorumCheckForRestartCluster(restartOnly bool) bool {
+	pfacts := p.findRestartablePods(restartOnly, false /* restartTransient */, true /* restartPendingDelete */)
+	restartablePrimaryNodeCount := 0
+	for _, v := range pfacts {
+		if v.isPrimary {
+			restartablePrimaryNodeCount++
+		}
+	}
+	primaryNodeCount := p.countPods(func(v *PodFact) int {
+		if v.isPrimary {
+			return 1
+		}
+		return 0
+	})
+	return restartablePrimaryNodeCount >= (primaryNodeCount+1)/2
 }

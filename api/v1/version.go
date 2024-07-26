@@ -30,8 +30,10 @@ const (
 	MinimumVersion = "v11.0.1"
 	// The version that added read-only state
 	NodesHaveReadOnlyStateVersion = "v11.0.2"
+	// The minimum version that allows for read-only online upgrade.
+	ReadOnlyOnlineUpgradeVersion = "v11.1.0"
 	// The minimum version that allows for online upgrade.
-	OnlineUpgradeVersion = "v11.1.0"
+	OnlineUpgradeVersion = "v24.3.0"
 	// The version that added the --force option to reip to handle up nodes
 	ReIPAllowedWithUpNodesVersion = "v11.1.0"
 	// The version of the server that doesn't support cgroup v2
@@ -43,6 +45,8 @@ const (
 	// The minimum version that we can use the option with create DB to skip the
 	// package install.
 	CreateDBSkipPackageInstallVersion = "v12.0.1"
+	// The version that added sandbox state
+	NodesHaveSandboxStateVersion = "v12.0.4"
 	// Starting in v23.4.0, we added some new config parameters for settings
 	// that were typically done post create using SQL -- setting the default
 	// subcluster name and preferred k-safety.
@@ -62,6 +66,8 @@ const (
 	InDatabaseLogRotateMinVersion = "v24.1.0"
 	// Starting in v24.2.0, restoring from a restore point in archive is supported.
 	RestoreSupportedMinVersion = "v24.2.0"
+	// Starting in v24.3.0, database replication via vclusterops is supported.
+	ReplicationViaVclusteropsSupportedMinVersion = "v24.3.0"
 	// The NMA TLS secret can be stored in an external secret store. These are
 	// the minimum versions of the NMA that we support them.
 	NMATLSSecretInGSMMinVersion               = "v24.1.0"
@@ -71,6 +77,10 @@ const (
 	// Starting in v24.2.0, vcluster scrutinize command can read the
 	// database password from secret(k8s, aws, gsm)
 	ScrutinizeDBPasswdInSecretMinVersion = "v24.2.0"
+	// Starting in v24.3.0, sandboxing a subcluster with the operator is supported
+	SandboxSupportedMinVersion = "v24.3.0"
+	// Starting in v24.3.0, we call vclusterops API to get node details instead of executing vsql within the pod
+	FetchNodeDetailsWithVclusterOpsMinVersion = "v24.3.0"
 )
 
 // GetVerticaVersionStr returns the vertica version, in string form, that is stored

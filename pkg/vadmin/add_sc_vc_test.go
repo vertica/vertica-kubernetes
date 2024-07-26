@@ -22,6 +22,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	vops "github.com/vertica/vcluster/vclusterops"
+	"github.com/vertica/vertica-kubernetes/pkg/test"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/addsc"
 )
 
@@ -45,10 +46,10 @@ func (m *MockVClusterOps) VAddSubcluster(options *vops.VAddSubclusterOptions) er
 	}
 
 	// verify basic options
-	if *options.SCName != TestSCName {
+	if options.SCName != TestSCName {
 		return fmt.Errorf("failed to retrieve subcluster name")
 	}
-	if *options.IsPrimary != TestIsPrimary {
+	if options.IsPrimary != TestIsPrimary {
 		return fmt.Errorf("failed to retrieve subcluster type")
 	}
 
@@ -60,6 +61,9 @@ var _ = Describe("add_sc_vc", func() {
 
 	It("should call vcluster-ops library with add_subcluster task", func() {
 		dispatcher := mockVClusterOpsDispatcher()
+		dispatcher.VDB.Spec.NMATLSSecret = "add-sc-test-secret"
+		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.NMATLSSecret)
+		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.NMATLSSecret)
 		dispatcher.VDB.Spec.DBName = TestDBName
 		Ω(dispatcher.AddSubcluster(ctx,
 			addsc.WithInitiator(dispatcher.VDB.ExtractNamespacedName(), TestInitiatorIP),

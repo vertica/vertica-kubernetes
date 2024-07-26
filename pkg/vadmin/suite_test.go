@@ -98,28 +98,35 @@ type MockVClusterOps struct {
 
 // const variables used for vcluster-ops unit test
 const (
-	TestDBName         = "test-db"
-	TestPassword       = "test-pw"
-	TestIPv6           = false
-	TestParm           = "Parm1"
-	TestValue          = "val1"
-	TestInitiatorIP    = "10.10.10.10"
-	TestIsEon          = true
-	TestCommunalPath   = "/communal"
-	TestNMATLSSecret   = "test-secret"
-	TestArchiveName    = "test-archive-name"
-	TestStartTimestamp = "2006-01-02"
-	TestEndTimestamp   = "2006-01-02 15:04:05"
+	TestDBName          = "test-db"
+	TestTargetDBName    = "test-target-db"
+	TestPassword        = "test-pw"
+	TestTargetPassword  = "test-target-pw"
+	TestTargetUserName  = "test-target-user"
+	TestIPv6            = false
+	TestParm            = "Parm1"
+	TestValue           = "val1"
+	TestInitiatorIP     = "10.10.10.10"
+	TestSourceIP        = "10.10.10.10"
+	TestTargetIP        = "10.10.10.11"
+	TestSourceTLSConfig = "test-tls-config"
+	TestIsEon           = true
+	TestCommunalPath    = "/communal"
+	TestNMATLSSecret    = "test-secret"
+	TestArchiveName     = "test-archive-name"
+	TestStartTimestamp  = "2006-01-02"
+	TestEndTimestamp    = "2006-01-02 15:04:05"
 )
 
 var TestCommunalStorageParams = map[string]string{"awsauth": "test-auth", "awsconnecttimeout": "10"}
+var TestNodeNameAddressMap = map[string]string{"v_sandbox_db_node0010": "10.244.0.134"}
 
 // VerifyDBNameAndIPv6 is used in vcluster-ops unit test for verifying db name and ipv6
 func (m *MockVClusterOps) VerifyDBNameAndIPv6(options *vops.DatabaseOptions) error {
-	if options.Ipv6.ToBool() != TestIPv6 {
+	if options.IPv6 != TestIPv6 {
 		return fmt.Errorf("failed to retrieve IPv6")
 	}
-	if *options.DBName != TestDBName {
+	if options.DBName != TestDBName {
 		return fmt.Errorf("failed to retrieve database name")
 	}
 
@@ -135,11 +142,41 @@ func (m *MockVClusterOps) VerifyCommonOptions(options *vops.DatabaseOptions) err
 	}
 
 	// verify auth options
-	if *options.UserName != vapi.SuperUser {
+	if options.UserName != vapi.SuperUser {
 		return fmt.Errorf("failed to retrieve Vertica username")
 	}
 	if *options.Password != TestPassword {
 		return fmt.Errorf("failed to retrieve Vertica password")
+	}
+
+	return nil
+}
+
+// VerifyTargetDBNameUserNamePassword is used in vcluster-ops unit test for verifying the target db name,
+// username and password in a replication
+func (m *MockVClusterOps) VerifyTargetDBNameUserNamePassword(options *vops.VReplicationDatabaseOptions) error {
+	if options.TargetDB != TestTargetDBName {
+		return fmt.Errorf("failed to retrieve target db name")
+	}
+	if options.TargetUserName != TestTargetUserName {
+		return fmt.Errorf("failed to retrieve target username")
+	}
+	if options.SourceTLSConfig != "" {
+		if options.TargetPassword != nil {
+			return fmt.Errorf("target password is not nil when source TLS config is set")
+		}
+	} else {
+		if *options.TargetPassword != TestTargetPassword {
+			return fmt.Errorf("failed to retrieve target password")
+		}
+	}
+	return nil
+}
+
+// VerifyEonMode is used in vcluster-ops unit test for verifying eon mode
+func (m *MockVClusterOps) VerifyEonMode(options *vops.DatabaseOptions) error {
+	if options.IsEon != TestIsEon {
+		return fmt.Errorf("failed to retrieve eon mode")
 	}
 
 	return nil
@@ -154,11 +191,7 @@ func (m *MockVClusterOps) VerifyInitiatorIPAndEonMode(options *vops.DatabaseOpti
 	}
 
 	// verify eon mode
-	if options.IsEon.ToBool() != TestIsEon {
-		return fmt.Errorf("failed to retrieve eon mode")
-	}
-
-	return nil
+	return m.VerifyEonMode(options)
 }
 
 // VerifyHosts is used in vcluster-ops unit test for verifying hosts
@@ -187,13 +220,13 @@ func (m *MockVClusterOps) VerifyFilterOptions(options *vops.ShowRestorePointFilt
 	if options == nil {
 		return fmt.Errorf("failed to retrieve filter options")
 	}
-	if options.ArchiveName == nil || *options.ArchiveName != TestArchiveName {
+	if options.ArchiveName == "" || options.ArchiveName != TestArchiveName {
 		return fmt.Errorf("failed to retrieve archive name filter")
 	}
-	if options.StartTimestamp == nil || *options.StartTimestamp != TestStartTimestamp {
+	if options.StartTimestamp == "" || options.StartTimestamp != TestStartTimestamp {
 		return fmt.Errorf("failed to retrieve start timestamp filter")
 	}
-	if options.EndTimestamp == nil || *options.EndTimestamp != TestEndTimestamp {
+	if options.EndTimestamp == "" || options.EndTimestamp != TestEndTimestamp {
 		return fmt.Errorf("failed to retrieve end timestamp filter")
 	}
 	return nil
@@ -211,6 +244,26 @@ func (m *MockVClusterOps) VerifyCerts(options *vops.DatabaseOptions) error {
 		return fmt.Errorf("failed to load ca cert")
 	}
 
+	return nil
+}
+
+// VerifySourceAndTargetIPs is used in vcluster-ops unit test for verifying source and target hosts
+// (both a single IP) in a replication
+func (m *MockVClusterOps) VerifySourceAndTargetIPs(options *vops.VReplicationDatabaseOptions) error {
+	if len(options.RawHosts) != 1 || options.RawHosts[0] != TestSourceIP {
+		return fmt.Errorf("failed to load source IP")
+	}
+	if len(options.TargetHosts) != 1 || options.TargetHosts[0] != TestTargetIP {
+		return fmt.Errorf("failed to load target IP")
+	}
+	return nil
+}
+
+// VerifySourceTLSConfig is used in vcluster-ops unit test for verifying source TLS config
+func (m *MockVClusterOps) VerifySourceTLSConfig(options *vops.VReplicationDatabaseOptions) error {
+	if options.SourceTLSConfig != TestSourceTLSConfig {
+		return fmt.Errorf("failed to load source TLS config")
+	}
 	return nil
 }
 
@@ -244,4 +297,13 @@ func createNonEmptyFileHelper(res ctrl.Result, err error, fpr *cmds.FakePodRunne
 	Ω(len(hist)).Should(Equal(1))
 	expContent := fmt.Sprintf("%s = %s\n", TestParm, TestValue)
 	Expect(hist[0].Command).Should(ContainElement(fmt.Sprintf("cat > %s<<< '%s'", paths.AuthParmsFile, expContent)))
+}
+
+// VerifyNodeNameAddressMap is used in vcluster-ops unit test for verifying a map that contains correct
+// node names and node addresses
+func (m *MockVClusterOps) VerifyNodeNameAddressMap(nodeNameAddressMap map[string]string) error {
+	if !reflect.DeepEqual(nodeNameAddressMap, TestNodeNameAddressMap) {
+		return fmt.Errorf("failed to retrieve the map with node names and addresses")
+	}
+	return nil
 }

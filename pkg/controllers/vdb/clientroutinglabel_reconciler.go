@@ -24,6 +24,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
+	config "github.com/vertica/vertica-kubernetes/pkg/vdbconfig"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
@@ -38,10 +39,11 @@ const (
 	AddNodeApplyMethod       ApplyMethodType = "Add"           // Called after a db_add_node
 	PodRescheduleApplyMethod ApplyMethodType = "PodReschedule" // Called after pod was rescheduled and vertica restarted
 	DelNodeApplyMethod       ApplyMethodType = "RemoveNode"    // Called before a db_remove_node
+	DrainNodeApplyMethod     ApplyMethodType = "DrainNode"     // Called as part of a drain operation. We want no traffic at the node.
 )
 
 type ClientRoutingLabelReconciler struct {
-	VRec        *VerticaDBReconciler
+	Rec         config.ReconcilerInterface
 	Vdb         *vapi.VerticaDB // Vdb is the CRD we are acting on.
 	Log         logr.Logger
 	PFacts      *PodFacts
@@ -49,10 +51,10 @@ type ClientRoutingLabelReconciler struct {
 	ScName      string // Subcluster we are going to reconcile.  Blank if all subclusters.
 }
 
-func MakeClientRoutingLabelReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
+func MakeClientRoutingLabelReconciler(recon config.ReconcilerInterface, log logr.Logger,
 	vdb *vapi.VerticaDB, pfacts *PodFacts, applyMethod ApplyMethodType, scName string) controllers.ReconcileActor {
 	return &ClientRoutingLabelReconciler{
-		VRec:        vdbrecon,
+		Rec:         recon,
 		Vdb:         vdb,
 		Log:         log.WithName("ClientRoutingLabelReconciler"),
 		PFacts:      pfacts,
@@ -95,7 +97,7 @@ func (c *ClientRoutingLabelReconciler) reconcilePod(ctx context.Context, pn type
 	// We retry if case someone else updated the pod since we last fetched it
 	err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 		pod := &corev1.Pod{}
-		if e := c.VRec.Client.Get(ctx, pn, pod); e != nil {
+		if e := c.Rec.GetClient().Get(ctx, pn, pod); e != nil {
 			// Not found errors are okay to ignore since there is no pod to
 			// add/remove a label.
 			if errors.IsNotFound(e) {
@@ -106,10 +108,11 @@ func (c *ClientRoutingLabelReconciler) reconcilePod(ctx context.Context, pn type
 
 		patch := client.MergeFrom(pod.DeepCopy())
 		c.manipulateRoutingLabelInPod(pod, pf)
-		err := c.VRec.Client.Patch(ctx, pod, patch)
+		err := c.Rec.GetClient().Patch(ctx, pod, patch)
 		if err != nil {
 			return err
 		}
+		c.Log.Info("pod has been patched", "name", pod.Name, "labels", pod.Labels)
 
 		if c.ApplyMethod == AddNodeApplyMethod && c.Vdb.IsEON() && pf.upNode && pf.shardSubscriptions == 0 && !pf.isPendingDelete {
 			c.Log.Info("Will requeue reconciliation because pod does not have any shard subscriptions yet", "name", pf.name)
@@ -146,8 +149,8 @@ func (c *ClientRoutingLabelReconciler) manipulateRoutingLabelInPod(pod *corev1.P
 			c.Log.Info("Adding client routing label", "pod",
 				pod.Name, "label", fmt.Sprintf("%s=%s", vmeta.ClientRoutingLabel, vmeta.ClientRoutingVal))
 		}
-	case DelNodeApplyMethod:
-		if labelExists && pf.isPendingDelete {
+	case DelNodeApplyMethod, DrainNodeApplyMethod:
+		if labelExists && (c.ApplyMethod == DrainNodeApplyMethod || pf.isPendingDelete) {
 			delete(pod.Labels, vmeta.ClientRoutingLabel)
 			c.Log.Info("Removing client routing label", "pod",
 				pod.Name, "label", fmt.Sprintf("%s=%s", vmeta.ClientRoutingLabel, vmeta.ClientRoutingVal))

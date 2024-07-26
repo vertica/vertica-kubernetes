@@ -19,7 +19,6 @@ import (
 	"context"
 
 	vops "github.com/vertica/vcluster/vclusterops"
-	"github.com/vertica/vcluster/vclusterops/vstruct"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/net"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/installpackages"
@@ -47,7 +46,7 @@ func (v *VClusterOps) InstallPackages(_ context.Context, opts ...installpackages
 		return status, err
 	}
 
-	v.Log.Info("Packages installation finished", "dbName", *vopts.DBName,
+	v.Log.Info("Packages installation finished", "dbName", vopts.DBName,
 		"installPackageStatus", *status)
 	return status, nil
 }
@@ -57,18 +56,17 @@ func (v *VClusterOps) genInstallPackagesOptions(i *installpackages.Parms) vops.V
 
 	opts.RawHosts = append(opts.RawHosts, i.InitiatorIP)
 	v.Log.Info("Setup install packages options", "hosts", opts.RawHosts[0])
-	opts.Ipv6 = vstruct.MakeNullableBool(net.IsIPv6(i.InitiatorIP))
+	opts.IPv6 = net.IsIPv6(i.InitiatorIP)
 
-	opts.DBName = &v.VDB.Spec.DBName
-	opts.IsEon = vstruct.MakeNullableBool(v.VDB.IsEON())
+	opts.DBName = v.VDB.Spec.DBName
+	opts.IsEon = v.VDB.IsEON()
 
 	// auth options
-	*opts.UserName = v.VDB.GetVerticaUser()
+	opts.UserName = v.VDB.GetVerticaUser()
 	opts.Password = &v.Password
-	*opts.HonorUserInput = true
 
 	// force reinstall option
-	*opts.ForceReinstall = i.ForceReinstall
+	opts.ForceReinstall = i.ForceReinstall
 
 	return opts
 }

@@ -99,7 +99,7 @@ func BuildExtSvc(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi.Subclust
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        nm.Name,
 			Namespace:   nm.Namespace,
-			Labels:      MakeLabelsForSvcObject(vdb, sc, "external"),
+			Labels:      MakeLabelsForSvcObject(vdb, sc, vmeta.SvcTypeExternal),
 			Annotations: MakeAnnotationsForSubclusterService(vdb, sc),
 		},
 		Spec: corev1.ServiceSpec{
@@ -121,7 +121,7 @@ func BuildHlSvc(nm types.NamespacedName, vdb *vapi.VerticaDB) *corev1.Service {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        nm.Name,
 			Namespace:   nm.Namespace,
-			Labels:      MakeLabelsForSvcObject(vdb, nil, "headless"),
+			Labels:      MakeLabelsForSvcObject(vdb, nil, vmeta.SvcTypeHeadless),
 			Annotations: MakeAnnotationsForObject(vdb),
 		},
 		Spec: corev1.ServiceSpec{
@@ -1246,13 +1246,12 @@ func getStorageClassName(vdb *vapi.VerticaDB) *string {
 
 // BuildStsSpec builds manifest for a subclusters statefulset
 func BuildStsSpec(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi.Subcluster) *appsv1.StatefulSet {
-	isControllerRef := true
 	return &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        nm.Name,
 			Namespace:   nm.Namespace,
-			Labels:      makeLabelsForObject(vdb, sc, false),
-			Annotations: MakeAnnotationsForObject(vdb),
+			Labels:      MakeLabelsForStsObject(vdb, sc),
+			Annotations: MakeAnnotationsForStsObject(vdb, sc),
 		},
 		Spec: appsv1.StatefulSetSpec{
 			Selector: &metav1.LabelSelector{
@@ -1274,15 +1273,7 @@ func BuildStsSpec(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi.Subclus
 					ObjectMeta: metav1.ObjectMeta{
 						Name: vapi.LocalDataPVC,
 						// Set the ownerReference so that we get auto-deletion
-						OwnerReferences: []metav1.OwnerReference{
-							{
-								APIVersion: vapi.GroupVersion.String(),
-								Kind:       vapi.VerticaDBKind,
-								Name:       vdb.Name,
-								UID:        vdb.UID,
-								Controller: &isControllerRef,
-							},
-						},
+						OwnerReferences: []metav1.OwnerReference{vdb.GenerateOwnerReference()},
 					},
 					Spec: corev1.PersistentVolumeClaimSpec{
 						AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
@@ -1295,6 +1286,30 @@ func BuildStsSpec(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi.Subclus
 					},
 				},
 			},
+		},
+	}
+}
+
+// BuildSandboxConfigMap builds a config map for sandbox controller
+func BuildSandboxConfigMap(nm types.NamespacedName, vdb *vapi.VerticaDB, sandbox string) *corev1.ConfigMap {
+	immutable := true
+	return &corev1.ConfigMap{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "ConfigMap",
+			APIVersion: "v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            nm.Name,
+			Namespace:       nm.Namespace,
+			Labels:          MakeLabelsForSandboxConfigMap(vdb),
+			Annotations:     MakeAnnotationsForSandboxConfigMap(vdb),
+			OwnerReferences: []metav1.OwnerReference{vdb.GenerateOwnerReference()},
+		},
+		// the data should be immutable since dbName and sandboxName are fixed
+		Immutable: &immutable,
+		Data: map[string]string{
+			vapi.VerticaDBNameKey: vdb.Name,
+			vapi.SandboxNameKey:   sandbox,
 		},
 	}
 }

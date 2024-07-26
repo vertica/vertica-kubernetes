@@ -25,6 +25,7 @@ import (
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -47,6 +48,7 @@ import (
 type VerticaScrutinizeReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
+	Cfg    *rest.Config
 	Log    logr.Logger
 	EVRec  record.EventRecorder
 }
@@ -185,6 +187,16 @@ func (r *VerticaScrutinizeReconciler) Eventf(vdb runtime.Object, eventtype, reas
 // GetClient gives access to the Kubernetes client
 func (r *VerticaScrutinizeReconciler) GetClient() client.Client {
 	return r.Client
+}
+
+// GetEventRecorder gives access to the event recorder
+func (r *VerticaScrutinizeReconciler) GetEventRecorder() record.EventRecorder {
+	return r.EVRec
+}
+
+// GetConfig gives access to *rest.Config
+func (r *VerticaScrutinizeReconciler) GetConfig() *rest.Config {
+	return r.Cfg
 }
 
 // abortReconcile returns true if it is not the first reconciliation iteration and VerticaDB is not

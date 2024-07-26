@@ -3,7 +3,7 @@
 # To re-generate a bundle for another specific version without changing the standard setup, you can:
 # - use the VERSION as arg of the bundle target (e.g make bundle VERSION=0.0.2)
 # - use environment variables to overwrite this value (e.g export VERSION=0.0.2)
-VERSION ?= 2.1.3
+VERSION ?= 2.2.0
 export VERSION
 
 # VLOGGER_VERSION defines the version to use for the Vertica logger image
@@ -99,6 +99,9 @@ export BASE_VERTICA_IMG
 # Image URL to use for the logger sidecar
 VLOGGER_IMG ?= $(IMG_REPO)vertica-logger:$(VLOGGER_VERSION)
 export VLOGGER_IMG
+# If the current leg in the CI tests is leg-9
+LEG9 ?= no
+export LEG9
 # What version of alpine does the vlogger image use
 VLOGGER_ALPINE_VERSION?=3.19
 # The port number for the local registry
@@ -207,11 +210,15 @@ CONCURRENCY_VERTICAAUTOSCALER?=1
 CONCURRENCY_EVENTTRIGGER?=1
 CONCURRENCY_VERTICARESTOREPOINTSQUERY?=1
 CONCURRENCY_VERTICASCRUTINIZE?=1
+CONCURRENCY_SANDBOXCONFIGMAP?=1
+CONCURRENCY_VERTICAREPLICATOR?=1
 export CONCURRENCY_VERTICADB \
   CONCURRENCY_VERTICAAUTOSCALER \
   CONCURRENCY_EVENTTRIGGER \
   CONCURRENCY_VERTICARESTOREPOINTSQUERY \
-  CONCURRENCY_VERTICASCRUTINIZE
+  CONCURRENCY_VERTICASCRUTINIZE \
+  CONCURRENCY_SANDBOXCONFIGMAP \
+  CONCURRENCY_VERTICAREPLICATOR
 
 # Clear this variable if you don't want to wait for the helm deployment to
 # finish before returning control. This exists to allow tests to attempt deploy
@@ -453,6 +460,14 @@ ifeq ($(shell $(KIND_CHECK)), 1)
 endif
 endif
 
+.PHONY: docker-push-extra-vertica
+docker-push-extra-vertica: # Push a hard-coded image used in multi-online-upgrade test
+ifeq ($(LEG9), yes)
+ifeq ($(shell $(KIND_CHECK)), 1)
+	scripts/push-to-kind.sh -i opentext/vertica-k8s-private:20240626-minimal
+endif
+endif
+
 # PLATFORMS defines the target platforms that the image will be used for. Use
 # this with docker-build-crossplatform-* targets.
 PLATFORMS?=linux/arm64,linux/amd64
@@ -515,7 +530,7 @@ docker-push-olm-catalog:
 docker-build: docker-build-vertica docker-build-operator docker-build-vlogger ## Build all docker images except OLM catalog
 
 .PHONY: docker-push
-docker-push: docker-push-vertica docker-push-base-vertica docker-push-operator docker-push-vlogger ## Push all docker images except OLM catalog
+docker-push: docker-push-vertica docker-push-base-vertica docker-push-extra-vertica docker-push-operator docker-push-vlogger ## Push all docker images except OLM catalog
 
 .PHONY: echo-images
 echo-images:  ## Print the names of all of the images used

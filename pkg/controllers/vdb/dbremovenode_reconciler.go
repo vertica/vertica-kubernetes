@@ -30,6 +30,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/removenode"
+	"github.com/vertica/vertica-kubernetes/pkg/vdbstatus"
 	corev1 "k8s.io/api/core/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -101,7 +102,7 @@ func (d *DBRemoveNodeReconciler) Reconcile(ctx context.Context, _ *ctrl.Request)
 	// Any nodes that are in subclusters that we are removing are handled by the
 	// DBRemoveSubcusterReconciler.
 	finder := iter.MakeSubclusterFinder(d.VRec.Client, d.Vdb)
-	subclusters, err := finder.FindSubclusters(ctx, iter.FindInVdb)
+	subclusters, err := finder.FindSubclusters(ctx, iter.FindInVdb, vapi.MainCluster)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -138,6 +139,10 @@ func (d *DBRemoveNodeReconciler) removeNodesInSubcluster(ctx context.Context, sc
 
 		if err := d.runRemoveNode(ctx, initiatorPod, podsToRemove); err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to call remove node: %w", err)
+		}
+
+		if err := d.updateSubclusterStatus(ctx, podsToRemove); err != nil {
+			return ctrl.Result{}, fmt.Errorf("failed to update subcluster status: %w", err)
 		}
 
 		// We successfully called db_remove_node, invalidate the pod facts cache
@@ -201,4 +206,24 @@ func (d *DBRemoveNodeReconciler) findPodsSuitableForScaleDown(sc *vapi.Subcluste
 		pods = append(pods, podFact)
 	}
 	return pods, requeueNeeded
+}
+
+// updateSubclusterStatus updates the removed nodes detail in their subcluster status
+func (d *DBRemoveNodeReconciler) updateSubclusterStatus(ctx context.Context, removedPods []*PodFact) error {
+	refreshInPlace := func(vdb *vapi.VerticaDB) error {
+		scMap := vdb.GenSubclusterStatusMap()
+		// The removed nodes belong to the same subcluster
+		// so we return if we don't find its status
+		scs := scMap[removedPods[0].subclusterName]
+		if scs == nil {
+			return nil
+		}
+		for _, p := range removedPods {
+			if int(p.podIndex) < len(scs.Detail) {
+				scs.Detail[p.podIndex].AddedToDB = false
+			}
+		}
+		return nil
+	}
+	return vdbstatus.Update(ctx, d.VRec.Client, d.Vdb, refreshInPlace)
 }

@@ -54,9 +54,9 @@ var _ = Describe("podfacts", func() {
 
 		nm := names.GenPodName(vdb, sc, 0)
 		fpr := &cmds.FakePodRunner{}
-		pfacts := MakePodFacts(vdbRec, fpr)
+		pfacts := MakePodFacts(vdbRec, fpr, logger, TestPassword)
 		vdb.Status.Subclusters = []vapi.SubclusterStatus{
-			{Name: sc.Name, AddedToDBCount: sc.Size, Detail: []vapi.VerticaDBPodStatus{{Installed: true}}},
+			{Name: sc.Name, AddedToDBCount: sc.Size, Detail: []vapi.VerticaDBPodStatus{{Installed: true, AddedToDB: true}}},
 		}
 		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
 		pf, ok := pfacts.Detail[nm]
@@ -65,7 +65,7 @@ var _ = Describe("podfacts", func() {
 		Expect(pf.dbExists).Should(BeTrue())
 
 		vdb.Status.Subclusters = []vapi.SubclusterStatus{
-			{Name: sc.Name, AddedToDBCount: 0, Detail: []vapi.VerticaDBPodStatus{{Installed: false}}},
+			{Name: sc.Name, AddedToDBCount: 0, Detail: []vapi.VerticaDBPodStatus{{Installed: false, AddedToDB: false}}},
 		}
 		pfacts.Invalidate()
 		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
@@ -85,7 +85,7 @@ var _ = Describe("podfacts", func() {
 
 		nm := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)
 		fpr := &cmds.FakePodRunner{}
-		pfacts := MakePodFacts(vdbRec, fpr)
+		pfacts := MakePodFacts(vdbRec, fpr, logger, TestPassword)
 		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
 		pf, ok := pfacts.Detail[nm]
 		Expect(ok).Should(BeTrue())
@@ -93,7 +93,7 @@ var _ = Describe("podfacts", func() {
 	})
 
 	It("should verify all doesDBExist return codes", func() {
-		pf := MakePodFacts(vdbRec, &cmds.FakePodRunner{})
+		pf := MakePodFacts(vdbRec, &cmds.FakePodRunner{}, logger, TestPassword)
 		pf.Detail[types.NamespacedName{Name: "p1"}] = &PodFact{dbExists: false, isPodRunning: true, isPrimary: true}
 		Expect(pf.doesDBExist()).Should(BeFalse())
 		pf.Detail[types.NamespacedName{Name: "p2"}] = &PodFact{dbExists: false, isPodRunning: false, isPrimary: true}
@@ -108,7 +108,7 @@ var _ = Describe("podfacts", func() {
 	It("should verify return of countNotReadOnlyWithOldImage", func() {
 		const OldImage = "image:v1"
 		const NewImage = "image:v2"
-		pf := MakePodFacts(vdbRec, &cmds.FakePodRunner{})
+		pf := MakePodFacts(vdbRec, &cmds.FakePodRunner{}, logger, TestPassword)
 		pf.Detail[types.NamespacedName{Name: "p1"}] = &PodFact{
 			isPodRunning: true,
 			upNode:       true,
@@ -132,13 +132,6 @@ var _ = Describe("podfacts", func() {
 		Expect(pf.countNotReadOnlyWithOldImage(NewImage)).Should(Equal(0))
 	})
 
-	It("should parse the vertica node name from the directory listing", func() {
-		Expect(parseVerticaNodeName("data/1b532ad7-42bf-4777-a6d1-fdae69fb94de/vertdb/v_vertdb_node0001_data/")).Should(
-			Equal("v_vertdb_node0001"))
-		Expect(parseVerticaNodeName("vertdb/v_thedb_node0109_data/")).Should(Equal("v_thedb_node0109"))
-		Expect(parseVerticaNodeName("vertdb/v_db2_node8844_data/")).Should(Equal("v_db2_node8844"))
-	})
-
 	It("should mark db is down if vsql fails", func() {
 		vdb := vapi.MakeVDB()
 		pn := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)
@@ -149,9 +142,9 @@ var _ = Describe("podfacts", func() {
 				},
 			},
 		}
-		pfs := MakePodFacts(vdbRec, fpr)
+		pfs := MakePodFacts(vdbRec, fpr, logger, TestPassword)
 		pf := &PodFact{name: pn, isPodRunning: true}
-		Expect(pfs.checkNodeStatus(ctx, vdb, pf, &GatherState{})).Should(Succeed())
+		Expect(pfs.checkNodeDetails(ctx, vdb, pf, &GatherState{})).Should(Succeed())
 		Expect(pf.upNode).Should(BeFalse())
 	})
 
@@ -159,7 +152,7 @@ var _ = Describe("podfacts", func() {
 		vdb := vapi.MakeVDB()
 		pn := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)
 		fpr := &cmds.FakePodRunner{}
-		pfs := MakePodFacts(vdbRec, fpr)
+		pfs := MakePodFacts(vdbRec, fpr, logger, TestPassword)
 		pf := &PodFact{name: pn, isPodRunning: true, dbExists: true}
 		gs := &GatherState{VerticaPIDRunning: true}
 		Expect(pfs.checkForSimpleGatherStateMapping(ctx, vdb, pf, gs)).Should(Succeed())
@@ -177,54 +170,13 @@ var _ = Describe("podfacts", func() {
 				},
 			},
 		}
-		pfs := MakePodFacts(vdbRec, fpr)
+		pfs := MakePodFacts(vdbRec, fpr, logger, TestPassword)
 		pf := &PodFact{name: pn, isPodRunning: true, dbExists: true}
 		gs := &GatherState{VerticaPIDRunning: true}
 		Expect(pfs.checkForSimpleGatherStateMapping(ctx, vdb, pf, gs)).Should(Succeed())
-		Expect(pfs.checkNodeStatus(ctx, vdb, pf, gs)).Should(Succeed())
+		Expect(pfs.checkNodeDetails(ctx, vdb, pf, gs)).Should(Succeed())
 		Expect(pf.upNode).Should(BeTrue())
 		Expect(pf.readOnly).Should(BeTrue())
-	})
-
-	It("should parse read-only state from node query", func() {
-		readOnly1, oid1, err := parseNodeStateAndReadOnly("v_db_node0001|UP|123456|t\n")
-		Expect(err).Should(Succeed())
-		Expect(readOnly1).Should(BeTrue())
-		Expect(oid1).Should(Equal("123456"))
-
-		readOnly2, oid2, err := parseNodeStateAndReadOnly("v_db_node0001|UP|7890123|f\n")
-		Expect(err).Should(Succeed())
-		Expect(readOnly2).Should(BeFalse())
-		Expect(oid2).Should(Equal("7890123"))
-
-		readOnly3, oid3, err := parseNodeStateAndReadOnly("v_db_node0001|UP|456789\n")
-		Expect(err).Should(Succeed())
-		Expect(readOnly3).Should(BeFalse())
-		Expect(oid3).Should(Equal("456789"))
-
-		_, _, err = parseNodeStateAndReadOnly("")
-		Expect(err).Should(Succeed())
-
-		_, _, err = parseNodeStateAndReadOnly("v_db_node0001|UP|123|t|garbage")
-		Expect(err).Should(Succeed())
-	})
-
-	It("should parse node subscriptions output", func() {
-		pf := &PodFact{}
-		Expect(setShardSubscription("3\n", pf)).Should(Succeed())
-		Expect(pf.shardSubscriptions).Should(Equal(3))
-	})
-
-	It("should parse depot details output", func() {
-		pf := &PodFact{}
-		Expect(pf.setDepotDetails("1248116736|60%\n")).Should(Succeed())
-		Expect(pf.maxDepotSize).Should(Equal(1248116736))
-		Expect(pf.depotDiskPercentSize).Should(Equal("60%"))
-		Expect(pf.setDepotDetails("3248116736|\n")).Should(Succeed())
-		Expect(pf.maxDepotSize).Should(Equal(3248116736))
-		Expect(pf.depotDiskPercentSize).Should(Equal(""))
-		Expect(pf.setDepotDetails("a|b|c")).ShouldNot(Succeed())
-		Expect(pf.setDepotDetails("not-a-number|blah")).ShouldNot(Succeed())
 	})
 
 	It("should detect startup in progress correctly", func() {
@@ -235,7 +187,7 @@ var _ = Describe("podfacts", func() {
 
 		pn := names.GenPodName(vdb, sc, 0)
 		fpr := &cmds.FakePodRunner{}
-		pfs := MakePodFacts(vdbRec, fpr)
+		pfs := MakePodFacts(vdbRec, fpr, logger, TestPassword)
 		pf := &PodFact{name: pn, isPodRunning: true, dbExists: true}
 		gs := &GatherState{VerticaPIDRunning: true, StartupComplete: false}
 		Expect(pfs.checkIfNodeIsDoingStartup(ctx, vdb, pf, gs)).Should(Succeed())
@@ -265,18 +217,18 @@ var _ = Describe("podfacts", func() {
 				},
 			},
 		}
-		pfs := MakePodFacts(vdbRec, fpr)
+		pfs := MakePodFacts(vdbRec, fpr, logger, TestPassword)
 		gs := &GatherState{VerticaPIDRunning: true}
 		pf := &PodFact{name: pn, isPodRunning: true, dbExists: true}
 		Expect(pfs.checkForSimpleGatherStateMapping(ctx, vdb, pf, gs)).Should(Succeed())
-		Expect(pfs.checkNodeStatus(ctx, vdb, pf, gs)).Should(Succeed())
+		Expect(pfs.checkNodeDetails(ctx, vdb, pf, gs)).Should(Succeed())
 		Expect(pf.upNode).Should(BeTrue())
 		Expect(pf.readOnly).Should(BeFalse())
 		Expect(pf.subclusterOid).Should(Equal(""))
 	})
 
 	It("should return consistent first pod", func() {
-		pf := MakePodFacts(vdbRec, &cmds.FakePodRunner{})
+		pf := MakePodFacts(vdbRec, &cmds.FakePodRunner{}, logger, TestPassword)
 		pf.Detail[types.NamespacedName{Name: "p1"}] = &PodFact{
 			dnsName: "p1", dbExists: true,
 		}
@@ -292,7 +244,7 @@ var _ = Describe("podfacts", func() {
 	})
 
 	It("should return filtered pods in vnode sort order", func() {
-		pf := MakePodFacts(vdbRec, &cmds.FakePodRunner{})
+		pf := MakePodFacts(vdbRec, &cmds.FakePodRunner{}, logger, TestPassword)
 		pf.Detail[types.NamespacedName{Name: "p1"}] = &PodFact{
 			dnsName: "p1", dbExists: true, vnodeName: "v_db_node0003",
 		}
@@ -314,7 +266,7 @@ var _ = Describe("podfacts", func() {
 
 	It("should return correct pod in findPodToRunAdmintoolsAny", func() {
 		By("finding up, not read-only and not pending delete")
-		pf := MakePodFacts(vdbRec, &cmds.FakePodRunner{})
+		pf := MakePodFacts(vdbRec, &cmds.FakePodRunner{}, logger, TestPassword)
 		pf.Detail[types.NamespacedName{Name: "p1"}] = &PodFact{
 			dnsName: "p1", dbExists: true, upNode: true, readOnly: false, isPendingDelete: true,
 		}
@@ -329,7 +281,7 @@ var _ = Describe("podfacts", func() {
 		Expect(p.dnsName).Should(Equal("p3"))
 
 		By("finding up and not read-only")
-		pf = MakePodFacts(vdbRec, &cmds.FakePodRunner{})
+		pf = MakePodFacts(vdbRec, &cmds.FakePodRunner{}, logger, TestPassword)
 		pf.Detail[types.NamespacedName{Name: "p1"}] = &PodFact{
 			dnsName: "p1", dbExists: true, upNode: true, readOnly: true,
 		}
@@ -344,7 +296,7 @@ var _ = Describe("podfacts", func() {
 		Expect(p.dnsName).Should(Equal("p2"))
 
 		By("finding up and read-only")
-		pf = MakePodFacts(vdbRec, &cmds.FakePodRunner{})
+		pf = MakePodFacts(vdbRec, &cmds.FakePodRunner{}, logger, TestPassword)
 		pf.Detail[types.NamespacedName{Name: "p1"}] = &PodFact{
 			dnsName: "p1", dbExists: true, upNode: false, readOnly: true,
 		}
@@ -359,7 +311,7 @@ var _ = Describe("podfacts", func() {
 		Expect(p.dnsName).Should(Equal("p2"))
 
 		By("finding a pod with an install")
-		pf = MakePodFacts(vdbRec, &cmds.FakePodRunner{})
+		pf = MakePodFacts(vdbRec, &cmds.FakePodRunner{}, logger, TestPassword)
 		pf.Detail[types.NamespacedName{Name: "p1"}] = &PodFact{
 			dnsName: "p1", isInstalled: false, isPodRunning: true,
 		}
@@ -378,9 +330,10 @@ var _ = Describe("podfacts", func() {
 	})
 
 	It("should correctly return re-ip pods", func() {
-		pf := MakePodFacts(vdbRec, &cmds.FakePodRunner{})
+		pf := MakePodFacts(vdbRec, &cmds.FakePodRunner{}, logger, TestPassword)
 		pf.Detail[types.NamespacedName{Name: "p1"}] = &PodFact{
 			dnsName: "p1", vnodeName: "node1", dbExists: true, exists: true, isPodRunning: true, isInstalled: true,
+			hasNMASidecar: true, isNMAContainerReady: true,
 		}
 		pf.Detail[types.NamespacedName{Name: "p2"}] = &PodFact{
 			dnsName: "p2", vnodeName: "node2", dbExists: false, exists: true, isPodRunning: true, isInstalled: true,
@@ -388,28 +341,18 @@ var _ = Describe("podfacts", func() {
 		pf.Detail[types.NamespacedName{Name: "p3"}] = &PodFact{
 			dnsName: "p3", vnodeName: "node3", dbExists: false, exists: true, isPodRunning: true, isInstalled: false,
 		}
-		By("finding any installed pod")
-		pods := pf.findReIPPods(dBCheckAny)
-		Ω(pods).Should(HaveLen(2))
-		Ω(pods[0].dnsName).Should(Equal("p1"))
-		Ω(pods[1].dnsName).Should(Equal("p2"))
-
-		By("finding pods with a db")
-		pods = pf.findReIPPods(dBCheckOnlyWithDBs)
-		Ω(pods).Should(HaveLen(1))
-		Ω(pods[0].dnsName).Should(Equal("p1"))
-
-		By("finding pods without a db")
-		pods = pf.findReIPPods(dBCheckOnlyWithoutDBs)
-		Ω(pods).Should(HaveLen(1))
-		Ω(pods[0].dnsName).Should(Equal("p2"))
+		pf.Detail[types.NamespacedName{Name: "p4"}] = &PodFact{
+			dnsName: "p4", vnodeName: "node4", dbExists: true, exists: true, isPodRunning: true, isInstalled: false,
+			hasNMASidecar: true, isNMAContainerReady: false,
+		}
+		verifyReIP(&pf)
 	})
 
 	It("should detect when the vdb has changed since collection", func() {
 		vdb := vapi.MakeVDB()
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
-		pf := MakePodFacts(vdbRec, &cmds.FakePodRunner{})
+		pf := MakePodFacts(vdbRec, &cmds.FakePodRunner{}, logger, TestPassword)
 		Ω(pf.Collect(ctx, vdb)).Should(Succeed())
 		Ω(pf.HasVerticaDBChangedSinceCollection(ctx, vdb)).Should(BeFalse())
 
@@ -421,4 +364,53 @@ var _ = Describe("podfacts", func() {
 		Ω(k8sClient.Update(ctx, vdb)).Should(Succeed())
 		Ω(pf.HasVerticaDBChangedSinceCollection(ctx, vdb)).Should(BeTrue())
 	})
+
+	It("should do quorum check correctly", func() {
+		pf := MakePodFacts(vdbRec, &cmds.FakePodRunner{}, logger, TestPassword)
+		pf.Detail[types.NamespacedName{Name: "p1"}] = &PodFact{
+			isPrimary: true, dbExists: true, hasDCTableAnnotations: true, isPodRunning: true, upNode: false,
+		}
+		pf.Detail[types.NamespacedName{Name: "p2"}] = &PodFact{
+			isPrimary: true, dbExists: true, hasDCTableAnnotations: true, isPodRunning: true, upNode: false,
+		}
+		pf.Detail[types.NamespacedName{Name: "p3"}] = &PodFact{
+			isPrimary: false, dbExists: true, hasDCTableAnnotations: true, isPodRunning: true, upNode: false,
+		}
+		pf.Detail[types.NamespacedName{Name: "p4"}] = &PodFact{
+			isPrimary: true, dbExists: false, hasDCTableAnnotations: true, isPodRunning: true, upNode: false,
+		}
+		pf.Detail[types.NamespacedName{Name: "p5"}] = &PodFact{
+			isPrimary: true, dbExists: false, hasDCTableAnnotations: true, isPodRunning: true, upNode: false,
+		}
+
+		// 4 primary nodes, 2 restartable primary nodes
+		result := pf.quorumCheckForRestartCluster(true)
+		Expect(result).Should(BeTrue())
+		// 5 primary nodes, 3 restartable primary nodes
+		pf.Detail[types.NamespacedName{Name: "p3"}].isPrimary = true
+		result = pf.quorumCheckForRestartCluster(true)
+		Expect(result).Should(BeTrue())
+		// 5 primary nodes, 2 restartable primary nodes
+		pf.Detail[types.NamespacedName{Name: "p3"}].dbExists = false
+		result = pf.quorumCheckForRestartCluster(true)
+		Expect(result).Should(BeFalse())
+	})
 })
+
+func verifyReIP(pf *PodFacts) {
+	By("finding any installed pod")
+	pods := pf.findReIPPods(dBCheckAny)
+	Ω(pods).Should(HaveLen(2))
+	Ω(pods[0].dnsName).Should(Equal("p1"))
+	Ω(pods[1].dnsName).Should(Equal("p2"))
+
+	By("finding pods with a db")
+	pods = pf.findReIPPods(dBCheckOnlyWithDBs)
+	Ω(pods).Should(HaveLen(1))
+	Ω(pods[0].dnsName).Should(Equal("p1"))
+
+	By("finding pods without a db")
+	pods = pf.findReIPPods(dBCheckOnlyWithoutDBs)
+	Ω(pods).Should(HaveLen(1))
+	Ω(pods[0].dnsName).Should(Equal("p2"))
+}

@@ -203,6 +203,10 @@ spec:
         path: template.affinity.podAntiAffinity
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:podAntiAffinity
+      - description: A map of key/value pairs appended to the stateful metadata.annotations
+          of the subcluster.
+        displayName: Annotations
+        path: template.annotations
       - description: 'Allows the service object to be attached to a list of external
           IPs that you specify. If not set, the external IP list is left empty in
           the service object. More info: https://kubernetes.io/docs/concepts/services-networking/service/#external-ips'
@@ -223,6 +227,14 @@ spec:
         path: template.isPrimary
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
+      - description: A sandbox primary subcluster is a secondary subcluster that was
+          the first subcluster in a sandbox. These subclusters are primaries when
+          they are sandboxed. When unsandboxed, they will go back to being just a
+          secondary subcluster
+        displayName: Is Sandbox Primary
+        path: template.isSandboxPrimary
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:hidden
       - description: Internal state that indicates whether this is a transient read-only
           subcluster used for online upgrade.  A subcluster that exists temporarily
           to serve traffic for subclusters that are restarting with the new image.
@@ -514,8 +526,10 @@ spec:
         path: imagePullSecrets[0].name
         x-descriptors:
         - urn:alm:descriptor:io.kubernetes:Secret
-      - description: The initialization policy defines how to setup the database.  Available
-          options are to create a new database or revive an existing one.
+      - description: The initialization policy specifies how the database should be
+          configured. Options include creating a new database, reviving an existing
+          one, or simply scheduling pods. Possible values are Create, Revive, CreateSkipPackageInstall,
+          or ScheduleOnly.
         displayName: Init Policy
         path: initPolicy
         x-descriptors:
@@ -686,6 +700,27 @@ spec:
       - description: The index of the subcluster.  This is an index into Subclusters[]
         displayName: Subcluster Index
         path: reviveOrder[0].subclusterIndex
+      - description: Identifies any sandboxes that exist for the database
+        displayName: Sandboxes
+        path: sandboxes
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+      - description: The name of the image to use for the sandbox. If omitted, the
+          image is inherited from the spec.image field.
+        displayName: Image
+        path: sandboxes[0].image
+      - description: This is the name of a sandbox. This is a required parameter.
+          This cannot change once the sandbox is created.
+        displayName: Name
+        path: sandboxes[0].name
+      - description: This is the subcluster names that are part of the sandbox. There
+          must be at least one subcluster listed. All subclusters listed need to be
+          secondary subclusters.
+        displayName: Subclusters
+        path: sandboxes[0].subclusters
+      - description: The name of a subcluster.
+        displayName: Name
+        path: sandboxes[0].subclusters[0].name
       - description: Allows you to set any additional securityContext for the Vertica
           server container.  We merge the values with the securityContext generated
           by the operator.  The operator adds its own capabilities to this.  If you
@@ -751,6 +786,10 @@ spec:
         path: subclusters[0].affinity.podAntiAffinity
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:podAntiAffinity
+      - description: A map of key/value pairs appended to the stateful metadata.annotations
+          of the subcluster.
+        displayName: Annotations
+        path: subclusters[0].annotations
       - description: When setting serviceType to NodePort, this parameter allows you
           to define the port that is opened at each node for Vertica client connections.
           If using NodePort and this is omitted, Kubernetes will choose the port automatically.
@@ -909,6 +948,10 @@ spec:
         path: temporarySubclusterRouting.template.affinity.podAntiAffinity
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:podAntiAffinity
+      - description: A map of key/value pairs appended to the stateful metadata.annotations
+          of the subcluster.
+        displayName: Annotations
+        path: temporarySubclusterRouting.template.annotations
       - description: When setting serviceType to NodePort, this parameter allows you
           to define the port that is opened at each node for Vertica client connections.
           If using NodePort and this is omitted, Kubernetes will choose the port automatically.
@@ -1024,18 +1067,23 @@ spec:
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:number
         - urn:alm:descriptor:com.tectonic.ui:advanced
-      - description: 'Defines how upgrade will be managed.  Available values are:
-          Offline, Online and Auto. - Offline: means we take down the entire cluster
-          then bring it back up with the new image. - Online: will keep the cluster
-          up when the upgrade occurs.  The data will go into read-only mode until
-          the Vertica nodes from the primary subcluster reform the cluster with the
-          new image. - Auto: will pick between Offline or Online.  Online is only
-          chosen if a license Secret exists, the k-Safety of the database is 1 and
-          we are running with a Vertica version that supports read-only subclusters.'
+      - description: "This setting defines how the upgrade process will be managed.
+          The available values are Offline, ReadOnlyOnline, Online, and Auto. \n Offline:
+          This option involves taking down the entire cluster and then bringing it
+          back up with the new image. \n ReadOnlyOnline: With this option, the cluster
+          remains operational for reads during the upgrade process. However, the data
+          will be in read-only mode until the Vertica nodes from the primary subcluster
+          re-form the cluster with the new image. \n Online: Similar to Online, this
+          option keeps the cluster operational throughout the upgrade process but
+          allows writes. The cluster is split into two replicas, and traffic is redirected
+          to the active replica to facilitate writes. \n Auto: This option selects
+          one of the above methods automatically based on compatibility with the version
+          of Vertica you are running."
         displayName: Upgrade Policy
         path: upgradePolicy
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:select:Auto
+        - urn:alm:descriptor:com.tectonic.ui:select:ReadOnlyOnline
         - urn:alm:descriptor:com.tectonic.ui:select:Online
         - urn:alm:descriptor:com.tectonic.ui:select:Offline
       - description: Additional volume mounts to include in the Vertica container.  These
@@ -1062,6 +1110,27 @@ spec:
       - description: Conditions for VerticaDB
         displayName: Conditions
         path: conditions
+      - description: The sandbox statuses
+        displayName: Sandboxes
+        path: sandboxes
+      - description: Name of the sandbox that was defined in the spec
+        displayName: Name
+        path: sandboxes[0].name
+      - description: The names of subclusters that are currently a part of the given
+          sandbox. This is updated as subclusters become sandboxed or unsandboxed.
+        displayName: Subclusters
+        path: sandboxes[0].subclusters
+      - description: State of the current running upgrade in the sandbox
+        displayName: Upgrade State
+        path: sandboxes[0].upgradeState
+      - description: UpgradeInProgress indicates if the sandbox is in the process
+          of having its image change
+        displayName: Upgrade In Progress
+        path: sandboxes[0].upgradeState.upgradeInProgress
+      - description: Status message for the current running upgrade. If no upgrade
+          is occurring, this message remains blank.
+        displayName: Upgrade Status
+        path: sandboxes[0].upgradeState.upgradeStatus
       - description: The number of subclusters in the database
         displayName: Subcluster Count
         path: subclusterCount
@@ -1506,6 +1575,27 @@ spec:
       - description: The index of the subcluster.  This is an index into Subclusters[]
         displayName: Subcluster Index
         path: reviveOrder[0].subclusterIndex
+      - description: Identifies any sandboxes that exist for the database
+        displayName: Sandboxes
+        path: sandboxes
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+      - description: The name of the image to use for the sandbox. If omitted, the
+          image is inherited from the spec.image field.
+        displayName: Image
+        path: sandboxes[0].image
+      - description: This is the name of a sandbox. This is a required parameter.
+          This cannot change once the sandbox is created.
+        displayName: Name
+        path: sandboxes[0].name
+      - description: This is the subcluster names that are part of the sandbox. There
+          must be at least one subcluster listed. All subclusters listed need to be
+          secondary subclusters.
+        displayName: Subclusters
+        path: sandboxes[0].subclusters
+      - description: The name of a subcluster.
+        displayName: Name
+        path: sandboxes[0].subclusters[0].name
       - description: Allows you to set any additional securityContext for the Vertica
           server container.  We merge the values with the securityContext generated
           by the operator.  The operator adds its own capabilities to this.  If you
@@ -1581,6 +1671,10 @@ spec:
         path: subclusters[0].affinity.podAntiAffinity
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:podAntiAffinity
+      - description: A map of key/value pairs appended to the stateful metadata.annotations
+          of the subcluster.
+        displayName: Annotations
+        path: subclusters[0].annotations
       - description: 'Allows the service object to be attached to a list of external
           IPs that you specify. If not set, the external IP list is left empty in
           the service object. More info: https://kubernetes.io/docs/concepts/services-networking/service/#external-ips'
@@ -1601,6 +1695,14 @@ spec:
         path: subclusters[0].isPrimary
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
+      - description: A sandbox primary subcluster is a secondary subcluster that was
+          the first subcluster in a sandbox. These subclusters are primaries when
+          they are sandboxed. When unsandboxed, they will go back to being just a
+          secondary subcluster
+        displayName: Is Sandbox Primary
+        path: subclusters[0].isSandboxPrimary
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:hidden
       - description: Internal state that indicates whether this is a transient read-only
           subcluster used for online upgrade.  A subcluster that exists temporarily
           to serve traffic for subclusters that are restarting with the new image.
@@ -1749,6 +1851,10 @@ spec:
         path: temporarySubclusterRouting.template.affinity.podAntiAffinity
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:podAntiAffinity
+      - description: A map of key/value pairs appended to the stateful metadata.annotations
+          of the subcluster.
+        displayName: Annotations
+        path: temporarySubclusterRouting.template.annotations
       - description: 'Allows the service object to be attached to a list of external
           IPs that you specify. If not set, the external IP list is left empty in
           the service object. More info: https://kubernetes.io/docs/concepts/services-networking/service/#external-ips'
@@ -1769,6 +1875,14 @@ spec:
         path: temporarySubclusterRouting.template.isPrimary
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
+      - description: A sandbox primary subcluster is a secondary subcluster that was
+          the first subcluster in a sandbox. These subclusters are primaries when
+          they are sandboxed. When unsandboxed, they will go back to being just a
+          secondary subcluster
+        displayName: Is Sandbox Primary
+        path: temporarySubclusterRouting.template.isSandboxPrimary
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:hidden
       - description: Internal state that indicates whether this is a transient read-only
           subcluster used for online upgrade.  A subcluster that exists temporarily
           to serve traffic for subclusters that are restarting with the new image.
@@ -1927,6 +2041,27 @@ spec:
           vertica cluster.
         displayName: Install Count
         path: installCount
+      - description: The sandbox statuses
+        displayName: Sandboxes
+        path: sandboxes
+      - description: Name of the sandbox that was defined in the spec
+        displayName: Name
+        path: sandboxes[0].name
+      - description: The names of subclusters that are currently a part of the given
+          sandbox. This is updated as subclusters become sandboxed or unsandboxed.
+        displayName: Subclusters
+        path: sandboxes[0].subclusters
+      - description: State of the current running upgrade in the sandbox
+        displayName: Upgrade State
+        path: sandboxes[0].upgradeState
+      - description: UpgradeInProgress indicates if the sandbox is in the process
+          of having its image change
+        displayName: Upgrade In Progress
+        path: sandboxes[0].upgradeState.upgradeInProgress
+      - description: Status message for the current running upgrade. If no upgrade
+          is occurring, this message remains blank.
+        displayName: Upgrade Status
+        path: sandboxes[0].upgradeState.upgradeStatus
       - description: The number of subclusters in the database
         displayName: Subcluster Count
         path: subclusterCount
@@ -1982,6 +2117,110 @@ spec:
           is occurring, this message remains blank.
         displayName: Upgrade Status
         path: upgradeStatus
+      version: v1beta1
+    - description: VerticaReplicator is the Schema for the verticareplicators API
+      displayName: Vertica Replicator
+      kind: VerticaReplicator
+      name: verticareplicators.vertica.com
+      resources:
+      - kind: VerticaDB
+        name: ""
+        version: vertica.com/v1beta1
+      specDescriptors:
+      - description: Information of the source Vertica database to replicate from
+        displayName: Source
+        path: source
+      - description: "The password secret for the given UserName is stored in this
+          field. If this field and UserName are omitted, the default is set to the
+          superuser password secret found in the VerticaDB. An empty value indicates
+          the absence of a password. \n The secret is assumed to be a Kubernetes (k8s)
+          secret unless a secret path reference is specified. In the latter case,
+          the secret is retrieved from an external secret storage manager."
+        displayName: Password Secret
+        path: source.passwordSecret
+        x-descriptors:
+        - urn:alm:descriptor:io.kubernetes:Secret
+      - description: Specify the sandbox name to establish a connection. If no sandbox
+          name is provided, the system assumes the main cluster of the database.
+        displayName: Sandbox Name
+        path: source.sandboxName
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:text
+      - description: This field allows you to specify the name of the service object
+          that will be used to connect to the database. If you do not specify a name,
+          the service object for the first primary subcluster will be used.
+        displayName: Service Name
+        path: source.serviceName
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:text
+      - description: The username to connect to Vertica with. If no username is specified,
+          the database's superuser will be assumed. Custom username for source database
+          is not supported yet.
+        displayName: User Name
+        path: source.userName
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:text
+      - description: Name of an existing VerticaDB
+        displayName: Vertica DB
+        path: source.verticaDB
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:text
+      - description: Information of the target Vertica database to replicate to
+        displayName: Target
+        path: target
+      - description: "The password secret for the given UserName is stored in this
+          field. If this field and UserName are omitted, the default is set to the
+          superuser password secret found in the VerticaDB. An empty value indicates
+          the absence of a password. \n The secret is assumed to be a Kubernetes (k8s)
+          secret unless a secret path reference is specified. In the latter case,
+          the secret is retrieved from an external secret storage manager."
+        displayName: Password Secret
+        path: target.passwordSecret
+        x-descriptors:
+        - urn:alm:descriptor:io.kubernetes:Secret
+      - description: Specify the sandbox name to establish a connection. If no sandbox
+          name is provided, the system assumes the main cluster of the database.
+        displayName: Sandbox Name
+        path: target.sandboxName
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:text
+      - description: This field allows you to specify the name of the service object
+          that will be used to connect to the database. If you do not specify a name,
+          the service object for the first primary subcluster will be used.
+        displayName: Service Name
+        path: target.serviceName
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:text
+      - description: The username to connect to Vertica with. If no username is specified,
+          the database's superuser will be assumed. Custom username for source database
+          is not supported yet.
+        displayName: User Name
+        path: target.userName
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:text
+      - description: Name of an existing VerticaDB
+        displayName: Vertica DB
+        path: target.verticaDB
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:text
+      - description: Optional TLS configuration to use when connecting from the source
+          database to the target database. It refers to an existing TLS config that
+          already exists in the source. Using TLS configuration for target database
+          authentication requires the same username to be used for both source and
+          target databases. It also requires security config parameter EnableConnectCredentialForwarding
+          to be enabled on the source database. Custom username for source and target
+          databases is not supported yet when TLS configuration is used.
+        displayName: TLSConfig
+        path: tlsConfig
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:text
+      statusDescriptors:
+      - description: Set of status conditions of replication process
+        displayName: Conditions
+        path: conditions
+      - description: Status message for replicator
+        displayName: State
+        path: state
       version: v1beta1
     - description: VerticaRestorePointsQuery is the Schema for the verticarestorepointsqueries
         API

@@ -108,7 +108,7 @@ var _ = Describe("offlineupgrade_reconcile", func() {
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: false, RequeueAfter: vdb.GetUpgradeRequeueTimeDuration()}))
 
 		finder := iter.MakeSubclusterFinder(k8sClient, vdb)
-		pods, err := finder.FindPods(ctx, iter.FindExisting)
+		pods, err := finder.FindPods(ctx, iter.FindExisting, vapi.MainCluster)
 		Expect(err).Should(Succeed())
 		Expect(len(pods.Items)).Should(Equal(0))
 	})

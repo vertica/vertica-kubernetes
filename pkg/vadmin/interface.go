@@ -26,18 +26,25 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/addnode"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/addsc"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/altersc"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/createdb"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/describedb"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/fetchnodedetails"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/fetchnodestate"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/installpackages"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/promotesandboxtomain"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/reip"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/removenode"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/removesc"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/renamesc"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/replicationstart"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/restartnode"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/revivedb"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/sandboxsc"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/showrestorepoints"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/startdb"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/stopdb"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/unsandboxsc"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -93,6 +100,26 @@ type Dispatcher interface {
 	// InstallPackages will install all packages under /opt/vertica/packages
 	// where Autoinstall is marked true.
 	InstallPackages(ctx context.Context, opts ...installpackages.Option) (*vops.InstallPackageStatus, error)
+
+	// ReplicateDB will start replicating data and metadata of an Eon cluster to another
+	ReplicateDB(ctx context.Context, opts ...replicationstart.Option) (ctrl.Result, error)
+
+	// FetchNodeDetails will return details for a node, including its state, sandbox, and storage locations
+	FetchNodeDetails(ctx context.Context, opts ...fetchnodedetails.Option) (vops.NodeDetails, error)
+
+	// SandboxSubcluster will add a subcluster in a sandbox of the database
+	SandboxSubcluster(ctx context.Context, opts ...sandboxsc.Option) error
+
+	// PromoteSandboxToMain will convert local sandbox to main cluster
+	PromoteSandboxToMain(ctx context.Context, opts ...promotesandboxtomain.Option) error
+
+	// UnsandboxSubcluster will move a subcluster from a sandbox to main cluster
+	UnsandboxSubcluster(ctx context.Context, opts ...unsandboxsc.Option) error
+
+	AlterSubclusterType(ctx context.Context, opts ...altersc.Option) error
+
+	// RenameSubcluster will rename a subcluster in main cluster
+	RenameSubcluster(ctx context.Context, opts ...renamesc.Option) error
 }
 
 const (
@@ -161,9 +188,11 @@ func SetupVClusterOps(log logr.Logger, apiName string) (VClusterProvider, logr.L
 	// logger for each API call.
 	apiLog := log.WithName(apiName)
 	return &vops.VClusterCommands{
-			Log: vlog.Printer{
-				Log:           apiLog,
-				LogToFileOnly: false,
+			VClusterCommandsLogger: vops.VClusterCommandsLogger{
+				Log: vlog.Printer{
+					Log:           apiLog,
+					LogToFileOnly: false,
+				},
 			},
 		},
 		apiLog
@@ -202,7 +231,7 @@ type HTTPSCerts struct {
 type VClusterProvider interface {
 	VCreateDatabase(options *vops.VCreateDatabaseOptions) (vops.VCoordinationDatabase, error)
 	VStopDatabase(options *vops.VStopDatabaseOptions) error
-	VStartDatabase(options *vops.VStartDatabaseOptions) error
+	VStartDatabase(options *vops.VStartDatabaseOptions) (*vops.VCoordinationDatabase, error)
 	VReviveDatabase(options *vops.VReviveDatabaseOptions) (string, *vops.VCoordinationDatabase, error)
 	VFetchNodeState(options *vops.VFetchNodeStateOptions) ([]vops.NodeInfo, error)
 	VAddSubcluster(options *vops.VAddSubclusterOptions) error
@@ -213,4 +242,11 @@ type VClusterProvider interface {
 	VStartNodes(options *vops.VStartNodesOptions) error
 	VShowRestorePoints(options *vops.VShowRestorePointsOptions) ([]vops.RestorePoint, error)
 	VInstallPackages(options *vops.VInstallPackagesOptions) (*vops.InstallPackageStatus, error)
+	VReplicateDatabase(options *vops.VReplicationDatabaseOptions) error
+	VFetchNodesDetails(options *vops.VFetchNodesDetailsOptions) (vops.NodesDetails, error)
+	VPromoteSandboxToMain(options *vops.VPromoteSandboxToMainOptions) error
+	VSandbox(options *vops.VSandboxOptions) error
+	VUnsandbox(options *vops.VUnsandboxOptions) error
+	VAlterSubclusterType(options *vops.VAlterSubclusterTypeOptions) error
+	VRenameSubcluster(options *vops.VRenameSubclusterOptions) error
 }

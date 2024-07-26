@@ -40,7 +40,7 @@ func (m *MockVClusterOps) VReviveDatabase(options *vops.VReviveDatabaseOptions) 
 
 	// If running with display only, we only use a single host.
 	var expectedHosts = TestHosts
-	if *options.DisplayOnly {
+	if options.DisplayOnly {
 		expectedHosts = []string{TestHosts[0]}
 	}
 	err = m.VerifyHosts(&options.DatabaseOptions, expectedHosts)
@@ -51,11 +51,11 @@ func (m *MockVClusterOps) VReviveDatabase(options *vops.VReviveDatabaseOptions) 
 	if err != nil {
 		return "", nil, err
 	}
-	err = m.VerifyCommunalStorageOptions(*options.CommunalStorageLocation, options.ConfigurationParameters)
+	err = m.VerifyCommunalStorageOptions(options.CommunalStorageLocation, options.ConfigurationParameters)
 	if err != nil {
 		return "", nil, err
 	}
-	if *options.DisplayOnly {
+	if options.DisplayOnly {
 		return TestDescribeOutput, nil, nil
 	}
 	return "", nil, nil

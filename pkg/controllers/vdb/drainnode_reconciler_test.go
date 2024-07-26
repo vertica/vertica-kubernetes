@@ -31,12 +31,14 @@ var _ = Describe("drainnode_reconcile", func() {
 	ctx := context.Background()
 
 	It("should query sessions if pod is pending delete", func() {
+		const origSize = 2
 		vdb := vapi.MakeVDB()
 		vdb.Spec.Subclusters = []vapi.Subcluster{
-			{Name: "sc1", Size: 2},
+			{Name: "sc1", Size: origSize},
 		}
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
-		defer test.DeletePods(ctx, k8sClient, vdb)
+		// Restore original size prior to deletion to ensure all pods are cleaned up
+		defer func() { vdb.Spec.Subclusters[0].Size = origSize; test.DeletePods(ctx, k8sClient, vdb) }()
 		vdb.Spec.Subclusters[0].Size-- // Reduce size to make one pod pending delete
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
@@ -50,17 +52,19 @@ var _ = Describe("drainnode_reconcile", func() {
 	})
 
 	It("should not query sessions if no pod is pending delete", func() {
+		const origSize = 2
 		vdb := vapi.MakeVDB()
 		vdb.Spec.Subclusters = []vapi.Subcluster{
-			{Name: "sc1", Size: 2},
+			{Name: "sc1", Size: origSize},
 		}
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
-		defer test.DeletePods(ctx, k8sClient, vdb)
+		// Restore original size prior to deletion to ensure all pods are cleaned up
+		defer func() { vdb.Spec.Subclusters[0].Size = origSize; test.DeletePods(ctx, k8sClient, vdb) }()
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := MakePodFacts(vdbRec, fpr)
+		pfacts := MakePodFacts(vdbRec, fpr, logger, TestPassword)
 		r := MakeDrainNodeReconciler(vdbRec, vdb, fpr, &pfacts)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 		cmds := fpr.FindCommands("select count(*) from session")
@@ -68,12 +72,14 @@ var _ = Describe("drainnode_reconcile", func() {
 	})
 
 	It("should requeue if one pending delete pod has active connections", func() {
+		const origSize = 2
 		vdb := vapi.MakeVDB()
 		vdb.Spec.Subclusters = []vapi.Subcluster{
-			{Name: "sc1", Size: 2},
+			{Name: "sc1", Size: origSize},
 		}
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
-		defer test.DeletePods(ctx, k8sClient, vdb)
+		// Restore original size prior to deletion to ensure all pods are cleaned up
+		defer func() { vdb.Spec.Subclusters[0].Size = origSize; test.DeletePods(ctx, k8sClient, vdb) }()
 		vdb.Spec.Subclusters[0].Size-- // Reduce size to make one pod pending delete
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)

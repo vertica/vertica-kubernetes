@@ -23,6 +23,8 @@ import (
 type Parms struct {
 	InitiatorName types.NamespacedName
 	InitiatorIP   string
+	Sandbox       string
+	ZeroDrain     bool
 }
 
 type Option func(*Parms)
@@ -38,5 +40,17 @@ func WithInitiator(nm types.NamespacedName, ip string) Option {
 	return func(s *Parms) {
 		s.InitiatorName = nm
 		s.InitiatorIP = ip
+	}
+}
+
+func WithSandbox(sbName string) Option {
+	return func(s *Parms) {
+		s.Sandbox = sbName
+	}
+}
+
+func WithZeroDrain(hasZeroDrainSeconds bool) Option {
+	return func(s *Parms) {
+		s.ZeroDrain = hasZeroDrainSeconds
 	}
 }

@@ -23,6 +23,7 @@ import (
 	. "github.com/onsi/gomega" //nolint:stylecheck
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/builder"
+	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -88,6 +89,26 @@ func CreateSts(ctx context.Context, c client.Client, vdb *vapi.VerticaDB, sc *va
 	sts.Status.Replicas = sc.Size
 	sts.Status.ReadyReplicas = sc.Size
 	ExpectWithOffset(offset, c.Status().Update(ctx, sts))
+}
+
+func CreateConfigMap(ctx context.Context, c client.Client, vdb *vapi.VerticaDB, id, sbName string) {
+	nm := names.GenSandboxConfigMapName(vdb, sbName)
+	cm := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Annotations: map[string]string{
+				vmeta.SandboxControllerUpgradeTriggerID: id,
+				vmeta.VersionAnnotation:                 "v23.4.0",
+			},
+			Name:      nm.Name,
+			Namespace: vdb.Namespace,
+		},
+		Data: map[string]string{
+			vapi.VerticaDBNameKey: vdb.Name,
+			vapi.SandboxNameKey:   sbName,
+		},
+	}
+	Expect(c.Create(ctx, cm)).Should(Succeed())
+	Expect(cm.Annotations[vmeta.SandboxControllerUpgradeTriggerID]).Should(Equal(id))
 }
 
 func ScaleDownSubcluster(ctx context.Context, c client.Client, vdb *vapi.VerticaDB, sc *vapi.Subcluster, newSize int32) {
@@ -187,6 +208,15 @@ func DeleteStorageClass(ctx context.Context, c client.Client) {
 	}
 }
 
+func DeleteConfigMap(ctx context.Context, c client.Client, vdb *vapi.VerticaDB, sbName string) {
+	cm := &corev1.ConfigMap{}
+	nm := names.GenSandboxConfigMapName(vdb, sbName)
+	err := c.Get(ctx, nm, cm)
+	if !kerrors.IsNotFound(err) {
+		Expect(c.Delete(ctx, cm)).Should(Succeed())
+	}
+}
+
 func CreateFakeTLSSecret(ctx context.Context, vdb *vapi.VerticaDB, c client.Client, name string) {
 	secret := BuildTLSSecret(vdb, name, TestKeyValue, TestCertValue, TestCaCertValue)
 	Expect(c.Create(ctx, secret)).Should(Succeed())
@@ -202,6 +232,25 @@ func BuildTLSSecret(vdb *vapi.VerticaDB, name, key, cert, rootca string) *corev1
 			corev1.TLSPrivateKeyKey:        []byte(key),
 			corev1.TLSCertKey:              []byte(cert),
 			corev1.ServiceAccountRootCAKey: []byte(rootca),
+		},
+	}
+	return secret
+}
+
+func CreateSuperuserPasswordSecret(ctx context.Context, vdb *vapi.VerticaDB, c client.Client,
+	name, password string) {
+	secret := BuildSuperuserPasswordSecret(vdb, name, password)
+	Expect(c.Create(ctx, secret)).Should(Succeed())
+}
+
+func BuildSuperuserPasswordSecret(vdb *vapi.VerticaDB, name, password string) *corev1.Secret {
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: vdb.Namespace,
+		},
+		StringData: map[string]string{
+			names.SuperuserPasswordKey: password,
 		},
 	}
 	return secret

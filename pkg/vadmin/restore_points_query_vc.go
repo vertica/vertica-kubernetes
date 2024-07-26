@@ -20,7 +20,6 @@ import (
 	"fmt"
 
 	vops "github.com/vertica/vcluster/vclusterops"
-	"github.com/vertica/vcluster/vclusterops/vstruct"
 	"github.com/vertica/vertica-kubernetes/pkg/net"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/showrestorepoints"
 )
@@ -54,14 +53,13 @@ func (v *VClusterOps) genRestorePointsOptions(s *showrestorepoints.Parms, certs 
 	opts := vops.VShowRestorePointsFactory()
 
 	// required options
-	opts.DBName = &v.VDB.Spec.DBName
-	opts.CommunalStorageLocation = &s.CommunalPath
+	opts.DBName = v.VDB.Spec.DBName
+	opts.CommunalStorageLocation = s.CommunalPath
 
-	*opts.HonorUserInput = true
 	opts.RawHosts = append(opts.RawHosts, s.InitiatorIP)
 	v.Log.Info("Setup restore point options", "rawhosts", opts.RawHosts)
 
-	opts.Ipv6 = vstruct.MakeNullableBool(net.IsIPv6(s.InitiatorIP))
+	opts.IPv6 = net.IsIPv6(s.InitiatorIP)
 	opts.ConfigurationParameters = s.ConfigurationParams
 
 	// auth options
@@ -70,7 +68,7 @@ func (v *VClusterOps) genRestorePointsOptions(s *showrestorepoints.Parms, certs 
 	opts.CaCert = certs.CaCert
 
 	// optional query filter options
-	opts.FilterOptions = &s.FilterOptions
+	opts.FilterOptions = s.FilterOptions
 
 	return &opts
 }

@@ -46,7 +46,7 @@ var _ = Describe("obj_reconcile", func() {
 
 	runReconciler := func(vdb *vapi.VerticaDB, expResult ctrl.Result, mode ObjReconcileModeType) {
 		// Create any dependent objects for the CRD.
-		pfacts := MakePodFacts(vdbRec, &cmds.FakePodRunner{})
+		pfacts := MakePodFacts(vdbRec, &cmds.FakePodRunner{}, logger, TestPassword)
 		objr := MakeObjReconciler(vdbRec, logger, vdb, &pfacts, mode)
 		Expect(objr.Reconcile(ctx, &ctrl.Request{})).Should(Equal(expResult))
 	}
@@ -171,7 +171,7 @@ var _ = Describe("obj_reconcile", func() {
 			Expect(k8sClient.Update(ctx, vdb)).Should(Succeed())
 
 			// Refresh any dependent objects
-			pfacts := MakePodFacts(vdbRec, &cmds.FakePodRunner{})
+			pfacts := MakePodFacts(vdbRec, &cmds.FakePodRunner{}, logger, TestPassword)
 			objr := MakeObjReconciler(vdbRec, logger, vdb, &pfacts, ObjReconcileModeAll)
 			_, err := objr.Reconcile(ctx, &ctrl.Request{})
 			Expect(err).Should(Succeed())
@@ -191,12 +191,12 @@ var _ = Describe("obj_reconcile", func() {
 			vdb.Spec.Labels["vertica.com/second-label"] = "r2"
 			vdb.Spec.Annotations["gitRef"] = "1234abc"
 
-			verifyLabelsAnnotations := func(objectMeta *metav1.ObjectMeta, isScSpecific bool) {
+			verifyLabelsAnnotations := func(objectMeta *metav1.ObjectMeta, isSts bool) {
 				Expect(objectMeta.Labels["my-label"]).Should(Equal("r1"))
 				Expect(objectMeta.Labels["vertica.com/second-label"]).Should(Equal("r2"))
 				Expect(objectMeta.Annotations["gitRef"]).Should(Equal("1234abc"))
 				Expect(objectMeta.Labels["vertica.com/database"]).Should(Equal(vdb.Spec.DBName))
-				if isScSpecific {
+				if isSts {
 					Expect(objectMeta.Labels[vmeta.SubclusterNameLabel]).Should(Equal(vdb.Spec.Subclusters[0].Name))
 				}
 			}
@@ -206,13 +206,13 @@ var _ = Describe("obj_reconcile", func() {
 
 			svc := &corev1.Service{}
 			Expect(k8sClient.Get(ctx, names.GenExtSvcName(vdb, &vdb.Spec.Subclusters[0]), svc)).Should(Succeed())
-			verifyLabelsAnnotations(&svc.ObjectMeta, true /* subcluster specific */)
+			verifyLabelsAnnotations(&svc.ObjectMeta, false /* not a sts */)
 			Expect(k8sClient.Get(ctx, names.GenHlSvcName(vdb), svc)).Should(Succeed())
 			verifyLabelsAnnotations(&svc.ObjectMeta, false /* not subcluster specific */)
 
 			sts := &appsv1.StatefulSet{}
 			Expect(k8sClient.Get(ctx, names.GenStsName(vdb, &vdb.Spec.Subclusters[0]), sts)).Should(Succeed())
-			verifyLabelsAnnotations(&sts.ObjectMeta, true /* subcluster specific */)
+			verifyLabelsAnnotations(&sts.ObjectMeta, true /* is a sts */)
 		})
 
 		It("should update version in svc objects", func() {
@@ -228,7 +228,7 @@ var _ = Describe("obj_reconcile", func() {
 			svc.Labels[vmeta.OperatorVersionLabel] = vmeta.OperatorVersion100
 			Expect(k8sClient.Update(ctx, svc)).Should(Succeed())
 
-			pfacts := MakePodFacts(vdbRec, &cmds.FakePodRunner{})
+			pfacts := MakePodFacts(vdbRec, &cmds.FakePodRunner{}, logger, TestPassword)
 			objr := MakeObjReconciler(vdbRec, logger, vdb, &pfacts, ObjReconcileModeAll)
 			Expect(objr.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 
@@ -416,7 +416,7 @@ var _ = Describe("obj_reconcile", func() {
 			Expect(k8sClient.Update(ctx, vdb)).Should(Succeed())
 
 			// Refresh any dependent objects
-			pfacts := MakePodFacts(vdbRec, &cmds.FakePodRunner{})
+			pfacts := MakePodFacts(vdbRec, &cmds.FakePodRunner{}, logger, TestPassword)
 			objr := MakeObjReconciler(vdbRec, logger, vdb, &pfacts, ObjReconcileModeAll)
 			_, err := objr.Reconcile(ctx, &ctrl.Request{})
 			Expect(err).Should(Succeed())
@@ -493,7 +493,7 @@ var _ = Describe("obj_reconcile", func() {
 			createCrd(vdb, false)
 			defer deleteCrd(vdb)
 
-			pfacts := MakePodFacts(vdbRec, &cmds.FakePodRunner{})
+			pfacts := MakePodFacts(vdbRec, &cmds.FakePodRunner{}, logger, TestPassword)
 			objr := MakeObjReconciler(vdbRec, logger, vdb, &pfacts, ObjReconcileModeAll)
 			Expect(objr.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: true}))
 		})
@@ -504,7 +504,7 @@ var _ = Describe("obj_reconcile", func() {
 			createCrd(vdb, false)
 			defer deleteCrd(vdb)
 
-			pfacts := MakePodFacts(vdbRec, &cmds.FakePodRunner{})
+			pfacts := MakePodFacts(vdbRec, &cmds.FakePodRunner{}, logger, TestPassword)
 			objr := MakeObjReconciler(vdbRec, logger, vdb, &pfacts, ObjReconcileModeAll)
 			Expect(objr.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: true}))
 		})
@@ -515,7 +515,7 @@ var _ = Describe("obj_reconcile", func() {
 			createCrd(vdb, false)
 			defer deleteCrd(vdb)
 
-			pfacts := MakePodFacts(vdbRec, &cmds.FakePodRunner{})
+			pfacts := MakePodFacts(vdbRec, &cmds.FakePodRunner{}, logger, TestPassword)
 			objr := MakeObjReconciler(vdbRec, logger, vdb, &pfacts, ObjReconcileModeAll)
 			Expect(objr.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: true}))
 		})
@@ -578,7 +578,7 @@ var _ = Describe("obj_reconcile", func() {
 			Expect(k8sClient.Get(ctx, nm, sts)).Should(Succeed())
 
 			pn := names.GenPodNameFromSts(vdb, sts, origSize-1)
-			pfacts := MakePodFacts(vdbRec, &cmds.FakePodRunner{})
+			pfacts := MakePodFacts(vdbRec, &cmds.FakePodRunner{}, logger, TestPassword)
 			Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
 			objr := MakeObjReconciler(vdbRec, logger, vdb, &pfacts, ObjReconcileModeAll)
 
@@ -608,7 +608,7 @@ var _ = Describe("obj_reconcile", func() {
 			Expect(k8sClient.Get(ctx, nm, svc1)).Should(Succeed())
 
 			standby := vdb.BuildTransientSubcluster("")
-			pfacts := MakePodFacts(vdbRec, &cmds.FakePodRunner{})
+			pfacts := MakePodFacts(vdbRec, &cmds.FakePodRunner{}, logger, TestPassword)
 			actor := MakeObjReconciler(vdbRec, logger, vdb, &pfacts, ObjReconcileModeAll)
 			objr := actor.(*ObjReconciler)
 			// Force a label change to reconcile with the transient subcluster
@@ -854,6 +854,31 @@ var _ = Describe("obj_reconcile", func() {
 			val, ok := svc.Annotations[manualAnnotationKey]
 			Expect(ok).Should(BeTrue())
 			Expect(val).Should(Equal(manualAnnotationVal))
+		})
+
+		It("should add annotations to statefulsets", func() {
+			vdb := vapi.MakeVDB()
+			vdb.Spec.Subclusters[0].Annotations = map[string]string{
+				"sts": "0",
+			}
+			createCrd(vdb, true)
+			defer deleteCrd(vdb)
+
+			sts := &appsv1.StatefulSet{}
+			stsNm := names.GenStsName(vdb, &vdb.Spec.Subclusters[0])
+			Expect(k8sClient.Get(ctx, stsNm, sts)).Should(Succeed())
+			Expect(sts.Annotations).Should(HaveKeyWithValue("sts", "0"))
+
+			vdb.Spec.Subclusters[0].Annotations = map[string]string{
+				"stream": "false",
+			}
+			Expect(k8sClient.Update(ctx, vdb)).Should(Succeed())
+
+			runReconciler(vdb, ctrl.Result{}, ObjReconcileModeAll)
+
+			Expect(k8sClient.Get(ctx, stsNm, sts)).Should(Succeed())
+			Expect(sts.Annotations).ShouldNot(HaveKeyWithValue("sts", "0"))
+			Expect(sts.Annotations).Should(HaveKeyWithValue("stream", "false"))
 		})
 	})
 })

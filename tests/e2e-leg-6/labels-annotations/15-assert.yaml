@@ -11,6 +11,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: vdb-label-ant-cluster1
+  annotations:
+    sc-annotation: "main"
+---
 apiVersion: v1
 kind: Pod
 metadata:
@@ -25,10 +32,8 @@ metadata:
     app.kubernetes.io/managed-by: verticadb-operator
     app.kubernetes.io/name: vertica
     vertica.com/database: vdb
-    vertica.com/subcluster-name: cluster1
-    vertica.com/subcluster-type: primary
+    vertica.com/subcluster-selector-name: vdb-label-ant-cluster1
     vertica.com/subcluster-svc: cluster1
-    vertica.com/subcluster-transient: "false"
 status:
   phase: Running
 ---
@@ -48,8 +53,6 @@ metadata:
     vertica.com/database: vdb
     vertica.com/subcluster-name: cluster1
     vertica.com/subcluster-type: primary
-    vertica.com/subcluster-svc: cluster1
-    vertica.com/subcluster-transient: "false"
 ---
 apiVersion: v1
 kind: Service
@@ -65,10 +68,6 @@ metadata:
     app.kubernetes.io/managed-by: verticadb-operator
     app.kubernetes.io/name: vertica
     vertica.com/database: vdb
-    vertica.com/subcluster-name: cluster1
-    vertica.com/subcluster-type: primary
-    vertica.com/subcluster-svc: cluster1
-    vertica.com/subcluster-transient: "false"
 ---
 apiVersion: v1
 kind: Service

@@ -25,7 +25,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/vertica/vcluster/vclusterops"
 	"github.com/vertica/vertica-kubernetes/pkg/aterrors"
 	"github.com/vertica/vertica-kubernetes/pkg/builder"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
@@ -41,7 +40,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	v1 "github.com/vertica/vertica-kubernetes/api/v1"
-	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	"github.com/vertica/vertica-kubernetes/api/v1beta1"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -76,7 +75,7 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 	Expect(cfg).NotTo(BeNil())
 
-	err = vapi.AddToScheme(scheme.Scheme)
+	err = v1beta1.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
 	err = v1.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
@@ -147,47 +146,4 @@ func mockVClusterOpsDispatcherWithCustomSetup(vdb *v1.VerticaDB,
 	evWriter := aterrors.TestEVWriter{}
 	dispatcher := vadmin.MakeVClusterOps(logger, vdb, k8sClient, "pwd", &evWriter, setupAPIFunc)
 	return dispatcher.(*vadmin.VClusterOps)
-}
-
-// MockVClusterOps is used to invoke mock vcluster-ops functions
-type MockVClusterOps struct{}
-
-func (*MockVClusterOps) VAddNode(_ *vclusterops.VAddNodeOptions) (vclusterops.VCoordinationDatabase, error) {
-	return vclusterops.VCoordinationDatabase{}, nil
-}
-func (*MockVClusterOps) VAddSubcluster(_ *vclusterops.VAddSubclusterOptions) error {
-	return nil
-}
-func (*MockVClusterOps) VCreateDatabase(_ *vclusterops.VCreateDatabaseOptions) (vclusterops.VCoordinationDatabase, error) {
-	return vclusterops.VCoordinationDatabase{}, nil
-}
-func (*MockVClusterOps) VFetchNodeState(_ *vclusterops.VFetchNodeStateOptions) ([]vclusterops.NodeInfo, error) {
-	return nil, nil
-}
-func (*MockVClusterOps) VReIP(_ *vclusterops.VReIPOptions) error {
-	return nil
-}
-func (*MockVClusterOps) VRemoveNode(_ *vclusterops.VRemoveNodeOptions) (vclusterops.VCoordinationDatabase, error) {
-	return vclusterops.VCoordinationDatabase{}, nil
-}
-func (*MockVClusterOps) VRemoveSubcluster(_ *vclusterops.VRemoveScOptions) (vclusterops.VCoordinationDatabase, error) {
-	return vclusterops.VCoordinationDatabase{}, nil
-}
-func (*MockVClusterOps) VReviveDatabase(_ *vclusterops.VReviveDatabaseOptions) (string, *vclusterops.VCoordinationDatabase, error) {
-	return "", nil, nil
-}
-func (*MockVClusterOps) VShowRestorePoints(_ *vclusterops.VShowRestorePointsOptions) ([]vclusterops.RestorePoint, error) {
-	return nil, nil
-}
-func (*MockVClusterOps) VStartDatabase(_ *vclusterops.VStartDatabaseOptions) error {
-	return nil
-}
-func (*MockVClusterOps) VStartNodes(_ *vclusterops.VStartNodesOptions) error {
-	return nil
-}
-func (*MockVClusterOps) VStopDatabase(_ *vclusterops.VStopDatabaseOptions) error {
-	return nil
-}
-func (*MockVClusterOps) VInstallPackages(_ *vclusterops.VInstallPackagesOptions) (*vclusterops.InstallPackageStatus, error) {
-	return nil, nil
 }

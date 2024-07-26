@@ -17,6 +17,8 @@ limitations under the License.
 package v1beta1
 
 import (
+	"regexp"
+
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -146,6 +148,18 @@ func (vrpq *VerticaRestorePointsQuery) IsStatusConditionPresent(statusCondition 
 	return meta.FindStatusCondition(vrpq.Status.Conditions, statusCondition) != nil
 }
 
+func (vrep *VerticaReplicator) IsStatusConditionTrue(statusCondition string) bool {
+	return meta.IsStatusConditionTrue(vrep.Status.Conditions, statusCondition)
+}
+
+func (vrep *VerticaReplicator) IsStatusConditionFalse(statusCondition string) bool {
+	return meta.IsStatusConditionFalse(vrep.Status.Conditions, statusCondition)
+}
+
+func (vrep *VerticaReplicator) IsStatusConditionPresent(statusCondition string) bool {
+	return meta.FindStatusCondition(vrep.Status.Conditions, statusCondition) != nil
+}
+
 func MakeSampleVrpqName() types.NamespacedName {
 	return types.NamespacedName{Name: "vrpq-sample", Namespace: "default"}
 }
@@ -172,4 +186,40 @@ func MakeVrpq() *VerticaRestorePointsQuery {
 		},
 	}
 	return vrpq
+}
+
+func MakeSampleVrepName() types.NamespacedName {
+	return types.NamespacedName{Name: "vrep-sample", Namespace: "default"}
+}
+
+// MakeVrep will make a VerticaReplicator for test purposes
+func MakeVrep() *VerticaReplicator {
+	sourceVDBNm := MakeSourceVDBName()
+	targetVDBNm := MakeTargetVDBName()
+	nm := MakeSampleVrepName()
+	vrep := &VerticaReplicator{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: GroupVersion.String(),
+			Kind:       VerticaReplicatorKind,
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      nm.Name,
+			Namespace: nm.Namespace,
+			UID:       "zxcvbn-ghi-lkm-xyz",
+		},
+		Spec: VerticaReplicatorSpec{
+			Source: VerticaReplicatorDatabaseInfo{
+				VerticaDB: sourceVDBNm.Name,
+			},
+			Target: VerticaReplicatorDatabaseInfo{
+				VerticaDB: targetVDBNm.Name,
+			},
+		},
+	}
+	return vrep
+}
+
+func GenCompatibleFQDNHelper(scName string) string {
+	m := regexp.MustCompile(`_`)
+	return m.ReplaceAllString(scName, "-")
 }

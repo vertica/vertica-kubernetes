@@ -17,3 +17,13 @@ metadata:
   name: v-restart-kill-sts
 status:
   installCount: 3
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: subcluster-pri1
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: subcluster-sec1

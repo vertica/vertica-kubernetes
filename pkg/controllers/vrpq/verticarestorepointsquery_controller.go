@@ -116,7 +116,7 @@ func (r *VerticaRestorePointsQueryReconciler) constructActors(vrpq *vapi.Vertica
 	// The actors that will be applied, in sequence, to reconcile a vrpq.
 	actors := []controllers.ReconcileActor{
 		// Verify some checks before performing a query
-		MakeVDBVerifyReconciler(r, vrpq, log),
+		MakeVdbVerifyReconciler(r, vrpq, log),
 		// Handle calls to show restore points
 		MakeRestorePointsQueryReconciler(r, vrpq, log),
 	}
@@ -144,4 +144,14 @@ func (r *VerticaRestorePointsQueryReconciler) Eventf(vrpq runtime.Object, eventt
 // GetClient gives access to the Kubernetes client
 func (r *VerticaRestorePointsQueryReconciler) GetClient() client.Client {
 	return r.Client
+}
+
+// GetEventRecorder gives access to the event recorder
+func (r *VerticaRestorePointsQueryReconciler) GetEventRecorder() record.EventRecorder {
+	return r.EVRec
+}
+
+// GetConfig gives access to *rest.Config
+func (r *VerticaRestorePointsQueryReconciler) GetConfig() *rest.Config {
+	return r.Cfg
 }

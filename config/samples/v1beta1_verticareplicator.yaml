@@ -1,0 +1,9 @@
+apiVersion: vertica.com/v1beta1
+kind: VerticaReplicator
+metadata:
+  name: verticareplicator-sample
+spec:
+  source:
+    verticaDB: "sourceDBName"
+  target:
+    verticaDB: "targetDBName"

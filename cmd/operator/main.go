@@ -41,8 +41,10 @@ import (
 	vapiB1 "github.com/vertica/vertica-kubernetes/api/v1beta1"
 
 	"github.com/vertica/vertica-kubernetes/pkg/controllers/et"
+	"github.com/vertica/vertica-kubernetes/pkg/controllers/sandbox"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers/vas"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers/vdb"
+	"github.com/vertica/vertica-kubernetes/pkg/controllers/vrep"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers/vrpq"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers/vscr"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
@@ -126,10 +128,32 @@ func addReconcilersToManager(mgr manager.Manager, restCfg *rest.Config) {
 	if err := (&vscr.VerticaScrutinizeReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
+		Cfg:    restCfg,
 		EVRec:  mgr.GetEventRecorderFor(vmeta.OperatorName),
 		Log:    ctrl.Log.WithName("controllers").WithName("VerticaScrutinize"),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "VerticaScrutinize")
+		os.Exit(1)
+	}
+	if err := (&sandbox.SandboxConfigMapReconciler{
+		Client:      mgr.GetClient(),
+		Scheme:      mgr.GetScheme(),
+		Cfg:         restCfg,
+		EVRec:       mgr.GetEventRecorderFor(vmeta.OperatorName),
+		Log:         ctrl.Log.WithName("controllers").WithName("sandbox"),
+		Concurrency: opcfg.GetSandboxConfigMapConcurrency(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "sandbox")
+		os.Exit(1)
+	}
+	if err := (&vrep.VerticaReplicatorReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+		Cfg:    restCfg,
+		EVRec:  mgr.GetEventRecorderFor(vmeta.OperatorName),
+		Log:    ctrl.Log.WithName("controllers").WithName("VerticaReplicator"),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "VerticaReplicator")
 		os.Exit(1)
 	}
 	//+kubebuilder:scaffold:builder

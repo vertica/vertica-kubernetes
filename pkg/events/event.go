@@ -13,6 +13,7 @@
  limitations under the License.
 */
 
+//nolint:gosec
 package events
 
 // Constants for VerticaDB reconciler
@@ -35,7 +36,7 @@ const (
 	ReviveDBRestorePointNotFound    = "ReviveDBRestorePointNotFound"
 	ReviveOrderBad                  = "ReviveOrderBad"
 	ObjectNotFound                  = "ObjectNotFound"
-	CommunalCredsWrongKey           = "CommunalCredsWrongKey" //nolint:gosec
+	CommunalCredsWrongKey           = "CommunalCredsWrongKey"
 	CommunalEndpointIssue           = "CommunalEndpointIssue"
 	S3BucketDoesNotExist            = "S3BucketDoesNotExist"
 	S3WrongRegion                   = "S3WrongRegion"
@@ -51,21 +52,28 @@ const (
 	NodeRestartFailed               = "NodeRestartFailed"
 	ClusterRestartStarted           = "ClusterRestartStarted"
 	ClusterRestartSucceeded         = "ClusterRestartSucceeded"
-	ShowRestorePointsStarted        = "ShowRestorePointsStarted"
-	ShowRestorePointsFailed         = "ShowRestorePointsFailed"
-	RestoreNotSupported             = "RestoreNotSupported"
-	AdmintoolsNotSupported          = "AdmintoolsNotSupported"
-	ShowRestorePointsSucceeded      = "ShowRestorePointsSucceeded"
+	SandboxSubclusterFailed         = "SandboxSubclusterFailed"
+	SandboxSubclusterStart          = "SandboxSubclusterStart"
+	SandboxSubclusterSucceeded      = "SandboxSubclusterSucceeded"
+	PromoteSandboxToMainFailed      = "PromoteSandboxSubclusterToMainFailed"
+	PromoteSandboxToMainStart       = "PromoteSandboxSubclusterToMainStart"
+	PromoteSandboxToSucceeded       = "PromoteSandboxSubclusterToMainSucceeded"
+	UnsandboxSubclusterFailed       = "UnsandboxSubclusterFailed"
+	UnsandboxSubclusterStart        = "UnsandboxSubclusterStart"
+	UnsandboxSubclusterSucceeded    = "UnsandboxSubclusterSucceeded"
 	SlowRestartDetected             = "SlowRestartDetected"
 	SubclusterAdded                 = "SubclusterAdded"
 	SubclusterRemoved               = "SubclusterRemoved"
+	AlterSubclusterStart            = "AlterSubclusterStart"
+	AlterSubclusterFailed           = "AlterSubclusterFailed"
+	AlterSubclusterSucceeded        = "AlterSubclusterSucceeded"
 	SuperuserPasswordSecretNotFound = "SuperuserPasswordSecretNotFound"
 	UnsupportedVerticaVersion       = "UnsupportedVerticaVersion"
 	ATConfPartiallyCopied           = "ATConfPartiallyCopied"
 	AuthParmsCopyFailed             = "AuthParmsCopyFailed"
 	UpgradeStart                    = "UpgradeStart"
 	UpgradeSucceeded                = "UpgradeSucceeded"
-	IncompatibleOnlineUpgrade       = "IncompatibleOnlineUpgrade"
+	IncompatibleUpgradeRequested    = "IncompatibleUpgradeRequested"
 	ClusterShutdownStarted          = "ClusterShutdownStarted"
 	ClusterShutdownFailed           = "ClusterShutdownFailed"
 	ClusterShutdownSucceeded        = "ClusterShutdownSucceeded"
@@ -93,6 +101,9 @@ const (
 	InstallPackagesStarted          = "InstallPackagesStarted"
 	InstallPackagesFailed           = "InstallPackagesFailed"
 	InstallPackagesFinished         = "InstallPackagesFinished"
+	RenameSubclusterFailed          = "RenameSubclusterFailed"
+	RenameSubclusterStart           = "RenameSubclusterStart"
+	RenameSubclusterSucceeded       = "RenameSubclusterSucceeded"
 )
 
 // Constants for VerticaAutoscaler reconciler
@@ -109,4 +120,27 @@ const (
 	VclusterOpsScrutinizeNotSupported = "VclusterOpsScrutinizeNotSupported"
 	VclusterOpsScrutinizeSucceeded    = "VclusterOpsScrutinizeSucceeded"
 	VclusterOpsScrutinizeFailed       = "VclusterOpsScrutinizeFailed"
+)
+
+// Constants for VerticaReplicator reconciler
+const (
+	ReplicationNotSupported    = "ReplicationNotSupported"
+	VrepAdmintoolsNotSupported = "AdmintoolsNotSupported"
+	ReplicationStarted         = "ReplicationStarted"
+	ReplicationFailed          = "ReplicationFailed"
+	ReplicationSucceeded       = "ReplicationSucceeded"
+)
+
+// Constants for VerticaRestorePointsQuery reconciler
+const (
+	RestoreNotSupported        = "RestoreNotSupported"
+	VrpqAdmintoolsNotSupported = "AdmintoolsNotSupported"
+	ShowRestorePointsStarted   = "ShowRestorePointsStarted"
+	ShowRestorePointsFailed    = "ShowRestorePointsFailed"
+	ShowRestorePointsSucceeded = "ShowRestorePointsSucceeded"
+)
+
+// Constants for sandbox ConfigMap reconciler
+const (
+	SandboxNotSupported = "SandboxNotSupported"
 )

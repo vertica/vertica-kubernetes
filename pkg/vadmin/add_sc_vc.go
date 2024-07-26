@@ -19,49 +19,56 @@ import (
 	"context"
 
 	vops "github.com/vertica/vcluster/vclusterops"
-	"github.com/vertica/vcluster/vclusterops/vstruct"
 	"github.com/vertica/vertica-kubernetes/pkg/net"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/addsc"
 )
 
 // AddSubcluster will create a subcluster in the vertica cluster.
-func (v *VClusterOps) AddSubcluster(_ context.Context, opts ...addsc.Option) error {
+func (v *VClusterOps) AddSubcluster(ctx context.Context, opts ...addsc.Option) error {
 	v.setupForAPICall("AddSubcluster")
 	defer v.tearDownForAPICall()
 	v.Log.Info("Starting vcluster AddSubcluster")
+
+	// get the certs
+	certs, err := v.retrieveNMACerts(ctx)
+	if err != nil {
+		return err
+	}
 
 	// get add_subcluster k8s configs
 	s := addsc.Parms{}
 	s.Make(opts...)
 
 	// call vcluster-ops library to add a subcluster
-	vopts := v.genAddSubclusterOptions(&s)
-	err := v.VAddSubcluster(&vopts)
+	vopts := v.genAddSubclusterOptions(&s, certs)
+	err = v.VAddSubcluster(&vopts)
 	if err != nil {
-		v.Log.Error(err, "failed to add a subcluster", "scName", *vopts.SCName)
+		v.Log.Error(err, "failed to add a subcluster", "scName", vopts.SCName)
 		return err
 	}
 
-	v.Log.Info("Successfully added a subcluster to the database", "scName", *vopts.SCName, "dbName", *vopts.DBName)
+	v.Log.Info("Successfully added a subcluster to the database", "scName", vopts.SCName, "dbName", vopts.DBName)
 	return nil
 }
 
-func (v *VClusterOps) genAddSubclusterOptions(s *addsc.Parms) vops.VAddSubclusterOptions {
+func (v *VClusterOps) genAddSubclusterOptions(s *addsc.Parms, certs *HTTPSCerts) vops.VAddSubclusterOptions {
 	opts := vops.VAddSubclusterOptionsFactory()
 
 	opts.RawHosts = append(opts.RawHosts, s.InitiatorIP)
 	v.Log.Info("Setup add subcluster options", "hosts", opts.RawHosts[0])
-	opts.Ipv6 = vstruct.MakeNullableBool(net.IsIPv6(s.InitiatorIP))
+	opts.IPv6 = net.IsIPv6(s.InitiatorIP)
 
-	opts.SCName = &s.Subcluster
-	opts.DBName = &v.VDB.Spec.DBName
-	opts.IsEon = vstruct.MakeNullableBool(v.VDB.IsEON())
-	opts.IsPrimary = &s.IsPrimary
+	opts.SCName = s.Subcluster
+	opts.DBName = v.VDB.Spec.DBName
+	opts.IsEon = v.VDB.IsEON()
+	opts.IsPrimary = s.IsPrimary
 
 	// auth options
-	*opts.UserName = v.VDB.GetVerticaUser()
+	opts.Key = certs.Key
+	opts.Cert = certs.Cert
+	opts.CaCert = certs.CaCert
+	opts.UserName = v.VDB.GetVerticaUser()
 	opts.Password = &v.Password
-	*opts.HonorUserInput = true
 
 	return opts
 }

@@ -73,25 +73,46 @@ func (s *StatusReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl
 
 // updateStatusFields will refresh the status fields in the vdb
 func (s *StatusReconciler) updateStatusFields(ctx context.Context) error {
-	// Use all subclusters, even ones that are scheduled for removal.  We keep
-	// reporting status on the deleted ones until the statefulsets are gone.
 	finder := iter.MakeSubclusterFinder(s.Client, s.Vdb)
-	subclusters, err := finder.FindSubclusters(ctx, iter.FindAll)
-	if err != nil {
-		return err
-	}
 
 	refreshStatus := func(vdbChg *vapi.VerticaDB) error {
+		// Use all subclusters regardless of the sandbox they belong to,
+		// even ones that are scheduled for removal. We keep
+		// reporting status on the deleted ones until the statefulsets are gone.
+		subclusters, err := finder.FindSubclusters(ctx, iter.FindAllAcrossSandboxes, s.PFacts.GetSandboxName())
+		if err != nil {
+			return err
+		}
+		scSbMap := s.Vdb.GenSubclusterSandboxStatusMap()
+		scMap := s.Vdb.GenSubclusterStatusMap()
 		vdbChg.Status.Subclusters = []vapi.SubclusterStatus{}
 		for i := range subclusters {
 			if i == len(vdbChg.Status.Subclusters) {
-				vdbChg.Status.Subclusters = append(vdbChg.Status.Subclusters, vapi.SubclusterStatus{})
+				vdbChg.Status.Subclusters = append(vdbChg.Status.Subclusters, vapi.SubclusterStatus{
+					Detail: make([]vapi.VerticaDBPodStatus, 0),
+				})
 			}
-			if i < len(s.Vdb.Status.Subclusters) {
+			sc := scMap[subclusters[i].Name]
+			// A subcluster not being in status can only happen in
+			// the main cluster. In that case, if the caller is the vdb
+			// controller we will get the status from pod facts but if
+			// the caller is sandbox controller then we can set an
+			// an empty status knowing that the approriate controller
+			// will take care of setting the status for this subcluster
+			if sc != nil {
 				// Preserve as much state as we can from the prior version. This
 				// is necessary so we don't lose state in case all of the
 				// subcluster pods are down
-				vdbChg.Status.Subclusters[i] = s.Vdb.Status.Subclusters[i]
+				vdbChg.Status.Subclusters[i] = *sc
+			}
+			// Sandboxed subclusters are always in vdb so,
+			// all subclusters not in vdb will be considered
+			// as part of the main cluster
+			sbName := scSbMap[subclusters[i].Name]
+			// The reconciler controls subclusters that are
+			// part of the same cluster(main cluster or a sandbox)
+			if sbName != s.PFacts.GetSandboxName() {
+				continue
 			}
 
 			if err := s.calculateSubclusterStatus(ctx, subclusters[i], &vdbChg.Status.Subclusters[i]); err != nil {

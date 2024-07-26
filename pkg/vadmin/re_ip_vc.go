@@ -20,7 +20,6 @@ import (
 	"strings"
 
 	vops "github.com/vertica/vcluster/vclusterops"
-	"github.com/vertica/vcluster/vclusterops/vstruct"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/net"
@@ -67,13 +66,13 @@ func (v *VClusterOps) genReIPOptions(s *reip.Parms, certs *HTTPSCerts) vops.VReI
 	v.Log.Info("Setup re-ip options", "hosts", strings.Join(opts.RawHosts, ","))
 
 	// ipv6
-	opts.Ipv6 = vstruct.MakeNullableBool(net.IsIPv6(opts.RawHosts[0]))
+	opts.IPv6 = net.IsIPv6(opts.RawHosts[0])
 
 	// catalog prefix
-	*opts.CatalogPrefix = v.VDB.Spec.Local.GetCatalogPath()
+	opts.CatalogPrefix = v.VDB.Spec.Local.GetCatalogPath()
 
 	// database name
-	opts.DBName = &v.VDB.Spec.DBName
+	opts.DBName = v.VDB.Spec.DBName
 
 	// re-ip list
 	for _, h := range s.Hosts {
@@ -87,8 +86,8 @@ func (v *VClusterOps) genReIPOptions(s *reip.Parms, certs *HTTPSCerts) vops.VReI
 	// Provide eon options to vclusterops only after revive_db because
 	// we do not need to access communal storage in re_ip after create_db.
 	if v.VDB.Spec.InitPolicy == vapi.CommunalInitPolicyRevive {
-		opts.IsEon = vstruct.MakeNullableBool(v.VDB.IsEON())
-		*opts.CommunalStorageLocation = s.CommunalPath
+		opts.IsEon = v.VDB.IsEON()
+		opts.CommunalStorageLocation = s.CommunalPath
 		opts.ConfigurationParameters = s.ConfigurationParams
 	}
 
@@ -96,9 +95,8 @@ func (v *VClusterOps) genReIPOptions(s *reip.Parms, certs *HTTPSCerts) vops.VReI
 	opts.Key = certs.Key
 	opts.Cert = certs.Cert
 	opts.CaCert = certs.CaCert
-	*opts.UserName = v.VDB.GetVerticaUser()
+	opts.UserName = v.VDB.GetVerticaUser()
 	opts.Password = &v.Password
-	*opts.HonorUserInput = true
 
 	// other options
 	opts.TrimReIPList = true

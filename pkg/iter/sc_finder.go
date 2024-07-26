@@ -26,6 +26,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -49,8 +50,14 @@ const (
 	FindExisting
 	// Find will return a list of objects that are sorted by their name
 	FindSorted
+	// Find will return a list of objects without filtering based on the
+	// sandbox
+	FindSkipSandboxFilter
 	// Find all subclusters, both in the vdb and not in the vdb.
 	FindAll = FindInVdb | FindNotInVdb
+	// Find all subclusters, both in the vdb and not in the vdb, regardless
+	// of the sandbox they belong to.
+	FindAllAcrossSandboxes = FindAll | FindSkipSandboxFilter
 )
 
 func MakeSubclusterFinder(cli client.Client, vdb *vapi.VerticaDB) SubclusterFinder {
@@ -64,9 +71,9 @@ func MakeSubclusterFinder(cli client.Client, vdb *vapi.VerticaDB) SubclusterFind
 // FindStatefulSets returns the statefulsets that were created by the operator.
 // You can limit it so that it only returns statefulsets that match subclusters
 // in Vdb, ones that don't match or all.
-func (m *SubclusterFinder) FindStatefulSets(ctx context.Context, flags FindFlags) (*appsv1.StatefulSetList, error) {
+func (m *SubclusterFinder) FindStatefulSets(ctx context.Context, flags FindFlags, sandbox string) (*appsv1.StatefulSetList, error) {
 	sts := &appsv1.StatefulSetList{}
-	if err := m.buildObjList(ctx, sts, flags); err != nil {
+	if err := m.buildObjList(ctx, sts, flags, sandbox); err != nil {
 		return nil, err
 	}
 	if flags&FindSorted != 0 {
@@ -78,9 +85,9 @@ func (m *SubclusterFinder) FindStatefulSets(ctx context.Context, flags FindFlags
 }
 
 // FindServices returns service objects that are in use for subclusters
-func (m *SubclusterFinder) FindServices(ctx context.Context, flags FindFlags) (*corev1.ServiceList, error) {
+func (m *SubclusterFinder) FindServices(ctx context.Context, flags FindFlags, sandbox string) (*corev1.ServiceList, error) {
 	svcs := &corev1.ServiceList{}
-	if err := m.buildObjList(ctx, svcs, flags); err != nil {
+	if err := m.buildObjList(ctx, svcs, flags, sandbox); err != nil {
 		return nil, err
 	}
 	if flags&FindSorted != 0 {
@@ -93,9 +100,9 @@ func (m *SubclusterFinder) FindServices(ctx context.Context, flags FindFlags) (*
 
 // FindPods returns pod objects that are are used to run Vertica.  It limits the
 // pods that were created by the VerticaDB object.
-func (m *SubclusterFinder) FindPods(ctx context.Context, flags FindFlags) (*corev1.PodList, error) {
+func (m *SubclusterFinder) FindPods(ctx context.Context, flags FindFlags, sandbox string) (*corev1.PodList, error) {
 	pods := &corev1.PodList{}
-	if err := m.buildObjList(ctx, pods, flags); err != nil {
+	if err := m.buildObjList(ctx, pods, flags, sandbox); err != nil {
 		return nil, err
 	}
 	if flags&FindSorted != 0 {
@@ -109,17 +116,18 @@ func (m *SubclusterFinder) FindPods(ctx context.Context, flags FindFlags) (*core
 // FindSubclusters will return a list of subclusters.
 // It accepts a flags field to indicate whether to return subclusters in the vdb,
 // not in the vdb or both.
-func (m *SubclusterFinder) FindSubclusters(ctx context.Context, flags FindFlags) ([]*vapi.Subcluster, error) {
+func (m *SubclusterFinder) FindSubclusters(ctx context.Context, flags FindFlags, sandbox string) ([]*vapi.Subcluster, error) {
 	subclusters := []*vapi.Subcluster{}
 
 	if flags&FindInVdb != 0 {
-		for i := range m.Vdb.Spec.Subclusters {
-			subclusters = append(subclusters, &m.Vdb.Spec.Subclusters[i])
-		}
+		// This is true when we want to get all subclusters without any
+		// sandbox distinction
+		ignoreSandbox := flags&FindSkipSandboxFilter != 0
+		subclusters = append(subclusters, m.getVdbSubclusters(sandbox, ignoreSandbox)...)
 	}
 
 	if flags&FindNotInVdb != 0 || flags&FindExisting != 0 {
-		missingSts, err := m.FindStatefulSets(ctx, flags & ^FindInVdb)
+		missingSts, err := m.FindStatefulSets(ctx, flags & ^FindInVdb, sandbox)
 		if err != nil {
 			return nil, err
 		}
@@ -129,7 +137,13 @@ func (m *SubclusterFinder) FindSubclusters(ctx context.Context, flags FindFlags)
 		// indication the subcluster is being removed.
 		for i := range missingSts.Items {
 			scName := missingSts.Items[i].Labels[vmeta.SubclusterNameLabel]
-			subclusters = append(subclusters, &vapi.Subcluster{Name: scName, Size: 0})
+			subclusters = append(subclusters, &vapi.Subcluster{
+				Name: scName,
+				Size: 0,
+				Annotations: map[string]string{
+					vmeta.StsNameOverrideAnnotation: missingSts.Items[i].ObjectMeta.Name,
+				},
+			})
 		}
 	}
 
@@ -141,7 +155,9 @@ func (m *SubclusterFinder) FindSubclusters(ctx context.Context, flags FindFlags)
 	return subclusters, nil
 }
 
-// hasSubclusterLabelFromVdb returns true if the given set of labels include a subcluster that is in the vdb
+// hasSubclusterLabelFromVdb returns true if the given set of labels include a
+// subcluster that is in the vdb. Note, for pods, objLabels will be from the
+// statefulset. So, it is safe to use SubclusterNameLabel.
 func (m *SubclusterFinder) hasSubclusterLabelFromVdb(objLabels map[string]string) bool {
 	scName := objLabels[vmeta.SubclusterNameLabel]
 	_, ok := m.Subclusters[scName]
@@ -151,24 +167,38 @@ func (m *SubclusterFinder) hasSubclusterLabelFromVdb(objLabels map[string]string
 // buildObjList will populate list with an object type owned by the operator.
 // Caller can use flags to return a list of all objects, only those in the vdb,
 // or only those not in the vdb.
-func (m *SubclusterFinder) buildObjList(ctx context.Context, list client.ObjectList, flags FindFlags) error {
+func (m *SubclusterFinder) buildObjList(ctx context.Context, list client.ObjectList, flags FindFlags, sandbox string) error {
 	if err := listObjectsOwnedByOperator(ctx, m.Client, m.Vdb, list); err != nil {
 		return err
 	}
-	if flags&FindAll == FindAll {
-		return nil
-	}
+	ignoreSandbox := flags&FindSkipSandboxFilter != 0
 	rawObjs := []runtime.Object{}
 	if err := meta.EachListItem(list, func(obj runtime.Object) error {
-		l, ok := getLabelsFromObject(obj)
-		if !ok {
-			return fmt.Errorf("could not find labels from k8s object %s", obj)
+		l, err := m.getLabelsFromObject(ctx, obj)
+		if err != nil {
+			return err
 		}
+		if flags&FindAll == FindAll {
+			// When FindAll is passed, we want the entire list to be returned,
+			// but still want to filter out objects that do not belong to the given
+			// sandbox or main cluster.
+			if ignoreSandbox || !shouldSkipBasedOnSandboxState(l, sandbox) {
+				rawObjs = append(rawObjs, obj)
+			}
+			return nil
+		}
+
 		// Skip if object is not subcluster specific.  This is necessary for objects like
 		// the headless service object that is cluster wide.
 		if !hasSubclusterNameLabel(l) {
 			return nil
 		}
+
+		// Skip if the object does not belong to the given sandbox
+		if !ignoreSandbox && shouldSkipBasedOnSandboxState(l, sandbox) {
+			return nil
+		}
+
 		if flags&FindExisting != 0 {
 			rawObjs = append(rawObjs, obj)
 			return nil
@@ -188,8 +218,17 @@ func (m *SubclusterFinder) buildObjList(ctx context.Context, list client.ObjectL
 	return meta.SetList(list, rawObjs)
 }
 
+// shouldSkipBasedOnSandboxState returns true if the object whose labels
+// is passed does not belong to the given sandbox or main cluster. Note, for a
+// pod, the labels passed in will be from the statefulset. So, it is fine to use
+// SubclusterNameLabel.
+func shouldSkipBasedOnSandboxState(l map[string]string, sandbox string) bool {
+	return l[vmeta.SandboxNameLabel] != sandbox
+}
+
 // hasSubclusterNameLabel returns true if there exists a label that indicates
-// the object is for a subcluster
+// the object is for a subcluster. Note, for a pod, the labels passed in will be
+// from the statefulset. So, it is fine to use SubclusterNameLabel.
 func hasSubclusterNameLabel(l map[string]string) bool {
 	_, ok := l[vmeta.SubclusterNameLabel]
 	if ok {
@@ -206,13 +245,54 @@ func hasSubclusterNameLabel(l map[string]string) bool {
 // If labels were not found then false is return for bool output.
 //
 //nolint:gocritic
-func getLabelsFromObject(obj runtime.Object) (map[string]string, bool) {
+func (m *SubclusterFinder) getLabelsFromObject(ctx context.Context, obj runtime.Object) (map[string]string, error) {
 	if sts, ok := obj.(*appsv1.StatefulSet); ok {
-		return sts.Labels, true
+		return sts.Labels, nil
 	} else if svc, ok := obj.(*corev1.Service); ok {
-		return svc.Labels, true
+		return svc.Labels, nil
 	} else if pod, ok := obj.(*corev1.Pod); ok {
-		return pod.Labels, true
+		// Instead of retrieving labels directly from the pod, we retrieve them
+		// from the StatefulSet that owns the pod. The labels we need, such as
+		// the subcluster name or sandbox, aren't present in the pods
+		// themselves. These values may change, and maintaining them becomes
+		// challenging because any modifications to the StatefulSet's pod
+		// template trigger a rolling update. Therefore, the solution is to
+		// obtain the labels from the owning object.
+		stsName, err := getStatefulSetOwnerName(pod)
+		if err != nil {
+			return nil, err
+		}
+		sts := appsv1.StatefulSet{}
+		err = m.Client.Get(ctx, stsName, &sts)
+		if err != nil {
+			return nil, err
+		}
+		return sts.Labels, nil
 	}
-	return nil, false
+	return nil, fmt.Errorf("unexpected object type: %v", obj.GetObjectKind().GroupVersionKind())
+}
+
+func getStatefulSetOwnerName(pod *corev1.Pod) (types.NamespacedName, error) {
+	if stsName, found := pod.Labels[vmeta.SubclusterSelectorLabel]; found {
+		return types.NamespacedName{
+			Namespace: pod.Namespace,
+			Name:      stsName,
+		}, nil
+	}
+	return types.NamespacedName{},
+		fmt.Errorf("could not find statefulset owner for pod %q in namespace %q", pod.Name, pod.Namespace)
+}
+
+// getVdbSubclusters returns the subclusters that are in the vdb
+func (m *SubclusterFinder) getVdbSubclusters(sandbox string, ignoreSandbox bool) []*vapi.Subcluster {
+	subclusters := []*vapi.Subcluster{}
+	scMap := m.Vdb.GenSubclusterSandboxStatusMap()
+	for i := range m.Vdb.Spec.Subclusters {
+		sc := &m.Vdb.Spec.Subclusters[i]
+		sbName := scMap[sc.Name]
+		if ignoreSandbox || sbName == sandbox {
+			subclusters = append(subclusters, sc)
+		}
+	}
+	return subclusters
 }

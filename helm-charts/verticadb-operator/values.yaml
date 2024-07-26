@@ -26,7 +26,7 @@
 
 image:
   repo: docker.io
-  name: opentext/verticadb-operator:2.1.3
+  name: opentext/verticadb-operator:2.2.0
   pullPolicy: IfNotPresent
 
 rbac_proxy_image:
@@ -98,6 +98,8 @@ reconcileConcurrency:
   eventtrigger: 1
   verticarestorepointsquery: 1
   verticascrutinize: 1
+  sandboxconfigmap: 1
+  verticareplicator: 1
 
 # The resource requirements for the operator pod.  See this for more info:
 # https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/

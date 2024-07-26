@@ -36,8 +36,14 @@ func (m *MockVClusterOps) VRemoveSubcluster(options *vops.VRemoveScOptions) (vop
 	}
 
 	// verify basic options
-	if *options.SubclusterToRemove != TestSCName {
+	if options.SCName != TestSCName {
 		return vdb, fmt.Errorf("failed to retrieve subcluster name")
+	}
+
+	// verify re-ip options
+	err = m.VerifyNodeNameAddressMap(options.NodeNameAddressMap)
+	if err != nil {
+		return vdb, err
 	}
 
 	return vdb, nil
@@ -54,6 +60,7 @@ var _ = Describe("remove_sc_vc", func() {
 		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.NMATLSSecret)
 		Ω(dispatcher.RemoveSubcluster(ctx,
 			removesc.WithInitiator(TestInitiatorPodName, TestInitiatorIP),
-			removesc.WithSubcluster(TestSCName))).Should(Succeed())
+			removesc.WithSubcluster(TestSCName),
+			removesc.WithNodeNameAddressMap(TestNodeNameAddressMap))).Should(Succeed())
 	})
 })

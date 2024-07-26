@@ -60,6 +60,10 @@ inputs:
     description: 'Whether BASE_VERTICA_IMG is required'
     required: false
     default: 'false'
+  vertica-license:
+    description: 'Contents of a vertica license to use with the tests'
+    required: false
+    default: ''
 runs:
   using: "composite"
   steps:
@@ -93,6 +97,11 @@ runs:
         export VERTICA_IMG=${{ inputs.vertica-image }}
         export OPERATOR_IMG=${{ inputs.operator-image }}
         export VLOGGER_IMG=${{ inputs.vlogger-image }}
+
+        if [[ "${{ inputs.vertica-license }}" != "" ]]; then
+          export LICENSE_FILE=/tmp/vertica-license.dat
+          echo -n "${{ inputs.vertica-license }}" > $LICENSE_FILE
+        fi
 
         # Set DEPLOY_WITH
         export DEPLOY_WITH="${{ inputs.deploy-with }}";
@@ -152,6 +161,12 @@ runs:
             echo "Old version detected, skipping all of the tests"
             exit 0
           fi
+        fi
+
+        # Set an env var that will later be checked to pull an extra
+        # vertica image used for multi-online-upgrade test
+        if [[ "${{ inputs.leg-identifier }}" == "leg-9" ]]; then
+          export LEG9=yes
         fi
 
         # Special setup for e2e-udx

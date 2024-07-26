@@ -26,6 +26,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
+	"github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/builder"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
@@ -63,6 +64,9 @@ var _ = BeforeSuite(func() {
 	restCfg = cfg
 
 	err = vapi.AddToScheme(scheme.Scheme)
+	ExpectWithOffset(1, err).NotTo(HaveOccurred())
+
+	err = v1beta1.AddToScheme(scheme.Scheme)
 	ExpectWithOffset(1, err).NotTo(HaveOccurred())
 
 	k8sClient, err = client.New(restCfg, client.Options{Scheme: scheme.Scheme})
@@ -117,18 +121,19 @@ func defaultPodFactOverrider(_ context.Context, _ *vapi.VerticaDB, pf *PodFact, 
 	pf.startupInProgress = false
 	pf.upNode = true
 	pf.subclusterOid = "123456"
+	pf.shardSubscriptions = 1
 	return nil
 }
 
 // createPodFactsDefault will generate the PodFacts for test using the default settings for all.
 func createPodFactsDefault(fpr *cmds.FakePodRunner) *PodFacts {
-	pfacts := MakePodFacts(vdbRec, fpr)
+	pfacts := MakePodFacts(vdbRec, fpr, logger, TestPassword)
 	pfacts.OverrideFunc = defaultPodFactOverrider
 	return &pfacts
 }
 
 func createPodFactsWithNoDB(ctx context.Context, vdb *vapi.VerticaDB, fpr *cmds.FakePodRunner, numPodsToChange int) *PodFacts {
-	pfacts := MakePodFacts(vdbRec, fpr)
+	pfacts := MakePodFacts(vdbRec, fpr, logger, TestPassword)
 	// Change a number of pods to indicate db doesn't exist.  Due to the map that
 	// stores the pod facts, the specific pods we change are non-deterministic.
 	podsChanged := 0
@@ -149,7 +154,7 @@ func createPodFactsWithNoDB(ctx context.Context, vdb *vapi.VerticaDB, fpr *cmds.
 }
 
 func createPodFactsWithInstallNeeded(ctx context.Context, vdb *vapi.VerticaDB, fpr *cmds.FakePodRunner) *PodFacts {
-	pfacts := MakePodFacts(vdbRec, fpr)
+	pfacts := MakePodFacts(vdbRec, fpr, logger, TestPassword)
 	pfacts.OverrideFunc = func(ctx context.Context, vdb *vapi.VerticaDB, pfact *PodFact, gs *GatherState) error {
 		pfact.isPodRunning = true
 		pfact.isInstalled = false

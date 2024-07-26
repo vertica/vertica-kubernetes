@@ -21,8 +21,10 @@ import (
 	"reflect"
 	"strings"
 
+	vutil "github.com/vertica/vcluster/vclusterops/util"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
+	vversion "github.com/vertica/vertica-kubernetes/pkg/version"
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -93,6 +95,7 @@ func (v *VerticaDB) Default() {
 		v.Spec.TemporarySubclusterRouting.Template.Type = SecondarySubcluster
 	}
 	v.setDefaultServiceName()
+	v.setDefaultSandboxImages()
 }
 
 var _ webhook.Validator = &VerticaDB{}
@@ -140,6 +143,47 @@ func (v *VerticaDB) validateImmutableFields(old runtime.Object) field.ErrorList 
 	allErrs = v.checkImmutableS3ServerSideEncryption(oldObj, allErrs)
 	allErrs = v.checkImmutableDepotVolume(oldObj, allErrs)
 	allErrs = v.checkImmutablePodSecurityContext(oldObj, allErrs)
+	allErrs = v.checkImmutableSubclusterDuringUpgrade(oldObj, allErrs)
+	allErrs = v.checkImmutableSubclusterInSandbox(oldObj, allErrs)
+	allErrs = v.checkImmutableStsName(oldObj, allErrs)
+	allErrs = v.checkValidSubclusterTypeTransition(oldObj, allErrs)
+	return allErrs
+}
+
+func (v *VerticaDB) checkValidSubclusterTypeTransition(oldObj *VerticaDB, allErrs field.ErrorList) field.ErrorList {
+	// Create a map of subclusterName -> type using the old object.
+	nameToTypeMap := map[string]string{}
+	for i := range oldObj.Spec.Subclusters {
+		sc := oldObj.Spec.Subclusters[i]
+		nameToTypeMap[sc.Name] = sc.Type
+	}
+	scToSbMap := v.GenSubclusterSandboxMap()
+	// Helper function to log an error
+	invalidStateTransitionErr := func(inx int) {
+		path := field.NewPath("spec").Child("subclusters").Index(inx).Child("type")
+		err := field.Invalid(path,
+			v.Spec.Subclusters[inx].Type,
+			fmt.Sprintf("subcluster %s has invalid type change", v.Spec.Subclusters[inx].Name))
+		allErrs = append(allErrs, err)
+	}
+	// Go through new object to see that existing subclusters have a valid type change.
+	for i := range v.Spec.Subclusters {
+		sc := v.Spec.Subclusters[i]
+		oldType, ok := nameToTypeMap[sc.Name]
+		// Can skip new subclusters
+		if !ok {
+			continue
+		}
+		if (oldType == PrimarySubcluster || oldType == TransientSubcluster) && oldType != sc.Type {
+			invalidStateTransitionErr(i)
+		} else if oldType == SecondarySubcluster && sc.Type != SecondarySubcluster {
+			_, found := scToSbMap[sc.Name]
+			// You can only transition out of a secondary subcluster if its during sandboxing.
+			if sc.Type != SandboxPrimarySubcluster || !found {
+				invalidStateTransitionErr(i)
+			}
+		}
+	}
 	return allErrs
 }
 
@@ -176,6 +220,10 @@ func (v *VerticaDB) validateVerticaDBSpec() field.ErrorList {
 	allErrs = v.hasValidPodSecurityContext(allErrs)
 	allErrs = v.hasValidNMAResourceLimit(allErrs)
 	allErrs = v.hasValidCreateDBTimeout(allErrs)
+	allErrs = v.hasValidUpgradePolicy(allErrs)
+	allErrs = v.hasValidReplicaGroups(allErrs)
+	allErrs = v.validateVersionAnnotation(allErrs)
+	allErrs = v.validateSandboxes(allErrs)
 	if len(allErrs) == 0 {
 		return nil
 	}
@@ -196,15 +244,16 @@ func (v *VerticaDB) hasAtLeastOneSC(allErrs field.ErrorList) field.ErrorList {
 func (v *VerticaDB) hasValidSubclusterTypes(allErrs field.ErrorList) field.ErrorList {
 	for i := range v.Spec.Subclusters {
 		sc := &v.Spec.Subclusters[i]
-		if sc.Type == PrimarySubcluster || sc.Type == SecondarySubcluster || sc.Type == TransientSubcluster {
+		if sc.Type == PrimarySubcluster || sc.Type == SecondarySubcluster ||
+			sc.Type == TransientSubcluster || sc.Type == SandboxPrimarySubcluster {
 			continue
 		}
 		fieldPrefix := field.NewPath("spec").Child("subclusters").Index(i)
 		err := field.Invalid(fieldPrefix.Child("type"),
 			sc.Type,
 			fmt.Sprintf("subcluster type is invalid. A valid case-sensitive type a user can specify is %q or %q. "+
-				"(%q is a valid type that should only be set by the operator during online upgrade)",
-				PrimarySubcluster, SecondarySubcluster, TransientSubcluster))
+				"(%q and %q are valid types that should only be set by the operator)",
+				PrimarySubcluster, SecondarySubcluster, SandboxPrimarySubcluster, TransientSubcluster))
 		allErrs = append(allErrs, err)
 	}
 	return allErrs
@@ -435,7 +484,7 @@ func (v *VerticaDB) getClusterSize() int {
 		// we calculate the cluster size on the primary nodes only
 		for i := range v.Spec.Subclusters {
 			sc := &v.Spec.Subclusters[i]
-			if sc.IsPrimary() {
+			if sc.IsPrimary() && !sc.IsSandboxPrimary() {
 				sizeSum += int(sc.Size)
 			}
 		}
@@ -465,10 +514,11 @@ func (v *VerticaDB) hasValidSvcAndScName(allErrs field.ErrorList) field.ErrorLis
 	for i := range v.Spec.Subclusters {
 		sc := &v.Spec.Subclusters[i]
 		fieldPrefix := field.NewPath("spec").Child("subclusters").Index(i)
+		stsName := sc.GetStatefulSetName(v)
 		// check subcluster name
-		if !IsValidSubclusterName(sc.GenCompatibleFQDN()) {
+		if !IsValidSubclusterName(stsName) {
 			err := field.Invalid(fieldPrefix.Child("name"),
-				sc.GenCompatibleFQDN(),
+				stsName,
 				fmt.Sprintf("subcluster name is not valid, change it so that 1. its length is greater than 0 and smaller than 254,"+
 					" 2. it matches regex '%s'", RFC1123DNSSubdomainNameRegex))
 			allErrs = append(allErrs, err)
@@ -571,6 +621,14 @@ func (v *VerticaDB) hasDuplicateScName(allErrs field.ErrorList) field.ErrorList 
 				err := field.Invalid(field.NewPath("spec").Child("subclusters").Index(j).Child("name"),
 					v.Spec.Subclusters[j].Name,
 					fmt.Sprintf("duplicates the name of subcluster[%d]", i))
+				allErrs = append(allErrs, err)
+			}
+			// check the statefulset name override annotation for each subcluster.
+			if sc1.GetStatefulSetName(v) == sc2.GetStatefulSetName(v) {
+				err := field.Invalid(field.NewPath("spec").Child("subclusters").Index(j).
+					Child("annotations").Key(vmeta.StsNameOverrideAnnotation),
+					v.Spec.Subclusters[j].Annotations[vmeta.StsNameOverrideAnnotation],
+					fmt.Sprintf("duplicates the %s annotation of subcluster[%d]", vmeta.StsNameOverrideAnnotation, i))
 				allErrs = append(allErrs, err)
 			}
 		}
@@ -718,25 +776,6 @@ func (v *VerticaDB) hasValidTemporarySubclusterRouting(allErrs field.ErrorList) 
 		allErrs = append(allErrs, err)
 	}
 	return allErrs
-}
-
-func (v *VerticaDB) isSubclusterTypeIsChanging(oldObj *VerticaDB) (ok bool, scInx int) {
-	// Create a map of subclusterName -> type using the old object.
-	nameToPrimaryMap := map[string]string{}
-	for i := range oldObj.Spec.Subclusters {
-		sc := oldObj.Spec.Subclusters[i]
-		nameToPrimaryMap[sc.Name] = sc.Type
-	}
-	// Go through new object to see that type isn't changing for any
-	// existing subcluster
-	for i := range v.Spec.Subclusters {
-		sc := v.Spec.Subclusters[i]
-		oldType, ok := nameToPrimaryMap[sc.Name]
-		if ok && oldType != sc.Type {
-			return true, i
-		}
-	}
-	return false, 0
 }
 
 // matchingServiceNamesAreConsistent ensures that any subclusters that share the
@@ -969,6 +1008,45 @@ func (v *VerticaDB) hasValidCreateDBTimeout(allErrs field.ErrorList) field.Error
 	return allErrs
 }
 
+func (v *VerticaDB) hasValidUpgradePolicy(allErrs field.ErrorList) field.ErrorList {
+	switch v.Spec.UpgradePolicy {
+	case "":
+	case AutoUpgrade:
+	case OfflineUpgrade:
+	case OnlineUpgrade:
+	case ReadOnlyOnlineUpgrade:
+	default:
+		err := field.Invalid(field.NewPath("spec").Child("upgradePolicy"),
+			v.Spec.UpgradePolicy, fmt.Sprintf("must be one of: %s, %s, %s or %s",
+				AutoUpgrade, OfflineUpgrade, OnlineUpgrade, ReadOnlyOnlineUpgrade))
+		return append(allErrs, err)
+	}
+	return allErrs
+}
+
+func (v *VerticaDB) hasValidReplicaGroups(allErrs field.ErrorList) field.ErrorList {
+	// Can be skipped if Online upgrade is not in progress
+	if !v.isOnlineUpgradeInProgress() {
+		return allErrs
+	}
+
+	// We verify that the replica group for each subcluster is valid
+	for i := range v.Spec.Subclusters {
+		sc := &v.Spec.Subclusters[i]
+		if val, found := sc.Annotations[vmeta.ReplicaGroupAnnotation]; found {
+			if val != vmeta.ReplicaGroupAValue && val != vmeta.ReplicaGroupBValue && val != "" {
+				err := field.Invalid(
+					field.NewPath("spec").Child("subclusters").Index(i).Child("annotations").Key(vmeta.ReplicaGroupAnnotation),
+					val,
+					fmt.Sprintf("subcluster %q has an invalid value %q for the annotation %q",
+						sc.Name, val, vmeta.ReplicaGroupAnnotation))
+				allErrs = append(allErrs, err)
+			}
+		}
+	}
+	return allErrs
+}
+
 func (v *VerticaDB) hasValidProbeOverride(allErrs field.ErrorList, fieldPath *field.Path, probe *v1.Probe) field.ErrorList {
 	if probe == nil {
 		return allErrs
@@ -994,12 +1072,150 @@ func (v *VerticaDB) hasValidProbeOverride(allErrs field.ErrorList, fieldPath *fi
 	return allErrs
 }
 
+// validateVersionAnnotation validates if the version annotation has a correct format
+func (v *VerticaDB) validateVersionAnnotation(allErrs field.ErrorList) field.ErrorList {
+	vdbVer, ok := v.GetVerticaVersionStr()
+	if ok {
+		_, err := vversion.MakeInfoFromStrCheck(vdbVer)
+		prefix := field.NewPath("metadata").Child("annotations")
+		if err != nil {
+			err := field.Invalid(prefix.Key(vmeta.VersionAnnotation),
+				v.Annotations[vmeta.VersionAnnotation],
+				err.Error())
+			allErrs = append(allErrs, err)
+		}
+	}
+	return allErrs
+}
+
+// validateSandboxes validates if provided sandboxes info is correct
+func (v *VerticaDB) validateSandboxes(allErrs field.ErrorList) field.ErrorList {
+	// if vdb does not have any sandboxes, skip this check
+	if len(v.Spec.Sandboxes) == 0 {
+		return allErrs
+	}
+
+	sandboxes := v.Spec.Sandboxes
+	seenSandbox := make(map[string]any)
+	mainClusterImage := v.Spec.Image
+	path := field.NewPath("spec").Child("sandboxes")
+	for i, sandbox := range sandboxes {
+		// check if we have empty sandbox names
+		if sandbox.Name == "" {
+			err := field.Invalid(path.Index(i),
+				sandboxes[i],
+				"sandbox name cannot be empty")
+			allErrs = append(allErrs, err)
+		}
+		// check if we have duplicate sandboxes
+		if _, ok := seenSandbox[sandbox.Name]; ok {
+			err := field.Invalid(path.Index(i),
+				sandboxes[i],
+				fmt.Sprintf("sandbox %s already exists", sandbox.Name))
+			allErrs = append(allErrs, err)
+		}
+		seenSandbox[sandbox.Name] = struct{}{}
+		// check if sandbox image is different than main cluster's before sandbox has been setup
+		if sandbox.Image != "" && sandbox.Image != mainClusterImage && !v.isUpgradeInProgress() && !v.isSandboxInitialized(sandbox.Name) {
+			err := field.Invalid(path.Index(i),
+				sandboxes[i],
+				fmt.Sprintf("sandbox %s cannot have a different image than the main cluster before its creation", sandbox.Name))
+			allErrs = append(allErrs, err)
+		}
+	}
+
+	// check if we are using a vertica version older than v24.3.0
+	vdbVer, ok := v.GetVerticaVersionStr()
+	prefix := field.NewPath("metadata").Child("annotations")
+	if ok {
+		verInfo, err := vversion.MakeInfoFromStrCheck(vdbVer)
+		if err == nil && verInfo.IsOlder(SandboxSupportedMinVersion) {
+			err := field.Invalid(prefix.Key(vmeta.VersionAnnotation),
+				v.Annotations[vmeta.VersionAnnotation],
+				fmt.Sprintf("sandbox is unsupported in version %s. A minimum version of %s is required", vdbVer, SandboxSupportedMinVersion))
+			allErrs = append(allErrs, err)
+		}
+	}
+
+	// check if we are using vclusterOps deployments
+	if !vmeta.UseVClusterOps(v.Annotations) {
+		err := field.Invalid(prefix.Key(vmeta.VClusterOpsAnnotation),
+			v.Annotations[vmeta.VClusterOpsAnnotation],
+			"sandbox is unsupported for admintools deployments")
+		allErrs = append(allErrs, err)
+	}
+
+	return v.validateSubclustersInSandboxes(allErrs)
+}
+
+// validateSandboxes validates if subclusters in sandboxes is correct
+func (v *VerticaDB) validateSubclustersInSandboxes(allErrs field.ErrorList) field.ErrorList {
+	sandboxes := v.Spec.Sandboxes
+	seenScWithSbIndex := make(map[string]int)
+	path := field.NewPath("spec").Child("sandboxes")
+	for i, sandbox := range sandboxes {
+		scInSandbox := make(map[string]int)
+		for _, sc := range sandbox.Subclusters {
+			// check if we have duplicate subclusters in a sandbox
+			if _, ok := scInSandbox[sc.Name]; ok {
+				err := field.Invalid(path.Index(i),
+					sandboxes[i],
+					fmt.Sprintf("found duplicate subcluster %s in sandbox %s", sc.Name, sandbox.Name))
+				allErrs = append(allErrs, err)
+			}
+			// check if a subcluster is defined in multiple sandboxes
+			if _, ok := seenScWithSbIndex[sc.Name]; ok {
+				err := field.Invalid(path.Index(i),
+					sandboxes[i],
+					fmt.Sprintf("subcluster %s already exists in another sandbox", sc.Name))
+				allErrs = append(allErrs, err)
+			}
+			scInSandbox[sc.Name] = i
+		}
+		for sc, index := range scInSandbox {
+			seenScWithSbIndex[sc] = index
+		}
+	}
+
+	// check if a non-existing subcluster is defined in a sandbox
+	scMap := v.GenSubclusterMap()
+	for sc, i := range seenScWithSbIndex {
+		if scInfo, ok := scMap[sc]; !ok {
+			err := field.Invalid(path.Index(i),
+				sandboxes[i],
+				fmt.Sprintf("subcluster %s does not exist", sc))
+			allErrs = append(allErrs, err)
+		} else if scInfo.IsMainPrimary() {
+			err := field.Invalid(path.Index(i),
+				sandboxes[i],
+				fmt.Sprintf("subcluster %s is a primary subcluster that is not allowed to be in a sandbox", sc))
+			allErrs = append(allErrs, err)
+		}
+	}
+
+	return allErrs
+}
+
 func (v *VerticaDB) isUpgradeInProgress() bool {
 	return v.IsStatusConditionTrue(UpgradeInProgress)
 }
 
+func (v *VerticaDB) isOnlineUpgradeInProgress() bool {
+	return v.IsStatusConditionTrue(OnlineUpgradeInProgress)
+}
+
 func (v *VerticaDB) isDBInitialized() bool {
 	return v.IsStatusConditionTrue(DBInitialized)
+}
+
+// isSandboxInitialized returns ture when the sandbox has been created in the database
+func (v *VerticaDB) isSandboxInitialized(targetSb string) bool {
+	for _, sb := range v.Status.Sandboxes {
+		if sb.Name == targetSb {
+			return true
+		}
+	}
+	return false
 }
 
 func (v *VerticaDB) checkImmutableBasic(oldObj *VerticaDB, allErrs field.ErrorList) field.ErrorList {
@@ -1038,19 +1254,13 @@ func (v *VerticaDB) checkImmutableBasic(oldObj *VerticaDB, allErrs field.ErrorLi
 			"local.storageClass cannot change after creation")
 		allErrs = append(allErrs, err)
 	}
-	// when update subcluster names, there should be at least one sc's name match its old name
-	if !v.canUpdateScName(oldObj) {
+	// when update subcluster names, there should be at least one sc's name match its old name.
+	// This limitation should not be hold in online upgrade since we need to rename all subclusters
+	// after sandbox promotion.
+	if !v.canUpdateScName(oldObj) && !v.isOnlineUpgradeInProgress() {
 		err := field.Invalid(field.NewPath("spec").Child("subclusters"),
 			v.Spec.Subclusters,
 			"at least one subcluster name should match its old name")
-		allErrs = append(allErrs, err)
-	}
-	// validate that for existing subclusters that we don't change the
-	// primary/secondary type
-	if ok, inx := v.isSubclusterTypeIsChanging(oldObj); ok {
-		err := field.Invalid(field.NewPath("spec").Child("subclusters").Index(inx).Child("type"),
-			v.Spec.Subclusters[inx].Type,
-			fmt.Sprintf("subcluster %s cannot have it's type change", v.Spec.Subclusters[inx].Name))
 		allErrs = append(allErrs, err)
 	}
 	return allErrs
@@ -1263,6 +1473,216 @@ func checkInt64PtrChange(prefix *field.Path, fieldName string,
 	return allErrs
 }
 
+// checkImmutableSubclusterDuringUpgrade will ensure we don't scale, add or
+// remove subclusters during a online upgrade.
+func (v *VerticaDB) checkImmutableSubclusterDuringUpgrade(oldObj *VerticaDB, allErrs field.ErrorList) field.ErrorList {
+	// This entire check can be skipped if we aren't doing online upgrade.
+	if !v.isOnlineUpgradeInProgress() {
+		return allErrs
+	}
+
+	// The subclusters that are taking part in the upgrade must stay constant
+	// during the upgrade. The upgrade itself may add new subclusters, but it
+	// has to be annotated a certain way. Regular users should not add new
+	// subclusters.
+
+	// Come up with a combined list of all of the subclusters. This will include
+	// all subclusters that are being removed and added.
+	oldScMap := oldObj.GenSubclusterMap()
+	newScMap := v.GenSubclusterMap()
+	allSubclusters := map[string]bool{}
+	for scName := range oldScMap {
+		allSubclusters[scName] = true
+	}
+	for scName := range newScMap {
+		allSubclusters[scName] = true
+	}
+
+	path := field.NewPath("spec").Child("subclusters")
+	for scName := range allSubclusters {
+		oldSc, oldScFound := oldScMap[scName]
+		newSc, newScFound := newScMap[scName]
+		if !newScFound {
+			continue
+		}
+		// The operator can create new subclusters that are used for the
+		// upgrade process. But these must be secondary subclusters and have the
+		// replica group annotation.
+		if !oldScFound {
+			annotationVal, annotationFound := newSc.Annotations[vmeta.ReplicaGroupAnnotation]
+			if !annotationFound ||
+				(annotationVal != vmeta.ReplicaGroupAValue && annotationVal != vmeta.ReplicaGroupBValue) {
+				err := field.Invalid(path,
+					newSc,
+					"New subclusters cannot be added during online upgrade")
+				allErrs = append(allErrs, err)
+			}
+			continue
+		}
+		if newSc.Size != oldSc.Size {
+			err := field.Invalid(path,
+				newSc,
+				fmt.Sprintf("Cannot change size of subcluster %q while database is being upgraded", scName))
+			allErrs = append(allErrs, err)
+			continue
+		}
+	}
+
+	return allErrs
+}
+
+// findPersistScsInSandbox returns the sandboxed subclusters that exist in both old and new vdb with their sandbox indexes
+func (v *VerticaDB) findPersistScsInSandbox(oldObj *VerticaDB) map[string]int {
+	oldSandboxes := oldObj.Spec.Sandboxes
+	newSandboxes := v.Spec.Sandboxes
+	sandboxScMap := make(map[string][]SubclusterName)
+	for _, sandbox := range oldSandboxes {
+		sandboxScMap[sandbox.Name] = sandbox.Subclusters
+	}
+	persistScsWithSbIndex := make(map[string]int)
+	for i, sandbox := range newSandboxes {
+		if oldScs, ok := sandboxScMap[sandbox.Name]; ok {
+			oldScMap := make(map[string]any)
+			for _, oldSc := range oldScs {
+				oldScMap[oldSc.Name] = struct{}{}
+			}
+			for _, newSc := range sandbox.Subclusters {
+				if _, ok := oldScMap[newSc.Name]; ok {
+					persistScsWithSbIndex[newSc.Name] = i
+				}
+			}
+		}
+	}
+	return persistScsWithSbIndex
+}
+
+// checkImmutableSubclusterInSandbox ensures we do not scale and remove any subcluster that is in a sandbox
+func (v *VerticaDB) checkImmutableSubclusterInSandbox(oldObj *VerticaDB, allErrs field.ErrorList) field.ErrorList {
+	// if either old vdb or new vdb does not have any sandboxes, skip this check
+	if len(oldObj.Spec.Sandboxes) == 0 || len(v.Spec.Sandboxes) == 0 {
+		return allErrs
+	}
+
+	persistScsWithSbIndex := v.findPersistScsInSandbox(oldObj)
+	oldScIndexMap := oldObj.GenSubclusterIndexMap()
+	newScIndexMap := v.GenSubclusterIndexMap()
+	oldScMap := oldObj.GenSubclusterMap()
+	newScMap := v.GenSubclusterMap()
+	path := field.NewPath("spec").Child("subclusters")
+
+	// check if the sizes of subclusters in a sandbox get changed
+	for sc, i := range persistScsWithSbIndex {
+		oldSc, hasOldSc := oldScMap[sc]
+		newSc, hasNewSc := newScMap[sc]
+		if !hasOldSc || !hasNewSc {
+			err := field.Invalid(path.Index(i),
+				v.Spec.Sandboxes[i],
+				fmt.Sprintf("Subcluster %s in vdb.spec.sandboxes cannot be found in vdb.spec.subclusters", sc))
+			allErrs = append(allErrs, err)
+			continue
+		}
+		if oldSc.Size != newSc.Size {
+			index := newScIndexMap[sc]
+			err := field.Invalid(path.Index(index),
+				v.Spec.Subclusters[index],
+				fmt.Sprintf("Cannot change the size of subcluster %q when it is in a sandbox", sc))
+			allErrs = append(allErrs, err)
+			continue
+		}
+	}
+
+	// find subclusters that are sandboxed in old vdb but removed in new vdb
+	oldScInSandbox := oldObj.GenSubclusterSandboxMap()
+	removedScs := vutil.MapKeyDiff(oldScMap, newScMap)
+	for _, sc := range removedScs {
+		if _, ok := oldScInSandbox[sc]; ok {
+			i := oldScIndexMap[sc]
+			err := field.Invalid(path.Index(i),
+				oldObj.Spec.Subclusters[i],
+				fmt.Sprintf("Cannot remove subcluster %q when it is in a sandbox", sc))
+			allErrs = append(allErrs, err)
+			continue
+		}
+	}
+
+	newScInSandbox := v.GenSubclusterSandboxMap()
+	oldSbIndexMap := oldObj.GenSandboxIndexMap()
+	oldSbMap := oldObj.GenSandboxMap()
+	newSbMap := v.GenSandboxMap()
+
+	// This loop ensures a couple of things:
+	// - a sandbox primary subcluster cannot be moved to another sandbox
+	// - cannot remove the sandbox primary subcluster from a sandbox
+	// The sandbox primary subcluster must stay constant until the sandbox is
+	// removed entirely.
+	for oldScName, oldSbName := range oldScInSandbox {
+		newSbName, newFound := newScInSandbox[oldScName]
+		sc := oldScMap[oldScName]
+
+		// sandbox is removed
+		if _, sandboxExist := newSbMap[oldSbName]; !sandboxExist {
+			continue
+		}
+		if !newFound && sc.Type == SandboxPrimarySubcluster {
+			i := oldScIndexMap[oldScName]
+			err := field.Invalid(path.Index(i),
+				oldObj.Spec.Subclusters[i],
+				fmt.Sprintf("Cannot remove primary subcluster %q from the sandbox", oldScName))
+			allErrs = append(allErrs, err)
+			continue
+		}
+
+		// Remaining check is concerned with subclusters moving between sandboxes.
+		if oldSbName == newSbName {
+			continue
+		}
+		if sc.Type == SandboxPrimarySubcluster {
+			i := oldSbIndexMap[oldSbName]
+			p := field.NewPath("spec").Child("sandboxes")
+			err := field.Invalid(p.Index(i),
+				oldSbMap[oldSbName],
+				fmt.Sprintf("cannot remove the primary subcluster from sandbox %q unless you are removing the sandbox",
+					oldScName))
+			allErrs = append(allErrs, err)
+		}
+	}
+
+	return allErrs
+}
+
+// checkImmutableStsName ensures the statefulset name of the subcluster stays constant
+func (v *VerticaDB) checkImmutableStsName(oldObj *VerticaDB, allErrs field.ErrorList) field.ErrorList {
+	// We have an annotation to control the sts name. We are not going to allow
+	// this annotation to be added to existing subclusters. Otherwise, it will
+	// regenerate a new statefulset and keep the old one around. The statefulset
+	// name can only be set for new subclusters.
+	oldScMap := oldObj.GenSubclusterMap()
+	newScMap := v.GenSubclusterMap()
+	scIndexMap := v.GenSubclusterIndexMap()
+	for scName, oldSc := range oldScMap {
+		// Find the subcluster in the new map.
+		newSc, found := newScMap[scName]
+		// Only concerned with changes of existing subclusters. So, we can skip if
+		// its not found.
+		if !found {
+			continue
+		}
+		oldStsName := oldSc.GetStatefulSetName(oldObj)
+		newStsName := newSc.GetStatefulSetName(v)
+		if oldStsName != newStsName {
+			scInx := scIndexMap[scName]
+			path := field.NewPath("spec").Child("subclusters").Index(scInx).
+				Child("annotations").Key(vmeta.StsNameOverrideAnnotation)
+			err := field.Invalid(path,
+				newStsName,
+				fmt.Sprintf("Renaming the statefulset of subcluster %q after creation of the subcluster is not allowed",
+					scName))
+			allErrs = append(allErrs, err)
+		}
+	}
+	return allErrs
+}
+
 // setDefaultServiceName will explicitly set the serviceName in any subcluster
 // that omitted it
 func (v *VerticaDB) setDefaultServiceName() {
@@ -1270,6 +1690,17 @@ func (v *VerticaDB) setDefaultServiceName() {
 		sc := &v.Spec.Subclusters[i]
 		if sc.ServiceName == "" {
 			sc.ServiceName = sc.GetServiceName()
+		}
+	}
+}
+
+// setDefaultSandboxImages will explicitly set the image in any sandbox
+// that omitted it
+func (v *VerticaDB) setDefaultSandboxImages() {
+	for i := range v.Spec.Sandboxes {
+		sb := &v.Spec.Sandboxes[i]
+		if sb.Image == "" {
+			sb.Image = v.Spec.Image
 		}
 	}
 }

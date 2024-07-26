@@ -24,6 +24,7 @@ import (
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
+	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/iter"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
@@ -31,31 +32,34 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/removesc"
+	"github.com/vertica/vertica-kubernetes/pkg/vdbstatus"
 	corev1 "k8s.io/api/core/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 // DBRemoveSubclusterReconciler will remove subclusters from the database
 type DBRemoveSubclusterReconciler struct {
-	VRec       *VerticaDBReconciler
-	Log        logr.Logger
-	Vdb        *vapi.VerticaDB // Vdb is the CRD we are acting on.
-	PRunner    cmds.PodRunner
-	PFacts     *PodFacts
-	ATPod      *PodFact // The pod that we run admintools from
-	Dispatcher vadmin.Dispatcher
+	VRec                  *VerticaDBReconciler
+	Log                   logr.Logger
+	Vdb                   *vapi.VerticaDB // Vdb is the CRD we are acting on.
+	PRunner               cmds.PodRunner
+	PFacts                *PodFacts
+	ATPod                 *PodFact // The pod that we run admintools from
+	Dispatcher            vadmin.Dispatcher
+	CalledInOnlineUpgrade bool // Indicate if the constructor is called from online upgrade reconciler
 }
 
 // MakeDBRemoveSubclusterReconciler will build a DBRemoveSubclusterReconciler object
-func MakeDBRemoveSubclusterReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
-	vdb *vapi.VerticaDB, prunner cmds.PodRunner, pfacts *PodFacts, dispatcher vadmin.Dispatcher) controllers.ReconcileActor {
+func MakeDBRemoveSubclusterReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger, vdb *vapi.VerticaDB,
+	prunner cmds.PodRunner, pfacts *PodFacts, dispatcher vadmin.Dispatcher, calledInOnlineUpgrade bool) controllers.ReconcileActor {
 	return &DBRemoveSubclusterReconciler{
-		VRec:       vdbrecon,
-		Log:        log.WithName("DBRemoveSubclusterReconciler"),
-		Vdb:        vdb,
-		PRunner:    prunner,
-		PFacts:     pfacts,
-		Dispatcher: dispatcher,
+		VRec:                  vdbrecon,
+		Log:                   log.WithName("DBRemoveSubclusterReconciler"),
+		Vdb:                   vdb,
+		PRunner:               prunner,
+		PFacts:                pfacts,
+		Dispatcher:            dispatcher,
+		CalledInOnlineUpgrade: calledInOnlineUpgrade,
 	}
 }
 
@@ -86,14 +90,18 @@ func (d *DBRemoveSubclusterReconciler) Reconcile(ctx context.Context, _ *ctrl.Re
 		return ctrl.Result{Requeue: changed}, err
 	}
 
-	return d.removeExtraSubclusters(ctx)
+	if res, err := d.removeExtraSubclusters(ctx); verrors.IsReconcileAborted(res, err) {
+		return res, err
+	}
+
+	return ctrl.Result{}, nil
 }
 
 // removeExtraSubclusters will compare subclusters in vertica with vdb and remove any extra ones
 func (d *DBRemoveSubclusterReconciler) removeExtraSubclusters(ctx context.Context) (ctrl.Result, error) {
 	finder := iter.MakeSubclusterFinder(d.VRec.Client, d.Vdb)
 	// Find all subclusters not in the vdb.  These are the ones we want to remove.
-	subclusters, err := finder.FindSubclusters(ctx, iter.FindNotInVdb)
+	subclusters, err := finder.FindSubclusters(ctx, iter.FindNotInVdb, vapi.MainCluster)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -124,15 +132,42 @@ func (d *DBRemoveSubclusterReconciler) removeExtraSubclusters(ctx context.Contex
 		if err := d.removeSubcluster(ctx, subclusters[i].Name); err != nil {
 			return ctrl.Result{}, err
 		}
+
+		if err := d.updateSubclusterStatus(ctx, subclusters[i].Name); err != nil {
+			return ctrl.Result{}, fmt.Errorf("failed to update subcluster status: %w", err)
+		}
+
+		// We successfully called remove subcluster and updated the status, invalidate
+		// the pod facts cache so that it is refreshed the next time we need it.
+		d.PFacts.Invalidate()
 	}
 	return ctrl.Result{}, nil
 }
 
 // removeSubcluster will call an admin function to remove the given subcluster from vertica
 func (d *DBRemoveSubclusterReconciler) removeSubcluster(ctx context.Context, scName string) error {
+	// nodes' names and addresses in the subcluster to remove subcluster. These names and addresses
+	// are the latest ones in the database, and vclusterOps will compare them with the ones in catalog.
+	// If vclusterOps find catalog of the cluster has stale node addresses, it will use the correct
+	// addresses in this map to do a re-ip before removing subcluster.
+	nodeNameAddressMap := d.PFacts.FindNodeNameAndAddressInSubcluster(scName)
+
+	nodesToPollSubs := []string{}
+	// when we remove nodes in online upgrade, we don't need to check node subscriptions
+	// on the nodes in old main cluster so we need to pass nodeToPollSubs to vclusterOps to
+	// let vclusterOps only check node subscriptions on the nodes that are promoted from the
+	// sandbox.
+	if d.CalledInOnlineUpgrade {
+		scNames := d.Vdb.GetSubclustersForReplicaGroup(vmeta.ReplicaGroupBValue)
+		nodesToPollSubs = d.PFacts.findNodeNamesInSubclusters(scNames)
+	}
+
 	err := d.Dispatcher.RemoveSubcluster(ctx,
 		removesc.WithInitiator(d.ATPod.name, d.ATPod.podIP),
 		removesc.WithSubcluster(scName),
+		// vclusterOps needs correct node names and addresses to do re-ip
+		removesc.WithNodeNameAddressMap(nodeNameAddressMap),
+		removesc.WithNodesToPollSubs(nodesToPollSubs),
 	)
 	if err != nil {
 		return err
@@ -140,6 +175,27 @@ func (d *DBRemoveSubclusterReconciler) removeSubcluster(ctx context.Context, scN
 	d.VRec.Eventf(d.Vdb, corev1.EventTypeNormal, events.SubclusterRemoved,
 		"Removed subcluster '%s'", scName)
 	return nil
+}
+
+// updateSubclusterStatus updates all of the given subcluster's nodes detail
+// in the status
+func (d *DBRemoveSubclusterReconciler) updateSubclusterStatus(ctx context.Context, scName string) error {
+	refreshInPlace := func(vdb *vapi.VerticaDB) error {
+		scMap := vdb.GenSubclusterStatusMap()
+		scs := scMap[scName]
+		if scs == nil {
+			return nil
+		}
+		for _, p := range d.PFacts.Detail {
+			if p.subclusterName == scName {
+				if int(p.podIndex) < len(scs.Detail) {
+					scs.Detail[p.podIndex].AddedToDB = false
+				}
+			}
+		}
+		return nil
+	}
+	return vdbstatus.Update(ctx, d.VRec.Client, d.Vdb, refreshInPlace)
 }
 
 // resetDefaultSubcluster will set the default subcluster to the first
@@ -157,17 +213,17 @@ func (d *DBRemoveSubclusterReconciler) resetDefaultSubcluster(ctx context.Contex
 	_, ok := scMap[defSc]
 	if !ok {
 		scFinder := iter.MakeSubclusterFinder(d.VRec.Client, d.Vdb)
-		// We use the FindServices() API to get subclusters that already exist.
+		// We use the FindStatefulSets() API to get subclusters that already exist.
 		// We can only change the default subcluster to one of those.
-		svcs, err := scFinder.FindServices(ctx, iter.FindInVdb)
+		stss, err := scFinder.FindStatefulSets(ctx, iter.FindInVdb, vapi.MainCluster)
 		if err != nil {
 			return err
 		}
 		// If we don't find a service object we don't fail.  The attempt to
 		// remove the default subcluster that we do later will fail.  That
 		// provides a better error message than anything we do here.
-		if len(svcs.Items) > 0 {
-			return d.changeDefaultSubcluster(ctx, svcs.Items[0].Labels[vmeta.SubclusterNameLabel])
+		if len(stss.Items) > 0 {
+			return d.changeDefaultSubcluster(ctx, stss.Items[0].Labels[vmeta.SubclusterNameLabel])
 		}
 	}
 	return nil
