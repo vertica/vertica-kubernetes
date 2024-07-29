@@ -79,9 +79,9 @@ const (
 	runObjRecForMainInx = iota
 	addSubclustersInx
 	addNodeInx
-	promoteSandbox
-	removeReplicaGroupA
-	deleteReplicaGroupASts
+	promoteSandboxInx
+	removeReplicaGroupAInx
+	deleteReplicaGroupAStsInx
 )
 
 // OnlineUpgradeReconciler will coordinate an online upgrade that allows
@@ -228,7 +228,7 @@ func (r *OnlineUpgradeReconciler) loadUpgradeState(ctx context.Context) (ctrl.Re
 // saved in the status.upgradeState.replicaGroups field.
 func (r *OnlineUpgradeReconciler) assignSubclustersToReplicaGroupA(ctx context.Context) (ctrl.Result, error) {
 	// Early out if we have already promoted and removed replica group A, or we have already created replica group A.
-	if vmeta.GetOnlineUpgradeStepInx(r.VDB.Annotations) > removeReplicaGroupA ||
+	if vmeta.GetOnlineUpgradeStepInx(r.VDB.Annotations) > removeReplicaGroupAInx ||
 		r.countSubclustersForReplicaGroup(vmeta.ReplicaGroupAValue) != 0 {
 		return ctrl.Result{}, nil
 	}
@@ -297,7 +297,7 @@ func (r *OnlineUpgradeReconciler) runAddNodesReconcilerForMainCluster(ctx contex
 // runRebalanceSandboxSubcluster will run a rebalance against the subclusters that will be sandboxed.
 func (r *OnlineUpgradeReconciler) runRebalanceSandboxSubcluster(ctx context.Context) (ctrl.Result, error) {
 	// If we have already promoted sandbox to main, we don't need to touch old main cluster
-	if vmeta.GetOnlineUpgradeStepInx(r.VDB.Annotations) > promoteSandbox {
+	if vmeta.GetOnlineUpgradeStepInx(r.VDB.Annotations) > promoteSandboxInx {
 		return ctrl.Result{}, nil
 	}
 
@@ -321,7 +321,7 @@ func (r *OnlineUpgradeReconciler) postCreateNewSubclustersMsg(ctx context.Contex
 // eventually exist in its own sandbox.
 func (r *OnlineUpgradeReconciler) assignSubclustersToReplicaGroupB(ctx context.Context) (ctrl.Result, error) {
 	// If we have already promoted sandbox to main, we don't need to do this step
-	if vmeta.GetOnlineUpgradeStepInx(r.VDB.Annotations) > promoteSandbox {
+	if vmeta.GetOnlineUpgradeStepInx(r.VDB.Annotations) > promoteSandboxInx {
 		return ctrl.Result{}, nil
 	}
 
@@ -359,7 +359,7 @@ func (r *OnlineUpgradeReconciler) sandboxReplicaGroupB(ctx context.Context) (ctr
 	}
 
 	// If we have already promoted sandbox to main, we don't need to sandbox replica B again
-	if vmeta.GetOnlineUpgradeStepInx(r.VDB.Annotations) > promoteSandbox {
+	if vmeta.GetOnlineUpgradeStepInx(r.VDB.Annotations) > promoteSandboxInx {
 		return ctrl.Result{}, nil
 	}
 
@@ -409,7 +409,7 @@ func (r *OnlineUpgradeReconciler) postPromoteSubclustersInSandboxMsg(ctx context
 // parent subcluster is primary
 func (r *OnlineUpgradeReconciler) promoteReplicaBSubclusters(ctx context.Context) (ctrl.Result, error) {
 	// If we have already promoted sandbox to main, we don't need to promote subclusters in sandbox
-	if vmeta.GetOnlineUpgradeStepInx(r.VDB.Annotations) > promoteSandbox {
+	if vmeta.GetOnlineUpgradeStepInx(r.VDB.Annotations) > promoteSandboxInx {
 		return ctrl.Result{}, nil
 	}
 
@@ -433,7 +433,7 @@ func (r *OnlineUpgradeReconciler) postUpgradeSandboxMsg(ctx context.Context) (ct
 // upgradeSandbox will upgrade the nodes in replica group B (sandbox) to the new version.
 func (r *OnlineUpgradeReconciler) upgradeSandbox(ctx context.Context) (ctrl.Result, error) {
 	// If we have already promoted sandbox to main, we don't need to upgrade the sandbox again
-	if vmeta.GetOnlineUpgradeStepInx(r.VDB.Annotations) > promoteSandbox {
+	if vmeta.GetOnlineUpgradeStepInx(r.VDB.Annotations) > promoteSandboxInx {
 		return ctrl.Result{}, nil
 	}
 
@@ -472,7 +472,7 @@ func (r *OnlineUpgradeReconciler) upgradeSandbox(ctx context.Context) (ctrl.Resu
 // continually check if the pods in the sandbox are up.
 func (r *OnlineUpgradeReconciler) waitForSandboxUpgrade(ctx context.Context) (ctrl.Result, error) {
 	// If we have already promoted sandbox to main, we don't need to wait for sandbox upgrade
-	if vmeta.GetOnlineUpgradeStepInx(r.VDB.Annotations) > promoteSandbox {
+	if vmeta.GetOnlineUpgradeStepInx(r.VDB.Annotations) > promoteSandboxInx {
 		return ctrl.Result{}, nil
 	}
 
@@ -503,7 +503,7 @@ func (r *OnlineUpgradeReconciler) postPauseConnectionsMsg(ctx context.Context) (
 // (momentarily) so that the two replica groups have the same data.
 func (r *OnlineUpgradeReconciler) pauseConnectionsAtReplicaGroupA(ctx context.Context) (ctrl.Result, error) {
 	// If we have already promoted sandbox to main, we don't need to pause connections
-	if vmeta.GetOnlineUpgradeStepInx(r.VDB.Annotations) > promoteSandbox {
+	if vmeta.GetOnlineUpgradeStepInx(r.VDB.Annotations) > promoteSandboxInx {
 		return ctrl.Result{}, nil
 	}
 
@@ -559,7 +559,7 @@ func (r *OnlineUpgradeReconciler) postStartReplicationMsg(ctx context.Context) (
 func (r *OnlineUpgradeReconciler) prepareReplication(ctx context.Context) (ctrl.Result, error) {
 	// Skip if the VerticaReplicator has already been created or
 	// if we have already promoted sandbox to main
-	if vmeta.GetOnlineUpgradeStepInx(r.VDB.Annotations) > promoteSandbox ||
+	if vmeta.GetOnlineUpgradeStepInx(r.VDB.Annotations) > promoteSandboxInx ||
 		vmeta.GetOnlineUpgradeReplicator(r.VDB.Annotations) != "" {
 		return ctrl.Result{}, nil
 	}
@@ -595,7 +595,7 @@ func (r *OnlineUpgradeReconciler) prepareReplication(ctx context.Context) (ctrl.
 // the sandbox from replica group A to replica group B.
 func (r *OnlineUpgradeReconciler) startReplicationToReplicaGroupB(ctx context.Context) (ctrl.Result, error) {
 	// If we have already promoted sandbox to main, we don't need to do this step
-	if vmeta.GetOnlineUpgradeStepInx(r.VDB.Annotations) > promoteSandbox {
+	if vmeta.GetOnlineUpgradeStepInx(r.VDB.Annotations) > promoteSandboxInx {
 		return ctrl.Result{}, nil
 	}
 
@@ -649,7 +649,7 @@ func (r *OnlineUpgradeReconciler) startReplicationToReplicaGroupB(ctx context.Co
 // waitForReplicateToReplicaGroupB will poll the VerticaReplicator waiting for the replication to finish.
 func (r *OnlineUpgradeReconciler) waitForReplicateToReplicaGroupB(ctx context.Context) (ctrl.Result, error) {
 	// If we have already promoted sandbox to main, we don't need to do this step
-	if vmeta.GetOnlineUpgradeStepInx(r.VDB.Annotations) > promoteSandbox {
+	if vmeta.GetOnlineUpgradeStepInx(r.VDB.Annotations) > promoteSandboxInx {
 		return ctrl.Result{}, nil
 	}
 
@@ -700,7 +700,7 @@ func (r *OnlineUpgradeReconciler) postRedirectToSandboxMsg(ctx context.Context) 
 // established at replica group A to go to replica group B.
 func (r *OnlineUpgradeReconciler) redirectConnectionsToReplicaGroupB(ctx context.Context) (ctrl.Result, error) {
 	// If we have already promoted sandbox to main, we don't need to redirect connections
-	if vmeta.GetOnlineUpgradeStepInx(r.VDB.Annotations) > promoteSandbox {
+	if vmeta.GetOnlineUpgradeStepInx(r.VDB.Annotations) > promoteSandboxInx {
 		return ctrl.Result{}, nil
 	}
 
@@ -751,7 +751,7 @@ func (r *OnlineUpgradeReconciler) postPromoteSandboxMsg(ctx context.Context) (ct
 // discard the pods for the old main.
 func (r *OnlineUpgradeReconciler) promoteSandboxToMainCluster(ctx context.Context) (ctrl.Result, error) {
 	// If we have already promoted sandbox to main, we don't need to do this step
-	if vmeta.GetOnlineUpgradeStepInx(r.VDB.Annotations) > promoteSandbox {
+	if vmeta.GetOnlineUpgradeStepInx(r.VDB.Annotations) > promoteSandboxInx {
 		return ctrl.Result{}, nil
 	}
 
@@ -1173,7 +1173,7 @@ func (r *OnlineUpgradeReconciler) removeReplicaGroupAFromVdb(ctx context.Context
 // removeReplicaGroupA will remove the old main cluster
 func (r *OnlineUpgradeReconciler) removeReplicaGroupA(ctx context.Context) (ctrl.Result, error) {
 	// if replica group A has already been removed, we skip removing the old main cluster
-	if vmeta.GetOnlineUpgradeStepInx(r.VDB.Annotations) > removeReplicaGroupA {
+	if vmeta.GetOnlineUpgradeStepInx(r.VDB.Annotations) > removeReplicaGroupAInx {
 		return ctrl.Result{}, nil
 	}
 	// if the sandbox is still there, we wait for promote_sandbox to be done
@@ -1193,7 +1193,7 @@ func (r *OnlineUpgradeReconciler) removeReplicaGroupA(ctx context.Context) (ctrl
 
 // deleteReplicaGroupASts will delete the statefulSet of replicate group A.
 func (r *OnlineUpgradeReconciler) deleteReplicaGroupASts(ctx context.Context) (ctrl.Result, error) {
-	if vmeta.GetOnlineUpgradeStepInx(r.VDB.Annotations) > deleteReplicaGroupASts {
+	if vmeta.GetOnlineUpgradeStepInx(r.VDB.Annotations) > deleteReplicaGroupAStsInx {
 		return ctrl.Result{}, nil
 	}
 	// if the sandbox is still there, we wait for promote_sandbox to be done
