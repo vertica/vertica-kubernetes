@@ -1,5 +1,0 @@
-kind: Security
-body: Fix for CVE-2024-24790
-time: 2024-07-16T17:02:33.3219153-05:00
-custom:
-  Issue: "858"
