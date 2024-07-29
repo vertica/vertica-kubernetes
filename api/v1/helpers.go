@@ -960,8 +960,3 @@ func (v *VerticaDB) GetSubclustersForReplicaGroup(groupName string) []string {
 	}
 	return scNames
 }
-
-// IsOnlineUpgradeSandboxPromoted will check if replica-group-b has been promoted to main cluster
-func (v *VerticaDB) IsOnlineUpgradeSandboxPromoted() bool {
-	return vmeta.GetOnlineUpgradeSandboxPromoted(v.Annotations) == vmeta.SandboxPromotedTrue
-}
