@@ -675,11 +675,6 @@ func (r *OnlineUpgradeReconciler) waitForReplicateToReplicaGroupB(ctx context.Co
 		return ctrl.Result{}, fmt.Errorf("failed trying to fetch VerticaReplicator: %w", err)
 	}
 
-	if !vrep.IsStatusConditionTrue(v1beta1.ReplicationComplete) {
-		r.Log.Info("Requeue replication is not finished", "vrepName", vrepName)
-		return ctrl.Result{Requeue: true}, nil
-	}
-
 	cond := vrep.FindStatusCondition(v1beta1.ReplicationComplete)
 	if cond == nil || cond.Status != metav1.ConditionTrue {
 		r.Log.Info("Requeue replication is not finished", "vrepName", vrepName)
@@ -692,7 +687,6 @@ func (r *OnlineUpgradeReconciler) waitForReplicateToReplicaGroupB(ctx context.Co
 	} else {
 		r.Log.Info("Replication has failed", "vrepName", vrepName)
 	}
-	r.Log.Info("Replication is completed", "vrepName", vrepName)
 	// Delete the VerticaReplicator. We leave the annotation present in the
 	// VerticaDB so that we skip these steps until the upgrade is finished.
 	err = r.VRec.Client.Delete(ctx, &vrep)
@@ -824,7 +818,7 @@ func (r *OnlineUpgradeReconciler) addNewSubclusters() (bool, error) {
 	for _, scName := range r.VDB.GetSubclustersForReplicaGroup(vmeta.ReplicaGroupAValue) {
 		sc := scMap[scName]
 		if sc == nil {
-			return false, errors.New("Could not find some replica group a subclusters")
+			return false, errors.New("Could not find some replica-group-a subclusters")
 		}
 		scsByType = append(scsByType, *sc)
 	}
@@ -874,7 +868,7 @@ func (r *OnlineUpgradeReconciler) assignSubclustersToReplicaGroupACallback() (bo
 		// subclusters already in a sandbox must not be part of
 		// replica group A.
 		if _, found := scSbMap[sc.Name]; found {
-			continue
+			return annotatedAtLeastOnce, errors.New("Online upgrade cannot proceed if there is an existing sandbox")
 		}
 		if val, found := sc.Annotations[vmeta.ReplicaGroupAnnotation]; !found ||
 			(val != vmeta.ReplicaGroupAValue && val != vmeta.ReplicaGroupBValue) {
