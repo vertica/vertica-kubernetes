@@ -19,6 +19,7 @@ import (
 	"context"
 	"fmt"
 	"sort"
+	"strconv"
 
 	"github.com/go-logr/logr"
 	"github.com/google/uuid"
@@ -71,6 +72,16 @@ const (
 	promoteSandboxMsgInx
 	removeOriginalClusterMsgInx
 	renameScsInMainClusterMsgInx
+)
+
+// Constants for some steps during online upgrade
+const (
+	runObjRecForMainInx = iota
+	addSubclustersInx
+	addNodeInx
+	promoteSandboxInx
+	removeReplicaGroupAInx
+	deleteReplicaGroupAStsInx
 )
 
 // OnlineUpgradeReconciler will coordinate an online upgrade that allows
@@ -148,6 +159,7 @@ func (r *OnlineUpgradeReconciler) Reconcile(ctx context.Context, _ *ctrl.Request
 		// Copy any new data that was added since the sandbox from replica group
 		// A to replica group B.
 		r.postStartReplicationMsg,
+		r.prepareReplication,
 		r.startReplicationToReplicaGroupB,
 		r.waitForReplicateToReplicaGroupB,
 		// Redirect all of the connections to replica group A to replica group B.
@@ -216,7 +228,7 @@ func (r *OnlineUpgradeReconciler) loadUpgradeState(ctx context.Context) (ctrl.Re
 // saved in the status.upgradeState.replicaGroups field.
 func (r *OnlineUpgradeReconciler) assignSubclustersToReplicaGroupA(ctx context.Context) (ctrl.Result, error) {
 	// Early out if we have already promoted and removed replica group A, or we have already created replica group A.
-	if vmeta.GetOnlineUpgradeReplicaARemoved(r.VDB.Annotations) == vmeta.ReplicaARemovedTrue ||
+	if vmeta.GetOnlineUpgradeStepInx(r.VDB.Annotations) > removeReplicaGroupAInx ||
 		r.countSubclustersForReplicaGroup(vmeta.ReplicaGroupAValue) != 0 {
 		return ctrl.Result{}, nil
 	}
@@ -232,8 +244,8 @@ func (r *OnlineUpgradeReconciler) assignSubclustersToReplicaGroupA(ctx context.C
 // that are part of the main cluster. This is used to build or update any
 // necessary objects the upgrade depends on.
 func (r *OnlineUpgradeReconciler) runObjReconcilerForMainCluster(ctx context.Context) (ctrl.Result, error) {
-	// If we have already promoted sandbox to main, we don't need to check objects in old main cluster
-	if r.VDB.IsOnlineUpgradeSandboxPromoted() {
+	// This obj reconciler must be done only once unless it fails
+	if vmeta.GetOnlineUpgradeStepInx(r.VDB.Annotations) > runObjRecForMainInx {
 		return ctrl.Result{}, nil
 	}
 
@@ -241,13 +253,16 @@ func (r *OnlineUpgradeReconciler) runObjReconcilerForMainCluster(ctx context.Con
 	r.Manager.traceActorReconcile(rec)
 	res, err := rec.Reconcile(ctx, &ctrl.Request{})
 	r.PFacts[vapi.MainCluster].Invalidate()
-	return res, err
+	if verrors.IsReconcileAborted(res, err) {
+		return res, err
+	}
+	return ctrl.Result{}, r.updateOnlineUpgradeStepAnnotation(ctx, r.getNextStep())
 }
 
 // runAddSubclusterReconcilerForMainCluster will run the reconciler to create any necessary subclusters
 func (r *OnlineUpgradeReconciler) runAddSubclusterReconcilerForMainCluster(ctx context.Context) (ctrl.Result, error) {
-	// If we have already promoted sandbox to main, we don't need to touch old main cluster
-	if r.VDB.IsOnlineUpgradeSandboxPromoted() {
+	// We skip this if we have already added the new subclusters
+	if vmeta.GetOnlineUpgradeStepInx(r.VDB.Annotations) > addSubclustersInx {
 		return ctrl.Result{}, nil
 	}
 
@@ -255,13 +270,16 @@ func (r *OnlineUpgradeReconciler) runAddSubclusterReconcilerForMainCluster(ctx c
 	rec := MakeDBAddSubclusterReconciler(r.VRec, r.Log, r.VDB, pf.PRunner, pf, r.Dispatcher)
 	r.Manager.traceActorReconcile(rec)
 	res, err := rec.Reconcile(ctx, &ctrl.Request{})
-	return res, err
+	if verrors.IsReconcileAborted(res, err) {
+		return res, err
+	}
+	return ctrl.Result{}, r.updateOnlineUpgradeStepAnnotation(ctx, r.getNextStep())
 }
 
 // runAddNodesReconcilerForMainCluster will run the reconciler to scale out any subclusters.
 func (r *OnlineUpgradeReconciler) runAddNodesReconcilerForMainCluster(ctx context.Context) (ctrl.Result, error) {
-	// If we have already promoted sandbox to main, we don't need to touch old main cluster
-	if r.VDB.IsOnlineUpgradeSandboxPromoted() {
+	// We skip this if we have already added the new nodes
+	if vmeta.GetOnlineUpgradeStepInx(r.VDB.Annotations) > addNodeInx {
 		return ctrl.Result{}, nil
 	}
 
@@ -270,20 +288,25 @@ func (r *OnlineUpgradeReconciler) runAddNodesReconcilerForMainCluster(ctx contex
 	r.Manager.traceActorReconcile(rec)
 	res, err := rec.Reconcile(ctx, &ctrl.Request{})
 	r.PFacts[vapi.MainCluster].Invalidate()
-	return res, err
+	if verrors.IsReconcileAborted(res, err) {
+		return res, err
+	}
+	return ctrl.Result{}, r.updateOnlineUpgradeStepAnnotation(ctx, r.getNextStep())
 }
 
 // runRebalanceSandboxSubcluster will run a rebalance against the subclusters that will be sandboxed.
 func (r *OnlineUpgradeReconciler) runRebalanceSandboxSubcluster(ctx context.Context) (ctrl.Result, error) {
 	// If we have already promoted sandbox to main, we don't need to touch old main cluster
-	if r.VDB.IsOnlineUpgradeSandboxPromoted() {
+	if vmeta.GetOnlineUpgradeStepInx(r.VDB.Annotations) > promoteSandboxInx {
 		return ctrl.Result{}, nil
 	}
 
 	pf := r.PFacts[vapi.MainCluster]
 	actor := MakeRebalanceShardsReconciler(r.VRec, r.Log, r.VDB, pf.PRunner, pf, "" /*all subclusters*/)
 	r.Manager.traceActorReconcile(actor)
-	return actor.Reconcile(ctx, &ctrl.Request{})
+	res, err := actor.Reconcile(ctx, &ctrl.Request{})
+	r.PFacts[vapi.MainCluster].Invalidate()
+	return res, err
 }
 
 // postCreateNewSubclustersMsg will update the status message to indicate that
@@ -298,7 +321,7 @@ func (r *OnlineUpgradeReconciler) postCreateNewSubclustersMsg(ctx context.Contex
 // eventually exist in its own sandbox.
 func (r *OnlineUpgradeReconciler) assignSubclustersToReplicaGroupB(ctx context.Context) (ctrl.Result, error) {
 	// If we have already promoted sandbox to main, we don't need to do this step
-	if r.VDB.IsOnlineUpgradeSandboxPromoted() {
+	if vmeta.GetOnlineUpgradeStepInx(r.VDB.Annotations) > promoteSandboxInx {
 		return ctrl.Result{}, nil
 	}
 
@@ -327,12 +350,16 @@ func (r *OnlineUpgradeReconciler) postSandboxSubclustersMsg(ctx context.Context)
 func (r *OnlineUpgradeReconciler) sandboxReplicaGroupB(ctx context.Context) (ctrl.Result, error) {
 	// We can skip this step if the replica sandbox is already created and fully
 	// sandboxed (according to status).
-	if r.sandboxName != "" && r.VDB.GetSandboxStatus(r.sandboxName) != nil {
-		return ctrl.Result{}, nil
+	if r.sandboxName != "" {
+		sb := r.VDB.GetSandboxStatus(r.sandboxName)
+		rgbSize := r.countSubclustersForReplicaGroup(vmeta.ReplicaGroupBValue)
+		if sb != nil && rgbSize == len(sb.Subclusters) {
+			return ctrl.Result{}, nil
+		}
 	}
 
 	// If we have already promoted sandbox to main, we don't need to sandbox replica B again
-	if r.VDB.IsOnlineUpgradeSandboxPromoted() {
+	if vmeta.GetOnlineUpgradeStepInx(r.VDB.Annotations) > promoteSandboxInx {
 		return ctrl.Result{}, nil
 	}
 
@@ -355,17 +382,13 @@ func (r *OnlineUpgradeReconciler) sandboxReplicaGroupB(ctx context.Context) (ctr
 	// The nodes in the subcluster to sandbox must be running in order for
 	// sandboxing to work. For this reason, we need to use the restart
 	// reconciler to restart any down nodes.
-	pf := r.PFacts[vapi.MainCluster]
-	const DoNotRestartReadOnly = false
-	actor := MakeRestartReconciler(r.VRec, r.Log, r.VDB, pf.PRunner, pf, DoNotRestartReadOnly, r.Dispatcher)
-	r.Manager.traceActorReconcile(actor)
-	res, err := actor.Reconcile(ctx, &ctrl.Request{})
+	res, err := r.restartMainCluster(ctx)
 	if verrors.IsReconcileAborted(res, err) {
 		return res, err
 	}
 
 	// Drive the actual sandbox command. When this returns we know the sandbox is complete.
-	actor = MakeSandboxSubclusterReconciler(r.VRec, r.Log, r.VDB, r.PFacts[vapi.MainCluster], r.Dispatcher, r.VRec.Client)
+	actor := MakeSandboxSubclusterReconciler(r.VRec, r.Log, r.VDB, r.PFacts[vapi.MainCluster], r.Dispatcher, r.VRec.Client)
 	r.Manager.traceActorReconcile(actor)
 	res, err = actor.Reconcile(ctx, &ctrl.Request{})
 	if verrors.IsReconcileAborted(res, err) {
@@ -386,16 +409,10 @@ func (r *OnlineUpgradeReconciler) postPromoteSubclustersInSandboxMsg(ctx context
 // parent subcluster is primary
 func (r *OnlineUpgradeReconciler) promoteReplicaBSubclusters(ctx context.Context) (ctrl.Result, error) {
 	// If we have already promoted sandbox to main, we don't need to promote subclusters in sandbox
-	if r.VDB.IsOnlineUpgradeSandboxPromoted() {
+	if vmeta.GetOnlineUpgradeStepInx(r.VDB.Annotations) > promoteSandboxInx {
 		return ctrl.Result{}, nil
 	}
 
-	sb := r.VDB.GetSandboxStatus(r.sandboxName)
-	rgbSize := r.countSubclustersForReplicaGroup(vmeta.ReplicaGroupBValue)
-	if sb == nil || rgbSize != len(sb.Subclusters) {
-		r.Log.Info("sandboxing replica group b is not complete")
-		return ctrl.Result{Requeue: true}, nil
-	}
 	// Get the sandbox podfacts only to invalidate the cache
 	sbPFacts, err := r.getSandboxPodFacts(ctx, false)
 	if err != nil {
@@ -416,7 +433,7 @@ func (r *OnlineUpgradeReconciler) postUpgradeSandboxMsg(ctx context.Context) (ct
 // upgradeSandbox will upgrade the nodes in replica group B (sandbox) to the new version.
 func (r *OnlineUpgradeReconciler) upgradeSandbox(ctx context.Context) (ctrl.Result, error) {
 	// If we have already promoted sandbox to main, we don't need to upgrade the sandbox again
-	if r.VDB.IsOnlineUpgradeSandboxPromoted() {
+	if vmeta.GetOnlineUpgradeStepInx(r.VDB.Annotations) > promoteSandboxInx {
 		return ctrl.Result{}, nil
 	}
 
@@ -455,7 +472,7 @@ func (r *OnlineUpgradeReconciler) upgradeSandbox(ctx context.Context) (ctrl.Resu
 // continually check if the pods in the sandbox are up.
 func (r *OnlineUpgradeReconciler) waitForSandboxUpgrade(ctx context.Context) (ctrl.Result, error) {
 	// If we have already promoted sandbox to main, we don't need to wait for sandbox upgrade
-	if r.VDB.IsOnlineUpgradeSandboxPromoted() {
+	if vmeta.GetOnlineUpgradeStepInx(r.VDB.Annotations) > promoteSandboxInx {
 		return ctrl.Result{}, nil
 	}
 
@@ -486,7 +503,7 @@ func (r *OnlineUpgradeReconciler) postPauseConnectionsMsg(ctx context.Context) (
 // (momentarily) so that the two replica groups have the same data.
 func (r *OnlineUpgradeReconciler) pauseConnectionsAtReplicaGroupA(ctx context.Context) (ctrl.Result, error) {
 	// If we have already promoted sandbox to main, we don't need to pause connections
-	if r.VDB.IsOnlineUpgradeSandboxPromoted() {
+	if vmeta.GetOnlineUpgradeStepInx(r.VDB.Annotations) > promoteSandboxInx {
 		return ctrl.Result{}, nil
 	}
 
@@ -536,11 +553,49 @@ func (r *OnlineUpgradeReconciler) postStartReplicationMsg(ctx context.Context) (
 	return r.postNextStatusMsg(ctx, startReplicationMsgInx)
 }
 
+// prepareReplication makes sure there is at least an Up node in the main cluster
+// and the sandbox, to perform replication.
+// Once we start using services for replication, we will check only the scs served by the services.
+func (r *OnlineUpgradeReconciler) prepareReplication(ctx context.Context) (ctrl.Result, error) {
+	// Skip if the VerticaReplicator has already been created or
+	// if we have already promoted sandbox to main
+	if vmeta.GetOnlineUpgradeStepInx(r.VDB.Annotations) > promoteSandboxInx ||
+		vmeta.GetOnlineUpgradeReplicator(r.VDB.Annotations) != "" {
+		return ctrl.Result{}, nil
+	}
+	// we need fresh podfacts just in case some pods went down while
+	// sandbox upgrade was in progress.
+	r.PFacts[vapi.MainCluster].Invalidate()
+	err := r.PFacts[vapi.MainCluster].Collect(ctx, r.VDB)
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to collect podfacts for main cluster: %w", err)
+	}
+	_, ok := r.PFacts[vapi.MainCluster].FindFirstUpPodIP(true, "")
+	if !ok {
+		r.Log.Info("Cannot find any up hosts in main cluster. Restarting main cluster.")
+		var res ctrl.Result
+		res, err = r.restartMainCluster(ctx)
+		if verrors.IsReconcileAborted(res, err) {
+			return res, err
+		}
+	}
+	sbPFacts, err := r.getSandboxPodFacts(ctx, true)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	_, ok = sbPFacts.FindFirstUpPodIP(false, "")
+	if !ok {
+		r.Log.Info("Cannot find any up hosts in sandbox. Requeue.", "sandboxName", r.sandboxName)
+		return ctrl.Result{Requeue: true}, nil
+	}
+	return ctrl.Result{}, nil
+}
+
 // startReplicationToReplicaGroupB will copy any new data that was added since
 // the sandbox from replica group A to replica group B.
 func (r *OnlineUpgradeReconciler) startReplicationToReplicaGroupB(ctx context.Context) (ctrl.Result, error) {
 	// If we have already promoted sandbox to main, we don't need to do this step
-	if r.VDB.IsOnlineUpgradeSandboxPromoted() {
+	if vmeta.GetOnlineUpgradeStepInx(r.VDB.Annotations) > promoteSandboxInx {
 		return ctrl.Result{}, nil
 	}
 
@@ -594,7 +649,7 @@ func (r *OnlineUpgradeReconciler) startReplicationToReplicaGroupB(ctx context.Co
 // waitForReplicateToReplicaGroupB will poll the VerticaReplicator waiting for the replication to finish.
 func (r *OnlineUpgradeReconciler) waitForReplicateToReplicaGroupB(ctx context.Context) (ctrl.Result, error) {
 	// If we have already promoted sandbox to main, we don't need to do this step
-	if r.VDB.IsOnlineUpgradeSandboxPromoted() {
+	if vmeta.GetOnlineUpgradeStepInx(r.VDB.Annotations) > promoteSandboxInx {
 		return ctrl.Result{}, nil
 	}
 
@@ -645,7 +700,7 @@ func (r *OnlineUpgradeReconciler) postRedirectToSandboxMsg(ctx context.Context) 
 // established at replica group A to go to replica group B.
 func (r *OnlineUpgradeReconciler) redirectConnectionsToReplicaGroupB(ctx context.Context) (ctrl.Result, error) {
 	// If we have already promoted sandbox to main, we don't need to redirect connections
-	if r.VDB.IsOnlineUpgradeSandboxPromoted() {
+	if vmeta.GetOnlineUpgradeStepInx(r.VDB.Annotations) > promoteSandboxInx {
 		return ctrl.Result{}, nil
 	}
 
@@ -696,7 +751,7 @@ func (r *OnlineUpgradeReconciler) postPromoteSandboxMsg(ctx context.Context) (ct
 // discard the pods for the old main.
 func (r *OnlineUpgradeReconciler) promoteSandboxToMainCluster(ctx context.Context) (ctrl.Result, error) {
 	// If we have already promoted sandbox to main, we don't need to do this step
-	if r.VDB.IsOnlineUpgradeSandboxPromoted() {
+	if vmeta.GetOnlineUpgradeStepInx(r.VDB.Annotations) > promoteSandboxInx {
 		return ctrl.Result{}, nil
 	}
 
@@ -704,9 +759,14 @@ func (r *OnlineUpgradeReconciler) promoteSandboxToMainCluster(ctx context.Contex
 	if sb == nil {
 		return ctrl.Result{}, nil
 	}
-	sbPFacts, err := r.getSandboxPodFacts(ctx, false)
+	sbPFacts, err := r.getSandboxPodFacts(ctx, true)
 	if err != nil {
 		return ctrl.Result{}, err
+	}
+	// All nodes in the sandbox must be up before sandbox promotion
+	if sbPFacts.getUpNodeCount() != len(sbPFacts.Detail) {
+		r.Log.Info("Waiting for all pods in sandbox to be up for promotion.", "sandboxName", r.sandboxName)
+		return ctrl.Result{Requeue: true}, nil
 	}
 	actor := MakePromoteSandboxToMainReconciler(r.VRec, r.Log, r.VDB, sbPFacts, r.Dispatcher, r.VRec.Client)
 	r.Manager.traceActorReconcile(actor)
@@ -716,7 +776,7 @@ func (r *OnlineUpgradeReconciler) promoteSandboxToMainCluster(ctx context.Contex
 	}
 	r.PFacts[vapi.MainCluster].Invalidate()
 	r.Log.Info("sandbox has been promoted to main", "sandboxName", r.sandboxName)
-	return ctrl.Result{}, r.updateAnnotationForOnlineUpgrade(ctx, vmeta.OnlineUpgradeSandboxPromotedAnnotation)
+	return ctrl.Result{}, r.updateOnlineUpgradeStepAnnotation(ctx, r.getNextStep())
 }
 
 // deleteSandboxConfigMap deletes the sandbox(which is now the new main) configmap after
@@ -867,28 +927,6 @@ func (r *OnlineUpgradeReconciler) setImageInSandbox() (bool, error) {
 func (r *OnlineUpgradeReconciler) countSubclustersForReplicaGroup(groupName string) int {
 	scNames := r.VDB.GetSubclustersForReplicaGroup(groupName)
 	return len(scNames)
-}
-
-// isGroupASubclusterInStatus is a helper to check if any subcluster of replica group A
-// is in vdb status.
-func (r *OnlineUpgradeReconciler) isGroupASubclusterInStatus() bool {
-	scNames := r.VDB.GetSubclustersForReplicaGroup(vmeta.ReplicaGroupBValue)
-	scs := r.VDB.GenSubclusterMap()
-	scNamesInA := []string{}
-	// get subcluster names from annotations of subclusters in replica B because
-	// subclusters in replica A have been removed from vdb.Spec
-	for _, scName := range scNames {
-		sc, found := scs[scName]
-		if found && sc.Annotations[vmeta.ParentSubclusterAnnotation] != scName {
-			scNamesInA = append(scNamesInA, sc.Annotations[vmeta.ParentSubclusterAnnotation])
-		}
-	}
-	for _, scName := range scNamesInA {
-		if r.VDB.IsSubclusterInStatus(scName) {
-			return true
-		}
-	}
-	return false
 }
 
 // areGroupBSubclustersRenamed is a helper to check if all subclusters of replica group B
@@ -1081,6 +1119,7 @@ func (r *OnlineUpgradeReconciler) getSandboxPodFacts(ctx context.Context, doColl
 		r.PFacts[r.sandboxName] = &sbPfacts
 	}
 	if doCollection {
+		r.PFacts[r.sandboxName].Invalidate()
 		err := r.PFacts[r.sandboxName].Collect(ctx, r.VDB)
 		if err != nil {
 			return nil, fmt.Errorf("failed to collect podfacts for sandbox: %w", err)
@@ -1133,13 +1172,13 @@ func (r *OnlineUpgradeReconciler) removeReplicaGroupAFromVdb(ctx context.Context
 
 // removeReplicaGroupA will remove the old main cluster
 func (r *OnlineUpgradeReconciler) removeReplicaGroupA(ctx context.Context) (ctrl.Result, error) {
+	// if replica group A has already been removed, we skip removing the old main cluster
+	if vmeta.GetOnlineUpgradeStepInx(r.VDB.Annotations) > removeReplicaGroupAInx {
+		return ctrl.Result{}, nil
+	}
 	// if the sandbox is still there, we wait for promote_sandbox to be done
 	if r.VDB.GetSandboxStatus(r.sandboxName) != nil {
 		return ctrl.Result{Requeue: true}, nil
-	}
-	// if replica group A has removed, we skip removing the old main cluster
-	if !r.isGroupASubclusterInStatus() {
-		return ctrl.Result{}, nil
 	}
 
 	actor := MakeDBRemoveSubclusterReconciler(r.VRec, r.Log, r.VDB, r.PFacts[vapi.MainCluster].PRunner,
@@ -1149,23 +1188,27 @@ func (r *OnlineUpgradeReconciler) removeReplicaGroupA(ctx context.Context) (ctrl
 	if verrors.IsReconcileAborted(res, err) {
 		return res, err
 	}
-	return ctrl.Result{}, r.updateAnnotationForOnlineUpgrade(ctx, vmeta.OnlineUpgradeReplicaARemovedAnnotation)
+	return ctrl.Result{}, r.updateOnlineUpgradeStepAnnotation(ctx, r.getNextStep())
 }
 
 // deleteReplicaGroupASts will delete the statefulSet of replicate group A.
 func (r *OnlineUpgradeReconciler) deleteReplicaGroupASts(ctx context.Context) (ctrl.Result, error) {
+	if vmeta.GetOnlineUpgradeStepInx(r.VDB.Annotations) > deleteReplicaGroupAStsInx {
+		return ctrl.Result{}, nil
+	}
 	// if the sandbox is still there, we wait for promote_sandbox to be done
 	if r.VDB.GetSandboxStatus(r.sandboxName) != nil {
 		return ctrl.Result{Requeue: true}, nil
 	}
-	// if replica group A has removed, we skip removing the old main cluster
-	if !r.isGroupASubclusterInStatus() {
-		return ctrl.Result{}, nil
-	}
 
 	actor := MakeObjReconciler(r.VRec, r.Log, r.VDB, r.PFacts[vapi.MainCluster], ObjReconcileModeAll)
 	r.Manager.traceActorReconcile(actor)
-	return actor.Reconcile(ctx, &ctrl.Request{})
+	res, err := actor.Reconcile(ctx, &ctrl.Request{})
+	r.PFacts[vapi.MainCluster].Invalidate()
+	if verrors.IsReconcileAborted(res, err) {
+		return res, err
+	}
+	return ctrl.Result{}, r.updateOnlineUpgradeStepAnnotation(ctx, r.getNextStep())
 }
 
 // renameReplicaGroupBFromVdb will rename the subclusters in promoted-sandbox/new-main-cluster to
@@ -1266,29 +1309,29 @@ func (r *OnlineUpgradeReconciler) updateSubclusterNamesInVdb(ctx context.Context
 	return nil
 }
 
-var stepAnnotationWithValue = map[string]string{
-	vmeta.OnlineUpgradeSandboxPromotedAnnotation: vmeta.SandboxPromotedTrue,
-	vmeta.OnlineUpgradeReplicaARemovedAnnotation: vmeta.ReplicaARemovedTrue,
+// updateOnlineUpgradeStepAnnotation updates the annotation for vdb to indicate
+// we have done a specific step in online upgrade
+func (r *OnlineUpgradeReconciler) updateOnlineUpgradeStepAnnotation(ctx context.Context, inx int) error {
+	anns := map[string]string{
+		vmeta.OnlineUpgradeStepInxAnnotation: strconv.Itoa(inx),
+	}
+	chgs := vk8s.MetaChanges{
+		NewAnnotations: anns,
+	}
+	_, err := vk8s.MetaUpdate(ctx, r.VRec.GetClient(), r.VDB.ExtractNamespacedName(), r.VDB, chgs)
+	return err
 }
 
-// updateAnnotationForOnlineUpgrade updates the annotation for vdb to indicate
-// we have done a specific step in online upgrade
-func (r *OnlineUpgradeReconciler) updateAnnotationForOnlineUpgrade(ctx context.Context, annotation string) error {
-	value, found := stepAnnotationWithValue[annotation]
-	if !found {
-		return fmt.Errorf("annotation %q cannot be recognized", annotation)
-	}
-	updateAnnotation := func() (bool, error) {
-		r.VDB.Annotations[annotation] = value
-		return true, nil
-	}
+// restartMainCluster calls restart reconciler on the main cluster
+func (r *OnlineUpgradeReconciler) restartMainCluster(ctx context.Context) (ctrl.Result, error) {
+	// reconciler to restart any down nodes.
+	pf := r.PFacts[vapi.MainCluster]
+	const DoNotRestartReadOnly = false
+	actor := MakeRestartReconciler(r.VRec, r.Log, r.VDB, pf.PRunner, pf, DoNotRestartReadOnly, r.Dispatcher)
+	r.Manager.traceActorReconcile(actor)
+	return actor.Reconcile(ctx, &ctrl.Request{})
+}
 
-	updated, err := vk8s.UpdateVDBWithRetry(ctx, r.VRec, r.VDB, updateAnnotation)
-	if err != nil {
-		return fmt.Errorf("failed to update annotation %q in VerticaDB: %w", annotation, err)
-	}
-	if updated {
-		r.Log.Info("updated annotation in VerticaDB", "annotation", annotation)
-	}
-	return nil
+func (r *OnlineUpgradeReconciler) getNextStep() int {
+	return vmeta.GetOnlineUpgradeStepInx(r.VDB.Annotations) + 1
 }
