@@ -626,7 +626,7 @@ func (r *OnlineUpgradeReconciler) waitForReplicateToReplicaGroupB(ctx context.Co
 	}
 
 	cond := vrep.FindStatusCondition(v1beta1.ReplicationComplete)
-	if cond == nil || (cond != nil && cond.Status != metav1.ConditionTrue) {
+	if cond == nil || cond.Status != metav1.ConditionTrue {
 		r.Log.Info("Requeue replication is not finished", "vrepName", vrepName)
 		return ctrl.Result{Requeue: true}, nil
 	}
