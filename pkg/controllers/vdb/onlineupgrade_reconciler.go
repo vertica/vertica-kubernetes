@@ -145,6 +145,7 @@ func (r *OnlineUpgradeReconciler) Reconcile(ctx context.Context, _ *ctrl.Request
 		// replication below.
 		r.postPauseConnectionsMsg,
 		r.pauseConnectionsAtReplicaGroupA,
+		r.createRestorePoint,
 		// Copy any new data that was added since the sandbox from replica group
 		// A to replica group B.
 		r.postStartReplicationMsg,
@@ -528,6 +529,10 @@ func (r *OnlineUpgradeReconciler) pauseConnectionsAtReplicaGroupA(ctx context.Co
 	}
 
 	return ctrl.Result{}, nil
+}
+
+func (r *OnlineUpgradeReconciler) createRestorePoint(ctx context.Context) (ctrl.Result, error) {
+	return r.Manager.createRestorePoint(ctx, r.PFacts[vapi.MainCluster], r.sandboxName)
 }
 
 // postStartReplicationMsg will update the status message to indicate that
