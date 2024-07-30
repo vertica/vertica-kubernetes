@@ -128,6 +128,7 @@ func (r *OnlineUpgradeReconciler) Reconcile(ctx context.Context, _ *ctrl.Request
 	funcs := []func(context.Context) (ctrl.Result, error){
 		// Initiate an upgrade by setting condition and event recording
 		r.startUpgrade,
+		r.logEventIfThisUpgradeWasNotChosen,
 		r.postStartOnlineUpgradeMsg,
 		// Load up state that is used for the subsequent steps
 		r.loadUpgradeState,
@@ -198,6 +199,13 @@ func (r *OnlineUpgradeReconciler) Reconcile(ctx context.Context, _ *ctrl.Request
 
 func (r *OnlineUpgradeReconciler) startUpgrade(ctx context.Context) (ctrl.Result, error) {
 	return r.Manager.startUpgrade(ctx, vapi.MainCluster)
+}
+
+// logEventIfThisUpgradeWasNotChosen will write an event log if we are doing this
+// upgrade method as a fall back from a requested policy.
+func (r *OnlineUpgradeReconciler) logEventIfThisUpgradeWasNotChosen(_ context.Context) (ctrl.Result, error) {
+	r.Manager.logEventIfRequestedUpgradeIsDifferent(vapi.OnlineUpgrade)
+	return ctrl.Result{}, nil
 }
 
 func (r *OnlineUpgradeReconciler) finishUpgrade(ctx context.Context) (ctrl.Result, error) {

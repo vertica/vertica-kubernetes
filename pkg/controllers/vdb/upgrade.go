@@ -529,7 +529,8 @@ func offlineUpgradeAllowed(vdb *vapi.VerticaDB) bool {
 	return vdb.GetUpgradePolicyToUse() == vapi.OfflineUpgrade
 }
 
-// onlineUpgradeAllowed returns true if upgrade must be done online
+// readOnlyOnlineUpgradeAllowed returns true if upgrade must be done online
+// in read-only mode
 func readOnlyOnlineUpgradeAllowed(vdb *vapi.VerticaDB) bool {
 	return vdb.GetUpgradePolicyToUse() == vapi.ReadOnlyOnlineUpgrade
 }

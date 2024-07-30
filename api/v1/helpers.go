@@ -568,9 +568,9 @@ func (v *VerticaDB) GetUpgradePolicyToUse() UpgradePolicyType {
 		if vinf.IsEqualOrNewer(OnlineUpgradeVersion) &&
 			!v.IsKSafety0() &&
 			(v.getNumberOfNodes() > ceLicenseLimit || v.Spec.LicenseSecret != "") &&
-			// online upgrade is not allowed if a there is already a sandbox
-			// in vertica
-			len(v.Status.Sandboxes) == 0 {
+			// online upgrade is not allowed if there is already a sandbox
+			// in vertica, except from the one used for online upgrade
+			!v.containsSandboxNotForUpgrade() {
 			return OnlineUpgrade
 		} else if vinf.IsEqualOrNewer(ReadOnlyOnlineUpgradeVersion) {
 			return ReadOnlyOnlineUpgrade
@@ -583,6 +583,20 @@ func (v *VerticaDB) GetUpgradePolicyToUse() UpgradePolicyType {
 	}
 
 	return OfflineUpgrade
+}
+
+// containsSandboxNotForUpgrade returns true if there is already a sandbox in the database, except
+// from the one created for online upgrade.
+func (v *VerticaDB) containsSandboxNotForUpgrade() bool {
+	if len(v.Status.Sandboxes) > 1 {
+		return true
+	}
+	if len(v.Status.Sandboxes) == 1 {
+		sbName := v.Status.Sandboxes[0].Name
+		upgradeSandbox := vmeta.GetOnlineUpgradeSandbox(v.Annotations)
+		return sbName != "" && upgradeSandbox != sbName
+	}
+	return false
 }
 
 // GetIgnoreClusterLease will check if the cluster lease should be ignored.

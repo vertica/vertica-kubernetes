@@ -140,8 +140,8 @@ func (o *ReadOnlyOnlineUpgradeReconciler) finishUpgrade(ctx context.Context) (ct
 
 // logEventIfThisUpgradeWasNotChosen will write an event log if we are doing this
 // upgrade method as a fall back from a requested policy.
-func (o *ReadOnlyOnlineUpgradeReconciler) logEventIfThisUpgradeWasNotChosen(ctx context.Context) (ctrl.Result, error) {
-	o.Manager.logEventIfRequestedUpgradeIsDifferent(vapi.OnlineUpgrade)
+func (o *ReadOnlyOnlineUpgradeReconciler) logEventIfThisUpgradeWasNotChosen(_ context.Context) (ctrl.Result, error) {
+	o.Manager.logEventIfRequestedUpgradeIsDifferent(vapi.ReadOnlyOnlineUpgrade)
 	return ctrl.Result{}, nil
 }
 
