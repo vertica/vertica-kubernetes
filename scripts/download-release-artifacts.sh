@@ -81,6 +81,6 @@ then
   rm -r $ARTIFACTS_DIR/*
 fi
 
-DATABASE_ID=10186074115
+DATABASE_ID=10186744409
 logInfo "Downloading artifacts for run ID $DATABASE_ID into $ARTIFACTS_DIR"
 gh run download $DATABASE_ID --dir $ARTIFACTS_DIR --name release-artifacts --name olm-bundle
