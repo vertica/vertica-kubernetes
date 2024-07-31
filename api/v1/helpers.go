@@ -588,13 +588,17 @@ func (v *VerticaDB) GetUpgradePolicyToUse() UpgradePolicyType {
 // containsSandboxNotForUpgrade returns true if there is already a sandbox in the database, except
 // from the one created for online upgrade.
 func (v *VerticaDB) containsSandboxNotForUpgrade() bool {
-	if len(v.Status.Sandboxes) > 1 {
+	if len(v.Status.Sandboxes) > 1 || len(v.Spec.Sandboxes) > 1 {
 		return true
 	}
+	upgradeSandbox := vmeta.GetOnlineUpgradeSandbox(v.Annotations)
 	if len(v.Status.Sandboxes) == 1 {
-		sbName := v.Status.Sandboxes[0].Name
-		upgradeSandbox := vmeta.GetOnlineUpgradeSandbox(v.Annotations)
-		return sbName != "" && upgradeSandbox != sbName
+		if upgradeSandbox != v.Status.Sandboxes[0].Name {
+			return true
+		}
+	}
+	if len(v.Spec.Sandboxes) == 1 {
+		return upgradeSandbox != v.Spec.Sandboxes[0].Name
 	}
 	return false
 }

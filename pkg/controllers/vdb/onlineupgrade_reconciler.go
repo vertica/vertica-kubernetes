@@ -1085,7 +1085,6 @@ func (r *OnlineUpgradeReconciler) duplicateSubclusterForReplicaGroupB(
 	if baseSc.Annotations == nil {
 		baseSc.Annotations = make(map[string]string)
 	}
-	baseSc.Annotations[vmeta.ChildSubclusterAnnotation] = newSc.Name
 	return newSc
 }
 

@@ -254,7 +254,6 @@ const (
 	// subcluster in the other replica group. This annotation is used to
 	// establish the relationship.
 	ParentSubclusterAnnotation = "vertica.com/parent-subcluster"
-	ChildSubclusterAnnotation  = "vertica.com/child-subcluster"
 	// For each subcluster in replica group b, this is type of the associated
 	// subcluster in replica group a.
 	ParentSubclusterTypeAnnotation = "vertica.com/parent-subcluster-type"

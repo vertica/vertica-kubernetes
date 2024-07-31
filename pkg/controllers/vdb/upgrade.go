@@ -263,7 +263,7 @@ func (i *UpgradeManager) clearOnlineUpgradeAnnotations(ctx context.Context) erro
 func (i *UpgradeManager) clearOnlineUpgradeAnnotationCallback() (updated bool, err error) {
 	for inx := range i.Vdb.Spec.Subclusters {
 		sc := &i.Vdb.Spec.Subclusters[inx]
-		for _, a := range []string{vmeta.ReplicaGroupAnnotation, vmeta.ChildSubclusterAnnotation,
+		for _, a := range []string{vmeta.ReplicaGroupAnnotation,
 			vmeta.ParentSubclusterAnnotation, vmeta.ParentSubclusterTypeAnnotation} {
 			if _, annotationFound := sc.Annotations[a]; annotationFound {
 				delete(sc.Annotations, a)

@@ -123,8 +123,11 @@ var _ = Describe("verticadb_types", func() {
 		}
 		vdb.Spec.LicenseSecret = "v-license"
 		Ω(vdb.GetUpgradePolicyToUse()).Should(Equal(OnlineUpgrade))
-		// Ensure we don't pick online if there is already a sandbox in the status
+		// Ensure we don't pick online if there is already a sandbox
 		const sbName = "sb1"
+		vdb.Spec.Sandboxes = append(vdb.Spec.Sandboxes, Sandbox{Name: sbName})
+		Ω(vdb.GetUpgradePolicyToUse()).Should(Equal(ReadOnlyOnlineUpgrade))
+		vdb.Spec.Sandboxes = nil
 		vdb.Status.Sandboxes = append(vdb.Status.Sandboxes, SandboxStatus{Name: sbName})
 		Ω(vdb.GetUpgradePolicyToUse()).Should(Equal(ReadOnlyOnlineUpgrade))
 		vdb.Status.Sandboxes = nil
