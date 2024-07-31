@@ -45,6 +45,29 @@ type VerticaScrutinizeSpec struct {
 	// to some kind of storage.
 	InitContainers []corev1.Container `json:"initContainers,omitempty"`
 
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// In order to facilitate diagnosing less recent problems, scrutinize should be able to collect an arbitrary time range of logs.
+	// With no options set, archived logs gathered for each node should be no older than 24 hours, and as recent as now.
+	// With the oldest time param or log age set, no archives of vertica.log should be older than that time.
+	// Timestamps should be formatted as: YYYY-MM-DD HH [+/-X], where [] is optional and +X represents X hours ahead of UTC.
+	LogAgeOldestTime string `json:"logAgeOldestTime,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// In order to facilitate diagnosing less recent problems, scrutinize should be able to collect an arbitrary time range of logs.
+	// With no options set, archived logs gathered for each node should be no older than 24 hours, and as recent as now.
+	// With the newest time param set, no archives of vertica.log should be newer than that time.
+	// Timestamps should be formatted as: YYYY-MM-DD HH [+/-X], where [] is optional and +X represents X hours ahead of UTC.
+	LogAgeNewestTime string `json:"logAgeNewestTime,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// In order to facilitate diagnosing less recent problems, scrutinize should be able to collect an arbitrary time range of logs.
+	// With no options set, archived logs gathered for each node should be no older than 24 hours, and as recent as now.
+	// The hours param cannot be set alongside the Time options, and if attempted, should issue an error indicating so.
+	LogAgeHours int `json:"logAgeHours,omitempty"`
+
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:resourceRequirements"
 	// This defines the resource requests and limits for the scrutinize pod.
 	// It is advisable that the request and limits match as this ensures the
@@ -102,6 +125,21 @@ type VerticaScrutinizeStatus struct {
 	// +optional
 	// The name of the scrutinize tarball that was created.
 	TarballName string `json:"tarballName"`
+
+	// +operator-sdk:csv:customresourcedefinitions:type=status
+	// +optional
+	// minimum timestamp for logs (default 24 hours ago)
+	LogAgeOldestTime string `json:"logAgeOldestTime,omitempty"`
+
+	// +operator-sdk:csv:customresourcedefinitions:type=status
+	// +optional
+	// maximum timestamp for logs (default none)
+	LogAgeNewestTime string `json:"logAgeNewestTime,omitempty"`
+
+	// +operator-sdk:csv:customresourcedefinitions:type=status
+	// +optional
+	// maximum timestamp for logs (default none)
+	LogAgeHours int `json:"logAgeHours,omitempty"`
 
 	// +operator-sdk:csv:customresourcedefinitions:type=status
 	// +optional

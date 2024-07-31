@@ -15,12 +15,11 @@
 apiVersion: vertica.com/v1beta1
 kind: VerticaScrutinize
 metadata:
-  name: vertica-scrutinize-vdb-exist
+  name: vertica-scrutinize-log-age
 spec:
   verticaDBName: v-collect-scrutinize
-  logAgeHours: 2
 status:
-  podName: vertica-scrutinize-vdb-exist
+  podName: vertica-scrutinize-log-age
   conditions:
   - status: "True"
     type: ScrutinizeReady
@@ -30,7 +29,7 @@ status:
 apiVersion: v1
 kind: Pod
 metadata:
-  name: vertica-scrutinize-vdb-exist
+  name: vertica-scrutinize-log-age
 spec:
   containers:
   - name: main

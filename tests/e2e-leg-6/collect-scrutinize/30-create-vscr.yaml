@@ -1,4 +1,3 @@
-
 # (c) Copyright [2021-2024] Open Text.
 # Licensed under the Apache License, Version 2.0 (the "License");
 # You may not use this file except in compliance with the License.
@@ -15,40 +14,20 @@
 apiVersion: vertica.com/v1beta1
 kind: VerticaScrutinize
 metadata:
-  name: vertica-scrutinize-vdb-exist
+  name: vertica-scrutinize-log-time
+  annotations:
+    vertica.com/scrutinize-main-container-resources-limits-cpu: "4"
 spec:
   verticaDBName: v-collect-scrutinize
-  logAgeHours: 2
-status:
-  podName: vertica-scrutinize-vdb-exist
-  conditions:
-  - status: "True"
-    type: ScrutinizeReady
-  - status: "True"
-    type: ScrutinizePodCreated
----
-apiVersion: v1
-kind: Pod
-metadata:
-  name: vertica-scrutinize-vdb-exist
-spec:
-  containers:
-  - name: main
-    workingDir: /tmp/scrutinize
-    resources:
-      requests:
-        cpu: "1"
-        memory: "250Mi"
-      limits:
-        cpu: "4"
-  initContainers:
-  - name: scrutinize
-    resources:
-      requests:
-        cpu: "2"
-        memory: "300Mi"
-      limits:
-        cpu: "4"
-  restartPolicy: Never
-status:
-  phase: Pending
+  logAgeOldestTime: "2024-07-18 02 -05"
+  logAgeNewestTime: "2099-08-22 03 +08"
+  resources:
+    requests:
+      cpu: "2"
+      memory: 300Mi
+    limits:
+      cpu: "4"
+  volume:
+    name: scrutinize-vol
+    emptyDir: {}
+    

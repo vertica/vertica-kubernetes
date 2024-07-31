@@ -11,22 +11,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1beta1
-kind: VerticaScrutinize
-metadata:
-  name: vertica-scrutinize-vdb-exist
-  annotations:
-    vertica.com/scrutinize-main-container-resources-limits-cpu: "4"
-spec:
-  verticaDBName: v-collect-scrutinize
-  logAgeHours: 2
-  resources:
-    requests:
-      cpu: "2"
-      memory: 300Mi
-    limits:
-      cpu: "4"
-  volume:
-    name: scrutinize-vol
-    emptyDir: {}
-    
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - script: |-
+      tarball=$(kubectl -n $NAMESPACE get vscr vertica-scrutinize-log-age -o json | jq -r '.status.tarballName' | grep -E '^VerticaScrutinize\.[0-9]{14}(\.tar)$')
+      kubectl exec vertica-scrutinize-log-age -n $NAMESPACE -c main -- ls | grep -q $tarball
