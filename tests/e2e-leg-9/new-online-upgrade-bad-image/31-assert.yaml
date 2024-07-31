@@ -19,4 +19,4 @@ source:
 involvedObject:
   apiVersion: vertica.com/v1
   kind: VerticaDB
-  name: v-base-upgrade
+  name: v-upgrade-bad-image

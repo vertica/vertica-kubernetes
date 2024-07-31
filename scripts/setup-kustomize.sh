@@ -238,11 +238,6 @@ replacements:
           name: v-base-upgrade
         fieldPaths:
           - spec.image
-  - source:
-      kind: ConfigMap
-      name: e2e
-      fieldPath: data.baseVerticaImage
-    targets:
       - select:
           kind: VerticaDB
           name: v-upgrade-bad-image
