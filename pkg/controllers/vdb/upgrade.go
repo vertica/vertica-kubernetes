@@ -664,7 +664,7 @@ func (i *UpgradeManager) closeAllSessions(ctx context.Context, pfacts *PodFacts)
 	return nil
 }
 
-// closeAllSessions will run a query to close all active user sessions.
+// createRestorePoint creates a restore point to backup the db in case upgrade does not go well.
 func (i *UpgradeManager) createRestorePoint(ctx context.Context, pfacts *PodFacts, archive string) (ctrl.Result, error) {
 	pf, ok := pfacts.findFirstPodSorted(func(v *PodFact) bool {
 		return v.isPrimary && v.upNode
