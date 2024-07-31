@@ -15,7 +15,8 @@
 # follow the idiomatic way in Kubernetes of logging to stdout.
 
 ARG ALPINE_VERSION
-FROM alpine:${ALPINE_VERSION}
+ARG BASE_IMG
+FROM ${BASE_IMG}:${ALPINE_VERSION}
 
 # Tini - A tiny but valid init for containers
 RUN apk add --no-cache tini
