@@ -689,7 +689,7 @@ func (i *UpgradeManager) createRestorePoint(ctx context.Context, pfacts *PodFact
 	if arch == 0 {
 		sql = fmt.Sprintf("create archive %s;", archive)
 		cmd = []string{"-tAc", sql}
-		_, _, err := pfacts.PRunner.ExecVSQL(ctx, pf.name, names.ServerContainer, cmd...)
+		_, _, err = pfacts.PRunner.ExecVSQL(ctx, pf.name, names.ServerContainer, cmd...)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
