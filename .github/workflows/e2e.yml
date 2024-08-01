@@ -571,10 +571,10 @@ jobs:
       - name: Check out
         uses: actions/checkout@v4
       - name: Run Sync script
-        # TODO: change the test-master value
+        # TODO: change the k8s-test-master value
         run: |
           echo "Running sync script"
-          scripts/vcluster-sync.sh ${{ github.ref }} test-master ${{ github.token }}
+          scripts/vcluster-sync.sh ${{ github.ref }} k8s-test-master ${{ secrets.API_TOKEN }}
   
   notification:
     name: team-notification
