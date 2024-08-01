@@ -1307,8 +1307,9 @@ func (v *VerticaDB) checkSandboxesDuringUpgrade(oldObj *VerticaDB, allErrs field
 		return allErrs
 	}
 	upgradeSbName := vmeta.GetOnlineUpgradeSandbox(v.Annotations)
-	// No error if the sandbox added is used by online upgrade.
-	if len(v.Spec.Sandboxes) == 1 && v.Spec.Sandboxes[0].Name == upgradeSbName {
+	// No error if the sandbox changed is used by online upgrade.
+	if (len(v.Spec.Sandboxes) == 1 && v.Spec.Sandboxes[0].Name == upgradeSbName) ||
+		(len(v.Spec.Sandboxes) == 0 && oldObj.Spec.Sandboxes[0].Name == upgradeSbName) {
 		return allErrs
 	}
 	err := field.Invalid(field.NewPath("spec").Child("sandboxes"),

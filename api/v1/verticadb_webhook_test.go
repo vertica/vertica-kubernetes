@@ -1263,6 +1263,11 @@ var _ = Describe("verticadb_webhook", func() {
 		Ω(newVdb.validateImmutableFields(oldVdb)).Should(HaveLen(1))
 		newVdb.Annotations[vmeta.OnlineUpgradeSandboxAnnotation] = sbName
 		Ω(newVdb.validateImmutableFields(oldVdb)).Should(HaveLen(0))
+		newVdb.Spec.Sandboxes = nil
+		oldVdb.Spec.Sandboxes = []Sandbox{
+			{Name: sbName, Subclusters: []SubclusterName{{Name: "sc3"}}},
+		}
+		Ω(newVdb.validateImmutableFields(oldVdb)).Should(HaveLen(0))
 	})
 })
 
