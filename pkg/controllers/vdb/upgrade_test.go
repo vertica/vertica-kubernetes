@@ -295,7 +295,6 @@ var _ = Describe("upgrade", func() {
 		vdb.Spec.Subclusters[0].Annotations = map[string]string{
 			vmeta.ReplicaGroupAnnotation:     vmeta.ReplicaGroupAValue,
 			vmeta.ParentSubclusterAnnotation: "main",
-			vmeta.ChildSubclusterAnnotation:  "child",
 		}
 		Expect(k8sClient.Update(ctx, vdb)).Should(Succeed())
 
@@ -303,12 +302,10 @@ var _ = Describe("upgrade", func() {
 		Expect(k8sClient.Get(ctx, vdb.ExtractNamespacedName(), fetchedVdb)).Should(Succeed())
 		Expect(fetchedVdb.Spec.Subclusters[0].Annotations).Should(HaveKey(vmeta.ReplicaGroupAnnotation))
 		Expect(fetchedVdb.Spec.Subclusters[0].Annotations).Should(HaveKey(vmeta.ParentSubclusterAnnotation))
-		Expect(fetchedVdb.Spec.Subclusters[0].Annotations).Should(HaveKey(vmeta.ChildSubclusterAnnotation))
 
 		Expect(mgr.finishUpgrade(ctx, vapi.MainCluster)).Should(Equal(ctrl.Result{}))
 		Expect(k8sClient.Get(ctx, vdb.ExtractNamespacedName(), fetchedVdb)).Should(Succeed())
 		Expect(fetchedVdb.Spec.Subclusters[0].Annotations).ShouldNot(HaveKey(vmeta.ReplicaGroupAnnotation))
 		Expect(fetchedVdb.Spec.Subclusters[0].Annotations).ShouldNot(HaveKey(vmeta.ParentSubclusterAnnotation))
-		Expect(fetchedVdb.Spec.Subclusters[0].Annotations).ShouldNot(HaveKey(vmeta.ChildSubclusterAnnotation))
 	})
 })
