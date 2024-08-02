@@ -467,7 +467,7 @@ endif
 docker-push-extra-vertica: # Push a hard-coded image used in multi-online-upgrade test
 ifeq ($(LEG9), yes)
 ifeq ($(shell $(KIND_CHECK)), 1)
-	scripts/push-to-kind.sh -i opentext/vertica-k8s-private:20240725-minimal
+	scripts/push-to-kind.sh -i opentext/vertica-k8s-private:20240729-minimal
 endif
 endif
 
