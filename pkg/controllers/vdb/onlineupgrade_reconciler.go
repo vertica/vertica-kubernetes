@@ -57,6 +57,7 @@ var onlineUpgradeStatusMsgs = []string{
 	"Preparing replication",
 	"Back up database before replication",
 	"Replicate new data from main cluster to sandbox",
+	"Back up database after replication",
 	"Redirect connections to sandbox",
 	"Promote sandbox to main cluster",
 	"Remove original main cluster",
