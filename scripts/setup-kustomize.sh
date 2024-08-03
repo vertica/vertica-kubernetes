@@ -227,6 +227,7 @@ replacements:
         reject:
         - name: v-upgrade-vertica
         - name: v-base-upgrade
+        - name: v-upgrade-bad-image
         - name: v-fallback
   - source:
       kind: ConfigMap
@@ -236,6 +237,11 @@ replacements:
       - select:
           kind: VerticaDB
           name: v-base-upgrade
+        fieldPaths:
+          - spec.image
+      - select:
+          kind: VerticaDB
+          name: v-upgrade-bad-image
         fieldPaths:
           - spec.image
       - select:

@@ -43,6 +43,8 @@ import (
 // When we generate a sandbox for the upgrade, this is preferred name of that sandbox.
 const preferredSandboxName = "replica-group-b"
 
+const archiveBaseName = "upgrade_backup"
+
 // List of status messages for online upgrade. When adding a new entry here,
 // be sure to add a *StatusMsgInx const below.
 var onlineUpgradeStatusMsgs = []string{
@@ -52,7 +54,10 @@ var onlineUpgradeStatusMsgs = []string{
 	"Promote secondaries whose base subcluster is primary",
 	"Upgrade sandbox to new version",
 	"Pause connections to main cluster",
+	"Preparing replication",
+	"Back up database before replication",
 	"Replicate new data from main cluster to sandbox",
+	"Back up database after replication",
 	"Redirect connections to sandbox",
 	"Promote sandbox to main cluster",
 	"Remove original main cluster",
@@ -67,7 +72,10 @@ const (
 	promoteSubclustersInSandboxMsgInx
 	upgradeSandboxMsgInx
 	pauseConnectionsMsgInx
+	prepareReplicationInx
+	backupDBBeforeReplicationMsgInx
 	startReplicationMsgInx
+	backupDBAfterReplicationMsgInx
 	redirectToSandboxMsgInx
 	promoteSandboxMsgInx
 	removeOriginalClusterMsgInx
@@ -79,6 +87,10 @@ const (
 	runObjRecForMainInx = iota
 	addSubclustersInx
 	addNodeInx
+	upgradeSandboxInx
+	backupBeforeReplicationInx
+	replicationInx
+	backupAfterReplicationInx
 	promoteSandboxInx
 	removeReplicaGroupAInx
 	deleteReplicaGroupAStsInx
@@ -157,12 +169,20 @@ func (r *OnlineUpgradeReconciler) Reconcile(ctx context.Context, _ *ctrl.Request
 		// replication below.
 		r.postPauseConnectionsMsg,
 		r.pauseConnectionsAtReplicaGroupA,
+		// Prepare replication by ensuring nodes are up
+		r.postPrepareReplicationMsg,
+		r.prepareReplication,
+		// Back up database before replication
+		r.postBackupDBBeforeReplicationMsg,
+		r.createRestorePointBeforeReplication,
 		// Copy any new data that was added since the sandbox from replica group
 		// A to replica group B.
 		r.postStartReplicationMsg,
-		r.prepareReplication,
 		r.startReplicationToReplicaGroupB,
 		r.waitForReplicateToReplicaGroupB,
+		// Back up database after replication
+		r.postBackupDBAfterReplicationMsg,
+		r.createRestorePointAfterReplication,
 		// Redirect all of the connections to replica group A to replica group B.
 		r.postRedirectToSandboxMsg,
 		r.redirectConnectionsToReplicaGroupB,
@@ -440,8 +460,8 @@ func (r *OnlineUpgradeReconciler) postUpgradeSandboxMsg(ctx context.Context) (ct
 
 // upgradeSandbox will upgrade the nodes in replica group B (sandbox) to the new version.
 func (r *OnlineUpgradeReconciler) upgradeSandbox(ctx context.Context) (ctrl.Result, error) {
-	// If we have already promoted sandbox to main, we don't need to upgrade the sandbox again
-	if vmeta.GetOnlineUpgradeStepInx(r.VDB.Annotations) > promoteSandboxInx {
+	// We skip this if sandbox upgrade already happened
+	if vmeta.GetOnlineUpgradeStepInx(r.VDB.Annotations) > upgradeSandboxInx {
 		return ctrl.Result{}, nil
 	}
 
@@ -479,8 +499,8 @@ func (r *OnlineUpgradeReconciler) upgradeSandbox(ctx context.Context) (ctrl.Resu
 // waitForSandboxUpgrade will wait for the sandbox upgrade to finish. It will
 // continually check if the pods in the sandbox are up.
 func (r *OnlineUpgradeReconciler) waitForSandboxUpgrade(ctx context.Context) (ctrl.Result, error) {
-	// If we have already promoted sandbox to main, we don't need to wait for sandbox upgrade
-	if vmeta.GetOnlineUpgradeStepInx(r.VDB.Annotations) > promoteSandboxInx {
+	// We skip this if sandbox upgrade already happened
+	if vmeta.GetOnlineUpgradeStepInx(r.VDB.Annotations) > upgradeSandboxInx {
 		return ctrl.Result{}, nil
 	}
 
@@ -497,7 +517,7 @@ func (r *OnlineUpgradeReconciler) waitForSandboxUpgrade(ctx context.Context) (ct
 			return ctrl.Result{Requeue: true}, nil
 		}
 	}
-	return ctrl.Result{}, nil
+	return ctrl.Result{}, r.updateOnlineUpgradeStepAnnotation(ctx, r.getNextStep())
 }
 
 // postPauseConnectionsMsg will update the status message to indicate that
@@ -555,19 +575,19 @@ func (r *OnlineUpgradeReconciler) pauseConnectionsAtReplicaGroupA(ctx context.Co
 	return ctrl.Result{}, nil
 }
 
-// postStartReplicationMsg will update the status message to indicate that
-// replication from the main to the sandbox is starting.
-func (r *OnlineUpgradeReconciler) postStartReplicationMsg(ctx context.Context) (ctrl.Result, error) {
-	return r.postNextStatusMsg(ctx, startReplicationMsgInx)
+// postPrepareReplicationMsg will update the status message to indicate that
+// we are doing some preparation work before replication
+func (r *OnlineUpgradeReconciler) postPrepareReplicationMsg(ctx context.Context) (ctrl.Result, error) {
+	return r.postNextStatusMsg(ctx, prepareReplicationInx)
 }
 
 // prepareReplication makes sure there is at least an Up node in the main cluster
 // and the sandbox, to perform replication.
 // Once we start using services for replication, we will check only the scs served by the services.
 func (r *OnlineUpgradeReconciler) prepareReplication(ctx context.Context) (ctrl.Result, error) {
-	// Skip if the VerticaReplicator has already been created or
-	// if we have already promoted sandbox to main
-	if vmeta.GetOnlineUpgradeStepInx(r.VDB.Annotations) > promoteSandboxInx ||
+	// Skip if the replication has already completed successfully or VerticaReplicator
+	// already exists
+	if vmeta.GetOnlineUpgradeStepInx(r.VDB.Annotations) > replicationInx ||
 		vmeta.GetOnlineUpgradeReplicator(r.VDB.Annotations) != "" {
 		return ctrl.Result{}, nil
 	}
@@ -599,11 +619,32 @@ func (r *OnlineUpgradeReconciler) prepareReplication(ctx context.Context) (ctrl.
 	return ctrl.Result{}, nil
 }
 
+// postBackupDBBeforeReplicationMsg will update the status message to indicate that
+// we backing up the db before replication.
+func (r *OnlineUpgradeReconciler) postBackupDBBeforeReplicationMsg(ctx context.Context) (ctrl.Result, error) {
+	return r.postNextStatusMsg(ctx, backupDBBeforeReplicationMsgInx)
+}
+
+// createRestorePointBeforeReplication will backup the db just before replication
+func (r *OnlineUpgradeReconciler) createRestorePointBeforeReplication(ctx context.Context) (ctrl.Result, error) {
+	// Skip if the db has already been backed up
+	if vmeta.GetOnlineUpgradeStepInx(r.VDB.Annotations) > backupBeforeReplicationInx {
+		return ctrl.Result{}, nil
+	}
+	return r.createRestorePoint(ctx, r.PFacts[vapi.MainCluster])
+}
+
+// postStartReplicationMsg will update the status message to indicate that
+// replication from the main to the sandbox is starting.
+func (r *OnlineUpgradeReconciler) postStartReplicationMsg(ctx context.Context) (ctrl.Result, error) {
+	return r.postNextStatusMsg(ctx, startReplicationMsgInx)
+}
+
 // startReplicationToReplicaGroupB will copy any new data that was added since
 // the sandbox from replica group A to replica group B.
 func (r *OnlineUpgradeReconciler) startReplicationToReplicaGroupB(ctx context.Context) (ctrl.Result, error) {
-	// If we have already promoted sandbox to main, we don't need to do this step
-	if vmeta.GetOnlineUpgradeStepInx(r.VDB.Annotations) > promoteSandboxInx {
+	// Skip if the replication has already completed successfully
+	if vmeta.GetOnlineUpgradeStepInx(r.VDB.Annotations) > replicationInx {
 		return ctrl.Result{}, nil
 	}
 
@@ -656,8 +697,8 @@ func (r *OnlineUpgradeReconciler) startReplicationToReplicaGroupB(ctx context.Co
 
 // waitForReplicateToReplicaGroupB will poll the VerticaReplicator waiting for the replication to finish.
 func (r *OnlineUpgradeReconciler) waitForReplicateToReplicaGroupB(ctx context.Context) (ctrl.Result, error) {
-	// If we have already promoted sandbox to main, we don't need to do this step
-	if vmeta.GetOnlineUpgradeStepInx(r.VDB.Annotations) > promoteSandboxInx {
+	// Skip if the replication has already completed successfully
+	if vmeta.GetOnlineUpgradeStepInx(r.VDB.Annotations) > replicationInx {
 		return ctrl.Result{}, nil
 	}
 
@@ -689,19 +730,38 @@ func (r *OnlineUpgradeReconciler) waitForReplicateToReplicaGroupB(ctx context.Co
 		return ctrl.Result{Requeue: true}, nil
 	}
 
-	succeeded := cond.Reason == v1beta1.ReasonSucceeded
-	if succeeded {
-		r.Log.Info("Replication is completed", "vrepName", vrepName)
-	} else {
-		r.Log.Info("Replication has failed", "vrepName", vrepName)
-	}
 	// Delete the VerticaReplicator. We leave the annotation present in the
 	// VerticaDB so that we skip these steps until the upgrade is finished.
 	err = r.VRec.Client.Delete(ctx, &vrep)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to delete the VerticaReplicator %s: %w", vrepName, err)
 	}
-	return ctrl.Result{}, nil
+	succeeded := cond.Reason == v1beta1.ReasonSucceeded
+	if succeeded {
+		r.Log.Info("Replication has failed", "vrepName", vrepName)
+		return ctrl.Result{}, errors.New("replication has failed")
+	}
+	r.Log.Info("Replication completed successfully", "vrepName", vrepName)
+	return ctrl.Result{}, r.updateOnlineUpgradeStepAnnotation(ctx, r.getNextStep())
+}
+
+// postBackupDBAfterReplicationMsg will update the status message to indicate that
+// we backing up the db after replication.
+func (r *OnlineUpgradeReconciler) postBackupDBAfterReplicationMsg(ctx context.Context) (ctrl.Result, error) {
+	return r.postNextStatusMsg(ctx, backupDBAfterReplicationMsgInx)
+}
+
+// createRestorePointAfterReplication will backup the db just before sandbox promotion
+func (r *OnlineUpgradeReconciler) createRestorePointAfterReplication(ctx context.Context) (ctrl.Result, error) {
+	sbPFacts, err := r.getSandboxPodFacts(ctx, true)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	// Skip if the db has already been backed up
+	if vmeta.GetOnlineUpgradeStepInx(r.VDB.Annotations) > backupAfterReplicationInx {
+		return ctrl.Result{}, nil
+	}
+	return r.createRestorePoint(ctx, sbPFacts)
 }
 
 // postRedirectToSandboxMsg will update the status message to indicate that
@@ -718,7 +778,7 @@ func (r *OnlineUpgradeReconciler) redirectConnectionsToReplicaGroupB(ctx context
 		return ctrl.Result{}, nil
 	}
 
-	sbPFacts, err := r.getSandboxPodFacts(ctx, true)
+	sbPFacts, err := r.getSandboxPodFacts(ctx, false)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -1031,8 +1091,7 @@ func (r *OnlineUpgradeReconciler) genNameWithUUID(baseName string, lookupFunc fu
 	// Add a uuid suffix.
 	const maxAttempts = 100
 	for i := 0; i < maxAttempts; i++ {
-		u := uuid.NewString()
-		nm := fmt.Sprintf("%s-%s", baseName, u[0:5])
+		nm := genBaseNameWithUUID(baseName, "-")
 		if !lookupFunc(nm) {
 			return nm, nil
 		}
@@ -1317,6 +1376,19 @@ func (r *OnlineUpgradeReconciler) restartMainCluster(ctx context.Context) (ctrl.
 	return actor.Reconcile(ctx, &ctrl.Request{})
 }
 
+func (r *OnlineUpgradeReconciler) createRestorePoint(ctx context.Context, pf *PodFacts) (ctrl.Result, error) {
+	res, err := r.Manager.createRestorePoint(ctx, pf, genBaseNameWithUUID(archiveBaseName, "_"))
+	if verrors.IsReconcileAborted(res, err) {
+		return res, err
+	}
+	return ctrl.Result{}, r.updateOnlineUpgradeStepAnnotation(ctx, r.getNextStep())
+}
+
 func (r *OnlineUpgradeReconciler) getNextStep() int {
 	return vmeta.GetOnlineUpgradeStepInx(r.VDB.Annotations) + 1
+}
+
+func genBaseNameWithUUID(baseName, sep string) string {
+	u := uuid.NewString()
+	return fmt.Sprintf("%s%s%s", baseName, sep, u[0:5])
 }
