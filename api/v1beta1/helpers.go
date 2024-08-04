@@ -19,7 +19,6 @@ package v1beta1
 import (
 	"regexp"
 	"strconv"
-	"strings"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -122,7 +121,7 @@ func (vscr *VerticaScrutinize) CopyAnnotations() map[string]string {
 }
 
 // GenerateLogAgeTime returns a string in the format of YYYY-MM-DD HH [+/-XX]
-func (vscr *VerticaScrutinize) GenerateLogAgeTime(hourOffset time.Duration, timeZone string) string {
+func GenerateLogAgeTime(hourOffset time.Duration, timeZone string) string {
 	timeOffset := time.Now().Add(hourOffset * time.Hour)
 	timeOffsetFormatted := timeOffset.Format("2006-01-02") + " " + strconv.Itoa(timeOffset.Hour())
 
@@ -130,26 +129,6 @@ func (vscr *VerticaScrutinize) GenerateLogAgeTime(hourOffset time.Duration, time
 		timeOffsetFormatted = timeOffsetFormatted + " " + timeZone
 	}
 	return timeOffsetFormatted
-}
-
-// ParseLogAgeTime converts YYYY-MM-DD HH [+/-XX] into time format in UTC
-func (vscr *VerticaScrutinize) ParseLogAgeTime(logAgeTime string) time.Time {
-	timeArray := strings.Split(logAgeTime, " ")
-	logAgeDate := timeArray[0]
-	logAgeHour := timeArray[1]
-	timeStr := logAgeDate + " " + logAgeHour + ":00:00"
-
-	parseTime, err := time.Parse("2006-01-02 15:04:05", timeStr)
-	if err == nil {
-		if strings.Contains(logAgeTime, "+") || strings.Contains(logAgeTime, "-") {
-			timeZone, zoneErr := strconv.Atoi(timeArray[len(timeArray)-1])
-			if zoneErr == nil {
-				return parseTime.Add(time.Duration(timeZone) * time.Hour)
-			}
-		}
-	}
-
-	return parseTime
 }
 
 // FindStatusCondition finds the conditionType in conditions.
