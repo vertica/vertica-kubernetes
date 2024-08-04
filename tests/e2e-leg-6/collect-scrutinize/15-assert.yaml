@@ -18,7 +18,6 @@ metadata:
   name: vertica-scrutinize-vdb-exist
 spec:
   verticaDBName: v-collect-scrutinize
-  logAgeHours: 2
 status:
   podName: vertica-scrutinize-vdb-exist
   conditions:
