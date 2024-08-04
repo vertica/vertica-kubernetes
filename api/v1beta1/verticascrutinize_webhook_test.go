@@ -20,6 +20,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 )
 
 var _ = Describe("verticascrutinize_webhook", func() {
@@ -29,64 +30,64 @@ var _ = Describe("verticascrutinize_webhook", func() {
 		Expect(vscr.ValidateUpdate(vscr)).Should(Succeed())
 	})
 
-	It("should succeed with LogAgeHours only", func() {
+	It("should succeed with log-age-hours only", func() {
 		vscr := MakeVscr()
-		vscr.Spec.LogAgeHours = 8
+		vscr.Annotations[vmeta.ScrutinizeLogAgeHours] = "8"
 		Expect(vscr.ValidateCreate()).Should(Succeed())
 		Expect(vscr.ValidateUpdate(vscr)).Should(Succeed())
 	})
 
-	It("should succeed with valid LogAgeOldestTime and LogAgeNewestTime", func() {
+	It("should succeed with valid log-age-oldest-time and LogAgeNewestTime", func() {
 		vscr := MakeVscr()
-		vscr.Spec.LogAgeOldestTime = vscr.GenerateLogAgeTime(-8, "-05")
-		vscr.Spec.LogAgeNewestTime = vscr.GenerateLogAgeTime(24, "")
+		vscr.Annotations[vmeta.ScrutinizeLogAgeOldestTime] = GenerateLogAgeTime(-8, "-05")
+		vscr.Annotations[vmeta.ScrutinizeLogAgeNewestTime] = GenerateLogAgeTime(24, "")
 		Expect(vscr.ValidateCreate()).Should(Succeed())
 		Expect(vscr.ValidateUpdate(vscr)).Should(Succeed())
 	})
 
-	It("should fail if set LogAgeHours together with LogAgeOldestTime or LogAgeNewestTime", func() {
+	It("should fail if set log-age-hours together with log-age-oldest-time or LogAgeNewestTime", func() {
 		vscr := MakeVscr()
-		vscr.Spec.LogAgeHours = 8
-		vscr.Spec.LogAgeOldestTime = vscr.GenerateLogAgeTime(-8, "-05")
-		vscr.Spec.LogAgeNewestTime = vscr.GenerateLogAgeTime(24, "+08")
+		vscr.Annotations[vmeta.ScrutinizeLogAgeHours] = "8"
+		vscr.Annotations[vmeta.ScrutinizeLogAgeOldestTime] = GenerateLogAgeTime(-8, "-05")
+		vscr.Annotations[vmeta.ScrutinizeLogAgeNewestTime] = GenerateLogAgeTime(24, "")
 		err := vscr.ValidateCreate()
-		Expect(err.Error()).To(ContainSubstring("logAgeHours cannot be set alongside logAgeOldestTime and logAgeNewestTime"))
+		Expect(err.Error()).To(ContainSubstring("log-age-hours cannot be set alongside log-age-oldest-time and log-age-newest-time"))
 	})
 
-	It("should fail if LogAgeHours is negative", func() {
+	It("should fail if log-age-hours is negative", func() {
 		vscr := MakeVscr()
-		vscr.Spec.LogAgeHours = -8
+		vscr.Annotations[vmeta.ScrutinizeLogAgeHours] = "-8"
 		err := vscr.ValidateCreate()
-		Expect(err.Error()).To(ContainSubstring("logAgeHours cannot be negative"))
+		Expect(err.Error()).To(ContainSubstring("log-age-hours cannot be negative"))
 	})
 
-	It("should fail if LogAgeOldestTime is after current time", func() {
+	It("should fail if log-age-oldest-time is after current time", func() {
 		vscr := MakeVscr()
-		vscr.Spec.LogAgeOldestTime = vscr.GenerateLogAgeTime(22, "+08")
+		vscr.Annotations[vmeta.ScrutinizeLogAgeOldestTime] = GenerateLogAgeTime(22, "+08")
 		err := vscr.ValidateCreate()
-		Expect(err.Error()).To(ContainSubstring("logAgeOldestTime cannot be set after current time"))
+		Expect(err.Error()).To(ContainSubstring("log-age-oldest-time cannot be set after current time"))
 	})
 
-	It("should fail if LogAgeNewestTime is before LogAgeOldestTime", func() {
+	It("should fail if log-age-newest-time is before LogAgeOldestTime", func() {
 		vscr := MakeVscr()
-		vscr.Spec.LogAgeOldestTime = vscr.GenerateLogAgeTime(-4, "-05")
-		vscr.Spec.LogAgeNewestTime = vscr.GenerateLogAgeTime(-24, "-05")
+		vscr.Annotations[vmeta.ScrutinizeLogAgeOldestTime] = GenerateLogAgeTime(-4, "-05")
+		vscr.Annotations[vmeta.ScrutinizeLogAgeNewestTime] = GenerateLogAgeTime(-24, "-05")
 		err := vscr.ValidateCreate()
-		Expect(err.Error()).To(ContainSubstring("logAgeNewestTime cannot be set before logAgeOldestTime"))
+		Expect(err.Error()).To(ContainSubstring("log-age-oldest-time cannot be set after log-age-newest-time"))
 	})
 
 	// generate a time in RFC1123 format, for example: "Mon, 02 Jan 2006 15:04:05 MST"
-	It("should fail if LogAgeOldestTime is in wrong format", func() {
+	It("should fail if log-age-oldest-time is in wrong format", func() {
 		vscr := MakeVscr()
-		vscr.Spec.LogAgeOldestTime = time.Now().AddDate(0, 0, -1).Format(time.RFC1123)
+		vscr.Annotations[vmeta.ScrutinizeLogAgeOldestTime] = time.Now().AddDate(0, 0, -1).Format(time.RFC1123)
 		err := vscr.ValidateCreate()
 		Expect(err.Error()).To(ContainSubstring("should be formatted as: YYYY-MM-DD HH [+/-XX]"))
 	})
 
 	// test with regular string
-	It("should fail if LogAgeNewestTime is in wrong format", func() {
+	It("should fail if log-age-newest-time is in wrong format", func() {
 		vscr := MakeVscr()
-		vscr.Spec.LogAgeNewestTime = "invalid time format"
+		vscr.Annotations[vmeta.ScrutinizeLogAgeNewestTime] = "invalid time format"
 		err := vscr.ValidateCreate()
 		Expect(err.Error()).To(ContainSubstring("should be formatted as: YYYY-MM-DD HH [+/-XX]"))
 	})
