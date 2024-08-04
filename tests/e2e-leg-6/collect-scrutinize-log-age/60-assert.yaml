@@ -1,0 +1,54 @@
+
+# (c) Copyright [2021-2024] Open Text.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# You may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+apiVersion: vertica.com/v1beta1
+kind: VerticaScrutinize
+metadata:
+  name: vertica-scrutinize-log-age
+spec:
+  verticaDBName: v-collect-scrutinize
+status:
+  podName: vertica-scrutinize-log-age
+  conditions:
+  - status: "True"
+    type: ScrutinizeReady
+  - status: "True"
+    type: ScrutinizePodCreated
+  - status: "True"
+    type: ScrutinizeCollectionFinished
+    reason: VclusterOpsScrutinizeSucceeded
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: vertica-scrutinize-log-age
+spec:
+  containers:
+  - name: main
+    workingDir: /tmp/scrutinize
+  initContainers:
+  - name: scrutinize
+  restartPolicy: Never
+status:
+  phase: Running
+---
+apiVersion: v1
+kind: Event
+reason: VclusterOpsScrutinizeSucceeded
+source:
+  component: verticadb-operator
+involvedObject:
+  apiVersion: vertica.com/v1beta1
+  kind: VerticaScrutinize
+  name: vertica-scrutinize-log-age
