@@ -28,6 +28,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/iter"
+	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	"github.com/vertica/vertica-kubernetes/pkg/secrets"
@@ -114,7 +115,7 @@ func (s *ScrutinizePodReconciler) collectInfoFromVdb(ctx context.Context) (ctrl.
 // createPod creates the scrutinize pod
 func (s *ScrutinizePodReconciler) createPod(ctx context.Context) error {
 	s.ScrArgs.tarballName = generateScrutinizeID()
-	pod := builder.BuildScrutinizePod(s.Vscr, s.Vdb, s.buildScrutinizeCmdArgs(s.Vdb, s.Vscr))
+	pod := builder.BuildScrutinizePod(s.Vscr, s.Vdb, s.buildScrutinizeCmdArgs(s.Vdb))
 	s.Log.Info("Creating scrutinize pod", "Name", s.Vscr.ExtractNamespacedName())
 	err := ctrl.SetControllerReference(s.Vscr, pod, s.VRec.Scheme)
 	if err != nil {
@@ -149,7 +150,7 @@ func (s *ScrutinizePodReconciler) getHostList(pods []corev1.Pod) []string {
 }
 
 // buildScrutinizeCmdArgs returns the arguments of vcluster scrutinize command
-func (s *ScrutinizePodReconciler) buildScrutinizeCmdArgs(vdb *v1.VerticaDB, vscr *v1beta1.VerticaScrutinize) []string {
+func (s *ScrutinizePodReconciler) buildScrutinizeCmdArgs(vdb *v1.VerticaDB) []string {
 	cmd := []string{
 		"--db-user", s.ScrArgs.username,
 		"--hosts", strings.Join(s.ScrArgs.hosts, ","),
@@ -157,23 +158,17 @@ func (s *ScrutinizePodReconciler) buildScrutinizeCmdArgs(vdb *v1.VerticaDB, vscr
 		"--tarball-name", s.ScrArgs.tarballName,
 	}
 
-	// --log-age-hours cannot be set alongside the *-time options,
-	// and if attempted, should issue an error indicating so.
-	if vscr.Spec.LogAgeHours != 0 && (vscr.Spec.LogAgeOldestTime != "" || vscr.Spec.LogAgeNewestTime != "") {
-		s.Log.Info("--log-age-hours cannot be set alongside the *-time options")
-		return cmd
-	}
-
 	// In order to facilitate diagnosing less recent problems,
 	// scrutinize should be able to collect an arbitrary time range of logs
-	if vscr.Spec.LogAgeHours != 0 {
-		cmd = append(cmd, "--log-age-hours", strconv.Itoa(vscr.Spec.LogAgeHours))
+	if vmeta.GetScrutinizeLogAgeHours(s.Vscr.Annotations) != 0 {
+		// if s.Vscr.Annotations[vmeta.ScrutinizeLogAgeHours] != "" {
+		cmd = append(cmd, "--log-age-hours", strconv.Itoa(vmeta.GetScrutinizeLogAgeHours(s.Vscr.Annotations)))
 	} else {
-		if vscr.Spec.LogAgeOldestTime != "" {
-			cmd = append(cmd, "--log-age-oldest-time", vscr.Spec.LogAgeOldestTime)
+		if vmeta.GetScrutinizeLogAgeOldestTime(s.Vscr.Annotations) != "" {
+			cmd = append(cmd, "--log-age-oldest-time", s.Vscr.Annotations[vmeta.ScrutinizeLogAgeOldestTime])
 		}
-		if vscr.Spec.LogAgeNewestTime != "" {
-			cmd = append(cmd, "--log-age-newest-time", vscr.Spec.LogAgeNewestTime)
+		if vmeta.GetScrutinizeLogAgeNewestTime(s.Vscr.Annotations) != "" {
+			cmd = append(cmd, "--log-age-newest-time", s.Vscr.Annotations[vmeta.ScrutinizeLogAgeNewestTime])
 		}
 	}
 
@@ -187,7 +182,6 @@ func (s *ScrutinizePodReconciler) buildScrutinizeCmdArgs(vdb *v1.VerticaDB, vscr
 		// container and have scrutinize read the password from the mounted file
 		cmd = append(cmd, "--password-file", paths.ScrutinizeDBPasswordFile)
 	}
-
 	return cmd
 }
 
