@@ -17,9 +17,9 @@ metadata:
   name: vertica-scrutinize-log-age
   annotations:
     vertica.com/scrutinize-main-container-resources-limits-cpu: "4"
-    vertica.com/scrutinize-log-age-hours: "2"
-    vertica.com/scrutinize-log-age-oldest-time: "2024-07-18 02 -05"
-    vertica.com/scrutinize-log-age-newest-time: "2099-08-22 03 +08"
+    vertica.com/scrutinize-log-age-hours: "0"
+    vertica.com/scrutinize-log-age-oldest-time: ""
+    vertica.com/scrutinize-log-age-newest-time: ""
 spec:
   verticaDBName: v-collect-scrutinize
   resources:
