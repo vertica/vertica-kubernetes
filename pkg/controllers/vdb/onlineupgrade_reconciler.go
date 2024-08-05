@@ -101,7 +101,7 @@ const (
 	runObjRecForMainInx = iota
 	addSubclustersInx
 	addNodeInx
-	setConfigParamIdx
+	setConfigParamInx
 	upgradeSandboxInx
 	backupBeforeReplicationInx
 	replicationInx
@@ -416,7 +416,7 @@ func (r *OnlineUpgradeReconciler) postQueryOriginalConfigParamDisableNonReplicat
 // DisableNonReplicatableQueries at database level within main cluster
 func (r *OnlineUpgradeReconciler) queryOriginalConfigParamDisableNonReplicatableQueries(ctx context.Context) (res ctrl.Result, err error) {
 	if r.originalConfigParamDisableNonReplicatableQueriesValue != "" ||
-		vmeta.GetOnlineUpgradeStepInx(r.VDB.Annotations) > setConfigParamIdx {
+		vmeta.GetOnlineUpgradeStepInx(r.VDB.Annotations) > setConfigParamInx {
 		return ctrl.Result{}, err
 	}
 	pf := r.PFacts[vapi.MainCluster]
@@ -440,12 +440,16 @@ func (r *OnlineUpgradeReconciler) postDisableNonReplicatableQueriesMsg(ctx conte
 // setConfigParamDisableNonReplicatableQueries sets the config parameter
 // DisableNonReplicatableQueries to true ("1") at database level within a given cluster
 func (r *OnlineUpgradeReconciler) setConfigParamDisableNonReplicatableQueries(ctx context.Context) (ctrl.Result, error) {
-	if vmeta.GetOnlineUpgradeStepInx(r.VDB.Annotations) > setConfigParamIdx {
+	if vmeta.GetOnlineUpgradeStepInx(r.VDB.Annotations) >= setConfigParamInx {
 		return ctrl.Result{}, nil
 	}
-	if r.originalConfigParamDisableNonReplicatableQueriesValue != "1" {
-		return r.setConfigParamDisableNonReplicatableQueriesImpl(ctx, ConfigParamBoolTrue, vapi.MainCluster)
+	if r.originalConfigParamDisableNonReplicatableQueriesValue == "1" {
+		return ctrl.Result{}, r.updateOnlineUpgradeStepAnnotation(ctx, r.getNextStep())
 	}
+	if res, err := r.setConfigParamDisableNonReplicatableQueriesImpl(ctx, ConfigParamBoolTrue, r.sandboxName); err != nil {
+		return res, err
+	}
+	r.Log.Info("set DisableNonReplicatableQueries in main cluster before sandboxing")
 	return ctrl.Result{}, r.updateOnlineUpgradeStepAnnotation(ctx, r.getNextStep())
 }
 
@@ -458,14 +462,18 @@ func (r *OnlineUpgradeReconciler) postClearConfigParamDisableNonReplicatableQuer
 // clearConfigParamDisableNonReplicatableQueries clears the config parameter
 // DisableNonReplicatableQueries from the sandbox
 func (r *OnlineUpgradeReconciler) clearConfigParamDisableNonReplicatableQueries(ctx context.Context) (ctrl.Result, error) {
-	if vmeta.GetOnlineUpgradeStepInx(r.VDB.Annotations) >= upgradeSandboxInx {
+	if vmeta.GetOnlineUpgradeStepInx(r.VDB.Annotations) >= promoteSandboxInx {
 		return ctrl.Result{}, nil
 	}
 	// update podfacts for sandbox
 	if _, err := r.getSandboxPodFacts(ctx, true); err != nil {
 		return ctrl.Result{}, err
 	}
-	return r.setConfigParamDisableNonReplicatableQueriesImpl(ctx, ConfigParamBoolFalse, r.sandboxName)
+	if res, err := r.setConfigParamDisableNonReplicatableQueriesImpl(ctx, ConfigParamBoolFalse, r.sandboxName); err != nil {
+		return res, err
+	}
+	r.Log.Info(fmt.Sprintf("cleared DisableNonReplicatableQueries in sandbox %s", r.sandboxName))
+	return ctrl.Result{}, nil
 }
 
 // setConfigParamDisableNonReplicatableQueriesImpl sets the config parameter
