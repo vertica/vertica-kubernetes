@@ -165,10 +165,10 @@ func (s *ScrutinizePodReconciler) buildScrutinizeCmdArgs(vdb *v1.VerticaDB) []st
 		cmd = append(cmd, "--log-age-hours", strconv.Itoa(vmeta.GetScrutinizeLogAgeHours(s.Vscr.Annotations)))
 	} else {
 		if vmeta.GetScrutinizeLogAgeOldestTime(s.Vscr.Annotations) != "" {
-			cmd = append(cmd, "--log-age-oldest-time", s.Vscr.Annotations[vmeta.ScrutinizeLogAgeOldestTime])
+			cmd = append(cmd, "--log-age-oldest-time", vmeta.GetScrutinizeLogAgeOldestTime(s.Vscr.Annotations))
 		}
 		if vmeta.GetScrutinizeLogAgeNewestTime(s.Vscr.Annotations) != "" {
-			cmd = append(cmd, "--log-age-newest-time", s.Vscr.Annotations[vmeta.ScrutinizeLogAgeNewestTime])
+			cmd = append(cmd, "--log-age-newest-time", vmeta.GetScrutinizeLogAgeNewestTime(s.Vscr.Annotations))
 		}
 	}
 
