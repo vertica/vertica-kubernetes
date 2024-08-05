@@ -757,3 +757,27 @@ func (i *UpgradeManager) getSubclusterNameFromSts(ctx context.Context, stsName s
 	}
 	return scNameFromLabel, nil
 }
+
+func (i *UpgradeManager) checkAllSubscriptionsActive(ctx context.Context, pfacts *PodFacts) (ctrl.Result, error) {
+	pf, ok := pfacts.findFirstPodSorted(func(v *PodFact) bool {
+		return v.isPrimary && v.upNode
+	})
+	if !ok {
+		i.Log.Info("No pod found to run vsql. Requeueing")
+		return ctrl.Result{Requeue: true}, nil
+	}
+
+	cmd := []string{"-tAc", "SELECT count(*) FROM node_subscriptions WHERE subscription_state not in ('ACTIVE', 'INACTIVE');"}
+	stdout, _, err := pfacts.PRunner.ExecVSQL(ctx, pf.name, names.ServerContainer, cmd...)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	lines := strings.Split(stdout, "\n")
+	inactive, err := strconv.Atoi(lines[0])
+	if err != nil || inactive == 0 {
+		return ctrl.Result{}, err
+	}
+
+	i.Log.Info("One or more node subscriptions is not active, requeueing")
+	return ctrl.Result{Requeue: true}, nil
+}
