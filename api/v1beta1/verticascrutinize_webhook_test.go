@@ -45,6 +45,14 @@ var _ = Describe("verticascrutinize_webhook", func() {
 		Expect(vscr.ValidateUpdate(vscr)).Should(Succeed())
 	})
 
+	// log-age-hours should be a positive integer
+	It("failed to parse log-age-hours", func() {
+		vscr := MakeVscr()
+		vscr.Annotations[vmeta.ScrutinizeLogAgeHours] = "not-a-number"
+		err := vscr.ValidateCreate()
+		Expect(err.Error()).To(ContainSubstring("failed to parse log-age-hours"))
+	})
+
 	It("should fail if set log-age-hours together with log-age-oldest-time or log-age-newest-time", func() {
 		vscr := MakeVscr()
 		vscr.Annotations[vmeta.ScrutinizeLogAgeHours] = "8"
@@ -59,6 +67,15 @@ var _ = Describe("verticascrutinize_webhook", func() {
 		vscr.Annotations[vmeta.ScrutinizeLogAgeHours] = "-8"
 		err := vscr.ValidateCreate()
 		Expect(err.Error()).To(ContainSubstring("log-age-hours cannot be negative"))
+	})
+
+	// log-age-oldest-time and log-age-newest-time should be formatted as: YYYY-MM-DD HH [+/-XX]
+	It("failed to parse log-age-*-time", func() {
+		vscr := MakeVscr()
+		vscr.Annotations[vmeta.ScrutinizeLogAgeOldestTime] = "2024"
+		vscr.Annotations[vmeta.ScrutinizeLogAgeNewestTime] = "not-time-type"
+		err := vscr.ValidateCreate()
+		Expect(err.Error()).To(ContainSubstring("failed to parse log-age-*-time"))
 	})
 
 	It("should fail if log-age-oldest-time is after current time", func() {

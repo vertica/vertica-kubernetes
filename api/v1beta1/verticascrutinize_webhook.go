@@ -90,25 +90,31 @@ func (vscr *VerticaScrutinize) validateVscrSpec() field.ErrorList {
 // ValidateLogAgeHours validate the log-age-hours annotation
 func (vscr *VerticaScrutinize) ValidateLogAgeHours(allErrs field.ErrorList) field.ErrorList {
 	prefix := field.NewPath("metadata").Child("annotations")
-	scrutinizeLogAgeHours := vmeta.GetScrutinizeLogAgeHours(vscr.Annotations)
-	fmt.Println(scrutinizeLogAgeHours)
+	if vscr.Annotations[vmeta.ScrutinizeLogAgeHours] != "" {
+		scrutinizeLogAgeHours, hoursError := strconv.Atoi(vscr.Annotations[vmeta.ScrutinizeLogAgeHours])
+		if hoursError != nil {
+			err := field.Invalid(prefix.Key(vmeta.ScrutinizeLogAgeHours),
+				vscr.Annotations[vmeta.ScrutinizeLogAgeHours],
+				fmt.Sprintf("failed to parse log-age-hours: %s", hoursError))
+			allErrs = append(allErrs, err)
+		}
 
-	if scrutinizeLogAgeHours != 0 &&
-		(vscr.Annotations[vmeta.ScrutinizeLogAgeOldestTime] != "" ||
-			vscr.Annotations[vmeta.ScrutinizeLogAgeNewestTime] != "") {
-		err := field.Invalid(prefix.Key(vmeta.ScrutinizeLogAgeHours),
-			scrutinizeLogAgeHours,
-			"log-age-hours cannot be set alongside log-age-oldest-time and log-age-newest-time")
-		allErrs = append(allErrs, err)
+		if scrutinizeLogAgeHours < 0 {
+			err := field.Invalid(prefix.Key(vmeta.ScrutinizeLogAgeHours),
+				scrutinizeLogAgeHours,
+				"log-age-hours cannot be negative")
+			allErrs = append(allErrs, err)
+		}
+
+		if scrutinizeLogAgeHours != 0 &&
+			(vscr.Annotations[vmeta.ScrutinizeLogAgeOldestTime] != "" ||
+				vscr.Annotations[vmeta.ScrutinizeLogAgeNewestTime] != "") {
+			err := field.Invalid(prefix.Key(vmeta.ScrutinizeLogAgeHours),
+				scrutinizeLogAgeHours,
+				"log-age-hours cannot be set alongside log-age-oldest-time and log-age-newest-time")
+			allErrs = append(allErrs, err)
+		}
 	}
-
-	if scrutinizeLogAgeHours < 0 {
-		err := field.Invalid(prefix.Key(vmeta.ScrutinizeLogAgeHours),
-			scrutinizeLogAgeHours,
-			"log-age-hours cannot be negative")
-		allErrs = append(allErrs, err)
-	}
-
 	return allErrs
 }
 
