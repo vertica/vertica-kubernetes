@@ -63,6 +63,7 @@ func (v *VClusterOps) genSandboxSubclusterOptions(s *sandboxsc.Params, certs *HT
 	opts.SandboxName = s.Sandbox
 	opts.SCName = s.Subcluster
 	opts.SandboxPrimaryUpHost = s.UpHostInSandbox
+	opts.ForUpgrade = s.ForUpgrade
 	if s.UpHostInSandbox != "" {
 		opts.NodeNameAddressMap = s.NodeNameAddressMap
 	}
