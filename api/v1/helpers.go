@@ -565,7 +565,7 @@ func (v *VerticaDB) GetUpgradePolicyToUse() UpgradePolicyType {
 		// there is evidence that we have already scaled past 3 nodes (CE
 		// license limit), or we have a license defined.
 		const ceLicenseLimit = 3
-		if vinf.IsEqualOrNewer(OnlineUpgradeVersion) &&
+		if v.isOnlineUpgradeSupported(vinf) &&
 			!v.IsKSafety0() &&
 			(v.getNumberOfNodes() > ceLicenseLimit || v.Spec.LicenseSecret != "") &&
 			// online upgrade is not allowed if there is already a sandbox
