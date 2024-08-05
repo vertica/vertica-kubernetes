@@ -17,9 +17,9 @@ metadata:
   name: vertica-scrutinize-log-hours
   annotations:
     vertica.com/scrutinize-main-container-resources-limits-cpu: "4"
+    vertica.com/scrutinize-log-age-hours: "2"
 spec:
   verticaDBName: v-collect-scrutinize
-  logAgeHours: 2
   resources:
     requests:
       cpu: "2"

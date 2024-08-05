@@ -16,10 +16,12 @@ apiVersion: vertica.com/v1beta1
 kind: VerticaScrutinize
 metadata:
   name: vertica-scrutinize-log-time
+  annotations:
+    vertica.com/scrutinize-main-container-resources-limits-cpu: "4"
+    vertica.com/scrutinize-log-age-oldest-time: "2024-07-18 02 -05"
+    vertica.com/scrutinize-log-age-newest-time: "2099-08-22 03 +08"
 spec:
   verticaDBName: v-collect-scrutinize
-  logAgeNewestTime: 2099-08-22 03 +08
-  logAgeOldestTime: 2024-07-18 02 -05
 status:
   podName: vertica-scrutinize-log-time
   conditions:

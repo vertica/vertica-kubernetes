@@ -16,6 +16,8 @@ apiVersion: vertica.com/v1beta1
 kind: VerticaScrutinize
 metadata:
   name: vertica-scrutinize-log-hours
+  annotations:
+      vertica.com/scrutinize-log-age-hours: "2"
 spec:
   verticaDBName: v-collect-scrutinize
 status:
