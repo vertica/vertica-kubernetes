@@ -37,7 +37,7 @@ var _ = Describe("verticascrutinize_webhook", func() {
 		Expect(vscr.ValidateUpdate(vscr)).Should(Succeed())
 	})
 
-	It("should succeed with valid log-age-oldest-time and LogAgeNewestTime", func() {
+	It("should succeed with valid log-age-oldest-time and log-age-newest-time", func() {
 		vscr := MakeVscr()
 		vscr.Annotations[vmeta.ScrutinizeLogAgeOldestTime] = GenerateLogAgeTime(-8, "-05")
 		vscr.Annotations[vmeta.ScrutinizeLogAgeNewestTime] = GenerateLogAgeTime(24, "")
@@ -45,7 +45,7 @@ var _ = Describe("verticascrutinize_webhook", func() {
 		Expect(vscr.ValidateUpdate(vscr)).Should(Succeed())
 	})
 
-	It("should fail if set log-age-hours together with log-age-oldest-time or LogAgeNewestTime", func() {
+	It("should fail if set log-age-hours together with log-age-oldest-time or log-age-newest-time", func() {
 		vscr := MakeVscr()
 		vscr.Annotations[vmeta.ScrutinizeLogAgeHours] = "8"
 		vscr.Annotations[vmeta.ScrutinizeLogAgeOldestTime] = GenerateLogAgeTime(-8, "-05")

@@ -78,7 +78,7 @@ func (vscr *VerticaScrutinize) ValidateDelete() error {
 	return nil
 }
 
-// validateSpec will validate the current VerticaScrutinize to see if it is valid
+// validateVscrSpec will validate the current VerticaScrutinize to see if it is valid
 func (vscr *VerticaScrutinize) validateVscrSpec() field.ErrorList {
 	allErrs := field.ErrorList{}
 	allErrs = vscr.ValidateTime(allErrs)
@@ -87,10 +87,11 @@ func (vscr *VerticaScrutinize) validateVscrSpec() field.ErrorList {
 	return allErrs
 }
 
-// ogAgeHours cannot be set alongside logAgeOldestTime and logAgeNewestTime.
+// ValidateLogAgeHours validate the log-age-hours annotation
 func (vscr *VerticaScrutinize) ValidateLogAgeHours(allErrs field.ErrorList) field.ErrorList {
 	prefix := field.NewPath("metadata").Child("annotations")
 	scrutinizeLogAgeHours := vmeta.GetScrutinizeLogAgeHours(vscr.Annotations)
+	fmt.Println(scrutinizeLogAgeHours)
 
 	if scrutinizeLogAgeHours != 0 &&
 		(vscr.Annotations[vmeta.ScrutinizeLogAgeOldestTime] != "" ||
@@ -111,8 +112,8 @@ func (vscr *VerticaScrutinize) ValidateLogAgeHours(allErrs field.ErrorList) fiel
 	return allErrs
 }
 
-// logAgeOldestTime should not be ahead of current time.
-// logAgeOldestTime should be ahead of logAgeNewestTime.
+// log-age-oldest-time should not be ahead of current time.
+// log-age-oldest-time should be ahead of logAgeNewestTime.
 func (vscr *VerticaScrutinize) ValidateLogAgeTimes(allErrs field.ErrorList) field.ErrorList {
 	prefix := field.NewPath("metadata").Child("annotations")
 	scrutinizeLogAgeOldesTime := vscr.Annotations[vmeta.ScrutinizeLogAgeOldestTime]
@@ -157,7 +158,7 @@ func (vscr *VerticaScrutinize) ValidateLogAgeTimes(allErrs field.ErrorList) fiel
 	return allErrs
 }
 
-// logAgeOldestTime and logAgeNewestTime should be formatted as: YYYY-MM-DD HH [+/-XX],
+// log-age-oldest-time and log-age-newest-time should be formatted as: YYYY-MM-DD HH [+/-XX],
 // where [] is optional and +X represents X hours ahead of UTC.
 func (vscr *VerticaScrutinize) ValidateTime(allErrs field.ErrorList) field.ErrorList {
 	logAgeArr := [2]string{vmeta.GetScrutinizeLogAgeOldestTime(vscr.Annotations),
