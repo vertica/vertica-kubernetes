@@ -101,6 +101,7 @@ const (
 	runObjRecForMainInx = iota
 	addSubclustersInx
 	addNodeInx
+	setConfigParamIdx
 	upgradeSandboxInx
 	backupBeforeReplicationInx
 	replicationInx
@@ -414,6 +415,10 @@ func (r *OnlineUpgradeReconciler) postQueryOriginalConfigParamDisableNonReplicat
 // queryOriginalConfigParamDisableNonReplicatableQueries gets value of the config parameter
 // DisableNonReplicatableQueries at database level within main cluster
 func (r *OnlineUpgradeReconciler) queryOriginalConfigParamDisableNonReplicatableQueries(ctx context.Context) (res ctrl.Result, err error) {
+	if r.originalConfigParamDisableNonReplicatableQueriesValue != "" ||
+		vmeta.GetOnlineUpgradeStepInx(r.VDB.Annotations) > setConfigParamIdx {
+		return ctrl.Result{}, err
+	}
 	pf := r.PFacts[vapi.MainCluster]
 	initiator, ok := pf.findFirstUpPod(false /*not allow read-only*/, "" /*arbitrary subcluster*/)
 	if !ok {
@@ -435,10 +440,13 @@ func (r *OnlineUpgradeReconciler) postDisableNonReplicatableQueriesMsg(ctx conte
 // setConfigParamDisableNonReplicatableQueries sets the config parameter
 // DisableNonReplicatableQueries to true ("1") at database level within a given cluster
 func (r *OnlineUpgradeReconciler) setConfigParamDisableNonReplicatableQueries(ctx context.Context) (ctrl.Result, error) {
+	if vmeta.GetOnlineUpgradeStepInx(r.VDB.Annotations) > setConfigParamIdx {
+		return ctrl.Result{}, nil
+	}
 	if r.originalConfigParamDisableNonReplicatableQueriesValue != "1" {
 		return r.setConfigParamDisableNonReplicatableQueriesImpl(ctx, ConfigParamBoolTrue, vapi.MainCluster)
 	}
-	return ctrl.Result{}, nil
+	return ctrl.Result{}, r.updateOnlineUpgradeStepAnnotation(ctx, r.getNextStep())
 }
 
 // postClearConfigParamDisableNonReplicatableQueriesMsg updates the status message to indicate that
@@ -450,6 +458,9 @@ func (r *OnlineUpgradeReconciler) postClearConfigParamDisableNonReplicatableQuer
 // clearConfigParamDisableNonReplicatableQueries clears the config parameter
 // DisableNonReplicatableQueries from the sandbox
 func (r *OnlineUpgradeReconciler) clearConfigParamDisableNonReplicatableQueries(ctx context.Context) (ctrl.Result, error) {
+	if vmeta.GetOnlineUpgradeStepInx(r.VDB.Annotations) >= upgradeSandboxInx {
+		return ctrl.Result{}, nil
+	}
 	// update podfacts for sandbox
 	if _, err := r.getSandboxPodFacts(ctx, true); err != nil {
 		return ctrl.Result{}, err
