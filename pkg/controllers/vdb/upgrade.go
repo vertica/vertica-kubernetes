@@ -671,7 +671,7 @@ func (i *UpgradeManager) createRestorePoint(ctx context.Context, pfacts *PodFact
 		return v.isPrimary && v.upNode
 	})
 	if !ok {
-		i.Log.Info("No pod found to run vsql. Requeueing")
+		i.Log.Info("No pod found to run vsql. Requeueing for retrying creating restore point")
 		return ctrl.Result{Requeue: true}, nil
 	}
 
@@ -687,15 +687,25 @@ func (i *UpgradeManager) createRestorePoint(ctx context.Context, pfacts *PodFact
 		return ctrl.Result{}, err
 	}
 	// Create the archive only if it does not already exist
+	clearKnob := "alter database default clear DisableNonReplicatableQueries;"
+	setKnob := "alter database default set DisableNonReplicatableQueries = 1;"
 	if arch == 0 {
-		sql = fmt.Sprintf("create archive %s;", archive)
+		if pf.sandbox == vapi.MainCluster {
+			sql = fmt.Sprintf("%s create archive %s; %s", clearKnob, archive, setKnob)
+		} else {
+			sql = fmt.Sprintf("create archive %s;", archive)
+		}
 		cmd = []string{"-tAc", sql}
 		_, _, err = pfacts.PRunner.ExecVSQL(ctx, pf.name, names.ServerContainer, cmd...)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
 	}
-	sql = fmt.Sprintf("save restore point to archive %s;", archive)
+	if pf.sandbox == vapi.MainCluster {
+		sql = fmt.Sprintf("%s save restore point to archive %s; %s", clearKnob, archive, setKnob)
+	} else {
+		sql = fmt.Sprintf("save restore point to archive %s;", archive)
+	}
 	cmd = []string{"-tAc", sql}
 	_, _, err = pfacts.PRunner.ExecVSQL(ctx, pf.name, names.ServerContainer, cmd...)
 	return ctrl.Result{}, err
@@ -763,11 +773,11 @@ func (i *UpgradeManager) checkAllSubscriptionsActive(ctx context.Context, pfacts
 		return v.isPrimary && v.upNode
 	})
 	if !ok {
-		i.Log.Info("No pod found to run vsql. Requeueing")
+		i.Log.Info("No pod found to run vsql. Requeueing for retrying checking subscription status")
 		return ctrl.Result{Requeue: true}, nil
 	}
 
-	cmd := []string{"-tAc", "SELECT count(*) FROM node_subscriptions WHERE subscription_state not in ('ACTIVE', 'INACTIVE');"}
+	cmd := []string{"-tAc", "SELECT count(*) FROM node_subscriptions WHERE subscription_state != 'ACTIVE';"}
 	stdout, _, err := pfacts.PRunner.ExecVSQL(ctx, pf.name, names.ServerContainer, cmd...)
 	if err != nil {
 		return ctrl.Result{}, err
