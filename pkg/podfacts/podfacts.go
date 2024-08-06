@@ -171,6 +171,9 @@ type PodFact struct {
 	// true if the pod's spec includes a sidecar to run the NMA
 	hasNMASidecar bool
 
+	// true if NMA sidecar container is ready
+	isNMAContainerReady bool
+
 	// The name of the container to run exec commands on.
 	execContainerName string
 
@@ -389,6 +392,7 @@ func (p *PodFacts) collectPodByStsIndex(ctx context.Context, vdb *vapi.VerticaDB
 			return err
 		}
 		pf.hasNMASidecar = vk8s.HasNMAContainer(&pod.Spec)
+		pf.isNMAContainerReady = vk8s.IsNMAContainerReady(pod)
 		// we get the sandbox name from the sts labels if the subcluster
 		// belongs to a sandbox. If the node is up, we will later retrieve
 		// the sandbox state from the catalog
@@ -1193,6 +1197,10 @@ func (p *PodFacts) FindReIPPods(chk dBCheckType) []*PodFact {
 		if !pod.exists || !pod.isPodRunning || !pod.isInstalled {
 			return false
 		}
+		// NMA needs to be running before re-ip
+		if pod.hasNMASidecar && !pod.isNMAContainerReady {
+			return false
+		}
 		switch chk {
 		case DBCheckOnlyWithDBs:
 			return pod.dbExists
@@ -1502,4 +1510,22 @@ func (p *PodFacts) FindNodeNamesInSubclusters(scNames []string) []string {
 	}
 
 	return nodeNames
+}
+
+// quorumCheckForRestartCluster checks if restartable pods have enough primary nodes to do re-ip
+func (p *PodFacts) quorumCheckForRestartCluster(restartOnly bool) bool {
+	pfacts := p.findRestartablePods(restartOnly, false /* restartTransient */, true /* restartPendingDelete */)
+	restartablePrimaryNodeCount := 0
+	for _, v := range pfacts {
+		if v.isPrimary {
+			restartablePrimaryNodeCount++
+		}
+	}
+	primaryNodeCount := p.countPods(func(v *PodFact) int {
+		if v.isPrimary {
+			return 1
+		}
+		return 0
+	})
+	return restartablePrimaryNodeCount >= (primaryNodeCount+1)/2
 }
