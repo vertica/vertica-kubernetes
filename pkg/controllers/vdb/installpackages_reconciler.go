@@ -26,6 +26,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
+	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/installpackages"
 	config "github.com/vertica/vertica-kubernetes/pkg/vdbconfig"
@@ -40,13 +41,13 @@ type InstallPackagesReconciler struct {
 	Rec        config.ReconcilerInterface
 	Vdb        *vapi.VerticaDB // Vdb is the CRD we are acting on.
 	PRunner    cmds.PodRunner
-	PFacts     *PodFacts
+	PFacts     *podfacts.PodFacts
 	Dispatcher vadmin.Dispatcher
 }
 
 // MakeInstallPackagesReconciler will build a InstallPackagesReconciler object
 func MakeInstallPackagesReconciler(
-	recon config.ReconcilerInterface, vdb *vapi.VerticaDB, prunner cmds.PodRunner, pfacts *PodFacts,
+	recon config.ReconcilerInterface, vdb *vapi.VerticaDB, prunner cmds.PodRunner, pfacts *podfacts.PodFacts,
 	dispatcher vadmin.Dispatcher,
 	log logr.Logger,
 ) controllers.ReconcileActor {
@@ -71,12 +72,12 @@ func (i *InstallPackagesReconciler) Reconcile(ctx context.Context, _ *ctrl.Reque
 	}
 
 	// No-op if no database exists
-	if !i.PFacts.doesDBExist() {
+	if !i.PFacts.DoesDBExist() {
 		return ctrl.Result{}, nil
 	}
 
 	// Force reinstall default packages
-	if i.PFacts.getUpNodeCount() > 0 {
+	if i.PFacts.GetUpNodeCount() > 0 {
 		return i.installPackagesInPod(ctx)
 	}
 	// Retry if no up nodes
@@ -86,7 +87,7 @@ func (i *InstallPackagesReconciler) Reconcile(ctx context.Context, _ *ctrl.Reque
 
 // installPackagesInPod will find one pod to initiate the process of installing default packages
 func (i *InstallPackagesReconciler) installPackagesInPod(ctx context.Context) (ctrl.Result, error) {
-	pf, ok := i.PFacts.findPodToRunAdminCmdAny()
+	pf, ok := i.PFacts.FindPodToRunAdminCmdAny()
 	if !ok {
 		// If no suitable pod found, there is nowhere to install packages
 		// and we should retry
@@ -95,7 +96,7 @@ func (i *InstallPackagesReconciler) installPackagesInPod(ctx context.Context) (c
 	}
 
 	// Run the install_packages command
-	return ctrl.Result{}, i.runCmd(ctx, pf.name, pf.podIP)
+	return ctrl.Result{}, i.runCmd(ctx, pf.GetName(), pf.GetPodIP())
 }
 
 // categorizedInstallPackageStatus provides status for each package install attempted;

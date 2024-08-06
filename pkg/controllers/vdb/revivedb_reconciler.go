@@ -31,6 +31,7 @@ import (
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
+	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
 	"github.com/vertica/vertica-kubernetes/pkg/reviveplanner"
 	vtypes "github.com/vertica/vertica-kubernetes/pkg/types"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
@@ -52,7 +53,7 @@ type ReviveDBReconciler struct {
 	Log                 logr.Logger
 	Vdb                 *vapi.VerticaDB // Vdb is the CRD we are acting on.
 	PRunner             cmds.PodRunner
-	PFacts              *PodFacts
+	PFacts              *podfacts.PodFacts
 	Planr               *reviveplanner.Planner
 	Dispatcher          vadmin.Dispatcher
 	ConfigurationParams *vtypes.CiMap
@@ -60,7 +61,7 @@ type ReviveDBReconciler struct {
 
 // MakeReviveDBReconciler will build a ReviveDBReconciler object
 func MakeReviveDBReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
-	vdb *vapi.VerticaDB, prunner cmds.PodRunner, pfacts *PodFacts,
+	vdb *vapi.VerticaDB, prunner cmds.PodRunner, pfacts *podfacts.PodFacts,
 	dispatcher vadmin.Dispatcher) controllers.ReconcileActor {
 	return &ReviveDBReconciler{
 		VRec:    vdbrecon,
@@ -175,7 +176,7 @@ func (r *ReviveDBReconciler) postCmdCleanup(_ context.Context) (ctrl.Result, err
 // getPodList gets a list of the pods we are going to use in revive db.
 // If it was not able to generate a list, possibly due to a bad reviveOrder, it
 // return false for the bool return value.
-func (r *ReviveDBReconciler) getPodList() ([]*PodFact, bool) {
+func (r *ReviveDBReconciler) getPodList() ([]*podfacts.PodFact, bool) {
 	// Build up a map that keeps track of the number of pods for each subcluster.
 	// Entries in this map get decremented as we add pods to the pod list.
 	scPodCounts := map[int]int32{}
@@ -190,7 +191,7 @@ func (r *ReviveDBReconciler) getPodList() ([]*PodFact, bool) {
 	}
 
 	// This is the pod list that we are going to create and return
-	podList := []*PodFact{}
+	podList := []*podfacts.PodFact{}
 
 	// Helper to add pods to podList
 	addPodsFromSubcluster := func(subclusterIndex int, podsToAdd int32) bool {
@@ -242,8 +243,8 @@ func (r *ReviveDBReconciler) getPodList() ([]*PodFact, bool) {
 
 // findPodToRunInit will return a PodFact of the pod that should run the init
 // command from
-func (r *ReviveDBReconciler) findPodToRunInit() (*PodFact, bool) {
-	return r.PFacts.findPodToRunAdminCmdOffline()
+func (r *ReviveDBReconciler) findPodToRunInit() (*podfacts.PodFact, bool) {
+	return r.PFacts.FindPodToRunAdminCmdOffline()
 }
 
 // genReviveOpts will return the options to use with the revive command

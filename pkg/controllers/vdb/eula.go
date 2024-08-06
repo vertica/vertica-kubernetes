@@ -23,12 +23,13 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
+	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
 )
 
 // acceptEulaIfMissing will accept the end user license agreement if any pods have not yet signed it
-func acceptEulaIfMissing(ctx context.Context, pFacts *PodFacts, pRunner cmds.PodRunner) error {
+func acceptEulaIfMissing(ctx context.Context, pFacts *podfacts.PodFacts, pRunner cmds.PodRunner) error {
 	for _, p := range pFacts.Detail {
-		if p.eulaAccepted || !p.isPodRunning {
+		if p.GetEulaAccepted() || !p.GetIsPodRunning() {
 			continue
 		}
 		if err := acceptEulaInPod(ctx, p, pRunner); err != nil {
@@ -39,7 +40,7 @@ func acceptEulaIfMissing(ctx context.Context, pFacts *PodFacts, pRunner cmds.Pod
 }
 
 // acceptEulaInPod will run a script that will accept the eula in the given pod
-func acceptEulaInPod(ctx context.Context, pf *PodFact, pRunner cmds.PodRunner) error {
+func acceptEulaInPod(ctx context.Context, pf *podfacts.PodFact, pRunner cmds.PodRunner) error {
 	tmp, err := os.CreateTemp("", "accept_eula.py.")
 	if err != nil {
 		return err
@@ -61,7 +62,7 @@ func acceptEulaInPod(ctx context.Context, pf *PodFact, pRunner cmds.PodRunner) e
 	tmp.Close()
 
 	// Copy and execute the script
-	_, _, err = pRunner.CopyToPod(ctx, pf.name, names.ServerContainer, tmp.Name(), paths.EulaAcceptanceScript,
+	_, _, err = pRunner.CopyToPod(ctx, pf.GetName(), names.ServerContainer, tmp.Name(), paths.EulaAcceptanceScript,
 		"/opt/vertica/oss/python3/bin/python3", paths.EulaAcceptanceScript)
 	return err
 }

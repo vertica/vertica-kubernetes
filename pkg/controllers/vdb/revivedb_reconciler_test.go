@@ -26,6 +26,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
+	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
 	"github.com/vertica/vertica-kubernetes/pkg/reviveplanner"
 	"github.com/vertica/vertica-kubernetes/pkg/reviveplanner/atparser"
 	"github.com/vertica/vertica-kubernetes/pkg/reviveplanner/util"
@@ -44,7 +45,7 @@ var _ = Describe("revivedb_reconcile", func() {
 		vdb.Spec.InitPolicy = vapi.CommunalInitPolicyCreate
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := MakePodFacts(vdbRec, fpr, logger, TestPassword)
+		pfacts := podfacts.MakePodFacts(vdbRec, fpr, logger, TestPassword)
 		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
 		r := MakeReviveDBReconciler(vdbRec, logger, vdb, fpr, &pfacts, dispatcher)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
@@ -60,7 +61,7 @@ var _ = Describe("revivedb_reconcile", func() {
 		vdb.Spec.RestorePoint.Index = 1
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := MakePodFacts(vdbRec, fpr, logger, TestPassword)
+		pfacts := podfacts.MakePodFacts(vdbRec, fpr, logger, TestPassword)
 		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
 		r := MakeReviveDBReconciler(vdbRec, logger, vdb, fpr, &pfacts, dispatcher)
 
@@ -112,7 +113,7 @@ var _ = Describe("revivedb_reconcile", func() {
 		vdb := vapi.MakeVDB()
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := MakePodFacts(vdbRec, fpr, logger, TestPassword)
+		pfacts := podfacts.MakePodFacts(vdbRec, fpr, logger, TestPassword)
 		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
 		act := MakeReviveDBReconciler(vdbRec, logger, vdb, fpr, &pfacts, dispatcher)
 		r := act.(*ReviveDBReconciler)
@@ -147,7 +148,7 @@ var _ = Describe("revivedb_reconcile", func() {
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := MakePodFacts(vdbRec, fpr, logger, TestPassword)
+		pfacts := podfacts.MakePodFacts(vdbRec, fpr, logger, TestPassword)
 		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
 		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
 		act := MakeReviveDBReconciler(vdbRec, logger, vdb, fpr, &pfacts, dispatcher)
@@ -157,7 +158,7 @@ var _ = Describe("revivedb_reconcile", func() {
 		expectedSubclusterOrder := []string{"s2", "s1", "s1", "s0", "s0", "s1", "s2", "s2", "s0"}
 		Expect(len(pods)).Should(Equal(len(expectedSubclusterOrder)))
 		for i, expectedSC := range expectedSubclusterOrder {
-			Expect(pods[i].subclusterName).Should(Equal(expectedSC), "Subcluster index %d", i)
+			Expect(pods[i].GetSubclusterName()).Should(Equal(expectedSC), "Subcluster index %d", i)
 		}
 	})
 
@@ -176,7 +177,7 @@ var _ = Describe("revivedb_reconcile", func() {
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := MakePodFacts(vdbRec, fpr, logger, TestPassword)
+		pfacts := podfacts.MakePodFacts(vdbRec, fpr, logger, TestPassword)
 		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
 		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
 		act := MakeReviveDBReconciler(vdbRec, logger, vdb, fpr, &pfacts, dispatcher)
@@ -186,7 +187,7 @@ var _ = Describe("revivedb_reconcile", func() {
 		expectedSubclusterOrder := []string{"s2", "s2", "s2", "s1", "s1", "s1", "s0", "s0", "s0"}
 		Expect(len(pods)).Should(Equal(len(expectedSubclusterOrder)))
 		for i, expectedSC := range expectedSubclusterOrder {
-			Expect(pods[i].subclusterName).Should(Equal(expectedSC), "Subcluster index %d", i)
+			Expect(pods[i].GetSubclusterName()).Should(Equal(expectedSC), "Subcluster index %d", i)
 		}
 	})
 
@@ -196,7 +197,7 @@ var _ = Describe("revivedb_reconcile", func() {
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := MakePodFacts(vdbRec, fpr, logger, TestPassword)
+		pfacts := podfacts.MakePodFacts(vdbRec, fpr, logger, TestPassword)
 		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
 		act := MakeReviveDBReconciler(vdbRec, logger, vdb, fpr, &pfacts, dispatcher)
 		r := act.(*ReviveDBReconciler)

@@ -26,6 +26,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
+	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
 	"github.com/vertica/vertica-kubernetes/pkg/test"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -58,7 +59,7 @@ var _ = Describe("restart_reconciler", func() {
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := MakePodFacts(vdbRec, fpr, logger, TestPassword)
+		pfacts := podfacts.MakePodFacts(vdbRec, fpr, logger, TestPassword)
 		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
 		recon := MakeRestartReconciler(vdbRec, logger, vdb, fpr, &pfacts, RestartProcessReadOnly, dispatcher)
 		Expect(recon.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
@@ -270,9 +271,9 @@ var _ = Describe("restart_reconciler", func() {
 		for podIndex := int32(0); podIndex < vdb.Spec.Subclusters[0].Size; podIndex++ {
 			downPodNm := names.GenPodName(vdb, sc, podIndex)
 			// At least one pod needs to be totally offline.  Cannot have all of them read-only.
-			pfacts.Detail[downPodNm].upNode = podIndex != 0
-			pfacts.Detail[downPodNm].readOnly = podIndex != 0
-			pfacts.Detail[downPodNm].isInstalled = true
+			pfacts.Detail[downPodNm].SetUpNode(podIndex != 0)
+			pfacts.Detail[downPodNm].SetReadOnly(podIndex != 0)
+			pfacts.Detail[downPodNm].SetIsInstalled(true)
 		}
 
 		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
@@ -340,7 +341,7 @@ var _ = Describe("restart_reconciler", func() {
 		act := MakeRestartReconciler(vdbRec, logger, vdb, fpr, pfacts, RestartProcessReadOnly, dispatcher)
 		r := act.(*RestartReconciler)
 		r.InitiatorPod = initiatorPod
-		Expect(r.restartCluster(ctx, []*PodFact{})).Should(Equal(ctrl.Result{}))
+		Expect(r.restartCluster(ctx, []*podfacts.PodFact{})).Should(Equal(ctrl.Result{}))
 		restart := fpr.FindCommands("/opt/vertica/bin/admintools", "-t", "start_db")
 		Expect(len(restart)).Should(Equal(1))
 		Expect(restart[0].Command).Should(ContainElements("--ignore-cluster-lease"))
@@ -402,7 +403,7 @@ var _ = Describe("restart_reconciler", func() {
 		initiatorPod := types.NamespacedName{}
 		for i := 0; i < scSize; i++ {
 			nm := names.GenPodName(vdb, sc, int32(i))
-			if pfacts.Detail[nm].dbExists {
+			if pfacts.Detail[nm].GetDBExists() {
 				initiatorPod = nm
 				break
 			}
@@ -545,11 +546,11 @@ var _ = Describe("restart_reconciler", func() {
 		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
 		for podIndex := int32(0); podIndex < vdb.Spec.Subclusters[0].Size; podIndex++ {
 			downPodNm := names.GenPodName(vdb, sc, podIndex)
-			pfacts.Detail[downPodNm].upNode = false
-			pfacts.Detail[downPodNm].readOnly = false
-			pfacts.Detail[downPodNm].isInstalled = true
+			pfacts.Detail[downPodNm].SetUpNode(false)
+			pfacts.Detail[downPodNm].SetReadOnly(false)
+			pfacts.Detail[downPodNm].SetIsInstalled(true)
 			// At least one pod needs to not be running.
-			pfacts.Detail[downPodNm].isPodRunning = podIndex != 0
+			pfacts.Detail[downPodNm].SetIsPodRunning(podIndex != 0)
 		}
 
 		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
@@ -560,7 +561,7 @@ var _ = Describe("restart_reconciler", func() {
 
 		// Start the one pod that isn't running.  This should all start_db to initiated
 		downPodNm := names.GenPodName(vdb, sc, 0)
-		pfacts.Detail[downPodNm].isPodRunning = true
+		pfacts.Detail[downPodNm].SetIsPodRunning(true)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 		listCmd = fpr.FindCommands("start_db")
 		Expect(len(listCmd)).Should(Equal(1))
@@ -784,12 +785,12 @@ var _ = Describe("restart_reconciler", func() {
 			podNm := names.GenPodName(vdb, sc, podIndex)
 			// Only 1 of the 3 is up, which means we don't have quorum
 			if podIndex == 0 {
-				pfacts.Detail[podNm].upNode = true
+				pfacts.Detail[podNm].SetUpNode(true)
 			} else {
-				pfacts.Detail[podNm].upNode = false
+				pfacts.Detail[podNm].SetUpNode(false)
 			}
-			pfacts.Detail[podNm].isInstalled = true
-			pfacts.Detail[podNm].isPodRunning = true
+			pfacts.Detail[podNm].SetIsInstalled(true)
+			pfacts.Detail[podNm].SetIsPodRunning(true)
 		}
 
 		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
