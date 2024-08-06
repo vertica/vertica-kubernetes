@@ -14,5 +14,13 @@
 apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 commands:
-  - script: kubectl exec -n $NAMESPACE v-base-upgrade-pri1-0 -c server -- vsql -tAc "alter database default set DataSSLMaxBufSize = 32768"; exit $? == 1
-  - script: kubectl exec -n $NAMESPACE v-base-upgrade-pri1-sb-0 -c server -- vsql -tAc "alter database default set DataSSLMaxBufSize = 32768"
+  - script: |-
+    val=$(kubectl exec -n $NAMESPACE v-base-upgrade-pri1-0 -c server -- vsql -tAc "alter database default set DataSSLMaxBufSize = 32768"); \
+    if [ $val == 0 ]; then \
+      exit 1; \
+    fi
+  - script: |-
+    val=$(kubectl exec -n $NAMESPACE v-base-upgrade-pri1-sb-0 -c server -- vsql -tAc "alter database default set DataSSLMaxBufSize = 32768"); \
+    if [ $val == 1 ]; then \
+      exit 1; \
+    fi
