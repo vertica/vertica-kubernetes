@@ -157,10 +157,11 @@ func (v *VerticaDB) IsUpgradePathSupported(newAnnotations map[string]string) (ok
 // isOnlineUpgradeSupported returns true if the version in the Vdb is is equal or newer than
 // 24.3.0-0.
 func (v *VerticaDB) isOnlineUpgradeSupported(vinf *version.Info) bool {
-	const ver = "v24.3.0-0"
+	const ver1 = "v24.3.0-0"
+	const ver2 = "v24.3.0-1"
 	vdbVer, _ := v.GetVerticaVersionStr()
-	if vdbVer == ver {
-		// All v24.3.0-* supports online upgrade except v24.3.0-0
+	if vdbVer == ver1 || vdbVer == ver2 {
+		// All v24.3.0-* supports online upgrade except v24.3.0-0 and v24.3.0-1
 		return false
 	}
 	return vinf.IsEqualOrNewer(OnlineUpgradeVersion)
