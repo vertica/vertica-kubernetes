@@ -687,8 +687,8 @@ func (i *UpgradeManager) createRestorePoint(ctx context.Context, pfacts *PodFact
 		return ctrl.Result{}, err
 	}
 	// Create the archive only if it does not already exist
-	clearKnob := "alter database default clear DisableNonReplicatableQueries;"
-	setKnob := "alter database default set DisableNonReplicatableQueries = 1;"
+	clearKnob := "alter session set DisableNonReplicatableQueries = 0;"
+	setKnob := "alter session clear DisableNonReplicatableQueries;"
 	if arch == 0 {
 		if pf.sandbox == vapi.MainCluster {
 			sql = fmt.Sprintf("%s create archive %s; %s", clearKnob, archive, setKnob)
