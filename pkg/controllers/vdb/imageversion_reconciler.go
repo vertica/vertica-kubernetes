@@ -298,6 +298,12 @@ func (v *ImageVersionReconciler) updateConfigMapAnnotations(ctx context.Context,
 func (v *ImageVersionReconciler) isUpgradePathSupported(ctx context.Context, versionAnn map[string]string,
 ) (ok bool, failureReason string, err error) {
 	if v.PFacts.GetSandboxName() == vapi.MainCluster {
+		if v.Vdb.IsOnlineUpgradeInProgress() {
+			vdbVer, _ := v.Vdb.GetVerticaVersionStr()
+			if vdbVer == versionAnn[vmeta.VersionAnnotation] {
+				return false, "Versions are the same and can cause issues during online upgrade", nil
+			}
+		}
 		ok, failureReason = v.Vdb.IsUpgradePathSupported(versionAnn)
 		return ok, failureReason, nil
 	}

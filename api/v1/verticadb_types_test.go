@@ -138,6 +138,11 @@ var _ = Describe("verticadb_types", func() {
 		vdb.Annotations[vmeta.OnlineUpgradeSandboxAnnotation] = sbName
 		Ω(vdb.GetUpgradePolicyToUse()).Should(Equal(OnlineUpgrade))
 
+		// If version 24.3.0-0. We should revert to read-only online upgrade.
+		vdb.Spec.UpgradePolicy = OnlineUpgrade
+		vdb.Annotations[vmeta.VersionAnnotation] = "v24.3.0-0"
+		Ω(vdb.GetUpgradePolicyToUse()).Should(Equal(ReadOnlyOnlineUpgrade))
+
 		// If older version than what we support for online. We should revert to read-only online upgrade.
 		vdb.Spec.UpgradePolicy = OnlineUpgrade
 		vdb.Annotations[vmeta.VersionAnnotation] = ReadOnlyOnlineUpgradeVersion

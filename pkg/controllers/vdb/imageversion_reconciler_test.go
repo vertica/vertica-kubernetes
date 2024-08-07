@@ -18,6 +18,7 @@ package vdb
 import (
 	"context"
 	"fmt"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -27,6 +28,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/test"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
@@ -136,6 +138,43 @@ vertica(v11.1.0) built by @re-docker2 from tag@releases/VER_10_1_RELEASE_BUILD_1
 		fetchVdb := &vapi.VerticaDB{}
 		Expect(k8sClient.Get(ctx, vapi.MakeVDBName(), fetchVdb)).Should(Succeed())
 		Expect(fetchVdb.ObjectMeta.Annotations[vmeta.VersionAnnotation]).Should(Equal(OrigVersion))
+	})
+
+	It("should fail if versions are the same during online upgrade", func() {
+		vdb := vapi.MakeVDB()
+		const OrigVersion = "v24.3.0-1"
+		vdb.ObjectMeta.Annotations = map[string]string{
+			vmeta.VersionAnnotation: OrigVersion,
+		}
+
+		vdb.Spec.Subclusters[0].Size = 1
+		test.CreateVDB(ctx, k8sClient, vdb)
+		defer test.DeleteVDB(ctx, k8sClient, vdb)
+		cond := vapi.MakeCondition(vapi.OnlineUpgradeInProgress, metav1.ConditionTrue, "")
+		cond.LastTransitionTime = metav1.Date(2018, 1, 1, 0, 0, 0, 0, time.UTC)
+		vdb.Status.Conditions = []metav1.Condition{
+			*cond,
+		}
+		Expect(k8sClient.Status().Update(ctx, vdb)).Should(Succeed())
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
+
+		fpr := &cmds.FakePodRunner{}
+		pfacts := MakePodFacts(vdbRec, fpr, logger, TestPassword)
+		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
+		podName := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)
+		fpr.Results = cmds.CmdResults{
+			podName: []cmds.CmdResult{{Stdout: mockVerticaVersionOutput(OrigVersion)}},
+		}
+		act := MakeImageVersionReconciler(vdbRec, logger, vdb, fpr, &pfacts, true)
+		r := act.(*ImageVersionReconciler)
+		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: true}))
+
+		newVersion := map[string]string{
+			vmeta.VersionAnnotation: OrigVersion,
+		}
+		_, failureReason, _ := r.isUpgradePathSupported(ctx, newVersion)
+		Expect(failureReason).Should(ContainSubstring("Versions are the same and can cause issues"))
 	})
 
 	It("should fail the reconciler if we use wrong image", func() {
