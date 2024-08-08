@@ -1,0 +1,6 @@
+kind: Added
+body: For each sandbox, the operator will create a config map of it. This is an internal
+  config map the operator uses to mange the sandboxes.
+time: 2024-08-08T14:14:00.9177156-05:00
+custom:
+  Issue: "790"

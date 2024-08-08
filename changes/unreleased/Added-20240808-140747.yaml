@@ -1,0 +1,6 @@
+kind: Added
+body: Added sandbox reconciler to manage sandboxes of the database. It allows the
+  user to convert sedondary subclusters to sandboxes for a testing purpose.
+time: 2024-08-08T14:07:47.3488689-05:00
+custom:
+  Issue: "775"

@@ -1,0 +1,6 @@
+kind: Changed
+body: Decouple sandbox image from vdb.spec image. Each sandbox will have its own image
+  field.
+time: 2024-08-08T14:16:35.1237105-05:00
+custom:
+  Issue: "812"
