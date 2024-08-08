@@ -69,7 +69,7 @@ var _ = Describe("sandboxsubcluster_reconcile", func() {
 		fpr := &cmds.FakePodRunner{}
 		pfacts := MakePodFacts(vdbRec, fpr, logger, TestPassword)
 		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
-		r := MakeSandboxSubclusterReconciler(vdbRec, logger, vdb, &pfacts, dispatcher, k8sClient)
+		r := MakeSandboxSubclusterReconciler(vdbRec, logger, vdb, &pfacts, dispatcher, k8sClient, false)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 	})
 
@@ -92,7 +92,7 @@ var _ = Describe("sandboxsubcluster_reconcile", func() {
 		fpr := &cmds.FakePodRunner{}
 		pfacts := MakePodFacts(vdbRec, fpr, logger, TestPassword)
 		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
-		r := MakeSandboxSubclusterReconciler(vdbRec, logger, vdb, &pfacts, dispatcher, k8sClient)
+		r := MakeSandboxSubclusterReconciler(vdbRec, logger, vdb, &pfacts, dispatcher, k8sClient, false)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 	})
 
@@ -114,7 +114,7 @@ var _ = Describe("sandboxsubcluster_reconcile", func() {
 		fpr := &cmds.FakePodRunner{}
 		pfacts := MakePodFacts(vdbRec, fpr, logger, TestPassword)
 		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
-		r := MakeSandboxSubclusterReconciler(vdbRec, logger, vdb, &pfacts, dispatcher, k8sClient)
+		r := MakeSandboxSubclusterReconciler(vdbRec, logger, vdb, &pfacts, dispatcher, k8sClient, false)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 	})
 
@@ -141,7 +141,7 @@ var _ = Describe("sandboxsubcluster_reconcile", func() {
 		pfacts.Detail[pfmain].subclusterName = ""
 		pfacts.Detail[pfmain].isPrimary = true
 		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
-		r := MakeSandboxSubclusterReconciler(vdbRec, logger, vdb, &pfacts, dispatcher, k8sClient)
+		r := MakeSandboxSubclusterReconciler(vdbRec, logger, vdb, &pfacts, dispatcher, k8sClient, false)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 	})
 
@@ -167,7 +167,7 @@ var _ = Describe("sandboxsubcluster_reconcile", func() {
 		// should requeue the iteration without any error
 		pfacts.Detail[pfsc1].upNode = false
 		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
-		r := MakeSandboxSubclusterReconciler(vdbRec, logger, vdb, &pfacts, dispatcher, k8sClient)
+		r := MakeSandboxSubclusterReconciler(vdbRec, logger, vdb, &pfacts, dispatcher, k8sClient, false)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: true}))
 
 		// let subcluster1 up and main cluster down
@@ -201,7 +201,7 @@ var _ = Describe("sandboxsubcluster_reconcile", func() {
 		pfacts.Detail[pfsc3].upNode = true
 		pfacts.Detail[pfsc3].subclusterName = "sc3"
 		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
-		rec := MakeSandboxSubclusterReconciler(vdbRec, logger, vdb, &pfacts, dispatcher, k8sClient)
+		rec := MakeSandboxSubclusterReconciler(vdbRec, logger, vdb, &pfacts, dispatcher, k8sClient, false)
 		r := rec.(*SandboxSubclusterReconciler)
 		scSbMap, allNodesUp := r.fetchSubclustersWithSandboxes()
 		targetScSbMap := map[string]string{subcluster1: sandbox1, subcluster2: sandbox2}
@@ -228,7 +228,7 @@ var _ = Describe("sandboxsubcluster_reconcile", func() {
 		fpr := &cmds.FakePodRunner{}
 		pfacts := MakePodFacts(vdbRec, fpr, logger, TestPassword)
 		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
-		rec := MakeSandboxSubclusterReconciler(vdbRec, logger, vdb, &pfacts, dispatcher, k8sClient)
+		rec := MakeSandboxSubclusterReconciler(vdbRec, logger, vdb, &pfacts, dispatcher, k8sClient, false)
 		r := rec.(*SandboxSubclusterReconciler)
 		sbScMap := map[string][]string{sandbox1: {subcluster1}, sandbox2: {subcluster2}}
 		err := r.updateSandboxStatus(ctx, sbScMap)
@@ -261,7 +261,7 @@ var _ = Describe("sandboxsubcluster_reconcile", func() {
 		fpr := &cmds.FakePodRunner{}
 		pfacts := MakePodFacts(vdbRec, fpr, logger, TestPassword)
 		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
-		rec := MakeSandboxSubclusterReconciler(vdbRec, logger, vdb, &pfacts, dispatcher, k8sClient)
+		rec := MakeSandboxSubclusterReconciler(vdbRec, logger, vdb, &pfacts, dispatcher, k8sClient, false)
 		r := rec.(*SandboxSubclusterReconciler)
 		// should create config map for sandbox1
 		err := r.checkSandboxConfigMap(ctx, sandbox1)
@@ -330,7 +330,7 @@ var _ = Describe("sandboxsubcluster_reconcile", func() {
 			return &sandboxSubclusterVOps{initiatorIPs: &initiatorIPs}, logr.Logger{}
 		}
 		dispatcher := mockvops.MakeMockVClusterOpsDispatcher(vdb, logger, k8sClient, setupAPIFunc)
-		r := MakeSandboxSubclusterReconciler(vdbRec, logger, vdb, pfacts, dispatcher, k8sClient)
+		r := MakeSandboxSubclusterReconciler(vdbRec, logger, vdb, pfacts, dispatcher, k8sClient, false)
 
 		Ω(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 		cmNm := names.GenSandboxConfigMapName(vdb, sandbox1)

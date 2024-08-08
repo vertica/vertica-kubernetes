@@ -46,12 +46,13 @@ type SandboxSubclusterReconciler struct {
 	PFacts       *PodFacts
 	InitiatorIPs map[string]string // IPs from main cluster and sandboxes that should be passed down to vcluster
 	Dispatcher   vadmin.Dispatcher
+	ForUpgrade   bool
 	client.Client
 }
 
 // MakeSandboxSubclusterReconciler will build a SandboxSubclusterReconciler object
 func MakeSandboxSubclusterReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger, vdb *vapi.VerticaDB,
-	pfacts *PodFacts, dispatcher vadmin.Dispatcher, cli client.Client) controllers.ReconcileActor {
+	pfacts *PodFacts, dispatcher vadmin.Dispatcher, cli client.Client, forUpgrade bool) controllers.ReconcileActor {
 	return &SandboxSubclusterReconciler{
 		VRec:         vdbrecon,
 		Log:          log.WithName("SandboxSubclusterReconciler"),
@@ -59,6 +60,7 @@ func MakeSandboxSubclusterReconciler(vdbrecon *VerticaDBReconciler, log logr.Log
 		InitiatorIPs: make(map[string]string),
 		PFacts:       pfacts,
 		Dispatcher:   dispatcher,
+		ForUpgrade:   forUpgrade,
 		Client:       cli,
 	}
 }
@@ -382,6 +384,7 @@ func (s *SandboxSubclusterReconciler) sandboxSubcluster(ctx context.Context, sub
 		sandboxsc.WithUpHostInSandbox(s.InitiatorIPs[sandbox]),
 		// vclusterOps needs correct node names and addresses to do re-ip
 		sandboxsc.WithNodeNameAddressMap(nodeNameAddressMap),
+		sandboxsc.WithForUpgrade(s.ForUpgrade),
 	)
 	if err != nil {
 		s.VRec.Eventf(s.Vdb, corev1.EventTypeWarning, events.SandboxSubclusterFailed,

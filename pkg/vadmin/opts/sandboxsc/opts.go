@@ -21,6 +21,7 @@ type Params struct {
 	Subcluster         string
 	Sandbox            string
 	UpHostInSandbox    string
+	ForUpgrade         bool
 	NodeNameAddressMap map[string]string
 }
 
@@ -60,5 +61,11 @@ func WithUpHostInSandbox(upHost string) Option {
 func WithNodeNameAddressMap(nodeNameAddressMap map[string]string) Option {
 	return func(s *Params) {
 		s.NodeNameAddressMap = nodeNameAddressMap
+	}
+}
+
+func WithForUpgrade(forUpgrade bool) Option {
+	return func(s *Params) {
+		s.ForUpgrade = forUpgrade
 	}
 }

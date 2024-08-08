@@ -31,6 +31,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/describedb"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/fetchnodedetails"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/fetchnodestate"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/getconfigparameter"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/installpackages"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/promotesandboxtomain"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/reip"
@@ -41,6 +42,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/restartnode"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/revivedb"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/sandboxsc"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/setconfigparameter"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/showrestorepoints"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/startdb"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/stopdb"
@@ -117,6 +119,12 @@ type Dispatcher interface {
 	UnsandboxSubcluster(ctx context.Context, opts ...unsandboxsc.Option) error
 
 	AlterSubclusterType(ctx context.Context, opts ...altersc.Option) error
+
+	// SetConfigurationParameter will set a config parameter to a certain value at a certain level in a given cluster
+	SetConfigurationParameter(ctx context.Context, opts ...setconfigparameter.Option) error
+
+	// GetConfigurationParameter will get the value of a config parameter at a certain level in a given cluster
+	GetConfigurationParameter(ctx context.Context, opts ...getconfigparameter.Option) (string, error)
 
 	// RenameSubcluster will rename a subcluster in main cluster
 	RenameSubcluster(ctx context.Context, opts ...renamesc.Option) error
@@ -248,5 +256,7 @@ type VClusterProvider interface {
 	VSandbox(options *vops.VSandboxOptions) error
 	VUnsandbox(options *vops.VUnsandboxOptions) error
 	VAlterSubclusterType(options *vops.VAlterSubclusterTypeOptions) error
+	VSetConfigurationParameters(options *vops.VSetConfigurationParameterOptions) error
+	VGetConfigurationParameters(options *vops.VGetConfigurationParameterOptions) (string, error)
 	VRenameSubcluster(options *vops.VRenameSubclusterOptions) error
 }

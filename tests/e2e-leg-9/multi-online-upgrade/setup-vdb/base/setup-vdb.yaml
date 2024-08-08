@@ -22,6 +22,9 @@ spec:
   dbName: repUP
   initPolicy: CreateSkipPackageInstall
   upgradePolicy: Online
+  sidecars:
+    - name: vlogger
+      image: kustomize-vlogger-image
   communal: {}
   local:
     requestSize: 250Mi
