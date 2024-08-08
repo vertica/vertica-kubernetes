@@ -3,8 +3,8 @@
 SOURCE_BRANCH=$1
 TARGET_BRANCH=$2
 GITHUB_CRED=$3
-GITHUB_OWNER=HaoYang0000 # TODO: CHANGEME
-GITHUB_REPO=test_vcluster_repo # TODO: CHANGEME
+GITHUB_OWNER=vertica
+GITHUB_REPO=vcluster
 
 # THIS IS ANOTHER WAY TO CALL EVENT, LEAVE IT FOR REF FOR NOW
 # # Trigger the GitHub Vcluster workflow dispatch event
