@@ -1,0 +1,5 @@
+kind: Added
+body: Allow the user to upgrade the subclusters in a sandbox through offline upgrade.
+time: 2024-08-08T14:12:18.452699-05:00
+custom:
+  Issue: "785"
