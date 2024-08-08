@@ -1,147 +1,47 @@
 name: Daily work
 
 on:
-  schedule:               # Ref: https://docs.github.com/en/actions/using-workflows/events-that-trigger-workflows
-    - cron: '0 0 * * * *' # minute (0 - 59) hour (0 - 23) day of the month (1 - 31) month (1 - 12) day of the week (0 - 6) 2:00 am US time
   workflow_run:
     workflows: ['e2e tests']
     types: [completed]
 
-env:
-  AWS_REGION: ap-northeast-1                  # set this to your preferred AWS region, e.g. us-west-1
-  REPOSITORY_NAME: k8s                         # set this to your Amazon ECR repository name
-  ECS_SERVICE: MY_ECS_SERVICE                 # set this to your Amazon ECS service name
-  ECS_CLUSTER: MY_ECS_CLUSTER                 # set this to your Amazon ECS cluster name
-  ECS_TASK_DEFINITION: MY_ECS_TASK_DEFINITION # set this to the path to your Amazon ECS task definition
-                                               # file, e.g. .aws/task-definition.json
-  CONTAINER_NAME: MY_CONTAINER_NAME           # set this to the name of the container in 
-  
 jobs:
-  # TODO AND QUESTIONS: Run after Success e2e job or by schedule
-  # 1 private repo ? Use ECR private repo for testing now
-  # 2 clean up? minor
-  #
-  
   build-operator:
     runs-on: ubuntu-latest
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
-    outputs:
-      image: ${{ steps.operator_image.outputs.value }}
-    steps:
-
-    - name: set lower case owner name
-      env:
-        OWNER: '${{ github.repository_owner }}'
-      run: |
-        echo "OWNER_LC=${OWNER,,}" >>${GITHUB_ENV}
-
-    - name: Pick the name of the image
-      uses: spilchen/switch-case-action@v2
-      id: operator_image
-      with:
-        default: ghcr.io/${{ env.OWNER_LC }}/verticadb-operator:${{ github.sha }}
-        conditionals-with-values: |
-          ${{ inputs.operator_image != '' }} => ${{ inputs.operator_image }}
-          ${{ github.event_name == 'pull_request' }} => verticadb-operator:kind
-
-    # - name: Login to Container registry 
-    #   uses: docker/login-action@v3
-    #   if: ${{ github.event_name != 'pull_request' && inputs.operator_image == '' || startsWith(inputs.operator_image, 'ghcr.io') }}
-    #   with:
-    #     registry: ghcr.io
-    #     username: ${{ github.repository_owner }}
-    #     password: ${{ secrets.GITHUB_TOKEN }}
-
-    # TEMP LOGIN ON ECR
-    - name: Login to Amazon ECR
-      id: login-ecr
-      uses: aws-actions/amazon-ecr-login@v2
-
-    - name: Build, tag, and push docker image to Amazon ECR
-      env:
-        REGISTRY: 821715312548.dkr.ecr.ap-northeast-1.amazonaws.com
-        REPOSITORY: k8s
-        IMAGE_TAG: ${{ github.sha }}
-      run: |
-        docker build -t $REGISTRY/$REPOSITORY:$IMAGE_TAG .
-        docker push $REGISTRY/$REPOSITORY:$IMAGE_TAG
+    if: ${{ github.event.workflow_run.conclusion == 'success' }} && contains('server daily version', github.event.workflow_run.display_title)
 
     - uses: actions/checkout@v4
-      if: ${{ inputs.operator_image == '' }}
+      with:
+        path: vertica-kubernetes
+        fetch-depth: 0
 
-    - name: Set up Go
-      uses: ./.github/actions/setup-go
-      if: ${{ inputs.operator_image == '' }}
-
-    - name: Build and optionally push operator image
-      if: ${{ inputs.operator_image == '' }}
+    - name: Save current version to env VERSION
+      shell: bash
       run: |
-        export OPERATOR_IMG=${{ steps.operator_image.outputs.value }}
-        export PLATFORMS=${{ inputs.operator_platform }}
-        # For pull requests we build the operator locally then pass it around
-        # to dependent stages as an artifact. Otherwise, we will build a
-        # cross-platform operator. The make target we use for that handles
-        # pushing it up to an external repository.
-        if [ $GITHUB_EVENT_NAME != 'pull_request' ]
-        then
-          make docker-build-crossplatform-operator
-        else
-          make docker-build-operator
-        fi
+        cd vertica-kubernetes
+        echo $(make echo-versions | grep -e '^VERSION=' ) >> $GITHUB_ENV
 
-    - name: Save the image for consumption by dependent jobs (PRs only)
-      if: ${{ github.event_name == 'pull_request' }}
+    - name: Save current sha to env VERSION_SHA
+      shell: bash
       run: |
-        docker save ${{ steps.operator_image.outputs.value }} > operator-image.tar
+        cd vertica-kubernetes
+        git tag --list
+        echo "VERSION_SHA=$(git rev-list -n 1 v$VERSION)" >> $GITHUB_ENV
 
-    - uses: actions/upload-artifact@v4
-      if: ${{ github.event_name == 'pull_request' }}
-      with:
-        name: operator-image
-        path: operator-image.tar
-
-    - name: Do a local pull of the image if we didn't create it
-      if: ${{ inputs.operator_image != '' }}
+    - name: Download the release artifacts
       run: |
-        docker pull ${{ inputs.operator_image }}
+        cd vertica-kubernetes
+        scripts/download-release-artifacts.sh -d ci-artifacts $VERSION
+        find ci-artifacts
+      env:
+        GH_TOKEN: ${{ github.token }}
 
-    - name: Run the Trivy vulnerability scanner (sarif)
-      uses: aquasecurity/trivy-action@0.6.2
-      if: ${{ inputs.run_security_scan != 'none' && github.event_name != 'pull_request' }}
+    - name: Login to Docker Hub
+      uses: docker/login-action@v3
       with:
-        image-ref: ${{ steps.operator_image.outputs.value }}
-        ignore-unfixed: true
-        format: 'sarif'
-        output: 'trivy-results-verticadb-operator-image.sarif'
+        username: ${{ secrets.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-    - name: Upload Trivy scan results to GitHub Security tab
-      uses: github/codeql-action/upload-sarif@v3
-      if: ${{ always() && inputs.run_security_scan != 'none' && github.event_name != 'pull_request' }}
-      with:
-        sarif_file: 'trivy-results-verticadb-operator-image.sarif'
-
-    - name: Run the Trivy vulnerability scanner (pretty print)
-      uses: aquasecurity/trivy-action@0.6.2
-      if: ${{ inputs.run_security_scan != 'none' }}
-      with:
-        image-ref: ${{ steps.operator_image.outputs.value }}
-        ignore-unfixed: true
-        format: 'table'
-        output: 'trivy-results-verticadb-operator-image.out'
-
-    - uses: actions/upload-artifact@v4
-      if: ${{ always() && inputs.run_security_scan != 'none' }}
-      with:
-        name: security-scan-operator
-        path: 'trivy-results-verticadb-operator-image.out'
-
-    - name: Print a summary of the job
+    - name: Upload new image
       run: |
-        echo "Image Name: **${{ steps.operator_image.outputs.value }}**" >> $GITHUB_STEP_SUMMARY
-        echo "Was Built: ${{ inputs.operator_image == '' && '**Yes**' || '**No**' }}" >> $GITHUB_STEP_SUMMARY
-        echo "Was Pushed: ${{ inputs.operator_image == '' && github.event_name != 'pull_request' && '**Yes**' || '**No**' }}"
-        echo "Was Scanned: ${{ inputs.run_security_scan != 'none' && '**Yes**' || '**No**' }}" >> $GITHUB_STEP_SUMMARY
-        echo "Size: **$(docker inspect --format '{{.Size}}' ${{ steps.operator_image.outputs.value }} | numfmt --to=iec)**" >> $GITHUB_STEP_SUMMARY
-        echo "Image ID: **$(docker inspect --format '{{.ID}}' ${{ steps.operator_image.outputs.value }})**" >> $GITHUB_STEP_SUMMARY
-        echo "Digest: **$(IFS=":" read image tag <<< $(echo ${{ steps.operator_image.outputs.value }} | sed -e 's/^docker.io\///'); docker inspect --format='{{.RepoDigests}}' $image:$tag | sed 's:^.\(.*\).$:\1:' | tr " " "\n" | grep $image | cut -d'@' -f2 || echo "<none>")**" >> $GITHUB_STEP_SUMMARY
-
+        docker buildx imagetools create --tag opentext/verticadb-operator:$VERSION ghcr.io/vertica/verticadb-operator:$VERSION_SHA
