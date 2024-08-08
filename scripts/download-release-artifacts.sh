@@ -81,6 +81,6 @@ then
   rm -r $ARTIFACTS_DIR/*
 fi
 
-DATABASE_ID=$(jq -r '.databaseId' < $tmpfile)
+DATABASE_ID=10304193238
 logInfo "Downloading artifacts for run ID $DATABASE_ID into $ARTIFACTS_DIR"
 gh run download $DATABASE_ID --dir $ARTIFACTS_DIR --name release-artifacts --name olm-bundle
