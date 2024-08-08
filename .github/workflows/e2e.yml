@@ -602,7 +602,7 @@ jobs:
   notification:
     name: team-notification
     runs-on: ubuntu-latest
-    if: ${{ always() }}
+    if: ${{ always() }} && contains('k8s-sync', github.ref)
     steps:
       - name: notification
         uses: jdcargile/ms-teams-notification@v1.4
