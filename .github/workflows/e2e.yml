@@ -597,7 +597,7 @@ jobs:
         # TODO: change the k8s-test-master value
         run: |
           echo "Running sync script"
-          scripts/vcluster-sync.sh ${{ github.ref }} k8s-test-master ${{ secrets.API_TOKEN }}
+          scripts/vcluster-sync.sh ${{ github.ref }} k8s-test-master ${{ secrets.VCLUSTER_CICD }}
   
   notification:
     name: team-notification
