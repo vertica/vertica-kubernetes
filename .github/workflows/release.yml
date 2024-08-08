@@ -71,8 +71,8 @@ jobs:
         docker pull ghcr.io/vertica/verticadb-operator:$VERSION_SHA
         for tag in $VERSION latest
         do
-          docker tag ghcr.io/vertica/verticadb-operator:$VERSION_SHA vertica/verticadb-operator:$tag
-          docker push vertica/verticadb-operator:$tag
+          docker tag ghcr.io/vertica/verticadb-operator:$VERSION_SHA opentext/verticadb-operator:$tag
+          docker push opentext/verticadb-operator:$tag
         done
 
     - name: Create the release on GitHub
