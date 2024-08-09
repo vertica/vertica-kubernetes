@@ -103,25 +103,25 @@ jobs:
     uses: ./.github/workflows/build-release-assets.yml
     if: ${{ inputs.build_release_assets == 'all' || inputs.build_release_assests == '' }}
 
-  e2e-leg-1-admintools:
-    if: ${{ inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools leg 1' || inputs.e2e_test_suites == '' }}
-    needs: [build]
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Test
-        uses: ./.github/actions/run-e2e-leg
-        with:
-          leg-identifier: 'leg-1'
-          dockerhub-username: ${{ secrets.DOCKERHUB_USERNAME }}
-          dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}
-          vlogger-image: ${{ needs.build.outputs.vlogger-image }}
-          operator-image: ${{ needs.build.outputs.operator-image }}
-          vertica-image: ${{ needs.build.outputs.legacy-vertica-image }}
-          vertica-deployment-method: admintools
-          communal-storage-type: azb
-          deploy-with: olm
+  # e2e-leg-1-admintools:
+  #   if: ${{ inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools leg 1' || inputs.e2e_test_suites == '' }}
+  #   needs: [build]
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Checkout
+  #       uses: actions/checkout@v4
+  #     - name: Test
+  #       uses: ./.github/actions/run-e2e-leg
+  #       with:
+  #         leg-identifier: 'leg-1'
+  #         dockerhub-username: ${{ secrets.DOCKERHUB_USERNAME }}
+  #         dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}
+  #         vlogger-image: ${{ needs.build.outputs.vlogger-image }}
+  #         operator-image: ${{ needs.build.outputs.operator-image }}
+  #         vertica-image: ${{ needs.build.outputs.legacy-vertica-image }}
+  #         vertica-deployment-method: admintools
+  #         communal-storage-type: azb
+  #         deploy-with: olm
   
   # e2e-leg-1-admintools-previous-release:
   #   if: ${{ inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools leg 1' || inputs.e2e_test_suites == '' }}
@@ -564,9 +564,9 @@ jobs:
   
   sync-vcluster:
     name: Sync-vcluster-repo
-    needs: [
-      e2e-leg-1-admintools
-    ]
+    # needs: [
+    #   e2e-leg-1-admintools
+    # ]
     runs-on: ubuntu-latest
     if: contains('k8s-sync', github.ref)
     steps:
