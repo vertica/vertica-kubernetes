@@ -2,7 +2,7 @@ name: e2e tests
 
 on: 
   push:
-    branches: [main, vnext, 'k8s-sync-*']
+    branches: [main, vnext ] # TODO: k8s-sync-* value back
   pull_request:
   workflow_dispatch:
     inputs:
@@ -589,7 +589,7 @@ jobs:
       e2e-udx-vcluster
     ]
     runs-on: ubuntu-latest
-    if: ${{ !failure() && !cancelled() }} && contains('k8s-sync', github.ref)
+    if: always() && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') && contains('k8s-sync', github.ref)
     steps:
       - name: Check out
         uses: actions/checkout@v4
@@ -597,10 +597,11 @@ jobs:
         # TODO: change the k8s-test-master value
         run: |
           echo "Running sync script"
-          scripts/vcluster-sync.sh ${{ github.ref }} k8s-test-master ${{ secrets.API_TOKEN }}
+          scripts/vcluster-sync.sh ${{ github.ref }} k8s-test-master ${{ secrets.VCLUSTER_CICD }}
   
   notification:
     name: team-notification
+    needs: [sync-vcluster]
     runs-on: ubuntu-latest
     if: ${{ always() }} && contains('k8s-sync', github.ref)
     steps:
