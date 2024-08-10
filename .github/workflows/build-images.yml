@@ -76,7 +76,7 @@ jobs:
       uses: spilchen/switch-case-action@v2
       id: full_vertica_image
       with:
-        default: docker.io/opentext/vertica-k8s-private:latest-master
+        default: docker.io/opentext/vertica-k8s-private:20240808
         conditionals-with-values: |
           ${{ inputs.full_vertica_image != '' }} => ${{ inputs.full_vertica_image }}
 
@@ -257,7 +257,7 @@ jobs:
       uses: spilchen/switch-case-action@v2
       id: minimal_vertica_image
       with:
-        default: docker.io/opentext/vertica-k8s-private:latest-minimal-master
+        default: docker.io/opentext/vertica-k8s-private:20240808-minimal
         conditionals-with-values: |
           ${{ inputs.minimal_vertica_image != '' }} => ${{ inputs.minimal_vertica_image }}
 
