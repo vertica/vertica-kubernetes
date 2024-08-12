@@ -1,0 +1,6 @@
+kind: Added
+body: Added a new upgrade policy - replicated upgrade. This upgrade policy allows
+  the user to write during the upgrade. It's an advanced version of online upgrade
+time: 2024-08-08T14:27:08.6761551-05:00
+custom:
+  Issue: "743"
