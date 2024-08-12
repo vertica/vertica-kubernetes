@@ -407,6 +407,11 @@ func (v *VerticaDB) IsOnlineUpgradeInProgress() bool {
 	return v.IsStatusConditionTrue(OnlineUpgradeInProgress)
 }
 
+// IsOnlineUpgradeInProgress returns true if an upgrade is in progress
+func (v *VerticaDB) IsUpgradeInProgress() bool {
+	return v.IsStatusConditionTrue(UpgradeInProgress)
+}
+
 // IsStatusConditionTrue returns true when the conditionType is present and set to
 // `metav1.ConditionTrue`
 func (v *VerticaDB) IsStatusConditionTrue(statusCondition string) bool {

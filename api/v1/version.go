@@ -90,12 +90,29 @@ func (v *VerticaDB) GetVerticaVersionStr() (string, bool) {
 	return ver, ok
 }
 
+// GetVerticaVersionStr returns vertica version prior to the upgrade
+func (v *VerticaDB) GetPreviousVerticaVersionStr() (string, bool) {
+	ver, ok := v.ObjectMeta.Annotations[vmeta.PreviousVersionAnnotation]
+	return ver, ok
+}
+
 // MakeVersionInfo will construct an Info struct by extracting the version from the
 // given vdb.  This returns false if it was unable to get the version from the
 // vdb.
 func (v *VerticaDB) MakeVersionInfo() (*version.Info, bool) {
 	vdbVer, ok := v.GetVerticaVersionStr()
 	// If the version annotation isn't present, we abort creation of Info
+	if !ok {
+		return nil, false
+	}
+	return version.MakeInfoFromStr(vdbVer)
+}
+
+// MakePerviousVersionInfo will construct an Info struct by extracting the previous version
+// from the given vdb. This returns false if it was unable to get the version from the vdb.
+func (v *VerticaDB) MakePreviousVersionInfo() (*version.Info, bool) {
+	vdbVer, ok := v.GetPreviousVerticaVersionStr()
+	// If the annotation isn't present, we abort creation of Info
 	if !ok {
 		return nil, false
 	}
