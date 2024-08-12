@@ -1,6 +1,0 @@
-kind: Fixed
-body: Ignore includeUIDInPath annotation when reviving db for locating the communal
-  storage correctly.
-time: 2024-08-08T14:21:06.7570255-05:00
-custom:
-  Issue: "835"

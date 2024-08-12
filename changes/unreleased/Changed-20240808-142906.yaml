@@ -1,6 +1,0 @@
-kind: Changed
-body: Renamed upgrade policy Online to ReadOnlyOnline, and renamed upgrade policy
-  Replicated to Online.
-time: 2024-08-08T14:29:06.0687509-05:00
-custom:
-  Issue: "841"
