@@ -98,7 +98,7 @@ jobs:
       if: ${{ inputs.action == 'upload bundle for operatorhub OLM catalog' || inputs.action == 'all' }}
       uses: ./vertica-kubernetes/.github/actions/upload-opm-bundle
       with:
-        token: ${{ secrets.PAT_TOKEN }}
+        token: ${{ secrets.OLM_RELEASE }}
         version: ${{ env.VERSION }}
         upstreamRepo: k8s-operatorhub/community-operators
         forkRepo: ${{ inputs.olm_catalog_fork_owner }}/community-operators
@@ -109,7 +109,7 @@ jobs:
       if: ${{ inputs.action == 'upload bundle for openshift OLM catalog' || inputs.action == 'all' }}
       uses: ./vertica-kubernetes/.github/actions/upload-opm-bundle
       with:
-        token: ${{ secrets.PAT_TOKEN }}
+        token: ${{ secrets.OLM_RELEASE }}
         version: ${{ env.VERSION }}
         upstreamRepo: redhat-openshift-ecosystem/community-operators-prod
         forkRepo: ${{ inputs.olm_catalog_fork_owner }}/community-operators-prod
