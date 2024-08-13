@@ -7,9 +7,9 @@ on:
 
 jobs:
   build-operator:
-    runs-on: ubuntu-latest
-    if: ${{ github.event.workflow_run.conclusion == 'success' }} && contains('server daily version', github.event.workflow_run.display_title)
-
+    runs-on: ubuntu-latest #FIXME: TEMP CHANGE CONDITION TRIGGER github.event.workflow_run.conclusion == 'success' 
+    if: ${{ always() }} && contains('server daily version', github.event.workflow_run.display_title) 
+    steps:
     - uses: actions/checkout@v4
       with:
         path: vertica-kubernetes
@@ -42,6 +42,6 @@ jobs:
         username: ${{ secrets.DOCKERHUB_USERNAME }}
         password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-    - name: Upload new image
-      run: |
-        docker buildx imagetools create --tag opentext/verticadb-operator:$VERSION ghcr.io/vertica/verticadb-operator:$VERSION_SHA
+    # - name: Upload new image
+    #   run: |
+    #     docker buildx imagetools create --tag opentext/verticadb-operator:$VERSION ghcr.io/vertica/verticadb-operator:$VERSION_SHA
