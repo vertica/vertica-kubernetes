@@ -90,12 +90,29 @@ func (v *VerticaDB) GetVerticaVersionStr() (string, bool) {
 	return ver, ok
 }
 
+// GetVerticaVersionStr returns vertica version prior to the upgrade
+func (v *VerticaDB) GetPreviousVerticaVersionStr() (string, bool) {
+	ver, ok := v.ObjectMeta.Annotations[vmeta.PreviousVersionAnnotation]
+	return ver, ok
+}
+
 // MakeVersionInfo will construct an Info struct by extracting the version from the
 // given vdb.  This returns false if it was unable to get the version from the
 // vdb.
 func (v *VerticaDB) MakeVersionInfo() (*version.Info, bool) {
 	vdbVer, ok := v.GetVerticaVersionStr()
 	// If the version annotation isn't present, we abort creation of Info
+	if !ok {
+		return nil, false
+	}
+	return version.MakeInfoFromStr(vdbVer)
+}
+
+// MakePerviousVersionInfo will construct an Info struct by extracting the previous version
+// from the given vdb. This returns false if it was unable to get the version from the vdb.
+func (v *VerticaDB) MakePreviousVersionInfo() (*version.Info, bool) {
+	vdbVer, ok := v.GetPreviousVerticaVersionStr()
+	// If the annotation isn't present, we abort creation of Info
 	if !ok {
 		return nil, false
 	}
@@ -152,4 +169,17 @@ func (v *VerticaDB) IsUpgradePathSupported(newAnnotations map[string]string) (ok
 	}
 	ok, failureReason = vinf.IsValidUpgradePath(newAnnotations[vmeta.VersionAnnotation])
 	return
+}
+
+// isOnlineUpgradeSupported returns true if the version in the Vdb is is equal or newer than
+// 24.3.0-0.
+func (v *VerticaDB) isOnlineUpgradeSupported(vinf *version.Info) bool {
+	const ver1 = "v24.3.0-0"
+	const ver2 = "v24.3.0-1"
+	vdbVer, _ := v.GetVerticaVersionStr()
+	if vdbVer == ver1 || vdbVer == ver2 {
+		// All v24.3.0-* supports online upgrade except v24.3.0-0 and v24.3.0-1
+		return false
+	}
+	return vinf.IsEqualOrNewer(OnlineUpgradeVersion)
 }

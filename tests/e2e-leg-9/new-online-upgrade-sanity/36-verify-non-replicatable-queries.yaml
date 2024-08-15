@@ -11,10 +11,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: apps/v1
-kind: StatefulSet
-metadata:
-  name: v-base-upgrade-main
-status:
-  currentReplicas: 3
-  readyReplicas: 3
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - script: |
+      val=$(kubectl exec -n $NAMESPACE v-base-upgrade-pri1-0 -c server -- vsql -tAc "alter database default set DataSSLMaxBufSize = 32768"); \
+      if [ $val == 0 ]; then \
+        exit 1; \
+      fi
+  - script: |
+      val=$(kubectl exec -n $NAMESPACE v-base-upgrade-pri1-sb-0 -c server -- vsql -tAc "alter database default set DataSSLMaxBufSize = 32768"); \
+      if [ $val == 1 ]; then \
+        exit 1; \
+      fi

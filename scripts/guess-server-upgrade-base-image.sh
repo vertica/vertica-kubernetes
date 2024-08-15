@@ -73,7 +73,7 @@ then
         print_vertica_k8s_img_with_tag $PRIVATE_REPO $PRIVATE_IMAGE "1f759615f0f723080b398edcf096a0bc8bc03aef-minimal"
     else
         # For all newer versions, we pick a random 24.3.0 image.
-        print_vertica_k8s_img_with_tag $PRIVATE_REPO $PRIVATE_IMAGE "20240526-minimal"
+        print_vertica_k8s_img_with_tag $PRIVATE_REPO $PRIVATE_IMAGE "20240724-minimal"
     fi
 else
     print_vertica_k8s_img $PUBLIC_REPO $PUBLIC_IMAGE 12 0 2

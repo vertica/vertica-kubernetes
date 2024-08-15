@@ -257,7 +257,7 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		// have finished being rebalanced.
 		MakeClientRoutingLabelReconciler(r, log, vdb, pfacts, AddNodeApplyMethod, ""),
 		// Handle calls to add subclusters to sandboxes
-		MakeSandboxSubclusterReconciler(r, log, vdb, pfacts, dispatcher, r.Client),
+		MakeSandboxSubclusterReconciler(r, log, vdb, pfacts, dispatcher, r.Client, false),
 		// Handle calls to move subclusters from sandboxes to main cluster
 		MakeUnsandboxSubclusterReconciler(r, log, vdb, r.Client),
 		// Trigger sandbox upgrade when the image field for the sandbox

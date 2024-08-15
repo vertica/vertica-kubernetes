@@ -671,7 +671,7 @@ func (i *UpgradeManager) createRestorePoint(ctx context.Context, pfacts *PodFact
 		return v.isPrimary && v.upNode
 	})
 	if !ok {
-		i.Log.Info("No pod found to run vsql. Requeueing")
+		i.Log.Info("No pod found to run vsql. Requeueing for retrying creating restore point")
 		return ctrl.Result{Requeue: true}, nil
 	}
 
@@ -687,15 +687,25 @@ func (i *UpgradeManager) createRestorePoint(ctx context.Context, pfacts *PodFact
 		return ctrl.Result{}, err
 	}
 	// Create the archive only if it does not already exist
+	clearKnob := "alter session set DisableNonReplicatableQueries = 0;"
+	setKnob := "alter session clear DisableNonReplicatableQueries;"
 	if arch == 0 {
-		sql = fmt.Sprintf("create archive %s;", archive)
+		if pf.sandbox == vapi.MainCluster {
+			sql = fmt.Sprintf("%s create archive %s; %s", clearKnob, archive, setKnob)
+		} else {
+			sql = fmt.Sprintf("create archive %s;", archive)
+		}
 		cmd = []string{"-tAc", sql}
 		_, _, err = pfacts.PRunner.ExecVSQL(ctx, pf.name, names.ServerContainer, cmd...)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
 	}
-	sql = fmt.Sprintf("save restore point to archive %s;", archive)
+	if pf.sandbox == vapi.MainCluster {
+		sql = fmt.Sprintf("%s save restore point to archive %s; %s", clearKnob, archive, setKnob)
+	} else {
+		sql = fmt.Sprintf("save restore point to archive %s;", archive)
+	}
 	cmd = []string{"-tAc", sql}
 	_, _, err = pfacts.PRunner.ExecVSQL(ctx, pf.name, names.ServerContainer, cmd...)
 	return ctrl.Result{}, err
@@ -756,4 +766,28 @@ func (i *UpgradeManager) getSubclusterNameFromSts(ctx context.Context, stsName s
 		return "", fmt.Errorf("could not find subcluster name label %q in %q", vmeta.SubclusterNameLabel, stsName)
 	}
 	return scNameFromLabel, nil
+}
+
+func (i *UpgradeManager) checkAllSubscriptionsActive(ctx context.Context, pfacts *PodFacts) (ctrl.Result, error) {
+	pf, ok := pfacts.findFirstPodSorted(func(v *PodFact) bool {
+		return v.isPrimary && v.upNode
+	})
+	if !ok {
+		i.Log.Info("No pod found to run vsql. Requeueing for retrying checking subscription status")
+		return ctrl.Result{Requeue: true}, nil
+	}
+
+	cmd := []string{"-tAc", "SELECT count(*) FROM node_subscriptions WHERE subscription_state != 'ACTIVE';"}
+	stdout, _, err := pfacts.PRunner.ExecVSQL(ctx, pf.name, names.ServerContainer, cmd...)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	lines := strings.Split(stdout, "\n")
+	inactive, err := strconv.Atoi(lines[0])
+	if err != nil || inactive == 0 {
+		return ctrl.Result{}, err
+	}
+
+	i.Log.Info("One or more node subscriptions is not active, requeueing")
+	return ctrl.Result{Requeue: true}, nil
 }
