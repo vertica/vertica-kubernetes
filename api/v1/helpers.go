@@ -407,9 +407,9 @@ func (v *VerticaDB) IsOnlineUpgradeInProgress() bool {
 	return v.IsStatusConditionTrue(OnlineUpgradeInProgress)
 }
 
-// IsOnlineUpgradeInProgress returns true if an upgrade is in progress
-func (v *VerticaDB) IsUpgradeInProgress() bool {
-	return v.IsStatusConditionTrue(UpgradeInProgress)
+// IsROOnlineUpgradeInProgress returns true if an read-only online upgrade is in progress
+func (v *VerticaDB) IsROUpgradeInProgress() bool {
+	return v.IsStatusConditionTrue(ReadOnlyOnlineUpgradeInProgress)
 }
 
 // IsStatusConditionTrue returns true when the conditionType is present and set to

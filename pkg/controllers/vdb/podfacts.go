@@ -771,11 +771,11 @@ func (p *PodFacts) makeNodeInfoFetcher(vdb *vapi.VerticaDB, pf *PodFact) catalog
 	var ok bool
 	oldVerInfo, ok1 := vdb.MakePreviousVersionInfo()
 	newVerInfo, ok2 := vdb.MakeVersionInfo()
-	// During the upgrade, we should use the old version to determine if we will call
+	// During read-only online upgrade, we should use the old version to determine if we will call
 	// vclusterOps API to collect node info. The reason is some subclusters might uses
 	// a low version that does not contain vcluster API in the midst of the upgrade.
 	// Apart from the upgrade, we should check current version to make the decision.
-	if vdb.IsUpgradeInProgress() {
+	if vdb.IsROUpgradeInProgress() {
 		verInfo = oldVerInfo
 		ok = ok1
 	} else {

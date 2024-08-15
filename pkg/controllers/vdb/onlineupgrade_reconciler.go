@@ -104,6 +104,7 @@ const (
 	rebalanceShardsInx
 	waitForActiveSubsInx
 	setConfigParamInx
+	clearConfigParamInx
 	upgradeSandboxInx
 	backupBeforeReplicationInx
 	replicationInx
@@ -455,7 +456,8 @@ func (r *OnlineUpgradeReconciler) setConfigParamDisableNonReplicatableQueries(ct
 	if r.originalConfigParamDisableNonReplicatableQueriesValue == "1" {
 		return ctrl.Result{}, r.updateOnlineUpgradeStepAnnotation(ctx, r.getNextStep())
 	}
-	if res, err := r.setConfigParamDisableNonReplicatableQueriesImpl(ctx, ConfigParamBoolTrue, r.sandboxName); err != nil {
+	res, err := r.setConfigParamDisableNonReplicatableQueriesImpl(ctx, ConfigParamBoolTrue, r.sandboxName)
+	if verrors.IsReconcileAborted(res, err) {
 		return res, err
 	}
 	r.Log.Info("set DisableNonReplicatableQueries in main cluster before sandboxing")
@@ -471,18 +473,19 @@ func (r *OnlineUpgradeReconciler) postClearConfigParamDisableNonReplicatableQuer
 // clearConfigParamDisableNonReplicatableQueries clears the config parameter
 // DisableNonReplicatableQueries from the sandbox
 func (r *OnlineUpgradeReconciler) clearConfigParamDisableNonReplicatableQueries(ctx context.Context) (ctrl.Result, error) {
-	if vmeta.GetOnlineUpgradeStepInx(r.VDB.Annotations) > promoteSandboxInx {
+	if vmeta.GetOnlineUpgradeStepInx(r.VDB.Annotations) > clearConfigParamInx {
 		return ctrl.Result{}, nil
 	}
 	// update podfacts for sandbox
 	if _, err := r.getSandboxPodFacts(ctx, true); err != nil {
 		return ctrl.Result{}, err
 	}
-	if res, err := r.setConfigParamDisableNonReplicatableQueriesImpl(ctx, ConfigParamBoolFalse, r.sandboxName); err != nil {
+	res, err := r.setConfigParamDisableNonReplicatableQueriesImpl(ctx, ConfigParamBoolFalse, r.sandboxName)
+	if verrors.IsReconcileAborted(res, err) {
 		return res, err
 	}
 	r.Log.Info(fmt.Sprintf("cleared DisableNonReplicatableQueries in sandbox %s", r.sandboxName))
-	return ctrl.Result{}, nil
+	return ctrl.Result{}, r.updateOnlineUpgradeStepAnnotation(ctx, r.getNextStep())
 }
 
 // setConfigParamDisableNonReplicatableQueriesImpl sets the config parameter
