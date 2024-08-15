@@ -254,7 +254,6 @@ const (
 	// subcluster in the other replica group. This annotation is used to
 	// establish the relationship.
 	ParentSubclusterAnnotation = "vertica.com/parent-subcluster"
-	ChildSubclusterAnnotation  = "vertica.com/child-subcluster"
 	// For each subcluster in replica group b, this is type of the associated
 	// subcluster in replica group a.
 	ParentSubclusterTypeAnnotation = "vertica.com/parent-subcluster-type"
@@ -266,11 +265,9 @@ const (
 	// This is the name of the VerticaReplicator that is generated during a online upgrade
 	OnlineUpgradeReplicatorAnnotation = "vertica.com/online-upgrade-replicator-name"
 
-	// During online upgrade, we store an annotation in the VerticaDB to indicate
-	// that we have done sandbox promotion.
-	OnlineUpgradeSandboxPromotedAnnotation = "vertica.com/online-upgrade-sandbox-promoted"
-	SandboxPromotedTrue                    = "true"
-	SandboxPromotedFalse                   = "false"
+	// During online upgrade, this annotation store some steps that we have
+	// already passed. This will allow us to skip them.
+	OnlineUpgradeStepInxAnnotation = "vertica.com/online-upgrade-step-index"
 
 	// During online upgrade, we store an annotation in the VerticaDB to indicate
 	// that we have removed old-main-cluster/replica-group-A.
@@ -526,9 +523,9 @@ func GetOnlineUpgradeSandbox(annotations map[string]string) string {
 	return lookupStringAnnotation(annotations, OnlineUpgradeSandboxAnnotation, "")
 }
 
-// GetOnlineUpgradeSandboxPromoted returns if sandbox has been promoted in online upgrade.
-func GetOnlineUpgradeSandboxPromoted(annotations map[string]string) string {
-	return lookupStringAnnotation(annotations, OnlineUpgradeSandboxPromotedAnnotation, SandboxPromotedFalse)
+// GetOnlineUpgradeStepInx returns the online upgrade step we are in.
+func GetOnlineUpgradeStepInx(annotations map[string]string) int {
+	return lookupIntAnnotation(annotations, OnlineUpgradeStepInxAnnotation, 0)
 }
 
 // GetOnlineUpgradeReplicaARemoved returns if replica A has been removed in online upgrade.
@@ -593,7 +590,7 @@ func genResourcesAnnotationName(prefix string, resourceName corev1.ResourceName)
 	// resource name like "limits.cpu" or "requests.memory". We don't want the
 	// period in the annotation name since it doesn't fit the style, so we
 	// replace that with a dash.
-	return fmt.Sprintf("%s-%s", prefix, strings.Replace(string(resourceName), ".", "-", 1))
+	return genAnnotationName(prefix, strings.Replace(string(resourceName), ".", "-", 1))
 }
 
 // getResource retrieves a specific resource given the annotation.
@@ -612,4 +609,8 @@ func getResource(annotations map[string]string, annotationName, defValStr string
 		return defVal
 	}
 	return quantity
+}
+
+func genAnnotationName(prefix, name string) string {
+	return fmt.Sprintf("%s-%s", prefix, name)
 }

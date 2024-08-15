@@ -25,6 +25,10 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
+const (
+	ReasonSucceeded = "Succeeded"
+)
+
 // Affinity is used instead of corev1.Affinity and behaves the same.
 // This structure is used in some CRs fields to define the "Affinity".
 // corev1.Affinity is composed of 3 fields and for each of them,
@@ -158,6 +162,23 @@ func (vrep *VerticaReplicator) IsStatusConditionPresent(statusCondition string) 
 
 func (vrpq *VerticaRestorePointsQuery) IsStatusConditionPresent(statusCondition string) bool {
 	return meta.FindStatusCondition(vrpq.Status.Conditions, statusCondition) != nil
+}
+
+// FindStatusCondition finds the conditionType in conditions.
+func (vrep *VerticaReplicator) FindStatusCondition(conditionType string) *metav1.Condition {
+	return meta.FindStatusCondition(vrep.Status.Conditions, conditionType)
+}
+
+func (vrep *VerticaReplicator) IsStatusConditionTrue(statusCondition string) bool {
+	return meta.IsStatusConditionTrue(vrep.Status.Conditions, statusCondition)
+}
+
+func (vrep *VerticaReplicator) IsStatusConditionFalse(statusCondition string) bool {
+	return meta.IsStatusConditionFalse(vrep.Status.Conditions, statusCondition)
+}
+
+func (vrep *VerticaReplicator) IsStatusConditionPresent(statusCondition string) bool {
+	return meta.FindStatusCondition(vrep.Status.Conditions, statusCondition) != nil
 }
 
 func MakeSampleVrpqName() types.NamespacedName {

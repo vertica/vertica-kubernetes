@@ -102,6 +102,10 @@ export VLOGGER_IMG
 # If the current leg in the CI tests is leg-9
 LEG9 ?= no
 export LEG9
+
+# What alpine image does the vlogger image use
+VLOGGER_BASE_IMG?=alpine
+
 # What version of alpine does the vlogger image use
 VLOGGER_ALPINE_VERSION?=3.19
 # The port number for the local registry
@@ -390,10 +394,11 @@ docker-build-operator: manifests generate fmt vet ## Build operator docker image
 
 .PHONY: docker-build-vlogger
 docker-build-vlogger:  ## Build vertica logger docker image
-	docker pull alpine:${VLOGGER_ALPINE_VERSION} # Ensure we have the latest alpine version
+	docker pull ${VLOGGER_BASE_IMG}:${VLOGGER_ALPINE_VERSION} # Ensure we have the latest alpine version
 	docker buildx build \
 		-t ${VLOGGER_IMG} \
 		--load \
+		--build-arg BASE_IMG=${VLOGGER_BASE_IMG} \
 		--build-arg ALPINE_VERSION=${VLOGGER_ALPINE_VERSION} \
 		-f docker-vlogger/Dockerfile .
 
