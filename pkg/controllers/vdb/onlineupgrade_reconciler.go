@@ -104,6 +104,7 @@ const (
 	rebalanceShardsInx
 	waitForActiveSubsInx
 	setConfigParamInx
+	clearConfigParamInx
 	upgradeSandboxInx
 	backupBeforeReplicationInx
 	replicationInx
@@ -472,7 +473,7 @@ func (r *OnlineUpgradeReconciler) postClearConfigParamDisableNonReplicatableQuer
 // clearConfigParamDisableNonReplicatableQueries clears the config parameter
 // DisableNonReplicatableQueries from the sandbox
 func (r *OnlineUpgradeReconciler) clearConfigParamDisableNonReplicatableQueries(ctx context.Context) (ctrl.Result, error) {
-	if vmeta.GetOnlineUpgradeStepInx(r.VDB.Annotations) > promoteSandboxInx {
+	if vmeta.GetOnlineUpgradeStepInx(r.VDB.Annotations) > clearConfigParamInx {
 		return ctrl.Result{}, nil
 	}
 	// update podfacts for sandbox
@@ -484,7 +485,7 @@ func (r *OnlineUpgradeReconciler) clearConfigParamDisableNonReplicatableQueries(
 		return res, err
 	}
 	r.Log.Info(fmt.Sprintf("cleared DisableNonReplicatableQueries in sandbox %s", r.sandboxName))
-	return ctrl.Result{}, nil
+	return ctrl.Result{}, r.updateOnlineUpgradeStepAnnotation(ctx, r.getNextStep())
 }
 
 // setConfigParamDisableNonReplicatableQueriesImpl sets the config parameter
