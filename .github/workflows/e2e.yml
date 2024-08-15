@@ -2,7 +2,7 @@ name: e2e tests
 
 on: 
   push:
-    branches: [main, vnext]
+    branches: [main]
   pull_request:
   workflow_dispatch:
     inputs:
