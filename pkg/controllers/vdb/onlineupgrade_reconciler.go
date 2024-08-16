@@ -104,8 +104,10 @@ const (
 	rebalanceShardsInx
 	waitForActiveSubsInx
 	setConfigParamInx
+	sandboxInx
 	clearConfigParamInx
 	upgradeSandboxInx
+	waitForSandboxUpgradeInx
 	backupBeforeReplicationInx
 	replicationInx
 	backupAfterReplicationInx
@@ -511,18 +513,8 @@ func (r *OnlineUpgradeReconciler) postSandboxSubclustersMsg(ctx context.Context)
 
 // sandboxReplicaGroupB will move all of the subclusters in replica B to a new sandbox
 func (r *OnlineUpgradeReconciler) sandboxReplicaGroupB(ctx context.Context) (ctrl.Result, error) {
-	// We can skip this step if the replica sandbox is already created and fully
-	// sandboxed (according to status).
-	if r.sandboxName != "" {
-		sb := r.VDB.GetSandboxStatus(r.sandboxName)
-		rgbSize := r.countSubclustersForReplicaGroup(vmeta.ReplicaGroupBValue)
-		if sb != nil && rgbSize == len(sb.Subclusters) {
-			return ctrl.Result{}, nil
-		}
-	}
-
-	// If we have already promoted sandbox to main, we don't need to sandbox replica B again
-	if vmeta.GetOnlineUpgradeStepInx(r.VDB.Annotations) > promoteSandboxInx {
+	// Skip this step if sandboxing is already done
+	if vmeta.GetOnlineUpgradeStepInx(r.VDB.Annotations) > sandboxInx {
 		return ctrl.Result{}, nil
 	}
 
@@ -542,24 +534,34 @@ func (r *OnlineUpgradeReconciler) sandboxReplicaGroupB(ctx context.Context) (ctr
 		r.Log.Info("Created new sandbox in vdb", "sandboxName", r.sandboxName)
 	}
 
-	// The nodes in the subcluster to sandbox must be running in order for
-	// sandboxing to work. For this reason, we need to use the restart
-	// reconciler to restart any down nodes.
-	res, err := r.restartMainCluster(ctx)
-	if verrors.IsReconcileAborted(res, err) {
-		return res, err
+	sb := r.VDB.GetSandboxStatus(r.sandboxName)
+	rgbSize := r.countSubclustersForReplicaGroup(vmeta.ReplicaGroupBValue)
+	// check if subclusters are already in the sandbox
+	if !(sb != nil && rgbSize == len(sb.Subclusters)) {
+		// The nodes in the subcluster to sandbox must be running in order for
+		// sandboxing to work. For this reason, we need to use the restart
+		// reconciler to restart any down nodes.
+		res, err := r.restartMainCluster(ctx)
+		if verrors.IsReconcileAborted(res, err) {
+			return res, err
+		}
+	}
+
+	if len(r.VDB.Spec.Sandboxes) == 0 {
+		r.Log.Info("Still waiting for sandbox to be added in VDB")
+		return ctrl.Result{Requeue: true}, nil
 	}
 
 	// Drive the actual sandbox command. When this returns we know the sandbox is complete.
 	actor := MakeSandboxSubclusterReconciler(r.VRec, r.Log, r.VDB, r.PFacts[vapi.MainCluster], r.Dispatcher, r.VRec.Client, true)
 	r.Manager.traceActorReconcile(actor)
-	res, err = actor.Reconcile(ctx, &ctrl.Request{})
+	res, err := actor.Reconcile(ctx, &ctrl.Request{})
 	if verrors.IsReconcileAborted(res, err) {
 		return res, err
 	}
 
 	r.Log.Info("subclusters in replica group B have been sandboxed", "sandboxName", r.sandboxName)
-	return ctrl.Result{}, nil
+	return ctrl.Result{}, r.updateOnlineUpgradeStepAnnotation(ctx, r.getNextStep())
 }
 
 // postPromoteSubclustersInSandboxMsg will update the status message to indicate that
@@ -605,37 +607,48 @@ func (r *OnlineUpgradeReconciler) upgradeSandbox(ctx context.Context) (ctrl.Resu
 		return ctrl.Result{}, fmt.Errorf("could not find sandbox %q", r.sandboxName)
 	}
 
-	// We can skip if the image in the sandbox matches the image in the vdb.
-	// This is the new version that we are upgrading to.
-	if sb.Image == r.VDB.Spec.Image {
-		return ctrl.Result{}, nil
-	}
-
-	updated, err := vk8s.UpdateVDBWithRetry(ctx, r.VRec, r.VDB, r.setImageInSandbox)
-	if err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed trying to update image in sandbox: %w", err)
-	}
-	if updated {
-		r.Log.Info("update image in sandbox", "image", r.VDB.Spec.Image)
-
-		// Get the sandbox podfacts only to invalidate the cache
-		sbPFacts, err := r.getSandboxPodFacts(ctx, false)
+	// We can skip updating vdb if the image in the sandbox matches the image in the vdb.
+	if sb.Image != r.VDB.Spec.Image {
+		updated, err := vk8s.UpdateVDBWithRetry(ctx, r.VRec, r.VDB, r.setImageInSandbox)
 		if err != nil {
-			return ctrl.Result{}, err
+			return ctrl.Result{}, fmt.Errorf("failed trying to update image in sandbox: %w", err)
 		}
-		sbPFacts.Invalidate()
+		if updated {
+			r.Log.Info("update image in sandbox", "image", r.VDB.Spec.Image)
+
+			// Get the sandbox podfacts only to invalidate the cache
+			sbPFacts, err := r.getSandboxPodFacts(ctx, false)
+			if err != nil {
+				return ctrl.Result{}, err
+			}
+			sbPFacts.Invalidate()
+		}
+	}
+
+	sb = r.VDB.GetSandbox(r.sandboxName)
+	if sb == nil {
+		return ctrl.Result{}, fmt.Errorf("could not find sandbox %q", r.sandboxName)
+	}
+	if sb.Image != r.VDB.Spec.Image {
+		r.Log.Info("Still waiting for sandbox image to be updated in VDB")
+		return ctrl.Result{Requeue: true}, nil
 	}
 
 	act := MakeSandboxUpgradeReconciler(r.VRec, r.Log, r.VDB)
 	r.Manager.traceActorReconcile(act)
-	return act.Reconcile(ctx, &ctrl.Request{})
+	res, err := act.Reconcile(ctx, &ctrl.Request{})
+	if verrors.IsReconcileAborted(res, err) {
+		return res, err
+	}
+	r.Log.Info("sandbox config map has updated for an upgrade", "sandboxName", r.sandboxName)
+	return ctrl.Result{}, r.updateOnlineUpgradeStepAnnotation(ctx, r.getNextStep())
 }
 
 // waitForSandboxUpgrade will wait for the sandbox upgrade to finish. It will
 // continually check if the pods in the sandbox are up.
 func (r *OnlineUpgradeReconciler) waitForSandboxUpgrade(ctx context.Context) (ctrl.Result, error) {
 	// We skip this if sandbox upgrade already happened
-	if vmeta.GetOnlineUpgradeStepInx(r.VDB.Annotations) > upgradeSandboxInx {
+	if vmeta.GetOnlineUpgradeStepInx(r.VDB.Annotations) > waitForSandboxUpgradeInx {
 		return ctrl.Result{}, nil
 	}
 
