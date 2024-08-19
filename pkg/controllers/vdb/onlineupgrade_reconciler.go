@@ -106,7 +106,6 @@ const (
 	setConfigParamInx
 	sandboxInx
 	clearConfigParamInx
-	upgradeSandboxInx
 	waitForSandboxUpgradeInx
 	backupBeforeReplicationInx
 	replicationInx
@@ -597,8 +596,8 @@ func (r *OnlineUpgradeReconciler) postUpgradeSandboxMsg(ctx context.Context) (ct
 
 // upgradeSandbox will upgrade the nodes in replica group B (sandbox) to the new version.
 func (r *OnlineUpgradeReconciler) upgradeSandbox(ctx context.Context) (ctrl.Result, error) {
-	// We skip this if sandbox upgrade already happened
-	if vmeta.GetOnlineUpgradeStepInx(r.VDB.Annotations) > upgradeSandboxInx {
+	// We skip this if sandbox upgrade is already done
+	if vmeta.GetOnlineUpgradeStepInx(r.VDB.Annotations) > waitForSandboxUpgradeInx {
 		return ctrl.Result{}, nil
 	}
 
@@ -608,8 +607,10 @@ func (r *OnlineUpgradeReconciler) upgradeSandbox(ctx context.Context) (ctrl.Resu
 	}
 
 	// We can skip updating vdb if the image in the sandbox matches the image in the vdb.
+	updated := false
 	if sb.Image != r.VDB.Spec.Image {
-		updated, err := vk8s.UpdateVDBWithRetry(ctx, r.VRec, r.VDB, r.setImageInSandbox)
+		var err error
+		updated, err = vk8s.UpdateVDBWithRetry(ctx, r.VRec, r.VDB, r.setImageInSandbox)
 		if err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed trying to update image in sandbox: %w", err)
 		}
@@ -625,23 +626,26 @@ func (r *OnlineUpgradeReconciler) upgradeSandbox(ctx context.Context) (ctrl.Resu
 		}
 	}
 
-	sb = r.VDB.GetSandbox(r.sandboxName)
-	if sb == nil {
-		return ctrl.Result{}, fmt.Errorf("could not find sandbox %q", r.sandboxName)
+	if updated {
+		// wait for vdb to be updated
+		sb = r.VDB.GetSandbox(r.sandboxName)
+		if sb == nil {
+			return ctrl.Result{}, fmt.Errorf("could not find sandbox %q", r.sandboxName)
+		}
+		if sb.Image != r.VDB.Spec.Image {
+			r.Log.Info("Still waiting for sandbox image to be updated in VDB")
+			return ctrl.Result{Requeue: true}, nil
+		}
+		// update sandbox config map
+		act := MakeSandboxUpgradeReconciler(r.VRec, r.Log, r.VDB)
+		r.Manager.traceActorReconcile(act)
+		res, err := act.Reconcile(ctx, &ctrl.Request{})
+		if verrors.IsReconcileAborted(res, err) {
+			return res, err
+		}
+		r.Log.Info("sandbox config map has updated for an upgrade", "sandboxName", r.sandboxName)
 	}
-	if sb.Image != r.VDB.Spec.Image {
-		r.Log.Info("Still waiting for sandbox image to be updated in VDB")
-		return ctrl.Result{Requeue: true}, nil
-	}
-
-	act := MakeSandboxUpgradeReconciler(r.VRec, r.Log, r.VDB)
-	r.Manager.traceActorReconcile(act)
-	res, err := act.Reconcile(ctx, &ctrl.Request{})
-	if verrors.IsReconcileAborted(res, err) {
-		return res, err
-	}
-	r.Log.Info("sandbox config map has updated for an upgrade", "sandboxName", r.sandboxName)
-	return ctrl.Result{}, r.updateOnlineUpgradeStepAnnotation(ctx, r.getNextStep())
+	return ctrl.Result{}, nil
 }
 
 // waitForSandboxUpgrade will wait for the sandbox upgrade to finish. It will
