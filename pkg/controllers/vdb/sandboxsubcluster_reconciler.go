@@ -29,6 +29,7 @@ import (
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/pollscstate"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/sandboxsc"
 	"github.com/vertica/vertica-kubernetes/pkg/vdbstatus"
 	"github.com/vertica/vertica-kubernetes/pkg/vk8s"
@@ -203,6 +204,11 @@ func (s *SandboxSubclusterReconciler) executeSandboxCommand(ctx context.Context,
 			err = s.addSandboxedSubclusterToStatus(ctx, sc, sb)
 			if err != nil {
 				return ctrl.Result{}, err
+			}
+
+			res, err = s.waitForSandboxScUp(ctx, sb, sc)
+			if err != nil {
+				return res, err
 			}
 		}
 	}
@@ -446,4 +452,16 @@ func (s *SandboxSubclusterReconciler) addSandboxedSubclusterToStatus(ctx context
 		return nil
 	}
 	return vdbstatus.Update(ctx, s.Client, s.Vdb, updateStatus)
+}
+
+func (s *SandboxSubclusterReconciler) waitForSandboxScUp(ctx context.Context, sb, sc string) (ctrl.Result, error) {
+	initiatorIPs, res, err := s.findInitiatorIPs(ctx, sb)
+	if verrors.IsReconcileAborted(res, err) {
+		return res, err
+	}
+	err = s.Dispatcher.PollSubclusterState(ctx,
+		pollscstate.WithInitiators(initiatorIPs),
+		pollscstate.WithSubcluster(sc),
+	)
+	return ctrl.Result{Requeue: err != nil}, err
 }
