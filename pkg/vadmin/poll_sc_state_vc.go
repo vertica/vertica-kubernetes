@@ -30,16 +30,10 @@ func (v *VClusterOps) PollSubclusterState(ctx context.Context, opts ...pollscsta
 	defer v.tearDownForAPICall()
 	v.Log.Info("Starting vcluster PollSubclusterState")
 
-	// get the certs
-	certs, err := v.retrieveNMACerts(ctx)
-	if err != nil {
-		return
-	}
-
 	s := pollscstate.Params{}
 	s.Make(opts...)
 
-	vcOpts := v.genPollSubclusterStateOptions(&s, certs)
+	vcOpts := v.genPollSubclusterStateOptions(&s)
 	err = v.VPollSubclusterState(vcOpts)
 	if err != nil {
 		return fmt.Errorf("subcluster polling failed: %w", err)
@@ -48,7 +42,7 @@ func (v *VClusterOps) PollSubclusterState(ctx context.Context, opts ...pollscsta
 	return
 }
 
-func (v *VClusterOps) genPollSubclusterStateOptions(s *pollscstate.Params, certs *HTTPSCerts) *vops.VPollSubclusterStateOptions {
+func (v *VClusterOps) genPollSubclusterStateOptions(s *pollscstate.Params) *vops.VPollSubclusterStateOptions {
 	opts := vops.VPollSubclusterStateOptionsFactory()
 
 	// required options
@@ -63,9 +57,6 @@ func (v *VClusterOps) genPollSubclusterStateOptions(s *pollscstate.Params, certs
 	// auth options
 	opts.UserName = v.VDB.GetVerticaUser()
 	opts.Password = &v.Password
-	opts.Key = certs.Key
-	opts.Cert = certs.Cert
-	opts.CaCert = certs.CaCert
 
 	return &opts
 }

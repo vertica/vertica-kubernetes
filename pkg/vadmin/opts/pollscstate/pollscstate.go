@@ -15,7 +15,7 @@
 
 package pollscstate
 
-// Parms holds all of the options for FetchNodeState API call.
+// Parms holds all of the options for PollSubclusterState API call.
 type Params struct {
 	InitiatorIPs []string
 	Subcluster   string
