@@ -1,8 +1,8 @@
 name: e2e tests
 
 on: 
-  # push:
-  #   branches: [main, vnext, k8s-sync-* ] # TODO: k8s-sync-* value back
+  push:
+    branches: [main, k8s-sync-*]
   pull_request:
   workflow_dispatch:
     inputs:
