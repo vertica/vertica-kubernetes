@@ -2,7 +2,7 @@ name: e2e tests
 
 on: 
   push:
-    branches: [main, vnext]
+    branches: [main, k8s-sync-*]
   pull_request:
   workflow_dispatch:
     inputs:
@@ -561,3 +561,53 @@ jobs:
           vertica-image: ${{ needs.build.outputs.full-vertica-image }}
           vertica-deployment-method: vclusterops
           communal-storage-type: s3
+  
+  sync-vcluster:
+    name: Sync-vcluster-repo
+    needs: [
+      e2e-leg-1-admintools,
+      e2e-leg-1-admintools-previous-release,
+      e2e-leg-1-vcluster,
+      e2e-leg-2-admintools,
+      e2e-leg-2-admintools-previous-release,
+      e2e-leg-2-vcluster,
+      e2e-leg-3-admintools,
+      e2e-leg-3-vclusterops-previous-release,
+      e2e-leg-3-vcluster,
+      e2e-leg-4-admintools,
+      e2e-leg-4-vcluster,
+      e2e-leg-5-admintools,
+      e2e-leg-5-vcluster,
+      e2e-leg-6-vcluster,
+      e2e-leg-7-vcluster,
+      e2e-leg-8-vcluster,
+      e2e-leg-9-vcluster,
+      e2e-server-upgrade-admintools,
+      e2e-server-upgrade-vcluster,
+      e2e-operator-upgrade,
+      e2e-udx-admintools,
+      e2e-udx-vcluster
+    ]
+    runs-on: ubuntu-latest
+    if: ${{ always() }} && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') && contains('k8s-sync', github.ref_name)
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+      - name: Run Sync script
+        run: |
+          echo "Running sync script"
+          scripts/vcluster-sync.sh ${{ github.ref }} main ${{ secrets.VCLUSTER_CICD }}
+  
+  notification:
+    name: team-notification
+    needs: [sync-vcluster]
+    runs-on: ubuntu-latest
+    if: ${{ always() }} && contains('k8s-sync', github.ref)
+    steps:
+      - name: notification
+        uses: jdcargile/ms-teams-notification@v1.4
+        with:
+          github-token: ${{ github.token }}
+          ms-teams-webhook-uri: ${{ secrets.MS_TEAMS_WEBHOOK_URI }}
+          notification-summary: ${{ github.job }} job in worflow ${{ github.workflow }} of ${{ github.repository }} has ${{ job.status }} on branch ${{ github.ref }}
+          verbose-logging: true
