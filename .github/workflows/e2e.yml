@@ -589,7 +589,7 @@ jobs:
       e2e-udx-vcluster
     ]
     runs-on: ubuntu-latest
-    if: ${{ always() }} && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') && contains('k8s-sync', github.ref_name)
+    if: ${{ always() && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') && contains('k8s-sync', github.ref_name) && (github.event_name == 'push')}} 
     steps:
       - name: Check out
         uses: actions/checkout@v4
