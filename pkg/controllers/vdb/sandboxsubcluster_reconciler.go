@@ -173,6 +173,12 @@ func (s *SandboxSubclusterReconciler) executeSandboxCommand(ctx context.Context,
 			sb, found := scSbMap[sc]
 			if !found {
 				// assume it is already sandboxed
+				if i == 0 {
+					// we need the sandbox primary sc to be up so we can tell it about the sc being added
+					if res, err := s.waitForSandboxScUp(ctx, sb, sc); err != nil {
+						return res, err
+					}
+				}
 				continue
 			}
 			res, err := s.sandboxSubcluster(ctx, sc, sb)

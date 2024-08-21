@@ -53,6 +53,7 @@ func (v *VClusterOps) genPollSubclusterStateOptions(s *pollscstate.Params) *vops
 	opts.IPv6 = net.IsIPv6(s.InitiatorIPs[0])
 
 	opts.SCName = s.Subcluster
+	opts.Timeout = s.Timeout
 
 	// auth options
 	opts.UserName = v.VDB.GetVerticaUser()

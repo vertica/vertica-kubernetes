@@ -19,6 +19,7 @@ package pollscstate
 type Params struct {
 	InitiatorIPs []string
 	Subcluster   string
+	Timeout      int
 }
 
 type Option func(*Params)
@@ -39,5 +40,11 @@ func WithInitiators(initiatorIPs []string) Option {
 func WithSubcluster(scName string) Option {
 	return func(s *Params) {
 		s.Subcluster = scName
+	}
+}
+
+func WithTimeout(timeout int) Option {
+	return func(s *Params) {
+		s.Timeout = timeout
 	}
 }

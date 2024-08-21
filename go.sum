@@ -97,8 +97,8 @@ github.com/evanphx/json-patch/v5 v5.6.0 h1:b91NhWfaz02IuVxO9faSllyAtNXHMPkC5J8sJ
 github.com/evanphx/json-patch/v5 v5.6.0/go.mod h1:G79N1coSVB93tBe7j6PhzjmR3/2VvlbKOFpnXhI9Bw4=
 github.com/fatih/color v1.14.1 h1:qfhVLaG5s+nCROl1zJsZRxFeYrHLqWroPOQ8BWiNb4w=
 github.com/fatih/color v1.14.1/go.mod h1:2oHN61fhTpgcxD3TSWCgKDiH1+x4OiDVVGH8WlgGZGg=
-github.com/fenic-fawkes/vcluster v0.0.8 h1:8b7qopJa54AaazRa8HSlmVp/GwnGtlTALGEg6gSALVk=
-github.com/fenic-fawkes/vcluster v0.0.8/go.mod h1:yZ3lnvlwuXWgyCZ9Z6bMYisVjP6Ecffl+Lk5wGX/lPQ=
+github.com/fenic-fawkes/vcluster v0.0.10 h1:tbMwp7omAS+8dNJbmWHfdKEi0R+gxKtKx9xhzkxKYsY=
+github.com/fenic-fawkes/vcluster v0.0.10/go.mod h1:yZ3lnvlwuXWgyCZ9Z6bMYisVjP6Ecffl+Lk5wGX/lPQ=
 github.com/fsnotify/fsnotify v1.7.0 h1:8JEhPFa5W2WU7YfeZzPNqzMP6Lwt7L2715Ggo0nosvA=
 github.com/fsnotify/fsnotify v1.7.0/go.mod h1:40Bi/Hjc2AVfZrqy+aj+yEI+/bRxZnMJyTJwOpGvigM=
 github.com/ghodss/yaml v1.0.0 h1:wQHKEahhL6wmXdzwWG11gIVCkOv05bNOh+Rxn0yngAk=
