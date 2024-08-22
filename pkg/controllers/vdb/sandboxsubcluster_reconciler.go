@@ -471,6 +471,10 @@ func (s *SandboxSubclusterReconciler) waitForSandboxScUp(ctx context.Context, sb
 	for _, ip := range pfs.FindNodeNameAndAddressInSubcluster(sc) {
 		initiatorIPs = append(initiatorIPs, ip)
 	}
+	if len(initiatorIPs) == 0 {
+		// this case will be handled by the caller, no need to report an error
+		return ctrl.Result{}, nil
+	}
 	err := s.Dispatcher.PollSubclusterState(ctx,
 		pollscstate.WithInitiators(initiatorIPs),
 		pollscstate.WithSubcluster(sc),
