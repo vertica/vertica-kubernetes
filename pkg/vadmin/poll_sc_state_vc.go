@@ -49,7 +49,7 @@ func (v *VClusterOps) genPollSubclusterStateOptions(s *pollscstate.Params) *vops
 	opts.DBName = v.VDB.Spec.DBName
 	opts.IsEon = v.VDB.IsEON()
 	opts.RawHosts = append(opts.RawHosts, s.InitiatorIPs...)
-	v.Log.Info("Setup poll sc state options", "hosts", opts.RawHosts)
+	v.Log.Info("Setup poll sc state options", "hosts", opts.RawHosts, "subcluster", s.Subcluster)
 	opts.IPv6 = net.IsIPv6(s.InitiatorIPs[0])
 
 	opts.SCName = s.Subcluster

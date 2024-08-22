@@ -173,9 +173,9 @@ func (s *SandboxSubclusterReconciler) executeSandboxCommand(ctx context.Context,
 			sb, found := scSbMap[sc]
 			if !found {
 				// assume it is already sandboxed
-				if i == 0 {
+				if j == 0 {
 					// we need the sandbox primary sc to be up so we can tell it about the sc being added
-					if res, err := s.waitForSandboxScUp(ctx, sb, sc); err != nil {
+					if res, err := s.waitForSandboxScUp(ctx, vdbSb.Name, sc); err != nil {
 						return res, err
 					}
 				}
@@ -212,6 +212,7 @@ func (s *SandboxSubclusterReconciler) executeSandboxCommand(ctx context.Context,
 				return ctrl.Result{}, err
 			}
 
+			s.Log.Info("waiting for newly sandboxed subcluster to be up", "sandbox", sb, "subcluster", sc)
 			res, err = s.waitForSandboxScUp(ctx, sb, sc)
 			if err != nil {
 				return res, err
@@ -461,11 +462,16 @@ func (s *SandboxSubclusterReconciler) addSandboxedSubclusterToStatus(ctx context
 }
 
 func (s *SandboxSubclusterReconciler) waitForSandboxScUp(ctx context.Context, sb, sc string) (ctrl.Result, error) {
-	initiatorIPs, res, err := s.findInitiatorIPs(ctx, sb)
-	if verrors.IsReconcileAborted(res, err) {
-		return res, err
+	pfs := s.PFacts.Copy(sb)
+	if err := pfs.Collect(ctx, s.Vdb); err != nil {
+		return ctrl.Result{}, err
 	}
-	err = s.Dispatcher.PollSubclusterState(ctx,
+
+	initiatorIPs := []string{}
+	for _, ip := range pfs.FindNodeNameAndAddressInSubcluster(sc) {
+		initiatorIPs = append(initiatorIPs, ip)
+	}
+	err := s.Dispatcher.PollSubclusterState(ctx,
 		pollscstate.WithInitiators(initiatorIPs),
 		pollscstate.WithSubcluster(sc),
 	)
