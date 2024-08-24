@@ -86,6 +86,8 @@ runs:
         set -o errexit
         set -o xtrace
 
+        export FOR_GITHUB_CI=true
+
         # Set KUSTOMIZE_CFG based on communal storage type
         if [[ "${{ inputs.communal-storage-type }}" == "azb" ]]; then
           export KUSTOMIZE_CFG=tests/kustomize-defaults-azb-ci.cfg;
