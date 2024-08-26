@@ -168,6 +168,8 @@ func (s *SandboxSubclusterReconciler) executeSandboxCommand(ctx context.Context,
 	// in a sandbox is the primary.
 	for i := range s.Vdb.Spec.Sandboxes {
 		vdbSb := &s.Vdb.Spec.Sandboxes[i]
+		var sbName string
+		sbScs := []string{}
 		for j := range vdbSb.Subclusters {
 			sc := vdbSb.Subclusters[j].Name
 			sb, found := scSbMap[sc]
@@ -175,12 +177,17 @@ func (s *SandboxSubclusterReconciler) executeSandboxCommand(ctx context.Context,
 				// assume it is already sandboxed
 				if j == 0 {
 					// we need the sandbox primary sc to be up so we can tell it about the sc being added
-					if res, err := s.waitForSandboxScUp(ctx, vdbSb.Name, sc); err != nil {
-						return res, err
+					if err := s.waitForSandboxScUp(ctx, vdbSb.Name, []string{sc}); err != nil {
+						s.Log.Error(err, "failed waiting for sandbox primary subcluster to be up", "sandbox", sb, "subcluster", sc)
+						return ctrl.Result{Requeue: true}, nil
 					}
 				}
 				continue
 			}
+			// store info on clusters we need to wait for after sandboxing has completed
+			sbName = sb
+			sbScs = append(sbScs, sc)
+
 			res, err := s.sandboxSubcluster(ctx, sc, sb)
 			if verrors.IsReconcileAborted(res, err) {
 				return res, err
@@ -212,11 +219,20 @@ func (s *SandboxSubclusterReconciler) executeSandboxCommand(ctx context.Context,
 				return ctrl.Result{}, err
 			}
 
-			s.Log.Info("waiting for newly sandboxed subcluster to be up", "sandbox", sb, "subcluster", sc)
-			res, err = s.waitForSandboxScUp(ctx, sb, sc)
-			if err != nil {
-				return res, err
+			// need the sandbox primary to be up before adding any other subclusters
+			if j == 0 {
+				s.Log.Info("waiting for newly sandboxed subcluster to be up", "sandbox", sb, "subcluster", sc)
+				err = s.waitForSandboxScUp(ctx, sb, []string{sc})
+				if err != nil {
+					s.Log.Error(err, "failed waiting for newly sandboxed subcluster to be up", "sandbox", sb, "subcluster", sc)
+					return ctrl.Result{Requeue: true}, nil
+				}
 			}
+		}
+
+		if err := s.waitForSandboxScUp(ctx, sbName, sbScs); err != nil {
+			s.Log.Error(err, "failed waiting for newly sandboxed subclusters to be up", "sandbox", sbName, "subclusters", sbScs)
+			return ctrl.Result{Requeue: true}, nil
 		}
 	}
 
@@ -461,23 +477,29 @@ func (s *SandboxSubclusterReconciler) addSandboxedSubclusterToStatus(ctx context
 	return vdbstatus.Update(ctx, s.Client, s.Vdb, updateStatus)
 }
 
-func (s *SandboxSubclusterReconciler) waitForSandboxScUp(ctx context.Context, sb, sc string) (ctrl.Result, error) {
+func (s *SandboxSubclusterReconciler) waitForSandboxScUp(ctx context.Context, sb string, scs []string) error {
 	pfs := s.PFacts.Copy(sb)
 	if err := pfs.Collect(ctx, s.Vdb); err != nil {
-		return ctrl.Result{}, err
+		return err
 	}
 
 	initiatorIPs := []string{}
-	for _, ip := range pfs.FindNodeNameAndAddressInSubcluster(sc) {
-		initiatorIPs = append(initiatorIPs, ip)
+	for i := range scs {
+		sc := scs[i]
+		for _, ip := range pfs.FindNodeNameAndAddressInSubcluster(sc) {
+			initiatorIPs = append(initiatorIPs, ip)
+		}
+		if len(initiatorIPs) == 0 {
+			// this case will be handled by the caller, no need to report an error
+			continue
+		}
+		err := s.Dispatcher.PollSubclusterState(ctx,
+			pollscstate.WithInitiators(initiatorIPs),
+			pollscstate.WithSubcluster(sc),
+		)
+		if err != nil {
+			return err
+		}
 	}
-	if len(initiatorIPs) == 0 {
-		// this case will be handled by the caller, no need to report an error
-		return ctrl.Result{}, nil
-	}
-	err := s.Dispatcher.PollSubclusterState(ctx,
-		pollscstate.WithInitiators(initiatorIPs),
-		pollscstate.WithSubcluster(sc),
-	)
-	return ctrl.Result{Requeue: err != nil}, err
+	return nil
 }
