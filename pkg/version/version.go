@@ -22,7 +22,7 @@ import (
 )
 
 type Components struct {
-	VdbMajor, VdbMinor, VdbPatch int
+	VdbMajor, VdbMinor, VdbPatch, VdbHotfix int
 }
 
 type Info struct {
@@ -40,23 +40,23 @@ const (
 
 // MakeInfoFromStr will construct an Info struct by parsing the version string
 func MakeInfoFromStr(curVer string) (*Info, bool) {
-	ma, mi, pa, ok := parseVersion(curVer)
-	return &Info{curVer, Components{ma, mi, pa}}, ok
+	comp, ok := parseVersion(curVer)
+	return &Info{curVer, comp}, ok
 }
 
-func (i *Info) compareVersion(major, minor, patch int) ComparisonResult {
+func (i *Info) compareVersion(comp Components) ComparisonResult {
 	switch {
-	case i.VdbMajor > major:
+	case i.VdbMajor > comp.VdbMajor:
 		return compareLarger
-	case i.VdbMajor < major:
+	case i.VdbMajor < comp.VdbMajor:
 		return compareSmaller
-	case i.VdbMinor > minor:
+	case i.VdbMinor > comp.VdbMinor:
 		return compareLarger
-	case i.VdbMinor < minor:
+	case i.VdbMinor < comp.VdbMinor:
 		return compareSmaller
-	case i.VdbPatch > patch:
+	case i.VdbPatch > comp.VdbPatch:
 		return compareLarger
-	case i.VdbPatch < patch:
+	case i.VdbPatch < comp.VdbPatch:
 		return compareSmaller
 	}
 	return compareEqual
@@ -75,12 +75,23 @@ func MakeInfoFromStrCheck(curVer string) (*Info, error) {
 // IsEqualOrNewer returns true if the version in the Vdb is is equal or newer
 // than the given version
 func (i *Info) IsEqualOrNewer(inVer string) bool {
-	inVerMajor, inVerMinor, inVerPatch, ok := parseVersion(inVer)
+	comp, ok := parseVersion(inVer)
 	if !ok {
 		panic(fmt.Sprintf("could not parse input version: %s", inVer))
 	}
-	res := i.compareVersion(inVerMajor, inVerMinor, inVerPatch)
+	res := i.compareVersion(comp)
 	return res != compareSmaller
+}
+
+// HasEqualOrNewerHotfix checks if both versions have the same major, minor, patch numbers, and
+// if hotfix number in source version is equal or newer than the one in target version
+func (i *Info) HasEqualOrNewerHotfix(inVer string) bool {
+	comp, ok := parseVersion(inVer)
+	if !ok {
+		panic(fmt.Sprintf("could not parse input version: %s", inVer))
+	}
+	res := i.compareVersion(comp)
+	return res == compareEqual && i.VdbHotfix >= comp.VdbHotfix
 }
 
 // IsOlder returns true if the version in info is older than the given version
@@ -145,35 +156,41 @@ func (i *Info) IsValidUpgradePath(targetVer string) (ok bool, failureReason stri
 	return true, ""
 }
 
-// parseVersion will extract out the portions of a verson into 3 components:
-// major, minor and patch.
-func parseVersion(v string) (major, minor, patch int, ok bool) {
-	ok = false // false until known otherwise
-	r := regexp.MustCompile(`v(\d+)\.(\d+)\.(\d+)`)
+// parseVersion will extract out the portions of a verson into 4 components:
+// major, minor, patch and hotfix.
+func parseVersion(v string) (Components, bool) {
+	comp := Components{}
+	r := regexp.MustCompile(`v(\d+)\.(\d+)\.(\d+)(?:-(\d+))?`)
 	m := r.FindStringSubmatch(v)
 	const (
 		MajorInx = iota + 1
 		MinorInx
 		PatchInx
+		HotfixInx
 		NumComponents
 	)
-	if len(m) != NumComponents {
-		return
+	if len(m) < NumComponents {
+		return comp, false
 	}
 
 	var err error
-	major, err = strconv.Atoi(m[MajorInx])
+	comp.VdbMajor, err = strconv.Atoi(m[MajorInx])
 	if err != nil {
-		return
+		return comp, false
 	}
-	minor, err = strconv.Atoi(m[MinorInx])
+	comp.VdbMinor, err = strconv.Atoi(m[MinorInx])
 	if err != nil {
-		return
+		return comp, false
 	}
-	patch, err = strconv.Atoi(m[PatchInx])
+	comp.VdbPatch, err = strconv.Atoi(m[PatchInx])
 	if err != nil {
-		return
+		return comp, false
 	}
-	ok = true
-	return
+	if m[HotfixInx] != "" {
+		comp.VdbHotfix, err = strconv.Atoi(m[HotfixInx])
+		if err != nil {
+			return comp, false
+		}
+	}
+	return comp, true
 }
