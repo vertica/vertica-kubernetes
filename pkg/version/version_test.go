@@ -85,4 +85,26 @@ var _ = Describe("version", func() {
 			Expect(ok).Should(BeTrue())
 		}
 	})
+
+	It("should compare the versions with hotfix correctly", func() {
+		ver1 := "v24.3.5-6"
+		cur, ok := MakeInfoFromStr(ver1)
+		Expect(ok).Should(BeTrue())
+		Expect(cur.VdbMajor).Should(Equal(24))
+		Expect(cur.VdbMinor).Should(Equal(3))
+		Expect(cur.VdbPatch).Should(Equal(5))
+		Expect(cur.VdbHotfix).Should(Equal(6))
+		ver2 := "v24.3.5-4"
+		Expect(cur.IsEqualOrNewerWithHotfix(ver2)).Should(BeTrue())
+		ver3 := "v24.3.5-6"
+		Expect(cur.IsEqualOrNewerWithHotfix(ver3)).Should(BeTrue())
+		ver4 := "v24.3.5-8"
+		Expect(cur.IsEqualOrNewerWithHotfix(ver4)).Should(BeFalse())
+		ver5 := "v24.2.5-8"
+		Expect(cur.IsEqualOrNewerWithHotfix(ver5)).Should(BeTrue())
+		ver6 := "v24.4.0-0"
+		Expect(cur.IsEqualOrNewerWithHotfix(ver6)).Should(BeFalse())
+		ver7 := "v23.4.0-0"
+		Expect(cur.IsEqualOrNewerWithHotfix(ver7)).Should(BeTrue())
+	})
 })
