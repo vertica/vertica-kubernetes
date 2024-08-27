@@ -62,6 +62,19 @@ func (i *Info) compareVersion(comp Components) ComparisonResult {
 	return compareEqual
 }
 
+func (i *Info) compareVersionWithHotfix(comp Components) ComparisonResult {
+	if i.compareVersion(comp) == compareEqual {
+		if i.VdbHotfix > comp.VdbHotfix {
+			return compareLarger
+		}
+		if i.VdbHotfix < comp.VdbHotfix {
+			return compareSmaller
+		}
+		return compareEqual
+	}
+	return i.compareVersion(comp)
+}
+
 // MakeInfoFromStrCheck is like MakeInfoFromStr but returns an error
 // if the version Info cannot be constructed from the version string
 func MakeInfoFromStrCheck(curVer string) (*Info, error) {
@@ -83,15 +96,16 @@ func (i *Info) IsEqualOrNewer(inVer string) bool {
 	return res != compareSmaller
 }
 
-// HasEqualOrNewerHotfix checks if both versions have the same major, minor, patch numbers, and
-// if hotfix number in source version is equal or newer than the one in target version
-func (i *Info) HasEqualOrNewerHotfix(inVer string) bool {
+// IsEqualOrNewerWithHotfix checks if the version in the Vdb is is equal or newer
+// than the given version. It will compare hotfix number if all other numbers are
+// the same.
+func (i *Info) IsEqualOrNewerWithHotfix(inVer string) bool {
 	comp, ok := parseVersion(inVer)
 	if !ok {
 		panic(fmt.Sprintf("could not parse input version: %s", inVer))
 	}
-	res := i.compareVersion(comp)
-	return res == compareEqual && i.VdbHotfix >= comp.VdbHotfix
+	res := i.compareVersionWithHotfix(comp)
+	return res != compareSmaller
 }
 
 // IsOlder returns true if the version in info is older than the given version
