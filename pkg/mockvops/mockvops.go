@@ -99,6 +99,9 @@ func (m *MockVClusterOps) VGetConfigurationParameters(options *vclusterops.VGetC
 func (*MockVClusterOps) VRenameSubcluster(_ *vclusterops.VRenameSubclusterOptions) error {
 	return nil
 }
+func (m *MockVClusterOps) VPollSubclusterState(_ *vclusterops.VPollSubclusterStateOptions) error {
+	return nil
+}
 
 // MakeMockVClusterOpsDispatch will create a mock vcluster dispatcher
 func MakeMockVClusterOpsDispatcher(vdb *vapi.VerticaDB, logger logr.Logger, cl client.Client,

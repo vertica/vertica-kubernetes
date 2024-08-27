@@ -33,6 +33,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/fetchnodestate"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/getconfigparameter"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/installpackages"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/pollscstate"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/promotesandboxtomain"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/reip"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/removenode"
@@ -128,6 +129,9 @@ type Dispatcher interface {
 
 	// RenameSubcluster will rename a subcluster in main cluster
 	RenameSubcluster(ctx context.Context, opts ...renamesc.Option) error
+
+	// PollNodeState will wait for a subcluster to come up
+	PollSubclusterState(ctx context.Context, opts ...pollscstate.Option) error
 }
 
 const (
@@ -259,4 +263,5 @@ type VClusterProvider interface {
 	VSetConfigurationParameters(options *vops.VSetConfigurationParameterOptions) error
 	VGetConfigurationParameters(options *vops.VGetConfigurationParameterOptions) (string, error)
 	VRenameSubcluster(options *vops.VRenameSubclusterOptions) error
+	VPollSubclusterState(options *vops.VPollSubclusterStateOptions) error
 }
