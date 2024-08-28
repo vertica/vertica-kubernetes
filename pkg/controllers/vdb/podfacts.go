@@ -1290,3 +1290,11 @@ func (p *PodFacts) quorumCheckForRestartCluster(restartOnly bool) bool {
 	})
 	return restartablePrimaryNodeCount >= (primaryNodeCount+1)/2
 }
+
+// IfNoPodsInSandbox returns true if we cannot find any pods in the target sandbox
+func (p *PodFacts) IfNoPodsInSandbox(sandbox string) bool {
+	pods := p.filterPods(func(v *PodFact) bool {
+		return v.sandbox == sandbox
+	})
+	return len(pods) == 0
+}
