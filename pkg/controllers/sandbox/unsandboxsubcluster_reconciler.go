@@ -134,7 +134,7 @@ func (r *UnsandboxSubclusterReconciler) reconcileSandboxConfigMap(ctx context.Co
 	cmName := r.ConfigMap.Name
 	sb := r.Vdb.GetSandboxStatus(sbName)
 	// if the sandbox doesn't have any subclusters, we delete the config map
-	if r.OriginalPFacts.IfNoPodsInSandbox(sbName) && (sb == nil || len(sb.Subclusters) == 0) {
+	if r.OriginalPFacts.IsSandboxEmpty(sbName) && (sb == nil || len(sb.Subclusters) == 0) {
 		err := r.Client.Delete(ctx, r.ConfigMap)
 		if err != nil {
 			r.Log.Error(err, "failed to delete expired sandbox config map", "configMapName", cmName)
