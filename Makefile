@@ -161,6 +161,13 @@ E2E_TEST_DIRS?=tests/e2e-leg-1
 # Additional arguments to pass to 'kubectl kuttl'
 E2E_ADDITIONAL_ARGS?=
 
+# Target Architecture that the docker image can run on
+# By Default: linux/amd64,linux/arm64
+# If you wish to build the image targeting other platforms you can use the --platform flag: https://docs.docker.com/build/building/multi-platform/
+# (i.e. docker buildx build --platform=linux/amd64,linux/arm64). However, you must enable docker buildKit for it.
+# More info: https://docs.docker.com/develop/develop-images/build_enhancements/
+TARGET_ARCH?=linux/amd64
+
 #
 # Deployment Variables
 # ====================
@@ -386,6 +393,7 @@ docker-build-operator: manifests generate fmt vet ## Build operator docker image
 	docker buildx build \
 		--tag ${OPERATOR_IMG} \
 		--load \
+		--platform ${TARGET_ARCH} \
 		--build-arg GO_VERSION=${GO_VERSION} \
 		-f docker-operator/Dockerfile .
 
@@ -396,6 +404,7 @@ docker-build-vlogger:  ## Build vertica logger docker image
 	docker buildx build \
 		-t ${VLOGGER_IMG} \
 		--load \
+		--platform ${TARGET_ARCH} \
 		--build-arg BASE_IMG=${VLOGGER_BASE_IMG} \
 		--build-arg ALPINE_VERSION=${VLOGGER_ALPINE_VERSION} \
 		-f docker-vlogger/Dockerfile .
@@ -443,6 +452,7 @@ docker-build-vertica-v2: docker-vertica-v2/Dockerfile ## Build next generation v
 	&& make \
 		VERTICA_IMG=${VERTICA_IMG} \
 		MINIMAL_VERTICA_IMG=${MINIMAL_VERTICA_IMG} \
+		TARGET_ARCH=${TARGET_ARCH} \
 		VERTICA_ADDITIONAL_DOCKER_BUILD_OPTIONS=${VERTICA_ADDITIONAL_DOCKER_BUILD_OPTIONS}
 
 .PHONY: docker-push-vertica
@@ -475,8 +485,11 @@ endif
 # this with docker-build-crossplatform-* targets.
 PLATFORMS?=linux/arm64,linux/amd64
 
+## Note: Deprecate this as we can use docker-build-operator as the single make target to build either a single or multiarch image
+## Keep this as we still use this target to push external images 
 .PHONY: docker-build-crossplatform-operator
 docker-build-crossplatform-operator: manifests generate fmt vet ## Build and push operator image for cross-platform support
+	@echo "Deprecated. Please use docker-build-operator target with TARGET_ARCH argument"
 	docker pull golang:${GO_VERSION} # Ensure we have the latest Go lang version
 	# copy existing Dockerfile and insert --platform=${BUILDPLATFORM} into Dockerfile.cross, and preserve the original Dockerfile
 	sed -e '1 s/\(^FROM\)/FROM --platform=\$$\{BUILDPLATFORM\}/; t' -e ' 1,// s//FROM --platform=\$$\{BUILDPLATFORM\}/' docker-operator/Dockerfile > Dockerfile.cross
@@ -688,21 +701,21 @@ OPM = $(shell pwd)/bin/opm
 OPM_VERSION = 1.26.5
 opm: $(OPM)  ## Download opm locally if necessary
 $(OPM):
-	curl --silent --show-error --retry 10 --retry-max-time 1800 --location --fail "https://github.com/operator-framework/operator-registry/releases/download/v$(OPM_VERSION)/linux-amd64-opm" --output $(OPM)
+	curl --silent --show-error --retry 10 --retry-max-time 1800 --location --fail "https://github.com/operator-framework/operator-registry/releases/download/v$(OPM_VERSION)/$(GOOS)-$(GOARCH)-opm" --output $(OPM)
 	chmod +x $(OPM)
 
 OPERATOR_SDK = $(shell pwd)/bin/operator-sdk
 OPERATOR_SDK_VERSION = 1.28.0
 operator-sdk: $(OPERATOR_SDK)  ## Download operator-sdk locally if necessary
 $(OPERATOR_SDK):
-	curl --silent --show-error --retry 10 --retry-max-time 1800 --location --fail "https://github.com/operator-framework/operator-sdk/releases/download/v$(OPERATOR_SDK_VERSION)/operator-sdk_linux_amd64" --output $(OPERATOR_SDK)
+	curl --silent --show-error --retry 10 --retry-max-time 1800 --location --fail "https://github.com/operator-framework/operator-sdk/releases/download/v$(OPERATOR_SDK_VERSION)/operator-sdk_$(GOOS)_$(GOARCH)" --output $(OPERATOR_SDK)
 	chmod +x $(OPERATOR_SDK)
 
 ISTIOCTL = $(shell pwd)/bin/istioctl
 ISTIOCTL_VERSION = 1.17.2
 istioctl: $(ISTIOCTL)  ## Download istioctl locally if necessary
 $(ISTIOCTL):
-	curl --silent --show-error --retry 10 --retry-max-time 1800 --location --fail "https://github.com/istio/istio/releases/download/$(ISTIOCTL_VERSION)/istio-$(ISTIOCTL_VERSION)-linux-amd64.tar.gz" | tar xvfz - istio-$(ISTIOCTL_VERSION)/bin/istioctl -O > $(ISTIOCTL)
+	curl --silent --show-error --retry 10 --retry-max-time 1800 --location --fail "https://github.com/istio/istio/releases/download/$(ISTIOCTL_VERSION)/istio-$(ISTIOCTL_VERSION)-$(GOOS)-$(GOARCH).tar.gz" | tar xvfz - istio-$(ISTIOCTL_VERSION)/bin/istioctl -O > $(ISTIOCTL)
 	chmod +x $(ISTIOCTL)
 
 
@@ -716,7 +729,7 @@ CHANGIE = $(shell pwd)/bin/changie
 CHANGIE_VERSION = 1.2.0
 changie: $(CHANGIE) ## Download changie locally if necessary
 $(CHANGIE): $(LOCALBIN) ## Download changie locally if necessary
-	curl --silent --show-error --location --fail https://github.com/miniscruff/changie/releases/download/v$(CHANGIE_VERSION)/changie_$(CHANGIE_VERSION)_linux_amd64.tar.gz | tar xvfz - changie
+	curl --silent --show-error --location --fail https://github.com/miniscruff/changie/releases/download/v$(CHANGIE_VERSION)/changie_$(CHANGIE_VERSION)_$(GOOS)_$(GOARCH).tar.gz | tar xvfz - changie
 	mv changie $(CHANGIE)
 	chmod +x $(CHANGIE)
 
