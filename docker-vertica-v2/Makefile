@@ -30,6 +30,9 @@ endif
 endif
 endif
 
+VERTICA_X86_VERSION?=$(shell rpm --nosignature -qp --queryformat '%{VERSION}-%{RELEASE}' packages/$(VERTICA_X86_RPM))
+VERTICA_ARM_VERSION?=$(shell rpm --nosignature -qp --queryformat '%{VERSION}-%{RELEASE}' packages/$(VERTICA_ARM64_RPM))
+
 all: docker-build-vertica
 
 .PHONY: docker-build-vertica

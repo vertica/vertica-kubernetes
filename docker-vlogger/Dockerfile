@@ -16,6 +16,7 @@
 
 ARG ALPINE_VERSION
 ARG BASE_IMG
+ARG TARGETARCH
 FROM ${BASE_IMG}:${ALPINE_VERSION}
 
 # Tini - A tiny but valid init for containers
