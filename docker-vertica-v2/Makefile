@@ -1,5 +1,5 @@
-VERTICA_X86_RPM?=$(notdir $(wildcard packages/vertica*.x86_64.*.rpm))
-VERTICA_ARM64_RPM?=$(notdir $(wildcard packages/vertica*.aarch64.*.rpm))
+VERTICA_X86_RPM?=$(notdir $(wildcard packages/vertica*.x86_64.rpm))
+VERTICA_ARM64_RPM?=$(notdir $(wildcard packages/vertica*.aarch64.rpm))
 BUILDER_OS_NAME?=almalinux
 BUILDER_OS_VERSION?=8
 BASE_OS_NAME?=rockylinux
