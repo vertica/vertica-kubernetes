@@ -74,6 +74,7 @@ FROM ${BASE_OS_NAME}:${BASE_OS_VERSION} as initial
 # packages can be queried through dnf. For instance, "dnf search openjdk"
 ARG JRE_PKG=java-1.8.0-openjdk-headless
 ARG MINIMAL
+ARG FOR_GITHUB_CI
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN set -x \
@@ -89,6 +90,12 @@ RUN set -x \
   procps \
   sysstat \
   which \
+  # Install packages in full vertica image for e2e tests
+  && if [[ $FOR_GITHUB_CI == "true" ]] && [[ ${MINIMAL^^} != "YES" ]] ; then \
+    yum install -y diffutils gcc-c++ boost-devel libcurl-devel bzip2-devel bzip2 perl java-1.8.0-openjdk-devel zlib-devel \
+    && ln -s /opt/vertica/oss/python3/bin/python3 /usr/bin/python \
+    && ln -s /usr/lib64/libbz2.so /usr/lib64/libbz2.so.1.0; \
+  fi \
   && if [[ $(rpm -E '%{rhel}') == "9" ]] ; then \
     yum install -y libxcrypt-compat; \
   fi \

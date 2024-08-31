@@ -132,6 +132,8 @@ const (
 	VersionAnnotation   = "vertica.com/version"
 	BuildDateAnnotation = "vertica.com/buildDate"
 	BuildRefAnnotation  = "vertica.com/buildRef"
+	// Annotation that records the vertica version prior to the upgrade
+	PreviousVersionAnnotation = "vertica.com/previous-version"
 	// Annotation for the database's revive_instance_id
 	ReviveInstanceIDAnnotation = "vertica.com/revive-instance-id"
 
@@ -264,7 +266,6 @@ const (
 	// subcluster in the other replica group. This annotation is used to
 	// establish the relationship.
 	ParentSubclusterAnnotation = "vertica.com/parent-subcluster"
-	ChildSubclusterAnnotation  = "vertica.com/child-subcluster"
 	// For each subcluster in replica group b, this is type of the associated
 	// subcluster in replica group a.
 	ParentSubclusterTypeAnnotation = "vertica.com/parent-subcluster-type"

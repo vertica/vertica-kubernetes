@@ -318,6 +318,6 @@ func (r *ReplicationReconciler) runReplicateDB(ctx context.Context, dispatcher v
 
 	// clear Replicating status condition and set the ReplicationComplete status condition
 	return vrepstatus.Update(ctx, r.VRec.Client, r.VRec.Log, r.Vrep,
-		[]*metav1.Condition{vapi.MakeCondition(v1beta1.Replicating, metav1.ConditionFalse, "Succeeded"),
-			vapi.MakeCondition(v1beta1.ReplicationComplete, metav1.ConditionTrue, "Succeeded")}, stateSucceededReplication)
+		[]*metav1.Condition{vapi.MakeCondition(v1beta1.Replicating, metav1.ConditionFalse, v1beta1.ReasonSucceeded),
+			vapi.MakeCondition(v1beta1.ReplicationComplete, metav1.ConditionTrue, v1beta1.ReasonSucceeded)}, stateSucceededReplication)
 }

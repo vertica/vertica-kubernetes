@@ -147,6 +147,7 @@ func (v *VerticaDB) validateImmutableFields(old runtime.Object) field.ErrorList 
 	allErrs = v.checkImmutableSubclusterInSandbox(oldObj, allErrs)
 	allErrs = v.checkImmutableStsName(oldObj, allErrs)
 	allErrs = v.checkValidSubclusterTypeTransition(oldObj, allErrs)
+	allErrs = v.checkSandboxesDuringUpgrade(oldObj, allErrs)
 	return allErrs
 }
 
@@ -1293,6 +1294,28 @@ func (v *VerticaDB) checkImmutableDeploymentMethod(oldObj *VerticaDB, allErrs fi
 		allErrs = append(allErrs, err)
 	}
 	return allErrs
+}
+
+// checkSandboxesDuringUpgrade will check if sandboxes size has changed during an upgrade.
+func (v *VerticaDB) checkSandboxesDuringUpgrade(oldObj *VerticaDB, allErrs field.ErrorList) field.ErrorList {
+	// No error if upgrade is not in progress
+	if !oldObj.isUpgradeInProgress() {
+		return allErrs
+	}
+	// No error if sandboxes size did not change
+	if len(v.Spec.Sandboxes) == len(oldObj.Spec.Sandboxes) {
+		return allErrs
+	}
+	upgradeSbName := vmeta.GetOnlineUpgradeSandbox(v.Annotations)
+	// No error if the sandbox changed is used by online upgrade.
+	if (len(v.Spec.Sandboxes) == 1 && v.Spec.Sandboxes[0].Name == upgradeSbName) ||
+		(len(v.Spec.Sandboxes) == 0 && oldObj.Spec.Sandboxes[0].Name == upgradeSbName) {
+		return allErrs
+	}
+	err := field.Invalid(field.NewPath("spec").Child("sandboxes"),
+		v.Spec.Sandboxes,
+		"cannot add or remove sandboxes during an upgrade")
+	return append(allErrs, err)
 }
 
 // checkImmutableTemporarySubclusterRouting will check if

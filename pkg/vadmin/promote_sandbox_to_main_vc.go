@@ -25,6 +25,9 @@ import (
 )
 
 // PromoteSandboxToMain can convert local sandbox to main cluster
+// the linter inexplicably thinks this is the same as SetConfigurationParameter???
+//
+//nolint:dupl
 func (v *VClusterOps) PromoteSandboxToMain(ctx context.Context, opts ...promotesandboxtomain.Option) (err error) {
 	v.setupForAPICall("PromoteSandboxToMain")
 	defer v.tearDownForAPICall()

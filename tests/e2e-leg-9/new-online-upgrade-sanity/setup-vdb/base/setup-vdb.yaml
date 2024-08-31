@@ -26,6 +26,9 @@ spec:
   communal: {}
   local:
     requestSize: 250Mi
+  sidecars:
+    - name: vlogger
+      image: kustomize-vlogger-image
   # We pick a cluster size that is too big for the CE license. This relies on
   # having a license, which will be added by kustomize.
   subclusters:

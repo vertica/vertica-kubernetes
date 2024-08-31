@@ -90,7 +90,16 @@ func (*MockVClusterOps) VPromoteSandboxToMain(_ *vclusterops.VPromoteSandboxToMa
 func (m *MockVClusterOps) VAlterSubclusterType(options *vclusterops.VAlterSubclusterTypeOptions) error {
 	return nil
 }
+func (m *MockVClusterOps) VSetConfigurationParameters(options *vclusterops.VSetConfigurationParameterOptions) error {
+	return nil
+}
+func (m *MockVClusterOps) VGetConfigurationParameters(options *vclusterops.VGetConfigurationParameterOptions) (string, error) {
+	return "", nil
+}
 func (*MockVClusterOps) VRenameSubcluster(_ *vclusterops.VRenameSubclusterOptions) error {
+	return nil
+}
+func (m *MockVClusterOps) VPollSubclusterState(_ *vclusterops.VPollSubclusterStateOptions) error {
 	return nil
 }
 

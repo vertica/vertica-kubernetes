@@ -1,4 +1,4 @@
-# VERSION defines the project version for the bundle. 
+# VERSION defines the project version for the bundle.
 # Update this value when you upgrade the version of your project.
 # To re-generate a bundle for another specific version without changing the standard setup, you can:
 # - use the VERSION as arg of the bundle target (e.g make bundle VERSION=0.0.2)
@@ -42,7 +42,7 @@ ifneq ($(origin CHANNELS), undefined)
 BUNDLE_CHANNELS := --channels=$(CHANNELS)
 endif
 
-# DEFAULT_CHANNEL defines the default channel used in the bundle. 
+# DEFAULT_CHANNEL defines the default channel used in the bundle.
 # To re-generate a bundle for any other default channel without changing the default setup, you can:
 # - use the DEFAULT_CHANNEL as arg of the bundle target (e.g make bundle DEFAULT_CHANNEL=stable)
 # - use environment variables to overwrite this value (e.g export DEFAULT_CHANNEL="stable")
@@ -75,7 +75,7 @@ TAG ?= $(VERSION)
 ifeq ($(shell $(KIND_CHECK)), 1)
   HELM_IMAGE_PULL_POLICY ?= IfNotPresent
 else
-  HELM_IMAGE_PULL_POLICY ?= Always 
+  HELM_IMAGE_PULL_POLICY ?= Always
 endif
 
 # Image Repo to use when pushing/pulling any image
@@ -102,6 +102,8 @@ export VLOGGER_IMG
 # If the current leg in the CI tests is leg-9
 LEG9 ?= no
 export LEG9
+# What alpine image does the vlogger image use
+VLOGGER_BASE_IMG?=alpine
 # What version of alpine does the vlogger image use
 VLOGGER_ALPINE_VERSION?=3.19
 # The port number for the local registry
@@ -111,7 +113,7 @@ REG_PORT ?= 5000
 ifeq ($(shell $(KIND_CHECK)), 1)
 BUNDLE_IMG ?= localhost:$(REG_PORT)/verticadb-operator-bundle:$(TAG)
 else
-# BUNDLE_IMG defines the repo/image:tag used for the bundle. 
+# BUNDLE_IMG defines the repo/image:tag used for the bundle.
 # You can use it as an arg. (E.g make docker-build-bundle BUNDLE_IMG=<some-registry>/<project-name-bundle>:<tag>)
 BUNDLE_IMG ?= $(IMG_REPO)verticadb-operator-bundle:$(TAG)
 endif
@@ -160,7 +162,7 @@ E2E_TEST_DIRS?=tests/e2e-leg-1
 E2E_ADDITIONAL_ARGS?=
 
 #
-# Deployment Variables 
+# Deployment Variables
 # ====================
 #
 # The following set of variables get passed down to the operator through a
@@ -390,10 +392,11 @@ docker-build-operator: manifests generate fmt vet ## Build operator docker image
 
 .PHONY: docker-build-vlogger
 docker-build-vlogger:  ## Build vertica logger docker image
-	docker pull alpine:${VLOGGER_ALPINE_VERSION} # Ensure we have the latest alpine version
+	docker pull ${VLOGGER_BASE_IMG}:${VLOGGER_ALPINE_VERSION} # Ensure we have the latest alpine version
 	docker buildx build \
 		-t ${VLOGGER_IMG} \
 		--load \
+		--build-arg BASE_IMG=${VLOGGER_BASE_IMG} \
 		--build-arg ALPINE_VERSION=${VLOGGER_ALPINE_VERSION} \
 		-f docker-vlogger/Dockerfile .
 
@@ -464,7 +467,7 @@ endif
 docker-push-extra-vertica: # Push a hard-coded image used in multi-online-upgrade test
 ifeq ($(LEG9), yes)
 ifeq ($(shell $(KIND_CHECK)), 1)
-	scripts/push-to-kind.sh -i opentext/vertica-k8s-private:20240626-minimal
+	scripts/push-to-kind.sh -i opentext/vertica-k8s-private:20240729-minimal
 endif
 endif
 
@@ -489,7 +492,7 @@ docker-build-crossplatform-operator: manifests generate fmt vet ## Build and pus
 	- docker buildx rm project-v3-builder
 	rm Dockerfile.cross
 
-.PHONY: bundle 
+.PHONY: bundle
 bundle: manifests kustomize operator-sdk ## Generate bundle manifests and metadata, then validate generated files.
 ifneq ($(DEPLOY_WITH), $(filter $(DEPLOY_WITH), olm))
 	$(error Bundle can only be generated when deploying with OLM.  Current deployment method: $(DEPLOY_WITH))
@@ -561,10 +564,10 @@ CERT_MANAGER_VER=1.5.3
 install-cert-manager: ## Install the cert-manager
 	kubectl apply -f https://github.com/jetstack/cert-manager/releases/download/v$(CERT_MANAGER_VER)/cert-manager.yaml
 	scripts/wait-for-cert-manager-ready.sh -t 180
-	 
+
 .PHONY: uninstall-cert-manager
 uninstall-cert-manager: ## Uninstall the cert-manager
-	kubectl delete -f https://github.com/jetstack/cert-manager/releases/download/v$(CERT_MANAGER_VER)/cert-manager.yaml 
+	kubectl delete -f https://github.com/jetstack/cert-manager/releases/download/v$(CERT_MANAGER_VER)/cert-manager.yaml
 
 .PHONY: config-transformer
 config-transformer: manifests kustomize kubernetes-split-yaml ## Generate release artifacts and helm charts from config/
@@ -713,7 +716,7 @@ CHANGIE = $(shell pwd)/bin/changie
 CHANGIE_VERSION = 1.2.0
 changie: $(CHANGIE) ## Download changie locally if necessary
 $(CHANGIE): $(LOCALBIN) ## Download changie locally if necessary
-	curl --silent --show-error --location --fail https://github.com/miniscruff/changie/releases/download/v$(CHANGIE_VERSION)/changie_$(CHANGIE_VERSION)_linux_amd64.tar.gz | tar xvfz - changie 
+	curl --silent --show-error --location --fail https://github.com/miniscruff/changie/releases/download/v$(CHANGIE_VERSION)/changie_$(CHANGIE_VERSION)_linux_amd64.tar.gz | tar xvfz - changie
 	mv changie $(CHANGIE)
 	chmod +x $(CHANGIE)
 
@@ -741,4 +744,3 @@ echo-versions:  ## Print the current versions for various components
 .PHONY: echo-vars
 echo-vars:  echo-images echo-versions  ## Print out internal state
 	@echo "DEPLOY_WITH=$(DEPLOY_WITH)"
-

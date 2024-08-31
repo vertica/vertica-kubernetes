@@ -18,6 +18,7 @@ package vdb
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"errors"
@@ -263,7 +264,7 @@ func (i *UpgradeManager) clearOnlineUpgradeAnnotations(ctx context.Context) erro
 func (i *UpgradeManager) clearOnlineUpgradeAnnotationCallback() (updated bool, err error) {
 	for inx := range i.Vdb.Spec.Subclusters {
 		sc := &i.Vdb.Spec.Subclusters[inx]
-		for _, a := range []string{vmeta.ReplicaGroupAnnotation, vmeta.ChildSubclusterAnnotation,
+		for _, a := range []string{vmeta.ReplicaGroupAnnotation,
 			vmeta.ParentSubclusterAnnotation, vmeta.ParentSubclusterTypeAnnotation} {
 			if _, annotationFound := sc.Annotations[a]; annotationFound {
 				delete(sc.Annotations, a)
@@ -529,7 +530,8 @@ func offlineUpgradeAllowed(vdb *vapi.VerticaDB) bool {
 	return vdb.GetUpgradePolicyToUse() == vapi.OfflineUpgrade
 }
 
-// onlineUpgradeAllowed returns true if upgrade must be done online
+// readOnlyOnlineUpgradeAllowed returns true if upgrade must be done online
+// in read-only mode
 func readOnlyOnlineUpgradeAllowed(vdb *vapi.VerticaDB) bool {
 	return vdb.GetUpgradePolicyToUse() == vapi.ReadOnlyOnlineUpgrade
 }
@@ -663,6 +665,52 @@ func (i *UpgradeManager) closeAllSessions(ctx context.Context, pfacts *PodFacts)
 	return nil
 }
 
+// createRestorePoint creates a restore point to backup the db in case upgrade does not go well.
+func (i *UpgradeManager) createRestorePoint(ctx context.Context, pfacts *PodFacts, archive string) (ctrl.Result, error) {
+	pf, ok := pfacts.findFirstPodSorted(func(v *PodFact) bool {
+		return v.isPrimary && v.upNode
+	})
+	if !ok {
+		i.Log.Info("No pod found to run vsql. Requeueing for retrying creating restore point")
+		return ctrl.Result{Requeue: true}, nil
+	}
+
+	sql := fmt.Sprintf("select count(*) from archives where name = '%s';", archive)
+	cmd := []string{"-tAc", sql}
+	stdout, _, err := pfacts.PRunner.ExecVSQL(ctx, pf.name, names.ServerContainer, cmd...)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	lines := strings.Split(stdout, "\n")
+	arch, err := strconv.Atoi(lines[0])
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	// Create the archive only if it does not already exist
+	clearKnob := "alter session set DisableNonReplicatableQueries = 0;"
+	setKnob := "alter session clear DisableNonReplicatableQueries;"
+	if arch == 0 {
+		if pf.sandbox == vapi.MainCluster {
+			sql = fmt.Sprintf("%s create archive %s; %s", clearKnob, archive, setKnob)
+		} else {
+			sql = fmt.Sprintf("create archive %s;", archive)
+		}
+		cmd = []string{"-tAc", sql}
+		_, _, err = pfacts.PRunner.ExecVSQL(ctx, pf.name, names.ServerContainer, cmd...)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+	if pf.sandbox == vapi.MainCluster {
+		sql = fmt.Sprintf("%s save restore point to archive %s; %s", clearKnob, archive, setKnob)
+	} else {
+		sql = fmt.Sprintf("save restore point to archive %s;", archive)
+	}
+	cmd = []string{"-tAc", sql}
+	_, _, err = pfacts.PRunner.ExecVSQL(ctx, pf.name, names.ServerContainer, cmd...)
+	return ctrl.Result{}, err
+}
+
 // routeClientTraffic will update service objects for the source subcluster to
 // route to the target subcluster
 func (i *UpgradeManager) routeClientTraffic(ctx context.Context, pfacts *PodFacts, sc *vapi.Subcluster, selectors map[string]string) error {
@@ -718,4 +766,28 @@ func (i *UpgradeManager) getSubclusterNameFromSts(ctx context.Context, stsName s
 		return "", fmt.Errorf("could not find subcluster name label %q in %q", vmeta.SubclusterNameLabel, stsName)
 	}
 	return scNameFromLabel, nil
+}
+
+func (i *UpgradeManager) checkAllSubscriptionsActive(ctx context.Context, pfacts *PodFacts) (ctrl.Result, error) {
+	pf, ok := pfacts.findFirstPodSorted(func(v *PodFact) bool {
+		return v.isPrimary && v.upNode
+	})
+	if !ok {
+		i.Log.Info("No pod found to run vsql. Requeueing for retrying checking subscription status")
+		return ctrl.Result{Requeue: true}, nil
+	}
+
+	cmd := []string{"-tAc", "SELECT count(*) FROM node_subscriptions WHERE subscription_state != 'ACTIVE';"}
+	stdout, _, err := pfacts.PRunner.ExecVSQL(ctx, pf.name, names.ServerContainer, cmd...)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	lines := strings.Split(stdout, "\n")
+	inactive, err := strconv.Atoi(lines[0])
+	if err != nil || inactive == 0 {
+		return ctrl.Result{}, err
+	}
+
+	i.Log.Info("One or more node subscriptions is not active, requeueing")
+	return ctrl.Result{Requeue: true}, nil
 }

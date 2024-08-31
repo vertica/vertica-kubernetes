@@ -33,7 +33,7 @@ const (
 	// The minimum version that allows for read-only online upgrade.
 	ReadOnlyOnlineUpgradeVersion = "v11.1.0"
 	// The minimum version that allows for online upgrade.
-	OnlineUpgradeVersion = "v24.3.0"
+	OnlineUpgradeVersion = "v24.3.0-2"
 	// The version that added the --force option to reip to handle up nodes
 	ReIPAllowedWithUpNodesVersion = "v11.1.0"
 	// The version of the server that doesn't support cgroup v2
@@ -92,12 +92,29 @@ func (v *VerticaDB) GetVerticaVersionStr() (string, bool) {
 	return ver, ok
 }
 
+// GetVerticaVersionStr returns vertica version prior to the upgrade
+func (v *VerticaDB) GetPreviousVerticaVersionStr() (string, bool) {
+	ver, ok := v.ObjectMeta.Annotations[vmeta.PreviousVersionAnnotation]
+	return ver, ok
+}
+
 // MakeVersionInfo will construct an Info struct by extracting the version from the
 // given vdb.  This returns false if it was unable to get the version from the
 // vdb.
 func (v *VerticaDB) MakeVersionInfo() (*version.Info, bool) {
 	vdbVer, ok := v.GetVerticaVersionStr()
 	// If the version annotation isn't present, we abort creation of Info
+	if !ok {
+		return nil, false
+	}
+	return version.MakeInfoFromStr(vdbVer)
+}
+
+// MakePerviousVersionInfo will construct an Info struct by extracting the previous version
+// from the given vdb. This returns false if it was unable to get the version from the vdb.
+func (v *VerticaDB) MakePreviousVersionInfo() (*version.Info, bool) {
+	vdbVer, ok := v.GetPreviousVerticaVersionStr()
+	// If the annotation isn't present, we abort creation of Info
 	if !ok {
 		return nil, false
 	}
@@ -154,4 +171,10 @@ func (v *VerticaDB) IsUpgradePathSupported(newAnnotations map[string]string) (ok
 	}
 	ok, failureReason = vinf.IsValidUpgradePath(newAnnotations[vmeta.VersionAnnotation])
 	return
+}
+
+// isOnlineUpgradeSupported returns true if the version in the Vdb is is equal or newer than
+// 24.3.0-2.
+func (v *VerticaDB) isOnlineUpgradeSupported(vinf *version.Info) bool {
+	return vinf.IsEqualOrNewerWithHotfix(OnlineUpgradeVersion)
 }

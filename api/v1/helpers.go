@@ -407,6 +407,11 @@ func (v *VerticaDB) IsOnlineUpgradeInProgress() bool {
 	return v.IsStatusConditionTrue(OnlineUpgradeInProgress)
 }
 
+// IsROOnlineUpgradeInProgress returns true if an read-only online upgrade is in progress
+func (v *VerticaDB) IsROUpgradeInProgress() bool {
+	return v.IsStatusConditionTrue(ReadOnlyOnlineUpgradeInProgress)
+}
+
 // IsStatusConditionTrue returns true when the conditionType is present and set to
 // `metav1.ConditionTrue`
 func (v *VerticaDB) IsStatusConditionTrue(statusCondition string) bool {
@@ -565,9 +570,12 @@ func (v *VerticaDB) GetUpgradePolicyToUse() UpgradePolicyType {
 		// there is evidence that we have already scaled past 3 nodes (CE
 		// license limit), or we have a license defined.
 		const ceLicenseLimit = 3
-		if vinf.IsEqualOrNewer(OnlineUpgradeVersion) &&
+		if v.isOnlineUpgradeSupported(vinf) &&
 			!v.IsKSafety0() &&
-			(v.getNumberOfNodes() > ceLicenseLimit || v.Spec.LicenseSecret != "") {
+			(v.getNumberOfNodes() > ceLicenseLimit || v.Spec.LicenseSecret != "") &&
+			// online upgrade is not allowed if there is already a sandbox
+			// in vertica, except from the one used for online upgrade
+			!v.containsSandboxNotForUpgrade() {
 			return OnlineUpgrade
 		} else if vinf.IsEqualOrNewer(ReadOnlyOnlineUpgradeVersion) {
 			return ReadOnlyOnlineUpgrade
@@ -580,6 +588,24 @@ func (v *VerticaDB) GetUpgradePolicyToUse() UpgradePolicyType {
 	}
 
 	return OfflineUpgrade
+}
+
+// containsSandboxNotForUpgrade returns true if there is already a sandbox in the database, except
+// from the one created for online upgrade.
+func (v *VerticaDB) containsSandboxNotForUpgrade() bool {
+	if len(v.Status.Sandboxes) > 1 || len(v.Spec.Sandboxes) > 1 {
+		return true
+	}
+	upgradeSandbox := vmeta.GetOnlineUpgradeSandbox(v.Annotations)
+	if len(v.Status.Sandboxes) == 1 {
+		if upgradeSandbox != v.Status.Sandboxes[0].Name {
+			return true
+		}
+	}
+	if len(v.Spec.Sandboxes) == 1 {
+		return upgradeSandbox != v.Spec.Sandboxes[0].Name
+	}
+	return false
 }
 
 // GetIgnoreClusterLease will check if the cluster lease should be ignored.

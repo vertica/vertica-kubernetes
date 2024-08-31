@@ -83,6 +83,7 @@ var _ = Describe("onlineupgrade_reconciler", func() {
 		Ω(k8sClient.Update(ctx, vdb)).Should(Succeed())
 
 		rr := createOnlineUpgradeReconciler(ctx, vdb)
+		Ω(rr.assignSubclustersToReplicaGroupA(ctx)).Should(Equal(ctrl.Result{}))
 		Ω(rr.assignSubclustersToReplicaGroupB(ctx)).Should(Equal(ctrl.Result{}))
 
 		Ω(k8sClient.Get(ctx, vdb.ExtractNamespacedName(), vdb)).Should(Succeed())
@@ -97,7 +98,6 @@ var _ = Describe("onlineupgrade_reconciler", func() {
 		Ω(sc3.Size).Should(Equal(int32(6)))
 		Ω(sc3.Annotations).Should(HaveKeyWithValue(vmeta.ReplicaGroupAnnotation, vmeta.ReplicaGroupBValue))
 		Ω(sc3.Annotations).Should(HaveKeyWithValue(vmeta.ParentSubclusterAnnotation, sc1.Name))
-		Ω(sc1.Annotations).Should(HaveKeyWithValue(vmeta.ChildSubclusterAnnotation, sc3.Name))
 		Ω(sc3.Annotations).Should(HaveKeyWithValue(vmeta.ParentSubclusterTypeAnnotation, vapi.PrimarySubcluster))
 
 		sc5 := vdb.Spec.Subclusters[4]
@@ -130,6 +130,7 @@ var _ = Describe("onlineupgrade_reconciler", func() {
 		Ω(k8sClient.Update(ctx, vdb)).Should(Succeed())
 
 		rr := createOnlineUpgradeReconciler(ctx, vdb)
+		Ω(rr.assignSubclustersToReplicaGroupA(ctx)).Should(Equal(ctrl.Result{}))
 		Ω(rr.assignSubclustersToReplicaGroupB(ctx)).Should(Equal(ctrl.Result{}))
 
 		Ω(k8sClient.Get(ctx, vdb.ExtractNamespacedName(), vdb)).Should(Succeed())
@@ -159,6 +160,7 @@ var _ = Describe("onlineupgrade_reconciler", func() {
 		Ω(k8sClient.Update(ctx, vdb)).Should(Succeed())
 
 		rr := createOnlineUpgradeReconciler(ctx, vdb)
+		Ω(rr.assignSubclustersToReplicaGroupA(ctx)).Should(Equal(ctrl.Result{}))
 		Ω(rr.assignSubclustersToReplicaGroupB(ctx)).Should(Equal(ctrl.Result{}))
 		Ω(rr.sandboxReplicaGroupB(ctx)).Should(Equal(ctrl.Result{}))
 
@@ -166,16 +168,6 @@ var _ = Describe("onlineupgrade_reconciler", func() {
 		Ω(vdb.Spec.Subclusters).Should(HaveLen(4))
 		sbName := vmeta.GetOnlineUpgradeSandbox(vdb.Annotations)
 		Ω(sbName).Should(Equal(preferredSandboxName))
-		pri1 := vdb.Spec.Subclusters[0]
-		pri2 := vdb.Spec.Subclusters[1]
-		Ω(pri1.Annotations).Should(HaveKey(vmeta.ChildSubclusterAnnotation))
-		Ω(pri2.Annotations).Should(HaveKey(vmeta.ChildSubclusterAnnotation))
-
-		sbMap := genSandboxMap(vdb)
-		sbScs, found := sbMap[sbName]
-		Ω(found).Should(BeTrue())
-		Ω(sbScs).Should(HaveKey(pri1.Annotations[vmeta.ChildSubclusterAnnotation]))
-		Ω(sbScs).Should(HaveKey(pri2.Annotations[vmeta.ChildSubclusterAnnotation]))
 
 		// Should clear annotation at end of upgrade
 		Ω(rr.finishUpgrade(ctx)).Should(Equal(ctrl.Result{}))
@@ -204,6 +196,7 @@ var _ = Describe("onlineupgrade_reconciler", func() {
 		Ω(k8sClient.Update(ctx, vdb)).Should(Succeed())
 
 		rr := createOnlineUpgradeReconciler(ctx, vdb)
+		Ω(rr.assignSubclustersToReplicaGroupA(ctx)).Should(Equal(ctrl.Result{}))
 		Ω(rr.assignSubclustersToReplicaGroupB(ctx)).Should(Equal(ctrl.Result{}))
 		Ω(rr.sandboxReplicaGroupB(ctx)).Should(Equal(ctrl.Result{}))
 
@@ -215,10 +208,6 @@ var _ = Describe("onlineupgrade_reconciler", func() {
 		Ω(sbMap).Should(HaveKey(sbName))
 		Ω(sbMap).Should(HaveKey(preferredSandboxName))
 
-		pri1 := vdb.Spec.Subclusters[0]
-		Ω(pri1.Annotations).Should(HaveKey(vmeta.ChildSubclusterAnnotation))
-		repSb := sbMap[sbName]
-		Ω(repSb).Should(HaveKey(pri1.Annotations[vmeta.ChildSubclusterAnnotation]))
 		firstSb := sbMap[preferredSandboxName]
 		Ω(firstSb).Should(HaveKey("sec1"))
 	})
@@ -237,6 +226,7 @@ var _ = Describe("onlineupgrade_reconciler", func() {
 		Ω(k8sClient.Update(ctx, vdb)).Should(Succeed())
 
 		rr := createOnlineUpgradeReconciler(ctx, vdb)
+		Ω(rr.assignSubclustersToReplicaGroupA(ctx)).Should(Equal(ctrl.Result{}))
 		Ω(rr.assignSubclustersToReplicaGroupB(ctx)).Should(Equal(ctrl.Result{}))
 		Ω(rr.sandboxReplicaGroupB(ctx)).Should(Equal(ctrl.Result{}))
 
@@ -259,6 +249,7 @@ var _ = Describe("onlineupgrade_reconciler", func() {
 		Ω(k8sClient.Update(ctx, vdb)).Should(Succeed())
 
 		rr := createOnlineUpgradeReconciler(ctx, vdb)
+		Ω(rr.assignSubclustersToReplicaGroupA(ctx)).Should(Equal(ctrl.Result{}))
 		Ω(rr.assignSubclustersToReplicaGroupB(ctx)).Should(Equal(ctrl.Result{}))
 		Ω(rr.sandboxReplicaGroupB(ctx)).Should(Equal(ctrl.Result{}))
 		mockCompletionOfSandbox(ctx, vdb)
@@ -302,6 +293,7 @@ var _ = Describe("onlineupgrade_reconciler", func() {
 		Ω(k8sClient.Update(ctx, vdb)).Should(Succeed())
 
 		rr := createOnlineUpgradeReconciler(ctx, vdb)
+		Ω(rr.assignSubclustersToReplicaGroupA(ctx)).Should(Equal(ctrl.Result{}))
 		Ω(rr.assignSubclustersToReplicaGroupB(ctx)).Should(Equal(ctrl.Result{}))
 		Ω(rr.sandboxReplicaGroupB(ctx)).Should(Equal(ctrl.Result{}))
 		Ω(rr.startReplicationToReplicaGroupB(ctx)).Should(Equal(ctrl.Result{}))
