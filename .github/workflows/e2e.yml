@@ -122,6 +122,7 @@ jobs:
   #         vertica-deployment-method: admintools
   #         communal-storage-type: azb
   #         deploy-with: olm
+  #         need-legacy-image: true
   
   # e2e-leg-1-admintools-previous-release:
   #   if: ${{ inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools leg 1' || inputs.e2e_test_suites == '' }}
@@ -183,6 +184,7 @@ jobs:
   #         vertica-deployment-method: admintools
   #         communal-storage-type: hostpath
   #         controllers-scope: namespace
+  #         need-legacy-image: true
 
   # e2e-leg-2-admintools-previous-release:
   #   if: ${{ inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools leg 2' || inputs.e2e_test_suites == '' }}
@@ -243,6 +245,7 @@ jobs:
   #         vertica-image: ${{ needs.build.outputs.legacy-vertica-image }}
   #         vertica-deployment-method: admintools
   #         communal-storage-type: hostpath
+  #         need-legacy-image: true
   
   # e2e-leg-3-vclusterops-previous-release:
   #   if: ${{ inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'vcluster leg 3' || inputs.e2e_test_suites == '' }}
@@ -304,6 +307,7 @@ jobs:
   #         vertica-superuser-name: dbadmin
   #         # All helm deployments will use cert-manager to create the webhook cert
   #         helm-overrides: '--set webhook.certSource=cert-manager'
+  #         need-legacy-image: true
   
   # e2e-leg-4-vcluster:
   #   if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'vcluster leg 4' || inputs.e2e_test_suites == '')}}
@@ -350,6 +354,7 @@ jobs:
   #         # operator running in the k8s cluster.
   #         e2e-parallelism: 1
   #         need-base-vertica-image: 'true'
+  #         need-legacy-image: true
 
   # e2e-leg-5-vcluster:
   #   if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'vcluster leg 5' || inputs.e2e_test_suites == '')}}
@@ -479,6 +484,7 @@ jobs:
   #         vertica-deployment-method: admintools
   #         communal-storage-type: s3
   #         need-base-vertica-image: 'true'
+  #         need-legacy-image: true
 
   # e2e-server-upgrade-vcluster:
   #   if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'vcluster server upgrade' || inputs.e2e_test_suites == '')}}
@@ -522,27 +528,30 @@ jobs:
   #         # operator running in the k8s cluster.
   #         e2e-parallelism: 1
   #         vertica-deployment-method: admintools
+  #         need-legacy-image: true
 
-  # e2e-udx-admintools:
-  #   if: ${{ inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools udx' || inputs.e2e_test_suites == '' }}
-  #   needs: [build]
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - name: Checkout
-  #       uses: actions/checkout@v4
-  #     - name: Test
-  #       uses: ./.github/actions/run-e2e-leg
-  #       env:
-  #         FOR_GITHUB_CI: 'false'
-  #       with:
-  #         leg-identifier: 'udx'
-  #         dockerhub-username: ${{ secrets.DOCKERHUB_USERNAME }}
-  #         dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}
-  #         vlogger-image: ${{ needs.build.outputs.vlogger-image }}
-  #         operator-image: ${{ needs.build.outputs.operator-image }}
-  #         vertica-image: ${{ needs.build.outputs.legacy-vertica-image }}
-  #         vertica-deployment-method: admintools
-  #         communal-storage-type: s3
+  e2e-udx-admintools:
+    if: ${{ inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools udx' || inputs.e2e_test_suites == '' }}
+    needs: [build]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Test
+        uses: ./.github/actions/run-e2e-leg
+        with:
+          leg-identifier: 'udx'
+          dockerhub-username: ${{ secrets.DOCKERHUB_USERNAME }}
+          dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}
+          vlogger-image: ${{ needs.build.outputs.vlogger-image }}
+          operator-image: ${{ needs.build.outputs.operator-image }}
+          vertica-image: ${{ needs.build.outputs.legacy-vertica-image }}
+          vertica-deployment-method: admintools
+          communal-storage-type: s3
+          need-legacy-image: true
+          # For admintools udx test, we are not using the test image,
+          # and we still need to download some test packages.
+          skip-download-test-packages: false
 
   e2e-udx-vcluster:
     if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'vcluster udx' || inputs.e2e_test_suites == '')}}

@@ -166,87 +166,87 @@ jobs:
         echo -n $(docker inspect --format '{{index .Config.Labels "vertica-version"}}' ${{ steps.full_vertica_image.outputs.value }}) >> $GITHUB_STEP_SUMMARY
         echo "**" >> $GITHUB_STEP_SUMMARY
 
-  # build-server-legacy:
-  #   runs-on: ubuntu-latest
-  #   outputs:
-  #     image: ${{ steps.legacy_vertica_image.outputs.value }}
-  #   steps:
+  build-server-legacy:
+    runs-on: ubuntu-latest
+    outputs:
+      image: ${{ steps.legacy_vertica_image.outputs.value }}
+    steps:
 
-  #   - name: set lower case owner name
-  #     env:
-  #       OWNER: '${{ github.repository_owner }}'
-  #     run: |
-  #       echo "OWNER_LC=${OWNER,,}" >>${GITHUB_ENV}
+    - name: set lower case owner name
+      env:
+        OWNER: '${{ github.repository_owner }}'
+      run: |
+        echo "OWNER_LC=${OWNER,,}" >>${GITHUB_ENV}
 
-  #   - name: Pick the name of the image
-  #     uses: spilchen/switch-case-action@v2
-  #     id: legacy_vertica_image
-  #     with:
-  #       default: ghcr.io/${{ env.OWNER_LC }}/vertica-k8s:${{ github.sha }}-legacy
-  #       conditionals-with-values: |
-  #         ${{ inputs.legacy_vertica_image != '' }} => ${{ inputs.legacy_vertica_image }}
-  #         ${{ github.event_name == 'pull_request' }} => vertica-k8s:kind-legacy
+    - name: Pick the name of the image
+      uses: spilchen/switch-case-action@v2
+      id: legacy_vertica_image
+      with:
+        default: ghcr.io/${{ env.OWNER_LC }}/vertica-k8s:${{ github.sha }}-legacy
+        conditionals-with-values: |
+          ${{ inputs.legacy_vertica_image != '' }} => ${{ inputs.legacy_vertica_image }}
+          ${{ github.event_name == 'pull_request' }} => vertica-k8s:kind-legacy
 
-  #   - name: Login to GitHub Container registry for non-PRs
-  #     uses: docker/login-action@v3
-  #     if: ${{ github.event_name != 'pull_request' && inputs.legacy_vertica_image == '' || startsWith(inputs.legacy_vertica_image, 'ghcr.io') }}
-  #     with:
-  #       registry: ghcr.io
-  #       username: ${{ github.repository_owner }}
-  #       password: ${{ secrets.GITHUB_TOKEN }}
+    - name: Login to GitHub Container registry for non-PRs
+      uses: docker/login-action@v3
+      if: ${{ github.event_name != 'pull_request' && inputs.legacy_vertica_image == '' || startsWith(inputs.legacy_vertica_image, 'ghcr.io') }}
+      with:
+        registry: ghcr.io
+        username: ${{ github.repository_owner }}
+        password: ${{ secrets.GITHUB_TOKEN }}
 
-  #   - name: Login to Docker Hub
-  #     uses: docker/login-action@v3
-  #     if: ${{ inputs.legacy_vertica_image != '' && startsWith(inputs.legacy_vertica_image, 'docker.io') }}
-  #     with:
-  #       username: ${{ secrets.DOCKERHUB_USERNAME }}
-  #       password: ${{ secrets.DOCKERHUB_TOKEN }}
+    - name: Login to Docker Hub
+      uses: docker/login-action@v3
+      if: ${{ inputs.legacy_vertica_image != '' && startsWith(inputs.legacy_vertica_image, 'docker.io') }}
+      with:
+        username: ${{ secrets.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-  #   - uses: actions/checkout@v4
-  #     if: ${{ inputs.legacy_vertica_image == '' }}
+    - uses: actions/checkout@v4
+      if: ${{ inputs.legacy_vertica_image == '' }}
 
-  #   - name: Download the RPM
-  #     uses: ./.github/actions/download-rpm
-  #     if: ${{ inputs.legacy_vertica_image == '' }}
+    - name: Download the RPM
+      uses: ./.github/actions/download-rpm
+      if: ${{ inputs.legacy_vertica_image == '' }}
 
-  #   - name: Build and optionally push legacy server image
-  #     if: ${{ inputs.legacy_vertica_image == '' }}
-  #     run: |
-  #       export VERTICA_IMG=${{ steps.legacy_vertica_image.outputs.value }}
-  #       make docker-build-vertica
-  #       if [ $GITHUB_EVENT_NAME != 'pull_request' ]
-  #       then
-  #         make docker-push-vertica
-  #       fi
+    - name: Build and optionally push legacy server image
+      if: ${{ inputs.legacy_vertica_image == '' }}
+      run: |
+        export VERTICA_IMG=${{ steps.legacy_vertica_image.outputs.value }}
+        make docker-build-vertica
+        if [ $GITHUB_EVENT_NAME != 'pull_request' ]
+        then
+          make docker-push-vertica
+        fi
 
-  #   - name: Save the image for consumption by dependent jobs (PRs only)
-  #     if: ${{ github.event_name == 'pull_request' }}
-  #     run: |
-  #       docker save ${{ steps.legacy_vertica_image.outputs.value }} > legacy-vertica-image.tar
+    - name: Save the image for consumption by dependent jobs (PRs only)
+      if: ${{ github.event_name == 'pull_request' }}
+      run: |
+        docker save ${{ steps.legacy_vertica_image.outputs.value }} > legacy-vertica-image.tar
 
-  #   - uses: actions/upload-artifact@v4
-  #     if: ${{ github.event_name == 'pull_request' }}
-  #     with:
-  #       name: legacy-vertica-image
-  #       path: legacy-vertica-image.tar
+    - uses: actions/upload-artifact@v4
+      if: ${{ github.event_name == 'pull_request' }}
+      with:
+        name: legacy-vertica-image
+        path: legacy-vertica-image.tar
 
-  #   - name: Do a local pull of the image if we didn't create it
-  #     if: ${{ inputs.legacy_vertica_image != '' }}
-  #     run: |
-  #       docker pull ${{ inputs.legacy_vertica_image }}
+    - name: Do a local pull of the image if we didn't create it
+      if: ${{ inputs.legacy_vertica_image != '' }}
+      run: |
+        docker pull ${{ inputs.legacy_vertica_image }}
 
-  #   - name: Print a summary of the job
-  #     run: |
-  #       echo "Image Name: **${{ steps.legacy_vertica_image.outputs.value }}**" >> $GITHUB_STEP_SUMMARY
-  #       echo "Was Built: ${{ inputs.legacy_vertica_image == '' && '**Yes**' || '**No**' }}" >> $GITHUB_STEP_SUMMARY
-  #       echo "Was Pushed: ${{ inputs.legacy_vertica_image == '' && github.event_name != 'pull_request' && '**Yes**' || '**No**' }}"
-  #       echo "Was Scanned: **No**" >> $GITHUB_STEP_SUMMARY
-  #       echo "Size: **$(docker inspect --format '{{.Size}}' ${{ steps.legacy_vertica_image.outputs.value }} | numfmt --to=iec)**" >> $GITHUB_STEP_SUMMARY
-  #       echo "Image ID: **$(docker inspect --format '{{.ID}}' ${{ steps.legacy_vertica_image.outputs.value }})**" >> $GITHUB_STEP_SUMMARY
-  #       echo "Digest: **$(IFS=":" read image tag <<< $(echo ${{ steps.legacy_vertica_image.outputs.value }} | sed -e 's/^docker.io\///'); docker inspect --format='{{.RepoDigests}}' $image:$tag | sed 's:^.\(.*\).$:\1:' | tr " " "\n" | grep $image | cut -d'@' -f2 || echo "<none>")**" >> $GITHUB_STEP_SUMMARY
-  #       echo -n "Vertica Version: **" >> $GITHUB_STEP_SUMMARY
-  #       echo -n $(docker inspect --format '{{index .Config.Labels "vertica-version"}}' ${{ steps.legacy_vertica_image.outputs.value }}) >> $GITHUB_STEP_SUMMARY
-  #       echo "**" >> $GITHUB_STEP_SUMMARY
+    - name: Print a summary of the job
+      run: |
+        echo "Image Name: **${{ steps.legacy_vertica_image.outputs.value }}**" >> $GITHUB_STEP_SUMMARY
+        echo "Was Built: ${{ inputs.legacy_vertica_image == '' && '**Yes**' || '**No**' }}" >> $GITHUB_STEP_SUMMARY
+        echo "Was Pushed: ${{ inputs.legacy_vertica_image == '' && github.event_name != 'pull_request' && '**Yes**' || '**No**' }}"
+        echo "Was Scanned: **No**" >> $GITHUB_STEP_SUMMARY
+        echo "Size: **$(docker inspect --format '{{.Size}}' ${{ steps.legacy_vertica_image.outputs.value }} | numfmt --to=iec)**" >> $GITHUB_STEP_SUMMARY
+        echo "Image ID: **$(docker inspect --format '{{.ID}}' ${{ steps.legacy_vertica_image.outputs.value }})**" >> $GITHUB_STEP_SUMMARY
+        echo "Digest: **$(IFS=":" read image tag <<< $(echo ${{ steps.legacy_vertica_image.outputs.value }} | sed -e 's/^docker.io\///'); docker inspect --format='{{.RepoDigests}}' $image:$tag | sed 's:^.\(.*\).$:\1:' | tr " " "\n" | grep $image | cut -d'@' -f2 || echo "<none>")**" >> $GITHUB_STEP_SUMMARY
+        echo -n "Vertica Version: **" >> $GITHUB_STEP_SUMMARY
+        echo -n $(docker inspect --format '{{index .Config.Labels "vertica-version"}}' ${{ steps.legacy_vertica_image.outputs.value }}) >> $GITHUB_STEP_SUMMARY
+        echo "**" >> $GITHUB_STEP_SUMMARY
   # build-server-minimal:
   #   runs-on: ubuntu-latest
   #   outputs:
