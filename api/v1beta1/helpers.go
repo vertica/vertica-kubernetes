@@ -17,6 +17,7 @@ limitations under the License.
 package v1beta1
 
 import (
+	"fmt"
 	"regexp"
 	"strconv"
 	"time"
@@ -123,10 +124,10 @@ func (vscr *VerticaScrutinize) CopyAnnotations() map[string]string {
 // GenerateLogAgeTime returns a string in the format of YYYY-MM-DD HH [+/-XX]
 func GenerateLogAgeTime(hourOffset time.Duration, timeZone string) string {
 	timeOffset := time.Now().Add(hourOffset * time.Hour)
-	timeOffsetFormatted := timeOffset.Format("2006-01-02") + " " + strconv.Itoa(timeOffset.Hour())
+	timeOffsetFormatted := fmt.Sprintf("%s %s", timeOffset.Format("2006-01-02"), strconv.Itoa(timeOffset.Hour()))
 
 	if timeZone != "" {
-		timeOffsetFormatted = timeOffsetFormatted + " " + timeZone
+		timeOffsetFormatted = fmt.Sprintf("%s %s", timeOffsetFormatted, timeZone)
 	}
 	return timeOffsetFormatted
 }
