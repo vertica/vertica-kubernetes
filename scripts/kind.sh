@@ -114,6 +114,7 @@ EOF
     if [[ -n "$LOG_MAX_SIZE" ]]
     then
        cat <<- EOF >> $tmpfile
+# Patch in kubelet to increase maximum log file size
 kubeadmConfigPatches:
 - |
   apiVersion: kubelet.config.k8s.io/v1beta1
@@ -128,6 +129,7 @@ EOF
     if [[ -n "$EVENT_TTL" ]]
     then
        cat <<- EOF >> $tmpfile
+  # Patch in apiserver to increase event ttl duration
   kubeadmConfigPatches:
   - |
     kind: ClusterConfiguration
