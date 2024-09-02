@@ -19,7 +19,8 @@ import (
 	"context"
 	"fmt"
 
-	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	vapi "github.com/vertica/vertica-kubernetes/api/v1"
+	v1beta1 "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
@@ -32,17 +33,17 @@ import (
 // SubclusterScaleReconciler will scale a VerticaDB by adding or removing subclusters.
 type SubclusterScaleReconciler struct {
 	VRec *VerticaAutoscalerReconciler
-	Vas  *vapi.VerticaAutoscaler
+	Vas  *v1beta1.VerticaAutoscaler
 	Vdb  *vapi.VerticaDB
 }
 
-func MakeSubclusterScaleReconciler(r *VerticaAutoscalerReconciler, vas *vapi.VerticaAutoscaler) controllers.ReconcileActor {
+func MakeSubclusterScaleReconciler(r *VerticaAutoscalerReconciler, vas *v1beta1.VerticaAutoscaler) controllers.ReconcileActor {
 	return &SubclusterScaleReconciler{VRec: r, Vas: vas, Vdb: &vapi.VerticaDB{}}
 }
 
 // Reconcile will grow/shrink the VerticaDB passed on the target pod count.
 func (s *SubclusterScaleReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (ctrl.Result, error) {
-	if s.Vas.Spec.ScalingGranularity != vapi.SubclusterScalingGranularity {
+	if s.Vas.Spec.ScalingGranularity != v1beta1.SubclusterScalingGranularity {
 		return ctrl.Result{}, nil
 	}
 
@@ -166,9 +167,9 @@ func (s *SubclusterScaleReconciler) calcNextSubcluster(scMap map[string]*vapi.Su
 	// If the template is set, we will use that.  Otherwise, we try to use an
 	// existing subcluster (last one added) as a base.
 	if s.Vas.CanUseTemplate() {
-		sc := s.Vas.Spec.Template.DeepCopy()
+		sc := v1beta1.GetV1SubclusterFromV1beta1(s.Vas.Spec.Template.DeepCopy())
 		sc.Name = s.genNextSubclusterName(scMap)
-		return sc, true
+		return &sc, true
 	}
 	scs, _ := s.Vdb.FindSubclusterForServiceName(s.Vas.Spec.ServiceName)
 	if len(scs) == 0 {

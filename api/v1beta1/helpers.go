@@ -19,6 +19,7 @@ package v1beta1
 import (
 	"regexp"
 
+	v1 "github.com/vertica/vertica-kubernetes/api/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -231,4 +232,26 @@ func MakeVrep() *VerticaReplicator {
 func GenCompatibleFQDNHelper(scName string) string {
 	m := regexp.MustCompile(`_`)
 	return m.ReplaceAllString(scName, "-")
+}
+
+func GetV1SubclusterFromV1beta1(src *Subcluster) v1.Subcluster {
+	return v1.Subcluster{
+		Name:                src.Name,
+		Size:                src.Size,
+		Type:                convertToSubclusterType(src),
+		ImageOverride:       src.ImageOverride,
+		NodeSelector:        src.NodeSelector,
+		Affinity:            v1.Affinity(src.Affinity),
+		PriorityClassName:   src.PriorityClassName,
+		Tolerations:         src.Tolerations,
+		Resources:           src.Resources,
+		ServiceType:         src.ServiceType,
+		ServiceName:         src.ServiceName,
+		ClientNodePort:      src.NodePort,
+		VerticaHTTPNodePort: src.VerticaHTTPNodePort,
+		ExternalIPs:         src.ExternalIPs,
+		LoadBalancerIP:      src.LoadBalancerIP,
+		ServiceAnnotations:  src.ServiceAnnotations,
+		Annotations:         src.Annotations,
+	}
 }
