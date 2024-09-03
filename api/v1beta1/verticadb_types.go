@@ -973,7 +973,8 @@ const (
 	OnlineUpgradeInProgress                                = "OnlineUpgradeInProgress"
 	// VerticaRestartNeeded is a condition that when set to true will force the
 	// operator to stop/start the vertica pods.
-	VerticaRestartNeeded VerticaDBConditionType = "VerticaRestartNeeded"
+	VerticaRestartNeeded    VerticaDBConditionType = "VerticaRestartNeeded"
+	SaveRestorePointsNeeded VerticaDBConditionType = "SaveRestorePointsNeeded"
 )
 
 // VerticaDBCondition defines condition for VerticaDB
