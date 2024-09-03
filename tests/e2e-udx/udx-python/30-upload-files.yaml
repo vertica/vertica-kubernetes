@@ -7,4 +7,4 @@ commands:
   - command: kubectl -n $NAMESPACE cp -c server ./expected-outputs v-udx-python-sc1-0:/opt/vertica/sdk/examples
   # Install packages in the pod that are needed to run the examples.
   - command: kubectl -n $NAMESPACE cp -c server setup-env-runtime.sh v-udx-python-sc1-0:/tmp/setup-env-runtime.sh
-  - command: kubectl -n $NAMESPACE exec -i v-udx-python-sc1-0 -c server -- bash /tmp/setup-env-runtime.sh
+  - command: kubectl -n $NAMESPACE exec -i v-udx-python-sc1-0 -c server -- bash /tmp/setup-env-runtime.sh $FOR_GITHUB_CI
