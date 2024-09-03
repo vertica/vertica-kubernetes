@@ -33,6 +33,16 @@ endif
 VERTICA_X86_VERSION?=$(shell rpm --nosignature -qp --queryformat '%{VERSION}-%{RELEASE}' packages/$(VERTICA_X86_RPM))
 VERTICA_ARM_VERSION?=$(shell rpm --nosignature -qp --queryformat '%{VERSION}-%{RELEASE}' packages/$(VERTICA_ARM64_RPM))
 
+ifdef VERTICA_X86_VERSION
+VERTICA_VERSION=$(VERTICA_X86_VERSION)
+ifdef VERTICA_ARM_VERSION
+ifneq ($(VERTICA_ARM_VERSION), $(VERTICA_X86_VERSION))
+	$(error RPM version mismatch $(VERTICA_X86_RPM) $(VERTICA_ARM64_RPM))
+	exit 1
+endif
+endif
+endif
+
 all: docker-build-vertica
 
 .PHONY: docker-build-vertica
