@@ -17,9 +17,20 @@ all: docker-build-vertica
 
 .PHONY: docker-build-vertica
 docker-build-vertica: Dockerfile packages/package-checksum-patcher.py
+	ifneq ($(VERTICA_X86_VERSION),)
+	@echo "X86 RPM Found with Version $(VERTICA_X86_VERSION)"
+	VERTICA_VERSION=$(VERTICA_X86_VERSION)
+	@echo $(VERTICA_VERSION)
+	ifneq ($(VERTICA_ARM_VERSION),)
+	@echo "ARM64 RPM Found with Version $(VERTICA_ARM_VERSION)"
+	ifneq ($(VERTICA_ARM_VERSION), $(VERTICA_X86_VERSION))
+		$(error RPM version mismatch $(VERTICA_X86_RPM) $(VERTICA_ARM64_RPsM)")
+		exit 1
+	endif
+	endif
+	endif
 	docker pull ${BASE_OS_NAME}:$(BASE_OS_VERSION) ## make sure we use the latest base image
 	docker buildx build \
-		--load \
 		-f Dockerfile \
 		--platform ${TARGET_ARCH} \
 		--label minimal=${MINIMAL_VERTICA_IMG} \

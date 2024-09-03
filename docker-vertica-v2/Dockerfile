@@ -22,7 +22,8 @@ ARG VERTICA_X86_RPM
 ARG VERTICA_ARM64_RPM
 ARG MINIMAL
 
-COPY ./packages/*.rpm /tmp/
+COPY ./packages/${VERTICA_X86_RPM} /tmp/
+COPY ./packages/${VERTICA_ARM64_RPM} /tmp/
 # this is a script which removes unnecessary stuff from the
 # container image
 COPY ./packages/cleanup.sh /tmp/
@@ -39,7 +40,7 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 # It can be challenging to identify the exact architecture that the build file is targetting when doing a multi-platform build
 # The pain is described in https://github.com/BretFisher/multi-platform-docker-build quite well
 # We only need to do this because we have separate vertica RPMs for ARM and x86. 
-# There is no need for us to differentiate between the vriants of ARM. So we consider those as equivalent for our RPM install.
+# There is no need for us to differentiate between the variants of ARM. So we consider those as equivalent for our RPM install.
 
 # Don't move the ARG from here. The ARG is only read by the build system if its declared after the SHELL
 ARG TARGETARCH
