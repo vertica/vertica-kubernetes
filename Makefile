@@ -166,7 +166,7 @@ E2E_ADDITIONAL_ARGS?=
 # If you wish to build the image targeting other platforms you can use the --platform flag: https://docs.docker.com/build/building/multi-platform/
 # (i.e. docker buildx build --platform=linux/amd64,linux/arm64). However, you must enable docker buildKit for it.
 # More info: https://docs.docker.com/develop/develop-images/build_enhancements/
-TARGET_ARCH?=linux/amd64
+TARGET_ARCH?=linux/amd64,linux/arm64
 
 #
 # Deployment Variables
