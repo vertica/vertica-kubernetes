@@ -9,28 +9,34 @@ VERTICA_IMG?=vertica-k8s
 MINIMAL_VERTICA_IMG?=
 TARGET_ARCH?=linux/amd64
 VERTICA_ADDITIONAL_DOCKER_BUILD_OPTIONS?=
+VERTICA_VERSION?=
 
 VERTICA_X86_VERSION?=$(shell rpm --nosignature -qp --queryformat '%{VERSION}-%{RELEASE}' packages/$(VERTICA_X86_RPM))
 VERTICA_ARM_VERSION?=$(shell rpm --nosignature -qp --queryformat '%{VERSION}-%{RELEASE}' packages/$(VERTICA_ARM64_RPM))
+
+# Our Github runner where we run the build step is on ubuntu so the rpm query extraction fails
+# We skip the verification of the package mismatch in that pipeline
+ifeq ($(FOR_GITHUB_CI), false)
+ifneq ($(VERTICA_X86_VERSION),)
+$(info X86 RPM Found with Version $(VERTICA_X86_VERSION))
+VERTICA_VERSION:=$(VERTICA_X86_VERSION)
+ifneq ($(VERTICA_ARM_VERSION),)
+$(info ARM64 RPM Found with Version $(VERTICA_ARM_VERSION))
+ifneq ($(VERTICA_ARM_VERSION), $(VERTICA_X86_VERSION))
+$(error RPM version mismatch $(VERTICA_X86_RPM) $(VERTICA_ARM64_RPM)")
+exit 1
+endif
+endif
+endif
+endif
 
 all: docker-build-vertica
 
 .PHONY: docker-build-vertica
 docker-build-vertica: Dockerfile packages/package-checksum-patcher.py
-	ifneq ($(VERTICA_X86_VERSION),)
-	@echo "X86 RPM Found with Version $(VERTICA_X86_VERSION)"
-	VERTICA_VERSION=$(VERTICA_X86_VERSION)
-	@echo $(VERTICA_VERSION)
-	ifneq ($(VERTICA_ARM_VERSION),)
-	@echo "ARM64 RPM Found with Version $(VERTICA_ARM_VERSION)"
-	ifneq ($(VERTICA_ARM_VERSION), $(VERTICA_X86_VERSION))
-		$(error RPM version mismatch $(VERTICA_X86_RPM) $(VERTICA_ARM64_RPsM)")
-		exit 1
-	endif
-	endif
-	endif
 	docker pull ${BASE_OS_NAME}:$(BASE_OS_VERSION) ## make sure we use the latest base image
 	docker buildx build \
+		--load \
 		-f Dockerfile \
 		--platform ${TARGET_ARCH} \
 		--label minimal=${MINIMAL_VERTICA_IMG} \
