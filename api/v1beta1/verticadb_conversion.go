@@ -300,25 +300,7 @@ func convertFromStatus(src *v1.VerticaDBStatus) VerticaDBStatus {
 
 // convertToSubcluster will take a v1beta1 Subcluster and convert it to a v1 version
 func convertToSubcluster(src *Subcluster) v1.Subcluster {
-	return v1.Subcluster{
-		Name:                src.Name,
-		Size:                src.Size,
-		Type:                convertToSubclusterType(src),
-		ImageOverride:       src.ImageOverride,
-		NodeSelector:        src.NodeSelector,
-		Affinity:            v1.Affinity(src.Affinity),
-		PriorityClassName:   src.PriorityClassName,
-		Tolerations:         src.Tolerations,
-		Resources:           src.Resources,
-		ServiceType:         src.ServiceType,
-		ServiceName:         src.ServiceName,
-		ClientNodePort:      src.NodePort,
-		VerticaHTTPNodePort: src.VerticaHTTPNodePort,
-		ExternalIPs:         src.ExternalIPs,
-		LoadBalancerIP:      src.LoadBalancerIP,
-		ServiceAnnotations:  src.ServiceAnnotations,
-		Annotations:         src.Annotations,
-	}
+	return GetV1SubclusterFromV1beta1(src)
 }
 
 // convertFromSubcluster will take a v1 Subcluster and convert it to a v1beta1 version
