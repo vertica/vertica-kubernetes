@@ -243,6 +243,8 @@ github.com/le-an-vertica/vcluster v0.0.18 h1:ZUtnR8HXSelu5MTZ3yyaZdwdYIO1kdec2Yb
 github.com/le-an-vertica/vcluster v0.0.18/go.mod h1:yZ3lnvlwuXWgyCZ9Z6bMYisVjP6Ecffl+Lk5wGX/lPQ=
 github.com/le-an-vertica/vcluster v0.0.19 h1:YezvMAinY/2m4w6pjhyufP1jeU8aitXieh53daE4xb0=
 github.com/le-an-vertica/vcluster v0.0.19/go.mod h1:yZ3lnvlwuXWgyCZ9Z6bMYisVjP6Ecffl+Lk5wGX/lPQ=
+github.com/le-an-vertica/vcluster v0.0.20 h1:IkutS2iJ6hSpgk3YhtnLJ9m7T8KZLRMamV39tc2SeLw=
+github.com/le-an-vertica/vcluster v0.0.20/go.mod h1:yZ3lnvlwuXWgyCZ9Z6bMYisVjP6Ecffl+Lk5wGX/lPQ=
 github.com/lithammer/dedent v1.1.0 h1:VNzHMVCBNG1j0fh3OrsFRkVUwStdDArbgBWoPAffktY=
 github.com/lithammer/dedent v1.1.0/go.mod h1:jrXYCQtgg0nJiN+StA2KgR7w6CiQNv9Fd/Z9BP0jIOc=
 github.com/magiconair/properties v1.8.7 h1:IeQXZAiQcpL9mgcAe1Nu6cX9LLw6ExEHKjN0VQdvPDY=
