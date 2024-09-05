@@ -315,7 +315,7 @@ var _ = Describe("onlineupgrade_reconciler", func() {
 
 		// Mock completion of replicaton
 		meta.SetStatusCondition(&vrep.Status.Conditions,
-			*vapi.MakeCondition(v1beta1.ReplicationComplete, metav1.ConditionTrue, "Done"))
+			*vapi.MakeCondition(v1beta1.ReplicationComplete, metav1.ConditionTrue, v1beta1.ReasonSucceeded))
 		Ω(k8sClient.Status().Update(ctx, &vrep)).Should(Succeed())
 
 		Ω(rr.waitForReplicateToReplicaGroupB(ctx)).Should(Equal(ctrl.Result{}))

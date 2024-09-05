@@ -863,7 +863,7 @@ func (r *OnlineUpgradeReconciler) waitForReplicateToReplicaGroupB(ctx context.Co
 	vrepName := vmeta.GetOnlineUpgradeReplicator(r.VDB.Annotations)
 	if vrepName == "" {
 		r.Log.Info("skipping wait for VerticaReplicator because name cannot be found in vdb annotations")
-		return ctrl.Result{}, nil
+		return ctrl.Result{}, r.updateOnlineUpgradeStepAnnotation(ctx, r.getNextStep())
 	}
 
 	vrep := v1beta1.VerticaReplicator{}
@@ -877,7 +877,7 @@ func (r *OnlineUpgradeReconciler) waitForReplicateToReplicaGroupB(ctx context.Co
 			// Not found is okay since we'll delete the VerticaReplicator once
 			// we see that the replication is finished.
 			r.Log.Info("VerticaReplicator is not found. Skipping wait", "name", vrepName)
-			return ctrl.Result{}, nil
+			return ctrl.Result{}, r.updateOnlineUpgradeStepAnnotation(ctx, r.getNextStep())
 		}
 		return ctrl.Result{}, fmt.Errorf("failed trying to fetch VerticaReplicator: %w", err)
 	}
@@ -895,7 +895,7 @@ func (r *OnlineUpgradeReconciler) waitForReplicateToReplicaGroupB(ctx context.Co
 		return ctrl.Result{}, fmt.Errorf("failed to delete the VerticaReplicator %s: %w", vrepName, err)
 	}
 	succeeded := cond.Reason == v1beta1.ReasonSucceeded
-	if succeeded {
+	if !succeeded {
 		r.Log.Info("Replication has failed", "vrepName", vrepName)
 		return ctrl.Result{}, errors.New("replication has failed")
 	}
