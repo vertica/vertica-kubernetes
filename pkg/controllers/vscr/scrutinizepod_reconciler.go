@@ -17,6 +17,7 @@ package vscr
 
 import (
 	"context"
+	"strconv"
 	"strings"
 	"time"
 
@@ -27,6 +28,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/iter"
+	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	"github.com/vertica/vertica-kubernetes/pkg/secrets"
@@ -85,6 +87,7 @@ func (s *ScrutinizePodReconciler) Reconcile(ctx context.Context, _ *ctrl.Request
 	if res, err := s.collectInfoFromVdb(ctx); verrors.IsReconcileAborted(res, err) {
 		return res, err
 	}
+
 	return ctrl.Result{}, s.createPod(ctx)
 }
 
@@ -112,7 +115,7 @@ func (s *ScrutinizePodReconciler) collectInfoFromVdb(ctx context.Context) (ctrl.
 // createPod creates the scrutinize pod
 func (s *ScrutinizePodReconciler) createPod(ctx context.Context) error {
 	s.ScrArgs.tarballName = generateScrutinizeID()
-	pod := builder.BuildScrutinizePod(s.Vscr, s.Vdb, s.ScrArgs.buildScrutinizeCmdArgs(s.Vdb))
+	pod := builder.BuildScrutinizePod(s.Vscr, s.Vdb, s.buildScrutinizeCmdArgs(s.Vdb))
 	s.Log.Info("Creating scrutinize pod", "Name", s.Vscr.ExtractNamespacedName())
 	err := ctrl.SetControllerReference(s.Vscr, pod, s.VRec.Scheme)
 	if err != nil {
@@ -147,13 +150,28 @@ func (s *ScrutinizePodReconciler) getHostList(pods []corev1.Pod) []string {
 }
 
 // buildScrutinizeCmdArgs returns the arguments of vcluster scrutinize command
-func (s *ScrutinizeCmdArgs) buildScrutinizeCmdArgs(vdb *v1.VerticaDB) []string {
+func (s *ScrutinizePodReconciler) buildScrutinizeCmdArgs(vdb *v1.VerticaDB) []string {
 	cmd := []string{
-		"--db-user", s.username,
-		"--hosts", strings.Join(s.hosts, ","),
+		"--db-user", s.ScrArgs.username,
+		"--hosts", strings.Join(s.ScrArgs.hosts, ","),
 		"--log-path", paths.ScrutinizeLogFile,
-		"--tarball-name", s.tarballName,
+		"--tarball-name", s.ScrArgs.tarballName,
 	}
+
+	// In order to facilitate diagnosing less recent problems,
+	// scrutinize should be able to collect an arbitrary time range of logs
+	if vmeta.GetScrutinizeLogAgeHours(s.Vscr.Annotations) != 0 {
+		// if s.Vscr.Annotations[vmeta.ScrutinizeLogAgeHours] != "" {
+		cmd = append(cmd, "--log-age-hours", strconv.Itoa(vmeta.GetScrutinizeLogAgeHours(s.Vscr.Annotations)))
+	} else {
+		if vmeta.GetScrutinizeLogAgeOldestTime(s.Vscr.Annotations) != "" {
+			cmd = append(cmd, "--log-age-oldest-time", vmeta.GetScrutinizeLogAgeOldestTime(s.Vscr.Annotations))
+		}
+		if vmeta.GetScrutinizeLogAgeNewestTime(s.Vscr.Annotations) != "" {
+			cmd = append(cmd, "--log-age-newest-time", vmeta.GetScrutinizeLogAgeNewestTime(s.Vscr.Annotations))
+		}
+	}
+
 	// if there is no password, we need to explicitly
 	// set the password flag with empty string as value,
 	// to still assume password as the authentication method

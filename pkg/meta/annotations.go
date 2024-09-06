@@ -245,6 +245,16 @@ const (
 	// default.
 	ScrutinizeMainContainerResourcesPrefixAnnotation = "vertica.com/scrutinize-main-container-resources"
 
+	// In order to facilitate diagnosing less recent problems, scrutinize
+	// should be able to collect an arbitrary time range of logs.
+	// With the oldest time param or log age set, no archives of vertica.log
+	// should be older than that time.
+	ScrutinizeLogAgeOldestTime = "vertica.com/scrutinize-log-age-oldest-time"
+	ScrutinizeLogAgeNewestTime = "vertica.com/scrutinize-log-age-newest-time"
+	// The hours param cannot be set alongside the Time options, and if
+	// attempted, should issue an error indicating so.
+	ScrutinizeLogAgeHours = "vertica.com/scrutinize-log-age-hours"
+
 	// This is applied to the statefulset to identify what replica group it is
 	// in. Replica groups are assigned during online upgrade. Valid values
 	// are defined under the annotation name.
@@ -518,6 +528,21 @@ func GetScrutinizeMainContainerResource(annotations map[string]string, resourceN
 func GenScrutinizeMainContainerResourcesAnnotationName(resourceName corev1.ResourceName) string {
 	return genResourcesAnnotationName(ScrutinizeMainContainerResourcesPrefixAnnotation,
 		resourceName)
+}
+
+// GetScrutinizeLogAgeOldestTime returns scrutinize log age oldest time
+func GetScrutinizeLogAgeOldestTime(annotations map[string]string) string {
+	return lookupStringAnnotation(annotations, ScrutinizeLogAgeOldestTime, "" /* default value */)
+}
+
+// GetScrutinizeLogAgeNewestTime returns scrutinize log age newest time
+func GetScrutinizeLogAgeNewestTime(annotations map[string]string) string {
+	return lookupStringAnnotation(annotations, ScrutinizeLogAgeNewestTime, "" /* default value */)
+}
+
+// GetScrutinizeLogAgeHours returns scrutinize log age hours
+func GetScrutinizeLogAgeHours(annotations map[string]string) int {
+	return lookupIntAnnotation(annotations, ScrutinizeLogAgeHours, 0 /* default value */)
 }
 
 // GetOnlineUpgradeSandbox returns the name of the sandbox used for online upgrade.
