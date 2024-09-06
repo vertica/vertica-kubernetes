@@ -91,7 +91,7 @@ The `scripts/kind.sh` helper script sets up Kind and creates a cluster to test V
 3. To test the container, check the status of the cluster nodes with kubectl:
 
    ```shell
-   kubetcl get nodes
+   kubectl get nodes
    NAME                       STATUS   ROLES                  AGE   VERSION
    devcluster-control-plane   Ready    control-plane,master   47s   v1.23.0
    ```
