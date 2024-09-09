@@ -667,25 +667,25 @@ func (i *UpgradeManager) closeAllSessions(ctx context.Context, pfacts *PodFacts)
 }
 
 // createRestorePoint creates a restore point to backup the db in case upgrade does not go well.
-func (i *UpgradeManager) createRestorePoint(ctx context.Context, pfacts *PodFacts, archive string) (string, ctrl.Result, error) {
+func (i *UpgradeManager) createRestorePoint(ctx context.Context, pfacts *PodFacts, archive string) (ctrl.Result, error) {
 	pf, ok := pfacts.findFirstPodSorted(func(v *PodFact) bool {
 		return v.isPrimary && v.upNode
 	})
 	if !ok {
 		i.Log.Info("No pod found to run vsql. Requeueing for retrying creating restore point")
-		return "", ctrl.Result{Requeue: true}, nil
+		return ctrl.Result{Requeue: true}, nil
 	}
 
 	sql := fmt.Sprintf("select count(*) from archives where name = '%s';", archive)
 	cmd := []string{"-tAc", sql}
 	stdout, _, err := pfacts.PRunner.ExecVSQL(ctx, pf.name, names.ServerContainer, cmd...)
 	if err != nil {
-		return "", ctrl.Result{}, err
+		return ctrl.Result{}, err
 	}
 	lines := strings.Split(stdout, "\n")
 	arch, err := strconv.Atoi(lines[0])
 	if err != nil {
-		return "", ctrl.Result{}, err
+		return ctrl.Result{}, err
 	}
 	// Create the archive only if it does not already exist
 	clearKnob := "alter session set DisableNonReplicatableQueries = 0;"
@@ -699,7 +699,7 @@ func (i *UpgradeManager) createRestorePoint(ctx context.Context, pfacts *PodFact
 		cmd = []string{"-tAc", sql}
 		_, _, err = pfacts.PRunner.ExecVSQL(ctx, pf.name, names.ServerContainer, cmd...)
 		if err != nil {
-			return "", ctrl.Result{}, err
+			return ctrl.Result{}, err
 		}
 	}
 	if pf.sandbox == vapi.MainCluster {
@@ -709,7 +709,7 @@ func (i *UpgradeManager) createRestorePoint(ctx context.Context, pfacts *PodFact
 	}
 	cmd = []string{"-tAc", sql}
 	_, _, err = pfacts.PRunner.ExecVSQL(ctx, pf.name, names.ServerContainer, cmd...)
-	return archive, ctrl.Result{}, err
+	return ctrl.Result{}, err
 }
 
 // routeClientTraffic will update service objects for the source subcluster to

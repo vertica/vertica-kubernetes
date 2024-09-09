@@ -1565,13 +1565,13 @@ func (r *OnlineUpgradeReconciler) restartMainCluster(ctx context.Context) (ctrl.
 }
 
 func (r *OnlineUpgradeReconciler) createRestorePoint(ctx context.Context, pf *PodFacts, archive string) (ctrl.Result, error) {
-	arch, res, err := r.Manager.createRestorePoint(ctx, pf, archive)
+	res, err := r.Manager.createRestorePoint(ctx, pf, archive)
 	if verrors.IsReconcileAborted(res, err) {
 		return res, err
 	}
 	anns := map[string]string{
 		vmeta.OnlineUpgradeStepInxAnnotation: strconv.Itoa(r.getNextStep()),
-		vmeta.OnlineUpgradeArchiveAnnotation: arch,
+		vmeta.OnlineUpgradeArchiveAnnotation: archive,
 	}
 	_, err = vk8s.MetaUpdateWithAnnotations(ctx, r.VRec.GetClient(), r.VDB.ExtractNamespacedName(), r.VDB, anns)
 	return ctrl.Result{}, err
