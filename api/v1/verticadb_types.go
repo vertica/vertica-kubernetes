@@ -889,7 +889,10 @@ const (
 	OnlineUpgradeInProgress         = "OnlineUpgradeInProgress"
 	// VerticaRestartNeeded is a condition that when set to true will force the
 	// operator to stop/start the vertica pods.
-	VerticaRestartNeeded    = "VerticaRestartNeeded"
+	VerticaRestartNeeded = "VerticaRestartNeeded"
+	// SaveRestorePointsNeeded is a condition that when set to true will,
+	// the operator will create the archive, using the spec.restorePoint.archive
+	// as the archive name to save to.
 	SaveRestorePointsNeeded = "SaveRestorePointsNeeded"
 )
 
