@@ -92,12 +92,12 @@ func (c *CreateArchiveReconciler) Reconcile(ctx context.Context, _ *ctrl.Request
 // This handles logging of necessary events.
 func (c *CreateArchiveReconciler) runCreateArchiveVclusterAPI(ctx context.Context,
 	archiveName string, sandbox string, numRestorePoint int) error {
-	pf, ok := c.PFacts.findPodToRunAdminCmdAny()
+	hostIP, ok := c.PFacts.FindFirstUpPodIP(true, "")
 	if !ok {
 		// If no running pod found, then there is nothing to stop and we can just continue on
 		return nil
 	}
-	opts := c.genOpts(pf.podIP, archiveName, numRestorePoint, sandbox)
+	opts := c.genOpts(hostIP, archiveName, numRestorePoint, sandbox)
 	c.VRec.Event(c.Vdb, corev1.EventTypeNormal, events.CreateArchiveStart, "Starting create archive")
 	start := time.Now()
 
