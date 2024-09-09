@@ -78,7 +78,9 @@ func (c *CreateArchiveReconciler) Reconcile(ctx context.Context, _ *ctrl.Request
 		"DEBUG create archive !!!!!%s", c.Vdb.Annotations[vmeta.SaveRestorePointsTriggerID])
 
 	// Only proceed if the needed status condition is set.
-	if c.Vdb.IsStatusConditionTrue(c.Vdb.Annotations[vmeta.SaveRestorePointsTriggerID]) {
+	if c.Vdb.Annotations[vmeta.SaveRestorePointsTriggerID] == "true" {
+		c.VRec.Eventf(c.Vdb, corev1.EventTypeNormal, events.CreateArchiveFailed,
+			"DEBUG create archive !!!!! archive name: %s", c.Vdb.Spec.RestorePoint.Archive)
 		err = c.runCreateArchiveVclusterAPI(ctx, "test", "", 0) // TODO: Fix with actual name
 	}
 	return ctrl.Result{}, err
