@@ -259,6 +259,7 @@ type VClusterProvider interface {
 	VPromoteSandboxToMain(options *vops.VPromoteSandboxToMainOptions) error
 	VSandbox(options *vops.VSandboxOptions) error
 	VUnsandbox(options *vops.VUnsandboxOptions) error
+	VCreateArchive(options *vops.VCreateArchiveOptions) error
 	VAlterSubclusterType(options *vops.VAlterSubclusterTypeOptions) error
 	VSetConfigurationParameters(options *vops.VSetConfigurationParameterOptions) error
 	VGetConfigurationParameters(options *vops.VGetConfigurationParameterOptions) (string, error)
