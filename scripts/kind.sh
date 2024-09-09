@@ -29,6 +29,8 @@ KIND=$REPO_DIR/bin/kind
 REG_NAME='kind-registry'
 REG_PORT='5000'
 HANDLE_REGISTRY=1
+LOG_MAX_SIZE='100Mi'
+EVENT_TTL='24h'
 
 while getopts "ut:k:i:ap:xr:m:" opt
 do
@@ -42,6 +44,8 @@ do
         r) REG_PORT=$OPTARG;;
         x) HANDLE_REGISTRY=;;
         m) MOUNT_PATH=$OPTARG;;
+	l) LOG_MAX_SIZE=$OPTARG;;
+	e) EVENT_TTL=$OPTARG;;
     esac
 done
 
@@ -59,9 +63,11 @@ then
     echo "         the range of 30000-32767.  This option is used if you want"
     echo "         to use NodePort.  The given port is the port number you use"
     echo "         in the vdb manifest."
-    echo "  -r     Use port number for the registry.  Defaults to: $REG_PORT"
-    echo "  -x     Skip handling of the registry, both on init and term"
+    echo "  -r     Use port number for the registry.  Defaults to: $REG_PORT."
+    echo "  -x     Skip handling of the registry, both on init and term."
     echo "  -m     Add an extra mount path to the given host path."
+    echo "  -l     Set pod's log file maximum rotation size. Defaults to $LOG_MAX_SIZE."
+    echo "  -e     Set event time-to-live(ttl) duration. Defaults to $EVENT_TTL."
     echo
     echo "Positional Arguments:"
     echo " <name>  Name to give the cluster"
@@ -105,10 +111,33 @@ EOF
   apiServerAddress: $ADDR
 EOF
     fi
+    if [[ -n "$LOG_MAX_SIZE" ]]
+    then
+       cat <<- EOF >> $tmpfile
+# Patch in kubelet to increase maximum log file size
+kubeadmConfigPatches:
+- |
+  apiVersion: kubelet.config.k8s.io/v1beta1
+  kind: KubeletConfiguration
+  containerLogMaxSize: $LOG_MAX_SIZE
+EOF
+    fi
     cat <<- EOF >> $tmpfile
 nodes:
 - role: control-plane
 EOF
+    if [[ -n "$EVENT_TTL" ]]
+    then
+       cat <<- EOF >> $tmpfile
+  # Patch in apiserver to increase event ttl duration
+  kubeadmConfigPatches:
+  - |
+    kind: ClusterConfiguration
+    apiServer:
+      extraArgs:
+        event-ttl: $EVENT_TTL
+EOF
+    fi
     if [[ -n "$PORT" ]]
     then
         cat <<- EOF >> $tmpfile
