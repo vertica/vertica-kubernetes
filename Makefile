@@ -3,7 +3,7 @@
 # To re-generate a bundle for another specific version without changing the standard setup, you can:
 # - use the VERSION as arg of the bundle target (e.g make bundle VERSION=0.0.2)
 # - use environment variables to overwrite this value (e.g export VERSION=0.0.2)
-VERSION ?= haotest
+VERSION ?= v2.2.0
 export VERSION
 
 # VLOGGER_VERSION defines the version to use for the Vertica logger image
@@ -388,7 +388,14 @@ docker-build-operator: manifests generate fmt vet ## Build operator docker image
 		--load \
 		--build-arg GO_VERSION=${GO_VERSION} \
 		-f docker-operator/Dockerfile .
-
+	docker buildx build \
+		--tag public.ecr.aws/x1z3b9i8/vertica/verticadb-operator:latest \
+		--load \
+		--build-arg GO_VERSION=1.22.5 \
+		-f docker-operator/Dockerfile .
+# aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin public.ecr.aws/x1z3b9i8
+# docker login -u AWS -p $(aws ecr get-login-password --region ap-northeast-1) public.ecr.aws/x1z3b9i8
+# aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin public.ecr.aws/x1z3b9i8
 
 .PHONY: docker-build-vlogger
 docker-build-vlogger:  ## Build vertica logger docker image

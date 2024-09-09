@@ -68,6 +68,14 @@ func (c *CreateArchiveReconciler) Reconcile(ctx context.Context, _ *ctrl.Request
 	if !c.PFacts.doesDBExist() {
 		return ctrl.Result{}, nil
 	}
+	c.VRec.Eventf(c.Vdb, corev1.EventTypeNormal, events.CreateArchiveFailed,
+		"DEBUG create archive !!!!!")
+	c.VRec.Eventf(c.Vdb, corev1.EventTypeNormal, events.CreateArchiveFailed,
+		"DEBUG create archive !!!!!%+v", c.Vdb)
+	c.VRec.Eventf(c.Vdb, corev1.EventTypeNormal, events.CreateArchiveFailed,
+		"DEBUG create archive !!!!!%s", vmeta.SaveRestorePointsTriggerID)
+	c.VRec.Eventf(c.Vdb, corev1.EventTypeNormal, events.CreateArchiveFailed,
+		"DEBUG create archive !!!!!%s", c.Vdb.Annotations[vmeta.SaveRestorePointsTriggerID])
 
 	// Only proceed if the needed status condition is set.
 	if c.Vdb.IsStatusConditionTrue(c.Vdb.Annotations[vmeta.SaveRestorePointsTriggerID]) {

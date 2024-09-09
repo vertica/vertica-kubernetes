@@ -362,7 +362,6 @@ jobs:
           make docker-build-crossplatform-operator
         else
           make docker-build-operator
-          make docker-push-operator
         fi
 
     - name: Save the image for consumption by dependent jobs (PRs only)
