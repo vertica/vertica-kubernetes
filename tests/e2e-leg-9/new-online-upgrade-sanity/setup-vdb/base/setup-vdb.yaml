@@ -18,8 +18,8 @@ metadata:
   annotations:
     vertica.com/include-uid-in-path: true
     vertica.com/online-upgrade-preferred-sandbox: "replica-group-b"
-    vertica.com/online-upgrade-archive-before-replication: "arch-bef-rep"
-    vertica.com/online-upgrade-archive-after-replication: "arch-after-rep"
+    vertica.com/online-upgrade-archive-before-replication: "arch_bef_rep"
+    vertica.com/online-upgrade-archive-after-replication: "arch_after_rep"
 spec:
   image: kustomize-vertica-image
   dbName: repUP
