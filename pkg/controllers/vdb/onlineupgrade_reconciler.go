@@ -35,6 +35,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/renamesc"
 	"github.com/vertica/vertica-kubernetes/pkg/vk8s"
 	corev1 "k8s.io/api/core/v1"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -868,7 +869,6 @@ func (r *OnlineUpgradeReconciler) waitForReplicateToReplicaGroupB(ctx context.Co
 
 	vrepName := vmeta.GetOnlineUpgradeReplicator(r.VDB.Annotations)
 	if vrepName == "" {
-		r.Log.Info("skipping wait for VerticaReplicator because name cannot be found in vdb annotations")
 		return ctrl.Result{}, errors.New("Could not find the VerticaReplicator name in vdb annotations")
 	}
 
@@ -879,7 +879,10 @@ func (r *OnlineUpgradeReconciler) waitForReplicateToReplicaGroupB(ctx context.Co
 	}
 	err := r.VRec.Client.Get(ctx, nm, &vrep)
 	if err != nil {
-		return ctrl.Result{}, err
+		if kerrors.IsNotFound(err) {
+			return ctrl.Result{}, fmt.Errorf("VerticaReplicator %q is not found", vrepName)
+		}
+		return ctrl.Result{}, fmt.Errorf("failed trying to fetch VerticaReplicator: %w", err)
 	}
 
 	cond := vrep.FindStatusCondition(v1beta1.ReplicationComplete)
