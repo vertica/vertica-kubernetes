@@ -315,16 +315,13 @@ var _ = Describe("onlineupgrade_reconciler", func() {
 
 		// Mock completion of replicaton
 		meta.SetStatusCondition(&vrep.Status.Conditions,
-			*vapi.MakeCondition(v1beta1.ReplicationComplete, metav1.ConditionTrue, "Done"))
+			*vapi.MakeCondition(v1beta1.ReplicationComplete, metav1.ConditionTrue, v1beta1.ReasonSucceeded))
 		Ω(k8sClient.Status().Update(ctx, &vrep)).Should(Succeed())
 
 		Ω(rr.waitForReplicateToReplicaGroupB(ctx)).Should(Equal(ctrl.Result{}))
 
 		// Verify VerticaReplicator was deleted
 		Ω(k8sClient.Get(ctx, vrepNm, &vrep)).ShouldNot(Succeed())
-
-		// Another attempt through waiting for replicator should not fail
-		Ω(rr.waitForReplicateToReplicaGroupB(ctx)).Should(Equal(ctrl.Result{}))
 
 		// Annotations should be cleared when we finish the upgrade
 		Ω(rr.finishUpgrade(ctx)).Should(Equal(ctrl.Result{}))

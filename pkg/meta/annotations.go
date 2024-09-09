@@ -281,6 +281,20 @@ const (
 	// will allow to set a fixed name for testing purposes
 	OnlineUpgradePreferredSandboxAnnotation = "vertica.com/online-upgrade-preferred-sandbox"
 
+	// This indicates the number of times we have tryied sandbox promotion during online
+	// upgrade. The max number of attempts is 3 and after that we fail online upgrade.
+	OnlineUpgradePromotionAttemptAnnotation = "vertica.com/online-upgrade-promotion-attempt"
+	OnlineUpgradePromotionMaxAttempts       = 3
+
+	// Contains the name of the archive created to backup the database either before or after replication.
+	OnlineUpgradeArchiveAnnotation = "vertica.com/online-upgrade-archive"
+
+	// Allows us to set the name of the archive before replication for testing purposes.
+	OnlineUpgradeArchiveBeforeReplicationAnnotation = "vertica.com/online-upgrade-archive-before-replication"
+
+	// Allows us to set the name of the archive after replication for testing purposes.
+	OnlineUpgradeArchiveAfterReplicationAnnotation = "vertica.com/online-upgrade-archive-after-replication"
+
 	// This will be set in a sandbox configMap by the vdb controller to wake up the sandbox
 	// controller for upgrading the sandboxes
 	SandboxControllerUpgradeTriggerID = "vertica.com/sandbox-controller-upgrade-trigger-id"
@@ -544,6 +558,18 @@ func GetOnlineUpgradeReplicator(annotations map[string]string) string {
 // GetOnlineUpgradePreferredSandboxName returns the sandbox name to use for online upgrade.
 func GetOnlineUpgradePreferredSandboxName(annotations map[string]string) string {
 	return lookupStringAnnotation(annotations, OnlineUpgradePreferredSandboxAnnotation, "")
+}
+
+func GetOnlineUpgradePromotionAttempt(annotations map[string]string) int {
+	return lookupIntAnnotation(annotations, OnlineUpgradePromotionAttemptAnnotation, 0)
+}
+
+func GetOnlineUpgradeArchiveBeforeReplication(annotations map[string]string) string {
+	return lookupStringAnnotation(annotations, OnlineUpgradeArchiveBeforeReplicationAnnotation, "")
+}
+
+func GetOnlineUpgradeArchiveAfterReplication(annotations map[string]string) string {
+	return lookupStringAnnotation(annotations, OnlineUpgradeArchiveAfterReplicationAnnotation, "")
 }
 
 // GetStsNameOverride returns the override for the statefulset name. If one is

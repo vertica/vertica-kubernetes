@@ -35,7 +35,6 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/renamesc"
 	"github.com/vertica/vertica-kubernetes/pkg/vk8s"
 	corev1 "k8s.io/api/core/v1"
-	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -51,7 +50,10 @@ const (
 	ConfigParamDisableNonReplicatableQueries = "DisableNonReplicatableQueries"
 )
 
-const archiveBaseName = "upgrade_backup"
+const (
+	archiveBeforeRepBaseName = "archive_before_rep"
+	archiveAfterRepBaseName  = "archive_after_rep"
+)
 
 // List of status messages for online upgrade. When adding a new entry here,
 // be sure to add a *StatusMsgInx const below.
@@ -789,7 +791,11 @@ func (r *OnlineUpgradeReconciler) createRestorePointBeforeReplication(ctx contex
 	if vmeta.GetOnlineUpgradeStepInx(r.VDB.Annotations) > backupBeforeReplicationInx {
 		return ctrl.Result{}, nil
 	}
-	return r.createRestorePoint(ctx, r.PFacts[vapi.MainCluster])
+	archive := genBaseNameWithUUID(archiveBeforeRepBaseName, "_")
+	if testArchive := vmeta.GetOnlineUpgradeArchiveBeforeReplication(r.VDB.Annotations); testArchive != "" {
+		archive = testArchive
+	}
+	return r.createRestorePoint(ctx, r.PFacts[vapi.MainCluster], archive)
 }
 
 // postStartReplicationMsg will update the status message to indicate that
@@ -863,7 +869,7 @@ func (r *OnlineUpgradeReconciler) waitForReplicateToReplicaGroupB(ctx context.Co
 	vrepName := vmeta.GetOnlineUpgradeReplicator(r.VDB.Annotations)
 	if vrepName == "" {
 		r.Log.Info("skipping wait for VerticaReplicator because name cannot be found in vdb annotations")
-		return ctrl.Result{}, nil
+		return ctrl.Result{}, errors.New("Could not find the VerticaReplicator name in vdb annotations")
 	}
 
 	vrep := v1beta1.VerticaReplicator{}
@@ -873,13 +879,7 @@ func (r *OnlineUpgradeReconciler) waitForReplicateToReplicaGroupB(ctx context.Co
 	}
 	err := r.VRec.Client.Get(ctx, nm, &vrep)
 	if err != nil {
-		if kerrors.IsNotFound(err) {
-			// Not found is okay since we'll delete the VerticaReplicator once
-			// we see that the replication is finished.
-			r.Log.Info("VerticaReplicator is not found. Skipping wait", "name", vrepName)
-			return ctrl.Result{}, nil
-		}
-		return ctrl.Result{}, fmt.Errorf("failed trying to fetch VerticaReplicator: %w", err)
+		return ctrl.Result{}, err
 	}
 
 	cond := vrep.FindStatusCondition(v1beta1.ReplicationComplete)
@@ -888,16 +888,26 @@ func (r *OnlineUpgradeReconciler) waitForReplicateToReplicaGroupB(ctx context.Co
 		return ctrl.Result{Requeue: true}, nil
 	}
 
-	// Delete the VerticaReplicator. We leave the annotation present in the
+	// Delete the VerticaReplicator. If replication was successful, we leave the annotation present in the
 	// VerticaDB so that we skip these steps until the upgrade is finished.
 	err = r.VRec.Client.Delete(ctx, &vrep)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to delete the VerticaReplicator %s: %w", vrepName, err)
 	}
 	succeeded := cond.Reason == v1beta1.ReasonSucceeded
-	if succeeded {
-		r.Log.Info("Replication has failed", "vrepName", vrepName)
-		return ctrl.Result{}, errors.New("replication has failed")
+	if !succeeded {
+		r.Log.Info("Replication has failed. Requeueing to retry.", "vrepName", vrepName)
+		_, err := vk8s.UpdateVDBWithRetry(ctx, r.VRec, r.VDB, func() (bool, error) {
+			if _, annotationFound := r.VDB.Annotations[vmeta.OnlineUpgradeReplicatorAnnotation]; annotationFound {
+				delete(r.VDB.Annotations, vmeta.OnlineUpgradeReplicatorAnnotation)
+				return true, nil
+			}
+			return false, nil
+		})
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+		return ctrl.Result{Requeue: true}, nil
 	}
 	r.Log.Info("Replication completed successfully", "vrepName", vrepName)
 	return ctrl.Result{}, r.updateOnlineUpgradeStepAnnotation(ctx, r.getNextStep())
@@ -919,7 +929,11 @@ func (r *OnlineUpgradeReconciler) createRestorePointAfterReplication(ctx context
 	if vmeta.GetOnlineUpgradeStepInx(r.VDB.Annotations) > backupAfterReplicationInx {
 		return ctrl.Result{}, nil
 	}
-	return r.createRestorePoint(ctx, sbPFacts)
+	archive := genBaseNameWithUUID(archiveAfterRepBaseName, "_")
+	if testArchive := vmeta.GetOnlineUpgradeArchiveAfterReplication(r.VDB.Annotations); testArchive != "" {
+		archive = testArchive
+	}
+	return r.createRestorePoint(ctx, sbPFacts, archive)
 }
 
 // postRedirectToSandboxMsg will update the status message to indicate that
@@ -984,11 +998,27 @@ func (r *OnlineUpgradeReconciler) promoteSandboxToMainCluster(ctx context.Contex
 		r.Log.Info("Waiting for all pods in sandbox to be up for promotion.", "sandboxName", r.sandboxName)
 		return ctrl.Result{Requeue: true}, nil
 	}
+	anns := map[string]string{
+		vmeta.OnlineUpgradePromotionAttemptAnnotation: strconv.Itoa(vmeta.GetOnlineUpgradePromotionAttempt(r.VDB.Annotations) + 1),
+	}
+	_, err = vk8s.MetaUpdateWithAnnotations(ctx, r.VRec.GetClient(), r.VDB.ExtractNamespacedName(), r.VDB, anns)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
 	actor := MakePromoteSandboxToMainReconciler(r.VRec, r.Log, r.VDB, sbPFacts, r.Dispatcher, r.VRec.Client)
 	r.Manager.traceActorReconcile(actor)
-	res, err := actor.Reconcile(ctx, &ctrl.Request{})
+	var res ctrl.Result
+	res, err = actor.Reconcile(ctx, &ctrl.Request{})
 	if verrors.IsReconcileAborted(res, err) {
-		return res, err
+		attempts := vmeta.GetOnlineUpgradePromotionAttempt(r.VDB.Annotations)
+		if attempts >= vmeta.OnlineUpgradePromotionMaxAttempts {
+			r.Log.Info("The last 3 sandbox promotion attempts have failed. Revive the database with the restorepoint", "sandboxName", r.sandboxName)
+			r.VRec.Eventf(r.VDB, corev1.EventTypeNormal, events.UpgradeFailed,
+				"Online upgrade has failed after 3 sandbox promotion attempts. Use restorepoint in archive %s to revive the database",
+				vmeta.OnlineUpgradeArchiveAnnotation)
+			return ctrl.Result{}, errors.New("Sandbox promotion failed at least 3 times")
+		}
+		return res, fmt.Errorf("attempt #%d: %w", attempts, err)
 	}
 	r.PFacts[vapi.MainCluster].Invalidate()
 	r.Log.Info("sandbox has been promoted to main", "sandboxName", r.sandboxName)
@@ -1517,10 +1547,7 @@ func (r *OnlineUpgradeReconciler) updateOnlineUpgradeStepAnnotation(ctx context.
 	anns := map[string]string{
 		vmeta.OnlineUpgradeStepInxAnnotation: strconv.Itoa(inx),
 	}
-	chgs := vk8s.MetaChanges{
-		NewAnnotations: anns,
-	}
-	_, err := vk8s.MetaUpdate(ctx, r.VRec.GetClient(), r.VDB.ExtractNamespacedName(), r.VDB, chgs)
+	_, err := vk8s.MetaUpdateWithAnnotations(ctx, r.VRec.GetClient(), r.VDB.ExtractNamespacedName(), r.VDB, anns)
 	return err
 }
 
@@ -1534,12 +1561,17 @@ func (r *OnlineUpgradeReconciler) restartMainCluster(ctx context.Context) (ctrl.
 	return actor.Reconcile(ctx, &ctrl.Request{})
 }
 
-func (r *OnlineUpgradeReconciler) createRestorePoint(ctx context.Context, pf *PodFacts) (ctrl.Result, error) {
-	res, err := r.Manager.createRestorePoint(ctx, pf, genBaseNameWithUUID(archiveBaseName, "_"))
+func (r *OnlineUpgradeReconciler) createRestorePoint(ctx context.Context, pf *PodFacts, archive string) (ctrl.Result, error) {
+	arch, res, err := r.Manager.createRestorePoint(ctx, pf, archive)
 	if verrors.IsReconcileAborted(res, err) {
 		return res, err
 	}
-	return ctrl.Result{}, r.updateOnlineUpgradeStepAnnotation(ctx, r.getNextStep())
+	anns := map[string]string{
+		vmeta.OnlineUpgradeStepInxAnnotation: strconv.Itoa(r.getNextStep()),
+		vmeta.OnlineUpgradeArchiveAnnotation: arch,
+	}
+	_, err = vk8s.MetaUpdateWithAnnotations(ctx, r.VRec.GetClient(), r.VDB.ExtractNamespacedName(), r.VDB, anns)
+	return ctrl.Result{}, err
 }
 
 func (r *OnlineUpgradeReconciler) getNextStep() int {
