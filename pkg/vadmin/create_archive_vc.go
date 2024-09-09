@@ -56,11 +56,7 @@ func (v *VClusterOps) genCreateArchiveOptions(s *createarchive.Params, certs *HT
 
 	opts.DBName = v.VDB.Spec.DBName
 	opts.IsEon = v.VDB.IsEON()
-	// DEBUG method
-	v.Log.Info("Setup create archive options", "archive name", s.ArchiveName)
-	v.Log.Info("Setup create archive options", "sandbox", s.Sandbox)
-	v.Log.Info("Setup create archive options", "num restore point", s.NumOfArchives)
-
+	opts.Hosts = []string{s.InitiatorIP}
 	opts.ArchiveName = s.ArchiveName
 	opts.Sandbox = s.Sandbox
 	opts.NumOfArchives = s.NumOfArchives
