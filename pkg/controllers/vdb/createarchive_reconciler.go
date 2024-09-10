@@ -34,7 +34,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// CreateArchiveReconciler will unsandbox subclusters in the sandbox of a sandbox config map
+// CreateArchiveReconciler will create archive and save restore point if triggered
 type CreateArchiveReconciler struct {
 	VRec *VerticaDBReconciler
 	Vdb  *vapi.VerticaDB
@@ -60,7 +60,9 @@ func MakeCreateArchiveReconciler(r *VerticaDBReconciler, vdb *vapi.VerticaDB, lo
 	}
 }
 
-// Reconcile will stop vertica if the status condition indicates a restart is needed
+// Reconcile will create an archive if the status condition indicates true
+// And will save restore point to the created arcihve if restorePoint.archive value
+// is provided in the CRD spec
 func (c *CreateArchiveReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
 	err := c.PFacts.Collect(ctx, c.Vdb)
 	if err != nil {
