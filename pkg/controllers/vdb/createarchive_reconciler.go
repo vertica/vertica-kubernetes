@@ -23,10 +23,11 @@ import (
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
-	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/createarchive"
+	"github.com/vertica/vertica-kubernetes/pkg/vdbstatus"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -71,21 +72,27 @@ func (c *CreateArchiveReconciler) Reconcile(ctx context.Context, _ *ctrl.Request
 	c.VRec.Eventf(c.Vdb, corev1.EventTypeNormal, events.CreateArchiveFailed,
 		"DEBUG create archive !!!!!")
 	c.VRec.Eventf(c.Vdb, corev1.EventTypeNormal, events.CreateArchiveFailed,
-		"DEBUG create archive !!!!!%+v", c.Vdb)
+		"DEBUG value !!!!!%+v", vapi.SaveRestorePointsNeeded)
 	c.VRec.Eventf(c.Vdb, corev1.EventTypeNormal, events.CreateArchiveFailed,
-		"DEBUG create archive !!!!!%s", vmeta.SaveRestorePointsTriggerID)
+		"DEBUG condition !!!!!%+v", c.Vdb.IsStatusConditionTrue(vapi.SaveRestorePointsNeeded))
 	c.VRec.Eventf(c.Vdb, corev1.EventTypeNormal, events.CreateArchiveFailed,
-		"DEBUG create archive !!!!!%s", c.Vdb.Annotations[vmeta.SaveRestorePointsTriggerID])
+		"DEBUG create archive !!!!!")
 
-	// Only proceed if the needed status condition is set.
-	if c.Vdb.Annotations[vmeta.SaveRestorePointsTriggerID] == "true" {
-		if c.Vdb.Spec.RestorePoint != nil {
-			c.VRec.Eventf(c.Vdb, corev1.EventTypeNormal, events.CreateArchiveFailed,
-				"DEBUG create archive !!!!! archive name: %s", c.Vdb.Spec.RestorePoint.Archive)
+	// Only proceed if the SaveRestorePointsNeeded status condition is set to true.
+	if c.Vdb.IsStatusConditionTrue(vapi.SaveRestorePointsNeeded) {
+		if c.Vdb.Spec.RestorePoint != nil && c.Vdb.Spec.RestorePoint.Archive != "" {
+			// params: context, archive-name, sandbox, num of restore point(0 is unlimited)
+			err = c.runCreateArchiveVclusterAPI(ctx, c.Vdb.Spec.RestorePoint.Archive, "", 0)
+			if err != nil {
+				return ctrl.Result{}, err
+			}
 		}
-		err = c.runCreateArchiveVclusterAPI(ctx, "test", "", 0) // TODO: Fix with actual name
+		// param not set correctly, Log warning
+		c.VRec.Eventf(c.Vdb, corev1.EventTypeWarning, events.CreateArchiveFailed,
+			"create archive failed, archive name not set in RestorePoint.")
+		return ctrl.Result{}, nil
 	}
-	return ctrl.Result{}, err
+	return ctrl.Result{}, nil
 }
 
 // runVclusterAPI will do the actual execution of creating archive.
@@ -109,6 +116,15 @@ func (c *CreateArchiveReconciler) runCreateArchiveVclusterAPI(ctx context.Contex
 
 	c.VRec.Eventf(c.Vdb, corev1.EventTypeNormal, events.CreateArchiveSucceeded,
 		"Successfully create archive. It took %s", time.Since(start).Truncate(time.Second))
+
+	// Clear the condition after archive creation success.
+	err := vdbstatus.UpdateCondition(ctx, c.VRec.Client, c.Vdb,
+		vapi.MakeCondition(vapi.SaveRestorePointsNeeded,
+			metav1.ConditionFalse, "ArchiveCreationCompleted"),
+	)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
