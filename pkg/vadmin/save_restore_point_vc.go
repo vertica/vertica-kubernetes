@@ -19,14 +19,14 @@ import (
 	"context"
 
 	vops "github.com/vertica/vcluster/vclusterops"
-	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/createarchive"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/saverestorepoint"
 )
 
-// CreateArchive will create an archive point in the database
-func (v *VClusterOps) CreateArchive(ctx context.Context, opts ...createarchive.Option) error {
-	v.setupForAPICall("CreateArchive")
+// SaveRestorePoint will create an archive point in the database
+func (v *VClusterOps) SaveRestorePoint(ctx context.Context, opts ...saverestorepoint.Option) error {
+	v.setupForAPICall("SaveRestorePoint")
 	defer v.tearDownForAPICall()
-	v.Log.Info("Starting vcluster CreateArchive")
+	v.Log.Info("Starting vcluster SaveRestorePoint")
 
 	// get the certs
 	certs, err := v.retrieveNMACerts(ctx)
@@ -34,32 +34,31 @@ func (v *VClusterOps) CreateArchive(ctx context.Context, opts ...createarchive.O
 		return err
 	}
 
-	s := createarchive.Params{}
+	s := saverestorepoint.Params{}
 	s.Make(opts...)
 
 	// call vclusterOps library to sandbox a subcluster
-	vopts := v.genCreateArchiveOptions(&s, certs)
-	err = v.VCreateArchive(&vopts)
+	vopts := v.genSaveRestorePointOptions(&s, certs)
+	err = v.VSaveRestorePoint(&vopts)
 	if err != nil {
-		v.Log.Error(err, "failed to create an archive", "archive name",
-			vopts.ArchiveName, "sandbox", vopts.Sandbox, "num restore point", vopts.NumOfArchives)
+		v.Log.Error(err, "failed to create a restore point to archive", "archive name",
+			vopts.ArchiveName, "sandbox", vopts.Sandbox)
 		return err
 	}
 
-	v.Log.Info("Successfully create an archive", "archive name",
-		vopts.ArchiveName, "sandbox", vopts.Sandbox, "num restore point", vopts.NumOfArchives)
+	v.Log.Info("Successfully create a restore point to archive", "archive name",
+		vopts.ArchiveName, "sandbox", vopts.Sandbox)
 	return nil
 }
 
-func (v *VClusterOps) genCreateArchiveOptions(s *createarchive.Params, certs *HTTPSCerts) vops.VCreateArchiveOptions {
-	opts := vops.VCreateArchiveFactory()
+func (v *VClusterOps) genSaveRestorePointOptions(s *saverestorepoint.Params, certs *HTTPSCerts) vops.VSaveRestorePointOptions {
+	opts := vops.VSaveRestorePointFactory()
 
 	opts.DBName = v.VDB.Spec.DBName
 	opts.IsEon = v.VDB.IsEON()
 	opts.Hosts = []string{s.InitiatorIP}
 	opts.ArchiveName = s.ArchiveName
 	opts.Sandbox = s.Sandbox
-	opts.NumOfArchives = s.NumOfArchives
 
 	// auth options
 	opts.UserName = v.VDB.GetVerticaUser()

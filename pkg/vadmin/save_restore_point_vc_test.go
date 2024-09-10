@@ -23,11 +23,11 @@ import (
 	. "github.com/onsi/gomega"
 	vops "github.com/vertica/vcluster/vclusterops"
 	"github.com/vertica/vertica-kubernetes/pkg/test"
-	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/createarchive"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/saverestorepoint"
 )
 
-// mock version of VCreateArchive() that is invoked inside VClusterOps.CreateArchive()
-func (m *MockVClusterOps) VCreateArchive(options *vops.VCreateArchiveOptions) error {
+// mock version of VSaveRestorePoint() that is invoked inside VClusterOps.VSaveRestorePoint()
+func (m *MockVClusterOps) VSaveRestorePoint(options *vops.VSaveRestorePointOptions) error {
 	// verify common options
 	err := m.VerifyCommonOptions(&options.DatabaseOptions)
 	if err != nil {
@@ -42,23 +42,23 @@ func (m *MockVClusterOps) VCreateArchive(options *vops.VCreateArchiveOptions) er
 
 	// verify basic options
 	if options.ArchiveName != TestSCName {
-		return fmt.Errorf("failed to retrieve subcluster name")
+		return fmt.Errorf("failed to retrieve archive name")
 	}
 
 	// verify auth options
 	return m.VerifyCerts(&options.DatabaseOptions)
 }
 
-var _ = Describe("create_archive_vc", func() {
+var _ = Describe("create_save_restore_point_vc", func() {
 	ctx := context.Background()
 
-	It("should call vclusterOps library with create_archive task", func() {
+	It("should call vclusterOps library with create_save_restore_point task", func() {
 		dispatcher := mockVClusterOpsDispatcher()
 		dispatcher.VDB.Spec.DBName = TestDBName
 		dispatcher.VDB.Spec.NMATLSSecret = TestNMATLSSecret
 		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.NMATLSSecret)
 		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.NMATLSSecret)
-		Ω(dispatcher.CreateArchive(ctx,
-			createarchive.WithInitiator(TestInitiatorIP))).Should(Succeed())
+		Ω(dispatcher.SaveRestorePoint(ctx,
+			saverestorepoint.WithInitiator(TestInitiatorIP))).Should(Succeed())
 	})
 })
