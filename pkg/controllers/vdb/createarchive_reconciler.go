@@ -17,6 +17,7 @@ package vdb
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -25,6 +26,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/createarchive"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/saverestorepoint"
 	"github.com/vertica/vertica-kubernetes/pkg/vdbstatus"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -70,16 +72,29 @@ func (c *CreateArchiveReconciler) Reconcile(ctx context.Context, _ *ctrl.Request
 		return ctrl.Result{}, nil
 	}
 
+	hostIP, ok := c.PFacts.FindFirstUpPodIP(true, "")
+	if !ok {
+		// If no running pod found, then there is nothing to do and we can just continue on
+		return ctrl.Result{}, nil
+	}
+
 	// Only proceed if the SaveRestorePointsNeeded status condition is set to true.
 	if c.Vdb.IsStatusConditionTrue(vapi.SaveRestorePointsNeeded) {
 		if c.Vdb.Spec.RestorePoint != nil && c.Vdb.Spec.RestorePoint.Archive != "" {
-			// params: context, archive-name, sandbox, num of restore point(0 is unlimited)
-			err = c.runCreateArchiveVclusterAPI(ctx, c.Vdb.Spec.RestorePoint.Archive, "", 0)
+			// Always tried to create archive
+			// params: context, host, archive-name, sandbox, num of restore point(0 is unlimited)
+			err = c.runCreateArchiveVclusterAPI(ctx, hostIP, c.Vdb.Spec.RestorePoint.Archive, "", 0)
+			if err != nil {
+				return ctrl.Result{}, err
+			}
+			// Once save restore point, change condition
+			// params: context, host, archive-name, sandbox, num of restore point(0 is unlimited)
+			err = c.runSaveRestorePointVclusterAPI(ctx, hostIP, c.Vdb.Spec.RestorePoint.Archive, "")
 			if err != nil {
 				return ctrl.Result{}, err
 			}
 		}
-		// param not set correctly, Log warning
+		// archinve name param not set correctly, Log warning
 		c.VRec.Eventf(c.Vdb, corev1.EventTypeWarning, events.CreateArchiveFailed,
 			"create archive failed, archive name not set in RestorePoint.")
 		return ctrl.Result{}, nil
@@ -87,20 +102,25 @@ func (c *CreateArchiveReconciler) Reconcile(ctx context.Context, _ *ctrl.Request
 	return ctrl.Result{}, nil
 }
 
-// runVclusterAPI will do the actual execution of creating archive.
+// runCreateArchiveVclusterAPI will do the actual execution of creating archive.
 // This handles logging of necessary events.
 func (c *CreateArchiveReconciler) runCreateArchiveVclusterAPI(ctx context.Context,
-	archiveName string, sandbox string, numRestorePoint int) error {
-	hostIP, ok := c.PFacts.FindFirstUpPodIP(true, "")
-	if !ok {
-		// If no running pod found, then there is nothing to stop and we can just continue on
-		return nil
-	}
-	opts := c.genOpts(hostIP, archiveName, numRestorePoint, sandbox)
+	host string, archiveName string, sandbox string, numRestorePoint int) error {
+
+	opts := c.genCreateArchiveOpts(host, archiveName, numRestorePoint, sandbox)
 	c.VRec.Event(c.Vdb, corev1.EventTypeNormal, events.CreateArchiveStart, "Starting create archive")
 	start := time.Now()
 
-	if err := c.Dispatcher.CreateArchive(ctx, opts...); err != nil {
+	// Always try to create
+	err := c.Dispatcher.CreateArchive(ctx, opts...)
+	if err != nil {
+		// If already exist, ignore error, log warning
+		if strings.Contains(err.Error(), "Archive "+"\"+ archiveName+ \""+"already exists") {
+			c.VRec.Eventf(c.Vdb, corev1.EventTypeWarning, events.CreateArchiveFailed,
+				"archive :%s already exist", archiveName)
+			return nil
+		}
+		// For all other errors, return error
 		c.VRec.Eventf(c.Vdb, corev1.EventTypeWarning, events.CreateArchiveFailed,
 			"Failed to create archive %q", archiveName)
 		return err
@@ -108,11 +128,33 @@ func (c *CreateArchiveReconciler) runCreateArchiveVclusterAPI(ctx context.Contex
 
 	c.VRec.Eventf(c.Vdb, corev1.EventTypeNormal, events.CreateArchiveSucceeded,
 		"Successfully create archive. It took %s", time.Since(start).Truncate(time.Second))
+	return nil
+}
+
+// runSaveRestorePointVclusterAPI will do the actual execution of saving restore point to
+// an existing archive.
+// This handles logging of necessary events.
+func (c *CreateArchiveReconciler) runSaveRestorePointVclusterAPI(ctx context.Context,
+	host string, archiveName string, sandbox string) error {
+	opts := c.genSaveRestorePointOpts(host, archiveName, sandbox)
+	c.VRec.Event(c.Vdb, corev1.EventTypeNormal,
+		events.SaveRestorePointStart, "Starting save restore point")
+	start := time.Now()
+
+	err := c.Dispatcher.SaveRestorePoint(ctx, opts...)
+	if err != nil {
+		c.VRec.Eventf(c.Vdb, corev1.EventTypeWarning, events.SaveRestorePointFailed,
+			"Failed to save restore point to archive: %s", archiveName)
+		return err
+	}
+	c.VRec.Eventf(c.Vdb, corev1.EventTypeNormal, events.SaveRestorePointSucceeded,
+		"Successfully save restore point to archive: %s. It took %s",
+		archiveName, time.Since(start).Truncate(time.Second))
 
 	// Clear the condition after archive creation success.
-	err := vdbstatus.UpdateCondition(ctx, c.VRec.Client, c.Vdb,
+	err = vdbstatus.UpdateCondition(ctx, c.VRec.Client, c.Vdb,
 		vapi.MakeCondition(vapi.SaveRestorePointsNeeded,
-			metav1.ConditionFalse, "ArchiveCreationCompleted"),
+			metav1.ConditionFalse, "Completed"),
 	)
 	if err != nil {
 		return err
@@ -120,14 +162,25 @@ func (c *CreateArchiveReconciler) runCreateArchiveVclusterAPI(ctx context.Contex
 	return nil
 }
 
-// genOpts will return the options to use with the create archive command
-func (c *CreateArchiveReconciler) genOpts(initiatorIP string, archiveName string,
+// genCreateArchiveOpts will return the options to use with the create archive command
+func (c *CreateArchiveReconciler) genCreateArchiveOpts(initiatorIP string, archiveName string,
 	numRestorePoint int, sandbox string) []createarchive.Option {
 	opts := []createarchive.Option{
 		createarchive.WithInitiator(initiatorIP),
 		createarchive.WithArchiveName(archiveName),
 		createarchive.WithNumOfArchives(numRestorePoint),
 		createarchive.WithSandbox(sandbox),
+	}
+	return opts
+}
+
+// genSaveRestorePointOpts will return the options to use with the create archive command
+func (c *CreateArchiveReconciler) genSaveRestorePointOpts(initiatorIP string, archiveName string,
+	sandbox string) []saverestorepoint.Option {
+	opts := []saverestorepoint.Option{
+		saverestorepoint.WithInitiator(initiatorIP),
+		saverestorepoint.WithArchiveName(archiveName),
+		saverestorepoint.WithSandbox(sandbox),
 	}
 	return opts
 }
