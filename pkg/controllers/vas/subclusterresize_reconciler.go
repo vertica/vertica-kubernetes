@@ -18,7 +18,8 @@ package vas
 import (
 	"context"
 
-	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	vapi "github.com/vertica/vertica-kubernetes/api/v1"
+	v1beta1 "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
@@ -32,17 +33,17 @@ import (
 // target pod count in the CR.
 type SubclusterResizeReconciler struct {
 	VRec *VerticaAutoscalerReconciler
-	Vas  *vapi.VerticaAutoscaler
+	Vas  *v1beta1.VerticaAutoscaler
 	Vdb  *vapi.VerticaDB
 }
 
-func MakeSubclusterResizeReconciler(r *VerticaAutoscalerReconciler, vas *vapi.VerticaAutoscaler) controllers.ReconcileActor {
+func MakeSubclusterResizeReconciler(r *VerticaAutoscalerReconciler, vas *v1beta1.VerticaAutoscaler) controllers.ReconcileActor {
 	return &SubclusterResizeReconciler{VRec: r, Vas: vas, Vdb: &vapi.VerticaDB{}}
 }
 
 // Reconcile will grow/shrink an existing subcluste based on the target pod count
 func (s *SubclusterResizeReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (ctrl.Result, error) {
-	if s.Vas.Spec.ScalingGranularity != vapi.PodScalingGranularity {
+	if s.Vas.Spec.ScalingGranularity != v1beta1.PodScalingGranularity {
 		return ctrl.Result{}, nil
 	}
 

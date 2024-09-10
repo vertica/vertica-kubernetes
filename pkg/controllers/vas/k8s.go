@@ -18,7 +18,8 @@ package vas
 import (
 	"context"
 
-	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	vapi "github.com/vertica/vertica-kubernetes/api/v1"
+	v1beta1 "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -29,7 +30,7 @@ import (
 // fetchVDB will fetch the VerticaDB that is referenced in a VerticaAutoscaler.
 // This will log an event if the VerticaDB is not found.
 func fetchVDB(ctx context.Context, vrec *VerticaAutoscalerReconciler,
-	vas *vapi.VerticaAutoscaler, vdb *vapi.VerticaDB) (ctrl.Result, error) {
+	vas *v1beta1.VerticaAutoscaler, vdb *vapi.VerticaDB) (ctrl.Result, error) {
 	nm := types.NamespacedName{
 		Namespace: vas.Namespace,
 		Name:      vas.Spec.VerticaDBName,
