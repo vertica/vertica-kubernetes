@@ -273,6 +273,8 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		// objects that the operator creates exist. This is needed encase they
 		// are removed in the middle of a reconcile iteration.
 		MakeDepObjCheckReconciler(r, log, vdb),
+		// Trigger save restore point when feature flag is set to true
+		MakeCreateArchiveReconciler(r, vdb, log, pfacts, dispatcher, r.Client),
 	}
 }
 

@@ -23,6 +23,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/saverestorepoint"
+	config "github.com/vertica/vertica-kubernetes/pkg/vdbconfig"
 	"github.com/vertica/vertica-kubernetes/pkg/vdbstatus"
 	"github.com/vertica/vertica-kubernetes/pkg/version"
 	corev1 "k8s.io/api/core/v1"
@@ -32,7 +33,7 @@ import (
 
 // SaveRestorePointReconciler will create archive and save restore point if triggered
 type SaveRestorePointReconciler struct {
-	VRec           *VerticaDBReconciler
+	Rec            config.ReconcilerInterface
 	Vdb            *vapi.VerticaDB
 	Log            logr.Logger
 	Dispatcher     vadmin.Dispatcher
@@ -41,11 +42,11 @@ type SaveRestorePointReconciler struct {
 	InitiatorIP    string // The IP of the pod that we run vclusterOps from
 }
 
-func MakeSaveRestorePointReconciler(r *VerticaDBReconciler, vdb *vapi.VerticaDB, log logr.Logger,
+func MakeSaveRestorePointReconciler(r config.ReconcilerInterface, vdb *vapi.VerticaDB, log logr.Logger,
 	pfacts *PodFacts, dispatcher vadmin.Dispatcher) controllers.ReconcileActor {
 	pfactsForMainCluster := pfacts.Copy(vapi.MainCluster)
 	return &SaveRestorePointReconciler{
-		VRec:           r,
+		Rec:            r,
 		Log:            log.WithName("SaveRestorePointReconciler"),
 		Vdb:            vdb,
 		Dispatcher:     dispatcher,
@@ -76,10 +77,10 @@ func (c *SaveRestorePointReconciler) Reconcile(ctx context.Context, _ *ctrl.Requ
 	// Ensure vertica version
 	var vinf *version.Info
 	if !vinf.IsEqualOrNewer(vapi.SaveRestorePointNMAOpsMinVersion) {
-		c.VRec.Eventf(c.Vdb, corev1.EventTypeWarning, events.UnsupportedVerticaVersion,
+		c.Rec.Eventf(c.Vdb, corev1.EventTypeWarning, events.UnsupportedVerticaVersion,
 			"The Vertica version %q doesn't support create restore points. The minimum version supported is %s.",
 			vinf.VdbVer, vapi.SaveRestorePointNMAOpsMinVersion)
-		err := vdbstatus.UpdateCondition(ctx, c.VRec.Client, c.Vdb,
+		err := vdbstatus.UpdateCondition(ctx, c.Rec.GetClient(), c.Vdb,
 			vapi.MakeCondition(vapi.SaveRestorePointsNeeded,
 				metav1.ConditionFalse, "IncompatibleDB"),
 		)
@@ -112,22 +113,22 @@ func (c *SaveRestorePointReconciler) Reconcile(ctx context.Context, _ *ctrl.Requ
 func (c *SaveRestorePointReconciler) runSaveRestorePointVclusterAPI(ctx context.Context,
 	host string, archiveName string, sandbox string, purpose string) error {
 	opts := c.genSaveRestorePointOpts(host, archiveName, sandbox)
-	c.VRec.Event(c.Vdb, corev1.EventTypeNormal,
+	c.Rec.Event(c.Vdb, corev1.EventTypeNormal,
 		events.SaveRestorePointStart, "Starting save restore point for "+purpose)
 	start := time.Now()
 
 	err := c.Dispatcher.SaveRestorePoint(ctx, opts...)
 	if err != nil {
-		c.VRec.Eventf(c.Vdb, corev1.EventTypeWarning, events.SaveRestorePointFailed,
+		c.Rec.Eventf(c.Vdb, corev1.EventTypeWarning, events.SaveRestorePointFailed,
 			"Failed to save restore point to archive: %s", archiveName)
 		return err
 	}
-	c.VRec.Eventf(c.Vdb, corev1.EventTypeNormal, events.SaveRestorePointSucceeded,
+	c.Rec.Eventf(c.Vdb, corev1.EventTypeNormal, events.SaveRestorePointSucceeded,
 		"Successfully save restore point to archive: %s. It took %s",
 		archiveName, time.Since(start).Truncate(time.Second))
 
 	// Clear the condition after archive creation success.
-	err = vdbstatus.UpdateCondition(ctx, c.VRec.Client, c.Vdb,
+	err = vdbstatus.UpdateCondition(ctx, c.Rec.GetClient(), c.Vdb,
 		vapi.MakeCondition(vapi.SaveRestorePointsNeeded,
 			metav1.ConditionFalse, "Completed"),
 	)
