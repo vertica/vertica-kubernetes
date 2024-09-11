@@ -303,6 +303,9 @@ const (
 	// omitted, then the name of the subclusters' statefulset will be
 	// `<vdb-name>-<subcluster-name>'
 	StsNameOverrideAnnotation = "vertica.com/statefulset-name-override"
+
+	// This will be used to force an upgrade to create a restore point before starting.
+	SaveRestorePointsTriggerID = "vertica.com/save-restore-point-on-upgrade"
 )
 
 // IsPauseAnnotationSet will check the annotations for a special value that will
