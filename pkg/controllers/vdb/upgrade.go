@@ -645,6 +645,26 @@ func (i *UpgradeManager) isSubclusterIdle(ctx context.Context, pfacts *PodFacts,
 	return res, nil
 }
 
+// closeAllSessions will run a query to close all active user sessions.
+func (i *UpgradeManager) closeAllSessions(ctx context.Context, pfacts *PodFacts) error {
+	pf, ok := pfacts.findFirstPodSorted(func(v *PodFact) bool {
+		return v.isPrimary && v.upNode
+	})
+	if !ok {
+		i.Log.Info("No pod found to run vsql. Skipping close all sessions")
+		return nil
+	}
+
+	sql := "select close_all_sessions();"
+	cmd := []string{"-tAc", sql}
+	_, _, err := pfacts.PRunner.ExecVSQL(ctx, pf.name, names.ServerContainer, cmd...)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // areAllConnectionsPaused will run a query to see the number of non-superuser connections that are active (not paused)
 // it returns a requeue error if there are still active connections
 func (i *UpgradeManager) areAllConnectionsPaused(ctx context.Context, pfacts *PodFacts) (ctrl.Result, error) {

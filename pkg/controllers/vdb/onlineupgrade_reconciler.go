@@ -21,6 +21,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/google/uuid"
@@ -53,6 +54,7 @@ const (
 	ConfigParamBoolTrue                      = "1"
 	ConfigParamBoolFalse                     = "0"
 	ConfigParamDisableNonReplicatableQueries = "DisableNonReplicatableQueries"
+	RedirectConnectionTimeoutSeconds         = 5 * 60
 )
 
 const archiveBaseName = "upgrade_backup"
@@ -1147,13 +1149,23 @@ func (r *OnlineUpgradeReconciler) waitForConnectionRedirect(ctx context.Context)
 	// Iterate through the subclusters in replica group A. We check if there are
 	// any active connections for each. Once they are all idle we can advance to
 	// the next action in the upgrade.
-	for _, scName := range r.VDB.GetSubclustersForReplicaGroup(vmeta.ReplicaGroupAValue) {
-		res, err := r.Manager.isSubclusterIdle(ctx, r.PFacts[vapi.MainCluster], scName)
-		if verrors.IsReconcileAborted(res, err) {
-			return res, err
+	for i := 0; i < RedirectConnectionTimeoutSeconds; i++ {
+		active := false
+		for _, scName := range r.VDB.GetSubclustersForReplicaGroup(vmeta.ReplicaGroupAValue) {
+			res, err := r.Manager.isSubclusterIdle(ctx, r.PFacts[vapi.MainCluster], scName)
+			if err != nil {
+				return res, err
+			} else if res.Requeue {
+				active = true
+			}
 		}
+		if !active {
+			return ctrl.Result{}, nil
+		}
+		time.Sleep(1 * time.Second)
 	}
-	return ctrl.Result{}, nil
+
+	return ctrl.Result{}, r.Manager.closeAllSessions(ctx, r.PFacts[vapi.MainCluster])
 }
 
 // postRemoveOriginalClusterMsg will update the status message to indicate that
