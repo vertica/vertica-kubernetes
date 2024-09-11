@@ -83,8 +83,6 @@ const (
 	SandboxSupportedMinVersion = "v24.3.0"
 	// Starting in v24.3.0, we call vclusterops API to get node details instead of executing vsql within the pod
 	FetchNodeDetailsWithVclusterOpsMinVersion = "v24.3.0"
-	// Starting in v24.2.0, vertica server will accept http call to create archive
-	CreateArchiveWithVclusterOpsMinVersion = "v24.2.0"
 	// Starting in v24.4.0, nma server will support create restore point to an existing archive
 	SaveRestorePointNMAOpsMinVersion = "v24.4.0"
 )

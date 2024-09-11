@@ -28,6 +28,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/createarchive"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/saverestorepoint"
 	"github.com/vertica/vertica-kubernetes/pkg/vdbstatus"
+	"github.com/vertica/vertica-kubernetes/pkg/version"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -77,6 +78,21 @@ func (c *CreateArchiveReconciler) Reconcile(ctx context.Context, _ *ctrl.Request
 	hostIP, ok := c.PFacts.FindFirstUpPodIP(true, "")
 	if !ok {
 		// If no running pod found, then there is nothing to do and we can just continue on
+		return ctrl.Result{}, nil
+	}
+	// Ensure vertica version
+	var vinf *version.Info
+	if !vinf.IsEqualOrNewer(vapi.SaveRestorePointNMAOpsMinVersion) {
+		c.VRec.Eventf(c.Vdb, corev1.EventTypeWarning, events.UnsupportedVerticaVersion,
+			"The Vertica version %q doesn't support create restore points. The minimum version supported is %s.",
+			vinf.VdbVer, vapi.SaveRestorePointNMAOpsMinVersion)
+		err := vdbstatus.UpdateCondition(ctx, c.VRec.Client, c.Vdb,
+			vapi.MakeCondition(vapi.SaveRestorePointsNeeded,
+				metav1.ConditionFalse, "IncompatibleDB"),
+		)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
 		return ctrl.Result{}, nil
 	}
 
