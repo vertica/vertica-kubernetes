@@ -36,7 +36,6 @@ all: docker-build-vertica
 docker-build-vertica: Dockerfile packages/package-checksum-patcher.py
 	docker pull ${BASE_OS_NAME}:$(BASE_OS_VERSION) ## make sure we use the latest base image
 	docker buildx build \
-		--load \
 		-f Dockerfile \
 		--platform ${TARGET_ARCH} \
 		--label minimal=${MINIMAL_VERTICA_IMG} \
