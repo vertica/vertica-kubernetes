@@ -31,6 +31,7 @@ import (
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/metrics"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	config "github.com/vertica/vertica-kubernetes/pkg/vdbconfig"
 	"github.com/vertica/vertica-kubernetes/pkg/vdbstatus"
 	"github.com/vertica/vertica-kubernetes/pkg/vk8s"
@@ -189,6 +190,15 @@ func (i *UpgradeManager) finishUpgrade(ctx context.Context, sbName string) (ctrl
 		return ctrl.Result{}, err
 	}
 
+	return ctrl.Result{}, nil
+}
+
+// saveRestorePoint handles condition status and event recording for start of an upgrade
+func (i *UpgradeManager) saveRestorePoint(ctx context.Context) (ctrl.Result, error) {
+	if i.Vdb.Annotations[vmeta.SaveRestorePointsTriggerID] == vmeta.SaveRestorePointsTrue {
+		i.Rec.Eventf(i.Vdb, corev1.EventTypeNormal, events.SaveRestorePointStart,
+			"save a restore point before initiating the upgrade")
+	}
 	return ctrl.Result{}, nil
 }
 
@@ -666,7 +676,7 @@ func (i *UpgradeManager) closeAllSessions(ctx context.Context, pfacts *PodFacts)
 }
 
 // createRestorePoint creates a restore point to backup the db in case upgrade does not go well.
-func (i *UpgradeManager) createRestorePoint(ctx context.Context, pfacts *PodFacts, archive string) (ctrl.Result, error) {
+func (i *UpgradeManager) createRestorePoint(ctx context.Context, pfacts *PodFacts, archive string, dispatcher vadmin.Dispatcher) (ctrl.Result, error) {
 	pf, ok := pfacts.findFirstPodSorted(func(v *PodFact) bool {
 		return v.isPrimary && v.upNode
 	})
@@ -701,13 +711,12 @@ func (i *UpgradeManager) createRestorePoint(ctx context.Context, pfacts *PodFact
 			return ctrl.Result{}, err
 		}
 	}
-	if pf.sandbox == vapi.MainCluster {
-		sql = fmt.Sprintf("%s save restore point to archive %s; %s", clearKnob, archive, setKnob)
-	} else {
-		sql = fmt.Sprintf("save restore point to archive %s;", archive)
-	}
-	cmd = []string{"-tAc", sql}
-	_, _, err = pfacts.PRunner.ExecVSQL(ctx, pf.name, names.ServerContainer, cmd...)
+
+	actor := MakeSaveRestorePointReconciler(i.Rec, i.Vdb, i.Log, pfacts, dispatcher)
+	saveRestoreRec := actor.(*SaveRestorePointReconciler)
+
+	hostIP, ok := pfacts.FindFirstUpPodIP(true, "")
+	saveRestoreRec.runSaveRestorePointVclusterAPI(ctx, hostIP, archive, "", "Upgrade database")
 	return ctrl.Result{}, err
 }
 
