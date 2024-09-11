@@ -298,9 +298,6 @@ const (
 	// controller for unsandboxing the subclusters
 	SandboxControllerUnsandboxTriggerID = "vertica.com/sandbox-controller-unsandbox-trigger-id"
 
-	// This will be used to force an upgrade to create a restore point before starting.
-	SaveRestorePointsTriggerID = "vertica.com/save-restore-point-on-upgrade"
-
 	// Use this to override the name of the statefulset and its pods. This needs
 	// to be set in the spec.subclusters[].annotations field to take effect. If
 	// omitted, then the name of the subclusters' statefulset will be
