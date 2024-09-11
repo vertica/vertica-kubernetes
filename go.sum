@@ -360,6 +360,8 @@ github.com/tonglil/buflogr v1.0.1 h1:WXFZLKxLfqcVSmckwiMCF8jJwjIgmStJmg63YKRF1p0
 github.com/tonglil/buflogr v1.0.1/go.mod h1:yYWwvSpn/3uAaqjf6mJg/XMiAciaR0QcRJH2gJGDxNE=
 github.com/vertica/vcluster v0.0.123 h1:zJN8UFJ2eiVDSJu/J11/IJvUh456RBhyRmPsWWx3y64=
 github.com/vertica/vcluster v0.0.123/go.mod h1:yZ3lnvlwuXWgyCZ9Z6bMYisVjP6Ecffl+Lk5wGX/lPQ=
+github.com/vertica/vcluster v0.0.1234 h1:sW6uyc7hkP07Es0nv2WoauNRi8YSvHVaj5i6demMMPE=
+github.com/vertica/vcluster v0.0.1234/go.mod h1:yZ3lnvlwuXWgyCZ9Z6bMYisVjP6Ecffl+Lk5wGX/lPQ=
 github.com/vertica/vcluster v1.2.1-0.20240824015949-397ced8a6708 h1:wjYVhJxvlymSIlBYfRMJuBngPzm/qavKhH/vLcKxzf0=
 github.com/vertica/vcluster v1.2.1-0.20240824015949-397ced8a6708/go.mod h1:yZ3lnvlwuXWgyCZ9Z6bMYisVjP6Ecffl+Lk5wGX/lPQ=
 github.com/vertica/vertica-sql-go v1.1.1 h1:sZYijzBbvdAbJcl4cYlKjR+Eh/X1hGKzukWuhh8PjvI=
