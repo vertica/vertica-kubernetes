@@ -63,6 +63,7 @@ const (
 	UnsandboxSubclusterSucceeded    = "UnsandboxSubclusterSucceeded"
 	CreateArchiveStart              = "CreateArchiveStart"
 	CreateArchiveSucceeded          = "CreateArchiveSucceeded"
+	ArchiveExists                   = "ArchiveExists"
 	CreateArchiveFailed             = "CreateArchiveFailed"
 	SaveRestorePointStart           = "SaveRestorePointStart"
 	SaveRestorePointSucceeded       = "SaveRestorePointSucceeded"

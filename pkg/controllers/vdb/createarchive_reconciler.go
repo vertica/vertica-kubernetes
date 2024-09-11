@@ -118,7 +118,7 @@ func (c *CreateArchiveReconciler) runCreateArchiveVclusterAPI(ctx context.Contex
 	if err != nil {
 		// If already exist, ignore error, log warning
 		if strings.Contains(err.Error(), "Duplicate object on host") {
-			c.VRec.Eventf(c.Vdb, corev1.EventTypeWarning, events.CreateArchiveFailed,
+			c.VRec.Eventf(c.Vdb, corev1.EventTypeNormal, events.ArchiveExists,
 				"archive: %s already exist", archiveName)
 			return nil
 		}
