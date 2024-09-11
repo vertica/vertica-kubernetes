@@ -306,6 +306,8 @@ const (
 
 	// This will be used to force an upgrade to create a restore point before starting.
 	SaveRestorePointsTriggerID = "vertica.com/save-restore-point-on-upgrade"
+	SaveRestorePointsTrue      = "true"
+	SaveRestorePointsFalse     = "false"
 )
 
 // IsPauseAnnotationSet will check the annotations for a special value that will
