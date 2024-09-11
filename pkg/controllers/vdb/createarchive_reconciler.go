@@ -97,8 +97,7 @@ func (c *CreateArchiveReconciler) Reconcile(ctx context.Context, _ *ctrl.Request
 			}
 		}
 		// archinve name param not set correctly, Log warning
-		c.VRec.Eventf(c.Vdb, corev1.EventTypeWarning, events.CreateArchiveFailed,
-			"create archive failed, archive name not set in RestorePoint.")
+		c.Log.Info("create archive failed, archive name not set in restorePoint spec.")
 		return ctrl.Result{}, nil
 	}
 	return ctrl.Result{}, nil
