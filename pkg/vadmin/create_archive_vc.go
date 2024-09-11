@@ -59,7 +59,7 @@ func (v *VClusterOps) genCreateArchiveOptions(s *createarchive.Params, certs *HT
 	opts.Hosts = []string{s.InitiatorIP}
 	opts.ArchiveName = s.ArchiveName
 	opts.Sandbox = s.Sandbox
-	opts.NumOfArchives = s.NumOfArchives
+	opts.NumOfArchives = s.NumRestorePoints
 
 	// auth options
 	opts.UserName = v.VDB.GetVerticaUser()

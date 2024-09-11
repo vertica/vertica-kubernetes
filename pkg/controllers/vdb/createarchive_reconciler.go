@@ -170,7 +170,7 @@ func (c *CreateArchiveReconciler) genCreateArchiveOpts(initiatorIP string, archi
 	opts := []createarchive.Option{
 		createarchive.WithInitiator(initiatorIP),
 		createarchive.WithArchiveName(archiveName),
-		createarchive.WithNumOfArchives(numRestorePoint),
+		createarchive.WithNumRestorePoints(numRestorePoint),
 		createarchive.WithSandbox(sandbox),
 	}
 	return opts

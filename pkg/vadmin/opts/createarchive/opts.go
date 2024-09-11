@@ -21,8 +21,8 @@ type Params struct {
 	// Required arguments
 	ArchiveName string
 	// Optional arguments
-	NumOfArchives int
-	Sandbox       string
+	NumRestorePoints int
+	Sandbox          string
 }
 
 type Option func(*Params)
@@ -46,9 +46,9 @@ func WithArchiveName(archiveName string) Option {
 	}
 }
 
-func WithNumOfArchives(numOfArchives int) Option {
+func WithNumRestorePoints(NumRestorePoints int) Option {
 	return func(s *Params) {
-		s.NumOfArchives = numOfArchives
+		s.NumRestorePoints = NumRestorePoints
 	}
 }
 
