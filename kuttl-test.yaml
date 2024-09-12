@@ -28,6 +28,7 @@ testDirs:
   - tests/e2e-leg-5
   - tests/e2e-leg-5-at-only
   - tests/e2e-leg-6
+  - tests/e2e-leg-6-revivedb
   - tests/e2e-leg-7
   - tests/e2e-leg-8-offline
   - tests/e2e-leg-8-online

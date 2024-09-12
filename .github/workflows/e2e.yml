@@ -400,6 +400,26 @@ jobs:
           communal-storage-type: hostpath
           minimum-vertica-image: '24.2.0'
 
+  e2e-leg-6-vcluster-revivedb:
+    if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'vcluster leg 6' || inputs.e2e_test_suites == '')}}
+    needs: [build]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Test
+        uses: ./.github/actions/run-e2e-leg
+        with:
+          leg-identifier: 'leg-6-revivedb'
+          dockerhub-username: ${{ secrets.DOCKERHUB_USERNAME }}
+          dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}
+          vlogger-image: ${{ needs.build.outputs.vlogger-image }}
+          operator-image: ${{ needs.build.outputs.operator-image }}
+          vertica-image: ${{ needs.build.outputs.full-vertica-image }}
+          vertica-deployment-method: vclusterops
+          communal-storage-type: hostpath
+          minimum-vertica-image: '24.2.0'
+
   e2e-leg-7-vcluster:
     if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'vcluster leg 7' || inputs.e2e_test_suites == '')}}
     needs: [build]
@@ -508,6 +528,7 @@ jobs:
           minimum-vertica-image: '24.3.0'
           # Include the vertica license so we can test scaling past 3 nodes.
           vertica-license: ${{ secrets.VERTICA_LICENSE }}
+          need-base-vertica-image: 'true'
 
   e2e-server-upgrade-admintools:
     if: ${{ inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools server upgrade' || inputs.e2e_test_suites == '' }}
@@ -634,6 +655,7 @@ jobs:
       e2e-leg-5-admintools,
       e2e-leg-5-vcluster,
       e2e-leg-6-vcluster,
+      e2e-leg-6-vcluster-revivedb,
       e2e-leg-7-vcluster,
       e2e-leg-8-vcluster-offline,
       e2e-leg-8-vcluster-online,
