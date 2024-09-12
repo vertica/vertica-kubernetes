@@ -96,7 +96,7 @@ The `scripts/kind.sh` helper script sets up Kind and creates a cluster to test V
    devcluster-control-plane   Ready    control-plane,master   47s   v1.23.0
    ```
 
-You have a master node and control plane that is ready to deploy and Vertica Kubernetes resources locally.
+You have a master node and control plane that is ready to deploy any Vertica Kubernetes resources locally.
 
 ## Cluster cleanup
 
