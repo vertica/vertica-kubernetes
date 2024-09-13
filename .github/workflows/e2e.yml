@@ -475,7 +475,7 @@ jobs:
       - name: Test
         uses: ./.github/actions/run-e2e-leg
         with:
-          leg-identifier: 'leg-9-test'
+          leg-identifier: 'leg-test'
           dockerhub-username: ${{ secrets.DOCKERHUB_USERNAME }}
           dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}
           vlogger-image: ${{ needs.build.outputs.vlogger-image }}
