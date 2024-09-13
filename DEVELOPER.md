@@ -337,7 +337,7 @@ Unit tests for the VerticaDB operator use the Go testing infrastructure. Some te
 ## e2e Tests
 
 > **IMPORTANT**
-> The e2e tests only run on operators that were [deployed as an object](#deployment-object).
+> The e2e tests only run on operators that were deployed as an object.
 
 The e2e tests use the [kuttl](https://github.com/kudobuilder/kuttl/) testing framework. To run the tests:
 
