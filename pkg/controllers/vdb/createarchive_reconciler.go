@@ -65,39 +65,39 @@ func MakeCreateArchiveReconciler(r *VerticaDBReconciler, vdb *vapi.VerticaDB, lo
 // And will save restore point to the created arcihve if restorePoint.archive value
 // is provided in the CRD spec
 func (c *CreateArchiveReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
-	err := c.PFacts.Collect(ctx, c.Vdb)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-
-	// No-op if no database exists
-	if !c.PFacts.doesDBExist() {
-		return ctrl.Result{}, nil
-	}
-
-	hostIP, ok := c.PFacts.FindFirstUpPodIP(true, "")
-	if !ok {
-		// If no running pod found, then there is nothing to do and we can just continue on
-		return ctrl.Result{}, nil
-	}
-	// Ensure vertica version
-	var vinf *version.Info
-	if !vinf.IsEqualOrNewer(vapi.SaveRestorePointNMAOpsMinVersion) {
-		c.VRec.Eventf(c.Vdb, corev1.EventTypeWarning, events.UnsupportedVerticaVersion,
-			"The Vertica version %q doesn't support create restore points. The minimum version supported is %s.",
-			vinf.VdbVer, vapi.SaveRestorePointNMAOpsMinVersion)
-		err := vdbstatus.UpdateCondition(ctx, c.VRec.Client, c.Vdb,
-			vapi.MakeCondition(vapi.SaveRestorePointsNeeded,
-				metav1.ConditionFalse, "IncompatibleDB"),
-		)
+	// Only proceed if the SaveRestorePointsNeeded status condition is set to true.
+	if c.Vdb.IsStatusConditionTrue(vapi.SaveRestorePointsNeeded) {
+		err := c.PFacts.Collect(ctx, c.Vdb)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
-		return ctrl.Result{}, nil
-	}
 
-	// Only proceed if the SaveRestorePointsNeeded status condition is set to true.
-	if c.Vdb.IsStatusConditionTrue(vapi.SaveRestorePointsNeeded) {
+		// No-op if no database exists
+		if !c.PFacts.doesDBExist() {
+			return ctrl.Result{}, nil
+		}
+
+		hostIP, ok := c.PFacts.FindFirstUpPodIP(true, "")
+		if !ok {
+			// If no running pod found, then there is nothing to do and we can just continue on
+			return ctrl.Result{}, nil
+		}
+		// Ensure vertica version
+		var vinf *version.Info
+		if !vinf.IsEqualOrNewer(vapi.SaveRestorePointNMAOpsMinVersion) {
+			c.VRec.Eventf(c.Vdb, corev1.EventTypeWarning, events.UnsupportedVerticaVersion,
+				"The Vertica version %q doesn't support create restore points. The minimum version supported is %s.",
+				vinf.VdbVer, vapi.SaveRestorePointNMAOpsMinVersion)
+			err := vdbstatus.UpdateCondition(ctx, c.VRec.Client, c.Vdb,
+				vapi.MakeCondition(vapi.SaveRestorePointsNeeded,
+					metav1.ConditionFalse, "IncompatibleDB"),
+			)
+			if err != nil {
+				return ctrl.Result{}, err
+			}
+			return ctrl.Result{}, nil
+		}
+
 		if c.Vdb.Spec.RestorePoint != nil && c.Vdb.Spec.RestorePoint.Archive != "" {
 			// Always tried to create archive
 			// params: context, host, archive-name, sandbox, num of restore point(0 is unlimited)
