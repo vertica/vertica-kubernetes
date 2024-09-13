@@ -247,9 +247,11 @@ The operator pod contains a webhook, which requires TLS certificates. The TLS se
 ### Helm deployment
 
 Deploy the operator with Helm and all its prerequisites:
-
+First make sure DEPLOY_WITH is set up properly in Makefile:
+DEPLOY_WITH=helm 
+Next run the following command
 ```shell
-DEPLOY_WITH=helm make config-transformer deploy
+make config-transformer deploy
 ```
 
 The operator generates a self-signed TLS certificate at runtime. You can also provide a custom TLS certificate. For details, see `webhook.certSource` in [Helm chart parameters](https://docs.vertica.com/latest/en/containerized/db-operator/helm-chart-parameters/).
@@ -259,9 +261,11 @@ The operator generates a self-signed TLS certificate at runtime. You can also pr
 You must configure OLM deployments when you run an operator with a webhook. For details, see the [OLM documentation](https://olm.operatorframework.io/docs/advanced-tasks/adding-admission-and-conversion-webhooks/).
 
 Deploy OLM and all its prerequisites:
-
+First make sure DEPLOY_WITH is set up properly in Makefile:
+DEPLOY_WITH=olm
+Next run the following command
 ```shell
-DEPLOY_WITH=olm make setup-olm deploy
+make setup-olm deploy
 ```
 
 ### Remove the operator
