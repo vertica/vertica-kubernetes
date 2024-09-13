@@ -17,6 +17,7 @@ package vdb
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"time"
 
@@ -24,6 +25,7 @@ import (
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
+	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/createarchive"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/saverestorepoint"
@@ -65,6 +67,10 @@ func MakeCreateArchiveReconciler(r *VerticaDBReconciler, vdb *vapi.VerticaDB, lo
 // And will save restore point to the created arcihve if restorePoint.archive value
 // is provided in the CRD spec
 func (c *CreateArchiveReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
+	if !vmeta.UseVClusterOps(c.Vdb.Annotations) {
+		c.Log.Error(fmt.Errorf("invalid deployment method"), "create archive failed, not a vclusterops deployment")
+		return ctrl.Result{}, nil
+	}
 	// Only proceed if the SaveRestorePointsNeeded status condition is set to true.
 	if c.Vdb.IsStatusConditionTrue(vapi.SaveRestorePointsNeeded) {
 		err := c.PFacts.Collect(ctx, c.Vdb)
