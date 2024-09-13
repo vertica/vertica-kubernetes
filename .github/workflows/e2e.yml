@@ -592,6 +592,8 @@ jobs:
     ]
     runs-on: ubuntu-latest
     if: ${{ always() && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') && contains(github.ref, 'k8s-sync') && (github.event_name == 'push')}} 
+    concurrency:
+      group: sync-vcluster
     steps:
       - name: Check out
         uses: actions/checkout@v4
@@ -606,10 +608,14 @@ jobs:
     runs-on: ubuntu-latest
     if: ${{ always() && contains(github.ref, 'k8s-sync') }}
     steps:
+      - name: Get vcluster commit url
+        run: |
+          VCLUSTER_REF=$(echo ${{ github.event.head_commit.message }} | awk '{print $NF}')
+          echo "VCLUSTER_URL=${{ github.server_url }}/vertica/vcluster/commit/$VCLUSTER_REF" >> "$GITHUB_ENV"
       - name: notification
         uses: jdcargile/ms-teams-notification@v1.4
         with:
           github-token: ${{ github.token }}
           ms-teams-webhook-uri: ${{ secrets.MS_TEAMS_WEBHOOK_URI }}
-          notification-summary: ${{ github.job }} job in worflow ${{ github.workflow }} of ${{ github.repository }} has ${{ job.status }} on branch ${{ github.ref }}
+          notification-summary: ${{ github.job }} job in worflow ${{ github.workflow }} of ${{ github.repository }} has ${{ job.status }} on branch ${{ github.ref }} with vcluster commit $VCLUSTER_URL
           verbose-logging: true
