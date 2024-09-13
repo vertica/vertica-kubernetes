@@ -258,8 +258,6 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		MakeClientRoutingLabelReconciler(r, log, vdb, pfacts, AddNodeApplyMethod, ""),
 		// Handle calls to add subclusters to sandboxes
 		MakeSandboxSubclusterReconciler(r, log, vdb, pfacts, dispatcher, r.Client, false),
-		// Handle calls to create archive
-		MakeCreateArchiveReconciler(r, vdb, log, pfacts, dispatcher, r.Client),
 		// Handle calls to move subclusters from sandboxes to main cluster
 		MakeUnsandboxSubclusterReconciler(r, log, vdb, r.Client),
 		// Trigger sandbox upgrade when the image field for the sandbox
@@ -267,6 +265,8 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		MakeSandboxUpgradeReconciler(r, log, vdb),
 		// Add the label after update the sandbox subcluster status field
 		MakeObjReconciler(r, log, vdb, pfacts, ObjReconcileModeAll),
+		// Handle calls to create archive
+		MakeCreateArchiveReconciler(r, vdb, log, pfacts, dispatcher, r.Client),
 		// Resize any PVs if the local data size changed in the vdb
 		MakeResizePVReconciler(r, log, vdb, prunner, pfacts),
 		// This must be the last reconciler. It makes sure that all dependent
