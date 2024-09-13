@@ -86,7 +86,7 @@ func (c *CreateArchiveReconciler) Reconcile(ctx context.Context, _ *ctrl.Request
 		hostIP, ok := c.PFacts.FindFirstUpPodIP(true, "")
 		if !ok {
 			// If no running pod found, then there is nothing to do and we can just continue on
-			return ctrl.Result{}, nil
+			return ctrl.Result{Requeue: true}, nil
 		}
 		// Ensure vertica version
 		var vinf *version.Info
