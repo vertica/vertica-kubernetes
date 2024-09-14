@@ -98,7 +98,7 @@ func (c *CreateArchiveReconciler) Reconcile(ctx context.Context, _ *ctrl.Request
 		c.VRec.Eventf(c.Vdb, corev1.EventTypeWarning, events.UnsupportedVerticaVersion,
 			"The Vertica version %q doesn't support create restore points. The minimum version supported is %s.",
 			vinf.VdbVer, vapi.SaveRestorePointNMAOpsMinVersion)
-		err := vdbstatus.UpdateCondition(ctx, c.VRec.Client, c.Vdb,
+		err = vdbstatus.UpdateCondition(ctx, c.VRec.Client, c.Vdb,
 			vapi.MakeCondition(vapi.SaveRestorePointsNeeded,
 				metav1.ConditionFalse, "IncompatibleDB"),
 		)
