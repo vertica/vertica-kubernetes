@@ -17,7 +17,7 @@ package vdb
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"strings"
 	"time"
 
@@ -68,8 +68,7 @@ func MakeCreateArchiveReconciler(r *VerticaDBReconciler, vdb *vapi.VerticaDB, lo
 // is provided in the CRD spec
 func (c *CreateArchiveReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
 	if !vmeta.UseVClusterOps(c.Vdb.Annotations) {
-		c.Log.Error(fmt.Errorf("invalid deployment method"), "create archive failed, not a vclusterops deployment")
-		return ctrl.Result{}, nil
+		return ctrl.Result{}, errors.New("creating a restore point using http endpoints is not supported in an admintools deployment")
 	}
 	// Only proceed if the SaveRestorePointsNeeded status condition is set to true.
 	if c.Vdb.IsStatusConditionTrue(vapi.SaveRestorePointsNeeded) {
