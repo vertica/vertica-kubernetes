@@ -100,7 +100,7 @@ func (c *CreateArchiveReconciler) Reconcile(ctx context.Context, _ *ctrl.Request
 			if err != nil {
 				return ctrl.Result{}, err
 			}
-			return ctrl.Result{}, nil
+			return ctrl.Result{Requeue: true}, nil
 		}
 
 		if c.Vdb.Spec.RestorePoint != nil && c.Vdb.Spec.RestorePoint.Archive != "" {
