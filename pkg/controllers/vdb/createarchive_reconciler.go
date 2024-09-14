@@ -67,61 +67,65 @@ func MakeCreateArchiveReconciler(r *VerticaDBReconciler, vdb *vapi.VerticaDB, lo
 // And will save restore point to the created arcihve if restorePoint.archive value
 // is provided in the CRD spec
 func (c *CreateArchiveReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
+	// Only proceed if the SaveRestorePointsNeeded status condition is set to true.
+	if !c.Vdb.IsStatusConditionTrue(vapi.SaveRestorePointsNeeded) {
+		return ctrl.Result{}, nil
+	}
+	// Check if deployment is using vclusterops
 	if !vmeta.UseVClusterOps(c.Vdb.Annotations) {
 		return ctrl.Result{}, errors.New("creating a restore point using http endpoints is not supported in an admintools deployment")
 	}
-	// Only proceed if the SaveRestorePointsNeeded status condition is set to true.
-	if c.Vdb.IsStatusConditionTrue(vapi.SaveRestorePointsNeeded) {
-		err := c.PFacts.Collect(ctx, c.Vdb)
+
+	err := c.PFacts.Collect(ctx, c.Vdb)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	// No-op if no database exists
+	if !c.PFacts.doesDBExist() {
+		return ctrl.Result{}, nil
+	}
+
+	hostIP, ok := c.PFacts.FindFirstUpPodIP(true, "")
+	if !ok {
+		// If no running pod found, then there is nothing to do and we can just continue on
+		return ctrl.Result{Requeue: true}, nil
+	}
+
+	// Ensure vertica version
+	var vinf *version.Info
+	if !vinf.IsEqualOrNewer(vapi.SaveRestorePointNMAOpsMinVersion) {
+		c.VRec.Eventf(c.Vdb, corev1.EventTypeWarning, events.UnsupportedVerticaVersion,
+			"The Vertica version %q doesn't support create restore points. The minimum version supported is %s.",
+			vinf.VdbVer, vapi.SaveRestorePointNMAOpsMinVersion)
+		err := vdbstatus.UpdateCondition(ctx, c.VRec.Client, c.Vdb,
+			vapi.MakeCondition(vapi.SaveRestorePointsNeeded,
+				metav1.ConditionFalse, "IncompatibleDB"),
+		)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
-
-		// No-op if no database exists
-		if !c.PFacts.doesDBExist() {
-			return ctrl.Result{}, nil
-		}
-
-		hostIP, ok := c.PFacts.FindFirstUpPodIP(true, "")
-		if !ok {
-			// If no running pod found, then there is nothing to do and we can just continue on
-			return ctrl.Result{Requeue: true}, nil
-		}
-		// Ensure vertica version
-		var vinf *version.Info
-		if !vinf.IsEqualOrNewer(vapi.SaveRestorePointNMAOpsMinVersion) {
-			c.VRec.Eventf(c.Vdb, corev1.EventTypeWarning, events.UnsupportedVerticaVersion,
-				"The Vertica version %q doesn't support create restore points. The minimum version supported is %s.",
-				vinf.VdbVer, vapi.SaveRestorePointNMAOpsMinVersion)
-			err := vdbstatus.UpdateCondition(ctx, c.VRec.Client, c.Vdb,
-				vapi.MakeCondition(vapi.SaveRestorePointsNeeded,
-					metav1.ConditionFalse, "IncompatibleDB"),
-			)
-			if err != nil {
-				return ctrl.Result{}, err
-			}
-			return ctrl.Result{Requeue: true}, nil
-		}
-
-		if c.Vdb.Spec.RestorePoint != nil && c.Vdb.Spec.RestorePoint.Archive != "" {
-			// Always tried to create archive
-			// params: context, host, archive-name, sandbox, num of restore point(0 is unlimited)
-			err = c.runCreateArchiveVclusterAPI(ctx, hostIP, c.Vdb.Spec.RestorePoint.Archive, "", 0)
-			if err != nil {
-				return ctrl.Result{}, err
-			}
-			// Once save restore point, change condition
-			// params: context, host, archive-name, sandbox, num of restore point(0 is unlimited)
-			err = c.runSaveRestorePointVclusterAPI(ctx, hostIP, c.Vdb.Spec.RestorePoint.Archive, "")
-			if err != nil {
-				return ctrl.Result{}, err
-			}
-		}
-		// archinve name param not set correctly, Log warning
-		c.Log.Info("create archive failed, archive name not set in restorePoint spec.")
-		return ctrl.Result{}, nil
+		return ctrl.Result{Requeue: true}, nil
 	}
-	return ctrl.Result{}, nil
+
+	// Check if required attribute is set in spec: restorePoint.archive
+	if c.Vdb.Spec.RestorePoint != nil && c.Vdb.Spec.RestorePoint.Archive != "" {
+		// Always tried to create archive
+		// params: context, host, archive-name, sandbox, num of restore point(0 is unlimited)
+		err = c.runCreateArchiveVclusterAPI(ctx, hostIP, c.Vdb.Spec.RestorePoint.Archive, "", 0)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+		// Once save restore point, change condition
+		// params: context, host, archive-name, sandbox, num of restore point(0 is unlimited)
+		err = c.runSaveRestorePointVclusterAPI(ctx, hostIP, c.Vdb.Spec.RestorePoint.Archive, "")
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+	// archinve name param not set correctly, Log warning
+	c.Log.Info("create archive failed, archive name not set in restorePoint spec.")
+	return ctrl.Result{Requeue: true}, nil
 }
 
 // runCreateArchiveVclusterAPI will do the actual execution of creating archive.
