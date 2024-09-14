@@ -46,9 +46,9 @@ func WithArchiveName(archiveName string) Option {
 	}
 }
 
-func WithNumRestorePoints(NumRestorePoints int) Option {
+func WithNumRestorePoints(numRestorePoints int) Option {
 	return func(s *Params) {
-		s.NumRestorePoints = NumRestorePoints
+		s.NumRestorePoints = numRestorePoints
 	}
 }
 
