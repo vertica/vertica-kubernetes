@@ -169,6 +169,8 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		// reconcile actor that depends on running pods should not be before
 		// this one.
 		MakeCrashLoopReconciler(r, log, vdb),
+		// Update the vertica image for unsandboxed subclusters
+		MakeUnsandboxImageVersionReconciler(r, vdb, log, pfacts),
 		// Always start with a status reconcile in case the prior reconcile failed.
 		MakeStatusReconciler(r.Client, r.Scheme, log, vdb, pfacts),
 		MakeMetricReconciler(r, log, vdb, prunner, pfacts),

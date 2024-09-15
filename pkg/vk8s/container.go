@@ -59,6 +59,24 @@ func GetServerImage(cnts []corev1.Container) (string, error) {
 	return cnt.Image, nil
 }
 
+// SetVerticaImage sets the image used for the server and nma containers.
+// It returns an error if it cannot find any of the containers.
+func SetVerticaImage(cnts []corev1.Container, image string, includeNMA bool) error {
+	cnt := GetServerContainer(cnts)
+	if cnt == nil {
+		return errors.New("could not find the server container")
+	}
+	cnt.Image = image
+	if includeNMA {
+		cnt = GetNMAContainer(cnts)
+		if cnt == nil {
+			return errors.New("could not find the nma container")
+		}
+		cnt.Image = image
+	}
+	return nil
+}
+
 // FindNMAContainerStatus will return the status of the NMA container if available.
 func FindNMAContainerStatus(pod *corev1.Pod) *corev1.ContainerStatus {
 	return findContainerStatus(pod.Status.ContainerStatuses, names.NMAContainer)
