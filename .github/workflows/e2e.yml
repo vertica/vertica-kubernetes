@@ -617,5 +617,5 @@ jobs:
         with:
           github-token: ${{ github.token }}
           ms-teams-webhook-uri: ${{ secrets.MS_TEAMS_WEBHOOK_URI }}
-          notification-summary: ${{ github.job }} job in worflow ${{ github.workflow }} of ${{ github.repository }} has ${{ job.status }} on branch ${{ github.ref }} with vcluster commit $VCLUSTER_URL
+          notification-summary: sync-vcluster job in worflow ${{ github.workflow }} with vcluster commit $VCLUSTER_URL on branch ${{ github.ref }} finished with status ${{ needs.sync-vcluster.result }}
           verbose-logging: true
