@@ -78,7 +78,8 @@ func (r *UnsandboxImageVersion) reconcileVerticaImage(ctx context.Context) (ctrl
 		return ctrl.Result{}, nil
 	}
 	if priScImage == "" {
-		return ctrl.Result{}, fmt.Errorf("failed to get primary subcluster's image from podfacts")
+		r.Log.Info("Cannot get primary subcluster's image from podfacts")
+		return ctrl.Result{}, nil
 	}
 	scMap := r.Vdb.GenSubclusterMap()
 	recreatedSts := false
