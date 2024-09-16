@@ -611,11 +611,24 @@ jobs:
       - name: Get vcluster commit url
         run: |
           VCLUSTER_REF=$(echo ${{ github.event.head_commit.message }} | awk '{print $NF}')
-          echo "VCLUSTER_URL=${{ github.server_url }}/vertica/vcluster/commit/$VCLUSTER_REF" >> "$GITHUB_ENV"
-      - name: notification
+          echo "VCLUSTER_URL=${{ github.server_url }}/vertica/vcluster/commit/$VCLUSTER_REF" >> $GITHUB_ENV
+
+      - name: notification on success
+        if: ${{ always() && contains(needs.sync-vcluster.result, 'success') }}
         uses: jdcargile/ms-teams-notification@v1.4
         with:
           github-token: ${{ github.token }}
           ms-teams-webhook-uri: ${{ secrets.MS_TEAMS_WEBHOOK_URI }}
-          notification-summary: sync-vcluster job in worflow ${{ github.workflow }} with vcluster commit $VCLUSTER_URL on branch ${{ github.ref }} finished with status ${{ needs.sync-vcluster.result }}
+          notification-summary: sync-vcluster job in worflow ${{ github.workflow }} with vcluster commit ${{ evn.VCLUSTER_URL }} on branch ${{ github.ref }} finished with status: ${{ needs.sync-vcluster.result }}
+          notification-color: 28a745
+          verbose-logging: true
+
+      - name: notification on failure
+        if: ${{ always() && ! contains(needs.sync-vcluster.result, 'success') }}
+        uses: jdcargile/ms-teams-notification@v1.4
+        with:
+          github-token: ${{ github.token }}
+          ms-teams-webhook-uri: ${{ secrets.MS_TEAMS_WEBHOOK_URI }}
+          notification-summary: sync-vcluster job in worflow ${{ github.workflow }} with vcluster commit ${{ evn.VCLUSTER_URL }} on branch ${{ github.ref }} finished with status: ${{ needs.sync-vcluster.result }}
+          notification-color: dc3545
           verbose-logging: true
