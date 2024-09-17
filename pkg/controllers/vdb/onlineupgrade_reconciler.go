@@ -149,6 +149,8 @@ func MakeOnlineUpgradeReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
 }
 
 // Reconcile will automate the process of a online upgrade.
+//
+//nolint:funlen
 func (r *OnlineUpgradeReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
 	if ok, err := r.Manager.IsUpgradeNeeded(ctx, vapi.MainCluster); !ok || err != nil {
 		return ctrl.Result{}, err
@@ -780,7 +782,10 @@ func (r *OnlineUpgradeReconciler) prepareReplication(ctx context.Context) (ctrl.
 // postBackupDBBeforeReplicationMsg will update the status message to indicate that
 // we backing up the db before replication.
 func (r *OnlineUpgradeReconciler) postBackupDBBeforeReplicationMsg(ctx context.Context) (ctrl.Result, error) {
-	return r.postNextStatusMsg(ctx, backupDBBeforeReplicationMsgInx)
+	if vmeta.GetSaveRestorePoint(r.VDB.Annotations) {
+		return r.postNextStatusMsg(ctx, backupDBBeforeReplicationMsgInx)
+	}
+	return ctrl.Result{}, nil
 }
 
 // createRestorePointBeforeReplication will backup the db just before replication
@@ -788,6 +793,11 @@ func (r *OnlineUpgradeReconciler) createRestorePointBeforeReplication(ctx contex
 	// Skip if the db has already been backed up
 	if vmeta.GetOnlineUpgradeStepInx(r.VDB.Annotations) > backupBeforeReplicationInx {
 		return ctrl.Result{}, nil
+	}
+	// We skip save restore point if the feature flag is not set
+	// to true
+	if !vmeta.GetSaveRestorePoint(r.VDB.Annotations) {
+		return ctrl.Result{}, r.updateOnlineUpgradeStepAnnotation(ctx, r.getNextStep())
 	}
 	archive := genBaseNameWithUUID(archiveBeforeRepBaseName, "_")
 	if testArchive := vmeta.GetOnlineUpgradeArchiveBeforeReplication(r.VDB.Annotations); testArchive != "" {
@@ -979,25 +989,6 @@ func (r *OnlineUpgradeReconciler) copyRedirectStateToReplicaGroupB(ctx context.C
 	return ctrl.Result{}, nil
 }
 
-// postBackupDBAfterReplicationMsg will update the status message to indicate that
-// we backing up the db after replication.
-func (r *OnlineUpgradeReconciler) postBackupDBAfterReplicationMsg(ctx context.Context) (ctrl.Result, error) {
-	return r.postNextStatusMsg(ctx, backupDBAfterReplicationMsgInx)
-}
-
-// createRestorePointAfterReplication will backup the db just before sandbox promotion
-func (r *OnlineUpgradeReconciler) createRestorePointAfterReplication(ctx context.Context) (ctrl.Result, error) {
-	sbPFacts, err := r.getSandboxPodFacts(ctx, true)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-	// Skip if the db has already been backed up
-	if vmeta.GetOnlineUpgradeStepInx(r.VDB.Annotations) > backupAfterReplicationInx {
-		return ctrl.Result{}, nil
-	}
-	return r.createRestorePoint(ctx, sbPFacts)
-}
-
 // postRedirectToSandboxMsg will update the status message to indicate that
 // we are diverting client connections to the sandbox now.
 func (r *OnlineUpgradeReconciler) postRedirectToSandboxMsg(ctx context.Context) (ctrl.Result, error) {
@@ -1103,6 +1094,10 @@ func (r *OnlineUpgradeReconciler) promoteSandboxToMainCluster(ctx context.Contex
 	if vmeta.GetOnlineUpgradeStepInx(r.VDB.Annotations) > promoteSandboxInx {
 		return ctrl.Result{}, nil
 	}
+	attempts := vmeta.GetOnlineUpgradePromotionAttempt(r.VDB.Annotations)
+	if attempts >= vmeta.OnlineUpgradePromotionMaxAttempts {
+		return r.logPromoteSandboxFailure()
+	}
 
 	sb := r.VDB.GetSandboxStatus(r.sandboxName)
 	if sb == nil {
@@ -1129,14 +1124,6 @@ func (r *OnlineUpgradeReconciler) promoteSandboxToMainCluster(ctx context.Contex
 	var res ctrl.Result
 	res, err = actor.Reconcile(ctx, &ctrl.Request{})
 	if verrors.IsReconcileAborted(res, err) {
-		attempts := vmeta.GetOnlineUpgradePromotionAttempt(r.VDB.Annotations)
-		if attempts >= vmeta.OnlineUpgradePromotionMaxAttempts {
-			r.Log.Info("The last 3 sandbox promotion attempts have failed. Revive the database with the restorepoint", "sandboxName", r.sandboxName)
-			r.VRec.Eventf(r.VDB, corev1.EventTypeNormal, events.UpgradeFailed,
-				"Online upgrade has failed after 3 sandbox promotion attempts. Use restorepoint in archive %s to revive the database",
-				vmeta.OnlineUpgradeArchiveAnnotation)
-			return ctrl.Result{}, errors.New("Sandbox promotion failed at least 3 times")
-		}
 		return res, fmt.Errorf("attempt #%d: %w", attempts, err)
 	}
 	r.PFacts[vapi.MainCluster].Invalidate()
@@ -1718,6 +1705,19 @@ func (r *OnlineUpgradeReconciler) createRestorePoint(ctx context.Context, pf *Po
 
 func (r *OnlineUpgradeReconciler) getNextStep() int {
 	return vmeta.GetOnlineUpgradeStepInx(r.VDB.Annotations) + 1
+}
+
+// logPromoteSandboxFailure logs a failure message if promotion has failed at least
+// 3 times
+func (r *OnlineUpgradeReconciler) logPromoteSandboxFailure() (ctrl.Result, error) {
+	r.Log.Info("The last 3 sandbox promotion attempts have failed.", "sandboxName", r.sandboxName)
+	msg := ""
+	if vmeta.GetOnlineUpgradeArchive(r.VDB.Annotations) != "" {
+		msg = fmt.Sprintf(" Use restorepoint in archive %s to revive the database", vmeta.OnlineUpgradeArchiveAnnotation)
+	}
+	r.VRec.Eventf(r.VDB, corev1.EventTypeNormal, events.UpgradeFailed,
+		"Online upgrade has failed after 3 sandbox promotion attempts. %s", msg)
+	return ctrl.Result{}, errors.New("Sandbox promotion failed at least 3 times")
 }
 
 func genBaseNameWithUUID(baseName, sep string) string {

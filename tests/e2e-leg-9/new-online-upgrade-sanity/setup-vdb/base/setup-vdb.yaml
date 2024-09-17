@@ -19,6 +19,7 @@ metadata:
     vertica.com/include-uid-in-path: true
     vertica.com/online-upgrade-preferred-sandbox: "replica-group-b"
     vertica.com/online-upgrade-archive-before-replication: "arch_bef_rep"
+    vertica.com/save-restore-point-on-upgrade: true
 spec:
   image: kustomize-vertica-image
   dbName: repUP

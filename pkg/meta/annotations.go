@@ -302,6 +302,8 @@ const (
 	// Allows us to set the name of the archive before replication for testing purposes.
 	OnlineUpgradeArchiveBeforeReplicationAnnotation = "vertica.com/online-upgrade-archive-before-replication"
 
+	SaveRestorePointAnnotation = "vertica.com/save-restore-point-on-upgrade"
+
 	// This will be set in a sandbox configMap by the vdb controller to wake up the sandbox
 	// controller for upgrading the sandboxes
 	SandboxControllerUpgradeTriggerID = "vertica.com/sandbox-controller-upgrade-trigger-id"
@@ -582,12 +584,25 @@ func GetOnlineUpgradePreferredSandboxName(annotations map[string]string) string 
 	return lookupStringAnnotation(annotations, OnlineUpgradePreferredSandboxAnnotation, "")
 }
 
+// GetOnlineUpgradePromotionAttempt returns the current number of promotion attempts
 func GetOnlineUpgradePromotionAttempt(annotations map[string]string) int {
 	return lookupIntAnnotation(annotations, OnlineUpgradePromotionAttemptAnnotation, 0)
 }
 
+// GetOnlineUpgradeArchive returns the name of the archive used for
+// online upgrade.
+func GetOnlineUpgradeArchive(annotations map[string]string) string {
+	return lookupStringAnnotation(annotations, OnlineUpgradeArchiveAnnotation, "")
+}
+
 func GetOnlineUpgradeArchiveBeforeReplication(annotations map[string]string) string {
 	return lookupStringAnnotation(annotations, OnlineUpgradeArchiveBeforeReplicationAnnotation, "")
+}
+
+// GetSaveRestorePoint returns true if the operator must create
+// restore points during upgrade
+func GetSaveRestorePoint(annotations map[string]string) bool {
+	return lookupBoolAnnotation(annotations, SaveRestorePointAnnotation, false)
 }
 
 // GetStsNameOverride returns the override for the statefulset name. If one is
