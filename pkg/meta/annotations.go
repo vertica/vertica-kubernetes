@@ -296,9 +296,6 @@ const (
 	OnlineUpgradePromotionAttemptAnnotation = "vertica.com/online-upgrade-promotion-attempt"
 	OnlineUpgradePromotionMaxAttempts       = 3
 
-	// Contains the name of the archive created to backup the database either before or after replication.
-	OnlineUpgradeArchiveAnnotation = "vertica.com/online-upgrade-archive"
-
 	// Allows us to set the name of the archive before replication for testing purposes.
 	OnlineUpgradeArchiveBeforeReplicationAnnotation = "vertica.com/online-upgrade-archive-before-replication"
 
@@ -587,12 +584,6 @@ func GetOnlineUpgradePreferredSandboxName(annotations map[string]string) string 
 // GetOnlineUpgradePromotionAttempt returns the current number of promotion attempts
 func GetOnlineUpgradePromotionAttempt(annotations map[string]string) int {
 	return lookupIntAnnotation(annotations, OnlineUpgradePromotionAttemptAnnotation, 0)
-}
-
-// GetOnlineUpgradeArchive returns the name of the archive used for
-// online upgrade.
-func GetOnlineUpgradeArchive(annotations map[string]string) string {
-	return lookupStringAnnotation(annotations, OnlineUpgradeArchiveAnnotation, "")
 }
 
 func GetOnlineUpgradeArchiveBeforeReplication(annotations map[string]string) string {

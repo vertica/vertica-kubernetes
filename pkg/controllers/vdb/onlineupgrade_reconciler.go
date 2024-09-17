@@ -915,6 +915,7 @@ func (r *OnlineUpgradeReconciler) waitForReplicateToReplicaGroupB(ctx context.Co
 			return false, nil
 		})
 		if err != nil {
+			r.Log.Error(err, "failed to delete replicator annotation in vdb", "annotation", vmeta.OnlineUpgradeReplicatorAnnotation)
 			return ctrl.Result{}, err
 		}
 		return ctrl.Result{Requeue: true}, nil
@@ -1112,18 +1113,20 @@ func (r *OnlineUpgradeReconciler) promoteSandboxToMainCluster(ctx context.Contex
 		r.Log.Info("Waiting for all pods in sandbox to be up for promotion.", "sandboxName", r.sandboxName)
 		return ctrl.Result{Requeue: true}, nil
 	}
-	anns := map[string]string{
-		vmeta.OnlineUpgradePromotionAttemptAnnotation: strconv.Itoa(vmeta.GetOnlineUpgradePromotionAttempt(r.VDB.Annotations) + 1),
-	}
-	_, err = vk8s.MetaUpdateWithAnnotations(ctx, r.VRec.GetClient(), r.VDB.ExtractNamespacedName(), r.VDB, anns)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
 	actor := MakePromoteSandboxToMainReconciler(r.VRec, r.Log, r.VDB, sbPFacts, r.Dispatcher, r.VRec.Client)
 	r.Manager.traceActorReconcile(actor)
 	var res ctrl.Result
 	res, err = actor.Reconcile(ctx, &ctrl.Request{})
-	if verrors.IsReconcileAborted(res, err) {
+	// We want to increase the number of attempts only when there is an actual error during promotion
+	if err != nil {
+		attempts = vmeta.GetOnlineUpgradePromotionAttempt(r.VDB.Annotations) + 1
+		anns := map[string]string{
+			vmeta.OnlineUpgradePromotionAttemptAnnotation: strconv.Itoa(attempts),
+		}
+		_, err = vk8s.MetaUpdateWithAnnotations(ctx, r.VRec.GetClient(), r.VDB.ExtractNamespacedName(), r.VDB, anns)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
 		return res, fmt.Errorf("attempt #%d: %w", attempts, err)
 	}
 	r.PFacts[vapi.MainCluster].Invalidate()
@@ -1695,12 +1698,7 @@ func (r *OnlineUpgradeReconciler) createRestorePoint(ctx context.Context, pf *Po
 	if verrors.IsReconcileAborted(res, err) {
 		return res, err
 	}
-	anns := map[string]string{
-		vmeta.OnlineUpgradeStepInxAnnotation: strconv.Itoa(r.getNextStep()),
-		vmeta.OnlineUpgradeArchiveAnnotation: archive,
-	}
-	_, err = vk8s.MetaUpdateWithAnnotations(ctx, r.VRec.GetClient(), r.VDB.ExtractNamespacedName(), r.VDB, anns)
-	return ctrl.Result{}, err
+	return ctrl.Result{}, r.updateOnlineUpgradeStepAnnotation(ctx, r.getNextStep())
 }
 
 func (r *OnlineUpgradeReconciler) getNextStep() int {
@@ -1710,14 +1708,10 @@ func (r *OnlineUpgradeReconciler) getNextStep() int {
 // logPromoteSandboxFailure logs a failure message if promotion has failed at least
 // 3 times
 func (r *OnlineUpgradeReconciler) logPromoteSandboxFailure() (ctrl.Result, error) {
-	r.Log.Info("The last 3 sandbox promotion attempts have failed.", "sandboxName", r.sandboxName)
-	msg := ""
-	if vmeta.GetOnlineUpgradeArchive(r.VDB.Annotations) != "" {
-		msg = fmt.Sprintf(" Use restorepoint in archive %s to revive the database", vmeta.OnlineUpgradeArchiveAnnotation)
-	}
 	r.VRec.Eventf(r.VDB, corev1.EventTypeNormal, events.UpgradeFailed,
-		"Online upgrade has failed after 3 sandbox promotion attempts. %s", msg)
-	return ctrl.Result{}, errors.New("Sandbox promotion failed at least 3 times")
+		"Online upgrade has failed after %d sandbox promotion attempts. "+
+			"Please revive the database to its original state and try again.", vmeta.OnlineUpgradePromotionMaxAttempts)
+	return ctrl.Result{}, fmt.Errorf("sandbox promotion failed at least %d times", vmeta.OnlineUpgradePromotionMaxAttempts)
 }
 
 func genBaseNameWithUUID(baseName, sep string) string {
