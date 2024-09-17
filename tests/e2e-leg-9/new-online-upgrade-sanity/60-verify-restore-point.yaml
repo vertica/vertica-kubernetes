@@ -23,7 +23,7 @@ data:
 
     POD_NAME=v-base-upgrade-pri1-sb-0
 
-    result=$(kubectl exec $POD_NAME -i -c server -- bash -c "vsql -U dbadmin -tAc \"SELECT COUNT(*) FROM archive_restore_points WHERE archive='arch_after_rep';\"")
+    result=$(kubectl exec $POD_NAME -i -c server -- bash -c "vsql -U dbadmin -tAc \"SELECT COUNT(*) FROM archive_restore_points WHERE archive='arch_bef_rep';\"")
     echo "$result" | grep -Pzo "^1\n$" > /dev/null
     if [ $? -ne 0 ]; then
       echo "Assertion failed: expected 1, got $result"

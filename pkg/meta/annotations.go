@@ -302,9 +302,6 @@ const (
 	// Allows us to set the name of the archive before replication for testing purposes.
 	OnlineUpgradeArchiveBeforeReplicationAnnotation = "vertica.com/online-upgrade-archive-before-replication"
 
-	// Allows us to set the name of the archive after replication for testing purposes.
-	OnlineUpgradeArchiveAfterReplicationAnnotation = "vertica.com/online-upgrade-archive-after-replication"
-
 	// This will be set in a sandbox configMap by the vdb controller to wake up the sandbox
 	// controller for upgrading the sandboxes
 	SandboxControllerUpgradeTriggerID = "vertica.com/sandbox-controller-upgrade-trigger-id"
@@ -591,10 +588,6 @@ func GetOnlineUpgradePromotionAttempt(annotations map[string]string) int {
 
 func GetOnlineUpgradeArchiveBeforeReplication(annotations map[string]string) string {
 	return lookupStringAnnotation(annotations, OnlineUpgradeArchiveBeforeReplicationAnnotation, "")
-}
-
-func GetOnlineUpgradeArchiveAfterReplication(annotations map[string]string) string {
-	return lookupStringAnnotation(annotations, OnlineUpgradeArchiveAfterReplicationAnnotation, "")
 }
 
 // GetStsNameOverride returns the override for the statefulset name. If one is

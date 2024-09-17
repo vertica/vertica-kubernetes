@@ -21,10 +21,3 @@ status:
       state:
         terminated:
           exitCode: 0
----
-apiVersion: vertica.com/v1
-kind: VerticaDB
-metadata:
-  name: v-base-upgrade
-  annotations:
-    vertica.com/online-upgrade-archive: "arch_after_rep"
