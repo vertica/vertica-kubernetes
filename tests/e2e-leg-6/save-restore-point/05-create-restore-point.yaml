@@ -14,6 +14,12 @@
 apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 commands:
-    - script: kubectl patch vdb v-restore-point -n $NAMESPACE --type='json' -p='[{"op": "add", "path": "/status/conditions/-", "value": {"type": "SaveRestorePointsNeeded", "status": "True"}}]' --subresource='status'
-    - command: kubectl wait --for=condition=SaveRestorePointsNeeded=True vdb/v-restore-point --timeout=600s
-      namespaced: true
+  - command: >
+      kubectl patch vdb v-restore-point --type='json' -p='[{
+      "op": "add", 
+      "path": "/status/conditions/-", 
+      "value": {"type": "SaveRestorePointsNeeded", "status": "True"}
+      }]' --subresource='status'
+    namespaced: true
+  - command: kubectl wait --for=condition=SaveRestorePointsNeeded=True vdb/v-restore-point --timeout=600s
+    namespaced: true

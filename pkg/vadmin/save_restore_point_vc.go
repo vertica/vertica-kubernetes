@@ -23,6 +23,8 @@ import (
 )
 
 // SaveRestorePoint will create an archive point in the database
+//
+//nolint:dupl
 func (v *VClusterOps) SaveRestorePoint(ctx context.Context, opts ...saverestorepoint.Option) error {
 	v.setupForAPICall("SaveRestorePoint")
 	defer v.tearDownForAPICall()
