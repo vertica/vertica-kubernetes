@@ -138,7 +138,6 @@ func (s *SaveRestorePoint) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl
 // This handles logging of necessary events.
 func (s *SaveRestorePoint) runCreateArchiveVclusterAPI(ctx context.Context,
 	host string, archiveName string, sandbox string, numRestorePoint int) error {
-
 	opts := s.genCreateArchiveOpts(host, archiveName, numRestorePoint, sandbox)
 	s.VRec.Event(s.Vdb, corev1.EventTypeNormal, events.CreateArchiveStart, "Starting create archive")
 	start := time.Now()

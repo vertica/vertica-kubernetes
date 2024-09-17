@@ -41,7 +41,7 @@ func (m *MockVClusterOps) VCreateArchive(options *vops.VCreateArchiveOptions) er
 	}
 
 	// verify basic options
-	if options.ArchiveName != TestSCName {
+	if options.ArchiveName != TestArchiveName {
 		return fmt.Errorf("failed to retrieve subcluster name")
 	}
 
@@ -59,6 +59,7 @@ var _ = Describe("create_archive_vc", func() {
 		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.NMATLSSecret)
 		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.NMATLSSecret)
 		Ω(dispatcher.CreateArchive(ctx,
-			createarchive.WithInitiator(TestInitiatorIP))).Should(Succeed())
+			createarchive.WithInitiator(TestInitiatorIP)),
+			createarchive.WithArchiveName(TestArchiveName)).Should(Succeed())
 	})
 })

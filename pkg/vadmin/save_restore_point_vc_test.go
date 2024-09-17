@@ -26,6 +26,10 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/saverestorepoint"
 )
 
+const (
+	sb = "sand"
+)
+
 // mock version of VSaveRestorePoint() that is invoked inside VClusterOps.VSaveRestorePoint()
 func (m *MockVClusterOps) VSaveRestorePoint(options *vops.VSaveRestorePointOptions) error {
 	// verify common options
@@ -41,8 +45,12 @@ func (m *MockVClusterOps) VSaveRestorePoint(options *vops.VSaveRestorePointOptio
 	}
 
 	// verify basic options
-	if options.ArchiveName != TestSCName {
+	if options.ArchiveName != TestArchiveName {
 		return fmt.Errorf("failed to retrieve archive name")
+	}
+
+	if options.Sandbox != sb {
+		return fmt.Errorf("failed to retrieve sandbox")
 	}
 
 	// verify auth options
@@ -55,10 +63,12 @@ var _ = Describe("create_save_restore_point_vc", func() {
 	It("should call vclusterOps library with create_save_restore_point task", func() {
 		dispatcher := mockVClusterOpsDispatcher()
 		dispatcher.VDB.Spec.DBName = TestDBName
-		dispatcher.VDB.Spec.NMATLSSecret = TestNMATLSSecret
+		dispatcher.VDB.Spec.NMATLSSecret = "save-restore-point"
 		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.NMATLSSecret)
 		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.NMATLSSecret)
 		Ω(dispatcher.SaveRestorePoint(ctx,
-			saverestorepoint.WithInitiator(TestInitiatorIP))).Should(Succeed())
+			saverestorepoint.WithInitiator(TestInitiatorIP)),
+			saverestorepoint.WithSandbox(sb),
+			saverestorepoint.WithArchiveName(TestArchiveName)).Should(Succeed())
 	})
 })
