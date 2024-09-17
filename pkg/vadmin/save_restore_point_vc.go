@@ -19,6 +19,7 @@ import (
 	"context"
 
 	vops "github.com/vertica/vcluster/vclusterops"
+	"github.com/vertica/vertica-kubernetes/pkg/net"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/saverestorepoint"
 )
 
@@ -58,9 +59,10 @@ func (v *VClusterOps) genSaveRestorePointOptions(s *saverestorepoint.Params, cer
 
 	opts.DBName = v.VDB.Spec.DBName
 	opts.IsEon = v.VDB.IsEON()
-	opts.Hosts = []string{s.InitiatorIP}
+	opts.RawHosts = append(opts.RawHosts, s.InitiatorIP)
 	opts.ArchiveName = s.ArchiveName
 	opts.Sandbox = s.Sandbox
+	opts.IPv6 = net.IsIPv6(s.InitiatorIP)
 
 	// auth options
 	opts.UserName = v.VDB.GetVerticaUser()

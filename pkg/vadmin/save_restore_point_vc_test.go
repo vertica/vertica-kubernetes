@@ -67,8 +67,8 @@ var _ = Describe("create_save_restore_point_vc", func() {
 		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.NMATLSSecret)
 		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.NMATLSSecret)
 		Ω(dispatcher.SaveRestorePoint(ctx,
-			saverestorepoint.WithInitiator(TestInitiatorIP)),
+			saverestorepoint.WithInitiator(TestInitiatorIP),
 			saverestorepoint.WithSandbox(sb),
-			saverestorepoint.WithArchiveName(TestArchiveName)).Should(Succeed())
+			saverestorepoint.WithArchiveName(TestArchiveName))).Should(Succeed())
 	})
 })
