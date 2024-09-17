@@ -357,55 +357,6 @@ var _ = Describe("onlineupgrade_reconciler", func() {
 		Expect(kerrors.IsNotFound(err)).Should(BeTrue())
 	})
 
-	It("should remove the client routing label on replica group A subclusters for the pause", func() {
-		vdb := vapi.MakeVDBForVclusterOps()
-		vdb.Spec.Subclusters = []vapi.Subcluster{
-			{Name: "pri1", Type: vapi.PrimarySubcluster, Size: 2},
-			{Name: "sec1", Type: vapi.SecondarySubcluster, Size: 2},
-		}
-		test.CreateVDB(ctx, k8sClient, vdb)
-		defer test.DeleteVDB(ctx, k8sClient, vdb)
-		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
-		defer test.DeletePods(ctx, k8sClient, vdb)
-		vdb.Spec.Image = NewImageName // Trigger an upgrade
-		Ω(k8sClient.Update(ctx, vdb)).Should(Succeed())
-
-		rr := createOnlineUpgradeReconciler(ctx, vdb)
-		Ω(rr.assignSubclustersToReplicaGroupA(ctx)).Should(Equal(ctrl.Result{}))
-
-		Ω(k8sClient.Get(ctx, vdb.ExtractNamespacedName(), vdb)).Should(Succeed())
-
-		// Before we do the pause, ensure the client routing label is present.
-		groupAScNames := rr.VDB.GetSubclustersForReplicaGroup(vmeta.ReplicaGroupAValue)
-		Ω(groupAScNames).Should(HaveLen(2))
-		pod := v1.Pod{}
-		scMap := vdb.GenSubclusterMap()
-		for _, scName := range groupAScNames {
-			sc, found := scMap[scName]
-			Ω(found).Should(BeTrue())
-			for i := int32(0); i < sc.Size; i++ {
-				nm := names.GenPodName(vdb, sc, i)
-				Ω(k8sClient.Get(ctx, nm, &pod)).Should(Succeed())
-				Ω(pod.Labels).Should(HaveKeyWithValue(vmeta.ClientRoutingLabel, vmeta.ClientRoutingVal), "podName is %v", nm)
-			}
-		}
-
-		// Do the pause, which will remove the client routing label
-		Ω(rr.pauseConnectionsAtReplicaGroupA(ctx)).Should(Equal(ctrl.Result{}))
-
-		// Now check that the routing label was removed for the subclusters in
-		// replica group A
-		for _, scName := range groupAScNames {
-			sc, found := scMap[scName]
-			Ω(found).Should(BeTrue())
-			for i := int32(0); i < sc.Size; i++ {
-				nm := names.GenPodName(vdb, sc, i)
-				Ω(k8sClient.Get(ctx, nm, &pod)).Should(Succeed())
-				Ω(pod.Labels).ShouldNot(HaveKey(vmeta.ClientRoutingLabel))
-			}
-		}
-	})
-
 	It("should route connections in replica group A to replica group B", func() {
 		vdb := vapi.MakeVDBForVclusterOps()
 		vdb.Spec.Subclusters = []vapi.Subcluster{

@@ -33,6 +33,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/fetchnodestate"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/getconfigparameter"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/installpackages"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/manageconnectiondraining"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/pollscstate"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/promotesandboxtomain"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/reip"
@@ -132,6 +133,9 @@ type Dispatcher interface {
 
 	// PollNodeState will wait for a subcluster to come up
 	PollSubclusterState(ctx context.Context, opts ...pollscstate.Option) error
+
+	// ManageConnectionDraining will pause/redirect/resume client connections for a subcluster
+	ManageConnectionDraining(ctx context.Context, opts ...manageconnectiondraining.Option) error
 }
 
 const (
@@ -264,4 +268,5 @@ type VClusterProvider interface {
 	VGetConfigurationParameters(options *vops.VGetConfigurationParameterOptions) (string, error)
 	VRenameSubcluster(options *vops.VRenameSubclusterOptions) error
 	VPollSubclusterState(options *vops.VPollSubclusterStateOptions) error
+	VManageConnectionDraining(options *vops.VManageConnectionDrainingOptions) error
 }

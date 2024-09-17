@@ -89,6 +89,7 @@ const (
 	RebalanceShards                 = "RebalanceShards"
 	DrainNodeRetry                  = "DrainNodeRetry"
 	DrainSubclusterRetry            = "DrainSubclusterRetry"
+	PauseConnectionsRetry           = "PauseConnectionsRetry"
 	SuboptimalNodeCount             = "SuboptimalNodeCount"
 	StopDBStart                     = "StopDBStart"
 	StopDBSucceeded                 = "StopDBSucceeded"
