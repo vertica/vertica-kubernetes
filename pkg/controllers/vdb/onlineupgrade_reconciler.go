@@ -108,7 +108,6 @@ const (
 	addSubclustersInx
 	addNodeInx
 	rebalanceShardsInx
-	waitForActiveSubsInx
 	setConfigParamInx
 	sandboxInx
 	clearConfigParamInx
@@ -182,7 +181,6 @@ func (r *OnlineUpgradeReconciler) Reconcile(ctx context.Context, _ *ctrl.Request
 		r.runAddSubclusterReconcilerForMainCluster,
 		r.runAddNodesReconcilerForMainCluster,
 		r.runRebalanceSandboxSubcluster,
-		r.validateSubscriptionsActive,
 		// Get the original value of config parameter DisableNonReplicatableQueries at database level
 		r.postQueryOriginalConfigParamDisableNonReplicatableQueriesMsg,
 		r.queryOriginalConfigParamDisableNonReplicatableQueries,
@@ -204,14 +202,14 @@ func (r *OnlineUpgradeReconciler) Reconcile(ctx context.Context, _ *ctrl.Request
 		r.postUpgradeSandboxMsg,
 		r.upgradeSandbox,
 		r.waitForSandboxUpgrade,
+		// Prepare replication by ensuring nodes are up
+		r.postPrepareReplicationMsg,
+		r.prepareReplication,
 		// Pause all connections to replica A. This is to prepare for the
 		// replication below.
 		r.postPauseConnectionsMsg,
 		r.pauseConnectionsAtReplicaGroupA,
 		r.waitForConnectionsPaused,
-		// Prepare replication by ensuring nodes are up
-		// r.postPrepareReplicationMsg,
-		// r.prepareReplication,
 		// Back up database before replication
 		r.postBackupDBBeforeReplicationMsg,
 		r.createRestorePointBeforeReplication,
@@ -375,18 +373,6 @@ func (r *OnlineUpgradeReconciler) runRebalanceSandboxSubcluster(ctx context.Cont
 	r.Manager.traceActorReconcile(actor)
 	res, err := actor.Reconcile(ctx, &ctrl.Request{})
 	r.PFacts[vapi.MainCluster].Invalidate()
-	if verrors.IsReconcileAborted(res, err) {
-		return res, err
-	}
-	return ctrl.Result{}, r.updateOnlineUpgradeStepAnnotation(ctx, r.getNextStep())
-}
-
-func (r *OnlineUpgradeReconciler) validateSubscriptionsActive(ctx context.Context) (ctrl.Result, error) {
-	// If we have already promoted sandbox to main, we don't need to touch old main cluster
-	if vmeta.GetOnlineUpgradeStepInx(r.VDB.Annotations) > waitForActiveSubsInx {
-		return ctrl.Result{}, nil
-	}
-	res, err := r.Manager.checkAllSubscriptionsActive(ctx, r.PFacts[vapi.MainCluster])
 	if verrors.IsReconcileAborted(res, err) {
 		return res, err
 	}
@@ -731,9 +717,6 @@ func (r *OnlineUpgradeReconciler) waitForConnectionsPaused(ctx context.Context) 
 
 // postPrepareReplicationMsg will update the status message to indicate that
 // we are doing some preparation work before replication
-// Remove nolint below when we figure out how to restart node/cluster when non-replication-action know is on
-//
-//nolint:unused
 func (r *OnlineUpgradeReconciler) postPrepareReplicationMsg(ctx context.Context) (ctrl.Result, error) {
 	return r.postNextStatusMsg(ctx, prepareReplicationInx)
 }
@@ -741,9 +724,6 @@ func (r *OnlineUpgradeReconciler) postPrepareReplicationMsg(ctx context.Context)
 // prepareReplication makes sure there is at least an Up node in the main cluster
 // and the sandbox, to perform replication.
 // Once we start using services for replication, we will check only the scs served by the services.
-// Remove nolint below when we figure out how to restart node/cluster when non-replication-action know is on
-//
-//nolint:unused
 func (r *OnlineUpgradeReconciler) prepareReplication(ctx context.Context) (ctrl.Result, error) {
 	// Skip if the replication has already completed successfully or VerticaReplicator
 	// already exists
