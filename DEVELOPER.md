@@ -179,17 +179,17 @@ The following steps build the images and push them to the Kind cluster in the cu
    ```shell
    docker image ls
    REPOSITORY           TAG       IMAGE ID       CREATED          SIZE
-   vertica-logger       1.0.0     62661d7c7b1d   19 seconds ago   7.39MB
-   verticadb-operator   1.11.2    c9681519d897   22 seconds ago   64.3MB
-   vertica-k8s          1.11.2    c7e8e144911d   2 minutes ago    1.34GB
-   ubuntu               lunar     639282825872   2 weeks ago      70.3MB
+   vertica-logger       1.0.1     ec5ef9959692   5 days ago       7.45MB
+   verticadb-operator   2.2.0     abb3f97a68b0   5 days ago       80.2MB
+   vertica-k8s          2.2.0     46e4511cabf1   5 days ago       1.62GB
+   rockylinux           9         639282825872   2 weeks ago      70.3MB
    ...
    ```
 
    - `vertica-k8s`: long-running container that runs the Vertica daemon. This container is designed for admintools deployments. For details about the admintools deployment image, see the [Dockerfile](./docker-vertica/Dockerfile). For details about the vcluster deployment image, see the [Dockerfile](./docker-vertica-v2/Dockerfile).
    - `verticadb-operator`: runs the VerticaDB operator and webhook. For details, see the [Dockerfile](./docker-operator/Dockerfile).
    - `vertica-logger`: runs the vlogger sidecar container that sends the contents of `vertica.log` to STDOUT. For details, see the [Dockerfile](./docker-vlogger/Dockerfile).
-   - `ubuntu`: serves as the base image for the `vertica-k8s` image. The `make docker-build` command pulls the latest version each time.
+   - `rockylinux: serves as the base image for the `vertica-k8s` image. The `make docker-build` command pulls the latest version each time.
 
    If your image builds fail silently, confirm that there is enough disk space in your Docker repository to store the built images:
 
