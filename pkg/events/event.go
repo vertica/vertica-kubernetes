@@ -112,6 +112,7 @@ const (
 	RenameSubclusterStart            = "RenameSubclusterStart"
 	RenameSubclusterSucceeded        = "RenameSubclusterSucceeded"
 	InDBSaveRestorePointNotSupported = "InDBSaveRestorePointNotSupported"
+	PauseConnectionsRetry            = "PauseConnectionsRetry"
 )
 
 // Constants for VerticaAutoscaler reconciler

@@ -17,6 +17,7 @@ limitations under the License.
 package v1
 
 import (
+	"context"
 	"fmt"
 	"regexp"
 	"strconv"
@@ -30,6 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
@@ -368,6 +370,18 @@ func (s *Subcluster) GetServiceName() string {
 		return s.GenCompatibleFQDN()
 	}
 	return s.ServiceName
+}
+
+// GetService gets the external service associated with this subcluster
+func (s *Subcluster) GetService(ctx context.Context, vdb *VerticaDB, c client.Client) (svc corev1.Service, err error) {
+	name := types.NamespacedName{
+		Name:      vdb.Name + "-" + s.GetServiceName(),
+		Namespace: vdb.GetNamespace(),
+	}
+	if err := c.Get(ctx, name, &svc); err != nil {
+		return corev1.Service{}, err
+	}
+	return
 }
 
 // FindSubclusterForServiceName will find any subclusters that match the given service name

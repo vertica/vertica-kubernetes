@@ -15,8 +15,8 @@
 
 package getconfigparameter
 
-// Parms holds all of the options for a get config parameter invocation.
-type Parms struct {
+// Params holds all of the options for a get config parameter invocation.
+type Params struct {
 	UserName        string
 	InitiatorIP     string
 	Sandbox         string
@@ -24,47 +24,47 @@ type Parms struct {
 	Level           string
 }
 
-// Option is a function that configures a Parms instance.
-type Option func(*Parms)
+// Option is a function that configures a Params instance.
+type Option func(*Params)
 
-// Make will fill in the Parms based on the options chosen
-func (p *Parms) Make(opts ...Option) {
+// Make will fill in the Params based on the options chosen
+func (p *Params) Make(opts ...Option) {
 	for _, opt := range opts {
 		opt(p)
 	}
 }
 
-// WithUserName sets the UserName field of the Parms struct.
+// WithUserName sets the UserName field of the Params struct.
 func WithUserName(userName string) Option {
-	return func(p *Parms) {
+	return func(p *Params) {
 		p.UserName = userName
 	}
 }
 
-// WithInitiatorIP sets the InitiatorIP field of the Parms struct.
+// WithInitiatorIP sets the InitiatorIP field of the Params struct.
 func WithInitiatorIP(initiatorIP string) Option {
-	return func(p *Parms) {
+	return func(p *Params) {
 		p.InitiatorIP = initiatorIP
 	}
 }
 
-// WithSandbox sets the Sandbox field of the Parms struct.
+// WithSandbox sets the Sandbox field of the Params struct.
 func WithSandbox(sandbox string) Option {
-	return func(p *Parms) {
+	return func(p *Params) {
 		p.Sandbox = sandbox
 	}
 }
 
-// WithConfigParameter sets the ConfigParameter field of the Parms struct.
+// WithConfigParameter sets the ConfigParameter field of the Params struct.
 func WithConfigParameter(configParameter string) Option {
-	return func(p *Parms) {
+	return func(p *Params) {
 		p.ConfigParameter = configParameter
 	}
 }
 
-// WithLevel sets the Level field of the Parms struct.
+// WithLevel sets the Level field of the Params struct.
 func WithLevel(level string) Option {
-	return func(p *Parms) {
+	return func(p *Params) {
 		p.Level = level
 	}
 }
