@@ -17,7 +17,6 @@ package vdb
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
