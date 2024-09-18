@@ -34,6 +34,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/fetchnodestate"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/getconfigparameter"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/installpackages"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/manageconnectiondraining"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/pollscstate"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/promotesandboxtomain"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/reip"
@@ -141,6 +142,9 @@ type Dispatcher interface {
 
 	// PollNodeState will wait for a subcluster to come up
 	PollSubclusterState(ctx context.Context, opts ...pollscstate.Option) error
+
+	// ManageConnectionDraining will pause/redirect/resume client connections for a subcluster
+	ManageConnectionDraining(ctx context.Context, opts ...manageconnectiondraining.Option) error
 }
 
 const (
@@ -263,7 +267,7 @@ type VClusterProvider interface {
 	VStartNodes(options *vops.VStartNodesOptions) error
 	VShowRestorePoints(options *vops.VShowRestorePointsOptions) ([]vops.RestorePoint, error)
 	VInstallPackages(options *vops.VInstallPackagesOptions) (*vops.InstallPackageStatus, error)
-	VReplicateDatabase(options *vops.VReplicationDatabaseOptions) error
+	VReplicateDatabase(options *vops.VReplicationDatabaseOptions) (int64, error)
 	VFetchNodesDetails(options *vops.VFetchNodesDetailsOptions) (vops.NodesDetails, error)
 	VPromoteSandboxToMain(options *vops.VPromoteSandboxToMainOptions) error
 	VSandbox(options *vops.VSandboxOptions) error
@@ -275,4 +279,5 @@ type VClusterProvider interface {
 	VGetConfigurationParameters(options *vops.VGetConfigurationParameterOptions) (string, error)
 	VRenameSubcluster(options *vops.VRenameSubclusterOptions) error
 	VPollSubclusterState(options *vops.VPollSubclusterStateOptions) error
+	VManageConnectionDraining(options *vops.VManageConnectionDrainingOptions) error
 }

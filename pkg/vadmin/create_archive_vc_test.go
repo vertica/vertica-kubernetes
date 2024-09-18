@@ -28,25 +28,11 @@ import (
 
 // mock version of VCreateArchive() that is invoked inside VClusterOps.CreateArchive()
 func (m *MockVClusterOps) VCreateArchive(options *vops.VCreateArchiveOptions) error {
-	// verify common options
-	err := m.VerifyCommonOptions(&options.DatabaseOptions)
-	if err != nil {
-		return err
-	}
-
-	// verify hosts and eon mode
-	err = m.VerifyInitiatorIPAndEonMode(&options.DatabaseOptions)
-	if err != nil {
-		return err
-	}
-
 	// verify basic options
-	if options.ArchiveName != TestSCName {
+	if options.ArchiveName != TestArchiveName {
 		return fmt.Errorf("failed to retrieve subcluster name")
 	}
-
-	// verify auth options
-	return m.VerifyCerts(&options.DatabaseOptions)
+	return m.VerifyDBOptions(&options.DatabaseOptions)
 }
 
 var _ = Describe("create_archive_vc", func() {
@@ -55,10 +41,11 @@ var _ = Describe("create_archive_vc", func() {
 	It("should call vclusterOps library with create_archive task", func() {
 		dispatcher := mockVClusterOpsDispatcher()
 		dispatcher.VDB.Spec.DBName = TestDBName
-		dispatcher.VDB.Spec.NMATLSSecret = TestNMATLSSecret
+		dispatcher.VDB.Spec.NMATLSSecret = "create-archive"
 		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.NMATLSSecret)
 		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.NMATLSSecret)
 		Ω(dispatcher.CreateArchive(ctx,
-			createarchive.WithInitiator(TestInitiatorIP))).Should(Succeed())
+			createarchive.WithInitiator(TestInitiatorIP),
+			createarchive.WithArchiveName(TestArchiveName))).Should(Succeed())
 	})
 })

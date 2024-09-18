@@ -27,43 +27,43 @@ import (
 )
 
 // mock version of VReplicateDatabase() that is invoked inside VClusterOps.ReplicateDB()
-func (m *MockVClusterOps) VReplicateDatabase(options *vops.VReplicationDatabaseOptions) (err error) {
+func (m *MockVClusterOps) VReplicateDatabase(options *vops.VReplicationDatabaseOptions) (a int64, err error) {
 	// verify source db name, source username and source password
 	err = m.VerifyCommonOptions(&options.DatabaseOptions)
 	if err != nil {
-		return err
+		return a, err
 	}
 
 	// verify target db name, target username and target password
 	err = m.VerifyTargetDBNameUserNamePassword(options)
 	if err != nil {
-		return err
+		return a, err
 	}
 
 	// verify auth options
 	err = m.VerifyCerts(&options.DatabaseOptions)
 	if err != nil {
-		return err
+		return a, err
 	}
 
 	// verify source IP and target IP
 	err = m.VerifySourceAndTargetIPs(options)
 	if err != nil {
-		return err
+		return a, err
 	}
 
 	// verify source TLS config
 	err = m.VerifySourceTLSConfig(options)
 	if err != nil {
-		return err
+		return a, err
 	}
 
 	// verify eon mode
 	err = m.VerifyEonMode(&options.DatabaseOptions)
 	if err != nil {
-		return err
+		return a, err
 	}
-	return nil
+	return a, nil
 }
 
 var _ = Describe("replication_start_vc", func() {
