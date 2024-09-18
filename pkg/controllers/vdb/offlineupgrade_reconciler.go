@@ -107,6 +107,8 @@ func (o *OfflineUpgradeReconciler) Reconcile(ctx context.Context, _ *ctrl.Reques
 
 	// Functions to perform when the image changes.  Order matters.
 	funcs := []func(context.Context) (ctrl.Result, error){
+		// Save restore point before start upgrade
+		o.saveRestorePoint,
 		// Initiate an upgrade by setting condition and event recording
 		o.startUpgrade,
 		o.logEventIfThisUpgradeWasNotChosen,
@@ -149,6 +151,15 @@ func (o *OfflineUpgradeReconciler) Reconcile(ctx context.Context, _ *ctrl.Reques
 	}
 
 	return ctrl.Result{}, o.Manager.logUpgradeSucceeded(sandbox)
+}
+
+func (o *OfflineUpgradeReconciler) saveRestorePoint(ctx context.Context) (ctrl.Result, error) {
+	actor := MakeSaveRestorePointReconciler(o.Rec, o.Vdb, o.Log, o.PFacts, o.Dispatcher, o.Rec.GetClient())
+	saveRestoreRec := actor.(*SaveRestorePoint)
+
+	hostIP, ok := pfacts.FindFirstUpPodIP(true, "")
+	saveRestoreRec.runSaveRestorePointVclusterAPI(ctx, hostIP, archive, pf.sandbox)
+	return o.Manager.startUpgrade(ctx, o.PFacts.GetSandboxName())
 }
 
 func (o *OfflineUpgradeReconciler) startUpgrade(ctx context.Context) (ctrl.Result, error) {
