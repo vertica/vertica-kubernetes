@@ -24,6 +24,8 @@ import (
 )
 
 // SandboxSubcluster will add a subcluster in a sandbox of the database
+//
+//nolint:dupl
 func (v *VClusterOps) SandboxSubcluster(ctx context.Context, opts ...sandboxsc.Option) error {
 	v.setupForAPICall("SandboxSubcluster")
 	defer v.tearDownForAPICall()

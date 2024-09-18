@@ -21,44 +21,45 @@ import (
 
 	vops "github.com/vertica/vcluster/vclusterops"
 	"github.com/vertica/vertica-kubernetes/pkg/net"
-	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/getconfigparameter"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/manageconnectiondraining"
 )
 
-// GetConfigurationParameter can get the value of a given configuration parameter
-func (v *VClusterOps) GetConfigurationParameter(ctx context.Context, opts ...getconfigparameter.Option) (string, error) {
-	v.setupForAPICall("GetConfigurationParameter")
+// ManageConnectionDraining pauses/redirects/resumes connections on the vertica cluster
+func (v *VClusterOps) ManageConnectionDraining(ctx context.Context, opts ...manageconnectiondraining.Option) error {
+	v.setupForAPICall("ManageConnectionDraining")
 	defer v.tearDownForAPICall()
-	v.Log.Info("Starting vcluster GetConfigurationParameter")
+	v.Log.Info("Starting vcluster ManageConnectionDraining")
 
 	certs, err := v.retrieveNMACerts(ctx)
 	if err != nil {
-		return "", err
+		return err
 	}
 
-	s := getconfigparameter.Params{}
+	s := manageconnectiondraining.Params{}
 	s.Make(opts...)
 
-	vcOpts := v.genGetConfigurationParameterOptions(&s, certs)
-	value, err := v.VGetConfigurationParameters(vcOpts)
+	vcOpts := v.genManageConnectionDrainingOptions(&s, certs)
+	err = v.VManageConnectionDraining(vcOpts)
 	if err != nil {
-		return "", fmt.Errorf("failed to get configuration parameter: %w", err)
+		return fmt.Errorf("failed to get run connection draining operation: %w", err)
 	}
 
-	return value, nil
+	return nil
 }
 
-func (v *VClusterOps) genGetConfigurationParameterOptions(s *getconfigparameter.Params,
-	certs *HTTPSCerts) *vops.VGetConfigurationParameterOptions {
-	opts := vops.VGetConfigurationParameterOptionsFactory()
+func (v *VClusterOps) genManageConnectionDrainingOptions(s *manageconnectiondraining.Params,
+	certs *HTTPSCerts) *vops.VManageConnectionDrainingOptions {
+	opts := vops.VManageConnectionDrainingOptionsFactory()
 
 	opts.RawHosts = append(opts.RawHosts, s.InitiatorIP)
 	opts.DBName = v.VDB.Spec.DBName
-	opts.UserName = s.UserName
+	opts.UserName = v.VDB.GetVerticaUser()
 	opts.Password = &v.Password
 
 	opts.Sandbox = s.Sandbox
-	opts.ConfigParameter = s.ConfigParameter
-	opts.Level = s.Level
+	opts.SCName = s.SCName
+	opts.Action = s.Action
+	opts.RedirectHostname = s.RedirectHostname
 
 	opts.IsEon = v.VDB.IsEON()
 	opts.IPv6 = net.IsIPv6(s.InitiatorIP)

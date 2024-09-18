@@ -21,54 +21,47 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+
 	vops "github.com/vertica/vcluster/vclusterops"
 	"github.com/vertica/vertica-kubernetes/pkg/test"
-	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/saverestorepoint"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/manageconnectiondraining"
 )
 
-const (
-	sb = "sand"
-)
-
-// mock version of VSaveRestorePoint() that is invoked inside VClusterOps.VSaveRestorePoint()
-func (m *MockVClusterOps) VSaveRestorePoint(options *vops.VSaveRestorePointOptions) error {
-	// verify common options
+// mock version of VManageConnectionDraining() that is invoked inside VClusterOps.ManageConnectionDraining()
+func (m *MockVClusterOps) VManageConnectionDraining(options *vops.VManageConnectionDrainingOptions) error {
+	// verify basic options
 	err := m.VerifyCommonOptions(&options.DatabaseOptions)
 	if err != nil {
 		return err
 	}
 
-	// verify hosts and eon mode
-	err = m.VerifyInitiatorIPAndEonMode(&options.DatabaseOptions)
+	err = m.VerifyCerts(&options.DatabaseOptions)
 	if err != nil {
 		return err
 	}
 
-	// verify basic options
-	if options.ArchiveName != TestArchiveName {
-		return fmt.Errorf("failed to retrieve archive name")
+	if len(options.RawHosts) == 0 || options.RawHosts[0] != TestInitiatorIP {
+		return fmt.Errorf("failed to retrieve hosts")
 	}
 
-	if options.Sandbox != sb {
-		return fmt.Errorf("failed to retrieve sandbox")
-	}
-
-	// verify auth options
-	return m.VerifyCerts(&options.DatabaseOptions)
+	return nil
 }
 
-var _ = Describe("create_save_restore_point_vc", func() {
+var _ = Describe("manage_connection_draining_vc", func() {
 	ctx := context.Background()
 
-	It("should call vclusterOps library with create_save_restore_point task", func() {
+	It("should call VManageConnectionDraining in the vcluster-ops library", func() {
 		dispatcher := mockVClusterOpsDispatcher()
 		dispatcher.VDB.Spec.DBName = TestDBName
-		dispatcher.VDB.Spec.NMATLSSecret = "save-restore-point"
+		dispatcher.VDB.Spec.NMATLSSecret = "manage-conn-drain-test-secret"
 		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.NMATLSSecret)
 		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.NMATLSSecret)
-		Ω(dispatcher.SaveRestorePoint(ctx,
-			saverestorepoint.WithInitiator(TestInitiatorIP),
-			saverestorepoint.WithSandbox(sb),
-			saverestorepoint.WithArchiveName(TestArchiveName))).Should(Succeed())
+
+		err := dispatcher.ManageConnectionDraining(ctx,
+			manageconnectiondraining.WithInitiator(TestSourceIP),
+			manageconnectiondraining.WithSandbox(TestConfigParamSandbox),
+			manageconnectiondraining.WithSubcluster(TestSCName),
+		)
+		Ω(err).Should(Succeed())
 	})
 })

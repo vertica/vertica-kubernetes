@@ -17,6 +17,7 @@ limitations under the License.
 package v1
 
 import (
+	"context"
 	"fmt"
 	"regexp"
 	"strconv"
@@ -30,6 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
@@ -368,6 +370,18 @@ func (s *Subcluster) GetServiceName() string {
 		return s.GenCompatibleFQDN()
 	}
 	return s.ServiceName
+}
+
+// GetService gets the external service associated with this subcluster
+func (s *Subcluster) GetService(ctx context.Context, vdb *VerticaDB, c client.Client) (svc corev1.Service, err error) {
+	name := types.NamespacedName{
+		Name:      vdb.Name + "-" + s.GetServiceName(),
+		Namespace: vdb.GetNamespace(),
+	}
+	if err := c.Get(ctx, name, &svc); err != nil {
+		return corev1.Service{}, err
+	}
+	return
 }
 
 // FindSubclusterForServiceName will find any subclusters that match the given service name
@@ -854,10 +868,22 @@ func (r *RestorePointPolicy) IsValidRestorePointPolicy() bool {
 	return r != nil && r.Archive != "" && ((r.Index > 0) != (r.ID != ""))
 }
 
+// IsValidForSaveRestorePoint returns true id archive name to be used
+// for creating a restore point is set.
+func (r *RestorePointPolicy) IsValidForSaveRestorePoint() bool {
+	return r != nil && r.Archive != ""
+}
+
 // IsRestoreEnabled will return whether the vdb is configured to initialize by reviving from
 // a restore point in an archive
 func (v *VerticaDB) IsRestoreEnabled() bool {
 	return v.Spec.InitPolicy == CommunalInitPolicyRevive && v.Spec.RestorePoint != nil
+}
+
+// IsSaveRestorepointEnabled returns true if the status condition that
+// control restore point is set to true.
+func (v *VerticaDB) IsSaveRestorepointEnabled() bool {
+	return v.IsStatusConditionTrue(SaveRestorePointsNeeded)
 }
 
 // IsHTTPSTLSConfGenerationEnabled return true if the httpstls.json file should
