@@ -323,9 +323,6 @@ var _ = Describe("onlineupgrade_reconciler", func() {
 		// Verify VerticaReplicator was deleted
 		Ω(k8sClient.Get(ctx, vrepNm, &vrep)).ShouldNot(Succeed())
 
-		// Another attempt through waiting for replicator should not fail
-		Ω(rr.waitForReplicateToReplicaGroupB(ctx)).Should(Equal(ctrl.Result{}))
-
 		// Annotations should be cleared when we finish the upgrade
 		Ω(rr.finishUpgrade(ctx)).Should(Equal(ctrl.Result{}))
 		Ω(k8sClient.Get(ctx, vdb.ExtractNamespacedName(), vdb)).Should(Succeed())

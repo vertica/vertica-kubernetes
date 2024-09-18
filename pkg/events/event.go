@@ -73,6 +73,7 @@ const (
 	AuthParmsCopyFailed             = "AuthParmsCopyFailed"
 	UpgradeStart                    = "UpgradeStart"
 	UpgradeSucceeded                = "UpgradeSucceeded"
+	UpgradeFailed                   = "UpgradeFailed"
 	IncompatibleUpgradeRequested    = "IncompatibleUpgradeRequested"
 	ClusterShutdownStarted          = "ClusterShutdownStarted"
 	ClusterShutdownFailed           = "ClusterShutdownFailed"

@@ -275,7 +275,8 @@ func (i *UpgradeManager) clearOnlineUpgradeAnnotationCallback() (updated bool, e
 
 	// Clear annotations set in the VerticaDB's metadata.annotations.
 	for _, a := range []string{vmeta.OnlineUpgradeReplicatorAnnotation, vmeta.OnlineUpgradeSandboxAnnotation,
-		vmeta.OnlineUpgradeStepInxAnnotation, vmeta.OnlineUpgradePreferredSandboxAnnotation} {
+		vmeta.OnlineUpgradeStepInxAnnotation, vmeta.OnlineUpgradePreferredSandboxAnnotation,
+		vmeta.OnlineUpgradePromotionAttemptAnnotation} {
 		if _, annotationFound := i.Vdb.Annotations[a]; annotationFound {
 			delete(i.Vdb.Annotations, a)
 			updated = true
