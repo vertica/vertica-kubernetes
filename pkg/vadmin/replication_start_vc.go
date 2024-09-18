@@ -43,7 +43,7 @@ func (v *VClusterOps) ReplicateDB(ctx context.Context, opts ...replicationstart.
 	// call vcluster-ops library to replicate db
 	vopts := v.genReplicateDBOptions(&r, certs)
 
-	_, err = v.VReplicateDatabase(vopts)
+	err = v.VReplicateDatabase(vopts)
 	if err != nil {
 		v.Log.Error(err, "failed to replicate a database")
 		return ctrl.Result{}, err

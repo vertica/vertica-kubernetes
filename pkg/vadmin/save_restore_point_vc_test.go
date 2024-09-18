@@ -57,10 +57,10 @@ func (m *MockVClusterOps) VSaveRestorePoint(options *vops.VSaveRestorePointOptio
 	return m.VerifyCerts(&options.DatabaseOptions)
 }
 
-var _ = Describe("create_save_restore_point_vc", func() {
+var _ = Describe("save_restore_point_vc", func() {
 	ctx := context.Background()
 
-	It("should call vclusterOps library with create_save_restore_point task", func() {
+	It("should call vclusterOps library with save_restore_point task", func() {
 		dispatcher := mockVClusterOpsDispatcher()
 		dispatcher.VDB.Spec.DBName = TestDBName
 		dispatcher.VDB.Spec.NMATLSSecret = "save-restore-point"

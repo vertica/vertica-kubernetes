@@ -267,7 +267,7 @@ type VClusterProvider interface {
 	VStartNodes(options *vops.VStartNodesOptions) error
 	VShowRestorePoints(options *vops.VShowRestorePointsOptions) ([]vops.RestorePoint, error)
 	VInstallPackages(options *vops.VInstallPackagesOptions) (*vops.InstallPackageStatus, error)
-	VReplicateDatabase(options *vops.VReplicationDatabaseOptions) (int64, error)
+	VReplicateDatabase(options *vops.VReplicationDatabaseOptions) error
 	VFetchNodesDetails(options *vops.VFetchNodesDetailsOptions) (vops.NodesDetails, error)
 	VPromoteSandboxToMain(options *vops.VPromoteSandboxToMainOptions) error
 	VSandbox(options *vops.VSandboxOptions) error
