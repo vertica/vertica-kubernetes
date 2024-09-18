@@ -248,7 +248,9 @@ The operator pod contains a webhook, which requires TLS certificates. The TLS se
 
 Deploy the operator with Helm and all its prerequisites:
 First make sure DEPLOY_WITH is set up properly in Makefile:
+```shell
 DEPLOY_WITH=helm 
+```
 Next run the following command
 ```shell
 make config-transformer deploy
@@ -262,7 +264,9 @@ You must configure OLM deployments when you run an operator with a webhook. For 
 
 Deploy OLM and all its prerequisites:
 First make sure DEPLOY_WITH is set up properly in Makefile:
+```shell
 DEPLOY_WITH=olm
+```
 Next run the following command
 ```shell
 make setup-olm deploy
@@ -335,9 +339,6 @@ Helm chart unit tests are stored in `helm-charts/verticadb-operator/tests` and u
 Unit tests for the VerticaDB operator use the Go testing infrastructure. Some tests run the operator against a mock Kubernetes control plane created with [envtest](https://pkg.go.dev/sigs.k8s.io/controller-runtime/pkg/envtest). Per Go standards, test files are stored in package directories and end with `_test.go`.
 
 ## e2e Tests
-
-> **IMPORTANT**
-> The e2e tests only run on operators that were deployed as an object.
 
 The e2e tests use the [kuttl](https://github.com/kudobuilder/kuttl/) testing framework. To run the tests:
 
