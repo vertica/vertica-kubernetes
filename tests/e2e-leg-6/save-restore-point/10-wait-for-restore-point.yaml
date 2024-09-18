@@ -14,5 +14,5 @@
 apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 commands:
-  - command: kubectl wait --for=condition=SaveRestorePointsNeeded=False vdb/v-restore-point --timeout=600s
+  - command: kubectl wait --for=condition=SaveRestorePointNeeded=False vdb/v-restore-point --timeout=600s
     namespaced: true

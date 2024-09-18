@@ -63,7 +63,7 @@ func MakeSaveRestorePointReconciler(r *VerticaDBReconciler, vdb *vapi.VerticaDB,
 // And will save restore point to the created archive if restorePoint.archive value
 // is provided in the CRD spec
 func (s *SaveRestorePoint) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
-	// Only proceed if the SaveRestorePointsNeeded status condition is set to true.
+	// Only proceed if the SaveRestorePointNeeded status condition is set to true.
 	if !s.Vdb.IsStatusConditionTrue(vapi.SaveRestorePointNeeded) {
 		return ctrl.Result{}, nil
 	}
