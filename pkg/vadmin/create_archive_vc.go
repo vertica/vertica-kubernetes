@@ -17,7 +17,9 @@ package vadmin
 
 import (
 	"context"
+	"errors"
 
+	"github.com/vertica/vcluster/rfc7807"
 	vops "github.com/vertica/vcluster/vclusterops"
 	"github.com/vertica/vertica-kubernetes/pkg/net"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/createarchive"
@@ -29,19 +31,20 @@ func (v *VClusterOps) CreateArchive(ctx context.Context, opts ...createarchive.O
 	defer v.tearDownForAPICall()
 	v.Log.Info("Starting vcluster CreateArchive")
 
-	// get the certs
-	certs, err := v.retrieveNMACerts(ctx)
-	if err != nil {
-		return err
-	}
-
 	s := createarchive.Params{}
 	s.Make(opts...)
 
 	// call vclusterOps library to sandbox a subcluster
-	vopts := v.genCreateArchiveOptions(&s, certs)
-	err = v.VCreateArchive(&vopts)
+	vopts := v.genCreateArchiveOptions(&s)
+	err := v.VCreateArchive(&vopts)
 	if err != nil {
+		vproblem := &rfc7807.VProblem{}
+		if ok := errors.As(err, &vproblem); ok {
+			if vproblem.Type == DuplicateObjectError.Type {
+				v.Log.Info("Attempted to create an archive that already exists", "archive", vopts.ArchiveName)
+			}
+			return nil
+		}
 		v.Log.Error(err, "failed to create an archive", "archive name",
 			vopts.ArchiveName, "sandbox", vopts.Sandbox, "num restore point", vopts.NumRestorePoint)
 		return err
@@ -52,7 +55,7 @@ func (v *VClusterOps) CreateArchive(ctx context.Context, opts ...createarchive.O
 	return nil
 }
 
-func (v *VClusterOps) genCreateArchiveOptions(s *createarchive.Params, certs *HTTPSCerts) vops.VCreateArchiveOptions {
+func (v *VClusterOps) genCreateArchiveOptions(s *createarchive.Params) vops.VCreateArchiveOptions {
 	opts := vops.VCreateArchiveFactory()
 
 	opts.DBName = v.VDB.Spec.DBName
@@ -66,9 +69,6 @@ func (v *VClusterOps) genCreateArchiveOptions(s *createarchive.Params, certs *HT
 	// auth options
 	opts.UserName = v.VDB.GetVerticaUser()
 	opts.Password = &v.Password
-	opts.Key = certs.Key
-	opts.Cert = certs.Cert
-	opts.CaCert = certs.CaCert
 
 	return opts
 }

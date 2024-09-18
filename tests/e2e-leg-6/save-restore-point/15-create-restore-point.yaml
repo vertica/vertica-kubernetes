@@ -11,20 +11,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: v1
-kind: Event
-reason: SaveRestorePointSucceeded
-source:
-  component: verticadb-operator
-involvedObject:
-  apiVersion: vertica.com/v1
-  kind: VerticaDB
-  name: v-restore-point
----
-apiVersion: vertica.com/v1
-kind: VerticaDB
-metadata:
-  name: v-restore-point
-status:
-  restorePoint:
-    archive: test
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - command: >
+      kubectl patch vdb v-restore-point --type='json' -p='[{
+      "op": "add", 
+      "path": "/status/conditions/-", 
+      "value": {"type": "SaveRestorePointsNeeded", "status": "True", "message": "test", "reason": "test", "lastTransitionTime": "2024-09-16T21:38:27Z"}
+      }]' --subresource='status'
+    namespaced: true
+  - command: kubectl wait --for=condition=SaveRestorePointsNeeded=True vdb/v-restore-point --timeout=600s
+    namespaced: true

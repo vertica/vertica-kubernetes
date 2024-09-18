@@ -17,7 +17,7 @@ package vdb
 
 import (
 	"context"
-	"strings"
+	"errors"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -36,29 +36,26 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// SaveRestorePoint will create archive and save restore point if triggered
+// SaveRestorePoint saves a restore point to an archive, and create the archive if it doesn't exist
 type SaveRestorePoint struct {
 	VRec *VerticaDBReconciler
 	Vdb  *vapi.VerticaDB
 	Log  logr.Logger
 	client.Client
-	Dispatcher     vadmin.Dispatcher
-	PFacts         *PodFacts
-	OriginalPFacts *PodFacts
-	InitiatorIP    string // The IP of the pod that we run vclusterOps from
+	Dispatcher  vadmin.Dispatcher
+	PFacts      *PodFacts
+	InitiatorIP string // The IP of the pod that we run vclusterOps from
 }
 
 func MakeSaveRestorePointReconciler(r *VerticaDBReconciler, vdb *vapi.VerticaDB, log logr.Logger,
 	pfacts *PodFacts, dispatcher vadmin.Dispatcher, cli client.Client) controllers.ReconcileActor {
-	pfactsForMainCluster := pfacts.Copy(vapi.MainCluster)
 	return &SaveRestorePoint{
-		VRec:           r,
-		Log:            log.WithName("SaveRestorePoint"),
-		Vdb:            vdb,
-		Client:         cli,
-		Dispatcher:     dispatcher,
-		PFacts:         &pfactsForMainCluster,
-		OriginalPFacts: pfacts,
+		VRec:       r,
+		Log:        log.WithName("SaveRestorePoint"),
+		Vdb:        vdb,
+		Client:     cli,
+		Dispatcher: dispatcher,
+		PFacts:     pfacts,
 	}
 }
 
@@ -67,7 +64,7 @@ func MakeSaveRestorePointReconciler(r *VerticaDBReconciler, vdb *vapi.VerticaDB,
 // is provided in the CRD spec
 func (s *SaveRestorePoint) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
 	// Only proceed if the SaveRestorePointsNeeded status condition is set to true.
-	if !s.Vdb.IsStatusConditionTrue(vapi.SaveRestorePointsNeeded) {
+	if !s.Vdb.IsStatusConditionTrue(vapi.SaveRestorePointNeeded) {
 		return ctrl.Result{}, nil
 	}
 	// Check if deployment is using vclusterops
@@ -75,7 +72,7 @@ func (s *SaveRestorePoint) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl
 		s.VRec.Event(s.Vdb, corev1.EventTypeWarning, events.InDBSaveRestorePointNotSupported,
 			"SaveRestorePoint is not supported for admintools deployments")
 		err := vdbstatus.UpdateCondition(ctx, s.VRec.Client, s.Vdb,
-			vapi.MakeCondition(vapi.SaveRestorePointsNeeded,
+			vapi.MakeCondition(vapi.SaveRestorePointNeeded,
 				metav1.ConditionFalse, "AdmintoolsNotSupported"),
 		)
 		if err != nil {
@@ -94,8 +91,8 @@ func (s *SaveRestorePoint) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl
 			"The Vertica version %q doesn't support create restore points. The minimum version supported is %s.",
 			vinf.VdbVer, vapi.SaveRestorePointNMAOpsMinVersion)
 		err = vdbstatus.UpdateCondition(ctx, s.VRec.Client, s.Vdb,
-			vapi.MakeCondition(vapi.SaveRestorePointsNeeded,
-				metav1.ConditionFalse, "IncompatibleDB"),
+			vapi.MakeCondition(vapi.SaveRestorePointNeeded,
+				metav1.ConditionFalse, "IncompatibleVerticaVersion"),
 		)
 		if err != nil {
 			return ctrl.Result{}, err
@@ -124,14 +121,10 @@ func (s *SaveRestorePoint) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl
 		}
 		// Once save restore point, change condition
 		// params: context, host, archive-name, sandbox, num of restore point(0 is unlimited)
-		err = s.runSaveRestorePointVclusterAPI(ctx, hostIP, s.Vdb.Spec.RestorePoint.Archive, "")
-		if err != nil {
-			return ctrl.Result{}, err
-		}
+		return ctrl.Result{}, s.runSaveRestorePointVclusterAPI(ctx, hostIP, vapi.MainCluster)
 	}
-	// archive name param not set correctly, Log warning
-	s.Log.Info("create archive failed, archive name not set in restorePoint spec.")
-	return ctrl.Result{Requeue: true}, nil
+	// archive name param not set correctly, return an error
+	return ctrl.Result{}, errors.New("create archive failed, archive name not set in restorePoint spec")
 }
 
 // runCreateArchiveVclusterAPI will do the actual execution of creating archive.
@@ -145,12 +138,6 @@ func (s *SaveRestorePoint) runCreateArchiveVclusterAPI(ctx context.Context,
 	// Always try to create
 	err := s.Dispatcher.CreateArchive(ctx, opts...)
 	if err != nil {
-		// If already exist, ignore error, log warning
-		if strings.Contains(err.Error(), "Duplicate object on host") {
-			s.VRec.Eventf(s.Vdb, corev1.EventTypeNormal, events.ArchiveExists,
-				"archive: %s already exist", archiveName)
-			return nil
-		}
 		// For all other errors, return error
 		s.VRec.Eventf(s.Vdb, corev1.EventTypeWarning, events.CreateArchiveFailed,
 			"Failed to create archive %q", archiveName)
@@ -166,7 +153,8 @@ func (s *SaveRestorePoint) runCreateArchiveVclusterAPI(ctx context.Context,
 // an existing archive.
 // This handles logging of necessary events.
 func (s *SaveRestorePoint) runSaveRestorePointVclusterAPI(ctx context.Context,
-	host string, archiveName string, sandbox string) error {
+	host, sandbox string) error {
+	archiveName := s.Vdb.Spec.RestorePoint.Archive
 	opts := s.genSaveRestorePointOpts(host, archiveName, sandbox)
 	s.VRec.Event(s.Vdb, corev1.EventTypeNormal,
 		events.SaveRestorePointStart, "Starting save restore point")
@@ -182,26 +170,10 @@ func (s *SaveRestorePoint) runSaveRestorePointVclusterAPI(ctx context.Context,
 	s.VRec.Eventf(s.Vdb, corev1.EventTypeNormal, events.SaveRestorePointSucceeded,
 		"Successfully save restore point to archive: %s. It took %s",
 		archiveName, time.Since(start).Truncate(time.Second))
-	refreshStatusInPlace := func(vdb *vapi.VerticaDB) error {
-		meta.SetStatusCondition(&vdb.Status.Conditions, *vapi.MakeCondition(vapi.SaveRestorePointsNeeded,
-			metav1.ConditionFalse, "Completed"))
-		if vdb.Status.RestorePoint == nil {
-			vdb.Status.RestorePoint = new(vapi.RestorePointInfo)
-		}
-		vdb.Status.RestorePoint.Archive = archiveName
-		vdb.Status.RestorePoint.StartTimestamp = start.Format("2006-01-02 15:04:05.000000000")
-		vdb.Status.RestorePoint.EndTimestamp = end.Format("2006-01-02 15:04:05.000000000")
-		return nil
-	}
-	// Clear the condition and add a status after restore point creation.
-	err = vdbstatus.Update(ctx, s.VRec.Client, s.Vdb, refreshStatusInPlace)
-	if err != nil {
-		return err
-	}
-	return nil
+	return s.updateVDB(ctx, start, end)
 }
 
-// genCreateArchiveOpts will return the options to use with the create archive command
+// genCreateArchiveOpts will return the options to use with the create archive apiS
 func (s *SaveRestorePoint) genCreateArchiveOpts(initiatorIP string, archiveName string,
 	numRestorePoint int, sandbox string) []createarchive.Option {
 	opts := []createarchive.Option{
@@ -213,7 +185,7 @@ func (s *SaveRestorePoint) genCreateArchiveOpts(initiatorIP string, archiveName 
 	return opts
 }
 
-// genSaveRestorePointOpts will return the options to use with the create archive command
+// genSaveRestorePointOpts will return the options to use with the save restore point api
 func (s *SaveRestorePoint) genSaveRestorePointOpts(initiatorIP string, archiveName string,
 	sandbox string) []saverestorepoint.Option {
 	opts := []saverestorepoint.Option{
@@ -222,4 +194,22 @@ func (s *SaveRestorePoint) genSaveRestorePointOpts(initiatorIP string, archiveNa
 		saverestorepoint.WithSandbox(sandbox),
 	}
 	return opts
+}
+
+// updateVDB clears the condition status and add the restore point details
+// in the status.
+func (s *SaveRestorePoint) updateVDB(ctx context.Context, start, end time.Time) error {
+	refreshStatusInPlace := func(vdb *vapi.VerticaDB) error {
+		meta.SetStatusCondition(&vdb.Status.Conditions, *vapi.MakeCondition(vapi.SaveRestorePointNeeded,
+			metav1.ConditionFalse, "Completed"))
+		if vdb.Status.RestorePoint == nil {
+			vdb.Status.RestorePoint = new(vapi.RestorePointInfo)
+		}
+		vdb.Status.RestorePoint.Archive = s.Vdb.Spec.RestorePoint.Archive
+		vdb.Status.RestorePoint.StartTimestamp = start.Format("2006-01-02 15:04:05.000000000")
+		vdb.Status.RestorePoint.EndTimestamp = end.Format("2006-01-02 15:04:05.000000000")
+		return nil
+	}
+	// Clear the condition and add a status after restore point creation.
+	return vdbstatus.Update(ctx, s.VRec.Client, s.Vdb, refreshStatusInPlace)
 }

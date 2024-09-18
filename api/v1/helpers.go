@@ -868,22 +868,22 @@ func (r *RestorePointPolicy) IsValidRestorePointPolicy() bool {
 	return r != nil && r.Archive != "" && ((r.Index > 0) != (r.ID != ""))
 }
 
-// IsValidForSaveRestorePoint returns true id archive name to be used
+// IsValidForSaveRestorePoint returns true if archive name to be used
 // for creating a restore point is set.
 func (r *RestorePointPolicy) IsValidForSaveRestorePoint() bool {
 	return r != nil && r.Archive != ""
 }
 
-// IsRestoreEnabled will return whether the vdb is configured to initialize by reviving from
+// IsRestoreDuringReviveEnabled will return whether the vdb is configured to initialize by reviving from
 // a restore point in an archive
-func (v *VerticaDB) IsRestoreEnabled() bool {
+func (v *VerticaDB) IsRestoreDuringReviveEnabled() bool {
 	return v.Spec.InitPolicy == CommunalInitPolicyRevive && v.Spec.RestorePoint != nil
 }
 
 // IsSaveRestorepointEnabled returns true if the status condition that
 // control restore point is set to true.
 func (v *VerticaDB) IsSaveRestorepointEnabled() bool {
-	return v.IsStatusConditionTrue(SaveRestorePointsNeeded)
+	return v.IsStatusConditionTrue(SaveRestorePointNeeded)
 }
 
 // IsHTTPSTLSConfGenerationEnabled return true if the httpstls.json file should

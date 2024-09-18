@@ -18,6 +18,7 @@ package vadmin
 import (
 	"errors"
 	"fmt"
+	"path"
 
 	"github.com/go-logr/logr"
 	"github.com/vertica/vcluster/rfc7807"
@@ -34,6 +35,15 @@ type vcErrors struct {
 	Log                  logr.Logger
 	GenericFailureReason string
 	EVWriter             events.EVWriter
+}
+
+const errorEndpointsPrefix = "https://integrators.vertica.com/rest/errors/"
+
+// DuplicateObjectError will be moved to rfc7807 package in VER-96975
+var DuplicateObjectError = rfc7807.ProblemID{
+	Type:   path.Join(errorEndpointsPrefix, "duplicate-object"),
+	Title:  "Duplicate object",
+	Status: 500,
 }
 
 // rfc7807TypeToEventReasonMap is a mapping from known rfc7807 errors to the event

@@ -37,7 +37,7 @@ var _ = Describe("saverestorepoint_reconciler", func() {
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
 
 		meta.SetStatusCondition(&vdb.Status.Conditions,
-			*vapi.MakeCondition(vapi.SaveRestorePointsNeeded, metav1.ConditionTrue, "Done"))
+			*vapi.MakeCondition(vapi.SaveRestorePointNeeded, metav1.ConditionTrue, "Done"))
 		Expect(k8sClient.Status().Update(ctx, vdb)).Should(Succeed())
 		fpr := &cmds.FakePodRunner{}
 		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
@@ -47,6 +47,6 @@ var _ = Describe("saverestorepoint_reconciler", func() {
 		Expect(res.Requeue).Should(BeFalse())
 		fetchedVdb := &vapi.VerticaDB{}
 		Expect(k8sClient.Get(ctx, vdb.ExtractNamespacedName(), fetchedVdb)).Should(Succeed())
-		Expect(fetchedVdb.IsStatusConditionFalse(vapi.SaveRestorePointsNeeded)).Should(BeTrue())
+		Expect(fetchedVdb.IsStatusConditionFalse(vapi.SaveRestorePointNeeded)).Should(BeTrue())
 	})
 })

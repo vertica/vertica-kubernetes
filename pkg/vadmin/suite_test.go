@@ -286,23 +286,6 @@ func (m *MockVClusterOps) VerifyCerts(options *vops.DatabaseOptions) error {
 	return nil
 }
 
-func (m *MockVClusterOps) VerifyDBOptions(options *vops.DatabaseOptions) error {
-	// verify common options
-	err := m.VerifyCommonOptions(options)
-	if err != nil {
-		return err
-	}
-
-	// verify hosts and eon mode
-	err = m.VerifyInitiatorIPAndEonMode(options)
-	if err != nil {
-		return err
-	}
-
-	// verify auth options
-	return m.VerifyCerts(options)
-}
-
 // VerifySourceAndTargetIPs is used in vcluster-ops unit test for verifying source and target hosts
 // (both a single IP) in a replication
 func (m *MockVClusterOps) VerifySourceAndTargetIPs(options *vops.VReplicationDatabaseOptions) error {

@@ -905,10 +905,10 @@ const (
 	// VerticaRestartNeeded is a condition that when set to true will force the
 	// operator to stop/start the vertica pods.
 	VerticaRestartNeeded = "VerticaRestartNeeded"
-	// SaveRestorePointsNeeded is a condition that when set to true will,
-	// the operator will create the archive, using the spec.restorePoint.archive
+	// SaveRestorePointNeeded is a condition that when set to true, make the
+	// operator create a restore point, using the spec.restorePoint.archive
 	// as the archive name to save to.
-	SaveRestorePointsNeeded = "SaveRestorePointsNeeded"
+	SaveRestorePointNeeded = "SaveRestorePointNeeded"
 )
 
 const (
