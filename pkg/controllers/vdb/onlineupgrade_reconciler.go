@@ -57,7 +57,9 @@ const (
 	RedirectConnectionTimeoutSeconds         = 5 * 60
 )
 
-const archiveBaseName = "upgrade_backup"
+const (
+	archiveBeforeRepBaseName = "archive_before_rep"
+)
 
 // List of status messages for online upgrade. When adding a new entry here,
 // be sure to add a *StatusMsgInx const below.
@@ -74,7 +76,6 @@ var onlineUpgradeStatusMsgs = []string{
 	"Preparing replication",
 	"Back up database before replication",
 	"Replicate new data from main cluster to sandbox",
-	"Back up database after replication",
 	"Redirect connections to sandbox",
 	"Promote sandbox to main cluster",
 	"Remove original main cluster",
@@ -95,7 +96,6 @@ const (
 	prepareReplicationInx
 	backupDBBeforeReplicationMsgInx
 	startReplicationMsgInx
-	backupDBAfterReplicationMsgInx
 	redirectToSandboxMsgInx
 	promoteSandboxMsgInx
 	removeOriginalClusterMsgInx
@@ -116,7 +116,6 @@ const (
 	waitForConnectionsPauseInx
 	backupBeforeReplicationInx
 	replicationInx
-	backupAfterReplicationInx
 	promoteSandboxInx
 	removeReplicaGroupAInx
 	deleteReplicaGroupAStsInx
@@ -223,9 +222,6 @@ func (r *OnlineUpgradeReconciler) Reconcile(ctx context.Context, _ *ctrl.Request
 		r.waitForReplicateToReplicaGroupB,
 		// replicate v_internal_tables.v_redirect_state to sandbox
 		r.copyRedirectStateToReplicaGroupB,
-		// Back up database after replication
-		r.postBackupDBAfterReplicationMsg,
-		r.createRestorePointAfterReplication,
 		// Redirect all of the connections to replica group A to replica group B.
 		r.postRedirectToSandboxMsg,
 		r.redirectConnectionsToReplicaGroupB,
@@ -786,7 +782,10 @@ func (r *OnlineUpgradeReconciler) prepareReplication(ctx context.Context) (ctrl.
 // postBackupDBBeforeReplicationMsg will update the status message to indicate that
 // we backing up the db before replication.
 func (r *OnlineUpgradeReconciler) postBackupDBBeforeReplicationMsg(ctx context.Context) (ctrl.Result, error) {
-	return r.postNextStatusMsg(ctx, backupDBBeforeReplicationMsgInx)
+	if vmeta.GetSaveRestorePoint(r.VDB.Annotations) {
+		return r.postNextStatusMsg(ctx, backupDBBeforeReplicationMsgInx)
+	}
+	return ctrl.Result{}, nil
 }
 
 // createRestorePointBeforeReplication will backup the db just before replication
@@ -795,7 +794,16 @@ func (r *OnlineUpgradeReconciler) createRestorePointBeforeReplication(ctx contex
 	if vmeta.GetOnlineUpgradeStepInx(r.VDB.Annotations) > backupBeforeReplicationInx {
 		return ctrl.Result{}, nil
 	}
-	return r.createRestorePoint(ctx, r.PFacts[vapi.MainCluster])
+	// We skip save restore point if the feature flag is not set
+	// to true
+	if !vmeta.GetSaveRestorePoint(r.VDB.Annotations) {
+		return ctrl.Result{}, r.updateOnlineUpgradeStepAnnotation(ctx, r.getNextStep())
+	}
+	archive := genBaseNameWithUUID(archiveBeforeRepBaseName, "_")
+	if testArchive := vmeta.GetOnlineUpgradeArchiveBeforeReplication(r.VDB.Annotations); testArchive != "" {
+		archive = testArchive
+	}
+	return r.createRestorePoint(ctx, r.PFacts[vapi.MainCluster], archive)
 }
 
 // postStartReplicationMsg will update the status message to indicate that
@@ -868,8 +876,7 @@ func (r *OnlineUpgradeReconciler) waitForReplicateToReplicaGroupB(ctx context.Co
 
 	vrepName := vmeta.GetOnlineUpgradeReplicator(r.VDB.Annotations)
 	if vrepName == "" {
-		r.Log.Info("skipping wait for VerticaReplicator because name cannot be found in vdb annotations")
-		return ctrl.Result{}, r.updateOnlineUpgradeStepAnnotation(ctx, r.getNextStep())
+		return ctrl.Result{}, errors.New("Could not find the VerticaReplicator name in vdb annotations")
 	}
 
 	vrep := v1beta1.VerticaReplicator{}
@@ -880,10 +887,7 @@ func (r *OnlineUpgradeReconciler) waitForReplicateToReplicaGroupB(ctx context.Co
 	err := r.VRec.Client.Get(ctx, nm, &vrep)
 	if err != nil {
 		if kerrors.IsNotFound(err) {
-			// Not found is okay since we'll delete the VerticaReplicator once
-			// we see that the replication is finished.
-			r.Log.Info("VerticaReplicator is not found. Skipping wait", "name", vrepName)
-			return ctrl.Result{}, r.updateOnlineUpgradeStepAnnotation(ctx, r.getNextStep())
+			return ctrl.Result{}, fmt.Errorf("VerticaReplicator %q is not found", vrepName)
 		}
 		return ctrl.Result{}, fmt.Errorf("failed trying to fetch VerticaReplicator: %w", err)
 	}
@@ -894,7 +898,7 @@ func (r *OnlineUpgradeReconciler) waitForReplicateToReplicaGroupB(ctx context.Co
 		return ctrl.Result{Requeue: true}, nil
 	}
 
-	// Delete the VerticaReplicator. We leave the annotation present in the
+	// Delete the VerticaReplicator. If replication was successful, we leave the annotation present in the
 	// VerticaDB so that we skip these steps until the upgrade is finished.
 	err = r.VRec.Client.Delete(ctx, &vrep)
 	if err != nil {
@@ -902,8 +906,19 @@ func (r *OnlineUpgradeReconciler) waitForReplicateToReplicaGroupB(ctx context.Co
 	}
 	succeeded := cond.Reason == v1beta1.ReasonSucceeded
 	if !succeeded {
-		r.Log.Info("Replication has failed", "vrepName", vrepName)
-		return ctrl.Result{}, errors.New("replication has failed")
+		r.Log.Info("Replication has failed. Requeueing to retry.", "vrepName", vrepName)
+		_, err := vk8s.UpdateVDBWithRetry(ctx, r.VRec, r.VDB, func() (bool, error) {
+			if _, annotationFound := r.VDB.Annotations[vmeta.OnlineUpgradeReplicatorAnnotation]; annotationFound {
+				delete(r.VDB.Annotations, vmeta.OnlineUpgradeReplicatorAnnotation)
+				return true, nil
+			}
+			return false, nil
+		})
+		if err != nil {
+			r.Log.Error(err, "failed to delete replicator annotation in vdb", "annotation", vmeta.OnlineUpgradeReplicatorAnnotation)
+			return ctrl.Result{}, err
+		}
+		return ctrl.Result{Requeue: true}, nil
 	}
 	r.Log.Info("Replication completed successfully", "vrepName", vrepName)
 	return ctrl.Result{}, r.updateOnlineUpgradeStepAnnotation(ctx, r.getNextStep())
@@ -973,25 +988,6 @@ func (r *OnlineUpgradeReconciler) copyRedirectStateToReplicaGroupB(ctx context.C
 	}
 
 	return ctrl.Result{}, nil
-}
-
-// postBackupDBAfterReplicationMsg will update the status message to indicate that
-// we backing up the db after replication.
-func (r *OnlineUpgradeReconciler) postBackupDBAfterReplicationMsg(ctx context.Context) (ctrl.Result, error) {
-	return r.postNextStatusMsg(ctx, backupDBAfterReplicationMsgInx)
-}
-
-// createRestorePointAfterReplication will backup the db just before sandbox promotion
-func (r *OnlineUpgradeReconciler) createRestorePointAfterReplication(ctx context.Context) (ctrl.Result, error) {
-	sbPFacts, err := r.getSandboxPodFacts(ctx, true)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-	// Skip if the db has already been backed up
-	if vmeta.GetOnlineUpgradeStepInx(r.VDB.Annotations) > backupAfterReplicationInx {
-		return ctrl.Result{}, nil
-	}
-	return r.createRestorePoint(ctx, sbPFacts)
 }
 
 // postRedirectToSandboxMsg will update the status message to indicate that
@@ -1099,6 +1095,10 @@ func (r *OnlineUpgradeReconciler) promoteSandboxToMainCluster(ctx context.Contex
 	if vmeta.GetOnlineUpgradeStepInx(r.VDB.Annotations) > promoteSandboxInx {
 		return ctrl.Result{}, nil
 	}
+	attempts := vmeta.GetOnlineUpgradePromotionAttempt(r.VDB.Annotations)
+	if attempts >= vmeta.OnlineUpgradePromotionMaxAttempts {
+		return r.logPromoteSandboxFailure()
+	}
 
 	sb := r.VDB.GetSandboxStatus(r.sandboxName)
 	if sb == nil {
@@ -1115,9 +1115,19 @@ func (r *OnlineUpgradeReconciler) promoteSandboxToMainCluster(ctx context.Contex
 	}
 	actor := MakePromoteSandboxToMainReconciler(r.VRec, r.Log, r.VDB, sbPFacts, r.Dispatcher, r.VRec.Client)
 	r.Manager.traceActorReconcile(actor)
-	res, err := actor.Reconcile(ctx, &ctrl.Request{})
-	if verrors.IsReconcileAborted(res, err) {
-		return res, err
+	var res ctrl.Result
+	res, err = actor.Reconcile(ctx, &ctrl.Request{})
+	// We want to increase the number of attempts only when there is an actual error during promotion
+	if err != nil {
+		attempts = vmeta.GetOnlineUpgradePromotionAttempt(r.VDB.Annotations) + 1
+		anns := map[string]string{
+			vmeta.OnlineUpgradePromotionAttemptAnnotation: strconv.Itoa(attempts),
+		}
+		_, err = vk8s.MetaUpdateWithAnnotations(ctx, r.VRec.GetClient(), r.VDB.ExtractNamespacedName(), r.VDB, anns)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+		return res, fmt.Errorf("attempt #%d: %w", attempts, err)
 	}
 	r.PFacts[vapi.MainCluster].Invalidate()
 	r.Log.Info("sandbox has been promoted to main", "sandboxName", r.sandboxName)
@@ -1669,10 +1679,7 @@ func (r *OnlineUpgradeReconciler) updateOnlineUpgradeStepAnnotation(ctx context.
 	anns := map[string]string{
 		vmeta.OnlineUpgradeStepInxAnnotation: strconv.Itoa(inx),
 	}
-	chgs := vk8s.MetaChanges{
-		NewAnnotations: anns,
-	}
-	_, err := vk8s.MetaUpdate(ctx, r.VRec.GetClient(), r.VDB.ExtractNamespacedName(), r.VDB, chgs)
+	_, err := vk8s.MetaUpdateWithAnnotations(ctx, r.VRec.GetClient(), r.VDB.ExtractNamespacedName(), r.VDB, anns)
 	return err
 }
 
@@ -1686,8 +1693,8 @@ func (r *OnlineUpgradeReconciler) restartMainCluster(ctx context.Context) (ctrl.
 	return actor.Reconcile(ctx, &ctrl.Request{})
 }
 
-func (r *OnlineUpgradeReconciler) createRestorePoint(ctx context.Context, pf *PodFacts) (ctrl.Result, error) {
-	res, err := r.Manager.createRestorePoint(ctx, pf, genBaseNameWithUUID(archiveBaseName, "_"))
+func (r *OnlineUpgradeReconciler) createRestorePoint(ctx context.Context, pf *PodFacts, archive string) (ctrl.Result, error) {
+	res, err := r.Manager.createRestorePoint(ctx, pf, archive)
 	if verrors.IsReconcileAborted(res, err) {
 		return res, err
 	}
@@ -1696,6 +1703,15 @@ func (r *OnlineUpgradeReconciler) createRestorePoint(ctx context.Context, pf *Po
 
 func (r *OnlineUpgradeReconciler) getNextStep() int {
 	return vmeta.GetOnlineUpgradeStepInx(r.VDB.Annotations) + 1
+}
+
+// logPromoteSandboxFailure logs a failure message if promotion has failed at least
+// 3 times
+func (r *OnlineUpgradeReconciler) logPromoteSandboxFailure() (ctrl.Result, error) {
+	r.VRec.Eventf(r.VDB, corev1.EventTypeNormal, events.UpgradeFailed,
+		"Online upgrade has failed after %d sandbox promotion attempts. "+
+			"Please revive the database to its original state and try again.", vmeta.OnlineUpgradePromotionMaxAttempts)
+	return ctrl.Result{}, fmt.Errorf("sandbox promotion failed at least %d times", vmeta.OnlineUpgradePromotionMaxAttempts)
 }
 
 func genBaseNameWithUUID(baseName, sep string) string {

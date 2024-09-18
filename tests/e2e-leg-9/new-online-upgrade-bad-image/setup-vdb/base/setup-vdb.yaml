@@ -17,6 +17,7 @@ metadata:
   name: v-upgrade-bad-image
   annotations:
     vertica.com/include-uid-in-path: true
+    vertica.com/save-restore-point-on-upgrade: true
 spec:
   image: kustomize-vertica-image
   dbName: repUP

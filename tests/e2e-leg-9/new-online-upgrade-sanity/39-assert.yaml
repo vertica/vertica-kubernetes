@@ -20,4 +20,4 @@ status:
     - name: test
       state:
         terminated:
-          exitCode: 0 
+          exitCode: 0
