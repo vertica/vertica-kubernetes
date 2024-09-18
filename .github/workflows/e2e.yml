@@ -104,7 +104,7 @@ jobs:
     if: ${{ inputs.build_release_assets == 'all' || inputs.build_release_assests == '' }}
 
   e2e-leg-1-admintools:
-    if: ${{ inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools leg 1' || inputs.e2e_test_suites == '' }}
+    if: ${{ ! contains(github.ref, 'k8s-sync')  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools leg 1' || inputs.e2e_test_suites == '') }}
     needs: [build]
     runs-on: ubuntu-latest
     steps:
@@ -125,7 +125,7 @@ jobs:
           need-legacy-image: true
   
   e2e-leg-1-admintools-previous-release:
-    if: ${{ inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools leg 1' || inputs.e2e_test_suites == '' }}
+    if: ${{ ! contains(github.ref, 'k8s-sync')  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools leg 1' || inputs.e2e_test_suites == '') }}
     needs: [build]
     runs-on: ubuntu-latest
     steps:
@@ -166,7 +166,7 @@ jobs:
           deploy-with: olm
 
   e2e-leg-2-admintools:
-    if: ${{ inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools leg 2' || inputs.e2e_test_suites == '' }}
+    if: ${{ ! contains(github.ref, 'k8s-sync')  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools leg 2' || inputs.e2e_test_suites == '') }}
     needs: [build]
     runs-on: ubuntu-latest
     steps:
@@ -187,7 +187,7 @@ jobs:
           need-legacy-image: true
 
   e2e-leg-2-admintools-previous-release:
-    if: ${{ inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools leg 2' || inputs.e2e_test_suites == '' }}
+    if: ${{ ! contains(github.ref, 'k8s-sync')  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools leg 2' || inputs.e2e_test_suites == '') }}
     needs: [build]
     runs-on: ubuntu-latest
     steps:
@@ -228,7 +228,7 @@ jobs:
           controllers-scope: namespace
 
   e2e-leg-3-admintools:
-    if: ${{ inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools leg 3' || inputs.e2e_test_suites == '' }}
+    if: ${{ ! contains(github.ref, 'k8s-sync')  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools leg 3' || inputs.e2e_test_suites == '') }}
     needs: [build]
     runs-on: ubuntu-latest
     steps:
@@ -287,7 +287,7 @@ jobs:
           communal-storage-type: hostpath
 
   e2e-leg-4-admintools:
-    if: ${{ inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools leg 4' || inputs.e2e_test_suites == '' }}
+    if: ${{ ! contains(github.ref, 'k8s-sync')  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools leg 4' || inputs.e2e_test_suites == '') }}
     needs: [build]
     runs-on: ubuntu-latest
     steps:
@@ -332,7 +332,7 @@ jobs:
           helm-overrides: '--set webhook.certSource=cert-manager'
 
   e2e-leg-5-admintools:
-    if: ${{ inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools leg 5' || inputs.e2e_test_suites == '' }}
+    if: ${{ ! contains(github.ref, 'k8s-sync')  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools leg 5' || inputs.e2e_test_suites == '') }}
     needs: [build]
     runs-on: ubuntu-latest
     steps:
@@ -531,7 +531,7 @@ jobs:
           need-base-vertica-image: 'true'
 
   e2e-server-upgrade-admintools:
-    if: ${{ inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools server upgrade' || inputs.e2e_test_suites == '' }}
+    if: ${{ ! contains(github.ref, 'k8s-sync')  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools server upgrade' || inputs.e2e_test_suites == '') }}
     needs: [build]
     runs-on: ubuntu-latest
     steps:
@@ -572,7 +572,7 @@ jobs:
           need-base-vertica-image: 'true'
 
   e2e-operator-upgrade:
-    if: ${{ inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools operator upgrade' || inputs.e2e_test_suites == '' }}
+    if: ${{ ! contains(github.ref, 'k8s-sync')  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools operator upgrade' || inputs.e2e_test_suites == '') }}
     needs: [build]
     runs-on: ubuntu-latest
     steps:
@@ -596,7 +596,7 @@ jobs:
           need-legacy-image: true
 
   e2e-udx-admintools:
-    if: ${{ inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools udx' || inputs.e2e_test_suites == '' }}
+    if: ${{ ! contains(github.ref, 'k8s-sync')  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools udx' || inputs.e2e_test_suites == '') }}
     needs: [build]
     runs-on: ubuntu-latest
     steps:
@@ -641,18 +641,11 @@ jobs:
   sync-vcluster:
     name: Sync-vcluster-repo
     needs: [
-      e2e-leg-1-admintools,
-      e2e-leg-1-admintools-previous-release,
       e2e-leg-1-vcluster,
-      e2e-leg-2-admintools,
-      e2e-leg-2-admintools-previous-release,
       e2e-leg-2-vcluster,
-      e2e-leg-3-admintools,
       e2e-leg-3-vclusterops-previous-release,
       e2e-leg-3-vcluster,
-      e2e-leg-4-admintools,
       e2e-leg-4-vcluster,
-      e2e-leg-5-admintools,
       e2e-leg-5-vcluster,
       e2e-leg-6-vcluster,
       e2e-leg-6-vcluster-revivedb,
@@ -661,10 +654,8 @@ jobs:
       e2e-leg-8-vcluster-online,
       e2e-leg-9-vcluster,
       e2e-leg-10-vcluster,
-      e2e-server-upgrade-admintools,
       e2e-server-upgrade-vcluster,
       e2e-operator-upgrade,
-      e2e-udx-admintools,
       e2e-udx-vcluster
     ]
     runs-on: ubuntu-latest
@@ -683,10 +674,27 @@ jobs:
     runs-on: ubuntu-latest
     if: ${{ always() && contains(github.ref, 'k8s-sync') }}
     steps:
-      - name: notification
+      - name: Get vcluster commit url
+        run: |
+          VCLUSTER_REF=$(echo ${{ github.event.head_commit.message }} | awk '{print $NF}')
+          echo "VCLUSTER_URL=${{ github.server_url }}/vertica/vcluster/commit/$VCLUSTER_REF" >> $GITHUB_ENV
+
+      - name: notification on success
+        if: ${{ always() && contains(needs.sync-vcluster.result, 'success') }}
         uses: jdcargile/ms-teams-notification@v1.4
         with:
           github-token: ${{ github.token }}
           ms-teams-webhook-uri: ${{ secrets.MS_TEAMS_WEBHOOK_URI }}
-          notification-summary: ${{ github.job }} job in worflow ${{ github.workflow }} of ${{ github.repository }} has ${{ job.status }} on branch ${{ github.ref }}
+          notification-summary: Success | worflow ${{ github.workflow }} on branch ${{ github.ref_name }} with <a href="${{ env.VCLUSTER_URL }}">VCluster commit changes</a>
+          notification-color: 28a745
+          verbose-logging: true
+
+      - name: notification on failure
+        if: ${{ always() && ! contains(needs.sync-vcluster.result, 'success') }}
+        uses: jdcargile/ms-teams-notification@v1.4
+        with:
+          github-token: ${{ github.token }}
+          ms-teams-webhook-uri: ${{ secrets.MS_TEAMS_WEBHOOK_URI }}
+          notification-summary: Failure | worflow ${{ github.workflow }} on branch ${{ github.ref_name }} with <a href="${{ env.VCLUSTER_URL }}">VCluster commit changes</a>
+          notification-color: dc3545
           verbose-logging: true
