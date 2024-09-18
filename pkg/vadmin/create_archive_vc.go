@@ -42,8 +42,8 @@ func (v *VClusterOps) CreateArchive(ctx context.Context, opts ...createarchive.O
 		if ok := errors.As(err, &vproblem); ok {
 			if vproblem.Type == DuplicateObjectError.Type {
 				v.Log.Info("Attempted to create an archive that already exists", "archive", vopts.ArchiveName)
+				return nil
 			}
-			return nil
 		}
 		v.Log.Error(err, "failed to create an archive", "archive name",
 			vopts.ArchiveName, "sandbox", vopts.Sandbox, "num restore point", vopts.NumRestorePoint)
