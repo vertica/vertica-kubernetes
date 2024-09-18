@@ -572,7 +572,7 @@ jobs:
           need-base-vertica-image: 'true'
 
   e2e-operator-upgrade:
-    if: ${{ inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools operator upgrade' || inputs.e2e_test_suites == '' }}
+    if: ${{ ! contains(github.ref, 'k8s-sync')  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools operator upgrade' || inputs.e2e_test_suites == '') }}
     needs: [build]
     runs-on: ubuntu-latest
     steps:
