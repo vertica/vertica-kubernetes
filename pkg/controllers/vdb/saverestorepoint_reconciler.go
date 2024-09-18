@@ -93,8 +93,9 @@ func (s *SaveRestorePoint) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl
 		s.VRec.Eventf(s.Vdb, corev1.EventTypeWarning, events.UnsupportedVerticaVersion,
 			"The Vertica version %q doesn't support create restore points. The minimum version supported is %s.",
 			vinf.VdbVer, vapi.SaveRestorePointNMAOpsMinVersion)
-		err = vdbstatus.UpdateCondition(ctx, s.VRec.Client, s.Vdb, vapi.MakeCondition(vapi.SaveRestorePointsNeeded,
-			metav1.ConditionFalse, "IncompatibleDB"),
+		err = vdbstatus.UpdateCondition(ctx, s.VRec.Client, s.Vdb,
+			vapi.MakeCondition(vapi.SaveRestorePointsNeeded,
+				metav1.ConditionFalse, "IncompatibleDB"),
 		)
 		if err != nil {
 			return ctrl.Result{}, err
