@@ -168,6 +168,7 @@ jobs:
 
   build-server-legacy:
     runs-on: ubuntu-latest
+    if: ${{ always() && !contains(github.ref, 'k8s-sync') }}
     outputs:
       image: ${{ steps.legacy_vertica_image.outputs.value }}
     steps:
@@ -257,7 +258,7 @@ jobs:
       uses: spilchen/switch-case-action@v2
       id: minimal_vertica_image
       with:
-        default: docker.io/opentext/vertica-k8s-private:20240906-minimal
+        default: docker.io/opentext/vertica-k8s-private:latest-minimal-master
         conditionals-with-values: |
           ${{ inputs.minimal_vertica_image != '' }} => ${{ inputs.minimal_vertica_image }}
 
