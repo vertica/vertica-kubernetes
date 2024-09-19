@@ -192,6 +192,15 @@ func (i *UpgradeManager) finishUpgrade(ctx context.Context, sbName string) (ctrl
 	return ctrl.Result{}, nil
 }
 
+// saveRestorePoint handles condition status and event recording for start of an upgrade
+func (i *UpgradeManager) saveRestorePoint(ctx context.Context) (ctrl.Result, error) {
+	if i.Vdb.Annotations[vmeta.SaveRestorePointsTriggerID] == vmeta.SaveRestorePointsTrue {
+		i.Rec.Eventf(i.Vdb, corev1.EventTypeNormal, events.SaveRestorePointStart,
+			"save a restore point before initiating the upgrade")
+	}
+	return ctrl.Result{}, nil
+}
+
 // logUpgradeSucceeded logs an event msg when upgrade is successful
 func (i *UpgradeManager) logUpgradeSucceeded(sandbox string) error {
 	targetImage, err := i.getTargetImage(sandbox)
