@@ -364,7 +364,15 @@ jobs:
         else
           make docker-build-operator
         fi
-
+        # Check if image exists in private repo, if not exist, push to repo
+        docker manifest inspect ${OPERATOR_IMG} > /dev/null 2>&1
+        EXIT_CODE=$?
+        if [ $EXIT_CODE -eq 0 ]; then
+          echo "$image exists"
+        else 
+          echo "$image does not exist, making a push"
+          make docker-push-operator
+        fi
     - name: Save the image for consumption by dependent jobs (PRs only)
       if: ${{ github.event_name == 'pull_request' }}
       run: |
