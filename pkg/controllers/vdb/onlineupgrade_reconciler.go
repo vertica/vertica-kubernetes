@@ -1614,7 +1614,7 @@ func (r *OnlineUpgradeReconciler) renameReplicaGroupBFromVdb(ctx context.Context
 		}
 		newScName := sc.Annotations[vmeta.ParentSubclusterAnnotation]
 		// rename the subcluster in vertica
-		err := r.renameSubcluster(ctx, initiator, scName, newScName)
+		err = r.renameSubcluster(ctx, initiator, scName, newScName)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
@@ -1624,6 +1624,16 @@ func (r *OnlineUpgradeReconciler) renameReplicaGroupBFromVdb(ctx context.Context
 			return ctrl.Result{}, err
 		}
 	}
+
+	// rename subclusters in sts
+	actor := MakeObjReconciler(r.VRec, r.Log, r.VDB, r.PFacts[vapi.MainCluster], ObjReconcileModeAll)
+	r.Manager.traceActorReconcile(actor)
+	res, err := actor.Reconcile(ctx, &ctrl.Request{})
+	r.PFacts[vapi.MainCluster].Invalidate()
+	if verrors.IsReconcileAborted(res, err) {
+		return res, err
+	}
+
 	return ctrl.Result{}, nil
 }
 
