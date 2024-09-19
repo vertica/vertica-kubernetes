@@ -189,7 +189,7 @@ The following steps build the images and push them to the Kind cluster in the cu
    - `vertica-k8s`: long-running container that runs the Vertica daemon. This container is designed for admintools deployments. For details about the admintools deployment image, see the [Dockerfile](./docker-vertica/Dockerfile). For details about the vcluster deployment image, see the [Dockerfile](./docker-vertica-v2/Dockerfile).
    - `verticadb-operator`: runs the VerticaDB operator and webhook. For details, see the [Dockerfile](./docker-operator/Dockerfile).
    - `vertica-logger`: runs the vlogger sidecar container that sends the contents of `vertica.log` to STDOUT. For details, see the [Dockerfile](./docker-vlogger/Dockerfile).
-   - `rockylinux: serves as the base image for the `vertica-k8s` image. The `make docker-build` command pulls the latest version each time.
+   - `rockylinux9: serves as the default base image for the `vertica-k8s` image. The `make docker-build` command pulls this image each time.
 
    If your image builds fail silently, confirm that there is enough disk space in your Docker repository to store the built images:
 
