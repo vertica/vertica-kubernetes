@@ -367,8 +367,8 @@ jobs:
     - name: Optionally push operator
       if: ${{ github.event_name != 'pull_request' && inputs.operator_image == '' }}
       run: |
-        export OPERATOR_IMG=${{ steps.operator_image.outputs.value }}
         # Check if image exists in private repo, if not exist, push to repo
+        export OPERATOR_IMG=${{ steps.operator_image.outputs.value }}
         docker manifest inspect ${OPERATOR_IMG} > /dev/null 2>&1
         EXIT_CODE=$?
         if [ $EXIT_CODE -eq 0 ]; then
