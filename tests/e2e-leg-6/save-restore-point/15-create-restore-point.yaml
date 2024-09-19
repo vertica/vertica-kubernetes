@@ -16,5 +16,5 @@ kind: TestStep
 commands:
   - script: |
       INDEX=$(kubectl get vdb v-restore-point -n $NAMESPACE -o json | jq '.status.conditions | map(.type == "SaveRestorePointNeeded") | index(true)') \
-      && kubectl patch vdb v-restore-point -n $NAMESPACE --type='json' \ -p="[{'op': 'replace', 'path': '/status/conditions/$INDEX/status', 'value': 'True'}]" \ --subresource='status' \
+      && kubectl patch vdb v-restore-point -n $NAMESPACE --type='json' -p="[{'op': 'replace', 'path': '/status/conditions/$INDEX/status', 'value': 'True'}]" --subresource='status' \
       && kubectl wait --for=condition=SaveRestorePointNeeded=True vdb/v-restore-point -n $NAMESPACE --timeout=600s
