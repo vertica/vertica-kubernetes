@@ -17,9 +17,8 @@ package vadmin
 
 import (
 	"context"
-	"errors"
+	"strings"
 
-	"github.com/vertica/vcluster/rfc7807"
 	vops "github.com/vertica/vcluster/vclusterops"
 	"github.com/vertica/vertica-kubernetes/pkg/net"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/createarchive"
@@ -38,12 +37,10 @@ func (v *VClusterOps) CreateArchive(ctx context.Context, opts ...createarchive.O
 	vopts := v.genCreateArchiveOptions(&s)
 	err := v.VCreateArchive(&vopts)
 	if err != nil {
-		vproblem := &rfc7807.VProblem{}
-		if ok := errors.As(err, &vproblem); ok {
-			if vproblem.Type == DuplicateObjectError.Type {
-				v.Log.Info("Attempted to create an archive that already exists", "archive", vopts.ArchiveName)
-				return nil
-			}
+		// This will be replaced by a vproblem in VER-96975
+		if strings.Contains(err.Error(), "Duplicate object on host") {
+			v.Log.Info("Attempted to create an archive that already exists", "archive", vopts.ArchiveName)
+			return nil
 		}
 		v.Log.Error(err, "failed to create an archive", "archive name",
 			vopts.ArchiveName, "sandbox", vopts.Sandbox, "num restore point", vopts.NumRestorePoint)
