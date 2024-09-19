@@ -59,11 +59,7 @@ func (m *MockVClusterOps) VReplicateDatabase(options *vops.VReplicationDatabaseO
 	}
 
 	// verify eon mode
-	err = m.VerifyEonMode(&options.DatabaseOptions)
-	if err != nil {
-		return err
-	}
-	return nil
+	return m.VerifyEonMode(&options.DatabaseOptions)
 }
 
 var _ = Describe("replication_start_vc", func() {

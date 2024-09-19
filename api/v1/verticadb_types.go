@@ -843,6 +843,21 @@ type VerticaDBStatus struct {
 	// +optional
 	// The sandbox statuses
 	Sandboxes []SandboxStatus `json:"sandboxes,omitempty"`
+
+	// +operator-sdk:csv:customresourcedefinitions:type=status
+	// +optional
+	// The details about the last created restore point
+	RestorePoint *RestorePointInfo `json:"restorePoint"`
+}
+
+type RestorePointInfo struct {
+	// +operator-sdk:csv:customresourcedefinitions:type=status
+	// Name of the archive that this restore point was created in.
+	Archive string `json:"archive"`
+	// +operator-sdk:csv:customresourcedefinitions:type=status
+	StartTimestamp string `json:"startTimestamp"`
+	// +operator-sdk:csv:customresourcedefinitions:type=status
+	EndTimestamp string `json:"endTimestamp"`
 }
 
 type SandboxUpgradeState struct {
@@ -890,6 +905,10 @@ const (
 	// VerticaRestartNeeded is a condition that when set to true will force the
 	// operator to stop/start the vertica pods.
 	VerticaRestartNeeded = "VerticaRestartNeeded"
+	// SaveRestorePointNeeded is a condition that when set to true, make the
+	// operator create a restore point, using the spec.restorePoint.archive
+	// as the archive name to save to.
+	SaveRestorePointNeeded = "SaveRestorePointNeeded"
 )
 
 const (

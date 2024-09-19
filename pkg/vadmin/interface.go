@@ -27,6 +27,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/addnode"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/addsc"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/altersc"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/createarchive"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/createdb"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/describedb"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/fetchnodedetails"
@@ -44,11 +45,13 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/restartnode"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/revivedb"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/sandboxsc"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/saverestorepoint"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/setconfigparameter"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/showrestorepoints"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/startdb"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/stopdb"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/unsandboxsc"
+
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -119,6 +122,12 @@ type Dispatcher interface {
 
 	// UnsandboxSubcluster will move a subcluster from a sandbox to main cluster
 	UnsandboxSubcluster(ctx context.Context, opts ...unsandboxsc.Option) error
+
+	// CreateArchive will create an archive in database
+	CreateArchive(ctx context.Context, opts ...createarchive.Option) error
+
+	// SaveRestorePoint will create a restore point to an existing archive
+	SaveRestorePoint(ctx context.Context, opts ...saverestorepoint.Option) error
 
 	AlterSubclusterType(ctx context.Context, opts ...altersc.Option) error
 
@@ -263,6 +272,8 @@ type VClusterProvider interface {
 	VPromoteSandboxToMain(options *vops.VPromoteSandboxToMainOptions) error
 	VSandbox(options *vops.VSandboxOptions) error
 	VUnsandbox(options *vops.VUnsandboxOptions) error
+	VCreateArchive(options *vops.VCreateArchiveOptions) error
+	VSaveRestorePoint(options *vops.VSaveRestorePointOptions) error
 	VAlterSubclusterType(options *vops.VAlterSubclusterTypeOptions) error
 	VSetConfigurationParameters(options *vops.VSetConfigurationParameterOptions) error
 	VGetConfigurationParameters(options *vops.VGetConfigurationParameterOptions) (string, error)

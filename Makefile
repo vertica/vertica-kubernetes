@@ -389,7 +389,6 @@ docker-build-operator: manifests generate fmt vet ## Build operator docker image
 		--build-arg GO_VERSION=${GO_VERSION} \
 		-f docker-operator/Dockerfile .
 
-
 .PHONY: docker-build-vlogger
 docker-build-vlogger:  ## Build vertica logger docker image
 	docker pull ${VLOGGER_BASE_IMG}:${VLOGGER_ALPINE_VERSION} # Ensure we have the latest alpine version

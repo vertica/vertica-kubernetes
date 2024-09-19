@@ -85,7 +85,7 @@ func (r *ReviveDBReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ct
 	}
 
 	// Check if restoring from a restore point is supported
-	if r.Vdb.IsRestoreEnabled() {
+	if r.Vdb.IsRestoreDuringReviveEnabled() {
 		if err := r.hasCompatibleVersionForRestore(); err != nil {
 			return ctrl.Result{}, err
 		}
@@ -262,7 +262,7 @@ func (r *ReviveDBReconciler) genReviveOpts(initiatorPod types.NamespacedName,
 			revivedb.WithConfigurationParams(r.ConfigurationParams.GetMap()),
 		)
 	}
-	if r.Vdb.IsRestoreEnabled() {
+	if r.Vdb.IsRestoreDuringReviveEnabled() {
 		opts = append(opts, revivedb.WithRestorePoint(r.Vdb.Spec.RestorePoint))
 	}
 	if r.Vdb.GetIgnoreClusterLease() {

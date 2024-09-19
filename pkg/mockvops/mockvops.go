@@ -84,6 +84,12 @@ func (*MockVClusterOps) VSandbox(_ *vclusterops.VSandboxOptions) error {
 func (*MockVClusterOps) VUnsandbox(_ *vclusterops.VUnsandboxOptions) error {
 	return nil
 }
+func (*MockVClusterOps) VCreateArchive(_ *vclusterops.VCreateArchiveOptions) error {
+	return nil
+}
+func (*MockVClusterOps) VSaveRestorePoint(_ *vclusterops.VSaveRestorePointOptions) error {
+	return nil
+}
 func (*MockVClusterOps) VPromoteSandboxToMain(_ *vclusterops.VPromoteSandboxToMainOptions) error {
 	return nil
 }

@@ -265,6 +265,8 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		MakeSandboxUpgradeReconciler(r, log, vdb),
 		// Add the label after update the sandbox subcluster status field
 		MakeObjReconciler(r, log, vdb, pfacts, ObjReconcileModeAll),
+		// Handle calls to create a restore point
+		MakeSaveRestorePointReconciler(r, vdb, log, pfacts, dispatcher, r.Client),
 		// Resize any PVs if the local data size changed in the vdb
 		MakeResizePVReconciler(r, log, vdb, prunner, pfacts),
 		// This must be the last reconciler. It makes sure that all dependent
