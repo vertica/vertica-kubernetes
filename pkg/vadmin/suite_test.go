@@ -306,6 +306,10 @@ func (m *MockVClusterOps) VerifySourceTLSConfig(options *vops.VReplicationDataba
 	return nil
 }
 
+func (m *MockVClusterOps) VPollSubclusterState(_ *vops.VPollSubclusterStateOptions) error {
+	return nil
+}
+
 // mockVClusterOpsDispatcher will create an vcluster-ops dispatcher for test
 // purposes. This uses a standard function to setup the API.
 func mockVClusterOpsDispatcher() *VClusterOps {

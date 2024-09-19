@@ -87,6 +87,26 @@ webhooks:
     resources:
     - verticarestorepointsqueries
   sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /mutate-vertica-com-v1beta1-verticascrutinize
+  failurePolicy: Fail
+  name: mverticascrutinize.kb.io
+  rules:
+  - apiGroups:
+    - vertica.com
+    apiVersions:
+    - v1beta1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - verticascrutinizers
+  sideEffects: None
 ---
 apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingWebhookConfiguration
@@ -154,6 +174,7 @@ webhooks:
     resources:
     - eventtriggers
   sideEffects: None
+
 - admissionReviewVersions:
   - v1
   clientConfig:
@@ -173,4 +194,24 @@ webhooks:
     - UPDATE
     resources:
     - verticarestorepointsqueries
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /validate-vertica-com-v1beta1-verticascrutinize
+  failurePolicy: Fail
+  name: vverticascrutinize.kb.io
+  rules:
+  - apiGroups:
+    - vertica.com
+    apiVersions:
+    - v1beta1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - verticascrutinizers
   sideEffects: None

@@ -11,4 +11,4 @@ commands:
   # Install packages in the pod that are needed to run the C++ examples. We
   # retry to resolve any intermittent network issues.
   - command: kubectl -n $NAMESPACE cp -c server setup-env-runtime.sh v-udx-cpp-sc1-0:/tmp/setup-env-runtime.sh
-  - command: kubectl -n $NAMESPACE exec -i v-udx-cpp-sc1-0 -c server -- bash /tmp/setup-env-runtime.sh
+  - command: kubectl -n $NAMESPACE exec -i v-udx-cpp-sc1-0 -c server -- bash /tmp/setup-env-runtime.sh $FOR_GITHUB_CI

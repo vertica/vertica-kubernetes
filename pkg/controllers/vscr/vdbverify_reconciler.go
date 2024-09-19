@@ -108,6 +108,19 @@ func (s *VDBVerifyReconciler) checkVersionAndDeploymentType(ctx context.Context)
 			events.VclusterOpsScrutinizeNotSupported, "NotReady:IncompatibleDB")
 	}
 
+	if vmeta.GetScrutinizeLogAgeOldestTime(s.Vscr.Annotations) != "" ||
+		vmeta.GetScrutinizeLogAgeNewestTime(s.Vscr.Annotations) != "" ||
+		vmeta.GetScrutinizeLogAgeHours(s.Vscr.Annotations) != 0 {
+		if vinf.IsOlder(v1.ScrutinizeLogAgeVersion) {
+			ver, _ := s.Vdb.GetVerticaVersionStr()
+			s.VRec.Eventf(s.Vscr, corev1.EventTypeWarning, events.VclusterOpsScrutinizeNotSupported,
+				"The server version %s does not support scrutinize with a log time range. The minimum server version it supports is %s.",
+				ver, v1.ScrutinizeLogAgeVersion)
+			return s.updateStateAndScrutinizeReadyCondition(ctx, metav1.ConditionFalse,
+				events.VclusterOpsScrutinizeNotSupported, "NotReady:IncompatibleDB")
+		}
+	}
+
 	s.Log.Info(fmt.Sprintf("The VerticaDB named '%s' is configured for scrutinize through vclusterops", s.Vdb.Name))
 	return s.updateStateAndScrutinizeReadyCondition(ctx, metav1.ConditionTrue, verticaDBSetForVclusterOpsScrutinize,
 		"Ready")

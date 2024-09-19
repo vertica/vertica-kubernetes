@@ -35,7 +35,7 @@ func (v *VClusterOps) GetConfigurationParameter(ctx context.Context, opts ...get
 		return "", err
 	}
 
-	s := getconfigparameter.Parms{}
+	s := getconfigparameter.Params{}
 	s.Make(opts...)
 
 	vcOpts := v.genGetConfigurationParameterOptions(&s, certs)
@@ -47,7 +47,7 @@ func (v *VClusterOps) GetConfigurationParameter(ctx context.Context, opts ...get
 	return value, nil
 }
 
-func (v *VClusterOps) genGetConfigurationParameterOptions(s *getconfigparameter.Parms,
+func (v *VClusterOps) genGetConfigurationParameterOptions(s *getconfigparameter.Params,
 	certs *HTTPSCerts) *vops.VGetConfigurationParameterOptions {
 	opts := vops.VGetConfigurationParameterOptionsFactory()
 

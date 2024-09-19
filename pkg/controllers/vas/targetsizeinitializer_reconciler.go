@@ -18,7 +18,8 @@ package vas
 import (
 	"context"
 
-	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	vapi "github.com/vertica/vertica-kubernetes/api/v1"
+	v1beta1 "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/vasstatus"
@@ -29,17 +30,17 @@ import (
 
 type TargetSizeInitializerReconciler struct {
 	VRec *VerticaAutoscalerReconciler
-	Vas  *vapi.VerticaAutoscaler
+	Vas  *v1beta1.VerticaAutoscaler
 }
 
-func MakeTargetSizeInitializerReconciler(v *VerticaAutoscalerReconciler, vas *vapi.VerticaAutoscaler) controllers.ReconcileActor {
+func MakeTargetSizeInitializerReconciler(v *VerticaAutoscalerReconciler, vas *v1beta1.VerticaAutoscaler) controllers.ReconcileActor {
 	return &TargetSizeInitializerReconciler{VRec: v, Vas: vas}
 }
 
 // Reconcile will update the targetSize in a Vas if not already initialized
 func (v *TargetSizeInitializerReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (ctrl.Result, error) {
-	if len(v.Vas.Status.Conditions) > vapi.TargetSizeInitializedIndex &&
-		v.Vas.Status.Conditions[vapi.TargetSizeInitializedIndex].Status == corev1.ConditionTrue {
+	if len(v.Vas.Status.Conditions) > v1beta1.TargetSizeInitializedIndex &&
+		v.Vas.Status.Conditions[v1beta1.TargetSizeInitializedIndex].Status == corev1.ConditionTrue {
 		// Already initialized
 		return ctrl.Result{}, nil
 	}
@@ -76,8 +77,8 @@ func (v *TargetSizeInitializerReconciler) initTargetSize(ctx context.Context) (c
 
 // setTargetSizeInitializedCondition will seth the targetSizeInitialized condition to true
 func (v *TargetSizeInitializerReconciler) setTargetSizeInitializedCondition(ctx context.Context, req *ctrl.Request) error {
-	cond := vapi.VerticaAutoscalerCondition{
-		Type:   vapi.TargetSizeInitialized,
+	cond := v1beta1.VerticaAutoscalerCondition{
+		Type:   v1beta1.TargetSizeInitialized,
 		Status: corev1.ConditionTrue,
 	}
 	return vasstatus.UpdateCondition(ctx, v.VRec.Client, v.VRec.Log, req, cond)

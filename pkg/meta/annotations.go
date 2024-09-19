@@ -245,6 +245,16 @@ const (
 	// default.
 	ScrutinizeMainContainerResourcesPrefixAnnotation = "vertica.com/scrutinize-main-container-resources"
 
+	// In order to facilitate diagnosing less recent problems, scrutinize
+	// should be able to collect an arbitrary time range of logs.
+	// With the oldest time param or log age set, no archives of vertica.log
+	// should be older than that time.
+	ScrutinizeLogAgeOldestTime = "vertica.com/scrutinize-log-age-oldest-time"
+	ScrutinizeLogAgeNewestTime = "vertica.com/scrutinize-log-age-newest-time"
+	// The hours param cannot be set alongside the Time options, and if
+	// attempted, should issue an error indicating so.
+	ScrutinizeLogAgeHours = "vertica.com/scrutinize-log-age-hours"
+
 	// This is applied to the statefulset to identify what replica group it is
 	// in. Replica groups are assigned during online upgrade. Valid values
 	// are defined under the annotation name.
@@ -280,6 +290,16 @@ const (
 	// The sandbox name used for online upgrade contains a uuid. This annotation
 	// will allow to set a fixed name for testing purposes
 	OnlineUpgradePreferredSandboxAnnotation = "vertica.com/online-upgrade-preferred-sandbox"
+
+	// This indicates the number of times we have tryied sandbox promotion during online
+	// upgrade. The max number of attempts is 3 and after that we fail online upgrade.
+	OnlineUpgradePromotionAttemptAnnotation = "vertica.com/online-upgrade-promotion-attempt"
+	OnlineUpgradePromotionMaxAttempts       = 3
+
+	// Allows us to set the name of the archive before replication for testing purposes.
+	OnlineUpgradeArchiveBeforeReplicationAnnotation = "vertica.com/online-upgrade-archive-before-replication"
+
+	SaveRestorePointAnnotation = "vertica.com/save-restore-point-on-upgrade"
 
 	// This will be set in a sandbox configMap by the vdb controller to wake up the sandbox
 	// controller for upgrading the sandboxes
@@ -520,6 +540,21 @@ func GenScrutinizeMainContainerResourcesAnnotationName(resourceName corev1.Resou
 		resourceName)
 }
 
+// GetScrutinizeLogAgeOldestTime returns scrutinize log age oldest time
+func GetScrutinizeLogAgeOldestTime(annotations map[string]string) string {
+	return lookupStringAnnotation(annotations, ScrutinizeLogAgeOldestTime, "" /* default value */)
+}
+
+// GetScrutinizeLogAgeNewestTime returns scrutinize log age newest time
+func GetScrutinizeLogAgeNewestTime(annotations map[string]string) string {
+	return lookupStringAnnotation(annotations, ScrutinizeLogAgeNewestTime, "" /* default value */)
+}
+
+// GetScrutinizeLogAgeHours returns scrutinize log age hours
+func GetScrutinizeLogAgeHours(annotations map[string]string) int {
+	return lookupIntAnnotation(annotations, ScrutinizeLogAgeHours, 0 /* default value */)
+}
+
 // GetOnlineUpgradeSandbox returns the name of the sandbox used for online upgrade.
 func GetOnlineUpgradeSandbox(annotations map[string]string) string {
 	return lookupStringAnnotation(annotations, OnlineUpgradeSandboxAnnotation, "")
@@ -544,6 +579,21 @@ func GetOnlineUpgradeReplicator(annotations map[string]string) string {
 // GetOnlineUpgradePreferredSandboxName returns the sandbox name to use for online upgrade.
 func GetOnlineUpgradePreferredSandboxName(annotations map[string]string) string {
 	return lookupStringAnnotation(annotations, OnlineUpgradePreferredSandboxAnnotation, "")
+}
+
+// GetOnlineUpgradePromotionAttempt returns the current number of promotion attempts
+func GetOnlineUpgradePromotionAttempt(annotations map[string]string) int {
+	return lookupIntAnnotation(annotations, OnlineUpgradePromotionAttemptAnnotation, 0)
+}
+
+func GetOnlineUpgradeArchiveBeforeReplication(annotations map[string]string) string {
+	return lookupStringAnnotation(annotations, OnlineUpgradeArchiveBeforeReplicationAnnotation, "")
+}
+
+// GetSaveRestorePoint returns true if the operator must create
+// restore points during upgrade
+func GetSaveRestorePoint(annotations map[string]string) bool {
+	return lookupBoolAnnotation(annotations, SaveRestorePointAnnotation, false)
 }
 
 // GetStsNameOverride returns the override for the statefulset name. If one is

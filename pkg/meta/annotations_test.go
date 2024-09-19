@@ -164,6 +164,26 @@ var _ = Describe("annotations", func() {
 		Ω(GetScrutinizeMainContainerResource(ann, corev1.ResourceRequestsCPU)).
 			Should(Equal(resource.MustParse("4")))
 	})
+
+	It("should return scrutinize log time based on the annotations map", func() {
+		const logAgeOldestTime = "2024-08-01 08 -05"
+		const logAgeNewestTime = "2024-08-01 20 +08"
+		ann := map[string]string{
+			ScrutinizeLogAgeOldestTime: logAgeOldestTime,
+			ScrutinizeLogAgeNewestTime: logAgeNewestTime,
+		}
+		Ω(GetScrutinizeLogAgeOldestTime(ann)).Should(Equal(logAgeOldestTime))
+		Ω(GetScrutinizeLogAgeNewestTime(ann)).Should(Equal(logAgeNewestTime))
+	})
+
+	It("should return scrutinize log hours based on the annotations map", func() {
+		const logAgeHoursStr = "8"
+		const logAgeHours = 8
+		ann := map[string]string{
+			ScrutinizeLogAgeHours: logAgeHoursStr,
+		}
+		Ω(GetScrutinizeLogAgeHours(ann)).Should(Equal(logAgeHours))
+	})
 })
 
 func makeResourceAnnotations(fn func(resourceName corev1.ResourceName) string) map[string]string {

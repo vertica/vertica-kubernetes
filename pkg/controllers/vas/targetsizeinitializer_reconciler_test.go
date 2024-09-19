@@ -20,8 +20,10 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
-	test "github.com/vertica/vertica-kubernetes/pkg/v1beta1_test"
+	vapi "github.com/vertica/vertica-kubernetes/api/v1"
+	v1beta1 "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	test "github.com/vertica/vertica-kubernetes/pkg/test"
+	"github.com/vertica/vertica-kubernetes/pkg/v1beta1_test"
 	corev1 "k8s.io/api/core/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -39,20 +41,20 @@ var _ = Describe("targetsizeinitializer_reconcile", func() {
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
 
-		vas := vapi.MakeVAS()
+		vas := v1beta1.MakeVAS()
 		vas.Spec.ServiceName = ServiceName
 		vas.Spec.TargetSize = 0
-		test.CreateVAS(ctx, k8sClient, vas)
-		defer test.DeleteVAS(ctx, k8sClient, vas)
+		v1beta1_test.CreateVAS(ctx, k8sClient, vas)
+		defer v1beta1_test.DeleteVAS(ctx, k8sClient, vas)
 
-		req := ctrl.Request{NamespacedName: vapi.MakeVASName()}
+		req := ctrl.Request{NamespacedName: v1beta1.MakeVASName()}
 		Expect(vasRec.Reconcile(ctx, req)).Should(Equal(ctrl.Result{}))
 
-		fetchVas := &vapi.VerticaAutoscaler{}
-		nm := vapi.MakeVASName()
+		fetchVas := &v1beta1.VerticaAutoscaler{}
+		nm := v1beta1.MakeVASName()
 		Expect(k8sClient.Get(ctx, nm, fetchVas)).Should(Succeed())
 		Expect(fetchVas.Spec.TargetSize).Should(Equal(int32(25)))
 		Expect(len(fetchVas.Status.Conditions)).Should(Equal(1))
-		Expect(fetchVas.Status.Conditions[vapi.TargetSizeInitializedIndex].Status).Should(Equal(corev1.ConditionTrue))
+		Expect(fetchVas.Status.Conditions[v1beta1.TargetSizeInitializedIndex].Status).Should(Equal(corev1.ConditionTrue))
 	})
 })

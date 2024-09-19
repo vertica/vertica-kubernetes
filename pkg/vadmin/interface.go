@@ -33,6 +33,8 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/fetchnodestate"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/getconfigparameter"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/installpackages"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/manageconnectiondraining"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/pollscstate"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/promotesandboxtomain"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/reip"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/removenode"
@@ -128,6 +130,12 @@ type Dispatcher interface {
 
 	// RenameSubcluster will rename a subcluster in main cluster
 	RenameSubcluster(ctx context.Context, opts ...renamesc.Option) error
+
+	// PollNodeState will wait for a subcluster to come up
+	PollSubclusterState(ctx context.Context, opts ...pollscstate.Option) error
+
+	// ManageConnectionDraining will pause/redirect/resume client connections for a subcluster
+	ManageConnectionDraining(ctx context.Context, opts ...manageconnectiondraining.Option) error
 }
 
 const (
@@ -259,4 +267,6 @@ type VClusterProvider interface {
 	VSetConfigurationParameters(options *vops.VSetConfigurationParameterOptions) error
 	VGetConfigurationParameters(options *vops.VGetConfigurationParameterOptions) (string, error)
 	VRenameSubcluster(options *vops.VRenameSubclusterOptions) error
+	VPollSubclusterState(options *vops.VPollSubclusterStateOptions) error
+	VManageConnectionDraining(options *vops.VManageConnectionDrainingOptions) error
 }

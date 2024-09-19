@@ -18,7 +18,8 @@ package vas
 import (
 	"context"
 
-	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	vapi "github.com/vertica/vertica-kubernetes/api/v1"
+	v1beta1 "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/vasstatus"
@@ -28,10 +29,10 @@ import (
 // RefreshCurrentSizeReconciler will refresh the currentSize status field in the CR.
 type RefreshCurrentSizeReconciler struct {
 	VRec *VerticaAutoscalerReconciler
-	Vas  *vapi.VerticaAutoscaler
+	Vas  *v1beta1.VerticaAutoscaler
 }
 
-func MakeRefreshCurrentSizeReconciler(v *VerticaAutoscalerReconciler, vas *vapi.VerticaAutoscaler) controllers.ReconcileActor {
+func MakeRefreshCurrentSizeReconciler(v *VerticaAutoscalerReconciler, vas *v1beta1.VerticaAutoscaler) controllers.ReconcileActor {
 	return &RefreshCurrentSizeReconciler{VRec: v, Vas: vas}
 }
 
