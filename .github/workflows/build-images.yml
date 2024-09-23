@@ -349,7 +349,7 @@ jobs:
       uses: ./.github/actions/setup-go
       if: ${{ inputs.operator_image == '' }}
 
-    - name: Build operator image
+    - name: Build and optionally push operator image
       if: ${{ inputs.operator_image == '' }}
       run: |
         export OPERATOR_IMG=${{ steps.operator_image.outputs.value }}
@@ -360,23 +360,18 @@ jobs:
         # pushing it up to an external repository.
         if [ $GITHUB_EVENT_NAME != 'pull_request' ]
         then
-          make docker-build-crossplatform-operator
+          docker manifest inspect ${OPERATOR_IMG} > /dev/null 2>&1
+          EXIT_CODE=$?
+          if [ $EXIT_CODE -eq 0 ]; then
+            echo "$image exists"
+          else 
+            echo "$image does not exist, making a push"
+            make docker-build-crossplatform-operator
+          fi
         else
           make docker-build-operator
         fi
-    - name: Optionally push operator
-      if: ${{ github.event_name != 'pull_request' && inputs.operator_image == '' }}
-      run: |
-        # Check if image exists in private repo, if not exist, push to repo
-        export OPERATOR_IMG=${{ steps.operator_image.outputs.value }}
-        docker manifest inspect ${OPERATOR_IMG} > /dev/null 2>&1
-        EXIT_CODE=$?
-        if [ $EXIT_CODE -eq 0 ]; then
-          echo "$image exists"
-        else 
-          echo "$image does not exist, making a push"
-          make docker-push-operator
-        fi
+
     - name: Save the image for consumption by dependent jobs (PRs only)
       if: ${{ github.event_name == 'pull_request' }}
       run: |
