@@ -156,24 +156,21 @@ func (vscr *VerticaScrutinize) ValidateLogAgeTimes(allErrs field.ErrorList) fiel
 	}
 
 	if logAgeOldestTime.After(logAgeNewestTime) {
-		oldAfterNewMsg := ""
+		// if log-age-oldest-time is not set, default as 24 hours ago
+		logAgeOldestTimeStr := "log-age-oldest-time is: \"" + logAgeOldestTime.Format("2006-01-02 15 MST") + "\""
+		if scrutinizeLogAgeOldestTime == "" {
+			logAgeOldestTimeStr = "log-age-oldest-time default as 24 hours ago: \"" + logAgeOldestTime.Format("2006-01-02 15 MST") + "\""
+		}
 
 		// if log-age-newest-time is not set, default as the current time
-		logAgeNewestTimeStr := logAgeNewestTime.Format("2006-01-02 15 MST")
+		logAgeNewestTimeStr := "log-age-newest-time is: \"" + logAgeNewestTime.Format("2006-01-02 15 MST") + "\""
 		if scrutinizeLogAgeNewestTime == "" {
-			oldAfterNewMsg += "log-age-newest-time default as current time: \"" + logAgeNewestTimeStr + "\"."
+			logAgeNewestTimeStr = "log-age-newest-time default as current time: \"" + logAgeNewestTime.Format("2006-01-02 15 MST") + "\""
 		}
-
-		// if log-age-oldest-time is not set, default as 24 hours ago
-		logAgeOldestTimeStr := logAgeOldestTime.Format("2006-01-02 15 MST")
-		if scrutinizeLogAgeOldestTime == "" {
-			oldAfterNewMsg += "log-age-oldest-time default as 24 hours ago: \"" + logAgeOldestTimeStr + "\"."
-		}
-
-		oldAfterNewMsg += " log-age-oldest-time cannot be set after log-age-newest-time."
 
 		err := field.Invalid(prefix.Key(vmeta.ScrutinizeLogAgeNewestTime),
-			scrutinizeLogAgeNewestTime, oldAfterNewMsg)
+			scrutinizeLogAgeNewestTime,
+			fmt.Sprintf("log-age-oldest-time cannot be set after log-age-newest-time. %s, %s.", logAgeOldestTimeStr, logAgeNewestTimeStr))
 		allErrs = append(allErrs, err)
 	}
 
