@@ -122,13 +122,14 @@ func (vscr *VerticaScrutinize) ValidateLogAgeHours(allErrs field.ErrorList) fiel
 // log-age-oldest-time should be ahead of logAgeNewestTime.
 func (vscr *VerticaScrutinize) ValidateLogAgeTimes(allErrs field.ErrorList) field.ErrorList {
 	prefix := field.NewPath("metadata").Child("annotations")
-	scrutinizeLogAgeOldesTime := vscr.Annotations[vmeta.ScrutinizeLogAgeOldestTime]
+	scrutinizeLogAgeOldestTime := vscr.Annotations[vmeta.ScrutinizeLogAgeOldestTime]
 	scrutinizeLogAgeNewestTime := vscr.Annotations[vmeta.ScrutinizeLogAgeNewestTime]
 
 	logAgeNewestTime := time.Now()
 	logAgeOldestTime := logAgeNewestTime.Add(-24 * time.Hour) // 24 hours ago
 
-	logAgeArr := [2]string{scrutinizeLogAgeOldesTime, scrutinizeLogAgeNewestTime}
+	// set parsed values if valid
+	logAgeArr := [2]string{scrutinizeLogAgeOldestTime, scrutinizeLogAgeNewestTime}
 	for i, LogAgeTime := range logAgeArr {
 		if LogAgeTime != "" {
 			logAgeTime, logAgeError := parseLogAgeTime(LogAgeTime)
@@ -149,15 +150,30 @@ func (vscr *VerticaScrutinize) ValidateLogAgeTimes(allErrs field.ErrorList) fiel
 
 	if logAgeOldestTime.After(time.Now()) {
 		err := field.Invalid(prefix.Key(vmeta.ScrutinizeLogAgeOldestTime),
-			scrutinizeLogAgeOldesTime,
+			scrutinizeLogAgeOldestTime,
 			"log-age-oldest-time cannot be set after current time")
 		allErrs = append(allErrs, err)
 	}
 
 	if logAgeOldestTime.After(logAgeNewestTime) {
+		oldAfterNewMsg := ""
+
+		// if log-age-newest-time not set, default as current time ()
+		logAgeNewestTimeStr := logAgeNewestTime.Format("2006-01-02 15 MST")
+		if scrutinizeLogAgeNewestTime == "" {
+			oldAfterNewMsg += "log-age-newest-time default as current time: " + logAgeNewestTimeStr + "."
+		}
+
+		// if log-age-oldest-time not set, default as 24 hours ago
+		logAgeOldestTimeStr := logAgeOldestTime.Format("2006-01-02 15 MST")
+		if scrutinizeLogAgeOldestTime == "" {
+			oldAfterNewMsg += "log-age-oldest-time default as 24 hours ago: " + logAgeOldestTimeStr + "."
+		}
+
+		oldAfterNewMsg += " log-age-oldest-time cannot be set after log-age-newest-time."
+
 		err := field.Invalid(prefix.Key(vmeta.ScrutinizeLogAgeNewestTime),
-			scrutinizeLogAgeNewestTime,
-			"log-age-oldest-time cannot be set after log-age-newest-time")
+			scrutinizeLogAgeNewestTime, oldAfterNewMsg)
 		allErrs = append(allErrs, err)
 	}
 
@@ -202,7 +218,7 @@ func parseLogAgeTime(logAgeTime string) (time.Time, error) {
 		if strings.Contains(logAgeTime, "+") || strings.Contains(logAgeTime, "-") {
 			timeZone, zoneErr := strconv.Atoi(timeArray[len(timeArray)-1])
 			if zoneErr == nil {
-				return parseTime.Add(time.Duration(timeZone) * time.Hour), nil
+				return parseTime.Add(time.Duration(-timeZone) * time.Hour), nil
 			}
 		}
 	} else {
