@@ -159,7 +159,7 @@ jobs:
         echo "Was Built: ${{ inputs.full_vertica_image == '' && '**Yes**' || '**No**' }}" >> $GITHUB_STEP_SUMMARY
         echo "Was Pushed: ${{ inputs.full_vertica_image == '' && github.event_name != 'pull_request' && '**Yes**' || '**No**' }}" >> $GITHUB_STEP_SUMMARY
         echo "Was Scanned: ${{ inputs.run_security_scan == 'all' && '**Yes**' || '**No**' }}" >> $GITHUB_STEP_SUMMARY
-        echo "Scan Output: ***${{ inputs.run_security_scan != 'none' && '$(cat trivy-results-vertica-image.out)' || 'N/A' }}***" >> $GITHUB_STEP_SUMMARY
+        echo "Scan Output: ```${{ inputs.run_security_scan != 'none' && '$(cat trivy-results-vertica-image.out)' || 'N/A' }}```" >> $GITHUB_STEP_SUMMARY
         echo "Size: **$(docker inspect --format '{{.Size}}' ${{ steps.full_vertica_image.outputs.value }} | numfmt --to=iec)**" >> $GITHUB_STEP_SUMMARY
         echo "Image ID: **$(docker inspect --format '{{.ID}}' ${{ steps.full_vertica_image.outputs.value }})**" >> $GITHUB_STEP_SUMMARY
         echo "Digest: **$(IFS=":" read image tag <<< $(echo ${{ steps.full_vertica_image.outputs.value }} | sed -e 's/^docker.io\///'); docker inspect --format='{{.RepoDigests}}' $image:$tag | sed 's:^.\(.*\).$:\1:' | tr " " "\n" | grep $image | cut -d'@' -f2 || echo "<none>")**" >> $GITHUB_STEP_SUMMARY
@@ -418,7 +418,7 @@ jobs:
         echo "Was Built: ${{ inputs.operator_image == '' && '**Yes**' || '**No**' }}" >> $GITHUB_STEP_SUMMARY
         echo "Was Pushed: ${{ inputs.operator_image == '' && github.event_name != 'pull_request' && '**Yes**' || '**No**' }}" >> $GITHUB_STEP_SUMMARY
         echo "Was Scanned: ${{ inputs.run_security_scan != 'none' && '**Yes**' || '**No**' }}" >> $GITHUB_STEP_SUMMARY
-        echo "Scan Output: ***${{ inputs.run_security_scan != 'none' && '$(cat trivy-results-verticadb-operator-image.out)' || 'N/A' }}***" >> $GITHUB_STEP_SUMMARY
+        echo "Scan Output: ```${{ inputs.run_security_scan != 'none' && '$(cat trivy-results-verticadb-operator-image.out)' || 'N/A' }}```" >> $GITHUB_STEP_SUMMARY
         echo "Size: **$(docker inspect --format '{{.Size}}' ${{ steps.operator_image.outputs.value }} | numfmt --to=iec)**" >> $GITHUB_STEP_SUMMARY
         echo "Image ID: **$(docker inspect --format '{{.ID}}' ${{ steps.operator_image.outputs.value }})**" >> $GITHUB_STEP_SUMMARY
         echo "Digest: **$(IFS=":" read image tag <<< $(echo ${{ steps.operator_image.outputs.value }} | sed -e 's/^docker.io\///'); docker inspect --format='{{.RepoDigests}}' $image:$tag | sed 's:^.\(.*\).$:\1:' | tr " " "\n" | grep $image | cut -d'@' -f2 || echo "<none>")**" >> $GITHUB_STEP_SUMMARY
@@ -517,7 +517,7 @@ jobs:
         echo "Was Built: ${{ inputs.vlogger_image == '' && '**Yes**' || '**No**' }}" >> $GITHUB_STEP_SUMMARY
         echo "Was Pushed: ${{ inputs.vlogger_image == '' && github.event_name != 'pull_request' && '**Yes**' || '**No**' }}" >> $GITHUB_STEP_SUMMARY
         echo "Was Scanned: ${{ inputs.run_security_scan != 'none' && '**Yes**' || '**No**' }}" >> $GITHUB_STEP_SUMMARY
-        echo "Scan Output: ***${{ inputs.run_security_scan != 'none' && '$(cat trivy-results-vertica-logger-image.out)' || 'N/A' }}***" >> $GITHUB_STEP_SUMMARY
+        echo "Scan Output: ```${{ inputs.run_security_scan != 'none' && '$(cat trivy-results-vertica-logger-image.out)' || 'N/A' }}```" >> $GITHUB_STEP_SUMMARY
         echo "Size: **$(docker inspect --format '{{.Size}}' ${{ steps.vlogger_image.outputs.value }} | numfmt --to=iec)**" >> $GITHUB_STEP_SUMMARY
         echo "Image ID: **$(docker inspect --format '{{.ID}}' ${{ steps.vlogger_image.outputs.value }})**" >> $GITHUB_STEP_SUMMARY
         echo "Digest: **$(IFS=":" read image tag <<< $(echo ${{ steps.vlogger_image.outputs.value }} | sed -e 's/^docker.io\///'); docker inspect --format='{{.RepoDigests}}' $image:$tag | sed 's:^.\(.*\).$:\1:' | tr " " "\n" | grep $image | cut -d'@' -f2 || echo "<none>")**" >> $GITHUB_STEP_SUMMARY
