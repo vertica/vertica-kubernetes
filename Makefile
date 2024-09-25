@@ -529,7 +529,7 @@ docker-push-olm-catalog:
 	docker push $(OLM_CATALOG_IMG)
 
 .PHONY: docker-build
-docker-build: docker-build-vertica docker-build-operator docker-build-vlogger ## Build all docker images except OLM catalog
+docker-build: docker-build-vertica-v2 docker-build-operator docker-build-vlogger ## Build all docker images except OLM catalog
 
 .PHONY: docker-push
 docker-push: docker-push-vertica docker-push-base-vertica docker-push-extra-vertica docker-push-operator docker-push-vlogger ## Push all docker images except OLM catalog

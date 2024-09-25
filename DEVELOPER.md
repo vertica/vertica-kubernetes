@@ -96,7 +96,7 @@ The `scripts/kind.sh` helper script sets up Kind and creates a cluster to test V
    devcluster-control-plane   Ready    control-plane,master   47s   v1.23.0
    ```
 
-You have a master node and control plane that is ready to deploy and Vertica Kubernetes resources locally.
+You have a master node and control plane that is ready to deploy any Vertica Kubernetes resources locally.
 
 ## Cluster cleanup
 
@@ -179,17 +179,17 @@ The following steps build the images and push them to the Kind cluster in the cu
    ```shell
    docker image ls
    REPOSITORY           TAG       IMAGE ID       CREATED          SIZE
-   vertica-logger       1.0.0     62661d7c7b1d   19 seconds ago   7.39MB
-   verticadb-operator   1.11.2    c9681519d897   22 seconds ago   64.3MB
-   vertica-k8s          1.11.2    c7e8e144911d   2 minutes ago    1.34GB
-   ubuntu               lunar     639282825872   2 weeks ago      70.3MB
+   vertica-logger       1.0.1     ec5ef9959692   5 days ago       7.45MB
+   verticadb-operator   2.2.0     abb3f97a68b0   5 days ago       80.2MB
+   vertica-k8s          2.2.0     46e4511cabf1   5 days ago       1.62GB
+   rockylinux           9         639282825872   2 weeks ago      70.3MB
    ...
    ```
 
    - `vertica-k8s`: long-running container that runs the Vertica daemon. This container is designed for admintools deployments. For details about the admintools deployment image, see the [Dockerfile](./docker-vertica/Dockerfile). For details about the vcluster deployment image, see the [Dockerfile](./docker-vertica-v2/Dockerfile).
    - `verticadb-operator`: runs the VerticaDB operator and webhook. For details, see the [Dockerfile](./docker-operator/Dockerfile).
    - `vertica-logger`: runs the vlogger sidecar container that sends the contents of `vertica.log` to STDOUT. For details, see the [Dockerfile](./docker-vlogger/Dockerfile).
-   - `ubuntu`: serves as the base image for the `vertica-k8s` image. The `make docker-build` command pulls the latest version each time.
+   - `rockylinux9: serves as the default base image for the `vertica-k8s` image. The `make docker-build` command pulls this image each time.
 
    If your image builds fail silently, confirm that there is enough disk space in your Docker repository to store the built images:
 
@@ -247,9 +247,13 @@ The operator pod contains a webhook, which requires TLS certificates. The TLS se
 ### Helm deployment
 
 Deploy the operator with Helm and all its prerequisites:
-
+First make sure DEPLOY_WITH is set up properly in Makefile:
 ```shell
-DEPLOY_WITH=helm make config-transformer deploy
+DEPLOY_WITH=helm 
+```
+Next run the following command
+```shell
+make config-transformer deploy
 ```
 
 The operator generates a self-signed TLS certificate at runtime. You can also provide a custom TLS certificate. For details, see `webhook.certSource` in [Helm chart parameters](https://docs.vertica.com/latest/en/containerized/db-operator/helm-chart-parameters/).
@@ -259,9 +263,13 @@ The operator generates a self-signed TLS certificate at runtime. You can also pr
 You must configure OLM deployments when you run an operator with a webhook. For details, see the [OLM documentation](https://olm.operatorframework.io/docs/advanced-tasks/adding-admission-and-conversion-webhooks/).
 
 Deploy OLM and all its prerequisites:
-
+First make sure DEPLOY_WITH is set up properly in Makefile:
 ```shell
-DEPLOY_WITH=olm make setup-olm deploy
+DEPLOY_WITH=olm
+```
+Next run the following command
+```shell
+make setup-olm deploy
 ```
 
 ### Remove the operator
@@ -331,9 +339,6 @@ Helm chart unit tests are stored in `helm-charts/verticadb-operator/tests` and u
 Unit tests for the VerticaDB operator use the Go testing infrastructure. Some tests run the operator against a mock Kubernetes control plane created with [envtest](https://pkg.go.dev/sigs.k8s.io/controller-runtime/pkg/envtest). Per Go standards, test files are stored in package directories and end with `_test.go`.
 
 ## e2e Tests
-
-> **IMPORTANT**
-> The e2e tests only run on operators that were [deployed as an object](#deployment-object).
 
 The e2e tests use the [kuttl](https://github.com/kudobuilder/kuttl/) testing framework. To run the tests:
 
