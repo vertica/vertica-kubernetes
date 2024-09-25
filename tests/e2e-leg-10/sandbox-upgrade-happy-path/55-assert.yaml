@@ -11,10 +11,41 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+apiVersion: v1
+kind: Event
+reason: UnsandboxSubclusterSucceeded
+source:
+  component: verticadb-operator
+involvedObject:
+  apiVersion: vertica.com/v1
+  kind: VerticaDB
+  name: v-base-upgrade
+---
+apiVersion: v1
+kind: Event
+reason: NodeRestartSucceeded
+source:
+  component: verticadb-operator
+involvedObject:
+  apiVersion: vertica.com/v1
+  kind: VerticaDB
+  name: v-base-upgrade
+---
 apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
   name: v-base-upgrade
+spec:
+  subclusters:
+    - name: pri1
+      type: primary
+    - name: sec1
+      type: secondary
 status:
-  addedToDBCount: 4
-  upNodeCount: 3
+  subclusters:
+    - addedToDBCount: 3
+      upNodeCount: 3
+      name: pri1
+    - addedToDBCount: 1
+      upNodeCount: 1
+      name: sec1

@@ -15,6 +15,5 @@ apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
   name: v-base-upgrade
-status:
-  addedToDBCount: 4
-  upNodeCount: 3
+spec:
+  sandboxes:

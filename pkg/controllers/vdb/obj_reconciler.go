@@ -431,7 +431,9 @@ func (o *ObjReconciler) reconcileSts(ctx context.Context, sc *vapi.Subcluster) (
 	err := o.Rec.GetClient().Get(ctx, nm, curSts)
 	if err != nil && kerrors.IsNotFound(err) {
 		o.Log.Info("Creating statefulset", "Name", nm, "Size", expSts.Spec.Replicas, "Image", expSts.Spec.Template.Spec.Containers[0].Image)
-		return ctrl.Result{}, o.createSts(ctx, expSts)
+		// Invalidate the pod facts cache since we are creating a new sts
+		o.PFacts.Invalidate()
+		return ctrl.Result{}, createSts(ctx, o.Rec, expSts, o.Vdb)
 	}
 
 	// We can only remove pods if we have called remove node and done the
@@ -485,29 +487,12 @@ func (o *ObjReconciler) reconcileSts(ctx context.Context, sc *vapi.Subcluster) (
 	// drop the old sts and create a fresh one.
 	if isNMADeploymentDifferent(curSts, expSts) {
 		o.Log.Info("Dropping then recreating statefulset", "Name", expSts.Name)
-		return ctrl.Result{}, o.recreateSts(ctx, curSts, expSts)
+		// Invalidate the pod facts cache since we are recreating a new sts
+		o.PFacts.Invalidate()
+		return ctrl.Result{}, recreateSts(ctx, o.Rec, curSts, expSts, o.Vdb)
 	}
 
 	return ctrl.Result{}, o.updateSts(ctx, curSts, expSts)
-}
-
-// recreateSts will drop then create the statefulset
-func (o *ObjReconciler) recreateSts(ctx context.Context, curSts, expSts *appsv1.StatefulSet) error {
-	if err := o.Rec.GetClient().Delete(ctx, curSts); err != nil {
-		return err
-	}
-	return o.createSts(ctx, expSts)
-}
-
-// createSts will create a new sts. It assumes the statefulset doesn't already exist.
-func (o *ObjReconciler) createSts(ctx context.Context, expSts *appsv1.StatefulSet) error {
-	err := ctrl.SetControllerReference(o.Vdb, expSts, o.Rec.GetClient().Scheme())
-	if err != nil {
-		return err
-	}
-	// Invalidate the pod facts cache since we are creating a new sts
-	o.PFacts.Invalidate()
-	return o.Rec.GetClient().Create(ctx, expSts)
 }
 
 // updateSts will patch an existing statefulset.
