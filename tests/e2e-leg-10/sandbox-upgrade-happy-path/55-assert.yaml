@@ -43,9 +43,9 @@ spec:
       type: secondary
 status:
   subclusters:
+    - addedToDBCount: 3
+      upNodeCount: 3
+      name: pri1
     - addedToDBCount: 1
       upNodeCount: 1
-      name: pri1
-    - addedToDBCount: 2
-      upNodeCount: 2
       name: sec1
