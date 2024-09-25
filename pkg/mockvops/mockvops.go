@@ -72,8 +72,8 @@ func (*MockVClusterOps) VStopDatabase(_ *vclusterops.VStopDatabaseOptions) error
 func (*MockVClusterOps) VInstallPackages(_ *vclusterops.VInstallPackagesOptions) (*vclusterops.InstallPackageStatus, error) {
 	return nil, nil
 }
-func (*MockVClusterOps) VReplicateDatabase(_ *vclusterops.VReplicationDatabaseOptions) error {
-	return nil
+func (*MockVClusterOps) VReplicateDatabase(_ *vclusterops.VReplicationDatabaseOptions) (int64, error) {
+	return 0, nil
 }
 func (*MockVClusterOps) VFetchNodesDetails(_ *vclusterops.VFetchNodesDetailsOptions) (vclusterops.NodesDetails, error) {
 	return nil, nil
