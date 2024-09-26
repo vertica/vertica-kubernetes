@@ -368,7 +368,7 @@ jobs:
             echo "$image exists"
           else 
             echo "$image does not exist, making a push"
-            make docker-build-crossplatform-operator
+            # make docker-build-crossplatform-operator
           fi
         else
           make docker-build-operator
