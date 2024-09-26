@@ -21,4 +21,4 @@ status:
       upgradeState:
         upgradeInProgress: false
   subclusterCount: 2
-  upNodeCount: 3
+  upNodeCount: 4

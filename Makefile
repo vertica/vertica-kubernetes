@@ -105,7 +105,7 @@ export LEG9
 # What alpine image does the vlogger image use
 VLOGGER_BASE_IMG?=alpine
 # What version of alpine does the vlogger image use
-VLOGGER_ALPINE_VERSION?=3.19
+VLOGGER_ALPINE_VERSION?=3.18
 # The port number for the local registry
 REG_PORT ?= 5000
 # Image URL to use for the bundle.  We special case kind because to use it with
@@ -529,7 +529,7 @@ docker-push-olm-catalog:
 	docker push $(OLM_CATALOG_IMG)
 
 .PHONY: docker-build
-docker-build: docker-build-vertica docker-build-operator docker-build-vlogger ## Build all docker images except OLM catalog
+docker-build: docker-build-vertica-v2 docker-build-operator docker-build-vlogger ## Build all docker images except OLM catalog
 
 .PHONY: docker-push
 docker-push: docker-push-vertica docker-push-base-vertica docker-push-extra-vertica docker-push-operator docker-push-vlogger ## Push all docker images except OLM catalog

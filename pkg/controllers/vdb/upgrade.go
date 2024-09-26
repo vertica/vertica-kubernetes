@@ -132,12 +132,26 @@ func (i *UpgradeManager) isVDBImageDifferent(ctx context.Context, sandbox string
 	if err != nil {
 		return false, err
 	}
+	clusterImage := ""
 	for inx := range stss.Items {
 		sts := stss.Items[inx]
 		cntImage, err := vk8s.GetServerImage(sts.Spec.Template.Spec.Containers)
 		if err != nil {
 			return false, err
 		}
+
+		// If the current cluster has different images across its subclusters, it means
+		// that some subclusters have just been unsandboxed. In this case, we do not want
+		// the upgrade reconciler to be triggered. Instead, the unsandbox-image-version reconciler
+		// should first restore the image version for those subclusters.
+		if clusterImage != "" && clusterImage != cntImage {
+			i.Log.Info("Skipped cluster upgrade due to inconsistent images across the cluster",
+				"existing image version", clusterImage, "new image version", cntImage)
+			return false, nil
+		} else if clusterImage == "" {
+			clusterImage = cntImage
+		}
+
 		if cntImage != targetImage {
 			return true, nil
 		}

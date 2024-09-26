@@ -17,7 +17,6 @@ metadata:
   name: v-base-upgrade
   annotations:
     vertica.com/include-uid-in-path: true
-    vertica.com/k-safety: "0"
 spec:
   image: kustomize-vertica-image
   dbName: sandbox_db
@@ -27,12 +26,13 @@ spec:
     requestSize: 100Mi
   subclusters:
     - name: pri1
-      size: 1
+      size: 3
       type: primary
     - name: sec1
-      size: 2
+      size: 1
       type: secondary
   certSecrets: []
   imagePullSecrets: []
   volumes: []
   volumeMounts: []
+  upgradePolicy: Online

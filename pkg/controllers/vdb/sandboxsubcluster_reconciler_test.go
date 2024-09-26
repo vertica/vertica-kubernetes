@@ -33,8 +33,6 @@ import (
 )
 
 const (
-	maincluster = "main"
-	subcluster1 = "sc1"
 	subcluster2 = "sc2"
 	sandbox1    = "sandbox1"
 	sandbox2    = "sandbox2"
