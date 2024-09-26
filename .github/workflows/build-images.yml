@@ -362,13 +362,12 @@ jobs:
         # pushing it up to an external repository.
         if [ $GITHUB_EVENT_NAME != 'pull_request' ]
         then
-          docker manifest inspect ${OPERATOR_IMG} > /dev/null 2>&1
-          EXIT_CODE=$?
+          EXIT_CODE="$(docker manifest inspect ${OPERATOR_IMG} > /dev/null ; echo $?)"
           if [ $EXIT_CODE -eq 0 ]; then
             echo "image exists"
           else 
             echo "image does not exist, making a push"
-            # make docker-build-crossplatform-operator
+            make docker-build-crossplatform-operator
           fi
         else
           make docker-build-operator
