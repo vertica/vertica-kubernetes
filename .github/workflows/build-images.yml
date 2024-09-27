@@ -523,7 +523,6 @@ jobs:
 
     - name: Generate Warning Annotations
       run: |
-        docker manifest inspect ${OPERATOR_IMG} > /dev/null 2>&1
         IF_WARNING="$(cat trivy-results-vertica-logger-image.out | grep -oP '(?<=Total: [^0] ).*')"
         if [[ $IF_WARNING -eq '' ]]; then
           echo "No Warning found"
