@@ -131,8 +131,8 @@ jobs:
         output: 'trivy-results-vertica-image.sarif'
 
     - name: Generate Warning Annotations
+      if: ${{ inputs.run_security_scan == 'all' && github.event_name != 'pull_request' }}
       run: |
-        docker manifest inspect ${OPERATOR_IMG} > /dev/null 2>&1
         IF_WARNING="$(cat trivy-results-vertica-logger-image.out | grep -oP '(?<=Total: [^0] ).*')"
         if [[ $IF_WARNING -eq '' ]]; then
           echo "No Warning found"
@@ -411,8 +411,8 @@ jobs:
         output: 'trivy-results-verticadb-operator-image.sarif'
 
     - name: Generate Warning Annotations
+      if: ${{ inputs.run_security_scan != 'none' && github.event_name != 'pull_request' }}
       run: |
-        docker manifest inspect ${OPERATOR_IMG} > /dev/null 2>&1
         IF_WARNING="$(cat trivy-results-vertica-logger-image.out | grep -oP '(?<=Total: [^0] ).*')"
         if [[ $IF_WARNING -eq '' ]]; then
           echo "No Warning found"
@@ -522,6 +522,7 @@ jobs:
         output: 'trivy-results-vertica-logger-image.sarif'
 
     - name: Generate Warning Annotations
+      if: ${{ inputs.run_security_scan != 'none' && github.event_name != 'pull_request' }}
       run: |
         IF_WARNING="$(cat trivy-results-vertica-logger-image.out | grep -oP '(?<=Total: [^0] ).*')"
         if [[ $IF_WARNING -eq '' ]]; then
@@ -547,8 +548,8 @@ jobs:
         output: 'trivy-results-vertica-logger-image.out'
 
     - name: Generate Warning Annotations
+      if: ${{ inputs.run_security_scan != 'none' }}
       run: |
-        docker manifest inspect ${OPERATOR_IMG} > /dev/null 2>&1
         IF_WARNING="$(cat trivy-results-vertica-logger-image.out | grep -oP '(?<=Total: [^0] ).*')"
         if [[ $IF_WARNING -eq '' ]]; then
           echo "No Warning found"
