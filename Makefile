@@ -105,7 +105,7 @@ export LEG9
 # What alpine image does the vlogger image use
 VLOGGER_BASE_IMG?=alpine
 # What version of alpine does the vlogger image use
-VLOGGER_ALPINE_VERSION?=3.18
+VLOGGER_ALPINE_VERSION?=3.19
 # The port number for the local registry
 REG_PORT ?= 5000
 # Image URL to use for the bundle.  We special case kind because to use it with
