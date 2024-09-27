@@ -151,7 +151,7 @@ jobs:
       if: ${{ hashFiles('trivy-results-vertica-image.out') != '' }}
       run: |
         IF_WARNING="$(cat trivy-results-vertica-logger-image.out | grep -oP '(?<=Total: [^0] ).*')"
-        if [[ $IF_WARNING -eq '' ]]; then
+        if [ ! -z "$IF_WARNING" ]; then
           echo "No Warning found"
         else 
           echo "Warning found, adding to annotaion."
@@ -429,7 +429,7 @@ jobs:
       if: ${{ hashFiles('trivy-results-verticadb-operator-image.out') != '' }}
       run: |
         IF_WARNING="$(cat trivy-results-verticadb-operator-image.out | grep -oP '(?<=Total: [^0] ).*')"
-        if [[ $IF_WARNING -eq '' ]]; then
+        if [ ! -z "$IF_WARNING" ]; then
           echo "No Warning found"
         else 
           echo "Warning found, adding to annotaion."
@@ -541,7 +541,7 @@ jobs:
       if: ${{ hashFiles('trivy-results-vertica-logger-image.out') != '' }}
       run: |
         IF_WARNING="$(cat trivy-results-vertica-logger-image.out | grep -oP '(?<=Total: [^0] ).*')"
-        if [[ $IF_WARNING -eq '' ]]; then
+        if [ ! -z "$IF_WARNING" ]; then
           echo "No Warning found"
         else 
           echo "Warning found, adding to annotaion."
