@@ -360,6 +360,7 @@ jobs:
         # pushing it up to an external repository.
         if [ $GITHUB_EVENT_NAME != 'pull_request' ]
         then
+          # Will be removed once we merge this and make the multiarch builds as the default
           EXIT_CODE="$(docker manifest inspect ${OPERATOR_IMG} > /dev/null ; echo $?)"
           if [ $EXIT_CODE -eq 0 ]; then
             echo "image exists"
