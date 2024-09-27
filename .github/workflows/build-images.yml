@@ -130,17 +130,6 @@ jobs:
         format: 'sarif'
         output: 'trivy-results-vertica-image.sarif'
 
-    - name: Generate Warning Annotations
-      if: ${{ inputs.run_security_scan == 'all' && github.event_name != 'pull_request' }}
-      run: |
-        IF_WARNING="$(cat trivy-results-vertica-logger-image.out | grep -oP '(?<=Total: [^0] ).*')"
-        if [[ $IF_WARNING -eq '' ]]; then
-          echo "No Warning found"
-        else 
-          echo "Warning found, adding to annotaion."
-        fi
-        echo "::warning Vulnerability found during trivy scan::$IF_WARNING"
-
     - name: Upload Trivy scan results to GitHub Security tab
       uses: github/codeql-action/upload-sarif@v3
       if: ${{ always() && inputs.run_security_scan == 'all' && github.event_name != 'pull_request' }}
@@ -157,6 +146,17 @@ jobs:
         timeout: '20m0s'
         format: 'table'
         output: 'trivy-results-vertica-image.out'
+        
+    - name: Generate Warning Annotations
+      if: ${{ hashFiles('trivy-results-vertica-image.out') != '' }}
+      run: |
+        IF_WARNING="$(cat trivy-results-vertica-logger-image.out | grep -oP '(?<=Total: [^0] ).*')"
+        if [[ $IF_WARNING -eq '' ]]; then
+          echo "No Warning found"
+        else 
+          echo "Warning found, adding to annotaion."
+        fi
+        echo "::warning Vulnerability found during trivy scan::$IF_WARNING"
 
     - uses: actions/upload-artifact@v4
       if: ${{ always() && inputs.run_security_scan == 'all' }}
@@ -410,17 +410,6 @@ jobs:
         format: 'sarif'
         output: 'trivy-results-verticadb-operator-image.sarif'
 
-    - name: Generate Warning Annotations
-      if: ${{ inputs.run_security_scan != 'none' && github.event_name != 'pull_request' }}
-      run: |
-        IF_WARNING="$(cat trivy-results-vertica-logger-image.out | grep -oP '(?<=Total: [^0] ).*')"
-        if [[ $IF_WARNING -eq '' ]]; then
-          echo "No Warning found"
-        else 
-          echo "Warning found, adding to annotaion."
-        fi
-        echo "::warning Vulnerability found during trivy scan::$IF_WARNING"
-
     - name: Upload Trivy scan results to GitHub Security tab
       uses: github/codeql-action/upload-sarif@v3
       if: ${{ always() && inputs.run_security_scan != 'none' && github.event_name != 'pull_request' }}
@@ -435,6 +424,17 @@ jobs:
         ignore-unfixed: true
         format: 'table'
         output: 'trivy-results-verticadb-operator-image.out'
+    
+    - name: Generate Warning Annotations
+      if: ${{ hashFiles('trivy-results-verticadb-operator-image.out') != '' }}
+      run: |
+        IF_WARNING="$(cat trivy-results-verticadb-operator-image.out | grep -oP '(?<=Total: [^0] ).*')"
+        if [[ $IF_WARNING -eq '' ]]; then
+          echo "No Warning found"
+        else 
+          echo "Warning found, adding to annotaion."
+        fi
+        echo "::warning Vulnerability found during trivy scan::$IF_WARNING"
 
     - uses: actions/upload-artifact@v4
       if: ${{ always() && inputs.run_security_scan != 'none' }}
@@ -521,17 +521,6 @@ jobs:
         format: 'sarif'
         output: 'trivy-results-vertica-logger-image.sarif'
 
-    - name: Generate Warning Annotations
-      if: ${{ inputs.run_security_scan != 'none' && github.event_name != 'pull_request' }}
-      run: |
-        IF_WARNING="$(cat trivy-results-vertica-logger-image.out | grep -oP '(?<=Total: [^0] ).*')"
-        if [[ $IF_WARNING -eq '' ]]; then
-          echo "No Warning found"
-        else 
-          echo "Warning found, adding to annotaion."
-        fi
-        echo "::warning Vulnerability found during trivy scan::$IF_WARNING"
-
     - name: Upload Trivy scan results to GitHub Security tab
       uses: github/codeql-action/upload-sarif@v3
       if: ${{ always() && inputs.run_security_scan != 'none' && github.event_name != 'pull_request' }}
@@ -539,6 +528,7 @@ jobs:
         sarif_file: 'trivy-results-vertica-logger-image.sarif'
 
     - name: Run the Trivy vulnerability scanner (pretty print)
+      id: trivy_scan
       uses: aquasecurity/trivy-action@0.24.0
       if: ${{ inputs.run_security_scan != 'none' }}
       with:
@@ -548,7 +538,7 @@ jobs:
         output: 'trivy-results-vertica-logger-image.out'
 
     - name: Generate Warning Annotations
-      if: ${{ inputs.run_security_scan != 'none' }}
+      if: ${{ hashFiles('trivy-results-vertica-logger-image.out') != '' }}
       run: |
         IF_WARNING="$(cat trivy-results-vertica-logger-image.out | grep -oP '(?<=Total: [^0] ).*')"
         if [[ $IF_WARNING -eq '' ]]; then
