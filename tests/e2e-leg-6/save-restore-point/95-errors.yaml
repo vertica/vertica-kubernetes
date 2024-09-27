@@ -13,27 +13,9 @@
 
 apiVersion: apps/v1
 kind: StatefulSet
-metadata:
-  name: v-base-upgrade-pri1
-status:
-  currentReplicas: 1
-  readyReplicas: 1
 ---
-apiVersion: apps/v1
-kind: StatefulSet
+apiVersion: v1
+kind: Service
 metadata:
-  name: v-base-upgrade-sec1
-status:
-  currentReplicas: 2
-  readyReplicas: 2
----
-apiVersion: vertica.com/v1
-kind: VerticaDB
-metadata:
-  name: v-base-upgrade
-status:
-  subclusters:
-    - addedToDBCount: 1
-      upNodeCount: 1
-    - addedToDBCount: 2
-      upNodeCount: 2
+  labels:
+    app.kubernetes.io/managed-by: verticadb-operator

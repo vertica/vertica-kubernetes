@@ -52,6 +52,7 @@ RUN set -x \
   glibc-langpack-en \
   iproute \
   openssl \
+  binutils \
   && /usr/sbin/groupadd -r verticadba \
   && /usr/sbin/useradd -r -m -s /bin/bash -g verticadba dbadmin \
   && ls /tmp/ \

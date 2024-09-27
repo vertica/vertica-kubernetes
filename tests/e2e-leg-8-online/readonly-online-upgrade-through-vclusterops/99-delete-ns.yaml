@@ -11,28 +11,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1
-kind: VerticaDB
-metadata:
-  name: v-base-upgrade
-  annotations:
-    vertica.com/include-uid-in-path: true
-    vertica.com/k-safety: "0"
-spec:
-  image: kustomize-vertica-image
-  dbName: sandbox_db
-  initPolicy: CreateSkipPackageInstall
-  communal: {}
-  local:
-    requestSize: 100Mi
-  subclusters:
-    - name: pri1
-      size: 1
-      type: primary
-    - name: sec1
-      size: 2
-      type: secondary
-  certSecrets: []
-  imagePullSecrets: []
-  volumes: []
-  volumeMounts: []
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - command: kubectl delete ns $NAMESPACE

@@ -291,6 +291,16 @@ const (
 	// will allow to set a fixed name for testing purposes
 	OnlineUpgradePreferredSandboxAnnotation = "vertica.com/online-upgrade-preferred-sandbox"
 
+	// This indicates the number of times we have tryied sandbox promotion during online
+	// upgrade. The max number of attempts is 3 and after that we fail online upgrade.
+	OnlineUpgradePromotionAttemptAnnotation = "vertica.com/online-upgrade-promotion-attempt"
+	OnlineUpgradePromotionMaxAttempts       = 3
+
+	// Allows us to set the name of the archive before replication for testing purposes.
+	OnlineUpgradeArchiveBeforeReplicationAnnotation = "vertica.com/online-upgrade-archive-before-replication"
+
+	SaveRestorePointAnnotation = "vertica.com/save-restore-point-on-upgrade"
+
 	// This will be set in a sandbox configMap by the vdb controller to wake up the sandbox
 	// controller for upgrading the sandboxes
 	SandboxControllerUpgradeTriggerID = "vertica.com/sandbox-controller-upgrade-trigger-id"
@@ -569,6 +579,21 @@ func GetOnlineUpgradeReplicator(annotations map[string]string) string {
 // GetOnlineUpgradePreferredSandboxName returns the sandbox name to use for online upgrade.
 func GetOnlineUpgradePreferredSandboxName(annotations map[string]string) string {
 	return lookupStringAnnotation(annotations, OnlineUpgradePreferredSandboxAnnotation, "")
+}
+
+// GetOnlineUpgradePromotionAttempt returns the current number of promotion attempts
+func GetOnlineUpgradePromotionAttempt(annotations map[string]string) int {
+	return lookupIntAnnotation(annotations, OnlineUpgradePromotionAttemptAnnotation, 0)
+}
+
+func GetOnlineUpgradeArchiveBeforeReplication(annotations map[string]string) string {
+	return lookupStringAnnotation(annotations, OnlineUpgradeArchiveBeforeReplicationAnnotation, "")
+}
+
+// GetSaveRestorePoint returns true if the operator must create
+// restore points during upgrade
+func GetSaveRestorePoint(annotations map[string]string) bool {
+	return lookupBoolAnnotation(annotations, SaveRestorePointAnnotation, false)
 }
 
 // GetStsNameOverride returns the override for the statefulset name. If one is

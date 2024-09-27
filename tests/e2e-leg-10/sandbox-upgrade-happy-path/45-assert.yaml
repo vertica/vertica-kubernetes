@@ -11,13 +11,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: v1
-kind: Pod
+apiVersion: vertica.com/v1
+kind: VerticaDB
 metadata:
-  name: test-verify-restore-point
+  name: v-base-upgrade
 status:
-  containerStatuses:
-    - name: test
-      state:
-        terminated:
-          exitCode: 0 
+  addedToDBCount: 4
+  upNodeCount: 3

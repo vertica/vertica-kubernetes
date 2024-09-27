@@ -11,16 +11,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: apps/v1
-kind: StatefulSet
-metadata:
-  name: v-base-upgrade-pri1
-status:
-  currentReplicas: 1
----
-apiVersion: apps/v1
-kind: StatefulSet
-metadata:
-  name: v-base-upgrade-sec1
-status:
-  currentReplicas: 2
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - command: ../../../scripts/patch-image-in-vdb.sh -n $NAMESPACE v-base-upgrade

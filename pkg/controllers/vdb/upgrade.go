@@ -132,12 +132,26 @@ func (i *UpgradeManager) isVDBImageDifferent(ctx context.Context, sandbox string
 	if err != nil {
 		return false, err
 	}
+	clusterImage := ""
 	for inx := range stss.Items {
 		sts := stss.Items[inx]
 		cntImage, err := vk8s.GetServerImage(sts.Spec.Template.Spec.Containers)
 		if err != nil {
 			return false, err
 		}
+
+		// If the current cluster has different images across its subclusters, it means
+		// that some subclusters have just been unsandboxed. In this case, we do not want
+		// the upgrade reconciler to be triggered. Instead, the unsandbox-image-version reconciler
+		// should first restore the image version for those subclusters.
+		if clusterImage != "" && clusterImage != cntImage {
+			i.Log.Info("Skipped cluster upgrade due to inconsistent images across the cluster",
+				"existing image version", clusterImage, "new image version", cntImage)
+			return false, nil
+		} else if clusterImage == "" {
+			clusterImage = cntImage
+		}
+
 		if cntImage != targetImage {
 			return true, nil
 		}
@@ -275,7 +289,8 @@ func (i *UpgradeManager) clearOnlineUpgradeAnnotationCallback() (updated bool, e
 
 	// Clear annotations set in the VerticaDB's metadata.annotations.
 	for _, a := range []string{vmeta.OnlineUpgradeReplicatorAnnotation, vmeta.OnlineUpgradeSandboxAnnotation,
-		vmeta.OnlineUpgradeStepInxAnnotation, vmeta.OnlineUpgradePreferredSandboxAnnotation} {
+		vmeta.OnlineUpgradeStepInxAnnotation, vmeta.OnlineUpgradePreferredSandboxAnnotation,
+		vmeta.OnlineUpgradePromotionAttemptAnnotation} {
 		if _, annotationFound := i.Vdb.Annotations[a]; annotationFound {
 			delete(i.Vdb.Annotations, a)
 			updated = true
@@ -665,6 +680,35 @@ func (i *UpgradeManager) closeAllSessions(ctx context.Context, pfacts *PodFacts)
 	return nil
 }
 
+// areAllConnectionsPaused will run a query to see the number of non-superuser connections that are active (not paused)
+// it returns a requeue error if there are still active connections
+func (i *UpgradeManager) areAllConnectionsPaused(ctx context.Context, pfacts *PodFacts) (ctrl.Result, error) {
+	pf, ok := pfacts.findFirstUpPod(true, "")
+	if !ok {
+		i.Log.Info("No pod found to run vsql. Waiting for cluster to come up")
+		return ctrl.Result{}, nil
+	}
+
+	sql := "select sum(c.active - s.sessions) from " +
+		"(select node_name, user_sessions - paused_sessions as active from v_internal.vs_client_connections) c " +
+		"join (select node_name, count(*) as sessions from v_monitor.sessions join v_catalog.users using (user_name) " +
+		"where all_roles like '%%dbadmin%%' group by node_name) s " +
+		"using (node_name)"
+
+	cmd := []string{"-tAc", sql}
+	stdout, _, err := pfacts.PRunner.ExecVSQL(ctx, pf.name, names.ServerContainer, cmd...)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	active := anyActiveConnections(stdout)
+	if active {
+		i.Rec.Eventf(i.Vdb, corev1.EventTypeWarning, events.PauseConnectionsRetry,
+			"Cluster still has active connections. Retrying pause connections.")
+	}
+	return ctrl.Result{Requeue: active}, nil
+}
+
 // createRestorePoint creates a restore point to backup the db in case upgrade does not go well.
 func (i *UpgradeManager) createRestorePoint(ctx context.Context, pfacts *PodFacts, archive string) (ctrl.Result, error) {
 	pf, ok := pfacts.findFirstPodSorted(func(v *PodFact) bool {
@@ -766,28 +810,4 @@ func (i *UpgradeManager) getSubclusterNameFromSts(ctx context.Context, stsName s
 		return "", fmt.Errorf("could not find subcluster name label %q in %q", vmeta.SubclusterNameLabel, stsName)
 	}
 	return scNameFromLabel, nil
-}
-
-func (i *UpgradeManager) checkAllSubscriptionsActive(ctx context.Context, pfacts *PodFacts) (ctrl.Result, error) {
-	pf, ok := pfacts.findFirstPodSorted(func(v *PodFact) bool {
-		return v.isPrimary && v.upNode
-	})
-	if !ok {
-		i.Log.Info("No pod found to run vsql. Requeueing for retrying checking subscription status")
-		return ctrl.Result{Requeue: true}, nil
-	}
-
-	cmd := []string{"-tAc", "SELECT count(*) FROM node_subscriptions WHERE subscription_state != 'ACTIVE';"}
-	stdout, _, err := pfacts.PRunner.ExecVSQL(ctx, pf.name, names.ServerContainer, cmd...)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-	lines := strings.Split(stdout, "\n")
-	inactive, err := strconv.Atoi(lines[0])
-	if err != nil || inactive == 0 {
-		return ctrl.Result{}, err
-	}
-
-	i.Log.Info("One or more node subscriptions is not active, requeueing")
-	return ctrl.Result{Requeue: true}, nil
 }

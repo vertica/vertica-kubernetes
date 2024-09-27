@@ -397,7 +397,6 @@ docker-build-operator: manifests generate fmt vet ## Build operator docker image
 		--build-arg GO_VERSION=${GO_VERSION} \
 		-f docker-operator/Dockerfile .
 
-
 .PHONY: docker-build-vlogger
 docker-build-vlogger:  ## Build vertica logger docker image
 	docker pull ${VLOGGER_BASE_IMG}:${VLOGGER_ALPINE_VERSION} # Ensure we have the latest alpine version
@@ -477,7 +476,7 @@ endif
 docker-push-extra-vertica: # Push a hard-coded image used in multi-online-upgrade test
 ifeq ($(LEG9), yes)
 ifeq ($(shell $(KIND_CHECK)), 1)
-	scripts/push-to-kind.sh -i opentext/vertica-k8s-private:20240729-minimal
+	scripts/push-to-kind.sh -i opentext/vertica-k8s-private:20240923-minimal
 endif
 endif
 
@@ -543,7 +542,7 @@ docker-push-olm-catalog:
 	docker push $(OLM_CATALOG_IMG)
 
 .PHONY: docker-build
-docker-build: docker-build-vertica docker-build-operator docker-build-vlogger ## Build all docker images except OLM catalog
+docker-build: docker-build-vertica-v2 docker-build-operator docker-build-vlogger ## Build all docker images except OLM catalog
 
 .PHONY: docker-push
 docker-push: docker-push-vertica docker-push-base-vertica docker-push-extra-vertica docker-push-operator docker-push-vlogger ## Push all docker images except OLM catalog

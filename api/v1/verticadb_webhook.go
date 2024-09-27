@@ -193,6 +193,7 @@ func (v *VerticaDB) validateVerticaDBSpec() field.ErrorList {
 	allErrs = v.hasValidSubclusterTypes(allErrs)
 	allErrs = v.hasValidInitPolicy(allErrs)
 	allErrs = v.hasValidRestorePolicy(allErrs)
+	allErrs = v.hasValidSaveRestorePointConfig(allErrs)
 	allErrs = v.hasValidDBName(allErrs)
 	allErrs = v.hasPrimarySubcluster(allErrs)
 	allErrs = v.validateKsafety(allErrs)
@@ -278,7 +279,7 @@ func (v *VerticaDB) hasValidInitPolicy(allErrs field.ErrorList) field.ErrorList 
 }
 
 func (v *VerticaDB) hasValidRestorePolicy(allErrs field.ErrorList) field.ErrorList {
-	if v.IsRestoreEnabled() && !v.Spec.RestorePoint.IsValidRestorePointPolicy() {
+	if v.IsRestoreDuringReviveEnabled() && !v.Spec.RestorePoint.IsValidRestorePointPolicy() {
 		if v.Spec.RestorePoint.Archive == "" {
 			err := field.Invalid(field.NewPath("spec").Child("restorePoint"),
 				v.Spec.RestorePoint,
@@ -300,6 +301,17 @@ func (v *VerticaDB) hasValidRestorePolicy(allErrs field.ErrorList) field.ErrorLi
 				commonErrorMessage+"Both fields are currently specified, which is not allowed.")
 			allErrs = append(allErrs, err)
 		}
+	}
+	return allErrs
+}
+
+func (v *VerticaDB) hasValidSaveRestorePointConfig(allErrs field.ErrorList) field.ErrorList {
+	if v.IsSaveRestorepointEnabled() && !v.Spec.RestorePoint.IsValidForSaveRestorePoint() {
+		err := field.Invalid(field.NewPath("spec").Child("restorePoint"),
+			v.Spec.RestorePoint,
+			"restorePoint is invalid. When save restore point is enabled, "+
+				"archive must be specified.")
+		allErrs = append(allErrs, err)
 	}
 	return allErrs
 }

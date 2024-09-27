@@ -1,5 +1,5 @@
 You have to download Vertica RPM package before building docker image (even if you are
-running on Ubuntu or Debian, the contents of the container use a CentOS environment).
+running on Ubuntu or Debian, the contents of the container use a Rocky Linux environment).
 
 Download either [Community Edition](https://www.vertica.com/try/)(registration required)
 or you can download Enterprise edition, if you are Vertica customer.

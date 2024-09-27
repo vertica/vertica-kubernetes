@@ -68,6 +68,22 @@ func MetaUpdate(ctx context.Context, cl client.Client, nm types.NamespacedName, 
 	return updated, err
 }
 
+func MetaUpdateWithAnnotations(ctx context.Context, cl client.Client, nm types.NamespacedName,
+	obj client.Object, chgs map[string]string) (bool, error) {
+	return metaUpdateWithMap(ctx, cl, nm, obj, chgs, false)
+}
+
+func metaUpdateWithMap(ctx context.Context, cl client.Client, nm types.NamespacedName,
+	obj client.Object, chgs map[string]string, isLabel bool) (bool, error) {
+	metaChgs := MetaChanges{}
+	if isLabel {
+		metaChgs.NewLabels = chgs
+	} else {
+		metaChgs.NewAnnotations = chgs
+	}
+	return MetaUpdate(ctx, cl, nm, obj, metaChgs)
+}
+
 func addOrReplaceMap(oldMap, newMap map[string]string) (map[string]string, bool) {
 	mapChanged := false
 	for k, v := range newMap {
