@@ -130,6 +130,17 @@ jobs:
         format: 'sarif'
         output: 'trivy-results-vertica-image.sarif'
 
+    - name: Generate Warning Annotations
+      run: |
+        docker manifest inspect ${OPERATOR_IMG} > /dev/null 2>&1
+        IF_WARNING="$(cat trivy-results-vertica-logger-image.out | grep -oP '(?<=Total: [^0] ).*')"
+        if [[ $IF_WARNING -eq '' ]]; then
+          echo "No Warning found"
+        else 
+          echo "Warning found, adding to annotaion."
+        fi
+        echo "::warning Vulnerability found during trivy scan::$IF_WARNING"
+
     - name: Upload Trivy scan results to GitHub Security tab
       uses: github/codeql-action/upload-sarif@v3
       if: ${{ always() && inputs.run_security_scan == 'all' && github.event_name != 'pull_request' }}
@@ -399,6 +410,17 @@ jobs:
         format: 'sarif'
         output: 'trivy-results-verticadb-operator-image.sarif'
 
+    - name: Generate Warning Annotations
+      run: |
+        docker manifest inspect ${OPERATOR_IMG} > /dev/null 2>&1
+        IF_WARNING="$(cat trivy-results-vertica-logger-image.out | grep -oP '(?<=Total: [^0] ).*')"
+        if [[ $IF_WARNING -eq '' ]]; then
+          echo "No Warning found"
+        else 
+          echo "Warning found, adding to annotaion."
+        fi
+        echo "::warning Vulnerability found during trivy scan::$IF_WARNING"
+
     - name: Upload Trivy scan results to GitHub Security tab
       uses: github/codeql-action/upload-sarif@v3
       if: ${{ always() && inputs.run_security_scan != 'none' && github.event_name != 'pull_request' }}
@@ -499,6 +521,17 @@ jobs:
         format: 'sarif'
         output: 'trivy-results-vertica-logger-image.sarif'
 
+    - name: Generate Warning Annotations
+      run: |
+        docker manifest inspect ${OPERATOR_IMG} > /dev/null 2>&1
+        IF_WARNING="$(cat trivy-results-vertica-logger-image.out | grep -oP '(?<=Total: [^0] ).*')"
+        if [[ $IF_WARNING -eq '' ]]; then
+          echo "No Warning found"
+        else 
+          echo "Warning found, adding to annotaion."
+        fi
+        echo "::warning Vulnerability found during trivy scan::$IF_WARNING"
+
     - name: Upload Trivy scan results to GitHub Security tab
       uses: github/codeql-action/upload-sarif@v3
       if: ${{ always() && inputs.run_security_scan != 'none' && github.event_name != 'pull_request' }}
@@ -513,6 +546,17 @@ jobs:
         ignore-unfixed: true
         format: 'table'
         output: 'trivy-results-vertica-logger-image.out'
+
+    - name: Generate Warning Annotations
+      run: |
+        docker manifest inspect ${OPERATOR_IMG} > /dev/null 2>&1
+        IF_WARNING="$(cat trivy-results-vertica-logger-image.out | grep -oP '(?<=Total: [^0] ).*')"
+        if [[ $IF_WARNING -eq '' ]]; then
+          echo "No Warning found"
+        else 
+          echo "Warning found, adding to annotaion."
+        fi
+        echo "::warning Vulnerability found during trivy scan::$IF_WARNING"
 
     - uses: actions/upload-artifact@v4
       if: ${{ always() && inputs.run_security_scan != 'none' }}
