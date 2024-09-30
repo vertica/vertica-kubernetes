@@ -914,6 +914,9 @@ const (
 const (
 	// list of reasons for conditions' transitions
 	UnknownReason = "UnKnown"
+	// the default condition reason in case that field was left unset
+	DefaultReason = "Init"
+	DefaultMsg    = "Init"
 )
 
 const (
