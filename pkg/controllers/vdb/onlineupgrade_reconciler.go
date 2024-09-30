@@ -708,8 +708,19 @@ func (r *OnlineUpgradeReconciler) waitForConnectionsPaused(ctx context.Context) 
 		return ctrl.Result{Requeue: true}, nil
 	}
 
-	if res, err := r.Manager.areAllConnectionsPaused(ctx, pfacts); verrors.IsReconcileAborted(res, err) {
-		return res, err
+	// wait for all connections to pause
+	timeout := vmeta.GetOnlineUpgradeTimeout(r.VDB.Annotations)
+	for i := 0; i < timeout; i++ {
+		if res, err := r.Manager.areAllConnectionsPaused(ctx, pfacts); err != nil {
+			return ctrl.Result{}, err
+		} else if !res {
+			break
+		}
+		time.Sleep(1 * time.Second)
+	}
+
+	if err := r.Manager.closeAllUnpausedSessions(ctx, r.PFacts[vapi.MainCluster]); err != nil {
+		return ctrl.Result{}, err
 	}
 
 	return ctrl.Result{}, r.updateOnlineUpgradeStepAnnotation(ctx, r.getNextStep())
