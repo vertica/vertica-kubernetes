@@ -33,6 +33,7 @@ type ClusterConfigParser interface {
 	GetDataPaths() []string
 	GetDepotPaths() []string
 	GetCatalogPaths() []string
+	GetOtherPaths() []string
 	GetNumShards() (int, error)
 	GetDatabaseName() string
 }
