@@ -1136,10 +1136,11 @@ func (r *OnlineUpgradeReconciler) deleteSandboxConfigMap(ctx context.Context) (c
 }
 
 func (r *OnlineUpgradeReconciler) waitForConnectionRedirect(ctx context.Context) (ctrl.Result, error) {
+	timeout := vmeta.GetOnlineUpgradeTimeout(r.VDB.Annotations)
 	// Iterate through the subclusters in replica group A. We check if there are
 	// any active connections for each. Once they are all idle we can advance to
 	// the next action in the upgrade.
-	for i := 0; i < RedirectConnectionTimeoutSeconds; i++ {
+	for i := 0; i < timeout; i++ {
 		active := false
 		for _, scName := range r.VDB.GetSubclustersForReplicaGroup(vmeta.ReplicaGroupAValue) {
 			res, err := r.Manager.isSubclusterIdle(ctx, r.PFacts[vapi.MainCluster], scName)

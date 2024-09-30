@@ -81,6 +81,11 @@ const (
 	// waits for its startup.  If omitted, we use the default timeout of 5 minutes.
 	CreateDBTimeoutAnnotation = "vertica.com/createdb-timeout"
 
+	// The timeout, in seconds, to use when the operator is performing online upgrade
+	// for various tasks. If omitted, we use the default timeout of 5 minutes.
+	OnlineUpgradeTimeoutAnnotation = "vertica.com/online-upgrade-timeout"
+	OnlineUpgradeDefaultTimeout    = 5 * 60
+
 	// Sets the fault tolerance for the cluster.  Allowable values are 0 or 1.  0 is only
 	// suitable for test environments because we have no fault tolerance and the cluster
 	// can only have between 1 and 3 pods.  If set to 1, which is the default,
@@ -355,6 +360,11 @@ func GetRestartTimeout(annotations map[string]string) int {
 // 0 is returned, this means to use the default.
 func GetCreateDBNodeStartTimeout(annotations map[string]string) int {
 	return lookupIntAnnotation(annotations, CreateDBTimeoutAnnotation, 0 /* default value */)
+}
+
+// GetOnlineUpgradeTimeout returns the timeout to use for pause/redirect sessions
+func GetOnlineUpgradeTimeout(annotations map[string]string) int {
+	return lookupIntAnnotation(annotations, OnlineUpgradeTimeoutAnnotation, OnlineUpgradeDefaultTimeout)
 }
 
 // IsKSafety0 returns true if k-safety is set to 0. False implies 1.
