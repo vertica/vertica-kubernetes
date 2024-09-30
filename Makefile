@@ -476,7 +476,7 @@ endif
 docker-push-extra-vertica: # Push a hard-coded image used in multi-online-upgrade test
 ifeq ($(LEG9), yes)
 ifeq ($(shell $(KIND_CHECK)), 1)
-	scripts/push-to-kind.sh -i opentext/vertica-k8s-private:20240923-minimal
+	scripts/push-to-kind.sh -i opentext/vertica-k8s-private:20240929-minimal
 endif
 endif
 
@@ -485,7 +485,7 @@ endif
 PLATFORMS?=linux/arm64,linux/amd64
 
 ## Note: Deprecate this as we can use docker-build-operator as the single make target to build either a single or multiarch image
-## Keep this as we still use this target to push external images 
+## Keep this as we still use this target to push external images
 .PHONY: docker-build-crossplatform-operator
 docker-build-crossplatform-operator: manifests generate fmt vet ## Build and push operator image for cross-platform support
 	@echo "Deprecated. Please use docker-build-operator target with TARGET_ARCH argument"
