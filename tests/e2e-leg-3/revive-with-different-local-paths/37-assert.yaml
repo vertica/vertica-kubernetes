@@ -11,9 +11,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: kuttl.dev/v1beta1
-kind: TestStep
-commands:
-  - command: kubectl exec --namespace $NAMESPACE v-create-main-0 -c server -- vsql -c "create location '/vertica/data/storage' ALL NODES USAGE 'DATA';"
-  - command: kubectl exec --namespace $NAMESPACE v-create-main-0 -c server -- vsql -c "create location '/tmp/test' NODE 'v_entdb_node0001' USAGE 'TEMP';"
-  - command: kubectl exec --namespace $NAMESPACE v-create-main-0 -c server -- vsql -c "create location '/vertica/data/user' ALL NODES USAGE 'USER'; select sync_catalog();"
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: v-revive-1-main
+status:
+  replicas: 2
+  readyReplicas: 1
