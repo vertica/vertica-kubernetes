@@ -11,30 +11,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: v1
-kind: Event
-reason: SaveRestorePointSucceeded
-source:
-  component: verticadb-operator
-involvedObject:
-  apiVersion: vertica.com/v1
-  kind: VerticaDB
-  name: v-restore-point
----
-apiVersion: v1
-kind: Event
-reason: CreateRestorePointsQuerySucceeded
-source:
-  component: verticadb-operator
-involvedObject:
-  apiVersion: vertica.com/v1
-  kind: VerticaDB
-  name: v-restore-point
----
-apiVersion: vertica.com/v1
-kind: VerticaDB
-metadata:
-  name: v-restore-point
+apiVersion: vertica.com/v1beta1
+kind: VerticaRestorePointsQuery
 status:
-  restorePoint:
-    archive: test
+  restorePoints:
+    - archive: test
+      index: 2
+  state: "Query successful"

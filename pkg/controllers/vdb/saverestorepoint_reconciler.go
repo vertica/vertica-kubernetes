@@ -18,11 +18,13 @@ package vdb
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
+	"github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
@@ -122,10 +124,55 @@ func (s *SaveRestorePointReconciler) Reconcile(ctx context.Context, _ *ctrl.Requ
 		}
 		// Once save restore point, change condition
 		// params: context, host, archive-name, sandbox, num of restore point(0 is unlimited)
-		return ctrl.Result{}, s.runSaveRestorePointVclusterAPI(ctx, hostIP, vapi.MainCluster)
+		err := s.runSaveRestorePointVclusterAPI(ctx, hostIP, vapi.MainCluster)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+		if !vmeta.GetSkipVRPQCreation(s.Vdb.Annotations) {
+			s.createVRPQ(ctx)
+		}
+		return ctrl.Result{}, nil
 	}
 	// archive name param not set correctly, return an error
 	return ctrl.Result{}, errors.New("create archive failed, archive name not set in restorePoint spec")
+}
+
+// createVRPQ creates a VerticaRestorePointsQuery to fetch the restore point info.
+func (s *SaveRestorePointReconciler) createVRPQ(ctx context.Context) {
+	rpq := &v1beta1.VerticaRestorePointsQuery{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: v1beta1.GroupVersion.String(),
+			Kind:       v1beta1.RestorePointsQueryKind,
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			GenerateName:    fmt.Sprintf("%s-", s.Vdb.Name),
+			Namespace:       s.Vdb.Namespace,
+			OwnerReferences: []metav1.OwnerReference{s.Vdb.GenerateOwnerReference()},
+		},
+		Spec: v1beta1.VerticaRestorePointsQuerySpec{
+			VerticaDBName: s.Vdb.Name,
+			FilterOptions: &v1beta1.VerticaRestorePointQueryFilterOptions{
+				ArchiveName:    s.Vdb.Spec.RestorePoint.Archive,
+				StartTimestamp: s.Vdb.Status.RestorePoint.StartTimestamp,
+				EndTimestamp:   s.Vdb.Status.RestorePoint.EndTimestamp,
+			},
+		},
+	}
+	s.Log.Info("Creating a VerticaRestorePointsQuery to show the restore point info")
+	// We will try this only once, if the operator cannot create the object the user will
+	// be asked to do it manually. This is because we don't want to fail the reconciler
+	// just because of it and the users have a few ways to easily get the restore point info
+	// like creating a vrpq themselves or using vsql.
+	err := s.VRec.Client.Create(ctx, rpq)
+	if err != nil {
+		s.VRec.Eventf(s.Vdb, corev1.EventTypeWarning, events.CreateRestorePointsQueryFailed,
+			"Failed to create the VerticaRestorePointsQuery %q. Manually create one with filter options from vdb.status.restorepoint"+
+				" or query archive_restore_points to get the restore point details.",
+			rpq.GenerateName)
+		return
+	}
+	s.VRec.Eventf(s.Vdb, corev1.EventTypeNormal, events.CreateRestorePointsQuerySucceeded,
+		"VerticaRestorePointsQuery %s created.", "name", rpq.Name)
 }
 
 // runCreateArchiveVclusterAPI will do the actual execution of creating archive.

@@ -300,6 +300,11 @@ const (
 	OnlineUpgradeArchiveBeforeReplicationAnnotation = "vertica.com/online-upgrade-archive-before-replication"
 
 	SaveRestorePointAnnotation = "vertica.com/save-restore-point-on-upgrade"
+	// Allow users to skip the creation of a VerticaRestorePointsQuery object after saving
+	// a restore point. When this is false, after saving a restore point, the operator
+	// will create a VerticaRestorePointsQuery in order to expose the restore point info
+	// the user.
+	SkipVRPQCreationAnnotation = "vertica.com/skip-restore-points-query-creation"
 
 	// This will be set in a sandbox configMap by the vdb controller to wake up the sandbox
 	// controller for upgrading the sandboxes
@@ -594,6 +599,12 @@ func GetOnlineUpgradeArchiveBeforeReplication(annotations map[string]string) str
 // restore points during upgrade
 func GetSaveRestorePoint(annotations map[string]string) bool {
 	return lookupBoolAnnotation(annotations, SaveRestorePointAnnotation, false)
+}
+
+// GetSkipVRPQCreation returns true if the operator must create
+// a VerticaRestorePointsQuery object after saving a restore point.
+func GetSkipVRPQCreation(annotations map[string]string) bool {
+	return lookupBoolAnnotation(annotations, SkipVRPQCreationAnnotation, true)
 }
 
 // GetStsNameOverride returns the override for the statefulset name. If one is
