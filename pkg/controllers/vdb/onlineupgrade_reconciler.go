@@ -681,6 +681,33 @@ func (r *OnlineUpgradeReconciler) pauseConnectionsAtReplicaGroupA(ctx context.Co
 		return ctrl.Result{}, nil
 	}
 
+	if vmeta.GetOnlineUpgradeIgnoreSessionTransfer(r.VDB.Annotations) {
+		actor := MakeClientRoutingLabelReconciler(r.VRec, r.Log, r.VDB, r.PFacts[vapi.MainCluster], DrainNodeApplyMethod, "")
+		r.Manager.traceActorReconcile(actor)
+		res, err := actor.Reconcile(ctx, &ctrl.Request{})
+		if verrors.IsReconcileAborted(res, err) {
+			return res, err
+		}
+		// close all existing user sessions
+		err = r.Manager.closeAllSessions(ctx, r.PFacts[vapi.MainCluster])
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+
+		// Iterate through the subclusters in replica group A. We check if there are
+		// any active connections for each. Once they are all idle we can advance to
+		// the next action in the upgrade.
+		scNames := r.VDB.GetSubclustersForReplicaGroup(vmeta.ReplicaGroupAValue)
+		for _, scName := range scNames {
+			res, err := r.Manager.isSubclusterIdle(ctx, r.PFacts[vapi.MainCluster], scName)
+			if verrors.IsReconcileAborted(res, err) {
+				return res, err
+			}
+		}
+
+		return ctrl.Result{}, nil
+	}
+
 	pf := r.PFacts[vapi.MainCluster]
 	initiator, ok := pf.findFirstUpPod(false /*not allow read-only*/, "" /*arbitrary subcluster*/)
 	if !ok {
@@ -699,6 +726,10 @@ func (r *OnlineUpgradeReconciler) pauseConnectionsAtReplicaGroupA(ctx context.Co
 func (r *OnlineUpgradeReconciler) waitForConnectionsPaused(ctx context.Context) (ctrl.Result, error) {
 	if vmeta.GetOnlineUpgradeStepInx(r.VDB.Annotations) > waitForConnectionsPauseInx {
 		return ctrl.Result{}, nil
+	}
+
+	if vmeta.GetOnlineUpgradeIgnoreSessionTransfer(r.VDB.Annotations) {
+		return ctrl.Result{}, r.updateOnlineUpgradeStepAnnotation(ctx, r.getNextStep())
 	}
 
 	pfacts := r.PFacts[vapi.MainCluster]
@@ -906,7 +937,8 @@ func (r *OnlineUpgradeReconciler) waitForReplicateToReplicaGroupB(ctx context.Co
 
 func (r *OnlineUpgradeReconciler) copyRedirectStateToReplicaGroupB(ctx context.Context) (ctrl.Result, error) {
 	// Skip if the sandbox has already been upgraded
-	if vmeta.GetOnlineUpgradeStepInx(r.VDB.Annotations) > promoteSandboxInx {
+	if vmeta.GetOnlineUpgradeStepInx(r.VDB.Annotations) > promoteSandboxInx ||
+		vmeta.GetOnlineUpgradeIgnoreSessionTransfer(r.VDB.Annotations) {
 		return ctrl.Result{}, nil
 	}
 
@@ -995,7 +1027,7 @@ func (r *OnlineUpgradeReconciler) redirectConnectionsToReplicaGroupB(ctx context
 	actor := MakeClientRoutingLabelReconciler(r.VRec, r.Log, r.VDB, sbPFacts, AddNodeApplyMethod, "")
 	r.Manager.traceActorReconcile(actor)
 	res, err := actor.Reconcile(ctx, &ctrl.Request{})
-	if verrors.IsReconcileAborted(res, err) {
+	if verrors.IsReconcileAborted(res, err) || vmeta.GetOnlineUpgradeIgnoreSessionTransfer(r.VDB.Annotations) {
 		return res, err
 	}
 	// then remove client routing labels from replica group a so no traffic is routed to the old main cluster
@@ -1026,25 +1058,7 @@ func (r *OnlineUpgradeReconciler) redirectConnectionsToReplicaGroupB(ctx context
 		if err != nil {
 			return ctrl.Result{}, err
 		}
-		var target string
-		if tgtService.Spec.Type == corev1.ServiceTypeLoadBalancer {
-			if len(tgtService.Status.LoadBalancer.Ingress) > 0 {
-				ig := tgtService.Status.LoadBalancer.Ingress[0]
-				if ig.IP != "" {
-					target = ig.IP
-				} else if ig.Hostname != "" {
-					target = ig.Hostname
-				} else {
-					target = "127.0.0.1"
-					r.Log.Info("failed to find hostname or ip for loadbalancer service, redirecting connections to localhost")
-				}
-			}
-		} else if tgtService.Spec.Type == corev1.ServiceTypeExternalName {
-			target = tgtService.Spec.ExternalName
-		} else {
-			// nodeport and clusterip both will function with this hostname
-			target = fmt.Sprintf("%s.%s.svc.cluster.local", tgtService.Name, tgtService.Namespace)
-		}
+		target := r.getTargetAddress(&tgtService)
 		// TODO: once server supports it, redirect with "connect to same host you did initially" for clients outside k8s
 		err = r.Dispatcher.ManageConnectionDraining(ctx,
 			manageconnectiondraining.WithSubcluster(scSource.Name), // redirect connections from scSource
@@ -1136,6 +1150,9 @@ func (r *OnlineUpgradeReconciler) deleteSandboxConfigMap(ctx context.Context) (c
 }
 
 func (r *OnlineUpgradeReconciler) waitForConnectionRedirect(ctx context.Context) (ctrl.Result, error) {
+	if vmeta.GetOnlineUpgradeIgnoreSessionTransfer(r.VDB.Annotations) {
+		return ctrl.Result{}, nil
+	}
 	// Iterate through the subclusters in replica group A. We check if there are
 	// any active connections for each. Once they are all idle we can advance to
 	// the next action in the upgrade.
@@ -1702,6 +1719,29 @@ func (r *OnlineUpgradeReconciler) logPromoteSandboxFailure() (ctrl.Result, error
 		"Online upgrade has failed after %d sandbox promotion attempts. "+
 			"Please revive the database to its original state and try again.", vmeta.OnlineUpgradePromotionMaxAttempts)
 	return ctrl.Result{}, fmt.Errorf("sandbox promotion failed at least %d times", vmeta.OnlineUpgradePromotionMaxAttempts)
+}
+
+func (r *OnlineUpgradeReconciler) getTargetAddress(tgtService *corev1.Service) string {
+	var target string
+	if tgtService.Spec.Type == corev1.ServiceTypeLoadBalancer {
+		if len(tgtService.Status.LoadBalancer.Ingress) > 0 {
+			ig := tgtService.Status.LoadBalancer.Ingress[0]
+			if ig.IP != "" {
+				target = ig.IP
+			} else if ig.Hostname != "" {
+				target = ig.Hostname
+			} else {
+				target = "127.0.0.1"
+				r.Log.Info("failed to find hostname or ip for loadbalancer service, redirecting connections to localhost")
+			}
+		}
+	} else if tgtService.Spec.Type == corev1.ServiceTypeExternalName {
+		target = tgtService.Spec.ExternalName
+	} else {
+		// nodeport and clusterip both will function with this hostname
+		target = fmt.Sprintf("%s.%s.svc.cluster.local", tgtService.Name, tgtService.Namespace)
+	}
+	return target
 }
 
 func genBaseNameWithUUID(baseName, sep string) string {

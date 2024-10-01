@@ -18,6 +18,7 @@ metadata:
   annotations:
     vertica.com/include-uid-in-path: true
     vertica.com/save-restore-point-on-upgrade: true
+    vertica.com/online-upgrade-ignore-session-transfer: false
 spec:
   image: kustomize-vertica-image
   dbName: repUP
