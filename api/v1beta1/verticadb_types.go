@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"regexp"
 
+	"github.com/vertica/vcluster/vclusterops"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -928,7 +929,7 @@ type VerticaDBStatus struct {
 	// +operator-sdk:csv:customresourcedefinitions:type=status
 	// +optional
 	// The details about the last created restore point
-	RestorePoint *RestorePointInfo `json:"restorePoint"`
+	RestorePoint *RestorePointInfo `json:"restorePoint,omitempty"`
 }
 
 type RestorePointInfo struct {
@@ -936,9 +937,18 @@ type RestorePointInfo struct {
 	// Name of the archive that this restore point was created in.
 	Archive string `json:"archive"`
 	// +operator-sdk:csv:customresourcedefinitions:type=status
+	// The timestamp when the save restore point api call started. This is helpful
+	// to manually query the restore point after its creation in case the operator could
+	// not retrieve all of the restore point info.
 	StartTimestamp string `json:"startTimestamp"`
 	// +operator-sdk:csv:customresourcedefinitions:type=status
+	// The timestamp when the save restore point api call ended. This is helpful
+	// to manually query the restore point after its creation in case the operator could
+	// not retrieve all of the restore point info.
 	EndTimestamp string `json:"endTimestamp"`
+	// +operator-sdk:csv:customresourcedefinitions:type=status
+	// This contains the result of the restore points query.
+	Details *vclusterops.RestorePoint `json:"details"`
 }
 
 type SandboxUpgradeState struct {

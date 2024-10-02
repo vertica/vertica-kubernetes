@@ -223,7 +223,7 @@ func constructVrpqDispatcher(ctx context.Context, vrpq *v1beta1.VerticaRestorePo
 	}
 	opts := []showrestorepoints.Option{}
 	opts = append(opts,
-		showrestorepoints.WithInitiator(vrpq.ExtractNamespacedName(), "192.168.0.1"),
+		showrestorepoints.WithInitiator("192.168.0.1"),
 		showrestorepoints.WithCommunalPath("/communal"),
 	)
 	err := g.runShowRestorePoints(ctx, dispatcher, opts)

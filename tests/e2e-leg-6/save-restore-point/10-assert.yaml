@@ -21,6 +21,16 @@ involvedObject:
   kind: VerticaDB
   name: v-restore-point
 ---
+apiVersion: v1
+kind: Event
+reason: ShowRestorePointsSucceeded
+source:
+  component: verticadb-operator
+involvedObject:
+  apiVersion: vertica.com/v1
+  kind: VerticaDB
+  name: v-restore-point
+---
 apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
@@ -28,3 +38,6 @@ metadata:
 status:
   restorePoint:
     archive: test
+    details:
+      archive: test
+      index: 1

@@ -87,6 +87,19 @@ func FindServerContainerStatus(pod *corev1.Pod) *corev1.ContainerStatus {
 	return findContainerStatus(pod.Status.ContainerStatuses, names.ServerContainer)
 }
 
+// FindRunningPodWithNMAContainer finds a running pod with NMA ready.
+func FindRunningPodWithNMAContainer(pods *corev1.PodList) string {
+	for i := range pods.Items {
+		pod := &pods.Items[i]
+		if pod.Status.Phase == corev1.PodRunning {
+			if IsNMAContainerReady(pod) {
+				return pod.Status.PodIP
+			}
+		}
+	}
+	return ""
+}
+
 // FindScrutinizeInitContainerStatus will return the status of the scrutinize
 // init container
 func FindScrutinizeInitContainerStatus(pod *corev1.Pod) *corev1.ContainerStatus {
