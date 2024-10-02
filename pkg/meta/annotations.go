@@ -315,8 +315,8 @@ const (
 	StsNameOverrideAnnotation = "vertica.com/statefulset-name-override"
 
 	// Use this to store extra local paths that we need to create before revive_db.
-	// Those paths include local paths not in loca.catalogPath, loca.dataPath,
-	// and loca.depotPath. For example, the user-created temp paths.
+	// Those paths include local paths not in local.catalogPath, local.dataPath,
+	// and local.depotPath. For example, the user-created temp paths.
 	ExtraLocalPathsAnnotation = "vertica.com/extra-local-paths"
 )
 
