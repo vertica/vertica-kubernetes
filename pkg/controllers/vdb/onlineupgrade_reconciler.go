@@ -714,11 +714,12 @@ func (r *OnlineUpgradeReconciler) waitForConnectionsPaused(ctx context.Context) 
 		if res, err := r.Manager.areAllConnectionsPaused(ctx, pfacts); err != nil {
 			return ctrl.Result{}, err
 		} else if !res {
-			break
+			return ctrl.Result{}, r.updateOnlineUpgradeStepAnnotation(ctx, r.getNextStep())
 		}
 		time.Sleep(1 * time.Second)
 	}
 
+	// we hit the timeout so at least one session is unpaused. kill any unpaused sessions before continuing
 	if err := r.Manager.closeAllUnpausedSessions(ctx, r.PFacts[vapi.MainCluster]); err != nil {
 		return ctrl.Result{}, err
 	}

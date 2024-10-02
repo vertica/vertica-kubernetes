@@ -680,14 +680,14 @@ func (i *UpgradeManager) closeAllSessions(ctx context.Context, pfacts *PodFacts)
 	return nil
 }
 
-const userHasDbadminRole = "(all_roles like 'dbadmin' " +
-	"or all_roles like '%%, dbadmin' " +
-	"or all_roles like 'dbadmin, %%' " +
-	"or all_roles like '%%, dbadmin, %%' " +
-	"or all_roles like 'dbadmin*' " +
-	"or all_roles like '%%, dbadmin*' " +
-	"or all_roles like 'dbadmin*, %%' " +
-	"or all_roles like '%%, dbadmin*, %%')"
+const isSuperuser = "(all_roles like 'pseudosuperuser' " +
+	"or all_roles like '%%, pseudosuperuser' " +
+	"or all_roles like 'pseudosuperuser, %%' " +
+	"or all_roles like '%%, pseudosuperuser, %%' " +
+	"or all_roles like 'pseudosuperuser*' " +
+	"or all_roles like '%%, pseudosuperuser*' " +
+	"or all_roles like 'pseudosuperuser*, %%' " +
+	"or all_roles like '%%, pseudosuperuser*, %%')"
 
 // areAllConnectionsPaused will run a query to see the number of non-superuser connections that are active (not paused)
 // it returns a requeue error if there are still active connections
@@ -701,7 +701,7 @@ func (i *UpgradeManager) areAllConnectionsPaused(ctx context.Context, pfacts *Po
 	sql := "select sum(c.active - s.sessions) from " +
 		"(select node_name, user_sessions - paused_sessions as active from v_internal.vs_client_connections) c " +
 		"join (select node_name, count(*) as sessions from v_monitor.sessions join v_catalog.users using (user_name) " +
-		"where " + userHasDbadminRole + " group by node_name) s " +
+		"where " + isSuperuser + " group by node_name) s " +
 		"using (node_name)"
 
 	cmd := []string{"-tAc", sql}
@@ -718,7 +718,7 @@ func (i *UpgradeManager) areAllConnectionsPaused(ctx context.Context, pfacts *Po
 	return active, nil
 }
 
-// closeAllUnpausedSessions will run a query to close all active non-dbadmin sessions.
+// closeAllUnpausedSessions will run a query to close all active non-pseudosuperuser sessions.
 func (i *UpgradeManager) closeAllUnpausedSessions(ctx context.Context, pfacts *PodFacts) error {
 	pf, ok := pfacts.findFirstPodSorted(func(v *PodFact) bool {
 		return v.isPrimary && v.upNode
@@ -730,14 +730,14 @@ func (i *UpgradeManager) closeAllUnpausedSessions(ctx context.Context, pfacts *P
 
 	sql := "select s.session_id from " +
 		"v_internal.vs_sessions s join v_catalog.users u using (user_name) join v_monitor.transactions t using (transaction_id) " +
-		"where not s.is_paused and not " + userHasDbadminRole
+		"where not s.is_paused and not " + isSuperuser
 	sessionIds, stderr, err := pfacts.PRunner.ExecVSQL(ctx, pf.name, names.ServerContainer, "-tAc", sql)
 	if err != nil {
 		i.Log.Error(err, "failed to retrieve unpaused sessions", "stderr", stderr)
 		return err
 	}
 
-	errs := []error{}
+	var errs error
 	for _, id := range strings.Split(strings.TrimSuffix(sessionIds, "\n"), "\n") {
 		if id == "" {
 			continue
@@ -746,15 +746,11 @@ func (i *UpgradeManager) closeAllUnpausedSessions(ctx context.Context, pfacts *P
 		_, stderr, err = pfacts.PRunner.ExecVSQL(ctx, pf.name, names.ServerContainer, killCmd...)
 		if err != nil {
 			i.Log.Error(err, "failed to kill session", "session_id", id, "stderr", stderr)
-			errs = append(errs, err)
+			errs = errors.Join(errs, err)
 		}
 	}
 
-	if len(errs) != 0 {
-		return errs[0]
-	}
-
-	return nil
+	return errs
 }
 
 // createRestorePoint creates a restore point to backup the db in case upgrade does not go well.
