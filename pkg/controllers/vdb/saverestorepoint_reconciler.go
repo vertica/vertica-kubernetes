@@ -172,7 +172,7 @@ func (s *SaveRestorePointReconciler) createVRPQ(ctx context.Context) {
 		return
 	}
 	s.VRec.Eventf(s.Vdb, corev1.EventTypeNormal, events.CreateRestorePointsQuerySucceeded,
-		"VerticaRestorePointsQuery %s created.", "name", rpq.Name)
+		"VerticaRestorePointsQuery %s created.", rpq.Name)
 }
 
 // runCreateArchiveVclusterAPI will do the actual execution of creating archive.
