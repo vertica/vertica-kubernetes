@@ -708,8 +708,20 @@ func (r *OnlineUpgradeReconciler) waitForConnectionsPaused(ctx context.Context) 
 		return ctrl.Result{Requeue: true}, nil
 	}
 
-	if res, err := r.Manager.areAllConnectionsPaused(ctx, pfacts); verrors.IsReconcileAborted(res, err) {
-		return res, err
+	// wait for all connections to pause
+	timeout := vmeta.GetOnlineUpgradeTimeout(r.VDB.Annotations)
+	for i := 0; i < timeout; i++ {
+		if res, err := r.Manager.areAllConnectionsPaused(ctx, pfacts); err != nil {
+			return ctrl.Result{}, err
+		} else if !res {
+			return ctrl.Result{}, r.updateOnlineUpgradeStepAnnotation(ctx, r.getNextStep())
+		}
+		time.Sleep(1 * time.Second)
+	}
+
+	// we hit the timeout so at least one session is unpaused. kill any unpaused sessions before continuing
+	if err := r.Manager.closeAllUnpausedSessions(ctx, r.PFacts[vapi.MainCluster]); err != nil {
+		return ctrl.Result{}, err
 	}
 
 	return ctrl.Result{}, r.updateOnlineUpgradeStepAnnotation(ctx, r.getNextStep())
@@ -1136,10 +1148,11 @@ func (r *OnlineUpgradeReconciler) deleteSandboxConfigMap(ctx context.Context) (c
 }
 
 func (r *OnlineUpgradeReconciler) waitForConnectionRedirect(ctx context.Context) (ctrl.Result, error) {
+	timeout := vmeta.GetOnlineUpgradeTimeout(r.VDB.Annotations)
 	// Iterate through the subclusters in replica group A. We check if there are
 	// any active connections for each. Once they are all idle we can advance to
 	// the next action in the upgrade.
-	for i := 0; i < RedirectConnectionTimeoutSeconds; i++ {
+	for i := 0; i < timeout; i++ {
 		active := false
 		for _, scName := range r.VDB.GetSubclustersForReplicaGroup(vmeta.ReplicaGroupAValue) {
 			res, err := r.Manager.isSubclusterIdle(ctx, r.PFacts[vapi.MainCluster], scName)

@@ -32,8 +32,9 @@ const (
 	NodesHaveReadOnlyStateVersion = "v11.0.2"
 	// The minimum version that allows for read-only online upgrade.
 	ReadOnlyOnlineUpgradeVersion = "v11.1.0"
-	// The minimum version that allows for online upgrade.
-	OnlineUpgradeVersion = "v24.3.0-2"
+	// The minimum versions that allow for online upgrade.
+	OnlineUpgradeVersion243 = "v24.3.0-4"
+	OnlineUpgradeVersion244 = "v24.4.0-1"
 	// The version that added the --force option to reip to handle up nodes
 	ReIPAllowedWithUpNodesVersion = "v11.1.0"
 	// The version of the server that doesn't support cgroup v2
@@ -175,8 +176,11 @@ func (v *VerticaDB) IsUpgradePathSupported(newAnnotations map[string]string) (ok
 	return
 }
 
-// isOnlineUpgradeSupported returns true if the version in the Vdb is is equal or newer than
-// 24.3.0-2.
+// isOnlineUpgradeSupported returns true if the version in the Vdb is for a version that supports online upgrade
+// 24.3.0-4 and 24.4.0-1 are the oldest version that support online upgrade, anything newer is fine
 func (v *VerticaDB) isOnlineUpgradeSupported(vinf *version.Info) bool {
-	return vinf.IsEqualOrNewerWithHotfix(OnlineUpgradeVersion)
+	if vinf.IsEqualOrNewer(OnlineUpgradeVersion244) {
+		return vinf.IsEqualOrNewerWithHotfix(OnlineUpgradeVersion244)
+	}
+	return vinf.IsEqualOrNewerWithHotfix(OnlineUpgradeVersion243)
 }
