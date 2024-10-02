@@ -2427,8 +2427,8 @@ spec:
   - name: Vertica Container Images
     url: https://hub.docker.com/u/vertica
   maintainers:
-  - email: mspilchen@opentext.com
-    name: Matt Spilchen
+  - email: cchen8@opentext.com
+    name: Cai Chen
   maturity: stable
   minKubeVersion: 1.21.0
   provider:
