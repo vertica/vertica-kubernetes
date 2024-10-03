@@ -175,8 +175,7 @@ func (v *VerticaDB) IsUpgradePathSupported(newAnnotations map[string]string) (ok
 	return
 }
 
-// isOnlineUpgradeSupported returns true if the version in the Vdb is is equal or newer than
-// 24.3.0-2.
+// isOnlineUpgradeSupported returns true if the version in the Vdb is for a version that supports online upgrade
 func (v *VerticaDB) isOnlineUpgradeSupported(vinf *version.Info) bool {
 	return vinf.IsEqualOrNewerWithHotfix(OnlineUpgradeMinVersion)
 }
