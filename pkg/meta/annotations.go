@@ -298,8 +298,6 @@ const (
 
 	// Allows us to set the name of the archive before replication for testing purposes.
 	OnlineUpgradeArchiveBeforeReplicationAnnotation = "vertica.com/online-upgrade-archive-before-replication"
-	// Allow us to ignore the session transfer drain logic in favor of the old fashion drain logic
-	OnlineUpgradeIgnoreSessionTransferAnnotation = "vertica.com/online-upgrade-ignore-session-transfer"
 
 	SaveRestorePointAnnotation = "vertica.com/save-restore-point-on-upgrade"
 
@@ -590,10 +588,6 @@ func GetOnlineUpgradePromotionAttempt(annotations map[string]string) int {
 
 func GetOnlineUpgradeArchiveBeforeReplication(annotations map[string]string) string {
 	return lookupStringAnnotation(annotations, OnlineUpgradeArchiveBeforeReplicationAnnotation, "")
-}
-
-func GetOnlineUpgradeIgnoreSessionTransfer(annotations map[string]string) bool {
-	return lookupBoolAnnotation(annotations, OnlineUpgradeIgnoreSessionTransferAnnotation, true)
 }
 
 // GetSaveRestorePoint returns true if the operator must create

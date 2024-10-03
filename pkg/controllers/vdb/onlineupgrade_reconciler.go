@@ -681,7 +681,7 @@ func (r *OnlineUpgradeReconciler) pauseConnectionsAtReplicaGroupA(ctx context.Co
 		return ctrl.Result{}, nil
 	}
 
-	if vmeta.GetOnlineUpgradeIgnoreSessionTransfer(r.VDB.Annotations) {
+	if r.VDB.IsSessionTransferDisable() {
 		actor := MakeClientRoutingLabelReconciler(r.VRec, r.Log, r.VDB, r.PFacts[vapi.MainCluster], DrainNodeApplyMethod, "")
 		r.Manager.traceActorReconcile(actor)
 		res, err := actor.Reconcile(ctx, &ctrl.Request{})
@@ -728,7 +728,7 @@ func (r *OnlineUpgradeReconciler) waitForConnectionsPaused(ctx context.Context) 
 		return ctrl.Result{}, nil
 	}
 
-	if vmeta.GetOnlineUpgradeIgnoreSessionTransfer(r.VDB.Annotations) {
+	if r.VDB.IsSessionTransferDisable() {
 		return ctrl.Result{}, r.updateOnlineUpgradeStepAnnotation(ctx, r.getNextStep())
 	}
 
@@ -938,7 +938,7 @@ func (r *OnlineUpgradeReconciler) waitForReplicateToReplicaGroupB(ctx context.Co
 func (r *OnlineUpgradeReconciler) copyRedirectStateToReplicaGroupB(ctx context.Context) (ctrl.Result, error) {
 	// Skip if the sandbox has already been upgraded
 	if vmeta.GetOnlineUpgradeStepInx(r.VDB.Annotations) > promoteSandboxInx ||
-		vmeta.GetOnlineUpgradeIgnoreSessionTransfer(r.VDB.Annotations) {
+		r.VDB.IsSessionTransferDisable() {
 		return ctrl.Result{}, nil
 	}
 
@@ -1027,7 +1027,7 @@ func (r *OnlineUpgradeReconciler) redirectConnectionsToReplicaGroupB(ctx context
 	actor := MakeClientRoutingLabelReconciler(r.VRec, r.Log, r.VDB, sbPFacts, AddNodeApplyMethod, "")
 	r.Manager.traceActorReconcile(actor)
 	res, err := actor.Reconcile(ctx, &ctrl.Request{})
-	if verrors.IsReconcileAborted(res, err) || vmeta.GetOnlineUpgradeIgnoreSessionTransfer(r.VDB.Annotations) {
+	if verrors.IsReconcileAborted(res, err) || r.VDB.IsSessionTransferDisable() {
 		return res, err
 	}
 	// then remove client routing labels from replica group a so no traffic is routed to the old main cluster
@@ -1150,7 +1150,7 @@ func (r *OnlineUpgradeReconciler) deleteSandboxConfigMap(ctx context.Context) (c
 }
 
 func (r *OnlineUpgradeReconciler) waitForConnectionRedirect(ctx context.Context) (ctrl.Result, error) {
-	if vmeta.GetOnlineUpgradeIgnoreSessionTransfer(r.VDB.Annotations) {
+	if r.VDB.IsSessionTransferDisable() {
 		return ctrl.Result{}, nil
 	}
 	// Iterate through the subclusters in replica group A. We check if there are

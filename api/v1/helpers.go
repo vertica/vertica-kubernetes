@@ -1014,3 +1014,21 @@ func (v *VerticaDB) GetSubclustersForReplicaGroup(groupName string) []string {
 	}
 	return scNames
 }
+
+// IsSessionTransferEnable returns true if the server version is incompatible
+// with session transfer during online upgrade
+func (v *VerticaDB) IsSessionTransferDisable() bool {
+	vinf, ok := v.MakeVersionInfo()
+	// If we can't find the version, let's disable session
+	// transfer
+	if !ok {
+		return true
+	}
+	const version24_3_0_4 = "v24.3.0-4"
+	const version24_4_0_0 = "v24.4.0-0"
+	if !vinf.IsEqualOrNewerWithHotfix(version24_3_0_4) ||
+		vinf.IsEqualWithHotfix(version24_4_0_0) {
+		return true
+	}
+	return false
+}

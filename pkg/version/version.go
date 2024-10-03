@@ -108,6 +108,17 @@ func (i *Info) IsEqualOrNewerWithHotfix(inVer string) bool {
 	return res != compareSmaller
 }
 
+// IsEqualWithHotFix checks if the version in the Vdb is is equal
+// than the given version, up to the hotfix.
+func (i *Info) IsEqualWithHotfix(inVer string) bool {
+	comp, ok := parseVersion(inVer)
+	if !ok {
+		panic(fmt.Sprintf("could not parse input version: %s", inVer))
+	}
+	res := i.compareVersionWithHotfix(comp)
+	return res == compareEqual
+}
+
 // IsOlder returns true if the version in info is older than the given version
 func (i *Info) IsOlder(inVer string) bool {
 	return !i.IsEqualOrNewer(inVer)

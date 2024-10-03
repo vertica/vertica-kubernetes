@@ -32,8 +32,6 @@ const (
 	NodesHaveReadOnlyStateVersion = "v11.0.2"
 	// The minimum version that allows for read-only online upgrade.
 	ReadOnlyOnlineUpgradeVersion = "v11.1.0"
-	// The minimum version that allows for online upgrade.
-	OnlineUpgradeVersion = "v24.3.0-2"
 	// The version that added the --force option to reip to handle up nodes
 	ReIPAllowedWithUpNodesVersion = "v11.1.0"
 	// The version of the server that doesn't support cgroup v2
@@ -83,6 +81,8 @@ const (
 	SandboxSupportedMinVersion = "v24.3.0"
 	// Starting in v24.3.0, we call vclusterops API to get node details instead of executing vsql within the pod
 	FetchNodeDetailsWithVclusterOpsMinVersion = "v24.3.0"
+	// The minimum version that allows for online upgrade.
+	OnlineUpgradeMinVersion = "v24.3.0-2"
 	// Starting in v24.4.0, saving a restore point to an existing archive is supported
 	SaveRestorePointNMAOpsMinVersion = "v24.4.0"
 )
@@ -178,5 +178,5 @@ func (v *VerticaDB) IsUpgradePathSupported(newAnnotations map[string]string) (ok
 // isOnlineUpgradeSupported returns true if the version in the Vdb is is equal or newer than
 // 24.3.0-2.
 func (v *VerticaDB) isOnlineUpgradeSupported(vinf *version.Info) bool {
-	return vinf.IsEqualOrNewerWithHotfix(OnlineUpgradeVersion)
+	return vinf.IsEqualOrNewerWithHotfix(OnlineUpgradeMinVersion)
 }
