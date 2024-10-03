@@ -498,7 +498,7 @@ var _ = Describe("vdb", func() {
 
 		dbGen := DBGenerator{Conn: db}
 
-		const expCommunalPath = "s3://nimbusdb/db/mspilchen"
+		const expCommunalPath = "s3://nimbusdb/db/cchen"
 		mock.ExpectQuery(Queries[StorageLocationKey]).
 			WithArgs("DATA").
 			WillReturnRows(sqlmock.NewRows([]string{"node_name", "location_path"}).
