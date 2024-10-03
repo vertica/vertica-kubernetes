@@ -731,6 +731,12 @@ func (i *UpgradeManager) closeAllUnpausedSessions(ctx context.Context, pfacts *P
 	sql := "select s.session_id from " +
 		"v_internal.vs_sessions s join v_catalog.users u using (user_name) join v_monitor.transactions t using (transaction_id) " +
 		"where not s.is_paused and not " + isSuperuser
+	if !i.Vdb.IsPausedSessionsSupported() {
+		// without proper paused session support, just kill all normal user connections rather than just unpaused ones
+		sql = "select s.session_id from " +
+			"v_internal.vs_sessions s join v_catalog.users u using (user_name) " +
+			"where not " + isSuperuser
+	}
 	sessionIds, stderr, err := pfacts.PRunner.ExecVSQL(ctx, pf.name, names.ServerContainer, "-tAc", sql)
 	if err != nil {
 		i.Log.Error(err, "failed to retrieve unpaused sessions", "stderr", stderr)
