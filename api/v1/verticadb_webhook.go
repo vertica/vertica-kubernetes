@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+	"time"
 
 	vutil "github.com/vertica/vcluster/vclusterops/util"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
@@ -27,6 +28,7 @@ import (
 	vversion "github.com/vertica/vertica-kubernetes/pkg/version"
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/validation/field"
@@ -93,6 +95,19 @@ func (v *VerticaDB) Default() {
 	}
 	if v.Spec.TemporarySubclusterRouting != nil {
 		v.Spec.TemporarySubclusterRouting.Template.Type = SecondarySubcluster
+	}
+	// Set required status conditions fields if they are unset
+	for i := range v.Status.Conditions {
+		cond := &v.Status.Conditions[i]
+		if cond.LastTransitionTime.IsZero() {
+			cond.LastTransitionTime = metav1.NewTime(time.Now())
+		}
+		if cond.Reason == "" {
+			cond.Reason = DefaultReason
+		}
+		if cond.Message == "" {
+			cond.Message = DefaultMsg
+		}
 	}
 	v.setDefaultServiceName()
 	v.setDefaultSandboxImages()
