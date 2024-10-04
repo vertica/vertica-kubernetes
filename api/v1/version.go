@@ -129,7 +129,14 @@ func (v *VerticaDB) MakePreviousVersionInfo() (*version.Info, bool) {
 // current version otherwise.
 func (v *VerticaDB) MakeVersionInfoDuringROUpgrade() (*version.Info, bool) {
 	if v.IsROUpgradeInProgress() {
-		return v.MakePreviousVersionInfo()
+		vinf, ok := v.MakePreviousVersionInfo()
+		// During a downgrade attempt, the operator does not set
+		// the previous-version annotation, so if it cannot be parsed
+		// we will construct the Info from the version annotation even
+		// if read-only online upgrade is in progress
+		if ok {
+			return vinf, ok
+		}
 	}
 	return v.MakeVersionInfo()
 }
