@@ -178,7 +178,7 @@ func (v *VerticaDB) IsUpgradePathSupported(newAnnotations map[string]string) (ok
 	return
 }
 
-// isOnlineUpgradeSupported returns true if the version in the Vdb is is equal or newer than
+// isOnlineUpgradeSupported returns true if the version in the Vdb is equal or newer than
 // 24.3.0-2.
 func (v *VerticaDB) isOnlineUpgradeSupported(vinf *version.Info) bool {
 	return vinf.IsEqualOrNewerWithHotfix(OnlineUpgradeVersion)
@@ -190,8 +190,9 @@ func (v *VerticaDB) IsPausedSessionsSupported() bool {
 	if !ok {
 		return false
 	}
-	if vinf.IsEqualOrNewer(MinPauseSessionsVersion243) {
-		return vinf.IsEqualOrNewerWithHotfix(MinPauseSessionsVersion243)
+	if vinf.IsEqualOrNewer(MinPauseSessionsVersion244) {
+		return true
 	}
-	return vinf.IsEqualOrNewerWithHotfix(MinPauseSessionsVersion243)
+	// the only tricky one: ver needs to be at least 24.3-4, but can't be 24.4 (>= 24.4-1 is handled by the above if)
+	return vinf.IsEqualOrNewerWithHotfix(MinPauseSessionsVersion243) && vinf.IsEqualOrNewer(MinPauseSessionsVersion243)
 }
