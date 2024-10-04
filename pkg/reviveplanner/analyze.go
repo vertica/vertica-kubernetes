@@ -17,12 +17,16 @@ package reviveplanner
 
 import (
 	"fmt"
+	"path/filepath"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 
 	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
+	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
+	"golang.org/x/exp/maps"
 )
 
 type Planner struct {
@@ -50,32 +54,29 @@ func (p *Planner) IsCompatible() (string, bool) {
 // checkForCompatiblePaths does the heavy lifting of checking for compatible
 // paths. It returns an error if the paths aren't compatible.
 func (p *Planner) checkForCompatiblePaths() error {
-	// To see if the revive is compatible, we are going to check each of the
-	// paths of all the nodes. The prefix of each path needs to be the same. The
-	// operator assumes that all paths are homogeneous across all vertica hosts.
-	if _, err := p.getCommonPath(p.Parser.GetDepotPaths(), ""); err != nil {
+	// verify if we can get any local depot paths
+	if _, err := p.getLocalPaths(p.Parser.GetDepotPaths()); err != nil {
 		return err
 	}
 
-	catPath, err := p.getCommonPath(p.Parser.GetCatalogPaths(), "")
+	// verify if we can get any local catalog paths
+	paths, err := p.getLocalPaths(p.Parser.GetCatalogPaths())
 	if err != nil {
 		return err
 	}
+	if len(paths) != 1 {
+		return fmt.Errorf("expected 1 catalog path, got multiple: %+v", paths)
+	}
 
-	// We tolerate a mix of paths for the data, as long as it matches the
-	// catalog path. This exists due to a bug in revive where the constructed
-	// admintools.conf has erronously set the data path to match the catalog
-	// path. This isn't a problem for existing nodes because the vertica catalog
-	// still has the correct path for data.  But if a scale-out occurs with the
-	// bad admintools.conf, new nodes will have a data path that matches the
-	// catalog path.
-	_, err = p.getCommonPath(p.Parser.GetDataPaths(), catPath)
+	// verify if we can get any local data paths
+	_, err = p.getLocalPaths(p.Parser.GetDataPaths())
 	return err
 }
 
 // ApplyChanges will update the input vdb based on things it found during
 // analysis. Return true if the vdb was updated.
 func (p *Planner) ApplyChanges(vdb *vapi.VerticaDB) (updated bool, err error) {
+	updatedShardCount := false
 	foundShardCount, err := p.Parser.GetNumShards()
 	if err != nil {
 		p.Log.Info("Failed to convert shard in cluster config", "err", err)
@@ -84,40 +85,88 @@ func (p *Planner) ApplyChanges(vdb *vapi.VerticaDB) (updated bool, err error) {
 		p.Log.Info("Shard count changing to match revive output",
 			"oldShardCount", vdb.Spec.ShardCount, "newShardCount", foundShardCount)
 		vdb.Spec.ShardCount = foundShardCount
-		updated = true
+		updatedShardCount = true
 	}
 
-	catPath, err := p.getCommonPath(p.Parser.GetCatalogPaths(), "")
+	// extraPaths will contain extra local paths that are not in the local.catalogPath, local.dataPath, and local.depotPath.
+	extraPaths := make(map[string]struct{})
+	updated, err = p.updateLocalPathsInVdb(vdb, extraPaths)
+	updated = updated || updatedShardCount
 	if err != nil {
 		return updated, err
 	}
-	if catPath != vdb.Spec.Local.GetCatalogPath() {
-		p.logPathChange("catalog", vdb.Spec.Local.GetCatalogPath(), catPath)
-		vdb.Spec.Local.CatalogPath = catPath
-		updated = true
-	}
 
-	// Generally the data path should be the same across all hosts. But it's
-	// possible for some nodes to have different one -- as long as the different
-	// path matches the catalog path.
-	dataPath, err := p.getCommonPath(p.Parser.GetDataPaths(), catPath)
+	otherPaths := p.Parser.GetOtherPaths()
+	if len(otherPaths) > 0 {
+		paths, e := p.getLocalPaths(p.Parser.GetOtherPaths())
+		if e != nil {
+			return updated, e
+		}
+		// append otherPaths to extraPaths
+		for _, path := range paths {
+			extraPaths[path] = struct{}{}
+		}
+	}
+	// remove local.catalogPath, local.dataPath, and local.depotPath from extraPaths
+	delete(extraPaths, vdb.Spec.Local.GetCatalogPath())
+	delete(extraPaths, vdb.Spec.Local.DataPath)
+	delete(extraPaths, vdb.Spec.Local.DepotPath)
+
+	if len(extraPaths) > 0 {
+		paths := maps.Keys(extraPaths)
+		sort.Strings(paths)
+		extraPathsStr := strings.Join(paths, ",")
+		if extraPathsStr != vmeta.GetExtraLocalPaths(vdb.Annotations) {
+			vdb.Annotations[vmeta.ExtraLocalPathsAnnotation] = extraPathsStr
+			updated = true
+		}
+	}
+	return updated, err
+}
+
+// updateLocalPathsInVdb will update the local.catalogPath, local.dataPath, and local.depotPath if needed
+func (p *Planner) updateLocalPathsInVdb(vdb *vapi.VerticaDB, extraPaths map[string]struct{}) (updated bool, err error) {
+	catPaths, err := p.getLocalPaths(p.Parser.GetCatalogPaths())
 	if err != nil {
 		return updated, err
 	}
-	if dataPath != vdb.Spec.Local.DataPath {
-		p.logPathChange("data", vdb.Spec.Local.DataPath, dataPath)
-		vdb.Spec.Local.DataPath = dataPath
+	if catPaths[0] != vdb.Spec.Local.GetCatalogPath() {
+		p.logPathChange("catalog", vdb.Spec.Local.GetCatalogPath(), catPaths[0])
+		vdb.Spec.Local.CatalogPath = catPaths[0]
 		updated = true
 	}
 
-	depotPath, err := p.getCommonPath(p.Parser.GetDepotPaths(), "")
+	dataPaths, err := p.getLocalPaths(p.Parser.GetDataPaths())
 	if err != nil {
 		return updated, err
 	}
-	if depotPath != vdb.Spec.Local.DepotPath {
-		p.logPathChange("depot", vdb.Spec.Local.DepotPath, depotPath)
-		vdb.Spec.Local.DepotPath = depotPath
+	// If data path is not in the list, use the first one in the list to update it.
+	// Later, we can improve this by changing local.dataPath to be an array.
+	if !slices.Contains(dataPaths, vdb.Spec.Local.DataPath) {
+		p.logPathChange("data", vdb.Spec.Local.DataPath, dataPaths[0])
+		vdb.Spec.Local.DataPath = dataPaths[0]
 		updated = true
+	}
+
+	// append dataPaths to extraPaths
+	for _, path := range dataPaths {
+		extraPaths[path] = struct{}{}
+	}
+
+	depotPaths, err := p.getLocalPaths(p.Parser.GetDepotPaths())
+	if err != nil {
+		return updated, err
+	}
+	// If depot path is not in the list, use the first one in the list to update it.
+	// Later, we can improve this by changing local.depotPath to be an array.
+	if !slices.Contains(depotPaths, vdb.Spec.Local.DepotPath) {
+		p.logPathChange("depot", vdb.Spec.Local.DepotPath, depotPaths[0])
+		vdb.Spec.Local.DepotPath = depotPaths[0]
+		updated = true
+	}
+	// append depotPaths to extraPaths
+	for _, path := range depotPaths {
+		extraPaths[path] = struct{}{}
 	}
 	if vdb.IsDepotVolumeEmptyDir() && !vdb.Spec.Local.IsDepotPathUnique() {
 		p.Log.Info("depot path not unique, depotVolume has to change to PersistentVolume")
@@ -137,78 +186,50 @@ func (p *Planner) logPathChange(pathType, oldPath, newPath string) {
 		"oldPath", oldPath, "newPath", newPath)
 }
 
-// getCommonPath will look at a slice of paths, and return the common prefix for
-// all of them. The allowedOutlier parameter, if set, will allow some deviation
-// among the paths as long is it matches the outlier.
-func (p *Planner) getCommonPath(paths []string, allowedOutlier string) (string, error) {
+// getLocalPaths takes a slice of file paths and returns the common prefixes
+// of Vertica auto-generated paths, along with user-created paths. It ignores
+// non-absolute paths, as these may represent remote storage locations.
+func (p *Planner) getLocalPaths(paths []string) ([]string, error) {
 	if len(paths) == 0 {
-		return "", fmt.Errorf("no paths passed in")
+		return nil, fmt.Errorf("no paths passed in")
 	}
-	paths = p.removeOutliers(paths, allowedOutlier)
-	if len(paths) == 0 {
-		return allowedOutlier, nil
-	}
-	if len(paths) == 1 {
-		// If the path has a vnode in it, strip that part off
-		if fp, ok := p.extractPathPrefixFromVNodePath(paths[0]); ok {
-			return fp, nil
+	localPaths := make(map[string]struct{})
+	// Store a prefix for Vertica auto-generated paths.
+	// This prefix will be put in front of the returned paths.
+	verticaPrefix := ""
+	for _, path := range paths {
+		if !filepath.IsAbs(path) {
+			p.Log.Info("Ignored a non-absolute path since it could be a remote storage location", "path", path)
+			continue
 		}
-		return strings.TrimSuffix(paths[0], "/"), nil
-	}
-
-	// We want to find the common prefix of all of the paths. If we sort the
-	// list, we only need to look at the first and list items.
-	sort.Slice(paths, func(i, j int) bool {
-		return paths[i] < paths[j]
-	})
-	const beg = 0
-	end := len(paths) - 1
-
-	// Find a common prefix between the first and last paths.  We only match
-	// complete directories. So, we need to keep track of the current directory
-	// as we go.
-	var fullPath strings.Builder
-	var curDir strings.Builder
-	commonLen := min(len(paths[beg]), len(paths[end]))
-	for i := 0; i < commonLen; i++ {
-		if paths[beg][i] == paths[end][i] {
-			cur := paths[beg][i]
-			if cur == '/' {
-				fullPath.WriteString(curDir.String())
-				fullPath.WriteByte(cur)
-				curDir.Reset()
-			} else {
-				curDir.WriteByte(cur)
+		if fp, ok := p.extractPathPrefixFromVNodePath(path); ok {
+			localPaths[fp] = struct{}{}
+			if verticaPrefix == "" {
+				verticaPrefix = fp
 			}
 		} else {
-			break
+			// For user-specified paths, we don't use prefixes because we want to restrict
+			// users to accessing only the directories they originally created in the database.
+			// Allowing access to other directories under those prefixes could lead to unintended access.
+			cleanPath := filepath.Clean(path)
+			localPaths[cleanPath] = struct{}{}
 		}
 	}
-	if fullPath.Len() <= 1 {
-		return "", fmt.Errorf("multiple vertica hosts don't have common paths: %s and %s", paths[beg], paths[end])
+
+	if len(localPaths) == 0 {
+		return nil, fmt.Errorf("no local paths found")
 	}
-
-	// If the common path ended with a partial vnode directory, then trim off
-	// the database directory immediately preceding it.
-	fp := p.trimOffDatabaseDir(fullPath.String(), curDir.String())
-
-	// Remove any trailing '/' chars
-	return strings.TrimSuffix(fp, "/"), nil
-}
-
-// removeOutliers builds a path list with any outliers removed
-func (p *Planner) removeOutliers(paths []string, allowedOutlier string) []string {
-	outPaths := []string{}
-	for i := range paths {
-		if paths[i] == allowedOutlier {
-			continue
-		}
-		if pathPrefix, ok := p.extractPathPrefixFromVNodePath(paths[i]); ok && pathPrefix == allowedOutlier {
-			continue
-		}
-		outPaths = append(outPaths, paths[i])
+	delete(localPaths, verticaPrefix)
+	// convert the map to a slice
+	localPathSlice := make([]string, 0, len(localPaths))
+	for prefix := range localPaths {
+		localPathSlice = append(localPathSlice, prefix)
 	}
-	return outPaths
+	// prepend verticaPrefix to localPathSlice
+	if verticaPrefix != "" {
+		localPathSlice = append([]string{verticaPrefix}, localPathSlice...)
+	}
+	return localPathSlice, nil
 }
 
 // extractPathPrefixFromVNodePath will extract out the prefix of a vertica POSIX path. This
@@ -224,20 +245,4 @@ func (p *Planner) extractPathPrefixFromVNodePath(path string) (string, bool) {
 		return "", false
 	}
 	return m[1], true
-}
-
-func min(a, b int) int {
-	if a > b {
-		return b
-	}
-	return a
-}
-
-func (p *Planner) trimOffDatabaseDir(fullPath, partialDir string) string {
-	dbName := p.Parser.GetDatabaseName()
-	dbNameSuffix := fmt.Sprintf("/%s/", dbName)
-	if strings.HasPrefix(partialDir, fmt.Sprintf("v_%s_node", strings.ToLower(dbName))) && strings.HasSuffix(fullPath, dbNameSuffix) {
-		return strings.TrimSuffix(fullPath, dbNameSuffix)
-	}
-	return fullPath
 }

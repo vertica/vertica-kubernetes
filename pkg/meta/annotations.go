@@ -318,6 +318,11 @@ const (
 	// omitted, then the name of the subclusters' statefulset will be
 	// `<vdb-name>-<subcluster-name>'
 	StsNameOverrideAnnotation = "vertica.com/statefulset-name-override"
+
+	// Use this to store extra local paths that we need to create before revive_db.
+	// Those paths include local paths not in local.catalogPath, local.dataPath,
+	// and local.depotPath. For example, the user-created temp paths.
+	ExtraLocalPathsAnnotation = "vertica.com/extra-local-paths"
 )
 
 // IsPauseAnnotationSet will check the annotations for a special value that will
@@ -610,6 +615,11 @@ func GetSaveRestorePoint(annotations map[string]string) bool {
 // not provided, an empty string is returned.
 func GetStsNameOverride(annotations map[string]string) string {
 	return lookupStringAnnotation(annotations, StsNameOverrideAnnotation, "")
+}
+
+// GetExtraLocalPaths returns the comma separated list of extra local paths
+func GetExtraLocalPaths(annotations map[string]string) string {
+	return lookupStringAnnotation(annotations, ExtraLocalPathsAnnotation, "")
 }
 
 // lookupBoolAnnotation is a helper function to lookup a specific annotation and

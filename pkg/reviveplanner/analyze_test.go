@@ -56,86 +56,73 @@ var _ = Describe("analyze", func() {
 		Expect(pathPrefix).Should(Equal("/vertica/dat"))
 	})
 
-	It("should be able to find common paths", func() {
+	It("should be able to find local paths", func() {
 		parser := atparser.Parser{
 			Database: atparser.Database{
 				Name: "v",
 			},
 		}
 		p := Planner{Parser: &parser}
-		Expect(p.getCommonPath([]string{
+		Expect(p.getLocalPaths([]string{
 			"/data/prefix/v/v_v_node0001_depot",
 			"/data/prefix/v/v_v_node0002_depot",
 			"/data/prefix/v/v_v_node0003_depot",
-		}, "")).Should(Equal("/data/prefix"))
-		_, err := p.getCommonPath([]string{
+		})).Should(Equal([]string{"/data/prefix"}))
+
+		paths := []string{
 			"/p1/v/v_v_node0001_depot",
 			"/p2/v/v_v_node0002_depot",
-		}, "")
+		}
+		// expected output
+		paths2 := []string{
+			"/p1",
+			"/p2",
+		}
+		outPaths, err := p.getLocalPaths(paths)
+		Expect(err).Should(BeNil())
+		Expect(outPaths).To(ConsistOf(paths2))
+
+		_, err = p.getLocalPaths(nil)
 		Expect(err).ShouldNot(Succeed())
-		_, err = p.getCommonPath(nil, "")
-		Expect(err).ShouldNot(Succeed())
-		_, err = p.getCommonPath([]string{
+
+		paths = []string{
 			"/p1/v/v_v_node0001_depot",
-			"/p2/v/invalid/path/no/vnode",
-		}, "")
-		Expect(err).ShouldNot(Succeed())
-	})
-
-	It("should be able to find common paths after accounting for an outlier", func() {
-		parser := atparser.Parser{
-			Database: atparser.Database{
-				Name: "v",
-			},
+			"/p2/v/path/no/vnode",
 		}
-		p := Planner{Parser: &parser}
-		Expect(p.getCommonPath([]string{
-			"/path1/prefix/v/v_v_node0001_data",
-			"/outlier/prefix/v/v_v_node0002_data",
-			"/path1/prefix/v/v_v_node0003_data",
-		}, "/outlier/prefix")).Should(Equal("/path1/prefix"))
-		_, err := p.getCommonPath([]string{
-			"/p1/v/v_v_node0001_data",
-			"/p2/v/v_v_node0002_data",
-		}, "/outlier")
-		Expect(err).ShouldNot(Succeed())
-		Expect(p.getCommonPath([]string{
-			"/p1/v/v_v_node0001_data",
-			"/p1/v/v_v_node0002_data",
-		}, "/p1")).Should(Equal("/p1"))
-	})
-
-	It("should be able to find common paths when db/node isn't a suffix", func() {
-		parser := atparser.Parser{
-			Database: atparser.Database{
-				Name: "v",
-			},
+		// expected output
+		paths2 = []string{
+			"/p1",
+			"/p2/v/path/no/vnode",
 		}
-		p := Planner{Parser: &parser}
-		Expect(p.getCommonPath([]string{
-			"/vertica/dbx/node1/ssd",
-			"/vertica/dbx/all-remaining-nodes/ssd",
-			"/vertica/dbx/node2/ssd",
-		}, "")).Should(Equal("/vertica/dbx"))
-		Expect(p.getCommonPath([]string{
-			"/vertica/dbx/node1/ssd",
-			"/outlier/prefix/v/v_v_node0002_data",
-			"/vertica/dbx/all-remaining-nodes/ssd",
-			"/vertica/dbx/node2/ssd",
-		}, "/outlier/prefix")).Should(Equal("/vertica/dbx"))
-		_, err := p.getCommonPath([]string{
-			"/vertica/ssd",
-			"/outlier/prefix/v/v_v_node0002_data",
-			"/uncommon/path/ssd",
-			"/vertica/ssd",
-		}, "/outlier/prefix")
-		Expect(err).ShouldNot(Succeed())
-		Expect(p.getCommonPath([]string{
-			"/vertica/ssd",
-		}, "/outlier/prefix")).Should(Equal("/vertica/ssd"))
-		Expect(p.getCommonPath([]string{
-			"/vertica/ssd",
-		}, "/vertica/ssd")).Should(Equal("/vertica/ssd"))
+		outPaths, err = p.getLocalPaths(paths)
+		Expect(err).Should(BeNil())
+		Expect(outPaths).To(ConsistOf(paths2))
+
+		// ignore remote paths
+		paths = append(paths, "s3://some/path")
+		outPaths, err = p.getLocalPaths(paths)
+		Expect(err).Should(BeNil())
+		Expect(outPaths).To(ConsistOf(paths2))
+
+		// a mixed user-created paths and vertica-created paths
+		paths = []string{
+			"",                                  // will be ignored since it's not an absolute path
+			"some/path1",                        // will be ignored since it's not an absolute path
+			"/some/path2/",                      // the trailing slash should be removed
+			"//some///path3/",                   // the double/treble slashes should be changed to single slash
+			"data/prefix/v/v_v_node0001_depot",  // ignored since it's not an absolute path
+			"/data/prefix/v/v_v_node0001_depot", // should only use the prefix
+			"/data/prefix/v/v_v_node0002_depot", // should only use the prefix
+		}
+		// expected output
+		paths2 = []string{
+			"/some/path2",
+			"/some/path3",
+			"/data/prefix",
+		}
+		outPaths, err = p.getLocalPaths(paths)
+		Expect(err).Should(BeNil())
+		Expect(outPaths).To(ConsistOf(paths2))
 	})
 
 	It("should update vdb based on revive output", func() {
@@ -222,20 +209,6 @@ var _ = Describe("analyze", func() {
 		Expect(ok).Should(BeFalse())
 		Expect(len(msg)).ShouldNot(Equal(0))
 		p.Database.Nodes[1].CatalogPath = origCatPath
-
-		origDepotPath := p.Database.Nodes[1].VStorageLocations[0].Path
-		p.Database.Nodes[1].VStorageLocations[0].Path = fmt.Sprintf("/a%s", origDepotPath)
-		msg, ok = plnr.IsCompatible()
-		Expect(ok).Should(BeFalse())
-		Expect(len(msg)).ShouldNot(Equal(0))
-		p.Database.Nodes[1].VStorageLocations[0].Path = origDepotPath
-
-		origDataPath := p.Database.Nodes[0].VStorageLocations[1].Path
-		p.Database.Nodes[0].VStorageLocations[1].Path = fmt.Sprintf("/b%s", origDataPath)
-		msg, ok = plnr.IsCompatible()
-		Expect(ok).Should(BeFalse())
-		Expect(len(msg)).ShouldNot(Equal(0))
-		p.Database.Nodes[0].VStorageLocations[1].Path = origDataPath
 
 		_, ok = plnr.IsCompatible()
 		Expect(ok).Should(BeTrue())

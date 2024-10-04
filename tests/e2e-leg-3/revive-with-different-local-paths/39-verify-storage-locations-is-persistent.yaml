@@ -14,6 +14,7 @@
 apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 commands:
-  - command: kubectl exec --namespace $NAMESPACE v-create-main-0 -c server -- vsql -c "create location '/vertica/data/storage' ALL NODES USAGE 'DATA';"
-  - command: kubectl exec --namespace $NAMESPACE v-create-main-0 -c server -- vsql -c "create location '/tmp/test' NODE 'v_entdb_node0001' USAGE 'TEMP';"
-  - command: kubectl exec --namespace $NAMESPACE v-create-main-0 -c server -- vsql -c "create location '/vertica/data/user' ALL NODES USAGE 'USER'; select sync_catalog();"
+  # verify the directory is recreated in the pod
+  - command: kubectl exec -n $NAMESPACE v-revive-1-main-1 -c server -- test -d /vertica/data/storage
+  - command: kubectl exec -n $NAMESPACE v-revive-1-main-1 -c server -- test -d /tmp/test
+  - command: kubectl exec -n $NAMESPACE v-revive-1-main-1 -c server -- test -d /vertica/data/user
