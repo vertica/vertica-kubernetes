@@ -190,9 +190,13 @@ func (v *VerticaDB) IsPausedSessionsSupported() bool {
 	if !ok {
 		return false
 	}
-	if vinf.IsEqualOrNewer(MinPauseSessionsVersion244) {
+	if vinf.IsEqualOrNewerWithHotfix(MinPauseSessionsVersion244) {
 		return true
 	}
 	// the only tricky one: ver needs to be at least 24.3-4, but can't be 24.4 (>= 24.4-1 is handled by the above if)
-	return vinf.IsEqualOrNewerWithHotfix(MinPauseSessionsVersion243) && vinf.IsEqualOrNewer(MinPauseSessionsVersion243)
+	vinf243, ok := version.MakeInfoFromStr(MinPauseSessionsVersion243)
+	if !ok {
+		panic(fmt.Sprintf("could not parse input version: %s", MinPauseSessionsVersion243))
+	}
+	return vinf.IsEqualOrNewerWithHotfix(MinPauseSessionsVersion243) && vinf.IsEqual(vinf243)
 }
