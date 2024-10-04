@@ -815,6 +815,13 @@ func (s *Subcluster) IsTransient() bool {
 	return s.Type == TransientSubcluster
 }
 
+func (s *Subcluster) GetSize() int32 {
+	if s.Shutdown {
+		return 0
+	}
+	return s.Size
+}
+
 // GetType returns the type of the subcluster in string form
 func (s *Subcluster) GetType() string {
 	// Transient subclusters are considered secondary subclusters. This exists
