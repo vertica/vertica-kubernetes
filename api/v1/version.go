@@ -126,6 +126,23 @@ func (v *VerticaDB) MakePreviousVersionInfo() (*version.Info, bool) {
 	return version.MakeInfoFromStr(vdbVer)
 }
 
+// MakeVersionInfoDuringROUpgrade will construct an Info struct by extracting
+// the previous version is read-only online upgrade is in progress, from the
+// current version otherwise.
+func (v *VerticaDB) MakeVersionInfoDuringROUpgrade() (*version.Info, bool) {
+	if v.IsROUpgradeInProgress() {
+		vinf, ok := v.MakePreviousVersionInfo()
+		// During a downgrade attempt, the operator does not set
+		// the previous-version annotation, so if it cannot be parsed
+		// we will construct the Info from the version annotation even
+		// if read-only online upgrade is in progress
+		if ok {
+			return vinf, ok
+		}
+	}
+	return v.MakeVersionInfo()
+}
+
 // MakeVersionInfoCheck is like MakeVersionInfo but returns an error if the
 // version is missing. Use this in places where it is a failure if the version
 // is missing.
