@@ -40,7 +40,7 @@ var _ = Describe("upgrade", func() {
 		vdb.Spec.Subclusters = append(vdb.Spec.Subclusters, vapi.Subcluster{
 			Name: "sc1", Type: vapi.SecondarySubcluster, Size: 3,
 		})
-		vdb.Annotations[vmeta.VersionAnnotation] = vapi.OnlineUpgradeVersion243
+		vdb.Annotations[vmeta.VersionAnnotation] = vapi.OnlineUpgradeVersion
 
 		vdb.Spec.UpgradePolicy = vapi.OfflineUpgrade
 		Expect(offlineUpgradeAllowed(vdb)).Should(BeTrue())

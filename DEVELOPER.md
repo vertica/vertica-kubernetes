@@ -249,7 +249,7 @@ The operator pod contains a webhook, which requires TLS certificates. The TLS se
 Deploy the operator with Helm and all its prerequisites:
 First make sure DEPLOY_WITH is set up properly in Makefile:
 ```shell
-DEPLOY_WITH=helm 
+DEPLOY_WITH=helm
 ```
 Next run the following command
 ```shell
@@ -505,7 +505,7 @@ You might need to inspect the contents of the `vertica.log` to diagnose a proble
 
 ### Exec into a container
 
-Drop into the container and navigate to the directory where is is stored:
+Drop into the container and navigate to the directory where it is stored:
 
 ```shell
 docker exec -it <container-name> /bin/bash
