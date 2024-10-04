@@ -194,7 +194,7 @@ type VerticaDBSpec struct {
 
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:advanced"
-	// When doing an online upgrade, we designate a subcluster to
+	// When doing a read-only online upgrade, we designate a subcluster to
 	// accept traffic while the other subclusters restart.  The designated
 	// subcluster is specified here.  The name of the subcluster can refer to an
 	// existing one or an entirely new subcluster.  If the subcluster is new, it
@@ -636,6 +636,8 @@ type Sandbox struct {
 	// is inherited from the spec.image field.
 	Image string `json:"image,omitempty"`
 
+	Shutdown bool `json:"shutdown"`
+
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// This is the subcluster names that are part of the sandbox.
 	// There must be at least one subcluster listed. All subclusters
@@ -788,6 +790,8 @@ type Subcluster struct {
 	// A map of key/value pairs appended to the stateful metadata.annotations of
 	// the subcluster.
 	Annotations map[string]string `json:"annotations,omitempty"`
+
+	Shutdown bool `json:"shutdown"`
 }
 
 // Affinity is used instead of corev1.Affinity and behaves the same.
@@ -888,6 +892,8 @@ type SandboxStatus struct {
 	// +optional
 	// State of the current running upgrade in the sandbox
 	UpgradeState SandboxUpgradeState `json:"upgradeState,omitempty"`
+
+	Shutdown bool `json:"shutdown"`
 }
 
 const (
@@ -949,6 +955,8 @@ type SubclusterStatus struct {
 
 	// +operator-sdk:csv:customresourcedefinitions:type=status
 	Detail []VerticaDBPodStatus `json:"detail"`
+
+	Shutdown bool `json:"shutdown"`
 }
 
 // VerticaDBPodStatus holds state for a single pod in a subcluster

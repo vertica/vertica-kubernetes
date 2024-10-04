@@ -67,9 +67,7 @@ func (s *StopDBReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl
 		return ctrl.Result{}, nil
 	}
 
-	// Only proceed if the restart needed status condition is set.
-	isSet := s.Vdb.IsStatusConditionTrue(vapi.VerticaRestartNeeded)
-	if isSet {
+	if !s.skipStopDB() {
 		// Stop vertica if any pods are running
 		if s.PFacts.getUpNodeCount() > 0 {
 			err = s.stopVertica(ctx)
@@ -78,11 +76,16 @@ func (s *StopDBReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl
 			}
 		}
 
-		// Clear the condition now that we stopped the cluster.  We rely on the
-		// restart reconciler that follows this to bring up vertica.
-		err = vdbstatus.UpdateCondition(ctx, s.VRec.Client, s.Vdb,
-			vapi.MakeCondition(vapi.VerticaRestartNeeded, metav1.ConditionFalse, "StopCompleted"),
-		)
+		if s.PFacts.SandboxName == vapi.MainCluster {
+			// Clear the condition now that we stopped the cluster.  We rely on the
+			// restart reconciler that follows this to bring up vertica.
+			err = vdbstatus.UpdateCondition(ctx, s.VRec.Client, s.Vdb,
+				vapi.MakeCondition(vapi.VerticaRestartNeeded, metav1.ConditionFalse, "StopCompleted"),
+			)
+		} else {
+			err = s.markSandboxSubclustersForShutDown()
+		}
+
 	}
 	return ctrl.Result{}, err
 }
@@ -118,5 +121,22 @@ func (s *StopDBReconciler) runATCmd(ctx context.Context, initiatorName types.Nam
 	}
 	s.VRec.Eventf(s.Vdb, corev1.EventTypeNormal, events.StopDBSucceeded,
 		"Successfully stopped the database.  It took %s", time.Since(start).Truncate(time.Second))
+	return nil
+}
+
+func (s *StopDBReconciler) skipStopDB() bool {
+	if s.PFacts.SandboxName == vapi.MainCluster {
+		return !s.Vdb.IsStatusConditionTrue(vapi.VerticaRestartNeeded)
+	}
+	sb := s.Vdb.GetSandbox(s.PFacts.SandboxName)
+	sbStatus := s.Vdb.GetSandboxStatus(s.PFacts.SandboxName)
+	if sb.Shutdown && sbStatus.Shutdown != sb.Shutdown {
+		return false
+	}
+	return true
+}
+
+func (s *StopDBReconciler) markSandboxSubclustersForShutDown() error {
+	// here mark all subclusters in the sandbox for shutdown
 	return nil
 }
