@@ -14,4 +14,6 @@
 apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 commands:
-  - command: kubectl exec --namespace $NAMESPACE v-create-main-0 -c server -- vsql -c "create location '/vertica/data/storage' ALL NODES; select retire_location('/vertica/data/entdb/v_entdb_node0001_data','v_entdb_node0001'); select drop_location('/vertica/data/entdb/v_entdb_node0001_data','v_entdb_node0001'); select sync_catalog();"
+  - command: kubectl exec --namespace $NAMESPACE v-create-main-0 -c server -- vsql -c "create location '/vertica/data/storage' ALL NODES USAGE 'DATA';"
+  - command: kubectl exec --namespace $NAMESPACE v-create-main-0 -c server -- vsql -c "create location '/tmp/test' NODE 'v_entdb_node0001' USAGE 'TEMP';"
+  - command: kubectl exec --namespace $NAMESPACE v-create-main-0 -c server -- vsql -c "create location '/vertica/data/user' ALL NODES USAGE 'USER'; select sync_catalog();"

@@ -113,7 +113,7 @@ func MakeVDB() *VerticaDB {
 			Image:              "vertica-k8s:latest",
 			InitPolicy:         CommunalInitPolicyCreate,
 			Communal: CommunalStorage{
-				Path:             "s3://nimbusdb/mspilchen",
+				Path:             "s3://nimbusdb/cchen",
 				Endpoint:         "http://minio",
 				CredentialSecret: "s3-auth",
 				AdditionalConfig: make(map[string]string),
@@ -424,6 +424,11 @@ func (v *VerticaDB) IsOnlineUpgradeInProgress() bool {
 // IsROOnlineUpgradeInProgress returns true if an read-only online upgrade is in progress
 func (v *VerticaDB) IsROUpgradeInProgress() bool {
 	return v.IsStatusConditionTrue(ReadOnlyOnlineUpgradeInProgress)
+}
+
+// IsUpgradeInProgress returns true if an upgrade is in progress
+func (v *VerticaDB) IsUpgradeInProgress() bool {
+	return v.IsStatusConditionTrue(UpgradeInProgress)
 }
 
 // IsStatusConditionTrue returns true when the conditionType is present and set to

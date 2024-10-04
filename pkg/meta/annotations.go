@@ -81,6 +81,11 @@ const (
 	// waits for its startup.  If omitted, we use the default timeout of 5 minutes.
 	CreateDBTimeoutAnnotation = "vertica.com/createdb-timeout"
 
+	// The timeout, in seconds, to use when the operator is performing online upgrade
+	// for various tasks. If omitted, we use the default timeout of 5 minutes.
+	OnlineUpgradeTimeoutAnnotation = "vertica.com/online-upgrade-timeout"
+	OnlineUpgradeDefaultTimeout    = 5 * 60
+
 	// Sets the fault tolerance for the cluster.  Allowable values are 0 or 1.  0 is only
 	// suitable for test environments because we have no fault tolerance and the cluster
 	// can only have between 1 and 3 pods.  If set to 1, which is the default,
@@ -313,6 +318,11 @@ const (
 	// omitted, then the name of the subclusters' statefulset will be
 	// `<vdb-name>-<subcluster-name>'
 	StsNameOverrideAnnotation = "vertica.com/statefulset-name-override"
+
+	// Use this to store extra local paths that we need to create before revive_db.
+	// Those paths include local paths not in local.catalogPath, local.dataPath,
+	// and local.depotPath. For example, the user-created temp paths.
+	ExtraLocalPathsAnnotation = "vertica.com/extra-local-paths"
 )
 
 // IsPauseAnnotationSet will check the annotations for a special value that will
@@ -355,6 +365,11 @@ func GetRestartTimeout(annotations map[string]string) int {
 // 0 is returned, this means to use the default.
 func GetCreateDBNodeStartTimeout(annotations map[string]string) int {
 	return lookupIntAnnotation(annotations, CreateDBTimeoutAnnotation, 0 /* default value */)
+}
+
+// GetOnlineUpgradeTimeout returns the timeout to use for pause/redirect sessions
+func GetOnlineUpgradeTimeout(annotations map[string]string) int {
+	return lookupIntAnnotation(annotations, OnlineUpgradeTimeoutAnnotation, OnlineUpgradeDefaultTimeout)
 }
 
 // IsKSafety0 returns true if k-safety is set to 0. False implies 1.
@@ -600,6 +615,11 @@ func GetSaveRestorePoint(annotations map[string]string) bool {
 // not provided, an empty string is returned.
 func GetStsNameOverride(annotations map[string]string) string {
 	return lookupStringAnnotation(annotations, StsNameOverrideAnnotation, "")
+}
+
+// GetExtraLocalPaths returns the comma separated list of extra local paths
+func GetExtraLocalPaths(annotations map[string]string) string {
+	return lookupStringAnnotation(annotations, ExtraLocalPathsAnnotation, "")
 }
 
 // lookupBoolAnnotation is a helper function to lookup a specific annotation and

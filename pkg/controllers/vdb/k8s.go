@@ -22,6 +22,7 @@ import (
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	config "github.com/vertica/vertica-kubernetes/pkg/vdbconfig"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
@@ -72,4 +73,21 @@ func getConfigMapOrSecret(ctx context.Context, vrec config.ReconcilerInterface, 
 			fmt.Errorf("could not read the secret %s: %w", nm, err)
 	}
 	return ctrl.Result{}, nil
+}
+
+// recreateSts will drop then create the statefulset
+func recreateSts(ctx context.Context, vrec config.ReconcilerInterface, curSts, expSts *appsv1.StatefulSet, vdb *vapi.VerticaDB) error {
+	if err := vrec.GetClient().Delete(ctx, curSts); err != nil {
+		return err
+	}
+	return createSts(ctx, vrec, expSts, vdb)
+}
+
+// createSts will create a new sts. It assumes the statefulset doesn't already exist.
+func createSts(ctx context.Context, vrec config.ReconcilerInterface, expSts *appsv1.StatefulSet, vdb *vapi.VerticaDB) error {
+	err := ctrl.SetControllerReference(vdb, expSts, vrec.GetClient().Scheme())
+	if err != nil {
+		return err
+	}
+	return vrec.GetClient().Create(ctx, expSts)
 }

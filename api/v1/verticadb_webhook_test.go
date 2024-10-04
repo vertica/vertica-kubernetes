@@ -116,7 +116,7 @@ var _ = Describe("verticadb_webhook", func() {
 	})
 	It("should not have invalid communal path", func() {
 		vdb := createVDBHelper()
-		vdb.Spec.Communal.Path = "http://nimbusdb/mspilchen"
+		vdb.Spec.Communal.Path = "http://nimbusdb/cchen"
 		validateSpecValuesHaveErr(vdb, false)
 		vdb.Spec.Communal.Path = ""
 		validateSpecValuesHaveErr(vdb, true)
@@ -370,7 +370,7 @@ var _ = Describe("verticadb_webhook", func() {
 	})
 	It("should not change communal.path after creation", func() {
 		vdbUpdate := createVDBHelper()
-		vdbUpdate.Spec.Communal.Path = "s3://nimbusdb/spilchen"
+		vdbUpdate.Spec.Communal.Path = "s3://nimbusdb/chen"
 		validateImmutableFields(vdbUpdate, true)
 	})
 	It("should not change communal.endpoint after creation", func() {

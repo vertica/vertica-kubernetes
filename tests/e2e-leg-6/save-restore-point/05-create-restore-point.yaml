@@ -18,7 +18,7 @@ commands:
       kubectl patch vdb v-restore-point --type='json' -p='[{
       "op": "add", 
       "path": "/status/conditions/-", 
-      "value": {"type": "SaveRestorePointNeeded", "status": "True", "message": "test", "reason": "test", "lastTransitionTime": "2024-09-16T21:38:27Z"}
+      "value": {"type": "SaveRestorePointNeeded", "status": "True"}
       }]' --subresource='status'
     namespaced: true
   - command: kubectl wait --for=condition=SaveRestorePointNeeded=True vdb/v-restore-point --timeout=600s

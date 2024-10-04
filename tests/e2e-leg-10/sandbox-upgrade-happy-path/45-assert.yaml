@@ -16,5 +16,5 @@ kind: VerticaDB
 metadata:
   name: v-base-upgrade
 status:
-  addedToDBCount: 3
-  upNodeCount: 1
+  addedToDBCount: 4
+  upNodeCount: 3

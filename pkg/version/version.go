@@ -85,7 +85,7 @@ func MakeInfoFromStrCheck(curVer string) (*Info, error) {
 	return verInfo, nil
 }
 
-// IsEqualOrNewer returns true if the version in the Vdb is is equal or newer
+// IsEqualOrNewer returns true if the version in the Vdb is equal or newer
 // than the given version
 func (i *Info) IsEqualOrNewer(inVer string) bool {
 	comp, ok := parseVersion(inVer)
@@ -96,7 +96,7 @@ func (i *Info) IsEqualOrNewer(inVer string) bool {
 	return res != compareSmaller
 }
 
-// IsEqualOrNewerWithHotfix checks if the version in the Vdb is is equal or newer
+// IsEqualOrNewerWithHotfix checks if the version in the Vdb is equal or newer
 // than the given version. It will compare hotfix number if all other numbers are
 // the same.
 func (i *Info) IsEqualOrNewerWithHotfix(inVer string) bool {

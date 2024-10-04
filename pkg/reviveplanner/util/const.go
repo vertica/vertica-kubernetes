@@ -16,8 +16,14 @@
 package util
 
 const (
+	// The usage number for DATA. Set internally by Vertica.
+	UsageIsData = 1
+	// The usage number for TEMP. Set internally by Vertica.
+	UsageIsTemp = 2
 	// The usage number for DATA,TEMP. Set internally by Vertica.
 	UsageIsDataTemp = 3
+	// The usage number for USER. Set internally by Vertica.
+	UsageIsUser = 4
 	// The usage number for DEPOT. Set internally by Vertica.
 	UsageIsDepot = 5
 )

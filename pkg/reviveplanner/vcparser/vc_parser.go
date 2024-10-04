@@ -47,8 +47,9 @@ type Database struct {
 
 // StorageLocations has data about a single storage location in the cluster
 type StorageLocations struct {
-	Path  string `json:"path"`
-	Usage int    `json:"usage"`
+	Path       string `json:"path"`
+	Usage      int    `json:"usage"`
+	HasCatalog bool   `json:"hasCatalog"`
 }
 
 // Node stores info about a single node in the vertica cluster
@@ -63,7 +64,12 @@ func (v *Parser) Parse(op string) error {
 
 // GetDataPaths will return the data paths for each node
 func (v *Parser) GetDataPaths() []string {
-	return v.getPathsByUsage(util.UsageIsDataTemp)
+	return append(v.getPathsByUsage(util.UsageIsData), v.getPathsByUsage(util.UsageIsDataTemp)...)
+}
+
+// GetOtherPaths will return the user and temp paths for each node
+func (v *Parser) GetOtherPaths() []string {
+	return append(v.getPathsByUsage(util.UsageIsTemp), v.getPathsByUsage(util.UsageIsUser)...)
 }
 
 // GetDepotPaths will return the depot paths for each node
@@ -75,7 +81,8 @@ func (v *Parser) GetDepotPaths() []string {
 func (v *Parser) getPathsByUsage(usage int) []string {
 	paths := []string{}
 	for i := range v.Cluster.StorageLocations {
-		if v.Cluster.StorageLocations[i].Usage == usage {
+		// exclude the communal storage location which has a catalog
+		if v.Cluster.StorageLocations[i].Usage == usage && !v.Cluster.StorageLocations[i].HasCatalog {
 			paths = append(paths, v.Cluster.StorageLocations[i].Path)
 		}
 	}

@@ -1158,7 +1158,7 @@ func MakeVDB() *VerticaDB {
 			Image:              "vertica-k8s:latest",
 			InitPolicy:         CommunalInitPolicyCreate,
 			Communal: CommunalStorage{
-				Path:             "s3://nimbusdb/mspilchen",
+				Path:             "s3://nimbusdb/cchen",
 				Endpoint:         "http://minio",
 				CredentialSecret: "s3-auth",
 			},

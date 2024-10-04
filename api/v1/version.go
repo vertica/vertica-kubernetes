@@ -85,6 +85,9 @@ const (
 	FetchNodeDetailsWithVclusterOpsMinVersion = "v24.3.0"
 	// Starting in v24.4.0, saving a restore point to an existing archive is supported
 	SaveRestorePointNMAOpsMinVersion = "v24.4.0"
+	// starting in v24.3-4, v24.4-1, and v25.0-0 pausing sessions works a little differently
+	MinPauseSessionsVersion243 = "v24.3.0-4"
+	MinPauseSessionsVersion244 = "v24.4.0-1"
 )
 
 // GetVerticaVersionStr returns the vertica version, in string form, that is stored
@@ -175,8 +178,21 @@ func (v *VerticaDB) IsUpgradePathSupported(newAnnotations map[string]string) (ok
 	return
 }
 
-// isOnlineUpgradeSupported returns true if the version in the Vdb is is equal or newer than
+// isOnlineUpgradeSupported returns true if the version in the Vdb is equal or newer than
 // 24.3.0-2.
 func (v *VerticaDB) isOnlineUpgradeSupported(vinf *version.Info) bool {
 	return vinf.IsEqualOrNewerWithHotfix(OnlineUpgradeVersion)
+}
+
+// IsPausedSessionsSupported returns true if the vertica version supports the expected pause sessions semantics
+func (v *VerticaDB) IsPausedSessionsSupported() bool {
+	vinf, ok := v.MakeVersionInfo()
+	if !ok {
+		return false
+	}
+	if vinf.IsEqualOrNewer(MinPauseSessionsVersion244) {
+		return true
+	}
+	// the only tricky one: ver needs to be at least 24.3-4, but can't be 24.4 (>= 24.4-1 is handled by the above if)
+	return vinf.IsEqualOrNewerWithHotfix(MinPauseSessionsVersion243) && vinf.IsEqualOrNewer(MinPauseSessionsVersion243)
 }
