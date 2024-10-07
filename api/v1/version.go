@@ -201,7 +201,7 @@ func (v *VerticaDB) isOnlineUpgradeSupported(vinf *version.Info) bool {
 	return vinf.IsEqualOrNewerWithHotfix(OnlineUpgradeVersion)
 }
 
-// IsPausedSessionsSupported returns true if the vertica version supports the expected pause sessions semantics
+// IsPausedSessionsSupported returns true if the vertica version has the is_paused column in vs_sessions
 func (v *VerticaDB) IsPausedSessionsSupported() bool {
 	vinf, ok := v.MakeVersionInfo()
 	if !ok {
@@ -216,4 +216,10 @@ func (v *VerticaDB) IsPausedSessionsSupported() bool {
 		panic(fmt.Sprintf("could not parse input version: %s", MinPauseSessionsVersion243))
 	}
 	return vinf.IsEqualOrNewerWithHotfix(MinPauseSessionsVersion243) && vinf.IsEqual(vinf243)
+}
+
+// as of this commit the jdbc driver doesn't fully support pause/redirect. once we support the client proxy and/or
+// the jdbc driver gets updated we can perform a similar version check as above
+func (v *VerticaDB) IsPauseRedirectFullySupported() bool {
+	return false
 }

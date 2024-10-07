@@ -736,6 +736,10 @@ func (i *UpgradeManager) closeAllUnpausedSessions(ctx context.Context, pfacts *P
 		sql = "select s.session_id from " +
 			"v_internal.vs_sessions s join v_catalog.users u using (user_name) " +
 			"where not " + isSuperuser
+	} else if !i.Vdb.IsPauseRedirectFullySupported() {
+		sql = "select s.session_id from " +
+			"v_internal.vs_sessions s join v_catalog.users u using (user_name) " +
+			"where not s.is_paused and not " + isSuperuser
 	}
 	sessionIds, stderr, err := pfacts.PRunner.ExecVSQL(ctx, pf.name, names.ServerContainer, "-tAc", sql)
 	if err != nil {
