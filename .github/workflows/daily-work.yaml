@@ -8,7 +8,7 @@ on:
 jobs:
   build-operator:
     runs-on: ubuntu-latest 
-    if: ${{ github.event.workflow_run.conclusion == 'success' && contains('server daily version', github.event.workflow_run.display_title) }}  
+    if: ${{ github.event.workflow_run.conclusion == 'success' && contains('server daily version', github.event.workflow_run.display_title) && contains('verticareleng', github.actor) }}  
     steps:
     - uses: actions/checkout@v4
       with:
