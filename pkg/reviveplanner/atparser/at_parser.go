@@ -44,6 +44,15 @@ func (a *Parser) GetDataPaths() []string {
 	return paths
 }
 
+// GetOtherPaths will return the user and temp paths for each node
+func (a *Parser) GetOtherPaths() []string {
+	paths := []string{}
+	for i := range a.Database.Nodes {
+		paths = append(paths, a.Database.Nodes[i].GetOtherPaths()...)
+	}
+	return paths
+}
+
 // GetDepotPaths will return the depot paths for each node
 func (a *Parser) GetDepotPaths() []string {
 	paths := []string{}
@@ -168,7 +177,12 @@ func MakeATParserFromVDB(vdb *vapi.VerticaDB, logger logr.Logger) Parser {
 
 // GetDataPaths returns the data paths for the node
 func (n *Node) GetDataPaths() []string {
-	return n.getPathsByUsage(util.UsageIsDataTemp)
+	return append(n.getPathsByUsage(util.UsageIsData), n.getPathsByUsage(util.UsageIsDataTemp)...)
+}
+
+// GetOtherPaths will return the user and temp paths for the node
+func (n *Node) GetOtherPaths() []string {
+	return append(n.getPathsByUsage(util.UsageIsTemp), n.getPathsByUsage(util.UsageIsUser)...)
 }
 
 // GetDepotPath returns the depot paths for the node

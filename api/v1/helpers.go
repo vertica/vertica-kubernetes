@@ -113,7 +113,7 @@ func MakeVDB() *VerticaDB {
 			Image:              "vertica-k8s:latest",
 			InitPolicy:         CommunalInitPolicyCreate,
 			Communal: CommunalStorage{
-				Path:             "s3://nimbusdb/mspilchen",
+				Path:             "s3://nimbusdb/cchen",
 				Endpoint:         "http://minio",
 				CredentialSecret: "s3-auth",
 				AdditionalConfig: make(map[string]string),
@@ -424,6 +424,11 @@ func (v *VerticaDB) IsOnlineUpgradeInProgress() bool {
 // IsROOnlineUpgradeInProgress returns true if an read-only online upgrade is in progress
 func (v *VerticaDB) IsROUpgradeInProgress() bool {
 	return v.IsStatusConditionTrue(ReadOnlyOnlineUpgradeInProgress)
+}
+
+// IsUpgradeInProgress returns true if an upgrade is in progress
+func (v *VerticaDB) IsUpgradeInProgress() bool {
+	return v.IsStatusConditionTrue(UpgradeInProgress)
 }
 
 // IsStatusConditionTrue returns true when the conditionType is present and set to
@@ -868,10 +873,22 @@ func (r *RestorePointPolicy) IsValidRestorePointPolicy() bool {
 	return r != nil && r.Archive != "" && ((r.Index > 0) != (r.ID != ""))
 }
 
-// IsRestoreEnabled will return whether the vdb is configured to initialize by reviving from
+// IsValidForSaveRestorePoint returns true if archive name to be used
+// for creating a restore point is set.
+func (r *RestorePointPolicy) IsValidForSaveRestorePoint() bool {
+	return r != nil && r.Archive != ""
+}
+
+// IsRestoreDuringReviveEnabled will return whether the vdb is configured to initialize by reviving from
 // a restore point in an archive
-func (v *VerticaDB) IsRestoreEnabled() bool {
+func (v *VerticaDB) IsRestoreDuringReviveEnabled() bool {
 	return v.Spec.InitPolicy == CommunalInitPolicyRevive && v.Spec.RestorePoint != nil
+}
+
+// IsSaveRestorepointEnabled returns true if the status condition that
+// control restore point is set to true.
+func (v *VerticaDB) IsSaveRestorepointEnabled() bool {
+	return v.IsStatusConditionTrue(SaveRestorePointNeeded)
 }
 
 // IsHTTPSTLSConfGenerationEnabled return true if the httpstls.json file should

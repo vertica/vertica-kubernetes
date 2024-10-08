@@ -1,0 +1,5 @@
+kind: Added
+body: Support reviving a database with multiple local data paths, local depot paths, and other types of local storage locations
+time: 2024-09-30T14:44:00.863246977-04:00
+custom:
+    Issue: "940"

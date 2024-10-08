@@ -72,10 +72,14 @@ func (v *VSQL) buildFetchNodeStateQuery() string {
 	} else {
 		cols = fmt.Sprintf("%s, ''", cols)
 	}
+	// During read-only online upgrade, we should use the old version to determine if we
+	// will append the sandbox state to the query.
+	// The reason is some subclusters might use a low version that does not contain
+	// the sandbox state.
+	vinf, ok := v.VDB.MakeVersionInfoDuringROUpgrade()
 	// The read-only state is a new state added in 11.0.2.  So we can only query
 	// for it on levels 11.0.2+.  Otherwise, we always treat read-only as being
 	// disabled.
-	vinf, ok := v.VDB.MakeVersionInfo()
 	if ok && vinf.IsEqualOrNewer(vapi.NodesHaveReadOnlyStateVersion) {
 		cols = fmt.Sprintf("%s, is_readonly", cols)
 	}
