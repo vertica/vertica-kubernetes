@@ -44,4 +44,4 @@ jobs:
       run: |
         echo "Pushing images with tag: $VERSION_SHA"
         # FIXME: uncomment the following
-        # docker buildx imagetools create --tag opentext/verticadb-operator:$VERSION ghcr.io/vertica/verticadb-operator:$VERSION_SHA
+        # docker buildx imagetools create --tag opentext/verticadb-operator-private:$VERSION ghcr.io/vertica/verticadb-operator:$VERSION_SHA
