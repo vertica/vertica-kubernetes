@@ -128,7 +128,7 @@ Vertica integrates with [Prometheus](https://prometheus.io) to collect time seri
 
 For more information, see [Prometheus Integration](https://docs.vertica.com/latest/en/containerized/db-operator/prometheus-integration/).
 
-# Security Vulnerability
+# Security Vulnerability Fix Policy
 
 Security vulnerabilities in the VerticaDB Operator image are fixed only in the latest version. If you're using an older version, upgrade to the newest release of the operator to ensure you receive all security patches. If you notice a security issue, report it using [Github Issues](https://github.com/vertica/vertica-kubernetes/issues) or the [Security Acknowledgements](https://www.opentext.com/about/security-acknowledgements) process.
 
