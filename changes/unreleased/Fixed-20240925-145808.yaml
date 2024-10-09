@@ -1,5 +1,0 @@
-kind: Fixed
-body: Resolved the issue where local.catalogPath cannot start with the database name
-time: 2024-09-25T14:58:08.27831131-04:00
-custom:
-    Issue: "934"
