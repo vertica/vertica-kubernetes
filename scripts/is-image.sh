@@ -60,6 +60,14 @@ then
 fi
 
 logAndRunCommand docker pull $IMG
+# Normally we would rely on the vertica-version label of the image but it is empty
+# for the latest-test-master image. Until we figure out why, we are adding
+# this work around to not skip some tests.
+if [[ "$IMG" == "docker.io/opentext/vertica-k8s-private:latest-test-master" ]]
+then
+    logInfo "$IMG is newer"
+    exit 1
+fi
 IMG_VER=$(determine_image_version $IMG)
 logInfo "Image $IMG has version $IMG_VER"
 logInfo "Checking if $IMG_VER is $COMPARE_TYPE than $COMPARE_VERSION"
