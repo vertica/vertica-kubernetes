@@ -19,13 +19,16 @@ import (
 	"context"
 	"time"
 
+	"github.com/pkg/errors"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/stopdb"
+	config "github.com/vertica/vertica-kubernetes/pkg/vdbconfig"
 	"github.com/vertica/vertica-kubernetes/pkg/vdbstatus"
+	"github.com/vertica/vertica-kubernetes/pkg/vk8s"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -34,7 +37,7 @@ import (
 
 // StopDBReconciler will stop the cluster and clear the restart needed status condition
 type StopDBReconciler struct {
-	VRec       *VerticaDBReconciler
+	VRec       config.ReconcilerInterface
 	Vdb        *vapi.VerticaDB // Vdb is the CRD we are acting on.
 	PRunner    cmds.PodRunner
 	PFacts     *PodFacts
@@ -43,7 +46,7 @@ type StopDBReconciler struct {
 
 // MakeStopDBReconciler will build a StopDBReconciler object
 func MakeStopDBReconciler(
-	vdbrecon *VerticaDBReconciler, vdb *vapi.VerticaDB, prunner cmds.PodRunner, pfacts *PodFacts,
+	vdbrecon config.ReconcilerInterface, vdb *vapi.VerticaDB, prunner cmds.PodRunner, pfacts *PodFacts,
 	dispatcher vadmin.Dispatcher,
 ) controllers.ReconcileActor {
 	return &StopDBReconciler{
@@ -79,13 +82,12 @@ func (s *StopDBReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl
 		if s.PFacts.SandboxName == vapi.MainCluster {
 			// Clear the condition now that we stopped the cluster.  We rely on the
 			// restart reconciler that follows this to bring up vertica.
-			err = vdbstatus.UpdateCondition(ctx, s.VRec.Client, s.Vdb,
+			err = vdbstatus.UpdateCondition(ctx, s.VRec.GetClient(), s.Vdb,
 				vapi.MakeCondition(vapi.VerticaRestartNeeded, metav1.ConditionFalse, "StopCompleted"),
 			)
 		} else {
-			err = s.markSandboxSubclustersForShutDown()
+			err = s.updatesandboxSubclusters(ctx)
 		}
-
 	}
 	return ctrl.Result{}, err
 }
@@ -96,6 +98,10 @@ func (s *StopDBReconciler) stopVertica(ctx context.Context) error {
 	if !ok {
 		// If no running pod found, then there is nothing to stop and we can just continue on
 		return nil
+	}
+
+	if err := s.PFacts.RemoveStartupFileInSandboxPods(ctx, s.Vdb, "removed startup.json before stop_db"); err != nil {
+		return err
 	}
 
 	// Run the stop_db command
@@ -124,6 +130,7 @@ func (s *StopDBReconciler) runATCmd(ctx context.Context, initiatorName types.Nam
 	return nil
 }
 
+// skipStopDB returns true if stop_db is not needed.
 func (s *StopDBReconciler) skipStopDB() bool {
 	if s.PFacts.SandboxName == vapi.MainCluster {
 		return !s.Vdb.IsStatusConditionTrue(vapi.VerticaRestartNeeded)
@@ -136,7 +143,33 @@ func (s *StopDBReconciler) skipStopDB() bool {
 	return true
 }
 
-func (s *StopDBReconciler) markSandboxSubclustersForShutDown() error {
+// updatesandboxSubclusters updates the shutdown state for the sandbox and its
+// subclusters.
+func (s *StopDBReconciler) updatesandboxSubclusters(ctx context.Context) error {
+	err := vdbstatus.SetSandboxShutdownState(ctx, s.VRec.GetClient(), s.Vdb, s.PFacts.GetSandboxName(), true)
+	if err != nil {
+		return err
+	}
 	// here mark all subclusters in the sandbox for shutdown
-	return nil
+	_, err = vk8s.UpdateVDBWithRetry(ctx, s.VRec, s.Vdb, s.markSandboxSubclustersForShutDown)
+	return err
+}
+
+// markSandboxSubclustersForShutDown marks the subclusters so that the operator
+// does not restart them.
+func (s *StopDBReconciler) markSandboxSubclustersForShutDown() (bool, error) {
+	sb := s.Vdb.GetSandbox(s.PFacts.SandboxName)
+	if sb == nil {
+		return false, errors.New("sandbox not found")
+	}
+	needUpdate := false
+	scMap := s.Vdb.GenSubclusterMap()
+	for i := range sb.Subclusters {
+		sc := scMap[sb.Subclusters[i].Name]
+		if !sc.Shutdown {
+			sc.Shutdown = true
+			needUpdate = true
+		}
+	}
+	return needUpdate, nil
 }

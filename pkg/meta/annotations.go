@@ -312,6 +312,9 @@ const (
 	// This will be set in a sandbox configMap by the vdb controller to wake up the sandbox
 	// controller for unsandboxing the subclusters
 	SandboxControllerUnsandboxTriggerID = "vertica.com/sandbox-controller-unsandbox-trigger-id"
+	// This will  be set in a sandbox configMap bu the vdb controller to wake up the sandbox
+	// controller for stopping/starting a sandbox
+	SandboxControllerShutdownTriggerID = "vertica.com/sandbox-controller-shutdown-trigger-id"
 
 	// Use this to override the name of the statefulset and its pods. This needs
 	// to be set in the spec.subclusters[].annotations field to take effect. If
