@@ -36,7 +36,6 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	config "github.com/vertica/vertica-kubernetes/pkg/vdbconfig"
-	"github.com/vertica/vertica-kubernetes/pkg/version"
 	"github.com/vertica/vertica-kubernetes/pkg/vk8s"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -772,21 +771,11 @@ func (p *PodFacts) checkIsDBCreated(_ context.Context, vdb *vapi.VerticaDB, pf *
 // the operator will call vclusterOps API to collect the node info. Otherwise, the operator will
 // execute vsql inside the pod to collect the node info.
 func (p *PodFacts) makeNodeInfoFetcher(vdb *vapi.VerticaDB, pf *PodFact) catalog.Fetcher {
-	var verInfo *version.Info
-	var ok bool
-	oldVerInfo, ok1 := vdb.MakePreviousVersionInfo()
-	newVerInfo, ok2 := vdb.MakeVersionInfo()
 	// During read-only online upgrade, we should use the old version to determine if we will call
 	// vclusterOps API to collect node info. The reason is some subclusters might uses
 	// a low version that does not contain vcluster API in the midst of the upgrade.
 	// Apart from the upgrade, we should check current version to make the decision.
-	if vdb.IsROUpgradeInProgress() {
-		verInfo = oldVerInfo
-		ok = ok1
-	} else {
-		verInfo = newVerInfo
-		ok = ok2
-	}
+	verInfo, ok := vdb.MakeVersionInfoDuringROUpgrade()
 	if verInfo != nil && ok {
 		if !verInfo.IsOlder(vapi.FetchNodeDetailsWithVclusterOpsMinVersion) && vmeta.UseVClusterOps(vdb.Annotations) {
 			return catalog.MakeVCluster(vdb, p.VerticaSUPassword, pf.podIP, p.Log, p.VRec.GetClient(), p.VRec.GetEventRecorder())

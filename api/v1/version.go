@@ -126,6 +126,23 @@ func (v *VerticaDB) MakePreviousVersionInfo() (*version.Info, bool) {
 	return version.MakeInfoFromStr(vdbVer)
 }
 
+// MakeVersionInfoDuringROUpgrade will construct an Info struct by extracting
+// the previous version is read-only online upgrade is in progress, from the
+// current version otherwise.
+func (v *VerticaDB) MakeVersionInfoDuringROUpgrade() (*version.Info, bool) {
+	if v.IsROUpgradeInProgress() {
+		vinf, ok := v.MakePreviousVersionInfo()
+		// During a downgrade attempt, the operator does not set
+		// the previous-version annotation, so if it cannot be parsed
+		// we will construct the Info from the version annotation even
+		// if read-only online upgrade is in progress
+		if ok {
+			return vinf, ok
+		}
+	}
+	return v.MakeVersionInfo()
+}
+
 // MakeVersionInfoCheck is like MakeVersionInfo but returns an error if the
 // version is missing. Use this in places where it is a failure if the version
 // is missing.
@@ -184,15 +201,25 @@ func (v *VerticaDB) isOnlineUpgradeSupported(vinf *version.Info) bool {
 	return vinf.IsEqualOrNewerWithHotfix(OnlineUpgradeVersion)
 }
 
-// IsPausedSessionsSupported returns true if the vertica version supports the expected pause sessions semantics
+// IsPausedSessionsSupported returns true if the vertica version has the is_paused column in vs_sessions
 func (v *VerticaDB) IsPausedSessionsSupported() bool {
 	vinf, ok := v.MakeVersionInfo()
 	if !ok {
 		return false
 	}
-	if vinf.IsEqualOrNewer(MinPauseSessionsVersion244) {
+	if vinf.IsEqualOrNewerWithHotfix(MinPauseSessionsVersion244) {
 		return true
 	}
 	// the only tricky one: ver needs to be at least 24.3-4, but can't be 24.4 (>= 24.4-1 is handled by the above if)
-	return vinf.IsEqualOrNewerWithHotfix(MinPauseSessionsVersion243) && vinf.IsEqualOrNewer(MinPauseSessionsVersion243)
+	vinf243, ok := version.MakeInfoFromStr(MinPauseSessionsVersion243)
+	if !ok {
+		panic(fmt.Sprintf("could not parse input version: %s", MinPauseSessionsVersion243))
+	}
+	return vinf.IsEqualOrNewerWithHotfix(MinPauseSessionsVersion243) && vinf.IsEqual(vinf243)
+}
+
+// as of this commit the jdbc driver doesn't fully support pause/redirect. once we support the client proxy and/or
+// the jdbc driver gets updated we can perform a similar version check as above
+func (v *VerticaDB) IsPauseRedirectFullySupported() bool {
+	return false
 }

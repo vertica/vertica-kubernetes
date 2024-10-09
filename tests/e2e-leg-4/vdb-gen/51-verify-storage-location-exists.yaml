@@ -10,9 +10,15 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-apiVersion: v2
-name: verticadb-operator
-description: An operator that can deploy and manage Vertica clusters
-type: application
-# Versions follow Semantic Versioning (https://semver.org/)
-version: 24.4.0-0
+
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  # verify the storage location is still in database
+  - script: |
+      val=$(kubectl exec -n $NAMESPACE v-vdb-gen-revive-sc1-0 -c server -- vsql -w superuser -tAc "select count(*) from storage_locations where location_path = '/tmp/test' and location_usage = 'DATA,TEMP'"); \
+      if [ $val == 0 ]; then \
+        exit 1; \
+      fi
+  # verify the directory is created in the pod
+  - command: kubectl exec -n $NAMESPACE v-vdb-gen-revive-sc1-0 -c server -- test -d /tmp/test
