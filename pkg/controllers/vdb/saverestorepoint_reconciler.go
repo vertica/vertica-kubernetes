@@ -34,27 +34,23 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // SaveRestorePointReconciler saves a restore point to an archive, and create the archive if it doesn't exist
 type SaveRestorePointReconciler struct {
-	VRec *VerticaDBReconciler
-	Vdb  *vapi.VerticaDB
-	Log  logr.Logger
-	client.Client
-	Dispatcher  vadmin.Dispatcher
-	PFacts      *PodFacts
-	InitiatorIP string // The IP of the pod that we run vclusterOps from
+	VRec       *VerticaDBReconciler
+	Vdb        *vapi.VerticaDB
+	Log        logr.Logger
+	Dispatcher vadmin.Dispatcher
+	PFacts     *PodFacts
 }
 
 func MakeSaveRestorePointReconciler(r *VerticaDBReconciler, vdb *vapi.VerticaDB, log logr.Logger,
-	pfacts *PodFacts, dispatcher vadmin.Dispatcher, cli client.Client) controllers.ReconcileActor {
+	pfacts *PodFacts, dispatcher vadmin.Dispatcher) controllers.ReconcileActor {
 	return &SaveRestorePointReconciler{
 		VRec:       r,
 		Log:        log.WithName("SaveRestorePointReconciler"),
 		Vdb:        vdb,
-		Client:     cli,
 		Dispatcher: dispatcher,
 		PFacts:     pfacts,
 	}
@@ -215,6 +211,8 @@ func (s *SaveRestorePointReconciler) updateVDB(ctx context.Context, start, end t
 		vdb.Status.RestorePoint.Archive = s.Vdb.Spec.RestorePoint.Archive
 		vdb.Status.RestorePoint.StartTimestamp = start.Format("2006-01-02 15:04:05.000000000")
 		vdb.Status.RestorePoint.EndTimestamp = end.Format("2006-01-02 15:04:05.000000000")
+		// A separate reconciler will handle this
+		vdb.Status.RestorePoint.Details = nil
 		return nil
 	}
 	// Clear the condition and add a status after restore point creation.

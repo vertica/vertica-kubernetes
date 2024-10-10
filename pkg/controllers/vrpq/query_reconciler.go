@@ -45,7 +45,6 @@ const (
 	stateQuerying     = "Querying"
 	stateSuccessQuery = "Query successful"
 	stateFailedQuery  = "Query failed"
-	podRunning        = "Running"
 )
 
 type QueryReconciler struct {
@@ -107,7 +106,7 @@ func (q *QueryReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.
 	// extract out the communal and config information to pass down to the vclusterops API.
 	opts := []showrestorepoints.Option{}
 	opts = append(opts,
-		showrestorepoints.WithInitiator(q.Vrpq.ExtractNamespacedName(), podIP),
+		showrestorepoints.WithInitiator(podIP),
 		showrestorepoints.WithCommunalPath(q.Vdb.GetCommunalPath()),
 		showrestorepoints.WithConfigurationParams(q.ConfigurationParams.GetMap()),
 	)
@@ -179,16 +178,12 @@ func (q *QueryReconciler) runShowRestorePoints(ctx context.Context, dispatcher v
 // findRunningPodWithNMAContainer finds a pod to execute the vclusterops API.
 // The pod should be running and the NMA container should be ready
 func (q *QueryReconciler) findRunningPodWithNMAContainer(pods *corev1.PodList) (string, ctrl.Result) {
-	for i := range pods.Items {
-		pod := &pods.Items[i]
-		if pod.Status.Phase == podRunning {
-			if vk8s.IsNMAContainerReady(pod) {
-				return pod.Status.PodIP, ctrl.Result{}
-			}
-		}
+	podIP := vk8s.FindRunningPodWithNMAContainer(pods)
+	if podIP == "" {
+		q.Log.Info("couldn't find any pod to run the query")
+		return "", ctrl.Result{Requeue: true}
 	}
-	q.Log.Info("couldn't find any pod to run the query")
-	return "", ctrl.Result{Requeue: true}
+	return podIP, ctrl.Result{}
 }
 
 // makeDispatcher will create a Dispatcher object based on the feature flags set.
