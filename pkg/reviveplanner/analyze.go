@@ -238,6 +238,11 @@ func (p *Planner) extractPathPrefixFromVNodePath(path string) (string, bool) {
 	// Path will come in the form: <prefix>/<dbname>/v_<dbname>_<nodenum>_<pathType>
 	// This function will return <prefix>.
 	dbName := p.Parser.GetDatabaseName()
+	return ExtractNodePathPrefix(path, dbName)
+}
+
+// ExtractNodePathPrefix will extract out the prefix of a vertica POSIX path.
+func ExtractNodePathPrefix(path, dbName string) (string, bool) {
 	r := regexp.MustCompile(fmt.Sprintf(`(.*)/%s/v_%s_node[0-9]{4}_`, dbName, strings.ToLower(dbName)))
 	m := r.FindStringSubmatch(path)
 	const ExpectedMatches = 2

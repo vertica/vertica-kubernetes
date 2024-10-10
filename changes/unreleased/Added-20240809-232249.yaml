@@ -1,5 +1,0 @@
-kind: Added
-body: Expose time range options for log collection in VerticaScrutinize CR
-time: 2024-08-09T23:22:49.559227255-04:00
-custom:
-    Issue: "885"

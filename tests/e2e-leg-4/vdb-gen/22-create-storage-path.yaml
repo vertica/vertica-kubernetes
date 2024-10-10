@@ -14,12 +14,4 @@
 apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 commands:
-  - command: >
-      kubectl patch vdb v-restore-point --type='json' -p='[{
-      "op": "add", 
-      "path": "/status/conditions/-", 
-      "value": {"type": "SaveRestorePointNeeded", "status": "True", "message": "test", "reason": "test", "lastTransitionTime": "2024-09-16T21:38:27Z"}
-      }]' --subresource='status'
-    namespaced: true
-  - command: kubectl wait --for=condition=SaveRestorePointNeeded=True vdb/v-restore-point --timeout=600s
-    namespaced: true
+  - command: kubectl exec --namespace $NAMESPACE v-vdb-gen-sc1-0 -c server -- vsql -w superuser -c "create location '/tmp/test' ALL NODES USAGE 'DATA,TEMP';"
