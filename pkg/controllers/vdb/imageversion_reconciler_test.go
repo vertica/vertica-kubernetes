@@ -92,7 +92,7 @@ vertica(v11.1.0) built by @re-docker2 from tag@releases/VER_10_1_RELEASE_BUILD_1
 		Expect(k8sClient.Status().Update(ctx, vdb)).Should(Succeed())
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
-		test.CreateConfigMap(ctx, k8sClient, vdb, "", sbName)
+		test.CreateConfigMap(ctx, k8sClient, vdb, "", "", sbName)
 		defer test.DeleteConfigMap(ctx, k8sClient, vdb, sbName)
 
 		fpr := &cmds.FakePodRunner{}

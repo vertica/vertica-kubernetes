@@ -164,8 +164,12 @@ func (r *SandboxConfigMapReconciler) constructActors(vdb *v1.VerticaDB, log logr
 		vdbcontroller.MakeOfflineUpgradeReconciler(r, log, vdb, prunner, pfacts, dispatcher),
 		// Add annotations/labels to each pod about the host running them
 		vdbcontroller.MakeAnnotateAndLabelPodReconciler(r, log, vdb, pfacts),
+		// Stop Vertica in the sandbox if the shutdown state is true
+		vdbcontroller.MakeStopDBReconciler(r, vdb, prunner, pfacts, dispatcher),
 		// Restart any down pods
 		vdbcontroller.MakeRestartReconciler(r, log, vdb, prunner, pfacts, true, dispatcher),
+		// Update the sandbox and its subclusters' shutdown state
+		MakeRestartSandboxReconciler(r, vdb, pfacts, log),
 	}
 }
 
