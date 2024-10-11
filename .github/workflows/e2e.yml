@@ -656,7 +656,14 @@ jobs:
       e2e-leg-10-vcluster,
       e2e-server-upgrade-vcluster,
       e2e-operator-upgrade,
-      e2e-udx-vcluster
+      e2e-udx-vcluster,
+      e2e-leg-1-admintools,
+      e2e-leg-2-admintools, 
+      e2e-leg-3-admintools, 
+      e2e-leg-4-admintools, 
+      e2e-leg-5-admintools, 
+      e2e-server-upgrade-admintools, 
+      e2e-udx-admintools
     ]
     runs-on: ubuntu-latest 
     if: ${{ always() && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') && contains('server daily version', github.event.workflow_run.display_title) && contains('verticareleng', github.actor) }}  
