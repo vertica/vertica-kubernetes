@@ -414,6 +414,7 @@ jobs:
         action: aquasecurity/trivy-action@0.24.0
         retry_condition: steps._this.outputs.code == 0
         with: |
+          image-ref: ${{ steps.operator_image.outputs.value }}
           ignore-unfixed: true
           format: sarif
           output: trivy-results-verticadb-operator-image.sarif
@@ -431,9 +432,10 @@ jobs:
         action: aquasecurity/trivy-action@0.24.0
         retry_condition: steps._this.outputs.code == 0
         with: |
+          image-ref: ${{ steps.operator_image.outputs.value }}
           ignore-unfixed: true
           format: table
-          output: trivy-results-verticadb-operator-image.out
+          output: trivy-results-verticadb-operator-image.out'
     
     - name: Generate Warning Annotations
       if: ${{ hashFiles('trivy-results-verticadb-operator-image.out') != '' }}
@@ -529,6 +531,7 @@ jobs:
         action: aquasecurity/trivy-action@0.24.0
         retry_condition: steps._this.outputs.code == 0
         with: |
+          image-ref: ${{ steps.vlogger_image.outputs.value }}
           ignore-unfixed: true
           format: sarif
           output: trivy-results-vertica-logger-image.sarif
@@ -547,6 +550,7 @@ jobs:
         action: aquasecurity/trivy-action@0.24.0
         retry_condition: steps._this.outputs.code == 0
         with: |
+          image-ref: ${{ steps.vlogger_image.outputs.value }}
           ignore-unfixed: true
           format: table
           output: trivy-results-vertica-logger-image.out
