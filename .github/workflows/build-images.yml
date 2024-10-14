@@ -120,15 +120,18 @@ jobs:
     # We never run the sarif scanner in PRs because PRs don't have permission
     # to upload the results to github.
     - name: Run the Trivy vulnerability scanner (sarif)
-      uses: aquasecurity/trivy-action@0.24.0
+      uses: Wandalen/wretry.action@master
       if: ${{ inputs.run_security_scan == 'all' && github.event_name != 'pull_request' }}
       with:
-        image-ref: ${{ steps.full_vertica_image.outputs.value }}
-        ignore-unfixed: true
-        security-checks: vuln
-        timeout: '20m0s'
-        format: 'sarif'
-        output: 'trivy-results-vertica-image.sarif'
+        action: aquasecurity/trivy-action@0.24.0
+        retry_condition: steps._this.outputs.code == 0
+        with:
+          image-ref: ${{ steps.full_vertica_image.outputs.value }}
+          ignore-unfixed: true
+          security-checks: vuln
+          timeout: '20m0s'
+          format: 'sarif'
+          output: 'trivy-results-vertica-image.sarif'
 
     - name: Upload Trivy scan results to GitHub Security tab
       uses: github/codeql-action/upload-sarif@v3
@@ -137,15 +140,18 @@ jobs:
         sarif_file: 'trivy-results-vertica-image.sarif'
 
     - name: Run the Trivy vulnerability scanner (pretty print)
-      uses: aquasecurity/trivy-action@0.24.0
+      uses: Wandalen/wretry.action@master
       if: ${{ inputs.run_security_scan == 'all' }}
       with:
-        image-ref: ${{ steps.full_vertica_image.outputs.value }}
-        ignore-unfixed: true
-        security-checks: vuln
-        timeout: '20m0s'
-        format: 'table'
-        output: 'trivy-results-vertica-image.out'
+        action: aquasecurity/trivy-action@0.24.0
+        retry_condition: steps._this.outputs.code == 0
+        with:
+          image-ref: ${{ steps.full_vertica_image.outputs.value }}
+          ignore-unfixed: true
+          security-checks: vuln
+          timeout: '20m0s'
+          format: 'table'
+          output: 'trivy-results-vertica-image.out'
         
     - name: Generate Warning Annotations
       if: ${{ hashFiles('trivy-results-vertica-image.out') != '' }}
@@ -402,13 +408,16 @@ jobs:
         docker pull ${{ inputs.operator_image }}
 
     - name: Run the Trivy vulnerability scanner (sarif)
-      uses: aquasecurity/trivy-action@0.24.0
+      uses: Wandalen/wretry.action@master
       if: ${{ inputs.run_security_scan != 'none' && github.event_name != 'pull_request' }}
       with:
-        image-ref: ${{ steps.operator_image.outputs.value }}
-        ignore-unfixed: true
-        format: 'sarif'
-        output: 'trivy-results-verticadb-operator-image.sarif'
+        action: aquasecurity/trivy-action@0.24.0
+        retry_condition: steps._this.outputs.code == 0
+        with:
+          image-ref: ${{ steps.operator_image.outputs.value }}
+          ignore-unfixed: true
+          format: 'sarif'
+          output: 'trivy-results-verticadb-operator-image.sarif'
 
     - name: Upload Trivy scan results to GitHub Security tab
       uses: github/codeql-action/upload-sarif@v3
@@ -417,13 +426,16 @@ jobs:
         sarif_file: 'trivy-results-verticadb-operator-image.sarif'
 
     - name: Run the Trivy vulnerability scanner (pretty print)
-      uses: aquasecurity/trivy-action@0.24.0
+      uses: Wandalen/wretry.action@master
       if: ${{ inputs.run_security_scan != 'none' }}
       with:
-        image-ref: ${{ steps.operator_image.outputs.value }}
-        ignore-unfixed: true
-        format: 'table'
-        output: 'trivy-results-verticadb-operator-image.out'
+        action: aquasecurity/trivy-action@0.24.0
+        retry_condition: steps._this.outputs.code == 0
+        with:
+          image-ref: ${{ steps.operator_image.outputs.value }}
+          ignore-unfixed: true
+          format: 'table'
+          output: 'trivy-results-verticadb-operator-image.out'
     
     - name: Generate Warning Annotations
       if: ${{ hashFiles('trivy-results-verticadb-operator-image.out') != '' }}
