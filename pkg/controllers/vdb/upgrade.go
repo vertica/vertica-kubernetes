@@ -845,8 +845,18 @@ func (i *UpgradeManager) routeClientTraffic(ctx context.Context, pfacts *PodFact
 func (i *UpgradeManager) logEventIfRequestedUpgradeIsDifferent(actualUpgrade vapi.UpgradePolicyType) {
 	if !i.ContinuingUpgrade && i.Vdb.Spec.UpgradePolicy != actualUpgrade && i.Vdb.Spec.UpgradePolicy != vapi.AutoUpgrade {
 		actualUpgradeAsText := strings.ToLower(string(actualUpgrade))
+
 		i.Rec.Eventf(i.Vdb, corev1.EventTypeNormal, events.IncompatibleUpgradeRequested,
 			"Requested upgrade is incompatible with the Vertica deployment. Falling back to %s upgrade.", actualUpgradeAsText)
+
+		if i.Vdb.Spec.UpgradePolicy == "Online" {
+			i.Log.Info("Online upgrade prerequisites are not met. Please make sure: " +
+				"1. Vertica server version is 24.3.0-2 or higher. " +
+				"2. Cluster was deployed using `vclusterops`. " +
+				"3. A license file was applied. " +
+				"4. No sandbox defined. " +
+				"5. All nodes are in UP status")
+		}
 	}
 }
 
