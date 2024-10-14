@@ -384,6 +384,18 @@ func (s *Subcluster) GetService(ctx context.Context, vdb *VerticaDB, c client.Cl
 	return
 }
 
+// IsZombie checks if a subcluster is zombie. A zombie subcluster
+// is a subcluster that belongs to a sandbox that no longer exist.
+// It can happen when you remove both a sandbox and all its subclusters
+// from the vdb at once.
+func (s *Subcluster) IsZombie(vdb *VerticaDB) bool {
+	sbName := s.Annotations[vmeta.SandboxNameLabel]
+	if sbName == MainCluster {
+		return false
+	}
+	return vdb.GetSandbox(sbName) == nil && vdb.GetSandboxStatus(sbName) == nil
+}
+
 // FindSubclusterForServiceName will find any subclusters that match the given service name
 func (v *VerticaDB) FindSubclusterForServiceName(svcName string) (scs []*Subcluster, totalSize int32) {
 	totalSize = int32(0)

@@ -1053,6 +1053,17 @@ var _ = Describe("verticadb_webhook", func() {
 		}
 		Ω(newVdb.validateImmutableFields(oldVdb)).Should(HaveLen(1))
 
+		newVdb.Spec.Subclusters = []Subcluster{
+			{Name: "main", Size: 3, Type: PrimarySubcluster, ServiceType: v1.ServiceTypeClusterIP},
+			{Name: "sc2", Size: 3, Type: SecondarySubcluster, ServiceType: v1.ServiceTypeClusterIP},
+			{Name: "sc3", Size: 3, Type: SecondarySubcluster, ServiceType: v1.ServiceTypeClusterIP},
+			{Name: "sc4", Size: 3, Type: SecondarySubcluster, ServiceType: v1.ServiceTypeClusterIP},
+		}
+		newVdb.Spec.Sandboxes = []Sandbox{
+			{Name: "sandbox2", Image: mainClusterImageVer, Subclusters: []SubclusterName{{Name: "sc2"}}},
+		}
+		Ω(newVdb.validateImmutableFields(oldVdb)).Should(HaveLen(0))
+
 		// can remove an unsandboxed subcluster
 		// remove sc4 which is not in a sandbox of oldVdb
 		newVdb.Spec.Subclusters = []Subcluster{
@@ -1066,6 +1077,7 @@ var _ = Describe("verticadb_webhook", func() {
 			{Name: "sandbox2", Image: mainClusterImageVer, Subclusters: []SubclusterName{{Name: "sc2"}, {Name: "sc3"}}},
 		}
 		Ω(newVdb.validateImmutableFields(oldVdb)).Should(HaveLen(0))
+
 	})
 
 	It("should validate sandboxes", func() {
