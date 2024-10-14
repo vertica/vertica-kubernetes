@@ -408,6 +408,7 @@ jobs:
         docker pull ${{ inputs.operator_image }}
 
     - name: Run the Trivy vulnerability scanner (sarif)
+      shell: bash
       uses: Wandalen/wretry.action@master
       if: ${{ inputs.run_security_scan != 'none' && github.event_name != 'pull_request' }}
       with:
@@ -426,6 +427,7 @@ jobs:
         sarif_file: 'trivy-results-verticadb-operator-image.sarif'
 
     - name: Run the Trivy vulnerability scanner (pretty print)
+      shell: bash
       uses: Wandalen/wretry.action@master
       if: ${{ inputs.run_security_scan != 'none' }}
       with:
@@ -525,6 +527,7 @@ jobs:
         docker pull ${{ inputs.vlogger_image }}
 
     - name: Run the Trivy vulnerability scanner (sarif)
+      shell: bash
       uses: Wandalen/wretry.action@master
       if: ${{ inputs.run_security_scan != 'none' && github.event_name != 'pull_request' }}
       with:
@@ -543,6 +546,7 @@ jobs:
         sarif_file: 'trivy-results-vertica-logger-image.sarif'
 
     - name: Run the Trivy vulnerability scanner (pretty print)
+      shell: bash
       id: trivy_scan
       uses: Wandalen/wretry.action@master
       if: ${{ inputs.run_security_scan != 'none' }}
