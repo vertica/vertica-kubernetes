@@ -129,9 +129,9 @@ jobs:
           image-ref: ${{ steps.full_vertica_image.outputs.value }}
           ignore-unfixed: true
           security-checks: vuln
-          timeout: '20m0s'
-          format: 'sarif'
-          output: 'trivy-results-vertica-image.sarif'
+          timeout: 20m0s
+          format: sarif
+          output: trivy-results-vertica-image.sarif
 
     - name: Upload Trivy scan results to GitHub Security tab
       uses: github/codeql-action/upload-sarif@v3
@@ -149,9 +149,9 @@ jobs:
           image-ref: ${{ steps.full_vertica_image.outputs.value }}
           ignore-unfixed: true
           security-checks: vuln
-          timeout: '20m0s'
-          format: 'table'
-          output: 'trivy-results-vertica-image.out'
+          timeout: 20m0s
+          format: table
+          output: trivy-results-vertica-image.out
         
     - name: Generate Warning Annotations
       if: ${{ hashFiles('trivy-results-vertica-image.out') != '' }}
@@ -416,8 +416,8 @@ jobs:
         with: |
           image-ref: ${{ steps.operator_image.outputs.value }}
           ignore-unfixed: true
-          format: 'sarif'
-          output: 'trivy-results-verticadb-operator-image.sarif'
+          format: sarif
+          output: trivy-results-verticadb-operator-image.sarif
 
     - name: Upload Trivy scan results to GitHub Security tab
       uses: github/codeql-action/upload-sarif@v3
@@ -434,8 +434,8 @@ jobs:
         with: |
           image-ref: ${{ steps.operator_image.outputs.value }}
           ignore-unfixed: true
-          format: 'table'
-          output: 'trivy-results-verticadb-operator-image.out'
+          format: table
+          output: trivy-results-verticadb-operator-image.out
     
     - name: Generate Warning Annotations
       if: ${{ hashFiles('trivy-results-verticadb-operator-image.out') != '' }}
@@ -533,8 +533,8 @@ jobs:
         with: |
           image-ref: ${{ steps.vlogger_image.outputs.value }}
           ignore-unfixed: true
-          format: 'sarif'
-          output: 'trivy-results-vertica-logger-image.sarif'
+          format: sarif
+          output: trivy-results-vertica-logger-image.sarif
 
     - name: Upload Trivy scan results to GitHub Security tab
       uses: github/codeql-action/upload-sarif@v3
@@ -552,8 +552,8 @@ jobs:
         with: |
           image-ref: ${{ steps.vlogger_image.outputs.value }}
           ignore-unfixed: true
-          format: 'table'
-          output: 'trivy-results-vertica-logger-image.out'
+          format: table
+          output: trivy-results-vertica-logger-image.out
 
     - name: Generate Warning Annotations
       if: ${{ hashFiles('trivy-results-vertica-logger-image.out') != '' }}
