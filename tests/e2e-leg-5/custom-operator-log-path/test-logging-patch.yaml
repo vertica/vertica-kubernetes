@@ -28,7 +28,7 @@ spec:
         - while true; do tail -n 1 /logs/try.log; sleep 5;done
         command:
         - /bin/sh
-        image: quay.io/helmpack/chart-testing:v3.3.1
+        image: quay.io/helmpack/chart-testing:v3.11.0
         name: sidecar-container
         securityContext:
           runAsUser: 65532
