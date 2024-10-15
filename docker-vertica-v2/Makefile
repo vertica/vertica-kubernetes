@@ -37,8 +37,8 @@ ifdef VERTICA_X86_VERSION
 VERTICA_VERSION=$(VERTICA_X86_VERSION)
 ifdef VERTICA_ARM_VERSION
 ifneq ($(VERTICA_ARM_VERSION), $(VERTICA_X86_VERSION))
-	$(error RPM version mismatch $(VERTICA_X86_RPM) $(VERTICA_ARM64_RPM))
-	exit 1
+$(error RPM version mismatch $(VERTICA_X86_RPM) $(VERTICA_ARM64_RPM))
+exit 1
 endif
 endif
 endif
