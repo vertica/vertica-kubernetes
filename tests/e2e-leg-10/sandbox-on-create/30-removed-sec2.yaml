@@ -14,7 +14,7 @@
 apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
-  name: v-sandbox
+  name: v-sandbox-on-create
 spec:
   sandboxes:
   - name: sand1
