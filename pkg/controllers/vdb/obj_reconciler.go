@@ -569,8 +569,7 @@ func (o *ObjReconciler) checkIfReadyForStsUpdate(newStsSize int32, sts *appsv1.S
 	return ctrl.Result{}, nil
 }
 
-// getZombieSubclusters returns the subclusters that belongs to a sandbox that does not
-// exist anymore.
+// getZombieSubclusters returns all the zombie subclusters
 func (o *ObjReconciler) getZombieSubclusters(ctx context.Context) ([]vapi.Subcluster, error) {
 	subclusters := []vapi.Subcluster{}
 	finder := iter.MakeSubclusterFinder(o.Rec.GetClient(), o.Vdb)
