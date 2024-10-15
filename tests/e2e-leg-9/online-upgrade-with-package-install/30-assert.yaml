@@ -14,7 +14,7 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: v-base-upgrade-sec1
+  name: v-base-upgrade-sec2
 status:
-  currentReplicas: 2
-  readyReplicas: 2
+  currentReplicas: 1
+  readyReplicas: 1
