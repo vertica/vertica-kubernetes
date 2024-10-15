@@ -165,6 +165,8 @@ func (r *OnlineUpgradeReconciler) Reconcile(ctx context.Context, _ *ctrl.Request
 
 	// Functions to perform when the image changes.  Order matters.
 	funcs := []func(context.Context) (ctrl.Result, error){
+		// Requeue if not all nodes are UP
+		r.checkUpNodes,
 		// Initiate an upgrade by setting condition and event recording
 		r.startUpgrade,
 		r.logEventIfThisUpgradeWasNotChosen,
@@ -287,6 +289,29 @@ func (r *OnlineUpgradeReconciler) loadUpgradeState(ctx context.Context) (ctrl.Re
 
 	r.sandboxName = vmeta.GetOnlineUpgradeSandbox(r.VDB.Annotations)
 	r.Log.Info("load upgrade state", "sandboxName", r.sandboxName, "primaryImages", r.Manager.PrimaryImages)
+	return ctrl.Result{}, nil
+}
+
+// checkUpNodes will requeue the upgrade process if not all the main cluster nodes are up.
+func (r *OnlineUpgradeReconciler) checkUpNodes(ctx context.Context) (ctrl.Result, error) {
+	// We skip this if we have already added the new subclusters
+	if vmeta.GetOnlineUpgradeStepInx(r.VDB.Annotations) > addSubclustersInx {
+		return ctrl.Result{}, nil
+	}
+
+	mainPFacts := r.PFacts[vapi.MainCluster]
+	// All nodes in the main cluster must be up before running online upgrade
+	if mainPFacts.getUpNodeCount() != len(mainPFacts.Detail) {
+		r.VRec.Eventf(r.VDB, corev1.EventTypeWarning, events.NotAllNodesUp,
+			"Not all pods are up. Number of up nodes: %d. Number of nodes: %d",
+			mainPFacts.getUpNodeCount(), len(mainPFacts.Detail))
+		return ctrl.Result{Requeue: true}, nil
+	}
+
+	r.Log.Info("Get number of up nodes.",
+		"NumberOfUpNodes", mainPFacts.getUpNodeCount(),
+		"NumberOfNodes", len(mainPFacts.Detail))
+
 	return ctrl.Result{}, nil
 }
 
