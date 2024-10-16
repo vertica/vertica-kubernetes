@@ -165,7 +165,7 @@ func (r *OnlineUpgradeReconciler) Reconcile(ctx context.Context, _ *ctrl.Request
 
 	// Functions to perform when the image changes.  Order matters.
 	funcs := []func(context.Context) (ctrl.Result, error){
-		// Requeue if not all nodes are UP
+		// Requeue if not all nodes are up
 		r.checkUpNodes,
 		// Initiate an upgrade by setting condition and event recording
 		r.startUpgrade,
@@ -303,7 +303,7 @@ func (r *OnlineUpgradeReconciler) checkUpNodes(ctx context.Context) (ctrl.Result
 	// All nodes in the main cluster must be up before running online upgrade
 	if mainPFacts.getUpNodeCount() != len(mainPFacts.Detail) {
 		r.VRec.Eventf(r.VDB, corev1.EventTypeWarning, events.NotAllNodesUp,
-			"Not all nodes (%d/%d) are up, restarting the main cluster. Please also check the cluster configuration.",
+			"Not all nodes (%d/%d) are up, restarting the main cluster. Please check the cluster configuration if this issue continues.",
 			mainPFacts.getUpNodeCount(), len(mainPFacts.Detail))
 
 		// try to restart the main cluster, requeuing online upgrade
