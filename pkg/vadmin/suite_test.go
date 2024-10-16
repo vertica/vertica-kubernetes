@@ -159,18 +159,18 @@ func (m *MockVClusterOps) VerifyCommonOptions(options *vops.DatabaseOptions) err
 // VerifyTargetDBNameUserNamePassword is used in vcluster-ops unit test for verifying the target db name,
 // username and password in a replication
 func (m *MockVClusterOps) VerifyTargetDBNameUserNamePassword(options *vops.VReplicationDatabaseOptions) error {
-	if options.TargetDB != TestTargetDBName {
+	if options.TargetDB.DBName != TestTargetDBName {
 		return fmt.Errorf("failed to retrieve target db name")
 	}
-	if options.TargetUserName != TestTargetUserName {
+	if options.TargetDB.UserName != TestTargetUserName {
 		return fmt.Errorf("failed to retrieve target username")
 	}
 	if options.SourceTLSConfig != "" {
-		if options.TargetPassword != nil {
+		if options.TargetDB.Password != nil {
 			return fmt.Errorf("target password is not nil when source TLS config is set")
 		}
 	} else {
-		if *options.TargetPassword != TestTargetPassword {
+		if *options.TargetDB.Password != TestTargetPassword {
 			return fmt.Errorf("failed to retrieve target password")
 		}
 	}
@@ -292,7 +292,7 @@ func (m *MockVClusterOps) VerifySourceAndTargetIPs(options *vops.VReplicationDat
 	if len(options.RawHosts) != 1 || options.RawHosts[0] != TestSourceIP {
 		return fmt.Errorf("failed to load source IP")
 	}
-	if len(options.TargetHosts) != 1 || options.TargetHosts[0] != TestTargetIP {
+	if len(options.TargetDB.Hosts) != 1 || options.TargetDB.Hosts[0] != TestTargetIP {
 		return fmt.Errorf("failed to load target IP")
 	}
 	return nil
