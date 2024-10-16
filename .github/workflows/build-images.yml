@@ -65,6 +65,10 @@ permissions:
   packages: write
   security-events: write
 
+env:
+  TRIVY_DB_REPOSITORY: ${{ env.TRIVY_DB_REPOSITORY}}"
+  TRIVY_JAVA_DB_REPOSITORY: ${{ env.TRIVY_JAVA_DB_REPOSITORY}}"
+
 jobs:
   build-server-full:
     runs-on: ubuntu-latest
@@ -130,8 +134,8 @@ jobs:
         format: 'sarif'
         output: 'trivy-results-vertica-image.sarif'
       env:
-        TRIVY_DB_REPOSITORY: ghcr.io/aquasecurity/trivy-db,public.ecr.aws/aquasecurity/trivy-db
-        TRIVY_JAVA_DB_REPOSITORY: ghcr.io/aquasecurity/trivy-java-db,public.ecr.aws/aquasecurity/trivy-java-db
+        TRIVY_DB_REPOSITORY: ${{ env.TRIVY_DB_REPOSITORY}}"
+        TRIVY_JAVA_DB_REPOSITORY: ${{ env.TRIVY_JAVA_DB_REPOSITORY}}"
 
     - name: Upload Trivy scan results to GitHub Security tab
       uses: github/codeql-action/upload-sarif@v3
@@ -150,8 +154,8 @@ jobs:
         format: 'table'
         output: 'trivy-results-vertica-image.out'
       env:
-        TRIVY_DB_REPOSITORY: ghcr.io/aquasecurity/trivy-db,public.ecr.aws/aquasecurity/trivy-db
-        TRIVY_JAVA_DB_REPOSITORY: ghcr.io/aquasecurity/trivy-java-db,public.ecr.aws/aquasecurity/trivy-java-db
+        TRIVY_DB_REPOSITORY: ${{ env.TRIVY_DB_REPOSITORY}}"
+        TRIVY_JAVA_DB_REPOSITORY: ${{ env.TRIVY_JAVA_DB_REPOSITORY}}"
         
     - name: Generate Warning Annotations
       if: ${{ hashFiles('trivy-results-vertica-image.out') != '' }}
@@ -416,8 +420,8 @@ jobs:
         format: 'sarif'
         output: 'trivy-results-verticadb-operator-image.sarif'
       env:
-        TRIVY_DB_REPOSITORY: ghcr.io/aquasecurity/trivy-db,public.ecr.aws/aquasecurity/trivy-db
-        TRIVY_JAVA_DB_REPOSITORY: ghcr.io/aquasecurity/trivy-java-db,public.ecr.aws/aquasecurity/trivy-java-db
+        TRIVY_DB_REPOSITORY: ${{ env.TRIVY_DB_REPOSITORY}}"
+        TRIVY_JAVA_DB_REPOSITORY: ${{ env.TRIVY_JAVA_DB_REPOSITORY}}"
 
     - name: Upload Trivy scan results to GitHub Security tab
       uses: github/codeql-action/upload-sarif@v3
@@ -434,8 +438,8 @@ jobs:
         format: 'table'
         output: 'trivy-results-verticadb-operator-image.out'
       env:
-        TRIVY_DB_REPOSITORY: ghcr.io/aquasecurity/trivy-db,public.ecr.aws/aquasecurity/trivy-db
-        TRIVY_JAVA_DB_REPOSITORY: ghcr.io/aquasecurity/trivy-java-db,public.ecr.aws/aquasecurity/trivy-java-db
+        TRIVY_DB_REPOSITORY: ${{ env.TRIVY_DB_REPOSITORY}}"
+        TRIVY_JAVA_DB_REPOSITORY: ${{ env.TRIVY_JAVA_DB_REPOSITORY}}"
     
     - name: Generate Warning Annotations
       if: ${{ hashFiles('trivy-results-verticadb-operator-image.out') != '' }}
@@ -533,8 +537,8 @@ jobs:
         format: 'sarif'
         output: 'trivy-results-vertica-logger-image.sarif'
       env:
-        TRIVY_DB_REPOSITORY: ghcr.io/aquasecurity/trivy-db,public.ecr.aws/aquasecurity/trivy-db
-        TRIVY_JAVA_DB_REPOSITORY: ghcr.io/aquasecurity/trivy-java-db,public.ecr.aws/aquasecurity/trivy-java-db
+        TRIVY_DB_REPOSITORY: ${{ env.TRIVY_DB_REPOSITORY}}"
+        TRIVY_JAVA_DB_REPOSITORY: ${{ env.TRIVY_JAVA_DB_REPOSITORY}}"
 
     - name: Upload Trivy scan results to GitHub Security tab
       uses: github/codeql-action/upload-sarif@v3
@@ -552,8 +556,8 @@ jobs:
         format: 'table'
         output: 'trivy-results-vertica-logger-image.out'
       env:
-        TRIVY_DB_REPOSITORY: ghcr.io/aquasecurity/trivy-db,public.ecr.aws/aquasecurity/trivy-db
-        TRIVY_JAVA_DB_REPOSITORY: ghcr.io/aquasecurity/trivy-java-db,public.ecr.aws/aquasecurity/trivy-java-db
+        TRIVY_DB_REPOSITORY: ${{ env.TRIVY_DB_REPOSITORY}}"
+        TRIVY_JAVA_DB_REPOSITORY: ${{ env.TRIVY_JAVA_DB_REPOSITORY}}"
 
     - name: Generate Warning Annotations
       if: ${{ hashFiles('trivy-results-vertica-logger-image.out') != '' }}
