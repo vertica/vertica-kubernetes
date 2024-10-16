@@ -303,14 +303,15 @@ func (r *OnlineUpgradeReconciler) checkUpNodes(ctx context.Context) (ctrl.Result
 	// All nodes in the main cluster must be up before running online upgrade
 	if mainPFacts.getUpNodeCount() != len(mainPFacts.Detail) {
 		r.VRec.Eventf(r.VDB, corev1.EventTypeWarning, events.NotAllNodesUp,
-			"Not all pods are up. Number of up nodes: %d. Number of nodes: %d",
+			"Not all nodes (%d/%d) are up, restarting the main cluster. Please also check the cluster configuration.",
 			mainPFacts.getUpNodeCount(), len(mainPFacts.Detail))
-		return ctrl.Result{Requeue: true}, nil
-	}
 
-	r.Log.Info("Get number of up nodes.",
-		"NumberOfUpNodes", mainPFacts.getUpNodeCount(),
-		"NumberOfNodes", len(mainPFacts.Detail))
+		// try to restart the main cluster, requeuing online upgrade
+		res, err := r.restartMainCluster(ctx)
+		if verrors.IsReconcileAborted(res, err) {
+			return res, err
+		}
+	}
 
 	return ctrl.Result{}, nil
 }
