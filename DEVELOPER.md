@@ -382,7 +382,7 @@ If it is no more than 3, you must unset LICENSE_FILE:
 >
 BASE_VERTICA_IMG and VERTICA_IMG are used for the upgrade test cases. The BASE_VERTICA_IMG is the base vertica vertion that will be installed. VERTICA_IMG is the vertica version that the base version will be upgraded to. The version in VERTICA_IMG must be higher than that in BASE_VERTICA_IMG.
 
-VERTICA_DEPLOYMENT_METHOD=vclusterops lets the backend use vcluster package to manage vertica clusters, instead of the legacy admintools.
+VERTICA_DEPLOYMENT_METHOD=vclusterops lets the backend use vcluster package to manage vertica clusters. If it is not set, the default value will be admintools and the vertica image must be admintools compatible.
 
 3. kuttl-test.yaml is the configuration file for e2e test cases. There is a "timeout" field in it. If your server is not fast enough, you may need to increase that value to pass the test cases.
 
