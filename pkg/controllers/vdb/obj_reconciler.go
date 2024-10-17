@@ -203,8 +203,22 @@ func (o *ObjReconciler) checkSecretHasKeys(ctx context.Context, secretType, secr
 // checkForCreatedSubclusters handles reconciliation of subclusters that should exist
 func (o *ObjReconciler) checkForCreatedSubclusters(ctx context.Context) (ctrl.Result, error) {
 	processedExtSvc := map[string]bool{} // Keeps track of service names we have reconciled
-	for i := range o.Vdb.Spec.Subclusters {
-		sc := &o.Vdb.Spec.Subclusters[i]
+	subclusters := []vapi.Subcluster{}
+	subclusters = append(subclusters, o.Vdb.Spec.Subclusters...)
+	if o.PFacts.GetSandboxName() == vapi.MainCluster {
+		scs, err := o.getZombieSubclusters(ctx)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+		if len(scs) > 0 {
+			subclusters = append(subclusters, scs...)
+			// At least one zombie subcluster was found and will rejoin the main cluster,
+			// so we invalidate to collect the pod facts.
+			o.PFacts.Invalidate()
+		}
+	}
+	for i := range subclusters {
+		sc := &subclusters[i]
 		// Transient subclusters never have their own service objects.  They always
 		// reuse ones we have for other primary/secondary subclusters.
 		if !sc.IsTransient() {
@@ -553,4 +567,21 @@ func (o *ObjReconciler) checkIfReadyForStsUpdate(newStsSize int32, sts *appsv1.S
 	}
 
 	return ctrl.Result{}, nil
+}
+
+// getZombieSubclusters returns all the zombie subclusters
+func (o *ObjReconciler) getZombieSubclusters(ctx context.Context) ([]vapi.Subcluster, error) {
+	subclusters := []vapi.Subcluster{}
+	finder := iter.MakeSubclusterFinder(o.Rec.GetClient(), o.Vdb)
+	scs, err := finder.FindSubclusters(ctx, iter.FindNotInVdbAcrossSandboxes, o.PFacts.GetSandboxName())
+	if err != nil {
+		return subclusters, err
+	}
+	for i := range scs {
+		sc := scs[i]
+		if sc.IsZombie(o.Vdb) {
+			subclusters = append(subclusters, *sc)
+		}
+	}
+	return subclusters, nil
 }
