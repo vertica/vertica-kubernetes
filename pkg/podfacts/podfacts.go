@@ -841,6 +841,11 @@ func (p *PodFact) SetVnodeName(vnodeName string) {
 	p.vnodeName = vnodeName
 }
 
+// SetImage set the string value of image in PodFact
+func (p *PodFact) SetImage(image string) {
+	p.image = image
+}
+
 // SetEulaAccepted set the bool value of eulaAccepted in PodFact
 func (p *PodFact) SetEulaAccepted(eulaAccepted bool) {
 	p.eulaAccepted = eulaAccepted
@@ -1101,13 +1106,6 @@ func (p *PodFacts) FindFirstUpPod(allowReadOnly bool, scName string) (*PodFact, 
 		return (scName == "" || v.subclusterName == scName) &&
 			v.upNode && (allowReadOnly || !v.readOnly)
 	})
-}
-
-func (p *PodFacts) FindFirstUpPodIP(allowReadOnly bool, scName string) (string, bool) {
-	if pod, ok := p.findFirstUpPod(allowReadOnly, scName); ok {
-		return pod.podIP, true
-	}
-	return "", false
 }
 
 func (p *PodFacts) FindFirstUpPodIP(allowReadOnly bool, scName string) (string, bool) {

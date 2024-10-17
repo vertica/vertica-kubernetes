@@ -24,7 +24,6 @@ import (
 	. "github.com/onsi/gomega"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	v1beta1 "github.com/vertica/vertica-kubernetes/api/v1beta1"
-	vdbcontroller "github.com/vertica/vertica-kubernetes/pkg/controllers/vdb"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/mockvops"
 	"github.com/vertica/vertica-kubernetes/pkg/podfacts"

@@ -34,6 +34,7 @@ import (
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
+	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/manageconnectiondraining"
@@ -425,12 +426,12 @@ func (r *OnlineUpgradeReconciler) queryOriginalConfigParamDisableNonReplicatable
 		return ctrl.Result{}, err
 	}
 	pf := r.PFacts[vapi.MainCluster]
-	initiator, ok := pf.findFirstUpPod(false /*not allow read-only*/, "" /*arbitrary subcluster*/)
+	initiator, ok := pf.FindFirstUpPod(false /*not allow read-only*/, "" /*arbitrary subcluster*/)
 	if !ok {
 		r.Log.Info("No Up nodes found. Requeue reconciliation.")
 		return ctrl.Result{Requeue: true}, nil
 	}
-	vc := catalog.MakeVCluster(r.VDB, pf.VerticaSUPassword, initiator.podIP, r.Log, r.VRec.Client, r.VRec.EVRec)
+	vc := catalog.MakeVCluster(r.VDB, pf.VerticaSUPassword, initiator.GetPodIP(), r.Log, r.VRec.Client, r.VRec.EVRec)
 	r.originalConfigParamDisableNonReplicatableQueriesValue, err = vc.GetConfigurationParameter(ConfigParamDisableNonReplicatableQueries,
 		ConfigParamLevelDatabase, vapi.MainCluster, ctx)
 	return ctrl.Result{}, err
@@ -488,12 +489,12 @@ func (r *OnlineUpgradeReconciler) clearConfigParamDisableNonReplicatableQueries(
 func (r *OnlineUpgradeReconciler) setConfigParamDisableNonReplicatableQueriesImpl(ctx context.Context,
 	value, clusterName string) (ctrl.Result, error) {
 	pf := r.PFacts[clusterName]
-	initiator, ok := pf.findFirstUpPod(false /*not allow read-only*/, "" /*arbitrary subcluster*/)
+	initiator, ok := pf.FindFirstUpPod(false /*not allow read-only*/, "" /*arbitrary subcluster*/)
 	if !ok {
 		r.Log.Info("No Up nodes found. Requeue reconciliation.")
 		return ctrl.Result{Requeue: true}, nil
 	}
-	vc := catalog.MakeVCluster(r.VDB, pf.VerticaSUPassword, initiator.podIP, r.Log, r.VRec.Client, r.VRec.EVRec)
+	vc := catalog.MakeVCluster(r.VDB, pf.VerticaSUPassword, initiator.GetPodIP(), r.Log, r.VRec.Client, r.VRec.EVRec)
 	err := vc.SetConfigurationParameter(ConfigParamDisableNonReplicatableQueries, value, ConfigParamLevelDatabase, clusterName, ctx)
 	return ctrl.Result{}, err
 }
@@ -657,8 +658,8 @@ func (r *OnlineUpgradeReconciler) waitForSandboxUpgrade(ctx context.Context) (ct
 
 	r.Log.Info("collected sandbox facts", "numPods", len(sbPFacts.Detail))
 	for _, pf := range sbPFacts.Detail {
-		r.Log.Info("sandbox pod fact", "pod", pf.name.Name, "image", pf.image, "up", pf.upNode)
-		if pf.image != r.VDB.Spec.Image || !pf.upNode {
+		r.Log.Info("sandbox pod fact", "pod", pf.GetName().Name, "image", pf.GetImage(), "up", pf.GetUpNode())
+		if pf.GetImage() != r.VDB.Spec.Image || !pf.GetUpNode() {
 			r.Log.Info("Still waiting for sandbox to be upgraded")
 			return ctrl.Result{Requeue: true}, nil
 		}
@@ -682,14 +683,14 @@ func (r *OnlineUpgradeReconciler) pauseConnectionsAtReplicaGroupA(ctx context.Co
 	}
 
 	pf := r.PFacts[vapi.MainCluster]
-	initiator, ok := pf.findFirstUpPod(false /*not allow read-only*/, "" /*arbitrary subcluster*/)
+	initiator, ok := pf.FindFirstUpPod(false /*not allow read-only*/, "" /*arbitrary subcluster*/)
 	if !ok {
 		r.Log.Info("No Up nodes found. Requeue reconciliation.")
 		return ctrl.Result{Requeue: true}, nil
 	}
 
 	err := r.Dispatcher.ManageConnectionDraining(ctx,
-		manageconnectiondraining.WithInitiator(initiator.podIP),
+		manageconnectiondraining.WithInitiator(initiator.GetPodIP()),
 		manageconnectiondraining.WithAction(vclusterops.ActionPause),
 	)
 
@@ -702,7 +703,7 @@ func (r *OnlineUpgradeReconciler) waitForConnectionsPaused(ctx context.Context) 
 	}
 
 	pfacts := r.PFacts[vapi.MainCluster]
-	_, ok := pfacts.findFirstUpPod(false /*not allow read-only*/, "" /*arbitrary subcluster*/)
+	_, ok := pfacts.FindFirstUpPod(false /*not allow read-only*/, "" /*arbitrary subcluster*/)
 	if !ok {
 		r.Log.Info("No Up nodes found; Requeue reconciliation")
 		return ctrl.Result{Requeue: true}, nil
@@ -928,8 +929,8 @@ func (r *OnlineUpgradeReconciler) copyRedirectStateToReplicaGroupB(ctx context.C
 		r.Log.Error(err, "failed to gather podfacts for sandbox")
 		return ctrl.Result{Requeue: true}, nil
 	}
-	mainInitiator, mainOK := mainPFacts.findFirstUpPod(false /*not allow read-only*/, "" /*arbitrary subcluster*/)
-	sbInitiator, sbOK := sbPFacts.findFirstUpPod(false /*not allow read-only*/, "" /*arbitrary subcluster*/)
+	mainInitiator, mainOK := mainPFacts.FindFirstUpPod(false /*not allow read-only*/, "" /*arbitrary subcluster*/)
+	sbInitiator, sbOK := sbPFacts.FindFirstUpPod(false /*not allow read-only*/, "" /*arbitrary subcluster*/)
 	if !mainOK || !sbOK {
 		r.Log.Info("No Up nodes found; requeueing reconciliation")
 		return ctrl.Result{Requeue: true}, nil
@@ -937,7 +938,7 @@ func (r *OnlineUpgradeReconciler) copyRedirectStateToReplicaGroupB(ctx context.C
 
 	sbSelectCmd := []string{"-tA", "-R", ",", "-c",
 		"select concat(concat('''', id), '''') from v_internal_tables.v_redirect_state"}
-	sbIds, stderr, err := mainPFacts.PRunner.ExecVSQL(ctx, sbInitiator.name, names.ServerContainer, sbSelectCmd...)
+	sbIds, stderr, err := mainPFacts.PRunner.ExecVSQL(ctx, sbInitiator.GetName(), names.ServerContainer, sbSelectCmd...)
 	if err != nil {
 		r.Log.Error(err, "failed to retrieve existing data from sandbox v_redirect_state table", "stderr", stderr)
 		return ctrl.Result{Requeue: true}, nil
@@ -948,7 +949,7 @@ func (r *OnlineUpgradeReconciler) copyRedirectStateToReplicaGroupB(ctx context.C
 		sql += fmt.Sprintf(" where id not in (%s)", sbIds)
 	}
 	selectCmd := []string{"-tA", "-F", ",", "-c", sql}
-	rows, stderr, err := mainPFacts.PRunner.ExecVSQL(ctx, mainInitiator.name, names.ServerContainer, selectCmd...)
+	rows, stderr, err := mainPFacts.PRunner.ExecVSQL(ctx, mainInitiator.GetName(), names.ServerContainer, selectCmd...)
 	if err != nil {
 		r.Log.Error(err, "failed to retrieve rows from main cluster v_redirect_state table", "stderr", stderr)
 		return ctrl.Result{Requeue: true}, nil
@@ -965,7 +966,7 @@ func (r *OnlineUpgradeReconciler) copyRedirectStateToReplicaGroupB(ctx context.C
 		vals = strings.TrimSuffix(vals, ",")
 		insertSQL := fmt.Sprintf("insert into v_internal_tables.v_redirect_state values (%s);", vals)
 		insertCmd := []string{"-tAc", "select internal_tables_enable_edit('true'); " + insertSQL + " commit;"}
-		_, stderr, err = sbPFacts.PRunner.ExecVSQL(ctx, sbInitiator.name, names.ServerContainer, insertCmd...)
+		_, stderr, err = sbPFacts.PRunner.ExecVSQL(ctx, sbInitiator.GetName(), names.ServerContainer, insertCmd...)
 		if err != nil {
 			r.Log.Error(err, "failed to insert data into v_redirect_state on sandbox", "stderr", stderr)
 			return ctrl.Result{Requeue: true}, nil
@@ -973,7 +974,7 @@ func (r *OnlineUpgradeReconciler) copyRedirectStateToReplicaGroupB(ctx context.C
 	}
 
 	disableEditCmd := []string{"-tAc", "select internal_tables_enable_edit('false')"}
-	_, stderr, err = sbPFacts.PRunner.ExecVSQL(ctx, sbInitiator.name, names.ServerContainer, disableEditCmd...)
+	_, stderr, err = sbPFacts.PRunner.ExecVSQL(ctx, sbInitiator.GetName(), names.ServerContainer, disableEditCmd...)
 	if err != nil {
 		r.Log.Error(err, "failed to disable internal table editing on sandbox", "stderr", stderr)
 		return ctrl.Result{Requeue: true}, nil
@@ -1017,7 +1018,7 @@ func (r *OnlineUpgradeReconciler) redirectConnectionsToReplicaGroupB(ctx context
 		return res, err
 	}
 
-	initiator, ok := r.PFacts[vapi.MainCluster].findFirstUpPod(false /*not allow read-only*/, "" /*arbitrary subcluster*/)
+	initiator, ok := r.PFacts[vapi.MainCluster].FindFirstUpPod(false /*not allow read-only*/, "" /*arbitrary subcluster*/)
 	if !ok {
 		r.Log.Info("No Up nodes found; requeueing reconciliation")
 		return ctrl.Result{Requeue: true}, nil
@@ -1060,7 +1061,7 @@ func (r *OnlineUpgradeReconciler) redirectConnectionsToReplicaGroupB(ctx context
 		// TODO: once server supports it, redirect with "connect to same host you did initially" for clients outside k8s
 		err = r.Dispatcher.ManageConnectionDraining(ctx,
 			manageconnectiondraining.WithSubcluster(scSource.Name), // redirect connections from scSource
-			manageconnectiondraining.WithInitiator(initiator.podIP),
+			manageconnectiondraining.WithInitiator(initiator.GetPodIP()),
 			manageconnectiondraining.WithAction(vclusterops.ActionRedirect),
 			// redirect connections to the service associated with scTarget
 			manageconnectiondraining.WithRedirectHostname(target),
@@ -1101,7 +1102,7 @@ func (r *OnlineUpgradeReconciler) promoteSandboxToMainCluster(ctx context.Contex
 		return ctrl.Result{}, err
 	}
 	// All nodes in the sandbox must be up before sandbox promotion
-	if sbPFacts.getUpNodeCount() != len(sbPFacts.Detail) {
+	if sbPFacts.GetUpNodeCount() != len(sbPFacts.Detail) {
 		r.Log.Info("Waiting for all pods in sandbox to be up for promotion.", "sandboxName", r.sandboxName)
 		return ctrl.Result{Requeue: true}, nil
 	}
@@ -1468,7 +1469,7 @@ func (r *OnlineUpgradeReconciler) postNextStatusMsg(ctx context.Context, msgInde
 
 // getSandboxPodFacts returns a cached copy of the podfacts for the sandbox. If
 // the podfacts aren't cached yet, it will cache them and optionally collect them.
-func (r *OnlineUpgradeReconciler) getSandboxPodFacts(ctx context.Context, doCollection bool) (*PodFacts, error) {
+func (r *OnlineUpgradeReconciler) getSandboxPodFacts(ctx context.Context, doCollection bool) (*podfacts.PodFacts, error) {
 	// Collect the podfacts for the sandbox if not already done. We are going to
 	// use the sandbox podfacts when we update the client routing label.
 	if _, found := r.PFacts[r.sandboxName]; !found {
@@ -1696,7 +1697,7 @@ func (r *OnlineUpgradeReconciler) restartMainCluster(ctx context.Context) (ctrl.
 	return actor.Reconcile(ctx, &ctrl.Request{})
 }
 
-func (r *OnlineUpgradeReconciler) createRestorePoint(ctx context.Context, pf *PodFacts, archive string) (ctrl.Result, error) {
+func (r *OnlineUpgradeReconciler) createRestorePoint(ctx context.Context, pf *podfacts.PodFacts, archive string) (ctrl.Result, error) {
 	res, err := r.Manager.createRestorePoint(ctx, pf, archive)
 	if verrors.IsReconcileAborted(res, err) {
 		return res, err

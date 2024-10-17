@@ -693,7 +693,7 @@ const isSuperuser = "(all_roles like 'pseudosuperuser' " +
 // areAllConnectionsPaused will run a query to see the number of non-superuser connections that are active (not paused)
 // it returns a requeue error if there are still active connections
 func (i *UpgradeManager) areAllConnectionsPaused(ctx context.Context, pfacts *podfacts.PodFacts) (bool, error) {
-	pf, ok := pfacts.findFirstUpPod(true, "")
+	pf, ok := pfacts.FindFirstUpPod(true, "")
 	if !ok {
 		i.Log.Info("No pod found to run vsql. Waiting for cluster to come up")
 		return false, nil
@@ -720,9 +720,9 @@ func (i *UpgradeManager) areAllConnectionsPaused(ctx context.Context, pfacts *po
 }
 
 // closeAllUnpausedSessions will run a query to close all active non-pseudosuperuser sessions.
-func (i *UpgradeManager) closeAllUnpausedSessions(ctx context.Context, pfacts *PodFacts) error {
-	pf, ok := pfacts.findFirstPodSorted(func(v *PodFact) bool {
-		return v.isPrimary && v.upNode
+func (i *UpgradeManager) closeAllUnpausedSessions(ctx context.Context, pfacts *podfacts.PodFacts) error {
+	pf, ok := pfacts.FindFirstPodSorted(func(v *podfacts.PodFact) bool {
+		return v.GetIsPrimary() && v.GetUpNode()
 	})
 	if !ok {
 		i.Log.Info("No pod found to run vsql. Skipping close all sessions")
@@ -742,7 +742,7 @@ func (i *UpgradeManager) closeAllUnpausedSessions(ctx context.Context, pfacts *P
 			"v_internal.vs_sessions s join v_catalog.users u using (user_name) " +
 			"where not s.is_paused and not " + isSuperuser
 	}
-	sessionIds, stderr, err := pfacts.PRunner.ExecVSQL(ctx, pf.name, names.ServerContainer, "-tAc", sql)
+	sessionIds, stderr, err := pfacts.PRunner.ExecVSQL(ctx, pf.GetName(), names.ServerContainer, "-tAc", sql)
 	if err != nil {
 		i.Log.Error(err, "failed to retrieve unpaused sessions", "stderr", stderr)
 		return err
@@ -754,7 +754,7 @@ func (i *UpgradeManager) closeAllUnpausedSessions(ctx context.Context, pfacts *P
 			continue
 		}
 		killCmd := []string{"-tAc", fmt.Sprintf("select close_session('%s')", id)}
-		_, stderr, err = pfacts.PRunner.ExecVSQL(ctx, pf.name, names.ServerContainer, killCmd...)
+		_, stderr, err = pfacts.PRunner.ExecVSQL(ctx, pf.GetName(), names.ServerContainer, killCmd...)
 		if err != nil {
 			i.Log.Error(err, "failed to kill session", "session_id", id, "stderr", stderr)
 			errs = errors.Join(errs, err)
@@ -765,9 +765,9 @@ func (i *UpgradeManager) closeAllUnpausedSessions(ctx context.Context, pfacts *P
 }
 
 // createRestorePoint creates a restore point to backup the db in case upgrade does not go well.
-func (i *UpgradeManager) createRestorePoint(ctx context.Context, pfacts *PodFacts, archive string) (ctrl.Result, error) {
-	pf, ok := pfacts.findFirstPodSorted(func(v *PodFact) bool {
-		return v.isPrimary && v.upNode
+func (i *UpgradeManager) createRestorePoint(ctx context.Context, pfacts *podfacts.PodFacts, archive string) (ctrl.Result, error) {
+	pf, ok := pfacts.FindFirstPodSorted(func(v *podfacts.PodFact) bool {
+		return v.GetIsPrimary() && v.GetUpNode()
 	})
 	if !ok {
 		i.Log.Info("No pod found to run vsql. Requeueing for retrying creating restore point")
@@ -776,7 +776,7 @@ func (i *UpgradeManager) createRestorePoint(ctx context.Context, pfacts *PodFact
 
 	sql := fmt.Sprintf("select count(*) from archives where name = '%s';", archive)
 	cmd := []string{"-tAc", sql}
-	stdout, _, err := pfacts.PRunner.ExecVSQL(ctx, pf.name, names.ServerContainer, cmd...)
+	stdout, _, err := pfacts.PRunner.ExecVSQL(ctx, pf.GetName(), names.ServerContainer, cmd...)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -789,30 +789,30 @@ func (i *UpgradeManager) createRestorePoint(ctx context.Context, pfacts *PodFact
 	clearKnob := "alter session set DisableNonReplicatableQueries = 0;"
 	setKnob := "alter session clear DisableNonReplicatableQueries;"
 	if arch == 0 {
-		if pf.sandbox == vapi.MainCluster {
+		if pf.GetSandbox() == vapi.MainCluster {
 			sql = fmt.Sprintf("%s create archive %s; %s", clearKnob, archive, setKnob)
 		} else {
 			sql = fmt.Sprintf("create archive %s;", archive)
 		}
 		cmd = []string{"-tAc", sql}
-		_, _, err = pfacts.PRunner.ExecVSQL(ctx, pf.name, names.ServerContainer, cmd...)
+		_, _, err = pfacts.PRunner.ExecVSQL(ctx, pf.GetName(), names.ServerContainer, cmd...)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
 	}
-	if pf.sandbox == vapi.MainCluster {
+	if pf.GetSandbox() == vapi.MainCluster {
 		sql = fmt.Sprintf("%s save restore point to archive %s; %s", clearKnob, archive, setKnob)
 	} else {
 		sql = fmt.Sprintf("save restore point to archive %s;", archive)
 	}
 	cmd = []string{"-tAc", sql}
-	_, _, err = pfacts.PRunner.ExecVSQL(ctx, pf.name, names.ServerContainer, cmd...)
+	_, _, err = pfacts.PRunner.ExecVSQL(ctx, pf.GetName(), names.ServerContainer, cmd...)
 	return ctrl.Result{}, err
 }
 
 // routeClientTraffic will update service objects for the source subcluster to
 // route to the target subcluster
-func (i *UpgradeManager) routeClientTraffic(ctx context.Context, pfacts *PodFacts, sc *vapi.Subcluster, selectors map[string]string) error {
+func (i *UpgradeManager) routeClientTraffic(ctx context.Context, pfacts *podfacts.PodFacts, sc *vapi.Subcluster, selectors map[string]string) error {
 	actor := MakeObjReconciler(i.Rec, i.Log, i.Vdb, pfacts, ObjReconcileModeAll)
 	objRec := actor.(*ObjReconciler)
 

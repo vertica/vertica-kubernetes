@@ -161,7 +161,7 @@ vertica(v11.1.0) built by @re-docker2 from tag@releases/VER_10_1_RELEASE_BUILD_1
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := MakePodFacts(vdbRec, fpr, logger, TestPassword)
+		pfacts := podfacts.MakePodFacts(vdbRec, fpr, logger, TestPassword)
 		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
 		podName := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)
 		fpr.Results = cmds.CmdResults{
