@@ -363,7 +363,7 @@ Prerequisite steps:
 > make setup-minio
 > ```
 >
-To set up a different communal endpoint, see [Custom communal endpoints](#custom-communal-endpoints).
+    To set up a different communal endpoint, see [Custom communal endpoints](#custom-communal-endpoints).
 
 2. You also need to set up some environmental variables:
 >
@@ -396,7 +396,7 @@ To set up a different communal endpoint, see [Custom communal endpoints](#custom
 > scripts/push-to-kind.sh -i $VERTICA_IMG
 > scripts/push-to-kind.sh -i $BASE_VERTICA_IMG
 >
-This will speed up test case execution and avoid timeout.
+    This will speed up test case execution and avoid timeout.
 
 
 To run an individual test, pass the `--test` command the name of a [test suite directory](./tests/). For example, this command runs all tests in the [http-custom-certs](./tests/e2e-leg-6/http-custom-certs/) directory:
