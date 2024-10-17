@@ -57,3 +57,11 @@ status:
       upNodeCount: 2
     - addedToDBCount: 1
       upNodeCount: 1
+    - addedToDBCount: 2
+      upNodeCount: 2
+    - addedToDBCount: 1
+      upNodeCount: 1
+    - addedToDBCount: 2
+      upNodeCount: 2
+    - addedToDBCount: 1
+      upNodeCount: 1
