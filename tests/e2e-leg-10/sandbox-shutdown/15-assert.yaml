@@ -30,7 +30,14 @@ kind: StatefulSet
 metadata:
   name: v-sandbox-shutdown-sec2
 status:
-  currentReplicas: 3
+  currentReplicas: 1
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: v-sandbox-shutdown-sec3
+status:
+  currentReplicas: 1
 ---
 apiVersion: vertica.com/v1
 kind: VerticaDB

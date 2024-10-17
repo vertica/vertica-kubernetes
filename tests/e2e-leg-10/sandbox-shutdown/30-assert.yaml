@@ -33,15 +33,20 @@ spec:
     type: sandboxprimary
   - name: sec2
     type: secondary
+  - name: sec3
+    type: secondary  
 status:
   sandboxes:
     - name: sandbox1
       subclusters:
         - sec1
+        - sec3
   subclusters:
     - addedToDBCount: 3
       name: pri1
     - addedToDBCount: 3
       name: sec1
-    - addedToDBCount: 3
+    - addedToDBCount: 1
       name: sec2
+    - addedToDBCount: 1
+      name: sec3

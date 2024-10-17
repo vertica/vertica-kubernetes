@@ -27,7 +27,8 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-// SandboxShutdownReconciler
+// SandboxShutdownReconciler will handle the process when at least one subcluster
+// in any sandbox or the entire sandbox needs to be shut down or restart
 type SandboxShutdownReconciler struct {
 	VRec    *VerticaDBReconciler
 	Log     logr.Logger
@@ -61,7 +62,7 @@ func (s *SandboxShutdownReconciler) Reconcile(ctx context.Context, _ *ctrl.Reque
 }
 
 // reconcileSandboxShutdown updates the sandbox configmap in order to
-// trigger shutdown or restart of the sandbox.
+// trigger shutdown or restart in a sandbox.
 func (s *SandboxShutdownReconciler) reconcileSandboxShutdown(ctx context.Context, sb *vapi.Sandbox) (ctrl.Result, error) {
 	sbName := sb.Name
 	sbStatus := s.Vdb.GetSandboxStatus(sbName)
@@ -69,19 +70,32 @@ func (s *SandboxShutdownReconciler) reconcileSandboxShutdown(ctx context.Context
 		s.Log.Info("Requeue because the sandbox does not exist yet", "sandbox", sbName)
 		return ctrl.Result{Requeue: true}, nil
 	}
-	if sb.Shutdown == sbStatus.Shutdown {
-		return ctrl.Result{}, nil
+	scMap := s.Vdb.GenSubclusterMap()
+	scStatusMap := s.Vdb.GenSubclusterStatusMap()
+	for i := range sb.Subclusters {
+		sc := scMap[sb.Subclusters[i].Name]
+		scStatus := scStatusMap[sb.Subclusters[i].Name]
+		if sc == nil || scStatus == nil {
+			return ctrl.Result{}, fmt.Errorf("subcluster %s not found", sb.Subclusters[i].Name)
+		}
+		// Proceeds only if the status does not match the spec
+		if sc.Shutdown == scStatus.Shutdown {
+			continue
+		}
+		op := "shutdown"
+		if scStatus.Shutdown {
+			op = "restart"
+		}
+		triggerUUID := uuid.NewString()
+		sbMan := MakeSandboxConfigMapManager(s.VRec, s.Vdb, sbName, triggerUUID)
+		triggered, err := sbMan.triggerSandboxController(ctx, Shutdown)
+		if triggered {
+			s.Log.Info(fmt.Sprintf("Sandbox ConfigMap updated. The sandbox controller will drive the %s", op),
+				"trigger-uuid", triggerUUID, "Sandbox", sbName)
+		}
+		// We need to wake up the sandbox reconciler only once so as soon as we find a subcluster
+		// that needs shutdown/restart we return.
+		return ctrl.Result{}, err
 	}
-	op := "shutdown"
-	if sbStatus.Shutdown {
-		op = "restart"
-	}
-	triggerUUID := uuid.NewString()
-	sbMan := MakeSandboxConfigMapManager(s.VRec, s.Vdb, sbName, triggerUUID)
-	triggered, err := sbMan.triggerSandboxController(ctx, Shutdown)
-	if triggered {
-		s.Log.Info(fmt.Sprintf("Sandbox ConfigMap updated. The sandbox controller will drive the %s", op),
-			"trigger-uuid", triggerUUID, "Sandbox", sbName)
-	}
-	return ctrl.Result{}, err
+	return ctrl.Result{}, nil
 }

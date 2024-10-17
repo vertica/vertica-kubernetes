@@ -545,12 +545,6 @@ func (r *RestartReconciler) restartCluster(ctx context.Context, downPods []*PodF
 	}
 	r.VRec.Eventf(r.Vdb, corev1.EventTypeNormal, events.ClusterRestartSucceeded,
 		"Successfully restarted the %s and it took %ds", r.PFacts.GetClusterExtendedName(), int(elapsedTimeInSeconds))
-	if r.PFacts.GetSandboxName() != vapi.MainCluster {
-		err = vdbstatus.SetSandboxShutdownState(ctx, r.VRec.GetClient(), r.Vdb, r.PFacts.GetSandboxName(), false)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-	}
 	return ctrl.Result{}, err
 }
 

@@ -15,30 +15,18 @@ apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
   name: v-sandbox-shutdown
-spec:
-  subclusters:
-  - name: pri1
-    type: primary
-  - name: sec1
-    type: sandboxprimary
-    #shutdown: false
-  - name: sec2
-    type: sandboxprimary
 status:
-  sandboxes:
-    - name: sandbox1
-      # shutdown: false
-      subclusters:
-        - sec1
-    - name: sandbox2
-      subclusters:
-        - sec2
   subclusters:
     - addedToDBCount: 3
       name: pri1
     - addedToDBCount: 3
       upNodeCount: 3
+      shutdown: false
       name: sec1
-    - addedToDBCount: 3
-      upNodeCount: 3
+    - addedToDBCount: 1
+      upNodeCount: 1
       name: sec2
+    - addedToDBCount: 1
+      upNodeCount: 1
+      shutdown: false
+      name: sec3

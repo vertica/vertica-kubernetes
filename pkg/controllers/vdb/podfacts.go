@@ -355,7 +355,7 @@ func (p *PodFacts) collectPodByStsIndex(ctx context.Context, vdb *vapi.VerticaDB
 		isPrimary:         sc.IsPrimary(),
 		podIndex:          podIndex,
 		execContainerName: getExecContainerName(sts),
-		shutdown:          isSubclusterShutdown(vdb, sc),
+		shutdown:          sc.Shutdown,
 	}
 	// It is possible for a pod to be managed by a parent sts but not yet exist.
 	// So, this has to be checked before we check for pod existence.
@@ -1277,7 +1277,7 @@ func (p *PodFacts) RemoveStartupFileInSandboxPods(ctx context.Context, vdb *vapi
 }
 
 // RemoveStartupFileInSubclusterPods removes the startup file from all
-// the sandbox's pods, to prevent automatic restart after shutdown.
+// the subcluster's pods, to prevent automatic restart after shutdown.
 func (p *PodFacts) RemoveStartupFileInSubclusterPods(ctx context.Context, scName, successMsg string) error {
 	podNames := p.FindPodNamesInSubcluster(scName)
 	rmCmd := []string{"bash", "-c", fmt.Sprintf("rm -rf %s", paths.StartupConfFile)}
@@ -1369,13 +1369,4 @@ func (p *PodFacts) FindSecondarySubclustersWithDifferentImage() (scs []string, p
 		seenScs[v.subclusterName] = struct{}{}
 	}
 	return scs, priScImage
-}
-
-func isSubclusterShutdown(vdb *vapi.VerticaDB, sc *vapi.Subcluster) bool {
-	sbName := vdb.GetSubclusterSandboxName(sc.Name)
-	sb := vdb.GetSandbox(sbName)
-	if sb != nil {
-		return sb.Shutdown
-	}
-	return sc.Shutdown
 }

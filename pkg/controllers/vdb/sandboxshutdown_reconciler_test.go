@@ -38,14 +38,18 @@ var _ = Describe("sandboxshutdown_reconciler", func() {
 		vdb := vapi.MakeVDBForVclusterOps()
 		vdb.Spec.Subclusters = []vapi.Subcluster{
 			{Name: maincluster, Size: 3, Type: vapi.PrimarySubcluster},
-			{Name: subcluster1, Size: 1, Type: vapi.SecondarySubcluster},
+			{Name: subcluster1, Size: 1, Shutdown: true, Type: vapi.SecondarySubcluster},
 		}
 
 		vdb.Spec.Sandboxes = []vapi.Sandbox{
-			{Name: sandbox1, Shutdown: true, Subclusters: []vapi.SubclusterName{{Name: subcluster1}}},
+			{Name: sandbox1, Subclusters: []vapi.SubclusterName{{Name: subcluster1}}},
 		}
 		vdb.Status.Sandboxes = []vapi.SandboxStatus{
 			{Name: sandbox1, Subclusters: []string{subcluster1}},
+		}
+		vdb.Status.Subclusters = []vapi.SubclusterStatus{
+			{Name: maincluster},
+			{Name: subcluster1, Shutdown: false},
 		}
 		test.CreateConfigMap(ctx, k8sClient, vdb, vmeta.SandboxControllerShutdownTriggerID, tID, sandbox1)
 		defer test.DeleteConfigMap(ctx, k8sClient, vdb, sandbox1)
@@ -58,15 +62,15 @@ var _ = Describe("sandboxshutdown_reconciler", func() {
 		Expect(cm.Annotations[vmeta.SandboxControllerShutdownTriggerID]).ShouldNot(Equal(tID))
 
 		id := cm.Annotations[vmeta.SandboxControllerShutdownTriggerID]
-		vdb.Spec.Sandboxes[0].Shutdown = false
-		vdb.Status.Sandboxes[0].Shutdown = true
+		vdb.Spec.Subclusters[1].Shutdown = false
+		vdb.Status.Subclusters[1].Shutdown = true
 		validateShutdownReconcile(ctx, vdb, false)
 		Expect(k8sClient.Get(ctx, nm, cm)).Should(Succeed())
 		Expect(cm.Annotations[vmeta.SandboxControllerShutdownTriggerID]).ShouldNot(Equal(""))
 		Expect(cm.Annotations[vmeta.SandboxControllerShutdownTriggerID]).ShouldNot(Equal(id))
 
 		id = cm.Annotations[vmeta.SandboxControllerShutdownTriggerID]
-		vdb.Spec.Sandboxes[0].Shutdown = true
+		vdb.Spec.Subclusters[1].Shutdown = true
 		validateShutdownReconcile(ctx, vdb, false)
 		Expect(k8sClient.Get(ctx, nm, cm)).Should(Succeed())
 		Expect(cm.Annotations[vmeta.SandboxControllerShutdownTriggerID]).Should(Equal(id))

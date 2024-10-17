@@ -19,7 +19,6 @@ import (
 	"context"
 	"time"
 
-	"github.com/pkg/errors"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
@@ -28,7 +27,6 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/stopdb"
 	config "github.com/vertica/vertica-kubernetes/pkg/vdbconfig"
 	"github.com/vertica/vertica-kubernetes/pkg/vdbstatus"
-	"github.com/vertica/vertica-kubernetes/pkg/vk8s"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -85,8 +83,6 @@ func (s *StopDBReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl
 			err = vdbstatus.UpdateCondition(ctx, s.VRec.GetClient(), s.Vdb,
 				vapi.MakeCondition(vapi.VerticaRestartNeeded, metav1.ConditionFalse, "StopCompleted"),
 			)
-		} else {
-			err = s.updatesandboxSubclusters(ctx)
 		}
 	}
 	return ctrl.Result{}, err
@@ -136,40 +132,21 @@ func (s *StopDBReconciler) skipStopDB() bool {
 		return !s.Vdb.IsStatusConditionTrue(vapi.VerticaRestartNeeded)
 	}
 	sb := s.Vdb.GetSandbox(s.PFacts.SandboxName)
-	sbStatus := s.Vdb.GetSandboxStatus(s.PFacts.SandboxName)
-	if sb.Shutdown && sbStatus.Shutdown != sb.Shutdown {
-		return false
-	}
-	return true
-}
-
-// updatesandboxSubclusters updates the shutdown state for the sandbox and its
-// subclusters.
-func (s *StopDBReconciler) updatesandboxSubclusters(ctx context.Context) error {
-	err := vdbstatus.SetSandboxShutdownState(ctx, s.VRec.GetClient(), s.Vdb, s.PFacts.GetSandboxName(), true)
-	if err != nil {
-		return err
-	}
-	// here mark all subclusters in the sandbox for shutdown
-	_, err = vk8s.UpdateVDBWithRetry(ctx, s.VRec, s.Vdb, s.markSandboxSubclustersForShutDown)
-	return err
-}
-
-// markSandboxSubclustersForShutDown marks the subclusters so that the operator
-// does not restart them.
-func (s *StopDBReconciler) markSandboxSubclustersForShutDown() (bool, error) {
-	sb := s.Vdb.GetSandbox(s.PFacts.SandboxName)
-	if sb == nil {
-		return false, errors.New("sandbox not found")
-	}
-	needUpdate := false
-	scMap := s.Vdb.GenSubclusterMap()
-	for i := range sb.Subclusters {
-		sc := scMap[sb.Subclusters[i].Name]
-		if !sc.Shutdown {
-			sc.Shutdown = true
-			needUpdate = true
+	if sb != nil && sb.Shutdown {
+		scMap := s.Vdb.GenSubclusterMap()
+		scStatusMap := s.Vdb.GenSubclusterStatusMap()
+		for i := range sb.Subclusters {
+			scStatus := scStatusMap[sb.Subclusters[i].Name]
+			sc := scMap[sb.Subclusters[i].Name]
+			if sc == nil || scStatus == nil {
+				break
+			}
+			// If spec.subclusters[].shutdown is not equal to spec.sandboxes[].shutdown,
+			// we skip stopdb. A separate reconciler will update the subcluster spec first.
+			if sc.Shutdown && !scStatus.Shutdown {
+				return false
+			}
 		}
 	}
-	return needUpdate, nil
+	return true
 }

@@ -17,7 +17,6 @@ package vdbstatus
 
 import (
 	"context"
-	"errors"
 	"reflect"
 
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
@@ -92,19 +91,4 @@ func SetSandboxUpgradeState(ctx context.Context, clnt client.Client, vdb *vapi.V
 		sb.UpgradeState = *state
 		return nil
 	})
-}
-
-// SetSandboxShutdownState updates the shutdown status field of a given
-// sandbox.
-func SetSandboxShutdownState(ctx context.Context, clnt client.Client, vdb *vapi.VerticaDB,
-	sandboxName string, shutdown bool) error {
-	updateStatus := func(vdbChg *vapi.VerticaDB) error {
-		sb := vdbChg.GetSandboxStatus(sandboxName)
-		if sb == nil {
-			return errors.New("sandbox not found")
-		}
-		sb.Shutdown = shutdown
-		return nil
-	}
-	return Update(ctx, clnt, vdb, updateStatus)
 }

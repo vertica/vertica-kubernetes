@@ -37,21 +37,35 @@ import (
 // StatusReconciler will update the status field of the vdb.
 type StatusReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
-	Log    logr.Logger
-	Vdb    *vapi.VerticaDB // Vdb is the CRD we are acting on.
-	PFacts *PodFacts
+	Scheme       *runtime.Scheme
+	Log          logr.Logger
+	Vdb          *vapi.VerticaDB // Vdb is the CRD we are acting on.
+	PFacts       *PodFacts
+	SkipShutdown bool
 }
 
 // MakeStatusReconciler will build a StatusReconciler object
 func MakeStatusReconciler(cli client.Client, scheme *runtime.Scheme, log logr.Logger,
 	vdb *vapi.VerticaDB, pfacts *PodFacts) controllers.ReconcileActor {
 	return &StatusReconciler{
-		Client: cli,
-		Scheme: scheme,
-		Log:    log.WithName("StatusReconciler"),
-		Vdb:    vdb,
-		PFacts: pfacts,
+		Client:       cli,
+		Scheme:       scheme,
+		Log:          log.WithName("StatusReconciler"),
+		Vdb:          vdb,
+		PFacts:       pfacts,
+		SkipShutdown: true,
+	}
+}
+
+func MakeStatusReconcilerWithShutdown(cli client.Client, scheme *runtime.Scheme, log logr.Logger,
+	vdb *vapi.VerticaDB, pfacts *PodFacts) controllers.ReconcileActor {
+	return &StatusReconciler{
+		Client:       cli,
+		Scheme:       scheme,
+		Log:          log.WithName("StatusReconciler"),
+		Vdb:          vdb,
+		PFacts:       pfacts,
+		SkipShutdown: false,
 	}
 }
 
@@ -117,6 +131,9 @@ func (s *StatusReconciler) updateStatusFields(ctx context.Context) error {
 
 			if err := s.calculateSubclusterStatus(ctx, subclusters[i], &vdbChg.Status.Subclusters[i]); err != nil {
 				return fmt.Errorf("failed to calculate subcluster status %s %w", subclusters[i].Name, err)
+			}
+			if !s.SkipShutdown {
+				s.updateShutdownStatus(subclusters[i], &vdbChg.Status.Subclusters[i])
 			}
 		}
 		s.calculateClusterStatus(&vdbChg.Status)
@@ -200,6 +217,10 @@ func (s *StatusReconciler) calculateSubclusterStatus(ctx context.Context, sc *va
 		}
 	}
 	return nil
+}
+
+func (s *StatusReconciler) updateShutdownStatus(sc *vapi.Subcluster, curStat *vapi.SubclusterStatus) {
+	curStat.Shutdown = sc.Shutdown
 }
 
 // resizeSubclusterStatus will set the size of curStat.Detail to its correct value.

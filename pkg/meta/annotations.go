@@ -326,6 +326,10 @@ const (
 	// Those paths include local paths not in local.catalogPath, local.dataPath,
 	// and local.depotPath. For example, the user-created temp paths.
 	ExtraLocalPathsAnnotation = "vertica.com/extra-local-paths"
+
+	// This indicates that the subcluster shutdown is controlled by the sandbox
+	// through the sandbox's shutdown field.
+	ShutdownDrivenBySandbox = "vertica.com/shutdown-driven-by-sandbox"
 )
 
 // IsPauseAnnotationSet will check the annotations for a special value that will
@@ -618,6 +622,10 @@ func GetSaveRestorePoint(annotations map[string]string) bool {
 // not provided, an empty string is returned.
 func GetStsNameOverride(annotations map[string]string) string {
 	return lookupStringAnnotation(annotations, StsNameOverrideAnnotation, "")
+}
+
+func GetShutdownDrivenBySandbox(annotations map[string]string) bool {
+	return lookupBoolAnnotation(annotations, ShutdownDrivenBySandbox, false)
 }
 
 // GetExtraLocalPaths returns the comma separated list of extra local paths

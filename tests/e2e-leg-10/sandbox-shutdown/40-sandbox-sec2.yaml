@@ -20,6 +20,7 @@ spec:
   - name: sandbox1
     subclusters:
       - name: sec1
+      - name: sec3
   - name: sandbox2
     subclusters:
       - name: sec2

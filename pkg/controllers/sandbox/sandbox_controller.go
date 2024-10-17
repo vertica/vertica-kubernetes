@@ -168,8 +168,9 @@ func (r *SandboxConfigMapReconciler) constructActors(vdb *v1.VerticaDB, log logr
 		vdbcontroller.MakeStopDBReconciler(r, vdb, prunner, pfacts, dispatcher),
 		// Restart any down pods
 		vdbcontroller.MakeRestartReconciler(r, log, vdb, prunner, pfacts, true, dispatcher),
-		// Update the sandbox and its subclusters' shutdown state
-		MakeRestartSandboxReconciler(r, vdb, pfacts, log),
+		// Update the vdb status including subclusters[].shutdown, after a stopdb
+		// or a restart
+		vdbcontroller.MakeStatusReconcilerWithShutdown(r.Client, r.Scheme, log, vdb, pfacts),
 	}
 }
 

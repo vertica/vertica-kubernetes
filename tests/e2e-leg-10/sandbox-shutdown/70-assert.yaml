@@ -11,26 +11,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: v1
-kind: Event
-reason: UnsandboxSubclusterSucceeded
-source:
-  component: verticadb-operator
-involvedObject:
-  apiVersion: vertica.com/v1
-  kind: VerticaDB
-  name: v-sandbox-shutdown
----
-apiVersion: v1
-kind: Event
-reason: NodeRestartSucceeded
-source:
-  component: verticadb-operator
-involvedObject:
-  apiVersion: vertica.com/v1
-  kind: VerticaDB
-  name: v-sandbox-shutdown
----
 apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
@@ -43,6 +23,8 @@ spec:
       type: secondary
     - name: sec2
       type: sandboxprimary
+    - name: sec3
+      type: secondary
 status:
   sandboxes:
     - name: sandbox2
@@ -55,6 +37,9 @@ status:
     - addedToDBCount: 3
       upNodeCount: 3
       name: sec1
-    - addedToDBCount: 3
-      upNodeCount: 3
+    - addedToDBCount: 1
+      upNodeCount: 1
       name: sec2
+    - addedToDBCount: 1
+      upNodeCount: 1
+      name: sec3

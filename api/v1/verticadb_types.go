@@ -640,8 +640,8 @@ type Sandbox struct {
 	// +kubebuilder:validation:Optional
 	// State to indicate whether the operator must shut down the sandbox
 	// and not try to restart it. When true, stop_db will be performed on the sandbox
-	// and the operator will not try to restart it.
-	Shutdown bool `json:"shutdown"`
+	// and the operator will not try start_db on the sandbox.
+	Shutdown bool `json:"shutdown,omitempty"`
 
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// This is the subcluster names that are part of the sandbox.
@@ -800,7 +800,7 @@ type Subcluster struct {
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// State to indicate whether the operator must shut down the subcluster
 	// and not try to restart it.
-	Shutdown bool `json:"shutdown"`
+	Shutdown bool `json:"shutdown,omitempty"`
 }
 
 // Affinity is used instead of corev1.Affinity and behaves the same.
@@ -901,12 +901,6 @@ type SandboxStatus struct {
 	// +optional
 	// State of the current running upgrade in the sandbox
 	UpgradeState SandboxUpgradeState `json:"upgradeState,omitempty"`
-
-	// +operator-sdk:csv:customresourcedefinitions:type=status
-	// +optional
-	// State of the sandbox. true means the sandbox is currently down
-	// and must not be restarted.
-	Shutdown bool `json:"shutdown"`
 }
 
 const (
@@ -974,9 +968,9 @@ type SubclusterStatus struct {
 
 	// +operator-sdk:csv:customresourcedefinitions:type=status
 	// +optional
-	// State of the subcluster. true means the subcluster is currently down
+	// State of the subcluster. true means the subcluster was explicitly shut down by the user
 	// and must not be restarted.
-	Shutdown bool `json:"shutdown,omitempty"`
+	Shutdown bool `json:"shutdown"`
 }
 
 // VerticaDBPodStatus holds state for a single pod in a subcluster

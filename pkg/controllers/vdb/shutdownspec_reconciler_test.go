@@ -13,7 +13,7 @@
  limitations under the License.
 */
 
-package sandbox
+package vdb
 
 import (
 	"context"
@@ -22,25 +22,27 @@ import (
 	. "github.com/onsi/gomega"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
-	vdbcontroller "github.com/vertica/vertica-kubernetes/pkg/controllers/vdb"
+	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/test"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-var _ = Describe("restartsandbox_reconcile", func() {
+var _ = Describe("shutdownspec_reconciler", func() {
 	ctx := context.Background()
 	maincluster := "main"
 	subcluster1 := "sc1"
+	subcluster2 := "sc2"
 	sandbox1 := "sandbox1"
 
-	It("should reconcile based on shutdown state", func() {
+	It("should reconcile based on sandbox shutdown field", func() {
 		vdb := vapi.MakeVDBForVclusterOps()
 		vdb.Spec.Subclusters = []vapi.Subcluster{
 			{Name: maincluster, Size: 1, Type: vapi.PrimarySubcluster},
-			{Name: subcluster1, Size: 1, Type: vapi.SecondarySubcluster, Shutdown: true},
+			{Name: subcluster1, Size: 1, Type: vapi.SecondarySubcluster},
+			{Name: subcluster2, Size: 1, Type: vapi.SecondarySubcluster},
 		}
 		vdb.Spec.Sandboxes = []vapi.Sandbox{
-			{Name: sandbox1, Shutdown: true, Subclusters: []vapi.SubclusterName{{Name: subcluster1}}},
+			{Name: sandbox1, Shutdown: true, Subclusters: []vapi.SubclusterName{{Name: subcluster1}, {Name: subcluster2}}},
 		}
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
@@ -48,34 +50,31 @@ var _ = Describe("restartsandbox_reconcile", func() {
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := vdbcontroller.MakePodFacts(sbRec, fpr, logger, TestPassword)
-		pfacts.NeedCollection = false
+		pfacts := MakePodFacts(vdbRec, fpr, logger, TestPassword)
 		pfacts.SandboxName = sandbox1
-		rec := MakeRestartSandboxReconciler(sbRec, vdb, &pfacts, logger)
-		r := rec.(*RestartSandboxReconciler)
+
+		r := MakeShutdownSpecReconciler(vdbRec, vdb, &pfacts)
 		res, err := r.Reconcile(ctx, &ctrl.Request{})
 		Expect(err).Should(BeNil())
 		Expect(res).Should(Equal(ctrl.Result{}))
+		newVdb := &vapi.VerticaDB{}
+		Expect(k8sClient.Get(ctx, vapi.MakeVDBName(), newVdb)).Should(Succeed())
+		Expect(vmeta.GetShutdownDrivenBySandbox(newVdb.Spec.Subclusters[1].Annotations)).Should(BeTrue())
+		Expect(vmeta.GetShutdownDrivenBySandbox(newVdb.Spec.Subclusters[2].Annotations)).Should(BeTrue())
+		Expect(newVdb.Spec.Subclusters[1].Shutdown).Should(BeTrue())
+		Expect(newVdb.Spec.Subclusters[2].Shutdown).Should(BeTrue())
 
-		vdb.Spec.Sandboxes[0].Shutdown = false
-		Expect(k8sClient.Update(ctx, vdb)).Should(Succeed())
-		vdb.Status.Sandboxes = []vapi.SandboxStatus{
-			{Name: sandbox1, Shutdown: false, Subclusters: []string{subcluster1}},
-		}
-		Expect(k8sClient.Status().Update(ctx, vdb)).Should(Succeed())
-		rec = MakeRestartSandboxReconciler(sbRec, vdb, &pfacts, logger)
-		r = rec.(*RestartSandboxReconciler)
+		newVdb.Spec.Sandboxes[0].Shutdown = false
+		Expect(k8sClient.Update(ctx, newVdb)).Should(Succeed())
+		r = MakeShutdownSpecReconciler(vdbRec, newVdb, &pfacts)
 		res, err = r.Reconcile(ctx, &ctrl.Request{})
 		Expect(err).Should(BeNil())
 		Expect(res).Should(Equal(ctrl.Result{}))
-		Expect(vdb.Spec.Subclusters[1].Shutdown).Should(BeFalse())
-
-		vdb.Status.Sandboxes[0].Shutdown = true
-		Expect(k8sClient.Status().Update(ctx, vdb)).Should(Succeed())
-		rec = MakeRestartSandboxReconciler(sbRec, vdb, &pfacts, logger)
-		r = rec.(*RestartSandboxReconciler)
-		res, err = r.Reconcile(ctx, &ctrl.Request{})
-		Expect(err).Should(BeNil())
-		Expect(res).Should(Equal(ctrl.Result{Requeue: true}))
+		newVdb2 := &vapi.VerticaDB{}
+		Expect(k8sClient.Get(ctx, vapi.MakeVDBName(), newVdb2)).Should(Succeed())
+		Expect(vmeta.GetShutdownDrivenBySandbox(newVdb2.Spec.Subclusters[1].Annotations)).Should(BeFalse())
+		Expect(vmeta.GetShutdownDrivenBySandbox(newVdb2.Spec.Subclusters[2].Annotations)).Should(BeFalse())
+		Expect(newVdb2.Spec.Subclusters[1].Shutdown).Should(BeFalse())
+		Expect(newVdb.Spec.Subclusters[2].Shutdown).Should(BeFalse())
 	})
 })
