@@ -23,9 +23,9 @@ import (
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/builder"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
-	vdbcontroller "github.com/vertica/vertica-kubernetes/pkg/controllers/vdb"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
+	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
 	"github.com/vertica/vertica-kubernetes/pkg/test"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	corev1 "k8s.io/api/core/v1"
@@ -54,7 +54,7 @@ var _ = Describe("sandboxsubcluster_reconcile", func() {
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := vdbcontroller.MakePodFacts(sbRec, fpr, logger, TestPassword)
+		pfacts := podfacts.MakePodFacts(sbRec, fpr, logger, TestPassword)
 		dispatcher := vadmin.MakeVClusterOps(logger, vdb, k8sClient, TestPassword, sbRec.EVRec, vadmin.SetupVClusterOps)
 		r := MakeUnsandboxSubclusterReconciler(sbRec, vdb, logger, k8sClient, &pfacts, dispatcher, nil, fpr)
 		Expect(vdb.IsEON()).Should(BeFalse())
@@ -75,7 +75,7 @@ var _ = Describe("sandboxsubcluster_reconcile", func() {
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := vdbcontroller.MakePodFacts(sbRec, fpr, logger, TestPassword)
+		pfacts := podfacts.MakePodFacts(sbRec, fpr, logger, TestPassword)
 		dispatcher := vadmin.MakeVClusterOps(logger, vdb, k8sClient, TestPassword, sbRec.EVRec, vadmin.SetupVClusterOps)
 		r := MakeUnsandboxSubclusterReconciler(sbRec, vdb, logger, k8sClient, &pfacts, dispatcher, nil, fpr)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
@@ -97,7 +97,7 @@ var _ = Describe("sandboxsubcluster_reconcile", func() {
 		defer test.DeleteConfigMap(ctx, k8sClient, vdb, sandbox1)
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := vdbcontroller.MakePodFacts(sbRec, fpr, logger, TestPassword)
+		pfacts := podfacts.MakePodFacts(sbRec, fpr, logger, TestPassword)
 		dispatcher := vadmin.MakeVClusterOps(logger, vdb, k8sClient, TestPassword, sbRec.EVRec, vadmin.SetupVClusterOps)
 		rec := MakeUnsandboxSubclusterReconciler(sbRec, vdb, logger, k8sClient, &pfacts, dispatcher, cm, fpr)
 		r := rec.(*UnsandboxSubclusterReconciler)
@@ -137,7 +137,7 @@ var _ = Describe("sandboxsubcluster_reconcile", func() {
 		Expect(k8sClient.Status().Update(ctx, vdb)).Should(Succeed())
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := vdbcontroller.MakePodFacts(sbRec, fpr, logger, TestPassword)
+		pfacts := podfacts.MakePodFacts(sbRec, fpr, logger, TestPassword)
 		dispatcher := vadmin.MakeVClusterOps(logger, vdb, k8sClient, TestPassword, sbRec.EVRec, vadmin.SetupVClusterOps)
 		rec := MakeUnsandboxSubclusterReconciler(sbRec, vdb, logger, k8sClient, &pfacts, dispatcher, cm, fpr)
 		r := rec.(*UnsandboxSubclusterReconciler)
@@ -177,7 +177,7 @@ var _ = Describe("sandboxsubcluster_reconcile", func() {
 		Expect(k8sClient.Status().Update(ctx, vdb)).Should(Succeed())
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := vdbcontroller.MakePodFacts(sbRec, fpr, logger, TestPassword)
+		pfacts := podfacts.MakePodFacts(sbRec, fpr, logger, TestPassword)
 		dispatcher := vadmin.MakeVClusterOps(logger, vdb, k8sClient, TestPassword, sbRec.EVRec, vadmin.SetupVClusterOps)
 		rec := MakeUnsandboxSubclusterReconciler(sbRec, vdb, logger, k8sClient, &pfacts, dispatcher, nil, fpr)
 		r := rec.(*UnsandboxSubclusterReconciler)
@@ -211,7 +211,7 @@ var _ = Describe("sandboxsubcluster_reconcile", func() {
 		Expect(k8sClient.Status().Update(ctx, vdb)).Should(Succeed())
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := vdbcontroller.MakePodFacts(sbRec, fpr, logger, TestPassword)
+		pfacts := podfacts.MakePodFacts(sbRec, fpr, logger, TestPassword)
 		dispatcher := vadmin.MakeVClusterOps(logger, vdb, k8sClient, TestPassword, sbRec.EVRec, vadmin.SetupVClusterOps)
 		rec := MakeUnsandboxSubclusterReconciler(sbRec, vdb, logger, k8sClient, &pfacts, dispatcher, cm, fpr)
 		r := rec.(*UnsandboxSubclusterReconciler)

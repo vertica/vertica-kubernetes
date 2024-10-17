@@ -26,6 +26,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
+	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
 	"github.com/vertica/vertica-kubernetes/pkg/test"
 	"github.com/vertica/vertica-kubernetes/pkg/types"
 	config "github.com/vertica/vertica-kubernetes/pkg/vdbconfig"
@@ -109,7 +110,7 @@ var _ = Describe("init_db", func() {
 				Vdb:  vdb,
 			},
 		}
-		podList := []*PodFact{}
+		podList := []*podfacts.PodFact{}
 		for i := range pfacts.Detail {
 			podList = append(podList, pfacts.Detail[i])
 		}

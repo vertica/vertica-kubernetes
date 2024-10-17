@@ -21,6 +21,7 @@ import (
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
+	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
 	corev1 "k8s.io/api/core/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -30,12 +31,13 @@ import (
 type LocalDataCheckReconciler struct {
 	VRec      *VerticaDBReconciler
 	Vdb       *vapi.VerticaDB
-	PFacts    *PodFacts
+	PFacts    *podfacts.PodFacts
 	NumEvents int // Number of events written
 }
 
 // MakeLocalDataCheckReconciler will build a LocalDataCheckReconciler object
-func MakeLocalDataCheckReconciler(vdbrecon *VerticaDBReconciler, vdb *vapi.VerticaDB, pfacts *PodFacts) controllers.ReconcileActor {
+func MakeLocalDataCheckReconciler(vdbrecon *VerticaDBReconciler, vdb *vapi.VerticaDB,
+	pfacts *podfacts.PodFacts) controllers.ReconcileActor {
 	return &LocalDataCheckReconciler{VRec: vdbrecon, Vdb: vdb, PFacts: pfacts}
 }
 
@@ -48,11 +50,11 @@ func (l *LocalDataCheckReconciler) Reconcile(ctx context.Context, _ *ctrl.Reques
 	// We report a warning for any pod that has less then this amount of free
 	// space in their local PV.
 	const FreeSpaceThreshold = 10 * 1024 * 1024 // 10mb
-	pods := l.PFacts.findPodsLowOnDiskSpace(FreeSpaceThreshold)
+	pods := l.PFacts.FindPodsLowOnDiskSpace(FreeSpaceThreshold)
 	l.NumEvents = 0
 	for i := range pods {
 		l.VRec.Eventf(l.Vdb, corev1.EventTypeWarning, events.LowLocalDataAvailSpace,
-			"Low disk space in persistent volume attached to %s", pods[i].name.Name)
+			"Low disk space in persistent volume attached to %s", pods[i].GetName().Name)
 		l.NumEvents++
 	}
 

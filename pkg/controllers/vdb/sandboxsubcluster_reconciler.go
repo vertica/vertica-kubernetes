@@ -28,6 +28,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
+	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/pollscstate"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/sandboxsc"
@@ -44,7 +45,7 @@ type SandboxSubclusterReconciler struct {
 	VRec         *VerticaDBReconciler
 	Log          logr.Logger
 	Vdb          *vapi.VerticaDB // Vdb is the CRD we are acting on
-	PFacts       *PodFacts
+	PFacts       *podfacts.PodFacts
 	InitiatorIPs map[string]string // IPs from main cluster and sandboxes that should be passed down to vcluster
 	Dispatcher   vadmin.Dispatcher
 	ForUpgrade   bool
@@ -53,7 +54,7 @@ type SandboxSubclusterReconciler struct {
 
 // MakeSandboxSubclusterReconciler will build a SandboxSubclusterReconciler object
 func MakeSandboxSubclusterReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger, vdb *vapi.VerticaDB,
-	pfacts *PodFacts, dispatcher vadmin.Dispatcher, cli client.Client, forUpgrade bool) controllers.ReconcileActor {
+	pfacts *podfacts.PodFacts, dispatcher vadmin.Dispatcher, cli client.Client, forUpgrade bool) controllers.ReconcileActor {
 	return &SandboxSubclusterReconciler{
 		VRec:         vdbrecon,
 		Log:          log.WithName("SandboxSubclusterReconciler"),
@@ -97,13 +98,13 @@ func (s *SandboxSubclusterReconciler) reconcileSandboxStatus(ctx context.Context
 	sbScMap := make(map[string][]string)
 	seenScs := make(map[string]any)
 	for _, v := range s.PFacts.Detail {
-		if _, ok := seenScs[v.subclusterName]; ok {
+		if _, ok := seenScs[v.GetSubclusterName()]; ok {
 			continue
 		}
-		if v.sandbox != vapi.MainCluster {
-			sbScMap[v.sandbox] = append(sbScMap[v.sandbox], v.subclusterName)
+		if v.GetSandbox() != vapi.MainCluster {
+			sbScMap[v.GetSandbox()] = append(sbScMap[v.GetSandbox()], v.GetSubclusterName())
 		}
-		seenScs[v.subclusterName] = struct{}{}
+		seenScs[v.GetSubclusterName()] = struct{}{}
 	}
 	if len(sbScMap) > 0 {
 		return s.updateSandboxStatus(ctx, sbScMap)
@@ -139,11 +140,11 @@ func (s *SandboxSubclusterReconciler) sandboxSubclusters(ctx context.Context) (c
 
 	// find an initiator from the main cluster that we can use to pass down to
 	// vclusterOps.
-	initiator, ok := s.PFacts.findFirstPodSorted(func(v *PodFact) bool {
-		return v.sandbox == vapi.MainCluster && v.isPrimary && v.upNode
+	initiator, ok := s.PFacts.FindFirstPodSorted(func(v *podfacts.PodFact) bool {
+		return v.GetSandbox() == vapi.MainCluster && v.GetIsPrimary() && v.GetUpNode()
 	})
 	if ok {
-		s.InitiatorIPs[vapi.MainCluster] = initiator.podIP
+		s.InitiatorIPs[vapi.MainCluster] = initiator.GetPodIP()
 	} else {
 		s.Log.Info("Requeue because there are no UP nodes in main cluster to execute sandbox operation")
 		return ctrl.Result{Requeue: true}, nil
@@ -270,14 +271,14 @@ func (s *SandboxSubclusterReconciler) findInitiatorIPs(ctx context.Context, sand
 			s.Log.Info("detected first subcluster added to a new sandbox", "initiatorIPs", ips)
 			return ips, ctrl.Result{}, nil
 		}
-		pf, found := pfs.findFirstPodSorted(func(v *PodFact) bool {
-			return v.upNode && v.isPrimary
+		pf, found := pfs.FindFirstPodSorted(func(v *podfacts.PodFact) bool {
+			return v.GetUpNode() && v.GetIsPrimary()
 		})
 		if !found {
 			s.Log.Info("Requeue because there are no UP nodes in the target sandbox", "sandbox", sandbox)
 			return nil, ctrl.Result{Requeue: true}, nil
 		}
-		s.InitiatorIPs[sandbox] = pf.podIP
+		s.InitiatorIPs[sandbox] = pf.GetPodIP()
 	}
 	ips := []string{s.InitiatorIPs[vapi.MainCluster], s.InitiatorIPs[sandbox]}
 	s.Log.Info("found two initiator IPs", "main", ips[0], "sandbox", ips[1])
@@ -374,20 +375,20 @@ func (s *SandboxSubclusterReconciler) fetchSubclustersWithSandboxes() (map[strin
 	vdbScSbMap := s.Vdb.GenSubclusterSandboxMap()
 	targetScSbMap := make(map[string]string)
 	for _, v := range s.PFacts.Detail {
-		sb, ok := vdbScSbMap[v.subclusterName]
+		sb, ok := vdbScSbMap[v.GetSubclusterName()]
 		// skip the pod in the subcluster that doesn't need to be sandboxed
 		if !ok {
 			continue
 		}
 		// skip the pod in the subcluster that already in the target sandbox
-		if sb == v.sandbox {
+		if sb == v.GetSandbox() {
 			continue
 		}
 		// the pod to be added in a sandbox should have a running node
-		if !v.upNode {
+		if !v.GetUpNode() {
 			return targetScSbMap, false
 		}
-		targetScSbMap[v.subclusterName] = sb
+		targetScSbMap[v.GetSubclusterName()] = sb
 	}
 	return targetScSbMap, true
 }

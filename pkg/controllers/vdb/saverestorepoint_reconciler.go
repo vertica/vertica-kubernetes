@@ -26,6 +26,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
+	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/createarchive"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/saverestorepoint"
@@ -44,12 +45,12 @@ type SaveRestorePointReconciler struct {
 	Log  logr.Logger
 	client.Client
 	Dispatcher  vadmin.Dispatcher
-	PFacts      *PodFacts
+	PFacts      *podfacts.PodFacts
 	InitiatorIP string // The IP of the pod that we run vclusterOps from
 }
 
 func MakeSaveRestorePointReconciler(r *VerticaDBReconciler, vdb *vapi.VerticaDB, log logr.Logger,
-	pfacts *PodFacts, dispatcher vadmin.Dispatcher, cli client.Client) controllers.ReconcileActor {
+	pfacts *podfacts.PodFacts, dispatcher vadmin.Dispatcher, cli client.Client) controllers.ReconcileActor {
 	return &SaveRestorePointReconciler{
 		VRec:       r,
 		Log:        log.WithName("SaveRestorePointReconciler"),

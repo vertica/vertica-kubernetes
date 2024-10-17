@@ -51,7 +51,6 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/startdb"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/stopdb"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/unsandboxsc"
-
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )

@@ -26,6 +26,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
+	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
 	"github.com/vertica/vertica-kubernetes/pkg/test"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -47,7 +48,7 @@ var _ = Describe("k8s/version_reconcile", func() {
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := MakePodFacts(vdbRec, fpr, logger, TestPassword)
+		pfacts := podfacts.MakePodFacts(vdbRec, fpr, logger, TestPassword)
 		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
 		podName := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)
 		fpr.Results = cmds.CmdResults{
@@ -96,7 +97,7 @@ vertica(v11.1.0) built by @re-docker2 from tag@releases/VER_10_1_RELEASE_BUILD_1
 		defer test.DeleteConfigMap(ctx, k8sClient, vdb, sbName)
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := MakePodFactsForSandbox(vdbRec, fpr, logger, TestPassword, sbName)
+		pfacts := podfacts.MakePodFactsForSandbox(vdbRec, fpr, logger, TestPassword, sbName)
 		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
 		podName := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)
 		fpr.Results = cmds.CmdResults{
@@ -125,7 +126,7 @@ vertica(v11.1.0) built by @re-docker2 from tag@releases/VER_10_1_RELEASE_BUILD_1
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := MakePodFacts(vdbRec, fpr, logger, TestPassword)
+		pfacts := podfacts.MakePodFacts(vdbRec, fpr, logger, TestPassword)
 		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
 		podName := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)
 		fpr.Results = cmds.CmdResults{
@@ -160,7 +161,7 @@ vertica(v11.1.0) built by @re-docker2 from tag@releases/VER_10_1_RELEASE_BUILD_1
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := MakePodFacts(vdbRec, fpr, logger, TestPassword)
+		pfacts := podfacts.MakePodFacts(vdbRec, fpr, logger, TestPassword)
 		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
 		podName := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)
 		fpr.Results = cmds.CmdResults{
@@ -186,7 +187,7 @@ vertica(v11.1.0) built by @re-docker2 from tag@releases/VER_10_1_RELEASE_BUILD_1
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := MakePodFacts(vdbRec, fpr, logger, TestPassword)
+		pfacts := podfacts.MakePodFacts(vdbRec, fpr, logger, TestPassword)
 		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
 
 		r := MakeImageVersionReconciler(vdbRec, logger, vdb, fpr, &pfacts, true)
@@ -200,7 +201,7 @@ vertica(v11.1.0) built by @re-docker2 from tag@releases/VER_10_1_RELEASE_BUILD_1
 			vmeta.VClusterOpsAnnotation: vmeta.VClusterOpsAnnotationTrue,
 		}
 		podWithNoDB := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)
-		pfacts.Detail[podWithNoDB].admintoolsExists = true
+		pfacts.Detail[podWithNoDB].SetAdmintoolsExists(true)
 		res, err = r.Reconcile(ctx, &ctrl.Request{})
 		Expect(res).Should(Equal(ctrl.Result{}))
 		Expect(err.Error()).Should(ContainSubstring("image vertica-k8s:latest is meant for admintools style"))
@@ -254,13 +255,13 @@ func testNMATLSSecretWithVersion(ctx context.Context, secretName, oldVersion, ne
 	defer test.DeletePods(ctx, k8sClient, vdb)
 
 	fpr := &cmds.FakePodRunner{}
-	pfacts := MakePodFacts(vdbRec, fpr, logger, TestPassword)
+	pfacts := podfacts.MakePodFacts(vdbRec, fpr, logger, TestPassword)
 	Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
 	podName := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)
 	fpr.Results = cmds.CmdResults{
 		podName: []cmds.CmdResult{{Stdout: mockVerticaVersionOutput(oldVersion)}},
 	}
-	pfacts.Detail[podName].hasNMASidecar = hasNMASidecar
+	pfacts.Detail[podName].SetHasNMASidecar(hasNMASidecar)
 
 	r := MakeImageVersionReconciler(vdbRec, logger, vdb, fpr, &pfacts, true)
 	Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: true}))
@@ -283,7 +284,7 @@ func testNMARunningMode(ctx context.Context, badVersion,
 	defer test.DeletePods(ctx, k8sClient, vdb)
 
 	fpr := &cmds.FakePodRunner{}
-	pfacts := MakePodFacts(vdbRec, fpr, logger, TestPassword)
+	pfacts := podfacts.MakePodFacts(vdbRec, fpr, logger, TestPassword)
 	Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
 	podName := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)
 

@@ -26,6 +26,7 @@ import (
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
+	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
 	"github.com/vertica/vertica-kubernetes/pkg/test"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -73,7 +74,7 @@ var _ = Describe("createdb_reconciler", func() {
 		Expect(ok).Should(BeTrue())
 		Expect(len(hostList)).Should(Equal(1))
 		pn := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)
-		Expect(hostList[0].dnsName).Should(ContainSubstring(pn.Name))
+		Expect(hostList[0].GetDNSName()).Should(ContainSubstring(pn.Name))
 	})
 
 	It("host list should contain 1 pod when kSafety is 0", func() {
@@ -93,7 +94,7 @@ var _ = Describe("createdb_reconciler", func() {
 		vdb.Spec.InitPolicy = vapi.CommunalInitPolicyRevive
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := MakePodFacts(vdbRec, fpr, logger, TestPassword)
+		pfacts := podfacts.MakePodFacts(vdbRec, fpr, logger, TestPassword)
 		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
 		r := MakeCreateDBReconciler(vdbRec, logger, vdb, fpr, &pfacts, dispatcher)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
