@@ -812,7 +812,8 @@ func (i *UpgradeManager) createRestorePoint(ctx context.Context, pfacts *podfact
 
 // routeClientTraffic will update service objects for the source subcluster to
 // route to the target subcluster
-func (i *UpgradeManager) routeClientTraffic(ctx context.Context, pfacts *podfacts.PodFacts, sc *vapi.Subcluster, selectors map[string]string) error {
+func (i *UpgradeManager) routeClientTraffic(ctx context.Context, pfacts *podfacts.PodFacts,
+	sc *vapi.Subcluster, selectors map[string]string) error {
 	actor := MakeObjReconciler(i.Rec, i.Log, i.Vdb, pfacts, ObjReconcileModeAll)
 	objRec := actor.(*ObjReconciler)
 

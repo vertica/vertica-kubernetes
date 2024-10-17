@@ -124,11 +124,12 @@ const (
 // OnlineUpgradeReconciler will coordinate an online upgrade that allows
 // write. This is done by splitting the cluster into two separate replicas and
 // using failover strategies to keep the database online.
+// We have podfacts for main cluster and replica sandbox.
 type OnlineUpgradeReconciler struct {
 	VRec                                                  *VerticaDBReconciler
 	Log                                                   logr.Logger
 	VDB                                                   *vapi.VerticaDB
-	PFacts                                                map[string]*podfacts.PodFacts // We have podfacts for main cluster and replica sandbox
+	PFacts                                                map[string]*podfacts.PodFacts
 	Manager                                               UpgradeManager
 	Dispatcher                                            vadmin.Dispatcher
 	sandboxName                                           string // name of the sandbox created for replica group B
