@@ -384,7 +384,15 @@ BASE_VERTICA_IMG and VERTICA_IMG are used for the upgrade test cases. The BASE_V
 
 VERTICA_DEPLOYMENT_METHOD=vclusterops lets the backend use vcluster package to manage vertica clusters. If it is not set, the default value will be admintools and the vertica image must be admintools compatible.
 
-3. kuttl-test.yaml is the configuration file for e2e test cases. There is a "timeout" field in it. If your server is not fast enough, you may need to increase that value to pass the test cases.
+3. kuttl-test.yaml is the configuration file for e2e test cases. There is a "timeout" field in it. If your server is not fast enough, you may need to increase that value to pass the test cases. There is another field "parallel" that controls the maximum number of tests to run at once. It is set to 2 by default. You can set it to 1 if your server is not fast enough.
+
+4. To avoid downloading the same image multiple times, you can run the following commands to download the images and push them to the kind cluster before you run the test cases.
+>
+> ```shell
+> scripts/push-to-kind.sh -i $VERTICA_IMG
+> scripts/push-to-kind.sh -i $BASE_VERTICA_IMG
+>
+This will speed up test case execution and avoid timeout.
 
 
 To run an individual test, pass the `--test` command the name of a [test suite directory](./tests/). For example, this command runs all tests in the [http-custom-certs](./tests/e2e-leg-6/http-custom-certs/) directory:
