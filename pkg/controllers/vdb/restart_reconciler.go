@@ -126,9 +126,14 @@ func (r *RestartReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctr
 	// admin commands to run.  Cluster operations only apply if the entire
 	// vertica cluster is managed by k8s.  We skip that if initPolicy is
 	// ScheduleOnly.
-	if r.PFacts.getUpNodeAndNotReadOnlyCount() == 0 &&
+	if r.PFacts.GetUpNodeAndNotReadOnlyCount() == 0 &&
 		r.Vdb.Spec.InitPolicy != vapi.CommunalInitPolicyScheduleOnly {
-		return r.reconcileCluster(ctx)
+		// Abort cluster restart if at least one pod must not be
+		// restarted.
+		if r.PFacts.GetShutdownCount() == 0 {
+			return r.reconcileCluster(ctx)
+		}
+		return ctrl.Result{}, nil
 	}
 	return r.reconcileNodes(ctx)
 }

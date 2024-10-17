@@ -1,0 +1,5 @@
+kind: Added
+body: Support planned sandbox shutdown.
+time: 2024-10-17T03:22:34.314728358+02:00
+custom:
+    Issue: "955"

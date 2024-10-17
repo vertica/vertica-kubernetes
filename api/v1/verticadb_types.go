@@ -194,7 +194,7 @@ type VerticaDBSpec struct {
 
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:advanced"
-	// When doing an online upgrade, we designate a subcluster to
+	// When doing a read-only online upgrade, we designate a subcluster to
 	// accept traffic while the other subclusters restart.  The designated
 	// subcluster is specified here.  The name of the subcluster can refer to an
 	// existing one or an entirely new subcluster.  If the subcluster is new, it
@@ -637,6 +637,13 @@ type Sandbox struct {
 	Image string `json:"image,omitempty"`
 
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// +kubebuilder:validation:Optional
+	// State to indicate whether the operator must shut down the sandbox
+	// and not try to restart it. When true, stop_db will be performed on the sandbox
+	// and the operator will not try start_db on the sandbox.
+	Shutdown bool `json:"shutdown,omitempty"`
+
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// This is the subcluster names that are part of the sandbox.
 	// There must be at least one subcluster listed. All subclusters
 	// listed need to be secondary subclusters.
@@ -788,6 +795,12 @@ type Subcluster struct {
 	// A map of key/value pairs appended to the stateful metadata.annotations of
 	// the subcluster.
 	Annotations map[string]string `json:"annotations,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// State to indicate whether the operator must shut down the subcluster
+	// and not try to restart it.
+	Shutdown bool `json:"shutdown,omitempty"`
 }
 
 // Affinity is used instead of corev1.Affinity and behaves the same.
@@ -952,6 +965,12 @@ type SubclusterStatus struct {
 
 	// +operator-sdk:csv:customresourcedefinitions:type=status
 	Detail []VerticaDBPodStatus `json:"detail"`
+
+	// +operator-sdk:csv:customresourcedefinitions:type=status
+	// +optional
+	// State of the subcluster. true means the subcluster was explicitly shut down by the user
+	// and must not be restarted.
+	Shutdown bool `json:"shutdown"`
 }
 
 // VerticaDBPodStatus holds state for a single pod in a subcluster
