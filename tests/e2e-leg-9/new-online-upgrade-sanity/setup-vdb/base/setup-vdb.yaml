@@ -18,6 +18,8 @@ metadata:
   annotations:
     vertica.com/include-uid-in-path: true
     vertica.com/online-upgrade-preferred-sandbox: "replica-group-b"
+    vertica.com/online-upgrade-archive-before-replication: "arch_bef_rep"
+    vertica.com/save-restore-point-on-upgrade: true
 spec:
   image: kustomize-vertica-image
   dbName: repUP
@@ -26,6 +28,9 @@ spec:
   communal: {}
   local:
     requestSize: 250Mi
+  sidecars:
+    - name: vlogger
+      image: kustomize-vlogger-image
   # We pick a cluster size that is too big for the CE license. This relies on
   # having a license, which will be added by kustomize.
   subclusters:

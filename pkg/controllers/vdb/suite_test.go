@@ -242,3 +242,8 @@ func deleteConfigMap(ctx context.Context, vdb *vapi.VerticaDB, cmName string) {
 	Expect(k8sClient.Get(ctx, nm, cm)).Should(Succeed())
 	Expect(k8sClient.Delete(ctx, cm)).Should(Succeed())
 }
+
+const (
+	maincluster = "main"
+	subcluster1 = "sc1"
+)

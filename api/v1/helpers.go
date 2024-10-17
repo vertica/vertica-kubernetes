@@ -17,6 +17,7 @@ limitations under the License.
 package v1
 
 import (
+	"context"
 	"fmt"
 	"regexp"
 	"strconv"
@@ -30,6 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
@@ -111,7 +113,7 @@ func MakeVDB() *VerticaDB {
 			Image:              "vertica-k8s:latest",
 			InitPolicy:         CommunalInitPolicyCreate,
 			Communal: CommunalStorage{
-				Path:             "s3://nimbusdb/mspilchen",
+				Path:             "s3://nimbusdb/cchen",
 				Endpoint:         "http://minio",
 				CredentialSecret: "s3-auth",
 				AdditionalConfig: make(map[string]string),
@@ -370,6 +372,18 @@ func (s *Subcluster) GetServiceName() string {
 	return s.ServiceName
 }
 
+// GetService gets the external service associated with this subcluster
+func (s *Subcluster) GetService(ctx context.Context, vdb *VerticaDB, c client.Client) (svc corev1.Service, err error) {
+	name := types.NamespacedName{
+		Name:      vdb.Name + "-" + s.GetServiceName(),
+		Namespace: vdb.GetNamespace(),
+	}
+	if err := c.Get(ctx, name, &svc); err != nil {
+		return corev1.Service{}, err
+	}
+	return
+}
+
 // FindSubclusterForServiceName will find any subclusters that match the given service name
 func (v *VerticaDB) FindSubclusterForServiceName(svcName string) (scs []*Subcluster, totalSize int32) {
 	totalSize = int32(0)
@@ -405,6 +419,16 @@ func (v *VerticaDB) GetTransientSubclusterName() (string, bool) {
 // IsOnlineUpgradeInProgress returns true if an online upgrade is in progress
 func (v *VerticaDB) IsOnlineUpgradeInProgress() bool {
 	return v.IsStatusConditionTrue(OnlineUpgradeInProgress)
+}
+
+// IsROOnlineUpgradeInProgress returns true if an read-only online upgrade is in progress
+func (v *VerticaDB) IsROUpgradeInProgress() bool {
+	return v.IsStatusConditionTrue(ReadOnlyOnlineUpgradeInProgress)
+}
+
+// IsUpgradeInProgress returns true if an upgrade is in progress
+func (v *VerticaDB) IsUpgradeInProgress() bool {
+	return v.IsStatusConditionTrue(UpgradeInProgress)
 }
 
 // IsStatusConditionTrue returns true when the conditionType is present and set to
@@ -565,9 +589,12 @@ func (v *VerticaDB) GetUpgradePolicyToUse() UpgradePolicyType {
 		// there is evidence that we have already scaled past 3 nodes (CE
 		// license limit), or we have a license defined.
 		const ceLicenseLimit = 3
-		if vinf.IsEqualOrNewer(OnlineUpgradeVersion) &&
+		if v.isOnlineUpgradeSupported(vinf) &&
 			!v.IsKSafety0() &&
-			(v.getNumberOfNodes() > ceLicenseLimit || v.Spec.LicenseSecret != "") {
+			(v.getNumberOfNodes() > ceLicenseLimit || v.Spec.LicenseSecret != "") &&
+			// online upgrade is not allowed if there is already a sandbox
+			// in vertica, except from the one used for online upgrade
+			!v.containsSandboxNotForUpgrade() {
 			return OnlineUpgrade
 		} else if vinf.IsEqualOrNewer(ReadOnlyOnlineUpgradeVersion) {
 			return ReadOnlyOnlineUpgrade
@@ -580,6 +607,24 @@ func (v *VerticaDB) GetUpgradePolicyToUse() UpgradePolicyType {
 	}
 
 	return OfflineUpgrade
+}
+
+// containsSandboxNotForUpgrade returns true if there is already a sandbox in the database, except
+// from the one created for online upgrade.
+func (v *VerticaDB) containsSandboxNotForUpgrade() bool {
+	if len(v.Status.Sandboxes) > 1 || len(v.Spec.Sandboxes) > 1 {
+		return true
+	}
+	upgradeSandbox := vmeta.GetOnlineUpgradeSandbox(v.Annotations)
+	if len(v.Status.Sandboxes) == 1 {
+		if upgradeSandbox != v.Status.Sandboxes[0].Name {
+			return true
+		}
+	}
+	if len(v.Spec.Sandboxes) == 1 {
+		return upgradeSandbox != v.Spec.Sandboxes[0].Name
+	}
+	return false
 }
 
 // GetIgnoreClusterLease will check if the cluster lease should be ignored.
@@ -828,10 +873,22 @@ func (r *RestorePointPolicy) IsValidRestorePointPolicy() bool {
 	return r != nil && r.Archive != "" && ((r.Index > 0) != (r.ID != ""))
 }
 
-// IsRestoreEnabled will return whether the vdb is configured to initialize by reviving from
+// IsValidForSaveRestorePoint returns true if archive name to be used
+// for creating a restore point is set.
+func (r *RestorePointPolicy) IsValidForSaveRestorePoint() bool {
+	return r != nil && r.Archive != ""
+}
+
+// IsRestoreDuringReviveEnabled will return whether the vdb is configured to initialize by reviving from
 // a restore point in an archive
-func (v *VerticaDB) IsRestoreEnabled() bool {
+func (v *VerticaDB) IsRestoreDuringReviveEnabled() bool {
 	return v.Spec.InitPolicy == CommunalInitPolicyRevive && v.Spec.RestorePoint != nil
+}
+
+// IsSaveRestorepointEnabled returns true if the status condition that
+// control restore point is set to true.
+func (v *VerticaDB) IsSaveRestorepointEnabled() bool {
+	return v.IsStatusConditionTrue(SaveRestorePointNeeded)
 }
 
 // IsHTTPSTLSConfGenerationEnabled return true if the httpstls.json file should
@@ -956,9 +1013,4 @@ func (v *VerticaDB) GetSubclustersForReplicaGroup(groupName string) []string {
 		}
 	}
 	return scNames
-}
-
-// IsOnlineUpgradeSandboxPromoted will check if replica-group-b has been promoted to main cluster
-func (v *VerticaDB) IsOnlineUpgradeSandboxPromoted() bool {
-	return vmeta.GetOnlineUpgradeSandboxPromoted(v.Annotations) == vmeta.SandboxPromotedTrue
 }

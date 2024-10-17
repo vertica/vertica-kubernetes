@@ -72,8 +72,8 @@ func (*MockVClusterOps) VStopDatabase(_ *vclusterops.VStopDatabaseOptions) error
 func (*MockVClusterOps) VInstallPackages(_ *vclusterops.VInstallPackagesOptions) (*vclusterops.InstallPackageStatus, error) {
 	return nil, nil
 }
-func (*MockVClusterOps) VReplicateDatabase(_ *vclusterops.VReplicationDatabaseOptions) error {
-	return nil
+func (*MockVClusterOps) VReplicateDatabase(_ *vclusterops.VReplicationDatabaseOptions) (int64, error) {
+	return 0, nil
 }
 func (*MockVClusterOps) VFetchNodesDetails(_ *vclusterops.VFetchNodesDetailsOptions) (vclusterops.NodesDetails, error) {
 	return nil, nil
@@ -84,13 +84,31 @@ func (*MockVClusterOps) VSandbox(_ *vclusterops.VSandboxOptions) error {
 func (*MockVClusterOps) VUnsandbox(_ *vclusterops.VUnsandboxOptions) error {
 	return nil
 }
+func (*MockVClusterOps) VCreateArchive(_ *vclusterops.VCreateArchiveOptions) error {
+	return nil
+}
+func (*MockVClusterOps) VSaveRestorePoint(_ *vclusterops.VSaveRestorePointOptions) error {
+	return nil
+}
 func (*MockVClusterOps) VPromoteSandboxToMain(_ *vclusterops.VPromoteSandboxToMainOptions) error {
 	return nil
 }
 func (m *MockVClusterOps) VAlterSubclusterType(options *vclusterops.VAlterSubclusterTypeOptions) error {
 	return nil
 }
+func (m *MockVClusterOps) VSetConfigurationParameters(options *vclusterops.VSetConfigurationParameterOptions) error {
+	return nil
+}
+func (m *MockVClusterOps) VGetConfigurationParameters(options *vclusterops.VGetConfigurationParameterOptions) (string, error) {
+	return "", nil
+}
 func (*MockVClusterOps) VRenameSubcluster(_ *vclusterops.VRenameSubclusterOptions) error {
+	return nil
+}
+func (m *MockVClusterOps) VPollSubclusterState(_ *vclusterops.VPollSubclusterStateOptions) error {
+	return nil
+}
+func (*MockVClusterOps) VManageConnectionDraining(_ *vclusterops.VManageConnectionDrainingOptions) error {
 	return nil
 }
 

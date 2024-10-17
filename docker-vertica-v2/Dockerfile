@@ -16,12 +16,14 @@ ARG BASE_OS_VERSION
 ARG BUILDER_OS_NAME
 ARG BUILDER_OS_VERSION
 ARG MINIMAL=""
-FROM ${BUILDER_OS_NAME}:${BUILDER_OS_VERSION} as builder
+FROM ${BUILDER_OS_NAME}:${BUILDER_OS_VERSION} AS builder
 
-ARG VERTICA_RPM
+ARG VERTICA_X86_RPM
+ARG VERTICA_ARM64_RPM
 ARG MINIMAL
 
-COPY ./packages/${VERTICA_RPM} /tmp/
+COPY ./packages/${VERTICA_X86_RPM} /tmp/
+COPY ./packages/${VERTICA_ARM64_RPM} /tmp/
 # this is a script which removes unnecessary stuff from the
 # container image
 COPY ./packages/cleanup.sh /tmp/
@@ -29,25 +31,41 @@ COPY ./packages/package-checksum-patcher.py /tmp/
 COPY ./packages/httpstls.json /tmp/
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+# Update is needed to be confident that we're picking up
+# fixed libraries.
+# Using --nobest to make it easier yum install to work. This stage isn't used
+# for the final image, so any package is good enough. We just need to install
+# the vertica rpm and copy that over.
+
+# It can be challenging to identify the exact architecture that the build file is targetting when doing a multi-platform build
+# The pain is described in https://github.com/BretFisher/multi-platform-docker-build quite well
+# We only need to do this because we have separate vertica RPMs for ARM and x86. 
+# There is no need for us to differentiate between the variants of ARM. So we consider those as equivalent for our RPM install.
+
+# Don't move the ARG from here. The ARG is only read by the build system if its declared after the SHELL
+ARG TARGETARCH
 RUN set -x \
-  # Update is needed to be confident that we're picking up
-  # fixed libraries.
   && yum -y update \
-  # Using --nobest to make it easier yum install to work. This stage isn't used
-  # for the final image, so any package is good enough. We just need to install
-  # the vertica rpm and copy that over.
   && yum install -y --nobest \
   dialog \
   glibc \
   glibc-langpack-en \
   iproute \
   openssl \
+  binutils \
   && /usr/sbin/groupadd -r verticadba \
   && /usr/sbin/useradd -r -m -s /bin/bash -g verticadba dbadmin \
-  && yum localinstall -y /tmp/${VERTICA_RPM} \
+  && ls /tmp/ \
+  && if [[ "$TARGETARCH" == "arm64" ]] ; then \
+      uname -m && \
+      yum localinstall -y /tmp/${VERTICA_ARM64_RPM} ; \
+    elif [[ "$TARGETARCH" == "amd64" ]] ; then \
+      yum localinstall -y /tmp/${VERTICA_X86_RPM} ; \
+    else \
+      exit 1; \
+    fi \
   && mkdir -p /opt/vertica/config/https_certs \
   && cp /tmp/httpstls.json /opt/vertica/config/https_certs/ \
-  # Run install_vertica script to prepare environment
   && /opt/vertica/sbin/install_vertica \
   --accept-eula \
   --debug \
@@ -68,12 +86,13 @@ RUN set -x \
   && sh /tmp/cleanup.sh
 
 ##############################################################################################
-FROM ${BASE_OS_NAME}:${BASE_OS_VERSION} as initial
+FROM ${BASE_OS_NAME}:${BASE_OS_VERSION} AS initial
 
 # Controls the version of jre to be installed. The list of all available jre
 # packages can be queried through dnf. For instance, "dnf search openjdk"
 ARG JRE_PKG=java-1.8.0-openjdk-headless
 ARG MINIMAL
+ARG FOR_GITHUB_CI
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN set -x \
@@ -89,6 +108,12 @@ RUN set -x \
   procps \
   sysstat \
   which \
+  # Install packages in full vertica image for e2e tests
+  && if [[ $FOR_GITHUB_CI == "true" ]] && [[ ${MINIMAL^^} != "YES" ]] ; then \
+    yum install -y diffutils gcc-c++ boost-devel libcurl-devel bzip2-devel bzip2 perl java-1.8.0-openjdk-devel zlib-devel \
+    && ln -s /opt/vertica/oss/python3/bin/python3 /usr/bin/python \
+    && ln -s /usr/lib64/libbz2.so /usr/lib64/libbz2.so.1.0; \
+  fi \
   && if [[ $(rpm -E '%{rhel}') == "9" ]] ; then \
     yum install -y libxcrypt-compat; \
   fi \

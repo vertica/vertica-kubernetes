@@ -18,6 +18,7 @@ package vdb
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"errors"
@@ -132,12 +133,26 @@ func (i *UpgradeManager) isVDBImageDifferent(ctx context.Context, sandbox string
 	if err != nil {
 		return false, err
 	}
+	clusterImage := ""
 	for inx := range stss.Items {
 		sts := stss.Items[inx]
 		cntImage, err := vk8s.GetServerImage(sts.Spec.Template.Spec.Containers)
 		if err != nil {
 			return false, err
 		}
+
+		// If the current cluster has different images across its subclusters, it means
+		// that some subclusters have just been unsandboxed. In this case, we do not want
+		// the upgrade reconciler to be triggered. Instead, the unsandbox-image-version reconciler
+		// should first restore the image version for those subclusters.
+		if clusterImage != "" && clusterImage != cntImage {
+			i.Log.Info("Skipped cluster upgrade due to inconsistent images across the cluster",
+				"existing image version", clusterImage, "new image version", cntImage)
+			return false, nil
+		} else if clusterImage == "" {
+			clusterImage = cntImage
+		}
+
 		if cntImage != targetImage {
 			return true, nil
 		}
@@ -264,7 +279,7 @@ func (i *UpgradeManager) clearOnlineUpgradeAnnotations(ctx context.Context) erro
 func (i *UpgradeManager) clearOnlineUpgradeAnnotationCallback() (updated bool, err error) {
 	for inx := range i.Vdb.Spec.Subclusters {
 		sc := &i.Vdb.Spec.Subclusters[inx]
-		for _, a := range []string{vmeta.ReplicaGroupAnnotation, vmeta.ChildSubclusterAnnotation,
+		for _, a := range []string{vmeta.ReplicaGroupAnnotation,
 			vmeta.ParentSubclusterAnnotation, vmeta.ParentSubclusterTypeAnnotation} {
 			if _, annotationFound := sc.Annotations[a]; annotationFound {
 				delete(sc.Annotations, a)
@@ -275,8 +290,8 @@ func (i *UpgradeManager) clearOnlineUpgradeAnnotationCallback() (updated bool, e
 
 	// Clear annotations set in the VerticaDB's metadata.annotations.
 	for _, a := range []string{vmeta.OnlineUpgradeReplicatorAnnotation, vmeta.OnlineUpgradeSandboxAnnotation,
-		vmeta.OnlineUpgradeSandboxPromotedAnnotation, vmeta.OnlineUpgradeReplicaARemovedAnnotation,
-		vmeta.OnlineUpgradePreferredSandboxAnnotation} {
+		vmeta.OnlineUpgradeStepInxAnnotation, vmeta.OnlineUpgradePreferredSandboxAnnotation,
+		vmeta.OnlineUpgradePromotionAttemptAnnotation} {
 		if _, annotationFound := i.Vdb.Annotations[a]; annotationFound {
 			delete(i.Vdb.Annotations, a)
 			updated = true
@@ -531,7 +546,8 @@ func offlineUpgradeAllowed(vdb *vapi.VerticaDB) bool {
 	return vdb.GetUpgradePolicyToUse() == vapi.OfflineUpgrade
 }
 
-// onlineUpgradeAllowed returns true if upgrade must be done online
+// readOnlyOnlineUpgradeAllowed returns true if upgrade must be done online
+// in read-only mode
 func readOnlyOnlineUpgradeAllowed(vdb *vapi.VerticaDB) bool {
 	return vdb.GetUpgradePolicyToUse() == vapi.ReadOnlyOnlineUpgrade
 }
@@ -665,10 +681,138 @@ func (i *UpgradeManager) closeAllSessions(ctx context.Context, pfacts *podfacts.
 	return nil
 }
 
+const isSuperuser = "(all_roles like 'pseudosuperuser' " +
+	"or all_roles like '%%, pseudosuperuser' " +
+	"or all_roles like 'pseudosuperuser, %%' " +
+	"or all_roles like '%%, pseudosuperuser, %%' " +
+	"or all_roles like 'pseudosuperuser*' " +
+	"or all_roles like '%%, pseudosuperuser*' " +
+	"or all_roles like 'pseudosuperuser*, %%' " +
+	"or all_roles like '%%, pseudosuperuser*, %%')"
+
+// areAllConnectionsPaused will run a query to see the number of non-superuser connections that are active (not paused)
+// it returns a requeue error if there are still active connections
+func (i *UpgradeManager) areAllConnectionsPaused(ctx context.Context, pfacts *podfacts.PodFacts) (bool, error) {
+	pf, ok := pfacts.findFirstUpPod(true, "")
+	if !ok {
+		i.Log.Info("No pod found to run vsql. Waiting for cluster to come up")
+		return false, nil
+	}
+
+	sql := "select sum(c.active - s.sessions) from " +
+		"(select node_name, user_sessions - paused_sessions as active from v_internal.vs_client_connections) c " +
+		"join (select node_name, count(*) as sessions from v_monitor.sessions join v_catalog.users using (user_name) " +
+		"where " + isSuperuser + " group by node_name) s " +
+		"using (node_name)"
+
+	cmd := []string{"-tAc", sql}
+	stdout, _, err := pfacts.PRunner.ExecVSQL(ctx, pf.GetName(), names.ServerContainer, cmd...)
+	if err != nil {
+		return false, err
+	}
+
+	active := anyActiveConnections(stdout)
+	if active {
+		i.Rec.Eventf(i.Vdb, corev1.EventTypeWarning, events.PauseConnectionsRetry,
+			"Cluster still has active connections. Retrying pause connections.")
+	}
+	return active, nil
+}
+
+// closeAllUnpausedSessions will run a query to close all active non-pseudosuperuser sessions.
+func (i *UpgradeManager) closeAllUnpausedSessions(ctx context.Context, pfacts *PodFacts) error {
+	pf, ok := pfacts.findFirstPodSorted(func(v *PodFact) bool {
+		return v.isPrimary && v.upNode
+	})
+	if !ok {
+		i.Log.Info("No pod found to run vsql. Skipping close all sessions")
+		return nil
+	}
+
+	sql := "select s.session_id from " +
+		"v_internal.vs_sessions s join v_catalog.users u using (user_name) join v_monitor.transactions t using (transaction_id) " +
+		"where not s.is_paused and not " + isSuperuser
+	if !i.Vdb.IsPausedSessionsSupported() {
+		// without proper paused session support, just kill all normal user connections rather than just unpaused ones
+		sql = "select s.session_id from " +
+			"v_internal.vs_sessions s join v_catalog.users u using (user_name) " +
+			"where not " + isSuperuser
+	} else if !i.Vdb.IsPauseRedirectFullySupported() {
+		sql = "select s.session_id from " +
+			"v_internal.vs_sessions s join v_catalog.users u using (user_name) " +
+			"where not s.is_paused and not " + isSuperuser
+	}
+	sessionIds, stderr, err := pfacts.PRunner.ExecVSQL(ctx, pf.name, names.ServerContainer, "-tAc", sql)
+	if err != nil {
+		i.Log.Error(err, "failed to retrieve unpaused sessions", "stderr", stderr)
+		return err
+	}
+
+	var errs error
+	for _, id := range strings.Split(strings.TrimSuffix(sessionIds, "\n"), "\n") {
+		if id == "" {
+			continue
+		}
+		killCmd := []string{"-tAc", fmt.Sprintf("select close_session('%s')", id)}
+		_, stderr, err = pfacts.PRunner.ExecVSQL(ctx, pf.name, names.ServerContainer, killCmd...)
+		if err != nil {
+			i.Log.Error(err, "failed to kill session", "session_id", id, "stderr", stderr)
+			errs = errors.Join(errs, err)
+		}
+	}
+
+	return errs
+}
+
+// createRestorePoint creates a restore point to backup the db in case upgrade does not go well.
+func (i *UpgradeManager) createRestorePoint(ctx context.Context, pfacts *PodFacts, archive string) (ctrl.Result, error) {
+	pf, ok := pfacts.findFirstPodSorted(func(v *PodFact) bool {
+		return v.isPrimary && v.upNode
+	})
+	if !ok {
+		i.Log.Info("No pod found to run vsql. Requeueing for retrying creating restore point")
+		return ctrl.Result{Requeue: true}, nil
+	}
+
+	sql := fmt.Sprintf("select count(*) from archives where name = '%s';", archive)
+	cmd := []string{"-tAc", sql}
+	stdout, _, err := pfacts.PRunner.ExecVSQL(ctx, pf.name, names.ServerContainer, cmd...)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	lines := strings.Split(stdout, "\n")
+	arch, err := strconv.Atoi(lines[0])
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	// Create the archive only if it does not already exist
+	clearKnob := "alter session set DisableNonReplicatableQueries = 0;"
+	setKnob := "alter session clear DisableNonReplicatableQueries;"
+	if arch == 0 {
+		if pf.sandbox == vapi.MainCluster {
+			sql = fmt.Sprintf("%s create archive %s; %s", clearKnob, archive, setKnob)
+		} else {
+			sql = fmt.Sprintf("create archive %s;", archive)
+		}
+		cmd = []string{"-tAc", sql}
+		_, _, err = pfacts.PRunner.ExecVSQL(ctx, pf.name, names.ServerContainer, cmd...)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+	if pf.sandbox == vapi.MainCluster {
+		sql = fmt.Sprintf("%s save restore point to archive %s; %s", clearKnob, archive, setKnob)
+	} else {
+		sql = fmt.Sprintf("save restore point to archive %s;", archive)
+	}
+	cmd = []string{"-tAc", sql}
+	_, _, err = pfacts.PRunner.ExecVSQL(ctx, pf.name, names.ServerContainer, cmd...)
+	return ctrl.Result{}, err
+}
+
 // routeClientTraffic will update service objects for the source subcluster to
 // route to the target subcluster
-func (i *UpgradeManager) routeClientTraffic(ctx context.Context, pfacts *podfacts.PodFacts,
-	sc *vapi.Subcluster, selectors map[string]string) error {
+func (i *UpgradeManager) routeClientTraffic(ctx context.Context, pfacts *PodFacts, sc *vapi.Subcluster, selectors map[string]string) error {
 	actor := MakeObjReconciler(i.Rec, i.Log, i.Vdb, pfacts, ObjReconcileModeAll)
 	objRec := actor.(*ObjReconciler)
 

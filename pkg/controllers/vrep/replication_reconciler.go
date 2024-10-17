@@ -26,6 +26,7 @@ import (
 	v1beta1 "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
+	vdbcontroller "github.com/vertica/vertica-kubernetes/pkg/controllers/vdb"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
@@ -318,6 +319,6 @@ func (r *ReplicationReconciler) runReplicateDB(ctx context.Context, dispatcher v
 
 	// clear Replicating status condition and set the ReplicationComplete status condition
 	return vrepstatus.Update(ctx, r.VRec.Client, r.VRec.Log, r.Vrep,
-		[]*metav1.Condition{vapi.MakeCondition(v1beta1.Replicating, metav1.ConditionFalse, "Succeeded"),
-			vapi.MakeCondition(v1beta1.ReplicationComplete, metav1.ConditionTrue, "Succeeded")}, stateSucceededReplication)
+		[]*metav1.Condition{vapi.MakeCondition(v1beta1.Replicating, metav1.ConditionFalse, v1beta1.ReasonSucceeded),
+			vapi.MakeCondition(v1beta1.ReplicationComplete, metav1.ConditionTrue, v1beta1.ReasonSucceeded)}, stateSucceededReplication)
 }

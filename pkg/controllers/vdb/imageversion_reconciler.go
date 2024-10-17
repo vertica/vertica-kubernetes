@@ -236,6 +236,10 @@ func (v *ImageVersionReconciler) getVersion(ctx context.Context, pod *podfacts.P
 // fail if it detects an invalid upgrade path.
 func (v *ImageVersionReconciler) updateVDBVersion(ctx context.Context, newVersion string) (ctrl.Result, error) {
 	versionAnnotations := vapi.ParseVersionOutput(newVersion)
+	// if we found vertica version is changed, we save previous vertica version to vdb
+	if versionAnnotations[vmeta.VersionAnnotation] != v.Vdb.ObjectMeta.Annotations[vmeta.VersionAnnotation] {
+		versionAnnotations[vmeta.PreviousVersionAnnotation] = v.Vdb.ObjectMeta.Annotations[vmeta.VersionAnnotation]
+	}
 
 	if v.EnforceUpgradePath && !v.Vdb.GetIgnoreUpgradePath() {
 		ok, failureReason, err := v.isUpgradePathSupported(ctx, versionAnnotations)
@@ -300,6 +304,12 @@ func (v *ImageVersionReconciler) updateConfigMapAnnotations(ctx context.Context,
 func (v *ImageVersionReconciler) isUpgradePathSupported(ctx context.Context, versionAnn map[string]string,
 ) (ok bool, failureReason string, err error) {
 	if v.PFacts.GetSandboxName() == vapi.MainCluster {
+		if v.Vdb.IsOnlineUpgradeInProgress() {
+			vdbVer, _ := v.Vdb.GetVerticaVersionStr()
+			if vdbVer == versionAnn[vmeta.VersionAnnotation] {
+				return false, "Versions are the same and can cause issues during online upgrade", nil
+			}
+		}
 		ok, failureReason = v.Vdb.IsUpgradePathSupported(versionAnn)
 		return ok, failureReason, nil
 	}

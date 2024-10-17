@@ -23,7 +23,6 @@ data:
 
     POD_NAME=v-base-upgrade-pri1-0
 
-    kubectl exec $POD_NAME -i -c server -- bash -c "vsql -U dbadmin -w superuser -tAc \"ALTER DATABASE DEFAULT SET EnableConnectCredentialForwarding = 1;\""
     kubectl exec $POD_NAME -i -c server -- bash -c "vsql -U dbadmin -w superuser -tAc \"CREATE TABLE public.test_table (val INTEGER);\""
     kubectl exec $POD_NAME -i -c server -- bash -c "vsql -U dbadmin -w superuser -tAc \"INSERT INTO public.test_table VALUES (99); COMMIT;\""
     result=$(kubectl exec $POD_NAME -i -c server -- bash -c "vsql -U dbadmin -w superuser -tAc \"SELECT * FROM public.test_table ORDER BY val;\"")

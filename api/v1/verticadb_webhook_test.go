@@ -116,7 +116,7 @@ var _ = Describe("verticadb_webhook", func() {
 	})
 	It("should not have invalid communal path", func() {
 		vdb := createVDBHelper()
-		vdb.Spec.Communal.Path = "http://nimbusdb/mspilchen"
+		vdb.Spec.Communal.Path = "http://nimbusdb/cchen"
 		validateSpecValuesHaveErr(vdb, false)
 		vdb.Spec.Communal.Path = ""
 		validateSpecValuesHaveErr(vdb, true)
@@ -370,7 +370,7 @@ var _ = Describe("verticadb_webhook", func() {
 	})
 	It("should not change communal.path after creation", func() {
 		vdbUpdate := createVDBHelper()
-		vdbUpdate.Spec.Communal.Path = "s3://nimbusdb/spilchen"
+		vdbUpdate.Spec.Communal.Path = "s3://nimbusdb/chen"
 		validateImmutableFields(vdbUpdate, true)
 	})
 	It("should not change communal.endpoint after creation", func() {
@@ -1242,6 +1242,32 @@ var _ = Describe("verticadb_webhook", func() {
 		Ω(newVdb.validateImmutableFields(oldVdb)).Should(HaveLen(0))
 		newVdb.Spec.Subclusters[1].Type = PrimarySubcluster
 		Ω(newVdb.validateImmutableFields(oldVdb)).Should(HaveLen(1))
+	})
+
+	It("should disallow sandboxes size change during upgrade", func() {
+		oldVdb := MakeVDB()
+		oldVdb.Status.Conditions = []metav1.Condition{
+			{Type: UpgradeInProgress, Status: metav1.ConditionTrue},
+		}
+		const sbName = "sb1"
+		oldVdb.Spec.Subclusters = []Subcluster{
+			{Name: "sc1", Type: PrimarySubcluster, Size: 3},
+			{Name: "sc2", Type: SecondarySubcluster, Size: 1},
+			{Name: "sc3", Type: SecondarySubcluster, Size: 1},
+		}
+		newVdb := oldVdb.DeepCopy()
+		Ω(newVdb.validateImmutableFields(oldVdb)).Should(HaveLen(0))
+		newVdb.Spec.Sandboxes = []Sandbox{
+			{Name: sbName, Subclusters: []SubclusterName{{Name: "sc3"}}},
+		}
+		Ω(newVdb.validateImmutableFields(oldVdb)).Should(HaveLen(1))
+		newVdb.Annotations[vmeta.OnlineUpgradeSandboxAnnotation] = sbName
+		Ω(newVdb.validateImmutableFields(oldVdb)).Should(HaveLen(0))
+		newVdb.Spec.Sandboxes = nil
+		oldVdb.Spec.Sandboxes = []Sandbox{
+			{Name: sbName, Subclusters: []SubclusterName{{Name: "sc3"}}},
+		}
+		Ω(newVdb.validateImmutableFields(oldVdb)).Should(HaveLen(0))
 	})
 })
 

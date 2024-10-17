@@ -14,4 +14,4 @@
 apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 commands:
-  - command: ../../../scripts/patch-image-in-vdb.sh -n $NAMESPACE v-base-upgrade opentext/vertica-k8s-private:20240626-minimal
+  - command: ../../../scripts/patch-image-in-vdb.sh -n $NAMESPACE v-base-upgrade opentext/vertica-k8s-private:20240929-minimal

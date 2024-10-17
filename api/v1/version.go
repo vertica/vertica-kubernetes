@@ -33,7 +33,7 @@ const (
 	// The minimum version that allows for read-only online upgrade.
 	ReadOnlyOnlineUpgradeVersion = "v11.1.0"
 	// The minimum version that allows for online upgrade.
-	OnlineUpgradeVersion = "v24.3.0"
+	OnlineUpgradeVersion = "v24.3.0-2"
 	// The version that added the --force option to reip to handle up nodes
 	ReIPAllowedWithUpNodesVersion = "v11.1.0"
 	// The version of the server that doesn't support cgroup v2
@@ -77,16 +77,29 @@ const (
 	// Starting in v24.2.0, vcluster scrutinize command can read the
 	// database password from secret(k8s, aws, gsm)
 	ScrutinizeDBPasswdInSecretMinVersion = "v24.2.0"
+	// Starting in v24.2.0, vcluster scrutinize command accepts a time range for collecting logs
+	ScrutinizeLogAgeVersion = "v24.2.0"
 	// Starting in v24.3.0, sandboxing a subcluster with the operator is supported
 	SandboxSupportedMinVersion = "v24.3.0"
 	// Starting in v24.3.0, we call vclusterops API to get node details instead of executing vsql within the pod
 	FetchNodeDetailsWithVclusterOpsMinVersion = "v24.3.0"
+	// Starting in v24.4.0, saving a restore point to an existing archive is supported
+	SaveRestorePointNMAOpsMinVersion = "v24.4.0"
+	// starting in v24.3-4, v24.4-1, and v25.0-0 pausing sessions works a little differently
+	MinPauseSessionsVersion243 = "v24.3.0-4"
+	MinPauseSessionsVersion244 = "v24.4.0-1"
 )
 
 // GetVerticaVersionStr returns the vertica version, in string form, that is stored
 // within the vdb
 func (v *VerticaDB) GetVerticaVersionStr() (string, bool) {
 	ver, ok := v.ObjectMeta.Annotations[vmeta.VersionAnnotation]
+	return ver, ok
+}
+
+// GetVerticaVersionStr returns vertica version prior to the upgrade
+func (v *VerticaDB) GetPreviousVerticaVersionStr() (string, bool) {
+	ver, ok := v.ObjectMeta.Annotations[vmeta.PreviousVersionAnnotation]
 	return ver, ok
 }
 
@@ -100,6 +113,34 @@ func (v *VerticaDB) MakeVersionInfo() (*version.Info, bool) {
 		return nil, false
 	}
 	return version.MakeInfoFromStr(vdbVer)
+}
+
+// MakePerviousVersionInfo will construct an Info struct by extracting the previous version
+// from the given vdb. This returns false if it was unable to get the version from the vdb.
+func (v *VerticaDB) MakePreviousVersionInfo() (*version.Info, bool) {
+	vdbVer, ok := v.GetPreviousVerticaVersionStr()
+	// If the annotation isn't present, we abort creation of Info
+	if !ok {
+		return nil, false
+	}
+	return version.MakeInfoFromStr(vdbVer)
+}
+
+// MakeVersionInfoDuringROUpgrade will construct an Info struct by extracting
+// the previous version is read-only online upgrade is in progress, from the
+// current version otherwise.
+func (v *VerticaDB) MakeVersionInfoDuringROUpgrade() (*version.Info, bool) {
+	if v.IsROUpgradeInProgress() {
+		vinf, ok := v.MakePreviousVersionInfo()
+		// During a downgrade attempt, the operator does not set
+		// the previous-version annotation, so if it cannot be parsed
+		// we will construct the Info from the version annotation even
+		// if read-only online upgrade is in progress
+		if ok {
+			return vinf, ok
+		}
+	}
+	return v.MakeVersionInfo()
 }
 
 // MakeVersionInfoCheck is like MakeVersionInfo but returns an error if the
@@ -152,4 +193,33 @@ func (v *VerticaDB) IsUpgradePathSupported(newAnnotations map[string]string) (ok
 	}
 	ok, failureReason = vinf.IsValidUpgradePath(newAnnotations[vmeta.VersionAnnotation])
 	return
+}
+
+// isOnlineUpgradeSupported returns true if the version in the Vdb is equal or newer than
+// 24.3.0-2.
+func (v *VerticaDB) isOnlineUpgradeSupported(vinf *version.Info) bool {
+	return vinf.IsEqualOrNewerWithHotfix(OnlineUpgradeVersion)
+}
+
+// IsPausedSessionsSupported returns true if the vertica version has the is_paused column in vs_sessions
+func (v *VerticaDB) IsPausedSessionsSupported() bool {
+	vinf, ok := v.MakeVersionInfo()
+	if !ok {
+		return false
+	}
+	if vinf.IsEqualOrNewerWithHotfix(MinPauseSessionsVersion244) {
+		return true
+	}
+	// the only tricky one: ver needs to be at least 24.3-4, but can't be 24.4 (>= 24.4-1 is handled by the above if)
+	vinf243, ok := version.MakeInfoFromStr(MinPauseSessionsVersion243)
+	if !ok {
+		panic(fmt.Sprintf("could not parse input version: %s", MinPauseSessionsVersion243))
+	}
+	return vinf.IsEqualOrNewerWithHotfix(MinPauseSessionsVersion243) && vinf.IsEqual(vinf243)
+}
+
+// as of this commit the jdbc driver doesn't fully support pause/redirect. once we support the client proxy and/or
+// the jdbc driver gets updated we can perform a similar version check as above
+func (v *VerticaDB) IsPauseRedirectFullySupported() bool {
+	return false
 }

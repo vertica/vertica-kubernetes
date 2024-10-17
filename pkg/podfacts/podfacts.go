@@ -1021,14 +1021,19 @@ func (p *PodFacts) checkIsDBCreated(_ context.Context, vdb *vapi.VerticaDB, pf *
 // the operator will call vclusterOps API to collect the node info. Otherwise, the operator will
 // execute vsql inside the pod to collect the node info.
 func (p *PodFacts) makeNodeInfoFetcher(vdb *vapi.VerticaDB, pf *PodFact) catalog.Fetcher {
-	verInfo, ok := vdb.MakeVersionInfo()
+	// During read-only online upgrade, we should use the old version to determine if we will call
+	// vclusterOps API to collect node info. The reason is some subclusters might uses
+	// a low version that does not contain vcluster API in the midst of the upgrade.
+	// Apart from the upgrade, we should check current version to make the decision.
+	verInfo, ok := vdb.MakeVersionInfoDuringROUpgrade()
 	if verInfo != nil && ok {
 		if !verInfo.IsOlder(vapi.FetchNodeDetailsWithVclusterOpsMinVersion) && vmeta.UseVClusterOps(vdb.Annotations) {
 			return catalog.MakeVCluster(vdb, p.VerticaSUPassword, pf.podIP, p.Log, p.VRec.GetClient(), p.VRec.GetEventRecorder())
 		}
 	} else {
-		p.Log.Info("Cannot get a correct vertica version from the annotation",
-			"vertica version annotation", vdb.ObjectMeta.Annotations[vmeta.VersionAnnotation])
+		p.Log.Info("Cannot get a correct vertica version from the annotations",
+			"vertica version annotation", vdb.ObjectMeta.Annotations[vmeta.VersionAnnotation],
+			"vertica previous version annotation", vdb.ObjectMeta.Annotations[vmeta.PreviousVersionAnnotation])
 	}
 	return catalog.MakeVSQL(vdb, p.PRunner, pf.name, pf.execContainerName, pf.vnodeName)
 }
@@ -1096,6 +1101,13 @@ func (p *PodFacts) FindFirstUpPod(allowReadOnly bool, scName string) (*PodFact, 
 		return (scName == "" || v.subclusterName == scName) &&
 			v.upNode && (allowReadOnly || !v.readOnly)
 	})
+}
+
+func (p *PodFacts) FindFirstUpPodIP(allowReadOnly bool, scName string) (string, bool) {
+	if pod, ok := p.findFirstUpPod(allowReadOnly, scName); ok {
+		return pod.podIP, true
+	}
+	return "", false
 }
 
 func (p *PodFacts) FindFirstUpPodIP(allowReadOnly bool, scName string) (string, bool) {
@@ -1528,4 +1540,43 @@ func (p *PodFacts) QuorumCheckForRestartCluster(restartOnly bool) bool {
 		return 0
 	})
 	return restartablePrimaryNodeCount >= (primaryNodeCount+1)/2
+}
+
+// IsSandboxEmpty returns true if we cannot find any pods in the target sandbox
+func (p *PodFacts) IsSandboxEmpty(sandbox string) bool {
+	pods := p.filterPods(func(v *PodFact) bool {
+		return v.sandbox == sandbox
+	})
+	return len(pods) == 0
+}
+
+// FindSecondarySubclustersWithDifferentImage will scan the secondary subclusters in main cluster and
+// return the secondary subclusters that have different vertica image than primary subcluster with primary
+// subcluster image. This function is used in post-unsandbox process. If the pods in the sandbox upgraded
+// vertica, after unsandbox, we will find those pods out and restore their vertica images.
+func (p *PodFacts) FindSecondarySubclustersWithDifferentImage() (scs []string, priScImage string) {
+	scs = []string{}
+	// we expect the pfacts only contains the main cluster pods
+	if p.GetSandboxName() != vapi.MainCluster {
+		return scs, ""
+	}
+
+	for _, v := range p.Detail {
+		if v.isPrimary {
+			priScImage = v.image
+			break
+		}
+	}
+	// find secondary subclusters that has a different image
+	seenScs := make(map[string]any)
+	for _, v := range p.Detail {
+		if _, ok := seenScs[v.subclusterName]; ok {
+			continue
+		}
+		if !v.isPrimary && v.image != priScImage {
+			scs = append(scs, v.subclusterName)
+		}
+		seenScs[v.subclusterName] = struct{}{}
+	}
+	return scs, priScImage
 }

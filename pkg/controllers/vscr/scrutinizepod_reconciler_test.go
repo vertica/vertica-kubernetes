@@ -22,6 +22,7 @@ import (
 	. "github.com/onsi/gomega"
 	v1 "github.com/vertica/vertica-kubernetes/api/v1"
 	v1beta1 "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	test "github.com/vertica/vertica-kubernetes/pkg/test"
@@ -97,28 +98,66 @@ var _ = Describe("scrutinizepod_reconciler", func() {
 
 	It("should append --password= or --password-file to args based on password", func() {
 		vdb := v1.MakeVDB()
+
 		scrArgs := &ScrutinizeCmdArgs{
 			hosts:       []string{"h1"},
 			username:    "dbadmin",
 			tarballName: "file.tar",
 		}
-		args := scrArgs.buildScrutinizeCmdArgs(vdb)
+
+		s := &ScrutinizePodReconciler{
+			ScrArgs: scrArgs,
+		}
+		s.Vscr = v1beta1.MakeVscr()
+
+		args := s.buildScrutinizeCmdArgs(vdb)
 		Expect(len(args)).Should(Equal(9))
 		Expect(args).Should(ContainElement(ContainSubstring("--password=")))
 
 		// should not contain any password flag if the secret is not on k8s
 		vdb.Spec.PasswordSecret = "gsm://secret"
-		args = scrArgs.buildScrutinizeCmdArgs(vdb)
+		args = s.buildScrutinizeCmdArgs(vdb)
 		Expect(len(args)).Should(Equal(8))
 		Expect(args).ShouldNot(ContainElement(ContainSubstring("--password=")))
 		Expect(args).ShouldNot(ContainElement(ContainSubstring("--password-file")))
 
 		// should contain the password flag if secret is on k8s
 		vdb.Spec.PasswordSecret = "test-secret"
-		args = scrArgs.buildScrutinizeCmdArgs(vdb)
+		args = s.buildScrutinizeCmdArgs(vdb)
 		Expect(len(args)).Should(Equal(10))
 		Expect(args).ShouldNot(ContainElement(ContainSubstring("--password=")))
 		Expect(args).Should(ContainElement(ContainSubstring("--password-file")))
 		Expect(args).Should(ContainElement(ContainSubstring(paths.ScrutinizeDBPasswordFile)))
+	})
+
+	It("should append either --log-age-hours or --log-age-*-time to args", func() {
+		vdb := v1.MakeVDB()
+
+		scrArgs := &ScrutinizeCmdArgs{
+			hosts:       []string{"h1"},
+			username:    "dbadmin",
+			tarballName: "file.tar",
+		}
+
+		s := &ScrutinizePodReconciler{
+			ScrArgs: scrArgs,
+		}
+		s.Vscr = v1beta1.MakeVscr()
+
+		// --log-age-hours added
+		s.Vscr.Annotations[vmeta.ScrutinizeLogAgeHours] = "8"
+		args := s.buildScrutinizeCmdArgs(vdb)
+		Expect(len(args)).Should(Equal(11))
+		Expect(args).Should(ContainElement(ContainSubstring("--log-age-hours")))
+
+		// no --log-age-* added as all three are not empty
+		s.Vscr.Annotations[vmeta.ScrutinizeLogAgeHours] = "0"
+		s.Vscr.Annotations[vmeta.ScrutinizeLogAgeOldestTime] = v1beta1.GenerateLogAgeTime(-8, "-05")
+		s.Vscr.Annotations[vmeta.ScrutinizeLogAgeNewestTime] = v1beta1.GenerateLogAgeTime(24, "")
+		args = s.buildScrutinizeCmdArgs(vdb)
+		Expect(len(args)).Should(Equal(13))
+		Expect(args).ShouldNot(ContainElement(ContainSubstring("--log-age-hours")))
+		Expect(args).Should(ContainElement(ContainSubstring("--log-age-oldest-time")))
+		Expect(args).Should(ContainElement(ContainSubstring("--log-age-newest-time")))
 	})
 })

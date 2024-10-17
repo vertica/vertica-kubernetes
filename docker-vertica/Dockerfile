@@ -49,6 +49,7 @@ RUN set -x \
   openssh-server \
   openssh-clients \
   openssl \
+  binutils \
   && /usr/sbin/groupadd -r verticadba --gid ${DBADMIN_GID} \
   && /usr/sbin/useradd -r -m -s /bin/bash -g verticadba --uid ${DBADMIN_UID} dbadmin \
   && yum localinstall -q -y /tmp/${VERTICA_RPM} \

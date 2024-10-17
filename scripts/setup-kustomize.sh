@@ -83,6 +83,10 @@ if [ -z "${VERTICA_SUPERUSER_NAME}" ]; then
     VERTICA_SUPERUSER_NAME=dbadmin
 fi
 
+if [ -z "${FOR_GITHUB_CI}" ]; then
+    FOR_GITHUB_CI=false
+fi
+
 if [ -z "${VERTICA_IMG}" ]; then
     VERTICA_IMG=$(cd $REPO_DIR && make echo-images | grep ^VERTICA_IMG= | cut -d'=' -f2)
 fi
@@ -133,6 +137,7 @@ if [ -n "$USE_SERVER_MOUNT_PATCH" ]; then echo "YES"; else echo "NO"; fi
 echo "Deployment method: $VERTICA_DEPLOYMENT_METHOD"
 echo "Image version: $(determine_image_version $VERTICA_IMG)"
 echo "Vertica superuser name: $VERTICA_SUPERUSER_NAME"
+echo "Test running on Github CI: $FOR_GITHUB_CI"
 
 function create_vdb_kustomization {
     BASE_DIR=$1
@@ -227,6 +232,8 @@ replacements:
         reject:
         - name: v-upgrade-vertica
         - name: v-base-upgrade
+        - name: v-upgrade-bad-image
+        - name: v-fallback
   - source:
       kind: ConfigMap
       name: e2e
@@ -235,6 +242,16 @@ replacements:
       - select:
           kind: VerticaDB
           name: v-base-upgrade
+        fieldPaths:
+          - spec.image
+      - select:
+          kind: VerticaDB
+          name: v-upgrade-bad-image
+        fieldPaths:
+          - spec.image
+      - select:
+          kind: VerticaDB
+          name: v-fallback
         fieldPaths:
           - spec.image
   - source:

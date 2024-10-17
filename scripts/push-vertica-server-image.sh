@@ -89,6 +89,8 @@ then
     logAndRunCommand docker push $PUB_REPO/$PUB_CE_IMAGE:latest
     # The kafka-scheduler image is a multi-arch container, so we can't simply retag and push.
     logAndRunCommand docker buildx imagetools create -t $PUB_REPO/$PUB_KAFKA_IMAGE:$VERSION $PRIV_KAFKA_REPO/$PRIV_KAFKA_IMAGE:$VERSION
+    # Same for the k8s multiarch container
+    logAndRunCommand docker buildx imagetools create -t $PUB_REPO/$PUB_K8S_IMAGE:$VERSION-multiarch $PRIV_REPO/$PRIV_K8S_IMAGE:$VERSION-multiarch
 else
     logWarning "Skipping the push to the public repo due to command line argument"
 fi

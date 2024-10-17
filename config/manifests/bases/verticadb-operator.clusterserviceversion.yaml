@@ -1110,6 +1110,16 @@ spec:
       - description: Conditions for VerticaDB
         displayName: Conditions
         path: conditions
+      - description: The details about the last created restore point
+        displayName: Restore Point
+        path: restorePoint
+      - description: Name of the archive that this restore point was created in.
+        displayName: Archive
+        path: restorePoint.archive
+      - displayName: End Timestamp
+        path: restorePoint.endTimestamp
+      - displayName: Start Timestamp
+        path: restorePoint.startTimestamp
       - description: The sandbox statuses
         displayName: Sandboxes
         path: sandboxes
@@ -2041,6 +2051,16 @@ spec:
           vertica cluster.
         displayName: Install Count
         path: installCount
+      - description: The details about the last created restore point
+        displayName: Restore Point
+        path: restorePoint
+      - description: Name of the archive that this restore point was created in.
+        displayName: Archive
+        path: restorePoint.archive
+      - displayName: End Timestamp
+        path: restorePoint.endTimestamp
+      - displayName: Start Timestamp
+        path: restorePoint.startTimestamp
       - description: The sandbox statuses
         displayName: Sandboxes
         path: sandboxes
@@ -2427,8 +2447,8 @@ spec:
   - name: Vertica Container Images
     url: https://hub.docker.com/u/vertica
   maintainers:
-  - email: mspilchen@opentext.com
-    name: Matt Spilchen
+  - email: cchen8@opentext.com
+    name: Cai Chen
   maturity: stable
   minKubeVersion: 1.21.0
   provider:

@@ -147,6 +147,7 @@ func (v *VerticaDB) validateImmutableFields(old runtime.Object) field.ErrorList 
 	allErrs = v.checkImmutableSubclusterInSandbox(oldObj, allErrs)
 	allErrs = v.checkImmutableStsName(oldObj, allErrs)
 	allErrs = v.checkValidSubclusterTypeTransition(oldObj, allErrs)
+	allErrs = v.checkSandboxesDuringUpgrade(oldObj, allErrs)
 	return allErrs
 }
 
@@ -192,6 +193,7 @@ func (v *VerticaDB) validateVerticaDBSpec() field.ErrorList {
 	allErrs = v.hasValidSubclusterTypes(allErrs)
 	allErrs = v.hasValidInitPolicy(allErrs)
 	allErrs = v.hasValidRestorePolicy(allErrs)
+	allErrs = v.hasValidSaveRestorePointConfig(allErrs)
 	allErrs = v.hasValidDBName(allErrs)
 	allErrs = v.hasPrimarySubcluster(allErrs)
 	allErrs = v.validateKsafety(allErrs)
@@ -277,7 +279,7 @@ func (v *VerticaDB) hasValidInitPolicy(allErrs field.ErrorList) field.ErrorList 
 }
 
 func (v *VerticaDB) hasValidRestorePolicy(allErrs field.ErrorList) field.ErrorList {
-	if v.IsRestoreEnabled() && !v.Spec.RestorePoint.IsValidRestorePointPolicy() {
+	if v.IsRestoreDuringReviveEnabled() && !v.Spec.RestorePoint.IsValidRestorePointPolicy() {
 		if v.Spec.RestorePoint.Archive == "" {
 			err := field.Invalid(field.NewPath("spec").Child("restorePoint"),
 				v.Spec.RestorePoint,
@@ -299,6 +301,17 @@ func (v *VerticaDB) hasValidRestorePolicy(allErrs field.ErrorList) field.ErrorLi
 				commonErrorMessage+"Both fields are currently specified, which is not allowed.")
 			allErrs = append(allErrs, err)
 		}
+	}
+	return allErrs
+}
+
+func (v *VerticaDB) hasValidSaveRestorePointConfig(allErrs field.ErrorList) field.ErrorList {
+	if v.IsSaveRestorepointEnabled() && !v.Spec.RestorePoint.IsValidForSaveRestorePoint() {
+		err := field.Invalid(field.NewPath("spec").Child("restorePoint"),
+			v.Spec.RestorePoint,
+			"restorePoint is invalid. When save restore point is enabled, "+
+				"archive must be specified.")
+		allErrs = append(allErrs, err)
 	}
 	return allErrs
 }
@@ -1293,6 +1306,28 @@ func (v *VerticaDB) checkImmutableDeploymentMethod(oldObj *VerticaDB, allErrs fi
 		allErrs = append(allErrs, err)
 	}
 	return allErrs
+}
+
+// checkSandboxesDuringUpgrade will check if sandboxes size has changed during an upgrade.
+func (v *VerticaDB) checkSandboxesDuringUpgrade(oldObj *VerticaDB, allErrs field.ErrorList) field.ErrorList {
+	// No error if upgrade is not in progress
+	if !oldObj.isUpgradeInProgress() {
+		return allErrs
+	}
+	// No error if sandboxes size did not change
+	if len(v.Spec.Sandboxes) == len(oldObj.Spec.Sandboxes) {
+		return allErrs
+	}
+	upgradeSbName := vmeta.GetOnlineUpgradeSandbox(v.Annotations)
+	// No error if the sandbox changed is used by online upgrade.
+	if (len(v.Spec.Sandboxes) == 1 && v.Spec.Sandboxes[0].Name == upgradeSbName) ||
+		(len(v.Spec.Sandboxes) == 0 && oldObj.Spec.Sandboxes[0].Name == upgradeSbName) {
+		return allErrs
+	}
+	err := field.Invalid(field.NewPath("spec").Child("sandboxes"),
+		v.Spec.Sandboxes,
+		"cannot add or remove sandboxes during an upgrade")
+	return append(allErrs, err)
 }
 
 // checkImmutableTemporarySubclusterRouting will check if

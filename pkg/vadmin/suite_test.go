@@ -98,24 +98,28 @@ type MockVClusterOps struct {
 
 // const variables used for vcluster-ops unit test
 const (
-	TestDBName          = "test-db"
-	TestTargetDBName    = "test-target-db"
-	TestPassword        = "test-pw"
-	TestTargetPassword  = "test-target-pw"
-	TestTargetUserName  = "test-target-user"
-	TestIPv6            = false
-	TestParm            = "Parm1"
-	TestValue           = "val1"
-	TestInitiatorIP     = "10.10.10.10"
-	TestSourceIP        = "10.10.10.10"
-	TestTargetIP        = "10.10.10.11"
-	TestSourceTLSConfig = "test-tls-config"
-	TestIsEon           = true
-	TestCommunalPath    = "/communal"
-	TestNMATLSSecret    = "test-secret"
-	TestArchiveName     = "test-archive-name"
-	TestStartTimestamp  = "2006-01-02"
-	TestEndTimestamp    = "2006-01-02 15:04:05"
+	TestDBName             = "test-db"
+	TestTargetDBName       = "test-target-db"
+	TestPassword           = "test-pw"
+	TestTargetPassword     = "test-target-pw"
+	TestTargetUserName     = "test-target-user"
+	TestIPv6               = false
+	TestParm               = "Parm1"
+	TestValue              = "val1"
+	TestInitiatorIP        = "10.10.10.10"
+	TestSourceIP           = "10.10.10.10"
+	TestTargetIP           = "10.10.10.11"
+	TestSourceTLSConfig    = "test-tls-config"
+	TestIsEon              = true
+	TestCommunalPath       = "/communal"
+	TestNMATLSSecret       = "test-secret"
+	TestArchiveName        = "test-archive-name"
+	TestStartTimestamp     = "2006-01-02"
+	TestEndTimestamp       = "2006-01-02 15:04:05"
+	TestConfigParamSandbox = "test-config-param-sandbox"
+	TestConfigParamName    = "test-config-param-name"
+	TestConfigParamValue   = "test-config-param-value"
+	TestConfigParamLevel   = "test-config-param-level"
 )
 
 var TestCommunalStorageParams = map[string]string{"awsauth": "test-auth", "awsconnecttimeout": "10"}
@@ -155,18 +159,18 @@ func (m *MockVClusterOps) VerifyCommonOptions(options *vops.DatabaseOptions) err
 // VerifyTargetDBNameUserNamePassword is used in vcluster-ops unit test for verifying the target db name,
 // username and password in a replication
 func (m *MockVClusterOps) VerifyTargetDBNameUserNamePassword(options *vops.VReplicationDatabaseOptions) error {
-	if options.TargetDB != TestTargetDBName {
+	if options.TargetDB.DBName != TestTargetDBName {
 		return fmt.Errorf("failed to retrieve target db name")
 	}
-	if options.TargetUserName != TestTargetUserName {
+	if options.TargetDB.UserName != TestTargetUserName {
 		return fmt.Errorf("failed to retrieve target username")
 	}
 	if options.SourceTLSConfig != "" {
-		if options.TargetPassword != nil {
+		if options.TargetDB.Password != nil {
 			return fmt.Errorf("target password is not nil when source TLS config is set")
 		}
 	} else {
-		if *options.TargetPassword != TestTargetPassword {
+		if *options.TargetDB.Password != TestTargetPassword {
 			return fmt.Errorf("failed to retrieve target password")
 		}
 	}
@@ -232,6 +236,41 @@ func (m *MockVClusterOps) VerifyFilterOptions(options *vops.ShowRestorePointFilt
 	return nil
 }
 
+func (m *MockVClusterOps) VerifySetConfigurationParameterOptions(options *vops.VSetConfigurationParameterOptions) error {
+	if options == nil {
+		return fmt.Errorf("failed to retrieve set configuration parameter options")
+	}
+	if options.Sandbox == "" || options.Sandbox != TestConfigParamSandbox {
+		return fmt.Errorf("failed to retrieve sandbox")
+	}
+	if options.ConfigParameter == "" || options.ConfigParameter != TestConfigParamName {
+		return fmt.Errorf("failed to retrieve config param")
+	}
+	if options.Value == "" || options.Value != TestConfigParamValue {
+		return fmt.Errorf("failed to retrieve value")
+	}
+	if options.Level == "" || options.Level != TestConfigParamLevel {
+		return fmt.Errorf("failed to retrieve level")
+	}
+	return nil
+}
+
+func (m *MockVClusterOps) VerifyGetConfigurationParameterOptions(options *vops.VGetConfigurationParameterOptions) error {
+	if options == nil {
+		return fmt.Errorf("failed to retrieve get configuration parameter options")
+	}
+	if options.Sandbox == "" || options.Sandbox != TestConfigParamSandbox {
+		return fmt.Errorf("failed to retrieve sandbox")
+	}
+	if options.ConfigParameter == "" || options.ConfigParameter != TestConfigParamName {
+		return fmt.Errorf("failed to retrieve config param")
+	}
+	if options.Level == "" || options.Level != TestConfigParamLevel {
+		return fmt.Errorf("failed to retrieve level")
+	}
+	return nil
+}
+
 // VerifyCerts is used in vcluster-ops unit test for verifying key and certs
 func (m *MockVClusterOps) VerifyCerts(options *vops.DatabaseOptions) error {
 	if options.Key != test.TestKeyValue {
@@ -253,7 +292,7 @@ func (m *MockVClusterOps) VerifySourceAndTargetIPs(options *vops.VReplicationDat
 	if len(options.RawHosts) != 1 || options.RawHosts[0] != TestSourceIP {
 		return fmt.Errorf("failed to load source IP")
 	}
-	if len(options.TargetHosts) != 1 || options.TargetHosts[0] != TestTargetIP {
+	if len(options.TargetDB.Hosts) != 1 || options.TargetDB.Hosts[0] != TestTargetIP {
 		return fmt.Errorf("failed to load target IP")
 	}
 	return nil
@@ -264,6 +303,10 @@ func (m *MockVClusterOps) VerifySourceTLSConfig(options *vops.VReplicationDataba
 	if options.SourceTLSConfig != TestSourceTLSConfig {
 		return fmt.Errorf("failed to load source TLS config")
 	}
+	return nil
+}
+
+func (m *MockVClusterOps) VPollSubclusterState(_ *vops.VPollSubclusterStateOptions) error {
 	return nil
 }
 

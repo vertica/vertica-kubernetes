@@ -27,11 +27,15 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/addnode"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/addsc"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/altersc"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/createarchive"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/createdb"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/describedb"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/fetchnodedetails"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/fetchnodestate"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/getconfigparameter"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/installpackages"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/manageconnectiondraining"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/pollscstate"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/promotesandboxtomain"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/reip"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/removenode"
@@ -41,6 +45,8 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/restartnode"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/revivedb"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/sandboxsc"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/saverestorepoint"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/setconfigparameter"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/showrestorepoints"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/startdb"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/stopdb"
@@ -116,10 +122,28 @@ type Dispatcher interface {
 	// UnsandboxSubcluster will move a subcluster from a sandbox to main cluster
 	UnsandboxSubcluster(ctx context.Context, opts ...unsandboxsc.Option) error
 
+	// CreateArchive will create an archive in database
+	CreateArchive(ctx context.Context, opts ...createarchive.Option) error
+
+	// SaveRestorePoint will create a restore point to an existing archive
+	SaveRestorePoint(ctx context.Context, opts ...saverestorepoint.Option) error
+
 	AlterSubclusterType(ctx context.Context, opts ...altersc.Option) error
+
+	// SetConfigurationParameter will set a config parameter to a certain value at a certain level in a given cluster
+	SetConfigurationParameter(ctx context.Context, opts ...setconfigparameter.Option) error
+
+	// GetConfigurationParameter will get the value of a config parameter at a certain level in a given cluster
+	GetConfigurationParameter(ctx context.Context, opts ...getconfigparameter.Option) (string, error)
 
 	// RenameSubcluster will rename a subcluster in main cluster
 	RenameSubcluster(ctx context.Context, opts ...renamesc.Option) error
+
+	// PollNodeState will wait for a subcluster to come up
+	PollSubclusterState(ctx context.Context, opts ...pollscstate.Option) error
+
+	// ManageConnectionDraining will pause/redirect/resume client connections for a subcluster
+	ManageConnectionDraining(ctx context.Context, opts ...manageconnectiondraining.Option) error
 }
 
 const (
@@ -242,11 +266,17 @@ type VClusterProvider interface {
 	VStartNodes(options *vops.VStartNodesOptions) error
 	VShowRestorePoints(options *vops.VShowRestorePointsOptions) ([]vops.RestorePoint, error)
 	VInstallPackages(options *vops.VInstallPackagesOptions) (*vops.InstallPackageStatus, error)
-	VReplicateDatabase(options *vops.VReplicationDatabaseOptions) error
+	VReplicateDatabase(options *vops.VReplicationDatabaseOptions) (int64, error)
 	VFetchNodesDetails(options *vops.VFetchNodesDetailsOptions) (vops.NodesDetails, error)
 	VPromoteSandboxToMain(options *vops.VPromoteSandboxToMainOptions) error
 	VSandbox(options *vops.VSandboxOptions) error
 	VUnsandbox(options *vops.VUnsandboxOptions) error
+	VCreateArchive(options *vops.VCreateArchiveOptions) error
+	VSaveRestorePoint(options *vops.VSaveRestorePointOptions) error
 	VAlterSubclusterType(options *vops.VAlterSubclusterTypeOptions) error
+	VSetConfigurationParameters(options *vops.VSetConfigurationParameterOptions) error
+	VGetConfigurationParameters(options *vops.VGetConfigurationParameterOptions) (string, error)
 	VRenameSubcluster(options *vops.VRenameSubclusterOptions) error
+	VPollSubclusterState(options *vops.VPollSubclusterStateOptions) error
+	VManageConnectionDraining(options *vops.VManageConnectionDrainingOptions) error
 }

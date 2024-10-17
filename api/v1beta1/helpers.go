@@ -17,12 +17,20 @@ limitations under the License.
 package v1beta1
 
 import (
+	"fmt"
 	"regexp"
+	"strconv"
+	"time"
 
+	v1 "github.com/vertica/vertica-kubernetes/api/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+)
+
+const (
+	ReasonSucceeded = "Succeeded"
 )
 
 // Affinity is used instead of corev1.Affinity and behaves the same.
@@ -118,6 +126,17 @@ func (vscr *VerticaScrutinize) CopyAnnotations() map[string]string {
 	return annotations
 }
 
+// GenerateLogAgeTime returns a string in the format of YYYY-MM-DD HH [+/-XX]
+func GenerateLogAgeTime(hourOffset time.Duration, timeZone string) string {
+	timeOffset := time.Now().Add(hourOffset * time.Hour)
+	timeOffsetFormatted := fmt.Sprintf("%s %s", timeOffset.Format("2006-01-02"), strconv.Itoa(timeOffset.Hour()))
+
+	if timeZone != "" {
+		timeOffsetFormatted = fmt.Sprintf("%s %s", timeOffsetFormatted, timeZone)
+	}
+	return timeOffsetFormatted
+}
+
 // FindStatusCondition finds the conditionType in conditions.
 func (vscr *VerticaScrutinize) FindStatusCondition(conditionType string) *metav1.Condition {
 	return meta.FindStatusCondition(vscr.Status.Conditions, conditionType)
@@ -158,6 +177,23 @@ func (vrep *VerticaReplicator) IsStatusConditionPresent(statusCondition string) 
 
 func (vrpq *VerticaRestorePointsQuery) IsStatusConditionPresent(statusCondition string) bool {
 	return meta.FindStatusCondition(vrpq.Status.Conditions, statusCondition) != nil
+}
+
+// FindStatusCondition finds the conditionType in conditions.
+func (vrep *VerticaReplicator) FindStatusCondition(conditionType string) *metav1.Condition {
+	return meta.FindStatusCondition(vrep.Status.Conditions, conditionType)
+}
+
+func (vrep *VerticaReplicator) IsStatusConditionTrue(statusCondition string) bool {
+	return meta.IsStatusConditionTrue(vrep.Status.Conditions, statusCondition)
+}
+
+func (vrep *VerticaReplicator) IsStatusConditionFalse(statusCondition string) bool {
+	return meta.IsStatusConditionFalse(vrep.Status.Conditions, statusCondition)
+}
+
+func (vrep *VerticaReplicator) IsStatusConditionPresent(statusCondition string) bool {
+	return meta.FindStatusCondition(vrep.Status.Conditions, statusCondition) != nil
 }
 
 func MakeSampleVrpqName() types.NamespacedName {
@@ -222,4 +258,26 @@ func MakeVrep() *VerticaReplicator {
 func GenCompatibleFQDNHelper(scName string) string {
 	m := regexp.MustCompile(`_`)
 	return m.ReplaceAllString(scName, "-")
+}
+
+func GetV1SubclusterFromV1beta1(src *Subcluster) v1.Subcluster {
+	return v1.Subcluster{
+		Name:                src.Name,
+		Size:                src.Size,
+		Type:                convertToSubclusterType(src),
+		ImageOverride:       src.ImageOverride,
+		NodeSelector:        src.NodeSelector,
+		Affinity:            v1.Affinity(src.Affinity),
+		PriorityClassName:   src.PriorityClassName,
+		Tolerations:         src.Tolerations,
+		Resources:           src.Resources,
+		ServiceType:         src.ServiceType,
+		ServiceName:         src.ServiceName,
+		ClientNodePort:      src.NodePort,
+		VerticaHTTPNodePort: src.VerticaHTTPNodePort,
+		ExternalIPs:         src.ExternalIPs,
+		LoadBalancerIP:      src.LoadBalancerIP,
+		ServiceAnnotations:  src.ServiceAnnotations,
+		Annotations:         src.Annotations,
+	}
 }

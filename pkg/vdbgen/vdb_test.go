@@ -401,16 +401,18 @@ var _ = Describe("vdb", func() {
 		createMock()
 		defer deleteMock()
 
-		dbGen := DBGenerator{Conn: db}
+		dbGen := DBGenerator{Conn: db, Opts: &Options{DBName: "vertdb"}}
 
 		mock.ExpectQuery(Queries[StorageLocationKey]).
 			WithArgs("DATA,TEMP").
 			WillReturnRows(sqlmock.NewRows([]string{"node_name", "location_path"}).
+				AddRow("v_vertdb_node0001", "/custom/data/storage/location").
 				AddRow("v_vertdb_node0001", "/data/vertdb/v_vertdb_node0001_data").
 				AddRow("v_vertdb_node0002", "/data/vertdb/v_vertdb_node0002_data"))
 		mock.ExpectQuery(Queries[StorageLocationKey]).
 			WithArgs("DEPOT").
 			WillReturnRows(sqlmock.NewRows([]string{"node_name", "location_path"}).
+				AddRow("v_vertdb_node0001", "/custom/data/storage/location").
 				AddRow("v_vertdb_node0001", "/home/dbadmin/depot/vertdb/v_vertdb_node0001_data").
 				AddRow("v_vertdb_node0002", "/home/dbadmin/depot/vertdb/v_vertdb_node0002_data"))
 		mock.ExpectQuery(Queries[DiskStorageLocationKey]).
@@ -427,17 +429,29 @@ var _ = Describe("vdb", func() {
 		Expect(mock.ExpectationsWereMet()).Should(Succeed())
 	})
 
-	It("should raise an error if the local paths are different on two nodes", func() {
+	It("should raise an error if catalog paths are different on two nodes", func() {
 		createMock()
 		defer deleteMock()
 
-		dbGen := DBGenerator{Conn: db}
+		dbGen := DBGenerator{Conn: db, Opts: &Options{DBName: "vertdb"}}
 
 		mock.ExpectQuery(Queries[StorageLocationKey]).
 			WithArgs("DATA,TEMP").
 			WillReturnRows(sqlmock.NewRows([]string{"node_name", "location_path"}).
-				AddRow("v_vertdb_node0001", "/data1/vertdb/v_vertdb_node0001_data").
-				AddRow("v_vertdb_node0002", "/data2/vertdb/v_vertdb_node0002_data"))
+				AddRow("v_vertdb_node0001", "/custom/data/storage/location").
+				AddRow("v_vertdb_node0001", "/data/vertdb/v_vertdb_node0001_data").
+				AddRow("v_vertdb_node0002", "/data/vertdb/v_vertdb_node0002_data"))
+		mock.ExpectQuery(Queries[StorageLocationKey]).
+			WithArgs("DEPOT").
+			WillReturnRows(sqlmock.NewRows([]string{"node_name", "location_path"}).
+				AddRow("v_vertdb_node0001", "/custom/data/storage/location").
+				AddRow("v_vertdb_node0001", "/home/dbadmin/depot/vertdb/v_vertdb_node0001_data").
+				AddRow("v_vertdb_node0002", "/home/dbadmin/depot/vertdb/v_vertdb_node0002_data"))
+		mock.ExpectQuery(Queries[DiskStorageLocationKey]).
+			WithArgs("CATALOG").
+			WillReturnRows(sqlmock.NewRows([]string{"node_name", "location_path"}).
+				AddRow("v_vertdb_node0001", "/catalog1/vertdb/v_vertdb_node0001_catalog/Catalog").
+				AddRow("v_vertdb_node0002", "/catalog2/vertdb/v_vertdb_node0002_catalog/Catalog"))
 
 		Expect(dbGen.setLocalPaths(ctx)).ShouldNot(Succeed())
 		Expect(mock.ExpectationsWereMet()).Should(Succeed())
@@ -498,7 +512,7 @@ var _ = Describe("vdb", func() {
 
 		dbGen := DBGenerator{Conn: db}
 
-		const expCommunalPath = "s3://nimbusdb/db/mspilchen"
+		const expCommunalPath = "s3://nimbusdb/db/cchen"
 		mock.ExpectQuery(Queries[StorageLocationKey]).
 			WithArgs("DATA").
 			WillReturnRows(sqlmock.NewRows([]string{"node_name", "location_path"}).

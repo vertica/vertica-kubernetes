@@ -109,7 +109,7 @@ Call stack:\r
 				"might still be in use.\n\nthe cluster lease will expire:\n\t2021-05-13 14:35:00.280925",
 			"Could not copy file [s3://nimbusdb/db/empty/metadata/newdb/cluster_config.json] to [/tmp/desc.json]: " +
 				"No such file or directory [s3://nimbusdb/db/empty/metadata/newdb/cluster_config.json]",
-			"Could not copy file [gs://vertica-fleeting/mspilchen/revivedb-failures/metadata/vertdb/cluster_conf] to [/tmp/desc.json]: " +
+			"Could not copy file [gs://vertica-fleeting/cchen/revivedb-failures/metadata/vertdb/cluster_conf] to [/tmp/desc.json]: " +
 				"File not found",
 			"Could not copy file [webhdfs://vertdb/cluster_config.json] to [/tmp/desc.json]: Seen WebHDFS exception: " +
 				"\nURL: [http://vertdb/cluster_config.json]\nHTTP response code: 404\nException type: FileNotFoundException",

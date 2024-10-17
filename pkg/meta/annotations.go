@@ -81,6 +81,11 @@ const (
 	// waits for its startup.  If omitted, we use the default timeout of 5 minutes.
 	CreateDBTimeoutAnnotation = "vertica.com/createdb-timeout"
 
+	// The timeout, in seconds, to use when the operator is performing online upgrade
+	// for various tasks. If omitted, we use the default timeout of 5 minutes.
+	OnlineUpgradeTimeoutAnnotation = "vertica.com/online-upgrade-timeout"
+	OnlineUpgradeDefaultTimeout    = 5 * 60
+
 	// Sets the fault tolerance for the cluster.  Allowable values are 0 or 1.  0 is only
 	// suitable for test environments because we have no fault tolerance and the cluster
 	// can only have between 1 and 3 pods.  If set to 1, which is the default,
@@ -132,6 +137,8 @@ const (
 	VersionAnnotation   = "vertica.com/version"
 	BuildDateAnnotation = "vertica.com/buildDate"
 	BuildRefAnnotation  = "vertica.com/buildRef"
+	// Annotation that records the vertica version prior to the upgrade
+	PreviousVersionAnnotation = "vertica.com/previous-version"
 	// Annotation for the database's revive_instance_id
 	ReviveInstanceIDAnnotation = "vertica.com/revive-instance-id"
 
@@ -243,6 +250,16 @@ const (
 	// default.
 	ScrutinizeMainContainerResourcesPrefixAnnotation = "vertica.com/scrutinize-main-container-resources"
 
+	// In order to facilitate diagnosing less recent problems, scrutinize
+	// should be able to collect an arbitrary time range of logs.
+	// With the oldest time param or log age set, no archives of vertica.log
+	// should be older than that time.
+	ScrutinizeLogAgeOldestTime = "vertica.com/scrutinize-log-age-oldest-time"
+	ScrutinizeLogAgeNewestTime = "vertica.com/scrutinize-log-age-newest-time"
+	// The hours param cannot be set alongside the Time options, and if
+	// attempted, should issue an error indicating so.
+	ScrutinizeLogAgeHours = "vertica.com/scrutinize-log-age-hours"
+
 	// This is applied to the statefulset to identify what replica group it is
 	// in. Replica groups are assigned during online upgrade. Valid values
 	// are defined under the annotation name.
@@ -254,7 +271,6 @@ const (
 	// subcluster in the other replica group. This annotation is used to
 	// establish the relationship.
 	ParentSubclusterAnnotation = "vertica.com/parent-subcluster"
-	ChildSubclusterAnnotation  = "vertica.com/child-subcluster"
 	// For each subcluster in replica group b, this is type of the associated
 	// subcluster in replica group a.
 	ParentSubclusterTypeAnnotation = "vertica.com/parent-subcluster-type"
@@ -266,11 +282,9 @@ const (
 	// This is the name of the VerticaReplicator that is generated during a online upgrade
 	OnlineUpgradeReplicatorAnnotation = "vertica.com/online-upgrade-replicator-name"
 
-	// During online upgrade, we store an annotation in the VerticaDB to indicate
-	// that we have done sandbox promotion.
-	OnlineUpgradeSandboxPromotedAnnotation = "vertica.com/online-upgrade-sandbox-promoted"
-	SandboxPromotedTrue                    = "true"
-	SandboxPromotedFalse                   = "false"
+	// During online upgrade, this annotation store some steps that we have
+	// already passed. This will allow us to skip them.
+	OnlineUpgradeStepInxAnnotation = "vertica.com/online-upgrade-step-index"
 
 	// During online upgrade, we store an annotation in the VerticaDB to indicate
 	// that we have removed old-main-cluster/replica-group-A.
@@ -281,6 +295,16 @@ const (
 	// The sandbox name used for online upgrade contains a uuid. This annotation
 	// will allow to set a fixed name for testing purposes
 	OnlineUpgradePreferredSandboxAnnotation = "vertica.com/online-upgrade-preferred-sandbox"
+
+	// This indicates the number of times we have tryied sandbox promotion during online
+	// upgrade. The max number of attempts is 3 and after that we fail online upgrade.
+	OnlineUpgradePromotionAttemptAnnotation = "vertica.com/online-upgrade-promotion-attempt"
+	OnlineUpgradePromotionMaxAttempts       = 3
+
+	// Allows us to set the name of the archive before replication for testing purposes.
+	OnlineUpgradeArchiveBeforeReplicationAnnotation = "vertica.com/online-upgrade-archive-before-replication"
+
+	SaveRestorePointAnnotation = "vertica.com/save-restore-point-on-upgrade"
 
 	// This will be set in a sandbox configMap by the vdb controller to wake up the sandbox
 	// controller for upgrading the sandboxes
@@ -294,6 +318,11 @@ const (
 	// omitted, then the name of the subclusters' statefulset will be
 	// `<vdb-name>-<subcluster-name>'
 	StsNameOverrideAnnotation = "vertica.com/statefulset-name-override"
+
+	// Use this to store extra local paths that we need to create before revive_db.
+	// Those paths include local paths not in local.catalogPath, local.dataPath,
+	// and local.depotPath. For example, the user-created temp paths.
+	ExtraLocalPathsAnnotation = "vertica.com/extra-local-paths"
 )
 
 // IsPauseAnnotationSet will check the annotations for a special value that will
@@ -336,6 +365,11 @@ func GetRestartTimeout(annotations map[string]string) int {
 // 0 is returned, this means to use the default.
 func GetCreateDBNodeStartTimeout(annotations map[string]string) int {
 	return lookupIntAnnotation(annotations, CreateDBTimeoutAnnotation, 0 /* default value */)
+}
+
+// GetOnlineUpgradeTimeout returns the timeout to use for pause/redirect sessions
+func GetOnlineUpgradeTimeout(annotations map[string]string) int {
+	return lookupIntAnnotation(annotations, OnlineUpgradeTimeoutAnnotation, OnlineUpgradeDefaultTimeout)
 }
 
 // IsKSafety0 returns true if k-safety is set to 0. False implies 1.
@@ -521,14 +555,29 @@ func GenScrutinizeMainContainerResourcesAnnotationName(resourceName corev1.Resou
 		resourceName)
 }
 
+// GetScrutinizeLogAgeOldestTime returns scrutinize log age oldest time
+func GetScrutinizeLogAgeOldestTime(annotations map[string]string) string {
+	return lookupStringAnnotation(annotations, ScrutinizeLogAgeOldestTime, "" /* default value */)
+}
+
+// GetScrutinizeLogAgeNewestTime returns scrutinize log age newest time
+func GetScrutinizeLogAgeNewestTime(annotations map[string]string) string {
+	return lookupStringAnnotation(annotations, ScrutinizeLogAgeNewestTime, "" /* default value */)
+}
+
+// GetScrutinizeLogAgeHours returns scrutinize log age hours
+func GetScrutinizeLogAgeHours(annotations map[string]string) int {
+	return lookupIntAnnotation(annotations, ScrutinizeLogAgeHours, 0 /* default value */)
+}
+
 // GetOnlineUpgradeSandbox returns the name of the sandbox used for online upgrade.
 func GetOnlineUpgradeSandbox(annotations map[string]string) string {
 	return lookupStringAnnotation(annotations, OnlineUpgradeSandboxAnnotation, "")
 }
 
-// GetOnlineUpgradeSandboxPromoted returns if sandbox has been promoted in online upgrade.
-func GetOnlineUpgradeSandboxPromoted(annotations map[string]string) string {
-	return lookupStringAnnotation(annotations, OnlineUpgradeSandboxPromotedAnnotation, SandboxPromotedFalse)
+// GetOnlineUpgradeStepInx returns the online upgrade step we are in.
+func GetOnlineUpgradeStepInx(annotations map[string]string) int {
+	return lookupIntAnnotation(annotations, OnlineUpgradeStepInxAnnotation, 0)
 }
 
 // GetOnlineUpgradeReplicaARemoved returns if replica A has been removed in online upgrade.
@@ -547,10 +596,30 @@ func GetOnlineUpgradePreferredSandboxName(annotations map[string]string) string 
 	return lookupStringAnnotation(annotations, OnlineUpgradePreferredSandboxAnnotation, "")
 }
 
+// GetOnlineUpgradePromotionAttempt returns the current number of promotion attempts
+func GetOnlineUpgradePromotionAttempt(annotations map[string]string) int {
+	return lookupIntAnnotation(annotations, OnlineUpgradePromotionAttemptAnnotation, 0)
+}
+
+func GetOnlineUpgradeArchiveBeforeReplication(annotations map[string]string) string {
+	return lookupStringAnnotation(annotations, OnlineUpgradeArchiveBeforeReplicationAnnotation, "")
+}
+
+// GetSaveRestorePoint returns true if the operator must create
+// restore points during upgrade
+func GetSaveRestorePoint(annotations map[string]string) bool {
+	return lookupBoolAnnotation(annotations, SaveRestorePointAnnotation, false)
+}
+
 // GetStsNameOverride returns the override for the statefulset name. If one is
 // not provided, an empty string is returned.
 func GetStsNameOverride(annotations map[string]string) string {
 	return lookupStringAnnotation(annotations, StsNameOverrideAnnotation, "")
+}
+
+// GetExtraLocalPaths returns the comma separated list of extra local paths
+func GetExtraLocalPaths(annotations map[string]string) string {
+	return lookupStringAnnotation(annotations, ExtraLocalPathsAnnotation, "")
 }
 
 // lookupBoolAnnotation is a helper function to lookup a specific annotation and
@@ -593,7 +662,7 @@ func genResourcesAnnotationName(prefix string, resourceName corev1.ResourceName)
 	// resource name like "limits.cpu" or "requests.memory". We don't want the
 	// period in the annotation name since it doesn't fit the style, so we
 	// replace that with a dash.
-	return fmt.Sprintf("%s-%s", prefix, strings.Replace(string(resourceName), ".", "-", 1))
+	return genAnnotationName(prefix, strings.Replace(string(resourceName), ".", "-", 1))
 }
 
 // getResource retrieves a specific resource given the annotation.
@@ -612,4 +681,8 @@ func getResource(annotations map[string]string, annotationName, defValStr string
 		return defVal
 	}
 	return quantity
+}
+
+func genAnnotationName(prefix, name string) string {
+	return fmt.Sprintf("%s-%s", prefix, name)
 }

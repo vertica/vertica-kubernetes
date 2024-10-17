@@ -25,6 +25,7 @@ import (
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
+	vdbcontroller "github.com/vertica/vertica-kubernetes/pkg/controllers/vdb"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
@@ -126,11 +127,15 @@ func (r *UnsandboxSubclusterReconciler) reconcileSandboxInfoInVdb(ctx context.Co
 // reconcileSandboxConfigMap will update/delete sandbox config map if it expires, this function will return
 // an error and a boolean to indicate if sandbox config map is deleted
 func (r *UnsandboxSubclusterReconciler) reconcileSandboxConfigMap(ctx context.Context) (error, bool) {
+	if err := r.OriginalPFacts.Collect(ctx, r.Vdb); err != nil {
+		return err, false
+	}
+
 	sbName := r.ConfigMap.Data[vapi.SandboxNameKey]
 	cmName := r.ConfigMap.Name
 	sb := r.Vdb.GetSandboxStatus(sbName)
 	// if the sandbox doesn't have any subclusters, we delete the config map
-	if sb == nil || len(sb.Subclusters) == 0 {
+	if r.OriginalPFacts.IsSandboxEmpty(sbName) && (sb == nil || len(sb.Subclusters) == 0) {
 		err := r.Client.Delete(ctx, r.ConfigMap)
 		if err != nil {
 			r.Log.Error(err, "failed to delete expired sandbox config map", "configMapName", cmName)

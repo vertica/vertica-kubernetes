@@ -35,7 +35,7 @@ spec:
     dataPath: /data
     depotPath: /depot
     requestSize: 100Mi
-  dbName: Vert_DB
+  dbName: vert_db
   subclusters:
     - name: main
       isPrimary: true

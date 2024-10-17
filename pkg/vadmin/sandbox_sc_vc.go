@@ -24,6 +24,8 @@ import (
 )
 
 // SandboxSubcluster will add a subcluster in a sandbox of the database
+//
+//nolint:dupl
 func (v *VClusterOps) SandboxSubcluster(ctx context.Context, opts ...sandboxsc.Option) error {
 	v.setupForAPICall("SandboxSubcluster")
 	defer v.tearDownForAPICall()
@@ -63,6 +65,7 @@ func (v *VClusterOps) genSandboxSubclusterOptions(s *sandboxsc.Params, certs *HT
 	opts.SandboxName = s.Sandbox
 	opts.SCName = s.Subcluster
 	opts.SandboxPrimaryUpHost = s.UpHostInSandbox
+	opts.ForUpgrade = s.ForUpgrade
 	if s.UpHostInSandbox != "" {
 		opts.NodeNameAddressMap = s.NodeNameAddressMap
 	}
