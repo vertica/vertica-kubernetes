@@ -190,7 +190,7 @@ func (nodeDetails *NodeDetails) parseDepotDetails(op string) error {
 		return fmt.Errorf("expected %d columns from storage_locations query but only got %d", ExpectedCols, len(cols))
 	}
 	var err error
-	nodeDetails.MaxDepotSize, err = strconv.Atoi(cols[0])
+	nodeDetails.MaxDepotSize, err = strconv.ParseUint(cols[0], 10, 64)
 	if err != nil {
 		return err
 	}

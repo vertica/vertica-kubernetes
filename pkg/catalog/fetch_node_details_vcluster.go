@@ -46,7 +46,7 @@ func (nodeDetails *NodeDetails) parseVNodeDetails(vnodeDetails *vclusterops.Node
 	nodeDetails.SubclusterOid = strconv.FormatUint(vnodeDetails.SubclusterID, 10)
 	nodeDetails.ReadOnly = vnodeDetails.IsReadOnly
 	nodeDetails.SandboxName = vnodeDetails.SandboxName
-	nodeDetails.ShardSubscriptions = int(vnodeDetails.NumberShardSubscriptions)
+	nodeDetails.ShardSubscriptions = int(vnodeDetails.NumberShardSubscriptions) //nolint:gosec
 	// The shard subscriptions we get from vcluster includes the replica shard.
 	// We decrement that by one to account for that. We want to know when there
 	// are 0 shard subscriptions in order to drive a shard rebalance.
@@ -55,7 +55,7 @@ func (nodeDetails *NodeDetails) parseVNodeDetails(vnodeDetails *vclusterops.Node
 	}
 	for _, storageLoc := range vnodeDetails.StorageLocList {
 		if storageLoc.UsageType == "DEPOT" {
-			nodeDetails.MaxDepotSize = int(storageLoc.MaxSize)
+			nodeDetails.MaxDepotSize = storageLoc.MaxSize
 			nodeDetails.DepotDiskPercentSize = storageLoc.DiskPercent
 			break
 		}

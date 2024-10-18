@@ -177,7 +177,7 @@ func (r *ResizePVReconcile) updateDepotSize(ctx context.Context, pvc *corev1.Per
 	// fudge is here in case Vertica and our operator calculate the expected
 	// depot size differently (i.e. rounding, etc.)
 	depotSizeLB := (curLocalDataSize * int64(dpAsInt) / 100) - (5 * 1024 * 1024)
-	if int64(pf.maxDepotSize) >= depotSizeLB {
+	if depotSizeLB >= 0 && pf.maxDepotSize >= uint64(depotSizeLB) {
 		r.Log.Info("Depot resize isn't needed in Vertica",
 			"cur depot size", pf.maxDepotSize, "expected depot size", depotSizeLB)
 		return ctrl.Result{}, nil

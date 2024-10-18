@@ -27,7 +27,7 @@ This repo contains the following directories and files:
 Before you begin, you must manually install the following software:
 
 - [docker](https://docs.docker.com/get-docker/) (version 23.0)
-- [go](https://golang.org/doc/install) (version 1.22.5)
+- [go](https://golang.org/doc/install) (version 1.23.2)
 - [kubectl](https://kubernetes.io/docs/tasks/tools/install-kubectl/) (version 1.20.1)
 - [helm](https://helm.sh/docs/intro/install/) (version 3.5.0)
 - [kubectx](https://github.com/ahmetb/kubectx/releases/download/v0.9.1/kubectx) (version 0.9.1)

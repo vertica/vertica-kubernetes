@@ -55,10 +55,10 @@ var _ = Describe("nodedetailsvsql", func() {
 	It("should parse query output of depot details correctly", func() {
 		nodeDetails := &NodeDetails{}
 		Expect(nodeDetails.parseDepotDetails("1248116736|60%\n")).Should(Succeed())
-		Expect(nodeDetails.MaxDepotSize).Should(Equal(1248116736))
+		Expect(nodeDetails.MaxDepotSize).Should(Equal(uint64(1248116736)))
 		Expect(nodeDetails.DepotDiskPercentSize).Should(Equal("60%"))
 		Expect(nodeDetails.parseDepotDetails("3248116736|\n")).Should(Succeed())
-		Expect(nodeDetails.MaxDepotSize).Should(Equal(3248116736))
+		Expect(nodeDetails.MaxDepotSize).Should(Equal(uint64(3248116736)))
 		Expect(nodeDetails.DepotDiskPercentSize).Should(Equal(""))
 		Expect(nodeDetails.parseDepotDetails("a|b|c")).ShouldNot(Succeed())
 		Expect(nodeDetails.parseDepotDetails("not-a-number|blah")).ShouldNot(Succeed())

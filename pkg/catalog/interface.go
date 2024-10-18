@@ -33,7 +33,7 @@ type NodeDetails struct {
 	ReadOnly             bool
 	SandboxName          string
 	ShardSubscriptions   int
-	MaxDepotSize         int
+	MaxDepotSize         uint64
 	DepotDiskPercentSize string
 }
 
