@@ -49,7 +49,7 @@ func CreatePods(ctx context.Context, c client.Client, vdb *vapi.VerticaDB, podRu
 	for i := range vdb.Spec.Subclusters {
 		sc := &vdb.Spec.Subclusters[i]
 		const ExpectOffset = 2
-		CreateSts(ctx, c, vdb, sc, ExpectOffset, int32(i), podRunningState)
+		CreateSts(ctx, c, vdb, sc, ExpectOffset, int32(i), podRunningState) //nolint:gosec
 	}
 }
 
