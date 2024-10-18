@@ -358,34 +358,31 @@ You can run individual tests from the command line with the [KUTTLE CLI](https:/
 Prerequisite steps:
 
 1. Before you can run an individual test, you need to set up a communal endpoint. To set up a [MinIO](https://min.io/) endpoint, run the following make target:
->
-> ```shell
-> make setup-minio
-> ```
->
-    To set up a different communal endpoint, see [Custom communal endpoints](#custom-communal-endpoints).
+
+```shell
+make setup-minio
+```
+
+> To set up a different communal endpoint, see [Custom communal endpoints](#custom-communal-endpoints).
 
 2. You also need to set up some environmental variables:
->
-> ```shell
-> export VERTICA_DEPLOYMENT_METHOD=vclusterops
-> ```
-    VERTICA_DEPLOYMENT_METHOD=vclusterops lets the backend use vcluster package to manage vertica clusters. If it is not set, the default value will be admintools and the vertica image must be admintools compatible.
->
-> ```shell
-> export LICENSE_FILE=/file_path/license.key
-> unset LICENSE_FILE
-> ```
-    If the total number of nodes used in a test case is more than 3, you have to set up LICENSE_FILE with the license file path.
-    If it is no more than 3, you must unset LICENSE_FILE.
+```shell
+export VERTICA_DEPLOYMENT_METHOD=vclusterops
+```
+> VERTICA_DEPLOYMENT_METHOD=vclusterops lets the backend use vcluster package to manage vertica clusters. If it is not set, the default value will be admintools and the vertica image must be admintools compatible.
 
->
-> ```shell
-> export BASE_VERTICA_IMG=opentext/vertica-k8s:24.2.0-1
-> export VERTICA_IMG=opentext/vertica-k8s:latest
-> ```
->
-    BASE_VERTICA_IMG and VERTICA_IMG are used for the upgrade test cases. The BASE_VERTICA_IMG is the base vertica vertion that will be installed. VERTICA_IMG is the vertica version that the base version will be upgraded to. The version in VERTICA_IMG must be higher than that in BASE_VERTICA_IMG.
+```shell
+export LICENSE_FILE=/file_path/license.key
+unset LICENSE_FILE
+```
+> If the total number of nodes used in a test case is more than 3, you have to set up LICENSE_FILE with the license file path.
+If it is no more than 3, you must unset LICENSE_FILE.
+
+```shell
+export BASE_VERTICA_IMG=opentext/vertica-k8s:24.2.0-1
+export VERTICA_IMG=opentext/vertica-k8s:latest
+```
+> BASE_VERTICA_IMG and VERTICA_IMG are used for the upgrade test cases. The BASE_VERTICA_IMG is the base vertica vertion that will be installed. VERTICA_IMG is the vertica version that the base version will be upgraded to. The version in VERTICA_IMG must be higher than that in BASE_VERTICA_IMG.
 
 
 3. kuttl-test.yaml is the configuration file for e2e test cases. There is a "timeout" field in it. If your server is not fast enough, you may need to increase that value to pass the test cases. There is another field "parallel" that controls the maximum number of tests to run at once. It is set to 2 by default. You can set it to 1 if your server is not fast enough.
