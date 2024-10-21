@@ -161,7 +161,7 @@ type PodFact struct {
 	depotDiskPercentSize string
 
 	// The size of the depot in bytes.  This is only valid if the database is up.
-	maxDepotSize int
+	maxDepotSize uint64
 
 	// The size, in bytes, of the local PV.
 	localDataSize int
