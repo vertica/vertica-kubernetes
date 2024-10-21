@@ -32,6 +32,7 @@ import (
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/config/v1alpha1"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
@@ -239,7 +240,7 @@ func main() {
 	if opcfg.GetLoggingFilePath() != "" {
 		log.Printf("Now logging in file %s", opcfg.GetLoggingFilePath())
 	}
-
+	var multibroadcaster = record.NewBroadcasterWithCorrelatorOptions(record.CorrelatorOptions{BurstSize: 100})
 	ctrl.SetLogger(logger)
 	setupLog.Info("Build info", "gitCommit", GitCommit,
 		"buildDate", BuildDate, "vclusterVersion", VClusterVersion)
@@ -260,6 +261,7 @@ func main() {
 		LeaderElection:         true,
 		LeaderElectionID:       opcfg.GetLeaderElectionID(),
 		Namespace:              opcfg.GetWatchNamespace(),
+		EventBroadcaster:       multibroadcaster,
 		CertDir:                CertDir,
 		Controller: v1alpha1.ControllerConfigurationSpec{
 			GroupKindConcurrency: map[string]int{
