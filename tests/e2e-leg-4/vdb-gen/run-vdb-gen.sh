@@ -25,6 +25,8 @@ VDB_NAME=$3
 COMMUNAL_EP_CERT_SECRET=$4
 DEPLOYMENT_METHOD=$5
 VDB_USER=$6
+POD_NAME=$7
+VDB_CONTAINS_POD=$8
 
 # The ca.cert is optional.
 if [ -f "/certs/$COMMUNAL_EP_CERT_SECRET/ca.crt" ]
@@ -42,4 +44,4 @@ fi
     $CA_CERT_OPT \
     -depot-volume EmptyDir \
     -deployment-method $DEPLOYMENT_METHOD \
-    v-vdb-gen-sc2-0.v-vdb-gen.$NAMESPACE vertdb
+    $POD_NAME.$VDB_CONTAINS_POD.$NAMESPACE vertdb

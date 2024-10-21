@@ -196,24 +196,17 @@ jobs:
       image: ${{ steps.legacy_vertica_image.outputs.value }}
     steps:
 
-    - name: set lower case owner name
-      env:
-        OWNER: '${{ github.repository_owner }}'
-      run: |
-        echo "OWNER_LC=${OWNER,,}" >>${GITHUB_ENV}
-
     - name: Pick the name of the image
       uses: spilchen/switch-case-action@v2
       id: legacy_vertica_image
       with:
-        default: ghcr.io/${{ env.OWNER_LC }}/vertica-k8s:${{ github.sha }}-legacy
+        default: docker.io/opentext/vertica-k8s-private:latest-legacy-master
         conditionals-with-values: |
           ${{ inputs.legacy_vertica_image != '' }} => ${{ inputs.legacy_vertica_image }}
-          ${{ github.event_name == 'pull_request' }} => vertica-k8s:kind-legacy
 
     - name: Login to GitHub Container registry for non-PRs
       uses: docker/login-action@v3
-      if: ${{ github.event_name != 'pull_request' && inputs.legacy_vertica_image == '' || startsWith(inputs.legacy_vertica_image, 'ghcr.io') }}
+      if: ${{ github.event_name != 'pull_request' && startsWith(inputs.legacy_vertica_image, 'ghcr.io') }}
       with:
         registry: ghcr.io
         username: ${{ github.repository_owner }}
@@ -221,7 +214,7 @@ jobs:
 
     - name: Login to Docker Hub
       uses: docker/login-action@v3
-      if: ${{ inputs.legacy_vertica_image != '' && startsWith(inputs.legacy_vertica_image, 'docker.io') }}
+      if: ${{ startsWith(steps.legacy_vertica_image.outputs.value, 'docker.io') }}
       with:
         username: ${{ secrets.DOCKERHUB_USERNAME }}
         password: ${{ secrets.DOCKERHUB_TOKEN }}
@@ -233,15 +226,18 @@ jobs:
       uses: ./.github/actions/download-rpm
       if: ${{ inputs.legacy_vertica_image == '' }}
 
-    - name: Build and optionally push legacy server image
+    - name: Build legacy server image
       if: ${{ inputs.legacy_vertica_image == '' }}
       run: |
-        export VERTICA_IMG=${{ steps.legacy_vertica_image.outputs.value }}
+        # Do not push the image to remote registry because we
+        # do not want to overwrite the existing images. Here we
+        # just validate if dockerfile works fine.
         make docker-build-vertica
-        if [ $GITHUB_EVENT_NAME != 'pull_request' ]
-        then
-          make docker-push-vertica
-        fi
+
+    - name: Do a local pull of the image if we didn't create it
+      if: ${{ steps.legacy_vertica_image.outputs.value != '' }}
+      run: |
+        docker pull ${{ steps.legacy_vertica_image.outputs.value }}
 
     - name: Save the image for consumption by dependent jobs (PRs only)
       if: ${{ github.event_name == 'pull_request' }}
@@ -254,16 +250,10 @@ jobs:
         name: legacy-vertica-image
         path: legacy-vertica-image.tar
 
-    - name: Do a local pull of the image if we didn't create it
-      if: ${{ inputs.legacy_vertica_image != '' }}
-      run: |
-        docker pull ${{ inputs.legacy_vertica_image }}
-
     - name: Print a summary of the job
       run: |
         echo "Image Name: **${{ steps.legacy_vertica_image.outputs.value }}**" >> $GITHUB_STEP_SUMMARY
         echo "Was Built: ${{ inputs.legacy_vertica_image == '' && '**Yes**' || '**No**' }}" >> $GITHUB_STEP_SUMMARY
-        echo "Was Pushed: ${{ inputs.legacy_vertica_image == '' && github.event_name != 'pull_request' && '**Yes**' || '**No**' }}"
         echo "Was Scanned: **No**" >> $GITHUB_STEP_SUMMARY
         echo "Size: **$(docker inspect --format '{{.Size}}' ${{ steps.legacy_vertica_image.outputs.value }} | numfmt --to=iec)**" >> $GITHUB_STEP_SUMMARY
         echo "Image ID: **$(docker inspect --format '{{.ID}}' ${{ steps.legacy_vertica_image.outputs.value }})**" >> $GITHUB_STEP_SUMMARY
