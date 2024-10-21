@@ -17,7 +17,6 @@ package vadmin
 
 import (
 	"context"
-	"errors"
 
 	vops "github.com/vertica/vcluster/vclusterops"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
@@ -42,9 +41,8 @@ func (v *VClusterOps) InstallPackages(_ context.Context, opts ...installpackages
 		status = &vops.InstallPackageStatus{}
 	}
 	if err != nil {
-		pkgErr := errors.New(err.Error() + "This may due to lack of memory resources.")
-		_, err = v.logFailure("VInstallPackages", events.InstallPackagesFailed, pkgErr)
-		v.Log.Error(err, "failed to finish package installation", "installPackageStatus", *status)
+		_, err = v.logFailure("VInstallPackages", events.InstallPackagesFailed, err)
+		v.Log.Error(err, "failed to finish package installation.", "installPackageStatus", *status)
 		return status, err
 	}
 

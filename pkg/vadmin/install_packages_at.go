@@ -17,7 +17,6 @@ package vadmin
 
 import (
 	"context"
-	"errors"
 	"regexp"
 	"strings"
 
@@ -35,8 +34,7 @@ func (a *Admintools) InstallPackages(ctx context.Context, opts ...installpackage
 
 	status := genInstallPackageStatus(stdout)
 	if err != nil && len(status.Packages) == 0 {
-		pkgErr := errors.New(err.Error() + "This may due to lack of memory resources.")
-		_, logErr := a.logFailure("install_package", events.InstallPackagesFailed, stdout, pkgErr)
+		_, logErr := a.logFailure("install_package", events.InstallPackagesFailed, stdout, err)
 		a.Log.Error(err, "failed to finish package installation", "installPackageStatus", *status)
 		return status, logErr
 	}

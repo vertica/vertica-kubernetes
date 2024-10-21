@@ -129,6 +129,10 @@ func (i *InstallPackagesReconciler) runCmd(ctx context.Context, initiatorName ty
 		"skipped installation package list", categorizedStatus.skippedPackages,
 	)
 
+	if len(categorizedStatus.succeededPackages) == 0 {
+		i.Log.Info("No pacakges was installed. This may due to lack of memory resources or other internal errors.")
+	}
+
 	return err
 }
 
