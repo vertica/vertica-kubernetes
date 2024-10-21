@@ -28,3 +28,6 @@ metadata:
 status:
   restorePoint:
     archive: test
+    details:
+      archive: test
+      index: 2

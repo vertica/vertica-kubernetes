@@ -41,7 +41,7 @@ var _ = Describe("saverestorepoint_reconciler", func() {
 		Expect(k8sClient.Status().Update(ctx, vdb)).Should(Succeed())
 		fpr := &cmds.FakePodRunner{}
 		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
-		r := MakeSaveRestorePointReconciler(vdbRec, vdb, logger, &PodFacts{}, dispatcher, k8sClient)
+		r := MakeSaveRestorePointReconciler(vdbRec, vdb, logger, &PodFacts{}, dispatcher)
 		res, err := r.Reconcile(ctx, &ctrl.Request{})
 		Expect(err).Should(Succeed())
 		Expect(res.Requeue).Should(BeFalse())

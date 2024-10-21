@@ -17,12 +17,10 @@ package showrestorepoints
 
 import (
 	vops "github.com/vertica/vcluster/vclusterops"
-	"k8s.io/apimachinery/pkg/types"
 )
 
 // Parms holds all of the option for a restore point invocation.
 type Parms struct {
-	InitiatorName       types.NamespacedName
 	InitiatorIP         string
 	Hosts               []string
 	CommunalPath        string
@@ -39,9 +37,8 @@ func (s *Parms) Make(opts ...Option) {
 	}
 }
 
-func WithInitiator(nm types.NamespacedName, ip string) Option {
+func WithInitiator(ip string) Option {
 	return func(s *Parms) {
-		s.InitiatorName = nm
 		s.InitiatorIP = ip
 	}
 }

@@ -78,7 +78,7 @@ var _ = Describe("restore_points_vc", func() {
 		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.NMATLSSecret)
 
 		showRestorePoints, err := dispatcher.ShowRestorePoints(ctx,
-			showrestorepoints.WithInitiator(dispatcher.VDB.ExtractNamespacedName(), nodeIPs[0]),
+			showrestorepoints.WithInitiator(nodeIPs[0]),
 			showrestorepoints.WithCommunalPath(TestCommunalPath),
 			showrestorepoints.WithConfigurationParams(TestCommunalStorageParams),
 			showrestorepoints.WithArchiveNameFilter(TestArchiveName),
