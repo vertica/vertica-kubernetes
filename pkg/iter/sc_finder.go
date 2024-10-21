@@ -58,6 +58,8 @@ const (
 	// Find all subclusters, both in the vdb and not in the vdb, regardless
 	// of the sandbox they belong to.
 	FindAllAcrossSandboxes = FindAll | FindSkipSandboxFilter
+	// Find subclusters not in vdb regardless of the sandbox they belong to.
+	FindNotInVdbAcrossSandboxes = FindNotInVdb | FindSkipSandboxFilter
 )
 
 func MakeSubclusterFinder(cli client.Client, vdb *vapi.VerticaDB) SubclusterFinder {
@@ -142,6 +144,8 @@ func (m *SubclusterFinder) FindSubclusters(ctx context.Context, flags FindFlags,
 				Size: 0,
 				Annotations: map[string]string{
 					vmeta.StsNameOverrideAnnotation: missingSts.Items[i].ObjectMeta.Name,
+					// This will let the operator know if the subcluster is zombie
+					vmeta.SandboxNameLabel: missingSts.Items[i].Labels[vmeta.SandboxNameLabel],
 				},
 			})
 		}

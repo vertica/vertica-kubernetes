@@ -1605,7 +1605,15 @@ func (v *VerticaDB) checkImmutableSubclusterInSandbox(oldObj *VerticaDB, allErrs
 	newScMap := v.GenSubclusterMap()
 	path := field.NewPath("spec").Child("subclusters")
 
-	// check if the sizes of subclusters in a sandbox get changed
+	allErrs = v.checkSubclusterSizeInSandbox(allErrs, persistScsWithSbIndex, newScIndexMap, oldScMap,
+		newScMap, path)
+	allErrs = v.checkSandboxSubclustersRemoved(allErrs, oldObj, oldScIndexMap, oldScMap, newScMap, path)
+	return v.checkSandboxPrimary(allErrs, oldObj, oldScIndexMap, oldScMap, path)
+}
+
+// checkSubclusterSizeInSandbox checks if the sizes of subclusters in a sandbox get changed
+func (v *VerticaDB) checkSubclusterSizeInSandbox(allErrs field.ErrorList, persistScsWithSbIndex, newScIndexMap map[string]int,
+	oldScMap, newScMap map[string]*Subcluster, path *field.Path) field.ErrorList {
 	for sc, i := range persistScsWithSbIndex {
 		oldSc, hasOldSc := oldScMap[sc]
 		newSc, hasNewSc := newScMap[sc]
@@ -1625,31 +1633,40 @@ func (v *VerticaDB) checkImmutableSubclusterInSandbox(oldObj *VerticaDB, allErrs
 			continue
 		}
 	}
+	return allErrs
+}
 
-	// find subclusters that are sandboxed in old vdb but removed in new vdb
-	oldScInSandbox := oldObj.GenSubclusterSandboxMap()
+// checkSandboxSubclustersRemoved checks subclusters that are sandboxed and removed in new vdb
+func (v *VerticaDB) checkSandboxSubclustersRemoved(allErrs field.ErrorList, oldObj *VerticaDB, oldScIndexMap map[string]int,
+	oldScMap, newScMap map[string]*Subcluster, path *field.Path) field.ErrorList {
+	newScInSandbox := v.GenSubclusterSandboxMap()
 	removedScs := vutil.MapKeyDiff(oldScMap, newScMap)
 	for _, sc := range removedScs {
-		if _, ok := oldScInSandbox[sc]; ok {
-			i := oldScIndexMap[sc]
-			err := field.Invalid(path.Index(i),
-				oldObj.Spec.Subclusters[i],
-				fmt.Sprintf("Cannot remove subcluster %q when it is in a sandbox", sc))
-			allErrs = append(allErrs, err)
+		if _, ok := newScInSandbox[sc]; !ok {
 			continue
 		}
+		i := oldScIndexMap[sc]
+		err := field.Invalid(path.Index(i),
+			oldObj.Spec.Subclusters[i],
+			fmt.Sprintf("Cannot remove subcluster %q when it is in a sandbox", sc))
+		allErrs = append(allErrs, err)
 	}
+	return allErrs
+}
 
+// checkSandboxPrimary ensures a couple of things:
+//   - a sandbox primary subcluster cannot be moved to another sandbox
+//   - cannot remove the sandbox primary subcluster from a sandbox
+//
+// The sandbox primary subcluster must stay constant until the sandbox is
+// removed entirely.
+func (v *VerticaDB) checkSandboxPrimary(allErrs field.ErrorList, oldObj *VerticaDB, oldScIndexMap map[string]int,
+	oldScMap map[string]*Subcluster, path *field.Path) field.ErrorList {
+	oldScInSandbox := oldObj.GenSubclusterSandboxMap()
 	newScInSandbox := v.GenSubclusterSandboxMap()
 	oldSbIndexMap := oldObj.GenSandboxIndexMap()
 	oldSbMap := oldObj.GenSandboxMap()
 	newSbMap := v.GenSandboxMap()
-
-	// This loop ensures a couple of things:
-	// - a sandbox primary subcluster cannot be moved to another sandbox
-	// - cannot remove the sandbox primary subcluster from a sandbox
-	// The sandbox primary subcluster must stay constant until the sandbox is
-	// removed entirely.
 	for oldScName, oldSbName := range oldScInSandbox {
 		newSbName, newFound := newScInSandbox[oldScName]
 		sc := oldScMap[oldScName]
@@ -1681,7 +1698,6 @@ func (v *VerticaDB) checkImmutableSubclusterInSandbox(oldObj *VerticaDB, allErrs
 			allErrs = append(allErrs, err)
 		}
 	}
-
 	return allErrs
 }
 
