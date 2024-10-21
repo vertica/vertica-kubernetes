@@ -158,6 +158,10 @@ runs:
           fi
         fi
 
+        if [[ "${{ inputs.leg-identifier }}" == "leg-4" ]]; then
+          export CONCURRENCY_VERTICADB=10
+        fi
+
         # Set BASE_VERTICA_IMG based on $VERTICA_IMG
         # Some tests in some suites do an upgrade, so set the base image to upgrade from
         if [[ "${{ inputs.need-base-vertica-image }}" == "true" ]]; then

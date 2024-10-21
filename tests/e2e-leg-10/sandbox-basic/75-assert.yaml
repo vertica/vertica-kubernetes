@@ -11,33 +11,26 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: kuttl.dev/v1beta1
-kind: TestAssert
-timeout: 900
----
-apiVersion: vertica.com/v1beta1
+apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
-  name: v-vdb-gen-revive
+  name: v-sandbox
 spec:
-  initPolicy: Revive
-  dbName: vertdb
-  shardCount: 6
-  superuserPasswordSecret: v-vdb-gen-revive-su-passwd
-  local:
-    dataPath: /data
-    depotPath: /depot
-    depotVolume: EmptyDir
-    catalogPath: /catalog
   subclusters:
-    - name: sc1
-      isPrimary: true
-      size: 2
-    - name: sc2
-      isPrimary: true
-      size: 1
+    - name: pri1
+      type: primary
+    - name: sec1
+      type: secondary
+    - name: sec3
+      type: secondary
 status:
-  installCount: 3
-  subclusterCount: 2
-  upNodeCount: 3
-  addedToDBCount: 3
+  subclusters:
+    - addedToDBCount: 3
+      upNodeCount: 3
+      name: pri1
+    - addedToDBCount: 3
+      upNodeCount: 3
+      name: sec1
+    - addedToDBCount: 1
+      upNodeCount: 1
+      name: sec3

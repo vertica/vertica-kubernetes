@@ -60,15 +60,15 @@ func (v *VClusterOps) genReplicateDBOptions(s *replicationstart.Parms, certs *HT
 	opts.DBName = v.VDB.Spec.DBName
 	opts.UserName = s.SourceUserName
 	opts.Password = &v.Password
-	opts.TargetDB = s.TargetDBName
-	opts.TargetUserName = s.TargetUserName
+	opts.TargetDB.DBName = s.TargetDBName
+	opts.TargetDB.UserName = s.TargetUserName
 	opts.SandboxName = s.SourceSandboxName
 	if s.SourceTLSConfig != "" {
-		opts.TargetPassword = nil
+		opts.TargetDB.Password = nil
 	} else {
-		opts.TargetPassword = &s.TargetPassword
+		opts.TargetDB.Password = &s.TargetPassword
 	}
-	opts.TargetHosts = append(opts.TargetHosts, s.TargetIP)
+	opts.TargetDB.Hosts = append(opts.TargetDB.Hosts, s.TargetIP)
 	opts.SourceTLSConfig = s.SourceTLSConfig
 	opts.IsEon = v.VDB.IsEON()
 
