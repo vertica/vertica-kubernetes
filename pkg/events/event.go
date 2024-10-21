@@ -22,7 +22,6 @@ const (
 	AddNodeSucceeded                 = "AddNodeSucceeded"
 	AddNodeLicenseFail               = "AddNodeLicenseFail"
 	AddNodeFailed                    = "AddNodeFailed"
-	NotAllNodesUp                    = "NotAllNodesUp"
 	CreateDBStart                    = "CreateDBStart"
 	CreateDBSucceeded                = "CreateDBSucceeded"
 	CreateDBFailed                   = "CreateDBFailed"
