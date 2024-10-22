@@ -22,11 +22,6 @@ linters-settings:
       - octalLiteral
       - whyNoLint
       - wrapperFunc
-    settings:
-      hugeParam:
-          # Size in bytes that makes the warning trigger.
-          # Default: 80
-          sizeThreshold: 200
   gocyclo:
     min-complexity: 15
   goimports:
