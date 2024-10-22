@@ -846,9 +846,6 @@ func (i *UpgradeManager) logEventIfRequestedUpgradeIsDifferent(actualUpgrade vap
 	if !i.ContinuingUpgrade && i.Vdb.Spec.UpgradePolicy != actualUpgrade && i.Vdb.Spec.UpgradePolicy != vapi.AutoUpgrade {
 		actualUpgradeAsText := strings.ToLower(string(actualUpgrade))
 
-		i.Rec.Eventf(i.Vdb, corev1.EventTypeNormal, events.IncompatibleUpgradeRequested,
-			"Requested upgrade is incompatible with the Vertica deployment. Falling back to %s upgrade.", actualUpgradeAsText)
-
 		if i.Vdb.Spec.UpgradePolicy == "Online" {
 			i.Log.Info("Not all online upgrade prerequisites met. Please make sure: " +
 				"1. Vertica server version is 24.3.0-2 or higher. " +
@@ -856,6 +853,9 @@ func (i *UpgradeManager) logEventIfRequestedUpgradeIsDifferent(actualUpgrade vap
 				"3. A license file was applied to allow double the DB nodes. " +
 				"4. No sandbox defined.")
 		}
+
+		i.Rec.Eventf(i.Vdb, corev1.EventTypeNormal, events.IncompatibleUpgradeRequested,
+			"Requested upgrade is incompatible with the Vertica deployment. Falling back to %s upgrade.", actualUpgradeAsText)
 	}
 }
 
