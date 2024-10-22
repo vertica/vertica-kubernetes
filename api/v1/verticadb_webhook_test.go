@@ -1320,13 +1320,30 @@ var _ = Describe("verticadb_webhook", func() {
 		vdb.Spec.Subclusters = []Subcluster{
 			{Name: "sc1", Type: PrimarySubcluster, Size: 3, ServiceType: v1.ServiceTypeClusterIP},
 			{Name: "sc2", Type: SandboxPrimarySubcluster, Size: 3, ServiceType: v1.ServiceTypeClusterIP},
-			{Name: "sc3", Type: SandboxPrimarySubcluster, Size: 3, ServiceType: v1.ServiceTypeNodePort, Shutdown: true},
+			{Name: "sc3", Type: SecondarySubcluster, Size: 3, ServiceType: v1.ServiceTypeNodePort, Shutdown: true},
 		}
 		vdb.Spec.Sandboxes = []Sandbox{
 			{Name: "sand1", Subclusters: []SubclusterName{{Name: "sc2"}, {Name: "sc3"}}},
 		}
 		Ω(vdb.hasNoShutdownSubclusters(field.ErrorList{})).Should(HaveLen(1))
 	})
+
+	It("when a sandbox has shutdown set and one of its subclusters is annotated with \"vertica.com/shutdown-driven-by-sandbox\", the subcluster's shutdown should be changed", func() {
+		oldVdb := MakeVDB()
+		oldVdb.Spec.Subclusters = []Subcluster{
+			{Name: "sc1", Type: PrimarySubcluster, Size: 3, ServiceType: v1.ServiceTypeClusterIP},
+			{Name: "sc2", Type: SandboxPrimarySubcluster, Size: 3, ServiceType: v1.ServiceTypeClusterIP},
+			{Name: "sc3", Type: SecondarySubcluster, Size: 3, ServiceType: v1.ServiceTypeNodePort, Annotations: map[string]string{"vertica.com/shutdown-driven-by-sandbox": "true"}},
+		}
+		oldVdb.Spec.Sandboxes = []Sandbox{
+			{Name: "sand1", Subclusters: []SubclusterName{{Name: "sc2"}, {Name: "sc3"}}, Shutdown: true},
+		}
+		newVdb := oldVdb.DeepCopy()
+		newVdb.Spec.Subclusters[2].Shutdown = true
+
+		Ω(newVdb.validateAnnotatedSubclustersInShutdownSandbox(oldVdb, field.ErrorList{})).Should(HaveLen(1))
+	})
+
 })
 
 func createVDBHelper() *VerticaDB {
