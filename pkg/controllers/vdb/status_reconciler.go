@@ -38,21 +38,35 @@ import (
 // StatusReconciler will update the status field of the vdb.
 type StatusReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
-	Log    logr.Logger
-	Vdb    *vapi.VerticaDB // Vdb is the CRD we are acting on.
-	PFacts *podfacts.PodFacts
+	Scheme       *runtime.Scheme
+	Log          logr.Logger
+	Vdb          *vapi.VerticaDB // Vdb is the CRD we are acting on.
+	PFacts       *podfacts.PodFacts
+	SkipShutdown bool
 }
 
 // MakeStatusReconciler will build a StatusReconciler object
 func MakeStatusReconciler(cli client.Client, scheme *runtime.Scheme, log logr.Logger,
 	vdb *vapi.VerticaDB, pfacts *podfacts.PodFacts) controllers.ReconcileActor {
 	return &StatusReconciler{
-		Client: cli,
-		Scheme: scheme,
-		Log:    log.WithName("StatusReconciler"),
-		Vdb:    vdb,
-		PFacts: pfacts,
+		Client:       cli,
+		Scheme:       scheme,
+		Log:          log.WithName("StatusReconciler"),
+		Vdb:          vdb,
+		PFacts:       pfacts,
+		SkipShutdown: true,
+	}
+}
+
+func MakeStatusReconcilerWithShutdown(cli client.Client, scheme *runtime.Scheme, log logr.Logger,
+	vdb *vapi.VerticaDB, pfacts *podfacts.PodFacts) controllers.ReconcileActor {
+	return &StatusReconciler{
+		Client:       cli,
+		Scheme:       scheme,
+		Log:          log.WithName("StatusReconciler"),
+		Vdb:          vdb,
+		PFacts:       pfacts,
+		SkipShutdown: false,
 	}
 }
 
@@ -119,6 +133,9 @@ func (s *StatusReconciler) updateStatusFields(ctx context.Context) error {
 			if err := s.calculateSubclusterStatus(ctx, subclusters[i], &vdbChg.Status.Subclusters[i]); err != nil {
 				return fmt.Errorf("failed to calculate subcluster status %s %w", subclusters[i].Name, err)
 			}
+			if !s.SkipShutdown {
+				s.updateShutdownStatus(subclusters[i], &vdbChg.Status.Subclusters[i])
+			}
 		}
 		s.calculateClusterStatus(&vdbChg.Status)
 		return nil
@@ -173,7 +190,7 @@ func (s *StatusReconciler) calculateSubclusterStatus(ctx context.Context, sc *va
 		return err
 	}
 
-	for podIndex := int32(0); podIndex < int32(len(curStat.Detail)); podIndex++ {
+	for podIndex := int32(0); podIndex < int32(len(curStat.Detail)); podIndex++ { //nolint:gosec
 		podName := names.GenPodName(s.Vdb, sc, podIndex)
 		pf, ok := s.PFacts.Detail[podName]
 		if !ok {
@@ -203,6 +220,10 @@ func (s *StatusReconciler) calculateSubclusterStatus(ctx context.Context, sc *va
 	return nil
 }
 
+func (s *StatusReconciler) updateShutdownStatus(sc *vapi.Subcluster, curStat *vapi.SubclusterStatus) {
+	curStat.Shutdown = sc.Shutdown
+}
+
 // resizeSubclusterStatus will set the size of curStat.Detail to its correct value.
 // The size of the detail must match the current size of the subcluster.  The detail
 // could grow or shrink.
@@ -212,11 +233,11 @@ func (s *StatusReconciler) resizeSubclusterStatus(ctx context.Context, sc *vapi.
 		return err
 	}
 	// Grow the detail if needed
-	for ok := true; ok; ok = int32(len(curStat.Detail)) < scSize {
+	for ok := true; ok; ok = int32(len(curStat.Detail)) < scSize { //nolint:gosec
 		curStat.Detail = append(curStat.Detail, vapi.VerticaDBPodStatus{})
 	}
 	// Or shrink the size
-	if int32(len(curStat.Detail)) > scSize {
+	if int32(len(curStat.Detail)) > scSize { //nolint:gosec
 		curStat.Detail = curStat.Detail[0:scSize]
 	}
 	return nil

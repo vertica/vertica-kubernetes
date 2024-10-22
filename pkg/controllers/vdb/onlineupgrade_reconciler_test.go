@@ -338,7 +338,7 @@ var _ = Describe("onlineupgrade_reconciler", func() {
 			},
 		}
 
-		test.CreateConfigMap(ctx, k8sClient, vdb, "", sbName)
+		test.CreateConfigMap(ctx, k8sClient, vdb, "", "", sbName)
 		defer test.DeleteConfigMap(ctx, k8sClient, vdb, sbName)
 		rr := &OnlineUpgradeReconciler{
 			sandboxName: sbName,

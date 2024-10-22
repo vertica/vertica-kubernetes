@@ -220,7 +220,7 @@ func (r *ReviveDBReconciler) getPodList() ([]*podfacts.PodFact, bool) {
 			return nil, false
 		}
 
-		podsToAdd := int32(cur.PodCount)
+		podsToAdd := int32(cur.PodCount) //nolint:gosec
 		podsLeft := scPodCounts[cur.SubclusterIndex]
 		if podsLeft < podsToAdd || podsToAdd <= 0 {
 			podsToAdd = podsLeft

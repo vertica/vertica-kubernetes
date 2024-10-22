@@ -129,7 +129,12 @@ func (r *RestartReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctr
 	// ScheduleOnly.
 	if r.PFacts.GetUpNodeAndNotReadOnlyCount() == 0 &&
 		r.Vdb.Spec.InitPolicy != vapi.CommunalInitPolicyScheduleOnly {
-		return r.reconcileCluster(ctx)
+		// Abort cluster restart if at least one pod must not be
+		// restarted.
+		if r.PFacts.GetShutdownCount() == 0 {
+			return r.reconcileCluster(ctx)
+		}
+		return ctrl.Result{}, nil
 	}
 	return r.reconcileNodes(ctx)
 }

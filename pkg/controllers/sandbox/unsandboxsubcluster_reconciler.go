@@ -18,7 +18,6 @@ package sandbox
 import (
 	"context"
 	"errors"
-	"fmt"
 
 	"github.com/go-logr/logr"
 	vutil "github.com/vertica/vcluster/vclusterops/util"
@@ -27,8 +26,6 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
-	"github.com/vertica/vertica-kubernetes/pkg/names"
-	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/unsandboxsc"
@@ -249,21 +246,14 @@ func (r *UnsandboxSubclusterReconciler) unsandboxSubcluster(ctx context.Context,
 	// remove startup.json in pod since vcluster unsandbox needs to poll node down.
 	// With that json file, the container will restart vertica automatically and fail
 	// vcluster unsandbox
-	podNames := r.OriginalPFacts.FindPodNamesInSubcluster(scName)
-	rmCmd := []string{"bash", "-c", fmt.Sprintf("rm -rf %s", paths.StartupConfFile)}
-	for _, podName := range podNames {
-		if _, _, err := r.PRunner.ExecInPod(ctx, podName, names.ServerContainer, rmCmd...); err != nil {
-			r.Log.Error(err, "failed to remove startup.json in pod", "podName", podName)
-			return err
-		} else {
-			r.Log.Info("removed startup.json before unsandboxing", "podName", podName,
-				"subcluster", scName, "sandbox", r.OriginalPFacts.GetSandboxName())
-		}
+	err := r.OriginalPFacts.RemoveStartupFileInSubclusterPods(ctx, scName, "removed startup.json before unsandboxing")
+	if err != nil {
+		return err
 	}
 
 	r.SRec.Eventf(r.Vdb, corev1.EventTypeNormal, events.UnsandboxSubclusterStart,
 		"Starting unsandbox subcluster %q", scName)
-	err := r.Dispatcher.UnsandboxSubcluster(ctx,
+	err = r.Dispatcher.UnsandboxSubcluster(ctx,
 		unsandboxsc.WithInitiator(r.InitiatorIP),
 		unsandboxsc.WithSubcluster(scName),
 		// vclusterOps needs correct node names and addresses to do re-ip
