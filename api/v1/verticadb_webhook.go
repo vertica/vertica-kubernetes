@@ -122,6 +122,7 @@ func (v *VerticaDB) ValidateUpdate(old runtime.Object) error {
 	v.validateSandboxImage(old, allErrs)
 	v.validateTerminatingSandbox(old, allErrs)
 	v.validateSubclustersInSandboxToBeShutdown(old, allErrs)
+	v.checkUnsandboxShutdownConditions(old, allErrs)
 	if allErrs == nil {
 		return nil
 	}
@@ -154,7 +155,6 @@ func (v *VerticaDB) validateImmutableFields(old runtime.Object) field.ErrorList 
 	allErrs = v.checkImmutableStsName(oldObj, allErrs)
 	allErrs = v.checkValidSubclusterTypeTransition(oldObj, allErrs)
 	allErrs = v.checkSandboxesDuringUpgrade(oldObj, allErrs)
-	allErrs = v.checkUnsandboxShutdownConditions(oldObj, allErrs)
 
 	return allErrs
 }
@@ -1761,7 +1761,8 @@ func (v *VerticaDB) checkSandboxPrimary(allErrs field.ErrorList, oldObj *Vertica
 
 // checkUnsandboxShutdownConditions ensures we will not unsandbox a subcluster that is to be shut down, or a subcluster
 // in a sandbox that is to be shut down
-func (v *VerticaDB) checkUnsandboxShutdownConditions(oldObj *VerticaDB, allErrs field.ErrorList) field.ErrorList {
+func (v *VerticaDB) checkUnsandboxShutdownConditions(old runtime.Object, allErrs field.ErrorList) field.ErrorList {
+	oldObj := old.(*VerticaDB)
 	oldSubclusterInSandbox := oldObj.GenSubclusterSandboxMap()
 	newSuclusterInSandbox := v.GenSubclusterSandboxMap()
 	oldSubclusterMap := oldObj.GenSubclusterMap()
