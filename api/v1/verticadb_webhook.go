@@ -1771,17 +1771,9 @@ func (v *VerticaDB) checkUnsandboxShutdownConditions(oldObj *VerticaDB, allErrs 
 
 	for oldSubclusterName, oldSandboxName := range oldSubclusterInSandbox {
 		_, oldSubclusterInNewSandboxes := newSuclusterInSandbox[oldSubclusterName]
-		i, oldSubclusterFound := newSubclusterIndexMap[oldSubclusterName]
-		// this duplicates a check in checkImmutableSubclusterInSandbox().
-		// it is necessary to avoid panic. no guarantee which one runs first
-		if !oldSubclusterFound {
-			path := field.NewPath("spec").Child("subclusters")
-			err := field.Invalid(path,
-				oldSubclusterName,
-				fmt.Sprintf("Cannot remove subcluster %q when it is in a sandbox", oldSubclusterName))
-			allErrs = append(allErrs, err)
-			continue
-		}
+		i := newSubclusterIndexMap[oldSubclusterName]
+		// an error will be reported in checkImmutableSubclusterInSandbox() when oldSubclusterName is not found
+
 		// for unsandboxing, check shutdown field of the subcluster and sandbox
 		if !oldSubclusterInNewSandboxes {
 			oldSubcluster := oldSubclusterMap[oldSubclusterName]
@@ -1876,7 +1868,7 @@ func (v *VerticaDB) validateTerminatingSandbox(old runtime.Object, allErrs field
 	sandboxesToBeRemoved := vutil.MapKeyDiff(oldSandboxMap, newSandboxMap)
 	newSubclusterMap := v.GenSubclusterMap()
 	for _, sandboxToBeRemoved := range sandboxesToBeRemoved {
-		var toToRemoved bool = true
+		var toToRemoved = true
 		for _, subcluster := range oldSandboxMap[sandboxToBeRemoved].Subclusters {
 			if _, ok := newSubclusterMap[subcluster.Name]; ok {
 				toToRemoved = false
