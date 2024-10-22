@@ -29,6 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/apimachinery/pkg/util/validation/field"
 )
 
 var _ = Describe("verticadb_webhook", func() {
@@ -1297,6 +1298,34 @@ var _ = Describe("verticadb_webhook", func() {
 			{Name: sbName, Subclusters: []SubclusterName{{Name: "sc3"}}},
 		}
 		Ω(newVdb.validateImmutableFields(oldVdb)).Should(HaveLen(0))
+	})
+
+	It("should not allow to create a vdb with a shutdown sandbox", func() {
+		vdb := MakeVDBForVclusterOps()
+		vdb.ObjectMeta.Annotations[vmeta.VersionAnnotation] = SandboxSupportedMinVersion
+		vdb.Spec.Subclusters = []Subcluster{
+			{Name: "sc1", Type: PrimarySubcluster, Size: 3, ServiceType: v1.ServiceTypeClusterIP},
+			{Name: "sc2", Type: SandboxPrimarySubcluster, Size: 3, ServiceType: v1.ServiceTypeClusterIP},
+			{Name: "sc3", Type: SandboxPrimarySubcluster, Size: 3, ServiceType: v1.ServiceTypeNodePort},
+		}
+		vdb.Spec.Sandboxes = []Sandbox{
+			{Name: "sand1", Subclusters: []SubclusterName{{Name: "sc2"}, {Name: "sc3"}}, Shutdown: true},
+		}
+		Ω(vdb.hasNoShutdownSandboxes(field.ErrorList{})).Should(HaveLen(1))
+	})
+
+	It("should not allow to create a vdb with a shutdown subcluster", func() {
+		vdb := MakeVDBForVclusterOps()
+		vdb.ObjectMeta.Annotations[vmeta.VersionAnnotation] = SandboxSupportedMinVersion
+		vdb.Spec.Subclusters = []Subcluster{
+			{Name: "sc1", Type: PrimarySubcluster, Size: 3, ServiceType: v1.ServiceTypeClusterIP},
+			{Name: "sc2", Type: SandboxPrimarySubcluster, Size: 3, ServiceType: v1.ServiceTypeClusterIP},
+			{Name: "sc3", Type: SandboxPrimarySubcluster, Size: 3, ServiceType: v1.ServiceTypeNodePort, Shutdown: true},
+		}
+		vdb.Spec.Sandboxes = []Sandbox{
+			{Name: "sand1", Subclusters: []SubclusterName{{Name: "sc2"}, {Name: "sc3"}}},
+		}
+		Ω(vdb.hasNoShutdownSubclusters(field.ErrorList{})).Should(HaveLen(1))
 	})
 })
 
