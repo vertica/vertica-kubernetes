@@ -1889,14 +1889,7 @@ func (v *VerticaDB) validateTerminatingSandboxes(old runtime.Object, allErrs fie
 						sandboxToBeRemoved))
 				allErrs = append(allErrs, err)
 			} // else looks good
-		} else if sclustersToTerminate != 0 {
-			p := field.NewPath("spec").Child("sandboxes")
-			err := field.Invalid(p,
-				sandboxToBeRemoved,
-				fmt.Sprintf("subclusters in sandbox %q either all exist or all terminated",
-					sandboxToBeRemoved))
-			allErrs = append(allErrs, err)
-		}
+		} // else is expected
 	}
 	return allErrs
 }

@@ -1470,12 +1470,6 @@ var _ = Describe("verticadb_webhook", func() {
 			{Name: "sc4", Type: SecondarySubcluster, Size: 3, ServiceType: v1.ServiceTypeNodePort},
 		}
 		Ω(newVdb.validateTerminatingSandboxes(oldVdb, field.ErrorList{})).Should(HaveLen(0))
-		newVdb.Spec.Subclusters = []Subcluster{
-			{Name: "sc1", Type: PrimarySubcluster, Size: 3, ServiceType: v1.ServiceTypeClusterIP},
-			{Name: "sc3", Type: SecondarySubcluster, Size: 3, ServiceType: v1.ServiceTypeNodePort},
-			{Name: "sc4", Type: SecondarySubcluster, Size: 3, ServiceType: v1.ServiceTypeNodePort},
-		}
-		Ω(newVdb.validateTerminatingSandboxes(oldVdb, field.ErrorList{})).Should(HaveLen(1))
 
 	})
 
