@@ -26,6 +26,7 @@ import (
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/metrics"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
+	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
 	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -35,7 +36,7 @@ type MetricReconciler struct {
 	Log     logr.Logger
 	VRec    *VerticaDBReconciler
 	Vdb     *vapi.VerticaDB // Vdb is the CRD we are acting on.
-	PFacts  *PodFacts
+	PFacts  *podfacts.PodFacts
 	PRunner cmds.PodRunner
 }
 
@@ -49,7 +50,7 @@ type subclusterGaugeDetail struct {
 
 // MakeMetricReconciler will build a MetricReconciler object
 func MakeMetricReconciler(vrec *VerticaDBReconciler, log logr.Logger, vdb *vapi.VerticaDB,
-	prunner cmds.PodRunner, pfacts *PodFacts) controllers.ReconcileActor {
+	prunner cmds.PodRunner, pfacts *podfacts.PodFacts) controllers.ReconcileActor {
 	return &MetricReconciler{
 		Log:     log.WithName("MetricReconciler"),
 		VRec:    vrec,
@@ -103,18 +104,18 @@ func (p *MetricReconciler) captureRawMetrics() map[string]*subclusterGaugeDetail
 		// Only use subclusters from the Vdb.  We omit ones that are scheduled for
 		// deletion because we need to clear metrics for those deleted subclusters
 		// before we actually remove their statefulsets.
-		if _, ok := scMap[pf.subclusterName]; !ok {
+		if _, ok := scMap[pf.GetSubclusterName()]; !ok {
 			continue
 		}
-		if _, ok := scGaugeSummary[pf.subclusterOid]; !ok {
-			scGaugeSummary[pf.subclusterOid] = &subclusterGaugeDetail{}
+		if _, ok := scGaugeSummary[pf.GetSubclusterOid()]; !ok {
+			scGaugeSummary[pf.GetSubclusterOid()] = &subclusterGaugeDetail{}
 		}
-		scGaugeSummary[pf.subclusterOid].podCount++
-		if pf.isPodRunning {
-			scGaugeSummary[pf.subclusterOid].runningCount++
+		scGaugeSummary[pf.GetSubclusterOid()].podCount++
+		if pf.GetIsPodRunning() {
+			scGaugeSummary[pf.GetSubclusterOid()].runningCount++
 		}
-		if pf.upNode {
-			scGaugeSummary[pf.subclusterOid].readyCount++
+		if pf.GetUpNode() {
+			scGaugeSummary[pf.GetSubclusterOid()].readyCount++
 		}
 	}
 	return scGaugeSummary
@@ -125,13 +126,13 @@ func (p *MetricReconciler) captureRawMetrics() map[string]*subclusterGaugeDetail
 // so its up to the caller to check that the annotaiton was set and act
 // accordingly.
 func (p *MetricReconciler) setReviveInstanceIDAnnotation(ctx context.Context) error {
-	pf, ok := p.PFacts.findFirstUpPod(true, "")
+	pf, ok := p.PFacts.FindFirstUpPod(true, "")
 	if !ok {
 		return nil
 	}
 
 	cmd := []string{"-tAc", "select revive_instance_id from vs_databases"}
-	op, _, err := p.PRunner.ExecVSQL(ctx, pf.name, names.ServerContainer, cmd...)
+	op, _, err := p.PRunner.ExecVSQL(ctx, pf.GetName(), names.ServerContainer, cmd...)
 	if err != nil {
 		return err
 	}

@@ -20,6 +20,7 @@ import (
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
+	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/promotesandboxtomain"
 	"github.com/vertica/vertica-kubernetes/pkg/vdbstatus"
@@ -35,7 +36,7 @@ type PromoteSandboxToMainReconciler struct {
 	VRec        *VerticaDBReconciler
 	Log         logr.Logger
 	Vdb         *vapi.VerticaDB // Vdb is the CRD we are acting on
-	PFacts      *PodFacts
+	PFacts      *podfacts.PodFacts
 	InitiatorIP string // The IP of the pod that we run vclusterOps from
 	Dispatcher  vadmin.Dispatcher
 	client.Client
@@ -43,7 +44,7 @@ type PromoteSandboxToMainReconciler struct {
 
 // MakePromoteSandboxToMainReconciler will build a promoteSandboxToMainReconciler object
 func MakePromoteSandboxToMainReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger, vdb *vapi.VerticaDB,
-	pfacts *PodFacts, dispatcher vadmin.Dispatcher, cli client.Client) controllers.ReconcileActor {
+	pfacts *podfacts.PodFacts, dispatcher vadmin.Dispatcher, cli client.Client) controllers.ReconcileActor {
 	return &PromoteSandboxToMainReconciler{
 		VRec:       vdbrecon,
 		Log:        log.WithName("promoteSandboxToMainReconciler"),
@@ -89,8 +90,8 @@ func (s *PromoteSandboxToMainReconciler) Reconcile(ctx context.Context, _ *ctrl.
 
 // promoteSandboxToMain call the vclusterOps API to convert local sandbox to main cluster
 func (s *PromoteSandboxToMainReconciler) promoteSandboxToMain(ctx context.Context, sandboxName string) (ctrl.Result, error) {
-	initiator, ok := s.PFacts.findFirstPodSorted(func(v *PodFact) bool {
-		return v.isPrimary && v.upNode
+	initiator, ok := s.PFacts.FindFirstPodSorted(func(v *podfacts.PodFact) bool {
+		return v.GetIsPrimary() && v.GetUpNode()
 	})
 	if !ok {
 		s.Log.Info("No Up nodes found. Requeue reconciliation.")
@@ -101,7 +102,7 @@ func (s *PromoteSandboxToMainReconciler) promoteSandboxToMain(ctx context.Contex
 		"Starting promote sandbox %q to main", sandboxName)
 
 	err := s.Dispatcher.PromoteSandboxToMain(ctx,
-		promotesandboxtomain.WithInitiator(initiator.podIP),
+		promotesandboxtomain.WithInitiator(initiator.GetPodIP()),
 		promotesandboxtomain.WithSandbox(sandboxName),
 	)
 	if err != nil {

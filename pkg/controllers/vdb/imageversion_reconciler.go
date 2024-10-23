@@ -27,6 +27,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
+	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
 	"github.com/vertica/vertica-kubernetes/pkg/secrets"
 	config "github.com/vertica/vertica-kubernetes/pkg/vdbconfig"
 	"github.com/vertica/vertica-kubernetes/pkg/version"
@@ -42,14 +43,14 @@ type ImageVersionReconciler struct {
 	Log                logr.Logger
 	Vdb                *vapi.VerticaDB // Vdb is the CRD we are acting on.
 	PRunner            cmds.PodRunner
-	PFacts             *PodFacts
-	EnforceUpgradePath bool                    // Fail the reconcile if we find incompatible version
-	FindPodFunc        func() (*PodFact, bool) // Function to call to find pod
+	PFacts             *podfacts.PodFacts
+	EnforceUpgradePath bool                             // Fail the reconcile if we find incompatible version
+	FindPodFunc        func() (*podfacts.PodFact, bool) // Function to call to find pod
 }
 
 // MakeImageVersionReconciler will build a VersionReconciler object
 func MakeImageVersionReconciler(recon config.ReconcilerInterface, log logr.Logger,
-	vdb *vapi.VerticaDB, prunner cmds.PodRunner, pfacts *PodFacts,
+	vdb *vapi.VerticaDB, prunner cmds.PodRunner, pfacts *podfacts.PodFacts,
 	enforceUpgradePath bool) controllers.ReconcileActor {
 	return &ImageVersionReconciler{
 		Rec:                recon,
@@ -58,7 +59,7 @@ func MakeImageVersionReconciler(recon config.ReconcilerInterface, log logr.Logge
 		PRunner:            prunner,
 		PFacts:             pfacts,
 		EnforceUpgradePath: enforceUpgradePath,
-		FindPodFunc:        pfacts.findRunningPod,
+		FindPodFunc:        pfacts.FindRunningPod,
 	}
 }
 
@@ -140,7 +141,7 @@ func (v *ImageVersionReconciler) makeSandboxVersionInfo(ctx context.Context) (*v
 }
 
 // Verify whether the NMA is configured to run as a sidecar container
-func (v *ImageVersionReconciler) verifyNMADeployment(vinf *version.Info, pf *PodFact) (ctrl.Result, error) {
+func (v *ImageVersionReconciler) verifyNMADeployment(vinf *version.Info, pf *podfacts.PodFact) (ctrl.Result, error) {
 	// The NMA only applies to vclusterOps deployments.
 	if !vmeta.UseVClusterOps(v.Vdb.Annotations) {
 		return ctrl.Result{}, nil
@@ -151,13 +152,13 @@ func (v *ImageVersionReconciler) verifyNMADeployment(vinf *version.Info, pf *Pod
 	// sidecar.
 
 	if vinf.IsEqualOrNewer(vapi.NMAInSideCarDeploymentMinVersion) {
-		if !pf.hasNMASidecar {
+		if !pf.GetHasNMASidecar() {
 			v.Log.Info("Version requires NMA sidecar but it isn't present in pod's spec. Requeue to force recreation of the pod spec.",
 				"version", vinf)
 			return ctrl.Result{Requeue: true}, nil
 		}
 	} else {
-		if pf.hasNMASidecar {
+		if pf.GetHasNMASidecar() {
 			v.Log.Info("Version cannot run NMA sidecar but it is present in pod's spec. Requeue to force recreation of the pod spec.",
 				"version", vinf)
 			return ctrl.Result{Requeue: true}, nil
@@ -169,7 +170,8 @@ func (v *ImageVersionReconciler) verifyNMADeployment(vinf *version.Info, pf *Pod
 // logWarningIfVersionDoesNotSupportCGroupV2 will log a warning if it detects a
 // 12.0.0 server and cgroups v2.  In such an environment you cannot start the
 // server in k8s.
-func (v *ImageVersionReconciler) logWarningIfVersionDoesNotSupportsCGroupV2(ctx context.Context, vinf *version.Info, pod *PodFact) {
+func (v *ImageVersionReconciler) logWarningIfVersionDoesNotSupportsCGroupV2(ctx context.Context,
+	vinf *version.Info, pod *podfacts.PodFact) {
 	ver12, _ := version.MakeInfoFromStr(vapi.CGroupV2UnsupportedVersion)
 	if !vinf.IsEqual(ver12) {
 		return
@@ -177,7 +179,7 @@ func (v *ImageVersionReconciler) logWarningIfVersionDoesNotSupportsCGroupV2(ctx 
 
 	// Check if the pod is running with cgroups v2
 	cmd := []string{"test", "-f", "/sys/fs/cgroup/cgroup.controllers"}
-	if _, _, err := v.PRunner.ExecInPod(ctx, pod.name, names.ServerContainer, cmd...); err == nil {
+	if _, _, err := v.PRunner.ExecInPod(ctx, pod.GetName(), names.ServerContainer, cmd...); err == nil {
 		// Log a warning but we will continue on.  We may have a hotfix that
 		// addresses the bug so don't want to block any attempts to start vertica.
 		v.Rec.Eventf(v.Vdb, corev1.EventTypeWarning, events.UnsupportedVerticaVersion,
@@ -211,7 +213,7 @@ func (v *ImageVersionReconciler) checkNMACertCompatability(vinf *version.Info) c
 }
 
 // reconcileVersion will parse the version output and update any annotations.
-func (v *ImageVersionReconciler) reconcileVersion(ctx context.Context, pod *PodFact) (ctrl.Result, error) {
+func (v *ImageVersionReconciler) reconcileVersion(ctx context.Context, pod *podfacts.PodFact) (ctrl.Result, error) {
 	vver, err := v.getVersion(ctx, pod)
 	if err != nil {
 		return ctrl.Result{}, err
@@ -221,8 +223,8 @@ func (v *ImageVersionReconciler) reconcileVersion(ctx context.Context, pod *PodF
 }
 
 // getVersion will get the Vertica version from the running pod.
-func (v *ImageVersionReconciler) getVersion(ctx context.Context, pod *PodFact) (string, error) {
-	stdout, _, err := v.PRunner.ExecInPod(ctx, pod.name, pod.execContainerName, "/opt/vertica/bin/vertica", "--version")
+func (v *ImageVersionReconciler) getVersion(ctx context.Context, pod *podfacts.PodFact) (string, error) {
+	stdout, _, err := v.PRunner.ExecInPod(ctx, pod.GetName(), pod.GetExecContainerName(), "/opt/vertica/bin/vertica", "--version")
 	if err != nil {
 		return "", err
 	}
@@ -315,13 +317,13 @@ func (v *ImageVersionReconciler) isUpgradePathSupported(ctx context.Context, ver
 }
 
 // Verify whether the correct image is being used by checking the vclusterOps feature flag and the deployment type
-func (v *ImageVersionReconciler) verifyDeploymentType(pod *PodFact) error {
+func (v *ImageVersionReconciler) verifyDeploymentType(pod *podfacts.PodFact) error {
 	if vmeta.GetSkipDeploymentCheck(v.Vdb.Annotations) {
 		return nil
 	}
 
 	if vmeta.UseVClusterOps(v.Vdb.Annotations) {
-		if pod.admintoolsExists {
+		if pod.GetAdmintoolsExists() {
 			v.Rec.Eventf(v.Vdb, corev1.EventTypeWarning, events.WrongImage,
 				"Image cannot be used for vclusterops deployments. Change the deployment by changing the %s annotation",
 				vmeta.VClusterOpsAnnotation)
@@ -329,7 +331,7 @@ func (v *ImageVersionReconciler) verifyDeploymentType(pod *PodFact) error {
 				v.Vdb.Spec.Image)
 		}
 	} else {
-		if !pod.admintoolsExists {
+		if !pod.GetAdmintoolsExists() {
 			v.Rec.Eventf(v.Vdb, corev1.EventTypeWarning, events.WrongImage,
 				"Image cannot be used for admintools deployments. Change the deployment by changing the %s annotation",
 				vmeta.VClusterOpsAnnotation)
