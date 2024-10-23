@@ -440,6 +440,14 @@ func (o *ObjReconciler) createService(ctx context.Context, svc *corev1.Service, 
 // true if any create/update was done.
 func (o *ObjReconciler) reconcileSts(ctx context.Context, sc *vapi.Subcluster) (ctrl.Result, error) {
 	nm := names.GenStsName(o.Vdb, sc)
+	// TODO: check if proxy is needed (check annotation)
+	curDep := &appsv1.Deployment{}
+	vpDep := builder.BuildVProxyDeployment(nm, o.Vdb, sc)
+	if err := o.Rec.GetClient().Get(ctx, nm, curDep); err != nil && kerrors.IsNotFound(err) {
+		o.Log.Info("Creating deployment", "Name", nm, "Size", vpDep.Spec.Replicas, "Image", vpDep.Spec.Template.Spec.Containers[0].Image)
+		return ctrl.Result{}, createDep(ctx, o.Rec, vpDep, o.Vdb)
+	}
+
 	curSts := &appsv1.StatefulSet{}
 	expSts := builder.BuildStsSpec(nm, o.Vdb, sc)
 	err := o.Rec.GetClient().Get(ctx, nm, curSts)

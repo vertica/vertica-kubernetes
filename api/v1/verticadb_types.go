@@ -53,6 +53,12 @@ type VerticaDBSpec struct {
 	// understand how to control the behavior.
 	Image string `json:"image,omitempty"`
 
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:default:="opentext/vertica-client-proxy:24.1.0-0"
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// The docker image name that contains the Vertica proxy server.
+	VProxyImage string `json:"vproxyImage,omitempty"`
+
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// Custom labels that will be added to all of the objects that the operator
 	// will create.
@@ -271,6 +277,18 @@ type VerticaDBSpec struct {
 	// Vertica pod. It will be merged with the default context. If omitted, then
 	// the default context is used.
 	PodSecurityContext *corev1.PodSecurityContext `json:"podSecurityContext,omitempty"`
+
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:hidden"
+	// +kubebuilder:default:=""
+	// +kubebuilder:validation:Optional
+	// A secret that contains the TLS credentials to use for Vertica's client
+	// proxy. If this is empty, the operator will create a secret to use and
+	// add the name of the generate secret in this field.
+	// When set, the secret must have the following keys defined: tls.key,
+	// tls.crt and ca.crt. To store this secret outside of Kubernetes, you can
+	// use a secret path reference prefix, such as gsm://. Everything after the
+	// prefix is the name of the secret in the service you are storing.
+	VProxyTLSSecret string `json:"proxyTLSSecret,omitempty"`
 
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:hidden"
 	// +kubebuilder:default:=""

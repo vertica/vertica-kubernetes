@@ -91,3 +91,12 @@ func createSts(ctx context.Context, vrec config.ReconcilerInterface, expSts *app
 	}
 	return vrec.GetClient().Create(ctx, expSts)
 }
+
+// createSts will create a new deployment. It assumes the deployment doesn't already exist.
+func createDep(ctx context.Context, vrec config.ReconcilerInterface, vpDep *appsv1.Deployment, vdb *vapi.VerticaDB) error {
+	err := ctrl.SetControllerReference(vdb, vpDep, vrec.GetClient().Scheme())
+	if err != nil {
+		return err
+	}
+	return vrec.GetClient().Create(ctx, vpDep)
+}

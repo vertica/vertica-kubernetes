@@ -27,6 +27,7 @@ import (
 const (
 	ServerContainer         = "server"
 	NMAContainer            = "nma"
+	ProxyContainer          = "proxy"
 	ScrutinizeInitContainer = "scrutinize"
 	ScrutinizeMainContainer = "main"
 )

@@ -50,6 +50,13 @@ const (
 	VClusterOpsAnnotationTrue  = "true"
 	VClusterOpsAnnotationFalse = "false"
 
+	// This is a feature flag for mounting vproxy certs as a secret volume in server containerss.
+	// When set to true the vproxy reads certs from this mounted volume,
+	// when set to false it reads certs directly from k8s secret store.
+	MountVProxyCertsAnnotation      = "vertica.com/mount-vproxy-certs"
+	MountVProxyCertsAnnotationTrue  = "true"
+	MountVProxyCertsAnnotationFalse = "false"
+
 	// This is a feature flag for mounting NMA certs as a secret volume in server containers
 	// if deployment method is vclusterops. When set to true the NMA reads certs from this mounted
 	// volume, when set to false it reads certs directly from k8s secret store.
@@ -177,6 +184,23 @@ const (
 	// image is built for that (and vice-versa). This annotation allows you to
 	// skip that check.
 	SkipDeploymentCheckAnnotation = "vertica.com/skip-deployment-check"
+
+	// Set of annotations that you can use to control the resources of the
+	// client proxy. The actual annotation name is:
+	//   vertica.com/vproxy-resources-<limits|requests>-<memory|cpu>
+	//
+	// For example, the following are valid:
+	//   vertica.com/vproxy-resources-limits-memory
+	//   vertica.com/vproxy-resources-limits-cpu
+	//   vertica.com/vproxy-resources-requests-memory
+	//   vertica.com/vproxy-resources-requests-cpu
+	//
+	// You can use GenVProxyResourcesAnnotationName to generate the name.
+	//
+	// If the annotation is set, but has no value, than that resource is not
+	// used. If a value is specified, but isn't able to be parsed, we use the
+	// default.
+	VProxyResourcesPrefixAnnotation = "vertica.com/vproxy-resources"
 
 	// Set of annotations that you can use to control the resources of the NMA
 	// sidecar. The actual annotation name is:
@@ -345,6 +369,12 @@ func UseVClusterOps(annotations map[string]string) bool {
 	return lookupBoolAnnotation(annotations, VClusterOpsAnnotation, true /* default value */)
 }
 
+// UseVProxyCertsMount returns true if the proxy reads certs from the mounted secret
+// volume rather than directly from k8s secret store.
+func UseVProxyCertsMount(annotations map[string]string) bool {
+	return lookupBoolAnnotation(annotations, MountVProxyCertsAnnotation, true /* default value */)
+}
+
 // UseNMACertsMount returns true if the NMA reads certs from the mounted secret
 // volume rather than directly from k8s secret store.
 func UseNMACertsMount(annotations map[string]string) bool {
@@ -508,6 +538,26 @@ func GetNMAHealthProbeOverride(annotations map[string]string, probeName, field s
 		return 0, false
 	}
 	return int32(convVal), true //nolint:gosec
+}
+
+// GetVProxyResource is used to retrieve a specific resource for the client proxy.
+// If any parsing error occurs, the default value is returned.
+func GetVProxyResource(annotations map[string]string, resourceName corev1.ResourceName) resource.Quantity {
+	annotationName := GenVProxyResourcesAnnotationName(resourceName)
+	defVal, hasDefault := DefaultNMAResources[resourceName]
+	defValStr := defVal.String()
+	if !hasDefault {
+		defValStr = ""
+	}
+	return getResource(annotations, annotationName, defValStr, defVal)
+}
+
+// GenVProxyResourcesAnnotationName is a helper to generate the name of the
+// annotation to control the resource for proxy. The resourceName given is taken from the
+// k8s corev1 package. It should be the two part name. Use const like
+// corev1.ResourceLimitsCPU, corev1.ResourceRequestsMemory, etc.
+func GenVProxyResourcesAnnotationName(resourceName corev1.ResourceName) string {
+	return genResourcesAnnotationName(VProxyResourcesPrefixAnnotation, resourceName)
 }
 
 // GetScrutinizePodTTL returns how long the scrutinize pod will keep running

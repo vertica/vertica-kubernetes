@@ -196,6 +196,16 @@ func MakeStsSelectorLabels(vdb *vapi.VerticaDB, sc *vapi.Subcluster) map[string]
 	return m
 }
 
+// MakeDepSelectorLabels will create the selector labels for use within a Deployment
+func MakeDepSelectorLabels(vdb *vapi.VerticaDB, sc *vapi.Subcluster) map[string]string {
+	m := MakeBaseSvcSelectorLabels(vdb)
+	// Set a special selector to pick only the pods for this statefulset. It's
+	// derived from the statefulset name as that stays constant and is unique in
+	// a namespace.
+	m[vmeta.SubclusterSelectorLabel] = sc.GetStatefulSetName(vdb)
+	return m
+}
+
 // MakeAnnotationsForSubclusterService returns a map of annotations
 // for Subcluster sc's service under VerticaDB vdb.
 func MakeAnnotationsForSubclusterService(vdb *vapi.VerticaDB, sc *vapi.Subcluster) map[string]string {

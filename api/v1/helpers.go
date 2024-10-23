@@ -111,6 +111,7 @@ func MakeVDB() *VerticaDB {
 			Labels:             make(map[string]string),
 			Annotations:        make(map[string]string),
 			Image:              "vertica-k8s:latest",
+			VProxyImage:        "vertica-client-proxy:latest",
 			InitPolicy:         CommunalInitPolicyCreate,
 			Communal: CommunalStorage{
 				Path:             "s3://nimbusdb/cchen",
