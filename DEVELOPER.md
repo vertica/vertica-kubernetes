@@ -382,7 +382,7 @@ If it is no more than 3, you must unset LICENSE_FILE.
 export BASE_VERTICA_IMG=opentext/vertica-k8s:24.2.0-1
 export VERTICA_IMG=opentext/vertica-k8s:latest
 ```
-> BASE_VERTICA_IMG and VERTICA_IMG are used for the upgrade test cases. The BASE_VERTICA_IMG is the base vertica vertion that will be installed. VERTICA_IMG is the vertica version that the base version will be upgraded to. The version in VERTICA_IMG must be higher than that in BASE_VERTICA_IMG.
+> VERTICA_IMG is the vertica image you want to run the test with. For upgrade test cases, BASE_VERTICA_IMG is the base vertica version that will be installed. VERTICA_IMG is the vertica version that the base version will be upgraded to. The version in VERTICA_IMG must be higher than that in BASE_VERTICA_IMG.
 
 
 3. kuttl-test.yaml is the configuration file for e2e test cases. There is a "timeout" field in it. If your server is not fast enough, you may need to increase that value to pass the test cases. There is another field "parallel" that controls the maximum number of tests to run at once. It is set to 2 by default. You can set it to 1 if your server is not fast enough.
