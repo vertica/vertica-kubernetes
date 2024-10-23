@@ -758,7 +758,7 @@ func (r *RestartReconciler) getReIPPods(isRestartNode bool) []*podfacts.PodFact 
 	// And if using admintools, we also need to re-ip installed pods that
 	// haven't been added to the db to keep admintools.conf in-sync.
 	if vmeta.UseVClusterOps(r.Vdb.Annotations) {
-		return r.PFacts.FindReIPPods(podfacts.DBCheckOnlyWithoutDBs)
+		return r.PFacts.FindReIPPods(podfacts.DBCheckOnlyWithDBs)
 	}
 	return r.PFacts.FindReIPPods(podfacts.DBCheckAny)
 }
