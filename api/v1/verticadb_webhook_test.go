@@ -1312,6 +1312,8 @@ var _ = Describe("verticadb_webhook", func() {
 			{Name: "sand1", Subclusters: []SubclusterName{{Name: "sc2"}, {Name: "sc3"}}, Shutdown: true},
 		}
 		Ω(vdb.hasNoShutdownSandboxes(field.ErrorList{})).Should(HaveLen(1))
+		vdb.Spec.Sandboxes[0].Shutdown = false
+		Ω(vdb.hasNoShutdownSandboxes(field.ErrorList{})).Should(HaveLen(0))
 	})
 
 	It("should not allow to create a vdb with a shutdown subcluster", func() {
@@ -1325,6 +1327,10 @@ var _ = Describe("verticadb_webhook", func() {
 		vdb.Spec.Sandboxes = []Sandbox{
 			{Name: "sand1", Subclusters: []SubclusterName{{Name: "sc2"}, {Name: "sc3"}}},
 		}
+		Ω(vdb.hasNoShutdownSubclusters(field.ErrorList{})).Should(HaveLen(1))
+		vdb.Spec.Subclusters[2].Shutdown = false
+		Ω(vdb.hasNoShutdownSubclusters(field.ErrorList{})).Should(HaveLen(0))
+		vdb.Spec.Subclusters[1].Shutdown = true
 		Ω(vdb.hasNoShutdownSubclusters(field.ErrorList{})).Should(HaveLen(1))
 	})
 
