@@ -1807,13 +1807,15 @@ func (v *VerticaDB) checkUnsandboxShutdownConditions(old runtime.Object, allErrs
 func (v *VerticaDB) validateAnnotatedSubclustersInShutdownSandbox(old runtime.Object, allErrs field.ErrorList) field.ErrorList {
 	oldObj := old.(*VerticaDB)
 	persistSandboxes := v.findPersistSandboxes(oldObj)
+	newSandboxMap := v.GenSandboxMap()
 	oldSandboxMap := oldObj.GenSandboxMap()
 	newSubclusterIndexMap := v.GenSubclusterIndexMap()
 	newSubclusterMap := v.GenSubclusterMap()
 	oldSubclusterMap := oldObj.GenSubclusterMap()
 	for _, sandboxName := range persistSandboxes {
+		newSandbox := newSandboxMap[sandboxName]
 		oldSandbox := oldSandboxMap[sandboxName]
-		if oldSandbox.Shutdown {
+		if newSandbox.Shutdown {
 			for _, subclusterName := range oldSandbox.Subclusters {
 				oldSubcluster := oldSubclusterMap[subclusterName.Name]
 				if drivenby, ok := oldSubcluster.Annotations["vertica.com/shutdown-driven-by-sandbox"]; ok && drivenby == trueString {
