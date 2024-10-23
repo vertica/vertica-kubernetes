@@ -1850,7 +1850,7 @@ func (v *VerticaDB) validateSandboxImage(old runtime.Object, allErrs field.Error
 		newSandbox := newSandboxMap[sandboxName]
 		if oldSandbox.Image != newSandbox.Image {
 			newSandboxIndex := newSandboxIndexMap[sandboxName]
-			msg := v.checkIfSandboxShutdown(newSandbox, newSubclusterMap, oldSubclusterIndexMap)
+			msg := v.checkIfSboxOrSclusterShutdown(newSandbox, newSubclusterMap, oldSubclusterIndexMap)
 			if msg != "" {
 				p := field.NewPath("spec").Child("sandboxes").Index(newSandboxIndex)
 				err := field.Invalid(p.Child("image"),
@@ -1900,7 +1900,7 @@ func (v *VerticaDB) validateTerminatingSandboxes(old runtime.Object, allErrs fie
 	return allErrs
 }
 
-func (v *VerticaDB) checkIfSandboxShutdown(sandbox *Sandbox, subclusterMap map[string]*Subcluster, subclusterIndexMap map[string]int) string {
+func (v *VerticaDB) checkIfSboxOrSclusterShutdown(sandbox *Sandbox, subclusterMap map[string]*Subcluster, subclusterIndexMap map[string]int) string {
 	if sandbox.Shutdown {
 		return fmt.Sprintf("shutdown field for sandbox %q is set to true", sandbox.Name)
 	}
