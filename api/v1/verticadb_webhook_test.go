@@ -1336,12 +1336,52 @@ var _ = Describe("verticadb_webhook", func() {
 			{Name: "sc3", Type: SecondarySubcluster, Size: 3, ServiceType: v1.ServiceTypeNodePort, Annotations: map[string]string{"vertica.com/shutdown-driven-by-sandbox": "true"}},
 		}
 		oldVdb.Spec.Sandboxes = []Sandbox{
-			{Name: "sand1", Subclusters: []SubclusterName{{Name: "sc2"}, {Name: "sc3"}}, Shutdown: true},
+			{Name: "sand1", Subclusters: []SubclusterName{{Name: "sc2"}, {Name: "sc3"}}},
 		}
 		newVdb := oldVdb.DeepCopy()
 		newVdb.Spec.Subclusters[2].Shutdown = true
-
+		newVdb.Spec.Sandboxes = []Sandbox{
+			{Name: "sand1", Subclusters: []SubclusterName{{Name: "sc2"}, {Name: "sc3"}}, Shutdown: true},
+		}
 		Ω(newVdb.validateAnnotatedSubclustersInShutdownSandbox(oldVdb, field.ErrorList{})).Should(HaveLen(1))
+	})
+
+	It("should not unsandbox a subcluster when its shutdown field is set or its sandbox has its shutdown field set", func() {
+		oldVdb := MakeVDB()
+		oldVdb.Spec.Subclusters = []Subcluster{
+			{Name: "sc1", Type: PrimarySubcluster, Size: 3, ServiceType: v1.ServiceTypeClusterIP},
+			{Name: "sc2", Type: SandboxPrimarySubcluster, Size: 3, ServiceType: v1.ServiceTypeClusterIP},
+			{Name: "sc3", Type: SecondarySubcluster, Size: 3, ServiceType: v1.ServiceTypeNodePort},
+		}
+		oldVdb.Spec.Sandboxes = []Sandbox{
+			{Name: "sand1", Subclusters: []SubclusterName{{Name: "sc2"}, {Name: "sc3"}}},
+		}
+		newVdb := oldVdb.DeepCopy()
+		oldVdb.Spec.Subclusters[2].Shutdown = true // cause of error
+		//newVdb.Spec.Subclusters[2].Shutdown = true
+		newVdb.Spec.Sandboxes = []Sandbox{
+			{Name: "sand1", Subclusters: []SubclusterName{{Name: "sc2"}}},
+		}
+		newVdb.Status.Sandboxes = []SandboxStatus{
+			{Name: "sand1", Subclusters: []string{"sc2", "sc3"}},
+		}
+		newVdb.Status.Subclusters = []SubclusterStatus{
+			{Name: "sc1"},
+			{Name: "sc2"},
+			{Name: "sc3"},
+		}
+		Ω(newVdb.checkUnsandboxShutdownConditions(oldVdb, field.ErrorList{})).Should(HaveLen(1))
+		oldVdb.Spec.Subclusters[2].Shutdown = false
+		Ω(newVdb.checkUnsandboxShutdownConditions(oldVdb, field.ErrorList{})).Should(HaveLen(0))
+		newVdb.Status.Subclusters[2].Shutdown = true
+		Ω(newVdb.checkUnsandboxShutdownConditions(oldVdb, field.ErrorList{})).Should(HaveLen(1))
+		newVdb.Status.Subclusters[2].Shutdown = false
+		Ω(newVdb.checkUnsandboxShutdownConditions(oldVdb, field.ErrorList{})).Should(HaveLen(0))
+		oldVdb.Spec.Sandboxes[0].Shutdown = true
+		Ω(newVdb.checkUnsandboxShutdownConditions(oldVdb, field.ErrorList{})).Should(HaveLen(1))
+		oldVdb.Spec.Sandboxes[0].Shutdown = false
+		Ω(newVdb.checkUnsandboxShutdownConditions(oldVdb, field.ErrorList{})).Should(HaveLen(0))
+
 	})
 
 })
