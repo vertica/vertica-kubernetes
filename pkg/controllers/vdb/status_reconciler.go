@@ -129,11 +129,11 @@ func (s *StatusReconciler) updateStatusFields(ctx context.Context) error {
 				continue
 			}
 
-			if err := s.calculateSubclusterStatus(ctx, subclusters[i], &vdbChg.Status.Subclusters[i]); err != nil {
-				return fmt.Errorf("failed to calculate subcluster status %s %w", subclusters[i].Name, err)
-			}
 			if !s.SkipShutdown {
 				s.updateShutdownStatus(subclusters[i], &vdbChg.Status.Subclusters[i])
+			}
+			if err := s.calculateSubclusterStatus(ctx, subclusters[i], &vdbChg.Status.Subclusters[i]); err != nil {
+				return fmt.Errorf("failed to calculate subcluster status %s %w", subclusters[i].Name, err)
 			}
 		}
 		s.calculateClusterStatus(&vdbChg.Status)
@@ -195,6 +195,14 @@ func (s *StatusReconciler) calculateSubclusterStatus(ctx context.Context, sc *va
 		if !ok {
 			continue
 		}
+		stsSize := sc.GetStsSize(s.Vdb)
+		if stsSize == 0 && stsSize != sc.Size {
+			s.setSubclusterStatusWhenShutdown(podIndex, curStat)
+			// At this point the subcluster pods have been deleted
+			// but we do not want to lose info like vnodename or subclusteroid
+			// so we jump to the next subcluster.
+			continue
+		}
 		curStat.Detail[podIndex].UpNode = pf.upNode
 		curStat.Detail[podIndex].Installed = pf.isInstalled
 		curStat.Detail[podIndex].AddedToDB = pf.dbExists
@@ -217,6 +225,14 @@ func (s *StatusReconciler) calculateSubclusterStatus(ctx context.Context, sc *va
 		}
 	}
 	return nil
+}
+
+// setSubclusterStatusWhenShutdown sets some subcluster status fields
+// when it is shutdown.
+func (s *StatusReconciler) setSubclusterStatusWhenShutdown(podIndex int32, curStat *vapi.SubclusterStatus) {
+	curStat.Detail[podIndex].UpNode = false
+	curStat.Detail[podIndex].Installed = false
+	curStat.Detail[podIndex].AddedToDB = false
 }
 
 func (s *StatusReconciler) updateShutdownStatus(sc *vapi.Subcluster, curStat *vapi.SubclusterStatus) {
