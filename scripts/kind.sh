@@ -19,7 +19,7 @@ set -e
 
 UPLOAD_IMAGES=
 TAG=latest
-KUBEVER=1.23.0
+KUBEVER=1.30.0
 IP_FAMILY=ipv4
 LISTEN_ALL_INTERFACES=N
 VSQL_PORT=5433
@@ -30,7 +30,10 @@ REG_NAME='kind-registry'
 REG_PORT='5000'
 HANDLE_REGISTRY=1
 LOG_MAX_SIZE='100Mi'
-EVENT_TTL='24h'
+EVENT_TTL='15m'
+EVENT_QPS='100'
+CPU_SIZE='500m'
+MEMORY_SIZE='2Gi'
 
 while getopts "ut:k:i:ap:xr:m:" opt
 do
@@ -126,12 +129,27 @@ EOF
 nodes:
 - role: control-plane
 EOF
+    if [[ -n "$EVENT_TTL" ]] || [[ -n "$MEMORY_SIZE" ]]
+    then
+       cat <<- EOF >> $tmpfile
+  kubeadmConfigPatches:
+  - |
+EOF
+    fi
+    if [[ -n "$MEMORY_SIZE" ]]
+    then
+       cat <<- EOF >> $tmpfile
+    # set memory size
+    kind: InitConfiguration
+    nodeRegistration:
+      kubeletExtraArgs:
+        system-reserved: memory=$MEMORY_SIZE
+EOF
+    fi
     if [[ -n "$EVENT_TTL" ]]
     then
        cat <<- EOF >> $tmpfile
-  # Patch in apiserver to increase event ttl duration
-  kubeadmConfigPatches:
-  - |
+    # Patch in apiserver to increase event ttl duration
     kind: ClusterConfiguration
     apiServer:
       extraArgs:
@@ -156,6 +174,7 @@ EOF
       containerPath: /host
 EOF
     fi
+
     cat $tmpfile
 
     ${KIND} create cluster --name ${CLUSTER_NAME} --image kindest/node:v${KUBEVER} --config $tmpfile --wait 5m
