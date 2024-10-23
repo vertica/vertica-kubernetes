@@ -22,7 +22,7 @@ TAG=latest
 KUBEVER=1.23.0
 IP_FAMILY=ipv4
 LISTEN_ALL_INTERFACES=N
-VSQL_PORT=5433
+VSQL_PORT=${VSQL_PORT:-5433}
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 REPO_DIR=$(dirname $SCRIPT_DIR)
 KIND=$REPO_DIR/bin/kind
@@ -32,7 +32,7 @@ HANDLE_REGISTRY=1
 LOG_MAX_SIZE='100Mi'
 EVENT_TTL='24h'
 
-while getopts "ut:k:i:ap:xr:m:" opt
+while getopts "ut:k:i:ap:xr:m:l:e:" opt
 do
     case $opt in
         u) UPLOAD_IMAGES=1;;
@@ -44,8 +44,8 @@ do
         r) REG_PORT=$OPTARG;;
         x) HANDLE_REGISTRY=;;
         m) MOUNT_PATH=$OPTARG;;
-	l) LOG_MAX_SIZE=$OPTARG;;
-	e) EVENT_TTL=$OPTARG;;
+        l) LOG_MAX_SIZE=$OPTARG;;
+        e) EVENT_TTL=$OPTARG;;
     esac
 done
 
