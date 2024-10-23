@@ -171,6 +171,8 @@ func (r *SandboxConfigMapReconciler) constructActors(vdb *v1.VerticaDB, log logr
 		// Update the vdb status including subclusters[].shutdown, after a stopdb
 		// or a restart
 		vdbcontroller.MakeStatusReconcilerWithShutdown(r.Client, r.Scheme, log, vdb, pfacts),
+		// Scale down the subclusters' statefulsets to zero after the subclusters are shut down
+		MakeScaleStafulsetReconciler(r, vdb, pfacts),
 	}
 }
 
