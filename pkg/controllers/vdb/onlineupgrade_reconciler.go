@@ -65,6 +65,7 @@ const (
 // be sure to add a *StatusMsgInx const below.
 var onlineUpgradeStatusMsgs = []string{
 	"Starting online upgrade",
+	"Requeue as pods not running",
 	"Create new subclusters to mimic subclusters in the main cluster",
 	fmt.Sprintf("Querying the original value of config parameter %q", ConfigParamDisableNonReplicatableQueries),
 	fmt.Sprintf("Disable non-replicatable queries by setting config parameter %q", ConfigParamDisableNonReplicatableQueries),
@@ -85,6 +86,7 @@ var onlineUpgradeStatusMsgs = []string{
 // Constants for each entry in onlineUpgradeStatusMsgs
 const (
 	startOnlineUpgradeStatusMsgInx = iota
+	requeuePodsNotRunningMsgInx
 	createNewSubclustersStatusMsgInx
 	queryOriginalConfigParamDisableNonReplicatableQueriesMsgInx
 	disableNonReplicatableQueriesMsgInx
@@ -165,6 +167,9 @@ func (r *OnlineUpgradeReconciler) Reconcile(ctx context.Context, _ *ctrl.Request
 
 	// Functions to perform when the image changes.  Order matters.
 	funcs := []func(context.Context) (ctrl.Result, error){
+		// Requeue if not all nodes are running
+		r.postRequeuePodsNotRunningMsg,
+		r.requeuePodsNotRunning,
 		// Initiate an upgrade by setting condition and event recording
 		r.startUpgrade,
 		r.logEventIfThisUpgradeWasNotChosen,
@@ -287,6 +292,37 @@ func (r *OnlineUpgradeReconciler) loadUpgradeState(ctx context.Context) (ctrl.Re
 
 	r.sandboxName = vmeta.GetOnlineUpgradeSandbox(r.VDB.Annotations)
 	r.Log.Info("load upgrade state", "sandboxName", r.sandboxName, "primaryImages", r.Manager.PrimaryImages)
+	return ctrl.Result{}, nil
+}
+
+// postRequeuePodsNotRunningMsg will update the status message to indicate that
+// we are requeuing online upgrade if not all pods are running.
+func (r *OnlineUpgradeReconciler) postRequeuePodsNotRunningMsg(ctx context.Context) (ctrl.Result, error) {
+	return r.postNextStatusMsg(ctx, requeuePodsNotRunningMsgInx)
+}
+
+// requeuePodsNotRunning will requeue the upgrade process if not all pods are running.
+func (r *OnlineUpgradeReconciler) requeuePodsNotRunning(ctx context.Context) (ctrl.Result, error) {
+	// We skip this if we have already added the new subclusters
+	if vmeta.GetOnlineUpgradeStepInx(r.VDB.Annotations) > addSubclustersInx {
+		return ctrl.Result{}, nil
+	}
+
+	// For pods are pending due to lack of resources, we requeue restarting them and wait
+	// for user operation.
+	mainPFacts := r.PFacts[vapi.MainCluster]
+	found, _ := mainPFacts.anyPodsNotRunning()
+	if found {
+		r.Log.Info("Not all pods are running, requeuing.")
+		return ctrl.Result{Requeue: true}, nil
+	}
+
+	// to restart the main cluster if any down pods found
+	res, err := r.restartMainCluster(ctx)
+	if verrors.IsReconcileAborted(res, err) {
+		return res, err
+	}
+
 	return ctrl.Result{}, nil
 }
 
