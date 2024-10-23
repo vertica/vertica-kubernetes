@@ -120,7 +120,7 @@ func (v *VerticaDB) ValidateUpdate(old runtime.Object) error {
 
 	allErrs := append(v.validateImmutableFields(old), v.validateVerticaDBSpec()...)
 	v.validateSandboxImage(old, allErrs)
-	v.validateTerminatingSandbox(old, allErrs)
+	v.validateTerminatingSandboxes(old, allErrs)
 	v.validateAnnotatedSubclustersInShutdownSandbox(old, allErrs)
 	v.checkUnsandboxShutdownConditions(old, allErrs)
 	if allErrs == nil {
@@ -1864,25 +1864,35 @@ func (v *VerticaDB) validateSandboxImage(old runtime.Object, allErrs field.Error
 	return allErrs
 }
 
-func (v *VerticaDB) validateTerminatingSandbox(old runtime.Object, allErrs field.ErrorList) field.ErrorList {
+func (v *VerticaDB) validateTerminatingSandboxes(old runtime.Object, allErrs field.ErrorList) field.ErrorList {
 	oldObj := old.(*VerticaDB)
 	oldSandboxMap := oldObj.GenSandboxMap()
 	newSandboxMap := v.GenSandboxMap()
 	sandboxesToBeRemoved := vutil.MapKeyDiff(oldSandboxMap, newSandboxMap)
 	newSubclusterMap := v.GenSubclusterMap()
 	for _, sandboxToBeRemoved := range sandboxesToBeRemoved {
-		var toToRemoved = true
+		numOfSclustersInSbox := len(oldSandboxMap[sandboxToBeRemoved].Subclusters)
+		sclustersToTerminate := numOfSclustersInSbox
 		for _, subcluster := range oldSandboxMap[sandboxToBeRemoved].Subclusters {
 			if _, ok := newSubclusterMap[subcluster.Name]; ok {
-				toToRemoved = false
-				break
+				sclustersToTerminate--
 			}
 		}
-		if toToRemoved && oldSandboxMap[sandboxToBeRemoved].Shutdown {
+		// sandboxToBeRemoved and all its subclusters are not found in spec
+		if sclustersToTerminate == numOfSclustersInSbox {
+			if oldSandboxMap[sandboxToBeRemoved].Shutdown {
+				p := field.NewPath("spec").Child("sandboxes")
+				err := field.Invalid(p,
+					sandboxToBeRemoved,
+					fmt.Sprintf("cannot terminate sandbox %q that is to be shut down",
+						sandboxToBeRemoved))
+				allErrs = append(allErrs, err)
+			} // else looks good
+		} else if sclustersToTerminate != 0 {
 			p := field.NewPath("spec").Child("sandboxes")
 			err := field.Invalid(p,
 				sandboxToBeRemoved,
-				fmt.Sprintf("cannot terminate sandbox %q that is to be shut down",
+				fmt.Sprintf("subclusters in sandbox %q either all exist or all terminated",
 					sandboxToBeRemoved))
 			allErrs = append(allErrs, err)
 		}
