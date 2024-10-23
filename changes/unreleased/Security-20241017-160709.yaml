@@ -1,0 +1,5 @@
+kind: Security
+body: Fix for CVE-2022-30635, CVE-2024-34156, and CVE-2024-34158.
+time: 2024-10-17T16:07:09.266021465-04:00
+custom:
+    Issue: "963"

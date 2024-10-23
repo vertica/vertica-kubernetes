@@ -121,6 +121,10 @@ type PodFact struct {
 	// port 5433.
 	upNode bool
 
+	// true means vertica must be stopped in the pod(if up), and the
+	// pod must not get restarted by the operator.
+	shutdown bool
+
 	// true means the node is up, but in read-only state
 	readOnly bool
 
@@ -157,7 +161,7 @@ type PodFact struct {
 	depotDiskPercentSize string
 
 	// The size of the depot in bytes.  This is only valid if the database is up.
-	maxDepotSize int
+	maxDepotSize uint64
 
 	// The size, in bytes, of the local PV.
 	localDataSize int
@@ -351,6 +355,7 @@ func (p *PodFacts) collectPodByStsIndex(ctx context.Context, vdb *vapi.VerticaDB
 		isPrimary:         sc.IsPrimary(),
 		podIndex:          podIndex,
 		execContainerName: getExecContainerName(sts),
+		shutdown:          sc.Shutdown,
 	}
 	// It is possible for a pod to be managed by a parent sts but not yet exist.
 	// So, this has to be checked before we check for pod existence.
@@ -921,7 +926,7 @@ func (p *PodFacts) findRunningPod() (*PodFact, bool) {
 // quorum.
 func (p *PodFacts) findRestartablePods(restartReadOnly, restartTransient, restartPendingDelete bool) []*PodFact {
 	return p.filterPods(func(v *PodFact) bool {
-		if !restartTransient && v.isTransient {
+		if (!restartTransient && v.isTransient) || v.shutdown {
 			return false
 		}
 		return (!v.upNode || (restartReadOnly && v.readOnly)) &&
@@ -1090,12 +1095,23 @@ func (p *PodFacts) getUpNodeCount() int {
 	})
 }
 
-// getUpNodeAndNotReadOnlyCount returns the number of nodes that are up and
+// GetUpNodeAndNotReadOnlyCount returns the number of nodes that are up and
 // writable.  Starting in 11.0SP2, nodes can be up but only in read-only state.
 // This function filters out those *up* nodes that are in read-only state.
-func (p *PodFacts) getUpNodeAndNotReadOnlyCount() int {
+func (p *PodFacts) GetUpNodeAndNotReadOnlyCount() int {
 	return p.countPods(func(v *PodFact) int {
 		if v.upNode && !v.readOnly {
+			return 1
+		}
+		return 0
+	})
+}
+
+// GetShutdownCount returns the number of pods
+// that must stay down.
+func (p *PodFacts) GetShutdownCount() int {
+	return p.countPods(func(v *PodFact) int {
+		if v.shutdown {
 			return 1
 		}
 		return 0
@@ -1239,6 +1255,42 @@ func (p *PodFacts) FindPodNamesInSubcluster(scName string) []types.NamespacedNam
 		}
 	}
 	return podNames
+}
+
+// RemoveStartupFileInSandboxPods removes the startup file from all
+// the sandbox's pods, to prevent automatic restart after shutdown.
+func (p *PodFacts) RemoveStartupFileInSandboxPods(ctx context.Context, vdb *vapi.VerticaDB, successMsg string) error {
+	if p.SandboxName == vapi.MainCluster {
+		return nil
+	}
+	sb := vdb.GetSandbox(p.SandboxName)
+	if sb == nil {
+		return errors.New("sandbox not found")
+	}
+	for _, sc := range sb.Subclusters {
+		err := p.RemoveStartupFileInSubclusterPods(ctx, sc.Name, successMsg)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// RemoveStartupFileInSubclusterPods removes the startup file from all
+// the subcluster's pods, to prevent automatic restart after shutdown.
+func (p *PodFacts) RemoveStartupFileInSubclusterPods(ctx context.Context, scName, successMsg string) error {
+	podNames := p.FindPodNamesInSubcluster(scName)
+	rmCmd := []string{"bash", "-c", fmt.Sprintf("rm -rf %s", paths.StartupConfFile)}
+	for _, podName := range podNames {
+		if _, _, err := p.PRunner.ExecInPod(ctx, podName, names.ServerContainer, rmCmd...); err != nil {
+			p.Log.Error(err, "failed to remove startup.json in pod", "podName", podName)
+			return err
+		} else {
+			p.Log.Info(successMsg, "podName", podName,
+				"subcluster", scName, "sandbox", p.GetSandboxName())
+		}
+	}
+	return nil
 }
 
 // findNodeNamesInSubclusters will return the names of the nodes in target subclusters

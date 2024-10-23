@@ -65,6 +65,10 @@ permissions:
   packages: write
   security-events: write
 
+env:
+  TRIVY_DB_REPOSITORY: ghcr.io/aquasecurity/trivy-db,public.ecr.aws/aquasecurity/trivy-db
+  TRIVY_JAVA_DB_REPOSITORY: ghcr.io/aquasecurity/trivy-java-db,public.ecr.aws/aquasecurity/trivy-java-db
+
 jobs:
   build-server-full:
     runs-on: ubuntu-latest
@@ -120,7 +124,7 @@ jobs:
     # We never run the sarif scanner in PRs because PRs don't have permission
     # to upload the results to github.
     - name: Run the Trivy vulnerability scanner (sarif)
-      uses: aquasecurity/trivy-action@0.24.0
+      uses: aquasecurity/trivy-action@0.27.0
       if: ${{ inputs.run_security_scan == 'all' && github.event_name != 'pull_request' }}
       with:
         image-ref: ${{ steps.full_vertica_image.outputs.value }}
@@ -129,6 +133,9 @@ jobs:
         timeout: '20m0s'
         format: 'sarif'
         output: 'trivy-results-vertica-image.sarif'
+      env:
+        TRIVY_DB_REPOSITORY: ${{ env.TRIVY_DB_REPOSITORY }}
+        TRIVY_JAVA_DB_REPOSITORY: ${{ env.TRIVY_JAVA_DB_REPOSITORY }}
 
     - name: Upload Trivy scan results to GitHub Security tab
       uses: github/codeql-action/upload-sarif@v3
@@ -137,7 +144,7 @@ jobs:
         sarif_file: 'trivy-results-vertica-image.sarif'
 
     - name: Run the Trivy vulnerability scanner (pretty print)
-      uses: aquasecurity/trivy-action@0.24.0
+      uses: aquasecurity/trivy-action@0.27.0
       if: ${{ inputs.run_security_scan == 'all' }}
       with:
         image-ref: ${{ steps.full_vertica_image.outputs.value }}
@@ -146,6 +153,9 @@ jobs:
         timeout: '20m0s'
         format: 'table'
         output: 'trivy-results-vertica-image.out'
+      env:
+        TRIVY_DB_REPOSITORY: ${{ env.TRIVY_DB_REPOSITORY }}
+        TRIVY_JAVA_DB_REPOSITORY: ${{ env.TRIVY_JAVA_DB_REPOSITORY }}
         
     - name: Generate Warning Annotations
       if: ${{ hashFiles('trivy-results-vertica-image.out') != '' }}
@@ -402,13 +412,16 @@ jobs:
         docker pull ${{ inputs.operator_image }}
 
     - name: Run the Trivy vulnerability scanner (sarif)
-      uses: aquasecurity/trivy-action@0.24.0
+      uses: aquasecurity/trivy-action@0.27.0
       if: ${{ inputs.run_security_scan != 'none' && github.event_name != 'pull_request' }}
       with:
         image-ref: ${{ steps.operator_image.outputs.value }}
         ignore-unfixed: true
         format: 'sarif'
         output: 'trivy-results-verticadb-operator-image.sarif'
+      env:
+        TRIVY_DB_REPOSITORY: ${{ env.TRIVY_DB_REPOSITORY }}
+        TRIVY_JAVA_DB_REPOSITORY: ${{ env.TRIVY_JAVA_DB_REPOSITORY }}
 
     - name: Upload Trivy scan results to GitHub Security tab
       uses: github/codeql-action/upload-sarif@v3
@@ -417,13 +430,16 @@ jobs:
         sarif_file: 'trivy-results-verticadb-operator-image.sarif'
 
     - name: Run the Trivy vulnerability scanner (pretty print)
-      uses: aquasecurity/trivy-action@0.24.0
+      uses: aquasecurity/trivy-action@0.27.0
       if: ${{ inputs.run_security_scan != 'none' }}
       with:
         image-ref: ${{ steps.operator_image.outputs.value }}
         ignore-unfixed: true
         format: 'table'
         output: 'trivy-results-verticadb-operator-image.out'
+      env:
+        TRIVY_DB_REPOSITORY: ${{ env.TRIVY_DB_REPOSITORY }}
+        TRIVY_JAVA_DB_REPOSITORY: ${{ env.TRIVY_JAVA_DB_REPOSITORY }}
     
     - name: Generate Warning Annotations
       if: ${{ hashFiles('trivy-results-verticadb-operator-image.out') != '' }}
@@ -513,13 +529,16 @@ jobs:
         docker pull ${{ inputs.vlogger_image }}
 
     - name: Run the Trivy vulnerability scanner (sarif)
-      uses: aquasecurity/trivy-action@0.24.0
+      uses: aquasecurity/trivy-action@0.27.0
       if: ${{ inputs.run_security_scan != 'none' && github.event_name != 'pull_request' }}
       with:
         image-ref: ${{ steps.vlogger_image.outputs.value }}
         ignore-unfixed: true
         format: 'sarif'
         output: 'trivy-results-vertica-logger-image.sarif'
+      env:
+        TRIVY_DB_REPOSITORY: ${{ env.TRIVY_DB_REPOSITORY }}
+        TRIVY_JAVA_DB_REPOSITORY: ${{ env.TRIVY_JAVA_DB_REPOSITORY }}
 
     - name: Upload Trivy scan results to GitHub Security tab
       uses: github/codeql-action/upload-sarif@v3
@@ -529,13 +548,16 @@ jobs:
 
     - name: Run the Trivy vulnerability scanner (pretty print)
       id: trivy_scan
-      uses: aquasecurity/trivy-action@0.24.0
+      uses: aquasecurity/trivy-action@0.27.0
       if: ${{ inputs.run_security_scan != 'none' }}
       with:
         image-ref: ${{ steps.vlogger_image.outputs.value }}
         ignore-unfixed: true
         format: 'table'
         output: 'trivy-results-vertica-logger-image.out'
+      env:
+        TRIVY_DB_REPOSITORY: ${{ env.TRIVY_DB_REPOSITORY }}
+        TRIVY_JAVA_DB_REPOSITORY: ${{ env.TRIVY_JAVA_DB_REPOSITORY }}
 
     - name: Generate Warning Annotations
       if: ${{ hashFiles('trivy-results-vertica-logger-image.out') != '' }}
@@ -565,4 +587,3 @@ jobs:
         echo "Size: **$(docker inspect --format '{{.Size}}' ${{ steps.vlogger_image.outputs.value }} | numfmt --to=iec)**" >> $GITHUB_STEP_SUMMARY
         echo "Image ID: **$(docker inspect --format '{{.ID}}' ${{ steps.vlogger_image.outputs.value }})**" >> $GITHUB_STEP_SUMMARY
         echo "Digest: **$(IFS=":" read image tag <<< $(echo ${{ steps.vlogger_image.outputs.value }} | sed -e 's/^docker.io\///'); docker inspect --format='{{.RepoDigests}}' $image:$tag | sed 's:^.\(.*\).$:\1:' | tr " " "\n" | grep $image | cut -d'@' -f2 || echo "<none>")**" >> $GITHUB_STEP_SUMMARY
-
