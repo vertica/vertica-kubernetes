@@ -189,7 +189,7 @@ func (s *StatusReconciler) calculateSubclusterStatus(ctx context.Context, sc *va
 		return err
 	}
 
-	for podIndex := int32(0); podIndex < int32(len(curStat.Detail)); podIndex++ {
+	for podIndex := int32(0); podIndex < int32(len(curStat.Detail)); podIndex++ { //nolint:gosec
 		podName := names.GenPodName(s.Vdb, sc, podIndex)
 		pf, ok := s.PFacts.Detail[podName]
 		if !ok {
@@ -248,11 +248,11 @@ func (s *StatusReconciler) resizeSubclusterStatus(ctx context.Context, sc *vapi.
 		return err
 	}
 	// Grow the detail if needed
-	for ok := true; ok; ok = int32(len(curStat.Detail)) < scSize {
+	for ok := true; ok; ok = int32(len(curStat.Detail)) < scSize { //nolint:gosec
 		curStat.Detail = append(curStat.Detail, vapi.VerticaDBPodStatus{})
 	}
 	// Or shrink the size
-	if int32(len(curStat.Detail)) > scSize {
+	if int32(len(curStat.Detail)) > scSize { //nolint:gosec
 		curStat.Detail = curStat.Detail[0:scSize]
 	}
 	return nil
