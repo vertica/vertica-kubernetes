@@ -1790,7 +1790,7 @@ func (v *VerticaDB) checkUnsandboxShutdownConditions(old runtime.Object, allErrs
 			}
 			if oldSandbox.Shutdown {
 				i := newSubclusterIndexMap[oldSubclusterName]
-				p := field.NewPath("spec").Child("subclusters").Index(i)
+				p := field.NewPath("spec").Child("subclusters")
 				err := field.Invalid(p.Index(i),
 					oldSubclusterName,
 					fmt.Sprintf("cannot unsandbox subcluster %q in sandbox %q that is to be shut down",
