@@ -14,7 +14,7 @@
 apiVersion: vertica.com/v1beta1
 kind: VerticaDB
 metadata:
-   name: v-vdb-gen
+   name: v-vdb-gen-revive
 spec:
    subclusters:
       - name: sc1
