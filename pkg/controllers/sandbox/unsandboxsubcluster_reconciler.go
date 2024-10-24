@@ -24,9 +24,9 @@ import (
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
-	vdbcontroller "github.com/vertica/vertica-kubernetes/pkg/controllers/vdb"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
+	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/unsandboxsc"
 	"github.com/vertica/vertica-kubernetes/pkg/vdbstatus"
@@ -43,15 +43,15 @@ type UnsandboxSubclusterReconciler struct {
 	Log  logr.Logger
 	client.Client
 	Dispatcher     vadmin.Dispatcher
-	PFacts         *vdbcontroller.PodFacts
-	OriginalPFacts *vdbcontroller.PodFacts
+	PFacts         *podfacts.PodFacts
+	OriginalPFacts *podfacts.PodFacts
 	ConfigMap      *corev1.ConfigMap
 	InitiatorIP    string // The IP of the pod that we run vclusterOps from
 	PRunner        cmds.PodRunner
 }
 
 func MakeUnsandboxSubclusterReconciler(r *SandboxConfigMapReconciler, vdb *vapi.VerticaDB, log logr.Logger,
-	cli client.Client, pfacts *vdbcontroller.PodFacts, dispatcher vadmin.Dispatcher,
+	cli client.Client, pfacts *podfacts.PodFacts, dispatcher vadmin.Dispatcher,
 	configMap *corev1.ConfigMap, prunner cmds.PodRunner) controllers.ReconcileActor {
 	pfactsForMainCluster := pfacts.Copy(vapi.MainCluster)
 	return &UnsandboxSubclusterReconciler{

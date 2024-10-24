@@ -22,6 +22,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
+	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
 	config "github.com/vertica/vertica-kubernetes/pkg/vdbconfig"
 	"github.com/vertica/vertica-kubernetes/pkg/vdbstatus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -30,8 +31,8 @@ import (
 )
 
 type DatabaseInitializer interface {
-	getPodList() ([]*PodFact, bool)
-	findPodToRunInit() (*PodFact, bool)
+	getPodList() ([]*podfacts.PodFact, bool)
+	findPodToRunInit() (*podfacts.PodFact, bool)
 	execCmd(ctx context.Context, initiatorPod types.NamespacedName, hostList []string, podNames []types.NamespacedName) (ctrl.Result, error)
 	preCmdSetup(ctx context.Context, initiatorPod types.NamespacedName, initiatorIP string) (ctrl.Result, error)
 	postCmdCleanup(ctx context.Context) (ctrl.Result, error)
@@ -40,7 +41,7 @@ type DatabaseInitializer interface {
 type GenericDatabaseInitializer struct {
 	initializer DatabaseInitializer
 	PRunner     cmds.PodRunner
-	PFacts      *PodFacts
+	PFacts      *podfacts.PodFacts
 	config.ConfigParamsGenerator
 }
 
@@ -82,8 +83,8 @@ func (g *GenericDatabaseInitializer) runInit(ctx context.Context) (ctrl.Result, 
 		// Could not find a runable pod to run from.
 		return ctrl.Result{Requeue: true}, nil
 	}
-	initiatorPod := initPodFact.name
-	initiatorIP := initPodFact.podIP
+	initiatorPod := initPodFact.GetName()
+	initiatorIP := initPodFact.GetPodIP()
 
 	res, err := g.ConstructConfigParms(ctx)
 	if verrors.IsReconcileAborted(res, err) {
@@ -93,7 +94,7 @@ func (g *GenericDatabaseInitializer) runInit(ctx context.Context) (ctrl.Result, 
 		return res, err
 	}
 
-	host, postNames := getHostAndPodNameList(podList)
+	host, postNames := podfacts.GetHostAndPodNameList(podList)
 	if res, err := g.initializer.execCmd(ctx, initiatorPod, host, postNames); verrors.IsReconcileAborted(res, err) {
 		return res, err
 	}
@@ -113,7 +114,7 @@ func (g *GenericDatabaseInitializer) runInit(ctx context.Context) (ctrl.Result, 
 }
 
 // checkPodList ensures all of the pods that we will use for the init call are running
-func (g *GenericDatabaseInitializer) checkPodList(podList []*PodFact) bool {
+func (g *GenericDatabaseInitializer) checkPodList(podList []*podfacts.PodFact) bool {
 	for _, pod := range podList {
 		// Bail if:
 		// - find one of the pods isn't running
@@ -122,7 +123,7 @@ func (g *GenericDatabaseInitializer) checkPodList(podList []*PodFact) bool {
 		// - doesn't have the annotations that we use in the k8s Vertica DC
 		//   table. This has to be present before we start vertica to populate
 		//   the DC table correctly.
-		if !pod.isPodRunning || !pod.hasDCTableAnnotations {
+		if !pod.GetIsPodRunning() || !pod.GetHasDCTableAnnotations() {
 			return false
 		}
 		// Skip the next check since there is no install state
@@ -130,7 +131,7 @@ func (g *GenericDatabaseInitializer) checkPodList(podList []*PodFact) bool {
 		if vmeta.UseVClusterOps(g.Vdb.Annotations) {
 			continue
 		}
-		if !pod.isInstalled {
+		if !pod.GetIsInstalled() {
 			return false
 		}
 	}

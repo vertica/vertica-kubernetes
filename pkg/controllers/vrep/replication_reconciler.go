@@ -26,11 +26,11 @@ import (
 	v1beta1 "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
-	vdbcontroller "github.com/vertica/vertica-kubernetes/pkg/controllers/vdb"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
+	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/replicationstart"
 	"github.com/vertica/vertica-kubernetes/pkg/vk8s"
@@ -59,8 +59,8 @@ type ReplicationReconciler struct {
 	VRec         *VerticaReplicatorReconciler
 	Vrep         *v1beta1.VerticaReplicator
 	dispatcher   vadmin.Dispatcher
-	SourcePFacts *vdbcontroller.PodFacts
-	TargetPFacts *vdbcontroller.PodFacts
+	SourcePFacts *podfacts.PodFacts
+	TargetPFacts *podfacts.PodFacts
 	Log          logr.Logger
 	SourceInfo   *ReplicationInfo
 	TargetInfo   *ReplicationInfo
@@ -262,14 +262,14 @@ func (r *ReplicationReconciler) determineSourceAndTargetHosts() (err error) {
 
 // make podfacts for a cluster (either main or a sandbox) of a vdb
 func (r *ReplicationReconciler) makePodFacts(ctx context.Context, vdb *vapi.VerticaDB,
-	sandboxName string) (*vdbcontroller.PodFacts, error) {
+	sandboxName string) (*podfacts.PodFacts, error) {
 	username := vdb.GetVerticaUser()
 	password, err := vk8s.GetSuperuserPassword(ctx, r.Client, r.Log, r.VRec, vdb)
 	if err != nil {
 		return nil, err
 	}
 	prunner := cmds.MakeClusterPodRunner(r.Log, r.VRec.Cfg, username, password)
-	pFacts := vdbcontroller.MakePodFactsForSandbox(r.VRec, prunner, r.Log, password, sandboxName)
+	pFacts := podfacts.MakePodFactsForSandbox(r.VRec, prunner, r.Log, password, sandboxName)
 	return &pFacts, nil
 }
 

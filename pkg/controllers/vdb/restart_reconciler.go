@@ -32,6 +32,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/metrics"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
+	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/fetchnodestate"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/reip"
@@ -62,7 +63,7 @@ type RestartReconciler struct {
 	Log             logr.Logger
 	Vdb             *vapi.VerticaDB // Vdb is the CRD we are acting on.
 	PRunner         cmds.PodRunner
-	PFacts          *PodFacts
+	PFacts          *podfacts.PodFacts
 	InitiatorPod    types.NamespacedName // The pod that we run admin commands from
 	InitiatorPodIP  string               // The IP of the initiating pod
 	RestartReadOnly bool                 // Whether to restart nodes that are in read-only mode
@@ -72,7 +73,7 @@ type RestartReconciler struct {
 
 // MakeRestartReconciler will build a RestartReconciler object
 func MakeRestartReconciler(recon config.ReconcilerInterface, log logr.Logger,
-	vdb *vapi.VerticaDB, prunner cmds.PodRunner, pfacts *PodFacts, restartReadOnly bool,
+	vdb *vapi.VerticaDB, prunner cmds.PodRunner, pfacts *podfacts.PodFacts, restartReadOnly bool,
 	dispatcher vadmin.Dispatcher) controllers.ReconcileActor {
 	return &RestartReconciler{
 		VRec:            recon,
@@ -140,7 +141,7 @@ func (r *RestartReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctr
 
 // reconcileClusterPreCheck will check if pods are ready to do cluster restart
 func (r *RestartReconciler) reconcileClusterPreCheck() ctrl.Result {
-	if r.PFacts.countRunningAndInstalled() == 0 {
+	if r.PFacts.CountRunningAndInstalled() == 0 {
 		// None of the running pods have Vertica installed.  Since there may be
 		// a pod that isn't running that may need Vertica restarted we are going
 		// to requeue to wait for that pod to start.
@@ -148,13 +149,13 @@ func (r *RestartReconciler) reconcileClusterPreCheck() ctrl.Result {
 		return ctrl.Result{Requeue: true}
 	}
 	// When using vclusterOps, we need to wait for enough primary nodes to be running so that we have quorum to do re-ip
-	if vmeta.UseVClusterOps(r.Vdb.Annotations) && !r.PFacts.quorumCheckForRestartCluster(r.RestartReadOnly) {
+	if vmeta.UseVClusterOps(r.Vdb.Annotations) && !r.PFacts.QuorumCheckForRestartCluster(r.RestartReadOnly) {
 		r.Log.Info("Waiting for enough pods that contain a primary node to come online before a cluster restart")
 		return ctrl.Result{Requeue: true}
 	}
 	// Check if cluster start needs to include all of the pods.
 	if r.Vdb.IsKSafety0() &&
-		r.PFacts.countNotRestartablePods(vmeta.UseVClusterOps(r.Vdb.Annotations)) > 0 {
+		r.PFacts.CountNotRestartablePods(vmeta.UseVClusterOps(r.Vdb.Annotations)) > 0 {
 		// For k-safety 0, we need all of the pods because the absence of one
 		// will cause us not to have enough pods for cluster quorum.
 		r.Log.Info("Waiting for all installed pods to be running before attempt a cluster restart")
@@ -167,7 +168,7 @@ func (r *RestartReconciler) reconcileClusterPreCheck() ctrl.Result {
 // reconcileCluster will handle restart when the entire cluster is down
 func (r *RestartReconciler) reconcileCluster(ctx context.Context) (ctrl.Result, error) {
 	r.Log.Info("Restart of entire cluster is needed")
-	if r.PFacts.areAllPodsRunningAndZeroInstalled() {
+	if r.PFacts.AreAllPodsRunningAndZeroInstalled() {
 		// Restart has nothing to do if nothing is installed
 		r.Log.Info("All pods are running and none of them have an installation.  Nothing to restart.")
 		return ctrl.Result{}, nil
@@ -182,7 +183,7 @@ func (r *RestartReconciler) reconcileCluster(ctx context.Context) (ctrl.Result, 
 	// Find an initiator pod. You must pick one that has no vertica process running.
 	// This is needed to be able to start the primaries when secondary read-only
 	// nodes could be running.
-	if ok := r.setInitiatorPod(r.PFacts.findPodToRunAdminCmdOffline); !ok {
+	if ok := r.setInitiatorPod(r.PFacts.FindPodToRunAdminCmdOffline); !ok {
 		r.Log.Info("No initiator pod found to run admin command. Requeue reconciliation.")
 		return ctrl.Result{Requeue: true}, nil
 	}
@@ -192,7 +193,7 @@ func (r *RestartReconciler) reconcileCluster(ctx context.Context) (ctrl.Result, 
 	// transient nodes' IPs easily. However, using admintools, we can get the correct nodes'
 	// IPs easily from admintools.conf. As a result, we exclude transient pods from the pods
 	// to restart for vclusterops.
-	downPods := r.PFacts.findRestartablePods(r.RestartReadOnly,
+	downPods := r.PFacts.FindRestartablePods(r.RestartReadOnly,
 		!vmeta.UseVClusterOps(r.Vdb.Annotations), /* restartTransient */
 		true /* restartPendingDelete */)
 
@@ -244,7 +245,7 @@ func (r *RestartReconciler) reconcileCluster(ctx context.Context) (ctrl.Result, 
 	}
 
 	// If no db, there is nothing to restart so we can exit.
-	if !r.PFacts.doesDBExist() {
+	if !r.PFacts.DoesDBExist() {
 		return ctrl.Result{}, nil
 	}
 
@@ -259,14 +260,14 @@ func (r *RestartReconciler) reconcileCluster(ctx context.Context) (ctrl.Result, 
 }
 
 // containPods will check if source pods contain target pods
-func containPods(source, target []*PodFact) bool {
+func containPods(source, target []*podfacts.PodFact) bool {
 	sourcePodNames := make(map[string]any)
 	for _, sourcePod := range source {
-		sourcePodNames[sourcePod.name.Name] = struct{}{}
+		sourcePodNames[sourcePod.GetName().Name] = struct{}{}
 	}
 	// check if all down pods can do re-ip
 	for _, targetPod := range target {
-		if _, ok := sourcePodNames[targetPod.name.Name]; !ok {
+		if _, ok := sourcePodNames[targetPod.GetName().Name]; !ok {
 			return false
 		}
 	}
@@ -285,14 +286,14 @@ func (r *RestartReconciler) reconcileNodes(ctx context.Context) (ctrl.Result, er
 	// can't be restarted. Also, skip pending delete as they may be partially
 	// removed already, preventing restart from succeding. They will be removed
 	// shortly anyway so makes little sense to restart them.
-	downPods := r.PFacts.findRestartablePods(r.RestartReadOnly,
+	downPods := r.PFacts.FindRestartablePods(r.RestartReadOnly,
 		false /* restartTransient */, false /* restartPendingDelete */)
 	// This is too make sure all pods have signed they EULA before running
 	// admintools on any of them.
 	if err := r.acceptEulaIfMissing(ctx); err != nil {
 		return ctrl.Result{}, err
 	}
-	if ok := r.setInitiatorPod(r.PFacts.findPodToRunAdminCmdAny); !ok {
+	if ok := r.setInitiatorPod(r.PFacts.FindPodToRunAdminCmdAny); !ok {
 		r.Log.Info("No initiator pod found for admin command. Requeue reconciliation.")
 		return ctrl.Result{Requeue: true}, nil
 	}
@@ -319,7 +320,7 @@ func (r *RestartReconciler) reconcileNodes(ctx context.Context) (ctrl.Result, er
 }
 
 // restartPods restart the down pods using an admin command
-func (r *RestartReconciler) restartPods(ctx context.Context, pods []*PodFact) (ctrl.Result, error) {
+func (r *RestartReconciler) restartPods(ctx context.Context, pods []*podfacts.PodFact) (ctrl.Result, error) {
 	// we will fetch the state of all nodes. The returned map will be used
 	// to check cluster quorum and reduce the down pod list
 	clusterState, res, err := r.fetchClusterNodeStatus(ctx)
@@ -388,11 +389,11 @@ func (r *RestartReconciler) restartPods(ctx context.Context, pods []*PodFact) (c
 // removePodsWithClusterUpState will see if the pods in the down list are
 // down according to the cluster state. This will return a new pod list with the
 // pods that aren't considered down removed.
-func (r *RestartReconciler) removePodsWithClusterUpState(pods []*PodFact, clusterState map[string]string) []*PodFact {
+func (r *RestartReconciler) removePodsWithClusterUpState(pods []*podfacts.PodFact, clusterState map[string]string) []*podfacts.PodFact {
 	i := 0
 	// Remove any item from pods where the state is UP
 	for _, pod := range pods {
-		state, ok := clusterState[pod.vnodeName]
+		state, ok := clusterState[pod.GetVnodeName()]
 		if !ok || state != vadmin.StateUp {
 			pods[i] = pod
 			i++
@@ -408,13 +409,13 @@ func (r *RestartReconciler) doesDBHaveQuorum(clusterState map[string]string) boo
 	totalPrimaryCount := 0
 	upPrimaryCount := 0
 	for _, pod := range r.PFacts.Detail {
-		if !pod.isPrimary {
+		if !pod.GetIsPrimary() {
 			continue
 		}
-		_, ok := clusterState[pod.vnodeName]
+		_, ok := clusterState[pod.GetVnodeName()]
 		if ok {
 			totalPrimaryCount++
-			if pod.upNode {
+			if pod.GetUpNode() {
 				upPrimaryCount++
 			}
 		}
@@ -436,17 +437,17 @@ func (r *RestartReconciler) fetchClusterNodeStatus(ctx context.Context) (map[str
 }
 
 // execRestartPods will execute the AT command and event recording for restart pods.
-func (r *RestartReconciler) execRestartPods(ctx context.Context, downPods []*PodFact) (ctrl.Result, error) {
+func (r *RestartReconciler) execRestartPods(ctx context.Context, downPods []*podfacts.PodFact) (ctrl.Result, error) {
 	podNames := make([]string, 0, len(downPods))
 	for _, pods := range downPods {
-		podNames = append(podNames, pods.name.Name)
+		podNames = append(podNames, pods.GetName().Name)
 	}
 
 	opts := []restartnode.Option{
 		restartnode.WithInitiator(r.InitiatorPod, r.InitiatorPodIP),
 	}
 	for i := range downPods {
-		opts = append(opts, restartnode.WithHost(downPods[i].vnodeName, downPods[i].podIP))
+		opts = append(opts, restartnode.WithHost(downPods[i].GetVnodeName(), downPods[i].GetPodIP()))
 	}
 
 	r.VRec.Eventf(r.Vdb, corev1.EventTypeNormal, events.NodeRestartStarted,
@@ -468,7 +469,7 @@ func (r *RestartReconciler) execRestartPods(ctx context.Context, downPods []*Pod
 
 // reipNodes will update the catalogs with new IPs for a set of pods.
 // If it detects that no IPs are changing, then no re_ip is done.
-func (r *RestartReconciler) reipNodes(ctx context.Context, pods []*PodFact) (ctrl.Result, error) {
+func (r *RestartReconciler) reipNodes(ctx context.Context, pods []*podfacts.PodFact) (ctrl.Result, error) {
 	if len(pods) == 0 {
 		r.Log.Info("No pods qualify for possible re-ip.")
 		return ctrl.Result{}, nil
@@ -491,21 +492,21 @@ func (r *RestartReconciler) reipNodes(ctx context.Context, pods []*PodFact) (ctr
 		)
 	}
 	for i := range pods {
-		if !pods[i].isPodRunning {
-			r.Log.Info("Not all pods are running. Need to requeue restart reconciler.", "pod", pods[i].name)
+		if !pods[i].GetIsPodRunning() {
+			r.Log.Info("Not all pods are running. Need to requeue restart reconciler.", "pod", pods[i].GetName())
 			return ctrl.Result{Requeue: true}, nil
 		}
 		// Add the current host. Note, when using vclusterOps integration,
 		// compat21NodeName won't be available. It is passed in incase we need
 		// to use legacy admintools APIs.
-		opts = append(opts, reip.WithHost(pods[i].vnodeName, pods[i].compat21NodeName, pods[i].podIP))
+		opts = append(opts, reip.WithHost(pods[i].GetVnodeName(), pods[i].GetCompat21NodeName(), pods[i].GetPodIP()))
 	}
 	return r.Dispatcher.ReIP(ctx, opts...)
 }
 
 // restartCluster will call start database. It is assumed that the cluster has
 // already run re_ip.
-func (r *RestartReconciler) restartCluster(ctx context.Context, downPods []*PodFact) (ctrl.Result, error) {
+func (r *RestartReconciler) restartCluster(ctx context.Context, downPods []*podfacts.PodFact) (ctrl.Result, error) {
 	opts := []startdb.Option{
 		startdb.WithInitiator(r.InitiatorPod, r.InitiatorPodIP),
 	}
@@ -525,10 +526,10 @@ func (r *RestartReconciler) restartCluster(ctx context.Context, downPods []*PodF
 	}
 	hostsInSandbox := true
 	for i := range downPods {
-		if downPods[i].sandbox == vapi.MainCluster {
+		if downPods[i].GetSandbox() == vapi.MainCluster {
 			hostsInSandbox = false
 		}
-		opts = append(opts, startdb.WithHost(downPods[i].podIP))
+		opts = append(opts, startdb.WithHost(downPods[i].GetPodIP()))
 	}
 	opts = append(opts, startdb.WithHostsInSandboxFlag(hostsInSandbox))
 	r.VRec.Eventf(r.Vdb, corev1.EventTypeNormal, events.ClusterRestartStarted,
@@ -554,11 +555,11 @@ func (r *RestartReconciler) restartCluster(ctx context.Context, downPods []*PodF
 // We requeue the iteration if anything is killed so that status is updated
 // before starting a restart; this is done for the benefit of PD purposes and
 // stability in the restart test.
-func (r *RestartReconciler) killReadOnlyProcesses(ctx context.Context, pods []*PodFact) (ctrl.Result, error) {
+func (r *RestartReconciler) killReadOnlyProcesses(ctx context.Context, pods []*podfacts.PodFact) (ctrl.Result, error) {
 	killedAtLeastOnePid := false
 	for _, pod := range pods {
 		// Only killing read-only vertica processes
-		if !pod.readOnly {
+		if !pod.GetReadOnly() {
 			continue
 		}
 		const killMarker = "Killing process"
@@ -579,7 +580,7 @@ func (r *RestartReconciler) killReadOnlyProcesses(ctx context.Context, pods []*P
 			"bash", "-c", fmt.Sprintf("%s; %s", rmCmd, killCmd),
 		}
 		// Avoid all errors since the process may not even be running
-		if stdout, _, err := r.PRunner.ExecInPod(ctx, pod.name, names.ServerContainer, cmd...); err != nil {
+		if stdout, _, err := r.PRunner.ExecInPod(ctx, pod.GetName(), names.ServerContainer, cmd...); err != nil {
 			return ctrl.Result{}, err
 		} else if strings.Contains(stdout, killMarker) {
 			killedAtLeastOnePid = true
@@ -601,16 +602,16 @@ func (r *RestartReconciler) killReadOnlyProcesses(ctx context.Context, pods []*P
 // restart any pod that has an active livelinessProbe. The pods are likely to
 // get deleted part way through the restart.
 func (r *RestartReconciler) filterNonActiveStartupProbe(ctx context.Context,
-	pods []*PodFact) (newPodList []*PodFact, removedCount int, err error) {
-	newPodList = []*PodFact{}
+	pods []*podfacts.PodFact) (newPodList []*podfacts.PodFact, removedCount int, err error) {
+	newPodList = []*podfacts.PodFact{}
 	var startupActive bool
 	for i := range pods {
-		startupActive, err = r.isStartupProbeActive(ctx, pods[i].name)
+		startupActive, err = r.isStartupProbeActive(ctx, pods[i].GetName())
 		if err != nil {
 			return
 		} else if !startupActive {
 			r.Log.Info("Not restarting pod because its startupProbe is not active anymore. "+
-				"Wait for livenessProbe to reschedule the pod", "pod", pods[i].name)
+				"Wait for livenessProbe to reschedule the pod", "pod", pods[i].GetName())
 			continue
 		}
 		newPodList = append(newPodList, pods[i])
@@ -623,9 +624,9 @@ func (r *RestartReconciler) filterNonActiveStartupProbe(ctx context.Context,
 // up. We want to not consider them as candidates to startup. We would need to
 // kill the vertica pid. Rather we let the health probes do that, which can be
 // tuned to how long you want to wait for.
-func (r *RestartReconciler) filterSlowStartup(pods []*PodFact) (newPodList []*PodFact, removedCount int) {
+func (r *RestartReconciler) filterSlowStartup(pods []*podfacts.PodFact) (newPodList []*podfacts.PodFact, removedCount int) {
 	for i := range pods {
-		if pods[i].startupInProgress {
+		if pods[i].GetStartupInProgress() {
 			continue
 		}
 		newPodList = append(newPodList, pods[i])
@@ -704,7 +705,7 @@ func (r *RestartReconciler) isStartupProbeActive(ctx context.Context, nm types.N
 // setInitiatorPod will set r.InitiatorPod if not already set.
 // Caller can indicate whether there is a requirement that it must be run from a
 // pod that is current not running the vertica daemon.
-func (r *RestartReconciler) setInitiatorPod(findFunc func() (*PodFact, bool)) bool {
+func (r *RestartReconciler) setInitiatorPod(findFunc func() (*podfacts.PodFact, bool)) bool {
 	// If we haven't done so already, figure out the pod that will serve as the
 	// initiator for the command.
 	if r.InitiatorPod == (types.NamespacedName{}) {
@@ -712,8 +713,8 @@ func (r *RestartReconciler) setInitiatorPod(findFunc func() (*PodFact, bool)) bo
 		if !ok {
 			return false
 		}
-		r.InitiatorPod = initPod.name
-		r.InitiatorPodIP = initPod.podIP
+		r.InitiatorPod = initPod.GetName()
+		r.InitiatorPodIP = initPod.GetPodIP()
 	}
 	return true
 }
@@ -722,7 +723,7 @@ func (r *RestartReconciler) setInitiatorPod(findFunc func() (*PodFact, bool)) bo
 // whether a requeue of the reconcile is necessary because some pods are not yet
 // running.
 func (r *RestartReconciler) shouldRequeueIfPodsNotRunning() bool {
-	if r.PFacts.countNotRestartablePods(vmeta.UseVClusterOps(r.Vdb.Annotations)) > 0 {
+	if r.PFacts.CountNotRestartablePods(vmeta.UseVClusterOps(r.Vdb.Annotations)) > 0 {
 		r.Log.Info("Requeue since some pods needed by restart are not yet running.")
 		return true
 	}
@@ -743,7 +744,7 @@ func (r *RestartReconciler) acceptEulaIfMissing(ctx context.Context) error {
 // getReIPPods will return the list of pods that may need a re-ip. Factors that
 // can affect the list is the restart type (cluster vs node) and usage of
 // vclusterOps.
-func (r *RestartReconciler) getReIPPods(isRestartNode bool) []*PodFact {
+func (r *RestartReconciler) getReIPPods(isRestartNode bool) []*podfacts.PodFact {
 	// For restart node, we only re-ip nodes that won't be restarted. This is
 	// necessary to keep installed-only nodes up to date in admintools.conf. For
 	// this reason, we can skip if using vclusterOps.
@@ -751,13 +752,13 @@ func (r *RestartReconciler) getReIPPods(isRestartNode bool) []*PodFact {
 		if vmeta.UseVClusterOps(r.Vdb.Annotations) {
 			return nil
 		}
-		return r.PFacts.findReIPPods(dBCheckOnlyWithoutDBs)
+		return r.PFacts.FindReIPPods(podfacts.DBCheckOnlyWithoutDBs)
 	}
 	// For cluster restart, we re-ip all nodes that have been added to the DB.
 	// And if using admintools, we also need to re-ip installed pods that
 	// haven't been added to the db to keep admintools.conf in-sync.
 	if vmeta.UseVClusterOps(r.Vdb.Annotations) {
-		return r.PFacts.findReIPPods(dBCheckOnlyWithDBs)
+		return r.PFacts.FindReIPPods(podfacts.DBCheckOnlyWithDBs)
 	}
-	return r.PFacts.findReIPPods(dBCheckAny)
+	return r.PFacts.FindReIPPods(podfacts.DBCheckAny)
 }

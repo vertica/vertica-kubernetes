@@ -34,6 +34,7 @@ import (
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
+	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
 	config "github.com/vertica/vertica-kubernetes/pkg/vdbconfig"
 	"github.com/vertica/vertica-kubernetes/pkg/vk8s"
 	appsv1 "k8s.io/api/apps/v1"
@@ -61,13 +62,13 @@ type ObjReconciler struct {
 	Rec           config.ReconcilerInterface
 	Log           logr.Logger
 	Vdb           *vapi.VerticaDB // Vdb is the CRD we are acting on.
-	PFacts        *PodFacts
+	PFacts        *podfacts.PodFacts
 	Mode          ObjReconcileModeType
 	SecretFetcher cloud.VerticaDBSecretFetcher
 }
 
 // MakeObjReconciler will build an ObjReconciler object
-func MakeObjReconciler(recon config.ReconcilerInterface, log logr.Logger, vdb *vapi.VerticaDB, pfacts *PodFacts,
+func MakeObjReconciler(recon config.ReconcilerInterface, log logr.Logger, vdb *vapi.VerticaDB, pfacts *podfacts.PodFacts,
 	mode ObjReconcileModeType) controllers.ReconcileActor {
 	return &ObjReconciler{
 		Rec:    recon,
@@ -558,9 +559,9 @@ func (o *ObjReconciler) checkIfReadyForStsUpdate(newStsSize int32, sts *appsv1.S
 			return ctrl.Result{}, fmt.Errorf("could not find pod facts for pod '%s'", pn)
 		}
 		// For vclusterOps, there is no uninstall step so we skip the isInstalled state.
-		if (!vmeta.UseVClusterOps(o.Vdb.Annotations) && pf.isInstalled) || pf.dbExists {
+		if (!vmeta.UseVClusterOps(o.Vdb.Annotations) && pf.GetIsInstalled()) || pf.GetDBExists() {
 			o.Log.Info("Requeue since some pods still need db_remove_node and/or uninstall done.",
-				"name", pn, "isInstalled", pf.isInstalled, "dbExists", pf.dbExists,
+				"name", pn, "isInstalled", pf.GetIsInstalled(), "dbExists", pf.GetDBExists(),
 				"vclusterOps", vmeta.UseVClusterOps(o.Vdb.Annotations))
 			return ctrl.Result{Requeue: true}, nil
 		}

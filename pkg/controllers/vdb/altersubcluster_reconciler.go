@@ -24,6 +24,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
+	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/altersc"
 	"github.com/vertica/vertica-kubernetes/pkg/vk8s"
@@ -36,13 +37,13 @@ type AlterSubclusterTypeReconciler struct {
 	VRec       *VerticaDBReconciler
 	Log        logr.Logger
 	Vdb        *vapi.VerticaDB // Vdb is the CRD we are acting on.
-	PFacts     *PodFacts
+	PFacts     *podfacts.PodFacts
 	Dispatcher vadmin.Dispatcher
 }
 
 // MakeAlterSubclusterTypeReconciler will build a AlterSubclusterTypeReconciler object
 func MakeAlterSubclusterTypeReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
-	vdb *vapi.VerticaDB, pfacts *PodFacts, dispatcher vadmin.Dispatcher) controllers.ReconcileActor {
+	vdb *vapi.VerticaDB, pfacts *podfacts.PodFacts, dispatcher vadmin.Dispatcher) controllers.ReconcileActor {
 	return &AlterSubclusterTypeReconciler{
 		VRec:       vdbrecon,
 		Log:        log.WithName("AlterSubclusterTypeReconciler"),
@@ -153,12 +154,12 @@ func (a *AlterSubclusterTypeReconciler) alterSubclusterType(ctx context.Context,
 // getInitiatorIP returns the initiator ip that will be used for
 // alterSubclusterType
 func (a *AlterSubclusterTypeReconciler) getInitiatorIP() (string, bool) {
-	initiator, ok := a.PFacts.findFirstPodSorted(func(v *PodFact) bool {
-		return v.isPrimary && v.upNode
+	initiator, ok := a.PFacts.FindFirstPodSorted(func(v *podfacts.PodFact) bool {
+		return v.GetIsPrimary() && v.GetUpNode()
 	})
 	if !ok {
 		a.Log.Info("No Up nodes found. Requeue reconciliation.")
 		return "", true
 	}
-	return initiator.podIP, false
+	return initiator.GetPodIP(), false
 }

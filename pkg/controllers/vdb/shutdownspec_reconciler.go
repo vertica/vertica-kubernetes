@@ -21,6 +21,7 @@ import (
 	v1 "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
+	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
 	"github.com/vertica/vertica-kubernetes/pkg/vk8s"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -30,11 +31,11 @@ import (
 type ShutdownSpecReconciler struct {
 	VRec   *VerticaDBReconciler
 	Vdb    *v1.VerticaDB
-	PFacts *PodFacts
+	PFacts *podfacts.PodFacts
 }
 
 func MakeShutdownSpecReconciler(r *VerticaDBReconciler,
-	vdb *v1.VerticaDB, pfacts *PodFacts) controllers.ReconcileActor {
+	vdb *v1.VerticaDB, pfacts *podfacts.PodFacts) controllers.ReconcileActor {
 	return &ShutdownSpecReconciler{
 		VRec:   r,
 		Vdb:    vdb,
