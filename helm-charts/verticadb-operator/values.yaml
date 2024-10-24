@@ -86,6 +86,10 @@ webhook:
   # can be used to skip that and still deploy the operator.
   enable: true
 
+  # this will increase the default threshold used by spam filter in controller runtime from 25 to 100
+  # this is important for running e2e test as some test cases require verification of events
+  burstSize: 100
+
 logging:
   # level is the minimum logging level. Valid values are: debug, info, warn, and error
   level: info
