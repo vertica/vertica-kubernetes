@@ -240,7 +240,8 @@ func main() {
 	if opcfg.GetLoggingFilePath() != "" {
 		log.Printf("Now logging in file %s", opcfg.GetLoggingFilePath())
 	}
-	var multibroadcaster = record.NewBroadcasterWithCorrelatorOptions(record.CorrelatorOptions{BurstSize: 100})
+	burstSize := opcfg.GetBroadcasterBurstSize()
+	var multibroadcaster = record.NewBroadcasterWithCorrelatorOptions(record.CorrelatorOptions{BurstSize: burstSize})
 	ctrl.SetLogger(logger)
 	setupLog.Info("Build info", "gitCommit", GitCommit,
 		"buildDate", BuildDate, "vclusterVersion", VClusterVersion)
@@ -249,7 +250,9 @@ func main() {
 		"version", opcfg.GetVersion(),
 		"watchNamespace", opcfg.GetWatchNamespace(),
 		"webhooksEnabled", opcfg.GetIsWebhookEnabled(),
-		"controllersEnabled", opcfg.GetIsControllersEnabled())
+		"controllersEnabled", opcfg.GetIsControllersEnabled(),
+		"broadcasterBurstSize", burstSize,
+	)
 
 	restCfg := ctrl.GetConfigOrDie()
 

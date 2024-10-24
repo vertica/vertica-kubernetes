@@ -34,6 +34,16 @@ func GetIsWebhookEnabled() bool {
 	return lookupBoolEnvVar("WEBHOOKS_ENABLED", envMustExist)
 }
 
+// GetBroadcasterBurstSize returns the customizable burst size for broadcaster.
+func GetBroadcasterBurstSize() int {
+	burstSize := lookupIntEnvVar("BROADCASTER_BURST_SIZE", envCanNotExist)
+	if burstSize < 25 {
+		return 25
+	} else {
+		return burstSize
+	}
+}
+
 // GetIsControllersEnabled returns true if the controllers for each custom
 // resource will start. If this is false, then the manager will just act as a
 // webhook (if enabled).
