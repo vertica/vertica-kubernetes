@@ -42,7 +42,7 @@ func (v *VClusterOps) InstallPackages(_ context.Context, opts ...installpackages
 	}
 	if err != nil {
 		_, err = v.logFailure("VInstallPackages", events.InstallPackagesFailed, err)
-		v.Log.Error(err, "failed to finish package installation.", "installPackageStatus", *status)
+		v.Log.Error(err, "failed to finish package installation", "installPackageStatus", *status)
 		return status, err
 	}
 
