@@ -25,6 +25,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/iter"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
+	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
 	"github.com/vertica/vertica-kubernetes/pkg/vdbstatus"
 	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -40,13 +41,13 @@ type StatusReconciler struct {
 	Scheme       *runtime.Scheme
 	Log          logr.Logger
 	Vdb          *vapi.VerticaDB // Vdb is the CRD we are acting on.
-	PFacts       *PodFacts
+	PFacts       *podfacts.PodFacts
 	SkipShutdown bool
 }
 
 // MakeStatusReconciler will build a StatusReconciler object
 func MakeStatusReconciler(cli client.Client, scheme *runtime.Scheme, log logr.Logger,
-	vdb *vapi.VerticaDB, pfacts *PodFacts) controllers.ReconcileActor {
+	vdb *vapi.VerticaDB, pfacts *podfacts.PodFacts) controllers.ReconcileActor {
 	return &StatusReconciler{
 		Client:       cli,
 		Scheme:       scheme,
@@ -58,7 +59,7 @@ func MakeStatusReconciler(cli client.Client, scheme *runtime.Scheme, log logr.Lo
 }
 
 func MakeStatusReconcilerWithShutdown(cli client.Client, scheme *runtime.Scheme, log logr.Logger,
-	vdb *vapi.VerticaDB, pfacts *PodFacts) controllers.ReconcileActor {
+	vdb *vapi.VerticaDB, pfacts *podfacts.PodFacts) controllers.ReconcileActor {
 	return &StatusReconciler{
 		Client:       cli,
 		Scheme:       scheme,
@@ -203,14 +204,14 @@ func (s *StatusReconciler) calculateSubclusterStatus(ctx context.Context, sc *va
 			// so we jump to the next subcluster.
 			continue
 		}
-		curStat.Detail[podIndex].UpNode = pf.upNode
-		curStat.Detail[podIndex].Installed = pf.isInstalled
-		curStat.Detail[podIndex].AddedToDB = pf.dbExists
-		if pf.vnodeName != "" {
-			curStat.Detail[podIndex].VNodeName = pf.vnodeName
+		curStat.Detail[podIndex].UpNode = pf.GetUpNode()
+		curStat.Detail[podIndex].Installed = pf.GetIsInstalled()
+		curStat.Detail[podIndex].AddedToDB = pf.GetDBExists()
+		if pf.GetVnodeName() != "" {
+			curStat.Detail[podIndex].VNodeName = pf.GetVnodeName()
 		}
-		if pf.subclusterOid != "" {
-			curStat.Oid = pf.subclusterOid
+		if pf.GetSubclusterOid() != "" {
+			curStat.Oid = pf.GetSubclusterOid()
 		}
 	}
 	// Refresh the counts

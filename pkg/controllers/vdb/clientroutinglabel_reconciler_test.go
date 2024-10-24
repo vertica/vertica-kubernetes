@@ -24,6 +24,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
+	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
 	"github.com/vertica/vertica-kubernetes/pkg/test"
 	corev1 "k8s.io/api/core/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -42,14 +43,14 @@ var _ = Describe("clientroutinglabel_reconcile", func() {
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := MakePodFacts(vdbRec, fpr, logger, TestPassword)
+		pfacts := podfacts.MakePodFacts(vdbRec, fpr, logger, TestPassword)
 		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
 		pfn1 := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)
-		pfacts.Detail[pfn1].upNode = true
-		pfacts.Detail[pfn1].shardSubscriptions = 0
+		pfacts.Detail[pfn1].SetUpNode(true)
+		pfacts.Detail[pfn1].SetShardSubscriptions(0)
 		pfn2 := names.GenPodName(vdb, &vdb.Spec.Subclusters[1], 0)
-		pfacts.Detail[pfn2].shardSubscriptions = 3
-		pfacts.Detail[pfn2].upNode = true
+		pfacts.Detail[pfn2].SetShardSubscriptions(3)
+		pfacts.Detail[pfn2].SetUpNode(true)
 		r := MakeClientRoutingLabelReconciler(vdbRec, logger, vdb, &pfacts, PodRescheduleApplyMethod, "")
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 
@@ -73,14 +74,14 @@ var _ = Describe("clientroutinglabel_reconcile", func() {
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := MakePodFacts(vdbRec, fpr, logger, TestPassword)
+		pfacts := podfacts.MakePodFacts(vdbRec, fpr, logger, TestPassword)
 		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
 		pfn1 := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)
-		pfacts.Detail[pfn1].upNode = true
-		pfacts.Detail[pfn1].shardSubscriptions = 5
+		pfacts.Detail[pfn1].SetUpNode(true)
+		pfacts.Detail[pfn1].SetShardSubscriptions(5)
 		pfn2 := names.GenPodName(vdb, &vdb.Spec.Subclusters[1], 0)
-		pfacts.Detail[pfn2].shardSubscriptions = 3
-		pfacts.Detail[pfn2].upNode = true
+		pfacts.Detail[pfn2].SetShardSubscriptions(3)
+		pfacts.Detail[pfn2].SetUpNode(true)
 		r := MakeClientRoutingLabelReconciler(vdbRec, logger, vdb, &pfacts, PodRescheduleApplyMethod, vdb.Spec.Subclusters[0].Name)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 
@@ -103,13 +104,13 @@ var _ = Describe("clientroutinglabel_reconcile", func() {
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := MakePodFacts(vdbRec, fpr, logger, TestPassword)
+		pfacts := podfacts.MakePodFacts(vdbRec, fpr, logger, TestPassword)
 		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
 		sc := &vdb.Spec.Subclusters[0]
 		for i := int32(0); i < sc.Size; i++ {
 			pn := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], i)
-			pfacts.Detail[pn].upNode = true
-			pfacts.Detail[pn].shardSubscriptions = int(i) // Ensures that only one pod will not have subscriptions
+			pfacts.Detail[pn].SetUpNode(true)
+			pfacts.Detail[pn].SetShardSubscriptions(int(i)) // Ensures that only one pod will not have subscriptions
 		}
 		r := MakeClientRoutingLabelReconciler(vdbRec, logger, vdb, &pfacts, AddNodeApplyMethod, "")
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: true}))
@@ -137,11 +138,11 @@ var _ = Describe("clientroutinglabel_reconcile", func() {
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := MakePodFacts(vdbRec, fpr, logger, TestPassword)
+		pfacts := podfacts.MakePodFacts(vdbRec, fpr, logger, TestPassword)
 		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
 		pn := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)
-		pfacts.Detail[pn].upNode = true
-		pfacts.Detail[pn].shardSubscriptions = 10
+		pfacts.Detail[pn].SetUpNode(true)
+		pfacts.Detail[pn].SetShardSubscriptions(10)
 		act := MakeClientRoutingLabelReconciler(vdbRec, logger, vdb, &pfacts, AddNodeApplyMethod, "")
 		r := act.(*ClientRoutingLabelReconciler)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
@@ -152,7 +153,7 @@ var _ = Describe("clientroutinglabel_reconcile", func() {
 		Expect(ok).Should(BeTrue())
 		Expect(v).Should(Equal(vmeta.ClientRoutingVal))
 
-		pfacts.Detail[pn].isPendingDelete = true
+		pfacts.Detail[pn].SetIsPendingDelete(true)
 		r.ApplyMethod = DelNodeApplyMethod
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 

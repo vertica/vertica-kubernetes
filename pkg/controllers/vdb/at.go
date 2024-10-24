@@ -24,6 +24,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
+	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
 	config "github.com/vertica/vertica-kubernetes/pkg/vdbconfig"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -35,7 +36,7 @@ import (
 // base pod is successful, then it will attempt to copy to all of the other pods
 // -- checking errors at the end to ensure we attempt at each pod.
 func distributeAdmintoolsConf(ctx context.Context, vdb *vapi.VerticaDB, rec config.ReconcilerInterface,
-	pf *PodFacts, pr cmds.PodRunner, atConfTempFile string) error {
+	pf *podfacts.PodFacts, pr cmds.PodRunner, atConfTempFile string) error {
 	// We always distribute to a well known base pod first. The admintools.conf
 	// on this pod is used as the base for any subsequent changes.
 	basePod, err := findPodForFirstCopy(vdb, pf)
@@ -51,14 +52,14 @@ func distributeAdmintoolsConf(ctx context.Context, vdb *vapi.VerticaDB, rec conf
 	// checking at the end so that we try to copy it to each pod.
 	errs := []error{}
 	for _, p := range pf.Detail {
-		if !p.isPodRunning {
+		if !p.GetIsPodRunning() {
 			continue
 		}
 		// Skip base pod as it was copied at the start of this function.
-		if p.name == basePod {
+		if p.GetName() == basePod {
 			continue
 		}
-		_, _, e := pr.CopyToPod(ctx, p.name, names.ServerContainer, atConfTempFile, paths.AdminToolsConf)
+		_, _, e := pr.CopyToPod(ctx, p.GetName(), names.ServerContainer, atConfTempFile, paths.AdminToolsConf)
 		// Save off any error and go onto the next pod
 		if e != nil {
 			errs = append(errs, e)
@@ -77,14 +78,14 @@ func distributeAdmintoolsConf(ctx context.Context, vdb *vapi.VerticaDB, rec conf
 // findATBasePod will return the pod to use for the base admintools.conf file.
 // The base is used as the initial state of admintools.conf.  The caller then
 // applies any addition or removals of hosts from that base.
-func findATBasePod(vdb *vapi.VerticaDB, pf *PodFacts) (types.NamespacedName, error) {
+func findATBasePod(vdb *vapi.VerticaDB, pf *podfacts.PodFacts) (types.NamespacedName, error) {
 	// We always use pod -0 from the first subcluster as the base for the
 	// admintools.conf.  We assume that all pods are running by the time we get
 	// here.
 	for i := range vdb.Spec.Subclusters {
 		sc := &vdb.Spec.Subclusters[i]
 		pn := names.GenPodName(vdb, sc, 0)
-		if pf.Detail[pn].isInstalled {
+		if pf.Detail[pn].GetIsInstalled() {
 			return pn, nil
 		}
 	}
@@ -92,7 +93,7 @@ func findATBasePod(vdb *vapi.VerticaDB, pf *PodFacts) (types.NamespacedName, err
 }
 
 // findPodForFirstCopy will pick the first pod that admintools.conf should be copied to.
-func findPodForFirstCopy(vdb *vapi.VerticaDB, pf *PodFacts) (types.NamespacedName, error) {
+func findPodForFirstCopy(vdb *vapi.VerticaDB, pf *podfacts.PodFacts) (types.NamespacedName, error) {
 	basePod, _ := findATBasePod(vdb, pf)
 	if basePod != (types.NamespacedName{}) {
 		return basePod, nil
@@ -102,7 +103,7 @@ func findPodForFirstCopy(vdb *vapi.VerticaDB, pf *PodFacts) (types.NamespacedNam
 	for i := range vdb.Spec.Subclusters {
 		sc := &vdb.Spec.Subclusters[i]
 		pn := names.GenPodName(vdb, sc, 0)
-		if pf.Detail[pn].isPodRunning {
+		if pf.Detail[pn].GetIsPodRunning() {
 			return pn, nil
 		}
 	}

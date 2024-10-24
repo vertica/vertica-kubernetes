@@ -27,6 +27,7 @@ import (
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
+	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
 	"github.com/vertica/vertica-kubernetes/pkg/test"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -50,7 +51,7 @@ var _ = Describe("k8s/install_reconcile_test", func() {
 		drecon := actor.(*InstallReconciler)
 		Expect(drecon.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 		for i := int32(0); i < 3; i++ {
-			Expect(drecon.PFacts.Detail[names.GenPodName(vdb, sc, i)].isInstalled).Should(BeTrue(), fmt.Sprintf("Pod index %d", i))
+			Expect(drecon.PFacts.Detail[names.GenPodName(vdb, sc, i)].GetIsInstalled()).Should(BeTrue(), fmt.Sprintf("Pod index %d", i))
 		}
 	})
 
@@ -67,10 +68,10 @@ var _ = Describe("k8s/install_reconcile_test", func() {
 		fpr := &cmds.FakePodRunner{}
 		pfact := createPodFactsDefault(fpr)
 		Expect(pfact.Collect(ctx, vdb)).Should(Succeed())
-		pfact.Detail[names.GenPodName(vdb, sc, 1)].dbExists = false
-		pfact.Detail[names.GenPodName(vdb, sc, 1)].isInstalled = false
-		pfact.Detail[names.GenPodName(vdb, sc, 2)].dbExists = false
-		pfact.Detail[names.GenPodName(vdb, sc, 2)].isInstalled = false
+		pfact.Detail[names.GenPodName(vdb, sc, 1)].SetDBExists(false)
+		pfact.Detail[names.GenPodName(vdb, sc, 1)].SetIsInstalled(false)
+		pfact.Detail[names.GenPodName(vdb, sc, 2)].SetDBExists(false)
+		pfact.Detail[names.GenPodName(vdb, sc, 2)].SetIsInstalled(false)
 		actor := MakeInstallReconciler(vdbRec, logger, vdb, fpr, pfact)
 		drecon := actor.(*InstallReconciler)
 		drecon.ATWriter = &atconf.FakeWriter{}
@@ -93,7 +94,7 @@ var _ = Describe("k8s/install_reconcile_test", func() {
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		fpr := &cmds.FakePodRunner{Results: cmds.CmdResults{}}
-		pfact := MakePodFacts(vdbRec, fpr, logger, TestPassword)
+		pfact := podfacts.MakePodFacts(vdbRec, fpr, logger, TestPassword)
 		actor := MakeInstallReconciler(vdbRec, logger, vdb, fpr, &pfact)
 		drecon := actor.(*InstallReconciler)
 		drecon.ATWriter = &atconf.FakeWriter{}
@@ -118,7 +119,7 @@ var _ = Describe("k8s/install_reconcile_test", func() {
 		test.SetPodStatus(ctx, k8sClient, 1 /* funcOffset */, names.GenPodName(vdb, sc, 1), ScIndex, PodIndex, test.AllPodsRunning)
 
 		fpr := &cmds.FakePodRunner{}
-		pfact := MakePodFacts(vdbRec, fpr, logger, TestPassword)
+		pfact := podfacts.MakePodFacts(vdbRec, fpr, logger, TestPassword)
 		actor := MakeInstallReconciler(vdbRec, logger, vdb, fpr, &pfact)
 		drecon := actor.(*InstallReconciler)
 		res, err := drecon.Reconcile(ctx, &ctrl.Request{})
@@ -156,13 +157,13 @@ var _ = Describe("k8s/install_reconcile_test", func() {
 		pfact := createPodFactsWithInstallNeeded(ctx, vdb, fpr)
 		// Make pod-1 not running.  This will prevent install of pod-1 and pod-2
 		pn := names.GenPodName(vdb, sc, 1)
-		pfact.Detail[pn].isPodRunning = false
+		pfact.Detail[pn].SetIsPodRunning(false)
 		actor := MakeInstallReconciler(vdbRec, logger, vdb, fpr, pfact)
 		drecon := actor.(*InstallReconciler)
 		podList, err := drecon.getInstallTargets(ctx)
 		Expect(err).Should(Succeed())
 		Expect(len(podList)).Should(Equal(1))
-		Expect(podList[0].name).Should(Equal(names.GenPodName(vdb, sc, 0)))
+		Expect(podList[0].GetName()).Should(Equal(names.GenPodName(vdb, sc, 0)))
 	})
 
 	It("should generate https config with admintools", func() {

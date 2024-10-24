@@ -21,10 +21,10 @@ import (
 	"github.com/go-logr/logr"
 	v1 "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
-	vdbcontroller "github.com/vertica/vertica-kubernetes/pkg/controllers/vdb"
 	"github.com/vertica/vertica-kubernetes/pkg/iter"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
+	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
 	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -35,11 +35,11 @@ type ScaleStafulsetReconciler struct {
 	VRec   *SandboxConfigMapReconciler
 	Vdb    *v1.VerticaDB
 	Log    logr.Logger
-	PFacts *vdbcontroller.PodFacts
+	PFacts *podfacts.PodFacts
 }
 
 func MakeScaleStafulsetReconciler(r *SandboxConfigMapReconciler,
-	vdb *v1.VerticaDB, pfacts *vdbcontroller.PodFacts) controllers.ReconcileActor {
+	vdb *v1.VerticaDB, pfacts *podfacts.PodFacts) controllers.ReconcileActor {
 	return &ScaleStafulsetReconciler{
 		VRec:   r,
 		Vdb:    vdb,
