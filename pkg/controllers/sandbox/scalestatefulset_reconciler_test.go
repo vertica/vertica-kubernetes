@@ -22,8 +22,8 @@ import (
 	. "github.com/onsi/gomega"
 	v1 "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
-	vdbcontroller "github.com/vertica/vertica-kubernetes/pkg/controllers/vdb"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
+	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
 	"github.com/vertica/vertica-kubernetes/pkg/test"
 	appsv1 "k8s.io/api/apps/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -56,7 +56,7 @@ var _ = Describe("scalestatefulset_reconciler", func() {
 
 		vdb.Spec.Subclusters[0].Shutdown = true
 		fpr := &cmds.FakePodRunner{}
-		pfacts := vdbcontroller.MakePodFacts(sbRec, fpr, logger, TestPassword)
+		pfacts := podfacts.MakePodFacts(sbRec, fpr, logger, TestPassword)
 		pfacts.SandboxName = sc1
 		r := MakeScaleStafulsetReconciler(sbRec, vdb, &pfacts)
 		res, err := r.Reconcile(ctx, &ctrl.Request{})
