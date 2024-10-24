@@ -138,6 +138,7 @@ echo "Deployment method: $VERTICA_DEPLOYMENT_METHOD"
 echo "Image version: $(determine_image_version $VERTICA_IMG)"
 echo "Vertica superuser name: $VERTICA_SUPERUSER_NAME"
 echo "Test running on Github CI: $FOR_GITHUB_CI"
+echo "Broadcaster burst size: $BROADCASTER_BURST_SIZE"
 
 function create_vdb_kustomization {
     BASE_DIR=$1
