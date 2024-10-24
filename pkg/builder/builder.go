@@ -1257,6 +1257,7 @@ func getStorageClassName(vdb *vapi.VerticaDB) *string {
 
 // BuildStsSpec builds manifest for a subclusters statefulset
 func BuildStsSpec(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi.Subcluster) *appsv1.StatefulSet {
+	scSize := sc.GetStsSize(vdb)
 	return &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        nm.Name,
@@ -1269,7 +1270,7 @@ func BuildStsSpec(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi.Subclus
 				MatchLabels: MakeStsSelectorLabels(vdb, sc),
 			},
 			ServiceName: names.GenHlSvcName(vdb).Name,
-			Replicas:    &sc.Size,
+			Replicas:    &scSize,
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels:      MakeLabelsForPodObject(vdb, sc),

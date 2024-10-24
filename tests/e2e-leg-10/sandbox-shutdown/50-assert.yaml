@@ -21,6 +21,20 @@ involvedObject:
   kind: VerticaDB
   name: v-sandbox-shutdown
 ---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: v-sandbox-shutdown-sec1
+status:
+  replicas: 0
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: v-sandbox-shutdown-sec3
+status:
+  replicas: 0
+---
 apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
@@ -41,14 +55,14 @@ status:
   subclusters:
     - addedToDBCount: 3
       name: pri1
-    - addedToDBCount: 3
+    - addedToDBCount: 0
       upNodeCount: 0
       shutdown: true
       name: sec1
     - addedToDBCount: 1
       upNodeCount: 1
       name: sec2
-    - addedToDBCount: 1
+    - addedToDBCount: 0
       upNodeCount: 0
       shutdown: true
       name: sec3

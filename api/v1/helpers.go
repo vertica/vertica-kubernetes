@@ -402,6 +402,21 @@ func (s *Subcluster) IsZombie(vdb *VerticaDB) bool {
 	return !foundInSandbox && !foundInSandboxStatus
 }
 
+// GetStsSize returns the number of replicas that will be assigned
+// to the statefulset. By default it is the subcluster's size, and
+// zero if the subcluster has shutdown true.
+func (s *Subcluster) GetStsSize(vdb *VerticaDB) int32 {
+	if !s.Shutdown {
+		return s.Size
+	}
+	scStatusMap := vdb.GenSubclusterStatusMap()
+	ss := scStatusMap[s.Name]
+	if ss != nil && ss.Shutdown {
+		return 0
+	}
+	return s.Size
+}
+
 // FindSubclusterForServiceName will find any subclusters that match the given service name
 func (v *VerticaDB) FindSubclusterForServiceName(svcName string) (scs []*Subcluster, totalSize int32) {
 	totalSize = int32(0)
@@ -968,6 +983,22 @@ func (v *VerticaDB) GetSubclusterSandboxName(scName string) string {
 		}
 	}
 	return MainCluster
+}
+
+func (v *VerticaDB) GenShutdownSubclusterMap() map[string]*Subcluster {
+	scStatusMap := v.GenSubclusterStatusMap()
+	scMap := map[string]*Subcluster{}
+	for i := range v.Spec.Subclusters {
+		sc := &v.Spec.Subclusters[i]
+		scStatus := scStatusMap[sc.Name]
+		if scStatus == nil {
+			continue
+		}
+		if scStatus.Shutdown {
+			scMap[sc.Name] = sc
+		}
+	}
+	return scMap
 }
 
 // getNumberOfNodes returns the number of nodes defined in the database, as per the CR.
