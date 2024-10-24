@@ -108,6 +108,9 @@ func (v *VerticaDB) ValidateCreate() error {
 	allErrs := v.validateVerticaDBSpec()
 	v.hasNoShutdownSubclusters(allErrs)
 	v.hasNoShutdownSandboxes(allErrs)
+	if len(allErrs) == 0 {
+		return nil
+	}
 	return apierrors.NewInvalid(schema.GroupKind{Group: Group, Kind: VerticaDBKind}, v.Name, allErrs)
 }
 
@@ -120,6 +123,9 @@ func (v *VerticaDB) ValidateUpdate(old runtime.Object) error {
 	v.validateTerminatingSandboxes(old, allErrs)
 	v.validateAnnotatedSubclustersInShutdownSandbox(old, allErrs)
 	v.validateUnsandboxShutdownConditions(old, allErrs)
+	if len(allErrs) == 0 {
+		return nil
+	}
 	return apierrors.NewInvalid(schema.GroupKind{Group: Group, Kind: VerticaDBKind}, v.Name, allErrs)
 }
 
@@ -227,9 +233,6 @@ func (v *VerticaDB) validateVerticaDBSpec() field.ErrorList {
 	allErrs = v.hasValidReplicaGroups(allErrs)
 	allErrs = v.validateVersionAnnotation(allErrs)
 	allErrs = v.validateSandboxes(allErrs)
-	if len(allErrs) == 0 {
-		return nil
-	}
 	return allErrs
 }
 
