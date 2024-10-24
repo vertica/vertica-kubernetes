@@ -312,9 +312,11 @@ const (
 	// This will be set in a sandbox configMap by the vdb controller to wake up the sandbox
 	// controller for unsandboxing the subclusters
 	SandboxControllerUnsandboxTriggerID = "vertica.com/sandbox-controller-unsandbox-trigger-id"
-	// This will  be set in a sandbox configMap bu the vdb controller to wake up the sandbox
+	// This will  be set in a sandbox configMap by the vdb controller to wake up the sandbox
 	// controller for stopping/starting a sandbox
 	SandboxControllerShutdownTriggerID = "vertica.com/sandbox-controller-shutdown-trigger-id"
+	// This will  be set in a subclusters configMap by the vdb controller to stop/start a subcluter
+	VdbControllerShutdownClusterTriggerID = "vertica.com/vdb-controller-shutdown-subcluster-trigger-id"
 
 	// Use this to override the name of the statefulset and its pods. This needs
 	// to be set in the spec.subclusters[].annotations field to take effect. If
@@ -330,6 +332,10 @@ const (
 	// This indicates that the subcluster shutdown is controlled by the sandbox
 	// through the sandbox's shutdown field.
 	ShutdownDrivenBySandbox = "vertica.com/shutdown-driven-by-sandbox"
+
+	// This indicates that the subcluster shutdown is controlled by the subcluster's
+	// shutdown field.
+	ShutdownDrivenBySubcluster = "vertica.com/shutdown-driven-by-subcluster"
 )
 
 // IsPauseAnnotationSet will check the annotations for a special value that will
@@ -626,6 +632,12 @@ func GetStsNameOverride(annotations map[string]string) string {
 
 func GetShutdownDrivenBySandbox(annotations map[string]string) bool {
 	return lookupBoolAnnotation(annotations, ShutdownDrivenBySandbox, false)
+}
+
+// GetShutdownDrivenBySubcluster returns the bool value if the operator
+// will shutdown the subcluster and not try to restart it.
+func GetShutdownDrivenBySubcluster(annotations map[string]string) bool {
+	return lookupBoolAnnotation(annotations, ShutdownDrivenBySubcluster, false)
 }
 
 // GetExtraLocalPaths returns the comma separated list of extra local paths
