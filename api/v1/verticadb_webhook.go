@@ -121,8 +121,9 @@ func (v *VerticaDB) ValidateUpdate(old runtime.Object) error {
 	allErrs := append(v.validateImmutableFields(old), v.validateVerticaDBSpec()...)
 	allErrs = v.validateShutdownSandboxImage(old, allErrs)
 	allErrs = v.validateTerminatingSandboxes(old, allErrs)
-	allErrs = v.validateAnnotatedSubclustersInShutdownSandbox(old, allErrs)
+	// allErrs = v.validateAnnotatedSubclustersInShutdownSandbox(old, allErrs)
 	allErrs = v.validateUnsandboxShutdownConditions(old, allErrs)
+	allErrs = v.validateShutdownInSBoxAndSCluster(old, allErrs)
 	if len(allErrs) == 0 {
 		return nil
 	}
@@ -1663,14 +1664,14 @@ func (v *VerticaDB) checkImmutableSubclusterInSandbox(oldObj *VerticaDB, allErrs
 
 	allErrs = v.checkSubclusterSizeInSandbox(allErrs, persistScsWithSbIndex, newScIndexMap, oldScMap,
 		newScMap, path)
-	allErrs = v.checkIfShutdownAnnotationAdded(allErrs, persistScsWithSbIndex, newScIndexMap, oldScMap,
-		newScMap, path)
+	// allErrs = v.checkIfShutdownAnnotationAdded(allErrs, persistScsWithSbIndex, newScIndexMap, oldScMap,
+	// 	newScMap, path)
 	allErrs = v.checkSandboxSubclustersRemoved(allErrs, oldObj, oldScIndexMap, oldScMap, newScMap, path)
 	return v.checkSandboxPrimary(allErrs, oldObj, oldScIndexMap, oldScMap, path)
 }
 
 // ensure a user does not add "vertica.com/shutdown-driven-by-sandbox" annotation to a subcluster in a sandbox
-func (v *VerticaDB) checkIfShutdownAnnotationAdded(allErrs field.ErrorList, persistScsWithSbIndex, newScIndexMap map[string]int,
+/* func (v *VerticaDB) checkIfShutdownAnnotationAdded(allErrs field.ErrorList, persistScsWithSbIndex, newScIndexMap map[string]int,
 	oldScMap, newScMap map[string]*Subcluster, path *field.Path) field.ErrorList {
 	for sCluster, i := range persistScsWithSbIndex {
 		oldScluster, oldSclusterFound := oldScMap[sCluster]
@@ -1699,7 +1700,7 @@ func (v *VerticaDB) checkIfShutdownAnnotationAdded(allErrs field.ErrorList, pers
 		}
 	}
 	return allErrs
-}
+} */
 
 // checkSubclusterSizeInSandbox checks if the sizes of subclusters in a sandbox get changed
 func (v *VerticaDB) checkSubclusterSizeInSandbox(allErrs field.ErrorList, persistScsWithSbIndex, newScIndexMap map[string]int,
@@ -1819,6 +1820,7 @@ func (v *VerticaDB) validateUnsandboxShutdownConditions(old runtime.Object, allE
 					fmt.Sprintf("cannot unsandbox subcluster %q that has Shutdown field set to true",
 						oldSubclusterName))
 				allErrs = append(allErrs, err)
+				continue
 			}
 			if oldSandbox.Shutdown {
 				p := field.NewPath("spec").Child("sandboxes")
@@ -1827,6 +1829,36 @@ func (v *VerticaDB) validateUnsandboxShutdownConditions(old runtime.Object, allE
 					fmt.Sprintf("cannot unsandbox subcluster %q in sandbox %q that has Shutdown field set to true",
 						oldSubclusterName, oldSandboxName))
 				allErrs = append(allErrs, err)
+				continue
+			}
+		}
+	}
+	return allErrs
+}
+
+// ensure when Shutdown for sandbox is true, a user will set Shutdown to false for any of its subclusters
+func (v *VerticaDB) validateShutdownInSBoxAndSCluster(old runtime.Object, allErrs field.ErrorList) field.ErrorList {
+	oldObj := old.(*VerticaDB)
+	persistSandboxes := v.findPersistSandboxes(oldObj)
+	newSandboxMap := v.GenSandboxMap()
+	newSClusterIndexMap := v.GenSubclusterIndexMap()
+	newSubclusterMap := v.GenSubclusterMap()
+	oldSubclusterMap := oldObj.GenSubclusterMap()
+	for _, sandboxName := range persistSandboxes {
+		newSandbox := newSandboxMap[sandboxName]
+		if newSandbox.Shutdown {
+			for _, newSClusterName := range newSandbox.Subclusters {
+				newSCluster := newSubclusterMap[newSClusterName.Name]
+				oldSCluster, oldSClusterFound := oldSubclusterMap[newSClusterName.Name]
+				if oldSClusterFound && oldSCluster.Shutdown && !newSCluster.Shutdown {
+					index := newSClusterIndexMap[newSClusterName.Name]
+					p := field.NewPath("spec").Child("subclusters")
+					err := field.Invalid(p.Index(index),
+						newSClusterName.Name,
+						fmt.Sprintf("cannot set Shutdown field for subcluster %q to false while the Shutdown field for sandbox %q is true",
+							newSClusterName.Name, sandboxName))
+					allErrs = append(allErrs, err)
+				}
 			}
 		}
 	}
@@ -1835,7 +1867,7 @@ func (v *VerticaDB) validateUnsandboxShutdownConditions(old runtime.Object, allE
 
 // ensure: when a sandbox is to be shutdown, if a subcluster in it has annotation vertica.com/shutdown-driven-by-sandbox set to true, the
 // subcluster's shutdown field should not be updated
-func (v *VerticaDB) validateAnnotatedSubclustersInShutdownSandbox(old runtime.Object, allErrs field.ErrorList) field.ErrorList {
+/* func (v *VerticaDB) validateAnnotatedSubclustersInShutdownSandbox(old runtime.Object, allErrs field.ErrorList) field.ErrorList {
 	oldObj := old.(*VerticaDB)
 	persistSandboxes := v.findPersistSandboxes(oldObj)
 	newSandboxMap := v.GenSandboxMap()
@@ -1865,7 +1897,7 @@ func (v *VerticaDB) validateAnnotatedSubclustersInShutdownSandbox(old runtime.Ob
 		}
 	}
 	return allErrs
-}
+} */
 
 func (v *VerticaDB) validateShutdownSandboxImage(old runtime.Object, allErrs field.ErrorList) field.ErrorList {
 	oldObj := old.(*VerticaDB)
