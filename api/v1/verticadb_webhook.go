@@ -278,7 +278,7 @@ func (v *VerticaDB) hasNoShutdownSubclusters(allErrs field.ErrorList) field.Erro
 		fieldPrefix := field.NewPath("spec").Child("subclusters").Index(i)
 		err := field.Invalid(fieldPrefix.Child("shutdown"),
 			subcluster.Shutdown,
-			"Shutdown field for a subcluster to be created should be set be false")
+			"Shutdown field for a subcluster to be created should be set to false")
 		allErrs = append(allErrs, err)
 	}
 	return allErrs
