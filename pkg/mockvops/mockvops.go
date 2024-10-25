@@ -69,6 +69,9 @@ func (*MockVClusterOps) VStartNodes(_ *vclusterops.VStartNodesOptions) error {
 func (*MockVClusterOps) VStopDatabase(_ *vclusterops.VStopDatabaseOptions) error {
 	return nil
 }
+func (*MockVClusterOps) VStopSubcluster(_ *vclusterops.VStopSubclusterOptions) error {
+	return nil
+}
 func (*MockVClusterOps) VInstallPackages(_ *vclusterops.VInstallPackagesOptions) (*vclusterops.InstallPackageStatus, error) {
 	return nil, nil
 }
