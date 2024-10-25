@@ -24,7 +24,7 @@ metadata:
 spec:
   image: kustomize-vertica-image
   dbName: repUP
-  initPolicy: Create
+  initPolicy: CreateSkipPackageInstall
   upgradePolicy: Online
   communal: {}
   local:
