@@ -16,4 +16,4 @@ kind: Pod
 metadata:
   name: v-base-upgrade-sec2-0
 status:
- phase: pending
+ phase: Pending

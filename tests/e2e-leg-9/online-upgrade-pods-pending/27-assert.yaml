@@ -16,11 +16,11 @@ kind: Pod
 metadata:
   name: v-base-upgrade-sec2-0
 status:
- phase: pending
+ phase: Pending
 ---
 apiVersion: vertica.com/v1beta1
 kind: VerticaDB
 metadata:
   name: v-base-upgrade
 status:
-  upgradeStatus: "Requeue as pods not running"
+  upgradeStatus: "Requeue as not all pods are running"

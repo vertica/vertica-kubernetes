@@ -65,7 +65,7 @@ const (
 // be sure to add a *StatusMsgInx const below.
 var onlineUpgradeStatusMsgs = []string{
 	"Starting online upgrade",
-	"Requeue as pods not running",
+	"Requeue as not all pods are running",
 	"Create new subclusters to mimic subclusters in the main cluster",
 	fmt.Sprintf("Querying the original value of config parameter %q", ConfigParamDisableNonReplicatableQueries),
 	fmt.Sprintf("Disable non-replicatable queries by setting config parameter %q", ConfigParamDisableNonReplicatableQueries),
