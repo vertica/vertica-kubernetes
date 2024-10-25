@@ -233,6 +233,9 @@ func (v *VerticaDB) validateVerticaDBSpec() field.ErrorList {
 	allErrs = v.hasValidReplicaGroups(allErrs)
 	allErrs = v.validateVersionAnnotation(allErrs)
 	allErrs = v.validateSandboxes(allErrs)
+	if len(allErrs) == 0 {
+		return nil
+	}
 	return allErrs
 }
 
@@ -1660,8 +1663,42 @@ func (v *VerticaDB) checkImmutableSubclusterInSandbox(oldObj *VerticaDB, allErrs
 
 	allErrs = v.checkSubclusterSizeInSandbox(allErrs, persistScsWithSbIndex, newScIndexMap, oldScMap,
 		newScMap, path)
+	allErrs = v.checkIfShutdownAnnotationAdded(allErrs, persistScsWithSbIndex, newScIndexMap, oldScMap,
+		newScMap, path)
 	allErrs = v.checkSandboxSubclustersRemoved(allErrs, oldObj, oldScIndexMap, oldScMap, newScMap, path)
 	return v.checkSandboxPrimary(allErrs, oldObj, oldScIndexMap, oldScMap, path)
+}
+
+// ensure a user does not add "vertica.com/shutdown-driven-by-sandbox" annotation to a subcluster in a sandbox
+func (v *VerticaDB) checkIfShutdownAnnotationAdded(allErrs field.ErrorList, persistScsWithSbIndex, newScIndexMap map[string]int,
+	oldScMap, newScMap map[string]*Subcluster, path *field.Path) field.ErrorList {
+	for sCluster, i := range persistScsWithSbIndex {
+		oldScluster, oldSclusterFound := oldScMap[sCluster]
+		newScluster, newSclusterFound := newScMap[sCluster]
+		if !oldSclusterFound || !newSclusterFound {
+			err := field.Invalid(path.Index(i),
+				v.Spec.Sandboxes[i],
+				fmt.Sprintf("Subcluster %s in vdb.spec.sandboxes cannot be found in vdb.spec.subclusters", sCluster))
+			allErrs = append(allErrs, err)
+			continue
+		}
+		oldAnnotated := false
+		if oldScluster.Annotations != nil {
+			_, oldAnnotated = oldScluster.Annotations["vertica.com/shutdown-driven-by-sandbox"]
+		}
+		newAnnotated := false
+		if newScluster.Annotations != nil {
+			_, newAnnotated = newScluster.Annotations["vertica.com/shutdown-driven-by-sandbox"]
+		}
+		if !oldAnnotated && newAnnotated {
+			index := newScIndexMap[sCluster]
+			err := field.Invalid(path.Index(index),
+				v.Spec.Subclusters[index],
+				fmt.Sprintf("A user cannot add annotation \"vertica.com/shutdown-driven-by-sandbox\" to subcluster %q ", sCluster))
+			allErrs = append(allErrs, err)
+		}
+	}
+	return allErrs
 }
 
 // checkSubclusterSizeInSandbox checks if the sizes of subclusters in a sandbox get changed
