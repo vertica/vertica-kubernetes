@@ -167,13 +167,13 @@ func (r *OnlineUpgradeReconciler) Reconcile(ctx context.Context, _ *ctrl.Request
 
 	// Functions to perform when the image changes.  Order matters.
 	funcs := []func(context.Context) (ctrl.Result, error){
-		// Requeue if not all nodes are running
-		r.postRequeuePodsNotRunningMsg,
-		r.requeuePodsNotRunning,
 		// Initiate an upgrade by setting condition and event recording
 		r.startUpgrade,
 		r.logEventIfThisUpgradeWasNotChosen,
 		r.postStartOnlineUpgradeMsg,
+		// Requeue if not all nodes are running
+		r.postRequeuePodsNotRunningMsg,
+		r.requeuePodsNotRunning,
 		// Load up state that is used for the subsequent steps
 		r.loadUpgradeState,
 		// Assign subclusters to upgrade to replica group A
