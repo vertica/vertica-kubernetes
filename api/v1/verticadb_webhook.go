@@ -106,8 +106,8 @@ func (v *VerticaDB) ValidateCreate() error {
 	verticadblog.Info("validate create", "name", v.Name, "GroupVersion", GroupVersion)
 
 	allErrs := v.validateVerticaDBSpec()
-	v.hasNoShutdownSubclusters(allErrs)
-	v.hasNoShutdownSandboxes(allErrs)
+	allErrs = v.hasNoShutdownSubclusters(allErrs)
+	allErrs = v.hasNoShutdownSandboxes(allErrs)
 	if len(allErrs) == 0 {
 		return nil
 	}
@@ -119,10 +119,10 @@ func (v *VerticaDB) ValidateUpdate(old runtime.Object) error {
 	verticadblog.Info("validate update", "name", v.Name, "GroupVersion", GroupVersion)
 
 	allErrs := append(v.validateImmutableFields(old), v.validateVerticaDBSpec()...)
-	v.validateShutdownSandboxImage(old, allErrs)
-	v.validateTerminatingSandboxes(old, allErrs)
-	v.validateAnnotatedSubclustersInShutdownSandbox(old, allErrs)
-	v.validateUnsandboxShutdownConditions(old, allErrs)
+	allErrs = v.validateShutdownSandboxImage(old, allErrs)
+	allErrs = v.validateTerminatingSandboxes(old, allErrs)
+	allErrs = v.validateAnnotatedSubclustersInShutdownSandbox(old, allErrs)
+	allErrs = v.validateUnsandboxShutdownConditions(old, allErrs)
 	if len(allErrs) == 0 {
 		return nil
 	}
@@ -275,7 +275,7 @@ func (v *VerticaDB) hasNoShutdownSubclusters(allErrs field.ErrorList) field.Erro
 		fieldPrefix := field.NewPath("spec").Child("subclusters").Index(i)
 		err := field.Invalid(fieldPrefix.Child("shutdown"),
 			subcluster.Shutdown,
-			"Shutdown setting for a subcluster to be created should be set be false")
+			"Shutdown field for a subcluster to be created should be set be false")
 		allErrs = append(allErrs, err)
 	}
 	return allErrs
@@ -291,7 +291,7 @@ func (v *VerticaDB) hasNoShutdownSandboxes(allErrs field.ErrorList) field.ErrorL
 		}
 		err := field.Invalid(path.Index(i),
 			sandboxes[i],
-			"Shutdown setting for a sandbox to be created should be set to false")
+			"Shutdown field for a sandbox to be created should be set to false")
 		allErrs = append(allErrs, err)
 	}
 	return allErrs
