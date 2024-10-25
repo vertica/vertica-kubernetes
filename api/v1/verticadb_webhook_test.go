@@ -1435,6 +1435,20 @@ var _ = Describe("verticadb_webhook", func() {
 		Ω(newVdb.validateUnsandboxShutdownConditions(oldVdb, field.ErrorList{})).Should(HaveLen(1))
 		oldVdb.Spec.Sandboxes[0].Shutdown = false
 		Ω(newVdb.validateUnsandboxShutdownConditions(oldVdb, field.ErrorList{})).Should(HaveLen(0))
+
+		oldVdb.Spec.Subclusters[1].Shutdown = true
+		oldVdb.Spec.Subclusters[2].Shutdown = true
+		oldVdb.Spec.Subclusters[3].Shutdown = true
+		oldVdb.Spec.Sandboxes[0].Shutdown = true
+		newVdb = oldVdb.DeepCopy()
+		newVdb.Spec.Sandboxes = []Sandbox{
+			{Name: "sand1", Shutdown: true, Subclusters: []SubclusterName{{Name: "sc2"}, {Name: "sc4"}}}, // to unsandbox sc3
+		}
+		Ω(newVdb.validateUnsandboxShutdownConditions(oldVdb, field.ErrorList{})).Should(HaveLen(1))
+		newVdb.Spec.Sandboxes = []Sandbox{
+			{Name: "sand1", Shutdown: true, Subclusters: []SubclusterName{{Name: "sc2"}, {Name: "sc3"}, {Name: "sc4"}}}, // to unsandbox sc3
+		}
+		Ω(newVdb.validateUnsandboxShutdownConditions(oldVdb, field.ErrorList{})).Should(HaveLen(0))
 	})
 
 	It("should not change image for a sandbox if shutdown is set for it or its subcluster in either spec or status", func() {
