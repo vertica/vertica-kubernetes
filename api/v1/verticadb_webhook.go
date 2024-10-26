@@ -1804,12 +1804,13 @@ func (v *VerticaDB) validateUnsandboxShutdownConditions(old runtime.Object, allE
 	oldSubclusterMap := oldObj.GenSubclusterMap()
 	oldSandboxMap := oldObj.GenSandboxMap()
 	oldSubclusterIndexMap := oldObj.GenSubclusterIndexMap()
+	newSubclusterMap := v.GenSubclusterMap()
 
 	for oldSubclusterName, oldSandboxName := range oldSubclusterInSandbox {
 		_, oldSubclusterInNewSandboxes := newSuclusterInSandbox[oldSubclusterName]
-
+		_, oldSubclusterInPersist := newSubclusterMap[oldSubclusterName]
 		// for unsandboxing, check shutdown field of the subcluster and sandbox
-		if !oldSubclusterInNewSandboxes {
+		if !oldSubclusterInNewSandboxes && oldSubclusterInPersist {
 			oldSubcluster := oldSubclusterMap[oldSubclusterName]
 			oldSandbox := oldSandboxMap[oldSandboxName]
 			oldSubclusterIndex := oldSubclusterIndexMap[oldSubclusterName]
