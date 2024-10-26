@@ -38,6 +38,7 @@ on:
         - admintools leg 2
         - admintools leg 3
         - admintools leg 4
+        - admintools leg 4 vdb-gen
         - admintools leg 5
         - admintools server upgrade
         - admintools operator upgrade
@@ -46,11 +47,14 @@ on:
         - vcluster leg 2
         - vcluster leg 3
         - vcluster leg 4
+        - vcluster leg 4 vdb-gen
         - vcluster leg 5
         - vcluster leg 6
+        - vcluster leg 6 revivedb
         - vcluster leg 7
         - leg 8
         - vcluster leg 9
+        - vcluster leg 10
         - vcluster server upgrade
         - vcluster udx
       run_security_scan:
@@ -332,7 +336,7 @@ jobs:
           helm-overrides: '--set webhook.certSource=cert-manager'
 
   e2e-leg-4-admintools-vdb-gen:
-    if: ${{ ! contains(github.ref, 'k8s-sync')  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools leg 4' || inputs.e2e_test_suites == '') }}
+    if: ${{ ! contains(github.ref, 'k8s-sync')  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools leg 4 vdb-gen' || inputs.e2e_test_suites == '') }}
     needs: [build]
     runs-on: ubuntu-latest
     steps:
@@ -355,7 +359,7 @@ jobs:
           need-legacy-image: true
   
   e2e-leg-4-vcluster-vdb-gen:
-    if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'vcluster leg 4' || inputs.e2e_test_suites == '')}}
+    if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'vcluster leg 4 vdb-gen' || inputs.e2e_test_suites == '')}}
     needs: [build]
     runs-on: ubuntu-latest
     steps:
@@ -446,7 +450,7 @@ jobs:
           minimum-vertica-image: '24.2.0'
 
   e2e-leg-6-vcluster-revivedb:
-    if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'vcluster leg 6' || inputs.e2e_test_suites == '')}}
+    if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'vcluster leg 6 revivedb' || inputs.e2e_test_suites == '')}}
     needs: [build]
     runs-on: ubuntu-latest
     steps:
@@ -553,7 +557,7 @@ jobs:
           need-base-vertica-image: 'true'
 
   e2e-leg-10-vcluster:
-    if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'vcluster leg 9' || inputs.e2e_test_suites == '')}}
+    if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'vcluster leg 10' || inputs.e2e_test_suites == '')}}
     needs: [build]
     runs-on: ubuntu-latest
     steps:
