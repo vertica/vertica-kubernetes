@@ -331,6 +331,51 @@ jobs:
           # All helm deployments will use cert-manager to create the webhook cert
           helm-overrides: '--set webhook.certSource=cert-manager'
 
+  e2e-leg-4-admintools-vdb-gen:
+    if: ${{ ! contains(github.ref, 'k8s-sync')  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools leg 4' || inputs.e2e_test_suites == '') }}
+    needs: [build]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Test
+        uses: ./.github/actions/run-e2e-leg
+        with:
+          leg-identifier: 'leg-4-vdb-gen'
+          dockerhub-username: ${{ secrets.DOCKERHUB_USERNAME }}
+          dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}
+          vlogger-image: ${{ needs.build.outputs.vlogger-image }}
+          operator-image: ${{ needs.build.outputs.operator-image }}
+          vertica-image: ${{ needs.build.outputs.legacy-vertica-image }}
+          vertica-deployment-method: admintools
+          communal-storage-type: s3
+          vertica-superuser-name: dbadmin
+          # All helm deployments will use cert-manager to create the webhook cert
+          helm-overrides: '--set webhook.certSource=cert-manager'
+          need-legacy-image: true
+  
+  e2e-leg-4-vcluster-vdb-gen:
+    if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'vcluster leg 4' || inputs.e2e_test_suites == '')}}
+    needs: [build]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Test
+        uses: ./.github/actions/run-e2e-leg
+        with:
+          leg-identifier: 'leg-4-vdb-gen'
+          dockerhub-username: ${{ secrets.DOCKERHUB_USERNAME }}
+          dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}
+          vlogger-image: ${{ needs.build.outputs.vlogger-image }}
+          operator-image: ${{ needs.build.outputs.operator-image }}
+          vertica-image: ${{ needs.build.outputs.minimal-vertica-image }}
+          vertica-deployment-method: vclusterops
+          communal-storage-type: s3
+          vertica-superuser-name: myadmin
+          # All helm deployments will use cert-manager to create the webhook cert
+          helm-overrides: '--set webhook.certSource=cert-manager'
+
   e2e-leg-5-admintools:
     if: ${{ ! contains(github.ref, 'k8s-sync')  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools leg 5' || inputs.e2e_test_suites == '') }}
     needs: [build]
@@ -646,6 +691,7 @@ jobs:
       e2e-leg-3-vclusterops-previous-release,
       e2e-leg-3-vcluster,
       e2e-leg-4-vcluster,
+      e2e-leg-4-vcluster-vdb-gen,
       e2e-leg-5-vcluster,
       e2e-leg-6-vcluster,
       e2e-leg-6-vcluster-revivedb,
@@ -661,6 +707,7 @@ jobs:
       e2e-leg-2-admintools, 
       e2e-leg-3-admintools, 
       e2e-leg-4-admintools, 
+      e2e-leg-4-admintools-vdb-gen, 
       e2e-leg-5-admintools, 
       e2e-server-upgrade-admintools, 
       e2e-udx-admintools
@@ -691,6 +738,7 @@ jobs:
       e2e-leg-3-vclusterops-previous-release,
       e2e-leg-3-vcluster,
       e2e-leg-4-vcluster,
+      e2e-leg-4-vcluster-vdb-gen,
       e2e-leg-5-vcluster,
       e2e-leg-6-vcluster,
       e2e-leg-6-vcluster-revivedb,

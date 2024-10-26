@@ -11,10 +11,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: kuttl.dev/v1beta1
-kind: TestAssert
-timeout: 900
----
 apiVersion: vertica.com/v1beta1
 kind: VerticaDB
 metadata:
