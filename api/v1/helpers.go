@@ -985,22 +985,6 @@ func (v *VerticaDB) GetSubclusterSandboxName(scName string) string {
 	return MainCluster
 }
 
-func (v *VerticaDB) GenShutdownSubclusterMap() map[string]*Subcluster {
-	scStatusMap := v.GenSubclusterStatusMap()
-	scMap := map[string]*Subcluster{}
-	for i := range v.Spec.Subclusters {
-		sc := &v.Spec.Subclusters[i]
-		scStatus := scStatusMap[sc.Name]
-		if scStatus == nil {
-			continue
-		}
-		if scStatus.Shutdown {
-			scMap[sc.Name] = sc
-		}
-	}
-	return scMap
-}
-
 // getNumberOfNodes returns the number of nodes defined in the database, as per the CR.
 func (v *VerticaDB) getNumberOfNodes() int {
 	count := 0

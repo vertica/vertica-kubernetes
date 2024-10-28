@@ -68,7 +68,7 @@ func (s *ScaleStafulsetReconciler) Reconcile(ctx context.Context, _ *ctrl.Reques
 				return nil
 			}
 			newSize := sc.GetStsSize(s.Vdb)
-			if oldSize == &newSize {
+			if *oldSize == newSize {
 				return nil
 			}
 			sts.Spec.Replicas = &newSize
