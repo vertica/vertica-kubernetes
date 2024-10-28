@@ -1,0 +1,27 @@
+# (c) Copyright [2021-2024] Open Text.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# You may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  # Copy vdb-gen into the container.  We run it in the container so that it has
+  # access to k8s network.  Running it outside k8s, it would only have access to
+  # what is exposed.
+  - command: kubectl -n $NAMESPACE cp ../../../bin/vdb-gen v-vdb-gen-revive-sc1-0:/tmp/vdb-gen
+  - command: kubectl -n $NAMESPACE exec v-vdb-gen-revive-sc1-0 -- chmod +x /tmp/vdb-gen
+  - command: kubectl -n $NAMESPACE cp run-vdb-gen.sh v-vdb-gen-revive-sc1-0:/tmp/run-vdb-gen.sh
+  - command: kubectl -n $NAMESPACE exec v-vdb-gen-revive-sc1-0 -- chmod +x /tmp/run-vdb-gen.sh
+  - script: sh -c "kubectl -n $NAMESPACE exec v-vdb-gen-revive-sc1-0 -- sh -c \"/tmp/run-vdb-gen.sh $NAMESPACE $(cd ../../.. && make echo-images | grep ^VERTICA_IMG= | cut -d'=' -f2) v-vdb-gen-revive2 v-vdb-gen-revive-ca-cert ${VERTICA_DEPLOYMENT_METHOD:-admintools} ${VERTICA_SUPERUSER_NAME:-dbadmin} v-vdb-gen-revive-sc2-0 v-vdb-gen-revive\" > /tmp/$NAMESPACE-vdb-gen.yaml"
+  - command: cat /tmp/$NAMESPACE-vdb-gen.yaml
+  # Remove the old vdb
+  - command: kubectl -n $NAMESPACE delete vdb v-vdb-gen-revive
