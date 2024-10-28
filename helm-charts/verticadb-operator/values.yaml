@@ -47,6 +47,9 @@ controllers:
   # only setup watches for the namespace the operator is deployed in, and we will only
   # grant Role/RoleBindings to the manager for deployed namespace.
   scope: cluster
+  # this will increase the default threshold used by spam filter in controller runtime from 25 to 100
+  # this is important for running e2e test as some test cases require verification of events
+  burstSize: 100
 
 webhook:
   # The webhook requires a TLS certificate to work. This parm defines how the
@@ -85,10 +88,6 @@ webhook:
   # If you do not have necessary privileges to add these configurations, then this option 
   # can be used to skip that and still deploy the operator.
   enable: true
-
-  # this will increase the default threshold used by spam filter in controller runtime from 25 to 100
-  # this is important for running e2e test as some test cases require verification of events
-  burstSize: 100
 
 logging:
   # level is the minimum logging level. Valid values are: debug, info, warn, and error

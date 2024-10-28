@@ -225,7 +225,7 @@ done
 for fn in $TEMPLATE_DIR/verticadb-operator-manager-config-cm.yaml
 do
   perl -i -0777 -pe 's/(WEBHOOKS_ENABLED:).*/$1 {{ quote .Values.webhook.enable }}/g' $fn
-  perl -i -0777 -pe 's/(BROADCASTER_BURST_SIZE:).*/$1 {{ quote .Values.webhook.burstSize }}/g' $fn
+  perl -i -0777 -pe 's/(BROADCASTER_BURST_SIZE:).*/$1 {{ quote .Values.controllers.burstSize }}/g' $fn
   perl -i -0777 -pe 's/(CONTROLLERS_ENABLED:).*/$1 {{ quote .Values.controllers.enable }}/g' $fn
   perl -i -0777 -pe 's/(CONTROLLERS_SCOPE:).*/$1 {{ quote .Values.controllers.scope }}/g' $fn
   # Update the webhook-cert-secret configMap entry to include the actual name of the secret
