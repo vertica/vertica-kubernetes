@@ -86,8 +86,8 @@ webhook:
   # can be used to skip that and still deploy the operator.
   enable: true
 
-  # this will increase the default threshold used by spam filter in controller runtime from 25 to 100
-  # this is important for running e2e test as some test cases require verification of events
+  # Use this if you want to provide a custom burst size for event recording in the operator.
+  # Increasing this allows the controllers to record more events in a short period.
   burstSize: 100
 
 logging:
