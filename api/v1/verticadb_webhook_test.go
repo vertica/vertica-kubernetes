@@ -1338,18 +1338,22 @@ var _ = Describe("verticadb_webhook", func() {
 		oldVdb := MakeVDB()
 		oldVdb.Spec.Subclusters = []Subcluster{
 			{Name: "sc1", Type: PrimarySubcluster, Size: 3, ServiceType: v1.ServiceTypeClusterIP},
-			{Name: "sc2", Type: SandboxPrimarySubcluster, Size: 3, ServiceType: v1.ServiceTypeClusterIP},
-			{Name: "sc3", Type: SecondarySubcluster, Size: 3, ServiceType: v1.ServiceTypeNodePort, Annotations: map[string]string{"vertica.com/shutdown-driven-by-sandbox": "true"}},
+			{Name: "sc2", Shutdown: true, Type: SandboxPrimarySubcluster, Size: 3, ServiceType: v1.ServiceTypeClusterIP, Annotations: map[string]string{"vertica.com/shutdown-driven-by-sandbox": "true"}},
+			{Name: "sc3", Shutdown: true, Type: SecondarySubcluster, Size: 3, ServiceType: v1.ServiceTypeNodePort, Annotations: map[string]string{"vertica.com/shutdown-driven-by-sandbox": "true"}},
 		}
 		oldVdb.Spec.Sandboxes = []Sandbox{
-			{Name: "sand1", Subclusters: []SubclusterName{{Name: "sc2"}, {Name: "sc3"}}},
+			{Name: "sand1", Shutdown: true, Subclusters: []SubclusterName{{Name: "sc2"}, {Name: "sc3"}}},
 		}
 		newVdb := oldVdb.DeepCopy()
-		newVdb.Spec.Subclusters[2].Shutdown = true
-		newVdb.Spec.Sandboxes = []Sandbox{
-			{Name: "sand1", Subclusters: []SubclusterName{{Name: "sc2"}, {Name: "sc3"}}, Shutdown: true},
-		}
+		newVdb.Spec.Subclusters[2].Shutdown = false
 		Ω(newVdb.validateAnnotatedSubclustersInShutdownSandbox(oldVdb, field.ErrorList{})).Should(HaveLen(1))
+		newVdb.Spec.Subclusters[2].Shutdown = true
+		Ω(newVdb.validateAnnotatedSubclustersInShutdownSandbox(oldVdb, field.ErrorList{})).Should(HaveLen(0))
+		newVdb.Spec.Subclusters[1].Shutdown = false
+		Ω(newVdb.validateAnnotatedSubclustersInShutdownSandbox(oldVdb, field.ErrorList{})).Should(HaveLen(1))
+		newVdb.Spec.Subclusters[1].Shutdown = true
+		Ω(newVdb.validateAnnotatedSubclustersInShutdownSandbox(oldVdb, field.ErrorList{})).Should(HaveLen(0))
+
 	})
 
 	It("should not unsandbox a subcluster when its shutdown field is set or its sandbox's shutdown field is set", func() {

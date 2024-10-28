@@ -121,8 +121,8 @@ func (v *VerticaDB) ValidateUpdate(old runtime.Object) error {
 	allErrs := append(v.validateImmutableFields(old), v.validateVerticaDBSpec()...)
 	allErrs = v.validateShutdownSandboxImage(old, allErrs)
 	allErrs = v.validateTerminatingSandboxes(old, allErrs)
-	allErrs = v.validateAnnotatedSubclustersInShutdownSandbox(old, allErrs)
 	allErrs = v.validateUnsandboxShutdownConditions(old, allErrs)
+	allErrs = v.validateAnnotatedSubclustersInShutdownSandbox(old, allErrs)
 	if len(allErrs) == 0 {
 		return nil
 	}
@@ -1819,8 +1819,8 @@ func (v *VerticaDB) validateAnnotatedSubclustersInShutdownSandbox(old runtime.Ob
 			for _, subclusterName := range oldSandbox.Subclusters {
 				oldSubcluster := oldSubclusterMap[subclusterName.Name]
 				if drivenby, ok := oldSubcluster.Annotations["vertica.com/shutdown-driven-by-sandbox"]; ok && drivenby == trueString {
-					newSubcluster := newSubclusterMap[subclusterName.Name]
-					if oldSubcluster.Shutdown != newSubcluster.Shutdown {
+					newSubcluster, oldSclusterPersist := newSubclusterMap[subclusterName.Name]
+					if oldSclusterPersist && oldSubcluster.Shutdown != newSubcluster.Shutdown {
 						index := newSubclusterIndexMap[subclusterName.Name]
 						p := field.NewPath("spec").Child("subclusters")
 						err := field.Invalid(p.Index(index),
