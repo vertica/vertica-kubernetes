@@ -17,6 +17,7 @@ package sandbox
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/go-logr/logr"
 	v1 "github.com/vertica/vertica-kubernetes/api/v1"
@@ -65,7 +66,7 @@ func (s *ScaleStafulsetReconciler) Reconcile(ctx context.Context, _ *ctrl.Reques
 			oldSize := sts.Spec.Replicas
 			sc := scMap[sts.Labels[vmeta.SubclusterNameLabel]]
 			if sc == nil {
-				return nil
+				return fmt.Errorf("subcluster %s not found in vdb", sts.Labels[vmeta.SubclusterNameLabel])
 			}
 			newSize := sc.GetStsSize(s.Vdb)
 			if *oldSize == newSize {
