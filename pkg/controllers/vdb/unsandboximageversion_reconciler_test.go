@@ -23,6 +23,7 @@ import (
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
+	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
 	"github.com/vertica/vertica-kubernetes/pkg/test"
 	appsv1 "k8s.io/api/apps/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -47,7 +48,7 @@ var _ = Describe("verticaimage_reconciler", func() {
 		Expect(k8sClient.Status().Update(ctx, vdb)).Should(Succeed())
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := MakePodFacts(vdbRec, fpr, logger, TestPassword)
+		pfacts := podfacts.MakePodFacts(vdbRec, fpr, logger, TestPassword)
 		rec := MakeUnsandboxImageVersionReconciler(vdbRec, vdb, logger, &pfacts)
 		r := rec.(*UnsandboxImageVersion)
 		Expect(r.PFacts.Collect(ctx, vdb)).Should(Succeed())
@@ -55,7 +56,7 @@ var _ = Describe("verticaimage_reconciler", func() {
 		sc1Pf := r.PFacts.Detail[pn]
 		// let subcluster1 have a different image, its statefulset
 		// should be recreated
-		sc1Pf.image = sandboxImage
+		sc1Pf.SetImage(sandboxImage)
 		Expect(r.reconcileVerticaImage(ctx)).Should(Equal(ctrl.Result{}))
 
 		sc1 := &vdb.Spec.Subclusters[0]
