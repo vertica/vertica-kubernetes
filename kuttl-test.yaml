@@ -13,6 +13,7 @@
 
 apiVersion: kuttl.dev/v1beta1
 kind: TestSuite
+kindNodeCache: true
 # Each testcase will delete its own namespace if it is successful.  This
 # allows us to collect scrutinize for all of the failed tests.
 skipDelete: true

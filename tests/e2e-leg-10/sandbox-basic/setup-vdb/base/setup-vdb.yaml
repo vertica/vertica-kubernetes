@@ -23,7 +23,7 @@ spec:
   initPolicy: CreateSkipPackageInstall
   communal: {}
   local:
-    requestSize: 250Mi
+    requestSize: 270Mi
   # We pick a cluster size that is too big for the CE license. This relies on
   # having a license, which will be added by kustomize.
   subclusters:
