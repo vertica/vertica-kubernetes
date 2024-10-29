@@ -313,7 +313,7 @@ func (r *OnlineUpgradeReconciler) requeuePodsNotRunning(ctx context.Context) (ct
 	// For pods are pending due to lack of resources, we requeue restarting them and wait
 	// for user operation.
 	mainPFacts := r.PFacts[vapi.MainCluster]
-	found, _ := mainPFacts.anyPodsNotRunning()
+	found, _ := mainPFacts.AnyPodsNotRunning()
 	if found {
 		r.Log.Info("Not all pods are running, requeuing.")
 		return ctrl.Result{Requeue: true}, nil
