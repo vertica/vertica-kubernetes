@@ -443,7 +443,8 @@ func (o *ObjReconciler) reconcileSts(ctx context.Context, sc *vapi.Subcluster) (
 	// TODO: check if proxy is needed (check annotation)
 	curDep := &appsv1.Deployment{}
 	vpDep := builder.BuildVProxyDeployment(nm, o.Vdb, sc)
-	if err := o.Rec.GetClient().Get(ctx, nm, curDep); err != nil && kerrors.IsNotFound(err) {
+	vpErr := o.Rec.GetClient().Get(ctx, nm, curDep)
+	if vpErr != nil && kerrors.IsNotFound(vpErr) {
 		o.Log.Info("Creating deployment", "Name", nm, "Size", vpDep.Spec.Replicas, "Image", vpDep.Spec.Template.Spec.Containers[0].Image)
 		return ctrl.Result{}, createDep(ctx, o.Rec, vpDep, o.Vdb)
 	}

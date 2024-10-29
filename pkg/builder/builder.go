@@ -99,6 +99,13 @@ const (
 	passwordMountName = "password"
 )
 
+type ProxyData struct {
+	listener map[string]string
+	database map[string][]string
+	log      map[string]string
+	tls      map[string]string
+}
+
 // BuildExtSvc creates desired spec for the external service.
 func BuildExtSvc(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi.Subcluster,
 	selectorLabelCreator func(*vapi.VerticaDB, *vapi.Subcluster) map[string]string) *corev1.Service {
@@ -891,21 +898,64 @@ func buildVProxyPodSpec(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.PodSpec
 		ServiceAccountName:            vdb.Spec.ServiceAccountName,
 		SecurityContext:               vdb.Spec.PodSecurityContext,
 		Volumes: []corev1.Volume{
-			corev1.Volume{
+			{
 				Name: sc.Name,
 				VolumeSource: corev1.VolumeSource{
 					ConfigMap: &corev1.ConfigMapVolumeSource{
 						LocalObjectReference: corev1.LocalObjectReference{Name: vdb.Name},
 						Items: []corev1.KeyToPath{
-							corev1.KeyToPath{
-								Key:  sc.Name,
-								Path: "config.yaml",
-							},
+							{Key: sc.Name, Path: "config.yaml"},
 						},
 					},
 				},
 			},
 		},
+	}
+}
+
+// TODO: rewrite in config.yaml format
+func makeDataForProxyConfigMap() ProxyData {
+
+	var pData ProxyData = ProxyData{
+		listener: map[string]string{
+			"host": "",
+			"port": "5433",
+		},
+		database: map[string][]string{
+			"nodes": {
+				"node1:5433",
+				"node2:5433",
+				"node3:5433",
+			},
+		},
+	}
+
+	return pData
+}
+
+// BuildProxyConfigMap builds a config map for client proxy
+func BuildProxyConfigMap(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi.Subcluster) *corev1.ConfigMap {
+	immutable := true
+	return &corev1.ConfigMap{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "ConfigMap",
+			APIVersion: "v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            nm.Name,
+			Namespace:       nm.Namespace,
+			Labels:          MakeLabelsForPodObject(vdb, sc),
+			Annotations:     MakeAnnotationsForProxyConfigMap(vdb),
+			OwnerReferences: []metav1.OwnerReference{vdb.GenerateOwnerReference()},
+		},
+		// the data should be immutable since dbName and sandboxName are fixed
+		Immutable: &immutable,
+		// TODO: call makeDataForProxyConfigMap to generate config.yaml
+		//Data: makeDataForProxyConfigMap,
+		//map[string]string{
+		//	"listener": "host:, port:5433",
+		//	"database": "node1:5433,node2:5433,node3:5433",
+		//},
 	}
 }
 
