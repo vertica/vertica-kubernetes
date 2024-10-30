@@ -28,6 +28,7 @@ import (
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
+	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -42,12 +43,12 @@ type ResizePVReconcile struct {
 	Vdb     *vapi.VerticaDB
 	Log     logr.Logger
 	PRunner cmds.PodRunner
-	PFacts  *PodFacts
+	PFacts  *podfacts.PodFacts
 }
 
 // MakeResizePVReconciler will build and return the ResizePVReconcile object.
 func MakeResizePVReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
-	vdb *vapi.VerticaDB, prunner cmds.PodRunner, pfacts *PodFacts) controllers.ReconcileActor {
+	vdb *vapi.VerticaDB, prunner cmds.PodRunner, pfacts *podfacts.PodFacts) controllers.ReconcileActor {
 	return &ResizePVReconcile{
 		VRec:    vdbrecon,
 		Vdb:     vdb,
@@ -79,10 +80,10 @@ func (r *ResizePVReconcile) Reconcile(ctx context.Context, _ *ctrl.Request) (ctr
 }
 
 // reconcilePod will handle a single pod to see if its PV needs to be resized
-func (r *ResizePVReconcile) reconcilePod(ctx context.Context, pf *PodFact) (ctrl.Result, error) {
+func (r *ResizePVReconcile) reconcilePod(ctx context.Context, pf *podfacts.PodFact) (ctrl.Result, error) {
 	pvcName := types.NamespacedName{
-		Namespace: pf.name.Namespace,
-		Name:      fmt.Sprintf("%s-%s", vapi.LocalDataPVC, pf.name.Name),
+		Namespace: pf.GetName().Namespace,
+		Name:      fmt.Sprintf("%s-%s", vapi.LocalDataPVC, pf.GetName().Name),
 	}
 	pvc := &corev1.PersistentVolumeClaim{}
 	if err := r.VRec.Client.Get(ctx, pvcName, pvc); err != nil {
@@ -97,7 +98,8 @@ func (r *ResizePVReconcile) reconcilePod(ctx context.Context, pf *PodFact) (ctrl
 }
 
 // reconcilePvc will handle a single PVC and see if it needs to be resized
-func (r *ResizePVReconcile) reconcilePvc(ctx context.Context, pf *PodFact, pvc *corev1.PersistentVolumeClaim) (ctrl.Result, error) {
+func (r *ResizePVReconcile) reconcilePvc(ctx context.Context, pf *podfacts.PodFact,
+	pvc *corev1.PersistentVolumeClaim) (ctrl.Result, error) {
 	// Resize is necessary if the PVC storage is smaller than the size in the vdb
 	if pvc.Spec.Resources.Requests.Storage().Cmp(r.Vdb.Spec.Local.RequestSize) < 0 {
 		return r.updatePVC(ctx, pvc)
@@ -148,25 +150,25 @@ func (r *ResizePVReconcile) updatePVC(ctx context.Context, pvc *corev1.Persisten
 
 // updateDepotSize will call alter_location_size in vertica if necessary
 func (r *ResizePVReconcile) updateDepotSize(ctx context.Context, pvc *corev1.PersistentVolumeClaim,
-	pf *PodFact) (ctrl.Result, error) {
+	pf *podfacts.PodFact) (ctrl.Result, error) {
 	if r.Vdb.IsDepotVolumeEmptyDir() {
-		r.Log.Info("Skipping depot resize because its volume is an emptyDir", "pod", pf.name.Name)
+		r.Log.Info("Skipping depot resize because its volume is an emptyDir", "pod", pf.GetName().Name)
 		return ctrl.Result{}, nil
 	}
-	if !pf.upNode {
+	if !pf.GetUpNode() {
 		r.Log.Info("Depot size needs to be checked in vertica. Requeue to wait for vertica to come up")
 		return ctrl.Result{Requeue: true}, nil
 	}
-	if pf.depotDiskPercentSize == "" {
-		r.Log.Info("Skipping depot resize because its size is fixed and not a percentage of the disk space.", "pod", pf.name.Name)
+	if pf.GetDepotDiskPercentSize() == "" {
+		r.Log.Info("Skipping depot resize because its size is fixed and not a percentage of the disk space.", "pod", pf.GetName().Name)
 		return ctrl.Result{}, nil
 	}
-	if !strings.HasSuffix(pf.depotDiskPercentSize, "%") {
-		return ctrl.Result{}, fmt.Errorf("depot disk percent must end with %%: %s", pf.depotDiskPercentSize)
+	if !strings.HasSuffix(pf.GetDepotDiskPercentSize(), "%") {
+		return ctrl.Result{}, fmt.Errorf("depot disk percent must end with %%: %s", pf.GetDepotDiskPercentSize())
 	}
-	dpAsInt, err := strconv.Atoi(pf.depotDiskPercentSize[:len(pf.depotDiskPercentSize)-1])
+	dpAsInt, err := strconv.Atoi(pf.GetDepotDiskPercentSize()[:len(pf.GetDepotDiskPercentSize())-1])
 	if err != nil {
-		return ctrl.Result{}, fmt.Errorf("cannot convert depot disk percent (%s) to an int: %w", pf.depotDiskPercentSize, err)
+		return ctrl.Result{}, fmt.Errorf("cannot convert depot disk percent (%s) to an int: %w", pf.GetDepotDiskPercentSize(), err)
 	}
 	curLocalDataSize, err := r.getLocalDataSize(pvc, pf)
 	if err != nil {
@@ -177,38 +179,38 @@ func (r *ResizePVReconcile) updateDepotSize(ctx context.Context, pvc *corev1.Per
 	// fudge is here in case Vertica and our operator calculate the expected
 	// depot size differently (i.e. rounding, etc.)
 	depotSizeLB := (curLocalDataSize * int64(dpAsInt) / 100) - (5 * 1024 * 1024)
-	if depotSizeLB >= 0 && pf.maxDepotSize >= uint64(depotSizeLB) {
+	if depotSizeLB >= 0 && pf.GetMaxDepotSize() >= uint64(depotSizeLB) {
 		r.Log.Info("Depot resize isn't needed in Vertica",
-			"cur depot size", pf.maxDepotSize, "expected depot size", depotSizeLB)
+			"cur depot size", pf.GetMaxDepotSize(), "expected depot size", depotSizeLB)
 		return ctrl.Result{}, nil
 	}
 	r.Log.Info("alter_location_size needed", "curLocalDataSize", curLocalDataSize,
-		"maxDepotSize", pf.maxDepotSize, "depotSizeLB", depotSizeLB)
+		"maxDepotSize", pf.GetMaxDepotSize(), "depotSizeLB", depotSizeLB)
 	sql := []string{
 		"-tAc",
 		fmt.Sprintf("select alter_location_size('depot', '%s', '%s')",
-			pf.vnodeName, pf.depotDiskPercentSize),
+			pf.GetVnodeName(), pf.GetDepotDiskPercentSize()),
 	}
-	_, _, err = r.PRunner.ExecVSQL(ctx, pf.name, names.ServerContainer, sql...)
+	_, _, err = r.PRunner.ExecVSQL(ctx, pf.GetName(), names.ServerContainer, sql...)
 	if err == nil {
 		r.VRec.Eventf(r.Vdb, corev1.EventTypeNormal, events.DepotResized,
-			"Depot was resized in pod '%s' to be %s of expanded PVC", pf.name.Name, pf.depotDiskPercentSize)
+			"Depot was resized in pod '%s' to be %s of expanded PVC", pf.GetName().Name, pf.GetDepotDiskPercentSize())
 	}
 	return ctrl.Result{}, err
 }
 
 // getLocalDataSize returns the size of the mount that contains the depot
-func (r *ResizePVReconcile) getLocalDataSize(pvc *corev1.PersistentVolumeClaim, pf *PodFact) (int64, error) {
+func (r *ResizePVReconcile) getLocalDataSize(pvc *corev1.PersistentVolumeClaim, pf *podfacts.PodFact) (int64, error) {
 	// If the output is empty, we will use the size from the PVC.  These is here
 	// for test purposes.  The PVC capacity was close to 100mb larger than then
 	// disk size that Vertica calculates, which is why it isn't preferred way of
 	// calculating.
-	if pf.localDataSize == 0 {
+	if pf.GetLocalDataSize() == 0 {
 		curCapacity, ok := pvc.Status.Capacity.Storage().AsInt64()
 		if !ok {
 			return 0, fmt.Errorf("cannot get capacity as int64: %s", pvc.Status.Capacity.Storage().String())
 		}
 		return curCapacity, nil
 	}
-	return int64(pf.localDataSize), nil
+	return int64(pf.GetLocalDataSize()), nil
 }

@@ -25,6 +25,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/iter"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
+	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
 	"github.com/vertica/vertica-kubernetes/pkg/vdbstatus"
 	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -40,13 +41,13 @@ type StatusReconciler struct {
 	Scheme       *runtime.Scheme
 	Log          logr.Logger
 	Vdb          *vapi.VerticaDB // Vdb is the CRD we are acting on.
-	PFacts       *PodFacts
+	PFacts       *podfacts.PodFacts
 	SkipShutdown bool
 }
 
 // MakeStatusReconciler will build a StatusReconciler object
 func MakeStatusReconciler(cli client.Client, scheme *runtime.Scheme, log logr.Logger,
-	vdb *vapi.VerticaDB, pfacts *PodFacts) controllers.ReconcileActor {
+	vdb *vapi.VerticaDB, pfacts *podfacts.PodFacts) controllers.ReconcileActor {
 	return &StatusReconciler{
 		Client:       cli,
 		Scheme:       scheme,
@@ -58,7 +59,7 @@ func MakeStatusReconciler(cli client.Client, scheme *runtime.Scheme, log logr.Lo
 }
 
 func MakeStatusReconcilerWithShutdown(cli client.Client, scheme *runtime.Scheme, log logr.Logger,
-	vdb *vapi.VerticaDB, pfacts *PodFacts) controllers.ReconcileActor {
+	vdb *vapi.VerticaDB, pfacts *podfacts.PodFacts) controllers.ReconcileActor {
 	return &StatusReconciler{
 		Client:       cli,
 		Scheme:       scheme,
@@ -129,11 +130,11 @@ func (s *StatusReconciler) updateStatusFields(ctx context.Context) error {
 				continue
 			}
 
-			if err := s.calculateSubclusterStatus(ctx, subclusters[i], &vdbChg.Status.Subclusters[i]); err != nil {
-				return fmt.Errorf("failed to calculate subcluster status %s %w", subclusters[i].Name, err)
-			}
 			if !s.SkipShutdown {
 				s.updateShutdownStatus(subclusters[i], &vdbChg.Status.Subclusters[i])
+			}
+			if err := s.calculateSubclusterStatus(ctx, subclusters[i], &vdbChg.Status.Subclusters[i]); err != nil {
+				return fmt.Errorf("failed to calculate subcluster status %s %w", subclusters[i].Name, err)
 			}
 		}
 		s.calculateClusterStatus(&vdbChg.Status)
@@ -195,14 +196,22 @@ func (s *StatusReconciler) calculateSubclusterStatus(ctx context.Context, sc *va
 		if !ok {
 			continue
 		}
-		curStat.Detail[podIndex].UpNode = pf.upNode
-		curStat.Detail[podIndex].Installed = pf.isInstalled
-		curStat.Detail[podIndex].AddedToDB = pf.dbExists
-		if pf.vnodeName != "" {
-			curStat.Detail[podIndex].VNodeName = pf.vnodeName
+		stsSize := sc.GetStsSize(s.Vdb)
+		if stsSize == 0 && stsSize != sc.Size {
+			s.setSubclusterStatusWhenShutdown(podIndex, curStat)
+			// At this point the subcluster pods have been deleted
+			// but we do not want to lose info like vnodename or subclusteroid
+			// so we jump to the next subcluster.
+			continue
 		}
-		if pf.subclusterOid != "" {
-			curStat.Oid = pf.subclusterOid
+		curStat.Detail[podIndex].UpNode = pf.GetUpNode()
+		curStat.Detail[podIndex].Installed = pf.GetIsInstalled()
+		curStat.Detail[podIndex].AddedToDB = pf.GetDBExists()
+		if pf.GetVnodeName() != "" {
+			curStat.Detail[podIndex].VNodeName = pf.GetVnodeName()
+		}
+		if pf.GetSubclusterOid() != "" {
+			curStat.Oid = pf.GetSubclusterOid()
 		}
 	}
 	// Refresh the counts
@@ -217,6 +226,14 @@ func (s *StatusReconciler) calculateSubclusterStatus(ctx context.Context, sc *va
 		}
 	}
 	return nil
+}
+
+// setSubclusterStatusWhenShutdown sets some subcluster status fields
+// when it is shutdown.
+func (s *StatusReconciler) setSubclusterStatusWhenShutdown(podIndex int32, curStat *vapi.SubclusterStatus) {
+	curStat.Detail[podIndex].UpNode = false
+	curStat.Detail[podIndex].Installed = false
+	curStat.Detail[podIndex].AddedToDB = false
 }
 
 func (s *StatusReconciler) updateShutdownStatus(sc *vapi.Subcluster, curStat *vapi.SubclusterStatus) {

@@ -44,11 +44,11 @@ var _ = Describe("localdatacheck_reconcile", func() {
 		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
 		sc := &vdb.Spec.Subclusters[0]
 		pn := names.GenPodName(vdb, sc, 0)
-		pfacts.Detail[pn].localDataAvail = 30 * 1024 * 1024
+		pfacts.Detail[pn].SetLocalDataAvail(30 * 1024 * 1024)
 		pn = names.GenPodName(vdb, sc, 1)
-		pfacts.Detail[pn].localDataAvail = 5 * 1024 * 1024
+		pfacts.Detail[pn].SetLocalDataAvail(5 * 1024 * 1024)
 		pn = names.GenPodName(vdb, sc, 1)
-		pfacts.Detail[pn].localDataAvail = 1 * 1024 * 1024 * 1024
+		pfacts.Detail[pn].SetLocalDataAvail(1 * 1024 * 1024 * 1024)
 
 		actor := MakeLocalDataCheckReconciler(vdbRec, vdb, pfacts)
 		l := actor.(*LocalDataCheckReconciler)

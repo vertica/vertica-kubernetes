@@ -11,13 +11,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1beta1
-kind: VerticaDB
-metadata:
-   name: v-vdb-gen
-spec:
-   subclusters:
-      - name: sc1
-        size: 1
-      - name: sc2
-        size: 1
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  # Apply the generated CR
+  - command: kubectl -n $NAMESPACE apply -f /tmp/$NAMESPACE-vdb-gen.yaml
+  - command: rm /tmp/$NAMESPACE-vdb-gen.yaml
