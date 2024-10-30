@@ -105,7 +105,7 @@ type ProxyData struct {
 	Database map[string][]string
 	Log      map[string]string
 	// TODO: to support TLS
-	//Tls       map[string]string
+	// Tls       map[string]string
 }
 
 // BuildExtSvc creates desired spec for the external service.
@@ -924,7 +924,7 @@ func makeDataForProxyConfigMap(vdb *vapi.VerticaDB, sc *vapi.Subcluster) string 
 		nodeItem := fmt.Sprintf("%s-%s-%d:%s", vdb.Name, sc.Name, scIndex, proxyPort)
 		nodeList = append(nodeList, nodeItem)
 	}
-	var proxyData ProxyData = ProxyData{
+	proxyData := ProxyData{
 		Listener: map[string]string{
 			"host": "",
 			"port": proxyPort,
@@ -944,7 +944,7 @@ func makeDataForProxyConfigMap(vdb *vapi.VerticaDB, sc *vapi.Subcluster) string 
 // BuildProxyConfigMap builds a config map for client proxy
 func BuildProxyConfigMap(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi.Subcluster) *corev1.ConfigMap {
 	immutable := true
-	proxyConfig := makeDataForProxyConfigMap()
+	proxyConfig := makeDataForProxyConfigMap(vdb, sc)
 	return &corev1.ConfigMap{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "ConfigMap",
