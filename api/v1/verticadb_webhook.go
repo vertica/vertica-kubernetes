@@ -123,6 +123,7 @@ func (v *VerticaDB) ValidateUpdate(old runtime.Object) error {
 	allErrs = v.validateTerminatingSandboxes(old, allErrs)
 	allErrs = v.validateUnsandboxShutdownConditions(old, allErrs)
 	allErrs = v.validateAnnotatedSubclustersInShutdownSandbox(old, allErrs)
+
 	if len(allErrs) == 0 {
 		return nil
 	}
@@ -1760,17 +1761,16 @@ func (v *VerticaDB) checkSandboxPrimary(allErrs field.ErrorList, oldObj *Vertica
 	return allErrs
 }
 
-// validateUnsandboxShutdownConditions ensures we will not unsandbox a subcluster that has shutdown set to true, or a subcluster
-// in a sandbox where the shutdown field for the sandbox is set to true
-func (v *VerticaDB) validateUnsandboxShutdownConditions(old runtime.Object, allErrs field.ErrorList) field.ErrorList {
+// return a map whose key is the pointer of a subcluster that is to be unsandboxed. The value is the pointer to a sandbox
+// where the subcluster lives in
+func (v *VerticaDB) findSclustersToUnsandbox(old runtime.Object) map[*Subcluster]*Sandbox {
 	oldObj := old.(*VerticaDB)
 	oldSubclusterInSandbox := oldObj.GenSubclusterSandboxMap()
 	newSuclusterInSandbox := v.GenSubclusterSandboxMap()
 	oldSubclusterMap := oldObj.GenSubclusterMap()
 	oldSandboxMap := oldObj.GenSandboxMap()
-	oldSubclusterIndexMap := oldObj.GenSubclusterIndexMap()
 	newSubclusterMap := v.GenSubclusterMap()
-
+	sclusterSboxMap := make(map[*Subcluster]*Sandbox)
 	for oldSubclusterName, oldSandboxName := range oldSubclusterInSandbox {
 		_, oldSubclusterInNewSandboxes := newSuclusterInSandbox[oldSubclusterName]
 		_, oldSubclusterInPersist := newSubclusterMap[oldSubclusterName]
@@ -1778,25 +1778,37 @@ func (v *VerticaDB) validateUnsandboxShutdownConditions(old runtime.Object, allE
 		if !oldSubclusterInNewSandboxes && oldSubclusterInPersist {
 			oldSubcluster := oldSubclusterMap[oldSubclusterName]
 			oldSandbox := oldSandboxMap[oldSandboxName]
-			oldSubclusterIndex := oldSubclusterIndexMap[oldSubclusterName]
-			if oldSubcluster.Shutdown || v.Status.Subclusters[oldSubclusterIndex].Shutdown {
-				p := field.NewPath("spec").Child("subclusters")
-				err := field.Invalid(p,
-					oldSubclusterName,
-					fmt.Sprintf("cannot unsandbox subcluster %q that has Shutdown field set to true",
-						oldSubclusterName))
-				allErrs = append(allErrs, err)
-				continue
-			}
-			if oldSandbox.Shutdown {
-				p := field.NewPath("spec").Child("sandboxes")
-				err := field.Invalid(p,
-					oldSubclusterName,
-					fmt.Sprintf("cannot unsandbox subcluster %q in sandbox %q that has Shutdown field set to true",
-						oldSubclusterName, oldSandboxName))
-				allErrs = append(allErrs, err)
-				continue
-			}
+			sclusterSboxMap[oldSubcluster] = oldSandbox
+		}
+	}
+	return sclusterSboxMap
+}
+
+// validateUnsandboxShutdownConditions ensures we will not unsandbox a subcluster that has shutdown set to true, or a subcluster
+// in a sandbox where the shutdown field for the sandbox is set to true
+func (v *VerticaDB) validateUnsandboxShutdownConditions(old runtime.Object, allErrs field.ErrorList) field.ErrorList {
+	oldObj := old.(*VerticaDB)
+	oldSubclusterIndexMap := oldObj.GenSubclusterIndexMap()
+	sclustersToUnsandbox := v.findSclustersToUnsandbox(old)
+	for oldSubcluster, oldSandbox := range sclustersToUnsandbox {
+		oldSubclusterIndex := oldSubclusterIndexMap[oldSubcluster.Name]
+		if oldSubcluster.Shutdown || v.Status.Subclusters[oldSubclusterIndex].Shutdown {
+			p := field.NewPath("spec").Child("subclusters")
+			err := field.Invalid(p,
+				oldSubcluster.Name,
+				fmt.Sprintf("cannot unsandbox subcluster %q that has Shutdown field set to true",
+					oldSubcluster.Name))
+			allErrs = append(allErrs, err)
+			continue
+		}
+		if oldSandbox.Shutdown {
+			p := field.NewPath("spec").Child("sandboxes")
+			err := field.Invalid(p,
+				oldSubcluster.Name,
+				fmt.Sprintf("cannot unsandbox subcluster %q in sandbox %q that has Shutdown field set to true",
+					oldSubcluster.Name, oldSandbox.Name))
+			allErrs = append(allErrs, err)
+			continue
 		}
 	}
 	return allErrs
@@ -1818,7 +1830,7 @@ func (v *VerticaDB) validateAnnotatedSubclustersInShutdownSandbox(old runtime.Ob
 		if newSandbox.Shutdown {
 			for _, subclusterName := range oldSandbox.Subclusters {
 				oldSubcluster := oldSubclusterMap[subclusterName.Name]
-				if drivenby, ok := oldSubcluster.Annotations["vertica.com/shutdown-driven-by-sandbox"]; ok && drivenby == trueString {
+				if vmeta.GetShutdownDrivenBySandbox(oldSubcluster.Annotations) {
 					newSubcluster, oldSclusterPersist := newSubclusterMap[subclusterName.Name]
 					if oldSclusterPersist && oldSubcluster.Shutdown != newSubcluster.Shutdown {
 						index := newSubclusterIndexMap[subclusterName.Name]
@@ -1836,6 +1848,7 @@ func (v *VerticaDB) validateAnnotatedSubclustersInShutdownSandbox(old runtime.Ob
 	return allErrs
 }
 
+// ensures a sandbox's image is not updated after the sandbox or any of its subclusters are shut down
 func (v *VerticaDB) validateShutdownSandboxImage(old runtime.Object, allErrs field.ErrorList) field.ErrorList {
 	oldObj := old.(*VerticaDB)
 	persistSandboxes := v.findPersistSandboxes(oldObj)
@@ -1850,14 +1863,13 @@ func (v *VerticaDB) validateShutdownSandboxImage(old runtime.Object, allErrs fie
 		newSandbox := newSandboxMap[sandboxName]
 		if oldSandbox.Image != newSandbox.Image {
 			newSandboxIndex := newSandboxIndexMap[sandboxName]
-			errMsgs := make([]string, 0)
-			errMsgs = v.checkSboxForShutdownInSpecAndStatus(newSandbox, newSubclusterMap, oldSubclusterIndexMap, errMsgs)
-			if len(errMsgs) != 0 {
+			errMsg := v.checkSboxForShutdown(newSandbox, newSubclusterMap, oldSubclusterIndexMap)
+			if errMsg != "" {
 				p := field.NewPath("spec").Child("sandboxes").Index(newSandboxIndex)
 				err := field.Invalid(p.Child("image"),
 					sandboxName,
 					fmt.Sprintf("cannot change the image for sandbox %q because %q",
-						sandboxName, strings.Join(errMsgs, ",")))
+						sandboxName, errMsg))
 				allErrs = append(allErrs, err)
 			}
 		}
@@ -1865,6 +1877,7 @@ func (v *VerticaDB) validateShutdownSandboxImage(old runtime.Object, allErrs fie
 	return allErrs
 }
 
+// ensure the sandbox to terminate is not shut down
 func (v *VerticaDB) validateTerminatingSandboxes(old runtime.Object, allErrs field.ErrorList) field.ErrorList {
 	oldObj := old.(*VerticaDB)
 	oldSandboxMap := oldObj.GenSandboxMap()
@@ -1894,26 +1907,27 @@ func (v *VerticaDB) validateTerminatingSandboxes(old runtime.Object, allErrs fie
 	return allErrs
 }
 
-func (v *VerticaDB) checkSboxForShutdownInSpecAndStatus(sandbox *Sandbox, subclusterMap map[string]*Subcluster, subclusterIndexMap map[string]int, errMsgs []string) []string {
-	errMsgs = v.checkSboxForShutdownInSpec(sandbox, subclusterMap, errMsgs)
+/* func (v *VerticaDB) checkSboxForShutdownInSpecAndStatus(sandbox *Sandbox, subclusterMap map[string]*Subcluster, subclusterIndexMap map[string]int) string {
+	errMsgs = v.checkSboxForShutdownInSpec(sandbox, subclusterMap)
 	for _, subcluster := range sandbox.Subclusters {
 		if v.Status.Subclusters[subclusterIndexMap[subcluster.Name]].Shutdown {
 			errMsgs = append(errMsgs, fmt.Sprintf("Shutdown status of subcluster %q is true", subcluster.Name))
 		}
 	}
 	return errMsgs
-}
+} */
 
-func (v *VerticaDB) checkSboxForShutdownInSpec(sandbox *Sandbox, subclusterMap map[string]*Subcluster, errMsgs []string) []string {
+func (v *VerticaDB) checkSboxForShutdown(sandbox *Sandbox, newSClusterMap map[string]*Subcluster, oldSClusterIndexMap map[string]int) string {
 	if sandbox.Shutdown {
-		errMsgs = append(errMsgs, fmt.Sprintf("Shutdown field of sandbox %q is set to true", sandbox.Name))
+		return fmt.Sprintf("Shutdown field of sandbox %q is set to true", sandbox.Name)
 	}
 	for _, subcluster := range sandbox.Subclusters {
-		if subclusterMap[subcluster.Name].Shutdown {
-			errMsgs = append(errMsgs, fmt.Sprintf("Shutdown field of subcluster %q is set to true", subcluster.Name))
+		i, foundInOldSBox := oldSClusterIndexMap[subcluster.Name]
+		if foundInOldSBox && (newSClusterMap[subcluster.Name].Shutdown || v.Status.Subclusters[i].Shutdown) {
+			return fmt.Sprintf("Subcluster %q is marked for shut down or has already been shut down", subcluster.Name)
 		}
 	}
-	return errMsgs
+	return ""
 }
 
 // checkImmutableStsName ensures the statefulset name of the subcluster stays constant
