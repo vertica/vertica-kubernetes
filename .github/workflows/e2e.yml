@@ -666,7 +666,7 @@ jobs:
       e2e-udx-admintools
     ]
     runs-on: ubuntu-latest 
-    if: ${{ always() && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') && contains('server daily version', github.event.workflow_run.display_title) && contains('verticareleng', github.actor) }}  
+    if: ${{ always() && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') && contains(github.event.workflow_run.display_title, 'server daily version') && contains(github.actor, 'verticareleng') }}  
     steps:
     - uses: actions/checkout@v4
       with:
