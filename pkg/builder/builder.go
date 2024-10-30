@@ -29,6 +29,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	"github.com/vertica/vertica-kubernetes/pkg/secrets"
+	"gopkg.in/yaml.v2"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
@@ -100,10 +101,11 @@ const (
 )
 
 type ProxyData struct {
-	listener map[string]string
-	database map[string][]string
-	log      map[string]string
-	tls      map[string]string
+	Listener map[string]string
+	Database map[string][]string
+	Log      map[string]string
+	// TODO: to support TLS
+	//Tls       map[string]string
 }
 
 // BuildExtSvc creates desired spec for the external service.
@@ -913,29 +915,33 @@ func buildVProxyPodSpec(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.PodSpec
 	}
 }
 
-// TODO: rewrite in config.yaml format
-func makeDataForProxyConfigMap() ProxyData {
-
-	var pData ProxyData = ProxyData{
-		listener: map[string]string{
+// makeDataForProxyConfigMap generates a configmap data in config.yaml format
+func makeDataForProxyConfigMap() string {
+	var proxyData ProxyData = ProxyData{
+		Listener: map[string]string{
 			"host": "",
 			"port": "5433",
 		},
-		database: map[string][]string{
+		Database: map[string][]string{
 			"nodes": {
 				"node1:5433",
 				"node2:5433",
 				"node3:5433",
 			},
 		},
+		Log: map[string]string{
+			"level": "INFO",
+		},
 	}
 
-	return pData
+	pData, _ := yaml.Marshal(proxyData)
+	return string(pData)
 }
 
 // BuildProxyConfigMap builds a config map for client proxy
 func BuildProxyConfigMap(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi.Subcluster) *corev1.ConfigMap {
 	immutable := true
+	proxyConfig := makeDataForProxyConfigMap()
 	return &corev1.ConfigMap{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "ConfigMap",
@@ -950,12 +956,9 @@ func BuildProxyConfigMap(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi.
 		},
 		// the data should be immutable since dbName and sandboxName are fixed
 		Immutable: &immutable,
-		// TODO: call makeDataForProxyConfigMap to generate config.yaml
-		//Data: makeDataForProxyConfigMap,
-		//map[string]string{
-		//	"listener": "host:, port:5433",
-		//	"database": "node1:5433,node2:5433,node3:5433",
-		//},
+		Data: map[string]string{
+			"config.yaml": proxyConfig,
+		},
 	}
 }
 
