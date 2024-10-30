@@ -1,0 +1,5 @@
+kind: Added
+body: Add helm parameter and environment variable to control burst size for event recording.
+time: 2024-10-29T12:41:28.100138558+01:00
+custom:
+    Issue: "962"

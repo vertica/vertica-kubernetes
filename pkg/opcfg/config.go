@@ -29,9 +29,20 @@ import (
 	lumberjack "gopkg.in/natefinch/lumberjack.v2"
 )
 
+const defaultBurstSize = 25
+
 // GetIsWebhookEnabled returns true if the webhook is enabled.
 func GetIsWebhookEnabled() bool {
 	return lookupBoolEnvVar("WEBHOOKS_ENABLED", envMustExist)
+}
+
+// GetBroadcasterBurstSize returns the customizable burst size for broadcaster.
+func GetBroadcasterBurstSize() int {
+	burstSize := lookupIntEnvVar("BROADCASTER_BURST_SIZE", envCanNotExist)
+	if burstSize > defaultBurstSize {
+		return burstSize
+	}
+	return defaultBurstSize
 }
 
 // GetIsControllersEnabled returns true if the controllers for each custom
