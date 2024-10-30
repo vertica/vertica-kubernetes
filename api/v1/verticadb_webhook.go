@@ -1120,6 +1120,14 @@ func (v *VerticaDB) validateSandboxes(allErrs field.ErrorList) field.ErrorList {
 				"sandbox name cannot be empty")
 			allErrs = append(allErrs, err)
 		}
+		// check if sandbox name matches rfc 1123 regex
+		if !isValidRFC1123DNSSubdomainName(GenCompatibleFQDNHelper(sandbox.Name)) {
+			err := field.Invalid(path.Index(i),
+				sandboxes[i],
+				fmt.Sprintf("sandbox name must match regex '%s'",
+					RFC1123DNSSubdomainNameRegex))
+			allErrs = append(allErrs, err)
+		}
 		// check if we have duplicate sandboxes
 		if _, ok := seenSandbox[sandbox.Name]; ok {
 			err := field.Invalid(path.Index(i),
