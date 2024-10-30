@@ -1,0 +1,27 @@
+name: e2e tests
+
+on: 
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: 'Descriptive name of the workflow run'
+        required: false
+        default: ''
+
+run-name: ${{ inputs.reason }}
+
+jobs:
+  test-run-name:
+    runs-on: ubuntu-latest 
+    if: ${{ always() && contains(github.event.workflow_run.display_title, 'server daily version') }}  
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        path: vertica-kubernetes
+        fetch-depth: 0
+    
+    - name: print pipeline output
+      run: |
+        echo "run name ${{ github.run-name }} ${{ github.event.workflow_run.display_title }}"
+
+  
