@@ -1,6 +1,8 @@
 name: e2e tests
 
 on: 
+  push:
+  pull_request:
   workflow_dispatch:
     inputs:
       reason:
