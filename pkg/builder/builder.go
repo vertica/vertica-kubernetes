@@ -916,18 +916,21 @@ func buildVProxyPodSpec(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.PodSpec
 }
 
 // makeDataForProxyConfigMap generates a configmap data in config.yaml format
-func makeDataForProxyConfigMap() string {
+func makeDataForProxyConfigMap(vdb *vapi.VerticaDB, sc *vapi.Subcluster) string {
+	var nodeList []string
+	proxyPort := "5433"
+
+	for scIndex := int32(0); scIndex < sc.Size; scIndex++ {
+		nodeItem := fmt.Sprintf("%s-%s-%d:%s", vdb.Name, sc.Name, scIndex, proxyPort)
+		nodeList = append(nodeList, nodeItem)
+	}
 	var proxyData ProxyData = ProxyData{
 		Listener: map[string]string{
 			"host": "",
-			"port": "5433",
+			"port": proxyPort,
 		},
 		Database: map[string][]string{
-			"nodes": {
-				"node1:5433",
-				"node2:5433",
-				"node3:5433",
-			},
+			"nodes": nodeList,
 		},
 		Log: map[string]string{
 			"level": "INFO",
