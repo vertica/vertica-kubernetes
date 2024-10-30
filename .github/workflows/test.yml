@@ -15,7 +15,6 @@ run-name: ${{ inputs.reason }}
 jobs:
   test-run-name:
     runs-on: ubuntu-latest 
-    if: ${{ always() && contains(github.event.workflow_run.display_title, 'server daily version') }}  
     steps:
     - uses: actions/checkout@v4
       with:
