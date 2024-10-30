@@ -106,8 +106,6 @@ func (v *VerticaDB) ValidateCreate() error {
 	verticadblog.Info("validate create", "name", v.Name, "GroupVersion", GroupVersion)
 
 	allErrs := v.validateVerticaDBSpec()
-	allErrs = v.hasNoShutdownSubclusters(allErrs)
-	allErrs = v.hasNoShutdownSandboxes(allErrs)
 	if len(allErrs) == 0 {
 		return nil
 	}
@@ -123,7 +121,7 @@ func (v *VerticaDB) ValidateUpdate(old runtime.Object) error {
 	allErrs = v.validateTerminatingSandboxes(old, allErrs)
 	allErrs = v.validateUnsandboxShutdownConditions(old, allErrs)
 	allErrs = v.validateAnnotatedSubclustersInShutdownSandbox(old, allErrs)
-
+	allErrs = v.validateNewSBoxOrSClusterShutdownUnset(allErrs)
 	if len(allErrs) == 0 {
 		return nil
 	}
@@ -264,38 +262,6 @@ func (v *VerticaDB) hasValidSubclusterTypes(allErrs field.ErrorList) field.Error
 			fmt.Sprintf("subcluster type is invalid. A valid case-sensitive type a user can specify is %q or %q. "+
 				"(%q and %q are valid types that should only be set by the operator)",
 				PrimarySubcluster, SecondarySubcluster, SandboxPrimarySubcluster, TransientSubcluster))
-		allErrs = append(allErrs, err)
-	}
-	return allErrs
-}
-
-// check if a vdb to be created has any subcluster whose shutdown field is true
-func (v *VerticaDB) hasNoShutdownSubclusters(allErrs field.ErrorList) field.ErrorList {
-	for i := range v.Spec.Subclusters {
-		subcluster := &v.Spec.Subclusters[i]
-		if !subcluster.Shutdown {
-			continue
-		}
-		fieldPrefix := field.NewPath("spec").Child("subclusters").Index(i)
-		err := field.Invalid(fieldPrefix.Child("shutdown"),
-			subcluster.Shutdown,
-			"Shutdown field for a subcluster to be created should be set to false")
-		allErrs = append(allErrs, err)
-	}
-	return allErrs
-}
-
-// check if a vdb to be created has any sandbox whose shutdown field is true
-func (v *VerticaDB) hasNoShutdownSandboxes(allErrs field.ErrorList) field.ErrorList {
-	sandboxes := v.Spec.Sandboxes
-	path := field.NewPath("spec").Child("sandboxes")
-	for i, sandbox := range sandboxes {
-		if !sandbox.Shutdown {
-			continue
-		}
-		err := field.Invalid(path.Index(i),
-			sandboxes[i],
-			"Shutdown field for a sandbox to be created should be set to false")
 		allErrs = append(allErrs, err)
 	}
 	return allErrs
@@ -1755,6 +1721,35 @@ func (v *VerticaDB) checkSandboxPrimary(allErrs field.ErrorList, oldObj *Vertica
 				oldSbMap[oldSbName],
 				fmt.Sprintf("cannot remove the primary subcluster from sandbox %q unless you are removing the sandbox",
 					oldScName))
+			allErrs = append(allErrs, err)
+		}
+	}
+	return allErrs
+}
+
+// ensures a new subcluster or sandbox to be added to a vdb has Shutdown field set to false
+func (v *VerticaDB) validateNewSBoxOrSClusterShutdownUnset(allErrs field.ErrorList) field.ErrorList {
+	statusSClusterMap := v.GenStatusSubclusterMap()
+	statusSBoxMap := v.GenStatusSandboxMap()
+	for i := range v.Spec.Sandboxes {
+		newSBox := v.Spec.Sandboxes[i]
+		if _, foundInStatus := statusSBoxMap[newSBox.Name]; !foundInStatus && newSBox.Shutdown {
+			p := field.NewPath("spec").Child("sandboxes")
+			err := field.Invalid(p.Index(i),
+				newSBox.Name,
+				fmt.Sprintf("cannot add sandbox %q that has Shutdown field set to true",
+					newSBox.Name))
+			allErrs = append(allErrs, err)
+		}
+	}
+	for i := range v.Spec.Subclusters {
+		newSCluster := v.Spec.Subclusters[i]
+		if _, foundInStatus := statusSClusterMap[newSCluster.Name]; !foundInStatus && newSCluster.Shutdown {
+			p := field.NewPath("spec").Child("subclusters")
+			err := field.Invalid(p.Index(i),
+				newSCluster.Name,
+				fmt.Sprintf("cannot add subcluster %q that has Shutdown field set to true",
+					newSCluster.Name))
 			allErrs = append(allErrs, err)
 		}
 	}
