@@ -1118,8 +1118,11 @@ var _ = Describe("verticadb_webhook", func() {
 
 		// cannot have empty sandbox name
 		vdb.Spec.Sandboxes[0].Name = ""
+		Ω(vdb.validateVerticaDBSpec()).Should(HaveLen(2))
+
+		// sandbox name must match rfc 1123 regex
+		vdb.Spec.Sandboxes[0].Name = "-sandbox1"
 		Ω(vdb.validateVerticaDBSpec()).Should(HaveLen(1))
-		vdb.Spec.Sandboxes[0].Name = "sandbox1"
 
 		// cannot have multiple sandboxes with the same name
 		vdb.Spec.Sandboxes[0].Name = "sandbox2"

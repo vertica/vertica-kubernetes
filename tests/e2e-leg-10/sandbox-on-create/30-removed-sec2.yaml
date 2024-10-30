@@ -17,7 +17,7 @@ metadata:
   name: v-sandbox-on-create
 spec:
   sandboxes:
-  - name: sand1
+  - name: sand_1
     subclusters:
       - name: sec1
   subclusters:

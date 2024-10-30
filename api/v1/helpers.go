@@ -350,8 +350,12 @@ func (v *VerticaDB) GetCommunalPath() string {
 // GenCompatibleFQDN returns a name of the subcluster that is
 // compatible inside a fully-qualified domain name.
 func (s *Subcluster) GenCompatibleFQDN() string {
+	return GenCompatibleFQDNHelper(s.Name)
+}
+
+func GenCompatibleFQDNHelper(name string) string {
 	m := regexp.MustCompile(`_`)
-	return m.ReplaceAllString(s.Name, "-")
+	return m.ReplaceAllString(name, "-")
 }
 
 // GetStatefulSetName returns the name of the statefulset for this subcluster
