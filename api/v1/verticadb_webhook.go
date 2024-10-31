@@ -1746,10 +1746,10 @@ func (v *VerticaDB) validateNewSBoxOrSClusterShutdownUnset(allErrs field.ErrorLi
 	for i := range v.Spec.Subclusters {
 		newSCluster := v.Spec.Subclusters[i]
 		if _, foundInStatus := statusSClusterMap[newSCluster.Name]; !foundInStatus && newSCluster.Shutdown {
-			p := field.NewPath("spec").Child("subclusters")
-			err := field.Invalid(p.Index(i),
-				newSCluster.Name,
-				fmt.Sprintf("cannot add subcluster %q that has Shutdown field set to true",
+			p := field.NewPath("spec").Child("subclusters").Index(i).Shutdown
+			err := field.Invalid(p,
+				newSCluster.Shutdown,
+				fmt.Sprintf("shutdown must be false when adding subcluster %q",
 					newSCluster.Name))
 			allErrs = append(allErrs, err)
 		}
