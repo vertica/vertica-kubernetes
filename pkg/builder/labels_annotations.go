@@ -142,9 +142,9 @@ func MakeAnnotationsForStsObject(vdb *vapi.VerticaDB, sc *vapi.Subcluster) map[s
 	return annotations
 }
 
-// MakeAnnotationsForProxyConfigMap builds the list of annotations that are included
+// MakeAnnotationsForVProxyConfigMap builds the list of annotations that are included
 // in the proxy config map.
-func MakeAnnotationsForProxyConfigMap(vdb *vapi.VerticaDB) map[string]string {
+func MakeAnnotationsForVProxyConfigMap(vdb *vapi.VerticaDB) map[string]string {
 	annotations := MakeAnnotationsForObject(vdb)
 	if ver, ok := vdb.Annotations[vmeta.VersionAnnotation]; ok {
 		annotations[vmeta.VersionAnnotation] = ver
