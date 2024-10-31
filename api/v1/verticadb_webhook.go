@@ -117,11 +117,7 @@ func (v *VerticaDB) ValidateUpdate(old runtime.Object) error {
 	verticadblog.Info("validate update", "name", v.Name, "GroupVersion", GroupVersion)
 
 	allErrs := append(v.validateImmutableFields(old), v.validateVerticaDBSpec()...)
-	allErrs = v.validateShutdownSandboxImage(old, allErrs)
-	allErrs = v.validateTerminatingSandboxes(old, allErrs)
-	allErrs = v.validateUnsandboxShutdownConditions(old, allErrs)
-	allErrs = v.validateAnnotatedSubclustersInShutdownSandbox(old, allErrs)
-	allErrs = v.validateNewSBoxOrSClusterShutdownUnset(allErrs)
+
 	if len(allErrs) == 0 {
 		return nil
 	}
@@ -154,6 +150,11 @@ func (v *VerticaDB) validateImmutableFields(old runtime.Object) field.ErrorList 
 	allErrs = v.checkImmutableStsName(oldObj, allErrs)
 	allErrs = v.checkValidSubclusterTypeTransition(oldObj, allErrs)
 	allErrs = v.checkSandboxesDuringUpgrade(oldObj, allErrs)
+	allErrs = v.validateShutdownSandboxImage(old, allErrs)
+	allErrs = v.validateTerminatingSandboxes(old, allErrs)
+	allErrs = v.validateUnsandboxShutdownConditions(old, allErrs)
+	allErrs = v.validateAnnotatedSubclustersInShutdownSandbox(old, allErrs)
+	allErrs = v.validateNewSBoxOrSClusterShutdownUnset(allErrs)
 	return allErrs
 }
 

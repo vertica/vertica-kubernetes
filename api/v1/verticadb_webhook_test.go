@@ -1028,6 +1028,13 @@ var _ = Describe("verticadb_webhook", func() {
 			{Name: "sandbox1", Image: mainClusterImageVer, Subclusters: []SubclusterName{{Name: "sc1"}}},
 			{Name: "sandbox2", Image: mainClusterImageVer, Subclusters: []SubclusterName{{Name: "sc2"}, {Name: "sc3"}}},
 		}
+		newVdb.Status.Subclusters = []SubclusterStatus{
+			{Name: "main"},
+			{Name: "sc1"},
+			{Name: "sc2"},
+			{Name: "sc3"},
+			{Name: "sc4"},
+		}
 		newVdb.ObjectMeta.Annotations[vmeta.VersionAnnotation] = SandboxSupportedMinVersion
 		newVdb.ObjectMeta.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
 		resetStatusConditionsForDBInitialized(newVdb)
@@ -1215,6 +1222,11 @@ var _ = Describe("verticadb_webhook", func() {
 			{Name: "sand1", Subclusters: []SubclusterName{{Name: "sc2"}, {Name: "sc3"}}},
 		}
 		newVdb := oldVdb.DeepCopy()
+		newVdb.Status.Subclusters = []SubclusterStatus{
+			{Name: "sc1"},
+			{Name: "sc2"},
+			{Name: "sc3"},
+		}
 		newVdb.Spec.Sandboxes[0].Subclusters = []SubclusterName{{Name: "sc2"}}
 		Ω(newVdb.validateImmutableFields(oldVdb)).Should(HaveLen(1))
 		newVdb.Spec.Sandboxes[0].Subclusters = []SubclusterName{{Name: "sc3"}}
@@ -1286,6 +1298,11 @@ var _ = Describe("verticadb_webhook", func() {
 			{Name: "sc3", Type: SecondarySubcluster, Size: 1},
 		}
 		newVdb := oldVdb.DeepCopy()
+		newVdb.Status.Subclusters = []SubclusterStatus{
+			{Name: "sc1"},
+			{Name: "sc2"},
+			{Name: "sc3"},
+		}
 		Ω(newVdb.validateImmutableFields(oldVdb)).Should(HaveLen(0))
 		newVdb.Spec.Sandboxes = []Sandbox{
 			{Name: sbName, Subclusters: []SubclusterName{{Name: "sc3"}}},
