@@ -1735,7 +1735,7 @@ func (v *VerticaDB) validateNewSBoxOrSClusterShutdownUnset(allErrs field.ErrorLi
 	for i := range v.Spec.Sandboxes {
 		newSBox := v.Spec.Sandboxes[i]
 		if _, foundInStatus := statusSBoxMap[newSBox.Name]; !foundInStatus && newSBox.Shutdown {
-			p := field.NewPath("spec").Child("sandboxes").Index(i).Shutdown
+			p := field.NewPath("spec").Child("sandboxes").Index(i)
 			err := field.Invalid(p,
 				newSBox.Shutdown,
 				fmt.Sprintf("shutdown must be false when adding sandbox %q",
@@ -1746,7 +1746,7 @@ func (v *VerticaDB) validateNewSBoxOrSClusterShutdownUnset(allErrs field.ErrorLi
 	for i := range v.Spec.Subclusters {
 		newSCluster := v.Spec.Subclusters[i]
 		if _, foundInStatus := statusSClusterMap[newSCluster.Name]; !foundInStatus && newSCluster.Shutdown {
-			p := field.NewPath("spec").Child("subclusters").Index(i).Shutdown
+			p := field.NewPath("spec").Child("subclusters").Index(i)
 			err := field.Invalid(p,
 				newSCluster.Shutdown,
 				fmt.Sprintf("shutdown must be false when adding subcluster %q",
