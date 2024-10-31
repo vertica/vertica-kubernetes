@@ -1547,6 +1547,11 @@ var _ = Describe("verticadb_webhook", func() {
 		Ω(newVdb.validateShutdownSandboxImage(oldVdb, field.ErrorList{})).Should(HaveLen(1))
 		newVdb.Status.Subclusters[3].Shutdown = false
 		Ω(newVdb.validateShutdownSandboxImage(oldVdb, field.ErrorList{})).Should(HaveLen(0))
+		newVdb.Status.Subclusters[0].Shutdown = true
+		Ω(newVdb.validateShutdownSandboxImage(oldVdb, field.ErrorList{})).Should(HaveLen(0))
+		newVdb.Spec.Sandboxes[0].Shutdown = false
+		Ω(newVdb.validateShutdownSandboxImage(oldVdb, field.ErrorList{})).Should(HaveLen(0))
+
 	})
 
 	It("should not terminate a sandbox whose shutdown field is set", func() {
