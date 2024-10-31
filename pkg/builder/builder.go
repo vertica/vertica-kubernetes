@@ -101,7 +101,7 @@ const (
 )
 
 type ProxyData struct {
-	Listener map[string]string
+	Listener map[string]interface{}
 	Database map[string][]string
 	Log      map[string]string
 	// TODO: to support TLS
@@ -864,6 +864,7 @@ func makeScrutinizeInitContainers(vscr *v1beta1.VerticaScrutinize, vdb *vapi.Ver
 
 // BuildVProxyDeployment builds manifest for a subclusters VProxy deployment
 func BuildVProxyDeployment(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi.Subcluster) *appsv1.Deployment {
+	rep := int32(2)
 	return &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        nm.Name,
@@ -881,14 +882,15 @@ func BuildVProxyDeployment(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vap
 					Labels:      MakeLabelsForPodObject(vdb, sc),
 					Annotations: MakeAnnotationsForObject(vdb),
 				},
-				Spec: buildVProxyPodSpec(vdb, sc),
+				Spec: buildVProxyPodSpec(nm, vdb, sc),
 			},
+			Replicas: &rep,
 		},
 	}
 }
 
 // buildPodSpec creates a PodSpec for the deployment
-func buildVProxyPodSpec(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.PodSpec {
+func buildVProxyPodSpec(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.PodSpec {
 	termGracePeriod := int64(vmeta.GetTerminationGracePeriodSeconds(vdb.Annotations))
 	return corev1.PodSpec{
 		NodeSelector:                  sc.NodeSelector,
@@ -904,9 +906,12 @@ func buildVProxyPodSpec(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.PodSpec
 				Name: sc.Name,
 				VolumeSource: corev1.VolumeSource{
 					ConfigMap: &corev1.ConfigMapVolumeSource{
-						LocalObjectReference: corev1.LocalObjectReference{Name: vdb.Name},
+						LocalObjectReference: corev1.LocalObjectReference{Name: nm.Name},
 						Items: []corev1.KeyToPath{
-							{Key: sc.Name, Path: "config.yaml"},
+							{
+								Key:  "config.yaml",
+								Path: "config.yaml",
+							},
 						},
 					},
 				},
@@ -916,18 +921,19 @@ func buildVProxyPodSpec(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.PodSpec
 }
 
 // makeDataForProxyConfigMap generates a configmap data in config.yaml format
-func makeDataForProxyConfigMap(vdb *vapi.VerticaDB, sc *vapi.Subcluster) string {
+func makeDataForVProxyConfigMap(vdb *vapi.VerticaDB, sc *vapi.Subcluster) string {
 	var nodeList []string
-	proxyPort := "5433"
+	port := 5433
 
 	for scIndex := int32(0); scIndex < sc.Size; scIndex++ {
-		nodeItem := fmt.Sprintf("%s-%s-%d:%s", vdb.Name, sc.Name, scIndex, proxyPort)
+		nodeItem := fmt.Sprintf("%s-%s-%d:%d", vdb.Name, sc.Name, scIndex, port)
 		nodeList = append(nodeList, nodeItem)
 	}
+
 	proxyData := ProxyData{
-		Listener: map[string]string{
+		Listener: map[string]interface{}{
 			"host": "",
-			"port": proxyPort,
+			"port": port,
 		},
 		Database: map[string][]string{
 			"nodes": nodeList,
@@ -941,10 +947,10 @@ func makeDataForProxyConfigMap(vdb *vapi.VerticaDB, sc *vapi.Subcluster) string 
 	return string(pData)
 }
 
-// BuildProxyConfigMap builds a config map for client proxy
-func BuildProxyConfigMap(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi.Subcluster) *corev1.ConfigMap {
+// BuildVProxyConfigMap builds a config map for client proxy
+func BuildVProxyConfigMap(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi.Subcluster) *corev1.ConfigMap {
 	immutable := true
-	proxyConfig := makeDataForProxyConfigMap(vdb, sc)
+	proxyConfig := makeDataForVProxyConfigMap(vdb, sc)
 	return &corev1.ConfigMap{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "ConfigMap",
@@ -954,7 +960,7 @@ func BuildProxyConfigMap(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi.
 			Name:            nm.Name,
 			Namespace:       nm.Namespace,
 			Labels:          MakeLabelsForPodObject(vdb, sc),
-			Annotations:     MakeAnnotationsForProxyConfigMap(vdb),
+			Annotations:     MakeAnnotationsForVProxyConfigMap(vdb),
 			OwnerReferences: []metav1.OwnerReference{vdb.GenerateOwnerReference()},
 		},
 		// the data should be immutable since dbName and sandboxName are fixed
