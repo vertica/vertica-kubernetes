@@ -226,6 +226,16 @@ func (v *VerticaDB) GenStatusSubclusterMap() map[string]*SubclusterStatus {
 	return statusSclusterMap
 }
 
+// GenStatusSClusterIndexMap will organize all of the subclusters into a map so we
+// can quickly find its index in the status.subclusters[] array.
+func (v *VerticaDB) GenStatusSClusterIndexMap() map[string]int {
+	m := make(map[string]int)
+	for i := range v.Status.Subclusters {
+		m[v.Status.Subclusters[i].Name] = i
+	}
+	return m
+}
+
 // GenSandboxSubclusterMapForUnsandbox will compare sandbox status and spec
 // for finding subclusters that need to be unsandboxed, this function returns a map
 // with sandbox name as the key and its subclusters (need to be unsandboxed) as the value
