@@ -1744,7 +1744,7 @@ func (v *VerticaDB) validateNewSBoxOrSClusterShutdownUnset(allErrs field.ErrorLi
 		}
 	}
 	for i := range v.Spec.Subclusters {
-		newSCluster := v.Spec.Subclusters[i]
+		newSCluster := &v.Spec.Subclusters[i]
 		if _, foundInStatus := statusSClusterMap[newSCluster.Name]; !foundInStatus && newSCluster.Shutdown {
 			p := field.NewPath("spec").Child("subclusters").Index(i)
 			err := field.Invalid(p,
