@@ -53,12 +53,6 @@ type VerticaDBSpec struct {
 	// understand how to control the behavior.
 	Image string `json:"image,omitempty"`
 
-	// +kubebuilder:validation:Optional
-	// +kubebuilder:default:="opentext/vertica-client-proxy:24.1.0-0"
-	// +operator-sdk:csv:customresourcedefinitions:type=spec
-	// The docker image name that contains the Vertica proxy server.
-	VProxyImage string `json:"vproxyImage,omitempty"`
-
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// Custom labels that will be added to all of the objects that the operator
 	// will create.
@@ -277,18 +271,6 @@ type VerticaDBSpec struct {
 	// Vertica pod. It will be merged with the default context. If omitted, then
 	// the default context is used.
 	PodSecurityContext *corev1.PodSecurityContext `json:"podSecurityContext,omitempty"`
-
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:hidden"
-	// +kubebuilder:default:=""
-	// +kubebuilder:validation:Optional
-	// A secret that contains the TLS credentials to use for Vertica's client
-	// proxy. If this is empty, the operator will create a secret to use and
-	// add the name of the generate secret in this field.
-	// When set, the secret must have the following keys defined: tls.key,
-	// tls.crt and ca.crt. To store this secret outside of Kubernetes, you can
-	// use a secret path reference prefix, such as gsm://. Everything after the
-	// prefix is the name of the secret in the service you are storing.
-	VProxyTLSSecret string `json:"proxyTLSSecret,omitempty"`
 
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:hidden"
 	// +kubebuilder:default:=""
@@ -819,6 +801,50 @@ type Subcluster struct {
 	// State to indicate whether the operator must shut down the subcluster
 	// and not try to restart it.
 	Shutdown bool `json:"shutdown,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// Create client proxy pods for the subcluster if defined
+	// All the subcluster connections will be redirected to the proxy pods
+	Proxy Proxy `json:"proxy,omitempty"`
+}
+
+type Proxy struct {
+	// +kubebuilder:validation:required
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// The docker image name that contains the Vertica proxy server.
+	Image string `json:"image"`
+
+	// +kubebuilder:default:=1
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// The number of replicas that the proxy server will have.
+	Replica int32 `json:"replica,omitempty"`
+
+	// +kubebuilder:default:=INFO
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// The log level of the proxy server will have.
+	// Log level: 0=TRACE|1=DEBUG|2=INFO|3=WARN|4=FATAL|5=NONE (Default INFO)
+	LogLevel string `json:"logLevel,omitempty"`
+
+	// +kubebuilder:default:=5433
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// The port proxy server will listen to. The only supported value is 5433
+	Port int32 `json:"port,omitempty"`
+
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:hidden"
+	// +kubebuilder:default:=""
+	// +kubebuilder:validation:Optional
+	// A secret that contains the TLS credentials to use for Vertica's client
+	// proxy. If this is empty, the operator will create a secret to use and
+	// add the name of the generate secret in this field.
+	// When set, the secret must have the following keys defined: tls.key,
+	// tls.crt and ca.crt. To store this secret outside of Kubernetes, you can
+	// use a secret path reference prefix, such as gsm://. Everything after the
+	// prefix is the name of the secret in the service you are storing.
+	TlsSecret string `json:"tlsSecret,omitempty"`
 }
 
 // Affinity is used instead of corev1.Affinity and behaves the same.

@@ -111,7 +111,6 @@ func MakeVDB() *VerticaDB {
 			Labels:             make(map[string]string),
 			Annotations:        make(map[string]string),
 			Image:              "vertica-k8s:latest",
-			VProxyImage:        "vertica-client-proxy:latest",
 			InitPolicy:         CommunalInitPolicyCreate,
 			Communal: CommunalStorage{
 				Path:             "s3://nimbusdb/cchen",
@@ -128,7 +127,15 @@ func MakeVDB() *VerticaDB {
 			DBName:     "db",
 			ShardCount: 12,
 			Subclusters: []Subcluster{
-				{Name: "defaultsubcluster", Size: 3, ServiceType: corev1.ServiceTypeClusterIP, Type: PrimarySubcluster},
+				{
+					Name:        "defaultsubcluster",
+					Size:        3,
+					ServiceType: corev1.ServiceTypeClusterIP,
+					Type:        PrimarySubcluster,
+					Proxy: Proxy{
+						Image: "vertica-client-proxy:latest",
+					},
+				},
 			},
 		},
 	}
