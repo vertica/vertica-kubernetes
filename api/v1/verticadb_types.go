@@ -806,7 +806,7 @@ type Subcluster struct {
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// Create client proxy pods for the subcluster if defined
 	// All the subcluster connections will be redirected to the proxy pods
-	Proxy Proxy `json:"proxy,omitempty"`
+	Proxy []Proxy `json:"proxy,omitempty"`
 }
 
 type Proxy struct {
@@ -844,7 +844,7 @@ type Proxy struct {
 	// tls.crt and ca.crt. To store this secret outside of Kubernetes, you can
 	// use a secret path reference prefix, such as gsm://. Everything after the
 	// prefix is the name of the secret in the service you are storing.
-	TlsSecret string `json:"tlsSecret,omitempty"`
+	TLSSecret string `json:"tlsSecret,omitempty"`
 }
 
 // Affinity is used instead of corev1.Affinity and behaves the same.

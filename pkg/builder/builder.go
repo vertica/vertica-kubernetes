@@ -883,7 +883,7 @@ func BuildVProxyDeployment(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vap
 				},
 				Spec: buildVProxyPodSpec(nm, vdb, sc),
 			},
-			Replicas: &sc.Proxy.Replica,
+			Replicas: &sc.Proxy[0].Replica,
 		},
 	}
 }
@@ -975,7 +975,7 @@ func makeVProxyContainer(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.Contai
 	envVars := buildVProxyTLSCertsEnvVars(vdb, sc)
 	envVars = append(envVars, buildCommonEnvVars(vdb)...)
 	return corev1.Container{
-		Image:           sc.Proxy.Image,
+		Image:           sc.Proxy[0].Image,
 		ImagePullPolicy: vdb.Spec.ImagePullPolicy,
 		Name:            names.ProxyContainer,
 		Env:             envVars,
@@ -1748,7 +1748,7 @@ func buildNMATLSCertsEnvVars(vdb *vapi.VerticaDB) []corev1.EnvVar {
 
 // buildVProxyTLSCertsEnvVars returns environment variables about proxy certs
 func buildVProxyTLSCertsEnvVars(vdb *vapi.VerticaDB, sc *vapi.Subcluster) []corev1.EnvVar {
-	if vmeta.UseVProxyCertsMount(vdb.Annotations) && secrets.IsK8sSecret(sc.Proxy.TlsSecret) {
+	if vmeta.UseVProxyCertsMount(vdb.Annotations) && secrets.IsK8sSecret(sc.Proxy[0].TLSSecret) {
 		return []corev1.EnvVar{
 			// TODO: use proxy certs
 		}
