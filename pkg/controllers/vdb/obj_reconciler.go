@@ -459,7 +459,7 @@ func (o *ObjReconciler) checkVProxyConfigMap(ctx context.Context, vpName types.N
 
 // checkVProxyDeployment will create or update the client proxy deployment
 func (o *ObjReconciler) checkVProxyDeployment(ctx context.Context, sc *vapi.Subcluster) error {
-	if sc.Proxy[0].Image == "" {
+	if sc.Proxy.Image == "" {
 		o.Log.Info("No client proxy image defind, skipping deployment")
 		return nil
 	}
