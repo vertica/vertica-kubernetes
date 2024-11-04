@@ -99,6 +99,11 @@ export BASE_VERTICA_IMG
 # Image URL to use for the logger sidecar
 VLOGGER_IMG ?= $(IMG_REPO)vertica-logger:$(VLOGGER_VERSION)
 export VLOGGER_IMG
+# Image URL to use for the vertica client proxy. This is for testing purposes only.
+# No client proxy pod will be created if not set
+# The value could be: $(IMG_REPO)vertica-client-proxy:$(VERSION)
+VPROXY_IMG ?= <not-set>
+export VPROXY_IMG
 # If the current leg in the CI tests is leg-9
 LEG9 ?= no
 export LEG9
@@ -557,6 +562,7 @@ echo-images:  ## Print the names of all of the images used
 	@echo "VERTICA_IMG=$(VERTICA_IMG)"
 	@echo "BASE_VERTICA_IMG=$(BASE_VERTICA_IMG)"
 	@echo "VLOGGER_IMG=$(VLOGGER_IMG)"
+	@echo "VPROXY_IMG=$(VPROXY_IMG)"
 	@echo "BUNDLE_IMG=$(BUNDLE_IMG)"
 	@echo "OLM_CATALOG_IMG=$(OLM_CATALOG_IMG)"
 

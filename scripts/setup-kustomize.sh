@@ -96,6 +96,9 @@ fi
 if [ -z "${VLOGGER_IMG}" ]; then
     VLOGGER_IMG=$(cd $REPO_DIR && make echo-images | grep VLOGGER_IMG | cut -d'=' -f2)
 fi
+if [ -z "${VPROXY_IMG}" ]; then
+    VPROXY_IMG=$(cd $REPO_DIR && make echo-images | grep VPROXY_IMG | cut -d'=' -f2)
+fi
 
 # Name of the secret that contains the cert to use for communal access
 # authentication.  This is the name of the namespace copy, so it is hard coded
@@ -273,6 +276,16 @@ replacements:
           kind: Job
         fieldPaths:
           - spec.template.spec.containers.0.image
+  - source:
+      kind: ConfigMap
+      name: e2e
+      fieldPath: data.vproxyImage
+    targets:
+      - select:
+          kind: VerticaDB
+          name: v-client-proxy
+        fieldPaths:
+          - spec.subclusters.*.proxy.*.image
   - source:
       kind: ConfigMap
       name: e2e
@@ -534,6 +547,7 @@ data:
   verticaImage: ${VERTICA_IMG}
   vloggerImage: ${VLOGGER_IMG}
   baseVerticaImage: ${BASE_VERTICA_IMG}
+  vproxyImage: ${VPROXY_IMG}
 EOF
 
     # If a cert was specified for communal endpoint access, include a datapoint
