@@ -1861,7 +1861,7 @@ func (v *VerticaDB) validateShutdownSandboxImage(old runtime.Object, allErrs fie
 			if errMsg != "" {
 				p := field.NewPath("spec").Child("sandboxes").Index(newSandboxIndex)
 				err := field.Invalid(p.Child("image"),
-					sandboxName,
+					newSandbox.Image,
 					fmt.Sprintf("cannot change the image for sandbox %q because %q",
 						sandboxName, errMsg))
 				allErrs = append(allErrs, err)
