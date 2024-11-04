@@ -1914,7 +1914,7 @@ func (v *VerticaDB) checkSboxForShutdown(newSandbox *Sandbox, newSClusterMap map
 
 	for _, subcluster := range newSandbox.Subclusters {
 		i, foundInStatus := statusSClusterIndexMap[subcluster.Name]
-		if foundInStatus && (newSClusterMap[subcluster.Name].Shutdown || v.Status.Subclusters[i].Shutdown) {
+		if newSClusterMap[subcluster.Name].Shutdown || (foundInStatus && v.Status.Subclusters[i].Shutdown) {
 			return append(errMsgs, fmt.Sprintf("Subcluster %q is marked for shut down or has already been shut down", subcluster.Name))
 		}
 	}
