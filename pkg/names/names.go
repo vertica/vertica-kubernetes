@@ -63,7 +63,7 @@ func GenStsName(vdb *vapi.VerticaDB, sc *vapi.Subcluster) types.NamespacedName {
 
 // GenSandboxConfigMapName returns the name of the sandbox config map
 func GenSandboxConfigMapName(vdb *vapi.VerticaDB, sandbox string) types.NamespacedName {
-	return GenNamespacedName(vdb, vdb.Name+"-"+sandbox)
+	return GenNamespacedName(vdb, vdb.Name+"-"+vapi.GenCompatibleFQDNHelper(sandbox))
 }
 
 // GenVProxyName returns the name of the client proxy deployment, configmap, and pods

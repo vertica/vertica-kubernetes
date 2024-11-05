@@ -14,16 +14,17 @@
 apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
-  name: v-sandbox-on-create
+  name: v-base-upgrade
 spec:
-  sandboxes:
-  - name: sand_1
-    subclusters:
-      - name: sec1
   subclusters:
-    - name: pri1
-      size: 3
-      type: primary
     - name: sec1
+      size: 2
+      type: secondary
+    - name: sec2
       size: 1
-      type: sandboxprimary
+      type: secondary
+    - name: pri1
+      size: 2
+    - name: pri_2
+      size: 1
+      type: primary

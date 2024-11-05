@@ -14,31 +14,38 @@
 apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
-  name: v-sandbox-on-create
+  name: v-base-upgrade
   annotations:
     vertica.com/include-uid-in-path: true
+    vertica.com/online-upgrade-preferred-sandbox: "replica-group-b"
+    vertica.com/online-upgrade-archive-before-replication: "arch_bef_rep"
+    vertica.com/save-restore-point-on-upgrade: true
+    vertica.com/online-upgrade-timeout: "60"
 spec:
   image: kustomize-vertica-image
-  dbName: sandbox_db
+  dbName: repUP
   initPolicy: CreateSkipPackageInstall
+  upgradePolicy: Online
   communal: {}
   local:
     requestSize: 250Mi
+  sidecars:
+    - name: vlogger
+      image: kustomize-vlogger-image
+  # We pick a cluster size that is too big for the CE license. This relies on
+  # having a license, which will be added by kustomize.
   subclusters:
+    - name: sec1
+      size: 2
+      type: secondary
+    - name: sec2
+      size: 1
+      type: secondary
     - name: pri1
-      size: 3
+      size: 2
+    - name: pri_2
+      size: 1
       type: primary
-    - name: sec1
-      size: 1
-      type: secondary
-    - name: sec2
-      size: 1
-      type: secondary
-  sandboxes:
-  - name: sand_1
-    subclusters:
-    - name: sec1
-    - name: sec2
   certSecrets: []
   imagePullSecrets: []
   volumes: []

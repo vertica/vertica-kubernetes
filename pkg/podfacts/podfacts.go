@@ -1387,6 +1387,17 @@ func GenPodNames(pods []*PodFact) string {
 	return strings.Join(podNames, ", ")
 }
 
+// AnyPodsNotRunning returns true if any pod isn't running. It could be still pending due to
+// lack of resources. It will return the name of the first pod that isn't running.
+func (p *PodFacts) AnyPodsNotRunning() (bool, types.NamespacedName) {
+	for _, v := range p.Detail {
+		if !v.isPodRunning {
+			return true, v.name
+		}
+	}
+	return false, types.NamespacedName{}
+}
+
 // AnyInstalledPodsNotRunning returns true if any installed pod isn't running.  It will
 // return the name of the first pod that isn't running.
 func (p *PodFacts) AnyInstalledPodsNotRunning() (bool, types.NamespacedName) {

@@ -11,19 +11,5 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1
-kind: VerticaDB
-metadata:
-  name: v-sandbox-on-create
-spec:
-  sandboxes:
-  - name: sand_1
-    subclusters:
-      - name: sec1
-  subclusters:
-    - name: pri1
-      size: 3
-      type: primary
-    - name: sec1
-      size: 1
-      type: sandboxprimary
+resources:
+  - setup-vdb.yaml

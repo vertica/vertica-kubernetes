@@ -11,17 +11,48 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: v-base-upgrade-pri1
+status:
+  currentReplicas: 2
+  readyReplicas: 2
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: v-base-upgrade-pri-2
+status:
+  currentReplicas: 1
+  readyReplicas: 1
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: v-base-upgrade-sec1
+status:
+  currentReplicas: 2
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: v-base-upgrade-sec2
+status:
+  currentReplicas: 1
+  readyReplicas: 1
+---
 apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
-  name: v-sandbox-on-create
+  name: v-base-upgrade
 status:
-  sandboxes:
-  - name: sand_1
-    subclusters:
-    - sec1
   subclusters:
-    - addedToDBCount: 3
-      upNodeCount: 3
+    - addedToDBCount: 2
+      upNodeCount: 2
+    - addedToDBCount: 1
+      upNodeCount: 1
+    - addedToDBCount: 2
+      upNodeCount: 2
     - addedToDBCount: 1
       upNodeCount: 1
