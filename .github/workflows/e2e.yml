@@ -232,7 +232,7 @@ jobs:
           controllers-scope: namespace
 
   e2e-leg-3-admintools:
-    if: ${{ ! contains(github.ref, 'k8s-sync')  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools leg 3' || inputs.e2e_test_suites == '') }}
+    if: ${{ ! contains(github.ref, 'k8s-sync')  && inputs.e2e_test_suites != 'client-proxy' && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools leg 3' || inputs.e2e_test_suites == '') }}
     needs: [build]
     runs-on: ubuntu-latest
     steps:
@@ -252,7 +252,7 @@ jobs:
           need-legacy-image: true
   
   e2e-leg-3-vclusterops-previous-release:
-    if: ${{ inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'vcluster leg 3' || inputs.e2e_test_suites == '' }}
+    if: ${{ inputs.e2e_test_suites != 'client-proxy' && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'vcluster leg 3' || inputs.e2e_test_suites == '' )}}
     needs: [build]
     runs-on: ubuntu-latest
     steps:
