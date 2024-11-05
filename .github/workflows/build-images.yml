@@ -23,10 +23,6 @@ on:
         description: 'Name of an existing vlogger image. If blank we will build one using the default name'
         type: string
         required: true
-      vproxy_image:
-        description: 'Name of an existing vertica client proxy image. If blank we will build one using the default name'
-        type: string
-        required: true
       operator_platform:
         description: 'If building the operator, this identifies the platforms to build it for. Separate multiple platforms with a comma. Example: linux/arm64,linux/amd64'
         type: string
@@ -60,9 +56,6 @@ on:
       vlogger-image:
         description: "The image name of the vertica logger sidecar"
         value: ${{ jobs.build-vlogger.outputs.image }}
-      vproxy-image:
-        description: "The image name of the vertica client proxy"
-        value: ${{ jobs.build-vproxy.outputs.image }}
 
 # These permissions only apply when not running a PR.  GitHub actions makes PRs
 # from forked repositories with extremely limited permissions that cannot be
