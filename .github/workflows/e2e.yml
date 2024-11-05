@@ -285,7 +285,7 @@ jobs:
           dockerhub-username: ${{ secrets.DOCKERHUB_USERNAME }}
           dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}
           vlogger-image: ${{ needs.build.outputs.vlogger-image }}
-          vproxy-image: ${{ needs.build.outputs.vproxy-image }}
+          vproxy-image: 'qguanopentext/vertica-client-proxy:20241024'
           operator-image: ${{ needs.build.outputs.operator-image }}
           vertica-image: ${{ needs.build.outputs.full-vertica-image }}
           vertica-deployment-method: vclusterops
