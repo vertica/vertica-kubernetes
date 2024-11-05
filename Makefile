@@ -417,6 +417,10 @@ docker-build-vlogger:  ## Build vertica logger docker image
 		--build-arg ALPINE_VERSION=${VLOGGER_ALPINE_VERSION} \
 		-f docker-vlogger/Dockerfile .
 
+.PHONY: docker-build-vproxy
+docker-build-vproxy:  ## Build vertica client proxy image
+	scripts/build-vproxy.sh
+
 # If you wish to build the manager image targeting other platforms you can use the --platform flag.
 # (i.e. docker buildx build --platform=linux/arm64 ). However, you must enable docker buildKit for it.
 # More info: https://docs.docker.com/develop/develop-images/build_enhancements/
@@ -434,6 +438,15 @@ ifeq ($(shell $(KIND_CHECK)), 0)
 	docker push ${VLOGGER_IMG}
 else
 	scripts/push-to-kind.sh -i ${VLOGGER_IMG}
+endif
+
+# The client proxy is built in its own repository. Put the proxy image in kind for testing purpose only
+.PHONY: docker-push-client-proxy
+docker-push-cient-proxy:  ## Push client proxy image to kind
+ifneq ($(VPROXY_IMG), <not-set>)
+ifeq ($(shell $(KIND_CHECK)), 1)
+        scripts/push-to-kind.sh -i ${VPROXY_IMG}
+endif
 endif
 
 # We have two versions of the vertica-k8s image. This is a staging effort. A
