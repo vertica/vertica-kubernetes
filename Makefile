@@ -100,7 +100,6 @@ export BASE_VERTICA_IMG
 VLOGGER_IMG ?= $(IMG_REPO)vertica-logger:$(VLOGGER_VERSION)
 export VLOGGER_IMG
 # Image URL to use for the vertica client proxy. This is for testing purposes only.
-# No client proxy pod will be created if not set
 # The value could be: $(IMG_REPO)vertica-client-proxy:$(VERSION)
 VPROXY_IMG ?= <not-set>
 export VPROXY_IMG
@@ -441,8 +440,8 @@ else
 endif
 
 # The client proxy is built in its own repository. Put the proxy image in kind for testing purpose only
-.PHONY: docker-push-client-proxy
-docker-push-cient-proxy:  ## Push client proxy image to kind
+.PHONY: docker-push-vproxy
+docker-push-vproxy:  ## Push client proxy image to kind
 ifneq ($(VPROXY_IMG), <not-set>)
 ifeq ($(shell $(KIND_CHECK)), 1)
         scripts/push-to-kind.sh -i ${VPROXY_IMG}
@@ -564,10 +563,10 @@ docker-push-olm-catalog:
 	docker push $(OLM_CATALOG_IMG)
 
 .PHONY: docker-build
-docker-build: docker-build-vertica-v2 docker-build-operator docker-build-vlogger ## Build all docker images except OLM catalog
+docker-build: docker-build-vertica-v2 docker-build-operator docker-build-vlogger docker-build-vproxy ## Build all docker images except OLM catalog
 
 .PHONY: docker-push
-docker-push: docker-push-vertica docker-push-base-vertica docker-push-extra-vertica docker-push-operator docker-push-vlogger ## Push all docker images except OLM catalog
+docker-push: docker-push-vertica docker-push-base-vertica docker-push-extra-vertica docker-push-operator docker-push-vlogger docker-push-vproxy ## Push all docker images except OLM catalog
 
 .PHONY: echo-images
 echo-images:  ## Print the names of all of the images used
