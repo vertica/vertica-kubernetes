@@ -1890,6 +1890,9 @@ func (v *VerticaDB) checkTerminatingSandboxes(old runtime.Object, allErrs field.
 	sandboxesToBeRemoved := vutil.MapKeyDiff(oldSandboxMap, newSandboxMap)
 	newSubclusterMap := v.GenSubclusterMap()
 	for _, sandboxToBeRemoved := range sandboxesToBeRemoved {
+		if !oldSandboxMap[sandboxToBeRemoved].Shutdown {
+			continue
+		}
 		numOfSclustersInSbox := len(oldSandboxMap[sandboxToBeRemoved].Subclusters)
 		sclustersToTerminate := numOfSclustersInSbox
 		for _, subcluster := range oldSandboxMap[sandboxToBeRemoved].Subclusters {
@@ -1899,14 +1902,12 @@ func (v *VerticaDB) checkTerminatingSandboxes(old runtime.Object, allErrs field.
 		}
 		// sandboxToBeRemoved and all its subclusters are not found in new spec
 		if sclustersToTerminate == numOfSclustersInSbox {
-			if oldSandboxMap[sandboxToBeRemoved].Shutdown {
-				p := field.NewPath("spec").Child("sandboxes")
-				err := field.Invalid(p,
-					sandboxToBeRemoved,
-					fmt.Sprintf("cannot terminate sandbox %q that has Shutdown field set to true",
-						sandboxToBeRemoved))
-				allErrs = append(allErrs, err)
-			} // else looks good
+			p := field.NewPath("spec").Child("sandboxes")
+			err := field.Invalid(p,
+				sandboxToBeRemoved,
+				fmt.Sprintf("cannot terminate sandbox %q that has Shutdown field set to true",
+					sandboxToBeRemoved))
+			allErrs = append(allErrs, err)
 		} // else is expected
 	}
 	return allErrs
