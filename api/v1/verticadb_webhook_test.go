@@ -1328,9 +1328,9 @@ var _ = Describe("verticadb_webhook", func() {
 		vdb.Spec.Sandboxes = []Sandbox{
 			{Name: "sand1", Subclusters: []SubclusterName{{Name: "sc2"}, {Name: "sc3"}}, Shutdown: true},
 		}
-		Ω(vdb.validateNewSBoxOrSClusterShutdownUnset(field.ErrorList{})).Should(HaveLen(1))
+		Ω(vdb.checkNewSBoxOrSClusterShutdownUnset(field.ErrorList{})).Should(HaveLen(1))
 		vdb.Spec.Sandboxes[0].Shutdown = false
-		Ω(vdb.validateNewSBoxOrSClusterShutdownUnset(field.ErrorList{})).Should(HaveLen(0))
+		Ω(vdb.checkNewSBoxOrSClusterShutdownUnset(field.ErrorList{})).Should(HaveLen(0))
 	})
 
 	It("should not allow to create a vdb with a shutdown subcluster", func() {
@@ -1344,13 +1344,13 @@ var _ = Describe("verticadb_webhook", func() {
 		vdb.Spec.Sandboxes = []Sandbox{
 			{Name: "sand1", Subclusters: []SubclusterName{{Name: "sc2"}, {Name: "sc3"}}},
 		}
-		Ω(vdb.validateNewSBoxOrSClusterShutdownUnset(field.ErrorList{})).Should(HaveLen(1))
+		Ω(vdb.checkNewSBoxOrSClusterShutdownUnset(field.ErrorList{})).Should(HaveLen(1))
 		vdb.Spec.Subclusters[2].Shutdown = false
-		Ω(vdb.validateNewSBoxOrSClusterShutdownUnset(field.ErrorList{})).Should(HaveLen(0))
+		Ω(vdb.checkNewSBoxOrSClusterShutdownUnset(field.ErrorList{})).Should(HaveLen(0))
 		vdb.Spec.Subclusters[1].Shutdown = true
-		Ω(vdb.validateNewSBoxOrSClusterShutdownUnset(field.ErrorList{})).Should(HaveLen(1))
+		Ω(vdb.checkNewSBoxOrSClusterShutdownUnset(field.ErrorList{})).Should(HaveLen(1))
 		vdb.Spec.Subclusters[1].Shutdown = false
-		Ω(vdb.validateNewSBoxOrSClusterShutdownUnset(field.ErrorList{})).Should(HaveLen(0))
+		Ω(vdb.checkNewSBoxOrSClusterShutdownUnset(field.ErrorList{})).Should(HaveLen(0))
 	})
 
 	It("should not allow to add a subcluster whose Shutdown is true to a vdb", func() {
@@ -1372,9 +1372,9 @@ var _ = Describe("verticadb_webhook", func() {
 			{Name: "sc3", Type: SecondarySubcluster, Size: 3, ServiceType: v1.ServiceTypeNodePort},
 			{Name: "sc4", Type: SecondarySubcluster, Size: 3, ServiceType: v1.ServiceTypeNodePort, Shutdown: true}, // cause of error
 		}
-		Ω(newVdb.validateNewSBoxOrSClusterShutdownUnset(field.ErrorList{})).Should(HaveLen(1))
+		Ω(newVdb.checkNewSBoxOrSClusterShutdownUnset(field.ErrorList{})).Should(HaveLen(1))
 		newVdb.Spec.Subclusters[3].Shutdown = false
-		Ω(newVdb.validateNewSBoxOrSClusterShutdownUnset(field.ErrorList{})).Should(HaveLen(0))
+		Ω(newVdb.checkNewSBoxOrSClusterShutdownUnset(field.ErrorList{})).Should(HaveLen(0))
 	})
 
 	It("should not allow to add a sanbox whose Shutdown is true to a vdb", func() {
@@ -1391,9 +1391,9 @@ var _ = Describe("verticadb_webhook", func() {
 			{Name: "sc2"},
 			{Name: "sc3"},
 		}
-		Ω(newVdb.validateNewSBoxOrSClusterShutdownUnset(field.ErrorList{})).Should(HaveLen(1))
+		Ω(newVdb.checkNewSBoxOrSClusterShutdownUnset(field.ErrorList{})).Should(HaveLen(1))
 		newVdb.Spec.Sandboxes[1].Shutdown = false
-		Ω(newVdb.validateNewSBoxOrSClusterShutdownUnset(field.ErrorList{})).Should(HaveLen(0))
+		Ω(newVdb.checkNewSBoxOrSClusterShutdownUnset(field.ErrorList{})).Should(HaveLen(0))
 	})
 
 	// When a cluster is annotated with \"vertica.com/shutdown-driven-by-sandbox\", its shutdown field will be immutable
@@ -1412,13 +1412,13 @@ var _ = Describe("verticadb_webhook", func() {
 			}
 			newVdb := oldVdb.DeepCopy()
 			newVdb.Spec.Subclusters[2].Shutdown = false
-			Ω(newVdb.validateAnnotatedSubclustersInShutdownSandbox(oldVdb, field.ErrorList{})).Should(HaveLen(1))
+			Ω(newVdb.checkAnnotatedSubclustersInShutdownSandbox(oldVdb, field.ErrorList{})).Should(HaveLen(1))
 			newVdb.Spec.Subclusters[2].Shutdown = true
-			Ω(newVdb.validateAnnotatedSubclustersInShutdownSandbox(oldVdb, field.ErrorList{})).Should(HaveLen(0))
+			Ω(newVdb.checkAnnotatedSubclustersInShutdownSandbox(oldVdb, field.ErrorList{})).Should(HaveLen(0))
 			newVdb.Spec.Subclusters[1].Shutdown = false
-			Ω(newVdb.validateAnnotatedSubclustersInShutdownSandbox(oldVdb, field.ErrorList{})).Should(HaveLen(1))
+			Ω(newVdb.checkAnnotatedSubclustersInShutdownSandbox(oldVdb, field.ErrorList{})).Should(HaveLen(1))
 			newVdb.Spec.Subclusters[1].Shutdown = true
-			Ω(newVdb.validateAnnotatedSubclustersInShutdownSandbox(oldVdb, field.ErrorList{})).Should(HaveLen(0))
+			Ω(newVdb.checkAnnotatedSubclustersInShutdownSandbox(oldVdb, field.ErrorList{})).Should(HaveLen(0))
 
 		})
 
@@ -1448,19 +1448,19 @@ var _ = Describe("verticadb_webhook", func() {
 		}
 		oldVdb.Spec.Subclusters[2].Shutdown = true // cause of error
 		// check subcluster shutdown in spec
-		Ω(newVdb.validateUnsandboxShutdownConditions(oldVdb, field.ErrorList{})).Should(HaveLen(1))
+		Ω(newVdb.checkUnsandboxShutdownConditions(oldVdb, field.ErrorList{})).Should(HaveLen(1))
 		oldVdb.Spec.Subclusters[2].Shutdown = false
-		Ω(newVdb.validateUnsandboxShutdownConditions(oldVdb, field.ErrorList{})).Should(HaveLen(0))
+		Ω(newVdb.checkUnsandboxShutdownConditions(oldVdb, field.ErrorList{})).Should(HaveLen(0))
 		newVdb.Status.Subclusters[2].Shutdown = true
 		// check subcluster shutdown in status
-		Ω(newVdb.validateUnsandboxShutdownConditions(oldVdb, field.ErrorList{})).Should(HaveLen(1))
+		Ω(newVdb.checkUnsandboxShutdownConditions(oldVdb, field.ErrorList{})).Should(HaveLen(1))
 		newVdb.Status.Subclusters[2].Shutdown = false
-		Ω(newVdb.validateUnsandboxShutdownConditions(oldVdb, field.ErrorList{})).Should(HaveLen(0))
+		Ω(newVdb.checkUnsandboxShutdownConditions(oldVdb, field.ErrorList{})).Should(HaveLen(0))
 		oldVdb.Spec.Sandboxes[0].Shutdown = true
 		// check sandbox shutdown in spec
-		Ω(newVdb.validateUnsandboxShutdownConditions(oldVdb, field.ErrorList{})).Should(HaveLen(1))
+		Ω(newVdb.checkUnsandboxShutdownConditions(oldVdb, field.ErrorList{})).Should(HaveLen(1))
 		oldVdb.Spec.Sandboxes[0].Shutdown = false
-		Ω(newVdb.validateUnsandboxShutdownConditions(oldVdb, field.ErrorList{})).Should(HaveLen(0))
+		Ω(newVdb.checkUnsandboxShutdownConditions(oldVdb, field.ErrorList{})).Should(HaveLen(0))
 
 		oldVdb.Spec.Subclusters[1].Shutdown = true
 		oldVdb.Spec.Subclusters[2].Shutdown = true
@@ -1470,11 +1470,11 @@ var _ = Describe("verticadb_webhook", func() {
 		newVdb.Spec.Sandboxes = []Sandbox{
 			{Name: "sand1", Shutdown: true, Subclusters: []SubclusterName{{Name: "sc2"}, {Name: "sc4"}}}, // to unsandbox sc3
 		}
-		Ω(newVdb.validateUnsandboxShutdownConditions(oldVdb, field.ErrorList{})).Should(HaveLen(1))
+		Ω(newVdb.checkUnsandboxShutdownConditions(oldVdb, field.ErrorList{})).Should(HaveLen(1))
 		newVdb.Spec.Sandboxes = []Sandbox{
 			{Name: "sand1", Shutdown: true, Subclusters: []SubclusterName{{Name: "sc2"}, {Name: "sc3"}, {Name: "sc4"}}}, // to unsandbox sc3
 		}
-		Ω(newVdb.validateUnsandboxShutdownConditions(oldVdb, field.ErrorList{})).Should(HaveLen(0))
+		Ω(newVdb.checkUnsandboxShutdownConditions(oldVdb, field.ErrorList{})).Should(HaveLen(0))
 	})
 
 	It("should not unsandbox a sandbox when its shutdown field or its sandbox's shutdown field is set", func() {
@@ -1503,19 +1503,19 @@ var _ = Describe("verticadb_webhook", func() {
 			{Name: "sc3"},
 			{Name: "sc4"},
 		}
-		Ω(newVdb.validateUnsandboxShutdownConditions(oldVdb, field.ErrorList{})).Should(HaveLen(0))
+		Ω(newVdb.checkUnsandboxShutdownConditions(oldVdb, field.ErrorList{})).Should(HaveLen(0))
 		oldVdb.Spec.Sandboxes[1].Shutdown = true
-		Ω(newVdb.validateUnsandboxShutdownConditions(oldVdb, field.ErrorList{})).Should(HaveLen(1))
+		Ω(newVdb.checkUnsandboxShutdownConditions(oldVdb, field.ErrorList{})).Should(HaveLen(1))
 		oldVdb.Spec.Sandboxes[1].Shutdown = false
-		Ω(newVdb.validateUnsandboxShutdownConditions(oldVdb, field.ErrorList{})).Should(HaveLen(0))
+		Ω(newVdb.checkUnsandboxShutdownConditions(oldVdb, field.ErrorList{})).Should(HaveLen(0))
 		oldVdb.Spec.Subclusters[3].Shutdown = true
-		Ω(newVdb.validateUnsandboxShutdownConditions(oldVdb, field.ErrorList{})).Should(HaveLen(1))
+		Ω(newVdb.checkUnsandboxShutdownConditions(oldVdb, field.ErrorList{})).Should(HaveLen(1))
 		oldVdb.Spec.Subclusters[3].Shutdown = false
-		Ω(newVdb.validateUnsandboxShutdownConditions(oldVdb, field.ErrorList{})).Should(HaveLen(0))
+		Ω(newVdb.checkUnsandboxShutdownConditions(oldVdb, field.ErrorList{})).Should(HaveLen(0))
 		newVdb.Status.Subclusters[3].Shutdown = true
-		Ω(newVdb.validateUnsandboxShutdownConditions(oldVdb, field.ErrorList{})).Should(HaveLen(1))
+		Ω(newVdb.checkUnsandboxShutdownConditions(oldVdb, field.ErrorList{})).Should(HaveLen(1))
 		newVdb.Status.Subclusters[3].Shutdown = false
-		Ω(newVdb.validateUnsandboxShutdownConditions(oldVdb, field.ErrorList{})).Should(HaveLen(0))
+		Ω(newVdb.checkUnsandboxShutdownConditions(oldVdb, field.ErrorList{})).Should(HaveLen(0))
 	})
 
 	It("should not change image for a sandbox if shutdown is set for it or its subcluster in either spec or status", func() {
@@ -1545,29 +1545,29 @@ var _ = Describe("verticadb_webhook", func() {
 			{Name: "sc4"},
 		}
 		newVdb.Spec.Sandboxes[0].Shutdown = true
-		Ω(newVdb.validateShutdownSandboxImage(oldVdb, field.ErrorList{})).Should(HaveLen(1))
+		Ω(newVdb.checkShutdownSandboxImage(oldVdb, field.ErrorList{})).Should(HaveLen(1))
 		newVdb.Spec.Sandboxes[0].Shutdown = false
-		Ω(newVdb.validateShutdownSandboxImage(oldVdb, field.ErrorList{})).Should(HaveLen(0))
+		Ω(newVdb.checkShutdownSandboxImage(oldVdb, field.ErrorList{})).Should(HaveLen(0))
 		newVdb.Spec.Subclusters[2].Shutdown = true
-		Ω(newVdb.validateShutdownSandboxImage(oldVdb, field.ErrorList{})).Should(HaveLen(1))
+		Ω(newVdb.checkShutdownSandboxImage(oldVdb, field.ErrorList{})).Should(HaveLen(1))
 		newVdb.Spec.Subclusters[2].Shutdown = false
-		Ω(newVdb.validateShutdownSandboxImage(oldVdb, field.ErrorList{})).Should(HaveLen(0))
+		Ω(newVdb.checkShutdownSandboxImage(oldVdb, field.ErrorList{})).Should(HaveLen(0))
 		newVdb.Spec.Subclusters[3].Shutdown = true
-		Ω(newVdb.validateShutdownSandboxImage(oldVdb, field.ErrorList{})).Should(HaveLen(1))
+		Ω(newVdb.checkShutdownSandboxImage(oldVdb, field.ErrorList{})).Should(HaveLen(1))
 		newVdb.Spec.Subclusters[3].Shutdown = false
-		Ω(newVdb.validateShutdownSandboxImage(oldVdb, field.ErrorList{})).Should(HaveLen(0))
+		Ω(newVdb.checkShutdownSandboxImage(oldVdb, field.ErrorList{})).Should(HaveLen(0))
 		newVdb.Status.Subclusters[2].Shutdown = true
-		Ω(newVdb.validateShutdownSandboxImage(oldVdb, field.ErrorList{})).Should(HaveLen(1))
+		Ω(newVdb.checkShutdownSandboxImage(oldVdb, field.ErrorList{})).Should(HaveLen(1))
 		newVdb.Status.Subclusters[2].Shutdown = false
-		Ω(newVdb.validateShutdownSandboxImage(oldVdb, field.ErrorList{})).Should(HaveLen(0))
+		Ω(newVdb.checkShutdownSandboxImage(oldVdb, field.ErrorList{})).Should(HaveLen(0))
 		newVdb.Status.Subclusters[3].Shutdown = true
-		Ω(newVdb.validateShutdownSandboxImage(oldVdb, field.ErrorList{})).Should(HaveLen(1))
+		Ω(newVdb.checkShutdownSandboxImage(oldVdb, field.ErrorList{})).Should(HaveLen(1))
 		newVdb.Status.Subclusters[3].Shutdown = false
-		Ω(newVdb.validateShutdownSandboxImage(oldVdb, field.ErrorList{})).Should(HaveLen(0))
+		Ω(newVdb.checkShutdownSandboxImage(oldVdb, field.ErrorList{})).Should(HaveLen(0))
 		newVdb.Status.Subclusters[0].Shutdown = true
-		Ω(newVdb.validateShutdownSandboxImage(oldVdb, field.ErrorList{})).Should(HaveLen(0))
+		Ω(newVdb.checkShutdownSandboxImage(oldVdb, field.ErrorList{})).Should(HaveLen(0))
 		newVdb.Spec.Sandboxes[0].Shutdown = false
-		Ω(newVdb.validateShutdownSandboxImage(oldVdb, field.ErrorList{})).Should(HaveLen(0))
+		Ω(newVdb.checkShutdownSandboxImage(oldVdb, field.ErrorList{})).Should(HaveLen(0))
 
 	})
 
@@ -1589,16 +1589,16 @@ var _ = Describe("verticadb_webhook", func() {
 			{Name: "sc4", Type: SecondarySubcluster, Size: 3, ServiceType: v1.ServiceTypeNodePort},
 		}
 		oldVdb.Spec.Sandboxes[0].Shutdown = true
-		Ω(newVdb.validateTerminatingSandboxes(oldVdb, field.ErrorList{})).Should(HaveLen(1))
+		Ω(newVdb.checkTerminatingSandboxes(oldVdb, field.ErrorList{})).Should(HaveLen(1))
 		oldVdb.Spec.Sandboxes[0].Shutdown = false
-		Ω(newVdb.validateTerminatingSandboxes(oldVdb, field.ErrorList{})).Should(HaveLen(0))
+		Ω(newVdb.checkTerminatingSandboxes(oldVdb, field.ErrorList{})).Should(HaveLen(0))
 		newVdb.Spec.Subclusters = []Subcluster{ // unsandbox
 			{Name: "sc1", Type: PrimarySubcluster, Size: 3, ServiceType: v1.ServiceTypeClusterIP},
 			{Name: "sc2", Type: SecondarySubcluster, Size: 3, ServiceType: v1.ServiceTypeClusterIP},
 			{Name: "sc3", Type: SecondarySubcluster, Size: 3, ServiceType: v1.ServiceTypeNodePort},
 			{Name: "sc4", Type: SecondarySubcluster, Size: 3, ServiceType: v1.ServiceTypeNodePort},
 		}
-		Ω(newVdb.validateTerminatingSandboxes(oldVdb, field.ErrorList{})).Should(HaveLen(0))
+		Ω(newVdb.checkTerminatingSandboxes(oldVdb, field.ErrorList{})).Should(HaveLen(0))
 
 	})
 
