@@ -155,6 +155,7 @@ func (v *VerticaDB) validateImmutableFields(old runtime.Object) field.ErrorList 
 	allErrs = v.checkUnsandboxShutdownConditions(oldObj, allErrs)
 	allErrs = v.checkSubclustersInShutdownSandbox(oldObj, allErrs)
 	allErrs = v.checkNewSBoxOrSClusterShutdownUnset(allErrs)
+	allErrs = v.checkSClusterToBeSandboxedShutdownUnset(allErrs)
 	return allErrs
 }
 
@@ -1752,6 +1753,55 @@ func (v *VerticaDB) checkNewSBoxOrSClusterShutdownUnset(allErrs field.ErrorList)
 				fmt.Sprintf("shutdown must be false when adding subcluster %q",
 					newSCluster.Name))
 			allErrs = append(allErrs, err)
+		}
+	}
+	return allErrs
+}
+
+// checkSClusterToBeSandboxedShutdownUnset ensures a subcluster to be sandboxed has Shutdown field set to false
+func (v *VerticaDB) checkSClusterToBeSandboxedShutdownUnset(allErrs field.ErrorList) field.ErrorList {
+	statusSClusterMap := v.GenStatusSubclusterMap()
+	newSclusterMap := v.GenSubclusterMap()
+	statusScluterSboxMap := v.GenSubclusterSandboxStatusMap()
+	newSclusterSboxMap := v.GenSubclusterSandboxMap()
+	newSclusterIndexMap := v.GenSubclusterIndexMap()
+	newSandboxIndexMap := v.GenSandboxIndexMap()
+	newSandboxMap := v.GenSandboxMap()
+	shutdownSboxIndex := -1
+	for subclusterName, sandboxName := range newSclusterSboxMap {
+		oldSandboxName, isInOldSandbox := statusScluterSboxMap[subclusterName]
+		scluster, foundSubcluster := newSclusterMap[subclusterName]
+		if !foundSubcluster { // this error should be captured by other piece of code
+			continue
+		}
+		sclusterStatus, hasStatus := statusSClusterMap[subclusterName]
+		// the subcluster to be sandboxed is either a new subcluster (not found in status) to be added
+		// or an existing subcluster (found in status) which includes two scenarios:
+		//   1 the subcluster was in a sandbox (whose name is different from current sandbox name)
+		//   2 the subcluster was not in a sandbox
+		if !hasStatus || (hasStatus && (!isInOldSandbox || isInOldSandbox && oldSandboxName != sandboxName)) {
+			if scluster.Shutdown || (hasStatus && sclusterStatus.Shutdown) {
+				i := newSclusterIndexMap[subclusterName]
+				p := field.NewPath("spec").Child("subclusters")
+				err := field.Invalid(p.Index(i).Child("Shutdown"),
+					scluster.Shutdown,
+					fmt.Sprintf("cannot sandbox subcluster %s that is marked for shut down or has already been shut down",
+						subclusterName))
+				allErrs = append(allErrs, err)
+			}
+			sandbox := newSandboxMap[sandboxName]
+			if sandbox.Shutdown {
+				sandboxIndex := newSandboxIndexMap[sandboxName]
+				if shutdownSboxIndex != sandboxIndex {
+					shutdownSboxIndex = sandboxIndex // avoid duplicate err msg
+					p := field.NewPath("spec").Child("sandboxes").Index(sandboxIndex).Child("Shutdown")
+					err := field.Invalid(p,
+						sandbox.Shutdown,
+						fmt.Sprintf("cannot sandbox subcluster %q in sandbox %q that has Shutdown field set to true",
+							subclusterName, sandboxName))
+					allErrs = append(allErrs, err)
+				}
+			}
 		}
 	}
 	return allErrs
