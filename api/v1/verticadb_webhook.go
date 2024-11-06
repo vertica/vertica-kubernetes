@@ -1599,17 +1599,17 @@ func (v *VerticaDB) findPersistScsInSandbox(oldObj *VerticaDB) map[string]int {
 }
 
 // findPersistSandboxes returns a slice of sandbox names that are in both new and old vdb.
-func (v *VerticaDB) findPersistSandboxes(oldObj *VerticaDB) []string {
+func (v *VerticaDB) findPersistSandboxes(oldObj *VerticaDB) map[string]bool {
 	oldSandboxes := oldObj.Spec.Sandboxes
 	newSandboxes := v.Spec.Sandboxes
 	oldSandboxMap := make(map[string]int)
 	for _, oldSandbox := range oldSandboxes {
 		oldSandboxMap[oldSandbox.Name] = 1
 	}
-	persistSandboxes := make([]string, 0)
+	persistSandboxes := make(map[string]bool)
 	for _, newSandbox := range newSandboxes {
 		if _, ok := oldSandboxMap[newSandbox.Name]; ok {
-			persistSandboxes = append(persistSandboxes, newSandbox.Name)
+			persistSandboxes[newSandbox.Name] = true
 		}
 	}
 	return persistSandboxes
@@ -1757,7 +1757,7 @@ func (v *VerticaDB) checkNewSBoxOrSClusterShutdownUnset(allErrs field.ErrorList)
 	return allErrs
 }
 
-// findSclustersToUnsandboxreturn a map whose key is the pointer of a subcluster that is to be unsandboxed.
+// findSclustersToUnsandbox return a map whose key is the pointer of a subcluster that is to be unsandboxed.
 // The value is the pointer to a sandbox where the subcluster lives in
 func (v *VerticaDB) findSclustersToUnsandbox(old runtime.Object) map[*Subcluster]*Sandbox {
 	oldObj := old.(*VerticaDB)
@@ -1768,13 +1768,16 @@ func (v *VerticaDB) findSclustersToUnsandbox(old runtime.Object) map[*Subcluster
 	newSubclusterMap := v.GenSubclusterMap()
 	sclusterSboxMap := make(map[*Subcluster]*Sandbox)
 	for oldSubclusterName, oldSandboxName := range oldSubclusterInSandbox {
-		_, oldSubclusterInNewSandboxes := newSuclusterInSandbox[oldSubclusterName]
+		newSandboxName, oldSubclusterInNewSandboxes := newSuclusterInSandbox[oldSubclusterName]
 		_, oldSubclusterInPersist := newSubclusterMap[oldSubclusterName]
+		oldSandbox := oldSandboxMap[oldSandboxName]
 		// for unsandboxing, check shutdown field of the subcluster and sandbox
-		if !oldSubclusterInNewSandboxes && oldSubclusterInPersist {
-			oldSubcluster := oldSubclusterMap[oldSubclusterName]
-			oldSandbox := oldSandboxMap[oldSandboxName]
-			sclusterSboxMap[oldSubcluster] = oldSandbox
+		if oldSubclusterInPersist {
+			if !oldSubclusterInNewSandboxes || (oldSubclusterInNewSandboxes && oldSandbox.Name != newSandboxName) {
+				//either subcluster is not in any sbox or is moved to a different sbox in new vdb
+				oldSubcluster := oldSubclusterMap[oldSubclusterName]
+				sclusterSboxMap[oldSubcluster] = oldSandbox
+			}
 		}
 	}
 	return sclusterSboxMap
@@ -1787,9 +1790,10 @@ func (v *VerticaDB) checkUnsandboxShutdownConditions(old runtime.Object, allErrs
 	subclustersToUnsandbox := v.findSclustersToUnsandbox(old)
 	subclusterIndexMap := v.GenSubclusterIndexMap()
 	sandboxIndexMap := v.GenSandboxIndexMap()
+	unsandboxIndex := -1
 	for oldSubcluster, oldSandbox := range subclustersToUnsandbox {
 		oldSubclusterIndex, found := statusSClusterIndexMap[oldSubcluster.Name]
-		if oldSubcluster.Shutdown || found && v.Status.Subclusters[oldSubclusterIndex].Shutdown {
+		if oldSubcluster.Shutdown || (found && v.Status.Subclusters[oldSubclusterIndex].Shutdown) {
 			i := subclusterIndexMap[oldSubcluster.Name]
 			p := field.NewPath("spec").Child("subclusters").Index(i)
 			err := field.Invalid(p,
@@ -1801,13 +1805,16 @@ func (v *VerticaDB) checkUnsandboxShutdownConditions(old runtime.Object, allErrs
 		}
 		if oldSandbox.Shutdown {
 			i := sandboxIndexMap[oldSandbox.Name]
-			p := field.NewPath("spec").Child("sandboxes").Index(i)
-			err := field.Invalid(p,
-				oldSubcluster.Name,
-				fmt.Sprintf("cannot unsandbox subcluster %q in sandbox %q that has Shutdown field set to true",
-					oldSubcluster.Name, oldSandbox.Name))
-			allErrs = append(allErrs, err)
-			continue
+			if i != unsandboxIndex { // this is to avoid duplicate error messages
+				unsandboxIndex = i
+				p := field.NewPath("spec").Child("sandboxes").Index(i)
+				err := field.Invalid(p,
+					oldSubcluster.Name,
+					fmt.Sprintf("cannot unsandbox subcluster %q in sandbox %q that has Shutdown field set to true",
+						oldSubcluster.Name, oldSandbox.Name))
+				allErrs = append(allErrs, err)
+				continue
+			}
 		}
 	}
 	return allErrs
@@ -1823,7 +1830,7 @@ func (v *VerticaDB) checkAnnotatedSubclustersInShutdownSandbox(old runtime.Objec
 	newSubclusterIndexMap := v.GenSubclusterIndexMap()
 	newSubclusterMap := v.GenSubclusterMap()
 	oldSubclusterMap := oldObj.GenSubclusterMap()
-	for _, sandboxName := range persistSandboxes {
+	for sandboxName := range persistSandboxes {
 		newSandbox := newSandboxMap[sandboxName]
 		oldSandbox := oldSandboxMap[sandboxName]
 		if newSandbox.Shutdown {
@@ -1856,7 +1863,7 @@ func (v *VerticaDB) checkShutdownSandboxImage(old runtime.Object, allErrs field.
 	newSandboxIndexMap := v.GenSandboxIndexMap()
 	newSubclusterMap := v.GenSubclusterMap()
 	statusSClusterIndexMap := v.GenStatusSClusterIndexMap()
-	for _, sandboxName := range persistSandboxes {
+	for sandboxName := range persistSandboxes {
 		oldSandbox := oldSandboxMap[sandboxName]
 		newSandbox := newSandboxMap[sandboxName]
 		if oldSandbox.Image != newSandbox.Image {
@@ -1906,6 +1913,7 @@ func (v *VerticaDB) checkTerminatingSandboxes(old runtime.Object, allErrs field.
 }
 
 // checkSboxForShutdown checks if sbox or its scluster has shutdown field set to true in spec/status
+// It returns a slice of strings. Each string is an error message
 func (v *VerticaDB) checkSboxForShutdown(newSandbox *Sandbox, newSClusterMap map[string]*Subcluster, statusSClusterIndexMap map[string]int) []string {
 	errMsgs := []string{}
 	if newSandbox.Shutdown {

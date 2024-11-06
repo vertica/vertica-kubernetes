@@ -216,7 +216,7 @@ func (v *VerticaDB) GenStatusSandboxMap() map[string]*SandboxStatus {
 	return statusSboxMap
 }
 
-// GenStatusSandboxMap() returns a map from status. The key is subcluster name and value is the subcluster pointer
+// GenStatusSubclusterMap() returns a map from status. The key is subcluster name and value is the subcluster pointer
 func (v *VerticaDB) GenStatusSubclusterMap() map[string]*SubclusterStatus {
 	statusSclusterMap := make(map[string]*SubclusterStatus)
 	for i := range v.Status.Subclusters {
