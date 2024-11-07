@@ -1593,6 +1593,56 @@ var _ = Describe("verticadb_webhook", func() {
 
 	})
 
+	It("should not scale up/down a subcluster when its shutdown field or its sandbox's shutdown field is set", func() {
+		oldVdb := MakeVDB()
+		oldVdb.Spec.Subclusters = []Subcluster{
+			{Name: "main", Type: PrimarySubcluster, Size: 3, ServiceType: v1.ServiceTypeClusterIP},
+			{Name: "sc1", Type: SandboxPrimarySubcluster, Size: 3, ServiceType: v1.ServiceTypeClusterIP},
+			{Name: "sc2", Type: SecondarySubcluster, Size: 3, ServiceType: v1.ServiceTypeNodePort},
+			{Name: "sc3", Type: SecondarySubcluster, Size: 3, ServiceType: v1.ServiceTypeNodePort},
+		}
+		oldVdb.Spec.Sandboxes = []Sandbox{
+			{Name: "sand1", Subclusters: []SubclusterName{{Name: "sc1"}}},
+			{Name: "sand2", Subclusters: []SubclusterName{{Name: "sc2"}, {Name: "sc3"}}},
+		}
+		newVdb := oldVdb.DeepCopy()
+		newVdb.Status.Sandboxes = []SandboxStatus{
+			{Name: "sand1", Subclusters: []string{"sc1"}},
+			{Name: "sand2", Subclusters: []string{"sc2", "sc3"}},
+		}
+		newVdb.Status.Subclusters = []SubclusterStatus{
+			{Name: "main"},
+			{Name: "sc1"},
+			{Name: "sc2"},
+			{Name: "sc3"},
+		}
+		newVdb.Spec.Subclusters[3].Size = 4
+		Ω(newVdb.checkShutdownForScaleUpOrDown(oldVdb, field.ErrorList{})).Should(HaveLen(0))
+		newVdb.Spec.Subclusters[3].Shutdown = true
+		Ω(newVdb.checkShutdownForScaleUpOrDown(oldVdb, field.ErrorList{})).Should(HaveLen(1))
+		newVdb.Spec.Subclusters[3].Size = 2
+		Ω(newVdb.checkShutdownForScaleUpOrDown(oldVdb, field.ErrorList{})).Should(HaveLen(1))
+		newVdb.Spec.Subclusters[3].Shutdown = false
+		Ω(newVdb.checkShutdownForScaleUpOrDown(oldVdb, field.ErrorList{})).Should(HaveLen(0))
+		newVdb.Status.Subclusters[3].Shutdown = true
+		Ω(newVdb.checkShutdownForScaleUpOrDown(oldVdb, field.ErrorList{})).Should(HaveLen(1))
+		newVdb.Status.Subclusters[3].Shutdown = false
+		Ω(newVdb.checkShutdownForScaleUpOrDown(oldVdb, field.ErrorList{})).Should(HaveLen(0))
+		newVdb.Spec.Sandboxes[1].Shutdown = true
+		Ω(newVdb.checkShutdownForScaleUpOrDown(oldVdb, field.ErrorList{})).Should(HaveLen(1))
+		newVdb.Spec.Sandboxes[1].Shutdown = false
+		Ω(newVdb.checkShutdownForScaleUpOrDown(oldVdb, field.ErrorList{})).Should(HaveLen(0))
+		newVdb.Spec.Subclusters[2].Shutdown = true
+		Ω(newVdb.checkShutdownForScaleUpOrDown(oldVdb, field.ErrorList{})).Should(HaveLen(1))
+		newVdb.Spec.Subclusters[2].Shutdown = false
+		Ω(newVdb.checkShutdownForScaleUpOrDown(oldVdb, field.ErrorList{})).Should(HaveLen(0))
+		newVdb.Status.Subclusters[2].Shutdown = true
+		Ω(newVdb.checkShutdownForScaleUpOrDown(oldVdb, field.ErrorList{})).Should(HaveLen(1))
+		newVdb.Status.Subclusters[2].Shutdown = false
+		Ω(newVdb.checkShutdownForScaleUpOrDown(oldVdb, field.ErrorList{})).Should(HaveLen(0))
+
+	})
+
 	It("should not sandbox a subcluster when its shutdown field or its sandbox's shutdown field is set", func() {
 		// another scenario where one subcluster is moved from one sandbox to another
 		newVdb := MakeVDB()
