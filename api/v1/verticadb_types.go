@@ -810,15 +810,19 @@ type Subcluster struct {
 }
 
 type Proxy struct {
+	// +kubebuilder:default:="opentext/vertica-client-proxy:latest"
 	// +kubebuilder:validation:required
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// The docker image name that contains the Vertica proxy server.
-	Image string `json:"image"`
+	Image string `json:"image,omitempty"`
 
-	// +kubebuilder:default:=1
+	// +kubebuilder:default:=0
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// The number of replicas that the proxy server will have.
+	//
+	// If it's not set, the default value would be (spec.subcluster[].size % 2).
+	// This will allow proxy pods to scale according to the number of vertica nodes.
 	Replica int32 `json:"replica,omitempty"`
 
 	// +kubebuilder:default:=INFO

@@ -864,6 +864,7 @@ func makeScrutinizeInitContainers(vscr *v1beta1.VerticaScrutinize, vdb *vapi.Ver
 
 // BuildVProxyDeployment builds manifest for a subclusters VProxy deployment
 func BuildVProxyDeployment(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi.Subcluster) *appsv1.Deployment {
+	vproxySize := sc.GetVProxySize(vdb)
 	return &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        nm.Name,
@@ -883,7 +884,7 @@ func BuildVProxyDeployment(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vap
 				},
 				Spec: buildVProxyPodSpec(nm, vdb, sc),
 			},
-			Replicas: &sc.Proxy.Replica,
+			Replicas: &vproxySize,
 		},
 	}
 }
@@ -948,7 +949,7 @@ func makeDataForVProxyConfigMap(vdb *vapi.VerticaDB, sc *vapi.Subcluster) string
 
 // BuildVProxyConfigMap builds a config map for client proxy
 func BuildVProxyConfigMap(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi.Subcluster) *corev1.ConfigMap {
-	immutable := true
+	immutable := false
 	proxyConfig := makeDataForVProxyConfigMap(vdb, sc)
 	return &corev1.ConfigMap{
 		TypeMeta: metav1.TypeMeta{
@@ -962,7 +963,7 @@ func BuildVProxyConfigMap(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi
 			Annotations:     MakeAnnotationsForVProxyConfigMap(vdb),
 			OwnerReferences: []metav1.OwnerReference{vdb.GenerateOwnerReference()},
 		},
-		// the data should be immutable since dbName and sandboxName are fixed
+		// the data should not be immutable since the proxy database nodes could be changed
 		Immutable: &immutable,
 		Data: map[string]string{
 			"config.yaml": proxyConfig,
