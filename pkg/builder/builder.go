@@ -876,13 +876,12 @@ func BuildVProxyDeployment(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vap
 			Selector: &metav1.LabelSelector{
 				MatchLabels: MakeDepSelectorLabels(vdb, sc),
 			},
-			// TODO: support replicas annotation
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels:      MakeLabelsForPodObject(vdb, sc),
 					Annotations: MakeAnnotationsForObject(vdb),
 				},
-				Spec: buildVProxyPodSpec(nm, vdb, sc),
+				Spec: buildVProxyPodSpec(vdb, sc),
 			},
 			Replicas: &vproxySize,
 		},
@@ -890,7 +889,7 @@ func BuildVProxyDeployment(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vap
 }
 
 // buildPodSpec creates a PodSpec for the deployment
-func buildVProxyPodSpec(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.PodSpec {
+func buildVProxyPodSpec(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.PodSpec {
 	termGracePeriod := int64(vmeta.GetTerminationGracePeriodSeconds(vdb.Annotations))
 	return corev1.PodSpec{
 		NodeSelector:                  sc.NodeSelector,
@@ -906,7 +905,7 @@ func buildVProxyPodSpec(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi.S
 				Name: sc.Name,
 				VolumeSource: corev1.VolumeSource{
 					ConfigMap: &corev1.ConfigMapVolumeSource{
-						LocalObjectReference: corev1.LocalObjectReference{Name: nm.Name},
+						LocalObjectReference: corev1.LocalObjectReference{Name: sc.GetVProxyConfigMapName(vdb)},
 						Items: []corev1.KeyToPath{
 							{
 								Key:  "config.yaml",

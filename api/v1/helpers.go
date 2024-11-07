@@ -438,6 +438,11 @@ func (s *Subcluster) GetVProxySize(vdb *VerticaDB) int32 {
 	return s.Size % 2
 }
 
+// GetVProxyConfigMapName returns the name of the client proxy config map
+func (s *Subcluster) GetVProxyConfigMapName(vdb *VerticaDB) string {
+	return fmt.Sprintf("%s-%s-proxy-cm", vdb.Name, s.Name)
+}
+
 // FindSubclusterForServiceName will find any subclusters that match the given service name
 func (v *VerticaDB) FindSubclusterForServiceName(svcName string) (scs []*Subcluster, totalSize int32) {
 	totalSize = int32(0)

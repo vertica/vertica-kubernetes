@@ -464,7 +464,7 @@ func (o *ObjReconciler) checkVProxyDeployment(ctx context.Context, sc *vapi.Subc
 		return nil
 	}
 
-	cmName := names.GetVProxyConfigMapName(o.Vdb, sc)
+	cmName := names.GenVProxyConfigMapName(o.Vdb, sc)
 	err := o.checkVProxyConfigMap(ctx, cmName, sc)
 	if err != nil {
 		return err
