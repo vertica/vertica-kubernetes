@@ -100,7 +100,7 @@ export BASE_VERTICA_IMG
 VLOGGER_IMG ?= $(IMG_REPO)vertica-logger:$(VLOGGER_VERSION)
 export VLOGGER_IMG
 # Image URL to use for the vertica client proxy. This is for testing purposes only.
-# The value could be: $(IMG_REPO)vertica-client-proxy:$(VERSION)
+# The value could be: $(IMG_REPO)client-proxy:$(VERSION)
 VPROXY_IMG ?= <not-set>
 export VPROXY_IMG
 # If the current leg in the CI tests is leg-9
@@ -416,10 +416,6 @@ docker-build-vlogger:  ## Build vertica logger docker image
 		--build-arg ALPINE_VERSION=${VLOGGER_ALPINE_VERSION} \
 		-f docker-vlogger/Dockerfile .
 
-.PHONY: docker-build-vproxy
-docker-build-vproxy:  ## Build vertica client proxy image
-	scripts/build-vproxy.sh
-
 # If you wish to build the manager image targeting other platforms you can use the --platform flag.
 # (i.e. docker buildx build --platform=linux/arm64 ). However, you must enable docker buildKit for it.
 # More info: https://docs.docker.com/develop/develop-images/build_enhancements/
@@ -437,15 +433,6 @@ ifeq ($(shell $(KIND_CHECK)), 0)
 	docker push ${VLOGGER_IMG}
 else
 	scripts/push-to-kind.sh -i ${VLOGGER_IMG}
-endif
-
-# The client proxy is built in its own repository. Put the proxy image in kind for testing purpose only
-.PHONY: docker-push-vproxy
-docker-push-vproxy:  ## Push client proxy image to kind
-ifneq ($(VPROXY_IMG), <not-set>)
-ifeq ($(shell $(KIND_CHECK)), 1)
-        scripts/push-to-kind.sh -i ${VPROXY_IMG}
-endif
 endif
 
 # We have two versions of the vertica-k8s image. This is a staging effort. A
@@ -563,10 +550,10 @@ docker-push-olm-catalog:
 	docker push $(OLM_CATALOG_IMG)
 
 .PHONY: docker-build
-docker-build: docker-build-vertica-v2 docker-build-operator docker-build-vlogger docker-build-vproxy ## Build all docker images except OLM catalog
+docker-build: docker-build-vertica-v2 docker-build-operator docker-build-vlogger ## Build all docker images except OLM catalog
 
 .PHONY: docker-push
-docker-push: docker-push-vertica docker-push-base-vertica docker-push-extra-vertica docker-push-operator docker-push-vlogger docker-push-vproxy ## Push all docker images except OLM catalog
+docker-push: docker-push-vertica docker-push-base-vertica docker-push-extra-vertica docker-push-operator docker-push-vlogger ## Push all docker images except OLM catalog
 
 .PHONY: echo-images
 echo-images:  ## Print the names of all of the images used
