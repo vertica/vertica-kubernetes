@@ -438,39 +438,39 @@ func (o *ObjReconciler) createService(ctx context.Context, svc *corev1.Service, 
 }
 
 // checkVProxyConfigMap will create or update a client proxy config map if needed
-func (o *ObjReconciler) checkVProxyConfigMap(ctx context.Context, vpName types.NamespacedName, sc *vapi.Subcluster) error {
+func (o *ObjReconciler) checkVProxyConfigMap(ctx context.Context, cmName types.NamespacedName, sc *vapi.Subcluster) error {
 	curCM := &corev1.ConfigMap{}
-	newCM := builder.BuildVProxyConfigMap(vpName, o.Vdb, sc)
+	newCM := builder.BuildVProxyConfigMap(cmName, o.Vdb, sc)
 
-	err := o.Rec.GetClient().Get(ctx, vpName, curCM)
+	err := o.Rec.GetClient().Get(ctx, cmName, curCM)
 	if err != nil && kerrors.IsNotFound(err) {
-		o.Log.Info("Creating client proxy config map", "Name", vpName)
+		o.Log.Info("Creating client proxy config map", "Name", cmName)
 		return o.Rec.GetClient().Create(ctx, newCM)
 	}
 
 	// TODO: support client proxy update
 	// if o.updateVProxyConfigMapFields(curCM, newCM) {
-	// 	o.Log.Info("Updating client proxy config map", "Name", vpName)
+	// 	o.Log.Info("Updating client proxy config map", "Name", cmName)
 	//	return o.Rec.GetClient().Update(ctx, newCM)
 	//}
-	o.Log.Info("Found an existing client proxy config map with correct content, skip updating it", "Name", vpName)
+	o.Log.Info("Found an existing client proxy config map with correct content, skip updating it", "Name", cmName)
 	return nil
 }
 
 // checkVProxyDeployment will create or update the client proxy deployment
 func (o *ObjReconciler) checkVProxyDeployment(ctx context.Context, sc *vapi.Subcluster) error {
-	if sc.Proxy.Image == "" {
-		o.Log.Info("No client proxy image defind, skipping deployment")
+	if !vmeta.UseVProxy(o.Vdb.Annotations) {
+		o.Log.Info("Client proxy is not used, skipping deployment")
 		return nil
 	}
 
-	vpName := names.GenVProxyName(o.Vdb, sc)
-	// TODO: check if proxy is needed (check annotation)
-	err := o.checkVProxyConfigMap(ctx, vpName, sc)
+	cmName := names.GetVProxyConfigMapName(o.Vdb, sc)
+	err := o.checkVProxyConfigMap(ctx, cmName, sc)
 	if err != nil {
 		return err
 	}
 
+	vpName := names.GenVProxyName(o.Vdb, sc)
 	curDep := &appsv1.Deployment{}
 	vpDep := builder.BuildVProxyDeployment(vpName, o.Vdb, sc)
 	vpErr := o.Rec.GetClient().Get(ctx, vpName, curDep)

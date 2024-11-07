@@ -66,9 +66,14 @@ func GenSandboxConfigMapName(vdb *vapi.VerticaDB, sandbox string) types.Namespac
 	return GenNamespacedName(vdb, vdb.Name+"-"+vapi.GenCompatibleFQDNHelper(sandbox))
 }
 
-// GenVProxyName returns the name of the client proxy deployment, configmap, and pods
+// GenVProxyName returns the name of the client proxy deployment
 func GenVProxyName(vdb *vapi.VerticaDB, sc *vapi.Subcluster) types.NamespacedName {
 	return GenNamespacedName(vdb, vdb.Name+"-"+sc.Name+"-proxy")
+}
+
+// GetVProxyConfigMapName returns the name of the client proxy configmap
+func GetVProxyConfigMapName(vdb *vapi.VerticaDB, sc *vapi.Subcluster) types.NamespacedName {
+	return GenNamespacedName(vdb, vdb.Name+"-"+sc.Name+"-proxy-cm")
 }
 
 // GenCommunalCredSecretName returns the name of the secret that has the credentials to access s3
