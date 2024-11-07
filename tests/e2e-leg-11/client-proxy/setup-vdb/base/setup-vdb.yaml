@@ -17,6 +17,8 @@ metadata:
   name: v-client-proxy
   annotations:
     vertica.com/include-uid-in-path: true
+    vertica.com/use-client-proxy: true
+    vertica.com/client-proxy-log-level: INFO
 spec:
   image: kustomize-vertica-image
   initPolicy: CreateSkipPackageInstall

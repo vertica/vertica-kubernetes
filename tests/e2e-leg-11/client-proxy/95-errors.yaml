@@ -29,4 +29,4 @@ kind: Deployment
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: v-client-proxy-pri1-proxy
+  name: v-client-proxy-pri1-proxy-cm
