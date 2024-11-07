@@ -1626,22 +1626,26 @@ var _ = Describe("verticadb_webhook", func() {
 			{Name: "sand1", Image: "vertica-k8s:v1", Subclusters: []SubclusterName{{Name: "sc2"}, {Name: "sc3"}}},
 		}
 		newVdb := oldVdb.DeepCopy()
-		newVdb.Spec.Sandboxes = []Sandbox{}
+		newVdb.Spec.Sandboxes = []Sandbox{} // sandbox and its subclusters are gone
 		newVdb.Spec.Subclusters = []Subcluster{
 			{Name: "sc1", Type: PrimarySubcluster, Size: 3, ServiceType: v1.ServiceTypeClusterIP},
 			{Name: "sc4", Type: SecondarySubcluster, Size: 3, ServiceType: v1.ServiceTypeNodePort},
 		}
 		oldVdb.Spec.Sandboxes[0].Shutdown = true
-		Ω(newVdb.checkTerminatingSandboxes(oldVdb, field.ErrorList{})).Should(HaveLen(1))
+		Ω(newVdb.checkShutdownForSandboxesToBeRemoved(oldVdb, field.ErrorList{})).Should(HaveLen(1))
 		oldVdb.Spec.Sandboxes[0].Shutdown = false
-		Ω(newVdb.checkTerminatingSandboxes(oldVdb, field.ErrorList{})).Should(HaveLen(0))
-		newVdb.Spec.Subclusters = []Subcluster{ // unsandbox
+		Ω(newVdb.checkShutdownForSandboxesToBeRemoved(oldVdb, field.ErrorList{})).Should(HaveLen(0))
+		newVdb.Spec.Subclusters = []Subcluster{ // unsandbox and subclusters persist
 			{Name: "sc1", Type: PrimarySubcluster, Size: 3, ServiceType: v1.ServiceTypeClusterIP},
 			{Name: "sc2", Type: SecondarySubcluster, Size: 3, ServiceType: v1.ServiceTypeClusterIP},
 			{Name: "sc3", Type: SecondarySubcluster, Size: 3, ServiceType: v1.ServiceTypeNodePort},
 			{Name: "sc4", Type: SecondarySubcluster, Size: 3, ServiceType: v1.ServiceTypeNodePort},
 		}
-		Ω(newVdb.checkTerminatingSandboxes(oldVdb, field.ErrorList{})).Should(HaveLen(0))
+		Ω(newVdb.checkShutdownForSandboxesToBeRemoved(oldVdb, field.ErrorList{})).Should(HaveLen(0))
+		oldVdb.Spec.Sandboxes[0].Shutdown = true
+		Ω(newVdb.checkShutdownForSandboxesToBeRemoved(oldVdb, field.ErrorList{})).Should(HaveLen(1))
+		oldVdb.Spec.Sandboxes[0].Shutdown = false
+		Ω(newVdb.checkShutdownForSandboxesToBeRemoved(oldVdb, field.ErrorList{})).Should(HaveLen(0))
 
 	})
 
