@@ -98,6 +98,9 @@ const (
 	// The path to the scrutinize tarball
 	scrutinizeTarball = "SCRUTINIZE_TARBALL"
 	passwordMountName = "password"
+
+	// Client proxy config file name
+	vProxyConfigFile = "config.yaml"
 )
 
 type ProxyData struct {
@@ -864,7 +867,6 @@ func makeScrutinizeInitContainers(vscr *v1beta1.VerticaScrutinize, vdb *vapi.Ver
 
 // BuildVProxyDeployment builds manifest for a subclusters VProxy deployment
 func BuildVProxyDeployment(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi.Subcluster) *appsv1.Deployment {
-	vproxySize := sc.GetVProxySize(vdb)
 	return &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        nm.Name,
@@ -883,7 +885,7 @@ func BuildVProxyDeployment(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vap
 				},
 				Spec: buildVProxyPodSpec(vdb, sc),
 			},
-			Replicas: &vproxySize,
+			Replicas: &sc.Proxy.Replica,
 		},
 	}
 }
@@ -908,8 +910,8 @@ func buildVProxyPodSpec(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.PodSpec
 						LocalObjectReference: corev1.LocalObjectReference{Name: sc.GetVProxyConfigMapName(vdb)},
 						Items: []corev1.KeyToPath{
 							{
-								Key:  "config.yaml",
-								Path: "config.yaml",
+								Key:  vProxyConfigFile,
+								Path: vProxyConfigFile,
 							},
 						},
 					},
@@ -919,7 +921,43 @@ func buildVProxyPodSpec(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.PodSpec
 	}
 }
 
-// makeDataForProxyConfigMap generates a configmap data in config.yaml format
+// makeDataForProxyConfigMap generates a configmap data in config.yaml format.
+// An example of the config.yaml file:
+// # Vertica Proxy Configuration File Example
+//
+// # Proxy's listener network address for clients connections
+// listener:
+//
+//	host: ""  # Listen on all IP addresses of the local system
+//	port: 3333
+//
+// # The database for proxy connections
+// database:
+//
+//	nodes:
+//	  - localhost:5433
+//	  - node2.address.com:5434
+//	  - node3.address.com:5435
+//
+// # Log level: 0=TRACE|1=DEBUG|2=INFO|3=WARN|4=FATAL|5=NONE (Default INFO)
+// log:
+//
+//	level: DEBUG
+//	# OR
+//	# level: 1
+//
+// tls:
+//
+//	# For proxy-server TLS
+//	serverca: /Path/to/server_cacert.pem
+//	hostname: db.example.com
+//	proxykey: /Path/to/proxy_key.pem
+//	proxycert: /Path/to/proxy_cert.pem
+//
+// # For client-proxy TLS
+// serverkey: /Path/to/server_key.pem
+// servercert: /Path/to/server_cert.pem
+// clientca: /Path/to/client_cacert.pem
 func makeDataForVProxyConfigMap(vdb *vapi.VerticaDB, sc *vapi.Subcluster) string {
 	var nodeList []string
 	port := 5433
@@ -949,7 +987,7 @@ func makeDataForVProxyConfigMap(vdb *vapi.VerticaDB, sc *vapi.Subcluster) string
 // BuildVProxyConfigMap builds a config map for client proxy
 func BuildVProxyConfigMap(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi.Subcluster) *corev1.ConfigMap {
 	immutable := false
-	proxyConfig := makeDataForVProxyConfigMap(vdb, sc)
+	proxyData := makeDataForVProxyConfigMap(vdb, sc)
 	return &corev1.ConfigMap{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "ConfigMap",
@@ -965,7 +1003,7 @@ func BuildVProxyConfigMap(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi
 		// the data should not be immutable since the proxy database nodes could be changed
 		Immutable: &immutable,
 		Data: map[string]string{
-			"config.yaml": proxyConfig,
+			vProxyConfigFile: proxyData,
 		},
 	}
 }
