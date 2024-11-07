@@ -427,17 +427,6 @@ func (s *Subcluster) GetStsSize(vdb *VerticaDB) int32 {
 	return s.Size
 }
 
-// GetVProxySize returns the number of replicas that will be assigned
-// to the vertica client proxy deployment. If sc.proxy.replica is not specified,
-// set it to half of the subcluster's size.
-func (s *Subcluster) GetVProxySize(vdb *VerticaDB) int32 {
-	if s.Proxy.Replica != 0 {
-		return s.Proxy.Replica
-	}
-
-	return s.Size % 2
-}
-
 // GetVProxyConfigMapName returns the name of the client proxy config map
 func (s *Subcluster) GetVProxyConfigMapName(vdb *VerticaDB) string {
 	return fmt.Sprintf("%s-%s-proxy-cm", vdb.Name, s.Name)
