@@ -1,0 +1,68 @@
+# (c) Copyright [2021-2024] Open Text.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# You may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: script-client-proxy-connection
+data:
+  entrypoint.sh: |-
+    #!/bin/bash
+    set -o errexit
+    set -o xtrace
+
+
+    POD_NAME=v-client-proxy-pri1-0
+    PROXY_IP_PRI1=$(kubectl get pod -l vertica.com/subcluster-svc=pri1 -o jsonpath="{.items[0].status.podIP}")
+    PROXY_IP_SEC1=$(kubectl get pod -l vertica.com/subcluster-svc=sec1 -o jsonpath="{.items[0].status.podIP}")
+
+    # create user1 as normal user
+    kubectl exec $POD_NAME -i -c server -- bash -c "vsql -U dbadmin -w superuser -tAc \"CREATE USER user1 IDENTIFIED BY 'sup3rs3cr3t'; CREATE SCHEMA user1_schema; GRANT ALL ON SCHEMA user1_schema TO user1;\""
+    # create test table
+    kubectl exec $POD_NAME -i -c server -- bash -c "vsql -U user1 -w sup3rs3cr3t -tAc \"CREATE TABLE user1_schema.test (ts TIMESTAMP, sc_name VARCHAR, node_name VARCHAR, version VARCHAR); \""
+    # insert test data with connection info
+    kubectl exec $POD_NAME -i -c server -- bash -c "vsql -U user1 -w sup3rs3cr3t -tAc \"INSERT INTO user1_schema.test VALUES ( sysdate(), current_subcluster_name(), local_node_name(), version()); commit;'; \""
+
+    result=$(kubectl exec $POD_NAME -i -c server -- bash -c "vsql -U user1 -w sup3rs3cr3t -tAc \"SELECT node_name FROM user1_schema.test ORDER BY ts desc limit 1;\"")
+    echo "$result" | grep -Pzo "^$PROXY_IP_PRI1\n$" > /dev/null
+    if [ $? -ne 0 ]; then
+      echo "Assertion failed: expected 99, got $result"
+      exit 1
+    fi
+
+    # pause and redirect user1's connection to secondary subcluster's client proxy
+    kubectl exec $POD_NAME -i -c server -- bash -c "vsql -U dbadmin -w superuser -tAc \"select pause_client_connections('pri1', '');\""
+    kubectl exec $POD_NAME -i -c server -- bash -c "vsql -U dbadmin -w superuser -tAc \"select redirect_client_connections('pri1', '"$PROXY_IP_SEC1":5433', '');\""
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-client-proxy-connection
+  labels:
+    stern: include
+spec:
+  restartPolicy: Never
+  containers:
+    - name: test
+      image: bitnami/kubectl:1.20.4
+      command: ["/bin/entrypoint.sh"]
+      volumeMounts:
+        - name: entrypoint-volume
+          mountPath: /bin/entrypoint.sh
+          readOnly: true
+          subPath: entrypoint.sh
+  volumes:
+    - name: entrypoint-volume
+      configMap:
+        defaultMode: 0777
+        name: script-client-proxy-connection

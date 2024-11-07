@@ -14,30 +14,31 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: script-client-proxy-config
+  name: script-kill-client-proxy
 data:
   entrypoint.sh: |-
     #!/bin/bash
     set -o errexit
     set -o xtrace
 
-    # only the proxy pod has label pod-template-hash
-    PROXY_PRI1=$(kubectl get pod -l pod-template-hash -o jsonpath="{.items[0].metadata.name}")
+    # get the proxy pod name
+    PROXY_LABEL=pod-template-hash,vertica.com/subcluster-svc=pri1
+    PROXY_PRI1_ORIG=$(kubectl get pod -l $PROXY_LABEL --no-headers -o custom-columns=:.metadata.name)
 
-    # get the content of the config.yaml
-    result=$(kubectl exec -i $PROXY_PRI1 -- sh -c "cat /config/config.yaml")
-    for POD_NAME in v-client-proxy-pri1-0 v-client-proxy-pri1-1 v-client-proxy-pri1-2; do
-      echo "$result" | grep -Pzo "$POD_NAME:5433" > /dev/null
-      if [ $? -ne 0 ]; then
-        echo "Assertion failed: expect $POD_NAME:5433 to be defined in config.yaml, got $result"
-        exit 1
-      fi
-    done
+    # delete the proxy pod and a new proxy pod will be created
+    kubectl delete pod -l $PROXY_LABEL
+    PROXY_PRI1_NEW=$(kubectl get pod -l $PROXY_LABEL --no-headers -o custom-columns=:.metadata.name)
+
+    # new proxy pod name should be different to the original one
+    if [ "$PROXY_PRI1_NEW" == "$PROXY_PRI1_ORIG" ]; then
+      echo "Assertion failed: expect a new proxy pod to be created, got the original pod $PROXY_PRI1_ORIG"
+      exit 1
+    fi
 ---
 apiVersion: v1
 kind: Pod
 metadata:
-  name: test-client-proxy-config
+  name: test-kill-client-proxy
   labels:
     stern: include
 spec:
@@ -55,4 +56,4 @@ spec:
     - name: entrypoint-volume
       configMap:
         defaultMode: 0777
-        name: script-client-proxy-config
+        name: script-kill-client-proxy

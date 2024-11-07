@@ -11,8 +11,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: kuttl.dev/v1beta1
-kind: TestStep
-commands:
-  - script: kustomize build ../../manifests/communal-creds/overlay | kubectl apply -f - --namespace $NAMESPACE
-  - script: kustomize build ../../manifests/priv-container-creds/overlay | kubectl apply -f - --namespace $NAMESPACE
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: integration-test-role
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: integration-test-rb
