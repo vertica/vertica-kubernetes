@@ -35,7 +35,7 @@ spec:
       size: 1
       type: secondary
   sandboxes:
-  - name: sand1
+  - name: sand_1
     subclusters:
     - name: sec1
     - name: sec2

@@ -305,6 +305,10 @@ spec:
         - urn:alm:descriptor:com.tectonic.ui:select:ClusterIP
         - urn:alm:descriptor:com.tectonic.ui:select:NodePort
         - urn:alm:descriptor:com.tectonic.ui:select:LoadBalancer
+      - description: State to indicate whether the operator must shut down the subcluster
+          and not try to restart it.
+        displayName: Shutdown
+        path: template.shutdown
       - description: "The number of pods that the subcluster will have. This determines
           the number of Vertica nodes that it will have. Changing this number will
           either delete or schedule new pods. \n The database has a k-safety of 1.
@@ -713,6 +717,11 @@ spec:
           This cannot change once the sandbox is created.
         displayName: Name
         path: sandboxes[0].name
+      - description: State to indicate whether the operator must shut down the sandbox
+          and not try to restart it. When true, stop_db will be performed on the sandbox
+          and the operator will not try start_db on the sandbox.
+        displayName: Shutdown
+        path: sandboxes[0].shutdown
       - description: This is the subcluster names that are part of the sandbox. There
           must be at least one subcluster listed. All subclusters listed need to be
           secondary subclusters.
@@ -867,6 +876,10 @@ spec:
         - urn:alm:descriptor:com.tectonic.ui:select:ClusterIP
         - urn:alm:descriptor:com.tectonic.ui:select:NodePort
         - urn:alm:descriptor:com.tectonic.ui:select:LoadBalancer
+      - description: State to indicate whether the operator must shut down the subcluster
+          and not try to restart it.
+        displayName: Shutdown
+        path: subclusters[0].shutdown
       - description: "The number of pods that the subcluster will have. This determines
           the number of Vertica nodes that it will have. Changing this number will
           either delete or schedule new pods. \n The database has a k-safety of 1.
@@ -905,8 +918,8 @@ spec:
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:number
         - urn:alm:descriptor:com.tectonic.ui:advanced
-      - description: When doing an online upgrade, we designate a subcluster to accept
-          traffic while the other subclusters restart.  The designated subcluster
+      - description: When doing a read-only online upgrade, we designate a subcluster
+          to accept traffic while the other subclusters restart.  The designated subcluster
           is specified here.  The name of the subcluster can refer to an existing
           one or an entirely new subcluster.  If the subcluster is new, it will exist
           only for the duration of the upgrade.  If this struct is left empty the
@@ -1029,6 +1042,10 @@ spec:
         - urn:alm:descriptor:com.tectonic.ui:select:ClusterIP
         - urn:alm:descriptor:com.tectonic.ui:select:NodePort
         - urn:alm:descriptor:com.tectonic.ui:select:LoadBalancer
+      - description: State to indicate whether the operator must shut down the subcluster
+          and not try to restart it.
+        displayName: Shutdown
+        path: temporarySubclusterRouting.template.shutdown
       - description: "The number of pods that the subcluster will have. This determines
           the number of Vertica nodes that it will have. Changing this number will
           either delete or schedule new pods. \n The database has a k-safety of 1.
@@ -1174,6 +1191,10 @@ spec:
       - description: Object ID of the subcluster.
         displayName: Oid
         path: subclusters[0].oid
+      - description: State of the subcluster. true means the subcluster was explicitly
+          shut down by the user and must not be restarted.
+        displayName: Shutdown
+        path: subclusters[0].shutdown
       - description: A count of the number of pods that have a running vertica process
           in this subcluster.
         displayName: Up Node Count
@@ -1598,6 +1619,11 @@ spec:
           This cannot change once the sandbox is created.
         displayName: Name
         path: sandboxes[0].name
+      - description: State to indicate whether the operator must shut down the sandbox
+          and not try to restart it. When true, stop_db will be performed on the sandbox
+          and the operator will not try start_db on the sandbox.
+        displayName: Shutdown
+        path: sandboxes[0].shutdown
       - description: This is the subcluster names that are part of the sandbox. There
           must be at least one subcluster listed. All subclusters listed need to be
           secondary subclusters.
@@ -1783,6 +1809,10 @@ spec:
         - urn:alm:descriptor:com.tectonic.ui:select:ClusterIP
         - urn:alm:descriptor:com.tectonic.ui:select:NodePort
         - urn:alm:descriptor:com.tectonic.ui:select:LoadBalancer
+      - description: State to indicate whether the operator must shut down the subcluster
+          and not try to restart it.
+        displayName: Shutdown
+        path: subclusters[0].shutdown
       - description: "The number of pods that the subcluster will have. This determines
           the number of Vertica nodes that it will have. Changing this number will
           either delete or schedule new pods. \n The database has a k-safety of 1.
@@ -1963,6 +1993,10 @@ spec:
         - urn:alm:descriptor:com.tectonic.ui:select:ClusterIP
         - urn:alm:descriptor:com.tectonic.ui:select:NodePort
         - urn:alm:descriptor:com.tectonic.ui:select:LoadBalancer
+      - description: State to indicate whether the operator must shut down the subcluster
+          and not try to restart it.
+        displayName: Shutdown
+        path: temporarySubclusterRouting.template.shutdown
       - description: "The number of pods that the subcluster will have. This determines
           the number of Vertica nodes that it will have. Changing this number will
           either delete or schedule new pods. \n The database has a k-safety of 1.
@@ -2126,6 +2160,10 @@ spec:
           this subcluster.
         displayName: Read Only Count
         path: subclusters[0].readOnlyCount
+      - description: State of the subcluster. true means the subcluster was explicitly
+          shut down by the user and must not be restarted.
+        displayName: Shutdown
+        path: subclusters[0].shutdown
       - description: A count of the number of pods that have a running vertica process
           in this subcluster.
         displayName: Up Node Count

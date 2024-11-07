@@ -10,14 +10,3 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-apiVersion: vertica.com/v1beta1
-kind: VerticaDB
-metadata:
-   name: v-vdb-gen
-spec:
-   subclusters:
-      - name: sc1
-        size: 1
-      - name: sc2
-        size: 1

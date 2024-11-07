@@ -191,6 +191,10 @@ export CONTROLLERS_ENABLED
 # Set this to control if the webhook is enabled or disabled in the operator.
 WEBHOOKS_ENABLED?=true
 export WEBHOOKS_ENABLED
+
+#set this to increase the threshold used by spam filter
+BROADCASTER_BURST_SIZE?=100
+export BROADCASTER_BURST_SIZE
 #
 # Use this to control what scope the controller is deployed at. It supports two
 # values:
@@ -711,7 +715,7 @@ $(OPERATOR_SDK):
 	chmod +x $(OPERATOR_SDK)
 
 ISTIOCTL = $(shell pwd)/bin/istioctl
-ISTIOCTL_VERSION = 1.17.2
+ISTIOCTL_VERSION = 1.23.3
 istioctl: $(ISTIOCTL)  ## Download istioctl locally if necessary
 $(ISTIOCTL):
 	curl --silent --show-error --retry 10 --retry-max-time 1800 --location --fail "https://github.com/istio/istio/releases/download/$(ISTIOCTL_VERSION)/istio-$(ISTIOCTL_VERSION)-$(GOOS)-$(GOARCH).tar.gz" | tar xvfz - istio-$(ISTIOCTL_VERSION)/bin/istioctl -O > $(ISTIOCTL)

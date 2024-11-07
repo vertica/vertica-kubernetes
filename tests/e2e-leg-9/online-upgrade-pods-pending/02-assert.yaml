@@ -11,33 +11,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: kuttl.dev/v1beta1
-kind: TestAssert
-timeout: 900
----
-apiVersion: vertica.com/v1beta1
-kind: VerticaDB
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
 metadata:
-  name: v-vdb-gen-revive2
-spec:
-  initPolicy: Revive
-  dbName: vertdb
-  shardCount: 6
-  superuserPasswordSecret: v-vdb-gen-revive2-su-passwd
-  local:
-    dataPath: /data
-    depotPath: /depot
-    depotVolume: EmptyDir
-  kSafety: "0"
-  subclusters:
-    - name: sc1
-      isPrimary: true
-      size: 1
-    - name: sc2
-      isPrimary: true
-      size: 1
-status:
-  installCount: 2
-  subclusterCount: 2
-  upNodeCount: 2
-  addedToDBCount: 2
+  name: integration-test-role
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: integration-test-rb

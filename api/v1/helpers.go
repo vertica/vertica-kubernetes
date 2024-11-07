@@ -350,8 +350,12 @@ func (v *VerticaDB) GetCommunalPath() string {
 // GenCompatibleFQDN returns a name of the subcluster that is
 // compatible inside a fully-qualified domain name.
 func (s *Subcluster) GenCompatibleFQDN() string {
+	return GenCompatibleFQDNHelper(s.Name)
+}
+
+func GenCompatibleFQDNHelper(name string) string {
 	m := regexp.MustCompile(`_`)
-	return m.ReplaceAllString(s.Name, "-")
+	return m.ReplaceAllString(name, "-")
 }
 
 // GetStatefulSetName returns the name of the statefulset for this subcluster
@@ -400,6 +404,21 @@ func (s *Subcluster) IsZombie(vdb *VerticaDB) bool {
 	_, foundInSandbox := scInSandboxMap[s.Name]
 	_, foundInSandboxStatus := scInSandboxStatusMap[s.Name]
 	return !foundInSandbox && !foundInSandboxStatus
+}
+
+// GetStsSize returns the number of replicas that will be assigned
+// to the statefulset. By default it is the subcluster's size, and
+// zero if the subcluster has shutdown true.
+func (s *Subcluster) GetStsSize(vdb *VerticaDB) int32 {
+	if !s.Shutdown {
+		return s.Size
+	}
+	scStatusMap := vdb.GenSubclusterStatusMap()
+	ss := scStatusMap[s.Name]
+	if ss != nil && ss.Shutdown {
+		return 0
+	}
+	return s.Size
 }
 
 // FindSubclusterForServiceName will find any subclusters that match the given service name
