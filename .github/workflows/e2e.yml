@@ -232,7 +232,7 @@ jobs:
           controllers-scope: namespace
 
   e2e-leg-3-admintools:
-    if: ${{ ! contains(github.ref, 'k8s-sync')  && inputs.e2e_test_suites != 'client-proxy' && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools leg 3' || inputs.e2e_test_suites == '') }}
+    if: ${{ ! contains(github.ref, 'k8s-sync')  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools leg 3' || inputs.e2e_test_suites == '') }}
     needs: [build]
     runs-on: ubuntu-latest
     steps:
@@ -252,7 +252,7 @@ jobs:
           need-legacy-image: true
   
   e2e-leg-3-vclusterops-previous-release:
-    if: ${{ inputs.e2e_test_suites != 'client-proxy' && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'vcluster leg 3' || inputs.e2e_test_suites == '' )}}
+    if: ${{ inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'vcluster leg 3' || inputs.e2e_test_suites == '' }}
     needs: [build]
     runs-on: ubuntu-latest
     steps:
@@ -285,7 +285,6 @@ jobs:
           dockerhub-username: ${{ secrets.DOCKERHUB_USERNAME }}
           dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}
           vlogger-image: ${{ needs.build.outputs.vlogger-image }}
-          vproxy-image: 'qguanopentext/vertica-client-proxy:20241024'
           operator-image: ${{ needs.build.outputs.operator-image }}
           vertica-image: ${{ needs.build.outputs.full-vertica-image }}
           vertica-deployment-method: vclusterops
@@ -577,6 +576,30 @@ jobs:
           communal-storage-type: s3
           minimum-vertica-image: '24.3.0'
           # Include the vertica license so we can test scaling past 3 nodes.
+          vertica-license: ${{ secrets.VERTICA_LICENSE }}
+          need-base-vertica-image: 'true'
+
+  e2e-leg-11-vcluster:
+    if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'vcluster leg 11' || inputs.e2e_test_suites == '')}}
+    needs: [build]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Test
+        uses: ./.github/actions/run-e2e-leg
+        with:
+          leg-identifier: 'leg-11'
+          dockerhub-username: ${{ secrets.DOCKERHUB_USERNAME }}
+          dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}
+          vlogger-image: ${{ needs.build.outputs.vlogger-image }}
+          vproxy-image: 'qguanopentext/vertica-client-proxy:20241024'
+          operator-image: ${{ needs.build.outputs.operator-image }}
+          vertica-image: ${{ needs.build.outputs.full-vertica-image }}
+          vertica-deployment-method: vclusterops
+          communal-storage-type: s3
+          minimum-vertica-image: '25.1.0'
+          # Include the vertica license so we can test multiple subclusters.
           vertica-license: ${{ secrets.VERTICA_LICENSE }}
           need-base-vertica-image: 'true'
 
