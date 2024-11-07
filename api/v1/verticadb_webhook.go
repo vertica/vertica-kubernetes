@@ -1788,6 +1788,7 @@ func (v *VerticaDB) checkUnsandboxShutdownConditions(oldObj *VerticaDB, allErrs 
 	statusSClusterIndexMap := v.GenStatusSClusterIndexMap()
 	subclustersToUnsandbox := v.findSclustersToUnsandbox(oldObj)
 	subclusterIndexMap := v.GenSubclusterIndexMap()
+	sandboxIndexMap := v.GenSandboxIndexMap()
 	sandboxesWithError := map[string]bool{}
 	for oldSubcluster, oldSandbox := range subclustersToUnsandbox {
 		oldSubclusterIndex, found := statusSClusterIndexMap[oldSubcluster.Name]
@@ -1802,6 +1803,7 @@ func (v *VerticaDB) checkUnsandboxShutdownConditions(oldObj *VerticaDB, allErrs 
 			continue
 		}
 		if oldSandbox.Shutdown {
+			i := sandboxIndexMap[oldSandbox.Name]
 			_, found := sandboxesWithError[oldSandbox.Name]
 			if !found { // this is to avoid duplicate error messages
 				sandboxesWithError[oldSandbox.Name] = true
