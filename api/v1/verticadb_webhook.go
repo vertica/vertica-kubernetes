@@ -156,6 +156,7 @@ func (v *VerticaDB) validateImmutableFields(old runtime.Object) field.ErrorList 
 	allErrs = v.checkSubclustersInShutdownSandbox(oldObj, allErrs)
 	allErrs = v.checkNewSBoxOrSClusterShutdownUnset(allErrs)
 	allErrs = v.checkSClusterToBeSandboxedShutdownUnset(allErrs)
+	allErrs = v.checkShutdownForScaleUpOrDown(old, allErrs)
 	return allErrs
 }
 
@@ -1753,6 +1754,43 @@ func (v *VerticaDB) checkNewSBoxOrSClusterShutdownUnset(allErrs field.ErrorList)
 				fmt.Sprintf("shutdown must be false when adding subcluster %q",
 					newSCluster.Name))
 			allErrs = append(allErrs, err)
+		}
+	}
+	return allErrs
+}
+
+// checkSClusterToBeSandboxedShutdownUnset ensures a subcluster to be sandboxed has Shutdown field set to false
+func (v *VerticaDB) checkShutdownForScaleUpOrDown(old runtime.Object, allErrs field.ErrorList) field.ErrorList {
+	oldObj := old.(*VerticaDB)
+
+	oldSclusterMap := oldObj.GenSubclusterMap()
+	subclusterIndexMap := v.GenSubclusterIndexMap()
+	newSclusterMap := v.GenSubclusterMap()
+	newSclusterSboxMap := v.GenSubclusterSandboxMap()
+	newSandboxMap := v.GenSandboxMap()
+	statusSclusterIndexMap := v.GenStatusSClusterIndexMap()
+	for subclusterName, sandboxName := range newSclusterSboxMap {
+		newScluster, foundSclusterInNew := newSclusterMap[subclusterName]
+		if !foundSclusterInNew { // this error should be captured by other piece of code
+			continue
+		}
+		oldScluter, foundScluterInOld := oldSclusterMap[subclusterName]
+		if !foundScluterInOld {
+			continue
+		}
+		if oldScluter.Size != newScluster.Size { // scale up/down
+			sandbox := newSandboxMap[sandboxName]
+			errMsgs := v.checkSboxForShutdown(sandbox, newSclusterMap, statusSclusterIndexMap)
+			if len(errMsgs) != 0 {
+				i := subclusterIndexMap[subclusterName]
+				p := field.NewPath("spec").Child("subclusters").Index(i).Child("size")
+				err := field.Invalid(p,
+					newScluster.Size,
+					fmt.Sprintf("cannot scale up/down subcluster %q because %q",
+						subclusterName, strings.Join(errMsgs, ",")))
+				allErrs = append(allErrs, err)
+				continue
+			}
 		}
 	}
 	return allErrs
