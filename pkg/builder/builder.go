@@ -908,12 +908,6 @@ func buildVProxyPodSpec(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.PodSpec
 				VolumeSource: corev1.VolumeSource{
 					ConfigMap: &corev1.ConfigMapVolumeSource{
 						LocalObjectReference: corev1.LocalObjectReference{Name: sc.GetVProxyConfigMapName(vdb)},
-						Items: []corev1.KeyToPath{
-							{
-								Key:  vProxyConfigFile,
-								Path: vProxyConfigFile,
-							},
-						},
 					},
 				},
 			},
@@ -922,22 +916,21 @@ func buildVProxyPodSpec(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.PodSpec
 }
 
 // makeDataForProxyConfigMap generates a configmap data in config.yaml format.
-// An example of the config.yaml file:
 // # Vertica Proxy Configuration File Example
 //
 // # Proxy's listener network address for clients connections
 // listener:
 //
 //	host: ""  # Listen on all IP addresses of the local system
-//	port: 3333
+//	port: 5433
 //
 // # The database for proxy connections
 // database:
 //
 //	nodes:
-//	  - localhost:5433
-//	  - node2.address.com:5434
-//	  - node3.address.com:5435
+//	  - node1.address.com:5433
+//	  - node2.address.com:5433
+//	  - node3.address.com:5433
 //
 // # Log level: 0=TRACE|1=DEBUG|2=INFO|3=WARN|4=FATAL|5=NONE (Default INFO)
 // log:
