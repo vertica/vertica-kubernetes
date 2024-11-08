@@ -206,6 +206,36 @@ func (v *VerticaDB) GenSubclusterSandboxStatusMap() map[string]string {
 	return scSbMap
 }
 
+// GenStatusSandboxMap() returns a map from status. The key is sandbox name and value is the sandbox pointer
+func (v *VerticaDB) GenStatusSandboxMap() map[string]*SandboxStatus {
+	statusSboxMap := make(map[string]*SandboxStatus)
+	for i := range v.Status.Sandboxes {
+		sBox := &v.Status.Sandboxes[i]
+		statusSboxMap[sBox.Name] = sBox
+	}
+	return statusSboxMap
+}
+
+// GenStatusSubclusterMap() returns a map from status. The key is subcluster name and value is the subcluster pointer
+func (v *VerticaDB) GenStatusSubclusterMap() map[string]*SubclusterStatus {
+	statusSclusterMap := make(map[string]*SubclusterStatus)
+	for i := range v.Status.Subclusters {
+		sCluster := &v.Status.Subclusters[i]
+		statusSclusterMap[sCluster.Name] = sCluster
+	}
+	return statusSclusterMap
+}
+
+// GenStatusSClusterIndexMap will organize all of the subclusters into a map so we
+// can quickly find its index in the status.subclusters[] array.
+func (v *VerticaDB) GenStatusSClusterIndexMap() map[string]int {
+	m := make(map[string]int)
+	for i := range v.Status.Subclusters {
+		m[v.Status.Subclusters[i].Name] = i
+	}
+	return m
+}
+
 // GenSandboxSubclusterMapForUnsandbox will compare sandbox status and spec
 // for finding subclusters that need to be unsandboxed, this function returns a map
 // with sandbox name as the key and its subclusters (need to be unsandboxed) as the value
