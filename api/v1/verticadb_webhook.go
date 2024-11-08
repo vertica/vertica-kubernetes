@@ -1828,7 +1828,7 @@ func (v *VerticaDB) checkSubclustersInShutdownSandbox(oldObj *VerticaDB, allErrs
 	for sandboxName := range persistSandboxes {
 		newSandbox := newSandboxMap[sandboxName]
 		oldSandbox := oldSandboxMap[sandboxName]
-		if newSandbox.Shutdown { // !oldSandbox.Shutdown &&
+		if newSandbox.Shutdown {
 			for _, subclusterName := range oldSandbox.Subclusters {
 				oldSubcluster := oldSubclusterMap[subclusterName.Name]
 				newSubcluster, oldSclusterPersist := newSubclusterMap[subclusterName.Name]
