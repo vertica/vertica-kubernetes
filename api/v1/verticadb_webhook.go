@@ -1829,9 +1829,10 @@ func (v *VerticaDB) checkSClusterToBeSandboxedShutdownUnset(allErrs field.ErrorL
 				_, found := sandboxWithError[sandboxName]
 				if !found {
 					sandboxWithError[sandboxName] = true
-					p := field.NewPath("spec").Child("sandboxes").Index(sandboxIndex).Child("Shutdown")
+					sclusterIndex := v.findSubclusterIndexInSandbox(subclusterName, sandbox)
+					p := field.NewPath("spec").Child("sandboxes").Index(sandboxIndex).Child("subclusters").Index(sclusterIndex)
 					err := field.Invalid(p,
-						sandbox.Shutdown,
+						subclusterName,
 						fmt.Sprintf("cannot sandbox subcluster %q in sandbox %q because %q",
 							subclusterName, sandboxName, strings.Join(errMsgs, ",")))
 					allErrs = append(allErrs, err)
