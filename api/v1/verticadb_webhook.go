@@ -1880,9 +1880,7 @@ func (v *VerticaDB) checkShutdownForSandboxesToBeRemoved(oldObj *VerticaDB, allE
 	newSandboxMap := v.GenSandboxMap()
 	sandboxesToBeRemoved := vutil.MapKeyDiff(oldSandboxMap, newSandboxMap)
 	for _, sandboxToBeRemoved := range sandboxesToBeRemoved {
-		if !oldSandboxMap[sandboxToBeRemoved].Shutdown {
-			continue
-		} else {
+		if oldSandboxMap[sandboxToBeRemoved].Shutdown {
 			p := field.NewPath("spec").Child("sandboxes")
 			err := field.Invalid(p,
 				sandboxToBeRemoved,
