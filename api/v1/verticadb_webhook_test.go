@@ -1412,13 +1412,13 @@ var _ = Describe("verticadb_webhook", func() {
 			}
 			newVdb := oldVdb.DeepCopy()
 			newVdb.Spec.Subclusters[2].Shutdown = false
-			Ω(newVdb.checkAnnotatedSubclustersInShutdownSandbox(oldVdb, field.ErrorList{})).Should(HaveLen(1))
+			Ω(newVdb.checkSubclustersInShutdownSandbox(oldVdb, field.ErrorList{})).Should(HaveLen(1))
 			newVdb.Spec.Subclusters[2].Shutdown = true
-			Ω(newVdb.checkAnnotatedSubclustersInShutdownSandbox(oldVdb, field.ErrorList{})).Should(HaveLen(0))
+			Ω(newVdb.checkSubclustersInShutdownSandbox(oldVdb, field.ErrorList{})).Should(HaveLen(0))
 			newVdb.Spec.Subclusters[1].Shutdown = false
-			Ω(newVdb.checkAnnotatedSubclustersInShutdownSandbox(oldVdb, field.ErrorList{})).Should(HaveLen(1))
+			Ω(newVdb.checkSubclustersInShutdownSandbox(oldVdb, field.ErrorList{})).Should(HaveLen(1))
 			newVdb.Spec.Subclusters[1].Shutdown = true
-			Ω(newVdb.checkAnnotatedSubclustersInShutdownSandbox(oldVdb, field.ErrorList{})).Should(HaveLen(0))
+			Ω(newVdb.checkSubclustersInShutdownSandbox(oldVdb, field.ErrorList{})).Should(HaveLen(0))
 
 		})
 
