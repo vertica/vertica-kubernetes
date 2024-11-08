@@ -1792,32 +1792,31 @@ func (v *VerticaDB) checkShutdownForScaleUpOrDown(old runtime.Object, allErrs fi
 // 2 B's Shutdown field is set to false
 // 3 B does not have any subcluster in it that has Shutdown set to true (spec/status)
 func (v *VerticaDB) checkSClusterToBeSandboxedShutdownUnset(allErrs field.ErrorList) field.ErrorList {
-	statusSClusterMap := v.GenStatusSubclusterMap()
 	newSclusterMap := v.GenSubclusterMap()
 	statusScluterSboxMap := v.GenSubclusterSandboxStatusMap()
 	newSclusterSboxMap := v.GenSubclusterSandboxMap()
 	newSandboxIndexMap := v.GenSandboxIndexMap()
 	newSandboxMap := v.GenSandboxMap()
 	statusSclusterIndexMap := v.GenStatusSClusterIndexMap()
-	shutdownSboxIndex := -1
+	sandboxWithError := map[string]bool{}
 	for subclusterName, sandboxName := range newSclusterSboxMap {
 		oldSandboxName, isInOldSandbox := statusScluterSboxMap[subclusterName]
 		_, foundSubcluster := newSclusterMap[subclusterName]
 		if !foundSubcluster {
 			continue // avoid panic. this error should have been reported by other functions
 		}
-		_, hasStatus := statusSClusterMap[subclusterName]
 		// the subcluster to be sandboxed is either a new subcluster to be added (not found in status)
 		// or an existing subcluster (found in status), the latter of which includes two scenarios:
 		//   1 the subcluster was in a sandbox (whose name is different from current sandbox name)
 		//   2 the subcluster was not in a sandbox previously
-		if !hasStatus || (hasStatus && (!isInOldSandbox || isInOldSandbox && oldSandboxName != sandboxName)) {
+		if !isInOldSandbox || isInOldSandbox && oldSandboxName != sandboxName {
 			sandbox := newSandboxMap[sandboxName]
 			errMsgs := v.checkSboxForShutdown(sandbox, newSclusterMap, statusSclusterIndexMap)
 			if len(errMsgs) != 0 {
 				sandboxIndex := newSandboxIndexMap[sandboxName]
-				if shutdownSboxIndex != sandboxIndex {
-					shutdownSboxIndex = sandboxIndex // avoid duplicate err msg
+				_, found := sandboxWithError[sandboxName]
+				if !found {
+					sandboxWithError[sandboxName] = true
 					p := field.NewPath("spec").Child("sandboxes").Index(sandboxIndex).Child("Shutdown")
 					err := field.Invalid(p,
 						sandbox.Shutdown,
