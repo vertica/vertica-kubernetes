@@ -805,7 +805,7 @@ type Subcluster struct {
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// Create client proxy pods for the subcluster if defined
-	// All the subcluster connections will be redirected to the proxy pods
+	// All incoming connections to the subclusters will be routed through the proxy pods
 	Proxy Proxy `json:"proxy,omitempty"`
 }
 
@@ -816,26 +816,17 @@ type Proxy struct {
 	// The docker image name that contains the Vertica proxy server.
 	Image string `json:"image,omitempty"`
 
-	// +kubebuilder:default:=0
+	// +kubebuilder:default:=1
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// The number of replicas that the proxy server will have.
-	//
-	// If it's not set, the default value would be (spec.subcluster[].size % 2).
-	// This will allow proxy pods to scale according to the number of vertica nodes.
 	Replica int32 `json:"replica,omitempty"`
-
-	// +kubebuilder:default:=INFO
-	// +kubebuilder:validation:Optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec
-	// The log level of the proxy server will have.
-	// Log level: 0=TRACE|1=DEBUG|2=INFO|3=WARN|4=FATAL|5=NONE (Default INFO)
-	LogLevel string `json:"logLevel,omitempty"`
 
 	// +kubebuilder:default:=5433
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// The port proxy server will listen to. The only supported value is 5433
+	// TODO: hide this option since load-balancer cannot work with other port numbers
 	Port int32 `json:"port,omitempty"`
 
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:hidden"
@@ -849,6 +840,14 @@ type Proxy struct {
 	// use a secret path reference prefix, such as gsm://. Everything after the
 	// prefix is the name of the secret in the service you are storing.
 	TLSSecret string `json:"tlsSecret,omitempty"`
+
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:resourceRequirements"
+	// This defines the resource requests and limits for the client proxy pods in the subcluster.
+	// It is advisable that the request and limits match as this ensures the
+	// pods are assigned to the guaranteed QoS class. This will reduces the
+	// chance that pods are chosen by the OOM killer.
+	// More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
 }
 
 // Affinity is used instead of corev1.Affinity and behaves the same.

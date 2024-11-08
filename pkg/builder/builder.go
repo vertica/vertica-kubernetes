@@ -288,11 +288,6 @@ func buildNMAResources(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.Resource
 	return pickResources(&target, &sc.Resources, forced)
 }
 
-func buildVProxyResources(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.ResourceRequirements {
-	target := buildResources(vdb.Annotations, vmeta.GetNMAResource)
-	return pickResources(&target, &sc.Resources, false)
-}
-
 func buildScrutinizeMainContainerResources(vscr *v1beta1.VerticaScrutinize) corev1.ResourceRequirements {
 	targetResources := buildResources(vscr.Annotations, vmeta.GetScrutinizeMainContainerResource)
 	return pickResources(&targetResources, &vscr.Spec.Resources, false /* pick based on dependsOn */)
@@ -807,7 +802,7 @@ func buildStartupConfVolume() corev1.Volume {
 
 // buildPodSpec creates a PodSpec for the statefulset
 func buildPodSpec(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.PodSpec {
-	termGracePeriod := int64(vmeta.GetTerminationGracePeriodSeconds(vdb.Annotations))
+	termGracePeriod := int64(0)
 	return corev1.PodSpec{
 		NodeSelector:                  sc.NodeSelector,
 		Affinity:                      GetK8sAffinity(sc.Affinity),
@@ -880,7 +875,7 @@ func BuildVProxyDeployment(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vap
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Labels:      MakeLabelsForPodObject(vdb, sc),
+					Labels:      MakeLabelsForVProxyObject(vdb, sc, true),
 					Annotations: MakeAnnotationsForObject(vdb),
 				},
 				Spec: buildVProxyPodSpec(vdb, sc),
@@ -989,7 +984,7 @@ func BuildVProxyConfigMap(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            nm.Name,
 			Namespace:       nm.Namespace,
-			Labels:          MakeLabelsForPodObject(vdb, sc),
+			Labels:          MakeLabelsForVProxyObject(vdb, sc, false),
 			Annotations:     MakeAnnotationsForVProxyConfigMap(vdb),
 			OwnerReferences: []metav1.OwnerReference{vdb.GenerateOwnerReference()},
 		},
@@ -1010,7 +1005,7 @@ func makeVProxyContainer(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.Contai
 		ImagePullPolicy: vdb.Spec.ImagePullPolicy,
 		Name:            names.ProxyContainer,
 		Env:             envVars,
-		Resources:       buildVProxyResources(vdb, sc),
+		Resources:       sc.Proxy.Resources,
 		Ports: []corev1.ContainerPort{
 			{ContainerPort: VerticaClientPort, Name: "vertica"},
 		},
@@ -1787,8 +1782,8 @@ func buildVProxyTLSCertsEnvVars(vdb *vapi.VerticaDB, sc *vapi.Subcluster) []core
 	return []corev1.EnvVar{
 		// The proxy will read the secrets directly from the secret store.
 		// We provide the secret namespace and name for this reason.
-		{Name: NMASecretNamespaceEnv, Value: vdb.ObjectMeta.Namespace},
-		{Name: NMASecretNameEnv, Value: vdb.Spec.NMATLSSecret},
+		{Name: VProxySecretNamespaceEnv, Value: vdb.ObjectMeta.Namespace},
+		{Name: VProxySecretNameEnv, Value: sc.Proxy.TLSSecret},
 	}
 }
 

@@ -547,26 +547,6 @@ func GetVProxyLogLevel(annotations map[string]string) string {
 	return lookupStringAnnotation(annotations, VProxyLogLevelAnnotation, "INFO" /* default value */)
 }
 
-// GetVProxyResource is used to retrieve a specific resource for the client proxy.
-// If any parsing error occurs, the default value is returned.
-func GetVProxyResource(annotations map[string]string, resourceName corev1.ResourceName) resource.Quantity {
-	annotationName := GenVProxyResourcesAnnotationName(resourceName)
-	defVal, hasDefault := DefaultNMAResources[resourceName]
-	defValStr := defVal.String()
-	if !hasDefault {
-		defValStr = ""
-	}
-	return getResource(annotations, annotationName, defValStr, defVal)
-}
-
-// GenVProxyResourcesAnnotationName is a helper to generate the name of the
-// annotation to control the resource for proxy. The resourceName given is taken from the
-// k8s corev1 package. It should be the two part name. Use const like
-// corev1.ResourceLimitsCPU, corev1.ResourceRequestsMemory, etc.
-func GenVProxyResourcesAnnotationName(resourceName corev1.ResourceName) string {
-	return genResourcesAnnotationName(VProxyResourcesPrefixAnnotation, resourceName)
-}
-
 // GetScrutinizePodTTL returns how long the scrutinize pod will keep running
 func GetScrutinizePodTTL(annotations map[string]string) int {
 	val := lookupIntAnnotation(annotations,

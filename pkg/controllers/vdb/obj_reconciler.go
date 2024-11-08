@@ -459,11 +459,6 @@ func (o *ObjReconciler) checkVProxyConfigMap(ctx context.Context, cmName types.N
 
 // checkVProxyDeployment will create or update the client proxy deployment
 func (o *ObjReconciler) checkVProxyDeployment(ctx context.Context, sc *vapi.Subcluster) error {
-	if !vmeta.UseVProxy(o.Vdb.Annotations) {
-		o.Log.Info("Client proxy is not used, skipping deployment")
-		return nil
-	}
-
 	cmName := names.GenVProxyConfigMapName(o.Vdb, sc)
 	err := o.checkVProxyConfigMap(ctx, cmName, sc)
 	if err != nil {
@@ -487,10 +482,12 @@ func (o *ObjReconciler) checkVProxyDeployment(ctx context.Context, sc *vapi.Subc
 // reconcileSts reconciles the statefulset for a particular subcluster.  Returns
 // true if any create/update was done.
 func (o *ObjReconciler) reconcileSts(ctx context.Context, sc *vapi.Subcluster) (ctrl.Result, error) {
-	// Create or update the client proxy deployment
-	vpErr := o.checkVProxyDeployment(ctx, sc)
-	if vpErr != nil {
-		return ctrl.Result{}, vpErr
+	if vmeta.UseVProxy(o.Vdb.Annotations) {
+		// Create or update the client proxy deployment
+		vpErr := o.checkVProxyDeployment(ctx, sc)
+		if vpErr != nil {
+			return ctrl.Result{}, vpErr
+		}
 	}
 
 	// Create or update the statefulset
