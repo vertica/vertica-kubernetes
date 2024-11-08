@@ -1,6 +1,9 @@
 name: 'Run an e2e leg'
 description: 'Will run all tests under one e2e leg with specific configurations'
 inputs:
+  vproxy-image:
+    description: 'Name of the vertica client proxy image'
+    required: false
   vlogger-image:
     description: 'Name of the vertica logger image'
     required: true
@@ -109,6 +112,7 @@ runs:
         export VERTICA_IMG=${{ inputs.vertica-image }}
         export OPERATOR_IMG=${{ inputs.operator-image }}
         export VLOGGER_IMG=${{ inputs.vlogger-image }}
+        export VPROXY_IMG=${{ inputs.vlogger-image }}
 
         if [[ "${{ inputs.vertica-license }}" != "" ]]; then
           export LICENSE_FILE=/tmp/vertica-license.dat
