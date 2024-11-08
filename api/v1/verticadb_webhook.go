@@ -1816,8 +1816,8 @@ func (v *VerticaDB) checkUnsandboxShutdownConditions(oldObj *VerticaDB, allErrs 
 	return allErrs
 }
 
-// checkAnnotatedSubclustersInShutdownSandbox ensures: when a sandbox is to be shutdown, if a subcluster in it has annotation
-// vertica.com/shutdown-driven-by-sandbox set to true, the subcluster's shutdown field should not be updated
+// checkSubclustersInShutdownSandbox ensures: when a sandbox is marked to be shutdown,
+// the subcluster's shutdown field should not to set to false by a user
 func (v *VerticaDB) checkSubclustersInShutdownSandbox(oldObj *VerticaDB, allErrs field.ErrorList) field.ErrorList {
 	persistSandboxes := v.findPersistSandboxes(oldObj)
 	newSandboxMap := v.GenSandboxMap()
