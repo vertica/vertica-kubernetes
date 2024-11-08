@@ -384,7 +384,7 @@ export VERTICA_IMG=opentext/vertica-k8s:latest
 ```
 > VERTICA_IMG is the vertica image you want to run the test with. For upgrade test cases, BASE_VERTICA_IMG is the base vertica version that will be installed. VERTICA_IMG is the vertica version that the base version will be upgraded to. The version in VERTICA_IMG must be higher than that in BASE_VERTICA_IMG.
 ```shell
-export VPROXY_IMG=vertica-client-proxy:latest
+export VPROXY_IMG=opentext/client-proxy:latest
 ```
 > VPROXY_IMG is the vertica client proxy image you want to run the client proxy and session transfer test with.
 

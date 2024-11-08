@@ -100,7 +100,7 @@ export BASE_VERTICA_IMG
 VLOGGER_IMG ?= $(IMG_REPO)vertica-logger:$(VLOGGER_VERSION)
 export VLOGGER_IMG
 # Image URL to use for the vertica client proxy. This is for testing purposes only.
-# The value could be: $(IMG_REPO)client-proxy:$(VERSION)
+# The value could be: opentext/client-proxy:latest
 VPROXY_IMG ?= <not-set>
 export VPROXY_IMG
 # If the current leg in the CI tests is leg-9
