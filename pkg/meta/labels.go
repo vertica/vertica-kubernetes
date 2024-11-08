@@ -114,6 +114,10 @@ const (
 	// that represent sandboxed subclusters
 	WatchedBySandboxLabel = "vertica.com/watched-by-sandbox-controller"
 	WatchedBySandboxTrue  = "true"
+
+	// This indicates that the object is used as a client proxy object.
+	ClientProxyLabel = "vertica.com/client-porxy"
+	ClientProxyTrue  = "true"
 )
 
 // ProtectedLabels lists all of the internally used label.

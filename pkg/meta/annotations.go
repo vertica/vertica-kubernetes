@@ -198,23 +198,6 @@ const (
 	// skip that check.
 	SkipDeploymentCheckAnnotation = "vertica.com/skip-deployment-check"
 
-	// Set of annotations that you can use to control the resources of the
-	// client proxy. The actual annotation name is:
-	//   vertica.com/vproxy-resources-<limits|requests>-<memory|cpu>
-	//
-	// For example, the following are valid:
-	//   vertica.com/vproxy-resources-limits-memory
-	//   vertica.com/vproxy-resources-limits-cpu
-	//   vertica.com/vproxy-resources-requests-memory
-	//   vertica.com/vproxy-resources-requests-cpu
-	//
-	// You can use GenVProxyResourcesAnnotationName to generate the name.
-	//
-	// If the annotation is set, but has no value, than that resource is not
-	// used. If a value is specified, but isn't able to be parsed, we use the
-	// default.
-	VProxyResourcesPrefixAnnotation = "vertica.com/vproxy-resources"
-
 	// Set of annotations that you can use to control the resources of the NMA
 	// sidecar. The actual annotation name is:
 	//   vertica.com/nma-resources-<limits|requests>-<memory|cpu>

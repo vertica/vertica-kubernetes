@@ -110,6 +110,13 @@ func MakeLabelsForSvcObject(vdb *vapi.VerticaDB, sc *vapi.Subcluster, svcType st
 	return labels
 }
 
+// MakeLabelsForVProxyObject constructs the labels of the client proxy config map and pods
+func MakeLabelsForVProxyObject(vdb *vapi.VerticaDB, sc *vapi.Subcluster, forPod bool) map[string]string {
+	labels := makeLabelsForObject(vdb, sc, forPod)
+	labels[vmeta.ClientProxyLabel] = vmeta.ClientProxyTrue
+	return labels
+}
+
 // MakeLabelsForSandboxConfigMap constructs the labels of the sandbox config map
 func MakeLabelsForSandboxConfigMap(vdb *vapi.VerticaDB) map[string]string {
 	labels := makeLabelsForObject(vdb, nil, false)
