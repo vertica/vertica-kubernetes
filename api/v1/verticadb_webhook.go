@@ -1764,19 +1764,15 @@ func (v *VerticaDB) findSclustersToUnsandbox(oldObj *VerticaDB) map[*Subcluster]
 	newSuclusterInSandbox := v.GenSubclusterSandboxMap()
 	oldSubclusterMap := oldObj.GenSubclusterMap()
 	oldSandboxMap := oldObj.GenSandboxMap()
-	newSubclusterMap := v.GenSubclusterMap()
 	sclusterSboxMap := make(map[*Subcluster]*Sandbox)
 	for oldSubclusterName, oldSandboxName := range oldSubclusterInSandbox {
 		newSandboxName, oldSubclusterInNewSandboxes := newSuclusterInSandbox[oldSubclusterName]
-		_, oldSubclusterInPersist := newSubclusterMap[oldSubclusterName]
 		oldSandbox := oldSandboxMap[oldSandboxName]
 		// for unsandboxing, check shutdown field of the subcluster and sandbox
-		if oldSubclusterInPersist {
-			if !oldSubclusterInNewSandboxes || (oldSubclusterInNewSandboxes && oldSandbox.Name != newSandboxName) {
-				// either subcluster is not in any sbox or is moved to a different sbox in new vdb
-				oldSubcluster := oldSubclusterMap[oldSubclusterName]
-				sclusterSboxMap[oldSubcluster] = oldSandbox
-			}
+		if !oldSubclusterInNewSandboxes || (oldSubclusterInNewSandboxes && oldSandbox.Name != newSandboxName) {
+			// either subcluster is not in any sbox or is moved to a different sbox in new vdb
+			oldSubcluster := oldSubclusterMap[oldSubclusterName]
+			sclusterSboxMap[oldSubcluster] = oldSandbox
 		}
 	}
 	return sclusterSboxMap
