@@ -23,7 +23,7 @@ kind: Deployment
 metadata:
   name: v-client-proxy-pri1-proxy
 status:
-  readyReplicas: 1
+  readyReplicas: 2
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -51,7 +51,7 @@ spec:
   subclusters:
     - name: pri1
       proxy:
-        replica: 1
+        replica: 2
 status:
   subclusters:
     - addedToDBCount: 3

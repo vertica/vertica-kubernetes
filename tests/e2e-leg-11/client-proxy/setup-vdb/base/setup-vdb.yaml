@@ -33,7 +33,7 @@ spec:
       type: primary
       proxy:
         image: kustomize-vproxy-image
-        replica: 1
+        replica: 2
   certSecrets: []
   imagePullSecrets: []
   volumes: []

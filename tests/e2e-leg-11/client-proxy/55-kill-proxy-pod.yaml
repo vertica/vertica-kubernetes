@@ -30,10 +30,14 @@ data:
     PROXY_PRI1_NEW=$(kubectl get pod -l $PROXY_LABEL --no-headers -o custom-columns=:.metadata.name)
 
     # new proxy pod name should be different to the original one
-    if [ "$PROXY_PRI1_NEW" == "$PROXY_PRI1_ORIG" ]; then
-      echo "Assertion failed: expect a new proxy pod to be created, got the original pod $PROXY_PRI1_ORIG"
-      exit 1
-    fi
+    for pod_new in $PROXY_PRI1_NEW; do
+      for pod_orig in $PROXY_PRI1_ORIG; do
+        if [ "$pod_new" == "$pod_orig" ]; then
+          echo "Assertion failed: expect a new proxy pod to be created, got the original pod $PROXY_PRI1_ORIG"
+          exit 1
+        fi
+      done
+    done
 ---
 apiVersion: v1
 kind: Pod
