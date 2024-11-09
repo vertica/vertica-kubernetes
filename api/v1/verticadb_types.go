@@ -827,7 +827,7 @@ type Proxy struct {
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// The port proxy server will listen to. The only supported value is 5433
 	// TODO: hide this option since load-balancer cannot work with other port numbers
-	Port int32 `json:"port,omitempty"`
+	// Port int32 `json:"port,omitempty"`
 
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:hidden"
 	// +kubebuilder:default:=""
