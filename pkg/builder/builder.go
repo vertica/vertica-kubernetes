@@ -29,6 +29,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	"github.com/vertica/vertica-kubernetes/pkg/secrets"
+	"gopkg.in/yaml.v2"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
@@ -61,6 +62,13 @@ const (
 	VSqlUserEnv                = "VSQL_USER"
 	VerticaStartupLogDuplicate = "VERTICA_STARTUP_LOG_DUPLICATE"
 
+	// Environment variables that are (optionally) set when deploying client proxy
+	VProxyRootCAEnv          = "VPROXY_TLS_SERVER_CA"
+	VProxyCertEnv            = "VPROXY_TLS_SERVER_CERT"
+	VProxyKeyEnv             = "VPROXY_TLS_SERVER_KEY"
+	VProxySecretNamespaceEnv = "VPROXY_SECRET_NAMESPACE"
+	VProxySecretNameEnv      = "VPROXY_SECRET_NAME"
+
 	// Environment variables that are (optionally) set when deployed with vclusterops
 	NMARootCAEnv          = "NMA_ROOTCA_PATH"
 	NMACertEnv            = "NMA_CERT_PATH"
@@ -90,7 +98,18 @@ const (
 	// The path to the scrutinize tarball
 	scrutinizeTarball = "SCRUTINIZE_TARBALL"
 	passwordMountName = "password"
+
+	// Client proxy config file name
+	vProxyConfigFile = "config.yaml"
 )
+
+type ProxyData struct {
+	Listener map[string]interface{}
+	Database map[string][]string
+	Log      map[string]string
+	// TODO: to support TLS
+	// Tls       map[string]string
+}
 
 // BuildExtSvc creates desired spec for the external service.
 func BuildExtSvc(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi.Subcluster,
@@ -839,6 +858,158 @@ func makeScrutinizeInitContainers(vscr *v1beta1.VerticaScrutinize, vdb *vapi.Ver
 		cnts = append(cnts, c)
 	}
 	return cnts
+}
+
+// BuildVProxyDeployment builds manifest for a subclusters VProxy deployment
+func BuildVProxyDeployment(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi.Subcluster) *appsv1.Deployment {
+	return &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        nm.Name,
+			Namespace:   nm.Namespace,
+			Labels:      MakeLabelsForVProxyObject(vdb, sc, true),
+			Annotations: MakeAnnotationsForVProxyObject(vdb),
+		},
+		Spec: appsv1.DeploymentSpec{
+			Selector: &metav1.LabelSelector{
+				MatchLabels: MakeDepSelectorLabels(vdb, sc),
+			},
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels:      MakeDepSelectorLabels(vdb, sc),
+					Annotations: MakeAnnotationsForVProxyObject(vdb),
+				},
+				Spec: buildVProxyPodSpec(vdb, sc),
+			},
+			Replicas: &sc.Proxy.Replica,
+		},
+	}
+}
+
+// buildPodSpec creates a PodSpec for the deployment
+func buildVProxyPodSpec(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.PodSpec {
+	termGracePeriod := int64(0)
+	return corev1.PodSpec{
+		ImagePullSecrets:              GetK8sLocalObjectReferenceArray(vdb.Spec.ImagePullSecrets),
+		Containers:                    []corev1.Container{makeVProxyContainer(vdb, sc)},
+		TerminationGracePeriodSeconds: &termGracePeriod,
+		ServiceAccountName:            vdb.Spec.ServiceAccountName,
+		SecurityContext:               vdb.Spec.PodSecurityContext,
+		Volumes: []corev1.Volume{
+			{
+				Name: sc.Name,
+				VolumeSource: corev1.VolumeSource{
+					ConfigMap: &corev1.ConfigMapVolumeSource{
+						LocalObjectReference: corev1.LocalObjectReference{Name: sc.GetVProxyConfigMapName(vdb)},
+					},
+				},
+			},
+		},
+	}
+}
+
+// makeDataForProxyConfigMap generates a configmap data in config.yaml format.
+// # Vertica Proxy Configuration File Example
+//
+// # Proxy's listener network address for clients connections
+// listener:
+//
+//	host: ""  # Listen on all IP addresses of the local system
+//	port: 5433
+//
+// # The database for proxy connections
+// database:
+//
+//	nodes:
+//	  - node1.address.com:5433
+//	  - node2.address.com:5433
+//	  - node3.address.com:5433
+//
+// # Log level: 0=TRACE|1=DEBUG|2=INFO|3=WARN|4=FATAL|5=NONE (Default INFO)
+// log:
+//
+//	level: DEBUG
+//	# OR
+//	# level: 1
+//
+// tls:
+//
+//	# For proxy-server TLS
+//	serverca: /Path/to/server_cacert.pem
+//	hostname: db.example.com
+//	proxykey: /Path/to/proxy_key.pem
+//	proxycert: /Path/to/proxy_cert.pem
+//
+// # For client-proxy TLS
+// serverkey: /Path/to/server_key.pem
+// servercert: /Path/to/server_cert.pem
+// clientca: /Path/to/client_cacert.pem
+func makeDataForVProxyConfigMap(vdb *vapi.VerticaDB, sc *vapi.Subcluster) string {
+	var nodeList []string
+	port := 5433
+
+	for i := int32(0); i < sc.Size; i++ {
+		nodeItem := fmt.Sprintf("%s:%d", names.GenPodName(vdb, sc, i).Name, port)
+		nodeList = append(nodeList, nodeItem)
+	}
+
+	proxyData := ProxyData{
+		Listener: map[string]interface{}{
+			"host": "",
+			"port": port,
+		},
+		Database: map[string][]string{
+			"nodes": nodeList,
+		},
+		Log: map[string]string{
+			"level": "INFO",
+		},
+	}
+
+	pData, _ := yaml.Marshal(proxyData)
+	return string(pData)
+}
+
+// BuildVProxyConfigMap builds a config map for client proxy
+func BuildVProxyConfigMap(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi.Subcluster) *corev1.ConfigMap {
+	immutable := false
+	proxyData := makeDataForVProxyConfigMap(vdb, sc)
+	return &corev1.ConfigMap{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "ConfigMap",
+			APIVersion: "v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            nm.Name,
+			Namespace:       nm.Namespace,
+			Labels:          MakeLabelsForVProxyObject(vdb, sc, false),
+			Annotations:     MakeAnnotationsForVProxyObject(vdb),
+			OwnerReferences: []metav1.OwnerReference{vdb.GenerateOwnerReference()},
+		},
+		// the data should not be immutable since the proxy database nodes could be changed
+		Immutable: &immutable,
+		Data: map[string]string{
+			vProxyConfigFile: proxyData,
+		},
+	}
+}
+
+// makeProxyContainer builds the spec for the client proxy container
+func makeVProxyContainer(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.Container {
+	envVars := buildVProxyTLSCertsEnvVars(vdb, sc)
+	envVars = append(envVars, buildCommonEnvVars(vdb)...)
+	return corev1.Container{
+		Image:           sc.Proxy.Image,
+		ImagePullPolicy: vdb.Spec.ImagePullPolicy,
+		Name:            names.ProxyContainer,
+		Env:             envVars,
+		Resources:       sc.Proxy.Resources,
+		Ports: []corev1.ContainerPort{
+			{ContainerPort: VerticaClientPort, Name: "vertica"},
+		},
+		VolumeMounts: []corev1.VolumeMount{
+			{Name: sc.Name, MountPath: "/config"},
+		},
+	}
 }
 
 // makeServerContainer builds the spec for the server container
@@ -1595,6 +1766,21 @@ func buildNMATLSCertsEnvVars(vdb *vapi.VerticaDB) []corev1.EnvVar {
 		// We provide the secret namespace and name for this reason.
 		{Name: NMASecretNamespaceEnv, Value: vdb.ObjectMeta.Namespace},
 		{Name: NMASecretNameEnv, Value: vdb.Spec.NMATLSSecret},
+	}
+}
+
+// buildVProxyTLSCertsEnvVars returns environment variables about proxy certs
+func buildVProxyTLSCertsEnvVars(vdb *vapi.VerticaDB, sc *vapi.Subcluster) []corev1.EnvVar {
+	if vmeta.UseVProxyCertsMount(vdb.Annotations) && secrets.IsK8sSecret(sc.Proxy.TLSSecret) {
+		return []corev1.EnvVar{
+			// TODO: use proxy certs
+		}
+	}
+	return []corev1.EnvVar{
+		// The proxy will read the secrets directly from the secret store.
+		// We provide the secret namespace and name for this reason.
+		{Name: VProxySecretNamespaceEnv, Value: vdb.ObjectMeta.Namespace},
+		{Name: VProxySecretNameEnv, Value: sc.Proxy.TLSSecret},
 	}
 }
 

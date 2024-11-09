@@ -110,6 +110,13 @@ func MakeLabelsForSvcObject(vdb *vapi.VerticaDB, sc *vapi.Subcluster, svcType st
 	return labels
 }
 
+// MakeLabelsForVProxyObject constructs the labels of the client proxy config map and pods
+func MakeLabelsForVProxyObject(vdb *vapi.VerticaDB, sc *vapi.Subcluster, forPod bool) map[string]string {
+	labels := makeLabelsForObject(vdb, sc, forPod)
+	labels[vmeta.ClientProxyLabel] = vmeta.ClientProxyTrue
+	return labels
+}
+
 // MakeLabelsForSandboxConfigMap constructs the labels of the sandbox config map
 func MakeLabelsForSandboxConfigMap(vdb *vapi.VerticaDB) map[string]string {
 	labels := makeLabelsForObject(vdb, nil, false)
@@ -138,6 +145,16 @@ func MakeAnnotationsForStsObject(vdb *vapi.VerticaDB, sc *vapi.Subcluster) map[s
 	annotations := MakeAnnotationsForObject(vdb)
 	for k, v := range sc.Annotations {
 		annotations[k] = v
+	}
+	return annotations
+}
+
+// MakeAnnotationsForVProxyObject builds the list of annotations that are included
+// in the proxy config object.
+func MakeAnnotationsForVProxyObject(vdb *vapi.VerticaDB) map[string]string {
+	annotations := MakeAnnotationsForObject(vdb)
+	if ver, ok := vdb.Annotations[vmeta.VersionAnnotation]; ok {
+		annotations[vmeta.VersionAnnotation] = ver
 	}
 	return annotations
 }
@@ -193,6 +210,16 @@ func MakeStsSelectorLabels(vdb *vapi.VerticaDB, sc *vapi.Subcluster) map[string]
 	// derived from the statefulset name as that stays constant and is unique in
 	// a namespace.
 	m[vmeta.SubclusterSelectorLabel] = sc.GetStatefulSetName(vdb)
+	return m
+}
+
+// MakeDepSelectorLabels will create the selector labels for use within a Deployment
+func MakeDepSelectorLabels(vdb *vapi.VerticaDB, sc *vapi.Subcluster) map[string]string {
+	m := MakeBaseSvcSelectorLabels(vdb)
+	// Set a special selector to pick only the pods for this porxy deployment. It's
+	// derived from the deployment name as that stays constant and is unique in
+	// a namespace.
+	m[vmeta.DeploymentSelectorLabel] = sc.GetVProxyDeploymentName(vdb)
 	return m
 }
 

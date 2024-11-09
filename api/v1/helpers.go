@@ -127,7 +127,13 @@ func MakeVDB() *VerticaDB {
 			DBName:     "db",
 			ShardCount: 12,
 			Subclusters: []Subcluster{
-				{Name: "defaultsubcluster", Size: 3, ServiceType: corev1.ServiceTypeClusterIP, Type: PrimarySubcluster},
+				{
+					Name:        "defaultsubcluster",
+					Size:        3,
+					ServiceType: corev1.ServiceTypeClusterIP,
+					Type:        PrimarySubcluster,
+					Proxy:       Proxy{Image: "vertica-client-proxy:latest"},
+				},
 			},
 		},
 	}
@@ -449,6 +455,16 @@ func (s *Subcluster) GetStsSize(vdb *VerticaDB) int32 {
 		return 0
 	}
 	return s.Size
+}
+
+// GetVProxyConfigMapName returns the name of the client proxy config map
+func (s *Subcluster) GetVProxyConfigMapName(vdb *VerticaDB) string {
+	return fmt.Sprintf("%s-%s-proxy-cm", vdb.Name, s.Name)
+}
+
+// GetVProxyDeploymentName returns the name of the client proxy deployment
+func (s *Subcluster) GetVProxyDeploymentName(vdb *VerticaDB) string {
+	return fmt.Sprintf("%s-%s-proxy", vdb.Name, s.Name)
 }
 
 // FindSubclusterForServiceName will find any subclusters that match the given service name

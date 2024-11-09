@@ -50,6 +50,26 @@ const (
 	VClusterOpsAnnotationTrue  = "true"
 	VClusterOpsAnnotationFalse = "false"
 
+	// This is a feature flag for using vertica client proxy. Set this
+	// annotation in the VerticaDB that you want to start proxy pods to
+	// redirect the subcluster connections. The value of this annotation is
+	// treated as a boolean.
+	UseVProxyAnnotation      = "vertica.com/use-client-proxy"
+	UseVProxyAnnotationTrue  = "true"
+	UseVProxyAnnotationFalse = "false"
+
+	// This is the log level of the proxy server will have.
+	// Log level: 0=TRACE|1=DEBUG|2=INFO|3=WARN|4=FATAL|5=NONE
+	VProxyLogLevelAnnotation   = "vertica.com/client-proxy-log-level"
+	VProxyLogLevelDefaultLevel = "INFO"
+
+	// This is a feature flag for mounting vproxy certs as a secret volume in server containerss.
+	// When set to true the vproxy reads certs from this mounted volume,
+	// when set to false it reads certs directly from k8s secret store.
+	MountVProxyCertsAnnotation      = "vertica.com/mount-vproxy-certs"
+	MountVProxyCertsAnnotationTrue  = "true"
+	MountVProxyCertsAnnotationFalse = "false"
+
 	// This is a feature flag for mounting NMA certs as a secret volume in server containers
 	// if deployment method is vclusterops. When set to true the NMA reads certs from this mounted
 	// volume, when set to false it reads certs directly from k8s secret store.
@@ -345,6 +365,18 @@ func UseVClusterOps(annotations map[string]string) bool {
 	return lookupBoolAnnotation(annotations, VClusterOpsAnnotation, true /* default value */)
 }
 
+// UseVProxy returns true if all subcluster connections redirect to the proxy pods
+func UseVProxy(annotations map[string]string) bool {
+	// UseVProxy returns false if the annotation isn't set.
+	return lookupBoolAnnotation(annotations, UseVProxyAnnotation, false /* default value */)
+}
+
+// UseVProxyCertsMount returns true if the proxy reads certs from the mounted secret
+// volume rather than directly from k8s secret store.
+func UseVProxyCertsMount(annotations map[string]string) bool {
+	return lookupBoolAnnotation(annotations, MountVProxyCertsAnnotation, true /* default value */)
+}
+
 // UseNMACertsMount returns true if the NMA reads certs from the mounted secret
 // volume rather than directly from k8s secret store.
 func UseNMACertsMount(annotations map[string]string) bool {
@@ -508,6 +540,11 @@ func GetNMAHealthProbeOverride(annotations map[string]string, probeName, field s
 		return 0, false
 	}
 	return int32(convVal), true //nolint:gosec
+}
+
+// GetVProxyLogLevel returns scrutinize log age hours
+func GetVProxyLogLevel(annotations map[string]string) string {
+	return lookupStringAnnotation(annotations, VProxyLogLevelAnnotation, "INFO" /* default value */)
 }
 
 // GetScrutinizePodTTL returns how long the scrutinize pod will keep running

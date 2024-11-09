@@ -27,6 +27,7 @@ import (
 const (
 	ServerContainer         = "server"
 	NMAContainer            = "nma"
+	ProxyContainer          = "proxy"
 	ScrutinizeInitContainer = "scrutinize"
 	ScrutinizeMainContainer = "main"
 )
@@ -63,6 +64,16 @@ func GenStsName(vdb *vapi.VerticaDB, sc *vapi.Subcluster) types.NamespacedName {
 // GenSandboxConfigMapName returns the name of the sandbox config map
 func GenSandboxConfigMapName(vdb *vapi.VerticaDB, sandbox string) types.NamespacedName {
 	return GenNamespacedName(vdb, vdb.Name+"-"+vapi.GenCompatibleFQDNHelper(sandbox))
+}
+
+// GenVProxyName returns the name of the client proxy deployment
+func GenVProxyName(vdb *vapi.VerticaDB, sc *vapi.Subcluster) types.NamespacedName {
+	return GenNamespacedName(vdb, sc.GetVProxyDeploymentName(vdb))
+}
+
+// GenVProxyConfigMapName returns the name of the client proxy configmap
+func GenVProxyConfigMapName(vdb *vapi.VerticaDB, sc *vapi.Subcluster) types.NamespacedName {
+	return GenNamespacedName(vdb, sc.GetVProxyConfigMapName(vdb))
 }
 
 // GenCommunalCredSecretName returns the name of the secret that has the credentials to access s3

@@ -437,9 +437,60 @@ func (o *ObjReconciler) createService(ctx context.Context, svc *corev1.Service, 
 	return o.Rec.GetClient().Create(ctx, svc)
 }
 
+// checkVProxyConfigMap will create or update a client proxy config map if needed
+func (o *ObjReconciler) checkVProxyConfigMap(ctx context.Context, cmName types.NamespacedName, sc *vapi.Subcluster) error {
+	curCM := &corev1.ConfigMap{}
+	newCM := builder.BuildVProxyConfigMap(cmName, o.Vdb, sc)
+
+	err := o.Rec.GetClient().Get(ctx, cmName, curCM)
+	if err != nil && kerrors.IsNotFound(err) {
+		o.Log.Info("Creating client proxy config map", "Name", cmName)
+		return o.Rec.GetClient().Create(ctx, newCM)
+	}
+
+	// TODO: support client proxy update
+	// if o.updateVProxyConfigMapFields(curCM, newCM) {
+	// 	o.Log.Info("Updating client proxy config map", "Name", cmName)
+	//	return o.Rec.GetClient().Update(ctx, newCM)
+	//}
+	o.Log.Info("Found an existing client proxy config map with correct content, skip updating it", "Name", cmName)
+	return nil
+}
+
+// checkVProxyDeployment will create or update the client proxy deployment
+func (o *ObjReconciler) checkVProxyDeployment(ctx context.Context, sc *vapi.Subcluster) error {
+	cmName := names.GenVProxyConfigMapName(o.Vdb, sc)
+	err := o.checkVProxyConfigMap(ctx, cmName, sc)
+	if err != nil {
+		return err
+	}
+
+	vpName := names.GenVProxyName(o.Vdb, sc)
+	curDep := &appsv1.Deployment{}
+	vpDep := builder.BuildVProxyDeployment(vpName, o.Vdb, sc)
+	vpErr := o.Rec.GetClient().Get(ctx, vpName, curDep)
+	if vpErr != nil && kerrors.IsNotFound(vpErr) {
+		o.Log.Info("Creating deployment", "Name", vpName, "Size", vpDep.Spec.Replicas, "Image", vpDep.Spec.Template.Spec.Containers[0].Image)
+		return createDep(ctx, o.Rec, vpDep, o.Vdb)
+	}
+
+	// TODO: to update existing deployment
+	// return o.updateDep(ctx, curDep, vpDep)
+	return nil
+}
+
 // reconcileSts reconciles the statefulset for a particular subcluster.  Returns
 // true if any create/update was done.
 func (o *ObjReconciler) reconcileSts(ctx context.Context, sc *vapi.Subcluster) (ctrl.Result, error) {
+	if vmeta.UseVProxy(o.Vdb.Annotations) {
+		// Create or update the client proxy deployment
+		vpErr := o.checkVProxyDeployment(ctx, sc)
+		if vpErr != nil {
+			return ctrl.Result{}, vpErr
+		}
+	}
+
+	// Create or update the statefulset
 	nm := names.GenStsName(o.Vdb, sc)
 	curSts := &appsv1.StatefulSet{}
 	expSts := builder.BuildStsSpec(nm, o.Vdb, sc)
