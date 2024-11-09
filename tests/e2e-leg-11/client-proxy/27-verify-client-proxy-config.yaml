@@ -22,7 +22,7 @@ data:
     set -o xtrace
     
     # get the proxy pod name
-    PROXY_PRI1=$(kubectl get pod -l pod-template-hash,vertica.com/subcluster-svc=pri1 --no-headers -o custom-columns=:.metadata.name)
+    PROXY_PRI1=$(kubectl get pod -l pod-template-hash,vertica.com/deployment-selector-name=v-client-proxy-pri1-proxy --no-headers -o custom-columns=:.metadata.name)
     
     # get the content of the config.yaml
     CONFIG=$(kubectl exec -i $PROXY_PRI1 -- sh -c "cat /config/config.yaml")

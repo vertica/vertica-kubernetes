@@ -22,7 +22,7 @@ data:
     set -o xtrace
 
     # get the proxy pod name
-    PROXY_LABEL=pod-template-hash,vertica.com/subcluster-svc=pri1
+    PROXY_LABEL=pod-template-hash,vertica.com/deployment-selector-name=v-client-proxy-pri1-proxy
     PROXY_PRI1_ORIG=$(kubectl get pod -l $PROXY_LABEL --no-headers -o custom-columns=:.metadata.name)
 
     # delete the proxy pod and a new proxy pod will be created
