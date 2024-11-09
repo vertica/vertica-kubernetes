@@ -375,3 +375,13 @@ func getStackTrace() zap.Option {
 	}
 	return zap.AddStacktrace(zapcore.LevelEnabler(lvl))
 }
+
+// GetVdbMaxBackoffDuration returns maximum backoff requeue duration in milliseconds for vdb controller
+func GetVdbMaxBackoffDuration() int {
+	duration := lookupIntEnvVar("VDB_MAX_BACKOFF_DURATION", envCanNotExist)
+	if duration == 0 {
+		// Default value is 1000ms
+		return 1000
+	}
+	return duration
+}

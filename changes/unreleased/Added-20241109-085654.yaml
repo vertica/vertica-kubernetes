@@ -1,0 +1,5 @@
+kind: Added
+body: Enable users to configure the maximum backoff duration for the vdb-controller through a Helm parameter or an environment variable.
+time: 2024-11-09T08:56:54.086012038-05:00
+custom:
+    Issue: "978"
