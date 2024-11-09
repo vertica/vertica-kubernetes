@@ -107,6 +107,13 @@ const (
 	// subcluster rename. So, it shouldn't be treated as such.
 	SubclusterSelectorLabel = "vertica.com/subcluster-selector-name"
 
+	// This is set in the pods, and is used by deployment as a pod selector. This
+	// stays constant for the life of the deployment, and is unique across
+	// deployment for other subclusters in the database. It may appear like it
+	// is derived from a subcluster name, but is does not get updated for
+	// subcluster rename. So, it shouldn't be treated as such.
+	DeploymentSelectorLabel = "vertica.com/deployment-selector-name"
+
 	// ConfigMap objects
 	//
 	// This indicates that the object is watched by the sandbox controller.

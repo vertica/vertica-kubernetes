@@ -149,9 +149,9 @@ func MakeAnnotationsForStsObject(vdb *vapi.VerticaDB, sc *vapi.Subcluster) map[s
 	return annotations
 }
 
-// MakeAnnotationsForVProxyConfigMap builds the list of annotations that are included
-// in the proxy config map.
-func MakeAnnotationsForVProxyConfigMap(vdb *vapi.VerticaDB) map[string]string {
+// MakeAnnotationsForVProxyObject builds the list of annotations that are included
+// in the proxy config object.
+func MakeAnnotationsForVProxyObject(vdb *vapi.VerticaDB) map[string]string {
 	annotations := MakeAnnotationsForObject(vdb)
 	if ver, ok := vdb.Annotations[vmeta.VersionAnnotation]; ok {
 		annotations[vmeta.VersionAnnotation] = ver
@@ -216,10 +216,10 @@ func MakeStsSelectorLabels(vdb *vapi.VerticaDB, sc *vapi.Subcluster) map[string]
 // MakeDepSelectorLabels will create the selector labels for use within a Deployment
 func MakeDepSelectorLabels(vdb *vapi.VerticaDB, sc *vapi.Subcluster) map[string]string {
 	m := MakeBaseSvcSelectorLabels(vdb)
-	// Set a special selector to pick only the pods for this statefulset. It's
-	// derived from the statefulset name as that stays constant and is unique in
+	// Set a special selector to pick only the pods for this porxy deployment. It's
+	// derived from the deployment name as that stays constant and is unique in
 	// a namespace.
-	m[vmeta.SubclusterSelectorLabel] = sc.GetStatefulSetName(vdb)
+	m[vmeta.DeploymentSelectorLabel] = sc.GetVProxyDeploymentName(vdb)
 	return m
 }
 

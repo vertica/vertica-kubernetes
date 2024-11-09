@@ -802,7 +802,7 @@ func buildStartupConfVolume() corev1.Volume {
 
 // buildPodSpec creates a PodSpec for the statefulset
 func buildPodSpec(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.PodSpec {
-	termGracePeriod := int64(0)
+	termGracePeriod := int64(vmeta.GetTerminationGracePeriodSeconds(vdb.Annotations))
 	return corev1.PodSpec{
 		NodeSelector:                  sc.NodeSelector,
 		Affinity:                      GetK8sAffinity(sc.Affinity),
@@ -866,8 +866,8 @@ func BuildVProxyDeployment(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vap
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        nm.Name,
 			Namespace:   nm.Namespace,
-			Labels:      MakeLabelsForStsObject(vdb, sc),
-			Annotations: MakeAnnotationsForStsObject(vdb, sc),
+			Labels:      MakeLabelsForVProxyObject(vdb, sc, true),
+			Annotations: MakeAnnotationsForVProxyObject(vdb),
 		},
 		Spec: appsv1.DeploymentSpec{
 			Selector: &metav1.LabelSelector{
@@ -875,8 +875,8 @@ func BuildVProxyDeployment(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vap
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Labels:      MakeLabelsForVProxyObject(vdb, sc, true),
-					Annotations: MakeAnnotationsForObject(vdb),
+					Labels:      MakeDepSelectorLabels(vdb, sc),
+					Annotations: MakeAnnotationsForVProxyObject(vdb),
 				},
 				Spec: buildVProxyPodSpec(vdb, sc),
 			},
@@ -887,11 +887,8 @@ func BuildVProxyDeployment(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vap
 
 // buildPodSpec creates a PodSpec for the deployment
 func buildVProxyPodSpec(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.PodSpec {
-	termGracePeriod := int64(vmeta.GetTerminationGracePeriodSeconds(vdb.Annotations))
+	termGracePeriod := int64(0)
 	return corev1.PodSpec{
-		NodeSelector:                  sc.NodeSelector,
-		Affinity:                      GetK8sAffinity(sc.Affinity),
-		Tolerations:                   sc.Tolerations,
 		ImagePullSecrets:              GetK8sLocalObjectReferenceArray(vdb.Spec.ImagePullSecrets),
 		Containers:                    []corev1.Container{makeVProxyContainer(vdb, sc)},
 		TerminationGracePeriodSeconds: &termGracePeriod,
@@ -950,8 +947,8 @@ func makeDataForVProxyConfigMap(vdb *vapi.VerticaDB, sc *vapi.Subcluster) string
 	var nodeList []string
 	port := 5433
 
-	for scIndex := int32(0); scIndex < sc.Size; scIndex++ {
-		nodeItem := fmt.Sprintf("%s-%s-%d:%d", vdb.Name, sc.Name, scIndex, port)
+	for i := int32(0); i < sc.Size; i++ {
+		nodeItem := fmt.Sprintf("%s:%d", names.GenPodName(vdb, sc, i).Name, port)
 		nodeList = append(nodeList, nodeItem)
 	}
 
@@ -985,7 +982,7 @@ func BuildVProxyConfigMap(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi
 			Name:            nm.Name,
 			Namespace:       nm.Namespace,
 			Labels:          MakeLabelsForVProxyObject(vdb, sc, false),
-			Annotations:     MakeAnnotationsForVProxyConfigMap(vdb),
+			Annotations:     MakeAnnotationsForVProxyObject(vdb),
 			OwnerReferences: []metav1.OwnerReference{vdb.GenerateOwnerReference()},
 		},
 		// the data should not be immutable since the proxy database nodes could be changed
