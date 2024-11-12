@@ -186,8 +186,8 @@ func (v *VerticaDB) GenSandboxMap() map[string]*Sandbox {
 	return sbMap
 }
 
-// findSubclusterIndexInSandbox will return the index of the suclusterName in sandbox.
-// when the sandboxName is not found in the sandbox, -1 will be returned
+// findSubclusterIndexInSandbox will return the index of the targetSclusterName in sandbox.
+// when the targetSclusterName is not found in the sandbox, -1 will be returned
 func (v *VerticaDB) findSubclusterIndexInSandbox(targetSclusterName string, sandbox *Sandbox) int {
 	for i, subclusterName := range sandbox.Subclusters {
 		if subclusterName.Name == targetSclusterName {

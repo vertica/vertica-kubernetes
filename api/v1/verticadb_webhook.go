@@ -1781,17 +1781,17 @@ func (v *VerticaDB) checkShutdownForScaleUpOrDown(oldObj *VerticaDB, allErrs fie
 	for subclusterName, sandboxName := range newSclusterSboxMap {
 		oldScluster, foundSclusterInOld := oldSclusterMap[subclusterName]
 		if !foundSclusterInOld {
-			continue // avoid panic
+			continue // we only need to deal with persistent subclusters
 		}
 		newScluster, foundSclusterInNew := newSclusterMap[subclusterName]
 		if !foundSclusterInNew {
-			continue // avoid panic
+			continue // avoid unexpected panic when something is wrong
 		}
 		sandbox := newSandboxMap[sandboxName]
 		if oldScluster.Size != newScluster.Size { // scale up/down
 			errMsgs := v.checkSboxForShutdown(sandbox, newSclusterMap, statusSclusterIndexMap)
 			if len(errMsgs) != 0 {
-				_, found := sandboxWithError[sandboxName]
+				_, found := sandboxWithError[sandboxName] // avoid duplicate errMsgs from same sandbox
 				if !found {
 					i := newSclusterIndexMap[subclusterName]
 					sandboxWithError[sandboxName] = true
