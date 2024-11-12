@@ -28,7 +28,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/record"
-	"k8s.io/client-go/util/workqueue"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -41,7 +40,6 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/metrics"
-	"github.com/vertica/vertica-kubernetes/pkg/opcfg"
 	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	"github.com/vertica/vertica-kubernetes/pkg/vk8s"
@@ -75,12 +73,9 @@ type VerticaDBReconciler struct {
 // +kubebuilder:rbac:groups="",resources=events,verbs=create;patch
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *VerticaDBReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	rateLimiter := workqueue.NewItemExponentialFailureRateLimiter(1*time.Millisecond,
-		time.Duration(opcfg.GetVdbMaxBackoffDuration())*time.Millisecond)
-
+func (r *VerticaDBReconciler) SetupWithManager(mgr ctrl.Manager, options controller.Options) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		WithOptions(controller.Options{RateLimiter: rateLimiter}).
+		WithOptions(options).
 		For(&vapi.VerticaDB{}).
 		Owns(&corev1.ServiceAccount{}).
 		Owns(&rbacv1.Role{}).

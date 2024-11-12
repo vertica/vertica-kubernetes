@@ -378,10 +378,15 @@ func getStackTrace() zap.Option {
 
 // GetVdbMaxBackoffDuration returns maximum backoff requeue duration in milliseconds for vdb controller
 func GetVdbMaxBackoffDuration() int {
-	duration := lookupIntEnvVar("VDB_MAX_BACKOFF_DURATION", envCanNotExist)
-	if duration == 0 {
+	const envName = "VDB_MAX_BACKOFF_DURATION"
+	duration := lookupStringEnvVar(envName, envCanNotExist)
+	if duration == "" {
 		// Default value is 1000ms
 		return 1000
 	}
-	return duration
+	valInt, err := strconv.Atoi(duration)
+	if err != nil || valInt < 0 {
+		dieIfNotValid(envName)
+	}
+	return valInt
 }
