@@ -802,6 +802,11 @@ func (p *PodFact) GetSandbox() string {
 	return p.sandbox
 }
 
+// GetShutdown returns the value of shutdown
+func (p *PodFact) GetShutdown() bool {
+	return p.shutdown
+}
+
 // GetReadOnly returns the bool value of readonly in PodFact
 func (p *PodFact) GetReadOnly() bool {
 	return p.readOnly
@@ -1668,13 +1673,13 @@ func (p *PodFacts) IsSandboxEmpty(sandbox string) bool {
 // return the secondary subclusters that have different vertica image than primary subcluster with primary
 // subcluster image. This function is used in post-unsandbox process. If the pods in the sandbox upgraded
 // vertica, after unsandbox, we will find those pods out and restore their vertica images.
-func (p *PodFacts) FindSecondarySubclustersWithDifferentImage() (scs []string, priScImage string) {
+func (p *PodFacts) FindSecondarySubclustersWithDifferentImage(vdb *vapi.VerticaDB) (scs []string, priScImage string) {
 	scs = []string{}
 	// we expect the pfacts only contains the main cluster pods
 	if p.GetSandboxName() != vapi.MainCluster {
 		return scs, ""
 	}
-
+	scStatusMap := vdb.GenSubclusterStatusMap()
 	for _, v := range p.Detail {
 		if v.isPrimary {
 			priScImage = v.image
@@ -1685,6 +1690,11 @@ func (p *PodFacts) FindSecondarySubclustersWithDifferentImage() (scs []string, p
 	seenScs := make(map[string]any)
 	for _, v := range p.Detail {
 		if _, ok := seenScs[v.subclusterName]; ok {
+			continue
+		}
+		scStatus, found := scStatusMap[v.subclusterName]
+		// subclusters that are shut down must be ignored
+		if v.shutdown || (found && scStatus.Shutdown) {
 			continue
 		}
 		if !v.isPrimary && v.image != priScImage {
