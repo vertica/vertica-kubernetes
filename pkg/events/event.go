@@ -102,6 +102,7 @@ const (
 	StopDBStart                      = "StopDBStart"
 	StopDBSucceeded                  = "StopDBSucceeded"
 	StopDBFailed                     = "StopDBFailed"
+	ClusterWillLoseQuorum            = "ClusterWillLoseQuorum"
 	DepotResized                     = "DepotResized"
 	MgmtFailed                       = "MgmtFailed"
 	MgmtFailedDiskFull               = "MgmtFailedDiskfull"

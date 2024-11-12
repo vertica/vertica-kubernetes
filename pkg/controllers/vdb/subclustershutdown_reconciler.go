@@ -17,16 +17,17 @@ package vdb
 
 import (
 	"context"
-	"time"
+	"fmt"
+	"strings"
 
 	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
-	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/stopsubcluster"
+	config "github.com/vertica/vertica-kubernetes/pkg/vdbconfig"
 	corev1 "k8s.io/api/core/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -34,19 +35,18 @@ import (
 // SubclusterShutdownReconciler will handle the process when subclusters
 // needs to be shut down or restart
 type SubclusterShutdownReconciler struct {
-	VRec       *VerticaDBReconciler
+	VRec       config.ReconcilerInterface
 	Log        logr.Logger
 	Vdb        *vapi.VerticaDB // Vdb is the CRD we are acting on
 	Dispatcher vadmin.Dispatcher
 	PFacts     *podfacts.PodFacts
-	Manager    UpgradeManager
 }
 
 // MakeSubclusterShutdownReconciler will build a SubclusterShutdownReconciler object
-func MakeSubclusterShutdownReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
+func MakeSubclusterShutdownReconciler(recon config.ReconcilerInterface, log logr.Logger,
 	vdb *vapi.VerticaDB, dispatcher vadmin.Dispatcher, pfacts *podfacts.PodFacts) controllers.ReconcileActor {
 	return &SubclusterShutdownReconciler{
-		VRec:       vdbrecon,
+		VRec:       recon,
 		Log:        log.WithName("SubclusterShutdownReconciler"),
 		Vdb:        vdb,
 		Dispatcher: dispatcher,
@@ -55,56 +55,88 @@ func MakeSubclusterShutdownReconciler(vdbrecon *VerticaDBReconciler, log logr.Lo
 }
 
 func (s *SubclusterShutdownReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
-	// no-op as there is no subclusters
-	if len(s.Vdb.Spec.Subclusters) == 0 {
-		return ctrl.Result{}, nil
+	if err := s.PFacts.Collect(ctx, s.Vdb); err != nil {
+		return ctrl.Result{}, err
 	}
-	for i := range s.Vdb.Spec.Subclusters {
-		sc := &s.Vdb.Spec.Subclusters[i]
-		res, err := s.reconcileSubclusterShutdown(ctx, sc)
-		if verrors.IsReconcileAborted(res, err) {
-			return res, err
+	subclusters, err := s.getSubclustersToShutdown()
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	for scName, initIP := range subclusters {
+		err := s.PFacts.RemoveStartupFileInSubclusterPods(ctx, scName, "removed startup.json before stop_subcluster")
+		if err != nil {
+			return ctrl.Result{}, err
 		}
+		err = s.runStopSubclusterVclusterAPI(ctx, scName, initIP)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+		s.PFacts.Invalidate()
 	}
 	return ctrl.Result{}, nil
 }
 
-// reconcileSubclusterShutdown updates the subclusters configmap in order to
-// trigger shutdown or restart in a subcluster.
-func (s *SubclusterShutdownReconciler) reconcileSubclusterShutdown(ctx context.Context, sc *vapi.Subcluster) (ctrl.Result, error) {
-	scName := sc.Name
-	scMap := s.Vdb.GenSubclusterMap()
-	scStatusMap := s.Vdb.GenSubclusterStatusMap()
-
-	if scMap == nil || scStatusMap == nil {
-		s.Log.Info("Requeue because the subcluster or its state does not exist yet", "subcluster name: ", scName)
-		return ctrl.Result{Requeue: true}, nil
+// getSubclustersToShutdown returns the subclusters that need to get
+// shut down
+func (s *SubclusterShutdownReconciler) getSubclustersToShutdown() (map[string]string, error) {
+	subclusters := map[string]string{}
+	primarySubclusters := []string{}
+	upPrimaryNodes := 0
+	willLoseQuorum := false
+	scSbMap := s.Vdb.GenSubclusterSandboxMap()
+	sbMap := s.Vdb.GenSandboxMap()
+	for i := range s.Vdb.Spec.Subclusters {
+		sc := &s.Vdb.Spec.Subclusters[i]
+		sandbox := scSbMap[sc.Name]
+		if sandbox != s.PFacts.GetSandboxName() {
+			continue
+		}
+		// no-op if the subcluster is not marked for
+		// shutdown
+		if !sc.Shutdown {
+			continue
+		}
+		if sandbox != vapi.MainCluster {
+			sb := sbMap[sandbox]
+			// no-op if the subcluster shutdown is driven
+			// by its sandbox
+			if sb != nil && sb.Shutdown {
+				continue
+			}
+		}
+		hostIP, ok := s.PFacts.FindFirstUpPodIP(false, sc.Name)
+		if !ok {
+			continue
+		}
+		if sc.IsPrimary() {
+			primarySubclusters = append(primarySubclusters, sc.Name)
+			upPrimaryNodes += s.PFacts.GetSubclusterUpNodeCount(sc.Name)
+			// If stopping a subcluster would cause cluster quorum, we abort
+			// the operation
+			if !s.PFacts.DoesDBHaveQuorum(upPrimaryNodes) {
+				willLoseQuorum = true
+				break
+			}
+		}
+		subclusters[sc.Name] = hostIP
 	}
-
-	hostIP, ok := s.PFacts.FindFirstUpPodIP(false, scName)
-	if !ok {
-		s.Log.Info("No running pod for stop subcluster. Requeuing.")
-		return ctrl.Result{Requeue: true}, nil
+	if willLoseQuorum {
+		s.VRec.Eventf(s.Vdb, corev1.EventTypeWarning, events.ClusterWillLoseQuorum,
+			"Shutting down subclusters %s will cause quorum loss.", strings.Join(primarySubclusters, ","))
+		return subclusters, fmt.Errorf("cannot shut down primaries %s because it will cause quorum, loss. "+
+			"please revert back", strings.Join(primarySubclusters, ","))
 	}
-
-	// TODO: Call shutdown subcluster API and update status of trigger
-	err := s.runStopSubclusterVclusterAPI(ctx, hostIP, scName)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-
-	return ctrl.Result{}, nil
+	return subclusters, nil
 }
 
 // runStopSubclusterVclusterAPI will do the actual execution of stop subcluster.
 // This handles logging of necessary events.
-func (s *SubclusterShutdownReconciler) runStopSubclusterVclusterAPI(ctx context.Context,
-	host string, scName string) error {
+func (s *SubclusterShutdownReconciler) runStopSubclusterVclusterAPI(ctx context.Context, scName, host string) error {
 	opts := s.genStopSubclusterOpts(host, scName)
-	s.VRec.Event(s.Vdb, corev1.EventTypeNormal, events.StopSubclusterStart, "Starting task stop subcluster")
-	start := time.Now()
+	s.VRec.Eventf(s.Vdb, corev1.EventTypeNormal, events.StopSubclusterStart, "Starting stop subcluster %q.",
+		scName)
 
-	err := s.Dispatcher.VStopSubcluster(ctx, opts...)
+	err := s.Dispatcher.StopSubcluster(ctx, opts...)
 	if err != nil {
 		// For all other errors, return error
 		s.VRec.Eventf(s.Vdb, corev1.EventTypeWarning, events.StopSubclusterFailed,
@@ -113,15 +145,16 @@ func (s *SubclusterShutdownReconciler) runStopSubclusterVclusterAPI(ctx context.
 	}
 
 	s.VRec.Eventf(s.Vdb, corev1.EventTypeNormal, events.StopSubclusterSucceeded,
-		"Successfully stop subcluster. It took %s", time.Since(start).Truncate(time.Second))
+		"Successfully stopped subcluster %q.", scName)
 	return nil
 }
 
 // genStopSubclusterOpts will return the options to use with the stop subcluster api
-func (s *SubclusterShutdownReconciler) genStopSubclusterOpts(initiatorIP string, scName string) []stopsubcluster.Option {
+func (s *SubclusterShutdownReconciler) genStopSubclusterOpts(initiatorIP, scName string) []stopsubcluster.Option {
 	opts := []stopsubcluster.Option{
 		stopsubcluster.WithInitiator(initiatorIP),
 		stopsubcluster.WithSCName(scName),
+		stopsubcluster.WithDrainSeconds(s.Vdb.GetStopSCDrainSeconds()),
 	}
 	return opts
 }

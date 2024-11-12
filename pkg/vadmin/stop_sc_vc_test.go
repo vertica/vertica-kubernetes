@@ -54,7 +54,7 @@ var _ = Describe("stop_subcluster_vc", func() {
 		dispatcher := mockVClusterOpsDispatcher()
 		dispatcher.VDB.Spec.DBName = TestDBName
 		opts := []stopsubcluster.Option{
-			stopsubcluster.WithInitiator(dispatcher.VDB.ExtractNamespacedName(), TestInitiatorIP),
+			stopsubcluster.WithInitiator(TestInitiatorIP),
 			stopsubcluster.WithSCName(scName),
 		}
 		Ω(dispatcher.StopSubcluster(ctx, opts...)).Should(Succeed())

@@ -24,16 +24,18 @@ import (
 )
 
 // StopSubcluster will stop the subcluster hosts of a running Vertica db
+//
+//nolint:dupl
 func (v *VClusterOps) StopSubcluster(_ context.Context, opts ...stopsubcluster.Option) error {
 	v.setupForAPICall("StopSubcluster")
 	defer v.tearDownForAPICall()
 	v.Log.Info("Starting vcluster StopSubcluster")
 
-	// get stop_db options
+	// get stop_sc options
 	s := stopsubcluster.Parms{}
 	s.Make(opts...)
 
-	// call vcluster-ops library to stop db
+	// call vcluster-ops library to stop subcluster
 	vopts := v.genStopSubclusterOptions(&s)
 	err := v.VStopSubcluster(&vopts)
 	if err != nil {
@@ -49,7 +51,7 @@ func (v *VClusterOps) genStopSubclusterOptions(s *stopsubcluster.Parms) vops.VSt
 	opts := vops.VStopSubclusterOptionsFactory()
 
 	opts.RawHosts = append(opts.RawHosts, s.InitiatorIP)
-	v.Log.Info("Setup stop subcluster db options", "hosts", opts.RawHosts[0])
+	v.Log.Info("Setup stop subcluster options", "hosts", opts.RawHosts[0])
 	opts.IPv6 = net.IsIPv6(s.InitiatorIP)
 
 	opts.DBName = v.VDB.Spec.DBName

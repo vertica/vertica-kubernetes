@@ -246,6 +246,32 @@ func MakePodFactsForSandbox(vrec config.ReconcilerInterface, prunner cmds.PodRun
 	return pf
 }
 
+// ConstructsDetail sets the Detail field in PodFacts, for test purposes
+func (p *PodFacts) ConstructsDetail(subclusters []vapi.Subcluster, upNodes []uint) {
+	p.Detail = make(PodFactDetail)
+	if len(subclusters) != len(upNodes) {
+		return
+	}
+	for i := range subclusters {
+		sc := &subclusters[i]
+		upNode := upNodes[i]
+		for j := int32(0); j < sc.Size; j++ {
+			isUp := upNode > 0
+			pf := PodFact{
+				name:           types.NamespacedName{Name: fmt.Sprintf("%s-%d", sc.Name, j)},
+				subclusterName: sc.Name,
+				isPrimary:      sc.IsPrimary(),
+				shutdown:       sc.Shutdown,
+				upNode:         isUp,
+				podIP:          "10.10.10.10",
+				podIndex:       j,
+			}
+			upNode--
+			p.Detail[pf.name] = &pf
+		}
+	}
+}
+
 // Copy will make a new copy of the podfacts, but setup for the given sandbox name.
 func (p *PodFacts) Copy(sandbox string) PodFacts {
 	ret := *p
@@ -1355,6 +1381,17 @@ func (p *PodFacts) GetUpNodeCount() int {
 	})
 }
 
+// GetSubclusterUpNodeCount returns the number of up nodes in the given subcluster.
+// A pod is considered down if it doesn't have a running vertica process.
+func (p *PodFacts) GetSubclusterUpNodeCount(scName string) int {
+	return p.countPods(func(v *PodFact) int {
+		if v.subclusterName == scName && v.upNode {
+			return 1
+		}
+		return 0
+	})
+}
+
 // GetUpNodeAndNotReadOnlyCount returns the number of nodes that are up and
 // writable.  Starting in 11.0SP2, nodes can be up but only in read-only state.
 // This function filters out those *up* nodes that are in read-only state.
@@ -1601,6 +1638,22 @@ func (p *PodFacts) QuorumCheckForRestartCluster(restartOnly bool) bool {
 		return 0
 	})
 	return restartablePrimaryNodeCount >= (primaryNodeCount+1)/2
+}
+
+// DoesDBHaveQuorum returns true if the cluster will keep quorum
+func (p *PodFacts) DoesDBHaveQuorum(offset int) bool {
+	totalPrimaryCount := 0
+	upPrimaryCount := 0
+	for _, pod := range p.Detail {
+		if !pod.GetIsPrimary() {
+			continue
+		}
+		totalPrimaryCount++
+		if pod.GetUpNode() {
+			upPrimaryCount++
+		}
+	}
+	return 2*(upPrimaryCount-offset) > totalPrimaryCount
 }
 
 // IsSandboxEmpty returns true if we cannot find any pods in the target sandbox
