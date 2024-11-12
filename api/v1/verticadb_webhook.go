@@ -152,6 +152,7 @@ func (v *VerticaDB) validateImmutableFields(old runtime.Object) field.ErrorList 
 	allErrs = v.checkSandboxesDuringUpgrade(oldObj, allErrs)
 	allErrs = v.checkShutdownSandboxImage(oldObj, allErrs)
 	allErrs = v.checkShutdownForSandboxesToBeRemoved(oldObj, allErrs)
+	allErrs = v.checkShutdownForSubclustersToBeRemoved(oldObj, allErrs)
 	allErrs = v.checkUnsandboxShutdownConditions(oldObj, allErrs)
 	allErrs = v.checkSubclustersInShutdownSandbox(oldObj, allErrs)
 	allErrs = v.checkNewSBoxOrSClusterShutdownUnset(allErrs)
@@ -1980,6 +1981,26 @@ func (v *VerticaDB) checkShutdownForSandboxesToBeRemoved(oldObj *VerticaDB, allE
 				sandboxToBeRemoved,
 				fmt.Sprintf("cannot remove sandbox %q that has Shutdown field set to true",
 					sandboxToBeRemoved))
+			allErrs = append(allErrs, err)
+		}
+	}
+	return allErrs
+}
+
+// checkShutdownForSubclustersToBeRemoved ensures the subclusters to be removed are not shut down
+func (v *VerticaDB) checkShutdownForSubclustersToBeRemoved(oldObj *VerticaDB, allErrs field.ErrorList) field.ErrorList {
+	oldSubclusterMap := oldObj.GenSubclusterMap()
+	newSubclusterMap := v.GenSubclusterMap()
+	statusSubclusterMap := v.GenStatusSubclusterMap()
+	subclustersToBeRemoved := vutil.MapKeyDiff(oldSubclusterMap, newSubclusterMap)
+	for _, subclusterToBeRemoved := range subclustersToBeRemoved {
+		subclusterstatus, foundInStatus := statusSubclusterMap[subclusterToBeRemoved]
+		if oldSubclusterMap[subclusterToBeRemoved].Shutdown || foundInStatus && subclusterstatus.Shutdown {
+			p := field.NewPath("spec").Child("subclusters")
+			err := field.Invalid(p,
+				subclusterToBeRemoved,
+				fmt.Sprintf("cannot remove subcluster %q that has Shutdown field set to true",
+					subclusterToBeRemoved))
 			allErrs = append(allErrs, err)
 		}
 	}

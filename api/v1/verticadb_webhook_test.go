@@ -1845,6 +1845,56 @@ var _ = Describe("verticadb_webhook", func() {
 
 	})
 
+	It("should not remove a subcluster whose shutdown field in spec/status is set", func() {
+		oldVdb := MakeVDB()
+		oldVdb.Spec.Subclusters = []Subcluster{
+			{Name: "sc1", Type: PrimarySubcluster, Size: 3, ServiceType: v1.ServiceTypeClusterIP},
+			{Name: "sc2", Type: SandboxPrimarySubcluster, Shutdown: true, Size: 3, ServiceType: v1.ServiceTypeClusterIP},
+			{Name: "sc3", Type: SecondarySubcluster, Shutdown: true, Size: 3, ServiceType: v1.ServiceTypeNodePort},
+			{Name: "sc4", Type: SecondarySubcluster, Size: 3, ServiceType: v1.ServiceTypeNodePort},
+		}
+		oldVdb.Spec.Sandboxes = []Sandbox{
+			{Name: "sand1", Image: "vertica-k8s:v1", Shutdown: true, Subclusters: []SubclusterName{{Name: "sc2"}, {Name: "sc3"}}},
+		}
+		newVdb := oldVdb.DeepCopy()
+		newVdb.Spec.Subclusters = []Subcluster{ //sc3 is removed from sandbox and vdb
+			{Name: "sc1", Type: PrimarySubcluster, Size: 3, ServiceType: v1.ServiceTypeClusterIP},
+			{Name: "sc2", Type: SandboxPrimarySubcluster, Shutdown: true, Size: 3, ServiceType: v1.ServiceTypeClusterIP},
+			{Name: "sc4", Type: SecondarySubcluster, Size: 3, ServiceType: v1.ServiceTypeNodePort},
+		}
+		newVdb.Spec.Sandboxes = []Sandbox{
+			{Name: "sand1", Image: "vertica-k8s:v1", Shutdown: true, Subclusters: []SubclusterName{{Name: "sc2"}}},
+		}
+		newVdb.Status.Subclusters = []SubclusterStatus{
+			{Name: "sc1"},
+			{Name: "sc2", Shutdown: true},
+			{Name: "sc3", Shutdown: true},
+			{Name: "sc4"},
+		}
+
+		Ω(newVdb.checkShutdownForSubclustersToBeRemoved(oldVdb, field.ErrorList{})).Should(HaveLen(1))
+		oldVdb = MakeVDB()
+		oldVdb.Spec.Subclusters = []Subcluster{
+			{Name: "sc1", Type: PrimarySubcluster, Size: 3, ServiceType: v1.ServiceTypeClusterIP},
+			{Name: "sc2", Type: SandboxPrimarySubcluster, Shutdown: true, Size: 3, ServiceType: v1.ServiceTypeClusterIP},
+			{Name: "sc3", Type: SecondarySubcluster, Shutdown: true, Size: 3, ServiceType: v1.ServiceTypeNodePort},
+			{Name: "sc4", Type: SecondarySubcluster, Size: 3, ServiceType: v1.ServiceTypeNodePort},
+		}
+		newVdb = oldVdb.DeepCopy()
+		newVdb.Spec.Subclusters = []Subcluster{ //sc3 is removed from vdb
+			{Name: "sc1", Type: PrimarySubcluster, Size: 3, ServiceType: v1.ServiceTypeClusterIP},
+			{Name: "sc2", Type: SandboxPrimarySubcluster, Shutdown: true, Size: 3, ServiceType: v1.ServiceTypeClusterIP},
+			{Name: "sc4", Type: SecondarySubcluster, Size: 3, ServiceType: v1.ServiceTypeNodePort},
+		}
+		newVdb.Status.Subclusters = []SubclusterStatus{
+			{Name: "sc1"},
+			{Name: "sc2", Shutdown: true},
+			{Name: "sc3", Shutdown: true},
+			{Name: "sc4"},
+		}
+		Ω(newVdb.checkShutdownForSubclustersToBeRemoved(oldVdb, field.ErrorList{})).Should(HaveLen(1))
+	})
+
 })
 
 func createVDBHelper() *VerticaDB {
