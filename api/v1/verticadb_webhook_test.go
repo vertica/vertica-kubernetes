@@ -1857,7 +1857,7 @@ var _ = Describe("verticadb_webhook", func() {
 			{Name: "sand1", Image: "vertica-k8s:v1", Shutdown: true, Subclusters: []SubclusterName{{Name: "sc2"}, {Name: "sc3"}}},
 		}
 		newVdb := oldVdb.DeepCopy()
-		newVdb.Spec.Subclusters = []Subcluster{ //sc3 is removed from sandbox and vdb
+		newVdb.Spec.Subclusters = []Subcluster{ // sc3 is removed from sandbox and vdb
 			{Name: "sc1", Type: PrimarySubcluster, Size: 3, ServiceType: v1.ServiceTypeClusterIP},
 			{Name: "sc2", Type: SandboxPrimarySubcluster, Shutdown: true, Size: 3, ServiceType: v1.ServiceTypeClusterIP},
 			{Name: "sc4", Type: SecondarySubcluster, Size: 3, ServiceType: v1.ServiceTypeNodePort},
@@ -1881,7 +1881,7 @@ var _ = Describe("verticadb_webhook", func() {
 			{Name: "sc4", Type: SecondarySubcluster, Size: 3, ServiceType: v1.ServiceTypeNodePort},
 		}
 		newVdb = oldVdb.DeepCopy()
-		newVdb.Spec.Subclusters = []Subcluster{ //sc3 is removed from vdb
+		newVdb.Spec.Subclusters = []Subcluster{ // sc3 is removed from vdb
 			{Name: "sc1", Type: PrimarySubcluster, Size: 3, ServiceType: v1.ServiceTypeClusterIP},
 			{Name: "sc2", Type: SandboxPrimarySubcluster, Shutdown: true, Size: 3, ServiceType: v1.ServiceTypeClusterIP},
 			{Name: "sc4", Type: SecondarySubcluster, Size: 3, ServiceType: v1.ServiceTypeNodePort},
