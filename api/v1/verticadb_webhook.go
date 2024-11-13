@@ -1810,14 +1810,12 @@ func (v *VerticaDB) checkShutdownForScaleUpOrDown(oldObj *VerticaDB, allErrs fie
 // 3 B does not have any subcluster in it that has Shutdown set to true (spec/status)
 func (v *VerticaDB) checkSClusterToBeSandboxedShutdownUnset(allErrs field.ErrorList) field.ErrorList {
 	newSclusterMap := v.GenSubclusterMap()
-	statusScluterSboxMap := v.GenSubclusterSandboxStatusMap()
 	newSclusterSboxMap := v.GenSubclusterSandboxMap()
 	newSandboxIndexMap := v.GenSandboxIndexMap()
 	newSandboxMap := v.GenSandboxMap()
 	statusSclusterIndexMap := v.GenStatusSClusterIndexMap()
 	sandboxWithError := map[string]bool{}
 	for newSC, newSB := range newSclusterSboxMap {
-		oldSandboxName, isInOldSandbox := statusScluterSboxMap[newSC]
 		_, foundSubcluster := newSclusterMap[newSC]
 		if !foundSubcluster {
 			continue // avoid panic. this error should have been reported by other functions
@@ -1826,22 +1824,20 @@ func (v *VerticaDB) checkSClusterToBeSandboxedShutdownUnset(allErrs field.ErrorL
 		// or an existing subcluster (found in status), the latter of which includes two scenarios:
 		//   1 the subcluster was in a sandbox (whose name is different from current sandbox name)
 		//   2 the subcluster was not in a sandbox previously
-		if !isInOldSandbox || (isInOldSandbox && oldSandboxName != newSB) {
-			sandbox := newSandboxMap[newSB]
-			errMsgs := v.checkSboxForShutdown(sandbox, newSclusterMap, statusSclusterIndexMap)
-			if len(errMsgs) != 0 {
-				sandboxIndex := newSandboxIndexMap[newSB]
-				_, found := sandboxWithError[newSB]
-				if !found {
-					sandboxWithError[newSB] = true
-					sclusterIndex := v.findSubclusterIndexInSandbox(newSC, sandbox)
-					p := field.NewPath("spec").Child("sandboxes").Index(sandboxIndex).Child("subclusters").Index(sclusterIndex)
-					err := field.Invalid(p,
-						newSC,
-						fmt.Sprintf("cannot sandbox subcluster %q in sandbox %q because %q",
-							newSC, newSB, strings.Join(errMsgs, ",")))
-					allErrs = append(allErrs, err)
-				}
+		sandbox := newSandboxMap[newSB]
+		errMsgs := v.checkSboxForShutdown(sandbox, newSclusterMap, statusSclusterIndexMap)
+		if len(errMsgs) != 0 {
+			sandboxIndex := newSandboxIndexMap[newSB]
+			_, found := sandboxWithError[newSB]
+			if !found {
+				sandboxWithError[newSB] = true
+				sclusterIndex := v.findSubclusterIndexInSandbox(newSC, sandbox)
+				p := field.NewPath("spec").Child("sandboxes").Index(sandboxIndex).Child("subclusters").Index(sclusterIndex)
+				err := field.Invalid(p,
+					newSC,
+					fmt.Sprintf("cannot sandbox subcluster %q in sandbox %q because %q",
+						newSC, newSB, strings.Join(errMsgs, ",")))
+				allErrs = append(allErrs, err)
 			}
 		}
 	}
