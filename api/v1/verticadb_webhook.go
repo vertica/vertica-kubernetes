@@ -106,6 +106,7 @@ func (v *VerticaDB) ValidateCreate() error {
 	verticadblog.Info("validate create", "name", v.Name, "GroupVersion", GroupVersion)
 
 	allErrs := v.validateVerticaDBSpec()
+	allErrs = v.checkNewSBoxOrSClusterShutdownUnset(allErrs)
 	if len(allErrs) == 0 {
 		return nil
 	}
@@ -1777,7 +1778,6 @@ func (v *VerticaDB) checkShutdownForScaleUpOrDown(oldObj *VerticaDB, allErrs fie
 	statusSclusterIndexMap := v.GenStatusSClusterIndexMap()
 	oldSclusterMap := oldObj.GenSubclusterMap()
 	newSclusterIndexMap := v.GenSubclusterIndexMap()
-	sandboxWithError := map[string]bool{}
 	for subclusterName, sandboxName := range newSclusterSboxMap {
 		oldScluster, foundSclusterInOld := oldSclusterMap[subclusterName]
 		if !foundSclusterInOld {
@@ -1791,17 +1791,13 @@ func (v *VerticaDB) checkShutdownForScaleUpOrDown(oldObj *VerticaDB, allErrs fie
 		if oldScluster.Size != newScluster.Size { // scale up/down
 			errMsgs := v.checkSboxForShutdown(sandbox, newSclusterMap, statusSclusterIndexMap)
 			if len(errMsgs) != 0 {
-				_, found := sandboxWithError[sandboxName] // avoid duplicate errMsgs from same sandbox
-				if !found {
-					i := newSclusterIndexMap[subclusterName]
-					sandboxWithError[sandboxName] = true
-					p := field.NewPath("spec").Child("subclusters").Index(i).Child("size")
-					err := field.Invalid(p,
-						newScluster.Size,
-						fmt.Sprintf("cannot scale up/down subcluster %q in sandbox %q because %q",
-							subclusterName, sandboxName, strings.Join(errMsgs, ",")))
-					allErrs = append(allErrs, err)
-				}
+				i := newSclusterIndexMap[subclusterName]
+				p := field.NewPath("spec").Child("subclusters").Index(i).Child("size")
+				err := field.Invalid(p,
+					newScluster.Size,
+					fmt.Sprintf("cannot scale up/down subcluster %q in sandbox %q because %q",
+						subclusterName, sandboxName, strings.Join(errMsgs, ",")))
+				allErrs = append(allErrs, err)
 			}
 		}
 	}
