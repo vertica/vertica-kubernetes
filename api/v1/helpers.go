@@ -740,6 +740,11 @@ func (v *VerticaDB) GetCreateDBNodeStartTimeout() int {
 	return vmeta.GetCreateDBNodeStartTimeout(v.Annotations)
 }
 
+// GetShutdownDrainSeconds returns time in seconds to wait for a subcluster/database users' disconnection
+func (v *VerticaDB) GetShutdownDrainSeconds() int {
+	return vmeta.GetShutdownDrainSeconds(v.Annotations)
+}
+
 // IsNMASideCarDeploymentEnabled returns true if the conditions to run NMA
 // in a sidecar are met
 func (v *VerticaDB) IsNMASideCarDeploymentEnabled() bool {

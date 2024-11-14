@@ -30,6 +30,7 @@ import (
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller"
 
 	"github.com/google/uuid"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
@@ -73,8 +74,9 @@ type VerticaDBReconciler struct {
 // +kubebuilder:rbac:groups="",resources=events,verbs=create;patch
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *VerticaDBReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *VerticaDBReconciler) SetupWithManager(mgr ctrl.Manager, options controller.Options) error {
 	return ctrl.NewControllerManagedBy(mgr).
+		WithOptions(options).
 		For(&vapi.VerticaDB{}).
 		Owns(&corev1.ServiceAccount{}).
 		Owns(&rbacv1.Role{}).
@@ -206,13 +208,15 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		MakeOnlineUpgradeReconciler(r, log, vdb, pfacts, dispatcher),
 		// Stop vertica if the status condition indicates
 		MakeStopDBReconciler(r, vdb, prunner, pfacts, dispatcher),
+		// Stop subclusters that have shutdown set to true.
+		MakeSubclusterShutdownReconciler(r, log, vdb, dispatcher, pfacts),
 		// Check the version information ahead of restart. The version is needed
 		// to properly pick the correct NMA deployment (monolithic vs sidecar).
 		MakeImageVersionReconciler(r, log, vdb, prunner, pfacts, false /* enforceUpgradePath */),
 		// Handles restart + re_ip of vertica
 		MakeRestartReconciler(r, log, vdb, prunner, pfacts, true, dispatcher),
 		MakeMetricReconciler(r, log, vdb, prunner, pfacts),
-		MakeStatusReconciler(r.Client, r.Scheme, log, vdb, pfacts),
+		MakeStatusReconcilerWithShutdown(r.Client, r.Scheme, log, vdb, pfacts),
 		// Ensure we add labels to any pod rescheduled so that Service objects route traffic to it.
 		MakeClientRoutingLabelReconciler(r, log, vdb, pfacts, PodRescheduleApplyMethod, ""),
 		// Remove Service label for any pods that are pending delete.  This will
@@ -268,8 +272,8 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		// Trigger sandbox upgrade when the image field for the sandbox
 		// is changed
 		MakeSandboxUpgradeReconciler(r, log, vdb),
-		// Update the sandbox subclusters' shutdown field to match the value of
-		// the sandbox.
+		// Update the sandbox/subclusters' shutdown field to match the value of
+		// the spec.
 		MakeShutdownSpecReconciler(r, vdb, pfacts),
 		// Trigger sandbox shutdown when the shutdown field of the sandbox
 		// is changed
