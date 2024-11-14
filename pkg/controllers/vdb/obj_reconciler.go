@@ -442,6 +442,11 @@ func (o *ObjReconciler) checkVProxyConfigMap(ctx context.Context, cmName types.N
 	curCM := &corev1.ConfigMap{}
 	newCM := builder.BuildVProxyConfigMap(cmName, o.Vdb, sc)
 
+	if sc.Size == 0 {
+		o.Log.Info("Deleting client proxy config map", "Name", cmName)
+		return o.Rec.GetClient().Delete(ctx, newCM)
+	}
+
 	err := o.Rec.GetClient().Get(ctx, cmName, curCM)
 	if err != nil && kerrors.IsNotFound(err) {
 		o.Log.Info("Creating client proxy config map", "Name", cmName)
@@ -469,6 +474,12 @@ func (o *ObjReconciler) checkVProxyDeployment(ctx context.Context, sc *vapi.Subc
 	curDep := &appsv1.Deployment{}
 	vpDep := builder.BuildVProxyDeployment(vpName, o.Vdb, sc)
 	vpErr := o.Rec.GetClient().Get(ctx, vpName, curDep)
+
+	if sc.Size == 0 {
+		o.Log.Info("Delete deployment", "Name", vpName, "Size", vpDep.Spec.Replicas, "Image", vpDep.Spec.Template.Spec.Containers[0].Image)
+		return deleteDep(ctx, o.Rec, vpDep, o.Vdb)
+	}
+
 	if vpErr != nil && kerrors.IsNotFound(vpErr) {
 		o.Log.Info("Creating deployment", "Name", vpName, "Size", vpDep.Spec.Replicas, "Image", vpDep.Spec.Template.Spec.Containers[0].Image)
 		return createDep(ctx, o.Rec, vpDep, o.Vdb)
