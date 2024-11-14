@@ -55,6 +55,11 @@ func MakeSubclusterShutdownReconciler(recon config.ReconcilerInterface, log logr
 }
 
 func (s *SubclusterShutdownReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
+	// no-op for ScheduleOnly init policy or enterprise db
+	if s.Vdb.Spec.InitPolicy == vapi.CommunalInitPolicyScheduleOnly || !s.Vdb.IsEON() {
+		return ctrl.Result{}, nil
+	}
+
 	if err := s.PFacts.Collect(ctx, s.Vdb); err != nil {
 		return ctrl.Result{}, err
 	}
@@ -84,11 +89,16 @@ func (s *SubclusterShutdownReconciler) getSubclustersToShutdown() (map[string]st
 	upPrimaryNodes := 0
 	willLoseQuorum := false
 	scSbMap := s.Vdb.GenSubclusterSandboxMap()
+	scStatusMap := s.Vdb.GenSubclusterStatusMap()
 	sbMap := s.Vdb.GenSandboxMap()
+	s.Log.Info(fmt.Sprintf("Collecting subclusters to shut down in %s", s.PFacts.GetClusterExtendedName()),
+		"sandbox", s.PFacts.GetSandboxName())
 	for i := range s.Vdb.Spec.Subclusters {
 		sc := &s.Vdb.Spec.Subclusters[i]
 		sandbox := scSbMap[sc.Name]
 		if sandbox != s.PFacts.GetSandboxName() {
+			s.Log.Info(fmt.Sprintf("Skipping subcluster because it is not in %s", s.PFacts.GetClusterExtendedName()),
+				"subcluster", sc.Name, "sandbox", s.PFacts.GetSandboxName())
 			continue
 		}
 		// no-op if the subcluster is not marked for
@@ -104,8 +114,18 @@ func (s *SubclusterShutdownReconciler) getSubclustersToShutdown() (map[string]st
 				continue
 			}
 		}
+		if s.PFacts.IsDBReadOnly() {
+			return subclusters, fmt.Errorf("cannot shutdown subcluster because %s is read-only", s.PFacts.GetClusterExtendedName())
+		}
 		hostIP, ok := s.PFacts.FindFirstUpPodIP(false, sc.Name)
 		if !ok {
+			scStatus := scStatusMap[sc.Name]
+			if scStatus == nil {
+				return subclusters, fmt.Errorf("subcluster %q not found in status", sc.Name)
+			}
+			if !scStatus.Shutdown {
+				s.Log.Info("Subcluster nodes are already all down, and were not shutdown gracefully.", "subcluster", sc.Name)
+			}
 			continue
 		}
 		if sc.IsPrimary() {
@@ -121,9 +141,10 @@ func (s *SubclusterShutdownReconciler) getSubclustersToShutdown() (map[string]st
 		subclusters[sc.Name] = hostIP
 	}
 	if willLoseQuorum {
+		// TODO: we may remove this once we find a proper way to handle quorum loss
 		s.VRec.Eventf(s.Vdb, corev1.EventTypeWarning, events.ClusterWillLoseQuorum,
 			"Shutting down subclusters %s will cause quorum loss.", strings.Join(primarySubclusters, ","))
-		return subclusters, fmt.Errorf("cannot shut down primaries %s because it will cause quorum, loss. "+
+		return subclusters, fmt.Errorf("cannot shut down primaries %s because it will cause quorum loss. "+
 			"please revert back", strings.Join(primarySubclusters, ","))
 	}
 	return subclusters, nil
@@ -154,7 +175,7 @@ func (s *SubclusterShutdownReconciler) genStopSubclusterOpts(initiatorIP, scName
 	opts := []stopsubcluster.Option{
 		stopsubcluster.WithInitiator(initiatorIP),
 		stopsubcluster.WithSCName(scName),
-		stopsubcluster.WithDrainSeconds(s.Vdb.GetStopSCDrainSeconds()),
+		stopsubcluster.WithDrainSeconds(s.Vdb.GetShutdownDrainSeconds()),
 	}
 	return opts
 }

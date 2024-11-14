@@ -56,8 +56,10 @@ spec:
 status:
   subclusters:
     - addedToDBCount: 4
+      upNodeCount: 4
       name: pri1
     - addedToDBCount: 3
+      upNodeCount: 3
       name: pri2
     - addedToDBCount: 3
       upNodeCount: 3

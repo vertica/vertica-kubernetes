@@ -32,6 +32,7 @@ metadata:
 status:
   subclusters:
     - addedToDBCount: 4
+      upNodeCount: 4
       name: pri1
     - addedToDBCount: 3
       upNodeCount: 2

@@ -11,6 +11,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+apiVersion: kuttl.dev/v1beta1
+kind: TestAssert
+timeout: 900
+---
 apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
@@ -18,6 +22,7 @@ metadata:
 status:
   subclusters:
     - addedToDBCount: 4
+      upNodeCount: 4
       name: pri1
     - addedToDBCount: 3
       upNodeCount: 3

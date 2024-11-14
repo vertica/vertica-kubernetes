@@ -1462,7 +1462,17 @@ func (p *PodFacts) AnyUninstalledTransientPodsNotRunning() (bool, types.Namespac
 	return false, types.NamespacedName{}
 }
 
-// GetHostList will return a host and podName list from the given pods
+// IsDBReadOnly return true if the database is read-only
+func (p *PodFacts) IsDBReadOnly() bool {
+	for _, v := range p.Detail {
+		if v.isPodRunning && v.readOnly {
+			return true
+		}
+	}
+	return false
+}
+
+// GetHostList will returns a host and podName list from the given pods
 func GetHostAndPodNameList(podList []*PodFact) ([]string, []types.NamespacedName) {
 	hostList := make([]string, 0, len(podList))
 	podNames := make([]types.NamespacedName, 0, len(podList))

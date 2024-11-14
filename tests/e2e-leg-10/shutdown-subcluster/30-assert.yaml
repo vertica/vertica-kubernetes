@@ -45,12 +45,17 @@ status:
         - sec3
   subclusters:
     - addedToDBCount: 4
+      upNodeCount: 4
       name: pri1
     - addedToDBCount: 3
+      upNodeCount: 3
       name: pri2
     - addedToDBCount: 3
+      upNodeCount: 3
       name: sec1
     - addedToDBCount: 1
+      upNodeCount: 1
       name: sec2
     - addedToDBCount: 1
+      upNodeCount: 1
       name: sec3
