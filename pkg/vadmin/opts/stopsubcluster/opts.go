@@ -13,19 +13,14 @@
  limitations under the License.
 */
 
-package stopdb
-
-import (
-	"k8s.io/apimachinery/pkg/types"
-)
+package stopsubcluster
 
 // Parms holds all of the option for a stop DB invocation.
 type Parms struct {
-	InitiatorName types.NamespacedName
-	InitiatorIP   string
-	Sandbox       string
-	ZeroDrain     bool
-	DrainSeconds  int
+	InitiatorIP  string
+	SCName       string
+	DrainSeconds int
+	Force        bool
 }
 
 type Option func(*Parms)
@@ -37,27 +32,26 @@ func (s *Parms) Make(opts ...Option) {
 	}
 }
 
-func WithInitiator(nm types.NamespacedName, ip string) Option {
+func WithInitiator(ip string) Option {
 	return func(s *Parms) {
-		s.InitiatorName = nm
 		s.InitiatorIP = ip
 	}
 }
 
-func WithSandbox(sbName string) Option {
+func WithSCName(scName string) Option {
 	return func(s *Parms) {
-		s.Sandbox = sbName
-	}
-}
-
-func WithZeroDrain(hasZeroDrainSeconds bool) Option {
-	return func(s *Parms) {
-		s.ZeroDrain = hasZeroDrainSeconds
+		s.SCName = scName
 	}
 }
 
 func WithDrainSeconds(drainSeconds int) Option {
 	return func(s *Parms) {
 		s.DrainSeconds = drainSeconds
+	}
+}
+
+func WithForce(force bool) Option {
+	return func(s *Parms) {
+		s.Force = force
 	}
 }

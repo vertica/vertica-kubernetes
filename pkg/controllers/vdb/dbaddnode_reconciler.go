@@ -75,7 +75,15 @@ func (d *DBAddNodeReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (c
 		return ctrl.Result{Requeue: true}, nil
 	}
 
+	scStatusMap := d.Vdb.GenSubclusterStatusMap()
 	for i := range d.Vdb.Spec.Subclusters {
+		sc := &d.Vdb.Spec.Subclusters[i]
+		scStatus, found := scStatusMap[sc.Name]
+		if found && scStatus.Shutdown {
+			// subclusters that have been shut down must
+			// be ignored.
+			continue
+		}
 		// Recollect pod facts to ensure correct options are used in AddNode()
 		if err := d.PFacts.Collect(ctx, d.Vdb); err != nil {
 			return ctrl.Result{}, err
@@ -101,6 +109,9 @@ func (d *DBAddNodeReconciler) findAddNodePods(scName string) ([]*podfacts.PodFac
 			continue
 		}
 		if !v.GetDBExists() {
+			if v.GetShutdown() {
+				continue
+			}
 			if !v.GetIsPodRunning() || !v.GetIsInstalled() {
 				// We want to group all of the add nodes in a single admintools call.
 				// Doing so limits the impact on any running queries.  So if there is at
