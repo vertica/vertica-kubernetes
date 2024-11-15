@@ -113,7 +113,6 @@ func MakeLabelsForSvcObject(vdb *vapi.VerticaDB, sc *vapi.Subcluster, svcType st
 // MakeLabelsForVProxyObject constructs the labels of the client proxy config map and pods
 func MakeLabelsForVProxyObject(vdb *vapi.VerticaDB, sc *vapi.Subcluster, forPod bool) map[string]string {
 	labels := makeLabelsForObject(vdb, sc, forPod)
-	labels[vmeta.ClientProxyLabel] = vmeta.ClientProxyTrue
 	return labels
 }
 
