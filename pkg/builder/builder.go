@@ -866,7 +866,7 @@ func BuildVProxyDeployment(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vap
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        nm.Name,
 			Namespace:   nm.Namespace,
-			Labels:      MakeLabelsForVProxyObject(vdb, sc, true),
+			Labels:      MakeLabelsForVProxyObject(vdb, sc, false),
 			Annotations: MakeAnnotationsForVProxyObject(vdb),
 		},
 		Spec: appsv1.DeploymentSpec{
