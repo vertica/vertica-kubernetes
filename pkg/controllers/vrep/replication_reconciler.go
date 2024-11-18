@@ -45,6 +45,9 @@ const (
 	stateReplicating          = "Replicating"
 	stateSucceededReplication = "Replication successful"
 	stateFailedReplication    = "Replication failed"
+
+	replicationModeAsync = "async"
+	replicationModeSync  = "sync"
 )
 
 type ReplicationInfo struct {
@@ -82,6 +85,12 @@ func (r *ReplicationReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) 
 	// no-op if ReplicationComplete is present (either true or false)
 	isPresent := r.Vrep.IsStatusConditionPresent(v1beta1.ReplicationComplete)
 	if isPresent {
+		return ctrl.Result{}, nil
+	}
+
+	// no-op if Replicating is true (this is possible with async replication)
+	isReplicating := r.Vrep.IsStatusConditionTrue(v1beta1.Replicating)
+	if isReplicating {
 		return ctrl.Result{}, nil
 	}
 
@@ -150,7 +159,7 @@ func (r *ReplicationReconciler) fetchVdbs(ctx context.Context) (res ctrl.Result,
 // makeDispatcher will create a Dispatcher object based on the feature flags set.
 func (r *ReplicationReconciler) makeDispatcher() error {
 	if vmeta.UseVClusterOps(r.SourceInfo.Vdb.Annotations) {
-		r.dispatcher = vadmin.MakeVClusterOps(r.Log, r.SourceInfo.Vdb,
+		r.dispatcher = vadmin.MakeVClusterOpsWithTarget(r.Log, r.SourceInfo.Vdb, r.TargetInfo.Vdb,
 			r.VRec.GetClient(), r.SourceInfo.Password, r.VRec, vadmin.SetupVClusterOps)
 		return nil
 	}
@@ -160,13 +169,13 @@ func (r *ReplicationReconciler) makeDispatcher() error {
 // determine usernames and passwords for both source and target VerticaDBs
 func (r *ReplicationReconciler) determineUsernameAndPassword(ctx context.Context) (err error) {
 	r.SourceInfo.Username, r.SourceInfo.Password, err = setUsernameAndPassword(ctx,
-		r.Client, r.Log, r.VRec, r.SourceInfo.Vdb, &r.Vrep.Spec.Source)
+		r.Client, r.Log, r.VRec, r.SourceInfo.Vdb, &r.Vrep.Spec.Source.VerticaReplicatorDatabaseInfo)
 	if err != nil {
 		return err
 	}
 
 	r.TargetInfo.Username, r.TargetInfo.Password, err = setUsernameAndPassword(ctx,
-		r.Client, r.Log, r.VRec, r.TargetInfo.Vdb, &r.Vrep.Spec.Target)
+		r.Client, r.Log, r.VRec, r.TargetInfo.Vdb, &r.Vrep.Spec.Target.VerticaReplicatorDatabaseInfo)
 	if err != nil {
 		return err
 	}
@@ -284,6 +293,11 @@ func (r *ReplicationReconciler) buildOpts() []replicationstart.Option {
 		replicationstart.WithTargetPassword(r.TargetInfo.Password),
 		replicationstart.WithSourceTLSConfig(r.Vrep.Spec.TLSConfig),
 		replicationstart.WithSourceSandboxName(r.Vrep.Spec.Source.SandboxName),
+		replicationstart.WithAsync(r.Vrep.Spec.Mode == replicationModeAsync),
+		replicationstart.WithObjectName(r.Vrep.Spec.Source.ObjectName),
+		replicationstart.WithIncludePattern(r.Vrep.Spec.Source.IncludePattern),
+		replicationstart.WithExcludePattern(r.Vrep.Spec.Source.ExcludePattern),
+		replicationstart.WithTargetNamespace(r.Vrep.Spec.Target.Namespace),
 	}
 	return opts
 }
@@ -292,7 +306,7 @@ func (r *ReplicationReconciler) runReplicateDB(ctx context.Context, dispatcher v
 	opts []replicationstart.Option) (err error) {
 	// set Replicating status condition and state prior to calling vclusterops API
 	err = vrepstatus.Update(ctx, r.VRec.Client, r.VRec.Log, r.Vrep,
-		[]*metav1.Condition{vapi.MakeCondition(v1beta1.Replicating, metav1.ConditionTrue, "Started")}, stateReplicating)
+		[]*metav1.Condition{vapi.MakeCondition(v1beta1.Replicating, metav1.ConditionTrue, "Started")}, stateReplicating, 0)
 	if err != nil {
 		return err
 	}
@@ -301,23 +315,35 @@ func (r *ReplicationReconciler) runReplicateDB(ctx context.Context, dispatcher v
 	r.VRec.Eventf(r.Vrep, corev1.EventTypeNormal, events.ReplicationStarted,
 		"Starting replication")
 	start := time.Now()
-	_, errRun := dispatcher.ReplicateDB(ctx, opts...)
+	transactionID, errRun := dispatcher.ReplicateDB(ctx, opts...)
 	if errRun != nil {
 		r.VRec.Event(r.Vrep, corev1.EventTypeWarning, events.ReplicationFailed, "Failed when calling replication start")
 		// clear Replicating status condition and set the ReplicationComplete status condition
 		err = vrepstatus.Update(ctx, r.VRec.Client, r.VRec.Log, r.Vrep,
 			[]*metav1.Condition{vapi.MakeCondition(v1beta1.Replicating, metav1.ConditionFalse, "Failed"),
-				vapi.MakeCondition(v1beta1.ReplicationComplete, metav1.ConditionTrue, "Failed")}, stateFailedReplication)
+				vapi.MakeCondition(v1beta1.ReplicationComplete, metav1.ConditionTrue, "Failed")}, stateFailedReplication, 0)
 		if err != nil {
 			errRun = errors.Join(errRun, err)
 		}
 		return errRun
 	}
-	r.VRec.Eventf(r.Vrep, corev1.EventTypeNormal, events.ReplicationSucceeded,
-		"Successfully replicated database in %s", time.Since(start).Truncate(time.Second))
 
-	// clear Replicating status condition and set the ReplicationComplete status condition
-	return vrepstatus.Update(ctx, r.VRec.Client, r.VRec.Log, r.Vrep,
-		[]*metav1.Condition{vapi.MakeCondition(v1beta1.Replicating, metav1.ConditionFalse, v1beta1.ReasonSucceeded),
-			vapi.MakeCondition(v1beta1.ReplicationComplete, metav1.ConditionTrue, v1beta1.ReasonSucceeded)}, stateSucceededReplication)
+	if r.Vrep.Spec.Mode == replicationModeAsync {
+		// Asynchronous replication has just started when ReplicateDB returns
+		r.VRec.Eventf(r.Vrep, corev1.EventTypeNormal, events.ReplicationStarted,
+			"Successfully started database replication in %s", time.Since(start).Truncate(time.Second))
+
+		// Update Replicating status condition with the transaction ID
+		return vrepstatus.Update(ctx, r.VRec.Client, r.VRec.Log, r.Vrep,
+			[]*metav1.Condition{vapi.MakeCondition(v1beta1.Replicating, metav1.ConditionTrue, "Started")}, stateReplicating, transactionID)
+	} else {
+		// Synchronous replication is complete when ReplicateDB returns
+		r.VRec.Eventf(r.Vrep, corev1.EventTypeNormal, events.ReplicationSucceeded,
+			"Successfully replicated database in %s", time.Since(start).Truncate(time.Second))
+
+		// clear Replicating status condition and set the ReplicationComplete status condition
+		return vrepstatus.Update(ctx, r.VRec.Client, r.VRec.Log, r.Vrep,
+			[]*metav1.Condition{vapi.MakeCondition(v1beta1.Replicating, metav1.ConditionFalse, v1beta1.ReasonSucceeded),
+				vapi.MakeCondition(v1beta1.ReplicationComplete, metav1.ConditionTrue, v1beta1.ReasonSucceeded)}, stateSucceededReplication, 0)
+	}
 }

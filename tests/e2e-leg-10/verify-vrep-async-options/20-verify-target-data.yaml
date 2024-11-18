@@ -1,0 +1,80 @@
+# (c) Copyright [2021-2024] Open Text.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# You may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: script-verify-target-data
+data:
+  entrypoint.sh: |-
+    #!/bin/bash
+    set -o errexit
+    set -o xtrace
+
+    POD_NAMES=("v-target-sc4-0" "v-target-sc3-0" "v-target-sc1-0")
+
+    for POD_NAME in "${POD_NAMES[@]}"; do
+      result=$(kubectl exec $POD_NAME -i -c server -- bash -c "vsql -U dbadmin -tAc \"SELECT COUNT(*) FROM tables WHERE table_name = 'test_table1' OR table_name = 'test_table2';\"")
+      echo "$result" | grep -Pzo "^0\n$" > /dev/null
+      if [ $? -ne 0 ]; then
+        echo "Assertion failed: expected 0, got $result"
+        exit 1
+      fi
+    done
+
+    POD_NAMES=("v-target-sc2-0" "v-source-sc1-0")
+
+    for POD_NAME in "${POD_NAMES[@]}"; do
+      result=$(kubectl exec $POD_NAME -i -c server -- bash -c "vsql -U dbadmin -w superuser -tAc \"SELECT * FROM test.test_table1 ORDER BY val;\"")
+      echo "$result" | grep -Pzo "^11\n$" > /dev/null
+      if [ $? -ne 0 ]; then
+        echo "Assertion failed: expected 11, got $result"
+        exit 1
+      fi
+      result=$(kubectl exec $POD_NAME -i -c server -- bash -c "vsql -U dbadmin -w superuser -tAc \"SELECT COUNT(*) FROM tables WHERE table_name = 'test_table1';\"")
+      echo "$result" | grep -Pzo "^1\n$" > /dev/null
+      if [ $? -ne 0 ]; then
+        echo "Assertion failed: expected 1, got $result"
+        exit 1
+      fi
+    done
+
+    result=$(kubectl exec v-target-sc2-0 -i -c server -- bash -c "vsql -U dbadmin -w superuser -tAc \"SELECT COUNT(*) FROM tables WHERE table_name = 'test_table2';\"")
+    echo "$result" | grep -Pzo "^0\n$" > /dev/null
+    if [ $? -ne 0 ]; then
+      echo "Assertion failed: expected 0, got $result"
+      exit 1
+    fi
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-verify-target-data
+  labels:
+    stern: include
+spec:
+  restartPolicy: Never
+  containers:
+    - name: test
+      image: bitnami/kubectl:1.20.4
+      command: ["/bin/entrypoint.sh"]
+      volumeMounts:
+        - name: entrypoint-volume
+          mountPath: /bin/entrypoint.sh
+          readOnly: true
+          subPath: entrypoint.sh
+  volumes:
+    - name: entrypoint-volume
+      configMap:
+        defaultMode: 0777
+        name: script-verify-target-data

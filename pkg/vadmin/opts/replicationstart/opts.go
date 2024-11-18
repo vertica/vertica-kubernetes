@@ -25,6 +25,11 @@ type Parms struct {
 	TargetPassword    string
 	SourceTLSConfig   string
 	SourceSandboxName string
+	Async             bool
+	ObjectName        string
+	IncludePattern    string
+	ExcludePattern    string
+	TargetNamespace   string
 }
 
 type Option func(*Parms)
@@ -81,5 +86,35 @@ func WithSourceTLSConfig(sourceTLSConfig string) Option {
 func WithSourceSandboxName(sandboxName string) Option {
 	return func(s *Parms) {
 		s.SourceSandboxName = sandboxName
+	}
+}
+
+func WithAsync(async bool) Option {
+	return func(s *Parms) {
+		s.Async = async
+	}
+}
+
+func WithObjectName(objectName string) Option {
+	return func(s *Parms) {
+		s.ObjectName = objectName
+	}
+}
+
+func WithIncludePattern(includePattern string) Option {
+	return func(s *Parms) {
+		s.IncludePattern = includePattern
+	}
+}
+
+func WithExcludePattern(excludePattern string) Option {
+	return func(s *Parms) {
+		s.ExcludePattern = excludePattern
+	}
+}
+
+func WithTargetNamespace(targetNamespace string) Option {
+	return func(s *Parms) {
+		s.TargetNamespace = targetNamespace
 	}
 }

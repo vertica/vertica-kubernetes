@@ -64,12 +64,15 @@ func updateImpl(ctx context.Context, clnt client.Client, log logr.Logger, vrep *
 // This is a no-op if the status condition is already set. The input vrep will
 // be updated with the status condition.
 func Update(ctx context.Context, clnt client.Client, log logr.Logger,
-	vrep *vapi.VerticaReplicator, conditions []*metav1.Condition, state string) error {
+	vrep *vapi.VerticaReplicator, conditions []*metav1.Condition, state string, transactionID int64) error {
 	refreshConditionInPlace := func(vrep *vapi.VerticaReplicator) error {
 		// refreshConditionInPlace will update the status condition, state
 		// in vrep. The update will be applied in-place.
 		if vrep.Status.State != state {
 			vrep.Status.State = state
+		}
+		if vrep.Status.TransactionID != transactionID {
+			vrep.Status.TransactionID = transactionID
 		}
 		for _, condition := range conditions {
 			meta.SetStatusCondition(&vrep.Status.Conditions, *condition)

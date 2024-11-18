@@ -330,6 +330,12 @@ const (
 	// This indicates that the subcluster shutdown is controlled by the sandbox
 	// through the sandbox's shutdown field.
 	ShutdownDrivenBySandbox = "vertica.com/shutdown-driven-by-sandbox"
+
+	// The timeout, in seconds, to use when the operator is polling the status of an ongoing
+	// asynchronous replication operation. If omitted, we use the default timeout of 60 minutes.
+	ReplicationTimeoutAnnotation = "vertica.com/replication-timeout"
+	ReplicationDefaultTimeout    = 60 * 60
+	ReplicationPollingFrequency  = 0
 )
 
 // IsPauseAnnotationSet will check the annotations for a special value that will
