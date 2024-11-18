@@ -22,6 +22,7 @@ import (
 
 	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
+	"github.com/vertica/vertica-kubernetes/pkg/builder"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
@@ -138,6 +139,14 @@ func (d *DBRemoveSubclusterReconciler) removeExtraSubclusters(ctx context.Contex
 			return ctrl.Result{}, fmt.Errorf("failed to update subcluster status: %w", err)
 		}
 
+		if vmeta.UseVProxy(d.Vdb.Annotations) {
+			// Remove client proxy deployment
+			err := d.removeClientProxy(ctx, subclusters[i])
+			if err != nil {
+				return ctrl.Result{}, err
+			}
+		}
+
 		// We successfully called remove subcluster and updated the status, invalidate
 		// the pod facts cache so that it is refreshed the next time we need it.
 		d.PFacts.Invalidate()
@@ -197,6 +206,25 @@ func (d *DBRemoveSubclusterReconciler) updateSubclusterStatus(ctx context.Contex
 		return nil
 	}
 	return vdbstatus.Update(ctx, d.VRec.Client, d.Vdb, refreshInPlace)
+}
+
+// removeClientProxy will remove client proxy and related config map
+func (d *DBRemoveSubclusterReconciler) removeClientProxy(ctx context.Context, sc *vapi.Subcluster) error {
+	cmName := names.GenVProxyConfigMapName(d.Vdb, sc)
+	vpName := names.GenVProxyName(d.Vdb, sc)
+	vpDep := builder.BuildVProxyDeployment(vpName, d.Vdb, sc)
+	cmDep := builder.BuildVProxyConfigMap(cmName, d.Vdb, sc)
+
+	if sc.Size == 0 {
+		d.Log.Info("Deleting client proxy config map", "Name", cmName)
+		err := d.VRec.GetClient().Delete(ctx, cmDep)
+		if err != nil {
+			return err
+		}
+		d.Log.Info("Delete deployment", "Name", vpName, "Size", vpDep.Spec.Replicas, "Image", vpDep.Spec.Template.Spec.Containers[0].Image)
+		return deleteDep(ctx, d.VRec, vpDep, d.Vdb)
+	}
+	return nil
 }
 
 // resetDefaultSubcluster will set the default subcluster to the first
