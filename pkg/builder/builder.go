@@ -958,7 +958,7 @@ func makeDataForVProxyConfigMap(vdb *vapi.VerticaDB, sc *vapi.Subcluster) string
 	port := 5433
 
 	for i := int32(0); i < sc.Size; i++ {
-		nodeItem := fmt.Sprintf("%s:%d", names.GenPodName(vdb, sc, i).Name, port)
+		nodeItem := fmt.Sprintf("%s:%d", names.GenPodDNSName(vdb, sc, i), port)
 		nodeList = append(nodeList, nodeItem)
 	}
 

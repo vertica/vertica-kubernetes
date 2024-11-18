@@ -219,6 +219,8 @@ func MakeDepSelectorLabels(vdb *vapi.VerticaDB, sc *vapi.Subcluster) map[string]
 	// derived from the deployment name as that stays constant and is unique in
 	// a namespace.
 	m[vmeta.DeploymentSelectorLabel] = sc.GetVProxyDeploymentName(vdb)
+	// Set the common proxy pod selector
+	m[vmeta.ProxyPodSelectorLabel] = vmeta.ProxyPodSelectorVal
 	return m
 }
 

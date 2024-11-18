@@ -114,6 +114,13 @@ const (
 	// subcluster rename. So, it shouldn't be treated as such.
 	DeploymentSelectorLabel = "vertica.com/deployment-selector-name"
 
+	// This is set in all proxy pods, and is used to filter out all proxy pods
+	// in vdb reconcilers as a pod selector. This stays constant for the life
+	// of the deployment. If it is set to true, then the pod is a proxy pod;
+	// if it is set to other value or not set, then the pod is not a proxy pod.
+	ProxyPodSelectorLabel = "vertica.com/proxy-pod"
+	ProxyPodSelectorVal   = "true"
+
 	// ConfigMap objects
 	//
 	// This indicates that the object is watched by the sandbox controller.

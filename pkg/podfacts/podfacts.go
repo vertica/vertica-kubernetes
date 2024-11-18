@@ -1652,7 +1652,7 @@ func (p *PodFacts) QuorumCheckForRestartCluster(restartOnly bool) bool {
 		}
 		return 0
 	})
-	return restartablePrimaryNodeCount >= primaryNodeCount/2+1
+	return restartablePrimaryNodeCount > primaryNodeCount/2
 }
 
 // DoesDBHaveQuorum returns true if the cluster will keep quorum
