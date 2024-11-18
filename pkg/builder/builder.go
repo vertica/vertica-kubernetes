@@ -862,30 +862,20 @@ func makeScrutinizeInitContainers(vscr *v1beta1.VerticaScrutinize, vdb *vapi.Ver
 
 // BuildVProxyDeployment builds manifest for a subclusters VProxy deployment
 func BuildVProxyDeployment(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi.Subcluster) *appsv1.Deployment {
-	proxyLabels := MakeLabelsForVProxyObject(vdb, sc, true)
-	depSelectorLabels := MakeDepSelectorLabels(vdb, sc)
-	// pod should have both proxy labels and deployment selector labels
-	depPodLabels := make(map[string]string)
-	for k, v := range proxyLabels {
-		depPodLabels[k] = v
-	}
-	for k, v := range depSelectorLabels {
-		depPodLabels[k] = v
-	}
 	return &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        nm.Name,
 			Namespace:   nm.Namespace,
-			Labels:      proxyLabels,
+			Labels:      MakeLabelsForVProxyObject(vdb, sc, true),
 			Annotations: MakeAnnotationsForVProxyObject(vdb),
 		},
 		Spec: appsv1.DeploymentSpec{
 			Selector: &metav1.LabelSelector{
-				MatchLabels: depSelectorLabels,
+				MatchLabels: MakeDepSelectorLabels(vdb, sc),
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Labels:      depPodLabels,
+					Labels:      MakeDepSelectorLabels(vdb, sc),
 					Annotations: MakeAnnotationsForVProxyObject(vdb),
 				},
 				Spec: buildVProxyPodSpec(vdb, sc),
@@ -958,7 +948,7 @@ func makeDataForVProxyConfigMap(vdb *vapi.VerticaDB, sc *vapi.Subcluster) string
 	port := 5433
 
 	for i := int32(0); i < sc.Size; i++ {
-		nodeItem := fmt.Sprintf("%s:%d", names.GenPodDNSName(vdb, sc, i), port)
+		nodeItem := fmt.Sprintf("%s:%d", names.GenPodName(vdb, sc, i).Name, port)
 		nodeList = append(nodeList, nodeItem)
 	}
 

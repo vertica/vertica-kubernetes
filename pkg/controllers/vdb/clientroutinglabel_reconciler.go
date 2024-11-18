@@ -28,7 +28,6 @@ import (
 	config "github.com/vertica/vertica-kubernetes/pkg/vdbconfig"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -72,11 +71,6 @@ func MakeClientRoutingLabelReconciler(recon config.ReconcilerInterface, log logr
 func (c *ClientRoutingLabelReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
 	c.Log.Info("Reconcile client routing label", "applyMethod", c.ApplyMethod)
 
-	// If we are using vproxy, we don't need to modify client routing label on pods
-	if vmeta.UseVProxy(c.Vdb.Annotations) {
-		return c.reconcileProxy(ctx)
-	}
-
 	if err := c.PFacts.Collect(ctx, c.Vdb); err != nil {
 		return ctrl.Result{}, err
 	}
@@ -96,53 +90,6 @@ func (c *ClientRoutingLabelReconciler) Reconcile(ctx context.Context, _ *ctrl.Re
 		}
 	}
 	return savedRes, nil
-}
-
-// reconcileProxy will reconcile client routing label for all proxy pods
-func (c *ClientRoutingLabelReconciler) reconcileProxy(ctx context.Context) (ctrl.Result, error) {
-	pods := corev1.PodList{}
-	proxyLabels := map[string]string{
-		vmeta.ProxyPodSelectorLabel: vmeta.ProxyPodSelectorVal,
-		vmeta.VDBInstanceLabel:      c.Vdb.Name,
-	}
-	listOps := &client.ListOptions{
-		LabelSelector: labels.SelectorFromSet(labels.Set(proxyLabels)),
-		Namespace:     c.Vdb.GetNamespace(),
-	}
-	err := c.Rec.GetClient().List(ctx, &pods, listOps)
-	if err != nil {
-		c.Log.Error(err, "unable to list proxy pods")
-		return ctrl.Result{}, nil
-	}
-	for inx := range pods.Items {
-		pod := &pods.Items[inx]
-		labelVal, labelExists := pod.Labels[vmeta.ClientRoutingLabel]
-		if labelExists && labelVal == vmeta.ClientRoutingVal {
-			continue
-		}
-		// Check if the pod's conditions include 'Ready' being true
-		podIsReady := false
-		for _, condition := range pod.Status.Conditions {
-			if condition.Type == corev1.PodReady && condition.Status == corev1.ConditionTrue {
-				podIsReady = true
-				break
-			}
-		}
-		if pod.Status.Phase != corev1.PodRunning || !podIsReady {
-			c.Log.Info("Proxy pod is not ready", "pod", pod.Name)
-			continue
-		}
-		patch := client.MergeFrom(pod.DeepCopy())
-		pod.Labels[vmeta.ClientRoutingLabel] = vmeta.ClientRoutingVal
-		c.Log.Info("Adding client routing label to proxy pod", "pod",
-			pod.Name, "label", fmt.Sprintf("%s=%s", vmeta.ClientRoutingLabel, vmeta.ClientRoutingVal))
-		err := c.Rec.GetClient().Patch(ctx, pod, patch)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-		c.Log.Info("Proxy pod has been patched", "pod", pod.Name, "labels", pod.Labels)
-	}
-	return ctrl.Result{}, nil
 }
 
 // reconcilePod will handle checking for the label of a single pod

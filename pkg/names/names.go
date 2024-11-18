@@ -105,11 +105,6 @@ func GenPodName(vdb *vapi.VerticaDB, sc *vapi.Subcluster, podIndex int32) types.
 	return GenNamespacedName(vdb, fmt.Sprintf("%s-%d", stsName, podIndex))
 }
 
-// GenPodDNSName returns the DNS name of a specific pod
-func GenPodDNSName(vdb *vapi.VerticaDB, sc *vapi.Subcluster, podIndex int32) string {
-	return fmt.Sprintf("%s.%s.%s.svc.cluster.local", GenPodName(vdb, sc, podIndex).Name, vdb.Name, vdb.Namespace)
-}
-
 // GenPodNameFromSts returns the name of a specific pod in a statefulset
 func GenPodNameFromSts(vdb *vapi.VerticaDB, sts *appsv1.StatefulSet, podIndex int32) types.NamespacedName {
 	return types.NamespacedName{

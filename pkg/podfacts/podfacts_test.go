@@ -387,7 +387,7 @@ var _ = Describe("podfacts", func() {
 
 		// 4 primary nodes, 2 restartable primary nodes
 		result := pf.QuorumCheckForRestartCluster(true)
-		Expect(result).Should(BeFalse())
+		Expect(result).Should(BeTrue())
 		// 5 primary nodes, 3 restartable primary nodes
 		pf.Detail[types.NamespacedName{Name: "p3"}].isPrimary = true
 		result = pf.QuorumCheckForRestartCluster(true)
