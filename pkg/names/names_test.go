@@ -42,6 +42,14 @@ var _ = Describe("k8s/names", func() {
 		))
 	})
 
+	It("pod dns name should be correct", func() {
+		vdb := vapi.MakeVDB()
+		vdb.ObjectMeta.Name = "name-test"
+		vdb.ObjectMeta.Namespace = "my-ns"
+		vdb.Spec.Subclusters[0].Name = "my-sc"
+		Ω(GenPodDNSName(vdb, &vdb.Spec.Subclusters[0], 9)).Should(Equal("name-test-my-sc-9.name-test.my-ns.svc.cluster.local"))
+	})
+
 	It("subcluster and external service generated names should not contain `_`", func() {
 		vdb := vapi.MakeVDB()
 		vdb.ObjectMeta.Name = "v"
