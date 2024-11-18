@@ -106,7 +106,6 @@ func (v *VerticaDB) ValidateCreate() error {
 	verticadblog.Info("validate create", "name", v.Name, "GroupVersion", GroupVersion)
 
 	allErrs := v.validateVerticaDBSpec()
-	allErrs = v.checkNewSBoxOrSClusterShutdownUnset(allErrs)
 	if len(allErrs) == 0 {
 		return nil
 	}
@@ -237,6 +236,7 @@ func (v *VerticaDB) validateVerticaDBSpec() field.ErrorList {
 	allErrs = v.hasValidReplicaGroups(allErrs)
 	allErrs = v.validateVersionAnnotation(allErrs)
 	allErrs = v.validateSandboxes(allErrs)
+	allErrs = v.checkNewSBoxOrSClusterShutdownUnset(allErrs)
 	if len(allErrs) == 0 {
 		return nil
 	}
@@ -1783,7 +1783,7 @@ func (v *VerticaDB) checkShutdownForScaleUpOrDown(oldObj *VerticaDB, allErrs fie
 		}
 		_, inSandbox := sclusterSboxMap[subclusterName]
 		if inSandbox {
-			continue // this scenario is handled by another webhook rule
+			continue // this scenario is handled by checkImmutableSubclusterInSandbox()
 		}
 		if oldScluster.Size != newScluster.Size { // scale up/down
 			subclusterStatus, hasStatus := statusSubclusterMap[subclusterName]
@@ -1986,11 +1986,13 @@ func (v *VerticaDB) checkShutdownForSubclustersToBeRemoved(oldObj *VerticaDB, al
 	newSubclusterMap := v.GenSubclusterMap()
 	statusSubclusterMap := v.GenStatusSubclusterMap()
 	subclustersToBeRemoved := vutil.MapKeyDiff(oldSubclusterMap, newSubclusterMap)
+	oldSubclusterIndexMap := oldObj.GenSubclusterIndexMap()
 	p := field.NewPath("spec").Child("subclusters")
 	for _, subclusterToBeRemoved := range subclustersToBeRemoved {
 		subclusterstatus, foundInStatus := statusSubclusterMap[subclusterToBeRemoved]
 		if oldSubclusterMap[subclusterToBeRemoved].Shutdown || (foundInStatus && subclusterstatus.Shutdown) {
-			err := field.Invalid(p,
+			i := oldSubclusterIndexMap[subclusterToBeRemoved]
+			err := field.Invalid(p.Index(i),
 				subclusterToBeRemoved,
 				fmt.Sprintf("cannot remove subcluster %q that has Shutdown field set to true",
 					subclusterToBeRemoved))
