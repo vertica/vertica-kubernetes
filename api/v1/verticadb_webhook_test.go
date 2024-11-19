@@ -1593,6 +1593,176 @@ var _ = Describe("verticadb_webhook", func() {
 
 	})
 
+	It("should not scale up/down a subcluster when its shutdown field or its sandbox's shutdown field is set", func() {
+		oldVdb := MakeVDB()
+		oldVdb.Spec.Subclusters = []Subcluster{
+			{Name: "main", Type: PrimarySubcluster, Size: 3, ServiceType: v1.ServiceTypeClusterIP},
+			{Name: "sc1", Type: SandboxPrimarySubcluster, Size: 3, ServiceType: v1.ServiceTypeClusterIP},
+			{Name: "sc2", Type: SecondarySubcluster, Size: 3, ServiceType: v1.ServiceTypeNodePort},
+			{Name: "sc3", Type: SecondarySubcluster, Size: 3, ServiceType: v1.ServiceTypeNodePort},
+		}
+		oldVdb.Spec.Sandboxes = []Sandbox{
+			{Name: "sand1", Subclusters: []SubclusterName{{Name: "sc1"}}},
+			{Name: "sand2", Subclusters: []SubclusterName{{Name: "sc2"}}},
+		}
+		newVdb := oldVdb.DeepCopy()
+		newVdb.Status.Sandboxes = []SandboxStatus{
+			{Name: "sand1", Subclusters: []string{"sc1"}},
+			{Name: "sand2", Subclusters: []string{"sc2"}},
+		}
+		newVdb.Status.Subclusters = []SubclusterStatus{
+			{Name: "main"},
+			{Name: "sc1"},
+			{Name: "sc2"},
+			{Name: "sc3"},
+		}
+		newVdb.Spec.Subclusters[3].Size = 4
+		Ω(newVdb.checkShutdownForScaleUpOrDown(oldVdb, field.ErrorList{})).Should(HaveLen(0))
+		newVdb.Spec.Subclusters[3].Shutdown = true
+		Ω(newVdb.checkShutdownForScaleUpOrDown(oldVdb, field.ErrorList{})).Should(HaveLen(1))
+		newVdb.Spec.Subclusters[3].Size = 2
+		Ω(newVdb.checkShutdownForScaleUpOrDown(oldVdb, field.ErrorList{})).Should(HaveLen(1))
+		newVdb.Spec.Subclusters[3].Shutdown = false
+		Ω(newVdb.checkShutdownForScaleUpOrDown(oldVdb, field.ErrorList{})).Should(HaveLen(0))
+		newVdb.Status.Subclusters[3].Shutdown = true
+		Ω(newVdb.checkShutdownForScaleUpOrDown(oldVdb, field.ErrorList{})).Should(HaveLen(1))
+		newVdb.Status.Subclusters[3].Shutdown = false
+		Ω(newVdb.checkShutdownForScaleUpOrDown(oldVdb, field.ErrorList{})).Should(HaveLen(0))
+		newVdb.Spec.Subclusters[1].Size = 4
+		Ω(newVdb.validateImmutableFields(oldVdb)).Should(HaveLen(1))
+
+	})
+
+	It("should not sandbox a subcluster when its shutdown field or its sandbox's shutdown field is set", func() {
+		newVdb := MakeVDB()
+		newVdb.Spec.Subclusters = []Subcluster{
+			{Name: "main", Type: PrimarySubcluster, Size: 3, ServiceType: v1.ServiceTypeClusterIP},
+			{Name: "sc1", Type: SandboxPrimarySubcluster, Size: 3, ServiceType: v1.ServiceTypeClusterIP},
+			{Name: "sc2", Type: SecondarySubcluster, Size: 3, ServiceType: v1.ServiceTypeNodePort},
+			{Name: "sc3", Type: SecondarySubcluster, Size: 3, ServiceType: v1.ServiceTypeNodePort},
+		}
+		// to sandbox sc3 in sand2. sc3 was existing previously but not in a sandbox
+		newVdb.Spec.Sandboxes = []Sandbox{
+			{Name: "sand1", Subclusters: []SubclusterName{{Name: "sc1"}}},
+			{Name: "sand2", Subclusters: []SubclusterName{{Name: "sc2"}, {Name: "sc3"}}},
+		}
+		newVdb.Status.Sandboxes = []SandboxStatus{
+			{Name: "sand1", Subclusters: []string{"sc1"}},
+			{Name: "sand2", Subclusters: []string{"sc2"}},
+		}
+		newVdb.Status.Subclusters = []SubclusterStatus{
+			{Name: "main"},
+			{Name: "sc1"},
+			{Name: "sc2"},
+			{Name: "sc3"},
+		}
+		newVdb.Spec.Subclusters[3].Shutdown = true
+		Ω(newVdb.checkSClusterToBeSandboxedShutdownUnset(field.ErrorList{})).Should(HaveLen(1))
+		newVdb.Spec.Subclusters[3].Shutdown = false
+		Ω(newVdb.checkSClusterToBeSandboxedShutdownUnset(field.ErrorList{})).Should(HaveLen(0))
+		newVdb.Status.Subclusters[3].Shutdown = true
+		Ω(newVdb.checkSClusterToBeSandboxedShutdownUnset(field.ErrorList{})).Should(HaveLen(1))
+		newVdb.Status.Subclusters[3].Shutdown = false
+		Ω(newVdb.checkSClusterToBeSandboxedShutdownUnset(field.ErrorList{})).Should(HaveLen(0))
+		newVdb.Spec.Sandboxes[1].Shutdown = true
+		Ω(newVdb.checkSClusterToBeSandboxedShutdownUnset(field.ErrorList{})).Should(HaveLen(1))
+		newVdb.Spec.Sandboxes[1].Shutdown = false
+		Ω(newVdb.checkSClusterToBeSandboxedShutdownUnset(field.ErrorList{})).Should(HaveLen(0))
+
+		// sc3 not found in status and to be added
+		newVdb.Status.Subclusters = []SubclusterStatus{
+			{Name: "main"},
+			{Name: "sc1"},
+			{Name: "sc2"},
+		}
+		Ω(newVdb.checkSClusterToBeSandboxedShutdownUnset(field.ErrorList{})).Should(HaveLen(0))
+		newVdb.Spec.Sandboxes[1].Shutdown = true
+		Ω(newVdb.checkSClusterToBeSandboxedShutdownUnset(field.ErrorList{})).Should(HaveLen(1))
+		newVdb.Spec.Sandboxes[1].Shutdown = false
+		Ω(newVdb.checkSClusterToBeSandboxedShutdownUnset(field.ErrorList{})).Should(HaveLen(0))
+
+		// sc3 is to be unsandboxsed from sand1 and sandboxed in sand2
+		oldVdb := MakeVDB()
+		oldVdb.Spec.Subclusters = []Subcluster{
+			{Name: "main", Type: PrimarySubcluster, Size: 3, ServiceType: v1.ServiceTypeClusterIP},
+			{Name: "sc1", Type: SandboxPrimarySubcluster, Size: 3, ServiceType: v1.ServiceTypeClusterIP},
+			{Name: "sc2", Type: SecondarySubcluster, Size: 3, ServiceType: v1.ServiceTypeNodePort},
+			{Name: "sc3", Type: SecondarySubcluster, Size: 3, ServiceType: v1.ServiceTypeNodePort},
+		}
+		oldVdb.Spec.Sandboxes = []Sandbox{
+			{Name: "sand1", Subclusters: []SubclusterName{{Name: "sc1"}, {Name: "sc3"}}},
+			{Name: "sand2", Subclusters: []SubclusterName{{Name: "sc2"}}},
+		}
+		newVdb = oldVdb.DeepCopy()
+		newVdb.Status.Subclusters = []SubclusterStatus{
+			{Name: "main"},
+			{Name: "sc1"},
+			{Name: "sc2"},
+			{Name: "sc3"},
+		}
+		newVdb.Status.Sandboxes = []SandboxStatus{
+			{Name: "sand1", Subclusters: []string{"sc1", "sc3"}},
+			{Name: "sand2", Subclusters: []string{"sc2"}},
+		}
+		newVdb.Spec.Sandboxes = []Sandbox{
+			{Name: "sand1", Subclusters: []SubclusterName{{Name: "sc1"}}},
+			{Name: "sand2", Subclusters: []SubclusterName{{Name: "sc2"}, {Name: "sc3"}}},
+		}
+		Ω(newVdb.checkSClusterToBeSandboxedShutdownUnset(field.ErrorList{})).Should(HaveLen(0))
+		newVdb.Spec.Subclusters[3].Shutdown = true
+		Ω(newVdb.checkSClusterToBeSandboxedShutdownUnset(field.ErrorList{})).Should(HaveLen(1))
+		newVdb.Spec.Subclusters[3].Shutdown = false
+		Ω(newVdb.checkSClusterToBeSandboxedShutdownUnset(field.ErrorList{})).Should(HaveLen(0))
+		newVdb.Status.Subclusters[3].Shutdown = true
+		Ω(newVdb.checkSClusterToBeSandboxedShutdownUnset(field.ErrorList{})).Should(HaveLen(1))
+		newVdb.Status.Subclusters[3].Shutdown = false
+		Ω(newVdb.checkSClusterToBeSandboxedShutdownUnset(field.ErrorList{})).Should(HaveLen(0))
+		newVdb.Spec.Sandboxes[1].Shutdown = true
+		Ω(newVdb.checkSClusterToBeSandboxedShutdownUnset(field.ErrorList{})).Should(HaveLen(1))
+		newVdb.Spec.Sandboxes[1].Shutdown = false
+		Ω(newVdb.checkSClusterToBeSandboxedShutdownUnset(field.ErrorList{})).Should(HaveLen(0))
+	})
+
+	It("should not sandbox a subcluster when sandbox/ other subclusters has shutdown set", func() {
+		// another scenario where one subcluster is moved from one sandbox to another
+		newVdb := MakeVDB()
+		newVdb.Spec.Subclusters = []Subcluster{
+			{Name: "main", Type: PrimarySubcluster, Size: 3, ServiceType: v1.ServiceTypeClusterIP},
+			{Name: "sc1", Type: SandboxPrimarySubcluster, Size: 3, ServiceType: v1.ServiceTypeClusterIP},
+			{Name: "sc2", Type: SecondarySubcluster, Size: 3, ServiceType: v1.ServiceTypeNodePort},
+			{Name: "sc3", Type: SecondarySubcluster, Size: 3, ServiceType: v1.ServiceTypeNodePort},
+		}
+		// to sandbox sc3 in sand2. sc3 was existing previously but not in a sandbox
+		newVdb.Spec.Sandboxes = []Sandbox{
+			{Name: "sand1", Subclusters: []SubclusterName{{Name: "sc1"}}},
+			{Name: "sand2", Subclusters: []SubclusterName{{Name: "sc2"}, {Name: "sc3"}}},
+		}
+		newVdb.Status.Sandboxes = []SandboxStatus{
+			{Name: "sand1", Subclusters: []string{"sc1"}},
+			{Name: "sand2", Subclusters: []string{"sc2"}},
+		}
+		newVdb.Status.Subclusters = []SubclusterStatus{
+			{Name: "main"},
+			{Name: "sc1"},
+			{Name: "sc2"},
+			{Name: "sc3"},
+		}
+		Ω(newVdb.checkSClusterToBeSandboxedShutdownUnset(field.ErrorList{})).Should(HaveLen(0))
+		newVdb.Spec.Sandboxes[1].Shutdown = true
+		Ω(newVdb.checkSClusterToBeSandboxedShutdownUnset(field.ErrorList{})).Should(HaveLen(1))
+		newVdb.Spec.Sandboxes[1].Shutdown = false
+		Ω(newVdb.checkSClusterToBeSandboxedShutdownUnset(field.ErrorList{})).Should(HaveLen(0))
+		newVdb.Spec.Subclusters[2].Shutdown = true
+		Ω(newVdb.checkSClusterToBeSandboxedShutdownUnset(field.ErrorList{})).Should(HaveLen(1))
+		newVdb.Spec.Subclusters[2].Shutdown = false
+		Ω(newVdb.checkSClusterToBeSandboxedShutdownUnset(field.ErrorList{})).Should(HaveLen(0))
+		newVdb.Status.Subclusters[2].Shutdown = true
+		Ω(newVdb.checkSClusterToBeSandboxedShutdownUnset(field.ErrorList{})).Should(HaveLen(1))
+		newVdb.Status.Subclusters[2].Shutdown = false
+		Ω(newVdb.checkSClusterToBeSandboxedShutdownUnset(field.ErrorList{})).Should(HaveLen(0))
+
+	})
+
 	It("should not change image for a sandbox if shutdown is set for it or its subcluster in either spec or status", func() {
 		oldVdb := MakeVDB()
 		oldVdb.Spec.Subclusters = []Subcluster{
@@ -1679,6 +1849,56 @@ var _ = Describe("verticadb_webhook", func() {
 		oldVdb.Spec.Sandboxes[0].Shutdown = false
 		Ω(newVdb.checkShutdownForSandboxesToBeRemoved(oldVdb, field.ErrorList{})).Should(HaveLen(0))
 
+	})
+
+	It("should not remove a subcluster whose shutdown field in spec/status is set", func() {
+		oldVdb := MakeVDB()
+		oldVdb.Spec.Subclusters = []Subcluster{
+			{Name: "sc1", Type: PrimarySubcluster, Size: 3, ServiceType: v1.ServiceTypeClusterIP},
+			{Name: "sc2", Type: SandboxPrimarySubcluster, Shutdown: true, Size: 3, ServiceType: v1.ServiceTypeClusterIP},
+			{Name: "sc3", Type: SecondarySubcluster, Shutdown: true, Size: 3, ServiceType: v1.ServiceTypeNodePort},
+			{Name: "sc4", Type: SecondarySubcluster, Size: 3, ServiceType: v1.ServiceTypeNodePort},
+		}
+		oldVdb.Spec.Sandboxes = []Sandbox{
+			{Name: "sand1", Image: "vertica-k8s:v1", Shutdown: true, Subclusters: []SubclusterName{{Name: "sc2"}, {Name: "sc3"}}},
+		}
+		newVdb := oldVdb.DeepCopy()
+		newVdb.Spec.Subclusters = []Subcluster{ // sc3 is removed from sandbox and vdb
+			{Name: "sc1", Type: PrimarySubcluster, Size: 3, ServiceType: v1.ServiceTypeClusterIP},
+			{Name: "sc2", Type: SandboxPrimarySubcluster, Shutdown: true, Size: 3, ServiceType: v1.ServiceTypeClusterIP},
+			{Name: "sc4", Type: SecondarySubcluster, Size: 3, ServiceType: v1.ServiceTypeNodePort},
+		}
+		newVdb.Spec.Sandboxes = []Sandbox{
+			{Name: "sand1", Image: "vertica-k8s:v1", Shutdown: true, Subclusters: []SubclusterName{{Name: "sc2"}}},
+		}
+		newVdb.Status.Subclusters = []SubclusterStatus{
+			{Name: "sc1"},
+			{Name: "sc2", Shutdown: true},
+			{Name: "sc3", Shutdown: true},
+			{Name: "sc4"},
+		}
+
+		Ω(newVdb.checkShutdownForSubclustersToBeRemoved(oldVdb, field.ErrorList{})).Should(HaveLen(1))
+		oldVdb = MakeVDB()
+		oldVdb.Spec.Subclusters = []Subcluster{
+			{Name: "sc1", Type: PrimarySubcluster, Size: 3, ServiceType: v1.ServiceTypeClusterIP},
+			{Name: "sc2", Type: SandboxPrimarySubcluster, Shutdown: true, Size: 3, ServiceType: v1.ServiceTypeClusterIP},
+			{Name: "sc3", Type: SecondarySubcluster, Shutdown: true, Size: 3, ServiceType: v1.ServiceTypeNodePort},
+			{Name: "sc4", Type: SecondarySubcluster, Size: 3, ServiceType: v1.ServiceTypeNodePort},
+		}
+		newVdb = oldVdb.DeepCopy()
+		newVdb.Spec.Subclusters = []Subcluster{ // sc3 is removed from vdb
+			{Name: "sc1", Type: PrimarySubcluster, Size: 3, ServiceType: v1.ServiceTypeClusterIP},
+			{Name: "sc2", Type: SandboxPrimarySubcluster, Shutdown: true, Size: 3, ServiceType: v1.ServiceTypeClusterIP},
+			{Name: "sc4", Type: SecondarySubcluster, Size: 3, ServiceType: v1.ServiceTypeNodePort},
+		}
+		newVdb.Status.Subclusters = []SubclusterStatus{
+			{Name: "sc1"},
+			{Name: "sc2", Shutdown: true},
+			{Name: "sc3", Shutdown: true},
+			{Name: "sc4"},
+		}
+		Ω(newVdb.checkShutdownForSubclustersToBeRemoved(oldVdb, field.ErrorList{})).Should(HaveLen(1))
 	})
 
 })
