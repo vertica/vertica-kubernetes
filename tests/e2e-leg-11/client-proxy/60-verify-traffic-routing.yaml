@@ -14,32 +14,32 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: script-client-proxy-config
+  name: script-client-proxy-connection-2
 data:
   entrypoint.sh: |-
     #!/bin/bash
     set -o errexit
     set -o xtrace
     
-    # get the proxy pod name
-    PROXY_PRI1=$(kubectl get pod -l pod-template-hash,vertica.com/deployment-selector-name=v-client-proxy-pri1-proxy --no-headers -o custom-columns=:.metadata.name)
+    # get ips of proxy pods
+    PROXY_POD1_IP=$(kubectl get pod -l pod-template-hash,vertica.com/deployment-selector-name=v-client-proxy-pri1-proxy -o jsonpath='{.items[0].status.podIP}'')
+    PROXY_POD2_IP=$(kubectl get pod -l pod-template-hash,vertica.com/deployment-selector-name=v-client-proxy-pri1-proxy -o jsonpath='{.items[1].status.podIP}'')
     
-    # get the content of the config.yaml
-    CONFIG=$(kubectl exec -i $PROXY_PRI1 -- sh -c "cat /config/config.yaml")
-    
+    # use vsql to connect to service "pri1" inside a vertica pod and get the client ip
     NAMESPACE=$(kubectl get pod v-client-proxy-pri1-0 -o=jsonpath='{.metadata.namespace}')
-    for POD_NAME in v-client-proxy-pri1-0.v-client-proxy.${NAMESPACE}.svc.cluster.local v-client-proxy-pri1-1.v-client-proxy.${NAMESPACE}.svc.cluster.local v-client-proxy-pri1-2.v-client-proxy.${NAMESPACE}.svc.cluster.local; do
-      RESULT=$(echo "$CONFIG" | grep -Pzo "$POD_NAME:5433" | tr -d '\0')
-      if [ "$POD_NAME:5433" != "$RESULT" ]; then
-        echo "Assertion failed: expect \"$POD_NAME:5433\" to be defined in config.yaml, got \"$RESULT\""
-        exit 1
-      fi
-    done
+    SERVICE_DNS=v-client-pri1.${NAMESPACE}.svc.cluster.local
+    CLIENT_IP=$(kubectl exec v-client-proxy-pri1-0 -i -c server -- bash -c "vsql -h $SERVICE_DNS -U dbadmin -m disable -tAc 'SELECT client_hostname FROM current_session;'" | cut -d':' -f1)
+    
+    # verify the connection is made by proxy pods
+    if [[ "$CLIENT_IP" != "$PROXY_POD1_IP" && "$CLIENT_IP" != "$PROXY_POD2_IP" ]]; then
+      echo "Client ip mismatch: expect the client ip to be $PROXY_POD1_IP or $PROXY_POD2_IP, got $CLIENT_IP"
+      exit 1
+    fi
 ---
 apiVersion: v1
 kind: Pod
 metadata:
-  name: test-client-proxy-config
+  name: test-client-proxy-connection-2
   labels:
     stern: include
 spec:
@@ -57,4 +57,4 @@ spec:
     - name: entrypoint-volume
       configMap:
         defaultMode: 0777
-        name: script-client-proxy-config
+        name: script-client-proxy-connection-2

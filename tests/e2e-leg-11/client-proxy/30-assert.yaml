@@ -11,36 +11,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: apps/v1
-kind: StatefulSet
-metadata:
-  name: v-client-proxy-pri1
-status:
-  currentReplicas: 3
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: v-client-proxy-pri1-proxy
-status:
-  readyReplicas: 2
----
 apiVersion: v1
-kind: ConfigMap
+kind: Pod
 metadata:
-  name: v-client-proxy-pri1-proxy-cm
-immutable: false
----
-apiVersion: vertica.com/v1
-kind: VerticaDB
-metadata:
-  name: v-client-proxy
-spec:
-  subclusters:
-    - name: pri1
-      proxy:
-        replica: 2
+  name: test-client-proxy-connection-1
 status:
-  subclusters:
-    - addedToDBCount: 3
-      upNodeCount: 3
+  containerStatuses:
+    - name: test
+      state:
+        terminated:
+          exitCode: 0 
