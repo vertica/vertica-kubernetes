@@ -437,6 +437,18 @@ func (o *ObjReconciler) createService(ctx context.Context, svc *corev1.Service, 
 	return o.Rec.GetClient().Create(ctx, svc)
 }
 
+// updateVProxyConfigMapFields checks if we need to update the content of a config map,
+// if so, we will update the content of that config map and return true
+func (o *ObjReconciler) updateVProxyConfigMapFields(curCM, newCM *corev1.ConfigMap) bool {
+	updated := false
+	if stringMapDiffer(curCM.Data, newCM.Data) {
+		updated = true
+		curCM.Data = newCM.Data
+	}
+
+	return updated
+}
+
 // checkVProxyConfigMap will create or update a client proxy config map if needed
 func (o *ObjReconciler) checkVProxyConfigMap(ctx context.Context, cmName types.NamespacedName, sc *vapi.Subcluster) error {
 	curCM := &corev1.ConfigMap{}
@@ -448,11 +460,10 @@ func (o *ObjReconciler) checkVProxyConfigMap(ctx context.Context, cmName types.N
 		return o.Rec.GetClient().Create(ctx, newCM)
 	}
 
-	// TODO: support client proxy update
-	// if o.updateVProxyConfigMapFields(curCM, newCM) {
-	// 	o.Log.Info("Updating client proxy config map", "Name", cmName)
-	//	return o.Rec.GetClient().Update(ctx, newCM)
-	//}
+	if o.updateVProxyConfigMapFields(curCM, newCM) {
+		o.Log.Info("Updating client proxy config map", "Name", cmName)
+		return o.Rec.GetClient().Update(ctx, newCM)
+	}
 	o.Log.Info("Found an existing client proxy config map with correct content, skip updating it", "Name", cmName)
 	return nil
 }
