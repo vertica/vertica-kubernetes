@@ -22,13 +22,11 @@ import (
 
 	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
-	"github.com/vertica/vertica-kubernetes/pkg/builder"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/iter"
-	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	pf "github.com/vertica/vertica-kubernetes/pkg/podfacts"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
@@ -148,14 +146,6 @@ func (d *DBRemoveNodeReconciler) removeNodesInSubcluster(ctx context.Context, sc
 			return ctrl.Result{}, fmt.Errorf("failed to update subcluster status: %w", err)
 		}
 
-		if vmeta.UseVProxy(d.Vdb.Annotations) {
-			// Scale donw client proxy size to 0
-			err := d.scaleDonwClientProxy(ctx, sc)
-			if err != nil {
-				return ctrl.Result{}, err
-			}
-		}
-
 		// We successfully called db_remove_node, invalidate the pod facts cache
 		// so that it is refreshed the next time we need it.
 		d.PFacts.Invalidate()
@@ -237,17 +227,4 @@ func (d *DBRemoveNodeReconciler) updateSubclusterStatus(ctx context.Context, rem
 		return nil
 	}
 	return vdbstatus.Update(ctx, d.VRec.Client, d.Vdb, refreshInPlace)
-}
-
-// scaleDonwClientProxy will scale down the client proxy replica size
-func (d *DBRemoveNodeReconciler) scaleDonwClientProxy(ctx context.Context, sc *vapi.Subcluster) error {
-	vpName := names.GenVProxyName(d.Vdb, sc)
-	vpDep := builder.BuildVProxyDeployment(vpName, d.Vdb, sc)
-
-	if sc.Size == 0 {
-		*vpDep.Spec.Replicas = 0
-		d.Log.Info("Scale donw client proxy size to 0", "Name", vpName, "Size", vpDep.Spec.Replicas, "Image", vpDep.Spec.Template.Spec.Containers[0].Image)
-		return updateDep(ctx, d.VRec, vpDep, d.Vdb)
-	}
-	return nil
 }
