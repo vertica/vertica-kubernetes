@@ -73,7 +73,7 @@ var _ = Describe("query_reconcile", func() {
 		defer test.DeletePods(ctx, k8sClient, targetVdb)
 
 		vrep := v1beta1.MakeVrep()
-		vrep.Spec.Mode = replicationModeSync
+		vrep.Spec.Mode = v1beta1.ReplicationModeSync
 		Expect(k8sClient.Create(ctx, vrep)).Should(Succeed())
 		defer func() { Expect(k8sClient.Delete(ctx, vrep)).Should(Succeed()) }()
 
@@ -118,7 +118,7 @@ var _ = Describe("query_reconcile", func() {
 		defer test.DeletePods(ctx, k8sClient, targetVdb)
 
 		vrep := v1beta1.MakeVrep()
-		vrep.Spec.Mode = replicationModeSync
+		vrep.Spec.Mode = v1beta1.ReplicationModeSync
 		Expect(k8sClient.Create(ctx, vrep)).Should(Succeed())
 		defer func() { Expect(k8sClient.Delete(ctx, vrep)).Should(Succeed()) }()
 
@@ -196,7 +196,7 @@ var _ = Describe("query_reconcile", func() {
 		defer test.DeletePods(ctx, k8sClient, targetVdb)
 
 		vrep := v1beta1.MakeVrep()
-		vrep.Spec.Mode = replicationModeSync
+		vrep.Spec.Mode = v1beta1.ReplicationModeSync
 		Expect(k8sClient.Create(ctx, vrep)).Should(Succeed())
 		defer func() { Expect(k8sClient.Delete(ctx, vrep)).Should(Succeed()) }()
 
@@ -291,7 +291,7 @@ var _ = Describe("query_reconcile", func() {
 		defer test.DeleteSecret(ctx, k8sClient, testTargetTLSSecretName)
 
 		vrep := v1beta1.MakeVrep()
-		vrep.Spec.Mode = replicationModeAsync
+		vrep.Spec.Mode = v1beta1.ReplicationModeAsync
 		Expect(k8sClient.Create(ctx, vrep)).Should(Succeed())
 		defer func() { Expect(k8sClient.Delete(ctx, vrep)).Should(Succeed()) }()
 
@@ -339,7 +339,7 @@ var _ = Describe("query_reconcile", func() {
 		defer test.DeletePods(ctx, k8sClient, targetVdb)
 
 		vrep := v1beta1.MakeVrep()
-		vrep.Spec.Mode = replicationModeAsync
+		vrep.Spec.Mode = v1beta1.ReplicationModeAsync
 		Expect(k8sClient.Create(ctx, vrep)).Should(Succeed())
 		defer func() { Expect(k8sClient.Delete(ctx, vrep)).Should(Succeed()) }()
 

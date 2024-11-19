@@ -145,6 +145,9 @@ const (
 	ReplicationComplete = "ReplicationComplete"
 	// ReplicationReady indicates whether the operator is ready to start the database replication
 	ReplicationReady = "ReplicationReady"
+
+	ReplicationModeAsync = "async"
+	ReplicationModeSync  = "sync"
 )
 
 //+kubebuilder:object:root=true
@@ -176,4 +179,9 @@ type VerticaReplicatorList struct {
 
 func init() {
 	SchemeBuilder.Register(&VerticaReplicator{}, &VerticaReplicatorList{})
+}
+
+// IsUsingAsyncReplication returns true if replication mode is set to async
+func (vrep *VerticaReplicator) IsUsingAsyncReplication() bool {
+	return vrep.Spec.Mode == ReplicationModeAsync
 }

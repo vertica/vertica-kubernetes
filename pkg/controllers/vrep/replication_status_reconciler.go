@@ -56,7 +56,6 @@ type ReplicationStatusReconciler struct {
 	VRec         *VerticaReplicatorReconciler
 	Vrep         *v1beta1.VerticaReplicator
 	dispatcher   vadmin.Dispatcher
-	SourcePFacts *podfacts.PodFacts
 	TargetPFacts *podfacts.PodFacts
 	Log          logr.Logger
 	TargetInfo   *ReplicationInfo
@@ -75,7 +74,7 @@ func MakeReplicationStatusReconciler(cli client.Client, r *VerticaReplicatorReco
 
 func (r *ReplicationStatusReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
 	// no-op if replication is not being done asynchronously
-	if r.Vrep.Spec.Mode != replicationModeAsync {
+	if !r.Vrep.IsUsingAsyncReplication() {
 		r.Log.Info("Stopped reconciling status: not async")
 		return ctrl.Result{}, nil
 	}
@@ -94,33 +93,38 @@ func (r *ReplicationStatusReconciler) Reconcile(ctx context.Context, _ *ctrl.Req
 		return ctrl.Result{}, nil
 	}
 
-	// no-op if there is no transaction ID we can use to query replication status
-	if r.Vrep.Status.TransactionID == 0 {
+	// no-op if replication is in progress but there is no transaction ID we can use to query replication status
+	isReplicating := r.Vrep.IsStatusConditionTrue(v1beta1.Replicating)
+	if isReplicating && r.Vrep.Status.TransactionID == 0 {
 		r.Log.Info("Stopped reconciling status: transaction ID 0")
-		return ctrl.Result{}, nil
+		return ctrl.Result{}, fmt.Errorf("cannot find transaction ID")
 	}
 
 	// fetch target VerticaDB
 	if res, fetchErr := r.fetchTargetVdb(ctx); verrors.IsReconcileAborted(res, fetchErr) {
+		r.Log.Error(fetchErr, "Failed to fetch target VerticaDB")
 		return res, fetchErr
 	}
 
 	// determine usernames and passwords
 	err := r.determineUsernameAndPassword(ctx)
 	if err != nil {
+		r.Log.Error(err, "Failed to determine username/password")
 		return ctrl.Result{}, err
 	}
 
 	// collect pod facts for target sandbox (or main cluster)
 	err = r.collectPodFacts(ctx)
 	if err != nil {
+		r.Log.Error(err, "Failed to collect pod facts")
 		return ctrl.Result{}, err
 	}
 
-	// choose the source host and target host
+	// choose the target host
 	// (first host where db is up in the specified cluster)
 	err = r.determineTargetHosts()
 	if err != nil {
+		r.Log.Error(err, "Failed to determine target hosts")
 		return ctrl.Result{}, err
 	}
 
@@ -130,6 +134,7 @@ func (r *ReplicationStatusReconciler) Reconcile(ctx context.Context, _ *ctrl.Req
 	// setup dispatcher for vclusterops API
 	err = r.makeDispatcher()
 	if err != nil {
+		r.Log.Error(err, "Failed to make dispatcher")
 		return ctrl.Result{}, err
 	}
 
@@ -138,7 +143,7 @@ func (r *ReplicationStatusReconciler) Reconcile(ctx context.Context, _ *ctrl.Req
 	return ctrl.Result{}, err
 }
 
-// fetch the source and target VerticaDBs
+// fetch the target VerticaDB
 func (r *ReplicationStatusReconciler) fetchTargetVdb(ctx context.Context) (res ctrl.Result, err error) {
 	vdb := &vapi.VerticaDB{}
 	nm := names.GenNamespacedName(r.Vrep, r.Vrep.Spec.Target.VerticaDB)
@@ -154,17 +159,17 @@ func (r *ReplicationStatusReconciler) fetchTargetVdb(ctx context.Context) (res c
 // makeDispatcher will create a Dispatcher object based on the feature flags set.
 func (r *ReplicationStatusReconciler) makeDispatcher() error {
 	if vmeta.UseVClusterOps(r.TargetInfo.Vdb.Annotations) {
-		r.dispatcher = vadmin.MakeVClusterOpsWithTarget(r.Log, r.TargetInfo.Vdb, r.TargetInfo.Vdb,
+		r.dispatcher = vadmin.MakeVClusterOpsWithTarget(r.Log, nil, r.TargetInfo.Vdb,
 			r.VRec.GetClient(), r.TargetInfo.Password, r.VRec, vadmin.SetupVClusterOps)
 		return nil
 	}
-	return fmt.Errorf("replication is not supported when the source uses admintools deployments")
+	return fmt.Errorf("replication is not supported when the target uses admintools deployments")
 }
 
-// determine usernames and passwords for both source and target VerticaDBs
+// determine usernames and passwords for target VerticaDB
 func (r *ReplicationStatusReconciler) determineUsernameAndPassword(ctx context.Context) (err error) {
 	r.TargetInfo.Username, r.TargetInfo.Password, err = setUsernameAndPassword(ctx,
-		r.Client, r.Log, r.VRec, r.TargetInfo.Vdb, &r.Vrep.Spec.Source.VerticaReplicatorDatabaseInfo)
+		r.Client, r.Log, r.VRec, r.TargetInfo.Vdb, &r.Vrep.Spec.Target.VerticaReplicatorDatabaseInfo)
 	if err != nil {
 		return err
 	}
@@ -172,7 +177,7 @@ func (r *ReplicationStatusReconciler) determineUsernameAndPassword(ctx context.C
 	return
 }
 
-// collect pod facts for source and target sandboxes (or main clusters)
+// collect pod facts for target sandboxes (or main clusters)
 func (r *ReplicationStatusReconciler) collectPodFacts(ctx context.Context) (err error) {
 	r.TargetPFacts, err = r.makePodFacts(ctx, r.TargetInfo.Vdb,
 		r.Vrep.Spec.Target.SandboxName)
@@ -185,7 +190,7 @@ func (r *ReplicationStatusReconciler) collectPodFacts(ctx context.Context) (err 
 	return
 }
 
-// choose the source host and target host
+// choose the target host
 // (first host where db is up in the specified cluster)
 func (r *ReplicationStatusReconciler) determineTargetHosts() (err error) {
 	// assume target must not be read-only, no subcluster constraints

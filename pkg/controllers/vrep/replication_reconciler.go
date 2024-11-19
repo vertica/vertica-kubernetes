@@ -45,9 +45,6 @@ const (
 	stateReplicating          = "Replicating"
 	stateSucceededReplication = "Replication successful"
 	stateFailedReplication    = "Replication failed"
-
-	replicationModeAsync = "async"
-	replicationModeSync  = "sync"
 )
 
 type ReplicationInfo struct {
@@ -90,7 +87,7 @@ func (r *ReplicationReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) 
 
 	// no-op if Replicating is true (this is possible with async replication)
 	isReplicating := r.Vrep.IsStatusConditionTrue(v1beta1.Replicating)
-	if isReplicating {
+	if isReplicating && r.Vrep.IsUsingAsyncReplication() {
 		return ctrl.Result{}, nil
 	}
 
@@ -158,12 +155,18 @@ func (r *ReplicationReconciler) fetchVdbs(ctx context.Context) (res ctrl.Result,
 
 // makeDispatcher will create a Dispatcher object based on the feature flags set.
 func (r *ReplicationReconciler) makeDispatcher() error {
-	if vmeta.UseVClusterOps(r.SourceInfo.Vdb.Annotations) {
+	if !vmeta.UseVClusterOps(r.SourceInfo.Vdb.Annotations) {
+		return fmt.Errorf("replication is not supported when the source uses admintools deployments")
+	}
+
+	if r.Vrep.IsUsingAsyncReplication() {
 		r.dispatcher = vadmin.MakeVClusterOpsWithTarget(r.Log, r.SourceInfo.Vdb, r.TargetInfo.Vdb,
 			r.VRec.GetClient(), r.SourceInfo.Password, r.VRec, vadmin.SetupVClusterOps)
-		return nil
+	} else {
+		r.dispatcher = vadmin.MakeVClusterOps(r.Log, r.SourceInfo.Vdb,
+			r.VRec.GetClient(), r.SourceInfo.Password, r.VRec, vadmin.SetupVClusterOps)
 	}
-	return fmt.Errorf("replication is not supported when the source uses admintools deployments")
+	return nil
 }
 
 // determine usernames and passwords for both source and target VerticaDBs
@@ -293,7 +296,7 @@ func (r *ReplicationReconciler) buildOpts() []replicationstart.Option {
 		replicationstart.WithTargetPassword(r.TargetInfo.Password),
 		replicationstart.WithSourceTLSConfig(r.Vrep.Spec.TLSConfig),
 		replicationstart.WithSourceSandboxName(r.Vrep.Spec.Source.SandboxName),
-		replicationstart.WithAsync(r.Vrep.Spec.Mode == replicationModeAsync),
+		replicationstart.WithAsync(r.Vrep.IsUsingAsyncReplication()),
 		replicationstart.WithObjectName(r.Vrep.Spec.Source.ObjectName),
 		replicationstart.WithIncludePattern(r.Vrep.Spec.Source.IncludePattern),
 		replicationstart.WithExcludePattern(r.Vrep.Spec.Source.ExcludePattern),
@@ -328,7 +331,7 @@ func (r *ReplicationReconciler) runReplicateDB(ctx context.Context, dispatcher v
 		return errRun
 	}
 
-	if r.Vrep.Spec.Mode == replicationModeAsync {
+	if r.Vrep.IsUsingAsyncReplication() {
 		// Asynchronous replication has just started when ReplicateDB returns
 		r.VRec.Eventf(r.Vrep, corev1.EventTypeNormal, events.ReplicationStarted,
 			"Successfully started database replication in %s", time.Since(start).Truncate(time.Second))

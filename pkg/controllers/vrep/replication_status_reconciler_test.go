@@ -74,7 +74,7 @@ var _ = Describe("query_reconcile", func() {
 		defer test.DeleteSecret(ctx, k8sClient, testTargetTLSSecretName)
 
 		vrep := v1beta1.MakeVrep()
-		vrep.Spec.Mode = replicationModeAsync
+		vrep.Spec.Mode = v1beta1.ReplicationModeAsync
 		Expect(k8sClient.Create(ctx, vrep)).Should(Succeed())
 		defer func() { Expect(k8sClient.Delete(ctx, vrep)).Should(Succeed()) }()
 
@@ -99,7 +99,7 @@ var _ = Describe("query_reconcile", func() {
 		Expect(vrep.Status.State).Should(Equal(stateSucceededReplication))
 	})
 
-	It("should exit reconcile loop early if replication is complete, not ready, doesn't have a transaction ID, or isn't async", func() {
+	It("should exit reconcile loop early if replication is complete, not ready, or doesn't have a transaction ID", func() {
 		targetVdbName := v1beta1.MakeTargetVDBName()
 		targetVdb := vapi.MakeVDB()
 		targetVdb.Name = targetVdbName.Name
@@ -113,7 +113,7 @@ var _ = Describe("query_reconcile", func() {
 		defer test.DeletePods(ctx, k8sClient, targetVdb)
 
 		vrep := v1beta1.MakeVrep()
-		vrep.Spec.Mode = replicationModeAsync
+		vrep.Spec.Mode = v1beta1.ReplicationModeAsync
 		Expect(k8sClient.Create(ctx, vrep)).Should(Succeed())
 		defer func() { Expect(k8sClient.Delete(ctx, vrep)).Should(Succeed()) }()
 
@@ -187,27 +187,46 @@ var _ = Describe("query_reconcile", func() {
 		Expect(reflect.DeepEqual(expected, original)).Should(BeTrue())
 
 		Expect(result).Should(Equal(ctrl.Result{}))
-		Expect(err).ShouldNot(HaveOccurred())
+		Expect(err).Should(HaveOccurred())
 		// make sure status conditions and state are retained
 		Expect(vrep.IsStatusConditionTrue(v1beta1.Replicating)).Should(BeTrue())
 		Expect(vrep.Status.State).Should(Equal(stateReplicating))
+	})
 
-		// Reset conditions/state
-		err = vrepstatus.Reset(ctx, vrepRec.Client, vrepRec.Log, vrep)
-		Expect(err).ShouldNot(HaveOccurred())
-		Expect(vrep.IsStatusConditionPresent(v1beta1.Replicating)).Should(BeFalse())
-		Expect(vrep.Status.State).Should(Equal(""))
+	It("should exit reconcile loop early if replication mode isn't async", func() {
+		targetVdbName := v1beta1.MakeTargetVDBName()
+		targetVdb := vapi.MakeVDB()
+		targetVdb.Name = targetVdbName.Name
+		targetVdb.Namespace = targetVdbName.Namespace
+		targetVdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
+		targetVdb.Annotations[vmeta.VersionAnnotation] = minimumVer
+		targetVdb.UID = testTargetVdbUID
+		test.CreateVDB(ctx, k8sClient, targetVdb)
+		defer test.DeleteVDB(ctx, k8sClient, targetVdb)
+		test.CreatePods(ctx, k8sClient, targetVdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, targetVdb)
 
-		// Case 4: not using asynchronous replication
-		vrep.Spec.Mode = replicationModeSync
-		recon = MakeReplicationStatusReconciler(k8sClient, vrepRec, vrep, logger)
-		err = vrepstatus.Update(ctx, vrepRec.Client, vrepRec.Log, vrep,
+		vrep := v1beta1.MakeVrep()
+		vrep.Spec.Mode = v1beta1.ReplicationModeSync
+		Expect(k8sClient.Create(ctx, vrep)).Should(Succeed())
+		defer func() { Expect(k8sClient.Delete(ctx, vrep)).Should(Succeed()) }()
+
+		recon := MakeReplicationStatusReconciler(k8sClient, vrepRec, vrep, logger)
+		err := vrepstatus.Update(ctx, vrepRec.Client, vrepRec.Log, vrep,
 			[]*metav1.Condition{vapi.MakeCondition(v1beta1.Replicating,
 				metav1.ConditionTrue, "Started")}, stateReplicating, 0)
 		Expect(err).ShouldNot(HaveOccurred())
-		result, err = recon.Reconcile(ctx, &ctrl.Request{})
+		result, err := recon.Reconcile(ctx, &ctrl.Request{})
 
-		original, ok = recon.(*ReplicationStatusReconciler)
+		expected := &ReplicationStatusReconciler{
+			Client:     k8sClient,
+			VRec:       vrepRec,
+			Vrep:       vrep,
+			Log:        logger.WithName("ReplicationStatusReconciler"),
+			TargetInfo: &ReplicationInfo{},
+		}
+
+		original, ok := recon.(*ReplicationStatusReconciler)
 		Expect(ok).Should(BeTrue())
 		// make sure ReplicationReconciler fields are untouched
 		Expect(reflect.DeepEqual(expected, original)).Should(BeTrue())
