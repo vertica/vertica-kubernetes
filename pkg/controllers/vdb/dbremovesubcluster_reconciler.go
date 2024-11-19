@@ -139,7 +139,7 @@ func (d *DBRemoveSubclusterReconciler) removeExtraSubclusters(ctx context.Contex
 			return ctrl.Result{}, fmt.Errorf("failed to update subcluster status: %w", err)
 		}
 
-		if vmeta.UseVProxy(d.Vdb.Annotations) {
+		if vmeta.UseVProxy(d.Vdb.Annotations) && subclusters[i].Size == 0 {
 			// Remove client proxy deployment
 			err := d.removeClientProxy(ctx, subclusters[i])
 			if err != nil {
@@ -215,16 +215,13 @@ func (d *DBRemoveSubclusterReconciler) removeClientProxy(ctx context.Context, sc
 	vpDep := builder.BuildVProxyDeployment(vpName, d.Vdb, sc)
 	cmDep := builder.BuildVProxyConfigMap(cmName, d.Vdb, sc)
 
-	if sc.Size == 0 {
-		d.Log.Info("Deleting client proxy config map", "Name", cmName)
-		err := d.VRec.GetClient().Delete(ctx, cmDep)
-		if err != nil {
-			return err
-		}
-		d.Log.Info("Delete deployment", "Name", vpName, "Size", vpDep.Spec.Replicas, "Image", vpDep.Spec.Template.Spec.Containers[0].Image)
-		return deleteDep(ctx, d.VRec, vpDep, d.Vdb)
+	d.Log.Info("Deleting client proxy config map", "Name", cmName)
+	err := d.VRec.GetClient().Delete(ctx, cmDep)
+	if err != nil {
+		return err
 	}
-	return nil
+	d.Log.Info("Delete deployment", "Name", vpName, "Size", vpDep.Spec.Replicas, "Image", vpDep.Spec.Template.Spec.Containers[0].Image)
+	return deleteDep(ctx, d.VRec, vpDep, d.Vdb)
 }
 
 // resetDefaultSubcluster will set the default subcluster to the first
