@@ -462,6 +462,11 @@ func (s *Subcluster) GetVProxyConfigMapName(vdb *VerticaDB) string {
 	return fmt.Sprintf("%s-%s-proxy-cm", vdb.Name, s.Name)
 }
 
+// GetVProxyConfigMapName returns the name of the client proxy config map
+func (v *VerticaDB) GetVProxyConfigMapName(scName string) string {
+	return fmt.Sprintf("%s-%s-proxy-cm", v.Name, scName)
+}
+
 // GetVProxyDeploymentName returns the name of the client proxy deployment
 func (s *Subcluster) GetVProxyDeploymentName(vdb *VerticaDB) string {
 	return fmt.Sprintf("%s-%s-proxy", vdb.Name, s.Name)

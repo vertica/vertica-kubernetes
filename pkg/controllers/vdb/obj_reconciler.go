@@ -272,6 +272,16 @@ func (o *ObjReconciler) checkForDeletedSubcluster(ctx context.Context) (ctrl.Res
 		if err != nil {
 			return ctrl.Result{}, err
 		}
+		// Delete vproxy config map
+		if vmeta.UseVProxy(o.Vdb.Annotations) {
+			scName := stss.Items[i].Labels[vmeta.SubclusterNameLabel]
+			// Check if config map exists and delete
+			err := o.DeleteVProxyConfigMapIfExists(ctx, scName)
+			if err != nil {
+				return ctrl.Result{}, err
+			}
+		}
+
 	}
 
 	// Find any service objects that need to be deleted
@@ -287,31 +297,6 @@ func (o *ObjReconciler) checkForDeletedSubcluster(ctx context.Context) (ctrl.Res
 		}
 	}
 
-	// Find any deployments that need to be deleted
-	deploy, err := finder.FindDeployments(ctx, iter.FindNotInVdb, sandbox)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-
-	for i := range deploy.Items {
-		err = o.Rec.GetClient().Delete(ctx, &deploy.Items[i])
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-	}
-
-	// Find any config maps that need to be deleted
-	cm, err := finder.FindConfigMaps(ctx, iter.FindNotInVdb, sandbox)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-
-	for i := range cm.Items {
-		err = o.Rec.GetClient().Delete(ctx, &cm.Items[i])
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-	}
 	return ctrl.Result{}, nil
 }
 
@@ -483,8 +468,19 @@ func (o *ObjReconciler) checkVProxyConfigMap(ctx context.Context, cmName types.N
 	return nil
 }
 
+// DeleteVProxyConfigMapIfExists will delete a client proxy config map if exists, otherwise ignore
+func (o *ObjReconciler) DeleteVProxyConfigMapIfExists(ctx context.Context, scName string) error {
+	curCM := &corev1.ConfigMap{}
+	cmName := names.GenVProxyConfigMapNameFromVDB(o.Vdb, scName)
+	err := o.Rec.GetClient().Get(ctx, cmName, curCM)
+	if kerrors.IsNotFound(err) {
+		return nil
+	}
+	return o.Rec.GetClient().Delete(ctx, curCM)
+}
+
 // checkVProxyDeployment will create or update the client proxy deployment
-func (o *ObjReconciler) checkVProxyDeployment(ctx context.Context, sc *vapi.Subcluster) error {
+func (o *ObjReconciler) checkVProxyDeployment(ctx context.Context, sc *vapi.Subcluster, sts *appsv1.StatefulSet) error {
 	cmName := names.GenVProxyConfigMapName(o.Vdb, sc)
 	err := o.checkVProxyConfigMap(ctx, cmName, sc)
 	if err != nil {
@@ -503,6 +499,11 @@ func (o *ObjReconciler) checkVProxyDeployment(ctx context.Context, sc *vapi.Subc
 	}
 
 	if vpErr != nil && kerrors.IsNotFound(vpErr) {
+		// Let subcluster own VProxy in sts
+		err := ctrl.SetControllerReference(sts, vpDep, o.Rec.GetClient().Scheme())
+		if err != nil {
+			return err
+		}
 		o.Log.Info("Creating deployment", "Name", vpName, "Size", vpDep.Spec.Replicas, "Image", vpDep.Spec.Template.Spec.Containers[0].Image)
 		return createDep(ctx, o.Rec, vpDep, o.Vdb)
 	}
@@ -515,14 +516,6 @@ func (o *ObjReconciler) checkVProxyDeployment(ctx context.Context, sc *vapi.Subc
 // reconcileSts reconciles the statefulset for a particular subcluster.  Returns
 // true if any create/update was done.
 func (o *ObjReconciler) reconcileSts(ctx context.Context, sc *vapi.Subcluster) (ctrl.Result, error) {
-	if vmeta.UseVProxy(o.Vdb.Annotations) {
-		// Create or update the client proxy deployment
-		vpErr := o.checkVProxyDeployment(ctx, sc)
-		if vpErr != nil {
-			return ctrl.Result{}, vpErr
-		}
-	}
-
 	// Create or update the statefulset
 	nm := names.GenStsName(o.Vdb, sc)
 	curSts := &appsv1.StatefulSet{}
@@ -533,6 +526,14 @@ func (o *ObjReconciler) reconcileSts(ctx context.Context, sc *vapi.Subcluster) (
 		// Invalidate the pod facts cache since we are creating a new sts
 		o.PFacts.Invalidate()
 		return ctrl.Result{}, createSts(ctx, o.Rec, expSts, o.Vdb)
+	}
+
+	if vmeta.UseVProxy(o.Vdb.Annotations) {
+		// Create or update the client proxy deployment
+		vpErr := o.checkVProxyDeployment(ctx, sc, expSts)
+		if vpErr != nil {
+			return ctrl.Result{}, vpErr
+		}
 	}
 
 	// We can only remove pods if we have called remove node and done the

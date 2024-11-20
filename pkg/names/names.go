@@ -76,6 +76,12 @@ func GenVProxyConfigMapName(vdb *vapi.VerticaDB, sc *vapi.Subcluster) types.Name
 	return GenNamespacedName(vdb, sc.GetVProxyConfigMapName(vdb))
 }
 
+// GenVProxyConfigMapNameFromVDB returns the name of the client proxy configmap from
+// subcluster name string
+func GenVProxyConfigMapNameFromVDB(vdb *vapi.VerticaDB, scName string) types.NamespacedName {
+	return GenNamespacedName(vdb, vdb.GetVProxyConfigMapName(scName))
+}
+
 // GenCommunalCredSecretName returns the name of the secret that has the credentials to access s3
 func GenCommunalCredSecretName(vdb *vapi.VerticaDB) types.NamespacedName {
 	return GenNamespacedName(vdb, vdb.Spec.Communal.CredentialSecret)

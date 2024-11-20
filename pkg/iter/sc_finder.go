@@ -100,34 +100,6 @@ func (m *SubclusterFinder) FindServices(ctx context.Context, flags FindFlags, sa
 	return svcs, nil
 }
 
-// FindDeployments returns deployment objects that are in use for subclusters
-func (m *SubclusterFinder) FindDeployments(ctx context.Context, flags FindFlags, sandbox string) (*appsv1.DeploymentList, error) {
-	deploy := &appsv1.DeploymentList{}
-	if err := m.buildObjList(ctx, deploy, flags, sandbox); err != nil {
-		return nil, err
-	}
-	if flags&FindSorted != 0 {
-		sort.Slice(deploy.Items, func(i, j int) bool {
-			return deploy.Items[i].Name < deploy.Items[j].Name
-		})
-	}
-	return deploy, nil
-}
-
-// FindConfigMaps returns config map objects that are in use for subclusters
-func (m *SubclusterFinder) FindConfigMaps(ctx context.Context, flags FindFlags, sandbox string) (*corev1.ConfigMapList, error) {
-	cm := &corev1.ConfigMapList{}
-	if err := m.buildObjList(ctx, cm, flags, sandbox); err != nil {
-		return nil, err
-	}
-	if flags&FindSorted != 0 {
-		sort.Slice(cm.Items, func(i, j int) bool {
-			return cm.Items[i].Name < cm.Items[j].Name
-		})
-	}
-	return cm, nil
-}
-
 // FindPods returns pod objects that are are used to run Vertica.  It limits the
 // pods that were created by the VerticaDB object.
 func (m *SubclusterFinder) FindPods(ctx context.Context, flags FindFlags, sandbox string) (*corev1.PodList, error) {
