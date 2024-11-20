@@ -539,6 +539,10 @@ EOF
 }
 
 function create_communal_cfg {
+    # If proxy image wasn't specified, default to the latest for not failing tests
+    if [ -z "$VPROXY_IMG" ]; then
+      VPROXY_IMG=opentext/client-proxy:latest
+    fi
     pushd kustomize-base > /dev/null
     cat <<EOF > e2e.yaml
 apiVersion: v1
