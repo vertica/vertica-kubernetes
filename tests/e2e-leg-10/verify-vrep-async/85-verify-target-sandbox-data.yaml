@@ -20,6 +20,8 @@ data:
     #!/bin/bash
     set -o errexit
     set -o xtrace
+    
+    # Verify test_table was updated with inserted with correct values
     POD_NAME=v-target-sc4-0
     result=$(kubectl exec $POD_NAME -i -c server -- bash -c "vsql -U dbadmin -tAc \"SELECT * FROM public.test_table ORDER BY val;\"")
     echo "$result" | grep -Pzo "^99\n100\n$" > /dev/null

@@ -47,7 +47,7 @@ type VerticaReplicatorSpec struct {
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:default:=async
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
-	// Information of the target Vertica database to replicate to
+	// Determines how replication is done. Available options: async, sync
 	Mode string `json:"mode"`
 }
 
@@ -58,17 +58,17 @@ type VerticaReplicatorSourceDatabaseInfo struct {
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:text"
 	// The object name we want to copy from the source side. The available types are: namespace, schema, table.
 	// If this is omitted, the operator will replicate all namespaces in the source database.
-	ObjectName string `json:"objectName"`
+	ObjectName string `json:"objectName,omitempty"`
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:text"
 	// A string containing a wildcard pattern of the schemas and/or tables to include in the replication.
 	// Namespace names must be front-qualified with a period.
-	IncludePattern string `json:"includePattern"`
+	IncludePattern string `json:"includePattern,omitempty"`
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:text"
 	// A string containing a wildcard pattern of the schemas and/or tables to exclude from the set of tables matched
 	// by the include pattern. Namespace names must be front-qualified with a period.
-	ExcludePattern string `json:"excludePattern"`
+	ExcludePattern string `json:"excludePattern,omitempty"`
 }
 
 type VerticaReplicatorTargetDatabaseInfo struct {
@@ -81,7 +81,7 @@ type VerticaReplicatorTargetDatabaseInfo struct {
 	// replicated to a namespace with the same name as the source namespace. If no such namespace exists in the target
 	// cluster, it is created with the same name and shard count as the source namespace. You can only replicate tables
 	// in the public schema to the default_namespace in the target cluster.
-	Namespace string `json:"namespace"`
+	Namespace string `json:"namespace,omitempty"`
 }
 
 // VerticaReplicatorDatabaseInfo defines the information related to either the source or target Vertica database
@@ -146,8 +146,10 @@ const (
 	// ReplicationReady indicates whether the operator is ready to start the database replication
 	ReplicationReady = "ReplicationReady"
 
+	// ReplicationReady indicates database replication should be done asynchronously
 	ReplicationModeAsync = "async"
-	ReplicationModeSync  = "sync"
+	// ReplicationReady indicates database replication should be done synchronously
+	ReplicationModeSync = "sync"
 )
 
 //+kubebuilder:object:root=true

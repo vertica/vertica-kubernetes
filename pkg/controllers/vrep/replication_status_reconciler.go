@@ -231,9 +231,8 @@ func (r *ReplicationStatusReconciler) buildOpts() []replicationstatus.Option {
 
 func (r *ReplicationStatusReconciler) runReplicationStatus(ctx context.Context, dispatcher vadmin.Dispatcher,
 	opts []replicationstatus.Option) (err error) {
-	// TODO: Turn these into annotations
-	timeout := 60
-	pollingFrequency := 0
+	timeout := vmeta.GetReplicationTimeout(r.Vrep.Annotations)
+	pollingFrequency := vmeta.GetReplicationPollingFrequency(r.Vrep.Annotations)
 	pollingDuration := time.Duration(pollingFrequency * int(time.Second))
 
 	r.Log.Info(fmt.Sprintf("Starting polling for transaction ID %d", r.Vrep.Status.TransactionID))

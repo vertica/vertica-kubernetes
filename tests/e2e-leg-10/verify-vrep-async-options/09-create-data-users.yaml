@@ -53,6 +53,7 @@ data:
     mtls_server_key_text=$(kubectl exec $POD_NAME -i -c server -- bash -c "vsql -U dbadmin -w superuser -tAc \"SELECT key FROM CRYPTOGRAPHIC_KEYS WHERE name = 'mtls_server_key';\" | tr -d '\n'")
     mtls_server_cert_text=$(kubectl exec $POD_NAME -i -c server -- bash -c "vsql -U dbadmin -w superuser -tAc \"SELECT certificate_text FROM certificates WHERE name = 'mtls_server_cert';\" | tr -d '\n'")
 
+    # Create 2 tables 'test_table1', 'test_table2' so we can test partial replication options
     kubectl exec $POD_NAME -i -c server -- bash -c "vsql -U dbadmin -w superuser -tAc \"CREATE SCHEMA test;\""
     kubectl exec $POD_NAME -i -c server -- bash -c "vsql -U dbadmin -w superuser -tAc \"CREATE TABLE test.test_table1 (val INTEGER);\""
     kubectl exec $POD_NAME -i -c server -- bash -c "vsql -U dbadmin -w superuser -tAc \"INSERT INTO test.test_table1 VALUES (11); COMMIT;\""

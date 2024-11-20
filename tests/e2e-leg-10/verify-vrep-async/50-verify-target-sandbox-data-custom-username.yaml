@@ -23,6 +23,7 @@ data:
 
     POD_NAMES=("v-target-sc5-0")
 
+    # Verify 'test_table' doesn't exist in the last sandbox we haven't replicated data to
     for POD_NAME in "${POD_NAMES[@]}"; do
       result=$(kubectl exec $POD_NAME -i -c server -- bash -c "vsql -U dbadmin -tAc \"SELECT COUNT(*) FROM tables WHERE table_name = 'test_table';\"")
       echo "$result" | grep -Pzo "^0\n$" > /dev/null
@@ -34,6 +35,8 @@ data:
 
     POD_NAMES=("v-target-sc4-0" "v-target-sc3-0" "v-target-sc2-0" "v-target-sc1-0" "v-source-sc1-0")
 
+    # On the replication target and source DBs, verify 'test_table' exists and has correct data
+    # Also perform this check on nodes we have already replicated to. Ensure replicated data hasn't changed
     for POD_NAME in "${POD_NAMES[@]}"; do
         result=$(kubectl exec $POD_NAME -i -c server -- bash -c "vsql -U dbadmin -w superuser -tAc \"SELECT * FROM public.test_table ORDER BY val;\"")
         echo "$result" | grep -Pzo "^99\n$" > /dev/null
