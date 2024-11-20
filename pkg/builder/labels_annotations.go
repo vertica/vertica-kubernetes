@@ -41,7 +41,7 @@ func MakeOperatorLabels(vdb *vapi.VerticaDB) map[string]string {
 }
 
 // MakeCommonLabels returns the labels that are common to all objects.
-func MakeCommonLabels(vdb *vapi.VerticaDB, sc *vapi.Subcluster, forPod bool) map[string]string {
+func MakeCommonLabels(vdb *vapi.VerticaDB, sc *vapi.Subcluster, forPod, forProxyPod bool) map[string]string {
 	labels := MakeOperatorLabels(vdb)
 	// This can be overridden through 'labels' in the CR.
 	labels[vmeta.NameLabel] = vmeta.NameValue
@@ -61,6 +61,13 @@ func MakeCommonLabels(vdb *vapi.VerticaDB, sc *vapi.Subcluster, forPod bool) map
 		labels[vmeta.OperatorVersionLabel] = vmeta.CurOperatorVersion
 	}
 
+	if forProxyPod {
+		appendProxyLabels(labels, vdb, sc)
+		if !sc.IsTransient() {
+			labels[vmeta.SubclusterSvcNameLabel] = sc.GetServiceName()
+		}
+	}
+
 	// Labels for pods or for non-subcluster specific objects can stop here.
 	// Pods don't have much of the subcluster labels because these can change
 	// (e.g. subcluster rename) and so are hard to maintain in the pods.
@@ -77,18 +84,11 @@ func MakeCommonLabels(vdb *vapi.VerticaDB, sc *vapi.Subcluster, forPod bool) map
 
 // MakeLabelsForObjects constructs the labels for a new k8s object
 func makeLabelsForObject(vdb *vapi.VerticaDB, sc *vapi.Subcluster, forPod, forProxyPod bool) map[string]string {
-	labels := MakeCommonLabels(vdb, sc, forPod)
+	labels := MakeCommonLabels(vdb, sc, forPod, forProxyPod)
 
 	// Add any custom labels that were in the spec.
 	for k, v := range vdb.Spec.Labels {
 		labels[k] = v
-	}
-
-	if forProxyPod {
-		appendProxyLabels(labels, vdb, sc)
-		if !sc.IsTransient() {
-			labels[vmeta.SubclusterSvcNameLabel] = sc.GetServiceName()
-		}
 	}
 
 	return labels
