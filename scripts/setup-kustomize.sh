@@ -128,6 +128,7 @@ fi
 echo "Vertica server image name: $VERTICA_IMG"
 echo "Base vertica server image name for upgrade tests: $BASE_VERTICA_IMG"
 echo "Vertica logger image name: $VLOGGER_IMG"
+echo "Vertica client proxy image name: $VPROXY_IMG"
 echo -n "License file: "
 if [ -n "$LICENSE_FILE" ]; then echo "YES ($LICENSE_FILE)"; else echo "NO"; fi
 echo "Endpoint: $ENDPOINT"

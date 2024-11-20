@@ -99,9 +99,6 @@ export BASE_VERTICA_IMG
 # Image URL to use for the logger sidecar
 VLOGGER_IMG ?= $(IMG_REPO)vertica-logger:$(VLOGGER_VERSION)
 export VLOGGER_IMG
-# Image URL to use for the vertica client proxy. This is for testing purposes only.
-VPROXY_IMG ?= opentext/client-proxy:latest
-export VPROXY_IMG
 # If the current leg in the CI tests is leg-9
 LEG9 ?= no
 export LEG9
@@ -439,6 +436,18 @@ else
 	scripts/push-to-kind.sh -i ${VLOGGER_IMG}
 endif
 
+.PHONY: docker-push-vproxy
+docker-push-vproxy:  ## Push vertica logger docker image
+ifneq ($(strip $(VPROXY_IMG)),)
+ifeq ($(shell $(KIND_CHECK)), 0)
+	docker push ${VPROXY_IMG}
+else
+	scripts/push-to-kind.sh -i ${VPROXY_IMG}
+endif
+else
+	$(info VPROXY_IMG is not set. Skipped pushing proxy image to K8s cluster.)
+endif
+
 # We have two versions of the vertica-k8s image. This is a staging effort. A
 # new version is being created that has no admintools and relies exclusively on
 # http REST interfaces. Eventually, we will go back to one version using the
@@ -557,7 +566,7 @@ docker-push-olm-catalog:
 docker-build: docker-build-vertica-v2 docker-build-operator docker-build-vlogger ## Build all docker images except OLM catalog
 
 .PHONY: docker-push
-docker-push: docker-push-vertica docker-push-base-vertica docker-push-extra-vertica docker-push-operator docker-push-vlogger ## Push all docker images except OLM catalog
+docker-push: docker-push-vertica docker-push-base-vertica docker-push-extra-vertica docker-push-operator docker-push-vlogger docker-push-vproxy ## Push all docker images except OLM catalog
 
 .PHONY: echo-images
 echo-images:  ## Print the names of all of the images used
