@@ -254,10 +254,6 @@ func (m *SubclusterFinder) getLabelsFromObject(ctx context.Context, obj runtime.
 		return sts.Labels, nil
 	} else if svc, ok := obj.(*corev1.Service); ok {
 		return svc.Labels, nil
-	} else if deploy, ok := obj.(*appsv1.Deployment); ok {
-		return deploy.Labels, nil
-	} else if cm, ok := obj.(*corev1.ConfigMap); ok {
-		return cm.Labels, nil
 	} else if pod, ok := obj.(*corev1.Pod); ok {
 		// Instead of retrieving labels directly from the pod, we retrieve them
 		// from the StatefulSet that owns the pod. The labels we need, such as
