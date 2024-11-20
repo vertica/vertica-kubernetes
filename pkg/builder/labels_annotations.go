@@ -76,7 +76,7 @@ func MakeCommonLabels(vdb *vapi.VerticaDB, sc *vapi.Subcluster, forPod bool) map
 }
 
 // MakeLabelsForObjects constructs the labels for a new k8s object
-func makeLabelsForObject(vdb *vapi.VerticaDB, sc *vapi.Subcluster, forPod bool) map[string]string {
+func makeLabelsForObject(vdb *vapi.VerticaDB, sc *vapi.Subcluster, forPod, forProxyPod bool) map[string]string {
 	labels := MakeCommonLabels(vdb, sc, forPod)
 
 	// Add any custom labels that were in the spec.
@@ -84,17 +84,31 @@ func makeLabelsForObject(vdb *vapi.VerticaDB, sc *vapi.Subcluster, forPod bool) 
 		labels[k] = v
 	}
 
+	if forProxyPod {
+		appendProxyLabels(labels, vdb, sc)
+	}
+
 	return labels
+}
+
+// appendProxyLabels appends the proxy labels to an existing label set
+func appendProxyLabels(labels map[string]string, vdb *vapi.VerticaDB, sc *vapi.Subcluster) {
+	// Set a special selector to pick only the pods for this porxy deployment. It's
+	// derived from the deployment name as that stays constant and is unique in
+	// a namespace.
+	labels[vmeta.DeploymentSelectorLabel] = sc.GetVProxyDeploymentName(vdb)
+	// Set the common proxy pod selector
+	labels[vmeta.ProxyPodSelectorLabel] = vmeta.ProxyPodSelectorVal
 }
 
 // MakeLabelsForPodObject constructs the labels that are common for all pods
 func MakeLabelsForPodObject(vdb *vapi.VerticaDB, sc *vapi.Subcluster) map[string]string {
-	return makeLabelsForObject(vdb, sc, true)
+	return makeLabelsForObject(vdb, sc, true, false)
 }
 
 // MakeLabelsForStsObject constructs the labels that are common for all statefulsets.
 func MakeLabelsForStsObject(vdb *vapi.VerticaDB, sc *vapi.Subcluster) map[string]string {
-	labels := makeLabelsForObject(vdb, sc, false)
+	labels := makeLabelsForObject(vdb, sc, false, false)
 	sandbox := vdb.GetSubclusterSandboxName(sc.Name)
 	if sandbox != vapi.MainCluster {
 		labels[vmeta.WatchedBySandboxLabel] = vmeta.WatchedBySandboxTrue
@@ -105,20 +119,20 @@ func MakeLabelsForStsObject(vdb *vapi.VerticaDB, sc *vapi.Subcluster) map[string
 
 // MakeLabelsForSvcObject will create the set of labels for use with service objects
 func MakeLabelsForSvcObject(vdb *vapi.VerticaDB, sc *vapi.Subcluster, svcType string) map[string]string {
-	labels := makeLabelsForObject(vdb, sc, false)
+	labels := makeLabelsForObject(vdb, sc, false, false)
 	labels[vmeta.SvcTypeLabel] = svcType
 	return labels
 }
 
 // MakeLabelsForVProxyObject constructs the labels of the client proxy config map and pods
-func MakeLabelsForVProxyObject(vdb *vapi.VerticaDB, sc *vapi.Subcluster, forPod bool) map[string]string {
-	labels := makeLabelsForObject(vdb, sc, forPod)
+func MakeLabelsForVProxyObject(vdb *vapi.VerticaDB, sc *vapi.Subcluster, forProxyPod bool) map[string]string {
+	labels := makeLabelsForObject(vdb, sc, false, forProxyPod)
 	return labels
 }
 
 // MakeLabelsForSandboxConfigMap constructs the labels of the sandbox config map
 func MakeLabelsForSandboxConfigMap(vdb *vapi.VerticaDB) map[string]string {
-	labels := makeLabelsForObject(vdb, nil, false)
+	labels := makeLabelsForObject(vdb, nil, false, false)
 	labels[vmeta.WatchedBySandboxLabel] = vmeta.WatchedBySandboxTrue
 	return labels
 }
@@ -215,12 +229,7 @@ func MakeStsSelectorLabels(vdb *vapi.VerticaDB, sc *vapi.Subcluster) map[string]
 // MakeDepSelectorLabels will create the selector labels for use within a Deployment
 func MakeDepSelectorLabels(vdb *vapi.VerticaDB, sc *vapi.Subcluster) map[string]string {
 	m := MakeBaseSvcSelectorLabels(vdb)
-	// Set a special selector to pick only the pods for this porxy deployment. It's
-	// derived from the deployment name as that stays constant and is unique in
-	// a namespace.
-	m[vmeta.DeploymentSelectorLabel] = sc.GetVProxyDeploymentName(vdb)
-	// Set the common proxy pod selector
-	m[vmeta.ProxyPodSelectorLabel] = vmeta.ProxyPodSelectorVal
+	appendProxyLabels(m, vdb, sc)
 	return m
 }
 
