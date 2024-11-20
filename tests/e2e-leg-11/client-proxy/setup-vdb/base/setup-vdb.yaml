@@ -25,6 +25,7 @@ spec:
   communal: {}
   local:
     requestSize: 250Mi
+  imagePullPolicy: IfNotPresent
   # We pick a cluster size that is too big for the CE license. This relies on
   # having a license, which will be added by kustomize.
   subclusters:
