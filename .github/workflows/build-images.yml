@@ -23,6 +23,10 @@ on:
         description: 'Name of an existing vlogger image. If blank we will build one using the default name'
         type: string
         required: true
+      vproxy_image:
+        description: 'Name of an existing vertica client proxy image. If blank we will build one using the default name'
+        type: string
+        required: true
       operator_platform:
         description: 'If building the operator, this identifies the platforms to build it for. Separate multiple platforms with a comma. Example: linux/arm64,linux/amd64'
         type: string
@@ -56,6 +60,9 @@ on:
       vlogger-image:
         description: "The image name of the vertica logger sidecar"
         value: ${{ jobs.build-vlogger.outputs.image }}
+      vproxy-image:
+        description: "The image name of the vertica client proxy"
+        value: ${{ jobs.build-vproxy.outputs.image }}
 
 # These permissions only apply when not running a PR.  GitHub actions makes PRs
 # from forked repositories with extremely limited permissions that cannot be
@@ -577,3 +584,118 @@ jobs:
         echo "Size: **$(docker inspect --format '{{.Size}}' ${{ steps.vlogger_image.outputs.value }} | numfmt --to=iec)**" >> $GITHUB_STEP_SUMMARY
         echo "Image ID: **$(docker inspect --format '{{.ID}}' ${{ steps.vlogger_image.outputs.value }})**" >> $GITHUB_STEP_SUMMARY
         echo "Digest: **$(IFS=":" read image tag <<< $(echo ${{ steps.vlogger_image.outputs.value }} | sed -e 's/^docker.io\///'); docker inspect --format='{{.RepoDigests}}' $image:$tag | sed 's:^.\(.*\).$:\1:' | tr " " "\n" | grep $image | cut -d'@' -f2 || echo "<none>")**" >> $GITHUB_STEP_SUMMARY
+
+  build-vproxy:
+    runs-on: ubuntu-latest
+    outputs:
+      image: ${{ steps.vproxy_image.outputs.value }}
+    steps:
+
+    - name: set lower case owner name
+      env:
+        OWNER: '${{ github.repository_owner }}'
+      run: |
+        echo "OWNER_LC=${OWNER,,}" >>${GITHUB_ENV}
+
+    - name: Pick the name of the image
+      uses: spilchen/switch-case-action@v2
+      id: vproxy_image
+      with:
+        default: ghcr.io/${{ env.OWNER_LC }}/client-proxy:${{ github.sha }}
+        conditionals-with-values: |
+          ${{ inputs.vproxy_image != '' }} => ${{ inputs.vproxy_image }}
+          ${{ github.event_name == 'pull_request' }} => client-proxy:kind
+
+    - name: Login to GitHub Container registry for non-PRs
+      uses: docker/login-action@v3
+      if: ${{ github.event_name != 'pull_request' && inputs.vproxy_image == '' || startsWith(inputs.vproxy_image, 'ghcr.io') }}
+      with:
+        registry: ghcr.io
+        username: ${{ github.repository_owner }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - uses: actions/checkout@v4
+      if: ${{ inputs.vproxy_image == '' }}
+
+    - name: Build and optionally push client proxy image
+      if: ${{ inputs.vproxy_image == '' }}
+      run: |
+        # Do not push the image to remote registry because we
+        # do not want to overwrite the existing images.
+        export VPROXY_IMG=${{ steps.vproxy_image.outputs.value }}
+
+    - name: Save the image for consumption by dependent jobs (PRs only)
+      if: ${{ github.event_name == 'pull_request' }}
+      run: |
+        docker save ${{ steps.vproxy_image.outputs.value }} > vproxy-image.tar
+
+    - uses: actions/upload-artifact@v4
+      if: ${{ github.event_name == 'pull_request' }}
+      with:
+        name: vproxy-image
+        path: vproxy-image.tar
+
+    - name: Do a local pull of the image if we didn't create it
+      if: ${{ inputs.vproxy_image != '' }}
+      run: |
+        docker pull ${{ inputs.vproxy_image }}
+
+    - name: Run the Trivy vulnerability scanner (sarif)
+      uses: aquasecurity/trivy-action@0.27.0
+      if: ${{ inputs.run_security_scan != 'none' && github.event_name != 'pull_request' }}
+      with:
+        image-ref: ${{ steps.vproxy_image.outputs.value }}
+        ignore-unfixed: true
+        format: 'sarif'
+        output: 'trivy-results-vertica-client-proxy-image.sarif'
+      env:
+        TRIVY_DB_REPOSITORY: ${{ env.TRIVY_DB_REPOSITORY }}
+        TRIVY_JAVA_DB_REPOSITORY: ${{ env.TRIVY_JAVA_DB_REPOSITORY }}
+
+    - name: Upload Trivy scan results to GitHub Security tab
+      uses: github/codeql-action/upload-sarif@v3
+      if: ${{ always() && inputs.run_security_scan != 'none' && github.event_name != 'pull_request' }}
+      with:
+        sarif_file: 'trivy-results-vertica-client-proxy-image.sarif'
+
+    - name: Run the Trivy vulnerability scanner (pretty print)
+      id: trivy_scan
+      uses: aquasecurity/trivy-action@0.27.0
+      if: ${{ inputs.run_security_scan != 'none' }}
+      with:
+        image-ref: ${{ steps.vproxy_image.outputs.value }}
+        ignore-unfixed: true
+        format: 'table'
+        output: 'trivy-results-vertica-client-proxy-image.out'
+      env:
+        TRIVY_DB_REPOSITORY: ${{ env.TRIVY_DB_REPOSITORY }}
+        TRIVY_JAVA_DB_REPOSITORY: ${{ env.TRIVY_JAVA_DB_REPOSITORY }}
+
+    - name: Generate Warning Annotations
+      if: ${{ hashFiles('trivy-results-vertica-client-proxy-image.out') != '' }}
+      run: |
+        IF_WARNING="$(cat trivy-results-vertica-client-proxy-image.out | grep -oP '(?<=Total: [^0] ).*' || true)"
+        if [ ! -z "$IF_WARNING" ]; then
+          echo "No Warning found"
+        else 
+          echo "Warning found, adding to annotaion."
+        fi
+        echo "::warning Vulnerability found during trivy scan::$IF_WARNING"
+
+    - uses: actions/upload-artifact@v4
+      if: ${{ always() && inputs.run_security_scan != 'none' }}
+      with:
+        name: security-scan-vproxy
+        path: 'trivy-results-vertica-client-proxy-image.out'
+
+    - name: Print a summary of the job
+      run: |
+        echo "Image Name: **${{ steps.vproxy_image.outputs.value }}**" >> $GITHUB_STEP_SUMMARY
+        echo "Was Built: ${{ inputs.vproxy_image == '' && '**Yes**' || '**No**' }}" >> $GITHUB_STEP_SUMMARY
+        echo "Was Pushed: ${{ inputs.vproxy_image == '' && github.event_name != 'pull_request' && '**Yes**' || '**No**' }}" >> $GITHUB_STEP_SUMMARY
+        echo "Was Scanned: ${{ inputs.run_security_scan != 'none' && '**Yes**' || '**No**' }}" >> $GITHUB_STEP_SUMMARY
+        echo "Scan Output: " >> $GITHUB_STEP_SUMMARY
+        echo "${{ inputs.run_security_scan != 'none' && '$(cat trivy-results-vertica-client-proxy-image.out)' || 'N/A' }}" >> $GITHUB_STEP_SUMMARY
+        echo "Size: **$(docker inspect --format '{{.Size}}' ${{ steps.vproxy_image.outputs.value }} | numfmt --to=iec)**" >> $GITHUB_STEP_SUMMARY
+        echo "Image ID: **$(docker inspect --format '{{.ID}}' ${{ steps.vproxy_image.outputs.value }})**" >> $GITHUB_STEP_SUMMARY
+        echo "Digest: **$(IFS=":" read image tag <<< $(echo ${{ steps.vproxy_image.outputs.value }} | sed -e 's/^docker.io\///'); docker inspect --format='{{.RepoDigests}}' $image:$tag | sed 's:^.\(.*\).$:\1:' | tr " " "\n" | grep $image | cut -d'@' -f2 || echo "<none>")**" >> $GITHUB_STEP_SUMMARY
