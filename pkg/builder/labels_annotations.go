@@ -86,6 +86,9 @@ func makeLabelsForObject(vdb *vapi.VerticaDB, sc *vapi.Subcluster, forPod, forPr
 
 	if forProxyPod {
 		appendProxyLabels(labels, vdb, sc)
+		if !sc.IsTransient() {
+			labels[vmeta.SubclusterSvcNameLabel] = sc.GetServiceName()
+		}
 	}
 
 	return labels

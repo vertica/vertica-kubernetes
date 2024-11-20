@@ -22,13 +22,13 @@ data:
     set -o xtrace
     
     # get ips of proxy pods
-    PROXY_POD1_IP=$(kubectl get pod -l pod-template-hash,vertica.com/deployment-selector-name=v-client-proxy-pri1-proxy -o jsonpath='{.items[0].status.podIP}'')
-    PROXY_POD2_IP=$(kubectl get pod -l pod-template-hash,vertica.com/deployment-selector-name=v-client-proxy-pri1-proxy -o jsonpath='{.items[1].status.podIP}'')
+    PROXY_POD1_IP=$(kubectl get pod -l pod-template-hash,vertica.com/deployment-selector-name=v-client-proxy-pri1-proxy -o jsonpath='{.items[0].status.podIP}')
+    PROXY_POD2_IP=$(kubectl get pod -l pod-template-hash,vertica.com/deployment-selector-name=v-client-proxy-pri1-proxy -o jsonpath='{.items[1].status.podIP}')
     
     # use vsql to connect to service "pri1" inside a vertica pod and get the client ip
     NAMESPACE=$(kubectl get pod v-client-proxy-pri1-0 -o=jsonpath='{.metadata.namespace}')
-    SERVICE_DNS=v-client-pri1.${NAMESPACE}.svc.cluster.local
-    CLIENT_IP=$(kubectl exec v-client-proxy-pri1-0 -i -c server -- bash -c "vsql -h $SERVICE_DNS -U dbadmin -m disable -tAc 'SELECT client_hostname FROM current_session;'" | cut -d':' -f1)
+    SERVICE_DNS=v-client-proxy-pri1.${NAMESPACE}.svc.cluster.local
+    CLIENT_IP=$(kubectl exec v-client-proxy-pri1-0 -i -c server -- bash -c "vsql -h $SERVICE_DNS -U dbadmin -tAc 'SELECT client_hostname FROM current_session;'" | cut -d':' -f1)
     
     # verify the connection is made by proxy pods
     if [[ "$CLIENT_IP" != "$PROXY_POD1_IP" && "$CLIENT_IP" != "$PROXY_POD2_IP" ]]; then
