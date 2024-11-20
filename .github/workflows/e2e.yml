@@ -88,7 +88,6 @@ jobs:
   build:
     uses: ./.github/workflows/build-images.yml
     with:
-      vproxy_image: ${{ inputs.vproxy_image }}
       vlogger_image: ${{ inputs.vlogger_image }}
       operator_image: ${{ inputs.operator_image }}
       minimal_vertica_image: ${{ inputs.minimal_vertica_image }}
