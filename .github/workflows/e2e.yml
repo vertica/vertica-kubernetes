@@ -26,6 +26,10 @@ on:
         description: 'Name of an existing vlogger image. Leave blank to build one with the default name'
         type: string
         required: false
+      vproxy_image:
+        description: 'Name of an existing vertica client proxy image. Leave blank to build one with the default name'
+        type: string
+        required: false
       e2e_test_suites:
         description: 'E2E test suites to run'
         required: false
@@ -84,6 +88,7 @@ jobs:
   build:
     uses: ./.github/workflows/build-images.yml
     with:
+      vproxy_image: ${{ inputs.vproxy_image }}
       vlogger_image: ${{ inputs.vlogger_image }}
       operator_image: ${{ inputs.operator_image }}
       minimal_vertica_image: ${{ inputs.minimal_vertica_image }}
