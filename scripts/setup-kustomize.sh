@@ -128,6 +128,7 @@ fi
 echo "Vertica server image name: $VERTICA_IMG"
 echo "Base vertica server image name for upgrade tests: $BASE_VERTICA_IMG"
 echo "Vertica logger image name: $VLOGGER_IMG"
+echo "Vertica client proxy image name: $VPROXY_IMG"
 echo -n "License file: "
 if [ -n "$LICENSE_FILE" ]; then echo "YES ($LICENSE_FILE)"; else echo "NO"; fi
 echo "Endpoint: $ENDPOINT"
@@ -538,6 +539,10 @@ EOF
 }
 
 function create_communal_cfg {
+    # If proxy image wasn't specified, default to the latest for not failing tests
+    if [ -z "$VPROXY_IMG" ]; then
+      VPROXY_IMG=opentext/client-proxy:latest
+    fi
     pushd kustomize-base > /dev/null
     cat <<EOF > e2e.yaml
 apiVersion: v1
