@@ -360,8 +360,8 @@ const (
 	// This indicates that the subcluster shutdown is controlled by the subcluster's
 	// shutdown field.
 	ShutdownDrivenBySubcluster = "vertica.com/shutdown-driven-by-subcluster"
-  
-  // The timeout, in seconds, to use when the operator is polling the status of an ongoing
+
+	// The timeout, in seconds, to use when the operator is polling the status of an ongoing
 	// asynchronous replication operation. If omitted, we use the default timeout of 60 minutes.
 	ReplicationTimeoutAnnotation          = "vertica.com/replication-timeout"
 	ReplicationDefaultTimeout             = 60 * 60
