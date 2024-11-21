@@ -495,7 +495,7 @@ func (o *ObjReconciler) checkVProxyDeployment(ctx context.Context, sc *vapi.Subc
 	if sc.Size == 0 {
 		*vpDep.Spec.Replicas = 0
 		o.Log.Info("Scale down client proxy", "Name", vpName, "Size", vpDep.Spec.Replicas, "Image", vpDep.Spec.Template.Spec.Containers[0].Image)
-		return o.Rec.GetClient().Update(ctx, curDep)
+		return o.Rec.GetClient().Update(ctx, vpDep)
 	}
 
 	if vpErr != nil && kerrors.IsNotFound(vpErr) {
