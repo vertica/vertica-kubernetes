@@ -71,10 +71,6 @@ inputs:
     description: 'If the test needs vertica legacy image'
     required: false
     default: 'false'
-  need-vproxy-image:
-    description: 'If the test needs vertica client proxy image'
-    required: false
-    default: 'false'
   skip-download-test-packages:
     description: 'If skip downloading test packages inside vertica image'
     required: false
@@ -89,7 +85,6 @@ runs:
       uses: ./.github/actions/setup-e2e
       with:
         need-legacy-image: ${{ inputs.need-legacy-image }}
-        need-vproxy-image: ${{ inputs.need-vproxy-image }}
 
     - name: Login to Docker Hub
       uses: docker/login-action@v3

@@ -26,10 +26,6 @@ on:
         description: 'Name of an existing vlogger image. Leave blank to build one with the default name'
         type: string
         required: false
-      vproxy_image:
-        description: 'Name of an existing vertica client proxy image. Leave blank to build one with the default name'
-        type: string
-        required: false
       e2e_test_suites:
         description: 'E2E test suites to run'
         required: false
@@ -606,7 +602,6 @@ jobs:
           # Include the vertica license so we can test multiple subclusters.
           vertica-license: ${{ secrets.VERTICA_LICENSE }}
           need-base-vertica-image: 'true'
-          need-vproxy-image: 'true'
 
   e2e-server-upgrade-admintools:
     if: ${{ ! contains(github.ref, 'k8s-sync')  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools server upgrade' || inputs.e2e_test_suites == '') }}
