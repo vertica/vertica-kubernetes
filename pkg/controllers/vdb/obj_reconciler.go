@@ -274,7 +274,7 @@ func (o *ObjReconciler) checkForDeletedSubcluster(ctx context.Context) (ctrl.Res
 		}
 		// Delete vproxy config map if feature enabled
 		if vmeta.UseVProxy(o.Vdb.Annotations) {
-			err := o.DeleteVProxyConfigMapIfExists(ctx, &stss.Items[i])
+			err = o.DeleteVProxyConfigMapIfExists(ctx, &stss.Items[i])
 			if err != nil {
 				return ctrl.Result{}, err
 			}
