@@ -357,12 +357,6 @@ func (o *ObjReconciler) reconcileSvc(ctx context.Context, expSvc *corev1.Service
 	return nil
 }
 
-// reconcileExtSvc verifies the external service objects exists and creates it if necessary.
-func (o *ObjReconciler) reconcileExtSvc(ctx context.Context, expSvc *corev1.Service, sc *vapi.Subcluster) error {
-	svcName := types.NamespacedName{Name: expSvc.Name, Namespace: expSvc.Namespace}
-	return o.reconcileSvc(ctx, expSvc, svcName, sc, o.reconcileExtSvcFields)
-}
-
 // reconcileExtSvcFields merges relevant expSvc fields into curSvc, and
 // returns an updated curSvc if one or more fields changed. Returns nil
 // if nothing changed.
