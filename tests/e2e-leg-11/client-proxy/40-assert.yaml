@@ -36,19 +36,6 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: v-client-proxy-pri1-proxy-cm
-data:
-  config.yaml: |
-    listener:
-      host: ""
-      port: 5433
-    database:
-      nodes:
-      - v-client-proxy-pri1-0:5433
-      - v-client-proxy-pri1-1:5433
-      - v-client-proxy-pri1-2:5433
-      - v-client-proxy-pri1-3:5433
-    log:
-      level: INFO
 immutable: false
 ---
 apiVersion: apps/v1
@@ -62,17 +49,6 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: v-client-proxy-sec1-proxy-cm
-data:
-  config.yaml: |
-    listener:
-      host: ""
-      port: 5433
-    database:
-      nodes:
-      - v-client-proxy-sec1-0:5433
-      - v-client-proxy-sec1-1:5433
-    log:
-      level: INFO
 immutable: false
 ---
 apiVersion: vertica.com/v1
@@ -89,3 +65,10 @@ spec:
       size: 2
       proxy:
         replica: 1
+status:
+  subclusters:
+    - addedToDBCount: 4
+      upNodeCount: 4
+    - addedToDBCount: 2
+      upNodeCount: 2
+
