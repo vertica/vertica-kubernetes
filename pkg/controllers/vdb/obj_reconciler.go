@@ -495,15 +495,10 @@ func (o *ObjReconciler) checkVProxyDeployment(ctx context.Context, sc *vapi.Subc
 	if sc.Size == 0 {
 		*vpDep.Spec.Replicas = 0
 		o.Log.Info("Scale down client proxy", "Name", vpName, "Size", vpDep.Spec.Replicas, "Image", vpDep.Spec.Template.Spec.Containers[0].Image)
-		return updateDep(ctx, o.Rec, vpDep, o.Vdb)
+		return o.Rec.GetClient().Update(ctx, curDep)
 	}
 
 	if vpErr != nil && kerrors.IsNotFound(vpErr) {
-		// Let subcluster own VProxy in sts
-		err := ctrl.SetControllerReference(sts, vpDep, o.Rec.GetClient().Scheme())
-		if err != nil {
-			return err
-		}
 		o.Log.Info("Creating deployment", "Name", vpName, "Size", vpDep.Spec.Replicas, "Image", vpDep.Spec.Template.Spec.Containers[0].Image)
 		return createDep(ctx, o.Rec, vpDep, o.Vdb)
 	}

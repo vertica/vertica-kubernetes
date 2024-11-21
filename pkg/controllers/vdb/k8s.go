@@ -100,21 +100,3 @@ func createDep(ctx context.Context, vrec config.ReconcilerInterface, vpDep *apps
 	}
 	return vrec.GetClient().Create(ctx, vpDep)
 }
-
-// updateDep will update an existing deployment. It assumes the deployment exist already.
-func updateDep(ctx context.Context, vrec config.ReconcilerInterface, vpDep *appsv1.Deployment, vdb *vapi.VerticaDB) error {
-	err := ctrl.SetControllerReference(vdb, vpDep, vrec.GetClient().Scheme())
-	if err != nil {
-		return err
-	}
-	return vrec.GetClient().Update(ctx, vpDep)
-}
-
-// deleteDep will delete an existing deployment. It assumes the deployment exist already.
-func deleteDep(ctx context.Context, vrec config.ReconcilerInterface, vpDep *appsv1.Deployment, vdb *vapi.VerticaDB) error {
-	err := ctrl.SetControllerReference(vdb, vpDep, vrec.GetClient().Scheme())
-	if err != nil {
-		return err
-	}
-	return vrec.GetClient().Delete(ctx, vpDep)
-}
