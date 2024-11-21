@@ -73,7 +73,7 @@ func (r *UnsandboxImageVersion) Reconcile(ctx context.Context, _ *ctrl.Request) 
 // reconcileVerticaImage recreates the StatefulSet of the secondary subclusters that
 // have the wrong vertica image
 func (r *UnsandboxImageVersion) reconcileVerticaImage(ctx context.Context) (ctrl.Result, error) {
-	scsWithWrongImage, priScImage := r.PFacts.FindSecondarySubclustersWithDifferentImage()
+	scsWithWrongImage, priScImage := r.PFacts.FindSecondarySubclustersWithDifferentImage(r.Vdb)
 	if len(scsWithWrongImage) == 0 {
 		return ctrl.Result{}, nil
 	}

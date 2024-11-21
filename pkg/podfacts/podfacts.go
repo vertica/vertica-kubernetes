@@ -246,6 +246,32 @@ func MakePodFactsForSandbox(vrec config.ReconcilerInterface, prunner cmds.PodRun
 	return pf
 }
 
+// ConstructsDetail sets the Detail field in PodFacts, for test purposes
+func (p *PodFacts) ConstructsDetail(subclusters []vapi.Subcluster, upNodes []uint) {
+	p.Detail = make(PodFactDetail)
+	if len(subclusters) != len(upNodes) {
+		return
+	}
+	for i := range subclusters {
+		sc := &subclusters[i]
+		upNode := upNodes[i]
+		for j := int32(0); j < sc.Size; j++ {
+			isUp := upNode > 0
+			pf := PodFact{
+				name:           types.NamespacedName{Name: fmt.Sprintf("%s-%d", sc.Name, j)},
+				subclusterName: sc.Name,
+				isPrimary:      sc.IsPrimary(),
+				shutdown:       sc.Shutdown,
+				upNode:         isUp,
+				podIP:          "10.10.10.10",
+				podIndex:       j,
+			}
+			upNode--
+			p.Detail[pf.name] = &pf
+		}
+	}
+}
+
 // Copy will make a new copy of the podfacts, but setup for the given sandbox name.
 func (p *PodFacts) Copy(sandbox string) PodFacts {
 	ret := *p
@@ -774,6 +800,11 @@ func (p *PodFact) GetShardSubscriptions() int {
 // GetSandbox returns the string value of sandbox in PodFact
 func (p *PodFact) GetSandbox() string {
 	return p.sandbox
+}
+
+// GetShutdown returns the value of shutdown
+func (p *PodFact) GetShutdown() bool {
+	return p.shutdown
 }
 
 // GetReadOnly returns the bool value of readonly in PodFact
@@ -1355,6 +1386,17 @@ func (p *PodFacts) GetUpNodeCount() int {
 	})
 }
 
+// GetSubclusterUpNodeCount returns the number of up nodes in the given subcluster.
+// A pod is considered down if it doesn't have a running vertica process.
+func (p *PodFacts) GetSubclusterUpNodeCount(scName string) int {
+	return p.countPods(func(v *PodFact) int {
+		if v.subclusterName == scName && v.upNode {
+			return 1
+		}
+		return 0
+	})
+}
+
 // GetUpNodeAndNotReadOnlyCount returns the number of nodes that are up and
 // writable.  Starting in 11.0SP2, nodes can be up but only in read-only state.
 // This function filters out those *up* nodes that are in read-only state.
@@ -1420,7 +1462,17 @@ func (p *PodFacts) AnyUninstalledTransientPodsNotRunning() (bool, types.Namespac
 	return false, types.NamespacedName{}
 }
 
-// GetHostList will return a host and podName list from the given pods
+// IsDBReadOnly return true if the database is read-only
+func (p *PodFacts) IsDBReadOnly() bool {
+	for _, v := range p.Detail {
+		if v.isPodRunning && v.readOnly {
+			return true
+		}
+	}
+	return false
+}
+
+// GetHostList will returns a host and podName list from the given pods
 func GetHostAndPodNameList(podList []*PodFact) ([]string, []types.NamespacedName) {
 	hostList := make([]string, 0, len(podList))
 	podNames := make([]types.NamespacedName, 0, len(podList))
@@ -1603,6 +1655,22 @@ func (p *PodFacts) QuorumCheckForRestartCluster(restartOnly bool) bool {
 	return restartablePrimaryNodeCount >= (primaryNodeCount+1)/2
 }
 
+// DoesDBHaveQuorum returns true if the cluster will keep quorum
+func (p *PodFacts) DoesDBHaveQuorum(offset int) bool {
+	totalPrimaryCount := 0
+	upPrimaryCount := 0
+	for _, pod := range p.Detail {
+		if !pod.GetIsPrimary() {
+			continue
+		}
+		totalPrimaryCount++
+		if pod.GetUpNode() {
+			upPrimaryCount++
+		}
+	}
+	return 2*(upPrimaryCount-offset) > totalPrimaryCount
+}
+
 // IsSandboxEmpty returns true if we cannot find any pods in the target sandbox
 func (p *PodFacts) IsSandboxEmpty(sandbox string) bool {
 	pods := p.filterPods(func(v *PodFact) bool {
@@ -1615,13 +1683,13 @@ func (p *PodFacts) IsSandboxEmpty(sandbox string) bool {
 // return the secondary subclusters that have different vertica image than primary subcluster with primary
 // subcluster image. This function is used in post-unsandbox process. If the pods in the sandbox upgraded
 // vertica, after unsandbox, we will find those pods out and restore their vertica images.
-func (p *PodFacts) FindSecondarySubclustersWithDifferentImage() (scs []string, priScImage string) {
+func (p *PodFacts) FindSecondarySubclustersWithDifferentImage(vdb *vapi.VerticaDB) (scs []string, priScImage string) {
 	scs = []string{}
 	// we expect the pfacts only contains the main cluster pods
 	if p.GetSandboxName() != vapi.MainCluster {
 		return scs, ""
 	}
-
+	scStatusMap := vdb.GenSubclusterStatusMap()
 	for _, v := range p.Detail {
 		if v.isPrimary {
 			priScImage = v.image
@@ -1632,6 +1700,11 @@ func (p *PodFacts) FindSecondarySubclustersWithDifferentImage() (scs []string, p
 	seenScs := make(map[string]any)
 	for _, v := range p.Detail {
 		if _, ok := seenScs[v.subclusterName]; ok {
+			continue
+		}
+		scStatus, found := scStatusMap[v.subclusterName]
+		// subclusters that are shut down must be ignored
+		if v.shutdown || (found && scStatus.Shutdown) {
 			continue
 		}
 		if !v.isPrimary && v.image != priScImage {

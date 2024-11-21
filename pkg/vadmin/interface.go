@@ -51,6 +51,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/showrestorepoints"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/startdb"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/stopdb"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/stopsubcluster"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/unsandboxsc"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -131,6 +132,9 @@ type Dispatcher interface {
 
 	// SaveRestorePoint will create a restore point to an existing archive
 	SaveRestorePoint(ctx context.Context, opts ...saverestorepoint.Option) error
+
+	// StopSubcluster will stop a subcluster from Vertica db
+	StopSubcluster(ctx context.Context, opts ...stopsubcluster.Option) error
 
 	AlterSubclusterType(ctx context.Context, opts ...altersc.Option) error
 
@@ -277,6 +281,7 @@ type VClusterProvider interface {
 	VCreateDatabase(options *vops.VCreateDatabaseOptions) (vops.VCoordinationDatabase, error)
 	VStopDatabase(options *vops.VStopDatabaseOptions) error
 	VStartDatabase(options *vops.VStartDatabaseOptions) (*vops.VCoordinationDatabase, error)
+	VStopSubcluster(options *vops.VStopSubclusterOptions) error
 	VReviveDatabase(options *vops.VReviveDatabaseOptions) (string, *vops.VCoordinationDatabase, error)
 	VFetchNodeState(options *vops.VFetchNodeStateOptions) ([]vops.NodeInfo, error)
 	VAddSubcluster(options *vops.VAddSubclusterOptions) error

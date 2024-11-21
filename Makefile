@@ -99,6 +99,9 @@ export BASE_VERTICA_IMG
 # Image URL to use for the logger sidecar
 VLOGGER_IMG ?= $(IMG_REPO)vertica-logger:$(VLOGGER_VERSION)
 export VLOGGER_IMG
+# Image URL to use for the vertica client proxy. This is for testing purposes only.
+VPROXY_IMG ?= opentext/client-proxy:latest
+export VPROXY_IMG
 # If the current leg in the CI tests is leg-9
 LEG9 ?= no
 export LEG9
@@ -204,6 +207,11 @@ export BROADCASTER_BURST_SIZE
 #               objects in the namespace where the manager is deployed.
 CONTROLLERS_SCOPE?=cluster
 export CONTROLLERS_SCOPE
+
+# Use this to control the maximum backoff duration for VDBcontroller
+VDB_MAX_BACKOFF_DURATION?=1000
+export VDB_MAX_BACKOFF_DURATION
+
 #
 # The address the operators Prometheus metrics endpoint binds to. Setting this
 # to 0 will disable metric serving.
@@ -557,6 +565,7 @@ echo-images:  ## Print the names of all of the images used
 	@echo "VERTICA_IMG=$(VERTICA_IMG)"
 	@echo "BASE_VERTICA_IMG=$(BASE_VERTICA_IMG)"
 	@echo "VLOGGER_IMG=$(VLOGGER_IMG)"
+	@echo "VPROXY_IMG=$(VPROXY_IMG)"
 	@echo "BUNDLE_IMG=$(BUNDLE_IMG)"
 	@echo "OLM_CATALOG_IMG=$(OLM_CATALOG_IMG)"
 
@@ -603,7 +612,7 @@ uninstall: manifests kustomize ## Uninstall CRDs from the K8s cluster specified 
 # If this secret does not exist then it is simply ignored.
 deploy-operator: manifests kustomize ## Using helm or olm, deploy the operator in the K8s cluster
 ifeq ($(DEPLOY_WITH), helm)
-	helm install $(DEPLOY_WAIT) -n $(NAMESPACE) --create-namespace $(HELM_RELEASE_NAME) $(OPERATOR_CHART) --set image.repo=null --set image.name=${OPERATOR_IMG} --set image.pullPolicy=$(HELM_IMAGE_PULL_POLICY) --set imagePullSecrets[0].name=priv-reg-cred --set controllers.scope=$(CONTROLLERS_SCOPE) $(HELM_OVERRIDES)
+	helm install $(DEPLOY_WAIT) -n $(NAMESPACE) --create-namespace $(HELM_RELEASE_NAME) $(OPERATOR_CHART) --set image.repo=null --set image.name=${OPERATOR_IMG} --set image.pullPolicy=$(HELM_IMAGE_PULL_POLICY) --set imagePullSecrets[0].name=priv-reg-cred --set controllers.scope=$(CONTROLLERS_SCOPE) --set controllers.vdbMaxBackoffDuration=$(VDB_MAX_BACKOFF_DURATION) $(HELM_OVERRIDES)
 	scripts/wait-for-webhook.sh -n $(NAMESPACE) -t 60
 else ifeq ($(DEPLOY_WITH), olm)
 	scripts/deploy-olm.sh -n $(NAMESPACE) $(OLM_TEST_CATALOG_SOURCE)
