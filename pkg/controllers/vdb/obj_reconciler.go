@@ -272,16 +272,13 @@ func (o *ObjReconciler) checkForDeletedSubcluster(ctx context.Context) (ctrl.Res
 		if err != nil {
 			return ctrl.Result{}, err
 		}
-		// Delete vproxy config map
+		// Delete vproxy config map if feature enabled
 		if vmeta.UseVProxy(o.Vdb.Annotations) {
-			scName := stss.Items[i].Labels[vmeta.SubclusterNameLabel]
-			// Check if config map exists and delete
-			err := o.DeleteVProxyConfigMapIfExists(ctx, scName)
+			err := o.DeleteVProxyConfigMapIfExists(ctx, &stss.Items[i])
 			if err != nil {
 				return ctrl.Result{}, err
 			}
 		}
-
 	}
 
 	// Find any service objects that need to be deleted
@@ -358,6 +355,12 @@ func (o *ObjReconciler) reconcileSvc(ctx context.Context, expSvc *corev1.Service
 		return o.Rec.GetClient().Update(ctx, newSvc)
 	}
 	return nil
+}
+
+// reconcileExtSvc verifies the external service objects exists and creates it if necessary.
+func (o *ObjReconciler) reconcileExtSvc(ctx context.Context, expSvc *corev1.Service, sc *vapi.Subcluster) error {
+	svcName := types.NamespacedName{Name: expSvc.Name, Namespace: expSvc.Namespace}
+	return o.reconcileSvc(ctx, expSvc, svcName, sc, o.reconcileExtSvcFields)
 }
 
 // reconcileExtSvcFields merges relevant expSvc fields into curSvc, and
@@ -482,14 +485,18 @@ func (o *ObjReconciler) checkVProxyConfigMap(ctx context.Context, cmName types.N
 }
 
 // DeleteVProxyConfigMapIfExists will delete a client proxy config map if exists, otherwise ignore
-func (o *ObjReconciler) DeleteVProxyConfigMapIfExists(ctx context.Context, scName string) error {
-	curCM := &corev1.ConfigMap{}
-	cmName := names.GenVProxyConfigMapNameFromVDB(o.Vdb, scName)
-	err := o.Rec.GetClient().Get(ctx, cmName, curCM)
-	if kerrors.IsNotFound(err) {
-		return nil
+func (o *ObjReconciler) DeleteVProxyConfigMapIfExists(ctx context.Context, sts *appsv1.StatefulSet) error {
+	if scName, ok := sts.Labels[vmeta.SubclusterNameLabel]; ok {
+		curCM := &corev1.ConfigMap{}
+		cmName := names.GenVProxyConfigMapNameFromVDB(o.Vdb, scName)
+		err := o.Rec.GetClient().Get(ctx, cmName, curCM)
+		if kerrors.IsNotFound(err) {
+			return nil
+		}
+		return o.Rec.GetClient().Delete(ctx, curCM)
+	} else {
+		return errors.New("could not find label name in sts")
 	}
-	return o.Rec.GetClient().Delete(ctx, curCM)
 }
 
 // checkVProxyDeployment will create or update the client proxy deployment
