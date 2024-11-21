@@ -480,7 +480,7 @@ func (o *ObjReconciler) DeleteVProxyConfigMapIfExists(ctx context.Context, scNam
 }
 
 // checkVProxyDeployment will create or update the client proxy deployment
-func (o *ObjReconciler) checkVProxyDeployment(ctx context.Context, sc *vapi.Subcluster, sts *appsv1.StatefulSet) error {
+func (o *ObjReconciler) checkVProxyDeployment(ctx context.Context, sc *vapi.Subcluster) error {
 	cmName := names.GenVProxyConfigMapName(o.Vdb, sc)
 	err := o.checkVProxyConfigMap(ctx, cmName, sc)
 	if err != nil {
@@ -525,7 +525,7 @@ func (o *ObjReconciler) reconcileSts(ctx context.Context, sc *vapi.Subcluster) (
 
 	if vmeta.UseVProxy(o.Vdb.Annotations) {
 		// Create or update the client proxy deployment
-		vpErr := o.checkVProxyDeployment(ctx, sc, expSts)
+		vpErr := o.checkVProxyDeployment(ctx, sc)
 		if vpErr != nil {
 			return ctrl.Result{}, vpErr
 		}
