@@ -23,36 +23,6 @@ data:
 
     POD_NAME=v-source-sc1-0
 
-    kubectl exec $POD_NAME -i -c server -- bash -c "vsql -U dbadmin -w superuser -tAc \"ALTER DATABASE DEFAULT SET EnableConnectCredentialForwarding = 1;\""
-
-    kubectl exec $POD_NAME -i -c server -- bash -c "vsql -U dbadmin -w superuser -tAc \"CREATE KEY mtls_root_key TYPE 'RSA' LENGTH 2048;\""
-    kubectl exec $POD_NAME -i -c server -- bash -c "vsql -U dbadmin -w superuser -tAc \"CREATE CA CERTIFICATE mtls_root_cert \
-    SUBJECT '/C=US/ST=Massachusetts/L=Burlington/O=OpenText/OU=Vertica/CN=Vertica Root CA' \
-    VALID FOR 3650 \
-    EXTENSIONS 'authorityKeyIdentifier' = 'keyid:always,issuer', 'nsComment' = 'Vertica generated root CA cert' \
-    KEY mtls_root_key;\""
-
-    kubectl exec $POD_NAME -i -c server -- bash -c "vsql -U dbadmin -w superuser -tAc \"CREATE KEY mtls_client_key TYPE 'RSA' LENGTH 2048;\""
-    kubectl exec $POD_NAME -i -c server -- bash -c "vsql -U dbadmin -w superuser -tAc \"CREATE CERTIFICATE mtls_client_cert \
-    SUBJECT '/C=US/ST=Massachusetts/L=Burlington/O=OpenText/OU=Vertica/CN=dbadmin' \
-    SIGNED BY mtls_root_cert \
-    EXTENSIONS 'nsComment' = 'Vertica client cert', 'extendedKeyUsage' = 'clientAuth' \
-    KEY mtls_client_key;\""
-
-    kubectl exec $POD_NAME -i -c server -- bash -c "vsql -U dbadmin -w superuser -tAc \"CREATE KEY mtls_server_key TYPE 'RSA' LENGTH 2048;\""
-    kubectl exec $POD_NAME -i -c server -- bash -c "vsql -U dbadmin -w superuser -tAc \"CREATE CERTIFICATE mtls_server_cert \
-    SUBJECT '/C=US/ST=Massachusetts/L=Burlington/O=OpenText/OU=Vertica/CN=vertica-rnd@opentext.com' \
-    SIGNED BY mtls_root_cert \
-    EXTENSIONS 'nsComment' = 'Vertica server cert', 'extendedKeyUsage' = 'serverAuth' \
-    KEY mtls_server_key;\""
-
-    kubectl exec $POD_NAME -i -c server -- bash -c "vsql -U dbadmin -w superuser -tAc \"CREATE TLS CONFIGURATION mtls;\""
-    kubectl exec $POD_NAME -i -c server -- bash -c "vsql -U dbadmin -w superuser -tAc \"ALTER TLS CONFIGURATION mtls CERTIFICATE mtls_client_cert ADD CA CERTIFICATES mtls_root_cert TLSMODE 'ENABLE';\""
-
-    mtls_root_cert_text=$(kubectl exec $POD_NAME -i -c server -- bash -c "vsql -U dbadmin -w superuser -tAc \"SELECT certificate_text FROM certificates WHERE name = 'mtls_root_cert';\" | tr -d '\n'")
-    mtls_server_key_text=$(kubectl exec $POD_NAME -i -c server -- bash -c "vsql -U dbadmin -w superuser -tAc \"SELECT key FROM CRYPTOGRAPHIC_KEYS WHERE name = 'mtls_server_key';\" | tr -d '\n'")
-    mtls_server_cert_text=$(kubectl exec $POD_NAME -i -c server -- bash -c "vsql -U dbadmin -w superuser -tAc \"SELECT certificate_text FROM certificates WHERE name = 'mtls_server_cert';\" | tr -d '\n'")
-
     # Create 2 tables 'test_table1', 'test_table2' so we can test partial replication options
     kubectl exec $POD_NAME -i -c server -- bash -c "vsql -U dbadmin -w superuser -tAc \"CREATE SCHEMA test;\""
     kubectl exec $POD_NAME -i -c server -- bash -c "vsql -U dbadmin -w superuser -tAc \"CREATE TABLE test.test_table1 (val INTEGER);\""

@@ -146,9 +146,9 @@ const (
 	// ReplicationReady indicates whether the operator is ready to start the database replication
 	ReplicationReady = "ReplicationReady"
 
-	// ReplicationReady indicates database replication should be done asynchronously
+	// ReplicationModeAsync indicates database replication should be done asynchronously
 	ReplicationModeAsync = "async"
-	// ReplicationReady indicates database replication should be done synchronously
+	// ReplicationModeSync indicates database replication should be done synchronously
 	ReplicationModeSync = "sync"
 )
 

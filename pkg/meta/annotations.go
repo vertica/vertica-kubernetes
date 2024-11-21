@@ -703,7 +703,7 @@ func GetReplicationTimeout(annotations map[string]string) int {
 	return lookupIntAnnotation(annotations, ReplicationTimeoutAnnotation, ReplicationDefaultTimeout)
 }
 
-// GetReplicationTimeout returns the frequency (in seconds) operator will poll async replication status
+// GetReplicationPollingFrequency returns the frequency (in seconds) operator will poll async replication status
 func GetReplicationPollingFrequency(annotations map[string]string) int {
 	return lookupIntAnnotation(annotations, ReplicationPollingFrequencyAnnotation, ReplicationDefaultPollingFrequency)
 }
