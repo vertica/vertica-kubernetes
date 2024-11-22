@@ -99,9 +99,6 @@ export BASE_VERTICA_IMG
 # Image URL to use for the logger sidecar
 VLOGGER_IMG ?= $(IMG_REPO)vertica-logger:$(VLOGGER_VERSION)
 export VLOGGER_IMG
-# Image URL to use for the vertica client proxy. This is for testing purposes only.
-VPROXY_IMG ?= opentext/client-proxy:latest
-export VPROXY_IMG
 # If the current leg in the CI tests is leg-9
 LEG9 ?= no
 export LEG9
@@ -207,6 +204,11 @@ export BROADCASTER_BURST_SIZE
 #               objects in the namespace where the manager is deployed.
 CONTROLLERS_SCOPE?=cluster
 export CONTROLLERS_SCOPE
+
+# Use this to control the maximum backoff duration for VDBcontroller
+VDB_MAX_BACKOFF_DURATION?=1000
+export VDB_MAX_BACKOFF_DURATION
+
 #
 # The address the operators Prometheus metrics endpoint binds to. Setting this
 # to 0 will disable metric serving.
@@ -434,6 +436,20 @@ else
 	scripts/push-to-kind.sh -i ${VLOGGER_IMG}
 endif
 
+# Vertica client proxy is a pre-built image that we don't build. For this
+# reason, pushing this image will just put it in kind and never to docker.
+.PHONY: docker-push-vproxy
+docker-push-vproxy:  ## Push vertica client proxy docker image
+ifneq ($(strip $(VPROXY_IMG)),)
+ifeq ($(shell $(KIND_CHECK)), 0)
+	docker push ${VPROXY_IMG}
+else
+	scripts/push-to-kind.sh -i ${VPROXY_IMG}
+endif
+else
+	$(info VPROXY_IMG is not set. Skipped pushing proxy image to K8s cluster.)
+endif
+
 # We have two versions of the vertica-k8s image. This is a staging effort. A
 # new version is being created that has no admintools and relies exclusively on
 # http REST interfaces. Eventually, we will go back to one version using the
@@ -552,7 +568,7 @@ docker-push-olm-catalog:
 docker-build: docker-build-vertica-v2 docker-build-operator docker-build-vlogger ## Build all docker images except OLM catalog
 
 .PHONY: docker-push
-docker-push: docker-push-vertica docker-push-base-vertica docker-push-extra-vertica docker-push-operator docker-push-vlogger ## Push all docker images except OLM catalog
+docker-push: docker-push-vertica docker-push-base-vertica docker-push-extra-vertica docker-push-operator docker-push-vlogger docker-push-vproxy ## Push all docker images except OLM catalog
 
 .PHONY: echo-images
 echo-images:  ## Print the names of all of the images used
@@ -607,7 +623,7 @@ uninstall: manifests kustomize ## Uninstall CRDs from the K8s cluster specified 
 # If this secret does not exist then it is simply ignored.
 deploy-operator: manifests kustomize ## Using helm or olm, deploy the operator in the K8s cluster
 ifeq ($(DEPLOY_WITH), helm)
-	helm install $(DEPLOY_WAIT) -n $(NAMESPACE) --create-namespace $(HELM_RELEASE_NAME) $(OPERATOR_CHART) --set image.repo=null --set image.name=${OPERATOR_IMG} --set image.pullPolicy=$(HELM_IMAGE_PULL_POLICY) --set imagePullSecrets[0].name=priv-reg-cred --set controllers.scope=$(CONTROLLERS_SCOPE) $(HELM_OVERRIDES)
+	helm install $(DEPLOY_WAIT) -n $(NAMESPACE) --create-namespace $(HELM_RELEASE_NAME) $(OPERATOR_CHART) --set image.repo=null --set image.name=${OPERATOR_IMG} --set image.pullPolicy=$(HELM_IMAGE_PULL_POLICY) --set imagePullSecrets[0].name=priv-reg-cred --set controllers.scope=$(CONTROLLERS_SCOPE) --set controllers.vdbMaxBackoffDuration=$(VDB_MAX_BACKOFF_DURATION) $(HELM_OVERRIDES)
 	scripts/wait-for-webhook.sh -n $(NAMESPACE) -t 60
 else ifeq ($(DEPLOY_WITH), olm)
 	scripts/deploy-olm.sh -n $(NAMESPACE) $(OLM_TEST_CATALOG_SOURCE)

@@ -112,7 +112,9 @@ runs:
         export VERTICA_IMG=${{ inputs.vertica-image }}
         export OPERATOR_IMG=${{ inputs.operator-image }}
         export VLOGGER_IMG=${{ inputs.vlogger-image }}
-        export VPROXY_IMG=${{ inputs.vlogger-image }}
+        if [[ "${{ inputs.vproxy-image }}" != "" ]]; then
+          export VPROXY_IMG=${{ inputs.vproxy-image }}
+        fi
 
         if [[ "${{ inputs.vertica-license }}" != "" ]]; then
           export LICENSE_FILE=/tmp/vertica-license.dat

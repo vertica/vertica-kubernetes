@@ -135,6 +135,11 @@ func (d *DepObjCheckReconciler) checkSts(ctx context.Context, sc *vapi.Subcluste
 }
 
 func (d *DepObjCheckReconciler) checkPods(ctx context.Context, sc *vapi.Subcluster) (ctrl.Result, error) {
+	scStatus, found := d.Vdb.GenSubclusterStatusMap()[sc.Name]
+	// Ignore subclusters that are shut down
+	if sc.Shutdown || (found && scStatus.Shutdown) {
+		return ctrl.Result{}, nil
+	}
 	for i := int32(0); i < sc.Size; i++ {
 		if res, err := d.checkObj(ctx, "Pod", names.GenPodName(d.Vdb, sc, i), &corev1.Pod{}); verrors.IsReconcileAborted(res, err) {
 			return res, err

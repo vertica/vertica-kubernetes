@@ -132,7 +132,7 @@ func MakeVDB() *VerticaDB {
 					Size:        3,
 					ServiceType: corev1.ServiceTypeClusterIP,
 					Type:        PrimarySubcluster,
-					Proxy:       Proxy{Image: "vertica-client-proxy:latest"},
+					Proxy:       Proxy{Image: "opentext/client-proxy:latest"},
 				},
 			},
 		},
@@ -184,6 +184,17 @@ func (v *VerticaDB) GenSandboxMap() map[string]*Sandbox {
 		sbMap[sb.Name] = sb
 	}
 	return sbMap
+}
+
+// findSubclusterIndexInSandbox will return the index of the targetSclusterName in sandbox.
+// when the targetSclusterName is not found in the sandbox, -1 will be returned
+func (v *VerticaDB) findSubclusterIndexInSandbox(targetSclusterName string, sandbox *Sandbox) int {
+	for i, subclusterName := range sandbox.Subclusters {
+		if subclusterName.Name == targetSclusterName {
+			return i
+		}
+	}
+	return -1
 }
 
 // GenSubclusterSandboxMap will scan all sandboxes and return a map
@@ -743,6 +754,11 @@ func (v *VerticaDB) GetRestartTimeout() int {
 // GetCreateDBNodeStartTimeout returns the timeout value for createdb node startup
 func (v *VerticaDB) GetCreateDBNodeStartTimeout() int {
 	return vmeta.GetCreateDBNodeStartTimeout(v.Annotations)
+}
+
+// GetShutdownDrainSeconds returns time in seconds to wait for a subcluster/database users' disconnection
+func (v *VerticaDB) GetShutdownDrainSeconds() int {
+	return vmeta.GetShutdownDrainSeconds(v.Annotations)
 }
 
 // IsNMASideCarDeploymentEnabled returns true if the conditions to run NMA

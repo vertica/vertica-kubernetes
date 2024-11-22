@@ -1,0 +1,5 @@
+kind: Added
+body: Support planned subcluster shutdown.
+time: 2024-11-12T14:34:04.504040638+01:00
+custom:
+    Issue: "969"

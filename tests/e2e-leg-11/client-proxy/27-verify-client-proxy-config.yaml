@@ -27,7 +27,8 @@ data:
     # get the content of the config.yaml
     CONFIG=$(kubectl exec -i $PROXY_PRI1 -- sh -c "cat /config/config.yaml")
     
-    for POD_NAME in v-client-proxy-pri1-0 v-client-proxy-pri1-1 v-client-proxy-pri1-2; do
+    NAMESPACE=$(kubectl get pod v-client-proxy-pri1-0 -o=jsonpath='{.metadata.namespace}')
+    for POD_NAME in v-client-proxy-pri1-0.v-client-proxy.${NAMESPACE}.svc.cluster.local v-client-proxy-pri1-1.v-client-proxy.${NAMESPACE}.svc.cluster.local v-client-proxy-pri1-2.v-client-proxy.${NAMESPACE}.svc.cluster.local; do
       RESULT=$(echo "$CONFIG" | grep -Pzo "$POD_NAME:5433" | tr -d '\0')
       if [ "$POD_NAME:5433" != "$RESULT" ]; then
         echo "Assertion failed: expect \"$POD_NAME:5433\" to be defined in config.yaml, got \"$RESULT\""

@@ -102,7 +102,7 @@ func (h *HTTPServerCertGenReconciler) createSecret(ctx context.Context, cert, ca
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace:       h.Vdb.Namespace,
 			Annotations:     builder.MakeAnnotationsForObject(h.Vdb),
-			Labels:          builder.MakeCommonLabels(h.Vdb, nil, false),
+			Labels:          builder.MakeCommonLabels(h.Vdb, nil, false, false),
 			OwnerReferences: []metav1.OwnerReference{h.Vdb.GenerateOwnerReference()},
 		},
 		Type: corev1.SecretTypeTLS,

@@ -875,7 +875,7 @@ func BuildVProxyDeployment(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vap
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Labels:      MakeDepSelectorLabels(vdb, sc),
+					Labels:      MakeLabelsForVProxyObject(vdb, sc, true),
 					Annotations: MakeAnnotationsForVProxyObject(vdb),
 				},
 				Spec: buildVProxyPodSpec(vdb, sc),
@@ -948,7 +948,7 @@ func makeDataForVProxyConfigMap(vdb *vapi.VerticaDB, sc *vapi.Subcluster) string
 	port := 5433
 
 	for i := int32(0); i < sc.Size; i++ {
-		nodeItem := fmt.Sprintf("%s:%d", names.GenPodName(vdb, sc, i).Name, port)
+		nodeItem := fmt.Sprintf("%s:%d", names.GenPodDNSName(vdb, sc, i), port)
 		nodeList = append(nodeList, nodeItem)
 	}
 

@@ -19,6 +19,7 @@ import (
 	"context"
 	"log"
 	"os"
+	"time"
 
 	// Allows us to pull in things generated from `go generate`
 	_ "embed"
@@ -33,8 +34,10 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/util/workqueue"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/config/v1alpha1"
+	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
@@ -89,13 +92,19 @@ func addReconcilersToManager(mgr manager.Manager, restCfg *rest.Config) {
 		return
 	}
 
+	// Create a custom option with our own rate limiter
+	rateLimiter := workqueue.NewItemExponentialFailureRateLimiter(1*time.Millisecond,
+		time.Duration(opcfg.GetVdbMaxBackoffDuration())*time.Millisecond)
+	options := controller.Options{
+		RateLimiter: rateLimiter,
+	}
 	if err := (&vdb.VerticaDBReconciler{
 		Client: mgr.GetClient(),
 		Log:    ctrl.Log.WithName("controllers").WithName("VerticaDB"),
 		Scheme: mgr.GetScheme(),
 		Cfg:    restCfg,
 		EVRec:  mgr.GetEventRecorderFor(vmeta.OperatorName),
-	}).SetupWithManager(mgr); err != nil {
+	}).SetupWithManager(mgr, options); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "VerticaDB")
 		os.Exit(1)
 	}
