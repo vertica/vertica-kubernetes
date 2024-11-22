@@ -23,7 +23,7 @@ kind: StatefulSet
 metadata:
   name: v-client-proxy-sec1
 status:
-  currentReplicas: 2
+  currentReplicas: 0
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -65,9 +65,3 @@ spec:
       size: 0
       proxy:
         replica: 0
-status:
-  subclusters:
-    - addedToDBCount: 4
-      upNodeCount: 4
-    - addedToDBCount: 0
-      upNodeCount: 0
