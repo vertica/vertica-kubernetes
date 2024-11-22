@@ -1049,12 +1049,22 @@ func (r *OnlineUpgradeReconciler) redirectConnectionsToReplicaGroupB(ctx context
 		return res, err
 	}
 	// then remove client routing labels from replica group a so no traffic is routed to the old main cluster
-	actor = MakeClientRoutingLabelReconciler(r.VRec, r.Log, r.VDB, r.PFacts[vapi.MainCluster], DrainNodeApplyMethod, "")
+	methodType := DrainNodeApplyMethod
+	if vmeta.UseVProxy(r.VDB.Annotations) {
+		methodType = DisableProxyApplyMethod
+	}
+	actor = MakeClientRoutingLabelReconciler(r.VRec, r.Log, r.VDB, r.PFacts[vapi.MainCluster], methodType, "")
 	r.Manager.traceActorReconcile(actor)
 	if res, err = actor.Reconcile(ctx, &ctrl.Request{}); verrors.IsReconcileAborted(res, err) {
 		return res, err
 	}
 
+	return r.redirectConnectionsToSandbox(ctx)
+}
+
+// redirectConnectionsToSandbox will redirect all of the connections
+// established at replica group A to replica group B.
+func (r *OnlineUpgradeReconciler) redirectConnectionsToSandbox(ctx context.Context) (ctrl.Result, error) {
 	initiator, ok := r.PFacts[vapi.MainCluster].FindFirstUpPod(false /*not allow read-only*/, "" /*arbitrary subcluster*/)
 	if !ok {
 		r.Log.Info("No Up nodes found; requeueing reconciliation")

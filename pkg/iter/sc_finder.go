@@ -178,6 +178,13 @@ func (m *SubclusterFinder) buildObjList(ctx context.Context, list client.ObjectL
 	ignoreSandbox := flags&FindSkipSandboxFilter != 0
 	rawObjs := []runtime.Object{}
 	if err := meta.EachListItem(list, func(obj runtime.Object) error {
+		// skip client proxy pods
+		if pod, ok := obj.(*corev1.Pod); ok {
+			if pod.Labels[vmeta.ProxyPodSelectorLabel] == vmeta.ProxyPodSelectorVal {
+				return nil
+			}
+		}
+
 		l, err := m.getLabelsFromObject(ctx, obj)
 		if err != nil {
 			return err
@@ -192,14 +199,7 @@ func (m *SubclusterFinder) buildObjList(ctx context.Context, list client.ObjectL
 			return nil
 		}
 
-		// Skip if object is not subcluster specific.  This is necessary for objects like
-		// the headless service object that is cluster wide.
-		if !hasSubclusterNameLabel(l) {
-			return nil
-		}
-
-		// Skip if the object does not belong to the given sandbox
-		if !ignoreSandbox && shouldSkipBasedOnSandboxState(l, sandbox) {
+		if needExcludeObject(l, ignoreSandbox, sandbox) {
 			return nil
 		}
 
@@ -220,6 +220,22 @@ func (m *SubclusterFinder) buildObjList(ctx context.Context, list client.ObjectL
 		return err
 	}
 	return meta.SetList(list, rawObjs)
+}
+
+// needExcludeObject returns true if the object needs to be excluded
+func needExcludeObject(l map[string]string, ignoreSandbox bool, sandbox string) bool {
+	// Skip if object is not subcluster specific.  This is necessary for objects like
+	// the headless service object that is cluster wide.
+	if !hasSubclusterNameLabel(l) {
+		return true
+	}
+
+	// Skip if the object does not belong to the given sandbox
+	if !ignoreSandbox && shouldSkipBasedOnSandboxState(l, sandbox) {
+		return true
+	}
+
+	return false
 }
 
 // shouldSkipBasedOnSandboxState returns true if the object whose labels
