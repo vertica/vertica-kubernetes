@@ -436,8 +436,10 @@ else
 	scripts/push-to-kind.sh -i ${VLOGGER_IMG}
 endif
 
+# Vertica client proxy is a pre-built image that we don't build. For this
+# reason, pushing this image will just put it in kind and never to docker.
 .PHONY: docker-push-vproxy
-docker-push-vproxy:  ## Push vertica logger docker image
+docker-push-vproxy:  ## Push vertica client proxy docker image
 ifneq ($(strip $(VPROXY_IMG)),)
 ifeq ($(shell $(KIND_CHECK)), 0)
 	docker push ${VPROXY_IMG}

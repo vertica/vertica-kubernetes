@@ -888,6 +888,36 @@ var _ = Describe("obj_reconcile", func() {
 			Expect(sts.Annotations).ShouldNot(HaveKeyWithValue("sts", "0"))
 			Expect(sts.Annotations).Should(HaveKeyWithValue("stream", "false"))
 		})
+
+		It("should update the configmap fields if subcluster nodes changed", func() {
+			vdb := vapi.MakeVDB()
+			vdb.Annotations[vmeta.UseVProxyAnnotation] = vmeta.UseVProxyAnnotationTrue
+			createCrd(vdb, true)
+			defer deleteCrd(vdb)
+
+			sc := &vdb.Spec.Subclusters[0]
+			cmName := names.GenVProxyConfigMapName(vdb, sc)
+			curCM := builder.BuildVProxyConfigMap(cmName, vdb, sc)
+			Expect(k8sClient.Get(ctx, cmName, curCM)).Should(Succeed())
+
+			// update subcluster size so that client proxy nodes list in the configmap will be updated
+			vdb.Spec.Subclusters[0].Size = 5
+			pfacts := podfacts.MakePodFacts(vdbRec, &cmds.FakePodRunner{}, logger, TestPassword)
+			objr := MakeObjReconciler(vdbRec, logger, vdb, &pfacts, ObjReconcileModeAll)
+			r := objr.(*ObjReconciler)
+			err := r.checkVProxyConfigMap(ctx, cmName, sc)
+			Expect(err).Should(BeNil())
+
+			newCM := builder.BuildVProxyConfigMap(cmName, vdb, sc)
+			Expect(k8sClient.Get(ctx, cmName, newCM)).Should(Succeed())
+			Expect(newCM.Data).ShouldNot(Equal(curCM.Data))
+
+			// verify the content of the config map
+			cm, res, err := getConfigMap(ctx, r.Rec, r.Vdb, cmName)
+			Expect(err).Should(Succeed())
+			Expect(res).Should(Equal(ctrl.Result{}))
+			Expect(cm.Data).Should(Equal(newCM.Data))
+		})
 	})
 })
 

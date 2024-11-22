@@ -15,27 +15,11 @@ apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
   name: v-client-proxy
-  annotations:
-    vertica.com/include-uid-in-path: true
-    vertica.com/use-client-proxy: true
-    vertica.com/client-proxy-log-level: INFO
 spec:
-  image: kustomize-vertica-image
-  initPolicy: CreateSkipPackageInstall
-  communal: {}
-  local:
-    requestSize: 250Mi
-  imagePullPolicy: IfNotPresent
-  # We pick a cluster size that is too big for the CE license. This relies on
-  # having a license, which will be added by kustomize.
   subclusters:
     - name: pri1
-      size: 3
+      size: 5
       type: primary
       proxy:
         image: kustomize-vproxy-image
         replica: 2
-  certSecrets: []
-  imagePullSecrets: []
-  volumes: []
-  volumeMounts: []

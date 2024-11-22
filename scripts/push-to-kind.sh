@@ -19,7 +19,7 @@ set -e
 
 function setImageWithTag() {
     TAG=$1
-    IMAGES="vertica-k8s:$TAG verticadb-operator:$TAG verticadb-webhook:$TAG vertica-logger:$TAG"
+    IMAGES="vertica-k8s:$TAG verticadb-operator:$TAG verticadb-webhook:$TAG vertica-logger:$TAG client-proxy:$TAG"
 }
 
 TAG=kind
