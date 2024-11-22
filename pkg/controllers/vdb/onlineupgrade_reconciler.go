@@ -866,12 +866,16 @@ func (r *OnlineUpgradeReconciler) startReplicationToReplicaGroupB(ctx context.Co
 			OwnerReferences: []metav1.OwnerReference{r.VDB.GenerateOwnerReference()},
 		},
 		Spec: v1beta1.VerticaReplicatorSpec{
-			Source: v1beta1.VerticaReplicatorDatabaseInfo{
-				VerticaDB: r.VDB.Name,
+			Source: v1beta1.VerticaReplicatorSourceDatabaseInfo{
+				VerticaReplicatorDatabaseInfo: v1beta1.VerticaReplicatorDatabaseInfo{
+					VerticaDB: r.VDB.Name,
+				},
 			},
-			Target: v1beta1.VerticaReplicatorDatabaseInfo{
-				VerticaDB:   r.VDB.Name,
-				SandboxName: r.sandboxName,
+			Target: v1beta1.VerticaReplicatorTargetDatabaseInfo{
+				VerticaReplicatorDatabaseInfo: v1beta1.VerticaReplicatorDatabaseInfo{
+					VerticaDB:   r.VDB.Name,
+					SandboxName: r.sandboxName,
+				},
 			},
 		},
 	}

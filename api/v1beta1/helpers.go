@@ -232,11 +232,15 @@ func MakeVrep() *VerticaReplicator {
 			UID:       "zxcvbn-ghi-lkm-xyz",
 		},
 		Spec: VerticaReplicatorSpec{
-			Source: VerticaReplicatorDatabaseInfo{
-				VerticaDB: sourceVDBNm.Name,
+			Source: VerticaReplicatorSourceDatabaseInfo{
+				VerticaReplicatorDatabaseInfo: VerticaReplicatorDatabaseInfo{
+					VerticaDB: sourceVDBNm.Name,
+				},
 			},
-			Target: VerticaReplicatorDatabaseInfo{
-				VerticaDB: targetVDBNm.Name,
+			Target: VerticaReplicatorTargetDatabaseInfo{
+				VerticaReplicatorDatabaseInfo: VerticaReplicatorDatabaseInfo{
+					VerticaDB: targetVDBNm.Name,
+				},
 			},
 		},
 	}

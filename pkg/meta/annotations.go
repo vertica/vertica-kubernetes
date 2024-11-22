@@ -360,6 +360,13 @@ const (
 	// This indicates that the subcluster shutdown is controlled by the subcluster's
 	// shutdown field.
 	ShutdownDrivenBySubcluster = "vertica.com/shutdown-driven-by-subcluster"
+
+	// The timeout, in seconds, to use when the operator is polling the status of an ongoing
+	// asynchronous replication operation. If omitted, we use the default timeout of 60 minutes.
+	ReplicationTimeoutAnnotation          = "vertica.com/replication-timeout"
+	ReplicationDefaultTimeout             = 60 * 60
+	ReplicationPollingFrequencyAnnotation = "vertica.com/replication-polling-frequency"
+	ReplicationDefaultPollingFrequency    = 0
 )
 
 // IsPauseAnnotationSet will check the annotations for a special value that will
@@ -689,6 +696,16 @@ func GetShutdownDrivenBySubcluster(annotations map[string]string) bool {
 // GetExtraLocalPaths returns the comma separated list of extra local paths
 func GetExtraLocalPaths(annotations map[string]string) string {
 	return lookupStringAnnotation(annotations, ExtraLocalPathsAnnotation, "")
+}
+
+// GetReplicationTimeout returns the timeout (in seconds) to use for polling async replication status
+func GetReplicationTimeout(annotations map[string]string) int {
+	return lookupIntAnnotation(annotations, ReplicationTimeoutAnnotation, ReplicationDefaultTimeout)
+}
+
+// GetReplicationPollingFrequency returns the frequency (in seconds) operator will poll async replication status
+func GetReplicationPollingFrequency(annotations map[string]string) int {
+	return lookupIntAnnotation(annotations, ReplicationPollingFrequencyAnnotation, ReplicationDefaultPollingFrequency)
 }
 
 // lookupBoolAnnotation is a helper function to lookup a specific annotation and
