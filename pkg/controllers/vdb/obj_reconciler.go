@@ -536,6 +536,14 @@ func (o *ObjReconciler) checkVProxyDeployment(ctx context.Context, sc *vapi.Subc
 // reconcileSts reconciles the statefulset for a particular subcluster.  Returns
 // true if any create/update was done.
 func (o *ObjReconciler) reconcileSts(ctx context.Context, sc *vapi.Subcluster) (ctrl.Result, error) {
+	if vmeta.UseVProxy(o.Vdb.Annotations) {
+		// Create or update the client proxy deployment
+		vpErr := o.checkVProxyDeployment(ctx, sc)
+		if vpErr != nil {
+			return ctrl.Result{}, vpErr
+		}
+	}
+
 	// Create or update the statefulset
 	nm := names.GenStsName(o.Vdb, sc)
 	curSts := &appsv1.StatefulSet{}
@@ -546,14 +554,6 @@ func (o *ObjReconciler) reconcileSts(ctx context.Context, sc *vapi.Subcluster) (
 		// Invalidate the pod facts cache since we are creating a new sts
 		o.PFacts.Invalidate()
 		return ctrl.Result{}, createSts(ctx, o.Rec, expSts, o.Vdb)
-	}
-
-	if vmeta.UseVProxy(o.Vdb.Annotations) {
-		// Create or update the client proxy deployment
-		vpErr := o.checkVProxyDeployment(ctx, sc)
-		if vpErr != nil {
-			return ctrl.Result{}, vpErr
-		}
 	}
 
 	// We can only remove pods if we have called remove node and done the
