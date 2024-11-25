@@ -23,7 +23,7 @@ kind: StatefulSet
 metadata:
   name: v-client-proxy-sec1
 status:
-  currentReplicas: 0
+  replicas: 0
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -43,7 +43,7 @@ kind: Deployment
 metadata:
   name: v-client-proxy-sec1-proxy
 status:
-  readyReplicas: 0
+  replicas: 0
 ---
 apiVersion: v1
 kind: ConfigMap
