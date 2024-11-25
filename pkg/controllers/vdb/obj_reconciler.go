@@ -294,19 +294,6 @@ func (o *ObjReconciler) checkForDeletedSubcluster(ctx context.Context) (ctrl.Res
 		}
 	}
 
-	// Find any deployments that need to be deleted
-	deploy, err := finder.FindDeployments(ctx, iter.FindNotInVdb, sandbox)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-
-	for i := range deploy.Items {
-		err = o.Rec.GetClient().Delete(ctx, &deploy.Items[i])
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-	}
-
 	return ctrl.Result{}, nil
 }
 
