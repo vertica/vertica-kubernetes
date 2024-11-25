@@ -21,11 +21,10 @@ import (
 	vops "github.com/vertica/vcluster/vclusterops"
 	"github.com/vertica/vertica-kubernetes/pkg/net"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/replicationstart"
-	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 // ReplicateDB will start replicating data and metadata of an Eon cluster to another
-func (v *VClusterOps) ReplicateDB(ctx context.Context, opts ...replicationstart.Option) (ctrl.Result, error) {
+func (v *VClusterOps) ReplicateDB(ctx context.Context, opts ...replicationstart.Option) (int64, error) {
 	v.setupForAPICall("ReplicateDB")
 	defer v.tearDownForAPICall()
 	v.Log.Info("Starting vcluster ReplicateDB")
@@ -33,28 +32,43 @@ func (v *VClusterOps) ReplicateDB(ctx context.Context, opts ...replicationstart.
 	// get the certs
 	certs, err := v.retrieveNMACerts(ctx)
 	if err != nil {
-		return ctrl.Result{}, err
+		return 0, err
 	}
 
 	// get replication start options
 	r := replicationstart.Parms{}
 	r.Make(opts...)
 
-	// call vcluster-ops library to replicate db
-	vopts := v.genReplicateDBOptions(&r, certs)
-
-	_, err = v.VReplicateDatabase(vopts)
-	if err != nil {
-		v.Log.Error(err, "failed to replicate a database")
-		return ctrl.Result{}, err
+	// Get target certs
+	targetCerts := &HTTPSCerts{}
+	if r.Async {
+		targetCerts, err = v.retrieveTargetNMACerts(ctx)
+		if err != nil {
+			return 0, err
+		}
 	}
 
-	v.Log.Info("Successfully replicated a database", "sourceDBName", vopts.DBName,
-		"targetDBName", vopts.TargetDB)
-	return ctrl.Result{}, nil
+	// call vcluster-ops library to replicate db
+	vopts := v.genReplicateDBOptions(&r, certs, targetCerts)
+
+	transactionID, err := v.VReplicateDatabase(vopts)
+	if err != nil {
+		v.Log.Error(err, "failed to replicate a database")
+		return 0, err
+	}
+
+	if vopts.Async {
+		v.Log.Info("Successfully started replication of a database", "sourceDBName", vopts.DBName,
+			"targetDBName", vopts.TargetDB, "transactionID", transactionID)
+	} else {
+		v.Log.Info("Successfully replicated a database", "sourceDBName", vopts.DBName,
+			"targetDBName", vopts.TargetDB)
+	}
+	return transactionID, nil
 }
 
-func (v *VClusterOps) genReplicateDBOptions(s *replicationstart.Parms, certs *HTTPSCerts) *vops.VReplicationDatabaseOptions {
+func (v *VClusterOps) genReplicateDBOptions(s *replicationstart.Parms,
+	certs *HTTPSCerts, targetCerts *HTTPSCerts) *vops.VReplicationDatabaseOptions {
 	opts := vops.VReplicationDatabaseFactory()
 	opts.RawHosts = append(opts.RawHosts, s.SourceIP)
 	opts.DBName = v.VDB.Spec.DBName
@@ -73,11 +87,24 @@ func (v *VClusterOps) genReplicateDBOptions(s *replicationstart.Parms, certs *HT
 	opts.IsEon = v.VDB.IsEON()
 
 	opts.IPv6 = net.IsIPv6(s.SourceIP)
+	opts.TargetDB.IPv6 = net.IsIPv6(s.TargetIP)
 
 	// auth options
 	opts.Key = certs.Key
 	opts.Cert = certs.Cert
 	opts.CaCert = certs.CaCert
+
+	// Target auth options
+	opts.TargetDB.Key = targetCerts.Key
+	opts.TargetDB.Cert = targetCerts.Cert
+	opts.TargetDB.CaCert = targetCerts.CaCert
+
+	// Async replication options
+	opts.Async = s.Async
+	opts.TableOrSchemaName = s.ObjectName
+	opts.IncludePattern = s.IncludePattern
+	opts.ExcludePattern = s.ExcludePattern
+	opts.TargetNamespace = s.TargetNamespace
 
 	return &opts
 }

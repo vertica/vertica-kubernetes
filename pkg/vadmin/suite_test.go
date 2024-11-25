@@ -103,6 +103,11 @@ const (
 	TestPassword           = "test-pw"
 	TestTargetPassword     = "test-target-pw"
 	TestTargetUserName     = "test-target-user"
+	TestAsync              = true
+	TestTableOrSchemaName  = "test-table"
+	TestIncludePattern     = "test.*"
+	TestExcludePattern     = "*.test"
+	TestTargetNamespace    = "test-namespace"
 	TestIPv6               = false
 	TestParm               = "Parm1"
 	TestValue              = "val1"
@@ -120,6 +125,7 @@ const (
 	TestConfigParamName    = "test-config-param-name"
 	TestConfigParamValue   = "test-config-param-value"
 	TestConfigParamLevel   = "test-config-param-level"
+	TestTransactionID      = 1234567890123456
 )
 
 var TestCommunalStorageParams = map[string]string{"awsauth": "test-auth", "awsconnecttimeout": "10"}
@@ -158,7 +164,22 @@ func (m *MockVClusterOps) VerifyCommonOptions(options *vops.DatabaseOptions) err
 
 // VerifyTargetDBNameUserNamePassword is used in vcluster-ops unit test for verifying the target db name,
 // username and password in a replication
-func (m *MockVClusterOps) VerifyTargetDBNameUserNamePassword(options *vops.VReplicationDatabaseOptions) error {
+func (m *MockVClusterOps) VerifyTargetDBOptions(options *vops.DatabaseOptions) error {
+	if options.DBName != TestTargetDBName {
+		return fmt.Errorf("failed to retrieve target db name")
+	}
+	if options.UserName != TestTargetUserName {
+		return fmt.Errorf("failed to retrieve target username")
+	}
+	if *options.Password != TestTargetPassword {
+		return fmt.Errorf("failed to retrieve target password")
+	}
+	return nil
+}
+
+// VerifyTargetDBNameUserNamePassword is used in vcluster-ops unit test for verifying the target db name,
+// username and password in a replication
+func (m *MockVClusterOps) VerifyTargetDBReplicationOptions(options *vops.VReplicationDatabaseOptions) error {
 	if options.TargetDB.DBName != TestTargetDBName {
 		return fmt.Errorf("failed to retrieve target db name")
 	}
@@ -173,6 +194,27 @@ func (m *MockVClusterOps) VerifyTargetDBNameUserNamePassword(options *vops.VRepl
 		if *options.TargetDB.Password != TestTargetPassword {
 			return fmt.Errorf("failed to retrieve target password")
 		}
+	}
+	return nil
+}
+
+// VerifyAsyncReplicationOptions is used for verifying replication options for async replication:
+// async, object name, include/exclude pattern, target namespace
+func (m *MockVClusterOps) VerifyAsyncReplicationOptions(options *vops.VReplicationDatabaseOptions) error {
+	if options.Async != TestAsync {
+		return fmt.Errorf("failed to retrieve async")
+	}
+	if options.TableOrSchemaName != TestTableOrSchemaName {
+		return fmt.Errorf("failed to retrieve table or schema name")
+	}
+	if options.IncludePattern != TestIncludePattern {
+		return fmt.Errorf("failed to retrieve include pattern")
+	}
+	if options.ExcludePattern != TestExcludePattern {
+		return fmt.Errorf("failed to retrieve exclude pattern")
+	}
+	if options.TargetNamespace != TestTargetNamespace {
+		return fmt.Errorf("failed to retrieve target namespace")
 	}
 	return nil
 }
@@ -298,10 +340,26 @@ func (m *MockVClusterOps) VerifySourceAndTargetIPs(options *vops.VReplicationDat
 	return nil
 }
 
+// VerifyTargetIPs is used in vcluster-ops unit test for verifying target hosts (a single IP)
+func (m *MockVClusterOps) VerifyTargetIPs(options *vops.VReplicationStatusDatabaseOptions) error {
+	if len(options.TargetDB.Hosts) != 1 || options.TargetDB.Hosts[0] != TestTargetIP {
+		return fmt.Errorf("failed to load target IP")
+	}
+	return nil
+}
+
 // VerifySourceTLSConfig is used in vcluster-ops unit test for verifying source TLS config
 func (m *MockVClusterOps) VerifySourceTLSConfig(options *vops.VReplicationDatabaseOptions) error {
 	if options.SourceTLSConfig != TestSourceTLSConfig {
 		return fmt.Errorf("failed to load source TLS config")
+	}
+	return nil
+}
+
+// VerifyTransactionID is used in vcluster-ops unit test for verifying async replication transaction ID
+func (m *MockVClusterOps) VerifyTransactionID(options *vops.VReplicationStatusDatabaseOptions) error {
+	if options.TransactionID != TestTransactionID {
+		return fmt.Errorf("failed to load transaction ID")
 	}
 	return nil
 }
@@ -314,7 +372,7 @@ func (m *MockVClusterOps) VPollSubclusterState(_ *vops.VPollSubclusterStateOptio
 // purposes. This uses a standard function to setup the API.
 func mockVClusterOpsDispatcher() *VClusterOps {
 	vdb := vapi.MakeVDB()
-	vdb.Spec.NMATLSSecret = "test-secret"
+	vdb.Spec.NMATLSSecret = TestNMATLSSecret
 	// We use a function to construct the VClusterProvider. This is called
 	// ahead of each API rather than once so that we can setup a custom
 	// logger for each API call.
@@ -330,6 +388,29 @@ func mockVClusterOpsDispatcherWithCustomSetup(vdb *vapi.VerticaDB,
 	setupAPIFunc func(logr.Logger, string) (VClusterProvider, logr.Logger)) *VClusterOps {
 	evWriter := aterrors.TestEVWriter{}
 	dispatcher := MakeVClusterOps(logger, vdb, k8sClient, TestPassword, &evWriter, setupAPIFunc)
+	return dispatcher.(*VClusterOps)
+}
+
+func mockVclusteropsDispatcherWithTarget() *VClusterOps {
+	vdb := vapi.MakeVDB()
+	vdb.Spec.NMATLSSecret = TestNMATLSSecret
+	targetVDB := vapi.MakeVDB()
+	targetVDB.Spec.NMATLSSecret = TestNMATLSSecret
+	// We use a function to construct the VClusterProvider. This is called
+	// ahead of each API rather than once so that we can setup a custom
+	// logger for each API call.
+	setupAPIFunc := func(log logr.Logger, apiName string) (VClusterProvider, logr.Logger) {
+		return &MockVClusterOps{}, logr.Logger{}
+	}
+	return mockVClusterOpsDispatcherWithCustomSetupAndTarget(vdb, targetVDB, setupAPIFunc)
+}
+
+// mockVClusterOpsDispatchWithCustomSetup is like mockVClusterOpsDispatcher,
+// except you provide your own setup API function.
+func mockVClusterOpsDispatcherWithCustomSetupAndTarget(vdb *vapi.VerticaDB, targetVDB *vapi.VerticaDB,
+	setupAPIFunc func(logr.Logger, string) (VClusterProvider, logr.Logger)) *VClusterOps {
+	evWriter := aterrors.TestEVWriter{}
+	dispatcher := MakeVClusterOpsWithTarget(logger, vdb, targetVDB, k8sClient, TestPassword, &evWriter, setupAPIFunc)
 	return dispatcher.(*VClusterOps)
 }
 
