@@ -493,22 +493,10 @@ func (o *ObjReconciler) DeleteVProxyConfigMapIfExists(ctx context.Context, sts *
 
 // checkVProxyDeployment will create or update the client proxy deployment
 func (o *ObjReconciler) checkVProxyDeployment(ctx context.Context, sc *vapi.Subcluster, sts *appsv1.StatefulSet) error {
-	cmName := names.GenVProxyConfigMapName(o.Vdb, sc)
-	err := o.checkVProxyConfigMap(ctx, cmName, sc)
-	if err != nil {
-		return err
-	}
-
 	vpName := names.GenVProxyName(o.Vdb, sc)
 	curDep := &appsv1.Deployment{}
 	vpDep := builder.BuildVProxyDeployment(vpName, o.Vdb, sc)
 	vpErr := o.Rec.GetClient().Get(ctx, vpName, curDep)
-
-	if sc.Size == 0 {
-		*vpDep.Spec.Replicas = 0
-		o.Log.Info("Scale down client proxy", "Name", vpName, "Size", vpDep.Spec.Replicas, "Image", vpDep.Spec.Template.Spec.Containers[0].Image)
-		return o.Rec.GetClient().Update(ctx, vpDep)
-	}
 
 	if vpErr != nil && kerrors.IsNotFound(vpErr) {
 		o.Log.Info("Creating deployment", "Name", vpName, "Size", vpDep.Spec.Replicas, "Image", vpDep.Spec.Template.Spec.Containers[0].Image)
@@ -520,9 +508,31 @@ func (o *ObjReconciler) checkVProxyDeployment(ctx context.Context, sc *vapi.Subc
 	return nil
 }
 
+// updateVProxyDeployment will update the client proxy deployment
+func (o *ObjReconciler) updateVProxyDeployment(ctx context.Context, sc *vapi.Subcluster, sts *appsv1.StatefulSet) error {
+	vpName := names.GenVProxyName(o.Vdb, sc)
+	vpDep := builder.BuildVProxyDeployment(vpName, o.Vdb, sc)
+
+	if *sts.Spec.Replicas == 0 {
+		*vpDep.Spec.Replicas = 0
+		o.Log.Info("Scale down client proxy", "Name", vpName, "Size", vpDep.Spec.Replicas, "Image", vpDep.Spec.Template.Spec.Containers[0].Image)
+		return o.Rec.GetClient().Update(ctx, vpDep)
+	}
+	return nil
+}
+
 // reconcileSts reconciles the statefulset for a particular subcluster.  Returns
 // true if any create/update was done.
 func (o *ObjReconciler) reconcileSts(ctx context.Context, sc *vapi.Subcluster) (ctrl.Result, error) {
+	if vmeta.UseVProxy(o.Vdb.Annotations) {
+		// Create or update the client proxy config map deployment
+		cmName := names.GenVProxyConfigMapName(o.Vdb, sc)
+		err := o.checkVProxyConfigMap(ctx, cmName, sc)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+
 	// Create or update the statefulset
 	nm := names.GenStsName(o.Vdb, sc)
 	curSts := &appsv1.StatefulSet{}
@@ -600,11 +610,11 @@ func (o *ObjReconciler) reconcileSts(ctx context.Context, sc *vapi.Subcluster) (
 		return ctrl.Result{}, recreateSts(ctx, o.Rec, curSts, expSts, o.Vdb)
 	}
 
-	return ctrl.Result{}, o.updateSts(ctx, curSts, expSts)
+	return ctrl.Result{}, o.updateSts(ctx, curSts, expSts, sc)
 }
 
 // updateSts will patch an existing statefulset.
-func (o *ObjReconciler) updateSts(ctx context.Context, curSts, expSts *appsv1.StatefulSet) error {
+func (o *ObjReconciler) updateSts(ctx context.Context, curSts, expSts *appsv1.StatefulSet, sc *vapi.Subcluster) error {
 	// Update the sts by patching in fields that changed according to expSts.
 	// Due to the omission of default fields in expSts, curSts != expSts.  We
 	// always send a patch request, then compare what came back against origSts
@@ -622,6 +632,14 @@ func (o *ObjReconciler) updateSts(ctx context.Context, curSts, expSts *appsv1.St
 		o.Log.Info("Patching statefulset", "Name", expSts.Name, "Image", expSts.Spec.Template.Spec.Containers[0].Image)
 		// Invalidate the pod facts cache since we are about to change the sts
 		o.PFacts.Invalidate()
+	}
+
+	if vmeta.UseVProxy(o.Vdb.Annotations) {
+		// Create or update the client proxy deployment
+		vpErr := o.updateVProxyDeployment(ctx, sc, curSts)
+		if vpErr != nil {
+			return vpErr
+		}
 	}
 	return nil
 }
