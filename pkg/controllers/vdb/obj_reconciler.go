@@ -503,21 +503,14 @@ func (o *ObjReconciler) checkVProxyDeployment(ctx context.Context, sc *vapi.Subc
 		return createDep(ctx, o.Rec, vpDep, sts)
 	}
 
-	// TODO: to update existing deployment
-	// return o.updateDep(ctx, curDep, vpDep)
-	return nil
-}
-
-// updateVProxyDeployment will update the client proxy deployment
-func (o *ObjReconciler) updateVProxyDeployment(ctx context.Context, sc *vapi.Subcluster, sts *appsv1.StatefulSet) error {
-	vpName := names.GenVProxyName(o.Vdb, sc)
-	vpDep := builder.BuildVProxyDeployment(vpName, o.Vdb, sc)
-
 	if *sts.Spec.Replicas == 0 {
 		*vpDep.Spec.Replicas = 0
 		o.Log.Info("Scale down client proxy", "Name", vpName, "Size", vpDep.Spec.Replicas, "Image", vpDep.Spec.Template.Spec.Containers[0].Image)
 		return o.Rec.GetClient().Update(ctx, vpDep)
 	}
+
+	// TODO: to update existing deployment
+	// return o.updateDep(ctx, curDep, vpDep)
 	return nil
 }
 
@@ -634,13 +627,6 @@ func (o *ObjReconciler) updateSts(ctx context.Context, curSts, expSts *appsv1.St
 		o.PFacts.Invalidate()
 	}
 
-	if vmeta.UseVProxy(o.Vdb.Annotations) {
-		// Create or update the client proxy deployment
-		vpErr := o.updateVProxyDeployment(ctx, sc, curSts)
-		if vpErr != nil {
-			return vpErr
-		}
-	}
 	return nil
 }
 
