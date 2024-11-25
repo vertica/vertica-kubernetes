@@ -35,3 +35,7 @@ spec:
       size: 4
       proxy:
         replica: 2
+status:
+  subclusters:
+    - addedToDBCount: 4
+      upNodeCount: 4
