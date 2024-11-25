@@ -65,3 +65,9 @@ spec:
       size: 0
       proxy:
         replica: 0
+status:
+  subclusters:
+    - addedToDBCount: 4
+      upNodeCount: 4
+    - addedToDBCount: 0
+      upNodeCount: 0
