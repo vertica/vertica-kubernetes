@@ -505,7 +505,7 @@ func (o *ObjReconciler) DeleteVProxyConfigMapIfExists(ctx context.Context, sts *
 }
 
 // checkVProxyDeployment will create or update the client proxy deployment
-func (o *ObjReconciler) checkVProxyDeployment(ctx context.Context, sc *vapi.Subcluster) error {
+func (o *ObjReconciler) checkVProxyDeployment(ctx context.Context, sc *vapi.Subcluster, sts *appsv1.StatefulSet) error {
 	cmName := names.GenVProxyConfigMapName(o.Vdb, sc)
 	err := o.checkVProxyConfigMap(ctx, cmName, sc)
 	if err != nil {
@@ -525,7 +525,7 @@ func (o *ObjReconciler) checkVProxyDeployment(ctx context.Context, sc *vapi.Subc
 
 	if vpErr != nil && kerrors.IsNotFound(vpErr) {
 		o.Log.Info("Creating deployment", "Name", vpName, "Size", vpDep.Spec.Replicas, "Image", vpDep.Spec.Template.Spec.Containers[0].Image)
-		return createDep(ctx, o.Rec, vpDep, o.Vdb)
+		return createDep(ctx, o.Rec, vpDep, sts)
 	}
 
 	// TODO: to update existing deployment
@@ -536,24 +536,25 @@ func (o *ObjReconciler) checkVProxyDeployment(ctx context.Context, sc *vapi.Subc
 // reconcileSts reconciles the statefulset for a particular subcluster.  Returns
 // true if any create/update was done.
 func (o *ObjReconciler) reconcileSts(ctx context.Context, sc *vapi.Subcluster) (ctrl.Result, error) {
-	if vmeta.UseVProxy(o.Vdb.Annotations) {
-		// Create or update the client proxy deployment
-		vpErr := o.checkVProxyDeployment(ctx, sc)
-		if vpErr != nil {
-			return ctrl.Result{}, vpErr
-		}
-	}
-
 	// Create or update the statefulset
 	nm := names.GenStsName(o.Vdb, sc)
 	curSts := &appsv1.StatefulSet{}
 	expSts := builder.BuildStsSpec(nm, o.Vdb, sc)
 	err := o.Rec.GetClient().Get(ctx, nm, curSts)
+
 	if err != nil && kerrors.IsNotFound(err) {
 		o.Log.Info("Creating statefulset", "Name", nm, "Size", expSts.Spec.Replicas, "Image", expSts.Spec.Template.Spec.Containers[0].Image)
 		// Invalidate the pod facts cache since we are creating a new sts
 		o.PFacts.Invalidate()
 		return ctrl.Result{}, createSts(ctx, o.Rec, expSts, o.Vdb)
+	}
+
+	if vmeta.UseVProxy(o.Vdb.Annotations) {
+		// Create or update the client proxy deployment
+		vpErr := o.checkVProxyDeployment(ctx, sc, curSts)
+		if vpErr != nil {
+			return ctrl.Result{}, vpErr
+		}
 	}
 
 	// We can only remove pods if we have called remove node and done the

@@ -93,8 +93,8 @@ func createSts(ctx context.Context, vrec config.ReconcilerInterface, expSts *app
 }
 
 // createDep will create a new deployment. It assumes the deployment doesn't already exist.
-func createDep(ctx context.Context, vrec config.ReconcilerInterface, vpDep *appsv1.Deployment, vdb *vapi.VerticaDB) error {
-	err := ctrl.SetControllerReference(vdb, vpDep, vrec.GetClient().Scheme())
+func createDep(ctx context.Context, vrec config.ReconcilerInterface, vpDep *appsv1.Deployment, sts *appsv1.StatefulSet) error {
+	err := ctrl.SetControllerReference(sts, vpDep, vrec.GetClient().Scheme())
 	if err != nil {
 		return err
 	}
