@@ -41,7 +41,7 @@ var _ = Describe("verticascrutinize_webhook", func() {
 		Expect(vrep.ValidateUpdate(vrep)).Should(Succeed())
 	})
 
-	It("should succeed with default sync options", func() {
+	It("should fail with invalid mode", func() {
 		vrep := MakeVrep()
 		vrep.Spec.Mode = "invalid"
 		err := vrep.ValidateCreate()
