@@ -100,3 +100,12 @@ func createDep(ctx context.Context, vrec config.ReconcilerInterface, vpDep *apps
 	}
 	return vrec.GetClient().Create(ctx, vpDep)
 }
+
+// updateDep will update an existing deployment.
+func updateDep(ctx context.Context, vrec config.ReconcilerInterface, vpDep *appsv1.Deployment, sts *appsv1.StatefulSet) error {
+	err := ctrl.SetControllerReference(sts, vpDep, vrec.GetClient().Scheme())
+	if err != nil {
+		return err
+	}
+	return vrec.GetClient().Update(ctx, vpDep)
+}

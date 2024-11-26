@@ -506,7 +506,7 @@ func (o *ObjReconciler) checkVProxyDeployment(ctx context.Context, sc *vapi.Subc
 	if *sts.Spec.Replicas == 0 {
 		*vpDep.Spec.Replicas = 0
 		o.Log.Info("Scale down client proxy", "Name", vpName, "Size", vpDep.Spec.Replicas, "Image", vpDep.Spec.Template.Spec.Containers[0].Image)
-		return o.Rec.GetClient().Update(ctx, vpDep)
+		return updateDep(ctx, o.Rec, vpDep, sts)
 	}
 
 	// TODO: to update existing deployment
