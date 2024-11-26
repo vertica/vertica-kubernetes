@@ -603,11 +603,11 @@ func (o *ObjReconciler) reconcileSts(ctx context.Context, sc *vapi.Subcluster) (
 		return ctrl.Result{}, recreateSts(ctx, o.Rec, curSts, expSts, o.Vdb)
 	}
 
-	return ctrl.Result{}, o.updateSts(ctx, curSts, expSts, sc)
+	return ctrl.Result{}, o.updateSts(ctx, curSts, expSts)
 }
 
 // updateSts will patch an existing statefulset.
-func (o *ObjReconciler) updateSts(ctx context.Context, curSts, expSts *appsv1.StatefulSet, sc *vapi.Subcluster) error {
+func (o *ObjReconciler) updateSts(ctx context.Context, curSts, expSts *appsv1.StatefulSet) error {
 	// Update the sts by patching in fields that changed according to expSts.
 	// Due to the omission of default fields in expSts, curSts != expSts.  We
 	// always send a patch request, then compare what came back against origSts
