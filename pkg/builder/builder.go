@@ -1007,7 +1007,7 @@ func BuildVProxyConfigMap(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi
 
 // makeProxyContainer builds the spec for the client proxy container
 func makeVProxyContainer(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.Container {
-	envVars := buildVProxyTLSCertsEnvVars(vdb, sc)
+	envVars := buildVProxyTLSCertsEnvVars(vdb)
 	envVars = append(envVars, buildCommonEnvVars(vdb)...)
 	proxy := getVProxyConfigForSubcluster(vdb, sc)
 	return corev1.Container{
@@ -1783,7 +1783,7 @@ func buildNMATLSCertsEnvVars(vdb *vapi.VerticaDB) []corev1.EnvVar {
 }
 
 // buildVProxyTLSCertsEnvVars returns environment variables about proxy certs
-func buildVProxyTLSCertsEnvVars(vdb *vapi.VerticaDB, sc *vapi.Subcluster) []corev1.EnvVar {
+func buildVProxyTLSCertsEnvVars(vdb *vapi.VerticaDB) []corev1.EnvVar {
 	if vmeta.UseVProxyCertsMount(vdb.Annotations) && secrets.IsK8sSecret(vdb.Spec.Proxy.TLSSecret) {
 		return []corev1.EnvVar{
 			// TODO: use proxy certs

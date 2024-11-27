@@ -134,7 +134,14 @@ func MakeVDB() *VerticaDB {
 					Type:        PrimarySubcluster,
 				},
 			},
-			Proxy: Proxy{Image: "opentext/client-proxy:latest"},
+			Proxy: Proxy{
+				Image: "opentext/client-proxy:latest",
+				Subclusters: []ProxySubclusterConfig{
+					{
+						Name: "defaultsubcluster",
+					},
+				},
+			},
 		},
 	}
 }
