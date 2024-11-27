@@ -469,18 +469,13 @@ func (s *Subcluster) GetStsSize(vdb *VerticaDB) int32 {
 }
 
 // GetVProxyConfigMapName returns the name of the client proxy config map
-func (s *Subcluster) GetVProxyConfigMapName(vdb *VerticaDB) string {
-	return fmt.Sprintf("%s-%s-proxy-cm", vdb.Name, s.Name)
-}
-
-// GetVProxyConfigMapName returns the name of the client proxy config map
 func (v *VerticaDB) GetVProxyConfigMapName(scName string) string {
-	return fmt.Sprintf("%s-%s-proxy-cm", v.Name, scName)
+	return fmt.Sprintf("%s-%s-proxy-cm", v.Name, GenCompatibleFQDNHelper(scName))
 }
 
 // GetVProxyDeploymentName returns the name of the client proxy deployment
 func (s *Subcluster) GetVProxyDeploymentName(vdb *VerticaDB) string {
-	return fmt.Sprintf("%s-%s-proxy", vdb.Name, s.Name)
+	return fmt.Sprintf("%s-%s-proxy", vdb.Name, GenCompatibleFQDNHelper(s.Name))
 }
 
 // FindSubclusterForServiceName will find any subclusters that match the given service name

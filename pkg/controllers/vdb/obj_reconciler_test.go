@@ -896,7 +896,7 @@ var _ = Describe("obj_reconcile", func() {
 			defer deleteCrd(vdb)
 
 			sc := &vdb.Spec.Subclusters[0]
-			cmName := names.GenVProxyConfigMapName(vdb, sc)
+			cmName := names.GenVProxyConfigMapName(vdb, sc.Name)
 			curCM := builder.BuildVProxyConfigMap(cmName, vdb, sc)
 			Expect(k8sClient.Get(ctx, cmName, curCM)).Should(Succeed())
 
@@ -905,7 +905,7 @@ var _ = Describe("obj_reconcile", func() {
 			pfacts := podfacts.MakePodFacts(vdbRec, &cmds.FakePodRunner{}, logger, TestPassword)
 			objr := MakeObjReconciler(vdbRec, logger, vdb, &pfacts, ObjReconcileModeAll)
 			r := objr.(*ObjReconciler)
-			err := r.checkVProxyConfigMap(ctx, cmName, sc)
+			err := r.checkVProxyConfigMap(ctx, sc)
 			Expect(err).Should(BeNil())
 
 			newCM := builder.BuildVProxyConfigMap(cmName, vdb, sc)

@@ -72,13 +72,7 @@ func GenVProxyName(vdb *vapi.VerticaDB, sc *vapi.Subcluster) types.NamespacedNam
 }
 
 // GenVProxyConfigMapName returns the name of the client proxy configmap
-func GenVProxyConfigMapName(vdb *vapi.VerticaDB, sc *vapi.Subcluster) types.NamespacedName {
-	return GenNamespacedName(vdb, sc.GetVProxyConfigMapName(vdb))
-}
-
-// GenVProxyConfigMapNameFromVDB returns the name of the client proxy configmap from
-// subcluster name string
-func GenVProxyConfigMapNameFromVDB(vdb *vapi.VerticaDB, scName string) types.NamespacedName {
+func GenVProxyConfigMapName(vdb *vapi.VerticaDB, scName string) types.NamespacedName {
 	return GenNamespacedName(vdb, vdb.GetVProxyConfigMapName(scName))
 }
 

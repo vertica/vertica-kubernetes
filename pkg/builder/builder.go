@@ -899,7 +899,7 @@ func buildVProxyPodSpec(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.PodSpec
 				Name: sc.Name,
 				VolumeSource: corev1.VolumeSource{
 					ConfigMap: &corev1.ConfigMapVolumeSource{
-						LocalObjectReference: corev1.LocalObjectReference{Name: sc.GetVProxyConfigMapName(vdb)},
+						LocalObjectReference: corev1.LocalObjectReference{Name: vdb.GetVProxyConfigMapName(sc.Name)},
 					},
 				},
 			},
