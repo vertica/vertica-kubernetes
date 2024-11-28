@@ -836,7 +836,7 @@ type Proxy struct {
 	TLSSecret string `json:"tlsSecret,omitempty"`
 
 	//+operator-sdk:csv:customresourcedefinitions:type=spec
-	Subclusters []ProxySubclusterConfig `json:"subclusters"`
+	Subclusters []ProxySubclusterConfig `json:"subclusters,omitempty"`
 }
 
 type ProxySubclusterConfig struct {
