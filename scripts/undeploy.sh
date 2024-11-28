@@ -66,6 +66,11 @@ function remove_cluster_objects
             kubectl delete $obj $(kubectl get $obj | grep '^verticadb-operator-' | cut -d' ' -f1) || true
         fi
     done
+    # Remove CRD
+    if kubectl get crd | grep '^vertica'
+    then
+        kubectl delete crd $(kubectl get crd | grep '^vertica' | cut -d' ' -f1) || true
+    fi
     set -o xtrace
 }
 
