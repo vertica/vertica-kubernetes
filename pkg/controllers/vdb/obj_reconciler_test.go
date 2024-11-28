@@ -918,6 +918,27 @@ var _ = Describe("obj_reconcile", func() {
 			Expect(res).Should(Equal(ctrl.Result{}))
 			Expect(cm.Data).Should(Equal(newCM.Data))
 		})
+
+		It("should keep configmap if subcluster size scale down to 0", func() {
+			vdb := vapi.MakeVDB()
+			vdb.Annotations[vmeta.UseVProxyAnnotation] = vmeta.UseVProxyAnnotationTrue
+			createCrd(vdb, true)
+			defer deleteCrd(vdb)
+
+			sc := &vdb.Spec.Subclusters[0]
+			cmName := names.GenVProxyConfigMapName(vdb, sc.Name)
+			curCM := builder.BuildVProxyConfigMap(cmName, vdb, sc)
+			Expect(k8sClient.Get(ctx, cmName, curCM)).Should(Succeed())
+
+			// update cluster size to 0
+			vdb.Spec.Subclusters[0].Size = 0
+			pfacts := podfacts.MakePodFacts(vdbRec, &cmds.FakePodRunner{}, logger, TestPassword)
+			objr := MakeObjReconciler(vdbRec, logger, vdb, &pfacts, ObjReconcileModeAll)
+			r := objr.(*ObjReconciler)
+			err := r.checkVProxyConfigMap(ctx, sc)
+			Expect(err).Should(BeNil())
+			Expect(k8sClient.Get(ctx, cmName, curCM)).Should(Succeed())
+		})
 	})
 })
 
