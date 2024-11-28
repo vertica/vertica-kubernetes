@@ -19,8 +19,8 @@ spec:
   proxy:
     image: kustomize-vproxy-image
     subclusters:
-      name: pri1
-      replica: 2
+      - name: pri1
+        replica: 2
   subclusters:
     - name: pri1
       size: 4
