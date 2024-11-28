@@ -25,6 +25,12 @@ metadata:
 status:
   readyReplicas: 2
 ---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: v-client-proxy-pri1-proxy-cm
+immutable: false
+---
 apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
