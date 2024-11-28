@@ -21,6 +21,8 @@ spec:
     subclusters:
       - name: pri1
         replica: 2
+      - name: sec1
+        replica: 1
   subclusters:
     - name: pri1
       size: 4

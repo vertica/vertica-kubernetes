@@ -36,11 +36,13 @@ kind: VerticaDB
 metadata:
   name: v-client-proxy
 spec:
+  proxy:
+    subclusters:
+      - name: pri1
+        replica: 2
   subclusters:
     - name: pri1
       size: 5
-      proxy:
-        replica: 2
 status:
   subclusters:
     - addedToDBCount: 5
