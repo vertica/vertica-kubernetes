@@ -11,20 +11,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: apps/v1
-kind: StatefulSet
-metadata:
-  name: v-client-proxy-pri1
-status:
-  currentReplicas: 4
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: v-client-proxy-pri1-proxy
-status:
-  readyReplicas: 2
----
 apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
@@ -33,9 +19,12 @@ spec:
   subclusters:
     - name: pri1
       size: 4
+      type: primary
       proxy:
-        replica: 3
-status:
-  subclusters:
-    - addedToDBCount: 4
-      upNodeCount: 4
+        image: kustomize-vproxy-image
+        replica: 2
+    - name: sec1
+      size: 2
+      type: secondary
+      proxy:
+        replica: 2
