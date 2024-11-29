@@ -38,6 +38,8 @@ data:
         fi
       done
     done
+    # Give time for config map and svc update
+    sleep 10
 ---
 apiVersion: v1
 kind: Pod
