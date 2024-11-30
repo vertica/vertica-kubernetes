@@ -11,18 +11,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1
-kind: VerticaDB
-metadata:
-  name: v-client-proxy
-spec:
-  subclusters:
-    - name: pri1
-      size: 4
-      type: primary
-      proxy:
-        image: kustomize-vproxy-image
-        replica: 2
-    - name: sec1
-      size: 0
-      type: secondary
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - command: >
+      kubectl patch verticadb v-client-proxy --type='json' -p='[{
+      "op": "replace", 
+      "path": "/spec/subclusters/1/size", 
+      "value": 0
+      }]'
+    namespaced: true

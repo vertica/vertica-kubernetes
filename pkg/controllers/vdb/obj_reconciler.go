@@ -261,23 +261,29 @@ func (o *ObjReconciler) checkForDeletedSubcluster(ctx context.Context) (ctrl.Res
 	}
 
 	for i := range stss.Items {
+		sts := &stss.Items[i]
 		// Ensure that we have correctly done db_remove_node and uninstall for
 		// all pods in the subcluster.  If that isn't the case, we requeue to
 		// give those reconcilers a chance to do those actions.
-		if r, e := o.checkIfReadyForStsUpdate(0, &stss.Items[i]); verrors.IsReconcileAborted(r, e) {
+		if r, e := o.checkIfReadyForStsUpdate(0, sts); verrors.IsReconcileAborted(r, e) {
 			return r, e
 		}
 
-		err = o.Rec.GetClient().Delete(ctx, &stss.Items[i])
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-		// Delete vproxy config map if feature enabled
+		// Delete vproxy if feature enabled
 		if vmeta.UseVProxy(o.Vdb.Annotations) {
-			err = o.DeleteVProxyConfigMapIfExists(ctx, &stss.Items[i])
+			scName, ok := sts.Labels[vmeta.SubclusterNameLabel]
+			if !ok {
+				return ctrl.Result{}, fmt.Errorf("could not find label name in sts %s", sts.Name)
+			}
+			err = o.deleteVProxy(ctx, scName)
 			if err != nil {
 				return ctrl.Result{}, err
 			}
+		}
+
+		err = o.Rec.GetClient().Delete(ctx, sts)
+		if err != nil {
+			return ctrl.Result{}, err
 		}
 	}
 
@@ -478,31 +484,37 @@ func (o *ObjReconciler) checkVProxyConfigMap(ctx context.Context, sc *vapi.Subcl
 }
 
 // DeleteVProxyConfigMapIfExists will delete a client proxy config map if exists, otherwise ignore
-func (o *ObjReconciler) DeleteVProxyConfigMapIfExists(ctx context.Context, sts *appsv1.StatefulSet) error {
-	if scName, ok := sts.Labels[vmeta.SubclusterNameLabel]; ok {
-		curCM := &corev1.ConfigMap{}
-		cmName := names.GenVProxyConfigMapName(o.Vdb, scName)
-		err := o.Rec.GetClient().Get(ctx, cmName, curCM)
-		if kerrors.IsNotFound(err) {
-			return nil
-		}
-		return o.Rec.GetClient().Delete(ctx, curCM)
-	} else {
-		return errors.New("could not find label name in sts")
+func (o *ObjReconciler) deleteVProxyConfigMapIfExists(ctx context.Context, scName string) error {
+	curCM := &corev1.ConfigMap{}
+	cmName := names.GenVProxyConfigMapName(o.Vdb, scName)
+	err := o.Rec.GetClient().Get(ctx, cmName, curCM)
+	if kerrors.IsNotFound(err) {
+		return nil
 	}
+	return o.Rec.GetClient().Delete(ctx, curCM)
+}
+
+// deleteVProxyDeployment deletes the proxy deployment
+func (o *ObjReconciler) deleteVProxyDeployment(ctx context.Context, scName string) error {
+	curDep := &appsv1.Deployment{}
+	vpName := names.GenVProxyName(o.Vdb, scName)
+	err := o.Rec.GetClient().Get(ctx, vpName, curDep)
+	if kerrors.IsNotFound(err) {
+		return nil
+	}
+	return o.Rec.GetClient().Delete(ctx, curDep)
 }
 
 // createVProxyDeployment will create the client proxy deployment
-func (o *ObjReconciler) createVProxyDeployment(ctx context.Context, sc *vapi.Subcluster,
-	sts *appsv1.StatefulSet) (*appsv1.Deployment, error) {
-	vpName := names.GenVProxyName(o.Vdb, sc)
+func (o *ObjReconciler) createVProxyDeployment(ctx context.Context, sc *vapi.Subcluster) (*appsv1.Deployment, error) {
+	vpName := names.GenVProxyName(o.Vdb, sc.Name)
 	curDep := &appsv1.Deployment{}
 	vpDep := builder.BuildVProxyDeployment(vpName, o.Vdb, sc)
 	vpErr := o.Rec.GetClient().Get(ctx, vpName, curDep)
 
 	if vpErr != nil && kerrors.IsNotFound(vpErr) {
 		o.Log.Info("Creating deployment", "Name", vpName, "Size", vpDep.Spec.Replicas, "Image", vpDep.Spec.Template.Spec.Containers[0].Image)
-		err := createDep(ctx, o.Rec, vpDep, sts)
+		err := createDep(ctx, o.Rec, vpDep, o.Vdb)
 		return vpDep, err
 	}
 
@@ -516,7 +528,7 @@ func (o *ObjReconciler) updateVProxyDeployment(ctx context.Context, sts *appsv1.
 	if !vmeta.UseVProxy(o.Vdb.Annotations) {
 		return nil
 	}
-	vpName := names.GenVProxyName(o.Vdb, sc)
+	vpName := names.GenVProxyName(o.Vdb, sc.Name)
 	expDep := builder.BuildVProxyDeployment(vpName, o.Vdb, sc)
 	if *sts.Spec.Replicas == 0 {
 		*expDep.Spec.Replicas = 0
@@ -540,12 +552,20 @@ func (o *ObjReconciler) ensureStsExists(ctx context.Context, nm types.Namespaced
 
 // reconcileVproxy will check if the deployment and its configmap exist and create
 // them.
-func (o *ObjReconciler) reconcileVProxy(ctx context.Context, sc *vapi.Subcluster,
-	sts *appsv1.StatefulSet) (*appsv1.Deployment, error) {
+func (o *ObjReconciler) reconcileVProxy(ctx context.Context, sc *vapi.Subcluster) (*appsv1.Deployment, error) {
 	if err := o.checkVProxyConfigMap(ctx, sc); err != nil {
 		return nil, err
 	}
-	return o.createVProxyDeployment(ctx, sc, sts)
+	return o.createVProxyDeployment(ctx, sc)
+}
+
+// deleteVProxy deletes the proxy deployment and configmap ig they exist
+func (o *ObjReconciler) deleteVProxy(ctx context.Context, scName string) error {
+	err := o.deleteVProxyDeployment(ctx, scName)
+	if err != nil {
+		return err
+	}
+	return o.deleteVProxyConfigMapIfExists(ctx, scName)
 }
 
 // reconcileSts reconciles the statefulset for a particular subcluster.  Returns
@@ -562,11 +582,7 @@ func (o *ObjReconciler) reconcileSts(ctx context.Context, sc *vapi.Subcluster) (
 
 	var curDep *appsv1.Deployment
 	if vmeta.UseVProxy(o.Vdb.Annotations) {
-		sts := curSts
-		if stsCreated {
-			sts = expSts
-		}
-		if curDep, err = o.reconcileVProxy(ctx, sc, sts); err != nil {
+		if curDep, err = o.reconcileVProxy(ctx, sc); err != nil {
 			return ctrl.Result{}, err
 		}
 	}

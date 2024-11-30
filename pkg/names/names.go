@@ -67,8 +67,8 @@ func GenSandboxConfigMapName(vdb *vapi.VerticaDB, sandbox string) types.Namespac
 }
 
 // GenVProxyName returns the name of the client proxy deployment
-func GenVProxyName(vdb *vapi.VerticaDB, sc *vapi.Subcluster) types.NamespacedName {
-	return GenNamespacedName(vdb, sc.GetVProxyDeploymentName(vdb))
+func GenVProxyName(vdb *vapi.VerticaDB, scName string) types.NamespacedName {
+	return GenNamespacedName(vdb, vdb.GetVProxyDeploymentName(scName))
 }
 
 // GenVProxyConfigMapName returns the name of the client proxy configmap

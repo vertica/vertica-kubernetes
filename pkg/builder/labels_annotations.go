@@ -99,7 +99,7 @@ func appendProxyLabels(labels map[string]string, vdb *vapi.VerticaDB, sc *vapi.S
 	// Set a special selector to pick only the pods for this porxy deployment. It's
 	// derived from the deployment name as that stays constant and is unique in
 	// a namespace.
-	labels[vmeta.DeploymentSelectorLabel] = sc.GetVProxyDeploymentName(vdb)
+	labels[vmeta.DeploymentSelectorLabel] = vdb.GetVProxyDeploymentName(sc.Name)
 	// Set the common proxy pod selector
 	labels[vmeta.ProxyPodSelectorLabel] = vmeta.ProxyPodSelectorVal
 }

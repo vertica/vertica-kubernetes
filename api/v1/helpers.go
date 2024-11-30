@@ -474,8 +474,8 @@ func (v *VerticaDB) GetVProxyConfigMapName(scName string) string {
 }
 
 // GetVProxyDeploymentName returns the name of the client proxy deployment
-func (s *Subcluster) GetVProxyDeploymentName(vdb *VerticaDB) string {
-	return fmt.Sprintf("%s-%s-proxy", vdb.Name, GenCompatibleFQDNHelper(s.Name))
+func (v *VerticaDB) GetVProxyDeploymentName(scName string) string {
+	return fmt.Sprintf("%s-%s-proxy", v.Name, GenCompatibleFQDNHelper(scName))
 }
 
 // FindSubclusterForServiceName will find any subclusters that match the given service name

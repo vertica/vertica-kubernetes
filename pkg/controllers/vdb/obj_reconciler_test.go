@@ -927,7 +927,7 @@ var _ = Describe("obj_reconcile", func() {
 
 			sc := &vdb.Spec.Subclusters[0]
 			cmName := names.GenVProxyConfigMapName(vdb, sc.Name)
-			curCM := builder.BuildVProxyConfigMap(cmName, vdb, sc)
+			curCM := &corev1.ConfigMap{}
 			Expect(k8sClient.Get(ctx, cmName, curCM)).Should(Succeed())
 
 			// update cluster size to 0
@@ -938,6 +938,31 @@ var _ = Describe("obj_reconcile", func() {
 			err := r.checkVProxyConfigMap(ctx, sc)
 			Expect(err).Should(BeNil())
 			Expect(k8sClient.Get(ctx, cmName, curCM)).Should(Succeed())
+		})
+
+		It("should delete vproxy", func() {
+			vdb := vapi.MakeVDB()
+			vdb.Annotations[vmeta.UseVProxyAnnotation] = vmeta.UseVProxyAnnotationTrue
+			createCrd(vdb, true)
+			defer deleteCrd(vdb)
+
+			sc := &vdb.Spec.Subclusters[0]
+			cmName := names.GenVProxyConfigMapName(vdb, sc.Name)
+			curCM := &corev1.ConfigMap{}
+			Expect(k8sClient.Get(ctx, cmName, curCM)).Should(Succeed())
+			vpName := names.GenVProxyName(vdb, sc.Name)
+			curDep := &appsv1.Deployment{}
+			Expect(k8sClient.Get(ctx, vpName, curDep)).Should(Succeed())
+
+			pfacts := podfacts.MakePodFacts(vdbRec, &cmds.FakePodRunner{}, logger, TestPassword)
+			objr := MakeObjReconciler(vdbRec, logger, vdb, &pfacts, ObjReconcileModeAll)
+			r := objr.(*ObjReconciler)
+			Expect(r.deleteVProxy(ctx, sc.Name)).Should(Succeed())
+
+			newCM := &corev1.ConfigMap{}
+			Expect(errors.IsNotFound(k8sClient.Get(ctx, cmName, newCM))).Should(BeTrue())
+			newDep := &appsv1.Deployment{}
+			Expect(errors.IsNotFound(k8sClient.Get(ctx, vpName, newDep))).Should(BeTrue())
 		})
 	})
 })
