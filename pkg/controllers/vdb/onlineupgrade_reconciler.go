@@ -1494,6 +1494,12 @@ func (r *OnlineUpgradeReconciler) duplicateSubclusterForReplicaGroupB(
 	// renamed later but we want a consistent object name to avoid having to
 	// rebuild it.
 	newSc.Annotations[vmeta.StsNameOverrideAnnotation] = newStsName
+	if vmeta.UseVProxy(r.VDB.Annotations) {
+		// Picking a proxy deployment name is important because this subcluster will get
+		// renamed later but we want a consistent object name to avoid having to
+		// rebuild it.
+		newSc.Annotations[vmeta.ProxyDeploymentNameAnnotation] = fmt.Sprintf("%s-proxy", newStsName)
+	}
 
 	// Create a linkage in the parent-child
 	if baseSc.Annotations == nil {

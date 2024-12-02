@@ -348,6 +348,12 @@ const (
 	// `<vdb-name>-<subcluster-name>'
 	StsNameOverrideAnnotation = "vertica.com/statefulset-name-override"
 
+	// Use this to override the name of the proxy deployment and its pods. This needs
+	// to be set in the spec.subclusters[].annotations field to take effect. If
+	// omitted, then the name of the subclusters' proxy will be
+	// `<vdb-name>-<subcluster-name>-proxy'
+	ProxyDeploymentNameAnnotation = "vertica.com/deployment-name-override"
+
 	// Use this to store extra local paths that we need to create before revive_db.
 	// Those paths include local paths not in local.catalogPath, local.dataPath,
 	// and local.depotPath. For example, the user-created temp paths.
@@ -681,6 +687,12 @@ func GetSaveRestorePoint(annotations map[string]string) bool {
 // not provided, an empty string is returned.
 func GetStsNameOverride(annotations map[string]string) string {
 	return lookupStringAnnotation(annotations, StsNameOverrideAnnotation, "")
+}
+
+// GetVPDepNameOverride returns the override for the proxy deployment name.
+// If one is not provided, an empty string is returned.
+func GetVPDepNameOverride(annotations map[string]string) string {
+	return lookupStringAnnotation(annotations, ProxyDeploymentNameAnnotation, "")
 }
 
 func GetShutdownDrivenBySandbox(annotations map[string]string) bool {

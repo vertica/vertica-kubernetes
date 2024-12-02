@@ -274,11 +274,11 @@ func (o *ObjReconciler) checkForDeletedSubcluster(ctx context.Context) (ctrl.Res
 
 		// Delete vproxy if feature enabled
 		if vmeta.UseVProxy(o.Vdb.Annotations) {
-			scName, ok := sts.Labels[vmeta.SubclusterNameLabel]
+			vpName, ok := sts.Labels[vmeta.ClientProxyNameLabel]
 			if !ok {
-				return ctrl.Result{}, fmt.Errorf("could not find label name in sts %s", sts.Name)
+				return ctrl.Result{}, fmt.Errorf("could not find %s label in sts %s", vmeta.ClientProxyNameLabel, sts.Name)
 			}
-			err = o.deleteVProxy(ctx, scName)
+			err = o.deleteVProxy(ctx, vpName)
 			if err != nil {
 				return ctrl.Result{}, err
 			}
@@ -468,7 +468,7 @@ func (o *ObjReconciler) updateVProxyConfigMapFields(curCM, newCM *corev1.ConfigM
 
 // checkVProxyConfigMap will create or update a client proxy config map if needed
 func (o *ObjReconciler) checkVProxyConfigMap(ctx context.Context, sc *vapi.Subcluster) error {
-	cmName := names.GenVProxyConfigMapName(o.Vdb, sc.Name)
+	cmName := names.GenVProxyConfigMapName(o.Vdb, sc)
 	curCM := &corev1.ConfigMap{}
 	newCM := builder.BuildVProxyConfigMap(cmName, o.Vdb, sc)
 
@@ -487,9 +487,12 @@ func (o *ObjReconciler) checkVProxyConfigMap(ctx context.Context, sc *vapi.Subcl
 }
 
 // DeleteVProxyConfigMapIfExists will delete a client proxy config map if exists, otherwise ignore
-func (o *ObjReconciler) deleteVProxyConfigMapIfExists(ctx context.Context, scName string) error {
+func (o *ObjReconciler) deleteVProxyConfigMapIfExists(ctx context.Context, vpName string) error {
 	curCM := &corev1.ConfigMap{}
-	cmName := names.GenVProxyConfigMapName(o.Vdb, scName)
+	cmName := types.NamespacedName{
+		Name:      vapi.GetVProxyConfigMapName(vpName),
+		Namespace: o.Vdb.Namespace,
+	}
 	err := o.Rec.GetClient().Get(ctx, cmName, curCM)
 	if kerrors.IsNotFound(err) {
 		return nil
@@ -498,10 +501,13 @@ func (o *ObjReconciler) deleteVProxyConfigMapIfExists(ctx context.Context, scNam
 }
 
 // deleteVProxyDeployment deletes the proxy deployment
-func (o *ObjReconciler) deleteVProxyDeployment(ctx context.Context, scName string) error {
+func (o *ObjReconciler) deleteVProxyDeployment(ctx context.Context, vpName string) error {
 	curDep := &appsv1.Deployment{}
-	vpName := names.GenVProxyName(o.Vdb, scName)
-	err := o.Rec.GetClient().Get(ctx, vpName, curDep)
+	vp := types.NamespacedName{
+		Name:      vpName,
+		Namespace: o.Vdb.Namespace,
+	}
+	err := o.Rec.GetClient().Get(ctx, vp, curDep)
 	if kerrors.IsNotFound(err) {
 		return nil
 	}
@@ -510,7 +516,7 @@ func (o *ObjReconciler) deleteVProxyDeployment(ctx context.Context, scName strin
 
 // createVProxyDeployment will create the client proxy deployment
 func (o *ObjReconciler) createVProxyDeployment(ctx context.Context, sc *vapi.Subcluster) (*appsv1.Deployment, error) {
-	vpName := names.GenVProxyName(o.Vdb, sc.Name)
+	vpName := names.GenVProxyName(o.Vdb, sc)
 	curDep := &appsv1.Deployment{}
 	vpDep := builder.BuildVProxyDeployment(vpName, o.Vdb, sc)
 	vpErr := o.Rec.GetClient().Get(ctx, vpName, curDep)
@@ -531,7 +537,7 @@ func (o *ObjReconciler) updateVProxyDeployment(ctx context.Context, sts *appsv1.
 	if !vmeta.UseVProxy(o.Vdb.Annotations) {
 		return nil
 	}
-	vpName := names.GenVProxyName(o.Vdb, sc.Name)
+	vpName := names.GenVProxyName(o.Vdb, sc)
 	expDep := builder.BuildVProxyDeployment(vpName, o.Vdb, sc)
 	if *sts.Spec.Replicas == 0 {
 		*expDep.Spec.Replicas = 0
@@ -562,13 +568,13 @@ func (o *ObjReconciler) reconcileVProxy(ctx context.Context, sc *vapi.Subcluster
 	return o.createVProxyDeployment(ctx, sc)
 }
 
-// deleteVProxy deletes the proxy deployment and configmap ig they exist
-func (o *ObjReconciler) deleteVProxy(ctx context.Context, scName string) error {
-	err := o.deleteVProxyDeployment(ctx, scName)
+// deleteVProxy deletes the proxy deployment and configmap if they exist
+func (o *ObjReconciler) deleteVProxy(ctx context.Context, vpName string) error {
+	err := o.deleteVProxyDeployment(ctx, vpName)
 	if err != nil {
 		return err
 	}
-	return o.deleteVProxyConfigMapIfExists(ctx, scName)
+	return o.deleteVProxyConfigMapIfExists(ctx, vpName)
 }
 
 // reconcileSts reconciles the statefulset for a particular subcluster.  Returns

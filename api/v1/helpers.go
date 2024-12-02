@@ -129,6 +129,7 @@ func MakeVDB() *VerticaDB {
 			Subclusters: []Subcluster{
 				{
 					Name:        "defaultsubcluster",
+					Annotations: make(map[string]string),
 					Size:        3,
 					ServiceType: corev1.ServiceTypeClusterIP,
 					Type:        PrimarySubcluster,
@@ -414,6 +415,18 @@ func (s *Subcluster) GetStatefulSetName(vdb *VerticaDB) string {
 	return fmt.Sprintf("%s-%s", vdb.Name, s.GenCompatibleFQDN())
 }
 
+func (s *Subcluster) GetVProxyDeploymentName(vdb *VerticaDB) string {
+	depOverrideName := vmeta.GetVPDepNameOverride(s.Annotations)
+	if depOverrideName != "" {
+		return depOverrideName
+	}
+	return fmt.Sprintf("%s-%s-proxy", vdb.Name, GenCompatibleFQDNHelper(s.Name))
+}
+
+func (s *Subcluster) GetVProxyConfigMapName(vdb *VerticaDB) string {
+	return GetVProxyConfigMapName(s.GetVProxyDeploymentName(vdb))
+}
+
 // GetServiceName returns the name of the service object that route traffic to
 // this subcluster.
 func (s *Subcluster) GetServiceName() string {
@@ -469,8 +482,8 @@ func (s *Subcluster) GetStsSize(vdb *VerticaDB) int32 {
 }
 
 // GetVProxyConfigMapName returns the name of the client proxy config map
-func (v *VerticaDB) GetVProxyConfigMapName(scName string) string {
-	return fmt.Sprintf("%s-%s-proxy-cm", v.Name, GenCompatibleFQDNHelper(scName))
+func GetVProxyConfigMapName(prefix string) string {
+	return fmt.Sprintf("%s-cm", prefix)
 }
 
 // GetVProxyDeploymentName returns the name of the client proxy deployment

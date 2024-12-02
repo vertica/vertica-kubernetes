@@ -117,6 +117,9 @@ func MakeLabelsForStsObject(vdb *vapi.VerticaDB, sc *vapi.Subcluster) map[string
 		labels[vmeta.WatchedBySandboxLabel] = vmeta.WatchedBySandboxTrue
 		labels[vmeta.SandboxNameLabel] = sandbox
 	}
+	if vmeta.UseVProxy(vdb.Annotations) {
+		labels[vmeta.ClientProxyNameLabel] = sc.GetVProxyDeploymentName(vdb)
+	}
 	return labels
 }
 
