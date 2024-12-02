@@ -56,6 +56,9 @@ const (
 	ObjReconcileModeAll
 )
 
+// An annotation added to the deployment by kubernetes
+const protectedAnnotation = "deployment.kubernetes.io/revision"
+
 // ObjReconciler will reconcile for all dependent Kubernetes objects. This is
 // used for a single reconcile iteration.
 type ObjReconciler struct {
@@ -683,22 +686,22 @@ func (o *ObjReconciler) updateWorkload(ctx context.Context, curWorkload, expWork
 	origWorkload := curWorkload.DeepCopyObject().(client.Object)
 
 	// Copy Spec, Labels, and Annotations
-	workload := ""
+	var anns map[string]string
 	switch cw := curWorkload.(type) {
 	case *appsv1.StatefulSet:
 		expSts := expWorkload.(*appsv1.StatefulSet)
 		expSts.Spec.DeepCopyInto(&cw.Spec)
-		workload = "statefulset"
+		anns = expSts.GetAnnotations()
 	case *appsv1.Deployment:
 		expDeploy := expWorkload.(*appsv1.Deployment)
 		expDeploy.Spec.DeepCopyInto(&cw.Spec)
-		workload = "deployment"
+		anns = mergeAnnotations(cw.GetAnnotations(), expDeploy.GetAnnotations())
 	default:
 		return fmt.Errorf("unsupported workload type: %T", curWorkload)
 	}
 
 	curWorkload.SetLabels(expWorkload.GetLabels())
-	curWorkload.SetAnnotations(expWorkload.GetAnnotations())
+	curWorkload.SetAnnotations(anns)
 
 	// Patch the workload
 	if err := o.Rec.GetClient().Patch(ctx, curWorkload, patch); err != nil {
@@ -712,11 +715,29 @@ func (o *ObjReconciler) updateWorkload(ctx context.Context, curWorkload, expWork
 			o.Log.Info("Patching statefulset", "Name", sts.Name, "Image", sts.Spec.Template.Spec.Containers[0].Image)
 			o.PFacts.Invalidate()
 		} else {
-			o.Log.Info(fmt.Sprintf("Patching %s", workload), "Name", expWorkload.GetName(),
-				"Kind", expWorkload.GetObjectKind().GroupVersionKind().Kind)
+			dep := curWorkload.(*appsv1.Deployment)
+			o.Log.Info("Patching deployment", "Name", dep.Name,
+				"Image", dep.Spec.Template.Spec.Containers[0].Image)
 		}
 	}
 	return nil
+}
+
+// mergeAnnotations is a helper function to merge annotations. This allows us to not overwrite
+// system-managed annotations added by kubernetes.
+func mergeAnnotations(existing, expected map[string]string) map[string]string {
+	merged := make(map[string]string)
+	v, ok := existing[protectedAnnotation]
+	if ok {
+		merged[protectedAnnotation] = v
+	}
+
+	// Overwrite/add expected annotations
+	for k, v := range expected {
+		merged[k] = v
+	}
+
+	return merged
 }
 
 // isNMADeploymentDifferent will return true if one of the statefulsets have a

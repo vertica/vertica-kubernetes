@@ -11,35 +11,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: apps/v1
-kind: StatefulSet
-metadata:
-  name: v-client-proxy-pri1
-status:
-  currentReplicas: 4
-  readyReplicas: 4
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: v-client-proxy-pri1-proxy
-status:
-  replicas: 2
-  readyReplicas: 2
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: v-client-proxy-pri1-proxy-cm
-immutable: false
----
-apiVersion: vertica.com/v1
-kind: VerticaDB
-metadata:
-  name: v-client-proxy
-spec:
-  subclusters:
-    - name: pri1
-      size: 4
-      proxy:
-        replica: 2
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - command: >
+      kubectl patch verticadb v-client-proxy --type='json' -p='[{
+      "op": "replace", 
+      "path": "/spec/subclusters/1/size", 
+      "value": 2
+      }]'
+    namespaced: true
