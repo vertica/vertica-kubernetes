@@ -14,7 +14,8 @@
  v_vertdb_node0001 | t       | 104857600 | 7       | /data/vertdb/v_vertdb_node0001_catalog/UDxLogs/UDxFencedProcesses.log | f             | 
  v_vertdb_node0001 | t       | 104857600 | 7       | /data/vertdb/v_vertdb_node0001_catalog/editor.log                     | f             | 
  v_vertdb_node0001 | t       |         0 | 7       | Debug Reports Profile Cleanup                                         | f             | Removed 0 outdated profiles 
- Skipped 0 profiles 
+Skipped 0 profiles 
+
 (4 rows)
 
 ALTER DATABASE
@@ -25,7 +26,6 @@ ALTER DATABASE
 
      node_name     | success | max_size  | max_age |                               log_file                                | need_rotation 
 -------------------+---------+-----------+---------+-----------------------------------------------------------------------+---------------
- v_vertdb_node0001 | t       | 104857600 | 7       | /data/vertdb/v_vertdb_node0001_catalog/vertica.log                    | f
  v_vertdb_node0001 | t       |         0 | 7       | Debug Reports Profile Cleanup                                         | f
  v_vertdb_node0001 | t       |      1024 | 7       | /data/vertdb/v_vertdb_node0001_catalog/editor.log                     | t
  v_vertdb_node0001 | t       |      1024 | 7       | /data/vertdb/v_vertdb_node0001_catalog/UDxLogs/UDxFencedProcesses.log | f
@@ -33,6 +33,7 @@ ALTER DATABASE
  v_vertdb_node0001 | t       |         0 | 7       | Debug Reports Profile Cleanup                                         | f
  v_vertdb_node0001 | t       | 104857600 | 7       | /data/vertdb/v_vertdb_node0001_catalog/editor.log                     | f
  v_vertdb_node0001 | t       | 104857600 | 7       | /data/vertdb/v_vertdb_node0001_catalog/UDxLogs/UDxFencedProcesses.log | f
+ v_vertdb_node0001 | t       | 104857600 | 7       | /data/vertdb/v_vertdb_node0001_catalog/vertica.log                    | f
 (8 rows)
 
  clear_data_collector 
