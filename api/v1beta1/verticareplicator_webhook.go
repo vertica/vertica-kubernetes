@@ -72,15 +72,17 @@ func (vrep *VerticaReplicator) ValidateDelete() error {
 	return nil
 }
 
-// validateVrepSpec will validate the current VerticaScrutinize to see if it is valid
+// validateVrepSpec will validate the current VerticaReplicator to see if it is valid
 func (vrep *VerticaReplicator) validateVrepSpec() field.ErrorList {
 	allErrs := field.ErrorList{}
+	allErrs = vrep.ValidateReplicationMode(allErrs)
 	allErrs = vrep.ValidateAsyncReplicationOptions(allErrs)
+	allErrs = vrep.ValidateSyncReplicationOptions(allErrs)
 
 	return allErrs
 }
 
-func (vrep *VerticaReplicator) ValidateAsyncReplicationOptions(allErrs field.ErrorList) field.ErrorList {
+func (vrep *VerticaReplicator) ValidateReplicationMode(allErrs field.ErrorList) field.ErrorList {
 	if vrep.Spec.Mode != "" && vrep.Spec.Mode != ReplicationModeSync && vrep.Spec.Mode != ReplicationModeAsync {
 		err := field.Invalid(field.NewPath("spec").Child("mode"),
 			vrep.Spec.Mode,
@@ -88,31 +90,13 @@ func (vrep *VerticaReplicator) ValidateAsyncReplicationOptions(allErrs field.Err
 		allErrs = append(allErrs, err)
 	}
 
-	if vrep.Spec.Mode == ReplicationModeSync {
-		if vrep.Spec.Source.IncludePattern != "" {
-			err := field.Invalid(field.NewPath("spec").Child("source").Child("includePattern"),
-				vrep.Spec.Source.IncludePattern,
-				fmt.Sprintf("Include pattern cannot be used in replication mode '%s'", ReplicationModeSync))
-			allErrs = append(allErrs, err)
-		}
-		if vrep.Spec.Source.ExcludePattern != "" {
-			err := field.Invalid(field.NewPath("spec").Child("source").Child("excludePattern"),
-				vrep.Spec.Source.ExcludePattern,
-				fmt.Sprintf("Exclude pattern cannot be used in replication mode '%s'", ReplicationModeSync))
-			allErrs = append(allErrs, err)
-		}
-		if vrep.Spec.Source.ObjectName != "" {
-			err := field.Invalid(field.NewPath("spec").Child("source").Child("objectName"),
-				vrep.Spec.Source.ObjectName,
-				fmt.Sprintf("Object name cannot be used in replication mode '%s'", ReplicationModeSync))
-			allErrs = append(allErrs, err)
-		}
-		if vrep.Spec.Target.Namespace != "" {
-			err := field.Invalid(field.NewPath("spec").Child("target").Child("namespace"),
-				vrep.Spec.Target.Namespace,
-				fmt.Sprintf("Target namespace cannot be used in replication mode '%s'", ReplicationModeSync))
-			allErrs = append(allErrs, err)
-		}
+	return allErrs
+}
+
+// ValidateAsyncReplicationOptions will validate any options for asynchronous replication
+func (vrep *VerticaReplicator) ValidateAsyncReplicationOptions(allErrs field.ErrorList) field.ErrorList {
+	if vrep.Spec.Mode != ReplicationModeAsync {
+		return allErrs
 	}
 
 	if vrep.Spec.Source.ObjectName != "" && vrep.Spec.Source.IncludePattern != "" {
@@ -131,6 +115,41 @@ func (vrep *VerticaReplicator) ValidateAsyncReplicationOptions(allErrs field.Err
 		err := field.Invalid(field.NewPath("spec").Child("source").Child("excludePattern"),
 			vrep.Spec.Source.ExcludePattern,
 			"Exclude pattern cannot be used without include pattern")
+		allErrs = append(allErrs, err)
+	}
+
+	return allErrs
+}
+
+// ValidateSyncReplicationOptions will validate any options for synchronous replication
+func (vrep *VerticaReplicator) ValidateSyncReplicationOptions(allErrs field.ErrorList) field.ErrorList {
+	if vrep.Spec.Mode != ReplicationModeSync {
+		return allErrs
+	}
+
+	// Partial replication options should not be used in sync replication mode
+	if vrep.Spec.Source.IncludePattern != "" {
+		err := field.Invalid(field.NewPath("spec").Child("source").Child("includePattern"),
+			vrep.Spec.Source.IncludePattern,
+			fmt.Sprintf("Include pattern cannot be used in replication mode '%s'", ReplicationModeSync))
+		allErrs = append(allErrs, err)
+	}
+	if vrep.Spec.Source.ExcludePattern != "" {
+		err := field.Invalid(field.NewPath("spec").Child("source").Child("excludePattern"),
+			vrep.Spec.Source.ExcludePattern,
+			fmt.Sprintf("Exclude pattern cannot be used in replication mode '%s'", ReplicationModeSync))
+		allErrs = append(allErrs, err)
+	}
+	if vrep.Spec.Source.ObjectName != "" {
+		err := field.Invalid(field.NewPath("spec").Child("source").Child("objectName"),
+			vrep.Spec.Source.ObjectName,
+			fmt.Sprintf("Object name cannot be used in replication mode '%s'", ReplicationModeSync))
+		allErrs = append(allErrs, err)
+	}
+	if vrep.Spec.Target.Namespace != "" {
+		err := field.Invalid(field.NewPath("spec").Child("target").Child("namespace"),
+			vrep.Spec.Target.Namespace,
+			fmt.Sprintf("Target namespace cannot be used in replication mode '%s'", ReplicationModeSync))
 		allErrs = append(allErrs, err)
 	}
 
