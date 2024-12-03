@@ -1113,3 +1113,26 @@ func (v *VerticaDB) GetSubclustersForReplicaGroup(groupName string) []string {
 	}
 	return scNames
 }
+
+// GetSubclustersInSandbox returns the subclusters in the given sandbox
+func (v *VerticaDB) GetSubclustersInSandbox(sbName string) []string {
+	scNames := []string{}
+	scSbMap := v.GenSubclusterSandboxMap()
+	if sbName == MainCluster {
+		for i := range v.Spec.Subclusters {
+			scName := v.Spec.Subclusters[i].Name
+			if _, found := scSbMap[scName]; !found {
+				scNames = append(scNames, scName)
+			}
+		}
+		return scNames
+	}
+	sb := v.GetSandbox(sbName)
+	if sb == nil {
+		return nil
+	}
+	for i := range sb.Subclusters {
+		scNames = append(scNames, sb.Subclusters[i].Name)
+	}
+	return scNames
+}
