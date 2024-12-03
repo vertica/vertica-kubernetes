@@ -67,9 +67,9 @@ function remove_cluster_objects
         fi
     done
     # Remove CRD
-    if kubectl get crd | grep '^vertica'
+    if kubectl get crd | grep '\.vertica\.com'
     then
-        kubectl delete crd $(kubectl get crd | grep '^vertica' | cut -d' ' -f1) || true
+        kubectl delete crd $(kubectl get crd | grep '\.vertica\.com' | cut -d' ' -f1) || true
     fi
     set -o xtrace
 }
