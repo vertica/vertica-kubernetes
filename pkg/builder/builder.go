@@ -862,8 +862,6 @@ func makeScrutinizeInitContainers(vscr *v1beta1.VerticaScrutinize, vdb *vapi.Ver
 
 // BuildVProxyDeployment builds manifest for a subclusters VProxy deployment
 func BuildVProxyDeployment(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi.Subcluster) *appsv1.Deployment {
-	proxy := getVProxyConfigForSubcluster(vdb, sc)
-
 	return &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        nm.Name,
@@ -882,7 +880,7 @@ func BuildVProxyDeployment(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vap
 				},
 				Spec: buildVProxyPodSpec(vdb, sc),
 			},
-			Replicas: &proxy.Replica,
+			Replicas: &sc.Proxy.Replica,
 		},
 	}
 }
@@ -907,16 +905,6 @@ func buildVProxyPodSpec(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.PodSpec
 			},
 		},
 	}
-}
-
-// getVProxyConfigForSubcluster returns the configuration for a subcluster from Proxy spec
-func getVProxyConfigForSubcluster(vdb *vapi.VerticaDB, sc *vapi.Subcluster) vapi.ProxySubclusterConfig {
-	for _, config := range vdb.Spec.Proxy.Subclusters {
-		if config.Name == sc.Name {
-			return config
-		}
-	}
-	return vapi.ProxySubclusterConfig{}
 }
 
 // makeDataForProxyConfigMap generates a configmap data in config.yaml format.
@@ -1009,13 +997,12 @@ func BuildVProxyConfigMap(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi
 func makeVProxyContainer(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.Container {
 	envVars := buildVProxyTLSCertsEnvVars(vdb)
 	envVars = append(envVars, buildCommonEnvVars(vdb)...)
-	proxy := getVProxyConfigForSubcluster(vdb, sc)
 	return corev1.Container{
 		Image:           vdb.Spec.Proxy.Image,
 		ImagePullPolicy: vdb.Spec.ImagePullPolicy,
 		Name:            names.ProxyContainer,
 		Env:             envVars,
-		Resources:       proxy.Resources,
+		Resources:       sc.Proxy.Resources,
 		Ports: []corev1.ContainerPort{
 			{ContainerPort: VerticaClientPort, Name: "vertica"},
 		},
