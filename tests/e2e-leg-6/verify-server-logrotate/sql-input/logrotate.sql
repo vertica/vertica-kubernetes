@@ -1,3 +1,7 @@
+-- This test covers profile clean up through in-server logrotate
+-- clear before testing
+select clear_data_collector('TraceProfiles');
+
 -- Cleanup the DC table
 select clear_data_collector('LogRotateOperations');
 

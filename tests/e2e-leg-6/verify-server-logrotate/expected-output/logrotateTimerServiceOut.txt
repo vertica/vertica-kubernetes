@@ -3,6 +3,11 @@
  CLEAR
 (1 row)
 
+ clear_data_collector 
+----------------------
+ CLEAR
+(1 row)
+
         hurry_service         
 ------------------------------
  Service hurried and finished
