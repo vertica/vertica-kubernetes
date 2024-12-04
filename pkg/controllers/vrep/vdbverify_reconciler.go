@@ -80,7 +80,7 @@ func (r *VdbVerifyReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (c
 				"an upgrade to at least version %q is required.",
 			vinfSource.VdbVer, vapi.ReplicationViaVclusteropsSupportedMinVersion)
 		err = vrepstatus.Update(ctx, r.VRec.Client, r.VRec.Log, r.Vrep,
-			[]*metav1.Condition{vapi.MakeCondition(v1beta1.ReplicationReady, metav1.ConditionFalse, "IncompatibleSourceDB")}, stateIncompatibleDB)
+			[]*metav1.Condition{vapi.MakeCondition(v1beta1.ReplicationReady, metav1.ConditionFalse, "IncompatibleSourceDB")}, stateIncompatibleDB, 0)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
@@ -91,7 +91,7 @@ func (r *VdbVerifyReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (c
 			"The target Vertica version, %q, must be equal to or higher than "+
 				"the source Vertica version, %q", vinfTarget.VdbVer, vinfSource.VdbVer)
 		err = vrepstatus.Update(ctx, r.VRec.Client, r.VRec.Log, r.Vrep,
-			[]*metav1.Condition{vapi.MakeCondition(v1beta1.ReplicationReady, metav1.ConditionFalse, "IncompatibleTargetDB")}, stateIncompatibleDB)
+			[]*metav1.Condition{vapi.MakeCondition(v1beta1.ReplicationReady, metav1.ConditionFalse, "IncompatibleTargetDB")}, stateIncompatibleDB, 0)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
@@ -103,7 +103,8 @@ func (r *VdbVerifyReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (c
 		r.VRec.Event(r.Vrep, corev1.EventTypeWarning, events.VrepAdmintoolsNotSupported,
 			"replication is not supported when the source uses admintools deployments")
 		err = vrepstatus.Update(ctx, r.VRec.Client, r.VRec.Log, r.Vrep,
-			[]*metav1.Condition{vapi.MakeCondition(v1beta1.ReplicationReady, metav1.ConditionFalse, "AdmintoolsNotSupported")}, stateIncompatibleDB)
+			[]*metav1.Condition{vapi.MakeCondition(v1beta1.ReplicationReady, metav1.ConditionFalse, "AdmintoolsNotSupported")},
+			stateIncompatibleDB, 0)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
@@ -111,5 +112,5 @@ func (r *VdbVerifyReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (c
 	}
 
 	return ctrl.Result{}, vrepstatus.Update(ctx, r.VRec.Client, r.VRec.Log, r.Vrep,
-		[]*metav1.Condition{vapi.MakeCondition(v1beta1.ReplicationReady, metav1.ConditionTrue, "Ready")}, "Ready")
+		[]*metav1.Condition{vapi.MakeCondition(v1beta1.ReplicationReady, metav1.ConditionTrue, "Ready")}, "Ready", 0)
 }

@@ -25,12 +25,12 @@ type VerticaReplicatorSpec struct {
 	// +kubebuilder:validation:Required
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// Information of the source Vertica database to replicate from
-	Source VerticaReplicatorDatabaseInfo `json:"source"`
+	Source VerticaReplicatorSourceDatabaseInfo `json:"source"`
 
 	// +kubebuilder:validation:Required
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// Information of the target Vertica database to replicate to
-	Target VerticaReplicatorDatabaseInfo `json:"target"`
+	Target VerticaReplicatorTargetDatabaseInfo `json:"target"`
 
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:text"
@@ -43,6 +43,45 @@ type VerticaReplicatorSpec struct {
 	// be enabled on the source database. Custom username for source and target
 	// databases is not supported yet when TLS configuration is used.
 	TLSConfig string `json:"tlsConfig,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:default:=async
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// Determines how replication is done. Available options: async, sync
+	Mode string `json:"mode"`
+}
+
+type VerticaReplicatorSourceDatabaseInfo struct {
+	VerticaReplicatorDatabaseInfo `json:",inline"`
+
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:text"
+	// The object name we want to copy from the source side. The available types are: namespace, schema, table.
+	// If this is omitted, the operator will replicate all namespaces in the source database.
+	ObjectName string `json:"objectName,omitempty"`
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:text"
+	// A string containing a wildcard pattern of the schemas and/or tables to include in the replication.
+	// Namespace names must be front-qualified with a period.
+	IncludePattern string `json:"includePattern,omitempty"`
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:text"
+	// A string containing a wildcard pattern of the schemas and/or tables to exclude from the set of tables matched
+	// by the include pattern. Namespace names must be front-qualified with a period.
+	ExcludePattern string `json:"excludePattern,omitempty"`
+}
+
+type VerticaReplicatorTargetDatabaseInfo struct {
+	VerticaReplicatorDatabaseInfo `json:",inline"`
+
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:text"
+	// Namespace in the target database to which objects are replicated. The target namespace must have the same shard
+	// count as the source namespace in the source cluster. If you do not specify a target namespace, objects are
+	// replicated to a namespace with the same name as the source namespace. If no such namespace exists in the target
+	// cluster, it is created with the same name and shard count as the source namespace. You can only replicate tables
+	// in the public schema to the default_namespace in the target cluster.
+	Namespace string `json:"namespace,omitempty"`
 }
 
 // VerticaReplicatorDatabaseInfo defines the information related to either the source or target Vertica database
@@ -90,6 +129,11 @@ type VerticaReplicatorStatus struct {
 	State string `json:"state,omitempty"`
 
 	// +operator-sdk:csv:customresourcedefinitions:type=status
+	// +optional
+	// Transaction ID for async replication
+	TransactionID int64 `json:"transactionID,omitempty"`
+
+	// +operator-sdk:csv:customresourcedefinitions:type=status
 	// Set of status conditions of replication process
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
@@ -101,6 +145,11 @@ const (
 	ReplicationComplete = "ReplicationComplete"
 	// ReplicationReady indicates whether the operator is ready to start the database replication
 	ReplicationReady = "ReplicationReady"
+
+	// ReplicationModeAsync indicates database replication should be done asynchronously
+	ReplicationModeAsync = "async"
+	// ReplicationModeSync indicates database replication should be done synchronously
+	ReplicationModeSync = "sync"
 )
 
 //+kubebuilder:object:root=true
@@ -132,4 +181,9 @@ type VerticaReplicatorList struct {
 
 func init() {
 	SchemeBuilder.Register(&VerticaReplicator{}, &VerticaReplicatorList{})
+}
+
+// IsUsingAsyncReplication returns true if replication mode is set to async
+func (vrep *VerticaReplicator) IsUsingAsyncReplication() bool {
+	return vrep.Spec.Mode == ReplicationModeAsync
 }

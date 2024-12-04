@@ -2185,9 +2185,34 @@ spec:
         name: ""
         version: vertica.com/v1beta1
       specDescriptors:
+      - description: 'Determines how replication is done. Available options: async,
+          sync'
+        displayName: Mode
+        path: mode
       - description: Information of the source Vertica database to replicate from
         displayName: Source
         path: source
+      - description: A string containing a wildcard pattern of the schemas and/or
+          tables to exclude from the set of tables matched by the include pattern.
+          Namespace names must be front-qualified with a period.
+        displayName: Exclude Pattern
+        path: source.excludePattern
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:text
+      - description: A string containing a wildcard pattern of the schemas and/or
+          tables to include in the replication. Namespace names must be front-qualified
+          with a period.
+        displayName: Include Pattern
+        path: source.includePattern
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:text
+      - description: 'The object name we want to copy from the source side. The available
+          types are: namespace, schema, table. If this is omitted, the operator will
+          replicate all namespaces in the source database.'
+        displayName: Object Name
+        path: source.objectName
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:text
       - description: "The password secret for the given UserName is stored in this
           field. If this field and UserName are omitted, the default is set to the
           superuser password secret found in the VerticaDB. An empty value indicates
@@ -2226,6 +2251,17 @@ spec:
       - description: Information of the target Vertica database to replicate to
         displayName: Target
         path: target
+      - description: Namespace in the target database to which objects are replicated.
+          The target namespace must have the same shard count as the source namespace
+          in the source cluster. If you do not specify a target namespace, objects
+          are replicated to a namespace with the same name as the source namespace.
+          If no such namespace exists in the target cluster, it is created with the
+          same name and shard count as the source namespace. You can only replicate
+          tables in the public schema to the default_namespace in the target cluster.
+        displayName: Namespace
+        path: target.namespace
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:text
       - description: "The password secret for the given UserName is stored in this
           field. If this field and UserName are omitted, the default is set to the
           superuser password secret found in the VerticaDB. An empty value indicates
@@ -2279,6 +2315,9 @@ spec:
       - description: Status message for replicator
         displayName: State
         path: state
+      - description: Transaction ID for async replication
+        displayName: Transaction ID
+        path: transactionID
       version: v1beta1
     - description: VerticaRestorePointsQuery is the Schema for the verticarestorepointsqueries
         API

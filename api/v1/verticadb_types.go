@@ -811,7 +811,7 @@ type Subcluster struct {
 
 type Proxy struct {
 	// +kubebuilder:default:="opentext/client-proxy:latest"
-	// +kubebuilder:validation:required
+	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// The docker image name that contains the Vertica proxy server.
 	Image string `json:"image,omitempty"`

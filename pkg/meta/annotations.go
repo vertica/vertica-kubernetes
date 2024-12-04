@@ -348,6 +348,12 @@ const (
 	// `<vdb-name>-<subcluster-name>'
 	StsNameOverrideAnnotation = "vertica.com/statefulset-name-override"
 
+	// Use this to override the name of the proxy deployment and its pods. This needs
+	// to be set in the spec.subclusters[].annotations field to take effect. If
+	// omitted, then the name of the subclusters' proxy will be
+	// `<vdb-name>-<subcluster-name>-proxy'
+	ProxyDeploymentNameAnnotation = "vertica.com/deployment-name-override"
+
 	// Use this to store extra local paths that we need to create before revive_db.
 	// Those paths include local paths not in local.catalogPath, local.dataPath,
 	// and local.depotPath. For example, the user-created temp paths.
@@ -360,6 +366,13 @@ const (
 	// This indicates that the subcluster shutdown is controlled by the subcluster's
 	// shutdown field.
 	ShutdownDrivenBySubcluster = "vertica.com/shutdown-driven-by-subcluster"
+
+	// The timeout, in seconds, to use when the operator is polling the status of an ongoing
+	// asynchronous replication operation. If omitted, we use the default timeout of 60 minutes.
+	ReplicationTimeoutAnnotation          = "vertica.com/replication-timeout"
+	ReplicationDefaultTimeout             = 60 * 60
+	ReplicationPollingFrequencyAnnotation = "vertica.com/replication-polling-frequency"
+	ReplicationDefaultPollingFrequency    = 0
 )
 
 // IsPauseAnnotationSet will check the annotations for a special value that will
@@ -676,6 +689,12 @@ func GetStsNameOverride(annotations map[string]string) string {
 	return lookupStringAnnotation(annotations, StsNameOverrideAnnotation, "")
 }
 
+// GetVPDepNameOverride returns the override for the proxy deployment name.
+// If one is not provided, an empty string is returned.
+func GetVPDepNameOverride(annotations map[string]string) string {
+	return lookupStringAnnotation(annotations, ProxyDeploymentNameAnnotation, "")
+}
+
 func GetShutdownDrivenBySandbox(annotations map[string]string) bool {
 	return lookupBoolAnnotation(annotations, ShutdownDrivenBySandbox, false)
 }
@@ -689,6 +708,16 @@ func GetShutdownDrivenBySubcluster(annotations map[string]string) bool {
 // GetExtraLocalPaths returns the comma separated list of extra local paths
 func GetExtraLocalPaths(annotations map[string]string) string {
 	return lookupStringAnnotation(annotations, ExtraLocalPathsAnnotation, "")
+}
+
+// GetReplicationTimeout returns the timeout (in seconds) to use for polling async replication status
+func GetReplicationTimeout(annotations map[string]string) int {
+	return lookupIntAnnotation(annotations, ReplicationTimeoutAnnotation, ReplicationDefaultTimeout)
+}
+
+// GetReplicationPollingFrequency returns the frequency (in seconds) operator will poll async replication status
+func GetReplicationPollingFrequency(annotations map[string]string) int {
+	return lookupIntAnnotation(annotations, ReplicationPollingFrequencyAnnotation, ReplicationDefaultPollingFrequency)
 }
 
 // lookupBoolAnnotation is a helper function to lookup a specific annotation and

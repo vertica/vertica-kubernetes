@@ -17,12 +17,14 @@ metadata:
   name: v-client-proxy-pri1
 status:
   currentReplicas: 3
+  readyReplicas: 3
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: v-client-proxy-pri1-proxy
 status:
+  replicas: 2
   readyReplicas: 2
 ---
 apiVersion: v1

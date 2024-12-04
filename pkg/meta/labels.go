@@ -130,8 +130,11 @@ const (
 	WatchedBySandboxTrue  = "true"
 
 	// This indicates that the object is used as a client proxy object.
-	ClientProxyLabel = "vertica.com/client-porxy"
+	ClientProxyLabel = "vertica.com/client-proxy"
 	ClientProxyTrue  = "true"
+
+	// This indicates the name of the client proxy deployment.
+	ClientProxyNameLabel = "vertica.com/client-proxy-name"
 )
 
 // ProtectedLabels lists all of the internally used label.

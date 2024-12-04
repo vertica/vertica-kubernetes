@@ -86,7 +86,7 @@ var _ = Describe("status", func() {
 		cond := []metav1.Condition{
 			{Type: v1beta1.ReplicationReady, Status: metav1.ConditionTrue, Reason: v1.UnknownReason},
 		}
-		Expect(Update(ctx, k8sClient, logger, vrep, []*metav1.Condition{&cond[0]}, "")).Should(Succeed())
+		Expect(Update(ctx, k8sClient, logger, vrep, []*metav1.Condition{&cond[0]}, "", 0)).Should(Succeed())
 		fetchVrep := &v1beta1.VerticaReplicator{}
 		nm := types.NamespacedName{Namespace: vrep.Namespace, Name: vrep.Name}
 		Expect(k8sClient.Get(ctx, nm, fetchVrep)).Should(Succeed())
@@ -106,7 +106,7 @@ var _ = Describe("status", func() {
 			{Type: v1beta1.ReplicationReady, Status: metav1.ConditionFalse, Reason: v1.UnknownReason},
 		}
 		for i := range conds {
-			Expect(Update(ctx, k8sClient, logger, vrep, []*metav1.Condition{&conds[i]}, "")).Should(Succeed())
+			Expect(Update(ctx, k8sClient, logger, vrep, []*metav1.Condition{&conds[i]}, "", 0)).Should(Succeed())
 			fetchVrep := &v1beta1.VerticaReplicator{}
 			nm := types.NamespacedName{Namespace: vrep.Namespace, Name: vrep.Name}
 			Expect(k8sClient.Get(ctx, nm, fetchVrep)).Should(Succeed())
@@ -129,7 +129,7 @@ var _ = Describe("status", func() {
 		}
 
 		for i := range conds {
-			Expect(Update(ctx, k8sClient, logger, vrep, []*metav1.Condition{&conds[i]}, "")).Should(Succeed())
+			Expect(Update(ctx, k8sClient, logger, vrep, []*metav1.Condition{&conds[i]}, "", 0)).Should(Succeed())
 		}
 
 		fetchVrep := &v1beta1.VerticaReplicator{}
@@ -149,10 +149,10 @@ var _ = Describe("status", func() {
 		origTime := metav1.Date(2018, 1, 1, 0, 0, 0, 0, time.UTC)
 		Expect(Update(ctx, k8sClient, logger, vrep,
 			[]*metav1.Condition{{Type: v1beta1.ReplicationReady, Status: metav1.ConditionFalse, LastTransitionTime: origTime,
-				Reason: v1.UnknownReason}}, "")).Should(Succeed())
+				Reason: v1.UnknownReason}}, "", 0)).Should(Succeed())
 		Expect(Update(ctx, k8sClient, logger, vrep,
 			[]*metav1.Condition{{Type: v1beta1.ReplicationReady, Status: metav1.ConditionTrue, LastTransitionTime: origTime,
-				Reason: v1.UnknownReason}}, "")).Should(Succeed())
+				Reason: v1.UnknownReason}}, "", 0)).Should(Succeed())
 		Expect(vrep.Status.Conditions[0].LastTransitionTime).ShouldNot(Equal(origTime))
 	})
 
@@ -165,14 +165,14 @@ var _ = Describe("status", func() {
 		cond := v1.MakeCondition(v1beta1.ReplicationReady, metav1.ConditionTrue, "")
 
 		Expect(Update(ctx, k8sClient, logger, vrep,
-			[]*metav1.Condition{cond}, msg)).Should(Succeed())
+			[]*metav1.Condition{cond}, msg, 0)).Should(Succeed())
 
 		nm := types.NamespacedName{Namespace: vrep.Namespace, Name: vrep.Name}
 		Expect(k8sClient.Get(ctx, nm, vrep)).Should(Succeed())
 		Expect(vrep.Status.State).Should(Equal(msg))
 
 		Expect(Update(ctx, k8sClient, logger, vrep,
-			[]*metav1.Condition{cond}, msg1)).Should(Succeed())
+			[]*metav1.Condition{cond}, msg1, 0)).Should(Succeed())
 		Expect(k8sClient.Get(ctx, nm, vrep)).Should(Succeed())
 		Expect(vrep.Status.State).Should(Equal(msg1))
 	})
@@ -185,7 +185,7 @@ var _ = Describe("status", func() {
 		msg := "Replicating"
 		cond := v1.MakeCondition(v1beta1.ReplicationReady, metav1.ConditionTrue, "")
 		Expect(Update(ctx, k8sClient, logger, vrep,
-			[]*metav1.Condition{cond}, msg)).Should(Succeed())
+			[]*metav1.Condition{cond}, msg, 0)).Should(Succeed())
 		nm := types.NamespacedName{Namespace: vrep.Namespace, Name: vrep.Name}
 		Expect(k8sClient.Get(ctx, nm, vrep)).Should(Succeed())
 		Expect(vrep.Status.State).Should(Equal(msg))

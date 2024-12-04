@@ -25,8 +25,10 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"github.com/vertica/vcluster/vclusterops"
 	"github.com/vertica/vertica-kubernetes/pkg/aterrors"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
+	"github.com/vertica/vertica-kubernetes/pkg/mockvops"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	corev1 "k8s.io/api/core/v1"
@@ -108,6 +110,8 @@ const testCustomPasswordSecretName = "custom-su-pwd" // #nosec G101 -- This is a
 const testPassword = "topsecret"
 const testCustomUserName = "custom-username"
 const testTLSSecretName = "tls-1"
+const testTargetTLSSecretName = "tls-2"
+const testTransactionID = int64(123456789012345678)
 
 func deleteSecret(ctx context.Context, vdb *v1.VerticaDB, secretName string) {
 	nm := names.GenNamespacedName(vdb, secretName)
@@ -123,4 +127,31 @@ func mockVClusterOpsDispatcherWithCustomSetup(vdb *v1.VerticaDB,
 	evWriter := aterrors.TestEVWriter{}
 	dispatcher := vadmin.MakeVClusterOps(logger, vdb, k8sClient, "pwd", &evWriter, setupAPIFunc)
 	return dispatcher.(*vadmin.VClusterOps)
+}
+
+func mockVClusterOpsDispatcherWithCustomSetupAndTarget(vdb *v1.VerticaDB, targetVDB *v1.VerticaDB,
+	setupAPIFunc func(logr.Logger, string) (vadmin.VClusterProvider, logr.Logger)) *vadmin.VClusterOps {
+	evWriter := aterrors.TestEVWriter{}
+	dispatcher := vadmin.MakeVClusterOpsWithTarget(logger, vdb, targetVDB, k8sClient, "pwd", &evWriter, setupAPIFunc)
+	return dispatcher.(*vadmin.VClusterOps)
+}
+
+// MockVClusterOps with successful return values for VReplicateDatabase and VReplicationStatus
+type mockAsyncReplicationVClusterOps struct {
+	mockvops.MockVClusterOps
+}
+
+func (*mockAsyncReplicationVClusterOps) VReplicateDatabase(_ *vclusterops.VReplicationDatabaseOptions) (int64, error) {
+	return testTransactionID, nil
+}
+
+func (*mockAsyncReplicationVClusterOps) VReplicationStatus(_ *vclusterops.VReplicationStatusDatabaseOptions) (
+	*vclusterops.ReplicationStatusResponse, error) {
+	return &vclusterops.ReplicationStatusResponse{
+		Status:        statusCompleted,
+		StartTime:     "Mon Jan  1 12:34:56 UTC 2024",
+		EndTime:       "Mon Jan  1 12:34:57 UTC 2024",
+		TransactionID: testTransactionID,
+		OpName:        opLoadSnapshot,
+	}, nil
 }

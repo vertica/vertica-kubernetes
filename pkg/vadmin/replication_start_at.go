@@ -20,9 +20,8 @@ import (
 	"errors"
 
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/replicationstart"
-	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-func (a *Admintools) ReplicateDB(_ context.Context, _ ...replicationstart.Option) (ctrl.Result, error) {
-	return ctrl.Result{}, errors.New("replication is not supported when the source uses admintools deployments")
+func (a *Admintools) ReplicateDB(_ context.Context, _ ...replicationstart.Option) (int64, error) {
+	return 0, errors.New("replication is not supported when the source uses admintools deployments")
 }
