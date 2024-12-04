@@ -807,6 +807,12 @@ type Subcluster struct {
 	// State to indicate whether the operator must shut down the subcluster
 	// and not try to restart it.
 	Shutdown bool `json:"shutdown,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// Create client proxy pods for the subcluster if defined
+	// All incoming connections to the subclusters will be routed through the proxy pods
+	SubclusterProxy ProxySubclusterConfig `json:"proxy,omitempty"`
 }
 
 type Proxy struct {
@@ -834,18 +840,9 @@ type Proxy struct {
 	// use a secret path reference prefix, such as gsm://. Everything after the
 	// prefix is the name of the secret in the service you are storing.
 	TLSSecret string `json:"tlsSecret,omitempty"`
-
-	//+operator-sdk:csv:customresourcedefinitions:type=spec
-	Subclusters []ProxySubclusterConfig `json:"subclusters,omitempty"`
 }
 
 type ProxySubclusterConfig struct {
-	// +kubebuilder:validation:required
-	// +operator-sdk:csv:customresourcedefinitions:type=spec
-	// The name of the subcluster. This is a required parameter. This cannot
-	// change after CRD creation.
-	Name string `json:"name"`
-
 	// +kubebuilder:default:=1
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
