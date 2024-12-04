@@ -26,6 +26,8 @@ spec:
   local:
     requestSize: 250Mi
   imagePullPolicy: IfNotPresent
+  proxy:
+    image: kustomize-vproxy-image
   # We pick a cluster size that is too big for the CE license. This relies on
   # having a license, which will be added by kustomize.
   subclusters:
@@ -33,7 +35,6 @@ spec:
       size: 3
       type: primary
       proxy:
-        image: kustomize-vproxy-image
         replica: 2
   certSecrets: []
   imagePullSecrets: []

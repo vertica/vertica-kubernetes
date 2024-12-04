@@ -395,6 +395,7 @@ export VPROXY_IMG=opentext/client-proxy:latest
 ```shell
 scripts/push-to-kind.sh -i $VERTICA_IMG
 scripts/push-to-kind.sh -i $BASE_VERTICA_IMG
+scripts/push-to-kind.sh -i $VPROXY_IMG
 ```
 
 > This will speed up test case execution and avoid timeout.

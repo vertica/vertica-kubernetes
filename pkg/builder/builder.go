@@ -995,10 +995,10 @@ func BuildVProxyConfigMap(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi
 
 // makeProxyContainer builds the spec for the client proxy container
 func makeVProxyContainer(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.Container {
-	envVars := buildVProxyTLSCertsEnvVars(vdb, sc)
+	envVars := buildVProxyTLSCertsEnvVars(vdb)
 	envVars = append(envVars, buildCommonEnvVars(vdb)...)
 	return corev1.Container{
-		Image:           sc.Proxy.Image,
+		Image:           vdb.Spec.Proxy.Image,
 		ImagePullPolicy: vdb.Spec.ImagePullPolicy,
 		Name:            names.ProxyContainer,
 		Env:             envVars,
@@ -1770,8 +1770,8 @@ func buildNMATLSCertsEnvVars(vdb *vapi.VerticaDB) []corev1.EnvVar {
 }
 
 // buildVProxyTLSCertsEnvVars returns environment variables about proxy certs
-func buildVProxyTLSCertsEnvVars(vdb *vapi.VerticaDB, sc *vapi.Subcluster) []corev1.EnvVar {
-	if vmeta.UseVProxyCertsMount(vdb.Annotations) && secrets.IsK8sSecret(sc.Proxy.TLSSecret) {
+func buildVProxyTLSCertsEnvVars(vdb *vapi.VerticaDB) []corev1.EnvVar {
+	if vmeta.UseVProxyCertsMount(vdb.Annotations) && secrets.IsK8sSecret(vdb.Spec.Proxy.TLSSecret) {
 		return []corev1.EnvVar{
 			// TODO: use proxy certs
 		}
@@ -1780,7 +1780,7 @@ func buildVProxyTLSCertsEnvVars(vdb *vapi.VerticaDB, sc *vapi.Subcluster) []core
 		// The proxy will read the secrets directly from the secret store.
 		// We provide the secret namespace and name for this reason.
 		{Name: VProxySecretNamespaceEnv, Value: vdb.ObjectMeta.Namespace},
-		{Name: VProxySecretNameEnv, Value: sc.Proxy.TLSSecret},
+		{Name: VProxySecretNameEnv, Value: vdb.Spec.Proxy.TLSSecret},
 	}
 }
 

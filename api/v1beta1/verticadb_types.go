@@ -904,7 +904,7 @@ type Subcluster struct {
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// Create client proxy pods for the subcluster if defined
 	// All incoming connections to the subclusters will be routed through the proxy pods
-	Proxy Proxy `json:"proxy,omitempty"`
+	Proxy ProxySubclusterConfig `json:"proxy,omitempty"`
 }
 
 type Proxy struct {
@@ -913,12 +913,6 @@ type Proxy struct {
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// The docker image name that contains the Vertica proxy server.
 	Image string `json:"image,omitempty"`
-
-	// +kubebuilder:default:=1
-	// +kubebuilder:validation:Optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec
-	// The number of replicas that the proxy server will have.
-	Replica int32 `json:"replica,omitempty"`
 
 	// +kubebuilder:default:=5433
 	// +kubebuilder:validation:Optional
@@ -938,6 +932,14 @@ type Proxy struct {
 	// use a secret path reference prefix, such as gsm://. Everything after the
 	// prefix is the name of the secret in the service you are storing.
 	TLSSecret string `json:"tlsSecret,omitempty"`
+}
+
+type ProxySubclusterConfig struct {
+	// +kubebuilder:default:=1
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// The number of replicas that the proxy server will have.
+	Replica int32 `json:"replica,omitempty"`
 
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:resourceRequirements"
 	// This defines the resource requests and limits for the client proxy pods in the subcluster.
