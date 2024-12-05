@@ -215,3 +215,23 @@ webhooks:
     resources:
     - verticascrutinizers
   sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /validate-vertica-com-v1beta1-verticareplicator
+  failurePolicy: Fail
+  name: vverticareplicator.kb.io
+  rules:
+  - apiGroups:
+    - vertica.com
+    apiVersions:
+    - v1beta1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - verticareplicators
+  sideEffects: None
