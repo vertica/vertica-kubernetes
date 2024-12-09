@@ -327,6 +327,7 @@ func convertFromSubcluster(src *v1.Subcluster) Subcluster {
 		LoadBalancerIP:      src.LoadBalancerIP,
 		ServiceAnnotations:  src.ServiceAnnotations,
 		Annotations:         src.Annotations,
+		Proxy:               Proxy(src.Proxy),
 	}
 }
 

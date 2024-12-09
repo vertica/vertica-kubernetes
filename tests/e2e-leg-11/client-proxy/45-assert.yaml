@@ -20,6 +20,13 @@ status:
   readyReplicas: 4
 ---
 apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: v-client-proxy-sec1
+status:
+  replicas: 0
+---
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: v-client-proxy-pri1-proxy
@@ -33,6 +40,19 @@ metadata:
   name: v-client-proxy-pri1-proxy-cm
 immutable: false
 ---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: v-client-proxy-sec1-proxy
+spec:
+  replicas: 0
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: v-client-proxy-sec1-proxy-cm
+immutable: false
+---
 apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
@@ -43,3 +63,13 @@ spec:
       size: 4
       proxy:
         replica: 2
+    - name: sec1
+      size: 0
+      proxy:
+        replica: 2
+status:
+  subclusters:
+    - addedToDBCount: 4
+      upNodeCount: 4
+    - addedToDBCount: 0
+      upNodeCount: 0
