@@ -913,13 +913,6 @@ type Proxy struct {
 	// The docker image name that contains the Vertica proxy server.
 	Image string `json:"image,omitempty"`
 
-	// +kubebuilder:default:=5433
-	// +kubebuilder:validation:Optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec
-	// The port proxy server will listen to. The only supported value is 5433
-	// TODO: hide this option since load-balancer cannot work with other port numbers
-	// Port int32 `json:"port,omitempty"`
-
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:hidden"
 	// +kubebuilder:validation:Optional
 	// A secret that contains the TLS credentials to use for Vertica's client
@@ -944,7 +937,7 @@ type ProxySubclusterConfig struct {
 	// pods are assigned to the guaranteed QoS class. This will reduces the
 	// chance that pods are chosen by the OOM killer.
 	// More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
-	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
+	Resources *corev1.ResourceRequirements `json:"resources,omitempty"`
 }
 
 // VerticaDBStatus defines the observed state of VerticaDB
