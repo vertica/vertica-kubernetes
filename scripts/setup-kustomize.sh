@@ -287,7 +287,7 @@ replacements:
           kind: VerticaDB
           name: v-client-proxy
         fieldPaths:
-          - spec.subclusters.*.proxy.image
+          - spec.proxy.image
   - source:
       kind: ConfigMap
       name: e2e

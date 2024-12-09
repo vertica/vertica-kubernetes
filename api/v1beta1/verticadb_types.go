@@ -926,6 +926,7 @@ type Proxy struct {
 }
 
 type ProxySubclusterConfig struct {
+	// +kubebuilder:Minimum:=1
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// The number of replicas that the proxy server will have.

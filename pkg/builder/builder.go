@@ -998,6 +998,7 @@ func BuildVProxyConfigMap(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi
 func makeVProxyContainer(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.Container {
 	envVars := buildVProxyTLSCertsEnvVars(vdb)
 	envVars = append(envVars, buildCommonEnvVars(vdb)...)
+	// TODO: also add this in the webhook
 	vProxyImage := VProxyDefaultImage
 	if vdb.Spec.Proxy.Image != "" {
 		vProxyImage = vdb.Spec.Proxy.Image
