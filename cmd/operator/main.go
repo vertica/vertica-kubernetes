@@ -200,6 +200,10 @@ func addWebhooksToManager(mgr manager.Manager) {
 		setupLog.Error(err, "unable to create webhook", "webhook", "VerticaScrutinize", "version", vapiB1.Version)
 		os.Exit(1)
 	}
+	if err := (&vapiB1.VerticaReplicator{}).SetupWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "VerticaReplicator", "version", vapiB1.Version)
+		os.Exit(1)
+	}
 }
 
 // setupWebhook will setup the webhook in the manager if enabled
