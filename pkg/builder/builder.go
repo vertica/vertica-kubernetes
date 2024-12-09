@@ -50,6 +50,7 @@ const (
 	SpreadClientPort        = 4803
 	NMAPort                 = 5554
 	StdOut                  = "/proc/1/fd/1"
+	VProxyDefaultImage      = "opentext/client-proxy:latest"
 
 	// Standard environment variables that are set in each pod
 	PodIPEnv                   = "POD_IP"
