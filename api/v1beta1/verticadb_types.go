@@ -904,7 +904,7 @@ type Subcluster struct {
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// Create client proxy pods for the subcluster if defined
 	// All incoming connections to the subclusters will be routed through the proxy pods
-	Proxy ProxySubclusterConfig `json:"proxy,omitempty"`
+	Proxy *ProxySubclusterConfig `json:"proxy,omitempty"`
 }
 
 type Proxy struct {
