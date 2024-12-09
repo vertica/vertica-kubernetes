@@ -271,6 +271,6 @@ func GetV1SubclusterFromV1beta1(src *Subcluster) v1.Subcluster {
 		LoadBalancerIP:      src.LoadBalancerIP,
 		ServiceAnnotations:  src.ServiceAnnotations,
 		Annotations:         src.Annotations,
-		Proxy:               v1.Proxy(src.Proxy),
+		Proxy:               (*v1.ProxySubclusterConfig)(src.Proxy),
 	}
 }

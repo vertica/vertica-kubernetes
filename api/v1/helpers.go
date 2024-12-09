@@ -133,8 +133,13 @@ func MakeVDB() *VerticaDB {
 					Size:        3,
 					ServiceType: corev1.ServiceTypeClusterIP,
 					Type:        PrimarySubcluster,
-					Proxy:       Proxy{Image: "opentext/client-proxy:latest"},
+					Proxy: &ProxySubclusterConfig{
+						Replica: 1,
+					},
 				},
+			},
+			Proxy: Proxy{
+				Image: "opentext/client-proxy:latest",
 			},
 		},
 	}
