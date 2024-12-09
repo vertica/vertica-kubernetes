@@ -908,7 +908,6 @@ type Subcluster struct {
 }
 
 type Proxy struct {
-	// +kubebuilder:default:="opentext/client-proxy:latest"
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// The docker image name that contains the Vertica proxy server.
@@ -922,7 +921,6 @@ type Proxy struct {
 	// Port int32 `json:"port,omitempty"`
 
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:hidden"
-	// +kubebuilder:default:=""
 	// +kubebuilder:validation:Optional
 	// A secret that contains the TLS credentials to use for Vertica's client
 	// proxy. If this is empty, the operator will create a secret to use and
@@ -935,7 +933,6 @@ type Proxy struct {
 }
 
 type ProxySubclusterConfig struct {
-	// +kubebuilder:default:=1
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// The number of replicas that the proxy server will have.
