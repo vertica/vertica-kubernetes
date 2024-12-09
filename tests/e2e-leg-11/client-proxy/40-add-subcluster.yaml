@@ -16,8 +16,6 @@ kind: VerticaDB
 metadata:
   name: v-client-proxy
 spec:
-  proxy:
-    image: kustomize-vproxy-image
   subclusters:
     - name: pri1
       size: 4
