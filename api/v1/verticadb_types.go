@@ -322,7 +322,7 @@ type VerticaDBSpec struct {
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// Create client proxy pods for the subcluster if defined
 	// All incoming connections to the subclusters will be routed through the proxy pods
-	Proxy Proxy `json:"proxy,omitempty"`
+	Proxy *Proxy `json:"proxy,omitempty"`
 }
 
 // LocalObjectReference is used instead of corev1.LocalObjectReference and behaves the same.

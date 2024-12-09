@@ -138,7 +138,7 @@ func MakeVDB() *VerticaDB {
 					},
 				},
 			},
-			Proxy: Proxy{
+			Proxy: &Proxy{
 				Image: "opentext/client-proxy:latest",
 			},
 		},

@@ -55,6 +55,7 @@ const (
 	GCloudPrefix          = "gs://"
 	AzurePrefix           = "azb://"
 	trueString            = "true"
+	VProxyDefaultImage    = "opentext/client-proxy:latest"
 )
 
 // hdfsPrefixes are prefixes for an HDFS path.
@@ -97,6 +98,7 @@ func (v *VerticaDB) Default() {
 	}
 	v.setDefaultServiceName()
 	v.setDefaultSandboxImages()
+	v.setDefaultProxy()
 }
 
 var _ webhook.Validator = &VerticaDB{}
@@ -2074,6 +2076,31 @@ func (v *VerticaDB) setDefaultSandboxImages() {
 		sb := &v.Spec.Sandboxes[i]
 		if sb.Image == "" {
 			sb.Image = v.Spec.Image
+		}
+	}
+}
+
+func (v *VerticaDB) setDefaultProxy() {
+	if vmeta.UseVProxy(v.Annotations) {
+		if v.Spec.Proxy != nil && v.Spec.Proxy.Image == "" {
+			v.Spec.Proxy.Image = VProxyDefaultImage
+		}
+	} else {
+		if v.Spec.Proxy != nil {
+			if *v.Spec.Proxy == (Proxy{}) {
+				v.Spec.Proxy = nil
+			}
+		}
+		for i := range v.Spec.Subclusters {
+			sc := v.Spec.Subclusters[i]
+			if sc.Proxy != nil {
+				if sc.Proxy.Resources != nil {
+					res := *sc.Proxy.Resources
+					if len(res.Limits) == 0 && len(res.Requests) == 0 {
+						sc.Proxy.Resources = nil
+					}
+				}
+			}
 		}
 	}
 }

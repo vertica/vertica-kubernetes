@@ -371,6 +371,12 @@ type VerticaDBSpec struct {
 	// +kubebuilder:validation:Optional
 	// Identifies any sandboxes that exist for the database
 	Sandboxes []Sandbox `json:"sandboxes,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// Create client proxy pods for the subcluster if defined
+	// All incoming connections to the subclusters will be routed through the proxy pods
+	Proxy *Proxy `json:"proxy,omitempty"`
 }
 
 // LocalObjectReference is used instead of corev1.LocalObjectReference and behaves the same.

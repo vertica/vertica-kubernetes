@@ -50,7 +50,6 @@ const (
 	SpreadClientPort        = 4803
 	NMAPort                 = 5554
 	StdOut                  = "/proc/1/fd/1"
-	VProxyDefaultImage      = "opentext/client-proxy:latest"
 
 	// Standard environment variables that are set in each pod
 	PodIPEnv                   = "POD_IP"
@@ -998,9 +997,8 @@ func BuildVProxyConfigMap(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi
 func makeVProxyContainer(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.Container {
 	envVars := buildVProxyTLSCertsEnvVars(vdb)
 	envVars = append(envVars, buildCommonEnvVars(vdb)...)
-	// TODO: also add this in the webhook
-	vProxyImage := VProxyDefaultImage
-	if vdb.Spec.Proxy.Image != "" {
+	vProxyImage := vapi.VProxyDefaultImage
+	if vdb.Spec.Proxy != nil && vdb.Spec.Proxy.Image != "" {
 		vProxyImage = vdb.Spec.Proxy.Image
 	}
 	resources := corev1.ResourceRequirements{}
