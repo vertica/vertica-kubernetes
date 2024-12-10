@@ -56,6 +56,7 @@ const (
 	AzurePrefix           = "azb://"
 	trueString            = "true"
 	VProxyDefaultImage    = "opentext/client-proxy:latest"
+	VProxyDefaultReplicas = 1
 )
 
 // hdfsPrefixes are prefixes for an HDFS path.
@@ -2080,8 +2081,10 @@ func (v *VerticaDB) setDefaultSandboxImages() {
 	}
 }
 
+// setDefaultProxy will set default values for some proxy fields
 func (v *VerticaDB) setDefaultProxy() {
-	if vmeta.UseVProxy(v.Annotations) {
+	useProxy := vmeta.UseVProxy(v.Annotations)
+	if useProxy {
 		if v.Spec.Proxy != nil && v.Spec.Proxy.Image == "" {
 			v.Spec.Proxy.Image = VProxyDefaultImage
 		}
@@ -2091,16 +2094,36 @@ func (v *VerticaDB) setDefaultProxy() {
 				v.Spec.Proxy = nil
 			}
 		}
-		for i := range v.Spec.Subclusters {
-			sc := v.Spec.Subclusters[i]
-			if sc.Proxy != nil {
-				if sc.Proxy.Resources != nil {
-					res := *sc.Proxy.Resources
-					if len(res.Limits) == 0 && len(res.Requests) == 0 {
-						sc.Proxy.Resources = nil
-					}
-				}
-			}
+	}
+	for i := range v.Spec.Subclusters {
+		sc := v.Spec.Subclusters[i]
+		if sc.Proxy != nil {
+			sc.setDefaultProxySubcluster(useProxy)
+		}
+	}
+}
+
+func (s *Subcluster) setDefaultProxySubcluster(useProxy bool) {
+	if useProxy {
+		// When proxy is enabled, if the user did not set
+		// the resource or replica in the subcluster spec,
+		// we will set them to their default values
+		if s.Proxy.Resources == nil {
+			s.Proxy.Resources = &v1.ResourceRequirements{}
+		}
+		if s.Proxy.Replicas == nil {
+			rep := int32(VProxyDefaultReplicas)
+			s.Proxy.Replicas = &rep
+		}
+		return
+	}
+	if s.Proxy.Resources != nil {
+		res := *s.Proxy.Resources
+		if len(res.Limits) == 0 && len(res.Requests) == 0 {
+			// This is needed because k8s will automatically initialize
+			// resources to an empty struct. We explicitly set it to nil
+			// so it does not appear in the spec if proxy is disabled
+			s.Proxy.Resources = nil
 		}
 	}
 }

@@ -837,7 +837,7 @@ type ProxySubclusterConfig struct {
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// The number of replicas that the proxy server will have.
-	Replica int32 `json:"replica,omitempty"`
+	Replicas *int32 `json:"replicas,omitempty"`
 
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:resourceRequirements"
 	// This defines the resource requests and limits for the client proxy pods in the subcluster.
