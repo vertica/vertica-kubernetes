@@ -89,7 +89,7 @@ var _ = Describe("query_reconcile", func() {
 			Vrep:   vrep,
 			Log:    logger,
 		}
-		err = r.runReplicationStatus(ctx, dispatcher, []replicationstatus.Option{})
+		_, err = r.runReplicationStatus(ctx, dispatcher, []replicationstatus.Option{})
 		Expect(err).ShouldNot(HaveOccurred())
 		// make sure that Replicating condition is updated to false and
 		// ReplicationComplete condition is updated to true

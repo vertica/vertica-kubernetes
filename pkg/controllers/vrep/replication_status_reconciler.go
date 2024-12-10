@@ -17,8 +17,8 @@ package vrep
 
 import (
 	"context"
-	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -138,9 +138,7 @@ func (r *ReplicationStatusReconciler) Reconcile(ctx context.Context, _ *ctrl.Req
 		return ctrl.Result{}, err
 	}
 
-	err = r.runReplicationStatus(ctx, r.dispatcher, opts)
-
-	return ctrl.Result{}, err
+	return r.runReplicationStatus(ctx, r.dispatcher, opts)
 }
 
 // fetch the target VerticaDB
@@ -230,54 +228,83 @@ func (r *ReplicationStatusReconciler) buildOpts() []replicationstatus.Option {
 }
 
 func (r *ReplicationStatusReconciler) runReplicationStatus(ctx context.Context, dispatcher vadmin.Dispatcher,
-	opts []replicationstatus.Option) (err error) {
-	timeout := vmeta.GetReplicationTimeout(r.Vrep.Annotations)
+	opts []replicationstatus.Option) (ctrl.Result, error) {
 	pollingFrequency := vmeta.GetReplicationPollingFrequency(r.Vrep.Annotations)
 	pollingDuration := time.Duration(pollingFrequency * int(time.Second))
-
-	r.Log.Info(fmt.Sprintf("Starting polling for transaction ID %d", r.Vrep.Status.TransactionID))
-	for i := 0; i < timeout; i += pollingFrequency {
-		// call vcluster API
-		status, errRun := dispatcher.GetReplicationStatus(ctx, opts...)
-		if errRun != nil {
-			return errRun
-		}
-
-		if status.Status == statusFailed {
-			r.VRec.Event(r.Vrep, corev1.EventTypeWarning, events.ReplicationFailed, "Failed when calling replication start")
-
-			// clear Replicating status condition and set the ReplicationComplete status condition
-			err = vrepstatus.Update(ctx, r.VRec.Client, r.VRec.Log, r.Vrep,
-				[]*metav1.Condition{vapi.MakeCondition(v1beta1.Replicating, metav1.ConditionFalse, "Failed"),
-					vapi.MakeCondition(v1beta1.ReplicationComplete, metav1.ConditionTrue, "Failed")},
-				stateFailedReplication, r.Vrep.Status.TransactionID)
-			if err != nil {
-				errRun = errors.Join(errRun, err)
-			}
-			return errRun
-		}
-
-		if status.OpName == opLoadSnapshot && status.Status == statusCompleted {
-			// Parse start/end times for event message
-			startTime, err := time.Parse(time.UnixDate, status.StartTime)
-			if err != nil {
-				return err
-			}
-			endTime, err := time.Parse(time.UnixDate, status.EndTime)
-			if err != nil {
-				return err
-			}
-
-			r.VRec.Eventf(r.Vrep, corev1.EventTypeNormal, events.ReplicationSucceeded,
-				"Successfully replicated database in %s", endTime.Sub(startTime).Truncate(time.Second))
-
-			return vrepstatus.Update(ctx, r.VRec.Client, r.VRec.Log, r.Vrep,
-				[]*metav1.Condition{vapi.MakeCondition(v1beta1.Replicating, metav1.ConditionFalse, v1beta1.ReasonSucceeded),
-					vapi.MakeCondition(v1beta1.ReplicationComplete, metav1.ConditionTrue, v1beta1.ReasonSucceeded)},
-				stateSucceededReplication, r.Vrep.Status.TransactionID)
-		}
-
-		time.Sleep(pollingDuration)
+	timeout := r.isTimeout()
+	if timeout {
+		r.Log.Info(fmt.Sprintf("skip reconciling status, update condition to failed, transaction id = %d", r.Vrep.Status.TransactionID))
+		return r.timeoutReturn(ctx, r.Vrep.Status.TransactionID)
 	}
-	return fmt.Errorf("replication timeout exceeded")
+	r.Log.Info(fmt.Sprintf("Starting polling status for transaction ID %d", r.Vrep.Status.TransactionID))
+	status, errRun := dispatcher.GetReplicationStatus(ctx, opts...)
+	if errRun != nil {
+		r.Log.Error(errRun, fmt.Sprintf("failed to get replication status for transactionId: %d", r.Vrep.Status.TransactionID))
+		return ctrl.Result{}, errRun // retry
+	}
+
+	if strings.HasPrefix(status.Status, statusFailed) {
+		r.VRec.Event(r.Vrep, corev1.EventTypeWarning, events.ReplicationFailed, status.Status)
+		// clear Replicating status condition and set the ReplicationComplete status condition
+		errRun = vrepstatus.Update(ctx, r.VRec.Client, r.VRec.Log, r.Vrep,
+			[]*metav1.Condition{vapi.MakeCondition(v1beta1.Replicating, metav1.ConditionFalse, "Failed"),
+				vapi.MakeCondition(v1beta1.ReplicationComplete, metav1.ConditionTrue, "Failed")},
+			stateFailedReplication, r.Vrep.Status.TransactionID)
+		if errRun != nil {
+			r.Log.Error(errRun, fmt.Sprintf("failed to update vrep status for transactionId: %d", r.Vrep.Status.TransactionID))
+			return ctrl.Result{}, errRun // will retry
+		}
+		r.Log.Info(fmt.Sprintf("updated vrep condition to complete with failure, transaction id: %d", r.Vrep.Status.TransactionID))
+		return ctrl.Result{}, nil // complete with failed status
+	}
+
+	if status.OpName == opLoadSnapshot && status.Status == statusCompleted {
+		// Parse start/end times for event message
+		startTime, errRun := time.Parse(time.UnixDate, status.StartTime)
+		if errRun != nil {
+			r.Log.Error(errRun, fmt.Sprintf("failed to parse starttime, transaction id = %d", r.Vrep.Status.TransactionID))
+			return ctrl.Result{}, errRun // retry
+		}
+		endTime, errRun := time.Parse(time.UnixDate, status.EndTime)
+		if errRun != nil {
+			r.Log.Error(errRun, fmt.Sprintf("failed to parse endtime, transaction id = %d", r.Vrep.Status.TransactionID))
+			return ctrl.Result{}, errRun // retry
+		}
+
+		r.VRec.Eventf(r.Vrep, corev1.EventTypeNormal, events.ReplicationSucceeded,
+			"Successfully replicated database in %s", endTime.Sub(startTime).Truncate(time.Second))
+
+		errRun = vrepstatus.Update(ctx, r.VRec.Client, r.VRec.Log, r.Vrep,
+			[]*metav1.Condition{vapi.MakeCondition(v1beta1.Replicating, metav1.ConditionFalse, v1beta1.ReasonSucceeded),
+				vapi.MakeCondition(v1beta1.ReplicationComplete, metav1.ConditionTrue, v1beta1.ReasonSucceeded)},
+			stateSucceededReplication, r.Vrep.Status.TransactionID)
+		if errRun != nil {
+			r.Log.Error(errRun, fmt.Sprintf("failed to update condition to succeeded, transaction id = %d", r.Vrep.Status.TransactionID))
+			return ctrl.Result{}, errRun // retry
+		}
+		return ctrl.Result{}, nil // complete with succeeded status
+	}
+	return ctrl.Result{RequeueAfter: pollingDuration}, nil // retry after predefined duration
+}
+
+func (r *ReplicationStatusReconciler) isTimeout() bool {
+	creationTime := r.Vrep.GetCreationTimestamp().Time
+	timeoutInSeconds := vmeta.GetReplicationTimeout(r.Vrep.Annotations)
+	timeoutDuration := time.Duration(timeoutInSeconds * int(time.Second))
+	currenTime := time.Now()
+	timeoutTime := creationTime.Add(timeoutDuration)
+	return timeoutTime.Before(currenTime)
+}
+
+func (r *ReplicationStatusReconciler) timeoutReturn(ctx context.Context, transactionId int64) (ctrl.Result, error) {
+	errRun := vrepstatus.Update(ctx, r.VRec.Client, r.VRec.Log, r.Vrep,
+		[]*metav1.Condition{vapi.MakeCondition(v1beta1.Replicating, metav1.ConditionFalse, "Timeout"),
+			vapi.MakeCondition(v1beta1.ReplicationComplete, metav1.ConditionTrue, "Timeout")},
+		stateFailedReplication, r.Vrep.Status.TransactionID)
+	if errRun != nil {
+		r.Log.Error(errRun, fmt.Sprintf("failed to update vrep condition to Failed after timeout and will retry, transaction id: %d", transactionId))
+		return ctrl.Result{}, errRun
+	}
+	r.Log.Info(fmt.Sprintf("updated vrep condition to complete after timeout, transaction id: %d", transactionId))
+	return ctrl.Result{}, nil
 }
