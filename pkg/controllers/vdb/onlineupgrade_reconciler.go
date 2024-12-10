@@ -866,12 +866,16 @@ func (r *OnlineUpgradeReconciler) startReplicationToReplicaGroupB(ctx context.Co
 			OwnerReferences: []metav1.OwnerReference{r.VDB.GenerateOwnerReference()},
 		},
 		Spec: v1beta1.VerticaReplicatorSpec{
-			Source: v1beta1.VerticaReplicatorDatabaseInfo{
-				VerticaDB: r.VDB.Name,
+			Source: v1beta1.VerticaReplicatorSourceDatabaseInfo{
+				VerticaReplicatorDatabaseInfo: v1beta1.VerticaReplicatorDatabaseInfo{
+					VerticaDB: r.VDB.Name,
+				},
 			},
-			Target: v1beta1.VerticaReplicatorDatabaseInfo{
-				VerticaDB:   r.VDB.Name,
-				SandboxName: r.sandboxName,
+			Target: v1beta1.VerticaReplicatorTargetDatabaseInfo{
+				VerticaReplicatorDatabaseInfo: v1beta1.VerticaReplicatorDatabaseInfo{
+					VerticaDB:   r.VDB.Name,
+					SandboxName: r.sandboxName,
+				},
 			},
 		},
 	}
@@ -1500,6 +1504,12 @@ func (r *OnlineUpgradeReconciler) duplicateSubclusterForReplicaGroupB(
 	// renamed later but we want a consistent object name to avoid having to
 	// rebuild it.
 	newSc.Annotations[vmeta.StsNameOverrideAnnotation] = newStsName
+	if vmeta.UseVProxy(r.VDB.Annotations) {
+		// Picking a proxy deployment name is important because this subcluster will get
+		// renamed later but we want a consistent object name to avoid having to
+		// rebuild it.
+		newSc.Annotations[vmeta.ProxyDeploymentNameAnnotation] = fmt.Sprintf("%s-proxy", newStsName)
+	}
 
 	// Create a linkage in the parent-child
 	if baseSc.Annotations == nil {

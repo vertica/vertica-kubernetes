@@ -42,6 +42,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/removesc"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/renamesc"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/replicationstart"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/replicationstatus"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/restartnode"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/revivedb"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/sandboxsc"
@@ -109,7 +110,10 @@ type Dispatcher interface {
 	InstallPackages(ctx context.Context, opts ...installpackages.Option) (*vops.InstallPackageStatus, error)
 
 	// ReplicateDB will start replicating data and metadata of an Eon cluster to another
-	ReplicateDB(ctx context.Context, opts ...replicationstart.Option) (ctrl.Result, error)
+	ReplicateDB(ctx context.Context, opts ...replicationstart.Option) (int64, error)
+
+	// GetReplicationStatus will return the status of async replication
+	GetReplicationStatus(ctx context.Context, opts ...replicationstatus.Option) (*vops.ReplicationStatusResponse, error)
 
 	// FetchNodeDetails will return details for a node, including its state, sandbox, and storage locations
 	FetchNodeDetails(ctx context.Context, opts ...fetchnodedetails.Option) (vops.NodeDetails, error)
@@ -180,12 +184,13 @@ func MakeAdmintools(log logr.Logger, vdb *vapi.VerticaDB, prunner cmds.PodRunner
 // vclusterops library to perform all of the admin operations via RESTful
 // interfaces.
 type VClusterOps struct {
-	BaseLog  logr.Logger // The base logger that all log objects are derived from
-	Log      logr.Logger // A copy of the current log that is currently in use in the vclusterops package
-	VDB      *vapi.VerticaDB
-	Client   client.Client
-	Password string
-	EVWriter events.EVWriter
+	BaseLog   logr.Logger // The base logger that all log objects are derived from
+	Log       logr.Logger // A copy of the current log that is currently in use in the vclusterops package
+	VDB       *vapi.VerticaDB
+	TargetVDB *vapi.VerticaDB
+	Client    client.Client
+	Password  string
+	EVWriter  events.EVWriter
 	VClusterProvider
 	// Setup function for VClusterProvider and Log in this struct
 	APISetupFunc func(log logr.Logger, apiName string) (VClusterProvider, logr.Logger)
@@ -198,6 +203,22 @@ func MakeVClusterOps(log logr.Logger, vdb *vapi.VerticaDB, cli client.Client,
 	return &VClusterOps{
 		BaseLog:          log,
 		VDB:              vdb,
+		Client:           cli,
+		Password:         passwd,
+		EVWriter:         evWriter,
+		APISetupFunc:     apiSetupFunc,
+		VClusterProvider: nil, // Setup via the APISetupFunc before each API call
+	}
+}
+
+// MakeVClusterOps will create a dispatcher that uses the vclusterops library for admin commands.
+func MakeVClusterOpsWithTarget(log logr.Logger, vdb *vapi.VerticaDB, targetVDB *vapi.VerticaDB, cli client.Client,
+	passwd string, evWriter events.EVWriter,
+	apiSetupFunc func(logr.Logger, string) (VClusterProvider, logr.Logger)) Dispatcher {
+	return &VClusterOps{
+		BaseLog:          log,
+		VDB:              vdb,
+		TargetVDB:        targetVDB,
 		Client:           cli,
 		Password:         passwd,
 		EVWriter:         evWriter,
@@ -272,6 +293,7 @@ type VClusterProvider interface {
 	VShowRestorePoints(options *vops.VShowRestorePointsOptions) ([]vops.RestorePoint, error)
 	VInstallPackages(options *vops.VInstallPackagesOptions) (*vops.InstallPackageStatus, error)
 	VReplicateDatabase(options *vops.VReplicationDatabaseOptions) (int64, error)
+	VReplicationStatus(options *vops.VReplicationStatusDatabaseOptions) (*vops.ReplicationStatusResponse, error)
 	VFetchNodesDetails(options *vops.VFetchNodesDetailsOptions) (vops.NodesDetails, error)
 	VPromoteSandboxToMain(options *vops.VPromoteSandboxToMainOptions) error
 	VSandbox(options *vops.VSandboxOptions) error

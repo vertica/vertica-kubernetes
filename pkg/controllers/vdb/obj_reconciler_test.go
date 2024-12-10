@@ -17,6 +17,7 @@ package vdb
 
 import (
 	"context"
+	"fmt"
 	"path/filepath"
 	"reflect"
 
@@ -35,6 +36,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	//+kubebuilder:scaffold:imports
 )
@@ -905,7 +907,7 @@ var _ = Describe("obj_reconcile", func() {
 			pfacts := podfacts.MakePodFacts(vdbRec, &cmds.FakePodRunner{}, logger, TestPassword)
 			objr := MakeObjReconciler(vdbRec, logger, vdb, &pfacts, ObjReconcileModeAll)
 			r := objr.(*ObjReconciler)
-			err := r.checkVProxyConfigMap(ctx, cmName, sc)
+			err := r.checkVProxyConfigMap(ctx, sc)
 			Expect(err).Should(BeNil())
 
 			newCM := builder.BuildVProxyConfigMap(cmName, vdb, sc)
@@ -918,6 +920,69 @@ var _ = Describe("obj_reconcile", func() {
 			Expect(res).Should(Equal(ctrl.Result{}))
 			Expect(cm.Data).Should(Equal(newCM.Data))
 		})
+
+		It("should keep configmap if subcluster size scale down to 0", func() {
+			vdb := vapi.MakeVDB()
+			vdb.Annotations[vmeta.UseVProxyAnnotation] = vmeta.UseVProxyAnnotationTrue
+			createCrd(vdb, true)
+			defer deleteCrd(vdb)
+
+			sc := &vdb.Spec.Subclusters[0]
+			cmName := names.GenVProxyConfigMapName(vdb, sc)
+			curCM := &corev1.ConfigMap{}
+			Expect(k8sClient.Get(ctx, cmName, curCM)).Should(Succeed())
+
+			// update cluster size to 0
+			vdb.Spec.Subclusters[0].Size = 0
+			pfacts := podfacts.MakePodFacts(vdbRec, &cmds.FakePodRunner{}, logger, TestPassword)
+			objr := MakeObjReconciler(vdbRec, logger, vdb, &pfacts, ObjReconcileModeAll)
+			r := objr.(*ObjReconciler)
+			err := r.checkVProxyConfigMap(ctx, sc)
+			Expect(err).Should(BeNil())
+			Expect(k8sClient.Get(ctx, cmName, curCM)).Should(Succeed())
+		})
+
+		It("should delete vproxy", func() {
+			vdb := vapi.MakeVDB()
+			vdb.Annotations[vmeta.UseVProxyAnnotation] = vmeta.UseVProxyAnnotationTrue
+			createCrd(vdb, true)
+			defer deleteCrd(vdb)
+
+			sc := &vdb.Spec.Subclusters[0]
+			cmName := names.GenVProxyConfigMapName(vdb, sc)
+			curCM := &corev1.ConfigMap{}
+			Expect(k8sClient.Get(ctx, cmName, curCM)).Should(Succeed())
+			vpName := names.GenVProxyName(vdb, sc)
+			curDep := &appsv1.Deployment{}
+			Expect(k8sClient.Get(ctx, vpName, curDep)).Should(Succeed())
+
+			deleteProxy(ctx, vdb, vpName, cmName)
+		})
+
+		It("should create/delete proxy with custom name", func() {
+			vdb := vapi.MakeVDB()
+			vdb.Annotations[vmeta.UseVProxyAnnotation] = vmeta.UseVProxyAnnotationTrue
+			sc := &vdb.Spec.Subclusters[0]
+			const depName = "dep"
+			sc.Annotations[vmeta.ProxyDeploymentNameAnnotation] = depName
+			createCrd(vdb, true)
+			defer deleteCrd(vdb)
+
+			cmName := types.NamespacedName{
+				Name:      fmt.Sprintf("%s-cm", depName),
+				Namespace: vdb.Namespace,
+			}
+			curCM := &corev1.ConfigMap{}
+			Expect(k8sClient.Get(ctx, cmName, curCM)).Should(Succeed())
+			vpName := types.NamespacedName{
+				Name:      depName,
+				Namespace: vdb.Namespace,
+			}
+			curDep := &appsv1.Deployment{}
+			Expect(k8sClient.Get(ctx, vpName, curDep)).Should(Succeed())
+
+			deleteProxy(ctx, vdb, vpName, cmName)
+		})
 	})
 })
 
@@ -926,4 +991,16 @@ func updateStrategyHelper(ctx context.Context, vdb *vapi.VerticaDB, expectedUpda
 	nm := names.GenStsName(vdb, &vdb.Spec.Subclusters[0])
 	ExpectWithOffset(1, k8sClient.Get(ctx, nm, sts)).Should(Succeed())
 	ExpectWithOffset(1, sts.Spec.UpdateStrategy.Type).Should(Equal(expectedUpdateStrategy))
+}
+
+func deleteProxy(ctx context.Context, vdb *vapi.VerticaDB, vpName, cmName types.NamespacedName) {
+	pfacts := podfacts.MakePodFacts(vdbRec, &cmds.FakePodRunner{}, logger, TestPassword)
+	objr := MakeObjReconciler(vdbRec, logger, vdb, &pfacts, ObjReconcileModeAll)
+	r := objr.(*ObjReconciler)
+	Expect(r.deleteVProxy(ctx, vpName.Name)).Should(Succeed())
+
+	newCM := &corev1.ConfigMap{}
+	Expect(errors.IsNotFound(k8sClient.Get(ctx, cmName, newCM))).Should(BeTrue())
+	newDep := &appsv1.Deployment{}
+	Expect(errors.IsNotFound(k8sClient.Get(ctx, vpName, newDep))).Should(BeTrue())
 }

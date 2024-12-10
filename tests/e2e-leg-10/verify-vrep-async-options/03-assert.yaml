@@ -12,12 +12,18 @@
 # limitations under the License.
 
 apiVersion: v1
-kind: Pod
+kind: Secret
 metadata:
-  name: test-kill-client-proxy
-status:
-  containerStatuses:
-    - name: test
-      state:
-        terminated:
-          exitCode: 0 
+  name: su-passwd
+type: Opaque
+data:
+  password: c3VwZXJ1c2Vy
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: su-passwd-custom
+type: Opaque
+data:
+  ## base64 encoded (echo -n 'topsecret' | base64)
+  password: dG9wc2VjcmV0

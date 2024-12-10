@@ -129,11 +129,17 @@ func MakeVDB() *VerticaDB {
 			Subclusters: []Subcluster{
 				{
 					Name:        "defaultsubcluster",
+					Annotations: make(map[string]string),
 					Size:        3,
 					ServiceType: corev1.ServiceTypeClusterIP,
 					Type:        PrimarySubcluster,
-					Proxy:       Proxy{Image: "opentext/client-proxy:latest"},
+					Proxy: &ProxySubclusterConfig{
+						Replica: 1,
+					},
 				},
+			},
+			Proxy: Proxy{
+				Image: "opentext/client-proxy:latest",
 			},
 		},
 	}
@@ -414,6 +420,18 @@ func (s *Subcluster) GetStatefulSetName(vdb *VerticaDB) string {
 	return fmt.Sprintf("%s-%s", vdb.Name, s.GenCompatibleFQDN())
 }
 
+func (s *Subcluster) GetVProxyDeploymentName(vdb *VerticaDB) string {
+	depOverrideName := vmeta.GetVPDepNameOverride(s.Annotations)
+	if depOverrideName != "" {
+		return depOverrideName
+	}
+	return fmt.Sprintf("%s-%s-proxy", vdb.Name, GenCompatibleFQDNHelper(s.Name))
+}
+
+func (s *Subcluster) GetVProxyConfigMapName(vdb *VerticaDB) string {
+	return GetVProxyConfigMapName(s.GetVProxyDeploymentName(vdb))
+}
+
 // GetServiceName returns the name of the service object that route traffic to
 // this subcluster.
 func (s *Subcluster) GetServiceName() string {
@@ -469,13 +487,13 @@ func (s *Subcluster) GetStsSize(vdb *VerticaDB) int32 {
 }
 
 // GetVProxyConfigMapName returns the name of the client proxy config map
-func (s *Subcluster) GetVProxyConfigMapName(vdb *VerticaDB) string {
-	return fmt.Sprintf("%s-%s-proxy-cm", vdb.Name, s.Name)
+func GetVProxyConfigMapName(prefix string) string {
+	return fmt.Sprintf("%s-cm", prefix)
 }
 
 // GetVProxyDeploymentName returns the name of the client proxy deployment
-func (s *Subcluster) GetVProxyDeploymentName(vdb *VerticaDB) string {
-	return fmt.Sprintf("%s-%s-proxy", vdb.Name, s.Name)
+func (v *VerticaDB) GetVProxyDeploymentName(scName string) string {
+	return fmt.Sprintf("%s-%s-proxy", v.Name, GenCompatibleFQDNHelper(scName))
 }
 
 // FindSubclusterForServiceName will find any subclusters that match the given service name
