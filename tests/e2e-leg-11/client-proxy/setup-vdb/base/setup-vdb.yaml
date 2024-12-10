@@ -35,7 +35,7 @@ spec:
       size: 3
       type: primary
       proxy:
-        replica: 2
+        replicas: 2
   certSecrets: []
   imagePullSecrets: []
   volumes: []

@@ -164,6 +164,7 @@ func convertToSpec(src *VerticaDBSpec) v1.VerticaDBSpec {
 		StartupProbeOverride:   src.StartupProbeOverride,
 		ServiceAccountName:     src.ServiceAccountName,
 		Sandboxes:              convertToSandboxSlice(src.Sandboxes),
+		Proxy:                  (*v1.Proxy)(src.Proxy),
 	}
 	if src.RestorePoint != nil {
 		dst.RestorePoint = &v1.RestorePointPolicy{
@@ -228,6 +229,7 @@ func convertFromSpec(src *v1.VerticaDB) VerticaDBSpec {
 		StartupProbeOverride:    srcSpec.StartupProbeOverride,
 		ServiceAccountName:      srcSpec.ServiceAccountName,
 		Sandboxes:               convertFromSandboxSlice(srcSpec.Sandboxes),
+		Proxy:                   (*Proxy)(srcSpec.Proxy),
 	}
 	if srcSpec.RestorePoint != nil {
 		dst.RestorePoint = &RestorePointPolicy{

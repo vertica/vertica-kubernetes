@@ -39,4 +39,4 @@ spec:
   subclusters:
     - name: pri1
       proxy:
-        replica: 2
+        replicas: 2
