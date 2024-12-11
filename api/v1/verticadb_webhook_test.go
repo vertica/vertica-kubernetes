@@ -392,6 +392,16 @@ var _ = Describe("verticadb_webhook", func() {
 		vdbUpdate.Spec.Local.StorageClass = "MyStorageClass"
 		validateImmutableFields(vdbUpdate, true)
 	})
+	It("should not change proxy.image after creation", func() {
+		vdbUpdate := createVDBHelper()
+		vdbUpdate.Spec.Proxy.Image = "NewProxyImage"
+		validateImmutableFields(vdbUpdate, true)
+	})
+	It("should not change annotation vertica.com/use-client-proxy after creation", func() {
+		vdbUpdate := createVDBHelper()
+		vdbUpdate.Annotations[vmeta.UseVProxyAnnotation] = "NewValue"
+		validateImmutableFields(vdbUpdate, true)
+	})
 	It("should not change local.depotVolume after DB init", func() {
 		vdbUpdate := createVDBHelper()
 		vdbUpdate.Spec.Local.DepotVolume = EmptyDir
