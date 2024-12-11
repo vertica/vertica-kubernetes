@@ -863,6 +863,10 @@ func makeScrutinizeInitContainers(vscr *v1beta1.VerticaScrutinize, vdb *vapi.Ver
 
 // BuildVProxyDeployment builds manifest for a subclusters VProxy deployment
 func BuildVProxyDeployment(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi.Subcluster) *appsv1.Deployment {
+	replicas := int32(vapi.VProxyDefaultReplicas)
+	if sc.Proxy.Replicas != nil {
+		replicas = *sc.Proxy.Replicas
+	}
 	return &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        nm.Name,
@@ -881,7 +885,7 @@ func BuildVProxyDeployment(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vap
 				},
 				Spec: buildVProxyPodSpec(vdb, sc),
 			},
-			Replicas: &sc.Proxy.Replica,
+			Replicas: &replicas,
 		},
 	}
 }
@@ -998,9 +1002,8 @@ func BuildVProxyConfigMap(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi
 func makeVProxyContainer(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.Container {
 	envVars := buildVProxyTLSCertsEnvVars(vdb)
 	envVars = append(envVars, buildCommonEnvVars(vdb)...)
-	// TODO: also add this in the webhook
-	vProxyImage := VProxyDefaultImage
-	if vdb.Spec.Proxy.Image != "" {
+	vProxyImage := vapi.VProxyDefaultImage
+	if vdb.Spec.Proxy != nil && vdb.Spec.Proxy.Image != "" {
 		vProxyImage = vdb.Spec.Proxy.Image
 	}
 	resources := corev1.ResourceRequirements{}

@@ -21,9 +21,9 @@ spec:
       size: 4
       type: primary
       proxy:
-        replica: 2
+        replicas: 2
     - name: sec1
       size: 2
       type: secondary
       proxy:
-        replica: 1
+        replicas: 1
