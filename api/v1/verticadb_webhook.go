@@ -1289,10 +1289,10 @@ func (v *VerticaDB) checkImmutableBasic(oldObj *VerticaDB, allErrs field.ErrorLi
 	// annotation vertica.com/use-client-proxy cannot change after creation
 	if v.Annotations[vmeta.UseVProxyAnnotation] != oldObj.Annotations[vmeta.UseVProxyAnnotation] {
 		prefix := field.NewPath("metadata").Child("annotations")
-		err_msg := fmt.Sprintf("annotation %s cannot change after creation", vmeta.UseVProxyAnnotation)
+		errMsg := fmt.Sprintf("annotation %s cannot change after creation", vmeta.UseVProxyAnnotation)
 		err := field.Invalid(prefix.Key(vmeta.UseVProxyAnnotation),
 			v.Annotations[vmeta.VClusterOpsAnnotation],
-			err_msg)
+			errMsg)
 		allErrs = append(allErrs, err)
 	}
 	// proxy.image cannot change after creation
