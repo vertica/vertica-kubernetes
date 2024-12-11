@@ -966,7 +966,7 @@ func makeDataForVProxyConfigMap(vdb *vapi.VerticaDB, sc *vapi.Subcluster) string
 			"nodes": nodeList,
 		},
 		Log: map[string]string{
-			"level": "INFO",
+			"level": vmeta.GetVProxyLogLevel(vdb.Annotations),
 		},
 	}
 

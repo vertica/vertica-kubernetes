@@ -572,7 +572,7 @@ func GetNMAHealthProbeOverride(annotations map[string]string, probeName, field s
 
 // GetVProxyLogLevel returns scrutinize log age hours
 func GetVProxyLogLevel(annotations map[string]string) string {
-	return lookupStringAnnotation(annotations, VProxyLogLevelAnnotation, "INFO" /* default value */)
+	return lookupStringAnnotation(annotations, VProxyLogLevelAnnotation, VProxyLogLevelDefaultLevel)
 }
 
 // GetScrutinizePodTTL returns how long the scrutinize pod will keep running
