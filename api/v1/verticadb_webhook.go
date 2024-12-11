@@ -1286,6 +1286,22 @@ func (v *VerticaDB) checkImmutableBasic(oldObj *VerticaDB, allErrs field.ErrorLi
 			"local.storageClass cannot change after creation")
 		allErrs = append(allErrs, err)
 	}
+	// annotation vertica.com/use-client-proxy cannot change after creation
+	if v.Annotations[vmeta.UseVProxyAnnotation] != oldObj.Annotations[vmeta.UseVProxyAnnotation] {
+		prefix := field.NewPath("metadata").Child("annotations")
+		err_msg := fmt.Sprintf("annotation %s cannot change after creation", vmeta.UseVProxyAnnotation)
+		err := field.Invalid(prefix.Key(vmeta.UseVProxyAnnotation),
+			v.Annotations[vmeta.VClusterOpsAnnotation],
+			err_msg)
+		allErrs = append(allErrs, err)
+	}
+	// proxy.image cannot change after creation
+	if v.Spec.Proxy.Image != oldObj.Spec.Proxy.Image {
+		err := field.Invalid(field.NewPath("spec").Child("proxy").Child("image"),
+			v.Spec.Proxy.Image,
+			"proxy.image cannot change after creation")
+		allErrs = append(allErrs, err)
+	}
 	// when update subcluster names, there should be at least one sc's name match its old name.
 	// This limitation should not be hold in online upgrade since we need to rename all subclusters
 	// after sandbox promotion.
