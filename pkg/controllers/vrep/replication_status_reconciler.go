@@ -232,6 +232,7 @@ func (r *ReplicationStatusReconciler) runReplicationStatus(ctx context.Context, 
 	pollingFrequency := vmeta.GetReplicationPollingFrequency(r.Vrep.Annotations)
 	pollingDuration := time.Duration(pollingFrequency * int(time.Second))
 	timeout := r.isTimeout()
+	fmt.Printf("libo: timeout is %t", timeout)
 	if timeout {
 		r.Log.Info(fmt.Sprintf("skip reconciling status, update condition to failed, transaction id = %d", r.Vrep.Status.TransactionID))
 		return r.timeoutReturn(ctx, r.Vrep.Status.TransactionID)
@@ -289,6 +290,7 @@ func (r *ReplicationStatusReconciler) runReplicationStatus(ctx context.Context, 
 
 func (r *ReplicationStatusReconciler) isTimeout() bool {
 	creationTime := r.Vrep.GetCreationTimestamp().Time
+	fmt.Println("libo: creation time is", creationTime)
 	timeoutInSeconds := vmeta.GetReplicationTimeout(r.Vrep.Annotations)
 	timeoutDuration := time.Duration(timeoutInSeconds * int(time.Second))
 	currenTime := time.Now()

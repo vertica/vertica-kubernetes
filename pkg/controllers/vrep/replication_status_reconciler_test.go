@@ -17,7 +17,9 @@ package vrep
 
 import (
 	"context"
+	"fmt"
 	"reflect"
+	"time"
 
 	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo/v2"
@@ -236,5 +238,79 @@ var _ = Describe("query_reconcile", func() {
 		// make sure status conditions and state are retained
 		Expect(vrep.IsStatusConditionTrue(v1beta1.Replicating)).Should(BeTrue())
 		Expect(vrep.Status.State).Should(Equal(stateReplicating))
+	})
+
+	It("should exit on timeout and update condition with timeout reason if the vclusterops API succeeded", func() {
+		sourceVdbName := v1beta1.MakeSourceVDBName()
+		sourceVdb := vapi.MakeVDB()
+		sourceVdb.Name = sourceVdbName.Name
+		sourceVdb.Namespace = sourceVdbName.Namespace
+		sourceVdb.Annotations[vmeta.VersionAnnotation] = minimumVer
+		sourceVdb.Spec.NMATLSSecret = testTLSSecretName
+
+		test.CreateVDB(ctx, k8sClient, sourceVdb)
+		defer test.DeleteVDB(ctx, k8sClient, sourceVdb)
+		test.CreatePods(ctx, k8sClient, sourceVdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, sourceVdb)
+
+		targetVdbName := v1beta1.MakeTargetVDBName()
+		targetVdb := vapi.MakeVDB()
+		targetVdb.Name = targetVdbName.Name
+		targetVdb.Namespace = targetVdbName.Namespace
+		targetVdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
+		targetVdb.Annotations[vmeta.VersionAnnotation] = minimumVer
+		targetVdb.Spec.NMATLSSecret = testTargetTLSSecretName
+		targetVdb.UID = testTargetVdbUID
+
+		test.CreateVDB(ctx, k8sClient, targetVdb)
+		defer test.DeleteVDB(ctx, k8sClient, targetVdb)
+		test.CreatePods(ctx, k8sClient, targetVdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, targetVdb)
+
+		setupAPIFunc := func(logr.Logger, string) (vadmin.VClusterProvider, logr.Logger) {
+			return &mockAsyncReplicationVClusterOps{}, logr.Logger{}
+		}
+		dispatcher := mockVClusterOpsDispatcherWithCustomSetupAndTarget(sourceVdb, targetVdb, setupAPIFunc)
+		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, k8sClient, testTLSSecretName)
+		defer test.DeleteSecret(ctx, k8sClient, testTLSSecretName)
+		test.CreateFakeTLSSecret(ctx, dispatcher.TargetVDB, k8sClient, testTargetTLSSecretName)
+		defer test.DeleteSecret(ctx, k8sClient, testTargetTLSSecretName)
+
+		vrep := v1beta1.MakeVrep()
+		currentTime := time.Now()
+		onehouAgo := currentTime.Add(time.Duration(-3601) * time.Second)
+		timeoutTime := metav1.Time{
+			Time: onehouAgo,
+		}
+
+		vrep.Spec.Mode = v1beta1.ReplicationModeAsync
+		Expect(k8sClient.Create(ctx, vrep)).Should(Succeed())
+		defer func() { Expect(k8sClient.Delete(ctx, vrep)).Should(Succeed()) }()
+		vrep.SetCreationTimestamp(timeoutTime)
+		fmt.Println("libo: onehourago ", vrep.GetCreationTimestamp())
+		err := vrepstatus.Update(ctx, vrepRec.Client, vrepRec.Log, vrep,
+			[]*metav1.Condition{vapi.MakeCondition(v1beta1.Replicating,
+				metav1.ConditionTrue, "Started")}, stateReplicating, testTransactionID)
+		Expect(err).ShouldNot(HaveOccurred())
+		fmt.Println("libo: onehourago confirm ", vrep.GetCreationTimestamp())
+		r := &ReplicationStatusReconciler{
+			Client: k8sClient,
+			VRec:   vrepRec,
+			Vrep:   vrep,
+			Log:    logger,
+		}
+
+		_, err = r.runReplicationStatus(ctx, dispatcher, []replicationstatus.Option{})
+		condition := vrep.FindStatusCondition(v1beta1.ReplicationComplete)
+		fmt.Println("libo: reason 1 is " + condition.Reason)
+		Expect(err).ShouldNot(HaveOccurred())
+		// make sure that Replicating condition is updated to false and
+		// ReplicationComplete condition is updated to true
+		// state message is updated to "Replication successful"
+		Expect(vrep.IsStatusConditionFalse(v1beta1.Replicating)).Should(BeTrue())
+		Expect(vrep.IsStatusConditionTrue(v1beta1.ReplicationComplete)).Should(BeTrue())
+		// Expect(vrep.Status.State).Should(Equal(stateSucceededReplication))
+
+		Expect(condition.Reason).Should(Equal("Timeout"))
 	})
 })
