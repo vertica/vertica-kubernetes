@@ -372,7 +372,7 @@ const (
 	ReplicationTimeoutAnnotation          = "vertica.com/replication-timeout"
 	ReplicationDefaultTimeout             = 60 * 60
 	ReplicationPollingFrequencyAnnotation = "vertica.com/replication-polling-frequency"
-	ReplicationDefaultPollingFrequency    = 0
+	ReplicationDefaultPollingFrequency    = 5
 )
 
 // IsPauseAnnotationSet will check the annotations for a special value that will
