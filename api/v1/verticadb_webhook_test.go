@@ -730,6 +730,21 @@ var _ = Describe("verticadb_webhook", func() {
 		Expect(vdb.Spec.Subclusters[0].ServiceName).Should(Equal(vdb.Spec.Subclusters[0].Name))
 	})
 
+	It("should fill in the default proxy if omitted", func() {
+		vdb := MakeVDB()
+		vdb.Spec.Proxy = &Proxy{}
+		vdb.Default()
+		Expect(vdb.Spec.Proxy).Should(BeNil())
+		vdb.Annotations[vmeta.UseVProxyAnnotation] = vmeta.UseVProxyAnnotationTrue
+		vdb.Spec.Proxy = &Proxy{}
+		vdb.Spec.Subclusters[0].Proxy = nil
+		vdb.Default()
+		Expect(vdb.Spec.Proxy.Image).Should(Equal(VProxyDefaultImage))
+		Expect(vdb.Spec.Subclusters[0].Proxy).ShouldNot(BeNil())
+		Expect(*vdb.Spec.Subclusters[0].Proxy.Replicas).Should(Equal(int32(VProxyDefaultReplicas)))
+		Expect(*vdb.Spec.Subclusters[0].Proxy.Resources).Should(Equal(v1.ResourceRequirements{}))
+	})
+
 	It("should prevent negative values for requeueTime", func() {
 		vdb := MakeVDB()
 		vdb.Annotations[vmeta.RequeueTimeAnnotation] = "-30"

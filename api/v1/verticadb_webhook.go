@@ -2096,15 +2096,16 @@ func (v *VerticaDB) setDefaultProxy() {
 		}
 	}
 	for i := range v.Spec.Subclusters {
-		sc := v.Spec.Subclusters[i]
-		if sc.Proxy != nil {
-			sc.setDefaultProxySubcluster(useProxy)
-		}
+		sc := &v.Spec.Subclusters[i]
+		sc.setDefaultProxySubcluster(useProxy)
 	}
 }
 
 func (s *Subcluster) setDefaultProxySubcluster(useProxy bool) {
 	if useProxy {
+		if s.Proxy == nil {
+			s.Proxy = &ProxySubclusterConfig{}
+		}
 		// When proxy is enabled, if the user did not set
 		// the resource or replica in the subcluster spec,
 		// we will set them to their default values
@@ -2115,6 +2116,9 @@ func (s *Subcluster) setDefaultProxySubcluster(useProxy bool) {
 			rep := int32(VProxyDefaultReplicas)
 			s.Proxy.Replicas = &rep
 		}
+		return
+	}
+	if s.Proxy == nil {
 		return
 	}
 	if s.Proxy.Resources != nil {
