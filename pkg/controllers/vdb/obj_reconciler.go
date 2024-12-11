@@ -669,16 +669,7 @@ func (o *ObjReconciler) reconcileSts(ctx context.Context, sc *vapi.Subcluster) (
 		o.Log.Info("Dropping then recreating statefulset", "Name", expSts.Name)
 		// Invalidate the pod facts cache since we are recreating a new sts
 		o.PFacts.Invalidate()
-		err := recreateSts(ctx, o.Rec, curSts, expSts, o.Vdb)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-		// Only create client proxy deployment when subcluster sts is created
-		if vmeta.UseVProxy(o.Vdb.Annotations) {
-			// Create the client proxy deployment
-			return ctrl.Result{}, o.checkVProxyDeployment(ctx, sc)
-		}
-		return ctrl.Result{}, nil
+		return ctrl.Result{}, recreateSts(ctx, o.Rec, curSts, expSts, o.Vdb)
 	}
 
 	err = o.updateSts(ctx, curSts, expSts)
