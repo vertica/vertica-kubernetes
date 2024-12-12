@@ -92,6 +92,7 @@ func (v *VerticaDB) FindTransientSubcluster() *Subcluster {
 // This is intended for test purposes.
 func MakeVDB() *VerticaDB {
 	nm := MakeVDBName()
+	replicas := int32(1)
 	return &VerticaDB{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: GroupVersion.String(),
@@ -134,11 +135,11 @@ func MakeVDB() *VerticaDB {
 					ServiceType: corev1.ServiceTypeClusterIP,
 					Type:        PrimarySubcluster,
 					Proxy: &ProxySubclusterConfig{
-						Replica: 1,
+						Replicas: &replicas,
 					},
 				},
 			},
-			Proxy: Proxy{
+			Proxy: &Proxy{
 				Image: "opentext/client-proxy:latest",
 			},
 		},

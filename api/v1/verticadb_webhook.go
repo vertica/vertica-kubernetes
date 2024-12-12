@@ -56,6 +56,8 @@ const (
 	GCloudPrefix          = "gs://"
 	AzurePrefix           = "azb://"
 	trueString            = "true"
+	VProxyDefaultImage    = "opentext/client-proxy:latest"
+	VProxyDefaultReplicas = 1
 )
 
 // hdfsPrefixes are prefixes for an HDFS path.
@@ -101,6 +103,7 @@ func (v *VerticaDB) Default() {
 	}
 	v.setDefaultServiceName()
 	v.setDefaultSandboxImages()
+	v.setDefaultProxy()
 }
 
 var _ webhook.Validator = &VerticaDB{}
@@ -2141,6 +2144,57 @@ func (v *VerticaDB) setDefaultSandboxImages() {
 		sb := &v.Spec.Sandboxes[i]
 		if sb.Image == "" {
 			sb.Image = v.Spec.Image
+		}
+	}
+}
+
+// setDefaultProxy will set default values for some proxy fields
+func (v *VerticaDB) setDefaultProxy() {
+	useProxy := vmeta.UseVProxy(v.Annotations)
+	if useProxy {
+		if v.Spec.Proxy != nil && v.Spec.Proxy.Image == "" {
+			v.Spec.Proxy.Image = VProxyDefaultImage
+		}
+	} else {
+		if v.Spec.Proxy != nil {
+			if *v.Spec.Proxy == (Proxy{}) {
+				v.Spec.Proxy = nil
+			}
+		}
+	}
+	for i := range v.Spec.Subclusters {
+		sc := &v.Spec.Subclusters[i]
+		sc.setDefaultProxySubcluster(useProxy)
+	}
+}
+
+func (s *Subcluster) setDefaultProxySubcluster(useProxy bool) {
+	if useProxy {
+		if s.Proxy == nil {
+			s.Proxy = &ProxySubclusterConfig{}
+		}
+		// When proxy is enabled, if the user did not set
+		// the resource or replica in the subcluster spec,
+		// we will set them to their default values
+		if s.Proxy.Resources == nil {
+			s.Proxy.Resources = &v1.ResourceRequirements{}
+		}
+		if s.Proxy.Replicas == nil {
+			rep := int32(VProxyDefaultReplicas)
+			s.Proxy.Replicas = &rep
+		}
+		return
+	}
+	if s.Proxy == nil {
+		return
+	}
+	if s.Proxy.Resources != nil {
+		res := *s.Proxy.Resources
+		if len(res.Limits) == 0 && len(res.Requests) == 0 {
+			// This is needed because k8s will automatically initialize
+			// resources to an empty struct. We explicitly set it to nil
+			// so it does not appear in the spec if proxy is disabled
+			s.Proxy.Resources = nil
 		}
 	}
 }
