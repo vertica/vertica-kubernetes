@@ -1194,7 +1194,7 @@ func (v *VerticaDB) validateProxyconfig(allErrs field.ErrorList) field.ErrorList
 	// check if we are using proxy deployments
 	if vmeta.UseVProxy(v.Annotations) {
 		// check if proxy set and image must be non-empty
-		if v.Spec.Proxy.Image == "" {
+		if v.Spec.Proxy == nil || v.Spec.Proxy.Image == "" {
 			err := field.Invalid(field.NewPath("spec").Child("proxy").Child("image"),
 				v.Spec.Proxy.Image,
 				"proxy.image cannot be empty")
@@ -1210,7 +1210,7 @@ func (v *VerticaDB) validateProxyconfig(allErrs field.ErrorList) field.ErrorList
 					field.NewPath("spec").Child("subclusters").Index(i).Child("proxy").Child("replicas"),
 					sc.Proxy.Replicas,
 					fmt.Sprintf("subcluster %q has an invalid value %d for the proxy replica",
-						sc.Name, sc.Proxy.Replicas))
+						sc.Name, *sc.Proxy.Replicas))
 				allErrs = append(allErrs, err)
 			}
 		}
