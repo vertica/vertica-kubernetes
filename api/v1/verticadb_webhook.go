@@ -2123,7 +2123,7 @@ func (v *VerticaDB) checkImmutableClientProxy(oldObj *VerticaDB, allErrs field.E
 		allErrs = append(allErrs, err)
 	}
 	// proxy.image cannot change after creation
-	if v.Spec.Proxy.Image != oldObj.Spec.Proxy.Image {
+	if v.Spec.Proxy != nil && oldObj.Spec.Proxy != nil && v.Spec.Proxy.Image != oldObj.Spec.Proxy.Image {
 		err := field.Invalid(field.NewPath("spec").Child("proxy").Child("image"),
 			v.Spec.Proxy.Image,
 			"proxy.image cannot change after creation")
