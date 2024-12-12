@@ -40,18 +40,12 @@ spec:
     - name: sec1
       size: 3
       type: secondary
-      proxy:
-        replica: 1
     - name: pri1
       size: 2
       type: primary
-      proxy:
-        replica: 1
     - name: pri_2
       size: 1
       type: primary
-      proxy:
-        replica: 1
   certSecrets: []
   imagePullSecrets: []
   volumes: []
