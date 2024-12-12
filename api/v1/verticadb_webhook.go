@@ -1200,7 +1200,7 @@ func (v *VerticaDB) validateProxyconfig(allErrs field.ErrorList) field.ErrorList
 				"proxy is not set")
 			allErrs = append(allErrs, err)
 		}
-		if v.Spec.Proxy.Image == "" {
+		if v.Spec.Proxy != nil && v.Spec.Proxy.Image == "" {
 			err := field.Invalid(field.NewPath("spec").Child("proxy").Child("image"),
 				v.Spec.Proxy.Image,
 				"proxy.image cannot be empty")
