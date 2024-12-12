@@ -19,6 +19,7 @@ package v1
 import (
 	"fmt"
 	"reflect"
+	"slices"
 	"strings"
 
 	vutil "github.com/vertica/vcluster/vclusterops/util"
@@ -59,6 +60,9 @@ const (
 
 // hdfsPrefixes are prefixes for an HDFS path.
 var hdfsPrefixes = []string{"webhdfs://", "swebhdfs://"}
+
+// validProxyLogLevel are acceptable values for proxy log level annotation
+var validProxyLogLevel = []string{"TRACE", "DEBUG", "INFO", "WARN", "FATAL", "NONE"}
 
 // log is for logging in this package.
 var verticadblog = logf.Log.WithName("verticadb-resource")
@@ -148,6 +152,7 @@ func (v *VerticaDB) validateImmutableFields(old runtime.Object) field.ErrorList 
 	allErrs = v.checkImmutableSubclusterDuringUpgrade(oldObj, allErrs)
 	allErrs = v.checkImmutableSubclusterInSandbox(oldObj, allErrs)
 	allErrs = v.checkImmutableStsName(oldObj, allErrs)
+	allErrs = v.checkImmutableClientProxy(oldObj, allErrs)
 	allErrs = v.checkValidSubclusterTypeTransition(oldObj, allErrs)
 	allErrs = v.checkSandboxesDuringUpgrade(oldObj, allErrs)
 	allErrs = v.checkShutdownSandboxImage(oldObj, allErrs)
@@ -237,6 +242,7 @@ func (v *VerticaDB) validateVerticaDBSpec() field.ErrorList {
 	allErrs = v.validateVersionAnnotation(allErrs)
 	allErrs = v.validateSandboxes(allErrs)
 	allErrs = v.checkNewSBoxOrSClusterShutdownUnset(allErrs)
+	allErrs = v.validateProxyconfig(allErrs)
 	if len(allErrs) == 0 {
 		return nil
 	}
@@ -1180,6 +1186,46 @@ func (v *VerticaDB) validateSandboxes(allErrs field.ErrorList) field.ErrorList {
 	return v.validateSubclustersInSandboxes(allErrs)
 }
 
+// validateProxyconfig validates if provided proxy info is correct
+func (v *VerticaDB) validateProxyconfig(allErrs field.ErrorList) field.ErrorList {
+	// check if we are using proxy deployments
+	if !vmeta.UseVProxy(v.Annotations) {
+		// check if proxy set and image must be non-empty
+		if v.Spec.Proxy.Image == "" {
+			err := field.Invalid(field.NewPath("spec").Child("proxy").Child("image"),
+				v.Spec.Proxy.Image,
+				"proxy.image cannot be empty")
+			allErrs = append(allErrs, err)
+		}
+
+		// check if replica is set and value is valid
+		for i := range v.Spec.Subclusters {
+			sc := &v.Spec.Subclusters[i]
+			// proxy replicas must be >= 0(at all times)
+			if sc.Proxy.Replica < 0 {
+				err := field.Invalid(
+					field.NewPath("spec").Child("subclusters").Index(i).Child("proxy").Child("replica"),
+					sc.Proxy.Replica,
+					fmt.Sprintf("subcluster %q has an invalid value %q for the proxy replica",
+						sc.Name, sc.Proxy.Replica))
+				allErrs = append(allErrs, err)
+			}
+		}
+
+		// check if log level annotaion value valid
+		proxyLogLevel := vmeta.GetVProxyLogLevel(v.Annotations)
+		if !slices.Contains(validProxyLogLevel, proxyLogLevel) {
+			prefix := field.NewPath("metadata").Child("annotations")
+			errMsg := fmt.Sprintf("annotation %s value is not valid", vmeta.VProxyLogLevelAnnotation)
+			err := field.Invalid(prefix.Key(vmeta.VProxyLogLevelAnnotation),
+				v.Annotations[vmeta.VProxyLogLevelAnnotation],
+				errMsg)
+			allErrs = append(allErrs, err)
+		}
+	}
+	return allErrs
+}
+
 // validateSandboxes validates if subclusters in sandboxes is correct
 func (v *VerticaDB) validateSubclustersInSandboxes(allErrs field.ErrorList) field.ErrorList {
 	sandboxes := v.Spec.Sandboxes
@@ -1284,22 +1330,6 @@ func (v *VerticaDB) checkImmutableBasic(oldObj *VerticaDB, allErrs field.ErrorLi
 		err := field.Invalid(field.NewPath("spec").Child("local").Child("storageClass"),
 			v.Spec.Local.StorageClass,
 			"local.storageClass cannot change after creation")
-		allErrs = append(allErrs, err)
-	}
-	// annotation vertica.com/use-client-proxy cannot change after creation
-	if v.Annotations[vmeta.UseVProxyAnnotation] != oldObj.Annotations[vmeta.UseVProxyAnnotation] {
-		prefix := field.NewPath("metadata").Child("annotations")
-		errMsg := fmt.Sprintf("annotation %s cannot change after creation", vmeta.UseVProxyAnnotation)
-		err := field.Invalid(prefix.Key(vmeta.UseVProxyAnnotation),
-			v.Annotations[vmeta.VClusterOpsAnnotation],
-			errMsg)
-		allErrs = append(allErrs, err)
-	}
-	// proxy.image cannot change after creation
-	if v.Spec.Proxy.Image != oldObj.Spec.Proxy.Image {
-		err := field.Invalid(field.NewPath("spec").Child("proxy").Child("image"),
-			v.Spec.Proxy.Image,
-			"proxy.image cannot change after creation")
 		allErrs = append(allErrs, err)
 	}
 	// when update subcluster names, there should be at least one sc's name match its old name.
@@ -2068,6 +2098,27 @@ func (v *VerticaDB) checkImmutableStsName(oldObj *VerticaDB, allErrs field.Error
 					scName))
 			allErrs = append(allErrs, err)
 		}
+	}
+	return allErrs
+}
+
+// checkImmutableClientProxy will validate the proxy spec fields in vdb
+func (v *VerticaDB) checkImmutableClientProxy(oldObj *VerticaDB, allErrs field.ErrorList) field.ErrorList {
+	// annotation vertica.com/use-client-proxy cannot change after creation
+	if v.Annotations[vmeta.UseVProxyAnnotation] != oldObj.Annotations[vmeta.UseVProxyAnnotation] {
+		prefix := field.NewPath("metadata").Child("annotations")
+		errMsg := fmt.Sprintf("annotation %s cannot change after creation", vmeta.UseVProxyAnnotation)
+		err := field.Invalid(prefix.Key(vmeta.UseVProxyAnnotation),
+			v.Annotations[vmeta.VClusterOpsAnnotation],
+			errMsg)
+		allErrs = append(allErrs, err)
+	}
+	// proxy.image cannot change after creation
+	if v.Spec.Proxy.Image != oldObj.Spec.Proxy.Image {
+		err := field.Invalid(field.NewPath("spec").Child("proxy").Child("image"),
+			v.Spec.Proxy.Image,
+			"proxy.image cannot change after creation")
+		allErrs = append(allErrs, err)
 	}
 	return allErrs
 }
