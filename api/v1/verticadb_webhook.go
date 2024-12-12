@@ -1192,7 +1192,7 @@ func (v *VerticaDB) validateSandboxes(allErrs field.ErrorList) field.ErrorList {
 // validateProxyconfig validates if provided proxy info is correct
 func (v *VerticaDB) validateProxyconfig(allErrs field.ErrorList) field.ErrorList {
 	// check if we are using proxy deployments
-	if !vmeta.UseVProxy(v.Annotations) {
+	if vmeta.UseVProxy(v.Annotations) {
 		// check if proxy set and image must be non-empty
 		if v.Spec.Proxy.Image == "" {
 			err := field.Invalid(field.NewPath("spec").Child("proxy").Child("image"),
