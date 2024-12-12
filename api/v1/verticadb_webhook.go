@@ -1209,7 +1209,7 @@ func (v *VerticaDB) validateProxyconfig(allErrs field.ErrorList) field.ErrorList
 				err := field.Invalid(
 					field.NewPath("spec").Child("subclusters").Index(i).Child("proxy").Child("replicas"),
 					sc.Proxy.Replicas,
-					fmt.Sprintf("subcluster %q has an invalid value %q for the proxy replica",
+					fmt.Sprintf("subcluster %q has an invalid value %d for the proxy replica",
 						sc.Name, sc.Proxy.Replicas))
 				allErrs = append(allErrs, err)
 			}
