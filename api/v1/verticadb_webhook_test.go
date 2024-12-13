@@ -169,11 +169,13 @@ var _ = Describe("verticadb_webhook", func() {
 		vdb.Spec.Communal.Path = GCloudPrefix + "randompath"
 		validateSpecValuesHaveErr(vdb, false)
 	})
-	It("should not have proxy replicas < 0 if proxy is enabled", func() {
+	It("should not have proxy replicas <= 0 if proxy is enabled", func() {
 		vdb := createVDBHelper()
 		vdb.Annotations[vmeta.UseVProxyAnnotation] = trueString
 		sc1 := &vdb.Spec.Subclusters[0]
 		*sc1.Proxy.Replicas = -1
+		validateSpecValuesHaveErr(vdb, true)
+		*sc1.Proxy.Replicas = 0
 		validateSpecValuesHaveErr(vdb, true)
 	})
 	It("should set proxy spec if proxy is enabled", func() {

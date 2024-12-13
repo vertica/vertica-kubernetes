@@ -245,7 +245,7 @@ func (v *VerticaDB) validateVerticaDBSpec() field.ErrorList {
 	allErrs = v.validateVersionAnnotation(allErrs)
 	allErrs = v.validateSandboxes(allErrs)
 	allErrs = v.checkNewSBoxOrSClusterShutdownUnset(allErrs)
-	allErrs = v.validateProxyconfig(allErrs)
+	allErrs = v.validateProxyConfig(allErrs)
 	if len(allErrs) == 0 {
 		return nil
 	}
@@ -1189,8 +1189,8 @@ func (v *VerticaDB) validateSandboxes(allErrs field.ErrorList) field.ErrorList {
 	return v.validateSubclustersInSandboxes(allErrs)
 }
 
-// validateProxyconfig validates if provided proxy info is correct
-func (v *VerticaDB) validateProxyconfig(allErrs field.ErrorList) field.ErrorList {
+// validateProxyConfig validates if provided proxy info is correct
+func (v *VerticaDB) validateProxyConfig(allErrs field.ErrorList) field.ErrorList {
 	// check if we are using proxy deployments
 	if vmeta.UseVProxy(v.Annotations) {
 		// check if proxy set and image must be non-empty
@@ -1210,11 +1210,11 @@ func (v *VerticaDB) validateProxyconfig(allErrs field.ErrorList) field.ErrorList
 		// check if replica is set and value is valid
 		for i := range v.Spec.Subclusters {
 			sc := &v.Spec.Subclusters[i]
-			// proxy replicas must be >= 0(at all times)
+			// proxy replicas must be > 0(at all times)
 			if *sc.Proxy.Replicas <= 0 {
 				err := field.Invalid(
 					field.NewPath("spec").Child("subclusters").Index(i).Child("proxy").Child("replicas"),
-					sc.Proxy.Replicas,
+					*sc.Proxy.Replicas,
 					fmt.Sprintf("subcluster %q should have a positive number for proxy replica",
 						sc.Name))
 				allErrs = append(allErrs, err)
