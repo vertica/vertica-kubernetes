@@ -251,10 +251,16 @@ func (r *UnsandboxSubclusterReconciler) unsandboxSubcluster(ctx context.Context,
 		return err
 	}
 
+	sbInitiator, ok := r.OriginalPFacts.GetInitiatorIPInSB(r.ConfigMap.Data[vapi.SandboxNameKey], scName)
+	if !ok {
+		r.Log.Info("Cannot find initiator in sandbox. The sandbox may only have one subcluster",
+			"sandboxName", r.ConfigMap.Data[vapi.SandboxNameKey])
+	}
 	r.SRec.Eventf(r.Vdb, corev1.EventTypeNormal, events.UnsandboxSubclusterStart,
 		"Starting unsandbox subcluster %q", scName)
 	err = r.Dispatcher.UnsandboxSubcluster(ctx,
 		unsandboxsc.WithInitiator(r.InitiatorIP),
+		unsandboxsc.WithSBInitiator(sbInitiator),
 		unsandboxsc.WithSubcluster(scName),
 		// vclusterOps needs correct node names and addresses to do re-ip
 		unsandboxsc.WithNodeNameAddressMap(nodeNameAddressMap),
