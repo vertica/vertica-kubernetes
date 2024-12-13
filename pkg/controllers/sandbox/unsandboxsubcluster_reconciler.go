@@ -251,11 +251,7 @@ func (r *UnsandboxSubclusterReconciler) unsandboxSubcluster(ctx context.Context,
 		return err
 	}
 
-	err = r.PFacts.Collect(ctx, r.Vdb)
-	if err != nil {
-		return err
-	}
-	sbInitiator, ok := r.PFacts.GetInitiatorIPInSB(r.ConfigMap.Data[vapi.SandboxNameKey], scName)
+	sbInitiator, ok := r.OriginalPFacts.GetInitiatorIPInSB(r.ConfigMap.Data[vapi.SandboxNameKey], scName)
 	if !ok {
 		r.Log.Info("Cannot find initiator in sandbox. The sandbox may only have one subcluster",
 			"sandboxName", r.ConfigMap.Data[vapi.SandboxNameKey])
