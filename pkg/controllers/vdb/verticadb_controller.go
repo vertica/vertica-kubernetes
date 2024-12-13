@@ -213,6 +213,8 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		// Check the version information ahead of restart. The version is needed
 		// to properly pick the correct NMA deployment (monolithic vs sidecar).
 		MakeImageVersionReconciler(r, log, vdb, prunner, pfacts, false /* enforceUpgradePath */),
+		// Update the vertica image for unsandboxed subclusters
+		MakeUnsandboxImageVersionReconciler(r, vdb, log, pfacts),
 		// Handles restart + re_ip of vertica
 		MakeRestartReconciler(r, log, vdb, prunner, pfacts, true, dispatcher),
 		MakeMetricReconciler(r, log, vdb, prunner, pfacts),
