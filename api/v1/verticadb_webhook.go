@@ -1211,12 +1211,12 @@ func (v *VerticaDB) validateProxyconfig(allErrs field.ErrorList) field.ErrorList
 		for i := range v.Spec.Subclusters {
 			sc := &v.Spec.Subclusters[i]
 			// proxy replicas must be >= 0(at all times)
-			if *sc.Proxy.Replicas < 0 {
+			if *sc.Proxy.Replicas <= 0 {
 				err := field.Invalid(
 					field.NewPath("spec").Child("subclusters").Index(i).Child("proxy").Child("replicas"),
 					sc.Proxy.Replicas,
-					fmt.Sprintf("subcluster %q has an invalid value %d for the proxy replica",
-						sc.Name, *sc.Proxy.Replicas))
+					fmt.Sprintf("subcluster %q should have a positive number for proxy replica",
+						sc.Name))
 				allErrs = append(allErrs, err)
 			}
 		}
@@ -1225,7 +1225,8 @@ func (v *VerticaDB) validateProxyconfig(allErrs field.ErrorList) field.ErrorList
 		proxyLogLevel := vmeta.GetVProxyLogLevel(v.Annotations)
 		if !slices.Contains(validProxyLogLevel, proxyLogLevel) {
 			prefix := field.NewPath("metadata").Child("annotations")
-			errMsg := fmt.Sprintf("annotation %s value is not valid", vmeta.VProxyLogLevelAnnotation)
+			errMsg := fmt.Sprintf("annotation %s value is not valid, please use one of the following values %v",
+				vmeta.VProxyLogLevelAnnotation, validProxyLogLevel)
 			err := field.Invalid(prefix.Key(vmeta.VProxyLogLevelAnnotation),
 				v.Annotations[vmeta.VProxyLogLevelAnnotation],
 				errMsg)
@@ -2126,7 +2127,7 @@ func (v *VerticaDB) checkImmutableClientProxy(oldObj *VerticaDB, allErrs field.E
 	if v.Spec.Proxy != nil && oldObj.Spec.Proxy != nil && v.Spec.Proxy.Image != oldObj.Spec.Proxy.Image {
 		err := field.Invalid(field.NewPath("spec").Child("proxy").Child("image"),
 			v.Spec.Proxy.Image,
-			"proxy.image cannot change after creation")
+			"proxy.image cannot change after creation, otherwise, as doing so will disrupt current user connections")
 		allErrs = append(allErrs, err)
 	}
 	return allErrs
