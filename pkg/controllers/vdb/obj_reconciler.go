@@ -95,6 +95,12 @@ func (o *ObjReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Re
 		return ctrl.Result{}, errors.New("no podfacts provided")
 	}
 
+	if vmeta.UseVProxy(o.Vdb.Annotations) {
+		if o.Vdb.Spec.Proxy == nil {
+			return ctrl.Result{}, errors.New("spec.proxy must be set when client proxy is enabled")
+		}
+	}
+
 	if err := o.PFacts.Collect(ctx, o.Vdb); err != nil {
 		return ctrl.Result{}, err
 	}
@@ -591,6 +597,9 @@ func (o *ObjReconciler) reconcileSts(ctx context.Context, sc *vapi.Subcluster) (
 
 	var curDep *appsv1.Deployment
 	if vmeta.UseVProxy(o.Vdb.Annotations) {
+		if sc.Proxy == nil {
+			return ctrl.Result{}, fmt.Errorf("subcluster %s must have proxy set when client proxy is enabled", sc.Name)
+		}
 		if curDep, err = o.reconcileVProxy(ctx, sc); err != nil {
 			return ctrl.Result{}, err
 		}
