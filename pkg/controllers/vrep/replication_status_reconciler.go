@@ -234,9 +234,6 @@ func (r *ReplicationStatusReconciler) runReplicationStatus(ctx context.Context, 
 	opts []replicationstatus.Option) (err error) {
 	timeout := vmeta.GetReplicationTimeout(r.Vrep.Annotations)
 	pollingFrequency := vmeta.GetReplicationPollingFrequency(r.Vrep.Annotations)
-	if pollingFrequency <= 0 {
-		pollingFrequency = 5
-	}
 	pollingDuration := time.Duration(pollingFrequency * int(time.Second))
 
 	r.Log.Info(fmt.Sprintf("Starting polling for transaction ID %d", r.Vrep.Status.TransactionID))

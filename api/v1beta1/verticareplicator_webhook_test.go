@@ -18,6 +18,7 @@ package v1beta1
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 )
 
 var _ = Describe("verticascrutinize_webhook", func() {
@@ -140,4 +141,16 @@ var _ = Describe("verticascrutinize_webhook", func() {
 		err := vrep.ValidateCreate()
 		Expect(err.Error()).To(ContainSubstring("Exclude pattern cannot be used without include pattern"))
 	})
+
+	It("should fail if poolingfrequency annotation is 0 or less than 0", func() {
+		vrep := MakeVrep()
+		vrep.Annotations = map[string]string{
+			vmeta.ReplicationTimeoutAnnotation:          "10",
+			vmeta.ReplicationPollingFrequencyAnnotation: "0",
+		}
+		err := vrep.ValidateCreate()
+		Expect(err.Error()).To(ContainSubstring("polling frequency cannot be 0 or less than 0"))
+
+	})
+
 })
