@@ -288,21 +288,6 @@ func (o *ObjReconciler) checkForDeletedSubcluster(ctx context.Context) (ctrl.Res
 		if err != nil {
 			return ctrl.Result{}, err
 		}
-		// Delete proxy deployment if feature enabled
-		if vmeta.UseVProxy(o.Vdb.Annotations) {
-			dep := appsv1.Deployment{}
-			depName := stss.Items[i].Name + "-proxy"
-			err = o.Rec.GetClient().Get(ctx, types.NamespacedName{Name: depName, Namespace: stss.Items[i].Namespace}, &dep)
-			if err == nil {
-				o.Log.Info("Deleting deployment", "Name", depName, "Namespace", stss.Items[i].Namespace)
-				e := o.Rec.GetClient().Delete(ctx, &dep)
-				if e != nil {
-					return ctrl.Result{}, err
-				}
-			} else {
-				o.Log.Error(err, "Deployment not found", "Name", depName, "Namespace", stss.Items[i].Namespace)
-			}
-		}
 	}
 
 	// Find any service objects that need to be deleted
