@@ -64,11 +64,11 @@ spec:
   subclusters:
   - name: sec1
   - name: pri1
-  - name: pri_2
+  - name: pri-2
   - name: pri1-sb
     type: sandboxprimary
     size: 2
-  - name: pri_2-sb
+  - name: pri-2-sb
     type: sandboxprimary
     size: 1
   - name: sec1-sb
@@ -79,5 +79,5 @@ status:
     - name: replica-group-b
       subclusters:
         - pri1-sb
-        - pri_2-sb
+        - pri-2-sb
         - sec1-sb

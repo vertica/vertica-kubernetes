@@ -44,7 +44,7 @@ spec:
   - name: pri1
     type: primary    
     size: 2
-  - name: pri_2
+  - name: pri-2
     type: primary    
     size: 1
   - name: sec1

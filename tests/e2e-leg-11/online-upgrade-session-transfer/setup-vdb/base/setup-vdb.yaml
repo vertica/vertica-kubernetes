@@ -43,7 +43,7 @@ spec:
     - name: pri1
       size: 2
       type: primary
-    - name: pri_2
+    - name: pri-2
       size: 1
       type: primary
   certSecrets: []
