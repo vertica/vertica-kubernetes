@@ -1191,47 +1191,59 @@ func (v *VerticaDB) validateSandboxes(allErrs field.ErrorList) field.ErrorList {
 
 // validateProxyConfig validates if provided proxy info is correct
 func (v *VerticaDB) validateProxyConfig(allErrs field.ErrorList) field.ErrorList {
-	// check if we are using proxy deployments
-	if vmeta.UseVProxy(v.Annotations) {
-		// check if proxy set and image must be non-empty
-		if v.Spec.Proxy == nil {
-			err := field.Invalid(field.NewPath("spec").Child("proxy"),
-				"",
-				"proxy is not set")
-			allErrs = append(allErrs, err)
-		}
-		if v.Spec.Proxy != nil && v.Spec.Proxy.Image == "" {
-			err := field.Invalid(field.NewPath("spec").Child("proxy").Child("image"),
-				v.Spec.Proxy.Image,
-				"proxy.image cannot be empty")
-			allErrs = append(allErrs, err)
-		}
+	if !vmeta.UseVProxy(v.Annotations) {
+		return allErrs
+	}
+	allErrs = v.validateSpecProxy(allErrs)
+	allErrs = v.validateSubclusterProxy(allErrs)
+	return v.validateProxyLogLevel(allErrs)
+}
 
-		// check if replica is set and value is valid
-		for i := range v.Spec.Subclusters {
-			sc := &v.Spec.Subclusters[i]
-			// proxy replicas must be > 0(at all times)
-			if sc.Proxy != nil && sc.Proxy.Replicas != nil && *sc.Proxy.Replicas <= 0 {
-				err := field.Invalid(
-					field.NewPath("spec").Child("subclusters").Index(i).Child("proxy").Child("replicas"),
-					sc.Proxy.Replicas,
-					fmt.Sprintf("subcluster %q should have a positive number for proxy replica",
-						sc.Name))
-				allErrs = append(allErrs, err)
-			}
-		}
+// validateSpecProxy checks if proxy set and image must be non-empty
+func (v *VerticaDB) validateSpecProxy(allErrs field.ErrorList) field.ErrorList {
+	if v.Spec.Proxy == nil {
+		err := field.Invalid(field.NewPath("spec").Child("proxy"),
+			"",
+			"proxy is not set")
+		allErrs = append(allErrs, err)
+	}
+	if v.Spec.Proxy != nil && v.Spec.Proxy.Image == "" {
+		err := field.Invalid(field.NewPath("spec").Child("proxy").Child("image"),
+			v.Spec.Proxy.Image,
+			"proxy.image cannot be empty")
+		allErrs = append(allErrs, err)
+	}
+	return allErrs
+}
 
-		// check if log level annotaion value valid
-		proxyLogLevel := vmeta.GetVProxyLogLevel(v.Annotations)
-		if !slices.Contains(validProxyLogLevel, proxyLogLevel) {
-			prefix := field.NewPath("metadata").Child("annotations")
-			errMsg := fmt.Sprintf("annotation %s value is not valid, please use one of the following values %v",
-				vmeta.VProxyLogLevelAnnotation, validProxyLogLevel)
-			err := field.Invalid(prefix.Key(vmeta.VProxyLogLevelAnnotation),
-				v.Annotations[vmeta.VProxyLogLevelAnnotation],
-				errMsg)
+// validateSubclusterProxy checks if replica is set and value is valid
+func (v *VerticaDB) validateSubclusterProxy(allErrs field.ErrorList) field.ErrorList {
+	for i := range v.Spec.Subclusters {
+		sc := &v.Spec.Subclusters[i]
+		// proxy replicas must be > 0(at all times)
+		if sc.Proxy != nil && sc.Proxy.Replicas != nil && *sc.Proxy.Replicas <= 0 {
+			err := field.Invalid(
+				field.NewPath("spec").Child("subclusters").Index(i).Child("proxy").Child("replicas"),
+				sc.Proxy.Replicas,
+				fmt.Sprintf("subcluster %q should have a positive number for proxy replica",
+					sc.Name))
 			allErrs = append(allErrs, err)
 		}
+	}
+	return allErrs
+}
+
+// validateProxyLogLevel checks if log level annotation value valid
+func (v *VerticaDB) validateProxyLogLevel(allErrs field.ErrorList) field.ErrorList {
+	proxyLogLevel := vmeta.GetVProxyLogLevel(v.Annotations)
+	if !slices.Contains(validProxyLogLevel, proxyLogLevel) {
+		prefix := field.NewPath("metadata").Child("annotations")
+		errMsg := fmt.Sprintf("annotation %s value is not valid, please use one of the following values %v",
+			vmeta.VProxyLogLevelAnnotation, validProxyLogLevel)
+		err := field.Invalid(prefix.Key(vmeta.VProxyLogLevelAnnotation),
+			v.Annotations[vmeta.VProxyLogLevelAnnotation],
+			errMsg)
+		allErrs = append(allErrs, err)
 	}
 	return allErrs
 }
@@ -2160,14 +2172,15 @@ func (v *VerticaDB) setDefaultSandboxImages() {
 func (v *VerticaDB) setDefaultProxy() {
 	useProxy := vmeta.UseVProxy(v.Annotations)
 	if useProxy {
-		if v.Spec.Proxy != nil && v.Spec.Proxy.Image == "" {
+		if v.Spec.Proxy == nil {
+			v.Spec.Proxy = &Proxy{}
+		}
+		if v.Spec.Proxy.Image == "" {
 			v.Spec.Proxy.Image = VProxyDefaultImage
 		}
-	} else {
-		if v.Spec.Proxy != nil {
-			if *v.Spec.Proxy == (Proxy{}) {
-				v.Spec.Proxy = nil
-			}
+	} else if v.Spec.Proxy != nil {
+		if *v.Spec.Proxy == (Proxy{}) {
+			v.Spec.Proxy = nil
 		}
 	}
 	for i := range v.Spec.Subclusters {

@@ -769,9 +769,10 @@ var _ = Describe("verticadb_webhook", func() {
 		vdb.Default()
 		Expect(vdb.Spec.Proxy).Should(BeNil())
 		vdb.Annotations[vmeta.UseVProxyAnnotation] = vmeta.UseVProxyAnnotationTrue
-		vdb.Spec.Proxy = &Proxy{}
+		vdb.Spec.Proxy = nil
 		vdb.Spec.Subclusters[0].Proxy = nil
 		vdb.Default()
+		Expect(vdb.Spec.Proxy).ShouldNot(BeNil())
 		Expect(vdb.Spec.Proxy.Image).Should(Equal(VProxyDefaultImage))
 		Expect(vdb.Spec.Subclusters[0].Proxy).ShouldNot(BeNil())
 		Expect(*vdb.Spec.Subclusters[0].Proxy.Replicas).Should(Equal(int32(VProxyDefaultReplicas)))
