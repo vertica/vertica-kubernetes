@@ -20,15 +20,6 @@ data:
     #!/bin/bash
     set -o errexit
     set -o xtrace
-    # Access to subclusters through primary service should route to the new main cluster.
-    CONNECTION_NODE=$(vsql -U dbadmin -h v-base-upgrade-pri1 -tAc "select node_name from current_session")
-    echo $CONNECTION_NODE
-    if [[ $CONNECTION_NODE == "v_repup_node0007" ]] || \
-       [[ $CONNECTION_NODE == "v_repup_node0008" ]] || \
-       [[ $CONNECTION_NODE == "v_repup_node0009" ]]
-    then
-      exit 0
-    fi
     # Access to subclusters through secondary service should route to the new main cluster.
     CONNECTION_NODE=$(vsql -U dbadmin -h v-base-upgrade-sec1 -tAc "select node_name from current_session")
     echo $CONNECTION_NODE
