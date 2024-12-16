@@ -126,11 +126,16 @@ func (c *ClientRoutingLabelReconciler) reconcileProxy(ctx context.Context) (ctrl
 
 // reconcileProxyForSC will reconcile client routing label for the proxy pods in target subcluster
 func (c *ClientRoutingLabelReconciler) reconcileProxyForSC(ctx context.Context, scName string) (ctrl.Result, error) {
+	scMap := c.Vdb.GenSubclusterMap()
+	sc, ok := scMap[scName]
+	if !ok {
+		return ctrl.Result{}, fmt.Errorf("subcluster %q not found when reconciling client routing label for proxy", scName)
+	}
 	pods := corev1.PodList{}
 	proxyLabels := map[string]string{
-		vmeta.ProxyPodSelectorLabel: vmeta.ProxyPodSelectorVal,
-		vmeta.VDBInstanceLabel:      c.Vdb.Name,
-		vmeta.SubclusterNameLabel:   scName,
+		vmeta.ProxyPodSelectorLabel:   vmeta.ProxyPodSelectorVal,
+		vmeta.VDBInstanceLabel:        c.Vdb.Name,
+		vmeta.DeploymentSelectorLabel: sc.GetVProxyDeploymentName(c.Vdb),
 	}
 	listOps := &client.ListOptions{
 		LabelSelector: labels.SelectorFromSet(labels.Set(proxyLabels)),
