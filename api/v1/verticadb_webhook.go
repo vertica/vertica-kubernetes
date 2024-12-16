@@ -1211,7 +1211,7 @@ func (v *VerticaDB) validateProxyConfig(allErrs field.ErrorList) field.ErrorList
 		for i := range v.Spec.Subclusters {
 			sc := &v.Spec.Subclusters[i]
 			// proxy replicas must be > 0(at all times)
-			if *sc.Proxy.Replicas <= 0 {
+			if sc.Proxy != nil && sc.Proxy.Replicas != nil && *sc.Proxy.Replicas <= 0 {
 				err := field.Invalid(
 					field.NewPath("spec").Child("subclusters").Index(i).Child("proxy").Child("replicas"),
 					*sc.Proxy.Replicas,
