@@ -1,0 +1,64 @@
+# (c) Copyright [2021-2024] Open Text.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# You may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: script-verify-new-connection-sessions
+data:
+  entrypoint.sh: |-
+    #!/bin/bash
+    set -o errexit
+    set -o xtrace
+
+    # get ips of proxy pods
+    PROXY_POD_IP=$(kubectl get pod -l pod-template-hash,vertica.com/deployment-selector-name=v-base-upgrade-sec1-sb-proxy -o jsonpath='{.items[0].status.podIP}')
+
+    POD_NAME=v-base-upgrade-sec1-sb-0
+    # verify the connection started at step 37 still continues
+    LAST_CONN_1=$(kubectl exec $POD_NAME -i -c server -- bash -c "vsql -U user1 -w 'user1s3cr3t' -tAc \"select ts from user1_schema.test order by ts desc limit 1;\"")
+
+    # another conection should start in around 2 seconds
+    sleep 4
+    LAST_CONN_2=$(kubectl exec $POD_NAME -i -c server -- bash -c "vsql -U user1 -w 'user1s3cr3t' -tAc \"select ts from user1_schema.test order by ts desc limit 1;\"")
+
+    LAST_CONN_1_TS=$(date -d "$LAST_CONN_1" +%s)
+    LAST_CONN_2_TS=$(date -d "$LAST_CONN_2" +%s)
+    if [ $LAST_CONN_2_TS -ng $LAST_CONN_1_TS ]; then
+      echo "Assertion failed: expected $LAST_CONN_2_TS to be newer than $LAST_CONN_1_TS"
+      exit 1
+    fi
+
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-verify-new-connection-sessions
+  labels:
+    stern: include
+spec:
+  restartPolicy: Never
+  containers:
+    - name: test
+      image: bitnami/kubectl:1.20.4
+      command: ["/bin/entrypoint.sh"]
+      volumeMounts:
+        - name: entrypoint-volume
+          mountPath: /bin/entrypoint.sh
+          readOnly: true
+          subPath: entrypoint.sh
+  volumes:
+    - name: entrypoint-volume
+      configMap:
+        defaultMode: 0777
+        name: script-verify-new-connection-sessions
