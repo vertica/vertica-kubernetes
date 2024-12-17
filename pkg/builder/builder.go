@@ -102,6 +102,8 @@ const (
 
 	// Client proxy config file name
 	vProxyConfigFile = "config.yaml"
+	// Client proxy volume name
+	vProxyVolumeName = "vproxy-config"
 )
 
 type ProxyData struct {
@@ -901,7 +903,7 @@ func buildVProxyPodSpec(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.PodSpec
 		SecurityContext:               vdb.Spec.PodSecurityContext,
 		Volumes: []corev1.Volume{
 			{
-				Name: sc.Name,
+				Name: vProxyVolumeName,
 				VolumeSource: corev1.VolumeSource{
 					ConfigMap: &corev1.ConfigMapVolumeSource{
 						LocalObjectReference: corev1.LocalObjectReference{Name: sc.GetVProxyConfigMapName(vdb)},
@@ -1020,7 +1022,7 @@ func makeVProxyContainer(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.Contai
 			{ContainerPort: VerticaClientPort, Name: "vertica"},
 		},
 		VolumeMounts: []corev1.VolumeMount{
-			{Name: sc.Name, MountPath: "/config"},
+			{Name: vProxyVolumeName, MountPath: "/config"},
 		},
 	}
 }

@@ -727,11 +727,11 @@ func (o *ObjReconciler) updateWorkload(ctx context.Context, curWorkload, expWork
 	if !reflect.DeepEqual(curWorkload, origWorkload) {
 		// Invalidate pod facts if applicable
 		if sts, ok := curWorkload.(*appsv1.StatefulSet); ok {
-			o.Log.Info("Patching statefulset", "Name", sts.Name, "Image", sts.Spec.Template.Spec.Containers[0].Image)
+			o.Log.Info("Patched statefulset", "Name", sts.Name, "Image", sts.Spec.Template.Spec.Containers[0].Image)
 			o.PFacts.Invalidate()
 		} else {
 			dep := curWorkload.(*appsv1.Deployment)
-			o.Log.Info("Patching deployment", "Name", dep.Name,
+			o.Log.Info("Patched deployment", "Name", dep.Name,
 				"Image", dep.Spec.Template.Spec.Containers[0].Image)
 		}
 	}
