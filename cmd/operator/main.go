@@ -157,11 +157,12 @@ func addReconcilersToManager(mgr manager.Manager, restCfg *rest.Config) {
 		os.Exit(1)
 	}
 	if err := (&vrep.VerticaReplicatorReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-		Cfg:    restCfg,
-		EVRec:  mgr.GetEventRecorderFor(vmeta.OperatorName),
-		Log:    ctrl.Log.WithName("controllers").WithName("VerticaReplicator"),
+		Client:      mgr.GetClient(),
+		Scheme:      mgr.GetScheme(),
+		Cfg:         restCfg,
+		EVRec:       mgr.GetEventRecorderFor(vmeta.OperatorName),
+		Log:         ctrl.Log.WithName("controllers").WithName("VerticaReplicator"),
+		Concurrency: opcfg.GetVerticaReplicatorConcurrency(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "VerticaReplicator")
 		os.Exit(1)

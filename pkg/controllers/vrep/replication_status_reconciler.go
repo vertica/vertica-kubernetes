@@ -19,6 +19,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -230,11 +231,10 @@ func (r *ReplicationStatusReconciler) buildOpts() []replicationstatus.Option {
 }
 
 func (r *ReplicationStatusReconciler) runReplicationStatus(ctx context.Context, dispatcher vadmin.Dispatcher,
-	opts []replicationstatus.Option) (err error) {
+	opts []replicationstatus.Option) error {
 	timeout := vmeta.GetReplicationTimeout(r.Vrep.Annotations)
 	pollingFrequency := vmeta.GetReplicationPollingFrequency(r.Vrep.Annotations)
 	pollingDuration := time.Duration(pollingFrequency * int(time.Second))
-
 	r.Log.Info(fmt.Sprintf("Starting polling for transaction ID %d", r.Vrep.Status.TransactionID))
 	for i := 0; i < timeout; i += pollingFrequency {
 		// call vcluster API
@@ -243,11 +243,11 @@ func (r *ReplicationStatusReconciler) runReplicationStatus(ctx context.Context, 
 			return errRun
 		}
 
-		if status.Status == statusFailed {
+		if strings.HasPrefix(status.Status, statusFailed) {
 			r.VRec.Event(r.Vrep, corev1.EventTypeWarning, events.ReplicationFailed, "Failed when calling replication start")
 
 			// clear Replicating status condition and set the ReplicationComplete status condition
-			err = vrepstatus.Update(ctx, r.VRec.Client, r.VRec.Log, r.Vrep,
+			err := vrepstatus.Update(ctx, r.VRec.Client, r.VRec.Log, r.Vrep,
 				[]*metav1.Condition{vapi.MakeCondition(v1beta1.Replicating, metav1.ConditionFalse, "Failed"),
 					vapi.MakeCondition(v1beta1.ReplicationComplete, metav1.ConditionTrue, "Failed")},
 				stateFailedReplication, r.Vrep.Status.TransactionID)
@@ -279,5 +279,13 @@ func (r *ReplicationStatusReconciler) runReplicationStatus(ctx context.Context, 
 
 		time.Sleep(pollingDuration)
 	}
-	return fmt.Errorf("replication timeout exceeded")
+	r.VRec.Event(r.Vrep, corev1.EventTypeWarning, events.ReplicationFailed, "Replication timeout exceeded")
+
+	// clear Replicating status condition and set the ReplicationComplete status condition
+	err := vrepstatus.Update(ctx, r.VRec.Client, r.VRec.Log, r.Vrep,
+		[]*metav1.Condition{vapi.MakeCondition(v1beta1.Replicating, metav1.ConditionFalse, "Failed"),
+			vapi.MakeCondition(v1beta1.ReplicationComplete, metav1.ConditionTrue, "Failed")},
+		stateFailedReplication, r.Vrep.Status.TransactionID)
+	r.Log.Info(fmt.Sprintf("Replication timed out, transaction ID: %d", r.Vrep.Status.TransactionID))
+	return err
 }
