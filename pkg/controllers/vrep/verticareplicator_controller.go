@@ -26,6 +26,7 @@ import (
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller"
 
 	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
@@ -38,10 +39,11 @@ import (
 // VerticaReplicatorReconciler reconciles a VerticaReplicator object
 type VerticaReplicatorReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
-	Log    logr.Logger
-	Cfg    *rest.Config
-	EVRec  record.EventRecorder
+	Scheme      *runtime.Scheme
+	Log         logr.Logger
+	Cfg         *rest.Config
+	EVRec       record.EventRecorder
+	Concurrency int
 }
 
 //+kubebuilder:rbac:groups=vertica.com,resources=verticareplicators,verbs=get;list;watch;create;update;patch;delete
@@ -100,6 +102,7 @@ func (r *VerticaReplicatorReconciler) Reconcile(ctx context.Context, req ctrl.Re
 func (r *VerticaReplicatorReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&vapi.VerticaReplicator{}).
+		WithOptions(controller.Options{MaxConcurrentReconciles: r.Concurrency}).
 		Complete(r)
 }
 

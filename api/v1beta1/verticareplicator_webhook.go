@@ -18,6 +18,7 @@ package v1beta1
 import (
 	"fmt"
 
+	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/validation/field"
@@ -78,7 +79,7 @@ func (vrep *VerticaReplicator) validateVrepSpec() field.ErrorList {
 	allErrs = vrep.ValidateReplicationMode(allErrs)
 	allErrs = vrep.ValidateAsyncReplicationOptions(allErrs)
 	allErrs = vrep.ValidateSyncReplicationOptions(allErrs)
-
+	allErrs = vrep.ValidatePollingFrequency(allErrs)
 	return allErrs
 }
 
@@ -153,5 +154,18 @@ func (vrep *VerticaReplicator) ValidateSyncReplicationOptions(allErrs field.Erro
 		allErrs = append(allErrs, err)
 	}
 
+	return allErrs
+}
+
+// ValidatePollingFrequency will validate the poling frequency is larger than 0
+func (vrep *VerticaReplicator) ValidatePollingFrequency(allErrs field.ErrorList) field.ErrorList {
+	poolingFrequency := vmeta.GetReplicationPollingFrequency(vrep.Annotations)
+	if poolingFrequency <= 0 {
+		prefix := field.NewPath("metadata").Child("annotations")
+		err := field.Invalid(prefix.Key(vmeta.ReplicationPollingFrequencyAnnotation),
+			vrep.Annotations[vmeta.ReplicationPollingFrequencyAnnotation],
+			"polling frequency cannot be 0 or less than 0")
+		allErrs = append(allErrs, err)
+	}
 	return allErrs
 }

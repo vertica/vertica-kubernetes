@@ -169,6 +169,29 @@ var _ = Describe("verticadb_webhook", func() {
 		vdb.Spec.Communal.Path = GCloudPrefix + "randompath"
 		validateSpecValuesHaveErr(vdb, false)
 	})
+	It("should not have proxy replicas <= 0 if proxy is enabled", func() {
+		vdb := createVDBHelper()
+		vdb.Annotations[vmeta.UseVProxyAnnotation] = trueString
+		sc1 := &vdb.Spec.Subclusters[0]
+		*sc1.Proxy.Replicas = -1
+		validateSpecValuesHaveErr(vdb, true)
+		*sc1.Proxy.Replicas = 0
+		validateSpecValuesHaveErr(vdb, true)
+	})
+	It("should set proxy spec if proxy is enabled", func() {
+		vdb := createVDBHelper()
+		vdb.Annotations[vmeta.UseVProxyAnnotation] = trueString
+		vdb.Spec.Proxy.Image = ""
+		validateSpecValuesHaveErr(vdb, true)
+		vdb.Spec.Proxy = nil
+		validateSpecValuesHaveErr(vdb, true)
+	})
+	It("should not have invalid value for proxy log level", func() {
+		vdb := createVDBHelper()
+		vdb.Annotations[vmeta.UseVProxyAnnotation] = trueString
+		vdb.Annotations[vmeta.VProxyLogLevelAnnotation] = "INVALID_VALUE"
+		validateSpecValuesHaveErr(vdb, true)
+	})
 
 	It("should not have duplicate parms in communal.AdditionalConfig", func() {
 		vdb := createVDBHelper()
@@ -295,7 +318,7 @@ var _ = Describe("verticadb_webhook", func() {
 	It("should not include UID in path if revive_db", func() {
 		vdb := MakeVDB()
 		annotationName := vmeta.IncludeUIDInPathAnnotation
-		vdb.Annotations[annotationName] = "true"
+		vdb.Annotations[annotationName] = trueString
 		validateSpecValuesHaveErr(vdb, false)
 		vdb.Spec.InitPolicy = CommunalInitPolicyRevive
 		validateSpecValuesHaveErr(vdb, true)
@@ -390,6 +413,16 @@ var _ = Describe("verticadb_webhook", func() {
 	It("should not change local.storageClass after creation", func() {
 		vdbUpdate := createVDBHelper()
 		vdbUpdate.Spec.Local.StorageClass = "MyStorageClass"
+		validateImmutableFields(vdbUpdate, true)
+	})
+	It("should not change proxy.image after creation", func() {
+		vdbUpdate := createVDBHelper()
+		vdbUpdate.Spec.Proxy.Image = "NewProxyImage"
+		validateImmutableFields(vdbUpdate, true)
+	})
+	It("should not change annotation vertica.com/use-client-proxy after creation", func() {
+		vdbUpdate := createVDBHelper()
+		vdbUpdate.Annotations[vmeta.UseVProxyAnnotation] = "NewValue"
 		validateImmutableFields(vdbUpdate, true)
 	})
 	It("should not change local.depotVolume after DB init", func() {
@@ -736,9 +769,10 @@ var _ = Describe("verticadb_webhook", func() {
 		vdb.Default()
 		Expect(vdb.Spec.Proxy).Should(BeNil())
 		vdb.Annotations[vmeta.UseVProxyAnnotation] = vmeta.UseVProxyAnnotationTrue
-		vdb.Spec.Proxy = &Proxy{}
+		vdb.Spec.Proxy = nil
 		vdb.Spec.Subclusters[0].Proxy = nil
 		vdb.Default()
+		Expect(vdb.Spec.Proxy).ShouldNot(BeNil())
 		Expect(vdb.Spec.Proxy.Image).Should(Equal(VProxyDefaultImage))
 		Expect(vdb.Spec.Subclusters[0].Proxy).ShouldNot(BeNil())
 		Expect(*vdb.Spec.Subclusters[0].Proxy.Replicas).Should(Equal(int32(VProxyDefaultReplicas)))
@@ -1421,9 +1455,9 @@ var _ = Describe("verticadb_webhook", func() {
 			oldVdb.Spec.Subclusters = []Subcluster{
 				{Name: "sc1", Type: PrimarySubcluster, Size: 3, ServiceType: v1.ServiceTypeClusterIP},
 				{Name: "sc2", Shutdown: true, Type: SandboxPrimarySubcluster, Size: 3, ServiceType: v1.ServiceTypeClusterIP,
-					Annotations: map[string]string{"vertica.com/shutdown-driven-by-sandbox": "true"}},
+					Annotations: map[string]string{"vertica.com/shutdown-driven-by-sandbox": trueString}},
 				{Name: "sc3", Shutdown: true, Type: SecondarySubcluster, Size: 3, ServiceType: v1.ServiceTypeNodePort,
-					Annotations: map[string]string{"vertica.com/shutdown-driven-by-sandbox": "true"}},
+					Annotations: map[string]string{"vertica.com/shutdown-driven-by-sandbox": trueString}},
 			}
 			oldVdb.Spec.Sandboxes = []Sandbox{
 				{Name: "sand1", Shutdown: true, Subclusters: []SubclusterName{{Name: "sc2"}, {Name: "sc3"}}},

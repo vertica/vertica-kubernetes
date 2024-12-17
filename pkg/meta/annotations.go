@@ -372,7 +372,7 @@ const (
 	ReplicationTimeoutAnnotation          = "vertica.com/replication-timeout"
 	ReplicationDefaultTimeout             = 60 * 60
 	ReplicationPollingFrequencyAnnotation = "vertica.com/replication-polling-frequency"
-	ReplicationDefaultPollingFrequency    = 0
+	ReplicationDefaultPollingFrequency    = 5
 )
 
 // IsPauseAnnotationSet will check the annotations for a special value that will
@@ -572,7 +572,7 @@ func GetNMAHealthProbeOverride(annotations map[string]string, probeName, field s
 
 // GetVProxyLogLevel returns scrutinize log age hours
 func GetVProxyLogLevel(annotations map[string]string) string {
-	return lookupStringAnnotation(annotations, VProxyLogLevelAnnotation, VProxyLogLevelDefaultLevel)
+	return strings.ToUpper(lookupStringAnnotation(annotations, VProxyLogLevelAnnotation, VProxyLogLevelDefaultLevel))
 }
 
 // GetScrutinizePodTTL returns how long the scrutinize pod will keep running

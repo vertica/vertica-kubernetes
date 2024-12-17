@@ -237,4 +237,68 @@ var _ = Describe("query_reconcile", func() {
 		Expect(vrep.IsStatusConditionTrue(v1beta1.Replicating)).Should(BeTrue())
 		Expect(vrep.Status.State).Should(Equal(stateReplicating))
 	})
+
+	It("should update status to complete (failed) when replication times out", func() {
+		sourceVdbName := v1beta1.MakeSourceVDBName()
+		sourceVdb := vapi.MakeVDB()
+		sourceVdb.Name = sourceVdbName.Name
+		sourceVdb.Namespace = sourceVdbName.Namespace
+		sourceVdb.Annotations[vmeta.VersionAnnotation] = minimumVer
+		sourceVdb.Spec.NMATLSSecret = testTLSSecretName
+
+		test.CreateVDB(ctx, k8sClient, sourceVdb)
+		defer test.DeleteVDB(ctx, k8sClient, sourceVdb)
+		test.CreatePods(ctx, k8sClient, sourceVdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, sourceVdb)
+
+		targetVdbName := v1beta1.MakeTargetVDBName()
+		targetVdb := vapi.MakeVDB()
+		targetVdb.Name = targetVdbName.Name
+		targetVdb.Namespace = targetVdbName.Namespace
+		targetVdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
+		targetVdb.Annotations[vmeta.VersionAnnotation] = minimumVer
+		targetVdb.Spec.NMATLSSecret = testTargetTLSSecretName
+		targetVdb.UID = testTargetVdbUID
+
+		test.CreateVDB(ctx, k8sClient, targetVdb)
+		defer test.DeleteVDB(ctx, k8sClient, targetVdb)
+		test.CreatePods(ctx, k8sClient, targetVdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, targetVdb)
+
+		setupAPIFunc := func(logr.Logger, string) (vadmin.VClusterProvider, logr.Logger) {
+			return &mockAsyncReplicationVClusterOps{scenario: 1}, logr.Logger{}
+		}
+		dispatcher := mockVClusterOpsDispatcherWithCustomSetupAndTarget(sourceVdb, targetVdb, setupAPIFunc)
+		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, k8sClient, testTLSSecretName)
+		defer test.DeleteSecret(ctx, k8sClient, testTLSSecretName)
+		test.CreateFakeTLSSecret(ctx, dispatcher.TargetVDB, k8sClient, testTargetTLSSecretName)
+		defer test.DeleteSecret(ctx, k8sClient, testTargetTLSSecretName)
+
+		vrep := v1beta1.MakeVrep()
+		vrep.Annotations = map[string]string{
+			vmeta.ReplicationTimeoutAnnotation:          "10",
+			vmeta.ReplicationPollingFrequencyAnnotation: "5",
+		}
+		vrep.Spec.Mode = v1beta1.ReplicationModeAsync
+		Expect(k8sClient.Create(ctx, vrep)).Should(Succeed())
+		defer func() { Expect(k8sClient.Delete(ctx, vrep)).Should(Succeed()) }()
+
+		err := vrepstatus.Update(ctx, vrepRec.Client, vrepRec.Log, vrep,
+			[]*metav1.Condition{vapi.MakeCondition(v1beta1.Replicating,
+				metav1.ConditionTrue, "Started")}, stateReplicating, testTransactionID)
+		Expect(err).ShouldNot(HaveOccurred())
+
+		r := &ReplicationStatusReconciler{
+			Client: k8sClient,
+			VRec:   vrepRec,
+			Vrep:   vrep,
+			Log:    logger,
+		}
+		err = r.runReplicationStatus(ctx, dispatcher, []replicationstatus.Option{})
+		Expect(err).ShouldNot(HaveOccurred())
+		Expect(vrep.IsStatusConditionFalse(v1beta1.Replicating)).Should(BeTrue())
+		Expect(vrep.IsStatusConditionTrue(v1beta1.ReplicationComplete)).Should(BeTrue())
+		Expect(vrep.Status.State).Should(Equal(stateFailedReplication))
+	})
+
 })

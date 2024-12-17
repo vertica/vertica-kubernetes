@@ -139,19 +139,29 @@ func mockVClusterOpsDispatcherWithCustomSetupAndTarget(vdb *v1.VerticaDB, target
 // MockVClusterOps with successful return values for VReplicateDatabase and VReplicationStatus
 type mockAsyncReplicationVClusterOps struct {
 	mockvops.MockVClusterOps
+	scenario int
 }
 
 func (*mockAsyncReplicationVClusterOps) VReplicateDatabase(_ *vclusterops.VReplicationDatabaseOptions) (int64, error) {
 	return testTransactionID, nil
 }
 
-func (*mockAsyncReplicationVClusterOps) VReplicationStatus(_ *vclusterops.VReplicationStatusDatabaseOptions) (
+func (r *mockAsyncReplicationVClusterOps) VReplicationStatus(_ *vclusterops.VReplicationStatusDatabaseOptions) (
 	*vclusterops.ReplicationStatusResponse, error) {
-	return &vclusterops.ReplicationStatusResponse{
-		Status:        statusCompleted,
-		StartTime:     "Mon Jan  1 12:34:56 UTC 2024",
-		EndTime:       "Mon Jan  1 12:34:57 UTC 2024",
-		TransactionID: testTransactionID,
-		OpName:        opLoadSnapshot,
-	}, nil
+	if r.scenario == 0 {
+		return &vclusterops.ReplicationStatusResponse{
+			Status:        statusCompleted,
+			StartTime:     "Mon Jan  1 12:34:56 UTC 2024",
+			EndTime:       "Mon Jan  1 12:34:57 UTC 2024",
+			TransactionID: testTransactionID,
+			OpName:        opLoadSnapshot,
+		}, nil
+	} else {
+		return &vclusterops.ReplicationStatusResponse{
+			Status:        statusStarted,
+			StartTime:     "Mon Jan  1 12:34:56 UTC 2024",
+			TransactionID: testTransactionID,
+			OpName:        opDataTransfer,
+		}, nil
+	}
 }
