@@ -285,7 +285,6 @@ replacements:
     targets:
       - select:
           kind: VerticaDB
-          name: v-client-proxy
         fieldPaths:
           - spec.proxy.image
   - source:

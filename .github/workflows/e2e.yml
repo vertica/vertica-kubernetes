@@ -55,6 +55,7 @@ on:
         - leg 8
         - vcluster leg 9
         - vcluster leg 10
+        - vcluster leg 11
         - vcluster server upgrade
         - vcluster udx
       run_security_scan:
@@ -728,6 +729,7 @@ jobs:
       e2e-leg-8-vcluster-online,
       e2e-leg-9-vcluster,
       e2e-leg-10-vcluster,
+      e2e-leg-11-vcluster,
       e2e-server-upgrade-vcluster,
       e2e-operator-upgrade,
       e2e-udx-vcluster,
@@ -775,6 +777,7 @@ jobs:
       e2e-leg-8-vcluster-online,
       e2e-leg-9-vcluster,
       e2e-leg-10-vcluster,
+      e2e-leg-11-vcluster,
       e2e-server-upgrade-vcluster,
       e2e-operator-upgrade,
       e2e-udx-vcluster
