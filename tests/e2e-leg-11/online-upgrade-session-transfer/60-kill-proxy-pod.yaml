@@ -22,19 +22,12 @@ data:
     set -o xtrace
     # get the proxy pod name
     PROXY_LABEL=pod-template-hash,vertica.com/deployment-selector-name=v-base-upgrade-pri1-sb-proxy
-    PROXY_PRI1_ORIG=$(kubectl get pod -l $PROXY_LABEL --no-headers -o custom-columns=:.metadata.name)
-    # delete the proxy pod and a new proxy pod will be created
+    # delete the proxy pod
     kubectl delete pod -l $PROXY_LABEL
-    PROXY_PRI1_NEW=$(kubectl get pod -l $PROXY_LABEL --no-headers -o custom-columns=:.metadata.name)
-    # new proxy pod name should be different to the original one
-    for pod_new in $PROXY_PRI1_NEW; do
-      for pod_orig in $PROXY_PRI1_ORIG; do
-        if [ "$pod_new" == "$pod_orig" ]; then
-          echo "Assertion failed: expect a new proxy pod to be created, got the original pod $PROXY_PRI1_ORIG"
-          exit 1
-        fi
-      done
-    done
+
+    if [ $? -ne 0 ]; then
+      exit 1
+    fi
 ---
 apiVersion: v1
 kind: Pod

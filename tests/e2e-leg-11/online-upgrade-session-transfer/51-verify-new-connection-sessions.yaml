@@ -39,6 +39,8 @@ data:
       exit 1
     fi
 
+    # remove the start connection sessions job
+    kubectl delete jobs test-start-connection-sessions
 ---
 apiVersion: v1
 kind: Pod

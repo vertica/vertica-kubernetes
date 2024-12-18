@@ -72,7 +72,7 @@ status:
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: v-base-upgrade-pri1-2-proxy-cm
+  name: v-base-upgrade-pri-2-proxy-cm
 immutable: false
 ---
 apiVersion: apps/v1
