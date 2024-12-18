@@ -55,6 +55,7 @@ on:
         - leg 8
         - vcluster leg 9
         - vcluster leg 10
+        - vcluster leg 11
         - vcluster server upgrade
         - vcluster udx
       run_security_scan:
