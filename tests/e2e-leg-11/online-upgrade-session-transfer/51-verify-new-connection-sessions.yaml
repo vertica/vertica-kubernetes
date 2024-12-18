@@ -38,9 +38,6 @@ data:
       echo "Assertion failed: expected $LAST_CONN_2_TS to be newer than $LAST_CONN_1_TS"
       exit 1
     fi
-
-    # remove the start connection sessions job
-    kubectl delete jobs test-start-connection-sessions
 ---
 apiVersion: v1
 kind: Pod
