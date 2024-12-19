@@ -1,5 +1,0 @@
-kind: Security
-body: Fix for CVE-2024-45337
-time: 2024-12-13T14:53:50.849642169-05:00
-custom:
-    Issue: "1005"
