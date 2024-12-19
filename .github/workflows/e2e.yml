@@ -489,7 +489,7 @@ jobs:
           communal-storage-type: hostpath
           minimum-vertica-image: '24.2.0'
 
-  e2e-leg-8-vcluster-offline:
+  e2e-leg-8-admintools-offline:
     if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'leg 8' || inputs.e2e_test_suites == '')}}
     needs: [build]
     runs-on: ubuntu-latest
@@ -511,7 +511,7 @@ jobs:
           communal-storage-type: azb
           minimum-vertica-image: '24.2.0'
 
-  e2e-leg-8-vcluster-online:
+  e2e-leg-8-admintools-online:
     if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'leg 8' || inputs.e2e_test_suites == '')}}
     needs: [build]
     runs-on: ubuntu-latest
@@ -724,8 +724,6 @@ jobs:
       e2e-leg-6-vcluster,
       e2e-leg-6-vcluster-revivedb,
       e2e-leg-7-vcluster,
-      e2e-leg-8-vcluster-offline,
-      e2e-leg-8-vcluster-online,
       e2e-leg-9-vcluster,
       e2e-leg-10-vcluster,
       e2e-server-upgrade-vcluster,
@@ -736,7 +734,9 @@ jobs:
       e2e-leg-3-admintools, 
       e2e-leg-4-admintools, 
       e2e-leg-4-admintools-vdb-gen, 
-      e2e-leg-5-admintools, 
+      e2e-leg-5-admintools,
+      e2e-leg-8-admintools-offline,
+      e2e-leg-8-admintools-online,
       e2e-server-upgrade-admintools, 
       e2e-udx-admintools
     ]
@@ -771,8 +771,6 @@ jobs:
       e2e-leg-6-vcluster,
       e2e-leg-6-vcluster-revivedb,
       e2e-leg-7-vcluster,
-      e2e-leg-8-vcluster-offline,
-      e2e-leg-8-vcluster-online,
       e2e-leg-9-vcluster,
       e2e-leg-10-vcluster,
       e2e-server-upgrade-vcluster,
