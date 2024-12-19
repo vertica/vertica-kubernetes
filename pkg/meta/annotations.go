@@ -59,7 +59,7 @@ const (
 	UseVProxyAnnotationFalse = "false"
 
 	// This is the log level of the proxy server will have.
-	// Log level: 0=TRACE|1=DEBUG|2=INFO|3=WARN|4=FATAL|5=NONE
+	// Log level: TRACE|DEBUG|INFO|WARN|FATAL|NONE
 	VProxyLogLevelAnnotation   = "vertica.com/client-proxy-log-level"
 	VProxyLogLevelDefaultLevel = "INFO"
 
