@@ -123,6 +123,14 @@ func (r *RestartReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctr
 		return ctrl.Result{}, err
 	}
 
+	if !r.Vdb.IsUpgradeInProgress() {
+		// If statefulsets do not all have the same image, we requeue.
+		scsWithWrongImage, _ := r.PFacts.FindSecondarySubclustersWithDifferentImage(r.Vdb)
+		if len(scsWithWrongImage) != 0 {
+			r.Log.Info("Inconsistent images across the cluster. Requeuing.")
+			return ctrl.Result{Requeue: true}, nil
+		}
+	}
 	// We have two paths.  If the entire cluster is down we have separate
 	// admin commands to run.  Cluster operations only apply if the entire
 	// vertica cluster is managed by k8s.  We skip that if initPolicy is

@@ -134,6 +134,7 @@ func (i *UpgradeManager) isVDBImageDifferent(ctx context.Context, sandbox string
 		return false, err
 	}
 	clusterImage := ""
+	differentImgFromVdb := false
 	for inx := range stss.Items {
 		sts := stss.Items[inx]
 		cntImage, err := vk8s.GetServerImage(sts.Spec.Template.Spec.Containers)
@@ -154,11 +155,11 @@ func (i *UpgradeManager) isVDBImageDifferent(ctx context.Context, sandbox string
 		}
 
 		if cntImage != targetImage {
-			return true, nil
+			differentImgFromVdb = true
 		}
 	}
 
-	return false, nil
+	return differentImgFromVdb, nil
 }
 
 // logUpgradeStarted logs an event msg when upgrade is sstarting
