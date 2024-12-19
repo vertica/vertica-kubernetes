@@ -1,5 +1,0 @@
-kind: Security
-body: Fix for CVE-2024-45338
-time: 2024-12-19T12:30:23.788944488-05:00
-custom:
-    Issue: "1009"
