@@ -378,6 +378,12 @@ else
 	exit 1
 endif
 
+.PHONY: setup-prometheus-adapter
+setup-prometheus-adapter:  ## Setup prometheus adapter for VerticaAutoscaler
+	helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+	helm repo update
+	helm install prometheus-adapter prometheus-community/prometheus-adapter --namespace monitoring --create-namespace
+
 .PHONY: setup-minio
 setup-minio: install-cert-manager install-kuttl-plugin ## Setup minio for use with the e2e tests
 	scripts/setup-minio.sh
