@@ -1,0 +1,24 @@
+defaultRules:
+  create: false
+alertmanager:
+  enabled: true
+grafana:
+  enabled: false
+kubeApiServer:
+  enabled: true
+kubelet:
+  enabled: false
+kubeControllerManager:
+  enabled: true
+coreDns:
+  enabled: false
+kubeEtcd:
+  enabled: false
+kubeScheduler:
+  enabled: false
+kubeStateMetrics:
+  enabled: true
+nodeExporter:
+  enabled: false
+prometheus:
+  enabled: true

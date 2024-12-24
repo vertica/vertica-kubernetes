@@ -1,0 +1,33 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: dbadmin
+data:
+  username: ZGJhZG1pbg==
+  password: ''
+type: Opaque
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: k8s-vertica-prometheus
+  labels:
+    release: prometheus
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: vertica
+  endpoints:
+    - basicAuth:
+        password:
+          key: password
+          name: dbadmin
+        username: 
+          key: username
+          name: dbadmin
+      interval: 1s
+      path: /v1/metrics
+      port: "8443"
+      scheme: https
+      tlsConfig:
+        insecureSkipVerify: true
