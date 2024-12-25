@@ -247,7 +247,7 @@ DEPLOY_WAIT?=--wait
 # Name of the test OLM catalog that we will create and deploy with in e2e tests
 OLM_TEST_CATALOG_SOURCE=e2e-test-catalog
 # Name of the namespace to deploy the operator in
-NAMESPACE?=default
+NAMESPACE?=verticadb-operator
 # Name of the namespace to deploy prometheus 
 PROMETHEUS_NAMESPACE?=default
 

@@ -19,6 +19,6 @@ kubeScheduler:
 kubeStateMetrics:
   enabled: true
 nodeExporter:
-  enabled: false
+  enabled: true
 prometheus:
   enabled: true
