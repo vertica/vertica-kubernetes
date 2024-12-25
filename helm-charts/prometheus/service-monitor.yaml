@@ -16,7 +16,10 @@ metadata:
 spec:
   selector:
     matchLabels:
-      app.kubernetes.io/name: vertica
+      app.kubernetes.io/instance: verticadb-sample
+  namespaceSelector:
+    matchNames:
+      - default
   endpoints:
     - basicAuth:
         password:
@@ -25,9 +28,9 @@ spec:
         username: 
           key: username
           name: dbadmin
-      interval: 1s
+      interval: 5s
       path: /v1/metrics
-      port: "8443"
+      port: vertica-http
       scheme: https
       tlsConfig:
         insecureSkipVerify: true
