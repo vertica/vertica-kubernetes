@@ -151,6 +151,7 @@ PROMETHEUS_INTERVAL?=5s
 DB_USER?=dbadmin
 DB_PASSWORD?=
 VDB_NAME?=verticadb-sample
+VDB_NAMESPACE?=default
 # Can be used to specify additional overrides when doing the helm install.
 # For example to specify a custom webhook tls cert when deploying use this command:
 #   HELM_OVERRIDES="--set webhook.tlsSecret=custom-cert" make deploy-operator
@@ -661,11 +662,11 @@ undeploy-prometheus:
 
 .PHONY: deploy-prometheus-service-monitor
 deploy-prometheus-service-monitor:
-	scripts/deploy-prometheus.sh -n $(PROMETHEUS_NAMESPACE) -l $(PROMETHEUS_HELM_NAME) -i $(PROMETHEUS_INTERVAL) -a deploy -u $(DB_USER) -p '$(DB_PASSWORD)' -d $(VDB_NAME)
+	scripts/deploy-prometheus.sh -n $(VDB_NAMESPACE) -l $(PROMETHEUS_HELM_NAME) -i $(PROMETHEUS_INTERVAL) -a deploy -u $(DB_USER) -p '$(DB_PASSWORD)' -d $(VDB_NAME)
 
 .PHONY: undeploy-prometheus-service-monitor
 undeploy-prometheus-service-monitor:
-	scripts/deploy-prometheus.sh -n $(PROMETHEUS_NAMESPACE) -l $(PROMETHEUS_HELM_NAME) -i $(PROMETHEUS_INTERVAL) -a undeploy -u $(DB_USER) -p '$(DB_PASSWORD)' -d $(VDB_NAME)
+	scripts/deploy-prometheus.sh -n $(VDB_NAMESPACE) -l $(PROMETHEUS_HELM_NAME) -i $(PROMETHEUS_INTERVAL) -a undeploy -u $(DB_USER) -p '$(DB_PASSWORD)' -d $(VDB_NAME)
 
 .PHONY: undeploy-operator
 undeploy-operator: ## Undeploy operator that was previously deployed
