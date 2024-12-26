@@ -187,24 +187,3 @@ case $ACTION in
         usage
         ;;
 esac
-
-
-
-
-
-
-
-# # Wait for the CSV to show up and report success
-# set +o xtrace
-# echo "Waiting for ClusterServicesVersion to show up..."
-# trap "echo 'Failed waiting for CSV to succeed'; kubectl get clusterserviceversion -n $NAMESPACE" 0 2 3 15
-# timeout $TIMEOUT bash -c -- "\
-#     while ! kubectl get -n $NAMESPACE clusterserviceversion --selector operators.coreos.com/verticadb-operator.$NAMESPACE="" 2> /dev/null | grep -cq 'Succeeded'; \
-#     do \
-#         sleep 0.1; \
-#     done" &
-# pid=$!
-# wait $pid
-# trap - 0 2 3 15 1> /dev/null
-# set -o xtrace
-# kubectl get clusterserviceversion -n $NAMESPACE
