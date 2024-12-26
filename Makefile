@@ -147,9 +147,10 @@ MINIMAL_VERTICA_IMG ?=
 # Name of the helm release that we will install/uninstall
 HELM_RELEASE_NAME?=vdb-op
 PROMETHEUS_HELM_NAME?=prometheus
-PROMETHEUS_USERNAME?=dbadmin
-PROMETHEUS_PASSWORD?=
-PROMETHEUS_DBNAME?=verticadb-sample
+PROMETHEUS_INTERVAL?=5s
+DB_USER?=dbadmin
+DB_PASSWORD?=
+VDB_NAME?=verticadb-sample
 # Can be used to specify additional overrides when doing the helm install.
 # For example to specify a custom webhook tls cert when deploying use this command:
 #   HELM_OVERRIDES="--set webhook.tlsSecret=custom-cert" make deploy-operator
@@ -252,7 +253,7 @@ OLM_TEST_CATALOG_SOURCE=e2e-test-catalog
 # Name of the namespace to deploy the operator in
 NAMESPACE?=verticadb-operator
 # Name of the namespace to deploy prometheus 
-PROMETHEUS_NAMESPACE?=default
+PROMETHEUS_NAMESPACE?=prometheus
 
 # The Go version that we will build the operator with
 GO_VERSION?=1.23.2
@@ -653,11 +654,11 @@ deploy-prometheus:
 	helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
 	helm repo update
 	helm install $(DEPLOY_WAIT) -n $(PROMETHEUS_NAMESPACE) --create-namespace $(PROMETHEUS_HELM_NAME) $(PROMETHEUS_CHART) --values helm-charts/prometheus/values.yaml $(PROMETHEUS_HELM_OVERRIDES)
-	scripts/deploy-prometheus.sh -n $(PROMETHEUS_NAMESPACE) -l $(PROMETHEUS_HELM_NAME) -a deploy -u $(PROMETHEUS_USERNAME) -p '$(PROMETHEUS_PASSWORD)' -d $(PROMETHEUS_DBNAME)
+	scripts/deploy-prometheus.sh -n $(PROMETHEUS_NAMESPACE) -l $(PROMETHEUS_HELM_NAME) -i $(PROMETHEUS_INTERVAL) -a deploy -u $(DB_USER) -p '$(DB_PASSWORD)' -d $(VDB_NAME)
 
 .PHONY: undeploy-prometheus
 undeploy-prometheus:
-	scripts/deploy-prometheus.sh -n $(PROMETHEUS_NAMESPACE) -l $(PROMETHEUS_HELM_NAME) -a undeploy -u $(PROMETHEUS_USERNAME) -p '$(PROMETHEUS_PASSWORD)' -d $(PROMETHEUS_DBNAME)
+	scripts/deploy-prometheus.sh -n $(PROMETHEUS_NAMESPACE) -l $(PROMETHEUS_HELM_NAME) -i $(PROMETHEUS_INTERVAL) -a undeploy -u $(DB_USER) -p '$(DB_PASSWORD)' -d $(VDB_NAME)
 	helm uninstall $(PROMETHEUS_HELM_NAME)
 
 .PHONY: undeploy-operator

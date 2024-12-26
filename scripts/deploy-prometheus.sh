@@ -24,9 +24,10 @@ NAMESPACE=''
 USERNAME=''
 PASSWORD=''
 DBNAME=''
+INTERVAL='5s'
 
 function usage() {
-    echo "usage: $(basename $0) [-n <namespace>] [-l <label>] [-a <action>] [-u <username>] [-p <password>] [-d <dbname>]"
+    echo "usage: $(basename $0) [-n <namespace>] [-l <label>] [-a <action>] [-u <username>] [-p <password>] [-d <dbname>] [-i <interval>]"
     echo
     echo "Options:"
     echo "  -n <namespace>  The namespace used for prometheus service."
@@ -35,6 +36,7 @@ function usage() {
     echo "  -u <username>   The database username, should have access to the Vertica server metrics."
     echo "  -p <password>   The database user password."
     echo "  -d <dbname>     The database name."
+    echo "  -i <interval>   The scraping interval of prometheus update for metrics."
     echo "  -h <usage>      Print help message."
     exit 1
 }
@@ -59,6 +61,9 @@ do
             ;;
         d)
             DBNAME=$OPTARG
+            ;;
+        i)
+            INTERVAL=$OPTARG
             ;;
         h) 
             usage
@@ -92,7 +97,7 @@ data:
 type: Opaque
 EOF
 
-  # Create a subscription to the verticadb-operator
+  # Create a service monitor to allow prometheus to discover vertica pods
   cat <<EOF | kubectl apply -f -
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
@@ -116,7 +121,7 @@ spec:
           key: username
           name: prometheus-$DBNAME
           optional: true
-      interval: 5s
+      interval: $INTERVAL
       path: /v1/metrics
       port: vertica-http
       scheme: https
@@ -150,7 +155,7 @@ spec:
           key: username
           name: prometheus-$DBNAME
           optional: true
-      interval: 5s
+      interval: $INTERVAL
       path: /v1/metrics
       port: vertica-http
       scheme: https
