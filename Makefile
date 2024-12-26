@@ -657,7 +657,7 @@ deploy-prometheus:
 
 .PHONY: undeploy-prometheus
 undeploy-prometheus:
-	helm uninstall $(PROMETHEUS_HELM_NAME)
+	helm uninstall $(PROMETHEUS_HELM_NAME) -n $(PROMETHEUS_NAMESPACE)
 
 .PHONY: deploy-prometheus-service-monitor
 deploy-prometheus-service-monitor:
