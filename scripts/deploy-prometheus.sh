@@ -41,7 +41,7 @@ function usage() {
     exit 1
 }
 
-while getopts "n:l:a:u:p:d:h" opt
+while getopts "n:l:a:u:p:d:i:h" opt
 do
     case $opt in
         n)
@@ -103,6 +103,7 @@ apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
   name: k8s-vertica-prometheus-$DBNAME
+  namespace: $NAMESPACE
   labels:
     release: $LABEL
 spec:
@@ -137,6 +138,7 @@ apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
   name: k8s-vertica-prometheus-$DBNAME
+  namespace: $NAMESPACE
   labels:
     release: $LABEL
 spec:

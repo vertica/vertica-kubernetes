@@ -654,12 +654,18 @@ deploy-prometheus:
 	helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
 	helm repo update
 	helm install $(DEPLOY_WAIT) -n $(PROMETHEUS_NAMESPACE) --create-namespace $(PROMETHEUS_HELM_NAME) $(PROMETHEUS_CHART) --values helm-charts/prometheus/values.yaml $(PROMETHEUS_HELM_OVERRIDES)
-	scripts/deploy-prometheus.sh -n $(PROMETHEUS_NAMESPACE) -l $(PROMETHEUS_HELM_NAME) -i $(PROMETHEUS_INTERVAL) -a deploy -u $(DB_USER) -p '$(DB_PASSWORD)' -d $(VDB_NAME)
 
 .PHONY: undeploy-prometheus
 undeploy-prometheus:
-	scripts/deploy-prometheus.sh -n $(PROMETHEUS_NAMESPACE) -l $(PROMETHEUS_HELM_NAME) -i $(PROMETHEUS_INTERVAL) -a undeploy -u $(DB_USER) -p '$(DB_PASSWORD)' -d $(VDB_NAME)
 	helm uninstall $(PROMETHEUS_HELM_NAME)
+
+.PHONY: deploy-prometheus-service-monitor
+deploy-prometheus-service-monitor:
+	scripts/deploy-prometheus.sh -n $(PROMETHEUS_NAMESPACE) -l $(PROMETHEUS_HELM_NAME) -i $(PROMETHEUS_INTERVAL) -a deploy -u $(DB_USER) -p '$(DB_PASSWORD)' -d $(VDB_NAME)
+
+.PHONY: undeploy-prometheus-service-monitor
+undeploy-prometheus-service-monitor:
+	scripts/deploy-prometheus.sh -n $(PROMETHEUS_NAMESPACE) -l $(PROMETHEUS_HELM_NAME) -i $(PROMETHEUS_INTERVAL) -a undeploy -u $(DB_USER) -p '$(DB_PASSWORD)' -d $(VDB_NAME)
 
 .PHONY: undeploy-operator
 undeploy-operator: ## Undeploy operator that was previously deployed
