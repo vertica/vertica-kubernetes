@@ -211,6 +211,19 @@ func buildNMAVolumeMounts(vdb *vapi.VerticaDB) []corev1.VolumeMount {
 	return volMnts
 }
 
+// buildVProxyVolumeMounts returns the volume mounts to include
+// in the server container
+func buildVProxyVolumeMounts(vdb *vapi.VerticaDB) []corev1.VolumeMount {
+	volMnts := []corev1.VolumeMount{
+		{Name: vProxyVolumeName, MountPath: "/config"},
+	}
+
+	if vdb.IsMonolithicDeploymentEnabled() {
+		volMnts = append(volMnts, buildVProxyCertsVolumeMount()...)
+	}
+	return volMnts
+}
+
 // buildVolumeMounts returns standard volume mounts common to all containers
 func buildVolumeMounts(vdb *vapi.VerticaDB) []corev1.VolumeMount {
 	volMnts := []corev1.VolumeMount{
@@ -458,6 +471,15 @@ func buildNMACertsVolumeMount() []corev1.VolumeMount {
 	}
 }
 
+func buildVProxyCertsVolumeMount() []corev1.VolumeMount {
+	return []corev1.VolumeMount{
+		{
+			Name:      vapi.VProxyCertsMountName,
+			MountPath: paths.VProxyCertsRoot,
+		},
+	}
+}
+
 // buildCertSecretVolumeMounts returns the volume mounts for any cert secrets that are in the vdb
 func buildCertSecretVolumeMounts(vdb *vapi.VerticaDB) []corev1.VolumeMount {
 	mnts := []corev1.VolumeMount{}
@@ -492,6 +514,12 @@ func buildVolumes(vdb *vapi.VerticaDB) []corev1.Volume {
 		secrets.IsK8sSecret(vdb.Spec.NMATLSSecret) {
 		vols = append(vols, buildNMACertsSecretVolume(vdb))
 	}
+	if vmeta.UseVClusterOps(vdb.Annotations) &&
+		vmeta.UseVProxyCertsMount(vdb.Annotations) &&
+		vdb.Spec.Proxy.TLSSecret != "" &&
+		secrets.IsK8sSecret(vdb.Spec.Proxy.TLSSecret) {
+		vols = append(vols, buildVProxySecretVolume(vdb))
+	}
 	if vdb.IsDepotVolumeEmptyDir() {
 		vols = append(vols, buildDepotVolume())
 	}
@@ -511,6 +539,12 @@ func buildScrutinizeVolumes(vscr *v1beta1.VerticaScrutinize, vdb *vapi.VerticaDB
 		vdb.Spec.NMATLSSecret != "" &&
 		secrets.IsK8sSecret(vdb.Spec.NMATLSSecret) {
 		vols = append(vols, buildNMACertsSecretVolume(vdb))
+	}
+	if vmeta.UseVClusterOps(vdb.Annotations) &&
+		vmeta.UseVProxyCertsMount(vdb.Annotations) &&
+		vdb.Spec.Proxy.TLSSecret != "" &&
+		secrets.IsK8sSecret(vdb.Spec.Proxy.TLSSecret) {
+		vols = append(vols, buildVProxySecretVolume(vdb))
 	}
 	// we add a volume for the password when the password secret
 	// is on k8s
@@ -784,6 +818,17 @@ func buildNMACertsSecretVolume(vdb *vapi.VerticaDB) corev1.Volume {
 	}
 }
 
+func buildVProxySecretVolume(vdb *vapi.VerticaDB) corev1.Volume {
+	return corev1.Volume{
+		Name: vapi.VProxyCertsMountName,
+		VolumeSource: corev1.VolumeSource{
+			Secret: &corev1.SecretVolumeSource{
+				SecretName: vdb.Spec.Proxy.TLSSecret,
+			},
+		},
+	}
+}
+
 // buildEmptyDirVolume returns a generic 'emptyDir' volume
 func buildEmptyDirVolume(volName string) corev1.Volume {
 	return corev1.Volume{
@@ -1021,9 +1066,7 @@ func makeVProxyContainer(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.Contai
 		Ports: []corev1.ContainerPort{
 			{ContainerPort: VerticaClientPort, Name: "vertica"},
 		},
-		VolumeMounts: []corev1.VolumeMount{
-			{Name: vProxyVolumeName, MountPath: "/config"},
-		},
+		VolumeMounts: buildVProxyVolumeMounts(vdb),
 	}
 }
 
@@ -1788,7 +1831,10 @@ func buildNMATLSCertsEnvVars(vdb *vapi.VerticaDB) []corev1.EnvVar {
 func buildVProxyTLSCertsEnvVars(vdb *vapi.VerticaDB) []corev1.EnvVar {
 	if vmeta.UseVProxyCertsMount(vdb.Annotations) && secrets.IsK8sSecret(vdb.Spec.Proxy.TLSSecret) {
 		return []corev1.EnvVar{
-			// TODO: use proxy certs
+			// Provide the path to each of the certs that are mounted in the container.
+			{Name: VProxyRootCAEnv, Value: fmt.Sprintf("%s/%s", paths.VProxyCertsRoot, paths.HTTPServerCACrtName)},
+			{Name: VProxyCertEnv, Value: fmt.Sprintf("%s/%s", paths.VProxyCertsRoot, corev1.TLSCertKey)},
+			{Name: VProxyKeyEnv, Value: fmt.Sprintf("%s/%s", paths.VProxyCertsRoot, corev1.TLSPrivateKeyKey)},
 		}
 	}
 	return []corev1.EnvVar{
