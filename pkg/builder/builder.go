@@ -514,12 +514,6 @@ func buildVolumes(vdb *vapi.VerticaDB) []corev1.Volume {
 		secrets.IsK8sSecret(vdb.Spec.NMATLSSecret) {
 		vols = append(vols, buildNMACertsSecretVolume(vdb))
 	}
-	if vmeta.UseVClusterOps(vdb.Annotations) &&
-		vmeta.UseVProxyCertsMount(vdb.Annotations) &&
-		vdb.Spec.Proxy.TLSSecret != "" &&
-		secrets.IsK8sSecret(vdb.Spec.Proxy.TLSSecret) {
-		vols = append(vols, buildVProxySecretVolume(vdb))
-	}
 	if vdb.IsDepotVolumeEmptyDir() {
 		vols = append(vols, buildDepotVolume())
 	}
@@ -540,12 +534,6 @@ func buildScrutinizeVolumes(vscr *v1beta1.VerticaScrutinize, vdb *vapi.VerticaDB
 		secrets.IsK8sSecret(vdb.Spec.NMATLSSecret) {
 		vols = append(vols, buildNMACertsSecretVolume(vdb))
 	}
-	if vmeta.UseVClusterOps(vdb.Annotations) &&
-		vmeta.UseVProxyCertsMount(vdb.Annotations) &&
-		vdb.Spec.Proxy.TLSSecret != "" &&
-		secrets.IsK8sSecret(vdb.Spec.Proxy.TLSSecret) {
-		vols = append(vols, buildVProxySecretVolume(vdb))
-	}
 	// we add a volume for the password when the password secret
 	// is on k8s
 	if vdb.Spec.PasswordSecret != "" &&
@@ -557,6 +545,26 @@ func buildScrutinizeVolumes(vscr *v1beta1.VerticaScrutinize, vdb *vapi.VerticaDB
 		return vols
 	}
 	vols = append(vols, *vscr.Spec.Volume)
+	return vols
+}
+
+func buildVProxyVolumes(vdb *vapi.VerticaDB, sc *vapi.Subcluster) []corev1.Volume {
+	vols := []corev1.Volume{
+		{
+			Name: vProxyVolumeName,
+			VolumeSource: corev1.VolumeSource{
+				ConfigMap: &corev1.ConfigMapVolumeSource{
+					LocalObjectReference: corev1.LocalObjectReference{Name: sc.GetVProxyConfigMapName(vdb)},
+				},
+			},
+		},
+	}
+	if vmeta.UseVClusterOps(vdb.Annotations) &&
+		vmeta.UseVProxyCertsMount(vdb.Annotations) &&
+		vdb.Spec.Proxy.TLSSecret != "" &&
+		secrets.IsK8sSecret(vdb.Spec.Proxy.TLSSecret) {
+		vols = append(vols, buildVProxySecretVolume(vdb))
+	}
 	return vols
 }
 
@@ -946,16 +954,7 @@ func buildVProxyPodSpec(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.PodSpec
 		TerminationGracePeriodSeconds: &termGracePeriod,
 		ServiceAccountName:            vdb.Spec.ServiceAccountName,
 		SecurityContext:               vdb.Spec.PodSecurityContext,
-		Volumes: []corev1.Volume{
-			{
-				Name: vProxyVolumeName,
-				VolumeSource: corev1.VolumeSource{
-					ConfigMap: &corev1.ConfigMapVolumeSource{
-						LocalObjectReference: corev1.LocalObjectReference{Name: sc.GetVProxyConfigMapName(vdb)},
-					},
-				},
-			},
-		},
+		Volumes:                       buildVProxyVolumes(vdb, sc),
 	}
 }
 
