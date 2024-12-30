@@ -52,6 +52,7 @@ const (
 	EulaAcceptanceScript      = "/opt/vertica/config/accept_eula.py"
 	CertsRoot                 = "/certs"
 	NMACertsRoot              = "/certs/nma"
+	VProxyCertsRoot           = "/certs/vproxy"
 	Krb5Conf                  = "/etc/krb5.conf"
 	Krb5Keytab                = "/etc/krb5/krb5.keytab"
 	DBAdminSSHPath            = "/home/dbadmin/.ssh"
