@@ -217,10 +217,7 @@ func buildVProxyVolumeMounts(vdb *vapi.VerticaDB) []corev1.VolumeMount {
 	volMnts := []corev1.VolumeMount{
 		{Name: vProxyVolumeName, MountPath: "/config"},
 	}
-
-	if vdb.IsMonolithicDeploymentEnabled() {
-		volMnts = append(volMnts, buildVProxyCertsVolumeMount()...)
-	}
+	volMnts = append(volMnts, buildVProxyCertsVolumeMount()...)
 	return volMnts
 }
 
