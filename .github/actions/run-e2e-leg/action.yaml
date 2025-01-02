@@ -75,6 +75,14 @@ inputs:
     description: 'If skip downloading test packages inside vertica image'
     required: false
     default: 'true'
+  e2e-timeout-minutes:
+    description: 'Number of minutes to wait for e2e tests'
+    required: false
+    default: '60'
+  e2e-retry-times:
+    description: 'Number of times to retry failed e2e tests'
+    required: false
+    default: '3'
 runs:
   using: "composite"
   steps:
@@ -96,8 +104,8 @@ runs:
     - name: Run e2e tests
       uses: nick-fields/retry@v3
       with:
-        timeout_minutes: 1
-        max_attempts: 3
+        timeout_minutes: ${{ inputs.e2e-timeout-minutes }}
+        max_attempts: ${{ inputs.e2e-retry-times }}
         shell: bash
         command: |
           set -o errexit
