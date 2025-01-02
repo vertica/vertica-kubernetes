@@ -18,7 +18,7 @@ limitations under the License.
 package v1beta1
 
 import (
-	v2 "k8s.io/api/autoscaling/v2"
+	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -81,22 +81,23 @@ type VerticaAutoscalerSpec struct {
 
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
-	// This struct allows customization of autoscaling. A custom metric can be used instead of the memory and cpu metrics.
+	// This struct allows customization of autoscaling. Custom metrics can be used instead of the memory and cpu metrics.
 	// The scaling behavior can also be customized to meet different performance requirements. The maximum and mininum of
 	// sizes of the replica sets can be specified to limit the use of resources.
-	Custom Custom `json:"custom,omitempty"`
+	CustomAutoscalerSpec *CustomAutoscalerSpec `json:"customautoscalerspec,omitempty"`
 }
 
 // Custom customizes VerticaAutoscaler
-type Custom struct {
-	// +kubebuilder:default:=3
-	// +kubebuilder:Minimum:=3
+type CustomAutoscalerSpec struct {
+
+	// +kubebuilder:Minimum:=0
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// the mininum size of replica set
 	MinReplicas int32 `json:"minReplicas"`
 
 	// +kubebuilder:validation:Optional
+	// +kubebuilder:Minimum:=0
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// the maximum size of replica set
 	MaxReplicas int32 `json:"maxReplicas"`
@@ -104,12 +105,12 @@ type Custom struct {
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// the custom metric to be used for autocaling
-	Metrics v2.MetricSpec `json:"metrics"`
+	Metrics []autoscalingv2.MetricSpec `json:"metrics"`
 
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// define how the autocaler handles the scaleup and scaledown
-	Behavior v2.HorizontalPodAutoscalerBehavior `json:"behavior,omitempty"`
+	Behavior *autoscalingv2.HorizontalPodAutoscalerBehavior `json:"behavior,omitempty"`
 }
 
 type ScalingGranularityType string
