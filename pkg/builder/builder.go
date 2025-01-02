@@ -213,7 +213,7 @@ func buildNMAVolumeMounts(vdb *vapi.VerticaDB) []corev1.VolumeMount {
 
 // buildVProxyVolumeMounts returns the volume mounts to include
 // in the server container
-func buildVProxyVolumeMounts(vdb *vapi.VerticaDB) []corev1.VolumeMount {
+func buildVProxyVolumeMounts() []corev1.VolumeMount {
 	volMnts := []corev1.VolumeMount{
 		{Name: vProxyVolumeName, MountPath: "/config"},
 	}
@@ -1062,7 +1062,7 @@ func makeVProxyContainer(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.Contai
 		Ports: []corev1.ContainerPort{
 			{ContainerPort: VerticaClientPort, Name: "vertica"},
 		},
-		VolumeMounts: buildVProxyVolumeMounts(vdb),
+		VolumeMounts: buildVProxyVolumeMounts(),
 	}
 }
 
