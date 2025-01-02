@@ -84,7 +84,7 @@ type VerticaAutoscalerSpec struct {
 	// This struct allows customization of autoscaling. Custom metrics can be used instead of the memory and cpu metrics.
 	// The scaling behavior can also be customized to meet different performance requirements. The maximum and mininum of
 	// sizes of the replica sets can be specified to limit the use of resources.
-	CustomAutoscalerSpec *CustomAutoscalerSpec `json:"customautoscalerspec,omitempty"`
+	CustomAutoscalerSpec *CustomAutoscalerSpec `json:"customAutoscalerSpec,omitempty"`
 }
 
 // Custom customizes VerticaAutoscaler
@@ -94,13 +94,13 @@ type CustomAutoscalerSpec struct {
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// the mininum size of replica set
-	MinReplicas int32 `json:"minReplicas"`
+	MinReplicas *int32 `json:"minReplicas"`
 
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:Minimum:=0
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// the maximum size of replica set
-	MaxReplicas int32 `json:"maxReplicas"`
+	MaxReplicas *int32 `json:"maxReplicas"`
 
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
