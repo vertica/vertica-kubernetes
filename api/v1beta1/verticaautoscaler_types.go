@@ -87,7 +87,7 @@ type VerticaAutoscalerSpec struct {
 	CustomAutoscalerSpec *CustomAutoscalerSpec `json:"customAutoscalerSpec,omitempty"`
 }
 
-// Custom customizes VerticaAutoscaler
+// CustomAutoscalerSpec customizes VerticaAutoscaler
 type CustomAutoscalerSpec struct {
 
 	// +kubebuilder:Minimum:=0
@@ -104,13 +104,27 @@ type CustomAutoscalerSpec struct {
 
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
-	// the custom metric to be used for autocaling
-	Metrics []autoscalingv2.MetricSpec `json:"metrics"`
+	// the custom metric and increment to be used for autocaling
+	Metrics []MetricDefinition `json:"metrics"`
 
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// define how the autocaler handles the scaleup and scaledown
 	Behavior *autoscalingv2.HorizontalPodAutoscalerBehavior `json:"behavior,omitempty"`
+}
+
+// MetricDefinition defines increment and metric to be used for autoscaling
+type MetricDefinition struct {
+
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// the value used to increase the threshold after after a scale up or a scale down
+	Increment *int32 `json:"increment"`
+
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// the custom metric to be used for autocaling
+	Metric autoscalingv2.MetricSpec `json:"metric"`
 }
 
 type ScalingGranularityType string
