@@ -654,7 +654,7 @@ endif
 deploy-prometheus:
 	helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
 	helm repo update
-	helm install $(DEPLOY_WAIT) -n $(PROMETHEUS_NAMESPACE) --create-namespace $(PROMETHEUS_HELM_NAME) $(PROMETHEUS_CHART) --values helm-charts/prometheus/values.yaml $(PROMETHEUS_HELM_OVERRIDES)
+	helm install $(DEPLOY_WAIT) -n $(PROMETHEUS_NAMESPACE) --create-namespace $(PROMETHEUS_HELM_NAME) $(PROMETHEUS_CHART) --values prometheus/values.yaml $(PROMETHEUS_HELM_OVERRIDES)
 
 .PHONY: undeploy-prometheus
 undeploy-prometheus:
