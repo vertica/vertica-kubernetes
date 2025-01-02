@@ -1,15 +1,13 @@
-defaultRules:
-  create: false
 alertmanager:
-  enabled: true
+  enabled: false
 grafana:
   enabled: false
 kubeApiServer:
-  enabled: true
+  enabled: false
 kubelet:
   enabled: false
 kubeControllerManager:
-  enabled: true
+  enabled: false
 coreDns:
   enabled: false
 kubeEtcd:
@@ -17,8 +15,8 @@ kubeEtcd:
 kubeScheduler:
   enabled: false
 kubeStateMetrics:
-  enabled: true
+  enabled: false
 nodeExporter:
-  enabled: true
+  enabled: false
 prometheus:
   enabled: true
