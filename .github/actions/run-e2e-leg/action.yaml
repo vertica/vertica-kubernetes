@@ -82,7 +82,7 @@ inputs:
   e2e-retry-times:
     description: 'Number of times to retry failed e2e tests'
     required: false
-    default: '3'
+    default: '2'
 runs:
   using: "composite"
   steps:
