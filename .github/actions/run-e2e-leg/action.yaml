@@ -76,9 +76,9 @@ inputs:
     required: false
     default: 'true'
   e2e-timeout-minutes:
-    description: 'Number of minutes to wait for e2e tests'
+    description: 'Duration (in minutes) to wait for e2e tests to complete before timing out.'
     required: false
-    default: '60'
+    default: '600'
   e2e-retry-times:
     description: 'Number of times to retry failed e2e tests'
     required: false
