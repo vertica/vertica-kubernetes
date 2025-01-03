@@ -133,50 +133,10 @@ EOF
 
 function undeploy(){
   # Delete the service monitor for prometheus service monitor.
-  cat <<EOF | kubectl delete -f -
-apiVersion: monitoring.coreos.com/v1
-kind: ServiceMonitor
-metadata:
-  name: k8s-vertica-prometheus-$VDB_NAME
-  namespace: $NAMESPACE
-  labels:
-    release: $LABEL
-spec:
-  selector:
-    matchLabels:
-      app.kubernetes.io/instance: $VDB_NAME
-  namespaceSelector:
-    matchNames:
-      - $NAMESPACE
-  endpoints:
-    - basicAuth:
-        password:
-          key: password
-          name: prometheus-$VDB_NAME
-        username: 
-          key: username
-          name: prometheus-$VDB_NAME
-          optional: true
-      interval: $INTERVAL
-      path: /v1/metrics
-      port: vertica-http
-      scheme: https
-      tlsConfig:
-        insecureSkipVerify: true
-EOF
+  kubectl delete servicemonitor k8s-vertica-prometheus-$VDBNAME -n $NAMESPACE
 
   # delete secret for prometheus service monitor.
-  cat <<EOF | kubectl delete -f -
-apiVersion: v1
-kind: Secret
-metadata:
-  namespace: $NAMESPACE
-  name: prometheus-$VDB_NAME
-data:
-  username: '$(echo -n $USERNAME | base64)'
-  password: '$(echo -n $PASSWORD | base64)'
-type: Opaque
-EOF
+  kubectl delete secret prometheus-$VDBNAME -n $NAMESPACE
 }
 
  # ACTION deploy and undeploy
