@@ -58,10 +58,6 @@ on:
         - vcluster leg 11
         - vcluster server upgrade
         - vcluster udx
-      e2e_timeout_minutes:
-        description: 'Duration (in minutes) to wait for e2e tests to complete before timing out.'
-        required: false
-        default: '600'
       e2e_retry_times:
         description: 'Number of times to retry failed e2e tests'
         required: false
@@ -136,7 +132,6 @@ jobs:
           communal-storage-type: azb
           deploy-with: olm
           need-legacy-image: true
-          e2e-timeout-minutes: ${{ inputs.e2e_timeout_minutes }}
           e2e-retry-times: ${{ inputs.e2e_retry_times }}
   
   e2e-leg-1-admintools-previous-release:
@@ -159,7 +154,6 @@ jobs:
           vertica-deployment-method: admintools
           communal-storage-type: azb
           deploy-with: olm
-          e2e-timeout-minutes: ${{ inputs.e2e_timeout_minutes }}
           e2e-retry-times: ${{ inputs.e2e_retry_times }}
 
   e2e-leg-1-vcluster:
@@ -181,7 +175,6 @@ jobs:
           vertica-deployment-method: vclusterops
           communal-storage-type: azb
           deploy-with: olm
-          e2e-timeout-minutes: ${{ inputs.e2e_timeout_minutes }}
           e2e-retry-times: ${{ inputs.e2e_retry_times }}
 
   e2e-leg-2-admintools:
@@ -204,7 +197,6 @@ jobs:
           communal-storage-type: hostpath
           controllers-scope: namespace
           need-legacy-image: true
-          e2e-timeout-minutes: ${{ inputs.e2e_timeout_minutes }}
           e2e-retry-times: ${{ inputs.e2e_retry_times }}
 
   e2e-leg-2-admintools-previous-release:
@@ -227,7 +219,6 @@ jobs:
           vertica-deployment-method: admintools
           communal-storage-type: hostpath
           controllers-scope: namespace
-          e2e-timeout-minutes: ${{ inputs.e2e_timeout_minutes }}
           e2e-retry-times: ${{ inputs.e2e_retry_times }}
 
   e2e-leg-2-vcluster:
@@ -249,7 +240,6 @@ jobs:
           vertica-deployment-method: vclusterops
           communal-storage-type: hostpath
           controllers-scope: namespace
-          e2e-timeout-minutes: ${{ inputs.e2e_timeout_minutes }}
           e2e-retry-times: ${{ inputs.e2e_retry_times }}
 
   e2e-leg-3-admintools:
@@ -271,7 +261,6 @@ jobs:
           vertica-deployment-method: admintools
           communal-storage-type: hostpath
           need-legacy-image: true
-          e2e-timeout-minutes: ${{ inputs.e2e_timeout_minutes }}
           e2e-retry-times: ${{ inputs.e2e_retry_times }}
   
   e2e-leg-3-vclusterops-previous-release:
@@ -293,7 +282,6 @@ jobs:
           artifact-suffix: "-24.1.0-release"
           vertica-deployment-method: vclusterops
           communal-storage-type: hostpath
-          e2e-timeout-minutes: ${{ inputs.e2e_timeout_minutes }}
           e2e-retry-times: ${{ inputs.e2e_retry_times }}
 
   e2e-leg-3-vcluster:
@@ -314,7 +302,6 @@ jobs:
           vertica-image: ${{ needs.build.outputs.full-vertica-image }}
           vertica-deployment-method: vclusterops
           communal-storage-type: hostpath
-          e2e-timeout-minutes: ${{ inputs.e2e_timeout_minutes }}
           e2e-retry-times: ${{ inputs.e2e_retry_times }}
 
   e2e-leg-4-admintools:
@@ -339,7 +326,6 @@ jobs:
           # All helm deployments will use cert-manager to create the webhook cert
           helm-overrides: '--set webhook.certSource=cert-manager'
           need-legacy-image: true
-          e2e-timeout-minutes: ${{ inputs.e2e_timeout_minutes }}
           e2e-retry-times: ${{ inputs.e2e_retry_times }}
   
   e2e-leg-4-vcluster:
@@ -363,7 +349,6 @@ jobs:
           vertica-superuser-name: myadmin
           # All helm deployments will use cert-manager to create the webhook cert
           helm-overrides: '--set webhook.certSource=cert-manager'
-          e2e-timeout-minutes: ${{ inputs.e2e_timeout_minutes }}
           e2e-retry-times: ${{ inputs.e2e_retry_times }}
 
   e2e-leg-4-admintools-vdb-gen:
@@ -388,7 +373,6 @@ jobs:
           # All helm deployments will use cert-manager to create the webhook cert
           helm-overrides: '--set webhook.certSource=cert-manager'
           need-legacy-image: true
-          e2e-timeout-minutes: ${{ inputs.e2e_timeout_minutes }}
           e2e-retry-times: ${{ inputs.e2e_retry_times }}
   
   e2e-leg-4-vcluster-vdb-gen:
@@ -412,7 +396,6 @@ jobs:
           vertica-superuser-name: myadmin
           # All helm deployments will use cert-manager to create the webhook cert
           helm-overrides: '--set webhook.certSource=cert-manager'
-          e2e-timeout-minutes: ${{ inputs.e2e_timeout_minutes }}
           e2e-retry-times: ${{ inputs.e2e_retry_times }}
 
   e2e-leg-5-admintools:
@@ -439,7 +422,6 @@ jobs:
           e2e-parallelism: 1
           need-base-vertica-image: 'true'
           need-legacy-image: true
-          e2e-timeout-minutes: ${{ inputs.e2e_timeout_minutes }}
           e2e-retry-times: ${{ inputs.e2e_retry_times }}
 
   e2e-leg-5-vcluster:
@@ -465,7 +447,6 @@ jobs:
           # operator running in the k8s cluster.
           e2e-parallelism: 1
           need-base-vertica-image: 'true'
-          e2e-timeout-minutes: ${{ inputs.e2e_timeout_minutes }}
           e2e-retry-times: ${{ inputs.e2e_retry_times }}
 
   e2e-leg-6-vcluster:
@@ -487,7 +468,6 @@ jobs:
           vertica-deployment-method: vclusterops
           communal-storage-type: hostpath
           minimum-vertica-image: '24.2.0'
-          e2e-timeout-minutes: ${{ inputs.e2e_timeout_minutes }}
           e2e-retry-times: ${{ inputs.e2e_retry_times }}
 
   e2e-leg-6-vcluster-revivedb:
@@ -509,7 +489,6 @@ jobs:
           vertica-deployment-method: vclusterops
           communal-storage-type: hostpath
           minimum-vertica-image: '24.2.0'
-          e2e-timeout-minutes: ${{ inputs.e2e_timeout_minutes }}
           e2e-retry-times: ${{ inputs.e2e_retry_times }}
 
   e2e-leg-7-vcluster:
@@ -531,7 +510,6 @@ jobs:
           vertica-deployment-method: vclusterops
           communal-storage-type: hostpath
           minimum-vertica-image: '24.2.0'
-          e2e-timeout-minutes: ${{ inputs.e2e_timeout_minutes }}
           e2e-retry-times: ${{ inputs.e2e_retry_times }}
 
   e2e-leg-8-admintools-offline:
@@ -555,7 +533,6 @@ jobs:
           vertica-deployment-method: admintools
           communal-storage-type: azb
           minimum-vertica-image: '24.2.0'
-          e2e-timeout-minutes: ${{ inputs.e2e_timeout_minutes }}
           e2e-retry-times: ${{ inputs.e2e_retry_times }}
 
   e2e-leg-8-admintools-online:
@@ -579,7 +556,6 @@ jobs:
           vertica-deployment-method: admintools
           communal-storage-type: azb
           minimum-vertica-image: '24.2.0'
-          e2e-timeout-minutes: ${{ inputs.e2e_timeout_minutes }}
           e2e-retry-times: ${{ inputs.e2e_retry_times }}
 
   e2e-leg-9-vcluster:
@@ -604,7 +580,6 @@ jobs:
           # Include the vertica license so we can test scaling past 3 nodes.
           vertica-license: ${{ secrets.VERTICA_LICENSE }}
           need-base-vertica-image: 'true'
-          e2e-timeout-minutes: ${{ inputs.e2e_timeout_minutes }}
           e2e-retry-times: ${{ inputs.e2e_retry_times }}
 
   e2e-leg-10-vcluster:
@@ -629,7 +604,6 @@ jobs:
           # Include the vertica license so we can test scaling past 3 nodes.
           vertica-license: ${{ secrets.VERTICA_LICENSE }}
           need-base-vertica-image: 'true'
-          e2e-timeout-minutes: ${{ inputs.e2e_timeout_minutes }}
           e2e-retry-times: ${{ inputs.e2e_retry_times }}
 
   e2e-leg-11-vcluster:
@@ -655,7 +629,6 @@ jobs:
           # Include the vertica license so we can test multiple subclusters.
           vertica-license: ${{ secrets.VERTICA_LICENSE }}
           need-base-vertica-image: 'true'
-          e2e-timeout-minutes: ${{ inputs.e2e_timeout_minutes }}
           e2e-retry-times: ${{ inputs.e2e_retry_times }}
 
   e2e-leg-12-vcluster:
@@ -699,7 +672,6 @@ jobs:
           communal-storage-type: s3
           need-base-vertica-image: 'true'
           need-legacy-image: true
-          e2e-timeout-minutes: ${{ inputs.e2e_timeout_minutes }}
           e2e-retry-times: ${{ inputs.e2e_retry_times }}
 
   e2e-server-upgrade-vcluster:
@@ -721,7 +693,6 @@ jobs:
           vertica-deployment-method: vclusterops
           communal-storage-type: s3
           need-base-vertica-image: 'true'
-          e2e-timeout-minutes: ${{ inputs.e2e_timeout_minutes }}
           e2e-retry-times: ${{ inputs.e2e_retry_times }}
 
   e2e-operator-upgrade:
@@ -747,7 +718,6 @@ jobs:
           e2e-parallelism: 1
           vertica-deployment-method: admintools
           need-legacy-image: true
-          e2e-timeout-minutes: ${{ inputs.e2e_timeout_minutes }}
           e2e-retry-times: ${{ inputs.e2e_retry_times }}
 
   e2e-udx-admintools:
@@ -772,7 +742,6 @@ jobs:
           # For admintools udx test, we are not using the test image,
           # and we still need to download some test packages.
           skip-download-test-packages: false
-          e2e-timeout-minutes: ${{ inputs.e2e_timeout_minutes }}
           e2e-retry-times: ${{ inputs.e2e_retry_times }}
 
   e2e-udx-vcluster:
@@ -794,7 +763,6 @@ jobs:
           vertica-image: ${{ needs.build.outputs.full-vertica-image }}
           vertica-deployment-method: vclusterops
           communal-storage-type: s3
-          e2e-timeout-minutes: ${{ inputs.e2e_timeout_minutes }}
           e2e-retry-times: ${{ inputs.e2e_retry_times }}
   
   upload-operator-to-private-repo:
