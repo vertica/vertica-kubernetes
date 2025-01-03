@@ -11,18 +11,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: v1
-kind: Pod
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
 metadata:
+  name: k8s-vertica-prometheus-v-prometheus
   labels:
-    app.kubernetes.io/name: prometheus
-status:
-  phase: Running
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: prometheus-kube-prometheus-operator
-status:
-  replicas: 1
-  readyReplicas: 1
+    release: prometheus
