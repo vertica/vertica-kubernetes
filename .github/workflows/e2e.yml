@@ -132,7 +132,7 @@ jobs:
           communal-storage-type: azb
           deploy-with: olm
           need-legacy-image: true
-          e2e-retry-times: ${{ inputs.e2e_retry_times }}
+          e2e-retry-times: ${{ inputs.e2e_retry_times || 2 }}
   
   e2e-leg-1-admintools-previous-release:
     if: ${{ ! contains(github.ref, 'k8s-sync')  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools leg 1' || inputs.e2e_test_suites == '') }}
@@ -154,7 +154,7 @@ jobs:
           vertica-deployment-method: admintools
           communal-storage-type: azb
           deploy-with: olm
-          e2e-retry-times: ${{ inputs.e2e_retry_times }}
+          e2e-retry-times: ${{ inputs.e2e_retry_times || 2 }}
 
   e2e-leg-1-vcluster:
     if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'vcluster leg 1' || inputs.e2e_test_suites == '')}}
@@ -175,7 +175,7 @@ jobs:
           vertica-deployment-method: vclusterops
           communal-storage-type: azb
           deploy-with: olm
-          e2e-retry-times: ${{ inputs.e2e_retry_times }}
+          e2e-retry-times: ${{ inputs.e2e_retry_times || 2 }}
 
   e2e-leg-2-admintools:
     if: ${{ ! contains(github.ref, 'k8s-sync')  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools leg 2' || inputs.e2e_test_suites == '') }}
@@ -197,7 +197,7 @@ jobs:
           communal-storage-type: hostpath
           controllers-scope: namespace
           need-legacy-image: true
-          e2e-retry-times: ${{ inputs.e2e_retry_times }}
+          e2e-retry-times: ${{ inputs.e2e_retry_times || 2 }}
 
   e2e-leg-2-admintools-previous-release:
     if: ${{ ! contains(github.ref, 'k8s-sync')  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools leg 2' || inputs.e2e_test_suites == '') }}
@@ -219,7 +219,7 @@ jobs:
           vertica-deployment-method: admintools
           communal-storage-type: hostpath
           controllers-scope: namespace
-          e2e-retry-times: ${{ inputs.e2e_retry_times }}
+          e2e-retry-times: ${{ inputs.e2e_retry_times || 2 }}
 
   e2e-leg-2-vcluster:
     if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'vcluster leg 2' || inputs.e2e_test_suites == '')}}
@@ -240,7 +240,7 @@ jobs:
           vertica-deployment-method: vclusterops
           communal-storage-type: hostpath
           controllers-scope: namespace
-          e2e-retry-times: ${{ inputs.e2e_retry_times }}
+          e2e-retry-times: ${{ inputs.e2e_retry_times || 2 }}
 
   e2e-leg-3-admintools:
     if: ${{ ! contains(github.ref, 'k8s-sync')  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools leg 3' || inputs.e2e_test_suites == '') }}
@@ -261,7 +261,7 @@ jobs:
           vertica-deployment-method: admintools
           communal-storage-type: hostpath
           need-legacy-image: true
-          e2e-retry-times: ${{ inputs.e2e_retry_times }}
+          e2e-retry-times: ${{ inputs.e2e_retry_times || 2 }}
   
   e2e-leg-3-vclusterops-previous-release:
     if: ${{ inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'vcluster leg 3' || inputs.e2e_test_suites == '' }}
@@ -282,7 +282,7 @@ jobs:
           artifact-suffix: "-24.1.0-release"
           vertica-deployment-method: vclusterops
           communal-storage-type: hostpath
-          e2e-retry-times: ${{ inputs.e2e_retry_times }}
+          e2e-retry-times: ${{ inputs.e2e_retry_times || 2 }}
 
   e2e-leg-3-vcluster:
     if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'vcluster leg 3' || inputs.e2e_test_suites == '')}}
@@ -302,7 +302,7 @@ jobs:
           vertica-image: ${{ needs.build.outputs.full-vertica-image }}
           vertica-deployment-method: vclusterops
           communal-storage-type: hostpath
-          e2e-retry-times: ${{ inputs.e2e_retry_times }}
+          e2e-retry-times: ${{ inputs.e2e_retry_times || 2 }}
 
   e2e-leg-4-admintools:
     if: ${{ ! contains(github.ref, 'k8s-sync')  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools leg 4' || inputs.e2e_test_suites == '') }}
@@ -326,7 +326,7 @@ jobs:
           # All helm deployments will use cert-manager to create the webhook cert
           helm-overrides: '--set webhook.certSource=cert-manager'
           need-legacy-image: true
-          e2e-retry-times: ${{ inputs.e2e_retry_times }}
+          e2e-retry-times: ${{ inputs.e2e_retry_times || 2 }}
   
   e2e-leg-4-vcluster:
     if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'vcluster leg 4' || inputs.e2e_test_suites == '')}}
@@ -349,7 +349,7 @@ jobs:
           vertica-superuser-name: myadmin
           # All helm deployments will use cert-manager to create the webhook cert
           helm-overrides: '--set webhook.certSource=cert-manager'
-          e2e-retry-times: ${{ inputs.e2e_retry_times }}
+          e2e-retry-times: ${{ inputs.e2e_retry_times || 2 }}
 
   e2e-leg-4-admintools-vdb-gen:
     if: ${{ ! contains(github.ref, 'k8s-sync')  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools leg 4 vdb-gen' || inputs.e2e_test_suites == '') }}
@@ -373,7 +373,7 @@ jobs:
           # All helm deployments will use cert-manager to create the webhook cert
           helm-overrides: '--set webhook.certSource=cert-manager'
           need-legacy-image: true
-          e2e-retry-times: ${{ inputs.e2e_retry_times }}
+          e2e-retry-times: ${{ inputs.e2e_retry_times || 2 }}
   
   e2e-leg-4-vcluster-vdb-gen:
     if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'vcluster leg 4 vdb-gen' || inputs.e2e_test_suites == '')}}
@@ -396,7 +396,7 @@ jobs:
           vertica-superuser-name: myadmin
           # All helm deployments will use cert-manager to create the webhook cert
           helm-overrides: '--set webhook.certSource=cert-manager'
-          e2e-retry-times: ${{ inputs.e2e_retry_times }}
+          e2e-retry-times: ${{ inputs.e2e_retry_times || 2 }}
 
   e2e-leg-5-admintools:
     if: ${{ ! contains(github.ref, 'k8s-sync')  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools leg 5' || inputs.e2e_test_suites == '') }}
@@ -422,7 +422,7 @@ jobs:
           e2e-parallelism: 1
           need-base-vertica-image: 'true'
           need-legacy-image: true
-          e2e-retry-times: ${{ inputs.e2e_retry_times }}
+          e2e-retry-times: ${{ inputs.e2e_retry_times || 2 }}
 
   e2e-leg-5-vcluster:
     if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'vcluster leg 5' || inputs.e2e_test_suites == '')}}
@@ -447,7 +447,7 @@ jobs:
           # operator running in the k8s cluster.
           e2e-parallelism: 1
           need-base-vertica-image: 'true'
-          e2e-retry-times: ${{ inputs.e2e_retry_times }}
+          e2e-retry-times: ${{ inputs.e2e_retry_times || 2 }}
 
   e2e-leg-6-vcluster:
     if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'vcluster leg 6' || inputs.e2e_test_suites == '')}}
@@ -468,7 +468,7 @@ jobs:
           vertica-deployment-method: vclusterops
           communal-storage-type: hostpath
           minimum-vertica-image: '24.2.0'
-          e2e-retry-times: ${{ inputs.e2e_retry_times }}
+          e2e-retry-times: ${{ inputs.e2e_retry_times || 2 }}
 
   e2e-leg-6-vcluster-revivedb:
     if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'vcluster leg 6 revivedb' || inputs.e2e_test_suites == '')}}
@@ -489,7 +489,7 @@ jobs:
           vertica-deployment-method: vclusterops
           communal-storage-type: hostpath
           minimum-vertica-image: '24.2.0'
-          e2e-retry-times: ${{ inputs.e2e_retry_times }}
+          e2e-retry-times: ${{ inputs.e2e_retry_times || 2 }}
 
   e2e-leg-7-vcluster:
     if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'vcluster leg 7' || inputs.e2e_test_suites == '')}}
@@ -510,7 +510,7 @@ jobs:
           vertica-deployment-method: vclusterops
           communal-storage-type: hostpath
           minimum-vertica-image: '24.2.0'
-          e2e-retry-times: ${{ inputs.e2e_retry_times }}
+          e2e-retry-times: ${{ inputs.e2e_retry_times || 2 }}
 
   e2e-leg-8-admintools-offline:
     if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'leg 8' || inputs.e2e_test_suites == '')}}
@@ -533,7 +533,7 @@ jobs:
           vertica-deployment-method: admintools
           communal-storage-type: azb
           minimum-vertica-image: '24.2.0'
-          e2e-retry-times: ${{ inputs.e2e_retry_times }}
+          e2e-retry-times: ${{ inputs.e2e_retry_times || 2 }}
 
   e2e-leg-8-admintools-online:
     if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'leg 8' || inputs.e2e_test_suites == '')}}
@@ -556,7 +556,7 @@ jobs:
           vertica-deployment-method: admintools
           communal-storage-type: azb
           minimum-vertica-image: '24.2.0'
-          e2e-retry-times: ${{ inputs.e2e_retry_times }}
+          e2e-retry-times: ${{ inputs.e2e_retry_times || 2 }}
 
   e2e-leg-9-vcluster:
     if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'vcluster leg 9' || inputs.e2e_test_suites == '')}}
@@ -580,7 +580,7 @@ jobs:
           # Include the vertica license so we can test scaling past 3 nodes.
           vertica-license: ${{ secrets.VERTICA_LICENSE }}
           need-base-vertica-image: 'true'
-          e2e-retry-times: ${{ inputs.e2e_retry_times }}
+          e2e-retry-times: ${{ inputs.e2e_retry_times || 2 }}
 
   e2e-leg-10-vcluster:
     if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'vcluster leg 10' || inputs.e2e_test_suites == '')}}
@@ -604,7 +604,7 @@ jobs:
           # Include the vertica license so we can test scaling past 3 nodes.
           vertica-license: ${{ secrets.VERTICA_LICENSE }}
           need-base-vertica-image: 'true'
-          e2e-retry-times: ${{ inputs.e2e_retry_times }}
+          e2e-retry-times: ${{ inputs.e2e_retry_times || 2 }}
 
   e2e-leg-11-vcluster:
     if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'vcluster leg 11' || inputs.e2e_test_suites == '')}}
@@ -629,7 +629,7 @@ jobs:
           # Include the vertica license so we can test multiple subclusters.
           vertica-license: ${{ secrets.VERTICA_LICENSE }}
           need-base-vertica-image: 'true'
-          e2e-retry-times: ${{ inputs.e2e_retry_times }}
+          e2e-retry-times: ${{ inputs.e2e_retry_times || 2 }}
 
   e2e-leg-12-vcluster:
     if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'vcluster leg 12' || inputs.e2e_test_suites == '')}}
@@ -672,7 +672,7 @@ jobs:
           communal-storage-type: s3
           need-base-vertica-image: 'true'
           need-legacy-image: true
-          e2e-retry-times: ${{ inputs.e2e_retry_times }}
+          e2e-retry-times: ${{ inputs.e2e_retry_times || 2 }}
 
   e2e-server-upgrade-vcluster:
     if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'vcluster server upgrade' || inputs.e2e_test_suites == '')}}
@@ -693,7 +693,7 @@ jobs:
           vertica-deployment-method: vclusterops
           communal-storage-type: s3
           need-base-vertica-image: 'true'
-          e2e-retry-times: ${{ inputs.e2e_retry_times }}
+          e2e-retry-times: ${{ inputs.e2e_retry_times || 2 }}
 
   e2e-operator-upgrade:
     if: ${{ ! contains(github.ref, 'k8s-sync')  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools operator upgrade' || inputs.e2e_test_suites == '') }}
@@ -718,7 +718,7 @@ jobs:
           e2e-parallelism: 1
           vertica-deployment-method: admintools
           need-legacy-image: true
-          e2e-retry-times: ${{ inputs.e2e_retry_times }}
+          e2e-retry-times: ${{ inputs.e2e_retry_times || 2 }}
 
   e2e-udx-admintools:
     if: ${{ ! contains(github.ref, 'k8s-sync')  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools udx' || inputs.e2e_test_suites == '') }}
@@ -742,7 +742,7 @@ jobs:
           # For admintools udx test, we are not using the test image,
           # and we still need to download some test packages.
           skip-download-test-packages: false
-          e2e-retry-times: ${{ inputs.e2e_retry_times }}
+          e2e-retry-times: ${{ inputs.e2e_retry_times || 2 }}
 
   e2e-udx-vcluster:
     if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'vcluster udx' || inputs.e2e_test_suites == '')}}
@@ -763,7 +763,7 @@ jobs:
           vertica-image: ${{ needs.build.outputs.full-vertica-image }}
           vertica-deployment-method: vclusterops
           communal-storage-type: s3
-          e2e-retry-times: ${{ inputs.e2e_retry_times }}
+          e2e-retry-times: ${{ inputs.e2e_retry_times || 2 }}
   
   upload-operator-to-private-repo:
     needs: [
