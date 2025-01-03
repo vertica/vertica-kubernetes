@@ -135,10 +135,10 @@ EOF
 
 function undeploy(){
   # Delete the service monitor for prometheus service monitor.
-  kubectl delete servicemonitor k8s-vertica-prometheus-$VDBNAME -n $NAMESPACE
+  kubectl delete servicemonitor k8s-vertica-prometheus-$VDB_NAME -n $NAMESPACE
 
   # delete secret for prometheus service monitor.
-  kubectl delete secret prometheus-$VDBNAME -n $NAMESPACE
+  kubectl delete secret prometheus-$VDB_NAME -n $NAMESPACE
 }
 
  # ACTION deploy and undeploy
