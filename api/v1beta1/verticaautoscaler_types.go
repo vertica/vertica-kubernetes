@@ -93,23 +93,23 @@ type CustomAutoscalerSpec struct {
 	// +kubebuilder:Minimum:=0
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
-	// the mininum size of replica set
-	MinReplicas *int32 `json:"minReplicas"`
+	// The miminum number of pods when scaling.
+	MinReplicas *int32 `json:"minReplicas,omitempty"`
 
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:Minimum:=0
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
-	// the maximum size of replica set
-	MaxReplicas *int32 `json:"maxReplicas"`
+	// The maximum number of pods when scaling.
+	MaxReplicas *int32 `json:"maxReplicas,omitempty"`
 
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
-	// the custom metric and increment to be used for autocaling
-	Metrics []MetricDefinition `json:"metrics"`
+	// The custom metric and increment to be used for autocaling.
+	Metrics []MetricDefinition `json:"metrics,omitempty"`
 
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
-	// define how the autocaler handles the scaleup and scaledown
+	// Specifies the scaling behavior for both scale up and down.
 	Behavior *autoscalingv2.HorizontalPodAutoscalerBehavior `json:"behavior,omitempty"`
 }
 
@@ -118,13 +118,13 @@ type MetricDefinition struct {
 
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
-	// the value used to increase the threshold after after a scale up or a scale down
+	// The value used to increase the threshold after after a scale up or a scale down.
 	Increment *int32 `json:"increment"`
 
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
-	// the custom metric to be used for autocaling
-	Metric autoscalingv2.MetricSpec `json:"metric"`
+	// The custom metric to be used for autocaling.
+	Metric autoscalingv2.MetricSpec `json:"metric,omitempty"`
 }
 
 type ScalingGranularityType string
