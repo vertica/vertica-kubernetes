@@ -146,6 +146,9 @@ export OLM_CATALOG_IMG
 MINIMAL_VERTICA_IMG ?=
 # Name of the helm release that we will install/uninstall
 HELM_RELEASE_NAME?=vdb-op
+# The Prometheus adapter name and namespace used in VerticaAutoscaler
+PROMETHEUS_ADAPTER_NAME=prometheus-adapter
+PROMETHEUS_ADAPTER_NAMESPACE=prometheus-adapter
 # Can be used to specify additional overrides when doing the helm install.
 # For example to specify a custom webhook tls cert when deploying use this command:
 #   HELM_OVERRIDES="--set webhook.tlsSecret=custom-cert" make deploy-operator
@@ -378,11 +381,15 @@ else
 	exit 1
 endif
 
-.PHONY: setup-prometheus-adapter
-setup-prometheus-adapter:  ## Setup prometheus adapter for VerticaAutoscaler
+.PHONY: deploy-prometheus-adapter
+deploy-prometheus-adapter:  ## Setup prometheus adapter for VerticaAutoscaler
 	helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
 	helm repo update
-	helm install prometheus-adapter prometheus-community/prometheus-adapter --namespace monitoring --create-namespace
+	helm install ${PROMETHEUS_ADAPTER_NAME} prometheus-community/prometheus-adapter -n ${PROMETHEUS_ADAPTER_NAMESPACE} --create-namespace --set prometheus.url=http://prometheus.default.svc --set prometheus.port=9090 --set replicas=1
+
+.PHONY: undeploy-prometheus-adapter
+undeploy-prometheus-adapter:  ## Remove prometheus adapter
+	helm uninstall ${PROMETHEUS_ADAPTER_NAME} -n ${PROMETHEUS_ADAPTER_NAMESPACE}
 
 .PHONY: setup-minio
 setup-minio: install-cert-manager install-kuttl-plugin ## Setup minio for use with the e2e tests
