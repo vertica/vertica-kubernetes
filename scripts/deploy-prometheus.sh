@@ -23,11 +23,11 @@ ACTION=''
 NAMESPACE=''
 USERNAME=''
 PASSWORD=''
-DBNAME=''
+VDB_NAME=''
 INTERVAL='5s'
 
 function usage() {
-    echo "usage: $(basename $0) [-n <namespace>] [-l <label>] [-a <action>] [-u <username>] [-p <password>] [-d <dbname>] [-i <interval>]"
+    echo "usage: $(basename $0) [-n <namespace>] [-l <label>] [-a <action>] [-u <username>] [-p <password>] [-d <vdbname>] [-i <interval>]"
     echo
     echo "Options:"
     echo "  -n <namespace>  The namespace used for prometheus service."
@@ -35,7 +35,7 @@ function usage() {
     echo "  -a <action>     The action to run in this script, deploy or undeploy."
     echo "  -u <username>   The database username, should have access to the Vertica server metrics."
     echo "  -p <password>   The database user password."
-    echo "  -d <dbname>     The database name."
+    echo "  -d <vdbname>    The k8s CRD database name."
     echo "  -i <interval>   The scraping interval of prometheus update for metrics."
     echo "  -h <usage>      Print help message."
     exit 1
@@ -60,7 +60,7 @@ do
             PASSWORD=$OPTARG
             ;;
         d)
-            DBNAME=$OPTARG
+            VDB_NAME=$OPTARG
             ;;
         i)
             INTERVAL=$OPTARG
@@ -90,7 +90,7 @@ apiVersion: v1
 kind: Secret
 metadata:
   namespace: $NAMESPACE
-  name: prometheus-$DBNAME
+  name: prometheus-$VDB_NAME
 data:
   username: '$(echo -n $USERNAME | base64)'
   password: '$(echo -n $PASSWORD | base64)'
@@ -102,14 +102,14 @@ EOF
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
-  name: k8s-vertica-prometheus-$DBNAME
+  name: k8s-vertica-prometheus-$VDB_NAME
   namespace: $NAMESPACE
   labels:
     release: $LABEL
 spec:
   selector:
     matchLabels:
-      app.kubernetes.io/instance: $DBNAME
+      app.kubernetes.io/instance: $VDB_NAME
   namespaceSelector:
     matchNames:
       - $NAMESPACE
@@ -117,10 +117,10 @@ spec:
     - basicAuth:
         password:
           key: password
-          name: prometheus-$DBNAME
+          name: prometheus-$VDB_NAME
         username: 
           key: username
-          name: prometheus-$DBNAME
+          name: prometheus-$VDB_NAME
           optional: true
       interval: $INTERVAL
       path: /v1/metrics
@@ -137,14 +137,14 @@ function undeploy(){
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
-  name: k8s-vertica-prometheus-$DBNAME
+  name: k8s-vertica-prometheus-$VDB_NAME
   namespace: $NAMESPACE
   labels:
     release: $LABEL
 spec:
   selector:
     matchLabels:
-      app.kubernetes.io/instance: $DBNAME
+      app.kubernetes.io/instance: $VDB_NAME
   namespaceSelector:
     matchNames:
       - $NAMESPACE
@@ -152,10 +152,10 @@ spec:
     - basicAuth:
         password:
           key: password
-          name: prometheus-$DBNAME
+          name: prometheus-$VDB_NAME
         username: 
           key: username
-          name: prometheus-$DBNAME
+          name: prometheus-$VDB_NAME
           optional: true
       interval: $INTERVAL
       path: /v1/metrics
@@ -171,7 +171,7 @@ apiVersion: v1
 kind: Secret
 metadata:
   namespace: $NAMESPACE
-  name: prometheus-$DBNAME
+  name: prometheus-$VDB_NAME
 data:
   username: '$(echo -n $USERNAME | base64)'
   password: '$(echo -n $PASSWORD | base64)'
