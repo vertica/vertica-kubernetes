@@ -91,6 +91,8 @@ kind: Secret
 metadata:
   namespace: $NAMESPACE
   name: prometheus-$VDB_NAME
+  labels:
+    release: $LABEL
 data:
   username: '$(echo -n $USERNAME | base64)'
   password: '$(echo -n $PASSWORD | base64)'
