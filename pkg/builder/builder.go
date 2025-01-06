@@ -1827,7 +1827,7 @@ func buildNMATLSCertsEnvVars(vdb *vapi.VerticaDB) []corev1.EnvVar {
 
 // buildVProxyTLSCertsEnvVars returns environment variables about proxy certs
 func buildVProxyTLSCertsEnvVars(vdb *vapi.VerticaDB) []corev1.EnvVar {
-	if vmeta.UseVProxyCertsMount(vdb.Annotations) && secrets.IsK8sSecret(vdb.Spec.Proxy.TLSSecret) {
+	if vdb.IsProxyTLSEnabled() {
 		return []corev1.EnvVar{
 			// Provide the path to each of the certs that are mounted in the container.
 			{Name: VProxyRootCAEnv, Value: fmt.Sprintf("%s/%s", paths.VProxyCertsRoot, paths.HTTPServerCACrtName)},
