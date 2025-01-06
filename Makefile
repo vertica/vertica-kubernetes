@@ -146,6 +146,7 @@ export OLM_CATALOG_IMG
 MINIMAL_VERTICA_IMG ?=
 # Name of the helm release that we will install/uninstall
 HELM_RELEASE_NAME?=vdb-op
+# Prometheus variables that we wil be used for deployment 
 PROMETHEUS_HELM_NAME?=prometheus
 PROMETHEUS_INTERVAL?=5s
 DB_USER?=dbadmin
