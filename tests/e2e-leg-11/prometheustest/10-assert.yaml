@@ -11,13 +11,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: v1
-kind: Pod
+apiVersion: apps/v1
+kind: StatefulSet
 metadata:
-  labels:
-    app.kubernetes.io/name: prometheus
+  name: prometheus-prometheus-kube-prometheus-prometheus
 status:
-  phase: Running
+  replicas: 1
+  readyReplicas: 1
 ---
 apiVersion: apps/v1
 kind: Deployment

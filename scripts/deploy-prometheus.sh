@@ -135,21 +135,21 @@ EOF
 
 function undeploy(){
   # Delete the service monitor for prometheus service monitor.
-  kubectl delete servicemonitor k8s-vertica-prometheus-$VDB_NAME -n $NAMESPACE
+  kubectl delete servicemonitor k8s-vertica-prometheus-$VDB_NAME -n $NAMESPACE || :
 
   # delete secret for prometheus service monitor.
-  kubectl delete secret prometheus-$VDB_NAME -n $NAMESPACE
+  kubectl delete secret prometheus-$VDB_NAME -n $NAMESPACE || :
 }
 
-function undeploy_by_label(){
+function undeploy_by_release(){
   # Delete the service monitor for prometheus service monitor.
-  kubectl delete servicemonitor -A -l release=$LABEL
+  kubectl delete servicemonitor -A -l release=$LABEL || :
 
   # delete secret for prometheus service monitor.
-  kubectl delete secret -A -l release=$LABEL
+  kubectl delete secret -A -l release=$LABEL || :
 }
 
-# ACTION deploy, undeploy, undeploy_by_label
+# ACTION deploy, undeploy, undeploy_by_release
 case $ACTION in
     deploy) 
         echo "Running task: $ACTION"
@@ -159,9 +159,9 @@ case $ACTION in
         echo "Running task: $ACTION"
         undeploy
         ;;
-    undeploy_by_label) 
+    undeploy_by_release) 
         echo "Running task: $ACTION"
-        undeploy_by_label
+        undeploy_by_release
         ;;
     *) 
         echo "Invalid action: '$ACTION'"
