@@ -146,13 +146,7 @@ export OLM_CATALOG_IMG
 MINIMAL_VERTICA_IMG ?=
 # Name of the helm release that we will install/uninstall
 HELM_RELEASE_NAME?=vdb-op
-# The Prometheus adapter name and namespace used in VerticaAutoscaler
-PROMETHEUS_ADAPTER_NAME ?= prometheus-adapter
-PROMETHEUS_ADAPTER_NAMESPACE ?= prometheus-adapter
-PROMETHEUS_ADAPTER_REPLICAS ?= 1
-# The Prometheus service URL and port for Prometheus adapter to connect to
-PROMETHEUS_URL ?= http://prometheus.default.svc
-PROMETHEUS_PORT ?= 9090
+# Prometheus variables that we wil be used for deployment 
 PROMETHEUS_HELM_NAME?=prometheus
 PROMETHEUS_INTERVAL?=5s
 DB_USER?=dbadmin
@@ -664,8 +658,12 @@ deploy-prometheus:
 	helm install $(DEPLOY_WAIT) -n $(PROMETHEUS_NAMESPACE) --create-namespace $(PROMETHEUS_HELM_NAME) $(PROMETHEUS_CHART) --values prometheus/values.yaml $(PROMETHEUS_HELM_OVERRIDES)
 
 .PHONY: undeploy-prometheus
-undeploy-prometheus:
+undeploy-prometheus: undeploy-prometheus-service-monitor-by-release
 	helm uninstall $(PROMETHEUS_HELM_NAME) -n $(PROMETHEUS_NAMESPACE)
+
+.PHONY: port-forward-prometheus
+port-forward-prometheus:  ## Expose the prometheus endpoint so that you can connect to it through http://localhost:9090
+	kubectl port-forward -n $(PROMETHEUS_NAMESPACE) svc/$(PROMETHEUS_HELM_NAME)-kube-prometheus-prometheus 9090
 
 .PHONY: deploy-prometheus-service-monitor
 deploy-prometheus-service-monitor:
@@ -675,15 +673,9 @@ deploy-prometheus-service-monitor:
 undeploy-prometheus-service-monitor:
 	scripts/deploy-prometheus.sh -n $(VDB_NAMESPACE) -l $(PROMETHEUS_HELM_NAME) -i $(PROMETHEUS_INTERVAL) -a undeploy -u $(DB_USER) -p '$(DB_PASSWORD)' -d $(VDB_NAME)
 
-.PHONY: deploy-prometheus-adapter
-deploy-prometheus-adapter:  ## Setup prometheus adapter for VerticaAutoscaler
-	helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
-	helm repo update
-	helm install $(DEPLOY_WAIT) -n ${PROMETHEUS_ADAPTER_NAMESPACE} --create-namespace ${PROMETHEUS_ADAPTER_NAME} prometheus-community/prometheus-adapter --values prometheus/adapter.yaml --set prometheus.url=${PROMETHEUS_URL} --set prometheus.port=${PROMETHEUS_PORT} --set replicas=${PROMETHEUS_ADAPTER_REPLICAS}
-
-.PHONY: undeploy-prometheus-adapter
-undeploy-prometheus-adapter:  ## Remove prometheus adapter
-	helm uninstall ${PROMETHEUS_ADAPTER_NAME} -n ${PROMETHEUS_ADAPTER_NAMESPACE}
+.PHONY: undeploy-prometheus-service-monitor-by-release
+undeploy-prometheus-service-monitor-by-release:
+	scripts/deploy-prometheus.sh -l $(PROMETHEUS_HELM_NAME) -a undeploy_by_release
 
 .PHONY: undeploy-operator
 undeploy-operator: ## Undeploy operator that was previously deployed

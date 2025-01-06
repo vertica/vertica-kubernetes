@@ -35,7 +35,7 @@ function usage() {
     echo "  -a <action>     The action to run in this script, deploy or undeploy."
     echo "  -u <username>   The database username, should have access to the Vertica server metrics."
     echo "  -p <password>   The database user password."
-    echo "  -d <vdbname>    The k8s CRD database name."
+    echo "  -d <vdbname>    The CR database name."
     echo "  -i <interval>   The scraping interval of prometheus update for metrics."
     echo "  -h <usage>      Print help message."
     exit 1
@@ -135,13 +135,21 @@ EOF
 
 function undeploy(){
   # Delete the service monitor for prometheus service monitor.
-  kubectl delete servicemonitor k8s-vertica-prometheus-$VDB_NAME -n $NAMESPACE
+  kubectl delete servicemonitor k8s-vertica-prometheus-$VDB_NAME -n $NAMESPACE || :
 
   # delete secret for prometheus service monitor.
-  kubectl delete secret prometheus-$VDB_NAME -n $NAMESPACE
+  kubectl delete secret prometheus-$VDB_NAME -n $NAMESPACE || :
 }
 
- # ACTION deploy and undeploy
+function undeploy_by_release(){
+  # Delete the service monitor for prometheus service monitor.
+  kubectl delete servicemonitor -A -l release=$LABEL || :
+
+  # delete secret for prometheus service monitor.
+  kubectl delete secret -A -l release=$LABEL || :
+}
+
+# ACTION deploy, undeploy, undeploy_by_release
 case $ACTION in
     deploy) 
         echo "Running task: $ACTION"
@@ -150,6 +158,10 @@ case $ACTION in
     undeploy) 
         echo "Running task: $ACTION"
         undeploy
+        ;;
+    undeploy_by_release) 
+        echo "Running task: $ACTION"
+        undeploy_by_release
         ;;
     *) 
         echo "Invalid action: '$ACTION'"
