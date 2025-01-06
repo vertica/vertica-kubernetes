@@ -1,12 +1,3 @@
-# Url to access prometheus
-prometheus:
-  url: http://prometheus.default.svc
-  port: 9090
-  path: ""
-
-# Number of prometheus adapter instances
-replicas: 1
-
 # Customize the adapter configuration to map Prometheus metrics to Kubernetes metrics
 rules:
   default: false

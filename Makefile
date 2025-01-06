@@ -142,20 +142,21 @@ OLM_CATALOG_IMG ?= olm-catalog:$(TAG)
 endif
 export OLM_CATALOG_IMG
 
-# Set this to YES if you want to create a vertica image of minimal size
-MINIMAL_VERTICA_IMG ?=
-# Name of the helm release that we will install/uninstall
-HELM_RELEASE_NAME?=vdb-op
+# Prometheus variables that we wil be used for deployment 
+PROMETHEUS_HELM_NAME?=prometheus
+PROMETHEUS_INTERVAL?=5s
 # The Prometheus adapter name and namespace used in VerticaAutoscaler
 PROMETHEUS_ADAPTER_NAME ?= prometheus-adapter
 PROMETHEUS_ADAPTER_NAMESPACE ?= prometheus-adapter
 PROMETHEUS_ADAPTER_REPLICAS ?= 1
 # The Prometheus service URL and port for Prometheus adapter to connect to
-PROMETHEUS_URL ?= http://prometheus.default.svc
+PROMETHEUS_URL ?= http://$(PROMETHEUS_HELM_NAME)-kube-prometheus-prometheus.$(PROMETHEUS_NAMESPACE).svc
 PROMETHEUS_PORT ?= 9090
-# Prometheus variables that we wil be used for deployment 
-PROMETHEUS_HELM_NAME?=prometheus
-PROMETHEUS_INTERVAL?=5s
+
+# Set this to YES if you want to create a vertica image of minimal size
+MINIMAL_VERTICA_IMG ?=
+# Name of the helm release that we will install/uninstall
+HELM_RELEASE_NAME?=vdb-op
 DB_USER?=dbadmin
 DB_PASSWORD?=
 VDB_NAME?=verticadb-sample
@@ -163,8 +164,9 @@ VDB_NAMESPACE?=default
 # Can be used to specify additional overrides when doing the helm install.
 # For example to specify a custom webhook tls cert when deploying use this command:
 #   HELM_OVERRIDES="--set webhook.tlsSecret=custom-cert" make deploy-operator
-HELM_OVERRIDES?=
-PROMETHEUS_HELM_OVERRIDES?=
+HELM_OVERRIDES ?=
+PROMETHEUS_HELM_OVERRIDES ?=
+PROMETHEUS_ADAPTER_HELM_OVERRIDES ?= 
 # Maximum number of tests to run at once. (default 2)
 # Set it to any value not greater than 8 to override the default one
 E2E_PARALLELISM?=2
@@ -688,7 +690,7 @@ undeploy-prometheus-service-monitor-by-release:
 deploy-prometheus-adapter:  ## Setup prometheus adapter for VerticaAutoscaler
 	helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
 	helm repo update
-	helm install $(DEPLOY_WAIT) -n ${PROMETHEUS_ADAPTER_NAMESPACE} --create-namespace ${PROMETHEUS_ADAPTER_NAME} prometheus-community/prometheus-adapter --values prometheus/adapter.yaml --set prometheus.url=${PROMETHEUS_URL} --set prometheus.port=${PROMETHEUS_PORT} --set replicas=${PROMETHEUS_ADAPTER_REPLICAS}
+	helm install $(DEPLOY_WAIT) -n ${PROMETHEUS_ADAPTER_NAMESPACE} --create-namespace ${PROMETHEUS_ADAPTER_NAME} prometheus-community/prometheus-adapter --values prometheus/adapter.yaml --set prometheus.url=${PROMETHEUS_URL} --set prometheus.port=${PROMETHEUS_PORT} --set replicas=${PROMETHEUS_ADAPTER_REPLICAS} ${PROMETHEUS_ADAPTER_HELM_OVERRIDES}
 
 .PHONY: undeploy-prometheus-adapter
 undeploy-prometheus-adapter:  ## Remove prometheus adapter
