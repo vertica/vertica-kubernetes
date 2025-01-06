@@ -147,8 +147,12 @@ MINIMAL_VERTICA_IMG ?=
 # Name of the helm release that we will install/uninstall
 HELM_RELEASE_NAME?=vdb-op
 # The Prometheus adapter name and namespace used in VerticaAutoscaler
-PROMETHEUS_ADAPTER_NAME=prometheus-adapter
-PROMETHEUS_ADAPTER_NAMESPACE=prometheus-adapter
+PROMETHEUS_ADAPTER_NAME ?= prometheus-adapter
+PROMETHEUS_ADAPTER_NAMESPACE ?= prometheus-adapter
+PROMETHEUS_ADAPTER_REPLICAS ?= 1
+# The Prometheus service URL and port for Prometheus adapter to connect to
+PROMETHEUS_URL ?= http://prometheus.default.svc
+PROMETHEUS_PORT ?= 9090
 PROMETHEUS_HELM_NAME?=prometheus
 PROMETHEUS_INTERVAL?=5s
 DB_USER?=dbadmin
@@ -390,16 +394,6 @@ else
 	$(error cannot setup communal endpoint for this protocol: $(PATH_PROTOCOL))
 	exit 1
 endif
-
-.PHONY: deploy-prometheus-adapter
-deploy-prometheus-adapter:  ## Setup prometheus adapter for VerticaAutoscaler
-	helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
-	helm repo update
-	helm install ${PROMETHEUS_ADAPTER_NAME} prometheus-community/prometheus-adapter -n ${PROMETHEUS_ADAPTER_NAMESPACE} --create-namespace --set prometheus.url=http://prometheus.default.svc --set prometheus.port=9090 --set replicas=1
-
-.PHONY: undeploy-prometheus-adapter
-undeploy-prometheus-adapter:  ## Remove prometheus adapter
-	helm uninstall ${PROMETHEUS_ADAPTER_NAME} -n ${PROMETHEUS_ADAPTER_NAMESPACE}
 
 .PHONY: setup-minio
 setup-minio: install-cert-manager install-kuttl-plugin ## Setup minio for use with the e2e tests
@@ -680,6 +674,16 @@ deploy-prometheus-service-monitor:
 .PHONY: undeploy-prometheus-service-monitor
 undeploy-prometheus-service-monitor:
 	scripts/deploy-prometheus.sh -n $(VDB_NAMESPACE) -l $(PROMETHEUS_HELM_NAME) -i $(PROMETHEUS_INTERVAL) -a undeploy -u $(DB_USER) -p '$(DB_PASSWORD)' -d $(VDB_NAME)
+
+.PHONY: deploy-prometheus-adapter
+deploy-prometheus-adapter:  ## Setup prometheus adapter for VerticaAutoscaler
+        helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+        helm repo update
+        helm install $(DEPLOY_WAIT) -n ${PROMETHEUS_ADAPTER_NAMESPACE} --create-namespace ${PROMETHEUS_ADAPTER_NAME} prometheus-community/prometheus-adapter --values prometheus/adapter.yaml --set prometheus.url=${PROMETHEUS_URL} --set prometheus.port=${PROMETHEUS_PORT} --set replicas=${PROMETHEUS_ADAPTER_REPLICAS}
+
+.PHONY: undeploy-prometheus-adapter
+undeploy-prometheus-adapter:  ## Remove prometheus adapter
+        helm uninstall ${PROMETHEUS_ADAPTER_NAME} -n ${PROMETHEUS_ADAPTER_NAMESPACE}
 
 .PHONY: undeploy-operator
 undeploy-operator: ## Undeploy operator that was previously deployed

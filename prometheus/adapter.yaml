@@ -1,0 +1,24 @@
+# Url to access prometheus
+prometheus:
+  url: http://prometheus.default.svc
+  port: 9090
+  path: ""
+
+# Number of prometheus adapter instances
+replicas: 1
+
+# Customize the adapter configuration to map Prometheus metrics to Kubernetes metrics
+rules:
+  default: false
+  custom:
+    - seriesQuery: 'vertica_query_requests_attempted_total{namespace!="", pod!=""}'
+      resources:
+        overrides:
+          namespace:
+            resource: namespace
+          pod:
+            resource: pod
+      name:
+        matches: "^(.*)_total$"
+        as: "${1}_rate_per_second"
+      metricsQuery: 'sum(increase(vertica_query_requests_attempted_total[5m])) by (namespace, pod)'
