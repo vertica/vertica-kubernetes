@@ -35,7 +35,7 @@ function usage() {
     echo "  -a <action>     The action to run in this script, deploy or undeploy."
     echo "  -u <username>   The database username, should have access to the Vertica server metrics."
     echo "  -p <password>   The database user password."
-    echo "  -d <vdbname>    The k8s CRD database name."
+    echo "  -d <vdbname>    The CR database name."
     echo "  -i <interval>   The scraping interval of prometheus update for metrics."
     echo "  -h <usage>      Print help message."
     exit 1
