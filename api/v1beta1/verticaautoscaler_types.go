@@ -119,7 +119,7 @@ type MetricDefinition struct {
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// +kubebuilder:Minimum:=0
-	// The value used to increase the threshold after after a scale up or a scale down.
+	// The value used to increase the threshold after a scale up or a scale down.
 	ThresholdAdjustmentValue *int32 `json:"thresholdAdjustmentValue,omitempty"`
 
 	// +kubebuilder:validation:Optional
