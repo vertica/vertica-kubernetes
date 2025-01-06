@@ -658,8 +658,12 @@ deploy-prometheus:
 	helm install $(DEPLOY_WAIT) -n $(PROMETHEUS_NAMESPACE) --create-namespace $(PROMETHEUS_HELM_NAME) $(PROMETHEUS_CHART) --values prometheus/values.yaml $(PROMETHEUS_HELM_OVERRIDES)
 
 .PHONY: undeploy-prometheus
-undeploy-prometheus:
+undeploy-prometheus: undeploy-prometheus-service-monitor-by-release
 	helm uninstall $(PROMETHEUS_HELM_NAME) -n $(PROMETHEUS_NAMESPACE)
+
+.PHONY: port-forward-prometheus
+port-forward-prometheus:  ## Expose the prometheus endpoint so that you can connect to it through http://localhost:9090
+	kubectl port-forward -n $(PROMETHEUS_NAMESPACE) svc/$(PROMETHEUS_HELM_NAME)-kube-prometheus-prometheus 9090
 
 .PHONY: deploy-prometheus-service-monitor
 deploy-prometheus-service-monitor:
@@ -671,7 +675,7 @@ undeploy-prometheus-service-monitor:
 
 .PHONY: undeploy-prometheus-service-monitor-by-release
 undeploy-prometheus-service-monitor-by-release:
-	scripts/deploy-prometheus.sh -n $(VDB_NAMESPACE) -l $(PROMETHEUS_HELM_NAME) -i $(PROMETHEUS_INTERVAL) -a undeploy_by_label -u $(DB_USER) -p '$(DB_PASSWORD)' -d $(VDB_NAME)
+	scripts/deploy-prometheus.sh -l $(PROMETHEUS_HELM_NAME) -a undeploy_by_release
 
 .PHONY: undeploy-operator
 undeploy-operator: ## Undeploy operator that was previously deployed

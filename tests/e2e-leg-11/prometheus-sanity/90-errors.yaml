@@ -11,6 +11,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+apiVersion: v1
+kind: Secret
+metadata:
+  name: prometheus-v-prometheus
+---
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:

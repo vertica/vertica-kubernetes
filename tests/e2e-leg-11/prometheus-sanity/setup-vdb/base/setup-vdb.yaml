@@ -26,7 +26,6 @@ spec:
     requestSize: 250Mi
   imagePullPolicy: IfNotPresent
   passwordSecret: su-passwd
-
   # We pick a cluster size that is too big for the CE license. This relies on
   # having a license, which will be added by kustomize.
   subclusters:
