@@ -668,6 +668,10 @@ deploy-prometheus-service-monitor:
 undeploy-prometheus-service-monitor:
 	scripts/deploy-prometheus.sh -n $(VDB_NAMESPACE) -l $(PROMETHEUS_HELM_NAME) -i $(PROMETHEUS_INTERVAL) -a undeploy -u $(DB_USER) -p '$(DB_PASSWORD)' -d $(VDB_NAME)
 
+.PHONY: undeploy-prometheus-service-monitor-by-release
+undeploy-prometheus-service-monitor-by-release:
+	scripts/deploy-prometheus.sh -n $(VDB_NAMESPACE) -l $(PROMETHEUS_HELM_NAME) -i $(PROMETHEUS_INTERVAL) -a undeploy_by_label -u $(DB_USER) -p '$(DB_PASSWORD)' -d $(VDB_NAME)
+
 .PHONY: undeploy-operator
 undeploy-operator: ## Undeploy operator that was previously deployed
 	scripts/undeploy.sh $(if $(filter false,$(ignore-not-found)),,-i)

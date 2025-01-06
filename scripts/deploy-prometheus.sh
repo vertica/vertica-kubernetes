@@ -141,7 +141,15 @@ function undeploy(){
   kubectl delete secret prometheus-$VDB_NAME -n $NAMESPACE
 }
 
- # ACTION deploy and undeploy
+function undeploy_by_label(){
+  # Delete the service monitor for prometheus service monitor.
+  kubectl delete servicemonitor -A -l release=$LABEL
+
+  # delete secret for prometheus service monitor.
+  kubectl delete secret -A -l release=$LABEL
+}
+
+# ACTION deploy, undeploy, undeploy_by_label
 case $ACTION in
     deploy) 
         echo "Running task: $ACTION"
@@ -150,6 +158,10 @@ case $ACTION in
     undeploy) 
         echo "Running task: $ACTION"
         undeploy
+        ;;
+    undeploy_by_label) 
+        echo "Running task: $ACTION"
+        undeploy_by_label
         ;;
     *) 
         echo "Invalid action: '$ACTION'"
