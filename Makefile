@@ -677,13 +677,13 @@ undeploy-prometheus-service-monitor:
 
 .PHONY: deploy-prometheus-adapter
 deploy-prometheus-adapter:  ## Setup prometheus adapter for VerticaAutoscaler
-        helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
-        helm repo update
-        helm install $(DEPLOY_WAIT) -n ${PROMETHEUS_ADAPTER_NAMESPACE} --create-namespace ${PROMETHEUS_ADAPTER_NAME} prometheus-community/prometheus-adapter --values prometheus/adapter.yaml --set prometheus.url=${PROMETHEUS_URL} --set prometheus.port=${PROMETHEUS_PORT} --set replicas=${PROMETHEUS_ADAPTER_REPLICAS}
+	helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+	helm repo update
+	helm install $(DEPLOY_WAIT) -n ${PROMETHEUS_ADAPTER_NAMESPACE} --create-namespace ${PROMETHEUS_ADAPTER_NAME} prometheus-community/prometheus-adapter --values prometheus/adapter.yaml --set prometheus.url=${PROMETHEUS_URL} --set prometheus.port=${PROMETHEUS_PORT} --set replicas=${PROMETHEUS_ADAPTER_REPLICAS}
 
 .PHONY: undeploy-prometheus-adapter
 undeploy-prometheus-adapter:  ## Remove prometheus adapter
-        helm uninstall ${PROMETHEUS_ADAPTER_NAME} -n ${PROMETHEUS_ADAPTER_NAMESPACE}
+	helm uninstall ${PROMETHEUS_ADAPTER_NAME} -n ${PROMETHEUS_ADAPTER_NAMESPACE}
 
 .PHONY: undeploy-operator
 undeploy-operator: ## Undeploy operator that was previously deployed
