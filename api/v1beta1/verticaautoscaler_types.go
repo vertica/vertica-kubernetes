@@ -84,27 +84,25 @@ type VerticaAutoscalerSpec struct {
 	// This struct allows customization of autoscaling. Custom metrics can be used instead of the memory and cpu metrics.
 	// The scaling behavior can also be customized to meet different performance requirements. The maximum and mininum of
 	// sizes of the replica sets can be specified to limit the use of resources.
-	CustomAutoscalerSpec *CustomAutoscalerSpec `json:"customAutoscalerSpec,omitempty"`
+	CustomAutoscaler *CustomAutoscalerSpec `json:"customAutoscalerSpec,omitempty"`
 }
 
 // CustomAutoscalerSpec customizes VerticaAutoscaler
 type CustomAutoscalerSpec struct {
 
 	// +kubebuilder:Minimum:=0
-	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// The miminum number of pods when scaling.
-	MinReplicas *int32 `json:"minReplicas,omitempty"`
+	MinReplicas int32 `json:"minReplicas,omitempty"`
 
-	// +kubebuilder:validation:Optional
 	// +kubebuilder:Minimum:=0
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// The maximum number of pods when scaling.
-	MaxReplicas *int32 `json:"maxReplicas,omitempty"`
+	MaxReplicas int32 `json:"maxReplicas,omitempty"`
 
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
-	// The custom metric and increment to be used for autocaling.
+	// The custom metric definition to be used for autocaling.
 	Metrics []MetricDefinition `json:"metrics,omitempty"`
 
 	// +kubebuilder:validation:Optional
@@ -120,7 +118,7 @@ type MetricDefinition struct {
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// +kubebuilder:Minimum:=0
 	// The value used to increase the threshold after a scale up or a scale down.
-	ThresholdAdjustmentValue *int32 `json:"thresholdAdjustmentValue,omitempty"`
+	ThresholdAdjustmentValue int `json:"thresholdAdjustmentValue,omitempty"`
 
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
