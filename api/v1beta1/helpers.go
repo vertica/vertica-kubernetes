@@ -185,10 +185,11 @@ func (vrep *VerticaReplicator) IsStatusConditionPresent(statusCondition string) 
 	return meta.FindStatusCondition(vrep.Status.Conditions, statusCondition) != nil
 }
 
+// GetHPAMetrics extract an return hpa metrics from MetricDefinition struct.
 func (v *VerticaAutoscaler) GetHPAMetrics() []autoscalingv2.MetricSpec {
-	metrics := make([]autoscalingv2.MetricSpec, len(v.Spec.CustomAutoscalerSpec.Metrics))
-	for i := range v.Spec.CustomAutoscalerSpec.Metrics {
-		metrics[i] = v.Spec.CustomAutoscalerSpec.Metrics[i].Metric
+	metrics := make([]autoscalingv2.MetricSpec, len(v.Spec.CustomAutoscaler.Metrics))
+	for i := range v.Spec.CustomAutoscaler.Metrics {
+		metrics[i] = v.Spec.CustomAutoscaler.Metrics[i].Metric
 	}
 	return metrics
 }

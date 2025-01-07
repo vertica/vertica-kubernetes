@@ -46,7 +46,7 @@ func MakeHorizontalPodAutoscalerReconciler(v *VerticaAutoscalerReconciler, vas *
 
 // Reconcile will handle updating the selector in the status portion of a VerticaAutoscaler
 func (h *HorizontalPodAutoscalerReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (ctrl.Result, error) {
-	if h.Vas.Spec.CustomAutoscalerSpec == nil {
+	if !h.Vas.IsCustomMetricsEnabled() {
 		return ctrl.Result{}, nil
 	}
 	nm := names.GenHPAName(h.Vas)

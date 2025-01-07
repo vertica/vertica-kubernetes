@@ -31,6 +31,7 @@ import (
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
+	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/meta"
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
 )
@@ -120,4 +121,12 @@ func (r *VerticaAutoscalerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&v1vapi.VerticaDB{}).
 		Owns(&autoscalingv2.HorizontalPodAutoscaler{}).
 		Complete(r)
+}
+
+func (r *VerticaAutoscalerReconciler) Eventf(vdb runtime.Object, eventtype, reason, messageFmt string, args ...interface{}) {
+	evWriter := events.Writer{
+		Log:   r.Log,
+		EVRec: r.EVRec,
+	}
+	evWriter.Eventf(vdb, eventtype, reason, messageFmt, args...)
 }
