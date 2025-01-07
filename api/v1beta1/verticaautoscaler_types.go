@@ -84,7 +84,7 @@ type VerticaAutoscalerSpec struct {
 	// This struct allows customization of autoscaling. Custom metrics can be used instead of the memory and cpu metrics.
 	// The scaling behavior can also be customized to meet different performance requirements. The maximum and mininum of
 	// sizes of the replica sets can be specified to limit the use of resources.
-	CustomAutoscaler *CustomAutoscalerSpec `json:"customAutoscalerSpec,omitempty"`
+	CustomAutoscaler *CustomAutoscalerSpec `json:"customAutoscaler,omitempty"`
 }
 
 // CustomAutoscalerSpec customizes VerticaAutoscaler
@@ -272,4 +272,10 @@ func MakeVASWithMetrics() *VerticaAutoscaler {
 // CanUseTemplate returns true if we can use the template provided in the spec
 func (v *VerticaAutoscaler) CanUseTemplate() bool {
 	return v.Spec.Template.Size > 0
+}
+
+// IsCustomMetricsEnabled returns true if the CR is set to use
+// custom metrics for scaling.
+func (v *VerticaAutoscaler) IsCustomMetricsEnabled() bool {
+	return v.Spec.CustomAutoscaler != nil
 }

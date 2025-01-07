@@ -876,10 +876,10 @@ func BuildHorizontalPodAutoscaler(nm types.NamespacedName, vas *v1beta1.VerticaA
 				Kind:       v1beta1.VerticaAutoscalerKind,
 				Name:       vas.Name,
 			},
-			MinReplicas: vas.Spec.CustomAutoscalerSpec.MinReplicas,
-			MaxReplicas: *vas.Spec.CustomAutoscalerSpec.MaxReplicas,
+			MinReplicas: vas.Spec.CustomAutoscaler.MinReplicas,
+			MaxReplicas: vas.Spec.CustomAutoscaler.MaxReplicas,
 			Metrics:     vas.GetHPAMetrics(),
-			Behavior:    vas.Spec.CustomAutoscalerSpec.Behavior,
+			Behavior:    vas.Spec.CustomAutoscaler.Behavior,
 		},
 	}
 }

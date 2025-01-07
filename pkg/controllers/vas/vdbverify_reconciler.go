@@ -21,6 +21,9 @@ import (
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	v1beta1 "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
+	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
+	"github.com/vertica/vertica-kubernetes/pkg/events"
+	corev1 "k8s.io/api/core/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
@@ -40,5 +43,18 @@ func (s *VDBVerifyReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (c
 	// This reconciler is intended to be the first thing we run.  We want early
 	// feedback if the VerticaDB that is referenced in the vas doesn't exist.
 	// This will print out an event if the VerticaDB cannot be found.
-	return fetchVDB(ctx, s.VRec, s.Vas, s.Vdb)
+	res, err := fetchVDB(ctx, s.VRec, s.Vas, s.Vdb)
+	if !s.Vas.IsCustomMetricsEnabled() || verrors.IsReconcileAborted(res, err) {
+		return res, err
+	}
+	vinf, vErr := s.Vdb.MakeVersionInfoCheck()
+	if vErr != nil {
+		return ctrl.Result{}, err
+	}
+	if !vinf.IsEqualOrNewer(vapi.PrometheusMetricsMinVersion) {
+		ver, _ := s.Vdb.GetVerticaVersionStr()
+		s.VRec.Eventf(s.Vas, corev1.EventTypeWarning, events.PrometheusMetricsNotSupported,
+			"The server version %s does not support prometheus metrics", ver)
+	}
+	return res, err
 }

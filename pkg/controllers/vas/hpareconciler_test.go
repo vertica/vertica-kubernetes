@@ -46,13 +46,13 @@ var _ = Describe("subclusterresize_reconcile", func() {
 		nm := names.GenHPAName(vas)
 		Expect(k8sClient.Get(ctx, nm, hpa)).Should(Succeed())
 		Expect(hpa.Spec.ScaleTargetRef.Name).Should(Equal(vas.Name))
-		Expect(*hpa.Spec.MinReplicas).Should(Equal(*vas.Spec.CustomAutoscalerSpec.MinReplicas))
-		Expect(hpa.Spec.MaxReplicas).Should(Equal(*vas.Spec.CustomAutoscalerSpec.MaxReplicas))
+		Expect(*hpa.Spec.MinReplicas).Should(Equal(*vas.Spec.CustomAutoscaler.MinReplicas))
+		Expect(hpa.Spec.MaxReplicas).Should(Equal(vas.Spec.CustomAutoscaler.MaxReplicas))
 		Expect(hpa.Spec.Metrics[0].Resource.Name).Should(Equal(corev1.ResourceName("cpu")))
 
 		// Update hpa
 		newRep := int32(10)
-		vas.Spec.CustomAutoscalerSpec.MaxReplicas = &newRep
+		vas.Spec.CustomAutoscaler.MaxReplicas = newRep
 		r = MakeHorizontalPodAutoscalerReconciler(vasRec, vas, logger)
 		res, err = r.Reconcile(ctx, &ctrl.Request{})
 		Expect(res).Should(Equal(ctrl.Result{}))

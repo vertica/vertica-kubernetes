@@ -604,6 +604,27 @@ jobs:
           vertica-license: ${{ secrets.VERTICA_LICENSE }}
           need-base-vertica-image: 'true'
 
+  e2e-leg-12-vcluster:
+    if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'vcluster leg 12' || inputs.e2e_test_suites == '')}}
+    needs: [build]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Test
+        uses: ./.github/actions/run-e2e-leg
+        with:
+          leg-identifier: 'leg-12'
+          dockerhub-username: ${{ secrets.DOCKERHUB_USERNAME }}
+          dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}
+          vlogger-image: ${{ needs.build.outputs.vlogger-image }}
+          operator-image: ${{ needs.build.outputs.operator-image }}
+          vertica-image: ${{ needs.build.outputs.full-vertica-image }}
+          vertica-deployment-method: vclusterops
+          communal-storage-type: s3
+          # Include the vertica license so we can test multiple subclusters.
+          vertica-license: ${{ secrets.VERTICA_LICENSE }}
+
   e2e-server-upgrade-admintools:
     if: ${{ ! contains(github.ref, 'k8s-sync')  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools server upgrade' || inputs.e2e_test_suites == '') }}
     needs: [build]
@@ -728,6 +749,7 @@ jobs:
       e2e-leg-9-vcluster,
       e2e-leg-10-vcluster,
       e2e-leg-11-vcluster,
+      e2e-leg-12-vcluster,
       e2e-server-upgrade-vcluster,
       e2e-operator-upgrade,
       e2e-udx-vcluster,
@@ -776,6 +798,7 @@ jobs:
       e2e-leg-9-vcluster,
       e2e-leg-10-vcluster,
       e2e-leg-11-vcluster,
+      e2e-leg-12-vcluster,
       e2e-server-upgrade-vcluster,
       e2e-operator-upgrade,
       e2e-udx-vcluster

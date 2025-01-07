@@ -45,6 +45,7 @@ func fetchVDB(ctx context.Context, vrec *VerticaAutoscalerReconciler,
 	return ctrl.Result{}, err
 }
 
+// createHpa creates a new horizontal pod autoscaler.
 func createHpa(ctx context.Context, vrec *VerticaAutoscalerReconciler, expHpa *autoscalingv2.HorizontalPodAutoscaler,
 	vas *v1beta1.VerticaAutoscaler) error {
 	err := ctrl.SetControllerReference(vas, expHpa, vrec.Client.Scheme())
