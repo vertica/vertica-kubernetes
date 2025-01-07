@@ -146,10 +146,18 @@ export OLM_CATALOG_IMG
 MINIMAL_VERTICA_IMG ?=
 # Name of the helm release that we will install/uninstall
 HELM_RELEASE_NAME?=vdb-op
+# Prometheus variables that we wil be used for deployment 
+PROMETHEUS_HELM_NAME?=prometheus
+PROMETHEUS_INTERVAL?=5s
+DB_USER?=dbadmin
+DB_PASSWORD?=
+VDB_NAME?=verticadb-sample
+VDB_NAMESPACE?=default
 # Can be used to specify additional overrides when doing the helm install.
 # For example to specify a custom webhook tls cert when deploying use this command:
 #   HELM_OVERRIDES="--set webhook.tlsSecret=custom-cert" make deploy-operator
 HELM_OVERRIDES?=
+PROMETHEUS_HELM_OVERRIDES?=
 # Maximum number of tests to run at once. (default 2)
 # Set it to any value not greater than 8 to override the default one
 E2E_PARALLELISM?=2
@@ -246,6 +254,8 @@ DEPLOY_WAIT?=--wait
 OLM_TEST_CATALOG_SOURCE=e2e-test-catalog
 # Name of the namespace to deploy the operator in
 NAMESPACE?=verticadb-operator
+# Name of the namespace to deploy prometheus 
+PROMETHEUS_NAMESPACE?=prometheus
 
 # The Go version that we will build the operator with
 GO_VERSION?=1.23.2
@@ -255,6 +265,7 @@ HELM_UNITTEST_VERSION?=3.9.3-0.2.11
 KUTTL_PLUGIN_INSTALLED:=$(shell kubectl krew list 2>/dev/null | grep -c '^kuttl')
 STERN_PLUGIN_INSTALLED:=$(shell kubectl krew list 2>/dev/null | grep -c '^stern')
 OPERATOR_CHART = $(shell pwd)/helm-charts/verticadb-operator
+PROMETHEUS_CHART=prometheus-community/kube-prometheus-stack
 
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
 ifeq (,$(shell go env GOBIN))
@@ -634,11 +645,37 @@ endif
 
 deploy-webhook: manifests kustomize ## Using helm, deploy just the webhook in the k8s cluster
 ifeq ($(DEPLOY_WITH), helm)
-	helm install $(DEPLOY_WAIT) -n $(NAMESPACE) --create-namespace $(HELM_RELEASE_NAME) $(OPERATOR_CHART) --set image.repo=null --set image.name=${OPERATOR_IMG} --set image.pullPolicy=$(HELM_IMAGE_PULL_POLICY) --set imagePullSecrets[0].name=priv-reg-cred $(HELM_OVERRIDES) --set webhook.enable=true,controllers.enable=false
+	helm install $(DEPLOY_WAIT) -n $(NAMESPACE) --create-namespace $(HELM_RELEASE_NAME) $(OPERATOR_CHART) --set image.repo=null --set image.name=${OPERATOR_IMG} --set image.pullPolicy=$(HELM_IMAGE_PULL_POLICY) --set imagePullSecrets[0].name=priv-reg-cred --set webhook.enable=true,controllers.enable=false $(HELM_OVERRIDES)
 	scripts/wait-for-webhook.sh -n $(NAMESPACE) -t 60
 else
 	$(error Unsupported deployment method for webhook only: $(DEPLOY_WITH))
 endif
+
+.PHONY: deploy-prometheus
+deploy-prometheus:
+	helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+	helm repo update
+	helm install $(DEPLOY_WAIT) -n $(PROMETHEUS_NAMESPACE) --create-namespace $(PROMETHEUS_HELM_NAME) $(PROMETHEUS_CHART) --values prometheus/values.yaml $(PROMETHEUS_HELM_OVERRIDES)
+
+.PHONY: undeploy-prometheus
+undeploy-prometheus: undeploy-prometheus-service-monitor-by-release
+	helm uninstall $(PROMETHEUS_HELM_NAME) -n $(PROMETHEUS_NAMESPACE)
+
+.PHONY: port-forward-prometheus
+port-forward-prometheus:  ## Expose the prometheus endpoint so that you can connect to it through http://localhost:9090
+	kubectl port-forward -n $(PROMETHEUS_NAMESPACE) svc/$(PROMETHEUS_HELM_NAME)-kube-prometheus-prometheus 9090
+
+.PHONY: deploy-prometheus-service-monitor
+deploy-prometheus-service-monitor:
+	scripts/deploy-prometheus.sh -n $(VDB_NAMESPACE) -l $(PROMETHEUS_HELM_NAME) -i $(PROMETHEUS_INTERVAL) -a deploy -u $(DB_USER) -p '$(DB_PASSWORD)' -d $(VDB_NAME)
+
+.PHONY: undeploy-prometheus-service-monitor
+undeploy-prometheus-service-monitor:
+	scripts/deploy-prometheus.sh -n $(VDB_NAMESPACE) -l $(PROMETHEUS_HELM_NAME) -i $(PROMETHEUS_INTERVAL) -a undeploy -u $(DB_USER) -p '$(DB_PASSWORD)' -d $(VDB_NAME)
+
+.PHONY: undeploy-prometheus-service-monitor-by-release
+undeploy-prometheus-service-monitor-by-release:
+	scripts/deploy-prometheus.sh -l $(PROMETHEUS_HELM_NAME) -a undeploy_by_release
 
 .PHONY: undeploy-operator
 undeploy-operator: ## Undeploy operator that was previously deployed
