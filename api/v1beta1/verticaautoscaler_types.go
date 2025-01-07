@@ -197,6 +197,32 @@ func MakeVAS() *VerticaAutoscaler {
 	}
 }
 
+func MakeVASWithMetrics() *VerticaAutoscaler {
+	vas := MakeVAS()
+	minRep := int32(3)
+	maxRep := int32(6)
+	cpu := int32(80)
+	vas.Spec.CustomAutoscalerSpec = &CustomAutoscalerSpec{
+		MinReplicas: &minRep,
+		MaxReplicas: &maxRep,
+		Metrics: []MetricDefinition{
+			{
+				Metric: autoscalingv2.MetricSpec{
+					Type: autoscalingv2.ResourceMetricSourceType,
+					Resource: &autoscalingv2.ResourceMetricSource{
+						Name: "cpu",
+						Target: autoscalingv2.MetricTarget{
+							Type:               autoscalingv2.UtilizationMetricType,
+							AverageUtilization: &cpu, // Scale when CPU exceeds 80%
+						},
+					},
+				},
+			},
+		},
+	}
+	return vas
+}
+
 // CanUseTemplate returns true if we can use the template provided in the spec
 func (v *VerticaAutoscaler) CanUseTemplate() bool {
 	return v.Spec.Template.Size > 0
