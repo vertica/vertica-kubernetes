@@ -760,36 +760,6 @@ jobs:
       run: |
         docker buildx imagetools create --tag opentext/verticadb-operator-private:${{ github.sha }} ${{ needs.build.outputs.operator-image }}
   
-  sync-vcluster:
-    name: Sync-vcluster-repo
-    needs: [
-      e2e-leg-1-vcluster,
-      e2e-leg-2-vcluster,
-      e2e-leg-3-vclusterops-previous-release,
-      e2e-leg-3-vcluster,
-      e2e-leg-4-vcluster,
-      e2e-leg-4-vcluster-vdb-gen,
-      e2e-leg-5-vcluster,
-      e2e-leg-6-vcluster,
-      e2e-leg-6-vcluster-revivedb,
-      e2e-leg-7-vcluster,
-      e2e-leg-9-vcluster,
-      e2e-leg-10-vcluster,
-      e2e-leg-11-vcluster,
-      e2e-server-upgrade-vcluster,
-      e2e-operator-upgrade,
-      e2e-udx-vcluster
-    ]
-    runs-on: ubuntu-latest
-    if: ${{ always() && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') && contains(github.ref, 'k8s-sync') && (github.event_name == 'push')}} 
-    steps:
-      - name: Check out
-        uses: actions/checkout@v4
-      - name: Run Sync script
-        run: |
-          echo "Running sync script"
-          scripts/vcluster-sync.sh ${{ github.ref }} main ${{ secrets.VCLUSTER_CICD }}
-  
   notification:
     name: team-notification
     needs: [sync-vcluster]
