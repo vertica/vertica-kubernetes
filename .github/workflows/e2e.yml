@@ -213,7 +213,7 @@ jobs:
 
           # Create the pull request via the GitHub API
           curl -X POST $api_url \
-            -H "Authorization: token $GITHUB_TOKEN" \
+            -H "Authorization: token ${{ github.token }}" \
             -H "Accept: application/vnd.github.v3+json" \
             -d @- <<EOF
             {
