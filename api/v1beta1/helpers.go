@@ -23,6 +23,7 @@ import (
 	"time"
 
 	v1 "github.com/vertica/vertica-kubernetes/api/v1"
+	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -182,6 +183,14 @@ func (vrep *VerticaReplicator) IsStatusConditionFalse(statusCondition string) bo
 
 func (vrep *VerticaReplicator) IsStatusConditionPresent(statusCondition string) bool {
 	return meta.FindStatusCondition(vrep.Status.Conditions, statusCondition) != nil
+}
+
+func (v *VerticaAutoscaler) GetHPAMetrics() []autoscalingv2.MetricSpec {
+	metrics := make([]autoscalingv2.MetricSpec, len(v.Spec.CustomAutoscalerSpec.Metrics))
+	for i := range v.Spec.CustomAutoscalerSpec.Metrics {
+		metrics[i] = v.Spec.CustomAutoscalerSpec.Metrics[i].Metric
+	}
+	return metrics
 }
 
 func MakeSampleVrpqName() types.NamespacedName {
