@@ -5,7 +5,6 @@ import (
 	"os"
 
 	"github.com/spf13/viper"
-	"github.com/vertica/vcluster/vclusterops"
 	"gopkg.in/yaml.v3"
 )
 
@@ -30,33 +29,6 @@ func loadConnToViper() error {
 	}
 
 	return nil
-}
-
-// writeConn will save instructions for connecting to a database into a connection file.
-func writeConn(targetdb *vclusterops.VReplicationDatabaseOptions) error {
-	if globals.connFile == "" {
-		return fmt.Errorf("conn path is empty")
-	}
-
-	dbConn := readTargetDBToDBConn(targetdb)
-
-	// write a connection file with the given target database info from create_connection
-	err := dbConn.write(globals.connFile)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// readTargetDBToDBConn converts target database to DatabaseConnection
-func readTargetDBToDBConn(cnn *vclusterops.VReplicationDatabaseOptions) DatabaseConnection {
-	targetDBconn := MakeTargetDatabaseConn()
-	targetDBconn.TargetDBName = cnn.TargetDB.DBName
-	targetDBconn.TargetHosts = cnn.TargetDB.Hosts
-	targetDBconn.TargetPasswordFile = *cnn.TargetDB.Password
-	targetDBconn.TargetDBUser = cnn.TargetDB.UserName
-	return targetDBconn
 }
 
 // write writes connection information to connFilePath. It returns

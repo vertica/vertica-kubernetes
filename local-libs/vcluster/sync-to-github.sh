@@ -23,7 +23,6 @@ set -o nounset
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 FORCE=
 SKIP_COMMIT=
-IGNORE_ROOT_PATH_CHECK=
 DRY_RUN_OPT=
 
 source $SCRIPT_DIR/logging-utils.sh
@@ -35,7 +34,6 @@ function usage() {
     echo " -f         Force, even when there are uncommitted files."
     echo " -s         Skip git commit at the destination. Just sync the files."
     echo " -d         Dry run only. Don't change anything in the destination repo."
-    echo " -i         Ignore destination root path check. This option allows syncing the source directory to a subdirectory within the destination repo."
     echo " -v         Verbose output."
     echo
     echo "Positional Arguments:"
@@ -45,14 +43,13 @@ function usage() {
     exit 1
 }
 
-while getopts "hfsidv" opt
+while getopts "hfsdv" opt
 do
     case $opt in
       h) usage;;
       f) FORCE=1;;
       v) set -o xtrace;;
       s) SKIP_COMMIT=1;;
-      i) IGNORE_ROOT_PATH_CHECK=1;;
       d) DRY_RUN_OPT="--dry-run"
          SKIP_COMMIT=1
           ;;
@@ -79,7 +76,7 @@ then
     logError "Destination directory isn't a git repo"
     exit 1
 fi
-if [[ "$DEST_GITROOT" != "$DEST_DIR" && -z "$IGNORE_ROOT_PATH_CHECK" ]]
+if [[ "$DEST_GITROOT" != "$DEST_DIR" ]]
 then
     logError "Destination directory isn't git's root directory"
     exit 1
