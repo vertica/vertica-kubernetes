@@ -113,8 +113,6 @@ const (
 )
 
 // Flag and key for database replication
-//
-//nolint:dupl
 const (
 	targetDBNameFlag       = "target-db-name"
 	targetDBNameKey        = "targetDBName"
@@ -217,14 +215,12 @@ var keyEnvVarMap = map[string]string{
 	tlsModeKey:    vclusterTLSModeEnv,
 }
 
-//nolint:dupl
 const (
 	createDBSubCmd          = "create_db"
 	stopDBSubCmd            = "stop_db"
 	reviveDBSubCmd          = "revive_db"
 	manageConfigSubCmd      = "manage_config"
-	connectionCmd           = "connection"
-	createConnectionSubCmd  = "create"
+	createConnectionSubCmd  = "create_connection"
 	configRecoverSubCmd     = "recover"
 	configShowSubCmd        = "show"
 	replicationSubCmd       = "replication"
@@ -253,7 +249,6 @@ const (
 	saveRestorePointsSubCmd = "save_restore_point"
 	getDrainingStatusSubCmd = "get_draining_status"
 	upgradeLicenseCmd       = "upgrade_license"
-	checkConnectionSubCmd   = "check"
 )
 
 // cmdGlobals holds global variables shared by multiple
@@ -491,7 +486,7 @@ func loadConfig(cmd *cobra.Command) (err error) {
 
 	// load target db options from connection file to viper
 	// conn file is only available for replication subcommand
-	if cmd.CalledAs() == startReplicationSubCmd || cmd.CalledAs() == replicationStatusSubCmd || cmd.CalledAs() == checkConnectionSubCmd {
+	if cmd.CalledAs() == startReplicationSubCmd || cmd.CalledAs() == replicationStatusSubCmd {
 		err := loadConnToViper()
 		if err != nil {
 			return err
@@ -633,7 +628,7 @@ func constructCmds() []*cobra.Command {
 		makeCmdManageConfig(),
 		makeCmdReplication(),
 		makeCmdGetReplicationStatus(),
-		makeCmdConnection(),
+		makeCmdCreateConnection(),
 		// hidden cmds (for internal testing only)
 		makeCmdGetDrainingStatus(),
 		makeCmdPromoteSandbox(),
