@@ -13,3 +13,61 @@ rules:
         matches: "^(.*)_total$"
         as: "${1}_rate_per_second"
       metricsQuery: 'sum(increase(vertica_query_requests_attempted_total[5m])) by (namespace, pod)'
+    # curl -g 'http://localhost:9090/api/v1/series?' --data-urlencode 'match[]=vertica_cpu_aggregate_usage_percentage' | jq
+    # curl --request GET  -g 'http://localhost:9090/api/v1/query?query=avg_over_time(vertica_cpu_aggregate_usage_percentage[60m])' | jq
+    # kubectl get --raw /apis/custom.metrics.k8s.io/v1beta1/namespaces/default/pods/verticadb-sample-sc1-0/vertica_cpu_aggregate_usage_percentage
+    # curl --request GET  -g --data-urlencode 'query=count(vertica_cpu_aggregate_usage_percentage[1m]) by (namespace, pod)' http://localhost:9090/api/v1/query? | jq -r '.data.result[]'
+
+    - seriesQuery: 'vertica_cpu_aggregate_usage_percentage{namespace!="", pod!=""}'
+      resources:
+        overrides:
+          namespace:
+            resource: namespace
+          pod:
+            resource: pod
+      # name:
+      #   matches: "^vertica_cpu_aggregate_usage_percentage$"
+      #   as: "vertica_cpu_aggregate_usage_percentage" # If rename needed
+      metricsQuery: 'avg_over_time(vertica_cpu_aggregate_usage_percentage[60m])' # 10174m means 10.174% per hour in average Ref: https://github.com/kubernetes-sigs/prometheus-adapter/blob/master/docs/walkthrough.md#quantity-values
+    # curl -g 'http://localhost:9090/api/v1/series?' --data-urlencode 'match[]=vertica_process_memory_usage_percent' | jq
+    # curl --request GET -g  'http://localhost:9090/api/v1/query?query=avg_over_time(vertica_process_memory_usage_percent[60m])' | jq
+    # kubectl get --raw /apis/custom.metrics.k8s.io/v1beta1/namespaces/default/pods/verticadb-sample-sc1-0/vertica_process_memory_usage_percent
+    - seriesQuery: 'vertica_process_memory_usage_percent{namespace!="", pod!=""}'
+      resources:
+        overrides:
+          namespace:
+            resource: namespace
+          pod:
+            resource: pod
+      # name:
+      #   matches: "^vertica_query_requests_attempted_total$"
+      #   as: "vertica_query_requests_attempted_total"
+      metricsQuery: 'avg_over_time(vertica_process_memory_usage_percent[60m])' # 2058m means 2.058% per hour 
+    # curl -g 'http://localhost:9090/api/v1/series?' --data-urlencode 'match[]=vertica_sessions_running_counter' | jq
+    # curl --request GET  http://localhost:9090/api/v1/query?query=vertica_sessions_running_counter | jq
+    # kubectl get --raw /apis/custom.metrics.k8s.io/v1beta1/namespaces/default/pods/verticadb-sample-sc1-0/vertica_sessions_running_counter
+    - seriesQuery: 'vertica_sessions_running_counter{namespace!="", pod!=""}'
+      resources:
+        overrides:
+          namespace:
+            resource: namespace
+          pod:
+            resource: pod
+      # name:
+      #   matches: "^vertica_sessions_running_counter$"
+      #   as: "vertica_sessions_running_counter"
+      metricsQuery: 'sum(increase(vertica_sessions_running_counter[60m])) by (namespace, pod)'
+    # curl -g 'http://localhost:9090/api/v1/series?' --data-urlencode 'match[]=vertica_queued_requests_total' | jq
+    # curl --request GET  http://localhost:9090/api/v1/query?query=vertica_queued_requests_total | jq
+    # kubectl get --raw /apis/custom.metrics.k8s.io/v1beta1/namespaces/default/pods/verticadb-sample-sc1-0/vertica_queued_requests_total
+    - seriesQuery: 'vertica_queued_requests_total{namespace!="", pod!=""}'
+      resources:
+        overrides:
+          namespace:
+            resource: namespace
+          pod:
+            resource: pod
+      # name:
+      #   matches: "^vertica_queued_requests_total$"
+      #   as: "vertica_queued_requests_total"
+      metricsQuery: 'sum(increase(vertica_queued_requests_total[60m])) by (namespace, pod)'
