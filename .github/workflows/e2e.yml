@@ -212,17 +212,10 @@ jobs:
           head="$current_branch"
 
           # Create the pull request via the GitHub API
-          curl -X POST $api_url \
+          curl -X POST "$api_url" \
             -H "Authorization: token ${{ github.token }}" \
             -H "Accept: application/vnd.github.v3+json" \
-            -d @- <<EOF
-            {
-              "title": "$title",
-              "body": "$body",
-              "head": "$head",
-              "base": "$base"
-            }
-            EOF
+            -d "$(echo "{\"title\": \"$title\", \"body\": \"$body\", \"head\": \"$head\", \"base\": \"$base\"}")"
   
   notification:
     name: team-notification
