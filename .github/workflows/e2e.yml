@@ -223,18 +223,13 @@ jobs:
     runs-on: ubuntu-latest
     if: ${{ always() && contains(github.ref, 'k8s-sync') }}
     steps:
-      - name: Get vcluster commit url
-        run: |
-          VCLUSTER_REF=$(echo ${{ github.event.head_commit.message }} | awk '{print $NF}')
-          echo "VCLUSTER_URL=${{ github.server_url }}/vertica/vcluster/commit/$VCLUSTER_REF" >> $GITHUB_ENV
-
       - name: notification on success
         if: ${{ always() && contains(needs.sync-vcluster.result, 'success') }}
         uses: jdcargile/ms-teams-notification@v1.4
         with:
           github-token: ${{ github.token }}
           ms-teams-webhook-uri: ${{ secrets.MS_TEAMS_WEBHOOK_URI }}
-          notification-summary: Success | worflow ${{ github.workflow }} on branch ${{ github.ref_name }} with <a href="${{ env.VCLUSTER_URL }}">VCluster commit changes</a>
+          notification-summary: Success | workflow ${{ github.workflow }} on branch ${{ github.ref_name }}
           notification-color: 28a745
           verbose-logging: true
 
@@ -244,6 +239,6 @@ jobs:
         with:
           github-token: ${{ github.token }}
           ms-teams-webhook-uri: ${{ secrets.MS_TEAMS_WEBHOOK_URI }}
-          notification-summary: Failure | worflow ${{ github.workflow }} on branch ${{ github.ref_name }} with <a href="${{ env.VCLUSTER_URL }}">VCluster commit changes</a>
+          notification-summary: Failure | workflow ${{ github.workflow }} on branch ${{ github.ref_name }}
           notification-color: dc3545
           verbose-logging: true
