@@ -109,23 +109,13 @@ func TestAsyncReplicationErrorMessage(t *testing.T) {
 func TestCreateConnectionFileWrongFileType(t *testing.T) {
 	// vertica_connection.txt will not be created and a unique name is not required
 	var tempConnFilePath = filepath.Join(os.TempDir(), "vertica_connection.txt")
-	passwordfile, err := os.CreateTemp(os.TempDir(), "password")
-	defer os.Remove(passwordfile.Name())
-	assert.NoError(t, err)
-	err = simulateVClusterCli("vcluster connection create --db-name test_db1 --conn " + tempConnFilePath +
-		" --hosts 192.168.1.101 --password-file " + passwordfile.Name())
+	err := simulateVClusterCli("vcluster create_connection --db-name test_db1 --conn " + tempConnFilePath + " --hosts 192.168.1.101")
 	assert.ErrorContains(t, err, `Invalid file type`)
 }
 
 func TestCreateConnectionFileAbsolutePathChecking(t *testing.T) {
 	var relativeConnFilePath = "vertica_connection.yaml"
-
-	var passwordfile, err = os.CreateTemp(os.TempDir(), "password")
-	defer os.Remove(passwordfile.Name())
-	assert.NoError(t, err)
-
-	err = simulateVClusterCli("vcluster connection create --db-name test_db2 --conn " + relativeConnFilePath +
-		" --hosts vnode2 --password-file " + passwordfile.Name())
+	err := simulateVClusterCli("vcluster create_connection --db-name test_db2 --conn " + relativeConnFilePath + " --hosts vnode2")
 	assert.ErrorContains(t, err, `Invalid connection file path`)
 }
 
@@ -135,11 +125,8 @@ func TestCreateConnectionFileRightFileTypes(t *testing.T) {
 		defer os.Remove(tempFile.Name())
 	}
 	assert.NoError(t, err)
-	passwordfile, err := os.CreateTemp(os.TempDir(), "password")
-	defer os.Remove(passwordfile.Name())
-	assert.NoError(t, err)
-	err = simulateVClusterCli("vcluster connection create --db-name test_db3 --conn " + tempFile.Name() +
-		" --hosts vnode3 --password-file " + passwordfile.Name())
+
+	err = simulateVClusterCli("vcluster create_connection --db-name test_db3 --conn " + tempFile.Name() + " --hosts vnode3")
 	assert.NoError(t, err)
 
 	tempFile, err = os.CreateTemp("", tmpFilePrefixPattern+ymlExt)
@@ -147,8 +134,7 @@ func TestCreateConnectionFileRightFileTypes(t *testing.T) {
 		defer os.Remove(tempFile.Name())
 	}
 	assert.NoError(t, err)
-	err = simulateVClusterCli("vcluster connection create --db-name test_db4 --conn " + tempFile.Name() +
-		" --hosts vnode4 --password-file " + passwordfile.Name())
+	err = simulateVClusterCli("vcluster create_connection --db-name test_db4 --conn " + tempFile.Name() + " --hosts vnode4")
 	assert.NoError(t, err)
 }
 
@@ -158,13 +144,10 @@ func TestCreateConnection(t *testing.T) {
 	os.Remove(tempFile.Name()) // clean up before test starts
 	dbName := "platform_test_db"
 	hosts := "192.168.1.101"
-	passwordfile, err := os.CreateTemp(os.TempDir(), "password")
-	defer os.Remove(passwordfile.Name())
-	assert.NoError(t, err)
 
 	// vcluster create_connection should succeed
-	err = simulateVClusterCli("vcluster connection create --db-name " + dbName + " --hosts " + hosts +
-		" --conn " + tempFile.Name() + " --password-file " + passwordfile.Name())
+	err = simulateVClusterCli("vcluster create_connection --db-name " + dbName + " --hosts " + hosts +
+		" --conn " + tempFile.Name())
 	defer os.Remove(tempFile.Name()) // It may be possible for the simulate to create the file and return an error
 	assert.NoError(t, err)
 
