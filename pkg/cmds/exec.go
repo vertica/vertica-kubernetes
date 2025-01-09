@@ -188,7 +188,7 @@ func UpdateAdmintoolsCmd(suname, passwd string, cmd ...string) []string {
 	//
 	// The --preserve-env option is required so that environment variables flow
 	// through to the vertica process.
-	prefix := []string{"sudo", "-n", "--preserve-env", "su", suname, "--", "/opt/vertica/bin/admintools"}
+	prefix := []string{"sudo", "--preserve-env", "su", suname, "--", "/opt/vertica/bin/admintools"}
 	cmd = append(prefix, cmd...)
 	if passwd == "" {
 		return cmd
