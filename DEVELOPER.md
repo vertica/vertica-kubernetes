@@ -537,7 +537,7 @@ Vertica on Kubernetes integrates with Prometheus to scrape time series metrics a
    ```
 
 4. Port forwarding Prometheus(optional):
-   By then Prometheus should be able to connect to the pods and pick up the metrics. If you want to check the result, you can port forward the Prometheus service and use curl cmd. If you used a different namespace, change it accordingly. 
+   By then Prometheus should be able to connect to the pods and pick up the metrics. If you want to connect to Prometheus API and check the result, you can port forward the Prometheus service. If you used a different namespace, change it accordingly. 
    ```shell
    make port-forward-prometheus
    # You can change the default namespace or app name by: 
@@ -550,11 +550,16 @@ Vertica on Kubernetes integrates with Prometheus to scrape time series metrics a
 
 5. Clean up:
    To undeploy, we will first undeploy secret, service monitor and then the Prometheus instance. 
+   - To uninstall just one service monitor and related secret, you then call the make target undeploy-service-monitor
    ```shell
    make undeploy-prometheus-service-monitor 
-   make undeploy-prometheus
    # Example with different namespace, vdb user info, or app name:
    # make undeploy-prometheus-service-monitor VDB_NAMESPACE=vdb VDB_NAME=verticadb-sample-2
+   ```
+   - To uninstall Prometheus and all related resources (service monitors too), you call the make target undeploy-prometheus.
+   ```shell
+   make undeploy-prometheus
+   # Example with different namespace, vdb user info, or app name:
    # make undeploy-prometheus PROMETHEUS_NAMESPACE=PREFERED_NAMESPACE PROMETHEUS_HELM_NAME=PREFERED_NAME
    ```
 
