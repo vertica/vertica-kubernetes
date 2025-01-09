@@ -43,9 +43,9 @@ status:
   subclusters:
     - addedToDBCount: 3
       name: pri1
-    - addedToDBCount: 3
+    - addedToDBCount: 1
       name: sec1
-    - addedToDBCount: 3
+    - addedToDBCount: 1
       name: sec2
-    - addedToDBCount: 3
+    - addedToDBCount: 2
       name: sec3

@@ -32,8 +32,8 @@ metadata:
   labels:
     vertica.com/sandbox: sandbox1
 status:
-  readyReplicas: 3
-  replicas: 3
+  readyReplicas: 1
+  replicas: 1
 ---
 apiVersion: apps/v1
 kind: StatefulSet
@@ -42,8 +42,8 @@ metadata:
   labels:
     vertica.com/sandbox: sandbox2
 status:
-  readyReplicas: 3
-  replicas: 3
+  readyReplicas: 1
+  replicas: 1
 ---
 apiVersion: apps/v1
 kind: StatefulSet
@@ -52,5 +52,5 @@ metadata:
   labels:
     vertica.com/sandbox: sandbox1
 status:
-  readyReplicas: 3
-  replicas: 3
+  readyReplicas: 2
+  replicas: 2

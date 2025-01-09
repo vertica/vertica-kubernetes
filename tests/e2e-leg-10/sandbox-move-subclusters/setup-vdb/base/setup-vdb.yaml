@@ -14,7 +14,7 @@
 apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
-  name: v-base-upgrade
+  name: v-sandbox
   annotations:
     vertica.com/include-uid-in-path: true
 spec:
@@ -29,13 +29,13 @@ spec:
       size: 3
       type: primary
     - name: sec1
-      size: 3
+      size: 1
       type: secondary
     - name: sec2
-      size: 3
+      size: 1
       type: secondary
     - name: sec3
-      size: 3
+      size: 2
       type: secondary
   certSecrets: []
   imagePullSecrets: []
