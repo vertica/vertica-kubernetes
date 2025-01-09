@@ -154,15 +154,15 @@ PROMETHEUS_ADAPTER_REPLICAS ?= 1
 # The Prometheus service URL and port for Prometheus adapter to connect to
 PROMETHEUS_URL ?= http://$(PROMETHEUS_HELM_NAME)-kube-prometheus-prometheus.$(PROMETHEUS_NAMESPACE).svc
 PROMETHEUS_PORT ?= 9090
+DB_USER?=dbadmin
+DB_PASSWORD?=
+VDB_NAME?=verticadb-sample
+VDB_NAMESPACE?=default
 
 # Set this to YES if you want to create a vertica image of minimal size
 MINIMAL_VERTICA_IMG ?=
 # Name of the helm release that we will install/uninstall
 HELM_RELEASE_NAME?=vdb-op
-DB_USER?=dbadmin
-DB_PASSWORD?=
-VDB_NAME?=verticadb-sample
-VDB_NAMESPACE?=default
 # Can be used to specify additional overrides when doing the helm install.
 # For example to specify a custom webhook tls cert when deploying use this command:
 #   HELM_OVERRIDES="--set webhook.tlsSecret=custom-cert" make deploy-operator
