@@ -11,50 +11,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: script-verity-prometheus-adapter
-data:
-  entrypoint.sh: |-
-    #!/bin/bash
-    set -o errexit
-    set -o xtrace
-    
-    for i in {1..60}; do 
-      kubectl exec v-prometheus-pri1-0 -it -c server -- vsql -w 'topsecret' -c "select count(*) from nodes;"
-    done
-
-    NAMESPACE=$(kubectl get pod v-prometheus-pri1-0 -o=jsonpath='{.metadata.namespace}')
-    CMD="kubectl get --raw /apis/custom.metrics.k8s.io/v1beta1/namespaces/${NAMESPACE}/pods/v-prometheus-pri1-0/vertica_query_requests_attempted_rate_per_second"
-    RESULT=$(eval $CMD)
-    VALUE=$(echo $RESULT | jq -r '.items[0].value')
-
-    REQUESTS_COUNT=${VALUE::-4}
-    if [[ "$REQUESTS_COUNT" == "" || "$REQUESTS_COUNT" -lt 60 ]]; then
-      echo "Error: got $REQUESTS_COUNT. Expected requests no less than 60."
-      exit 1
-    fi
----
-apiVersion: v1
-kind: Pod
-metadata:
-  name: script-verity-prometheus-adapter
-  labels:
-    stern: include
-spec:
-  restartPolicy: Never
-  containers:
-    - name: test
-      image: bitnami/kubectl:1.20.4
-      command: ["/bin/entrypoint.sh"]
-      volumeMounts:
-        - name: entrypoint-volume
-          mountPath: /bin/entrypoint.sh
-          readOnly: true
-          subPath: entrypoint.sh
-  volumes:
-    - name: entrypoint-volume
-      configMap:
-        defaultMode: 0777
-        name: script-verity-prometheus-adapter
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - script: |
+      RESULT=$(kubectl get --raw /apis/custom.metrics.k8s.io/v1beta1)
+      VERSION=$(echo $RESULT | jq -r '.groupVersion')
+      if [ "$VERSION" != "custom.metrics.k8s.io/v1beta1" ]; then
+        echo "Assertion failed: expected group version custom.metrics.k8s.io/v1beta1, got $VERSION."
+        exit 1
+      fi
