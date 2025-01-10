@@ -56,7 +56,7 @@ rules:
       # name:
       #   matches: "^vertica_sessions_running_counter$"
       #   as: "vertica_sessions_running_counter"
-      metricsQuery: 'sum(increase(vertica_sessions_running_counter[60m])) by (namespace, pod)'
+      metricsQuery: 'sum(increase(vertica_sessions_running_counter[1m])) by (namespace, pod)'
     # curl -g 'http://localhost:9090/api/v1/series?' --data-urlencode 'match[]=vertica_queued_requests_total' | jq
     # curl --request GET  http://localhost:9090/api/v1/query?query=vertica_queued_requests_total | jq
     # kubectl get --raw /apis/custom.metrics.k8s.io/v1beta1/namespaces/default/pods/verticadb-sample-sc1-0/vertica_queued_requests_total
@@ -70,4 +70,4 @@ rules:
       # name:
       #   matches: "^vertica_queued_requests_total$"
       #   as: "vertica_queued_requests_total"
-      metricsQuery: 'sum(increase(vertica_queued_requests_total[60m])) by (namespace, pod)'
+      metricsQuery: 'sum(increase(vertica_queued_requests_total[1m])) by (namespace, pod)'
