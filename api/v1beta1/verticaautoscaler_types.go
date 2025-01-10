@@ -243,6 +243,8 @@ func MakeVAS() *VerticaAutoscaler {
 	}
 }
 
+// MakeVASWithMetrics is a helper that constructs a fully formed VerticaAutoscaler struct with custom autoscaling enabled.
+// This is intended for test purposes.
 func MakeVASWithMetrics() *VerticaAutoscaler {
 	vas := MakeVAS()
 	minRep := int32(3)

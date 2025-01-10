@@ -31,8 +31,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// RefreshSelectorReconciler is a reconciler to update the pod selector in the
-// status field
+// HorizontalPodAutoscalerReconciler is a reconciler to handle horizontal pod autoscaler
+// creation and update.
 type HorizontalPodAutoscalerReconciler struct {
 	VRec *VerticaAutoscalerReconciler
 	Vas  *vapi.VerticaAutoscaler
@@ -44,7 +44,8 @@ func MakeHorizontalPodAutoscalerReconciler(v *VerticaAutoscalerReconciler, vas *
 	return &HorizontalPodAutoscalerReconciler{VRec: v, Vas: vas, Log: log.WithName("HorizontalPodAutoscalerReconciler")}
 }
 
-// Reconcile will handle updating the selector in the status portion of a VerticaAutoscaler
+// Reconcile will handle creating the hpa if it does not exist or updating
+// the hpa if its spec is different from the CR's.
 func (h *HorizontalPodAutoscalerReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (ctrl.Result, error) {
 	if !h.Vas.IsCustomMetricsEnabled() {
 		return ctrl.Result{}, nil

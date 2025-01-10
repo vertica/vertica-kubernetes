@@ -28,10 +28,10 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-var _ = Describe("subclusterresize_reconcile", func() {
+var _ = Describe("hpa_reconcile", func() {
 	ctx := context.Background()
 
-	It("should requeue if VerticaDB doesn't exist", func() {
+	It("should create/update hpa", func() {
 		vas := v1beta1.MakeVASWithMetrics()
 		v1beta1_test.CreateVAS(ctx, k8sClient, vas)
 		defer v1beta1_test.DeleteVAS(ctx, k8sClient, vas)

@@ -59,7 +59,7 @@ const (
 	// for official releases of vertica-k8s images
 	VcluseropsAsDefaultDeploymentMethodMinVersion = "v24.1.0"
 	// The min version that exposed prometheus metrics through the http service
-	PrometheusMetricsMinVersion = "v12.0.4"
+	PrometheusMetricsMinVersion = "v24.1.0"
 	// Starting in this version, new databases would have HTTPS certs be auto
 	// generated during the bootstrap process. We can omit generating the
 	// httpstls.json for those deployments.
