@@ -65,7 +65,12 @@ func (r *ResizePVReconcile) Reconcile(ctx context.Context, _ *ctrl.Request) (ctr
 	}
 
 	returnRes := ctrl.Result{}
+	scStatusMap := r.Vdb.GenSubclusterStatusMap()
 	for _, pf := range r.PFacts.Detail {
+		scStatus, found := scStatusMap[pf.GetSubclusterName()]
+		if pf.GetShutdown() || (found && scStatus.Shutdown) {
+			continue
+		}
 		if res, err := r.reconcilePod(ctx, pf); verrors.IsReconcileAborted(res, err) {
 			// Errors always abort right away.  But if we get a requeue, we
 			// will remember this and go onto the next pod

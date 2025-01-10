@@ -28,6 +28,7 @@ import (
 	config "github.com/vertica/vertica-kubernetes/pkg/vdbconfig"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -37,10 +38,16 @@ import (
 type ApplyMethodType string
 
 const (
-	AddNodeApplyMethod       ApplyMethodType = "Add"           // Called after a db_add_node
-	PodRescheduleApplyMethod ApplyMethodType = "PodReschedule" // Called after pod was rescheduled and vertica restarted
-	DelNodeApplyMethod       ApplyMethodType = "RemoveNode"    // Called before a db_remove_node
-	DrainNodeApplyMethod     ApplyMethodType = "DrainNode"     // Called as part of a drain operation. We want no traffic at the node.
+	// Called after a db_add_node
+	AddNodeApplyMethod ApplyMethodType = "Add"
+	// Called after pod was rescheduled and vertica restarted
+	PodRescheduleApplyMethod ApplyMethodType = "PodReschedule"
+	// Called before a db_remove_node
+	DelNodeApplyMethod ApplyMethodType = "RemoveNode"
+	// Called as part of a drain operation. We want no traffic at the node.
+	DrainNodeApplyMethod ApplyMethodType = "DrainNode"
+	// Called when redirect connections during online upgrade. We want no traffic at the proxy of old cluster.
+	DisableProxyApplyMethod ApplyMethodType = "DisableProxy"
 )
 
 type ClientRoutingLabelReconciler struct {
@@ -71,6 +78,15 @@ func MakeClientRoutingLabelReconciler(recon config.ReconcilerInterface, log logr
 func (c *ClientRoutingLabelReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
 	c.Log.Info("Reconcile client routing label", "applyMethod", c.ApplyMethod)
 
+	// If we are using vproxy, we don't need to modify client routing label on pods
+	if vmeta.UseVProxy(c.Vdb.Annotations) {
+		if c.ApplyMethod == DelNodeApplyMethod || c.ApplyMethod == DrainNodeApplyMethod {
+			c.Log.Info("Skipping client routing label reconcile for proxy pods when removing node or draining node", "applyMethod", c.ApplyMethod)
+			return ctrl.Result{}, nil
+		}
+		return c.reconcileProxy(ctx)
+	}
+
 	if err := c.PFacts.Collect(ctx, c.Vdb); err != nil {
 		return ctrl.Result{}, err
 	}
@@ -90,6 +106,84 @@ func (c *ClientRoutingLabelReconciler) Reconcile(ctx context.Context, _ *ctrl.Re
 		}
 	}
 	return savedRes, nil
+}
+
+// reconcoileProxy will reconcile client routing label for all proxy pods
+func (c *ClientRoutingLabelReconciler) reconcileProxy(ctx context.Context) (ctrl.Result, error) {
+	scs := []string{}
+	if c.ScName != "" {
+		scs = append(scs, c.ScName)
+	} else {
+		scs = c.Vdb.GetSubclustersInSandbox(c.PFacts.SandboxName)
+	}
+	for _, sc := range scs {
+		if res, err := c.reconcileProxyForSC(ctx, sc); verrors.IsReconcileAborted(res, err) {
+			return res, err
+		}
+	}
+	return ctrl.Result{}, nil
+}
+
+// reconcileProxyForSC will reconcile client routing label for the proxy pods in target subcluster
+func (c *ClientRoutingLabelReconciler) reconcileProxyForSC(ctx context.Context, scName string) (ctrl.Result, error) {
+	scMap := c.Vdb.GenSubclusterMap()
+	sc, ok := scMap[scName]
+	if !ok {
+		return ctrl.Result{}, fmt.Errorf("subcluster %q not found when reconciling client routing label for proxy", scName)
+	}
+	pods := corev1.PodList{}
+	proxyLabels := map[string]string{
+		vmeta.ProxyPodSelectorLabel:   vmeta.ProxyPodSelectorVal,
+		vmeta.VDBInstanceLabel:        c.Vdb.Name,
+		vmeta.DeploymentSelectorLabel: sc.GetVProxyDeploymentName(c.Vdb),
+	}
+	listOps := &client.ListOptions{
+		LabelSelector: labels.SelectorFromSet(labels.Set(proxyLabels)),
+		Namespace:     c.Vdb.GetNamespace(),
+	}
+	err := c.Rec.GetClient().List(ctx, &pods, listOps)
+	if err != nil {
+		c.Log.Error(err, "unable to list proxy pods")
+		return ctrl.Result{}, err
+	}
+	for inx := range pods.Items {
+		pod := &pods.Items[inx]
+		patch := client.MergeFrom(pod.DeepCopy())
+		labelVal, labelExists := pod.Labels[vmeta.ClientRoutingLabel]
+		if c.ApplyMethod == DisableProxyApplyMethod {
+			if !labelExists || labelVal != vmeta.ClientRoutingVal {
+				continue
+			}
+			delete(pod.Labels, vmeta.ClientRoutingLabel)
+			c.Log.Info("Removing client routing label from proxy pod", "pod",
+				pod.Name, "label", fmt.Sprintf("%s=%s", vmeta.ClientRoutingLabel, vmeta.ClientRoutingVal))
+		} else {
+			if labelExists && labelVal == vmeta.ClientRoutingVal {
+				continue
+			}
+			// Check if the pod's conditions include 'Ready' being true
+			podIsReady := false
+			for _, condition := range pod.Status.Conditions {
+				if condition.Type == corev1.PodReady && condition.Status == corev1.ConditionTrue {
+					podIsReady = true
+					break
+				}
+			}
+			if pod.Status.Phase != corev1.PodRunning || !podIsReady {
+				c.Log.Info("Requeue because proxy pod is not ready", "pod", pod.Name)
+				return ctrl.Result{Requeue: true}, nil
+			}
+			pod.Labels[vmeta.ClientRoutingLabel] = vmeta.ClientRoutingVal
+			c.Log.Info("Adding client routing label to proxy pod", "pod",
+				pod.Name, "label", fmt.Sprintf("%s=%s", vmeta.ClientRoutingLabel, vmeta.ClientRoutingVal))
+		}
+		err := c.Rec.GetClient().Patch(ctx, pod, patch)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+		c.Log.Info("Proxy pod has been patched", "pod", pod.Name, "labels", pod.Labels)
+	}
+	return ctrl.Result{}, nil
 }
 
 // reconcilePod will handle checking for the label of a single pod
@@ -157,5 +251,7 @@ func (c *ClientRoutingLabelReconciler) manipulateRoutingLabelInPod(pod *corev1.P
 			c.Log.Info("Removing client routing label", "pod",
 				pod.Name, "label", fmt.Sprintf("%s=%s", vmeta.ClientRoutingLabel, vmeta.ClientRoutingVal))
 		}
+	case DisableProxyApplyMethod:
+		c.Log.Info("Skipping updating client routing label for pod with a wrong apply method", "pod", pod.Name)
 	}
 }

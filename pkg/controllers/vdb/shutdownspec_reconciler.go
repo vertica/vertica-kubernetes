@@ -65,20 +65,18 @@ func (r *ShutdownSpecReconciler) updateSubclustersShutdownStateCallback() (bool,
 		sb := &r.Vdb.Spec.Sandboxes[i]
 		for j := range sb.Subclusters {
 			sc := scMap[sb.Subclusters[j].Name]
-			// Proceed only if subcluster's shutdown is not equal
-			// to sandbox's shutdown
-			if sb.Shutdown == sc.Shutdown {
-				continue
-			}
 			if sb.Shutdown {
 				if sc.Annotations == nil {
 					sc.Annotations = make(map[string]string, 1)
 				}
-				// Add a label that indicate the shutdown/restart is controlled
-				// by the sandbox as opposed to the subcluster. It helps
-				// differentiate this case from when the user is explicitly
-				// changing the subcluster's shutdown field.
-				sc.Annotations[vmeta.ShutdownDrivenBySandbox] = "true"
+				if _, ok := sc.Annotations[vmeta.ShutdownDrivenBySandbox]; !ok {
+					// Add a label that indicate the shutdown/restart is controlled
+					// by the sandbox as opposed to the subcluster. It helps
+					// differentiate this case from when the user is explicitly
+					// changing the subcluster's shutdown field.
+					sc.Annotations[vmeta.ShutdownDrivenBySandbox] = "true"
+					needUpdate = true
+				}
 			} else {
 				// If the shutdown/restart is not controlled by the sandbox,
 				// we skip to the next subcluster.
@@ -86,9 +84,12 @@ func (r *ShutdownSpecReconciler) updateSubclustersShutdownStateCallback() (bool,
 					continue
 				}
 				delete(sc.Annotations, vmeta.ShutdownDrivenBySandbox)
+				needUpdate = true
 			}
-			sc.Shutdown = sb.Shutdown
-			needUpdate = true
+			if sb.Shutdown != sc.Shutdown {
+				sc.Shutdown = sb.Shutdown
+				needUpdate = true
+			}
 		}
 	}
 	return needUpdate, nil

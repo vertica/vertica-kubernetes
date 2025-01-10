@@ -232,11 +232,15 @@ func MakeVrep() *VerticaReplicator {
 			UID:       "zxcvbn-ghi-lkm-xyz",
 		},
 		Spec: VerticaReplicatorSpec{
-			Source: VerticaReplicatorDatabaseInfo{
-				VerticaDB: sourceVDBNm.Name,
+			Source: VerticaReplicatorSourceDatabaseInfo{
+				VerticaReplicatorDatabaseInfo: VerticaReplicatorDatabaseInfo{
+					VerticaDB: sourceVDBNm.Name,
+				},
 			},
-			Target: VerticaReplicatorDatabaseInfo{
-				VerticaDB: targetVDBNm.Name,
+			Target: VerticaReplicatorTargetDatabaseInfo{
+				VerticaReplicatorDatabaseInfo: VerticaReplicatorDatabaseInfo{
+					VerticaDB: targetVDBNm.Name,
+				},
 			},
 		},
 	}
@@ -267,5 +271,6 @@ func GetV1SubclusterFromV1beta1(src *Subcluster) v1.Subcluster {
 		LoadBalancerIP:      src.LoadBalancerIP,
 		ServiceAnnotations:  src.ServiceAnnotations,
 		Annotations:         src.Annotations,
+		Proxy:               (*v1.ProxySubclusterConfig)(src.Proxy),
 	}
 }

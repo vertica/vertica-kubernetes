@@ -1,0 +1,54 @@
+# (c) Copyright [2021-2024] Open Text.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# You may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: script-start-connection-sessions
+data:
+  verify.sh: |-
+    #!/bin/bash
+    set -o errexit
+    set -o xtrace
+
+    # Access to subclusters through seconday service should route to secondary subcluster client proxy pod
+    vsql -U dbadmin -h v-base-upgrade-sec1 -tAc "CREATE USER user1 IDENTIFIED BY 'user1s3cr3t'; CREATE SCHEMA user1_schema; GRANT ALL ON SCHEMA user1_schema TO user1;"
+    vsql -U user1 -w 'user1s3cr3t' -h v-base-upgrade-sec1 -tAc 'create table user1_schema.test (ts timestamp, sc_name varchar, node_name varchar, version varchar);'
+
+    # Start new connection every 2 seconds
+    while [ 1 ]; do date; vsql -U user1 -w 'user1s3cr3t' -h v-base-upgrade-sec1 -c "insert into user1_schema.test values ( sysdate(), current_subcluster_name(), local_node_name(), version()); commit;"; sleep 2; done
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: test-start-connection-sessions
+  labels:
+    stern: include
+spec:
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: test
+          image: kustomize-vertica-image
+          command: ["/home/dbadmin/verify.sh"]
+          volumeMounts:
+            - name: test-script
+              mountPath: /home/dbadmin/verify.sh
+              readOnly: true
+              subPath: verify.sh
+      volumes:
+        - name: test-script
+          configMap:
+            defaultMode: 0777
+            name: script-start-connection-sessions

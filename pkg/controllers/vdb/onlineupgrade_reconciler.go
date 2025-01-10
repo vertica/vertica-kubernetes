@@ -866,12 +866,16 @@ func (r *OnlineUpgradeReconciler) startReplicationToReplicaGroupB(ctx context.Co
 			OwnerReferences: []metav1.OwnerReference{r.VDB.GenerateOwnerReference()},
 		},
 		Spec: v1beta1.VerticaReplicatorSpec{
-			Source: v1beta1.VerticaReplicatorDatabaseInfo{
-				VerticaDB: r.VDB.Name,
+			Source: v1beta1.VerticaReplicatorSourceDatabaseInfo{
+				VerticaReplicatorDatabaseInfo: v1beta1.VerticaReplicatorDatabaseInfo{
+					VerticaDB: r.VDB.Name,
+				},
 			},
-			Target: v1beta1.VerticaReplicatorDatabaseInfo{
-				VerticaDB:   r.VDB.Name,
-				SandboxName: r.sandboxName,
+			Target: v1beta1.VerticaReplicatorTargetDatabaseInfo{
+				VerticaReplicatorDatabaseInfo: v1beta1.VerticaReplicatorDatabaseInfo{
+					VerticaDB:   r.VDB.Name,
+					SandboxName: r.sandboxName,
+				},
 			},
 		},
 	}
@@ -1049,12 +1053,22 @@ func (r *OnlineUpgradeReconciler) redirectConnectionsToReplicaGroupB(ctx context
 		return res, err
 	}
 	// then remove client routing labels from replica group a so no traffic is routed to the old main cluster
-	actor = MakeClientRoutingLabelReconciler(r.VRec, r.Log, r.VDB, r.PFacts[vapi.MainCluster], DrainNodeApplyMethod, "")
+	methodType := DrainNodeApplyMethod
+	if vmeta.UseVProxy(r.VDB.Annotations) {
+		methodType = DisableProxyApplyMethod
+	}
+	actor = MakeClientRoutingLabelReconciler(r.VRec, r.Log, r.VDB, r.PFacts[vapi.MainCluster], methodType, "")
 	r.Manager.traceActorReconcile(actor)
 	if res, err = actor.Reconcile(ctx, &ctrl.Request{}); verrors.IsReconcileAborted(res, err) {
 		return res, err
 	}
 
+	return r.redirectConnectionsToSandbox(ctx)
+}
+
+// redirectConnectionsToSandbox will redirect all of the connections
+// established at replica group A to replica group B.
+func (r *OnlineUpgradeReconciler) redirectConnectionsToSandbox(ctx context.Context) (ctrl.Result, error) {
 	initiator, ok := r.PFacts[vapi.MainCluster].FindFirstUpPod(false /*not allow read-only*/, "" /*arbitrary subcluster*/)
 	if !ok {
 		r.Log.Info("No Up nodes found; requeueing reconciliation")
@@ -1490,6 +1504,12 @@ func (r *OnlineUpgradeReconciler) duplicateSubclusterForReplicaGroupB(
 	// renamed later but we want a consistent object name to avoid having to
 	// rebuild it.
 	newSc.Annotations[vmeta.StsNameOverrideAnnotation] = newStsName
+	if vmeta.UseVProxy(r.VDB.Annotations) {
+		// Picking a proxy deployment name is important because this subcluster will get
+		// renamed later but we want a consistent object name to avoid having to
+		// rebuild it.
+		newSc.Annotations[vmeta.ProxyDeploymentNameAnnotation] = fmt.Sprintf("%s-proxy", newStsName)
+	}
 
 	// Create a linkage in the parent-child
 	if baseSc.Annotations == nil {

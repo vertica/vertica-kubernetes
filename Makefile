@@ -3,7 +3,7 @@
 # To re-generate a bundle for another specific version without changing the standard setup, you can:
 # - use the VERSION as arg of the bundle target (e.g make bundle VERSION=0.0.2)
 # - use environment variables to overwrite this value (e.g export VERSION=0.0.2)
-VERSION ?= 24.4.0-0
+VERSION ?= 25.1.0-0
 export VERSION
 
 # VLOGGER_VERSION defines the version to use for the Vertica logger image
@@ -142,6 +142,23 @@ OLM_CATALOG_IMG ?= olm-catalog:$(TAG)
 endif
 export OLM_CATALOG_IMG
 
+# Name of the namespace to deploy prometheus 
+PROMETHEUS_NAMESPACE?=prometheus
+# Prometheus variables that we wil be used for deployment 
+PROMETHEUS_HELM_NAME?=prometheus
+PROMETHEUS_INTERVAL?=5s
+# The Prometheus adapter name and namespace used in VerticaAutoscaler
+PROMETHEUS_ADAPTER_NAME ?= prometheus-adapter
+PROMETHEUS_ADAPTER_NAMESPACE ?= prometheus-adapter
+PROMETHEUS_ADAPTER_REPLICAS ?= 1
+# The Prometheus service URL and port for Prometheus adapter to connect to
+PROMETHEUS_URL ?= http://$(PROMETHEUS_HELM_NAME)-kube-prometheus-prometheus.$(PROMETHEUS_NAMESPACE).svc
+PROMETHEUS_PORT ?= 9090
+DB_USER?=dbadmin
+DB_PASSWORD?=
+VDB_NAME?=verticadb-sample
+VDB_NAMESPACE?=default
+
 # Set this to YES if you want to create a vertica image of minimal size
 MINIMAL_VERTICA_IMG ?=
 # Name of the helm release that we will install/uninstall
@@ -149,7 +166,9 @@ HELM_RELEASE_NAME?=vdb-op
 # Can be used to specify additional overrides when doing the helm install.
 # For example to specify a custom webhook tls cert when deploying use this command:
 #   HELM_OVERRIDES="--set webhook.tlsSecret=custom-cert" make deploy-operator
-HELM_OVERRIDES?=
+HELM_OVERRIDES ?=
+PROMETHEUS_HELM_OVERRIDES ?=
+PROMETHEUS_ADAPTER_HELM_OVERRIDES ?=
 # Maximum number of tests to run at once. (default 2)
 # Set it to any value not greater than 8 to override the default one
 E2E_PARALLELISM?=2
@@ -204,6 +223,11 @@ export BROADCASTER_BURST_SIZE
 #               objects in the namespace where the manager is deployed.
 CONTROLLERS_SCOPE?=cluster
 export CONTROLLERS_SCOPE
+
+# Use this to control the maximum backoff duration for VDBcontroller
+VDB_MAX_BACKOFF_DURATION?=1000
+export VDB_MAX_BACKOFF_DURATION
+
 #
 # The address the operators Prometheus metrics endpoint binds to. Setting this
 # to 0 will disable metric serving.
@@ -224,7 +248,7 @@ CONCURRENCY_EVENTTRIGGER?=1
 CONCURRENCY_VERTICARESTOREPOINTSQUERY?=1
 CONCURRENCY_VERTICASCRUTINIZE?=1
 CONCURRENCY_SANDBOXCONFIGMAP?=1
-CONCURRENCY_VERTICAREPLICATOR?=1
+CONCURRENCY_VERTICAREPLICATOR?=3
 export CONCURRENCY_VERTICADB \
   CONCURRENCY_VERTICAAUTOSCALER \
   CONCURRENCY_EVENTTRIGGER \
@@ -250,6 +274,7 @@ HELM_UNITTEST_VERSION?=3.9.3-0.2.11
 KUTTL_PLUGIN_INSTALLED:=$(shell kubectl krew list 2>/dev/null | grep -c '^kuttl')
 STERN_PLUGIN_INSTALLED:=$(shell kubectl krew list 2>/dev/null | grep -c '^stern')
 OPERATOR_CHART = $(shell pwd)/helm-charts/verticadb-operator
+PROMETHEUS_CHART=prometheus-community/kube-prometheus-stack
 
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
 ifeq (,$(shell go env GOBIN))
@@ -431,6 +456,20 @@ else
 	scripts/push-to-kind.sh -i ${VLOGGER_IMG}
 endif
 
+# Vertica client proxy is a pre-built image that we don't build. For this
+# reason, pushing this image will just put it in kind and never to docker.
+.PHONY: docker-push-vproxy
+docker-push-vproxy:  ## Push vertica client proxy docker image
+ifneq ($(strip $(VPROXY_IMG)),)
+ifeq ($(shell $(KIND_CHECK)), 0)
+	docker push ${VPROXY_IMG}
+else
+	scripts/push-to-kind.sh -i ${VPROXY_IMG}
+endif
+else
+	$(info VPROXY_IMG is not set. Skipped pushing proxy image to K8s cluster.)
+endif
+
 # We have two versions of the vertica-k8s image. This is a staging effort. A
 # new version is being created that has no admintools and relies exclusively on
 # http REST interfaces. Eventually, we will go back to one version using the
@@ -549,7 +588,7 @@ docker-push-olm-catalog:
 docker-build: docker-build-vertica-v2 docker-build-operator docker-build-vlogger ## Build all docker images except OLM catalog
 
 .PHONY: docker-push
-docker-push: docker-push-vertica docker-push-base-vertica docker-push-extra-vertica docker-push-operator docker-push-vlogger ## Push all docker images except OLM catalog
+docker-push: docker-push-vertica docker-push-base-vertica docker-push-extra-vertica docker-push-operator docker-push-vlogger docker-push-vproxy ## Push all docker images except OLM catalog
 
 .PHONY: echo-images
 echo-images:  ## Print the names of all of the images used
@@ -557,6 +596,7 @@ echo-images:  ## Print the names of all of the images used
 	@echo "VERTICA_IMG=$(VERTICA_IMG)"
 	@echo "BASE_VERTICA_IMG=$(BASE_VERTICA_IMG)"
 	@echo "VLOGGER_IMG=$(VLOGGER_IMG)"
+	@echo "VPROXY_IMG=$(VPROXY_IMG)"
 	@echo "BUNDLE_IMG=$(BUNDLE_IMG)"
 	@echo "OLM_CATALOG_IMG=$(OLM_CATALOG_IMG)"
 
@@ -603,7 +643,7 @@ uninstall: manifests kustomize ## Uninstall CRDs from the K8s cluster specified 
 # If this secret does not exist then it is simply ignored.
 deploy-operator: manifests kustomize ## Using helm or olm, deploy the operator in the K8s cluster
 ifeq ($(DEPLOY_WITH), helm)
-	helm install $(DEPLOY_WAIT) -n $(NAMESPACE) --create-namespace $(HELM_RELEASE_NAME) $(OPERATOR_CHART) --set image.repo=null --set image.name=${OPERATOR_IMG} --set image.pullPolicy=$(HELM_IMAGE_PULL_POLICY) --set imagePullSecrets[0].name=priv-reg-cred --set controllers.scope=$(CONTROLLERS_SCOPE) $(HELM_OVERRIDES)
+	helm install $(DEPLOY_WAIT) -n $(NAMESPACE) --create-namespace $(HELM_RELEASE_NAME) $(OPERATOR_CHART) --set image.repo=null --set image.name=${OPERATOR_IMG} --set image.pullPolicy=$(HELM_IMAGE_PULL_POLICY) --set imagePullSecrets[0].name=priv-reg-cred --set controllers.scope=$(CONTROLLERS_SCOPE) --set controllers.vdbMaxBackoffDuration=$(VDB_MAX_BACKOFF_DURATION) $(HELM_OVERRIDES)
 	scripts/wait-for-webhook.sh -n $(NAMESPACE) -t 60
 else ifeq ($(DEPLOY_WITH), olm)
 	scripts/deploy-olm.sh -n $(NAMESPACE) $(OLM_TEST_CATALOG_SOURCE)
@@ -614,11 +654,47 @@ endif
 
 deploy-webhook: manifests kustomize ## Using helm, deploy just the webhook in the k8s cluster
 ifeq ($(DEPLOY_WITH), helm)
-	helm install $(DEPLOY_WAIT) -n $(NAMESPACE) --create-namespace $(HELM_RELEASE_NAME) $(OPERATOR_CHART) --set image.repo=null --set image.name=${OPERATOR_IMG} --set image.pullPolicy=$(HELM_IMAGE_PULL_POLICY) --set imagePullSecrets[0].name=priv-reg-cred $(HELM_OVERRIDES) --set webhook.enable=true,controllers.enable=false
+	helm install $(DEPLOY_WAIT) -n $(NAMESPACE) --create-namespace $(HELM_RELEASE_NAME) $(OPERATOR_CHART) --set image.repo=null --set image.name=${OPERATOR_IMG} --set image.pullPolicy=$(HELM_IMAGE_PULL_POLICY) --set imagePullSecrets[0].name=priv-reg-cred --set webhook.enable=true,controllers.enable=false $(HELM_OVERRIDES)
 	scripts/wait-for-webhook.sh -n $(NAMESPACE) -t 60
 else
 	$(error Unsupported deployment method for webhook only: $(DEPLOY_WITH))
 endif
+
+.PHONY: deploy-prometheus
+deploy-prometheus:
+	helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+	helm repo update
+	helm install $(DEPLOY_WAIT) -n $(PROMETHEUS_NAMESPACE) --create-namespace $(PROMETHEUS_HELM_NAME) $(PROMETHEUS_CHART) --values prometheus/values.yaml $(PROMETHEUS_HELM_OVERRIDES)
+
+.PHONY: undeploy-prometheus
+undeploy-prometheus: undeploy-prometheus-service-monitor-by-release
+	helm uninstall $(PROMETHEUS_HELM_NAME) -n $(PROMETHEUS_NAMESPACE)
+
+.PHONY: port-forward-prometheus
+port-forward-prometheus:  ## Expose the prometheus endpoint so that you can connect to it through http://localhost:9090
+	kubectl port-forward -n $(PROMETHEUS_NAMESPACE) svc/$(PROMETHEUS_HELM_NAME)-kube-prometheus-prometheus 9090
+
+.PHONY: deploy-prometheus-service-monitor
+deploy-prometheus-service-monitor:
+	scripts/deploy-prometheus.sh -n $(VDB_NAMESPACE) -l $(PROMETHEUS_HELM_NAME) -i $(PROMETHEUS_INTERVAL) -a deploy -u $(DB_USER) -p '$(DB_PASSWORD)' -d $(VDB_NAME)
+
+.PHONY: undeploy-prometheus-service-monitor
+undeploy-prometheus-service-monitor:
+	scripts/deploy-prometheus.sh -n $(VDB_NAMESPACE) -l $(PROMETHEUS_HELM_NAME) -i $(PROMETHEUS_INTERVAL) -a undeploy -u $(DB_USER) -p '$(DB_PASSWORD)' -d $(VDB_NAME)
+
+.PHONY: undeploy-prometheus-service-monitor-by-release
+undeploy-prometheus-service-monitor-by-release:
+	scripts/deploy-prometheus.sh -l $(PROMETHEUS_HELM_NAME) -a undeploy_by_release
+
+.PHONY: deploy-prometheus-adapter
+deploy-prometheus-adapter:  ## Setup prometheus adapter for VerticaAutoscaler
+	helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+	helm repo update
+	helm install $(DEPLOY_WAIT) -n $(PROMETHEUS_ADAPTER_NAMESPACE) --create-namespace $(PROMETHEUS_ADAPTER_NAME) prometheus-community/prometheus-adapter --values prometheus/adapter.yaml --set prometheus.url=$(PROMETHEUS_URL) --set prometheus.port=$(PROMETHEUS_PORT) --set replicas=$(PROMETHEUS_ADAPTER_REPLICAS) $(PROMETHEUS_ADAPTER_HELM_OVERRIDES)
+
+.PHONY: undeploy-prometheus-adapter
+undeploy-prometheus-adapter:  ## Remove prometheus adapter
+	helm uninstall $(PROMETHEUS_ADAPTER_NAME) -n $(PROMETHEUS_ADAPTER_NAMESPACE)
 
 .PHONY: undeploy-operator
 undeploy-operator: ## Undeploy operator that was previously deployed
@@ -715,7 +791,7 @@ $(OPERATOR_SDK):
 	chmod +x $(OPERATOR_SDK)
 
 ISTIOCTL = $(shell pwd)/bin/istioctl
-ISTIOCTL_VERSION = 1.17.2
+ISTIOCTL_VERSION = 1.23.3
 istioctl: $(ISTIOCTL)  ## Download istioctl locally if necessary
 $(ISTIOCTL):
 	curl --silent --show-error --retry 10 --retry-max-time 1800 --location --fail "https://github.com/istio/istio/releases/download/$(ISTIOCTL_VERSION)/istio-$(ISTIOCTL_VERSION)-$(GOOS)-$(GOARCH).tar.gz" | tar xvfz - istio-$(ISTIOCTL_VERSION)/bin/istioctl -O > $(ISTIOCTL)

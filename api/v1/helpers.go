@@ -92,6 +92,7 @@ func (v *VerticaDB) FindTransientSubcluster() *Subcluster {
 // This is intended for test purposes.
 func MakeVDB() *VerticaDB {
 	nm := MakeVDBName()
+	replicas := int32(1)
 	return &VerticaDB{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: GroupVersion.String(),
@@ -127,7 +128,19 @@ func MakeVDB() *VerticaDB {
 			DBName:     "db",
 			ShardCount: 12,
 			Subclusters: []Subcluster{
-				{Name: "defaultsubcluster", Size: 3, ServiceType: corev1.ServiceTypeClusterIP, Type: PrimarySubcluster},
+				{
+					Name:        "defaultsubcluster",
+					Annotations: make(map[string]string),
+					Size:        3,
+					ServiceType: corev1.ServiceTypeClusterIP,
+					Type:        PrimarySubcluster,
+					Proxy: &ProxySubclusterConfig{
+						Replicas: &replicas,
+					},
+				},
+			},
+			Proxy: &Proxy{
+				Image: "opentext/client-proxy:latest",
 			},
 		},
 	}
@@ -180,6 +193,17 @@ func (v *VerticaDB) GenSandboxMap() map[string]*Sandbox {
 	return sbMap
 }
 
+// findSubclusterIndexInSandbox will return the index of the targetSclusterName in sandbox.
+// when the targetSclusterName is not found in the sandbox, -1 will be returned
+func (v *VerticaDB) findSubclusterIndexInSandbox(targetSclusterName string, sandbox *Sandbox) int {
+	for i, subclusterName := range sandbox.Subclusters {
+		if subclusterName.Name == targetSclusterName {
+			return i
+		}
+	}
+	return -1
+}
+
 // GenSubclusterSandboxMap will scan all sandboxes and return a map
 // with subcluster name as the key and sandbox name as the value
 func (v *VerticaDB) GenSubclusterSandboxMap() map[string]string {
@@ -204,6 +228,36 @@ func (v *VerticaDB) GenSubclusterSandboxStatusMap() map[string]string {
 		}
 	}
 	return scSbMap
+}
+
+// GenStatusSandboxMap() returns a map from status. The key is sandbox name and value is the sandbox pointer
+func (v *VerticaDB) GenStatusSandboxMap() map[string]*SandboxStatus {
+	statusSboxMap := make(map[string]*SandboxStatus)
+	for i := range v.Status.Sandboxes {
+		sBox := &v.Status.Sandboxes[i]
+		statusSboxMap[sBox.Name] = sBox
+	}
+	return statusSboxMap
+}
+
+// GenStatusSubclusterMap() returns a map from status. The key is subcluster name and value is the subcluster pointer
+func (v *VerticaDB) GenStatusSubclusterMap() map[string]*SubclusterStatus {
+	statusSclusterMap := make(map[string]*SubclusterStatus)
+	for i := range v.Status.Subclusters {
+		sCluster := &v.Status.Subclusters[i]
+		statusSclusterMap[sCluster.Name] = sCluster
+	}
+	return statusSclusterMap
+}
+
+// GenStatusSClusterIndexMap will organize all of the subclusters into a map so we
+// can quickly find its index in the status.subclusters[] array.
+func (v *VerticaDB) GenStatusSClusterIndexMap() map[string]int {
+	m := make(map[string]int)
+	for i := range v.Status.Subclusters {
+		m[v.Status.Subclusters[i].Name] = i
+	}
+	return m
 }
 
 // GenSandboxSubclusterMapForUnsandbox will compare sandbox status and spec
@@ -367,6 +421,18 @@ func (s *Subcluster) GetStatefulSetName(vdb *VerticaDB) string {
 	return fmt.Sprintf("%s-%s", vdb.Name, s.GenCompatibleFQDN())
 }
 
+func (s *Subcluster) GetVProxyDeploymentName(vdb *VerticaDB) string {
+	depOverrideName := vmeta.GetVPDepNameOverride(s.Annotations)
+	if depOverrideName != "" {
+		return depOverrideName
+	}
+	return fmt.Sprintf("%s-%s-proxy", vdb.Name, GenCompatibleFQDNHelper(s.Name))
+}
+
+func (s *Subcluster) GetVProxyConfigMapName(vdb *VerticaDB) string {
+	return GetVProxyConfigMapName(s.GetVProxyDeploymentName(vdb))
+}
+
 // GetServiceName returns the name of the service object that route traffic to
 // this subcluster.
 func (s *Subcluster) GetServiceName() string {
@@ -419,6 +485,16 @@ func (s *Subcluster) GetStsSize(vdb *VerticaDB) int32 {
 		return 0
 	}
 	return s.Size
+}
+
+// GetVProxyConfigMapName returns the name of the client proxy config map
+func GetVProxyConfigMapName(prefix string) string {
+	return fmt.Sprintf("%s-cm", prefix)
+}
+
+// GetVProxyDeploymentName returns the name of the client proxy deployment
+func (v *VerticaDB) GetVProxyDeploymentName(scName string) string {
+	return fmt.Sprintf("%s-%s-proxy", v.Name, GenCompatibleFQDNHelper(scName))
 }
 
 // FindSubclusterForServiceName will find any subclusters that match the given service name
@@ -692,6 +768,11 @@ func (v *VerticaDB) GetRestartTimeout() int {
 // GetCreateDBNodeStartTimeout returns the timeout value for createdb node startup
 func (v *VerticaDB) GetCreateDBNodeStartTimeout() int {
 	return vmeta.GetCreateDBNodeStartTimeout(v.Annotations)
+}
+
+// GetShutdownDrainSeconds returns time in seconds to wait for a subcluster/database users' disconnection
+func (v *VerticaDB) GetShutdownDrainSeconds() int {
+	return vmeta.GetShutdownDrainSeconds(v.Annotations)
 }
 
 // IsNMASideCarDeploymentEnabled returns true if the conditions to run NMA
@@ -1048,6 +1129,29 @@ func (v *VerticaDB) GetSubclustersForReplicaGroup(groupName string) []string {
 		if g, found := v.Spec.Subclusters[i].Annotations[vmeta.ReplicaGroupAnnotation]; found && g == groupName {
 			scNames = append(scNames, v.Spec.Subclusters[i].Name)
 		}
+	}
+	return scNames
+}
+
+// GetSubclustersInSandbox returns the subclusters in the given sandbox
+func (v *VerticaDB) GetSubclustersInSandbox(sbName string) []string {
+	scNames := []string{}
+	scSbMap := v.GenSubclusterSandboxMap()
+	if sbName == MainCluster {
+		for i := range v.Spec.Subclusters {
+			scName := v.Spec.Subclusters[i].Name
+			if _, found := scSbMap[scName]; !found {
+				scNames = append(scNames, scName)
+			}
+		}
+		return scNames
+	}
+	sb := v.GetSandbox(sbName)
+	if sb == nil {
+		return nil
+	}
+	for i := range sb.Subclusters {
+		scNames = append(scNames, sb.Subclusters[i].Name)
 	}
 	return scNames
 }

@@ -16,6 +16,7 @@ kind: VerticaReplicator
 metadata:
   name: vrep-test-sandbox-custom-user
 spec:
+  mode: sync
   source:
     verticaDB: "v-source"
   target:
@@ -28,6 +29,7 @@ kind: VerticaReplicator
 metadata:
   name: vrep-test-sandbox-custom-user-with-password
 spec:
+  mode: sync
   source:
     verticaDB: "v-source"
   target:

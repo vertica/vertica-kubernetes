@@ -371,6 +371,12 @@ type VerticaDBSpec struct {
 	// +kubebuilder:validation:Optional
 	// Identifies any sandboxes that exist for the database
 	Sandboxes []Sandbox `json:"sandboxes,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// Create client proxy pods for the subcluster if defined
+	// All incoming connections to the subclusters will be routed through the proxy pods
+	Proxy *Proxy `json:"proxy,omitempty"`
 }
 
 // LocalObjectReference is used instead of corev1.LocalObjectReference and behaves the same.
@@ -899,6 +905,45 @@ type Subcluster struct {
 	// State to indicate whether the operator must shut down the subcluster
 	// and not try to restart it.
 	Shutdown bool `json:"shutdown,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// Create client proxy pods for the subcluster if defined
+	// All incoming connections to the subclusters will be routed through the proxy pods
+	Proxy *ProxySubclusterConfig `json:"proxy,omitempty"`
+}
+
+type Proxy struct {
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// The docker image name that contains the Vertica proxy server.
+	Image string `json:"image,omitempty"`
+
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:hidden"
+	// +kubebuilder:validation:Optional
+	// A secret that contains the TLS credentials to use for Vertica's client
+	// proxy. If this is empty, the operator will create a secret to use and
+	// add the name of the generate secret in this field.
+	// When set, the secret must have the following keys defined: tls.key,
+	// tls.crt and ca.crt. To store this secret outside of Kubernetes, you can
+	// use a secret path reference prefix, such as gsm://. Everything after the
+	// prefix is the name of the secret in the service you are storing.
+	TLSSecret string `json:"tlsSecret,omitempty"`
+}
+
+type ProxySubclusterConfig struct {
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// The number of replicas that the proxy server will have.
+	Replicas *int32 `json:"replicas,omitempty"`
+
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:resourceRequirements"
+	// This defines the resource requests and limits for the client proxy pods in the subcluster.
+	// It is advisable that the request and limits match as this ensures the
+	// pods are assigned to the guaranteed QoS class. This will reduces the
+	// chance that pods are chosen by the OOM killer.
+	// More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+	Resources *corev1.ResourceRequirements `json:"resources,omitempty"`
 }
 
 // VerticaDBStatus defines the observed state of VerticaDB

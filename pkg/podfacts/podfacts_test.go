@@ -387,7 +387,7 @@ var _ = Describe("podfacts", func() {
 
 		// 4 primary nodes, 2 restartable primary nodes
 		result := pf.QuorumCheckForRestartCluster(true)
-		Expect(result).Should(BeTrue())
+		Expect(result).Should(BeFalse())
 		// 5 primary nodes, 3 restartable primary nodes
 		pf.Detail[types.NamespacedName{Name: "p3"}].isPrimary = true
 		result = pf.QuorumCheckForRestartCluster(true)
@@ -396,6 +396,30 @@ var _ = Describe("podfacts", func() {
 		pf.Detail[types.NamespacedName{Name: "p3"}].dbExists = false
 		result = pf.QuorumCheckForRestartCluster(true)
 		Expect(result).Should(BeFalse())
+	})
+
+	It("should find sandbox initiator correctly", func() {
+		pf := MakePodFacts(vdbRec, &cmds.FakePodRunner{}, logger, TestPassword)
+		pf.Detail[types.NamespacedName{Name: "p1"}] = &PodFact{
+			isPrimary: false, subclusterName: "sc1", upNode: true, sandbox: "sand1", podIP: "1.1.1.1",
+		}
+		pf.Detail[types.NamespacedName{Name: "p2"}] = &PodFact{
+			isPrimary: true, subclusterName: "sc2", upNode: true, sandbox: "sand1", podIP: "2.2.2.2",
+		}
+		pf.Detail[types.NamespacedName{Name: "p3"}] = &PodFact{
+			isPrimary: true, subclusterName: "sc3", upNode: true, sandbox: "sand1", podIP: "3.3.3.3",
+		}
+		pf.Detail[types.NamespacedName{Name: "p4"}] = &PodFact{
+			isPrimary: true, subclusterName: "sc4", upNode: true, sandbox: "sand2", podIP: "4.4.4.4",
+		}
+		// should get a primary up node ip not in sc2
+		initiatorIP, ok := pf.GetInitiatorIPInSB("sand1", "sc2")
+		Expect(initiatorIP).Should(Equal("3.3.3.3"))
+		Expect(ok).Should(BeTrue())
+		// should not get an ip
+		initiatorIP, ok = pf.GetInitiatorIPInSB("sand2", "sc4")
+		Expect(initiatorIP).Should(Equal(""))
+		Expect(ok).Should(BeFalse())
 	})
 })
 

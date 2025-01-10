@@ -27,6 +27,7 @@ import (
 const (
 	ServerContainer         = "server"
 	NMAContainer            = "nma"
+	ProxyContainer          = "proxy"
 	ScrutinizeInitContainer = "scrutinize"
 	ScrutinizeMainContainer = "main"
 )
@@ -65,6 +66,16 @@ func GenSandboxConfigMapName(vdb *vapi.VerticaDB, sandbox string) types.Namespac
 	return GenNamespacedName(vdb, vdb.Name+"-"+vapi.GenCompatibleFQDNHelper(sandbox))
 }
 
+// GenVProxyName returns the name of the client proxy deployment
+func GenVProxyName(vdb *vapi.VerticaDB, s *vapi.Subcluster) types.NamespacedName {
+	return GenNamespacedName(vdb, s.GetVProxyDeploymentName(vdb))
+}
+
+// GenVProxyConfigMapName returns the name of the client proxy configmap
+func GenVProxyConfigMapName(vdb *vapi.VerticaDB, s *vapi.Subcluster) types.NamespacedName {
+	return GenNamespacedName(vdb, s.GetVProxyConfigMapName(vdb))
+}
+
 // GenCommunalCredSecretName returns the name of the secret that has the credentials to access s3
 func GenCommunalCredSecretName(vdb *vapi.VerticaDB) types.NamespacedName {
 	return GenNamespacedName(vdb, vdb.Spec.Communal.CredentialSecret)
@@ -92,6 +103,11 @@ func GenSUPasswdSecretName(vdb *vapi.VerticaDB) types.NamespacedName {
 func GenPodName(vdb *vapi.VerticaDB, sc *vapi.Subcluster, podIndex int32) types.NamespacedName {
 	stsName := sc.GetStatefulSetName(vdb)
 	return GenNamespacedName(vdb, fmt.Sprintf("%s-%d", stsName, podIndex))
+}
+
+// GenPodDNSName returns the DNS name of a specific pod
+func GenPodDNSName(vdb *vapi.VerticaDB, sc *vapi.Subcluster, podIndex int32) string {
+	return fmt.Sprintf("%s.%s.%s.svc.cluster.local", GenPodName(vdb, sc, podIndex).Name, vdb.Name, vdb.Namespace)
 }
 
 // GenPodNameFromSts returns the name of a specific pod in a statefulset
