@@ -18,6 +18,7 @@ limitations under the License.
 package v1beta1
 
 import (
+	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -77,6 +78,52 @@ type VerticaAutoscalerSpec struct {
 	// left as zero.  It will get initialized in the operator and then modified
 	// via the /scale subresource.
 	TargetSize int32 `json:"targetSize"`
+
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// This struct allows customization of autoscaling. Custom metrics can be used instead of the memory and cpu metrics.
+	// The scaling behavior can also be customized to meet different performance requirements. The maximum and mininum of
+	// sizes of the replica sets can be specified to limit the use of resources.
+	CustomAutoscaler *CustomAutoscalerSpec `json:"customAutoscalerSpec,omitempty"`
+}
+
+// CustomAutoscalerSpec customizes VerticaAutoscaler
+type CustomAutoscalerSpec struct {
+
+	// +kubebuilder:Minimum:=0
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// The miminum number of pods when scaling.
+	MinReplicas int32 `json:"minReplicas,omitempty"`
+
+	// +kubebuilder:Minimum:=0
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// The maximum number of pods when scaling.
+	MaxReplicas int32 `json:"maxReplicas,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// The custom metric definition to be used for autocaling.
+	Metrics []MetricDefinition `json:"metrics,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// Specifies the scaling behavior for both scale up and down.
+	Behavior *autoscalingv2.HorizontalPodAutoscalerBehavior `json:"behavior,omitempty"`
+}
+
+// MetricDefinition defines increment and metric to be used for autoscaling
+type MetricDefinition struct {
+
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// +kubebuilder:Minimum:=0
+	// The value used to increase the threshold after a scale up or a scale down.
+	ThresholdAdjustmentValue int `json:"thresholdAdjustmentValue,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// The custom metric to be used for autocaling.
+	Metric autoscalingv2.MetricSpec `json:"metric,omitempty"`
 }
 
 type ScalingGranularityType string
