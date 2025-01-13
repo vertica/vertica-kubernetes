@@ -31,7 +31,9 @@ import (
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
+	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/meta"
+	autoscalingv2 "k8s.io/api/autoscaling/v2"
 )
 
 // VerticaAutoscalerReconciler reconciles a VerticaAutoscaler object
@@ -46,6 +48,7 @@ type VerticaAutoscalerReconciler struct {
 //+kubebuilder:rbac:groups=vertica.com,resources=verticaautoscalers/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=vertica.com,resources=verticaautoscalers/finalizers,verbs=update
 //+kubebuilder:rbac:groups=vertica.com,resources=verticadbs,verbs=get;list;create;update;patch;delete
+//+kubebuilder:rbac:groups=autoscaling,resources=horizontalpodautoscalers,verbs=get;list;watch;create;update;delete;patch
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -84,6 +87,7 @@ func (r *VerticaAutoscalerReconciler) Reconcile(ctx context.Context, req ctrl.Re
 		MakeRefreshCurrentSizeReconciler(r, vas),
 		// Update the selector in the status
 		MakeRefreshSelectorReconciler(r, vas),
+		MakeHorizontalPodAutoscalerReconciler(r, vas, log),
 		// If scaling granularity is Pod, this will resize existing subclusters
 		// depending on the targetSize.
 		MakeSubclusterResizeReconciler(r, vas),
@@ -115,5 +119,14 @@ func (r *VerticaAutoscalerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		// reconcile the VerticaAutoscaler for any change in the VerticaDB.
 		// This ensures the status fields are kept up to date.
 		Owns(&v1vapi.VerticaDB{}).
+		Owns(&autoscalingv2.HorizontalPodAutoscaler{}).
 		Complete(r)
+}
+
+func (r *VerticaAutoscalerReconciler) Eventf(vdb runtime.Object, eventtype, reason, messageFmt string, args ...interface{}) {
+	evWriter := events.Writer{
+		Log:   r.Log,
+		EVRec: r.EVRec,
+	}
+	evWriter.Eventf(vdb, eventtype, reason, messageFmt, args...)
 }

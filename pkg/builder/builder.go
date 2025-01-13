@@ -31,6 +31,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/secrets"
 	"gopkg.in/yaml.v2"
 	appsv1 "k8s.io/api/apps/v1"
+	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -861,6 +862,27 @@ func makeScrutinizeInitContainers(vscr *v1beta1.VerticaScrutinize, vdb *vapi.Ver
 		cnts = append(cnts, c)
 	}
 	return cnts
+}
+
+// BuildHorizontalPodAutoscaler builds a manifest for the horizontal pod autoscaler.
+func BuildHorizontalPodAutoscaler(nm types.NamespacedName, vas *v1beta1.VerticaAutoscaler) *autoscalingv2.HorizontalPodAutoscaler {
+	return &autoscalingv2.HorizontalPodAutoscaler{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: nm.Namespace,
+			Name:      nm.Name,
+		},
+		Spec: autoscalingv2.HorizontalPodAutoscalerSpec{
+			ScaleTargetRef: autoscalingv2.CrossVersionObjectReference{
+				APIVersion: v1beta1.GroupVersion.String(),
+				Kind:       v1beta1.VerticaAutoscalerKind,
+				Name:       vas.Name,
+			},
+			MinReplicas: vas.Spec.CustomAutoscaler.MinReplicas,
+			MaxReplicas: vas.Spec.CustomAutoscaler.MaxReplicas,
+			Metrics:     vas.GetHPAMetrics(),
+			Behavior:    vas.Spec.CustomAutoscaler.Behavior,
+		},
+	}
 }
 
 // BuildVProxyDeployment builds manifest for a subclusters VProxy deployment

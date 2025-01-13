@@ -22,6 +22,7 @@ import (
 	v1vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/builder"
+	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/test"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -48,6 +49,11 @@ func CreateVAS(ctx context.Context, c client.Client, vas *vapi.VerticaAutoscaler
 
 func DeleteVAS(ctx context.Context, c client.Client, vas *vapi.VerticaAutoscaler) {
 	ExpectWithOffset(1, c.Delete(ctx, vas)).Should(Succeed())
+}
+
+func DeleteHPA(ctx context.Context, c client.Client, vas *vapi.VerticaAutoscaler) {
+	hpa := builder.BuildHorizontalPodAutoscaler(names.GenHPAName(vas), vas)
+	ExpectWithOffset(1, c.Delete(ctx, hpa)).Should(Succeed())
 }
 
 func CreateVDB(ctx context.Context, c client.Client, vdb *vapi.VerticaDB) {
