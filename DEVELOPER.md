@@ -514,6 +514,55 @@ The following steps run the soak tests:
    make run-soak-tests
    ```
 
+## Prometheus deployment
+
+Vertica on Kubernetes integrates with Prometheus to scrape time series metrics about the VerticaDB operator and Vertica server process. These metrics create a detailed model of your application over time to provide valuable performance and troubleshooting insights as well as facilitate internal and external communications and service discovery in microservice and containerized architectures. Following are example steps to deploy Prometheus instance and integrate with Vertica on Kubernetes:
+
+1. Create the databases that you want to test.
+
+2. Deploy Prometheus instance:
+   In this step, we will first deploy Prometheus pods. If you want to deploy Prometheus on another namespace, you can overwrite the value of PROMETHEUS_NAMESPACE.
+   ```shell
+   make deploy-prometheus
+   # You can change the default namespace or app name by: 
+   # make deploy-prometheus PROMETHEUS_NAMESPACE=PREFERED_NAMESPACE PROMETHEUS_HELM_NAME=PREFERED_NAME
+   ```
+
+3. Deploy Prometheus related secret, service monitor:
+   In this step, we will create a secret and service monitor through kubectl. You need to provide Vertica database username, password and vdbname. And makes sure the namespace used here is the same as the database namespace.
+   ```shell
+   make deploy-prometheus-service-monitor DB_USER=dbadmin DB_PASSWORD='YOUR_VERTICA_DB_USER_PASSWORD' VDB_NAME=VDB_NAME
+   # Example: deploy with different db namespace, the default namespace is 'default'
+   # make deploy-prometheus-service-monitor VDB_NAMESPACE=vdb 
+   ```
+
+4. Port forwarding Prometheus(optional):
+   By then Prometheus should be able to connect to the pods and pick up the metrics. If you want to connect to Prometheus API and check the result, you can port forward the Prometheus service. If you used a different namespace, change it accordingly. 
+   ```shell
+   make port-forward-prometheus
+   # You can change the default namespace or app name by: 
+   # make port-forward-prometheus PROMETHEUS_NAMESPACE=PREFERED_NAMESPACE PROMETHEUS_HELM_NAME=PREFERED_NAME
+
+   START_TIME=$(date +%Y-%m-%d) 
+   END_TIME=$(date +%Y-%m-%d --date "$curr +1 day")
+   curl -g 'http://localhost:9090/api/v1/query?query=vertica_build_info&start=$START_TIME&end=$END_TIME' | jq
+   ```
+
+5. Clean up:
+   To undeploy, we will first undeploy secret, service monitor and then the Prometheus instance. 
+   - To uninstall just one service monitor and related secret, you then call the make target undeploy-service-monitor
+   ```shell
+   make undeploy-prometheus-service-monitor 
+   # Example with different namespace, vdb user info, or app name:
+   # make undeploy-prometheus-service-monitor VDB_NAMESPACE=vdb VDB_NAME=verticadb-sample-2
+   ```
+   - To uninstall Prometheus and all related resources (service monitors too), you call the make target undeploy-prometheus.
+   ```shell
+   make undeploy-prometheus
+   # Example with different namespace, vdb user info, or app name:
+   # make undeploy-prometheus PROMETHEUS_NAMESPACE=PREFERED_NAMESPACE PROMETHEUS_HELM_NAME=PREFERED_NAME
+   ```
+
 # Troubleshooting
 
 The following sections provide troubleshooting tips for your deployment.
