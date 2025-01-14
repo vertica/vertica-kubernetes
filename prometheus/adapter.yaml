@@ -31,21 +31,21 @@ rules:
           pod:
             resource: pod
       metricsQuery: 'avg_over_time(vertica_process_memory_usage_percent[60m])'
-    # Number of active sessions. Type: guage
-    - seriesQuery: 'vertica_sessions_running_counter{namespace!="", pod!=""}'
-      resources:
-        overrides:
-          namespace:
-            resource: namespace
-          pod:
-            resource: pod
-      metricsQuery: 'sum(increase(vertica_sessions_running_counter[1m])) by (namespace, pod)'
-    # Number of requests that are queued in the resource pool. Type: guage
-    - seriesQuery: 'vertica_queued_requests_total{namespace!="", pod!=""}'
-      resources:
-        overrides:
-          namespace:
-            resource: namespace
-          pod:
-            resource: pod
-      metricsQuery: 'sum(increase(vertica_queued_requests_total[1m])) by (namespace, pod)'
+    # # Number of active sessions. Type: guage
+    # - seriesQuery: 'vertica_sessions_running_counter{namespace!="", pod!=""}'
+    #   resources:
+    #     overrides:
+    #       namespace:
+    #         resource: namespace
+    #       pod:
+    #         resource: pod
+    #   metricsQuery: 'sum(increase(vertica_sessions_running_counter[1m])) by (namespace, pod)'
+    # # Number of requests that are queued in the resource pool. Type: guage
+    # - seriesQuery: 'vertica_queued_requests_total{namespace!="", pod!=""}'
+    #   resources:
+    #     overrides:
+    #       namespace:
+    #         resource: namespace
+    #       pod:
+    #         resource: pod
+    #   metricsQuery: 'sum(increase(vertica_queued_requests_total[1m])) by (namespace, pod)'
