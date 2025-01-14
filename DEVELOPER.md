@@ -563,6 +563,59 @@ Vertica on Kubernetes integrates with Prometheus to scrape time series metrics a
    # make undeploy-prometheus PROMETHEUS_NAMESPACE=PREFERED_NAMESPACE PROMETHEUS_HELM_NAME=PREFERED_NAME
    ```
 
+## Prometheus adapter deployment
+
+The Prometheus Adapter is a Kubernetes component that extends the Kubernetes API to serve custom metrics and resource metrics using Prometheus data. It allows you to scale workloads (like Deployments, StatefulSets, etc.) based on metrics collected by Prometheus.
+
+Prerequisite:
+A Prometheus service is running and accessible through an URL.
+
+1. Deploy Prometheus Adapter
+   This step will deploy Prometheus adapter to the specified namespace. By default, it connects to the prometheus servcie via the url PROMETHEUS_URL with port PROMETHEUS_PORT:
+   ```shell
+   PROMETHEUS_URL=http://$(PROMETHEUS_HELM_NAME)-kube-prometheus-prometheus.$(PROMETHEUS_NAMESPACE).svc
+   PROMETHEUS_PORT=9090
+   ```
+
+   When deploying the Prometheus adapter, we must set the PROMETHEUS_HELM_NAME and PROMETHEUS_NAMESPACE to the preferred namespace to make the URL accessible:
+   ```shell
+   make deploy-prometheus-adapter PROMETHEUS_NAMESPACE=$PREFERED_NAMESPACE PROMETHEUS_ADAPTER_NAMESPACE=$PREFERED_NAMESPACE
+   ```
+
+   You can also define other related parameters to overwrite the default values:
+   ```shell
+   PROMETHEUS_ADAPTER_NAME=prometheus-adapter
+   PROMETHEUS_ADAPTER_NAMESPACE=prometheus-adapter
+   PROMETHEUS_ADAPTER_REPLICAS=1
+   ```
+
+2. Configuration
+   Customize the adapter configuration to map Prometheus metrics to Kubernetes metrics. For example, you can configure rules to map a Prometheus query (e.g., vertica_query_requests_attempted_total) to a Kubernetes metric.
+
+   ```shell
+   rules:
+     default: false
+     custom:
+       # Number of attempted query requests per second. Type: counter.
+       # The mapped Kubernetes metric name will be vertica_query_requests_attempted_rate_per_second.
+       - seriesQuery: 'vertica_query_requests_attempted_total{namespace!="", pod!=""}'
+         resources:
+           overrides:
+             namespace: {resource: "namespace"}
+             pod: {resource: "pod"}
+         name:
+           matches: "^(.*)_total$"
+           as: "${1}_rate_per_second"
+         metricsQuery: 'sum(increase(vertica_query_requests_attempted_total[5m])) by (namespace, pod)'
+   ```
+   This is where you will turned prometheus raw metrics into "kubernetes" metrics, that truly represent what you are looking for, using prometheus agregation functions
+
+3. Clean up
+   To uninstall Prometheus adapter, you call the make target undeploy-prometheus-adapter with PROMETHEUS_ADAPTER_NAMESPACE specified to the preferred namesapace.
+   ```shell
+   make undeploy-prometheus-adapter PROMETHEUS_ADAPTER_NAMESPACE=$PREFERED_NAMESPACE
+   ```
+
 # Troubleshooting
 
 The following sections provide troubleshooting tips for your deployment.
