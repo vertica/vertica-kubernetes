@@ -125,6 +125,7 @@ const (
 	SubclusterServiceNameNotFound = "SubclusterServiceNameNotFound"
 	VerticaDBNotFound             = "VerticaDBNotFound"
 	NoSubclusterTemplate          = "NoSubclusterTemplate"
+	PrometheusMetricsNotSupported = "PrometheusMetricsNotSupported"
 )
 
 // Constants for VerticaScrutinize reconciler

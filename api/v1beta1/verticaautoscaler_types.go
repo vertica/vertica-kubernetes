@@ -84,16 +84,15 @@ type VerticaAutoscalerSpec struct {
 	// This struct allows customization of autoscaling. Custom metrics can be used instead of the memory and cpu metrics.
 	// The scaling behavior can also be customized to meet different performance requirements. The maximum and mininum of
 	// sizes of the replica sets can be specified to limit the use of resources.
-	CustomAutoscaler *CustomAutoscalerSpec `json:"customAutoscalerSpec,omitempty"`
+	CustomAutoscaler *CustomAutoscalerSpec `json:"customAutoscaler,omitempty"`
 }
 
 // CustomAutoscalerSpec customizes VerticaAutoscaler
 type CustomAutoscalerSpec struct {
-
 	// +kubebuilder:Minimum:=0
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// The miminum number of pods when scaling.
-	MinReplicas int32 `json:"minReplicas,omitempty"`
+	MinReplicas *int32 `json:"minReplicas,omitempty"`
 
 	// +kubebuilder:Minimum:=0
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
@@ -244,7 +243,41 @@ func MakeVAS() *VerticaAutoscaler {
 	}
 }
 
+// MakeVASWithMetrics is a helper that constructs a fully formed VerticaAutoscaler struct with custom autoscaling enabled.
+// This is intended for test purposes.
+func MakeVASWithMetrics() *VerticaAutoscaler {
+	vas := MakeVAS()
+	minRep := int32(3)
+	maxRep := int32(6)
+	cpu := int32(80)
+	vas.Spec.CustomAutoscaler = &CustomAutoscalerSpec{
+		MinReplicas: &minRep,
+		MaxReplicas: maxRep,
+		Metrics: []MetricDefinition{
+			{
+				Metric: autoscalingv2.MetricSpec{
+					Type: autoscalingv2.ResourceMetricSourceType,
+					Resource: &autoscalingv2.ResourceMetricSource{
+						Name: "cpu",
+						Target: autoscalingv2.MetricTarget{
+							Type:               autoscalingv2.UtilizationMetricType,
+							AverageUtilization: &cpu, // Scale when CPU exceeds 80%
+						},
+					},
+				},
+			},
+		},
+	}
+	return vas
+}
+
 // CanUseTemplate returns true if we can use the template provided in the spec
 func (v *VerticaAutoscaler) CanUseTemplate() bool {
 	return v.Spec.Template.Size > 0
+}
+
+// IsCustomMetricsEnabled returns true if the CR is set to use
+// custom metrics for scaling.
+func (v *VerticaAutoscaler) IsCustomMetricsEnabled() bool {
+	return v.Spec.CustomAutoscaler != nil
 }
