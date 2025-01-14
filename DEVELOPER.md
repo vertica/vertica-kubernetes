@@ -546,6 +546,8 @@ A Prometheus service is running and accessible through an URL.
    rules:
      default: false
      custom:
+       # Number of attempted query requests per second. Type: counter.
+       # The mapped Kubernetes metric name will be vertica_query_requests_attempted_rate_per_second.
        - seriesQuery: 'vertica_query_requests_attempted_total{namespace!="", pod!=""}'
          resources:
            overrides:
@@ -553,7 +555,7 @@ A Prometheus service is running and accessible through an URL.
              pod: {resource: "pod"}
          name:
            matches: "^(.*)_total$"
-           as: "${1}_rate_per_second" ---> we can then use vertica_query_requests_attempted_total_rate_per_second
+           as: "${1}_rate_per_second"
          metricsQuery: 'sum(increase(vertica_query_requests_attempted_total[5m])) by (namespace, pod)'
    ```
    This is where you will turned prometheus raw metrics into "kubernetes" metrics, that truly represent what you are looking for, using prometheus agregation functions
