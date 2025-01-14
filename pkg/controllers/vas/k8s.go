@@ -21,6 +21,7 @@ import (
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	v1beta1 "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
+	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
@@ -42,4 +43,14 @@ func fetchVDB(ctx context.Context, vrec *VerticaAutoscalerReconciler,
 		return ctrl.Result{Requeue: true}, nil
 	}
 	return ctrl.Result{}, err
+}
+
+// createHpa creates a new horizontal pod autoscaler.
+func createHpa(ctx context.Context, vrec *VerticaAutoscalerReconciler, expHpa *autoscalingv2.HorizontalPodAutoscaler,
+	vas *v1beta1.VerticaAutoscaler) error {
+	err := ctrl.SetControllerReference(vas, expHpa, vrec.Client.Scheme())
+	if err != nil {
+		return err
+	}
+	return vrec.Client.Create(ctx, expHpa)
 }

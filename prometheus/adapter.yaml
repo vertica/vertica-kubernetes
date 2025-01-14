@@ -2,6 +2,8 @@
 rules:
   default: false
   custom:
+    # Number of attempted query requests per second. Type: counter.
+    # The mapped Kubernetes metric name will be vertica_query_requests_attempted_rate_per_second.
     - seriesQuery: 'vertica_query_requests_attempted_total{namespace!="", pod!=""}'
       resources:
         overrides:
