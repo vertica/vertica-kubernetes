@@ -26,6 +26,7 @@ import (
 
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
+	"github.com/vertica/vertica-kubernetes/pkg/secrets"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -798,6 +799,18 @@ func (v *VerticaDB) IsMonolithicDeploymentEnabled() bool {
 		return false
 	}
 	return !v.IsNMASideCarDeploymentEnabled()
+}
+
+// IsMonolithicDeploymentEnabled returns true if NMA must run in the
+// same container as vertica
+func (v *VerticaDB) IsProxyTLSEnabled() bool {
+	if !vmeta.UseVProxy(v.Annotations) {
+		return false
+	}
+	if v.Spec.Proxy == nil {
+		return false
+	}
+	return v.Spec.Proxy.TLSSecret != "" && secrets.IsK8sSecret(v.Spec.Proxy.TLSSecret)
 }
 
 // IsKSafety0 returns true if k-safety of 0 is set.
