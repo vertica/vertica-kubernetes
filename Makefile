@@ -361,6 +361,10 @@ endif
 .PHONY: init-e2e-env
 init-e2e-env: install-kuttl-plugin install-stern-plugin kustomize ## Download necessary tools to run the integration tests
 
+.PHONY: cleanup-e2e-env
+cleanup-e2e-env: ## remove leftover e2e resouces due to test failure.
+	scripts/cleanup-e2e-env.sh
+
 .PHONY: run-int-tests
 run-int-tests: init-e2e-env vdb-gen setup-e2e-communal ## Run the integration tests
 ifeq ($(DEPLOY_WITH), $(filter $(DEPLOY_WITH), olm))
