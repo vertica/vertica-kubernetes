@@ -1,0 +1,24 @@
+name: Unit tests
+
+on: 
+  workflow_dispatch:
+  workflow_call:
+  push:
+
+jobs:
+
+  ut:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Set up Go
+      uses: actions/setup-go@v3
+      with:
+        # When changing this, be sure to update the version at:
+        # vertica/make/build-container/*Dockerfile
+        go-version: "1.22.5"
+
+    - name: Run unit tests
+      run: make vet lint test
+

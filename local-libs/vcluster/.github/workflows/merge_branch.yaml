@@ -1,0 +1,20 @@
+name: Merge branch
+on:
+  repository_dispatch:
+    types: curl_request_merge
+jobs:
+  unit-test:
+    uses: ./.github/workflows/unittests.yaml
+
+  sync-branch:
+    needs: [unit-test]
+    runs-on: ubuntu-latest
+    steps:
+      - uses:  actions/checkout@v2
+      - name: Merge branch ${{ github.event.client_payload.source_branch }} -> ${{ github.event.client_payload.target_branch }}
+        uses: everlytic/branch-merge@1.1.2
+        with:
+          source_ref: ${{ github.event.client_payload.source_branch }}
+          target_branch: ${{ github.event.client_payload.target_branch }}
+          github_token: ${{ github.token }} 
+          commit_message_template: '[Automated] Merged {source_ref} into target {target_branch}'

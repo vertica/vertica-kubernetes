@@ -1,0 +1,24 @@
+configFileVersion: "1.0"
+dbName: practice_db
+nodes:
+    - name: node_name_1
+      address: ip_1
+      subcluster: default_subcluster
+      catalogPath: /data
+      dataPath: /data
+      depotPath: /data
+    - name: node_name_2
+      address: ip_2
+      subcluster: default_subcluster
+      catalogPath: /data
+      dataPath: /data
+      depotPath: /data
+    - name: node_name_3
+      address: ip_3
+      subcluster: default_subcluster
+      catalogPath: /data
+      dataPath: /data
+      depotPath: /data
+eonMode: true
+communalStorageLocation: ""
+ipv6: false
