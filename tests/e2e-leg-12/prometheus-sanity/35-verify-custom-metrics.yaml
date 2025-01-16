@@ -41,12 +41,12 @@ commands:
   #       echo "empty custom metrics result on vertica_sessions_running_counter. Result: $RESULT"
   #       exit 1
   #     fi
-  # - script: |
-  #     NAMESPACE=$(kubectl get pod v-prometheus-pri1-0 -o=jsonpath='{.metadata.namespace}')
-  #     RESULT=$(kubectl get --raw /apis/custom.metrics.k8s.io/v1beta1/namespaces/$NAMESPACE/pods/v-prometheus-pri1-0/vertica_queued_requests_total)
-  #     OUTPUT=$(echo $RESULT | jq -r '.items[0].value')
-  #     # verify the metrics result
-  #     if [[ "$OUTPUT" == "" ]]; then
-  #       echo "empty custom metrics result on vertica_queued_requests_total. Result: $RESULT"
-  #       exit 1
-  #     fi
+  - script: |
+      NAMESPACE=$(kubectl get pod v-prometheus-pri1-0 -o=jsonpath='{.metadata.namespace}')
+      RESULT=$(kubectl get --raw /apis/custom.metrics.k8s.io/v1beta1/namespaces/$NAMESPACE/pods/v-prometheus-pri1-0/vertica_queued_requests_total)
+      OUTPUT=$(echo $RESULT | jq -r '.items[0].value')
+      # verify the metrics result
+      if [[ "$OUTPUT" == "" ]]; then
+        echo "empty custom metrics result on vertica_queued_requests_total. Result: $RESULT"
+        exit 1
+      fi

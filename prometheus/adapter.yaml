@@ -42,12 +42,12 @@ rules:
     #       pod:
     #         resource: pod
     #   metricsQuery: 'sum(increase(vertica_sessions_running_counter[1m])) by (namespace, pod)'
-    # # Number of requests that are queued in the resource pool. Type: guage
-    # - seriesQuery: 'vertica_queued_requests_total{namespace!="", pod!=""}'
-    #   resources:
-    #     overrides:
-    #       namespace:
-    #         resource: namespace
-    #       pod:
-    #         resource: pod
-    #   metricsQuery: 'sum(increase(vertica_queued_requests_total[1m])) by (namespace, pod)'
+    # Number of requests that are queued in the resource pool. Type: guage
+    - seriesQuery: 'vertica_queued_requests_total{namespace!="", pod!=""}'
+      resources:
+        overrides:
+          namespace:
+            resource: namespace
+          pod:
+            resource: pod
+      metricsQuery: 'sum(vertica_queued_requests_total) by (namespace, pod)'
