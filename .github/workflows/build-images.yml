@@ -80,42 +80,42 @@ jobs:
       uses: spilchen/switch-case-action@v2
       id: full_vertica_image
       with:
-        default: docker.io/opentext/vertica-k8s-private:latest-test-master
+        default: docker.io/opentext/vertica-k8s:25.1.0-0-multiarch
         conditionals-with-values: |
           ${{ inputs.full_vertica_image != '' }} => ${{ inputs.full_vertica_image }}
 
-    - name: Login to GitHub Container registry for non-PRs
-      uses: docker/login-action@v3
-      if: ${{ github.event_name != 'pull_request' && startsWith(inputs.full_vertica_image, 'ghcr.io') }}
-      with:
-        registry: ghcr.io
-        username: ${{ github.repository_owner }}
-        password: ${{ secrets.GITHUB_TOKEN }}
+    # - name: Login to GitHub Container registry for non-PRs
+    #   uses: docker/login-action@v3
+    #   if: ${{ github.event_name != 'pull_request' && startsWith(inputs.full_vertica_image, 'ghcr.io') }}
+    #   with:
+    #     registry: ghcr.io
+    #     username: ${{ github.repository_owner }}
+    #     password: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: Login to Docker Hub
-      uses: docker/login-action@v3
-      if: ${{ startsWith(steps.full_vertica_image.outputs.value, 'docker.io') }}
-      with:
-        username: ${{ secrets.DOCKERHUB_USERNAME }}
-        password: ${{ secrets.DOCKERHUB_TOKEN }}
+    # - name: Login to Docker Hub
+    #   uses: docker/login-action@v3
+    #   if: ${{ startsWith(steps.full_vertica_image.outputs.value, 'docker.io') }}
+    #   with:
+    #     username: ${{ secrets.DOCKERHUB_USERNAME }}
+    #     password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-    - uses: actions/checkout@v4
-      if: ${{ inputs.full_vertica_image == '' }}
+    # - uses: actions/checkout@v4
+    #   if: ${{ inputs.full_vertica_image == '' }}
 
-    - name: Download the RPM
-      uses: ./.github/actions/download-rpm
-      if: ${{ inputs.full_vertica_image == '' }}
+    # - name: Download the RPM
+    #   uses: ./.github/actions/download-rpm
+    #   if: ${{ inputs.full_vertica_image == '' }}
 
-    - name: Build the full server image
-      if: ${{ inputs.full_vertica_image == '' }}
-      run: |
-        # We never push the image we build here because the RPM we use is too
-        # old. The RPM needs to be from at least a 23.3.0 server. So, we build
-        # here only to test the creation of the image. We don't verify this
-        # image in the remaining CI. Pick a dummy image name so as not to
-        # overwrite the output build image that the e2e tests will use.
-        export VERTICA_IMG=vertica-k8s:kind
-        make docker-build-vertica-v2
+    # - name: Build the full server image
+    #   if: ${{ inputs.full_vertica_image == '' }}
+    #   run: |
+    #     # We never push the image we build here because the RPM we use is too
+    #     # old. The RPM needs to be from at least a 23.3.0 server. So, we build
+    #     # here only to test the creation of the image. We don't verify this
+    #     # image in the remaining CI. Pick a dummy image name so as not to
+    #     # overwrite the output build image that the e2e tests will use.
+    #     export VERTICA_IMG=vertica-k8s:kind
+    #     make docker-build-vertica-v2
 
     - name: Do a local pull of the image
       run: |
@@ -200,39 +200,39 @@ jobs:
       uses: spilchen/switch-case-action@v2
       id: legacy_vertica_image
       with:
-        default: docker.io/opentext/vertica-k8s-private:latest-legacy-master
+        default: docker.io/opentext/vertica-k8s:24.4.0-1-minimal
         conditionals-with-values: |
           ${{ inputs.legacy_vertica_image != '' }} => ${{ inputs.legacy_vertica_image }}
 
-    - name: Login to GitHub Container registry for non-PRs
-      uses: docker/login-action@v3
-      if: ${{ github.event_name != 'pull_request' && startsWith(inputs.legacy_vertica_image, 'ghcr.io') }}
-      with:
-        registry: ghcr.io
-        username: ${{ github.repository_owner }}
-        password: ${{ secrets.GITHUB_TOKEN }}
+    # - name: Login to GitHub Container registry for non-PRs
+    #   uses: docker/login-action@v3
+    #   if: ${{ github.event_name != 'pull_request' && startsWith(inputs.legacy_vertica_image, 'ghcr.io') }}
+    #   with:
+    #     registry: ghcr.io
+    #     username: ${{ github.repository_owner }}
+    #     password: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: Login to Docker Hub
-      uses: docker/login-action@v3
-      if: ${{ startsWith(steps.legacy_vertica_image.outputs.value, 'docker.io') }}
-      with:
-        username: ${{ secrets.DOCKERHUB_USERNAME }}
-        password: ${{ secrets.DOCKERHUB_TOKEN }}
+    # - name: Login to Docker Hub
+    #   uses: docker/login-action@v3
+    #   if: ${{ startsWith(steps.legacy_vertica_image.outputs.value, 'docker.io') }}
+    #   with:
+    #     username: ${{ secrets.DOCKERHUB_USERNAME }}
+    #     password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-    - uses: actions/checkout@v4
-      if: ${{ inputs.legacy_vertica_image == '' }}
+    # - uses: actions/checkout@v4
+    #   if: ${{ inputs.legacy_vertica_image == '' }}
 
-    - name: Download the RPM
-      uses: ./.github/actions/download-rpm
-      if: ${{ inputs.legacy_vertica_image == '' }}
+    # - name: Download the RPM
+    #   uses: ./.github/actions/download-rpm
+    #   if: ${{ inputs.legacy_vertica_image == '' }}
 
-    - name: Build legacy server image
-      if: ${{ inputs.legacy_vertica_image == '' }}
-      run: |
-        # Do not push the image to remote registry because we
-        # do not want to overwrite the existing images. Here we
-        # just validate if dockerfile works fine.
-        make docker-build-vertica
+    # - name: Build legacy server image
+    #   if: ${{ inputs.legacy_vertica_image == '' }}
+    #   run: |
+    #     # Do not push the image to remote registry because we
+    #     # do not want to overwrite the existing images. Here we
+    #     # just validate if dockerfile works fine.
+    #     make docker-build-vertica
 
     - name: Do a local pull of the image if we didn't create it
       if: ${{ steps.legacy_vertica_image.outputs.value != '' }}
@@ -271,43 +271,43 @@ jobs:
       uses: spilchen/switch-case-action@v2
       id: minimal_vertica_image
       with:
-        default: docker.io/opentext/vertica-k8s-private:latest-minimal-master
+        default: docker.io/opentext/vertica-k8s:24.4.0-1-minimal
         conditionals-with-values: |
           ${{ inputs.minimal_vertica_image != '' }} => ${{ inputs.minimal_vertica_image }}
 
-    - name: Login to GitHub Container registry for non-PRs
-      uses: docker/login-action@v3
-      if: ${{ github.event_name != 'pull_request' && startsWith(inputs.minimal_vertica_image, 'ghcr.io') }}
-      with:
-        registry: ghcr.io
-        username: ${{ github.repository_owner }}
-        password: ${{ secrets.GITHUB_TOKEN }}
+    # - name: Login to GitHub Container registry for non-PRs
+    #   uses: docker/login-action@v3
+    #   if: ${{ github.event_name != 'pull_request' && startsWith(inputs.minimal_vertica_image, 'ghcr.io') }}
+    #   with:
+    #     registry: ghcr.io
+    #     username: ${{ github.repository_owner }}
+    #     password: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: Login to Docker Hub
-      uses: docker/login-action@v3
-      if: ${{ startsWith(steps.minimal_vertica_image.outputs.value, 'docker.io') }}
-      with:
-        username: ${{ secrets.DOCKERHUB_USERNAME }}
-        password: ${{ secrets.DOCKERHUB_TOKEN }}
+    # - name: Login to Docker Hub
+    #   uses: docker/login-action@v3
+    #   if: ${{ startsWith(steps.minimal_vertica_image.outputs.value, 'docker.io') }}
+    #   with:
+    #     username: ${{ secrets.DOCKERHUB_USERNAME }}
+    #     password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-    - uses: actions/checkout@v4
-      if: ${{ inputs.minimal_vertica_image == '' }}
+    # - uses: actions/checkout@v4
+    #   if: ${{ inputs.minimal_vertica_image == '' }}
 
-    - name: Download the RPM
-      uses: ./.github/actions/download-rpm
-      if: ${{ inputs.minimal_vertica_image == '' }}
+    # - name: Download the RPM
+    #   uses: ./.github/actions/download-rpm
+    #   if: ${{ inputs.minimal_vertica_image == '' }}
 
-    - name: Build the minimal server image
-      if: ${{ inputs.minimal_vertica_image == '' }}
-      run: |
-        # We never push the image we build here because the RPM we use is too
-        # old. The RPM needs to be from at least a 23.3.0 server. So, we build
-        # here only to test the creation of the image. We don't verify this
-        # image in the remaining CI. Pick a dummy image name so as not to
-        # overwrite the output build image that the e2e tests will use.
-        export VERTICA_IMG=vertica-k8s:kind-minimal
-        export MINIMAL_VERTICA_IMG=yes
-        make docker-build-vertica-v2 
+    # - name: Build the minimal server image
+    #   if: ${{ inputs.minimal_vertica_image == '' }}
+    #   run: |
+    #     # We never push the image we build here because the RPM we use is too
+    #     # old. The RPM needs to be from at least a 23.3.0 server. So, we build
+    #     # here only to test the creation of the image. We don't verify this
+    #     # image in the remaining CI. Pick a dummy image name so as not to
+    #     # overwrite the output build image that the e2e tests will use.
+    #     export VERTICA_IMG=vertica-k8s:kind-minimal
+    #     export MINIMAL_VERTICA_IMG=yes
+    #     make docker-build-vertica-v2 
 
     - name: Do a local pull of the image
       run: |
@@ -342,59 +342,59 @@ jobs:
       uses: spilchen/switch-case-action@v2
       id: operator_image
       with:
-        default: ghcr.io/${{ env.OWNER_LC }}/verticadb-operator:${{ github.sha }}
+        default: docker.io/opentext/verticadb-operator:latest
         conditionals-with-values: |
           ${{ inputs.operator_image != '' }} => ${{ inputs.operator_image }}
           ${{ github.event_name == 'pull_request' }} => verticadb-operator:kind
 
-    - name: Login to GitHub Container registry for non-PRs
-      uses: docker/login-action@v3
-      if: ${{ github.event_name != 'pull_request' && inputs.operator_image == '' || startsWith(inputs.operator_image, 'ghcr.io') }}
-      with:
-        registry: ghcr.io
-        username: ${{ github.repository_owner }}
-        password: ${{ secrets.GITHUB_TOKEN }}
+    # - name: Login to GitHub Container registry for non-PRs
+    #   uses: docker/login-action@v3
+    #   if: ${{ github.event_name != 'pull_request' && inputs.operator_image == '' || startsWith(inputs.operator_image, 'ghcr.io') }}
+    #   with:
+    #     registry: ghcr.io
+    #     username: ${{ github.repository_owner }}
+    #     password: ${{ secrets.GITHUB_TOKEN }}
 
-    - uses: actions/checkout@v4
-      if: ${{ inputs.operator_image == '' }}
+    # - uses: actions/checkout@v4
+    #   if: ${{ inputs.operator_image == '' }}
 
-    - name: Set up Go
-      uses: ./.github/actions/setup-go
-      if: ${{ inputs.operator_image == '' }}
+    # - name: Set up Go
+    #   uses: ./.github/actions/setup-go
+    #   if: ${{ inputs.operator_image == '' }}
 
-    - name: Build and optionally push operator image
-      if: ${{ inputs.operator_image == '' }}
-      run: |
-        export OPERATOR_IMG=${{ steps.operator_image.outputs.value }}
-        export PLATFORMS=${{ inputs.operator_platform }}
-        # For pull requests we build the operator locally then pass it around
-        # to dependent stages as an artifact. Otherwise, we will build a
-        # cross-platform operator. The make target we use for that handles
-        # pushing it up to an external repository.
-        if [ $GITHUB_EVENT_NAME != 'pull_request' ]
-        then
-          # Will be removed once we merge this and make the multiarch builds as the default
-          EXIT_CODE="$(docker manifest inspect ${OPERATOR_IMG} > /dev/null ; echo $?)"
-          if [ $EXIT_CODE -eq 0 ]; then
-            echo "image exists"
-          else 
-            echo "image does not exist, making a push"
-            make docker-build-crossplatform-operator
-          fi
-        else
-          make docker-build-operator
-        fi
+    # - name: Build and optionally push operator image
+    #   if: ${{ inputs.operator_image == '' }}
+    #   run: |
+    #     export OPERATOR_IMG=${{ steps.operator_image.outputs.value }}
+    #     export PLATFORMS=${{ inputs.operator_platform }}
+    #     # For pull requests we build the operator locally then pass it around
+    #     # to dependent stages as an artifact. Otherwise, we will build a
+    #     # cross-platform operator. The make target we use for that handles
+    #     # pushing it up to an external repository.
+    #     if [ $GITHUB_EVENT_NAME != 'pull_request' ]
+    #     then
+    #       # Will be removed once we merge this and make the multiarch builds as the default
+    #       EXIT_CODE="$(docker manifest inspect ${OPERATOR_IMG} > /dev/null ; echo $?)"
+    #       if [ $EXIT_CODE -eq 0 ]; then
+    #         echo "image exists"
+    #       else 
+    #         echo "image does not exist, making a push"
+    #         make docker-build-crossplatform-operator
+    #       fi
+    #     else
+    #       make docker-build-operator
+    #     fi
 
-    - name: Save the image for consumption by dependent jobs (PRs only)
-      if: ${{ github.event_name == 'pull_request' }}
-      run: |
-        docker save ${{ steps.operator_image.outputs.value }} > operator-image.tar
+    # - name: Save the image for consumption by dependent jobs (PRs only)
+    #   if: ${{ github.event_name == 'pull_request' }}
+    #   run: |
+    #     docker save ${{ steps.operator_image.outputs.value }} > operator-image.tar
 
-    - uses: actions/upload-artifact@v4
-      if: ${{ github.event_name == 'pull_request' }}
-      with:
-        name: operator-image
-        path: operator-image.tar
+    # - uses: actions/upload-artifact@v4
+    #   if: ${{ github.event_name == 'pull_request' }}
+    #   with:
+    #     name: operator-image
+    #     path: operator-image.tar
 
     - name: Do a local pull of the image if we didn't create it
       if: ${{ inputs.operator_image != '' }}
@@ -476,42 +476,42 @@ jobs:
       uses: spilchen/switch-case-action@v2
       id: vlogger_image
       with:
-        default: ghcr.io/${{ env.OWNER_LC }}/vertica-logger:${{ github.sha }}
+        default: docker.io/opentext/vertica-logger:1.0.1
         conditionals-with-values: |
           ${{ inputs.vlogger_image != '' }} => ${{ inputs.vlogger_image }}
           ${{ github.event_name == 'pull_request' }} => vertica-logger:kind
 
-    - name: Login to GitHub Container registry for non-PRs
-      uses: docker/login-action@v3
-      if: ${{ github.event_name != 'pull_request' && inputs.vlogger_image == '' || startsWith(inputs.vlogger_image, 'ghcr.io') }}
-      with:
-        registry: ghcr.io
-        username: ${{ github.repository_owner }}
-        password: ${{ secrets.GITHUB_TOKEN }}
+    # - name: Login to GitHub Container registry for non-PRs
+    #   uses: docker/login-action@v3
+    #   if: ${{ github.event_name != 'pull_request' && inputs.vlogger_image == '' || startsWith(inputs.vlogger_image, 'ghcr.io') }}
+    #   with:
+    #     registry: ghcr.io
+    #     username: ${{ github.repository_owner }}
+    #     password: ${{ secrets.GITHUB_TOKEN }}
 
-    - uses: actions/checkout@v4
-      if: ${{ inputs.vlogger_image == '' }}
+    # - uses: actions/checkout@v4
+    #   if: ${{ inputs.vlogger_image == '' }}
 
-    - name: Build and optionally push vlogger image
-      if: ${{ inputs.vlogger_image == '' }}
-      run: |
-        export VLOGGER_IMG=${{ steps.vlogger_image.outputs.value }}
-        make docker-build-vlogger
-        if [ $GITHUB_EVENT_NAME != 'pull_request' ]
-        then
-          make docker-push-vlogger
-        fi
+    # - name: Build and optionally push vlogger image
+    #   if: ${{ inputs.vlogger_image == '' }}
+    #   run: |
+    #     export VLOGGER_IMG=${{ steps.vlogger_image.outputs.value }}
+    #     make docker-build-vlogger
+    #     if [ $GITHUB_EVENT_NAME != 'pull_request' ]
+    #     then
+    #       make docker-push-vlogger
+    #     fi
 
-    - name: Save the image for consumption by dependent jobs (PRs only)
-      if: ${{ github.event_name == 'pull_request' }}
-      run: |
-        docker save ${{ steps.vlogger_image.outputs.value }} > vlogger-image.tar
+    # - name: Save the image for consumption by dependent jobs (PRs only)
+    #   if: ${{ github.event_name == 'pull_request' }}
+    #   run: |
+    #     docker save ${{ steps.vlogger_image.outputs.value }} > vlogger-image.tar
 
-    - uses: actions/upload-artifact@v4
-      if: ${{ github.event_name == 'pull_request' }}
-      with:
-        name: vlogger-image
-        path: vlogger-image.tar
+    # - uses: actions/upload-artifact@v4
+    #   if: ${{ github.event_name == 'pull_request' }}
+    #   with:
+    #     name: vlogger-image
+    #     path: vlogger-image.tar
 
     - name: Do a local pull of the image if we didn't create it
       if: ${{ inputs.vlogger_image != '' }}
