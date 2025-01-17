@@ -385,6 +385,11 @@ jobs:
     #       make docker-build-operator
     #     fi
 
+    - name: Do a local pull of the image if we didn't create it
+      if: ${{ inputs.operator_image != '' }}
+      run: |
+        docker pull ${{ inputs.operator_image }}
+
     - name: Save the image for consumption by dependent jobs (PRs only)
       if: ${{ github.event_name == 'pull_request' }}
       run: |
@@ -396,10 +401,7 @@ jobs:
         name: operator-image
         path: operator-image.tar
 
-    - name: Do a local pull of the image if we didn't create it
-      if: ${{ inputs.operator_image != '' }}
-      run: |
-        docker pull ${{ inputs.operator_image }}
+
 
     # - name: Run the Trivy vulnerability scanner (sarif)
     #   uses: aquasecurity/trivy-action@0.27.0
@@ -502,6 +504,11 @@ jobs:
     #       make docker-push-vlogger
     #     fi
 
+    - name: Do a local pull of the image if we didn't create it
+      if: ${{ inputs.vlogger_image != '' }}
+      run: |
+        docker pull ${{ inputs.vlogger_image }}
+
     - name: Save the image for consumption by dependent jobs (PRs only)
       if: ${{ github.event_name == 'pull_request' }}
       run: |
@@ -513,10 +520,7 @@ jobs:
         name: vlogger-image
         path: vlogger-image.tar
 
-    - name: Do a local pull of the image if we didn't create it
-      if: ${{ inputs.vlogger_image != '' }}
-      run: |
-        docker pull ${{ inputs.vlogger_image }}
+
 
     # - name: Run the Trivy vulnerability scanner (sarif)
     #   uses: aquasecurity/trivy-action@0.27.0
