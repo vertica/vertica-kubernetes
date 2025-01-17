@@ -20,3 +20,15 @@ spec:
           target:
             type: AverageValue
             averageValue: 20000m
+    - metric:
+        type: Object
+        object:
+          describedObject:
+            apiVersion: v1
+            kind: Service
+            name: verticadb-sample-sc1
+          metric:
+            name: vertica_sessions_active_count
+          target:
+            type: Value
+            value: "6"
