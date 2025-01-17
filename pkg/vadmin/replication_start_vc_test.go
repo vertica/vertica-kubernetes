@@ -35,13 +35,19 @@ func (m *MockVClusterOps) VReplicateDatabase(options *vops.VReplicationDatabaseO
 	}
 
 	// verify target db name, target username and target password
-	err = m.VerifyTargetDBNameUserNamePassword(options)
+	err = m.VerifyTargetDBReplicationOptions(options)
 	if err != nil {
 		return i, err
 	}
 
 	// verify auth options
 	err = m.VerifyCerts(&options.DatabaseOptions)
+	if err != nil {
+		return i, err
+	}
+
+	// verify target DB auth options
+	err = m.VerifyCerts(&options.TargetDB)
 	if err != nil {
 		return i, err
 	}
@@ -59,17 +65,26 @@ func (m *MockVClusterOps) VReplicateDatabase(options *vops.VReplicationDatabaseO
 	}
 
 	// verify eon mode
-	return i, m.VerifyEonMode(&options.DatabaseOptions)
+	err = m.VerifyEonMode(&options.DatabaseOptions)
+	if err != nil {
+		return i, err
+	}
+
+	// verify target db name, target username and target password
+	return i, m.VerifyAsyncReplicationOptions(options)
 }
 
 var _ = Describe("replication_start_vc", func() {
 	ctx := context.Background()
 
 	It("should call ReplicateDB in the vcluster-ops library", func() {
-		dispatcher := mockVClusterOpsDispatcher()
+		dispatcher := mockVclusteropsDispatcherWithTarget()
 		dispatcher.VDB.Spec.DBName = TestDBName
 		dispatcher.VDB.Spec.NMATLSSecret = "replication-start-test-secret"
+		dispatcher.TargetVDB.Spec.DBName = TestTargetDBName
+		dispatcher.TargetVDB.Spec.NMATLSSecret = "replication-start-test-target-secret"
 		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.NMATLSSecret)
+		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.TargetVDB.Spec.NMATLSSecret)
 		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.NMATLSSecret)
 
 		_, err := dispatcher.ReplicateDB(ctx,
@@ -80,6 +95,11 @@ var _ = Describe("replication_start_vc", func() {
 			replicationstart.WithTargetUserName(TestTargetUserName),
 			replicationstart.WithTargetPassword(TestTargetPassword),
 			replicationstart.WithSourceTLSConfig(TestSourceTLSConfig),
+			replicationstart.WithAsync(true),
+			replicationstart.WithObjectName(TestTableOrSchemaName),
+			replicationstart.WithIncludePattern(TestIncludePattern),
+			replicationstart.WithExcludePattern(TestExcludePattern),
+			replicationstart.WithTargetNamespace(TestTargetNamespace),
 		)
 		Ω(err).Should(Succeed())
 	})

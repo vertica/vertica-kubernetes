@@ -27,7 +27,7 @@ This repo contains the following directories and files:
 Before you begin, you must manually install the following software:
 
 - [docker](https://docs.docker.com/get-docker/) (version 23.0)
-- [go](https://golang.org/doc/install) (version 1.22.5)
+- [go](https://golang.org/doc/install) (version 1.23.2)
 - [kubectl](https://kubernetes.io/docs/tasks/tools/install-kubectl/) (version 1.20.1)
 - [helm](https://helm.sh/docs/intro/install/) (version 3.5.0)
 - [kubectx](https://github.com/ahmetb/kubectx/releases/download/v0.9.1/kubectx) (version 0.9.1)
@@ -351,18 +351,55 @@ The e2e tests use the [kuttl](https://github.com/kudobuilder/kuttl/) testing fra
    make run-int-tests | tee kuttl.out
    ```
 
-### Run Individual Tests
+### Run Individual e2e Tests
 
 You can run individual tests from the command line with the [KUTTLE CLI](https://kuttl.dev/docs/cli.html#setup-the-kuttl-kubectl-plugin).
 
-> **NOTE**
-> Before you can run an individual test, you need to set up a communal endpoint. To set up a [MinIO](https://min.io/) endpoint, run the following make target:
->
-> ```shell
-> make setup-minio
-> ```
->
+Prerequisite steps:
+
+1. Before you can run an individual test, you need to set up a communal endpoint. To set up a [MinIO](https://min.io/) endpoint, run the following make target:
+
+```shell
+make setup-minio
+```
+
 > To set up a different communal endpoint, see [Custom communal endpoints](#custom-communal-endpoints).
+
+2. You also need to set up some environmental variables:
+```shell
+export VERTICA_DEPLOYMENT_METHOD=vclusterops
+```
+> VERTICA_DEPLOYMENT_METHOD=vclusterops lets the backend use vcluster package to manage vertica clusters. If it is not set, the default value will be admintools and the vertica image must be admintools compatible.
+
+```shell
+export LICENSE_FILE=/file_path/license.key
+unset LICENSE_FILE
+```
+> If the total number of nodes used in a test case is more than 3, you have to set up LICENSE_FILE with the license file path.
+If it is no more than 3, you must unset LICENSE_FILE.
+
+```shell
+export BASE_VERTICA_IMG=opentext/vertica-k8s:24.2.0-1
+export VERTICA_IMG=opentext/vertica-k8s:latest
+```
+> VERTICA_IMG is the vertica image you want to run the test with. For upgrade test cases, BASE_VERTICA_IMG is the base vertica version that will be installed. VERTICA_IMG is the vertica version that the base version will be upgraded to. The version in VERTICA_IMG must be higher than that in BASE_VERTICA_IMG.
+```shell
+export VPROXY_IMG=opentext/client-proxy:latest
+```
+> VPROXY_IMG is the vertica client proxy image you want to run the client proxy and session transfer test with.
+
+3. kuttl-test.yaml is the configuration file for e2e test cases. There is a "timeout" field in it. If your server is not fast enough, you may need to increase that value to pass the test cases. There is another field "parallel" that controls the maximum number of tests to run at once. It is set to 2 by default. You can set it to 1 if your server is not fast enough.
+
+4. To avoid downloading the same image multiple times, you can run the following commands to download the images and push them to the kind cluster before you run the test cases.
+
+```shell
+scripts/push-to-kind.sh -i $VERTICA_IMG
+scripts/push-to-kind.sh -i $BASE_VERTICA_IMG
+scripts/push-to-kind.sh -i $VPROXY_IMG
+```
+
+> This will speed up test case execution and avoid timeout.
+
 
 To run an individual test, pass the `--test` command the name of a [test suite directory](./tests/). For example, this command runs all tests in the [http-custom-certs](./tests/e2e-leg-6/http-custom-certs/) directory:
 
@@ -475,6 +512,109 @@ The following steps run the soak tests:
 
    ```shell
    make run-soak-tests
+   ```
+
+## Prometheus deployment
+
+Vertica on Kubernetes integrates with Prometheus to scrape time series metrics about the VerticaDB operator and Vertica server process. These metrics create a detailed model of your application over time to provide valuable performance and troubleshooting insights as well as facilitate internal and external communications and service discovery in microservice and containerized architectures. Following are example steps to deploy Prometheus instance and integrate with Vertica on Kubernetes:
+
+1. Create the databases that you want to test.
+
+2. Deploy Prometheus instance:
+   In this step, we will first deploy Prometheus pods. If you want to deploy Prometheus on another namespace, you can overwrite the value of PROMETHEUS_NAMESPACE.
+   ```shell
+   make deploy-prometheus
+   # You can change the default namespace or app name by: 
+   # make deploy-prometheus PROMETHEUS_NAMESPACE=PREFERED_NAMESPACE PROMETHEUS_HELM_NAME=PREFERED_NAME
+   ```
+
+3. Deploy Prometheus related secret, service monitor:
+   In this step, we will create a secret and service monitor through kubectl. You need to provide Vertica database username, password and vdbname. And makes sure the namespace used here is the same as the database namespace.
+   ```shell
+   make deploy-prometheus-service-monitor DB_USER=dbadmin DB_PASSWORD='YOUR_VERTICA_DB_USER_PASSWORD' VDB_NAME=VDB_NAME
+   # Example: deploy with different db namespace, the default namespace is 'default'
+   # make deploy-prometheus-service-monitor VDB_NAMESPACE=vdb 
+   ```
+
+4. Port forwarding Prometheus(optional):
+   By then Prometheus should be able to connect to the pods and pick up the metrics. If you want to connect to Prometheus API and check the result, you can port forward the Prometheus service. If you used a different namespace, change it accordingly. 
+   ```shell
+   make port-forward-prometheus
+   # You can change the default namespace or app name by: 
+   # make port-forward-prometheus PROMETHEUS_NAMESPACE=PREFERED_NAMESPACE PROMETHEUS_HELM_NAME=PREFERED_NAME
+
+   START_TIME=$(date +%Y-%m-%d) 
+   END_TIME=$(date +%Y-%m-%d --date "$curr +1 day")
+   curl -g 'http://localhost:9090/api/v1/query?query=vertica_build_info&start=$START_TIME&end=$END_TIME' | jq
+   ```
+
+5. Clean up:
+   To undeploy, we will first undeploy secret, service monitor and then the Prometheus instance. 
+   - To uninstall just one service monitor and related secret, you then call the make target undeploy-service-monitor
+   ```shell
+   make undeploy-prometheus-service-monitor 
+   # Example with different namespace, vdb user info, or app name:
+   # make undeploy-prometheus-service-monitor VDB_NAMESPACE=vdb VDB_NAME=verticadb-sample-2
+   ```
+   - To uninstall Prometheus and all related resources (service monitors too), you call the make target undeploy-prometheus.
+   ```shell
+   make undeploy-prometheus
+   # Example with different namespace, vdb user info, or app name:
+   # make undeploy-prometheus PROMETHEUS_NAMESPACE=PREFERED_NAMESPACE PROMETHEUS_HELM_NAME=PREFERED_NAME
+   ```
+
+## Prometheus adapter deployment
+
+The Prometheus Adapter is a Kubernetes component that extends the Kubernetes API to serve custom metrics and resource metrics using Prometheus data. It allows you to scale workloads (like Deployments, StatefulSets, etc.) based on metrics collected by Prometheus.
+
+Prerequisite:
+A Prometheus service is running and accessible through an URL.
+
+1. Deploy Prometheus Adapter
+   This step will deploy Prometheus adapter to the specified namespace. By default, it connects to the prometheus servcie via the url PROMETHEUS_URL with port PROMETHEUS_PORT:
+   ```shell
+   PROMETHEUS_URL=http://$(PROMETHEUS_HELM_NAME)-kube-prometheus-prometheus.$(PROMETHEUS_NAMESPACE).svc
+   PROMETHEUS_PORT=9090
+   ```
+
+   When deploying the Prometheus adapter, we must set the PROMETHEUS_HELM_NAME and PROMETHEUS_NAMESPACE to the preferred namespace to make the URL accessible:
+   ```shell
+   make deploy-prometheus-adapter PROMETHEUS_NAMESPACE=$PREFERED_NAMESPACE PROMETHEUS_ADAPTER_NAMESPACE=$PREFERED_NAMESPACE
+   ```
+
+   You can also define other related parameters to overwrite the default values:
+   ```shell
+   PROMETHEUS_ADAPTER_NAME=prometheus-adapter
+   PROMETHEUS_ADAPTER_NAMESPACE=prometheus-adapter
+   PROMETHEUS_ADAPTER_REPLICAS=1
+   ```
+
+2. Configuration
+   Customize the adapter configuration to map Prometheus metrics to Kubernetes metrics. For example, you can configure rules to map a Prometheus query (e.g., vertica_query_requests_attempted_total) to a Kubernetes metric.
+   To customize the interval of a query, change the interval value "5m" on the metricsQuery to the prefered time range.
+
+   ```shell
+   rules:
+     default: false
+     custom:
+       # Number of attempted query requests per second. Type: counter.
+       # The mapped Kubernetes metric name will be vertica_query_requests_attempted_rate_per_second.
+       - seriesQuery: 'vertica_query_requests_attempted_total{namespace!="", pod!=""}'
+         resources:
+           overrides:
+             namespace: {resource: "namespace"}
+             pod: {resource: "pod"}
+         name:
+           matches: "^(.*)_total$"
+           as: "${1}_rate_per_second"
+         metricsQuery: 'sum(increase(vertica_query_requests_attempted_total[5m])) by (namespace, pod)'
+   ```
+   This is where you will turned prometheus raw metrics into "kubernetes" metrics, that truly represent what you are looking for, using prometheus agregation functions
+
+3. Clean up
+   To uninstall Prometheus adapter, you call the make target undeploy-prometheus-adapter with PROMETHEUS_ADAPTER_NAMESPACE specified to the preferred namesapace.
+   ```shell
+   make undeploy-prometheus-adapter PROMETHEUS_ADAPTER_NAMESPACE=$PREFERED_NAMESPACE
    ```
 
 # Troubleshooting

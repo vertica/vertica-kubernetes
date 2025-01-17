@@ -104,7 +104,7 @@ func createFakeServiceAccount(ctx context.Context, cl client.Client, vdb *vapi.V
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-sa",
 			Namespace: "default",
-			Labels:    builder.MakeCommonLabels(vdb, nil, false),
+			Labels:    builder.MakeCommonLabels(vdb, nil, false, false),
 		},
 	}
 	err := cl.Create(ctx, &sa)
@@ -117,7 +117,7 @@ func createFakeRole(ctx context.Context, cl client.Client, vdb *vapi.VerticaDB) 
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-role",
 			Namespace: "default",
-			Labels:    builder.MakeCommonLabels(vdb, nil, false),
+			Labels:    builder.MakeCommonLabels(vdb, nil, false, false),
 		},
 		Rules: []rbacv1.PolicyRule{
 			{
@@ -142,7 +142,7 @@ func createFakeRoleBinding(ctx context.Context, cl client.Client, vdb *vapi.Vert
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-rb",
 			Namespace: "default",
-			Labels:    builder.MakeCommonLabels(vdb, nil, false),
+			Labels:    builder.MakeCommonLabels(vdb, nil, false, false),
 		},
 		RoleRef: rbacv1.RoleRef{
 			APIGroup: rbacv1.GroupName,

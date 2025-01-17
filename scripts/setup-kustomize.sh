@@ -96,6 +96,9 @@ fi
 if [ -z "${VLOGGER_IMG}" ]; then
     VLOGGER_IMG=$(cd $REPO_DIR && make echo-images | grep VLOGGER_IMG | cut -d'=' -f2)
 fi
+if [ -z "${VPROXY_IMG}" ]; then
+    VPROXY_IMG=$(cd $REPO_DIR && make echo-images | grep VPROXY_IMG | cut -d'=' -f2)
+fi
 
 # Name of the secret that contains the cert to use for communal access
 # authentication.  This is the name of the namespace copy, so it is hard coded
@@ -125,6 +128,7 @@ fi
 echo "Vertica server image name: $VERTICA_IMG"
 echo "Base vertica server image name for upgrade tests: $BASE_VERTICA_IMG"
 echo "Vertica logger image name: $VLOGGER_IMG"
+echo "Vertica client proxy image name: $VPROXY_IMG"
 echo -n "License file: "
 if [ -n "$LICENSE_FILE" ]; then echo "YES ($LICENSE_FILE)"; else echo "NO"; fi
 echo "Endpoint: $ENDPOINT"
@@ -138,6 +142,8 @@ echo "Deployment method: $VERTICA_DEPLOYMENT_METHOD"
 echo "Image version: $(determine_image_version $VERTICA_IMG)"
 echo "Vertica superuser name: $VERTICA_SUPERUSER_NAME"
 echo "Test running on Github CI: $FOR_GITHUB_CI"
+echo "Broadcaster burst size: $BROADCASTER_BURST_SIZE"
+echo "VDB Maximum Backoff Duration: $VDB_MAX_BACKOFF_DURATION"
 
 function create_vdb_kustomization {
     BASE_DIR=$1
@@ -272,6 +278,15 @@ replacements:
           kind: Job
         fieldPaths:
           - spec.template.spec.containers.0.image
+  - source:
+      kind: ConfigMap
+      name: e2e
+      fieldPath: data.vproxyImage
+    targets:
+      - select:
+          kind: VerticaDB
+        fieldPaths:
+          - spec.proxy.image
   - source:
       kind: ConfigMap
       name: e2e
@@ -523,6 +538,10 @@ EOF
 }
 
 function create_communal_cfg {
+    # If proxy image wasn't specified, default to the latest for not failing tests
+    if [ -z "$VPROXY_IMG" ]; then
+      VPROXY_IMG=opentext/client-proxy:latest
+    fi
     pushd kustomize-base > /dev/null
     cat <<EOF > e2e.yaml
 apiVersion: v1
@@ -533,6 +552,7 @@ data:
   verticaImage: ${VERTICA_IMG}
   vloggerImage: ${VLOGGER_IMG}
   baseVerticaImage: ${BASE_VERTICA_IMG}
+  vproxyImage: ${VPROXY_IMG}
 EOF
 
     # If a cert was specified for communal endpoint access, include a datapoint

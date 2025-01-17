@@ -94,7 +94,7 @@ func (s *ServiceAccountReconciler) createServiceAccount(ctx context.Context) (*c
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace:       s.Vdb.Namespace,
 			Annotations:     builder.MakeAnnotationsForObject(s.Vdb),
-			Labels:          builder.MakeCommonLabels(s.Vdb, nil, false),
+			Labels:          builder.MakeCommonLabels(s.Vdb, nil, false, false),
 			OwnerReferences: []metav1.OwnerReference{s.Vdb.GenerateOwnerReference()},
 		},
 	}
@@ -148,7 +148,7 @@ func (s *ServiceAccountReconciler) createRole(ctx context.Context) (*rbacv1.Role
 			GenerateName:    fmt.Sprintf("%s-role-", s.Vdb.Name),
 			Namespace:       s.Vdb.Namespace,
 			Annotations:     builder.MakeAnnotationsForObject(s.Vdb),
-			Labels:          builder.MakeCommonLabels(s.Vdb, nil, false),
+			Labels:          builder.MakeCommonLabels(s.Vdb, nil, false, false),
 			OwnerReferences: []metav1.OwnerReference{s.Vdb.GenerateOwnerReference()},
 		},
 		Rules: []rbacv1.PolicyRule{
@@ -184,7 +184,7 @@ func (s *ServiceAccountReconciler) createRoleBinding(ctx context.Context, sa *co
 			GenerateName:    fmt.Sprintf("%s-rolebinding-", s.Vdb.Name),
 			Namespace:       s.Vdb.Namespace,
 			Annotations:     builder.MakeAnnotationsForObject(s.Vdb),
-			Labels:          builder.MakeCommonLabels(s.Vdb, nil, false),
+			Labels:          builder.MakeCommonLabels(s.Vdb, nil, false, false),
 			OwnerReferences: []metav1.OwnerReference{s.Vdb.GenerateOwnerReference()},
 		},
 		RoleRef: rbacv1.RoleRef{
@@ -225,7 +225,7 @@ func (s *ServiceAccountReconciler) hasUserProvidedServiceAccount(ctx context.Con
 	if sa.Labels == nil {
 		return true, nil
 	}
-	expLabels := builder.MakeCommonLabels(s.Vdb, nil, false)
+	expLabels := builder.MakeCommonLabels(s.Vdb, nil, false, false)
 	for k, v := range expLabels {
 		if sa.Labels[k] != v {
 			return true, nil

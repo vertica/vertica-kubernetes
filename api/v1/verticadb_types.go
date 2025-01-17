@@ -194,7 +194,7 @@ type VerticaDBSpec struct {
 
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:advanced"
-	// When doing an online upgrade, we designate a subcluster to
+	// When doing a read-only online upgrade, we designate a subcluster to
 	// accept traffic while the other subclusters restart.  The designated
 	// subcluster is specified here.  The name of the subcluster can refer to an
 	// existing one or an entirely new subcluster.  If the subcluster is new, it
@@ -317,6 +317,12 @@ type VerticaDBSpec struct {
 	// +kubebuilder:validation:Optional
 	// Identifies any sandboxes that exist for the database
 	Sandboxes []Sandbox `json:"sandboxes,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// Create client proxy pods for the subcluster if defined
+	// All incoming connections to the subclusters will be routed through the proxy pods
+	Proxy *Proxy `json:"proxy,omitempty"`
 }
 
 // LocalObjectReference is used instead of corev1.LocalObjectReference and behaves the same.
@@ -637,6 +643,13 @@ type Sandbox struct {
 	Image string `json:"image,omitempty"`
 
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// +kubebuilder:validation:Optional
+	// State to indicate whether the operator must shut down the sandbox
+	// and not try to restart it. When true, stop_db will be performed on the sandbox
+	// and the operator will not try start_db on the sandbox.
+	Shutdown bool `json:"shutdown,omitempty"`
+
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// This is the subcluster names that are part of the sandbox.
 	// There must be at least one subcluster listed. All subclusters
 	// listed need to be secondary subclusters.
@@ -788,6 +801,51 @@ type Subcluster struct {
 	// A map of key/value pairs appended to the stateful metadata.annotations of
 	// the subcluster.
 	Annotations map[string]string `json:"annotations,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// State to indicate whether the operator must shut down the subcluster
+	// and not try to restart it.
+	Shutdown bool `json:"shutdown,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// Create client proxy pods for the subcluster if defined
+	// All incoming connections to the subclusters will be routed through the proxy pods
+	Proxy *ProxySubclusterConfig `json:"proxy,omitempty"`
+}
+
+type Proxy struct {
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// The docker image name that contains the Vertica proxy server.
+	Image string `json:"image,omitempty"`
+
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:hidden"
+	// +kubebuilder:validation:Optional
+	// A secret that contains the TLS credentials to use for Vertica's client
+	// proxy. If this is empty, the operator will create a secret to use and
+	// add the name of the generate secret in this field.
+	// When set, the secret must have the following keys defined: tls.key,
+	// tls.crt and ca.crt. To store this secret outside of Kubernetes, you can
+	// use a secret path reference prefix, such as gsm://. Everything after the
+	// prefix is the name of the secret in the service you are storing.
+	TLSSecret string `json:"tlsSecret,omitempty"`
+}
+
+type ProxySubclusterConfig struct {
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// The number of replicas that the proxy server will have.
+	Replicas *int32 `json:"replicas,omitempty"`
+
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:resourceRequirements"
+	// This defines the resource requests and limits for the client proxy pods in the subcluster.
+	// It is advisable that the request and limits match as this ensures the
+	// pods are assigned to the guaranteed QoS class. This will reduces the
+	// chance that pods are chosen by the OOM killer.
+	// More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+	Resources *corev1.ResourceRequirements `json:"resources,omitempty"`
 }
 
 // Affinity is used instead of corev1.Affinity and behaves the same.
@@ -952,6 +1010,12 @@ type SubclusterStatus struct {
 
 	// +operator-sdk:csv:customresourcedefinitions:type=status
 	Detail []VerticaDBPodStatus `json:"detail"`
+
+	// +operator-sdk:csv:customresourcedefinitions:type=status
+	// +optional
+	// State of the subcluster. true means the subcluster was explicitly shut down by the user
+	// and must not be restarted.
+	Shutdown bool `json:"shutdown"`
 }
 
 // VerticaDBPodStatus holds state for a single pod in a subcluster

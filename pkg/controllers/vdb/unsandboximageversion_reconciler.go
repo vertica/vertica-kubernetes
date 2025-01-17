@@ -23,6 +23,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/builder"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
+	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
 	"github.com/vertica/vertica-kubernetes/pkg/vk8s"
 	appsv1 "k8s.io/api/apps/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -36,11 +37,11 @@ type UnsandboxImageVersion struct {
 	VRec   *VerticaDBReconciler
 	Vdb    *vapi.VerticaDB
 	Log    logr.Logger
-	PFacts *PodFacts
+	PFacts *podfacts.PodFacts
 }
 
 func MakeUnsandboxImageVersionReconciler(r *VerticaDBReconciler, vdb *vapi.VerticaDB,
-	log logr.Logger, pfacts *PodFacts) controllers.ReconcileActor {
+	log logr.Logger, pfacts *podfacts.PodFacts) controllers.ReconcileActor {
 	return &UnsandboxImageVersion{
 		VRec:   r,
 		Log:    log.WithName("UnsandboxImageVersion"),
@@ -72,7 +73,7 @@ func (r *UnsandboxImageVersion) Reconcile(ctx context.Context, _ *ctrl.Request) 
 // reconcileVerticaImage recreates the StatefulSet of the secondary subclusters that
 // have the wrong vertica image
 func (r *UnsandboxImageVersion) reconcileVerticaImage(ctx context.Context) (ctrl.Result, error) {
-	scsWithWrongImage, priScImage := r.PFacts.FindSecondarySubclustersWithDifferentImage()
+	scsWithWrongImage, priScImage := r.PFacts.FindSecondarySubclustersWithDifferentImage(r.Vdb)
 	if len(scsWithWrongImage) == 0 {
 		return ctrl.Result{}, nil
 	}

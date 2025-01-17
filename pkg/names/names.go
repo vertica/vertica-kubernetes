@@ -19,6 +19,7 @@ import (
 	"fmt"
 
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
+	"github.com/vertica/vertica-kubernetes/api/v1beta1"
 	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -27,6 +28,7 @@ import (
 const (
 	ServerContainer         = "server"
 	NMAContainer            = "nma"
+	ProxyContainer          = "proxy"
 	ScrutinizeInitContainer = "scrutinize"
 	ScrutinizeMainContainer = "main"
 )
@@ -62,7 +64,17 @@ func GenStsName(vdb *vapi.VerticaDB, sc *vapi.Subcluster) types.NamespacedName {
 
 // GenSandboxConfigMapName returns the name of the sandbox config map
 func GenSandboxConfigMapName(vdb *vapi.VerticaDB, sandbox string) types.NamespacedName {
-	return GenNamespacedName(vdb, vdb.Name+"-"+sandbox)
+	return GenNamespacedName(vdb, vdb.Name+"-"+vapi.GenCompatibleFQDNHelper(sandbox))
+}
+
+// GenVProxyName returns the name of the client proxy deployment
+func GenVProxyName(vdb *vapi.VerticaDB, s *vapi.Subcluster) types.NamespacedName {
+	return GenNamespacedName(vdb, s.GetVProxyDeploymentName(vdb))
+}
+
+// GenVProxyConfigMapName returns the name of the client proxy configmap
+func GenVProxyConfigMapName(vdb *vapi.VerticaDB, s *vapi.Subcluster) types.NamespacedName {
+	return GenNamespacedName(vdb, s.GetVProxyConfigMapName(vdb))
 }
 
 // GenCommunalCredSecretName returns the name of the secret that has the credentials to access s3
@@ -94,6 +106,11 @@ func GenPodName(vdb *vapi.VerticaDB, sc *vapi.Subcluster, podIndex int32) types.
 	return GenNamespacedName(vdb, fmt.Sprintf("%s-%d", stsName, podIndex))
 }
 
+// GenPodDNSName returns the DNS name of a specific pod
+func GenPodDNSName(vdb *vapi.VerticaDB, sc *vapi.Subcluster, podIndex int32) string {
+	return fmt.Sprintf("%s.%s.%s.svc.cluster.local", GenPodName(vdb, sc, podIndex).Name, vdb.Name, vdb.Namespace)
+}
+
 // GenPodNameFromSts returns the name of a specific pod in a statefulset
 func GenPodNameFromSts(vdb *vapi.VerticaDB, sts *appsv1.StatefulSet, podIndex int32) types.NamespacedName {
 	return types.NamespacedName{
@@ -112,4 +129,8 @@ func GenPVName(vdb *vapi.VerticaDB, sc *vapi.Subcluster, podIndex int32) types.N
 	return types.NamespacedName{
 		Name: fmt.Sprintf("pv-%s-%s-%d", vapi.LocalDataPVC, sc.GetStatefulSetName(vdb), podIndex),
 	}
+}
+
+func GenHPAName(vas *v1beta1.VerticaAutoscaler) types.NamespacedName {
+	return GenNamespacedName(vas, fmt.Sprintf("%s-hpa", vas.Name))
 }

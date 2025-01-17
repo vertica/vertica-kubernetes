@@ -551,7 +551,7 @@ func (d *DBGenerator) queryLocalPath(ctx context.Context, usage string) (string,
 		curCommonPrefix := path.Dir(path.Dir(workingDir))
 		// Check if the prefix matches.  If it doesn't then an error is returned
 		// as paths across all nodes must be homogenous.
-		if len(commonPrefix) > 0 && commonPrefix != curCommonPrefix {
+		if commonPrefix != "" && commonPrefix != curCommonPrefix {
 			return false, fmt.Errorf(
 				"catalog location path must be the same across all nodes -- path %q does not share the common prefix from other nodes %q",
 				nodePath.String, commonPrefix)

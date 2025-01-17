@@ -20,6 +20,7 @@ import (
 	. "github.com/onsi/gomega"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
+	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
 )
 
 var _ = Describe("altersubcluster_reconcile", func() {
@@ -66,7 +67,7 @@ var _ = Describe("altersubcluster_reconcile", func() {
 			},
 		}
 		a := AlterSubclusterTypeReconciler{
-			PFacts: &PodFacts{SandboxName: sbName},
+			PFacts: &podfacts.PodFacts{SandboxName: sbName},
 			Vdb:    vdb,
 			Log:    logger,
 		}

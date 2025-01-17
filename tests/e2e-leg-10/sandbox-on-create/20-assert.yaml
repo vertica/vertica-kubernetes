@@ -42,9 +42,9 @@ status:
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: v-sandbox-on-create-sand1
+  name: v-sandbox-on-create-sand-1
 data:
-  sandboxName: sand1
+  sandboxName: sand_1
   verticaDBName: v-sandbox-on-create
 immutable: true
 ---
@@ -54,7 +54,7 @@ metadata:
   name: v-sandbox-on-create
 status:
   sandboxes:
-  - name: sand1
+  - name: sand_1
     subclusters:
     - sec1
     - sec2

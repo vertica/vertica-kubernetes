@@ -18,18 +18,15 @@ package sandbox
 import (
 	"context"
 	"errors"
-	"fmt"
 
 	"github.com/go-logr/logr"
 	vutil "github.com/vertica/vcluster/vclusterops/util"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
-	vdbcontroller "github.com/vertica/vertica-kubernetes/pkg/controllers/vdb"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
-	"github.com/vertica/vertica-kubernetes/pkg/names"
-	"github.com/vertica/vertica-kubernetes/pkg/paths"
+	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/unsandboxsc"
 	"github.com/vertica/vertica-kubernetes/pkg/vdbstatus"
@@ -46,15 +43,15 @@ type UnsandboxSubclusterReconciler struct {
 	Log  logr.Logger
 	client.Client
 	Dispatcher     vadmin.Dispatcher
-	PFacts         *vdbcontroller.PodFacts
-	OriginalPFacts *vdbcontroller.PodFacts
+	PFacts         *podfacts.PodFacts
+	OriginalPFacts *podfacts.PodFacts
 	ConfigMap      *corev1.ConfigMap
 	InitiatorIP    string // The IP of the pod that we run vclusterOps from
 	PRunner        cmds.PodRunner
 }
 
 func MakeUnsandboxSubclusterReconciler(r *SandboxConfigMapReconciler, vdb *vapi.VerticaDB, log logr.Logger,
-	cli client.Client, pfacts *vdbcontroller.PodFacts, dispatcher vadmin.Dispatcher,
+	cli client.Client, pfacts *podfacts.PodFacts, dispatcher vadmin.Dispatcher,
 	configMap *corev1.ConfigMap, prunner cmds.PodRunner) controllers.ReconcileActor {
 	pfactsForMainCluster := pfacts.Copy(vapi.MainCluster)
 	return &UnsandboxSubclusterReconciler{
@@ -249,22 +246,21 @@ func (r *UnsandboxSubclusterReconciler) unsandboxSubcluster(ctx context.Context,
 	// remove startup.json in pod since vcluster unsandbox needs to poll node down.
 	// With that json file, the container will restart vertica automatically and fail
 	// vcluster unsandbox
-	podNames := r.OriginalPFacts.FindPodNamesInSubcluster(scName)
-	rmCmd := []string{"bash", "-c", fmt.Sprintf("rm -rf %s", paths.StartupConfFile)}
-	for _, podName := range podNames {
-		if _, _, err := r.PRunner.ExecInPod(ctx, podName, names.ServerContainer, rmCmd...); err != nil {
-			r.Log.Error(err, "failed to remove startup.json in pod", "podName", podName)
-			return err
-		} else {
-			r.Log.Info("removed startup.json before unsandboxing", "podName", podName,
-				"subcluster", scName, "sandbox", r.OriginalPFacts.GetSandboxName())
-		}
+	err := r.OriginalPFacts.RemoveStartupFileInSubclusterPods(ctx, scName, "removed startup.json before unsandboxing")
+	if err != nil {
+		return err
 	}
 
+	sbInitiator, ok := r.OriginalPFacts.GetInitiatorIPInSB(r.ConfigMap.Data[vapi.SandboxNameKey], scName)
+	if !ok {
+		r.Log.Info("Cannot find initiator in sandbox. The sandbox may only have one subcluster",
+			"sandboxName", r.ConfigMap.Data[vapi.SandboxNameKey])
+	}
 	r.SRec.Eventf(r.Vdb, corev1.EventTypeNormal, events.UnsandboxSubclusterStart,
 		"Starting unsandbox subcluster %q", scName)
-	err := r.Dispatcher.UnsandboxSubcluster(ctx,
+	err = r.Dispatcher.UnsandboxSubcluster(ctx,
 		unsandboxsc.WithInitiator(r.InitiatorIP),
+		unsandboxsc.WithSBInitiator(sbInitiator),
 		unsandboxsc.WithSubcluster(scName),
 		// vclusterOps needs correct node names and addresses to do re-ip
 		unsandboxsc.WithNodeNameAddressMap(nodeNameAddressMap),

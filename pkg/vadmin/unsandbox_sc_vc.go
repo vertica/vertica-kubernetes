@@ -57,7 +57,10 @@ func (v *VClusterOps) genUnsandboxSubclusterOptions(s *unsandboxsc.Params, certs
 	opts.DBName = v.VDB.Spec.DBName
 	opts.IsEon = v.VDB.IsEON()
 	opts.RawHosts = append(opts.RawHosts, s.InitiatorIP)
-	v.Log.Info("Setup unsandbox subcluster options", "hosts", opts.RawHosts[0])
+	if s.SBInitiatorIP != "" {
+		opts.RawHosts = append(opts.RawHosts, s.SBInitiatorIP)
+	}
+	v.Log.Info("Setup unsandbox subcluster options", "hosts", opts.RawHosts)
 	opts.IPv6 = net.IsIPv6(s.InitiatorIP)
 
 	opts.SCName = s.Subcluster

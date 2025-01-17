@@ -49,7 +49,7 @@ func CreatePods(ctx context.Context, c client.Client, vdb *vapi.VerticaDB, podRu
 	for i := range vdb.Spec.Subclusters {
 		sc := &vdb.Spec.Subclusters[i]
 		const ExpectOffset = 2
-		CreateSts(ctx, c, vdb, sc, ExpectOffset, int32(i), podRunningState)
+		CreateSts(ctx, c, vdb, sc, ExpectOffset, int32(i), podRunningState) //nolint:gosec
 	}
 }
 
@@ -91,13 +91,16 @@ func CreateSts(ctx context.Context, c client.Client, vdb *vapi.VerticaDB, sc *va
 	ExpectWithOffset(offset, c.Status().Update(ctx, sts))
 }
 
-func CreateConfigMap(ctx context.Context, c client.Client, vdb *vapi.VerticaDB, id, sbName string) {
+func CreateConfigMap(ctx context.Context, c client.Client, vdb *vapi.VerticaDB, ann, id, sbName string) {
 	nm := names.GenSandboxConfigMapName(vdb, sbName)
+	if ann == "" {
+		ann = "test"
+	}
 	cm := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Annotations: map[string]string{
-				vmeta.SandboxControllerUpgradeTriggerID: id,
-				vmeta.VersionAnnotation:                 "v23.4.0",
+				ann:                     id,
+				vmeta.VersionAnnotation: "v23.4.0",
 			},
 			Name:      nm.Name,
 			Namespace: vdb.Namespace,
@@ -108,7 +111,7 @@ func CreateConfigMap(ctx context.Context, c client.Client, vdb *vapi.VerticaDB, 
 		},
 	}
 	Expect(c.Create(ctx, cm)).Should(Succeed())
-	Expect(cm.Annotations[vmeta.SandboxControllerUpgradeTriggerID]).Should(Equal(id))
+	Expect(cm.Annotations[ann]).Should(Equal(id))
 }
 
 func ScaleDownSubcluster(ctx context.Context, c client.Client, vdb *vapi.VerticaDB, sc *vapi.Subcluster, newSize int32) {

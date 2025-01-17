@@ -25,6 +25,7 @@ import (
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
+	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
 	corev1 "k8s.io/api/core/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -33,11 +34,11 @@ type DrainNodeReconciler struct {
 	VRec    *VerticaDBReconciler
 	Vdb     *vapi.VerticaDB // Vdb is the CRD we are acting on.
 	PRunner cmds.PodRunner
-	PFacts  *PodFacts
+	PFacts  *podfacts.PodFacts
 }
 
 func MakeDrainNodeReconciler(vdbrecon *VerticaDBReconciler,
-	vdb *vapi.VerticaDB, prunner cmds.PodRunner, pfacts *PodFacts) controllers.ReconcileActor {
+	vdb *vapi.VerticaDB, prunner cmds.PodRunner, pfacts *podfacts.PodFacts) controllers.ReconcileActor {
 	return &DrainNodeReconciler{
 		VRec:    vdbrecon,
 		Vdb:     vdb,
@@ -57,7 +58,7 @@ func (s *DrainNodeReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (c
 	// Note: this reconciler depends on the clien routing reconciler to have run
 	// and directed traffic away from pending delete pods.
 	for _, pf := range s.PFacts.Detail {
-		if pf.isPendingDelete && pf.upNode {
+		if pf.GetIsPendingDelete() && pf.GetUpNode() {
 			if res, err := s.reconcilePod(ctx, pf); verrors.IsReconcileAborted(res, err) {
 				return res, err
 			}
@@ -68,16 +69,16 @@ func (s *DrainNodeReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (c
 }
 
 // reconcilePod will handle drain logic for a single pod
-func (s *DrainNodeReconciler) reconcilePod(ctx context.Context, pf *PodFact) (ctrl.Result, error) {
+func (s *DrainNodeReconciler) reconcilePod(ctx context.Context, pf *podfacts.PodFact) (ctrl.Result, error) {
 	sql := fmt.Sprintf(
 		"select count(*)"+
 			" from sessions"+
 			" where node_name = '%s'"+
 			" and session_id not in ("+
 			" select session_id from current_session"+
-			" )", pf.vnodeName)
+			" )", pf.GetVnodeName())
 	cmd := []string{"-tAc", sql}
-	stdout, _, err := s.PRunner.ExecVSQL(ctx, pf.name, names.ServerContainer, cmd...)
+	stdout, _, err := s.PRunner.ExecVSQL(ctx, pf.GetName(), names.ServerContainer, cmd...)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -86,7 +87,7 @@ func (s *DrainNodeReconciler) reconcilePod(ctx context.Context, pf *PodFact) (ct
 	activeConnections := anyActiveConnections(stdout)
 	if activeConnections {
 		s.VRec.Eventf(s.Vdb, corev1.EventTypeWarning, events.DrainNodeRetry,
-			"Pod '%s' has active connections preventing the drain from succeeding", pf.name.Name)
+			"Pod '%s' has active connections preventing the drain from succeeding", pf.GetName().Name)
 	}
 	return ctrl.Result{Requeue: activeConnections}, nil
 }

@@ -25,6 +25,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
+	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/addsc"
 	corev1 "k8s.io/api/core/v1"
@@ -37,8 +38,8 @@ type DBAddSubclusterReconciler struct {
 	Log        logr.Logger
 	Vdb        *vapi.VerticaDB // Vdb is the CRD we are acting on.
 	PRunner    cmds.PodRunner
-	PFacts     *PodFacts
-	ATPod      *PodFact // The pod that we run admintools from
+	PFacts     *podfacts.PodFacts
+	ATPod      *podfacts.PodFact // The pod that we run admintools from
 	Dispatcher vadmin.Dispatcher
 }
 
@@ -46,7 +47,7 @@ type SubclustersSet map[string]bool
 
 // MakeDBAddSubclusterReconciler will build a DBAddSubclusterReconciler object
 func MakeDBAddSubclusterReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
-	vdb *vapi.VerticaDB, prunner cmds.PodRunner, pfacts *PodFacts, dispatcher vadmin.Dispatcher) controllers.ReconcileActor {
+	vdb *vapi.VerticaDB, prunner cmds.PodRunner, pfacts *podfacts.PodFacts, dispatcher vadmin.Dispatcher) controllers.ReconcileActor {
 	return &DBAddSubclusterReconciler{
 		VRec:       vdbrecon,
 		Log:        log.WithName("DBAddSubclusterReconciler"),
@@ -74,8 +75,8 @@ func (d *DBAddSubclusterReconciler) Reconcile(ctx context.Context, _ *ctrl.Reque
 
 // addMissingSubclusters will compare subclusters passed in and create any missing ones
 func (d *DBAddSubclusterReconciler) addMissingSubclusters(ctx context.Context, scs []vapi.Subcluster) (ctrl.Result, error) {
-	atPod, ok := d.PFacts.findPodToRunAdminCmdAny()
-	if !ok || !atPod.upNode {
+	atPod, ok := d.PFacts.FindPodToRunAdminCmdAny()
+	if !ok || !atPod.GetUpNode() {
 		d.Log.Info("No pod found to run admintools from. Requeue reconciliation.")
 		return ctrl.Result{Requeue: true}, nil
 	}
@@ -107,7 +108,7 @@ func (d *DBAddSubclusterReconciler) fetchSubclusters(ctx context.Context) (Subcl
 	cmd := []string{
 		"-tAc", "select distinct(subcluster_name) from subclusters",
 	}
-	stdout, _, err := d.PRunner.ExecVSQL(ctx, d.ATPod.name, names.ServerContainer, cmd...)
+	stdout, _, err := d.PRunner.ExecVSQL(ctx, d.ATPod.GetName(), names.ServerContainer, cmd...)
 	if err != nil {
 		return nil, err
 	}
@@ -135,7 +136,7 @@ func (d *DBAddSubclusterReconciler) parseFetchSubclusterVsql(stdout string) Subc
 // createSubcluster will create the given subcluster
 func (d *DBAddSubclusterReconciler) createSubcluster(ctx context.Context, sc *vapi.Subcluster) error {
 	err := d.Dispatcher.AddSubcluster(ctx,
-		addsc.WithInitiator(d.ATPod.name, d.ATPod.podIP),
+		addsc.WithInitiator(d.ATPod.GetName(), d.ATPod.GetPodIP()),
 		addsc.WithSubcluster(sc.Name),
 		addsc.WithIsPrimary(sc.IsPrimary()),
 	)

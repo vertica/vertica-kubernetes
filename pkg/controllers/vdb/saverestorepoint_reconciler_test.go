@@ -22,6 +22,7 @@ import (
 	. "github.com/onsi/gomega"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
+	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
 	"github.com/vertica/vertica-kubernetes/pkg/test"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -41,7 +42,7 @@ var _ = Describe("saverestorepoint_reconciler", func() {
 		Expect(k8sClient.Status().Update(ctx, vdb)).Should(Succeed())
 		fpr := &cmds.FakePodRunner{}
 		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
-		r := MakeSaveRestorePointReconciler(vdbRec, vdb, logger, &PodFacts{}, dispatcher, k8sClient)
+		r := MakeSaveRestorePointReconciler(vdbRec, vdb, logger, &podfacts.PodFacts{}, dispatcher, k8sClient)
 		res, err := r.Reconcile(ctx, &ctrl.Request{})
 		Expect(err).Should(Succeed())
 		Expect(res.Requeue).Should(BeFalse())

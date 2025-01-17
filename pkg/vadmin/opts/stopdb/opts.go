@@ -25,6 +25,7 @@ type Parms struct {
 	InitiatorIP   string
 	Sandbox       string
 	ZeroDrain     bool
+	DrainSeconds  int
 }
 
 type Option func(*Parms)
@@ -52,5 +53,11 @@ func WithSandbox(sbName string) Option {
 func WithZeroDrain(hasZeroDrainSeconds bool) Option {
 	return func(s *Parms) {
 		s.ZeroDrain = hasZeroDrainSeconds
+	}
+}
+
+func WithDrainSeconds(drainSeconds int) Option {
+	return func(s *Parms) {
+		s.DrainSeconds = drainSeconds
 	}
 }

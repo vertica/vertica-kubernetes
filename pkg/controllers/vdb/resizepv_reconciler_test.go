@@ -98,7 +98,7 @@ func runResizePVReconciler(ctx context.Context, vdb *vapi.VerticaDB, expectedReq
 	ExpectWithOffset(1, pfacts.Collect(ctx, vdb)).Should(Succeed())
 	// Mock that depot size for each pod is 60%
 	for i := range pfacts.Detail {
-		pfacts.Detail[i].depotDiskPercentSize = "60%"
+		pfacts.Detail[i].SetDepotDiskPercentSize("60%")
 	}
 	r := MakeResizePVReconciler(vdbRec, logger, vdb, fpr, pfacts)
 	res, err := r.Reconcile(ctx, &ctrl.Request{})

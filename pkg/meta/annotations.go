@@ -50,6 +50,26 @@ const (
 	VClusterOpsAnnotationTrue  = "true"
 	VClusterOpsAnnotationFalse = "false"
 
+	// This is a feature flag for using vertica client proxy. Set this
+	// annotation in the VerticaDB that you want to start proxy pods to
+	// redirect the subcluster connections. The value of this annotation is
+	// treated as a boolean.
+	UseVProxyAnnotation      = "vertica.com/use-client-proxy"
+	UseVProxyAnnotationTrue  = "true"
+	UseVProxyAnnotationFalse = "false"
+
+	// This is the log level of the proxy server will have.
+	// Log level: TRACE|DEBUG|INFO|WARN|FATAL|NONE
+	VProxyLogLevelAnnotation   = "vertica.com/client-proxy-log-level"
+	VProxyLogLevelDefaultLevel = "INFO"
+
+	// This is a feature flag for mounting vproxy certs as a secret volume in server containerss.
+	// When set to true the vproxy reads certs from this mounted volume,
+	// when set to false it reads certs directly from k8s secret store.
+	MountVProxyCertsAnnotation      = "vertica.com/mount-vproxy-certs"
+	MountVProxyCertsAnnotationTrue  = "true"
+	MountVProxyCertsAnnotationFalse = "false"
+
 	// This is a feature flag for mounting NMA certs as a secret volume in server containers
 	// if deployment method is vclusterops. When set to true the NMA reads certs from this mounted
 	// volume, when set to false it reads certs directly from k8s secret store.
@@ -80,6 +100,10 @@ const (
 	// The timeout, in seconds, to use when the operator creates a db and
 	// waits for its startup.  If omitted, we use the default timeout of 5 minutes.
 	CreateDBTimeoutAnnotation = "vertica.com/createdb-timeout"
+
+	// The time in seconds to wait for a subcluster or database users' disconnection, its default value is 60
+	ShutdownDrainSecondsAnnotation = "vertica.com/shutdown-drain-seconds"
+	ShutdownDefaultDrainSeconds    = 60
 
 	// The timeout, in seconds, to use when the operator is performing online upgrade
 	// for various tasks. If omitted, we use the default timeout of 5 minutes.
@@ -312,6 +336,11 @@ const (
 	// This will be set in a sandbox configMap by the vdb controller to wake up the sandbox
 	// controller for unsandboxing the subclusters
 	SandboxControllerUnsandboxTriggerID = "vertica.com/sandbox-controller-unsandbox-trigger-id"
+	// This will  be set in a sandbox configMap by the vdb controller to wake up the sandbox
+	// controller for stopping/starting a sandbox
+	SandboxControllerShutdownTriggerID = "vertica.com/sandbox-controller-shutdown-trigger-id"
+	// This will  be set in a subclusters configMap by the vdb controller to stop/start a subcluter
+	VdbControllerShutdownClusterTriggerID = "vertica.com/vdb-controller-shutdown-subcluster-trigger-id"
 
 	// Use this to override the name of the statefulset and its pods. This needs
 	// to be set in the spec.subclusters[].annotations field to take effect. If
@@ -319,10 +348,31 @@ const (
 	// `<vdb-name>-<subcluster-name>'
 	StsNameOverrideAnnotation = "vertica.com/statefulset-name-override"
 
+	// Use this to override the name of the proxy deployment and its pods. This needs
+	// to be set in the spec.subclusters[].annotations field to take effect. If
+	// omitted, then the name of the subclusters' proxy will be
+	// `<vdb-name>-<subcluster-name>-proxy'
+	ProxyDeploymentNameAnnotation = "vertica.com/deployment-name-override"
+
 	// Use this to store extra local paths that we need to create before revive_db.
 	// Those paths include local paths not in local.catalogPath, local.dataPath,
 	// and local.depotPath. For example, the user-created temp paths.
 	ExtraLocalPathsAnnotation = "vertica.com/extra-local-paths"
+
+	// This indicates that the subcluster shutdown is controlled by the sandbox
+	// through the sandbox's shutdown field.
+	ShutdownDrivenBySandbox = "vertica.com/shutdown-driven-by-sandbox"
+
+	// This indicates that the subcluster shutdown is controlled by the subcluster's
+	// shutdown field.
+	ShutdownDrivenBySubcluster = "vertica.com/shutdown-driven-by-subcluster"
+
+	// The timeout, in seconds, to use when the operator is polling the status of an ongoing
+	// asynchronous replication operation. If omitted, we use the default timeout of 60 minutes.
+	ReplicationTimeoutAnnotation          = "vertica.com/replication-timeout"
+	ReplicationDefaultTimeout             = 60 * 60
+	ReplicationPollingFrequencyAnnotation = "vertica.com/replication-polling-frequency"
+	ReplicationDefaultPollingFrequency    = 5
 )
 
 // IsPauseAnnotationSet will check the annotations for a special value that will
@@ -336,6 +386,18 @@ func IsPauseAnnotationSet(annotations map[string]string) bool {
 func UseVClusterOps(annotations map[string]string) bool {
 	// UseVClusterOps returns true if the annotation isn't set.
 	return lookupBoolAnnotation(annotations, VClusterOpsAnnotation, true /* default value */)
+}
+
+// UseVProxy returns true if all subcluster connections redirect to the proxy pods
+func UseVProxy(annotations map[string]string) bool {
+	// UseVProxy returns false if the annotation isn't set.
+	return lookupBoolAnnotation(annotations, UseVProxyAnnotation, false /* default value */)
+}
+
+// UseVProxyCertsMount returns true if the proxy reads certs from the mounted secret
+// volume rather than directly from k8s secret store.
+func UseVProxyCertsMount(annotations map[string]string) bool {
+	return lookupBoolAnnotation(annotations, MountVProxyCertsAnnotation, true /* default value */)
 }
 
 // UseNMACertsMount returns true if the NMA reads certs from the mounted secret
@@ -365,6 +427,11 @@ func GetRestartTimeout(annotations map[string]string) int {
 // 0 is returned, this means to use the default.
 func GetCreateDBNodeStartTimeout(annotations map[string]string) int {
 	return lookupIntAnnotation(annotations, CreateDBTimeoutAnnotation, 0 /* default value */)
+}
+
+// GetShutdownCDrainSeconds returns the time in seconds to wait for a subcluster/database users' disconnection
+func GetShutdownDrainSeconds(annotations map[string]string) int {
+	return lookupIntAnnotation(annotations, ShutdownDrainSecondsAnnotation, ShutdownDefaultDrainSeconds /* default value */)
 }
 
 // GetOnlineUpgradeTimeout returns the timeout to use for pause/redirect sessions
@@ -503,6 +570,11 @@ func GetNMAHealthProbeOverride(annotations map[string]string, probeName, field s
 	return int32(convVal), true //nolint:gosec
 }
 
+// GetVProxyLogLevel returns scrutinize log age hours
+func GetVProxyLogLevel(annotations map[string]string) string {
+	return strings.ToUpper(lookupStringAnnotation(annotations, VProxyLogLevelAnnotation, VProxyLogLevelDefaultLevel))
+}
+
 // GetScrutinizePodTTL returns how long the scrutinize pod will keep running
 func GetScrutinizePodTTL(annotations map[string]string) int {
 	val := lookupIntAnnotation(annotations,
@@ -617,9 +689,35 @@ func GetStsNameOverride(annotations map[string]string) string {
 	return lookupStringAnnotation(annotations, StsNameOverrideAnnotation, "")
 }
 
+// GetVPDepNameOverride returns the override for the proxy deployment name.
+// If one is not provided, an empty string is returned.
+func GetVPDepNameOverride(annotations map[string]string) string {
+	return lookupStringAnnotation(annotations, ProxyDeploymentNameAnnotation, "")
+}
+
+func GetShutdownDrivenBySandbox(annotations map[string]string) bool {
+	return lookupBoolAnnotation(annotations, ShutdownDrivenBySandbox, false)
+}
+
+// GetShutdownDrivenBySubcluster returns the bool value if the operator
+// will shutdown the subcluster and not try to restart it.
+func GetShutdownDrivenBySubcluster(annotations map[string]string) bool {
+	return lookupBoolAnnotation(annotations, ShutdownDrivenBySubcluster, false)
+}
+
 // GetExtraLocalPaths returns the comma separated list of extra local paths
 func GetExtraLocalPaths(annotations map[string]string) string {
 	return lookupStringAnnotation(annotations, ExtraLocalPathsAnnotation, "")
+}
+
+// GetReplicationTimeout returns the timeout (in seconds) to use for polling async replication status
+func GetReplicationTimeout(annotations map[string]string) int {
+	return lookupIntAnnotation(annotations, ReplicationTimeoutAnnotation, ReplicationDefaultTimeout)
+}
+
+// GetReplicationPollingFrequency returns the frequency (in seconds) operator will poll async replication status
+func GetReplicationPollingFrequency(annotations map[string]string) int {
+	return lookupIntAnnotation(annotations, ReplicationPollingFrequencyAnnotation, ReplicationDefaultPollingFrequency)
 }
 
 // lookupBoolAnnotation is a helper function to lookup a specific annotation and

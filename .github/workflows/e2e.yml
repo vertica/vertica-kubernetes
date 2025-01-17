@@ -23,7 +23,7 @@ on:
         type: string
         required: false
       vlogger_image:
-        description: 'Name of an existing vlogger image. Leave blank to build oe with the default name'
+        description: 'Name of an existing vlogger image. Leave blank to build one with the default name'
         type: string
         required: false
       e2e_test_suites:
@@ -38,6 +38,7 @@ on:
         - admintools leg 2
         - admintools leg 3
         - admintools leg 4
+        - admintools leg 4 vdb-gen
         - admintools leg 5
         - admintools server upgrade
         - admintools operator upgrade
@@ -46,11 +47,15 @@ on:
         - vcluster leg 2
         - vcluster leg 3
         - vcluster leg 4
+        - vcluster leg 4 vdb-gen
         - vcluster leg 5
         - vcluster leg 6
+        - vcluster leg 6 revivedb
         - vcluster leg 7
         - leg 8
         - vcluster leg 9
+        - vcluster leg 10
+        - vcluster leg 11
         - vcluster server upgrade
         - vcluster udx
       run_security_scan:
@@ -108,7 +113,7 @@ jobs:
     needs: [build]
     strategy:
       matrix:
-        runner: [ ubuntu-latest, ARM64 ]
+        runner: [ ubuntu-22.04, ARM64 ]
     runs-on: ${{ matrix.runner }}
     steps:
       - name: Checkout
@@ -130,7 +135,7 @@ jobs:
   e2e-leg-1-admintools-previous-release:
     if: ${{ ! contains(github.ref, 'k8s-sync')  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools leg 1' || inputs.e2e_test_suites == '') }}
     needs: [build]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -176,7 +181,7 @@ jobs:
     needs: [build]
     strategy:
       matrix:
-        runner: [ ubuntu-latest, ARM64 ]
+        runner: [ ubuntu-22.04, ARM64 ]
     runs-on: ${{ matrix.runner }}
     steps:
       - name: Checkout
@@ -198,7 +203,7 @@ jobs:
   e2e-leg-2-admintools-previous-release:
     if: ${{ ! contains(github.ref, 'k8s-sync')  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools leg 2' || inputs.e2e_test_suites == '') }}
     needs: [build]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -244,7 +249,7 @@ jobs:
     needs: [build]
     strategy:
       matrix:
-        runner: [ ubuntu-latest, ARM64 ]
+        runner: [ ubuntu-22.04, ARM64 ]
     runs-on: ${{ matrix.runner }}
     steps:
       - name: Checkout
@@ -287,7 +292,7 @@ jobs:
     needs: [build]
     strategy:
       matrix:
-        runner: [ ubuntu-latest, ARM64 ]
+        runner: [ ubuntu-22.04, ARM64 ]
     runs-on: ${{ matrix.runner }}
     steps:
       - name: Checkout
@@ -309,7 +314,7 @@ jobs:
     needs: [build]
     strategy:
       matrix:
-        runner: [ ubuntu-latest, ARM64 ]
+        runner: [ ubuntu-22.04, ARM64 ]
     runs-on: ${{ matrix.runner }}
     steps:
       - name: Checkout
@@ -355,12 +360,57 @@ jobs:
           # All helm deployments will use cert-manager to create the webhook cert
           helm-overrides: '--set webhook.certSource=cert-manager'
 
+  e2e-leg-4-admintools-vdb-gen:
+    if: ${{ ! contains(github.ref, 'k8s-sync')  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools leg 4 vdb-gen' || inputs.e2e_test_suites == '') }}
+    needs: [build]
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Test
+        uses: ./.github/actions/run-e2e-leg
+        with:
+          leg-identifier: 'leg-4-vdb-gen'
+          dockerhub-username: ${{ secrets.DOCKERHUB_USERNAME }}
+          dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}
+          vlogger-image: ${{ needs.build.outputs.vlogger-image }}
+          operator-image: ${{ needs.build.outputs.operator-image }}
+          vertica-image: ${{ needs.build.outputs.legacy-vertica-image }}
+          vertica-deployment-method: admintools
+          communal-storage-type: s3
+          vertica-superuser-name: dbadmin
+          # All helm deployments will use cert-manager to create the webhook cert
+          helm-overrides: '--set webhook.certSource=cert-manager'
+          need-legacy-image: true
+  
+  e2e-leg-4-vcluster-vdb-gen:
+    if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'vcluster leg 4 vdb-gen' || inputs.e2e_test_suites == '')}}
+    needs: [build]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Test
+        uses: ./.github/actions/run-e2e-leg
+        with:
+          leg-identifier: 'leg-4-vdb-gen'
+          dockerhub-username: ${{ secrets.DOCKERHUB_USERNAME }}
+          dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}
+          vlogger-image: ${{ needs.build.outputs.vlogger-image }}
+          operator-image: ${{ needs.build.outputs.operator-image }}
+          vertica-image: ${{ needs.build.outputs.minimal-vertica-image }}
+          vertica-deployment-method: vclusterops
+          communal-storage-type: s3
+          vertica-superuser-name: myadmin
+          # All helm deployments will use cert-manager to create the webhook cert
+          helm-overrides: '--set webhook.certSource=cert-manager'
+
   e2e-leg-5-admintools:
     if: ${{ ! contains(github.ref, 'k8s-sync')  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools leg 5' || inputs.e2e_test_suites == '') }}
     needs: [build]
     strategy:
       matrix:
-        runner: [ ubuntu-latest, ARM64 ]
+        runner: [ ubuntu-22.04, ARM64 ]
     runs-on: ${{ matrix.runner }}
     steps:
       - name: Checkout
@@ -434,7 +484,7 @@ jobs:
           minimum-vertica-image: '24.2.0'
 
   e2e-leg-6-vcluster-revivedb:
-    if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'vcluster leg 6' || inputs.e2e_test_suites == '')}}
+    if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'vcluster leg 6 revivedb' || inputs.e2e_test_suites == '')}}
     needs: [build]
     runs-on: ubuntu-latest
     steps:
@@ -476,12 +526,12 @@ jobs:
           communal-storage-type: hostpath
           minimum-vertica-image: '24.2.0'
 
-  e2e-leg-8-vcluster-offline:
+  e2e-leg-8-admintools-offline:
     if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'leg 8' || inputs.e2e_test_suites == '')}}
     needs: [build]
     strategy:
       matrix:
-        runner: [ ubuntu-latest, ARM64 ]
+        runner: [ ubuntu-22.04, ARM64 ]
     runs-on: ${{ matrix.runner }}
     steps:
       - name: Checkout
@@ -501,10 +551,10 @@ jobs:
           communal-storage-type: azb
           minimum-vertica-image: '24.2.0'
 
-  e2e-leg-8-vcluster-online:
+  e2e-leg-8-admintools-online:
     if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'leg 8' || inputs.e2e_test_suites == '')}}
     needs: [build]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -550,7 +600,7 @@ jobs:
           need-base-vertica-image: 'true'
 
   e2e-leg-10-vcluster:
-    if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'vcluster leg 9' || inputs.e2e_test_suites == '')}}
+    if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'vcluster leg 10' || inputs.e2e_test_suites == '')}}
     needs: [build]
     runs-on: ubuntu-latest
     steps:
@@ -572,12 +622,57 @@ jobs:
           vertica-license: ${{ secrets.VERTICA_LICENSE }}
           need-base-vertica-image: 'true'
 
+  e2e-leg-11-vcluster:
+    if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'vcluster leg 11' || inputs.e2e_test_suites == '')}}
+    needs: [build]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Test
+        uses: ./.github/actions/run-e2e-leg
+        with:
+          leg-identifier: 'leg-11'
+          dockerhub-username: ${{ secrets.DOCKERHUB_USERNAME }}
+          dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}
+          vlogger-image: ${{ needs.build.outputs.vlogger-image }}
+          vproxy-image: 'opentext/client-proxy:latest'
+          operator-image: ${{ needs.build.outputs.operator-image }}
+          vertica-image: ${{ needs.build.outputs.full-vertica-image }}
+          vertica-deployment-method: vclusterops
+          communal-storage-type: s3
+          minimum-vertica-image: '25.1.0'
+          # Include the vertica license so we can test multiple subclusters.
+          vertica-license: ${{ secrets.VERTICA_LICENSE }}
+          need-base-vertica-image: 'true'
+
+  e2e-leg-12-vcluster:
+    if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'vcluster leg 12' || inputs.e2e_test_suites == '')}}
+    needs: [build]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Test
+        uses: ./.github/actions/run-e2e-leg
+        with:
+          leg-identifier: 'leg-12'
+          dockerhub-username: ${{ secrets.DOCKERHUB_USERNAME }}
+          dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}
+          vlogger-image: ${{ needs.build.outputs.vlogger-image }}
+          operator-image: ${{ needs.build.outputs.operator-image }}
+          vertica-image: ${{ needs.build.outputs.full-vertica-image }}
+          vertica-deployment-method: vclusterops
+          communal-storage-type: s3
+          # Include the vertica license so we can test multiple subclusters.
+          vertica-license: ${{ secrets.VERTICA_LICENSE }}
+
   e2e-server-upgrade-admintools:
     if: ${{ ! contains(github.ref, 'k8s-sync')  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools server upgrade' || inputs.e2e_test_suites == '') }}
     needs: [build]
     strategy:
       matrix:
-        runner: [ ubuntu-latest, ARM64 ]
+        runner: [ ubuntu-22.04, ARM64 ]
     runs-on: ${{ matrix.runner }}
     steps:
       - name: Checkout
@@ -624,7 +719,7 @@ jobs:
     needs: [build]
     strategy:
       matrix:
-        runner: [ ubuntu-latest, ARM64 ]
+        runner: [ ubuntu-22.04, ARM64 ]
     runs-on: ${{ matrix.runner }}
     steps:
       - name: Checkout
@@ -651,7 +746,7 @@ jobs:
     needs: [build]
     strategy:
       matrix:
-        runner: [ ubuntu-latest, ARM64 ]
+        runner: [ ubuntu-22.04, ARM64 ]
     runs-on: ${{ matrix.runner }}
     steps:
       - name: Checkout
@@ -677,7 +772,7 @@ jobs:
     needs: [build]
     strategy:
       matrix:
-        runner: [ ubuntu-latest, ARM64 ]
+        runner: [ ubuntu-22.04, ARM64 ]
     runs-on: ${{ matrix.runner }}
     steps:
       - name: Checkout
@@ -695,6 +790,55 @@ jobs:
           vertica-deployment-method: vclusterops
           communal-storage-type: s3
   
+  upload-operator-to-private-repo:
+    needs: [
+      build,
+      e2e-leg-1-vcluster,
+      e2e-leg-2-vcluster,
+      e2e-leg-3-vclusterops-previous-release,
+      e2e-leg-3-vcluster,
+      e2e-leg-4-vcluster,
+      e2e-leg-4-vcluster-vdb-gen,
+      e2e-leg-5-vcluster,
+      e2e-leg-6-vcluster,
+      e2e-leg-6-vcluster-revivedb,
+      e2e-leg-7-vcluster,
+      e2e-leg-9-vcluster,
+      e2e-leg-10-vcluster,
+      e2e-leg-11-vcluster,
+      e2e-leg-12-vcluster,
+      e2e-server-upgrade-vcluster,
+      e2e-operator-upgrade,
+      e2e-udx-vcluster,
+      e2e-leg-1-admintools,
+      e2e-leg-2-admintools, 
+      e2e-leg-3-admintools, 
+      e2e-leg-4-admintools, 
+      e2e-leg-4-admintools-vdb-gen, 
+      e2e-leg-5-admintools,
+      e2e-leg-8-admintools-offline,
+      e2e-leg-8-admintools-online,
+      e2e-server-upgrade-admintools, 
+      e2e-udx-admintools
+    ]
+    runs-on: ubuntu-latest 
+    if: ${{ always() && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') && contains(inputs.reason, 'server daily version') && contains(github.actor, 'verticareleng') }}  
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        path: vertica-kubernetes
+        fetch-depth: 0
+
+    - name: Login to Docker Hub
+      uses: docker/login-action@v3
+      with:
+        username: ${{ secrets.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+    - name: Upload new image
+      run: |
+        docker buildx imagetools create --tag opentext/verticadb-operator-private:${{ github.sha }} ${{ needs.build.outputs.operator-image }}
+  
   sync-vcluster:
     name: Sync-vcluster-repo
     needs: [
@@ -703,14 +847,15 @@ jobs:
       e2e-leg-3-vclusterops-previous-release,
       e2e-leg-3-vcluster,
       e2e-leg-4-vcluster,
+      e2e-leg-4-vcluster-vdb-gen,
       e2e-leg-5-vcluster,
       e2e-leg-6-vcluster,
       e2e-leg-6-vcluster-revivedb,
       e2e-leg-7-vcluster,
-      e2e-leg-8-vcluster-offline,
-      e2e-leg-8-vcluster-online,
       e2e-leg-9-vcluster,
       e2e-leg-10-vcluster,
+      e2e-leg-11-vcluster,
+      e2e-leg-12-vcluster,
       e2e-server-upgrade-vcluster,
       e2e-operator-upgrade,
       e2e-udx-vcluster

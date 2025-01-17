@@ -52,7 +52,7 @@ var _ = Describe("sandboxupgrade_reconciler", func() {
 		}
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
-		test.CreateConfigMap(ctx, k8sClient, vdb, tID, sandbox1)
+		test.CreateConfigMap(ctx, k8sClient, vdb, vmeta.SandboxControllerUpgradeTriggerID, tID, sandbox1)
 		defer test.DeleteConfigMap(ctx, k8sClient, vdb, sandbox1)
 
 		sts := &appsv1.StatefulSet{}
@@ -87,7 +87,7 @@ var _ = Describe("sandboxupgrade_reconciler", func() {
 
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
-		test.CreateConfigMap(ctx, k8sClient, vdb, tID, sandbox1)
+		test.CreateConfigMap(ctx, k8sClient, vdb, vmeta.SandboxControllerUpgradeTriggerID, tID, sandbox1)
 		defer test.DeleteConfigMap(ctx, k8sClient, vdb, sandbox1)
 		vdb.Spec.Sandboxes[0].Image = vdb.Spec.Image
 		vdb.Status.Sandboxes = []vapi.SandboxStatus{

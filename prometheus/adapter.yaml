@@ -1,0 +1,53 @@
+# Customize the adapter configuration to map Prometheus metrics to Kubernetes metrics
+rules:
+  default: false
+  custom:
+    # Number of attempted query requests per second. Type: counter.
+    # The mapped Kubernetes metric name will be vertica_query_requests_attempted_rate_per_second.
+    - seriesQuery: 'vertica_query_requests_attempted_total{namespace!="", pod!=""}'
+      resources:
+        overrides:
+          namespace:
+            resource: namespace
+          pod:
+            resource: pod
+      name:
+        matches: "^(.*)_total$"
+        as: "${1}_rate_per_second"
+      metricsQuery: 'sum(increase(vertica_query_requests_attempted_total[5m])) by (namespace, pod)'
+    # Aggregate CPU usage, expressed as a percentage of total CPU capacity. Type: gauge
+    - seriesQuery: 'vertica_cpu_aggregate_usage_percentage{namespace!="", pod!=""}'
+      resources:
+        overrides:
+          namespace:
+            resource: namespace
+          pod:
+            resource: pod
+      metricsQuery: 'avg_over_time(vertica_cpu_aggregate_usage_percentage[60m])'
+    # Total Vertica process memory usage, expressed as a percentage of total usable RAM. Type: gauge
+    - seriesQuery: 'vertica_process_memory_usage_percent{namespace!="", pod!=""}'
+      resources:
+        overrides:
+          namespace:
+            resource: namespace
+          pod:
+            resource: pod
+      metricsQuery: 'avg_over_time(vertica_process_memory_usage_percent[60m])'
+    # # Number of active sessions. Type: guage
+    # - seriesQuery: 'vertica_sessions_running_counter{namespace!="", pod!=""}'
+    #   resources:
+    #     overrides:
+    #       namespace:
+    #         resource: namespace
+    #       pod:
+    #         resource: pod
+    #   metricsQuery: 'sum(increase(vertica_sessions_running_counter[1m])) by (namespace, pod)'
+    # # Number of requests that are queued in the resource pool. Type: guage
+    # - seriesQuery: 'vertica_queued_requests_total{namespace!="", pod!=""}'
+    #   resources:
+    #     overrides:
+    #       namespace:
+    #         resource: namespace
+    #       pod:
+    #         resource: pod
+    #   metricsQuery: 'sum(increase(vertica_queued_requests_total[1m])) by (namespace, pod)'

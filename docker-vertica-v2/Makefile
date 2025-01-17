@@ -16,7 +16,6 @@ VERTICA_ARM_VERSION?=$(shell rpm --nosignature -qp --queryformat '%{VERSION}-%{R
 
 # Our Github runner where we run the build step is on ubuntu so the rpm query extraction fails
 # We skip the verification of the package mismatch in that pipeline
-ifeq ($(FOR_GITHUB_CI), false)
 ifneq ($(VERTICA_X86_VERSION),)
 $(info X86 RPM Found with Version $(VERTICA_X86_VERSION))
 VERTICA_VERSION:=$(VERTICA_X86_VERSION)
@@ -25,7 +24,6 @@ $(info ARM64 RPM Found with Version $(VERTICA_ARM_VERSION))
 ifneq ($(VERTICA_ARM_VERSION), $(VERTICA_X86_VERSION))
 $(error RPM version mismatch $(VERTICA_X86_RPM) $(VERTICA_ARM64_RPM)")
 exit 1
-endif
 endif
 endif
 endif

@@ -30,6 +30,7 @@ import (
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller"
 
 	"github.com/google/uuid"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
@@ -39,6 +40,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/metrics"
+	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	"github.com/vertica/vertica-kubernetes/pkg/vk8s"
 )
@@ -60,6 +62,7 @@ type VerticaDBReconciler struct {
 // +kubebuilder:rbac:groups=core,resources=serviceaccounts,verbs=get;list;watch;create
 // +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=roles,verbs=get;list;watch;create
 // +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=rolebindings,verbs=get;list;watch;create
+// +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=apps,resources=statefulsets,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=core,resources=serviceaccounts,verbs=get;list;watch;create
 // +kubebuilder:rbac:groups="",resources=pods,verbs=get;list;watch;create;update;delete;patch
@@ -71,14 +74,16 @@ type VerticaDBReconciler struct {
 // +kubebuilder:rbac:groups="",resources=events,verbs=create;patch
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *VerticaDBReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *VerticaDBReconciler) SetupWithManager(mgr ctrl.Manager, options controller.Options) error {
 	return ctrl.NewControllerManagedBy(mgr).
+		WithOptions(options).
 		For(&vapi.VerticaDB{}).
 		Owns(&corev1.ServiceAccount{}).
 		Owns(&rbacv1.Role{}).
 		Owns(&rbacv1.RoleBinding{}).
 		Owns(&corev1.Service{}).
 		Owns(&appsv1.StatefulSet{}).
+		Owns(&appsv1.Deployment{}).
 		Complete(r)
 }
 
@@ -124,7 +129,7 @@ func (r *VerticaDBReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	// We use the same pod facts for all reconcilers. This allows to reuse as
 	// much as we can. Some reconcilers will purposely invalidate the facts if
 	// it is known they did something to make them stale.
-	pfacts := MakePodFacts(r, prunner, log, passwd)
+	pfacts := podfacts.MakePodFacts(r, prunner, log, passwd)
 	dispatcher := r.makeDispatcher(log, vdb, prunner, passwd)
 	var res ctrl.Result
 
@@ -158,7 +163,7 @@ func (r *VerticaDBReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 //
 //nolint:funlen
 func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.VerticaDB, prunner *cmds.ClusterPodRunner,
-	pfacts *PodFacts, dispatcher vadmin.Dispatcher) []controllers.ReconcileActor {
+	pfacts *podfacts.PodFacts, dispatcher vadmin.Dispatcher) []controllers.ReconcileActor {
 	// The actors that will be applied, in sequence, to reconcile a vdb.
 	// Note, we run the StatusReconciler multiple times. This allows us to
 	// refresh the status of the vdb as we do operations that affect it.
@@ -203,13 +208,15 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		MakeOnlineUpgradeReconciler(r, log, vdb, pfacts, dispatcher),
 		// Stop vertica if the status condition indicates
 		MakeStopDBReconciler(r, vdb, prunner, pfacts, dispatcher),
+		// Stop subclusters that have shutdown set to true.
+		MakeSubclusterShutdownReconciler(r, log, vdb, dispatcher, pfacts),
 		// Check the version information ahead of restart. The version is needed
 		// to properly pick the correct NMA deployment (monolithic vs sidecar).
 		MakeImageVersionReconciler(r, log, vdb, prunner, pfacts, false /* enforceUpgradePath */),
 		// Handles restart + re_ip of vertica
 		MakeRestartReconciler(r, log, vdb, prunner, pfacts, true, dispatcher),
 		MakeMetricReconciler(r, log, vdb, prunner, pfacts),
-		MakeStatusReconciler(r.Client, r.Scheme, log, vdb, pfacts),
+		MakeStatusReconcilerWithShutdown(r.Client, r.Scheme, log, vdb, pfacts),
 		// Ensure we add labels to any pod rescheduled so that Service objects route traffic to it.
 		MakeClientRoutingLabelReconciler(r, log, vdb, pfacts, PodRescheduleApplyMethod, ""),
 		// Remove Service label for any pods that are pending delete.  This will
@@ -265,6 +272,12 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		// Trigger sandbox upgrade when the image field for the sandbox
 		// is changed
 		MakeSandboxUpgradeReconciler(r, log, vdb),
+		// Update the sandbox/subclusters' shutdown field to match the value of
+		// the spec.
+		MakeShutdownSpecReconciler(r, vdb, pfacts),
+		// Trigger sandbox shutdown when the shutdown field of the sandbox
+		// is changed
+		MakeSandboxShutdownReconciler(r, log, vdb),
 		// Add the label after update the sandbox subcluster status field
 		MakeObjReconciler(r, log, vdb, pfacts, ObjReconcileModeAll),
 		// Handle calls to create a restore point

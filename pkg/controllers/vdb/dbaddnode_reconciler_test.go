@@ -88,8 +88,8 @@ var _ = Describe("dbaddnode_reconcile", func() {
 		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
 		// Make a specific pod as not having a db.
 		podWithNoDB := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 1)
-		pfacts.Detail[podWithNoDB].dbExists = false
-		pfacts.Detail[podWithNoDB].upNode = false
+		pfacts.Detail[podWithNoDB].SetDBExists(false)
+		pfacts.Detail[podWithNoDB].SetUpNode(false)
 		// The pod we run db_add_node is the other pod. We setup its pod runner
 		// so that it fails because we hit the node limit.
 		atPod := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)
@@ -151,10 +151,10 @@ var _ = Describe("dbaddnode_reconcile", func() {
 		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
 		// Make a specific pod as not having a db and not running
 		podWithNoDB := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 1)
-		pfacts.Detail[podWithNoDB].dbExists = false
-		pfacts.Detail[podWithNoDB].upNode = false
-		pfacts.Detail[podWithNoDB].isPodRunning = false
-		pfacts.Detail[podWithNoDB].isInstalled = false
+		pfacts.Detail[podWithNoDB].SetDBExists(false)
+		pfacts.Detail[podWithNoDB].SetUpNode(false)
+		pfacts.Detail[podWithNoDB].SetIsPodRunning(false)
+		pfacts.Detail[podWithNoDB].SetIsInstalled(false)
 		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
 		r := MakeDBAddNodeReconciler(vdbRec, logger, vdb, fpr, pfacts, dispatcher)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: true}))
@@ -163,12 +163,12 @@ var _ = Describe("dbaddnode_reconcile", func() {
 
 		// Retry reconcile but make pod running. This should still fail because
 		// install hasn't completed.
-		pfacts.Detail[podWithNoDB].isPodRunning = true
+		pfacts.Detail[podWithNoDB].SetIsPodRunning(true)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: true}))
 		lastCall = fpr.FindCommands("/opt/vertica/bin/admintools", "-t", "db_add_node")
 		Expect(len(lastCall)).Should(Equal(0))
 
-		pfacts.Detail[podWithNoDB].isInstalled = true
+		pfacts.Detail[podWithNoDB].SetIsInstalled(true)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 		lastCall = fpr.FindCommands("/opt/vertica/bin/admintools", "-t", "db_add_node")
 		Expect(len(lastCall)).Should(Equal(1))
