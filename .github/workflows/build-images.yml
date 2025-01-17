@@ -387,7 +387,7 @@ jobs:
 
     - name: Do a local pull of the image if we didn't create it
       run: |
-        docker pull ${{ inputs.operator_image }}
+        docker pull ${{ steps.operator_image.outputs.value }}
 
     - name: Save the image for consumption by dependent jobs (PRs only)
       if: ${{ github.event_name == 'pull_request' }}
@@ -505,7 +505,7 @@ jobs:
 
     - name: Do a local pull of the image if we didn't create it
       run: |
-        docker pull ${{ inputs.vlogger_image }}
+        docker pull ${{ steps.vlogger_image.outputs.value }}
 
     - name: Save the image for consumption by dependent jobs (PRs only)
       if: ${{ github.event_name == 'pull_request' }}
