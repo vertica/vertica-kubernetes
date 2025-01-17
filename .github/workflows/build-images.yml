@@ -503,6 +503,7 @@ jobs:
     #       make docker-push-vlogger
     #     fi
 
+
     - name: Do a local pull of the image if we didn't create it
       run: |
         docker pull ${{ steps.vlogger_image.outputs.value }}
