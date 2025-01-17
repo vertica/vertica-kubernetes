@@ -386,7 +386,6 @@ jobs:
     #     fi
 
     - name: Do a local pull of the image if we didn't create it
-      if: ${{ inputs.operator_image != '' }}
       run: |
         docker pull ${{ inputs.operator_image }}
 
@@ -505,7 +504,6 @@ jobs:
     #     fi
 
     - name: Do a local pull of the image if we didn't create it
-      if: ${{ inputs.vlogger_image != '' }}
       run: |
         docker pull ${{ inputs.vlogger_image }}
 
