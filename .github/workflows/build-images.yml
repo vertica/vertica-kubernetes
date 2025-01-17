@@ -385,10 +385,10 @@ jobs:
     #       make docker-build-operator
     #     fi
 
-    # - name: Save the image for consumption by dependent jobs (PRs only)
-    #   if: ${{ github.event_name == 'pull_request' }}
-    #   run: |
-    #     docker save ${{ steps.operator_image.outputs.value }} > operator-image.tar
+    - name: Save the image for consumption by dependent jobs (PRs only)
+      if: ${{ github.event_name == 'pull_request' }}
+      run: |
+        docker save ${{ steps.operator_image.outputs.value }} > operator-image.tar
 
     # - uses: actions/upload-artifact@v4
     #   if: ${{ github.event_name == 'pull_request' }}
@@ -502,10 +502,10 @@ jobs:
     #       make docker-push-vlogger
     #     fi
 
-    # - name: Save the image for consumption by dependent jobs (PRs only)
-    #   if: ${{ github.event_name == 'pull_request' }}
-    #   run: |
-    #     docker save ${{ steps.vlogger_image.outputs.value }} > vlogger-image.tar
+    - name: Save the image for consumption by dependent jobs (PRs only)
+      if: ${{ github.event_name == 'pull_request' }}
+      run: |
+        docker save ${{ steps.vlogger_image.outputs.value }} > vlogger-image.tar
 
     # - uses: actions/upload-artifact@v4
     #   if: ${{ github.event_name == 'pull_request' }}
