@@ -343,8 +343,8 @@ jobs:
       id: operator_image
       with:
         default: docker.io/opentext/verticadb-operator:latest
-        # conditionals-with-values: |
-        #   ${{ inputs.operator_image != '' }} => ${{ inputs.operator_image }}
+        conditionals-with-values: |
+          ${{ inputs.operator_image != '' }} => ${{ inputs.operator_image }}
         #   ${{ github.event_name == 'pull_request' }} => verticadb-operator:kind
 
     # - name: Login to GitHub Container registry for non-PRs
@@ -477,8 +477,8 @@ jobs:
       id: vlogger_image
       with:
         default: docker.io/opentext/vertica-logger:1.0.1
-        # conditionals-with-values: |
-        #   ${{ inputs.vlogger_image != '' }} => ${{ inputs.vlogger_image }}
+        conditionals-with-values: |
+          ${{ inputs.vlogger_image != '' }} => ${{ inputs.vlogger_image }}
         #   ${{ github.event_name == 'pull_request' }} => vertica-logger:kind
 
     # - name: Login to GitHub Container registry for non-PRs
