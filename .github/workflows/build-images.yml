@@ -342,7 +342,7 @@ jobs:
       uses: spilchen/switch-case-action@v2
       id: operator_image
       with:
-        default: docker.io/opentext/verticadb-operator:latest
+        default: docker.io/opentext/verticadb-operator:25.1.0-0
         conditionals-with-values: |
           ${{ inputs.operator_image != '' }} => ${{ inputs.operator_image }}
         #   ${{ github.event_name == 'pull_request' }} => verticadb-operator:kind
