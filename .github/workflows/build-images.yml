@@ -200,7 +200,7 @@ jobs:
       uses: spilchen/switch-case-action@v2
       id: legacy_vertica_image
       with:
-        default: docker.io/opentext/vertica-k8s:24.4.0-1-minimal
+        default: docker.io/opentext/vertica-k8s:25.1.0-0-multiarch
         conditionals-with-values: |
           ${{ inputs.legacy_vertica_image != '' }} => ${{ inputs.legacy_vertica_image }}
 
