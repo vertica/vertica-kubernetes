@@ -206,6 +206,11 @@ runs:
           fi
         fi
 
+        # Setup prometheus and prometheus-adapter
+        if [[ "${{ inputs.leg-identifier }}" == "leg-12" ]]; then
+          export NEED_PROMETHEUS=true
+        fi
+
         # Run int test script
         if [[ "${{ inputs.communal-storage-type }}" == "azb" ]]; then
           scripts/run-k8s-int-tests.sh -s -e tests/external-images-azb-ci.txt;

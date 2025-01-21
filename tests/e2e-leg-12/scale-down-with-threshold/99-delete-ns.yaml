@@ -11,22 +11,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: v1
-kind: Secret
-metadata:
-  name: prometheus-v-prometheus
----
-apiVersion: monitoring.coreos.com/v1
-kind: ServiceMonitor
-metadata:
-  name: k8s-vertica-prometheus-v-prometheus
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: prometheus-kube-prometheus-operator
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: prometheus-kube-prometheus-prometheus
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - command: kubectl delete ns $NAMESPACE

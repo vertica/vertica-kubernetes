@@ -11,12 +11,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: prometheus-adapter
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: prometheus-adapter
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - script: |
+      RESULT=$(kubectl get --raw /apis/custom.metrics.k8s.io/v1beta1)
+      VERSION=$(echo $RESULT | jq -r '.groupVersion')
+      if [ "$VERSION" != "custom.metrics.k8s.io/v1beta1" ]; then
+        echo "Assertion failed: expected group version custom.metrics.k8s.io/v1beta1, got $VERSION."
+        exit 1
+      fi

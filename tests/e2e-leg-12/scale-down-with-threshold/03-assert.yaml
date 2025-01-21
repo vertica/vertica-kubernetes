@@ -11,7 +11,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: kuttl.dev/v1beta1
-kind: TestStep
-commands:
-  - script: cd ../../.. && make deploy-prometheus PROMETHEUS_NAMESPACE=$NAMESPACE
+
+apiVersion: v1
+kind: Secret
+metadata:
+  name: su-passwd
+type: Opaque
+data:
+  username: ZGJhZG1pbg==
+  password: dG9wc2VjcmV0
