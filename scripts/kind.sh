@@ -217,9 +217,18 @@ function ensure_hostpath_perms {
     fi
 }
 
+function remove_duplicate {
+    OLD_CLUSTERS="$(${KIND} get clusters)"
+    if [[ $OLD_CLUSTERS == *"$CLUSTER_NAME"* ]]; then
+        echo "Duplicate cluster found, deleting cluster: $CLUSTER_NAME"
+        ${KIND} delete cluster --name ${CLUSTER_NAME}
+    fi
+}
+
 function init_kind {
     ensure_hostpath_perms
     create_registry
+    remove_duplicate
     create_kind_cluster
     finalize_registry
 
