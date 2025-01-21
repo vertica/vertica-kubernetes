@@ -285,6 +285,30 @@ type VerticaDBSpec struct {
 	NMATLSSecret string `json:"nmaTLSSecret,omitempty"`
 
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:hidden"
+	// +kubebuilder:default:=""
+	// +kubebuilder:validation:Optional
+	// A secret that contains the TLS credentials to be used by Vertica's embedded
+	// http service. If this is empty, the operator will create a secret to use
+	// and add the name of the generate secret to this field.
+	// When set, the secret must have the following keys defined: tls.key,
+	// tls.crt and ca.crt.  To store this secret outside of Kubernetes, you can
+	// use a secret path reference prefix, such as gsm://. Everything after the
+	// prefix is the name of the secret in the service you are storing.
+	HttpsTLSSecret string `json:"httpsTLSSecret,omitempty"`
+
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:hidden"
+	// +kubebuilder:default:=""
+	// +kubebuilder:validation:Optional
+	// A secret that contains the TLS credentials to be used by Vertica's client
+	// (vsql). If this is empty, the operator will create a secret to use and add
+	// the name of the generate secret to this field.
+	// When set, the secret must have the following keys defined: tls.key,
+	// tls.crt and ca.crt.  To store this secret outside of Kubernetes, you can
+	// use a secret path reference prefix, such as gsm://. Everything after the
+	// prefix is the name of the secret in the service you are storing.
+	ClientTLSSecret string `json:"clientTLSSecret,omitempty"`
+
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:hidden"
 	// +kubebuilder:validation:Optional
 	// Allows tuning of the Vertica pods readiness probe. Each of the values
 	// here are applied to the default readiness probe we create. If this is
