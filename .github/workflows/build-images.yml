@@ -65,10 +65,6 @@ permissions:
   packages: write
   security-events: write
 
-env:
-  TRIVY_DB_REPOSITORY: ghcr.io/aquasecurity/trivy-db,public.ecr.aws/aquasecurity/trivy-db
-  TRIVY_JAVA_DB_REPOSITORY: ghcr.io/aquasecurity/trivy-java-db,public.ecr.aws/aquasecurity/trivy-java-db
-
 jobs:
   build-server-full:
     runs-on: ubuntu-latest
@@ -80,7 +76,7 @@ jobs:
       uses: spilchen/switch-case-action@v2
       id: full_vertica_image
       with:
-        default: docker.io/opentext/vertica-k8s:25.1.0-0-multiarch
+        default: docker.io/opentext/vertica-k8s-private:latest-test-master
         conditionals-with-values: |
           ${{ inputs.full_vertica_image != '' }} => ${{ inputs.full_vertica_image }}
 
@@ -99,95 +95,89 @@ jobs:
         username: ${{ secrets.DOCKERHUB_USERNAME }}
         password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-    # - uses: actions/checkout@v4
-    #   if: ${{ inputs.full_vertica_image == '' }}
+    - uses: actions/checkout@v4
+      if: ${{ inputs.full_vertica_image == '' }}
 
-    # - name: Download the RPM
-    #   uses: ./.github/actions/download-rpm
-    #   if: ${{ inputs.full_vertica_image == '' }}
+    - name: Download the RPM
+      uses: ./.github/actions/download-rpm
+      if: ${{ inputs.full_vertica_image == '' }}
 
-    # - name: Build the full server image
-    #   if: ${{ inputs.full_vertica_image == '' }}
-    #   run: |
-    #     # We never push the image we build here because the RPM we use is too
-    #     # old. The RPM needs to be from at least a 23.3.0 server. So, we build
-    #     # here only to test the creation of the image. We don't verify this
-    #     # image in the remaining CI. Pick a dummy image name so as not to
-    #     # overwrite the output build image that the e2e tests will use.
-    #     export VERTICA_IMG=vertica-k8s:kind
-    #     make docker-build-vertica-v2
+    - name: Build the full server image
+      if: ${{ inputs.full_vertica_image == '' }}
+      run: |
+        # We never push the image we build here because the RPM we use is too
+        # old. The RPM needs to be from at least a 23.3.0 server. So, we build
+        # here only to test the creation of the image. We don't verify this
+        # image in the remaining CI. Pick a dummy image name so as not to
+        # overwrite the output build image that the e2e tests will use.
+        export VERTICA_IMG=vertica-k8s:kind
+        make docker-build-vertica-v2
 
     - name: Do a local pull of the image
       run: |
         docker pull ${{ steps.full_vertica_image.outputs.value }}
 
-    # # We never run the sarif scanner in PRs because PRs don't have permission
-    # # to upload the results to github.
-    # - name: Run the Trivy vulnerability scanner (sarif)
-    #   uses: aquasecurity/trivy-action@0.27.0
-    #   if: ${{ inputs.run_security_scan == 'all' && github.event_name != 'pull_request' }}
-    #   with:
-    #     image-ref: ${{ steps.full_vertica_image.outputs.value }}
-    #     ignore-unfixed: true
-    #     security-checks: vuln
-    #     timeout: '20m0s'
-    #     format: 'sarif'
-    #     output: 'trivy-results-vertica-image.sarif'
-    #   env:
-    #     TRIVY_DB_REPOSITORY: ${{ env.TRIVY_DB_REPOSITORY }}
-    #     TRIVY_JAVA_DB_REPOSITORY: ${{ env.TRIVY_JAVA_DB_REPOSITORY }}
+    # We never run the sarif scanner in PRs because PRs don't have permission
+    # to upload the results to github.
+    - name: Run the Trivy vulnerability scanner (sarif)
+      uses: aquasecurity/trivy-action@0.24.0
+      if: ${{ inputs.run_security_scan == 'all' && github.event_name != 'pull_request' }}
+      with:
+        image-ref: ${{ steps.full_vertica_image.outputs.value }}
+        ignore-unfixed: true
+        security-checks: vuln
+        timeout: '20m0s'
+        format: 'sarif'
+        output: 'trivy-results-vertica-image.sarif'
 
-    # - name: Upload Trivy scan results to GitHub Security tab
-    #   uses: github/codeql-action/upload-sarif@v3
-    #   if: ${{ always() && inputs.run_security_scan == 'all' && github.event_name != 'pull_request' }}
-    #   with:
-    #     sarif_file: 'trivy-results-vertica-image.sarif'
+    - name: Upload Trivy scan results to GitHub Security tab
+      uses: github/codeql-action/upload-sarif@v3
+      if: ${{ always() && inputs.run_security_scan == 'all' && github.event_name != 'pull_request' }}
+      with:
+        sarif_file: 'trivy-results-vertica-image.sarif'
 
-    # - name: Run the Trivy vulnerability scanner (pretty print)
-    #   uses: aquasecurity/trivy-action@0.27.0
-    #   if: ${{ inputs.run_security_scan == 'all' }}
-    #   with:
-    #     image-ref: ${{ steps.full_vertica_image.outputs.value }}
-    #     ignore-unfixed: true
-    #     security-checks: vuln
-    #     timeout: '20m0s'
-    #     format: 'table'
-    #     output: 'trivy-results-vertica-image.out'
-    #   env:
-    #     TRIVY_DB_REPOSITORY: ${{ env.TRIVY_DB_REPOSITORY }}
-    #     TRIVY_JAVA_DB_REPOSITORY: ${{ env.TRIVY_JAVA_DB_REPOSITORY }}
+    - name: Run the Trivy vulnerability scanner (pretty print)
+      uses: aquasecurity/trivy-action@0.24.0
+      if: ${{ inputs.run_security_scan == 'all' }}
+      with:
+        image-ref: ${{ steps.full_vertica_image.outputs.value }}
+        ignore-unfixed: true
+        security-checks: vuln
+        timeout: '20m0s'
+        format: 'table'
+        output: 'trivy-results-vertica-image.out'
         
-    # - name: Generate Warning Annotations
-    #   if: ${{ hashFiles('trivy-results-vertica-image.out') != '' }}
-    #   run: |
-    #     IF_WARNING="$(cat trivy-results-vertica-logger-image.out | grep -oP '(?<=Total: [^0] ).*' || true)"
-    #     if [ ! -z "$IF_WARNING" ]; then
-    #       echo "No Warning found"
-    #     else 
-    #       echo "Warning found, adding to annotaion."
-    #     fi
-    #     echo "::warning Vulnerability found during trivy scan::$IF_WARNING"
+    - name: Generate Warning Annotations
+      if: ${{ hashFiles('trivy-results-vertica-image.out') != '' }}
+      run: |
+        IF_WARNING="$(cat trivy-results-vertica-logger-image.out | grep -oP '(?<=Total: [^0] ).*' || true)"
+        if [ ! -z "$IF_WARNING" ]; then
+          echo "No Warning found"
+        else 
+          echo "Warning found, adding to annotaion."
+        fi
+        echo "::warning Vulnerability found during trivy scan::$IF_WARNING"
 
-    # - uses: actions/upload-artifact@v4
-    #   if: ${{ always() && inputs.run_security_scan == 'all' }}
-    #   with:
-    #     name: security-scan-server
-    #     path: 'trivy-results-vertica-image.out'
+    - uses: actions/upload-artifact@v4
+      if: ${{ always() && inputs.run_security_scan == 'all' }}
+      with:
+        name: security-scan-server
+        path: 'trivy-results-vertica-image.out'
 
-    # - name: Print a summary of the job
-    #   run: |
-    #     echo "Image Name: **${{ steps.full_vertica_image.outputs.value }}**" >> $GITHUB_STEP_SUMMARY
-    #     echo "Was Built: ${{ inputs.full_vertica_image == '' && '**Yes**' || '**No**' }}" >> $GITHUB_STEP_SUMMARY
-    #     echo "Was Pushed: ${{ inputs.full_vertica_image == '' && github.event_name != 'pull_request' && '**Yes**' || '**No**' }}" >> $GITHUB_STEP_SUMMARY
-    #     echo "Was Scanned: ${{ inputs.run_security_scan == 'all' && '**Yes**' || '**No**' }}" >> $GITHUB_STEP_SUMMARY
-    #     echo "Scan Output: " >> $GITHUB_STEP_SUMMARY
-    #     echo "${{ inputs.run_security_scan != 'none' && '$(cat trivy-results-vertica-image.out)' || 'N/A' }}" >> $GITHUB_STEP_SUMMARY
-    #     echo "Size: **$(docker inspect --format '{{.Size}}' ${{ steps.full_vertica_image.outputs.value }} | numfmt --to=iec)**" >> $GITHUB_STEP_SUMMARY
-    #     echo "Image ID: **$(docker inspect --format '{{.ID}}' ${{ steps.full_vertica_image.outputs.value }})**" >> $GITHUB_STEP_SUMMARY
-    #     echo "Digest: **$(IFS=":" read image tag <<< $(echo ${{ steps.full_vertica_image.outputs.value }} | sed -e 's/^docker.io\///'); docker inspect --format='{{.RepoDigests}}' $image:$tag | sed 's:^.\(.*\).$:\1:' | tr " " "\n" | grep $image | cut -d'@' -f2 || echo "<none>")**" >> $GITHUB_STEP_SUMMARY
-    #     echo -n "Vertica Version: **" >> $GITHUB_STEP_SUMMARY
-    #     echo -n $(docker inspect --format '{{index .Config.Labels "vertica-version"}}' ${{ steps.full_vertica_image.outputs.value }}) >> $GITHUB_STEP_SUMMARY
-    #     echo "**" >> $GITHUB_STEP_SUMMARY
+    - name: Print a summary of the job
+      run: |
+        echo "Image Name: **${{ steps.full_vertica_image.outputs.value }}**" >> $GITHUB_STEP_SUMMARY
+        echo "Was Built: ${{ inputs.full_vertica_image == '' && '**Yes**' || '**No**' }}" >> $GITHUB_STEP_SUMMARY
+        echo "Was Pushed: ${{ inputs.full_vertica_image == '' && github.event_name != 'pull_request' && '**Yes**' || '**No**' }}" >> $GITHUB_STEP_SUMMARY
+        echo "Was Scanned: ${{ inputs.run_security_scan == 'all' && '**Yes**' || '**No**' }}" >> $GITHUB_STEP_SUMMARY
+        echo "Scan Output: " >> $GITHUB_STEP_SUMMARY
+        echo "${{ inputs.run_security_scan != 'none' && '$(cat trivy-results-vertica-image.out)' || 'N/A' }}" >> $GITHUB_STEP_SUMMARY
+        echo "Size: **$(docker inspect --format '{{.Size}}' ${{ steps.full_vertica_image.outputs.value }} | numfmt --to=iec)**" >> $GITHUB_STEP_SUMMARY
+        echo "Image ID: **$(docker inspect --format '{{.ID}}' ${{ steps.full_vertica_image.outputs.value }})**" >> $GITHUB_STEP_SUMMARY
+        echo "Digest: **$(IFS=":" read image tag <<< $(echo ${{ steps.full_vertica_image.outputs.value }} | sed -e 's/^docker.io\///'); docker inspect --format='{{.RepoDigests}}' $image:$tag | sed 's:^.\(.*\).$:\1:' | tr " " "\n" | grep $image | cut -d'@' -f2 || echo "<none>")**" >> $GITHUB_STEP_SUMMARY
+        echo -n "Vertica Version: **" >> $GITHUB_STEP_SUMMARY
+        echo -n $(docker inspect --format '{{index .Config.Labels "vertica-version"}}' ${{ steps.full_vertica_image.outputs.value }}) >> $GITHUB_STEP_SUMMARY
+        echo "**" >> $GITHUB_STEP_SUMMARY
 
   build-server-legacy:
     runs-on: ubuntu-latest
@@ -196,17 +186,24 @@ jobs:
       image: ${{ steps.legacy_vertica_image.outputs.value }}
     steps:
 
+    - name: set lower case owner name
+      env:
+        OWNER: '${{ github.repository_owner }}'
+      run: |
+        echo "OWNER_LC=${OWNER,,}" >>${GITHUB_ENV}
+
     - name: Pick the name of the image
       uses: spilchen/switch-case-action@v2
       id: legacy_vertica_image
       with:
-        default: docker.io/opentext/vertica-k8s:25.1.0-0-multiarch
+        default: ghcr.io/${{ env.OWNER_LC }}/vertica-k8s:${{ github.sha }}-legacy
         conditionals-with-values: |
           ${{ inputs.legacy_vertica_image != '' }} => ${{ inputs.legacy_vertica_image }}
+          ${{ github.event_name == 'pull_request' }} => vertica-k8s:kind-legacy
 
     - name: Login to GitHub Container registry for non-PRs
       uses: docker/login-action@v3
-      if: ${{ github.event_name != 'pull_request' && startsWith(inputs.legacy_vertica_image, 'ghcr.io') }}
+      if: ${{ github.event_name != 'pull_request' && inputs.legacy_vertica_image == '' || startsWith(inputs.legacy_vertica_image, 'ghcr.io') }}
       with:
         registry: ghcr.io
         username: ${{ github.repository_owner }}
@@ -214,30 +211,27 @@ jobs:
 
     - name: Login to Docker Hub
       uses: docker/login-action@v3
-      if: ${{ startsWith(steps.legacy_vertica_image.outputs.value, 'docker.io') }}
+      if: ${{ inputs.legacy_vertica_image != '' && startsWith(inputs.legacy_vertica_image, 'docker.io') }}
       with:
         username: ${{ secrets.DOCKERHUB_USERNAME }}
         password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-    # - uses: actions/checkout@v4
-    #   if: ${{ inputs.legacy_vertica_image == '' }}
+    - uses: actions/checkout@v4
+      if: ${{ inputs.legacy_vertica_image == '' }}
 
-    # - name: Download the RPM
-    #   uses: ./.github/actions/download-rpm
-    #   if: ${{ inputs.legacy_vertica_image == '' }}
+    - name: Download the RPM
+      uses: ./.github/actions/download-rpm
+      if: ${{ inputs.legacy_vertica_image == '' }}
 
-    # - name: Build legacy server image
-    #   if: ${{ inputs.legacy_vertica_image == '' }}
-    #   run: |
-    #     # Do not push the image to remote registry because we
-    #     # do not want to overwrite the existing images. Here we
-    #     # just validate if dockerfile works fine.
-    #     make docker-build-vertica
-
-    - name: Do a local pull of the image if we didn't create it
-      if: ${{ steps.legacy_vertica_image.outputs.value != '' }}
+    - name: Build and optionally push legacy server image
+      if: ${{ inputs.legacy_vertica_image == '' }}
       run: |
-        docker pull ${{ steps.legacy_vertica_image.outputs.value }}
+        export VERTICA_IMG=${{ steps.legacy_vertica_image.outputs.value }}
+        make docker-build-vertica
+        if [ $GITHUB_EVENT_NAME != 'pull_request' ]
+        then
+          make docker-push-vertica
+        fi
 
     - name: Save the image for consumption by dependent jobs (PRs only)
       if: ${{ github.event_name == 'pull_request' }}
@@ -250,10 +244,16 @@ jobs:
         name: legacy-vertica-image
         path: legacy-vertica-image.tar
 
+    - name: Do a local pull of the image if we didn't create it
+      if: ${{ inputs.legacy_vertica_image != '' }}
+      run: |
+        docker pull ${{ inputs.legacy_vertica_image }}
+
     - name: Print a summary of the job
       run: |
         echo "Image Name: **${{ steps.legacy_vertica_image.outputs.value }}**" >> $GITHUB_STEP_SUMMARY
         echo "Was Built: ${{ inputs.legacy_vertica_image == '' && '**Yes**' || '**No**' }}" >> $GITHUB_STEP_SUMMARY
+        echo "Was Pushed: ${{ inputs.legacy_vertica_image == '' && github.event_name != 'pull_request' && '**Yes**' || '**No**' }}"
         echo "Was Scanned: **No**" >> $GITHUB_STEP_SUMMARY
         echo "Size: **$(docker inspect --format '{{.Size}}' ${{ steps.legacy_vertica_image.outputs.value }} | numfmt --to=iec)**" >> $GITHUB_STEP_SUMMARY
         echo "Image ID: **$(docker inspect --format '{{.ID}}' ${{ steps.legacy_vertica_image.outputs.value }})**" >> $GITHUB_STEP_SUMMARY
@@ -271,7 +271,7 @@ jobs:
       uses: spilchen/switch-case-action@v2
       id: minimal_vertica_image
       with:
-        default: docker.io/opentext/vertica-k8s:24.4.0-1-multiarch
+        default: docker.io/opentext/vertica-k8s-private:latest-minimal-master
         conditionals-with-values: |
           ${{ inputs.minimal_vertica_image != '' }} => ${{ inputs.minimal_vertica_image }}
 
@@ -290,24 +290,24 @@ jobs:
         username: ${{ secrets.DOCKERHUB_USERNAME }}
         password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-    # - uses: actions/checkout@v4
-    #   if: ${{ inputs.minimal_vertica_image == '' }}
+    - uses: actions/checkout@v4
+      if: ${{ inputs.minimal_vertica_image == '' }}
 
-    # - name: Download the RPM
-    #   uses: ./.github/actions/download-rpm
-    #   if: ${{ inputs.minimal_vertica_image == '' }}
+    - name: Download the RPM
+      uses: ./.github/actions/download-rpm
+      if: ${{ inputs.minimal_vertica_image == '' }}
 
-    # - name: Build the minimal server image
-    #   if: ${{ inputs.minimal_vertica_image == '' }}
-    #   run: |
-    #     # We never push the image we build here because the RPM we use is too
-    #     # old. The RPM needs to be from at least a 23.3.0 server. So, we build
-    #     # here only to test the creation of the image. We don't verify this
-    #     # image in the remaining CI. Pick a dummy image name so as not to
-    #     # overwrite the output build image that the e2e tests will use.
-    #     export VERTICA_IMG=vertica-k8s:kind-minimal
-    #     export MINIMAL_VERTICA_IMG=yes
-    #     make docker-build-vertica-v2 
+    - name: Build the minimal server image
+      if: ${{ inputs.minimal_vertica_image == '' }}
+      run: |
+        # We never push the image we build here because the RPM we use is too
+        # old. The RPM needs to be from at least a 23.3.0 server. So, we build
+        # here only to test the creation of the image. We don't verify this
+        # image in the remaining CI. Pick a dummy image name so as not to
+        # overwrite the output build image that the e2e tests will use.
+        export VERTICA_IMG=vertica-k8s:kind-minimal
+        export MINIMAL_VERTICA_IMG=yes
+        make docker-build-vertica-v2 
 
     - name: Do a local pull of the image
       run: |
@@ -342,10 +342,10 @@ jobs:
       uses: spilchen/switch-case-action@v2
       id: operator_image
       with:
-        default: docker.io/opentext/verticadb-operator:25.1.0-0
+        default: ghcr.io/${{ env.OWNER_LC }}/verticadb-operator:${{ github.sha }}
         conditionals-with-values: |
           ${{ inputs.operator_image != '' }} => ${{ inputs.operator_image }}
-        #   ${{ github.event_name == 'pull_request' }} => verticadb-operator:kind
+          ${{ github.event_name == 'pull_request' }} => verticadb-operator:kind
 
     - name: Login to GitHub Container registry for non-PRs
       uses: docker/login-action@v3
@@ -362,32 +362,28 @@ jobs:
       uses: ./.github/actions/setup-go
       if: ${{ inputs.operator_image == '' }}
 
-    # - name: Build and optionally push operator image
-    #   if: ${{ inputs.operator_image == '' }}
-    #   run: |
-    #     export OPERATOR_IMG=${{ steps.operator_image.outputs.value }}
-    #     export PLATFORMS=${{ inputs.operator_platform }}
-    #     # For pull requests we build the operator locally then pass it around
-    #     # to dependent stages as an artifact. Otherwise, we will build a
-    #     # cross-platform operator. The make target we use for that handles
-    #     # pushing it up to an external repository.
-    #     if [ $GITHUB_EVENT_NAME != 'pull_request' ]
-    #     then
-    #       # Will be removed once we merge this and make the multiarch builds as the default
-    #       EXIT_CODE="$(docker manifest inspect ${OPERATOR_IMG} > /dev/null ; echo $?)"
-    #       if [ $EXIT_CODE -eq 0 ]; then
-    #         echo "image exists"
-    #       else 
-    #         echo "image does not exist, making a push"
-    #         make docker-build-crossplatform-operator
-    #       fi
-    #     else
-    #       make docker-build-operator
-    #     fi
-
-    - name: Do a local pull of the image if we didn't create it
+    - name: Build and optionally push operator image
+      if: ${{ inputs.operator_image == '' }}
       run: |
-        docker pull ${{ steps.operator_image.outputs.value }}
+        export OPERATOR_IMG=${{ steps.operator_image.outputs.value }}
+        export PLATFORMS=${{ inputs.operator_platform }}
+        # For pull requests we build the operator locally then pass it around
+        # to dependent stages as an artifact. Otherwise, we will build a
+        # cross-platform operator. The make target we use for that handles
+        # pushing it up to an external repository.
+        if [ $GITHUB_EVENT_NAME != 'pull_request' ]
+        then
+          # Will be removed once we merge this and make the multiarch builds as the default
+          EXIT_CODE="$(docker manifest inspect ${OPERATOR_IMG} > /dev/null ; echo $?)"
+          if [ $EXIT_CODE -eq 0 ]; then
+            echo "image exists"
+          else 
+            echo "image does not exist, making a push"
+            make docker-build-crossplatform-operator
+          fi
+        else
+          make docker-build-operator
+        fi
 
     - name: Save the image for consumption by dependent jobs (PRs only)
       if: ${{ github.event_name == 'pull_request' }}
@@ -400,66 +396,63 @@ jobs:
         name: operator-image
         path: operator-image.tar
 
+    - name: Do a local pull of the image if we didn't create it
+      if: ${{ inputs.operator_image != '' }}
+      run: |
+        docker pull ${{ inputs.operator_image }}
 
+    - name: Run the Trivy vulnerability scanner (sarif)
+      uses: aquasecurity/trivy-action@0.24.0
+      if: ${{ inputs.run_security_scan != 'none' && github.event_name != 'pull_request' }}
+      with:
+        image-ref: ${{ steps.operator_image.outputs.value }}
+        ignore-unfixed: true
+        format: 'sarif'
+        output: 'trivy-results-verticadb-operator-image.sarif'
 
-    # - name: Run the Trivy vulnerability scanner (sarif)
-    #   uses: aquasecurity/trivy-action@0.27.0
-    #   if: ${{ inputs.run_security_scan != 'none' && github.event_name != 'pull_request' }}
-    #   with:
-    #     image-ref: ${{ steps.operator_image.outputs.value }}
-    #     ignore-unfixed: true
-    #     format: 'sarif'
-    #     output: 'trivy-results-verticadb-operator-image.sarif'
-    #   env:
-    #     TRIVY_DB_REPOSITORY: ${{ env.TRIVY_DB_REPOSITORY }}
-    #     TRIVY_JAVA_DB_REPOSITORY: ${{ env.TRIVY_JAVA_DB_REPOSITORY }}
+    - name: Upload Trivy scan results to GitHub Security tab
+      uses: github/codeql-action/upload-sarif@v3
+      if: ${{ always() && inputs.run_security_scan != 'none' && github.event_name != 'pull_request' }}
+      with:
+        sarif_file: 'trivy-results-verticadb-operator-image.sarif'
 
-    # - name: Upload Trivy scan results to GitHub Security tab
-    #   uses: github/codeql-action/upload-sarif@v3
-    #   if: ${{ always() && inputs.run_security_scan != 'none' && github.event_name != 'pull_request' }}
-    #   with:
-    #     sarif_file: 'trivy-results-verticadb-operator-image.sarif'
-
-    # - name: Run the Trivy vulnerability scanner (pretty print)
-    #   uses: aquasecurity/trivy-action@0.27.0
-    #   if: ${{ inputs.run_security_scan != 'none' }}
-    #   with:
-    #     image-ref: ${{ steps.operator_image.outputs.value }}
-    #     ignore-unfixed: true
-    #     format: 'table'
-    #     output: 'trivy-results-verticadb-operator-image.out'
-    #   env:
-    #     TRIVY_DB_REPOSITORY: ${{ env.TRIVY_DB_REPOSITORY }}
-    #     TRIVY_JAVA_DB_REPOSITORY: ${{ env.TRIVY_JAVA_DB_REPOSITORY }}
+    - name: Run the Trivy vulnerability scanner (pretty print)
+      uses: aquasecurity/trivy-action@0.24.0
+      if: ${{ inputs.run_security_scan != 'none' }}
+      with:
+        image-ref: ${{ steps.operator_image.outputs.value }}
+        ignore-unfixed: true
+        format: 'table'
+        output: 'trivy-results-verticadb-operator-image.out'
     
-    # - name: Generate Warning Annotations
-    #   if: ${{ hashFiles('trivy-results-verticadb-operator-image.out') != '' }}
-    #   run: |
-    #     IF_WARNING="$(cat trivy-results-verticadb-operator-image.out | grep -oP '(?<=Total: [^0] ).*' || true)"
-    #     if [ ! -z "$IF_WARNING" ]; then
-    #       echo "No Warning found"
-    #     else 
-    #       echo "Warning found, adding to annotaion."
-    #     fi
-    #     echo "::warning Vulnerability found during trivy scan::$IF_WARNING"
+    - name: Generate Warning Annotations
+      if: ${{ hashFiles('trivy-results-verticadb-operator-image.out') != '' }}
+      run: |
+        IF_WARNING="$(cat trivy-results-verticadb-operator-image.out | grep -oP '(?<=Total: [^0] ).*' || true)"
+        if [ ! -z "$IF_WARNING" ]; then
+          echo "No Warning found"
+        else 
+          echo "Warning found, adding to annotaion."
+        fi
+        echo "::warning Vulnerability found during trivy scan::$IF_WARNING"
 
-    # - uses: actions/upload-artifact@v4
-    #   if: ${{ always() && inputs.run_security_scan != 'none' }}
-    #   with:
-    #     name: security-scan-operator
-    #     path: 'trivy-results-verticadb-operator-image.out'
+    - uses: actions/upload-artifact@v4
+      if: ${{ always() && inputs.run_security_scan != 'none' }}
+      with:
+        name: security-scan-operator
+        path: 'trivy-results-verticadb-operator-image.out'
 
-    # - name: Print a summary of the job
-    #   run: |
-    #     echo "Image Name: **${{ steps.operator_image.outputs.value }}**" >> $GITHUB_STEP_SUMMARY
-    #     echo "Was Built: ${{ inputs.operator_image == '' && '**Yes**' || '**No**' }}" >> $GITHUB_STEP_SUMMARY
-    #     echo "Was Pushed: ${{ inputs.operator_image == '' && github.event_name != 'pull_request' && '**Yes**' || '**No**' }}" >> $GITHUB_STEP_SUMMARY
-    #     echo "Was Scanned: ${{ inputs.run_security_scan != 'none' && '**Yes**' || '**No**' }}" >> $GITHUB_STEP_SUMMARY
-    #     echo "Scan Output: " >> $GITHUB_STEP_SUMMARY
-    #     echo "${{ inputs.run_security_scan != 'none' && '$(cat trivy-results-verticadb-operator-image.out)' || 'N/A' }}" >> $GITHUB_STEP_SUMMARY
-    #     echo "Size: **$(docker inspect --format '{{.Size}}' ${{ steps.operator_image.outputs.value }} | numfmt --to=iec)**" >> $GITHUB_STEP_SUMMARY
-    #     echo "Image ID: **$(docker inspect --format '{{.ID}}' ${{ steps.operator_image.outputs.value }})**" >> $GITHUB_STEP_SUMMARY
-    #     echo "Digest: **$(IFS=":" read image tag <<< $(echo ${{ steps.operator_image.outputs.value }} | sed -e 's/^docker.io\///'); docker inspect --format='{{.RepoDigests}}' $image:$tag | sed 's:^.\(.*\).$:\1:' | tr " " "\n" | grep $image | cut -d'@' -f2 || echo "<none>")**" >> $GITHUB_STEP_SUMMARY
+    - name: Print a summary of the job
+      run: |
+        echo "Image Name: **${{ steps.operator_image.outputs.value }}**" >> $GITHUB_STEP_SUMMARY
+        echo "Was Built: ${{ inputs.operator_image == '' && '**Yes**' || '**No**' }}" >> $GITHUB_STEP_SUMMARY
+        echo "Was Pushed: ${{ inputs.operator_image == '' && github.event_name != 'pull_request' && '**Yes**' || '**No**' }}" >> $GITHUB_STEP_SUMMARY
+        echo "Was Scanned: ${{ inputs.run_security_scan != 'none' && '**Yes**' || '**No**' }}" >> $GITHUB_STEP_SUMMARY
+        echo "Scan Output: " >> $GITHUB_STEP_SUMMARY
+        echo "${{ inputs.run_security_scan != 'none' && '$(cat trivy-results-verticadb-operator-image.out)' || 'N/A' }}" >> $GITHUB_STEP_SUMMARY
+        echo "Size: **$(docker inspect --format '{{.Size}}' ${{ steps.operator_image.outputs.value }} | numfmt --to=iec)**" >> $GITHUB_STEP_SUMMARY
+        echo "Image ID: **$(docker inspect --format '{{.ID}}' ${{ steps.operator_image.outputs.value }})**" >> $GITHUB_STEP_SUMMARY
+        echo "Digest: **$(IFS=":" read image tag <<< $(echo ${{ steps.operator_image.outputs.value }} | sed -e 's/^docker.io\///'); docker inspect --format='{{.RepoDigests}}' $image:$tag | sed 's:^.\(.*\).$:\1:' | tr " " "\n" | grep $image | cut -d'@' -f2 || echo "<none>")**" >> $GITHUB_STEP_SUMMARY
 
   build-vlogger:
     runs-on: ubuntu-latest
@@ -477,10 +470,10 @@ jobs:
       uses: spilchen/switch-case-action@v2
       id: vlogger_image
       with:
-        default: docker.io/opentext/vertica-logger:1.0.1
+        default: ghcr.io/${{ env.OWNER_LC }}/vertica-logger:${{ github.sha }}
         conditionals-with-values: |
           ${{ inputs.vlogger_image != '' }} => ${{ inputs.vlogger_image }}
-        #   ${{ github.event_name == 'pull_request' }} => vertica-logger:kind
+          ${{ github.event_name == 'pull_request' }} => vertica-logger:kind
 
     - name: Login to GitHub Container registry for non-PRs
       uses: docker/login-action@v3
@@ -490,23 +483,18 @@ jobs:
         username: ${{ github.repository_owner }}
         password: ${{ secrets.GITHUB_TOKEN }}
 
-    # - uses: actions/checkout@v4
-    #   if: ${{ inputs.vlogger_image == '' }}
+    - uses: actions/checkout@v4
+      if: ${{ inputs.vlogger_image == '' }}
 
-    # - name: Build and optionally push vlogger image
-    #   if: ${{ inputs.vlogger_image == '' }}
-    #   run: |
-    #     export VLOGGER_IMG=${{ steps.vlogger_image.outputs.value }}
-    #     make docker-build-vlogger
-    #     if [ $GITHUB_EVENT_NAME != 'pull_request' ]
-    #     then
-    #       make docker-push-vlogger
-    #     fi
-
-
-    - name: Do a local pull of the image if we didn't create it
+    - name: Build and optionally push vlogger image
+      if: ${{ inputs.vlogger_image == '' }}
       run: |
-        docker pull ${{ steps.vlogger_image.outputs.value }}
+        export VLOGGER_IMG=${{ steps.vlogger_image.outputs.value }}
+        make docker-build-vlogger
+        if [ $GITHUB_EVENT_NAME != 'pull_request' ]
+        then
+          make docker-push-vlogger
+        fi
 
     - name: Save the image for consumption by dependent jobs (PRs only)
       if: ${{ github.event_name == 'pull_request' }}
@@ -519,64 +507,61 @@ jobs:
         name: vlogger-image
         path: vlogger-image.tar
 
+    - name: Do a local pull of the image if we didn't create it
+      if: ${{ inputs.vlogger_image != '' }}
+      run: |
+        docker pull ${{ inputs.vlogger_image }}
 
+    - name: Run the Trivy vulnerability scanner (sarif)
+      uses: aquasecurity/trivy-action@0.24.0
+      if: ${{ inputs.run_security_scan != 'none' && github.event_name != 'pull_request' }}
+      with:
+        image-ref: ${{ steps.vlogger_image.outputs.value }}
+        ignore-unfixed: true
+        format: 'sarif'
+        output: 'trivy-results-vertica-logger-image.sarif'
 
-    # - name: Run the Trivy vulnerability scanner (sarif)
-    #   uses: aquasecurity/trivy-action@0.27.0
-    #   if: ${{ inputs.run_security_scan != 'none' && github.event_name != 'pull_request' }}
-    #   with:
-    #     image-ref: ${{ steps.vlogger_image.outputs.value }}
-    #     ignore-unfixed: true
-    #     format: 'sarif'
-    #     output: 'trivy-results-vertica-logger-image.sarif'
-    #   env:
-    #     TRIVY_DB_REPOSITORY: ${{ env.TRIVY_DB_REPOSITORY }}
-    #     TRIVY_JAVA_DB_REPOSITORY: ${{ env.TRIVY_JAVA_DB_REPOSITORY }}
+    - name: Upload Trivy scan results to GitHub Security tab
+      uses: github/codeql-action/upload-sarif@v3
+      if: ${{ always() && inputs.run_security_scan != 'none' && github.event_name != 'pull_request' }}
+      with:
+        sarif_file: 'trivy-results-vertica-logger-image.sarif'
 
-    # - name: Upload Trivy scan results to GitHub Security tab
-    #   uses: github/codeql-action/upload-sarif@v3
-    #   if: ${{ always() && inputs.run_security_scan != 'none' && github.event_name != 'pull_request' }}
-    #   with:
-    #     sarif_file: 'trivy-results-vertica-logger-image.sarif'
+    - name: Run the Trivy vulnerability scanner (pretty print)
+      id: trivy_scan
+      uses: aquasecurity/trivy-action@0.24.0
+      if: ${{ inputs.run_security_scan != 'none' }}
+      with:
+        image-ref: ${{ steps.vlogger_image.outputs.value }}
+        ignore-unfixed: true
+        format: 'table'
+        output: 'trivy-results-vertica-logger-image.out'
 
-    # - name: Run the Trivy vulnerability scanner (pretty print)
-    #   id: trivy_scan
-    #   uses: aquasecurity/trivy-action@0.27.0
-    #   if: ${{ inputs.run_security_scan != 'none' }}
-    #   with:
-    #     image-ref: ${{ steps.vlogger_image.outputs.value }}
-    #     ignore-unfixed: true
-    #     format: 'table'
-    #     output: 'trivy-results-vertica-logger-image.out'
-    #   env:
-    #     TRIVY_DB_REPOSITORY: ${{ env.TRIVY_DB_REPOSITORY }}
-    #     TRIVY_JAVA_DB_REPOSITORY: ${{ env.TRIVY_JAVA_DB_REPOSITORY }}
+    - name: Generate Warning Annotations
+      if: ${{ hashFiles('trivy-results-vertica-logger-image.out') != '' }}
+      run: |
+        IF_WARNING="$(cat trivy-results-vertica-logger-image.out | grep -oP '(?<=Total: [^0] ).*' || true)"
+        if [ ! -z "$IF_WARNING" ]; then
+          echo "No Warning found"
+        else 
+          echo "Warning found, adding to annotaion."
+        fi
+        echo "::warning Vulnerability found during trivy scan::$IF_WARNING"
 
-    # - name: Generate Warning Annotations
-    #   if: ${{ hashFiles('trivy-results-vertica-logger-image.out') != '' }}
-    #   run: |
-    #     IF_WARNING="$(cat trivy-results-vertica-logger-image.out | grep -oP '(?<=Total: [^0] ).*' || true)"
-    #     if [ ! -z "$IF_WARNING" ]; then
-    #       echo "No Warning found"
-    #     else 
-    #       echo "Warning found, adding to annotaion."
-    #     fi
-    #     echo "::warning Vulnerability found during trivy scan::$IF_WARNING"
+    - uses: actions/upload-artifact@v4
+      if: ${{ always() && inputs.run_security_scan != 'none' }}
+      with:
+        name: security-scan-logger
+        path: 'trivy-results-vertica-logger-image.out'
 
-    # - uses: actions/upload-artifact@v4
-    #   if: ${{ always() && inputs.run_security_scan != 'none' }}
-    #   with:
-    #     name: security-scan-logger
-    #     path: 'trivy-results-vertica-logger-image.out'
-
-    # - name: Print a summary of the job
-    #   run: |
-    #     echo "Image Name: **${{ steps.vlogger_image.outputs.value }}**" >> $GITHUB_STEP_SUMMARY
-    #     echo "Was Built: ${{ inputs.vlogger_image == '' && '**Yes**' || '**No**' }}" >> $GITHUB_STEP_SUMMARY
-    #     echo "Was Pushed: ${{ inputs.vlogger_image == '' && github.event_name != 'pull_request' && '**Yes**' || '**No**' }}" >> $GITHUB_STEP_SUMMARY
-    #     echo "Was Scanned: ${{ inputs.run_security_scan != 'none' && '**Yes**' || '**No**' }}" >> $GITHUB_STEP_SUMMARY
-    #     echo "Scan Output: " >> $GITHUB_STEP_SUMMARY
-    #     echo "${{ inputs.run_security_scan != 'none' && '$(cat trivy-results-vertica-logger-image.out)' || 'N/A' }}" >> $GITHUB_STEP_SUMMARY
-    #     echo "Size: **$(docker inspect --format '{{.Size}}' ${{ steps.vlogger_image.outputs.value }} | numfmt --to=iec)**" >> $GITHUB_STEP_SUMMARY
-    #     echo "Image ID: **$(docker inspect --format '{{.ID}}' ${{ steps.vlogger_image.outputs.value }})**" >> $GITHUB_STEP_SUMMARY
-    #     echo "Digest: **$(IFS=":" read image tag <<< $(echo ${{ steps.vlogger_image.outputs.value }} | sed -e 's/^docker.io\///'); docker inspect --format='{{.RepoDigests}}' $image:$tag | sed 's:^.\(.*\).$:\1:' | tr " " "\n" | grep $image | cut -d'@' -f2 || echo "<none>")**" >> $GITHUB_STEP_SUMMARY
+    - name: Print a summary of the job
+      run: |
+        echo "Image Name: **${{ steps.vlogger_image.outputs.value }}**" >> $GITHUB_STEP_SUMMARY
+        echo "Was Built: ${{ inputs.vlogger_image == '' && '**Yes**' || '**No**' }}" >> $GITHUB_STEP_SUMMARY
+        echo "Was Pushed: ${{ inputs.vlogger_image == '' && github.event_name != 'pull_request' && '**Yes**' || '**No**' }}" >> $GITHUB_STEP_SUMMARY
+        echo "Was Scanned: ${{ inputs.run_security_scan != 'none' && '**Yes**' || '**No**' }}" >> $GITHUB_STEP_SUMMARY
+        echo "Scan Output: " >> $GITHUB_STEP_SUMMARY
+        echo "${{ inputs.run_security_scan != 'none' && '$(cat trivy-results-vertica-logger-image.out)' || 'N/A' }}" >> $GITHUB_STEP_SUMMARY
+        echo "Size: **$(docker inspect --format '{{.Size}}' ${{ steps.vlogger_image.outputs.value }} | numfmt --to=iec)**" >> $GITHUB_STEP_SUMMARY
+        echo "Image ID: **$(docker inspect --format '{{.ID}}' ${{ steps.vlogger_image.outputs.value }})**" >> $GITHUB_STEP_SUMMARY
+        echo "Digest: **$(IFS=":" read image tag <<< $(echo ${{ steps.vlogger_image.outputs.value }} | sed -e 's/^docker.io\///'); docker inspect --format='{{.RepoDigests}}' $image:$tag | sed 's:^.\(.*\).$:\1:' | tr " " "\n" | grep $image | cut -d'@' -f2 || echo "<none>")**" >> $GITHUB_STEP_SUMMARY
