@@ -34,16 +34,16 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-// HTTPServerCertGenReconciler will create a secret that has TLS credentials.  This
+// NMACertGenReconciler will create a secret that has TLS credentials.  This
 // secret will be used to authenticate with the http server.
-type HTTPServerCertGenReconciler struct {
+type NMACertGenReconciler struct {
 	VRec *VerticaDBReconciler
 	Vdb  *vapi.VerticaDB // Vdb is the CRD we are acting on.
 	Log  logr.Logger
 }
 
-func MakeHTTPServerCertGenReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger, vdb *vapi.VerticaDB) controllers.ReconcileActor {
-	return &HTTPServerCertGenReconciler{
+func MakeNMACertGenReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger, vdb *vapi.VerticaDB) controllers.ReconcileActor {
+	return &NMACertGenReconciler{
 		VRec: vdbrecon,
 		Vdb:  vdb,
 		Log:  log.WithName("HTTPServerCertGenReconciler"),
@@ -51,7 +51,7 @@ func MakeHTTPServerCertGenReconciler(vdbrecon *VerticaDBReconciler, log logr.Log
 }
 
 // Reconcile will create a TLS secret for the http server if one is missing
-func (h *HTTPServerCertGenReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
+func (h *NMACertGenReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
 	// If the secret name is set, check that it exists.
 	if h.Vdb.Spec.NMATLSSecret != "" {
 		// As a convenience we will regenerate the secret using the same name. But
@@ -90,14 +90,14 @@ func (h *HTTPServerCertGenReconciler) Reconcile(ctx context.Context, _ *ctrl.Req
 }
 
 // getDNSNames returns the DNS names to include in the certificate that we generate
-func (h *HTTPServerCertGenReconciler) getDNSNames() []string {
+func (h *NMACertGenReconciler) getDNSNames() []string {
 	return []string{
 		fmt.Sprintf("*.%s.svc", h.Vdb.Namespace),
 		fmt.Sprintf("*.%s.svc.cluster.local", h.Vdb.Namespace),
 	}
 }
 
-func (h *HTTPServerCertGenReconciler) createSecret(ctx context.Context, cert, caCert security.Certificate) (*corev1.Secret, error) {
+func (h *NMACertGenReconciler) createSecret(ctx context.Context, cert, caCert security.Certificate) (*corev1.Secret, error) {
 	secret := corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace:       h.Vdb.Namespace,
@@ -125,7 +125,7 @@ func (h *HTTPServerCertGenReconciler) createSecret(ctx context.Context, cert, ca
 }
 
 // setSecretNameInVDB will set the secretName in the vdb to indicate we have created that secret
-func (h *HTTPServerCertGenReconciler) setSecretNameInVDB(ctx context.Context, secretName string) error {
+func (h *NMACertGenReconciler) setSecretNameInVDB(ctx context.Context, secretName string) error {
 	nm := h.Vdb.ExtractNamespacedName()
 	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 		// Always fetch the latest in case we are in the retry loop
