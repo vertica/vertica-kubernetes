@@ -33,6 +33,18 @@ rules:
           pod:
             resource: pod
       metricsQuery: 'avg_over_time(vertica_process_memory_usage_percent[60m])'
+    # Total number of active sessions. Type: guage
+    - metricsQuery: sum(vertica_sessions_running_counter{namespace!="", service!= "", type="active", initiator="user"}) by (namespace, service)
+      name:
+        as: ${1}_active_count
+        matches: ^(.*)_running_counter$
+      resources:
+        overrides:
+          namespace:
+            resource: namespace
+          service:
+            resource: service
+      seriesQuery: vertica_sessions_running_counter{namespace!="", service!= "", type="active", initiator="user"}
     # Total number of active sessions. Used for testing
     - metricsQuery: sum(vertica_sessions_running_counter{type="active", initiator="user"}) by (namespace, pod)
       resources:
