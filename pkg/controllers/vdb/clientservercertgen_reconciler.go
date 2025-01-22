@@ -34,7 +34,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-// NMACertGenReconciler will create a secret that has TLS credentials.  This
+// ClientServerCertGenReconciler will create a secret that has TLS credentials.  This
 // secret will be used to authenticate with the http server.
 type ClientServerCertGenReconciler struct {
 	VRec *VerticaDBReconciler
@@ -43,7 +43,7 @@ type ClientServerCertGenReconciler struct {
 }
 
 func MakeClientServerCertGenReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger, vdb *vapi.VerticaDB) controllers.ReconcileActor {
-	return &NMACertGenReconciler{
+	return &ClientServerCertGenReconciler{
 		VRec: vdbrecon,
 		Vdb:  vdb,
 		Log:  log.WithName("ClientServerCertGenReconciler"),
@@ -53,22 +53,22 @@ func MakeClientServerCertGenReconciler(vdbrecon *VerticaDBReconciler, log logr.L
 // Reconcile will create a TLS secret for the http server if one is missing
 func (h *ClientServerCertGenReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
 	// If the secret name is set, check that it exists.
-	if h.Vdb.Spec.NMATLSSecret != "" {
+	if h.Vdb.Spec.ClientTLSSecret != "" {
 		// As a convenience we will regenerate the secret using the same name. But
 		// only do this if it is a k8s secret. We skip if there is a path reference
 		// for a different secret store.
-		if !secrets.IsK8sSecret(h.Vdb.Spec.NMATLSSecret) {
-			h.Log.Info("nmaTLSSecret is set but uses a path reference that isn't for k8s.")
+		if !secrets.IsK8sSecret(h.Vdb.Spec.ClientTLSSecret) {
+			h.Log.Info("clientTLSSecret is set but uses a path reference that isn't for k8s.")
 			return ctrl.Result{}, nil
 		}
-		nm := names.GenNamespacedName(h.Vdb, h.Vdb.Spec.NMATLSSecret)
+		nm := names.GenNamespacedName(h.Vdb, h.Vdb.Spec.ClientTLSSecret)
 		secret := corev1.Secret{}
 		err := h.VRec.Client.Get(ctx, nm, &secret)
 		if errors.IsNotFound(err) {
-			h.Log.Info("nmaTLSSecret is set but doesn't exist. Will recreate the secret.", "name", nm)
+			h.Log.Info("clientTLSSecret is set but doesn't exist. Will recreate the secret.", "name", nm)
 		} else if err != nil {
 			return ctrl.Result{},
-				fmt.Errorf("failed while attempting to read the tls secret %s: %w", h.Vdb.Spec.NMATLSSecret, err)
+				fmt.Errorf("failed while attempting to read the tls secret %s: %w", h.Vdb.Spec.ClientTLSSecret, err)
 		} else {
 			// Secret is filled in and exists. We can exit.
 			return ctrl.Result{}, nil
@@ -115,10 +115,10 @@ func (h *ClientServerCertGenReconciler) createSecret(ctx context.Context, cert, 
 	// Either generate a name or use the one already present in the vdb. Using
 	// the name already present is the case where the name was filled in but the
 	// secret didn't exist.
-	if h.Vdb.Spec.NMATLSSecret == "" {
-		secret.GenerateName = fmt.Sprintf("%s-nma-tls-", h.Vdb.Name)
+	if h.Vdb.Spec.ClientTLSSecret == "" {
+		secret.GenerateName = fmt.Sprintf("%s-client-tls-", h.Vdb.Name)
 	} else {
-		secret.Name = h.Vdb.Spec.NMATLSSecret
+		secret.Name = h.Vdb.Spec.ClientTLSSecret
 	}
 	err := h.VRec.Client.Create(ctx, &secret)
 	return &secret, err
@@ -132,7 +132,7 @@ func (h *ClientServerCertGenReconciler) setSecretNameInVDB(ctx context.Context, 
 		if err := h.VRec.Client.Get(ctx, nm, h.Vdb); err != nil {
 			return err
 		}
-		h.Vdb.Spec.NMATLSSecret = secretName
+		h.Vdb.Spec.ClientTLSSecret = secretName
 		return h.VRec.Client.Update(ctx, h.Vdb)
 	})
 }
