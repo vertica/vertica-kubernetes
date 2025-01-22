@@ -7,7 +7,7 @@ BASE_OS_VERSION?=9
 FOR_GITHUB_CI?=false
 VERTICA_IMG?=vertica-k8s
 MINIMAL_VERTICA_IMG?=
-TARGET_ARCH?=linux/amd64
+TARGET_ARCH?=linux/amd64,linux/arm64
 VERTICA_ADDITIONAL_DOCKER_BUILD_OPTIONS?=
 VERTICA_VERSION?=
 
@@ -23,6 +23,19 @@ ifneq ($(VERTICA_ARM_VERSION),)
 $(info ARM64 RPM Found with Version $(VERTICA_ARM_VERSION))
 ifneq ($(VERTICA_ARM_VERSION), $(VERTICA_X86_VERSION))
 $(error RPM version mismatch $(VERTICA_X86_RPM) $(VERTICA_ARM64_RPM)")
+exit 1
+endif
+endif
+endif
+
+VERTICA_X86_VERSION?=$(shell rpm --nosignature -qp --queryformat '%{VERSION}-%{RELEASE}' packages/$(VERTICA_X86_RPM))
+VERTICA_ARM_VERSION?=$(shell rpm --nosignature -qp --queryformat '%{VERSION}-%{RELEASE}' packages/$(VERTICA_ARM64_RPM))
+
+ifdef VERTICA_X86_VERSION
+VERTICA_VERSION=$(VERTICA_X86_VERSION)
+ifdef VERTICA_ARM_VERSION
+ifneq ($(VERTICA_ARM_VERSION), $(VERTICA_X86_VERSION))
+$(error RPM version mismatch $(VERTICA_X86_RPM) $(VERTICA_ARM64_RPM))
 exit 1
 endif
 endif
