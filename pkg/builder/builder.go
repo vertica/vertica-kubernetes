@@ -493,6 +493,9 @@ func buildVolumes(vdb *vapi.VerticaDB) []corev1.Volume {
 		secrets.IsK8sSecret(vdb.Spec.NMATLSSecret) {
 		vols = append(vols, buildNMACertsSecretVolume(vdb))
 	}
+	if vmeta.UseVClusterOps(vdb.Annotations) {
+		vols = append(vols, buildTLSCertConfigVolume())
+	}
 	if vdb.IsDepotVolumeEmptyDir() {
 		vols = append(vols, buildDepotVolume())
 	}
@@ -781,6 +784,20 @@ func buildNMACertsSecretVolume(vdb *vapi.VerticaDB) corev1.Volume {
 			Secret: &corev1.SecretVolumeSource{
 				SecretName: vdb.Spec.NMATLSSecret,
 			},
+		},
+	}
+}
+
+func buildTLSCertConfigVolume() corev1.Volume {
+	configMap := &corev1.ConfigMapVolumeSource{
+		LocalObjectReference: corev1.LocalObjectReference{
+			Name: vapi.TLSConfigMapName,
+		},
+	}
+	return corev1.Volume{
+		Name: vapi.TLSConfigVolumeName,
+		VolumeSource: corev1.VolumeSource{
+			ConfigMap: configMap,
 		},
 	}
 }

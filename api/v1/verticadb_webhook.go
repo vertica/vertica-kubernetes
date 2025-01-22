@@ -51,6 +51,8 @@ const (
 	Krb5SecretMountName   = "krb5"
 	SSHMountName          = "ssh"
 	NMACertsMountName     = "nma-certs"
+	TLSConfigMapName      = "tls-config"
+	TLSConfigVolumeName   = TLSConfigMapName
 	DepotMountName        = "depot"
 	S3Prefix              = "s3://"
 	GCloudPrefix          = "gs://"
