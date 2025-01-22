@@ -29,10 +29,6 @@ image:
   name: opentext/verticadb-operator:25.1.0-0
   pullPolicy: IfNotPresent
 
-rbac_proxy_image:
-  repo: gcr.io
-  name: kubebuilder/kube-rbac-proxy:v0.13.1
-
 imagePullSecrets: null
 
 controllers:
@@ -156,9 +152,8 @@ prometheus:
   # Controls exposing of the prometheus metrics endpoint.  Valid options are:
   #
   # EnableWithAuthProxy: A new service object will be created that exposes the
-  #    metrics endpoint.  Access to the metrics are controlled by rbac rules
-  #    using the proxy (see https://github.com/brancz/kube-rbac-proxy).  The
-  #    metrics endpoint will use the https scheme.
+  #    metrics endpoint.  Access to the metrics are controlled by rbac rules.
+  #    The metrics endpoint will use the https scheme.
   # EnableWithoutAuth: Like EnableWithAuthProxy, this will create a service
   #    object to expose the metrics endpoint.  However, there is no authority
   #    checking when using the endpoint.  Anyone who had network access

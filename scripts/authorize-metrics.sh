@@ -63,9 +63,6 @@ set -o xtrace
 if [[ -n "$UNDO" ]]
 then
     kubectl delete -f $REPO_DIR/config/release-manifests/verticadb-operator-metrics-reader-cr.yaml || :
-    kubectl delete -f $REPO_DIR/config/release-manifests/verticadb-operator-proxy-role-cr.yaml || :
-    kubectl delete -f $REPO_DIR/config/release-manifests/verticadb-operator-metrics-reader-crb.yaml || :
-    kubectl delete -f $REPO_DIR/config/release-manifests/verticadb-operator-proxy-rolebinding-crb.yaml || :
     echo "Finished undoing action"
     exit 0
 fi

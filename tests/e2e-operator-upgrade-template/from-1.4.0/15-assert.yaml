@@ -20,6 +20,5 @@ spec:
   containers:
   - name: manager
     image: vertica/verticadb-operator:1.4.0
-  - name: kube-rbac-proxy
 status:
   phase: Running

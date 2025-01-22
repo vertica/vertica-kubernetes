@@ -182,7 +182,7 @@ type VerticaDBSpec struct {
 	// Contain details about the local storage
 	Local LocalStorage `json:"local"`
 
-	//+operator-sdk:csv:customresourcedefinitions:type=spec
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	Subclusters []Subcluster `json:"subclusters"`
 
 	// +kubebuilder:validation:Optional
@@ -1035,12 +1035,12 @@ type VerticaDBPodStatus struct {
 	UpNode bool `json:"upNode"`
 }
 
-//+kubebuilder:object:root=true
-//+kubebuilder:subresource:status
-//+kubebuilder:storageversion
-//+kubebuilder:resource:categories=all;vertica,shortName=vdb
-//+kubebuilder:printcolumn:name="Subclusters",type="integer",JSONPath=".status.subclusterCount"
-//+kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
+// +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
+// +kubebuilder:storageversion
+// +kubebuilder:resource:categories=all;vertica,shortName=vdb
+// +kubebuilder:printcolumn:name="Subclusters",type="integer",JSONPath=".status.subclusterCount"
+// +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 // +operator-sdk:csv:customresourcedefinitions:resources={{Statefulset,apps/v1,""},{Pod,v1,""},{Service,v1,""}}
 
 // VerticaDB is the CR that defines a Vertica Eon mode cluster that is managed by the verticadb-operator.
@@ -1052,7 +1052,7 @@ type VerticaDB struct {
 	Status VerticaDBStatus `json:"status,omitempty"`
 }
 
-//+kubebuilder:object:root=true
+// +kubebuilder:object:root=true
 
 // VerticaDBList contains a list of VerticaDB
 type VerticaDBList struct {

@@ -32,7 +32,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/go-logr/logr"
 	v1vapi "github.com/vertica/vertica-kubernetes/api/v1"
@@ -53,10 +52,10 @@ const (
 	vdbNameField = ".spec.references.object.name"
 )
 
-//+kubebuilder:rbac:groups=vertica.com,resources=eventtriggers,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=vertica.com,resources=eventtriggers/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=vertica.com,resources=eventtriggers/finalizers,verbs=update
-//+kubebuilder:rbac:groups="batch",resources=jobs,verbs=get;list;watch;create
+// +kubebuilder:rbac:groups=vertica.com,resources=eventtriggers,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=vertica.com,resources=eventtriggers/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=vertica.com,resources=eventtriggers/finalizers,verbs=update
+// +kubebuilder:rbac:groups="batch",resources=jobs,verbs=get;list;watch;create
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -112,7 +111,7 @@ func (r *EventTriggerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		For(&vapi.EventTrigger{}).
 		Owns(&batchv1.Job{}).
 		Watches(
-			&source.Kind{Type: &v1vapi.VerticaDB{}},
+			&v1vapi.VerticaDB{},
 			handler.EnqueueRequestsFromMapFunc(r.findObjectsForVerticaDB),
 			builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
 		).
@@ -139,7 +138,7 @@ func (r *EventTriggerReconciler) setupFieldIndexer(indx client.FieldIndexer) err
 
 // findObjectsForVerticaDB will generate requests to reconcile EventTriggers
 // based on watched VerticaDB.
-func (r *EventTriggerReconciler) findObjectsForVerticaDB(vdb client.Object) []reconcile.Request {
+func (r *EventTriggerReconciler) findObjectsForVerticaDB(_ context.Context, vdb client.Object) []reconcile.Request {
 	attachedTriggers := &vapi.EventTriggerList{}
 	listOps := &client.ListOptions{
 		FieldSelector: fields.OneTermEqualSelector(vdbNameField, vdb.GetName()),

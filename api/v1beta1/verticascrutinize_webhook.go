@@ -29,6 +29,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
+	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
 // log is for logging in this package.
@@ -50,32 +51,32 @@ func (vscr *VerticaScrutinize) Default() {
 var _ webhook.Validator = &VerticaScrutinize{}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
-func (vscr *VerticaScrutinize) ValidateCreate() error {
+func (vscr *VerticaScrutinize) ValidateCreate() (admission.Warnings, error) {
 	verticascrutinizelog.Info("validate create", "name", vscr.Name)
 
 	allErrs := vscr.validateVscrSpec()
 	if len(allErrs) == 0 {
-		return nil
+		return nil, nil
 	}
-	return apierrors.NewInvalid(GkVSCR, vscr.Name, allErrs)
+	return nil, apierrors.NewInvalid(GkVSCR, vscr.Name, allErrs)
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
-func (vscr *VerticaScrutinize) ValidateUpdate(_ runtime.Object) error {
+func (vscr *VerticaScrutinize) ValidateUpdate(_ runtime.Object) (admission.Warnings, error) {
 	verticascrutinizelog.Info("validate update", "name", vscr.Name)
 
 	allErrs := vscr.validateVscrSpec()
 	if len(allErrs) == 0 {
-		return nil
+		return nil, nil
 	}
 
-	return apierrors.NewInvalid(GkVSCR, vscr.Name, allErrs)
+	return nil, apierrors.NewInvalid(GkVSCR, vscr.Name, allErrs)
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
-func (vscr *VerticaScrutinize) ValidateDelete() error {
+func (vscr *VerticaScrutinize) ValidateDelete() (admission.Warnings, error) {
 	verticascrutinizelog.Info("validate delete", "name", vscr.Name)
-	return nil
+	return nil, nil
 }
 
 // validateVscrSpec will validate the current VerticaScrutinize to see if it is valid

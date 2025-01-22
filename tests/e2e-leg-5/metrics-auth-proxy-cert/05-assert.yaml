@@ -19,7 +19,6 @@ metadata:
 spec:
   containers:
   - name: manager
-  - name: kube-rbac-proxy
 status:
   phase: Running
 ---
