@@ -314,6 +314,11 @@ func main() {
 
 	restCfg := ctrl.GetConfigOrDie()
 
+	var cacheNamespaces map[string]cache.Config
+	if opcfg.GetWatchNamespace() != "" {
+		cacheNamespaces := make(map[string]cache.Config)
+		cacheNamespaces[opcfg.GetWatchNamespace()] = cache.Config{}
+	}
 	mgr, err := ctrl.NewManager(restCfg, ctrl.Options{
 		Scheme:                 scheme,
 		Metrics:                metricsServerOptions,
@@ -321,10 +326,8 @@ func main() {
 		HealthProbeBindAddress: ":8081",
 		LeaderElection:         true,
 		LeaderElectionID:       opcfg.GetLeaderElectionID(),
-		Cache: cache.Options{DefaultNamespaces: map[string]cache.Config{
-			opcfg.GetWatchNamespace(): {},
-		}},
-		EventBroadcaster: multibroadcaster,
+		Cache:                  cache.Options{DefaultNamespaces: cacheNamespaces},
+		EventBroadcaster:       multibroadcaster,
 		Controller: config.Controller{
 			GroupKindConcurrency: map[string]int{
 				vapiB1.GkVDB.String():  opcfg.GetVerticaDBConcurrency(),
