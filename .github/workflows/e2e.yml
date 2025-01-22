@@ -113,7 +113,7 @@ jobs:
     needs: [build]
     strategy:
       matrix:
-        runner: [ ubuntu-22.04, ARM64 ]
+        runner: [ ubuntu-22.04 ]
     runs-on: ${{ matrix.runner }}
     steps:
       - name: Checkout
@@ -181,7 +181,7 @@ jobs:
     needs: [build]
     strategy:
       matrix:
-        runner: [ ubuntu-22.04, ARM64 ]
+        runner: [ ubuntu-22.04 ]
     runs-on: ${{ matrix.runner }}
     steps:
       - name: Checkout
@@ -249,7 +249,7 @@ jobs:
     needs: [build]
     strategy:
       matrix:
-        runner: [ ubuntu-22.04, ARM64 ]
+        runner: [ ubuntu-22.04 ]
     runs-on: ${{ matrix.runner }}
     steps:
       - name: Checkout
@@ -270,7 +270,10 @@ jobs:
   e2e-leg-3-vclusterops-previous-release:
     if: ${{ inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'vcluster leg 3' || inputs.e2e_test_suites == '' }}
     needs: [build]
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        runner: [ ubuntu-latest, ARM64 ]
+    runs-on: ${{ matrix.runner }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -314,7 +317,7 @@ jobs:
     needs: [build]
     strategy:
       matrix:
-        runner: [ ubuntu-22.04, ARM64 ]
+        runner: [ ubuntu-22.04 ]
     runs-on: ${{ matrix.runner }}
     steps:
       - name: Checkout
@@ -386,7 +389,10 @@ jobs:
   e2e-leg-4-vcluster-vdb-gen:
     if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'vcluster leg 4 vdb-gen' || inputs.e2e_test_suites == '')}}
     needs: [build]
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        runner: [ ubuntu-latest, ARM64 ]
+    runs-on: ${{ matrix.runner }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -410,7 +416,7 @@ jobs:
     needs: [build]
     strategy:
       matrix:
-        runner: [ ubuntu-22.04, ARM64 ]
+        runner: [ ubuntu-22.04 ]
     runs-on: ${{ matrix.runner }}
     steps:
       - name: Checkout
@@ -486,7 +492,10 @@ jobs:
   e2e-leg-6-vcluster-revivedb:
     if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'vcluster leg 6 revivedb' || inputs.e2e_test_suites == '')}}
     needs: [build]
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        runner: [ ubuntu-latest, ARM64 ]
+    runs-on: ${{ matrix.runner }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -531,7 +540,7 @@ jobs:
     needs: [build]
     strategy:
       matrix:
-        runner: [ ubuntu-22.04, ARM64 ]
+        runner: [ ubuntu-22.04 ]
     runs-on: ${{ matrix.runner }}
     steps:
       - name: Checkout
@@ -602,7 +611,10 @@ jobs:
   e2e-leg-10-vcluster:
     if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'vcluster leg 10' || inputs.e2e_test_suites == '')}}
     needs: [build]
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        runner: [ ubuntu-latest, ARM64 ]
+    runs-on: ${{ matrix.runner }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -625,7 +637,10 @@ jobs:
   e2e-leg-11-vcluster:
     if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'vcluster leg 11' || inputs.e2e_test_suites == '')}}
     needs: [build]
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        runner: [ ubuntu-latest, ARM64 ]
+    runs-on: ${{ matrix.runner }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -649,7 +664,10 @@ jobs:
   e2e-leg-12-vcluster:
     if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'vcluster leg 12' || inputs.e2e_test_suites == '')}}
     needs: [build]
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        runner: [ ubuntu-latest, ARM64 ]
+    runs-on: ${{ matrix.runner }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -672,7 +690,7 @@ jobs:
     needs: [build]
     strategy:
       matrix:
-        runner: [ ubuntu-22.04, ARM64 ]
+        runner: [ ubuntu-22.04 ]
     runs-on: ${{ matrix.runner }}
     steps:
       - name: Checkout
@@ -719,7 +737,7 @@ jobs:
     needs: [build]
     strategy:
       matrix:
-        runner: [ ubuntu-22.04, ARM64 ]
+        runner: [ ubuntu-22.04 ]
     runs-on: ${{ matrix.runner }}
     steps:
       - name: Checkout
@@ -746,7 +764,7 @@ jobs:
     needs: [build]
     strategy:
       matrix:
-        runner: [ ubuntu-22.04, ARM64 ]
+        runner: [ ubuntu-22.04 ]
     runs-on: ${{ matrix.runner }}
     steps:
       - name: Checkout
