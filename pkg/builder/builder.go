@@ -264,6 +264,9 @@ func buildVolumeMounts(vdb *vapi.VerticaDB) []corev1.VolumeMount {
 		volMnts = append(volMnts, buildSSHVolumeMounts()...)
 	}
 
+	if vmeta.UseVClusterOps(vdb.Annotations) {
+		volMnts = append(volMnts, buildTLSCertConfigVolumeMount())
+	}
 	volMnts = append(volMnts, buildCertSecretVolumeMounts(vdb)...)
 	volMnts = append(volMnts, vdb.Spec.VolumeMounts...)
 
@@ -469,6 +472,14 @@ func buildCertSecretVolumeMounts(vdb *vapi.VerticaDB) []corev1.VolumeMount {
 		})
 	}
 	return mnts
+}
+
+// buildTLSCertConfigVolumeMount returns the volume mount for TLS cert configmap volume
+func buildTLSCertConfigVolumeMount() corev1.VolumeMount {
+	return corev1.VolumeMount{
+		Name:      vapi.TLSConfigVolumeName,
+		MountPath: paths.TLSCertsConfigPath,
+	}
 }
 
 // buildVolumes builds up a list of volumes to include in the sts
@@ -788,6 +799,7 @@ func buildNMACertsSecretVolume(vdb *vapi.VerticaDB) corev1.Volume {
 	}
 }
 
+// buildTLSCertConfigVolume returns a volume that mounts a configmap as a json file.
 func buildTLSCertConfigVolume() corev1.Volume {
 	configMap := &corev1.ConfigMapVolumeSource{
 		LocalObjectReference: corev1.LocalObjectReference{
