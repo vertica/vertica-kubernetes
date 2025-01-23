@@ -38,13 +38,12 @@ type TLSCertConfigMapGenReconciler struct {
 }
 
 type secretNames struct {
-	NMATLSSecret    string `json:"nmaTLSSecret"`
 	HttpsTLSSecret  string `json:"httpsTLSSecret"`
 	ClientTLSSecret string `json:"clientTLSSecret"`
 }
 
 func MakeTLSCertConfigMapGenReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger, vdb *vapi.VerticaDB) controllers.ReconcileActor {
-	return &NMACertGenReconciler{
+	return &TLSCertConfigMapGenReconciler{
 		VRec: vdbrecon,
 		Vdb:  vdb,
 		Log:  log.WithName("TLSCertConfigMapGenReconciler"),
@@ -56,10 +55,9 @@ func (h *TLSCertConfigMapGenReconciler) Reconcile(ctx context.Context, _ *ctrl.R
 
 	if h.Vdb.Spec.NMATLSSecret == "" || h.Vdb.Spec.HttpsTLSSecret == "" ||
 		h.Vdb.Spec.ClientTLSSecret == "" {
-		h.Log.Info("not all secrets are ready. wait to create tls cert configmap")
+		h.Log.Info("not all tls secrets are ready. wait to create tls cert configmap")
 		return ctrl.Result{Requeue: true}, nil
 	}
-
 	jsonBytes, err := h.buildJsonBytes(h.Vdb)
 	if err != nil {
 		h.Log.Error(err, "failed to serialize secretNames")
@@ -71,17 +69,16 @@ func (h *TLSCertConfigMapGenReconciler) Reconcile(ctx context.Context, _ *ctrl.R
 	err = h.VRec.Client.Get(ctx, configMapName, configMap)
 	if errors.IsNotFound(err) {
 		configMap = h.buildTLSConfigMap(string(jsonBytes), h.Vdb)
-		h.Log.Info("create tls config map")
 		err = h.VRec.Client.Create(ctx, configMap)
 		return ctrl.Result{}, err
 	}
+	h.Log.Info("created TLS cert secret configmap")
 	return ctrl.Result{}, err
 }
 
 // buildJsonBytes serializes the struct of secret names
 func (h *TLSCertConfigMapGenReconciler) buildJsonBytes(vdb *vapi.VerticaDB) ([]byte, error) {
 	scretNames := secretNames{
-		NMATLSSecret:    vdb.Spec.NMATLSSecret,
 		HttpsTLSSecret:  vdb.Spec.HttpsTLSSecret,
 		ClientTLSSecret: vdb.Spec.ClientTLSSecret,
 	}
@@ -99,8 +96,9 @@ func (h *TLSCertConfigMapGenReconciler) buildTLSConfigMap(jsonContent string, vd
 			APIVersion: "v1",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      vapi.TLSConfigMapName,
-			Namespace: vdb.Namespace,
+			Name:            vapi.TLSConfigMapName,
+			Namespace:       vdb.Namespace,
+			OwnerReferences: []metav1.OwnerReference{h.Vdb.GenerateOwnerReference()},
 		},
 		Data: jsonMap,
 	}

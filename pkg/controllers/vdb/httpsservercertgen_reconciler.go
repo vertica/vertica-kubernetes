@@ -86,6 +86,7 @@ func (h *HttpsServerCertGenReconciler) Reconcile(ctx context.Context, _ *ctrl.Re
 	if err != nil {
 		return ctrl.Result{}, err
 	}
+	h.Log.Info("created certificate and secret for https service")
 	return ctrl.Result{}, h.setSecretNameInVDB(ctx, secret.ObjectMeta.Name)
 }
 
@@ -97,6 +98,7 @@ func (h *HttpsServerCertGenReconciler) getDNSNames() []string {
 	}
 }
 
+// createSecret returns a secret that store TLS certificate information
 func (h *HttpsServerCertGenReconciler) createSecret(ctx context.Context, cert, caCert security.Certificate) (*corev1.Secret, error) {
 	secret := corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
