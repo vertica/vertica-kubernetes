@@ -24,6 +24,7 @@ data:
     for i in {1..8}; do
       kubectl exec svc/v-scale-down-threshold-pri1 -c server -- vsql -U dbadmin -w topsecret -c "select sleep('240');" &
     done
+    sleep 60
 ---
 apiVersion: v1
 kind: Pod
