@@ -115,10 +115,10 @@ do
 done
 
 # 11.  Template the prometheus metrics service
-perl -i -pe 's/^/{{- if hasPrefix "Enable" .Values.prometheus.expose -}}\n/ if 1 .. 1' $TEMPLATE_DIR/verticadb-operator-controller-manager-metrics-service-svc.yaml
-echo "{{- end }}" >> $TEMPLATE_DIR/verticadb-operator-controller-manager-metrics-service-svc.yaml
+perl -i -pe 's/^/{{- if hasPrefix "Enable" .Values.prometheus.expose -}}\n/ if 1 .. 1' $TEMPLATE_DIR/verticadb-operator-metrics-service-svc.yaml
+echo "{{- end }}" >> $TEMPLATE_DIR/verticadb-operator-metrics-service-svc.yaml
 
-# 11.  Template the roles/rolebindings for access to the rbac proxy
+# 12.  Template the roles/rolebindings for access to prometheus metrics
 for f in verticadb-operator-metrics-reader-cr.yaml
 do
     perl -i -pe 's/^/{{- if and (.Values.prometheus.createProxyRBAC) (eq .Values.prometheus.expose "EnableWithAuthProxy") -}}\n/ if 1 .. 1' $TEMPLATE_DIR/$f
@@ -127,36 +127,36 @@ do
     perl -i -0777 -pe 's/-(proxy-role.*)/-{{ include "vdb-op.metricsRbacPrefix" . }}$1/g' $TEMPLATE_DIR/$f
 done
 
-# 12.  Template the ServiceMonitor object for Promtheus operator
+# 13.  Template the ServiceMonitor object for Promtheus operator
 perl -i -pe 's/^/{{- if .Values.prometheus.createServiceMonitor -}}\n/ if 1 .. 1' $TEMPLATE_DIR/verticadb-operator-metrics-monitor-servicemonitor.yaml
 echo "{{- end }}" >> $TEMPLATE_DIR/verticadb-operator-metrics-monitor-servicemonitor.yaml
 perl -i -0777 -pe 's/(.*endpoints:)/$1\n{{- if eq "EnableWithAuthProxy" .Values.prometheus.expose }}/g' $TEMPLATE_DIR/verticadb-operator-metrics-monitor-servicemonitor.yaml
 perl -i -0777 -pe 's/(.*insecureSkipVerify:.*)/$1\n{{- else }}\n  - path: \/metrics\n    port: metrics\n    scheme: http\n{{- end }}/g' $TEMPLATE_DIR/verticadb-operator-metrics-monitor-servicemonitor.yaml
 
-# 13.  Template the metrics bind address
+# 14.  Template the metrics bind address
 perl -i -0777 -pe 's/(METRICS_TLS_SECRET: )(.*)/$1 "{{ .Values.prometheus.tlsSecret }}"/' $TEMPLATE_DIR/verticadb-operator-manager-config-cm.yaml
-perl -i -0777 -pe 's/(METRICS_ADDR: )(.*)/$1 "{{ if eq "EnableWithAuthProxy" .Values.prometheus.expose }}127.0.0.1{{ end }}:{{ if eq "EnableWithAuthProxy" .Values.prometheus.expose }}8080{{ else }}8443{{ end }}"/' $TEMPLATE_DIR/verticadb-operator-manager-config-cm.yaml
+perl -i -0777 -pe 's/(METRICS_ADDR: )(.*)/$1 "{{ if eq "EnableWithAuthProxy" .Values.prometheus.expose }}127.0.0.1{{ end }}:8443"/' $TEMPLATE_DIR/verticadb-operator-manager-config-cm.yaml
 perl -i -0777 -pe 's/(.*METRICS_ADDR:.*)/{{- if hasPrefix "Enable" .Values.prometheus.expose }}\n$1\n{{- else }}\n  METRICS_ADDR: "0"\n{{- end }}/g' $TEMPLATE_DIR/verticadb-operator-manager-config-cm.yaml
-perl -i -0777 -pe 's/(.*ports:\n.*containerPort: 9443\n.*webhook-server.*\n.*)/$1\n{{- if hasPrefix "EnableWithoutAuth" .Values.prometheus.expose }}\n        - name: metrics\n          containerPort: 8443\n          protocol: TCP\n{{- end }}/g' $TEMPLATE_DIR/verticadb-operator-manager-deployment.yaml
+perl -i -0777 -pe 's/(.*ports:\n.*containerPort: 9443\n.*webhook-server.*\n.*)/$1\n{{- if hasPrefix "Enable" .Values.prometheus.expose }}\n        - name: metrics\n          containerPort: 8443\n          protocol: TCP\n{{- end }}/g' $TEMPLATE_DIR/verticadb-operator-manager-deployment.yaml
 
-# 14.  Template the rbac container
+# 15.  Template the rbac container
 perl -i -0777 -pe 's/(.*- args:.*\n.*secure)/{{- if eq .Values.prometheus.expose "EnableWithAuthProxy" }}\n$1/g' $TEMPLATE_DIR/verticadb-operator-manager-deployment.yaml
 # We need to put the matching end at the end of the container spec.
 perl -i -0777 -pe 's/(memory: 64Mi)/$1\n{{- end }}/g' $TEMPLATE_DIR/verticadb-operator-manager-deployment.yaml
 
-# 15.  Template places that refer to objects by name.  Do this in all files.
+# 16.  Template places that refer to objects by name.  Do this in all files.
 # In the config/ directory we hardcoded everything to start with
 # verticadb-operator.
 perl -i -0777 -pe 's/verticadb-operator/{{ include "vdb-op.name" . }}/g' $TEMPLATE_DIR/*yaml
 
-# 16.  Mount TLS certs in the rbac proxy
+# 17.  Mount TLS certs for prometheus metrics
 for f in $TEMPLATE_DIR/verticadb-operator-manager-deployment.yaml
 do
     perl -i -0777 -pe 's/(.*--v=[0-9]+)/$1\n{{- if not (empty .Values.prometheus.tlsSecret) }}\n        - --tls-cert-file=\/cert\/tls.crt\n        - --tls-private-key-file=\/cert\/tls.key\n        - --client-ca-file=\/cert\/ca.crt\n{{- end }}/g' $f
     perl -i -0777 -pe 's/(volumes:)/$1\n{{- if not (empty .Values.prometheus.tlsSecret) }}\n      - name: auth-cert\n        secret:\n          secretName: {{ .Values.prometheus.tlsSecret }}\n{{- end }}/g' $f
 done
 
-# 17.  Add pod scheduling options
+# 18.  Add pod scheduling options
 cat << EOF >> $TEMPLATE_DIR/verticadb-operator-manager-deployment.yaml
 {{- if .Values.nodeSelector }}
       nodeSelector:
@@ -175,7 +175,7 @@ cat << EOF >> $TEMPLATE_DIR/verticadb-operator-manager-deployment.yaml
 {{- end }}
 EOF
 
-# 18. Template the per-CR concurrency parameters
+# 19. Template the per-CR concurrency parameters
 for f in $TEMPLATE_DIR/verticadb-operator-manager-config-cm.yaml
 do
     perl -i -0777 -pe 's/(CONCURRENCY_VERTICADB: ).*/$1\{\{ .Values.reconcileConcurrency.verticadb | quote \}\}/g' $f
@@ -187,7 +187,7 @@ do
     perl -i -0777 -pe 's/(CONCURRENCY_VERTICAREPLICATOR: ).*/$1\{\{ .Values.reconcileConcurrency.verticareplicator | quote \}\}/g' $f
 done
 
-# 19. Add permissions to manager ClusterRole to allow it to patch the CRD. This
+# 20. Add permissions to manager ClusterRole to allow it to patch the CRD. This
 # is only needed if the webhook cert is generated by the operator or provided
 # by a Secret.
 cat << EOF >> $TEMPLATE_DIR/verticadb-operator-webhook-config-cr.yaml
@@ -204,7 +204,7 @@ cat << EOF >> $TEMPLATE_DIR/verticadb-operator-webhook-config-cr.yaml
 {{- end }}
 EOF
 
-# 20. Change change ClusterRoles/ClusterRoleBindings for the manager to be
+# 21. Change change ClusterRoles/ClusterRoleBindings for the manager to be
 # Roles/RoleBindings if the operator is scoped to a single namespace.
 for f in $TEMPLATE_DIR/verticadb-operator-manager-clusterrolebinding-crb.yaml \
     $TEMPLATE_DIR/verticadb-operator-manager-role-cr.yaml
@@ -215,7 +215,7 @@ do
     echo "{{- end }}" >> $f
 done
 
-# 21. Template the operator config
+# 22. Template the operator config
 for fn in $TEMPLATE_DIR/verticadb-operator-manager-config-cm.yaml
 do
   perl -i -0777 -pe 's/(WEBHOOKS_ENABLED:).*/$1 {{ quote .Values.webhook.enable }}/g' $fn

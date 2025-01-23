@@ -686,7 +686,7 @@ kubectl logs <vertica-pod-name> -c vlogger
          ...
          - args:
            - --health-probe-bind-address=:8081
-           - --metrics-bind-address=127.0.0.1:8080
+           - --metrics-bind-address=127.0.0.1:8443
            - --leader-elect
            - --health-probe-bind-address=:8081
            - --enable-profiler

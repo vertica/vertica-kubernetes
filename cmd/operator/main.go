@@ -20,7 +20,6 @@ import (
 	"crypto/tls"
 	"log"
 	"os"
-	"strings"
 	"time"
 
 	// Allows us to pull in things generated from `go generate`
@@ -287,7 +286,7 @@ func main() {
 		TLSOpts: webhookTLSOpts,
 	})
 
-	secureMetrics := strings.HasSuffix(opcfg.GetMetricsAddr(), "8443")
+	secureMetrics := opcfg.GetMetricsAddr() == "127.0.0.1:8443"
 	var metricCertDir string
 	if opcfg.GetMetricsTLSSecret() != "" {
 		metricCertDir = "/cert"

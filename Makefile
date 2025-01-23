@@ -231,7 +231,7 @@ export VDB_MAX_BACKOFF_DURATION
 #
 # The address the operators Prometheus metrics endpoint binds to. Setting this
 # to 0 will disable metric serving.
-METRICS_ADDR?=127.0.0.1:8080
+METRICS_ADDR?=127.0.0.1:8443
 export METRICS_ADDR
 #
 # The minimum logging level. Valid values are: debug, info, warn, and error.
