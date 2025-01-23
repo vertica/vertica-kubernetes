@@ -22,10 +22,10 @@ import (
 	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
-	"github.com/vertica/vertica-kubernetes/pkg/names"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
@@ -52,10 +52,7 @@ func MakeTLSCertConfigMapGenReconciler(vdbrecon *VerticaDBReconciler, log logr.L
 
 // Reconcile will create a TLS secret for the http server if one is missing
 func (h *TLSCertConfigMapGenReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
-
-	if h.Vdb.Spec.NMATLSSecret == "" || h.Vdb.Spec.HttpsTLSSecret == "" ||
-		h.Vdb.Spec.ClientTLSSecret == "" {
-		h.Log.Info("not all tls secrets are ready. wait to create tls cert configmap")
+	if !h.tlsSecretsReady(ctx) {
 		return ctrl.Result{Requeue: true}, nil
 	}
 	jsonBytes, err := h.buildJsonBytes(h.Vdb)
@@ -63,8 +60,10 @@ func (h *TLSCertConfigMapGenReconciler) Reconcile(ctx context.Context, _ *ctrl.R
 		h.Log.Error(err, "failed to serialize secretNames")
 		return ctrl.Result{}, err
 	}
-
-	configMapName := names.GenNamespacedName(h.Vdb, vapi.TLSConfigMapName)
+	configMapName := types.NamespacedName{
+		Name:      vapi.TLSConfigMapName,
+		Namespace: h.Vdb.GetNamespace(),
+	}
 	configMap := &corev1.ConfigMap{}
 	err = h.VRec.Client.Get(ctx, configMapName, configMap)
 	if errors.IsNotFound(err) {
@@ -72,8 +71,30 @@ func (h *TLSCertConfigMapGenReconciler) Reconcile(ctx context.Context, _ *ctrl.R
 		err = h.VRec.Client.Create(ctx, configMap)
 		return ctrl.Result{}, err
 	}
-	h.Log.Info("created TLS cert secret configmap")
+	h.Log.Info("created TLS cert secret configmap", "nm", configMapName.Name)
 	return ctrl.Result{}, err
+}
+
+// tlsSecretsReady returns true when all TLS secrets are found in k8s env
+func (h *TLSCertConfigMapGenReconciler) tlsSecretsReady(ctx context.Context) bool {
+	if h.Vdb.Spec.NMATLSSecret == "" || h.Vdb.Spec.HttpsTLSSecret == "" ||
+		h.Vdb.Spec.ClientTLSSecret == "" {
+		h.Log.Info("not all tls secret names are ready. wait for them to be created")
+		return false
+	}
+	found, err := vapi.IsK8sSecretFound(ctx, h.Vdb, h.VRec.Client, &h.Vdb.Spec.NMATLSSecret)
+	if !found || err != nil {
+		return false
+	}
+	found, err = vapi.IsK8sSecretFound(ctx, h.Vdb, h.VRec.Client, &h.Vdb.Spec.HttpsTLSSecret)
+	if !found || err != nil {
+		return false
+	}
+	found, err = vapi.IsK8sSecretFound(ctx, h.Vdb, h.VRec.Client, &h.Vdb.Spec.ClientTLSSecret)
+	if !found || err != nil {
+		return false
+	}
+	return true
 }
 
 // buildJsonBytes serializes the struct of secret names
