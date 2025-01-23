@@ -21,15 +21,9 @@ data:
     set -o errexit
     set -o xtrace
 
-    kubectl exec svc/v-scale-down-threshold-pri1 -c server -- vsql -U dbadmin -w topsecret -c "select sleep('240');" &
-    kubectl exec svc/v-scale-down-threshold-pri1 -c server -- vsql -U dbadmin -w topsecret -c "select sleep('240');" &
-    kubectl exec svc/v-scale-down-threshold-pri1 -c server -- vsql -U dbadmin -w topsecret -c "select sleep('240');" &
-    kubectl exec svc/v-scale-down-threshold-pri1 -c server -- vsql -U dbadmin -w topsecret -c "select sleep('240');" &
-    kubectl exec svc/v-scale-down-threshold-pri1 -c server -- vsql -U dbadmin -w topsecret -c "select sleep('240');" &
-    kubectl exec svc/v-scale-down-threshold-pri1 -c server -- vsql -U dbadmin -w topsecret -c "select sleep('240');" &
-    kubectl exec svc/v-scale-down-threshold-pri1 -c server -- vsql -U dbadmin -w topsecret -c "select sleep('240');" &
-    kubectl exec svc/v-scale-down-threshold-pri1 -c server -- vsql -U dbadmin -w topsecret -c "select sleep('240');" &
-    sleep 60
+    for i in {1..8}; do
+      kubectl exec svc/v-scale-down-threshold-pri1 -c server -- vsql -U dbadmin -w topsecret -c "select sleep('240');" &
+    done
 ---
 apiVersion: v1
 kind: Pod

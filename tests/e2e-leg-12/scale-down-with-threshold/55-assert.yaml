@@ -20,3 +20,11 @@ spec:
 status:
   scalingCount: 1
   currentSize: 3
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: v-scale-down-threshold-vas-hpa
+spec:
+  maxReplicas: 7
+  minReplicas: 3
