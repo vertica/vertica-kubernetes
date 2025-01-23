@@ -70,13 +70,6 @@ const (
 	MountVProxyCertsAnnotationTrue  = "true"
 	MountVProxyCertsAnnotationFalse = "false"
 
-	// This is a feature flag for mounting NMA certs as a secret volume in server containers
-	// if deployment method is vclusterops. When set to true the NMA reads certs from this mounted
-	// volume, when set to false it reads certs directly from k8s secret store.
-	MountNMACertsAnnotation      = "vertica.com/mount-nma-certs"
-	MountNMACertsAnnotationTrue  = "true"
-	MountNMACertsAnnotationFalse = "false"
-
 	// Two annotations that are set by the operator when creating objects.
 	OperatorDeploymentMethodAnnotation = "vertica.com/operator-deployment-method"
 	OperatorVersionAnnotation          = "vertica.com/operator-version"
@@ -398,12 +391,6 @@ func UseVProxy(annotations map[string]string) bool {
 // volume rather than directly from k8s secret store.
 func UseVProxyCertsMount(annotations map[string]string) bool {
 	return lookupBoolAnnotation(annotations, MountVProxyCertsAnnotation, true /* default value */)
-}
-
-// UseNMACertsMount returns true if the NMA reads certs from the mounted secret
-// volume rather than directly from k8s secret store.
-func UseNMACertsMount(annotations map[string]string) bool {
-	return lookupBoolAnnotation(annotations, MountNMACertsAnnotation, false /* default value */)
 }
 
 // IgnoreClusterLease returns true if revive/start should ignore the cluster lease

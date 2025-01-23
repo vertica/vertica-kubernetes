@@ -358,15 +358,9 @@ func buildStartupConfVolumeMount() corev1.VolumeMount {
 	}
 }
 
-func buildScrutinizeVolumeMounts(vscr *v1beta1.VerticaScrutinize, vdb *vapi.VerticaDB) []corev1.VolumeMount {
+func buildScrutinizeVolumeMounts(vscr *v1beta1.VerticaScrutinize) []corev1.VolumeMount {
 	volMnts := []corev1.VolumeMount{
 		buildScrutinizeSharedVolumeMount(vscr),
-	}
-
-	if vmeta.UseNMACertsMount(vdb.Annotations) &&
-		vdb.Spec.NMATLSSecret != "" &&
-		secrets.IsK8sSecret(vdb.Spec.NMATLSSecret) {
-		volMnts = append(volMnts, buildNMACertsVolumeMount()...)
 	}
 	return volMnts
 }
@@ -428,11 +422,6 @@ func buildSSHVolumeMounts() []corev1.VolumeMount {
 // used with NMA
 func buildCommonNMAVolumeMounts(vdb *vapi.VerticaDB) []corev1.VolumeMount {
 	volMnts := buildScrutinizeVolumeMountForVerticaPod(vdb)
-	if vmeta.UseNMACertsMount(vdb.Annotations) &&
-		vdb.Spec.NMATLSSecret != "" &&
-		secrets.IsK8sSecret(vdb.Spec.NMATLSSecret) {
-		volMnts = append(volMnts, buildNMACertsVolumeMount()...)
-	}
 	return volMnts
 }
 
@@ -498,12 +487,6 @@ func buildVolumes(vdb *vapi.VerticaDB) []corev1.Volume {
 	if vdb.GetSSHSecretName() != "" {
 		vols = append(vols, buildSSHVolume(vdb))
 	}
-	if vmeta.UseVClusterOps(vdb.Annotations) &&
-		vmeta.UseNMACertsMount(vdb.Annotations) &&
-		vdb.Spec.NMATLSSecret != "" &&
-		secrets.IsK8sSecret(vdb.Spec.NMATLSSecret) {
-		vols = append(vols, buildNMACertsSecretVolume(vdb))
-	}
 	if vmeta.UseVClusterOps(vdb.Annotations) {
 		vols = append(vols, buildTLSCertConfigVolume())
 	}
@@ -521,12 +504,6 @@ func buildVolumes(vdb *vapi.VerticaDB) []corev1.Volume {
 // buildScrutinizeVolumes returns volumes that will be used by the scrutinize pod
 func buildScrutinizeVolumes(vscr *v1beta1.VerticaScrutinize, vdb *vapi.VerticaDB) []corev1.Volume {
 	vols := []corev1.Volume{}
-	if vmeta.UseVClusterOps(vdb.Annotations) &&
-		vmeta.UseNMACertsMount(vdb.Annotations) &&
-		vdb.Spec.NMATLSSecret != "" &&
-		secrets.IsK8sSecret(vdb.Spec.NMATLSSecret) {
-		vols = append(vols, buildNMACertsSecretVolume(vdb))
-	}
 	// we add a volume for the password when the password secret
 	// is on k8s
 	if vdb.Spec.PasswordSecret != "" &&
@@ -1141,7 +1118,7 @@ func makeScrutinizeInitContainer(vscr *v1beta1.VerticaScrutinize, vdb *vapi.Vert
 		Image:        vdb.Spec.Image,
 		Name:         names.ScrutinizeInitContainer,
 		Command:      buildScrutinizeCmd(args),
-		VolumeMounts: buildScrutinizeVolumeMounts(vscr, vdb),
+		VolumeMounts: buildScrutinizeVolumeMounts(vscr),
 		Resources:    vscr.Spec.Resources,
 		Env:          buildCommonEnvVars(vdb),
 	}
@@ -1819,14 +1796,6 @@ func buildScrutinizeDBPasswordEnvVars(nm types.NamespacedName) []corev1.EnvVar {
 // buildNMATLSCertsEnvVars returns environment variables about NMA certs,
 // that are needed by NMA and vcluster scrutinize
 func buildNMATLSCertsEnvVars(vdb *vapi.VerticaDB) []corev1.EnvVar {
-	if vmeta.UseNMACertsMount(vdb.Annotations) && secrets.IsK8sSecret(vdb.Spec.NMATLSSecret) {
-		return []corev1.EnvVar{
-			// Provide the path to each of the certs that are mounted in the container.
-			{Name: NMARootCAEnv, Value: fmt.Sprintf("%s/%s", paths.NMACertsRoot, paths.HTTPServerCACrtName)},
-			{Name: NMACertEnv, Value: fmt.Sprintf("%s/%s", paths.NMACertsRoot, corev1.TLSCertKey)},
-			{Name: NMAKeyEnv, Value: fmt.Sprintf("%s/%s", paths.NMACertsRoot, corev1.TLSPrivateKeyKey)},
-		}
-	}
 	return []corev1.EnvVar{
 		// The NMA will read the secrets directly from the secret store.
 		// We provide the secret namespace and name for this reason.
