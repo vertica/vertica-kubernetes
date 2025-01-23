@@ -91,6 +91,11 @@ func GetMetricsAddr() string {
 	return lookupStringEnvVar("METRICS_ADDR", envCanNotExist)
 }
 
+// GetMetricsTLSSecret returns TLS secret name of the manager's Prometheus endpoint.
+func GetMetricsTLSSecret() string {
+	return lookupStringEnvVar("METRICS_TLS_SECRET", envCanNotExist)
+}
+
 // GetUseCertManager returns true if cert-manager is used to setup the webhook's
 // TLS certs.
 func GetUseCertManager() bool {

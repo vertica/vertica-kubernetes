@@ -114,6 +114,10 @@ do
   echo "{{- end }}" >> $f
 done
 
+# 11.  Template the prometheus metrics service
+perl -i -pe 's/^/{{- if hasPrefix "Enable" .Values.prometheus.expose -}}\n/ if 1 .. 1' $TEMPLATE_DIR/verticadb-operator-controller-manager-metrics-service-svc.yaml
+echo "{{- end }}" >> $TEMPLATE_DIR/verticadb-operator-controller-manager-metrics-service-svc.yaml
+
 # 11.  Template the roles/rolebindings for access to the rbac proxy
 for f in verticadb-operator-metrics-reader-cr.yaml
 do
@@ -130,8 +134,9 @@ perl -i -0777 -pe 's/(.*endpoints:)/$1\n{{- if eq "EnableWithAuthProxy" .Values.
 perl -i -0777 -pe 's/(.*insecureSkipVerify:.*)/$1\n{{- else }}\n  - path: \/metrics\n    port: metrics\n    scheme: http\n{{- end }}/g' $TEMPLATE_DIR/verticadb-operator-metrics-monitor-servicemonitor.yaml
 
 # 13.  Template the metrics bind address
+perl -i -0777 -pe 's/(METRICS_TLS_SECRET: )(.*)/$1 "{{ .Values.prometheus.tlsSecret }}"/' $TEMPLATE_DIR/verticadb-operator-manager-config-cm.yaml
 perl -i -0777 -pe 's/(METRICS_ADDR: )(.*)/$1 "{{ if eq "EnableWithAuthProxy" .Values.prometheus.expose }}127.0.0.1{{ end }}:{{ if eq "EnableWithAuthProxy" .Values.prometheus.expose }}8080{{ else }}8443{{ end }}"/' $TEMPLATE_DIR/verticadb-operator-manager-config-cm.yaml
-perl -i -0777 -pe 's/(.*METRICS_ADDR:.*)/{{- if hasPrefix "Enable" .Values.prometheus.expose }}\n$1\n{{- else }}\n  METRICS_ADDR: ""\n{{- end }}/g' $TEMPLATE_DIR/verticadb-operator-manager-config-cm.yaml
+perl -i -0777 -pe 's/(.*METRICS_ADDR:.*)/{{- if hasPrefix "Enable" .Values.prometheus.expose }}\n$1\n{{- else }}\n  METRICS_ADDR: "0"\n{{- end }}/g' $TEMPLATE_DIR/verticadb-operator-manager-config-cm.yaml
 perl -i -0777 -pe 's/(.*ports:\n.*containerPort: 9443\n.*webhook-server.*\n.*)/$1\n{{- if hasPrefix "EnableWithoutAuth" .Values.prometheus.expose }}\n        - name: metrics\n          containerPort: 8443\n          protocol: TCP\n{{- end }}/g' $TEMPLATE_DIR/verticadb-operator-manager-deployment.yaml
 
 # 14.  Template the rbac container

@@ -288,6 +288,10 @@ func main() {
 	})
 
 	secureMetrics := strings.HasSuffix(opcfg.GetMetricsAddr(), "8443")
+	var metricCertDir string
+	if opcfg.GetMetricsTLSSecret() != "" {
+		metricCertDir = "/cert"
+	}
 	// Metrics endpoint is enabled in 'config/default/kustomization.yaml'. The Metrics options configure the server.
 	// More info:
 	// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.18.4/pkg/metrics/server
@@ -302,6 +306,7 @@ func main() {
 		// unauthorized access to sensitive metrics data. Consider replacing with CertDir, CertName, and KeyName
 		// to provide certificates, ensuring the server communicates using trusted and secure certificates.
 		TLSOpts: metricsTLSOpts,
+		CertDir: metricCertDir,
 	}
 
 	if secureMetrics {
@@ -316,7 +321,7 @@ func main() {
 
 	var cacheNamespaces map[string]cache.Config
 	if opcfg.GetWatchNamespace() != "" {
-		cacheNamespaces := make(map[string]cache.Config)
+		cacheNamespaces = make(map[string]cache.Config)
 		cacheNamespaces[opcfg.GetWatchNamespace()] = cache.Config{}
 	}
 	mgr, err := ctrl.NewManager(restCfg, ctrl.Options{
