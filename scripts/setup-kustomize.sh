@@ -285,6 +285,12 @@ replacements:
     targets:
       - select:
           kind: VerticaDB
+          name: v-client-proxy
+        fieldPaths:
+          - spec.proxy.image
+      - select:
+          kind: VerticaDB
+          name: v-client-proxy-upgrade
         fieldPaths:
           - spec.proxy.image
   - source:
@@ -294,6 +300,82 @@ replacements:
     targets:
       - select:
           kind: VerticaDB
+          name: vertica-sample
+        fieldPaths:
+          - spec.sidecars.[name=vlogger].image
+      - select:
+          kind: VerticaDB
+          name: v-k-safety-0-scaling
+        fieldPaths:
+          - spec.sidecars.[name=vlogger].image
+      - select:
+          kind: VerticaDB
+          name: v-scale-up-and-down
+        fieldPaths:
+          - spec.sidecars.[name=vlogger].image
+      - select:
+          kind: VerticaDB
+          name: v-kill
+        fieldPaths:
+          - spec.sidecars.[name=vlogger].image
+      - select:
+          kind: VerticaDB
+          name: v-auto-restart-vertica
+        fieldPaths:
+          - spec.sidecars.[name=vlogger].image
+      - select:
+          kind: VerticaDB
+          name: v-client-proxy-upgrade
+        fieldPaths:
+          - spec.sidecars.[name=vlogger].image
+      - select:
+          kind: VerticaDB
+          name: v-mc-restart
+        fieldPaths:
+          - spec.sidecars.[name=vlogger].image
+      - select:
+          kind: VerticaDB
+          name: v-webhook
+        fieldPaths:
+          - spec.sidecars.[name=vlogger].image
+      - select:
+          kind: VerticaDB
+          name: v-managed
+        fieldPaths:
+          - spec.sidecars.[name=vlogger].image
+      - select:
+          kind: VerticaDB
+          name: v-pvc-expansion
+        fieldPaths:
+          - spec.sidecars.[name=vlogger].image
+      - select:
+          kind: VerticaDB
+          name: v-create-multi-sc
+        fieldPaths:
+          - spec.sidecars.[name=vlogger].image
+      - select:
+          kind: VerticaDB
+          name: v-revive-multi-sc
+        fieldPaths:
+          - spec.sidecars.[name=vlogger].image
+      - select:
+          kind: VerticaDB
+          name: v-verify-server-logrotate
+        fieldPaths:
+          - spec.sidecars.[name=vlogger].image
+      - select:
+          kind: VerticaDB
+          name: v-pending-pod
+        fieldPaths:
+          - spec.sidecars.[name=vlogger].image
+      - select:
+          kind: VerticaDB
+          name: v-restart-with-sidecars
+        fieldPaths:
+          - spec.sidecars.[name=vlogger].image
+      - select:
+          kind: VerticaDB
+          name: v-base-upgrade
         fieldPaths:
           - spec.sidecars.[name=vlogger].image
 EOF
