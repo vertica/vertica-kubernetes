@@ -89,7 +89,12 @@ func (r *VerticaAutoscalerReconciler) Reconcile(ctx context.Context, req ctrl.Re
 		MakeRefreshCurrentSizeReconciler(r, vas),
 		// Update the selector in the status
 		MakeRefreshSelectorReconciler(r, vas),
+		// // Create/Update the hpa/scaledObject
 		MakeObjReconciler(r, vas, log),
+		// Check if the hpa is ready
+		MakeVerifyHPAReconciler(r, vas, log),
+		// Scale down based on the lower threshold
+		MakeScaledownReconciler(r, vas, log),
 		// If scaling granularity is Pod, this will resize existing subclusters
 		// depending on the targetSize.
 		MakeSubclusterResizeReconciler(r, vas),

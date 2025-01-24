@@ -45,20 +45,27 @@ rules:
           service:
             resource: service
       seriesQuery: vertica_sessions_running_counter{namespace!="", service!= "", type="active", initiator="user"}
-    # - seriesQuery: 'vertica_sessions_running_counter{namespace!="", pod!=""}'
-    #   resources:
-    #     overrides:
-    #       namespace:
-    #         resource: namespace
-    #       pod:
-    #         resource: pod
-    #   metricsQuery: 'sum(increase(vertica_sessions_running_counter[1m])) by (namespace, pod)'
-    # # Number of requests that are queued in the resource pool. Type: guage
-    # - seriesQuery: 'vertica_queued_requests_total{namespace!="", pod!=""}'
-    #   resources:
-    #     overrides:
-    #       namespace:
-    #         resource: namespace
-    #       pod:
-    #         resource: pod
-    #   metricsQuery: 'sum(increase(vertica_queued_requests_total[1m])) by (namespace, pod)'
+    # Number of requests that are queued in the resource pool. Type: gauge
+    - seriesQuery: 'vertica_queued_requests_total{namespace!="", pod!=""}'
+      name:
+        as: ${1}_count
+        matches: ^(.*)_total$
+      resources:
+        overrides:
+          namespace:
+            resource: namespace
+          pod:
+            resource: pod
+      metricsQuery: 'sum(vertica_queued_requests_total) by (namespace, pod)'
+    # Total number of active sessions. Used for testing
+    - metricsQuery: sum(vertica_sessions_running_counter{type="active", initiator="user"}) by (namespace, pod)
+      resources:
+        overrides:
+          namespace:
+            resource: namespace
+          pod:
+            resource: pod
+      name:
+        matches: "^(.*)_counter$"
+        as: "${1}_total" # vertica_sessions_running_total
+      seriesQuery: vertica_sessions_running_counter{namespace!="", pod!="", type="active", initiator="user"}

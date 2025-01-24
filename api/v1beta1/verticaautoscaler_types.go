@@ -203,6 +203,12 @@ type MetricDefinition struct {
 
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// The threshold to use for scaling down. It must be of the same type as
+	// the one used for scaling up, defined in the metric field.
+	ScaleDownThreshold *autoscalingv2.MetricTarget `json:"scaleDownThreshold,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// The custom metric to be used for autocaling.
 	Metric autoscalingv2.MetricSpec `json:"metric,omitempty"`
 }
@@ -255,12 +261,21 @@ type VerticaAutoscalerConditionType string
 const (
 	// TargetSizeInitialized indicates whether the operator has initialized targetSize in the spec
 	TargetSizeInitialized VerticaAutoscalerConditionType = "TargetSizeInitialized"
+	// ScalingActive indicates that the horizontal pod autoscaler can fetch the metric
+	// and is ready for whenever scaling is needed.
+	ScalingActive VerticaAutoscalerConditionType = "ScalingActive"
 )
 
 // Fixed index entries for each condition.
 const (
 	TargetSizeInitializedIndex = iota
+	ScalingActiveIndex
 )
+
+var VasConditionIndexMap = map[VerticaAutoscalerConditionType]int{
+	TargetSizeInitialized: TargetSizeInitializedIndex,
+	ScalingActive:         ScalingActiveIndex,
+}
 
 //+kubebuilder:object:root=true
 //+kubebuilder:resource:categories=all;vertica,shortName=vas
@@ -341,7 +356,7 @@ func MakeVASWithMetrics() *VerticaAutoscaler {
 					Metric: autoscalingv2.MetricSpec{
 						Type: autoscalingv2.ResourceMetricSourceType,
 						Resource: &autoscalingv2.ResourceMetricSource{
-							Name: "cpu",
+							Name: corev1.ResourceCPU,
 							Target: autoscalingv2.MetricTarget{
 								Type:               autoscalingv2.UtilizationMetricType,
 								AverageUtilization: &cpu, // Scale when CPU exceeds 80%

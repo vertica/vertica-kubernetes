@@ -230,6 +230,55 @@ func MakeScaledObjectSpec() *ScaledObjectSpec {
 	}
 }
 
+// HasScaleDownThreshold returns true if scale down threshold is set
+func (v *VerticaAutoscaler) HasScaleDownThreshold() bool {
+	if !v.IsCustomMetricsEnabled() {
+		return false
+	}
+	if v.Spec.CustomAutoscaler.Hpa == nil {
+		return false
+	}
+	for i := range v.Spec.CustomAutoscaler.Hpa.Metrics {
+		m := &v.Spec.CustomAutoscaler.Hpa.Metrics[i]
+		if m.ScaleDownThreshold != nil {
+			return true
+		}
+	}
+	return false
+}
+
+// GetMinReplicas calculates the minReplicas based on the scale down
+// threshold, and returns it
+func (v *VerticaAutoscaler) GetMinReplicas() *int32 {
+	if v.HasScaleDownThreshold() {
+		return &v.Spec.TargetSize
+	}
+	return v.Spec.CustomAutoscaler.Hpa.MinReplicas
+}
+
+// GetMetricMap returns a map whose key is the metric name and the value is
+// the metric's definition.
+func (v *VerticaAutoscaler) GetMetricMap() map[string]*MetricDefinition {
+	mMap := make(map[string]*MetricDefinition)
+	for i := range v.Spec.CustomAutoscaler.Hpa.Metrics {
+		m := &v.Spec.CustomAutoscaler.Hpa.Metrics[i]
+		var name string
+		if m.Metric.Pods != nil {
+			name = m.Metric.Pods.Metric.Name
+		} else if m.Metric.Object != nil {
+			name = m.Metric.Object.Metric.Name
+		} else if m.Metric.External != nil {
+			name = m.Metric.External.Metric.Name
+		} else if m.Metric.Resource != nil {
+			name = m.Metric.Resource.Name.String()
+		} else {
+			name = m.Metric.ContainerResource.Name.String()
+		}
+		mMap[name] = m
+	}
+	return mMap
+}
+
 func MakeSampleVrpqName() types.NamespacedName {
 	return types.NamespacedName{Name: "vrpq-sample", Namespace: "default"}
 }

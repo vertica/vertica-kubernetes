@@ -76,3 +76,7 @@ commands:
   - script: make undeploy || true
   - script: if [ "$CONTROLLERS_SCOPE" != "namespace" ]; then NAMESPACE=verticadb-operator make deploy; fi
   - script: if [ "$CONTROLLERS_SCOPE" = "namespace" ]; then NAMESPACE=verticadb-operator make deploy-webhook; fi
+  - script: make undeploy-prometheus || true
+  - script: if [ "$NEED_PROMETHEUS" = "true" ]; then make deploy-prometheus; fi
+  - script: make undeploy-prometheus-adapter || true
+  - script: if [ "$NEED_PROMETHEUS" = "true" ]; then make deploy-prometheus-adapter; fi
