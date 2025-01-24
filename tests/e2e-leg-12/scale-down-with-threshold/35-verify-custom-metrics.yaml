@@ -14,4 +14,13 @@
 apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 commands:
-  - script: cd ../../.. && make undeploy-prometheus PROMETHEUS_NAMESPACE=$NAMESPACE
+  - script: |
+      echo "sleep 60 seconds before starting to verify metrics"
+      sleep 60
+      RESULT=$(kubectl get --raw /apis/custom.metrics.k8s.io/v1beta1/namespaces/$NAMESPACE/pods/v-scale-down-threshold-pri1-0/vertica_sessions_running_total)
+      OUTPUT=$(echo $RESULT | jq -r '.items[0].value')
+      # verify the metrics result
+      if [[ "$OUTPUT" == "" ]]; then
+        echo "empty custom metrics result on vertica_sessions_running_total. Result: $RESULT"
+        exit 1
+      fi

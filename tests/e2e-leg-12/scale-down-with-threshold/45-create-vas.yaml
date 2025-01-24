@@ -1,0 +1,23 @@
+apiVersion: vertica.com/v1beta1
+kind: VerticaAutoscaler
+metadata:
+  name: v-scale-down-threshold-vas
+spec:
+  verticaDBName: v-scale-down-threshold
+  serviceName: pri1
+  scalingGranularity: Pod
+  customAutoscaler:
+    minReplicas: 3
+    maxReplicas: 7
+    metrics:
+      - metric:
+          type: Pods
+          pods:
+            metric:
+              name: vertica_sessions_running_total
+            target:
+              type: AverageValue
+              averageValue: 5
+        scaleDownThreshold:
+          type: AverageValue
+          averageValue: 1

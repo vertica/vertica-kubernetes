@@ -11,7 +11,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: kuttl.dev/v1beta1
-kind: TestStep
-commands:
-  - script: cd ../../.. && make deploy-prometheus-adapter PROMETHEUS_NAMESPACE=$NAMESPACE PROMETHEUS_ADAPTER_NAMESPACE=$NAMESPACE
+apiVersion: vertica.com/v1beta1
+kind: VerticaAutoscaler
+metadata:
+  name: v-scale-down-threshold-vas
+spec:
+  targetSize: 3
+status:
+  scalingCount: 1
+  currentSize: 3
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: v-scale-down-threshold-vas-hpa
+spec:
+  maxReplicas: 7
+  minReplicas: 3
