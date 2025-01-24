@@ -18,6 +18,7 @@ package vas
 import (
 	"context"
 
+	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	v1beta1 "github.com/vertica/vertica-kubernetes/api/v1beta1"
@@ -28,7 +29,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-var _ = Describe("hpa_reconcile", func() {
+var _ = Describe("obj_reconcile", func() {
 	ctx := context.Background()
 
 	It("should create/update hpa", func() {
@@ -36,7 +37,7 @@ var _ = Describe("hpa_reconcile", func() {
 		v1beta1_test.CreateVAS(ctx, k8sClient, vas)
 		defer v1beta1_test.DeleteVAS(ctx, k8sClient, vas)
 
-		r := MakeHorizontalPodAutoscalerReconciler(vasRec, vas, logger)
+		r := MakeObjReconciler(vasRec, vas, logger)
 		res, err := r.Reconcile(ctx, &ctrl.Request{})
 		defer v1beta1_test.DeleteHPA(ctx, k8sClient, vas)
 		Expect(res).Should(Equal(ctrl.Result{}))
@@ -46,18 +47,52 @@ var _ = Describe("hpa_reconcile", func() {
 		nm := names.GenHPAName(vas)
 		Expect(k8sClient.Get(ctx, nm, hpa)).Should(Succeed())
 		Expect(hpa.Spec.ScaleTargetRef.Name).Should(Equal(vas.Name))
-		Expect(*hpa.Spec.MinReplicas).Should(Equal(*vas.Spec.CustomAutoscaler.MinReplicas))
-		Expect(hpa.Spec.MaxReplicas).Should(Equal(vas.Spec.CustomAutoscaler.MaxReplicas))
+		Expect(*hpa.Spec.MinReplicas).Should(Equal(*vas.Spec.CustomAutoscaler.Hpa.MinReplicas))
+		Expect(hpa.Spec.MaxReplicas).Should(Equal(vas.Spec.CustomAutoscaler.Hpa.MaxReplicas))
 		Expect(hpa.Spec.Metrics[0].Resource.Name).Should(Equal(corev1.ResourceName("cpu")))
 
 		// Update hpa
 		newRep := int32(10)
-		vas.Spec.CustomAutoscaler.MaxReplicas = newRep
-		r = MakeHorizontalPodAutoscalerReconciler(vasRec, vas, logger)
+		vas.Spec.CustomAutoscaler.Hpa.MaxReplicas = newRep
+		r = MakeObjReconciler(vasRec, vas, logger)
 		res, err = r.Reconcile(ctx, &ctrl.Request{})
 		Expect(res).Should(Equal(ctrl.Result{}))
 		Expect(err).Should(Succeed())
 		Expect(k8sClient.Get(ctx, nm, hpa)).Should(Succeed())
 		Expect(hpa.Spec.MaxReplicas).Should(Equal(newRep))
+	})
+
+	It("should create/update scaledObject", func() {
+		vas := v1beta1.MakeVASWithMetrics()
+		vas.Spec.CustomAutoscaler.Hpa = nil
+		vas.Spec.CustomAutoscaler.ScaledObject = v1beta1.MakeScaledObjectSpec()
+		v1beta1_test.CreateVAS(ctx, k8sClient, vas)
+		defer v1beta1_test.DeleteVAS(ctx, k8sClient, vas)
+
+		r := MakeObjReconciler(vasRec, vas, logger)
+		res, err := r.Reconcile(ctx, &ctrl.Request{})
+		defer v1beta1_test.DeleteScaledObject(ctx, k8sClient, vas)
+		Expect(res).Should(Equal(ctrl.Result{}))
+		Expect(err).Should(Succeed())
+
+		so := &kedav1alpha1.ScaledObject{}
+		nm := names.GenScaledObjectName(vas)
+		Expect(k8sClient.Get(ctx, nm, so)).Should(Succeed())
+		Expect(so.Spec.ScaleTargetRef.Name).Should(Equal(vas.Name))
+		Expect(*so.Spec.MinReplicaCount).Should(Equal(*vas.Spec.CustomAutoscaler.ScaledObject.MinReplicas))
+		Expect(*so.Spec.MaxReplicaCount).Should(Equal(*vas.Spec.CustomAutoscaler.ScaledObject.MaxReplicas))
+		Expect(len(so.Spec.Triggers)).Should(Equal(len(vas.Spec.CustomAutoscaler.ScaledObject.Metrics)))
+		metric := &vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0]
+		Expect(so.Spec.Triggers[0].Metadata["serverAddress"]).Should(Equal(metric.Prometheus.ServerAddress))
+
+		// Update scaledObject
+		newRep := int32(10)
+		vas.Spec.CustomAutoscaler.ScaledObject.MaxReplicas = &newRep
+		r = MakeObjReconciler(vasRec, vas, logger)
+		res, err = r.Reconcile(ctx, &ctrl.Request{})
+		Expect(res).Should(Equal(ctrl.Result{}))
+		Expect(err).Should(Succeed())
+		Expect(k8sClient.Get(ctx, nm, so)).Should(Succeed())
+		Expect(*so.Spec.MaxReplicaCount).Should(Equal(newRep))
 	})
 })

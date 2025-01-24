@@ -32,7 +32,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/go-logr/logr"
 	v1vapi "github.com/vertica/vertica-kubernetes/api/v1"
@@ -112,7 +111,7 @@ func (r *EventTriggerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		For(&vapi.EventTrigger{}).
 		Owns(&batchv1.Job{}).
 		Watches(
-			&source.Kind{Type: &v1vapi.VerticaDB{}},
+			&v1vapi.VerticaDB{},
 			handler.EnqueueRequestsFromMapFunc(r.findObjectsForVerticaDB),
 			builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
 		).
@@ -139,13 +138,13 @@ func (r *EventTriggerReconciler) setupFieldIndexer(indx client.FieldIndexer) err
 
 // findObjectsForVerticaDB will generate requests to reconcile EventTriggers
 // based on watched VerticaDB.
-func (r *EventTriggerReconciler) findObjectsForVerticaDB(vdb client.Object) []reconcile.Request {
+func (r *EventTriggerReconciler) findObjectsForVerticaDB(ctx context.Context, vdb client.Object) []reconcile.Request {
 	attachedTriggers := &vapi.EventTriggerList{}
 	listOps := &client.ListOptions{
 		FieldSelector: fields.OneTermEqualSelector(vdbNameField, vdb.GetName()),
 		Namespace:     vdb.GetNamespace(),
 	}
-	err := r.List(context.Background(), attachedTriggers, listOps)
+	err := r.List(ctx, attachedTriggers, listOps)
 	if err != nil {
 		return []reconcile.Request{}
 	}

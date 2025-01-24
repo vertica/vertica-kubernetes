@@ -17,10 +17,12 @@ package vas
 
 import (
 	"context"
+	"fmt"
 
 	"reflect"
 
 	"github.com/go-logr/logr"
+	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/builder"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
@@ -31,58 +33,96 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// HorizontalPodAutoscalerReconciler is a reconciler to handle horizontal pod autoscaler
-// creation and update.
-type HorizontalPodAutoscalerReconciler struct {
+// ObjReconciler is a reconciler to handle reconciliation of VerticaAutoscaler-owned
+// objects.
+type ObjReconciler struct {
 	VRec *VerticaAutoscalerReconciler
 	Vas  *vapi.VerticaAutoscaler
 	Log  logr.Logger
 }
 
-func MakeHorizontalPodAutoscalerReconciler(v *VerticaAutoscalerReconciler, vas *vapi.VerticaAutoscaler,
+func MakeObjReconciler(v *VerticaAutoscalerReconciler, vas *vapi.VerticaAutoscaler,
 	log logr.Logger) controllers.ReconcileActor {
-	return &HorizontalPodAutoscalerReconciler{VRec: v, Vas: vas, Log: log.WithName("HorizontalPodAutoscalerReconciler")}
+	return &ObjReconciler{VRec: v, Vas: vas, Log: log.WithName("ObjReconciler")}
 }
 
-// Reconcile will handle creating the hpa if it does not exist or updating
-// the hpa if its spec is different from the CR's.
-func (h *HorizontalPodAutoscalerReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (ctrl.Result, error) {
-	if !h.Vas.IsCustomMetricsEnabled() {
+// Reconcile will handle creating the hpa/scaledObject if it does not exist or updating
+// the hpa/scaledObject if its spec is different from the CR's.
+func (o *ObjReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (ctrl.Result, error) {
+	if !o.Vas.IsCustomMetricsEnabled() {
 		return ctrl.Result{}, nil
 	}
-	nm := names.GenHPAName(h.Vas)
-	curHpa := &autoscalingv2.HorizontalPodAutoscaler{}
-	expHpa := builder.BuildHorizontalPodAutoscaler(nm, h.Vas)
-	err := h.VRec.Client.Get(ctx, nm, curHpa)
-	if err != nil && kerrors.IsNotFound(err) {
-		h.Log.Info("Creating horizontalpodautoscaler", "Name", nm.Name)
-		return ctrl.Result{}, createHpa(ctx, h.VRec, expHpa, h.Vas)
+	if o.Vas.Spec.CustomAutoscaler.Hpa != nil {
+		return ctrl.Result{}, o.reconcileHpa(ctx)
 	}
-	return ctrl.Result{}, h.updateHPA(ctx, curHpa, expHpa)
+	return ctrl.Result{}, o.reconcileScaledObject(ctx)
 }
 
-func (h *HorizontalPodAutoscalerReconciler) updateHPA(ctx context.Context, curHpa, expHpa *autoscalingv2.HorizontalPodAutoscaler) error {
+// reconcileHpa creates a new hpa or updates an existing one.
+func (o *ObjReconciler) reconcileHpa(ctx context.Context) error {
+	nm := names.GenHPAName(o.Vas)
+	curHpa := &autoscalingv2.HorizontalPodAutoscaler{}
+	expHpa := builder.BuildHorizontalPodAutoscaler(nm, o.Vas)
+	err := o.VRec.Client.Get(ctx, nm, curHpa)
+	if err != nil && kerrors.IsNotFound(err) {
+		o.Log.Info("Creating horizontalpodautoscaler", "Name", nm.Name)
+		return createObject(ctx, expHpa, o.VRec.Client, o.Vas)
+	}
+	return o.updateWorkload(ctx, curHpa, expHpa)
+}
+
+// reconcileScaledObject creates a scaledObject or updates an existing one.
+func (o *ObjReconciler) reconcileScaledObject(ctx context.Context) error {
+	nm := names.GenScaledObjectName(o.Vas)
+	curSO := &kedav1alpha1.ScaledObject{}
+	expSO := builder.BuildScaledObject(nm, o.Vas)
+	err := o.VRec.Client.Get(ctx, nm, curSO)
+	if err != nil && kerrors.IsNotFound(err) {
+		o.Log.Info("Creating scaledobject", "Name", nm.Name)
+		o.Log.Info("scaledObject HERE", "scaledobject", expSO)
+		return createObject(ctx, expSO, o.VRec.Client, o.Vas)
+	}
+	return o.updateWorkload(ctx, curSO, expSO)
+}
+
+func (o *ObjReconciler) updateWorkload(ctx context.Context, curWorkload, expWorkload client.Object) error {
 	// Create a patch object
-	patch := client.MergeFrom(curHpa.DeepCopy())
-	origHPA := curHpa.DeepCopy()
+	patch := client.MergeFrom(curWorkload.DeepCopyObject().(client.Object))
+	origWorkload := curWorkload.DeepCopyObject().(client.Object)
 
-	// Copy the Spec, Labels, and Annotations
-	expHpa.Spec.DeepCopyInto(&curHpa.Spec)
-	curHpa.SetLabels(expHpa.GetLabels())
-	curHpa.SetAnnotations(expHpa.GetAnnotations())
+	// Copy Spec, Labels, and Annotations
+	switch cw := curWorkload.(type) {
+	case *autoscalingv2.HorizontalPodAutoscaler:
+		expHpa := expWorkload.(*autoscalingv2.HorizontalPodAutoscaler)
+		expHpa.Spec.DeepCopyInto(&cw.Spec)
+	case *kedav1alpha1.ScaledObject:
+		expSO := expWorkload.(*kedav1alpha1.ScaledObject)
+		expSO.Spec.DeepCopyInto(&cw.Spec)
+	default:
+		return fmt.Errorf("unsupported workload type: %T", curWorkload)
+	}
+	curWorkload.SetLabels(expWorkload.GetLabels())
+	curWorkload.SetAnnotations(expWorkload.GetAnnotations())
 
-	// Patch the HPA
-	if err := h.VRec.Client.Patch(ctx, curHpa, patch); err != nil {
+	// Patch the workload
+	if err := o.VRec.Client.Patch(ctx, curWorkload, patch); err != nil {
 		return err
 	}
 
 	// Check if the spec was modified
-	if !reflect.DeepEqual(curHpa, origHPA) {
-		h.Log.Info("Patched HPA",
-			"Name", curHpa.Name,
-			"MinReplicas", *curHpa.Spec.MinReplicas,
-			"MaxReplicas", curHpa.Spec.MaxReplicas)
+	if !reflect.DeepEqual(curWorkload, origWorkload) {
+		if hpa, ok := curWorkload.(*autoscalingv2.HorizontalPodAutoscaler); ok {
+			o.Log.Info("Patched HPA",
+				"Name", hpa.Name,
+				"MinReplicas", *hpa.Spec.MinReplicas,
+				"MaxReplicas", hpa.Spec.MaxReplicas)
+		} else {
+			so := curWorkload.(*kedav1alpha1.ScaledObject)
+			o.Log.Info("Patched ScaledObject",
+				"Name", so.Name,
+				"MinReplicas", *so.Spec.MaxReplicaCount,
+				"MaxReplicas", *so.Spec.MaxReplicaCount)
+		}
 	}
-
 	return nil
 }

@@ -27,6 +27,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/go-logr/logr"
+	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
 	v1vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
@@ -49,6 +50,7 @@ type VerticaAutoscalerReconciler struct {
 //+kubebuilder:rbac:groups=vertica.com,resources=verticaautoscalers/finalizers,verbs=update
 //+kubebuilder:rbac:groups=vertica.com,resources=verticadbs,verbs=get;list;create;update;patch;delete
 //+kubebuilder:rbac:groups=autoscaling,resources=horizontalpodautoscalers,verbs=get;list;watch;create;update;delete;patch
+//+kubebuilder:rbac:groups=keda.sh,resources=scaledobjects,verbs=get;list;watch;create;update;delete;patch
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -87,7 +89,7 @@ func (r *VerticaAutoscalerReconciler) Reconcile(ctx context.Context, req ctrl.Re
 		MakeRefreshCurrentSizeReconciler(r, vas),
 		// Update the selector in the status
 		MakeRefreshSelectorReconciler(r, vas),
-		MakeHorizontalPodAutoscalerReconciler(r, vas, log),
+		MakeObjReconciler(r, vas, log),
 		// If scaling granularity is Pod, this will resize existing subclusters
 		// depending on the targetSize.
 		MakeSubclusterResizeReconciler(r, vas),
@@ -120,6 +122,7 @@ func (r *VerticaAutoscalerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		// This ensures the status fields are kept up to date.
 		Owns(&v1vapi.VerticaDB{}).
 		Owns(&autoscalingv2.HorizontalPodAutoscaler{}).
+		Owns(&kedav1alpha1.ScaledObject{}).
 		Complete(r)
 }
 

@@ -10,15 +10,19 @@ var _ = Describe("eventtrigger_webhook", func() {
 	// validate VerticaDB spec values
 	It("should succeed with all valid fields", func() {
 		et := MakeET()
-		Expect(et.ValidateCreate()).Should(Succeed())
-		Expect(et.ValidateUpdate(et)).Should(Succeed())
+		_, err := et.ValidateCreate()
+		Expect(err).Should(Succeed())
+		_, err = et.ValidateUpdate(et)
+		Expect(err).Should(Succeed())
 	})
 
 	It("should fail if reference object type is not VerticaDB", func() {
 		et := MakeET()
 		et.Spec.References[0].Object.Kind = "Pod"
-		Expect(et.ValidateCreate()).ShouldNot(Succeed())
-		Expect(et.ValidateUpdate(et)).ShouldNot(Succeed())
+		_, err := et.ValidateCreate()
+		Expect(err).ShouldNot(Succeed())
+		_, err = et.ValidateUpdate(et)
+		Expect(err).ShouldNot(Succeed())
 	})
 
 	It("should fail on multiple reference objects", func() {
@@ -34,8 +38,10 @@ var _ = Describe("eventtrigger_webhook", func() {
 
 		et.Spec.References = append(et.Spec.References, ref)
 
-		Expect(et.ValidateCreate()).ShouldNot(Succeed())
-		Expect(et.ValidateUpdate(et)).ShouldNot(Succeed())
+		_, err := et.ValidateCreate()
+		Expect(err).ShouldNot(Succeed())
+		_, err = et.ValidateUpdate(et)
+		Expect(err).ShouldNot(Succeed())
 	})
 
 	It("should fail on multiple matches conditions", func() {
@@ -48,19 +54,24 @@ var _ = Describe("eventtrigger_webhook", func() {
 		}
 		et.Spec.Matches = append(et.Spec.Matches, match)
 
-		Expect(et.ValidateCreate()).ShouldNot(Succeed())
-		Expect(et.ValidateUpdate(et)).ShouldNot(Succeed())
+		_, err := et.ValidateCreate()
+		Expect(err).ShouldNot(Succeed())
+		_, err = et.ValidateUpdate(et)
+		Expect(err).ShouldNot(Succeed())
 	})
 
 	It("should fail if job name is not specified", func() {
 		et := MakeET()
 		et.Spec.Template.Metadata.Name = ""
 		et.Spec.Template.Metadata.GenerateName = ""
-		Expect(et.ValidateCreate()).ShouldNot(Succeed())
+		_, err := et.ValidateCreate()
+		Expect(err).ShouldNot(Succeed())
 		et.Spec.Template.Metadata.GenerateName = "job1-"
-		Expect(et.ValidateCreate()).Should(Succeed())
+		_, err = et.ValidateCreate()
+		Expect(err).Should(Succeed())
 		et.Spec.Template.Metadata.Name = "job1"
 		et.Spec.Template.Metadata.GenerateName = ""
-		Expect(et.ValidateCreate()).Should(Succeed())
+		_, err = et.ValidateCreate()
+		Expect(err).Should(Succeed())
 	})
 })

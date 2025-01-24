@@ -31,21 +31,25 @@ var _ = Describe("verticascrutinize_webhook", func() {
 
 	It("should succeed with default async options", func() {
 		vrep := MakeVrep()
-		Expect(vrep.ValidateCreate()).Should(Succeed())
-		Expect(vrep.ValidateUpdate(vrep)).Should(Succeed())
+		_, err := vrep.ValidateCreate()
+		Expect(err).Should(Succeed())
+		_, err = vrep.ValidateUpdate(vrep)
+		Expect(err).Should(Succeed())
 	})
 
 	It("should succeed with default sync options", func() {
 		vrep := MakeVrep()
 		vrep.Spec.Mode = ReplicationModeSync
-		Expect(vrep.ValidateCreate()).Should(Succeed())
-		Expect(vrep.ValidateUpdate(vrep)).Should(Succeed())
+		_, err := vrep.ValidateCreate()
+		Expect(err).Should(Succeed())
+		_, err = vrep.ValidateUpdate(vrep)
+		Expect(err).Should(Succeed())
 	})
 
 	It("should fail with invalid mode", func() {
 		vrep := MakeVrep()
 		vrep.Spec.Mode = "invalid"
-		err := vrep.ValidateCreate()
+		_, err := vrep.ValidateCreate()
 		Expect(err.Error()).To(ContainSubstring("Mode must be either 'sync' or 'async'"))
 	})
 
@@ -53,16 +57,20 @@ var _ = Describe("verticascrutinize_webhook", func() {
 		vrep := MakeVrep()
 		vrep.Spec.Mode = ReplicationModeAsync
 		vrep.Spec.Source.ObjectName = validObjectName
-		Expect(vrep.ValidateCreate()).Should(Succeed())
-		Expect(vrep.ValidateUpdate(vrep)).Should(Succeed())
+		_, err := vrep.ValidateCreate()
+		Expect(err).Should(Succeed())
+		_, err = vrep.ValidateUpdate(vrep)
+		Expect(err).Should(Succeed())
 	})
 
 	It("should succeed if valid include pattern is used in async replication mode", func() {
 		vrep := MakeVrep()
 		vrep.Spec.Mode = ReplicationModeAsync
 		vrep.Spec.Source.IncludePattern = validIncludePattern
-		Expect(vrep.ValidateCreate()).Should(Succeed())
-		Expect(vrep.ValidateUpdate(vrep)).Should(Succeed())
+		_, err := vrep.ValidateCreate()
+		Expect(err).Should(Succeed())
+		_, err = vrep.ValidateUpdate(vrep)
+		Expect(err).Should(Succeed())
 	})
 
 	It("should succeed if valid exclude pattern is used in async replication mode", func() {
@@ -70,23 +78,27 @@ var _ = Describe("verticascrutinize_webhook", func() {
 		vrep.Spec.Mode = ReplicationModeAsync
 		vrep.Spec.Source.IncludePattern = validIncludePattern
 		vrep.Spec.Source.ExcludePattern = validExcludePattern
-		Expect(vrep.ValidateCreate()).Should(Succeed())
-		Expect(vrep.ValidateUpdate(vrep)).Should(Succeed())
+		_, err := vrep.ValidateCreate()
+		Expect(err).Should(Succeed())
+		_, err = vrep.ValidateUpdate(vrep)
+		Expect(err).Should(Succeed())
 	})
 
 	It("should succeed if valid target namespace is used in async replication mode", func() {
 		vrep := MakeVrep()
 		vrep.Spec.Mode = ReplicationModeAsync
 		vrep.Spec.Target.Namespace = validTargetNamespace
-		Expect(vrep.ValidateCreate()).Should(Succeed())
-		Expect(vrep.ValidateUpdate(vrep)).Should(Succeed())
+		_, err := vrep.ValidateCreate()
+		Expect(err).Should(Succeed())
+		_, err = vrep.ValidateUpdate(vrep)
+		Expect(err).Should(Succeed())
 	})
 
 	It("should fail if object name is used in sync replication mode", func() {
 		vrep := MakeVrep()
 		vrep.Spec.Mode = ReplicationModeSync
 		vrep.Spec.Source.ObjectName = validObjectName
-		err := vrep.ValidateCreate()
+		_, err := vrep.ValidateCreate()
 		Expect(err.Error()).To(ContainSubstring("Object name cannot be used in replication mode 'sync'"))
 	})
 
@@ -94,7 +106,7 @@ var _ = Describe("verticascrutinize_webhook", func() {
 		vrep := MakeVrep()
 		vrep.Spec.Mode = ReplicationModeSync
 		vrep.Spec.Source.IncludePattern = validIncludePattern
-		err := vrep.ValidateCreate()
+		_, err := vrep.ValidateCreate()
 		Expect(err.Error()).To(ContainSubstring("Include pattern cannot be used in replication mode 'sync'"))
 	})
 
@@ -103,7 +115,7 @@ var _ = Describe("verticascrutinize_webhook", func() {
 		vrep.Spec.Mode = ReplicationModeSync
 		vrep.Spec.Source.IncludePattern = validIncludePattern
 		vrep.Spec.Source.ExcludePattern = validExcludePattern
-		err := vrep.ValidateCreate()
+		_, err := vrep.ValidateCreate()
 		Expect(err.Error()).To(ContainSubstring("Exclude pattern cannot be used in replication mode 'sync'"))
 	})
 
@@ -111,7 +123,7 @@ var _ = Describe("verticascrutinize_webhook", func() {
 		vrep := MakeVrep()
 		vrep.Spec.Mode = ReplicationModeSync
 		vrep.Spec.Target.Namespace = validTargetNamespace
-		err := vrep.ValidateCreate()
+		_, err := vrep.ValidateCreate()
 		Expect(err.Error()).To(ContainSubstring("Target namespace cannot be used in replication mode 'sync'"))
 	})
 
@@ -120,7 +132,7 @@ var _ = Describe("verticascrutinize_webhook", func() {
 		vrep.Spec.Mode = ReplicationModeAsync
 		vrep.Spec.Source.ObjectName = validObjectName
 		vrep.Spec.Source.IncludePattern = validIncludePattern
-		err := vrep.ValidateCreate()
+		_, err := vrep.ValidateCreate()
 		Expect(err.Error()).To(ContainSubstring("Object name and include pattern cannot be used together"))
 	})
 
@@ -130,7 +142,7 @@ var _ = Describe("verticascrutinize_webhook", func() {
 		vrep.Spec.Source.ObjectName = validObjectName
 		vrep.Spec.Source.IncludePattern = validIncludePattern
 		vrep.Spec.Source.ExcludePattern = validExcludePattern
-		err := vrep.ValidateCreate()
+		_, err := vrep.ValidateCreate()
 		Expect(err.Error()).To(ContainSubstring("Object name and exclude pattern cannot be used together"))
 	})
 
@@ -138,7 +150,7 @@ var _ = Describe("verticascrutinize_webhook", func() {
 		vrep := MakeVrep()
 		vrep.Spec.Mode = ReplicationModeAsync
 		vrep.Spec.Source.ExcludePattern = validExcludePattern
-		err := vrep.ValidateCreate()
+		_, err := vrep.ValidateCreate()
 		Expect(err.Error()).To(ContainSubstring("Exclude pattern cannot be used without include pattern"))
 	})
 
@@ -148,7 +160,7 @@ var _ = Describe("verticascrutinize_webhook", func() {
 			vmeta.ReplicationTimeoutAnnotation:          "10",
 			vmeta.ReplicationPollingFrequencyAnnotation: "0",
 		}
-		err := vrep.ValidateCreate()
+		_, err := vrep.ValidateCreate()
 		Expect(err.Error()).To(ContainSubstring("polling frequency cannot be 0 or less than 0"))
 
 	})

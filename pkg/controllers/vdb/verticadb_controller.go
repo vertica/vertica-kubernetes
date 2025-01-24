@@ -28,9 +28,11 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/util/workqueue"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	"github.com/google/uuid"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
@@ -48,10 +50,12 @@ import (
 // VerticaDBReconciler reconciles a VerticaDB object
 type VerticaDBReconciler struct {
 	client.Client
-	Log    logr.Logger
-	Scheme *runtime.Scheme
-	Cfg    *rest.Config
-	EVRec  record.EventRecorder
+	Log                logr.Logger
+	Scheme             *runtime.Scheme
+	Cfg                *rest.Config
+	EVRec              record.EventRecorder
+	Namespace          string
+	MaxBackOffDuration int
 }
 
 // +kubebuilder:rbac:groups=vertica.com,resources=verticadbs,verbs=get;list;watch;create;update;patch;delete
@@ -74,7 +78,11 @@ type VerticaDBReconciler struct {
 // +kubebuilder:rbac:groups="",resources=events,verbs=create;patch
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *VerticaDBReconciler) SetupWithManager(mgr ctrl.Manager, options controller.Options) error {
+func (r *VerticaDBReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	options := controller.Options{
+		RateLimiter: workqueue.NewItemExponentialFailureRateLimiter(1*time.Millisecond,
+			time.Duration(r.MaxBackOffDuration)*time.Millisecond),
+	}
 	return ctrl.NewControllerManagedBy(mgr).
 		WithOptions(options).
 		For(&vapi.VerticaDB{}).
@@ -84,6 +92,12 @@ func (r *VerticaDBReconciler) SetupWithManager(mgr ctrl.Manager, options control
 		Owns(&corev1.Service{}).
 		Owns(&appsv1.StatefulSet{}).
 		Owns(&appsv1.Deployment{}).
+		WithEventFilter(predicate.NewPredicateFuncs(func(obj client.Object) bool {
+			if r.Namespace == "" {
+				return true
+			}
+			return obj.GetNamespace() == r.Namespace
+		})).
 		Complete(r)
 }
 

@@ -34,6 +34,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 )
 
 var k8sClient client.Client
@@ -111,9 +112,12 @@ var _ = BeforeSuite(func() {
 	k8sClient, err = client.New(restCfg, client.Options{Scheme: scheme.Scheme})
 	ExpectWithOffset(1, err).NotTo(HaveOccurred())
 
+	metricsServerOptions := metricsserver.Options{
+		BindAddress: "0",
+	}
 	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
-		Scheme:             scheme.Scheme,
-		MetricsBindAddress: "0", // Disable metrics for the test
+		Scheme:  scheme.Scheme,
+		Metrics: metricsServerOptions, // Disable metrics for the test
 	})
 	Expect(err).NotTo(HaveOccurred())
 

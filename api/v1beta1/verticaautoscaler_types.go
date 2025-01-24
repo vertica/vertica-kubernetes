@@ -89,6 +89,12 @@ type VerticaAutoscalerSpec struct {
 
 // CustomAutoscalerSpec customizes VerticaAutoscaler
 type CustomAutoscalerSpec struct {
+	Type         string            `json:"type"`
+	Hpa          *HPASpec          `json:"hpa,omitempty"`
+	ScaledObject *ScaledObjectSpec `json:"scaledObject,omitempty"`
+}
+
+type HPASpec struct {
 	// +kubebuilder:Minimum:=0
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// The miminum number of pods when scaling.
@@ -108,6 +114,82 @@ type CustomAutoscalerSpec struct {
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// Specifies the scaling behavior for both scale up and down.
 	Behavior *autoscalingv2.HorizontalPodAutoscalerBehavior `json:"behavior,omitempty"`
+}
+
+type ScaledObjectSpec struct {
+	// +kubebuilder:Minimum:=0
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// The miminum number of pods when scaling.
+	MinReplicas *int32 `json:"minReplicas,omitempty"`
+
+	// +kubebuilder:Minimum:=0
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// The maximum number of pods when scaling.
+	MaxReplicas *int32 `json:"maxReplicas,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// The time interval at which the scaler will check the metric condition and scale the target (in seconds).
+	// If not specified, the default is 30 seconds.
+	PollingInterval *int32 `json:"pollingInterval,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// Defines the time to wait between scaling actions. This is helpful to avoid constant scaling up/down. Default: 30s.
+	CooldownPeriod *int32 `json:"cooldownPeriod,omitempty"`
+
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// The list of prometheus queries that will be used for scaling.
+	Metrics []ScaleTrigger `json:"metrics"`
+
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// Specifies the scaling behavior for both scale up and down.
+	Behavior *autoscalingv2.HorizontalPodAutoscalerBehavior `json:"behavior,omitempty"`
+}
+
+type ScaleTrigger struct {
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// The custom name of this query, which can be used for logging
+	// or referring to this particular query.
+	Name string `json:"name,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// The secret that contains prometheus credentials. Supports basic auth, bearer tokens, and TLS authentication.
+	AuthSecret string `json:"authSecret,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// Represents whether the metric type is Utilization, Value, or AverageValue.
+	MetricType autoscalingv2.MetricTargetType `json:"metricType,omitempty"`
+
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// The detail about how to fetch metrics from Prometheus and scale workloads based on them
+	Prometheus PrometheusSpec `json:"prometheus"`
+}
+
+type PrometheusSpec struct {
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// The URL of the Prometheus server.
+	ServerAddress string `json:"serverAddress"`
+
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// The PromQL query to fetch metrics (e.g., sum(vertica_sessions_running_counter{type="active", initiator="user"})).
+	Query string `json:"query"`
+
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// The threshold value at which scale up is triggered.
+	Threshold int32 `json:"threshold"`
+
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// This is the lower bound at which the autoscaler starts scaling down to the minimum replica count.
+	// If the metric falls below threshold but is still above this value, the current replica count remains unchanged.
+	ScaleDownThreshold int32 `json:"scaleDownThreshold,omitempty"`
 }
 
 // MetricDefinition defines increment and metric to be used for autoscaling
@@ -251,17 +333,19 @@ func MakeVASWithMetrics() *VerticaAutoscaler {
 	maxRep := int32(6)
 	cpu := int32(80)
 	vas.Spec.CustomAutoscaler = &CustomAutoscalerSpec{
-		MinReplicas: &minRep,
-		MaxReplicas: maxRep,
-		Metrics: []MetricDefinition{
-			{
-				Metric: autoscalingv2.MetricSpec{
-					Type: autoscalingv2.ResourceMetricSourceType,
-					Resource: &autoscalingv2.ResourceMetricSource{
-						Name: "cpu",
-						Target: autoscalingv2.MetricTarget{
-							Type:               autoscalingv2.UtilizationMetricType,
-							AverageUtilization: &cpu, // Scale when CPU exceeds 80%
+		Hpa: &HPASpec{
+			MinReplicas: &minRep,
+			MaxReplicas: maxRep,
+			Metrics: []MetricDefinition{
+				{
+					Metric: autoscalingv2.MetricSpec{
+						Type: autoscalingv2.ResourceMetricSourceType,
+						Resource: &autoscalingv2.ResourceMetricSource{
+							Name: "cpu",
+							Target: autoscalingv2.MetricTarget{
+								Type:               autoscalingv2.UtilizationMetricType,
+								AverageUtilization: &cpu, // Scale when CPU exceeds 80%
+							},
 						},
 					},
 				},
@@ -279,5 +363,6 @@ func (v *VerticaAutoscaler) CanUseTemplate() bool {
 // IsCustomMetricsEnabled returns true if the CR is set to use
 // custom metrics for scaling.
 func (v *VerticaAutoscaler) IsCustomMetricsEnabled() bool {
-	return v.Spec.CustomAutoscaler != nil
+	return v.Spec.CustomAutoscaler != nil &&
+		(v.Spec.CustomAutoscaler.Hpa != nil || v.Spec.CustomAutoscaler.ScaledObject != nil)
 }

@@ -26,30 +26,36 @@ import (
 var _ = Describe("verticascrutinize_webhook", func() {
 	It("should succeed with no log age times", func() {
 		vscr := MakeVscr()
-		Expect(vscr.ValidateCreate()).Should(Succeed())
-		Expect(vscr.ValidateUpdate(vscr)).Should(Succeed())
+		_, err := vscr.ValidateCreate()
+		Expect(err).Should(Succeed())
+		_, err = vscr.ValidateUpdate(vscr)
+		Expect(err).Should(Succeed())
 	})
 
 	It("should succeed with log-age-hours only", func() {
 		vscr := MakeVscr()
 		vscr.Annotations[vmeta.ScrutinizeLogAgeHours] = "8"
-		Expect(vscr.ValidateCreate()).Should(Succeed())
-		Expect(vscr.ValidateUpdate(vscr)).Should(Succeed())
+		_, err := vscr.ValidateCreate()
+		Expect(err).Should(Succeed())
+		_, err = vscr.ValidateUpdate(vscr)
+		Expect(err).Should(Succeed())
 	})
 
 	It("should succeed with valid log-age-oldest-time and log-age-newest-time", func() {
 		vscr := MakeVscr()
 		vscr.Annotations[vmeta.ScrutinizeLogAgeOldestTime] = GenerateLogAgeTime(-8, "-05")
 		vscr.Annotations[vmeta.ScrutinizeLogAgeNewestTime] = GenerateLogAgeTime(24, "")
-		Expect(vscr.ValidateCreate()).Should(Succeed())
-		Expect(vscr.ValidateUpdate(vscr)).Should(Succeed())
+		_, err := vscr.ValidateCreate()
+		Expect(err).Should(Succeed())
+		_, err = vscr.ValidateUpdate(vscr)
+		Expect(err).Should(Succeed())
 	})
 
 	// log-age-hours should be a positive integer
 	It("failed to parse log-age-hours", func() {
 		vscr := MakeVscr()
 		vscr.Annotations[vmeta.ScrutinizeLogAgeHours] = "not-a-number"
-		err := vscr.ValidateCreate()
+		_, err := vscr.ValidateCreate()
 		Expect(err.Error()).To(ContainSubstring("failed to parse log-age-hours"))
 	})
 
@@ -58,14 +64,14 @@ var _ = Describe("verticascrutinize_webhook", func() {
 		vscr.Annotations[vmeta.ScrutinizeLogAgeHours] = "8"
 		vscr.Annotations[vmeta.ScrutinizeLogAgeOldestTime] = GenerateLogAgeTime(-8, "-05")
 		vscr.Annotations[vmeta.ScrutinizeLogAgeNewestTime] = GenerateLogAgeTime(24, "")
-		err := vscr.ValidateCreate()
+		_, err := vscr.ValidateCreate()
 		Expect(err.Error()).To(ContainSubstring("log-age-hours cannot be set alongside log-age-oldest-time and log-age-newest-time"))
 	})
 
 	It("should fail if log-age-hours is negative", func() {
 		vscr := MakeVscr()
 		vscr.Annotations[vmeta.ScrutinizeLogAgeHours] = "-8"
-		err := vscr.ValidateCreate()
+		_, err := vscr.ValidateCreate()
 		Expect(err.Error()).To(ContainSubstring("log-age-hours cannot be negative"))
 	})
 
@@ -74,14 +80,14 @@ var _ = Describe("verticascrutinize_webhook", func() {
 		vscr := MakeVscr()
 		vscr.Annotations[vmeta.ScrutinizeLogAgeOldestTime] = "2024"
 		vscr.Annotations[vmeta.ScrutinizeLogAgeNewestTime] = "not-time-type"
-		err := vscr.ValidateCreate()
+		_, err := vscr.ValidateCreate()
 		Expect(err.Error()).To(ContainSubstring("failed to parse log-age-*-time"))
 	})
 
 	It("should fail if log-age-oldest-time is after current time", func() {
 		vscr := MakeVscr()
 		vscr.Annotations[vmeta.ScrutinizeLogAgeOldestTime] = GenerateLogAgeTime(22, "+08")
-		err := vscr.ValidateCreate()
+		_, err := vscr.ValidateCreate()
 		Expect(err.Error()).To(ContainSubstring("log-age-oldest-time cannot be set after current time"))
 	})
 
@@ -89,7 +95,7 @@ var _ = Describe("verticascrutinize_webhook", func() {
 		vscr := MakeVscr()
 		vscr.Annotations[vmeta.ScrutinizeLogAgeOldestTime] = GenerateLogAgeTime(-4, "-05")
 		vscr.Annotations[vmeta.ScrutinizeLogAgeNewestTime] = GenerateLogAgeTime(-24, "-05")
-		err := vscr.ValidateCreate()
+		_, err := vscr.ValidateCreate()
 		Expect(err.Error()).To(ContainSubstring("log-age-oldest-time cannot be set after log-age-newest-time"))
 	})
 
@@ -97,7 +103,7 @@ var _ = Describe("verticascrutinize_webhook", func() {
 	It("should fail if log-age-oldest-time is in wrong format", func() {
 		vscr := MakeVscr()
 		vscr.Annotations[vmeta.ScrutinizeLogAgeOldestTime] = time.Now().AddDate(0, 0, -1).Format(time.RFC1123)
-		err := vscr.ValidateCreate()
+		_, err := vscr.ValidateCreate()
 		Expect(err.Error()).To(ContainSubstring("should be formatted as: YYYY-MM-DD HH [+/-XX]"))
 	})
 
@@ -105,7 +111,7 @@ var _ = Describe("verticascrutinize_webhook", func() {
 	It("should fail if log-age-newest-time is in wrong format", func() {
 		vscr := MakeVscr()
 		vscr.Annotations[vmeta.ScrutinizeLogAgeNewestTime] = "invalid time format"
-		err := vscr.ValidateCreate()
+		_, err := vscr.ValidateCreate()
 		Expect(err.Error()).To(ContainSubstring("should be formatted as: YYYY-MM-DD HH [+/-XX]"))
 	})
 

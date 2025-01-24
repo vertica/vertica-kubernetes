@@ -187,11 +187,47 @@ func (vrep *VerticaReplicator) IsStatusConditionPresent(statusCondition string) 
 
 // GetHPAMetrics extract an return hpa metrics from MetricDefinition struct.
 func (v *VerticaAutoscaler) GetHPAMetrics() []autoscalingv2.MetricSpec {
-	metrics := make([]autoscalingv2.MetricSpec, len(v.Spec.CustomAutoscaler.Metrics))
-	for i := range v.Spec.CustomAutoscaler.Metrics {
-		metrics[i] = v.Spec.CustomAutoscaler.Metrics[i].Metric
+	metrics := make([]autoscalingv2.MetricSpec, len(v.Spec.CustomAutoscaler.Hpa.Metrics))
+	for i := range v.Spec.CustomAutoscaler.Hpa.Metrics {
+		metrics[i] = v.Spec.CustomAutoscaler.Hpa.Metrics[i].Metric
 	}
 	return metrics
+}
+
+// Convert PrometheusSpec to map[string]string
+func (p *PrometheusSpec) GetPrometheusMap() map[string]string {
+	result := make(map[string]string)
+
+	result["serverAddress"] = p.ServerAddress
+	result["query"] = p.Query
+	result["threshold"] = fmt.Sprintf("%d", p.Threshold)
+
+	// Only add ScaleDownThreshold if it is non-zero
+	if p.ScaleDownThreshold != 0 {
+		result["activationThreshold"] = fmt.Sprintf("%d", p.ScaleDownThreshold)
+	}
+
+	return result
+}
+
+// MakeScaledObjectSpec builds a sample scaleObjectSpec.
+// This is intended for test purposes.
+func MakeScaledObjectSpec() *ScaledObjectSpec {
+	return &ScaledObjectSpec{
+		MinReplicas:     &[]int32{3}[0],
+		MaxReplicas:     &[]int32{6}[0],
+		PollingInterval: &[]int32{5}[0],
+		Metrics: []ScaleTrigger{
+			{
+				Name: "sample-metric",
+				Prometheus: PrometheusSpec{
+					ServerAddress: "http://localhost",
+					Query:         "query",
+					Threshold:     5,
+				},
+			},
+		},
+	}
 }
 
 func MakeSampleVrpqName() types.NamespacedName {

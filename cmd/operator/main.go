@@ -17,9 +17,9 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
 	"log"
 	"os"
-	"time"
 
 	// Allows us to pull in things generated from `go generate`
 	_ "embed"
@@ -28,18 +28,19 @@ import (
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "net/http/pprof" //nolint:gosec
 
+	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/record"
-	"k8s.io/client-go/util/workqueue"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/config/v1alpha1"
-	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/config"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
+	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	vapiV1 "github.com/vertica/vertica-kubernetes/api/v1"
 	vapiB1 "github.com/vertica/vertica-kubernetes/api/v1beta1"
@@ -81,6 +82,7 @@ func init() {
 
 	utilruntime.Must(vapiB1.AddToScheme(scheme))
 	utilruntime.Must(vapiV1.AddToScheme(scheme))
+	utilruntime.Must(kedav1alpha1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }
 
@@ -92,19 +94,15 @@ func addReconcilersToManager(mgr manager.Manager, restCfg *rest.Config) {
 		return
 	}
 
-	// Create a custom option with our own rate limiter
-	rateLimiter := workqueue.NewItemExponentialFailureRateLimiter(1*time.Millisecond,
-		time.Duration(opcfg.GetVdbMaxBackoffDuration())*time.Millisecond)
-	options := controller.Options{
-		RateLimiter: rateLimiter,
-	}
 	if err := (&vdb.VerticaDBReconciler{
-		Client: mgr.GetClient(),
-		Log:    ctrl.Log.WithName("controllers").WithName("VerticaDB"),
-		Scheme: mgr.GetScheme(),
-		Cfg:    restCfg,
-		EVRec:  mgr.GetEventRecorderFor(vmeta.OperatorName),
-	}).SetupWithManager(mgr, options); err != nil {
+		Client:             mgr.GetClient(),
+		Log:                ctrl.Log.WithName("controllers").WithName("VerticaDB"),
+		Scheme:             mgr.GetScheme(),
+		Cfg:                restCfg,
+		EVRec:              mgr.GetEventRecorderFor(vmeta.OperatorName),
+		Namespace:          opcfg.GetWatchNamespace(),
+		MaxBackOffDuration: opcfg.GetVdbMaxBackoffDuration(),
+	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "VerticaDB")
 		os.Exit(1)
 	}
@@ -173,15 +171,6 @@ func addReconcilersToManager(mgr manager.Manager, restCfg *rest.Config) {
 // addWebhooktsToManager will add any webhooks to the manager.  If any failure
 // occurs, it will exit the program.
 func addWebhooksToManager(mgr manager.Manager) {
-	// Set the minimum TLS version for the webhook.  By default it will use
-	// TLS 1.0, which has a lot of security flaws.  This is a hacky way to
-	// set this and should be removed once there is a supported way.
-	// There are numerous proposals to allow this to be configured from
-	// Manager -- based on most recent activity this one looks promising:
-	// https://github.com/kubernetes-sigs/controller-runtime/issues/852
-	webhookServer := mgr.GetWebhookServer()
-	webhookServer.TLSMinVersion = "1.3"
-
 	if err := (&vapiV1.VerticaDB{}).SetupWebhookWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "VerticaDB", "version", vapiV1.Version)
 	}
@@ -270,17 +259,27 @@ func main() {
 
 	restCfg := ctrl.GetConfigOrDie()
 
+	metricsServerOptions := metricsserver.Options{
+		BindAddress: opcfg.GetMetricsAddr(),
+	}
+	tlsFunc := func(c *tls.Config) {
+		c.MinVersion = tls.VersionTLS13
+	}
 	mgr, err := ctrl.NewManager(restCfg, ctrl.Options{
-		Scheme:                 scheme,
-		MetricsBindAddress:     opcfg.GetMetricsAddr(),
-		Port:                   9443,
+		Scheme:  scheme,
+		Metrics: metricsServerOptions,
+		WebhookServer: &webhook.DefaultServer{
+			Options: webhook.Options{
+				Port:    9443,
+				CertDir: CertDir,
+				TLSOpts: []func(*tls.Config){tlsFunc},
+			},
+		},
 		HealthProbeBindAddress: ":8081",
 		LeaderElection:         true,
 		LeaderElectionID:       opcfg.GetLeaderElectionID(),
-		Namespace:              opcfg.GetWatchNamespace(),
 		EventBroadcaster:       multibroadcaster,
-		CertDir:                CertDir,
-		Controller: v1alpha1.ControllerConfigurationSpec{
+		Controller: config.Controller{
 			GroupKindConcurrency: map[string]int{
 				vapiB1.GkVDB.String():  opcfg.GetVerticaDBConcurrency(),
 				vapiB1.GkVAS.String():  opcfg.GetVerticaAutoscalerConcurrency(),
