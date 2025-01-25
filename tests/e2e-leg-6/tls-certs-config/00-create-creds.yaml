@@ -11,8 +11,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: kuttl.dev/v1beta2
+apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 commands:
-  # nma certs volume mount path should exist.
-  - command: kubectl exec -n $NAMESPACE v-nma-certs-sc1-0 -- bash -c "test -d /certs/nma"
+  - script: kustomize build ../../manifests/communal-creds/overlay | kubectl apply -f - --namespace $NAMESPACE
+  - script: kustomize build ../../manifests/priv-container-creds/overlay | kubectl apply -f - --namespace $NAMESPACE
+  - script: kustomize build ../../manifests/vertica-license/overlay | kubectl apply -f - --namespace $NAMESPACE

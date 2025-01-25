@@ -14,7 +14,7 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: v-nma-certs-sc1
+  name: v-tls-certs-sc1
 status:
   replicas: 1
   readyReplicas: 1
@@ -22,10 +22,9 @@ status:
 apiVersion: vertica.com/v1beta1
 kind: VerticaDB
 metadata:
-  name: v-nma-certs
+  name: v-tls-certs
   annotations:
     vertica.com/vcluster-ops: "true"
-    vertica.com/mount-nma-certs: "false"
 status:
   subclusters:
     - installCount: 1
