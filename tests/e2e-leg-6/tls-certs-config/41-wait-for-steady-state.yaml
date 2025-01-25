@@ -11,8 +11,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: kuttl.dev/v1beta2
+apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 commands:
-  # nma certs volume mount path should not exist.
-  - command: kubectl exec -n $NAMESPACE v-nma-certs-sc1-0 -- bash -c "! test -d /certs/nma"
+  - command: bash -c "../../../scripts/wait-for-verticadb-steady-state.sh -n verticadb-operator -t 360 $NAMESPACE"

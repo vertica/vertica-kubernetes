@@ -11,7 +11,30 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: kuttl.dev/v1beta1
-kind: TestStep
-commands:
-  - script: cd ../../..  && scripts/capture-scrutinize.sh -o /tmp/scrutinize-op -x -n $NAMESPACE
+apiVersion: vertica.com/v1beta1
+kind: VerticaDB
+metadata:
+  name: v-tls-certs
+  annotations:
+    vertica.com/vcluster-ops: "true"
+spec:
+  initPolicy: CreateSkipPackageInstall
+  image: kustomize-vertica-image
+  communal:
+    includeUIDInPath: true
+  local:
+    requestSize: 100Mi
+    catalogPath: /catalog
+  dbName: vertdb
+  encryptSpreadComm: vertica
+  subclusters:
+    - name: sc1
+      size: 1
+  kSafety: "0"
+  securityContext:
+    capabilities:
+      add: ["SYS_PTRACE"]
+  certSecrets: []
+  imagePullSecrets: []
+  volumes: []
+  volumeMounts: []
