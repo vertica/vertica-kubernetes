@@ -7,3 +7,9 @@
   value:
     mountPath: /cert
     name: auth-cert
+- op: add
+  path: /spec/template/spec/volumes/0
+  value:
+    name: auth-cert
+    secret:
+      secretName: custom-cert

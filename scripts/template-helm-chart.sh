@@ -153,8 +153,8 @@ perl -i -0777 -pe 's/verticadb-operator/{{ include "vdb-op.name" . }}/g' $TEMPLA
 for f in $TEMPLATE_DIR/verticadb-operator-manager-deployment.yaml
 do
     perl -i -0777 -pe 's/(.*--v=[0-9]+)/$1\n{{- if not (empty .Values.prometheus.tlsSecret) }}\n        - --tls-cert-file=\/cert\/tls.crt\n        - --tls-private-key-file=\/cert\/tls.key\n        - --client-ca-file=\/cert\/ca.crt\n{{- end }}/g' $f
-    perl -i -0777 -pe 's/(volumes:)/$1\n{{- if not (empty .Values.prometheus.tlsSecret) }}\n      - name: auth-cert\n        secret:\n          secretName: {{ .Values.prometheus.tlsSecret }}\n{{- end }}/g' $f
     perl -i -0777 -pe 's/(.*- mountPath: .*\n.*name: auth-cert.*)/\{\{- if not (empty .Values.prometheus.tlsSecret) }}\n        - mountPath: \/cert\n          name: auth-cert\n{{- end }}/g' $f
+    perl -i -0777 -pe 's/(.*- name: auth-cert.*\n.*secret:\n.*secretName: custom-cert)/{{- if not \(empty .Values.prometheus.tlsSecret\) }}\n      - name: auth-cert\n        secret:\n          secretName: {{ .Values.prometheus.tlsSecret }}\n{{- end }}/g' $f
 done
 
 # 18.  Add pod scheduling options

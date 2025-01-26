@@ -38,7 +38,15 @@ func GetIsWebhookEnabled() bool {
 
 // GetBroadcasterBurstSize returns the customizable burst size for broadcaster.
 func GetBroadcasterBurstSize() int {
-	burstSize := lookupIntEnvVar("BROADCASTER_BURST_SIZE", envCanNotExist)
+	envName := "BROADCASTER_BURST_SIZE"
+	burstSizeStr := lookupStringEnvVar(envName, envCanNotExist)
+	if burstSizeStr == "" {
+		return defaultBurstSize
+	}
+	burstSize, err := strconv.Atoi(burstSizeStr)
+	if err != nil {
+		dieIfNotValid(envName)
+	}
 	if burstSize > defaultBurstSize {
 		return burstSize
 	}
