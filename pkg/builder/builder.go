@@ -442,15 +442,6 @@ func buildScrutinizeVolumeMountForVerticaPod(vdb *vapi.VerticaDB) []corev1.Volum
 	}
 }
 
-func buildNMACertsVolumeMount() []corev1.VolumeMount {
-	return []corev1.VolumeMount{
-		{
-			Name:      vapi.NMACertsMountName,
-			MountPath: paths.NMACertsRoot,
-		},
-	}
-}
-
 // buildCertSecretVolumeMounts returns the volume mounts for any cert secrets that are in the vdb
 func buildCertSecretVolumeMounts(vdb *vapi.VerticaDB) []corev1.VolumeMount {
 	mnts := []corev1.VolumeMount{}
@@ -760,17 +751,6 @@ func buildSSHVolume(vdb *vapi.VerticaDB) corev1.Volume {
 		VolumeSource: corev1.VolumeSource{
 			Secret: &corev1.SecretVolumeSource{
 				SecretName: vdb.GetSSHSecretName(),
-			},
-		},
-	}
-}
-
-func buildNMACertsSecretVolume(vdb *vapi.VerticaDB) corev1.Volume {
-	return corev1.Volume{
-		Name: vapi.NMACertsMountName,
-		VolumeSource: corev1.VolumeSource{
-			Secret: &corev1.SecretVolumeSource{
-				SecretName: vdb.Spec.NMATLSSecret,
 			},
 		},
 	}

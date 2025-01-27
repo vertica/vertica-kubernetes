@@ -77,7 +77,7 @@ func (h *TLSCertConfigMapGenReconciler) Reconcile(ctx context.Context, _ *ctrl.R
 
 // tlsSecretsReady returns true when all TLS secrets are found in k8s env
 func (h *TLSCertConfigMapGenReconciler) tlsSecretsReady(ctx context.Context) bool {
-	if h.Vdb.Spec.NMATLSSecret == "" || h.Vdb.Spec.HttpsTLSSecret == "" ||
+	if h.Vdb.Spec.NMATLSSecret == "" || h.Vdb.Spec.HTTPSTLSSecret == "" ||
 		h.Vdb.Spec.ClientTLSSecret == "" {
 		h.Log.Info("not all tls secret names are ready. wait for them to be created")
 		return false
@@ -86,7 +86,7 @@ func (h *TLSCertConfigMapGenReconciler) tlsSecretsReady(ctx context.Context) boo
 	if !found || err != nil {
 		return false
 	}
-	found, err = vapi.IsK8sSecretFound(ctx, h.Vdb, h.VRec.Client, &h.Vdb.Spec.HttpsTLSSecret)
+	found, err = vapi.IsK8sSecretFound(ctx, h.Vdb, h.VRec.Client, &h.Vdb.Spec.HTTPSTLSSecret)
 	if !found || err != nil {
 		return false
 	}
@@ -100,7 +100,7 @@ func (h *TLSCertConfigMapGenReconciler) tlsSecretsReady(ctx context.Context) boo
 // buildJsonBytes serializes the struct of secret names
 func (h *TLSCertConfigMapGenReconciler) buildJsonBytes(vdb *vapi.VerticaDB) ([]byte, error) {
 	scretNames := secretNames{
-		HttpsTLSSecret:  vdb.Spec.HttpsTLSSecret,
+		HttpsTLSSecret:  vdb.Spec.HTTPSTLSSecret,
 		ClientTLSSecret: vdb.Spec.ClientTLSSecret,
 	}
 	return json.Marshal(scretNames)
