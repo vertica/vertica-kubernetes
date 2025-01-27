@@ -35,7 +35,7 @@ import (
 )
 
 const (
-	HTTPSTLSSecret  = "HTTPSTLSSecret"
+	HTTPSTLSSecret  = "HTTPSTLSSecret" // #nosec G101
 	ClientTLSSecret = "ClientTLSSecret"
 )
 
@@ -71,7 +71,7 @@ func (h *TLSServerCertGenReconciler) Reconcile(ctx context.Context, _ *ctrl.Requ
 }
 
 // Reconcile will create a TLS secret for the http server if one is missing
-func (h *TLSServerCertGenReconciler) reconcileOneSecret(secretFieldName string, secretName string, ctx context.Context) (ctrl.Result, error) {
+func (h *TLSServerCertGenReconciler) reconcileOneSecret(secretFieldName, secretName string, ctx context.Context) (ctrl.Result, error) {
 	// If the secret name is set, check that it exists.
 	if secretName != "" {
 		// As a convenience we will regenerate the secret using the same name. But
@@ -119,7 +119,7 @@ func (h *TLSServerCertGenReconciler) getDNSNames() []string {
 }
 
 // createSecret returns a secret that store TLS certificate information
-func (h *TLSServerCertGenReconciler) createSecret(secretFieldName string, secretName string, ctx context.Context, cert, caCert security.Certificate) (*corev1.Secret, error) {
+func (h *TLSServerCertGenReconciler) createSecret(secretFieldName, secretName string, ctx context.Context, cert, caCert security.Certificate) (*corev1.Secret, error) {
 	secret := corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace:       h.Vdb.Namespace,
@@ -151,7 +151,7 @@ func (h *TLSServerCertGenReconciler) createSecret(secretFieldName string, secret
 }
 
 // setSecretNameInVDB will set the secretName in the vdb to indicate we have created that secret
-func (h *TLSServerCertGenReconciler) setSecretNameInVDB(ctx context.Context, secretFieldName string, secretName string) error {
+func (h *TLSServerCertGenReconciler) setSecretNameInVDB(ctx context.Context, secretFieldName, secretName string) error {
 	nm := h.Vdb.ExtractNamespacedName()
 	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 		// Always fetch the latest in case we are in the retry loop
