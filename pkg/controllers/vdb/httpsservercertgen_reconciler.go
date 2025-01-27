@@ -34,41 +34,41 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-// HttpsServerCertGenReconciler will create a secret that has TLS credentials.  This
+// HTTPSServerCertGenReconciler will create a secret that has TLS credentials.  This
 // secret will be used to authenticate with the http server.
-type HttpsServerCertGenReconciler struct {
+type HTTPSServerCertGenReconciler struct {
 	VRec *VerticaDBReconciler
 	Vdb  *vapi.VerticaDB // Vdb is the CRD we are acting on.
 	Log  logr.Logger
 }
 
-func MakeHttpsServerCertGenReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger, vdb *vapi.VerticaDB) controllers.ReconcileActor {
-	return &HttpsServerCertGenReconciler{
+func MakeHTTPSServerCertGenReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger, vdb *vapi.VerticaDB) controllers.ReconcileActor {
+	return &HTTPSServerCertGenReconciler{
 		VRec: vdbrecon,
 		Vdb:  vdb,
-		Log:  log.WithName("HTTPServerCertGenReconciler"),
+		Log:  log.WithName("HTTPSServerCertGenReconciler"),
 	}
 }
 
 // Reconcile will create a TLS secret for the http server if one is missing
-func (h *HttpsServerCertGenReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
+func (h *HTTPSServerCertGenReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
 	// If the secret name is set, check that it exists.
-	if h.Vdb.Spec.HttpsTLSSecret != "" {
+	if h.Vdb.Spec.HTTPSTLSSecret != "" {
 		// As a convenience we will regenerate the secret using the same name. But
 		// only do this if it is a k8s secret. We skip if there is a path reference
 		// for a different secret store.
-		if !secrets.IsK8sSecret(h.Vdb.Spec.HttpsTLSSecret) {
+		if !secrets.IsK8sSecret(h.Vdb.Spec.HTTPSTLSSecret) {
 			h.Log.Info("httpsTLSSecret is set but uses a path reference that isn't for k8s.")
 			return ctrl.Result{}, nil
 		}
-		nm := names.GenNamespacedName(h.Vdb, h.Vdb.Spec.HttpsTLSSecret)
+		nm := names.GenNamespacedName(h.Vdb, h.Vdb.Spec.HTTPSTLSSecret)
 		secret := corev1.Secret{}
 		err := h.VRec.Client.Get(ctx, nm, &secret)
 		if errors.IsNotFound(err) {
 			h.Log.Info("httpsTLSSecret is set but doesn't exist. Will recreate the secret.", "name", nm)
 		} else if err != nil {
 			return ctrl.Result{},
-				fmt.Errorf("failed while attempting to read the tls secret %s: %w", h.Vdb.Spec.HttpsTLSSecret, err)
+				fmt.Errorf("failed while attempting to read the tls secret %s: %w", h.Vdb.Spec.HTTPSTLSSecret, err)
 		} else {
 			// Secret is filled in and exists. We can exit.
 			return ctrl.Result{}, nil
@@ -91,7 +91,7 @@ func (h *HttpsServerCertGenReconciler) Reconcile(ctx context.Context, _ *ctrl.Re
 }
 
 // getDNSNames returns the DNS names to include in the certificate that we generate
-func (h *HttpsServerCertGenReconciler) getDNSNames() []string {
+func (h *HTTPSServerCertGenReconciler) getDNSNames() []string {
 	return []string{
 		fmt.Sprintf("*.%s.svc", h.Vdb.Namespace),
 		fmt.Sprintf("*.%s.svc.cluster.local", h.Vdb.Namespace),
@@ -99,7 +99,7 @@ func (h *HttpsServerCertGenReconciler) getDNSNames() []string {
 }
 
 // createSecret returns a secret that store TLS certificate information
-func (h *HttpsServerCertGenReconciler) createSecret(ctx context.Context, cert, caCert security.Certificate) (*corev1.Secret, error) {
+func (h *HTTPSServerCertGenReconciler) createSecret(ctx context.Context, cert, caCert security.Certificate) (*corev1.Secret, error) {
 	secret := corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace:       h.Vdb.Namespace,
@@ -117,24 +117,24 @@ func (h *HttpsServerCertGenReconciler) createSecret(ctx context.Context, cert, c
 	// Either generate a name or use the one already present in the vdb. Using
 	// the name already present is the case where the name was filled in but the
 	// secret didn't exist.
-	if h.Vdb.Spec.HttpsTLSSecret == "" {
+	if h.Vdb.Spec.HTTPSTLSSecret == "" {
 		secret.GenerateName = fmt.Sprintf("%s-https-tls-", h.Vdb.Name)
 	} else {
-		secret.Name = h.Vdb.Spec.HttpsTLSSecret
+		secret.Name = h.Vdb.Spec.HTTPSTLSSecret
 	}
 	err := h.VRec.Client.Create(ctx, &secret)
 	return &secret, err
 }
 
 // setSecretNameInVDB will set the secretName in the vdb to indicate we have created that secret
-func (h *HttpsServerCertGenReconciler) setSecretNameInVDB(ctx context.Context, secretName string) error {
+func (h *HTTPSServerCertGenReconciler) setSecretNameInVDB(ctx context.Context, secretName string) error {
 	nm := h.Vdb.ExtractNamespacedName()
 	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 		// Always fetch the latest in case we are in the retry loop
 		if err := h.VRec.Client.Get(ctx, nm, h.Vdb); err != nil {
 			return err
 		}
-		h.Vdb.Spec.HttpsTLSSecret = secretName
+		h.Vdb.Spec.HTTPSTLSSecret = secretName
 		return h.VRec.Client.Update(ctx, h.Vdb)
 	})
 }
