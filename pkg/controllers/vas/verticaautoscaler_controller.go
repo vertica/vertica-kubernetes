@@ -140,7 +140,7 @@ func (r *VerticaAutoscalerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	// Check if ScaledObject CRD is installed
 	discoveryClient := discovery.NewDiscoveryClientForConfigOrDie(mgr.GetConfig())
 	if isScaledObjectInstalled(discoveryClient) {
-		ctrlManager.Owns(&kedav1alpha1.ScaledObject{})
+		ctrlManager = ctrlManager.Owns(&kedav1alpha1.ScaledObject{})
 	}
 	return ctrlManager.Complete(r)
 }
