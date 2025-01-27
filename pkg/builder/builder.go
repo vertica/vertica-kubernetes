@@ -923,13 +923,20 @@ func buildTriggers(metrics []v1beta1.ScaleTrigger, vas *v1beta1.VerticaAutoscale
 	triggers := make([]kedav1alpha1.ScaleTriggers, len(metrics))
 	for i := range metrics {
 		metric := &metrics[i]
-		pMap := metric.Prometheus.GetPrometheusMap()
-		pMap["namespace"] = vas.Namespace
+		if metric.IsNil() {
+			continue
+		}
+		metadata := metric.GetMetadata()
+		if metric.IsPrometheusMetric() {
+			metadata["namespace"] = vas.Namespace
+		} else {
+			metadata["containerName"] = names.ServerContainer
+		}
 		trigger := kedav1alpha1.ScaleTriggers{
-			Type:       "prometheus",
+			Type:       metric.GetType(),
 			Name:       metric.Name,
 			MetricType: metric.MetricType,
-			Metadata:   pMap,
+			Metadata:   metadata,
 		}
 		triggers[i] = trigger
 	}

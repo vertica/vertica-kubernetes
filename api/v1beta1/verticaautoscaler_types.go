@@ -89,10 +89,28 @@ type VerticaAutoscalerSpec struct {
 
 // CustomAutoscalerSpec customizes VerticaAutoscaler
 type CustomAutoscalerSpec struct {
-	Type         string            `json:"type"`
-	Hpa          *HPASpec          `json:"hpa,omitempty"`
+	// +kubebuilder:validation:Required
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// The type of autoscaler. It must be one of "HPA" or "ScaledObject".
+	Type string `json:"type"`
+
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// It refers to an autoscaling definition through the horizontal pod autoscaler.
+	// If type is "HPA", this must be set.
+	Hpa *HPASpec `json:"hpa,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// It refers to an autoscaling definition through a scaledObject.
+	// If type is "ScaledObject", this must be set.
 	ScaledObject *ScaledObjectSpec `json:"scaledObject,omitempty"`
 }
+
+const (
+	HPA          = "HPA"
+	ScaledObject = "ScaledObject"
+)
 
 type HPASpec struct {
 	// +kubebuilder:Minimum:=0
@@ -153,24 +171,50 @@ type ScaledObjectSpec struct {
 type ScaleTrigger struct {
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
-	// The custom name of this query, which can be used for logging
-	// or referring to this particular query.
+	// The type of metric that is being defined. It can be either cpu, memory, or prometheus.
+	// If not specified, it defaults to prometheus.
+	Type TriggerType `json:"type,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// The custom name of this metric, which can be used for logging
+	// or referring to this particular metric.
 	Name string `json:"name,omitempty"`
 
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// The secret that contains prometheus credentials. Supports basic auth, bearer tokens, and TLS authentication.
+	// It will ignored if the type is not prometheus
 	AuthSecret string `json:"authSecret,omitempty"`
 
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// Represents whether the metric type is Utilization, Value, or AverageValue.
+	// Allowed types are 'Value' or 'AverageValue' for prometheus and
+	// 'Utilization' or 'AverageValue' for cpu/memory. If not specified, it defaults to Value
+	// for prometheus and Utilization for cpu/memory.
 	MetricType autoscalingv2.MetricTargetType `json:"metricType,omitempty"`
 
+	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
-	// The detail about how to fetch metrics from Prometheus and scale workloads based on them
-	Prometheus PrometheusSpec `json:"prometheus"`
+	// The detail about how to fetch metrics from Prometheus and scale workloads based on them.
+	// if type is "prometheus", this must be set.
+	Prometheus *PrometheusSpec `json:"prometheus,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// The detail about the target value and container name. if type is cpu/memory
+	// this must be set.
+	Resource *CPUMemorySpec `json:"resource,omitempty"`
 }
+
+type TriggerType string
+
+const (
+	CPUTriggerType        TriggerType = "cpu"
+	MemTriggerType        TriggerType = "memory"
+	PrometheusTriggerType TriggerType = "prometheus"
+)
 
 type PrometheusSpec struct {
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
@@ -190,6 +234,17 @@ type PrometheusSpec struct {
 	// This is the lower bound at which the autoscaler starts scaling down to the minimum replica count.
 	// If the metric falls below threshold but is still above this value, the current replica count remains unchanged.
 	ScaleDownThreshold int32 `json:"scaleDownThreshold,omitempty"`
+}
+
+type CPUMemorySpec struct {
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// The value to trigger scaling for.
+	//
+	// - When using Utilization, the target value is the average of the resource metric across all relevant pods,
+	// 	 represented as a percentage of the requested value of the resource for the pods.
+	// - When using AverageValue, the target value is the target value of the average of the metric
+	//   across all relevant pods (quantity).
+	Threshold int32 `json:"threshold"`
 }
 
 // MetricDefinition defines increment and metric to be used for autoscaling
@@ -348,6 +403,7 @@ func MakeVASWithMetrics() *VerticaAutoscaler {
 	maxRep := int32(6)
 	cpu := int32(80)
 	vas.Spec.CustomAutoscaler = &CustomAutoscalerSpec{
+		Type: HPA,
 		Hpa: &HPASpec{
 			MinReplicas: &minRep,
 			MaxReplicas: maxRep,
@@ -375,9 +431,24 @@ func (v *VerticaAutoscaler) CanUseTemplate() bool {
 	return v.Spec.Template.Size > 0
 }
 
+// IsCustomAutoScalerSet returns true if the customAutoscaler field is set.
+func (v *VerticaAutoscaler) IsCustomAutoScalerSet() bool {
+	return v.Spec.CustomAutoscaler != nil && v.Spec.CustomAutoscaler.Type != ""
+}
+
 // IsCustomMetricsEnabled returns true if the CR is set to use
 // custom metrics for scaling.
 func (v *VerticaAutoscaler) IsCustomMetricsEnabled() bool {
-	return v.Spec.CustomAutoscaler != nil &&
+	return v.IsCustomAutoScalerSet() &&
 		(v.Spec.CustomAutoscaler.Hpa != nil || v.Spec.CustomAutoscaler.ScaledObject != nil)
+}
+
+// IsHpaEnabled returns true if custom autoscaling with hpa is set.
+func (v *VerticaAutoscaler) IsHpaEnabled() bool {
+	return v.IsCustomAutoScalerSet() && v.Spec.CustomAutoscaler.Type == HPA && v.Spec.CustomAutoscaler.Hpa != nil
+}
+
+// IsScaledObjectEnabled returns true if custom autoscaling with scaledObject is set.
+func (v *VerticaAutoscaler) IsScaledObjectEnabled() bool {
+	return v.IsCustomAutoScalerSet() && v.Spec.CustomAutoscaler.Type == ScaledObject && v.Spec.CustomAutoscaler.ScaledObject != nil
 }

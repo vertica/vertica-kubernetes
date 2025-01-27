@@ -194,20 +194,48 @@ func (v *VerticaAutoscaler) GetHPAMetrics() []autoscalingv2.MetricSpec {
 	return metrics
 }
 
-// Convert PrometheusSpec to map[string]string
-func (p *PrometheusSpec) GetPrometheusMap() map[string]string {
+// GetMap Convert PrometheusSpec to map[string]string
+func (p *PrometheusSpec) GetMap() map[string]string {
 	result := make(map[string]string)
-
 	result["serverAddress"] = p.ServerAddress
 	result["query"] = p.Query
 	result["threshold"] = fmt.Sprintf("%d", p.Threshold)
-
 	// Only add ScaleDownThreshold if it is non-zero
 	if p.ScaleDownThreshold != 0 {
 		result["activationThreshold"] = fmt.Sprintf("%d", p.ScaleDownThreshold)
 	}
 
 	return result
+}
+
+// GetMap converts CPUMemorySpec to map[string]string
+func (r *CPUMemorySpec) GetMap() map[string]string {
+	result := make(map[string]string)
+	result["value"] = fmt.Sprintf("%d", r.Threshold)
+	return result
+}
+
+// GetMetadata returns the metric parameters map
+func (s *ScaleTrigger) GetMetadata() map[string]string {
+	if s.IsPrometheusMetric() {
+		return s.Prometheus.GetMap()
+	}
+	return s.Resource.GetMap()
+}
+
+func (s *ScaleTrigger) IsNil() bool {
+	return s.Prometheus == nil && s.Resource == nil
+}
+
+func (s *ScaleTrigger) IsPrometheusMetric() bool {
+	return s.Type == PrometheusTriggerType || s.Type == ""
+}
+
+func (s *ScaleTrigger) GetType() string {
+	if s.Type == "" {
+		return string(PrometheusTriggerType)
+	}
+	return string(s.Type)
 }
 
 // MakeScaledObjectSpec builds a sample scaleObjectSpec.
@@ -220,7 +248,7 @@ func MakeScaledObjectSpec() *ScaledObjectSpec {
 		Metrics: []ScaleTrigger{
 			{
 				Name: "sample-metric",
-				Prometheus: PrometheusSpec{
+				Prometheus: &PrometheusSpec{
 					ServerAddress: "http://localhost",
 					Query:         "query",
 					Threshold:     5,
@@ -232,10 +260,7 @@ func MakeScaledObjectSpec() *ScaledObjectSpec {
 
 // HasScaleDownThreshold returns true if scale down threshold is set
 func (v *VerticaAutoscaler) HasScaleDownThreshold() bool {
-	if !v.IsCustomMetricsEnabled() {
-		return false
-	}
-	if v.Spec.CustomAutoscaler.Hpa == nil {
+	if !v.IsHpaEnabled() {
 		return false
 	}
 	for i := range v.Spec.CustomAutoscaler.Hpa.Metrics {

@@ -696,6 +696,16 @@ deploy-prometheus-adapter:  ## Setup prometheus adapter for VerticaAutoscaler
 undeploy-prometheus-adapter:  ## Remove prometheus adapter
 	helm uninstall $(PROMETHEUS_ADAPTER_NAME) -n $(PROMETHEUS_ADAPTER_NAMESPACE)
 
+.PHONY: deploy-keda
+deploy-keda:
+	helm repo add kedacore https://kedacore.github.io/charts
+	helm repo update
+	helm install keda kedacore/keda --namespace keda --create-namespace
+
+.PHONY: undeploy-keda
+undeploy-keda:
+	helm uninstall keda -n keda
+
 .PHONY: undeploy-operator
 undeploy-operator: ## Undeploy operator that was previously deployed
 	scripts/undeploy.sh $(if $(filter false,$(ignore-not-found)),,-i)

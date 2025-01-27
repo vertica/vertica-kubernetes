@@ -52,7 +52,7 @@ func (o *ObjReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (ctrl.
 	if !o.Vas.IsCustomMetricsEnabled() {
 		return ctrl.Result{}, nil
 	}
-	if o.Vas.Spec.CustomAutoscaler.Hpa != nil {
+	if o.Vas.IsHpaEnabled() {
 		return ctrl.Result{}, o.reconcileHpa(ctx)
 	}
 	return ctrl.Result{}, o.reconcileScaledObject(ctx)

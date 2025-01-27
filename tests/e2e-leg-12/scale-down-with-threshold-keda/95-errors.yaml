@@ -19,3 +19,10 @@ kind: Service
 metadata:
   labels:
     app.kubernetes.io/managed-by: verticadb-operator
+---
+apiVersion: vertica.com/v1
+kind: VerticaDB
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+
