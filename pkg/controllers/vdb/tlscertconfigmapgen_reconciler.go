@@ -38,7 +38,7 @@ type TLSCertConfigMapGenReconciler struct {
 }
 
 type secretNames struct {
-	HttpsTLSSecret  string `json:"httpsTLSSecret"`
+	HTTPSTLSSecret  string `json:"httpsTLSSecret"`
 	ClientTLSSecret string `json:"clientTLSSecret"`
 }
 
@@ -55,7 +55,7 @@ func (h *TLSCertConfigMapGenReconciler) Reconcile(ctx context.Context, _ *ctrl.R
 	if !h.tlsSecretsReady(ctx) {
 		return ctrl.Result{Requeue: true}, nil
 	}
-	jsonBytes, err := h.buildJsonBytes(h.Vdb)
+	jsonBytes, err := h.buildJSONBytes(h.Vdb)
 	if err != nil {
 		h.Log.Error(err, "failed to serialize secretNames")
 		return ctrl.Result{}, err
@@ -97,10 +97,10 @@ func (h *TLSCertConfigMapGenReconciler) tlsSecretsReady(ctx context.Context) boo
 	return true
 }
 
-// buildJsonBytes serializes the struct of secret names
-func (h *TLSCertConfigMapGenReconciler) buildJsonBytes(vdb *vapi.VerticaDB) ([]byte, error) {
+// buildJSONBytes serializes the struct of secret names
+func (h *TLSCertConfigMapGenReconciler) buildJSONBytes(vdb *vapi.VerticaDB) ([]byte, error) {
 	scretNames := secretNames{
-		HttpsTLSSecret:  vdb.Spec.HTTPSTLSSecret,
+		HTTPSTLSSecret:  vdb.Spec.HTTPSTLSSecret,
 		ClientTLSSecret: vdb.Spec.ClientTLSSecret,
 	}
 	return json.Marshal(scretNames)
