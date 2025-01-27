@@ -54,6 +54,8 @@ rules:
         overrides:
           namespace:
             resource: namespace
+          service:
+            resource: service
           pod:
             resource: pod
       metricsQuery: 'sum(vertica_queued_requests_total) by (namespace, pod)'
