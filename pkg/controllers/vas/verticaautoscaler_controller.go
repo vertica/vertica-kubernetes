@@ -22,6 +22,8 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -118,17 +120,29 @@ func (r *VerticaAutoscalerReconciler) Reconcile(ctx context.Context, req ctrl.Re
 	return res, err
 }
 
+// Function to check if CRD exists
+func isScaledObjectInstalled(discoveryClient discovery.DiscoveryInterface) bool {
+	gvr := schema.GroupVersionResource{Group: "keda.sh", Version: "v1alpha1", Resource: "scaledobjects"}
+	_, err := discoveryClient.ServerResourcesForGroupVersion(gvr.GroupVersion().String())
+	return err == nil
+}
+
 // SetupWithManager sets up the controller with the Manager.
 func (r *VerticaAutoscalerReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewControllerManagedBy(mgr).
+	ctrlManager := ctrl.NewControllerManagedBy(mgr).
 		For(&vapi.VerticaAutoscaler{}).
 		// Not a strict ownership, but this is used so that the operator will
 		// reconcile the VerticaAutoscaler for any change in the VerticaDB.
 		// This ensures the status fields are kept up to date.
 		Owns(&v1vapi.VerticaDB{}).
-		Owns(&autoscalingv2.HorizontalPodAutoscaler{}).
-		Owns(&kedav1alpha1.ScaledObject{}).
-		Complete(r)
+		Owns(&autoscalingv2.HorizontalPodAutoscaler{})
+
+	// Check if ScaledObject CRD is installed
+	discoveryClient := discovery.NewDiscoveryClientForConfigOrDie(mgr.GetConfig())
+	if isScaledObjectInstalled(discoveryClient) {
+		ctrlManager.Owns(&kedav1alpha1.ScaledObject{})
+	}
+	return ctrlManager.Complete(r)
 }
 
 func (r *VerticaAutoscalerReconciler) Eventf(vdb runtime.Object, eventtype, reason, messageFmt string, args ...interface{}) {

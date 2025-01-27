@@ -83,7 +83,6 @@ func (o *ObjReconciler) reconcileScaledObject(ctx context.Context) error {
 	err := o.VRec.Client.Get(ctx, nm, curSO)
 	if err != nil && kerrors.IsNotFound(err) {
 		o.Log.Info("Creating scaledobject", "Name", nm.Name)
-		o.Log.Info("scaledObject HERE", "scaledobject", expSO)
 		return createObject(ctx, expSO, o.VRec.Client, o.Vas)
 	}
 	return o.updateWorkload(ctx, curSO, expSO)

@@ -89,10 +89,11 @@ type VerticaAutoscalerSpec struct {
 
 // CustomAutoscalerSpec customizes VerticaAutoscaler
 type CustomAutoscalerSpec struct {
-	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:default:=ScaledObject
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// The type of autoscaler. It must be one of "HPA" or "ScaledObject".
-	Type string `json:"type"`
+	Type string `json:"type,omitempty"`
 
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
