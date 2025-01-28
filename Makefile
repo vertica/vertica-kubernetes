@@ -181,13 +181,15 @@ E2E_TEST_DIRS?=tests/e2e-leg-1
 E2E_ADDITIONAL_ARGS?=
 
 # Target Architecture that the docker image can run on
-# By Default: linux/amd64,linux/arm64
-# If you wish to build the image targeting other platforms you can use the --platform flag: https://docs.docker.com/build/building/multi-platform/
-# (i.e. docker buildx build --platform=linux/amd64,linux/arm64). However, you must enable docker buildKit for it.
+# Set to linux/amd64,linux/arm64 if you wish to build the image targeting multiple platforms
 # More info: https://docs.docker.com/develop/develop-images/build_enhancements/
-TARGET_ARCH?=linux/amd64,linux/arm64
+UNAME_P := $(shell uname -p)
+ifeq ($(UNAME_P), aarch64)
+TARGET_ARCH ?= linux/arm64
+else
+TARGET_ARCH ?= linux/amd64
+endif
 
-#
 # Deployment Variables
 # ====================
 #
@@ -416,8 +418,12 @@ setup-olm: operator-sdk bundle docker-build-bundle docker-push-bundle docker-bui
 build: manifests generate fmt vet ## Build manager binary.
 	go build -o bin/manager cmd/operator/main.go
 
+COMMA = ,
 .PHONY: docker-build-operator
 docker-build-operator: manifests generate fmt vet ## Build operator docker image with the manager.
+ifeq ($(COMMA), $(findstring $(COMMA), $(TARGET_ARCH)))
+	make docker-build-crossplatform-operator
+else
 	docker pull golang:${GO_VERSION} # Ensure we have the latest Go lang version
 	docker buildx build \
 		--tag ${OPERATOR_IMG} \
@@ -425,6 +431,7 @@ docker-build-operator: manifests generate fmt vet ## Build operator docker image
 		--platform ${TARGET_ARCH} \
 		--build-arg GO_VERSION=${GO_VERSION} \
 		-f docker-operator/Dockerfile .
+endif
 
 .PHONY: docker-build-vlogger
 docker-build-vlogger:  ## Build vertica logger docker image
@@ -525,13 +532,14 @@ endif
 
 # PLATFORMS defines the target platforms that the image will be used for. Use
 # this with docker-build-crossplatform-* targets.
+ifeq ($(COMMA), $(findstring $(COMMA), $(TARGET_ARCH)))
+PLATFORMS?=TARGET_ARCH
+else
 PLATFORMS?=linux/arm64,linux/amd64
+endif
 
-## Note: Deprecate this as we can use docker-build-operator as the single make target to build either a single or multiarch image
-## Keep this as we still use this target to push external images
 .PHONY: docker-build-crossplatform-operator
 docker-build-crossplatform-operator: manifests generate fmt vet ## Build and push operator image for cross-platform support
-	@echo "Deprecated. Please use docker-build-operator target with TARGET_ARCH argument"
 	docker pull golang:${GO_VERSION} # Ensure we have the latest Go lang version
 	# copy existing Dockerfile and insert --platform=${BUILDPLATFORM} into Dockerfile.cross, and preserve the original Dockerfile
 	sed -e '1 s/\(^FROM\)/FROM --platform=\$$\{BUILDPLATFORM\}/; t' -e ' 1,// s//FROM --platform=\$$\{BUILDPLATFORM\}/' docker-operator/Dockerfile > Dockerfile.cross
