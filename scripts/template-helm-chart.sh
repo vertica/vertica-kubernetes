@@ -93,7 +93,8 @@ EOF
 for f in  \
     verticadb-operator-leader-election-rolebinding-rb.yaml \
     verticadb-operator-manager-clusterrolebinding-crb.yaml \
-    verticadb-operator-webhook-config-crb.yaml
+    verticadb-operator-webhook-config-crb.yaml \
+    verticadb-operator-metrics-auth-rolebinding-crb.yaml 
 do
     perl -i -0777 -pe 's/kind: ServiceAccount\n.*name: .*/kind: ServiceAccount\n  name: {{ include "vdb-op.serviceAccount" . }}/g' $TEMPLATE_DIR/$f
 done
@@ -214,6 +215,12 @@ do
     perl -i -0777 -pe 's/kind: ClusterRole/kind: {{ include "vdb-op.roleKind" . }}/g' $f
     perl -i -pe 's/^/{{- if .Values.controllers.enable -}}\n/ if 1 .. 1' $f
     echo "{{- end }}" >> $f
+done
+for f in $TEMPLATE_DIR/verticadb-operator-metrics-auth-role-cr.yaml \
+    $TEMPLATE_DIR/verticadb-operator-metrics-auth-rolebinding-crb.yaml
+do
+    perl -i -0777 -pe 's/kind: ClusterRoleBinding/kind: {{ include "vdb-op.roleBindingKind" . }}/g' $f
+    perl -i -0777 -pe 's/kind: ClusterRole/kind: {{ include "vdb-op.roleKind" . }}/g' $f
 done
 
 # 22. Template the operator config
