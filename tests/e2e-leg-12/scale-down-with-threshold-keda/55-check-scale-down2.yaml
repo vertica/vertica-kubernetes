@@ -12,10 +12,6 @@
 # limitations under the License.
 
 apiVersion: kuttl.dev/v1beta1
-kind: TestAssert
-timeout: 900
----
-apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 commands:
   - script: "sleep 120"
