@@ -6,7 +6,7 @@ generatorOptions:
 
 configMapGenerator:
 - envs:
-  - operator-envs
+  - operator-envs-with-value
   literals:
   - PREFIX_NAME=verticadb-operator
   - WEBHOOK_CERT_SECRET=verticadb-operator-service-cert

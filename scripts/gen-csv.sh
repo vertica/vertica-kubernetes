@@ -67,6 +67,9 @@ shift
 BUNDLE_METADATA_OPTS=$@
 BUNDLE_GEN_FLAGS="-q --overwrite --version $VERSION $BUNDLE_METADATA_OPTS $USE_IMAGE_DIGESTS_FLAG"
 
+# Fill in operator variables
+envsubst < $REPO_DIR/config/manager/operator-envs > $REPO_DIR/config/manager/operator-envs-with-value
+
 cd $REPO_DIR
 rm -rf bundle/ 2>/dev/null || true
 $OPERATOR_SDK generate kustomize manifests -q
