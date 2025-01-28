@@ -46,7 +46,7 @@ rules:
             resource: service
       seriesQuery: vertica_sessions_running_counter{namespace!="", service!= "", type="active", initiator="user"}
     # Number of requests that are queued in the resource pool. Type: gauge
-    - seriesQuery: 'vertica_queued_requests_total{namespace!="", pod!=""}'
+    - seriesQuery: 'vertica_queued_requests_total{namespace!="", service!=""}'
       name:
         as: ${1}_count
         matches: ^(.*)_total$
@@ -56,9 +56,7 @@ rules:
             resource: namespace
           service:
             resource: service
-          pod:
-            resource: pod
-      metricsQuery: 'sum(vertica_queued_requests_total) by (namespace, pod)'
+      metricsQuery: 'sum(vertica_queued_requests_total) by (namespace, service)'
     # Total number of active sessions. Used for testing
     - metricsQuery: sum(vertica_sessions_running_counter{type="active", initiator="user"}) by (namespace, pod)
       resources:
