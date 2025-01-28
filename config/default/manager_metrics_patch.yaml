@@ -12,4 +12,5 @@
   value:
     name: auth-cert
     secret:
+      defaultMode: 420
       secretName: custom-cert

@@ -260,6 +260,16 @@ replacements:
           name: v-fallback
         fieldPaths:
           - spec.image
+      - select:
+          kind: VerticaDB
+          name: v-online-upgrade
+        fieldPaths:
+          - spec.image
+      - select:
+          kind: VerticaDB
+          name: v-client-proxy-upgrade
+        fieldPaths:
+          - spec.image
   - source:
       kind: ConfigMap
       name: e2e
