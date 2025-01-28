@@ -61,13 +61,15 @@ func (h *TLSServerCertGenReconciler) Reconcile(ctx context.Context, _ *ctrl.Requ
 		HTTPSTLSSecret:  h.Vdb.Spec.HTTPSTLSSecret,
 		ClientTLSSecret: h.Vdb.Spec.ClientTLSSecret,
 	}
+	err := error(nil)
+	result := ctrl.Result{}
 	for secretFieldName, secretName := range secretFieldNameMap {
-		result, err := h.reconcileOneSecret(secretFieldName, secretName, ctx)
+		result, err = h.reconcileOneSecret(secretFieldName, secretName, ctx)
 		if err != nil {
-			return result, err
+			break
 		}
 	}
-	return ctrl.Result{}, nil
+	return result, err
 }
 
 // Reconcile will create a TLS secret for the http server if one is missing
@@ -119,7 +121,8 @@ func (h *TLSServerCertGenReconciler) getDNSNames() []string {
 }
 
 // createSecret returns a secret that store TLS certificate information
-func (h *TLSServerCertGenReconciler) createSecret(secretFieldName, secretName string, ctx context.Context, cert, caCert security.Certificate) (*corev1.Secret, error) {
+func (h *TLSServerCertGenReconciler) createSecret(secretFieldName, secretName string, ctx context.Context, cert,
+	caCert security.Certificate) (*corev1.Secret, error) {
 	secret := corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace:       h.Vdb.Namespace,
