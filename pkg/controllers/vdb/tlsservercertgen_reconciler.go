@@ -72,8 +72,9 @@ func (h *TLSServerCertGenReconciler) Reconcile(ctx context.Context, _ *ctrl.Requ
 	return result, err
 }
 
-// Reconcile will create a TLS secret for the http server if one is missing
-func (h *TLSServerCertGenReconciler) reconcileOneSecret(secretFieldName, secretName string, ctx context.Context) (ctrl.Result, error) {
+// reconcileOneSecret will create a TLS secret for the http server if one is missing
+func (h *TLSServerCertGenReconciler) reconcileOneSecret(secretFieldName, secretName string,
+	ctx context.Context) (ctrl.Result, error) { //nolint:unparam
 	// If the secret name is set, check that it exists.
 	if secretName != "" {
 		// As a convenience we will regenerate the secret using the same name. But
@@ -93,7 +94,7 @@ func (h *TLSServerCertGenReconciler) reconcileOneSecret(secretFieldName, secretN
 				fmt.Errorf("failed while attempting to read the tls secret %s: %w", h.Vdb.Spec.HTTPSTLSSecret, err)
 		} else {
 			// Secret is filled in and exists. We can exit.
-			return ctrl.Result{}, nil
+			return ctrl.Result{}, err
 		}
 	}
 	caCert, err := security.NewSelfSignedCACertificate()
