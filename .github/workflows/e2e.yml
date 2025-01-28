@@ -449,6 +449,7 @@ jobs:
           vertica-deployment-method: vclusterops
           communal-storage-type: hostpath
           minimum-vertica-image: '24.2.0'
+          vertica-license: ${{ secrets.VERTICA_LICENSE }}
 
   e2e-leg-6-vcluster-revivedb:
     if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'vcluster leg 6 revivedb' || inputs.e2e_test_suites == '')}}
