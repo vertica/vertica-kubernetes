@@ -264,9 +264,6 @@ func buildVolumeMounts(vdb *vapi.VerticaDB) []corev1.VolumeMount {
 		volMnts = append(volMnts, buildSSHVolumeMounts()...)
 	}
 
-	if vmeta.UseVClusterOps(vdb.Annotations) {
-		volMnts = append(volMnts, buildTLSCertConfigVolumeMount())
-	}
 	volMnts = append(volMnts, buildCertSecretVolumeMounts(vdb)...)
 	volMnts = append(volMnts, vdb.Spec.VolumeMounts...)
 
@@ -454,14 +451,6 @@ func buildCertSecretVolumeMounts(vdb *vapi.VerticaDB) []corev1.VolumeMount {
 	return mnts
 }
 
-// buildTLSCertConfigVolumeMount returns the volume mount for TLS cert configmap volume
-func buildTLSCertConfigVolumeMount() corev1.VolumeMount {
-	return corev1.VolumeMount{
-		Name:      vapi.TLSConfigVolumeName,
-		MountPath: paths.TLSCertsConfigPath,
-	}
-}
-
 // buildVolumes builds up a list of volumes to include in the sts
 func buildVolumes(vdb *vapi.VerticaDB) []corev1.Volume {
 	vols := []corev1.Volume{}
@@ -477,9 +466,6 @@ func buildVolumes(vdb *vapi.VerticaDB) []corev1.Volume {
 	}
 	if vdb.GetSSHSecretName() != "" {
 		vols = append(vols, buildSSHVolume(vdb))
-	}
-	if vmeta.UseVClusterOps(vdb.Annotations) {
-		vols = append(vols, buildTLSCertConfigVolume())
 	}
 	if vdb.IsDepotVolumeEmptyDir() {
 		vols = append(vols, buildDepotVolume())
@@ -752,21 +738,6 @@ func buildSSHVolume(vdb *vapi.VerticaDB) corev1.Volume {
 			Secret: &corev1.SecretVolumeSource{
 				SecretName: vdb.GetSSHSecretName(),
 			},
-		},
-	}
-}
-
-// buildTLSCertConfigVolume returns a volume that mounts a configmap as a json file.
-func buildTLSCertConfigVolume() corev1.Volume {
-	configMap := &corev1.ConfigMapVolumeSource{
-		LocalObjectReference: corev1.LocalObjectReference{
-			Name: vapi.TLSConfigMapName,
-		},
-	}
-	return corev1.Volume{
-		Name: vapi.TLSConfigVolumeName,
-		VolumeSource: corev1.VolumeSource{
-			ConfigMap: configMap,
 		},
 	}
 }
@@ -1044,7 +1015,7 @@ func makeServerContainer(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.Contai
 	)
 
 	if vdb.IsMonolithicDeploymentEnabled() {
-		envVars = append(envVars, buildNMATLSCertsEnvVars(vdb)...)
+		envVars = append(envVars, buildNMATLSCertsEnvVars()...)
 	}
 	cnt := corev1.Container{
 		Image:           pickImage(vdb, sc),
@@ -1071,7 +1042,7 @@ func makeServerContainer(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.Contai
 
 // makeNMAContainer builds the spec for the nma container
 func makeNMAContainer(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.Container {
-	envVars := buildNMATLSCertsEnvVars(vdb)
+	envVars := buildNMATLSCertsEnvVars()
 	envVars = append(envVars, buildCommonEnvVars(vdb)...)
 	envVars = append(envVars,
 		corev1.EnvVar{Name: NMALogPath, Value: StdOut},
@@ -1118,7 +1089,7 @@ func makeScrutinizeInitContainer(vscr *v1beta1.VerticaScrutinize, vdb *vapi.Vert
 				names.GenNamespacedName(vscr, vdb.Spec.PasswordSecret))...)
 		}
 	}
-	cnt.Env = append(cnt.Env, append(buildNMATLSCertsEnvVars(vdb),
+	cnt.Env = append(cnt.Env, append(buildNMATLSCertsEnvVars(),
 		buildScrutinizeTarballEnvVar(tarballName))...)
 	return cnt
 }
@@ -1775,12 +1746,32 @@ func buildScrutinizeDBPasswordEnvVars(nm types.NamespacedName) []corev1.EnvVar {
 
 // buildNMATLSCertsEnvVars returns environment variables about NMA certs,
 // that are needed by NMA and vcluster scrutinize
-func buildNMATLSCertsEnvVars(vdb *vapi.VerticaDB) []corev1.EnvVar {
+func buildNMATLSCertsEnvVars() []corev1.EnvVar {
+	notTrue := false
 	return []corev1.EnvVar{
 		// The NMA will read the secrets directly from the secret store.
 		// We provide the secret namespace and name for this reason.
-		{Name: NMASecretNamespaceEnv, Value: vdb.ObjectMeta.Namespace},
-		{Name: NMASecretNameEnv, Value: vdb.Spec.NMATLSSecret},
+		// {Name: NMASecretNamespaceEnv, Value: vdb.ObjectMeta.Namespace},
+		// {Name: NMASecretNameEnv, Value: vdb.Spec.NMATLSSecret},
+
+		{ValueFrom: &corev1.EnvVarSource{
+			ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: vapi.NMATLSConfigMapName,
+				},
+				Key:      NMASecretNamespaceEnv,
+				Optional: &notTrue,
+			},
+		}},
+		{ValueFrom: &corev1.EnvVarSource{
+			ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: vapi.NMATLSConfigMapName,
+				},
+				Key:      NMASecretNameEnv,
+				Optional: &notTrue,
+			},
+		}},
 	}
 }
 

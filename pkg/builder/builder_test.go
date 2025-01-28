@@ -708,24 +708,6 @@ func getVolume(vols []v1.Volume, mountName string) *v1.Volume {
 	return nil
 }
 
-func NMACertsVolumeExists(vdb *vapi.VerticaDB, vols []v1.Volume) bool {
-	for i := range vols {
-		if vols[i].Name == vapi.NMACertsMountName && vols[i].Secret.SecretName == vdb.Spec.NMATLSSecret {
-			return true
-		}
-	}
-	return false
-}
-
-func NMACertsVolumeMountExists(c *v1.Container) bool {
-	for _, vol := range c.VolumeMounts {
-		if vol.Name == vapi.NMACertsMountName && vol.MountPath == paths.NMACertsRoot {
-			return true
-		}
-	}
-	return false
-}
-
 func NMACertsEnvVarsExist(vdb *vapi.VerticaDB, c *v1.Container) bool {
 	envMap := make(map[string]v1.EnvVar)
 	for _, envVar := range c.Env {
@@ -800,7 +782,7 @@ func verifyScrutinizePasswordEnvVars(secret string, offset int, should bool) {
 	vdb.Spec.PasswordSecret = secret
 	pod := BuildScrutinizePod(vscr, vdb, []string{})
 	cnt := pod.Spec.InitContainers[0]
-	l := len(buildNMATLSCertsEnvVars(vdb)) + len(buildCommonEnvVars(vdb))
+	l := len(buildNMATLSCertsEnvVars()) + len(buildCommonEnvVars(vdb))
 	// l+1 to take into account the tarball env var
 	l++
 	l += offset
