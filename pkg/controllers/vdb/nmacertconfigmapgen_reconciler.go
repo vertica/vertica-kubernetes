@@ -17,10 +17,10 @@ package vdb
 
 import (
 	"context"
-	"encoding/json"
 
 	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
+	"github.com/vertica/vertica-kubernetes/pkg/builder"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -31,19 +31,14 @@ import (
 
 // NMACertGenReconciler will create a secret that has TLS credentials.  This
 // secret will be used to authenticate with the http server.
-type TLSCertConfigMapGenReconciler struct {
+type NMACertConfigMapGenReconciler struct {
 	VRec *VerticaDBReconciler
 	Vdb  *vapi.VerticaDB // Vdb is the CRD we are acting on.
 	Log  logr.Logger
 }
 
-type secretNames struct {
-	HTTPSTLSSecret  string `json:"httpsTLSSecret"`
-	ClientTLSSecret string `json:"clientTLSSecret"`
-}
-
-func MakeTLSCertConfigMapGenReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger, vdb *vapi.VerticaDB) controllers.ReconcileActor {
-	return &TLSCertConfigMapGenReconciler{
+func MakeNMACertConfigMapGenReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger, vdb *vapi.VerticaDB) controllers.ReconcileActor {
+	return &NMACertConfigMapGenReconciler{
 		VRec: vdbrecon,
 		Vdb:  vdb,
 		Log:  log.WithName("TLSCertConfigMapGenReconciler"),
@@ -51,23 +46,18 @@ func MakeTLSCertConfigMapGenReconciler(vdbrecon *VerticaDBReconciler, log logr.L
 }
 
 // Reconcile will create a TLS secret for the http server if one is missing
-func (h *TLSCertConfigMapGenReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
+func (h *NMACertConfigMapGenReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
 	if !h.tlsSecretsReady(ctx) {
 		return ctrl.Result{Requeue: true}, nil
 	}
-	jsonBytes, err := h.buildJSONBytes(h.Vdb)
-	if err != nil {
-		h.Log.Error(err, "failed to serialize secretNames")
-		return ctrl.Result{}, err
-	}
 	configMapName := types.NamespacedName{
-		Name:      vapi.TLSConfigMapName,
+		Name:      vapi.NMATLSConfigMapName,
 		Namespace: h.Vdb.GetNamespace(),
 	}
 	configMap := &corev1.ConfigMap{}
-	err = h.VRec.Client.Get(ctx, configMapName, configMap)
+	err := h.VRec.Client.Get(ctx, configMapName, configMap)
 	if errors.IsNotFound(err) {
-		configMap = h.buildTLSConfigMap(string(jsonBytes), h.Vdb)
+		configMap = h.buildTLSConfigMap(h.Vdb)
 		err = h.VRec.Client.Create(ctx, configMap)
 		return ctrl.Result{}, err
 	}
@@ -76,40 +66,24 @@ func (h *TLSCertConfigMapGenReconciler) Reconcile(ctx context.Context, _ *ctrl.R
 }
 
 // tlsSecretsReady returns true when all TLS secrets are found in k8s env
-func (h *TLSCertConfigMapGenReconciler) tlsSecretsReady(ctx context.Context) bool {
-	if h.Vdb.Spec.NMATLSSecret == "" || h.Vdb.Spec.HTTPSTLSSecret == "" ||
-		h.Vdb.Spec.ClientTLSSecret == "" {
-		h.Log.Info("not all tls secret names are ready. wait for them to be created")
+func (h *NMACertConfigMapGenReconciler) tlsSecretsReady(ctx context.Context) bool {
+	if h.Vdb.Spec.NMATLSSecret == "" {
+		h.Log.Info("nma secret name is not ready. wait for it to be created")
 		return false
 	}
 	found, err := vapi.IsK8sSecretFound(ctx, h.Vdb, h.VRec.Client, &h.Vdb.Spec.NMATLSSecret)
 	if !found || err != nil {
-		return false
-	}
-	found, err = vapi.IsK8sSecretFound(ctx, h.Vdb, h.VRec.Client, &h.Vdb.Spec.HTTPSTLSSecret)
-	if !found || err != nil {
-		return false
-	}
-	found, err = vapi.IsK8sSecretFound(ctx, h.Vdb, h.VRec.Client, &h.Vdb.Spec.ClientTLSSecret)
-	if !found || err != nil {
+		h.Log.Info("failed to find nma tls secret " + h.Vdb.Spec.NMATLSSecret)
 		return false
 	}
 	return true
 }
 
-// buildJSONBytes serializes the struct of secret names
-func (h *TLSCertConfigMapGenReconciler) buildJSONBytes(vdb *vapi.VerticaDB) ([]byte, error) {
-	scretNames := secretNames{
-		HTTPSTLSSecret:  vdb.Spec.HTTPSTLSSecret,
-		ClientTLSSecret: vdb.Spec.ClientTLSSecret,
-	}
-	return json.Marshal(scretNames)
-}
-
 // buildTLSConfigMap return a ConfigMap. Key is the json file name and value is the json file content
-func (h *TLSCertConfigMapGenReconciler) buildTLSConfigMap(jsonContent string, vdb *vapi.VerticaDB) *corev1.ConfigMap {
-	jsonMap := map[string]string{
-		"tlsSecretsConfig.json": jsonContent,
+func (h *NMACertConfigMapGenReconciler) buildTLSConfigMap(vdb *vapi.VerticaDB) *corev1.ConfigMap {
+	secretMap := map[string]string{
+		builder.NMASecretNamespaceEnv: vdb.ObjectMeta.Namespace,
+		builder.NMASecretNameEnv:      vdb.Spec.NMATLSSecret,
 	}
 	tlsConfigMap := &corev1.ConfigMap{
 		TypeMeta: metav1.TypeMeta{
@@ -117,11 +91,11 @@ func (h *TLSCertConfigMapGenReconciler) buildTLSConfigMap(jsonContent string, vd
 			APIVersion: "v1",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:            vapi.TLSConfigMapName,
+			Name:            vapi.NMATLSConfigMapName,
 			Namespace:       vdb.Namespace,
 			OwnerReferences: []metav1.OwnerReference{h.Vdb.GenerateOwnerReference()},
 		},
-		Data: jsonMap,
+		Data: secretMap,
 	}
 	return tlsConfigMap
 }

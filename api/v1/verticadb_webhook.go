@@ -50,9 +50,7 @@ const (
 	HadoopConfigMountName = "hadoop-conf"
 	Krb5SecretMountName   = "krb5"
 	SSHMountName          = "ssh"
-	NMACertsMountName     = "nma-certs"
-	TLSConfigMapName      = "tls-config"
-	TLSConfigVolumeName   = TLSConfigMapName
+	NMATLSConfigMapName   = "nma-tls-config"
 	DepotMountName        = "depot"
 	S3Prefix              = "s3://"
 	GCloudPrefix          = "gs://"
