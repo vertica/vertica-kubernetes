@@ -25,6 +25,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/iter"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
+	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
 	"github.com/vertica/vertica-kubernetes/pkg/test"
 	"github.com/vertica/vertica-kubernetes/pkg/vk8s"
 	appsv1 "k8s.io/api/apps/v1"
@@ -125,7 +126,7 @@ var _ = Describe("offlineupgrade_reconcile", func() {
 		updateVdbToCauseUpgrade(ctx, vdb, "container2:newimage")
 		r, fpr, pfacts := createOfflineUpgradeReconciler(vdb)
 		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
-		pfacts.Detail[names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)].upNode = false
+		pfacts.Detail[names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)].SetUpNode(false)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: false, RequeueAfter: vdb.GetUpgradeRequeueTimeDuration()}))
 		h := fpr.FindCommands("admintools -t stop_db")
 		Expect(len(h)).Should(Equal(0))
@@ -169,7 +170,7 @@ func updateVdbToCauseUpgrade(ctx context.Context, vdb *vapi.VerticaDB, newImage 
 }
 
 // createOfflineUpgradeReconciler is a helper to run the OfflineUpgradeReconciler.
-func createOfflineUpgradeReconciler(vdb *vapi.VerticaDB) (*OfflineUpgradeReconciler, *cmds.FakePodRunner, *PodFacts) {
+func createOfflineUpgradeReconciler(vdb *vapi.VerticaDB) (*OfflineUpgradeReconciler, *cmds.FakePodRunner, *podfacts.PodFacts) {
 	fpr := &cmds.FakePodRunner{Results: cmds.CmdResults{}}
 	pfacts := createPodFactsDefault(fpr)
 	dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)

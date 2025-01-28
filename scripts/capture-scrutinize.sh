@@ -128,6 +128,9 @@ function scrutinizeForAdmintools() {
     OP_FILE="$ns.$v.scrutinize.tar"
     logInfo "Running scrutinize"
     set -o xtrace
+    # scrutinize needs to be able to ssh to the pod
+    POD_IP=$(kubectl get pod -n $ns $pod -o jsonpath='{.status.podIP}')
+    kubectl exec -t -n $ns $pod -- bash -c "ssh-keyscan $POD_IP >> ~/.ssh/known_hosts"
     # We only need 1 pod because scrutinize will collect for the entire VerticaDB
     kubectl exec -t -n $ns $pod -- /opt/vertica/bin/scrutinize --output_dir $POD_OP_DIR --output_file $OP_FILE --vsql-off 
     scrut_res=$?

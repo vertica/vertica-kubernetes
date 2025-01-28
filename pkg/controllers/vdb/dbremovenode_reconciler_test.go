@@ -25,6 +25,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/builder"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
+	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
 	"github.com/vertica/vertica-kubernetes/pkg/test"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -39,7 +40,7 @@ var _ = Describe("dbremovenode_reconcile", func() {
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := MakePodFacts(vdbRec, fpr, logger, TestPassword)
+		pfacts := podfacts.MakePodFacts(vdbRec, fpr, logger, TestPassword)
 		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
 		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
 		recon := MakeDBRemoveNodeReconciler(vdbRec, logger, vdb, fpr, &pfacts, dispatcher)
@@ -118,7 +119,7 @@ var _ = Describe("dbremovenode_reconcile", func() {
 			"/opt/vertica/bin/admintools",
 			"db_remove_node",
 			"--hosts",
-			fmt.Sprintf("%s,%s", pfacts.Detail[uninstallPods[0]].dnsName, pfacts.Detail[uninstallPods[1]].dnsName),
+			fmt.Sprintf("%s,%s", pfacts.Detail[uninstallPods[0]].GetDNSName(), pfacts.Detail[uninstallPods[1]].GetDNSName()),
 		))
 
 		Expect(k8sClient.Get(ctx, nm, fetchedVdb)).Should(Succeed())
@@ -141,7 +142,7 @@ var _ = Describe("dbremovenode_reconcile", func() {
 		sc.Size-- // mimic a pending db_remove_node
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := MakePodFacts(vdbRec, fpr, logger, TestPassword)
+		pfacts := podfacts.MakePodFacts(vdbRec, fpr, logger, TestPassword)
 		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
 		r := MakeDBRemoveNodeReconciler(vdbRec, logger, vdb, fpr, &pfacts, dispatcher)
 		res, err := r.Reconcile(ctx, &ctrl.Request{})
@@ -162,10 +163,10 @@ var _ = Describe("dbremovenode_reconcile", func() {
 		sc.Size = 2 // Set to 2 to mimic a pending uninstall of the last pod
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := MakePodFacts(vdbRec, fpr, logger, TestPassword)
+		pfacts := podfacts.MakePodFacts(vdbRec, fpr, logger, TestPassword)
 		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
 		removePod := names.GenPodName(vdb, sc, 2)
-		pfacts.Detail[removePod].dbExists = false
+		pfacts.Detail[removePod].SetDBExists(false)
 		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
 		r := MakeDBRemoveNodeReconciler(vdbRec, logger, vdb, fpr, &pfacts, dispatcher)
 		res, err := r.Reconcile(ctx, &ctrl.Request{})

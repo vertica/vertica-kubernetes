@@ -26,6 +26,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/iter"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
+	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
 	"github.com/vertica/vertica-kubernetes/pkg/test"
 	"github.com/vertica/vertica-kubernetes/pkg/vk8s"
 	appsv1 "k8s.io/api/apps/v1"
@@ -94,8 +95,8 @@ var _ = Describe("readonlyonlineupgrade_reconcile", func() {
 		// install and db doesn't exist.  This is needed to allow the sts
 		// deletion to occur.
 		pn := names.GenPodName(vdb, transientSc, 0)
-		r.PFacts.Detail[pn].isInstalled = false
-		r.PFacts.Detail[pn].dbExists = false
+		r.PFacts.Detail[pn].SetIsInstalled(false)
+		r.PFacts.Detail[pn].SetDBExists(false)
 
 		Expect(r.deleteTransientSts(ctx)).Should(Equal(ctrl.Result{}))
 		Expect(k8sClient.Get(ctx, names.GenStsName(vdb, transientSc), fetchedSts)).ShouldNot(Succeed())
@@ -382,8 +383,8 @@ var _ = Describe("readonlyonlineupgrade_reconcile", func() {
 		r := createReadOnlyOnlineUpgradeReconciler(ctx, vdb)
 		pn := names.GenPodName(vdb, sc, 0)
 		Expect(r.PFacts.Collect(ctx, vdb)).Should(Succeed())
-		r.PFacts.Detail[pn].upNode = true
-		r.PFacts.Detail[pn].readOnly = false
+		r.PFacts.Detail[pn].SetUpNode(true)
+		r.PFacts.Detail[pn].SetReadOnly(false)
 		fpr := r.PRunner.(*cmds.FakePodRunner)
 		fpr.Results[pn] = []cmds.CmdResult{
 			{Stdout: "  5\n"},
@@ -518,11 +519,11 @@ var _ = Describe("readonlyonlineupgrade_reconcile", func() {
 		// Setup the podfacts so that primary is down with new image and
 		// secondary is up with old image.
 		ppn := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)
-		r.PFacts.Detail[ppn].admintoolsExists = false
-		r.PFacts.Detail[ppn].upNode = false
+		r.PFacts.Detail[ppn].SetAdmintoolsExists(false)
+		r.PFacts.Detail[ppn].SetUpNode(false)
 		spn := names.GenPodName(vdb, &vdb.Spec.Subclusters[1], 0)
-		r.PFacts.Detail[spn].admintoolsExists = true
-		r.PFacts.Detail[spn].upNode = true
+		r.PFacts.Detail[spn].SetAdmintoolsExists(true)
+		r.PFacts.Detail[spn].SetUpNode(true)
 
 		// The reconcile will fail because of processing that tries to read the
 		// pod, which has been deleted. It depends on the pod being regenerated,
@@ -540,7 +541,7 @@ var _ = Describe("readonlyonlineupgrade_reconcile", func() {
 // createReadOnlyOnlineUpgradeReconciler is a helper to run the ReadOnlyOnlineUpgradeReconciler.
 func createReadOnlyOnlineUpgradeReconciler(ctx context.Context, vdb *vapi.VerticaDB) *ReadOnlyOnlineUpgradeReconciler {
 	fpr := &cmds.FakePodRunner{Results: cmds.CmdResults{}}
-	pfacts := MakePodFacts(vdbRec, fpr, logger, TestPassword)
+	pfacts := podfacts.MakePodFacts(vdbRec, fpr, logger, TestPassword)
 	dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
 	actor := MakeReadOnlyOnlineUpgradeReconciler(vdbRec, logger, vdb, fpr, &pfacts, dispatcher)
 	r := actor.(*ReadOnlyOnlineUpgradeReconciler)
@@ -548,8 +549,8 @@ func createReadOnlyOnlineUpgradeReconciler(ctx context.Context, vdb *vapi.Vertic
 	// Ensure one pod is up so that we can do an online upgrade
 	Expect(r.PFacts.Collect(ctx, vdb)).Should(Succeed())
 	pn := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)
-	r.PFacts.Detail[pn].upNode = true
-	r.PFacts.Detail[pn].readOnly = false
+	r.PFacts.Detail[pn].SetUpNode(true)
+	r.PFacts.Detail[pn].SetReadOnly(false)
 
 	return r
 }

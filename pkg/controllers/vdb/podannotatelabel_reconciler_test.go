@@ -24,6 +24,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
+	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
 	"github.com/vertica/vertica-kubernetes/pkg/test"
 	corev1 "k8s.io/api/core/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -38,7 +39,7 @@ var _ = Describe("podannotatelabel_reconcile", func() {
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := MakePodFacts(vdbRec, fpr, logger, TestPassword)
+		pfacts := podfacts.MakePodFacts(vdbRec, fpr, logger, TestPassword)
 		act := MakeAnnotateAndLabelPodReconciler(vdbRec, logger, vdb, &pfacts)
 		Expect(act.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 
@@ -66,7 +67,7 @@ var _ = Describe("podannotatelabel_reconcile", func() {
 		Expect(k8sClient.Update(ctx, pod)).Should(Succeed())
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := MakePodFacts(vdbRec, fpr, logger, TestPassword)
+		pfacts := podfacts.MakePodFacts(vdbRec, fpr, logger, TestPassword)
 		act := MakeAnnotateAndLabelPodReconciler(vdbRec, logger, vdb, &pfacts)
 		Expect(act.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 

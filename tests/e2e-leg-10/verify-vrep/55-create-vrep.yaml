@@ -16,6 +16,7 @@ kind: VerticaReplicator
 metadata:
   name: vrep-test-sandbox-custom-user-tls-config
 spec:
+  mode: sync
   source:
     verticaDB: "v-source"
   target:

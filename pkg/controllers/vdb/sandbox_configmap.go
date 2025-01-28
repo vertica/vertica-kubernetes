@@ -56,6 +56,7 @@ type TriggerPurpose int
 const (
 	SandboxUpgrade = iota
 	Unsandbox
+	Shutdown
 )
 
 // triggerSandboxController will wake up the sandbox controller by setting
@@ -74,6 +75,8 @@ func (s *SandboxConfigMapManager) triggerSandboxController(ctx context.Context, 
 		anns[vmeta.SandboxControllerUpgradeTriggerID] = triggerID
 	case Unsandbox:
 		anns[vmeta.SandboxControllerUnsandboxTriggerID] = triggerID
+	case Shutdown:
+		anns[vmeta.SandboxControllerShutdownTriggerID] = triggerID
 	}
 	chgs := vk8s.MetaChanges{
 		NewAnnotations: anns,

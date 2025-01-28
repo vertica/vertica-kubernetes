@@ -30,6 +30,7 @@ import (
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/metrics"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
+	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/removesc"
 	"github.com/vertica/vertica-kubernetes/pkg/vdbstatus"
@@ -43,15 +44,15 @@ type DBRemoveSubclusterReconciler struct {
 	Log                   logr.Logger
 	Vdb                   *vapi.VerticaDB // Vdb is the CRD we are acting on.
 	PRunner               cmds.PodRunner
-	PFacts                *PodFacts
-	ATPod                 *PodFact // The pod that we run admintools from
+	PFacts                *podfacts.PodFacts
+	ATPod                 *podfacts.PodFact // The pod that we run admintools from
 	Dispatcher            vadmin.Dispatcher
 	CalledInOnlineUpgrade bool // Indicate if the constructor is called from online upgrade reconciler
 }
 
 // MakeDBRemoveSubclusterReconciler will build a DBRemoveSubclusterReconciler object
 func MakeDBRemoveSubclusterReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger, vdb *vapi.VerticaDB,
-	prunner cmds.PodRunner, pfacts *PodFacts, dispatcher vadmin.Dispatcher, calledInOnlineUpgrade bool) controllers.ReconcileActor {
+	prunner cmds.PodRunner, pfacts *podfacts.PodFacts, dispatcher vadmin.Dispatcher, calledInOnlineUpgrade bool) controllers.ReconcileActor {
 	return &DBRemoveSubclusterReconciler{
 		VRec:                  vdbrecon,
 		Log:                   log.WithName("DBRemoveSubclusterReconciler"),
@@ -107,8 +108,8 @@ func (d *DBRemoveSubclusterReconciler) removeExtraSubclusters(ctx context.Contex
 	}
 
 	if len(subclusters) > 0 {
-		atPod, ok := d.PFacts.findPodToRunAdminCmdAny()
-		if !ok || !atPod.upNode {
+		atPod, ok := d.PFacts.FindPodToRunAdminCmdAny()
+		if !ok || !atPod.GetUpNode() {
 			d.Log.Info("No pod found to run admintools from. Requeue reconciliation.")
 			return ctrl.Result{Requeue: true}, nil
 		}
@@ -159,11 +160,11 @@ func (d *DBRemoveSubclusterReconciler) removeSubcluster(ctx context.Context, scN
 	// sandbox.
 	if d.CalledInOnlineUpgrade {
 		scNames := d.Vdb.GetSubclustersForReplicaGroup(vmeta.ReplicaGroupBValue)
-		nodesToPollSubs = d.PFacts.findNodeNamesInSubclusters(scNames)
+		nodesToPollSubs = d.PFacts.FindNodeNamesInSubclusters(scNames)
 	}
 
 	err := d.Dispatcher.RemoveSubcluster(ctx,
-		removesc.WithInitiator(d.ATPod.name, d.ATPod.podIP),
+		removesc.WithInitiator(d.ATPod.GetName(), d.ATPod.GetPodIP()),
 		removesc.WithSubcluster(scName),
 		// vclusterOps needs correct node names and addresses to do re-ip
 		removesc.WithNodeNameAddressMap(nodeNameAddressMap),
@@ -187,9 +188,9 @@ func (d *DBRemoveSubclusterReconciler) updateSubclusterStatus(ctx context.Contex
 			return nil
 		}
 		for _, p := range d.PFacts.Detail {
-			if p.subclusterName == scName {
-				if int(p.podIndex) < len(scs.Detail) {
-					scs.Detail[p.podIndex].AddedToDB = false
+			if p.GetSubclusterName() == scName {
+				if int(p.GetPodIndex()) < len(scs.Detail) {
+					scs.Detail[p.GetPodIndex()].AddedToDB = false
 				}
 			}
 		}
@@ -234,7 +235,7 @@ func (d *DBRemoveSubclusterReconciler) getDefaultSubcluster(ctx context.Context)
 	cmd := []string{
 		"-tAc", "select subcluster_name from subclusters where is_default is true",
 	}
-	stdout, _, err := d.PRunner.ExecVSQL(ctx, d.ATPod.name, names.ServerContainer, cmd...)
+	stdout, _, err := d.PRunner.ExecVSQL(ctx, d.ATPod.GetName(), names.ServerContainer, cmd...)
 	if err != nil {
 		return "", err
 	}
@@ -251,6 +252,6 @@ func (d *DBRemoveSubclusterReconciler) changeDefaultSubcluster(ctx context.Conte
 	cmd := []string{
 		"-c", fmt.Sprintf(`alter subcluster %q set default`, scName),
 	}
-	_, _, err := d.PRunner.ExecVSQL(ctx, d.ATPod.name, names.ServerContainer, cmd...)
+	_, _, err := d.PRunner.ExecVSQL(ctx, d.ATPod.GetName(), names.ServerContainer, cmd...)
 	return err
 }

@@ -23,6 +23,7 @@ import (
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
+	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
 	"github.com/vertica/vertica-kubernetes/pkg/test"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -40,14 +41,14 @@ var _ = Describe("rebalanceshards_reconcile", func() {
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := MakePodFacts(vdbRec, fpr, logger, TestPassword)
+		pfacts := podfacts.MakePodFacts(vdbRec, fpr, logger, TestPassword)
 		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
 		pfn := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)
-		pfacts.Detail[pfn].upNode = true
-		pfacts.Detail[pfn].shardSubscriptions = 0
+		pfacts.Detail[pfn].SetUpNode(true)
+		pfacts.Detail[pfn].SetShardSubscriptions(0)
 		pfn = names.GenPodName(vdb, &vdb.Spec.Subclusters[1], 0)
-		pfacts.Detail[pfn].shardSubscriptions = 3
-		pfacts.Detail[pfn].upNode = true
+		pfacts.Detail[pfn].SetShardSubscriptions(3)
+		pfacts.Detail[pfn].SetUpNode(true)
 		r := MakeRebalanceShardsReconciler(vdbRec, logger, vdb, fpr, &pfacts, "")
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 		atCmd := fpr.FindCommands("select rebalance_shards('sc1')")
@@ -66,12 +67,12 @@ var _ = Describe("rebalanceshards_reconcile", func() {
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := MakePodFacts(vdbRec, fpr, logger, TestPassword)
+		pfacts := podfacts.MakePodFacts(vdbRec, fpr, logger, TestPassword)
 		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
 		for i := range vdb.Spec.Subclusters {
 			pn := names.GenPodName(vdb, &vdb.Spec.Subclusters[i], 0)
-			pfacts.Detail[pn].upNode = true
-			pfacts.Detail[pn].shardSubscriptions = 0
+			pfacts.Detail[pn].SetUpNode(true)
+			pfacts.Detail[pn].SetShardSubscriptions(0)
 		}
 		r := MakeRebalanceShardsReconciler(vdbRec, logger, vdb, fpr, &pfacts, vdb.Spec.Subclusters[1].Name)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))

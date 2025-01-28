@@ -29,9 +29,20 @@ import (
 	lumberjack "gopkg.in/natefinch/lumberjack.v2"
 )
 
+const defaultBurstSize = 25
+
 // GetIsWebhookEnabled returns true if the webhook is enabled.
 func GetIsWebhookEnabled() bool {
 	return lookupBoolEnvVar("WEBHOOKS_ENABLED", envMustExist)
+}
+
+// GetBroadcasterBurstSize returns the customizable burst size for broadcaster.
+func GetBroadcasterBurstSize() int {
+	burstSize := lookupIntEnvVar("BROADCASTER_BURST_SIZE", envCanNotExist)
+	if burstSize > defaultBurstSize {
+		return burstSize
+	}
+	return defaultBurstSize
 }
 
 // GetIsControllersEnabled returns true if the controllers for each custom
@@ -363,4 +374,19 @@ func getStackTrace() zap.Option {
 		lvl = zapcore.ErrorLevel
 	}
 	return zap.AddStacktrace(zapcore.LevelEnabler(lvl))
+}
+
+// GetVdbMaxBackoffDuration returns maximum backoff requeue duration in milliseconds for vdb controller
+func GetVdbMaxBackoffDuration() int {
+	const envName = "VDB_MAX_BACKOFF_DURATION"
+	duration := lookupStringEnvVar(envName, envCanNotExist)
+	if duration == "" {
+		// Default value is 1000ms
+		return 1000
+	}
+	valInt, err := strconv.Atoi(duration)
+	if err != nil || valInt < 0 {
+		dieIfNotValid(envName)
+	}
+	return valInt
 }

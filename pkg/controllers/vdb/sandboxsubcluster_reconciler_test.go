@@ -26,6 +26,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/mockvops"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
+	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
 	"github.com/vertica/vertica-kubernetes/pkg/test"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	"k8s.io/apimachinery/pkg/types"
@@ -39,20 +40,20 @@ const (
 )
 
 // initPFacts is a helper function to initialize pod facts with some test information
-func initPFacts(pfacts *PodFacts, vdb *vapi.VerticaDB, sc1, sc2 string) (pfmain, pfsc1 types.NamespacedName) {
+func initPFacts(pfacts *podfacts.PodFacts, vdb *vapi.VerticaDB, sc1, sc2 string) (pfmain, pfsc1 types.NamespacedName) {
 	pfmain = names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)
-	pfacts.Detail[pfmain] = &PodFact{}
-	pfacts.Detail[pfmain].upNode = true
-	pfacts.Detail[pfmain].subclusterName = ""
-	pfacts.Detail[pfmain].isPrimary = true
+	pfacts.Detail[pfmain] = &podfacts.PodFact{}
+	pfacts.Detail[pfmain].SetUpNode(true)
+	pfacts.Detail[pfmain].SetSubclusterName("")
+	pfacts.Detail[pfmain].SetIsPrimary(true)
 	pfsc1 = names.GenPodName(vdb, &vdb.Spec.Subclusters[1], 0)
-	pfacts.Detail[pfsc1] = &PodFact{}
-	pfacts.Detail[pfsc1].upNode = true
-	pfacts.Detail[pfsc1].subclusterName = sc1
+	pfacts.Detail[pfsc1] = &podfacts.PodFact{}
+	pfacts.Detail[pfsc1].SetUpNode(true)
+	pfacts.Detail[pfsc1].SetSubclusterName(sc1)
 	pfsc2 := names.GenPodName(vdb, &vdb.Spec.Subclusters[2], 0)
-	pfacts.Detail[pfsc2] = &PodFact{}
-	pfacts.Detail[pfsc2].upNode = true
-	pfacts.Detail[pfsc2].subclusterName = sc2
+	pfacts.Detail[pfsc2] = &podfacts.PodFact{}
+	pfacts.Detail[pfsc2].SetUpNode(true)
+	pfacts.Detail[pfsc2].SetSubclusterName(sc2)
 	return pfmain, pfsc1
 }
 
@@ -65,7 +66,7 @@ var _ = Describe("sandboxsubcluster_reconcile", func() {
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := MakePodFacts(vdbRec, fpr, logger, TestPassword)
+		pfacts := podfacts.MakePodFacts(vdbRec, fpr, logger, TestPassword)
 		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
 		r := MakeSandboxSubclusterReconciler(vdbRec, logger, vdb, &pfacts, dispatcher, k8sClient, false)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
@@ -88,7 +89,7 @@ var _ = Describe("sandboxsubcluster_reconcile", func() {
 
 		Expect(vdb.IsEON()).Should(BeFalse())
 		fpr := &cmds.FakePodRunner{}
-		pfacts := MakePodFacts(vdbRec, fpr, logger, TestPassword)
+		pfacts := podfacts.MakePodFacts(vdbRec, fpr, logger, TestPassword)
 		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
 		r := MakeSandboxSubclusterReconciler(vdbRec, logger, vdb, &pfacts, dispatcher, k8sClient, false)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
@@ -110,7 +111,7 @@ var _ = Describe("sandboxsubcluster_reconcile", func() {
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := MakePodFacts(vdbRec, fpr, logger, TestPassword)
+		pfacts := podfacts.MakePodFacts(vdbRec, fpr, logger, TestPassword)
 		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
 		r := MakeSandboxSubclusterReconciler(vdbRec, logger, vdb, &pfacts, dispatcher, k8sClient, false)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
@@ -131,13 +132,13 @@ var _ = Describe("sandboxsubcluster_reconcile", func() {
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := PodFacts{}
-		pfacts.Detail = make(PodFactDetail)
+		pfacts := podfacts.PodFacts{}
+		pfacts.Detail = make(podfacts.PodFactDetail)
 		pfmain := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)
-		pfacts.Detail[pfmain] = &PodFact{}
-		pfacts.Detail[pfmain].upNode = true
-		pfacts.Detail[pfmain].subclusterName = ""
-		pfacts.Detail[pfmain].isPrimary = true
+		pfacts.Detail[pfmain] = &podfacts.PodFact{}
+		pfacts.Detail[pfmain].SetUpNode(true)
+		pfacts.Detail[pfmain].SetSubclusterName("")
+		pfacts.Detail[pfmain].SetIsPrimary(true)
 		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
 		r := MakeSandboxSubclusterReconciler(vdbRec, logger, vdb, &pfacts, dispatcher, k8sClient, false)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
@@ -158,20 +159,20 @@ var _ = Describe("sandboxsubcluster_reconcile", func() {
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := MakePodFacts(vdbRec, fpr, logger, TestPassword)
+		pfacts := podfacts.MakePodFacts(vdbRec, fpr, logger, TestPassword)
 		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
 		pfmain, pfsc1 := initPFacts(&pfacts, vdb, subcluster1, subcluster2)
 		// let subcluster1 down
 		// should requeue the iteration without any error
-		pfacts.Detail[pfsc1].upNode = false
+		pfacts.Detail[pfsc1].SetUpNode(false)
 		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
 		r := MakeSandboxSubclusterReconciler(vdbRec, logger, vdb, &pfacts, dispatcher, k8sClient, false)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: true}))
 
 		// let subcluster1 up and main cluster down
 		// should requeue the iteration without any error
-		pfacts.Detail[pfsc1].upNode = true
-		pfacts.Detail[pfmain].upNode = false
+		pfacts.Detail[pfsc1].SetUpNode(true)
+		pfacts.Detail[pfmain].SetUpNode(false)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: true}))
 	})
 
@@ -191,13 +192,13 @@ var _ = Describe("sandboxsubcluster_reconcile", func() {
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := MakePodFacts(vdbRec, fpr, logger, TestPassword)
+		pfacts := podfacts.MakePodFacts(vdbRec, fpr, logger, TestPassword)
 		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
 		_, _ = initPFacts(&pfacts, vdb, subcluster1, subcluster2)
 		pfsc3 := names.GenPodName(vdb, &vdb.Spec.Subclusters[3], 0)
-		pfacts.Detail[pfsc3] = &PodFact{}
-		pfacts.Detail[pfsc3].upNode = true
-		pfacts.Detail[pfsc3].subclusterName = "sc3"
+		pfacts.Detail[pfsc3] = &podfacts.PodFact{}
+		pfacts.Detail[pfsc3].SetUpNode(true)
+		pfacts.Detail[pfsc3].SetSubclusterName("sc3")
 		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
 		rec := MakeSandboxSubclusterReconciler(vdbRec, logger, vdb, &pfacts, dispatcher, k8sClient, false)
 		r := rec.(*SandboxSubclusterReconciler)
@@ -224,7 +225,7 @@ var _ = Describe("sandboxsubcluster_reconcile", func() {
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := MakePodFacts(vdbRec, fpr, logger, TestPassword)
+		pfacts := podfacts.MakePodFacts(vdbRec, fpr, logger, TestPassword)
 		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
 		rec := MakeSandboxSubclusterReconciler(vdbRec, logger, vdb, &pfacts, dispatcher, k8sClient, false)
 		r := rec.(*SandboxSubclusterReconciler)
@@ -257,7 +258,7 @@ var _ = Describe("sandboxsubcluster_reconcile", func() {
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := MakePodFacts(vdbRec, fpr, logger, TestPassword)
+		pfacts := podfacts.MakePodFacts(vdbRec, fpr, logger, TestPassword)
 		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
 		rec := MakeSandboxSubclusterReconciler(vdbRec, logger, vdb, &pfacts, dispatcher, k8sClient, false)
 		r := rec.(*SandboxSubclusterReconciler)
@@ -335,7 +336,7 @@ var _ = Describe("sandboxsubcluster_reconcile", func() {
 		defer deleteConfigMap(ctx, vdb, cmNm.Name)
 		Ω(initiatorIPs).ShouldNot(BeNil())
 		Ω(initiatorIPs).Should(HaveLen(1))
-		Ω(initiatorIPs[0]).Should(Equal(mainPf.podIP))
+		Ω(initiatorIPs[0]).Should(Equal(mainPf.GetPodIP()))
 
 		// Sandbox another subcluster in the same sandbox. We should use two
 		// different hosts now. One from the main cluster and one from the
@@ -348,8 +349,8 @@ var _ = Describe("sandboxsubcluster_reconcile", func() {
 		Ω(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 		Ω(initiatorIPs).ShouldNot(BeNil())
 		Ω(initiatorIPs).Should(HaveLen(2))
-		Ω(initiatorIPs[0]).Should(Equal(mainPf.podIP))
-		Ω(initiatorIPs[1]).Should(Equal(sbPf.podIP))
+		Ω(initiatorIPs[0]).Should(Equal(mainPf.GetPodIP()))
+		Ω(initiatorIPs[1]).Should(Equal(sbPf.GetPodIP()))
 	})
 })
 

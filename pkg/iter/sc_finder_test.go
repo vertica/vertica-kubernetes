@@ -326,6 +326,29 @@ var _ = Describe("sc_finder", func() {
 		Expect(subclusters[0].Name).Should(ContainSubstring(scNames[1]))
 		Expect(subclusters[1].Name).Should(ContainSubstring(scNames[0]))
 	})
+
+	It("should find subclusters not in vdb regardless of sandbox", func() {
+		vdb := vapi.MakeVDB()
+		scNames := []string{"sc1", "sc2", "sc3", "sc4"}
+		scSizes := []int32{10, 5, 8, 6}
+		const sbName = "sand"
+		vdb.Spec.Subclusters = []vapi.Subcluster{
+			{Name: scNames[0], Size: scSizes[0]},
+			{Name: scNames[1], Size: scSizes[1]},
+			{Name: scNames[2], Size: scSizes[2]},
+			{Name: scNames[3], Size: scSizes[3]},
+		}
+		vdb.Status.Sandboxes = []vapi.SandboxStatus{
+			{Name: sbName, Subclusters: scNames[:2]},
+		}
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
+
+		vdb.Spec.Subclusters = vdb.Spec.Subclusters[1:]
+		vdb.Spec.Subclusters = vdb.Spec.Subclusters[:2]
+		scNames = append(scNames[0:1], scNames[3])
+		verifySubclusters(ctx, vdb, scNames, []int32{0, 0}, sbName, FindNotInVdbAcrossSandboxes)
+	})
 })
 
 func verifySubclusters(ctx context.Context, vdb *vapi.VerticaDB, scNames []string,

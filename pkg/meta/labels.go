@@ -45,7 +45,7 @@ const (
 	// the pod spec template. Rather it is set in the pod by a reconciler after
 	// the pod was created.
 	OperatorVersionLabel = "app.kubernetes.io/version"
-	CurOperatorVersion   = "24.4.0-0" // The version number of the operator
+	CurOperatorVersion   = "25.1.0-0" // The version number of the operator
 	// If any of the operator versions are used in the code, add a const here.
 	// But it isn't necessary to create a const for each version.
 	OperatorVersion100 = "1.0.0"
@@ -107,6 +107,20 @@ const (
 	// subcluster rename. So, it shouldn't be treated as such.
 	SubclusterSelectorLabel = "vertica.com/subcluster-selector-name"
 
+	// This is set in the pods, and is used by deployment as a pod selector. This
+	// stays constant for the life of the deployment, and is unique across
+	// deployment for other subclusters in the database. It may appear like it
+	// is derived from a subcluster name, but is does not get updated for
+	// subcluster rename. So, it shouldn't be treated as such.
+	DeploymentSelectorLabel = "vertica.com/deployment-selector-name"
+
+	// This is set in all proxy pods, and is used to filter out all proxy pods
+	// in vdb reconcilers as a pod selector. This stays constant for the life
+	// of the deployment. If it is set to true, then the pod is a proxy pod;
+	// if it is set to other value or not set, then the pod is not a proxy pod.
+	ProxyPodSelectorLabel = "vertica.com/proxy-pod"
+	ProxyPodSelectorVal   = "true"
+
 	// ConfigMap objects
 	//
 	// This indicates that the object is watched by the sandbox controller.
@@ -114,6 +128,13 @@ const (
 	// that represent sandboxed subclusters
 	WatchedBySandboxLabel = "vertica.com/watched-by-sandbox-controller"
 	WatchedBySandboxTrue  = "true"
+
+	// This indicates that the object is used as a client proxy object.
+	ClientProxyLabel = "vertica.com/client-proxy"
+	ClientProxyTrue  = "true"
+
+	// This indicates the name of the client proxy deployment.
+	ClientProxyNameLabel = "vertica.com/client-proxy-name"
 )
 
 // ProtectedLabels lists all of the internally used label.

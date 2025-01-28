@@ -68,6 +68,9 @@ const (
 	SaveRestorePointStart            = "SaveRestorePointStart"
 	SaveRestorePointSucceeded        = "SaveRestorePointSucceeded"
 	SaveRestorePointFailed           = "SaveRestorePointFailed"
+	StopSubclusterStart              = "StopSubclusterStart"
+	StopSubclusterSucceeded          = "StopSubclusterSucceeded"
+	StopSubclusterFailed             = "StopSubclusterFailed"
 	SlowRestartDetected              = "SlowRestartDetected"
 	SubclusterAdded                  = "SubclusterAdded"
 	SubclusterRemoved                = "SubclusterRemoved"
@@ -99,6 +102,7 @@ const (
 	StopDBStart                      = "StopDBStart"
 	StopDBSucceeded                  = "StopDBSucceeded"
 	StopDBFailed                     = "StopDBFailed"
+	ClusterWillLoseQuorum            = "ClusterWillLoseQuorum"
 	DepotResized                     = "DepotResized"
 	MgmtFailed                       = "MgmtFailed"
 	MgmtFailedDiskFull               = "MgmtFailedDiskfull"
@@ -121,6 +125,7 @@ const (
 	SubclusterServiceNameNotFound = "SubclusterServiceNameNotFound"
 	VerticaDBNotFound             = "VerticaDBNotFound"
 	NoSubclusterTemplate          = "NoSubclusterTemplate"
+	PrometheusMetricsNotSupported = "PrometheusMetricsNotSupported"
 )
 
 // Constants for VerticaScrutinize reconciler

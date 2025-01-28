@@ -1,0 +1,71 @@
+# Customize the adapter configuration to map Prometheus metrics to Kubernetes metrics
+rules:
+  default: false
+  custom:
+    # Number of attempted query requests per second. Type: counter.
+    # The mapped Kubernetes metric name will be vertica_query_requests_attempted_rate_per_second.
+    - seriesQuery: 'vertica_query_requests_attempted_total{namespace!="", pod!=""}'
+      resources:
+        overrides:
+          namespace:
+            resource: namespace
+          pod:
+            resource: pod
+      name:
+        matches: "^(.*)_total$"
+        as: "${1}_rate_per_second"
+      metricsQuery: 'sum(increase(vertica_query_requests_attempted_total[5m])) by (namespace, pod)'
+    # Aggregate CPU usage, expressed as a percentage of total CPU capacity. Type: gauge
+    - seriesQuery: 'vertica_cpu_aggregate_usage_percentage{namespace!="", pod!=""}'
+      resources:
+        overrides:
+          namespace:
+            resource: namespace
+          pod:
+            resource: pod
+      metricsQuery: 'avg_over_time(vertica_cpu_aggregate_usage_percentage[60m])'
+    # Total Vertica process memory usage, expressed as a percentage of total usable RAM. Type: gauge
+    - seriesQuery: 'vertica_process_memory_usage_percent{namespace!="", pod!=""}'
+      resources:
+        overrides:
+          namespace:
+            resource: namespace
+          pod:
+            resource: pod
+      metricsQuery: 'avg_over_time(vertica_process_memory_usage_percent[60m])'
+    # Total number of active sessions. Type: guage
+    - metricsQuery: sum(vertica_sessions_running_counter{namespace!="", service!= "", type="active", initiator="user"}) by (namespace, service)
+      name:
+        as: ${1}_active_count
+        matches: ^(.*)_running_counter$
+      resources:
+        overrides:
+          namespace:
+            resource: namespace
+          service:
+            resource: service
+      seriesQuery: vertica_sessions_running_counter{namespace!="", service!= "", type="active", initiator="user"}
+    # Number of requests that are queued in the resource pool. Type: gauge
+    - seriesQuery: 'vertica_queued_requests_total{namespace!="", pod!=""}'
+      name:
+        as: ${1}_count
+        matches: ^(.*)_total$
+      resources:
+        overrides:
+          namespace:
+            resource: namespace
+          pod:
+            resource: pod
+      metricsQuery: 'sum(vertica_queued_requests_total) by (namespace, pod)'
+    # Total number of active sessions. Used for testing
+    - metricsQuery: sum(vertica_sessions_running_counter{type="active", initiator="user"}) by (namespace, pod)
+      resources:
+        overrides:
+          namespace:
+            resource: namespace
+          pod:
+            resource: pod
+      name:
+        matches: "^(.*)_counter$"
+        as: "${1}_total" # vertica_sessions_running_total
+      seriesQuery: vertica_sessions_running_counter{namespace!="", pod!="", type="active", initiator="user"}

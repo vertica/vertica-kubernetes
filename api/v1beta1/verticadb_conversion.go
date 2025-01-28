@@ -164,6 +164,7 @@ func convertToSpec(src *VerticaDBSpec) v1.VerticaDBSpec {
 		StartupProbeOverride:   src.StartupProbeOverride,
 		ServiceAccountName:     src.ServiceAccountName,
 		Sandboxes:              convertToSandboxSlice(src.Sandboxes),
+		Proxy:                  (*v1.Proxy)(src.Proxy),
 	}
 	if src.RestorePoint != nil {
 		dst.RestorePoint = &v1.RestorePointPolicy{
@@ -228,6 +229,7 @@ func convertFromSpec(src *v1.VerticaDB) VerticaDBSpec {
 		StartupProbeOverride:    srcSpec.StartupProbeOverride,
 		ServiceAccountName:      srcSpec.ServiceAccountName,
 		Sandboxes:               convertFromSandboxSlice(srcSpec.Sandboxes),
+		Proxy:                   (*Proxy)(srcSpec.Proxy),
 	}
 	if srcSpec.RestorePoint != nil {
 		dst.RestorePoint = &RestorePointPolicy{
@@ -264,7 +266,7 @@ func convertToStatus(src *VerticaDBStatus) v1.VerticaDBStatus {
 		RestorePoint:    (*v1.RestorePointInfo)(src.RestorePoint),
 	}
 	for i := range src.Subclusters {
-		dst.Subclusters[i] = convertToSubclusterStatus(src.Subclusters[i])
+		dst.Subclusters[i] = convertToSubclusterStatus(&src.Subclusters[i])
 	}
 	for i := range src.Conditions {
 		meta.SetStatusCondition(&dst.Conditions, convertToStatusCondition(src.Conditions[i]))
@@ -327,6 +329,7 @@ func convertFromSubcluster(src *v1.Subcluster) Subcluster {
 		LoadBalancerIP:      src.LoadBalancerIP,
 		ServiceAnnotations:  src.ServiceAnnotations,
 		Annotations:         src.Annotations,
+		Proxy:               (*ProxySubclusterConfig)(src.Proxy),
 	}
 }
 
@@ -463,7 +466,7 @@ func convertFromSubclusterNameSlice(src []v1.SubclusterName) []SubclusterName {
 }
 
 // convetToSubcluterStatus will convert to a v1 SubcluterStatus from a v1beta1 version
-func convertToSubclusterStatus(src SubclusterStatus) v1.SubclusterStatus {
+func convertToSubclusterStatus(src *SubclusterStatus) v1.SubclusterStatus {
 	return v1.SubclusterStatus{
 		Name:           src.Name,
 		Oid:            src.Oid,

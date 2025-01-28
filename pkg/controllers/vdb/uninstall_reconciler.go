@@ -29,6 +29,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/iter"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
+	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -40,13 +41,13 @@ type UninstallReconciler struct {
 	Log      logr.Logger
 	Vdb      *vapi.VerticaDB // Vdb is the CRD we are acting on.
 	PRunner  cmds.PodRunner
-	PFacts   *PodFacts
+	PFacts   *podfacts.PodFacts
 	ATWriter atconf.Writer
 }
 
 // MakeUninstallReconciler will build and return the UninstallReconciler object.
 func MakeUninstallReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
-	vdb *vapi.VerticaDB, prunner cmds.PodRunner, pfacts *PodFacts) controllers.ReconcileActor {
+	vdb *vapi.VerticaDB, prunner cmds.PodRunner, pfacts *podfacts.PodFacts) controllers.ReconcileActor {
 	return &UninstallReconciler{
 		VRec:     vdbrecon,
 		Log:      log.WithName("UninstallReconciler"),
@@ -93,7 +94,7 @@ func (s *UninstallReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (c
 
 	// We can only proceed with uninstall if all of the installed pods are
 	// running.  This ensures we can properly sync admintools.conf.
-	if ok, podNotRunning := s.PFacts.anyInstalledPodsNotRunning(); ok {
+	if ok, podNotRunning := s.PFacts.AnyInstalledPodsNotRunning(); ok {
 		s.Log.Info("At least one pod isn't running.  Aborting the uninstall.", "pod", podNotRunning)
 		return ctrl.Result{Requeue: true}, nil
 	}
@@ -143,14 +144,14 @@ func (s *UninstallReconciler) uninstallPodsInSubcluster(ctx context.Context, sc 
 // uninstallPodsInSubclusterForAdmintools will call uninstall, for admintools, on a list
 // of pods that will be scaled down.
 func (s *UninstallReconciler) uninstallPodsInSubclusterForAdmintools(ctx context.Context,
-	podsToUninstall []*PodFact) error {
+	podsToUninstall []*podfacts.PodFact) error {
 	basePod, err := findATBasePod(s.Vdb, s.PFacts)
 	if err != nil {
 		return err
 	}
 	ipsToUninstall := []string{}
 	for _, p := range podsToUninstall {
-		ipsToUninstall = append(ipsToUninstall, p.podIP)
+		ipsToUninstall = append(ipsToUninstall, p.GetPodIP())
 	}
 	atConfTempFile, err := s.ATWriter.RemoveHosts(ctx, basePod, ipsToUninstall)
 	if err != nil {
@@ -166,7 +167,7 @@ func (s *UninstallReconciler) uninstallPodsInSubclusterForAdmintools(ctx context
 	// opt to scale out again.
 	cmd := s.genCmdRemoveInstallIndicator()
 	for _, pod := range podsToUninstall {
-		if _, _, err := s.PRunner.ExecInPod(ctx, pod.name, names.ServerContainer, cmd...); err != nil {
+		if _, _, err := s.PRunner.ExecInPod(ctx, pod.GetName(), names.ServerContainer, cmd...); err != nil {
 			return fmt.Errorf("failed to call remove installer indicator file: %w", err)
 		}
 	}
@@ -178,8 +179,9 @@ func (s *UninstallReconciler) uninstallPodsInSubclusterForAdmintools(ctx context
 // If a pod was skipped that may require an uninstall, then the bool return
 // comes back as true. It is the callers responsibility to requeue a
 // reconciliation if that is true.
-func (s *UninstallReconciler) findPodsSuitableForScaleDown(sc *vapi.Subcluster, startPodIndex, endPodIndex int32) ([]*PodFact, bool) {
-	pods := []*PodFact{}
+func (s *UninstallReconciler) findPodsSuitableForScaleDown(sc *vapi.Subcluster, startPodIndex,
+	endPodIndex int32) ([]*podfacts.PodFact, bool) {
+	pods := []*podfacts.PodFact{}
 	requeueNeeded := false
 	for podIndex := startPodIndex; podIndex <= endPodIndex; podIndex++ {
 		uninstallPod := names.GenPodName(s.Vdb, sc, podIndex)
@@ -190,16 +192,16 @@ func (s *UninstallReconciler) findPodsSuitableForScaleDown(sc *vapi.Subcluster, 
 			continue
 		}
 		// Fine to skip if installer hasn't even been run for this pod
-		if !podFact.isInstalled {
+		if !podFact.GetIsInstalled() {
 			continue
 		}
-		if !podFact.isPodRunning {
+		if !podFact.GetIsPodRunning() {
 			// Requeue since we need the pod running to remove the installer indicator file
 			s.Log.Info("Pod may require uninstall but not able to do so now", "pod", uninstallPod)
 			requeueNeeded = true
 			continue
 		}
-		if podFact.dbExists {
+		if podFact.GetDBExists() {
 			s.Log.Info("DB exists at the pod, which needs to be removed first", "pod", uninstallPod)
 			requeueNeeded = true
 			continue

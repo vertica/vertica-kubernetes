@@ -29,6 +29,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
+	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	"github.com/vertica/vertica-kubernetes/pkg/vk8s"
 	appsv1 "k8s.io/api/apps/v1"
@@ -129,7 +130,7 @@ func (r *SandboxConfigMapReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return ctrl.Result{}, err
 	}
 	prunner := cmds.MakeClusterPodRunner(log, r.Cfg, vdb.GetVerticaUser(), passwd)
-	pfacts := vdbcontroller.MakePodFactsForSandbox(r, prunner, log, passwd, sandboxName)
+	pfacts := podfacts.MakePodFactsForSandbox(r, prunner, log, passwd, sandboxName)
 	dispatcher := vadmin.MakeVClusterOps(log, vdb, r.Client, passwd, r.EVRec, vadmin.SetupVClusterOps)
 
 	// Iterate over each actor
@@ -151,7 +152,7 @@ func (r *SandboxConfigMapReconciler) Reconcile(ctx context.Context, req ctrl.Req
 // Order matters in that some actors depend on the successeful execution of
 // earlier ones.
 func (r *SandboxConfigMapReconciler) constructActors(vdb *v1.VerticaDB, log logr.Logger, prunner *cmds.ClusterPodRunner,
-	pfacts *vdbcontroller.PodFacts, dispatcher vadmin.Dispatcher, configMap *corev1.ConfigMap) []controllers.ReconcileActor {
+	pfacts *podfacts.PodFacts, dispatcher vadmin.Dispatcher, configMap *corev1.ConfigMap) []controllers.ReconcileActor {
 	// The actors that will be applied, in sequence, to reconcile a sandbox configmap.
 	return []controllers.ReconcileActor{
 		// Ensure we support sandboxing and vclusterops
@@ -164,8 +165,17 @@ func (r *SandboxConfigMapReconciler) constructActors(vdb *v1.VerticaDB, log logr
 		vdbcontroller.MakeOfflineUpgradeReconciler(r, log, vdb, prunner, pfacts, dispatcher),
 		// Add annotations/labels to each pod about the host running them
 		vdbcontroller.MakeAnnotateAndLabelPodReconciler(r, log, vdb, pfacts),
+		// Stop Vertica in the sandbox if the shutdown state is true
+		vdbcontroller.MakeStopDBReconciler(r, vdb, prunner, pfacts, dispatcher),
+		// Stop subclusters that have shutdown set to true.
+		vdbcontroller.MakeSubclusterShutdownReconciler(r, log, vdb, dispatcher, pfacts),
 		// Restart any down pods
 		vdbcontroller.MakeRestartReconciler(r, log, vdb, prunner, pfacts, true, dispatcher),
+		// Update the vdb status including subclusters[].shutdown, after a stop_db, stop_sc
+		// or a restart
+		vdbcontroller.MakeStatusReconcilerWithShutdown(r.Client, r.Scheme, log, vdb, pfacts),
+		// Scale down the subclusters' statefulsets to zero after the subclusters are shut down
+		MakeScaleStafulsetReconciler(r, vdb, pfacts),
 	}
 }
 

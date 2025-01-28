@@ -33,6 +33,7 @@ import (
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
+	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
 	vtypes "github.com/vertica/vertica-kubernetes/pkg/types"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/createdb"
@@ -59,7 +60,7 @@ type CreateDBReconciler struct {
 	Log                 logr.Logger
 	Vdb                 *vapi.VerticaDB // Vdb is the CRD we are acting on.
 	PRunner             cmds.PodRunner
-	PFacts              *PodFacts
+	PFacts              *podfacts.PodFacts
 	Dispatcher          vadmin.Dispatcher
 	ConfigurationParams *vtypes.CiMap
 	VInf                *version.Info
@@ -67,7 +68,7 @@ type CreateDBReconciler struct {
 
 // MakeCreateDBReconciler will build a CreateDBReconciler object
 func MakeCreateDBReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
-	vdb *vapi.VerticaDB, prunner cmds.PodRunner, pfacts *PodFacts,
+	vdb *vapi.VerticaDB, prunner cmds.PodRunner, pfacts *podfacts.PodFacts,
 	dispatcher vadmin.Dispatcher) controllers.ReconcileActor {
 	return &CreateDBReconciler{
 		VRec:                vdbrecon,
@@ -213,7 +214,7 @@ func (c *CreateDBReconciler) postCmdCleanup(ctx context.Context) (ctrl.Result, e
 	// getting the same behavior. Since the default behavior is to generate the
 	// file, we need to set an annotation if we didn't generate the file yet.
 	if c.VInf.IsEqualOrNewer(vapi.AutoGenerateHTTPSCertsForNewDatabasesMinVersion) &&
-		!pf.fileExists[paths.HTTPTLSConfFileName] {
+		!pf.GetFileExists()[paths.HTTPTLSConfFileName] {
 		chgs := vk8s.MetaChanges{
 			NewAnnotations: map[string]string{
 				vmeta.HTTPSTLSConfGenerationAnnotation: vmeta.HTTPSTLSConfGenerationAnnotationFalse,
@@ -237,17 +238,17 @@ func (c *CreateDBReconciler) postCmdCleanup(ctx context.Context) (ctrl.Result, e
 // getPodList gets a list of all of the pods we are going to use with create db.
 // If any pod is not found in the pod facts, it return false for the bool
 // return value.
-func (c *CreateDBReconciler) getPodList() ([]*PodFact, bool) {
+func (c *CreateDBReconciler) getPodList() ([]*podfacts.PodFact, bool) {
 	// We grab all pods from the first primary subcluster.  Pods for additional
 	// subcluster are added through db_add_node.
 	sc := c.getFirstPrimarySubcluster()
-	podList := make([]*PodFact, 0, sc.Size)
+	podList := make([]*podfacts.PodFact, 0, sc.Size)
 	for i := int32(0); i < sc.Size; i++ {
 		pn := names.GenPodName(c.Vdb, sc, i)
 		pf, ok := c.PFacts.Detail[pn]
 		// Bail out if one of the pods in the subcluster isn't found
 		if !ok {
-			return []*PodFact{}, false
+			return []*podfacts.PodFact{}, false
 		}
 		podList = append(podList, pf)
 	}
@@ -255,7 +256,7 @@ func (c *CreateDBReconciler) getPodList() ([]*PodFact, bool) {
 	// ensures the assigned vnode number will match the compat21 node number.
 	// admintools -t restart_db depends on this.
 	sort.Slice(podList, func(i, j int) bool {
-		return podList[i].compat21NodeName < podList[j].compat21NodeName
+		return podList[i].GetCompat21NodeName() < podList[j].GetCompat21NodeName()
 	})
 
 	// Check if the shard/node ratio of the first subcluster is good
@@ -271,7 +272,7 @@ func (c *CreateDBReconciler) getPodList() ([]*PodFact, bool) {
 
 // findPodToRunInit will return a PodFact of the pod that should run the init
 // command from
-func (c *CreateDBReconciler) findPodToRunInit() (*PodFact, bool) {
+func (c *CreateDBReconciler) findPodToRunInit() (*podfacts.PodFact, bool) {
 	// Always return the first pod of the first primary subcluster. We do this
 	// so that we can consistently pick the same pod if we have redo the create.
 	sc := c.getFirstPrimarySubcluster()

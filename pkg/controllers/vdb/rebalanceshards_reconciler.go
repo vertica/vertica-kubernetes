@@ -25,6 +25,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
+	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
 	corev1 "k8s.io/api/core/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -35,13 +36,13 @@ type RebalanceShardsReconciler struct {
 	Log     logr.Logger
 	Vdb     *vapi.VerticaDB // Vdb is the CRD we are acting on.
 	PRunner cmds.PodRunner
-	PFacts  *PodFacts
+	PFacts  *podfacts.PodFacts
 	ScName  string // Name of the subcluster to rebalance.  Leave this blank if you want to handle all subclusters.
 }
 
 // MakeRebalanceShardsReconciler will build a RebalanceShardsReconciler object
 func MakeRebalanceShardsReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
-	vdb *vapi.VerticaDB, prunner cmds.PodRunner, pfacts *PodFacts, scName string) controllers.ReconcileActor {
+	vdb *vapi.VerticaDB, prunner cmds.PodRunner, pfacts *podfacts.PodFacts, scName string) controllers.ReconcileActor {
 	return &RebalanceShardsReconciler{
 		VRec:    vdbrecon,
 		Log:     log.WithName("RebalanceShardsReconciler"),
@@ -68,7 +69,7 @@ func (s *RebalanceShardsReconciler) Reconcile(ctx context.Context, _ *ctrl.Reque
 		return ctrl.Result{}, nil
 	}
 
-	atPod, ok := s.PFacts.findFirstUpPod(false, "")
+	atPod, ok := s.PFacts.FindFirstUpPod(false, "")
 	if !ok {
 		s.Log.Info("No pod found to run vsql from. Requeue reconciliation.")
 		return ctrl.Result{Requeue: true}, nil
@@ -91,11 +92,11 @@ func (s *RebalanceShardsReconciler) findShardsToRebalance() []string {
 	scToRebalance := []string{}
 
 	for _, pf := range s.PFacts.Detail {
-		if (s.ScName == "" || s.ScName == pf.subclusterName) && pf.isPodRunning && pf.upNode && pf.shardSubscriptions == 0 {
-			_, ok := scRebalanceMap[pf.subclusterName]
+		if (s.ScName == "" || s.ScName == pf.GetSubclusterName()) && pf.GetIsPodRunning() && pf.GetUpNode() && pf.GetShardSubscriptions() == 0 {
+			_, ok := scRebalanceMap[pf.GetSubclusterName()]
 			if !ok {
-				scToRebalance = append(scToRebalance, pf.subclusterName)
-				scRebalanceMap[pf.subclusterName] = true
+				scToRebalance = append(scToRebalance, pf.GetSubclusterName())
+				scRebalanceMap[pf.GetSubclusterName()] = true
 			}
 		}
 	}
@@ -103,8 +104,8 @@ func (s *RebalanceShardsReconciler) findShardsToRebalance() []string {
 }
 
 // rebalanceShards will run rebalance_shards for the given subcluster
-func (s *RebalanceShardsReconciler) rebalanceShards(ctx context.Context, atPod *PodFact, scName string) error {
-	podName := atPod.name
+func (s *RebalanceShardsReconciler) rebalanceShards(ctx context.Context, atPod *podfacts.PodFact, scName string) error {
+	podName := atPod.GetName()
 	selectCmd := fmt.Sprintf("select rebalance_shards('%s')", scName)
 	cmd := []string{
 		"-tAc", selectCmd,
