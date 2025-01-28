@@ -300,7 +300,7 @@ replacements:
     targets:
       - select:
           kind: VerticaDB
-          name: vertica-sample
+          name: verticadb-sample
         fieldPaths:
           - spec.sidecars.[name=vlogger].image
       - select:
@@ -375,7 +375,7 @@ replacements:
           - spec.sidecars.[name=vlogger].image
       - select:
           kind: VerticaDB
-          name: v-base-upgrade
+          name: v-online-upgrade
         fieldPaths:
           - spec.sidecars.[name=vlogger].image
 EOF
