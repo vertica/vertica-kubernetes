@@ -209,6 +209,7 @@ runs:
         # Setup prometheus and prometheus-adapter
         if [[ "${{ inputs.leg-identifier }}" == "leg-12" ]]; then
           export NEED_PROMETHEUS=true
+          export CONCURRENCY_VERTICAAUTOSCALER=5
         fi
 
         # Run int test script

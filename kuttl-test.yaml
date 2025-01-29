@@ -80,3 +80,5 @@ commands:
   - script: if [ "$NEED_PROMETHEUS" = "true" ]; then make deploy-prometheus; fi
   - script: make undeploy-prometheus-adapter || true
   - script: if [ "$NEED_PROMETHEUS" = "true" ]; then make deploy-prometheus-adapter; fi
+  - script: make undeploy-keda || true
+  - script: if [ "$NEED_PROMETHEUS" = "true" ]; then make deploy-keda; fi

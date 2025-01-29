@@ -42,7 +42,7 @@ func MakeVerifyHPAReconciler(v *VerticaAutoscalerReconciler, vas *v1beta1.Vertic
 
 // Reconcile will check the hpa status and requeue if the hpa is not ready.
 func (v *VerifyHPAReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (ctrl.Result, error) {
-	if !v.Vas.IsCustomMetricsEnabled() {
+	if !v.Vas.IsHpaEnabled() {
 		return ctrl.Result{}, nil
 	}
 	nm := names.GenHPAName(v.Vas)
@@ -58,7 +58,7 @@ func (v *VerifyHPAReconciler) Reconcile(ctx context.Context, req *ctrl.Request) 
 		Status: corev1.ConditionFalse,
 	}
 	scalingActive := isStatusConditionPresentAndEqual(conds, autoscalingv2.ScalingActive, corev1.ConditionTrue) &&
-		len(curHpa.Status.CurrentMetrics) == len(v.Vas.Spec.CustomAutoscaler.Metrics)
+		len(curHpa.Status.CurrentMetrics) == len(v.Vas.Spec.CustomAutoscaler.Hpa.Metrics)
 	if scalingActive {
 		cond.Status = corev1.ConditionTrue
 	} else {

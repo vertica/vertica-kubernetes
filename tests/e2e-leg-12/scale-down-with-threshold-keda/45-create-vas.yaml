@@ -1,0 +1,21 @@
+apiVersion: vertica.com/v1beta1
+kind: VerticaAutoscaler
+metadata:
+  name: v-scale-down-threshold-vas
+spec:
+  verticaDBName: v-scale-down-threshold
+  serviceName: pri1
+  scalingGranularity: Pod
+  customAutoscaler:
+    type: ScaledObject
+    scaledObject:
+      minReplicas: 3
+      maxReplicas: 7
+      metrics:
+      - name: vertica_sessions_running_total
+        metricType: AverageValue
+        prometheus:
+          serverAddress: "http://prometheus-kube-prometheus-prometheus.prometheus.svc.cluster.local:9090"
+          query: sum(vertica_sessions_running_counter{type="active", initiator="user", service="v-scale-down-threshold-pri1"})
+          threshold: 5
+          scaleDownThreshold: 1

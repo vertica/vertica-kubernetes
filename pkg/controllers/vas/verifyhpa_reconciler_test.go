@@ -37,7 +37,7 @@ var _ = Describe("scaledown_reconcile", func() {
 		v1beta1_test.CreateVAS(ctx, k8sClient, vas)
 		defer v1beta1_test.DeleteVAS(ctx, k8sClient, vas)
 
-		r := MakeHorizontalPodAutoscalerReconciler(vasRec, vas, logger)
+		r := MakeObjReconciler(vasRec, vas, logger)
 		res, err := r.Reconcile(ctx, &ctrl.Request{})
 		defer v1beta1_test.DeleteHPA(ctx, k8sClient, vas)
 		Expect(res).Should(Equal(ctrl.Result{}))

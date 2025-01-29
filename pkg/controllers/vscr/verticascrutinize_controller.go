@@ -33,7 +33,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/go-logr/logr"
 	v1 "github.com/vertica/vertica-kubernetes/api/v1"
@@ -121,7 +120,7 @@ func (r *VerticaScrutinizeReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		For(&v1beta1.VerticaScrutinize{}).
 		Owns(&corev1.Pod{}).
 		Watches(
-			&source.Kind{Type: &v1.VerticaDB{}},
+			&v1.VerticaDB{},
 			handler.EnqueueRequestsFromMapFunc(r.findObjectsForVerticaDB),
 			builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
 		).
@@ -130,13 +129,13 @@ func (r *VerticaScrutinizeReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 // findObjectsForVerticaDB will generate requests to reconcile VerticaScrutiners
 // based on watched VerticaDB.
-func (r *VerticaScrutinizeReconciler) findObjectsForVerticaDB(vdb client.Object) []reconcile.Request {
+func (r *VerticaScrutinizeReconciler) findObjectsForVerticaDB(ctx context.Context, vdb client.Object) []reconcile.Request {
 	scrutinizers := &v1beta1.VerticaScrutinizeList{}
 	listOps := &client.ListOptions{
 		FieldSelector: fields.OneTermEqualSelector(vdbNameField, vdb.GetName()),
 		Namespace:     vdb.GetNamespace(),
 	}
-	err := r.List(context.Background(), scrutinizers, listOps)
+	err := r.List(ctx, scrutinizers, listOps)
 	if err != nil {
 		return []reconcile.Request{}
 	}

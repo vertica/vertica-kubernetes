@@ -48,7 +48,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
 // SandboxConfigMapReconciler reconciles a ConfigMap for sandboxing
@@ -71,7 +70,7 @@ func (r *SandboxConfigMapReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			builder.WithPredicates(r.predicateFuncs(), predicate.ResourceVersionChangedPredicate{}),
 		).
 		Watches(
-			&source.Kind{Type: &appsv1.StatefulSet{}},
+			&appsv1.StatefulSet{},
 			handler.EnqueueRequestsFromMapFunc(r.findObjectsForStatesulSet),
 			builder.WithPredicates(r.predicateFuncs(), predicate.ResourceVersionChangedPredicate{}),
 		).
@@ -258,7 +257,7 @@ func (r *SandboxConfigMapReconciler) GetConfig() *rest.Config {
 
 // findObjectsForStatesulSet will generate requests to reconcile sandbox ConfigMaps
 // based on watched Statefulset
-func (r *SandboxConfigMapReconciler) findObjectsForStatesulSet(sts client.Object) []reconcile.Request {
+func (r *SandboxConfigMapReconciler) findObjectsForStatesulSet(ctx context.Context, sts client.Object) []reconcile.Request {
 	configMaps := corev1.ConfigMapList{}
 	stsLabels := sts.GetLabels()
 	sbLabels := make(map[string]string, len(vmeta.SandboxConfigMapLabels))

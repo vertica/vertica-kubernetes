@@ -44,7 +44,7 @@ func (s *VDBVerifyReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (c
 	// feedback if the VerticaDB that is referenced in the vas doesn't exist.
 	// This will print out an event if the VerticaDB cannot be found.
 	res, err := fetchVDB(ctx, s.VRec, s.Vas, s.Vdb)
-	if !s.Vas.IsCustomMetricsEnabled() || verrors.IsReconcileAborted(res, err) {
+	if !s.Vas.IsCustomAutoScalerSet() || verrors.IsReconcileAborted(res, err) {
 		return res, err
 	}
 	vinf, vErr := s.Vdb.MakeVersionInfoCheck()
