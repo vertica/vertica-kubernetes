@@ -435,6 +435,9 @@ endif
 
 .PHONY: docker-build-vlogger
 docker-build-vlogger:  ## Build vertica logger docker image
+ifeq ($(COMMA), $(findstring $(COMMA), $(TARGET_ARCH)))
+	make docker-build-crossplatform-vlogger
+else
 	docker pull ${VLOGGER_BASE_IMG}:${VLOGGER_ALPINE_VERSION} # Ensure we have the latest alpine version
 	docker buildx build \
 		-t ${VLOGGER_IMG} \
@@ -443,6 +446,7 @@ docker-build-vlogger:  ## Build vertica logger docker image
 		--build-arg BASE_IMG=${VLOGGER_BASE_IMG} \
 		--build-arg ALPINE_VERSION=${VLOGGER_ALPINE_VERSION} \
 		-f docker-vlogger/Dockerfile .
+endif
 
 # If you wish to build the manager image targeting other platforms you can use the --platform flag.
 # (i.e. docker buildx build --platform=linux/arm64 ). However, you must enable docker buildKit for it.
@@ -533,7 +537,7 @@ endif
 # PLATFORMS defines the target platforms that the image will be used for. Use
 # this with docker-build-crossplatform-* targets.
 ifeq ($(COMMA), $(findstring $(COMMA), $(TARGET_ARCH)))
-PLATFORMS?=TARGET_ARCH
+PLATFORMS?=$(TARGET_ARCH)
 else
 PLATFORMS?=linux/arm64,linux/amd64
 endif
@@ -554,6 +558,21 @@ docker-build-crossplatform-operator: manifests generate fmt vet ## Build and pus
 		.
 	- docker buildx rm project-v3-builder
 	rm Dockerfile.cross
+
+.PHONY: docker-build-crossplatform-vlogger
+docker-build-crossplatform-vlogger: manifests generate fmt vet ## Build and push vlogger image for cross-platform support
+	docker pull golang:${GO_VERSION} # Ensure we have the latest Go lang version
+	- docker buildx create --name project-v3-builder
+	docker buildx use project-v3-builder
+	docker buildx build \
+		-t ${VLOGGER_IMG} \
+		--push \
+		--platform=${PLATFORMS} \
+		--build-arg BASE_IMG=${VLOGGER_BASE_IMG} \
+		--build-arg ALPINE_VERSION=${VLOGGER_ALPINE_VERSION} \
+		-f docker-vlogger/Dockerfile \
+		.
+	- docker buildx rm project-v3-builder
 
 .PHONY: bundle
 bundle: manifests kustomize operator-sdk ## Generate bundle manifests and metadata, then validate generated files.
