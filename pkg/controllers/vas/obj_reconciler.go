@@ -123,7 +123,7 @@ func (o *ObjReconciler) updateWorkload(ctx context.Context, curWorkload, expWork
 			so := curWorkload.(*kedav1alpha1.ScaledObject)
 			o.Log.Info("Patched ScaledObject",
 				"Name", so.Name,
-				"MinReplicas", *so.Spec.MaxReplicaCount,
+				"MinReplicas", *so.Spec.MinReplicaCount,
 				"MaxReplicas", *so.Spec.MaxReplicaCount)
 		}
 	}
