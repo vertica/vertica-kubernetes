@@ -211,10 +211,11 @@ func (v *VerticaAutoscaler) HasScaleDownThreshold() bool {
 // GetMinReplicas calculates the minReplicas based on the scale down
 // threshold, and returns it
 func (v *VerticaAutoscaler) GetMinReplicas() *int32 {
+	vasCopy := v.DeepCopy()
 	if v.HasScaleDownThreshold() {
-		return &v.Spec.TargetSize
+		return &vasCopy.Spec.TargetSize
 	}
-	return v.Spec.CustomAutoscaler.MinReplicas
+	return vasCopy.Spec.CustomAutoscaler.MinReplicas
 }
 
 // GetMetricMap returns a map whose key is the metric name and the value is
