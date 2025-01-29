@@ -78,7 +78,7 @@ var _ = Describe("unsandboxsubcluster_reconcile", func() {
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
 		nm := names.GenSandboxConfigMapName(vdb, sandbox1)
-		cm := builder.BuildSandboxConfigMap(nm, vdb, sandbox1)
+		cm := builder.BuildSandboxConfigMap(nm, vdb, sandbox1, false)
 		Expect(k8sClient.Create(ctx, cm)).Should(Succeed())
 		defer test.DeleteConfigMap(ctx, k8sClient, vdb, sandbox1)
 		test.CreateVDB(ctx, k8sClient, vdb)

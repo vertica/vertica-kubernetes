@@ -289,7 +289,7 @@ func (s *SandboxSubclusterReconciler) findInitiatorIPs(ctx context.Context, sand
 func (s *SandboxSubclusterReconciler) checkSandboxConfigMap(ctx context.Context, sandbox string) error {
 	nm := names.GenSandboxConfigMapName(s.Vdb, sandbox)
 	curCM := &corev1.ConfigMap{}
-	newCM := builder.BuildSandboxConfigMap(nm, s.Vdb, sandbox)
+	newCM := builder.BuildSandboxConfigMap(nm, s.Vdb, sandbox, s.ForUpgrade)
 	err := s.Client.Get(ctx, nm, curCM)
 	if err != nil && kerrors.IsNotFound(err) {
 		s.Log.Info("Creating sandbox config map", "Name", nm)

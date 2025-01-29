@@ -1052,6 +1052,13 @@ func (r *OnlineUpgradeReconciler) redirectConnectionsToReplicaGroupB(ctx context
 	if verrors.IsReconcileAborted(res, err) {
 		return res, err
 	}
+	// Now that routing to the sandbox is allowed, we no longer need
+	// disableRouting annotation so we can safely turn it off.
+	sbMan := MakeSandboxConfigMapManager(r.VRec, r.VDB, r.sandboxName, "" /*no uuid*/)
+	_, err = sbMan.turnOffDisableRoutingAnnotation(ctx)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
 	// then remove client routing labels from replica group a so no traffic is routed to the old main cluster
 	methodType := DrainNodeApplyMethod
 	if vmeta.UseVProxy(r.VDB.Annotations) {
