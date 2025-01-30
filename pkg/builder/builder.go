@@ -1754,24 +1754,26 @@ func buildNMATLSCertsEnvVars() []corev1.EnvVar {
 		// {Name: NMASecretNamespaceEnv, Value: vdb.ObjectMeta.Namespace},
 		// {Name: NMASecretNameEnv, Value: vdb.Spec.NMATLSSecret},
 
-		{ValueFrom: &corev1.EnvVarSource{
-			ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
-				LocalObjectReference: corev1.LocalObjectReference{
-					Name: vapi.NMATLSConfigMapName,
+		{Name: NMASecretNamespaceEnv,
+			ValueFrom: &corev1.EnvVarSource{
+				ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: vapi.NMATLSConfigMapName,
+					},
+					Key:      NMASecretNamespaceEnv,
+					Optional: &notTrue,
 				},
-				Key:      NMASecretNamespaceEnv,
-				Optional: &notTrue,
-			},
-		}},
-		{ValueFrom: &corev1.EnvVarSource{
-			ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
-				LocalObjectReference: corev1.LocalObjectReference{
-					Name: vapi.NMATLSConfigMapName,
+			}},
+		{Name: NMASecretNameEnv,
+			ValueFrom: &corev1.EnvVarSource{
+				ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: vapi.NMATLSConfigMapName,
+					},
+					Key:      NMASecretNameEnv,
+					Optional: &notTrue,
 				},
-				Key:      NMASecretNameEnv,
-				Optional: &notTrue,
-			},
-		}},
+			}},
 	}
 }
 
