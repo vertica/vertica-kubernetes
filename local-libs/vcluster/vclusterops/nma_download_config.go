@@ -1,5 +1,5 @@
 /*
- (c) Copyright [2023-2024] Open Text.
+ (c) Copyright [2023-2025] Open Text.
  Licensed under the Apache License, Version 2.0 (the "License");
  You may not use this file except in compliance with the License.
  You may obtain a copy of the License at
@@ -25,6 +25,7 @@ import (
 const (
 	spreadConf  = "config/spread"
 	verticaConf = "config/vertica"
+	licenseKey  = "config/license"
 )
 
 type nmaDownloadConfigOp struct {
@@ -59,6 +60,23 @@ func makeNMADownloadConfigOp(
 	return op
 }
 
+func makeNMADownloadLicenseOp(
+	sourceHost, filePath string,
+	fileContent *string) nmaDownloadConfigOp {
+	op := nmaDownloadConfigOp{}
+	op.name = "NMADownloadLicenseKeyOp"
+	op.hosts = []string{sourceHost}
+	op.endpoint = licenseKey
+	op.description = "Get contents of license key"
+	op.fileContent = fileContent
+	op.catalogPathMap = make(map[string]string)
+	op.catalogPathMap[sourceHost] = filePath
+	op.vdb = nil
+	// upgrade license key can only be done on main cluster
+	op.sandbox = nil
+	return op
+}
+
 func (op *nmaDownloadConfigOp) setupClusterHTTPRequest(hosts []string) error {
 	for _, host := range hosts {
 		httpRequest := hostHTTPRequest{}
@@ -78,6 +96,21 @@ func (op *nmaDownloadConfigOp) setupClusterHTTPRequest(hosts []string) error {
 }
 
 func (op *nmaDownloadConfigOp) prepare(execContext *opEngineExecContext) error {
+	// shortcut for license key, as the op has to be done on the passed-in host
+	if op.endpoint == licenseKey {
+		return op.prepareForDownloadLicense(execContext)
+	}
+
+	return op.prepareForDownloadConfigs(execContext)
+}
+
+func (op *nmaDownloadConfigOp) prepareForDownloadLicense(execContext *opEngineExecContext) error {
+	execContext.dispatcher.setup(op.hosts)
+
+	return op.setupClusterHTTPRequest(op.hosts)
+}
+
+func (op *nmaDownloadConfigOp) prepareForDownloadConfigs(execContext *opEngineExecContext) error {
 	op.catalogPathMap = make(map[string]string)
 	// vdb is built by calling /cluster and /nodes endpoints of a running db.
 	// If nodes' info is not available in vdb, we will get the host from execContext.nmaVDatabase which is build by reading the catalog editor

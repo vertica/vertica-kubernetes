@@ -1,5 +1,5 @@
 /*
- (c) Copyright [2023-2024] Open Text.
+ (c) Copyright [2023-2025] Open Text.
  Licensed under the Apache License, Version 2.0 (the "License");
  You may not use this file except in compliance with the License.
  You may obtain a copy of the License at
@@ -146,7 +146,7 @@ func (c *CmdCreateConnection) Run(vcc vclusterops.ClusterCommands) error {
 	// write target db info to vcluster connection file
 	err := c.writeConn()
 	if err != nil {
-		vcc.DisplayError("failed to write the connection file: " + err.Error())
+		vcc.DisplayError("Failed to write the connection file: " + err.Error())
 		return nil
 	}
 	vcc.DisplayInfo("Successfully wrote the connection file in %s", globals.connFile)

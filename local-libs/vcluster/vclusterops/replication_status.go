@@ -1,5 +1,5 @@
 /*
- (c) Copyright [2023-2024] Open Text.
+ (c) Copyright [2023-2025] Open Text.
  Licensed under the Apache License, Version 2.0 (the "License");
  You may not use this file except in compliance with the License.
  You may obtain a copy of the License at
@@ -18,6 +18,7 @@ package vclusterops
 import (
 	"fmt"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/vertica/vcluster/vclusterops/util"
@@ -47,6 +48,8 @@ type ReplicationStatusResponse struct {
 	// Current replication operation status. Possible values:
 	//   'started', 'failed', 'completed'
 	Status string `json:"status"`
+
+	ErrMsg string
 
 	// Node the current replication operation is on
 	NodeName string `json:"node_name"`
@@ -237,8 +240,7 @@ func getFinalReplicationStatus(replicationStatus []ReplicationStatusResponse) *R
 
 	// Get the rest of the status info from the current op (the last op in the sorted list)
 	currentOp := replicationStatus[len(replicationStatus)-1]
-
-	finalReplicationStatus.Status = currentOp.Status
+	setStatusAndErrMsg(&finalReplicationStatus, &currentOp)
 	finalReplicationStatus.EndTime = currentOp.EndTime
 	finalReplicationStatus.OpName = currentOp.OpName
 	finalReplicationStatus.SentBytes = currentOp.SentBytes
@@ -246,4 +248,13 @@ func getFinalReplicationStatus(replicationStatus []ReplicationStatusResponse) *R
 	finalReplicationStatus.NodeName = currentOp.NodeName
 
 	return &finalReplicationStatus
+}
+
+func setStatusAndErrMsg(finalReplicationStatus, currentOp *ReplicationStatusResponse) {
+	if strings.HasPrefix(currentOp.Status, "failed:") {
+		finalReplicationStatus.Status = "failed"
+		finalReplicationStatus.ErrMsg = strings.TrimSpace(currentOp.Status[7:])
+	} else {
+		finalReplicationStatus.Status = currentOp.Status
+	}
 }
