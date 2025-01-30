@@ -583,6 +583,7 @@ func (r *OnlineUpgradeReconciler) sandboxReplicaGroupB(ctx context.Context) (ctr
 		return ctrl.Result{Requeue: true}, nil
 	}
 
+	// Drive the actual sandbox command. When this returns we know the sandbox is complete.
 	actor := MakeSandboxSubclusterReconciler(r.VRec, r.Log, r.VDB, r.PFacts[vapi.MainCluster], r.Dispatcher,
 		r.VRec.Client, true /* forUpgrade */)
 	r.Manager.traceActorReconcile(actor)
