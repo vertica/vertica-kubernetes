@@ -1,5 +1,5 @@
 /*
-(c) Copyright [2023-2024] Open Text.
+(c) Copyright [2023-2025] Open Text.
 Licensed under the Apache License, Version 2.0 (the "License");
 You may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -77,17 +77,17 @@ func converErrorMessage(err error, logger vlog.Printer) string {
 	errMsg := err.Error()
 	logger.Error(err, "error to be converted into err msg")
 	if strings.Contains(errMsg, "down database") {
-		return "failed to vertify connection parameters. please check your db name and host list"
+		return "Failed to verify connection parameters. Please check your db name and host list"
 	} else if strings.Contains(errMsg, "Wrong password") {
-		return "failed to vertify connection parameters. please check your db username and password"
+		return "Failed to verify connection parameters. Please check your db username and password"
 	} else if strings.Contains(errMsg, "rather than database") {
-		return "failed to vertify connection parameters. please check your db name"
+		return "Failed to verify connection parameters. Please check your db name"
 	} else if strings.Contains(errMsg, "no such host") || strings.Contains(errMsg, "network is unreachable") ||
 		strings.Contains(errMsg, "fail to send request") || strings.Contains(errMsg, "server misbehaving") ||
 		strings.Contains(errMsg, "i/o timeout") {
-		return "failed to vertify connection parameters. please check your host list"
+		return "Failed to verify connection parameters. Please check your host list"
 	}
-	return "failed to vertify connection parameters: " + errMsg
+	return "Failed to verify connection parameters: " + errMsg
 }
 
 // this function calls ClusterCommand.FetchNodesDetails() for each input hosts and return both valid and invalid hosts
