@@ -30,3 +30,8 @@ status:
     - installCount: 1
       addedToDBCount: 1
       upNodeCount: 1
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nma-tls-config
