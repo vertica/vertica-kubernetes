@@ -75,6 +75,14 @@ inputs:
     description: 'If skip downloading test packages inside vertica image'
     required: false
     default: 'true'
+  e2e-timeout-minutes:
+    description: 'Duration (in minutes) to wait for e2e tests to complete before timing out.'
+    required: false
+    default: '600'
+  e2e-retry-times:
+    description: 'Number of times to retry failed e2e tests'
+    required: false
+    default: '2'
 runs:
   using: "composite"
   steps:
@@ -94,134 +102,137 @@ runs:
         password: ${{ inputs.dockerhub-token }}
 
     - name: Run e2e tests
-      shell: bash
-      run: |
-        set -o errexit
-        set -o xtrace
+      uses: nick-fields/retry@v3
+      with:
+        timeout_minutes: ${{ inputs.e2e-timeout-minutes }}
+        max_attempts: ${{ inputs.e2e-retry-times }}
+        shell: bash
+        command: |
+          set -o errexit
+          set -o xtrace
 
-        export FOR_GITHUB_CI=${{ inputs.skip-download-test-packages }}
+          export FOR_GITHUB_CI=${{ inputs.skip-download-test-packages }}
 
-        # Set KUSTOMIZE_CFG based on communal storage type
-        if [[ "${{ inputs.communal-storage-type }}" == "azb" ]]; then
-          export KUSTOMIZE_CFG=tests/kustomize-defaults-azb-ci.cfg;
-        elif [[ "${{ inputs.communal-storage-type }}" == "hostpath" ]]; then
-          export KUSTOMIZE_CFG=tests/kustomize-defaults-hostpath-ci.cfg;
-        fi
-        # No need to set KUSTOMIZE_CFG if communal storage is s3
+          # Set KUSTOMIZE_CFG based on communal storage type
+          if [[ "${{ inputs.communal-storage-type }}" == "azb" ]]; then
+            export KUSTOMIZE_CFG=tests/kustomize-defaults-azb-ci.cfg;
+          elif [[ "${{ inputs.communal-storage-type }}" == "hostpath" ]]; then
+            export KUSTOMIZE_CFG=tests/kustomize-defaults-hostpath-ci.cfg;
+          fi
+          # No need to set KUSTOMIZE_CFG if communal storage is s3
 
-        export VERTICA_IMG=${{ inputs.vertica-image }}
-        export OPERATOR_IMG=${{ inputs.operator-image }}
-        export VLOGGER_IMG=${{ inputs.vlogger-image }}
-        if [[ "${{ inputs.vproxy-image }}" != "" ]]; then
-          export VPROXY_IMG=${{ inputs.vproxy-image }}
-        fi
+          export VERTICA_IMG=${{ inputs.vertica-image }}
+          export OPERATOR_IMG=${{ inputs.operator-image }}
+          export VLOGGER_IMG=${{ inputs.vlogger-image }}
+          if [[ "${{ inputs.vproxy-image }}" != "" ]]; then
+            export VPROXY_IMG=${{ inputs.vproxy-image }}
+          fi
 
-        if [[ "${{ inputs.vertica-license }}" != "" ]]; then
-          export LICENSE_FILE=/tmp/vertica-license.dat
-          echo -n "${{ inputs.vertica-license }}" > $LICENSE_FILE
-        fi
+          if [[ "${{ inputs.vertica-license }}" != "" ]]; then
+            export LICENSE_FILE=/tmp/vertica-license.dat
+            echo -n "${{ inputs.vertica-license }}" > $LICENSE_FILE
+          fi
 
-        # Set DEPLOY_WITH
-        export DEPLOY_WITH="${{ inputs.deploy-with }}";
+          # Set DEPLOY_WITH
+          export DEPLOY_WITH="${{ inputs.deploy-with }}";
 
-        # Set E2E_PARALLELISM
-        if [[ "${{ inputs.e2e-parallelism }}" != "" ]]; then
-          export E2E_PARALLELISM="${{ inputs.e2e-parallelism }}";
-        fi
+          # Set E2E_PARALLELISM
+          if [[ "${{ inputs.e2e-parallelism }}" != "" ]]; then
+            export E2E_PARALLELISM="${{ inputs.e2e-parallelism }}";
+          fi
 
-        # Set VERTICA_DEPLOYMENT_METHOD (default value is admintools)
-        export VERTICA_DEPLOYMENT_METHOD=${{ inputs.vertica-deployment-method }};
+          # Set VERTICA_DEPLOYMENT_METHOD (default value is admintools)
+          export VERTICA_DEPLOYMENT_METHOD=${{ inputs.vertica-deployment-method }};
 
-        # Set VERTICA_SUPERUSER_NAME
-        export VERTICA_SUPERUSER_NAME=${{ inputs.vertica-superuser-name }};
-        if [[ "${VERTICA_DEPLOYMENT_METHOD}" != "vclusterops" ]]; then
-          # Only "dbadmin" can be used when deployment type is admintools
-          export VERTICA_SUPERUSER_NAME="dbadmin";
-        fi
+          # Set VERTICA_SUPERUSER_NAME
+          export VERTICA_SUPERUSER_NAME=${{ inputs.vertica-superuser-name }};
+          if [[ "${VERTICA_DEPLOYMENT_METHOD}" != "vclusterops" ]]; then
+            # Only "dbadmin" can be used when deployment type is admintools
+            export VERTICA_SUPERUSER_NAME="dbadmin";
+          fi
 
-        # Set CONTROLLERS_SCOPE
-        export CONTROLLERS_SCOPE="${{ inputs.controllers-scope }}";
+          # Set CONTROLLERS_SCOPE
+          export CONTROLLERS_SCOPE="${{ inputs.controllers-scope }}";
 
-        # Set HELM_OVERRIDES
-        if [[ "${{ inputs.helm-overrides }}" != "" ]]; then
-          export HELM_OVERRIDES="${{ inputs.helm-overrides }}";
-        fi
+          # Set HELM_OVERRIDES
+          if [[ "${{ inputs.helm-overrides }}" != "" ]]; then
+            export HELM_OVERRIDES="${{ inputs.helm-overrides }}";
+          fi
 
-        # Set E2E_TEST_DIRS
-        if [[ "${{ inputs.leg-identifier }}" == "operator-upgrade" ]]; then
-          export E2E_TEST_DIRS="tests/e2e-operator-upgrade-overlays";
-        else
-          export E2E_TEST_DIRS="tests/e2e-${{ inputs.leg-identifier }}"
-          if [[ "${{ inputs.leg-identifier }}" == "leg-1" || \
-                "${{ inputs.leg-identifier }}" == "leg-2" || \
-                "${{ inputs.leg-identifier }}" == "leg-3" || \
-                "${{ inputs.leg-identifier }}" == "leg-5" || \
-                "${{ inputs.leg-identifier }}" == "server-upgrade" ]]; then
-            # These legs have some tests that only run with admintools deployment
-            if [[ "${VERTICA_DEPLOYMENT_METHOD}" != "vclusterops" ]]; then
-              E2E_TEST_DIRS+=" tests/e2e-${{ inputs.leg-identifier }}-at-only";
+          # Set E2E_TEST_DIRS
+          if [[ "${{ inputs.leg-identifier }}" == "operator-upgrade" ]]; then
+            export E2E_TEST_DIRS="tests/e2e-operator-upgrade-overlays";
+          else
+            export E2E_TEST_DIRS="tests/e2e-${{ inputs.leg-identifier }}"
+            if [[ "${{ inputs.leg-identifier }}" == "leg-1" || \
+                  "${{ inputs.leg-identifier }}" == "leg-2" || \
+                  "${{ inputs.leg-identifier }}" == "leg-3" || \
+                  "${{ inputs.leg-identifier }}" == "leg-5" || \
+                  "${{ inputs.leg-identifier }}" == "server-upgrade" ]]; then
+              # These legs have some tests that only run with admintools deployment
+              if [[ "${VERTICA_DEPLOYMENT_METHOD}" != "vclusterops" ]]; then
+                E2E_TEST_DIRS+=" tests/e2e-${{ inputs.leg-identifier }}-at-only";
+              fi
             fi
           fi
-        fi
 
-        if [[ "${{ inputs.leg-identifier }}" == "leg-4" || \
-                "${{ inputs.leg-identifier }}" == "leg-10" ]]; then
-          export CONCURRENCY_VERTICADB=10
-        fi
-
-        # Set BASE_VERTICA_IMG based on $VERTICA_IMG
-        # Some tests in some suites do an upgrade, so set the base image to upgrade from
-        if [[ "${{ inputs.need-base-vertica-image }}" == "true" ]]; then
-          export BASE_VERTICA_IMG=$(scripts/guess-server-upgrade-base-image.sh $VERTICA_IMG);
-        fi
-
-        # Enforce server image version
-        if [[ "${{ inputs.minimum-vertica-image }}" != "" ]]; then
-          # The image must be at least a ${{ inputs.minimum-vertica-image }}+.
-          # If it is older, we complete this leg as a no-op.
-          if scripts/is-image.sh -i $VERTICA_IMG older ${{ inputs.minimum-vertica-image }}
-          then
-            echo "Old version detected, skipping all of the tests"
-            exit 0
+          if [[ "${{ inputs.leg-identifier }}" == "leg-4" || \
+                  "${{ inputs.leg-identifier }}" == "leg-10" ]]; then
+            export CONCURRENCY_VERTICADB=10
           fi
-        fi
 
-        # Set an env var that will later be checked to pull an extra
-        # vertica image used for multi-online-upgrade test
-        if [[ "${{ inputs.leg-identifier }}" == "leg-9" ]]; then
-          export LEG9=yes
-        fi
-
-        # Special setup for e2e-udx
-        if [[ "${{ inputs.leg-identifier }}" == "udx" ]]; then
-          # Setup the udx environment by compiling examples in the vertica image.
-          # This downloads packages, so to improve its reliability we retry in
-          # case any intermittent network issues arise.
-          for i in $(seq 1 5); do
-            scripts/setup-e2e-udx.sh $VERTICA_IMG rockylinux:8 && s=0 && break || s=$? && sleep 60;
-          done
-          if [[ $s != "0" ]]; then
-            echo "*** Give up trying to setup the udx env";
-            exit 1;
+          # Set BASE_VERTICA_IMG based on $VERTICA_IMG
+          # Some tests in some suites do an upgrade, so set the base image to upgrade from
+          if [[ "${{ inputs.need-base-vertica-image }}" == "true" ]]; then
+            export BASE_VERTICA_IMG=$(scripts/guess-server-upgrade-base-image.sh $VERTICA_IMG);
           fi
-        fi
 
-        # Setup prometheus and prometheus-adapter
-        if [[ "${{ inputs.leg-identifier }}" == "leg-12" ]]; then
-          export NEED_PROMETHEUS=true
-          export CONCURRENCY_VERTICAAUTOSCALER=5
-        fi
+          # Enforce server image version
+          if [[ "${{ inputs.minimum-vertica-image }}" != "" ]]; then
+            # The image must be at least a ${{ inputs.minimum-vertica-image }}+.
+            # If it is older, we complete this leg as a no-op.
+            if scripts/is-image.sh -i $VERTICA_IMG older ${{ inputs.minimum-vertica-image }}
+            then
+              echo "Old version detected, skipping all of the tests"
+              exit 0
+            fi
+          fi
 
-        # Run int test script
-        if [[ "${{ inputs.communal-storage-type }}" == "azb" ]]; then
-          scripts/run-k8s-int-tests.sh -s -e tests/external-images-azb-ci.txt;
-        elif [[ "${{ inputs.communal-storage-type }}" == "hostpath" ]]; then
-          mkdir -p $GITHUB_WORKSPACE/../host-path;
-          scripts/run-k8s-int-tests.sh -m $GITHUB_WORKSPACE/../host-path -s;
-        else
-          scripts/run-k8s-int-tests.sh -s -e tests/external-images-s3-ci.txt;
-        fi
+          # Set an env var that will later be checked to pull an extra
+          # vertica image used for multi-online-upgrade test
+          if [[ "${{ inputs.leg-identifier }}" == "leg-9" ]]; then
+            export LEG9=yes
+          fi
 
+          # Special setup for e2e-udx
+          if [[ "${{ inputs.leg-identifier }}" == "udx" ]]; then
+            # Setup the udx environment by compiling examples in the vertica image.
+            # This downloads packages, so to improve its reliability we retry in
+            # case any intermittent network issues arise.
+            for i in $(seq 1 5); do
+              scripts/setup-e2e-udx.sh $VERTICA_IMG rockylinux:8 && s=0 && break || s=$? && sleep 60;
+            done
+            if [[ $s != "0" ]]; then
+              echo "*** Give up trying to setup the udx env";
+              exit 1;
+            fi
+          fi
+
+          # Setup prometheus and prometheus-adapter
+          if [[ "${{ inputs.leg-identifier }}" == "leg-12" ]]; then
+            export NEED_PROMETHEUS=true
+            export CONCURRENCY_VERTICAAUTOSCALER=5
+          fi
+
+          # Run int test script
+          if [[ "${{ inputs.communal-storage-type }}" == "azb" ]]; then
+            scripts/run-k8s-int-tests.sh -s -e tests/external-images-azb-ci.txt;
+          elif [[ "${{ inputs.communal-storage-type }}" == "hostpath" ]]; then
+            mkdir -p $GITHUB_WORKSPACE/../host-path;
+            scripts/run-k8s-int-tests.sh -m $GITHUB_WORKSPACE/../host-path -s;
+          else
+            scripts/run-k8s-int-tests.sh -s -e tests/external-images-s3-ci.txt;
+          fi
 
     - uses: actions/upload-artifact@v4
       if: failure()
