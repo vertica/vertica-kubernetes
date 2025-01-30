@@ -78,8 +78,16 @@ else
   HELM_IMAGE_PULL_POLICY ?= Always
 endif
 
+# The port number for the local registry
+REG_PORT ?= 5000
 # Image Repo to use when pushing/pulling any image
+ifeq ($(shell $(KIND_CHECK)), 1)
+# Multi-platform build images must be pushed to a repo as it uses --push while building
+IMG_REPO?=localhost:$(REG_PORT)/
+#IMG_REPO?=qguanopentext/
+else
 IMG_REPO?=
+endif
 # Image URL to use for building/pushing of the operator
 OPERATOR_IMG ?= $(IMG_REPO)verticadb-operator:$(TAG)
 export OPERATOR_IMG
@@ -106,8 +114,6 @@ export LEG9
 VLOGGER_BASE_IMG?=alpine
 # What version of alpine does the vlogger image use
 VLOGGER_ALPINE_VERSION?=3.19
-# The port number for the local registry
-REG_PORT ?= 5000
 # Image URL to use for the bundle.  We special case kind because to use it with
 # kind it must be pushed to a local registry.
 ifeq ($(shell $(KIND_CHECK)), 1)
@@ -426,7 +432,7 @@ docker-build-operator: manifests generate fmt vet ## Build operator docker image
 ifeq ($(COMMA), $(findstring $(COMMA), $(TARGET_ARCH)))
 	# copy existing Dockerfile and insert --platform=${BUILDPLATFORM} into Dockerfile.cross, and preserve the original Dockerfile
 	sed -e '1 s/\(^FROM\)/FROM --platform=\$$\{BUILDPLATFORM\}/; t' -e ' 1,// s//FROM --platform=\$$\{BUILDPLATFORM\}/' docker-operator/Dockerfile > Dockerfile.cross
-	- docker buildx create --name project-v3-builder
+	- docker buildx create --name project-v3-builder --driver-opt network=host
 	docker buildx use project-v3-builder
 	docker buildx build \
 		--tag ${OPERATOR_IMG} \
@@ -451,7 +457,7 @@ docker-build-vlogger:  ## Build vertica logger docker image
 	docker pull ${VLOGGER_BASE_IMG}:${VLOGGER_ALPINE_VERSION} # Ensure we have the latest alpine version
 # A custom builder is required to build multi-platform image
 ifeq ($(COMMA), $(findstring $(COMMA), $(TARGET_ARCH)))
-	- docker buildx create --name project-v3-builder
+	- docker buildx create --name project-v3-builder --driver-opt network=host
 	docker buildx use project-v3-builder
 endif
 	docker buildx build \
@@ -508,9 +514,9 @@ endif
 # latest base image.
 # Use --push for multi-platform image and --load for single-platform image
 ifeq ($(COMMA), $(findstring $(COMMA), $(TARGET_ARCH)))
-VERTICA_ADDITIONAL_DOCKER_BUILD_OPTIONS?="--no-cache --push"
+VERTICA_ADDITIONAL_DOCKER_BUILD_OPTIONS?=--no-cache --push
 else
-VERTICA_ADDITIONAL_DOCKER_BUILD_OPTIONS?="--no-cache --load"
+VERTICA_ADDITIONAL_DOCKER_BUILD_OPTIONS?=--no-cache --load
 endif
 
 
@@ -521,7 +527,7 @@ docker-build-vertica: docker-vertica/Dockerfile ## Build vertica server docker i
 		VERTICA_IMG=${VERTICA_IMG} \
 		TARGET_ARCH=${TARGET_ARCH} \
 		MINIMAL_VERTICA_IMG=${MINIMAL_VERTICA_IMG} \
-		VERTICA_ADDITIONAL_DOCKER_BUILD_OPTIONS=${VERTICA_ADDITIONAL_DOCKER_BUILD_OPTIONS}
+		VERTICA_ADDITIONAL_DOCKER_BUILD_OPTIONS="${VERTICA_ADDITIONAL_DOCKER_BUILD_OPTIONS}"
 
 .PHONY: docker-build-vertica-v2
 docker-build-vertica-v2: docker-vertica-v2/Dockerfile ## Build next generation vertica server docker image
@@ -530,7 +536,7 @@ docker-build-vertica-v2: docker-vertica-v2/Dockerfile ## Build next generation v
 		VERTICA_IMG=${VERTICA_IMG} \
 		TARGET_ARCH=${TARGET_ARCH} \
 		MINIMAL_VERTICA_IMG=${MINIMAL_VERTICA_IMG} \
-		VERTICA_ADDITIONAL_DOCKER_BUILD_OPTIONS=${VERTICA_ADDITIONAL_DOCKER_BUILD_OPTIONS}
+		VERTICA_ADDITIONAL_DOCKER_BUILD_OPTIONS="${VERTICA_ADDITIONAL_DOCKER_BUILD_OPTIONS}"
 
 .PHONY: docker-push-vertica
 docker-push-vertica:  ## Push vertica server image -- either v1 or v2.

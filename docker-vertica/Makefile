@@ -35,7 +35,7 @@ docker-build-vertica: Dockerfile packages/package-checksum-patcher.py
 	docker pull ${BASE_OS_NAME}:$(BASE_OS_VERSION) ## make sure we use the latest base image
 # Building multi-platform image, a custom builder is required
 ifeq ($(COMMA), $(findstring $(COMMA), $(TARGET_ARCH)))
-	- docker buildx create --name project-v3-builder
+	- docker buildx create --name project-v3-builder --driver-opt network=host
 	docker buildx use project-v3-builder
 endif
 # Building single-platform image
