@@ -1,5 +1,5 @@
 /*
- (c) Copyright [2023-2024] Open Text.
+ (c) Copyright [2023-2025] Open Text.
  Licensed under the Apache License, Version 2.0 (the "License");
  You may not use this file except in compliance with the License.
  You may obtain a copy of the License at
@@ -64,11 +64,32 @@ func makeNMAUploadConfigOp(
 	} else if op.endpoint == spreadConf {
 		op.description = "Send contents of spread.conf to nodes"
 	}
+
 	op.fileContent = fileContent
 	op.catalogPathMap = make(map[string]string)
 	op.sourceConfigHost = sourceConfigHost
 	op.destHosts = targetHosts
 	op.vdb = vdb
+
+	return op
+}
+
+func makeNMAUploadLicenseOp(
+	sourceHost, targetHost, tempLicensePath string,
+	fileContent *string,
+) nmaUploadConfigOp {
+	op := nmaUploadConfigOp{}
+	op.name = "NMAUploadLicenseOp"
+	op.endpoint = licenseKey
+	op.description = "Send contents of license key to the target node"
+	op.fileContent = fileContent
+	// re-use the catalog_path as the path for writing the temp license file
+	op.catalogPathMap = make(map[string]string)
+	op.catalogPathMap[targetHost] = tempLicensePath
+	op.sourceConfigHost = []string{sourceHost}
+	op.destHosts = []string{targetHost}
+	op.hosts = op.destHosts
+	op.vdb = nil
 
 	return op
 }
@@ -104,7 +125,21 @@ func (op *nmaUploadConfigOp) setupClusterHTTPRequest(hosts []string) error {
 	return nil
 }
 
+func (op *nmaUploadConfigOp) completePrepare(execContext *opEngineExecContext) error {
+	err := op.setupRequestBody(op.hosts)
+	if err != nil {
+		return err
+	}
+	execContext.dispatcher.setup(op.hosts)
+
+	return op.setupClusterHTTPRequest(op.hosts)
+}
+
 func (op *nmaUploadConfigOp) prepare(execContext *opEngineExecContext) error {
+	// shortcut for transferring license, it only has to be on the target host
+	if op.endpoint == licenseKey {
+		return op.completePrepare(execContext)
+	}
 	op.catalogPathMap = make(map[string]string)
 	// If any node's info is available, we set catalogPathMap from node's info.
 	// This case is used for starting nodes operation.
@@ -156,13 +191,7 @@ func (op *nmaUploadConfigOp) prepare(execContext *opEngineExecContext) error {
 		}
 	}
 
-	err := op.setupRequestBody(op.hosts)
-	if err != nil {
-		return err
-	}
-	execContext.dispatcher.setup(op.hosts)
-
-	return op.setupClusterHTTPRequest(op.hosts)
+	return op.completePrepare(execContext)
 }
 
 func (op *nmaUploadConfigOp) execute(execContext *opEngineExecContext) error {
