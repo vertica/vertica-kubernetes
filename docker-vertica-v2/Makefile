@@ -28,24 +28,17 @@ endif
 endif
 endif
 
-VERTICA_X86_VERSION?=$(shell rpm --nosignature -qp --queryformat '%{VERSION}-%{RELEASE}' packages/$(VERTICA_X86_RPM))
-VERTICA_ARM_VERSION?=$(shell rpm --nosignature -qp --queryformat '%{VERSION}-%{RELEASE}' packages/$(VERTICA_ARM64_RPM))
-
-ifdef VERTICA_X86_VERSION
-VERTICA_VERSION=$(VERTICA_X86_VERSION)
-ifdef VERTICA_ARM_VERSION
-ifneq ($(VERTICA_ARM_VERSION), $(VERTICA_X86_VERSION))
-$(error RPM version mismatch $(VERTICA_X86_RPM) $(VERTICA_ARM64_RPM))
-exit 1
-endif
-endif
-endif
-
 all: docker-build-vertica
 
 .PHONY: docker-build-vertica
 docker-build-vertica: Dockerfile packages/package-checksum-patcher.py
 	docker pull ${BASE_OS_NAME}:$(BASE_OS_VERSION) ## make sure we use the latest base image
+# Building multi-platform image, a custom builder is required
+ifeq ($(COMMA), $(findstring $(COMMA), $(TARGET_ARCH)))
+	- docker buildx create --name project-v3-builder
+	docker buildx use project-v3-builder
+endif
+# Building single-platform image
 	docker buildx build \
 		-f Dockerfile \
 		--platform ${TARGET_ARCH} \
@@ -62,3 +55,6 @@ docker-build-vertica: Dockerfile packages/package-checksum-patcher.py
 		--build-arg FOR_GITHUB_CI=${FOR_GITHUB_CI} \
 		${VERTICA_ADDITIONAL_DOCKER_BUILD_OPTIONS} \
 		-t ${VERTICA_IMG} .
+ifeq ($(COMMA), $(findstring $(COMMA), $(TARGET_ARCH)))
+	- docker buildx rm project-v3-builder
+endif
