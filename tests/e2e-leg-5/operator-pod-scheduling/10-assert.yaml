@@ -19,7 +19,6 @@ metadata:
 spec:
   containers:
   - name: manager
-  - name: kube-rbac-proxy
   priority: 1000000
   affinity:
     nodeAffinity:

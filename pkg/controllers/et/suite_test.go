@@ -33,7 +33,7 @@ import (
 
 	v1vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
-	//+kubebuilder:scaffold:imports
+	// +kubebuilder:scaffold:imports
 )
 
 // These tests use Ginkgo (BDD-style Go testing framework). Refer to
@@ -73,7 +73,7 @@ var _ = BeforeSuite(func() {
 	err = v1vapi.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
 
-	//+kubebuilder:scaffold:scheme
+	// +kubebuilder:scaffold:scheme
 
 	// Create a client that doesn't have a cache.
 	k8sClient, err = client.New(cfg, client.Options{Scheme: scheme.Scheme})

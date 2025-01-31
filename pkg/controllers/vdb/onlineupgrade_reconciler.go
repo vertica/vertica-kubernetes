@@ -407,7 +407,7 @@ func (r *OnlineUpgradeReconciler) runRebalanceSandboxSubcluster(ctx context.Cont
 	}
 
 	pf := r.PFacts[vapi.MainCluster]
-	actor := MakeRebalanceShardsReconciler(r.VRec, r.Log, r.VDB, pf.PRunner, pf, "" /*all subclusters*/)
+	actor := MakeRebalanceShardsReconciler(r.VRec, r.Log, r.VDB, pf.PRunner, pf, "" /* all subclusters */)
 	r.Manager.traceActorReconcile(actor)
 	res, err := actor.Reconcile(ctx, &ctrl.Request{})
 	r.PFacts[vapi.MainCluster].Invalidate()
@@ -463,7 +463,7 @@ func (r *OnlineUpgradeReconciler) queryOriginalConfigParamDisableNonReplicatable
 		return ctrl.Result{}, err
 	}
 	pf := r.PFacts[vapi.MainCluster]
-	initiator, ok := pf.FindFirstUpPod(false /*not allow read-only*/, "" /*arbitrary subcluster*/)
+	initiator, ok := pf.FindFirstUpPod(false /* not allow read-only */, "" /* arbitrary subcluster */)
 	if !ok {
 		r.Log.Info("No Up nodes found. Requeue reconciliation.")
 		return ctrl.Result{Requeue: true}, nil
@@ -526,7 +526,7 @@ func (r *OnlineUpgradeReconciler) clearConfigParamDisableNonReplicatableQueries(
 func (r *OnlineUpgradeReconciler) setConfigParamDisableNonReplicatableQueriesImpl(ctx context.Context,
 	value, clusterName string) (ctrl.Result, error) {
 	pf := r.PFacts[clusterName]
-	initiator, ok := pf.FindFirstUpPod(false /*not allow read-only*/, "" /*arbitrary subcluster*/)
+	initiator, ok := pf.FindFirstUpPod(false /* not allow read-only */, "" /* arbitrary subcluster */)
 	if !ok {
 		r.Log.Info("No Up nodes found. Requeue reconciliation.")
 		return ctrl.Result{Requeue: true}, nil
@@ -721,7 +721,7 @@ func (r *OnlineUpgradeReconciler) pauseConnectionsAtReplicaGroupA(ctx context.Co
 	}
 
 	pf := r.PFacts[vapi.MainCluster]
-	initiator, ok := pf.FindFirstUpPod(false /*not allow read-only*/, "" /*arbitrary subcluster*/)
+	initiator, ok := pf.FindFirstUpPod(false /* not allow read-only */, "" /* arbitrary subcluster */)
 	if !ok {
 		r.Log.Info("No Up nodes found. Requeue reconciliation.")
 		return ctrl.Result{Requeue: true}, nil
@@ -741,7 +741,7 @@ func (r *OnlineUpgradeReconciler) waitForConnectionsPaused(ctx context.Context) 
 	}
 
 	pfacts := r.PFacts[vapi.MainCluster]
-	_, ok := pfacts.FindFirstUpPod(false /*not allow read-only*/, "" /*arbitrary subcluster*/)
+	_, ok := pfacts.FindFirstUpPod(false /* not allow read-only */, "" /* arbitrary subcluster */)
 	if !ok {
 		r.Log.Info("No Up nodes found; Requeue reconciliation")
 		return ctrl.Result{Requeue: true}, nil
@@ -971,8 +971,8 @@ func (r *OnlineUpgradeReconciler) copyRedirectStateToReplicaGroupB(ctx context.C
 		r.Log.Error(err, "failed to gather podfacts for sandbox")
 		return ctrl.Result{Requeue: true}, nil
 	}
-	mainInitiator, mainOK := mainPFacts.FindFirstUpPod(false /*not allow read-only*/, "" /*arbitrary subcluster*/)
-	sbInitiator, sbOK := sbPFacts.FindFirstUpPod(false /*not allow read-only*/, "" /*arbitrary subcluster*/)
+	mainInitiator, mainOK := mainPFacts.FindFirstUpPod(false /* not allow read-only */, "" /* arbitrary subcluster */)
+	sbInitiator, sbOK := sbPFacts.FindFirstUpPod(false /* not allow read-only */, "" /* arbitrary subcluster */)
 	if !mainOK || !sbOK {
 		r.Log.Info("No Up nodes found; requeueing reconciliation")
 		return ctrl.Result{Requeue: true}, nil
@@ -1080,7 +1080,7 @@ func (r *OnlineUpgradeReconciler) redirectConnectionsToReplicaGroupB(ctx context
 // redirectConnectionsToSandbox will redirect all of the connections
 // established at replica group A to replica group B.
 func (r *OnlineUpgradeReconciler) redirectConnectionsToSandbox(ctx context.Context) (ctrl.Result, error) {
-	initiator, ok := r.PFacts[vapi.MainCluster].FindFirstUpPod(false /*not allow read-only*/, "" /*arbitrary subcluster*/)
+	initiator, ok := r.PFacts[vapi.MainCluster].FindFirstUpPod(false /* not allow read-only */, "" /* arbitrary subcluster */)
 	if !ok {
 		r.Log.Info("No Up nodes found; requeueing reconciliation")
 		return ctrl.Result{Requeue: true}, nil
@@ -1197,7 +1197,7 @@ func (r *OnlineUpgradeReconciler) deleteSandboxConfigMap(ctx context.Context) (c
 		// We requeue if the sandbox still exists in the status
 		return ctrl.Result{Requeue: true}, nil
 	}
-	sbMan := MakeSandboxConfigMapManager(r.VRec, r.VDB, r.sandboxName, "" /*no uuid*/)
+	sbMan := MakeSandboxConfigMapManager(r.VRec, r.VDB, r.sandboxName, "" /* no uuid */)
 	calledDelete, err := sbMan.deleteConfigMap(ctx)
 	if !calledDelete {
 		return ctrl.Result{}, err

@@ -63,37 +63,12 @@ set -o xtrace
 if [[ -n "$UNDO" ]]
 then
     kubectl delete -f $REPO_DIR/config/release-manifests/verticadb-operator-metrics-reader-cr.yaml || :
-    kubectl delete -f $REPO_DIR/config/release-manifests/verticadb-operator-proxy-role-cr.yaml || :
     kubectl delete -f $REPO_DIR/config/release-manifests/verticadb-operator-metrics-reader-crb.yaml || :
-    kubectl delete -f $REPO_DIR/config/release-manifests/verticadb-operator-proxy-rolebinding-crb.yaml || :
     echo "Finished undoing action"
     exit 0
 fi
 
-kubectl apply -f $REPO_DIR/config/release-manifests/verticadb-operator-proxy-role-cr.yaml
 kubectl apply -f $REPO_DIR/config/release-manifests/verticadb-operator-metrics-reader-cr.yaml
-
-set +o errexit
-kubectl create clusterrolebinding verticadb-operator-proxy-rolebinding --clusterrole=verticadb-operator-proxy-role --serviceaccount=$OP_NAMESPACE:$OP_SA
-RES=$?
-set -o errexit
-
-# Append to ClusterRoleBinding if it already exists
-if [ $RES -ne "0" ]
-then
-  tmpfile=$(mktemp /tmp/patch-XXXXXX.yaml)
-  cat <<- EOF > $tmpfile
-  [{"op": "add",
-    "path": "/subjects/-",
-    "value":
-      {"kind": "ServiceAccount",
-       "name": "$OP_SA",
-       "namespace": "$OP_NAMESPACE"}
-  }]
-EOF
-  kubectl patch clusterrolebinding verticadb-operator-proxy-rolebinding --type='json' --patch-file $tmpfile
-  rm $tmpfile
-fi
 
 set +o errexit
 kubectl create clusterrolebinding verticadb-operator-metrics-reader --clusterrole=verticadb-operator-metrics-reader --serviceaccount=$ACCESS_NAMESPACE:$ACCESS_SA

@@ -24,4 +24,4 @@ affinity:
           - another-node-label-value
 # Expose prometheus to get the rbac sidecar
 prometheus:
-  expose: EnableWithAuthProxy
+  expose: EnableWithAuth

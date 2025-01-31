@@ -14,7 +14,7 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: v-base-upgrade-pri1-sb
+  name: v-client-proxy-upgrade-pri1-sb
 status:
   currentReplicas: 2
   readyReplicas: 2
@@ -22,7 +22,7 @@ status:
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: v-base-upgrade-pri-2-sb
+  name: v-client-proxy-upgrade-pri-2-sb
 status:
   currentReplicas: 1
   readyReplicas: 1
@@ -30,7 +30,7 @@ status:
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: v-base-upgrade-sec1-sb
+  name: v-client-proxy-upgrade-sec1-sb
 status:
   currentReplicas: 3
   readyReplicas: 3
@@ -38,7 +38,7 @@ status:
 apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
-  name: v-base-upgrade
+  name: v-client-proxy-upgrade
 spec:
   subclusters:
   - name: pri1
@@ -54,7 +54,7 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: v-base-upgrade-pri1-sb-proxy
+  name: v-client-proxy-upgrade-pri1-sb-proxy
 status:
   replicas: 1
   readyReplicas: 1
@@ -62,12 +62,12 @@ status:
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: v-base-upgrade-pri1-sb-proxy-cm
+  name: v-client-proxy-upgrade-pri1-sb-proxy-cm
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: v-base-upgrade-pri-2-sb-proxy
+  name: v-client-proxy-upgrade-pri-2-sb-proxy
 status:
   replicas: 1
   readyReplicas: 1
@@ -75,13 +75,13 @@ status:
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: v-base-upgrade-pri-2-sb-proxy-cm
+  name: v-client-proxy-upgrade-pri-2-sb-proxy-cm
 immutable: false
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: v-base-upgrade-sec1-sb-proxy
+  name: v-client-proxy-upgrade-sec1-sb-proxy
 status:
   replicas: 1
   readyReplicas: 1
@@ -89,4 +89,4 @@ status:
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: v-base-upgrade-sec1-sb-proxy-cm
+  name: v-client-proxy-upgrade-sec1-sb-proxy-cm

@@ -14,5 +14,5 @@
 apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 commands:
-  - command: kubectl delete pod v-base-upgrade-sec1-sb-0
+  - command: kubectl delete pod v-online-upgrade-sec1-sb-0
     namespaced: true

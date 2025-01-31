@@ -14,7 +14,7 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: v-base-upgrade-pri1
+  name: v-online-upgrade-pri1
 status:
   currentReplicas: 2
   readyReplicas: 2
@@ -22,7 +22,7 @@ status:
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: v-base-upgrade-pri-2
+  name: v-online-upgrade-pri-2
 status:
   currentReplicas: 1
   readyReplicas: 1
@@ -30,7 +30,7 @@ status:
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: v-base-upgrade-sec1
+  name: v-online-upgrade-sec1
 status:
   currentReplicas: 3
   readyReplicas: 3
@@ -38,7 +38,7 @@ status:
 apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
-  name: v-base-upgrade
+  name: v-online-upgrade
 status:
   subclusters:
     - addedToDBCount: 3

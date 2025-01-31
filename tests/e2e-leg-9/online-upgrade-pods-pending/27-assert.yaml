@@ -14,13 +14,13 @@
 apiVersion: v1
 kind: Pod
 metadata:
-  name: v-base-upgrade-sec2-0
+  name: v-online-upgrade-sec2-0
 status:
  phase: Pending
 ---
 apiVersion: vertica.com/v1beta1
 kind: VerticaDB
 metadata:
-  name: v-base-upgrade
+  name: v-online-upgrade
 status:
   upgradeStatus: "Requeue as not all pods are running"

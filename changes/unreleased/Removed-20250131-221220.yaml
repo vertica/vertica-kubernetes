@@ -1,0 +1,5 @@
+kind: Removed
+body: Removed Helm parameter "prometheus.createServiceMonitor"
+time: 2025-01-31T22:12:20.085253713Z
+custom:
+  Issue: "1040"

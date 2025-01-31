@@ -38,7 +38,15 @@ func GetIsWebhookEnabled() bool {
 
 // GetBroadcasterBurstSize returns the customizable burst size for broadcaster.
 func GetBroadcasterBurstSize() int {
-	burstSize := lookupIntEnvVar("BROADCASTER_BURST_SIZE", envCanNotExist)
+	envName := "BROADCASTER_BURST_SIZE"
+	burstSizeStr := lookupStringEnvVar(envName, envCanNotExist)
+	if burstSizeStr == "" {
+		return defaultBurstSize
+	}
+	burstSize, err := strconv.Atoi(burstSizeStr)
+	if err != nil {
+		dieIfNotValid(envName)
+	}
 	if burstSize > defaultBurstSize {
 		return burstSize
 	}
@@ -89,6 +97,16 @@ func AreControllersNamespaceScoped() bool {
 // determines if its disabled or if its behind an HTTPS or HTTP scheme.
 func GetMetricsAddr() string {
 	return lookupStringEnvVar("METRICS_ADDR", envCanNotExist)
+}
+
+// GetMetricsTLSSecret returns TLS secret name of the manager's Prometheus endpoint.
+func GetMetricsTLSSecret() string {
+	return lookupStringEnvVar("METRICS_TLS_SECRET", envCanNotExist)
+}
+
+// GetMetricsExposeMode returns exposing mode of the manager's Prometheus endpoint.
+func GetMetricsExposeMode() string {
+	return lookupStringEnvVar("METRICS_EXPOSE_MODE", envCanNotExist)
 }
 
 // GetUseCertManager returns true if cert-manager is used to setup the webhook's

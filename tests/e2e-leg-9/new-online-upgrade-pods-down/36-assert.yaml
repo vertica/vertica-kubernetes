@@ -14,6 +14,6 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: v-base-upgrade-main
+  name: v-online-upgrade-main
 status:
   currentReplicas: 3

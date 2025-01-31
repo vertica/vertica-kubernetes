@@ -26,6 +26,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
+	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
 // log is for logging in this package.
@@ -45,32 +46,32 @@ func (v *VerticaAutoscaler) Default() {
 var _ webhook.Validator = &VerticaAutoscaler{}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
-func (v *VerticaAutoscaler) ValidateCreate() error {
+func (v *VerticaAutoscaler) ValidateCreate() (admission.Warnings, error) {
 	verticaautoscalerlog.Info("validate create", "name", v.Name)
 
 	allErrs := v.validateSpec()
 	if len(allErrs) == 0 {
-		return nil
+		return nil, nil
 	}
-	return apierrors.NewInvalid(schema.GroupKind{Group: Group, Kind: VerticaAutoscalerKind}, v.Name, allErrs)
+	return nil, apierrors.NewInvalid(schema.GroupKind{Group: Group, Kind: VerticaAutoscalerKind}, v.Name, allErrs)
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
-func (v *VerticaAutoscaler) ValidateUpdate(_ runtime.Object) error {
+func (v *VerticaAutoscaler) ValidateUpdate(_ runtime.Object) (admission.Warnings, error) {
 	verticaautoscalerlog.Info("validate update", "name", v.Name)
 
 	allErrs := v.validateSpec()
 	if len(allErrs) == 0 {
-		return nil
+		return nil, nil
 	}
-	return apierrors.NewInvalid(schema.GroupKind{Group: Group, Kind: VerticaAutoscalerKind}, v.Name, allErrs)
+	return nil, apierrors.NewInvalid(schema.GroupKind{Group: Group, Kind: VerticaAutoscalerKind}, v.Name, allErrs)
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
-func (v *VerticaAutoscaler) ValidateDelete() error {
+func (v *VerticaAutoscaler) ValidateDelete() (admission.Warnings, error) {
 	verticaautoscalerlog.Info("validate delete", "name", v.Name)
 
-	return nil
+	return nil, nil
 }
 
 // validateSpec will validate the current VerticaAutoscaler to see if it is valid

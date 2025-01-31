@@ -21,7 +21,7 @@ data:
     set -o errexit
     set -o xtrace
 
-    POD_NAME=v-base-upgrade-pri1-sb-0
+    POD_NAME=v-client-proxy-upgrade-pri1-sb-0
 
     result=$(kubectl exec $POD_NAME -i -c server -- bash -c "vsql -U dbadmin -tAc \"SELECT * FROM public.test_table ORDER BY val;\"")
     echo "$result" | grep -Pzo "^99\n$" > /dev/null

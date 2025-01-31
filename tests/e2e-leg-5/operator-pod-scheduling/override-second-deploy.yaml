@@ -22,5 +22,5 @@ tolerations:
   effect: "NoSchedule"
 # Expose prometheus to get the rbac sidecar
 prometheus:
-  expose: EnableWithAuthProxy
+  expose: EnableWithAuth
 

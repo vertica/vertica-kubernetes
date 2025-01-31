@@ -16,6 +16,7 @@ kind: VerticaDB
 metadata:
   name: v-mount-certs
 spec:
+  image: kustomize-vertica-image
   communal: {}
   certSecrets:
     - name: my-cert-1

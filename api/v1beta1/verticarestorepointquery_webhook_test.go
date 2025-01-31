@@ -23,8 +23,10 @@ import (
 var _ = Describe("verticarestorepointsquery_webhook", func() {
 	It("should succeed with no filter option fields", func() {
 		vrpq := MakeVrpq()
-		Expect(vrpq.ValidateCreate()).Should(Succeed())
-		Expect(vrpq.ValidateUpdate(vrpq)).Should(Succeed())
+		_, err := vrpq.ValidateCreate()
+		Expect(err).Should(Succeed())
+		_, err = vrpq.ValidateUpdate(vrpq)
+		Expect(err).Should(Succeed())
 	})
 
 	It("should succeed with all valid fields", func() {
@@ -32,21 +34,23 @@ var _ = Describe("verticarestorepointsquery_webhook", func() {
 		vrpq.Spec.FilterOptions.ArchiveName = "db"
 		vrpq.Spec.FilterOptions.StartTimestamp = "2006-01-02 23:59:56"
 		vrpq.Spec.FilterOptions.EndTimestamp = "2006-01-02 23:59:58"
-		Expect(vrpq.ValidateCreate()).Should(Succeed())
-		Expect(vrpq.ValidateUpdate(vrpq)).Should(Succeed())
+		_, err := vrpq.ValidateCreate()
+		Expect(err).Should(Succeed())
+		_, err = vrpq.ValidateUpdate(vrpq)
+		Expect(err).Should(Succeed())
 	})
 
 	It("should fail if invalid start timestamp", func() {
 		vrpq := MakeVrpq()
 		vrpq.Spec.FilterOptions.StartTimestamp = "start"
-		err := vrpq.ValidateCreate()
+		_, err := vrpq.ValidateCreate()
 		Expect(err.Error()).To(ContainSubstring("start timestamp \"start\" is invalid; cannot parse as a datetime"))
 	})
 
 	It("should fail if invalid end timestamp", func() {
 		vrpq := MakeVrpq()
 		vrpq.Spec.FilterOptions.EndTimestamp = "end"
-		err := vrpq.ValidateCreate()
+		_, err := vrpq.ValidateCreate()
 		Expect(err.Error()).To(ContainSubstring("end timestamp \"end\" is invalid; cannot parse as a datetime"))
 	})
 
@@ -54,7 +58,7 @@ var _ = Describe("verticarestorepointsquery_webhook", func() {
 		vrpq := MakeVrpq()
 		vrpq.Spec.FilterOptions.StartTimestamp = "2006-01-02 23:59:59.123456789"
 		vrpq.Spec.FilterOptions.EndTimestamp = "2006-01-02 23:59:59"
-		err := vrpq.ValidateCreate()
+		_, err := vrpq.ValidateCreate()
 		Expect(err.Error()).To(ContainSubstring("start timestamp must be before end timestamp"))
 	})
 })

@@ -109,7 +109,7 @@ type VerticaRestorePointsQuery struct {
 	Status VerticaRestorePointsQueryStatus `json:"status,omitempty"`
 }
 
-//+kubebuilder:object:root=true
+// +kubebuilder:object:root=true
 
 // VerticaRestorePointsQueryList contains a list of VerticaRestorePointsQuery
 type VerticaRestorePointsQueryList struct {

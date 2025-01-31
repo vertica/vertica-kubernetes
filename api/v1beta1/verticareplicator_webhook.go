@@ -25,6 +25,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
+	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
 var verticareplicatorlog = logf.Log.WithName("verticareplicator-resource")
@@ -45,32 +46,32 @@ func (vrep *VerticaReplicator) Default() {
 var _ webhook.Validator = &VerticaReplicator{}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
-func (vrep *VerticaReplicator) ValidateCreate() error {
+func (vrep *VerticaReplicator) ValidateCreate() (admission.Warnings, error) {
 	verticareplicatorlog.Info("validate create", "name", vrep.Name)
 
 	allErrs := vrep.validateVrepSpec()
 	if len(allErrs) == 0 {
-		return nil
+		return nil, nil
 	}
-	return apierrors.NewInvalid(GkVR, vrep.Name, allErrs)
+	return nil, apierrors.NewInvalid(GkVR, vrep.Name, allErrs)
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
-func (vrep *VerticaReplicator) ValidateUpdate(_ runtime.Object) error {
+func (vrep *VerticaReplicator) ValidateUpdate(_ runtime.Object) (admission.Warnings, error) {
 	verticareplicatorlog.Info("validate update", "name", vrep.Name)
 
 	allErrs := vrep.validateVrepSpec()
 	if len(allErrs) == 0 {
-		return nil
+		return nil, nil
 	}
 
-	return apierrors.NewInvalid(GkVR, vrep.Name, allErrs)
+	return nil, apierrors.NewInvalid(GkVR, vrep.Name, allErrs)
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
-func (vrep *VerticaReplicator) ValidateDelete() error {
+func (vrep *VerticaReplicator) ValidateDelete() (admission.Warnings, error) {
 	verticareplicatorlog.Info("validate delete", "name", vrep.Name)
-	return nil
+	return nil, nil
 }
 
 // validateVrepSpec will validate the current VerticaReplicator to see if it is valid

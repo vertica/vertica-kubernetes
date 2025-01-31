@@ -14,7 +14,7 @@
 apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
-  name: v-base-upgrade
+  name: v-online-upgrade
   annotations:
     vertica.com/include-uid-in-path: true
     vertica.com/save-restore-point-on-upgrade: false

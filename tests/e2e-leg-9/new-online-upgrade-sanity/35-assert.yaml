@@ -14,9 +14,9 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: v-base-upgrade-pri1-sb
+  name: v-online-upgrade-pri1-sb
   annotations:
-    vertica.com/statefulset-name-override: "v-base-upgrade-pri1-sb"
+    vertica.com/statefulset-name-override: "v-online-upgrade-pri1-sb"
   labels:
     vertica.com/sandbox: replica-group-b
 status:
@@ -26,9 +26,9 @@ status:
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: v-base-upgrade-pri-2-sb
+  name: v-online-upgrade-pri-2-sb
   annotations:
-    vertica.com/statefulset-name-override: "v-base-upgrade-pri-2-sb"
+    vertica.com/statefulset-name-override: "v-online-upgrade-pri-2-sb"
   labels:
     vertica.com/sandbox: replica-group-b
 status:
@@ -38,9 +38,9 @@ status:
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: v-base-upgrade-sec1-sb
+  name: v-online-upgrade-sec1-sb
   annotations:
-    vertica.com/statefulset-name-override: "v-base-upgrade-sec1-sb"
+    vertica.com/statefulset-name-override: "v-online-upgrade-sec1-sb"
   labels:
     vertica.com/sandbox: replica-group-b
 status:
@@ -50,16 +50,16 @@ status:
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: v-base-upgrade-replica-group-b
+  name: v-online-upgrade-replica-group-b
 data:
   sandboxName: replica-group-b
-  verticaDBName: v-base-upgrade
+  verticaDBName: v-online-upgrade
 immutable: true
 ---
 apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
-  name: v-base-upgrade
+  name: v-online-upgrade
 spec:
   subclusters:
   - name: sec1

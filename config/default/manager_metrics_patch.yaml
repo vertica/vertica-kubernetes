@@ -1,0 +1,16 @@
+# This patch adds the args to allow exposing the metrics endpoint using HTTPS
+- op: add
+  path: /spec/template/spec/containers/0/args/0
+  value: --metrics-bind-address=:8443
+- op: add
+  path: /spec/template/spec/containers/0/volumeMounts/1
+  value:
+    mountPath: /cert
+    name: auth-cert
+- op: add
+  path: /spec/template/spec/volumes/0
+  value:
+    name: auth-cert
+    secret:
+      defaultMode: 420
+      secretName: custom-cert

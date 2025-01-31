@@ -67,6 +67,9 @@ shift
 BUNDLE_METADATA_OPTS=$@
 BUNDLE_GEN_FLAGS="-q --overwrite --version $VERSION $BUNDLE_METADATA_OPTS $USE_IMAGE_DIGESTS_FLAG"
 
+# Fill in operator variables
+envsubst < $REPO_DIR/config/manager/operator-envs > $REPO_DIR/config/manager/operator-envs-with-value
+
 cd $REPO_DIR
 rm -rf bundle/ 2>/dev/null || true
 $OPERATOR_SDK generate kustomize manifests -q
@@ -84,15 +87,19 @@ $KUSTOMIZE build config/overlays/csv | $OPERATOR_SDK generate bundle $BUNDLE_GEN
 perl -i -0777 -pe "s/CREATED_AT_PLACEHOLDER/$(date +"%FT%H:%M:%SZ")/g" bundle/manifests/verticadb-operator.clusterserviceversion.yaml
 perl -i -0777 -pe "s+OPERATOR_IMG_PLACEHOLDER+$(make echo-images | grep OPERATOR_IMG | cut -d'=' -f2)+g" bundle/manifests/verticadb-operator.clusterserviceversion.yaml
 
+# Remove custom mounted certs
+perl -i -0777 -pe 's/\n\s*- name: auth-cert\s*\n\s*secret:\s*\n\s*secretName: custom-cert//g' bundle/manifests/verticadb-operator.clusterserviceversion.yaml
+perl -i -0777 -pe 's/\n\s*- mountPath: \/cert\s*\n\s*name: auth-cert//g' bundle/manifests/verticadb-operator.clusterserviceversion.yaml
+
 # Delete the ServiceMonitor object from the bundle.  This puts a
 # requirement on having the Prometheus Operator installed.  We are only
 # optionally installing this.  We will include the manifest in our GitHub
 # artifacts and have it as an optional helm parameter.
-rm bundle/manifests/*servicemonitor.yaml
+rm -f bundle/manifests/*servicemonitor.yaml
 # Remove the metrics-reader clusterrolebinding. When undeploying olm installs,
 # the clusterrole would get removed but not the clusterrolebinding. We provide
 # this as an arifact anyway, so it doesn't need to be part of the bundle.
-rm bundle/manifests/*metrics-reader*yaml
+rm -f bundle/manifests/*metrics-reader*yaml
 
 # Add the supported versions at the end of annotations.yaml
 cat <<EOT >> bundle/metadata/annotations.yaml
