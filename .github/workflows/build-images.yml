@@ -68,6 +68,7 @@ permissions:
 env:
   TRIVY_DB_REPOSITORY: ghcr.io/aquasecurity/trivy-db,public.ecr.aws/aquasecurity/trivy-db
   TRIVY_JAVA_DB_REPOSITORY: ghcr.io/aquasecurity/trivy-java-db,public.ecr.aws/aquasecurity/trivy-java-db
+  KIND_REGISTRY: localhost:5000/
 
 jobs:
   build-server-full:
@@ -114,7 +115,7 @@ jobs:
         # here only to test the creation of the image. We don't verify this
         # image in the remaining CI. Pick a dummy image name so as not to
         # overwrite the output build image that the e2e tests will use.
-        export VERTICA_IMG=vertica-k8s:kind
+        export VERTICA_IMG=${{ env.KIND_REGISTRY }}vertica-k8s:kind
         make docker-build-vertica-v2
 
     - name: Do a local pull of the image
@@ -305,7 +306,7 @@ jobs:
         # here only to test the creation of the image. We don't verify this
         # image in the remaining CI. Pick a dummy image name so as not to
         # overwrite the output build image that the e2e tests will use.
-        export VERTICA_IMG=vertica-k8s:kind-minimal
+        export VERTICA_IMG=${{ env.KIND_REGISTRY }}vertica-k8s:kind-minimal
         export MINIMAL_VERTICA_IMG=yes
         make docker-build-vertica-v2 
 
@@ -345,7 +346,7 @@ jobs:
         default: ghcr.io/${{ env.OWNER_LC }}/verticadb-operator:${{ github.sha }}
         conditionals-with-values: |
           ${{ inputs.operator_image != '' }} => ${{ inputs.operator_image }}
-          ${{ github.event_name == 'pull_request' }} => verticadb-operator:kind
+          ${{ github.event_name == 'pull_request' }} => ${{ env.KIND_REGISTRY }}verticadb-operator:kind
 
     - name: Login to GitHub Container registry for non-PRs
       uses: docker/login-action@v3
@@ -479,7 +480,7 @@ jobs:
         default: ghcr.io/${{ env.OWNER_LC }}/vertica-logger:${{ github.sha }}
         conditionals-with-values: |
           ${{ inputs.vlogger_image != '' }} => ${{ inputs.vlogger_image }}
-          ${{ github.event_name == 'pull_request' }} => vertica-logger:kind
+          ${{ github.event_name == 'pull_request' }} => ${{ env.KIND_REGISTRY }}vertica-logger:kind
 
     - name: Login to GitHub Container registry for non-PRs
       uses: docker/login-action@v3
