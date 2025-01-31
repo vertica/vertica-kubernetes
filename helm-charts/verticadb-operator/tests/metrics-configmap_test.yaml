@@ -13,8 +13,8 @@ tests:
   - it: should cotain ip if expose is with auth
     set:
       prometheus:
-        expose: EnableWithAuthProxy
+        expose: EnableWithAuth
     asserts:
       - equal:
           path: data.METRICS_ADDR
-          value: 127.0.0.1:8443
+          value: 0.0.0.0:8443

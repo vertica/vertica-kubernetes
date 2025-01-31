@@ -231,8 +231,34 @@ export VDB_MAX_BACKOFF_DURATION
 #
 # The address the operators Prometheus metrics endpoint binds to. Setting this
 # to 0 will disable metric serving.
-METRICS_ADDR?=127.0.0.1:8443
+METRICS_ADDR?=0.0.0.0:8443
 export METRICS_ADDR
+#
+# The secret name that will be used to mount cert files in the operator
+# for providing server certs to Prometheus metrics endpoint. Setting this
+# to "" will use an auto-generated self-signed cert.
+export METRICS_TLS_SECRET
+#
+# Controls exposing of the prometheus metrics endpoint. The valid values are:
+# EnableWithAuth: A new service object will be created that exposes the
+#    metrics endpoint.  Access to the metrics are controlled by rbac rules.
+#    The metrics endpoint will use the https scheme.
+# EnableWithoutAuth: Like EnableWithAuth, this will create a service
+#    object to expose the metrics endpoint.  However, there is no authority
+#    checking when using the endpoint.  Anyone who had network access
+#    endpoint (i.e. any pod in k8s) will be able to read the metrics.  The
+#    metrics endpoint will use the http scheme.
+# EnableWithTLS: Like EnableWithAuth, this will create a service
+#    object to expose the metrics endpoint.  However, there is no authority
+#    checking when using the endpoint.  People with network access to the
+#    endpoint (i.e. any pod in k8s) and the correct certs can read the metrics.
+#    The metrics endpoint will use the https scheme. 
+#    It needs to be used with tlsSecret. If tlsSecret is not set, the behavior
+#    will be similar to EnableWithoutAuth, except that the endpoint will use 
+#    https schema.
+# Disable: Prometheus metrics are not exposed at all.
+METRICS_EXPOSE_MODE?=Disable
+export METRICS_EXPOSE_MODE
 #
 # The minimum logging level. Valid values are: debug, info, warn, and error.
 LOG_LEVEL?=info

@@ -24,7 +24,7 @@ resources:
 - ../webhook
 - ../clusterpermissions
 - ../certmanager
-- ../prometheus
+# - ../prometheus
 - metrics_service.yaml
 
 # Protect the /metrics endpoint by putting it behind auth.

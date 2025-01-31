@@ -104,6 +104,11 @@ func GetMetricsTLSSecret() string {
 	return lookupStringEnvVar("METRICS_TLS_SECRET", envCanNotExist)
 }
 
+// GetMetricsExposeMode returns exposing mode of the manager's Prometheus endpoint.
+func GetMetricsExposeMode() string {
+	return lookupStringEnvVar("METRICS_EXPOSE_MODE", envCanNotExist)
+}
+
 // GetUseCertManager returns true if cert-manager is used to setup the webhook's
 // TLS certs.
 func GetUseCertManager() bool {

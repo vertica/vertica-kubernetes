@@ -20,5 +20,6 @@ spec:
   containers:
   - name: manager
     image: docker.io/vertica/verticadb-operator:1.7.0
+  - name: kube-rbac-proxy
 status:
   phase: Running

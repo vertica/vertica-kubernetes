@@ -21,7 +21,7 @@ tests:
       imagePullSecrets:
         - name: image-pull-secrets
       prometheus:
-        expose: EnableWithAuthProxy
+        expose: EnableWithAuth
     asserts:
       - equal:
           path: spec.template.spec.containers[0].image

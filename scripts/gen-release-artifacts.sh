@@ -52,7 +52,7 @@ fi
 # command.
 RELEASE_ARTIFACT_TARGET_DIR=$REPO_DIR/config/release-manifests
 mkdir -p $RELEASE_ARTIFACT_TARGET_DIR
-for f in verticadb-operator-metrics-monitor-servicemonitor.yaml \
+for f in verticadb-operator-metrics-reader-crb.yaml \
     verticadb-operator-metrics-reader-cr.yaml
 do
   cp $MANIFEST_DIR/$f $RELEASE_ARTIFACT_TARGET_DIR

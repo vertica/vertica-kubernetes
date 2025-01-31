@@ -95,11 +95,11 @@ perl -i -0777 -pe 's/\n\s*- mountPath: \/cert\s*\n\s*name: auth-cert//g' bundle/
 # requirement on having the Prometheus Operator installed.  We are only
 # optionally installing this.  We will include the manifest in our GitHub
 # artifacts and have it as an optional helm parameter.
-rm bundle/manifests/*servicemonitor.yaml
+rm -f bundle/manifests/*servicemonitor.yaml
 # Remove the metrics-reader clusterrolebinding. When undeploying olm installs,
 # the clusterrole would get removed but not the clusterrolebinding. We provide
 # this as an arifact anyway, so it doesn't need to be part of the bundle.
-rm bundle/manifests/*metrics-reader*yaml
+rm -f bundle/manifests/*metrics-reader*yaml
 
 # Add the supported versions at the end of annotations.yaml
 cat <<EOT >> bundle/metadata/annotations.yaml
