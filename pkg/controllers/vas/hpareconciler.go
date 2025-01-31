@@ -58,6 +58,10 @@ func (h *HorizontalPodAutoscalerReconciler) Reconcile(ctx context.Context, req *
 		h.Log.Info("Creating horizontalpodautoscaler", "Name", nm.Name)
 		return ctrl.Result{}, createHpa(ctx, h.VRec, expHpa, h.Vas)
 	}
+	if h.Vas.HasScaleDownThreshold() {
+		// We keep the current value because it will be changed elsewhere.
+		*expHpa.Spec.MinReplicas = *curHpa.Spec.MinReplicas
+	}
 	return ctrl.Result{}, h.updateHPA(ctx, curHpa, expHpa)
 }
 

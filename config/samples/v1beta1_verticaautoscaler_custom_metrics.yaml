@@ -32,3 +32,15 @@ spec:
           target:
             type: Value
             value: "6"
+    - metric:
+        type: Object
+        object:
+          describedObject:
+            apiVersion: v1
+            kind: Service
+            name: verticadb-sample-sc1
+          metric:
+            name: vertica_queued_requests_count
+          target:
+            type: Value
+            value: "3"

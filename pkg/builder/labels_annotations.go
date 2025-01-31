@@ -179,8 +179,11 @@ func MakeAnnotationsForVProxyObject(vdb *vapi.VerticaDB) map[string]string {
 
 // MakeAnnotationsForSandboxConfigMap builds the list of annotations that are included
 // in the sandbox config map.
-func MakeAnnotationsForSandboxConfigMap(vdb *vapi.VerticaDB) map[string]string {
+func MakeAnnotationsForSandboxConfigMap(vdb *vapi.VerticaDB, forUpgrade bool) map[string]string {
 	annotations := MakeAnnotationsForObject(vdb)
+	if forUpgrade {
+		annotations[vmeta.DisableRoutingAnnotation] = "true"
+	}
 	if ver, ok := vdb.Annotations[vmeta.VersionAnnotation]; ok {
 		annotations[vmeta.VersionAnnotation] = ver
 	}

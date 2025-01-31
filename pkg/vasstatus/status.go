@@ -66,10 +66,14 @@ func UpdateCondition(ctx context.Context, clnt client.Client, log logr.Logger,
 		if len(vas.Status.Conditions) == 0 {
 			vas.Status.Conditions = append(vas.Status.Conditions, vapi.VerticaAutoscalerCondition{})
 		}
+		if condition.Type == vapi.ScalingActive && len(vas.Status.Conditions) < 2 {
+			vas.Status.Conditions = append(vas.Status.Conditions, vapi.VerticaAutoscalerCondition{})
+		}
 		// Only update if status is different change.  Cannot compare the entire
 		// condition since LastTransitionTime will be different each time.
-		if vas.Status.Conditions[vapi.TargetSizeInitializedIndex].Status != condition.Status {
-			vas.Status.Conditions[vapi.TargetSizeInitializedIndex] = condition
+		index := vapi.VasConditionIndexMap[condition.Type]
+		if vas.Status.Conditions[index].Status != condition.Status {
+			vas.Status.Conditions[index] = condition
 		}
 	}
 
