@@ -73,7 +73,12 @@ func (h *NMACertConfigMapGenReconciler) tlsSecretsReady(ctx context.Context) boo
 	}
 	found, err := vapi.IsK8sSecretFound(ctx, h.Vdb, h.VRec.Client, &h.Vdb.Spec.NMATLSSecret)
 	if !found || err != nil {
-		h.Log.Info("failed to find nma tls secret " + h.Vdb.Spec.NMATLSSecret)
+		if err == nil {
+			h.Log.Info("did not find nma tls secret " + h.Vdb.Spec.NMATLSSecret)
+		} else {
+			h.Log.Info("failed to find nma tls secret " + h.Vdb.Spec.NMATLSSecret + " because of err: " + err.Error())
+		}
+
 		return false
 	}
 	return true
