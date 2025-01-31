@@ -1,5 +1,5 @@
 /*
- (c) Copyright [2023-2024] Open Text.
+ (c) Copyright [2023-2025] Open Text.
  Licensed under the Apache License, Version 2.0 (the "License");
  You may not use this file except in compliance with the License.
  You may obtain a copy of the License at
@@ -33,7 +33,7 @@ const (
 	nmaSuccessfulReturnCode = 0
 )
 
-// produceTransferConfigOps generates instructions to transfert some config
+// produceTransferConfigOps generates instructions to transfer some config
 // files from a sourceConfig node to target nodes.
 func produceTransferConfigOps(instructions *[]clusterOp, sourceConfigHost,
 	targetHosts []string, vdb *VCoordinationDatabase, sandbox *string) {
@@ -52,6 +52,22 @@ func produceTransferConfigOps(instructions *[]clusterOp, sourceConfigHost,
 		&nmaUploadVerticaConfigOp,
 		&nmaDownloadSpreadConfigOp,
 		&nmaUploadSpreadConfigOp,
+	)
+}
+
+// produceTransferLicenseOps generates instructions to transfer a license
+// file from a source node to a target node.
+func produceTransferLicenseOps(instructions *[]clusterOp, sourceHost,
+	targetHost, sourceFilePath, targetFilePath string) {
+	var licenseContent string
+	nmaDownloadLicenseOp := makeNMADownloadLicenseOp(
+		sourceHost, sourceFilePath, &licenseContent)
+	nmaUploadLicenseOp := makeNMAUploadLicenseOp(
+		sourceHost, targetHost, targetFilePath, &licenseContent)
+
+	*instructions = append(*instructions,
+		&nmaDownloadLicenseOp,
+		&nmaUploadLicenseOp,
 	)
 }
 

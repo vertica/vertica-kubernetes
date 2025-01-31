@@ -44,6 +44,7 @@ const (
 	CreateArchiveCmd
 	PollSubclusterStateCmd
 	UpgradeLicenseCmd
+	ClusterHealthCmd
 )
 
 var cmdStringMap = map[CmdType]string{
@@ -86,6 +87,7 @@ var cmdStringMap = map[CmdType]string{
 	CreateArchiveCmd:             "create_archive",
 	PollSubclusterStateCmd:       "poll_subcluster_state",
 	UpgradeLicenseCmd:            "upgrade_license",
+	ClusterHealthCmd:             "cluster_health",
 }
 
 func (cmd CmdType) CmdString() string {
