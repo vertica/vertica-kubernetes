@@ -185,7 +185,11 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		// of the operator.
 		MakeUpgradeOperatorReconciler(r, log, vdb),
 		// Create a TLS secret for the NMA service
-		MakeHTTPServerCertGenReconciler(r, log, vdb),
+		MakeNMACertGenReconciler(r, log, vdb),
+		// use the same TLS secret used by the NMA service for https service
+		MakeTLSServerCertGenReconciler(r, log, vdb),
+		// Create a ConfigMap to store secret names for all tls certs
+		MakeNMACertConfigMapGenReconciler(r, log, vdb),
 		// Create ServiceAcount, Role and RoleBindings needed for vertica pods
 		MakeServiceAccountReconciler(r, log, vdb),
 		// Handle setting up the pod security context. This picks the
