@@ -5,10 +5,9 @@
 # nodes.
 #    scripts/push-to-kind.sh -f tests/external-images-common-ci.txt
 #
-amazon/aws-cli:2.2.24
-quay.io/helmpack/chart-testing:v3.3.1
-bitnami/kubectl:1.20.4
-rancher/local-path-provisioner:v0.0.19
+amazon/aws-cli:2.17.34
+quay.io/helmpack/chart-testing:v3.11.0
+bitnami/kubectl:1.30.4
 gcr.io/kubebuilder/kube-rbac-proxy:v0.13.1
 quay.io/jetstack/cert-manager-controller:v1.5.3
 quay.io/jetstack/cert-manager-cainjector:v1.5.3

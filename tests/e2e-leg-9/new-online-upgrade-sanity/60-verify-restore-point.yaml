@@ -14,30 +14,26 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: script-install-pod
+  name: script-verify-restore-point
 data:
   entrypoint.sh: |-
     #!/bin/bash
     set -o errexit
     set -o xtrace
 
-    SOURCE_POD=v-managed-sc1-0
-    TARGET_POD_IP=$(kubectl get pods v-schedule-only-k8s-0 --no-headers -o custom-columns=":status.podIP")
-    
-    kubectl exec $SOURCE_POD -i -- sudo /opt/vertica/sbin/update_vertica \
-      --accept-eula \
-      --failure-threshold NONE \
-      --dba-user-password-disabled \
-      --no-system-configuration \
-      --no-package-checks \
-      --point-to-point \
-      --data-dir /data \
-      --add-hosts $TARGET_POD_IP
+    POD_NAME=v-base-upgrade-pri1-sb-0
+
+    result=$(kubectl exec $POD_NAME -i -c server -- bash -c "vsql -U dbadmin -tAc \"SELECT COUNT(*) FROM archive_restore_points WHERE archive LIKE 'upgrade_backup%';\"")
+    echo "$result" | grep -Pzo "^1\n$" > /dev/null
+    if [ $? -ne 0 ]; then
+      echo "Assertion failed: expected 1, got $result"
+      exit 1
+    fi
 ---
 apiVersion: v1
 kind: Pod
 metadata:
-  name: test-install-pod
+  name: test-verify-restore-point
   labels:
     stern: include
 spec:
@@ -55,4 +51,4 @@ spec:
     - name: entrypoint-volume
       configMap:
         defaultMode: 0777
-        name: script-install-pod
+        name: script-verify-restore-point

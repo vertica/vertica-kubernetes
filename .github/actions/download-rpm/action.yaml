@@ -9,7 +9,9 @@ runs:
           # The script guess-server-upgrade-base-image.sh parses this URL. So,
           # if the structure of this URL ever changes be sure to verify if that
           # script needs an update.
-          VERTICA_CE_URL: "https://vertica-community-edition-for-testing.s3.amazonaws.com/XCz9cp7m/vertica-12.0.3-0.x86_64.RHEL6.rpm"
+          VERTICA_CE_URL: "https://vertica-community-edition-for-testing.s3.amazonaws.com/XCz9cp7m/vertica-25.1.0-0.RHEL8.x86_64.rpm"
+          VERTICA_CE_URL_ARM64: "https://vertica-community-edition-for-testing.s3.amazonaws.com/XCz9cp7m/vertica-25.1.0-0.RHEL8.aarch64.rpm"
       run: |
-        curl $VERTICA_CE_URL -o docker-vertica/packages/vertica-latest.RHEL6.x86_64.rpm
+        curl $VERTICA_CE_URL -o docker-vertica/packages/vertica-latest.RHEL8.x86_64.rpm
+        curl $VERTICA_CE_URL_ARM64 -o docker-vertica/packages/vertica-latest.RHEL8.aarch64.rpm
         cp docker-vertica/packages/*rpm docker-vertica-v2/packages
