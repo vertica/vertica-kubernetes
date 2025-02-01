@@ -84,10 +84,11 @@ jobs:
         default: docker.io/opentext/vertica-k8s-private:latest-test-master
         conditionals-with-values: |
           ${{ inputs.full_vertica_image != '' }} => ${{ inputs.full_vertica_image }}
+          ${{ github.event_name == 'pull_request' }} => ${{ env.GITHUB_REGISTRY }}vertica-k8s-private:kind-full
 
-    - name: Login to GitHub Container registry for non-PRs
+    - name: Login to GitHub Container registry
       uses: docker/login-action@v3
-      if: ${{ github.event_name != 'pull_request' && startsWith(inputs.full_vertica_image, 'ghcr.io') }}
+      if: ${{ startsWith(steps.full_vertica_image.outputs.value, 'ghcr.io') }}
       with:
         registry: ghcr.io
         username: ${{ github.repository_owner }}
@@ -205,9 +206,9 @@ jobs:
         conditionals-with-values: |
           ${{ inputs.legacy_vertica_image != '' }} => ${{ inputs.legacy_vertica_image }}
 
-    - name: Login to GitHub Container registry for non-PRs
+    - name: Login to GitHub Container registry
       uses: docker/login-action@v3
-      if: ${{ github.event_name != 'pull_request' && startsWith(inputs.legacy_vertica_image, 'ghcr.io') }}
+      if: ${{ startsWith(steps.legacy_vertica_image.outputs.value, 'ghcr.io') }}
       with:
         registry: ghcr.io
         username: ${{ github.repository_owner }}
@@ -262,6 +263,7 @@ jobs:
         echo -n "Vertica Version: **" >> $GITHUB_STEP_SUMMARY
         echo -n $(docker inspect --format '{{index .Config.Labels "vertica-version"}}' ${{ steps.legacy_vertica_image.outputs.value }}) >> $GITHUB_STEP_SUMMARY
         echo "**" >> $GITHUB_STEP_SUMMARY
+
   build-server-minimal:
     runs-on: ubuntu-latest
     outputs:
@@ -276,9 +278,9 @@ jobs:
         conditionals-with-values: |
           ${{ inputs.minimal_vertica_image != '' }} => ${{ inputs.minimal_vertica_image }}
 
-    - name: Login to GitHub Container registry for non-PRs
+    - name: Login to GitHub Container registry
       uses: docker/login-action@v3
-      if: ${{ github.event_name != 'pull_request' && startsWith(inputs.minimal_vertica_image, 'ghcr.io') }}
+      if: ${{ startsWith(steps.minimal_vertica_image.outputs.value, 'ghcr.io') }}
       with:
         registry: ghcr.io
         username: ${{ github.repository_owner }}
@@ -348,9 +350,9 @@ jobs:
           ${{ inputs.operator_image != '' }} => ${{ inputs.operator_image }}
           ${{ github.event_name == 'pull_request' }} => ${{ env.GITHUB_REGISTRY }}verticadb-operator:kind
 
-    - name: Login to GitHub Container registry for non-PRs
+    - name: Login to GitHub Container registry
       uses: docker/login-action@v3
-      if: ${{ github.event_name != 'pull_request' && inputs.operator_image == '' || startsWith(inputs.operator_image, 'ghcr.io') }}
+      if: ${{ startsWith(steps.operator_image.outputs.value, 'ghcr.io') }}
       with:
         registry: ghcr.io
         username: ${{ github.repository_owner }}
@@ -482,9 +484,9 @@ jobs:
           ${{ inputs.vlogger_image != '' }} => ${{ inputs.vlogger_image }}
           ${{ github.event_name == 'pull_request' }} => ${{ env.GITHUB_REGISTRY }}vertica-logger:kind
 
-    - name: Login to GitHub Container registry for non-PRs
+    - name: Login to GitHub Container registry
       uses: docker/login-action@v3
-      if: ${{ github.event_name != 'pull_request' && inputs.vlogger_image == '' || startsWith(inputs.vlogger_image, 'ghcr.io') }}
+      if: ${{ startsWith(steps.vlogger_image.outputs.value, 'ghcr.io') }}
       with:
         registry: ghcr.io
         username: ${{ github.repository_owner }}
