@@ -244,6 +244,7 @@ jobs:
     - name: Save the image for consumption by dependent jobs (PRs only)
       if: ${{ github.event_name == 'pull_request' }}
       run: |
+        docker pull ${{ steps.legacy_vertica_image.outputs.value }}
         docker save ${{ steps.legacy_vertica_image.outputs.value }} > legacy-vertica-image.tar
 
     - uses: actions/upload-artifact@v4
@@ -391,6 +392,7 @@ jobs:
     - name: Save the image for consumption by dependent jobs (PRs only)
       if: ${{ github.event_name == 'pull_request' }}
       run: |
+        docker pull ${{ steps.operator_image.outputs.value }}
         docker save ${{ steps.operator_image.outputs.value }} > operator-image.tar
 
     - uses: actions/upload-artifact@v4
@@ -508,6 +510,7 @@ jobs:
     - name: Save the image for consumption by dependent jobs (PRs only)
       if: ${{ github.event_name == 'pull_request' }}
       run: |
+        docker pull ${{ steps.vlogger_image.outputs.value }}
         docker save ${{ steps.vlogger_image.outputs.value }} > vlogger-image.tar
 
     - uses: actions/upload-artifact@v4
