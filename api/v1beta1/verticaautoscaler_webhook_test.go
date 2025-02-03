@@ -43,6 +43,9 @@ var _ = Describe("verticaautoscaler_webhook", func() {
 		Expect(vas.ValidateUpdate(MakeVAS())).ShouldNot(Succeed())
 		vas.Spec.Template.ServiceName = vas.Spec.ServiceName
 		Expect(vas.ValidateUpdate(MakeVAS())).Should(Succeed())
+		vas.Spec.ServiceName = ""
+		vas.Spec.Template.ServiceName = "SomethingElse"
+		Expect(vas.ValidateUpdate(MakeVAS())).Should(Succeed())
 	})
 
 	It("should fail if you try to use the template with pod scalingGranularity", func() {

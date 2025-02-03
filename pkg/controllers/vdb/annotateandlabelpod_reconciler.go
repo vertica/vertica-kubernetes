@@ -63,7 +63,7 @@ func (s *AnnotateAndLabelPodReconciler) Reconcile(ctx context.Context, _ *ctrl.R
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	labels := s.generateLabels()
+	labels := s.generateLabels(s.PFacts.GetSandboxName())
 
 	// Iterate over pod that exists.
 	for pn, pf := range s.PFacts.Detail {
@@ -106,10 +106,14 @@ func (s *AnnotateAndLabelPodReconciler) generateAnnotations() (map[string]string
 }
 
 // generateLabels will generate static labels that will be applied to each running pod
-func (s *AnnotateAndLabelPodReconciler) generateLabels() map[string]string {
-	return map[string]string{
+func (s *AnnotateAndLabelPodReconciler) generateLabels(sbName string) map[string]string {
+	labels := map[string]string{
 		vmeta.OperatorVersionLabel: vmeta.CurOperatorVersion,
 	}
+	if sbName == vapi.MainCluster {
+		labels[vmeta.IsSandboxLabel] = vmeta.IsSandboxFalse
+	}
+	return labels
 }
 
 // applyAnnotationsAndLabels will ensure the annotations and labels passed in are set for the given pod

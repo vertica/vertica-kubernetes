@@ -48,22 +48,30 @@ type VerticaAutoscalerSpec struct {
 	//   the last subcluster only.
 	ScalingGranularity ScalingGranularityType `json:"scalingGranularity"`
 
-	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:text"
 	// This acts as a selector for the subclusters that are being scaled together.
 	// Each subcluster has a service name field, which if omitted is the same
 	// name as the subcluster name.  Multiple subclusters that have the same
 	// service name use the same service object.
-	ServiceName string `json:"serviceName"`
+	// if this field is empty, all the subclusters will be selected for scaling.
+	ServiceName string `json:"serviceName,omitempty"`
 
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// +kubebuilder:validation:Optional
 	// When the scaling granularity is Subcluster, this field defines a template
 	// to use for when a new subcluster needs to be created.  If size is 0, then
 	// the operator will use an existing subcluster to use as the template.  If
-	// size is > 0, the service name must match the serviceName parameter.  The
-	// name of the new subcluster is always auto generated.  If the name is set
+	// size is > 0 service name must match the serviceName parameter (if non-empty).
+	//
+	// If the serviceName parameter is empty, service name can be an existing service and
+	// in that case the new subcluster will share it with other(s) subcluster, service
+	// name can also be non-existing and all the subclusters created from the template
+	// will share that service. If service name is empty, each new subcluster will have its
+	// own service.
+	//
+	// The name of the new subcluster is always auto generated.  If the name is set
 	// here it will be used as a prefix for the new subcluster.  Otherwise, we
 	// use the name of this VerticaAutoscaler object as a prefix for all
 	// subclusters.
