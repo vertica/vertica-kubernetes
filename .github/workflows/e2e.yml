@@ -468,7 +468,6 @@ jobs:
           vertica-deployment-method: vclusterops
           communal-storage-type: hostpath
           minimum-vertica-image: '24.2.0'
-          vertica-license: ${{ secrets.VERTICA_LICENSE }}
           e2e-retry-times: ${{ inputs.e2e_retry_times || 2 }}
 
   e2e-leg-6-vcluster-revivedb:
