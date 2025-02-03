@@ -194,9 +194,22 @@ func (c *CreateDBReconciler) generatePostDBCreateSQL(ctx context.Context, initia
 		sb.WriteString(fmt.Sprintf(`alter database default set parameter EncryptSpreadComm = '%s';
 		`, vapi.EncryptSpreadCommWithVertica))
 	}
+	sb.WriteString(fmt.Sprintf(
+		`CREATE KEY https_tls_key TYPE 'rsa' SECRETMANAGER KubernetesSecretManager SECRETNAME \"%s\" CONFIGURATION '{\"data-key\":\"%s\", \"namespace\":\"%s\"}'`,
+		c.Vdb.Spec.HTTPSTLSSecret, corev1.TLSPrivateKeyKey, c.Vdb.ObjectMeta.Namespace))
+
+	sb.WriteString(fmt.Sprintf(
+		`CREATE CERTIFICATE https_cert SECRETMANAGER KubernetesSecretManager SECRETNAME \"%s\" CONFIGURATION '{\"data-key\":\"%s\", \"namespace\":\"%s\"}' SIGNED BY https_ca_cert KEY https_tls_key`,
+		c.Vdb.Spec.HTTPSTLSSecret, corev1.TLSCertKey, c.Vdb.ObjectMeta.Namespace))
+
+	sb.WriteString(fmt.Sprintf(
+		`CREATE CA CERTIFICATE https_ca_cert SECRETMANAGER KubernetesSecretManager SECRETNAME \"%s\" CONFIGURATION '{"data-key":\"%s\", "namespace":\"%s\"}'`,
+		c.Vdb.Spec.HTTPSTLSSecret, paths.HTTPServerCACrtName, c.Vdb.ObjectMeta.Namespace))
+
 	_, _, err := c.PRunner.ExecInPod(ctx, initiatorPod, names.ServerContainer,
 		"bash", "-c", "cat > "+PostDBCreateSQLFile+"<<< \""+sb.String()+"\"",
 	)
+	c.Log.Info("SQL executed after db creation: " + sb.String())
 	if err != nil {
 		return ctrl.Result{}, err
 	}
