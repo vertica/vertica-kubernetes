@@ -11,11 +11,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1beta1
-kind: VerticaAutoscaler
-metadata:
-  name: v-autoscale
-status:
-  selector: vertica.com/subcluster-svc=as,vertica.com/is-sandbox=false,app.kubernetes.io/instance=v-autoscale-by-subcluster,app.kubernetes.io/managed-by=verticadb-operator
-  scalingCount: 0
-  currentSize: 0
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - script: cd ../../.. && make deploy-prometheus-service-monitor VDB_NAMESPACE=$NAMESPACE DB_USER=dbadmin DB_PASSWORD=topsecret VDB_NAME=v-scale-down-threshold-db 

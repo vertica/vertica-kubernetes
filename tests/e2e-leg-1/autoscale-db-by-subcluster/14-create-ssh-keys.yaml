@@ -11,11 +11,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1beta1
-kind: VerticaAutoscaler
-metadata:
-  name: v-autoscale
-status:
-  selector: vertica.com/subcluster-svc=as,vertica.com/is-sandbox=false,app.kubernetes.io/instance=v-autoscale-by-subcluster,app.kubernetes.io/managed-by=verticadb-operator
-  scalingCount: 0
-  currentSize: 0
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - script: "mkdir -p ssh-keys && rm -f ssh-keys/* && ssh-keygen -q -t rsa -N '' -f ssh-keys/id_rsa && cp ssh-keys/id_rsa.pub ssh-keys/authorized_keys"
+  - script: "kubectl delete secret -n $NAMESPACE ssh-keys || :"
+  - script: "kubectl create secret -n $NAMESPACE generic ssh-keys --from-file=ssh-keys"

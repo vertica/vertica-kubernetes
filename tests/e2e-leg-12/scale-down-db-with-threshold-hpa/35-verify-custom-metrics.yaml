@@ -11,11 +11,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1beta1
-kind: VerticaAutoscaler
-metadata:
-  name: v-autoscale
-status:
-  selector: vertica.com/subcluster-svc=as,vertica.com/is-sandbox=false,app.kubernetes.io/instance=v-autoscale-by-subcluster,app.kubernetes.io/managed-by=verticadb-operator
-  scalingCount: 0
-  currentSize: 0
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - script: |
+      echo "sleep 60 seconds before starting to verify metrics"
+      sleep 60
+      RESULT=$(kubectl get --raw /apis/custom.metrics.k8s.io/v1beta1/namespaces/$NAMESPACE/pods/v-scale-down-threshold-db-pri1-0/vertica_sessions_running_total)
+      OUTPUT=$(echo $RESULT | jq -r '.items[0].value')
+      # verify the metrics result
+      if [[ "$OUTPUT" == "" ]]; then
+        echo "empty custom metrics result on vertica_sessions_running_total. Result: $RESULT"
+        exit 1
+      fi

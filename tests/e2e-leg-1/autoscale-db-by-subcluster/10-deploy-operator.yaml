@@ -10,12 +10,3 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-apiVersion: vertica.com/v1beta1
-kind: VerticaAutoscaler
-metadata:
-  name: v-autoscale
-status:
-  selector: vertica.com/subcluster-svc=as,vertica.com/is-sandbox=false,app.kubernetes.io/instance=v-autoscale-by-subcluster,app.kubernetes.io/managed-by=verticadb-operator
-  scalingCount: 0
-  currentSize: 0

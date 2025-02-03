@@ -11,11 +11,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1beta1
-kind: VerticaAutoscaler
+apiVersion: apps/v1
+kind: StatefulSet
 metadata:
-  name: v-autoscale
-status:
-  selector: vertica.com/subcluster-svc=as,vertica.com/is-sandbox=false,app.kubernetes.io/instance=v-autoscale-by-subcluster,app.kubernetes.io/managed-by=verticadb-operator
-  scalingCount: 0
-  currentSize: 0
+  name: v-autoscale-db-by-subcluster-as-0
