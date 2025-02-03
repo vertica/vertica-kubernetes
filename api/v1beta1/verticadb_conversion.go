@@ -164,7 +164,12 @@ func convertToSpec(src *VerticaDBSpec) v1.VerticaDBSpec {
 		StartupProbeOverride:   src.StartupProbeOverride,
 		ServiceAccountName:     src.ServiceAccountName,
 		Sandboxes:              convertToSandboxSlice(src.Sandboxes),
-		Proxy:                  (*v1.Proxy)(src.Proxy),
+	}
+	if src.Proxy != nil {
+		dst.Proxy = &v1.Proxy{
+			Image:     src.Proxy.Image,
+			TLSSecret: src.Proxy.TLSSecret,
+		}
 	}
 	if src.RestorePoint != nil {
 		dst.RestorePoint = &v1.RestorePointPolicy{
@@ -229,7 +234,12 @@ func convertFromSpec(src *v1.VerticaDB) VerticaDBSpec {
 		StartupProbeOverride:    srcSpec.StartupProbeOverride,
 		ServiceAccountName:      srcSpec.ServiceAccountName,
 		Sandboxes:               convertFromSandboxSlice(srcSpec.Sandboxes),
-		Proxy:                   (*Proxy)(srcSpec.Proxy),
+	}
+	if srcSpec.Proxy != nil {
+		dst.Proxy = &Proxy{
+			Image:     srcSpec.Proxy.Image,
+			TLSSecret: srcSpec.Proxy.TLSSecret,
+		}
 	}
 	if srcSpec.RestorePoint != nil {
 		dst.RestorePoint = &RestorePointPolicy{
@@ -263,7 +273,13 @@ func convertToStatus(src *VerticaDBStatus) v1.VerticaDBStatus {
 		Conditions:      make([]metav1.Condition, 0),
 		UpgradeStatus:   src.UpgradeStatus,
 		Sandboxes:       make([]v1.SandboxStatus, len(src.Sandboxes)),
-		RestorePoint:    (*v1.RestorePointInfo)(src.RestorePoint),
+	}
+	if src.RestorePoint != nil {
+		dst.RestorePoint = &v1.RestorePointInfo{
+			Archive:        src.RestorePoint.Archive,
+			StartTimestamp: src.RestorePoint.StartTimestamp,
+			EndTimestamp:   src.RestorePoint.EndTimestamp,
+		}
 	}
 	for i := range src.Subclusters {
 		dst.Subclusters[i] = convertToSubclusterStatus(&src.Subclusters[i])
@@ -288,7 +304,13 @@ func convertFromStatus(src *v1.VerticaDBStatus) VerticaDBStatus {
 		Conditions:      make([]VerticaDBCondition, len(src.Conditions)),
 		UpgradeStatus:   src.UpgradeStatus,
 		Sandboxes:       make([]SandboxStatus, len(src.Sandboxes)),
-		RestorePoint:    (*RestorePointInfo)(src.RestorePoint),
+	}
+	if src.RestorePoint != nil {
+		dst.RestorePoint = &RestorePointInfo{
+			Archive:        src.RestorePoint.Archive,
+			StartTimestamp: src.RestorePoint.StartTimestamp,
+			EndTimestamp:   src.RestorePoint.EndTimestamp,
+		}
 	}
 	for i := range src.Subclusters {
 		dst.Subclusters[i] = convertFromSubclusterStatus(src.Subclusters[i])
@@ -309,7 +331,7 @@ func convertToSubcluster(src *Subcluster) v1.Subcluster {
 
 // convertFromSubcluster will take a v1 Subcluster and convert it to a v1beta1 version
 func convertFromSubcluster(src *v1.Subcluster) Subcluster {
-	return Subcluster{
+	dst := Subcluster{
 		Name:                src.Name,
 		Size:                src.Size,
 		IsPrimary:           src.IsPrimary(),
@@ -329,8 +351,14 @@ func convertFromSubcluster(src *v1.Subcluster) Subcluster {
 		LoadBalancerIP:      src.LoadBalancerIP,
 		ServiceAnnotations:  src.ServiceAnnotations,
 		Annotations:         src.Annotations,
-		Proxy:               (*ProxySubclusterConfig)(src.Proxy),
 	}
+	if src.Proxy != nil {
+		dst.Proxy = &ProxySubclusterConfig{
+			Replicas:  ptrOrNil(src.Proxy.Replicas),
+			Resources: ptrOrNil(src.Proxy.Resources),
+		}
+	}
+	return dst
 }
 
 // convertToCommunal will convert to a v1 CommunalStorage from a v1beta1 version
