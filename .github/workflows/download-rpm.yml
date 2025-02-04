@@ -41,8 +41,8 @@ jobs:
     # Will download the RPM as prep for container building
     - name: Download Vertica RPM
       run: |
-      s3Key=${{ secrets.AWS_ACCESS_KEY_ID }}
-      s3Secret=${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      export s3Key=${{ secrets.AWS_ACCESS_KEY_ID }}
+      export s3Secret=${{ secrets.AWS_SECRET_ACCESS_KEY }}
       dateValue="`date +'%a, %d %b %Y %H:%M:%S %z'`"
       contentType="application/x-rpm"
       bucket=vertica-community-edition-for-testing
