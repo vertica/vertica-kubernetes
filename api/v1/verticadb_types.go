@@ -287,26 +287,19 @@ type VerticaDBSpec struct {
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:hidden"
 	// +kubebuilder:default:=""
 	// +kubebuilder:validation:Optional
-	// A secret that contains the TLS credentials to be used by Vertica's embedded
-	// http service. If this is empty, the operator will create a secret to use
-	// and add the name of the generate secret to this field.
-	// When set, the secret must have the following keys defined: tls.key,
-	// tls.crt and ca.crt.  To store this secret outside of Kubernetes, you can
-	// use a secret path reference prefix, such as gsm://. Everything after the
-	// prefix is the name of the secret in the service you are storing.
-	HTTPSTLSSecret string `json:"httpsTLSSecret,omitempty"`
-
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:hidden"
-	// +kubebuilder:default:=""
-	// +kubebuilder:validation:Optional
-	// A secret that contains the TLS credentials to be used by Vertica's client
+	// A secret that contains the TLS credentials to be used to authenticate Vertica clients' certificates
 	// (vsql). If this is empty, the operator will create a secret to use and add
 	// the name of the generate secret to this field.
 	// When set, the secret must have the following keys defined: tls.key,
 	// tls.crt and ca.crt.  To store this secret outside of Kubernetes, you can
 	// use a secret path reference prefix, such as gsm://. Everything after the
 	// prefix is the name of the secret in the service you are storing.
-	ClientTLSSecret string `json:"clientTLSSecret,omitempty"`
+	ClientServerTLSSecret string `json:"clientTLSSecret,omitempty"`
+
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:hidden"
+	// +kubebuilder:default:=verify_ca
+	// +kubebuilder:validation:Optional
+	ClientServerTLSMode string `json:"clientServerTLSMode,omitempty"`
 
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:hidden"
 	// +kubebuilder:validation:Optional

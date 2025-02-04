@@ -59,7 +59,7 @@ func MakeTLSServerCertGenReconciler(vdbrecon *VerticaDBReconciler, log logr.Logg
 func (h *TLSServerCertGenReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
 	secretFieldNameMap := map[string]string{
 		HTTPSTLSSecret:  h.Vdb.Spec.HTTPSTLSSecret,
-		ClientTLSSecret: h.Vdb.Spec.ClientTLSSecret,
+		ClientTLSSecret: h.Vdb.Spec.ClientServerTLSSecret,
 	}
 	err := error(nil)
 	result := ctrl.Result{}
@@ -165,7 +165,7 @@ func (h *TLSServerCertGenReconciler) setSecretNameInVDB(ctx context.Context, sec
 		if secretFieldName == HTTPSTLSSecret {
 			h.Vdb.Spec.HTTPSTLSSecret = secretName
 		} else {
-			h.Vdb.Spec.ClientTLSSecret = secretName
+			h.Vdb.Spec.ClientServerTLSSecret = secretName
 		}
 		return h.VRec.Client.Update(ctx, h.Vdb)
 	})
