@@ -6,8 +6,8 @@ runs:
     - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v1
       with:
-        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-access-key-id: ${{ env.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ env.AWS_SECRET_ACCESS_KEY }}
         aws-region: ${{ env.AWS_REGION }}
 
     - name: Download vertica RPM package
@@ -19,6 +19,8 @@ runs:
           VERTICA_CE_URL: "https://vertica-community-edition-for-testing.s3.amazonaws.com/XCz9cp7m/vertica-25.1.0-0.RHEL8.x86_64.rpm"
           VERTICA_CE_URL_ARM64: "https://vertica-community-edition-for-testing.s3.amazonaws.com/XCz9cp7m/vertica-25.1.0-0.RHEL8.aarch64.rpm"
           AWS_REGION: us-east-1
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       run: |
         curl $VERTICA_CE_URL -o docker-vertica/packages/vertica-latest.RHEL8.x86_64.rpm
         curl $VERTICA_CE_URL_ARM64 -o docker-vertica/packages/vertica-latest.RHEL8.aarch64.rpm
