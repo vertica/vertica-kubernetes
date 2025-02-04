@@ -1015,7 +1015,7 @@ func makeServerContainer(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.Contai
 	)
 
 	if vdb.IsMonolithicDeploymentEnabled() {
-		envVars = append(envVars, buildNMATLSCertsEnvVars()...)
+		envVars = append(envVars, buildNMATLSCertsEnvVars(vdb)...)
 	}
 	cnt := corev1.Container{
 		Image:           pickImage(vdb, sc),
@@ -1042,7 +1042,7 @@ func makeServerContainer(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.Contai
 
 // makeNMAContainer builds the spec for the nma container
 func makeNMAContainer(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.Container {
-	envVars := buildNMATLSCertsEnvVars()
+	envVars := buildNMATLSCertsEnvVars(vdb)
 	envVars = append(envVars, buildCommonEnvVars(vdb)...)
 	envVars = append(envVars,
 		corev1.EnvVar{Name: NMALogPath, Value: StdOut},
@@ -1089,7 +1089,7 @@ func makeScrutinizeInitContainer(vscr *v1beta1.VerticaScrutinize, vdb *vapi.Vert
 				names.GenNamespacedName(vscr, vdb.Spec.PasswordSecret))...)
 		}
 	}
-	cnt.Env = append(cnt.Env, append(buildNMATLSCertsEnvVars(),
+	cnt.Env = append(cnt.Env, append(buildNMATLSCertsEnvVars(vdb),
 		buildScrutinizeTarballEnvVar(tarballName))...)
 	return cnt
 }
@@ -1746,8 +1746,9 @@ func buildScrutinizeDBPasswordEnvVars(nm types.NamespacedName) []corev1.EnvVar {
 
 // buildNMATLSCertsEnvVars returns environment variables about NMA certs,
 // that are needed by NMA and vcluster scrutinize
-func buildNMATLSCertsEnvVars() []corev1.EnvVar {
+func buildNMATLSCertsEnvVars(vdb *vapi.VerticaDB) []corev1.EnvVar {
 	notTrue := false
+	configMapName := fmt.Sprintf("%s-%s", vdb.Name, vapi.NMATLSConfigMapName)
 	return []corev1.EnvVar{
 		// The NMA will read the secrets directly from the secret store.
 		// We provide the secret namespace and name for this reason.
@@ -1758,7 +1759,7 @@ func buildNMATLSCertsEnvVars() []corev1.EnvVar {
 			ValueFrom: &corev1.EnvVarSource{
 				ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
 					LocalObjectReference: corev1.LocalObjectReference{
-						Name: vapi.NMATLSConfigMapName,
+						Name: configMapName,
 					},
 					Key:      NMASecretNamespaceEnv,
 					Optional: &notTrue,
@@ -1768,7 +1769,7 @@ func buildNMATLSCertsEnvVars() []corev1.EnvVar {
 			ValueFrom: &corev1.EnvVarSource{
 				ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
 					LocalObjectReference: corev1.LocalObjectReference{
-						Name: vapi.NMATLSConfigMapName,
+						Name: configMapName,
 					},
 					Key:      NMASecretNameEnv,
 					Optional: &notTrue,
@@ -1865,7 +1866,7 @@ func GetTarballName(cmd []string) string {
 
 // BuildNMATLSConfigMap builds a configmap with tls secret name it.
 // The configmap will be mapped to two environmental variables in NMA pod
-func BuildNMATLSConfigMap(vdb *vapi.VerticaDB) *corev1.ConfigMap {
+func BuildNMATLSConfigMap(configMapName string, vdb *vapi.VerticaDB) *corev1.ConfigMap {
 	secretMap := map[string]string{
 		NMASecretNamespaceEnv: vdb.ObjectMeta.Namespace,
 		NMASecretNameEnv:      vdb.Spec.NMATLSSecret,
@@ -1876,7 +1877,7 @@ func BuildNMATLSConfigMap(vdb *vapi.VerticaDB) *corev1.ConfigMap {
 			APIVersion: "v1",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:            vapi.NMATLSConfigMapName,
+			Name:            configMapName,
 			Namespace:       vdb.Namespace,
 			OwnerReferences: []metav1.OwnerReference{vdb.GenerateOwnerReference()},
 		},

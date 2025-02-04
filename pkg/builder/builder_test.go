@@ -782,7 +782,7 @@ func verifyScrutinizePasswordEnvVars(secret string, offset int, should bool) {
 	vdb.Spec.PasswordSecret = secret
 	pod := BuildScrutinizePod(vscr, vdb, []string{})
 	cnt := pod.Spec.InitContainers[0]
-	l := len(buildNMATLSCertsEnvVars()) + len(buildCommonEnvVars(vdb))
+	l := len(buildNMATLSCertsEnvVars(vdb)) + len(buildCommonEnvVars(vdb))
 	// l+1 to take into account the tarball env var
 	l++
 	l += offset
