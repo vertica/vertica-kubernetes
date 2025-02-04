@@ -118,10 +118,6 @@ jobs:
     - uses: actions/checkout@v4
       if: ${{ inputs.full_vertica_image == '' }}
 
-    - name: Download the RPM
-      uses: ./.github/actions/download-rpm
-      if: ${{ inputs.full_vertica_image == '' }}
-
     - name: Build the full server image
       if: ${{ inputs.full_vertica_image == '' }}
       run: |
@@ -309,10 +305,6 @@ jobs:
         password: ${{ secrets.DOCKERHUB_TOKEN }}
 
     - uses: actions/checkout@v4
-      if: ${{ inputs.minimal_vertica_image == '' }}
-
-    - name: Download the RPM
-      uses: ./.github/actions/download-rpm
       if: ${{ inputs.minimal_vertica_image == '' }}
 
     - name: Build the minimal server image
