@@ -1,0 +1,5 @@
+kind: Changed
+body: NMATLSSecret used to be mounted at /certs/nma in nma container. Now it is not mounted any more. NMA will read certs from the kuberntes secrets.
+time: 2025-02-04T16:24:21.090008412-05:00
+custom:
+    Issue: "99110"
