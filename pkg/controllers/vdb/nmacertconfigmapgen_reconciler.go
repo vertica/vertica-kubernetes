@@ -24,7 +24,6 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -57,7 +56,7 @@ func (h *NMACertConfigMapGenReconciler) Reconcile(ctx context.Context, _ *ctrl.R
 	configMap := &corev1.ConfigMap{}
 	err := h.VRec.Client.Get(ctx, configMapName, configMap)
 	if errors.IsNotFound(err) {
-		configMap = h.buildTLSConfigMap(h.Vdb)
+		configMap = builder.BuildNMATLSConfigMap(h.Vdb)
 		err = h.VRec.Client.Create(ctx, configMap)
 		return ctrl.Result{}, err
 	}
@@ -82,25 +81,4 @@ func (h *NMACertConfigMapGenReconciler) tlsSecretsReady(ctx context.Context) boo
 		return false
 	}
 	return true
-}
-
-// buildTLSConfigMap return a ConfigMap. Key is the json file name and value is the json file content
-func (h *NMACertConfigMapGenReconciler) buildTLSConfigMap(vdb *vapi.VerticaDB) *corev1.ConfigMap {
-	secretMap := map[string]string{
-		builder.NMASecretNamespaceEnv: vdb.ObjectMeta.Namespace,
-		builder.NMASecretNameEnv:      vdb.Spec.NMATLSSecret,
-	}
-	tlsConfigMap := &corev1.ConfigMap{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "ConfigMap",
-			APIVersion: "v1",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:            vapi.NMATLSConfigMapName,
-			Namespace:       vdb.Namespace,
-			OwnerReferences: []metav1.OwnerReference{h.Vdb.GenerateOwnerReference()},
-		},
-		Data: secretMap,
-	}
-	return tlsConfigMap
 }
