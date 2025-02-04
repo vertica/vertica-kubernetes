@@ -42,7 +42,6 @@ docker-build-vertica: Dockerfile packages/package-checksum-patcher.py
 # Building multi-platform image, a custom builder is required
 ifeq ($(COMMA), $(findstring $(COMMA), $(TARGET_ARCH)))
 	sed -e '1 s/\(^FROM\)/FROM --platform=linux\/\$$\{TARGETARCH\}/; t' -e ' 1,// s//FROM --platform=linux\/\$$\{TARGETARCH\}/' Dockerfile > Dockerfile.cross
-
 	- docker buildx create --name project-v3-builder --driver-opt network=host
 	docker buildx use project-v3-builder
 endif
