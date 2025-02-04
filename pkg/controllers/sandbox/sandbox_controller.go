@@ -173,6 +173,9 @@ func (r *SandboxConfigMapReconciler) constructActors(vdb *v1.VerticaDB, log logr
 		// Update the vdb status including subclusters[].shutdown, after a stop_db, stop_sc
 		// or a restart
 		vdbcontroller.MakeStatusReconcilerWithShutdown(r.Client, r.Scheme, log, vdb, pfacts),
+		// Ensure we add labels to any pod rescheduled so that Service objects route traffic to it.
+		vdbcontroller.MakeClientRoutingLabelReconcilerWithDisableRouting(r, log, vdb, pfacts, vdbcontroller.PodRescheduleApplyMethod, "",
+			vmeta.GetDisableRouting(configMap.Annotations)),
 		// Scale down the subclusters' statefulsets to zero after the subclusters are shut down
 		MakeScaleStafulsetReconciler(r, vdb, pfacts),
 	}

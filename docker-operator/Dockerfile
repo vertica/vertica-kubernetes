@@ -29,6 +29,7 @@ COPY cmd/operator/*.go-generate.txt .
 COPY cmd/operator/main.go main.go
 COPY api/ api/
 COPY pkg/ pkg/
+COPY local-libs/ local-libs/
 
 # Build
 # the GOARCH has not a default value to allow the binary be built according to

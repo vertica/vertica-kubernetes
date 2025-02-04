@@ -584,7 +584,8 @@ func (r *OnlineUpgradeReconciler) sandboxReplicaGroupB(ctx context.Context) (ctr
 	}
 
 	// Drive the actual sandbox command. When this returns we know the sandbox is complete.
-	actor := MakeSandboxSubclusterReconciler(r.VRec, r.Log, r.VDB, r.PFacts[vapi.MainCluster], r.Dispatcher, r.VRec.Client, true)
+	actor := MakeSandboxSubclusterReconciler(r.VRec, r.Log, r.VDB, r.PFacts[vapi.MainCluster], r.Dispatcher,
+		r.VRec.Client, true /* forUpgrade */)
 	r.Manager.traceActorReconcile(actor)
 	res, err := actor.Reconcile(ctx, &ctrl.Request{})
 	if verrors.IsReconcileAborted(res, err) {
@@ -1051,6 +1052,16 @@ func (r *OnlineUpgradeReconciler) redirectConnectionsToReplicaGroupB(ctx context
 	res, err := actor.Reconcile(ctx, &ctrl.Request{})
 	if verrors.IsReconcileAborted(res, err) {
 		return res, err
+	}
+
+	if !vmeta.UseVProxy(r.VDB.Annotations) {
+		// Now that routing to the sandbox is allowed, we no longer need
+		// disableRouting annotation so we can safely turn it off.
+		sbMan := MakeSandboxConfigMapManager(r.VRec, r.VDB, r.sandboxName, "" /* no uuid */)
+		_, err = sbMan.turnOffDisableRoutingAnnotation(ctx)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
 	}
 	// then remove client routing labels from replica group a so no traffic is routed to the old main cluster
 	methodType := DrainNodeApplyMethod

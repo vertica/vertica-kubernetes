@@ -51,12 +51,13 @@ const (
 )
 
 type ClientRoutingLabelReconciler struct {
-	Rec         config.ReconcilerInterface
-	Vdb         *vapi.VerticaDB // Vdb is the CRD we are acting on.
-	Log         logr.Logger
-	PFacts      *podfacts.PodFacts
-	ApplyMethod ApplyMethodType
-	ScName      string // Subcluster we are going to reconcile.  Blank if all subclusters.
+	Rec            config.ReconcilerInterface
+	Vdb            *vapi.VerticaDB // Vdb is the CRD we are acting on.
+	Log            logr.Logger
+	PFacts         *podfacts.PodFacts
+	ApplyMethod    ApplyMethodType
+	ScName         string // Subcluster we are going to reconcile.  Blank if all subclusters.
+	DisableRouting bool
 }
 
 func MakeClientRoutingLabelReconciler(recon config.ReconcilerInterface, log logr.Logger,
@@ -69,6 +70,15 @@ func MakeClientRoutingLabelReconciler(recon config.ReconcilerInterface, log logr
 		ApplyMethod: applyMethod,
 		ScName:      scName,
 	}
+}
+
+func MakeClientRoutingLabelReconcilerWithDisableRouting(recon config.ReconcilerInterface, log logr.Logger,
+	vdb *vapi.VerticaDB, pfacts *podfacts.PodFacts, applyMethod ApplyMethodType, scName string,
+	disableRouting bool) controllers.ReconcileActor {
+	act := MakeClientRoutingLabelReconciler(recon, log, vdb, pfacts, applyMethod, scName)
+	c := act.(*ClientRoutingLabelReconciler)
+	c.DisableRouting = disableRouting
+	return c
 }
 
 // Reconcile will add or remove labels that control whether it accepts client
@@ -240,7 +250,7 @@ func (c *ClientRoutingLabelReconciler) manipulateRoutingLabelInPod(pod *corev1.P
 	// entire subcluster, so pending delete isn't checked.
 	switch c.ApplyMethod {
 	case AddNodeApplyMethod, PodRescheduleApplyMethod:
-		if !labelExists && pf.GetUpNode() && (pf.GetShardSubscriptions() > 0 || !c.Vdb.IsEON()) && !pf.GetIsPendingDelete() {
+		if !c.DisableRouting && !labelExists && pf.GetUpNode() && (pf.GetShardSubscriptions() > 0 || !c.Vdb.IsEON()) && !pf.GetIsPendingDelete() {
 			pod.Labels[vmeta.ClientRoutingLabel] = vmeta.ClientRoutingVal
 			c.Log.Info("Adding client routing label", "pod",
 				pod.Name, "label", fmt.Sprintf("%s=%s", vmeta.ClientRoutingLabel, vmeta.ClientRoutingVal))

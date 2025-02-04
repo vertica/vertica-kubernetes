@@ -1569,7 +1569,7 @@ func BuildStsSpec(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi.Subclus
 }
 
 // BuildSandboxConfigMap builds a config map for sandbox controller
-func BuildSandboxConfigMap(nm types.NamespacedName, vdb *vapi.VerticaDB, sandbox string) *corev1.ConfigMap {
+func BuildSandboxConfigMap(nm types.NamespacedName, vdb *vapi.VerticaDB, sandbox string, disableRouting bool) *corev1.ConfigMap {
 	immutable := true
 	return &corev1.ConfigMap{
 		TypeMeta: metav1.TypeMeta{
@@ -1580,7 +1580,7 @@ func BuildSandboxConfigMap(nm types.NamespacedName, vdb *vapi.VerticaDB, sandbox
 			Name:            nm.Name,
 			Namespace:       nm.Namespace,
 			Labels:          MakeLabelsForSandboxConfigMap(vdb),
-			Annotations:     MakeAnnotationsForSandboxConfigMap(vdb),
+			Annotations:     MakeAnnotationsForSandboxConfigMap(vdb, disableRouting),
 			OwnerReferences: []metav1.OwnerReference{vdb.GenerateOwnerReference()},
 		},
 		// the data should be immutable since dbName and sandboxName are fixed
