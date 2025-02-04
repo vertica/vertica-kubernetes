@@ -1,0 +1,70 @@
+name: Download the Vertica RPM
+on:
+  workflow_call:
+    inputs:
+      amd_rpm:
+        description: 'Name of the rpm with x86_64 architechture'
+        type: string
+        required: true
+      arm_rpm:
+        description: 'Name of the rpm with aarch64 architechture'
+        type: string
+        required: true
+    secrets:
+      AWS_ACCESS_KEY_ID:
+        description: 'When downloading with rpm from AWS s3, this is the AWS_ACCESS_KEY_ID for login purposes'
+        required: true
+      AWS_SECRET_ACCESS_KEY:
+        description: 'When downloading with rpm from AWS s3, this is the AWS_SECRET_ACCESS_KEY for login purposes'
+        required: true
+
+# These permissions only apply when not running a PR.  GitHub actions makes PRs
+# from forked repositories with extremely limited permissions that cannot be
+# overwritten:
+# https://github.blog/changelog/2021-04-20-github-actions-control-permissions-for-github_token/
+permissions:
+  packages: write
+  security-events: write
+
+env:
+    # The script guess-server-upgrade-base-image.sh parses this URL. So,
+    # if the structure of this URL ever changes be sure to verify if that
+    # script needs an update.
+    VERTICA_CE_URL: "https://vertica-community-edition-for-testing.s3.amazonaws.com/XCz9cp7m/vertica-25.1.0-0.RHEL8.x86_64.rpm"
+    VERTICA_CE_URL_ARM64: "https://vertica-community-edition-for-testing.s3.amazonaws.com/XCz9cp7m/vertica-25.1.0-0.RHEL8.aarch64.rpm"
+
+jobs:
+  download-rpm:
+    runs-on: ubuntu-latest
+    steps:
+
+    # Will download the RPM as prep for container building
+    - name: 
+      run: |
+      s3Key=${{ secrets.AWS_ACCESS_KEY_ID }}
+      s3Secret=${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      dateValue="`date +'%a, %d %b %Y %H:%M:%S %z'`"
+      contentType="application/x-rpm"
+      bucket=vertica-community-edition-for-testing
+
+      file=XCz9cp7m/${{ inputs.amd_rpm }}
+      resource="/${bucket}/${file}"
+      stringToSign="GET ${contentType} ${dateValue} ${resource}"
+      signature=`/bin/echo -en "$stringToSign" | openssl sha1 -hmac ${s3Secret} -binary | base64`
+      curl -H "Host: ${bucket}.s3.amazonaws.com" \
+      -H "Date: ${dateValue}" \
+      -H "Content-Type: ${contentType}" \
+      -H "Authorization: AWS ${s3Key}:${signature}" \
+      $VERTICA_CE_URL -o docker-vertica/packages/vertica-latest.RHEL8.x86_64.rpm
+
+      file=XCz9cp7m/${{ inputs.arm_rpm }}
+      resource="/${bucket}/${file}"
+      stringToSign="GET ${contentType} ${dateValue} ${resource}"
+      signature=`/bin/echo -en "$stringToSign" | openssl sha1 -hmac ${s3Secret} -binary | base64`
+      curl -H "Host: ${bucket}.s3.amazonaws.com" \
+      -H "Date: ${dateValue}" \
+      -H "Content-Type: ${contentType}" \
+      -H "Authorization: AWS ${s3Key}:${signature}" \
+      $VERTICA_CE_URL_ARM64 -o docker-vertica/packages/vertica-latest.RHEL8.aarch64.rpm
+
+      cp docker-vertica/packages/*rpm docker-vertica-v2/packages
