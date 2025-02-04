@@ -84,9 +84,9 @@ REG_PORT ?= 5000
 ifeq ($(shell $(KIND_CHECK)), 1)
 # Multi-platform build images must be pushed to a repo as it uses --push while building
 IMG_REPO?=localhost:$(REG_PORT)/
-#IMG_REPO?=qguanopentext/
 else
-IMG_REPO?=
+# TODO: change to a company owned test repo
+IMG_REPO?=qguanopentext
 endif
 # Image URL to use for building/pushing of the operator
 OPERATOR_IMG ?= $(IMG_REPO)verticadb-operator:$(TAG)
