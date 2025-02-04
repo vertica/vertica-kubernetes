@@ -35,7 +35,7 @@ import (
 )
 
 // NMACertGenReconciler will create a secret that has TLS credentials.  This
-// secret will be used to authenticate with the http server.
+// secret will be used to authenticate with the https server.
 type NMACertGenReconciler struct {
 	VRec *VerticaDBReconciler
 	Vdb  *vapi.VerticaDB // Vdb is the CRD we are acting on.
@@ -46,11 +46,11 @@ func MakeNMACertGenReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger, vd
 	return &NMACertGenReconciler{
 		VRec: vdbrecon,
 		Vdb:  vdb,
-		Log:  log.WithName("HTTPServerCertGenReconciler"),
+		Log:  log.WithName("NMACertGenReconciler"),
 	}
 }
 
-// Reconcile will create a TLS secret for the http server if one is missing
+// Reconcile will create a TLS secret for the https server if one is missing
 func (h *NMACertGenReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
 	// If the secret name is set, check that it exists.
 	if h.Vdb.Spec.NMATLSSecret != "" {

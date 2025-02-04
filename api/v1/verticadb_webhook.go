@@ -228,6 +228,7 @@ func (v *VerticaDB) validateVerticaDBSpec() field.ErrorList {
 	allErrs = v.isServiceTypeValid(allErrs)
 	allErrs = v.hasDuplicateScName(allErrs)
 	allErrs = v.hasValidVolumeName(allErrs)
+	allErrs = v.hasValidClientServerTLSMode(allErrs)
 	allErrs = v.hasValidVolumeMountName(allErrs)
 	allErrs = v.hasValidKerberosSetup(allErrs)
 	allErrs = v.hasValidTemporarySubclusterRouting(allErrs)
@@ -666,6 +667,26 @@ func (v *VerticaDB) hasDuplicateScName(allErrs field.ErrorList) field.ErrorList 
 				allErrs = append(allErrs, err)
 			}
 		}
+	}
+	return allErrs
+}
+
+func (v *VerticaDB) hasValidClientServerTLSMode(allErrs field.ErrorList) field.ErrorList {
+	var tlsModes []string = []string{"prefer", "require", "verify_ca", "verify_full"}
+	if v.Spec.ClientServerTLSMode != "" {
+		TLSMode := strings.ToLower(v.Spec.ClientServerTLSMode)
+		validMode := false
+		for _, mode := range tlsModes {
+			if mode == TLSMode {
+				validMode = true
+			}
+		}
+		if !validMode {
+			err := field.Invalid(field.NewPath("spec").Child("clientservertlssecret"), v.Spec.ClientServerTLSMode, "invalid tls mode")
+			allErrs = append(allErrs, err)
+		}
+	} else {
+		v.Spec.ClientServerTLSMode = "verify_ca"
 	}
 	return allErrs
 }

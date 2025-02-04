@@ -35,8 +35,8 @@ import (
 )
 
 const (
-	HTTPSTLSSecret  = "HTTPSTLSSecret" // #nosec G101
-	ClientTLSSecret = "ClientTLSSecret"
+	ClientServerTLSSecret = "ClientServerTLSSecret"
+	NMATLSSecret          = "NMATLSSecret"
 )
 
 // TLSServerCertGenReconciler will create a secret that has TLS credentials.  This
@@ -51,15 +51,15 @@ func MakeTLSServerCertGenReconciler(vdbrecon *VerticaDBReconciler, log logr.Logg
 	return &TLSServerCertGenReconciler{
 		VRec: vdbrecon,
 		Vdb:  vdb,
-		Log:  log.WithName("HTTPSServerCertGenReconciler"),
+		Log:  log.WithName("TLSServerCertGenReconciler"),
 	}
 }
 
 // Reconcile will create a TLS secret for the http server if one is missing
 func (h *TLSServerCertGenReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
 	secretFieldNameMap := map[string]string{
-		HTTPSTLSSecret:  h.Vdb.Spec.HTTPSTLSSecret,
-		ClientTLSSecret: h.Vdb.Spec.ClientServerTLSSecret,
+		ClientServerTLSSecret: h.Vdb.Spec.ClientServerTLSSecret,
+		NMATLSSecret:          h.Vdb.Spec.NMATLSSecret,
 	}
 	err := error(nil)
 	result := ctrl.Result{}
@@ -91,7 +91,7 @@ func (h *TLSServerCertGenReconciler) reconcileOneSecret(secretFieldName, secretN
 			h.Log.Info(secretName+" is set but doesn't exist. Will recreate the secret.", "name", nm)
 		} else if err != nil {
 			return ctrl.Result{},
-				fmt.Errorf("failed while attempting to read the tls secret %s: %w", h.Vdb.Spec.HTTPSTLSSecret, err)
+				fmt.Errorf("failed while attempting to read the tls secret %s: %w", secretName, err)
 		} else {
 			// Secret is filled in and exists. We can exit.
 			return ctrl.Result{}, err
@@ -109,7 +109,7 @@ func (h *TLSServerCertGenReconciler) reconcileOneSecret(secretFieldName, secretN
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	h.Log.Info("created certificate and secret for https service")
+	h.Log.Info("created certificate and secret for %s", secret.Name)
 	return ctrl.Result{}, h.setSecretNameInVDB(ctx, secretFieldName, secret.ObjectMeta.Name)
 }
 
@@ -142,10 +142,10 @@ func (h *TLSServerCertGenReconciler) createSecret(secretFieldName, secretName st
 	// the name already present is the case where the name was filled in but the
 	// secret didn't exist.
 	if secretName == "" {
-		if secretFieldName == HTTPSTLSSecret {
-			secret.GenerateName = fmt.Sprintf("%s-https-tls-", h.Vdb.Name)
+		if secretFieldName == NMATLSSecret {
+			secret.GenerateName = fmt.Sprintf("%s-nma-tls-", h.Vdb.Name)
 		} else {
-			secret.GenerateName = fmt.Sprintf("%s-client-tls-", h.Vdb.Name)
+			secret.GenerateName = fmt.Sprintf("%s-clientserver-tls-", h.Vdb.Name)
 		}
 	} else {
 		secret.Name = secretName
@@ -162,10 +162,10 @@ func (h *TLSServerCertGenReconciler) setSecretNameInVDB(ctx context.Context, sec
 		if err := h.VRec.Client.Get(ctx, nm, h.Vdb); err != nil {
 			return err
 		}
-		if secretFieldName == HTTPSTLSSecret {
-			h.Vdb.Spec.HTTPSTLSSecret = secretName
-		} else {
+		if secretFieldName == ClientServerTLSSecret {
 			h.Vdb.Spec.ClientServerTLSSecret = secretName
+		} else if secretFieldName == NMATLSSecret {
+			h.Vdb.Spec.NMATLSSecret = secretName
 		}
 		return h.VRec.Client.Update(ctx, h.Vdb)
 	})
