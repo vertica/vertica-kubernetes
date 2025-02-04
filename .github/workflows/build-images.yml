@@ -243,7 +243,7 @@ jobs:
       if: ${{ inputs.legacy_vertica_image == '' }}
       with:
         amd_rpm: vertica-25.1.0-0.RHEL8.x86_64.rpm
-        amd_rpm: vertica-25.1.0-0.RHEL8.aarch64.rpm
+        arm_rpm: vertica-25.1.0-0.RHEL8.aarch64.rpm
       secrets:
         AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
         AWS_SECRET_ACCESS_KEY : ${{ secrets.AWS_SECRET_ACCESS_KEY }}
