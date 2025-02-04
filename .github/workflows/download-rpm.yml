@@ -39,7 +39,7 @@ jobs:
     steps:
 
     # Will download the RPM as prep for container building
-    - name: 
+    - name: Download Vertica RPM
       run: |
       s3Key=${{ secrets.AWS_ACCESS_KEY_ID }}
       s3Secret=${{ secrets.AWS_SECRET_ACCESS_KEY }}
