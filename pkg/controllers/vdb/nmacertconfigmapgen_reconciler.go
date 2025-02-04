@@ -17,6 +17,7 @@ package vdb
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
@@ -49,14 +50,16 @@ func (h *NMACertConfigMapGenReconciler) Reconcile(ctx context.Context, _ *ctrl.R
 	if !h.tlsSecretsReady(ctx) {
 		return ctrl.Result{Requeue: true}, nil
 	}
+	name := fmt.Sprintf("%s-%s", h.Vdb.Name, vapi.NMATLSConfigMapName)
+	h.Log.Info("libo: config map name - " + name)
 	configMapName := types.NamespacedName{
-		Name:      vapi.NMATLSConfigMapName,
+		Name:      name,
 		Namespace: h.Vdb.GetNamespace(),
 	}
 	configMap := &corev1.ConfigMap{}
 	err := h.VRec.Client.Get(ctx, configMapName, configMap)
 	if errors.IsNotFound(err) {
-		configMap = builder.BuildNMATLSConfigMap(h.Vdb)
+		configMap = builder.BuildNMATLSConfigMap(name, h.Vdb)
 		err = h.VRec.Client.Create(ctx, configMap)
 		return ctrl.Result{}, err
 	}

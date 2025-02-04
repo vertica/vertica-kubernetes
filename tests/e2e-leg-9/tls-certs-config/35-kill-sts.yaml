@@ -14,5 +14,5 @@
 apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 commands:
-  - command: kubectl delete sts v-tls-certs-sc1
+  - command: kubectl delete sts v-tls-certs-sc1 -n $NAMESPACE
     namespaced: true
