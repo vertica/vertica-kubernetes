@@ -3,6 +3,13 @@ description: 'Will download the RPM as prep for container building'
 runs:
   using: "composite"
   steps:
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v1
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+
     - name: Download vertica RPM package
       shell: bash
       env:
@@ -11,6 +18,7 @@ runs:
           # script needs an update.
           VERTICA_CE_URL: "https://vertica-community-edition-for-testing.s3.amazonaws.com/XCz9cp7m/vertica-25.1.0-0.RHEL8.x86_64.rpm"
           VERTICA_CE_URL_ARM64: "https://vertica-community-edition-for-testing.s3.amazonaws.com/XCz9cp7m/vertica-25.1.0-0.RHEL8.aarch64.rpm"
+          AWS_REGION: us-east-1
       run: |
         curl $VERTICA_CE_URL -o docker-vertica/packages/vertica-latest.RHEL8.x86_64.rpm
         curl $VERTICA_CE_URL_ARM64 -o docker-vertica/packages/vertica-latest.RHEL8.aarch64.rpm
