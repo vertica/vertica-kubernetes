@@ -97,7 +97,7 @@ jobs:
         default: docker.io/opentext/vertica-k8s-private:latest-test-master
         conditionals-with-values: |
           ${{ inputs.full_vertica_image != '' }} => ${{ inputs.full_vertica_image }}
-          ${{ github.event_name == 'pull_request' }} => ${{ env.GITHUB_REGISTRY }}vertica-k8s-private:kind-full
+          ${{ github.event_name == 'pull_request' }} => ${{ env.GITHUB_REGISTRY }}vertica-k8s-private:kind
 
     - name: Login to GitHub Container registry
       uses: docker/login-action@v3
@@ -151,7 +151,7 @@ jobs:
         # here only to test the creation of the image. We don't verify this
         # image in the remaining CI. Pick a dummy image name so as not to
         # overwrite the output build image that the e2e tests will use.
-        export VERTICA_IMG=${{ env.GITHUB_REGISTRY }}vertica-k8s:kind
+        export VERTICA_IMG=${{ env.GITHUB_REGISTRY }}vertica-k8s-private:kind
         make docker-build-vertica-v2
 
     - name: Do a local pull of the image
@@ -240,6 +240,7 @@ jobs:
         default: docker.io/opentext/vertica-k8s-private:latest-legacy-master
         conditionals-with-values: |
           ${{ inputs.legacy_vertica_image != '' }} => ${{ inputs.legacy_vertica_image }}
+          ${{ github.event_name == 'pull_request' }} => ${{ env.GITHUB_REGISTRY }}vertica-k8s-private:kind-legacy
 
     - name: Login to GitHub Container registry
       uses: docker/login-action@v3
@@ -291,6 +292,7 @@ jobs:
         # Do not push the image to remote registry because we
         # do not want to overwrite the existing images. Here we
         # just validate if dockerfile works fine.
+        export VERTICA_IMG=${{ env.GITHUB_REGISTRY }}vertica-k8s-private:kind-legacy
         make docker-build-vertica
 
     - name: Do a local pull of the image if we didn't create it
@@ -335,6 +337,7 @@ jobs:
         default: docker.io/opentext/vertica-k8s-private:latest-minimal-master
         conditionals-with-values: |
           ${{ inputs.minimal_vertica_image != '' }} => ${{ inputs.minimal_vertica_image }}
+          ${{ github.event_name == 'pull_request' }} => ${{ env.GITHUB_REGISTRY }}vertica-k8s-private:kind-minimal
 
     - name: Login to GitHub Container registry
       uses: docker/login-action@v3
@@ -388,7 +391,7 @@ jobs:
         # here only to test the creation of the image. We don't verify this
         # image in the remaining CI. Pick a dummy image name so as not to
         # overwrite the output build image that the e2e tests will use.
-        export VERTICA_IMG=${{ env.GITHUB_REGISTRY }}vertica-k8s:kind-minimal
+        export VERTICA_IMG=${{ env.GITHUB_REGISTRY }}vertica-k8s-private:kind-minimal
         export MINIMAL_VERTICA_IMG=yes
         make docker-build-vertica-v2 
 
