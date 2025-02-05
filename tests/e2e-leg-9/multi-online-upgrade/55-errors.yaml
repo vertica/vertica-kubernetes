@@ -14,4 +14,4 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: v-base-upgrade-main-sb
+  name: v-online-upgrade-main-sb

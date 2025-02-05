@@ -23,6 +23,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
+	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
 // log is for logging in this package.
@@ -44,32 +45,32 @@ func (vrpq *VerticaRestorePointsQuery) Default() {
 var _ webhook.Validator = &VerticaRestorePointsQuery{}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
-func (vrpq *VerticaRestorePointsQuery) ValidateCreate() error {
+func (vrpq *VerticaRestorePointsQuery) ValidateCreate() (admission.Warnings, error) {
 	verticarestorepointsquerylog.Info("validate create", "name", vrpq.Name)
 
 	allErrs := vrpq.validateVrpqSpec()
 	if len(allErrs) == 0 {
-		return nil
+		return nil, nil
 	}
-	return apierrors.NewInvalid(GkVRPQ, vrpq.Name, allErrs)
+	return nil, apierrors.NewInvalid(GkVRPQ, vrpq.Name, allErrs)
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
-func (vrpq *VerticaRestorePointsQuery) ValidateUpdate(_ runtime.Object) error {
+func (vrpq *VerticaRestorePointsQuery) ValidateUpdate(_ runtime.Object) (admission.Warnings, error) {
 	verticarestorepointsquerylog.Info("validate update", "name", vrpq.Name)
 
 	allErrs := vrpq.validateVrpqSpec()
 	if len(allErrs) == 0 {
-		return nil
+		return nil, nil
 	}
 
-	return apierrors.NewInvalid(GkVRPQ, vrpq.Name, allErrs)
+	return nil, apierrors.NewInvalid(GkVRPQ, vrpq.Name, allErrs)
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
-func (vrpq *VerticaRestorePointsQuery) ValidateDelete() error {
+func (vrpq *VerticaRestorePointsQuery) ValidateDelete() (admission.Warnings, error) {
 	verticarestorepointsquerylog.Info("validate delete", "name", vrpq.Name)
-	return nil
+	return nil, nil
 }
 
 // validateSpec will validate the current VerticaRestorePointsQuery to see if it is valid

@@ -87,7 +87,7 @@ func (q *QueryReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.
 	}
 
 	// setup dispatcher for vclusterops API
-	dispatcher, err := q.makeDispatcher(q.Log, q.Vdb, nil /*password*/)
+	dispatcher, err := q.makeDispatcher(q.Log, q.Vdb, nil /* password */)
 	if err != nil {
 		return ctrl.Result{}, err
 	}

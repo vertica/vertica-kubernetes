@@ -27,6 +27,9 @@ OPERATOR_CHART="$REPO_DIR/helm-charts/verticadb-operator"
 TEMPLATE_DIR=$OPERATOR_CHART/templates
 CRD_DIR=$OPERATOR_CHART/crds
 
+# Fill in operator variables
+envsubst < $REPO_DIR/config/manager/operator-envs > $REPO_DIR/config/manager/operator-envs-with-value
+
 rm $TEMPLATE_DIR/*yaml 2>/dev/null || true
 $KUSTOMIZE build $REPO_DIR/config/default | $KUBERNETES_SPLIT_YAML --outdir $TEMPLATE_DIR -
 mv $TEMPLATE_DIR/*-crd.yaml $CRD_DIR

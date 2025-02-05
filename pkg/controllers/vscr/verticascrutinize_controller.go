@@ -33,7 +33,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/go-logr/logr"
 	v1 "github.com/vertica/vertica-kubernetes/api/v1"
@@ -57,10 +56,10 @@ const (
 	vdbNameField = ".spec.verticaDBName"
 )
 
-//+kubebuilder:rbac:groups=vertica.com,resources=verticascrutinizers,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=vertica.com,resources=verticascrutinizers/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=vertica.com,resources=verticascrutinizers/finalizers,verbs=update
-//+kubebuilder:rbac:groups=vertica.com,resources=verticadbs,verbs=get;list;watch
+// +kubebuilder:rbac:groups=vertica.com,resources=verticascrutinizers,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=vertica.com,resources=verticascrutinizers/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=vertica.com,resources=verticascrutinizers/finalizers,verbs=update
+// +kubebuilder:rbac:groups=vertica.com,resources=verticadbs,verbs=get;list;watch
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -121,7 +120,7 @@ func (r *VerticaScrutinizeReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		For(&v1beta1.VerticaScrutinize{}).
 		Owns(&corev1.Pod{}).
 		Watches(
-			&source.Kind{Type: &v1.VerticaDB{}},
+			&v1.VerticaDB{},
 			handler.EnqueueRequestsFromMapFunc(r.findObjectsForVerticaDB),
 			builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
 		).
@@ -130,7 +129,7 @@ func (r *VerticaScrutinizeReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 // findObjectsForVerticaDB will generate requests to reconcile VerticaScrutiners
 // based on watched VerticaDB.
-func (r *VerticaScrutinizeReconciler) findObjectsForVerticaDB(vdb client.Object) []reconcile.Request {
+func (r *VerticaScrutinizeReconciler) findObjectsForVerticaDB(_ context.Context, vdb client.Object) []reconcile.Request {
 	scrutinizers := &v1beta1.VerticaScrutinizeList{}
 	listOps := &client.ListOptions{
 		FieldSelector: fields.OneTermEqualSelector(vdbNameField, vdb.GetName()),

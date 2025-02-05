@@ -45,9 +45,9 @@ type VerticaRestorePointsQueryReconciler struct {
 	EVRec  record.EventRecorder
 }
 
-//+kubebuilder:rbac:groups=vertica.com,resources=verticarestorepointsqueries,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=vertica.com,resources=verticarestorepointsqueries/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=vertica.com,resources=verticarestorepointsqueries/finalizers,verbs=update
+// +kubebuilder:rbac:groups=vertica.com,resources=verticarestorepointsqueries,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=vertica.com,resources=verticarestorepointsqueries/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=vertica.com,resources=verticarestorepointsqueries/finalizers,verbs=update
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.

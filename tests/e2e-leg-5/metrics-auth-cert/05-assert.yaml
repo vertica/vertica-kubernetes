@@ -11,8 +11,36 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: kuttl.dev/v1beta1
-kind: TestStep
-commands:
-  - command: sh -c "cd ../../.. && make undeploy-operator || true"
-  - command: sh -c "cd ../../.. && make deploy-operator DEPLOY_WITH=helm NAMESPACE=$NAMESPACE HELM_OVERRIDES='--set prometheus.tlsSecret=custom-cert,prometheus.expose=EnableWithAuthProxy,serviceAccountNameOverride=special-sa'"
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    control-plane: verticadb-operator
+spec:
+  containers:
+  - name: manager
+status:
+  phase: Running
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: verticadb-operator-webhook-service
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: verticadb-operator-metrics-service
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: special-sa
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: verticadb-operator-webhook-config
+subjects:
+- kind: ServiceAccount
+  name: special-sa
