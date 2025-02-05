@@ -260,6 +260,18 @@ func (c *CreateDBReconciler) postCmdCleanup(ctx context.Context) (ctrl.Result, e
 		}
 	}
 
+	if c.VInf.IsEqualOrNewer(vapi.NMATLSCertRotationMinVersion) {
+		chgs := vk8s.MetaChanges{
+			NewAnnotations: map[string]string{
+				vmeta.NMATLSSECRETAnnotation:          vmeta.HTTPSTLSConfGenerationAnnotationFalse,
+				vmeta.CLIENTSERVERTLSSecretAnnotation: c.Vdb.Spec.ClientServerTLSSecret,
+			},
+		}
+		if _, err := vk8s.MetaUpdate(ctx, c.VRec.Client, c.Vdb.ExtractNamespacedName(), c.Vdb, chgs); err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+
 	// In old versions if encryptSpreadComm was set we need to initiate a restart of the
 	// cluster.  If this is needed we do it in a separate reconciler but causing
 	// a requeue.
