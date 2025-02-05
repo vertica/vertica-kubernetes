@@ -120,7 +120,7 @@ func (h *TLSServerCertGenReconciler) reconcileOneSecret(secretFieldName, secretN
 		return ctrl.Result{}, err
 	}
 	TLSCertCacheManager.certCacheMap[secretName] = secret.Data
-	h.Log.Info("created certificate and secret for " + secret.Name)
+	h.Log.Info("created certificate and secret and cached " + secret.Name)
 	return ctrl.Result{}, h.setSecretNameInVDB(ctx, secretFieldName, secret.ObjectMeta.Name)
 }
 
