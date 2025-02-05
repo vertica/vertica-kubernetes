@@ -44,7 +44,7 @@ function get_rpm_version
     SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
     REPO_DIR=$(dirname $SCRIPT_DIR)
     # Find the RPM version that's download and built for the CI
-    grep 'VERTICA_CE_URL:' $REPO_DIR/.github/workflows/download-rpm.yml | cut -d':' -f3 | cut -d'/' -f5 | cut -d'-' -f2
+    grep 'VERTICA_CE_URL:' $REPO_DIR/.github/workflows/build-images.yml | cut -d':' -f3 | cut -d'/' -f5 | cut -d'-' -f2
 }
 
 function get_vertica_image_version 

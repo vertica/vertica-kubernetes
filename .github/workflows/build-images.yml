@@ -75,20 +75,19 @@ env:
   TRIVY_DB_REPOSITORY: ghcr.io/aquasecurity/trivy-db,public.ecr.aws/aquasecurity/trivy-db
   TRIVY_JAVA_DB_REPOSITORY: ghcr.io/aquasecurity/trivy-java-db,public.ecr.aws/aquasecurity/trivy-java-db
   GITHUB_REGISTRY: ghcr.io/vertica/
+  # The script guess-server-upgrade-base-image.sh parses this URL. So,
+  # if the structure of this URL ever changes be sure to verify if that
+  # script needs an update.
+  VERTICA_CE_URL: "s3://vertica-community-edition-for-testing/XCz9cp7m/vertica-25.1.0-0.RHEL8.x86_64.rpm"
+  VERTICA_CE_URL_ARM64: "s3://vertica-community-edition-for-testing/XCz9cp7m/vertica-25.1.0-0.RHEL8.aarch64.rpm"
+  AWS_REGION: 'us-east-1'
 
 jobs:
-  download-rpm:
-    uses: ./.github/workflows/download-rpm.yml
-    if: ${{ inputs.full_vertica_image == '' || inputs.legacy_vertica_image == '' || inputs.minimal_vertica_image == '' }}
-    secrets:
-      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID}}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY}}
 
   build-server-full:
     runs-on: ubuntu-latest
     outputs:
       image: ${{ steps.full_vertica_image.outputs.value }}
-    needs: download-rpm
     steps:
 
     - name: Pick the name of the image
@@ -117,6 +116,32 @@ jobs:
 
     - uses: actions/checkout@v4
       if: ${{ inputs.full_vertica_image == '' }}
+
+    # Will download the RPM as prep for container building
+    - name: Download Vertica x86_64 RPM
+      uses: keithweaver/aws-s3-github-action@v1.0.0
+      with:
+        command: cp
+        source: ${{ env.VERTICA_CE_URL }}
+        destination: docker-vertica/packages/vertica-latest.RHEL8.x86_64.rpm
+        aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws_region: ${{ env.AWS_REGION }}
+
+    # For multi-platform build
+    - name: Download Vertica aarch64 RPM
+      uses: keithweaver/aws-s3-github-action@v1.0.0
+      with:
+        command: cp
+        source: ${{ env.VERTICA_CE_URL_ARM64 }}
+        destination: docker-vertica/packages/vertica-latest.RHEL8.aarch64.rpm
+        aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws_region: ${{ env.AWS_REGION }}
+
+    - name: Copy RPMs to v2 packages
+      run: |
+        cp docker-vertica/packages/*rpm docker-vertica-v2/packages
 
     - name: Build the full server image
       if: ${{ inputs.full_vertica_image == '' }}
@@ -206,7 +231,6 @@ jobs:
     if: ${{ always() && !contains(github.ref, 'k8s-sync') }}
     outputs:
       image: ${{ steps.legacy_vertica_image.outputs.value }}
-    needs: download-rpm
     steps:
 
     - name: Pick the name of the image
@@ -234,6 +258,32 @@ jobs:
 
     - uses: actions/checkout@v4
       if: ${{ inputs.legacy_vertica_image == '' }}
+
+    # Will download the RPM as prep for container building
+    - name: Download Vertica x86_64 RPM
+      uses: keithweaver/aws-s3-github-action@v1.0.0
+      with:
+        command: cp
+        source: ${{ env.VERTICA_CE_URL }}
+        destination: docker-vertica/packages/vertica-latest.RHEL8.x86_64.rpm
+        aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws_region: ${{ env.AWS_REGION }}
+
+    # For multi-platform build
+    - name: Download Vertica aarch64 RPM
+      uses: keithweaver/aws-s3-github-action@v1.0.0
+      with:
+        command: cp
+        source: ${{ env.VERTICA_CE_URL_ARM64 }}
+        destination: docker-vertica/packages/vertica-latest.RHEL8.aarch64.rpm
+        aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws_region: ${{ env.AWS_REGION }}
+
+    - name: Copy RPMs to v2 packages
+      run: |
+        cp docker-vertica/packages/*rpm docker-vertica-v2/packages
 
     - name: Build legacy server image
       if: ${{ inputs.legacy_vertica_image == '' }}
@@ -276,7 +326,6 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       image: ${{ steps.minimal_vertica_image.outputs.value }}
-    needs: download-rpm
     steps:
 
     - name: Pick the name of the image
@@ -304,6 +353,32 @@ jobs:
 
     - uses: actions/checkout@v4
       if: ${{ inputs.minimal_vertica_image == '' }}
+
+    # Will download the RPM as prep for container building
+    - name: Download Vertica x86_64 RPM
+      uses: keithweaver/aws-s3-github-action@v1.0.0
+      with:
+        command: cp
+        source: ${{ env.VERTICA_CE_URL }}
+        destination: docker-vertica/packages/vertica-latest.RHEL8.x86_64.rpm
+        aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws_region: ${{ env.AWS_REGION }}
+
+    # For multi-platform build
+    - name: Download Vertica aarch64 RPM
+      uses: keithweaver/aws-s3-github-action@v1.0.0
+      with:
+        command: cp
+        source: ${{ env.VERTICA_CE_URL_ARM64 }}
+        destination: docker-vertica/packages/vertica-latest.RHEL8.aarch64.rpm
+        aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws_region: ${{ env.AWS_REGION }}
+
+    - name: Copy RPMs to v2 packages
+      run: |
+        cp docker-vertica/packages/*rpm docker-vertica-v2/packages
 
     - name: Build the minimal server image
       if: ${{ inputs.minimal_vertica_image == '' }}
