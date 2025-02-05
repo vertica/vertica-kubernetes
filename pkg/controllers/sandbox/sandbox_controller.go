@@ -260,7 +260,7 @@ func (r *SandboxConfigMapReconciler) GetConfig() *rest.Config {
 
 // findObjectsForStatesulSet will generate requests to reconcile sandbox ConfigMaps
 // based on watched Statefulset
-func (r *SandboxConfigMapReconciler) findObjectsForStatesulSet(ctx context.Context, sts client.Object) []reconcile.Request {
+func (r *SandboxConfigMapReconciler) findObjectsForStatesulSet(_ context.Context, sts client.Object) []reconcile.Request {
 	configMaps := corev1.ConfigMapList{}
 	stsLabels := sts.GetLabels()
 	sbLabels := make(map[string]string, len(vmeta.SandboxConfigMapLabels))

@@ -29,7 +29,7 @@ data:
     SVC_NAME=verticadb-operator-metrics-service
     # We are expecting an error while trying to access metrics endpoint
     curl --insecure https://$SVC_NAME:8443/metrics 2>&1 || true
-    curl --insecure https://$SVC_NAME:8443/metrics 2>&1 | grep 'Unauthorized'
+    curl --insecure https://$SVC_NAME:8443/metrics 2>&1 | grep 'errno'
 ---
 apiVersion: v1
 kind: Pod

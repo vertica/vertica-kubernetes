@@ -333,16 +333,16 @@ var VasConditionIndexMap = map[VerticaAutoscalerConditionType]int{
 	ScalingActive:         ScalingActiveIndex,
 }
 
-//+kubebuilder:object:root=true
-//+kubebuilder:resource:categories=all;vertica,shortName=vas
-//+kubebuilder:subresource:status
-//+kubebuilder:subresource:scale:specpath=.spec.targetSize,statuspath=.status.currentSize,selectorpath=.status.selector
-//+kubebuilder:printcolumn:name="Granularity",type="string",JSONPath=".spec.scalingGranularity"
-//+kubebuilder:printcolumn:name="Current Size",type="integer",JSONPath=".status.currentSize"
-//+kubebuilder:printcolumn:name="Target Size",type="integer",JSONPath=".spec.targetSize"
-//+kubebuilder:printcolumn:name="Scaling Count",type="integer",JSONPath=".status.scalingCount"
-//+kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
-//+operator-sdk:csv:customresourcedefinitions:resources={{VerticaDB,vertica.com/v1beta1,""}}
+// +kubebuilder:object:root=true
+// +kubebuilder:resource:categories=all;vertica,shortName=vas
+// +kubebuilder:subresource:status
+// +kubebuilder:subresource:scale:specpath=.spec.targetSize,statuspath=.status.currentSize,selectorpath=.status.selector
+// +kubebuilder:printcolumn:name="Granularity",type="string",JSONPath=".spec.scalingGranularity"
+// +kubebuilder:printcolumn:name="Current Size",type="integer",JSONPath=".status.currentSize"
+// +kubebuilder:printcolumn:name="Target Size",type="integer",JSONPath=".spec.targetSize"
+// +kubebuilder:printcolumn:name="Scaling Count",type="integer",JSONPath=".status.scalingCount"
+// +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
+// +operator-sdk:csv:customresourcedefinitions:resources={{VerticaDB,vertica.com/v1beta1,""}}
 
 // VerticaAutoscaler is a CR that allows you to autoscale one or more
 // subclusters in a VerticaDB.
@@ -354,7 +354,7 @@ type VerticaAutoscaler struct {
 	Status VerticaAutoscalerStatus `json:"status,omitempty"`
 }
 
-//+kubebuilder:object:root=true
+// +kubebuilder:object:root=true
 
 // VerticaAutoscalerList contains a list of VerticaAutoscaler
 type VerticaAutoscalerList struct {

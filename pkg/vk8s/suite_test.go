@@ -62,11 +62,11 @@ var _ = BeforeSuite(func() {
 	ExpectWithOffset(1, err).NotTo(HaveOccurred())
 
 	metricsServerOptions := metricsserver.Options{
-		BindAddress: "0",
+		BindAddress: "0", // Disable metrics for the test
 	}
 	mgr, err = ctrl.NewManager(cfg, ctrl.Options{
 		Scheme:  scheme.Scheme,
-		Metrics: metricsServerOptions, // Disable metrics for the test
+		Metrics: metricsServerOptions,
 	})
 	ExpectWithOffset(1, err).NotTo(HaveOccurred())
 })

@@ -18,8 +18,10 @@ package main
 import (
 	"context"
 	"crypto/tls"
+	"crypto/x509"
 	"log"
 	"os"
+	"time"
 
 	// Allows us to pull in things generated from `go generate`
 	_ "embed"
@@ -35,12 +37,13 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/util/workqueue"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/config"
+	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
-	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
-	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	vapiV1 "github.com/vertica/vertica-kubernetes/api/v1"
 	vapiB1 "github.com/vertica/vertica-kubernetes/api/v1beta1"
@@ -55,7 +58,10 @@ import (
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/opcfg"
 	"github.com/vertica/vertica-kubernetes/pkg/security"
-	//+kubebuilder:scaffold:imports
+	"sigs.k8s.io/controller-runtime/pkg/metrics/filters"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
+	"sigs.k8s.io/controller-runtime/pkg/webhook"
+	// +kubebuilder:scaffold:imports
 )
 
 const (
@@ -83,7 +89,7 @@ func init() {
 	utilruntime.Must(vapiB1.AddToScheme(scheme))
 	utilruntime.Must(vapiV1.AddToScheme(scheme))
 	utilruntime.Must(kedav1alpha1.AddToScheme(scheme))
-	//+kubebuilder:scaffold:scheme
+	// +kubebuilder:scaffold:scheme
 }
 
 // addReconcilersToManager will add a controller for each CR that this operator
@@ -94,15 +100,19 @@ func addReconcilersToManager(mgr manager.Manager, restCfg *rest.Config) {
 		return
 	}
 
+	// Create a custom option with our own rate limiter
+	rateLimiter := workqueue.NewItemExponentialFailureRateLimiter(1*time.Millisecond,
+		time.Duration(opcfg.GetVdbMaxBackoffDuration())*time.Millisecond)
+	options := controller.Options{
+		RateLimiter: rateLimiter,
+	}
 	if err := (&vdb.VerticaDBReconciler{
-		Client:             mgr.GetClient(),
-		Log:                ctrl.Log.WithName("controllers").WithName("VerticaDB"),
-		Scheme:             mgr.GetScheme(),
-		Cfg:                restCfg,
-		EVRec:              mgr.GetEventRecorderFor(vmeta.OperatorName),
-		Namespace:          opcfg.GetWatchNamespace(),
-		MaxBackOffDuration: opcfg.GetVdbMaxBackoffDuration(),
-	}).SetupWithManager(mgr); err != nil {
+		Client: mgr.GetClient(),
+		Log:    ctrl.Log.WithName("controllers").WithName("VerticaDB"),
+		Scheme: mgr.GetScheme(),
+		Cfg:    restCfg,
+		EVRec:  mgr.GetEventRecorderFor(vmeta.OperatorName),
+	}).SetupWithManager(mgr, options); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "VerticaDB")
 		os.Exit(1)
 	}
@@ -165,7 +175,7 @@ func addReconcilersToManager(mgr manager.Manager, restCfg *rest.Config) {
 		setupLog.Error(err, "unable to create controller", "controller", "VerticaReplicator")
 		os.Exit(1)
 	}
-	//+kubebuilder:scaffold:builder
+	// +kubebuilder:scaffold:builder
 }
 
 // addWebhooktsToManager will add any webhooks to the manager.  If any failure
@@ -238,6 +248,7 @@ func getReadinessProbeCallback(mgr ctrl.Manager) healthz.Checker {
 	return healthz.Ping
 }
 
+//nolint:funlen
 func main() {
 	logger := opcfg.GetLogger()
 	if opcfg.GetLoggingFilePath() != "" {
@@ -257,27 +268,95 @@ func main() {
 		"broadcasterBurstSize", burstSize,
 	)
 
+	var webhookTLSOpts []func(*tls.Config)
+	var metricsTLSOpts []func(*tls.Config)
+	// Set the minimum TLS version for the webhook.  By default it will use
+	// TLS 1.0, which has a lot of security flaws.  This is a hacky way to
+	// set this and should be removed once there is a supported way.
+	// There are numerous proposals to allow this to be configured from
+	// Manager -- based on most recent activity this one looks promising:
+	// https://github.com/kubernetes-sigs/controller-runtime/issues/852
+	webhookTLSOpts = append(webhookTLSOpts, func(c *tls.Config) {
+		c.MinVersion = tls.VersionTLS13
+	})
+	metricsTLSOpts = append(metricsTLSOpts, func(c *tls.Config) {
+		c.MinVersion = tls.VersionTLS13
+	})
+
+	webhookServer := webhook.NewServer(webhook.Options{
+		Port:    9443,
+		CertDir: CertDir,
+		TLSOpts: webhookTLSOpts,
+	})
+
+	secureByAuth := opcfg.IfSecureByAuth()
+	secureByTLS := opcfg.IfSecureByTLS()
+	var metricCertDir string
+	if opcfg.GetMetricsTLSSecret() != "" {
+		metricCertDir = "/cert"
+		metricsTLSOpts = append(metricsTLSOpts, func(c *tls.Config) {
+			// Load the CA certificate
+			caCert, err := os.ReadFile("/cert/ca.crt")
+			if err != nil {
+				log.Fatalf("failed to read CA cert: %v", err)
+			}
+			// Create a CertPool and add the CA certificate to it
+			caCertPool := x509.NewCertPool()
+			ok := caCertPool.AppendCertsFromPEM(caCert)
+			if !ok {
+				log.Fatal("failed to append CA cert to CertPool")
+			}
+			c.ClientCAs = caCertPool
+			// If we enabled authorization, then no client certs are really needed.
+			// Otherwise, we need the client certs.
+			if secureByAuth {
+				c.ClientAuth = tls.VerifyClientCertIfGiven
+			} else if secureByTLS {
+				c.ClientAuth = tls.RequireAndVerifyClientCert
+			}
+		})
+	}
+
+	// Metrics endpoint is enabled in 'config/default/kustomization.yaml'. The Metrics options configure the server.
+	// More info:
+	// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.18.4/pkg/metrics/server
+	// - https://book.kubebuilder.io/reference/metrics.html
+	metricsServerOptions := metricsserver.Options{
+		BindAddress:   opcfg.GetMetricsAddr(),
+		SecureServing: secureByAuth || secureByTLS,
+		// TLSOpts is used to allow configuring the TLS config used for the server. If certificates are
+		// not provided, self-signed certificates will be generated by default. This option is not recommended for
+		// production environments as self-signed certificates do not offer the same level of trust and security
+		// as certificates issued by a trusted Certificate Authority (CA). The primary risk is potentially allowing
+		// unauthorized access to sensitive metrics data. Consider replacing with CertDir, CertName, and KeyName
+		// to provide certificates, ensuring the server communicates using trusted and secure certificates.
+		TLSOpts: metricsTLSOpts,
+		CertDir: metricCertDir,
+	}
+
+	if secureByAuth {
+		// FilterProvider is used to protect the metrics endpoint with authn/authz.
+		// These configurations ensure that only authorized users and service accounts
+		// can access the metrics endpoint. The RBAC are configured in 'config/rbac/kustomization.yaml'. More info:
+		// https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.18.4/pkg/metrics/filters#WithAuthenticationAndAuthorization
+		metricsServerOptions.FilterProvider = filters.WithAuthenticationAndAuthorization
+	}
+
 	restCfg := ctrl.GetConfigOrDie()
 
-	metricsServerOptions := metricsserver.Options{
-		BindAddress: opcfg.GetMetricsAddr(),
-	}
-	tlsFunc := func(c *tls.Config) {
-		c.MinVersion = tls.VersionTLS13
+	var cacheNamespaces map[string]cache.Config
+	if opcfg.GetWatchNamespace() != "" {
+		cacheNamespaces = make(map[string]cache.Config)
+		cacheNamespaces[opcfg.GetWatchNamespace()] = cache.Config{}
 	}
 	mgr, err := ctrl.NewManager(restCfg, ctrl.Options{
-		Scheme:  scheme,
-		Metrics: metricsServerOptions,
-		WebhookServer: &webhook.DefaultServer{
-			Options: webhook.Options{
-				Port:    9443,
-				CertDir: CertDir,
-				TLSOpts: []func(*tls.Config){tlsFunc},
-			},
-		},
+		Scheme:                 scheme,
+		Metrics:                metricsServerOptions,
+		WebhookServer:          webhookServer,
 		HealthProbeBindAddress: ":8081",
 		LeaderElection:         true,
 		LeaderElectionID:       opcfg.GetLeaderElectionID(),
+		Cache:                  cache.Options{DefaultNamespaces: cacheNamespaces},
 		EventBroadcaster:       multibroadcaster,
 		Controller: config.Controller{
 			GroupKindConcurrency: map[string]int{

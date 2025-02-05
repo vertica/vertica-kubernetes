@@ -21,8 +21,8 @@ var _ = Describe("eventtrigger_webhook", func() {
 		et.Spec.References[0].Object.Kind = "Pod"
 		_, err := et.ValidateCreate()
 		Expect(err).ShouldNot(Succeed())
-		_, err = et.ValidateUpdate(et)
-		Expect(err).ShouldNot(Succeed())
+		_, err1 := et.ValidateUpdate(et)
+		Expect(err1).ShouldNot(Succeed())
 	})
 
 	It("should fail on multiple reference objects", func() {
@@ -40,8 +40,8 @@ var _ = Describe("eventtrigger_webhook", func() {
 
 		_, err := et.ValidateCreate()
 		Expect(err).ShouldNot(Succeed())
-		_, err = et.ValidateUpdate(et)
-		Expect(err).ShouldNot(Succeed())
+		_, err1 := et.ValidateUpdate(et)
+		Expect(err1).ShouldNot(Succeed())
 	})
 
 	It("should fail on multiple matches conditions", func() {
@@ -56,8 +56,8 @@ var _ = Describe("eventtrigger_webhook", func() {
 
 		_, err := et.ValidateCreate()
 		Expect(err).ShouldNot(Succeed())
-		_, err = et.ValidateUpdate(et)
-		Expect(err).ShouldNot(Succeed())
+		_, err1 := et.ValidateUpdate(et)
+		Expect(err1).ShouldNot(Succeed())
 	})
 
 	It("should fail if job name is not specified", func() {

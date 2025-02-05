@@ -20,11 +20,3 @@ tests:
           path: spec.template.spec.containers
           content:
               name: kube-rbac-proxy
-  - it: should include proxy sidecar if expose is with auth
-    set:
-      prometheus:
-        expose: EnableWithAuthProxy
-    asserts:
-      - equal:
-          path: spec.template.spec.containers[1].name
-          value: kube-rbac-proxy

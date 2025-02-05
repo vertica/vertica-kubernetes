@@ -56,6 +56,7 @@ testbin/*
 
 # Omit some fully generated files
 config/crd/bases/*.yaml
+config/manager/operator-envs-with-value
 config/rbac/role.yaml
 api/v1beta1/zz_generated.deepcopy.go
 

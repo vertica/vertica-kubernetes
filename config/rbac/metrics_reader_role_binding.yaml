@@ -1,12 +1,16 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: proxy-rolebinding
+  name: metrics-reader
 roleRef:
   apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole 
-  name: proxy-role
+  kind: ClusterRole
+  name: metrics-reader
 subjects:
 - kind: ServiceAccount
   name: manager
   namespace: system
+- apiGroup: rbac.authorization.k8s.io
+  kind: Group
+  name: system:authenticated
+  

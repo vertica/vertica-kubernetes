@@ -52,10 +52,10 @@ const (
 	vdbNameField = ".spec.references.object.name"
 )
 
-//+kubebuilder:rbac:groups=vertica.com,resources=eventtriggers,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=vertica.com,resources=eventtriggers/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=vertica.com,resources=eventtriggers/finalizers,verbs=update
-//+kubebuilder:rbac:groups="batch",resources=jobs,verbs=get;list;watch;create
+// +kubebuilder:rbac:groups=vertica.com,resources=eventtriggers,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=vertica.com,resources=eventtriggers/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=vertica.com,resources=eventtriggers/finalizers,verbs=update
+// +kubebuilder:rbac:groups="batch",resources=jobs,verbs=get;list;watch;create
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -138,13 +138,13 @@ func (r *EventTriggerReconciler) setupFieldIndexer(indx client.FieldIndexer) err
 
 // findObjectsForVerticaDB will generate requests to reconcile EventTriggers
 // based on watched VerticaDB.
-func (r *EventTriggerReconciler) findObjectsForVerticaDB(ctx context.Context, vdb client.Object) []reconcile.Request {
+func (r *EventTriggerReconciler) findObjectsForVerticaDB(_ context.Context, vdb client.Object) []reconcile.Request {
 	attachedTriggers := &vapi.EventTriggerList{}
 	listOps := &client.ListOptions{
 		FieldSelector: fields.OneTermEqualSelector(vdbNameField, vdb.GetName()),
 		Namespace:     vdb.GetNamespace(),
 	}
-	err := r.List(ctx, attachedTriggers, listOps)
+	err := r.List(context.Background(), attachedTriggers, listOps)
 	if err != nil {
 		return []reconcile.Request{}
 	}

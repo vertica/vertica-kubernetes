@@ -29,7 +29,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	admissionv1 "k8s.io/api/admission/v1"
-	//+kubebuilder:scaffold:imports
+	// +kubebuilder:scaffold:imports
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -79,7 +79,7 @@ var _ = BeforeSuite(func() {
 	err = admissionv1.AddToScheme(scheme)
 	Expect(err).NotTo(HaveOccurred())
 
-	//+kubebuilder:scaffold:scheme
+	// +kubebuilder:scaffold:scheme
 
 	k8sClient, err = client.New(cfg, client.Options{Scheme: scheme})
 	Expect(err).NotTo(HaveOccurred())
@@ -88,27 +88,26 @@ var _ = BeforeSuite(func() {
 	// start webhook server using Manager
 	// start webhook server using Manager
 	webhookInstallOptions := &testEnv.WebhookInstallOptions
+	webhookServer := webhook.NewServer(webhook.Options{
+		Host:    webhookInstallOptions.LocalServingHost,
+		Port:    webhookInstallOptions.LocalServingPort,
+		CertDir: webhookInstallOptions.LocalServingCertDir,
+	})
 	metricsServerOptions := metricsserver.Options{
 		BindAddress: "0",
 	}
 	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
-		Scheme: scheme,
-		WebhookServer: &webhook.DefaultServer{
-			Options: webhook.Options{
-				Host:    webhookInstallOptions.LocalServingHost,
-				Port:    webhookInstallOptions.LocalServingPort,
-				CertDir: webhookInstallOptions.LocalServingCertDir,
-			},
-		},
-		Metrics:        metricsServerOptions,
+		Scheme:         scheme,
 		LeaderElection: false,
+		WebhookServer:  webhookServer,
+		Metrics:        metricsServerOptions,
 	})
 	Expect(err).NotTo(HaveOccurred())
 
 	err = (&VerticaAutoscaler{}).SetupWebhookWithManager(mgr)
 	Expect(err).NotTo(HaveOccurred())
 
-	//+kubebuilder:scaffold:webhook
+	// +kubebuilder:scaffold:webhook
 
 	go func() {
 		err = mgr.Start(ctx)

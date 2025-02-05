@@ -42,13 +42,13 @@ var _ = Describe("verticaautoscaler_webhook", func() {
 		_, err := vas.ValidateCreate()
 		Expect(err).ShouldNot(Succeed())
 		vas.Spec.Template.ServiceName = ""
-		_, err = vas.ValidateCreate()
-		Expect(err).ShouldNot(Succeed())
-		_, err = vas.ValidateUpdate(MakeVAS())
-		Expect(err).ShouldNot(Succeed())
+		_, err1 := vas.ValidateCreate()
+		Expect(err1).ShouldNot(Succeed())
+		_, err2 := vas.ValidateUpdate(MakeVAS())
+		Expect(err2).ShouldNot(Succeed())
 		vas.Spec.Template.ServiceName = vas.Spec.ServiceName
-		_, err = vas.ValidateUpdate(MakeVAS())
-		Expect(err).Should(Succeed())
+		_, err3 := vas.ValidateUpdate(MakeVAS())
+		Expect(err3).Should(Succeed())
 	})
 
 	It("should fail if you try to use the template with pod scalingGranularity", func() {
@@ -59,7 +59,7 @@ var _ = Describe("verticaautoscaler_webhook", func() {
 		_, err := vas.ValidateCreate()
 		Expect(err).ShouldNot(Succeed())
 		vas.Spec.ScalingGranularity = SubclusterScalingGranularity
-		_, err = vas.ValidateCreate()
-		Expect(err).Should(Succeed())
+		_, err1 := vas.ValidateCreate()
+		Expect(err1).Should(Succeed())
 	})
 })
