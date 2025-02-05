@@ -40,6 +40,12 @@ on:
       DOCKERHUB_TOKEN:
         description: 'When working with images from docker.io, this is the password for login purposes'
         required: true
+      AWS_ACCESS_KEY_ID:
+        description: 'When downloading with rpm from AWS s3, this is the AWS_ACCESS_KEY_ID for login purposes'
+        required: true
+      AWS_SECRET_ACCESS_KEY:
+        description: 'When downloading with rpm from AWS s3, this is the AWS_SECRET_ACCESS_KEY for login purposes'
+        required: true
     outputs:
       operator-image:
         description: "The image name of the VerticaDB operator"
@@ -71,10 +77,18 @@ env:
   GITHUB_REGISTRY: ghcr.io/vertica/
 
 jobs:
+  download-rpm:
+    uses: ./.github/workflows/download-rpm.yml
+    if: ${{ inputs.full_vertica_image == '' || inputs.legacy_vertica_image == '' || inputs.minimal_vertica_image == '' }}
+    secrets:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID}}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY}}
+
   build-server-full:
     runs-on: ubuntu-latest
     outputs:
       image: ${{ steps.full_vertica_image.outputs.value }}
+    needs: download-rpm
     steps:
 
     - name: Pick the name of the image
@@ -102,10 +116,6 @@ jobs:
         password: ${{ secrets.DOCKERHUB_TOKEN }}
 
     - uses: actions/checkout@v4
-      if: ${{ inputs.full_vertica_image == '' }}
-
-    - name: Download the RPM
-      uses: ./.github/actions/download-rpm
       if: ${{ inputs.full_vertica_image == '' }}
 
     - name: Build the full server image
@@ -196,6 +206,7 @@ jobs:
     if: ${{ always() && !contains(github.ref, 'k8s-sync') }}
     outputs:
       image: ${{ steps.legacy_vertica_image.outputs.value }}
+    needs: download-rpm
     steps:
 
     - name: Pick the name of the image
@@ -222,10 +233,6 @@ jobs:
         password: ${{ secrets.DOCKERHUB_TOKEN }}
 
     - uses: actions/checkout@v4
-      if: ${{ inputs.legacy_vertica_image == '' }}
-
-    - name: Download the RPM
-      uses: ./.github/actions/download-rpm
       if: ${{ inputs.legacy_vertica_image == '' }}
 
     - name: Build legacy server image
@@ -269,6 +276,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       image: ${{ steps.minimal_vertica_image.outputs.value }}
+    needs: download-rpm
     steps:
 
     - name: Pick the name of the image
@@ -295,10 +303,6 @@ jobs:
         password: ${{ secrets.DOCKERHUB_TOKEN }}
 
     - uses: actions/checkout@v4
-      if: ${{ inputs.minimal_vertica_image == '' }}
-
-    - name: Download the RPM
-      uses: ./.github/actions/download-rpm
       if: ${{ inputs.minimal_vertica_image == '' }}
 
     - name: Build the minimal server image
