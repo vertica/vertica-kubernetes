@@ -40,7 +40,7 @@ var _ = Describe("httpservercertgen_reconcile", func() {
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
 
-		r := MakeNMACertGenReconciler(vdbRec, logger, vdb)
+		r := MakeTLSServerCertGenReconciler(vdbRec, logger, vdb)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 		Expect(vdb.Spec.NMATLSSecret).ShouldNot(Equal(""))
 	})
@@ -53,7 +53,7 @@ var _ = Describe("httpservercertgen_reconcile", func() {
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
 
-		r := MakeNMACertGenReconciler(vdbRec, logger, vdb)
+		r := MakeTLSServerCertGenReconciler(vdbRec, logger, vdb)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 		Expect(vdb.Spec.NMATLSSecret).Should(Equal(DummySecretName))
 	})
@@ -65,7 +65,7 @@ var _ = Describe("httpservercertgen_reconcile", func() {
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
 
-		r := MakeNMACertGenReconciler(vdbRec, logger, vdb)
+		r := MakeTLSServerCertGenReconciler(vdbRec, logger, vdb)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 		Expect(vdb.Spec.NMATLSSecret).ShouldNot(Equal(""))
 		nm := types.NamespacedName{Namespace: vdb.Namespace, Name: vdb.Spec.NMATLSSecret}
@@ -89,7 +89,7 @@ var _ = Describe("httpservercertgen_reconcile", func() {
 		err := k8sClient.Get(ctx, nm, secret)
 		Expect(errors.IsNotFound(err)).Should(BeTrue())
 
-		r := MakeNMACertGenReconciler(vdbRec, logger, vdb)
+		r := MakeTLSServerCertGenReconciler(vdbRec, logger, vdb)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 		Expect(vdb.Spec.NMATLSSecret).Should(Equal(TLSSecretName))
 		Expect(k8sClient.Get(ctx, nm, secret)).Should(Succeed())

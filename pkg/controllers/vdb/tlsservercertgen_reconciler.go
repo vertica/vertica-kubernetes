@@ -109,7 +109,7 @@ func (h *TLSServerCertGenReconciler) reconcileOneSecret(secretFieldName, secretN
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	h.Log.Info("created certificate and secret for %s", secret.Name)
+	h.Log.Info("created certificate and secret for " + secret.Name)
 	return ctrl.Result{}, h.setSecretNameInVDB(ctx, secretFieldName, secret.ObjectMeta.Name)
 }
 
