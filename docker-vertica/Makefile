@@ -14,6 +14,12 @@ VERTICA_VERSION?=
 VERTICA_X86_VERSION?=$(shell rpm --nosignature -qp --queryformat '%{VERSION}-%{RELEASE}' packages/$(VERTICA_X86_RPM))
 VERTICA_ARM_VERSION?=$(shell rpm --nosignature -qp --queryformat '%{VERSION}-%{RELEASE}' packages/$(VERTICA_ARM64_RPM))
 
+ifeq ($(COMMA), $(findstring $(COMMA), $(TARGET_ARCH)))
+DOCKERFILE=Dockerfile.cross
+else
+DOCKERFILE=Dockerfile
+endif
+
 # Our Github runner where we run the build step is on ubuntu so the rpm query extraction fails
 # We skip the verification of the package mismatch in that pipeline
 ifneq ($(VERTICA_X86_VERSION),)
@@ -35,12 +41,13 @@ docker-build-vertica: Dockerfile packages/package-checksum-patcher.py
 	docker pull ${BASE_OS_NAME}:$(BASE_OS_VERSION) ## make sure we use the latest base image
 # Building multi-platform image, a custom builder is required
 ifeq ($(COMMA), $(findstring $(COMMA), $(TARGET_ARCH)))
+	sed -e '1 s/\(^FROM\)/FROM --platform=linux\/\$$\{TARGETARCH\}/; t' -e ' 1,// s//FROM --platform=linux\/\$$\{TARGETARCH\}/' Dockerfile > Dockerfile.cross
 	- docker buildx create --name project-v3-builder --driver-opt network=host
 	docker buildx use project-v3-builder
 endif
 # Building single-platform image
 	docker buildx build \
-		-f Dockerfile \
+		-f ${DOCKERFILE} \
 		--platform ${TARGET_ARCH} \
 		--label minimal=${MINIMAL_VERTICA_IMG} \
 		--label os-version=${BASE_OS_VERSION} \

@@ -84,8 +84,8 @@ REG_PORT ?= 5000
 ifeq ($(shell $(KIND_CHECK)), 1)
 # Multi-platform build images must be pushed to a repo as it uses --push while building
 IMG_REPO?=localhost:$(REG_PORT)/
-#IMG_REPO?=qguanopentext/
 else
+# TODO: need to be set for non-kind PR build
 IMG_REPO?=
 endif
 # Image URL to use for building/pushing of the operator
