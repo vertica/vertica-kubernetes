@@ -1,0 +1,61 @@
+name: Download the Vertica RPM
+on:
+  workflow_call:
+    secrets:
+      AWS_ACCESS_KEY_ID:
+        description: 'When downloading with rpm from AWS s3, this is the AWS_ACCESS_KEY_ID for login purposes'
+        required: true
+      AWS_SECRET_ACCESS_KEY:
+        description: 'When downloading with rpm from AWS s3, this is the AWS_SECRET_ACCESS_KEY for login purposes'
+        required: true
+
+# These permissions only apply when not running a PR.  GitHub actions makes PRs
+# from forked repositories with extremely limited permissions that cannot be
+# overwritten:
+# https://github.blog/changelog/2021-04-20-github-actions-control-permissions-for-github_token/
+permissions:
+  packages: write
+  security-events: write
+
+env:
+    # The script guess-server-upgrade-base-image.sh parses this URL. So,
+    # if the structure of this URL ever changes be sure to verify if that
+    # script needs an update.
+    VERTICA_CE_URL: "s3://vertica-community-edition-for-testing/XCz9cp7m/vertica-25.1.0-0.RHEL8.x86_64.rpm"
+    VERTICA_CE_URL_ARM64: "s3://vertica-community-edition-for-testing/XCz9cp7m/vertica-25.1.0-0.RHEL8.aarch64.rpm"
+    AWS_REGION: 'us-east-1'
+
+jobs:
+  download-rpm:
+    runs-on: ubuntu-latest
+    steps:
+
+    - uses: actions/checkout@v4
+
+    # Will download the RPM as prep for container building
+    - name: Download Vertica x86_64 RPM
+      uses: keithweaver/aws-s3-github-action@v1.0.0
+      with:
+        command: cp
+        source: ${{ env.VERTICA_CE_URL }}
+        destination: docker-vertica/packages/vertica-latest.RHEL8.x86_64.rpm
+        aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws_region: ${{ env.AWS_REGION }}
+
+    # For multi-platform build
+    - name: Download Vertica aarch64 RPM
+      uses: keithweaver/aws-s3-github-action@v1.0.0
+      with:
+        command: cp
+        source: ${{ env.VERTICA_CE_URL_ARM64 }}
+        destination: docker-vertica/packages/vertica-latest.RHEL8.aarch64.rpm
+        aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws_region: ${{ env.AWS_REGION }}
+
+    - name: Copy RPMs to v2 packages
+      run: |
+        cp docker-vertica/packages/*rpm docker-vertica-v2/packages
+        ls -l docker-vertica/packages/*rpm
+        ls -l docker-vertica-v2/packages/*rpm
