@@ -10,7 +10,7 @@ tests:
       - equal:
           path: data.METRICS_ADDR
           value: :8443
-  - it: should cotain ip if expose is with auth
+  - it: should contain ip if expose is with auth
     set:
       prometheus:
         expose: EnableWithAuth

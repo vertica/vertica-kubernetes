@@ -20,6 +20,7 @@ import (
 	"log"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -107,6 +108,16 @@ func GetMetricsTLSSecret() string {
 // GetMetricsExposeMode returns exposing mode of the manager's Prometheus endpoint.
 func GetMetricsExposeMode() string {
 	return lookupStringEnvVar("METRICS_EXPOSE_MODE", envCanNotExist)
+}
+
+// IfSecureByAuth returns true if metrics expose mode is set to "EnableWithAuth"
+func IfSecureByAuth() bool {
+	return strings.EqualFold(GetMetricsExposeMode(), "EnableWithAuth")
+}
+
+// IfSecureByTLS returns true if metrics expose mode is set to "EnableWithTLS"
+func IfSecureByTLS() bool {
+	return strings.EqualFold(GetMetricsExposeMode(), "EnableWithTLS")
 }
 
 // GetUseCertManager returns true if cert-manager is used to setup the webhook's
