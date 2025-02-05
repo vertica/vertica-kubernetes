@@ -672,7 +672,7 @@ func (v *VerticaDB) hasDuplicateScName(allErrs field.ErrorList) field.ErrorList 
 }
 
 func (v *VerticaDB) hasValidClientServerTLSMode(allErrs field.ErrorList) field.ErrorList {
-	var tlsModes []string = []string{"prefer", "require", "verify_ca", "verify_full"}
+	tlsModes := []string{"enable", "disable", "try_verify", "verify_ca", "verify_full"}
 	if v.Spec.ClientServerTLSMode != "" {
 		TLSMode := strings.ToLower(v.Spec.ClientServerTLSMode)
 		validMode := false
