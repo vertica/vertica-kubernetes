@@ -109,10 +109,14 @@ func (s *AnnotateAndLabelPodReconciler) generateAnnotations() (map[string]string
 func (s *AnnotateAndLabelPodReconciler) generateLabels(sbName string) map[string]string {
 	labels := map[string]string{
 		vmeta.OperatorVersionLabel: vmeta.CurOperatorVersion,
+		vmeta.IsSandboxLabel:       vmeta.IsSandboxFalse,
 	}
-	if sbName == vapi.MainCluster {
-		labels[vmeta.IsSandboxLabel] = vmeta.IsSandboxFalse
+
+	// Only update IsSandboxLabel if sbName is not equal to MainCluster
+	if sbName != vapi.MainCluster {
+		labels[vmeta.IsSandboxLabel] = vmeta.IsSandboxTrue
 	}
+
 	return labels
 }
 

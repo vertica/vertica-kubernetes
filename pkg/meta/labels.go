@@ -140,6 +140,7 @@ const (
 	// VAS to filter out sandbox pods.
 	IsSandboxLabel = "vertica.com/is-sandbox"
 	IsSandboxFalse = "false"
+	IsSandboxTrue  = "true"
 )
 
 // ProtectedLabels lists all of the internally used label.
