@@ -194,6 +194,10 @@ func (c *CreateDBReconciler) generatePostDBCreateSQL(ctx context.Context, initia
 		sb.WriteString(fmt.Sprintf(`alter database default set parameter EncryptSpreadComm = '%s';
 		`, vapi.EncryptSpreadCommWithVertica))
 	}
+	sb.WriteString(`CREATE OR REPLACE LIBRARY public.KubernetesLib AS '/opt/vertica/packages/kubernetes/lib/libkubernetes.so'`)
+
+	sb.WriteString(`CREATE OR REPLACE SECRETMANAGER KubernetesSecretManager AS LANGUAGE 'C++' NAME 'KubernetesSecretManagerFactory' LIBRARY KubernetesLib`)
+
 	sb.WriteString(fmt.Sprintf(
 		`CREATE KEY https_key_0 TYPE 'rsa' SECRETMANAGER KubernetesSecretManager SECRETNAME \"%s\" CONFIGURATION '{\"data-key\":\"%s\", \"namespace\":\"%s\"}'`,
 		c.Vdb.Spec.NMATLSSecret, corev1.TLSPrivateKeyKey, c.Vdb.ObjectMeta.Namespace))
