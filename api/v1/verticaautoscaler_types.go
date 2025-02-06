@@ -196,6 +196,8 @@ var VasConditionIndexMap = map[VerticaAutoscalerConditionType]int{
 }
 
 //+kubebuilder:object:root=true
+//+kubebuilder:subresource:status
+//+kubebuilder:storageversion
 //+kubebuilder:resource:categories=all;vertica,shortName=vas
 //+kubebuilder:subresource:status
 //+kubebuilder:subresource:scale:specpath=.spec.targetSize,statuspath=.status.currentSize,selectorpath=.status.selector
