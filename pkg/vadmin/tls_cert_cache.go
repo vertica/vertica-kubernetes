@@ -72,29 +72,40 @@ func (c *TLSCertCache) HasCert(secretName string) bool {
 }
 
 func (c *TLSCertCache) GetHTTPSCerts(secret int) (*HTTPSCerts, error) {
-	keyBytes, err := c.getTLSCertField(secret, corev1.TLSPrivateKeyKey)
+	secretName, err := c.getSecretName(secret)
 	if err != nil {
 		return nil, err
 	}
-	c.Log.Info("libo: key string - " + string(keyBytes))
-	certBytes, _ := c.getTLSCertField(secret, corev1.TLSCertKey)
-	caCertBytes, _ := c.getTLSCertField(secret, paths.HTTPServerCACrtName)
+	return c.GetHTTPSCertsFromSecretName(secretName)
+}
 
+func (c *TLSCertCache) GetHTTPSCertsFromSecretName(secretName string) (*HTTPSCerts, error) {
+	if secretName != c.Vdb.Spec.NMATLSSecret && secretName != c.Vdb.Spec.ClientServerTLSSecret {
+		return nil, fmt.Errorf("invalid secret name - %s", secretName)
+	}
+	secretMap, ok := c.certCacheMap[secretName]
+	err := error(nil)
+	if !ok { // if not found in cache, load it
+		secretMap, err = c.retrieveSecretByName(secretName)
+		if err != nil {
+			return nil, err // failed to load secret
+		}
+	}
 	return &HTTPSCerts{
-		Key:    string(keyBytes),
-		Cert:   string(certBytes),
-		CaCert: string(caCertBytes),
+		Key:    string(secretMap[corev1.TLSPrivateKeyKey]),
+		Cert:   string(secretMap[corev1.TLSCertKey]),
+		CaCert: string(secretMap[paths.HTTPServerCACrtName]),
 	}, nil
 }
 
 func (c *TLSCertCache) getTLSCertField(secret int, fieldName string) ([]byte, error) {
 	_, ok := CertFields[fieldName]
 	if !ok {
-		return nil, fmt.Errorf("invalid secret field name: %s", fieldName)
+		return nil, fmt.Errorf("invalid secret field name - %s", fieldName)
 	}
 	secretName, err := c.getSecretName(secret)
 	if err != nil {
-		return nil, fmt.Errorf("invalid secret name index: %d", secret)
+		return nil, fmt.Errorf("invalid secret name index -  %d", secret)
 	}
 	c.Log.Info("libo: getTLSCertField, secretName - " + secretName + ", fieldName - " + fieldName)
 	secretMap, ok := c.certCacheMap[secretName]
@@ -123,6 +134,11 @@ func (c *TLSCertCache) retrieveSecret(secret int) (map[string][]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+	return c.retrieveSecretByName(secretName)
+}
+
+// retrieveSecretByName loads secret using k8s client.
+func (c *TLSCertCache) retrieveSecretByName(secretName string) (map[string][]byte, error) {
 	fetcher := secrets.MultiSourceSecretFetcher{
 		Log: &c.Log,
 	}
