@@ -33,9 +33,15 @@ func (v *VClusterOps) RenameSubcluster(ctx context.Context, opts ...renamesc.Opt
 	s := renamesc.Params{}
 	s.Make(opts...)
 
+	certs, err := v.getCachedHTTPSCerts(NMA_TLS_SECRET)
+	if err != nil {
+		v.Log.Error(err, "failed to retrieve nma secret from cache")
+		return err
+	}
+
 	// call vclusterOps library to rename a subcluster
-	vopts := v.genRenameSubclusterOptions(&s)
-	err := v.VRenameSubcluster(&vopts)
+	vopts := v.genRenameSubclusterOptions(&s, certs)
+	err = v.VRenameSubcluster(&vopts)
 	if err != nil {
 		v.Log.Error(err, "failed to rename a subcluster", "subcluster", vopts.SCName, "new subcluster name", vopts.NewSCName)
 		return err
@@ -45,7 +51,7 @@ func (v *VClusterOps) RenameSubcluster(ctx context.Context, opts ...renamesc.Opt
 	return nil
 }
 
-func (v *VClusterOps) genRenameSubclusterOptions(s *renamesc.Params) vops.VRenameSubclusterOptions {
+func (v *VClusterOps) genRenameSubclusterOptions(s *renamesc.Params, certs *HTTPSCerts) vops.VRenameSubclusterOptions {
 	opts := vops.VRenameSubclusterFactory()
 
 	opts.DBName = v.VDB.Spec.DBName
@@ -58,8 +64,9 @@ func (v *VClusterOps) genRenameSubclusterOptions(s *renamesc.Params) vops.VRenam
 	opts.NewSCName = s.NewSubclusterName
 
 	// auth options
-	opts.UserName = v.VDB.GetVerticaUser()
-	opts.Password = &v.Password
+	opts.Key = certs.Key
+	opts.Cert = certs.Cert
+	opts.CaCert = certs.CaCert
 
 	return opts
 }

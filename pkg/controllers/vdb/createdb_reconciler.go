@@ -206,11 +206,11 @@ func (c *CreateDBReconciler) generatePostDBCreateSQL(ctx context.Context, initia
 		`CREATE CERTIFICATE https_cert_0 SECRETMANAGER KubernetesSecretManager SECRETNAME \"%s\" CONFIGURATION '{\"data-key\":\"%s\", \"namespace\":\"%s\"}' SIGNED BY https_ca_cert_0 KEY https_key_0`,
 		c.Vdb.Spec.NMATLSSecret, corev1.TLSCertKey, c.Vdb.ObjectMeta.Namespace))
 
-	sb.WriteString(fmt.Sprintf(`DROP KEY server_key IF EXISTS`))
+	sb.WriteString(`DROP KEY server_key IF EXISTS`)
 
-	sb.WriteString(fmt.Sprintf(`DROP CERTIFICATE server_cert IF EXISTS`))
+	sb.WriteString(`DROP CERTIFICATE server_cert IF EXISTS`)
 
-	sb.WriteString(fmt.Sprintf(`DROP CERTIFICATE IF EXISTS server_ca_cert CASCADE`))
+	sb.WriteString(`DROP CERTIFICATE IF EXISTS server_ca_cert CASCADE`)
 
 	sb.WriteString(fmt.Sprintf(
 		`CREATE KEY server_key TYPE 'rsa' SECRETMANAGER KubernetesSecretManager SECRETNAME \"%s\" CONFIGURATION '{\"data-key\":\"%s\", \"namespace\":\"%s\"}'`,
@@ -224,10 +224,9 @@ func (c *CreateDBReconciler) generatePostDBCreateSQL(ctx context.Context, initia
 		`CREATE CERTIFICATE server_cert SECRETMANAGER KubernetesSecretManager SECRETNAME \"%s\" CONFIGURATION '{\"data-key\":\"%s\", \"namespace\":\"%s\"}' SIGNED BY server_ca_cert KEY server_key`,
 		c.Vdb.Spec.ClientServerTLSSecret, corev1.TLSCertKey, c.Vdb.ObjectMeta.Namespace))
 
-	sb.WriteString(fmt.Sprintf(`ALTER TLS CONFIGURATION server CERTIFICATE server_cert ADD CA CERTIFICATES server_ca_cert TLSMODE 'verify_ca'`))
+	sb.WriteString(`ALTER TLS CONFIGURATION server CERTIFICATE server_cert ADD CA CERTIFICATES server_ca_cert TLSMODE 'verify_ca'`)
 
-	sb.WriteString(fmt.Sprintf(`ALTER TLS CONFIGURATION https CERTIFICATE https_cert_0 ADD CA CERTIFICATES https_ca_cert_0 TLSMODE 'verify_ca'`))
-
+	sb.WriteString(`ALTER TLS CONFIGURATION https CERTIFICATE https_cert_0 ADD CA CERTIFICATES https_ca_cert_0 TLSMODE 'verify_ca'`)
 	_, _, err := c.PRunner.ExecInPod(ctx, initiatorPod, names.ServerContainer,
 		"bash", "-c", "cat > "+PostDBCreateSQLFile+"<<< \""+sb.String()+"\"",
 	)

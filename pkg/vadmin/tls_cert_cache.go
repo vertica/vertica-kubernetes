@@ -1,4 +1,4 @@
-package vdb
+package vadmin
 
 import (
 	"context"
@@ -9,7 +9,6 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	"github.com/vertica/vertica-kubernetes/pkg/secrets"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -28,24 +27,59 @@ var CERT_FIELDS = map[string]bool{
 
 type TLSCertCache struct {
 	client.Client
-	Scheme       *runtime.Scheme
 	Log          logr.Logger
 	Vdb          *vapi.VerticaDB // Vdb is the CRD we are acting on.
 	certCacheMap map[string]map[string][]byte
 }
 
-func MakeTLSCertCache(cli client.Client, scheme *runtime.Scheme, log logr.Logger,
+var tlsCertCacheManager *TLSCertCache
+
+func TLSCertCacheFactory(cli client.Client, log logr.Logger,
+	vdb *vapi.VerticaDB) *TLSCertCache {
+	if tlsCertCacheManager == nil {
+		tlsCertCacheManager = makeTLSCertCache(cli, log, vdb)
+	}
+	return tlsCertCacheManager
+}
+
+func makeTLSCertCache(cli client.Client, log logr.Logger,
 	vdb *vapi.VerticaDB) *TLSCertCache {
 	return &TLSCertCache{
 		Client:       cli,
-		Scheme:       scheme,
 		Log:          log.WithName("StatusReconciler"),
 		Vdb:          vdb,
 		certCacheMap: map[string]map[string][]byte{},
 	}
 }
 
-func (c *TLSCertCache) GetTLSCert(secret int, fieldName string) ([]byte, error) {
+func (c *TLSCertCache) GetTLSPrivateKeyBytes(secret int) ([]byte, error) {
+	return c.getTLSCertField(secret, corev1.TLSPrivateKeyKey)
+}
+
+func (c *TLSCertCache) GetTLSCertBytes(secret int) ([]byte, error) {
+	return c.getTLSCertField(secret, corev1.TLSCertKey)
+}
+
+func (c *TLSCertCache) GetTLSCaCertBytes(secret int) ([]byte, error) {
+	return c.getTLSCertField(secret, paths.HTTPServerCACrtName)
+}
+
+func (c *TLSCertCache) GetHTTPSCerts(secret int) (*HTTPSCerts, error) {
+	keyBytes, err := c.getTLSCertField(secret, corev1.TLSPrivateKeyKey)
+	if err != nil {
+		return nil, err
+	}
+	certBytes, _ := c.getTLSCertField(secret, corev1.TLSCertKey)
+	caCertBytes, _ := c.getTLSCertField(secret, paths.HTTPServerCACrtName)
+
+	return &HTTPSCerts{
+		Key:    string(keyBytes),
+		Cert:   string(certBytes),
+		CaCert: string(caCertBytes),
+	}, nil
+}
+
+func (c *TLSCertCache) getTLSCertField(secret int, fieldName string) ([]byte, error) {
 	_, ok := CERT_FIELDS[fieldName]
 	if !ok {
 		return nil, fmt.Errorf("invalid secret field name: %s", fieldName)
@@ -95,12 +129,14 @@ func (c *TLSCertCache) getSecretName(secret int) (string, error) {
 	secretName := ""
 	if secret == NMA_TLS_SECRET {
 		secretName = c.Vdb.Spec.NMATLSSecret
-	} else if secret == HTTPS_TLS_SECRET {
-		secretName = c.Vdb.Spec.HTTPSTLSSecret
 	} else if secret == CLIENT_TLS_SECRET {
-		secretName = c.Vdb.Spec.ClientTLSSecret
+		secretName = c.Vdb.Spec.ClientServerTLSSecret
 	} else {
 		return secretName, fmt.Errorf("invalid secret: %d", secret)
 	}
 	return secretName, nil
+}
+
+func (c *TLSCertCache) SetSecretData(secretName string, data map[string][]byte) {
+	c.certCacheMap[secretName] = data
 }

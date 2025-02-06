@@ -72,6 +72,11 @@ func retrieveNMACerts(ctx context.Context, fetcher cloud.VerticaDBSecretFetcher)
 	}, nil
 }
 
+func (v *VClusterOps) getCachedHTTPSCerts(secret int) (*HTTPSCerts, error) {
+	tlsCertCacheManager := TLSCertCacheFactory(v.Client, v.Log, v.VDB)
+	return tlsCertCacheManager.GetHTTPSCerts(secret)
+}
+
 // logFailure will log and record an event for a vclusterOps API failure
 func (v *VClusterOps) logFailure(cmd, genericFailureReason string, err error) (ctrl.Result, error) {
 	evLogr := vcErrors{

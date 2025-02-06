@@ -27,6 +27,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	"github.com/vertica/vertica-kubernetes/pkg/secrets"
 	"github.com/vertica/vertica-kubernetes/pkg/security"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -39,7 +40,7 @@ const (
 	NMATLSSecret          = "NMATLSSecret"
 )
 
-var TLSCertCacheManager *TLSCertCache
+var TLSCertCacheManager *vadmin.TLSCertCache
 
 // TLSServerCertGenReconciler will create a secret that has TLS credentials.  This
 // secret will be used to authenticate with the http server.
@@ -50,7 +51,7 @@ type TLSServerCertGenReconciler struct {
 }
 
 func MakeTLSServerCertGenReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger, vdb *vapi.VerticaDB) controllers.ReconcileActor {
-	TLSCertCacheManager = MakeTLSCertCache(vdbrecon.Client, vdbrecon.Scheme, log, vdb)
+	TLSCertCacheManager = vadmin.TLSCertCacheFactory(vdbrecon.Client, log, vdb)
 	return &TLSServerCertGenReconciler{
 		VRec: vdbrecon,
 		Vdb:  vdb,
@@ -97,12 +98,12 @@ func (h *TLSServerCertGenReconciler) reconcileOneSecret(secretFieldName, secretN
 				fmt.Errorf("failed while attempting to read the tls secret %s: %w", secretName, err)
 		} else {
 			// Secret is filled in and exists. We can exit.
-			for field := range CERT_FIELDS {
+			for field := range vadmin.CERT_FIELDS {
 				if _, ok := secret.Data[field]; !ok {
 					return ctrl.Result{}, fmt.Errorf("secret %s is missing field %s", secretName, field)
 				}
 			}
-			TLSCertCacheManager.certCacheMap[secretName] = secret.Data
+			TLSCertCacheManager.SetSecretData(secretName, secret.Data)
 			h.Log.Info("cached secret " + secretName)
 			return ctrl.Result{}, err
 		}
@@ -119,7 +120,7 @@ func (h *TLSServerCertGenReconciler) reconcileOneSecret(secretFieldName, secretN
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	TLSCertCacheManager.certCacheMap[secretName] = secret.Data
+	TLSCertCacheManager.SetSecretData(secretName, secret.Data)
 	h.Log.Info("created certificate and secret and cached " + secret.Name)
 	return ctrl.Result{}, h.setSecretNameInVDB(ctx, secretFieldName, secret.ObjectMeta.Name)
 }

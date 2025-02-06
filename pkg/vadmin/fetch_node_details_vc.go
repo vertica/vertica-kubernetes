@@ -34,8 +34,15 @@ func (v *VClusterOps) FetchNodeDetails(_ context.Context, opts ...fetchnodedetai
 	s := fetchnodedetails.Parms{}
 	s.Make(opts...)
 
+	// get the certs
+	certs, err := v.getCachedHTTPSCerts(NMA_TLS_SECRET)
+	if err != nil {
+		v.Log.Error(err, "failed to retrieve nma secret from cache")
+		return vops.NodeDetails{}, err
+	}
+
 	// call vclusterOps library to fetch node details
-	vopts := v.genFetchNodeDetailsOptions(&s)
+	vopts := v.genFetchNodeDetailsOptions(&s, certs)
 	nodesDetails, err := v.VFetchNodesDetails(&vopts)
 	if err != nil {
 		v.Log.Error(err, "failed to fetch node details")
@@ -52,7 +59,7 @@ func (v *VClusterOps) FetchNodeDetails(_ context.Context, opts ...fetchnodedetai
 	return nodesDetails[0], nil
 }
 
-func (v *VClusterOps) genFetchNodeDetailsOptions(s *fetchnodedetails.Parms) vops.VFetchNodesDetailsOptions {
+func (v *VClusterOps) genFetchNodeDetailsOptions(s *fetchnodedetails.Parms, certs *HTTPSCerts) vops.VFetchNodesDetailsOptions {
 	opts := vops.VFetchNodesDetailsOptionsFactory()
 
 	opts.DBName = v.VDB.Spec.DBName
@@ -61,8 +68,9 @@ func (v *VClusterOps) genFetchNodeDetailsOptions(s *fetchnodedetails.Parms) vops
 	opts.IPv6 = net.IsIPv6(s.InitiatorIP)
 
 	// auth options
-	opts.UserName = v.VDB.GetVerticaUser()
-	opts.Password = &v.Password
+	opts.Key = certs.Key
+	opts.Cert = certs.Cert
+	opts.CaCert = certs.CaCert
 
 	return opts
 }

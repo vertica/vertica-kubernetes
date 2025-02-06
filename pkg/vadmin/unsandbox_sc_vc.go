@@ -30,8 +30,9 @@ func (v *VClusterOps) UnsandboxSubcluster(ctx context.Context, opts ...unsandbox
 	v.Log.Info("Starting vcluster UnsandboxSubcluster")
 
 	// get the certs
-	certs, err := v.retrieveNMACerts(ctx)
+	certs, err := v.getCachedHTTPSCerts(NMA_TLS_SECRET)
 	if err != nil {
+		v.Log.Error(err, "failed to retrieve nma secret from cache")
 		return err
 	}
 
@@ -69,8 +70,6 @@ func (v *VClusterOps) genUnsandboxSubclusterOptions(s *unsandboxsc.Params, certs
 	opts.NodeNameAddressMap = s.NodeNameAddressMap
 
 	// auth options
-	opts.UserName = v.VDB.GetVerticaUser()
-	opts.Password = &v.Password
 	opts.Key = certs.Key
 	opts.Cert = certs.Cert
 	opts.CaCert = certs.CaCert

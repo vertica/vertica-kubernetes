@@ -32,8 +32,9 @@ func (v *VClusterOps) ReviveDB(ctx context.Context, opts ...revivedb.Option) (ct
 	defer v.tearDownForAPICall()
 	v.Log.Info("Starting VCluster ReviveDB")
 
-	certs, err := v.retrieveNMACerts(ctx)
+	certs, err := v.getCachedHTTPSCerts(NMA_TLS_SECRET)
 	if err != nil {
+		v.Log.Error(err, "failed to retrieve nma secret from cache")
 		return ctrl.Result{}, err
 	}
 

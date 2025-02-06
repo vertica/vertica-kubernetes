@@ -35,9 +35,15 @@ func (v *VClusterOps) StopSubcluster(_ context.Context, opts ...stopsubcluster.O
 	s := stopsubcluster.Parms{}
 	s.Make(opts...)
 
+	certs, err := v.getCachedHTTPSCerts(NMA_TLS_SECRET)
+	if err != nil {
+		v.Log.Error(err, "failed to retrieve nma secret from cache")
+		return err
+	}
+
 	// call vcluster-ops library to stop subcluster
-	vopts := v.genStopSubclusterOptions(&s)
-	err := v.VStopSubcluster(&vopts)
+	vopts := v.genStopSubclusterOptions(&s, certs)
+	err = v.VStopSubcluster(&vopts)
 	if err != nil {
 		v.Log.Error(err, "failed to stop a subcluster")
 		return err
@@ -47,7 +53,7 @@ func (v *VClusterOps) StopSubcluster(_ context.Context, opts ...stopsubcluster.O
 	return nil
 }
 
-func (v *VClusterOps) genStopSubclusterOptions(s *stopsubcluster.Parms) vops.VStopSubclusterOptions {
+func (v *VClusterOps) genStopSubclusterOptions(s *stopsubcluster.Parms, certs *HTTPSCerts) vops.VStopSubclusterOptions {
 	opts := vops.VStopSubclusterOptionsFactory()
 
 	opts.RawHosts = append(opts.RawHosts, s.InitiatorIP)
@@ -62,8 +68,8 @@ func (v *VClusterOps) genStopSubclusterOptions(s *stopsubcluster.Parms) vops.VSt
 	opts.Force = s.Force
 
 	// auth options
-	opts.UserName = v.VDB.GetVerticaUser()
-	opts.Password = &v.Password
-
+	opts.Key = certs.Key
+	opts.Cert = certs.Cert
+	opts.CaCert = certs.CaCert
 	return opts
 }

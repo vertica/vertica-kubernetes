@@ -34,8 +34,9 @@ func (v *VClusterOps) RestartNode(ctx context.Context, opts ...restartnode.Optio
 	defer v.tearDownForAPICall()
 	v.Log.Info("Starting vcluster StartNode")
 
-	certs, err := v.retrieveNMACerts(ctx)
+	certs, err := v.getCachedHTTPSCerts(NMA_TLS_SECRET)
 	if err != nil {
+		v.Log.Error(err, "failed to retrieve nma secret from cache")
 		return ctrl.Result{}, err
 	}
 
@@ -51,7 +52,6 @@ func (v *VClusterOps) RestartNode(ctx context.Context, opts ...restartnode.Optio
 }
 
 func (v *VClusterOps) genStartNodeOptions(s *restartnode.Parms, certs *HTTPSCerts) *vops.VStartNodesOptions {
-	su := v.VDB.GetVerticaUser()
 	opts := vops.VStartNodesOptionsFactory()
 	opts.DBName = v.VDB.Spec.DBName
 	opts.RawHosts = []string{s.InitiatorIP}
@@ -59,8 +59,6 @@ func (v *VClusterOps) genStartNodeOptions(s *restartnode.Parms, certs *HTTPSCert
 	opts.Key = certs.Key
 	opts.Cert = certs.Cert
 	opts.CaCert = certs.CaCert
-	opts.UserName = su
-	opts.Password = &v.Password
 	opts.Nodes = s.RestartHosts
 	vdbTimeout := v.VDB.GetRestartTimeout()
 	if vdbTimeout != 0 {

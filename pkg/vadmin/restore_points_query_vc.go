@@ -32,8 +32,9 @@ func (v *VClusterOps) ShowRestorePoints(ctx context.Context, opts ...showrestore
 	defer v.tearDownForAPICall()
 	v.Log.Info("Starting vcluster ShowRestorePoints")
 
-	certs, err := v.retrieveNMACerts(ctx)
+	certs, err := v.getCachedHTTPSCerts(NMA_TLS_SECRET)
 	if err != nil {
+		v.Log.Error(err, "failed to retrieve nma secret from cache")
 		return restorePoints, err
 	}
 
