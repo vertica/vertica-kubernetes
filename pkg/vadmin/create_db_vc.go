@@ -111,10 +111,7 @@ func (v *VClusterOps) genCreateDBOptions(s *createdb.Parms, certs *HTTPSCerts) v
 	opts.Key = certs.Key
 	opts.Cert = certs.Cert
 	opts.CaCert = certs.CaCert
-	opts.UserName = v.VDB.GetVerticaUser()
-	if v.Password != "" {
-		opts.Password = &v.Password
-	}
+
 	// Timeout
 	if timeout := v.VDB.GetCreateDBNodeStartTimeout(); timeout != 0 {
 		opts.TimeoutNodeStartupSeconds = timeout
