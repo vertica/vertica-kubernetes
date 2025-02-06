@@ -37,8 +37,10 @@ var tlsCertCacheManager *TLSCertCache
 func TLSCertCacheFactory(cli client.Client, log logr.Logger,
 	vdb *vapi.VerticaDB) *TLSCertCache {
 	if tlsCertCacheManager == nil {
+		log.Info("libo: tlsCertCacheManager is to be initialized")
 		tlsCertCacheManager = makeTLSCertCache(cli, log, vdb)
 	}
+
 	return tlsCertCacheManager
 }
 
@@ -94,10 +96,10 @@ func (c *TLSCertCache) getTLSCertField(secret int, fieldName string) ([]byte, er
 	if err != nil {
 		return nil, fmt.Errorf("invalid secret name index: %d", secret)
 	}
-
+	c.Log.Info("libo: getTLSCertField, secretName - " + secretName + ", fieldName - " + fieldName)
 	secretMap, ok := c.certCacheMap[secretName]
 	if ok {
-		return secretMap[secretName], nil
+		return secretMap[fieldName], nil
 	}
 	c.Log.Info(secretName + " not found in cache. load it")
 	// not found in cache. load from secretes
@@ -113,7 +115,7 @@ func (c *TLSCertCache) getTLSCertField(secret int, fieldName string) ([]byte, er
 		}
 	}
 	c.certCacheMap[secretName] = secretMap
-	return secretMap[secretName], nil
+	return secretMap[fieldName], nil
 }
 
 func (c *TLSCertCache) retrieveSecret(secret int) (map[string][]byte, error) {
