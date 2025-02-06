@@ -34,7 +34,7 @@ func (v *VClusterOps) RestartNode(ctx context.Context, opts ...restartnode.Optio
 	defer v.tearDownForAPICall()
 	v.Log.Info("Starting vcluster StartNode")
 
-	certs, err := v.getCachedHTTPSCerts(NMA_TLS_SECRET)
+	certs, err := v.getCachedHTTPSCerts(NmaTLSSecret)
 	if err != nil {
 		v.Log.Error(err, "failed to retrieve nma secret from cache")
 		return ctrl.Result{}, err

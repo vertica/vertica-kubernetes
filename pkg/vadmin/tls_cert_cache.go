@@ -14,12 +14,12 @@ import (
 )
 
 const ( // iota is reset to 0
-	NMA_TLS_SECRET = iota
-	HTTPS_TLS_SECRET
-	CLIENT_TLS_SECRET
+	NmaTLSSecret = iota
+	HTTPSTLSSecret
+	ClientTLSSecret
 )
 
-var CERT_FIELDS = map[string]bool{
+var CertFields = map[string]bool{
 	corev1.TLSPrivateKeyKey:   true,
 	corev1.TLSCertKey:         true,
 	paths.HTTPServerCACrtName: true,
@@ -80,7 +80,7 @@ func (c *TLSCertCache) GetHTTPSCerts(secret int) (*HTTPSCerts, error) {
 }
 
 func (c *TLSCertCache) getTLSCertField(secret int, fieldName string) ([]byte, error) {
-	_, ok := CERT_FIELDS[fieldName]
+	_, ok := CertFields[fieldName]
 	if !ok {
 		return nil, fmt.Errorf("invalid secret field name: %s", fieldName)
 	}
@@ -98,7 +98,7 @@ func (c *TLSCertCache) getTLSCertField(secret int, fieldName string) ([]byte, er
 	if err != nil {
 		return nil, err
 	}
-	for field := range CERT_FIELDS {
+	for field := range CertFields {
 		_, ok := secretMap[field]
 		if !ok {
 			return nil, fmt.Errorf("secret %s is missing field: %s", secretName, field)
@@ -122,14 +122,13 @@ func (c *TLSCertCache) retrieveSecret(secret int) (map[string][]byte, error) {
 		Name:      secretName,
 	}
 	return fetcher.Fetch(ctx, fetchName)
-
 }
 
 func (c *TLSCertCache) getSecretName(secret int) (string, error) {
 	secretName := ""
-	if secret == NMA_TLS_SECRET {
+	if secret == NmaTLSSecret {
 		secretName = c.Vdb.Spec.NMATLSSecret
-	} else if secret == CLIENT_TLS_SECRET {
+	} else if secret == ClientTLSSecret {
 		secretName = c.Vdb.Spec.ClientServerTLSSecret
 	} else {
 		return secretName, fmt.Errorf("invalid secret: %d", secret)

@@ -35,7 +35,7 @@ func (v *VClusterOps) InstallPackages(_ context.Context, opts ...installpackages
 	s.Make(opts...)
 
 	// get the certs
-	certs, err := v.getCachedHTTPSCerts(NMA_TLS_SECRET)
+	certs, err := v.getCachedHTTPSCerts(NmaTLSSecret)
 	if err != nil {
 		v.Log.Error(err, "failed to retrieve nma secret from cache")
 		return nil, err

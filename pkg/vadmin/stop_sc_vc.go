@@ -24,8 +24,6 @@ import (
 )
 
 // StopSubcluster will stop the subcluster hosts of a running Vertica db
-//
-//nolint:dupl
 func (v *VClusterOps) StopSubcluster(_ context.Context, opts ...stopsubcluster.Option) error {
 	v.setupForAPICall("StopSubcluster")
 	defer v.tearDownForAPICall()
@@ -35,7 +33,7 @@ func (v *VClusterOps) StopSubcluster(_ context.Context, opts ...stopsubcluster.O
 	s := stopsubcluster.Parms{}
 	s.Make(opts...)
 
-	certs, err := v.getCachedHTTPSCerts(NMA_TLS_SECRET)
+	certs, err := v.getCachedHTTPSCerts(NmaTLSSecret)
 	if err != nil {
 		v.Log.Error(err, "failed to retrieve nma secret from cache")
 		return err

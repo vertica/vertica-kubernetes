@@ -25,14 +25,12 @@ import (
 )
 
 // StopDB will stop all the vertica hosts of a running cluster
-//
-//nolint:dupl
 func (v *VClusterOps) StopDB(_ context.Context, opts ...stopdb.Option) error {
 	v.setupForAPICall("StopDB")
 	defer v.tearDownForAPICall()
 	v.Log.Info("Starting vcluster StopDB")
 
-	certs, err := v.getCachedHTTPSCerts(NMA_TLS_SECRET)
+	certs, err := v.getCachedHTTPSCerts(NmaTLSSecret)
 	if err != nil {
 		v.Log.Error(err, "failed to retrieve nma secret from cache")
 		return err

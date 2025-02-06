@@ -25,17 +25,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-// retrieveNMACerts will retrieve the certs from NMATLSSecret for calling NMA endpoints
-func (v *VClusterOps) retrieveNMACerts(ctx context.Context) (*HTTPSCerts, error) {
-	fetcher := cloud.VerticaDBSecretFetcher{
-		Client:   v.Client,
-		Log:      v.Log,
-		VDB:      v.VDB,
-		EVWriter: v.EVWriter,
-	}
-	return retrieveNMACerts(ctx, fetcher)
-}
-
 // retrieveTargetNMACerts will retrieve the certs from NMATLSSecret for calling target NMA endpoints
 func (v *VClusterOps) retrieveTargetNMACerts(ctx context.Context) (*HTTPSCerts, error) {
 	fetcher := cloud.VerticaDBSecretFetcher{
@@ -72,7 +61,7 @@ func retrieveNMACerts(ctx context.Context, fetcher cloud.VerticaDBSecretFetcher)
 	}, nil
 }
 
-func (v *VClusterOps) getCachedHTTPSCerts(secret int) (*HTTPSCerts, error) {
+func (v *VClusterOps) getCachedHTTPSCerts(secret int) (*HTTPSCerts, error) { //nolint:unparam
 	tlsCertCacheManager := TLSCertCacheFactory(v.Client, v.Log, v.VDB)
 	return tlsCertCacheManager.GetHTTPSCerts(secret)
 }

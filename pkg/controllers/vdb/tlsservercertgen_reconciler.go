@@ -98,7 +98,7 @@ func (h *TLSServerCertGenReconciler) reconcileOneSecret(secretFieldName, secretN
 				fmt.Errorf("failed while attempting to read the tls secret %s: %w", secretName, err)
 		} else {
 			// Secret is filled in and exists. We can exit.
-			for field := range vadmin.CERT_FIELDS {
+			for field := range vadmin.CertFields {
 				if _, ok := secret.Data[field]; !ok {
 					return ctrl.Result{}, fmt.Errorf("secret %s is missing field %s", secretName, field)
 				}

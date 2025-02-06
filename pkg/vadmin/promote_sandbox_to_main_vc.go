@@ -34,7 +34,7 @@ func (v *VClusterOps) PromoteSandboxToMain(ctx context.Context, opts ...promotes
 	v.Log.Info("Starting vcluster PromoteSandboxToMain")
 
 	// get the certs
-	certs, err := v.getCachedHTTPSCerts(NMA_TLS_SECRET)
+	certs, err := v.getCachedHTTPSCerts(NmaTLSSecret)
 	if err != nil {
 		v.Log.Error(err, "failed to retrieve nma secret from cache")
 		return err

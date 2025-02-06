@@ -30,7 +30,7 @@ func (v *VClusterOps) AddSubcluster(ctx context.Context, opts ...addsc.Option) e
 	v.Log.Info("Starting vcluster AddSubcluster")
 
 	// get the certs
-	certs, err := v.getCachedHTTPSCerts(NMA_TLS_SECRET)
+	certs, err := v.getCachedHTTPSCerts(NmaTLSSecret)
 	if err != nil {
 		v.Log.Error(err, "failed to retrieve nma secret from cache")
 		return err

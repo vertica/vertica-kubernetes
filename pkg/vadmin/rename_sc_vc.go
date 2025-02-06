@@ -33,7 +33,7 @@ func (v *VClusterOps) RenameSubcluster(ctx context.Context, opts ...renamesc.Opt
 	s := renamesc.Params{}
 	s.Make(opts...)
 
-	certs, err := v.getCachedHTTPSCerts(NMA_TLS_SECRET)
+	certs, err := v.getCachedHTTPSCerts(NmaTLSSecret)
 	if err != nil {
 		v.Log.Error(err, "failed to retrieve nma secret from cache")
 		return err

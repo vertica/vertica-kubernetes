@@ -30,7 +30,7 @@ func (v *VClusterOps) UnsandboxSubcluster(ctx context.Context, opts ...unsandbox
 	v.Log.Info("Starting vcluster UnsandboxSubcluster")
 
 	// get the certs
-	certs, err := v.getCachedHTTPSCerts(NMA_TLS_SECRET)
+	certs, err := v.getCachedHTTPSCerts(NmaTLSSecret)
 	if err != nil {
 		v.Log.Error(err, "failed to retrieve nma secret from cache")
 		return err

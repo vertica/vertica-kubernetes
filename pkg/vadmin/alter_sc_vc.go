@@ -42,7 +42,7 @@ func (v *VClusterOps) AlterSubclusterType(ctx context.Context, opts ...altersc.O
 		return fmt.Errorf("invalid subcluster type: must be %q or %q", primary, secondary)
 	}
 
-	certs, err := v.getCachedHTTPSCerts(NMA_TLS_SECRET)
+	certs, err := v.getCachedHTTPSCerts(NmaTLSSecret)
 	if err != nil {
 		v.Log.Error(err, "failed to retrieve nma secret from cache")
 		return err

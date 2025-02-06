@@ -32,7 +32,7 @@ func (v *VClusterOps) SaveRestorePoint(ctx context.Context, opts ...saverestorep
 	v.Log.Info("Starting vcluster SaveRestorePoint")
 
 	// get the certs
-	certs, err := v.getCachedHTTPSCerts(NMA_TLS_SECRET)
+	certs, err := v.getCachedHTTPSCerts(NmaTLSSecret)
 	if err != nil {
 		v.Log.Error(err, "failed to retrieve nma secret from cache")
 		return err

@@ -35,7 +35,7 @@ func (v *VClusterOps) FetchNodeState(_ context.Context, opts ...fetchnodestate.O
 	s := fetchnodestate.Parms{}
 	s.Make(opts...)
 
-	certs, err := v.getCachedHTTPSCerts(NMA_TLS_SECRET)
+	certs, err := v.getCachedHTTPSCerts(NmaTLSSecret)
 	if err != nil {
 		v.Log.Error(err, "failed to retrieve nma secret from cache")
 		return nil, ctrl.Result{}, err
