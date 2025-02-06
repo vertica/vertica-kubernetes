@@ -46,7 +46,7 @@ func makeTLSCertCache(cli client.Client, log logr.Logger,
 	vdb *vapi.VerticaDB) *TLSCertCache {
 	return &TLSCertCache{
 		Client:       cli,
-		Log:          log.WithName("StatusReconciler"),
+		Log:          log.WithName("TLSCertCache"),
 		Vdb:          vdb,
 		certCacheMap: map[string]map[string][]byte{},
 	}
@@ -64,11 +64,17 @@ func (c *TLSCertCache) GetTLSCaCertBytes(secret int) ([]byte, error) {
 	return c.getTLSCertField(secret, paths.HTTPServerCACrtName)
 }
 
+func (c *TLSCertCache) HasCert(secretName string) bool {
+	_, ok := c.certCacheMap[secretName]
+	return ok
+}
+
 func (c *TLSCertCache) GetHTTPSCerts(secret int) (*HTTPSCerts, error) {
 	keyBytes, err := c.getTLSCertField(secret, corev1.TLSPrivateKeyKey)
 	if err != nil {
 		return nil, err
 	}
+	c.Log.Info("libo: key string - " + string(keyBytes))
 	certBytes, _ := c.getTLSCertField(secret, corev1.TLSCertKey)
 	caCertBytes, _ := c.getTLSCertField(secret, paths.HTTPServerCACrtName)
 
@@ -93,9 +99,11 @@ func (c *TLSCertCache) getTLSCertField(secret int, fieldName string) ([]byte, er
 	if ok {
 		return secretMap[secretName], nil
 	}
+	c.Log.Info(secretName + " not found in cache. load it")
 	// not found in cache. load from secretes
 	secretMap, err = c.retrieveSecret(secret)
 	if err != nil {
+		c.Log.Error(err, "failed to load secret "+secretName)
 		return nil, err
 	}
 	for field := range CertFields {

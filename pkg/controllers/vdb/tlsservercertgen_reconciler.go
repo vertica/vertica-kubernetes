@@ -88,6 +88,9 @@ func (h *TLSServerCertGenReconciler) reconcileOneSecret(secretFieldName, secretN
 			h.Log.Info(secretName + " is set but uses a path reference that isn't for k8s.")
 			return ctrl.Result{}, nil
 		}
+		if TLSCertCacheManager.HasCert(secretName) {
+			return ctrl.Result{}, nil
+		}
 		nm := names.GenNamespacedName(h.Vdb, secretName)
 		secret := corev1.Secret{}
 		err := h.VRec.Client.Get(ctx, nm, &secret)
@@ -99,10 +102,13 @@ func (h *TLSServerCertGenReconciler) reconcileOneSecret(secretFieldName, secretN
 		} else {
 			// Secret is filled in and exists. We can exit.
 			for field := range vadmin.CertFields {
-				if _, ok := secret.Data[field]; !ok {
+				_, ok := secret.Data[field]
+				if !ok {
 					return ctrl.Result{}, fmt.Errorf("secret %s is missing field %s", secretName, field)
 				}
+				// h.Log.Info("libo: secret name - " + secretName + ", field - " + field + ", value - " + string(bytes))
 			}
+			h.Log.Info("libo: to call SetSecretData for secret name - " + secretName)
 			TLSCertCacheManager.SetSecretData(secretName, secret.Data)
 			h.Log.Info("cached secret " + secretName)
 			return ctrl.Result{}, err
@@ -120,7 +126,15 @@ func (h *TLSServerCertGenReconciler) reconcileOneSecret(secretFieldName, secretN
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	TLSCertCacheManager.SetSecretData(secretName, secret.Data)
+	for field := range vadmin.CertFields {
+		_, ok := secret.Data[field]
+		if !ok {
+			return ctrl.Result{}, fmt.Errorf("secret %s is missing field %s", secretName, field)
+		}
+		// h.Log.Info("libo: secret name - " + secretName + ", field - " + field + ", value - " + string(bytes))
+	}
+	h.Log.Info("libo 2 : to call SetSecretData for secret name - " + secret.Name)
+	TLSCertCacheManager.SetSecretData(secret.Name, secret.Data)
 	h.Log.Info("created certificate and secret and cached " + secret.Name)
 	return ctrl.Result{}, h.setSecretNameInVDB(ctx, secretFieldName, secret.ObjectMeta.Name)
 }
