@@ -27,7 +27,7 @@ var verticaautoscalerlog = logf.Log.WithName("verticaautoscaler-resource")
 
 // ConvertTo is a function to convert a v1beta1 CR to the v1 version of the CR.
 func (v *VerticaAutoscaler) ConvertTo(dstRaw conversion.Hub) error {
-	verticadblog.Info("ConvertTo", "GroupVersion", GroupVersion, "name", v.Name, "namespace", v.Namespace, "uid", v.UID)
+	verticaautoscalerlog.Info("ConvertTo", "GroupVersion", GroupVersion, "name", v.Name, "namespace", v.Namespace, "uid", v.UID)
 	dst := dstRaw.(*v1.VerticaAutoscaler)
 	dst.Name = v.Name
 	dst.Namespace = v.Namespace
@@ -35,13 +35,13 @@ func (v *VerticaAutoscaler) ConvertTo(dstRaw conversion.Hub) error {
 	dst.UID = v.UID
 	dst.Labels = v.Labels
 	dst.Spec = convertToVasSpec(&v.Spec)
-	dst.Status = convertToStatus(&v.Status)
+	dst.Status = convertToVasStatus(&v.Status)
 	return nil
 }
 
 // ConvertFrom will handle conversion from the Hub type (v1) to v1beta1.
-func (v *VerticaDB) ConvertFrom(srcRaw conversion.Hub) error {
-	src := srcRaw.(*v1.VerticaDB)
+func (v *VerticaAutoscaler) ConvertFrom(srcRaw conversion.Hub) error {
+	src := srcRaw.(*v1.VerticaAutoscaler)
 	verticadblog.Info("ConvertFrom", "GroupVersion", GroupVersion, "name", src.Name, "namespace", src.Namespace, "uid", src.UID)
 	v.Name = src.Name
 	v.Namespace = src.Namespace
@@ -49,11 +49,11 @@ func (v *VerticaDB) ConvertFrom(srcRaw conversion.Hub) error {
 	v.UID = src.UID
 	v.Labels = src.Labels
 	v.Spec = convertVasFromSpec(src)
-	v.Status = convertFromStatus(&src.Status)
+	v.Status = convertVasFromStatus(&src.Status)
 	return nil
 }
 
-// convertToVasSpec will convert to a v1 VerticaDBSpec from a v1beta1 version
+// convertToVasSpec will convert to a v1 VerticaAutoscalerSpec from a v1beta1 version
 func convertToVasSpec(src *VerticaAutoscalerSpec) v1.VerticaAutoscalerSpec {
 	dst := v1.VerticaAutoscalerSpec{
 		VerticaDBName:      src.VerticaDBName,
@@ -65,7 +65,16 @@ func convertToVasSpec(src *VerticaAutoscalerSpec) v1.VerticaAutoscalerSpec {
 	return dst
 }
 
-func convertToVasStatus(src *Vertica)
+// convertToVasStatus will convert to a v1 VerticaAutoscalerStatus from a v1beta1 version
+func convertToVasStatus(src *VerticaAutoscalerStatus) v1.VerticaAutoscalerStatus {
+	dst := v1.VerticaAutoscalerStatus{
+		ScalingCount: src.ScalingCount,
+		CurrentSize:  src.CurrentSize,
+		Selector:     src.Selector,
+		Conditions:   make([]v1.VerticaAutoscalerCondition, len(src.Conditions)),
+	}
+	return dst
+}
 
 func convertToVasCustomAutoscaler(src *CustomAutoscalerSpec) *v1.CustomAutoscalerSpec {
 	if src == nil {
@@ -84,6 +93,41 @@ func convertToVasCustomAutoscaler(src *CustomAutoscalerSpec) *v1.CustomAutoscale
 			Metric:                   srcMetric.Metric,
 			ScaleDownThreshold:       ptrOrNil(srcMetric.ScaleDownThreshold),
 		}
+	}
+	return dst
+}
+
+// convertVasFromSpec will convert from a v1 VerticaAutoscalerSpec to a v1beta1 version
+func convertVasFromSpec(src *v1.VerticaAutoscaler) VerticaAutoscalerSpec {
+	srcSpec := &src.Spec
+
+	dst := VerticaAutoscalerSpec{
+		VerticaDBName:      srcSpec.VerticaDBName,
+		ScalingGranularity: ScalingGranularityType(srcSpec.ScalingGranularity),
+		ServiceName:        srcSpec.ServiceName,
+		Template:           convertFromSubcluster(&srcSpec.Template),
+		TargetSize:         srcSpec.TargetSize,
+	}
+	if srcSpec.CustomAutoscaler != nil {
+		dst.CustomAutoscaler = &CustomAutoscalerSpec{
+			MinReplicas: srcSpec.CustomAutoscaler.MinReplicas,
+			MaxReplicas: srcSpec.CustomAutoscaler.MaxReplicas,
+			Metrics:     make([]MetricDefinition, len(srcSpec.CustomAutoscaler.Metrics)),
+			Behavior:    srcSpec.CustomAutoscaler.Behavior,
+		}
+
+	}
+
+	return dst
+}
+
+// convertVasFromStatus will convert from a v1 VerticaAutoscalerStatus to a v1beta1 version
+func convertVasFromStatus(src *v1.VerticaAutoscalerStatus) VerticaAutoscalerStatus {
+	dst := VerticaAutoscalerStatus{
+		ScalingCount: src.ScalingCount,
+		CurrentSize:  src.CurrentSize,
+		Selector:     src.Selector,
+		Conditions:   make([]VerticaAutoscalerCondition, len(src.Conditions)),
 	}
 	return dst
 }
