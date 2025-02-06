@@ -59,7 +59,7 @@ then
     # All entries will have a key/value like this:
     # "verticadb": "kuttl-test-sterling-coyote/v-auto-restart",
     # We are going to look for the namespace portion.
-    VDB_FILTER="${@:$OPTIND:1}/"
+    VDB_FILTER="${@:$OPTIND:1}"
 else
     # No verticadb namespace, so include everything in the vdb filter
     VDB_FILTER="."

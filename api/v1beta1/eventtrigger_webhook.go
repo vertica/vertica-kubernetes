@@ -24,6 +24,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
+	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
 const (
@@ -50,34 +51,34 @@ func (e *EventTrigger) Default() {
 var _ webhook.Validator = &EventTrigger{}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
-func (e *EventTrigger) ValidateCreate() error {
+func (e *EventTrigger) ValidateCreate() (admission.Warnings, error) {
 	eventtriggerlog.Info("validate create", "name", e.Name)
 
 	allErrs := e.validateSpec()
 	if allErrs == nil {
-		return nil
+		return nil, nil
 	}
 
-	return apierrors.NewInvalid(GkET, e.Name, allErrs)
+	return nil, apierrors.NewInvalid(GkET, e.Name, allErrs)
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
-func (e *EventTrigger) ValidateUpdate(_ runtime.Object) error {
+func (e *EventTrigger) ValidateUpdate(_ runtime.Object) (admission.Warnings, error) {
 	eventtriggerlog.Info("validate update", "name", e.Name)
 
 	allErrs := e.validateSpec()
 	if allErrs == nil {
-		return nil
+		return nil, nil
 	}
 
-	return apierrors.NewInvalid(GkET, e.Name, allErrs)
+	return nil, apierrors.NewInvalid(GkET, e.Name, allErrs)
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
-func (e *EventTrigger) ValidateDelete() error {
+func (e *EventTrigger) ValidateDelete() (admission.Warnings, error) {
 	eventtriggerlog.Info("validate delete", "name", e.Name)
 
-	return nil
+	return nil, nil
 }
 
 func (e *EventTrigger) validateSpec() field.ErrorList {

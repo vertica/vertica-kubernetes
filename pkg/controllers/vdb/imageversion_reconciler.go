@@ -130,7 +130,7 @@ func (v *ImageVersionReconciler) isValidSandboxUpgradePath(ctx context.Context,
 // makeSandboxVersionInfo will build and return the sandbox version info based
 // on the configmap annotations
 func (v *ImageVersionReconciler) makeSandboxVersionInfo(ctx context.Context) (*version.Info, bool, error) {
-	sbMan := MakeSandboxConfigMapManager(v.Rec, v.Vdb, v.PFacts.SandboxName, "" /*no uuid*/)
+	sbMan := MakeSandboxConfigMapManager(v.Rec, v.Vdb, v.PFacts.SandboxName, "" /* no uuid */)
 	oldVersion, found, err := sbMan.getSandboxVersion(ctx)
 	// If the version annotation isn't present, we abort creation of Info
 	if !found || err != nil {
