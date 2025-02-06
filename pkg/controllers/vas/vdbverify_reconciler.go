@@ -19,7 +19,6 @@ import (
 	"context"
 
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
-	v1beta1 "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
@@ -30,11 +29,11 @@ import (
 // VDBVerifyReconciler will verify the VerticaDB in the VAS CR exists
 type VDBVerifyReconciler struct {
 	VRec *VerticaAutoscalerReconciler
-	Vas  *v1beta1.VerticaAutoscaler
+	Vas  *vapi.VerticaAutoscaler
 	Vdb  *vapi.VerticaDB
 }
 
-func MakeVDBVerifyReconciler(r *VerticaAutoscalerReconciler, vas *v1beta1.VerticaAutoscaler) controllers.ReconcileActor {
+func MakeVDBVerifyReconciler(r *VerticaAutoscalerReconciler, vas *vapi.VerticaAutoscaler) controllers.ReconcileActor {
 	return &VDBVerifyReconciler{VRec: r, Vas: vas, Vdb: &vapi.VerticaDB{}}
 }
 

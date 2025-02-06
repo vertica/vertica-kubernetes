@@ -60,7 +60,7 @@ func (r *VerticaAutoscalerReconciler) Reconcile(ctx context.Context, req ctrl.Re
 	log.Info("starting reconcile of VerticaAutoscaler")
 
 	var res ctrl.Result
-	vas := &vapi.VerticaAutoscaler{}
+	vas := &v1vapi.VerticaAutoscaler{}
 	err := r.Get(ctx, req.NamespacedName, vas)
 	if err != nil {
 		if errors.IsNotFound(err) {

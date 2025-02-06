@@ -33,11 +33,11 @@ import (
 // SubclusterScaleReconciler will scale a VerticaDB by adding or removing subclusters.
 type SubclusterScaleReconciler struct {
 	VRec *VerticaAutoscalerReconciler
-	Vas  *v1beta1.VerticaAutoscaler
+	Vas  *vapi.VerticaAutoscaler
 	Vdb  *vapi.VerticaDB
 }
 
-func MakeSubclusterScaleReconciler(r *VerticaAutoscalerReconciler, vas *v1beta1.VerticaAutoscaler) controllers.ReconcileActor {
+func MakeSubclusterScaleReconciler(r *VerticaAutoscalerReconciler, vas *vapi.VerticaAutoscaler) controllers.ReconcileActor {
 	return &SubclusterScaleReconciler{VRec: r, Vas: vas, Vdb: &vapi.VerticaDB{}}
 }
 
@@ -167,7 +167,7 @@ func (s *SubclusterScaleReconciler) calcNextSubcluster(scMap map[string]*vapi.Su
 	// If the template is set, we will use that.  Otherwise, we try to use an
 	// existing subcluster (last one added) as a base.
 	if s.Vas.CanUseTemplate() {
-		sc := v1beta1.GetV1SubclusterFromV1beta1(s.Vas.Spec.Template.DeepCopy())
+		sc := s.Vas.Spec.Template
 		sc.Name = s.genNextSubclusterName(scMap)
 		return &sc, true
 	}

@@ -19,7 +19,6 @@ import (
 	"context"
 
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
-	v1beta1 "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
@@ -31,7 +30,7 @@ import (
 // fetchVDB will fetch the VerticaDB that is referenced in a VerticaAutoscaler.
 // This will log an event if the VerticaDB is not found.
 func fetchVDB(ctx context.Context, vrec *VerticaAutoscalerReconciler,
-	vas *v1beta1.VerticaAutoscaler, vdb *vapi.VerticaDB) (ctrl.Result, error) {
+	vas *vapi.VerticaAutoscaler, vdb *vapi.VerticaDB) (ctrl.Result, error) {
 	nm := types.NamespacedName{
 		Namespace: vas.Namespace,
 		Name:      vas.Spec.VerticaDBName,
@@ -47,7 +46,7 @@ func fetchVDB(ctx context.Context, vrec *VerticaAutoscalerReconciler,
 
 // createHpa creates a new horizontal pod autoscaler.
 func createHpa(ctx context.Context, vrec *VerticaAutoscalerReconciler, expHpa *autoscalingv2.HorizontalPodAutoscaler,
-	vas *v1beta1.VerticaAutoscaler) error {
+	vas *vapi.VerticaAutoscaler) error {
 	err := ctrl.SetControllerReference(vas, expHpa, vrec.Client.Scheme())
 	if err != nil {
 		return err

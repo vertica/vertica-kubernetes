@@ -19,7 +19,6 @@ import (
 	"fmt"
 
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
-	"github.com/vertica/vertica-kubernetes/api/v1beta1"
 	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -131,6 +130,6 @@ func GenPVName(vdb *vapi.VerticaDB, sc *vapi.Subcluster, podIndex int32) types.N
 	}
 }
 
-func GenHPAName(vas *v1beta1.VerticaAutoscaler) types.NamespacedName {
+func GenHPAName(vas *vapi.VerticaAutoscaler) types.NamespacedName {
 	return GenNamespacedName(vas, fmt.Sprintf("%s-hpa", vas.Name))
 }

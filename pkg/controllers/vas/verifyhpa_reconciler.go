@@ -19,7 +19,7 @@ import (
 	"context"
 
 	"github.com/go-logr/logr"
-	v1beta1 "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/vasstatus"
@@ -31,11 +31,11 @@ import (
 // VerifyHPAReconciler is a reconciler to check if the hpa is ready for scaling.
 type VerifyHPAReconciler struct {
 	VRec *VerticaAutoscalerReconciler
-	Vas  *v1beta1.VerticaAutoscaler
+	Vas  *vapi.VerticaAutoscaler
 	Log  logr.Logger
 }
 
-func MakeVerifyHPAReconciler(v *VerticaAutoscalerReconciler, vas *v1beta1.VerticaAutoscaler,
+func MakeVerifyHPAReconciler(v *VerticaAutoscalerReconciler, vas *vapi.VerticaAutoscaler,
 	log logr.Logger) controllers.ReconcileActor {
 	return &VerifyHPAReconciler{VRec: v, Vas: vas, Log: log.WithName("VerifyHPAReconciler")}
 }
@@ -53,8 +53,8 @@ func (v *VerifyHPAReconciler) Reconcile(ctx context.Context, req *ctrl.Request) 
 		return ctrl.Result{Requeue: true}, err
 	}
 	conds := curHpa.Status.Conditions
-	cond := v1beta1.VerticaAutoscalerCondition{
-		Type:   v1beta1.ScalingActive,
+	cond := vapi.VerticaAutoscalerCondition{
+		Type:   vapi.ScalingActive,
 		Status: corev1.ConditionFalse,
 	}
 	scalingActive := isStatusConditionPresentAndEqual(conds, autoscalingv2.ScalingActive, corev1.ConditionTrue) &&

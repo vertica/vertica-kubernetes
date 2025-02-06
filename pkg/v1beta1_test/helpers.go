@@ -43,15 +43,15 @@ func DeletePods(ctx context.Context, c client.Client, vdb *vapi.VerticaDB) {
 	test.DeletePods(ctx, c, &v1vdb)
 }
 
-func CreateVAS(ctx context.Context, c client.Client, vas *vapi.VerticaAutoscaler) {
+func CreateVAS(ctx context.Context, c client.Client, vas *v1vapi.VerticaAutoscaler) {
 	ExpectWithOffset(1, c.Create(ctx, vas)).Should(Succeed())
 }
 
-func DeleteVAS(ctx context.Context, c client.Client, vas *vapi.VerticaAutoscaler) {
+func DeleteVAS(ctx context.Context, c client.Client, vas *v1vapi.VerticaAutoscaler) {
 	ExpectWithOffset(1, c.Delete(ctx, vas)).Should(Succeed())
 }
 
-func DeleteHPA(ctx context.Context, c client.Client, vas *vapi.VerticaAutoscaler) {
+func DeleteHPA(ctx context.Context, c client.Client, vas *v1vapi.VerticaAutoscaler) {
 	hpa := builder.BuildHorizontalPodAutoscaler(names.GenHPAName(vas), vas)
 	ExpectWithOffset(1, c.Delete(ctx, hpa)).Should(Succeed())
 }

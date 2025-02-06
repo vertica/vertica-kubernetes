@@ -115,9 +115,7 @@ func convertVasFromSpec(src *v1.VerticaAutoscaler) VerticaAutoscalerSpec {
 			Metrics:     make([]MetricDefinition, len(srcSpec.CustomAutoscaler.Metrics)),
 			Behavior:    srcSpec.CustomAutoscaler.Behavior,
 		}
-
 	}
-
 	return dst
 }
 

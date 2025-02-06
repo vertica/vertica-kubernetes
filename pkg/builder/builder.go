@@ -865,7 +865,7 @@ func makeScrutinizeInitContainers(vscr *v1beta1.VerticaScrutinize, vdb *vapi.Ver
 }
 
 // BuildHorizontalPodAutoscaler builds a manifest for the horizontal pod autoscaler.
-func BuildHorizontalPodAutoscaler(nm types.NamespacedName, vas *v1beta1.VerticaAutoscaler) *autoscalingv2.HorizontalPodAutoscaler {
+func BuildHorizontalPodAutoscaler(nm types.NamespacedName, vas *vapi.VerticaAutoscaler) *autoscalingv2.HorizontalPodAutoscaler {
 	return &autoscalingv2.HorizontalPodAutoscaler{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: nm.Namespace,

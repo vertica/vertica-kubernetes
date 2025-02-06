@@ -20,7 +20,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	v1beta1 "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/v1beta1_test"
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
@@ -32,7 +32,7 @@ var _ = Describe("scaledown_reconcile", func() {
 	ctx := context.Background()
 
 	It("should set minreplicas based on current metric", func() {
-		vas := v1beta1.MakeVASWithMetrics()
+		vas := vapi.MakeVASWithMetrics()
 		vas.Spec.TargetSize = 4
 		m := &vas.Spec.CustomAutoscaler.Metrics[0]
 		cpu := int32(60)
