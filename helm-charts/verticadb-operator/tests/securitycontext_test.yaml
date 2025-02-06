@@ -1,0 +1,29 @@
+suite: ServiceAccount tests
+templates:
+  - verticadb-operator-manager-deployment.yaml
+tests:
+  - it: should allow you to set pod securityContext
+    set:
+      securityContext:
+        fsGroup: 65533
+        runAsGroup: 65533
+        runAsNonRoot: true
+        runAsUser: 65533
+        seccompProfile:
+          type: RuntimeDefault
+    asserts:
+      - equal:
+          path: spec.template.spec.securityContext.runAsUser
+          value: 65533
+  - it: should allow you to set container securityContext
+    set:
+      containerSecurityContext:
+        allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: true
+        capabilities:
+          drop:
+          - ALL
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].securityContext.readOnlyRootFilesystem
+          value: true
