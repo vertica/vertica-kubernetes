@@ -23,7 +23,7 @@ set -o xtrace
 
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 REPO_DIR=$(dirname $SCRIPT_DIR)
-TIMEOUT=120
+TIMEOUT=180
 NAMESPACE=$(kubectl config view --minify --output 'jsonpath={..namespace}')
 CATALOG_SOURCE_NAME=$(grep OLM_TEST_CATALOG_SOURCE= $REPO_DIR/Makefile | cut -d'=' -f2)
 OLM_NS=olm
