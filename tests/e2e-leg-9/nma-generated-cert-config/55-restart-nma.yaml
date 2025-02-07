@@ -11,27 +11,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: apps/v1
-kind: StatefulSet
-metadata:
-  name: v-tls-certs-sc1
-status:
-  replicas: 1
-  readyReplicas: 1
----
-apiVersion: vertica.com/v1
-kind: VerticaDB
-metadata:
-  name: v-tls-certs
-nmaTLSSecret: nma-tls-cert-secret
-status:
-  subclusters:
-    - addedToDBCount: 1
-      upNodeCount: 1
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: v-tls-certs-nma-tls-config
-data:
-  NMA_SECRET_NAME: nma-tls-cert-secret
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - command: kubectl exec v-tls-certs-sc1-0 -c nma -n $NAMESPACE -- bash -c "kill 1"
+    namespaced: true

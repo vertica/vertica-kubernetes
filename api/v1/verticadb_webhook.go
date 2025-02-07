@@ -682,11 +682,11 @@ func (v *VerticaDB) hasValidClientServerTLSMode(allErrs field.ErrorList) field.E
 			}
 		}
 		if !validMode {
-			err := field.Invalid(field.NewPath("spec").Child("clientservertlssecret"), v.Spec.ClientServerTLSMode, "invalid tls mode")
+			err := field.Invalid(field.NewPath("spec").Child("clientSeverTLSSecret"), v.Spec.ClientServerTLSMode, "invalid tls mode")
 			allErrs = append(allErrs, err)
 		}
 	} else {
-		v.Spec.ClientServerTLSMode = "verify_ca"
+		v.Spec.ClientServerTLSMode = "try_verify"
 	}
 	return allErrs
 }

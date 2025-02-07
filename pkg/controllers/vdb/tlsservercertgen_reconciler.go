@@ -62,19 +62,18 @@ func (h *TLSServerCertGenReconciler) Reconcile(ctx context.Context, _ *ctrl.Requ
 		NMATLSSecret:          h.Vdb.Spec.NMATLSSecret,
 	}
 	err := error(nil)
-	result := ctrl.Result{}
 	for secretFieldName, secretName := range secretFieldNameMap {
-		result, err = h.reconcileOneSecret(secretFieldName, secretName, ctx)
+		err = h.reconcileOneSecret(secretFieldName, secretName, ctx)
 		if err != nil {
 			break
 		}
 	}
-	return result, err
+	return ctrl.Result{}, err
 }
 
 // reconcileOneSecret will create a TLS secret for the http server if one is missing
 func (h *TLSServerCertGenReconciler) reconcileOneSecret(secretFieldName, secretName string,
-	ctx context.Context) (ctrl.Result, error) { //nolint:unparam
+	ctx context.Context) error {
 	// If the secret name is set, check that it exists.
 	if secretName != "" {
 		// As a convenience we will regenerate the secret using the same name. But
@@ -82,7 +81,7 @@ func (h *TLSServerCertGenReconciler) reconcileOneSecret(secretFieldName, secretN
 		// for a different secret store.
 		if !secrets.IsK8sSecret(secretName) {
 			h.Log.Info(secretName + " is set but uses a path reference that isn't for k8s.")
-			return ctrl.Result{}, nil
+			return nil
 		}
 		nm := names.GenNamespacedName(h.Vdb, secretName)
 		secret := corev1.Secret{}
@@ -90,27 +89,26 @@ func (h *TLSServerCertGenReconciler) reconcileOneSecret(secretFieldName, secretN
 		if errors.IsNotFound(err) {
 			h.Log.Info(secretName+" is set but doesn't exist. Will recreate the secret.", "name", nm)
 		} else if err != nil {
-			return ctrl.Result{},
-				fmt.Errorf("failed while attempting to read the tls secret %s: %w", secretName, err)
+			return fmt.Errorf("failed while attempting to read the tls secret %s: %w", secretName, err)
 		} else {
 			// Secret is filled in and exists. We can exit.
-			return ctrl.Result{}, err
+			return err
 		}
 	}
 	caCert, err := security.NewSelfSignedCACertificate()
 	if err != nil {
-		return ctrl.Result{}, err
+		return err
 	}
 	cert, err := security.NewCertificate(caCert, "dbadmin", h.getDNSNames())
 	if err != nil {
-		return ctrl.Result{}, err
+		return err
 	}
 	secret, err := h.createSecret(secretFieldName, secretName, ctx, cert, caCert)
 	if err != nil {
-		return ctrl.Result{}, err
+		return err
 	}
 	h.Log.Info("created certificate and secret for " + secret.Name)
-	return ctrl.Result{}, h.setSecretNameInVDB(ctx, secretFieldName, secret.ObjectMeta.Name)
+	return h.setSecretNameInVDB(ctx, secretFieldName, secret.ObjectMeta.Name)
 }
 
 // getDNSNames returns the DNS names to include in the certificate that we generate
