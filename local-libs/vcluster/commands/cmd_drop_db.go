@@ -1,5 +1,5 @@
 /*
- (c) Copyright [2023-2024] Open Text.
+ (c) Copyright [2023-2025] Open Text.
  Licensed under the Apache License, Version 2.0 (the "License");
  You may not use this file except in compliance with the License.
  You may obtain a copy of the License at
@@ -77,12 +77,37 @@ func (c *CmdDropDB) validateParse(logger vlog.Printer) error {
 			return err
 		}
 	}
+	// build a map for host-directories
+	err := c.buildHostVNodeMap(logger)
+	if err != nil {
+		return err
+	}
 	return c.ValidateParseBaseOptions(&c.dropDBOptions.DatabaseOptions)
+}
+
+func (c *CmdDropDB) buildHostVNodeMap(logger vlog.Printer) error {
+	dbConfig, err := readConfig()
+	if err != nil {
+		logger.Error(err, "drop_db can only be used when the configration file is available and readable")
+		return err
+	}
+	c.dropDBOptions.NodesToDrop = []vclusterops.VCoordinationNode{}
+	for _, n := range dbConfig.Nodes {
+		vNode := vclusterops.MakeVCoordinationNode()
+		vNode.Address = n.Address
+		vNode.Name = n.Name
+		vNode.CatalogPath = n.CatalogPath
+		vNode.StorageLocations = append(vNode.StorageLocations, n.DataPath)
+		if n.DepotPath != "" {
+			vNode.DepotPath = n.DepotPath
+		}
+		c.dropDBOptions.NodesToDrop = append(c.dropDBOptions.NodesToDrop, vNode)
+	}
+	return nil
 }
 
 func (c *CmdDropDB) Run(vcc vclusterops.ClusterCommands) error {
 	vcc.V(1).Info("Called method Run()")
-
 	err := vcc.VDropDatabase(c.dropDBOptions)
 	if err != nil {
 		vcc.LogError(err, "failed to drop the database")

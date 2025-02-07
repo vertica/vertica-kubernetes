@@ -1,5 +1,5 @@
 /*
- (c) Copyright [2023-2024] Open Text.
+ (c) Copyright [2023-2025] Open Text.
  Licensed under the Apache License, Version 2.0 (the "License");
  You may not use this file except in compliance with the License.
  You may obtain a copy of the License at
@@ -73,6 +73,37 @@ func makeVCoordinationDatabase() VCoordinationDatabase {
 	return VCoordinationDatabase{}
 }
 
+func (vdb *VCoordinationDatabase) setFromBasicDBOptionsWithVNodeInfo(options *VCreateDatabaseOptions, vnodes *[]VCoordinationNode) error {
+	vdb.Name = options.DBName
+	vdb.CatalogPrefix = options.CatalogPrefix
+	vdb.DataPrefix = options.DataPrefix
+	vdb.DepotPrefix = options.DepotPrefix
+
+	vdb.IsEon = false
+	if options.CommunalStorageLocation != "" {
+		vdb.IsEon = true
+		vdb.CommunalStorageLocation = options.CommunalStorageLocation
+		vdb.DepotPrefix = options.DepotPrefix
+		vdb.DepotSize = options.DepotSize
+	}
+
+	vdb.UseDepot = false
+	if options.DepotPrefix != "" {
+		vdb.UseDepot = true
+	}
+
+	vdb.HostNodeMap = makeVHostNodeMap()
+	for i := range *vnodes {
+		vnode := (*vnodes)[i]
+		err := vdb.addNode(&vnode)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func (vdb *VCoordinationDatabase) setFromBasicDBOptions(options *VCreateDatabaseOptions) error {
 	// we trust the information in the config file
 	// so we do not perform validation here
@@ -101,12 +132,12 @@ func (vdb *VCoordinationDatabase) setFromBasicDBOptions(options *VCreateDatabase
 		if err != nil {
 			return err
 		}
+
 		err = vdb.addNode(&vnode)
 		if err != nil {
 			return err
 		}
 	}
-
 	return nil
 }
 
@@ -449,6 +480,10 @@ func CloneVCoordinationNode(node *VCoordinationNode) *VCoordinationNode {
 
 func makeVCoordinationNode() VCoordinationNode {
 	return VCoordinationNode{}
+}
+
+func MakeVCoordinationNode() VCoordinationNode {
+	return makeVCoordinationNode()
 }
 
 func (vnode *VCoordinationNode) setFromBasicDBOptions(
