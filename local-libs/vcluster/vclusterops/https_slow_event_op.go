@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/url"
 	"os"
 	"strings"
 )
@@ -78,41 +79,40 @@ func (op *httpsSlowEventsOp) setupClusterHTTPRequest(hosts []string) error {
 	// thus we only need to send https request to one of the up hosts
 
 	// compose url from options
-	url := slowEventsURL
-	queryParams := []string{}
-
-	if op.startTime != "" {
-		queryParams = append(queryParams, "start-time="+op.startTime)
-	}
-	if op.endTime != "" {
-		queryParams = append(queryParams, "end-time="+op.endTime)
-	}
-	if op.debug {
-		queryParams = append(queryParams, "debug=true")
-	}
-	if op.nodeName != "" {
-		queryParams = append(queryParams, "node-name="+op.nodeName)
-	}
-	if op.threadID != "" {
-		queryParams = append(queryParams, "thread-id="+op.threadID)
-	}
-	if op.phaseDuration != "" {
-		queryParams = append(queryParams, "phases-duration-desc"+op.phaseDuration)
-	}
-	if op.eventDesc != "" {
-		queryParams = append(queryParams, "event-desc="+op.eventDesc)
-	}
-
-	for i, param := range queryParams {
-		// replace " " with "%20" in query params
-		queryParams[i] = strings.ReplaceAll(param, " ", "%20")
-	}
-	url += "?" + strings.Join(queryParams, "&")
+	baseURL := slowEventsURL
 
 	for _, host := range hosts[:1] {
 		httpRequest := hostHTTPRequest{}
 		httpRequest.Method = GetMethod
-		httpRequest.buildHTTPSEndpoint(url)
+		queryParams := make(map[string]string)
+		if op.nodeName != "" {
+			queryParams["node-name"] = op.nodeName
+		}
+		if op.startTime != "" {
+			queryParams["start-time"] = op.startTime
+		}
+		if op.endTime != "" {
+			queryParams["end-time"] = op.endTime
+		}
+		if op.threadID != "" {
+			queryParams["thread-id"] = op.threadID
+		}
+		if op.phaseDuration != "" {
+			queryParams["phases-duration-desc"] = op.phaseDuration
+		}
+		if op.eventDesc != "" {
+			queryParams["event-desc"] = op.eventDesc
+		}
+
+		// Build query string
+		var queryParts []string
+		for key, value := range queryParams {
+			queryParts = append(queryParts, fmt.Sprintf("%s=%s", key, value))
+		}
+
+		// Join query parts to form a query string
+		queryString := url.PathEscape(strings.Join(queryParts, "&"))
+		httpRequest.buildHTTPSEndpoint(fmt.Sprintf("%s?%s", baseURL, queryString))
 		op.clusterHTTPRequest.RequestCollection[host] = httpRequest
 	}
 
@@ -169,7 +169,6 @@ func (op *httpsSlowEventsOp) processResult(execContext *opEngineExecContext) err
 	var allErrs error
 	for host, result := range op.clusterHTTPRequest.ResultCollection {
 		op.logResponse(host, result)
-
 		if result.isPassing() {
 			var slowEvents dcSlowEvents
 			err := op.parseAndCheckResponse(host, result.content, &slowEvents)
@@ -219,11 +218,6 @@ func (op *httpsSlowEventsOp) executeOnStub(execContext *opEngineExecContext) err
 		}
 		if op.threadID != "" {
 			if event.ThreadID != op.threadID {
-				continue
-			}
-		}
-		if op.eventDesc != "" {
-			if !strings.Contains(event.EventDescription, op.eventDesc) {
 				continue
 			}
 		}
