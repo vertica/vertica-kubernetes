@@ -114,9 +114,10 @@ func (s *SubclusterScaleReconciler) considerRemovingSubclusters(podsToRemove int
 				if sc.IsPrimary() {
 					primaryCount := s.Vdb.GetPrimaryCount()
 					primaryCountAfterScaling := primaryCount - int(sc.Size)
-					// We will prevent removing a primary if it will lead to a kasety
+					// We will prevent removing a primary if it will lead to a kasafety
 					// rule violation.
 					if primaryCountAfterScaling < minHosts {
+						s.VRec.Log.Info("Removing subcluster will violate ksafety. Skipping to the next one", "Subcluster", sc.Name)
 						continue
 					}
 				}
