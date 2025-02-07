@@ -27,10 +27,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	"github.com/vertica/vertica-kubernetes/pkg/secrets"
 	"github.com/vertica/vertica-kubernetes/pkg/security"
-<<<<<<< HEAD
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
-=======
->>>>>>> VER-99110
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -43,11 +40,8 @@ const (
 	NMATLSSecret          = "NMATLSSecret"
 )
 
-<<<<<<< HEAD
 var TLSCertCacheManager *vadmin.TLSCertCache
 
-=======
->>>>>>> VER-99110
 // TLSServerCertGenReconciler will create a secret that has TLS credentials.  This
 // secret will be used to authenticate with the http server.
 type TLSServerCertGenReconciler struct {
@@ -57,10 +51,7 @@ type TLSServerCertGenReconciler struct {
 }
 
 func MakeTLSServerCertGenReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger, vdb *vapi.VerticaDB) controllers.ReconcileActor {
-<<<<<<< HEAD
 	TLSCertCacheManager = vadmin.TLSCertCacheFactory(vdbrecon.Client, log, vdb)
-=======
->>>>>>> VER-99110
 	return &TLSServerCertGenReconciler{
 		VRec: vdbrecon,
 		Vdb:  vdb,
@@ -75,32 +66,18 @@ func (h *TLSServerCertGenReconciler) Reconcile(ctx context.Context, _ *ctrl.Requ
 		NMATLSSecret:          h.Vdb.Spec.NMATLSSecret,
 	}
 	err := error(nil)
-<<<<<<< HEAD
-	result := ctrl.Result{}
-	for secretFieldName, secretName := range secretFieldNameMap {
-		result, err = h.reconcileOneSecret(secretFieldName, secretName, ctx)
-=======
 	for secretFieldName, secretName := range secretFieldNameMap {
 		err = h.reconcileOneSecret(secretFieldName, secretName, ctx)
->>>>>>> VER-99110
 		if err != nil {
 			break
 		}
 	}
-<<<<<<< HEAD
-	return result, err
-=======
 	return ctrl.Result{}, err
->>>>>>> VER-99110
 }
 
 // reconcileOneSecret will create a TLS secret for the http server if one is missing
 func (h *TLSServerCertGenReconciler) reconcileOneSecret(secretFieldName, secretName string,
-<<<<<<< HEAD
-	ctx context.Context) (ctrl.Result, error) { //nolint:unparam
-=======
 	ctx context.Context) error {
->>>>>>> VER-99110
 	// If the secret name is set, check that it exists.
 	if secretName != "" {
 		// As a convenience we will regenerate the secret using the same name. But
@@ -108,14 +85,7 @@ func (h *TLSServerCertGenReconciler) reconcileOneSecret(secretFieldName, secretN
 		// for a different secret store.
 		if !secrets.IsK8sSecret(secretName) {
 			h.Log.Info(secretName + " is set but uses a path reference that isn't for k8s.")
-<<<<<<< HEAD
-			return ctrl.Result{}, nil
-		}
-		if TLSCertCacheManager.HasCert(secretName) {
-			return ctrl.Result{}, nil
-=======
 			return nil
->>>>>>> VER-99110
 		}
 		nm := names.GenNamespacedName(h.Vdb, secretName)
 		secret := corev1.Secret{}
@@ -123,68 +93,45 @@ func (h *TLSServerCertGenReconciler) reconcileOneSecret(secretFieldName, secretN
 		if errors.IsNotFound(err) {
 			h.Log.Info(secretName+" is set but doesn't exist. Will recreate the secret.", "name", nm)
 		} else if err != nil {
-<<<<<<< HEAD
-			return ctrl.Result{},
-				fmt.Errorf("failed while attempting to read the tls secret %s: %w", secretName, err)
+			return fmt.Errorf("failed while attempting to read the tls secret %s: %w", secretName, err)
 		} else {
 			// Secret is filled in and exists. We can exit.
 			for field := range vadmin.CertFields {
 				_, ok := secret.Data[field]
 				if !ok {
-					return ctrl.Result{}, fmt.Errorf("secret %s is missing field %s", secretName, field)
+					return fmt.Errorf("secret %s is missing field %s", secretName, field)
 				}
 				// h.Log.Info("libo: secret name - " + secretName + ", field - " + field + ", value - " + string(bytes))
 			}
 			h.Log.Info("libo: to call SetSecretData for secret name - " + secretName)
 			TLSCertCacheManager.SetSecretData(secretName, secret.Data)
 			h.Log.Info("cached secret " + secretName)
-			return ctrl.Result{}, err
-=======
 			return fmt.Errorf("failed while attempting to read the tls secret %s: %w", secretName, err)
-		} else {
-			// Secret is filled in and exists. We can exit.
-			return err
->>>>>>> VER-99110
 		}
 	}
 	caCert, err := security.NewSelfSignedCACertificate()
 	if err != nil {
-<<<<<<< HEAD
-		return ctrl.Result{}, err
+		return err
 	}
 	cert, err := security.NewCertificate(caCert, "dbadmin", h.getDNSNames())
 	if err != nil {
-		return ctrl.Result{}, err
+		return err
 	}
 	secret, err := h.createSecret(secretFieldName, secretName, ctx, cert, caCert)
 	if err != nil {
-		return ctrl.Result{}, err
+		return err
 	}
 	for field := range vadmin.CertFields {
 		_, ok := secret.Data[field]
 		if !ok {
-			return ctrl.Result{}, fmt.Errorf("secret %s is missing field %s", secretName, field)
+			return fmt.Errorf("secret %s is missing field %s", secretName, field)
 		}
 		// h.Log.Info("libo: secret name - " + secretName + ", field - " + field + ", value - " + string(bytes))
 	}
 	h.Log.Info("libo 2 : to call SetSecretData for secret name - " + secret.Name)
 	TLSCertCacheManager.SetSecretData(secret.Name, secret.Data)
 	h.Log.Info("created certificate and secret and cached " + secret.Name)
-	return ctrl.Result{}, h.setSecretNameInVDB(ctx, secretFieldName, secret.ObjectMeta.Name)
-=======
-		return err
-	}
-	cert, err := security.NewCertificate(caCert, "dbadmin", h.getDNSNames())
-	if err != nil {
-		return err
-	}
-	secret, err := h.createSecret(secretFieldName, secretName, ctx, cert, caCert)
-	if err != nil {
-		return err
-	}
-	h.Log.Info("created certificate and secret for " + secret.Name)
 	return h.setSecretNameInVDB(ctx, secretFieldName, secret.ObjectMeta.Name)
->>>>>>> VER-99110
 }
 
 // getDNSNames returns the DNS names to include in the certificate that we generate
