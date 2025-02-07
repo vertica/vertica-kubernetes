@@ -264,7 +264,7 @@ func (vcc VClusterCommands) getDeepVDBFromRunningDB(vdb *VCoordinationDatabase, 
 		sandErr := vcc.getVDBFromRunningDBImpl(&sandVdb, options, true /*allow use http result from sandbox nodes*/, sandbox,
 			false /*update node state by sending http request to each node*/)
 		if sandErr != nil {
-			vcc.Log.Info("failed to get vdb info from sandbox", "sandbox", sandbox)
+			vcc.Log.Info("failed to get vdb info from sandbox %s", sandbox)
 		} else {
 			// update vdb with sandbox info
 			vdb.updateSandboxNodeInfo(&sandVdb, sandbox)
