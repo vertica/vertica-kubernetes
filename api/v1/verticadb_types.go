@@ -182,7 +182,7 @@ type VerticaDBSpec struct {
 	// Contain details about the local storage
 	Local LocalStorage `json:"local"`
 
-	//+operator-sdk:csv:customresourcedefinitions:type=spec
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	Subclusters []Subcluster `json:"subclusters"`
 
 	// +kubebuilder:validation:Optional
@@ -287,9 +287,8 @@ type VerticaDBSpec struct {
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:hidden"
 	// +kubebuilder:default:=""
 	// +kubebuilder:validation:Optional
-	// A secret that contains the TLS credentials to be used to authenticate Vertica clients' certificates
-	// (vsql). If this is empty, the operator will create a secret to use and add
-	// the name of the generate secret to this field.
+	// A secret that contains the TLS credentials to be used to authenticate Vertica clients' certificates.
+	// If this is empty, the operator will create a secret to use and addthe name of the generate secret to this field.
 	// When set, the secret must have the following keys defined: tls.key,
 	// tls.crt and ca.crt.  To store this secret outside of Kubernetes, you can
 	// use a secret path reference prefix, such as gsm://. Everything after the
@@ -297,8 +296,18 @@ type VerticaDBSpec struct {
 	ClientServerTLSSecret string `json:"clientServerTLSSecret,omitempty"`
 
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:hidden"
-	// +kubebuilder:default:=verify_ca
+	// +kubebuilder:default:=try_verify
 	// +kubebuilder:validation:Optional
+	// This field configures the Vertica's connection mode for client-server TLS.
+	// Choose one of the following TLSMODEs, listed in ascending security:
+	// - DISABLE: Disables TLS. All other options for this parameter enable TLS.
+	// - ENABLE: Enables TLS. Vertica does not verify client certificates.
+	// - TRY_VERIFY: Establishes a TLS connection if one of the following is true:
+	//   - The client presents a valid certificate.
+	//   - The client doesn't present a certificate
+	//   If the client presents an invalid certificate, the connection is rejected.
+	// - VERIFY_CA: Connection succeeds if Vertica verifies that the client certificate is from a trusted CA.
+	//   If the client does not present a client certificate, the connection is rejected.
 	ClientServerTLSMode string `json:"clientServerTLSMode,omitempty"`
 
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:hidden"
@@ -1052,12 +1061,12 @@ type VerticaDBPodStatus struct {
 	UpNode bool `json:"upNode"`
 }
 
-//+kubebuilder:object:root=true
-//+kubebuilder:subresource:status
-//+kubebuilder:storageversion
-//+kubebuilder:resource:categories=all;vertica,shortName=vdb
-//+kubebuilder:printcolumn:name="Subclusters",type="integer",JSONPath=".status.subclusterCount"
-//+kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
+// +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
+// +kubebuilder:storageversion
+// +kubebuilder:resource:categories=all;vertica,shortName=vdb
+// +kubebuilder:printcolumn:name="Subclusters",type="integer",JSONPath=".status.subclusterCount"
+// +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 // +operator-sdk:csv:customresourcedefinitions:resources={{Statefulset,apps/v1,""},{Pod,v1,""},{Service,v1,""}}
 
 // VerticaDB is the CR that defines a Vertica Eon mode cluster that is managed by the verticadb-operator.
@@ -1069,7 +1078,7 @@ type VerticaDB struct {
 	Status VerticaDBStatus `json:"status,omitempty"`
 }
 
-//+kubebuilder:object:root=true
+// +kubebuilder:object:root=true
 
 // VerticaDBList contains a list of VerticaDB
 type VerticaDBList struct {

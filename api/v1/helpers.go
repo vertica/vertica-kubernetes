@@ -498,12 +498,14 @@ func (v *VerticaDB) GetVProxyDeploymentName(scName string) string {
 	return fmt.Sprintf("%s-%s-proxy", v.Name, GenCompatibleFQDNHelper(scName))
 }
 
-// FindSubclusterForServiceName will find any subclusters that match the given service name
+// FindSubclusterForServiceName will find any subclusters that match the given service name.
+// If service name is empty, it will return all the subclusters in vdb.
 func (v *VerticaDB) FindSubclusterForServiceName(svcName string) (scs []*Subcluster, totalSize int32) {
 	totalSize = int32(0)
 	scs = []*Subcluster{}
 	for i := range v.Spec.Subclusters {
-		if v.Spec.Subclusters[i].GetServiceName() == svcName {
+		sc := &v.Spec.Subclusters[i]
+		if svcName == "" || sc.GetServiceName() == svcName {
 			scs = append(scs, &v.Spec.Subclusters[i])
 			totalSize += v.Spec.Subclusters[i].Size
 		}
@@ -656,6 +658,18 @@ func (v *VerticaDB) GetFirstPrimarySubcluster() *Subcluster {
 	}
 	// We should never get here because the webhook prevents a vdb with no primary.
 	return nil
+}
+
+// GetPromaryCount returns the number of primary nodes in the cluster.
+func (v *VerticaDB) GetPrimaryCount() int {
+	sizeSum := 0
+	for i := range v.Spec.Subclusters {
+		sc := &v.Spec.Subclusters[i]
+		if sc.IsPrimary() && !sc.IsSandboxPrimary() {
+			sizeSum += int(sc.Size)
+		}
+	}
+	return sizeSum
 }
 
 // HasSecondarySubclusters returns true if at least 1 secondary subcluster
@@ -1157,13 +1171,12 @@ func (v *VerticaDB) GetSubclustersInSandbox(sbName string) []string {
 	return scNames
 }
 
-func IsK8sSecretFound(ctx context.Context, vdb *VerticaDB, k8sClient client.Client, secretName *string) (bool, error) {
+func IsK8sSecretFound(ctx context.Context, vdb *VerticaDB, k8sClient client.Client, secretName *string, secret *corev1.Secret) (bool, error) {
 	nm := types.NamespacedName{
 		Name:      *secretName,
 		Namespace: vdb.GetNamespace(),
 	}
-	secret := corev1.Secret{}
-	err := k8sClient.Get(ctx, nm, &secret)
+	err := k8sClient.Get(ctx, nm, secret)
 	if errors.IsNotFound(err) {
 		return false, nil
 	} else if err != nil {

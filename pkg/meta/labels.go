@@ -135,6 +135,12 @@ const (
 
 	// This indicates the name of the client proxy deployment.
 	ClientProxyNameLabel = "vertica.com/client-proxy-name"
+
+	// Indicates if a pod belongs to the main cluster. It is mainly use as a selector in
+	// VAS to filter out sandbox pods.
+	IsSandboxLabel = "vertica.com/is-sandbox"
+	IsSandboxFalse = "false"
+	IsSandboxTrue  = "true"
 )
 
 // ProtectedLabels lists all of the internally used label.

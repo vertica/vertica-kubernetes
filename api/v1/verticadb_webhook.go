@@ -34,6 +34,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
+	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
 const (
@@ -75,7 +76,7 @@ func (v *VerticaDB) SetupWebhookWithManager(mgr ctrl.Manager) error {
 		Complete()
 }
 
-//+kubebuilder:webhook:path=/mutate-vertica-com-v1beta1-verticadb,mutating=true,failurePolicy=fail,sideEffects=None,groups=vertica.com,resources=verticadbs,verbs=create;update,versions=v1beta1,name=mverticadb.kb.io,admissionReviewVersions=v1
+// +kubebuilder:webhook:path=/mutate-vertica-com-v1beta1-verticadb,mutating=true,failurePolicy=fail,sideEffects=None,groups=vertica.com,resources=verticadbs,verbs=create;update,versions=v1beta1,name=mverticadb.kb.io,admissionReviewVersions=v1
 
 var _ webhook.Defaulter = &VerticaDB{}
 
@@ -109,33 +110,33 @@ func (v *VerticaDB) Default() {
 var _ webhook.Validator = &VerticaDB{}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
-func (v *VerticaDB) ValidateCreate() error {
+func (v *VerticaDB) ValidateCreate() (admission.Warnings, error) {
 	verticadblog.Info("validate create", "name", v.Name, "GroupVersion", GroupVersion)
 
 	allErrs := v.validateVerticaDBSpec()
 	if len(allErrs) == 0 {
-		return nil
+		return nil, nil
 	}
-	return apierrors.NewInvalid(schema.GroupKind{Group: Group, Kind: VerticaDBKind}, v.Name, allErrs)
+	return nil, apierrors.NewInvalid(schema.GroupKind{Group: Group, Kind: VerticaDBKind}, v.Name, allErrs)
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
-func (v *VerticaDB) ValidateUpdate(old runtime.Object) error {
+func (v *VerticaDB) ValidateUpdate(old runtime.Object) (admission.Warnings, error) {
 	verticadblog.Info("validate update", "name", v.Name, "GroupVersion", GroupVersion)
 
 	allErrs := append(v.validateImmutableFields(old), v.validateVerticaDBSpec()...)
 
 	if len(allErrs) == 0 {
-		return nil
+		return nil, nil
 	}
-	return apierrors.NewInvalid(schema.GroupKind{Group: Group, Kind: VerticaDBKind}, v.Name, allErrs)
+	return nil, apierrors.NewInvalid(schema.GroupKind{Group: Group, Kind: VerticaDBKind}, v.Name, allErrs)
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
-func (v *VerticaDB) ValidateDelete() error {
+func (v *VerticaDB) ValidateDelete() (admission.Warnings, error) {
 	verticadblog.Info("validate delete", "name", v.Name, "GroupVersion", GroupVersion)
 
-	return nil
+	return nil, nil
 }
 
 func (v *VerticaDB) validateImmutableFields(old runtime.Object) field.ErrorList {
@@ -681,11 +682,11 @@ func (v *VerticaDB) hasValidClientServerTLSMode(allErrs field.ErrorList) field.E
 			}
 		}
 		if !validMode {
-			err := field.Invalid(field.NewPath("spec").Child("clientservertlssecret"), v.Spec.ClientServerTLSMode, "invalid tls mode")
+			err := field.Invalid(field.NewPath("spec").Child("clientSeverTLSSecret"), v.Spec.ClientServerTLSMode, "invalid tls mode")
 			allErrs = append(allErrs, err)
 		}
 	} else {
-		v.Spec.ClientServerTLSMode = "verify_ca"
+		v.Spec.ClientServerTLSMode = "try_verify"
 	}
 	return allErrs
 }

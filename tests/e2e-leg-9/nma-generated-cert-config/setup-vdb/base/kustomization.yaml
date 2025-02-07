@@ -13,3 +13,7 @@
 
 resources:
   - setup-vdb.yaml
+<<<<<<< HEAD
+=======
+  - nma-tls-cert.json
+>>>>>>> VER-99110

@@ -152,7 +152,7 @@ var _ = Describe("subclusterresize_reconcile", func() {
 		const TargetSvcName = "conn"
 		vdb := vapi.MakeVDB()
 		vdb.Spec.Subclusters = []vapi.Subcluster{
-			{Name: "sc1", Size: 5, ServiceName: TargetSvcName},
+			{Name: "sc1", Size: 5, ServiceName: TargetSvcName, Type: vapi.PrimarySubcluster},
 			{Name: "sc2", Size: 10, ServiceName: "other"},
 			{Name: "sc3", Size: 1, ServiceName: TargetSvcName},
 		}
@@ -173,6 +173,35 @@ var _ = Describe("subclusterresize_reconcile", func() {
 		nm := v1beta1.MakeVDBName()
 		Expect(k8sClient.Get(ctx, nm, fetchVdb)).Should(Succeed())
 		Expect(fetchVdb.Spec.Subclusters[0].Size).Should(Equal(vdb.Spec.Subclusters[0].Size + vdb.Spec.Subclusters[2].Size - NumPodsToRemove))
+		Expect(fetchVdb.Spec.Subclusters[1].Size).Should(Equal(vdb.Spec.Subclusters[1].Size))
+		Expect(fetchVdb.Spec.Subclusters[2].Size).Should(Equal(int32(0)))
+	})
+
+	It("should not shrink the subcluster size", func() {
+		const TargetSvcName = "conn"
+		vdb := vapi.MakeVDB()
+		vdb.Spec.Subclusters = []vapi.Subcluster{
+			{Name: "sc1", Size: 5, ServiceName: TargetSvcName, Type: vapi.PrimarySubcluster},
+			{Name: "sc2", Size: 10, ServiceName: "other"},
+			{Name: "sc3", Size: 1, ServiceName: TargetSvcName},
+		}
+		test.CreateVDB(ctx, k8sClient, vdb)
+		defer test.DeleteVDB(ctx, k8sClient, vdb)
+
+		vas := v1beta1.MakeVAS()
+		const NumPodsToRemove = 4
+		vas.Spec.TargetSize = vdb.Spec.Subclusters[0].Size + vdb.Spec.Subclusters[2].Size - NumPodsToRemove
+		vas.Spec.ServiceName = TargetSvcName
+		v1beta1_test.CreateVAS(ctx, k8sClient, vas)
+		defer v1beta1_test.DeleteVAS(ctx, k8sClient, vas)
+
+		req := ctrl.Request{NamespacedName: v1beta1.MakeVASName()}
+		Expect(vasRec.Reconcile(ctx, req)).Should(Equal(ctrl.Result{}))
+
+		fetchVdb := &v1beta1.VerticaDB{}
+		nm := v1beta1.MakeVDBName()
+		Expect(k8sClient.Get(ctx, nm, fetchVdb)).Should(Succeed())
+		Expect(fetchVdb.Spec.Subclusters[0].Size).Should(Equal(vdb.Spec.Subclusters[0].Size))
 		Expect(fetchVdb.Spec.Subclusters[1].Size).Should(Equal(vdb.Spec.Subclusters[1].Size))
 		Expect(fetchVdb.Spec.Subclusters[2].Size).Should(Equal(int32(0)))
 	})

@@ -13,6 +13,10 @@
 
 apiVersion: apps/v1
 kind: StatefulSet
+<<<<<<< HEAD
+<<<<<<<< HEAD:tests/e2e-leg-9/nma-user-cert-config/17-assert.yaml
+=======
+>>>>>>> VER-99110
 metadata:
   name: v-tls-certs-sc1
 status:
@@ -23,6 +27,11 @@ apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
   name: v-tls-certs
+<<<<<<< HEAD
+=======
+spec:
+  nmaTLSSecret: nma-tls-cert-secret
+>>>>>>> VER-99110
 status:
   subclusters:
     - addedToDBCount: 1
@@ -34,3 +43,17 @@ metadata:
   name: v-tls-certs-nma-tls-config
 data:
   NMA_SECRET_NAME: nma-tls-cert-secret
+<<<<<<< HEAD
+========
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: verticadb-operator
+---
+apiVersion: vertica.com/v1
+kind: VerticaDB
+>>>>>>>> VER-99110:tests/e2e-leg-1/autoscale-db-by-subcluster/95-errors.yaml
+=======
+>>>>>>> VER-99110
