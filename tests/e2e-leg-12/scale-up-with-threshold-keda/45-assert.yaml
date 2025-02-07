@@ -14,29 +14,33 @@
 apiVersion: vertica.com/v1beta1
 kind: VerticaAutoscaler
 metadata:
-  name: v-scale-down-threshold-vas
+  name: v-scale-up-keda-vas
 status:
-  selector: vertica.com/subcluster-svc=pri1,vertica.com/is-sandbox=false,app.kubernetes.io/instance=v-scale-down-threshold,app.kubernetes.io/managed-by=verticadb-operator
+  conditions:
+  - status: "True"
+    type: TargetSizeInitialized
+  - status: "True"
+    type: ScalingActive
+  selector: vertica.com/subcluster-svc=pri1,vertica.com/is-sandbox=false,app.kubernetes.io/instance=v-scale-up-keda,app.kubernetes.io/managed-by=verticadb-operator
   scalingCount: 0
-  currentSize: 5
+  currentSize: 3
 ---
 apiVersion: keda.sh/v1alpha1
 kind: ScaledObject
 metadata:
-  name: v-scale-down-threshold-vas-keda
+  name: v-scale-up-keda-vas-keda
 spec:
-  maxReplicaCount: 7
+  maxReplicaCount: 5
   minReplicaCount: 3
   scaleTargetRef:
     apiVersion: vertica.com/v1beta1
     kind: VerticaAutoscaler
-    name: v-scale-down-threshold-vas
+    name: v-scale-up-keda-vas
   triggers:
   - metadata:
-      query: sum(vertica_sessions_running_counter{type="active", initiator="user", service="v-scale-down-threshold-pri1"})
+      query: sum(vertica_sessions_running_counter{type="active", initiator="user", service="v-scale-up-keda-pri1"})
       serverAddress: http://prometheus-kube-prometheus-prometheus.prometheus.svc.cluster.local:9090
-      activationThreshold: "1"
-      threshold: "5"
+      threshold: "2"
     metricType: AverageValue
     name: vertica_sessions_running_total
     type: prometheus

@@ -1,0 +1,59 @@
+# (c) Copyright [2021-2024] Open Text.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# You may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: script-verity-prometheus-metrics
+data:
+  entrypoint.sh: |-
+    #!/bin/bash
+    set -o errexit
+    set -o xtrace
+    
+    # Setup start and end time for query, e.g: 2024-09-14
+    START_TIME=$(date +%Y-%m-%d) 
+    END_TIME=$(date +%Y-%m-%d --date "$curr +1 day")
+    NAMESPACE=$(kubectl get pod v-scale-up-keda-pri1-0 -o=jsonpath='{.metadata.namespace}')
+    CMD="kubectl exec v-scale-up-keda-pri1-0 -it -c server -n $NAMESPACE -- curl -g http://prometheus-kube-prometheus-prometheus.prometheus.svc.cluster.local:9090/api/v1/query?query=vertica_build_info&start=${START_TIME}&end=${END_TIME}"
+    RESULT=$(eval $CMD)
+    METRICS=$(echo $RESULT | jq -r '.data.result') 
+    
+    # verify the metrics result
+    if [[ "$METRICS" == "" || "$METRICS" == "\[\]" ]]; then
+      echo "empty metrics result: $RESULT found."
+      exit 1
+    fi
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: script-verity-prometheus-metrics
+  labels:
+    stern: include
+spec:
+  restartPolicy: Never
+  containers:
+    - name: test
+      image: bitnami/kubectl:1.20.4
+      command: ["/bin/entrypoint.sh"]
+      volumeMounts:
+        - name: entrypoint-volume
+          mountPath: /bin/entrypoint.sh
+          readOnly: true
+          subPath: entrypoint.sh
+  volumes:
+    - name: entrypoint-volume
+      configMap:
+        defaultMode: 0777
+        name: script-verity-prometheus-metrics
