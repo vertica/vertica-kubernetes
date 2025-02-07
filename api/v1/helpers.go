@@ -1171,13 +1171,12 @@ func (v *VerticaDB) GetSubclustersInSandbox(sbName string) []string {
 	return scNames
 }
 
-func IsK8sSecretFound(ctx context.Context, vdb *VerticaDB, k8sClient client.Client, secretName *string) (bool, error) {
+func IsK8sSecretFound(ctx context.Context, vdb *VerticaDB, k8sClient client.Client, secretName *string, secret *corev1.Secret) (bool, error) {
 	nm := types.NamespacedName{
 		Name:      *secretName,
 		Namespace: vdb.GetNamespace(),
 	}
-	secret := corev1.Secret{}
-	err := k8sClient.Get(ctx, nm, &secret)
+	err := k8sClient.Get(ctx, nm, secret)
 	if errors.IsNotFound(err) {
 		return false, nil
 	} else if err != nil {
