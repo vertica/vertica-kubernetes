@@ -170,71 +170,77 @@ func (c *CreateDBReconciler) preCmdSetup(ctx context.Context, initiatorPod types
 func (c *CreateDBReconciler) generatePostDBCreateSQL(ctx context.Context, initiatorPod types.NamespacedName) (ctrl.Result, error) {
 	// On newer server versions we moved over the SQL to config parameters. So,
 	// if we are on a new enough version we can skip this function entirely.
-	if c.VInf.IsEqualOrNewer(vapi.DBSetupConfigParametersMinVersion) {
+	c.Log.Info("libo: generate sql 1")
+	if c.VInf.IsEqualOrNewer(vapi.DBSetupConfigParametersMinVersion) && c.VInf.IsOlder(vapi.NMATLSCertRotationMinVersion) {
 		return ctrl.Result{}, nil
 	}
-
+	c.Log.Info("libo: generate sql 2")
 	// We include SQL to rename the default subcluster to match the name of the
 	// first subcluster in the spec -- any remaining subclusters will be added
 	// by DBAddSubclusterReconciler.
 	sc := c.getFirstPrimarySubcluster()
 	var sb strings.Builder
 	sb.WriteString("-- SQL that is run after the database is created\n")
-	if c.Vdb.IsEON() {
-		sb.WriteString(
-			fmt.Sprintf(`alter subcluster default_subcluster rename to \"%s\";`, sc.Name),
-		)
+	if c.VInf.IsOlder(vapi.DBSetupConfigParametersMinVersion) {
+		if c.Vdb.IsEON() {
+			sb.WriteString(
+				fmt.Sprintf(`alter subcluster default_subcluster rename to \"%s\";`, sc.Name),
+			)
+		}
+		if c.Vdb.IsKSafety0() {
+			sb.WriteString("select set_preferred_ksafe(0);\n")
+		}
+		// On newer vertica versions, the EncrpytSpreadComm setting can be set as a
+		// config parm in the create db call.
+		if c.Vdb.Spec.EncryptSpreadComm != vapi.EncryptSpreadCommDisabled && c.VInf.IsOlder(vapi.SetEncryptSpreadCommAsConfigVersion) {
+			sb.WriteString(fmt.Sprintf(`alter database default set parameter EncryptSpreadComm = '%s';
+			`, vapi.EncryptSpreadCommWithVertica))
+		}
 	}
-	if c.Vdb.IsKSafety0() {
-		sb.WriteString("select set_preferred_ksafe(0);\n")
+	if c.VInf.IsEqualOrNewer(vapi.NMATLSCertRotationMinVersion) {
+		c.Log.Info("libo: generate sql 3")
+		sb.WriteString(`CREATE OR REPLACE LIBRARY public.KubernetesLib AS '/opt/vertica/packages/kubernetes/lib/libkubernetes.so'`)
+
+		sb.WriteString(fmt.Sprintf(
+			`CREATE KEY https_key_0 TYPE 'rsa' SECRETMANAGER KubernetesSecretManager SECRETNAME '%s' CONFIGURATION '{\"data-key\":\"%s\", 
+			\"namespace\":\"%s\"}'`,
+			c.Vdb.Spec.NMATLSSecret, corev1.TLSPrivateKeyKey, c.Vdb.ObjectMeta.Namespace))
+
+		sb.WriteString(fmt.Sprintf(
+			`CREATE CA CERTIFICATE https_ca_cert_0 SECRETMANAGER KubernetesSecretManager SECRETNAME '%s' CONFIGURATION '{"data-key":\"%s\", 
+			"namespace":\"%s\"}'`,
+			c.Vdb.Spec.NMATLSSecret, paths.HTTPServerCACrtName, c.Vdb.ObjectMeta.Namespace))
+
+		sb.WriteString(fmt.Sprintf(
+			`CREATE CERTIFICATE https_cert_0 SECRETMANAGER KubernetesSecretManager SECRETNAME '%s' CONFIGURATION '{\"data-key\":\"%s\", 
+			\"namespace\":\"%s\"}' SIGNED BY https_ca_cert_0 KEY https_key_0`,
+			c.Vdb.Spec.NMATLSSecret, corev1.TLSCertKey, c.Vdb.ObjectMeta.Namespace))
+
+		sb.WriteString(`DROP KEY IF EXISTS server_key`)
+
+		sb.WriteString(`DROP CERTIFICATE IF EXISTS server_cert`)
+
+		sb.WriteString(`DROP CERTIFICATE IF EXISTS server_ca_cert CASCADE`)
+
+		sb.WriteString(fmt.Sprintf(
+			`CREATE KEY server_key TYPE 'rsa' SECRETMANAGER KubernetesSecretManager SECRETNAME '%s' CONFIGURATION '{\"data-key\":\"%s\", 
+			\"namespace\":\"%s\"}'`,
+			c.Vdb.Spec.ClientServerTLSSecret, corev1.TLSPrivateKeyKey, c.Vdb.ObjectMeta.Namespace))
+
+		sb.WriteString(fmt.Sprintf(
+			`CREATE CA CERTIFICATE server_ca_cert SECRETMANAGER KubernetesSecretManager SECRETNAME '%s' CONFIGURATION '{"data-key":\"%s\", 
+			"namespace":\"%s\"}'`,
+			c.Vdb.Spec.ClientServerTLSSecret, paths.HTTPServerCACrtName, c.Vdb.ObjectMeta.Namespace))
+
+		sb.WriteString(fmt.Sprintf(
+			`CREATE CERTIFICATE server_cert SECRETMANAGER KubernetesSecretManager SECRETNAME '%s' CONFIGURATION '{\"data-key\":\"%s\", 
+			\"namespace\":\"%s\"}' SIGNED BY server_ca_cert KEY server_key`,
+			c.Vdb.Spec.ClientServerTLSSecret, corev1.TLSCertKey, c.Vdb.ObjectMeta.Namespace))
+
+		sb.WriteString(`ALTER TLS CONFIGURATION server CERTIFICATE server_cert ADD CA CERTIFICATES server_ca_cert TLSMODE 'verify_ca'`)
+
+		sb.WriteString(`ALTER TLS CONFIGURATION https CERTIFICATE https_cert_0 ADD CA CERTIFICATES https_ca_cert_0 TLSMODE 'verify_ca'`)
 	}
-	// On newer vertica versions, the EncrpytSpreadComm setting can be set as a
-	// config parm in the create db call.
-	if c.Vdb.Spec.EncryptSpreadComm != vapi.EncryptSpreadCommDisabled && c.VInf.IsOlder(vapi.SetEncryptSpreadCommAsConfigVersion) {
-		sb.WriteString(fmt.Sprintf(`alter database default set parameter EncryptSpreadComm = '%s';
-		`, vapi.EncryptSpreadCommWithVertica))
-	}
-	sb.WriteString(`CREATE OR REPLACE LIBRARY public.KubernetesLib AS '/opt/vertica/packages/kubernetes/lib/libkubernetes.so'`)
-
-	sb.WriteString(fmt.Sprintf(
-		`CREATE KEY https_key_0 TYPE 'rsa' SECRETMANAGER KubernetesSecretManager SECRETNAME '%s' CONFIGURATION '{\"data-key\":\"%s\", 
-		\"namespace\":\"%s\"}'`,
-		c.Vdb.Spec.NMATLSSecret, corev1.TLSPrivateKeyKey, c.Vdb.ObjectMeta.Namespace))
-
-	sb.WriteString(fmt.Sprintf(
-		`CREATE CA CERTIFICATE https_ca_cert_0 SECRETMANAGER KubernetesSecretManager SECRETNAME '%s' CONFIGURATION '{"data-key":\"%s\", 
-		"namespace":\"%s\"}'`,
-		c.Vdb.Spec.NMATLSSecret, paths.HTTPServerCACrtName, c.Vdb.ObjectMeta.Namespace))
-
-	sb.WriteString(fmt.Sprintf(
-		`CREATE CERTIFICATE https_cert_0 SECRETMANAGER KubernetesSecretManager SECRETNAME '%s' CONFIGURATION '{\"data-key\":\"%s\", 
-		\"namespace\":\"%s\"}' SIGNED BY https_ca_cert_0 KEY https_key_0`,
-		c.Vdb.Spec.NMATLSSecret, corev1.TLSCertKey, c.Vdb.ObjectMeta.Namespace))
-
-	sb.WriteString(`DROP KEY IF EXISTS server_key`)
-
-	sb.WriteString(`DROP CERTIFICATE IF EXISTS server_cert`)
-
-	sb.WriteString(`DROP CERTIFICATE IF EXISTS server_ca_cert CASCADE`)
-
-	sb.WriteString(fmt.Sprintf(
-		`CREATE KEY server_key TYPE 'rsa' SECRETMANAGER KubernetesSecretManager SECRETNAME '%s' CONFIGURATION '{\"data-key\":\"%s\", 
-		\"namespace\":\"%s\"}'`,
-		c.Vdb.Spec.ClientServerTLSSecret, corev1.TLSPrivateKeyKey, c.Vdb.ObjectMeta.Namespace))
-
-	sb.WriteString(fmt.Sprintf(
-		`CREATE CA CERTIFICATE server_ca_cert SECRETMANAGER KubernetesSecretManager SECRETNAME '%s' CONFIGURATION '{"data-key":\"%s\", 
-		"namespace":\"%s\"}'`,
-		c.Vdb.Spec.ClientServerTLSSecret, paths.HTTPServerCACrtName, c.Vdb.ObjectMeta.Namespace))
-
-	sb.WriteString(fmt.Sprintf(
-		`CREATE CERTIFICATE server_cert SECRETMANAGER KubernetesSecretManager SECRETNAME '%s' CONFIGURATION '{\"data-key\":\"%s\", 
-		\"namespace\":\"%s\"}' SIGNED BY server_ca_cert KEY server_key`,
-		c.Vdb.Spec.ClientServerTLSSecret, corev1.TLSCertKey, c.Vdb.ObjectMeta.Namespace))
-
-	sb.WriteString(`ALTER TLS CONFIGURATION server CERTIFICATE server_cert ADD CA CERTIFICATES server_ca_cert TLSMODE 'verify_ca'`)
-
-	sb.WriteString(`ALTER TLS CONFIGURATION https CERTIFICATE https_cert_0 ADD CA CERTIFICATES https_ca_cert_0 TLSMODE 'verify_ca'`)
 	_, _, err := c.PRunner.ExecInPod(ctx, initiatorPod, names.ServerContainer,
 		"bash", "-c", "cat > "+PostDBCreateSQLFile+"<<< \""+sb.String()+"\"",
 	)
