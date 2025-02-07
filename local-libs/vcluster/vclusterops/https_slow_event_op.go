@@ -16,11 +16,7 @@
 package vclusterops
 
 import (
-	"encoding/json"
 	"errors"
-	"fmt"
-	"io"
-	"os"
 	"strings"
 )
 
@@ -129,10 +125,6 @@ func (op *httpsSlowEventsOp) prepare(execContext *opEngineExecContext) error {
 }
 
 func (op *httpsSlowEventsOp) execute(execContext *opEngineExecContext) error {
-	if op.debug {
-		return op.executeOnStub(execContext)
-	}
-
 	if err := op.runExecute(execContext); err != nil {
 		return err
 	}
@@ -184,54 +176,4 @@ func (op *httpsSlowEventsOp) processResult(execContext *opEngineExecContext) err
 	}
 
 	return allErrs
-}
-
-func (op *httpsSlowEventsOp) executeOnStub(execContext *opEngineExecContext) error {
-	// TODO: we take this location from input, but this place would be fine
-	// because we can any way write files from outside to the test containers
-	location := "/opt/vertica/tmp/slow_events_sample.json"
-	jsonFile, err := os.Open(location)
-	if err != nil {
-		return fmt.Errorf("failed to open slow events stub file at %s", location)
-	}
-
-	defer jsonFile.Close()
-
-	var slowEventList []dcSlowEvent
-	bytes, _ := io.ReadAll(jsonFile)
-	err = json.Unmarshal(bytes, &slowEventList)
-	if err != nil {
-		return err
-	}
-
-	var filteredEvents []dcSlowEvent
-	for idx := range slowEventList {
-		event := slowEventList[idx]
-		if op.startTime != "" {
-			if event.Time < op.startTime {
-				continue
-			}
-		}
-		if op.endTime != "" {
-			if event.Time > op.endTime {
-				continue
-			}
-		}
-		if op.threadID != "" {
-			if event.ThreadID != op.threadID {
-				continue
-			}
-		}
-		if op.eventDesc != "" {
-			if !strings.Contains(event.EventDescription, op.eventDesc) {
-				continue
-			}
-		}
-		filteredEvents = append(filteredEvents, event)
-	}
-
-	execContext.slowEvents = new(dcSlowEvents)
-	execContext.slowEvents.SlowEventList = filteredEvents
-
-	return nil
 }
