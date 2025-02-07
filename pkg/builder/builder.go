@@ -914,7 +914,7 @@ func BuildVProxyDeployment(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vap
 	}
 }
 
-// buildPodSpec creates a PodSpec for the deployment
+// buildVProxyPodSpec creates a PodSpec for the vproxy deployment
 func buildVProxyPodSpec(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.PodSpec {
 	termGracePeriod := int64(0)
 	return corev1.PodSpec{

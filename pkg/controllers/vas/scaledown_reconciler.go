@@ -78,7 +78,7 @@ func (s *ScaledownReconciler) Reconcile(ctx context.Context, req *ctrl.Request) 
 			s.Log.Info("Metric's value is lower than the scale-down threshold.", "metric", mStatus.name)
 			newMinReplicas = *s.Vas.Spec.CustomAutoscaler.MinReplicas
 		} else {
-			newMinReplicas = s.Vas.Spec.TargetSize
+			newMinReplicas = s.Vas.Status.CurrentSize
 			break
 		}
 	}
