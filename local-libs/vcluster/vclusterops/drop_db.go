@@ -1,5 +1,5 @@
 /*
- (c) Copyright [2023-2024] Open Text.
+ (c) Copyright [2023-2025] Open Text.
  Licensed under the Apache License, Version 2.0 (the "License");
  You may not use this file except in compliance with the License.
  You may obtain a copy of the License at
@@ -25,6 +25,8 @@ import (
 type VDropDatabaseOptions struct {
 	VCreateDatabaseOptions
 	ForceDelete bool // whether force delete directories
+	// node and their directories to clean up
+	NodesToDrop []VCoordinationNode
 }
 
 func VDropDatabaseOptionsFactory() VDropDatabaseOptions {
@@ -86,7 +88,7 @@ func (vcc VClusterCommands) VDropDatabase(options *VDropDatabaseOptions) error {
 		return err
 	}
 
-	err = vdb.setFromBasicDBOptions(&options.VCreateDatabaseOptions)
+	err = vdb.setFromBasicDBOptionsWithVNodeInfo(&options.VCreateDatabaseOptions, &options.NodesToDrop)
 	if err != nil {
 		return err
 	}

@@ -21,7 +21,7 @@ status:
     type: TargetSizeInitialized
   - status: "True"
     type: ScalingActive
-  selector: vertica.com/subcluster-svc=pri1,app.kubernetes.io/instance=v-scale-down-threshold,app.kubernetes.io/managed-by=verticadb-operator
+  selector: vertica.com/subcluster-svc=pri1,vertica.com/is-sandbox=false,app.kubernetes.io/instance=v-scale-down-threshold,app.kubernetes.io/managed-by=verticadb-operator
   scalingCount: 0
   currentSize: 5
 ---
