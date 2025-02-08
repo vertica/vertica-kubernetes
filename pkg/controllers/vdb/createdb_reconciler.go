@@ -128,6 +128,13 @@ func (c *CreateDBReconciler) execCmd(ctx context.Context, initiatorPod types.Nam
 	if res, err := c.Dispatcher.CreateDB(ctx, opts...); verrors.IsReconcileAborted(res, err) {
 		return res, err
 	}
+	_, _, err = c.PRunner.ExecInPod(ctx, initiatorPod, names.ServerContainer,
+		"vsql", "-f", PostDBCreateSQLFile)
+	c.Log.Info("SQL executed after db creation ")
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
 	sc := c.getFirstPrimarySubcluster()
 	c.VRec.Eventf(c.Vdb, corev1.EventTypeNormal, events.CreateDBSucceeded,
 		"Successfully created database with subcluster '%s'. It took %s", sc.Name, time.Since(start).Truncate(time.Second))
@@ -245,7 +252,7 @@ CREATE SECRET MANAGER;`)
 	_, _, err := c.PRunner.ExecInPod(ctx, initiatorPod, names.ServerContainer,
 		"bash", "-c", "cat > "+PostDBCreateSQLFile+"<<< \""+sb.String()+"\"",
 	)
-	c.Log.Info("SQL executed after db creation: " + sb.String())
+	c.Log.Info("SQL to be executed after db creation: " + sb.String())
 	if err != nil {
 		return ctrl.Result{}, err
 	}
