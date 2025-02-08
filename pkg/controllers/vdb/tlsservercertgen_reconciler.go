@@ -93,7 +93,8 @@ func (h *TLSServerCertGenReconciler) reconcileOneSecret(secretFieldName, secretN
 		if errors.IsNotFound(err) {
 			h.Log.Info(secretName+" is set but doesn't exist. Will recreate the secret.", "name", nm)
 		} else if err != nil {
-			return fmt.Errorf("failed while attempting to read the tls secret %s: %w", secretName, err)
+			h.Log.Error(err, "failed to read tls secret", "secretName", secretName)
+			return err
 		} else {
 			// Secret is filled in and exists. We can exit.
 			for field := range vadmin.CertFields {
@@ -106,7 +107,7 @@ func (h *TLSServerCertGenReconciler) reconcileOneSecret(secretFieldName, secretN
 			h.Log.Info("libo: to call SetSecretData for secret name - " + secretName)
 			TLSCertCacheManager.SetSecretData(secretName, secret.Data)
 			h.Log.Info("cached secret " + secretName)
-			return fmt.Errorf("failed while attempting to read the tls secret %s: %w", secretName, err)
+			return err
 		}
 	}
 	caCert, err := security.NewSelfSignedCACertificate()
