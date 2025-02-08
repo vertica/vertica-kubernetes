@@ -200,7 +200,8 @@ func (c *CreateDBReconciler) generatePostDBCreateSQL(ctx context.Context, initia
 	if c.VInf.IsEqualOrNewer(vapi.NMATLSCertRotationMinVersion) {
 		c.Log.Info("libo: generate sql 3")
 		sb.WriteString(`CREATE OR REPLACE LIBRARY public.KubernetesLib AS '/opt/vertica/packages/kubernetes/lib/libkubernetes.so';`)
-
+		sb.WriteString(`CREATE OR REPLACE SECRETMANAGER KubernetesSecretManager AS LANGUAGE 'C++' NAME 'KubernetesSecretManagerFactory' LIBRARY KubernetesLib;
+CREATE SECRET MANAGER;`)
 		sb.WriteString(fmt.Sprintf(
 			`CREATE KEY https_key_0 TYPE 'rsa' SECRETMANAGER KubernetesSecretManager SECRETNAME '%s' CONFIGURATION '{\"data-key\":\"%s\", 
 			\"namespace\":\"%s\"}';`,
