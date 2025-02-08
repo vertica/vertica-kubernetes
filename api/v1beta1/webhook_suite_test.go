@@ -86,7 +86,6 @@ var _ = BeforeSuite(func() {
 	Expect(k8sClient).NotTo(BeNil())
 
 	// start webhook server using Manager
-	// start webhook server using Manager
 	webhookInstallOptions := &testEnv.WebhookInstallOptions
 	webhookServer := webhook.NewServer(webhook.Options{
 		Host:    webhookInstallOptions.LocalServingHost,
