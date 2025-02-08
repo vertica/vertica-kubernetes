@@ -34,7 +34,7 @@ var _ = Describe("scaledown_reconcile", func() {
 	It("should set minreplicas based on current metric", func() {
 		vas := v1beta1.MakeVASWithMetrics()
 		vas.Spec.TargetSize = 4
-		m := &vas.Spec.CustomAutoscaler.Metrics[0]
+		m := &vas.Spec.CustomAutoscaler.Hpa.Metrics[0]
 		cpu := int32(60)
 		m.ScaleDownThreshold = &autoscalingv2.MetricTarget{
 			Type:               autoscalingv2.UtilizationMetricType,
@@ -43,7 +43,7 @@ var _ = Describe("scaledown_reconcile", func() {
 		v1beta1_test.CreateVAS(ctx, k8sClient, vas)
 		defer v1beta1_test.DeleteVAS(ctx, k8sClient, vas)
 
-		r := MakeHorizontalPodAutoscalerReconciler(vasRec, vas, logger)
+		r := MakeObjReconciler(vasRec, vas, logger)
 		res, err := r.Reconcile(ctx, &ctrl.Request{})
 		defer v1beta1_test.DeleteHPA(ctx, k8sClient, vas)
 		Expect(res).Should(Equal(ctrl.Result{}))
@@ -53,7 +53,7 @@ var _ = Describe("scaledown_reconcile", func() {
 		nm := names.GenHPAName(vas)
 		Expect(k8sClient.Get(ctx, nm, hpa)).Should(Succeed())
 		Expect(*hpa.Spec.MinReplicas).Should(Equal(vas.Spec.TargetSize))
-		Expect(hpa.Spec.MaxReplicas).Should(Equal(vas.Spec.CustomAutoscaler.MaxReplicas))
+		Expect(hpa.Spec.MaxReplicas).Should(Equal(vas.Spec.CustomAutoscaler.Hpa.MaxReplicas))
 
 		// Update hpa status
 		curCPU := int32(55)
@@ -75,6 +75,6 @@ var _ = Describe("scaledown_reconcile", func() {
 		Expect(res).Should(Equal(ctrl.Result{}))
 		Expect(err).Should(Succeed())
 		Expect(k8sClient.Get(ctx, nm, hpa)).Should(Succeed())
-		Expect(*hpa.Spec.MinReplicas).Should(Equal(*vas.Spec.CustomAutoscaler.MinReplicas))
+		Expect(*hpa.Spec.MinReplicas).Should(Equal(*vas.Spec.CustomAutoscaler.Hpa.MinReplicas))
 	})
 })

@@ -30,6 +30,7 @@ import (
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "net/http/pprof" //nolint:gosec
 
+	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -87,6 +88,7 @@ func init() {
 
 	utilruntime.Must(vapiB1.AddToScheme(scheme))
 	utilruntime.Must(vapiV1.AddToScheme(scheme))
+	utilruntime.Must(kedav1alpha1.AddToScheme(scheme))
 	// +kubebuilder:scaffold:scheme
 }
 

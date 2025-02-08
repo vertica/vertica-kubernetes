@@ -6,17 +6,19 @@ spec:
   verticaDBName: v-scale-down-threshold-db
   scalingGranularity: Subcluster
   customAutoscaler:
-    minReplicas: 3
-    maxReplicas: 7
-    metrics:
-      - metric:
-          type: Pods
-          pods:
-            metric:
-              name: vertica_sessions_running_total
-            target:
-              type: AverageValue
-              averageValue: 5
-        scaleDownThreshold:
-          type: AverageValue
-          averageValue: 1
+    type: HPA
+    hpa:
+      minReplicas: 3
+      maxReplicas: 7
+      metrics:
+        - metric:
+            type: Pods
+            pods:
+              metric:
+                name: vertica_sessions_running_total
+              target:
+                type: AverageValue
+                averageValue: 5
+          scaleDownThreshold:
+            type: AverageValue
+            averageValue: 1

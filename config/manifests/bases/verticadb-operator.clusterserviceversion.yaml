@@ -162,30 +162,157 @@ spec:
           sizes of the replica sets can be specified to limit the use of resources.
         displayName: Custom Autoscaler
         path: customAutoscaler
+      - description: |-
+          It refers to an autoscaling definition through the horizontal pod autoscaler.
+          If type is "HPA", this must be set.
+        displayName: Hpa
+        path: customAutoscaler.hpa
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:fieldDependency:type:HPA
       - description: Specifies the scaling behavior for both scale up and down.
         displayName: Behavior
-        path: customAutoscaler.behavior
+        path: customAutoscaler.hpa.behavior
       - description: The maximum number of pods when scaling.
         displayName: Max Replicas
-        path: customAutoscaler.maxReplicas
+        path: customAutoscaler.hpa.maxReplicas
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:number
       - description: The custom metric definition to be used for autocaling.
         displayName: Metrics
-        path: customAutoscaler.metrics
+        path: customAutoscaler.hpa.metrics
       - description: The custom metric to be used for autocaling.
         displayName: Metric
-        path: customAutoscaler.metrics[0].metric
+        path: customAutoscaler.hpa.metrics[0].metric
       - description: |-
           The threshold to use for scaling down. It must be of the same type as
           the one used for scaling up, defined in the metric field.
         displayName: Scale Down Threshold
-        path: customAutoscaler.metrics[0].scaleDownThreshold
+        path: customAutoscaler.hpa.metrics[0].scaleDownThreshold
       - description: The value used to increase the threshold after a scale up or
           a scale down.
         displayName: Threshold Adjustment Value
-        path: customAutoscaler.metrics[0].thresholdAdjustmentValue
+        path: customAutoscaler.hpa.metrics[0].thresholdAdjustmentValue
       - description: The miminum number of pods when scaling.
         displayName: Min Replicas
-        path: customAutoscaler.minReplicas
+        path: customAutoscaler.hpa.minReplicas
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:number
+      - description: |-
+          It refers to an autoscaling definition through a scaledObject.
+          If type is "ScaledObject", this must be set.
+        displayName: Scaled Object
+        path: customAutoscaler.scaledObject
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:fieldDependency:type:ScaledObject
+      - description: Specifies the scaling behavior for both scale up and down.
+        displayName: Behavior
+        path: customAutoscaler.scaledObject.behavior
+      - description: 'Defines the time to wait between scaling actions. This is helpful
+          to avoid constant scaling up/down. Default: 30s.'
+        displayName: Cooldown Period
+        path: customAutoscaler.scaledObject.cooldownPeriod
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:number
+      - description: The maximum number of pods when scaling.
+        displayName: Max Replicas
+        path: customAutoscaler.scaledObject.maxReplicas
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:number
+      - description: The list of prometheus queries that will be used for scaling.
+        displayName: Metrics
+        path: customAutoscaler.scaledObject.metrics
+      - description: |-
+          The secret that contains prometheus credentials. Supports basic auth, bearer tokens, and TLS authentication.
+          It will ignored if the type is not prometheus
+        displayName: Auth Secret
+        path: customAutoscaler.scaledObject.metrics[0].authSecret
+        x-descriptors:
+        - urn:alm:descriptor:io.kubernetes:Secret
+      - description: |-
+          Represents whether the metric type is Utilization, Value, or AverageValue.
+          Allowed types are 'Value' or 'AverageValue' for prometheus and
+          'Utilization' or 'AverageValue' for cpu/memory. If not specified, it defaults to Value
+          for prometheus and Utilization for cpu/memory.
+        displayName: Metric Type
+        path: customAutoscaler.scaledObject.metrics[0].metricType
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:select:Utilization
+        - urn:alm:descriptor:com.tectonic.ui:select:Value
+        - urn:alm:descriptor:com.tectonic.ui:select:AverageValue
+      - description: |-
+          The custom name of this metric, which can be used for logging
+          or referring to this particular metric.
+        displayName: Name
+        path: customAutoscaler.scaledObject.metrics[0].name
+      - description: |-
+          The detail about how to fetch metrics from Prometheus and scale workloads based on them.
+          if type is "prometheus", this must be set.
+        displayName: Prometheus
+        path: customAutoscaler.scaledObject.metrics[0].prometheus
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:fieldDependency:type:prometheus
+      - description: The PromQL query to fetch metrics (e.g., sum(vertica_sessions_running_counter{type="active",
+          initiator="user"})).
+        displayName: Query
+        path: customAutoscaler.scaledObject.metrics[0].prometheus.query
+      - description: |-
+          This is the lower bound at which the autoscaler starts scaling down to the minimum replica count.
+          If the metric falls below threshold but is still above this value, the current replica count remains unchanged.
+        displayName: Scale Down Threshold
+        path: customAutoscaler.scaledObject.metrics[0].prometheus.scaleDownThreshold
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:number
+      - description: The URL of the Prometheus server.
+        displayName: Server Address
+        path: customAutoscaler.scaledObject.metrics[0].prometheus.serverAddress
+      - description: The threshold value at which scale up is triggered.
+        displayName: Threshold
+        path: customAutoscaler.scaledObject.metrics[0].prometheus.threshold
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:number
+      - description: |-
+          The detail about the target value and container name. if type is cpu/memory
+          this must be set.
+        displayName: Resource
+        path: customAutoscaler.scaledObject.metrics[0].resource
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:fieldDependency:type:cpu|memory
+      - description: "The value to trigger scaling for.\n\n\n- When using Utilization,
+          the target value is the average of the resource metric across all relevant
+          pods,\n\t represented as a percentage of the requested value of the resource
+          for the pods.\n- When using AverageValue, the target value is the target
+          value of the average of the metric\n  across all relevant pods (quantity)."
+        displayName: Threshold
+        path: customAutoscaler.scaledObject.metrics[0].resource.threshold
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:number
+      - description: |-
+          The type of metric that is being defined. It can be either cpu, memory, or prometheus.
+          An empty string currently defaults prometheus.
+        displayName: Type
+        path: customAutoscaler.scaledObject.metrics[0].type
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:select:prometheus
+        - urn:alm:descriptor:com.tectonic.ui:select:cpu
+        - urn:alm:descriptor:com.tectonic.ui:select:memory
+      - description: The miminum number of pods when scaling.
+        displayName: Min Replicas
+        path: customAutoscaler.scaledObject.minReplicas
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:number
+      - description: |-
+          The time interval at which the scaler will check the metric condition and scale the target (in seconds).
+          If not specified, the default is 30 seconds.
+        displayName: Polling Interval
+        path: customAutoscaler.scaledObject.pollingInterval
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:number
+      - description: The type of autoscaler. It must be one of "HPA" or "ScaledObject".
+        displayName: Type
+        path: customAutoscaler.type
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:select:HPA
+        - urn:alm:descriptor:com.tectonic.ui:select:ScaledObject
       - description: |-
           This defines how the scaling will happen.  This can be one of the following:
           - Subcluster: Scaling will be achieved by creating or deleting entire subclusters.
