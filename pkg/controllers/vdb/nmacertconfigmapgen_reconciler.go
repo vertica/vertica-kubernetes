@@ -23,6 +23,7 @@ import (
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/builder"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
@@ -38,6 +39,12 @@ type NMACertConfigMapGenReconciler struct {
 }
 
 func MakeNMACertConfigMapGenReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger, vdb *vapi.VerticaDB) controllers.ReconcileActor {
+	// tlsCertConfigured
+	dataInitialized := vdb.IsStatusConditionTrue(vapi.DBInitialized)
+	VInf, _ := vdb.MakeVersionInfoCheck()
+	if dataInitialized && VInf.IsEqualOrNewer(vapi.NMATLSCertRotationMinVersion) {
+		vadmin.TLSCertConfigured = true
+	}
 	return &NMACertConfigMapGenReconciler{
 		VRec: vdbrecon,
 		Vdb:  vdb,
