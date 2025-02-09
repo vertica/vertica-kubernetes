@@ -60,6 +60,8 @@ Examples:
 	// local flags
 	newCmd.setLocalFlags(cmd)
 
+	// Hide this command
+	cmd.Hidden = true
 	return cmd
 }
 
@@ -74,7 +76,7 @@ func (c *CmdClusterHealth) setLocalFlags(cmd *cobra.Command) {
 	// --end-time : the end time (for all operations)
 	// --session-id : the session id  (for session start and slow event)
 	// --debug : debug mode  (for all operations)
-	// --threadhold : the threadhold of seconds for slow events (for get_slow_events)
+	// --threshold : the threadhold of seconds for slow events (for get_slow_events)
 	// --thread-id : the thread id (for get_slow_events)
 	// --phase-duration-desc : the phase duration description (for get_slow_events)
 	// --event-desc : the event description (for get_slow_events)
@@ -209,11 +211,25 @@ func (c *CmdClusterHealth) Run(vcc vclusterops.ClusterCommands) error {
 		return err
 	}
 
-	bytes, err := json.MarshalIndent(options.CascadeStack, "", " ")
+	var bytes []byte
+	switch c.clusterHealthOptions.Operation {
+	case "get_slow_events":
+		bytes, err = json.MarshalIndent(options.SlowEvents, "", " ")
+	case "get_session_starts":
+		bytes, err = json.MarshalIndent(options.SessionStarts, "", " ")
+	case "get_transaction_starts":
+		bytes, err = json.MarshalIndent(options.TransactionStarts, "", " ")
+	default: // by default, we will build a cascade graph
+		bytes, err = json.MarshalIndent(options.CascadeStack, "", " ")
+	}
+
 	if err != nil {
 		return fmt.Errorf("failed to marshal the traceback result, details: %w", err)
 	}
 
+	vcc.DisplayInfo("Successfully build the cascade graph for the slow events")
+
+	// output the result to console or file
 	c.writeCmdOutputToFile(globals.file, bytes, vcc.GetLog())
 	vcc.LogInfo("Slow event traceback: ", "slow events", string(bytes))
 

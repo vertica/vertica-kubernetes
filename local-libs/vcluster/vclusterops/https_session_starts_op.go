@@ -17,16 +17,9 @@ package vclusterops
 
 import (
 	"errors"
-	"strconv"
+	"fmt"
+	"net/url"
 	"strings"
-)
-
-const (
-	startTimeParam = "start-time="
-	endTimeParam   = "end-time="
-	sessionIDParam = "session-id="
-	txnIDParam     = "txn-id="
-	debugParam     = "debug="
 )
 
 type httpsSessionStartsOp struct {
@@ -57,32 +50,31 @@ const sessionStartsURL = "dc/session-starts"
 func (op *httpsSessionStartsOp) setupClusterHTTPRequest(hosts []string) error {
 	// this op may consume resources of the database,
 	// thus we only need to send https request to one of the up hosts
-	url := sessionStartsURL
-	queryParams := []string{}
-	if op.sessionID != "" {
-		queryParams = append(queryParams, sessionIDParam+op.sessionID)
-	}
-	if op.debug {
-		queryParams = append(queryParams, debugParam+strconv.FormatBool(op.debug))
-	}
-	if op.startTime != "" {
-		queryParams = append(queryParams, startTimeParam+op.startTime)
-	}
-	if op.endTime != "" {
-		queryParams = append(queryParams, endTimeParam+op.endTime)
-	}
-	for i, param := range queryParams {
-		// replace " " with "%20" in query params
-		queryParams[i] = strings.ReplaceAll(param, " ", "%20")
-	}
-
-	if len(queryParams) > 0 {
-		url += "?" + strings.Join(queryParams, "&")
-	}
+	baseURL := sessionStartsURL
 	for _, host := range hosts[:1] {
 		httpRequest := hostHTTPRequest{}
 		httpRequest.Method = GetMethod
-		httpRequest.buildHTTPSEndpoint(url)
+		queryParams := make(map[string]string)
+		if op.sessionID != "" {
+			queryParams["session-id"] = op.sessionID
+		}
+		if op.startTime != "" {
+			queryParams["start-time"] = op.startTime
+		}
+		if op.endTime != "" {
+			queryParams["end-time"] = op.endTime
+		}
+
+		// Build query string
+		var queryParts []string
+		for key, value := range queryParams {
+			queryParts = append(queryParts, fmt.Sprintf("%s=%s", key, value))
+		}
+
+		// Join query parts to form a query string
+		queryString := url.PathEscape(strings.Join(queryParts, "&"))
+		httpRequest.buildHTTPSEndpoint(fmt.Sprintf("%s?%s", baseURL, queryString))
+
 		op.clusterHTTPRequest.RequestCollection[host] = httpRequest
 	}
 
@@ -156,7 +148,7 @@ func (op *httpsSessionStartsOp) processResult(execContext *opEngineExecContext) 
 			}
 
 			// we only need result from one host
-			execContext.dcSessionStarts = sessionStarts
+			execContext.dcSessionStarts = &sessionStarts
 			return allErrs
 		}
 	}
