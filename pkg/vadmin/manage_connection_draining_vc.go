@@ -53,8 +53,6 @@ func (v *VClusterOps) genManageConnectionDrainingOptions(s *manageconnectiondrai
 
 	opts.RawHosts = append(opts.RawHosts, s.InitiatorIP)
 	opts.DBName = v.VDB.Spec.DBName
-	opts.UserName = v.VDB.GetVerticaUser()
-	opts.Password = &v.Password
 
 	opts.Sandbox = s.Sandbox
 	opts.SCName = s.SCName
@@ -65,9 +63,14 @@ func (v *VClusterOps) genManageConnectionDrainingOptions(s *manageconnectiondrai
 	opts.IPv6 = net.IsIPv6(s.InitiatorIP)
 
 	// auth options
-	opts.Key = certs.Key
-	opts.Cert = certs.Cert
-	opts.CaCert = certs.CaCert
+	if ShouldUseCertAuthentication() {
+		opts.Key = certs.Key
+		opts.Cert = certs.Cert
+		opts.CaCert = certs.CaCert
+	} else {
+		opts.UserName = v.VDB.GetVerticaUser()
+		opts.Password = &v.Password
+	}
 
 	return &opts
 }

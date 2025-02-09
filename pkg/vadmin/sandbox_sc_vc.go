@@ -71,11 +71,14 @@ func (v *VClusterOps) genSandboxSubclusterOptions(s *sandboxsc.Params, certs *HT
 	}
 
 	// auth options
-	opts.UserName = v.VDB.GetVerticaUser()
-	opts.Password = &v.Password
-	opts.Key = certs.Key
-	opts.Cert = certs.Cert
-	opts.CaCert = certs.CaCert
+	if ShouldUseCertAuthentication() {
+		opts.Key = certs.Key
+		opts.Cert = certs.Cert
+		opts.CaCert = certs.CaCert
+	} else {
+		opts.UserName = v.VDB.GetVerticaUser()
+		opts.Password = &v.Password
+	}
 
 	return opts
 }

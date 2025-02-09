@@ -69,11 +69,14 @@ func (v *VClusterOps) genUnsandboxSubclusterOptions(s *unsandboxsc.Params, certs
 	opts.NodeNameAddressMap = s.NodeNameAddressMap
 
 	// auth options
-	opts.UserName = v.VDB.GetVerticaUser()
-	opts.Password = &v.Password
-	opts.Key = certs.Key
-	opts.Cert = certs.Cert
-	opts.CaCert = certs.CaCert
+	if ShouldUseCertAuthentication() {
+		opts.Key = certs.Key
+		opts.Cert = certs.Cert
+		opts.CaCert = certs.CaCert
+	} else {
+		opts.UserName = v.VDB.GetVerticaUser()
+		opts.Password = &v.Password
+	}
 
 	return opts
 }

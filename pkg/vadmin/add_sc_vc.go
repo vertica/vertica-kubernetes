@@ -64,11 +64,14 @@ func (v *VClusterOps) genAddSubclusterOptions(s *addsc.Parms, certs *HTTPSCerts)
 	opts.IsPrimary = s.IsPrimary
 
 	// auth options
-	opts.Key = certs.Key
-	opts.Cert = certs.Cert
-	opts.CaCert = certs.CaCert
-	opts.UserName = v.VDB.GetVerticaUser()
-	opts.Password = &v.Password
+	if ShouldUseCertAuthentication() {
+		opts.Key = certs.Key
+		opts.Cert = certs.Cert
+		opts.CaCert = certs.CaCert
+	} else {
+		opts.UserName = v.VDB.GetVerticaUser()
+		opts.Password = &v.Password
+	}
 
 	return opts
 }
