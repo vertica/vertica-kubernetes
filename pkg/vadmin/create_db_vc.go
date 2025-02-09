@@ -36,9 +36,8 @@ func (v *VClusterOps) CreateDB(ctx context.Context, opts ...createdb.Option) (ct
 	v.Log.Info("Starting vcluster CreateDB")
 
 	// get the certs
-	certs, err := v.getCachedHTTPSCerts(NmaTLSSecret)
+	certs, err := v.retrieveNMACerts(ctx)
 	if err != nil {
-		v.Log.Error(err, "failed to retrieve nma secret from cache")
 		return ctrl.Result{}, err
 	}
 
@@ -106,12 +105,15 @@ func (v *VClusterOps) genCreateDBOptions(s *createdb.Parms, certs *HTTPSCerts) v
 		opts.ShardCount = s.ShardCount
 	}
 
-	v.Log.Info("libo: create db", "cert key", certs.Key, "cert cert", certs.Cert, "cert ca", certs.CaCert)
 	// auth options
 	opts.Key = certs.Key
 	opts.Cert = certs.Cert
 	opts.CaCert = certs.CaCert
 	opts.UserName = v.VDB.GetVerticaUser()
+	if v.Password != "" {
+		opts.Password = &v.Password
+	}
+
 	// Timeout
 	if timeout := v.VDB.GetCreateDBNodeStartTimeout(); timeout != 0 {
 		opts.TimeoutNodeStartupSeconds = timeout

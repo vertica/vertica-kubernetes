@@ -30,9 +30,8 @@ func (v *VClusterOps) ReplicateDB(ctx context.Context, opts ...replicationstart.
 	v.Log.Info("Starting vcluster ReplicateDB")
 
 	// get the certs
-	certs, err := v.getCachedHTTPSCerts(NmaTLSSecret)
+	certs, err := v.retrieveNMACerts(ctx)
 	if err != nil {
-		v.Log.Error(err, "failed to retrieve nma secret from cache")
 		return 0, err
 	}
 
@@ -73,6 +72,8 @@ func (v *VClusterOps) genReplicateDBOptions(s *replicationstart.Parms,
 	opts := vops.VReplicationDatabaseFactory()
 	opts.RawHosts = append(opts.RawHosts, s.SourceIP)
 	opts.DBName = v.VDB.Spec.DBName
+	opts.UserName = s.SourceUserName
+	opts.Password = &v.Password
 	opts.TargetDB.DBName = s.TargetDBName
 	opts.TargetDB.UserName = s.TargetUserName
 	opts.SandboxName = s.SourceSandboxName

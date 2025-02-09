@@ -34,15 +34,8 @@ func (v *VClusterOps) InstallPackages(_ context.Context, opts ...installpackages
 	s := installpackages.Parms{}
 	s.Make(opts...)
 
-	// get the certs
-	certs, err := v.getCachedHTTPSCerts(NmaTLSSecret)
-	if err != nil {
-		v.Log.Error(err, "failed to retrieve nma secret from cache")
-		return nil, err
-	}
-
 	// call vcluster-ops library to install packages
-	vopts := v.genInstallPackagesOptions(&s, certs)
+	vopts := v.genInstallPackagesOptions(&s)
 	status, err := v.VInstallPackages(&vopts)
 	if status == nil {
 		status = &vops.InstallPackageStatus{}
@@ -58,7 +51,7 @@ func (v *VClusterOps) InstallPackages(_ context.Context, opts ...installpackages
 	return status, nil
 }
 
-func (v *VClusterOps) genInstallPackagesOptions(i *installpackages.Parms, certs *HTTPSCerts) vops.VInstallPackagesOptions {
+func (v *VClusterOps) genInstallPackagesOptions(i *installpackages.Parms) vops.VInstallPackagesOptions {
 	opts := vops.VInstallPackagesOptionsFactory()
 
 	opts.RawHosts = append(opts.RawHosts, i.InitiatorIP)
@@ -69,9 +62,8 @@ func (v *VClusterOps) genInstallPackagesOptions(i *installpackages.Parms, certs 
 	opts.IsEon = v.VDB.IsEON()
 
 	// auth options
-	opts.Key = certs.Key
-	opts.Cert = certs.Cert
-	opts.CaCert = certs.CaCert
+	opts.UserName = v.VDB.GetVerticaUser()
+	opts.Password = &v.Password
 
 	// force reinstall option
 	opts.ForceReinstall = i.ForceReinstall

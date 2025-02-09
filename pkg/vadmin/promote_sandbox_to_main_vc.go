@@ -34,9 +34,8 @@ func (v *VClusterOps) PromoteSandboxToMain(ctx context.Context, opts ...promotes
 	v.Log.Info("Starting vcluster PromoteSandboxToMain")
 
 	// get the certs
-	certs, err := v.getCachedHTTPSCerts(NmaTLSSecret)
+	certs, err := v.retrieveNMACerts(ctx)
 	if err != nil {
-		v.Log.Error(err, "failed to retrieve nma secret from cache")
 		return err
 	}
 
@@ -65,6 +64,8 @@ func (v *VClusterOps) genPromoteSandboxToMainOptions(s *promotesandboxtomain.Par
 	opts.SandboxName = s.Sandbox
 
 	// auth options
+	opts.UserName = v.VDB.GetVerticaUser()
+	opts.Password = &v.Password
 	opts.Key = certs.Key
 	opts.Cert = certs.Cert
 	opts.CaCert = certs.CaCert

@@ -33,14 +33,7 @@ func (v *VClusterOps) PollSubclusterState(ctx context.Context, opts ...pollscsta
 	s := pollscstate.Params{}
 	s.Make(opts...)
 
-	// get the certs
-	certs, err := v.getCachedHTTPSCerts(NmaTLSSecret)
-	if err != nil {
-		v.Log.Error(err, "failed to retrieve nma secret from cache")
-		return err
-	}
-
-	vcOpts := v.genPollSubclusterStateOptions(&s, certs)
+	vcOpts := v.genPollSubclusterStateOptions(&s)
 	err = v.VPollSubclusterState(vcOpts)
 	if err != nil {
 		return fmt.Errorf("subcluster polling failed: %w", err)
@@ -49,7 +42,7 @@ func (v *VClusterOps) PollSubclusterState(ctx context.Context, opts ...pollscsta
 	return
 }
 
-func (v *VClusterOps) genPollSubclusterStateOptions(s *pollscstate.Params, certs *HTTPSCerts) *vops.VPollSubclusterStateOptions {
+func (v *VClusterOps) genPollSubclusterStateOptions(s *pollscstate.Params) *vops.VPollSubclusterStateOptions {
 	opts := vops.VPollSubclusterStateOptionsFactory()
 
 	// required options
@@ -63,9 +56,8 @@ func (v *VClusterOps) genPollSubclusterStateOptions(s *pollscstate.Params, certs
 	opts.Timeout = s.Timeout
 
 	// auth options
-	opts.Key = certs.Key
-	opts.Cert = certs.Cert
-	opts.CaCert = certs.CaCert
+	opts.UserName = v.VDB.GetVerticaUser()
+	opts.Password = &v.Password
 
 	return &opts
 }

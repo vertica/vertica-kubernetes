@@ -30,9 +30,8 @@ func (v *VClusterOps) DescribeDB(ctx context.Context, opts ...describedb.Option)
 	defer v.tearDownForAPICall()
 	v.Log.Info("Starting vcluster DescribeDB")
 
-	certs, err := v.getCachedHTTPSCerts(NmaTLSSecret)
+	certs, err := v.retrieveNMACerts(ctx)
 	if err != nil {
-		v.Log.Error(err, "failed to retrieve nma secret from cache")
 		return "", ctrl.Result{}, err
 	}
 

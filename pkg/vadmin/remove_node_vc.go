@@ -30,9 +30,8 @@ func (v *VClusterOps) RemoveNode(ctx context.Context, opts ...removenode.Option)
 	v.Log.Info("Starting vcluster RemoveNode")
 
 	// get the certs
-	certs, err := v.getCachedHTTPSCerts(NmaTLSSecret)
+	certs, err := v.retrieveNMACerts(ctx)
 	if err != nil {
-		v.Log.Error(err, "failed to retrieve nma secret from cache")
 		return err
 	}
 
@@ -65,6 +64,8 @@ func (v *VClusterOps) genRemoveNodeOptions(s *removenode.Parms, certs *HTTPSCert
 	opts.Key = certs.Key
 	opts.Cert = certs.Cert
 	opts.CaCert = certs.CaCert
+	opts.UserName = v.VDB.GetVerticaUser()
+	opts.Password = &v.Password
 
 	return opts
 }

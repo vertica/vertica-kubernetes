@@ -30,9 +30,8 @@ func (v *VClusterOps) ManageConnectionDraining(ctx context.Context, opts ...mana
 	defer v.tearDownForAPICall()
 	v.Log.Info("Starting vcluster ManageConnectionDraining")
 
-	certs, err := v.getCachedHTTPSCerts(NmaTLSSecret)
+	certs, err := v.retrieveNMACerts(ctx)
 	if err != nil {
-		v.Log.Error(err, "failed to retrieve nma secret from cache")
 		return err
 	}
 
@@ -54,6 +53,8 @@ func (v *VClusterOps) genManageConnectionDrainingOptions(s *manageconnectiondrai
 
 	opts.RawHosts = append(opts.RawHosts, s.InitiatorIP)
 	opts.DBName = v.VDB.Spec.DBName
+	opts.UserName = v.VDB.GetVerticaUser()
+	opts.Password = &v.Password
 
 	opts.Sandbox = s.Sandbox
 	opts.SCName = s.SCName

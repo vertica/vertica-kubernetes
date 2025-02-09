@@ -207,16 +207,15 @@ func (c *CreateDBReconciler) generatePostDBCreateSQL(ctx context.Context, initia
 	if c.VInf.IsEqualOrNewer(vapi.NMATLSCertRotationMinVersion) {
 		c.Log.Info("libo: generate sql 3")
 		sb.WriteString(`CREATE OR REPLACE LIBRARY public.KubernetesLib AS '/opt/vertica/packages/kubernetes/lib/libkubernetes.so';`)
-		sb.WriteString(`CREATE OR REPLACE SECRETMANAGER KubernetesSecretManager AS LANGUAGE 'C++' NAME 'KubernetesSecretManagerFactory' LIBRARY KubernetesLib;
-CREATE SECRET MANAGER;`)
+		sb.WriteString(`CREATE OR REPLACE SECRETMANAGER KubernetesSecretManager AS LANGUAGE 'C++' NAME 'KubernetesSecretManagerFactory' LIBRARY KubernetesLib;`)
 		sb.WriteString(fmt.Sprintf(
 			`CREATE KEY https_key_0 TYPE 'rsa' SECRETMANAGER KubernetesSecretManager SECRETNAME '%s' CONFIGURATION '{\"data-key\":\"%s\", 
 			\"namespace\":\"%s\"}';`,
 			c.Vdb.Spec.NMATLSSecret, corev1.TLSPrivateKeyKey, c.Vdb.ObjectMeta.Namespace))
 
 		sb.WriteString(fmt.Sprintf(
-			`CREATE CA CERTIFICATE https_ca_cert_0 SECRETMANAGER KubernetesSecretManager SECRETNAME '%s' CONFIGURATION '{"data-key":\"%s\", 
-			"namespace":\"%s\"}';`,
+			`CREATE CA CERTIFICATE https_ca_cert_0 SECRETMANAGER KubernetesSecretManager SECRETNAME '%s' CONFIGURATION '{\"data-key\":\"%s\", 
+			\"namespace\":\"%s\"}';`,
 			c.Vdb.Spec.NMATLSSecret, paths.HTTPServerCACrtName, c.Vdb.ObjectMeta.Namespace))
 
 		sb.WriteString(fmt.Sprintf(
@@ -228,7 +227,7 @@ CREATE SECRET MANAGER;`)
 
 		sb.WriteString(`DROP CERTIFICATE IF EXISTS server_cert;`)
 
-		sb.WriteString(`DROP CERTIFICATE IF EXISTS server_ca_cert CASCADE;`)
+		sb.WriteString(`DROP CERTIFICATE IF EXISTS server_ca_cert;`)
 
 		sb.WriteString(fmt.Sprintf(
 			`CREATE KEY server_key TYPE 'rsa' SECRETMANAGER KubernetesSecretManager SECRETNAME '%s' CONFIGURATION '{\"data-key\":\"%s\", 
@@ -236,8 +235,8 @@ CREATE SECRET MANAGER;`)
 			c.Vdb.Spec.ClientServerTLSSecret, corev1.TLSPrivateKeyKey, c.Vdb.ObjectMeta.Namespace))
 
 		sb.WriteString(fmt.Sprintf(
-			`CREATE CA CERTIFICATE server_ca_cert SECRETMANAGER KubernetesSecretManager SECRETNAME '%s' CONFIGURATION '{"data-key":\"%s\", 
-			"namespace":\"%s\"}';`,
+			`CREATE CA CERTIFICATE server_ca_cert SECRETMANAGER KubernetesSecretManager SECRETNAME '%s' CONFIGURATION '{\"data-key\":\"%s\", 
+			\"namespace\":\"%s\"}';`,
 			c.Vdb.Spec.ClientServerTLSSecret, paths.HTTPServerCACrtName, c.Vdb.ObjectMeta.Namespace))
 
 		sb.WriteString(fmt.Sprintf(

@@ -32,9 +32,8 @@ func (v *VClusterOps) SaveRestorePoint(ctx context.Context, opts ...saverestorep
 	v.Log.Info("Starting vcluster SaveRestorePoint")
 
 	// get the certs
-	certs, err := v.getCachedHTTPSCerts(NmaTLSSecret)
+	certs, err := v.retrieveNMACerts(ctx)
 	if err != nil {
-		v.Log.Error(err, "failed to retrieve nma secret from cache")
 		return err
 	}
 
@@ -66,6 +65,8 @@ func (v *VClusterOps) genSaveRestorePointOptions(s *saverestorepoint.Params, cer
 	opts.IPv6 = net.IsIPv6(s.InitiatorIP)
 
 	// auth options
+	opts.UserName = v.VDB.GetVerticaUser()
+	opts.Password = &v.Password
 	opts.Key = certs.Key
 	opts.Cert = certs.Cert
 	opts.CaCert = certs.CaCert

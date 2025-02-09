@@ -35,13 +35,8 @@ func (v *VClusterOps) FetchNodeState(_ context.Context, opts ...fetchnodestate.O
 	s := fetchnodestate.Parms{}
 	s.Make(opts...)
 
-	certs, err := v.getCachedHTTPSCerts(NmaTLSSecret)
-	if err != nil {
-		v.Log.Error(err, "failed to retrieve nma secret from cache")
-		return nil, ctrl.Result{}, err
-	}
 	// call vcluster-ops library to fetch node states
-	vopts := v.genFetchNodeStateOptions(&s, certs)
+	vopts := v.genFetchNodeStateOptions(&s)
 	nodesInfo, err := v.VFetchNodeState(&vopts)
 	if err != nil {
 		v.Log.Error(err, "failed to fetch node states")
@@ -57,7 +52,7 @@ func (v *VClusterOps) FetchNodeState(_ context.Context, opts ...fetchnodestate.O
 	return stateMap, ctrl.Result{}, nil
 }
 
-func (v *VClusterOps) genFetchNodeStateOptions(s *fetchnodestate.Parms, certs *HTTPSCerts) vops.VFetchNodeStateOptions {
+func (v *VClusterOps) genFetchNodeStateOptions(s *fetchnodestate.Parms) vops.VFetchNodeStateOptions {
 	opts := vops.VFetchNodeStateOptionsFactory()
 
 	opts.DBName = v.VDB.Spec.DBName
@@ -66,9 +61,8 @@ func (v *VClusterOps) genFetchNodeStateOptions(s *fetchnodestate.Parms, certs *H
 	opts.IPv6 = net.IsIPv6(s.InitiatorIP)
 
 	// auth options
-	opts.Key = certs.Key
-	opts.Cert = certs.Cert
-	opts.CaCert = certs.CaCert
+	opts.UserName = v.VDB.GetVerticaUser()
+	opts.Password = &v.Password
 
 	return opts
 }

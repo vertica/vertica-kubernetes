@@ -30,9 +30,8 @@ func (v *VClusterOps) GetConfigurationParameter(ctx context.Context, opts ...get
 	defer v.tearDownForAPICall()
 	v.Log.Info("Starting vcluster GetConfigurationParameter")
 
-	certs, err := v.getCachedHTTPSCerts(NmaTLSSecret)
+	certs, err := v.retrieveNMACerts(ctx)
 	if err != nil {
-		v.Log.Error(err, "failed to retrieve nma secret from cache")
 		return "", err
 	}
 
@@ -54,6 +53,8 @@ func (v *VClusterOps) genGetConfigurationParameterOptions(s *getconfigparameter.
 
 	opts.RawHosts = append(opts.RawHosts, s.InitiatorIP)
 	opts.DBName = v.VDB.Spec.DBName
+	opts.UserName = s.UserName
+	opts.Password = &v.Password
 
 	opts.Sandbox = s.Sandbox
 	opts.ConfigParameter = s.ConfigParameter

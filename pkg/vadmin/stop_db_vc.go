@@ -25,24 +25,20 @@ import (
 )
 
 // StopDB will stop all the vertica hosts of a running cluster
+//
+//nolint:dupl
 func (v *VClusterOps) StopDB(_ context.Context, opts ...stopdb.Option) error {
 	v.setupForAPICall("StopDB")
 	defer v.tearDownForAPICall()
 	v.Log.Info("Starting vcluster StopDB")
-
-	certs, err := v.getCachedHTTPSCerts(NmaTLSSecret)
-	if err != nil {
-		v.Log.Error(err, "failed to retrieve nma secret from cache")
-		return err
-	}
 
 	// get stop_db options
 	s := stopdb.Parms{}
 	s.Make(opts...)
 
 	// call vcluster-ops library to stop db
-	vopts := v.genStopDBOptions(&s, certs)
-	err = v.VStopDatabase(&vopts)
+	vopts := v.genStopDBOptions(&s)
+	err := v.VStopDatabase(&vopts)
 	if err != nil {
 		v.Log.Error(err, "failed to stop a database")
 		return err
@@ -52,7 +48,7 @@ func (v *VClusterOps) StopDB(_ context.Context, opts ...stopdb.Option) error {
 	return nil
 }
 
-func (v *VClusterOps) genStopDBOptions(s *stopdb.Parms, certs *HTTPSCerts) vops.VStopDatabaseOptions {
+func (v *VClusterOps) genStopDBOptions(s *stopdb.Parms) vops.VStopDatabaseOptions {
 	opts := vops.VStopDatabaseOptionsFactory()
 
 	opts.RawHosts = append(opts.RawHosts, s.InitiatorIP)
@@ -74,9 +70,8 @@ func (v *VClusterOps) genStopDBOptions(s *stopdb.Parms, certs *HTTPSCerts) vops.
 	opts.MainCluster = s.Sandbox == vapi.MainCluster
 
 	// auth options
-	opts.Key = certs.Key
-	opts.Cert = certs.Cert
-	opts.CaCert = certs.CaCert
+	opts.UserName = v.VDB.GetVerticaUser()
+	opts.Password = &v.Password
 
 	return opts
 }

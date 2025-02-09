@@ -34,9 +34,8 @@ func (v *VClusterOps) ReIP(ctx context.Context, opts ...reip.Option) (ctrl.Resul
 	v.Log.Info("Starting vcluster ReIP")
 
 	// get the certs
-	certs, err := v.getCachedHTTPSCerts(NmaTLSSecret)
+	certs, err := v.retrieveNMACerts(ctx)
 	if err != nil {
-		v.Log.Error(err, "failed to retrieve nma secret from cache")
 		return ctrl.Result{}, err
 	}
 
@@ -96,6 +95,8 @@ func (v *VClusterOps) genReIPOptions(s *reip.Parms, certs *HTTPSCerts) vops.VReI
 	opts.Key = certs.Key
 	opts.Cert = certs.Cert
 	opts.CaCert = certs.CaCert
+	opts.UserName = v.VDB.GetVerticaUser()
+	opts.Password = &v.Password
 
 	// other options
 	opts.TrimReIPList = true

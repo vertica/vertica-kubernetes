@@ -36,6 +36,17 @@ func (v *VClusterOps) retrieveTargetNMACerts(ctx context.Context) (*HTTPSCerts, 
 	return retrieveNMACerts(ctx, fetcher)
 }
 
+// retrieveNMACerts will retrieve the certs from NMATLSSecret for calling NMA endpoints
+func (v *VClusterOps) retrieveNMACerts(ctx context.Context) (*HTTPSCerts, error) {
+	fetcher := cloud.VerticaDBSecretFetcher{
+		Client:   v.Client,
+		Log:      v.Log,
+		VDB:      v.VDB,
+		EVWriter: v.EVWriter,
+	}
+	return retrieveNMACerts(ctx, fetcher)
+}
+
 func retrieveNMACerts(ctx context.Context, fetcher cloud.VerticaDBSecretFetcher) (*HTTPSCerts, error) {
 	tlsCerts, err := fetcher.Fetch(ctx, names.GenNamespacedName(fetcher.VDB, fetcher.VDB.Spec.NMATLSSecret))
 	if err != nil {

@@ -32,9 +32,8 @@ func (v *VClusterOps) RemoveSubcluster(ctx context.Context, opts ...removesc.Opt
 	v.Log.Info("Starting vcluster RemoveSubcluster")
 
 	// get the certs
-	certs, err := v.getCachedHTTPSCerts(NmaTLSSecret)
+	certs, err := v.retrieveNMACerts(ctx)
 	if err != nil {
-		v.Log.Error(err, "failed to retrieve nma secret from cache")
 		return err
 	}
 
@@ -83,6 +82,8 @@ func (v *VClusterOps) genRemoveSubclusterOptions(s *removesc.Parms, certs *HTTPS
 	opts.Key = certs.Key
 	opts.Cert = certs.Cert
 	opts.CaCert = certs.CaCert
+	opts.UserName = v.VDB.GetVerticaUser()
+	opts.Password = &v.Password
 
 	return opts
 }

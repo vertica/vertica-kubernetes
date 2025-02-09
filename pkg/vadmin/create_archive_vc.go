@@ -32,15 +32,9 @@ func (v *VClusterOps) CreateArchive(ctx context.Context, opts ...createarchive.O
 	s := createarchive.Params{}
 	s.Make(opts...)
 
-	certs, err := v.getCachedHTTPSCerts(NmaTLSSecret)
-	if err != nil {
-		v.Log.Error(err, "failed to retrieve nma secret from cache")
-		return err
-	}
-
 	// call vclusterOps library to sandbox a subcluster
-	vopts := v.genCreateArchiveOptions(&s, certs)
-	err = v.VCreateArchive(&vopts)
+	vopts := v.genCreateArchiveOptions(&s)
+	err := v.VCreateArchive(&vopts)
 	if err != nil {
 		return err
 	}
@@ -50,7 +44,7 @@ func (v *VClusterOps) CreateArchive(ctx context.Context, opts ...createarchive.O
 	return nil
 }
 
-func (v *VClusterOps) genCreateArchiveOptions(s *createarchive.Params, certs *HTTPSCerts) vops.VCreateArchiveOptions {
+func (v *VClusterOps) genCreateArchiveOptions(s *createarchive.Params) vops.VCreateArchiveOptions {
 	opts := vops.VCreateArchiveFactory()
 
 	opts.DBName = v.VDB.Spec.DBName
@@ -62,8 +56,8 @@ func (v *VClusterOps) genCreateArchiveOptions(s *createarchive.Params, certs *HT
 	opts.NumRestorePoint = s.NumRestorePoints
 
 	// auth options
-	opts.Key = certs.Key
-	opts.Cert = certs.Cert
-	opts.CaCert = certs.CaCert
+	opts.UserName = v.VDB.GetVerticaUser()
+	opts.Password = &v.Password
+
 	return opts
 }

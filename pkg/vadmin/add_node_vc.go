@@ -34,9 +34,8 @@ func (v *VClusterOps) AddNode(ctx context.Context, opts ...addnode.Option) error
 	v.Log.Info("Starting vcluster AddNode")
 
 	// get the certs
-	certs, err := v.getCachedHTTPSCerts(NmaTLSSecret)
+	certs, err := v.retrieveNMACerts(ctx)
 	if err != nil {
-		v.Log.Error(err, "failed to retrieve nma secret from cache")
 		return err
 	}
 
@@ -81,6 +80,8 @@ func (v *VClusterOps) genAddNodeOptions(s *addnode.Parms, certs *HTTPSCerts) vop
 	opts.Key = certs.Key
 	opts.Cert = certs.Cert
 	opts.CaCert = certs.CaCert
+	opts.UserName = v.VDB.GetVerticaUser()
+	opts.Password = &v.Password
 
 	return opts
 }
