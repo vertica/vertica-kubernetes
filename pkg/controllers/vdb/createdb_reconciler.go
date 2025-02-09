@@ -128,11 +128,13 @@ func (c *CreateDBReconciler) execCmd(ctx context.Context, initiatorPod types.Nam
 	if res, err := c.Dispatcher.CreateDB(ctx, opts...); verrors.IsReconcileAborted(res, err) {
 		return res, err
 	}
-	_, _, err = c.PRunner.ExecInPod(ctx, initiatorPod, names.ServerContainer,
-		"vsql", "-f", PostDBCreateSQLFile)
-	c.Log.Info("SQL executed after db creation ")
-	if err != nil {
-		return ctrl.Result{}, err
+	if c.VInf.IsEqualOrNewer(vapi.NMATLSCertRotationMinVersion) {
+		_, _, err = c.PRunner.ExecInPod(ctx, initiatorPod, names.ServerContainer,
+			"vsql", "-f", PostDBCreateSQLFile)
+		c.Log.Info("SQL executed after db creation ")
+		if err != nil {
+			return ctrl.Result{}, err
+		}
 	}
 
 	sc := c.getFirstPrimarySubcluster()
