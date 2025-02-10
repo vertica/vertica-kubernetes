@@ -407,7 +407,7 @@ func (r *OnlineUpgradeReconciler) runRebalanceSandboxSubcluster(ctx context.Cont
 	}
 
 	pf := r.PFacts[vapi.MainCluster]
-	actor := MakeRebalanceShardsReconciler(r.VRec, r.Log, r.VDB, pf.PRunner, pf, "" /*all subclusters*/)
+	actor := MakeRebalanceShardsReconciler(r.VRec, r.Log, r.VDB, pf.PRunner, pf, "" /* all subclusters */)
 	r.Manager.traceActorReconcile(actor)
 	res, err := actor.Reconcile(ctx, &ctrl.Request{})
 	r.PFacts[vapi.MainCluster].Invalidate()
@@ -463,7 +463,7 @@ func (r *OnlineUpgradeReconciler) queryOriginalConfigParamDisableNonReplicatable
 		return ctrl.Result{}, err
 	}
 	pf := r.PFacts[vapi.MainCluster]
-	initiator, ok := pf.FindFirstUpPod(false /*not allow read-only*/, "" /*arbitrary subcluster*/)
+	initiator, ok := pf.FindFirstUpPod(false /* not allow read-only */, "" /* arbitrary subcluster */)
 	if !ok {
 		r.Log.Info("No Up nodes found. Requeue reconciliation.")
 		return ctrl.Result{Requeue: true}, nil
@@ -526,7 +526,7 @@ func (r *OnlineUpgradeReconciler) clearConfigParamDisableNonReplicatableQueries(
 func (r *OnlineUpgradeReconciler) setConfigParamDisableNonReplicatableQueriesImpl(ctx context.Context,
 	value, clusterName string) (ctrl.Result, error) {
 	pf := r.PFacts[clusterName]
-	initiator, ok := pf.FindFirstUpPod(false /*not allow read-only*/, "" /*arbitrary subcluster*/)
+	initiator, ok := pf.FindFirstUpPod(false /* not allow read-only */, "" /* arbitrary subcluster */)
 	if !ok {
 		r.Log.Info("No Up nodes found. Requeue reconciliation.")
 		return ctrl.Result{Requeue: true}, nil
@@ -584,7 +584,8 @@ func (r *OnlineUpgradeReconciler) sandboxReplicaGroupB(ctx context.Context) (ctr
 	}
 
 	// Drive the actual sandbox command. When this returns we know the sandbox is complete.
-	actor := MakeSandboxSubclusterReconciler(r.VRec, r.Log, r.VDB, r.PFacts[vapi.MainCluster], r.Dispatcher, r.VRec.Client, true)
+	actor := MakeSandboxSubclusterReconciler(r.VRec, r.Log, r.VDB, r.PFacts[vapi.MainCluster], r.Dispatcher,
+		r.VRec.Client, true /* forUpgrade */)
 	r.Manager.traceActorReconcile(actor)
 	res, err := actor.Reconcile(ctx, &ctrl.Request{})
 	if verrors.IsReconcileAborted(res, err) {
@@ -720,7 +721,7 @@ func (r *OnlineUpgradeReconciler) pauseConnectionsAtReplicaGroupA(ctx context.Co
 	}
 
 	pf := r.PFacts[vapi.MainCluster]
-	initiator, ok := pf.FindFirstUpPod(false /*not allow read-only*/, "" /*arbitrary subcluster*/)
+	initiator, ok := pf.FindFirstUpPod(false /* not allow read-only */, "" /* arbitrary subcluster */)
 	if !ok {
 		r.Log.Info("No Up nodes found. Requeue reconciliation.")
 		return ctrl.Result{Requeue: true}, nil
@@ -740,7 +741,7 @@ func (r *OnlineUpgradeReconciler) waitForConnectionsPaused(ctx context.Context) 
 	}
 
 	pfacts := r.PFacts[vapi.MainCluster]
-	_, ok := pfacts.FindFirstUpPod(false /*not allow read-only*/, "" /*arbitrary subcluster*/)
+	_, ok := pfacts.FindFirstUpPod(false /* not allow read-only */, "" /* arbitrary subcluster */)
 	if !ok {
 		r.Log.Info("No Up nodes found; Requeue reconciliation")
 		return ctrl.Result{Requeue: true}, nil
@@ -970,8 +971,8 @@ func (r *OnlineUpgradeReconciler) copyRedirectStateToReplicaGroupB(ctx context.C
 		r.Log.Error(err, "failed to gather podfacts for sandbox")
 		return ctrl.Result{Requeue: true}, nil
 	}
-	mainInitiator, mainOK := mainPFacts.FindFirstUpPod(false /*not allow read-only*/, "" /*arbitrary subcluster*/)
-	sbInitiator, sbOK := sbPFacts.FindFirstUpPod(false /*not allow read-only*/, "" /*arbitrary subcluster*/)
+	mainInitiator, mainOK := mainPFacts.FindFirstUpPod(false /* not allow read-only */, "" /* arbitrary subcluster */)
+	sbInitiator, sbOK := sbPFacts.FindFirstUpPod(false /* not allow read-only */, "" /* arbitrary subcluster */)
 	if !mainOK || !sbOK {
 		r.Log.Info("No Up nodes found; requeueing reconciliation")
 		return ctrl.Result{Requeue: true}, nil
@@ -1052,6 +1053,16 @@ func (r *OnlineUpgradeReconciler) redirectConnectionsToReplicaGroupB(ctx context
 	if verrors.IsReconcileAborted(res, err) {
 		return res, err
 	}
+
+	if !vmeta.UseVProxy(r.VDB.Annotations) {
+		// Now that routing to the sandbox is allowed, we no longer need
+		// disableRouting annotation so we can safely turn it off.
+		sbMan := MakeSandboxConfigMapManager(r.VRec, r.VDB, r.sandboxName, "" /* no uuid */)
+		_, err = sbMan.turnOffDisableRoutingAnnotation(ctx)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+	}
 	// then remove client routing labels from replica group a so no traffic is routed to the old main cluster
 	methodType := DrainNodeApplyMethod
 	if vmeta.UseVProxy(r.VDB.Annotations) {
@@ -1069,7 +1080,7 @@ func (r *OnlineUpgradeReconciler) redirectConnectionsToReplicaGroupB(ctx context
 // redirectConnectionsToSandbox will redirect all of the connections
 // established at replica group A to replica group B.
 func (r *OnlineUpgradeReconciler) redirectConnectionsToSandbox(ctx context.Context) (ctrl.Result, error) {
-	initiator, ok := r.PFacts[vapi.MainCluster].FindFirstUpPod(false /*not allow read-only*/, "" /*arbitrary subcluster*/)
+	initiator, ok := r.PFacts[vapi.MainCluster].FindFirstUpPod(false /* not allow read-only */, "" /* arbitrary subcluster */)
 	if !ok {
 		r.Log.Info("No Up nodes found; requeueing reconciliation")
 		return ctrl.Result{Requeue: true}, nil
@@ -1186,7 +1197,7 @@ func (r *OnlineUpgradeReconciler) deleteSandboxConfigMap(ctx context.Context) (c
 		// We requeue if the sandbox still exists in the status
 		return ctrl.Result{Requeue: true}, nil
 	}
-	sbMan := MakeSandboxConfigMapManager(r.VRec, r.VDB, r.sandboxName, "" /*no uuid*/)
+	sbMan := MakeSandboxConfigMapManager(r.VRec, r.VDB, r.sandboxName, "" /* no uuid */)
 	calledDelete, err := sbMan.deleteConfigMap(ctx)
 	if !calledDelete {
 		return ctrl.Result{}, err

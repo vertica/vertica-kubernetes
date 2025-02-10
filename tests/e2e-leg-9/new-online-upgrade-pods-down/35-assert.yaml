@@ -14,9 +14,9 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: v-base-upgrade-main-sb
+  name: v-online-upgrade-main-sb
   annotations:
-    vertica.com/statefulset-name-override: "v-base-upgrade-main-sb"
+    vertica.com/statefulset-name-override: "v-online-upgrade-main-sb"
 status:
   currentReplicas: 3
   readyReplicas: 3
@@ -24,7 +24,7 @@ status:
 apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
-  name: v-base-upgrade
+  name: v-online-upgrade
 spec:
   subclusters:
   - name: main

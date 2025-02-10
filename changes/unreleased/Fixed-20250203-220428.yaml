@@ -1,0 +1,5 @@
+kind: Fixed
+body: Routing traffic to a sandbox pod after restart
+time: 2025-02-03T22:04:28.253476322+01:00
+custom:
+    Issue: "1045"

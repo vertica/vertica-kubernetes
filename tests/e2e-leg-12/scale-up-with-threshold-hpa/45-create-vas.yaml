@@ -1,0 +1,22 @@
+apiVersion: vertica.com/v1beta1
+kind: VerticaAutoscaler
+metadata:
+  name: v-scale-up-hpa-vas
+spec:
+  verticaDBName: v-scale-up-hpa
+  serviceName: pri1
+  scalingGranularity: Pod
+  customAutoscaler:
+    type: HPA
+    hpa:
+      minReplicas: 3
+      maxReplicas: 5
+      metrics:
+        - metric:
+            type: Pods
+            pods:
+              metric:
+                name: vertica_sessions_running_total
+              target:
+                type: AverageValue
+                averageValue: 2

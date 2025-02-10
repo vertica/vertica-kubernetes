@@ -14,25 +14,25 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: v-base-upgrade-pri1
+  name: v-online-upgrade-pri1
 status:
   currentReplicas: 2
 ---
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: v-base-upgrade-pri-2
+  name: v-online-upgrade-pri-2
 status:
   currentReplicas: 1
 ---
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: v-base-upgrade-sec1
+  name: v-online-upgrade-sec1
 status:
   currentReplicas: 3
 ---
 apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
-  name: v-base-upgrade
+  name: v-online-upgrade

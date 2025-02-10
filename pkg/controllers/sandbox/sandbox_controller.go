@@ -48,7 +48,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
 // SandboxConfigMapReconciler reconciles a ConfigMap for sandboxing
@@ -71,7 +70,7 @@ func (r *SandboxConfigMapReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			builder.WithPredicates(r.predicateFuncs(), predicate.ResourceVersionChangedPredicate{}),
 		).
 		Watches(
-			&source.Kind{Type: &appsv1.StatefulSet{}},
+			&appsv1.StatefulSet{},
 			handler.EnqueueRequestsFromMapFunc(r.findObjectsForStatesulSet),
 			builder.WithPredicates(r.predicateFuncs(), predicate.ResourceVersionChangedPredicate{}),
 		).
@@ -174,6 +173,9 @@ func (r *SandboxConfigMapReconciler) constructActors(vdb *v1.VerticaDB, log logr
 		// Update the vdb status including subclusters[].shutdown, after a stop_db, stop_sc
 		// or a restart
 		vdbcontroller.MakeStatusReconcilerWithShutdown(r.Client, r.Scheme, log, vdb, pfacts),
+		// Ensure we add labels to any pod rescheduled so that Service objects route traffic to it.
+		vdbcontroller.MakeClientRoutingLabelReconcilerWithDisableRouting(r, log, vdb, pfacts, vdbcontroller.PodRescheduleApplyMethod, "",
+			vmeta.GetDisableRouting(configMap.Annotations)),
 		// Scale down the subclusters' statefulsets to zero after the subclusters are shut down
 		MakeScaleStafulsetReconciler(r, vdb, pfacts),
 	}
@@ -258,7 +260,7 @@ func (r *SandboxConfigMapReconciler) GetConfig() *rest.Config {
 
 // findObjectsForStatesulSet will generate requests to reconcile sandbox ConfigMaps
 // based on watched Statefulset
-func (r *SandboxConfigMapReconciler) findObjectsForStatesulSet(sts client.Object) []reconcile.Request {
+func (r *SandboxConfigMapReconciler) findObjectsForStatesulSet(_ context.Context, sts client.Object) []reconcile.Request {
 	configMaps := corev1.ConfigMapList{}
 	stsLabels := sts.GetLabels()
 	sbLabels := make(map[string]string, len(vmeta.SandboxConfigMapLabels))

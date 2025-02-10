@@ -161,4 +161,28 @@ var _ = Describe("clientroutinglabel_reconcile", func() {
 		_, ok = pod.Labels[vmeta.ClientRoutingLabel]
 		Expect(ok).Should(BeFalse())
 	})
+
+	It("should not set the annotation when disableRouting is true", func() {
+		vdb := vapi.MakeVDB()
+		vdb.Spec.Subclusters = []vapi.Subcluster{
+			{Name: "sc1", Size: 1},
+		}
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
+
+		fpr := &cmds.FakePodRunner{}
+		pfacts := podfacts.MakePodFacts(vdbRec, fpr, logger, TestPassword)
+		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
+		pn := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)
+		pfacts.Detail[pn].SetUpNode(true)
+		pfacts.Detail[pn].SetShardSubscriptions(10)
+		act := MakeClientRoutingLabelReconcilerWithDisableRouting(vdbRec, logger, vdb, &pfacts, AddNodeApplyMethod, "", true)
+		r := act.(*ClientRoutingLabelReconciler)
+		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
+
+		pod := &corev1.Pod{}
+		Expect(k8sClient.Get(ctx, pn, pod)).Should(Succeed())
+		_, ok := pod.Labels[vmeta.ClientRoutingLabel]
+		Expect(ok).Should(BeFalse())
+	})
 })

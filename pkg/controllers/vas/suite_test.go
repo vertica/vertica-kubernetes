@@ -20,6 +20,7 @@ import (
 	"testing"
 
 	"github.com/go-logr/logr"
+	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
@@ -32,6 +33,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 )
 
 var k8sClient client.Client
@@ -46,7 +48,8 @@ var _ = BeforeSuite(func() {
 
 	By("bootstrapping test environment")
 	testEnv = &envtest.Environment{
-		CRDDirectoryPaths:     []string{filepath.Join("..", "..", "..", "config", "crd", "bases")},
+		CRDDirectoryPaths: []string{filepath.Join("..", "..", "..", "config", "crd", "bases"),
+			filepath.Join("..", "..", "..", "external", "keda")},
 		ErrorIfCRDPathMissing: true,
 	}
 
@@ -59,13 +62,18 @@ var _ = BeforeSuite(func() {
 	ExpectWithOffset(1, err).NotTo(HaveOccurred())
 	err = vapi.AddToScheme(scheme.Scheme)
 	ExpectWithOffset(1, err).NotTo(HaveOccurred())
+	err = kedav1alpha1.AddToScheme(scheme.Scheme)
+	ExpectWithOffset(1, err).NotTo(HaveOccurred())
 
 	k8sClient, err = client.New(restCfg, client.Options{Scheme: scheme.Scheme})
 	ExpectWithOffset(1, err).NotTo(HaveOccurred())
 
+	metricsServerOptions := metricsserver.Options{
+		BindAddress: "0", // Disable metrics for the test
+	}
 	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
-		Scheme:             scheme.Scheme,
-		MetricsBindAddress: "0", // Disable metrics for the test
+		Scheme:  scheme.Scheme,
+		Metrics: metricsServerOptions,
 	})
 	Expect(err).NotTo(HaveOccurred())
 

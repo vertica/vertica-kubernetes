@@ -22,9 +22,9 @@ data:
     set -o xtrace
 
     # get ips of proxy pods
-    PROXY_POD_IP=$(kubectl get pod -l pod-template-hash,vertica.com/deployment-selector-name=v-base-upgrade-sec1-sb-proxy -o jsonpath='{.items[0].status.podIP}')
+    PROXY_POD_IP=$(kubectl get pod -l pod-template-hash,vertica.com/deployment-selector-name=v-client-proxy-upgrade-sec1-sb-proxy -o jsonpath='{.items[0].status.podIP}')
 
-    POD_NAME=v-base-upgrade-sec1-sb-0
+    POD_NAME=v-client-proxy-upgrade-sec1-sb-0
     # verify the connection started at step 37 still continues
     LAST_CONN_1=$(kubectl exec $POD_NAME -i -c server -- bash -c "vsql -U user1 -w 'user1s3cr3t' -tAc \"select ts from user1_schema.test order by ts desc limit 1;\"")
 

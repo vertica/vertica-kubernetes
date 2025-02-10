@@ -16,6 +16,6 @@ kind: VerticaAutoscaler
 metadata:
   name: v-autoscale
 status:
-  selector: vertica.com/subcluster-svc=as,app.kubernetes.io/instance=v-autoscale-by-subcluster,app.kubernetes.io/managed-by=verticadb-operator
+  selector: vertica.com/subcluster-svc=as,vertica.com/is-sandbox=false,app.kubernetes.io/instance=v-autoscale-by-subcluster,app.kubernetes.io/managed-by=verticadb-operator
   scalingCount: 0
   currentSize: 0
