@@ -49,6 +49,7 @@ func MakeNMACertConfigMapGenReconciler(vdbrecon *VerticaDBReconciler, log logr.L
 func (h *NMACertConfigMapGenReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
 	nmaSecret := corev1.Secret{}
 	if !h.tlsSecretsReady(ctx, &nmaSecret) {
+		h.Log.Info("nma secret is not ready yet to create configmap. will retry")
 		return ctrl.Result{Requeue: true}, nil
 	}
 	name := fmt.Sprintf("%s-%s", h.Vdb.Name, vapi.NMATLSConfigMapName)
