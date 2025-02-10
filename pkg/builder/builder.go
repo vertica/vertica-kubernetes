@@ -904,7 +904,7 @@ func BuildScaledObject(nm types.NamespacedName, vas *v1beta1.VerticaAutoscaler) 
 			MaxReplicaCount: so.MaxReplicas,
 			PollingInterval: so.PollingInterval,
 			CooldownPeriod:  so.CooldownPeriod,
-			Triggers:        buildTriggers(nm, so.Metrics, vas),
+			Triggers:        buildTriggers(so.Metrics, vas),
 		},
 	}
 
@@ -919,7 +919,7 @@ func BuildScaledObject(nm types.NamespacedName, vas *v1beta1.VerticaAutoscaler) 
 }
 
 // buildTriggers builds and return a list of scaled triggers.
-func buildTriggers(nm types.NamespacedName, metrics []v1beta1.ScaleTrigger, vas *v1beta1.VerticaAutoscaler) []kedav1alpha1.ScaleTriggers {
+func buildTriggers(metrics []v1beta1.ScaleTrigger, vas *v1beta1.VerticaAutoscaler) []kedav1alpha1.ScaleTriggers {
 	triggers := make([]kedav1alpha1.ScaleTriggers, len(metrics))
 	for i := range metrics {
 		metric := &metrics[i]
