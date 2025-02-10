@@ -81,10 +81,25 @@ func convertToVasCustomAutoscaler(src *CustomAutoscalerSpec) *v1.CustomAutoscale
 		return nil
 	}
 	dst := &v1.CustomAutoscalerSpec{
-		MinReplicas: ptrOrNil(src.MinReplicas),
-		MaxReplicas: src.MaxReplicas,
-		Metrics:     make([]v1.MetricDefinition, len(src.Metrics)),
-		Behavior:    ptrOrNil(src.Behavior),
+		Type: src.Type,
+	}
+	if src.Hpa != nil {
+		dst.Hpa = &v1.HPASpec{
+			MinReplicas: src.Hpa.MinReplicas,
+			MaxReplicas: src.Hpa.MaxReplicas,
+			Metrics:     make([]v1.MetricDefinition, len(src.Hpa.Metrics)),
+			Behavior:    src.Hpa.Behavior,
+		}
+	}
+	if src.ScaledObject != nil {
+		dst.ScaledObject = &v1.ScaledObjectSpec{
+			MinReplicas:     src.ScaledObject.MinReplicas,
+			MaxReplicas:     src.ScaledObject.MaxReplicas,
+			PollingInterval: src.ScaledObject.PollingInterval,
+			CooldownPeriod:  src.ScaledObject.CooldownPeriod,
+			Metrics:         make([]v1.ScaleTrigger, len(src.ScaledObject.Metrics)),
+			Behavior:        src.ScaledObject.Behavior,
+		}
 	}
 	for i := range src.Metrics {
 		srcMetric := &src.Metrics[i]
@@ -95,6 +110,39 @@ func convertToVasCustomAutoscaler(src *CustomAutoscalerSpec) *v1.CustomAutoscale
 		}
 	}
 	return dst
+}
+
+// convertToScaleTrigger will convert to a v1 ScaleTrigger from a v1beta1 version
+func convertToScaleTrigger(src ScaleTrigger) v1.ScaleTrigger {
+	return v1.ScaleTrigger{
+		Name:       src.Name,
+		AuthSecret: src.AuthSecret,
+		MetricType: src.MetricType,
+		Prometheus: convertToPrometheusSpec(src.Prometheus),
+		Resource:   convertToCPUMemorySpec(src.Resource),
+	}
+}
+
+// convertToPrometheusSpec will convert to a v1 PrometheusSpec from a v1beta1 version
+func convertToPrometheusSpec(src PrometheusSpec) v1.PrometheusSpec {
+	return v1.PrometheusSpec{
+		Name:       src.Name,
+		AuthSecret: src.AuthSecret,
+		MetricType: src.MetricType,
+		Prometheus: src.Prometheus,
+		Resource:   &src.Resource,
+	}
+}
+
+// convertToCPUMemorySpec will convert to a v1 CPUMemorySpec from a v1beta1 version
+func convertToCPUMemorySpec(src CPUMemorySpec) v1.CPUMemorySpec {
+	return v1.CPUMemorySpec{
+		Name:       src.Name,
+		AuthSecret: src.AuthSecret,
+		MetricType: src.MetricType,
+		Prometheus: src.Prometheus,
+		Resource:   &src.Resource,
+	}
 }
 
 // convertVasFromSpec will convert from a v1 VerticaAutoscalerSpec to a v1beta1 version
@@ -110,10 +158,25 @@ func convertVasFromSpec(src *v1.VerticaAutoscaler) VerticaAutoscalerSpec {
 	}
 	if srcSpec.CustomAutoscaler != nil {
 		dst.CustomAutoscaler = &CustomAutoscalerSpec{
-			MinReplicas: srcSpec.CustomAutoscaler.MinReplicas,
-			MaxReplicas: srcSpec.CustomAutoscaler.MaxReplicas,
-			Metrics:     make([]MetricDefinition, len(srcSpec.CustomAutoscaler.Metrics)),
-			Behavior:    srcSpec.CustomAutoscaler.Behavior,
+			Type: srcSpec.CustomAutoscaler.Type,
+		}
+		if srcSpec.CustomAutoscaler.Hpa != nil {
+			dst.CustomAutoscaler.Hpa = &HPASpec{
+				MinReplicas: srcSpec.CustomAutoscaler.Hpa.MinReplicas,
+				MaxReplicas: srcSpec.CustomAutoscaler.Hpa.MaxReplicas,
+				Metrics:     make([]MetricDefinition, len(srcSpec.CustomAutoscaler.Hpa.Metrics)),
+				Behavior:    srcSpec.CustomAutoscaler.Hpa.Behavior,
+			}
+		}
+		if srcSpec.CustomAutoscaler.ScaledObject != nil {
+			dst.CustomAutoscaler.ScaledObject = &ScaledObjectSpec{
+				MinReplicas:     srcSpec.CustomAutoscaler.ScaledObject.MinReplicas,
+				MaxReplicas:     srcSpec.CustomAutoscaler.ScaledObject.MaxReplicas,
+				PollingInterval: srcSpec.CustomAutoscaler.ScaledObject.PollingInterval,
+				CooldownPeriod:  srcSpec.CustomAutoscaler.ScaledObject.CooldownPeriod,
+				Metrics:         make([]ScaleTrigger, len(srcSpec.CustomAutoscaler.ScaledObject.Metrics)),
+				Behavior:        srcSpec.CustomAutoscaler.ScaledObject.Behavior,
+			}
 		}
 	}
 	return dst

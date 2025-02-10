@@ -23,6 +23,7 @@ import (
 	"strings"
 
 	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
+	v1 "github.com/vertica/vertica-kubernetes/api/v1"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	v1beta1 "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/cloud"
@@ -887,7 +888,7 @@ func BuildHorizontalPodAutoscaler(nm types.NamespacedName, vas *vapi.VerticaAuto
 }
 
 // BuildScaledObject builds a manifest for a keda scaledObject.
-func BuildScaledObject(nm types.NamespacedName, vas *v1beta1.VerticaAutoscaler) *kedav1alpha1.ScaledObject {
+func BuildScaledObject(nm types.NamespacedName, vas *v1.VerticaAutoscaler) *kedav1alpha1.ScaledObject {
 	so := vas.Spec.CustomAutoscaler.ScaledObject
 	scaledObject := &kedav1alpha1.ScaledObject{
 		ObjectMeta: metav1.ObjectMeta{
@@ -919,7 +920,7 @@ func BuildScaledObject(nm types.NamespacedName, vas *v1beta1.VerticaAutoscaler) 
 }
 
 // buildTriggers builds and return a list of scaled triggers.
-func buildTriggers(metrics []v1beta1.ScaleTrigger, vas *v1beta1.VerticaAutoscaler) []kedav1alpha1.ScaleTriggers {
+func buildTriggers(metrics []v1.ScaleTrigger, vas *v1.VerticaAutoscaler) []kedav1alpha1.ScaleTriggers {
 	triggers := make([]kedav1alpha1.ScaleTriggers, len(metrics))
 	for i := range metrics {
 		metric := &metrics[i]

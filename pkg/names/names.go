@@ -134,6 +134,6 @@ func GenHPAName(vas *vapi.VerticaAutoscaler) types.NamespacedName {
 	return GenNamespacedName(vas, fmt.Sprintf("%s-hpa", vas.Name))
 }
 
-func GenScaledObjectName(vas *v1beta1.VerticaAutoscaler) types.NamespacedName {
+func GenScaledObjectName(vas *vapi.VerticaAutoscaler) types.NamespacedName {
 	return GenNamespacedName(vas, fmt.Sprintf("%s-keda", vas.Name))
 }
