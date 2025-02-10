@@ -212,6 +212,7 @@ runs:
         fi
 
         # Run int test script
+        export DOCKER_PRUNE=yes
         if [[ "${{ inputs.communal-storage-type }}" == "azb" ]]; then
           scripts/run-k8s-int-tests.sh -s -e tests/external-images-azb-ci.txt;
         elif [[ "${{ inputs.communal-storage-type }}" == "hostpath" ]]; then

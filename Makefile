@@ -59,7 +59,6 @@ LOGDIR?=$(shell pwd)
 KIND_CHECK:=kubectl get node -o=jsonpath='{.items[0].spec.providerID}' 2> /dev/null | grep 'kind://' -c
 
 # By default, we set the version of our operator as the TAG
-
 TAG ?= $(VERSION)
 
 # We pick an image tag based on the environment we are in.  We special case kind
