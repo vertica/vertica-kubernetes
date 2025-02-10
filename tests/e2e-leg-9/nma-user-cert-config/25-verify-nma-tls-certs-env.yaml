@@ -15,4 +15,4 @@ apiVersion: kuttl.dev/v1beta2
 kind: TestStep
 commands:
   # nma env variable should exist.
-  - command: kubectl exec -n $NAMESPACE v-tls-certs-sc1-0 -c nma -- bash -c "env | grep nma-tls-cert-secret"
+  - command: kubectl exec -n $NAMESPACE v-tls-certs-sc1-0 -c nma -- bash -c "env | grep custom-cert"
