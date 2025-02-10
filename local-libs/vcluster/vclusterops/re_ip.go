@@ -1,5 +1,5 @@
 /*
- (c) Copyright [2023-2024] Open Text.
+ (c) Copyright [2023-2025] Open Text.
  Licensed under the Apache License, Version 2.0 (the "License");
  You may not use this file except in compliance with the License.
  You may obtain a copy of the License at
@@ -258,8 +258,13 @@ func (vcc VClusterCommands) produceReIPInstructions(options *VReIPOptions, vdb *
 	instructions = append(instructions, &nmaNetworkProfileOp)
 
 	vdbWithPrimaryNodes := new(VCoordinationDatabase)
-	// When we cannot get db info from cluster_config.json, we will fetch it from NMA /nodes endpoint.
-	if vdb == nil {
+	// use a copy of vdb because we want to keep secondary nodes in vdb for next nmaReIPOP
+	if vdb != nil {
+		*vdbWithPrimaryNodes = *vdb
+		vdbWithPrimaryNodes.filterPrimaryNodes()
+	}
+	// When we cannot get primary nodes' info from cluster_config.json, we will fetch it from NMA /nodes endpoint.
+	if vdb == nil || len(vdbWithPrimaryNodes.HostNodeMap) == 0 {
 		vdb = new(VCoordinationDatabase)
 		nmaGetNodesInfoOp := makeNMAGetNodesInfoOp(options.Hosts, options.DBName, options.CatalogPrefix,
 			false /* report all errors */, vdb)
@@ -273,9 +278,6 @@ func (vcc VClusterCommands) produceReIPInstructions(options *VReIPOptions, vdb *
 			&nmaReadCatEdOp,
 		)
 	} else {
-		// use a copy of vdb because we want to keep secondary nodes in vdb for next nmaReIPOP
-		*vdbWithPrimaryNodes = *vdb
-		vdbWithPrimaryNodes.filterPrimaryNodes()
 		// read catalog editor to get hosts with latest catalog
 		nmaReadCatEdOp, err := makeNMAReadCatalogEditorOpWithSandbox(vdbWithPrimaryNodes, options.SandboxName)
 		if err != nil {

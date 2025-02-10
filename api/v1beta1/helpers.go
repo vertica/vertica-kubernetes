@@ -23,6 +23,7 @@ import (
 	"time"
 
 	v1 "github.com/vertica/vertica-kubernetes/api/v1"
+	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -182,6 +183,126 @@ func (vrep *VerticaReplicator) IsStatusConditionFalse(statusCondition string) bo
 
 func (vrep *VerticaReplicator) IsStatusConditionPresent(statusCondition string) bool {
 	return meta.FindStatusCondition(vrep.Status.Conditions, statusCondition) != nil
+}
+
+// GetHPAMetrics extract an return hpa metrics from MetricDefinition struct.
+func (v *VerticaAutoscaler) GetHPAMetrics() []autoscalingv2.MetricSpec {
+	metrics := make([]autoscalingv2.MetricSpec, len(v.Spec.CustomAutoscaler.Hpa.Metrics))
+	for i := range v.Spec.CustomAutoscaler.Hpa.Metrics {
+		metrics[i] = v.Spec.CustomAutoscaler.Hpa.Metrics[i].Metric
+	}
+	return metrics
+}
+
+// GetMap Convert PrometheusSpec to map[string]string
+func (p *PrometheusSpec) GetMap() map[string]string {
+	result := make(map[string]string)
+	result["serverAddress"] = p.ServerAddress
+	result["query"] = p.Query
+	result["threshold"] = fmt.Sprintf("%d", p.Threshold)
+	// Only add ScaleDownThreshold if it is non-zero
+	if p.ScaleDownThreshold != 0 {
+		result["activationThreshold"] = fmt.Sprintf("%d", p.ScaleDownThreshold)
+	}
+
+	return result
+}
+
+// GetMap converts CPUMemorySpec to map[string]string
+func (r *CPUMemorySpec) GetMap() map[string]string {
+	result := make(map[string]string)
+	result["value"] = fmt.Sprintf("%d", r.Threshold)
+	return result
+}
+
+// GetMetadata returns the metric parameters map
+func (s *ScaleTrigger) GetMetadata() map[string]string {
+	if s.IsPrometheusMetric() {
+		return s.Prometheus.GetMap()
+	}
+	return s.Resource.GetMap()
+}
+
+func (s *ScaleTrigger) IsNil() bool {
+	return s.Prometheus == nil && s.Resource == nil
+}
+
+func (s *ScaleTrigger) IsPrometheusMetric() bool {
+	return s.Type == PrometheusTriggerType || s.Type == ""
+}
+
+func (s *ScaleTrigger) GetType() string {
+	if s.Type == "" {
+		return string(PrometheusTriggerType)
+	}
+	return string(s.Type)
+}
+
+// MakeScaledObjectSpec builds a sample scaleObjectSpec.
+// This is intended for test purposes.
+func MakeScaledObjectSpec() *ScaledObjectSpec {
+	return &ScaledObjectSpec{
+		MinReplicas:     &[]int32{3}[0],
+		MaxReplicas:     &[]int32{6}[0],
+		PollingInterval: &[]int32{5}[0],
+		Metrics: []ScaleTrigger{
+			{
+				Name: "sample-metric",
+				Prometheus: &PrometheusSpec{
+					ServerAddress: "http://localhost",
+					Query:         "query",
+					Threshold:     5,
+				},
+			},
+		},
+	}
+}
+
+// HasScaleDownThreshold returns true if scale down threshold is set
+func (v *VerticaAutoscaler) HasScaleDownThreshold() bool {
+	if !v.IsHpaEnabled() {
+		return false
+	}
+	for i := range v.Spec.CustomAutoscaler.Hpa.Metrics {
+		m := &v.Spec.CustomAutoscaler.Hpa.Metrics[i]
+		if m.ScaleDownThreshold != nil {
+			return true
+		}
+	}
+	return false
+}
+
+// GetMinReplicas calculates the minReplicas based on the scale down
+// threshold, and returns it
+func (v *VerticaAutoscaler) GetMinReplicas() *int32 {
+	vasCopy := v.DeepCopy()
+	if v.HasScaleDownThreshold() {
+		return &vasCopy.Spec.TargetSize
+	}
+	return vasCopy.Spec.CustomAutoscaler.Hpa.MinReplicas
+}
+
+// GetMetricMap returns a map whose key is the metric name and the value is
+// the metric's definition.
+func (v *VerticaAutoscaler) GetMetricMap() map[string]*MetricDefinition {
+	mMap := make(map[string]*MetricDefinition)
+	for i := range v.Spec.CustomAutoscaler.Hpa.Metrics {
+		m := &v.Spec.CustomAutoscaler.Hpa.Metrics[i]
+		var name string
+		if m.Metric.Pods != nil {
+			name = m.Metric.Pods.Metric.Name
+		} else if m.Metric.Object != nil {
+			name = m.Metric.Object.Metric.Name
+		} else if m.Metric.External != nil {
+			name = m.Metric.External.Metric.Name
+		} else if m.Metric.Resource != nil {
+			name = m.Metric.Resource.Name.String()
+		} else {
+			name = m.Metric.ContainerResource.Name.String()
+		}
+		mMap[name] = m
+	}
+	return mMap
 }
 
 func MakeSampleVrpqName() types.NamespacedName {

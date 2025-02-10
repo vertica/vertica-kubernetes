@@ -198,7 +198,7 @@ type VerticaDBSpec struct {
 	// Contain details about the local storage
 	Local LocalStorage `json:"local"`
 
-	//+operator-sdk:csv:customresourcedefinitions:type=spec
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	Subclusters []Subcluster `json:"subclusters"`
 
 	// +kubebuilder:validation:Optional
@@ -1128,16 +1128,16 @@ type VerticaDBPodStatus struct {
 	ReadOnly bool `json:"readOnly"`
 }
 
-//+kubebuilder:object:root=true
-//+kubebuilder:subresource:status
-//+kubebuilder:resource:categories=all;vertica,shortName=vdb
-//+kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
-//+kubebuilder:printcolumn:name="Subclusters",type="integer",JSONPath=".status.subclusterCount"
-//+kubebuilder:printcolumn:name="Installed",type="integer",JSONPath=".status.installCount"
-//+kubebuilder:printcolumn:name="DBAdded",type="integer",JSONPath=".status.addedToDBCount"
-//+kubebuilder:printcolumn:name="Up",type="integer",JSONPath=".status.upNodeCount"
+// +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
+// +kubebuilder:resource:categories=all;vertica,shortName=vdb
+// +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
+// +kubebuilder:printcolumn:name="Subclusters",type="integer",JSONPath=".status.subclusterCount"
+// +kubebuilder:printcolumn:name="Installed",type="integer",JSONPath=".status.installCount"
+// +kubebuilder:printcolumn:name="DBAdded",type="integer",JSONPath=".status.addedToDBCount"
+// +kubebuilder:printcolumn:name="Up",type="integer",JSONPath=".status.upNodeCount"
 // +operator-sdk:csv:customresourcedefinitions:resources={{Statefulset,apps/v1,""},{Pod,v1,""},{Service,v1,""}}
-//+kubebuilder:deprecatedversion:warning="vertica.com/v1beta1 VerticaDB is deprecated, use vertica.com/v1 VerticaDB"
+// +kubebuilder:deprecatedversion:warning="vertica.com/v1beta1 VerticaDB is deprecated, use vertica.com/v1 VerticaDB"
 
 // VerticaDB is the CR that defines a Vertica Eon mode cluster that is managed by the verticadb-operator.
 type VerticaDB struct {
@@ -1148,7 +1148,7 @@ type VerticaDB struct {
 	Status VerticaDBStatus `json:"status,omitempty"`
 }
 
-//+kubebuilder:object:root=true
+// +kubebuilder:object:root=true
 
 // VerticaDBList contains a list of VerticaDB
 type VerticaDBList struct {

@@ -113,9 +113,14 @@ func vasStatusUpdater(ctx context.Context, c client.Client, log logr.Logger,
 
 // getLabelSelector will generate the label for use in the vas status field
 func getLabelSelector(vas *vapi.VerticaAutoscaler) string {
-	return fmt.Sprintf("%s=%s,%s=%s,%s=%s",
-		vmeta.SubclusterSvcNameLabel,
-		vas.Spec.ServiceName,
+	selector := ""
+	if vas.Spec.ServiceName != "" {
+		selector = fmt.Sprintf("%s=%s,", vmeta.SubclusterSvcNameLabel, vas.Spec.ServiceName)
+	}
+	return fmt.Sprintf("%s%s=%s,%s=%s,%s=%s",
+		selector,
+		vmeta.IsSandboxLabel,
+		vmeta.IsSandboxFalse,
 		vmeta.VDBInstanceLabel,
 		vas.Spec.VerticaDBName,
 		vmeta.ManagedByLabel,

@@ -1,5 +1,5 @@
 /*
- (c) Copyright [2023-2024] Open Text.
+ (c) Copyright [2023-2025] Open Text.
  Licensed under the Apache License, Version 2.0 (the "License");
  You may not use this file except in compliance with the License.
  You may obtain a copy of the License at
@@ -50,6 +50,15 @@ type opEngineExecContext struct {
 	sandbox string
 	// this vdb will only be used to get sandbox info of the nodes
 	vdbForSandboxInfo *VCoordinationDatabase
+
+	// slow events
+	slowEvents *dcSlowEvents
+
+	// transaction starts
+	dcTransactionStarts dcTransactionStarts
+
+	// session starts
+	dcSessionStarts dcSessionStarts
 }
 
 func makeOpEngineExecContext(logger vlog.Printer) opEngineExecContext {

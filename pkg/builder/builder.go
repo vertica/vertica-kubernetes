@@ -22,6 +22,7 @@ import (
 	"sort"
 	"strings"
 
+	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	v1beta1 "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/cloud"
@@ -878,11 +879,68 @@ func BuildHorizontalPodAutoscaler(nm types.NamespacedName, vas *vapi.VerticaAuto
 				Name:       vas.Name,
 			},
 			MinReplicas: vas.GetMinReplicas(),
-			MaxReplicas: vas.Spec.CustomAutoscaler.MaxReplicas,
+			MaxReplicas: vas.Spec.CustomAutoscaler.Hpa.MaxReplicas,
 			Metrics:     vas.GetHPAMetrics(),
-			Behavior:    vas.Spec.CustomAutoscaler.Behavior,
+			Behavior:    vas.Spec.CustomAutoscaler.Hpa.Behavior,
 		},
 	}
+}
+
+// BuildScaledObject builds a manifest for a keda scaledObject.
+func BuildScaledObject(nm types.NamespacedName, vas *v1beta1.VerticaAutoscaler) *kedav1alpha1.ScaledObject {
+	so := vas.Spec.CustomAutoscaler.ScaledObject
+	scaledObject := &kedav1alpha1.ScaledObject{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: nm.Namespace,
+			Name:      nm.Name,
+		},
+		Spec: kedav1alpha1.ScaledObjectSpec{
+			ScaleTargetRef: &kedav1alpha1.ScaleTarget{
+				APIVersion: v1beta1.GroupVersion.String(),
+				Kind:       v1beta1.VerticaAutoscalerKind,
+				Name:       vas.Name,
+			},
+			MinReplicaCount: so.MinReplicas,
+			MaxReplicaCount: so.MaxReplicas,
+			PollingInterval: so.PollingInterval,
+			CooldownPeriod:  so.CooldownPeriod,
+			Triggers:        buildTriggers(so.Metrics, vas),
+		},
+	}
+
+	if so.Behavior != nil {
+		scaledObject.Spec.Advanced = &kedav1alpha1.AdvancedConfig{
+			HorizontalPodAutoscalerConfig: &kedav1alpha1.HorizontalPodAutoscalerConfig{
+				Behavior: so.Behavior,
+			},
+		}
+	}
+	return scaledObject
+}
+
+// buildTriggers builds and return a list of scaled triggers.
+func buildTriggers(metrics []v1beta1.ScaleTrigger, vas *v1beta1.VerticaAutoscaler) []kedav1alpha1.ScaleTriggers {
+	triggers := make([]kedav1alpha1.ScaleTriggers, len(metrics))
+	for i := range metrics {
+		metric := &metrics[i]
+		if metric.IsNil() {
+			continue
+		}
+		metadata := metric.GetMetadata()
+		if metric.IsPrometheusMetric() {
+			metadata["namespace"] = vas.Namespace
+		} else {
+			metadata["containerName"] = names.ServerContainer
+		}
+		trigger := kedav1alpha1.ScaleTriggers{
+			Type:       metric.GetType(),
+			Name:       metric.Name,
+			MetricType: metric.MetricType,
+			Metadata:   metadata,
+		}
+		triggers[i] = trigger
+	}
+	return triggers
 }
 
 // BuildVProxyDeployment builds manifest for a subclusters VProxy deployment
@@ -914,7 +972,7 @@ func BuildVProxyDeployment(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vap
 	}
 }
 
-// buildPodSpec creates a PodSpec for the deployment
+// buildVProxyPodSpec creates a PodSpec for the vproxy deployment
 func buildVProxyPodSpec(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.PodSpec {
 	termGracePeriod := int64(0)
 	return corev1.PodSpec{
@@ -1498,7 +1556,7 @@ func BuildStsSpec(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi.Subclus
 					Spec: corev1.PersistentVolumeClaimSpec{
 						AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
 						StorageClassName: getStorageClassName(vdb),
-						Resources: corev1.ResourceRequirements{
+						Resources: corev1.VolumeResourceRequirements{
 							Requests: corev1.ResourceList{
 								corev1.ResourceStorage: vdb.Spec.Local.RequestSize,
 							},
@@ -1511,7 +1569,7 @@ func BuildStsSpec(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi.Subclus
 }
 
 // BuildSandboxConfigMap builds a config map for sandbox controller
-func BuildSandboxConfigMap(nm types.NamespacedName, vdb *vapi.VerticaDB, sandbox string) *corev1.ConfigMap {
+func BuildSandboxConfigMap(nm types.NamespacedName, vdb *vapi.VerticaDB, sandbox string, disableRouting bool) *corev1.ConfigMap {
 	immutable := true
 	return &corev1.ConfigMap{
 		TypeMeta: metav1.TypeMeta{
@@ -1522,7 +1580,7 @@ func BuildSandboxConfigMap(nm types.NamespacedName, vdb *vapi.VerticaDB, sandbox
 			Name:            nm.Name,
 			Namespace:       nm.Namespace,
 			Labels:          MakeLabelsForSandboxConfigMap(vdb),
-			Annotations:     MakeAnnotationsForSandboxConfigMap(vdb),
+			Annotations:     MakeAnnotationsForSandboxConfigMap(vdb, disableRouting),
 			OwnerReferences: []metav1.OwnerReference{vdb.GenerateOwnerReference()},
 		},
 		// the data should be immutable since dbName and sandboxName are fixed
@@ -1596,7 +1654,7 @@ func BuildPVC(vdb *vapi.VerticaDB, sc *vapi.Subcluster, podIndex int32) *corev1.
 			AccessModes: []corev1.PersistentVolumeAccessMode{
 				"ReadWriteOnce",
 			},
-			Resources: corev1.ResourceRequirements{
+			Resources: corev1.VolumeResourceRequirements{
 				Requests: corev1.ResourceList{
 					corev1.ResourceStorage: vdb.Spec.Local.RequestSize,
 				},

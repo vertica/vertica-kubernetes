@@ -373,6 +373,10 @@ const (
 	ReplicationDefaultTimeout             = 60 * 60
 	ReplicationPollingFrequencyAnnotation = "vertica.com/replication-polling-frequency"
 	ReplicationDefaultPollingFrequency    = 5
+
+	// Annotation set in a sandbox configMap. Indicates that routing must be disabled
+	// on the sandbox nodes.
+	DisableRoutingAnnotation = "vertica.com/disable-routing"
 )
 
 // IsPauseAnnotationSet will check the annotations for a special value that will
@@ -718,6 +722,12 @@ func GetReplicationTimeout(annotations map[string]string) int {
 // GetReplicationPollingFrequency returns the frequency (in seconds) operator will poll async replication status
 func GetReplicationPollingFrequency(annotations map[string]string) int {
 	return lookupIntAnnotation(annotations, ReplicationPollingFrequencyAnnotation, ReplicationDefaultPollingFrequency)
+}
+
+// GetDisableRouting returns true if routing must be disabled on the sandbox
+// nodes.
+func GetDisableRouting(annotations map[string]string) bool {
+	return lookupBoolAnnotation(annotations, DisableRoutingAnnotation, false)
 }
 
 // lookupBoolAnnotation is a helper function to lookup a specific annotation and

@@ -33,7 +33,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-var _ = Describe("sandboxsubcluster_reconcile", func() {
+var _ = Describe("unsandboxsubcluster_reconcile", func() {
 	ctx := context.Background()
 	maincluster := "main"
 	subcluster1 := "sc1"
@@ -92,7 +92,7 @@ var _ = Describe("sandboxsubcluster_reconcile", func() {
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
 		nm := names.GenSandboxConfigMapName(vdb, sandbox1)
-		cm := builder.BuildSandboxConfigMap(nm, vdb, sandbox1)
+		cm := builder.BuildSandboxConfigMap(nm, vdb, sandbox1, false)
 		Expect(k8sClient.Create(ctx, cm)).Should(Succeed())
 		defer test.DeleteConfigMap(ctx, k8sClient, vdb, sandbox1)
 
@@ -127,7 +127,7 @@ var _ = Describe("sandboxsubcluster_reconcile", func() {
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
 		nm := names.GenSandboxConfigMapName(vdb, sandbox1)
-		cm := builder.BuildSandboxConfigMap(nm, vdb, sandbox1)
+		cm := builder.BuildSandboxConfigMap(nm, vdb, sandbox1, false)
 		Expect(k8sClient.Create(ctx, cm)).Should(Succeed())
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
@@ -201,7 +201,7 @@ var _ = Describe("sandboxsubcluster_reconcile", func() {
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
 		nm := names.GenSandboxConfigMapName(vdb, sandbox1)
-		cm := builder.BuildSandboxConfigMap(nm, vdb, sandbox1)
+		cm := builder.BuildSandboxConfigMap(nm, vdb, sandbox1, false)
 		Expect(k8sClient.Create(ctx, cm)).Should(Succeed())
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)

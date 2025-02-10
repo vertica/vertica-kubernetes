@@ -198,9 +198,9 @@ func (r *ETRefObjectStatus) IsSameObject(other *ETRefObjectStatus) bool {
 	return r.APIVersion == other.APIVersion && r.Kind == other.Kind && r.Namespace == other.Namespace && r.Name == other.Name
 }
 
-//+kubebuilder:object:root=true
-//+kubebuilder:resource:categories=vertica,shortName=et
-//+kubebuilder:subresource:status
+// +kubebuilder:object:root=true
+// +kubebuilder:resource:categories=vertica,shortName=et
+// +kubebuilder:subresource:status
 // +operator-sdk:csv:customresourcedefinitions:resources={{Job,batch/v1,""}}
 
 // EventTrigger is the Schema for the eventtriggers API
@@ -212,7 +212,7 @@ type EventTrigger struct {
 	Status EventTriggerStatus `json:"status,omitempty"`
 }
 
-//+kubebuilder:object:root=true
+// +kubebuilder:object:root=true
 
 // EventTriggerList contains a list of EventTrigger
 type EventTriggerList struct {

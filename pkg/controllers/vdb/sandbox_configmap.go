@@ -85,6 +85,20 @@ func (s *SandboxConfigMapManager) triggerSandboxController(ctx context.Context, 
 	return vk8s.MetaUpdate(ctx, s.vrec.GetClient(), nm, s.configMap, chgs)
 }
 
+// turnOffDisableRoutingAnnotation sets the disable routing annotation in the configMap to false.
+func (s *SandboxConfigMapManager) turnOffDisableRoutingAnnotation(ctx context.Context) (bool, error) {
+	if err := s.fetchConfigMap(ctx); err != nil {
+		return false, err
+	}
+	anns := make(map[string]string)
+	anns[vmeta.DisableRoutingAnnotation] = "false"
+	chgs := vk8s.MetaChanges{
+		NewAnnotations: anns,
+	}
+	nm := names.GenSandboxConfigMapName(s.vdb, s.sandbox)
+	return vk8s.MetaUpdate(ctx, s.vrec.GetClient(), nm, s.configMap, chgs)
+}
+
 // fetchConfigMap will fetch the sandbox configmap
 func (s *SandboxConfigMapManager) fetchConfigMap(ctx context.Context) error {
 	nm := names.GenSandboxConfigMapName(s.vdb, s.sandbox)

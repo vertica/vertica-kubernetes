@@ -17,6 +17,7 @@ package vas
 
 import (
 	"context"
+	"errors"
 
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
@@ -43,17 +44,26 @@ func (s *VDBVerifyReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (c
 	// feedback if the VerticaDB that is referenced in the vas doesn't exist.
 	// This will print out an event if the VerticaDB cannot be found.
 	res, err := fetchVDB(ctx, s.VRec, s.Vas, s.Vdb)
-	if !s.Vas.IsCustomMetricsEnabled() || verrors.IsReconcileAborted(res, err) {
+	if !s.Vas.IsCustomAutoScalerSet() || verrors.IsReconcileAborted(res, err) {
 		return res, err
 	}
 	vinf, vErr := s.Vdb.MakeVersionInfoCheck()
 	if vErr != nil {
-		return ctrl.Result{}, err
+		return ctrl.Result{}, vErr
 	}
 	if !vinf.IsEqualOrNewer(vapi.PrometheusMetricsMinVersion) {
 		ver, _ := s.Vdb.GetVerticaVersionStr()
 		s.VRec.Eventf(s.Vas, corev1.EventTypeWarning, events.PrometheusMetricsNotSupported,
 			"The server version %s does not support prometheus metrics", ver)
+		return ctrl.Result{}, errors.New("the server version does not support prometheus metrics")
 	}
-	return res, err
+	scSbMap := s.Vdb.GenSubclusterSandboxMap()
+	for i := range s.Vdb.Spec.Subclusters {
+		sc := &s.Vdb.Spec.Subclusters[i]
+		sbName := scSbMap[sc.Name]
+		if sbName != vapi.MainCluster {
+			return ctrl.Result{}, errors.New("cannot do autoscaling if there is a sandbox")
+		}
+	}
+	return res, nil
 }
