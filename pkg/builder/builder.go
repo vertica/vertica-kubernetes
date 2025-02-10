@@ -904,7 +904,7 @@ func BuildScaledObject(nm types.NamespacedName, vas *v1beta1.VerticaAutoscaler) 
 			MaxReplicaCount: so.MaxReplicas,
 			PollingInterval: so.PollingInterval,
 			CooldownPeriod:  so.CooldownPeriod,
-			Triggers:        buildTriggers(so.Metrics, vas),
+			Triggers:        buildTriggers(nm, so.Metrics, vas),
 		},
 	}
 
@@ -919,7 +919,7 @@ func BuildScaledObject(nm types.NamespacedName, vas *v1beta1.VerticaAutoscaler) 
 }
 
 // buildTriggers builds and return a list of scaled triggers.
-func buildTriggers(metrics []v1beta1.ScaleTrigger, vas *v1beta1.VerticaAutoscaler) []kedav1alpha1.ScaleTriggers {
+func buildTriggers(nm types.NamespacedName, metrics []v1beta1.ScaleTrigger, vas *v1beta1.VerticaAutoscaler) []kedav1alpha1.ScaleTriggers {
 	triggers := make([]kedav1alpha1.ScaleTriggers, len(metrics))
 	for i := range metrics {
 		metric := &metrics[i]
@@ -938,9 +938,40 @@ func buildTriggers(metrics []v1beta1.ScaleTrigger, vas *v1beta1.VerticaAutoscale
 			MetricType: metric.MetricType,
 			Metadata:   metadata,
 		}
+		if metric.AuthSecret != "" {
+			triggerAuthRef := buildTriggerAuthentication(vas, metric.AuthSecret)
+			trigger.AuthenticationRef = &kedav1alpha1.AuthenticationRef{
+				Name: triggerAuthRef.Name,
+			}
+		}
 		triggers[i] = trigger
 	}
 	return triggers
+}
+
+// buildTriggerAuthentication builds a manifest for a keda TriggerAuthentication.
+func buildTriggerAuthentication(vas *v1beta1.VerticaAutoscaler, sn string) kedav1alpha1.TriggerAuthentication {
+	authTargets := []kedav1alpha1.AuthSecretTargetRef{
+		kedav1alpha1.AuthSecretTargetRef{
+			Parameter: "username",
+			Name:      sn,
+			Key:       "username",
+		},
+		kedav1alpha1.AuthSecretTargetRef{
+			Parameter: "password",
+			Name:      sn,
+			Key:       "password",
+		},
+	}
+	return kedav1alpha1.TriggerAuthentication{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: vas.Namespace,
+			Name:      vas.Name + "-" + "triggerauthentication",
+		},
+		Spec: kedav1alpha1.TriggerAuthenticationSpec{
+			SecretTargetRef: authTargets,
+		},
+	}
 }
 
 // BuildVProxyDeployment builds manifest for a subclusters VProxy deployment
