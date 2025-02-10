@@ -29,8 +29,8 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-// NMACertGenReconciler will create a secret that has TLS credentials.  This
-// secret will be used to authenticate with the http server.
+// NMACertConfigMapGenReconciler will create a configmap that has the nma secret's name
+// and namespace in it. They will be mapped to two environmental variables in NMA container
 type NMACertConfigMapGenReconciler struct {
 	VRec *VerticaDBReconciler
 	Vdb  *vapi.VerticaDB // Vdb is the CRD we are acting on.

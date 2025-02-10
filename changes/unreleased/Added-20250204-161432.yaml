@@ -1,5 +1,5 @@
 kind: Added
-body: ClientServerTLSSecret has been added to Vertica DB definition. It contains the TLS credentials to authenticate Vertica clients' certificates (vsql)
+body: ClientServerTLSSecret has been added to Vertica DB definition. It contains the TLS credentials to authenticate Vertica clients' certificates
 time: 2025-02-04T16:14:32.906578043-05:00
 custom:
     Issue: "1041"
