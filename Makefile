@@ -151,16 +151,9 @@ PROMETHEUS_INTERVAL?=5s
 PROMETHEUS_ADAPTER_NAME ?= prometheus-adapter
 PROMETHEUS_ADAPTER_NAMESPACE ?= prometheus-adapter
 PROMETHEUS_ADAPTER_REPLICAS ?= 1
-# The secret to secure Prometheus API endpoints using TLS encryption. Set to empty to disable TLS encryption.
-# # Example to access the prometheus endpoint with TLS cert:
-# $ curl --cacert /certs/$(PROMETHEUS_TLS_SECRET)/tls.crt https://prometheus-kube-prometheus-prometheus.prometheus.svc:9090/metrics
-PROMETHEUS_TLS_SECRET ?=
 # The Prometheus service URL and port for Prometheus adapter to connect to
-ifneq (,$(PROMETHEUS_TLS_SECRET))
-PROMETHEUS_URL ?= https://$(PROMETHEUS_HELM_NAME)-kube-prometheus-prometheus.$(PROMETHEUS_NAMESPACE).svc
-else
+PROMETHEUS_TLS_URL ?= https://$(PROMETHEUS_HELM_NAME)-kube-prometheus-prometheus.$(PROMETHEUS_NAMESPACE).svc
 PROMETHEUS_URL ?= http://$(PROMETHEUS_HELM_NAME)-kube-prometheus-prometheus.$(PROMETHEUS_NAMESPACE).svc
-endif
 PROMETHEUS_PORT ?= 9090
 DB_USER?=dbadmin
 DB_PASSWORD?=
@@ -696,12 +689,16 @@ endif
 
 .PHONY: deploy-prometheus
 deploy-prometheus:
-ifneq (,$(PROMETHEUS_TLS_SECRET))
-	scripts/setup-prometheus-tls.sh $(PROMETHEUS_URL)
-endif
 	helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
 	helm repo update
 	helm install $(DEPLOY_WAIT) -n $(PROMETHEUS_NAMESPACE) --create-namespace $(PROMETHEUS_HELM_NAME) $(PROMETHEUS_CHART) --values prometheus/values.yaml $(PROMETHEUS_HELM_OVERRIDES)
+
+.PHONY: deploy-prometheus-tls
+deploy-prometheus-tls:
+	scripts/setup-prometheus-tls.sh $(PROMETHEUS_TLS_URL)
+	helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+	helm repo update
+	helm install $(DEPLOY_WAIT) -n $(PROMETHEUS_NAMESPACE) --create-namespace $(PROMETHEUS_HELM_NAME) $(PROMETHEUS_CHART) --values prometheus/values-tls.yaml $(PROMETHEUS_HELM_OVERRIDES)
 
 .PHONY: undeploy-prometheus
 undeploy-prometheus: undeploy-prometheus-service-monitor-by-release

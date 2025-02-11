@@ -22,7 +22,9 @@ SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 REPO_DIR=$(dirname $SCRIPT_DIR)
 PROMETHEUS_DIR=${REPO_DIR}/prometheus
 PROMETHEUS_NS=$(grep '^PROMETHEUS_NAMESPACE' ${REPO_DIR}/Makefile | cut -d'=' -f2)
-TLS_SECRET=$(grep '^PROMETHEUS_TLS_SECRET' ${REPO_DIR}/Makefile | cut -d'=' -f2)
+# The secret to secure Prometheus API endpoints using TLS encryption
+# It must be the same to the secret name configured in prometheus/values-tls.yaml
+TLS_SECRET=prometheus-tls
 
 function usage {
     echo "usage: $0 <prometheus-url>"
@@ -42,34 +44,24 @@ set -o xtrace
 
 source $SCRIPT_DIR/logging-utils.sh
 
+# Generating certs and creating secret for Prometheus TLS encryption
+#
+# Example to use the secret in the Vertica CR:
+#  spec:
+#    certSecrets:
+#    - name: prometheus-tls
+#
+# Example to access the prometheus endpoint with TLS cert:
+# $ curl --cacert /certs/prometheus-tls/tls.crt https://prometheus-kube-prometheus-prometheus.prometheus.svc:9090/metrics
 if ! kubectl get secret $TLS_SECRET -n $PROMETHEUS_NS &> /dev/null; then
-  logInfo "Generating key for prometheus"
+  logInfo "Generating self-signed certs for Prometheus TLS encryption"
+  mkdir -p $PROMETHEUS_DIR/certs
   TLS_KEY=$PROMETHEUS_DIR/certs/tls.key
   TLS_CRT=$PROMETHEUS_DIR/certs/tls.crt
   rm -f $TLS_KEY $TLS_CRT
-  mkdir -p $PROMETHEUS_DIR/certs
   openssl req -x509 -newkey rsa:4096 -nodes -keyout $TLS_KEY -out $TLS_CRT \
          -subj "/C=US/ST=PA/L=Pittsburgh/O=OpenText/OU=Vertica/CN=$PROMETHEUS_CN"
 
   logInfo "Creating prometheus secret"
   kubectl create secret generic $TLS_SECRET -n $PROMETHEUS_NS --from-file=tls.key=$TLS_KEY --from-file=tls.crt=$TLS_CRT
-fi
-
-if ! grep $TLS_SECRET $PROMETHEUS_DIR/values.yaml &> /dev/null; then
-  logInfo "Enalbe TLS in prometheus in kube-prometheus-stack values.yaml"
-  cat <<EOF >> $PROMETHEUS_DIR/values.yaml
-
-  # enable tls config
-  # https://prometheus.io/docs/guides/tls-encryption/
-  prometheusSpec:
-    web:
-      tlsConfig:
-        keySecret:
-          key: tls.key
-          name: $TLS_SECRET
-        cert:
-          secret:
-            key: tls.crt
-            name: $TLS_SECRET
-EOF
 fi
