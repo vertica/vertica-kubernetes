@@ -59,6 +59,7 @@ const (
 	trueString            = "true"
 	VProxyDefaultImage    = "opentext/client-proxy:latest"
 	VProxyDefaultReplicas = 1
+	VProxyCertsMountName  = "vproxy-certs"
 )
 
 // hdfsPrefixes are prefixes for an HDFS path.
