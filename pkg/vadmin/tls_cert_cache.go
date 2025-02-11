@@ -34,7 +34,7 @@ type TLSCertCache struct {
 }
 
 var tlsCertCacheManager *TLSCertCache
-var TLSCertConfigured bool
+var TLSCertConfigured bool = true
 
 func TLSCertCacheFactory(cli client.Client, log logr.Logger,
 	vdb *vapi.VerticaDB) *TLSCertCache {
