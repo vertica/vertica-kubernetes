@@ -20,10 +20,6 @@ metadata:
 spec:
   commonName: default
   isCA: true
-  dnsNames:
-    - verticadb-operator-webhook-service.$NAMESPACE.svc
-    - verticadb-operator-webhook-service.$NAMESPACE.svc.cluster.local
-    - verticadb-operator-metrics-service
   issuerRef:
     kind: Issuer
     name: selfsigned-issuer
