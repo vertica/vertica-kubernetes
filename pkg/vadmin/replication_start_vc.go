@@ -89,7 +89,7 @@ func (v *VClusterOps) genReplicateDBOptions(s *replicationstart.Parms,
 	opts.TargetDB.IPv6 = net.IsIPv6(s.TargetIP)
 
 	// auth options
-	if ShouldUseCertAuthentication() {
+	if v.shouldUseCertAuthentication() {
 		opts.Key = certs.Key
 		opts.Cert = certs.Cert
 		opts.CaCert = certs.CaCert

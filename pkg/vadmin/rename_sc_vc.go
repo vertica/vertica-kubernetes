@@ -64,7 +64,7 @@ func (v *VClusterOps) genRenameSubclusterOptions(s *renamesc.Params, certs *HTTP
 	opts.NewSCName = s.NewSubclusterName
 
 	// auth options
-	if ShouldUseCertAuthentication() {
+	if v.shouldUseCertAuthentication() {
 		opts.Key = certs.Key
 		opts.Cert = certs.Cert
 		opts.CaCert = certs.CaCert

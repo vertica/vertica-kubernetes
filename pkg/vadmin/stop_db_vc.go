@@ -76,7 +76,7 @@ func (v *VClusterOps) genStopDBOptions(s *stopdb.Parms, certs *HTTPSCerts) vops.
 	opts.MainCluster = s.Sandbox == vapi.MainCluster
 
 	// auth options
-	if ShouldUseCertAuthentication() {
+	if v.shouldUseCertAuthentication() {
 		opts.Key = certs.Key
 		opts.Cert = certs.Cert
 		opts.CaCert = certs.CaCert

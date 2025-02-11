@@ -69,7 +69,7 @@ func (v *VClusterOps) genUnsandboxSubclusterOptions(s *unsandboxsc.Params, certs
 	opts.NodeNameAddressMap = s.NodeNameAddressMap
 
 	// auth options
-	if ShouldUseCertAuthentication() {
+	if v.shouldUseCertAuthentication() {
 		opts.Key = certs.Key
 		opts.Cert = certs.Cert
 		opts.CaCert = certs.CaCert

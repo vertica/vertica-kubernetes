@@ -67,7 +67,7 @@ func (v *VClusterOps) genInstallPackagesOptions(i *installpackages.Parms, certs 
 	opts.IsEon = v.VDB.IsEON()
 
 	// auth options
-	if ShouldUseCertAuthentication() {
+	if v.shouldUseCertAuthentication() {
 		opts.Key = certs.Key
 		opts.Cert = certs.Cert
 		opts.CaCert = certs.CaCert

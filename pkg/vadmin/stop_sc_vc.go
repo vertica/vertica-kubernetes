@@ -68,7 +68,7 @@ func (v *VClusterOps) genStopSubclusterOptions(s *stopsubcluster.Parms, certs *H
 	opts.Force = s.Force
 
 	// auth options
-	if ShouldUseCertAuthentication() {
+	if v.shouldUseCertAuthentication() {
 		opts.Key = certs.Key
 		opts.Cert = certs.Cert
 		opts.CaCert = certs.CaCert

@@ -57,7 +57,7 @@ func (v *VClusterOps) genStartNodeOptions(s *restartnode.Parms, certs *HTTPSCert
 	opts.IPv6 = net.IsIPv6(s.InitiatorIP)
 
 	// auth options
-	if ShouldUseCertAuthentication() {
+	if v.shouldUseCertAuthentication() {
 		opts.Key = certs.Key
 		opts.Cert = certs.Cert
 		opts.CaCert = certs.CaCert

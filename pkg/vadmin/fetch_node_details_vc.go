@@ -67,7 +67,7 @@ func (v *VClusterOps) genFetchNodeDetailsOptions(s *fetchnodedetails.Parms, cert
 	opts.IPv6 = net.IsIPv6(s.InitiatorIP)
 
 	// auth options
-	if ShouldUseCertAuthentication() {
+	if v.shouldUseCertAuthentication() {
 		opts.Key = certs.Key
 		opts.Cert = certs.Cert
 		opts.CaCert = certs.CaCert

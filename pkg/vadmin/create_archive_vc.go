@@ -62,7 +62,7 @@ func (v *VClusterOps) genCreateArchiveOptions(s *createarchive.Params, certs *HT
 	opts.NumRestorePoint = s.NumRestorePoints
 
 	// auth options
-	if ShouldUseCertAuthentication() {
+	if v.shouldUseCertAuthentication() {
 		opts.Key = certs.Key
 		opts.Cert = certs.Cert
 		opts.CaCert = certs.CaCert
