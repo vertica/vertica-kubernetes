@@ -27,10 +27,9 @@ var CertFields = map[string]bool{
 
 type TLSCertCache struct {
 	client.Client
-	Log                   logr.Logger
-	Vdb                   *vapi.VerticaDB // Vdb is the CRD we are acting on.
-	certCacheMap          map[string]map[string][]byte
-	tlsSupportedByVersion bool
+	Log          logr.Logger
+	Vdb          *vapi.VerticaDB // Vdb is the CRD we are acting on.
+	certCacheMap map[string]map[string][]byte
 }
 
 var tlsCertCacheManager *TLSCertCache
@@ -48,17 +47,11 @@ func TLSCertCacheFactory(cli client.Client, log logr.Logger,
 
 func makeTLSCertCache(cli client.Client, log logr.Logger,
 	vdb *vapi.VerticaDB) *TLSCertCache {
-	vinf, _ := vdb.MakeVersionInfoCheck()
-	tlsSupported := false
-	if vinf.IsEqualOrNewer(vapi.NMATLSCertRotationMinVersion) {
-		tlsSupported = true
-	}
 	return &TLSCertCache{
-		Client:                cli,
-		Log:                   log.WithName("TLSCertCache"),
-		Vdb:                   vdb,
-		certCacheMap:          map[string]map[string][]byte{},
-		tlsSupportedByVersion: tlsSupported,
+		Client:       cli,
+		Log:          log.WithName("TLSCertCache"),
+		Vdb:          vdb,
+		certCacheMap: map[string]map[string][]byte{},
 	}
 }
 
