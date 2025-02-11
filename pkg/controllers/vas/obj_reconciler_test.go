@@ -63,10 +63,10 @@ var _ = Describe("obj_reconcile", func() {
 	})
 
 	It("should create/update scaledObject", func() {
-		vas := v1beta1.MakeVASWithMetrics()
+		vas := vapi.MakeVASWithMetrics()
 		vas.Spec.CustomAutoscaler.Hpa = nil
-		vas.Spec.CustomAutoscaler.Type = v1beta1.ScaledObject
-		vas.Spec.CustomAutoscaler.ScaledObject = v1beta1.MakeScaledObjectSpec()
+		vas.Spec.CustomAutoscaler.Type = vapi.ScaledObject
+		vas.Spec.CustomAutoscaler.ScaledObject = vapi.MakeScaledObjectSpec()
 		v1beta1_test.CreateVAS(ctx, k8sClient, vas)
 		defer v1beta1_test.DeleteVAS(ctx, k8sClient, vas)
 

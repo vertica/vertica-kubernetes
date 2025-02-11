@@ -188,7 +188,7 @@ var _ = Describe("subclusterresize_reconcile", func() {
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
 
-		vas := v1beta1.MakeVAS()
+		vas := vapi.MakeVAS()
 		const NumPodsToRemove = 4
 		vas.Spec.TargetSize = vdb.Spec.Subclusters[0].Size + vdb.Spec.Subclusters[2].Size - NumPodsToRemove
 		vas.Spec.ServiceName = TargetSvcName

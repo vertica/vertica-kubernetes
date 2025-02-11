@@ -92,10 +92,10 @@ var _ = Describe("scaledown_reconcile", func() {
 	})
 
 	It("should requeue if scaledObject is not ready", func() {
-		vas := v1beta1.MakeVASWithMetrics()
+		vas := vapi.MakeVASWithMetrics()
 		vas.Spec.CustomAutoscaler.Hpa = nil
 		vas.Spec.CustomAutoscaler.Type = v1beta1.ScaledObject
-		vas.Spec.CustomAutoscaler.ScaledObject = v1beta1.MakeScaledObjectSpec()
+		vas.Spec.CustomAutoscaler.ScaledObject = vapi.MakeScaledObjectSpec()
 		v1beta1_test.CreateVAS(ctx, k8sClient, vas)
 		defer v1beta1_test.DeleteVAS(ctx, k8sClient, vas)
 

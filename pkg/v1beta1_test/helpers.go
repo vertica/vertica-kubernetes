@@ -56,7 +56,7 @@ func DeleteHPA(ctx context.Context, c client.Client, vas *v1vapi.VerticaAutoscal
 	ExpectWithOffset(1, c.Delete(ctx, hpa)).Should(Succeed())
 }
 
-func DeleteScaledObject(ctx context.Context, c client.Client, vas *vapi.VerticaAutoscaler) {
+func DeleteScaledObject(ctx context.Context, c client.Client, vas *v1vapi.VerticaAutoscaler) {
 	so := builder.BuildScaledObject(names.GenScaledObjectName(vas), vas)
 	ExpectWithOffset(1, c.Delete(ctx, so)).Should(Succeed())
 }
