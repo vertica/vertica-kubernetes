@@ -45,7 +45,7 @@ func MakeNMACertConfigMapGenReconciler(vdbrecon *VerticaDBReconciler, log logr.L
 	}
 }
 
-// Reconcile will create a TLS secret for the http server if one is missing
+// Reconcile will create a TLS secret for the https server if one is missing
 func (h *NMACertConfigMapGenReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
 	nmaSecret := corev1.Secret{}
 	if !h.tlsSecretsReady(ctx, &nmaSecret) {

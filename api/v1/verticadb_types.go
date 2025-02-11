@@ -296,7 +296,7 @@ type VerticaDBSpec struct {
 	ClientServerTLSSecret string `json:"clientServerTLSSecret,omitempty"`
 
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:hidden"
-	// +kubebuilder:default:=try_verify
+	// +kubebuilder:default:=TRY_VERIFY
 	// +kubebuilder:validation:Optional
 	// This field configures the Vertica's connection mode for client-server TLS.
 	// Choose one of the following TLSMODEs, listed in ascending security:
