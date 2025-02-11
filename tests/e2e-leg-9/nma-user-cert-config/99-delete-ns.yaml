@@ -14,8 +14,4 @@
 apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 commands:
-<<<<<<<< HEAD:tests/e2e-leg-9/nma-user-cert-config/99-delete-ns.yaml
   - command: kubectl delete ns $NAMESPACE
-========
-  - command: bash -c "kustomize build setup-vdb/overlay | kubectl -n $NAMESPACE apply -f - "
->>>>>>>> VER-99110:tests/e2e-leg-1/autoscale-db-by-subcluster/15-setup-vdb.yaml

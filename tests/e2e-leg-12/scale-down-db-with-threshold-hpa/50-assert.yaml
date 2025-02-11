@@ -11,16 +11,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-<<<<<<<< HEAD:tests/e2e-leg-9/nma-user-cert-config/05-assert.yaml
-apiVersion: v1
-kind: Pod
-metadata:
-  namespace: verticadb-operator
-  labels:
-    control-plane: verticadb-operator
-status:
-  phase: Running
-========
 apiVersion: vertica.com/v1beta1
 kind: VerticaAutoscaler
 metadata:
@@ -30,4 +20,3 @@ spec:
 status:
   scalingCount: 0
   currentSize: 5
->>>>>>>> VER-99110:tests/e2e-leg-12/scale-down-db-with-threshold-hpa/50-assert.yaml
