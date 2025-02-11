@@ -182,6 +182,15 @@ type ScaledObjectSpec struct {
 	Behavior *autoscalingv2.HorizontalPodAutoscalerBehavior `json:"behavior,omitempty"`
 }
 
+type PrometheusAuthModes string
+
+const (
+	PrometheusAuthModesBasic  = "basic"
+	PrometheusAuthModesBearer = "bearer"
+	PrometheusAuthTLS         = "tls"
+	PrometheusAuthModesCustom = "custom"
+)
+
 type ScaleTrigger struct {
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:default:=""
@@ -201,6 +210,23 @@ type ScaleTrigger struct {
 	// The secret that contains prometheus credentials. Supports basic auth, bearer tokens, and TLS authentication.
 	// It will ignored if the type is not prometheus
 	AuthSecret string `json:"authSecret,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:default:=""
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:select:basic","urn:alm:descriptor:com.tectonic.ui:select:bearer","urn:alm:descriptor:com.tectonic.ui:select:tls","urn:alm:descriptor:com.tectonic.ui:select:custom"}
+	// The authentication methods for Prometheus.
+	// Allowed types are 'basic', 'bearer', 'tls' and 'custom'.
+	// For 'basic' type, 'username' and 'password' are required fields in AuthSecret.
+	// For 'bearer' type, 'bearerToken' is required field in AuthSecret.
+	// For 'tls' type, 'ca', 'cert' and 'key' are required fields in AuthSecret.
+	// For 'custom' type, 'customAuthHeader' and 'customAuthValue' are required fields in AuthSecret.
+	AuthModes PrometheusAuthModes `json:"authModes,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:default=false
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:booleanSwitch","urn:alm:descriptor:com.tectonic.ui:advanced"}
+	// Used for skipping certificate check e.g: using self-signed certs.
+	UnsafeSsl bool `json:"unsafeSsl,omitempty"`
 
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:select:Utilization","urn:alm:descriptor:com.tectonic.ui:select:Value","urn:alm:descriptor:com.tectonic.ui:select:AverageValue"}
