@@ -27,9 +27,10 @@ var CertFields = map[string]bool{
 
 type TLSCertCache struct {
 	client.Client
-	Log          logr.Logger
-	Vdb          *vapi.VerticaDB // Vdb is the CRD we are acting on.
-	certCacheMap map[string]map[string][]byte
+	Log                   logr.Logger
+	Vdb                   *vapi.VerticaDB // Vdb is the CRD we are acting on.
+	certCacheMap          map[string]map[string][]byte
+	tlsSupportedByVersion bool
 }
 
 var tlsCertCacheManager *TLSCertCache
@@ -42,8 +43,8 @@ func ShouldUseCertAuthentication() bool {
 func TLSCertCacheFactory(cli client.Client, log logr.Logger,
 	vdb *vapi.VerticaDB) *TLSCertCache {
 	if tlsCertCacheManager == nil {
-		log.Info("libo: tlsCertCacheManager is to be initialized")
 		tlsCertCacheManager = makeTLSCertCache(cli, log, vdb)
+		log.Info("tlsCertCacheManager is initialized")
 	}
 
 	return tlsCertCacheManager
@@ -51,11 +52,17 @@ func TLSCertCacheFactory(cli client.Client, log logr.Logger,
 
 func makeTLSCertCache(cli client.Client, log logr.Logger,
 	vdb *vapi.VerticaDB) *TLSCertCache {
+	vinf, _ := vdb.MakeVersionInfoCheck()
+	tlsSupported := false
+	if vinf.IsEqualOrNewer(vapi.NMATLSCertRotationMinVersion) {
+		tlsSupported = true
+	}
 	return &TLSCertCache{
-		Client:       cli,
-		Log:          log.WithName("TLSCertCache"),
-		Vdb:          vdb,
-		certCacheMap: map[string]map[string][]byte{},
+		Client:                cli,
+		Log:                   log.WithName("TLSCertCache"),
+		Vdb:                   vdb,
+		certCacheMap:          map[string]map[string][]byte{},
+		tlsSupportedByVersion: tlsSupported,
 	}
 }
 
@@ -112,7 +119,6 @@ func (c *TLSCertCache) getTLSCertField(secret int, fieldName string) ([]byte, er
 	if err != nil {
 		return nil, fmt.Errorf("invalid secret name index -  %d", secret)
 	}
-	c.Log.Info("libo: getTLSCertField, secretName - " + secretName + ", fieldName - " + fieldName)
 	secretMap, ok := c.certCacheMap[secretName]
 	if ok {
 		return secretMap[fieldName], nil

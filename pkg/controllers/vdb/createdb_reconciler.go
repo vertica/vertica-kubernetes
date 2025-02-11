@@ -131,10 +131,11 @@ func (c *CreateDBReconciler) execCmd(ctx context.Context, initiatorPod types.Nam
 	if c.VInf.IsEqualOrNewer(vapi.NMATLSCertRotationMinVersion) {
 		_, _, err = c.PRunner.ExecInPod(ctx, initiatorPod, names.ServerContainer,
 			"vsql", "-f", PostDBCreateSQLFile)
-		c.Log.Info("SQL executed after db creation ")
 		if err != nil {
+			c.Log.Error(err, "failed to execute TLS DDLs after db creation ")
 			return ctrl.Result{}, err
 		}
+		c.Log.Info("TLS DDLs executed after db creation ")
 	}
 	vadmin.TLSCertConfigured = true
 	c.Log.Info("TLS Cert has been configured")
@@ -180,11 +181,9 @@ func (c *CreateDBReconciler) preCmdSetup(ctx context.Context, initiatorPod types
 func (c *CreateDBReconciler) generatePostDBCreateSQL(ctx context.Context, initiatorPod types.NamespacedName) (ctrl.Result, error) {
 	// On newer server versions we moved over the SQL to config parameters. So,
 	// if we are on a new enough version we can skip this function entirely.
-	c.Log.Info("libo: generate sql 1")
 	if c.VInf.IsEqualOrNewer(vapi.DBSetupConfigParametersMinVersion) && c.VInf.IsOlder(vapi.NMATLSCertRotationMinVersion) {
 		return ctrl.Result{}, nil
 	}
-	c.Log.Info("libo: generate sql 2")
 	// We include SQL to rename the default subcluster to match the name of the
 	// first subcluster in the spec -- any remaining subclusters will be added
 	// by DBAddSubclusterReconciler.
@@ -208,7 +207,6 @@ func (c *CreateDBReconciler) generatePostDBCreateSQL(ctx context.Context, initia
 		}
 	}
 	if c.VInf.IsEqualOrNewer(vapi.NMATLSCertRotationMinVersion) {
-		c.Log.Info("libo: generate sql 3")
 		sb.WriteString(`CREATE OR REPLACE LIBRARY public.KubernetesLib AS '/opt/vertica/packages/kubernetes/lib/libkubernetes.so';`)
 		sb.WriteString(`CREATE OR REPLACE SECRETMANAGER KubernetesSecretManager AS LANGUAGE 'C++' NAME 'KubernetesSecretManagerFactory' LIBRARY KubernetesLib;`)
 		sb.WriteString(fmt.Sprintf(

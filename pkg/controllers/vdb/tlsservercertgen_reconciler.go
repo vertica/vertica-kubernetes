@@ -102,9 +102,7 @@ func (h *TLSServerCertGenReconciler) reconcileOneSecret(secretFieldName, secretN
 				if !ok {
 					return fmt.Errorf("secret %s is missing field %s", secretName, field)
 				}
-				// h.Log.Info("libo: secret name - " + secretName + ", field - " + field + ", value - " + string(bytes))
 			}
-			h.Log.Info("libo: to call SetSecretData for secret name - " + secretName)
 			TLSCertCacheManager.SetSecretData(secretName, secret.Data)
 			h.Log.Info("cached secret " + secretName)
 			return err
@@ -127,9 +125,7 @@ func (h *TLSServerCertGenReconciler) reconcileOneSecret(secretFieldName, secretN
 		if !ok {
 			return fmt.Errorf("secret %s is missing field %s", secretName, field)
 		}
-		// h.Log.Info("libo: secret name - " + secretName + ", field - " + field + ", value - " + string(bytes))
 	}
-	h.Log.Info("libo 2 : to call SetSecretData for secret name - " + secret.Name)
 	TLSCertCacheManager.SetSecretData(secret.Name, secret.Data)
 	h.Log.Info("created certificate and secret and cached " + secret.Name)
 	return h.setSecretNameInVDB(ctx, secretFieldName, secret.ObjectMeta.Name)
