@@ -185,10 +185,10 @@ type ScaledObjectSpec struct {
 type PrometheusAuthModes string
 
 const (
-	PrometheusAuthModesBasic  = "basic"
-	PrometheusAuthModesBearer = "bearer"
-	PrometheusAuthTLS         = "tls"
-	PrometheusAuthModesCustom = "custom"
+	PrometheusAuthModesBasic  PrometheusAuthModes = "basic"
+	PrometheusAuthModesBearer PrometheusAuthModes = "bearer"
+	PrometheusAuthTLS         PrometheusAuthModes = "tls"
+	PrometheusAuthModesCustom PrometheusAuthModes = "custom"
 )
 
 type ScaleTrigger struct {
