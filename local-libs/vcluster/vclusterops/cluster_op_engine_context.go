@@ -55,10 +55,10 @@ type opEngineExecContext struct {
 	slowEvents *dcSlowEvents
 
 	// transaction starts
-	dcTransactionStarts dcTransactionStarts
+	dcTransactionStarts *dcTransactionStarts
 
 	// session starts
-	dcSessionStarts dcSessionStarts
+	dcSessionStarts *dcSessionStarts
 }
 
 func makeOpEngineExecContext(logger vlog.Printer) opEngineExecContext {

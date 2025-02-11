@@ -44,7 +44,10 @@ type VClusterHealthOptions struct {
 	Display           bool
 
 	// hidden option
-	CascadeStack []SlowEventNode
+	CascadeStack            []SlowEventNode
+	SessionStartsResult     *dcSessionStarts
+	TransactionStartsResult *dcTransactionStarts
+	SlowEventsResult        *dcSlowEvents
 }
 
 type SlowEventNode struct {
@@ -143,11 +146,12 @@ func (vcc VClusterCommands) VClusterHealth(options *VClusterHealthOptions) error
 	var runError error
 	switch operation {
 	case "get_slow_events":
-		_, runError = options.getSlowEvents(vcc.Log, vdb.PrimaryUpNodes, options.ThreadID, options.StartTime, options.EndTime)
+		options.SlowEventsResult, runError = options.getSlowEvents(vcc.Log, vdb.PrimaryUpNodes, options.ThreadID, options.StartTime,
+			options.EndTime, false /*Not for cascade*/)
 	case "get_session_starts":
-		_, runError = options.getSessionStarts(vcc.Log, vdb.PrimaryUpNodes, options.SessionID)
+		options.SessionStartsResult, runError = options.getSessionStarts(vcc.Log, vdb.PrimaryUpNodes, options.SessionID)
 	case "get_transaction_starts":
-		_, runError = options.getTransactionStarts(vcc.Log, vdb.PrimaryUpNodes, options.TxnID)
+		options.TransactionStartsResult, runError = options.getTransactionStarts(vcc.Log, vdb.PrimaryUpNodes, options.TxnID)
 	default: // by default, we will build a cascade graph
 		runError = options.buildCascadeGraph(vcc.Log, vdb.PrimaryUpNodes)
 	}
@@ -158,7 +162,7 @@ func (vcc VClusterCommands) VClusterHealth(options *VClusterHealthOptions) error
 func (options *VClusterHealthOptions) buildCascadeGraph(logger vlog.Printer, upHosts []string) error {
 	// get slow events during the given time
 	slowEvents, err := options.getSlowEvents(logger, upHosts,
-		"" /*thread_id*/, options.StartTime, options.EndTime)
+		"" /*thread_id*/, options.StartTime, options.EndTime, true /*for cascade*/)
 	if err != nil {
 		return err
 	}
@@ -218,7 +222,7 @@ func (options *VClusterHealthOptions) recursiveTraceback(logger vlog.Printer,
 	upHosts []string,
 	threadID, startTime, endTime string,
 	depth int) error {
-	slowEvents, err := options.getSlowEvents(logger, upHosts, threadID, startTime, endTime)
+	slowEvents, err := options.getSlowEvents(logger, upHosts, threadID, startTime, endTime, true)
 	if err != nil {
 		return err
 	}
@@ -321,19 +325,24 @@ func (options *VClusterHealthOptions) fillLockHoldInfo(logger vlog.Printer, upHo
 }
 
 func (options *VClusterHealthOptions) getSlowEvents(logger vlog.Printer, upHosts []string,
-	threadID, startTime, endTime string) (slowEvents *dcSlowEvents, err error) {
+	threadID, startTime, endTime string, forCascade bool) (slowEvents *dcSlowEvents, err error) {
 	var instructions []clusterOp
 
-	httpsSlowEventOp := makeHTTPSSlowEventOpByThreadID(upHosts, startTime, endTime,
-		threadID, options.Debug)
-	instructions = append(instructions, &httpsSlowEventOp)
+	if forCascade {
+		httpsSlowEventWithThreadIDOp := makeHTTPSSlowEventOpByThreadID(upHosts, startTime, endTime,
+			threadID, options.Debug)
+		instructions = append(instructions, &httpsSlowEventWithThreadIDOp)
+	} else {
+		httpsSlowEventOp := makeHTTPSSlowEventOp(upHosts, startTime, endTime,
+			threadID, options.PhaseDurationDesc, options.TxnID, options.EventDesc, options.NodeName, options.Debug)
+		instructions = append(instructions, &httpsSlowEventOp)
+	}
 
 	clusterOpEngine := makeClusterOpEngine(instructions, &options.DatabaseOptions)
 	err = clusterOpEngine.run(logger)
 	if err != nil {
 		return slowEvents, fmt.Errorf("fail to retrieve database configurations, %w", err)
 	}
-
 	return clusterOpEngine.execContext.slowEvents, nil
 }
 
@@ -368,7 +377,7 @@ func (options *VClusterHealthOptions) getSessionStarts(logger vlog.Printer, upHo
 		return sessionStarts, fmt.Errorf("fail to retrieve database configurations, %w", err)
 	}
 
-	return &clusterOpEngine.execContext.dcSessionStarts, nil
+	return clusterOpEngine.execContext.dcSessionStarts, nil
 }
 
 func (options *VClusterHealthOptions) getEventSessionInfo(logger vlog.Printer, upHosts []string,
@@ -401,7 +410,7 @@ func (options *VClusterHealthOptions) getTransactionStarts(logger vlog.Printer, 
 		return transactionInfo, fmt.Errorf("fail to retrieve database configurations, %w", err)
 	}
 
-	return &clusterOpEngine.execContext.dcTransactionStarts, nil
+	return clusterOpEngine.execContext.dcTransactionStarts, nil
 }
 
 func (options *VClusterHealthOptions) getEventTransactionInfo(logger vlog.Printer, upHosts []string,
