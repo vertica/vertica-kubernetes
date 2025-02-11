@@ -1,5 +1,5 @@
 /*
- (c) Copyright [2023-2024] Open Text.
+ (c) Copyright [2023-2025] Open Text.
  Licensed under the Apache License, Version 2.0 (the "License");
  You may not use this file except in compliance with the License.
  You may obtain a copy of the License at
@@ -17,6 +17,7 @@ package commands
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -262,8 +263,16 @@ func (c *CmdStartReplication) Run(vcc vclusterops.ClusterCommands) error {
 
 	transactionID, err := vcc.VReplicateDatabase(options)
 	if err != nil {
-		vcc.LogError(err, "failed to replicate to database", "targetDB", options.TargetDB.DBName)
-		return err
+		errMsg := err.Error()
+		// when no table matches include pattern, errMsg contains "ERROR 4089: [22023] No objects specified"
+		// when no table matches table-or-schema-name, errMsg contains  "ERROR 11781: [22023] Unknown or unsupported table name"
+		if !strings.Contains(errMsg, "22023") {
+			vcc.LogError(err, "failed to replicate to database", "targetDB", options.TargetDB.DBName)
+			return err
+		}
+		vcc.DisplayWarning("No data is replicated to database %s: %s",
+			options.TargetDB.DBName, errMsg)
+		return nil
 	}
 
 	if options.Async {

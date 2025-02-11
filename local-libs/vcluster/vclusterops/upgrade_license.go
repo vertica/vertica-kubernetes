@@ -1,5 +1,5 @@
 /*
- (c) Copyright [2023-2024] Open Text.
+ (c) Copyright [2023-2025] Open Text.
  Licensed under the Apache License, Version 2.0 (the "License");
  You may not use this file except in compliance with the License.
  You may obtain a copy of the License at
@@ -17,17 +17,26 @@ package vclusterops
 
 import (
 	"fmt"
+	"path/filepath"
 
 	"github.com/vertica/vcluster/vclusterops/util"
 	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
+const tempLicensePath = util.TmpDir + "/temp_vertica_license"
+
 type VUpgradeLicenseOptions struct {
 	DatabaseOptions
 
-	// Required arguments
+	// Required argument
 	LicenseFilePath string
-	LicenseHost     string
+
+	// Optional argument, if not provided, then assume license file on localhost
+	LicenseHost string
+	// Calculated hidden argument, any value passed from callers will be ignored
+	LocalHostAddr string
+	// hidden argument for early check on file type, any value passed from callers will be ignored
+	StageLicensePath string
 }
 
 func VUpgradeLicenseFactory() VUpgradeLicenseOptions {
@@ -51,7 +60,7 @@ func (options *VUpgradeLicenseOptions) validateRequiredOptions(logger vlog.Print
 		return fmt.Errorf("must specify a license file")
 	}
 	if options.LicenseHost == "" {
-		return fmt.Errorf("must specify a host the license file located on")
+		logger.Info("no license host provided, considering license file on local host")
 	}
 	// license file must be specified as an absolute path
 	err = util.ValidateAbsPath(options.LicenseFilePath, "license file path")
@@ -78,13 +87,32 @@ func (options *VUpgradeLicenseOptions) validateParseOptions(log vlog.Printer) er
 
 // analyzeOptions will modify some options based on what is chosen
 func (options *VUpgradeLicenseOptions) analyzeOptions() (err error) {
-	// resolve license host to be IP addresses
-	licenseHostAddr, err := util.ResolveToOneIP(options.LicenseHost, options.IPv6)
-	if err != nil {
-		return err
+	// make sure the specified file path has a file extension
+	licenseExt := filepath.Ext(options.LicenseFilePath)
+	// no extension, it's not a file
+	if licenseExt == "" {
+		return fmt.Errorf("must specify a valid file path")
 	}
-	// install license call has to be done on the host that has the license file
-	options.LicenseHost = licenseHostAddr
+
+	if options.LicenseHost != "" {
+		// resolve license host to be IP addresses
+		licenseHostAddr, err := util.ResolveToOneIP(options.LicenseHost, options.IPv6)
+		if err != nil {
+			return err
+		}
+
+		options.LicenseHost = licenseHostAddr
+	} else {
+		// using localhost as source host for transferring the license file, should resolve localhost to one IP
+		// resolve license host to be IP addresses
+		localHostAddr, err := util.ResolveToOneIP(util.LocalHost, options.IPv6)
+		if err != nil {
+			return err
+		}
+		options.LocalHostAddr = localHostAddr
+		// also set the temporary license file path for staging the file on a remote host
+		options.StageLicensePath = tempLicensePath + licenseExt
+	}
 	if len(options.RawHosts) > 0 {
 		// resolve RawHosts to be IP addresses
 		hostAddresses, err := util.ResolveRawHostsToAddresses(options.RawHosts, options.IPv6)
@@ -125,7 +153,7 @@ func (vcc VClusterCommands) VUpgradeLicense(options *VUpgradeLicenseOptions) err
 	// produce create acchive instructions
 	instructions, err := vcc.produceUpgradeLicenseInstructions(options)
 	if err != nil {
-		return fmt.Errorf("fail to produce instructions, %w", err)
+		return fmt.Errorf("fail to produce INSTRUCTIONS, %w", err)
 	}
 
 	// create a VClusterOpEngine, and add certs to the engine
@@ -140,8 +168,13 @@ func (vcc VClusterCommands) VUpgradeLicense(options *VUpgradeLicenseOptions) err
 }
 
 // The generated instructions will later perform the following operations necessary
-// for a successful create_archive:
+// if users specify a remote license host:
 //   - Run install license API
+//
+// otherwise:
+//   - Transfer the specified license file on localhost to an UP node
+//   - Run install license API on the UP primary node
+//   - Delete the temporary license file on the UP primary node
 func (vcc *VClusterCommands) produceUpgradeLicenseInstructions(options *VUpgradeLicenseOptions) ([]clusterOp, error) {
 	var instructions []clusterOp
 	vdb := makeVCoordinationDatabase()
@@ -155,21 +188,53 @@ func (vcc *VClusterCommands) produceUpgradeLicenseInstructions(options *VUpgrade
 	hosts := options.Hosts
 	// Trim host list
 	hosts = vdb.filterUpHostlist(hosts, util.MainClusterSandbox)
-	// if license host isn't an UP host, error out
-	// this license upgrade has to be done in main cluster
-	if !util.StringInArray(options.LicenseHost, hosts) {
-		return instructions, fmt.Errorf("license file must be on an UP host, the specified host %s is not UP", options.LicenseHost)
+
+	// should not happen, but adding a guardrail
+	if len(hosts) == 0 {
+		return instructions, fmt.Errorf("found no UP nodes for upgrading license")
 	}
 
-	initiatorHost := []string{options.LicenseHost}
+	// shortcut if users specified a remote host
+	if options.LicenseHost != "" {
+		// if specified license host isn't an UP host, error out
+		// this license upgrade has to be done in main cluster
+		if !util.StringInArray(options.LicenseHost, hosts) {
+			return instructions, fmt.Errorf("license file must be on an UP host, the specified host %s is not UP", options.LicenseHost)
+		}
 
-	httpsInstallLicenseOp, err := makeHTTPSInstallLicenseOp(initiatorHost, options.usePassword,
-		options.UserName, options.Password, options.LicenseFilePath)
-	if err != nil {
-		return instructions, err
+		initiatorHost := []string{options.LicenseHost}
+
+		httpsInstallLicenseOp, err := makeHTTPSInstallLicenseOp(initiatorHost, options.usePassword,
+			options.UserName, options.Password, options.LicenseFilePath)
+		if err != nil {
+			return instructions, err
+		}
+
+		instructions = append(instructions, &httpsInstallLicenseOp)
+		return instructions, nil
+	}
+	// if users do not specify a remote license host, transfer local license file to a primary UP node and perform upgrade
+	// initiator is the host on which HTTPS install license endpoint will run
+	initiator, setInitiatorErr := getInitiatorHost(vdb.PrimaryUpNodes, []string{} /* skip hosts */)
+	if setInitiatorErr != nil {
+		return instructions, setInitiatorErr
 	}
 
-	instructions = append(instructions,
-		&httpsInstallLicenseOp)
+	// step 1: transfer the local license file to the initiator host
+	produceTransferLicenseOps(&instructions, options.LocalHostAddr, initiator,
+		options.LicenseFilePath, options.StageLicensePath)
+
+	initiatorHost := []string{initiator}
+	// step 2: upgrade license
+	httpsInstallLicenseOp, makeOpErr := makeHTTPSInstallLicenseOp(initiatorHost, options.usePassword,
+		options.UserName, options.Password, options.StageLicensePath)
+	if makeOpErr != nil {
+		return instructions, makeOpErr
+	}
+	instructions = append(instructions, &httpsInstallLicenseOp)
+
+	// step 3: clean up the stage license file
+	nmaDeleteFileOp := makeNMADeleteFileOp(initiatorHost, options.StageLicensePath)
+	instructions = append(instructions, &nmaDeleteFileOp)
 	return instructions, nil
 }
