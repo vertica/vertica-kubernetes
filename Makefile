@@ -153,8 +153,8 @@ PROMETHEUS_ADAPTER_NAMESPACE ?= prometheus-adapter
 PROMETHEUS_ADAPTER_REPLICAS ?= 1
 # The secret to secure Prometheus API endpoints using TLS encryption. Set to empty to disable TLS encryption.
 # # Example to access the prometheus endpoint with TLS cert:
-# $ curl --cacert /certs/prometheus-tls/tls.crt https://prometheus-kube-prometheus-prometheus.prometheus.svc:9090/metrics
-PROMETHEUS_TLS_SECRET ?= prometheus-tls
+# $ curl --cacert /certs/$(PROMETHEUS_TLS_SECRET)/tls.crt https://prometheus-kube-prometheus-prometheus.prometheus.svc:9090/metrics
+PROMETHEUS_TLS_SECRET ?=
 # The Prometheus service URL and port for Prometheus adapter to connect to
 ifneq (,$(PROMETHEUS_TLS_SECRET))
 PROMETHEUS_URL ?= https://$(PROMETHEUS_HELM_NAME)-kube-prometheus-prometheus.$(PROMETHEUS_NAMESPACE).svc

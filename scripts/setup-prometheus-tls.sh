@@ -22,6 +22,7 @@ SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 REPO_DIR=$(dirname $SCRIPT_DIR)
 PROMETHEUS_DIR=${REPO_DIR}/prometheus
 PROMETHEUS_NS=$(grep '^PROMETHEUS_NAMESPACE' ${REPO_DIR}/Makefile | cut -d'=' -f2)
+TLS_SECRET=$(grep '^PROMETHEUS_TLS_SECRET' ${REPO_DIR}/Makefile | cut -d'=' -f2)
 
 function usage {
     echo "usage: $0 <prometheus-url>"
@@ -41,7 +42,7 @@ set -o xtrace
 
 source $SCRIPT_DIR/logging-utils.sh
 
-if ! kubectl get secret prometheus-tls -n $PROMETHEUS_NS &> /dev/null; then
+if ! kubectl get secret $TLS_SECRET -n $PROMETHEUS_NS &> /dev/null; then
   logInfo "Generating key for prometheus"
   TLS_KEY=$PROMETHEUS_DIR/certs/tls.key
   TLS_CRT=$PROMETHEUS_DIR/certs/tls.crt
@@ -51,10 +52,10 @@ if ! kubectl get secret prometheus-tls -n $PROMETHEUS_NS &> /dev/null; then
          -subj "/C=US/ST=PA/L=Pittsburgh/O=OpenText/OU=Vertica/CN=$PROMETHEUS_CN"
 
   logInfo "Creating prometheus secret"
-  kubectl create secret generic prometheus-tls -n $PROMETHEUS_NS --from-file=tls.key=$TLS_KEY --from-file=tls.crt=$TLS_CRT
+  kubectl create secret generic $TLS_SECRET -n $PROMETHEUS_NS --from-file=tls.key=$TLS_KEY --from-file=tls.crt=$TLS_CRT
 fi
 
-if ! grep prometheus-tls $PROMETHEUS_DIR/values.yaml &> /dev/null; then
+if ! grep $TLS_SECRET $PROMETHEUS_DIR/values.yaml &> /dev/null; then
   logInfo "Enalbe TLS in prometheus in kube-prometheus-stack values.yaml"
   cat <<EOF >> $PROMETHEUS_DIR/values.yaml
 
@@ -65,10 +66,10 @@ if ! grep prometheus-tls $PROMETHEUS_DIR/values.yaml &> /dev/null; then
       tlsConfig:
         keySecret:
           key: tls.key
-          name: prometheus-tls
+          name: $TLS_SECRET
         cert:
           secret:
             key: tls.crt
-            name: prometheus-tls
+            name: $TLS_SECRET
 EOF
 fi
