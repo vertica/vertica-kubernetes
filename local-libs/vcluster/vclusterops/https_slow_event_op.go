@@ -16,11 +16,10 @@
 package vclusterops
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
-	"os"
+	"net/url"
+
 	"strings"
 )
 
@@ -78,41 +77,40 @@ func (op *httpsSlowEventsOp) setupClusterHTTPRequest(hosts []string) error {
 	// thus we only need to send https request to one of the up hosts
 
 	// compose url from options
-	url := slowEventsURL
-	queryParams := []string{}
-
-	if op.startTime != "" {
-		queryParams = append(queryParams, "start-time="+op.startTime)
-	}
-	if op.endTime != "" {
-		queryParams = append(queryParams, "end-time="+op.endTime)
-	}
-	if op.debug {
-		queryParams = append(queryParams, "debug=true")
-	}
-	if op.nodeName != "" {
-		queryParams = append(queryParams, "node-name="+op.nodeName)
-	}
-	if op.threadID != "" {
-		queryParams = append(queryParams, "thread-id="+op.threadID)
-	}
-	if op.phaseDuration != "" {
-		queryParams = append(queryParams, "phases-duration-desc"+op.phaseDuration)
-	}
-	if op.eventDesc != "" {
-		queryParams = append(queryParams, "event-desc="+op.eventDesc)
-	}
-
-	for i, param := range queryParams {
-		// replace " " with "%20" in query params
-		queryParams[i] = strings.ReplaceAll(param, " ", "%20")
-	}
-	url += "?" + strings.Join(queryParams, "&")
+	baseURL := slowEventsURL
 
 	for _, host := range hosts[:1] {
 		httpRequest := hostHTTPRequest{}
 		httpRequest.Method = GetMethod
-		httpRequest.buildHTTPSEndpoint(url)
+		queryParams := make(map[string]string)
+		if op.nodeName != "" {
+			queryParams["node-name"] = op.nodeName
+		}
+		if op.startTime != "" {
+			queryParams["start-time"] = op.startTime
+		}
+		if op.endTime != "" {
+			queryParams["end-time"] = op.endTime
+		}
+		if op.threadID != "" {
+			queryParams["thread-id"] = op.threadID
+		}
+		if op.phaseDuration != "" {
+			queryParams["phases-duration-desc"] = op.phaseDuration
+		}
+		if op.eventDesc != "" {
+			queryParams["event-desc"] = op.eventDesc
+		}
+
+		// Build query string
+		var queryParts []string
+		for key, value := range queryParams {
+			queryParts = append(queryParts, fmt.Sprintf("%s=%s", key, value))
+		}
+
+		// Join query parts to form a query string
+		queryString := url.PathEscape(strings.Join(queryParts, "&"))
+		httpRequest.buildHTTPSEndpoint(fmt.Sprintf("%s?%s", baseURL, queryString))
 		op.clusterHTTPRequest.RequestCollection[host] = httpRequest
 	}
 
@@ -129,10 +127,6 @@ func (op *httpsSlowEventsOp) prepare(execContext *opEngineExecContext) error {
 }
 
 func (op *httpsSlowEventsOp) execute(execContext *opEngineExecContext) error {
-	if op.debug {
-		return op.executeOnStub(execContext)
-	}
-
 	if err := op.runExecute(execContext); err != nil {
 		return err
 	}
@@ -169,7 +163,6 @@ func (op *httpsSlowEventsOp) processResult(execContext *opEngineExecContext) err
 	var allErrs error
 	for host, result := range op.clusterHTTPRequest.ResultCollection {
 		op.logResponse(host, result)
-
 		if result.isPassing() {
 			var slowEvents dcSlowEvents
 			err := op.parseAndCheckResponse(host, result.content, &slowEvents)
@@ -184,54 +177,4 @@ func (op *httpsSlowEventsOp) processResult(execContext *opEngineExecContext) err
 	}
 
 	return allErrs
-}
-
-func (op *httpsSlowEventsOp) executeOnStub(execContext *opEngineExecContext) error {
-	// TODO: we take this location from input, but this place would be fine
-	// because we can any way write files from outside to the test containers
-	location := "/opt/vertica/tmp/slow_events_sample.json"
-	jsonFile, err := os.Open(location)
-	if err != nil {
-		return fmt.Errorf("failed to open slow events stub file at %s", location)
-	}
-
-	defer jsonFile.Close()
-
-	var slowEventList []dcSlowEvent
-	bytes, _ := io.ReadAll(jsonFile)
-	err = json.Unmarshal(bytes, &slowEventList)
-	if err != nil {
-		return err
-	}
-
-	var filteredEvents []dcSlowEvent
-	for idx := range slowEventList {
-		event := slowEventList[idx]
-		if op.startTime != "" {
-			if event.Time < op.startTime {
-				continue
-			}
-		}
-		if op.endTime != "" {
-			if event.Time > op.endTime {
-				continue
-			}
-		}
-		if op.threadID != "" {
-			if event.ThreadID != op.threadID {
-				continue
-			}
-		}
-		if op.eventDesc != "" {
-			if !strings.Contains(event.EventDescription, op.eventDesc) {
-				continue
-			}
-		}
-		filteredEvents = append(filteredEvents, event)
-	}
-
-	execContext.slowEvents = new(dcSlowEvents)
-	execContext.slowEvents.SlowEventList = filteredEvents
-
-	return nil
 }
