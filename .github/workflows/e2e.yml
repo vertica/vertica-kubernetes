@@ -117,15 +117,13 @@ jobs:
   e2e-leg-1-admintools:
     if: ${{ ! contains(github.ref, 'k8s-sync')  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools leg 1' || inputs.e2e_test_suites == '') }}
     needs: [build]
-    strategy:
-      matrix:
-        runner: [ ubuntu-22.04, ARM64 ]
-    runs-on: ${{ matrix.runner }}
+    runs-on: ubuntu-22.04
     steps:
       - name: Checkout
         uses: actions/checkout@v4
       - name: Login to GitHub Container registry
         uses: docker/login-action@v3
+        if: ${{ startsWith(needs.build.outputs.legacy-vertica-image, 'ghcr.io') }}
         with:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
@@ -152,6 +150,13 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: Login to GitHub Container registry
+        uses: docker/login-action@v3
+        if: ${{ startsWith(needs.build.outputs.full-vertica-image, 'ghcr.io') }}
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
       - name: Test
         uses: ./.github/actions/run-e2e-leg
         with:
@@ -179,6 +184,7 @@ jobs:
         uses: actions/checkout@v4
       - name: Login to GitHub Container registry
         uses: docker/login-action@v3
+        if: ${{ startsWith(needs.build.outputs.full-vertica-image, 'ghcr.io') }}
         with:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
@@ -200,15 +206,13 @@ jobs:
   e2e-leg-2-admintools:
     if: ${{ ! contains(github.ref, 'k8s-sync')  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools leg 2' || inputs.e2e_test_suites == '') }}
     needs: [build]
-    strategy:
-      matrix:
-        runner: [ ubuntu-22.04, ARM64 ]
-    runs-on: ${{ matrix.runner }}
+    runs-on: ubuntu-22.04
     steps:
       - name: Checkout
         uses: actions/checkout@v4
       - name: Login to GitHub Container registry
         uses: docker/login-action@v3
+        if: ${{ startsWith(needs.build.outputs.full-vertica-image, 'ghcr.io') }}
         with:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
@@ -235,12 +239,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Login to GitHub Container registry
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.repository_owner }}
-          password: ${{ secrets.GITHUB_TOKEN }}
       - name: Test
         uses: ./.github/actions/run-e2e-leg
         with:
@@ -268,6 +266,7 @@ jobs:
         uses: actions/checkout@v4
       - name: Login to GitHub Container registry
         uses: docker/login-action@v3
+        if: ${{ startsWith(needs.build.outputs.minimal-vertica-image, 'ghcr.io') }}
         with:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
@@ -289,15 +288,13 @@ jobs:
   e2e-leg-3-admintools:
     if: ${{ ! contains(github.ref, 'k8s-sync')  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools leg 3' || inputs.e2e_test_suites == '') }}
     needs: [build]
-    strategy:
-      matrix:
-        runner: [ ubuntu-22.04, ARM64 ]
-    runs-on: ${{ matrix.runner }}
+    runs-on: ubuntu-22.04
     steps:
       - name: Checkout
         uses: actions/checkout@v4
       - name: Login to GitHub Container registry
         uses: docker/login-action@v3
+        if: ${{ startsWith(needs.build.outputs.legacy-vertica-image, 'ghcr.io') }}
         with:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
@@ -323,12 +320,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Login to GitHub Container registry
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.repository_owner }}
-          password: ${{ secrets.GITHUB_TOKEN }}
       - name: Test
         uses: ./.github/actions/run-e2e-leg
         with:
@@ -355,6 +346,7 @@ jobs:
         uses: actions/checkout@v4
       - name: Login to GitHub Container registry
         uses: docker/login-action@v3
+        if: ${{ startsWith(needs.build.outputs.full-vertica-image, 'ghcr.io') }}
         with:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
@@ -375,15 +367,13 @@ jobs:
   e2e-leg-4-admintools:
     if: ${{ ! contains(github.ref, 'k8s-sync')  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools leg 4' || inputs.e2e_test_suites == '') }}
     needs: [build]
-    strategy:
-      matrix:
-        runner: [ ubuntu-22.04, ARM64 ]
-    runs-on: ${{ matrix.runner }}
+    runs-on: ubuntu-22.04
     steps:
       - name: Checkout
         uses: actions/checkout@v4
       - name: Login to GitHub Container registry
         uses: docker/login-action@v3
+        if: ${{ startsWith(needs.build.outputs.full-vertica-image, 'ghcr.io') }}
         with:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
@@ -417,6 +407,7 @@ jobs:
         uses: actions/checkout@v4
       - name: Login to GitHub Container registry
         uses: docker/login-action@v3
+        if: ${{ startsWith(needs.build.outputs.minimal-vertica-image, 'ghcr.io') }}
         with:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
@@ -446,6 +437,7 @@ jobs:
         uses: actions/checkout@v4
       - name: Login to GitHub Container registry
         uses: docker/login-action@v3
+        if: ${{ startsWith(needs.build.outputs.full-vertica-image, 'ghcr.io') }}
         with:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
@@ -476,6 +468,7 @@ jobs:
         uses: actions/checkout@v4
       - name: Login to GitHub Container registry
         uses: docker/login-action@v3
+        if: ${{ startsWith(needs.build.outputs.minimal-vertica-image, 'ghcr.io') }}
         with:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
@@ -499,15 +492,13 @@ jobs:
   e2e-leg-5-admintools:
     if: ${{ ! contains(github.ref, 'k8s-sync')  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools leg 5' || inputs.e2e_test_suites == '') }}
     needs: [build]
-    strategy:
-      matrix:
-        runner: [ ubuntu-22.04, ARM64 ]
-    runs-on: ${{ matrix.runner }}
+    runs-on: ubuntu-22.04
     steps:
       - name: Checkout
         uses: actions/checkout@v4
       - name: Login to GitHub Container registry
         uses: docker/login-action@v3
+        if: ${{ startsWith(needs.build.outputs.full-vertica-image, 'ghcr.io') }}
         with:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
@@ -543,6 +534,7 @@ jobs:
         uses: actions/checkout@v4
       - name: Login to GitHub Container registry
         uses: docker/login-action@v3
+        if: ${{ startsWith(needs.build.outputs.minimal-vertica-image, 'ghcr.io') }}
         with:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
@@ -577,6 +569,7 @@ jobs:
         uses: actions/checkout@v4
       - name: Login to GitHub Container registry
         uses: docker/login-action@v3
+        if: ${{ startsWith(needs.build.outputs.full-vertica-image, 'ghcr.io') }}
         with:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
@@ -604,6 +597,7 @@ jobs:
         uses: actions/checkout@v4
       - name: Login to GitHub Container registry
         uses: docker/login-action@v3
+        if: ${{ startsWith(needs.build.outputs.full-vertica-image, 'ghcr.io') }}
         with:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
@@ -634,6 +628,7 @@ jobs:
         uses: actions/checkout@v4
       - name: Login to GitHub Container registry
         uses: docker/login-action@v3
+        if: ${{ startsWith(needs.build.outputs.full-vertica-image, 'ghcr.io') }}
         with:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
@@ -655,15 +650,13 @@ jobs:
   e2e-leg-8-admintools-offline:
     if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'leg 8' || inputs.e2e_test_suites == '')}}
     needs: [build]
-    strategy:
-      matrix:
-        runner: [ ubuntu-22.04, ARM64 ]
-    runs-on: ${{ matrix.runner }}
+    runs-on: ubuntu-22.04
     steps:
       - name: Checkout
         uses: actions/checkout@v4
       - name: Login to GitHub Container registry
         uses: docker/login-action@v3
+        if: ${{ startsWith(needs.build.outputs.full-vertica-image, 'ghcr.io') }}
         with:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
@@ -693,6 +686,7 @@ jobs:
         uses: actions/checkout@v4
       - name: Login to GitHub Container registry
         uses: docker/login-action@v3
+        if: ${{ startsWith(needs.build.outputs.full-vertica-image, 'ghcr.io') }}
         with:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
@@ -725,6 +719,7 @@ jobs:
         uses: actions/checkout@v4
       - name: Login to GitHub Container registry
         uses: docker/login-action@v3
+        if: ${{ startsWith(needs.build.outputs.minimal-vertica-image, 'ghcr.io') }}
         with:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
@@ -755,6 +750,7 @@ jobs:
         uses: actions/checkout@v4
       - name: Login to GitHub Container registry
         uses: docker/login-action@v3
+        if: ${{ startsWith(needs.build.outputs.minimal-vertica-image, 'ghcr.io') }}
         with:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
@@ -785,6 +781,7 @@ jobs:
         uses: actions/checkout@v4
       - name: Login to GitHub Container registry
         uses: docker/login-action@v3
+        if: ${{ startsWith(needs.build.outputs.full-vertica-image, 'ghcr.io') }}
         with:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
@@ -816,6 +813,7 @@ jobs:
         uses: actions/checkout@v4
       - name: Login to GitHub Container registry
         uses: docker/login-action@v3
+        if: ${{ startsWith(needs.build.outputs.full-vertica-image, 'ghcr.io') }}
         with:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
@@ -837,19 +835,10 @@ jobs:
   e2e-server-upgrade-admintools:
     if: ${{ ! contains(github.ref, 'k8s-sync')  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools server upgrade' || inputs.e2e_test_suites == '') }}
     needs: [build]
-    strategy:
-      matrix:
-        runner: [ ubuntu-22.04, ARM64 ]
-    runs-on: ${{ matrix.runner }}
+    runs-on: ubuntu-22.04
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Login to GitHub Container registry
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.repository_owner }}
-          password: ${{ secrets.GITHUB_TOKEN }}
       - name: Test
         uses: ./.github/actions/run-e2e-leg
         with:
@@ -877,6 +866,7 @@ jobs:
         uses: actions/checkout@v4
       - name: Login to GitHub Container registry
         uses: docker/login-action@v3
+        if: ${{ startsWith(needs.build.outputs.full-vertica-image, 'ghcr.io') }}
         with:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
@@ -907,6 +897,7 @@ jobs:
         uses: actions/checkout@v4
       - name: Login to GitHub Container registry
         uses: docker/login-action@v3
+        if: ${{ startsWith(needs.build.outputs.legacy-vertica-image, 'ghcr.io') }}
         with:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
@@ -932,19 +923,10 @@ jobs:
   e2e-udx-admintools:
     if: ${{ ! contains(github.ref, 'k8s-sync')  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools udx' || inputs.e2e_test_suites == '') }}
     needs: [build]
-    strategy:
-      matrix:
-        runner: [ ubuntu-22.04, ARM64 ]
-    runs-on: ${{ matrix.runner }}
+    runs-on: ubuntu-22.04
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Login to GitHub Container registry
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.repository_owner }}
-          password: ${{ secrets.GITHUB_TOKEN }}
       - name: Test
         uses: ./.github/actions/run-e2e-leg
         with:
@@ -974,6 +956,7 @@ jobs:
         uses: actions/checkout@v4
       - name: Login to GitHub Container registry
         uses: docker/login-action@v3
+        if: ${{ startsWith(needs.build.outputs.full-vertica-image, 'ghcr.io') }}
         with:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
