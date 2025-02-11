@@ -231,6 +231,10 @@ func (s *ScaleTrigger) IsPrometheusMetric() bool {
 	return s.Type == PrometheusTriggerType || s.Type == ""
 }
 
+func (s *ScaleTrigger) GetUnsafeSslStr() string {
+	return strconv.FormatBool(s.Prometheus.UnsafeSsl)
+}
+
 func (s *ScaleTrigger) GetType() string {
 	if s.Type == "" {
 		return string(PrometheusTriggerType)

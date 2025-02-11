@@ -929,6 +929,7 @@ func buildTriggers(metrics []v1beta1.ScaleTrigger, vas *v1beta1.VerticaAutoscale
 		metadata := metric.GetMetadata()
 		if metric.IsPrometheusMetric() {
 			metadata["namespace"] = vas.Namespace
+			metadata["unsafeSsl"] = metric.GetUnsafeSslStr()
 		} else {
 			metadata["containerName"] = names.ServerContainer
 		}
@@ -939,7 +940,7 @@ func buildTriggers(metrics []v1beta1.ScaleTrigger, vas *v1beta1.VerticaAutoscale
 			Metadata:   metadata,
 		}
 		if metric.AuthSecret != "" {
-			triggerAuthRef := buildTriggerAuthentication(vas, metric.AuthSecret)
+			triggerAuthRef := buildTriggerAuthentication(vas, metric)
 			trigger.AuthenticationRef = &kedav1alpha1.AuthenticationRef{
 				Name: triggerAuthRef.Name,
 			}
@@ -950,23 +951,68 @@ func buildTriggers(metrics []v1beta1.ScaleTrigger, vas *v1beta1.VerticaAutoscale
 }
 
 // buildTriggerAuthentication builds a manifest for a keda TriggerAuthentication.
-func buildTriggerAuthentication(vas *v1beta1.VerticaAutoscaler, sn string) kedav1alpha1.TriggerAuthentication {
-	authTargets := []kedav1alpha1.AuthSecretTargetRef{
-		kedav1alpha1.AuthSecretTargetRef{
-			Parameter: "username",
-			Name:      sn,
-			Key:       "username",
-		},
-		kedav1alpha1.AuthSecretTargetRef{
-			Parameter: "password",
-			Name:      sn,
-			Key:       "password",
-		},
+func buildTriggerAuthentication(vas *v1beta1.VerticaAutoscaler, st *v1beta1.ScaleTrigger) kedav1alpha1.TriggerAuthentication {
+	authTargets := []kedav1alpha1.AuthSecretTargetRef{}
+	// For 'basic' type, 'username' and 'password' are required fields in AuthSecret.
+	if st.Prometheus != nil && strings.Contains(string(st.Prometheus.AuthModes), string(v1beta1.PrometheusAuthModesBasic)) {
+		authTargets = append(authTargets,
+			kedav1alpha1.AuthSecretTargetRef{
+				Parameter: "username",
+				Name:      st.AuthSecret,
+				Key:       "username",
+			},
+			kedav1alpha1.AuthSecretTargetRef{
+				Parameter: "password",
+				Name:      st.AuthSecret,
+				Key:       "password",
+			})
+	}
+	// For 'bearer' type, 'bearerToken' is required field in AuthSecret.
+	if st.Prometheus != nil && strings.Contains(string(st.Prometheus.AuthModes), string(v1beta1.PrometheusAuthModesBearer)) {
+		authTargets = append(authTargets,
+			kedav1alpha1.AuthSecretTargetRef{
+				Parameter: "bearerToken",
+				Name:      st.AuthSecret,
+				Key:       "bearerToken",
+			})
+	}
+	// For 'tls' type, 'ca', 'cert' and 'key' are required fields in AuthSecret.
+	if st.Prometheus != nil && strings.Contains(string(st.Prometheus.AuthModes), string(v1beta1.PrometheusAuthTLS)) {
+		authTargets = append(authTargets,
+			kedav1alpha1.AuthSecretTargetRef{
+				Parameter: "ca",
+				Name:      st.AuthSecret,
+				Key:       "ca",
+			},
+			kedav1alpha1.AuthSecretTargetRef{
+				Parameter: "cert",
+				Name:      st.AuthSecret,
+				Key:       "cert",
+			},
+			kedav1alpha1.AuthSecretTargetRef{
+				Parameter: "key",
+				Name:      st.AuthSecret,
+				Key:       "key",
+			})
+	}
+	// For 'custom' type, 'customAuthHeader' and 'customAuthValue' are required fields in AuthSecret.
+	if st.Prometheus != nil && strings.Contains(string(st.Prometheus.AuthModes), string(v1beta1.PrometheusAuthModesCustom)) {
+		authTargets = append(authTargets,
+			kedav1alpha1.AuthSecretTargetRef{
+				Parameter: "customAuthHeader",
+				Name:      st.AuthSecret,
+				Key:       "customAuthHeader",
+			},
+			kedav1alpha1.AuthSecretTargetRef{
+				Parameter: "customAuthValue",
+				Name:      st.AuthSecret,
+				Key:       "customAuthValue",
+			})
 	}
 	return kedav1alpha1.TriggerAuthentication{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: vas.Namespace,
-			Name:      vas.Name + "-" + "triggerauthentication",
+			Name:      vas.Name + "-creds",
 		},
 		Spec: kedav1alpha1.TriggerAuthenticationSpec{
 			SecretTargetRef: authTargets,
