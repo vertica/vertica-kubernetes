@@ -17,7 +17,8 @@ package vclusterops
 
 import (
 	"errors"
-	"strconv"
+	"fmt"
+	"net/url"
 	"strings"
 )
 
@@ -51,34 +52,32 @@ func makeHTTPSTransactionStartsOp(upHosts []string, transactionID, startTime, en
 func (op *httpsTransactionStartsOp) setupClusterHTTPRequest(hosts []string) error {
 	// this op may consume resources of the database,
 	// thus we only need to send https request to one of the up hosts
-
-	url := transactionStartsURL
-	queryParams := []string{}
-	if op.startTime != "" {
-		queryParams = append(queryParams, startTimeParam+op.startTime)
-	}
-	if op.endTime != "" {
-		queryParams = append(queryParams, endTimeParam+op.endTime)
-	}
-	if op.transactionID != "" {
-		queryParams = append(queryParams, txnIDParam+op.transactionID)
-	}
-	if op.debug {
-		queryParams = append(queryParams, debugParam+strconv.FormatBool(op.debug))
-	}
-	for i, param := range queryParams {
-		// replace " " with "%20" in query params
-		queryParams[i] = strings.ReplaceAll(param, " ", "%20")
-	}
-
-	if len(queryParams) > 0 {
-		url += "?" + strings.Join(queryParams, "&")
-	}
-
+	var queryParts []string
+	baseURL := transactionStartsURL
 	for _, host := range hosts[:1] {
 		httpRequest := hostHTTPRequest{}
 		httpRequest.Method = GetMethod
-		httpRequest.buildHTTPSEndpoint(url)
+		queryParams := make(map[string]string)
+
+		if op.startTime != "" {
+			queryParams["start-time"] = op.startTime
+		}
+		if op.endTime != "" {
+			queryParams["end-time"] = op.endTime
+		}
+		if op.transactionID != "" {
+			queryParams["txn-id"] = op.transactionID
+		}
+
+		for key, value := range queryParams {
+			queryParts = append(queryParts, fmt.Sprintf("%s=%s", key, value))
+		}
+
+		// Join query parts to form a query string
+		queryString := url.PathEscape(strings.Join(queryParts, "&"))
+		httpRequest.buildHTTPSEndpoint(fmt.Sprintf("%s?%s", baseURL, queryString))
+
+		// Save the request
 		op.clusterHTTPRequest.RequestCollection[host] = httpRequest
 	}
 
@@ -132,7 +131,7 @@ func (op *httpsTransactionStartsOp) processResult(execContext *opEngineExecConte
 			}
 
 			// we only need result from one host
-			execContext.dcTransactionStarts = TransactionStarts
+			execContext.dcTransactionStarts = &TransactionStarts
 			return allErrs
 		}
 	}
