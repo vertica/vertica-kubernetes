@@ -654,6 +654,17 @@ var _ = Describe("builder", func() {
 		Ω(sts.Annotations).Should(HaveKeyWithValue("ann1", "v1"))
 		Ω(sts.Annotations).Should(HaveKeyWithValue("ann2", "another-value"))
 	})
+
+	It("configmap should have nma cert secret name and namespace", func() {
+		vdb := vapi.MakeVDBForHTTP("v-nma-tls-abcde")
+		// server container
+		vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
+		vdb.Annotations[vmeta.VersionAnnotation] = vapi.NMAInSideCarDeploymentMinVersion
+		configMap := BuildNMATLSConfigMap("nma-configmap", vdb)
+		Ω(configMap.Data[NMASecretNameEnv]).Should(Equal(vdb.Spec.NMATLSSecret))
+		Ω(configMap.Data[NMASecretNamespaceEnv]).Should(Equal(vdb.Namespace))
+	})
+
 })
 
 func getFirstSSHSecretVolumeMountIndex(c *v1.Container) (int, bool) {

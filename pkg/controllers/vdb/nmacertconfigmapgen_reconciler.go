@@ -30,8 +30,8 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-// NMACertGenReconciler will create a secret that has TLS credentials.  This
-// secret will be used to authenticate with the http server.
+// NMACertConfigMapGenReconciler will create a configmap that has the nma secret's name
+// and namespace in it. They will be mapped to two environmental variables in NMA container
 type NMACertConfigMapGenReconciler struct {
 	VRec *VerticaDBReconciler
 	Vdb  *vapi.VerticaDB // Vdb is the CRD we are acting on.
@@ -56,6 +56,7 @@ func MakeNMACertConfigMapGenReconciler(vdbrecon *VerticaDBReconciler, log logr.L
 func (h *NMACertConfigMapGenReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
 	nmaSecret := corev1.Secret{}
 	if !h.tlsSecretsReady(ctx, &nmaSecret) {
+		h.Log.Info("nma secret is not ready yet to create configmap. will retry")
 		return ctrl.Result{Requeue: true}, nil
 	}
 	name := fmt.Sprintf("%s-%s", h.Vdb.Name, vapi.NMATLSConfigMapName)

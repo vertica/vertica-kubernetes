@@ -13,4 +13,3 @@
 
 resources:
   - setup-vdb.yaml
-  - nma-tls-cert.json

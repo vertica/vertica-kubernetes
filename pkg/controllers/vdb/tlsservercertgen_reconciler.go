@@ -43,7 +43,7 @@ const (
 var TLSCertCacheManager *vadmin.TLSCertCache
 
 // TLSServerCertGenReconciler will create a secret that has TLS credentials.  This
-// secret will be used to authenticate with the http server.
+// secret will be used to authenticate with the https server.
 type TLSServerCertGenReconciler struct {
 	VRec *VerticaDBReconciler
 	Vdb  *vapi.VerticaDB // Vdb is the CRD we are acting on.
