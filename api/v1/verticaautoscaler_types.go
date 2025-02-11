@@ -89,15 +89,43 @@ type VerticaAutoscalerSpec struct {
 
 // CustomAutoscalerSpec customizes VerticaAutoscaler
 type CustomAutoscalerSpec struct {
-	// +kubebuilder:Minimum:=0
-	// +operator-sdk:csv:customresourcedefinitions:type=spec
-	// The miminum number of pods when scaling.
-	MinReplicas *int32 `json:"minReplicas,omitempty"`
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:default:=ScaledObject
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:select:HPA","urn:alm:descriptor:com.tectonic.ui:select:ScaledObject"}
+	// The type of autoscaler. It must be one of "HPA" or "ScaledObject".
+	Type string `json:"type,omitempty"`
 
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:fieldDependency:type:HPA"
+	// It refers to an autoscaling definition through the horizontal pod autoscaler.
+	// If type is "HPA", this must be set.
+	Hpa *HPASpec `json:"hpa,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:fieldDependency:type:ScaledObject"
+	// It refers to an autoscaling definition through a scaledObject.
+	// If type is "ScaledObject", this must be set.
+	ScaledObject *ScaledObjectSpec `json:"scaledObject,omitempty"`
+}
+
+const (
+	HPA          = "HPA"
+	ScaledObject = "ScaledObject"
+)
+
+type HPASpec struct {
+	// +kubebuilder:validation:Optional
 	// +kubebuilder:Minimum:=0
-	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// +kubebuilder:default:=1
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:number"
+	// The miminum number of pods when scaling.
+	MinReplicas *int32 `json:"minReplicas"`
+
+	// +kubebuilder:validation:Required
+	// +kubebuilder:Minimum:=1
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:number"
 	// The maximum number of pods when scaling.
-	MaxReplicas int32 `json:"maxReplicas,omitempty"`
+	MaxReplicas int32 `json:"maxReplicas"`
 
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
@@ -108,6 +136,122 @@ type CustomAutoscalerSpec struct {
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// Specifies the scaling behavior for both scale up and down.
 	Behavior *autoscalingv2.HorizontalPodAutoscalerBehavior `json:"behavior,omitempty"`
+}
+
+type ScaledObjectSpec struct {
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:Minimum:=0
+	// +kubebuilder:default:=1
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:number"
+	// The miminum number of pods when scaling.
+	MinReplicas *int32 `json:"minReplicas"`
+
+	// +kubebuilder:validation:Required
+	// +kubebuilder:Minimum:=1
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:number"
+	// The maximum number of pods when scaling.
+	MaxReplicas *int32 `json:"maxReplicas"`
+
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:number"
+	// The time interval at which the scaler will check the metric condition and scale the target (in seconds).
+	// If not specified, the default is 30 seconds.
+	PollingInterval *int32 `json:"pollingInterval,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:number"
+	// Defines the time to wait between scaling actions. This is helpful to avoid constant scaling up/down. Default: 30s.
+	CooldownPeriod *int32 `json:"cooldownPeriod,omitempty"`
+
+	// +kubebuilder:validation:Required
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// The list of prometheus queries that will be used for scaling.
+	Metrics []ScaleTrigger `json:"metrics"`
+
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// Specifies the scaling behavior for both scale up and down.
+	Behavior *autoscalingv2.HorizontalPodAutoscalerBehavior `json:"behavior,omitempty"`
+}
+
+type ScaleTrigger struct {
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:default:=""
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:select:prometheus","urn:alm:descriptor:com.tectonic.ui:select:cpu","urn:alm:descriptor:com.tectonic.ui:select:memory"}
+	// The type of metric that is being defined. It can be either cpu, memory, or prometheus.
+	// An empty string currently defaults prometheus.
+	Type TriggerType `json:"type,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// The custom name of this metric, which can be used for logging
+	// or referring to this particular metric.
+	Name string `json:"name,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:io.kubernetes:Secret"
+	// The secret that contains prometheus credentials. Supports basic auth, bearer tokens, and TLS authentication.
+	// It will ignored if the type is not prometheus
+	AuthSecret string `json:"authSecret,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:select:Utilization","urn:alm:descriptor:com.tectonic.ui:select:Value","urn:alm:descriptor:com.tectonic.ui:select:AverageValue"}
+	// Represents whether the metric type is Utilization, Value, or AverageValue.
+	// Allowed types are 'Value' or 'AverageValue' for prometheus and
+	// 'Utilization' or 'AverageValue' for cpu/memory. If not specified, it defaults to Value
+	// for prometheus and Utilization for cpu/memory.
+	MetricType autoscalingv2.MetricTargetType `json:"metricType,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:fieldDependency:type:prometheus"
+	// The detail about how to fetch metrics from Prometheus and scale workloads based on them.
+	// if type is "prometheus", this must be set.
+	Prometheus *PrometheusSpec `json:"prometheus,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:fieldDependency:type:cpu|memory"
+	// The detail about the target value and container name. if type is cpu/memory
+	// this must be set.
+	Resource *CPUMemorySpec `json:"resource,omitempty"`
+}
+
+type TriggerType string
+
+const (
+	CPUTriggerType        TriggerType = "cpu"
+	MemTriggerType        TriggerType = "memory"
+	PrometheusTriggerType TriggerType = "prometheus"
+)
+
+type PrometheusSpec struct {
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// The URL of the Prometheus server.
+	ServerAddress string `json:"serverAddress"`
+
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// The PromQL query to fetch metrics (e.g., sum(vertica_sessions_running_counter{type="active", initiator="user"})).
+	Query string `json:"query"`
+
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:number"
+	// The threshold value at which scale up is triggered.
+	Threshold int32 `json:"threshold"`
+
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:number"
+	// This is the lower bound at which the autoscaler starts scaling down to the minimum replica count.
+	// If the metric falls below threshold but is still above this value, the current replica count remains unchanged.
+	ScaleDownThreshold int32 `json:"scaleDownThreshold,omitempty"`
+}
+
+type CPUMemorySpec struct {
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:number"
+	// The value to trigger scaling for.
+	//
+	// - When using Utilization, the target value is the average of the resource metric across all relevant pods,
+	// 	 represented as a percentage of the requested value of the resource for the pods.
+	// - When using AverageValue, the target value is the target value of the average of the metric
+	//   across all relevant pods (quantity).
+	Threshold int32 `json:"threshold"`
 }
 
 // MetricDefinition defines increment and metric to be used for autoscaling
@@ -218,7 +362,7 @@ type VerticaAutoscaler struct {
 	Status VerticaAutoscalerStatus `json:"status,omitempty"`
 }
 
-//+kubebuilder:object:root=true
+// +kubebuilder:object:root=true
 
 // VerticaAutoscalerList contains a list of VerticaAutoscaler
 type VerticaAutoscalerList struct {
@@ -268,17 +412,20 @@ func MakeVASWithMetrics() *VerticaAutoscaler {
 	maxRep := int32(6)
 	cpu := int32(80)
 	vas.Spec.CustomAutoscaler = &CustomAutoscalerSpec{
-		MinReplicas: &minRep,
-		MaxReplicas: maxRep,
-		Metrics: []MetricDefinition{
-			{
-				Metric: autoscalingv2.MetricSpec{
-					Type: autoscalingv2.ResourceMetricSourceType,
-					Resource: &autoscalingv2.ResourceMetricSource{
-						Name: corev1.ResourceCPU,
-						Target: autoscalingv2.MetricTarget{
-							Type:               autoscalingv2.UtilizationMetricType,
-							AverageUtilization: &cpu, // Scale when CPU exceeds 80%
+		Type: HPA,
+		Hpa: &HPASpec{
+			MinReplicas: &minRep,
+			MaxReplicas: maxRep,
+			Metrics: []MetricDefinition{
+				{
+					Metric: autoscalingv2.MetricSpec{
+						Type: autoscalingv2.ResourceMetricSourceType,
+						Resource: &autoscalingv2.ResourceMetricSource{
+							Name: corev1.ResourceCPU,
+							Target: autoscalingv2.MetricTarget{
+								Type:               autoscalingv2.UtilizationMetricType,
+								AverageUtilization: &cpu, // Scale when CPU exceeds 80%
+							},
 						},
 					},
 				},
@@ -293,8 +440,24 @@ func (v *VerticaAutoscaler) CanUseTemplate() bool {
 	return v.Spec.Template.Size > 0
 }
 
+// IsCustomAutoScalerSet returns true if the customAutoscaler field is set.
+func (v *VerticaAutoscaler) IsCustomAutoScalerSet() bool {
+	return v.Spec.CustomAutoscaler != nil && v.Spec.CustomAutoscaler.Type != ""
+}
+
 // IsCustomMetricsEnabled returns true if the CR is set to use
 // custom metrics for scaling.
 func (v *VerticaAutoscaler) IsCustomMetricsEnabled() bool {
-	return v.Spec.CustomAutoscaler != nil
+	return v.IsCustomAutoScalerSet() &&
+		(v.Spec.CustomAutoscaler.Hpa != nil || v.Spec.CustomAutoscaler.ScaledObject != nil)
+}
+
+// IsHpaEnabled returns true if custom autoscaling with hpa is set.
+func (v *VerticaAutoscaler) IsHpaEnabled() bool {
+	return v.IsCustomAutoScalerSet() && v.Spec.CustomAutoscaler.Type == HPA && v.Spec.CustomAutoscaler.Hpa != nil
+}
+
+// IsScaledObjectEnabled returns true if custom autoscaling with scaledObject is set.
+func (v *VerticaAutoscaler) IsScaledObjectEnabled() bool {
+	return v.IsCustomAutoScalerSet() && v.Spec.CustomAutoscaler.Type == ScaledObject && v.Spec.CustomAutoscaler.ScaledObject != nil
 }
