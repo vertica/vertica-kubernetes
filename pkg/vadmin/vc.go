@@ -67,7 +67,7 @@ func retrieveNMACerts(ctx context.Context, fetcher cloud.VerticaDBSecretFetcher)
 	}, nil
 }
 
-func (v *VClusterOps) getCachedHTTPSCerts(secret int) (*HTTPSCerts, error) { //nolint:unparam
+func (v *VClusterOps) getCachedHTTPSCerts(secret int) (*HTTPSCerts, error) {
 	tlsCertCacheManager := TLSCertCacheFactory(v.Client, v.Log, v.VDB)
 	return tlsCertCacheManager.GetHTTPSCerts(secret)
 }

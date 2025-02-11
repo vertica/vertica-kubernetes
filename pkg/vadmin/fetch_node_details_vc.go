@@ -58,6 +58,7 @@ func (v *VClusterOps) FetchNodeDetails(ctx context.Context, opts ...fetchnodedet
 	return nodesDetails[0], nil
 }
 
+//nolint:dupl
 func (v *VClusterOps) genFetchNodeDetailsOptions(s *fetchnodedetails.Parms, certs *HTTPSCerts) vops.VFetchNodesDetailsOptions {
 	opts := vops.VFetchNodesDetailsOptionsFactory()
 

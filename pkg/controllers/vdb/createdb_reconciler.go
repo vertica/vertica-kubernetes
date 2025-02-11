@@ -125,8 +125,8 @@ func (c *CreateDBReconciler) execCmd(ctx context.Context, initiatorPod types.Nam
 	}
 	c.VRec.Event(c.Vdb, corev1.EventTypeNormal, events.CreateDBStart, "Starting create database")
 	start := time.Now()
-	if res, err := c.Dispatcher.CreateDB(ctx, opts...); verrors.IsReconcileAborted(res, err) {
-		return res, err
+	if res, errTwo := c.Dispatcher.CreateDB(ctx, opts...); verrors.IsReconcileAborted(res, err) {
+		return res, errTwo
 	}
 	if c.VInf.IsEqualOrNewer(vapi.NMATLSCertRotationMinVersion) {
 		_, _, err = c.PRunner.ExecInPod(ctx, initiatorPod, names.ServerContainer,
@@ -208,7 +208,8 @@ func (c *CreateDBReconciler) generatePostDBCreateSQL(ctx context.Context, initia
 	}
 	if c.VInf.IsEqualOrNewer(vapi.NMATLSCertRotationMinVersion) {
 		sb.WriteString(`CREATE OR REPLACE LIBRARY public.KubernetesLib AS '/opt/vertica/packages/kubernetes/lib/libkubernetes.so';`)
-		sb.WriteString(`CREATE OR REPLACE SECRETMANAGER KubernetesSecretManager AS LANGUAGE 'C++' NAME 'KubernetesSecretManagerFactory' LIBRARY KubernetesLib;`)
+		sb.WriteString(`CREATE OR REPLACE SECRETMANAGER KubernetesSecretManager AS LANGUAGE 'C++' NAME 'KubernetesSecretManagerFactory' 
+			LIBRARY KubernetesLib;`)
 		sb.WriteString(fmt.Sprintf(
 			`CREATE KEY https_key_0 TYPE 'rsa' SECRETMANAGER KubernetesSecretManager SECRETNAME '%s' CONFIGURATION '{\"data-key\":\"%s\", 
 			\"namespace\":\"%s\"}';`,

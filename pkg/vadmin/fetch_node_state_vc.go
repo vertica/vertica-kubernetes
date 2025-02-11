@@ -58,6 +58,7 @@ func (v *VClusterOps) FetchNodeState(ctx context.Context, opts ...fetchnodestate
 	return stateMap, ctrl.Result{}, nil
 }
 
+//nolint:dupl
 func (v *VClusterOps) genFetchNodeStateOptions(s *fetchnodestate.Parms, certs *HTTPSCerts) vops.VFetchNodeStateOptions {
 	opts := vops.VFetchNodeStateOptionsFactory()
 
