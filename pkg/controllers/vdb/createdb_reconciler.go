@@ -135,10 +135,9 @@ func (c *CreateDBReconciler) execCmd(ctx context.Context, initiatorPod types.Nam
 			c.Log.Error(err, "failed to execute TLS DDLs after db creation ")
 			return ctrl.Result{}, err
 		}
-		c.Log.Info("TLS DDLs executed after db creation ")
+		vadmin.TLSCertConfigured = true
+		c.Log.Info("TLS DDLs executed and TLS Cert configured")
 	}
-	vadmin.TLSCertConfigured = true
-	c.Log.Info("TLS Cert has been configured")
 	sc := c.getFirstPrimarySubcluster()
 	c.VRec.Eventf(c.Vdb, corev1.EventTypeNormal, events.CreateDBSucceeded,
 		"Successfully created database with subcluster '%s'. It took %s", sc.Name, time.Since(start).Truncate(time.Second))
