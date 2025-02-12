@@ -1105,6 +1105,10 @@ func makeNMAContainer(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.Container
 	envVars = append(envVars,
 		corev1.EnvVar{Name: NMALogPath, Value: StdOut},
 	)
+	sec := &corev1.SecurityContext{}
+	if vdb.Spec.NMASecurityContext != nil {
+		sec = vdb.Spec.NMASecurityContext
+	}
 	return corev1.Container{
 		Image:           pickImage(vdb, sc),
 		ImagePullPolicy: vdb.Spec.ImagePullPolicy,
@@ -1116,6 +1120,7 @@ func makeNMAContainer(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.Container
 		ReadinessProbe:  makeNMAHealthProbe(vdb, vmeta.NMAHealthProbeReadiness),
 		LivenessProbe:   makeNMAHealthProbe(vdb, vmeta.NMAHealthProbeLiveness),
 		StartupProbe:    makeNMAHealthProbe(vdb, vmeta.NMAHealthProbeStartup),
+		SecurityContext: sec,
 	}
 }
 
