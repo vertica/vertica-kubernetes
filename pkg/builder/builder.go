@@ -951,7 +951,8 @@ func buildTriggers(metrics []v1beta1.ScaleTrigger, vas *v1beta1.VerticaAutoscale
 }
 
 // BuildTriggerAuthentication builds a manifest for a keda TriggerAuthentication.
-func BuildTriggerAuthentication(vas *v1beta1.VerticaAutoscaler, metric v1beta1.ScaleTrigger, ta types.NamespacedName) *kedav1alpha1.TriggerAuthentication {
+func BuildTriggerAuthentication(vas *v1beta1.VerticaAutoscaler,
+	metric *v1beta1.ScaleTrigger, ta types.NamespacedName) *kedav1alpha1.TriggerAuthentication {
 	authTargets := []kedav1alpha1.AuthSecretTargetRef{}
 	// For 'basic' type.
 	if metric.Prometheus != nil && strings.Contains(string(metric.Prometheus.AuthModes), string(v1beta1.PrometheusAuthModesBasic)) {
@@ -960,7 +961,6 @@ func BuildTriggerAuthentication(vas *v1beta1.VerticaAutoscaler, metric v1beta1.S
 	// For 'bearer' type.
 	if metric.Prometheus != nil && strings.Contains(string(metric.Prometheus.AuthModes), string(v1beta1.PrometheusAuthModesBearer)) {
 		authTargets = append(authTargets, buildTriggerAuthForBearer(metric)...)
-
 	}
 	// For 'tls' type.
 	if metric.Prometheus != nil && strings.Contains(string(metric.Prometheus.AuthModes), string(v1beta1.PrometheusAuthTLS)) {
@@ -982,7 +982,7 @@ func BuildTriggerAuthentication(vas *v1beta1.VerticaAutoscaler, metric v1beta1.S
 }
 
 // BuildTriggerAuthentication builds a list of manifest for a keda AuthSecretTargetRef.
-func buildTriggerAuthForBasic(metric v1beta1.ScaleTrigger) []kedav1alpha1.AuthSecretTargetRef {
+func buildTriggerAuthForBasic(metric *v1beta1.ScaleTrigger) []kedav1alpha1.AuthSecretTargetRef {
 	authTargets := []kedav1alpha1.AuthSecretTargetRef{}
 	// For 'basic' type, 'username' and 'password' are required fields in AuthSecret.
 	authTargets = append(authTargets,
@@ -1000,7 +1000,7 @@ func buildTriggerAuthForBasic(metric v1beta1.ScaleTrigger) []kedav1alpha1.AuthSe
 }
 
 // buildTriggerAuthForBearer builds a list of manifest for a keda AuthSecretTargetRef.
-func buildTriggerAuthForBearer(metric v1beta1.ScaleTrigger) []kedav1alpha1.AuthSecretTargetRef {
+func buildTriggerAuthForBearer(metric *v1beta1.ScaleTrigger) []kedav1alpha1.AuthSecretTargetRef {
 	authTargets := []kedav1alpha1.AuthSecretTargetRef{}
 	// For 'bearer' type, 'bearerToken' is required field in AuthSecret.
 	authTargets = append(authTargets,
@@ -1013,7 +1013,7 @@ func buildTriggerAuthForBearer(metric v1beta1.ScaleTrigger) []kedav1alpha1.AuthS
 }
 
 // buildTriggerAuthForTLS builds a list of manifest for a keda AuthSecretTargetRef.
-func buildTriggerAuthForTLS(metric v1beta1.ScaleTrigger) []kedav1alpha1.AuthSecretTargetRef {
+func buildTriggerAuthForTLS(metric *v1beta1.ScaleTrigger) []kedav1alpha1.AuthSecretTargetRef {
 	authTargets := []kedav1alpha1.AuthSecretTargetRef{}
 	// For 'tls' type, 'ca', 'cert' and 'key' are required fields in AuthSecret.
 	authTargets = append(authTargets,
@@ -1036,7 +1036,7 @@ func buildTriggerAuthForTLS(metric v1beta1.ScaleTrigger) []kedav1alpha1.AuthSecr
 }
 
 // buildTriggerAuthForCustom builds a list of manifest for a keda AuthSecretTargetRef.
-func buildTriggerAuthForCustom(metric v1beta1.ScaleTrigger) []kedav1alpha1.AuthSecretTargetRef {
+func buildTriggerAuthForCustom(metric *v1beta1.ScaleTrigger) []kedav1alpha1.AuthSecretTargetRef {
 	authTargets := []kedav1alpha1.AuthSecretTargetRef{}
 	// For 'custom' type, 'customAuthHeader' and 'customAuthValue' are required fields in AuthSecret.
 	authTargets = append(authTargets,

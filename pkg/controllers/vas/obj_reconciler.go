@@ -77,10 +77,14 @@ func (o *ObjReconciler) reconcileHpa(ctx context.Context) error {
 
 // reconcileScaledObject creates a scaledObject or updates an existing one.
 func (o *ObjReconciler) reconcileScaledObject(ctx context.Context) error {
+	err := o.buildTriggerAuthentications(ctx)
+	if err != nil {
+		return err
+	}
 	nm := names.GenScaledObjectName(o.Vas)
 	curSO := &kedav1alpha1.ScaledObject{}
 	expSO := builder.BuildScaledObject(nm, o.Vas)
-	err := o.VRec.Client.Get(ctx, nm, curSO)
+	err = o.VRec.Client.Get(ctx, nm, curSO)
 	if err != nil && kerrors.IsNotFound(err) {
 		o.Log.Info("Creating scaledobject", "Name", nm.Name)
 		return createObject(ctx, expSO, o.VRec.Client, o.Vas)
@@ -98,12 +102,15 @@ func (o *ObjReconciler) buildTriggerAuthentications(ctx context.Context) error {
 		}
 		taName := names.GenTriggerAuthenticationtName(o.Vas, metric.AuthSecret)
 		curTA := &kedav1alpha1.TriggerAuthentication{}
-		newTA := builder.BuildTriggerAuthentication(o.Vas, metric, taName)
+		newTA := builder.BuildTriggerAuthentication(o.Vas, &metric, taName)
 
 		err := o.VRec.Client.Get(ctx, taName, curTA)
 		if err != nil && kerrors.IsNotFound(err) {
 			o.Log.Info("Creating TrigerAuthentication object", "Name", taName)
-			createObject(ctx, newTA, o.VRec.Client, o.Vas)
+			err = createObject(ctx, newTA, o.VRec.Client, o.Vas)
+			if err != nil {
+				return err
+			}
 		}
 	}
 	return nil
