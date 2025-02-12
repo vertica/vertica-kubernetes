@@ -78,3 +78,5 @@ commands:
   - script: if [ "$CONTROLLERS_SCOPE" = "namespace" ]; then NAMESPACE=verticadb-operator make deploy-webhook; fi
   - script: if [ "$NEED_PROMETHEUS" = "true" ]; then make deploy-prometheus; fi
   - script: if [ "$NEED_PROMETHEUS" = "true" ]; then make deploy-prometheus-adapter; fi
+  - script: make undeploy-keda || true
+  - script: if [ "$NEED_PROMETHEUS" = "true" ]; then make deploy-keda; fi

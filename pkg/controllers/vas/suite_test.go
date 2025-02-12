@@ -20,6 +20,7 @@ import (
 	"testing"
 
 	"github.com/go-logr/logr"
+	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
@@ -47,7 +48,8 @@ var _ = BeforeSuite(func() {
 
 	By("bootstrapping test environment")
 	testEnv = &envtest.Environment{
-		CRDDirectoryPaths:     []string{filepath.Join("..", "..", "..", "config", "crd", "bases")},
+		CRDDirectoryPaths: []string{filepath.Join("..", "..", "..", "config", "crd", "bases"),
+			filepath.Join("..", "..", "..", "external", "keda")},
 		ErrorIfCRDPathMissing: true,
 	}
 
@@ -59,6 +61,8 @@ var _ = BeforeSuite(func() {
 	err = v1beta1.AddToScheme(scheme.Scheme)
 	ExpectWithOffset(1, err).NotTo(HaveOccurred())
 	err = vapi.AddToScheme(scheme.Scheme)
+	ExpectWithOffset(1, err).NotTo(HaveOccurred())
+	err = kedav1alpha1.AddToScheme(scheme.Scheme)
 	ExpectWithOffset(1, err).NotTo(HaveOccurred())
 
 	k8sClient, err = client.New(restCfg, client.Options{Scheme: scheme.Scheme})

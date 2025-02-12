@@ -13,7 +13,7 @@
 
 # Build the manager binary.
 ARG GO_VERSION
-FROM golang:${GO_VERSION} as builder
+FROM golang:${GO_VERSION} AS builder
 ARG TARGETOS
 ARG TARGETARCH
 

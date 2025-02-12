@@ -101,6 +101,18 @@ var _ = Describe("builder", func() {
 		Ω(*baseContainer.SecurityContext.Privileged).Should(BeTrue())
 	})
 
+	It("should allow you to run nma in priv mode", func() {
+		vdb := vapi.MakeVDB()
+		priv := true
+		vdb.Spec.NMASecurityContext = &v1.SecurityContext{
+			Privileged: &priv,
+		}
+		baseContainer := makeNMAContainer(vdb, &vdb.Spec.Subclusters[0])
+		Ω(baseContainer.SecurityContext).ShouldNot(BeNil())
+		Ω(baseContainer.SecurityContext.Privileged).ShouldNot(BeNil())
+		Ω(*baseContainer.SecurityContext.Privileged).Should(BeTrue())
+	})
+
 	It("should add a catalog mount point if it differs from data", func() {
 		vdb := vapi.MakeVDB()
 		c := makeServerContainer(vdb, &vdb.Spec.Subclusters[0])

@@ -18,6 +18,7 @@ package vas
 import (
 	"context"
 
+	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	v1beta1 "github.com/vertica/vertica-kubernetes/api/v1beta1"
@@ -37,14 +38,14 @@ var _ = Describe("scaledown_reconcile", func() {
 		v1beta1_test.CreateVAS(ctx, k8sClient, vas)
 		defer v1beta1_test.DeleteVAS(ctx, k8sClient, vas)
 
-		r := MakeHorizontalPodAutoscalerReconciler(vasRec, vas, logger)
+		r := MakeObjReconciler(vasRec, vas, logger)
 		res, err := r.Reconcile(ctx, &ctrl.Request{})
 		defer v1beta1_test.DeleteHPA(ctx, k8sClient, vas)
 		Expect(res).Should(Equal(ctrl.Result{}))
 		Expect(err).Should(Succeed())
 
 		req := ctrl.Request{NamespacedName: v1beta1.MakeVASName()}
-		r = MakeVerifyHPAReconciler(vasRec, vas, logger)
+		r = MakeVerifyAutoscalerReconciler(vasRec, vas, logger)
 		res, err = r.Reconcile(ctx, &req)
 		Expect(res.Requeue).Should(BeTrue())
 		Expect(err).Should(Succeed())
@@ -60,7 +61,7 @@ var _ = Describe("scaledown_reconcile", func() {
 			},
 		}
 		Expect(k8sClient.Status().Update(ctx, hpa)).Should(Succeed())
-		r = MakeVerifyHPAReconciler(vasRec, vas, logger)
+		r = MakeVerifyAutoscalerReconciler(vasRec, vas, logger)
 		res, err = r.Reconcile(ctx, &req)
 		Expect(res.Requeue).Should(BeTrue())
 		Expect(err).Should(Succeed())
@@ -78,7 +79,48 @@ var _ = Describe("scaledown_reconcile", func() {
 			},
 		}
 		Expect(k8sClient.Status().Update(ctx, hpa)).Should(Succeed())
-		r = MakeVerifyHPAReconciler(vasRec, vas, logger)
+		r = MakeVerifyAutoscalerReconciler(vasRec, vas, logger)
+		res, err = r.Reconcile(ctx, &req)
+		Expect(err).Should(Succeed())
+		Expect(res.Requeue).Should(BeFalse())
+		fetchVas := &v1beta1.VerticaAutoscaler{}
+		Expect(k8sClient.Get(ctx, v1beta1.MakeVASName(), fetchVas)).Should(Succeed())
+		Expect(len(fetchVas.Status.Conditions)).Should(Equal(2))
+		Expect(fetchVas.Status.Conditions[1].Type).Should(Equal(v1beta1.ScalingActive))
+		Expect(fetchVas.Status.Conditions[1].Status).Should(Equal(corev1.ConditionTrue))
+	})
+
+	It("should requeue if scaledObject is not ready", func() {
+		vas := v1beta1.MakeVASWithMetrics()
+		vas.Spec.CustomAutoscaler.Hpa = nil
+		vas.Spec.CustomAutoscaler.Type = v1beta1.ScaledObject
+		vas.Spec.CustomAutoscaler.ScaledObject = v1beta1.MakeScaledObjectSpec()
+		v1beta1_test.CreateVAS(ctx, k8sClient, vas)
+		defer v1beta1_test.DeleteVAS(ctx, k8sClient, vas)
+
+		r := MakeObjReconciler(vasRec, vas, logger)
+		res, err := r.Reconcile(ctx, &ctrl.Request{})
+		defer v1beta1_test.DeleteScaledObject(ctx, k8sClient, vas)
+		Expect(res).Should(Equal(ctrl.Result{}))
+		Expect(err).Should(Succeed())
+
+		req := ctrl.Request{NamespacedName: v1beta1.MakeVASName()}
+		r = MakeVerifyAutoscalerReconciler(vasRec, vas, logger)
+		res, err = r.Reconcile(ctx, &req)
+		Expect(res.Requeue).Should(BeTrue())
+		Expect(err).Should(Succeed())
+
+		so := &kedav1alpha1.ScaledObject{}
+		nm := names.GenScaledObjectName(vas)
+		Expect(k8sClient.Get(ctx, nm, so)).Should(Succeed())
+		so.Status.Conditions = kedav1alpha1.Conditions{
+			{
+				Type:   kedav1alpha1.ConditionReady,
+				Status: metav1.ConditionTrue,
+			},
+		}
+		Expect(k8sClient.Status().Update(ctx, so)).Should(Succeed())
+		r = MakeVerifyAutoscalerReconciler(vasRec, vas, logger)
 		res, err = r.Reconcile(ctx, &req)
 		Expect(err).Should(Succeed())
 		Expect(res.Requeue).Should(BeFalse())

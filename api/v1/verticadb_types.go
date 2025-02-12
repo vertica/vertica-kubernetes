@@ -267,6 +267,10 @@ type VerticaDBSpec struct {
 	SecurityContext *corev1.SecurityContext `json:"securityContext,omitempty"`
 
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:hidden"
+	// Allows you to set any additional securityContext for the nma container.
+	NMASecurityContext *corev1.SecurityContext `json:"nmaSecurityContext,omitempty"`
+
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:hidden"
 	// This can be used to override any pod-level securityContext for the
 	// Vertica pod. It will be merged with the default context. If omitted, then
 	// the default context is used.
@@ -296,7 +300,7 @@ type VerticaDBSpec struct {
 	ClientServerTLSSecret string `json:"clientServerTLSSecret,omitempty"`
 
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:hidden"
-	// +kubebuilder:default:=try_verify
+	// +kubebuilder:default:=TRY_VERIFY
 	// +kubebuilder:validation:Optional
 	// This field configures the Vertica's connection mode for client-server TLS.
 	// Choose one of the following TLSMODEs, listed in ascending security:

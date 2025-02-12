@@ -20,13 +20,14 @@ spec:
   serviceName: pri1
   scalingGranularity: Pod
   customAutoscaler:
-    minReplicas: 3
-    maxReplicas: 5
-    metrics:
-    - metric:
-        resource:
-          name: cpu
-          target:
-            averageUtilization: 60
-            type: Utilization
-        type: Resource
+    hpa:
+      minReplicas: 3
+      maxReplicas: 5
+      metrics:
+      - metric:
+          resource:
+            name: cpu
+            target:
+              averageUtilization: 60
+              type: Utilization
+          type: Resource
