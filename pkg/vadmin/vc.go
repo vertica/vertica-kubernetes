@@ -38,8 +38,14 @@ func (v *VClusterOps) retrieveTargetNMACerts(ctx context.Context) (*HTTPSCerts, 
 }
 
 // retrieveNMACerts will retrieve the certs from NMATLSSecret for calling NMA endpoints
-func (v *VClusterOps) retrieveNMACerts(_ context.Context) (*HTTPSCerts, error) {
-	return v.getCachedHTTPSCerts(NmaTLSSecret)
+func (v *VClusterOps) retrieveNMACerts(ctx context.Context) (*HTTPSCerts, error) {
+	fetcher := cloud.VerticaDBSecretFetcher{
+		Client:   v.Client,
+		Log:      v.Log,
+		VDB:      v.VDB,
+		EVWriter: v.EVWriter,
+	}
+	return retrieveNMACerts(ctx, fetcher)
 }
 
 func retrieveNMACerts(ctx context.Context, fetcher cloud.VerticaDBSecretFetcher) (*HTTPSCerts, error) {
@@ -65,11 +71,6 @@ func retrieveNMACerts(ctx context.Context, fetcher cloud.VerticaDBSecretFetcher)
 		Cert:   string(tlsCrt),
 		CaCert: string(tlsCaCrt),
 	}, nil
-}
-
-func (v *VClusterOps) getCachedHTTPSCerts(secret int) (*HTTPSCerts, error) {
-	tlsCertCacheManager := TLSCertCacheFactory(v.Client, v.Log, v.VDB)
-	return tlsCertCacheManager.GetHTTPSCerts(secret)
 }
 
 // logFailure will log and record an event for a vclusterOps API failure

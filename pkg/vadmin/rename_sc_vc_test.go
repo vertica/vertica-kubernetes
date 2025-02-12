@@ -22,6 +22,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	vops "github.com/vertica/vcluster/vclusterops"
+	"github.com/vertica/vertica-kubernetes/pkg/test"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/renamesc"
 )
 
@@ -52,12 +53,15 @@ func (m *MockVClusterOps) VRenameSubcluster(options *vops.VRenameSubclusterOptio
 	return nil
 }
 
-var _ = Describe("rename_sc_vc", func() {
+var _ = Describe("rename_sc_vc", func() { //nolint:dupl
 	ctx := context.Background()
 
 	It("should call vclusterOps library with rename_subcluster task", func() {
 		dispatcher := mockVClusterOpsDispatcher()
 		dispatcher.VDB.Spec.DBName = TestDBName
+		dispatcher.VDB.Spec.NMATLSSecret = "rename-sc-vc-secret"
+		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.NMATLSSecret)
+		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.NMATLSSecret)
 		Ω(dispatcher.RenameSubcluster(ctx,
 			renamesc.WithInitiator(TestInitiatorIP),
 			renamesc.WithSubcluster(TestSCName),

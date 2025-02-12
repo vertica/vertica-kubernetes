@@ -105,7 +105,7 @@ func MakeVDB() *VerticaDB {
 			UID:       "abcdef-ghi",
 			Annotations: map[string]string{
 				vmeta.VClusterOpsAnnotation: vmeta.VClusterOpsAnnotationFalse,
-				vmeta.VersionAnnotation:     "v23.4.0",
+				vmeta.VersionAnnotation:     "v25.2.0",
 			},
 		},
 		Spec: VerticaDBSpec{

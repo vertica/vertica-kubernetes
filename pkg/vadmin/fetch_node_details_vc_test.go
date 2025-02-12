@@ -49,13 +49,8 @@ var _ = Describe("fetch_node_details_vc", func() {
 	It("should call vcluster-ops library with fetch_node_details task", func() {
 		dispatcher := mockVClusterOpsDispatcher()
 		dispatcher.VDB.Spec.DBName = TestDBName
-
-		dispatcher.VDB.Spec.NMATLSSecret = TestNMATLSSecret
-		tlsCacheManager := TLSCertCacheFactory(dispatcher.Client, dispatcher.Log, dispatcher.VDB)
-		if !tlsCacheManager.HasCert(TestNMATLSSecret) {
-			secret := test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.NMATLSSecret)
-			tlsCacheManager.SetSecretData(TestNMATLSSecret, secret.Data)
-		}
+		dispatcher.VDB.Spec.NMATLSSecret = "fetch-node-details-vc-secret"
+		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.NMATLSSecret)
 		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.NMATLSSecret)
 
 		_, err := dispatcher.FetchNodeDetails(ctx,

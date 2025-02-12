@@ -22,6 +22,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	vops "github.com/vertica/vcluster/vclusterops"
+	"github.com/vertica/vertica-kubernetes/pkg/test"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/altersc"
 )
 
@@ -63,6 +64,9 @@ var _ = Describe("alter_sc_vc", func() {
 	It("should call vcluster-ops library with alter_subcluster_type task", func() {
 		dispatcher := mockVClusterOpsDispatcher()
 		dispatcher.VDB.Spec.DBName = TestDBName
+		dispatcher.VDB.Spec.NMATLSSecret = "alter-sc-vc-secret"
+		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.NMATLSSecret)
+		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.NMATLSSecret)
 		Ω(dispatcher.AlterSubclusterType(ctx,
 			altersc.WithInitiator(TestInitiatorIP),
 			altersc.WithSubcluster(TestSCName),
