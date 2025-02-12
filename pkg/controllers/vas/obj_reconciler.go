@@ -98,7 +98,7 @@ func (o *ObjReconciler) buildTriggerAuthentications(ctx context.Context) error {
 		}
 		taName := names.GenTriggerAuthenticationtName(o.Vas, metric.AuthSecret)
 		curTA := &kedav1alpha1.TriggerAuthentication{}
-		newTA := builder.BuildTriggerAuthentication(o.Vas, metric)
+		newTA := builder.BuildTriggerAuthentication(o.Vas, metric, taName)
 
 		err := o.VRec.Client.Get(ctx, taName, curTA)
 		if err != nil && kerrors.IsNotFound(err) {
