@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# A script that download krew locally and set it up
+# A script that create prometheus tls secret
 
 set -o errexit
 set -o pipefail
@@ -34,9 +34,11 @@ function usage {
     exit 1
 }
 
-PROMETHEUS_URL=$1
-if [ -z $PROMETHEUS_URL ]; then
-  usage
+PROMETHEUS_URL=${1:-}
+PROMETHEUS_RELEASE=${2:-}
+
+if [[ -z "$PROMETHEUS_URL" || -z "$PROMETHEUS_RELEASE" ]]; then
+    usage
 fi
 PROMETHEUS_CN="${PROMETHEUS_URL##*/}"
 
@@ -64,4 +66,5 @@ if ! kubectl get secret $TLS_SECRET -n $PROMETHEUS_NS &> /dev/null; then
 
   logInfo "Creating prometheus secret"
   kubectl create secret generic $TLS_SECRET -n $PROMETHEUS_NS --from-file=tls.key=$TLS_KEY --from-file=tls.crt=$TLS_CRT
+  kubectl label secret "$TLS_SECRET" release="$PROMETHEUS_RELEASE" -n "$PROMETHEUS_NS"
 fi
