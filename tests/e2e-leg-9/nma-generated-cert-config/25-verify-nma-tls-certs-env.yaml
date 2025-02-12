@@ -11,17 +11,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: apps/v1
-kind: StatefulSet
-metadata:
-  name: v-nma-certs-sc1
-status:
-  replicas: 1
----
-apiVersion: vertica.com/v1beta1
-kind: VerticaDB
-metadata:
-  name: v-nma-certs
-status:
-  subclusters:
-    - installCount: 1
+apiVersion: kuttl.dev/v1beta2
+kind: TestStep
+commands:
+  # nma env variable should exist.
+  - command: kubectl exec -n $NAMESPACE v-tls-certs-sc1-0 -c nma -- bash -c "env | grep NMA_SECRET_NAME=v-tls-certs-nma-tls"
+  - command: kubectl exec -n $NAMESPACE v-tls-certs-sc1-0 -c nma -- bash -c "env | grep NMA_SECRET_NAMESPACE=$NAMESPACE"

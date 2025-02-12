@@ -285,6 +285,32 @@ type VerticaDBSpec struct {
 	NMATLSSecret string `json:"nmaTLSSecret,omitempty"`
 
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:hidden"
+	// +kubebuilder:default:=""
+	// +kubebuilder:validation:Optional
+	// A secret that contains the TLS credentials to be used to authenticate Vertica clients' certificates.
+	// If this is empty, the operator will create a secret to use and addthe name of the generate secret to this field.
+	// When set, the secret must have the following keys defined: tls.key,
+	// tls.crt and ca.crt.  To store this secret outside of Kubernetes, you can
+	// use a secret path reference prefix, such as gsm://. Everything after the
+	// prefix is the name of the secret in the service you are storing.
+	ClientServerTLSSecret string `json:"clientServerTLSSecret,omitempty"`
+
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:hidden"
+	// +kubebuilder:default:=TRY_VERIFY
+	// +kubebuilder:validation:Optional
+	// This field configures the Vertica's connection mode for client-server TLS.
+	// Choose one of the following TLSMODEs, listed in ascending security:
+	// - DISABLE: Disables TLS. All other options for this parameter enable TLS.
+	// - ENABLE: Enables TLS. Vertica does not verify client certificates.
+	// - TRY_VERIFY: Establishes a TLS connection if one of the following is true:
+	//   - The client presents a valid certificate.
+	//   - The client doesn't present a certificate
+	//   If the client presents an invalid certificate, the connection is rejected.
+	// - VERIFY_CA: Connection succeeds if Vertica verifies that the client certificate is from a trusted CA.
+	//   If the client does not present a client certificate, the connection is rejected.
+	ClientServerTLSMode string `json:"clientServerTLSMode,omitempty"`
+
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:hidden"
 	// +kubebuilder:validation:Optional
 	// Allows tuning of the Vertica pods readiness probe. Each of the values
 	// here are applied to the default readiness probe we create. If this is

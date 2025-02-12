@@ -11,12 +11,23 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1beta1
-kind: VerticaDB
+# This is applied through envsubst so that the $NAMESPACE gets filled in
+
+apiVersion: cert-manager.io/v1
+kind: Certificate
 metadata:
-  name: v-nma-certs
-status:
-  subclusters:
-    - installCount: 1
-      addedToDBCount: 1
-      upNodeCount: 0
+  name: serving-cert
+spec:
+  commonName: default
+  isCA: true
+  issuerRef:
+    kind: Issuer
+    name: selfsigned-issuer
+  secretName: custom-cert
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: selfsigned-issuer
+spec:
+  selfSigned: {}

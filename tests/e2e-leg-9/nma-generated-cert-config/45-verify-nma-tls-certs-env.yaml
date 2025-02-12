@@ -14,5 +14,7 @@
 apiVersion: kuttl.dev/v1beta2
 kind: TestStep
 commands:
-  # nma certs volume mount path should not exist.
-  - command: kubectl exec -n $NAMESPACE v-nma-certs-sc1-0 -- bash -c "! test -d /certs/nma"
+  # nma env variable should exist.
+  - command: sleep 60
+  - command: kubectl exec -n $NAMESPACE v-tls-certs-sc1-0 -c nma -- bash -c "env | grep NMA_SECRET_NAME=v-tls-certs-nma-tls"
+  - command: kubectl exec -n $NAMESPACE v-tls-certs-sc1-0 -c nma -- bash -c "env | grep NMA_SECRET_NAMESPACE=$NAMESPACE"

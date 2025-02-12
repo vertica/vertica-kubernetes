@@ -11,7 +11,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: kuttl.dev/v1beta1
-kind: TestStep
-commands:
-  - script: cd ../../..  && scripts/capture-scrutinize.sh -o /tmp/scrutinize-op -x -n $NAMESPACE
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: v-tls-certs-sc1
+status:
+  replicas: 1
+---
+apiVersion: vertica.com/v1beta1
+kind: VerticaDB
+metadata:
+  name: v-tls-certs
+status:
+  subclusters:
+    - installCount: 1
