@@ -43,7 +43,7 @@ func (v *VerticaAutoscaler) Default() {
 	verticaautoscalerlog.Info("default", "name", v.Name)
 }
 
-// +kubebuilder:webhook:path=/mutate-vertica-com-v1-verticaautoscaler,mutating=true,failurePolicy=fail,sideEffects=None,groups=vertica.com,resources=verticaautoscaler,verbs=create;update,versions=v1beta1,name=mverticadb.kb.io,admissionReviewVersions=v1
+// +kubebuilder:webhook:path=/mutate-vertica-com-v1-verticaautoscaler,mutating=true,failurePolicy=fail,sideEffects=None,groups=vertica.com,resources=verticaautoscalers,verbs=create;update,versions=v1,name=mverticaautoscaler.v1.kb.io,admissionReviewVersions=v1
 
 var _ webhook.Validator = &VerticaAutoscaler{}
 
