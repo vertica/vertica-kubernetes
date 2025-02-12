@@ -88,6 +88,27 @@ func (o *ObjReconciler) reconcileScaledObject(ctx context.Context) error {
 	return o.updateWorkload(ctx, curSO, expSO)
 }
 
+// buildTriggerAuthentications will create or update TriggerAuthentication objects.
+func (o *ObjReconciler) buildTriggerAuthentications(ctx context.Context) error {
+	metrics := o.Vas.Spec.CustomAutoscaler.ScaledObject.Metrics
+	for i := range metrics {
+		metric := metrics[i]
+		if metric.IsNil() || !metric.IsPrometheusMetric() || metric.AuthSecret == "" {
+			continue
+		}
+		taName := names.GenTriggerAuthenticationtName(o.Vas, metric.AuthSecret)
+		curTA := &kedav1alpha1.TriggerAuthentication{}
+		newTA := builder.BuildTriggerAuthentication(o.Vas, metric)
+
+		err := o.VRec.Client.Get(ctx, taName, curTA)
+		if err != nil && kerrors.IsNotFound(err) {
+			o.Log.Info("Creating TrigerAuthentication object", "Name", taName)
+			createObject(ctx, newTA, o.VRec.Client, o.Vas)
+		}
+	}
+	return nil
+}
+
 func (o *ObjReconciler) updateWorkload(ctx context.Context, curWorkload, expWorkload client.Object) error {
 	// Create a patch object
 	patch := client.MergeFrom(curWorkload.DeepCopyObject().(client.Object))
