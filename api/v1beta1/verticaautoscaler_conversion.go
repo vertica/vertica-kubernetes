@@ -61,7 +61,7 @@ func convertVasToSpec(src *VerticaAutoscalerSpec) v1.VerticaAutoscalerSpec {
 		ScalingGranularity: v1.ScalingGranularityType(src.ScalingGranularity),
 		Template:           convertToSubcluster(&src.Template),
 		TargetSize:         src.TargetSize,
-		CustomAutoscaler:   convertToVasCustomAutoscaler(src.CustomAutoscaler),
+		CustomAutoscaler:   convertVasToCustomAutoscaler(src.CustomAutoscaler),
 	}
 	return dst
 }
@@ -144,7 +144,8 @@ func convertToVasStatus(src *VerticaAutoscalerStatus) v1.VerticaAutoscalerStatus
 	return dst
 }
 
-func convertToVasCustomAutoscaler(src *CustomAutoscalerSpec) *v1.CustomAutoscalerSpec {
+// convertVasToCustomAutoscaler will convert a v1beta1 CustomAutoscalerSpec to v1 version
+func convertVasToCustomAutoscaler(src *CustomAutoscalerSpec) *v1.CustomAutoscalerSpec {
 	if src == nil {
 		return nil
 	}
