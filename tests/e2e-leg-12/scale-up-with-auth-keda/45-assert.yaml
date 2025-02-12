@@ -47,4 +47,4 @@ spec:
     name: vertica_sessions_running_total
     type: prometheus
     authenticationRef:
-      name: v-scale-up-auth-keda-creds
+      name: v-scale-up-auth-keda-vas-keda-prom-secret-creds
