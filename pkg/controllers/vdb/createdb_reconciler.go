@@ -246,7 +246,8 @@ func (c *CreateDBReconciler) generatePostDBCreateSQL(ctx context.Context, initia
 			\"namespace\":\"%s\"}' SIGNED BY server_ca_cert KEY server_key;`,
 			c.Vdb.Spec.ClientServerTLSSecret, corev1.TLSCertKey, c.Vdb.ObjectMeta.Namespace))
 
-		sb.WriteString(`ALTER TLS CONFIGURATION server CERTIFICATE server_cert ADD CA CERTIFICATES server_ca_cert TLSMODE 'TRY_VERIFY';`)
+		sb.WriteString(fmt.Sprintf(`ALTER TLS CONFIGURATION server CERTIFICATE server_cert ADD CA CERTIFICATES server_ca_cert TLSMODE '%s';`,
+			c.Vdb.Spec.ClientServerTLSMode))
 
 		sb.WriteString(`ALTER TLS CONFIGURATION https CERTIFICATE https_cert_0 ADD CA CERTIFICATES https_ca_cert_0 TLSMODE 'TRY_VERIFY';`)
 	}
