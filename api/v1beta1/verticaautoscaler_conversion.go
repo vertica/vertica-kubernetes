@@ -82,51 +82,63 @@ func convertVasFromSpec(src *v1.VerticaAutoscaler) VerticaAutoscalerSpec {
 			Type: srcSpec.CustomAutoscaler.Type,
 		}
 		if srcSpec.CustomAutoscaler.Hpa != nil {
-			dst.CustomAutoscaler.Hpa = &HPASpec{
-				MinReplicas: srcSpec.CustomAutoscaler.Hpa.MinReplicas,
-				MaxReplicas: srcSpec.CustomAutoscaler.Hpa.MaxReplicas,
-				Metrics:     make([]MetricDefinition, len(srcSpec.CustomAutoscaler.Hpa.Metrics)),
-				Behavior:    srcSpec.CustomAutoscaler.Hpa.Behavior,
-			}
-			for i := range srcSpec.CustomAutoscaler.Hpa.Metrics {
-				srcMetric := &srcSpec.CustomAutoscaler.Hpa.Metrics[i]
-				dst.CustomAutoscaler.Hpa.Metrics[i] = MetricDefinition{
-					ThresholdAdjustmentValue: srcMetric.ThresholdAdjustmentValue,
-					Metric:                   srcMetric.Metric,
-					ScaleDownThreshold:       ptrOrNil(srcMetric.ScaleDownThreshold),
-				}
-			}
+			dst.CustomAutoscaler.Hpa = convertVasFromHPASpec(srcSpec.CustomAutoscaler.Hpa)
 		}
 		if srcSpec.CustomAutoscaler.ScaledObject != nil {
-			dst.CustomAutoscaler.ScaledObject = &ScaledObjectSpec{
-				MinReplicas:     srcSpec.CustomAutoscaler.ScaledObject.MinReplicas,
-				MaxReplicas:     srcSpec.CustomAutoscaler.ScaledObject.MaxReplicas,
-				PollingInterval: srcSpec.CustomAutoscaler.ScaledObject.PollingInterval,
-				CooldownPeriod:  srcSpec.CustomAutoscaler.ScaledObject.CooldownPeriod,
-				Metrics:         make([]ScaleTrigger, len(srcSpec.CustomAutoscaler.ScaledObject.Metrics)),
-				Behavior:        srcSpec.CustomAutoscaler.ScaledObject.Behavior,
+			dst.CustomAutoscaler.ScaledObject = convertVasFromScaledObjectSpec(srcSpec.CustomAutoscaler.ScaledObject)
+		}
+	}
+	return dst
+}
+
+// convertVasFromHPASpec will convert from a v1 HPASpec to a v1beta1 version
+func convertVasFromHPASpec(src *v1.HPASpec) *HPASpec {
+	dst := &HPASpec{
+		MinReplicas: src.MinReplicas,
+		MaxReplicas: src.MaxReplicas,
+		Metrics:     make([]MetricDefinition, len(src.Metrics)),
+		Behavior:    src.Behavior,
+	}
+	for i := range src.Metrics {
+		srcMetric := &src.Metrics[i]
+		dst.Metrics[i] = MetricDefinition{
+			ThresholdAdjustmentValue: srcMetric.ThresholdAdjustmentValue,
+			Metric:                   srcMetric.Metric,
+			ScaleDownThreshold:       ptrOrNil(srcMetric.ScaleDownThreshold),
+		}
+	}
+	return dst
+}
+
+// convertVasFromScaledObjectSpec will convert from a v1 ScaledObjectSpec to a v1beta1 version
+func convertVasFromScaledObjectSpec(src *v1.ScaledObjectSpec) *ScaledObjectSpec {
+	dst := &ScaledObjectSpec{
+		MinReplicas:     src.MinReplicas,
+		MaxReplicas:     src.MaxReplicas,
+		PollingInterval: src.PollingInterval,
+		CooldownPeriod:  src.CooldownPeriod,
+		Metrics:         make([]ScaleTrigger, len(src.Metrics)),
+		Behavior:        src.Behavior,
+	}
+	for i := range src.Metrics {
+		srcMetric := &src.Metrics[i]
+		dst.Metrics[i] = ScaleTrigger{
+			Type:       TriggerType(srcMetric.Type),
+			Name:       srcMetric.Name,
+			AuthSecret: srcMetric.AuthSecret,
+			MetricType: srcMetric.MetricType,
+		}
+		if srcMetric.Prometheus != nil {
+			dst.Metrics[i].Prometheus = &PrometheusSpec{
+				ServerAddress:      srcMetric.Prometheus.ServerAddress,
+				Query:              srcMetric.Prometheus.Query,
+				Threshold:          srcMetric.Prometheus.Threshold,
+				ScaleDownThreshold: srcMetric.Prometheus.ScaleDownThreshold,
 			}
-			for i := range srcSpec.CustomAutoscaler.ScaledObject.Metrics {
-				srcMetric := &srcSpec.CustomAutoscaler.ScaledObject.Metrics[i]
-				dst.CustomAutoscaler.ScaledObject.Metrics[i] = ScaleTrigger{
-					Type:       TriggerType(srcMetric.Type),
-					Name:       srcMetric.Name,
-					AuthSecret: srcMetric.AuthSecret,
-					MetricType: srcMetric.MetricType,
-				}
-				if srcMetric.Prometheus != nil {
-					dst.CustomAutoscaler.ScaledObject.Metrics[i].Prometheus = &PrometheusSpec{
-						ServerAddress:      srcMetric.Prometheus.ServerAddress,
-						Query:              srcMetric.Prometheus.Query,
-						Threshold:          srcMetric.Prometheus.Threshold,
-						ScaleDownThreshold: srcMetric.Prometheus.ScaleDownThreshold,
-					}
-				}
-				if srcMetric.Resource != nil {
-					dst.CustomAutoscaler.ScaledObject.Metrics[i].Resource = &CPUMemorySpec{
-						Threshold: srcMetric.Resource.Threshold,
-					}
-				}
+		}
+		if srcMetric.Resource != nil {
+			dst.Metrics[i].Resource = &CPUMemorySpec{
+				Threshold: srcMetric.Resource.Threshold,
 			}
 		}
 	}
@@ -153,50 +165,62 @@ func convertVasToCustomAutoscaler(src *CustomAutoscalerSpec) *v1.CustomAutoscale
 		Type: src.Type,
 	}
 	if src.Hpa != nil {
-		dst.Hpa = &v1.HPASpec{
-			MinReplicas: src.Hpa.MinReplicas,
-			MaxReplicas: src.Hpa.MaxReplicas,
-			Metrics:     make([]v1.MetricDefinition, len(src.Hpa.Metrics)),
-			Behavior:    src.Hpa.Behavior,
-		}
-		for i := range src.Hpa.Metrics {
-			srcMetric := &src.Hpa.Metrics[i]
-			dst.Hpa.Metrics[i] = v1.MetricDefinition{
-				ThresholdAdjustmentValue: srcMetric.ThresholdAdjustmentValue,
-				Metric:                   srcMetric.Metric,
-				ScaleDownThreshold:       ptrOrNil(srcMetric.ScaleDownThreshold),
-			}
-		}
+		dst.Hpa = convertVasToHPASpec(src.Hpa)
 	}
 	if src.ScaledObject != nil {
-		dst.ScaledObject = &v1.ScaledObjectSpec{
-			MinReplicas:     src.ScaledObject.MinReplicas,
-			MaxReplicas:     src.ScaledObject.MaxReplicas,
-			PollingInterval: src.ScaledObject.PollingInterval,
-			CooldownPeriod:  src.ScaledObject.CooldownPeriod,
-			Metrics:         make([]v1.ScaleTrigger, len(src.ScaledObject.Metrics)),
-			Behavior:        src.ScaledObject.Behavior,
+		dst.ScaledObject = convertVasToScaledObjectSpec(src.ScaledObject)
+	}
+	return dst
+}
+
+// convertVasToHPASpec will convert a v1beta1 HPASpec to v1 version
+func convertVasToHPASpec(src *HPASpec) *v1.HPASpec {
+	dst := &v1.HPASpec{
+		MinReplicas: src.MinReplicas,
+		MaxReplicas: src.MaxReplicas,
+		Metrics:     make([]v1.MetricDefinition, len(src.Metrics)),
+		Behavior:    src.Behavior,
+	}
+	for i := range src.Metrics {
+		srcMetric := &src.Metrics[i]
+		dst.Metrics[i] = v1.MetricDefinition{
+			ThresholdAdjustmentValue: srcMetric.ThresholdAdjustmentValue,
+			Metric:                   srcMetric.Metric,
+			ScaleDownThreshold:       ptrOrNil(srcMetric.ScaleDownThreshold),
 		}
-		for i := range src.ScaledObject.Metrics {
-			srcMetric := &src.ScaledObject.Metrics[i]
-			dst.ScaledObject.Metrics[i] = v1.ScaleTrigger{
-				Type:       v1.TriggerType(srcMetric.Type),
-				Name:       srcMetric.Name,
-				AuthSecret: srcMetric.AuthSecret,
-				MetricType: srcMetric.MetricType,
+	}
+	return dst
+}
+
+// convertVasToScaledObjectSpec will convert a v1beta1 ScaledObjectSpec to v1 version
+func convertVasToScaledObjectSpec(src *ScaledObjectSpec) *v1.ScaledObjectSpec {
+	dst := &v1.ScaledObjectSpec{
+		MinReplicas:     src.MinReplicas,
+		MaxReplicas:     src.MaxReplicas,
+		PollingInterval: src.PollingInterval,
+		CooldownPeriod:  src.CooldownPeriod,
+		Metrics:         make([]v1.ScaleTrigger, len(src.Metrics)),
+		Behavior:        src.Behavior,
+	}
+	for i := range src.Metrics {
+		srcMetric := &src.Metrics[i]
+		dst.Metrics[i] = v1.ScaleTrigger{
+			Type:       v1.TriggerType(srcMetric.Type),
+			Name:       srcMetric.Name,
+			AuthSecret: srcMetric.AuthSecret,
+			MetricType: srcMetric.MetricType,
+		}
+		if srcMetric.Prometheus != nil {
+			dst.Metrics[i].Prometheus = &v1.PrometheusSpec{
+				ServerAddress:      srcMetric.Prometheus.ServerAddress,
+				Query:              srcMetric.Prometheus.Query,
+				Threshold:          srcMetric.Prometheus.Threshold,
+				ScaleDownThreshold: srcMetric.Prometheus.ScaleDownThreshold,
 			}
-			if srcMetric.Prometheus != nil {
-				dst.ScaledObject.Metrics[i].Prometheus = &v1.PrometheusSpec{
-					ServerAddress:      srcMetric.Prometheus.ServerAddress,
-					Query:              srcMetric.Prometheus.Query,
-					Threshold:          srcMetric.Prometheus.Threshold,
-					ScaleDownThreshold: srcMetric.Prometheus.ScaleDownThreshold,
-				}
-			}
-			if srcMetric.Resource != nil {
-				dst.ScaledObject.Metrics[i].Resource = &v1.CPUMemorySpec{
-					Threshold: srcMetric.Resource.Threshold,
-				}
+		}
+		if srcMetric.Resource != nil {
+			dst.Metrics[i].Resource = &v1.CPUMemorySpec{
+				Threshold: srcMetric.Resource.Threshold,
 			}
 		}
 	}
