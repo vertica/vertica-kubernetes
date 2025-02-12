@@ -153,6 +153,14 @@ func convertToVasStatus(src *VerticaAutoscalerStatus) v1.VerticaAutoscalerStatus
 		Selector:     src.Selector,
 		Conditions:   make([]v1.VerticaAutoscalerCondition, len(src.Conditions)),
 	}
+	for i := range src.Conditions {
+		srcMetric := &src.Conditions[i]
+		dst.Conditions[i] = v1.VerticaAutoscalerCondition{
+			Type:               v1.VerticaAutoscalerConditionType(srcMetric.Type),
+			Status:             srcMetric.Status,
+			LastTransitionTime: srcMetric.LastTransitionTime,
+		}
+	}
 	return dst
 }
 
@@ -234,6 +242,14 @@ func convertVasFromStatus(src *v1.VerticaAutoscalerStatus) VerticaAutoscalerStat
 		CurrentSize:  src.CurrentSize,
 		Selector:     src.Selector,
 		Conditions:   make([]VerticaAutoscalerCondition, len(src.Conditions)),
+	}
+	for i := range src.Conditions {
+		srcMetric := &src.Conditions[i]
+		dst.Conditions[i] = VerticaAutoscalerCondition{
+			Type:               VerticaAutoscalerConditionType(srcMetric.Type),
+			Status:             srcMetric.Status,
+			LastTransitionTime: srcMetric.LastTransitionTime,
+		}
 	}
 	return dst
 }
