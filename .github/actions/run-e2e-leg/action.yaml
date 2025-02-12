@@ -224,8 +224,6 @@ runs:
             export CONCURRENCY_VERTICAAUTOSCALER=5
           fi
 
-          # Set to YES to clean up disk space on self-hosted runners
-          export DOCKER_PRUNE=YES
           # Run int test script
           if [[ "${{ inputs.communal-storage-type }}" == "azb" ]]; then
             scripts/run-k8s-int-tests.sh -s -e tests/external-images-azb-ci.txt;
