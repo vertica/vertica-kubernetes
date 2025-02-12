@@ -34,7 +34,7 @@ func (v *VerticaAutoscaler) ConvertTo(dstRaw conversion.Hub) error {
 	dst.Annotations = v.Annotations
 	dst.UID = v.UID
 	dst.Labels = v.Labels
-	dst.Spec = convertToVasSpec(&v.Spec)
+	dst.Spec = convertVasToSpec(&v.Spec)
 	dst.Status = convertToVasStatus(&v.Status)
 	return nil
 }
@@ -53,8 +53,8 @@ func (v *VerticaAutoscaler) ConvertFrom(srcRaw conversion.Hub) error {
 	return nil
 }
 
-// convertToVasSpec will convert to a v1 VerticaAutoscalerSpec from a v1beta1 version
-func convertToVasSpec(src *VerticaAutoscalerSpec) v1.VerticaAutoscalerSpec {
+// convertVasToSpec will convert to a v1 VerticaAutoscalerSpec from a v1beta1 version
+func convertVasToSpec(src *VerticaAutoscalerSpec) v1.VerticaAutoscalerSpec {
 	dst := v1.VerticaAutoscalerSpec{
 		VerticaDBName:      src.VerticaDBName,
 		ServiceName:        src.ServiceName,
