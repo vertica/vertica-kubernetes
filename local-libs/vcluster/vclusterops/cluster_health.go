@@ -60,7 +60,6 @@ type SlowEventNode struct {
 }
 
 const timeLayout = "2006-01-02 15:04:05.000000"
-const maxDepth = 100
 
 func VClusterHealthFactory() VClusterHealthOptions {
 	options := VClusterHealthOptions{}
@@ -212,6 +211,9 @@ func (options *VClusterHealthOptions) buildCascadeGraph(logger vlog.Printer, upH
 		return err
 	}
 
+	// TODO: remove this debug info when the algorithm is fully implemented
+	fmt.Println("[DEBUG INFO]: cascade traceback done.")
+
 	return err
 }
 
@@ -249,21 +251,6 @@ func (options *VClusterHealthOptions) recursiveTraceback(logger vlog.Printer,
 		if callerThreadID == "" {
 			leaf = true
 		}
-
-		// stop recursive tracing if
-		// - the caller's thread ID is empty or
-		// - the caller's thread ID is same as the current event thread ID
-		if callerThreadID == "" || callerThreadID == threadID {
-			length := len(options.CascadeStack)
-			options.CascadeStack[length-1].Leaf = true
-			return nil
-		}
-
-		// limit the max depth
-		if depth > maxDepth {
-			return nil
-		}
-
 		options.CascadeStack = append(options.CascadeStack, SlowEventNode{depth, &event,
 			sessionInfo, transactionInfo, nil, leaf})
 
@@ -294,7 +281,9 @@ func analyzeSlowEvent(event *dcSlowEvent) (
 		const hex = 16
 		threadIDDec.SetString(threadIDHex, hex)
 		threadIDStr = threadIDDec.String()
-		end, err := time.Parse(timeLayout, event.Time)
+		// we keep only the first 26 characters in the timestamp string
+		// and chop the timezone info to avoid parsing error
+		end, err := time.Parse(timeLayout, event.Time[:26])
 		if err != nil {
 			return threadIDStr, startTime, endTime, err
 		}
@@ -315,6 +304,8 @@ func (options *VClusterHealthOptions) fillLockHoldInfo(logger vlog.Printer, upHo
 			continue
 		}
 
+		// we keep only the first 26 characters in the timestamp string
+		// and chop the timezone info to avoid parsing error
 		end, err := time.Parse(timeLayout, event.Event.Time)
 		start := end.Add(time.Duration(-event.Event.DurationUs) * time.Microsecond)
 		if err != nil {
