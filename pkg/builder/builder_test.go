@@ -402,22 +402,6 @@ var _ = Describe("builder", func() {
 		Ω(c.StartupProbe.PeriodSeconds).Should(Equal(NewPeriodSeconds))
 	})
 
-	It("should have all probes use the http version endpoint", func() {
-		vdb := vapi.MakeVDB()
-		vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
-
-		c := makeServerContainer(vdb, &vdb.Spec.Subclusters[0])
-		Ω(c.ReadinessProbe.HTTPGet.Path).Should(Equal(HTTPServerVersionPath))
-		Ω(c.ReadinessProbe.HTTPGet.Port).Should(Equal(intstr.FromInt(VerticaHTTPPort)))
-		Ω(c.ReadinessProbe.HTTPGet.Scheme).Should(Equal(v1.URISchemeHTTPS))
-		Ω(c.LivenessProbe.HTTPGet.Path).Should(Equal(HTTPServerVersionPath))
-		Ω(c.LivenessProbe.HTTPGet.Port).Should(Equal(intstr.FromInt(VerticaHTTPPort)))
-		Ω(c.LivenessProbe.HTTPGet.Scheme).Should(Equal(v1.URISchemeHTTPS))
-		Ω(c.StartupProbe.HTTPGet.Path).Should(Equal(HTTPServerVersionPath))
-		Ω(c.StartupProbe.HTTPGet.Port).Should(Equal(intstr.FromInt(VerticaHTTPPort)))
-		Ω(c.StartupProbe.HTTPGet.Scheme).Should(Equal(v1.URISchemeHTTPS))
-	})
-
 	It("should not mount superuser password", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Spec.PasswordSecret = "some-secret"

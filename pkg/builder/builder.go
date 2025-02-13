@@ -1175,19 +1175,6 @@ func makeScrutinizeMainContainer(vscr *v1beta1.VerticaScrutinize, tarballName st
 	}
 }
 
-// makeHTTPServerVersionEndpointProbe will build an HTTPGet probe
-func makeHTTPServerVersionEndpointProbe() *corev1.Probe {
-	return &corev1.Probe{
-		ProbeHandler: corev1.ProbeHandler{
-			HTTPGet: &corev1.HTTPGetAction{
-				Path:   HTTPServerVersionPath,
-				Port:   intstr.FromInt(VerticaHTTPPort),
-				Scheme: corev1.URISchemeHTTPS,
-			},
-		},
-	}
-}
-
 // makeVerticaClientPortProbe will build a probe that if vertica is up by seeing
 // if the vertica client port is being listened on.
 func makeVerticaClientPortProbe() *corev1.Probe {
@@ -1228,7 +1215,7 @@ func makeDefaultReadinessOrStartupProbe(vdb *vapi.VerticaDB) *corev1.Probe {
 
 // makeDefaultLivenessProbe will return the default probe to use for
 // liveness probe
-func makeDefaultLivenessProbe(vdb *vapi.VerticaDB) *corev1.Probe {
+func makeDefaultLivenessProbe() *corev1.Probe {
 	// We check if the TCP client port is open. We used this approach,
 	// rather than issuing 'select 1' like readinessProbe because we need
 	// to minimize variability. If the livenessProbe fails, the pod is
@@ -1261,7 +1248,7 @@ func makeStartupProbe(vdb *vapi.VerticaDB) *corev1.Probe {
 
 // makeLivenessProbe will return the Probe object to use for the liveness probe.
 func makeLivenessProbe(vdb *vapi.VerticaDB) *corev1.Probe {
-	probe := makeDefaultLivenessProbe(vdb)
+	probe := makeDefaultLivenessProbe()
 	// These values were picked so that we can estimate how long vertica
 	// needs to be unresponsive before it gets killed. We are targeting
 	// about 2.5 minutes after initial start and 1.5 minutes if the pod has
