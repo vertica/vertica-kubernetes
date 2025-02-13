@@ -77,7 +77,7 @@ func (o *ObjReconciler) reconcileHpa(ctx context.Context) error {
 
 // reconcileScaledObject creates a scaledObject or updates an existing one.
 func (o *ObjReconciler) reconcileScaledObject(ctx context.Context) error {
-	err := o.buildTriggerAuthentications(ctx)
+	err := o.createTriggerAuthentications(ctx)
 	if err != nil {
 		return err
 	}
@@ -92,8 +92,8 @@ func (o *ObjReconciler) reconcileScaledObject(ctx context.Context) error {
 	return o.updateWorkload(ctx, curSO, expSO)
 }
 
-// buildTriggerAuthentications will create or update TriggerAuthentication objects.
-func (o *ObjReconciler) buildTriggerAuthentications(ctx context.Context) error {
+// createTriggerAuthentications will create or update TriggerAuthentication objects.
+func (o *ObjReconciler) createTriggerAuthentications(ctx context.Context) error {
 	metrics := o.Vas.Spec.CustomAutoscaler.ScaledObject.Metrics
 	for i := range metrics {
 		metric := metrics[i]
