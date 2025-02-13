@@ -22,6 +22,7 @@ import (
 
 	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
+	v1beta1 "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/secrets"
 	corev1 "k8s.io/api/core/v1"
@@ -79,6 +80,52 @@ func (v *VerticaDBSecretFetcher) handleFetchError(secretName types.NamespacedNam
 	nfe := &secrets.NotFoundError{}
 	if ok := errors.As(err, &nfe); ok {
 		v.EVWriter.Eventf(v.VDB, corev1.EventTypeWarning, events.ObjectNotFound,
+			"Could not find the secret '%s'", secretName.Name)
+		return nil, ctrl.Result{Requeue: true}, nil
+	}
+	return nil, ctrl.Result{}, err
+}
+
+// VASSecretFetcher is secret reader designed for the VerticaAutoscaler
+// controller. It can handle retrival from different sources, such as Kubernetes
+// secret store, Google Secrets Manager (GSM), etc.
+type VASSecretFetcher struct {
+	client.Client
+	Log      logr.Logger
+	EVWriter events.EVWriter
+	VAS      *v1beta1.VerticaAutoscaler
+}
+
+// FetchAllowRequeue reads the secret from a secret store. This API has the
+// ability to requeue the reconcile iteration based on the error it finds.
+func (v *VASSecretFetcher) FetchAllowRequeue(ctx context.Context, secretName types.NamespacedName) (
+	map[string][]byte, ctrl.Result, error) {
+	sf := secrets.MultiSourceSecretFetcher{
+		K8sClient: v,
+		Log:       v.Log,
+	}
+	secretData, err := sf.Fetch(ctx, secretName)
+	if err != nil {
+		return v.handleFetchError(secretName, err)
+	}
+	return secretData, ctrl.Result{}, err
+}
+
+// GetSecret will allow us to fulfill the client interface in
+// MultiSourceSecretFetcher. It is a wrapper to get a resource using the
+// controller's k8s client.
+func (v *VASSecretFetcher) GetSecret(ctx context.Context, name types.NamespacedName) (*corev1.Secret, error) {
+	secret := corev1.Secret{}
+	err := v.Client.Get(ctx, name, &secret)
+	return &secret, err
+}
+
+// handleFetchError is called when there is an error fetching the secret. It
+// will handle things like event logging and setting up the ctrl.Result.
+func (v *VASSecretFetcher) handleFetchError(secretName types.NamespacedName, err error) (map[string][]byte, ctrl.Result, error) {
+	nfe := &secrets.NotFoundError{}
+	if ok := errors.As(err, &nfe); ok {
+		v.EVWriter.Eventf(v.VAS, corev1.EventTypeWarning, events.ObjectNotFound,
 			"Could not find the secret '%s'", secretName.Name)
 		return nil, ctrl.Result{Requeue: true}, nil
 	}

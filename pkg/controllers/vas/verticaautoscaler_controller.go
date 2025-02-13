@@ -127,6 +127,12 @@ func isScaledObjectInstalled(discoveryClient discovery.DiscoveryInterface) bool 
 	return err == nil
 }
 
+func isTrigerAuthenticationInstalled(discoveryClient discovery.DiscoveryInterface) bool {
+	gvr := schema.GroupVersionResource{Group: "keda.sh", Version: "v1alpha1", Resource: "triggerauthentications"}
+	_, err := discoveryClient.ServerResourcesForGroupVersion(gvr.GroupVersion().String())
+	return err == nil
+}
+
 // SetupWithManager sets up the controller with the Manager.
 func (r *VerticaAutoscalerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	ctrlManager := ctrl.NewControllerManagedBy(mgr).
@@ -141,6 +147,10 @@ func (r *VerticaAutoscalerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	discoveryClient := discovery.NewDiscoveryClientForConfigOrDie(mgr.GetConfig())
 	if isScaledObjectInstalled(discoveryClient) {
 		ctrlManager = ctrlManager.Owns(&kedav1alpha1.ScaledObject{})
+	}
+	// Check if TriggerAuthentication CRD is installed
+	if isTrigerAuthenticationInstalled(discoveryClient) {
+		ctrlManager = ctrlManager.Owns(&kedav1alpha1.TriggerAuthentication{})
 	}
 	return ctrlManager.Complete(r)
 }
