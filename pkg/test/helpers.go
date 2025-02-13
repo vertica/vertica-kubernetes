@@ -220,9 +220,10 @@ func DeleteConfigMap(ctx context.Context, c client.Client, vdb *vapi.VerticaDB, 
 	}
 }
 
-func CreateFakeTLSSecret(ctx context.Context, vdb *vapi.VerticaDB, c client.Client, name string) {
+func CreateFakeTLSSecret(ctx context.Context, vdb *vapi.VerticaDB, c client.Client, name string) *corev1.Secret {
 	secret := BuildTLSSecret(vdb, name, TestKeyValue, TestCertValue, TestCaCertValue)
 	Expect(c.Create(ctx, secret)).Should(Succeed())
+	return secret
 }
 
 func BuildTLSSecret(vdb *vapi.VerticaDB, name, key, cert, rootca string) *corev1.Secret {

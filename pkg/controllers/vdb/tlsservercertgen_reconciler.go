@@ -27,6 +27,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	"github.com/vertica/vertica-kubernetes/pkg/secrets"
 	"github.com/vertica/vertica-kubernetes/pkg/security"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -39,6 +40,8 @@ const (
 	NMATLSSecret          = "NMATLSSecret"
 )
 
+var TLSCertCacheManager *vadmin.TLSCertCache
+
 // TLSServerCertGenReconciler will create a secret that has TLS credentials.  This
 // secret will be used to authenticate with the https server.
 type TLSServerCertGenReconciler struct {
@@ -48,6 +51,7 @@ type TLSServerCertGenReconciler struct {
 }
 
 func MakeTLSServerCertGenReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger, vdb *vapi.VerticaDB) controllers.ReconcileActor {
+	TLSCertCacheManager = vadmin.TLSCertCacheFactory(vdbrecon.Client, log, vdb)
 	return &TLSServerCertGenReconciler{
 		VRec: vdbrecon,
 		Vdb:  vdb,
@@ -89,9 +93,18 @@ func (h *TLSServerCertGenReconciler) reconcileOneSecret(secretFieldName, secretN
 		if errors.IsNotFound(err) {
 			h.Log.Info(secretName+" is set but doesn't exist. Will recreate the secret.", "name", nm)
 		} else if err != nil {
-			return fmt.Errorf("failed while attempting to read the tls secret %s: %w", secretName, err)
+			h.Log.Error(err, "failed to read tls secret", "secretName", secretName)
+			return err
 		} else {
 			// Secret is filled in and exists. We can exit.
+			for field := range vadmin.CertFields {
+				_, ok := secret.Data[field]
+				if !ok {
+					return fmt.Errorf("secret %s is missing field %s", secretName, field)
+				}
+			}
+			TLSCertCacheManager.SetSecretData(secretName, secret.Data)
+			h.Log.Info("cached secret " + secretName)
 			return err
 		}
 	}
@@ -107,7 +120,14 @@ func (h *TLSServerCertGenReconciler) reconcileOneSecret(secretFieldName, secretN
 	if err != nil {
 		return err
 	}
-	h.Log.Info("created certificate and secret for " + secret.Name)
+	for field := range vadmin.CertFields {
+		_, ok := secret.Data[field]
+		if !ok {
+			return fmt.Errorf("secret %s is missing field %s", secretName, field)
+		}
+	}
+	TLSCertCacheManager.SetSecretData(secret.Name, secret.Data)
+	h.Log.Info("created certificate and secret and cached " + secret.Name)
 	return h.setSecretNameInVDB(ctx, secretFieldName, secret.ObjectMeta.Name)
 }
 

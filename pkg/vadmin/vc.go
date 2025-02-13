@@ -19,22 +19,12 @@ import (
 	"context"
 	"fmt"
 
+	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/cloud"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	corev1 "k8s.io/api/core/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
-
-// retrieveNMACerts will retrieve the certs from NMATLSSecret for calling NMA endpoints
-func (v *VClusterOps) retrieveNMACerts(ctx context.Context) (*HTTPSCerts, error) {
-	fetcher := cloud.VerticaDBSecretFetcher{
-		Client:   v.Client,
-		Log:      v.Log,
-		VDB:      v.VDB,
-		EVWriter: v.EVWriter,
-	}
-	return retrieveNMACerts(ctx, fetcher)
-}
 
 // retrieveTargetNMACerts will retrieve the certs from NMATLSSecret for calling target NMA endpoints
 func (v *VClusterOps) retrieveTargetNMACerts(ctx context.Context) (*HTTPSCerts, error) {
@@ -42,6 +32,17 @@ func (v *VClusterOps) retrieveTargetNMACerts(ctx context.Context) (*HTTPSCerts, 
 		Client:   v.Client,
 		Log:      v.Log,
 		VDB:      v.TargetVDB,
+		EVWriter: v.EVWriter,
+	}
+	return retrieveNMACerts(ctx, fetcher)
+}
+
+// retrieveNMACerts will retrieve the certs from NMATLSSecret for calling NMA endpoints
+func (v *VClusterOps) retrieveNMACerts(ctx context.Context) (*HTTPSCerts, error) {
+	fetcher := cloud.VerticaDBSecretFetcher{
+		Client:   v.Client,
+		Log:      v.Log,
+		VDB:      v.VDB,
 		EVWriter: v.EVWriter,
 	}
 	return retrieveNMACerts(ctx, fetcher)
@@ -81,4 +82,16 @@ func (v *VClusterOps) logFailure(cmd, genericFailureReason string, err error) (c
 		EVWriter:             v.EVWriter,
 	}
 	return evLogr.LogFailure(cmd, err)
+}
+
+func (v *VClusterOps) shouldUseCertAuthentication() bool {
+	Vinf, ok := v.VDB.MakeVersionInfo()
+	if !ok {
+		v.Log.Info("failed to get vertica version. disable TLS cert")
+		return false
+	}
+	if Vinf.IsEqualOrNewer(vapi.NMATLSCertRotationMinVersion) {
+		return TLSCertConfigured
+	}
+	return false
 }
