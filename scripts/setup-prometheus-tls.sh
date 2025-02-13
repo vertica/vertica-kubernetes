@@ -53,15 +53,14 @@ source $SCRIPT_DIR/logging-utils.sh
 #
 # Example to access the prometheus endpoint with TLS cert:
 # $ curl --cacert /certs/prometheus-tls/tls.crt https://prometheus-kube-prometheus-prometheus.prometheus.svc:9090/metrics
-if ! kubectl get secret $TLS_SECRET -n $PROMETHEUS_NS &> /dev/null; then
-  logInfo "Generating self-signed certs for Prometheus TLS encryption"
-  mkdir -p $PROMETHEUS_DIR/certs
-  TLS_KEY=$PROMETHEUS_DIR/certs/tls.key
-  TLS_CRT=$PROMETHEUS_DIR/certs/tls.crt
-  rm -f $TLS_KEY $TLS_CRT
-  openssl req -x509 -newkey rsa:4096 -nodes -keyout $TLS_KEY -out $TLS_CRT \
-         -subj "/C=US/ST=PA/L=Pittsburgh/O=OpenText/OU=Vertica/CN=$PROMETHEUS_CN"
+logInfo "Generating self-signed certs for Prometheus TLS encryption"
+mkdir -p $PROMETHEUS_DIR/certs
+TLS_KEY=$PROMETHEUS_DIR/certs/tls.key
+TLS_CRT=$PROMETHEUS_DIR/certs/tls.crt
+rm -f $TLS_KEY $TLS_CRT
+openssl req -x509 -newkey rsa:4096 -nodes -keyout $TLS_KEY -out $TLS_CRT -addext "subjectAltName = DNS:$PROMETHEUS_CN" \
+       -subj "/C=US/ST=PA/L=Pittsburgh/O=OpenText/OU=Vertica/CN=$PROMETHEUS_CN"
 
-  logInfo "Creating prometheus secret"
-  kubectl create secret generic $TLS_SECRET -n $PROMETHEUS_NS --from-file=tls.key=$TLS_KEY --from-file=tls.crt=$TLS_CRT
-fi
+logInfo "Creating prometheus secret"
+kubectl delete secret $TLS_SECRET -n $PROMETHEUS_NS
+kubectl create secret generic $TLS_SECRET -n $PROMETHEUS_NS --from-file=tls.key=$TLS_KEY --from-file=tls.crt=$TLS_CRT
