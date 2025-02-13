@@ -823,7 +823,7 @@ func makeScrutinizeInitContainers(vscr *v1beta1.VerticaScrutinize, vdb *vapi.Ver
 }
 
 // BuildHorizontalPodAutoscaler builds a manifest for the horizontal pod autoscaler.
-func BuildHorizontalPodAutoscaler(nm types.NamespacedName, vas *v1beta1.VerticaAutoscaler) *autoscalingv2.HorizontalPodAutoscaler {
+func BuildHorizontalPodAutoscaler(nm types.NamespacedName, vas *vapi.VerticaAutoscaler) *autoscalingv2.HorizontalPodAutoscaler {
 	return &autoscalingv2.HorizontalPodAutoscaler{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: nm.Namespace,
@@ -844,7 +844,7 @@ func BuildHorizontalPodAutoscaler(nm types.NamespacedName, vas *v1beta1.VerticaA
 }
 
 // BuildScaledObject builds a manifest for a keda scaledObject.
-func BuildScaledObject(nm types.NamespacedName, vas *v1beta1.VerticaAutoscaler) *kedav1alpha1.ScaledObject {
+func BuildScaledObject(nm types.NamespacedName, vas *vapi.VerticaAutoscaler) *kedav1alpha1.ScaledObject {
 	so := vas.Spec.CustomAutoscaler.ScaledObject
 	scaledObject := &kedav1alpha1.ScaledObject{
 		ObjectMeta: metav1.ObjectMeta{
@@ -876,7 +876,7 @@ func BuildScaledObject(nm types.NamespacedName, vas *v1beta1.VerticaAutoscaler) 
 }
 
 // buildTriggers builds and return a list of scaled triggers.
-func buildTriggers(metrics []v1beta1.ScaleTrigger, vas *v1beta1.VerticaAutoscaler) []kedav1alpha1.ScaleTriggers {
+func buildTriggers(metrics []vapi.ScaleTrigger, vas *vapi.VerticaAutoscaler) []kedav1alpha1.ScaleTriggers {
 	triggers := make([]kedav1alpha1.ScaleTriggers, len(metrics))
 	for i := range metrics {
 		metric := &metrics[i]

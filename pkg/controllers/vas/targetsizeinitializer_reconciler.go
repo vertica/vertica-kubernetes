@@ -30,10 +30,10 @@ import (
 
 type TargetSizeInitializerReconciler struct {
 	VRec *VerticaAutoscalerReconciler
-	Vas  *v1beta1.VerticaAutoscaler
+	Vas  *vapi.VerticaAutoscaler
 }
 
-func MakeTargetSizeInitializerReconciler(v *VerticaAutoscalerReconciler, vas *v1beta1.VerticaAutoscaler) controllers.ReconcileActor {
+func MakeTargetSizeInitializerReconciler(v *VerticaAutoscalerReconciler, vas *vapi.VerticaAutoscaler) controllers.ReconcileActor {
 	return &TargetSizeInitializerReconciler{VRec: v, Vas: vas}
 }
 
@@ -77,8 +77,8 @@ func (v *TargetSizeInitializerReconciler) initTargetSize(ctx context.Context) (c
 
 // setTargetSizeInitializedCondition will seth the targetSizeInitialized condition to true
 func (v *TargetSizeInitializerReconciler) setTargetSizeInitializedCondition(ctx context.Context, req *ctrl.Request) error {
-	cond := v1beta1.VerticaAutoscalerCondition{
-		Type:   v1beta1.TargetSizeInitialized,
+	cond := vapi.VerticaAutoscalerCondition{
+		Type:   vapi.TargetSizeInitialized,
 		Status: corev1.ConditionTrue,
 	}
 	return vasstatus.UpdateCondition(ctx, v.VRec.Client, v.VRec.Log, req, cond)

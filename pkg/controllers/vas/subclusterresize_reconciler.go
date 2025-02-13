@@ -33,11 +33,11 @@ import (
 // target pod count in the CR.
 type SubclusterResizeReconciler struct {
 	VRec *VerticaAutoscalerReconciler
-	Vas  *v1beta1.VerticaAutoscaler
+	Vas  *vapi.VerticaAutoscaler
 	Vdb  *vapi.VerticaDB
 }
 
-func MakeSubclusterResizeReconciler(r *VerticaAutoscalerReconciler, vas *v1beta1.VerticaAutoscaler) controllers.ReconcileActor {
+func MakeSubclusterResizeReconciler(r *VerticaAutoscalerReconciler, vas *vapi.VerticaAutoscaler) controllers.ReconcileActor {
 	return &SubclusterResizeReconciler{VRec: r, Vas: vas, Vdb: &vapi.VerticaDB{}}
 }
 

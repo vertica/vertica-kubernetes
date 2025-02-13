@@ -14,7 +14,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1beta1
+//nolint:lll
+package v1
 
 import (
 	"fmt"
@@ -42,6 +43,8 @@ func (v *VerticaAutoscaler) SetupWebhookWithManager(mgr ctrl.Manager) error {
 func (v *VerticaAutoscaler) Default() {
 	verticaautoscalerlog.Info("default", "name", v.Name)
 }
+
+// +kubebuilder:webhook:path=/mutate-vertica-com-v1-verticaautoscaler,mutating=true,failurePolicy=fail,sideEffects=None,groups=vertica.com,resources=verticaautoscalers,verbs=create;update,versions=v1,name=mverticaautoscaler.v1.kb.io,admissionReviewVersions=v1
 
 var _ webhook.Validator = &VerticaAutoscaler{}
 
