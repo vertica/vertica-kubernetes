@@ -234,10 +234,11 @@ const (
 type PrometheusAuthModes string
 
 const (
-	PrometheusAuthModesBasic  PrometheusAuthModes = "basic"
-	PrometheusAuthModesBearer PrometheusAuthModes = "bearer"
+	PrometheusAuthBasic       PrometheusAuthModes = "basic"
+	PrometheusAuthBearer      PrometheusAuthModes = "bearer"
 	PrometheusAuthTLS         PrometheusAuthModes = "tls"
-	PrometheusAuthModesCustom PrometheusAuthModes = "custom"
+	PrometheusAuthCustom      PrometheusAuthModes = "custom"
+	PrometheusAuthTLSAndBasic PrometheusAuthModes = "tls,basic"
 )
 
 type PrometheusSpec struct {
@@ -261,13 +262,14 @@ type PrometheusSpec struct {
 
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:default:=""
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:select:basic","urn:alm:descriptor:com.tectonic.ui:select:bearer","urn:alm:descriptor:com.tectonic.ui:select:tls","urn:alm:descriptor:com.tectonic.ui:select:custom"}
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:select:basic","urn:alm:descriptor:com.tectonic.ui:select:bearer","urn:alm:descriptor:com.tectonic.ui:select:tls","urn:alm:descriptor:com.tectonic.ui:select:custom","urn:alm:descriptor:com.tectonic.ui:select:tls,basic"}
 	// The authentication methods for Prometheus.
-	// Allowed types are 'basic', 'bearer', 'tls' and 'custom'.
+	// Allowed types are 'basic', 'bearer', 'tls', 'custom' and 'tls,basic'.
 	// For 'basic' type, 'username' and 'password' are required fields in AuthSecret.
 	// For 'bearer' type, 'bearerToken' is required field in AuthSecret.
 	// For 'tls' type, 'ca', 'cert' and 'key' are required fields in AuthSecret.
 	// For 'custom' type, 'customAuthHeader' and 'customAuthValue' are required fields in AuthSecret.
+	// For 'tls,basic' type, 'username', 'password', 'ca', 'cert' and 'key' are required fields in AuthSecret.
 	AuthModes PrometheusAuthModes `json:"authModes,omitempty"`
 
 	// +kubebuilder:validation:Optional
