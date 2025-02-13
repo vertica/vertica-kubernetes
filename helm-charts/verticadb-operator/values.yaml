@@ -180,3 +180,23 @@ prometheus:
   # This controls the creation of ClusterRole/ClusterRoleBinding to access
   # the metrics endpoint.
   createProxyRBAC: true
+
+# Pod security context configuration
+securityContext:
+  fsGroup: 65532
+  runAsGroup: 65532
+  runAsNonRoot: true
+  runAsUser: 65532
+  seccompProfile:
+    type: RuntimeDefault
+
+# Container-specific security context configuration
+# ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/
+containerSecurityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+    - ALL
+
+

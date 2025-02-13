@@ -34,70 +34,94 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-// HTTPServerCertGenReconciler will create a secret that has TLS credentials.  This
-// secret will be used to authenticate with the http server.
-type HTTPServerCertGenReconciler struct {
+const (
+	ClientServerTLSSecret = "ClientServerTLSSecret"
+	NMATLSSecret          = "NMATLSSecret"
+)
+
+// TLSServerCertGenReconciler will create a secret that has TLS credentials.  This
+// secret will be used to authenticate with the https server.
+type TLSServerCertGenReconciler struct {
 	VRec *VerticaDBReconciler
 	Vdb  *vapi.VerticaDB // Vdb is the CRD we are acting on.
 	Log  logr.Logger
 }
 
-func MakeHTTPServerCertGenReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger, vdb *vapi.VerticaDB) controllers.ReconcileActor {
-	return &HTTPServerCertGenReconciler{
+func MakeTLSServerCertGenReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger, vdb *vapi.VerticaDB) controllers.ReconcileActor {
+	return &TLSServerCertGenReconciler{
 		VRec: vdbrecon,
 		Vdb:  vdb,
-		Log:  log.WithName("HTTPServerCertGenReconciler"),
+		Log:  log.WithName("TLSServerCertGenReconciler"),
 	}
 }
 
 // Reconcile will create a TLS secret for the http server if one is missing
-func (h *HTTPServerCertGenReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
+func (h *TLSServerCertGenReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
+	secretFieldNameMap := map[string]string{
+		ClientServerTLSSecret: h.Vdb.Spec.ClientServerTLSSecret,
+		NMATLSSecret:          h.Vdb.Spec.NMATLSSecret,
+	}
+	err := error(nil)
+	for secretFieldName, secretName := range secretFieldNameMap {
+		err = h.reconcileOneSecret(secretFieldName, secretName, ctx)
+		if err != nil {
+			break
+		}
+	}
+	return ctrl.Result{}, err
+}
+
+// reconcileOneSecret will create a TLS secret for the http server if one is missing
+func (h *TLSServerCertGenReconciler) reconcileOneSecret(secretFieldName, secretName string,
+	ctx context.Context) error {
 	// If the secret name is set, check that it exists.
-	if h.Vdb.Spec.NMATLSSecret != "" {
+	if secretName != "" {
 		// As a convenience we will regenerate the secret using the same name. But
 		// only do this if it is a k8s secret. We skip if there is a path reference
 		// for a different secret store.
-		if !secrets.IsK8sSecret(h.Vdb.Spec.NMATLSSecret) {
-			h.Log.Info("nmaTLSSecret is set but uses a path reference that isn't for k8s.")
-			return ctrl.Result{}, nil
+		if !secrets.IsK8sSecret(secretName) {
+			h.Log.Info(secretName + " is set but uses a path reference that isn't for k8s.")
+			return nil
 		}
-		nm := names.GenNamespacedName(h.Vdb, h.Vdb.Spec.NMATLSSecret)
+		nm := names.GenNamespacedName(h.Vdb, secretName)
 		secret := corev1.Secret{}
 		err := h.VRec.Client.Get(ctx, nm, &secret)
 		if errors.IsNotFound(err) {
-			h.Log.Info("nmaTLSSecret is set but doesn't exist. Will recreate the secret.", "name", nm)
+			h.Log.Info(secretName+" is set but doesn't exist. Will recreate the secret.", "name", nm)
 		} else if err != nil {
-			return ctrl.Result{},
-				fmt.Errorf("failed while attempting to read the tls secret %s: %w", h.Vdb.Spec.NMATLSSecret, err)
+			return fmt.Errorf("failed while attempting to read the tls secret %s: %w", secretName, err)
 		} else {
 			// Secret is filled in and exists. We can exit.
-			return ctrl.Result{}, nil
+			return err
 		}
 	}
 	caCert, err := security.NewSelfSignedCACertificate()
 	if err != nil {
-		return ctrl.Result{}, err
+		return err
 	}
 	cert, err := security.NewCertificate(caCert, "dbadmin", h.getDNSNames())
 	if err != nil {
-		return ctrl.Result{}, err
+		return err
 	}
-	secret, err := h.createSecret(ctx, cert, caCert)
+	secret, err := h.createSecret(secretFieldName, secretName, ctx, cert, caCert)
 	if err != nil {
-		return ctrl.Result{}, err
+		return err
 	}
-	return ctrl.Result{}, h.setSecretNameInVDB(ctx, secret.ObjectMeta.Name)
+	h.Log.Info("created certificate and secret for " + secret.Name)
+	return h.setSecretNameInVDB(ctx, secretFieldName, secret.ObjectMeta.Name)
 }
 
 // getDNSNames returns the DNS names to include in the certificate that we generate
-func (h *HTTPServerCertGenReconciler) getDNSNames() []string {
+func (h *TLSServerCertGenReconciler) getDNSNames() []string {
 	return []string{
 		fmt.Sprintf("*.%s.svc", h.Vdb.Namespace),
 		fmt.Sprintf("*.%s.svc.cluster.local", h.Vdb.Namespace),
 	}
 }
 
-func (h *HTTPServerCertGenReconciler) createSecret(ctx context.Context, cert, caCert security.Certificate) (*corev1.Secret, error) {
+// createSecret returns a secret that store TLS certificate information
+func (h *TLSServerCertGenReconciler) createSecret(secretFieldName, secretName string, ctx context.Context, cert,
+	caCert security.Certificate) (*corev1.Secret, error) {
 	secret := corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace:       h.Vdb.Namespace,
@@ -115,24 +139,32 @@ func (h *HTTPServerCertGenReconciler) createSecret(ctx context.Context, cert, ca
 	// Either generate a name or use the one already present in the vdb. Using
 	// the name already present is the case where the name was filled in but the
 	// secret didn't exist.
-	if h.Vdb.Spec.NMATLSSecret == "" {
-		secret.GenerateName = fmt.Sprintf("%s-nma-tls-", h.Vdb.Name)
+	if secretName == "" {
+		if secretFieldName == NMATLSSecret {
+			secret.GenerateName = fmt.Sprintf("%s-nma-tls-", h.Vdb.Name)
+		} else {
+			secret.GenerateName = fmt.Sprintf("%s-clientserver-tls-", h.Vdb.Name)
+		}
 	} else {
-		secret.Name = h.Vdb.Spec.NMATLSSecret
+		secret.Name = secretName
 	}
 	err := h.VRec.Client.Create(ctx, &secret)
 	return &secret, err
 }
 
 // setSecretNameInVDB will set the secretName in the vdb to indicate we have created that secret
-func (h *HTTPServerCertGenReconciler) setSecretNameInVDB(ctx context.Context, secretName string) error {
+func (h *TLSServerCertGenReconciler) setSecretNameInVDB(ctx context.Context, secretFieldName, secretName string) error {
 	nm := h.Vdb.ExtractNamespacedName()
 	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 		// Always fetch the latest in case we are in the retry loop
 		if err := h.VRec.Client.Get(ctx, nm, h.Vdb); err != nil {
 			return err
 		}
-		h.Vdb.Spec.NMATLSSecret = secretName
+		if secretFieldName == ClientServerTLSSecret {
+			h.Vdb.Spec.ClientServerTLSSecret = secretName
+		} else if secretFieldName == NMATLSSecret {
+			h.Vdb.Spec.NMATLSSecret = secretName
+		}
 		return h.VRec.Client.Update(ctx, h.Vdb)
 	})
 }
