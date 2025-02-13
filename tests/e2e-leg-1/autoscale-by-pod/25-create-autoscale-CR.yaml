@@ -11,7 +11,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1beta1
+apiVersion: vertica.com/v1
 kind: VerticaAutoscaler
 metadata:
   name: v-autoscale-by-pod-sc1
@@ -20,7 +20,7 @@ spec:
   serviceName: sc1
   scalingGranularity: Pod
 ---
-apiVersion: vertica.com/v1beta1
+apiVersion: vertica.com/v1
 kind: VerticaAutoscaler
 metadata:
   name: v-autoscale-by-pod-sc2
