@@ -17,14 +17,12 @@ package vas
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"reflect"
 
 	"github.com/go-logr/logr"
 	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
-	"github.com/vertica/vertica-kubernetes/api/v1beta1"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/builder"
 	"github.com/vertica/vertica-kubernetes/pkg/cloud"
@@ -141,52 +139,18 @@ func (o *ObjReconciler) createTriggerAuthentications(ctx context.Context) error 
 }
 
 // validateAuthSecret will check if required fields exist for different kind of Prometheus auth mode.
-func (o *ObjReconciler) validateAuthSecret(ctx context.Context, secretData map[string][]byte, authMode v1beta1.PrometheusAuthModes) error {
+func (o *ObjReconciler) validateAuthSecret(ctx context.Context, secretData map[string][]byte, authMode vapi.PrometheusAuthModes) error {
 	switch authMode {
-	case v1beta1.PrometheusAuthBasic:
-		if _, ok := secretData["username"]; !ok {
-			return errors.New("username not found in secret")
-		}
-		if _, ok := secretData["password"]; !ok {
-			return errors.New("password not found in secret")
-		}
-	case v1beta1.PrometheusAuthBearer:
-		if _, ok := secretData["bearerToken"]; !ok {
-			return errors.New("bearerToken not found in secret")
-		}
-	case v1beta1.PrometheusAuthTLS:
-		if _, ok := secretData["ca"]; !ok {
-			return errors.New("ca not found in secret")
-		}
-		if _, ok := secretData["cert"]; !ok {
-			return errors.New("cert not found in secret")
-		}
-		if _, ok := secretData["key"]; !ok {
-			return errors.New("key not found in secret")
-		}
-	case v1beta1.PrometheusAuthCustom:
-		if _, ok := secretData["customAuthHeader"]; !ok {
-			return errors.New("customAuthHeader not found in secret")
-		}
-		if _, ok := secretData["customAuthValue"]; !ok {
-			return errors.New("customAuthValue not found in secret")
-		}
-	case v1beta1.PrometheusAuthTLSAndBasic:
-		if _, ok := secretData["username"]; !ok {
-			return errors.New("username not found in secret")
-		}
-		if _, ok := secretData["password"]; !ok {
-			return errors.New("password not found in secret")
-		}
-		if _, ok := secretData["ca"]; !ok {
-			return errors.New("ca not found in secret")
-		}
-		if _, ok := secretData["cert"]; !ok {
-			return errors.New("cert not found in secret")
-		}
-		if _, ok := secretData["key"]; !ok {
-			return errors.New("key not found in secret")
-		}
+	case vapi.PrometheusAuthBasic:
+		return authMode.ValidatePrometheusAuthBasic(secretData)
+	case vapi.PrometheusAuthBearer:
+		return authMode.ValidatePrometheusAuthBearer(secretData)
+	case vapi.PrometheusAuthTLS:
+		return authMode.ValidatePrometheusAuthTLS(secretData)
+	case vapi.PrometheusAuthCustom:
+		return authMode.ValidatePrometheusAuthCustom(secretData)
+	case vapi.PrometheusAuthTLSAndBasic:
+		return authMode.ValidatePrometheusAuthTLSAndBasic(secretData)
 	}
 	return nil
 }
