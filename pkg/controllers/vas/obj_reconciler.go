@@ -17,15 +17,19 @@ package vas
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"reflect"
 
 	"github.com/go-logr/logr"
 	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
+	"github.com/vertica/vertica-kubernetes/api/v1beta1"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/builder"
+	"github.com/vertica/vertica-kubernetes/pkg/cloud"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
+	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -36,14 +40,24 @@ import (
 // ObjReconciler is a reconciler to handle reconciliation of VerticaAutoscaler-owned
 // objects.
 type ObjReconciler struct {
-	VRec *VerticaAutoscalerReconciler
-	Vas  *vapi.VerticaAutoscaler
-	Log  logr.Logger
+	VRec          *VerticaAutoscalerReconciler
+	Vas           *vapi.VerticaAutoscaler
+	Log           logr.Logger
+	SecretFetcher cloud.VerticaDBSecretFetcher
 }
 
 func MakeObjReconciler(v *VerticaAutoscalerReconciler, vas *vapi.VerticaAutoscaler,
 	log logr.Logger) controllers.ReconcileActor {
-	return &ObjReconciler{VRec: v, Vas: vas, Log: log.WithName("ObjReconciler")}
+	return &ObjReconciler{
+		VRec: v,
+		Vas:  vas,
+		Log:  log.WithName("ObjReconciler"),
+		SecretFetcher: cloud.VerticaDBSecretFetcher{
+			Client:   v.Client,
+			Log:      log.WithName("ObjReconciler"),
+			EVWriter: v.EVRec,
+		},
+	}
 }
 
 // Reconcile will handle creating the hpa/scaledObject if it does not exist or updating
@@ -100,17 +114,78 @@ func (o *ObjReconciler) createTriggerAuthentications(ctx context.Context) error 
 		if metric.IsNil() || !metric.IsPrometheusMetric() || metric.AuthSecret == "" {
 			continue
 		}
+		secretData, res, err := o.SecretFetcher.FetchAllowRequeue(ctx, names.GenAuthSecretName(o.Vas, metric.AuthSecret))
+		if verrors.IsReconcileAborted(res, err) {
+			o.Log.Error(err, "Fail to find secret: %s", metric.AuthSecret)
+			return err
+		}
+		err = o.validateAuthSecret(ctx, secretData, metric.Prometheus.AuthModes)
+		if err != nil {
+			o.Log.Error(err, "Fail to validate secret secret: %s", metric.AuthSecret)
+			return err
+		}
 		taName := names.GenTriggerAuthenticationtName(o.Vas, metric.AuthSecret)
 		curTA := &kedav1alpha1.TriggerAuthentication{}
 		newTA := builder.BuildTriggerAuthentication(o.Vas, &metric, taName)
 
-		err := o.VRec.Client.Get(ctx, taName, curTA)
+		err = o.VRec.Client.Get(ctx, taName, curTA)
 		if err != nil && kerrors.IsNotFound(err) {
 			o.Log.Info("Creating TrigerAuthentication object", "Name", taName)
 			err = createObject(ctx, newTA, o.VRec.Client, o.Vas)
 			if err != nil {
 				return err
 			}
+		}
+	}
+	return nil
+}
+
+// validateAuthSecret will check if required fields exist for different kind of Prometheus auth mode.
+func (o *ObjReconciler) validateAuthSecret(ctx context.Context, secretData map[string][]byte, authMode v1beta1.PrometheusAuthModes) error {
+	switch authMode {
+	case v1beta1.PrometheusAuthBasic:
+		if _, ok := secretData["username"]; !ok {
+			return errors.New("username not found in secret")
+		}
+		if _, ok := secretData["password"]; !ok {
+			return errors.New("password not found in secret")
+		}
+	case v1beta1.PrometheusAuthBearer:
+		if _, ok := secretData["bearerToken"]; !ok {
+			return errors.New("bearerToken not found in secret")
+		}
+	case v1beta1.PrometheusAuthTLS:
+		if _, ok := secretData["ca"]; !ok {
+			return errors.New("ca not found in secret")
+		}
+		if _, ok := secretData["cert"]; !ok {
+			return errors.New("cert not found in secret")
+		}
+		if _, ok := secretData["key"]; !ok {
+			return errors.New("key not found in secret")
+		}
+	case v1beta1.PrometheusAuthCustom:
+		if _, ok := secretData["customAuthHeader"]; !ok {
+			return errors.New("customAuthHeader not found in secret")
+		}
+		if _, ok := secretData["customAuthValue"]; !ok {
+			return errors.New("customAuthValue not found in secret")
+		}
+	case v1beta1.PrometheusAuthTLSAndBasic:
+		if _, ok := secretData["username"]; !ok {
+			return errors.New("username not found in secret")
+		}
+		if _, ok := secretData["password"]; !ok {
+			return errors.New("password not found in secret")
+		}
+		if _, ok := secretData["ca"]; !ok {
+			return errors.New("ca not found in secret")
+		}
+		if _, ok := secretData["cert"]; !ok {
+			return errors.New("cert not found in secret")
+		}
+		if _, ok := secretData["key"]; !ok {
+			return errors.New("key not found in secret")
 		}
 	}
 	return nil
