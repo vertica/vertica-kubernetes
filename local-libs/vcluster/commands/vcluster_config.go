@@ -189,8 +189,8 @@ func loadConfigToViper() error {
 	return nil
 }
 
-// writeConfig can write database information to vertica_cluster.yaml.
-// It will be called in the end of some subcommands that will change the db state.
+// writeConfig can write database information to vertica_cluster.yaml
+// It will be called in the end of some subcommands that will change the db state
 func writeConfig(vdb *vclusterops.VCoordinationDatabase, forceOverwrite bool) error {
 	if dbOptions.ConfigPath == "" {
 		return fmt.Errorf("configuration file path is empty")
@@ -216,8 +216,8 @@ func WriteConfigToPath(vdb *vclusterops.VCoordinationDatabase,
 	return nil
 }
 
-// removeConfig remove the config file vertica_cluster.yaml.
-// It will be called in the end of drop_db subcommands.
+// removeConfig removes the config file vertica_cluster.yaml
+// It will be called in the end of drop_db subcommands
 func removeConfig() error {
 	if dbOptions.ConfigPath == "" {
 		return fmt.Errorf("configuration file path is empty")
@@ -277,7 +277,7 @@ func BuildNodeConfig(vnode *vclusterops.VCoordinationNode,
 	return nodeConfig
 }
 
-// Update give node info based on give vnode info
+// updateNodeConfig gives node info based on given vnode info
 func updateNodeConfig(vnode *vclusterops.VCoordinationNode,
 	vdb *vclusterops.VCoordinationDatabase, n *NodeConfig) {
 	n.Address = vnode.Address
@@ -323,8 +323,8 @@ func UpdateDBConfig(vdb *vclusterops.VCoordinationDatabase, dbConfig *DatabaseCo
 	})
 }
 
-// read reads information from configFilePath to a DatabaseConfig object.
-// It returns any read error encountered.
+// readConfig reads information from configFilePath to a DatabaseConfig object
+// It returns any read error encountered
 func readConfig() (dbConfig *DatabaseConfig, err error) {
 	configFilePath := dbOptions.ConfigPath
 
@@ -386,7 +386,7 @@ func (c *DatabaseConfig) getHosts() []string {
 	return hostList
 }
 
-// getPathPrefix returns catalog, data, and depot prefixes
+// getPathPrefixes returns catalog, data, and depot prefixes
 func (c *DatabaseConfig) getPathPrefixes() (catalogPrefix string,
 	dataPrefix string, depotPrefix string) {
 	if len(c.Nodes) == 0 {

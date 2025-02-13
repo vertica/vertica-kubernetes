@@ -279,7 +279,7 @@ func (vcc VClusterCommands) getVDBFromRunningDBIncludeSandbox(vdb *VCoordination
 		false /*update node state by sending http request to each node*/)
 }
 
-// getVDBFromRunningDB will retrieve db configurations by calling https endpoints of a running db
+// getVDBFromRunningDBImpl will retrieve db configurations by calling https endpoints of a running db
 func (vcc VClusterCommands) getVDBFromRunningDBImpl(vdb *VCoordinationDatabase, options *DatabaseOptions,
 	allowUseSandboxRes bool, sandbox string, updateNodeState bool) error {
 	err := options.setUsePasswordAndValidateUsernameIfNeeded(vcc.Log)
@@ -389,7 +389,7 @@ func getInitiatorInCluster(targetSandbox string, hosts []string,
 	return
 }
 
-// getInitiator will pick an initiator from the up host list to execute https calls
+// getInitiatorFromUpHosts will pick an initiator from the up host list to execute https calls
 // such that the initiator is also among the user provided host list
 func getInitiatorFromUpHosts(upHosts, userProvidedHosts []string) string {
 	// Create a hash set for user-provided hosts
