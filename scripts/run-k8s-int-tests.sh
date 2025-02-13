@@ -86,6 +86,11 @@ function cleanup {
     scripts/capture-scrutinize.sh -n kuttl-test || :
     df -h
     scripts/kind.sh term $CLUSTER_NAME
+
+    if [ ! -z $DOCKER_PRUNE ]
+    then
+        docker system prune --volumes --all --force
+    fi
 }
 
 function setup_env {
