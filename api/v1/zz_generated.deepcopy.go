@@ -811,6 +811,11 @@ func (in *VerticaDBSpec) DeepCopyInto(out *VerticaDBSpec) {
 		*out = new(corev1.SecurityContext)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.NMASecurityContext != nil {
+		in, out := &in.NMASecurityContext, &out.NMASecurityContext
+		*out = new(corev1.SecurityContext)
+		(*in).DeepCopyInto(*out)
+	}
 	if in.PodSecurityContext != nil {
 		in, out := &in.PodSecurityContext, &out.PodSecurityContext
 		*out = new(corev1.PodSecurityContext)

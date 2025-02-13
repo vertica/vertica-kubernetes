@@ -28,6 +28,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -1289,4 +1290,20 @@ func (v *VerticaAutoscaler) GetMetricMap() map[string]*MetricDefinition {
 		mMap[name] = m
 	}
 	return mMap
+}
+
+func IsK8sSecretFound(ctx context.Context, vdb *VerticaDB, k8sClient client.Client, secretName *string,
+	secret *corev1.Secret) (bool, error) {
+	nm := types.NamespacedName{
+		Name:      *secretName,
+		Namespace: vdb.GetNamespace(),
+	}
+	err := k8sClient.Get(ctx, nm, secret)
+	if errors.IsNotFound(err) {
+		return false, nil
+	} else if err != nil {
+		return false, err
+	} else {
+		return true, nil
+	}
 }
