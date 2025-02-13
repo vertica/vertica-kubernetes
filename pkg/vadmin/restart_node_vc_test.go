@@ -64,7 +64,7 @@ var _ = Describe("restart_node_vc", func() {
 	}
 
 	It("should call vcluster-ops library with restart_node task", func() {
-		dispatcher := mockVClusterOpsDispatcher()
+		dispatcher := mockMTLSVClusterOpsDispatcher()
 		dispatcher.VDB.Spec.DBName = TestDBName
 		dispatcher.VDB.Annotations[vmeta.RestartTimeoutAnnotation] = "10"
 		dispatcher.VDB.Spec.NMATLSSecret = "restart-node-test-secret"

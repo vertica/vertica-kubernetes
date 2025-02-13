@@ -66,7 +66,7 @@ var _ = Describe("install_packages_vc", func() {
 	ctx := context.Background()
 
 	It("should call vcluster-ops library with install packages task", func() {
-		dispatcher := mockVClusterOpsDispatcher()
+		dispatcher := mockMTLSVClusterOpsDispatcher()
 		dispatcher.VDB.Spec.DBName = TestDBName
 		dispatcher.VDB.Spec.NMATLSSecret = "install-packages-vc-secret"
 		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.NMATLSSecret)
