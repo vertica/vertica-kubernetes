@@ -1212,10 +1212,22 @@ func makeCanaryQueryProbe(vdb *vapi.VerticaDB) *corev1.Probe {
 	}
 }
 
+// getHTTPServerVersionEndpointProbe returns an HTTPGet probe if vclusterops
+// is enabled
+func getHTTPServerVersionEndpointProbe(vdb *vapi.VerticaDB) *corev1.Probe {
+	if vmeta.UseVClusterOps(vdb.Annotations) {
+		return makeHTTPServerVersionEndpointProbe()
+	}
+	return nil
+}
+
 // makeDefaultReadinessOrStartupProbe will return the default probe to use for
 // the readiness or startup probes. Only returns the default timeouts for the
 // probe. Caller is responsible for adusting those.
 func makeDefaultReadinessOrStartupProbe(vdb *vapi.VerticaDB) *corev1.Probe {
+	if probe := getHTTPServerVersionEndpointProbe(vdb); probe != nil {
+		return probe
+	}
 	// If using GSM, then the superuser password is not a k8s secret. We cannot
 	// use the canary query then because that depends on having the password
 	// mounted in the file system. Default to just checking if the client port
@@ -1229,6 +1241,9 @@ func makeDefaultReadinessOrStartupProbe(vdb *vapi.VerticaDB) *corev1.Probe {
 // makeDefaultLivenessProbe will return the default probe to use for
 // liveness probe
 func makeDefaultLivenessProbe(vdb *vapi.VerticaDB) *corev1.Probe {
+	if probe := getHTTPServerVersionEndpointProbe(vdb); probe != nil {
+		return probe
+	}
 	// We check if the TCP client port is open. We used this approach,
 	// rather than issuing 'select 1' like readinessProbe because we need
 	// to minimize variability. If the livenessProbe fails, the pod is
