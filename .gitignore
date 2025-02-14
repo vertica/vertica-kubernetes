@@ -78,3 +78,6 @@ bundle/
 
 # Generated file from 'go generate'
 cmd/operator/*.go-generate.txt
+
+# Generated prometheus tls certs
+prometheus/certs/
