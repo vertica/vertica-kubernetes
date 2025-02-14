@@ -25,6 +25,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/secrets"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -38,6 +39,7 @@ type VerticaDBSecretFetcher struct {
 	Log      logr.Logger
 	EVWriter events.EVWriter
 	VDB      *vapi.VerticaDB
+	Obj      runtime.Object
 }
 
 // Fetch reads the secret from a secret store. The contents of the secret is successful.
@@ -78,7 +80,11 @@ func (v *VerticaDBSecretFetcher) GetSecret(ctx context.Context, name types.Names
 func (v *VerticaDBSecretFetcher) handleFetchError(secretName types.NamespacedName, err error) (map[string][]byte, ctrl.Result, error) {
 	nfe := &secrets.NotFoundError{}
 	if ok := errors.As(err, &nfe); ok {
-		v.EVWriter.Eventf(v.VDB, corev1.EventTypeWarning, events.ObjectNotFound,
+		runtimeObj := v.Obj
+		if runtimeObj == nil {
+			runtimeObj = runtime.Object(v.VDB)
+		}
+		v.EVWriter.Eventf(runtimeObj, corev1.EventTypeWarning, events.ObjectNotFound,
 			"Could not find the secret '%s'", secretName.Name)
 		return nil, ctrl.Result{Requeue: true}, nil
 	}
