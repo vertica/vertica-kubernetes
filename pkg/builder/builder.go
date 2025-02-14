@@ -1010,32 +1010,8 @@ func buildTriggerAuthForCustom(metric *v1beta1.ScaleTrigger) []kedav1alpha1.Auth
 func buildTriggerAuthForTLSAndBasic(metric *v1beta1.ScaleTrigger) []kedav1alpha1.AuthSecretTargetRef {
 	authTargets := []kedav1alpha1.AuthSecretTargetRef{}
 	// For 'tls,basic' type, 'username', 'password', 'ca', 'cert' and 'key' are required fields in AuthSecret.
-	authTargets = append(authTargets,
-		kedav1alpha1.AuthSecretTargetRef{
-			Parameter: v1beta1.PrometheusSecretKeyUsername,
-			Name:      metric.AuthSecret,
-			Key:       v1beta1.PrometheusSecretKeyUsername,
-		},
-		kedav1alpha1.AuthSecretTargetRef{
-			Parameter: v1beta1.PrometheusSecretKeyPassword,
-			Name:      metric.AuthSecret,
-			Key:       v1beta1.PrometheusSecretKeyPassword,
-		},
-		kedav1alpha1.AuthSecretTargetRef{
-			Parameter: v1beta1.PrometheusSecretKeyCa,
-			Name:      metric.AuthSecret,
-			Key:       v1beta1.PrometheusSecretKeyCa,
-		},
-		kedav1alpha1.AuthSecretTargetRef{
-			Parameter: v1beta1.PrometheusSecretKeyCert,
-			Name:      metric.AuthSecret,
-			Key:       v1beta1.PrometheusSecretKeyCert,
-		},
-		kedav1alpha1.AuthSecretTargetRef{
-			Parameter: v1beta1.PrometheusSecretKeyKey,
-			Name:      metric.AuthSecret,
-			Key:       v1beta1.PrometheusSecretKeyKey,
-		})
+	authTargets = append(authTargets, buildTriggerAuthForBasic(metric)...)
+	authTargets = append(authTargets, buildTriggerAuthForTLS(metric)...)
 	return authTargets
 }
 
