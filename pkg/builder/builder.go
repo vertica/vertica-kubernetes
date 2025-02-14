@@ -831,8 +831,8 @@ func BuildHorizontalPodAutoscaler(nm types.NamespacedName, vas *vapi.VerticaAuto
 		},
 		Spec: autoscalingv2.HorizontalPodAutoscalerSpec{
 			ScaleTargetRef: autoscalingv2.CrossVersionObjectReference{
-				APIVersion: v1beta1.GroupVersion.String(),
-				Kind:       v1beta1.VerticaAutoscalerKind,
+				APIVersion: vapi.GroupVersion.String(),
+				Kind:       vapi.VerticaAutoscalerKind,
 				Name:       vas.Name,
 			},
 			MinReplicas: vas.GetMinReplicas(),
@@ -853,8 +853,8 @@ func BuildScaledObject(nm types.NamespacedName, vas *vapi.VerticaAutoscaler) *ke
 		},
 		Spec: kedav1alpha1.ScaledObjectSpec{
 			ScaleTargetRef: &kedav1alpha1.ScaleTarget{
-				APIVersion: v1beta1.GroupVersion.String(),
-				Kind:       v1beta1.VerticaAutoscalerKind,
+				APIVersion: vapi.GroupVersion.String(),
+				Kind:       vapi.VerticaAutoscalerKind,
 				Name:       vas.Name,
 			},
 			MinReplicaCount: so.MinReplicas,
