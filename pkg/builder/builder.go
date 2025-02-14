@@ -100,7 +100,7 @@ const (
 	passwordSecretNameEnv      = "PASSWORD_SECRET_NAME"
 	// The path to the scrutinize tarball
 	scrutinizeTarball = "SCRUTINIZE_TARBALL"
-	passwordMountName = "password"
+	passwordMountName = v1beta1.PrometheusSecretKeyPassword
 
 	// Client proxy config file name
 	vProxyConfigFile = "config.yaml"
@@ -940,14 +940,14 @@ func buildTriggerAuthForBasic(metric *v1beta1.ScaleTrigger) []kedav1alpha1.AuthS
 	// For 'basic' type, 'username' and 'password' are required fields in AuthSecret.
 	authTargets = append(authTargets,
 		kedav1alpha1.AuthSecretTargetRef{
-			Parameter: "username",
+			Parameter: v1beta1.PrometheusSecretKeyUsername,
 			Name:      metric.AuthSecret,
-			Key:       "username",
+			Key:       v1beta1.PrometheusSecretKeyUsername,
 		},
 		kedav1alpha1.AuthSecretTargetRef{
-			Parameter: "password",
+			Parameter: v1beta1.PrometheusSecretKeyPassword,
 			Name:      metric.AuthSecret,
-			Key:       "password",
+			Key:       v1beta1.PrometheusSecretKeyPassword,
 		})
 	return authTargets
 }
@@ -958,9 +958,9 @@ func buildTriggerAuthForBearer(metric *v1beta1.ScaleTrigger) []kedav1alpha1.Auth
 	// For 'bearer' type, 'bearerToken' is required field in AuthSecret.
 	authTargets = append(authTargets,
 		kedav1alpha1.AuthSecretTargetRef{
-			Parameter: "bearerToken",
+			Parameter: v1beta1.PrometheusSecretKeyBearerToken,
 			Name:      metric.AuthSecret,
-			Key:       "bearerToken",
+			Key:       v1beta1.PrometheusSecretKeyBearerToken,
 		})
 	return authTargets
 }
@@ -971,19 +971,19 @@ func buildTriggerAuthForTLS(metric *v1beta1.ScaleTrigger) []kedav1alpha1.AuthSec
 	// For 'tls' type, 'ca', 'cert' and 'key' are required fields in AuthSecret.
 	authTargets = append(authTargets,
 		kedav1alpha1.AuthSecretTargetRef{
-			Parameter: "ca",
+			Parameter: v1beta1.PrometheusSecretKeyCa,
 			Name:      metric.AuthSecret,
-			Key:       "ca",
+			Key:       v1beta1.PrometheusSecretKeyCa,
 		},
 		kedav1alpha1.AuthSecretTargetRef{
-			Parameter: "cert",
+			Parameter: v1beta1.PrometheusSecretKeyCert,
 			Name:      metric.AuthSecret,
-			Key:       "cert",
+			Key:       v1beta1.PrometheusSecretKeyCert,
 		},
 		kedav1alpha1.AuthSecretTargetRef{
-			Parameter: "key",
+			Parameter: v1beta1.PrometheusSecretKeyKey,
 			Name:      metric.AuthSecret,
-			Key:       "key",
+			Key:       v1beta1.PrometheusSecretKeyKey,
 		})
 	return authTargets
 }
@@ -994,14 +994,14 @@ func buildTriggerAuthForCustom(metric *v1beta1.ScaleTrigger) []kedav1alpha1.Auth
 	// For 'custom' type, 'customAuthHeader' and 'customAuthValue' are required fields in AuthSecret.
 	authTargets = append(authTargets,
 		kedav1alpha1.AuthSecretTargetRef{
-			Parameter: "customAuthHeader",
+			Parameter: v1beta1.PrometheusSecretKeyCustomAuthHeader,
 			Name:      metric.AuthSecret,
-			Key:       "customAuthHeader",
+			Key:       v1beta1.PrometheusSecretKeyCustomAuthHeader,
 		},
 		kedav1alpha1.AuthSecretTargetRef{
-			Parameter: "customAuthValue",
+			Parameter: v1beta1.PrometheusSecretKeyCustomAuthValue,
 			Name:      metric.AuthSecret,
-			Key:       "customAuthValue",
+			Key:       v1beta1.PrometheusSecretKeyCustomAuthValue,
 		})
 	return authTargets
 }
@@ -1012,29 +1012,29 @@ func buildTriggerAuthForTLSAndBasic(metric *v1beta1.ScaleTrigger) []kedav1alpha1
 	// For 'tls,basic' type, 'username', 'password', 'ca', 'cert' and 'key' are required fields in AuthSecret.
 	authTargets = append(authTargets,
 		kedav1alpha1.AuthSecretTargetRef{
-			Parameter: "username",
+			Parameter: v1beta1.PrometheusSecretKeyUsername,
 			Name:      metric.AuthSecret,
-			Key:       "username",
+			Key:       v1beta1.PrometheusSecretKeyUsername,
 		},
 		kedav1alpha1.AuthSecretTargetRef{
-			Parameter: "password",
+			Parameter: v1beta1.PrometheusSecretKeyPassword,
 			Name:      metric.AuthSecret,
-			Key:       "password",
+			Key:       v1beta1.PrometheusSecretKeyPassword,
 		},
 		kedav1alpha1.AuthSecretTargetRef{
-			Parameter: "ca",
+			Parameter: v1beta1.PrometheusSecretKeyCa,
 			Name:      metric.AuthSecret,
-			Key:       "ca",
+			Key:       v1beta1.PrometheusSecretKeyCa,
 		},
 		kedav1alpha1.AuthSecretTargetRef{
-			Parameter: "cert",
+			Parameter: v1beta1.PrometheusSecretKeyCert,
 			Name:      metric.AuthSecret,
-			Key:       "cert",
+			Key:       v1beta1.PrometheusSecretKeyCert,
 		},
 		kedav1alpha1.AuthSecretTargetRef{
-			Parameter: "key",
+			Parameter: v1beta1.PrometheusSecretKeyKey,
 			Name:      metric.AuthSecret,
-			Key:       "key",
+			Key:       v1beta1.PrometheusSecretKeyKey,
 		})
 	return authTargets
 }
