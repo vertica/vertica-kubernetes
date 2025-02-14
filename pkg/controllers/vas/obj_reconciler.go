@@ -53,6 +53,7 @@ func MakeObjReconciler(v *VerticaAutoscalerReconciler, vas *vapi.VerticaAutoscal
 		SecretFetcher: cloud.VerticaDBSecretFetcher{
 			Client:   v.Client,
 			Log:      log.WithName("ObjReconciler"),
+			Obj:      vas,
 			EVWriter: v.EVRec,
 		},
 	}
@@ -117,7 +118,7 @@ func (o *ObjReconciler) createTriggerAuthentications(ctx context.Context) error 
 			o.Log.Error(err, "Fail to find secret: %s", metric.AuthSecret)
 			return err
 		}
-		err = o.validateAuthSecret(ctx, secretData, metric.Prometheus.AuthModes)
+		err = o.validateAuthSecret(secretData, metric.Prometheus.AuthModes)
 		if err != nil {
 			o.Log.Error(err, "Invalid secret %s for %s authentication", metric.AuthSecret, metric.Prometheus.AuthModes)
 			return err
@@ -139,7 +140,7 @@ func (o *ObjReconciler) createTriggerAuthentications(ctx context.Context) error 
 }
 
 // validateAuthSecret will check if required fields exist for different kind of Prometheus auth mode.
-func (o *ObjReconciler) validateAuthSecret(ctx context.Context, secretData map[string][]byte, authMode vapi.PrometheusAuthModes) error {
+func (o *ObjReconciler) validateAuthSecret(secretData map[string][]byte, authMode vapi.PrometheusAuthModes) error {
 	switch authMode {
 	case vapi.PrometheusAuthBasic:
 		return authMode.ValidatePrometheusAuthBasic(secretData)
