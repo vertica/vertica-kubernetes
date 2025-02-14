@@ -934,7 +934,7 @@ func BuildTriggerAuthentication(vas *v1beta1.VerticaAutoscaler,
 	}
 }
 
-// BuildTriggerAuthentication builds a list of manifest for a keda AuthSecretTargetRef.
+// buildTriggerAuthForBasic builds a list of manifest for a keda AuthSecretTargetRef.
 func buildTriggerAuthForBasic(metric *v1beta1.ScaleTrigger) []kedav1alpha1.AuthSecretTargetRef {
 	authTargets := []kedav1alpha1.AuthSecretTargetRef{}
 	// For 'basic' type, 'username' and 'password' are required fields in AuthSecret.
