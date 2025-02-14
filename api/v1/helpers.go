@@ -51,7 +51,6 @@ const (
 	VerticaDBNameKey = "verticaDBName"
 	SandboxNameKey   = "sandboxName"
 	LegacyVersion    = "v23.4.0"
-	MTLSVersion      = "v25.2.0"
 )
 
 // ExtractNamespacedName gets the name and returns it as a NamespacedName
@@ -100,7 +99,7 @@ func MakeVDB() *VerticaDB {
 // MakeVDB is a helper that constructs a fully formed VerticaDB struct using the sample name.
 // This is intended for test purposes.
 func MakeMTLSVDB() *VerticaDB {
-	return MakeVersionedVDB("v25.2.0")
+	return MakeVersionedVDB(NMATLSCertRotationMinVersion)
 }
 
 // MakeVDB is a helper that constructs a fully formed VerticaDB struct using the sample name.
