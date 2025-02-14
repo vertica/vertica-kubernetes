@@ -197,10 +197,10 @@ func (v *VerticaAutoscaler) GetHPAMetrics() []autoscalingv2.MetricSpec {
 
 // ValidatePrometheusAuthBasic will check if required key exists for type PrometheusAuthBasic
 func (authmode *PrometheusAuthModes) ValidatePrometheusAuthBasic(secretData map[string][]byte) error {
-	if _, ok := secretData["username"]; !ok {
+	if _, ok := secretData[PrometheusSecretKeyUsername]; !ok {
 		return errors.New("username not found in secret")
 	}
-	if _, ok := secretData["password"]; !ok {
+	if _, ok := secretData[PrometheusSecretKeyPassword]; !ok {
 		return errors.New("password not found in secret")
 	}
 	return nil
@@ -208,7 +208,7 @@ func (authmode *PrometheusAuthModes) ValidatePrometheusAuthBasic(secretData map[
 
 // ValidatePrometheusAuthBearer will check if required key exists for type PrometheusAuthBearer
 func (authmode *PrometheusAuthModes) ValidatePrometheusAuthBearer(secretData map[string][]byte) error {
-	if _, ok := secretData["bearerToken"]; !ok {
+	if _, ok := secretData[PrometheusSecretKeyBearerToken]; !ok {
 		return errors.New("bearerToken not found in secret")
 	}
 	return nil
@@ -216,13 +216,13 @@ func (authmode *PrometheusAuthModes) ValidatePrometheusAuthBearer(secretData map
 
 // ValidatePrometheusAuthTLS will check if required key exists for type PrometheusAuthTLS
 func (authmode *PrometheusAuthModes) ValidatePrometheusAuthTLS(secretData map[string][]byte) error {
-	if _, ok := secretData["ca"]; !ok {
+	if _, ok := secretData[PrometheusSecretKeyCa]; !ok {
 		return errors.New("ca not found in secret")
 	}
-	if _, ok := secretData["cert"]; !ok {
+	if _, ok := secretData[PrometheusSecretKeyCert]; !ok {
 		return errors.New("cert not found in secret")
 	}
-	if _, ok := secretData["key"]; !ok {
+	if _, ok := secretData[PrometheusSecretKeyKey]; !ok {
 		return errors.New("key not found in secret")
 	}
 	return nil
@@ -230,10 +230,10 @@ func (authmode *PrometheusAuthModes) ValidatePrometheusAuthTLS(secretData map[st
 
 // ValidatePrometheusAuthCustom will check if required key exists for type PrometheusAuthCustom
 func (authmode *PrometheusAuthModes) ValidatePrometheusAuthCustom(secretData map[string][]byte) error {
-	if _, ok := secretData["customAuthHeader"]; !ok {
+	if _, ok := secretData[PrometheusSecretKeyCustomAuthHeader]; !ok {
 		return errors.New("customAuthHeader not found in secret")
 	}
-	if _, ok := secretData["customAuthValue"]; !ok {
+	if _, ok := secretData[PrometheusSecretKeyCustomAuthValue]; !ok {
 		return errors.New("customAuthValue not found in secret")
 	}
 	return nil
@@ -241,20 +241,11 @@ func (authmode *PrometheusAuthModes) ValidatePrometheusAuthCustom(secretData map
 
 // ValidatePrometheusAuthTLSAndBasic will check if required key exists for type PrometheusAuthTLSAndBasic
 func (authmode *PrometheusAuthModes) ValidatePrometheusAuthTLSAndBasic(secretData map[string][]byte) error {
-	if _, ok := secretData["username"]; !ok {
-		return errors.New("username not found in secret")
+	if err := authmode.ValidatePrometheusAuthBasic(secretData); err != nil {
+		return err
 	}
-	if _, ok := secretData["password"]; !ok {
-		return errors.New("password not found in secret")
-	}
-	if _, ok := secretData["ca"]; !ok {
-		return errors.New("ca not found in secret")
-	}
-	if _, ok := secretData["cert"]; !ok {
-		return errors.New("cert not found in secret")
-	}
-	if _, ok := secretData["key"]; !ok {
-		return errors.New("key not found in secret")
+	if err := authmode.ValidatePrometheusAuthTLS(secretData); err != nil {
+		return err
 	}
 	return nil
 }

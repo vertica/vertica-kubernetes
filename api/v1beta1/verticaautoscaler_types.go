@@ -241,6 +241,17 @@ const (
 	PrometheusAuthTLSAndBasic PrometheusAuthModes = "tls,basic"
 )
 
+const (
+	PrometheusSecretKeyUsername         string = "username"
+	PrometheusSecretKeyPassword         string = "password"
+	PrometheusSecretKeyBearerToken      string = "bearerToken"
+	PrometheusSecretKeyCa               string = "ca"
+	PrometheusSecretKeyCert             string = "cert"
+	PrometheusSecretKeyKey              string = "key"
+	PrometheusSecretKeyCustomAuthHeader string = "customAuthHeader"
+	PrometheusSecretKeyCustomAuthValue  string = "customAuthValue"
+)
+
 type PrometheusSpec struct {
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// The URL of the Prometheus server.
