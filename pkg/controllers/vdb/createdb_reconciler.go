@@ -250,6 +250,11 @@ func (c *CreateDBReconciler) generatePostDBCreateSQL(ctx context.Context, initia
 			c.Vdb.Spec.ClientServerTLSMode))
 
 		sb.WriteString(`ALTER TLS CONFIGURATION https CERTIFICATE https_cert_0 ADD CA CERTIFICATES https_ca_cert_0 TLSMODE 'TRY_VERIFY';`)
+
+		sb.WriteString(`ALTER TLS CONFIGURATION https CERTIFICATE https_cert_0 REMOVE CA CERTIFICATES httpServerRootca;`)
+		sb.WriteString(`ALTER TLS CONFIGURATION server CERTIFICATE server_cert REMOVE CA CERTIFICATES httpServerRootca;`)
+		sb.WriteString(`CREATE AUTHENTICATION auth_tls METHOD 'tls' HOST TLS '0.0.0.0/0';`)
+		sb.WriteString(`GRANT AUTHENTICATION auth_tls TO PUBLIC;`)
 	}
 	_, _, err := c.PRunner.ExecInPod(ctx, initiatorPod, names.ServerContainer,
 		"bash", "-c", "cat > "+PostDBCreateSQLFile+"<<< \""+sb.String()+"\"",
