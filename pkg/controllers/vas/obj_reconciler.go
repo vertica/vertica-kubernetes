@@ -119,7 +119,7 @@ func (o *ObjReconciler) createTriggerAuthentications(ctx context.Context) error 
 		}
 		err = o.validateAuthSecret(ctx, secretData, metric.Prometheus.AuthModes)
 		if err != nil {
-			o.Log.Error(err, "Fail to validate secret secret: %s", metric.AuthSecret)
+			o.Log.Error(err, "Invalid secret %s for %s authentication", metric.AuthSecret, metric.Prometheus.AuthModes)
 			return err
 		}
 		taName := names.GenTriggerAuthenticationtName(o.Vas, metric.AuthSecret)
