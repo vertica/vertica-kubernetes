@@ -227,9 +227,6 @@ func (c *CmdClusterHealth) Run(vcc vclusterops.ClusterCommands) error {
 		return fmt.Errorf("failed to marshal the traceback result, details: %w", err)
 	}
 
-	vcc.DisplayInfo("Successfully build the cascade graph for the slow events")
-
-	// output the result to console or file
 	c.writeCmdOutputToFile(globals.file, bytes, vcc.GetLog())
 	vcc.LogInfo("Slow event traceback: ", "slow events", string(bytes))
 
