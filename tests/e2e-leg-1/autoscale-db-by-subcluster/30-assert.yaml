@@ -30,7 +30,7 @@ kind: Service
 metadata:
   name: v-autoscale-db-by-subcluster-as
 ---
-apiVersion: vertica.com/v1beta1
+apiVersion: vertica.com/v1
 kind: VerticaAutoscaler
 metadata:
   name: v-autoscale-db

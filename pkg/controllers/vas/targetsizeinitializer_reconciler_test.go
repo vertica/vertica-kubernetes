@@ -41,17 +41,17 @@ var _ = Describe("targetsizeinitializer_reconcile", func() {
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
 
-		vas := v1beta1.MakeVAS()
+		vas := vapi.MakeVAS()
 		vas.Spec.ServiceName = ServiceName
 		vas.Spec.TargetSize = 0
 		v1beta1_test.CreateVAS(ctx, k8sClient, vas)
 		defer v1beta1_test.DeleteVAS(ctx, k8sClient, vas)
 
-		req := ctrl.Request{NamespacedName: v1beta1.MakeVASName()}
+		req := ctrl.Request{NamespacedName: vapi.MakeVASName()}
 		Expect(vasRec.Reconcile(ctx, req)).Should(Equal(ctrl.Result{}))
 
 		fetchVas := &v1beta1.VerticaAutoscaler{}
-		nm := v1beta1.MakeVASName()
+		nm := vapi.MakeVASName()
 		Expect(k8sClient.Get(ctx, nm, fetchVas)).Should(Succeed())
 		Expect(fetchVas.Spec.TargetSize).Should(Equal(int32(25)))
 		Expect(len(fetchVas.Status.Conditions)).Should(Equal(1))
