@@ -89,7 +89,7 @@ function cleanup {
 
     if [ ! -z $DOCKER_PRUNE ]
     then
-        docker system prune --volumes --all --force
+        docker system prune --all --force &> /dev/null || true
     fi
 }
 
