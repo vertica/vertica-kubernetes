@@ -22,6 +22,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	v1beta1 "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	"github.com/vertica/vertica-kubernetes/pkg/builder"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/v1beta1_test"
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
@@ -97,31 +98,31 @@ var _ = Describe("obj_reconcile", func() {
 		Expect(*so.Spec.MaxReplicaCount).Should(Equal(newRep))
 	})
 
-	// It("should create triggerAuthentication object with auth basic method", func() {
-	// 	vas := v1beta1.MakeVASWithMetrics()
-	// 	vas.Spec.CustomAutoscaler.Hpa = nil
-	// 	vas.Spec.CustomAutoscaler.Type = v1beta1.ScaledObject
-	// 	vas.Spec.CustomAutoscaler.ScaledObject = v1beta1.MakeScaledObjectSpec()
-	// 	vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].Prometheus.AuthModes = v1beta1.PrometheusAuthBasic
-	// 	vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].AuthSecret = "authsecret"
-	// 	v1beta1_test.CreateVAS(ctx, k8sClient, vas)
-	// 	defer v1beta1_test.DeleteVAS(ctx, k8sClient, vas)
+	It("should create triggerAuthentication object with auth basic method", func() {
+		vas := v1beta1.MakeVASWithMetrics()
+		vas.Spec.CustomAutoscaler.Hpa = nil
+		vas.Spec.CustomAutoscaler.Type = v1beta1.ScaledObject
+		vas.Spec.CustomAutoscaler.ScaledObject = v1beta1.MakeScaledObjectSpec()
+		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].Prometheus.AuthModes = v1beta1.PrometheusAuthBasic
+		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].AuthSecret = "authsecret"
+		v1beta1_test.CreateVAS(ctx, k8sClient, vas)
+		defer v1beta1_test.DeleteVAS(ctx, k8sClient, vas)
 
-	// 	secretName := names.GenAuthSecretName(vas, vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].AuthSecret)
-	// 	secret := builder.BuildSecretBase(secretName)
-	// 	secret.Data["username"] = []byte("username")
-	// 	secret.Data["password"] = []byte("password")
-	// 	Expect(k8sClient.Create(ctx, secret)).Should(Succeed())
-	// 	defer deleteSecret(ctx, vas, "authsecret")
+		secretName := names.GenAuthSecretName(vas, vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].AuthSecret)
+		secret := builder.BuildSecretBase(secretName)
+		secret.Data["username"] = []byte("username")
+		secret.Data["password"] = []byte("password")
+		Expect(k8sClient.Create(ctx, secret)).Should(Succeed())
+		defer deleteSecret(ctx, vas, "authsecret")
 
-	// 	r := MakeObjReconciler(vasRec, vas, logger)
-	// 	res, err := r.Reconcile(ctx, &ctrl.Request{})
-	// 	defer v1beta1_test.DeleteScaledObject(ctx, k8sClient, vas)
-	// 	Expect(res).Should(Equal(ctrl.Result{}))
-	// 	Expect(err).Should(Succeed())
+		r := MakeObjReconciler(vasRec, vas, logger)
+		res, err := r.Reconcile(ctx, &ctrl.Request{})
+		defer v1beta1_test.DeleteScaledObject(ctx, k8sClient, vas)
+		Expect(res).Should(Equal(ctrl.Result{}))
+		Expect(err).Should(Succeed())
 
-	// 	ta := &kedav1alpha1.TriggerAuthentication{}
-	// 	taName := names.GenTriggerAuthenticationtName(vas, vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].AuthSecret)
-	// 	Expect(k8sClient.Get(ctx, taName, ta)).Should(Succeed())
-	// })
+		ta := &kedav1alpha1.TriggerAuthentication{}
+		taName := names.GenTriggerAuthenticationtName(vas, vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].AuthSecret)
+		Expect(k8sClient.Get(ctx, taName, ta)).Should(Succeed())
+	})
 })
