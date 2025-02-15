@@ -16,12 +16,10 @@
 package vclusterops
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net/url"
-	"os"
+
 	"strings"
 )
 
@@ -34,14 +32,11 @@ type httpsSlowEventsOp struct {
 	transactionID string
 	nodeName      string
 	eventDesc     string
-	// when debug mode is on, this op will return stub data
-	debug bool
 }
 
 func makeHTTPSSlowEventOp(upHosts []string,
 	startTime, endTime, threadID, phaseDuration string,
-	transactionID, nodeName, eventDesc string,
-	debug bool) httpsSlowEventsOp {
+	transactionID, nodeName, eventDesc string) httpsSlowEventsOp {
 	op := httpsSlowEventsOp{}
 	op.name = "HTTPSSlowEventOp"
 	op.description = "Check slow events"
@@ -53,20 +48,17 @@ func makeHTTPSSlowEventOp(upHosts []string,
 	op.threadID = threadID
 	op.phaseDuration = phaseDuration
 	op.eventDesc = eventDesc
-	op.debug = debug
 	return op
 }
 
 func makeHTTPSSlowEventOpByThreadID(upHosts []string,
-	startTime, endTime, threadID string,
-	debug bool) httpsSlowEventsOp {
-	return makeHTTPSSlowEventOp(upHosts, startTime, endTime, threadID, "", "", "", "", debug)
+	startTime, endTime, threadID string) httpsSlowEventsOp {
+	return makeHTTPSSlowEventOp(upHosts, startTime, endTime, threadID, "", "", "", "")
 }
 
 func makeHTTPSSlowEventOpByKeyword(upHosts []string,
-	startTime, endTime, keyword string,
-	debug bool) httpsSlowEventsOp {
-	return makeHTTPSSlowEventOp(upHosts, startTime, endTime, "", keyword, "", "", "", debug)
+	startTime, endTime, keyword string) httpsSlowEventsOp {
+	return makeHTTPSSlowEventOp(upHosts, startTime, endTime, "", keyword, "", "", "")
 }
 
 const (
@@ -110,6 +102,7 @@ func (op *httpsSlowEventsOp) setupClusterHTTPRequest(hosts []string) error {
 			queryParts = append(queryParts, fmt.Sprintf("%s=%s", key, value))
 		}
 
+		// We use string concatenation to build the url to avoid query param encoding of the timestamp fields
 		// Join query parts to form a query string
 		queryString := url.PathEscape(strings.Join(queryParts, "&"))
 		httpRequest.buildHTTPSEndpoint(fmt.Sprintf("%s?%s", baseURL, queryString))
@@ -129,10 +122,6 @@ func (op *httpsSlowEventsOp) prepare(execContext *opEngineExecContext) error {
 }
 
 func (op *httpsSlowEventsOp) execute(execContext *opEngineExecContext) error {
-	if op.debug {
-		return op.executeOnStub(execContext)
-	}
-
 	if err := op.runExecute(execContext); err != nil {
 		return err
 	}
@@ -183,49 +172,4 @@ func (op *httpsSlowEventsOp) processResult(execContext *opEngineExecContext) err
 	}
 
 	return allErrs
-}
-
-func (op *httpsSlowEventsOp) executeOnStub(execContext *opEngineExecContext) error {
-	// TODO: we take this location from input, but this place would be fine
-	// because we can any way write files from outside to the test containers
-	location := "/opt/vertica/tmp/slow_events_sample.json"
-	jsonFile, err := os.Open(location)
-	if err != nil {
-		return fmt.Errorf("failed to open slow events stub file at %s", location)
-	}
-
-	defer jsonFile.Close()
-
-	var slowEventList []dcSlowEvent
-	bytes, _ := io.ReadAll(jsonFile)
-	err = json.Unmarshal(bytes, &slowEventList)
-	if err != nil {
-		return err
-	}
-
-	var filteredEvents []dcSlowEvent
-	for idx := range slowEventList {
-		event := slowEventList[idx]
-		if op.startTime != "" {
-			if event.Time < op.startTime {
-				continue
-			}
-		}
-		if op.endTime != "" {
-			if event.Time > op.endTime {
-				continue
-			}
-		}
-		if op.threadID != "" {
-			if event.ThreadID != op.threadID {
-				continue
-			}
-		}
-		filteredEvents = append(filteredEvents, event)
-	}
-
-	execContext.slowEvents = new(dcSlowEvents)
-	execContext.slowEvents.SlowEventList = filteredEvents
-
-	return nil
 }

@@ -25,14 +25,12 @@ import (
 type httpsSessionStartsOp struct {
 	opBase
 
-	// when debug mode is on, this op will return stub data
 	sessionID string
 	startTime string
 	endTime   string
-	debug     bool
 }
 
-func makeHTTPSSessionStartsOp(upHosts []string, sessionID, startTime, endTime string, debug bool) httpsSessionStartsOp {
+func makeHTTPSSessionStartsOp(upHosts []string, sessionID, startTime, endTime string) httpsSessionStartsOp {
 	op := httpsSessionStartsOp{}
 	op.name = "HTTPSSessionStartsOp"
 	op.description = "Check Session Starts"
@@ -40,7 +38,6 @@ func makeHTTPSSessionStartsOp(upHosts []string, sessionID, startTime, endTime st
 	op.sessionID = sessionID
 	op.startTime = startTime
 	op.endTime = endTime
-	op.debug = debug
 	return op
 }
 
@@ -70,7 +67,7 @@ func (op *httpsSessionStartsOp) setupClusterHTTPRequest(hosts []string) error {
 		for key, value := range queryParams {
 			queryParts = append(queryParts, fmt.Sprintf("%s=%s", key, value))
 		}
-
+		// We use string concatenation to build the url to avoid query param encoding of the timestamp fields
 		// Join query parts to form a query string
 		queryString := url.PathEscape(strings.Join(queryParts, "&"))
 		httpRequest.buildHTTPSEndpoint(fmt.Sprintf("%s?%s", baseURL, queryString))

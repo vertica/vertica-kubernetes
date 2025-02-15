@@ -27,16 +27,13 @@ type httpsTransactionStartsOp struct {
 	transactionID string
 	startTime     string
 	endTime       string
-
-	// when debug mode is on, this op will return stub data
-	debug bool
 }
 
 const (
 	transactionStartsURL = "dc/transaction-starts"
 )
 
-func makeHTTPSTransactionStartsOp(upHosts []string, transactionID, startTime, endTime string, debug bool) httpsTransactionStartsOp {
+func makeHTTPSTransactionStartsOp(upHosts []string, transactionID, startTime, endTime string) httpsTransactionStartsOp {
 	op := httpsTransactionStartsOp{}
 	op.name = "HTTPSTransactionStartsOp"
 	op.description = "Check transaction starts"
@@ -44,7 +41,6 @@ func makeHTTPSTransactionStartsOp(upHosts []string, transactionID, startTime, en
 	op.transactionID = transactionID
 	op.startTime = startTime
 	op.endTime = endTime
-	op.debug = debug
 	return op
 }
 
@@ -73,6 +69,7 @@ func (op *httpsTransactionStartsOp) setupClusterHTTPRequest(hosts []string) erro
 			queryParts = append(queryParts, fmt.Sprintf("%s=%s", key, value))
 		}
 
+		// We use string concatenation to build the url to avoid query param encoding of the timestamp fields
 		// Join query parts to form a query string
 		queryString := url.PathEscape(strings.Join(queryParts, "&"))
 		httpRequest.buildHTTPSEndpoint(fmt.Sprintf("%s?%s", baseURL, queryString))
