@@ -485,8 +485,8 @@ jobs:
           dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}
           vlogger-image: ${{ needs.build.outputs.vlogger-image }}
           operator-image: ${{ needs.build.outputs.operator-image }}
-          vertica-image: "opentext/vertica-k8s:24.1.0-0-minimal"
-          artifact-suffix: "-24.1.0-release"
+          vertica-image: "opentext/vertica-k8s:25.1.0-1-minimal"
+          artifact-suffix: "-25.1.0-release"
           vertica-deployment-method: vclusterops
           communal-storage-type: hostpath
           e2e-retry-times: ${{ inputs.e2e_retry_times || 2 }}
