@@ -43,10 +43,10 @@ func GetSuperuserPassword(ctx context.Context, cl client.Client, log logr.Logger
 		return "", nil
 	}
 
-	fetcher := cloud.VerticaDBSecretFetcher{
+	fetcher := cloud.SecretFetcher{
 		Client:   cl,
 		Log:      log,
-		VDB:      vdb,
+		Obj:      vdb,
 		EVWriter: e,
 	}
 	secret, err := fetcher.Fetch(ctx, names.GenSUPasswdSecretName(vdb))
@@ -62,10 +62,10 @@ func GetCustomSuperuserPassword(ctx context.Context, cl client.Client, log logr.
 	e events.EVWriter, vdb *vapi.VerticaDB,
 	customPasswordSecret,
 	customPasswordSecretKey string) (string, error) {
-	fetcher := cloud.VerticaDBSecretFetcher{
+	fetcher := cloud.SecretFetcher{
 		Client:   cl,
 		Log:      log,
-		VDB:      vdb,
+		Obj:      vdb,
 		EVWriter: e,
 	}
 	secret, err := fetcher.Fetch(ctx,

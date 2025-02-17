@@ -41,7 +41,7 @@ type ObjReconciler struct {
 	VRec          *VerticaAutoscalerReconciler
 	Vas           *vapi.VerticaAutoscaler
 	Log           logr.Logger
-	SecretFetcher cloud.VerticaDBSecretFetcher
+	SecretFetcher cloud.SecretFetcher
 }
 
 func MakeObjReconciler(v *VerticaAutoscalerReconciler, vas *vapi.VerticaAutoscaler,
@@ -50,7 +50,7 @@ func MakeObjReconciler(v *VerticaAutoscalerReconciler, vas *vapi.VerticaAutoscal
 		VRec: v,
 		Vas:  vas,
 		Log:  log.WithName("ObjReconciler"),
-		SecretFetcher: cloud.VerticaDBSecretFetcher{
+		SecretFetcher: cloud.SecretFetcher{
 			Client:   v.Client,
 			Log:      log.WithName("ObjReconciler"),
 			Obj:      vas,
