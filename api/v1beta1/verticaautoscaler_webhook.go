@@ -31,13 +31,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
-// - When spec.customAutoscaler.hpa.scaledownThreshold is set, scaledown stabilisation window must be 0, which field is stabilisation window?
-
-// - minReplicas must be at least 3 if ksafety is 1, ksafety is in vdb?
-
-// - if spec.customAutoscaler.scaledObject.metrics[].type is: 1) "prometheus", spec.customAutoscaler.scaledObject.metrics[].metricType must be one of "Value", "AverageValue".
-//   2) "cpu" or "memory" spec.customAutoscaler.scaledObject.metrics[].metricType must be one of "Utilization" or "AverageValue"
-
 // log is for logging in this package.
 var verticaautoscalerlog = logf.Log.WithName("verticaautoscaler-resource")
 
@@ -143,7 +136,7 @@ func (v *VerticaAutoscaler) validateCustomAutoscaler(allErrs field.ErrorList) fi
 	if v.Spec.CustomAutoscaler == nil && v.Spec.ServiceName == "" {
 		err := field.Invalid(pathPrefix.Child("serviceName"),
 			v.Spec.CustomAutoscaler.Hpa,
-			"When spec.customAutoscaler.hpa.scaledownThreshold is set, scaledown stabilisation window must be 0")
+			"When spec.customAutoscaler.hpa.scaledownThreshold is set, scaledown stabilization window must be 0")
 		allErrs = append(allErrs, err)
 	}
 	return allErrs
