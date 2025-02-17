@@ -356,6 +356,7 @@ var VasConditionIndexMap = map[VerticaAutoscalerConditionType]int{
 // +kubebuilder:printcolumn:name="Scaling Count",type="integer",JSONPath=".status.scalingCount"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 // +operator-sdk:csv:customresourcedefinitions:resources={{VerticaDB,vertica.com/v1beta1,""}}
+// +kubebuilder:deprecatedversion:warning="vertica.com/v1beta1 VerticaAutoscaler is deprecated, use vertica.com/v1 VerticaAutoscaler"
 
 // VerticaAutoscaler is a CR that allows you to autoscale one or more
 // subclusters in a VerticaDB.
