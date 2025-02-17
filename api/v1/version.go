@@ -90,6 +90,8 @@ const (
 	// starting in v24.3-4, v24.4-1, and v25.0-0 pausing sessions works a little differently
 	MinPauseSessionsVersion243 = "v24.3.0-4"
 	MinPauseSessionsVersion244 = "v24.4.0-1"
+	// The NMA TLS certificate can be rotated
+	NMATLSCertRotationMinVersion = "v25.2.0"
 )
 
 // GetVerticaVersionStr returns the vertica version, in string form, that is stored
