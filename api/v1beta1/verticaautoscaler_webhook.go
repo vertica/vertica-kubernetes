@@ -132,13 +132,13 @@ func (v *VerticaAutoscaler) validateSubclusterTemplate(allErrs field.ErrorList) 
 
 // validateCustomAutoscaler will check if the CustomAutoscaler field is valid
 func (v *VerticaAutoscaler) validateCustomAutoscaler(allErrs field.ErrorList) field.ErrorList {
-	pathPrefix := field.NewPath("spec").Child("customAutoscaler")
-	if v.Spec.CustomAutoscaler == nil && v.Spec.ServiceName == "" {
-		err := field.Invalid(pathPrefix.Child("serviceName"),
-			v.Spec.CustomAutoscaler.Hpa,
-			"When spec.customAutoscaler.hpa.scaledownThreshold is set, scaledown stabilization window must be 0")
-		allErrs = append(allErrs, err)
-	}
+	// pathPrefix := field.NewPath("spec").Child("customAutoscaler")
+	// if v.Spec.CustomAutoscaler == nil && v.Spec.ServiceName == "" {
+	// 	err := field.Invalid(pathPrefix.Child("serviceName"),
+	// 		v.Spec.CustomAutoscaler.Hpa,
+	// 		"When spec.customAutoscaler.hpa.scaledownThreshold is set, scaledown stabilization window must be 0")
+	// 	allErrs = append(allErrs, err)
+	// }
 	return allErrs
 }
 
