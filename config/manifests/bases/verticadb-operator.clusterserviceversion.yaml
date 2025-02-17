@@ -154,7 +154,7 @@ spec:
       resources:
       - kind: VerticaDB
         name: ""
-        version: vertica.com/v1beta1
+        version: vertica.com/v1
       specDescriptors:
       - description: |-
           This struct allows customization of autoscaling. Custom metrics can be used instead of the memory and cpu metrics.
