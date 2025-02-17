@@ -2,15 +2,9 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.14.0
-  creationTimestamp: null
-  labels:
-    app.kubernetes.io/part-of: keda-operator
-    app.kubernetes.io/version: 2.16.1
+    controller-gen.kubebuilder.io/version: v0.16.5
   name: triggerauthentications.keda.sh
 spec:
-  conversion:
-    strategy: None
   group: keda.sh
   names:
     kind: TriggerAuthentication
@@ -186,6 +180,8 @@ spec:
                         name:
                           type: string
                         parameter:
+                          type: string
+                        secretKey:
                           type: string
                         versionId:
                           type: string
@@ -567,25 +563,3 @@ spec:
     storage: true
     subresources:
       status: {}
-status:
-  acceptedNames:
-    kind: TriggerAuthentication
-    listKind: TriggerAuthenticationList
-    plural: triggerauthentications
-    shortNames:
-    - ta
-    - triggerauth
-    singular: triggerauthentication
-  conditions:
-  - lastTransitionTime: "2025-02-13T14:18:48Z"
-    message: no conflicts found
-    reason: NoConflicts
-    status: "True"
-    type: NamesAccepted
-  - lastTransitionTime: "2025-02-13T14:18:49Z"
-    message: the initial names have been accepted
-    reason: InitialNamesAccepted
-    status: "True"
-    type: Established
-  storedVersions:
-  - v1alpha1
