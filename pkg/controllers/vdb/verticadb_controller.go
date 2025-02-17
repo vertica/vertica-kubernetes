@@ -35,6 +35,7 @@ import (
 
 	"github.com/google/uuid"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
+	"github.com/vertica/vertica-kubernetes/pkg/builder"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
@@ -178,7 +179,7 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 	// The actors that will be applied, in sequence, to reconcile a vdb.
 	// Note, we run the StatusReconciler multiple times. This allows us to
 	// refresh the status of the vdb as we do operations that affect it.
-	return []controllers.ReconcileActor{
+	actors := []controllers.ReconcileActor{
 		// Log an event if we are in a crash loop due to a bad deployment type
 		// chosen. This should be at or near the top as it will help with error
 		// detection when we can't even run anything in the pod. So any
@@ -197,8 +198,6 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		MakeUpgradeOperatorReconciler(r, log, vdb),
 		// use the TLS secrets used by the NMA service, https service and clientserver
 		MakeTLSServerCertGenReconciler(r, log, vdb),
-		// Create a ConfigMap to store secret names for all tls certs
-		MakeNMACertConfigMapGenReconciler(r, log, vdb),
 		// Create ServiceAcount, Role and RoleBindings needed for vertica pods
 		MakeServiceAccountReconciler(r, log, vdb),
 		// Handle setting up the pod security context. This picks the
@@ -302,6 +301,11 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		// are removed in the middle of a reconcile iteration.
 		MakeDepObjCheckReconciler(r, log, vdb),
 	}
+	if !builder.IsCertMountSupported(h.Vdb) {
+		// Create a ConfigMap to store secret names for all tls certs
+		actors = append(actors, MakeNMACertConfigMapGenReconciler(r, log, vdb))
+	}
+	return actors
 }
 
 // GetSuperuserPassword returns the superuser password if it has been provided
