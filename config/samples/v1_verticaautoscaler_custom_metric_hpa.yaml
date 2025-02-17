@@ -1,24 +1,24 @@
 apiVersion: vertica.com/v1
 kind: VerticaAutoscaler
 metadata:
-  name: v-scale-down-threshold-db-vas
+  name: verticaautoscaler-sample-hpa
 spec:
-  verticaDBName: v-scale-down-threshold-db
-  scalingGranularity: Subcluster
+  verticaDBName: verticadb-sample
+  # The serviceName should be the name of your subcluster
+  serviceName: defaultsubcluster
+  scalingGranularity: Pod
   customAutoscaler:
     type: HPA
     hpa:
       minReplicas: 3
-      maxReplicas: 7
+      maxReplicas: 5
       metrics:
         - metric:
             type: Pods
             pods:
               metric:
+                # The name of the mapped Kubernetes metric name
                 name: vertica_sessions_running_total
               target:
                 type: AverageValue
-                averageValue: 5
-          scaleDownThreshold:
-            type: AverageValue
-            averageValue: 1
+                averageValue: 2

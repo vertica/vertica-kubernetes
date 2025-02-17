@@ -26,6 +26,6 @@ spec:
     type: Resource
   minReplicas: 3
   scaleTargetRef:
-    apiVersion: vertica.com/v1beta1
+    apiVersion: vertica.com/v1
     kind: VerticaAutoscaler
     name: v-autoscale-by-pod-pri1

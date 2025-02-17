@@ -15,7 +15,7 @@ limitations under the License.
 */
 
 //nolint:lll
-package v1beta1
+package v1
 
 import (
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
@@ -47,30 +47,22 @@ type VerticaAutoscalerSpec struct {
 	//   the last subcluster only.
 	ScalingGranularity ScalingGranularityType `json:"scalingGranularity"`
 
-	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:Required
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:text"
 	// This acts as a selector for the subclusters that are being scaled together.
 	// Each subcluster has a service name field, which if omitted is the same
 	// name as the subcluster name.  Multiple subclusters that have the same
 	// service name use the same service object.
-	// if this field is empty, all the subclusters will be selected for scaling.
-	ServiceName string `json:"serviceName,omitempty"`
+	ServiceName string `json:"serviceName"`
 
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// +kubebuilder:validation:Optional
 	// When the scaling granularity is Subcluster, this field defines a template
 	// to use for when a new subcluster needs to be created.  If size is 0, then
 	// the operator will use an existing subcluster to use as the template.  If
-	// size is > 0 service name must match the serviceName parameter (if non-empty).
-	//
-	// If the serviceName parameter is empty, service name can be an existing service and
-	// in that case the new subcluster will share it with other(s) subcluster, service
-	// name can also be non-existing and all the subclusters created from the template
-	// will share that service. If service name is empty, each new subcluster will have its
-	// own service.
-	//
-	// The name of the new subcluster is always auto generated.  If the name is set
+	// size is > 0, the service name must match the serviceName parameter.  The
+	// name of the new subcluster is always auto generated.  If the name is set
 	// here it will be used as a prefix for the new subcluster.  Otherwise, we
 	// use the name of this VerticaAutoscaler object as a prefix for all
 	// subclusters.
@@ -330,7 +322,7 @@ type VerticaAutoscalerConditionType string
 const (
 	// TargetSizeInitialized indicates whether the operator has initialized targetSize in the spec
 	TargetSizeInitialized VerticaAutoscalerConditionType = "TargetSizeInitialized"
-	// ScalingActive indicates that the autoscaler can fetch the metric
+	// ScalingActive indicates that the horizontal pod autoscaler can fetch the metric
 	// and is ready for whenever scaling is needed.
 	ScalingActive VerticaAutoscalerConditionType = "ScalingActive"
 )
@@ -347,6 +339,8 @@ var VasConditionIndexMap = map[VerticaAutoscalerConditionType]int{
 }
 
 // +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
+// +kubebuilder:storageversion
 // +kubebuilder:resource:categories=all;vertica,shortName=vas
 // +kubebuilder:subresource:status
 // +kubebuilder:subresource:scale:specpath=.spec.targetSize,statuspath=.status.currentSize,selectorpath=.status.selector
@@ -355,8 +349,7 @@ var VasConditionIndexMap = map[VerticaAutoscalerConditionType]int{
 // +kubebuilder:printcolumn:name="Target Size",type="integer",JSONPath=".spec.targetSize"
 // +kubebuilder:printcolumn:name="Scaling Count",type="integer",JSONPath=".status.scalingCount"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
-// +operator-sdk:csv:customresourcedefinitions:resources={{VerticaDB,vertica.com/v1beta1,""}}
-// +kubebuilder:deprecatedversion:warning="vertica.com/v1beta1 VerticaAutoscaler is deprecated, use vertica.com/v1 VerticaAutoscaler"
+// +operator-sdk:csv:customresourcedefinitions:resources={{VerticaDB,vertica.com/v1,""},{ScaledObject,keda.sh/v1alpha1,""},{TriggerAuthentication,keda.sh/v1alpha1,""}}
 
 // VerticaAutoscaler is a CR that allows you to autoscale one or more
 // subclusters in a VerticaDB.
