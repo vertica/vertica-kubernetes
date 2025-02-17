@@ -18,7 +18,9 @@ package v1beta1
 
 import (
 	"fmt"
+	"slices"
 
+	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -28,6 +30,13 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
+
+// - When spec.customAutoscaler.hpa.scaledownThreshold is set, scaledown stabilisation window must be 0, which field is stabilisation window?
+
+// - minReplicas must be at least 3 if ksafety is 1, ksafety is in vdb?
+
+// - if spec.customAutoscaler.scaledObject.metrics[].type is: 1) "prometheus", spec.customAutoscaler.scaledObject.metrics[].metricType must be one of "Value", "AverageValue".
+//   2) "cpu" or "memory" spec.customAutoscaler.scaledObject.metrics[].metricType must be one of "Utilization" or "AverageValue"
 
 // log is for logging in this package.
 var verticaautoscalerlog = logf.Log.WithName("verticaautoscaler-resource")
@@ -79,16 +88,29 @@ func (v *VerticaAutoscaler) validateSpec() field.ErrorList {
 	allErrs := field.ErrorList{}
 	allErrs = v.validateScalingGranularity(allErrs)
 	allErrs = v.validateSubclusterTemplate(allErrs)
+	allErrs = v.validateCustomAutoscaler(allErrs)
+	allErrs = v.validateServiceName(allErrs)
+	allErrs = v.validateScaledObject(allErrs)
 	return allErrs
 }
 
 // validateScalingGranularity will check if the scalingGranularity field is valid
 func (v *VerticaAutoscaler) validateScalingGranularity(allErrs field.ErrorList) field.ErrorList {
+	pathPrefix := field.NewPath("spec").Child("scalingGranularity")
 	switch v.Spec.ScalingGranularity {
-	case PodScalingGranularity, SubclusterScalingGranularity:
+	case PodScalingGranularity:
+		if v.Spec.ServiceName == "" {
+			err := field.Invalid(pathPrefix,
+				v.Spec.ScalingGranularity,
+				fmt.Sprintf("Scaling granularity must be '%s' if service name is empty.",
+					SubclusterScalingGranularity))
+			allErrs = append(allErrs, err)
+		}
+		return allErrs
+	case SubclusterScalingGranularity:
 		return allErrs
 	default:
-		err := field.Invalid(field.NewPath("spec").Child("scalingGranularity"),
+		err := field.Invalid(pathPrefix,
 			v.Spec.ScalingGranularity,
 			fmt.Sprintf("scalingGranularity must be set to either %s or %s",
 				SubclusterScalingGranularity,
@@ -110,6 +132,73 @@ func (v *VerticaAutoscaler) validateSubclusterTemplate(allErrs field.ErrorList) 
 		err := field.Invalid(pathPrefix.Child("serviceName"),
 			v.Spec.Template.ServiceName,
 			"You cannot use the template if scalingGranularity is Pod.  Set the template size to 0 to disable the template")
+		allErrs = append(allErrs, err)
+	}
+	return allErrs
+}
+
+// validateCustomAutoscaler will check if the CustomAutoscaler field is valid
+func (v *VerticaAutoscaler) validateCustomAutoscaler(allErrs field.ErrorList) field.ErrorList {
+	pathPrefix := field.NewPath("spec").Child("customAutoscaler")
+	if v.Spec.CustomAutoscaler == nil && v.Spec.ServiceName == "" {
+		err := field.Invalid(pathPrefix.Child("serviceName"),
+			v.Spec.CustomAutoscaler.Hpa,
+			"When spec.customAutoscaler.hpa.scaledownThreshold is set, scaledown stabilisation window must be 0")
+		allErrs = append(allErrs, err)
+	}
+	return allErrs
+}
+
+// validateScaledObject will check if the ScaledObject field is valid
+func (v *VerticaAutoscaler) validateScaledObject(allErrs field.ErrorList) field.ErrorList {
+	validTriggers := []TriggerType{CPUTriggerType, MemTriggerType, PrometheusTriggerType, ""}
+	prometheusMetricTypes := []autoscalingv2.MetricTargetType{autoscalingv2.ValueMetricType, autoscalingv2.AverageValueMetricType}
+	cpumemMetricTypes := []autoscalingv2.MetricTargetType{autoscalingv2.UtilizationMetricType, autoscalingv2.AverageValueMetricType}
+	pathPrefix := field.NewPath("spec").Child("customAutoscaler")
+	if v.Spec.CustomAutoscaler != nil && v.Spec.CustomAutoscaler.ScaledObject != nil {
+		for i := range v.Spec.CustomAutoscaler.ScaledObject.Metrics {
+			metric := &v.Spec.CustomAutoscaler.ScaledObject.Metrics[i]
+			// validate metric type
+			if !slices.Contains(validTriggers, metric.Type) {
+				err := field.Invalid(pathPrefix.Child("scaledObject").Child("metrics").Index(i).Child("type"),
+					v.Spec.CustomAutoscaler.ScaledObject.Metrics[i].Type,
+					fmt.Sprintf("spec.customAutoscaler.scaledObject.metrics[].type must be one of '%s', '%s', '%s' or empty.",
+						CPUTriggerType, MemTriggerType, PrometheusTriggerType),
+				)
+				allErrs = append(allErrs, err)
+			}
+			// validate prometheus type metric
+			if metric.Type == PrometheusTriggerType && !slices.Contains(prometheusMetricTypes, metric.MetricType) {
+				err := field.Invalid(pathPrefix.Child("scaledObject").Child("metrics").Index(i).Child("type"),
+					v.Spec.CustomAutoscaler.ScaledObject.Metrics[i].Type,
+					fmt.Sprintf("When pec.customAutoscaler.scaledObject.metrics[].Type is set to %s"+
+						"spec.customAutoscaler.scaledObject.metrics[].metricType must be one of '%s', '%s'.",
+						PrometheusTriggerType, autoscalingv2.ValueMetricType, autoscalingv2.AverageValueMetricType),
+				)
+				allErrs = append(allErrs, err)
+			}
+			// validate cpu/mem type metric
+			if metric.Type == CPUTriggerType || metric.Type == MemTriggerType && !slices.Contains(cpumemMetricTypes, metric.MetricType) {
+				err := field.Invalid(pathPrefix.Child("scaledObject").Child("metrics").Index(i).Child("type"),
+					v.Spec.CustomAutoscaler.ScaledObject.Metrics[i].Type,
+					fmt.Sprintf("When pec.customAutoscaler.scaledObject.metrics[].Type is set to %s or %s"+
+						"spec.customAutoscaler.scaledObject.metrics[].metricType must be one of '%s', '%s'.",
+						CPUTriggerType, MemTriggerType, autoscalingv2.UtilizationMetricType, autoscalingv2.AverageValueMetricType),
+				)
+				allErrs = append(allErrs, err)
+			}
+		}
+	}
+	return allErrs
+}
+
+// validateServiceName will check if the ServiceName field is valid
+func (v *VerticaAutoscaler) validateServiceName(allErrs field.ErrorList) field.ErrorList {
+	pathPrefix := field.NewPath("spec").Child("serviceName")
+	if v.Spec.CustomAutoscaler == nil && v.Spec.ServiceName == "" {
+		err := field.Invalid(pathPrefix,
+			v.Spec.ServiceName,
+			"Service name can not be empty if customAutoscaler is empty.")
 		allErrs = append(allErrs, err)
 	}
 	return allErrs
