@@ -115,7 +115,6 @@ func (o *ObjReconciler) createTriggerAuthentications(ctx context.Context) error 
 		}
 		secretData, res, err := o.SecretFetcher.FetchAllowRequeue(ctx, names.GenAuthSecretName(o.Vas, metric.AuthSecret))
 		if verrors.IsReconcileAborted(res, err) {
-			o.Log.Error(err, "Fail to find secret: %s", metric.AuthSecret)
 			return err
 		}
 		err = o.validateAuthSecret(secretData, metric.Prometheus.AuthModes)
