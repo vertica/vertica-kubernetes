@@ -168,10 +168,7 @@ jobs:
   e2e-leg-1-vcluster:
     if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'vcluster leg 1' || inputs.e2e_test_suites == '')}}
     needs: [build]
-    strategy:
-      matrix:
-        runner: [ ubuntu-latest, ARM64 ]
-    runs-on: ${{ matrix.runner }}
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -250,10 +247,7 @@ jobs:
   e2e-leg-2-vcluster:
     if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'vcluster leg 2' || inputs.e2e_test_suites == '')}}
     needs: [build]
-    strategy:
-      matrix:
-        runner: [ ubuntu-latest, ARM64 ]
-    runs-on: ${{ matrix.runner }}
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -330,10 +324,7 @@ jobs:
   e2e-leg-3-vcluster:
     if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'vcluster leg 3' || inputs.e2e_test_suites == '')}}
     needs: [build]
-    strategy:
-      matrix:
-        runner: [ ubuntu-22.04, ARM64 ]
-    runs-on: ${{ matrix.runner }}
+    runs-on: ubuntu-22.04
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -391,10 +382,7 @@ jobs:
   e2e-leg-4-vcluster:
     if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'vcluster leg 4' || inputs.e2e_test_suites == '')}}
     needs: [build]
-    strategy:
-      matrix:
-        runner: [ ubuntu-latest, ARM64 ]
-    runs-on: ${{ matrix.runner }}
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -518,10 +506,7 @@ jobs:
   e2e-leg-5-vcluster:
     if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'vcluster leg 5' || inputs.e2e_test_suites == '')}}
     needs: [build]
-    strategy:
-      matrix:
-        runner: [ ubuntu-latest, ARM64 ]
-    runs-on: ${{ matrix.runner }}
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -553,10 +538,7 @@ jobs:
   e2e-leg-6-vcluster:
     if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'vcluster leg 6' || inputs.e2e_test_suites == '')}}
     needs: [build]
-    strategy:
-      matrix:
-        runner: [ ubuntu-latest, ARM64 ]
-    runs-on: ${{ matrix.runner }}
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -612,10 +594,7 @@ jobs:
   e2e-leg-7-vcluster:
     if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'vcluster leg 7' || inputs.e2e_test_suites == '')}}
     needs: [build]
-    strategy:
-      matrix:
-        runner: [ ubuntu-latest, ARM64 ]
-    runs-on: ${{ matrix.runner }}
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -703,10 +682,7 @@ jobs:
   e2e-leg-9-vcluster:
     if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'vcluster leg 9' || inputs.e2e_test_suites == '')}}
     needs: [build]
-    strategy:
-      matrix:
-        runner: [ ubuntu-latest, ARM64 ]
-    runs-on: ${{ matrix.runner }}
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -867,10 +843,7 @@ jobs:
   e2e-server-upgrade-vcluster:
     if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'vcluster server upgrade' || inputs.e2e_test_suites == '')}}
     needs: [build]
-    strategy:
-      matrix:
-        runner: [ ubuntu-latest, ARM64 ]
-    runs-on: ${{ matrix.runner }}
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -898,10 +871,7 @@ jobs:
   e2e-operator-upgrade:
     if: ${{ ! contains(github.ref, 'k8s-sync')  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools operator upgrade' || inputs.e2e_test_suites == '') }}
     needs: [build]
-    strategy:
-      matrix:
-        runner: [ ubuntu-22.04, ARM64 ]
-    runs-on: ${{ matrix.runner }}
+    runs-on: ubuntu-22.04
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -957,10 +927,7 @@ jobs:
   e2e-udx-vcluster:
     if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'vcluster udx' || inputs.e2e_test_suites == '')}}
     needs: [build]
-    strategy:
-      matrix:
-        runner: [ ubuntu-latest, ARM64 ]
-    runs-on: ${{ matrix.runner }}
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
