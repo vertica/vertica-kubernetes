@@ -51,6 +51,7 @@ const (
 	EulaAcceptanceFile        = "/opt/vertica/config/d5415f948449e9d4c421b568f2411140.dat"
 	EulaAcceptanceScript      = "/opt/vertica/config/accept_eula.py"
 	CertsRoot                 = "/certs"
+	TLSCertsConfigPath        = "/certs/config"
 	NMACertsRoot              = "/certs/nma"
 	Krb5Conf                  = "/etc/krb5.conf"
 	Krb5Keytab                = "/etc/krb5/krb5.keytab"

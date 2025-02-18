@@ -1,0 +1,11 @@
+apiVersion: vertica.com/v1beta1
+kind: VerticaDB
+metadata:
+  name: v-tls-certs
+status:
+  subclusters:
+    - addedToDBCount: 1
+      upNodeCount: 1
+      name: sc1
+      detail:
+        - upNode: true

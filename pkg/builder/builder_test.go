@@ -101,6 +101,18 @@ var _ = Describe("builder", func() {
 		Ω(*baseContainer.SecurityContext.Privileged).Should(BeTrue())
 	})
 
+	It("should allow you to run nma in priv mode", func() {
+		vdb := vapi.MakeVDB()
+		priv := true
+		vdb.Spec.NMASecurityContext = &v1.SecurityContext{
+			Privileged: &priv,
+		}
+		baseContainer := makeNMAContainer(vdb, &vdb.Spec.Subclusters[0])
+		Ω(baseContainer.SecurityContext).ShouldNot(BeNil())
+		Ω(baseContainer.SecurityContext.Privileged).ShouldNot(BeNil())
+		Ω(*baseContainer.SecurityContext.Privileged).Should(BeTrue())
+	})
+
 	It("should add a catalog mount point if it differs from data", func() {
 		vdb := vapi.MakeVDB()
 		c := makeServerContainer(vdb, &vdb.Spec.Subclusters[0])
@@ -555,65 +567,6 @@ var _ = Describe("builder", func() {
 		}
 	})
 
-	It("should mount or not mount NMA certs volume based on NMA container", func() {
-		vdb := vapi.MakeVDBForHTTP("v-nma-tls-abcde")
-		// monolithic container
-		vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
-		vdb.Annotations[vmeta.MountNMACertsAnnotation] = vmeta.MountNMACertsAnnotationFalse
-		ps := buildPodSpec(vdb, &vdb.Spec.Subclusters[0])
-		c := makeServerContainer(vdb, &vdb.Spec.Subclusters[0])
-		Ω(NMACertsVolumeExists(vdb, ps.Volumes)).Should(BeFalse())
-		Ω(NMACertsVolumeMountExists(&c)).Should(BeFalse())
-		Ω(NMACertsEnvVarsExist(vdb, &c)).Should(BeTrue())
-		vdb.Annotations[vmeta.MountNMACertsAnnotation] = vmeta.MountNMACertsAnnotationTrue
-		ps = buildPodSpec(vdb, &vdb.Spec.Subclusters[0])
-		c = makeServerContainer(vdb, &vdb.Spec.Subclusters[0])
-		Ω(NMACertsVolumeExists(vdb, ps.Volumes)).Should(BeTrue())
-		Ω(NMACertsVolumeMountExists(&c)).Should(BeTrue())
-		Ω(NMACertsEnvVarsExist(vdb, &c)).Should(BeTrue())
-		// test default value (which should be true)
-		delete(vdb.Annotations, vmeta.MountNMACertsAnnotation)
-		ps = buildPodSpec(vdb, &vdb.Spec.Subclusters[0])
-		c = makeServerContainer(vdb, &vdb.Spec.Subclusters[0])
-		Ω(NMACertsVolumeExists(vdb, ps.Volumes)).Should(BeTrue())
-		Ω(NMACertsVolumeMountExists(&c)).Should(BeTrue())
-		Ω(NMACertsEnvVarsExist(vdb, &c)).Should(BeTrue())
-	})
-
-	It("should mount or not mount NMA certs volume according to annotation(sidecar)", func() {
-		vdb := vapi.MakeVDBForHTTP("v-nma-tls-abcde")
-
-		// server container
-		vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
-		vdb.Annotations[vmeta.VersionAnnotation] = vapi.NMAInSideCarDeploymentMinVersion
-		vdb.Annotations[vmeta.MountNMACertsAnnotation] = vmeta.MountNMACertsAnnotationFalse
-		ps := buildPodSpec(vdb, &vdb.Spec.Subclusters[0])
-		c := makeServerContainer(vdb, &vdb.Spec.Subclusters[0])
-		Ω(NMACertsVolumeExists(vdb, ps.Volumes)).Should(BeFalse())
-		Ω(NMACertsVolumeMountExists(&c)).Should(BeFalse())
-		Ω(NMACertsEnvVarsExist(vdb, &c)).Should(BeFalse())
-		vdb.Annotations[vmeta.MountNMACertsAnnotation] = vmeta.MountNMACertsAnnotationTrue
-		ps = buildPodSpec(vdb, &vdb.Spec.Subclusters[0])
-		c = makeServerContainer(vdb, &vdb.Spec.Subclusters[0])
-		Ω(NMACertsVolumeExists(vdb, ps.Volumes)).Should(BeTrue())
-		Ω(NMACertsVolumeMountExists(&c)).Should(BeFalse())
-		Ω(NMACertsEnvVarsExist(vdb, &c)).Should(BeFalse())
-
-		// nma container
-		vdb.Annotations[vmeta.MountNMACertsAnnotation] = vmeta.MountNMACertsAnnotationFalse
-		ps = buildPodSpec(vdb, &vdb.Spec.Subclusters[0])
-		c = makeNMAContainer(vdb, &vdb.Spec.Subclusters[0])
-		Ω(NMACertsVolumeExists(vdb, ps.Volumes)).Should(BeFalse())
-		Ω(NMACertsVolumeMountExists(&c)).Should(BeFalse())
-		Ω(NMACertsEnvVarsExist(vdb, &c)).Should(BeTrue())
-		vdb.Annotations[vmeta.MountNMACertsAnnotation] = vmeta.MountNMACertsAnnotationTrue
-		ps = buildPodSpec(vdb, &vdb.Spec.Subclusters[0])
-		c = makeNMAContainer(vdb, &vdb.Spec.Subclusters[0])
-		Ω(NMACertsVolumeExists(vdb, ps.Volumes)).Should(BeTrue())
-		Ω(NMACertsVolumeMountExists(&c)).Should(BeTrue())
-		Ω(NMACertsEnvVarsExist(vdb, &c)).Should(BeTrue())
-	})
-
 	It("should not set any NMA resources if none are set for the subcluster", func() {
 		vdb := vapi.MakeVDBForHTTP("v-nma-tls-abcde")
 		sc := &vdb.Spec.Subclusters[0]
@@ -713,6 +666,17 @@ var _ = Describe("builder", func() {
 		Ω(sts.Annotations).Should(HaveKeyWithValue("ann1", "v1"))
 		Ω(sts.Annotations).Should(HaveKeyWithValue("ann2", "another-value"))
 	})
+
+	It("configmap should have nma cert secret name and namespace", func() {
+		vdb := vapi.MakeVDBForHTTP("v-nma-tls-abcde")
+		// server container
+		vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
+		vdb.Annotations[vmeta.VersionAnnotation] = vapi.NMAInSideCarDeploymentMinVersion
+		configMap := BuildNMATLSConfigMap("nma-configmap", vdb)
+		Ω(configMap.Data[NMASecretNameEnv]).Should(Equal(vdb.Spec.NMATLSSecret))
+		Ω(configMap.Data[NMASecretNamespaceEnv]).Should(Equal(vdb.Namespace))
+	})
+
 })
 
 func getFirstSSHSecretVolumeMountIndex(c *v1.Container) (int, bool) {
@@ -767,24 +731,6 @@ func getVolume(vols []v1.Volume, mountName string) *v1.Volume {
 	return nil
 }
 
-func NMACertsVolumeExists(vdb *vapi.VerticaDB, vols []v1.Volume) bool {
-	for i := range vols {
-		if vols[i].Name == vapi.NMACertsMountName && vols[i].Secret.SecretName == vdb.Spec.NMATLSSecret {
-			return true
-		}
-	}
-	return false
-}
-
-func NMACertsVolumeMountExists(c *v1.Container) bool {
-	for _, vol := range c.VolumeMounts {
-		if vol.Name == vapi.NMACertsMountName && vol.MountPath == paths.NMACertsRoot {
-			return true
-		}
-	}
-	return false
-}
-
 func NMACertsEnvVarsExist(vdb *vapi.VerticaDB, c *v1.Container) bool {
 	envMap := make(map[string]v1.EnvVar)
 	for _, envVar := range c.Env {
@@ -795,14 +741,8 @@ func NMACertsEnvVarsExist(vdb *vapi.VerticaDB, c *v1.Container) bool {
 	_, keyOk := envMap[NMAKeyEnv]
 	_, secretNamespaceOk := envMap[NMASecretNamespaceEnv]
 	_, secretNameOk := envMap[NMASecretNameEnv]
-	if vmeta.UseNMACertsMount(vdb.Annotations) {
-		if rootCAOk && certOk && keyOk && !secretNamespaceOk && !secretNameOk {
-			return true
-		}
-	} else {
-		if !rootCAOk && !certOk && !keyOk && secretNamespaceOk && secretNameOk {
-			return true
-		}
+	if !rootCAOk && !certOk && !keyOk && secretNamespaceOk && secretNameOk {
+		return true
 	}
 	return false
 }
