@@ -595,6 +595,12 @@ spec:
       kind: VerticaAutoscaler
       name: verticaautoscalers.vertica.com
       resources:
+      - kind: ScaledObject
+        name: ""
+        version: keda.sh/v1alpha1
+      - kind: TriggerAuthentication
+        name: ""
+        version: keda.sh/v1alpha1
       - kind: VerticaDB
         name: ""
         version: vertica.com/v1beta1
