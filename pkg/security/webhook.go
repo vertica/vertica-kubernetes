@@ -203,6 +203,8 @@ func getCertFromSecret(ctx context.Context, log *logr.Logger, cfg *rest.Config, 
 // patchConversionWebhookConfig will update the CRD with the CA bundle for the
 // webhook conversion endpoint. This conversion webhook is used to convert
 // between the different versions of CRDs we have.
+//
+//nolint:dupl
 func patchConversionWebhookConfig(ctx context.Context, log *logr.Logger, cfg *rest.Config,
 	prefixName, namespace string, annotations map[string]string, caCert []byte) error {
 	cs, err := apiclientset.NewForConfig(cfg)
@@ -210,17 +212,16 @@ func patchConversionWebhookConfig(ctx context.Context, log *logr.Logger, cfg *re
 		return errors.Wrap(err, "could not create apiextensions clientset")
 	}
 
-	crdName := getVerticaDBCRDName()
 	api := cs.ApiextensionsV1().CustomResourceDefinitions()
-	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-		crd, err := api.Get(ctx, crdName, metav1.GetOptions{})
+	res := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		crd, err := api.Get(ctx, getVerticaDBCRDName(), metav1.GetOptions{})
 		if err != nil {
 			return err
 		}
 		// Generally the conversion webhook strategy should already be set in
 		// the CRD. However, we can come in here for test purposes with a
 		// strategy of None. So, we need to set it for that case.
-		log.Info("Updating webhook conversion", "oldStrategy", crd.Spec.Conversion.Strategy)
+		log.Info("Updating webhook verticadb conversion", "oldStrategy", crd.Spec.Conversion.Strategy)
 		crd.Spec.Conversion.Strategy = extv1.WebhookConverter
 
 		for k, v := range annotations {
@@ -250,6 +251,51 @@ func patchConversionWebhookConfig(ctx context.Context, log *logr.Logger, cfg *re
 		_, err = api.Update(ctx, crd, metav1.UpdateOptions{})
 		return err
 	})
+	if res != nil {
+		return res
+	}
+	res = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		crd, err := api.Get(ctx, getVerticaAutoscalerCRDName(), metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+		// Generally the conversion webhook strategy should already be set in
+		// the CRD. However, we can come in here for test purposes with a
+		// strategy of None. So, we need to set it for that case.
+		log.Info("Updating webhook autoscaler conversion", "oldStrategy", crd.Spec.Conversion.Strategy)
+		crd.Spec.Conversion.Strategy = extv1.WebhookConverter
+
+		for k, v := range annotations {
+			log.Info("Setting annotation in CRD", "key", k, "value", v)
+			crd.Annotations[k] = v
+		}
+
+		webhookPath := "/convert"
+		crd.Spec.Conversion.Webhook = &extv1.WebhookConversion{
+			ClientConfig: &extv1.WebhookClientConfig{
+				Service: &extv1.ServiceReference{
+					Namespace: namespace,
+					Name:      getWebhookServiceName(prefixName),
+					Path:      &webhookPath,
+				},
+				CABundle: caCert,
+			},
+			ConversionReviewVersions: []string{
+				v1beta1vapi.Version,
+			},
+		}
+		// We set the caBundle if it was passed in. This is optional to allow
+		// for injection from cert-manager.
+		if caCert != nil {
+			crd.Spec.Conversion.Webhook.ClientConfig.CABundle = caCert
+		}
+		_, err = api.Update(ctx, crd, metav1.UpdateOptions{})
+		return err
+	})
+	if res != nil {
+		return res
+	}
+	return nil
 }
 
 func getValidatingWebhookConfigName(prefixName string) string {
@@ -274,4 +320,9 @@ func getWebhookServiceName(prefixName string) string {
 // getVerticaDBCRDName returns the name of the CRD for VerticaDB
 func getVerticaDBCRDName() string {
 	return fmt.Sprintf("%s.%s", v1vapi.VerticaDBKindPlural, v1vapi.Group)
+}
+
+// getVerticaAutoscalerCRDName returns the name of the CRD for VerticaAutoscaler
+func getVerticaAutoscalerCRDName() string {
+	return fmt.Sprintf("%s.%s", v1vapi.VerticaAutoscalerKind, v1vapi.Group)
 }
