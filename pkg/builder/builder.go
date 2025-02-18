@@ -1147,11 +1147,7 @@ func makeNMAContainer(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.Container
 	envVars = append(envVars,
 		corev1.EnvVar{Name: NMALogPath, Value: StdOut},
 	)
-	sec := &corev1.SecurityContext{}
-	if vdb.Spec.NMASecurityContext != nil {
-		sec = vdb.Spec.NMASecurityContext
-	}
-	return corev1.Container{
+	cnt := corev1.Container{
 		Image:           pickImage(vdb, sc),
 		ImagePullPolicy: vdb.Spec.ImagePullPolicy,
 		Name:            names.NMAContainer,
@@ -1162,8 +1158,11 @@ func makeNMAContainer(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.Container
 		ReadinessProbe:  makeNMAHealthProbe(vdb, vmeta.NMAHealthProbeReadiness),
 		LivenessProbe:   makeNMAHealthProbe(vdb, vmeta.NMAHealthProbeLiveness),
 		StartupProbe:    makeNMAHealthProbe(vdb, vmeta.NMAHealthProbeStartup),
-		SecurityContext: sec,
 	}
+	if vdb.Spec.NMASecurityContext != nil {
+		cnt.SecurityContext = vdb.Spec.NMASecurityContext
+	}
+	return cnt
 }
 
 // makeScrutinizeInitContainer builds the spec of the init container that collects
@@ -1860,14 +1859,17 @@ func buildNMATLSCertsEnvVars(vdb *vapi.VerticaDB) []corev1.EnvVar {
 			{Name: NMAKeyEnv, Value: fmt.Sprintf("%s/%s", paths.NMACertsRoot, corev1.TLSPrivateKeyKey)},
 		}
 	}
+	if !vmeta.EnableTLSCertsRotation(vdb.Annotations) {
+		return []corev1.EnvVar{
+			// The NMA will read the secrets directly from the secret store.
+			// We provide the secret namespace and name for this reason.
+			{Name: NMASecretNamespaceEnv, Value: vdb.ObjectMeta.Namespace},
+			{Name: NMASecretNameEnv, Value: vdb.Spec.NMATLSSecret},
+		}
+	}
 	notTrue := false
 	configMapName := fmt.Sprintf("%s-%s", vdb.Name, vapi.NMATLSConfigMapName)
 	return []corev1.EnvVar{
-		// The NMA will read the secrets directly from the secret store.
-		// We provide the secret namespace and name for this reason.
-		// {Name: NMASecretNamespaceEnv, Value: vdb.ObjectMeta.Namespace},
-		// {Name: NMASecretNameEnv, Value: vdb.Spec.NMATLSSecret},
-
 		{Name: NMASecretNamespaceEnv,
 			ValueFrom: &corev1.EnvVarSource{
 				ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
