@@ -15,17 +15,11 @@ extraVolumes:
         path: tls.crt
       - key: ca.crt
         path: ca.crt
-  - name: ca-conf
-    configMap:
-      name: prometheus-ca
 
 # Any extra volume mounts
 extraVolumeMounts:
   - name: tls-certs
     mountPath: /usr/share/ca-certificates/prometheus
-  - name: ca-conf
-    mountPath: /etc/ca-certificates.conf
-    subPath: ca-certificates.conf
   
 # Customize the adapter configuration to map Prometheus metrics to Kubernetes metrics
 rules:

@@ -71,15 +71,6 @@ rm -f $CA_KEY $CA_CRT $TLS_KEY $REQ_CRT $TLS_CRT
 # Generate a self-signed certificate that will be used as the root of trust
 openssl req -x509 -days 365 -newkey rsa:4096 -sha256 -nodes -keyout $CA_KEY -out $CA_CRT \
 	-subj "/C=US/ST=PA/L=Pittsburgh/O=OpenText/OU=Vertica/CN=$PROMETHEUS_CN"
-
-sudo mkdir -p /usr/share/ca-certificates/prometheus
-if ! grep '^prometheus\/ca.crt' /etc/ca-certificates.conf; then
-  sudo su - -c "echo 'prometheus/ca.crt' >> /etc/ca-certificates.conf"
-  sudo update-ca-certificates
-fi
-sudo cp -f $CA_CRT /usr/share/ca-certificates/prometheus
-CA_CRT=/usr/share/ca-certificates/prometheus/ca.crt
-
 # Create a request (without -x509) for the certificate to be signed
 openssl req -newkey rsa:4096 -nodes -keyout $TLS_KEY -out $REQ_CRT \
 	-subj "/C=US/ST=PA/L=Pittsburgh/O=OpenText/OU=Vertica/CN=$PROMETHEUS_CN"
@@ -96,6 +87,3 @@ kubectl create secret generic $TLS_SECRET -n $PROMETHEUS_NS --from-file=tls.key=
 kubectl create namespace $PROMETHEUS_ADAPTER_NS || true
 kubectl delete secret $TLS_SECRET -n $PROMETHEUS_ADAPTER_NS || true
 kubectl create secret generic $TLS_SECRET -n $PROMETHEUS_ADAPTER_NS --from-file=tls.key=$TLS_KEY --from-file=tls.crt=$TLS_CRT --from-file=ca.crt=$CA_CRT
-# Add ca as system trusted
-kubectl delete configmap prometheus-ca -n $PROMETHEUS_ADAPTER_NS || true
-kubectl create configmap prometheus-ca -n $PROMETHEUS_ADAPTER_NS --from-file=ca.conf=$PROMETHEUS_DIR/certs/ca-certificates.conf
