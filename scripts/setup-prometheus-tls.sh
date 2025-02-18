@@ -22,6 +22,7 @@ SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 REPO_DIR=$(dirname $SCRIPT_DIR)
 PROMETHEUS_DIR=${REPO_DIR}/prometheus
 PROMETHEUS_NS=$(grep '^PROMETHEUS_NAMESPACE' ${REPO_DIR}/Makefile | cut -d'=' -f2)
+PROMETHEUS_ADAPTER_NS=$(grep '^PROMETHEUS_ADAPTER_NAMESPACE' ${REPO_DIR}/Makefile | cut -d'=' -f2)
 # The secret to secure Prometheus API endpoints using TLS encryption
 # It must be the same to the secret name configured in prometheus/values-tls.yaml
 TLS_SECRET=prometheus-tls
@@ -55,12 +56,44 @@ source $SCRIPT_DIR/logging-utils.sh
 # $ curl --cacert /certs/prometheus-tls/tls.crt https://prometheus-kube-prometheus-prometheus.prometheus.svc:9090/metrics
 logInfo "Generating self-signed certs for Prometheus TLS encryption"
 mkdir -p $PROMETHEUS_DIR/certs
+# ca certs
+CA_KEY=$PROMETHEUS_DIR/certs/ca.key
+CA_CRT=$PROMETHEUS_DIR/certs/ca.crt
+# prometheus certs
 TLS_KEY=$PROMETHEUS_DIR/certs/tls.key
+REQ_CRT=$PROMETHEUS_DIR/certs/req.crt
 TLS_CRT=$PROMETHEUS_DIR/certs/tls.crt
-rm -f $TLS_KEY $TLS_CRT
-openssl req -x509 -newkey rsa:4096 -nodes -keyout $TLS_KEY -out $TLS_CRT -addext "subjectAltName = DNS:$PROMETHEUS_CN" \
-       -subj "/C=US/ST=PA/L=Pittsburgh/O=OpenText/OU=Vertica/CN=$PROMETHEUS_CN"
+rm -f $CA_KEY $CA_CRT $TLS_KEY $REQ_CRT $TLS_CRT
+
+# https://stackoverflow.com/questions/21297139/how-do-you-sign-a-certificate-signing-request-with-your-certification-authority
+# Generate a self-signed certificate that will be used as the root of trust
+openssl req -x509 -days 365 -newkey rsa:4096 -sha256 -nodes -keyout $CA_KEY -out $CA_CRT \
+	-subj "/C=US/ST=PA/L=Pittsburgh/O=OpenText/OU=Vertica/CN=$PROMETHEUS_CN"
+
+sudo mkdir -p /usr/share/ca-certificates/prometheus
+if ! grep '^prometheus\/ca.crt' /etc/ca-certificates.conf; then
+  sudo su - -c "echo 'prometheus/ca.crt' >> /etc/ca-certificates.conf"
+  sudo update-ca-certificates
+fi
+sudo cp -f $CA_CRT /usr/share/ca-certificates/prometheus
+CA_CRT=/usr/share/ca-certificates/prometheus/ca.crt
+
+# Create a request (without -x509) for the certificate to be signed
+openssl req -newkey rsa:4096 -nodes -keyout $TLS_KEY -out $REQ_CRT \
+	-subj "/C=US/ST=PA/L=Pittsburgh/O=OpenText/OU=Vertica/CN=$PROMETHEUS_CN"
+# Use SAN to Sign the requested certs with the self-signed signing root certificate
+openssl x509 -req -extfile <(printf "subjectAltName=DNS:$PROMETHEUS_CN") -in $REQ_CRT -days 365 -CA $CA_CRT -CAkey $CA_KEY -CAcreateserial -out $TLS_CRT
+# Put the root CA cert into the signed cert to create a CA bundle
+cat $CA_CRT >> $TLS_CRT
 
 logInfo "Creating prometheus secret"
-kubectl delete secret $TLS_SECRET -n $PROMETHEUS_NS
+# For Prometheus using
+kubectl delete secret $TLS_SECRET -n $PROMETHEUS_NS || true
 kubectl create secret generic $TLS_SECRET -n $PROMETHEUS_NS --from-file=tls.key=$TLS_KEY --from-file=tls.crt=$TLS_CRT
+# For prometheus adapter using
+kubectl create namespace $PROMETHEUS_ADAPTER_NS || true
+kubectl delete secret $TLS_SECRET -n $PROMETHEUS_ADAPTER_NS || true
+kubectl create secret generic $TLS_SECRET -n $PROMETHEUS_ADAPTER_NS --from-file=tls.key=$TLS_KEY --from-file=tls.crt=$TLS_CRT --from-file=ca.crt=$CA_CRT
+# Add ca as system trusted
+kubectl delete configmap prometheus-ca -n $PROMETHEUS_ADAPTER_NS || true
+kubectl create configmap prometheus-ca -n $PROMETHEUS_ADAPTER_NS --from-file=ca.conf=$PROMETHEUS_DIR/certs/ca-certificates.conf
