@@ -20,7 +20,6 @@ import (
 	"fmt"
 
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
-	v1beta1 "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
@@ -43,7 +42,7 @@ func MakeSubclusterScaleReconciler(r *VerticaAutoscalerReconciler, vas *vapi.Ver
 
 // Reconcile will grow/shrink the VerticaDB passed on the target pod count.
 func (s *SubclusterScaleReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (ctrl.Result, error) {
-	if s.Vas.Spec.ScalingGranularity != v1beta1.SubclusterScalingGranularity {
+	if s.Vas.Spec.ScalingGranularity != vapi.SubclusterScalingGranularity {
 		return ctrl.Result{}, nil
 	}
 
