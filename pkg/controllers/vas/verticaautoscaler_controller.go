@@ -31,7 +31,6 @@ import (
 	"github.com/go-logr/logr"
 	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
 	v1vapi "github.com/vertica/vertica-kubernetes/api/v1"
-	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
@@ -131,7 +130,7 @@ func isScaledObjectInstalled(discoveryClient discovery.DiscoveryInterface) bool 
 // SetupWithManager sets up the controller with the Manager.
 func (r *VerticaAutoscalerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	ctrlManager := ctrl.NewControllerManagedBy(mgr).
-		For(&vapi.VerticaAutoscaler{}).
+		For(&v1vapi.VerticaAutoscaler{}).
 		// Not a strict ownership, but this is used so that the operator will
 		// reconcile the VerticaAutoscaler for any change in the VerticaDB.
 		// This ensures the status fields are kept up to date.
