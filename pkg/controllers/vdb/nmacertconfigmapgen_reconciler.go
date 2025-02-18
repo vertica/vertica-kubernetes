@@ -23,6 +23,7 @@ import (
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/builder"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
+	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -54,6 +55,9 @@ func MakeNMACertConfigMapGenReconciler(vdbrecon *VerticaDBReconciler, log logr.L
 
 // Reconcile will create a TLS secret for the https server if one is missing
 func (h *NMACertConfigMapGenReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
+	if vmeta.UseNMACertsMount(h.Vdb.Annotations) {
+		return ctrl.Result{}, nil
+	}
 	nmaSecret := corev1.Secret{}
 	if !h.tlsSecretsReady(ctx, &nmaSecret) {
 		h.Log.Info("nma secret is not ready yet to create configmap. will retry")
