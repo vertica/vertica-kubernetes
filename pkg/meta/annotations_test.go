@@ -50,11 +50,6 @@ var _ = Describe("annotations", func() {
 		Ω(UseVClusterOps(ann)).Should(BeTrue())
 	})
 
-	It("should treat mountNMACerts annotation as a bool", func() {
-		ann := map[string]string{MountNMACertsAnnotation: MountNMACertsAnnotationTrue}
-		Ω(UseNMACertsMount(ann)).Should(BeTrue())
-	})
-
 	It("should return default NMA sidecar resources", func() {
 		ann := map[string]string{}
 		Ω(GetNMAResource(ann, corev1.ResourceLimitsMemory)).Should(Equal(DefaultNMAResources[corev1.ResourceLimitsMemory]))
