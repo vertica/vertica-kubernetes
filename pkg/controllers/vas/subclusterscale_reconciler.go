@@ -171,9 +171,10 @@ func (s *SubclusterScaleReconciler) calcNextSubcluster(newPodsNeeded int32) *vap
 	// If the template is set, we will use that.  Otherwise, we try to use an
 	// existing subcluster (last one added) as a base.
 	if s.Vas.CanUseTemplate() {
-		sc := s.Vas.Spec.Template
+		sc := s.Vas.Spec.Template.DeepCopy()
+		sc.InitType()
 		if newPodsNeeded >= sc.Size {
-			return &sc
+			return sc
 		}
 		return nil
 	}

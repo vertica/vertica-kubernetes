@@ -959,10 +959,17 @@ func (s *Subcluster) GetType() string {
 	// Transient subclusters are considered secondary subclusters. This exists
 	// for historical reasons because we added separate labels for
 	// primary/secondary and transient.
-	if s.IsTransient() {
+	if s.IsTransient() || s.Type == "" {
 		return SecondarySubcluster
 	}
 	return s.Type
+}
+
+// InitType setup the type of the subcluster in string if the type is empty
+func (s *Subcluster) InitType() {
+	if s.IsTransient() || s.Type == "" {
+		s.Type = SecondarySubcluster
+	}
 }
 
 func (v *VerticaDBStatus) InstallCount() int32 {
