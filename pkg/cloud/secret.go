@@ -30,8 +30,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// SecretFetcher is secret reader designed for the verticadb
-// controller. It can handle retrival from different sources, such as Kubernetes
+// SecretFetcher is secret reader designed for the controllers that need to read a secret.
+// It can handle retrival from different sources, such as Kubernetes
 // secret store, Google Secrets Manager (GSM), etc.
 type SecretFetcher struct {
 	client.Client

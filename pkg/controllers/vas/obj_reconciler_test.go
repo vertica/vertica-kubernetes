@@ -32,7 +32,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-const AuthSecret = "authsecret"
+const authSecret = "authsecret"
 
 var _ = Describe("obj_reconcile", func() {
 	ctx := context.Background()
@@ -108,7 +108,7 @@ var _ = Describe("obj_reconcile", func() {
 		vas.Spec.CustomAutoscaler.Type = v1beta1.ScaledObject
 		vas.Spec.CustomAutoscaler.ScaledObject = v1beta1.MakeScaledObjectSpec()
 		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].Prometheus.AuthModes = v1beta1.PrometheusAuthBasic
-		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].AuthSecret = AuthSecret + "basic"
+		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].AuthSecret = authSecret + "basic"
 		v1beta1_test.CreateVAS(ctx, k8sClient, vas)
 		defer v1beta1_test.DeleteVAS(ctx, k8sClient, vas)
 
@@ -117,7 +117,7 @@ var _ = Describe("obj_reconcile", func() {
 		secret.Data[v1beta1.PrometheusSecretKeyUsername] = []byte("username")
 		secret.Data[v1beta1.PrometheusSecretKeyPassword] = []byte("password")
 		Expect(k8sClient.Create(ctx, secret)).Should(Succeed())
-		defer deleteSecret(ctx, vas, AuthSecret+"basic")
+		defer deleteSecret(ctx, vas, authSecret+"basic")
 
 		r := MakeObjReconciler(vasRec, vas, logger)
 		res, err := r.Reconcile(ctx, &ctrl.Request{})
@@ -136,14 +136,14 @@ var _ = Describe("obj_reconcile", func() {
 	It("should should not create triggerAuthentication when metric type is not prometheus", func() {
 		vas := v1beta1.MakeVASWithMetrics()
 		vas.Spec.CustomAutoscaler.ScaledObject = v1beta1.MakeScaledObjectSpec()
-		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].AuthSecret = AuthSecret + "notused"
+		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].AuthSecret = authSecret + "notused"
 		v1beta1_test.CreateVAS(ctx, k8sClient, vas)
 		defer v1beta1_test.DeleteVAS(ctx, k8sClient, vas)
 
 		secretName := names.GenAuthSecretName(vas, vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].AuthSecret)
 		secret := builder.BuildSecretBase(secretName)
 		Expect(k8sClient.Create(ctx, secret)).Should(Succeed())
-		defer deleteSecret(ctx, vas, AuthSecret+"notused")
+		defer deleteSecret(ctx, vas, authSecret+"notused")
 
 		r := MakeObjReconciler(vasRec, vas, logger)
 		res, err := r.Reconcile(ctx, &ctrl.Request{})
@@ -163,7 +163,7 @@ var _ = Describe("obj_reconcile", func() {
 		vas.Spec.CustomAutoscaler.Type = v1beta1.ScaledObject
 		vas.Spec.CustomAutoscaler.ScaledObject = v1beta1.MakeScaledObjectSpec()
 		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].Prometheus.AuthModes = v1beta1.PrometheusAuthBasic
-		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].AuthSecret = AuthSecret + "basic"
+		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].AuthSecret = authSecret + "basic"
 		v1beta1_test.CreateVAS(ctx, k8sClient, vas)
 		defer v1beta1_test.DeleteVAS(ctx, k8sClient, vas)
 
@@ -171,7 +171,7 @@ var _ = Describe("obj_reconcile", func() {
 		secret := builder.BuildSecretBase(secretName)
 		secret.Data[v1beta1.PrometheusSecretKeyUsername] = []byte("username")
 		Expect(k8sClient.Create(ctx, secret)).Should(Succeed())
-		defer deleteSecret(ctx, vas, AuthSecret+"basic")
+		defer deleteSecret(ctx, vas, authSecret+"basic")
 
 		r := MakeObjReconciler(vasRec, vas, logger)
 		_, err := r.Reconcile(ctx, &ctrl.Request{})
@@ -185,7 +185,7 @@ var _ = Describe("obj_reconcile", func() {
 		vas.Spec.CustomAutoscaler.Type = v1beta1.ScaledObject
 		vas.Spec.CustomAutoscaler.ScaledObject = v1beta1.MakeScaledObjectSpec()
 		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].Prometheus.AuthModes = v1beta1.PrometheusAuthBearer
-		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].AuthSecret = AuthSecret + "bearer"
+		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].AuthSecret = authSecret + "bearer"
 		v1beta1_test.CreateVAS(ctx, k8sClient, vas)
 		defer v1beta1_test.DeleteVAS(ctx, k8sClient, vas)
 
@@ -193,7 +193,7 @@ var _ = Describe("obj_reconcile", func() {
 		secret := builder.BuildSecretBase(secretName)
 		secret.Data[v1beta1.PrometheusSecretKeyBearerToken] = []byte("bearertoken")
 		Expect(k8sClient.Create(ctx, secret)).Should(Succeed())
-		defer deleteSecret(ctx, vas, AuthSecret+"bearer")
+		defer deleteSecret(ctx, vas, authSecret+"bearer")
 
 		r := MakeObjReconciler(vasRec, vas, logger)
 		res, err := r.Reconcile(ctx, &ctrl.Request{})
@@ -214,14 +214,14 @@ var _ = Describe("obj_reconcile", func() {
 		vas.Spec.CustomAutoscaler.Type = v1beta1.ScaledObject
 		vas.Spec.CustomAutoscaler.ScaledObject = v1beta1.MakeScaledObjectSpec()
 		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].Prometheus.AuthModes = v1beta1.PrometheusAuthBearer
-		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].AuthSecret = AuthSecret + "bearer"
+		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].AuthSecret = authSecret + "bearer"
 		v1beta1_test.CreateVAS(ctx, k8sClient, vas)
 		defer v1beta1_test.DeleteVAS(ctx, k8sClient, vas)
 
 		secretName := names.GenAuthSecretName(vas, vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].AuthSecret)
 		secret := builder.BuildSecretBase(secretName)
 		Expect(k8sClient.Create(ctx, secret)).Should(Succeed())
-		defer deleteSecret(ctx, vas, AuthSecret+"bearer")
+		defer deleteSecret(ctx, vas, authSecret+"bearer")
 
 		r := MakeObjReconciler(vasRec, vas, logger)
 		_, err := r.Reconcile(ctx, &ctrl.Request{})
@@ -235,7 +235,7 @@ var _ = Describe("obj_reconcile", func() {
 		vas.Spec.CustomAutoscaler.Type = v1beta1.ScaledObject
 		vas.Spec.CustomAutoscaler.ScaledObject = v1beta1.MakeScaledObjectSpec()
 		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].Prometheus.AuthModes = v1beta1.PrometheusAuthTLS
-		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].AuthSecret = AuthSecret + "tls"
+		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].AuthSecret = authSecret + "tls"
 		v1beta1_test.CreateVAS(ctx, k8sClient, vas)
 		defer v1beta1_test.DeleteVAS(ctx, k8sClient, vas)
 
@@ -245,7 +245,7 @@ var _ = Describe("obj_reconcile", func() {
 		secret.Data[v1beta1.PrometheusSecretKeyCert] = []byte("cert")
 		secret.Data[v1beta1.PrometheusSecretKeyKey] = []byte("key")
 		Expect(k8sClient.Create(ctx, secret)).Should(Succeed())
-		defer deleteSecret(ctx, vas, AuthSecret+"tls")
+		defer deleteSecret(ctx, vas, authSecret+"tls")
 
 		r := MakeObjReconciler(vasRec, vas, logger)
 		res, err := r.Reconcile(ctx, &ctrl.Request{})
@@ -268,14 +268,14 @@ var _ = Describe("obj_reconcile", func() {
 		vas.Spec.CustomAutoscaler.Type = v1beta1.ScaledObject
 		vas.Spec.CustomAutoscaler.ScaledObject = v1beta1.MakeScaledObjectSpec()
 		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].Prometheus.AuthModes = v1beta1.PrometheusAuthTLS
-		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].AuthSecret = AuthSecret + "tls"
+		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].AuthSecret = authSecret + "tls"
 		v1beta1_test.CreateVAS(ctx, k8sClient, vas)
 		defer v1beta1_test.DeleteVAS(ctx, k8sClient, vas)
 
 		secretName := names.GenAuthSecretName(vas, vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].AuthSecret)
 		secret := builder.BuildSecretBase(secretName)
 		Expect(k8sClient.Create(ctx, secret)).Should(Succeed())
-		defer deleteSecret(ctx, vas, AuthSecret+"tls")
+		defer deleteSecret(ctx, vas, authSecret+"tls")
 
 		r := MakeObjReconciler(vasRec, vas, logger)
 		_, err := r.Reconcile(ctx, &ctrl.Request{})
@@ -289,7 +289,7 @@ var _ = Describe("obj_reconcile", func() {
 		vas.Spec.CustomAutoscaler.Type = v1beta1.ScaledObject
 		vas.Spec.CustomAutoscaler.ScaledObject = v1beta1.MakeScaledObjectSpec()
 		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].Prometheus.AuthModes = v1beta1.PrometheusAuthCustom
-		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].AuthSecret = AuthSecret + "custom"
+		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].AuthSecret = authSecret + "custom"
 		v1beta1_test.CreateVAS(ctx, k8sClient, vas)
 		defer v1beta1_test.DeleteVAS(ctx, k8sClient, vas)
 
@@ -298,7 +298,7 @@ var _ = Describe("obj_reconcile", func() {
 		secret.Data[v1beta1.PrometheusSecretKeyCustomAuthHeader] = []byte("auththeader")
 		secret.Data[v1beta1.PrometheusSecretKeyCustomAuthValue] = []byte("authvalue")
 		Expect(k8sClient.Create(ctx, secret)).Should(Succeed())
-		defer deleteSecret(ctx, vas, AuthSecret+"custom")
+		defer deleteSecret(ctx, vas, authSecret+"custom")
 
 		r := MakeObjReconciler(vasRec, vas, logger)
 		res, err := r.Reconcile(ctx, &ctrl.Request{})
@@ -320,14 +320,14 @@ var _ = Describe("obj_reconcile", func() {
 		vas.Spec.CustomAutoscaler.Type = v1beta1.ScaledObject
 		vas.Spec.CustomAutoscaler.ScaledObject = v1beta1.MakeScaledObjectSpec()
 		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].Prometheus.AuthModes = v1beta1.PrometheusAuthCustom
-		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].AuthSecret = AuthSecret + "custom"
+		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].AuthSecret = authSecret + "custom"
 		v1beta1_test.CreateVAS(ctx, k8sClient, vas)
 		defer v1beta1_test.DeleteVAS(ctx, k8sClient, vas)
 
 		secretName := names.GenAuthSecretName(vas, vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].AuthSecret)
 		secret := builder.BuildSecretBase(secretName)
 		Expect(k8sClient.Create(ctx, secret)).Should(Succeed())
-		defer deleteSecret(ctx, vas, AuthSecret+"custom")
+		defer deleteSecret(ctx, vas, authSecret+"custom")
 
 		r := MakeObjReconciler(vasRec, vas, logger)
 		_, err := r.Reconcile(ctx, &ctrl.Request{})
@@ -341,7 +341,7 @@ var _ = Describe("obj_reconcile", func() {
 		vas.Spec.CustomAutoscaler.Type = v1beta1.ScaledObject
 		vas.Spec.CustomAutoscaler.ScaledObject = v1beta1.MakeScaledObjectSpec()
 		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].Prometheus.AuthModes = v1beta1.PrometheusAuthTLSAndBasic
-		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].AuthSecret = AuthSecret + "tlsbasic"
+		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].AuthSecret = authSecret + "tlsbasic"
 		v1beta1_test.CreateVAS(ctx, k8sClient, vas)
 		defer v1beta1_test.DeleteVAS(ctx, k8sClient, vas)
 
@@ -353,7 +353,7 @@ var _ = Describe("obj_reconcile", func() {
 		secret.Data[v1beta1.PrometheusSecretKeyCert] = []byte("cert")
 		secret.Data[v1beta1.PrometheusSecretKeyKey] = []byte("key")
 		Expect(k8sClient.Create(ctx, secret)).Should(Succeed())
-		defer deleteSecret(ctx, vas, AuthSecret+"tlsbasic")
+		defer deleteSecret(ctx, vas, authSecret+"tlsbasic")
 
 		r := MakeObjReconciler(vasRec, vas, logger)
 		res, err := r.Reconcile(ctx, &ctrl.Request{})
@@ -378,14 +378,14 @@ var _ = Describe("obj_reconcile", func() {
 		vas.Spec.CustomAutoscaler.Type = v1beta1.ScaledObject
 		vas.Spec.CustomAutoscaler.ScaledObject = v1beta1.MakeScaledObjectSpec()
 		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].Prometheus.AuthModes = v1beta1.PrometheusAuthTLSAndBasic
-		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].AuthSecret = AuthSecret + "tlsbasic"
+		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].AuthSecret = authSecret + "tlsbasic"
 		v1beta1_test.CreateVAS(ctx, k8sClient, vas)
 		defer v1beta1_test.DeleteVAS(ctx, k8sClient, vas)
 
 		secretName := names.GenAuthSecretName(vas, vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].AuthSecret)
 		secret := builder.BuildSecretBase(secretName)
 		Expect(k8sClient.Create(ctx, secret)).Should(Succeed())
-		defer deleteSecret(ctx, vas, AuthSecret+"tlsbasic")
+		defer deleteSecret(ctx, vas, authSecret+"tlsbasic")
 
 		r := MakeObjReconciler(vasRec, vas, logger)
 		_, err := r.Reconcile(ctx, &ctrl.Request{})
