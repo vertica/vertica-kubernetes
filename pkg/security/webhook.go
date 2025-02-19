@@ -205,7 +205,6 @@ func getCertFromSecret(ctx context.Context, log *logr.Logger, cfg *rest.Config, 
 // between the different versions of CRDs we have.
 func patchConversionWebhookConfig(ctx context.Context, log *logr.Logger, cfg *rest.Config,
 	prefixName, namespace string, annotations map[string]string, caCert []byte) error {
-
 	vdbCrdName := getVerticaDBCRDName()
 	err := updateCrdWebhookConversion(ctx, vdbCrdName, log, cfg, prefixName, namespace, annotations, caCert)
 	if err != nil {
