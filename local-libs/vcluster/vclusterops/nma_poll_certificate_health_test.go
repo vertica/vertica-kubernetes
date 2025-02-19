@@ -2,6 +2,7 @@ package vclusterops
 
 import (
 	"fmt"
+	"io"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -40,6 +41,12 @@ func (res *mockNMAPollCertHealthOpHTTPResult) setException() *mockNMAPollCertHea
 	return res
 }
 
+func (res *mockNMAPollCertHealthOpHTTPResult) setEOF() *mockNMAPollCertHealthOpHTTPResult {
+	res.status = EOFEXCEPTION
+	res.err = io.EOF
+	return res
+}
+
 func (res *mockNMAPollCertHealthOpHTTPResult) setUnauthorized() *mockNMAPollCertHealthOpHTTPResult {
 	res.status = FAILURE
 	res.statusCode = UnauthorizedCode
@@ -47,12 +54,13 @@ func (res *mockNMAPollCertHealthOpHTTPResult) setUnauthorized() *mockNMAPollCert
 	return res
 }
 
+//nolint:funlen // this is not worth decomposing
 func TestNMAPollCertHealthOp(t *testing.T) {
 	vl := vlog.Printer{}
 	execContext := makeOpEngineExecContext(vl)
 	const host = "host"
-	hosts := []string{host}
-	assert.True(t, true)
+	const extraHost = "extra_host"
+	hosts := []string{host, extraHost}
 
 	// test positive case of nma certs passing
 	opSuccess := makeNMAPollCertHealthOp(hosts)
@@ -62,6 +70,7 @@ func TestNMAPollCertHealthOp(t *testing.T) {
 	resColl := &opSuccess.clusterHTTPRequest.ResultCollection
 	*resColl = make(map[string]hostHTTPResult, len(hosts))
 	(*resColl)[host] = makeMockNMAPollCertHealthOpResponse(host).setSuccess().hostHTTPResult
+	(*resColl)[extraHost] = makeMockNMAPollCertHealthOpResponse(extraHost).setSuccess().hostHTTPResult
 	doStop, err := opSuccess.shouldStopPolling()
 	assert.NoError(t, err)
 	assert.True(t, doStop)
@@ -95,6 +104,17 @@ func TestNMAPollCertHealthOp(t *testing.T) {
 	(*resColl)[host] = makeMockNMAPollCertHealthOpResponse(host).setUnauthorized().hostHTTPResult
 	opUnauthorized.clusterHTTPRequest.ResultCollection = *resColl
 	doStop, err = opUnauthorized.shouldStopPolling()
+	assert.NoError(t, err)
+	assert.False(t, doStop)
+
+	// test a reset connection when the NMA server dies abruptly during an endpoint call
+	opEOF := makeNMAPollCertHealthOp(hosts)
+	opEOF.setupBasicInfo()
+	err = opEOF.prepare(&execContext)
+	assert.NoError(t, err)
+	(*resColl)[host] = makeMockNMAPollCertHealthOpResponse(host).setEOF().hostHTTPResult
+	opException.clusterHTTPRequest.ResultCollection = *resColl
+	doStop, err = opEOF.shouldStopPolling()
 	assert.NoError(t, err)
 	assert.False(t, doStop)
 }
