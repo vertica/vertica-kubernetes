@@ -205,12 +205,26 @@ func getCertFromSecret(ctx context.Context, log *logr.Logger, cfg *rest.Config, 
 // between the different versions of CRDs we have.
 func patchConversionWebhookConfig(ctx context.Context, log *logr.Logger, cfg *rest.Config,
 	prefixName, namespace string, annotations map[string]string, caCert []byte) error {
+
+	vdbCrdName := getVerticaDBCRDName()
+	err := updateCrdWebhookConversion(ctx, vdbCrdName, log, cfg, prefixName, namespace, annotations, caCert)
+	if err != nil {
+		return err
+	}
+	vasCrdName := getVerticaAutoscalerCRDName()
+	err = updateCrdWebhookConversion(ctx, vasCrdName, log, cfg, prefixName, namespace, annotations, caCert)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func updateCrdWebhookConversion(ctx context.Context, crdName string, log *logr.Logger, cfg *rest.Config,
+	prefixName, namespace string, annotations map[string]string, caCert []byte) error {
 	cs, err := apiclientset.NewForConfig(cfg)
 	if err != nil {
 		return errors.Wrap(err, "could not create apiextensions clientset")
 	}
-
-	crdName := getVerticaDBCRDName()
 	api := cs.ApiextensionsV1().CustomResourceDefinitions()
 	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 		crd, err := api.Get(ctx, crdName, metav1.GetOptions{})
@@ -274,4 +288,9 @@ func getWebhookServiceName(prefixName string) string {
 // getVerticaDBCRDName returns the name of the CRD for VerticaDB
 func getVerticaDBCRDName() string {
 	return fmt.Sprintf("%s.%s", v1vapi.VerticaDBKindPlural, v1vapi.Group)
+}
+
+// getVerticaAutoscalerCRDName returns the name of the CRD for VerticaDB
+func getVerticaAutoscalerCRDName() string {
+	return fmt.Sprintf("%s.%s", v1vapi.VerticaAutoscalerPlural, v1vapi.Group)
 }

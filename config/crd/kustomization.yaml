@@ -53,3 +53,19 @@ patches:
         jsonPath: .metadata.annotations.vertica\.com\/ready-status
         name: Ready
         type: string
+- target:
+    kind: CustomResourceDefinition
+    name: verticaautoscalers.vertica.com
+  patch: |-
+    - op: add
+      path: /spec/versions/0/additionalPrinterColumns/1
+      value:
+        jsonPath: .metadata.annotations.vertica\.com\/version
+        name: Version
+        type: string
+    - op: add
+      path: /spec/versions/0/additionalPrinterColumns/2
+      value:
+        jsonPath: .metadata.annotations.vertica\.com\/ready-status
+        name: Ready
+        type: string
