@@ -356,9 +356,14 @@ func buildStartupConfVolumeMount() corev1.VolumeMount {
 	}
 }
 
-func buildScrutinizeVolumeMounts(vscr *v1beta1.VerticaScrutinize) []corev1.VolumeMount {
+func buildScrutinizeVolumeMounts(vscr *v1beta1.VerticaScrutinize, vdb *vapi.VerticaDB) []corev1.VolumeMount {
 	volMnts := []corev1.VolumeMount{
 		buildScrutinizeSharedVolumeMount(vscr),
+	}
+	if vmeta.UseNMACertsMount(vdb.Annotations) &&
+		vdb.Spec.NMATLSSecret != "" &&
+		secrets.IsK8sSecret(vdb.Spec.NMATLSSecret) {
+		volMnts = append(volMnts, buildNMACertsVolumeMount()...)
 	}
 	return volMnts
 }
@@ -420,6 +425,11 @@ func buildSSHVolumeMounts() []corev1.VolumeMount {
 // used with NMA
 func buildCommonNMAVolumeMounts(vdb *vapi.VerticaDB) []corev1.VolumeMount {
 	volMnts := buildScrutinizeVolumeMountForVerticaPod(vdb)
+	if vmeta.UseNMACertsMount(vdb.Annotations) &&
+		vdb.Spec.NMATLSSecret != "" &&
+		secrets.IsK8sSecret(vdb.Spec.NMATLSSecret) {
+		volMnts = append(volMnts, buildNMACertsVolumeMount()...)
+	}
 	return volMnts
 }
 
@@ -436,6 +446,15 @@ func buildScrutinizeVolumeMountForVerticaPod(vdb *vapi.VerticaDB) []corev1.Volum
 			Name:      vapi.LocalDataPVC,
 			SubPath:   vdb.GetPVSubPath("scrutinize"),
 			MountPath: paths.ScrutinizeTmp,
+		},
+	}
+}
+
+func buildNMACertsVolumeMount() []corev1.VolumeMount {
+	return []corev1.VolumeMount{
+		{
+			Name:      vapi.NMACertsMountName,
+			MountPath: paths.NMACertsRoot,
 		},
 	}
 }
@@ -468,6 +487,12 @@ func buildVolumes(vdb *vapi.VerticaDB) []corev1.Volume {
 	if vdb.GetSSHSecretName() != "" {
 		vols = append(vols, buildSSHVolume(vdb))
 	}
+	if vmeta.UseVClusterOps(vdb.Annotations) &&
+		vmeta.UseNMACertsMount(vdb.Annotations) &&
+		vdb.Spec.NMATLSSecret != "" &&
+		secrets.IsK8sSecret(vdb.Spec.NMATLSSecret) {
+		vols = append(vols, buildNMACertsSecretVolume(vdb))
+	}
 	if vdb.IsDepotVolumeEmptyDir() {
 		vols = append(vols, buildDepotVolume())
 	}
@@ -482,6 +507,12 @@ func buildVolumes(vdb *vapi.VerticaDB) []corev1.Volume {
 // buildScrutinizeVolumes returns volumes that will be used by the scrutinize pod
 func buildScrutinizeVolumes(vscr *v1beta1.VerticaScrutinize, vdb *vapi.VerticaDB) []corev1.Volume {
 	vols := []corev1.Volume{}
+	if vmeta.UseVClusterOps(vdb.Annotations) &&
+		vmeta.UseNMACertsMount(vdb.Annotations) &&
+		vdb.Spec.NMATLSSecret != "" &&
+		secrets.IsK8sSecret(vdb.Spec.NMATLSSecret) {
+		vols = append(vols, buildNMACertsSecretVolume(vdb))
+	}
 	// we add a volume for the password when the password secret
 	// is on k8s
 	if vdb.Spec.PasswordSecret != "" &&
@@ -738,6 +769,17 @@ func buildSSHVolume(vdb *vapi.VerticaDB) corev1.Volume {
 		VolumeSource: corev1.VolumeSource{
 			Secret: &corev1.SecretVolumeSource{
 				SecretName: vdb.GetSSHSecretName(),
+			},
+		},
+	}
+}
+
+func buildNMACertsSecretVolume(vdb *vapi.VerticaDB) corev1.Volume {
+	return corev1.Volume{
+		Name: vapi.NMACertsMountName,
+		VolumeSource: corev1.VolumeSource{
+			Secret: &corev1.SecretVolumeSource{
+				SecretName: vdb.Spec.NMATLSSecret,
 			},
 		},
 	}
@@ -1132,7 +1174,7 @@ func makeScrutinizeInitContainer(vscr *v1beta1.VerticaScrutinize, vdb *vapi.Vert
 		Image:        vdb.Spec.Image,
 		Name:         names.ScrutinizeInitContainer,
 		Command:      buildScrutinizeCmd(args),
-		VolumeMounts: buildScrutinizeVolumeMounts(vscr),
+		VolumeMounts: buildScrutinizeVolumeMounts(vscr, vdb),
 		Resources:    vscr.Spec.Resources,
 		Env:          buildCommonEnvVars(vdb),
 	}
@@ -1810,6 +1852,14 @@ func buildScrutinizeDBPasswordEnvVars(nm types.NamespacedName) []corev1.EnvVar {
 // buildNMATLSCertsEnvVars returns environment variables about NMA certs,
 // that are needed by NMA and vcluster scrutinize
 func buildNMATLSCertsEnvVars(vdb *vapi.VerticaDB) []corev1.EnvVar {
+	if vmeta.UseNMACertsMount(vdb.Annotations) && secrets.IsK8sSecret(vdb.Spec.NMATLSSecret) {
+		return []corev1.EnvVar{
+			// Provide the path to each of the certs that are mounted in the container.
+			{Name: NMARootCAEnv, Value: fmt.Sprintf("%s/%s", paths.NMACertsRoot, paths.HTTPServerCACrtName)},
+			{Name: NMACertEnv, Value: fmt.Sprintf("%s/%s", paths.NMACertsRoot, corev1.TLSCertKey)},
+			{Name: NMAKeyEnv, Value: fmt.Sprintf("%s/%s", paths.NMACertsRoot, corev1.TLSPrivateKeyKey)},
+		}
+	}
 	notTrue := false
 	configMapName := fmt.Sprintf("%s-%s", vdb.Name, vapi.NMATLSConfigMapName)
 	return []corev1.EnvVar{
