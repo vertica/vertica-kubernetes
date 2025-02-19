@@ -27,7 +27,7 @@ var verticaautoscalerlog = logf.Log.WithName("verticaautoscaler-resource")
 
 // ConvertTo is a function to convert a v1beta1 CR to the v1 version of the CR.
 func (v *VerticaAutoscaler) ConvertTo(dstRaw conversion.Hub) error {
-	verticaautoscalerlog.Info("ConvertTo", "GroupVersion", GroupVersion, "name", v.Name, "namespace", v.Namespace, "uid", v.UID)
+	verticaautoscalerlog.Info("ConvertToVas", "GroupVersion", GroupVersion, "name", v.Name, "namespace", v.Namespace, "uid", v.UID)
 	dst := dstRaw.(*v1.VerticaAutoscaler)
 	dst.Name = v.Name
 	dst.Namespace = v.Namespace
@@ -42,7 +42,7 @@ func (v *VerticaAutoscaler) ConvertTo(dstRaw conversion.Hub) error {
 // ConvertFrom will handle conversion from the Hub type (v1) to v1beta1.
 func (v *VerticaAutoscaler) ConvertFrom(srcRaw conversion.Hub) error {
 	src := srcRaw.(*v1.VerticaAutoscaler)
-	verticadblog.Info("ConvertFrom", "GroupVersion", GroupVersion, "name", src.Name, "namespace", src.Namespace, "uid", src.UID)
+	verticadblog.Info("ConvertFromVas", "GroupVersion", GroupVersion, "name", src.Name, "namespace", src.Namespace, "uid", src.UID)
 	v.Name = src.Name
 	v.Namespace = src.Namespace
 	v.Annotations = src.Annotations

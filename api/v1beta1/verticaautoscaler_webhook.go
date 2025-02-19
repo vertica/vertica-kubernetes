@@ -15,7 +15,7 @@ limitations under the License.
 */
 
 //nolint:lll
-package v1
+package v1beta1
 
 import (
 	"fmt"
@@ -25,15 +25,11 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	ctrl "sigs.k8s.io/controller-runtime"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
-// log is for logging in this package.
-var verticaautoscalerlog = logf.Log.WithName("verticaautoscaler-resource")
-
-// +kubebuilder:webhook:path=/mutate-vertica-com-v1-verticaautoscaler,mutating=true,failurePolicy=fail,sideEffects=None,groups=vertica.com,resources=verticaautoscalers,verbs=create;update,versions=v1,name=mverticaautoscaler.v1.kb.io,admissionReviewVersions=v1
+// +kubebuilder:webhook:path=/mutate-vertica-com-v1beta1-verticaautoscaler,mutating=true,failurePolicy=fail,sideEffects=None,groups=vertica.com,resources=verticaautoscalers,verbs=create;update,versions=v1beta1,name=mverticaautoscaler.v1beta1.kb.io,admissionReviewVersions=v1
 
 func (v *VerticaAutoscaler) SetupWebhookWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr).
@@ -46,10 +42,6 @@ var _ webhook.Defaulter = &VerticaAutoscaler{}
 // Default implements webhook.Defaulter so a webhook will be registered for the type
 func (v *VerticaAutoscaler) Default() {
 	verticaautoscalerlog.Info("default", "name", v.Name, "GroupVersion", GroupVersion)
-
-	if v.Spec.Template.Type == "" {
-		v.Spec.Template.Type = v.Spec.Template.GetType()
-	}
 }
 
 var _ webhook.Validator = &VerticaAutoscaler{}

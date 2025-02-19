@@ -35,12 +35,32 @@ webhooks:
       namespace: system
       path: /mutate-vertica-com-v1-verticaautoscaler
   failurePolicy: Fail
-  name: mverticaautoscaler.kb.io
+  name: mverticaautoscaler.v1.kb.io
   rules:
   - apiGroups:
     - vertica.com
     apiVersions:
     - v1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - verticaautoscalers
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /mutate-vertica-com-v1beta1-verticaautoscaler
+  failurePolicy: Fail
+  name: mverticaautoscaler.v1beta1.kb.io
+  rules:
+  - apiGroups:
+    - vertica.com
+    apiVersions:
+    - v1beta1
     operations:
     - CREATE
     - UPDATE

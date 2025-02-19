@@ -965,13 +965,6 @@ func (s *Subcluster) GetType() string {
 	return s.Type
 }
 
-// InitType setup the type of the subcluster in string if the type is empty
-func (s *Subcluster) InitType() {
-	if s.IsTransient() || s.Type == "" {
-		s.Type = SecondarySubcluster
-	}
-}
-
 func (v *VerticaDBStatus) InstallCount() int32 {
 	var c int32
 	for i := range v.Subclusters {
