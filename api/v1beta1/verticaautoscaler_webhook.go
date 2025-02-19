@@ -136,7 +136,7 @@ func (v *VerticaAutoscaler) validateCustomAutoscaler(allErrs field.ErrorList) fi
 	// if v.Spec.CustomAutoscaler == nil && v.Spec.ServiceName == "" {
 	// 	err := field.Invalid(pathPrefix.Child("serviceName"),
 	// 		v.Spec.CustomAutoscaler.Hpa,
-	// 		"When spec.customAutoscaler.hpa.scaledownThreshold is set, scaledown stabilization window must be 0")
+	// 		"When scaledownThreshold is set, scaledown stabilization window must be 0")
 	// 	allErrs = append(allErrs, err)
 	// }
 	return allErrs
@@ -155,7 +155,7 @@ func (v *VerticaAutoscaler) validateScaledObject(allErrs field.ErrorList) field.
 			if !slices.Contains(validTriggers, metric.Type) {
 				err := field.Invalid(pathPrefix.Child("scaledObject").Child("metrics").Index(i).Child("type"),
 					v.Spec.CustomAutoscaler.ScaledObject.Metrics[i].Type,
-					fmt.Sprintf("spec.customAutoscaler.scaledObject.metrics[].type must be one of '%s', '%s', '%s' or empty.",
+					fmt.Sprintf("Type must be one of '%s', '%s', '%s' or empty.",
 						CPUTriggerType, MemTriggerType, PrometheusTriggerType),
 				)
 				allErrs = append(allErrs, err)
@@ -164,8 +164,8 @@ func (v *VerticaAutoscaler) validateScaledObject(allErrs field.ErrorList) field.
 			if metric.Type == PrometheusTriggerType && !slices.Contains(prometheusMetricTypes, metric.MetricType) {
 				err := field.Invalid(pathPrefix.Child("scaledObject").Child("metrics").Index(i).Child("type"),
 					v.Spec.CustomAutoscaler.ScaledObject.Metrics[i].Type,
-					fmt.Sprintf("When pec.customAutoscaler.scaledObject.metrics[].Type is set to %s"+
-						"spec.customAutoscaler.scaledObject.metrics[].metricType must be one of '%s', '%s'.",
+					fmt.Sprintf("When Type is set to %s "+
+						"metricType must be one of '%s', '%s'.",
 						PrometheusTriggerType, autoscalingv2.ValueMetricType, autoscalingv2.AverageValueMetricType),
 				)
 				allErrs = append(allErrs, err)
@@ -174,8 +174,8 @@ func (v *VerticaAutoscaler) validateScaledObject(allErrs field.ErrorList) field.
 			if metric.Type == CPUTriggerType || metric.Type == MemTriggerType && !slices.Contains(cpumemMetricTypes, metric.MetricType) {
 				err := field.Invalid(pathPrefix.Child("scaledObject").Child("metrics").Index(i).Child("type"),
 					v.Spec.CustomAutoscaler.ScaledObject.Metrics[i].Type,
-					fmt.Sprintf("When pec.customAutoscaler.scaledObject.metrics[].Type is set to %s or %s"+
-						"spec.customAutoscaler.scaledObject.metrics[].metricType must be one of '%s', '%s'.",
+					fmt.Sprintf("When Type is set to %s or %s "+
+						"metricType must be one of '%s', '%s'.",
 						CPUTriggerType, MemTriggerType, autoscalingv2.UtilizationMetricType, autoscalingv2.AverageValueMetricType),
 				)
 				allErrs = append(allErrs, err)
