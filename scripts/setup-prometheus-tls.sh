@@ -82,8 +82,8 @@ cat $CA_CRT >> $TLS_CRT
 logInfo "Creating prometheus secret"
 # For Prometheus using
 kubectl delete secret $TLS_SECRET -n $PROMETHEUS_NS || true
-kubectl create secret generic $TLS_SECRET -n $PROMETHEUS_NS --from-file=tls.key=$TLS_KEY --from-file=tls.crt=$TLS_CRT
-# For prometheus adapter using
+kubectl create secret generic $TLS_SECRET -n $PROMETHEUS_NS --from-file=tls.key=$TLS_KEY --from-file=tls.crt=$TLS_CRT --from-file=ca.crt=$CA_CRT
+# For Prometheus adapter using
 kubectl create namespace $PROMETHEUS_ADAPTER_NS || true
 kubectl delete secret $TLS_SECRET -n $PROMETHEUS_ADAPTER_NS || true
 kubectl create secret generic $TLS_SECRET -n $PROMETHEUS_ADAPTER_NS --from-file=tls.key=$TLS_KEY --from-file=tls.crt=$TLS_CRT --from-file=ca.crt=$CA_CRT
