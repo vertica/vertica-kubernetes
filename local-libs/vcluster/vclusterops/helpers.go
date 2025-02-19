@@ -279,7 +279,7 @@ func (vcc VClusterCommands) getVDBFromRunningDBIncludeSandbox(vdb *VCoordination
 		false /*update node state by sending http request to each node*/)
 }
 
-// getVDBFromRunningDB will retrieve db configurations by calling https endpoints of a running db
+// getVDB will retrieve db configurations by calling https endpoints of a running db
 func (vcc VClusterCommands) getVDBFromRunningDBImpl(vdb *VCoordinationDatabase, options *DatabaseOptions,
 	allowUseSandboxRes bool, sandbox string, updateNodeState bool) error {
 	err := options.setUsePasswordAndValidateUsernameIfNeeded(vcc.Log)
