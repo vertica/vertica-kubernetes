@@ -30,6 +30,7 @@ import (
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/license"
+	"github.com/vertica/vertica-kubernetes/pkg/meta"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
@@ -124,19 +125,22 @@ func (c *CreateDBReconciler) execCmd(ctx context.Context, initiatorPod types.Nam
 		return ctrl.Result{}, err
 	}
 	c.VRec.Event(c.Vdb, corev1.EventTypeNormal, events.CreateDBStart, "Starting create database")
-	vadmin.TLSCertConfigured = false
+
+	vdbContext := vadmin.GetContextForVdb(c.Vdb.Namespace, c.Vdb.Name)
+	vdbContext.SetBoolValue(vadmin.UseTlsCert, false)
+
 	start := time.Now()
 	if res, errTwo := c.Dispatcher.CreateDB(ctx, opts...); verrors.IsReconcileAborted(res, err) {
 		return res, errTwo
 	}
-	if c.VInf.IsEqualOrNewer(vapi.NMATLSCertRotationMinVersion) {
+	if c.VInf.IsEqualOrNewer(vapi.NMATLSCertRotationMinVersion) && meta.EnableTLSCertsRotation(c.Vdb.Annotations) {
 		_, _, err = c.PRunner.ExecInPod(ctx, initiatorPod, names.ServerContainer,
 			"vsql", "-f", PostDBCreateSQLFile)
 		if err != nil {
 			c.Log.Error(err, "failed to execute TLS DDLs after db creation ")
 			return ctrl.Result{}, err
 		}
-		vadmin.TLSCertConfigured = true
+		vdbContext.SetBoolValue(vadmin.UseTlsCert, true)
 		c.Log.Info("TLS DDLs executed and TLS Cert configured")
 	}
 	sc := c.getFirstPrimarySubcluster()

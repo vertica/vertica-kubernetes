@@ -21,6 +21,7 @@ import (
 
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/cloud"
+	"github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	corev1 "k8s.io/api/core/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -90,8 +91,9 @@ func (v *VClusterOps) shouldUseCertAuthentication() bool {
 		v.Log.Info("failed to get vertica version. disable TLS cert")
 		return false
 	}
-	if Vinf.IsEqualOrNewer(vapi.NMATLSCertRotationMinVersion) {
-		return TLSCertConfigured
+	if Vinf.IsEqualOrNewer(vapi.NMATLSCertRotationMinVersion) && meta.EnableTLSCertsRotation(v.VDB.Annotations) {
+		vdbContext := GetContextForVdb(v.VDB.Namespace, v.VDB.Name)
+		return vdbContext.GetBoolValue(UseTlsCert)
 	}
 	return false
 }

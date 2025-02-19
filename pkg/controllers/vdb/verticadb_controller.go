@@ -39,6 +39,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
+	"github.com/vertica/vertica-kubernetes/pkg/meta"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/metrics"
 	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
@@ -124,8 +125,10 @@ func (r *VerticaDBReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		return ctrl.Result{}, err
 	}
 	log.Info("VerticaDB details", "uid", vdb.UID, "resourceVersion", vdb.ResourceVersion,
-		"vclusterOps", vmeta.UseVClusterOps(vdb.Annotations), "user", vdb.GetVerticaUser())
+		"vclusterOps", vmeta.UseVClusterOps(vdb.Annotations), "user", vdb.GetVerticaUser(),
+		"tls cert rotate enabled", vmeta.EnableTLSCertsRotation(vdb.Annotations))
 
+	r.configureTls(log, vdb)
 	if vmeta.IsPauseAnnotationSet(vdb.Annotations) {
 		log.Info(fmt.Sprintf("The pause annotation %s is set. Suspending the iteration", vmeta.PauseOperatorAnnotation),
 			"result", ctrl.Result{}, "err", nil)
@@ -334,6 +337,29 @@ func (r *VerticaDBReconciler) makeDispatcher(log logr.Logger, vdb *vapi.VerticaD
 		return vadmin.MakeVClusterOps(log, vdb, r.Client, passwd, r.EVRec, vadmin.SetupVClusterOps)
 	}
 	return vadmin.MakeAdmintools(log, vdb, prunner, r.EVRec)
+}
+
+func (r *VerticaDBReconciler) configureTls(log logr.Logger, vdb *vapi.VerticaDB) {
+	vdbContext := vadmin.GetContextForVdb(vdb.Namespace, vdb.Name)
+	VInf, err := vdb.MakeVersionInfoCheck()
+	dataInitialized := vdb.IsStatusConditionTrue(vapi.DBInitialized)
+	if err != nil { // version info not available
+		if meta.EnableTLSCertsRotation(vdb.Annotations) && dataInitialized {
+			vdbContext.SetBoolValue(vadmin.UseTlsCert, true)
+			log.Info("based on annatation only, tls cert rotate is supported")
+			return
+		}
+	} else {
+		if VInf.IsEqualOrNewer(vapi.NMATLSCertRotationMinVersion) && meta.EnableTLSCertsRotation(vdb.Annotations) &&
+			dataInitialized {
+			vdbContext.SetBoolValue(vadmin.UseTlsCert, true)
+			log.Info("based on annatation and version, tls cert rotate is supported")
+			return
+		}
+	}
+	vdbContext.SetBoolValue(vadmin.UseTlsCert, false)
+	log.Info("tls cert rotate is not supported")
+	return
 }
 
 // Event a wrapper for Event() that also writes a log entry
