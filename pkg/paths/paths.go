@@ -53,6 +53,7 @@ const (
 	CertsRoot                 = "/certs"
 	TLSCertsConfigPath        = "/certs/config"
 	NMACertsRoot              = "/certs/nma"
+	VProxyCertsRoot           = "/certs/vproxy"
 	Krb5Conf                  = "/etc/krb5.conf"
 	Krb5Keytab                = "/etc/krb5/krb5.keytab"
 	DBAdminSSHPath            = "/home/dbadmin/.ssh"
