@@ -26,15 +26,12 @@ import (
 
 // VerticaAutoscalerSpec defines the desired state of VerticaAutoscaler
 type VerticaAutoscalerSpec struct {
-	// Important: Run "make" to regenerate code after modifying this file
-
 	// +kubebuilder:validation:Required
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:text"
 	// The name of the VerticaDB CR that this autoscaler is defined for.  The
 	// VerticaDB object must exist in the same namespace as this object.
 	VerticaDBName string `json:"verticaDBName"`
 
-	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// +kubebuilder:default:="Subcluster"
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:select:Pod","urn:alm:descriptor:com.tectonic.ui:select:Subcluster"}
@@ -48,7 +45,6 @@ type VerticaAutoscalerSpec struct {
 	ScalingGranularity ScalingGranularityType `json:"scalingGranularity"`
 
 	// +kubebuilder:validation:Optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:text"
 	// This acts as a selector for the subclusters that are being scaled together.
 	// Each subcluster has a service name field, which if omitted is the same
@@ -57,8 +53,8 @@ type VerticaAutoscalerSpec struct {
 	// if this field is empty, all the subclusters will be selected for scaling.
 	ServiceName string `json:"serviceName,omitempty"`
 
-	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// When the scaling granularity is Subcluster, this field defines a template
 	// to use for when a new subcluster needs to be created.  If size is 0, then
 	// the operator will use an existing subcluster to use as the template.  If
@@ -76,7 +72,6 @@ type VerticaAutoscalerSpec struct {
 	// subclusters.
 	Template Subcluster `json:"template"`
 
-	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:podCount"
 	// This is the total pod count for all subclusters that match the
@@ -87,7 +82,7 @@ type VerticaAutoscalerSpec struct {
 	TargetSize int32 `json:"targetSize"`
 
 	// +kubebuilder:validation:Optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:fieldDependency:type:CustomAutoscaler"
 	// This struct allows customization of autoscaling. Custom metrics can be used instead of the memory and cpu metrics.
 	// The scaling behavior can also be customized to meet different performance requirements. The maximum and mininum of
 	// sizes of the replica sets can be specified to limit the use of resources.

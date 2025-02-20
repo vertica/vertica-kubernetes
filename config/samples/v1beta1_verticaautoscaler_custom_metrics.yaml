@@ -7,7 +7,7 @@ spec:
   # The serviceName should be the name of your subcluster
   serviceName: sc1
   scalingGranularity: Pod
-  customAutoscalerSpec:
+  customAutoscaler:
     minReplicas: 3
     maxReplicas: 10
     metrics:    

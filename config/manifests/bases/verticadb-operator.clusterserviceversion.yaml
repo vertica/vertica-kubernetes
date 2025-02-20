@@ -168,6 +168,8 @@ spec:
           sizes of the replica sets can be specified to limit the use of resources.
         displayName: Custom Autoscaler
         path: customAutoscaler
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:fieldDependency:type:CustomAutoscaler
       - description: |-
           It refers to an autoscaling definition through the horizontal pod autoscaler.
           If type is "HPA", this must be set.
@@ -605,6 +607,8 @@ spec:
           sizes of the replica sets can be specified to limit the use of resources.
         displayName: Custom Autoscaler
         path: customAutoscaler
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:fieldDependency:type:CustomAutoscaler
       - description: |-
           It refers to an autoscaling definition through the horizontal pod autoscaler.
           If type is "HPA", this must be set.
