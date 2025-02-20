@@ -201,6 +201,8 @@ const (
 	HTTPSTLSConfGenerationAnnotationFalse = "false"
 	HTTPSTLSConfGenerationDefaultValue    = true
 
+	NMATLSSECRETAnnotation          = "vertica.com/nma-tls-secret"           // #nosec G101
+	CLIENTSERVERTLSSecretAnnotation = "vertica.com/client-server-tls-secret" // #nosec G101
 	// We have a deployment check that ensures that if running vcluster ops the
 	// image is built for that (and vice-versa). This annotation allows you to
 	// skip that check.
@@ -405,7 +407,7 @@ func UseVProxy(annotations map[string]string) bool {
 // UseVProxyCertsMount returns true if the proxy reads certs from the mounted secret
 // volume rather than directly from k8s secret store.
 func UseVProxyCertsMount(annotations map[string]string) bool {
-	return lookupBoolAnnotation(annotations, MountVProxyCertsAnnotation, true /* default value */)
+	return lookupBoolAnnotation(annotations, MountVProxyCertsAnnotation, false /* default value */)
 }
 
 // UseNMACertsMount returns true if the NMA reads certs from the mounted secret
