@@ -210,7 +210,7 @@ func (c *CreateDBReconciler) generatePostDBCreateSQL(ctx context.Context, initia
 			`, vapi.EncryptSpreadCommWithVertica))
 		}
 	}
-	if c.VInf.IsEqualOrNewer(vapi.NMATLSCertRotationMinVersion) {
+	if c.VInf.IsEqualOrNewer(vapi.NMATLSCertRotationMinVersion) && meta.EnableTLSCertsRotation(c.Vdb.Annotations) {
 		sb.WriteString(`CREATE OR REPLACE LIBRARY public.KubernetesLib AS '/opt/vertica/packages/kubernetes/lib/libkubernetes.so';`)
 		sb.WriteString(`CREATE OR REPLACE SECRETMANAGER KubernetesSecretManager AS LANGUAGE 'C++' NAME 'KubernetesSecretManagerFactory' 
 			LIBRARY KubernetesLib;`)
