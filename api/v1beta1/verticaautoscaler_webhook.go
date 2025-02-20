@@ -84,6 +84,7 @@ func (v *VerticaAutoscaler) validateSpec() field.ErrorList {
 	allErrs = v.validateCustomAutoscaler(allErrs)
 	allErrs = v.validateServiceName(allErrs)
 	allErrs = v.validateScaledObject(allErrs)
+	allErrs = v.validateHPA(allErrs)
 	return allErrs
 }
 
@@ -132,13 +133,17 @@ func (v *VerticaAutoscaler) validateSubclusterTemplate(allErrs field.ErrorList) 
 
 // validateCustomAutoscaler will check if the CustomAutoscaler field is valid
 func (v *VerticaAutoscaler) validateCustomAutoscaler(allErrs field.ErrorList) field.ErrorList {
-	// pathPrefix := field.NewPath("spec").Child("customAutoscaler")
-	// if v.Spec.CustomAutoscaler == nil && v.Spec.ServiceName == "" {
-	// 	err := field.Invalid(pathPrefix.Child("serviceName"),
-	// 		v.Spec.CustomAutoscaler.Hpa,
-	// 		"When scaledownThreshold is set, scaledown stabilization window must be 0")
-	// 	allErrs = append(allErrs, err)
-	// }
+	pathPrefix := field.NewPath("spec").Child("customAutoscaler")
+	validTypes := []string{"HPA", "ScaledObject", ""}
+	// validate type
+	if v.Spec.CustomAutoscaler != nil && !slices.Contains(validTypes, v.Spec.CustomAutoscaler.Type) {
+		err := field.Invalid(pathPrefix.Child("type"),
+			v.Spec.CustomAutoscaler.Type,
+			fmt.Sprintf("Type must be one of '%s', '%s' or empty.",
+				"HPA", "ScaledObject"),
+		)
+		allErrs = append(allErrs, err)
+	}
 	return allErrs
 }
 
@@ -148,6 +153,13 @@ func (v *VerticaAutoscaler) validateScaledObject(allErrs field.ErrorList) field.
 	prometheusMetricTypes := []autoscalingv2.MetricTargetType{autoscalingv2.ValueMetricType, autoscalingv2.AverageValueMetricType}
 	cpumemMetricTypes := []autoscalingv2.MetricTargetType{autoscalingv2.UtilizationMetricType, autoscalingv2.AverageValueMetricType}
 	pathPrefix := field.NewPath("spec").Child("customAutoscaler")
+	// validate stabilization window
+	if v.HasScaleDownThreshold() {
+		err := field.Invalid(pathPrefix.Child("serviceName"),
+			v.Spec.CustomAutoscaler.Hpa,
+			"When scaledownThreshold is set, scaledown stabilization window must be 0")
+		allErrs = append(allErrs, err)
+	}
 	if v.Spec.CustomAutoscaler != nil && v.Spec.CustomAutoscaler.ScaledObject != nil {
 		for i := range v.Spec.CustomAutoscaler.ScaledObject.Metrics {
 			metric := &v.Spec.CustomAutoscaler.ScaledObject.Metrics[i]
@@ -181,6 +193,20 @@ func (v *VerticaAutoscaler) validateScaledObject(allErrs field.ErrorList) field.
 				allErrs = append(allErrs, err)
 			}
 		}
+	}
+	return allErrs
+}
+
+// validateHPA will check if the HPA field is valid
+func (v *VerticaAutoscaler) validateHPA(allErrs field.ErrorList) field.ErrorList {
+	pathPrefix := field.NewPath("spec").Child("customAutoscaler")
+	// validate stabilization window
+	if v.HasScaleDownThreshold() && v.Spec.CustomAutoscaler.Hpa.Behavior != nil &&
+		v.Spec.CustomAutoscaler.Hpa.Behavior.ScaleDown != nil && *v.Spec.CustomAutoscaler.Hpa.Behavior.ScaleDown.StabilizationWindowSeconds != 0 {
+		err := field.Invalid(pathPrefix.Child("hpa"),
+			v.Spec.CustomAutoscaler.Hpa,
+			"When scaledownThreshold is set, scaledown stabilization window must be 0")
+		allErrs = append(allErrs, err)
 	}
 	return allErrs
 }
