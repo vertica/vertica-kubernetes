@@ -153,13 +153,6 @@ func (v *VerticaAutoscaler) validateScaledObject(allErrs field.ErrorList) field.
 	prometheusMetricTypes := []autoscalingv2.MetricTargetType{autoscalingv2.ValueMetricType, autoscalingv2.AverageValueMetricType}
 	cpumemMetricTypes := []autoscalingv2.MetricTargetType{autoscalingv2.UtilizationMetricType, autoscalingv2.AverageValueMetricType}
 	pathPrefix := field.NewPath("spec").Child("customAutoscaler")
-	// validate stabilization window
-	if v.HasScaleDownThreshold() {
-		err := field.Invalid(pathPrefix.Child("serviceName"),
-			v.Spec.CustomAutoscaler.Hpa,
-			"When scaledownThreshold is set, scaledown stabilization window must be 0")
-		allErrs = append(allErrs, err)
-	}
 	if v.Spec.CustomAutoscaler != nil && v.Spec.CustomAutoscaler.ScaledObject != nil {
 		for i := range v.Spec.CustomAutoscaler.ScaledObject.Metrics {
 			metric := &v.Spec.CustomAutoscaler.ScaledObject.Metrics[i]
