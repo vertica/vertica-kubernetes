@@ -75,7 +75,6 @@ func (c *CmdClusterHealth) setLocalFlags(cmd *cobra.Command) {
 	// --start-time : the start time (for all operations)
 	// --end-time : the end time (for all operations)
 	// --session-id : the session id  (for session start and slow event)
-	// --debug : debug mode  (for all operations)
 	// --threshold : the threadhold of seconds for slow events (for get_slow_events)
 	// --thread-id : the thread id (for get_slow_events)
 	// --phase-duration-desc : the phase duration description (for get_slow_events)
@@ -117,12 +116,6 @@ func (c *CmdClusterHealth) setLocalFlags(cmd *cobra.Command) {
 		"session-id",
 		"",
 		"The session id (for session start and slow event).",
-	)
-	cmd.Flags().BoolVar(
-		&c.clusterHealthOptions.Debug,
-		"debug",
-		false,
-		"Debug mode (for all operations).",
 	)
 	cmd.Flags().StringVar(
 		&c.clusterHealthOptions.Threadhold,
@@ -214,11 +207,11 @@ func (c *CmdClusterHealth) Run(vcc vclusterops.ClusterCommands) error {
 	var bytes []byte
 	switch c.clusterHealthOptions.Operation {
 	case "get_slow_events":
-		bytes, err = json.MarshalIndent(options.SlowEvents, "", " ")
+		bytes, err = json.MarshalIndent(options.SlowEventsResult, "" /*prefix*/, " " /* indent for one space*/)
 	case "get_session_starts":
-		bytes, err = json.MarshalIndent(options.SessionStarts, "", " ")
+		bytes, err = json.MarshalIndent(options.SessionStartsResult, "" /*prefix*/, " " /* indent for one space*/)
 	case "get_transaction_starts":
-		bytes, err = json.MarshalIndent(options.TransactionStarts, "", " ")
+		bytes, err = json.MarshalIndent(options.TransactionStartsResult, "" /*prefix*/, " " /* indent for one space*/)
 	default: // by default, we will build a cascade graph
 		bytes, err = json.MarshalIndent(options.CascadeStack, "", " ")
 	}
@@ -227,6 +220,9 @@ func (c *CmdClusterHealth) Run(vcc vclusterops.ClusterCommands) error {
 		return fmt.Errorf("failed to marshal the traceback result, details: %w", err)
 	}
 
+	vcc.DisplayInfo("Successfully build the cascade graph for the slow events")
+
+	// output the result to console or file
 	c.writeCmdOutputToFile(globals.file, bytes, vcc.GetLog())
 	vcc.LogInfo("Slow event traceback: ", "slow events", string(bytes))
 
