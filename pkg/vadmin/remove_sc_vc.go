@@ -84,6 +84,9 @@ func (v *VClusterOps) genRemoveSubclusterOptions(s *removesc.Parms, certs *HTTPS
 		opts.Cert = certs.Cert
 		opts.CaCert = certs.CaCert
 	} else {
+		opts.Key = certs.Key
+		opts.Cert = certs.Cert
+		opts.CaCert = certs.CaCert
 		opts.UserName = v.VDB.GetVerticaUser()
 		opts.Password = &v.Password
 	}

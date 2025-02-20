@@ -72,6 +72,9 @@ func (v *VClusterOps) genSetConfigurationParameterOptions(s *setconfigparameter.
 		opts.Cert = certs.Cert
 		opts.CaCert = certs.CaCert
 	} else {
+		opts.Key = certs.Key
+		opts.Cert = certs.Cert
+		opts.CaCert = certs.CaCert
 		opts.UserName = s.UserName
 		opts.Password = &v.Password
 	}

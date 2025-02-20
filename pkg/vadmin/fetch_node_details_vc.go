@@ -73,6 +73,9 @@ func (v *VClusterOps) genFetchNodeDetailsOptions(s *fetchnodedetails.Parms, cert
 		opts.Cert = certs.Cert
 		opts.CaCert = certs.CaCert
 	} else {
+		opts.Key = certs.Key
+		opts.Cert = certs.Cert
+		opts.CaCert = certs.CaCert
 		opts.UserName = v.VDB.GetVerticaUser()
 		opts.Password = &v.Password
 	}

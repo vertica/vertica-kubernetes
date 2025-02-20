@@ -94,6 +94,9 @@ func (v *VClusterOps) genReplicateDBOptions(s *replicationstart.Parms,
 		opts.Cert = certs.Cert
 		opts.CaCert = certs.CaCert
 	} else {
+		opts.Key = certs.Key
+		opts.Cert = certs.Cert
+		opts.CaCert = certs.CaCert
 		opts.UserName = s.SourceUserName
 		opts.Password = &v.Password
 	}
