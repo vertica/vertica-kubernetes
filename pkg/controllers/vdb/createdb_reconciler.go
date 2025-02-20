@@ -291,11 +291,11 @@ func (c *CreateDBReconciler) postCmdCleanup(ctx context.Context) (ctrl.Result, e
 			return ctrl.Result{}, err
 		}
 	}
-
-	if c.VInf.IsEqualOrNewer(vapi.NMATLSCertRotationMinVersion) {
+	vdbContext := vadmin.GetContextForVdb(c.Vdb.Namespace, c.Vdb.Name)
+	if vdbContext.GetBoolValue(vadmin.UseTlsCert) {
 		chgs := vk8s.MetaChanges{
 			NewAnnotations: map[string]string{
-				vmeta.NMATLSSECRETAnnotation:          vmeta.HTTPSTLSConfGenerationAnnotationFalse,
+				vmeta.NMATLSSECRETAnnotation:          c.Vdb.Spec.NMATLSSecret,
 				vmeta.CLIENTSERVERTLSSecretAnnotation: c.Vdb.Spec.ClientServerTLSSecret,
 			},
 		}
