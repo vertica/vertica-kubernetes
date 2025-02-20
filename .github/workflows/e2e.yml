@@ -98,6 +98,8 @@ jobs:
     secrets:
       DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
       DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID}}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY}}
 
   unittests:
     uses: ./.github/workflows/unittests.yml
@@ -119,6 +121,13 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: Login to GitHub Container registry
+        uses: docker/login-action@v3
+        if: ${{ startsWith(needs.build.outputs.legacy-vertica-image, 'ghcr.io') }}
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
       - name: Test
         uses: ./.github/actions/run-e2e-leg
         with:
@@ -163,6 +172,13 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: Login to GitHub Container registry
+        uses: docker/login-action@v3
+        if: ${{ startsWith(needs.build.outputs.full-vertica-image, 'ghcr.io') }}
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
       - name: Test
         uses: ./.github/actions/run-e2e-leg
         with:
@@ -184,6 +200,13 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: Login to GitHub Container registry
+        uses: docker/login-action@v3
+        if: ${{ startsWith(needs.build.outputs.legacy-vertica-image, 'ghcr.io') }}
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
       - name: Test
         uses: ./.github/actions/run-e2e-leg
         with:
@@ -228,6 +251,13 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: Login to GitHub Container registry
+        uses: docker/login-action@v3
+        if: ${{ startsWith(needs.build.outputs.minimal-vertica-image, 'ghcr.io') }}
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
       - name: Test
         uses: ./.github/actions/run-e2e-leg
         with:
@@ -249,6 +279,13 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: Login to GitHub Container registry
+        uses: docker/login-action@v3
+        if: ${{ startsWith(needs.build.outputs.legacy-vertica-image, 'ghcr.io') }}
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
       - name: Test
         uses: ./.github/actions/run-e2e-leg
         with:
@@ -291,6 +328,13 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: Login to GitHub Container registry
+        uses: docker/login-action@v3
+        if: ${{ startsWith(needs.build.outputs.full-vertica-image, 'ghcr.io') }}
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
       - name: Test
         uses: ./.github/actions/run-e2e-leg
         with:
@@ -311,6 +355,13 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: Login to GitHub Container registry
+        uses: docker/login-action@v3
+        if: ${{ startsWith(needs.build.outputs.legacy-vertica-image, 'ghcr.io') }}
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
       - name: Test
         uses: ./.github/actions/run-e2e-leg
         with:
@@ -335,6 +386,13 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: Login to GitHub Container registry
+        uses: docker/login-action@v3
+        if: ${{ startsWith(needs.build.outputs.minimal-vertica-image, 'ghcr.io') }}
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
       - name: Test
         uses: ./.github/actions/run-e2e-leg
         with:
@@ -358,6 +416,13 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: Login to GitHub Container registry
+        uses: docker/login-action@v3
+        if: ${{ startsWith(needs.build.outputs.legacy-vertica-image, 'ghcr.io') }}
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
       - name: Test
         uses: ./.github/actions/run-e2e-leg
         with:
@@ -382,6 +447,13 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: Login to GitHub Container registry
+        uses: docker/login-action@v3
+        if: ${{ startsWith(needs.build.outputs.minimal-vertica-image, 'ghcr.io') }}
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
       - name: Test
         uses: ./.github/actions/run-e2e-leg
         with:
@@ -405,6 +477,13 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: Login to GitHub Container registry
+        uses: docker/login-action@v3
+        if: ${{ startsWith(needs.build.outputs.legacy-vertica-image, 'ghcr.io') }}
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
       - name: Test
         uses: ./.github/actions/run-e2e-leg
         with:
@@ -431,6 +510,18 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Login to GitHub Container registry
+        uses: docker/login-action@v3
+        if: ${{ startsWith(needs.build.outputs.minimal-vertica-image, 'ghcr.io') }}
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
       - name: Test
         uses: ./.github/actions/run-e2e-leg
         with:
@@ -456,6 +547,13 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: Login to GitHub Container registry
+        uses: docker/login-action@v3
+        if: ${{ startsWith(needs.build.outputs.full-vertica-image, 'ghcr.io') }}
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
       - name: Test
         uses: ./.github/actions/run-e2e-leg
         with:
@@ -477,6 +575,13 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: Login to GitHub Container registry
+        uses: docker/login-action@v3
+        if: ${{ startsWith(needs.build.outputs.full-vertica-image, 'ghcr.io') }}
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
       - name: Test
         uses: ./.github/actions/run-e2e-leg
         with:
@@ -498,6 +603,13 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: Login to GitHub Container registry
+        uses: docker/login-action@v3
+        if: ${{ startsWith(needs.build.outputs.full-vertica-image, 'ghcr.io') }}
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
       - name: Test
         uses: ./.github/actions/run-e2e-leg
         with:
@@ -519,6 +631,13 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: Login to GitHub Container registry
+        uses: docker/login-action@v3
+        if: ${{ startsWith(needs.build.outputs.full-vertica-image, 'ghcr.io') }}
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
       - name: Test
         uses: ./.github/actions/run-e2e-leg
         with:
@@ -542,6 +661,13 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: Login to GitHub Container registry
+        uses: docker/login-action@v3
+        if: ${{ startsWith(needs.build.outputs.full-vertica-image, 'ghcr.io') }}
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
       - name: Test
         uses: ./.github/actions/run-e2e-leg
         with:
@@ -565,6 +691,18 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Login to GitHub Container registry
+        uses: docker/login-action@v3
+        if: ${{ startsWith(needs.build.outputs.minimal-vertica-image, 'ghcr.io') }}
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
       - name: Test
         uses: ./.github/actions/run-e2e-leg
         with:
@@ -589,6 +727,18 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Login to GitHub Container registry
+        uses: docker/login-action@v3
+        if: ${{ startsWith(needs.build.outputs.minimal-vertica-image, 'ghcr.io') }}
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
       - name: Test
         uses: ./.github/actions/run-e2e-leg
         with:
@@ -613,6 +763,18 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Login to GitHub Container registry
+        uses: docker/login-action@v3
+        if: ${{ startsWith(needs.build.outputs.full-vertica-image, 'ghcr.io') }}
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
       - name: Test
         uses: ./.github/actions/run-e2e-leg
         with:
@@ -638,6 +800,13 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: Login to GitHub Container registry
+        uses: docker/login-action@v3
+        if: ${{ startsWith(needs.build.outputs.full-vertica-image, 'ghcr.io') }}
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
       - name: Test
         uses: ./.github/actions/run-e2e-leg
         with:
@@ -659,6 +828,13 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: Login to GitHub Container registry
+        uses: docker/login-action@v3
+        if: ${{ startsWith(needs.build.outputs.legacy-vertica-image, 'ghcr.io') }}
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
       - name: Test
         uses: ./.github/actions/run-e2e-leg
         with:
@@ -681,6 +857,18 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Login to GitHub Container registry
+        uses: docker/login-action@v3
+        if: ${{ startsWith(needs.build.outputs.full-vertica-image, 'ghcr.io') }}
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
       - name: Test
         uses: ./.github/actions/run-e2e-leg
         with:
@@ -702,6 +890,13 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: Login to GitHub Container registry
+        uses: docker/login-action@v3
+        if: ${{ startsWith(needs.build.outputs.operator-image, 'ghcr.io') }}
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
       - name: Test
         uses: ./.github/actions/run-e2e-leg
         with:
@@ -747,10 +942,17 @@ jobs:
   e2e-udx-vcluster:
     if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'vcluster udx' || inputs.e2e_test_suites == '')}}
     needs: [build]
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: Login to GitHub Container registry
+        uses: docker/login-action@v3
+        if: ${{ startsWith(needs.build.outputs.full-vertica-image, 'ghcr.io') }}
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
       - name: Test
         uses: ./.github/actions/run-e2e-leg
         with:
