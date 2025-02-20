@@ -18,6 +18,7 @@ package v1beta1
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	autoscalingv2 "k8s.io/api/autoscaling/v2"
 )
 
 var _ = Describe("verticaautoscaler_webhook", func() {
@@ -51,8 +52,13 @@ var _ = Describe("verticaautoscaler_webhook", func() {
 		Expect(err3).Should(Succeed())
 		vas.Spec.ServiceName = ""
 		vas.Spec.Template.ServiceName = "SomethingElse"
+		vas.Spec.CustomAutoscaler = &CustomAutoscalerSpec{}
 		_, err4 := vas.ValidateUpdate(MakeVAS())
 		Expect(err4).Should(Succeed())
+		vas.Spec.ServiceName = ""
+		vas.Spec.ScalingGranularity = PodScalingGranularity
+		_, err5 := vas.ValidateUpdate(MakeVAS())
+		Expect(err5).ShouldNot(Succeed())
 	})
 
 	It("should fail if you try to use the template with pod scalingGranularity", func() {
@@ -65,5 +71,52 @@ var _ = Describe("verticaautoscaler_webhook", func() {
 		vas.Spec.ScalingGranularity = SubclusterScalingGranularity
 		_, err1 := vas.ValidateCreate()
 		Expect(err1).Should(Succeed())
+	})
+
+	It("should fail if scaledobject metrics type is not set properly", func() {
+		vas := MakeVASWithScaledObject()
+		_, err := vas.ValidateCreate()
+		Expect(err).Should(Succeed())
+		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].Type = "BadValue"
+		_, err = vas.ValidateCreate()
+		Expect(err).ShouldNot(Succeed())
+	})
+
+	It("should fail if scaledobject metrics type is prometheus and metricType is not set properly", func() {
+		vas := MakeVASWithScaledObject()
+		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].Type = PrometheusTriggerType
+		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].MetricType = autoscalingv2.ValueMetricType
+		_, err := vas.ValidateCreate()
+		Expect(err).Should(Succeed())
+		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].MetricType = autoscalingv2.AverageValueMetricType
+		_, err = vas.ValidateCreate()
+		Expect(err).Should(Succeed())
+		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].MetricType = autoscalingv2.UtilizationMetricType
+		_, err = vas.ValidateCreate()
+		Expect(err).ShouldNot(Succeed())
+	})
+
+	It("should fail if scaledobject metrics type is cpu/mem and metricType is not set properly", func() {
+		vas := MakeVASWithScaledObject()
+		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].Type = CPUTriggerType
+		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].MetricType = autoscalingv2.UtilizationMetricType
+		_, err := vas.ValidateCreate()
+		Expect(err).Should(Succeed())
+		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].MetricType = autoscalingv2.AverageValueMetricType
+		_, err = vas.ValidateCreate()
+		Expect(err).Should(Succeed())
+		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].MetricType = autoscalingv2.ValueMetricType
+		_, err = vas.ValidateCreate()
+		Expect(err).ShouldNot(Succeed())
+		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].Type = MemTriggerType
+		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].MetricType = autoscalingv2.UtilizationMetricType
+		_, err = vas.ValidateCreate()
+		Expect(err).Should(Succeed())
+		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].MetricType = autoscalingv2.AverageValueMetricType
+		_, err = vas.ValidateCreate()
+		Expect(err).Should(Succeed())
+		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].MetricType = autoscalingv2.ValueMetricType
+		_, err = vas.ValidateCreate()
+		Expect(err).ShouldNot(Succeed())
 	})
 })
