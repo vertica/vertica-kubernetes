@@ -1876,14 +1876,14 @@ func (v *VerticaDB) checkShutdownForScaleUpOrDown(oldObj *VerticaDB, allErrs fie
 		if inSandbox {
 			continue // this scenario is handled by checkImmutableSubclusterInSandbox()
 		}
-		if oldScluster.Size != newScluster.Size { // scale up/down
+		if oldScluster.Size != newScluster.Size { // scale out/in
 			subclusterStatus, hasStatus := statusSubclusterMap[subclusterName]
 			if newScluster.Shutdown || (hasStatus && subclusterStatus.Shutdown) {
 				i := newSclusterIndexMap[subclusterName]
 				p := field.NewPath("spec").Child("subclusters").Index(i).Child("size")
 				err := field.Invalid(p,
 					newScluster.Size,
-					fmt.Sprintf("cannot scale up/down %q which is marked for shutdown or has been shut down",
+					fmt.Sprintf("cannot scale out/in %q which is marked for shutdown or has been shut down",
 						subclusterName))
 				allErrs = append(allErrs, err)
 			}

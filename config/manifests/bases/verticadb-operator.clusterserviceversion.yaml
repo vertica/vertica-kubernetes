@@ -169,7 +169,7 @@ spec:
         path: customAutoscaler.hpa
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:fieldDependency:customAutoscaler.type:HPA
-      - description: Specifies the scaling behavior for both scale up and down.
+      - description: Specifies the scaling behavior for both scale out and in.
         displayName: Behavior
         path: customAutoscaler.hpa.behavior
       - description: The maximum number of pods when scaling.
@@ -188,8 +188,8 @@ spec:
           the one used for scaling up, defined in the metric field.
         displayName: Scale Down Threshold
         path: customAutoscaler.hpa.metrics[0].scaleDownThreshold
-      - description: The value used to increase the threshold after a scale up or
-          a scale down.
+      - description: The value used to increase the threshold after a scale out or
+          a scale in.
         displayName: Threshold Adjustment Value
         path: customAutoscaler.hpa.metrics[0].thresholdAdjustmentValue
       - description: The miminum number of pods when scaling.
@@ -204,7 +204,7 @@ spec:
         path: customAutoscaler.scaledObject
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:fieldDependency:customAutoscaler.type:ScaledObject
-      - description: Specifies the scaling behavior for both scale up and down.
+      - description: Specifies the scaling behavior for both scale out and in.
         displayName: Behavior
         path: customAutoscaler.scaledObject.behavior
       - description: 'Defines the time to wait between scaling actions. This is helpful
@@ -265,7 +265,7 @@ spec:
       - description: The URL of the Prometheus server.
         displayName: Server Address
         path: customAutoscaler.scaledObject.metrics[0].prometheus.serverAddress
-      - description: The threshold value at which scale up is triggered.
+      - description: The threshold value at which scale out is triggered.
         displayName: Threshold
         path: customAutoscaler.scaledObject.metrics[0].prometheus.threshold
         x-descriptors:

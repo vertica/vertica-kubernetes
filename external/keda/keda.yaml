@@ -95,7 +95,7 @@ spec:
                           scaleDown:
                             description: |-
                               scaleDown is scaling policy for scaling Down.
-                              If not set, the default value is to allow to scale down to minReplicas pods, with a
+                              If not set, the default value is to allow to scale in to minReplicas pods, with a
                               300 second stabilization window (i.e., the highest recommendation for
                               the last 300sec is used).
                             properties:
@@ -141,8 +141,8 @@ spec:
                                   considered while scaling up or scaling down.
                                   StabilizationWindowSeconds must be greater than or equal to zero and less than or equal to 3600 (one hour).
                                   If not set, use the default values:
-                                  - For scale up: 0 (i.e. no stabilization is done).
-                                  - For scale down: 300 (i.e. the stabilization window is 300 seconds long).
+                                  - For scale out: 0 (i.e. no stabilization is done).
+                                  - For scale in: 300 (i.e. the stabilization window is 300 seconds long).
                                 format: int32
                                 maximum: 3600
                                 minimum: 0
@@ -198,8 +198,8 @@ spec:
                                   considered while scaling up or scaling down.
                                   StabilizationWindowSeconds must be greater than or equal to zero and less than or equal to 3600 (one hour).
                                   If not set, use the default values:
-                                  - For scale up: 0 (i.e. no stabilization is done).
-                                  - For scale down: 300 (i.e. the stabilization window is 300 seconds long).
+                                  - For scale out: 0 (i.e. no stabilization is done).
+                                  - For scale in: 300 (i.e. the stabilization window is 300 seconds long).
                                 format: int32
                                 maximum: 3600
                                 minimum: 0

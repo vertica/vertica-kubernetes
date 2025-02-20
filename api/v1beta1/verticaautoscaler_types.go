@@ -142,7 +142,7 @@ type HPASpec struct {
 
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
-	// Specifies the scaling behavior for both scale up and down.
+	// Specifies the scaling behavior for both scale out and in.
 	Behavior *autoscalingv2.HorizontalPodAutoscalerBehavior `json:"behavior,omitempty"`
 }
 
@@ -180,7 +180,7 @@ type ScaledObjectSpec struct {
 
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
-	// Specifies the scaling behavior for both scale up and down.
+	// Specifies the scaling behavior for both scale out and in.
 	Behavior *autoscalingv2.HorizontalPodAutoscalerBehavior `json:"behavior,omitempty"`
 }
 
@@ -243,7 +243,7 @@ type PrometheusSpec struct {
 	Query string `json:"query"`
 
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:number"
-	// The threshold value at which scale up is triggered.
+	// The threshold value at which scale out is triggered.
 	Threshold int32 `json:"threshold"`
 
 	// +kubebuilder:validation:Optional
@@ -270,7 +270,7 @@ type MetricDefinition struct {
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// +kubebuilder:Minimum:=0
-	// The value used to increase the threshold after a scale up or a scale down.
+	// The value used to increase the threshold after a scale out or a scale in.
 	ThresholdAdjustmentValue int `json:"thresholdAdjustmentValue,omitempty"`
 
 	// +kubebuilder:validation:Optional
