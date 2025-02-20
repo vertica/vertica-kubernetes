@@ -622,7 +622,7 @@ jobs:
           vlogger-image: ${{ needs.build.outputs.vlogger-image }}
           vproxy-image: 'opentext/client-proxy:latest'
           operator-image: ${{ needs.build.outputs.operator-image }}
-          vertica-image: ${{ needs.build.outputs.full-vertica-image }}
+          vertica-image: ${{ needs.build.outputs.minimal-vertica-image }}
           vertica-deployment-method: vclusterops
           communal-storage-type: s3
           minimum-vertica-image: '25.1.0'
