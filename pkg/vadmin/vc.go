@@ -93,7 +93,7 @@ func (v *VClusterOps) shouldUseCertAuthentication() bool {
 	}
 	if Vinf.IsEqualOrNewer(vapi.NMATLSCertRotationMinVersion) && meta.EnableTLSCertsRotation(v.VDB.Annotations) {
 		vdbContext := GetContextForVdb(v.VDB.Namespace, v.VDB.Name)
-		return vdbContext.GetBoolValue(UseTlsCert)
+		return vdbContext.GetBoolValue(UseTLSCert)
 	}
 	return false
 }

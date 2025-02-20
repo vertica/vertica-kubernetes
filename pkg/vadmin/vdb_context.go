@@ -17,7 +17,7 @@ type VdbContext interface {
 }
 
 const (
-	UseTlsCert = "UseTlsCert"
+	UseTLSCert = "UseTlsCert"
 )
 
 type contextMap map[types.NamespacedName]*VdbContextStruct

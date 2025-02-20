@@ -30,7 +30,7 @@ import (
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/license"
-	"github.com/vertica/vertica-kubernetes/pkg/meta"
+
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
@@ -127,20 +127,20 @@ func (c *CreateDBReconciler) execCmd(ctx context.Context, initiatorPod types.Nam
 	c.VRec.Event(c.Vdb, corev1.EventTypeNormal, events.CreateDBStart, "Starting create database")
 
 	vdbContext := vadmin.GetContextForVdb(c.Vdb.Namespace, c.Vdb.Name)
-	vdbContext.SetBoolValue(vadmin.UseTlsCert, false)
+	vdbContext.SetBoolValue(vadmin.UseTLSCert, false)
 
 	start := time.Now()
 	if res, errTwo := c.Dispatcher.CreateDB(ctx, opts...); verrors.IsReconcileAborted(res, err) {
 		return res, errTwo
 	}
-	if c.VInf.IsEqualOrNewer(vapi.NMATLSCertRotationMinVersion) && meta.EnableTLSCertsRotation(c.Vdb.Annotations) {
+	if c.VInf.IsEqualOrNewer(vapi.NMATLSCertRotationMinVersion) && vmeta.EnableTLSCertsRotation(c.Vdb.Annotations) {
 		_, _, err = c.PRunner.ExecInPod(ctx, initiatorPod, names.ServerContainer,
 			"vsql", "-f", PostDBCreateSQLFile)
 		if err != nil {
 			c.Log.Error(err, "failed to execute TLS DDLs after db creation ")
 			return ctrl.Result{}, err
 		}
-		vdbContext.SetBoolValue(vadmin.UseTlsCert, true)
+		vdbContext.SetBoolValue(vadmin.UseTLSCert, true)
 		c.Log.Info("TLS DDLs executed and TLS Cert configured")
 	}
 	sc := c.getFirstPrimarySubcluster()
@@ -210,7 +210,7 @@ func (c *CreateDBReconciler) generatePostDBCreateSQL(ctx context.Context, initia
 			`, vapi.EncryptSpreadCommWithVertica))
 		}
 	}
-	if c.VInf.IsEqualOrNewer(vapi.NMATLSCertRotationMinVersion) && meta.EnableTLSCertsRotation(c.Vdb.Annotations) {
+	if c.VInf.IsEqualOrNewer(vapi.NMATLSCertRotationMinVersion) && vmeta.EnableTLSCertsRotation(c.Vdb.Annotations) {
 		sb.WriteString(`CREATE OR REPLACE LIBRARY public.KubernetesLib AS '/opt/vertica/packages/kubernetes/lib/libkubernetes.so';`)
 		sb.WriteString(`CREATE OR REPLACE SECRETMANAGER KubernetesSecretManager AS LANGUAGE 'C++' NAME 'KubernetesSecretManagerFactory' 
 			LIBRARY KubernetesLib;`)
@@ -292,7 +292,7 @@ func (c *CreateDBReconciler) postCmdCleanup(ctx context.Context) (ctrl.Result, e
 		}
 	}
 	vdbContext := vadmin.GetContextForVdb(c.Vdb.Namespace, c.Vdb.Name)
-	if vdbContext.GetBoolValue(vadmin.UseTlsCert) {
+	if vdbContext.GetBoolValue(vadmin.UseTLSCert) {
 		chgs := vk8s.MetaChanges{
 			NewAnnotations: map[string]string{
 				vmeta.NMATLSSECRETAnnotation:          c.Vdb.Spec.NMATLSSecret,

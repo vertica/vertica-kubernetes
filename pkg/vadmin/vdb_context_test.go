@@ -14,11 +14,11 @@ var _ = Describe("vdb_context", func() {
 		vdbContext := GetContextForVdb("default", "test-vdb")
 		Expect(vdbContext).ShouldNot(Equal(nil))
 		vdbContextOne := GetContextForVdb("default", "test-vdb")
-		vdbContextOne.SetBoolValue(UseTlsCert, true)
+		vdbContextOne.SetBoolValue(UseTLSCert, true)
 		vdbContextTwo := GetContextForVdb("default", "test-vdb")
-		Expect(vdbContextTwo.GetBoolValue(UseTlsCert)).Should(Equal(true))
-		vdbContextOne.SetBoolValue(UseTlsCert, false)
-		Expect(vdbContextTwo.GetBoolValue(UseTlsCert)).Should(Equal(false))
+		Expect(vdbContextTwo.GetBoolValue(UseTLSCert)).Should(Equal(true))
+		vdbContextOne.SetBoolValue(UseTLSCert, false)
+		Expect(vdbContextTwo.GetBoolValue(UseTLSCert)).Should(Equal(false))
 
 	})
 
