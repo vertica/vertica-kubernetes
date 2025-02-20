@@ -94,6 +94,9 @@ func (h *TLSServerCertGenReconciler) reconcileOneSecret(secretFieldName, secretN
 		} else if err != nil {
 			h.Log.Error(err, "failed to read tls secret", "secretName", secretName)
 			return err
+		} else {
+			// Secret is filled in and exists. We can exit.
+			return err
 		}
 	}
 	caCert, err := security.NewSelfSignedCACertificate()
