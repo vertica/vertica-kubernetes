@@ -134,10 +134,10 @@ func (c *CreateDBReconciler) execCmd(ctx context.Context, initiatorPod types.Nam
 		return res, errTwo
 	}
 	if c.VInf.IsEqualOrNewer(vapi.NMATLSCertRotationMinVersion) && vmeta.EnableTLSCertsRotation(c.Vdb.Annotations) {
-		_, _, err = c.PRunner.ExecInPod(ctx, initiatorPod, names.ServerContainer,
+		_, stderr, errThree := c.PRunner.ExecInPod(ctx, initiatorPod, names.ServerContainer,
 			"vsql", "-f", PostDBCreateSQLFile)
-		if err != nil {
-			c.Log.Error(err, "failed to execute TLS DDLs after db creation ")
+		if errThree != nil || strings.Contains(stderr, "Error") {
+			c.Log.Error(errThree, "failed to execute TLS DDLs after db creation stderr - "+stderr)
 			return ctrl.Result{}, err
 		}
 		vdbContext.SetBoolValue(vadmin.UseTLSCert, true)
