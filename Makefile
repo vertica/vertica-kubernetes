@@ -724,7 +724,7 @@ undeploy-prometheus-service-monitor-by-release:
 deploy-prometheus-adapter:  ## Setup prometheus adapter for VerticaAutoscaler
 	helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
 	helm repo update
-	helm install $(DEPLOY_WAIT) -n $(PROMETHEUS_ADAPTER_NAMESPACE) --create-namespace $(PROMETHEUS_ADAPTER_NAME) prometheus-community/prometheus-adapter --values prometheus/adapter.yaml --set prometheus.url=$(PROMETHEUS_TLS_URL) --set prometheus.port=$(PROMETHEUS_PORT) --set replicas=$(PROMETHEUS_ADAPTER_REPLICAS) $(PROMETHEUS_ADAPTER_HELM_OVERRIDES)
+	helm install $(DEPLOY_WAIT) -n $(PROMETHEUS_ADAPTER_NAMESPACE) --create-namespace $(PROMETHEUS_ADAPTER_NAME) prometheus-community/prometheus-adapter --values prometheus/adapter.yaml --set prometheus.url=$(PROMETHEUS_URL) --set prometheus.port=$(PROMETHEUS_PORT) --set replicas=$(PROMETHEUS_ADAPTER_REPLICAS) $(PROMETHEUS_ADAPTER_HELM_OVERRIDES)
 
 .PHONY: deploy-prometheus-adapter-tls
 deploy-prometheus-adapter-tls: ## Setup prometheus adapter for VerticaAutoscaler
