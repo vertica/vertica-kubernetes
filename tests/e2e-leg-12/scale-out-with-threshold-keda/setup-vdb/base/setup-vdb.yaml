@@ -14,7 +14,7 @@
 apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
-  name: v-scale-up-keda
+  name: v-scale-out-keda
   annotations:
     vertica.com/include-uid-in-path: true
     vertica.com/vcluster-ops: true

@@ -27,7 +27,7 @@ data:
       local max_attempts=5
       local delay=1
       while (( attempt < max_attempts )); do
-        if kubectl exec svc/v-scale-up-keda-pri1 -c server -- vsql -U dbadmin -w topsecret -c "select sleep('240')"; then
+        if kubectl exec svc/v-scale-out-keda-pri1 -c server -- vsql -U dbadmin -w topsecret -c "select sleep('240')"; then
           return 0
         fi
         (( attempt++ ))

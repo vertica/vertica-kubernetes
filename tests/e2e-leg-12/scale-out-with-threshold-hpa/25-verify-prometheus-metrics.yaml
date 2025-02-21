@@ -24,8 +24,8 @@ data:
     # Setup start and end time for query, e.g: 2024-09-14
     START_TIME=$(date +%Y-%m-%d) 
     END_TIME=$(date +%Y-%m-%d --date "$curr +1 day")
-    NAMESPACE=$(kubectl get pod v-scale-up-hpa-pri1-0 -o=jsonpath='{.metadata.namespace}')
-    CMD="kubectl exec v-scale-up-hpa-pri1-0 -it -c server -n $NAMESPACE -- curl -g http://prometheus-kube-prometheus-prometheus.prometheus.svc.cluster.local:9090/api/v1/query?query=vertica_build_info&start=${START_TIME}&end=${END_TIME}"
+    NAMESPACE=$(kubectl get pod v-scale-out-hpa-pri1-0 -o=jsonpath='{.metadata.namespace}')
+    CMD="kubectl exec v-scale-out-hpa-pri1-0 -it -c server -n $NAMESPACE -- curl -g http://prometheus-kube-prometheus-prometheus.prometheus.svc.cluster.local:9090/api/v1/query?query=vertica_build_info&start=${START_TIME}&end=${END_TIME}"
     RESULT=$(eval $CMD)
     METRICS=$(echo $RESULT | jq -r '.data.result') 
     

@@ -14,7 +14,7 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: v-scale-up-hpa-pri1
+  name: v-scale-out-hpa-pri1
 status:
   currentReplicas: 3
   readyReplicas: 3
@@ -22,7 +22,7 @@ status:
 apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
-  name: v-scale-up-hpa
+  name: v-scale-out-hpa
 status:
   subclusters:
     - addedToDBCount: 3

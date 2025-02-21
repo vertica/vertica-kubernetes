@@ -14,11 +14,11 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: v-scale-up-keda-pri1
+  name: v-scale-out-keda-pri1
 status:
   currentReplicas: 3
 ---
 apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
-  name: v-scale-up-keda
+  name: v-scale-out-keda

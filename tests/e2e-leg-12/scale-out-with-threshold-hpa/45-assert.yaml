@@ -14,21 +14,21 @@
 apiVersion: vertica.com/v1beta1
 kind: VerticaAutoscaler
 metadata:
-  name: v-scale-up-hpa-vas
+  name: v-scale-out-hpa-vas
 status:
   conditions:
   - status: "True"
     type: TargetSizeInitialized
   - status: "True"
     type: ScalingActive
-  selector: vertica.com/subcluster-svc=pri1,vertica.com/is-sandbox=false,app.kubernetes.io/instance=v-scale-up-hpa,app.kubernetes.io/managed-by=verticadb-operator
+  selector: vertica.com/subcluster-svc=pri1,vertica.com/is-sandbox=false,app.kubernetes.io/instance=v-scale-out-hpa,app.kubernetes.io/managed-by=verticadb-operator
   scalingCount: 0
   currentSize: 3
 ---
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
-  name: v-scale-up-hpa-vas-hpa
+  name: v-scale-out-hpa-vas-hpa
 spec:
   maxReplicas: 5
   metrics:
@@ -43,4 +43,4 @@ spec:
   scaleTargetRef:
     apiVersion: vertica.com/v1beta1
     kind: VerticaAutoscaler
-    name: v-scale-up-hpa-vas
+    name: v-scale-out-hpa-vas

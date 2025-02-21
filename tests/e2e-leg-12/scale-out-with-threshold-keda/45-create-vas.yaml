@@ -14,9 +14,9 @@
 apiVersion: vertica.com/v1beta1
 kind: VerticaAutoscaler
 metadata:
-  name: v-scale-up-keda-vas
+  name: v-scale-out-keda-vas
 spec:
-  verticaDBName: v-scale-up-keda
+  verticaDBName: v-scale-out-keda
   serviceName: pri1
   scalingGranularity: Pod
   customAutoscaler:
@@ -29,5 +29,5 @@ spec:
         metricType: AverageValue
         prometheus:
           serverAddress: "http://prometheus-kube-prometheus-prometheus.prometheus.svc.cluster.local:9090"
-          query: sum(vertica_sessions_running_counter{type="active", initiator="user", service="v-scale-up-keda-pri1"})
+          query: sum(vertica_sessions_running_counter{type="active", initiator="user", service="v-scale-out-keda-pri1"})
           threshold: 2

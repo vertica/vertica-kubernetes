@@ -14,11 +14,11 @@
 apiVersion: v1
 kind: Secret
 metadata:
-  name: prometheus-v-scale-up-hpa
+  name: prometheus-v-scale-out-hpa
 ---
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
-  name: k8s-vertica-prometheus-v-scale-up-hpa
+  name: k8s-vertica-prometheus-v-scale-out-hpa
   labels:
     release: prometheus

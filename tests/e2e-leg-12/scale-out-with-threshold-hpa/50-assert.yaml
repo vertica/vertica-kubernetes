@@ -14,7 +14,7 @@
 apiVersion: vertica.com/v1beta1
 kind: VerticaAutoscaler
 metadata:
-  name: v-scale-up-hpa-vas
+  name: v-scale-out-hpa-vas
 spec:
   targetSize: 4
 status:
