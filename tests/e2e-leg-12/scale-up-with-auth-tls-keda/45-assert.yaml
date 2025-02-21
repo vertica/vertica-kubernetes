@@ -43,7 +43,8 @@ spec:
       threshold: "2"
       authModes: "tls"
       unsafeSsl: "false"
-    authenticationRef: v-scale-up-auth-tls-keda-vas-prometheus-tls-creds
+    authenticationRef: 
+      name: v-scale-up-auth-tls-keda-vas-prometheus-tls-creds
     metricType: AverageValue
     name: vertica_sessions_running_total
     type: prometheus
