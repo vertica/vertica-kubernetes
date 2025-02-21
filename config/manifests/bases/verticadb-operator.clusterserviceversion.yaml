@@ -597,7 +597,7 @@ spec:
           name.
         displayName: Current Size
         path: currentSize
-      - description: The total number of times the operator has scaled up/down the
+      - description: The total number of times the operator has scaled out/in the
           VerticaDB.
         displayName: Scaling Count
         path: scalingCount

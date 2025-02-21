@@ -1860,7 +1860,7 @@ func (v *VerticaDB) checkNewSBoxOrSClusterShutdownUnset(allErrs field.ErrorList)
 	return allErrs
 }
 
-// checkShutdownForScaleUpOrDown ensures a subcluster to be scaled up/down has Shutdown field set to false
+// checkShutdownForScaleUpOrDown ensures a subcluster to be scaled out/in has Shutdown field set to false
 func (v *VerticaDB) checkShutdownForScaleUpOrDown(oldObj *VerticaDB, allErrs field.ErrorList) field.ErrorList {
 	newSclusterMap := v.GenSubclusterMap()
 	oldSclusterMap := oldObj.GenSubclusterMap()

@@ -295,7 +295,7 @@ const (
 // VerticaAutoscalerStatus defines the observed state of VerticaAutoscaler
 type VerticaAutoscalerStatus struct {
 	// +operator-sdk:csv:customresourcedefinitions:type=status
-	// The total number of times the operator has scaled up/down the VerticaDB.
+	// The total number of times the operator has scaled out/in the VerticaDB.
 	ScalingCount int `json:"scalingCount"`
 
 	// +operator-sdk:csv:customresourcedefinitions:type=status
