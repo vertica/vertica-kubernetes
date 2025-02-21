@@ -52,7 +52,6 @@ var _ = Describe("verticaautoscaler_webhook", func() {
 		Expect(err3).Should(Succeed())
 		vas.Spec.ServiceName = ""
 		vas.Spec.Template.ServiceName = "SomethingElse"
-		vas.Spec.CustomAutoscaler = &CustomAutoscalerSpec{}
 		_, err4 := vas.ValidateUpdate(MakeVAS())
 		Expect(err4).Should(Succeed())
 		vas.Spec.ServiceName = ""

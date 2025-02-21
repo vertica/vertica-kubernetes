@@ -17,7 +17,6 @@ metadata:
   name: v-autoscale-db
 spec:
   verticaDBName: v-autoscale-db-by-subcluster
-  serviceName: as
   scalingGranularity: Subcluster
   template:
     name: as

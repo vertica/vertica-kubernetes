@@ -82,7 +82,6 @@ func (v *VerticaAutoscaler) validateSpec() field.ErrorList {
 	allErrs = v.validateScalingGranularity(allErrs)
 	allErrs = v.validateSubclusterTemplate(allErrs)
 	allErrs = v.validateCustomAutoscaler(allErrs)
-	allErrs = v.validateServiceName(allErrs)
 	allErrs = v.validateScaledObject(allErrs)
 	allErrs = v.validateHPA(allErrs)
 	return allErrs
@@ -116,6 +115,12 @@ func (v *VerticaAutoscaler) validateScalingGranularity(allErrs field.ErrorList) 
 // validateSubclusterTemplate will validate the subcluster template
 func (v *VerticaAutoscaler) validateSubclusterTemplate(allErrs field.ErrorList) field.ErrorList {
 	pathPrefix := field.NewPath("spec").Child("template")
+	if v.Spec.CustomAutoscaler == nil && v.Spec.Template.ServiceName == "" && v.Spec.ServiceName == "" {
+		err := field.Invalid(pathPrefix.Child("serviceName"),
+			v.Spec.Template.ServiceName,
+			"Service name can not be empty if customAutoscaler is empty.")
+		allErrs = append(allErrs, err)
+	}
 	if v.CanUseTemplate() && v.Spec.ServiceName != "" && v.Spec.Template.ServiceName != v.Spec.ServiceName {
 		err := field.Invalid(pathPrefix.Child("serviceName"),
 			v.Spec.Template.ServiceName,
@@ -199,18 +204,6 @@ func (v *VerticaAutoscaler) validateHPA(allErrs field.ErrorList) field.ErrorList
 		err := field.Invalid(pathPrefix.Child("hpa"),
 			v.Spec.CustomAutoscaler.Hpa,
 			"When scaledownThreshold is set, scaledown stabilization window must be 0")
-		allErrs = append(allErrs, err)
-	}
-	return allErrs
-}
-
-// validateServiceName will check if the ServiceName field is valid
-func (v *VerticaAutoscaler) validateServiceName(allErrs field.ErrorList) field.ErrorList {
-	pathPrefix := field.NewPath("spec").Child("serviceName")
-	if v.Spec.CustomAutoscaler == nil && v.Spec.ServiceName == "" {
-		err := field.Invalid(pathPrefix,
-			v.Spec.ServiceName,
-			"Service name can not be empty if customAutoscaler is empty.")
 		allErrs = append(allErrs, err)
 	}
 	return allErrs
