@@ -170,7 +170,7 @@ type ScaledObjectSpec struct {
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:default:=30
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:number"
-	// Defines the time to wait between scaling actions. This is helpful to avoid constant scaling up/down. Default: 30s.
+	// Defines the time to wait between scaling actions. This is helpful to avoid constant scaling out/in. Default: 30s.
 	CooldownPeriod *int32 `json:"cooldownPeriod,omitempty"`
 
 	// +kubebuilder:validation:Required

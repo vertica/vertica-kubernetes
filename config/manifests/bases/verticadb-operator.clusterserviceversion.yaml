@@ -208,7 +208,7 @@ spec:
         displayName: Behavior
         path: customAutoscaler.scaledObject.behavior
       - description: 'Defines the time to wait between scaling actions. This is helpful
-          to avoid constant scaling up/down. Default: 30s.'
+          to avoid constant scaling out/in. Default: 30s.'
         displayName: Cooldown Period
         path: customAutoscaler.scaledObject.cooldownPeriod
         x-descriptors:
