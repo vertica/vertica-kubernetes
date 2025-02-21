@@ -74,6 +74,14 @@ func retrieveNMACerts(ctx context.Context, fetcher cloud.VerticaDBSecretFetcher)
 	}, nil
 }
 
+func getNMATLSSecretName(vdb vapi.VerticaDB) (string, error) {
+	secretName := meta.GetNMATLSSecretName(vdb.Annotations)
+	if secretName == "" {
+		return "", fmt.Errorf("secretname is missing from annotation - %s", meta.NMATLSSECRETAnnotation)
+	}
+	return secretName, nil
+}
+
 // logFailure will log and record an event for a vclusterOps API failure
 func (v *VClusterOps) logFailure(cmd, genericFailureReason string, err error) (ctrl.Result, error) {
 	evLogr := vcErrors{

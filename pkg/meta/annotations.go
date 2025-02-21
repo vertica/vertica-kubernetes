@@ -584,6 +584,10 @@ func GetNMAHealthProbeOverride(annotations map[string]string, probeName, field s
 	return int32(convVal), true //nolint:gosec
 }
 
+func GetNMATLSSecretName(annotations map[string]string) string {
+	return lookupStringAnnotation(annotations, NMATLSSECRETAnnotation, "")
+}
+
 // GetVProxyLogLevel returns scrutinize log age hours
 func GetVProxyLogLevel(annotations map[string]string) string {
 	return strings.ToUpper(lookupStringAnnotation(annotations, VProxyLogLevelAnnotation, VProxyLogLevelDefaultLevel))
