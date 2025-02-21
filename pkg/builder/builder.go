@@ -929,6 +929,9 @@ func buildTriggers(metrics []v1beta1.ScaleTrigger, vas *v1beta1.VerticaAutoscale
 		if metric.IsPrometheusMetric() {
 			metadata["namespace"] = vas.Namespace
 			metadata["unsafeSsl"] = metric.GetUnsafeSslStr()
+			if metric.Prometheus.AuthModes != "" {
+				metadata["authModes"] = string(metric.Prometheus.AuthModes)
+			}
 		} else {
 			metadata["containerName"] = names.ServerContainer
 		}
