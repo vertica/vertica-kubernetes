@@ -120,7 +120,7 @@ func (d *DBRemoveNodeReconciler) Reconcile(ctx context.Context, _ *ctrl.Request)
 // reconcileSubcluster Will handle reconcile for a single subcluster
 // This will check for db_remove_node at a single cluster and handle it is needed.
 func (d *DBRemoveNodeReconciler) reconcileSubcluster(ctx context.Context, sc *vapi.Subcluster) (ctrl.Result, error) {
-	return scaledownSubcluster(ctx, d, sc, d.removeNodesInSubcluster)
+	return scaleinSubcluster(ctx, d, sc, d.removeNodesInSubcluster)
 }
 
 // removeNodesInSubcluster will call remove node for a range of pods that need to be scaled down

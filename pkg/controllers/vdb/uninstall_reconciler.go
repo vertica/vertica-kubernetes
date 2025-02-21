@@ -120,7 +120,7 @@ func (s *UninstallReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (c
 // reconcileSubcluster Will handle reconcile for a single subcluster
 // This will check for uninstall at a single cluster and handle if uninstall is needed.
 func (s *UninstallReconciler) reconcileSubcluster(ctx context.Context, sc *vapi.Subcluster) (ctrl.Result, error) {
-	return scaledownSubcluster(ctx, s, sc, s.uninstallPodsInSubcluster)
+	return scaleinSubcluster(ctx, s, sc, s.uninstallPodsInSubcluster)
 }
 
 // uninstallPodsInSubcluster will call uninstall on a range of pods that will be scaled down

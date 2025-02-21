@@ -36,11 +36,11 @@ type ScaledownActor interface {
 	CollectPFacts(ctx context.Context) error
 }
 
-// scaledownSubcluster is called to either remove nodes or call uninstall.
+// scaleinSubcluster is called to either remove nodes or call uninstall.
 // This is a common function that is used by the DBRemoveNodeReconciler and
 // UninstallReconciler. It will call a func (scaleDownFunc) for a range of pods
 // that are to be scaled down.
-func scaledownSubcluster(ctx context.Context, act ScaledownActor, sc *vapi.Subcluster,
+func scaleinSubcluster(ctx context.Context, act ScaledownActor, sc *vapi.Subcluster,
 	scaleDownFunc func(context.Context, *vapi.Subcluster, int32, int32) (ctrl.Result, error)) (ctrl.Result, error) {
 	if sc == nil {
 		return ctrl.Result{}, nil
