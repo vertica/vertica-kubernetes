@@ -1666,17 +1666,17 @@ var _ = Describe("verticadb_webhook", func() {
 			{Name: "sc3"},
 		}
 		newVdb.Spec.Subclusters[3].Size = 4
-		Ω(newVdb.checkShutdownForScaleUpOrDown(oldVdb, field.ErrorList{})).Should(HaveLen(0))
+		Ω(newVdb.checkShutdownForScaleOutOrIn(oldVdb, field.ErrorList{})).Should(HaveLen(0))
 		newVdb.Spec.Subclusters[3].Shutdown = true
-		Ω(newVdb.checkShutdownForScaleUpOrDown(oldVdb, field.ErrorList{})).Should(HaveLen(1))
+		Ω(newVdb.checkShutdownForScaleOutOrIn(oldVdb, field.ErrorList{})).Should(HaveLen(1))
 		newVdb.Spec.Subclusters[3].Size = 2
-		Ω(newVdb.checkShutdownForScaleUpOrDown(oldVdb, field.ErrorList{})).Should(HaveLen(1))
+		Ω(newVdb.checkShutdownForScaleOutOrIn(oldVdb, field.ErrorList{})).Should(HaveLen(1))
 		newVdb.Spec.Subclusters[3].Shutdown = false
-		Ω(newVdb.checkShutdownForScaleUpOrDown(oldVdb, field.ErrorList{})).Should(HaveLen(0))
+		Ω(newVdb.checkShutdownForScaleOutOrIn(oldVdb, field.ErrorList{})).Should(HaveLen(0))
 		newVdb.Status.Subclusters[3].Shutdown = true
-		Ω(newVdb.checkShutdownForScaleUpOrDown(oldVdb, field.ErrorList{})).Should(HaveLen(1))
+		Ω(newVdb.checkShutdownForScaleOutOrIn(oldVdb, field.ErrorList{})).Should(HaveLen(1))
 		newVdb.Status.Subclusters[3].Shutdown = false
-		Ω(newVdb.checkShutdownForScaleUpOrDown(oldVdb, field.ErrorList{})).Should(HaveLen(0))
+		Ω(newVdb.checkShutdownForScaleOutOrIn(oldVdb, field.ErrorList{})).Should(HaveLen(0))
 		newVdb.Spec.Subclusters[1].Size = 4
 		Ω(newVdb.validateImmutableFields(oldVdb)).Should(HaveLen(1))
 

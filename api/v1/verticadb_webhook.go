@@ -167,7 +167,7 @@ func (v *VerticaDB) validateImmutableFields(old runtime.Object) field.ErrorList 
 	allErrs = v.checkSubclustersInShutdownSandbox(oldObj, allErrs)
 	allErrs = v.checkNewSBoxOrSClusterShutdownUnset(allErrs)
 	allErrs = v.checkSClusterToBeSandboxedShutdownUnset(allErrs)
-	allErrs = v.checkShutdownForScaleUpOrDown(oldObj, allErrs)
+	allErrs = v.checkShutdownForScaleOutOrIn(oldObj, allErrs)
 	return allErrs
 }
 
@@ -1860,8 +1860,8 @@ func (v *VerticaDB) checkNewSBoxOrSClusterShutdownUnset(allErrs field.ErrorList)
 	return allErrs
 }
 
-// checkShutdownForScaleUpOrDown ensures a subcluster to be scaled out/in has Shutdown field set to false
-func (v *VerticaDB) checkShutdownForScaleUpOrDown(oldObj *VerticaDB, allErrs field.ErrorList) field.ErrorList {
+// checkShutdownForScaleOutOrIn ensures a subcluster to be scaled out/in has Shutdown field set to false
+func (v *VerticaDB) checkShutdownForScaleOutOrIn(oldObj *VerticaDB, allErrs field.ErrorList) field.ErrorList {
 	newSclusterMap := v.GenSubclusterMap()
 	oldSclusterMap := oldObj.GenSubclusterMap()
 	newSclusterIndexMap := v.GenSubclusterIndexMap()
