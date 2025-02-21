@@ -44,7 +44,7 @@ func MakeScaleinReconciler(v *VerticaAutoscalerReconciler, vas *vapi.VerticaAuto
 // Reconcile will handle updating the hpa based on the metrics current value.
 // Only metrics with a scale in threshold set are taken into account.
 func (s *ScaleinReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (ctrl.Result, error) {
-	if !s.Vas.HasScaleDownThreshold() {
+	if !s.Vas.HasScaleInThreshold() {
 		return ctrl.Result{}, nil
 	}
 	nm := names.GenHPAName(s.Vas)
@@ -66,11 +66,11 @@ func (s *ScaleinReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (c
 		if !found {
 			return ctrl.Result{}, fmt.Errorf("could not find metric %s in VAS spec", mStatus.name)
 		}
-		if md.ScaleDownThreshold == nil {
+		if md.ScaleInThreshold == nil {
 			// skip the metric because it does not have scale in threshold.
 			continue
 		}
-		cmpResult := mStatus.cmp(md.ScaleDownThreshold)
+		cmpResult := mStatus.cmp(md.ScaleInThreshold)
 		if cmpResult == errorCmpResult {
 			return ctrl.Result{}, errors.New("hpa status not set correctly")
 		}

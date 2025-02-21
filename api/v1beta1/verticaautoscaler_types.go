@@ -250,7 +250,7 @@ type PrometheusSpec struct {
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:number"
 	// This is the lower bound at which the autoscaler starts scaling in to the minimum replica count.
 	// If the metric falls below threshold but is still above this value, the current replica count remains unchanged.
-	ScaleDownThreshold int32 `json:"scaleDownThreshold,omitempty"`
+	ScaleInThreshold int32 `json:"scaleDownThreshold,omitempty"`
 }
 
 type CPUMemorySpec struct {
@@ -277,7 +277,7 @@ type MetricDefinition struct {
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// The threshold to use for scaling in. It must be of the same type as
 	// the one used for scaling up, defined in the metric field.
-	ScaleDownThreshold *autoscalingv2.MetricTarget `json:"scaleDownThreshold,omitempty"`
+	ScaleInThreshold *autoscalingv2.MetricTarget `json:"scaleDownThreshold,omitempty"`
 
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec

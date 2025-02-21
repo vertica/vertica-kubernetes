@@ -126,7 +126,7 @@ func (s *UninstallReconciler) reconcileSubcluster(ctx context.Context, sc *vapi.
 // uninstallPodsInSubcluster will call uninstall on a range of pods that will be scaled in
 func (s *UninstallReconciler) uninstallPodsInSubcluster(ctx context.Context, sc *vapi.Subcluster,
 	startPodIndex, endPodIndex int32) (ctrl.Result, error) {
-	podsToUninstall, requeueNeeded := s.findPodsSuitableForScaleDown(sc, startPodIndex, endPodIndex)
+	podsToUninstall, requeueNeeded := s.findPodsSuitableForScaleIn(sc, startPodIndex, endPodIndex)
 	if len(podsToUninstall) > 0 {
 		err := s.uninstallPodsInSubclusterForAdmintools(ctx, podsToUninstall)
 		if err != nil {
@@ -175,11 +175,11 @@ func (s *UninstallReconciler) uninstallPodsInSubclusterForAdmintools(ctx context
 	return nil
 }
 
-// findPodsSuitableForScaleDown will return a list of host names that can be uninstalled
+// findPodsSuitableForScaleIn will return a list of host names that can be uninstalled
 // If a pod was skipped that may require an uninstall, then the bool return
 // comes back as true. It is the callers responsibility to requeue a
 // reconciliation if that is true.
-func (s *UninstallReconciler) findPodsSuitableForScaleDown(sc *vapi.Subcluster, startPodIndex,
+func (s *UninstallReconciler) findPodsSuitableForScaleIn(sc *vapi.Subcluster, startPodIndex,
 	endPodIndex int32) ([]*podfacts.PodFact, bool) {
 	pods := []*podfacts.PodFact{}
 	requeueNeeded := false

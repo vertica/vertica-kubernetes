@@ -192,7 +192,7 @@ var _ = Describe("status_reconcile", func() {
 		Expect(k8sClient.Get(ctx, vapi.MakeVDBName(), fetchVdb)).Should(Succeed())
 		Expect(fetchVdb.Status.Subclusters[0].InstallCount()).Should(Equal(int32(5)))
 
-		test.ScaleDownSubcluster(ctx, k8sClient, vdb, sc, 2)
+		test.ScaleInSubcluster(ctx, k8sClient, vdb, sc, 2)
 		pfacts.Invalidate()
 
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))

@@ -36,7 +36,7 @@ var _ = Describe("scalein_reconcile", func() {
 		vas.Spec.TargetSize = 4
 		m := &vas.Spec.CustomAutoscaler.Hpa.Metrics[0]
 		cpu := int32(60)
-		m.ScaleDownThreshold = &autoscalingv2.MetricTarget{
+		m.ScaleInThreshold = &autoscalingv2.MetricTarget{
 			Type:               autoscalingv2.UtilizationMetricType,
 			AverageUtilization: &cpu,
 		}

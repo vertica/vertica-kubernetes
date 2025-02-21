@@ -129,7 +129,7 @@ func (d *DBRemoveNodeReconciler) reconcileSubcluster(ctx context.Context, sc *va
 // scale in and return indicating reconciliation needs to be requeued.
 func (d *DBRemoveNodeReconciler) removeNodesInSubcluster(ctx context.Context, sc *vapi.Subcluster,
 	startPodIndex, endPodIndex int32) (ctrl.Result, error) {
-	podsToRemove, requeueNeeded := d.findPodsSuitableForScaleDown(sc, startPodIndex, endPodIndex)
+	podsToRemove, requeueNeeded := d.findPodsSuitableForScaleIn(sc, startPodIndex, endPodIndex)
 	if len(podsToRemove) > 0 {
 		initiatorPod, ok := d.PFacts.FindPodToRunAdminCmdAny()
 		if !ok {
@@ -180,11 +180,11 @@ func (d *DBRemoveNodeReconciler) runRemoveNode(ctx context.Context, initiatorPod
 	return nil
 }
 
-// findPodsSuitableForScaleDown will return a list of host names that can be scaled in.
+// findPodsSuitableForScaleIn will return a list of host names that can be scaled in.
 // If a pod was skipped that may require a scale in, then the bool return
 // comes back as true. It is the callers responsibility to requeue a
 // reconciliation if that is true.
-func (d *DBRemoveNodeReconciler) findPodsSuitableForScaleDown(sc *vapi.Subcluster, startPodIndex, endPodIndex int32) ([]*pf.PodFact, bool) {
+func (d *DBRemoveNodeReconciler) findPodsSuitableForScaleIn(sc *vapi.Subcluster, startPodIndex, endPodIndex int32) ([]*pf.PodFact, bool) {
 	pods := []*pf.PodFact{}
 	requeueNeeded := false
 	for podIndex := startPodIndex; podIndex <= endPodIndex; podIndex++ {
