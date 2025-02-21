@@ -951,13 +951,13 @@ func buildTriggers(metrics []v1beta1.ScaleTrigger, vas *v1beta1.VerticaAutoscale
 
 // BuildTriggerAuthentication builds a manifest for a keda TriggerAuthentication.
 func BuildTriggerAuthentication(vas *v1beta1.VerticaAutoscaler,
-	metric *v1beta1.ScaleTrigger, ta types.NamespacedName) *kedav1alpha1.TriggerAuthentication {
+	metric *v1beta1.ScaleTrigger, ta types.NamespacedName, secretData map[string][]byte) *kedav1alpha1.TriggerAuthentication {
 	authTargets := []kedav1alpha1.AuthSecretTargetRef{}
 	switch metric.Prometheus.AuthModes {
 	case v1beta1.PrometheusAuthBasic:
 		authTargets = append(authTargets, buildTriggerAuthForBasic(metric)...)
 	case v1beta1.PrometheusAuthBearer:
-		authTargets = append(authTargets, buildTriggerAuthForBearer(metric)...)
+		authTargets = append(authTargets, buildTriggerAuthForBearer(metric, secretData)...)
 	case v1beta1.PrometheusAuthTLS:
 		authTargets = append(authTargets, buildTriggerAuthForTLS(metric)...)
 	case v1beta1.PrometheusAuthCustom:
@@ -995,7 +995,7 @@ func buildTriggerAuthForBasic(metric *v1beta1.ScaleTrigger) []kedav1alpha1.AuthS
 }
 
 // buildTriggerAuthForBearer builds a list of manifest for a keda AuthSecretTargetRef.
-func buildTriggerAuthForBearer(metric *v1beta1.ScaleTrigger) []kedav1alpha1.AuthSecretTargetRef {
+func buildTriggerAuthForBearer(metric *v1beta1.ScaleTrigger, secretData map[string][]byte) []kedav1alpha1.AuthSecretTargetRef {
 	authTargets := []kedav1alpha1.AuthSecretTargetRef{}
 	// For 'bearer' type, 'bearerToken' is required field in AuthSecret.
 	authTargets = append(authTargets,
@@ -1004,6 +1004,15 @@ func buildTriggerAuthForBearer(metric *v1beta1.ScaleTrigger) []kedav1alpha1.Auth
 			Name:      metric.AuthSecret,
 			Key:       v1beta1.PrometheusSecretKeyBearerToken,
 		})
+	// For 'bearer' type, 'ca' is optional field in AuthSecret.
+	if _, ok := secretData[v1beta1.PrometheusSecretKeyCa]; ok {
+		authTargets = append(authTargets,
+			kedav1alpha1.AuthSecretTargetRef{
+				Parameter: v1beta1.PrometheusSecretKeyCa,
+				Name:      metric.AuthSecret,
+				Key:       v1beta1.PrometheusSecretKeyCa,
+			})
+	}
 	return authTargets
 }
 
