@@ -1,0 +1,5 @@
+kind: Deprecated
+body: v1beta1 version of VerticaAutoscaler. Use v1 version now.
+time: 2025-02-21T07:14:13.661030166Z
+custom:
+  Issue: "1054"

@@ -79,4 +79,11 @@ resources:
   kind: VerticaReplicator
   path: github.com/vertica/vertica-kubernetes/api/v1beta1
   version: v1beta1
+- api:
+    crdVersion: v1
+    namespaced: true
+  domain: vertica.com
+  kind: VerticaAutoscaler
+  path: github.com/vertica/vertica-kubernetes/api/v1
+  version: v1
 version: "3"

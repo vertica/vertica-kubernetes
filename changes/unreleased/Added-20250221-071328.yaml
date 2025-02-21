@@ -1,0 +1,5 @@
+kind: Added
+body: v1 version of VerticaAutoscaler.
+time: 2025-02-21T07:13:28.020070367Z
+custom:
+  Issue: "1054"
