@@ -768,7 +768,7 @@ func isNMADeploymentDifferent(sts1, sts2 *appsv1.StatefulSet) bool {
 // operations.
 func (o *ObjReconciler) checkIfReadyForStsUpdate(newStsSize int32, sts *appsv1.StatefulSet) (ctrl.Result, error) {
 	if newStsSize >= *sts.Spec.Replicas {
-		// Nothing to do as we aren't scaling down.
+		// Nothing to do as we aren't scaling in.
 		return ctrl.Result{}, nil
 	}
 

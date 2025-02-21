@@ -184,7 +184,7 @@ spec:
         displayName: Metric
         path: customAutoscaler.hpa.metrics[0].metric
       - description: |-
-          The threshold to use for scaling down. It must be of the same type as
+          The threshold to use for scaling in. It must be of the same type as
           the one used for scaling up, defined in the metric field.
         displayName: Scale In Threshold
         path: customAutoscaler.hpa.metrics[0].scaleDownThreshold
@@ -256,7 +256,7 @@ spec:
         displayName: Query
         path: customAutoscaler.scaledObject.metrics[0].prometheus.query
       - description: |-
-          This is the lower bound at which the autoscaler starts scaling down to the minimum replica count.
+          This is the lower bound at which the autoscaler starts scaling in to the minimum replica count.
           If the metric falls below threshold but is still above this value, the current replica count remains unchanged.
         displayName: Scale In Threshold
         path: customAutoscaler.scaledObject.metrics[0].prometheus.scaleDownThreshold

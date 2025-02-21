@@ -75,7 +75,7 @@ func (s *UninstallReconciler) CollectPFacts(ctx context.Context) error {
 //
 // This reconcile function is meant to be called before we create/delete any
 // kubernetes objects. It allows us to look at the state before applying
-// everything in Vdb. We will know if we are scaling down by comparing the
+// everything in Vdb. We will know if we are scaling in by comparing the
 // expected subcluster size with the current.
 func (s *UninstallReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
 	// no-op for vclusterops deployments
