@@ -90,7 +90,7 @@ spec:
                       behavior:
                         description: |-
                           HorizontalPodAutoscalerBehavior configures the scaling behavior of the target
-                          in both Out and In directions (scaleUp and scaleIn fields respectively).
+                          in both Out and In directions (scaleOut and scaleIn fields respectively).
                         properties:
                           scaleIn:
                             description: |-
@@ -148,9 +148,9 @@ spec:
                                 minimum: 0
                                 type: integer
                             type: object
-                          scaleUp:
+                          scaleOut:
                             description: |-
-                              scaleUp is scaling policy for scaling Up.
+                              scaleOut is scaling policy for scaling Up.
                               If not set, the default value is the higher of:
                                 * increase no more than 4 pods per 60 seconds
                                 * double the number of pods per 60 seconds
