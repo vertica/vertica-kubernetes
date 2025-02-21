@@ -31,4 +31,4 @@ spec:
           serverAddress: "http://prometheus-kube-prometheus-prometheus.prometheus.svc.cluster.local:9090"
           query: sum(vertica_sessions_running_counter{type="active", initiator="user", service="v-scale-in-threshold-pri1"})
           threshold: 5
-          scaleDownThreshold: 1
+          scaleInThreshold: 1

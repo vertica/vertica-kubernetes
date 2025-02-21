@@ -19,6 +19,6 @@ spec:
               target:
                 type: AverageValue
                 averageValue: 5
-          scaleDownThreshold:
+          scaleInThreshold:
             type: AverageValue
             averageValue: 1
