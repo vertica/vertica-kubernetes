@@ -90,7 +90,7 @@ spec:
                       behavior:
                         description: |-
                           HorizontalPodAutoscalerBehavior configures the scaling behavior of the target
-                          in both Up and Down directions (scaleUp and scaleIn fields respectively).
+                          in both Out and In directions (scaleUp and scaleIn fields respectively).
                         properties:
                           scaleIn:
                             description: |-
