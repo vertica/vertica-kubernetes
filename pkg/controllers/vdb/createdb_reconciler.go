@@ -140,6 +140,15 @@ func (c *CreateDBReconciler) execCmd(ctx context.Context, initiatorPod types.Nam
 			c.Log.Error(errThree, "failed to execute TLS DDLs after db creation stderr - "+stderr)
 			return ctrl.Result{}, err
 		}
+		chgs := vk8s.MetaChanges{
+			NewAnnotations: map[string]string{
+				vmeta.NMATLSSECRETAnnotation:          c.Vdb.Spec.NMATLSSecret,
+				vmeta.CLIENTSERVERTLSSecretAnnotation: c.Vdb.Spec.ClientServerTLSSecret,
+			},
+		}
+		if _, err := vk8s.MetaUpdate(ctx, c.VRec.Client, c.Vdb.ExtractNamespacedName(), c.Vdb, chgs); err != nil {
+			return ctrl.Result{}, err
+		}
 		vdbContext.SetBoolValue(vadmin.UseTLSCert, true)
 		c.Log.Info("TLS DDLs executed and TLS Cert configured")
 	}
@@ -214,6 +223,13 @@ func (c *CreateDBReconciler) generatePostDBCreateSQL(ctx context.Context, initia
 		sb.WriteString(`CREATE OR REPLACE LIBRARY public.KubernetesLib AS '/opt/vertica/packages/kubernetes/lib/libkubernetes.so';`)
 		sb.WriteString(`CREATE OR REPLACE SECRETMANAGER KubernetesSecretManager AS LANGUAGE 'C++' NAME 'KubernetesSecretManagerFactory' 
 			LIBRARY KubernetesLib;`)
+
+		sb.WriteString(`DROP KEY IF EXISTS https_key_0;`)
+
+		sb.WriteString(`DROP CERTIFICATE IF EXISTS https_cert_0;`)
+
+		sb.WriteString(`DROP CERTIFICATE IF EXISTS https_ca_cert_0;`)
+
 		sb.WriteString(fmt.Sprintf(
 			`CREATE KEY https_key_0 TYPE 'rsa' SECRETMANAGER KubernetesSecretManager SECRETNAME '%s' CONFIGURATION '{\"data-key\":\"%s\", 
 			\"namespace\":\"%s\"}';`,
@@ -285,18 +301,6 @@ func (c *CreateDBReconciler) postCmdCleanup(ctx context.Context) (ctrl.Result, e
 		chgs := vk8s.MetaChanges{
 			NewAnnotations: map[string]string{
 				vmeta.HTTPSTLSConfGenerationAnnotation: vmeta.HTTPSTLSConfGenerationAnnotationFalse,
-			},
-		}
-		if _, err := vk8s.MetaUpdate(ctx, c.VRec.Client, c.Vdb.ExtractNamespacedName(), c.Vdb, chgs); err != nil {
-			return ctrl.Result{}, err
-		}
-	}
-	vdbContext := vadmin.GetContextForVdb(c.Vdb.Namespace, c.Vdb.Name)
-	if vdbContext.GetBoolValue(vadmin.UseTLSCert) {
-		chgs := vk8s.MetaChanges{
-			NewAnnotations: map[string]string{
-				vmeta.NMATLSSECRETAnnotation:          c.Vdb.Spec.NMATLSSecret,
-				vmeta.CLIENTSERVERTLSSecretAnnotation: c.Vdb.Spec.ClientServerTLSSecret,
 			},
 		}
 		if _, err := vk8s.MetaUpdate(ctx, c.VRec.Client, c.Vdb.ExtractNamespacedName(), c.Vdb, chgs); err != nil {
