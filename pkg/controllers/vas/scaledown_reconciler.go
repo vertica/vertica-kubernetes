@@ -75,7 +75,7 @@ func (s *ScaleinReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (c
 			return ctrl.Result{}, errors.New("hpa status not set correctly")
 		}
 		if cmpResult < 0 {
-			s.Log.Info("Metric's value is lower than the scale-down threshold.", "metric", mStatus.name)
+			s.Log.Info("Metric's value is lower than the scale-in threshold.", "metric", mStatus.name)
 			newMinReplicas = *s.Vas.Spec.CustomAutoscaler.Hpa.MinReplicas
 		} else {
 			newMinReplicas = s.Vas.Status.CurrentSize

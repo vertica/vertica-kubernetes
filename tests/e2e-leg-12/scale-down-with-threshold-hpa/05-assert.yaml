@@ -14,11 +14,11 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: v-scale-down-threshold-pri1
+  name: v-scale-in-threshold-pri1
 status:
   currentReplicas: 5
 ---
 apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
-  name: v-scale-down-threshold
+  name: v-scale-in-threshold

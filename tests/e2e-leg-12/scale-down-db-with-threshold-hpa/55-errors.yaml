@@ -14,4 +14,4 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: v-scale-down-threshold-db-sec1
+  name: v-scale-in-threshold-db-sec1

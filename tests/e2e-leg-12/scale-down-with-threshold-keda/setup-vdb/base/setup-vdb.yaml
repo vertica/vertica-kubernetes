@@ -14,7 +14,7 @@
 apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
-  name: v-scale-down-threshold
+  name: v-scale-in-threshold
   annotations:
     vertica.com/include-uid-in-path: true
     vertica.com/vcluster-ops: true

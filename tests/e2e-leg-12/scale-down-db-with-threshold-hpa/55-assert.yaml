@@ -14,7 +14,7 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: v-scale-down-threshold-db-pri1
+  name: v-scale-in-threshold-db-pri1
 status:
   currentReplicas: 3
   readyReplicas: 3
@@ -22,7 +22,7 @@ status:
 apiVersion: vertica.com/v1beta1
 kind: VerticaAutoscaler
 metadata:
-  name: v-scale-down-threshold-db-vas
+  name: v-scale-in-threshold-db-vas
 spec:
   targetSize: 3
 status:
@@ -32,7 +32,7 @@ status:
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
-  name: v-scale-down-threshold-db-vas-hpa
+  name: v-scale-in-threshold-db-vas-hpa
 spec:
   maxReplicas: 7
   minReplicas: 3

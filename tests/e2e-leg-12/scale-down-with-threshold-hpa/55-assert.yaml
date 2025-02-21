@@ -14,7 +14,7 @@
 apiVersion: vertica.com/v1beta1
 kind: VerticaAutoscaler
 metadata:
-  name: v-scale-down-threshold-vas
+  name: v-scale-in-threshold-vas
 spec:
   targetSize: 3
 status:
@@ -24,7 +24,7 @@ status:
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
-  name: v-scale-down-threshold-vas-hpa
+  name: v-scale-in-threshold-vas-hpa
 spec:
   maxReplicas: 7
   minReplicas: 3

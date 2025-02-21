@@ -14,21 +14,21 @@
 apiVersion: vertica.com/v1beta1
 kind: VerticaAutoscaler
 metadata:
-  name: v-scale-down-threshold-db-vas
+  name: v-scale-in-threshold-db-vas
 status:
   conditions:
   - status: "True"
     type: TargetSizeInitialized
   - status: "True"
     type: ScalingActive
-  selector: vertica.com/is-sandbox=false,app.kubernetes.io/instance=v-scale-down-threshold-db,app.kubernetes.io/managed-by=verticadb-operator
+  selector: vertica.com/is-sandbox=false,app.kubernetes.io/instance=v-scale-in-threshold-db,app.kubernetes.io/managed-by=verticadb-operator
   scalingCount: 0
   currentSize: 5
 ---
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
-  name: v-scale-down-threshold-db-vas-hpa
+  name: v-scale-in-threshold-db-vas-hpa
 spec:
   maxReplicas: 7
   metrics:
@@ -43,4 +43,4 @@ spec:
   scaleTargetRef:
     apiVersion: vertica.com/v1beta1
     kind: VerticaAutoscaler
-    name: v-scale-down-threshold-db-vas
+    name: v-scale-in-threshold-db-vas
