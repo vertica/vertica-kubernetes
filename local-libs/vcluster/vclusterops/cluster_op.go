@@ -17,7 +17,7 @@
 // interfaces. These interfaces are exposed through the Node Management Agent
 // (NMA) and an HTTPS service embedded in the server. With this library you can
 // perform administrator-level operations, including: creating a database,
-// scaling out/in, restarting the cluster, and stopping the cluster.
+// scaling up/down, restarting the cluster, and stopping the cluster.
 package vclusterops
 
 import (
