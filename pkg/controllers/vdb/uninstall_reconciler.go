@@ -70,7 +70,7 @@ func (s *UninstallReconciler) CollectPFacts(ctx context.Context) error {
 	return s.PFacts.Collect(ctx, s.Vdb)
 }
 
-// Reconcile will handle state where a pod in a subcluster is being scaled down.
+// Reconcile will handle state where a pod in a subcluster is being scaled in.
 // During a scale in we need to drive uninstall logic for each applicable pod.
 //
 // This reconcile function is meant to be called before we create/delete any
@@ -123,7 +123,7 @@ func (s *UninstallReconciler) reconcileSubcluster(ctx context.Context, sc *vapi.
 	return scaleinSubcluster(ctx, s, sc, s.uninstallPodsInSubcluster)
 }
 
-// uninstallPodsInSubcluster will call uninstall on a range of pods that will be scaled down
+// uninstallPodsInSubcluster will call uninstall on a range of pods that will be scaled in
 func (s *UninstallReconciler) uninstallPodsInSubcluster(ctx context.Context, sc *vapi.Subcluster,
 	startPodIndex, endPodIndex int32) (ctrl.Result, error) {
 	podsToUninstall, requeueNeeded := s.findPodsSuitableForScaleDown(sc, startPodIndex, endPodIndex)
@@ -142,7 +142,7 @@ func (s *UninstallReconciler) uninstallPodsInSubcluster(ctx context.Context, sc 
 }
 
 // uninstallPodsInSubclusterForAdmintools will call uninstall, for admintools, on a list
-// of pods that will be scaled down.
+// of pods that will be scaled in.
 func (s *UninstallReconciler) uninstallPodsInSubclusterForAdmintools(ctx context.Context,
 	podsToUninstall []*podfacts.PodFact) error {
 	basePod, err := findATBasePod(s.Vdb, s.PFacts)

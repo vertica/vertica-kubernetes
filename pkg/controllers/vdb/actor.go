@@ -39,7 +39,7 @@ type ScaleinActor interface {
 // scaleinSubcluster is called to either remove nodes or call uninstall.
 // This is a common function that is used by the DBRemoveNodeReconciler and
 // UninstallReconciler. It will call a func (scaleDownFunc) for a range of pods
-// that are to be scaled down.
+// that are to be scaled in.
 func scaleinSubcluster(ctx context.Context, act ScaleinActor, sc *vapi.Subcluster,
 	scaleDownFunc func(context.Context, *vapi.Subcluster, int32, int32) (ctrl.Result, error)) (ctrl.Result, error) {
 	if sc == nil {

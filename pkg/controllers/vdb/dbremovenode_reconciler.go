@@ -123,9 +123,9 @@ func (d *DBRemoveNodeReconciler) reconcileSubcluster(ctx context.Context, sc *va
 	return scaleinSubcluster(ctx, d, sc, d.removeNodesInSubcluster)
 }
 
-// removeNodesInSubcluster will call remove node for a range of pods that need to be scaled down
+// removeNodesInSubcluster will call remove node for a range of pods that need to be scaled in
 // It will determine the list of pods it can scale in. If any pods within the
-// range could not be scaled down, then it will proceed with the nodes it can
+// range could not be scaled in, then it will proceed with the nodes it can
 // scale in and return indicating reconciliation needs to be requeued.
 func (d *DBRemoveNodeReconciler) removeNodesInSubcluster(ctx context.Context, sc *vapi.Subcluster,
 	startPodIndex, endPodIndex int32) (ctrl.Result, error) {
@@ -180,7 +180,7 @@ func (d *DBRemoveNodeReconciler) runRemoveNode(ctx context.Context, initiatorPod
 	return nil
 }
 
-// findPodsSuitableForScaleDown will return a list of host names that can be scaled down.
+// findPodsSuitableForScaleDown will return a list of host names that can be scaled in.
 // If a pod was skipped that may require a scale in, then the bool return
 // comes back as true. It is the callers responsibility to requeue a
 // reconciliation if that is true.
