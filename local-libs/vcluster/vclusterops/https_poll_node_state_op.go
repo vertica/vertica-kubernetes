@@ -160,7 +160,7 @@ func (op *httpsPollNodeStateOp) processResult(execContext *opEngineExecContext) 
 		// show the host that is not UP
 		msg := fmt.Sprintf("Cannot get the correct response from the host %s after %d seconds, details: %s",
 			op.currentHost, op.timeout, err)
-		op.logger.PrintError(msg)
+		op.logger.PrintError("%s", msg)
 		return errors.New(msg)
 	}
 	return nil

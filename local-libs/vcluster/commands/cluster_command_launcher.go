@@ -544,14 +544,14 @@ func makeBasicCobraCmd(i cmdInterface, use, short, long string, commonFlags []st
 		Short: short,
 		Long:  long,
 		Args:  cobra.NoArgs,
-		PreRunE: func(cmd *cobra.Command, args []string) error {
+		PreRunE: func(cmd *cobra.Command, _ []string) error {
 			if globals.verbose {
 				fmt.Println("---{VCluster begin}---")
 			}
 			flagsInConfig := filterFlagsInConfig(commonFlags)
 			return configViper(cmd, flagsInConfig)
 		},
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			vcc := initVcc(cmd)
 			i.SetParser(cmd.Flags())
 			f, err := i.initCmdOutputFile()
@@ -577,7 +577,7 @@ func makeBasicCobraCmd(i cmdInterface, use, short, long string, commonFlags []st
 
 			return runError
 		},
-		PostRunE: func(cmd *cobra.Command, args []string) error {
+		PostRunE: func(_ *cobra.Command, _ []string) error {
 			if globals.verbose {
 				fmt.Println("---{VCluster end}---")
 			}

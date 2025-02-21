@@ -189,7 +189,7 @@ func (op *httpsPollNodeStateIndirectOp) processResult(execContext *opEngineExecC
 		// show the hosts that are not up
 		msg := fmt.Sprintf("the hosts [%s] are not in %s state after %d seconds, details: %s",
 			op.getRemainingHostsString(), op.checkStatusToString(), op.timeout, err)
-		op.logger.PrintError(msg)
+		op.logger.PrintError("%s", msg)
 		return errors.New(msg)
 	}
 	// if the permanent nodes list is needed, extract it

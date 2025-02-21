@@ -154,7 +154,7 @@ func (op *httpsInstallPackagesOp) processResult(_ *opEngineExecContext) error {
 		// just write status to the log.
 		msg := fmt.Sprintf("[%s] installation status of packages: %v", op.name, op.status.Packages)
 		if op.verbose {
-			op.logger.PrintInfo(msg)
+			op.logger.PrintInfo("%s", msg)
 		} else {
 			op.logger.V(1).Info(msg)
 		}

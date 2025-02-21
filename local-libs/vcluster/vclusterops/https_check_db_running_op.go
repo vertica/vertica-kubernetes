@@ -481,7 +481,7 @@ func (op *httpsCheckRunningDBOp) pollForDBDown(execContext *opEngineExecContext)
 		target = "subcluster"
 	}
 	msg := fmt.Sprintf("the %s is still up after %s seconds", target, timeoutSecondStr)
-	op.logger.PrintWarning(msg)
+	op.logger.PrintWarning("%s", msg)
 	return errors.New(msg)
 }
 

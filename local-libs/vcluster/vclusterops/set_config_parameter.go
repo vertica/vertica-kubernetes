@@ -60,7 +60,7 @@ func (opt *VSetConfigurationParameterOptions) validateParseOptions(logger vlog.P
 func (opt *VSetConfigurationParameterOptions) validateExtraOptions(logger vlog.Printer) error {
 	if opt.ConfigParameter == "" {
 		errStr := util.EmptyConfigParamErrMsg
-		logger.PrintError(errStr)
+		logger.PrintError("%s", errStr)
 		return errors.New(errStr)
 	}
 	// opt.Value could be empty (which is not equivalent to "null")

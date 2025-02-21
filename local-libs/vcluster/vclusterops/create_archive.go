@@ -180,7 +180,7 @@ func (vcc *VClusterCommands) produceCreateArchiveInstructions(options *VCreateAr
 	// get up hosts
 	hosts := options.Hosts
 	// Trim host list
-	hosts = vdb.filterUpHostListBySandbox(hosts, options.Sandbox)
+	hosts = vdb.filterUpHostlist(hosts, options.Sandbox)
 	bootstrapHost := []string{getInitiator(hosts)}
 
 	httpsCreateArchiveOp, err := makeHTTPSCreateArchiveOp(bootstrapHost, options.usePassword,
