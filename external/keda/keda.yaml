@@ -94,7 +94,7 @@ spec:
                         properties:
                           scaleIn:
                             description: |-
-                              scaleIn is scaling policy for scaling Down.
+                              scaleIn is scaling policy for scaling In.
                               If not set, the default value is to allow to scale in to minReplicas pods, with a
                               300 second stabilization window (i.e., the highest recommendation for
                               the last 300sec is used).
