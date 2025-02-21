@@ -70,7 +70,7 @@ var _ = Describe("scalein_reconcile", func() {
 		}
 		Expect(k8sClient.Status().Update(ctx, hpa)).Should(Succeed())
 
-		r = MakeScaledownReconciler(vasRec, vas, logger)
+		r = MakeScaleinReconciler(vasRec, vas, logger)
 		res, err = r.Reconcile(ctx, &ctrl.Request{})
 		Expect(res).Should(Equal(ctrl.Result{}))
 		Expect(err).Should(Succeed())

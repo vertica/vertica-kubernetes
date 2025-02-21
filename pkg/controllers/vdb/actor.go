@@ -28,9 +28,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// ScaledownActor is an interface that handles a part of scale down, either
+// ScaleinActor is an interface that handles a part of scale down, either
 // db_remove_node or uninstall.
-type ScaledownActor interface {
+type ScaleinActor interface {
 	GetClient() client.Client
 	GetVDB() *vapi.VerticaDB
 	CollectPFacts(ctx context.Context) error
@@ -40,7 +40,7 @@ type ScaledownActor interface {
 // This is a common function that is used by the DBRemoveNodeReconciler and
 // UninstallReconciler. It will call a func (scaleDownFunc) for a range of pods
 // that are to be scaled down.
-func scaleinSubcluster(ctx context.Context, act ScaledownActor, sc *vapi.Subcluster,
+func scaleinSubcluster(ctx context.Context, act ScaleinActor, sc *vapi.Subcluster,
 	scaleDownFunc func(context.Context, *vapi.Subcluster, int32, int32) (ctrl.Result, error)) (ctrl.Result, error) {
 	if sc == nil {
 		return ctrl.Result{}, nil

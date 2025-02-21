@@ -96,7 +96,7 @@ func (r *VerticaAutoscalerReconciler) Reconcile(ctx context.Context, req ctrl.Re
 		// Check if the autoscaler is ready
 		MakeVerifyAutoscalerReconciler(r, vas, log),
 		// Scale down based on the lower threshold
-		MakeScaledownReconciler(r, vas, log),
+		MakeScaleinReconciler(r, vas, log),
 		// If scaling granularity is Pod, this will resize existing subclusters
 		// depending on the targetSize.
 		MakeSubclusterResizeReconciler(r, vas),

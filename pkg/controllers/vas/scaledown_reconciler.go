@@ -28,22 +28,22 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-// ScaledownReconciler is a reconciler handle scale down when a lower
+// ScaleinReconciler is a reconciler handle scale down when a lower
 // threshold is set.
-type ScaledownReconciler struct {
+type ScaleinReconciler struct {
 	VRec *VerticaAutoscalerReconciler
 	Vas  *vapi.VerticaAutoscaler
 	Log  logr.Logger
 }
 
-func MakeScaledownReconciler(v *VerticaAutoscalerReconciler, vas *vapi.VerticaAutoscaler,
+func MakeScaleinReconciler(v *VerticaAutoscalerReconciler, vas *vapi.VerticaAutoscaler,
 	log logr.Logger) controllers.ReconcileActor {
-	return &ScaledownReconciler{VRec: v, Vas: vas, Log: log.WithName("ScaledownReconciler")}
+	return &ScaleinReconciler{VRec: v, Vas: vas, Log: log.WithName("ScaleinReconciler")}
 }
 
 // Reconcile will handle updating the hpa based on the metrics current value.
 // Only metrics with a scale down threshold set are taken into account.
-func (s *ScaledownReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (ctrl.Result, error) {
+func (s *ScaleinReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (ctrl.Result, error) {
 	if !s.Vas.HasScaleDownThreshold() {
 		return ctrl.Result{}, nil
 	}
