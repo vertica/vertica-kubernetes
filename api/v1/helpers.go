@@ -648,6 +648,15 @@ func (v *VerticaDB) IsKnownDepotVolumeType() bool {
 	return false
 }
 
+// IsDepotVolumeManaged returns true if vertica.com/disable-depot-volume-management
+// is false or not set
+func (v *VerticaDB) IsDepotVolumeManaged() bool {
+	if vmeta.DisableDepotVolumeManagement(v.Annotations) {
+		return false
+	}
+	return true
+}
+
 // GetFirstPrimarySubcluster returns the first primary subcluster defined in the vdb
 func (v *VerticaDB) GetFirstPrimarySubcluster() *Subcluster {
 	for i := range v.Spec.Subclusters {
