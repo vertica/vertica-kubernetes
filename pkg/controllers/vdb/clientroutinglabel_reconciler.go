@@ -84,7 +84,7 @@ func MakeClientRoutingLabelReconcilerWithDisableRouting(recon config.ReconcilerI
 // Reconcile will add or remove labels that control whether it accepts client
 // connections.  Pods that have at least one shard owned will have a label added
 // so that it receives traffic.  For pods that don't own a shard or about to be
-// scaled down will have the label removed so that traffic isn't routed to it.
+// scaled in will have the label removed so that traffic isn't routed to it.
 func (c *ClientRoutingLabelReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
 	c.Log.Info("Reconcile client routing label", "applyMethod", c.ApplyMethod)
 

@@ -256,7 +256,7 @@ func (o *ObjReconciler) checkForCreatedSubclusters(ctx context.Context) (ctrl.Re
 // subclusters that don't exist anymore.
 func (o *ObjReconciler) checkForDeletedSubcluster(ctx context.Context) (ctrl.Result, error) {
 	if o.Mode&ObjReconcileModePreserveScaling != 0 {
-		// Bypass this check since we won't be doing any scale down with this reconcile
+		// Bypass this check since we won't be doing any scale in with this reconcile
 		return ctrl.Result{}, nil
 	}
 
@@ -613,7 +613,7 @@ func (o *ObjReconciler) reconcileSts(ctx context.Context, sc *vapi.Subcluster) (
 	// We can only remove pods if we have called remove node and done the
 	// uninstall.  If we haven't yet done that we will requeue the
 	// reconciliation.  This will cause us to go through the remove node and
-	// uninstall reconcile actors to properly handle the scale down.
+	// uninstall reconcile actors to properly handle the scale in.
 	if o.Mode&ObjReconcileModePreserveScaling == 0 {
 		if r, e := o.checkIfReadyForStsUpdate(sc.Size, curSts); verrors.IsReconcileAborted(r, e) {
 			return r, e
@@ -768,7 +768,7 @@ func isNMADeploymentDifferent(sts1, sts2 *appsv1.StatefulSet) bool {
 // operations.
 func (o *ObjReconciler) checkIfReadyForStsUpdate(newStsSize int32, sts *appsv1.StatefulSet) (ctrl.Result, error) {
 	if newStsSize >= *sts.Spec.Replicas {
-		// Nothing to do as we aren't scaling down.
+		// Nothing to do as we aren't scaling in.
 		return ctrl.Result{}, nil
 	}
 

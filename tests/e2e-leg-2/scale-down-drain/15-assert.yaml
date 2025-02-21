@@ -14,7 +14,7 @@
 apiVersion: vertica.com/v1beta1
 kind: VerticaDB
 metadata:
-  name: v-scale-down-drain
+  name: v-scale-in-drain
 status:
   installCount: 3
   addedToDBCount: 1

@@ -40,7 +40,7 @@ data:
     \! echo "Disconnecting..."
     EOF
 
-    vsql -U joeuser -h v-scale-down-drain-sec1-1.v-scale-down-drain -f $SQL_SCRIPT
+    vsql -U joeuser -h v-scale-in-drain-sec1-1.v-scale-in-drain -f $SQL_SCRIPT
 ---
 apiVersion: v1
 kind: Pod

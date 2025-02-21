@@ -564,7 +564,7 @@ var _ = Describe("obj_reconcile", func() {
 			runReconciler(vdb, ctrl.Result{Requeue: true}, ObjReconcileModeAll)
 		})
 
-		It("should not proceed with the scale down if uninstall or db_remove_node hasn't happened", func() {
+		It("should not proceed with the scale in if uninstall or db_remove_node hasn't happened", func() {
 			vdb := vapi.MakeVDB()
 			origSize := int32(4)
 			sc := &vdb.Spec.Subclusters[0]
@@ -921,7 +921,7 @@ var _ = Describe("obj_reconcile", func() {
 			Expect(cm.Data).Should(Equal(newCM.Data))
 		})
 
-		It("should keep configmap if subcluster size scale down to 0", func() {
+		It("should keep configmap if subcluster size scale in to 0", func() {
 			vdb := vapi.MakeVDB()
 			vdb.Annotations[vmeta.UseVProxyAnnotation] = vmeta.UseVProxyAnnotationTrue
 			createCrd(vdb, true)

@@ -258,7 +258,7 @@ func MakeScaledObjectSpec() *ScaledObjectSpec {
 	}
 }
 
-// HasScaleDownThreshold returns true if scale down threshold is set
+// HasScaleDownThreshold returns true if scale in threshold is set
 func (v *VerticaAutoscaler) HasScaleDownThreshold() bool {
 	if !v.IsHpaEnabled() {
 		return false
@@ -272,7 +272,7 @@ func (v *VerticaAutoscaler) HasScaleDownThreshold() bool {
 	return false
 }
 
-// GetMinReplicas calculates the minReplicas based on the scale down
+// GetMinReplicas calculates the minReplicas based on the scale in
 // threshold, and returns it
 func (v *VerticaAutoscaler) GetMinReplicas() *int32 {
 	vasCopy := v.DeepCopy()

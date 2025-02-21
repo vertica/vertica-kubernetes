@@ -25,7 +25,7 @@ data:
     set -o errexit
     set -o xtrace
 
-    CLUSTER_IP=v-scale-up-and-down-main
+    CLUSTER_IP=v-scale-out-and-in-main
     KSAFE=$(vsql -U dbadmin -h $CLUSTER_IP -tAc "select get_design_ksafe()")
   
     if [[ $KSAFE == "1" ]]; then

@@ -14,7 +14,7 @@
 apiVersion: vertica.com/v1beta1
 kind: VerticaDB
 metadata:
-  name: v-scale-up-and-down
+  name: v-scale-out-and-in
 status:
   subclusters:
     - installCount: 3
