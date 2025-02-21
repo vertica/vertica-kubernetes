@@ -147,6 +147,12 @@ const (
 	// reconciles we use the exponential backoff algorithm.
 	UpgradeRequeueTimeAnnotation = "vertica.com/upgrade-requeue-time"
 
+	// Annotation to disable depot volume management and let it be provided by
+	// a volumeMount for example. Useful for test environments and when using
+	// Ephemeral PVCs
+	NoDepotVolumeManagementAnnotation      = "vertica.com/disable-depot-volume-management"
+	NoDepotVolumeManagementAnnotationTrue  = "true"
+	NoDepotVolumeManagementAnnotationFalse = "false"
 	// A secret that has the files for /home/dbadmin/.ssh.  If this is
 	// omitted, the ssh files from the image are used (if applicable). SSH is
 	// only required when deploying via admintools and is present only in images
