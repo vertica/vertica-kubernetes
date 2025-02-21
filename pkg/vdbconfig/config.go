@@ -452,10 +452,10 @@ func (g *ConfigParamsGenerator) GetAzureAuth(ctx context.Context) (
 // getCommunalCredsSecret returns the contents of the communal credentials
 // secret. It handles if the secret is not found and will log an event.
 func (g *ConfigParamsGenerator) GetCommunalCredsSecret(ctx context.Context) (map[string][]byte, ctrl.Result, error) {
-	fetcher := cloud.VerticaDBSecretFetcher{
+	fetcher := cloud.SecretFetcher{
 		Client:   g.VRec.GetClient(),
 		Log:      g.Log,
-		VDB:      g.Vdb,
+		Obj:      g.Vdb,
 		EVWriter: g.VRec,
 	}
 	return fetcher.FetchAllowRequeue(ctx, names.GenNamespacedName(g.Vdb, g.Vdb.Spec.Communal.CredentialSecret))
