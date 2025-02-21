@@ -7,7 +7,5 @@ resources:
 - v1beta1_verticarestorepointsquery.yaml
 - v1beta1_verticascrutinize.yaml
 - v1beta1_verticareplicator.yaml
-- v1beta1_verticaautoscaler_custom_metrics.yaml
-- v1_verticaautoscaler_custom_metric_hpa.yaml
-- v1_verticaautoscaler_custom_metric_scaled_object.yaml
+- v1_verticaautoscaler.yaml
 #+kubebuilder:scaffold:manifestskustomizesamples
