@@ -28,7 +28,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// ScaleinActor is an interface that handles a part of scale down, either
+// ScaleinActor is an interface that handles a part of scale in, either
 // db_remove_node or uninstall.
 type ScaleinActor interface {
 	GetClient() client.Client
@@ -61,7 +61,7 @@ func scaleinSubcluster(ctx context.Context, act ScaleinActor, sc *vapi.Subcluste
 
 		res, err := scaleDownFunc(ctx, sc, sc.Size, sts.Status.Replicas-1)
 		if err != nil {
-			return res, fmt.Errorf("failed to scale down nodes in subcluster %s: %w", sc.Name, err)
+			return res, fmt.Errorf("failed to scale in nodes in subcluster %s: %w", sc.Name, err)
 		}
 		if verrors.IsReconcileAborted(res, err) {
 			return res, nil

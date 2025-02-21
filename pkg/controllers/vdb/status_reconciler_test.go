@@ -163,7 +163,7 @@ var _ = Describe("status_reconcile", func() {
 		Expect(fetchVdb.Status.Subclusters[ScIndex].UpNodeCount).Should(Equal(int32(1)))
 	})
 
-	It("should remove old status when we scale down", func() {
+	It("should remove old status when we scale in", func() {
 		vdb := vapi.MakeVDB()
 		sc := &vdb.Spec.Subclusters[0]
 		sc.Size = 5

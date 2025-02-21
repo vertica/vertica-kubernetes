@@ -37,7 +37,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// DBRemoveNodeReconciler will handle removing a node from the database during scale down.
+// DBRemoveNodeReconciler will handle removing a node from the database during scale in.
 type DBRemoveNodeReconciler struct {
 	VRec       *VerticaDBReconciler
 	Log        logr.Logger
@@ -72,7 +72,7 @@ func (d *DBRemoveNodeReconciler) CollectPFacts(ctx context.Context) error {
 	return d.PFacts.Collect(ctx, d.Vdb)
 }
 
-// Reconcile will handle calling remove node when scale down is detected.
+// Reconcile will handle calling remove node when scale in is detected.
 //
 // This reconcile function is meant to be called before we create/delete any
 // kubernetes objects. It allows us to look at the state before applying
@@ -85,11 +85,11 @@ func (d *DBRemoveNodeReconciler) Reconcile(ctx context.Context, _ *ctrl.Request)
 	}
 
 	// There is a timing scenario where it's possible to skip the drain and just
-	// proceed to remove the nodes. This can occur if the vdb scale down occurs
-	// in the middle of a reconciliation.  This scale down will use the latest
+	// proceed to remove the nodes. This can occur if the vdb scale in occurs
+	// in the middle of a reconciliation.  This scale in will use the latest
 	// info in the vdb, which may be newer than the state that the drain node
 	// reconiler uses. This check has be close to where we decide about the
-	// scale down.
+	// scale in.
 	if changed, err := d.PFacts.HasVerticaDBChangedSinceCollection(ctx, d.Vdb); changed || err != nil {
 		if changed {
 			d.Log.Info("Requeue because vdb has changed since last pod facts collection",
@@ -124,9 +124,9 @@ func (d *DBRemoveNodeReconciler) reconcileSubcluster(ctx context.Context, sc *va
 }
 
 // removeNodesInSubcluster will call remove node for a range of pods that need to be scaled down
-// It will determine the list of pods it can scale down. If any pods within the
+// It will determine the list of pods it can scale in. If any pods within the
 // range could not be scaled down, then it will proceed with the nodes it can
-// scale down and return indicating reconciliation needs to be requeued.
+// scale in and return indicating reconciliation needs to be requeued.
 func (d *DBRemoveNodeReconciler) removeNodesInSubcluster(ctx context.Context, sc *vapi.Subcluster,
 	startPodIndex, endPodIndex int32) (ctrl.Result, error) {
 	podsToRemove, requeueNeeded := d.findPodsSuitableForScaleDown(sc, startPodIndex, endPodIndex)
@@ -181,7 +181,7 @@ func (d *DBRemoveNodeReconciler) runRemoveNode(ctx context.Context, initiatorPod
 }
 
 // findPodsSuitableForScaleDown will return a list of host names that can be scaled down.
-// If a pod was skipped that may require a scale down, then the bool return
+// If a pod was skipped that may require a scale in, then the bool return
 // comes back as true. It is the callers responsibility to requeue a
 // reconciliation if that is true.
 func (d *DBRemoveNodeReconciler) findPodsSuitableForScaleDown(sc *vapi.Subcluster, startPodIndex, endPodIndex int32) ([]*pf.PodFact, bool) {
@@ -196,7 +196,7 @@ func (d *DBRemoveNodeReconciler) findPodsSuitableForScaleDown(sc *vapi.Subcluste
 			continue
 		}
 		if podFact.GetDBExists() && !podFact.GetIsPodRunning() {
-			d.Log.Info("Pod requires scale down but isn't running yet", "pod", removeNodePod)
+			d.Log.Info("Pod requires scale in but isn't running yet", "pod", removeNodePod)
 			requeueNeeded = true
 			continue
 		}

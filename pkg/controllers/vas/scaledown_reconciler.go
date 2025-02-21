@@ -28,7 +28,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-// ScaleinReconciler is a reconciler handle scale down when a lower
+// ScaleinReconciler is a reconciler handle scale in when a lower
 // threshold is set.
 type ScaleinReconciler struct {
 	VRec *VerticaAutoscalerReconciler
@@ -42,7 +42,7 @@ func MakeScaleinReconciler(v *VerticaAutoscalerReconciler, vas *vapi.VerticaAuto
 }
 
 // Reconcile will handle updating the hpa based on the metrics current value.
-// Only metrics with a scale down threshold set are taken into account.
+// Only metrics with a scale in threshold set are taken into account.
 func (s *ScaleinReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (ctrl.Result, error) {
 	if !s.Vas.HasScaleDownThreshold() {
 		return ctrl.Result{}, nil
@@ -67,7 +67,7 @@ func (s *ScaleinReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (c
 			return ctrl.Result{}, fmt.Errorf("could not find metric %s in VAS spec", mStatus.name)
 		}
 		if md.ScaleDownThreshold == nil {
-			// skip the metric because it does not have scale down threshold.
+			// skip the metric because it does not have scale in threshold.
 			continue
 		}
 		cmpResult := mStatus.cmp(md.ScaleDownThreshold)

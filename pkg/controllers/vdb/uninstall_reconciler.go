@@ -34,7 +34,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// UninstallReconciler will handle reconcile looking specifically for scale down
+// UninstallReconciler will handle reconcile looking specifically for scale in
 // events.
 type UninstallReconciler struct {
 	VRec     *VerticaDBReconciler
@@ -71,7 +71,7 @@ func (s *UninstallReconciler) CollectPFacts(ctx context.Context) error {
 }
 
 // Reconcile will handle state where a pod in a subcluster is being scaled down.
-// During a scale down we need to drive uninstall logic for each applicable pod.
+// During a scale in we need to drive uninstall logic for each applicable pod.
 //
 // This reconcile function is meant to be called before we create/delete any
 // kubernetes objects. It allows us to look at the state before applying
