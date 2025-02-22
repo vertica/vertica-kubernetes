@@ -46,7 +46,7 @@ type VdbContext interface {
 	GetBoolValue(string) bool
 
 	// This will read certificates from secrets
-	// Secrets will be cached after the intial loading
+	// Secrets will be cached after the initial loading
 	GetCertFromSecret(string) (*HTTPSCerts, error)
 
 	// This is for testing
@@ -151,9 +151,4 @@ func retrieveSecretByName(namespace, secretName string) (map[string][]byte, erro
 		Name:      secretName,
 	}
 	return fetcher.Fetch(ctx, fetchName)
-}
-
-// setCertForSecret loads a cert directly into cache. It is for test purpose.
-func (c *VdbContextStruct) setCertForSecret(secretName string, certMap map[string][]byte) {
-	c.secretMap[secretName] = certMap
 }

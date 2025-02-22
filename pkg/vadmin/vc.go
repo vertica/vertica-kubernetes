@@ -19,6 +19,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/vertica/vcluster/vclusterops/vlog"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/cloud"
 	"github.com/vertica/vertica-kubernetes/pkg/meta"
@@ -39,14 +40,10 @@ func (v *VClusterOps) retrieveTargetNMACerts(ctx context.Context) (*HTTPSCerts, 
 }
 
 // retrieveNMACerts will retrieve the certs from NMATLSSecret for calling NMA endpoints
-func (v *VClusterOps) retrieveNMACerts(ctx context.Context) (*HTTPSCerts, error) {
-	fetcher := cloud.VerticaDBSecretFetcher{
-		Client:   v.Client,
-		Log:      v.Log,
-		VDB:      v.VDB,
-		EVWriter: v.EVWriter,
-	}
-	return retrieveNMACerts(ctx, fetcher)
+func (v *VClusterOps) retrieveNMACerts(_ context.Context) (*HTTPSCerts, error) {
+	vdbContext := GetContextForVdb(v.VDB.Namespace, v.VDB.Name)
+	namSecretName := getNMATLSSecretName(v.VDB)
+	return vdbContext.GetCertFromSecret(namSecretName)
 }
 
 func retrieveNMACerts(ctx context.Context, fetcher cloud.VerticaDBSecretFetcher) (*HTTPSCerts, error) {
@@ -74,12 +71,14 @@ func retrieveNMACerts(ctx context.Context, fetcher cloud.VerticaDBSecretFetcher)
 	}, nil
 }
 
-func getNMATLSSecretName(vdb vapi.VerticaDB) (string, error) {
+func getNMATLSSecretName(vdb *vapi.VerticaDB) string {
 	secretName := meta.GetNMATLSSecretName(vdb.Annotations)
+	logger := vlog.Printer{}
 	if secretName == "" {
-		return "", fmt.Errorf("secretname is missing from annotation - %s", meta.NMATLSSECRETAnnotation)
+		logger.Info("failed to retrieve nma secret name from annotations, use name from spec")
+		return vdb.Spec.NMATLSSecret
 	}
-	return secretName, nil
+	return secretName
 }
 
 // logFailure will log and record an event for a vclusterOps API failure
