@@ -19,7 +19,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/vertica/vcluster/vclusterops/vlog"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/cloud"
 	"github.com/vertica/vertica-kubernetes/pkg/meta"
@@ -42,7 +41,10 @@ func (v *VClusterOps) retrieveTargetNMACerts(ctx context.Context) (*HTTPSCerts, 
 // retrieveNMACerts will retrieve the certs from NMATLSSecret for calling NMA endpoints
 func (v *VClusterOps) retrieveNMACerts(_ context.Context) (*HTTPSCerts, error) {
 	vdbContext := GetContextForVdb(v.VDB.Namespace, v.VDB.Name)
-	namSecretName := getNMATLSSecretName(v.VDB)
+	namSecretName, err := getNMATLSSecretName(v.VDB)
+	if err != nil {
+		return nil, err
+	}
 	return vdbContext.GetCertFromSecret(namSecretName)
 }
 
@@ -71,14 +73,22 @@ func retrieveNMACerts(ctx context.Context, fetcher cloud.VerticaDBSecretFetcher)
 	}, nil
 }
 
-func getNMATLSSecretName(vdb *vapi.VerticaDB) string {
-	secretName := meta.GetNMATLSSecretName(vdb.Annotations)
-	logger := vlog.Printer{}
-	if secretName == "" {
-		logger.Info("failed to retrieve nma secret name from annotations, use name from spec")
-		return vdb.Spec.NMATLSSecret
+// getNMATLSSecretName returns the name of the secret that stores TLS cert
+// when tls cert is NOT used, it returns vdb.Spec.NMATLSSecret. This includes
+// the time before a vdb is created
+// when tls cert is used, it returns secert name saved in annotation
+func getNMATLSSecretName(vdb *vapi.VerticaDB) (string, error) {
+	vdbContext := GetContextForVdb(vdb.Namespace, vdb.Name)
+	secretName := ""
+	if vdbContext.GetBoolValue(UseTLSCert) {
+		secretName = meta.GetNMATLSSecretName(vdb.Annotations)
+	} else {
+		secretName = vdb.Spec.NMATLSSecret
 	}
-	return secretName
+	if secretName == "" {
+		return "", fmt.Errorf("failed to retrieve nma secret name")
+	}
+	return secretName, nil
 }
 
 // logFailure will log and record an event for a vclusterOps API failure
@@ -92,6 +102,7 @@ func (v *VClusterOps) logFailure(cmd, genericFailureReason string, err error) (c
 	return evLogr.LogFailure(cmd, err)
 }
 
+// shouldUseCertAuthentication returns true when tls cert is used
 func (v *VClusterOps) shouldUseCertAuthentication() bool {
 	Vinf, ok := v.VDB.MakeVersionInfo()
 	if !ok {
