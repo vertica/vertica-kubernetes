@@ -226,4 +226,38 @@ var _ = Describe("subclusterscale_reconcile", func() {
 		Expect(k8sClient.Get(ctx, vdbName, fetchVdb)).Should(Succeed())
 		Expect(len(fetchVdb.Spec.Subclusters)).Should(Equal(1))
 	})
+
+	It("should replace underscore with hyphen in service name", func() {
+		vdb := vapi.MakeVDB()
+		const serviceName = "vas_1"
+		const preferedServiceName = "vas-1"
+		vdb.Spec.Subclusters[0].ServiceName = serviceName
+		test.CreateVDB(ctx, k8sClient, vdb)
+		defer test.DeleteVDB(ctx, k8sClient, vdb)
+
+		vas := v1beta1.MakeVAS()
+		vas.Spec.ServiceName = serviceName
+		vas.Spec.ScalingGranularity = v1beta1.SubclusterScalingGranularity
+		vas.Spec.Template = v1beta1.Subcluster{
+			ServiceName: serviceName,
+			Name:        serviceName,
+			Size:        8,
+		}
+		vas.Spec.TargetSize = vas.Spec.Template.Size*2 + 3
+		v1beta1_test.CreateVAS(ctx, k8sClient, vas)
+		defer v1beta1_test.DeleteVAS(ctx, k8sClient, vas)
+
+		req := ctrl.Request{NamespacedName: v1beta1.MakeVASName()}
+		Expect(vasRec.Reconcile(ctx, req)).Should(Equal(ctrl.Result{}))
+
+		fetchVdb := &vapi.VerticaDB{}
+		nm := vapi.MakeVDBName()
+		Expect(k8sClient.Get(ctx, nm, fetchVdb)).Should(Succeed())
+		Expect(len(fetchVdb.Spec.Subclusters)).Should(Equal(3))
+		Expect(fetchVdb.Spec.Subclusters[0].Size).Should(Equal(vdb.Spec.Subclusters[0].Size))
+		Expect(fetchVdb.Spec.Subclusters[1].Size).Should(Equal(vas.Spec.Template.Size))
+		Expect(fetchVdb.Spec.Subclusters[1].Name).Should(Equal(preferedServiceName + "-0"))
+		Expect(fetchVdb.Spec.Subclusters[2].Size).Should(Equal(vas.Spec.Template.Size))
+		Expect(fetchVdb.Spec.Subclusters[2].Name).Should(Equal(preferedServiceName + "-1"))
+	})
 })
