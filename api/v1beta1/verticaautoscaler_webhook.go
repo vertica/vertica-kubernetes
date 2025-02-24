@@ -84,6 +84,7 @@ func (v *VerticaAutoscaler) validateSpec() field.ErrorList {
 	allErrs = v.validateCustomAutoscaler(allErrs)
 	allErrs = v.validateScaledObject(allErrs)
 	allErrs = v.validateHPA(allErrs)
+	allErrs = v.validateReplicas(allErrs)
 	return allErrs
 }
 
@@ -149,6 +150,51 @@ func (v *VerticaAutoscaler) validateCustomAutoscaler(allErrs field.ErrorList) fi
 		)
 		allErrs = append(allErrs, err)
 	}
+	return allErrs
+}
+
+// validateReplicas will check if minReplicas and maxReplicas are valid
+func (v *VerticaAutoscaler) validateReplicas(allErrs field.ErrorList) field.ErrorList {
+	if v.Spec.CustomAutoscaler != nil {
+		if v.Spec.CustomAutoscaler.Type == HPA {
+			pathPrefix := field.NewPath("spec").Child("customAutoscaler").Child("HPA")
+			if v.Spec.CustomAutoscaler.Hpa.MaxReplicas == 0 {
+				err := field.Invalid(pathPrefix.Child("MaxReplicas"),
+					v.Spec.CustomAutoscaler.Hpa.MaxReplicas,
+					"MaxReplicas must be set.")
+				allErrs = append(allErrs, err)
+			}
+
+			if v.Spec.CustomAutoscaler.Hpa.MaxReplicas < *v.Spec.CustomAutoscaler.Hpa.MinReplicas {
+				err := field.Invalid(pathPrefix.Child("MaxReplicas"),
+					v.Spec.CustomAutoscaler.Hpa.MaxReplicas,
+					fmt.Sprintf("maxReplicas %d cannot be less than minReplicas %d.",
+						v.Spec.CustomAutoscaler.Hpa.MaxReplicas, v.Spec.CustomAutoscaler.Hpa.MinReplicas),
+				)
+				allErrs = append(allErrs, err)
+			}
+		}
+
+		if v.Spec.CustomAutoscaler.Type == ScaledObject {
+			pathPrefix := field.NewPath("spec").Child("customAutoscaler").Child("ScaledObject")
+			if *v.Spec.CustomAutoscaler.ScaledObject.MaxReplicas == 0 {
+				err := field.Invalid(pathPrefix.Child("MaxReplicas"),
+					v.Spec.CustomAutoscaler.ScaledObject.MaxReplicas,
+					"MaxReplicas must be set.")
+				allErrs = append(allErrs, err)
+			}
+
+			if *v.Spec.CustomAutoscaler.ScaledObject.MaxReplicas < *v.Spec.CustomAutoscaler.ScaledObject.MinReplicas {
+				err := field.Invalid(pathPrefix.Child("MaxReplicas"),
+					v.Spec.CustomAutoscaler.ScaledObject.MaxReplicas,
+					fmt.Sprintf("maxReplicas %d cannot be less than minReplicas %d.",
+						v.Spec.CustomAutoscaler.ScaledObject.MaxReplicas, v.Spec.CustomAutoscaler.ScaledObject.MinReplicas),
+				)
+				allErrs = append(allErrs, err)
+			}
+		}
+	}
+
 	return allErrs
 }
 
