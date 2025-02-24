@@ -118,7 +118,7 @@ func (v *VerticaAutoscaler) validateSubclusterTemplate(allErrs field.ErrorList) 
 	if v.Spec.CustomAutoscaler == nil && v.Spec.Template.ServiceName == "" && v.Spec.ServiceName == "" {
 		err := field.Invalid(pathPrefix.Child("serviceName"),
 			v.Spec.Template.ServiceName,
-			"Service name can not be empty if customAutoscaler is empty.")
+			"Service name cannot be empty if customAutoscaler is not set.")
 		allErrs = append(allErrs, err)
 	}
 	if v.CanUseTemplate() && v.Spec.ServiceName != "" && v.Spec.Template.ServiceName != v.Spec.ServiceName {
