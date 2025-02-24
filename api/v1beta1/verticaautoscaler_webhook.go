@@ -115,7 +115,7 @@ func (v *VerticaAutoscaler) validateScalingGranularity(allErrs field.ErrorList) 
 // validateSubclusterTemplate will validate the subcluster template
 func (v *VerticaAutoscaler) validateSubclusterTemplate(allErrs field.ErrorList) field.ErrorList {
 	pathPrefix := field.NewPath("spec").Child("template")
-	if v.Spec.CustomAutoscaler == nil && v.Spec.Template.ServiceName == "" && v.Spec.ServiceName == "" {
+	if v.Spec.CustomAutoscaler == nil && v.Spec.ServiceName == "" && v.CanUseTemplate() {
 		err := field.Invalid(pathPrefix.Child("serviceName"),
 			v.Spec.Template.ServiceName,
 			"Service name cannot be empty if customAutoscaler is not set.")
