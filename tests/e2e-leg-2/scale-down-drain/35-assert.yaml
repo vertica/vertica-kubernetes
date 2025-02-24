@@ -14,7 +14,7 @@
 apiVersion: vertica.com/v1beta1
 kind: VerticaDB
 metadata:
-  name: v-scale-down-drain
+  name: v-scale-in-drain
 status:
   subclusterCount: 2
   upNodeCount: 3
@@ -22,10 +22,10 @@ status:
 apiVersion: v1
 kind: Event
 reason: DrainNodeRetry
-message: Pod 'v-scale-down-drain-sec1-1' has active connections preventing the drain from succeeding
+message: Pod 'v-scale-in-drain-sec1-1' has active connections preventing the drain from succeeding
 source:
   component: verticadb-operator
 involvedObject:
   apiVersion: vertica.com/v1
   kind: VerticaDB
-  name: v-scale-down-drain
+  name: v-scale-in-drain

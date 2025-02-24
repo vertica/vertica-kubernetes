@@ -30,7 +30,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-var _ = Describe("scaledown_reconcile", func() {
+var _ = Describe("scalein_reconcile", func() {
 	ctx := context.Background()
 
 	It("should requeue if hpa is not ready", func() {
