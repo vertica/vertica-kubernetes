@@ -484,6 +484,7 @@ func (r *RestartReconciler) reipNodes(ctx context.Context, pods []*podfacts.PodF
 	}
 	opts := []reip.Option{
 		reip.WithInitiator(r.InitiatorPod, r.InitiatorPodIP),
+		reip.WithSandbox(r.PFacts.SandboxName),
 	}
 	// If a communal path is set, include all of the EON parameters.
 	if r.Vdb.Spec.Communal.Path != "" {
