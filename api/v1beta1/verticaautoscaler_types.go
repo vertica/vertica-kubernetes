@@ -495,3 +495,8 @@ func (v *VerticaAutoscaler) IsHpaEnabled() bool {
 func (v *VerticaAutoscaler) IsScaledObjectEnabled() bool {
 	return v.IsCustomAutoScalerSet() && v.Spec.CustomAutoscaler.Type == ScaledObject && v.Spec.CustomAutoscaler.ScaledObject != nil
 }
+
+// IsScaledObjectType returns true if custom autoscaler type is SacledObject.
+func (v *VerticaAutoscaler) IsScaledObjectType() bool {
+	return v.IsCustomAutoScalerSet() && v.Spec.CustomAutoscaler.Type == ScaledObject
+}
