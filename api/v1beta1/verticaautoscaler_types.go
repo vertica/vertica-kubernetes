@@ -98,13 +98,13 @@ type CustomAutoscalerSpec struct {
 	Type string `json:"type,omitempty"`
 
 	// +kubebuilder:validation:Optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:fieldDependency:type:HPA"
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:fieldDependency:customAutoscaler.type:HPA"
 	// It refers to an autoscaling definition through the horizontal pod autoscaler.
 	// If type is "HPA", this must be set.
 	Hpa *HPASpec `json:"hpa,omitempty"`
 
 	// +kubebuilder:validation:Optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:fieldDependency:type:ScaledObject"
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:fieldDependency:customAutoscaler.type:ScaledObject"
 	// It refers to an autoscaling definition through a scaledObject.
 	// If type is "ScaledObject", this must be set.
 	ScaledObject *ScaledObjectSpec `json:"scaledObject,omitempty"`
@@ -155,12 +155,14 @@ type ScaledObjectSpec struct {
 	MaxReplicas *int32 `json:"maxReplicas"`
 
 	// +kubebuilder:validation:Optional
+	// +kubebuilder:default:=30
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:number"
 	// The time interval at which the scaler will check the metric condition and scale the target (in seconds).
 	// If not specified, the default is 30 seconds.
 	PollingInterval *int32 `json:"pollingInterval,omitempty"`
 
 	// +kubebuilder:validation:Optional
+	// +kubebuilder:default:=30
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:number"
 	// Defines the time to wait between scaling actions. This is helpful to avoid constant scaling up/down. Default: 30s.
 	CooldownPeriod *int32 `json:"cooldownPeriod,omitempty"`
@@ -205,13 +207,13 @@ type ScaleTrigger struct {
 	MetricType autoscalingv2.MetricTargetType `json:"metricType,omitempty"`
 
 	// +kubebuilder:validation:Optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:fieldDependency:type:prometheus"
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:fieldDependency:customAutoscaler.scaledObject.metrics[0].type:prometheus"
 	// The detail about how to fetch metrics from Prometheus and scale workloads based on them.
 	// if type is "prometheus", this must be set.
 	Prometheus *PrometheusSpec `json:"prometheus,omitempty"`
 
 	// +kubebuilder:validation:Optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:fieldDependency:type:cpu|memory"
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:fieldDependency:customAutoscaler.scaledObject.metrics[0].type:cpu","urn:alm:descriptor:com.tectonic.ui:fieldDependency:customAutoscaler.scaledObject.metrics[0].type:memory"}
 	// The detail about the target value and container name. if type is cpu/memory
 	// this must be set.
 	Resource *CPUMemorySpec `json:"resource,omitempty"`

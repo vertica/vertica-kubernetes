@@ -139,6 +139,50 @@ func TestForGetSourceHostForReplication(t *testing.T) {
 	assert.ErrorContains(t, err, "cannot find any up hosts from source database")
 }
 
+func TestGetInitiatorsInAllDBGroups(t *testing.T) {
+	// good values
+	host1 := "hostA"
+	host2 := "hostB"
+	host3 := "hostC"
+	hosts := []string{host1, host2, host3}
+	mc := ""
+	sand1 := "sandA"
+	sand2 := "sandB"
+	sandboxes := []string{mc, sand1, sand2}
+	hostsToSandboxes := map[string]string{host1: sand1, host2: sand2, host3: mc}
+
+	// no input hosts -> error
+	_, err := getInitiatorsInAllDBGroups(nil, sandboxes, hostsToSandboxes)
+	assert.Error(t, err)
+
+	// no input sandboxes -> empty return slice
+	expectNoHosts, err := getInitiatorsInAllDBGroups(hosts, nil, hostsToSandboxes)
+	assert.NoError(t, err)
+	assert.Empty(t, expectNoHosts)
+
+	// empty map -> error
+	_, err = getInitiatorsInAllDBGroups(hosts, sandboxes, map[string]string{})
+	assert.Error(t, err)
+
+	// missing main cluster host  -> error
+	missingMCHostMap := map[string]string{host1: sand1, host2: sand2}
+	_, err = getInitiatorsInAllDBGroups(hosts, sandboxes, missingMCHostMap)
+	assert.ErrorContains(t, err, "within the main cluster")
+
+	// missing hosts for one sandbox -> error
+	missingSandboxHostList := []string{host2, host3}
+	_, err = getInitiatorsInAllDBGroups(missingSandboxHostList, sandboxes, hostsToSandboxes)
+	assert.ErrorContains(t, err, "within sandbox")
+
+	// one host for each sandbox -> success
+	initiatorHosts, err := getInitiatorsInAllDBGroups(hosts, sandboxes, hostsToSandboxes)
+	assert.NoError(t, err)
+	assert.Len(t, initiatorHosts, len(hosts))
+	assert.Contains(t, initiatorHosts, host1)
+	assert.Contains(t, initiatorHosts, host2)
+	assert.Contains(t, initiatorHosts, host3)
+}
+
 func TestForgetCatalogPath(t *testing.T) {
 	nodeName := "v_vertdb_node0001"
 	fullPath := fmt.Sprintf("/data/vertdb/%s_catalog/Catalog", nodeName)
