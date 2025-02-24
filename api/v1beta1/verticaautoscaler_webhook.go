@@ -139,13 +139,13 @@ func (v *VerticaAutoscaler) validateSubclusterTemplate(allErrs field.ErrorList) 
 // validateCustomAutoscaler will check if the CustomAutoscaler field is valid
 func (v *VerticaAutoscaler) validateCustomAutoscaler(allErrs field.ErrorList) field.ErrorList {
 	pathPrefix := field.NewPath("spec").Child("customAutoscaler")
-	validTypes := []string{"HPA", "ScaledObject", ""}
+	validTypes := []string{HPA, ScaledObject, ""}
 	// validate type
 	if v.Spec.CustomAutoscaler != nil && !slices.Contains(validTypes, v.Spec.CustomAutoscaler.Type) {
 		err := field.Invalid(pathPrefix.Child("type"),
 			v.Spec.CustomAutoscaler.Type,
 			fmt.Sprintf("Type must be one of '%s', '%s' or empty.",
-				"HPA", "ScaledObject"),
+				HPA, ScaledObject),
 		)
 		allErrs = append(allErrs, err)
 	}
