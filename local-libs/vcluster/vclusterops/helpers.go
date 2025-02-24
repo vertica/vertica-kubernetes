@@ -389,6 +389,21 @@ func getInitiatorInCluster(targetSandbox string, hosts []string,
 	return
 }
 
+// getInitiatorsInAllDBGroups will pick an initiator from an input host list for each
+// sandbox in an input sandbox list, given a map of hosts to sandboxes.
+// Either the host list or host-to-sandbox map should be already filtered for UP hosts.
+func getInitiatorsInAllDBGroups(hosts, sandboxes []string,
+	upHostsToSandboxes map[string]string) (initiatorHosts []string, err error) {
+	for _, sandbox := range sandboxes {
+		initiatorHost, err := getInitiatorInCluster(sandbox, hosts, upHostsToSandboxes)
+		if err != nil {
+			return nil, fmt.Errorf("failed to find initiator hosts for all sandboxes: %w", err)
+		}
+		initiatorHosts = append(initiatorHosts, initiatorHost)
+	}
+	return initiatorHosts, nil
+}
+
 // getInitiator will pick an initiator from the up host list to execute https calls
 // such that the initiator is also among the user provided host list
 func getInitiatorFromUpHosts(upHosts, userProvidedHosts []string) string {
@@ -408,11 +423,22 @@ func getInitiatorFromUpHosts(upHosts, userProvidedHosts []string) string {
 
 // validates each host has an entry in each map
 func validateHostMaps(hosts []string, maps ...map[string]string) error {
+	return validateHostMapsHelper(false, hosts, maps)
+}
+
+// validates each host has an entry in each map, with the empty string allowed as a value
+func validateHostMapsAllowEmpty(hosts []string, maps ...map[string]string) error {
+	return validateHostMapsHelper(true, hosts, maps)
+}
+
+// validates each host has an entry in each map, with the empty string optionally allowed
+// as a value
+func validateHostMapsHelper(emptyOk bool, hosts []string, maps []map[string]string) error {
 	var allErrors error
 	for _, strMap := range maps {
 		for _, host := range hosts {
 			val, ok := strMap[host]
-			if !ok || val == "" {
+			if !ok || (!emptyOk && val == "") {
 				allErrors = errors.Join(allErrors,
 					fmt.Errorf("configuration map missing entry for host %s", host))
 			}

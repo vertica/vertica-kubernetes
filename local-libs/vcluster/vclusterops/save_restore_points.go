@@ -162,7 +162,7 @@ func (vcc VClusterCommands) produceSaveRestorePointsInstructions(options *VSaveR
 	hosts := options.Hosts
 	nmaHealthOp := makeNMAHealthOp(options.Hosts)
 	// Trim host list
-	hosts = vdb.filterUpHostlist(hosts, options.Sandbox)
+	hosts = vdb.filterUpHostListBySandbox(hosts, options.Sandbox)
 	bootstrapHost := []string{getInitiator(hosts)}
 
 	requestData := saveRestorePointsRequestData{}
