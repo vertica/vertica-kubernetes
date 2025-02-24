@@ -136,7 +136,7 @@ type HPASpec struct {
 
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
-	// Specifies the scaling behavior for both scale up and down.
+	// Specifies the scaling behavior for both scale out and in.
 	Behavior *autoscalingv2.HorizontalPodAutoscalerBehavior `json:"behavior,omitempty"`
 }
 
@@ -164,7 +164,7 @@ type ScaledObjectSpec struct {
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:default:=30
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:number"
-	// Defines the time to wait between scaling actions. This is helpful to avoid constant scaling up/down. Default: 30s.
+	// Defines the time to wait between scaling actions. This is helpful to avoid constant scaling out/in. Default: 30s.
 	CooldownPeriod *int32 `json:"cooldownPeriod,omitempty"`
 
 	// +kubebuilder:validation:Required
@@ -174,7 +174,7 @@ type ScaledObjectSpec struct {
 
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
-	// Specifies the scaling behavior for both scale up and down.
+	// Specifies the scaling behavior for both scale out and in.
 	Behavior *autoscalingv2.HorizontalPodAutoscalerBehavior `json:"behavior,omitempty"`
 }
 
@@ -237,14 +237,14 @@ type PrometheusSpec struct {
 	Query string `json:"query"`
 
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:number"
-	// The threshold value at which scale up is triggered.
+	// The threshold value at which scale out is triggered.
 	Threshold int32 `json:"threshold"`
 
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:number"
-	// This is the lower bound at which the autoscaler starts scaling down to the minimum replica count.
+	// This is the lower bound at which the autoscaler starts scaling in to the minimum replica count.
 	// If the metric falls below threshold but is still above this value, the current replica count remains unchanged.
-	ScaleDownThreshold int32 `json:"scaleDownThreshold,omitempty"`
+	ScaleInThreshold int32 `json:"scaleInThreshold,omitempty"`
 }
 
 type CPUMemorySpec struct {
@@ -264,14 +264,14 @@ type MetricDefinition struct {
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// +kubebuilder:Minimum:=0
-	// The value used to increase the threshold after a scale up or a scale down.
+	// The value used to increase the threshold after a scale out or a scale in.
 	ThresholdAdjustmentValue int `json:"thresholdAdjustmentValue,omitempty"`
 
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
-	// The threshold to use for scaling down. It must be of the same type as
+	// The threshold to use for scaling in. It must be of the same type as
 	// the one used for scaling up, defined in the metric field.
-	ScaleDownThreshold *autoscalingv2.MetricTarget `json:"scaleDownThreshold,omitempty"`
+	ScaleInThreshold *autoscalingv2.MetricTarget `json:"scaleInThreshold,omitempty"`
 
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
@@ -289,7 +289,7 @@ const (
 // VerticaAutoscalerStatus defines the observed state of VerticaAutoscaler
 type VerticaAutoscalerStatus struct {
 	// +operator-sdk:csv:customresourcedefinitions:type=status
-	// The total number of times the operator has scaled up/down the VerticaDB.
+	// The total number of times the operator has scaled out/in the VerticaDB.
 	ScalingCount int `json:"scalingCount"`
 
 	// +operator-sdk:csv:customresourcedefinitions:type=status

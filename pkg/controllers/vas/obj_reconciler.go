@@ -68,7 +68,7 @@ func (o *ObjReconciler) reconcileHpa(ctx context.Context) error {
 		o.Log.Info("Creating horizontalpodautoscaler", "Name", nm.Name)
 		return createObject(ctx, expHpa, o.VRec.Client, o.Vas)
 	}
-	if o.Vas.HasScaleDownThreshold() {
+	if o.Vas.HasScaleInThreshold() {
 		// We keep the current value because it will be changed elsewhere.
 		*expHpa.Spec.MinReplicas = *curHpa.Spec.MinReplicas
 	}

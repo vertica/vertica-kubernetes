@@ -28,20 +28,20 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// ScaledownActor is an interface that handles a part of scale down, either
+// ScaleinActor is an interface that handles a part of scale in, either
 // db_remove_node or uninstall.
-type ScaledownActor interface {
+type ScaleinActor interface {
 	GetClient() client.Client
 	GetVDB() *vapi.VerticaDB
 	CollectPFacts(ctx context.Context) error
 }
 
-// scaledownSubcluster is called to either remove nodes or call uninstall.
+// scaleinSubcluster is called to either remove nodes or call uninstall.
 // This is a common function that is used by the DBRemoveNodeReconciler and
-// UninstallReconciler. It will call a func (scaleDownFunc) for a range of pods
-// that are to be scaled down.
-func scaledownSubcluster(ctx context.Context, act ScaledownActor, sc *vapi.Subcluster,
-	scaleDownFunc func(context.Context, *vapi.Subcluster, int32, int32) (ctrl.Result, error)) (ctrl.Result, error) {
+// UninstallReconciler. It will call a func (scaleInFunc) for a range of pods
+// that are to be scaled in.
+func scaleinSubcluster(ctx context.Context, act ScaleinActor, sc *vapi.Subcluster,
+	scaleInFunc func(context.Context, *vapi.Subcluster, int32, int32) (ctrl.Result, error)) (ctrl.Result, error) {
 	if sc == nil {
 		return ctrl.Result{}, nil
 	}
@@ -59,9 +59,9 @@ func scaledownSubcluster(ctx context.Context, act ScaledownActor, sc *vapi.Subcl
 			return ctrl.Result{}, err
 		}
 
-		res, err := scaleDownFunc(ctx, sc, sc.Size, sts.Status.Replicas-1)
+		res, err := scaleInFunc(ctx, sc, sc.Size, sts.Status.Replicas-1)
 		if err != nil {
-			return res, fmt.Errorf("failed to scale down nodes in subcluster %s: %w", sc.Name, err)
+			return res, fmt.Errorf("failed to scale in nodes in subcluster %s: %w", sc.Name, err)
 		}
 		if verrors.IsReconcileAborted(res, err) {
 			return res, nil

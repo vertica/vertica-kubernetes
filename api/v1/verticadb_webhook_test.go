@@ -1091,7 +1091,7 @@ var _ = Describe("verticadb_webhook", func() {
 
 		oldVdb := newVdb.DeepCopy()
 
-		// cannot scale (up or down) any subcluster that is in a sandbox
+		// cannot scale (out or in) any subcluster that is in a sandbox
 		newVdb.Spec.Subclusters[1].Size = 2
 		newVdb.Spec.Subclusters[3].Size = 4
 		Ω(newVdb.validateImmutableFields(oldVdb)).Should(HaveLen(2))
@@ -1642,7 +1642,7 @@ var _ = Describe("verticadb_webhook", func() {
 
 	})
 
-	It("should not scale up/down a subcluster when its shutdown field or its sandbox's shutdown field is set", func() {
+	It("should not scale out/in a subcluster when its shutdown field or its sandbox's shutdown field is set", func() {
 		oldVdb := MakeVDB()
 		oldVdb.Spec.Subclusters = []Subcluster{
 			{Name: "main", Type: PrimarySubcluster, Size: 3, ServiceType: v1.ServiceTypeClusterIP},
@@ -1666,17 +1666,17 @@ var _ = Describe("verticadb_webhook", func() {
 			{Name: "sc3"},
 		}
 		newVdb.Spec.Subclusters[3].Size = 4
-		Ω(newVdb.checkShutdownForScaleUpOrDown(oldVdb, field.ErrorList{})).Should(HaveLen(0))
+		Ω(newVdb.checkShutdownForScaleOutOrIn(oldVdb, field.ErrorList{})).Should(HaveLen(0))
 		newVdb.Spec.Subclusters[3].Shutdown = true
-		Ω(newVdb.checkShutdownForScaleUpOrDown(oldVdb, field.ErrorList{})).Should(HaveLen(1))
+		Ω(newVdb.checkShutdownForScaleOutOrIn(oldVdb, field.ErrorList{})).Should(HaveLen(1))
 		newVdb.Spec.Subclusters[3].Size = 2
-		Ω(newVdb.checkShutdownForScaleUpOrDown(oldVdb, field.ErrorList{})).Should(HaveLen(1))
+		Ω(newVdb.checkShutdownForScaleOutOrIn(oldVdb, field.ErrorList{})).Should(HaveLen(1))
 		newVdb.Spec.Subclusters[3].Shutdown = false
-		Ω(newVdb.checkShutdownForScaleUpOrDown(oldVdb, field.ErrorList{})).Should(HaveLen(0))
+		Ω(newVdb.checkShutdownForScaleOutOrIn(oldVdb, field.ErrorList{})).Should(HaveLen(0))
 		newVdb.Status.Subclusters[3].Shutdown = true
-		Ω(newVdb.checkShutdownForScaleUpOrDown(oldVdb, field.ErrorList{})).Should(HaveLen(1))
+		Ω(newVdb.checkShutdownForScaleOutOrIn(oldVdb, field.ErrorList{})).Should(HaveLen(1))
 		newVdb.Status.Subclusters[3].Shutdown = false
-		Ω(newVdb.checkShutdownForScaleUpOrDown(oldVdb, field.ErrorList{})).Should(HaveLen(0))
+		Ω(newVdb.checkShutdownForScaleOutOrIn(oldVdb, field.ErrorList{})).Should(HaveLen(0))
 		newVdb.Spec.Subclusters[1].Size = 4
 		Ω(newVdb.validateImmutableFields(oldVdb)).Should(HaveLen(1))
 
