@@ -1187,9 +1187,9 @@ func (p *PrometheusSpec) GetMap() map[string]string {
 	result["serverAddress"] = p.ServerAddress
 	result["query"] = p.Query
 	result["threshold"] = fmt.Sprintf("%d", p.Threshold)
-	// Only add ScaleDownThreshold if it is non-zero
-	if p.ScaleDownThreshold != 0 {
-		result["activationThreshold"] = fmt.Sprintf("%d", p.ScaleDownThreshold)
+	// Only add ScaleInThreshold if it is non-zero
+	if p.ScaleInThreshold != 0 {
+		result["activationThreshold"] = fmt.Sprintf("%d", p.ScaleInThreshold)
 	}
 
 	return result
@@ -1245,25 +1245,25 @@ func MakeScaledObjectSpec() *ScaledObjectSpec {
 	}
 }
 
-// HasScaleDownThreshold returns true if scale down threshold is set
-func (v *VerticaAutoscaler) HasScaleDownThreshold() bool {
+// HasScaleInThreshold returns true if scale in threshold is set
+func (v *VerticaAutoscaler) HasScaleInThreshold() bool {
 	if !v.IsHpaEnabled() {
 		return false
 	}
 	for i := range v.Spec.CustomAutoscaler.Hpa.Metrics {
 		m := &v.Spec.CustomAutoscaler.Hpa.Metrics[i]
-		if m.ScaleDownThreshold != nil {
+		if m.ScaleInThreshold != nil {
 			return true
 		}
 	}
 	return false
 }
 
-// GetMinReplicas calculates the minReplicas based on the scale down
+// GetMinReplicas calculates the minReplicas based on the scale in
 // threshold, and returns it
 func (v *VerticaAutoscaler) GetMinReplicas() *int32 {
 	vasCopy := v.DeepCopy()
-	if v.HasScaleDownThreshold() {
+	if v.HasScaleInThreshold() {
 		return &vasCopy.Spec.TargetSize
 	}
 	return vasCopy.Spec.CustomAutoscaler.Hpa.MinReplicas

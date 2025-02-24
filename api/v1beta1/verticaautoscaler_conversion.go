@@ -104,7 +104,7 @@ func convertVasFromHPASpec(src *v1.HPASpec) *HPASpec {
 		dst.Metrics[i] = MetricDefinition{
 			ThresholdAdjustmentValue: srcMetric.ThresholdAdjustmentValue,
 			Metric:                   srcMetric.Metric,
-			ScaleDownThreshold:       ptrOrNil(srcMetric.ScaleDownThreshold),
+			ScaleInThreshold:         ptrOrNil(srcMetric.ScaleInThreshold),
 		}
 	}
 	return dst
@@ -130,10 +130,10 @@ func convertVasFromScaledObjectSpec(src *v1.ScaledObjectSpec) *ScaledObjectSpec 
 		}
 		if srcMetric.Prometheus != nil {
 			dst.Metrics[i].Prometheus = &PrometheusSpec{
-				ServerAddress:      srcMetric.Prometheus.ServerAddress,
-				Query:              srcMetric.Prometheus.Query,
-				Threshold:          srcMetric.Prometheus.Threshold,
-				ScaleDownThreshold: srcMetric.Prometheus.ScaleDownThreshold,
+				ServerAddress:    srcMetric.Prometheus.ServerAddress,
+				Query:            srcMetric.Prometheus.Query,
+				Threshold:        srcMetric.Prometheus.Threshold,
+				ScaleInThreshold: srcMetric.Prometheus.ScaleInThreshold,
 			}
 		}
 		if srcMetric.Resource != nil {
@@ -194,7 +194,7 @@ func convertVasToHPASpec(src *HPASpec) *v1.HPASpec {
 		dst.Metrics[i] = v1.MetricDefinition{
 			ThresholdAdjustmentValue: srcMetric.ThresholdAdjustmentValue,
 			Metric:                   srcMetric.Metric,
-			ScaleDownThreshold:       ptrOrNil(srcMetric.ScaleDownThreshold),
+			ScaleInThreshold:         ptrOrNil(srcMetric.ScaleInThreshold),
 		}
 	}
 	return dst
@@ -220,10 +220,10 @@ func convertVasToScaledObjectSpec(src *ScaledObjectSpec) *v1.ScaledObjectSpec {
 		}
 		if srcMetric.Prometheus != nil {
 			dst.Metrics[i].Prometheus = &v1.PrometheusSpec{
-				ServerAddress:      srcMetric.Prometheus.ServerAddress,
-				Query:              srcMetric.Prometheus.Query,
-				Threshold:          srcMetric.Prometheus.Threshold,
-				ScaleDownThreshold: srcMetric.Prometheus.ScaleDownThreshold,
+				ServerAddress:    srcMetric.Prometheus.ServerAddress,
+				Query:            srcMetric.Prometheus.Query,
+				Threshold:        srcMetric.Prometheus.Threshold,
+				ScaleInThreshold: srcMetric.Prometheus.ScaleInThreshold,
 			}
 		}
 		if srcMetric.Resource != nil {
