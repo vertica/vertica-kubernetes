@@ -4,9 +4,8 @@ import (
 	"context"
 	"sync"
 
-	"github.com/vertica/vcluster/vclusterops/vlog"
+	"github.com/vertica/vertica-kubernetes/pkg/cloud"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
-	"github.com/vertica/vertica-kubernetes/pkg/secrets"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
@@ -47,7 +46,7 @@ type VdbContext interface {
 
 	// This will read certificates from secrets
 	// Secrets will be cached after the initial loading
-	GetCertFromSecret(string) (*HTTPSCerts, error)
+	GetCertFromSecret(string, cloud.VerticaDBSecretFetcher) (*HTTPSCerts, error)
 
 	// This is for testing
 	// setCertForSecret(string, *HTTPSCerts)
@@ -60,7 +59,7 @@ type VdbContextStruct struct {
 	lockForSecret *sync.Mutex // lock that guards secrets
 	secretMap     map[string]map[string][]byte
 	// this pointer is used purely for ease of test purpose
-	retrieveSecret func(string, string) (map[string][]byte, error)
+	retrieveSecret func(string, string, cloud.VerticaDBSecretFetcher) (map[string][]byte, error)
 }
 
 type contextMap map[types.NamespacedName]*VdbContextStruct
@@ -120,13 +119,13 @@ func (c *VdbContextStruct) GetBoolValue(fieldName string) bool {
 
 // GetCertFromSecret will first try to get certs from its secretMap
 // If the secret is not found in map, it will be loaded from k8s and be cached
-func (c *VdbContextStruct) GetCertFromSecret(secretName string) (*HTTPSCerts, error) {
+func (c *VdbContextStruct) GetCertFromSecret(secretName string, fetcher cloud.VerticaDBSecretFetcher) (*HTTPSCerts, error) {
 	c.lockForSecret.Lock()
 	defer c.lockForSecret.Unlock()
 	secretMap, ok := c.secretMap[secretName]
 	err := error(nil)
 	if !ok {
-		secretMap, err = c.retrieveSecret(c.namespace, secretName)
+		secretMap, err = c.retrieveSecret(c.namespace, secretName, fetcher)
 		if err != nil {
 			return nil, err // failed to load secret
 		}
@@ -141,10 +140,7 @@ func (c *VdbContextStruct) GetCertFromSecret(secretName string) (*HTTPSCerts, er
 }
 
 // retrieveSecretByName loads secret from k8s by secret name
-func retrieveSecretByName(namespace, secretName string) (map[string][]byte, error) {
-	fetcher := secrets.MultiSourceSecretFetcher{
-		Log: &vlog.Printer{},
-	}
+func retrieveSecretByName(namespace, secretName string, fetcher cloud.VerticaDBSecretFetcher) (map[string][]byte, error) {
 	ctx := context.Background()
 	fetchName := types.NamespacedName{
 		Namespace: namespace,

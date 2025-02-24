@@ -45,7 +45,13 @@ func (v *VClusterOps) retrieveNMACerts(_ context.Context) (*HTTPSCerts, error) {
 	if err != nil {
 		return nil, err
 	}
-	return vdbContext.GetCertFromSecret(namSecretName)
+	fetcher := cloud.VerticaDBSecretFetcher{
+		Client:   v.Client,
+		Log:      v.Log,
+		VDB:      v.VDB,
+		EVWriter: v.EVWriter,
+	}
+	return vdbContext.GetCertFromSecret(namSecretName, fetcher)
 }
 
 func retrieveNMACerts(ctx context.Context, fetcher cloud.VerticaDBSecretFetcher) (*HTTPSCerts, error) {

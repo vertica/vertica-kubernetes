@@ -5,6 +5,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/vertica/vertica-kubernetes/pkg/cloud"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	"github.com/vertica/vertica-kubernetes/pkg/test"
 	corev1 "k8s.io/api/core/v1"
@@ -37,10 +38,16 @@ var _ = Describe("vdb_context", func() {
 			vdbContext := GetContextForVdb(dispatcher.VDB.Namespace, dispatcher.VDB.Name)
 			vdbContextStruct := vdbContext.(*VdbContextStruct) // get actual underlying data type
 			// use closure to mock secret retrieval
-			vdbContextStruct.retrieveSecret = func(s1, s2 string) (map[string][]byte, error) {
+			vdbContextStruct.retrieveSecret = func(s1, s2 string, fetcher cloud.VerticaDBSecretFetcher) (map[string][]byte, error) {
 				return secret.Data, nil
 			}
-			cert, err := vdbContext.GetCertFromSecret(dispatcher.VDB.Spec.NMATLSSecret)
+			fetcher := cloud.VerticaDBSecretFetcher{
+				Client:   dispatcher.Client,
+				Log:      dispatcher.Log,
+				VDB:      dispatcher.VDB,
+				EVWriter: dispatcher.EVWriter,
+			}
+			cert, err := vdbContext.GetCertFromSecret(dispatcher.VDB.Spec.NMATLSSecret, fetcher)
 			Ω(err).Should(BeNil())
 			Ω(cert.Key).Should(Equal(string(secret.Data[corev1.TLSPrivateKeyKey])))
 			Ω(cert.Cert).Should(Equal(string(secret.Data[corev1.TLSCertKey])))
