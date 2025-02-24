@@ -41,6 +41,6 @@ spec:
         averageValue: "2"
   minReplicas: 3
   scaleTargetRef:
-    apiVersion: vertica.com/v1beta1
+    apiVersion: vertica.com/v1
     kind: VerticaAutoscaler
     name: v-scale-out-hpa-vas

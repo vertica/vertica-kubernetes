@@ -22,7 +22,6 @@ import (
 	"strconv"
 	"time"
 
-	v1 "github.com/vertica/vertica-kubernetes/api/v1"
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -373,25 +372,11 @@ func GenCompatibleFQDNHelper(scName string) string {
 	return m.ReplaceAllString(scName, "-")
 }
 
-func GetV1SubclusterFromV1beta1(src *Subcluster) v1.Subcluster {
-	return v1.Subcluster{
-		Name:                src.Name,
-		Size:                src.Size,
-		Type:                convertToSubclusterType(src),
-		ImageOverride:       src.ImageOverride,
-		NodeSelector:        src.NodeSelector,
-		Affinity:            v1.Affinity(src.Affinity),
-		PriorityClassName:   src.PriorityClassName,
-		Tolerations:         src.Tolerations,
-		Resources:           src.Resources,
-		ServiceType:         src.ServiceType,
-		ServiceName:         src.ServiceName,
-		ClientNodePort:      src.NodePort,
-		VerticaHTTPNodePort: src.VerticaHTTPNodePort,
-		ExternalIPs:         src.ExternalIPs,
-		LoadBalancerIP:      src.LoadBalancerIP,
-		ServiceAnnotations:  src.ServiceAnnotations,
-		Annotations:         src.Annotations,
-		Proxy:               (*v1.ProxySubclusterConfig)(src.Proxy),
+// ptrOrNil is a helper function to create a new pointer if not nil
+func ptrOrNil[T any](val *T) *T {
+	if val == nil {
+		return nil
 	}
+	newVal := *val
+	return &newVal
 }

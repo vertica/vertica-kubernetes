@@ -14,7 +14,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1beta1
+//nolint:lll
+package v1
 
 import (
 	"fmt"
@@ -32,15 +33,23 @@ import (
 // log is for logging in this package.
 var verticaautoscalerlog = logf.Log.WithName("verticaautoscaler-resource")
 
+// +kubebuilder:webhook:path=/mutate-vertica-com-v1-verticaautoscaler,mutating=true,failurePolicy=fail,sideEffects=None,groups=vertica.com,resources=verticaautoscalers,verbs=create;update,versions=v1,name=mverticaautoscaler.v1.kb.io,admissionReviewVersions=v1
+
 func (v *VerticaAutoscaler) SetupWebhookWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr).
 		For(v).
 		Complete()
 }
 
+var _ webhook.Defaulter = &VerticaAutoscaler{}
+
 // Default implements webhook.Defaulter so a webhook will be registered for the type
 func (v *VerticaAutoscaler) Default() {
-	verticaautoscalerlog.Info("default", "name", v.Name)
+	verticaautoscalerlog.Info("default", "name", v.Name, "GroupVersion", GroupVersion)
+
+	if v.Spec.Template.Type == "" {
+		v.Spec.Template.Type = v.Spec.Template.GetType()
+	}
 }
 
 var _ webhook.Validator = &VerticaAutoscaler{}
