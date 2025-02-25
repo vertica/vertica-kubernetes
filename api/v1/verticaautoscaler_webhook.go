@@ -109,6 +109,15 @@ func (v *VerticaAutoscaler) validateScalingGranularity(allErrs field.ErrorList) 
 // validateSubclusterTemplate will validate the subcluster template
 func (v *VerticaAutoscaler) validateSubclusterTemplate(allErrs field.ErrorList) field.ErrorList {
 	pathPrefix := field.NewPath("spec").Child("template")
+	// Validate each template service name
+	if v.Spec.Template.ServiceName != "" && !IsValidServiceName(v.Spec.Template.ServiceName) {
+		err := field.Invalid(pathPrefix.Child("serviceName"),
+			v.Spec.Template.ServiceName,
+			fmt.Sprintf("The serviceName in the subcluster template must match regex '%s'",
+				RFC1035DNSLabelNameRegex),
+		)
+		allErrs = append(allErrs, err)
+	}
 	if v.CanUseTemplate() && v.Spec.ServiceName != "" && v.Spec.Template.ServiceName != v.Spec.ServiceName {
 		err := field.Invalid(pathPrefix.Child("serviceName"),
 			v.Spec.Template.ServiceName,

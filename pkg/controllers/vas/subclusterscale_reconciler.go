@@ -19,7 +19,6 @@ import (
 	"context"
 	"fmt"
 
-	v1 "github.com/vertica/vertica-kubernetes/api/v1"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
@@ -156,7 +155,7 @@ func (s *SubclusterScaleReconciler) genNextSubclusterName(scMap map[string]*vapi
 	if baseName == "" {
 		baseName = s.Vas.Name
 	}
-	preferredName := v1.GenCompatibleFQDNHelper(baseName)
+	preferredName := vapi.GenCompatibleFQDNHelper(baseName)
 	i := 0
 	for {
 		name := fmt.Sprintf("%s-%d", preferredName, i)
