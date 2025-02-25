@@ -21,7 +21,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
-	v1beta1 "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	test "github.com/vertica/vertica-kubernetes/pkg/test"
 	"github.com/vertica/vertica-kubernetes/pkg/v1beta1_test"
 	corev1 "k8s.io/api/core/v1"
@@ -50,11 +49,11 @@ var _ = Describe("targetsizeinitializer_reconcile", func() {
 		req := ctrl.Request{NamespacedName: vapi.MakeVASName()}
 		Expect(vasRec.Reconcile(ctx, req)).Should(Equal(ctrl.Result{}))
 
-		fetchVas := &v1beta1.VerticaAutoscaler{}
+		fetchVas := &vapi.VerticaAutoscaler{}
 		nm := vapi.MakeVASName()
 		Expect(k8sClient.Get(ctx, nm, fetchVas)).Should(Succeed())
 		Expect(fetchVas.Spec.TargetSize).Should(Equal(int32(25)))
 		Expect(len(fetchVas.Status.Conditions)).Should(Equal(1))
-		Expect(fetchVas.Status.Conditions[v1beta1.TargetSizeInitializedIndex].Status).Should(Equal(corev1.ConditionTrue))
+		Expect(fetchVas.Status.Conditions[vapi.TargetSizeInitializedIndex].Status).Should(Equal(corev1.ConditionTrue))
 	})
 })

@@ -265,7 +265,7 @@ type PrometheusSpec struct {
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:number"
 	// This is the lower bound at which the autoscaler starts scaling in to the minimum replica count.
 	// If the metric falls below threshold but is still above this value, the current replica count remains unchanged.
-	ScaleDownThreshold int32 `json:"scaleDownThreshold,omitempty"`
+	ScaleInThreshold int32 `json:"scaleInThreshold,omitempty"`
 
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:default:=""
