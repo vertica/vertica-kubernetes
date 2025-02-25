@@ -439,6 +439,32 @@ func MakeVASWithMetrics() *VerticaAutoscaler {
 	return vas
 }
 
+// MakeVASWithScaledObject is a helper that constructs a fully formed VerticaAutoscaler struct with custom autoscaling enabled.
+// This is intended for test purposes.
+func MakeVASWithScaledObject() *VerticaAutoscaler {
+	vas := MakeVAS()
+	minRep := int32(3)
+	maxRep := int32(6)
+	threshold := int32(50)
+	vas.Spec.CustomAutoscaler = &CustomAutoscalerSpec{
+		Type: ScaledObject,
+		ScaledObject: &ScaledObjectSpec{
+			MinReplicas: &minRep,
+			MaxReplicas: &maxRep,
+			Metrics: []ScaleTrigger{
+				{
+					Type:       CPUTriggerType,
+					MetricType: autoscalingv2.AverageValueMetricType,
+					Resource: &CPUMemorySpec{
+						Threshold: threshold,
+					},
+				},
+			},
+		},
+	}
+	return vas
+}
+
 // CanUseTemplate returns true if we can use the template provided in the spec
 func (v *VerticaAutoscaler) CanUseTemplate() bool {
 	return v.Spec.Template.Size > 0
