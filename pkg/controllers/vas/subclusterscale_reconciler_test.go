@@ -211,7 +211,7 @@ var _ = Describe("subclusterscale_reconcile", func() {
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
 
 		vas := vapi.MakeVAS()
-		vas.Spec.ScalingGranularity = v1beta1.SubclusterScalingGranularity
+		vas.Spec.ScalingGranularity = vapi.SubclusterScalingGranularity
 		vas.Spec.ServiceName = "BrandNewServiceName"
 		vas.Spec.Template.Size = 0
 		vas.Spec.TargetSize = 50
@@ -235,10 +235,10 @@ var _ = Describe("subclusterscale_reconcile", func() {
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
 
-		vas := v1beta1.MakeVAS()
+		vas := vapi.MakeVAS()
 		vas.Spec.ServiceName = serviceName
-		vas.Spec.ScalingGranularity = v1beta1.SubclusterScalingGranularity
-		vas.Spec.Template = v1beta1.Subcluster{
+		vas.Spec.ScalingGranularity = vapi.SubclusterScalingGranularity
+		vas.Spec.Template = vapi.Subcluster{
 			ServiceName: serviceName,
 			Name:        serviceName,
 			Size:        8,
@@ -247,7 +247,7 @@ var _ = Describe("subclusterscale_reconcile", func() {
 		v1beta1_test.CreateVAS(ctx, k8sClient, vas)
 		defer v1beta1_test.DeleteVAS(ctx, k8sClient, vas)
 
-		req := ctrl.Request{NamespacedName: v1beta1.MakeVASName()}
+		req := ctrl.Request{NamespacedName: vapi.MakeVASName()}
 		Expect(vasRec.Reconcile(ctx, req)).Should(Equal(ctrl.Result{}))
 
 		fetchVdb := &vapi.VerticaDB{}
