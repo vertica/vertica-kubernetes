@@ -1,0 +1,24 @@
+apiVersion: vertica.com/v1beta1
+kind: VerticaAutoscaler
+metadata:
+  name: v-scale-in-threshold-db-vas
+spec:
+  verticaDBName: v-scale-in-threshold-db
+  scalingGranularity: Subcluster
+  customAutoscaler:
+    type: HPA
+    hpa:
+      minReplicas: 3
+      maxReplicas: 7
+      metrics:
+        - metric:
+            type: Pods
+            pods:
+              metric:
+                name: vertica_sessions_running_total
+              target:
+                type: AverageValue
+                averageValue: 5
+          scaleInThreshold:
+            type: AverageValue
+            averageValue: 1

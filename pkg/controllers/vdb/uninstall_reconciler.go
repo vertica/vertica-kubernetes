@@ -34,7 +34,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// UninstallReconciler will handle reconcile looking specifically for scale down
+// UninstallReconciler will handle reconcile looking specifically for scale in
 // events.
 type UninstallReconciler struct {
 	VRec     *VerticaDBReconciler
@@ -70,12 +70,12 @@ func (s *UninstallReconciler) CollectPFacts(ctx context.Context) error {
 	return s.PFacts.Collect(ctx, s.Vdb)
 }
 
-// Reconcile will handle state where a pod in a subcluster is being scaled down.
-// During a scale down we need to drive uninstall logic for each applicable pod.
+// Reconcile will handle state where a pod in a subcluster is being scaled in.
+// During a scale in we need to drive uninstall logic for each applicable pod.
 //
 // This reconcile function is meant to be called before we create/delete any
 // kubernetes objects. It allows us to look at the state before applying
-// everything in Vdb. We will know if we are scaling down by comparing the
+// everything in Vdb. We will know if we are scaling in by comparing the
 // expected subcluster size with the current.
 func (s *UninstallReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
 	// no-op for vclusterops deployments
@@ -120,13 +120,13 @@ func (s *UninstallReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (c
 // reconcileSubcluster Will handle reconcile for a single subcluster
 // This will check for uninstall at a single cluster and handle if uninstall is needed.
 func (s *UninstallReconciler) reconcileSubcluster(ctx context.Context, sc *vapi.Subcluster) (ctrl.Result, error) {
-	return scaledownSubcluster(ctx, s, sc, s.uninstallPodsInSubcluster)
+	return scaleinSubcluster(ctx, s, sc, s.uninstallPodsInSubcluster)
 }
 
-// uninstallPodsInSubcluster will call uninstall on a range of pods that will be scaled down
+// uninstallPodsInSubcluster will call uninstall on a range of pods that will be scaled in
 func (s *UninstallReconciler) uninstallPodsInSubcluster(ctx context.Context, sc *vapi.Subcluster,
 	startPodIndex, endPodIndex int32) (ctrl.Result, error) {
-	podsToUninstall, requeueNeeded := s.findPodsSuitableForScaleDown(sc, startPodIndex, endPodIndex)
+	podsToUninstall, requeueNeeded := s.findPodsSuitableForScaleIn(sc, startPodIndex, endPodIndex)
 	if len(podsToUninstall) > 0 {
 		err := s.uninstallPodsInSubclusterForAdmintools(ctx, podsToUninstall)
 		if err != nil {
@@ -142,7 +142,7 @@ func (s *UninstallReconciler) uninstallPodsInSubcluster(ctx context.Context, sc 
 }
 
 // uninstallPodsInSubclusterForAdmintools will call uninstall, for admintools, on a list
-// of pods that will be scaled down.
+// of pods that will be scaled in.
 func (s *UninstallReconciler) uninstallPodsInSubclusterForAdmintools(ctx context.Context,
 	podsToUninstall []*podfacts.PodFact) error {
 	basePod, err := findATBasePod(s.Vdb, s.PFacts)
@@ -175,11 +175,11 @@ func (s *UninstallReconciler) uninstallPodsInSubclusterForAdmintools(ctx context
 	return nil
 }
 
-// findPodsSuitableForScaleDown will return a list of host names that can be uninstalled
+// findPodsSuitableForScaleIn will return a list of host names that can be uninstalled
 // If a pod was skipped that may require an uninstall, then the bool return
 // comes back as true. It is the callers responsibility to requeue a
 // reconciliation if that is true.
-func (s *UninstallReconciler) findPodsSuitableForScaleDown(sc *vapi.Subcluster, startPodIndex,
+func (s *UninstallReconciler) findPodsSuitableForScaleIn(sc *vapi.Subcluster, startPodIndex,
 	endPodIndex int32) ([]*podfacts.PodFact, bool) {
 	pods := []*podfacts.PodFact{}
 	requeueNeeded := false

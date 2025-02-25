@@ -21,7 +21,7 @@ import (
 	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	v1beta1 "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/v1beta1_test"
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
@@ -33,7 +33,7 @@ var _ = Describe("obj_reconcile", func() {
 	ctx := context.Background()
 
 	It("should create/update hpa", func() {
-		vas := v1beta1.MakeVASWithMetrics()
+		vas := vapi.MakeVASWithMetrics()
 		v1beta1_test.CreateVAS(ctx, k8sClient, vas)
 		defer v1beta1_test.DeleteVAS(ctx, k8sClient, vas)
 
@@ -63,10 +63,10 @@ var _ = Describe("obj_reconcile", func() {
 	})
 
 	It("should create/update scaledObject", func() {
-		vas := v1beta1.MakeVASWithMetrics()
+		vas := vapi.MakeVASWithMetrics()
 		vas.Spec.CustomAutoscaler.Hpa = nil
-		vas.Spec.CustomAutoscaler.Type = v1beta1.ScaledObject
-		vas.Spec.CustomAutoscaler.ScaledObject = v1beta1.MakeScaledObjectSpec()
+		vas.Spec.CustomAutoscaler.Type = vapi.ScaledObject
+		vas.Spec.CustomAutoscaler.ScaledObject = vapi.MakeScaledObjectSpec()
 		v1beta1_test.CreateVAS(ctx, k8sClient, vas)
 		defer v1beta1_test.DeleteVAS(ctx, k8sClient, vas)
 

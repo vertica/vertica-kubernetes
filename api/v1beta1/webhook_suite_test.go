@@ -103,7 +103,7 @@ var _ = BeforeSuite(func() {
 	})
 	Expect(err).NotTo(HaveOccurred())
 
-	err = (&VerticaAutoscaler{}).SetupWebhookWithManager(mgr)
+	err = (&VerticaScrutinize{}).SetupWebhookWithManager(mgr)
 	Expect(err).NotTo(HaveOccurred())
 
 	// +kubebuilder:scaffold:webhook
