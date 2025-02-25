@@ -161,7 +161,7 @@ func (v *VerticaAutoscaler) validateReplicas(allErrs field.ErrorList) field.Erro
 			if v.Spec.CustomAutoscaler.Hpa.MaxReplicas == 0 {
 				err := field.Invalid(pathPrefix.Child("MaxReplicas"),
 					v.Spec.CustomAutoscaler.Hpa.MaxReplicas,
-					"MaxReplicas must be set.")
+					"maxReplicas must be set.")
 				allErrs = append(allErrs, err)
 			}
 
@@ -180,7 +180,7 @@ func (v *VerticaAutoscaler) validateReplicas(allErrs field.ErrorList) field.Erro
 			if *v.Spec.CustomAutoscaler.ScaledObject.MaxReplicas == 0 {
 				err := field.Invalid(pathPrefix.Child("MaxReplicas"),
 					v.Spec.CustomAutoscaler.ScaledObject.MaxReplicas,
-					"MaxReplicas must be set.")
+					"maxReplicas must be set.")
 				allErrs = append(allErrs, err)
 			}
 
@@ -193,6 +193,60 @@ func (v *VerticaAutoscaler) validateReplicas(allErrs field.ErrorList) field.Erro
 				allErrs = append(allErrs, err)
 			}
 		}
+	}
+
+	return allErrs
+}
+
+func hasDuplicates[T comparable](s []T) bool {
+	seen := make(map[T]bool)
+	for _, element := range s {
+		if seen[element] {
+			return false // Duplicate found
+		}
+		seen[element] = true
+	}
+	return true // No duplicates found
+}
+
+// validateMetricsName makes sure 2 metrics cannot have the same name
+func (v *VerticaAutoscaler) validateMetricsName(allErrs field.ErrorList) field.ErrorList {
+	metrics := []string{}
+	pathPrefix := field.NewPath("spec").Child("customAutoscaler")
+	if v.Spec.CustomAutoscaler != nil && v.Spec.CustomAutoscaler.ScaledObject != nil {
+		for i := range v.Spec.CustomAutoscaler.ScaledObject.Metrics {
+			metric := &v.Spec.CustomAutoscaler.ScaledObject.Metrics[i]
+			metrics = append(metrics, metric.Name)
+
+			// 2 metrics cannot have the same name
+			if !hasDuplicates(metrics) {
+				err := field.Invalid(pathPrefix.Child("scaledObject").Child("metrics").Index(i).Child("name"),
+					v.Spec.CustomAutoscaler.ScaledObject.Metrics[i].Name,
+					fmt.Sprintf("Metric name '%s' cannot be the same.", metric.Name),
+				)
+				allErrs = append(allErrs, err)
+			}
+		}
+	}
+
+	return allErrs
+}
+
+func (v *VerticaAutoscaler) validateImmutableFields(old runtime.Object) field.ErrorList {
+	var allErrs field.ErrorList
+	oldObj := old.(*VerticaAutoscaler)
+
+	allErrs = v.checkImmutableCustomAutoscaler(oldObj, allErrs)
+	return allErrs
+}
+
+func (v *VerticaAutoscaler) checkImmutableCustomAutoscaler(oldObj *VerticaAutoscaler, allErrs field.ErrorList) field.ErrorList {
+	// cannot set customAutoscaler after CR creation
+	if v.Spec.CustomAutoscaler != oldObj.Spec.CustomAutoscaler {
+		err := field.Invalid(field.NewPath("spec").Child("customAutoscaler"),
+			v.Spec.CustomAutoscaler,
+			"cannot set customAutoscaler after CR creation.")
+		allErrs = append(allErrs, err)
 	}
 
 	return allErrs

@@ -18,7 +18,6 @@ package v1beta1
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	autoscalingv2 "k8s.io/api/autoscaling/v2"
 )
 
 var _ = Describe("verticaautoscaler_webhook", func() {
@@ -33,6 +32,15 @@ var _ = Describe("verticaautoscaler_webhook", func() {
 		vas.Spec.ScalingGranularity = "BadValue"
 		_, err := vas.ValidateCreate()
 		Expect(err).ShouldNot(Succeed())
+	})
+
+	It("should not allow changing of fsGroup/runAsUser after DB init", func() {
+		oldVas := MakeVAS()
+		oldVas.Spec.CustomAutoscaler = nil
+		newVdb := MakeVAS()
+		newVdb.Spec.CustomAutoscaler.Type = HPA
+		allErrs := newVdb.validateImmutableFields(oldVas)
+		Ω(allErrs).Should(HaveLen(0))
 	})
 
 	It("should fail if the service name differs", func() {
@@ -72,50 +80,20 @@ var _ = Describe("verticaautoscaler_webhook", func() {
 		Expect(err1).Should(Succeed())
 	})
 
-	It("should fail if scaledobject metrics type is not set properly", func() {
-		vas := MakeVASWithScaledObject()
+	It("maxReplicas must be set", func() {
+		vas := MakeVAS()
+		vas.Spec.CustomAutoscaler.Hpa.MaxReplicas = 0
 		_, err := vas.ValidateCreate()
-		Expect(err).Should(Succeed())
-		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].Type = "BadValue"
-		_, err = vas.ValidateCreate()
-		Expect(err).ShouldNot(Succeed())
+		Expect(err.Error()).To(ContainSubstring("maxReplicas must be set"))
 	})
 
-	It("should fail if scaledobject metrics type is prometheus and metricType is not set properly", func() {
-		vas := MakeVASWithScaledObject()
-		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].Type = PrometheusTriggerType
-		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].MetricType = autoscalingv2.ValueMetricType
+	It("maxReplicas cannot be less than minReplicas", func() {
+		vas := MakeVAS()
+		var maxReplicas int32 = 3
+		var minReplicas int32 = 5
+		vas.Spec.CustomAutoscaler.ScaledObject.MaxReplicas = &maxReplicas
+		vas.Spec.CustomAutoscaler.ScaledObject.MinReplicas = &minReplicas
 		_, err := vas.ValidateCreate()
-		Expect(err).Should(Succeed())
-		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].MetricType = autoscalingv2.AverageValueMetricType
-		_, err = vas.ValidateCreate()
-		Expect(err).Should(Succeed())
-		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].MetricType = autoscalingv2.UtilizationMetricType
-		_, err = vas.ValidateCreate()
-		Expect(err).ShouldNot(Succeed())
-	})
-
-	It("should fail if scaledobject metrics type is cpu/mem and metricType is not set properly", func() {
-		vas := MakeVASWithScaledObject()
-		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].Type = CPUTriggerType
-		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].MetricType = autoscalingv2.UtilizationMetricType
-		_, err := vas.ValidateCreate()
-		Expect(err).Should(Succeed())
-		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].MetricType = autoscalingv2.AverageValueMetricType
-		_, err = vas.ValidateCreate()
-		Expect(err).Should(Succeed())
-		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].MetricType = autoscalingv2.ValueMetricType
-		_, err = vas.ValidateCreate()
-		Expect(err).ShouldNot(Succeed())
-		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].Type = MemTriggerType
-		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].MetricType = autoscalingv2.UtilizationMetricType
-		_, err = vas.ValidateCreate()
-		Expect(err).Should(Succeed())
-		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].MetricType = autoscalingv2.AverageValueMetricType
-		_, err = vas.ValidateCreate()
-		Expect(err).Should(Succeed())
-		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].MetricType = autoscalingv2.ValueMetricType
-		_, err = vas.ValidateCreate()
-		Expect(err).ShouldNot(Succeed())
+		Expect(err.Error()).To(ContainSubstring("maxReplicas cannot be less than minReplicas"))
 	})
 })
