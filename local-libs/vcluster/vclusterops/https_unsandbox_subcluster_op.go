@@ -29,17 +29,19 @@ type httpsUnsandboxingOp struct {
 	hostRequestBodyMap map[string]string
 	scName             string
 	scHosts            *[]string
+	onMainCluster      bool
 }
 
 // This op is used to unsandbox the given subcluster `scName`
 func makeHTTPSUnsandboxingOp(scName string,
-	useHTTPPassword bool, userName string, httpsPassword *string, hosts *[]string) (httpsUnsandboxingOp, error) {
+	useHTTPPassword bool, userName string, httpsPassword *string, hosts *[]string, onMainCluster bool) (httpsUnsandboxingOp, error) {
 	op := httpsUnsandboxingOp{}
 	op.name = "HTTPSUnsansboxingOp"
 	op.description = "Convert sandboxed subcluster into regular subcluster in catalog"
 	op.useHTTPPassword = useHTTPPassword
 	op.scName = scName
 	op.scHosts = hosts
+	op.onMainCluster = onMainCluster
 
 	if useHTTPPassword {
 		err := util.ValidateUsernameAndPassword(op.name, useHTTPPassword, userName)
@@ -77,21 +79,20 @@ func (op *httpsUnsandboxingOp) setupRequestBody() error {
 
 func (op *httpsUnsandboxingOp) prepare(execContext *opEngineExecContext) error {
 	sandboxes := mapset.NewSet[string]()
-	var mainHost string
 	if len(execContext.upHostsToSandboxes) == 0 {
 		return fmt.Errorf(`[%s] Cannot find any up hosts in OpEngineExecContext`, op.name)
 	}
 	// use an UP host in main cluster and UP host in separate sc in same sandbox to execute the https post request
 	for h, sb := range execContext.upHostsToSandboxes {
-		if !sandboxes.Contains(sb) {
+		if !sandboxes.Contains(sb) && !op.onMainCluster && sb != util.MainClusterSandbox {
 			op.hosts = append(op.hosts, h)
 			sandboxes.Add(sb)
 		}
-		if sb == "" {
-			mainHost = h
+		if sb == util.MainClusterSandbox && op.onMainCluster {
+			op.hosts = append(op.hosts, h)
 		}
 	}
-	if mainHost == "" {
+	if len(op.hosts) == 0 && op.onMainCluster {
 		return fmt.Errorf(`[%s] Cannot find any up hosts of main cluster in OpEngineExecContext`, op.name)
 	}
 	err := op.setupRequestBody()
