@@ -403,8 +403,9 @@ func (vdb *VCoordinationDatabase) filterPrimaryNodes() {
 }
 
 // Update and limit the hostlist based on status and sandbox info
-// If sandbox provided, pick up sandbox up hosts and return. Else return up hosts.
-func (vdb *VCoordinationDatabase) filterUpHostlist(inputHosts []string, sandbox string) []string {
+// If sandbox provided, pick up sandbox up hosts and return. Else return up hosts
+// from the main cluster.
+func (vdb *VCoordinationDatabase) filterUpHostListBySandbox(inputHosts []string, sandbox string) []string {
 	var clusterHosts []string
 	var upSandboxHosts []string
 
@@ -424,6 +425,29 @@ func (vdb *VCoordinationDatabase) filterUpHostlist(inputHosts []string, sandbox 
 		return clusterHosts
 	}
 	return upSandboxHosts
+}
+
+// Update and limit the host list based on status.
+func (vdb *VCoordinationDatabase) filterUpHostList(inputHosts []string) (upHosts []string) {
+	for _, h := range inputHosts {
+		vnode, ok := vdb.HostNodeMap[h]
+		if !ok {
+			// host address not found in vdb, skip it
+			continue
+		}
+		if vnode.State == util.NodeUpState {
+			upHosts = append(upHosts, vnode.Address)
+		}
+	}
+	return upHosts
+}
+
+func (vdb *VCoordinationDatabase) getHostToSandboxMap() (hostsToSandbox map[string]string) {
+	hostsToSandbox = make(map[string]string, len(vdb.HostList))
+	for h, vnode := range vdb.HostNodeMap {
+		hostsToSandbox[h] = vnode.Sandbox
+	}
+	return hostsToSandbox
 }
 
 // hostIsUp returns true if the host is up

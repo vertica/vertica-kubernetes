@@ -22,28 +22,35 @@ import (
 	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
+type NewClientTLSConfig struct {
+	// TLS Key (PEM bytes)
+	NewKey string
+	// TLS Certificate (PEM bytes)
+	NewCert string
+	// TLS CA Certificate (PEM bytes)
+	NewCaCert string
+}
+
 type VRotateNMACertsOptions struct {
 	/* Part 1: basic DB info */
 	DatabaseOptions
 
 	/*
-	 * Part 2: new TLS configuration options
+	 * Part 2: new client TLS options
 	 * If the NMA has already been restarted (controlled by the flag below)
 	 * then only these certs will be used and not the DatabaseOptions ones.
+	 * Note that the key/cert pair here is the new client key/cert pair used
+	 * by vclusterops, not the new NMA server key/cert pair. The ca cert is
+	 * probably the same.
 	 */
-	// TLS Key
-	NewKey string
-	// TLS Certificate
-	NewCert string
-	// TLS CA Certificate
-	NewCaCert string
+	NewClientTLSConfig
 
 	// whether the NMA needs to be shut down before polling for changes
 	DoKillNMA bool
 }
 
-func VRotateNMACertsOptionsFactory() VGetConfigurationParameterOptions {
-	opt := VGetConfigurationParameterOptions{}
+func VRotateNMACertsOptionsFactory() VRotateNMACertsOptions {
+	opt := VRotateNMACertsOptions{}
 	// set default values to the params
 	opt.setDefaultValues()
 
@@ -100,6 +107,7 @@ func (vcc VClusterCommands) VRotateNMACerts(options *VRotateNMACertsOptions) err
 		clusterOpEngine := makeClusterOpEngine(instructions, options)
 
 		// Give the instructions to the VClusterOpEngine to run
+		vcc.Log.Info("Attempting to kill the NMA on all reachable hosts", "hosts", options.Hosts)
 		runError := clusterOpEngine.run(vcc.Log)
 		if runError != nil {
 			return fmt.Errorf("failed to kill the NMA: %w", runError)
@@ -122,6 +130,7 @@ func (vcc VClusterCommands) VRotateNMACerts(options *VRotateNMACertsOptions) err
 	clusterOpEngine := makeClusterOpEngine(instructions, &newCertsDatabaseOptions)
 
 	// Give the instructions to the VClusterOpEngine to run
+	vcc.Log.Info("Polling for NMA up on all reachable hosts", "hosts", options.Hosts)
 	runError := clusterOpEngine.run(vcc.Log)
 	if runError != nil {
 		return fmt.Errorf("failed to rotate NMA certs: %w", runError)

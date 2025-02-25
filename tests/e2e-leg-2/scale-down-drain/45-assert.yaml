@@ -14,7 +14,7 @@
 apiVersion: vertica.com/v1beta1
 kind: VerticaDB
 metadata:
-  name: v-scale-down-drain
+  name: v-scale-in-drain
 status:
   subclusterCount: 2
   upNodeCount: 1
@@ -22,6 +22,6 @@ status:
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: v-scale-down-drain-sec1
+  name: v-scale-in-drain-sec1
 status:
   replicas: 0

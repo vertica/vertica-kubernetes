@@ -22,7 +22,7 @@ import (
 	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	v1beta1 "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/builder"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/v1beta1_test"
@@ -38,7 +38,7 @@ var _ = Describe("obj_reconcile", func() {
 	ctx := context.Background()
 
 	It("should create/update hpa", func() {
-		vas := v1beta1.MakeVASWithMetrics()
+		vas := vapi.MakeVASWithMetrics()
 		v1beta1_test.CreateVAS(ctx, k8sClient, vas)
 		defer v1beta1_test.DeleteVAS(ctx, k8sClient, vas)
 
@@ -68,10 +68,10 @@ var _ = Describe("obj_reconcile", func() {
 	})
 
 	It("should create/update scaledObject", func() {
-		vas := v1beta1.MakeVASWithMetrics()
+		vas := vapi.MakeVASWithMetrics()
 		vas.Spec.CustomAutoscaler.Hpa = nil
-		vas.Spec.CustomAutoscaler.Type = v1beta1.ScaledObject
-		vas.Spec.CustomAutoscaler.ScaledObject = v1beta1.MakeScaledObjectSpec()
+		vas.Spec.CustomAutoscaler.Type = vapi.ScaledObject
+		vas.Spec.CustomAutoscaler.ScaledObject = vapi.MakeScaledObjectSpec()
 		v1beta1_test.CreateVAS(ctx, k8sClient, vas)
 		defer v1beta1_test.DeleteVAS(ctx, k8sClient, vas)
 
@@ -103,19 +103,19 @@ var _ = Describe("obj_reconcile", func() {
 	})
 
 	It("should create triggerAuthentication object with auth basic method", func() {
-		vas := v1beta1.MakeVASWithMetrics()
+		vas := vapi.MakeVASWithMetrics()
 		vas.Spec.CustomAutoscaler.Hpa = nil
-		vas.Spec.CustomAutoscaler.Type = v1beta1.ScaledObject
-		vas.Spec.CustomAutoscaler.ScaledObject = v1beta1.MakeScaledObjectSpec()
-		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].Prometheus.AuthModes = v1beta1.PrometheusAuthBasic
+		vas.Spec.CustomAutoscaler.Type = vapi.ScaledObject
+		vas.Spec.CustomAutoscaler.ScaledObject = vapi.MakeScaledObjectSpec()
+		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].Prometheus.AuthModes = vapi.PrometheusAuthBasic
 		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].AuthSecret = authSecret + "basic"
 		v1beta1_test.CreateVAS(ctx, k8sClient, vas)
 		defer v1beta1_test.DeleteVAS(ctx, k8sClient, vas)
 
 		secretName := names.GenAuthSecretName(vas, vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].AuthSecret)
 		secret := builder.BuildSecretBase(secretName)
-		secret.Data[v1beta1.PrometheusSecretKeyUsername] = []byte("username")
-		secret.Data[v1beta1.PrometheusSecretKeyPassword] = []byte("password")
+		secret.Data[vapi.PrometheusSecretKeyUsername] = []byte("username")
+		secret.Data[vapi.PrometheusSecretKeyPassword] = []byte("password")
 		Expect(k8sClient.Create(ctx, secret)).Should(Succeed())
 		defer deleteSecret(ctx, vas, authSecret+"basic")
 
@@ -128,14 +128,14 @@ var _ = Describe("obj_reconcile", func() {
 		ta := &kedav1alpha1.TriggerAuthentication{}
 		taName := names.GenTriggerAuthenticationtName(vas, vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].AuthSecret)
 		Expect(k8sClient.Get(ctx, taName, ta)).Should(Succeed())
-		Expect(ta.Spec.SecretTargetRef[0].Key).Should(ContainSubstring(v1beta1.PrometheusSecretKeyUsername))
-		Expect(ta.Spec.SecretTargetRef[1].Key).Should(ContainSubstring(v1beta1.PrometheusSecretKeyPassword))
+		Expect(ta.Spec.SecretTargetRef[0].Key).Should(ContainSubstring(vapi.PrometheusSecretKeyUsername))
+		Expect(ta.Spec.SecretTargetRef[1].Key).Should(ContainSubstring(vapi.PrometheusSecretKeyPassword))
 		Expect(len(ta.Spec.SecretTargetRef)).Should(Equal(2))
 	})
 
 	It("should should not create triggerAuthentication when metric type is not prometheus", func() {
-		vas := v1beta1.MakeVASWithMetrics()
-		vas.Spec.CustomAutoscaler.ScaledObject = v1beta1.MakeScaledObjectSpec()
+		vas := vapi.MakeVASWithMetrics()
+		vas.Spec.CustomAutoscaler.ScaledObject = vapi.MakeScaledObjectSpec()
 		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].AuthSecret = authSecret + "notused"
 		v1beta1_test.CreateVAS(ctx, k8sClient, vas)
 		defer v1beta1_test.DeleteVAS(ctx, k8sClient, vas)
@@ -158,18 +158,18 @@ var _ = Describe("obj_reconcile", func() {
 	})
 
 	It("should fail to create triggerAuthentication object with auth basic method, when key is missing", func() {
-		vas := v1beta1.MakeVASWithMetrics()
+		vas := vapi.MakeVASWithMetrics()
 		vas.Spec.CustomAutoscaler.Hpa = nil
-		vas.Spec.CustomAutoscaler.Type = v1beta1.ScaledObject
-		vas.Spec.CustomAutoscaler.ScaledObject = v1beta1.MakeScaledObjectSpec()
-		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].Prometheus.AuthModes = v1beta1.PrometheusAuthBasic
+		vas.Spec.CustomAutoscaler.Type = vapi.ScaledObject
+		vas.Spec.CustomAutoscaler.ScaledObject = vapi.MakeScaledObjectSpec()
+		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].Prometheus.AuthModes = vapi.PrometheusAuthBasic
 		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].AuthSecret = authSecret + "basic"
 		v1beta1_test.CreateVAS(ctx, k8sClient, vas)
 		defer v1beta1_test.DeleteVAS(ctx, k8sClient, vas)
 
 		secretName := names.GenAuthSecretName(vas, vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].AuthSecret)
 		secret := builder.BuildSecretBase(secretName)
-		secret.Data[v1beta1.PrometheusSecretKeyUsername] = []byte("username")
+		secret.Data[vapi.PrometheusSecretKeyUsername] = []byte("username")
 		Expect(k8sClient.Create(ctx, secret)).Should(Succeed())
 		defer deleteSecret(ctx, vas, authSecret+"basic")
 
@@ -180,18 +180,18 @@ var _ = Describe("obj_reconcile", func() {
 	})
 
 	It("should create triggerAuthentication object with auth bearer method", func() {
-		vas := v1beta1.MakeVASWithMetrics()
+		vas := vapi.MakeVASWithMetrics()
 		vas.Spec.CustomAutoscaler.Hpa = nil
-		vas.Spec.CustomAutoscaler.Type = v1beta1.ScaledObject
-		vas.Spec.CustomAutoscaler.ScaledObject = v1beta1.MakeScaledObjectSpec()
-		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].Prometheus.AuthModes = v1beta1.PrometheusAuthBearer
+		vas.Spec.CustomAutoscaler.Type = vapi.ScaledObject
+		vas.Spec.CustomAutoscaler.ScaledObject = vapi.MakeScaledObjectSpec()
+		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].Prometheus.AuthModes = vapi.PrometheusAuthBearer
 		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].AuthSecret = authSecret + "bearer"
 		v1beta1_test.CreateVAS(ctx, k8sClient, vas)
 		defer v1beta1_test.DeleteVAS(ctx, k8sClient, vas)
 
 		secretName := names.GenAuthSecretName(vas, vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].AuthSecret)
 		secret := builder.BuildSecretBase(secretName)
-		secret.Data[v1beta1.PrometheusSecretKeyBearerToken] = []byte("bearertoken")
+		secret.Data[vapi.PrometheusSecretKeyBearerToken] = []byte("bearertoken")
 		Expect(k8sClient.Create(ctx, secret)).Should(Succeed())
 		defer deleteSecret(ctx, vas, authSecret+"bearer")
 
@@ -204,16 +204,16 @@ var _ = Describe("obj_reconcile", func() {
 		ta := &kedav1alpha1.TriggerAuthentication{}
 		taName := names.GenTriggerAuthenticationtName(vas, vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].AuthSecret)
 		Expect(k8sClient.Get(ctx, taName, ta)).Should(Succeed())
-		Expect(ta.Spec.SecretTargetRef[0].Key).Should(ContainSubstring(v1beta1.PrometheusSecretKeyBearerToken))
+		Expect(ta.Spec.SecretTargetRef[0].Key).Should(ContainSubstring(vapi.PrometheusSecretKeyBearerToken))
 		Expect(len(ta.Spec.SecretTargetRef)).Should(Equal(1))
 	})
 
 	It("should fail to create triggerAuthentication object with auth bearertoken method, when key is missing", func() {
-		vas := v1beta1.MakeVASWithMetrics()
+		vas := vapi.MakeVASWithMetrics()
 		vas.Spec.CustomAutoscaler.Hpa = nil
-		vas.Spec.CustomAutoscaler.Type = v1beta1.ScaledObject
-		vas.Spec.CustomAutoscaler.ScaledObject = v1beta1.MakeScaledObjectSpec()
-		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].Prometheus.AuthModes = v1beta1.PrometheusAuthBearer
+		vas.Spec.CustomAutoscaler.Type = vapi.ScaledObject
+		vas.Spec.CustomAutoscaler.ScaledObject = vapi.MakeScaledObjectSpec()
+		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].Prometheus.AuthModes = vapi.PrometheusAuthBearer
 		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].AuthSecret = authSecret + "bearer"
 		v1beta1_test.CreateVAS(ctx, k8sClient, vas)
 		defer v1beta1_test.DeleteVAS(ctx, k8sClient, vas)
@@ -230,20 +230,20 @@ var _ = Describe("obj_reconcile", func() {
 	})
 
 	It("should create triggerAuthentication object with auth TLS method", func() {
-		vas := v1beta1.MakeVASWithMetrics()
+		vas := vapi.MakeVASWithMetrics()
 		vas.Spec.CustomAutoscaler.Hpa = nil
-		vas.Spec.CustomAutoscaler.Type = v1beta1.ScaledObject
-		vas.Spec.CustomAutoscaler.ScaledObject = v1beta1.MakeScaledObjectSpec()
-		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].Prometheus.AuthModes = v1beta1.PrometheusAuthTLS
+		vas.Spec.CustomAutoscaler.Type = vapi.ScaledObject
+		vas.Spec.CustomAutoscaler.ScaledObject = vapi.MakeScaledObjectSpec()
+		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].Prometheus.AuthModes = vapi.PrometheusAuthTLS
 		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].AuthSecret = authSecret + "tls"
 		v1beta1_test.CreateVAS(ctx, k8sClient, vas)
 		defer v1beta1_test.DeleteVAS(ctx, k8sClient, vas)
 
 		secretName := names.GenAuthSecretName(vas, vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].AuthSecret)
 		secret := builder.BuildSecretBase(secretName)
-		secret.Data[v1beta1.PrometheusSecretKeyCa] = []byte("ca")
-		secret.Data[v1beta1.PrometheusSecretKeyCert] = []byte("cert")
-		secret.Data[v1beta1.PrometheusSecretKeyKey] = []byte("key")
+		secret.Data[vapi.PrometheusSecretKeyCa] = []byte("ca")
+		secret.Data[vapi.PrometheusSecretKeyCert] = []byte("cert")
+		secret.Data[vapi.PrometheusSecretKeyKey] = []byte("key")
 		Expect(k8sClient.Create(ctx, secret)).Should(Succeed())
 		defer deleteSecret(ctx, vas, authSecret+"tls")
 
@@ -256,18 +256,18 @@ var _ = Describe("obj_reconcile", func() {
 		ta := &kedav1alpha1.TriggerAuthentication{}
 		taName := names.GenTriggerAuthenticationtName(vas, vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].AuthSecret)
 		Expect(k8sClient.Get(ctx, taName, ta)).Should(Succeed())
-		Expect(ta.Spec.SecretTargetRef[0].Key).Should(ContainSubstring(v1beta1.PrometheusSecretKeyCa))
-		Expect(ta.Spec.SecretTargetRef[1].Key).Should(ContainSubstring(v1beta1.PrometheusSecretKeyCert))
-		Expect(ta.Spec.SecretTargetRef[2].Key).Should(ContainSubstring(v1beta1.PrometheusSecretKeyKey))
+		Expect(ta.Spec.SecretTargetRef[0].Key).Should(ContainSubstring(vapi.PrometheusSecretKeyCa))
+		Expect(ta.Spec.SecretTargetRef[1].Key).Should(ContainSubstring(vapi.PrometheusSecretKeyCert))
+		Expect(ta.Spec.SecretTargetRef[2].Key).Should(ContainSubstring(vapi.PrometheusSecretKeyKey))
 		Expect(len(ta.Spec.SecretTargetRef)).Should(Equal(3))
 	})
 
 	It("should fail to create triggerAuthentication object with auth tls method, when key is missing", func() {
-		vas := v1beta1.MakeVASWithMetrics()
+		vas := vapi.MakeVASWithMetrics()
 		vas.Spec.CustomAutoscaler.Hpa = nil
-		vas.Spec.CustomAutoscaler.Type = v1beta1.ScaledObject
-		vas.Spec.CustomAutoscaler.ScaledObject = v1beta1.MakeScaledObjectSpec()
-		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].Prometheus.AuthModes = v1beta1.PrometheusAuthTLS
+		vas.Spec.CustomAutoscaler.Type = vapi.ScaledObject
+		vas.Spec.CustomAutoscaler.ScaledObject = vapi.MakeScaledObjectSpec()
+		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].Prometheus.AuthModes = vapi.PrometheusAuthTLS
 		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].AuthSecret = authSecret + "tls"
 		v1beta1_test.CreateVAS(ctx, k8sClient, vas)
 		defer v1beta1_test.DeleteVAS(ctx, k8sClient, vas)
@@ -284,19 +284,19 @@ var _ = Describe("obj_reconcile", func() {
 	})
 
 	It("should create triggerAuthentication object with auth custom method", func() {
-		vas := v1beta1.MakeVASWithMetrics()
+		vas := vapi.MakeVASWithMetrics()
 		vas.Spec.CustomAutoscaler.Hpa = nil
-		vas.Spec.CustomAutoscaler.Type = v1beta1.ScaledObject
-		vas.Spec.CustomAutoscaler.ScaledObject = v1beta1.MakeScaledObjectSpec()
-		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].Prometheus.AuthModes = v1beta1.PrometheusAuthCustom
+		vas.Spec.CustomAutoscaler.Type = vapi.ScaledObject
+		vas.Spec.CustomAutoscaler.ScaledObject = vapi.MakeScaledObjectSpec()
+		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].Prometheus.AuthModes = vapi.PrometheusAuthCustom
 		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].AuthSecret = authSecret + "custom"
 		v1beta1_test.CreateVAS(ctx, k8sClient, vas)
 		defer v1beta1_test.DeleteVAS(ctx, k8sClient, vas)
 
 		secretName := names.GenAuthSecretName(vas, vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].AuthSecret)
 		secret := builder.BuildSecretBase(secretName)
-		secret.Data[v1beta1.PrometheusSecretKeyCustomAuthHeader] = []byte("auththeader")
-		secret.Data[v1beta1.PrometheusSecretKeyCustomAuthValue] = []byte("authvalue")
+		secret.Data[vapi.PrometheusSecretKeyCustomAuthHeader] = []byte("auththeader")
+		secret.Data[vapi.PrometheusSecretKeyCustomAuthValue] = []byte("authvalue")
 		Expect(k8sClient.Create(ctx, secret)).Should(Succeed())
 		defer deleteSecret(ctx, vas, authSecret+"custom")
 
@@ -309,17 +309,17 @@ var _ = Describe("obj_reconcile", func() {
 		ta := &kedav1alpha1.TriggerAuthentication{}
 		taName := names.GenTriggerAuthenticationtName(vas, vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].AuthSecret)
 		Expect(k8sClient.Get(ctx, taName, ta)).Should(Succeed())
-		Expect(ta.Spec.SecretTargetRef[0].Key).Should(ContainSubstring(v1beta1.PrometheusSecretKeyCustomAuthHeader))
-		Expect(ta.Spec.SecretTargetRef[1].Key).Should(ContainSubstring(v1beta1.PrometheusSecretKeyCustomAuthValue))
+		Expect(ta.Spec.SecretTargetRef[0].Key).Should(ContainSubstring(vapi.PrometheusSecretKeyCustomAuthHeader))
+		Expect(ta.Spec.SecretTargetRef[1].Key).Should(ContainSubstring(vapi.PrometheusSecretKeyCustomAuthValue))
 		Expect(len(ta.Spec.SecretTargetRef)).Should(Equal(2))
 	})
 
 	It("should fail to create triggerAuthentication object with auth custom method, when key is missing", func() {
-		vas := v1beta1.MakeVASWithMetrics()
+		vas := vapi.MakeVASWithMetrics()
 		vas.Spec.CustomAutoscaler.Hpa = nil
-		vas.Spec.CustomAutoscaler.Type = v1beta1.ScaledObject
-		vas.Spec.CustomAutoscaler.ScaledObject = v1beta1.MakeScaledObjectSpec()
-		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].Prometheus.AuthModes = v1beta1.PrometheusAuthCustom
+		vas.Spec.CustomAutoscaler.Type = vapi.ScaledObject
+		vas.Spec.CustomAutoscaler.ScaledObject = vapi.MakeScaledObjectSpec()
+		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].Prometheus.AuthModes = vapi.PrometheusAuthCustom
 		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].AuthSecret = authSecret + "custom"
 		v1beta1_test.CreateVAS(ctx, k8sClient, vas)
 		defer v1beta1_test.DeleteVAS(ctx, k8sClient, vas)
@@ -336,22 +336,22 @@ var _ = Describe("obj_reconcile", func() {
 	})
 
 	It("should create triggerAuthentication object with auth tls,basic method", func() {
-		vas := v1beta1.MakeVASWithMetrics()
+		vas := vapi.MakeVASWithMetrics()
 		vas.Spec.CustomAutoscaler.Hpa = nil
-		vas.Spec.CustomAutoscaler.Type = v1beta1.ScaledObject
-		vas.Spec.CustomAutoscaler.ScaledObject = v1beta1.MakeScaledObjectSpec()
-		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].Prometheus.AuthModes = v1beta1.PrometheusAuthTLSAndBasic
+		vas.Spec.CustomAutoscaler.Type = vapi.ScaledObject
+		vas.Spec.CustomAutoscaler.ScaledObject = vapi.MakeScaledObjectSpec()
+		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].Prometheus.AuthModes = vapi.PrometheusAuthTLSAndBasic
 		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].AuthSecret = authSecret + "tlsbasic"
 		v1beta1_test.CreateVAS(ctx, k8sClient, vas)
 		defer v1beta1_test.DeleteVAS(ctx, k8sClient, vas)
 
 		secretName := names.GenAuthSecretName(vas, vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].AuthSecret)
 		secret := builder.BuildSecretBase(secretName)
-		secret.Data[v1beta1.PrometheusSecretKeyUsername] = []byte("username")
-		secret.Data[v1beta1.PrometheusSecretKeyPassword] = []byte("password")
-		secret.Data[v1beta1.PrometheusSecretKeyCa] = []byte("ca")
-		secret.Data[v1beta1.PrometheusSecretKeyCert] = []byte("cert")
-		secret.Data[v1beta1.PrometheusSecretKeyKey] = []byte("key")
+		secret.Data[vapi.PrometheusSecretKeyUsername] = []byte("username")
+		secret.Data[vapi.PrometheusSecretKeyPassword] = []byte("password")
+		secret.Data[vapi.PrometheusSecretKeyCa] = []byte("ca")
+		secret.Data[vapi.PrometheusSecretKeyCert] = []byte("cert")
+		secret.Data[vapi.PrometheusSecretKeyKey] = []byte("key")
 		Expect(k8sClient.Create(ctx, secret)).Should(Succeed())
 		defer deleteSecret(ctx, vas, authSecret+"tlsbasic")
 
@@ -364,20 +364,20 @@ var _ = Describe("obj_reconcile", func() {
 		ta := &kedav1alpha1.TriggerAuthentication{}
 		taName := names.GenTriggerAuthenticationtName(vas, vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].AuthSecret)
 		Expect(k8sClient.Get(ctx, taName, ta)).Should(Succeed())
-		Expect(ta.Spec.SecretTargetRef[0].Key).Should(ContainSubstring(v1beta1.PrometheusSecretKeyUsername))
-		Expect(ta.Spec.SecretTargetRef[1].Key).Should(ContainSubstring(v1beta1.PrometheusSecretKeyPassword))
-		Expect(ta.Spec.SecretTargetRef[2].Key).Should(ContainSubstring(v1beta1.PrometheusSecretKeyCa))
-		Expect(ta.Spec.SecretTargetRef[3].Key).Should(ContainSubstring(v1beta1.PrometheusSecretKeyCert))
-		Expect(ta.Spec.SecretTargetRef[4].Key).Should(ContainSubstring(v1beta1.PrometheusSecretKeyKey))
+		Expect(ta.Spec.SecretTargetRef[0].Key).Should(ContainSubstring(vapi.PrometheusSecretKeyUsername))
+		Expect(ta.Spec.SecretTargetRef[1].Key).Should(ContainSubstring(vapi.PrometheusSecretKeyPassword))
+		Expect(ta.Spec.SecretTargetRef[2].Key).Should(ContainSubstring(vapi.PrometheusSecretKeyCa))
+		Expect(ta.Spec.SecretTargetRef[3].Key).Should(ContainSubstring(vapi.PrometheusSecretKeyCert))
+		Expect(ta.Spec.SecretTargetRef[4].Key).Should(ContainSubstring(vapi.PrometheusSecretKeyKey))
 		Expect(len(ta.Spec.SecretTargetRef)).Should(Equal(5))
 	})
 
 	It("should fail to create triggerAuthentication object with auth tls,basic method, when key is missing", func() {
-		vas := v1beta1.MakeVASWithMetrics()
+		vas := vapi.MakeVASWithMetrics()
 		vas.Spec.CustomAutoscaler.Hpa = nil
-		vas.Spec.CustomAutoscaler.Type = v1beta1.ScaledObject
-		vas.Spec.CustomAutoscaler.ScaledObject = v1beta1.MakeScaledObjectSpec()
-		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].Prometheus.AuthModes = v1beta1.PrometheusAuthTLSAndBasic
+		vas.Spec.CustomAutoscaler.Type = vapi.ScaledObject
+		vas.Spec.CustomAutoscaler.ScaledObject = vapi.MakeScaledObjectSpec()
+		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].Prometheus.AuthModes = vapi.PrometheusAuthTLSAndBasic
 		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].AuthSecret = authSecret + "tlsbasic"
 		v1beta1_test.CreateVAS(ctx, k8sClient, vas)
 		defer v1beta1_test.DeleteVAS(ctx, k8sClient, vas)

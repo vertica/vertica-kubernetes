@@ -11,8 +11,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# We only wait for the start of the scale down as we
-# want to inject another scale down in the middle. In
+# We only wait for the start of the scale in as we
+# want to inject another scale in in the middle. In
 # the past, this use to expose a timing window that
 # corrupted the admintools.conf.
 

@@ -26,16 +26,12 @@ import (
 
 // VerticaAutoscalerSpec defines the desired state of VerticaAutoscaler
 type VerticaAutoscalerSpec struct {
-	// Important: Run "make" to regenerate code after modifying this file
-
 	// +kubebuilder:validation:Required
-	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:text"
 	// The name of the VerticaDB CR that this autoscaler is defined for.  The
 	// VerticaDB object must exist in the same namespace as this object.
 	VerticaDBName string `json:"verticaDBName"`
 
-	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// +kubebuilder:default:="Subcluster"
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:select:Pod","urn:alm:descriptor:com.tectonic.ui:select:Subcluster"}
@@ -49,7 +45,6 @@ type VerticaAutoscalerSpec struct {
 	ScalingGranularity ScalingGranularityType `json:"scalingGranularity"`
 
 	// +kubebuilder:validation:Optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:text"
 	// This acts as a selector for the subclusters that are being scaled together.
 	// Each subcluster has a service name field, which if omitted is the same
@@ -58,8 +53,8 @@ type VerticaAutoscalerSpec struct {
 	// if this field is empty, all the subclusters will be selected for scaling.
 	ServiceName string `json:"serviceName,omitempty"`
 
-	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// When the scaling granularity is Subcluster, this field defines a template
 	// to use for when a new subcluster needs to be created.  If size is 0, then
 	// the operator will use an existing subcluster to use as the template.  If
@@ -77,7 +72,6 @@ type VerticaAutoscalerSpec struct {
 	// subclusters.
 	Template Subcluster `json:"template"`
 
-	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:podCount"
 	// This is the total pod count for all subclusters that match the
@@ -88,7 +82,7 @@ type VerticaAutoscalerSpec struct {
 	TargetSize int32 `json:"targetSize"`
 
 	// +kubebuilder:validation:Optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:fieldDependency:type:CustomAutoscaler"
 	// This struct allows customization of autoscaling. Custom metrics can be used instead of the memory and cpu metrics.
 	// The scaling behavior can also be customized to meet different performance requirements. The maximum and mininum of
 	// sizes of the replica sets can be specified to limit the use of resources.
@@ -104,13 +98,13 @@ type CustomAutoscalerSpec struct {
 	Type string `json:"type,omitempty"`
 
 	// +kubebuilder:validation:Optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:fieldDependency:type:HPA"
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:fieldDependency:customAutoscaler.type:HPA"
 	// It refers to an autoscaling definition through the horizontal pod autoscaler.
 	// If type is "HPA", this must be set.
 	Hpa *HPASpec `json:"hpa,omitempty"`
 
 	// +kubebuilder:validation:Optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:fieldDependency:type:ScaledObject"
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:fieldDependency:customAutoscaler.type:ScaledObject"
 	// It refers to an autoscaling definition through a scaledObject.
 	// If type is "ScaledObject", this must be set.
 	ScaledObject *ScaledObjectSpec `json:"scaledObject,omitempty"`
@@ -142,7 +136,7 @@ type HPASpec struct {
 
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
-	// Specifies the scaling behavior for both scale up and down.
+	// Specifies the scaling behavior for both scale out and in.
 	Behavior *autoscalingv2.HorizontalPodAutoscalerBehavior `json:"behavior,omitempty"`
 }
 
@@ -161,14 +155,16 @@ type ScaledObjectSpec struct {
 	MaxReplicas *int32 `json:"maxReplicas"`
 
 	// +kubebuilder:validation:Optional
+	// +kubebuilder:default:=30
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:number"
 	// The time interval at which the scaler will check the metric condition and scale the target (in seconds).
 	// If not specified, the default is 30 seconds.
 	PollingInterval *int32 `json:"pollingInterval,omitempty"`
 
 	// +kubebuilder:validation:Optional
+	// +kubebuilder:default:=30
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:number"
-	// Defines the time to wait between scaling actions. This is helpful to avoid constant scaling up/down. Default: 30s.
+	// Defines the time to wait between scaling actions. This is helpful to avoid constant scaling out/in. Default: 30s.
 	CooldownPeriod *int32 `json:"cooldownPeriod,omitempty"`
 
 	// +kubebuilder:validation:Required
@@ -178,7 +174,7 @@ type ScaledObjectSpec struct {
 
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
-	// Specifies the scaling behavior for both scale up and down.
+	// Specifies the scaling behavior for both scale out and in.
 	Behavior *autoscalingv2.HorizontalPodAutoscalerBehavior `json:"behavior,omitempty"`
 }
 
@@ -211,13 +207,13 @@ type ScaleTrigger struct {
 	MetricType autoscalingv2.MetricTargetType `json:"metricType,omitempty"`
 
 	// +kubebuilder:validation:Optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:fieldDependency:type:prometheus"
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:fieldDependency:customAutoscaler.scaledObject.metrics[0].type:prometheus"
 	// The detail about how to fetch metrics from Prometheus and scale workloads based on them.
 	// if type is "prometheus", this must be set.
 	Prometheus *PrometheusSpec `json:"prometheus,omitempty"`
 
 	// +kubebuilder:validation:Optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:fieldDependency:type:cpu|memory"
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:fieldDependency:customAutoscaler.scaledObject.metrics[0].type:cpu","urn:alm:descriptor:com.tectonic.ui:fieldDependency:customAutoscaler.scaledObject.metrics[0].type:memory"}
 	// The detail about the target value and container name. if type is cpu/memory
 	// this must be set.
 	Resource *CPUMemorySpec `json:"resource,omitempty"`
@@ -262,12 +258,12 @@ type PrometheusSpec struct {
 	Query string `json:"query"`
 
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:number"
-	// The threshold value at which scale up is triggered.
+	// The threshold value at which scale out is triggered.
 	Threshold int32 `json:"threshold"`
 
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:number"
-	// This is the lower bound at which the autoscaler starts scaling down to the minimum replica count.
+	// This is the lower bound at which the autoscaler starts scaling in to the minimum replica count.
 	// If the metric falls below threshold but is still above this value, the current replica count remains unchanged.
 	ScaleDownThreshold int32 `json:"scaleDownThreshold,omitempty"`
 
@@ -307,14 +303,14 @@ type MetricDefinition struct {
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// +kubebuilder:Minimum:=0
-	// The value used to increase the threshold after a scale up or a scale down.
+	// The value used to increase the threshold after a scale out or a scale in.
 	ThresholdAdjustmentValue int `json:"thresholdAdjustmentValue,omitempty"`
 
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
-	// The threshold to use for scaling down. It must be of the same type as
+	// The threshold to use for scaling in. It must be of the same type as
 	// the one used for scaling up, defined in the metric field.
-	ScaleDownThreshold *autoscalingv2.MetricTarget `json:"scaleDownThreshold,omitempty"`
+	ScaleInThreshold *autoscalingv2.MetricTarget `json:"scaleInThreshold,omitempty"`
 
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
@@ -332,7 +328,7 @@ const (
 // VerticaAutoscalerStatus defines the observed state of VerticaAutoscaler
 type VerticaAutoscalerStatus struct {
 	// +operator-sdk:csv:customresourcedefinitions:type=status
-	// The total number of times the operator has scaled up/down the VerticaDB.
+	// The total number of times the operator has scaled out/in the VerticaDB.
 	ScalingCount int `json:"scalingCount"`
 
 	// +operator-sdk:csv:customresourcedefinitions:type=status
@@ -395,7 +391,8 @@ var VasConditionIndexMap = map[VerticaAutoscalerConditionType]int{
 // +kubebuilder:printcolumn:name="Target Size",type="integer",JSONPath=".spec.targetSize"
 // +kubebuilder:printcolumn:name="Scaling Count",type="integer",JSONPath=".status.scalingCount"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
-// +operator-sdk:csv:customresourcedefinitions:resources={{VerticaDB,vertica.com/v1beta1,""}}
+// +operator-sdk:csv:customresourcedefinitions:resources={{VerticaDB,vertica.com/v1beta1,""},{ScaledObject,keda.sh/v1alpha1,""},{TriggerAuthentication,keda.sh/v1alpha1,""}}
+// +kubebuilder:deprecatedversion:warning="vertica.com/v1beta1 VerticaAutoscaler is deprecated, use vertica.com/v1 VerticaAutoscaler"
 
 // VerticaAutoscaler is a CR that allows you to autoscale one or more
 // subclusters in a VerticaDB.

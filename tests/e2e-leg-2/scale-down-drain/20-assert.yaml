@@ -14,7 +14,7 @@
 apiVersion: vertica.com/v1beta1
 kind: VerticaDB
 metadata:
-  name: v-scale-down-drain
+  name: v-scale-in-drain
 status:
   subclusters:
     - installCount: 1
@@ -27,20 +27,20 @@ status:
 apiVersion: v1
 kind: Pod
 metadata:
-  name: v-scale-down-drain-pri1-0
+  name: v-scale-in-drain-pri1-0
   labels:
     vertica.com/client-routing: "true"
 ---
 apiVersion: v1
 kind: Pod
 metadata:
-  name: v-scale-down-drain-sec1-0
+  name: v-scale-in-drain-sec1-0
   labels:
     vertica.com/client-routing: "true"
 ---
 apiVersion: v1
 kind: Pod
 metadata:
-  name: v-scale-down-drain-sec1-1
+  name: v-scale-in-drain-sec1-1
   labels:
     vertica.com/client-routing: "true"
