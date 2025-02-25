@@ -134,8 +134,6 @@ type ProcessedVDBInfo struct {
 	SandboxedNodeNameAddressMap map[string]string // NodeName to Address map for sandboxed nodes, this will be used to re-ip
 	upSCHosts                   []string          // subcluster hosts that are UP
 	hasUpNodeInSC               bool              // if any node in the target subcluster is up. This is for internal use only.
-	hasOtherScInSandbox         bool              // If the sandbox has other subclusters (except for the one to be unsandboxed)
-
 }
 
 // unsandboxPreCheck will build a list of instructions to perform
@@ -228,9 +226,6 @@ func (vcc *VClusterCommands) updateSandboxDetails(
 		if vnode.Sandbox == info.SandboxName {
 			vdb.HostNodeMap[vnode.Address] = vnode
 			info.SandboxedHosts = append(info.SandboxedHosts, vnode.Address)
-			if vnode.Subcluster != options.SCName {
-				info.hasOtherScInSandbox = true
-			}
 		}
 		if vnode.State == util.NodeUpState {
 			info.hasUpNodeInSC = true
@@ -257,9 +252,6 @@ func (vcc *VClusterCommands) updateSandboxDetailsFromMainCluster(
 	for _, vnode := range vdb.HostNodeMap {
 		if vnode.Sandbox == info.SandboxName {
 			info.SandboxedHosts = append(info.SandboxedHosts, vnode.Address)
-			if vnode.Subcluster != options.SCName {
-				info.hasOtherScInSandbox = true
-			}
 		}
 		if vnode.State != util.NodeDownState && vnode.Subcluster == options.SCName {
 			info.hasUpNodeInSC = true
@@ -388,10 +380,12 @@ func (vcc *VClusterCommands) produceUnsandboxSCInstructions(options *VUnsandboxO
 			return instructions, err
 		}
 	}
+
 	username := options.UserName
 	// Check NMA health on sandbox hosts
 	nmaHealthOp := makeNMAHealthOp(options.SCHosts)
 	instructions = append(instructions, &nmaHealthOp)
+
 	// Get all up nodes
 	// options.Hosts has main cluster hosts and info.upSCHosts has UP Sandbox hosts, both of them
 	// are used to update the execContext and used later in various unsandboxing related Ops
@@ -402,6 +396,7 @@ func (vcc *VClusterCommands) produceUnsandboxSCInstructions(options *VUnsandboxO
 		return instructions, err
 	}
 	instructions = append(instructions, &httpsGetUpNodesOp)
+
 	scHosts := []string{}
 	scNodeNames := []string{}
 	for nodeName, host := range options.NodeNameAddressMap {
@@ -415,6 +410,7 @@ func (vcc *VClusterCommands) produceUnsandboxSCInstructions(options *VUnsandboxO
 		if e != nil {
 			return instructions, e
 		}
+
 		// Poll for nodes down
 		httpsPollScDown, e := makeHTTPSPollSubclusterNodeStateDownOp(scHosts, options.SCName,
 			usePassword, username, options.Password)
@@ -427,22 +423,12 @@ func (vcc *VClusterCommands) produceUnsandboxSCInstructions(options *VUnsandboxO
 			&httpsPollScDown,
 		)
 	}
-	if info.hasOtherScInSandbox && info.UpSandboxHost != "" {
-		// Run Unsandboxing on sandbox
-		httpsUnsandboxSubclusterOp, e := makeHTTPSUnsandboxingOp(options.SCName,
-			usePassword, username, options.Password, &options.SCHosts, false /*run on sandbox*/)
-		if err != nil {
-			return instructions, fmt.Errorf("unsandboxing op failed on %s, the nodes in %s are currently down. Details: %w",
-				info.SandboxName, options.SCName, e)
-		}
-		instructions = append(instructions, &httpsUnsandboxSubclusterOp)
-	}
-	// Run Unsandboxing on main cluster
-	httpsUnsandboxSubclusterMainClusterOp, err := makeHTTPSUnsandboxingOp(options.SCName,
-		usePassword, username, options.Password, &options.SCHosts, true /*run on main cluster*/)
+
+	// Run Unsandboxing
+	httpsUnsandboxSubclusterOp, err := makeHTTPSUnsandboxingOp(options.SCName,
+		usePassword, username, options.Password, &options.SCHosts)
 	if err != nil {
-		return instructions, fmt.Errorf("unsandboxing op failed on main cluster, the nodes in %s are currently down. Details: %w",
-			options.SCName, err)
+		return instructions, err
 	}
 
 	// Clean catalog dirs
@@ -452,7 +438,7 @@ func (vcc *VClusterCommands) produceUnsandboxSCInstructions(options *VUnsandboxO
 	}
 
 	instructions = append(instructions,
-		&httpsUnsandboxSubclusterMainClusterOp,
+		&httpsUnsandboxSubclusterOp,
 		&nmaDeleteDirsOp,
 	)
 
