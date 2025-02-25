@@ -202,7 +202,7 @@ func (v *VerticaAutoscaler) validateScaledObject(allErrs field.ErrorList) field.
 func (v *VerticaAutoscaler) validateHPA(allErrs field.ErrorList) field.ErrorList {
 	pathPrefix := field.NewPath("spec").Child("customAutoscaler")
 	// validate stabilization window
-	if v.HasScaleDownThreshold() && v.Spec.CustomAutoscaler.Hpa.Behavior != nil &&
+	if v.HasScaleInThreshold() && v.Spec.CustomAutoscaler.Hpa.Behavior != nil &&
 		v.Spec.CustomAutoscaler.Hpa.Behavior.ScaleDown != nil && *v.Spec.CustomAutoscaler.Hpa.Behavior.ScaleDown.StabilizationWindowSeconds != 0 {
 		err := field.Invalid(pathPrefix.Child("hpa"),
 			v.Spec.CustomAutoscaler.Hpa,
