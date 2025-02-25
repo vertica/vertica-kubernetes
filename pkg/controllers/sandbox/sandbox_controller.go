@@ -176,7 +176,7 @@ func (r *SandboxConfigMapReconciler) constructActors(vdb *v1.VerticaDB, log logr
 		// Ensure we add labels to any pod rescheduled so that Service objects route traffic to it.
 		vdbcontroller.MakeClientRoutingLabelReconcilerWithDisableRouting(r, log, vdb, pfacts, vdbcontroller.PodRescheduleApplyMethod, "",
 			vmeta.GetDisableRouting(configMap.Annotations)),
-		// Scale down the subclusters' statefulsets to zero after the subclusters are shut down
+		// Scale in the subclusters' statefulsets to zero after the subclusters are shut down
 		MakeScaleStafulsetReconciler(r, vdb, pfacts),
 	}
 }

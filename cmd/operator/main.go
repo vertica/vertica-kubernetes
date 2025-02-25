@@ -184,8 +184,8 @@ func addWebhooksToManager(mgr manager.Manager) {
 	if err := (&vapiV1.VerticaDB{}).SetupWebhookWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "VerticaDB", "version", vapiV1.Version)
 	}
-	if err := (&vapiB1.VerticaAutoscaler{}).SetupWebhookWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create webhook", "webhook", "VerticaAutoscaler", "version", vapiB1.Version)
+	if err := (&vapiV1.VerticaAutoscaler{}).SetupWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "VerticaAutoscaler", "version", vapiV1.Version)
 		os.Exit(1)
 	}
 	if err := (&vapiB1.EventTrigger{}).SetupWebhookWithManager(mgr); err != nil {

@@ -22,7 +22,6 @@ import (
 	"strconv"
 	"time"
 
-	v1 "github.com/vertica/vertica-kubernetes/api/v1"
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -200,9 +199,9 @@ func (p *PrometheusSpec) GetMap() map[string]string {
 	result["serverAddress"] = p.ServerAddress
 	result["query"] = p.Query
 	result["threshold"] = fmt.Sprintf("%d", p.Threshold)
-	// Only add ScaleDownThreshold if it is non-zero
-	if p.ScaleDownThreshold != 0 {
-		result["activationThreshold"] = fmt.Sprintf("%d", p.ScaleDownThreshold)
+	// Only add ScaleInThreshold if it is non-zero
+	if p.ScaleInThreshold != 0 {
+		result["activationThreshold"] = fmt.Sprintf("%d", p.ScaleInThreshold)
 	}
 
 	return result
@@ -258,25 +257,25 @@ func MakeScaledObjectSpec() *ScaledObjectSpec {
 	}
 }
 
-// HasScaleDownThreshold returns true if scale down threshold is set
-func (v *VerticaAutoscaler) HasScaleDownThreshold() bool {
+// HasScaleInThreshold returns true if scale in threshold is set
+func (v *VerticaAutoscaler) HasScaleInThreshold() bool {
 	if !v.IsHpaEnabled() {
 		return false
 	}
 	for i := range v.Spec.CustomAutoscaler.Hpa.Metrics {
 		m := &v.Spec.CustomAutoscaler.Hpa.Metrics[i]
-		if m.ScaleDownThreshold != nil {
+		if m.ScaleInThreshold != nil {
 			return true
 		}
 	}
 	return false
 }
 
-// GetMinReplicas calculates the minReplicas based on the scale down
+// GetMinReplicas calculates the minReplicas based on the scale in
 // threshold, and returns it
 func (v *VerticaAutoscaler) GetMinReplicas() *int32 {
 	vasCopy := v.DeepCopy()
-	if v.HasScaleDownThreshold() {
+	if v.HasScaleInThreshold() {
 		return &vasCopy.Spec.TargetSize
 	}
 	return vasCopy.Spec.CustomAutoscaler.Hpa.MinReplicas
@@ -373,25 +372,11 @@ func GenCompatibleFQDNHelper(scName string) string {
 	return m.ReplaceAllString(scName, "-")
 }
 
-func GetV1SubclusterFromV1beta1(src *Subcluster) v1.Subcluster {
-	return v1.Subcluster{
-		Name:                src.Name,
-		Size:                src.Size,
-		Type:                convertToSubclusterType(src),
-		ImageOverride:       src.ImageOverride,
-		NodeSelector:        src.NodeSelector,
-		Affinity:            v1.Affinity(src.Affinity),
-		PriorityClassName:   src.PriorityClassName,
-		Tolerations:         src.Tolerations,
-		Resources:           src.Resources,
-		ServiceType:         src.ServiceType,
-		ServiceName:         src.ServiceName,
-		ClientNodePort:      src.NodePort,
-		VerticaHTTPNodePort: src.VerticaHTTPNodePort,
-		ExternalIPs:         src.ExternalIPs,
-		LoadBalancerIP:      src.LoadBalancerIP,
-		ServiceAnnotations:  src.ServiceAnnotations,
-		Annotations:         src.Annotations,
-		Proxy:               (*v1.ProxySubclusterConfig)(src.Proxy),
+// ptrOrNil is a helper function to create a new pointer if not nil
+func ptrOrNil[T any](val *T) *T {
+	if val == nil {
+		return nil
 	}
+	newVal := *val
+	return &newVal
 }

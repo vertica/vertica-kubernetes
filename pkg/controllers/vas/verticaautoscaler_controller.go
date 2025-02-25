@@ -31,7 +31,6 @@ import (
 	"github.com/go-logr/logr"
 	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
 	v1vapi "github.com/vertica/vertica-kubernetes/api/v1"
-	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
@@ -53,6 +52,8 @@ type VerticaAutoscalerReconciler struct {
 // +kubebuilder:rbac:groups=vertica.com,resources=verticadbs,verbs=get;list;create;update;patch;delete
 // +kubebuilder:rbac:groups=autoscaling,resources=horizontalpodautoscalers,verbs=get;list;watch;create;update;delete;patch
 // +kubebuilder:rbac:groups=keda.sh,resources=scaledobjects,verbs=get;list;watch;create;update;delete;patch
+// +kubebuilder:rbac:groups=apiextensions.k8s.io,resources=customresourcedefinitions,verbs=get;list;update;patch
+// +kubebuilder:rbac:groups="",resources=configmaps,verbs=get;list;watch
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -64,7 +65,7 @@ func (r *VerticaAutoscalerReconciler) Reconcile(ctx context.Context, req ctrl.Re
 	log.Info("starting reconcile of VerticaAutoscaler")
 
 	var res ctrl.Result
-	vas := &vapi.VerticaAutoscaler{}
+	vas := &v1vapi.VerticaAutoscaler{}
 	err := r.Get(ctx, req.NamespacedName, vas)
 	if err != nil {
 		if errors.IsNotFound(err) {
@@ -95,8 +96,8 @@ func (r *VerticaAutoscalerReconciler) Reconcile(ctx context.Context, req ctrl.Re
 		MakeObjReconciler(r, vas, log),
 		// Check if the autoscaler is ready
 		MakeVerifyAutoscalerReconciler(r, vas, log),
-		// Scale down based on the lower threshold
-		MakeScaledownReconciler(r, vas, log),
+		// Scale in based on the lower threshold
+		MakeScaleinReconciler(r, vas, log),
 		// If scaling granularity is Pod, this will resize existing subclusters
 		// depending on the targetSize.
 		MakeSubclusterResizeReconciler(r, vas),
@@ -130,7 +131,7 @@ func isScaledObjectInstalled(discoveryClient discovery.DiscoveryInterface) bool 
 // SetupWithManager sets up the controller with the Manager.
 func (r *VerticaAutoscalerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	ctrlManager := ctrl.NewControllerManagedBy(mgr).
-		For(&vapi.VerticaAutoscaler{}).
+		For(&v1vapi.VerticaAutoscaler{}).
 		// Not a strict ownership, but this is used so that the operator will
 		// reconcile the VerticaAutoscaler for any change in the VerticaDB.
 		// This ensures the status fields are kept up to date.
