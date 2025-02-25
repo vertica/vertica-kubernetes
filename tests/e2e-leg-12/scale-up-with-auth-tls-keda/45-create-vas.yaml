@@ -30,6 +30,6 @@ spec:
         authSecret: prometheus-tls
         prometheus:
           authModes: tls
-          serverAddress: "http://prometheus-kube-prometheus-prometheus.prometheus.svc.cluster.local:9090"
+          serverAddress: "https://prometheus-kube-prometheus-prometheus.prometheus.svc.cluster.local:9090"
           query: sum(vertica_sessions_running_counter{type="active", initiator="user", service="v-scale-up-auth-tls-keda-pri1"})
           threshold: 2
