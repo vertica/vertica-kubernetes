@@ -137,3 +137,11 @@ func GenHPAName(vas *vapi.VerticaAutoscaler) types.NamespacedName {
 func GenScaledObjectName(vas *vapi.VerticaAutoscaler) types.NamespacedName {
 	return GenNamespacedName(vas, fmt.Sprintf("%s-keda", vas.Name))
 }
+
+func GenAuthSecretName(vas *vapi.VerticaAutoscaler, secretName string) types.NamespacedName {
+	return GenNamespacedName(vas, secretName)
+}
+
+func GenTriggerAuthenticationtName(vas *vapi.VerticaAutoscaler, secretName string) types.NamespacedName {
+	return GenNamespacedName(vas, fmt.Sprintf("%s-%s-creds", vas.Name, secretName))
+}

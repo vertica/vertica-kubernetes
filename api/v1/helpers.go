@@ -18,6 +18,7 @@ package v1
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"regexp"
 	"strconv"
@@ -28,7 +29,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -1181,6 +1182,61 @@ func (v *VerticaAutoscaler) GetHPAMetrics() []autoscalingv2.MetricSpec {
 	return metrics
 }
 
+// ValidatePrometheusAuthBasic will check if required key exists for type PrometheusAuthBasic
+func (authmode *PrometheusAuthModes) ValidatePrometheusAuthBasic(secretData map[string][]byte) error {
+	if _, ok := secretData[PrometheusSecretKeyUsername]; !ok {
+		return errors.New("username not found in secret")
+	}
+	if _, ok := secretData[PrometheusSecretKeyPassword]; !ok {
+		return errors.New("password not found in secret")
+	}
+	return nil
+}
+
+// ValidatePrometheusAuthBearer will check if required key exists for type PrometheusAuthBearer
+func (authmode *PrometheusAuthModes) ValidatePrometheusAuthBearer(secretData map[string][]byte) error {
+	if _, ok := secretData[PrometheusSecretKeyBearerToken]; !ok {
+		return errors.New("bearerToken not found in secret")
+	}
+	return nil
+}
+
+// ValidatePrometheusAuthTLS will check if required key exists for type PrometheusAuthTLS
+func (authmode *PrometheusAuthModes) ValidatePrometheusAuthTLS(secretData map[string][]byte) error {
+	if _, ok := secretData[PrometheusSecretKeyCa]; !ok {
+		return errors.New("ca not found in secret")
+	}
+	if _, ok := secretData[PrometheusSecretKeyCert]; !ok {
+		return errors.New("cert not found in secret")
+	}
+	if _, ok := secretData[PrometheusSecretKeyKey]; !ok {
+		return errors.New("key not found in secret")
+	}
+	return nil
+}
+
+// ValidatePrometheusAuthCustom will check if required key exists for type PrometheusAuthCustom
+func (authmode *PrometheusAuthModes) ValidatePrometheusAuthCustom(secretData map[string][]byte) error {
+	if _, ok := secretData[PrometheusSecretKeyCustomAuthHeader]; !ok {
+		return errors.New("customAuthHeader not found in secret")
+	}
+	if _, ok := secretData[PrometheusSecretKeyCustomAuthValue]; !ok {
+		return errors.New("customAuthValue not found in secret")
+	}
+	return nil
+}
+
+// ValidatePrometheusAuthTLSAndBasic will check if required key exists for type PrometheusAuthTLSAndBasic
+func (authmode *PrometheusAuthModes) ValidatePrometheusAuthTLSAndBasic(secretData map[string][]byte) error {
+	if err := authmode.ValidatePrometheusAuthBasic(secretData); err != nil {
+		return err
+	}
+	if err := authmode.ValidatePrometheusAuthTLS(secretData); err != nil {
+		return err
+	}
+	return nil
+}
+
 // GetMap Convert PrometheusSpec to map[string]string
 func (p *PrometheusSpec) GetMap() map[string]string {
 	result := make(map[string]string)
@@ -1216,6 +1272,10 @@ func (s *ScaleTrigger) IsNil() bool {
 
 func (s *ScaleTrigger) IsPrometheusMetric() bool {
 	return s.Type == PrometheusTriggerType || s.Type == ""
+}
+
+func (s *ScaleTrigger) GetUnsafeSslStr() string {
+	return strconv.FormatBool(s.Prometheus.UnsafeSsl)
 }
 
 func (s *ScaleTrigger) GetType() string {
@@ -1299,7 +1359,7 @@ func IsK8sSecretFound(ctx context.Context, vdb *VerticaDB, k8sClient client.Clie
 		Namespace: vdb.GetNamespace(),
 	}
 	err := k8sClient.Get(ctx, nm, secret)
-	if errors.IsNotFound(err) {
+	if k8sErrors.IsNotFound(err) {
 		return false, nil
 	} else if err != nil {
 		return false, err

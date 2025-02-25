@@ -16,6 +16,7 @@
 package vas
 
 import (
+	"context"
 	"path/filepath"
 	"testing"
 
@@ -24,8 +25,9 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
-	v1beta1 "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
+	"github.com/vertica/vertica-kubernetes/pkg/names"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -58,7 +60,7 @@ var _ = BeforeSuite(func() {
 	ExpectWithOffset(1, cfg).NotTo(BeNil())
 	restCfg = cfg
 
-	err = v1beta1.AddToScheme(scheme.Scheme)
+	err = vapi.AddToScheme(scheme.Scheme)
 	ExpectWithOffset(1, err).NotTo(HaveOccurred())
 	err = vapi.AddToScheme(scheme.Scheme)
 	ExpectWithOffset(1, err).NotTo(HaveOccurred())
@@ -95,4 +97,11 @@ func TestAPIs(t *testing.T) {
 	RegisterFailHandler(Fail)
 
 	RunSpecs(t, "vas Suite")
+}
+
+func deleteSecret(ctx context.Context, vas *vapi.VerticaAutoscaler, secretName string) {
+	nm := names.GenNamespacedName(vas, secretName)
+	secret := &corev1.Secret{}
+	Expect(k8sClient.Get(ctx, nm, secret)).Should(Succeed())
+	Expect(k8sClient.Delete(ctx, secret)).Should(Succeed())
 }

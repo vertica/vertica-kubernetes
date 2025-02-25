@@ -227,6 +227,27 @@ const (
 	PrometheusTriggerType TriggerType = "prometheus"
 )
 
+type PrometheusAuthModes string
+
+const (
+	PrometheusAuthBasic       PrometheusAuthModes = "basic"
+	PrometheusAuthBearer      PrometheusAuthModes = "bearer"
+	PrometheusAuthTLS         PrometheusAuthModes = "tls"
+	PrometheusAuthCustom      PrometheusAuthModes = "custom"
+	PrometheusAuthTLSAndBasic PrometheusAuthModes = "tls,basic"
+)
+
+const (
+	PrometheusSecretKeyUsername         string = "username"
+	PrometheusSecretKeyPassword         string = "password"
+	PrometheusSecretKeyBearerToken      string = "bearerToken"
+	PrometheusSecretKeyCa               string = "ca"
+	PrometheusSecretKeyCert             string = "cert"
+	PrometheusSecretKeyKey              string = "key"
+	PrometheusSecretKeyCustomAuthHeader string = "customAuthHeader"
+	PrometheusSecretKeyCustomAuthValue  string = "customAuthValue"
+)
+
 type PrometheusSpec struct {
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// The URL of the Prometheus server.
@@ -245,6 +266,24 @@ type PrometheusSpec struct {
 	// This is the lower bound at which the autoscaler starts scaling in to the minimum replica count.
 	// If the metric falls below threshold but is still above this value, the current replica count remains unchanged.
 	ScaleInThreshold int32 `json:"scaleInThreshold,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:default:=""
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:select:basic","urn:alm:descriptor:com.tectonic.ui:select:bearer","urn:alm:descriptor:com.tectonic.ui:select:tls","urn:alm:descriptor:com.tectonic.ui:select:custom","urn:alm:descriptor:com.tectonic.ui:select:tls,basic"}
+	// The authentication methods for Prometheus.
+	// Allowed types are 'basic', 'bearer', 'tls', 'custom' and 'tls,basic'.
+	// For 'basic' type, 'username' and 'password' are required fields in AuthSecret.
+	// For 'bearer' type, 'bearerToken' is required field in AuthSecret.
+	// For 'tls' type, 'ca', 'cert' and 'key' are required fields in AuthSecret.
+	// For 'custom' type, 'customAuthHeader' and 'customAuthValue' are required fields in AuthSecret.
+	// For 'tls,basic' type, 'username', 'password', 'ca', 'cert' and 'key' are required fields in AuthSecret.
+	AuthModes PrometheusAuthModes `json:"authModes,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:default=false
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:booleanSwitch","urn:alm:descriptor:com.tectonic.ui:advanced"}
+	// Used for skipping certificate check e.g: using self-signed certs.
+	UnsafeSsl bool `json:"unsafeSsl,omitempty"`
 }
 
 type CPUMemorySpec struct {

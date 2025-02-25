@@ -52,6 +52,7 @@ type VerticaAutoscalerReconciler struct {
 // +kubebuilder:rbac:groups=vertica.com,resources=verticadbs,verbs=get;list;create;update;patch;delete
 // +kubebuilder:rbac:groups=autoscaling,resources=horizontalpodautoscalers,verbs=get;list;watch;create;update;delete;patch
 // +kubebuilder:rbac:groups=keda.sh,resources=scaledobjects,verbs=get;list;watch;create;update;delete;patch
+// +kubebuilder:rbac:groups=keda.sh,resources=triggerauthentications,verbs=get;list;watch;create;update;delete;patch
 // +kubebuilder:rbac:groups=apiextensions.k8s.io,resources=customresourcedefinitions,verbs=get;list;update;patch
 // +kubebuilder:rbac:groups="",resources=configmaps,verbs=get;list;watch
 
@@ -128,6 +129,12 @@ func isScaledObjectInstalled(discoveryClient discovery.DiscoveryInterface) bool 
 	return err == nil
 }
 
+func isTrigerAuthenticationInstalled(discoveryClient discovery.DiscoveryInterface) bool {
+	gvr := schema.GroupVersionResource{Group: "keda.sh", Version: "v1alpha1", Resource: "triggerauthentications"}
+	_, err := discoveryClient.ServerResourcesForGroupVersion(gvr.GroupVersion().String())
+	return err == nil
+}
+
 // SetupWithManager sets up the controller with the Manager.
 func (r *VerticaAutoscalerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	ctrlManager := ctrl.NewControllerManagedBy(mgr).
@@ -142,6 +149,10 @@ func (r *VerticaAutoscalerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	discoveryClient := discovery.NewDiscoveryClientForConfigOrDie(mgr.GetConfig())
 	if isScaledObjectInstalled(discoveryClient) {
 		ctrlManager = ctrlManager.Owns(&kedav1alpha1.ScaledObject{})
+	}
+	// Check if TriggerAuthentication CRD is installed
+	if isTrigerAuthenticationInstalled(discoveryClient) {
+		ctrlManager = ctrlManager.Owns(&kedav1alpha1.TriggerAuthentication{})
 	}
 	return ctrlManager.Complete(r)
 }

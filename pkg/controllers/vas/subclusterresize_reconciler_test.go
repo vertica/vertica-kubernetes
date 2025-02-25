@@ -21,7 +21,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
-	v1beta1 "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	test "github.com/vertica/vertica-kubernetes/pkg/test"
 	"github.com/vertica/vertica-kubernetes/pkg/v1beta1_test"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -73,8 +72,8 @@ var _ = Describe("subclusterresize_reconcile", func() {
 		req := ctrl.Request{NamespacedName: vapi.MakeVASName()}
 		Expect(vasRec.Reconcile(ctx, req)).Should(Equal(ctrl.Result{}))
 
-		fetchVdb := &v1beta1.VerticaDB{}
-		nm := v1beta1.MakeVDBName()
+		fetchVdb := &vapi.VerticaDB{}
+		nm := vapi.MakeVDBName()
 		Expect(k8sClient.Get(ctx, nm, fetchVdb)).Should(Succeed())
 		Expect(fetchVdb.Spec.Subclusters[0].Size).Should(Equal(TargetSize))
 	})
@@ -93,8 +92,8 @@ var _ = Describe("subclusterresize_reconcile", func() {
 		req := ctrl.Request{NamespacedName: vapi.MakeVASName()}
 		Expect(vasRec.Reconcile(ctx, req)).Should(Equal(ctrl.Result{}))
 
-		fetchVdb := &v1beta1.VerticaDB{}
-		nm := v1beta1.MakeVDBName()
+		fetchVdb := &vapi.VerticaDB{}
+		nm := vapi.MakeVDBName()
 		Expect(k8sClient.Get(ctx, nm, fetchVdb)).Should(Succeed())
 		Expect(fetchVdb.Spec.Subclusters[0].Size).Should(Equal(vdb.Spec.Subclusters[0].Size))
 	})
@@ -113,8 +112,8 @@ var _ = Describe("subclusterresize_reconcile", func() {
 		req := ctrl.Request{NamespacedName: vapi.MakeVASName()}
 		Expect(vasRec.Reconcile(ctx, req)).Should(Equal(ctrl.Result{}))
 
-		fetchVdb := &v1beta1.VerticaDB{}
-		nm := v1beta1.MakeVDBName()
+		fetchVdb := &vapi.VerticaDB{}
+		nm := vapi.MakeVDBName()
 		Expect(k8sClient.Get(ctx, nm, fetchVdb)).Should(Succeed())
 		Expect(fetchVdb.Spec.Subclusters[0].Size).Should(Equal(vdb.Spec.Subclusters[0].Size))
 	})
@@ -140,8 +139,8 @@ var _ = Describe("subclusterresize_reconcile", func() {
 		req := ctrl.Request{NamespacedName: vapi.MakeVASName()}
 		Expect(vasRec.Reconcile(ctx, req)).Should(Equal(ctrl.Result{}))
 
-		fetchVdb := &v1beta1.VerticaDB{}
-		nm := v1beta1.MakeVDBName()
+		fetchVdb := &vapi.VerticaDB{}
+		nm := vapi.MakeVDBName()
 		Expect(k8sClient.Get(ctx, nm, fetchVdb)).Should(Succeed())
 		Expect(fetchVdb.Spec.Subclusters[0].Size).Should(Equal(vdb.Spec.Subclusters[0].Size))
 		Expect(fetchVdb.Spec.Subclusters[1].Size).Should(Equal(vas.Spec.TargetSize - vdb.Spec.Subclusters[0].Size))
@@ -169,8 +168,8 @@ var _ = Describe("subclusterresize_reconcile", func() {
 		req := ctrl.Request{NamespacedName: vapi.MakeVASName()}
 		Expect(vasRec.Reconcile(ctx, req)).Should(Equal(ctrl.Result{}))
 
-		fetchVdb := &v1beta1.VerticaDB{}
-		nm := v1beta1.MakeVDBName()
+		fetchVdb := &vapi.VerticaDB{}
+		nm := vapi.MakeVDBName()
 		Expect(k8sClient.Get(ctx, nm, fetchVdb)).Should(Succeed())
 		Expect(fetchVdb.Spec.Subclusters[0].Size).Should(Equal(vdb.Spec.Subclusters[0].Size + vdb.Spec.Subclusters[2].Size - NumPodsToRemove))
 		Expect(fetchVdb.Spec.Subclusters[1].Size).Should(Equal(vdb.Spec.Subclusters[1].Size))
@@ -195,11 +194,11 @@ var _ = Describe("subclusterresize_reconcile", func() {
 		v1beta1_test.CreateVAS(ctx, k8sClient, vas)
 		defer v1beta1_test.DeleteVAS(ctx, k8sClient, vas)
 
-		req := ctrl.Request{NamespacedName: v1beta1.MakeVASName()}
+		req := ctrl.Request{NamespacedName: vapi.MakeVASName()}
 		Expect(vasRec.Reconcile(ctx, req)).Should(Equal(ctrl.Result{}))
 
-		fetchVdb := &v1beta1.VerticaDB{}
-		nm := v1beta1.MakeVDBName()
+		fetchVdb := &vapi.VerticaDB{}
+		nm := vapi.MakeVDBName()
 		Expect(k8sClient.Get(ctx, nm, fetchVdb)).Should(Succeed())
 		Expect(fetchVdb.Spec.Subclusters[0].Size).Should(Equal(vdb.Spec.Subclusters[0].Size))
 		Expect(fetchVdb.Spec.Subclusters[1].Size).Should(Equal(vdb.Spec.Subclusters[1].Size))
