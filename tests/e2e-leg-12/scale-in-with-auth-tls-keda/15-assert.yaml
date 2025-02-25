@@ -11,19 +11,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: apps/v1
-kind: StatefulSet
+apiVersion: v1
+kind: Secret
 metadata:
-  name: v-scale-up-auth-tls-keda-pri1
-status:
-  currentReplicas: 3
-  readyReplicas: 3
+  name: prometheus-v-scale-in-auth-tls-keda
 ---
-apiVersion: vertica.com/v1
-kind: VerticaDB
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
 metadata:
-  name: v-scale-up-auth-tls-keda
-status:
-  subclusters:
-    - addedToDBCount: 3
-      upNodeCount: 3
+  name: k8s-vertica-prometheus-v-scale-in-auth-tls-keda
+  labels:
+    release: prometheus

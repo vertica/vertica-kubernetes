@@ -14,37 +14,37 @@
 apiVersion: vertica.com/v1beta1
 kind: VerticaAutoscaler
 metadata:
-  name: v-scale-up-auth-tls-keda-vas
+  name: v-scale-in-auth-tls-keda-vas
 status:
   conditions:
   - status: "True"
     type: TargetSizeInitialized
   - status: "True"
     type: ScalingActive
-  selector: vertica.com/subcluster-svc=pri1,vertica.com/is-sandbox=false,app.kubernetes.io/instance=v-scale-up-auth-tls-keda,app.kubernetes.io/managed-by=verticadb-operator
+  selector: vertica.com/subcluster-svc=pri1,vertica.com/is-sandbox=false,app.kubernetes.io/instance=v-scale-in-auth-tls-keda,app.kubernetes.io/managed-by=verticadb-operator
   scalingCount: 0
   currentSize: 3
 ---
 apiVersion: keda.sh/v1alpha1
 kind: ScaledObject
 metadata:
-  name: v-scale-up-auth-tls-keda-vas-keda
+  name: v-scale-in-auth-tls-keda-vas-keda
 spec:
   maxReplicaCount: 5
   minReplicaCount: 3
   scaleTargetRef:
     apiVersion: vertica.com/v1beta1
     kind: VerticaAutoscaler
-    name: v-scale-up-auth-tls-keda-vas
+    name: v-scale-in-auth-tls-keda-vas
   triggers:
   - metadata:
-      query: sum(vertica_sessions_running_counter{type="active", initiator="user", service="v-scale-up-auth-tls-keda-pri1"})
+      query: sum(vertica_sessions_running_counter{type="active", initiator="user", service="v-scale-in-auth-tls-keda-pri1"})
       serverAddress: https://prometheus-kube-prometheus-prometheus.prometheus.svc.cluster.local:9090
       threshold: "2"
       authModes: "tls"
       unsafeSsl: "false"
     authenticationRef: 
-      name: v-scale-up-auth-tls-keda-vas-prometheus-tls-creds
+      name: v-scale-in-auth-tls-keda-vas-prometheus-tls-creds
     metricType: AverageValue
     name: vertica_sessions_running_total
     type: prometheus
@@ -52,7 +52,7 @@ spec:
 apiVersion: keda.sh/v1alpha1
 kind: TriggerAuthentication
 metadata:
-  name: v-scale-up-auth-tls-keda-vas-prometheus-tls-creds
+  name: v-scale-in-auth-tls-keda-vas-prometheus-tls-creds
 spec:
   secretTargetRef:
   - key: ca
