@@ -11,7 +11,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1beta1
+apiVersion: vertica.com/v1
 kind: VerticaAutoscaler
 metadata:
   name: v-scale-in-auth-tls-keda-vas
@@ -31,7 +31,7 @@ spec:
   maxReplicaCount: 5
   minReplicaCount: 3
   scaleTargetRef:
-    apiVersion: vertica.com/v1beta1
+    apiVersion: vertica.com/v1
     kind: VerticaAutoscaler
     name: v-scale-in-auth-tls-keda-vas
   triggers:
