@@ -14,8 +14,5 @@
 apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 commands:
-  - script: cd ../../.. && make undeploy-prometheus || true
-  - script: cd ../../.. && make undeploy-prometheus-adapter || true
-  - script: cd ../../.. && make deploy-prometheus-tls
-  - script: cd ../../.. && make deploy-prometheus-adapter-tls
-  - script: cd ../../.. && make deploy-prometheus-service-monitor VDB_NAMESPACE=$NAMESPACE DB_USER=dbadmin DB_PASSWORD=topsecret VDB_NAME=v-scale-in-auth-tls-keda 
+  - script: cd ../../.. && make deploy-prometheus-tls PROMETHEUS_NAMESPACE=prometheus-tls PROMETHEUS_HELM_NAME=prometheus-tls
+  - script: cd ../../.. && make deploy-prometheus-service-monitor VDB_NAMESPACE=$NAMESPACE DB_USER=dbadmin DB_PASSWORD=topsecret VDB_NAME=v-scale-in-auth-tls-keda PROMETHEUS_HELM_NAME=prometheus-tls

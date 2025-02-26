@@ -39,7 +39,7 @@ spec:
   triggers:
   - metadata:
       query: sum(vertica_sessions_running_counter{type="active", initiator="user", service="v-scale-in-auth-tls-keda-pri1"})
-      serverAddress: https://prometheus-kube-prometheus-prometheus.prometheus.svc.cluster.local:9090
+      serverAddress: https://prometheus-tls-kube-promet-prometheus.prometheus-tls.svc.cluster.local:9090
       threshold: "2"
       authModes: "tls"
       unsafeSsl: "false"
