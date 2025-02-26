@@ -345,7 +345,7 @@ func (v *VerticaAutoscaler) validateHPA(allErrs field.ErrorList) field.ErrorList
 	pathPrefix := field.NewPath("spec").Child("customAutoscaler")
 	// validate stabilization window
 	if v.HasScaleInThreshold() && v.Spec.CustomAutoscaler.Hpa.Behavior != nil &&
-		v.Spec.CustomAutoscaler.Hpa.Behavior.ScaleIn != nil && *v.Spec.CustomAutoscaler.Hpa.Behavior.ScaleIn.StabilizationWindowSeconds != 0 {
+		v.Spec.CustomAutoscaler.Hpa.Behavior.ScaleDown != nil && *v.Spec.CustomAutoscaler.Hpa.Behavior.ScaleDown.StabilizationWindowSeconds != 0 {
 		err := field.Invalid(pathPrefix.Child("hpa"),
 			v.Spec.CustomAutoscaler.Hpa,
 			"When scaleInThreshold is set, scalein stabilization window must be 0")
@@ -363,7 +363,7 @@ func (v *VerticaAutoscaler) validateHPA(allErrs field.ErrorList) field.ErrorList
 					err := field.Invalid(pathPrefix.Child("hpa").Child("metrics").Index(i).Child("scaleInThreshold").Child("type"),
 						v.Spec.CustomAutoscaler.Hpa.Metrics[i].ScaleInThreshold.Type,
 						fmt.Sprintf("scaleInThreshold %s must be of the same type as the threshold used for scale out %s",
-							metric.ScaleInThreshold.Type, &metric.Metric.Pods.Target.Type),
+							metric.ScaleInThreshold.Type, metric.Metric.Pods.Target.Type),
 					)
 					allErrs = append(allErrs, err)
 				}
@@ -372,7 +372,7 @@ func (v *VerticaAutoscaler) validateHPA(allErrs field.ErrorList) field.ErrorList
 					err := field.Invalid(pathPrefix.Child("hpa").Child("metrics").Index(i).Child("scaleInThreshold").Child("type"),
 						v.Spec.CustomAutoscaler.Hpa.Metrics[i].ScaleInThreshold.Type,
 						fmt.Sprintf("scaleInThreshold %s must be of the same type as the threshold used for scale out %s",
-							metric.ScaleInThreshold.Type, &metric.Metric.Object.Target.Type),
+							metric.ScaleInThreshold.Type, metric.Metric.Object.Target.Type),
 					)
 					allErrs = append(allErrs, err)
 				}
