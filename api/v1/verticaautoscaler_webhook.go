@@ -93,6 +93,8 @@ func (v *VerticaAutoscaler) validateSpec() field.ErrorList {
 	allErrs = v.validateCustomAutoscaler(allErrs)
 	allErrs = v.validateScaledObject(allErrs)
 	allErrs = v.validateHPA(allErrs)
+	allErrs = v.validateReplicas(allErrs)
+	allErrs = v.validateMetricsName(allErrs)
 	return allErrs
 }
 
@@ -124,6 +126,12 @@ func (v *VerticaAutoscaler) validateScalingGranularity(allErrs field.ErrorList) 
 // validateSubclusterTemplate will validate the subcluster template
 func (v *VerticaAutoscaler) validateSubclusterTemplate(allErrs field.ErrorList) field.ErrorList {
 	pathPrefix := field.NewPath("spec").Child("template")
+	if v.Spec.CustomAutoscaler == nil && v.Spec.Template.ServiceName == "" && v.Spec.ServiceName == "" {
+		err := field.Invalid(pathPrefix.Child("serviceName"),
+			v.Spec.Template.ServiceName,
+			"Service name can not be empty if customAutoscaler is empty.")
+		allErrs = append(allErrs, err)
+	}
 	if v.CanUseTemplate() && v.Spec.ServiceName != "" && v.Spec.Template.ServiceName != v.Spec.ServiceName {
 		err := field.Invalid(pathPrefix.Child("serviceName"),
 			v.Spec.Template.ServiceName,
@@ -152,6 +160,122 @@ func (v *VerticaAutoscaler) validateCustomAutoscaler(allErrs field.ErrorList) fi
 		)
 		allErrs = append(allErrs, err)
 	}
+
+	if v.Spec.CustomAutoscaler != nil {
+		// customAutoscaler.Hpa must be non-nil if customAutoscaler.type is HPA
+		if v.Spec.CustomAutoscaler.Hpa == nil && v.Spec.CustomAutoscaler.Type == HPA {
+			err := field.Invalid(pathPrefix.Child("type"),
+				v.Spec.CustomAutoscaler.Type,
+				fmt.Sprintf("customAutoscaler.Hpa must be non-nil if customAutoscaler.type is %s.", HPA),
+			)
+			allErrs = append(allErrs, err)
+		}
+		// customAutoscaler.ScaledObject must be non-nil if customAutoscaler.type == "ScaledObject" or empty
+		if v.Spec.CustomAutoscaler.ScaledObject == nil && (v.Spec.CustomAutoscaler.Type == ScaledObject || v.Spec.CustomAutoscaler.Type == "") {
+			err := field.Invalid(pathPrefix.Child("type"),
+				v.Spec.CustomAutoscaler.Type,
+				fmt.Sprintf("customAutoscaler.ScaledObject must be non-nil if customAutoscaler.type is %s or empty.", ScaledObject),
+			)
+			allErrs = append(allErrs, err)
+		}
+	}
+	return allErrs
+}
+
+// validateReplicas will check if minReplicas and maxReplicas are valid
+func (v *VerticaAutoscaler) validateReplicas(allErrs field.ErrorList) field.ErrorList {
+	if v.Spec.CustomAutoscaler != nil {
+		if v.Spec.CustomAutoscaler.Type == HPA {
+			pathPrefix := field.NewPath("spec").Child("customAutoscaler").Child("HPA")
+			if v.Spec.CustomAutoscaler.Hpa.MaxReplicas == 0 {
+				err := field.Invalid(pathPrefix.Child("MaxReplicas"),
+					v.Spec.CustomAutoscaler.Hpa.MaxReplicas,
+					"maxReplicas must be set.")
+				allErrs = append(allErrs, err)
+			}
+
+			if v.Spec.CustomAutoscaler.Hpa.MaxReplicas < *v.Spec.CustomAutoscaler.Hpa.MinReplicas {
+				err := field.Invalid(pathPrefix.Child("MaxReplicas"),
+					v.Spec.CustomAutoscaler.Hpa.MaxReplicas,
+					fmt.Sprintf("maxReplicas %d cannot be less than minReplicas %d.",
+						v.Spec.CustomAutoscaler.Hpa.MaxReplicas, v.Spec.CustomAutoscaler.Hpa.MinReplicas),
+				)
+				allErrs = append(allErrs, err)
+			}
+		}
+
+		if v.Spec.CustomAutoscaler.Type == ScaledObject {
+			pathPrefix := field.NewPath("spec").Child("customAutoscaler").Child("ScaledObject")
+			if *v.Spec.CustomAutoscaler.ScaledObject.MaxReplicas == 0 {
+				err := field.Invalid(pathPrefix.Child("MaxReplicas"),
+					v.Spec.CustomAutoscaler.ScaledObject.MaxReplicas,
+					"maxReplicas must be set.")
+				allErrs = append(allErrs, err)
+			}
+
+			if *v.Spec.CustomAutoscaler.ScaledObject.MaxReplicas < *v.Spec.CustomAutoscaler.ScaledObject.MinReplicas {
+				err := field.Invalid(pathPrefix.Child("MaxReplicas"),
+					v.Spec.CustomAutoscaler.ScaledObject.MaxReplicas,
+					fmt.Sprintf("maxReplicas %d cannot be less than minReplicas %d.",
+						v.Spec.CustomAutoscaler.ScaledObject.MaxReplicas, v.Spec.CustomAutoscaler.ScaledObject.MinReplicas),
+				)
+				allErrs = append(allErrs, err)
+			}
+		}
+	}
+	return allErrs
+}
+
+func hasDuplicates[T comparable](s []T) bool {
+	seen := make(map[T]bool)
+	for _, element := range s {
+		if seen[element] {
+			return false // Duplicate found
+		}
+		seen[element] = true
+	}
+	return true // No duplicates found
+}
+
+// validateMetricsName makes sure 2 metrics cannot have the same name
+func (v *VerticaAutoscaler) validateMetricsName(allErrs field.ErrorList) field.ErrorList {
+	metrics := []string{}
+	pathPrefix := field.NewPath("spec").Child("customAutoscaler")
+	if v.Spec.CustomAutoscaler != nil && v.Spec.CustomAutoscaler.Type == ScaledObject {
+		for i := range v.Spec.CustomAutoscaler.ScaledObject.Metrics {
+			metric := &v.Spec.CustomAutoscaler.ScaledObject.Metrics[i]
+			metrics = append(metrics, metric.Name)
+
+			// 2 metrics cannot have the same name
+			if !hasDuplicates(metrics) {
+				err := field.Invalid(pathPrefix.Child("scaledObject").Child("metrics").Index(i).Child("name"),
+					v.Spec.CustomAutoscaler.ScaledObject.Metrics[i].Name,
+					fmt.Sprintf("Metric name '%s' cannot be the same.", metric.Name),
+				)
+				allErrs = append(allErrs, err)
+			}
+		}
+	}
+	return allErrs
+}
+
+func (v *VerticaAutoscaler) validateImmutableFields(old runtime.Object) field.ErrorList {
+	var allErrs field.ErrorList
+	oldObj := old.(*VerticaAutoscaler)
+
+	allErrs = v.checkImmutableCustomAutoscaler(oldObj, allErrs)
+	return allErrs
+}
+
+func (v *VerticaAutoscaler) checkImmutableCustomAutoscaler(oldObj *VerticaAutoscaler, allErrs field.ErrorList) field.ErrorList {
+	// cannot set customAutoscaler after CR creation
+	if v.Spec.CustomAutoscaler != oldObj.Spec.CustomAutoscaler {
+		err := field.Invalid(field.NewPath("spec").Child("customAutoscaler"),
+			v.Spec.CustomAutoscaler,
+			"cannot set customAutoscaler after CR creation.")
+		allErrs = append(allErrs, err)
+	}
+
 	return allErrs
 }
 
@@ -183,6 +307,15 @@ func (v *VerticaAutoscaler) validateScaledObject(allErrs field.ErrorList) field.
 				)
 				allErrs = append(allErrs, err)
 			}
+			// metrics[].prometheus must not be nil if metrics[].type is "prometheus"
+			if metric.Type == PrometheusTriggerType && metric.Prometheus == nil {
+				err := field.Invalid(pathPrefix.Child("scaledObject").Child("metrics").Index(i).Child("type"),
+					v.Spec.CustomAutoscaler.ScaledObject.Metrics[i].MetricType,
+					fmt.Sprintf("When Type is set to %s, metrics[].prometheus must not be nil.",
+						PrometheusTriggerType),
+				)
+				allErrs = append(allErrs, err)
+			}
 			// validate cpu/mem type metric
 			if (metric.Type == CPUTriggerType || metric.Type == MemTriggerType) && !slices.Contains(cpumemMetricTypes, metric.MetricType) {
 				err := field.Invalid(pathPrefix.Child("scaledObject").Child("metrics").Index(i).Child("type"),
@@ -190,6 +323,15 @@ func (v *VerticaAutoscaler) validateScaledObject(allErrs field.ErrorList) field.
 					fmt.Sprintf("When Type is set to %s or %s "+
 						"metricType must be one of '%s', '%s'.",
 						CPUTriggerType, MemTriggerType, autoscalingv2.UtilizationMetricType, autoscalingv2.AverageValueMetricType),
+				)
+				allErrs = append(allErrs, err)
+			}
+			// metrics[].resource must not be nil if metrics[].type is "cpu" or "memory"
+			if (metric.Type == CPUTriggerType || metric.Type == MemTriggerType) && metric.Resource == nil {
+				err := field.Invalid(pathPrefix.Child("scaledObject").Child("metrics").Index(i).Child("type"),
+					v.Spec.CustomAutoscaler.ScaledObject.Metrics[i].MetricType,
+					fmt.Sprintf("When Type is set to %s or %s, metrics[].resource must not be nil.",
+						CPUTriggerType, MemTriggerType),
 				)
 				allErrs = append(allErrs, err)
 			}
@@ -203,11 +345,39 @@ func (v *VerticaAutoscaler) validateHPA(allErrs field.ErrorList) field.ErrorList
 	pathPrefix := field.NewPath("spec").Child("customAutoscaler")
 	// validate stabilization window
 	if v.HasScaleInThreshold() && v.Spec.CustomAutoscaler.Hpa.Behavior != nil &&
-		v.Spec.CustomAutoscaler.Hpa.Behavior.ScaleDown != nil && *v.Spec.CustomAutoscaler.Hpa.Behavior.ScaleDown.StabilizationWindowSeconds != 0 {
+		v.Spec.CustomAutoscaler.Hpa.Behavior.ScaleIn != nil && *v.Spec.CustomAutoscaler.Hpa.Behavior.ScaleIn.StabilizationWindowSeconds != 0 {
 		err := field.Invalid(pathPrefix.Child("hpa"),
 			v.Spec.CustomAutoscaler.Hpa,
-			"When scaledownThreshold is set, scaledown stabilization window must be 0")
+			"When scaleInThreshold is set, scalein stabilization window must be 0")
 		allErrs = append(allErrs, err)
+	}
+
+	// validate scaleInThreshold type
+	if v.HasScaleInThreshold() {
+		pathPrefix := field.NewPath("spec").Child("customAutoscaler")
+		if v.Spec.CustomAutoscaler.Type == HPA {
+			for i := range v.Spec.CustomAutoscaler.Hpa.Metrics {
+				metric := &v.Spec.CustomAutoscaler.Hpa.Metrics[i]
+
+				if metric.Metric.Pods != nil && metric.ScaleInThreshold.Type != metric.Metric.Pods.Target.Type {
+					err := field.Invalid(pathPrefix.Child("hpa").Child("metrics").Index(i).Child("scaleInThreshold").Child("type"),
+						v.Spec.CustomAutoscaler.Hpa.Metrics[i].ScaleInThreshold.Type,
+						fmt.Sprintf("scaleInThreshold %s must be of the same type as the threshold used for scale out %s",
+							metric.ScaleInThreshold.Type, &metric.Metric.Pods.Target.Type),
+					)
+					allErrs = append(allErrs, err)
+				}
+
+				if metric.Metric.Object != nil && metric.ScaleInThreshold.Type != metric.Metric.Object.Target.Type {
+					err := field.Invalid(pathPrefix.Child("hpa").Child("metrics").Index(i).Child("scaleInThreshold").Child("type"),
+						v.Spec.CustomAutoscaler.Hpa.Metrics[i].ScaleInThreshold.Type,
+						fmt.Sprintf("scaleInThreshold %s must be of the same type as the threshold used for scale out %s",
+							metric.ScaleInThreshold.Type, &metric.Metric.Object.Target.Type),
+					)
+					allErrs = append(allErrs, err)
+				}
+			}
+		}
 	}
 	return allErrs
 }

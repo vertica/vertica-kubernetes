@@ -35,6 +35,15 @@ var _ = Describe("verticaautoscaler_webhook", func() {
 		Expect(err).ShouldNot(Succeed())
 	})
 
+	It("should not allow setting of CustomAutoscaler after Autoscaler creation", func() {
+		oldVas := MakeVAS()
+		oldVas.Spec.CustomAutoscaler = nil
+		newVas := MakeVAS()
+		newVas.Spec.CustomAutoscaler.Type = HPA
+		err := newVas.validateImmutableFields(oldVas)
+		Expect(err).ShouldNot(Succeed())
+	})
+
 	It("should fail if the service name differs", func() {
 		vas := MakeVAS()
 		vas.Spec.ScalingGranularity = SubclusterScalingGranularity
@@ -68,6 +77,27 @@ var _ = Describe("verticaautoscaler_webhook", func() {
 		Expect(err1).Should(Succeed())
 	})
 
+	It("maxReplicas must be set", func() {
+		vas := MakeVAS()
+		var maxReplicas int32 = 0
+		vas.Spec.CustomAutoscaler.Hpa.MaxReplicas = maxReplicas
+		_, err := vas.ValidateCreate()
+		Expect(err.Error()).To(ContainSubstring("HPA maxReplicas must be set"))
+		vas.Spec.CustomAutoscaler.ScaledObject.MaxReplicas = &maxReplicas
+		_, err = vas.ValidateCreate()
+		Expect(err.Error()).To(ContainSubstring("ScaledObject maxReplicas must be set"))
+	})
+
+	It("maxReplicas cannot be less than minReplicas", func() {
+		vas := MakeVAS()
+		var maxReplicas int32 = 3
+		var minReplicas int32 = 5
+		vas.Spec.CustomAutoscaler.ScaledObject.MaxReplicas = &maxReplicas
+		vas.Spec.CustomAutoscaler.ScaledObject.MinReplicas = &minReplicas
+		_, err := vas.ValidateCreate()
+		Expect(err.Error()).To(ContainSubstring("maxReplicas cannot be less than minReplicas"))
+	})
+
 	It("should fail if scaledobject metrics type is not set properly", func() {
 		vas := MakeVASWithScaledObject()
 		_, err := vas.ValidateCreate()
@@ -75,6 +105,35 @@ var _ = Describe("verticaautoscaler_webhook", func() {
 		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].Type = "BadValue"
 		_, err = vas.ValidateCreate()
 		Expect(err).ShouldNot(Succeed())
+	})
+
+	It("should fail if two metrics have the same name", func() {
+		vas := MakeVASWithScaledObject()
+		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].Name = "vertica_queued_requests_count"
+		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[1].Name = "vertica_queued_requests_count"
+		_, err := vas.ValidateCreate()
+		Expect(err.Error()).To(ContainSubstring("cannot be the same"))
+	})
+
+	It("should fail if scaledobject metrics type is prometheus and metrics[].prometheus is nil", func() {
+		vas := MakeVASWithScaledObject()
+		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].Type = PrometheusTriggerType
+		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].Prometheus = nil
+		_, err := vas.ValidateCreate()
+		Expect(err.Error()).To(ContainSubstring("metrics[].prometheus must not be nil"))
+	})
+
+	It("should fail if scaledobject metrics type is cpu/mem and metrics[].resource is nil", func() {
+		vas := MakeVASWithScaledObject()
+		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].Type = CPUTriggerType
+		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].Resource = nil
+		_, err := vas.ValidateCreate()
+		Expect(err.Error()).To(ContainSubstring("metrics[].resource must not be nil"))
+
+		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].Type = MemTriggerType
+		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].Resource = nil
+		_, err = vas.ValidateCreate()
+		Expect(err.Error()).To(ContainSubstring("metrics[].resource must not be nil"))
 	})
 
 	It("should fail if scaledobject metrics type is prometheus and metricType is not set properly", func() {
@@ -113,5 +172,34 @@ var _ = Describe("verticaautoscaler_webhook", func() {
 		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].MetricType = autoscalingv2.ValueMetricType
 		_, err = vas.ValidateCreate()
 		Expect(err).ShouldNot(Succeed())
+	})
+
+	It("should fail if scaleInThreshold type is different to the threshold type used for scale out", func() {
+		vas := MakeVASWithScaledObject()
+		vas.Spec.CustomAutoscaler.Hpa.Metrics[0].Metric.Pods.Target.Type = "AverageValue"
+		vas.Spec.CustomAutoscaler.Hpa.Metrics[0].ScaleInThreshold.Type = "Value"
+		_, err := vas.ValidateCreate()
+		Expect(err.Error()).To(ContainSubstring("must be of the same type as the threshold used for scale out"))
+
+		vas.Spec.CustomAutoscaler.Hpa.Metrics[0].Metric.Object.Target.Type = "AverageValue"
+		vas.Spec.CustomAutoscaler.Hpa.Metrics[0].ScaleInThreshold.Type = "Value"
+		_, err = vas.ValidateCreate()
+		Expect(err.Error()).To(ContainSubstring("must be of the same type as the threshold used for scale out"))
+	})
+
+	It("should fail if customAutoscaler.Hpa is nil and customAutoscaler.type is HPA", func() {
+		vas := MakeVASWithScaledObject()
+		vas.Spec.CustomAutoscaler.Type = HPA
+		vas.Spec.CustomAutoscaler.Hpa = nil
+		_, err := vas.ValidateCreate()
+		Expect(err.Error()).To(ContainSubstring("customAutoscaler.Hpa must be non-nil"))
+	})
+
+	It("should fail if customAutoscaler.ScaledObject is nil and customAutoscaler.type is ScaledObject", func() {
+		vas := MakeVASWithScaledObject()
+		vas.Spec.CustomAutoscaler.Type = ScaledObject
+		vas.Spec.CustomAutoscaler.ScaledObject = nil
+		_, err := vas.ValidateCreate()
+		Expect(err.Error()).To(ContainSubstring("customAutoscaler.ScaledObject must be non-nil"))
 	})
 })
