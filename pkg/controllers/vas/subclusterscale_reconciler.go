@@ -155,10 +155,9 @@ func (s *SubclusterScaleReconciler) genNextSubclusterName(scMap map[string]*vapi
 	if baseName == "" {
 		baseName = s.Vas.Name
 	}
-	preferredName := vapi.GenCompatibleFQDNHelper(baseName)
 	i := 0
 	for {
-		name := fmt.Sprintf("%s-%d", preferredName, i)
+		name := fmt.Sprintf("%s-%d", baseName, i)
 		_, ok := scMap[name]
 		if !ok {
 			return name
