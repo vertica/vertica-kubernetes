@@ -16,9 +16,6 @@ kind: VerticaAutoscaler
 metadata:
   name: v-scale-in-auth-tls-keda-vas
 status:
-  conditions:
-  - status: "True"
-    type: TargetSizeInitialized
   selector: vertica.com/subcluster-svc=pri1,vertica.com/is-sandbox=false,app.kubernetes.io/instance=v-scale-in-auth-tls-keda,app.kubernetes.io/managed-by=verticadb-operator
   scalingCount: 0
   currentSize: 3
