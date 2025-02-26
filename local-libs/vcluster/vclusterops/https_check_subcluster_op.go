@@ -78,11 +78,12 @@ func (op *httpsCheckSubclusterOp) setupClusterHTTPRequest(hosts []string) error 
 
 func (op *httpsCheckSubclusterOp) prepare(execContext *opEngineExecContext) error {
 	if len(execContext.upHosts) == 0 {
-		return fmt.Errorf(`[%s] Cannot find any up hosts in OpEngineExecContext`, op.name)
+		return fmt.Errorf(`[%s] Cannot find any up hosts to run the op`, op.name)
 	}
-	execContext.dispatcher.setup(execContext.upHosts)
+	hosts := execContext.upHosts
+	execContext.dispatcher.setup(hosts)
 
-	return op.setupClusterHTTPRequest(execContext.upHosts)
+	return op.setupClusterHTTPRequest(hosts)
 }
 
 func (op *httpsCheckSubclusterOp) execute(execContext *opEngineExecContext) error {
@@ -105,7 +106,7 @@ type scInfo struct {
 // Return true if all the results need to be scanned to figure out
 // correct subcluster details
 func completeScanRequired(cmdType CmdType) bool {
-	return cmdType == StopSubclusterCmd
+	return cmdType == StopSubclusterCmd || cmdType == UnsandboxSCCmd
 }
 
 func (op *httpsCheckSubclusterOp) processResult(_ *opEngineExecContext) error {
@@ -131,12 +132,12 @@ func (op *httpsCheckSubclusterOp) processResult(_ *opEngineExecContext) error {
 		/*
 			                   {
 			                     "subcluster_name": "sc1",
-				              "control_set_size": 2,
-					      "is_secondary": true,
-					      "is_default": false,
-					      "sandbox": "",
-					      "is_critical": false
-					   }
+				              	 "control_set_size": 2,
+					       		 "is_secondary": true,
+					      	 	 "is_default": false,
+					      		 "sandbox": "",
+					      		 "is_critical": false
+					   		   }
 		*/
 		subclusterInfo := scInfo{}
 		err = op.parseAndCheckResponse(host, result.content, &subclusterInfo)
@@ -153,6 +154,11 @@ func (op *httpsCheckSubclusterOp) processResult(_ *opEngineExecContext) error {
 		// cache subcluster critical info for stop subcluster command
 		if subclusterInfo.IsCritical {
 			isSubclusterCritical = true
+			if op.cmdType == UnsandboxSCCmd {
+				return fmt.Errorf("[%s] subcluster %s is critical, unsandboxing the subcluster will leave the"+
+					" database/sandbox in an inconsistent state, consider demoting/stopping the subcluster before unsandboxing",
+					op.name, op.scName)
+			}
 		}
 
 		// early return if the command only needs response from one host
