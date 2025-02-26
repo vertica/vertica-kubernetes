@@ -99,7 +99,7 @@ func (op *httpsPollCertificateHealthOp) processResult(execContext *opEngineExecC
 		// show the hosts that aren't responding
 		msg := fmt.Sprintf("Have not yet received OK from the hosts '%v', details: %s",
 			util.SliceDiff(op.hosts, op.okHosts), err)
-		op.logger.PrintError(msg)
+		op.logger.PrintError("%s", msg)
 		return errors.New(msg)
 	}
 	return nil
