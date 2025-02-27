@@ -68,14 +68,34 @@ func (v *VerticaAutoscaler) ValidateCreate() (admission.Warnings, error) {
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
-func (v *VerticaAutoscaler) ValidateUpdate(_ runtime.Object) (admission.Warnings, error) {
+func (v *VerticaAutoscaler) ValidateUpdate(old runtime.Object) (admission.Warnings, error) {
 	verticaautoscalerlog.Info("validate update", "name", v.Name)
+	allErrs := append(v.validateImmutableFields(old), v.validateSpec()...)
 
-	allErrs := v.validateSpec()
 	if len(allErrs) == 0 {
 		return nil, nil
 	}
 	return nil, apierrors.NewInvalid(schema.GroupKind{Group: Group, Kind: VerticaAutoscalerKind}, v.Name, allErrs)
+}
+
+func (v *VerticaAutoscaler) validateImmutableFields(old runtime.Object) field.ErrorList {
+	var allErrs field.ErrorList
+	oldObj := old.(*VerticaAutoscaler)
+
+	allErrs = v.checkImmutableCustomAutoscaler(oldObj, allErrs)
+	return allErrs
+}
+
+func (v *VerticaAutoscaler) checkImmutableCustomAutoscaler(oldObj *VerticaAutoscaler, allErrs field.ErrorList) field.ErrorList {
+	// cannot set customAutoscaler after CR creation
+	if v.Spec.CustomAutoscaler != oldObj.Spec.CustomAutoscaler {
+		err := field.Invalid(field.NewPath("spec").Child("customAutoscaler"),
+			v.Spec.CustomAutoscaler,
+			"cannot set customAutoscaler after CR creation.")
+		allErrs = append(allErrs, err)
+	}
+
+	return allErrs
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
@@ -226,17 +246,6 @@ func (v *VerticaAutoscaler) validateReplicas(allErrs field.ErrorList) field.Erro
 	return allErrs
 }
 
-func hasDuplicates[T comparable](s []T) bool {
-	seen := make(map[T]bool)
-	for _, element := range s {
-		if seen[element] {
-			return false // Duplicate found
-		}
-		seen[element] = true
-	}
-	return true // No duplicates found
-}
-
 // validateMetricsName makes sure 2 metrics cannot have the same name
 func (v *VerticaAutoscaler) validateMetricsName(allErrs field.ErrorList) field.ErrorList {
 	metrics := []string{}
@@ -256,26 +265,6 @@ func (v *VerticaAutoscaler) validateMetricsName(allErrs field.ErrorList) field.E
 			}
 		}
 	}
-	return allErrs
-}
-
-func (v *VerticaAutoscaler) validateImmutableFields(old runtime.Object) field.ErrorList {
-	var allErrs field.ErrorList
-	oldObj := old.(*VerticaAutoscaler)
-
-	allErrs = v.checkImmutableCustomAutoscaler(oldObj, allErrs)
-	return allErrs
-}
-
-func (v *VerticaAutoscaler) checkImmutableCustomAutoscaler(oldObj *VerticaAutoscaler, allErrs field.ErrorList) field.ErrorList {
-	// cannot set customAutoscaler after CR creation
-	if v.Spec.CustomAutoscaler != oldObj.Spec.CustomAutoscaler {
-		err := field.Invalid(field.NewPath("spec").Child("customAutoscaler"),
-			v.Spec.CustomAutoscaler,
-			"cannot set customAutoscaler after CR creation.")
-		allErrs = append(allErrs, err)
-	}
-
 	return allErrs
 }
 
@@ -362,7 +351,7 @@ func (v *VerticaAutoscaler) validateHPA(allErrs field.ErrorList) field.ErrorList
 				if metric.Metric.Pods != nil && metric.ScaleInThreshold.Type != metric.Metric.Pods.Target.Type {
 					err := field.Invalid(pathPrefix.Child("hpa").Child("metrics").Index(i).Child("scaleInThreshold").Child("type"),
 						v.Spec.CustomAutoscaler.Hpa.Metrics[i].ScaleInThreshold.Type,
-						fmt.Sprintf("scaleInThreshold %s must be of the same type as the threshold used for scale out %s",
+						fmt.Sprintf("scaleInThreshold type %s must be of the same type as the threshold used for scale out %s",
 							metric.ScaleInThreshold.Type, metric.Metric.Pods.Target.Type),
 					)
 					allErrs = append(allErrs, err)
@@ -371,11 +360,39 @@ func (v *VerticaAutoscaler) validateHPA(allErrs field.ErrorList) field.ErrorList
 				if metric.Metric.Object != nil && metric.ScaleInThreshold.Type != metric.Metric.Object.Target.Type {
 					err := field.Invalid(pathPrefix.Child("hpa").Child("metrics").Index(i).Child("scaleInThreshold").Child("type"),
 						v.Spec.CustomAutoscaler.Hpa.Metrics[i].ScaleInThreshold.Type,
-						fmt.Sprintf("scaleInThreshold %s must be of the same type as the threshold used for scale out %s",
+						fmt.Sprintf("scaleInThreshold type %s must be of the same type as the threshold used for scale out %s",
 							metric.ScaleInThreshold.Type, metric.Metric.Object.Target.Type),
 					)
 					allErrs = append(allErrs, err)
 				}
+
+				if metric.Metric.ContainerResource != nil && metric.ScaleInThreshold.Type != metric.Metric.ContainerResource.Target.Type {
+					err := field.Invalid(pathPrefix.Child("hpa").Child("metrics").Index(i).Child("scaleInThreshold").Child("type"),
+						v.Spec.CustomAutoscaler.Hpa.Metrics[i].ScaleInThreshold.Type,
+						fmt.Sprintf("scaleInThreshold type %s must be of the same type as the threshold used for scale out %s",
+							metric.ScaleInThreshold.Type, metric.Metric.ContainerResource.Target.Type),
+					)
+					allErrs = append(allErrs, err)
+				}
+
+				if metric.Metric.External != nil && metric.ScaleInThreshold.Type != metric.Metric.External.Target.Type {
+					err := field.Invalid(pathPrefix.Child("hpa").Child("metrics").Index(i).Child("scaleInThreshold").Child("type"),
+						v.Spec.CustomAutoscaler.Hpa.Metrics[i].ScaleInThreshold.Type,
+						fmt.Sprintf("scaleInThreshold type %s must be of the same type as the threshold used for scale out %s",
+							metric.ScaleInThreshold.Type, metric.Metric.External.Target.Type),
+					)
+					allErrs = append(allErrs, err)
+				}
+
+				if metric.Metric.Resource != nil && metric.ScaleInThreshold.Type != metric.Metric.Resource.Target.Type {
+					err := field.Invalid(pathPrefix.Child("hpa").Child("metrics").Index(i).Child("scaleInThreshold").Child("type"),
+						v.Spec.CustomAutoscaler.Hpa.Metrics[i].ScaleInThreshold.Type,
+						fmt.Sprintf("scaleInThreshold type %s must be of the same type as the threshold used for scale out %s",
+							metric.ScaleInThreshold.Type, metric.Metric.Resource.Target.Type),
+					)
+					allErrs = append(allErrs, err)
+				}
+
 			}
 		}
 	}

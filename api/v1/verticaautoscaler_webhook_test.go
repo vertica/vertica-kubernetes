@@ -39,9 +39,12 @@ var _ = Describe("verticaautoscaler_webhook", func() {
 		oldVas := MakeVAS()
 		oldVas.Spec.CustomAutoscaler = nil
 		newVas := MakeVAS()
-		newVas.Spec.CustomAutoscaler.Type = HPA
+		newVas.Spec.CustomAutoscaler = &CustomAutoscalerSpec{
+			Type: HPA,
+			Hpa:  &HPASpec{},
+		}
 		err := newVas.validateImmutableFields(oldVas)
-		Expect(err).ShouldNot(Succeed())
+		Expect(err).To(ContainSubstring("cannot set customAutoscaler after CR creation"))
 	})
 
 	It("should fail if the service name differs", func() {
@@ -80,9 +83,17 @@ var _ = Describe("verticaautoscaler_webhook", func() {
 	It("maxReplicas must be set", func() {
 		vas := MakeVAS()
 		var maxReplicas int32 = 0
+		vas.Spec.CustomAutoscaler = &CustomAutoscalerSpec{
+			Type: HPA,
+			Hpa:  &HPASpec{},
+		}
 		vas.Spec.CustomAutoscaler.Hpa.MaxReplicas = maxReplicas
 		_, err := vas.ValidateCreate()
 		Expect(err.Error()).To(ContainSubstring("HPA maxReplicas must be set"))
+		vas.Spec.CustomAutoscaler = &CustomAutoscalerSpec{
+			Type:         ScaledObject,
+			ScaledObject: &ScaledObjectSpec{},
+		}
 		vas.Spec.CustomAutoscaler.ScaledObject.MaxReplicas = &maxReplicas
 		_, err = vas.ValidateCreate()
 		Expect(err.Error()).To(ContainSubstring("ScaledObject maxReplicas must be set"))
@@ -92,9 +103,24 @@ var _ = Describe("verticaautoscaler_webhook", func() {
 		vas := MakeVAS()
 		var maxReplicas int32 = 3
 		var minReplicas int32 = 5
-		vas.Spec.CustomAutoscaler.ScaledObject.MaxReplicas = &maxReplicas
-		vas.Spec.CustomAutoscaler.ScaledObject.MinReplicas = &minReplicas
+		vas.Spec.CustomAutoscaler = &CustomAutoscalerSpec{
+			Type: HPA,
+			Hpa: &HPASpec{
+				MinReplicas: &minReplicas,
+				MaxReplicas: maxReplicas,
+			},
+		}
 		_, err := vas.ValidateCreate()
+		Expect(err.Error()).To(ContainSubstring("maxReplicas cannot be less than minReplicas"))
+
+		vas.Spec.CustomAutoscaler = &CustomAutoscalerSpec{
+			Type: ScaledObject,
+			ScaledObject: &ScaledObjectSpec{
+				MinReplicas: &minReplicas,
+				MaxReplicas: &maxReplicas,
+			},
+		}
+		_, err = vas.ValidateCreate()
 		Expect(err.Error()).To(ContainSubstring("maxReplicas cannot be less than minReplicas"))
 	})
 
@@ -109,8 +135,19 @@ var _ = Describe("verticaautoscaler_webhook", func() {
 
 	It("should fail if two metrics have the same name", func() {
 		vas := MakeVASWithScaledObject()
-		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].Name = "vertica_queued_requests_count"
-		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[1].Name = "vertica_queued_requests_count"
+		var maxReplicas int32 = 3
+		var minReplicas int32 = 5
+		vas.Spec.CustomAutoscaler = &CustomAutoscalerSpec{
+			Type: ScaledObject,
+			ScaledObject: &ScaledObjectSpec{
+				MinReplicas: &minReplicas,
+				MaxReplicas: &maxReplicas,
+				Metrics: []ScaleTrigger{
+					{Name: "vertica_queued_requests_count"},
+					{Name: "vertica_queued_requests_count"},
+				},
+			},
+		}
 		_, err := vas.ValidateCreate()
 		Expect(err.Error()).To(ContainSubstring("cannot be the same"))
 	})
@@ -140,6 +177,7 @@ var _ = Describe("verticaautoscaler_webhook", func() {
 		vas := MakeVASWithScaledObject()
 		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].Type = PrometheusTriggerType
 		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].MetricType = autoscalingv2.ValueMetricType
+		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].Prometheus = &PrometheusSpec{}
 		_, err := vas.ValidateCreate()
 		Expect(err).Should(Succeed())
 		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].MetricType = autoscalingv2.AverageValueMetricType
@@ -175,21 +213,43 @@ var _ = Describe("verticaautoscaler_webhook", func() {
 	})
 
 	It("should fail if scaleInThreshold type is different to the threshold type used for scale out", func() {
-		vas := MakeVASWithScaledObject()
-		vas.Spec.CustomAutoscaler.Hpa.Metrics[0].Metric.Pods.Target.Type = "AverageValue"
-		vas.Spec.CustomAutoscaler.Hpa.Metrics[0].ScaleInThreshold.Type = "Value"
+		vas := MakeVAS()
+		var maxReplicas int32 = 3
+		var minReplicas int32 = 5
+		// 	Metrics[0].Metric.Object.Target.Type "AverageValue" is different to Metrics[0].ScaleInThreshold.Type "Value"
+		vas.Spec.CustomAutoscaler = &CustomAutoscalerSpec{
+			Type: HPA,
+			Hpa: &HPASpec{
+				MinReplicas: &minReplicas,
+				MaxReplicas: maxReplicas,
+				Metrics: []MetricDefinition{
+					{
+						Metric: autoscalingv2.MetricSpec{
+							Pods: &autoscalingv2.PodsMetricSource{
+								Metric: autoscalingv2.MetricIdentifier{
+									Name: "vertica_queued_requests_count",
+								},
+								Target: autoscalingv2.MetricTarget{
+									Type: "AverageValue",
+								},
+							},
+						},
+						ScaleInThreshold: &autoscalingv2.MetricTarget{
+							Type: "Value",
+						},
+					},
+				},
+			},
+		}
 		_, err := vas.ValidateCreate()
-		Expect(err.Error()).To(ContainSubstring("must be of the same type as the threshold used for scale out"))
-
-		vas.Spec.CustomAutoscaler.Hpa.Metrics[0].Metric.Object.Target.Type = "AverageValue"
-		vas.Spec.CustomAutoscaler.Hpa.Metrics[0].ScaleInThreshold.Type = "Value"
-		_, err = vas.ValidateCreate()
 		Expect(err.Error()).To(ContainSubstring("must be of the same type as the threshold used for scale out"))
 	})
 
 	It("should fail if customAutoscaler.Hpa is nil and customAutoscaler.type is HPA", func() {
-		vas := MakeVASWithScaledObject()
-		vas.Spec.CustomAutoscaler.Type = HPA
+		vas := MakeVAS()
+		vas.Spec.CustomAutoscaler = &CustomAutoscalerSpec{
+			Type: HPA,
+		}
 		vas.Spec.CustomAutoscaler.Hpa = nil
 		_, err := vas.ValidateCreate()
 		Expect(err.Error()).To(ContainSubstring("customAutoscaler.Hpa must be non-nil"))
@@ -197,7 +257,9 @@ var _ = Describe("verticaautoscaler_webhook", func() {
 
 	It("should fail if customAutoscaler.ScaledObject is nil and customAutoscaler.type is ScaledObject", func() {
 		vas := MakeVASWithScaledObject()
-		vas.Spec.CustomAutoscaler.Type = ScaledObject
+		vas.Spec.CustomAutoscaler = &CustomAutoscalerSpec{
+			Type: ScaledObject,
+		}
 		vas.Spec.CustomAutoscaler.ScaledObject = nil
 		_, err := vas.ValidateCreate()
 		Expect(err.Error()).To(ContainSubstring("customAutoscaler.ScaledObject must be non-nil"))

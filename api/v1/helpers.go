@@ -1307,3 +1307,14 @@ func IsK8sSecretFound(ctx context.Context, vdb *VerticaDB, k8sClient client.Clie
 		return true, nil
 	}
 }
+
+func hasDuplicates[T comparable](s []T) bool {
+	seen := make(map[T]bool)
+	for _, element := range s {
+		if seen[element] {
+			return false // Duplicate found
+		}
+		seen[element] = true
+	}
+	return true // No duplicates found
+}
