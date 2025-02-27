@@ -21,8 +21,16 @@ set -o pipefail
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 REPO_DIR=$(dirname $SCRIPT_DIR)
 PROMETHEUS_DIR=${REPO_DIR}/prometheus
-PROMETHEUS_NS=$(grep '^PROMETHEUS_NAMESPACE' ${REPO_DIR}/Makefile | cut -d'=' -f2)
-PROMETHEUS_ADAPTER_NS=$(grep '^PROMETHEUS_ADAPTER_NAMESPACE' ${REPO_DIR}/Makefile | cut -d'=' -f2)
+PROMETHEUS_NS=$PROMETHEUS_NAMESPACE
+if [ -z "$PROMETHEUS_NS" ]
+then
+  PROMETHEUS_NS=$(grep '^PROMETHEUS_NAMESPACE' ${REPO_DIR}/Makefile | cut -d'=' -f2)
+fi
+PROMETHEUS_ADAPTER_NS=$PROMETHEUS_ADAPTER_NAMESPACE
+if [ -z "$PROMETHEUS_ADAPTER_NS" ]
+then
+  PROMETHEUS_ADAPTER_NS=$(grep '^PROMETHEUS_ADAPTER_NAMESPACE' ${REPO_DIR}/Makefile | cut -d'=' -f2)
+fi
 # The secret to secure Prometheus API endpoints using TLS encryption
 # It must be the same to the secret name configured in prometheus/values-tls.yaml
 TLS_SECRET=prometheus-tls
