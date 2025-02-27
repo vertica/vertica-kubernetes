@@ -61,6 +61,7 @@ var _ = Describe("verticaautoscaler_webhook", func() {
 		vas := MakeVAS()
 		vas.Spec.ScalingGranularity = SubclusterScalingGranularity
 		vas.Spec.Template.ServiceName = "sc_svc"
+		vas.Spec.Template.Size = 1
 		_, err := vas.ValidateCreate()
 		Expect(err).ShouldNot(Succeed())
 	})
