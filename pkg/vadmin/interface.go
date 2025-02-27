@@ -45,6 +45,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/replicationstatus"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/restartnode"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/revivedb"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/rotatenmacerts"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/sandboxsc"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/saverestorepoint"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/setconfigparameter"
@@ -152,6 +153,9 @@ type Dispatcher interface {
 
 	// ManageConnectionDraining will pause/redirect/resume client connections for a subcluster
 	ManageConnectionDraining(ctx context.Context, opts ...manageconnectiondraining.Option) error
+
+	// RotateNMACerts will rotate nma cert
+	RotateNMACerts(ctx context.Context, opts ...rotatenmacerts.Option) error
 }
 
 const (
@@ -306,4 +310,5 @@ type VClusterProvider interface {
 	VRenameSubcluster(options *vops.VRenameSubclusterOptions) error
 	VPollSubclusterState(options *vops.VPollSubclusterStateOptions) error
 	VManageConnectionDraining(options *vops.VManageConnectionDrainingOptions) error
+	VRotateNMACerts(options *vops.VRotateNMACertsOptions) error
 }

@@ -356,6 +356,10 @@ func (m *MockVClusterOps) VerifyTransactionID(options *vops.VReplicationStatusDa
 	return nil
 }
 
+func (m *MockVClusterOps) VRotateNMACerts(options *vops.VRotateNMACertsOptions) error {
+	return nil
+}
+
 func (m *MockVClusterOps) VPollSubclusterState(_ *vops.VPollSubclusterStateOptions) error {
 	return nil
 }
