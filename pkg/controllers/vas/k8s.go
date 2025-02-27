@@ -19,19 +19,18 @@ import (
 	"context"
 
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
-	v1beta1 "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
-	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // fetchVDB will fetch the VerticaDB that is referenced in a VerticaAutoscaler.
 // This will log an event if the VerticaDB is not found.
 func fetchVDB(ctx context.Context, vrec *VerticaAutoscalerReconciler,
-	vas *v1beta1.VerticaAutoscaler, vdb *vapi.VerticaDB) (ctrl.Result, error) {
+	vas *vapi.VerticaAutoscaler, vdb *vapi.VerticaDB) (ctrl.Result, error) {
 	nm := types.NamespacedName{
 		Namespace: vas.Namespace,
 		Name:      vas.Spec.VerticaDBName,
@@ -45,12 +44,10 @@ func fetchVDB(ctx context.Context, vrec *VerticaAutoscalerReconciler,
 	return ctrl.Result{}, err
 }
 
-// createHpa creates a new horizontal pod autoscaler.
-func createHpa(ctx context.Context, vrec *VerticaAutoscalerReconciler, expHpa *autoscalingv2.HorizontalPodAutoscaler,
-	vas *v1beta1.VerticaAutoscaler) error {
-	err := ctrl.SetControllerReference(vas, expHpa, vrec.Client.Scheme())
+func createObject(ctx context.Context, obj client.Object, clt client.Client, vas client.Object) error {
+	err := ctrl.SetControllerReference(vas, obj, clt.Scheme())
 	if err != nil {
 		return err
 	}
-	return vrec.Client.Create(ctx, expHpa)
+	return clt.Create(ctx, obj)
 }

@@ -13,7 +13,7 @@
 
 # Build the manager binary.
 ARG GO_VERSION
-FROM golang:${GO_VERSION} as builder
+FROM golang:${GO_VERSION} AS builder
 ARG TARGETOS
 ARG TARGETARCH
 
@@ -29,6 +29,7 @@ COPY cmd/operator/*.go-generate.txt .
 COPY cmd/operator/main.go main.go
 COPY api/ api/
 COPY pkg/ pkg/
+COPY local-libs/ local-libs/
 
 # Build
 # the GOARCH has not a default value to allow the binary be built according to

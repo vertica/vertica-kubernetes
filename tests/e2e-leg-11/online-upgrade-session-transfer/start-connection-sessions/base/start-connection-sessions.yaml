@@ -22,11 +22,11 @@ data:
     set -o xtrace
 
     # Access to subclusters through seconday service should route to secondary subcluster client proxy pod
-    vsql -U dbadmin -h v-base-upgrade-sec1 -tAc "CREATE USER user1 IDENTIFIED BY 'user1s3cr3t'; CREATE SCHEMA user1_schema; GRANT ALL ON SCHEMA user1_schema TO user1;"
-    vsql -U user1 -w 'user1s3cr3t' -h v-base-upgrade-sec1 -tAc 'create table user1_schema.test (ts timestamp, sc_name varchar, node_name varchar, version varchar);'
+    vsql -U dbadmin -h v-client-proxy-upgrade-sec1 -tAc "CREATE USER user1 IDENTIFIED BY 'user1s3cr3t'; CREATE SCHEMA user1_schema; GRANT ALL ON SCHEMA user1_schema TO user1;"
+    vsql -U user1 -w 'user1s3cr3t' -h v-client-proxy-upgrade-sec1 -tAc 'create table user1_schema.test (ts timestamp, sc_name varchar, node_name varchar, version varchar);'
 
     # Start new connection every 2 seconds
-    while [ 1 ]; do date; vsql -U user1 -w 'user1s3cr3t' -h v-base-upgrade-sec1 -c "insert into user1_schema.test values ( sysdate(), current_subcluster_name(), local_node_name(), version()); commit;"; sleep 2; done
+    while [ 1 ]; do date; vsql -U user1 -w 'user1s3cr3t' -h v-client-proxy-upgrade-sec1 -c "insert into user1_schema.test values ( sysdate(), current_subcluster_name(), local_node_name(), version()); commit;"; sleep 2; done
 ---
 apiVersion: batch/v1
 kind: Job

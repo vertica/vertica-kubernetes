@@ -11,12 +11,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1beta1
+apiVersion: vertica.com/v1
 kind: VerticaAutoscaler
 metadata:
   name: v-autoscale-by-pod-pri1
 status:
-  selector: vertica.com/subcluster-svc=pri1,app.kubernetes.io/instance=v-create-hpa,app.kubernetes.io/managed-by=verticadb-operator
+  selector: vertica.com/subcluster-svc=pri1,vertica.com/is-sandbox=false,app.kubernetes.io/instance=v-create-hpa,app.kubernetes.io/managed-by=verticadb-operator
   scalingCount: 0
   currentSize: 3
 ---
@@ -35,6 +35,6 @@ spec:
     type: Resource
   minReplicas: 3
   scaleTargetRef:
-    apiVersion: vertica.com/v1beta1
+    apiVersion: vertica.com/v1
     kind: VerticaAutoscaler
     name: v-autoscale-by-pod-pri1

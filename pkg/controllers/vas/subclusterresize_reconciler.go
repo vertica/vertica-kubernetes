@@ -33,11 +33,11 @@ import (
 // target pod count in the CR.
 type SubclusterResizeReconciler struct {
 	VRec *VerticaAutoscalerReconciler
-	Vas  *v1beta1.VerticaAutoscaler
+	Vas  *vapi.VerticaAutoscaler
 	Vdb  *vapi.VerticaDB
 }
 
-func MakeSubclusterResizeReconciler(r *VerticaAutoscalerReconciler, vas *v1beta1.VerticaAutoscaler) controllers.ReconcileActor {
+func MakeSubclusterResizeReconciler(r *VerticaAutoscalerReconciler, vas *vapi.VerticaAutoscaler) controllers.ReconcileActor {
 	return &SubclusterResizeReconciler{VRec: r, Vas: vas, Vdb: &vapi.VerticaDB{}}
 }
 
@@ -75,16 +75,29 @@ func (s *SubclusterResizeReconciler) resizeSubcluster(ctx context.Context, req *
 			return nil
 		}
 
+		minHosts := vapi.KSafety0MinHosts
+		if !s.Vdb.IsKSafety0() {
+			minHosts = vapi.KSafety1MinHosts
+		}
 		for i := len(subclusters) - 1; i >= 0; i-- {
 			targetSc := subclusters[i]
 			if delta > 0 { // Growing subclusters
 				targetSc.Size += delta
 				delta = 0
 			} else { // Shrinking subclusters
+				primaryCount := s.Vdb.GetPrimaryCount()
 				if -1*delta > targetSc.Size {
+					if primaryCount-int(targetSc.Size) < minHosts {
+						s.VRec.Log.Info("Shrinking subcluster will violate ksafety rule", "subcluster", targetSc.Name)
+						continue
+					}
 					delta += targetSc.Size
 					targetSc.Size = 0
 				} else {
+					if primaryCount+int(delta) < minHosts {
+						s.VRec.Log.Info("Shrinking subcluster will violate ksafety rule", "subcluster", targetSc.Name)
+						continue
+					}
 					targetSc.Size += delta
 					delta = 0
 				}

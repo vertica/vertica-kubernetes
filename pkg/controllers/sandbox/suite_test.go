@@ -34,6 +34,7 @@ import (
 
 	v1 "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/api/v1beta1"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 )
 
 var sbRec *SandboxConfigMapReconciler
@@ -74,9 +75,12 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 	Expect(k8sClient).NotTo(BeNil())
 
+	metricsServerOptions := metricsserver.Options{
+		BindAddress: "0", // Disable metrics for the test
+	}
 	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
-		Scheme:             scheme.Scheme,
-		MetricsBindAddress: "0", // Disable metrics for the test
+		Scheme:  scheme.Scheme,
+		Metrics: metricsServerOptions,
 	})
 
 	sbRec = &SandboxConfigMapReconciler{

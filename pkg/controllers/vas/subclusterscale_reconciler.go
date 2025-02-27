@@ -20,7 +20,6 @@ import (
 	"fmt"
 
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
-	v1beta1 "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
@@ -33,17 +32,17 @@ import (
 // SubclusterScaleReconciler will scale a VerticaDB by adding or removing subclusters.
 type SubclusterScaleReconciler struct {
 	VRec *VerticaAutoscalerReconciler
-	Vas  *v1beta1.VerticaAutoscaler
+	Vas  *vapi.VerticaAutoscaler
 	Vdb  *vapi.VerticaDB
 }
 
-func MakeSubclusterScaleReconciler(r *VerticaAutoscalerReconciler, vas *v1beta1.VerticaAutoscaler) controllers.ReconcileActor {
+func MakeSubclusterScaleReconciler(r *VerticaAutoscalerReconciler, vas *vapi.VerticaAutoscaler) controllers.ReconcileActor {
 	return &SubclusterScaleReconciler{VRec: r, Vas: vas, Vdb: &vapi.VerticaDB{}}
 }
 
 // Reconcile will grow/shrink the VerticaDB passed on the target pod count.
 func (s *SubclusterScaleReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (ctrl.Result, error) {
-	if s.Vas.Spec.ScalingGranularity != v1beta1.SubclusterScalingGranularity {
+	if s.Vas.Spec.ScalingGranularity != vapi.SubclusterScalingGranularity {
 		return ctrl.Result{}, nil
 	}
 
@@ -100,16 +99,31 @@ func (s *SubclusterScaleReconciler) scaleSubcluster(ctx context.Context, req *ct
 // picking the last one first.  Changes are made in-place in s.Vdb
 func (s *SubclusterScaleReconciler) considerRemovingSubclusters(podsToRemove int32) bool {
 	origNumSubclusters := len(s.Vdb.Spec.Subclusters)
+	minHosts := vapi.KSafety0MinHosts
+	if !s.Vdb.IsKSafety0() {
+		minHosts = vapi.KSafety1MinHosts
+	}
 	for j := len(s.Vdb.Spec.Subclusters) - 1; j >= 0; j-- {
 		sc := &s.Vdb.Spec.Subclusters[j]
-		if sc.GetServiceName() == s.Vas.Spec.ServiceName {
-			if podsToRemove > 0 && sc.Size <= podsToRemove {
+		if s.Vas.Spec.ServiceName == "" || sc.GetServiceName() == s.Vas.Spec.ServiceName {
+			if podsToRemove == 0 {
+				break
+			}
+			if sc.Size <= podsToRemove {
+				if sc.IsPrimary() {
+					primaryCount := s.Vdb.GetPrimaryCount()
+					primaryCountAfterScaling := primaryCount - int(sc.Size)
+					// We will prevent removing a primary if it will lead to a kasafety
+					// rule violation.
+					if primaryCountAfterScaling < minHosts {
+						s.VRec.Log.Info("Removing subcluster will violate ksafety. Skipping to the next one", "Subcluster", sc.Name)
+						continue
+					}
+				}
 				podsToRemove -= sc.Size
 				s.VRec.Log.Info("Removing subcluster in VerticaDB", "VerticaDB", s.Vdb.Name, "Subcluster", sc.Name)
 				s.Vdb.Spec.Subclusters = append(s.Vdb.Spec.Subclusters[:j], s.Vdb.Spec.Subclusters[j+1:]...)
-				continue
 			}
-			return origNumSubclusters != len(s.Vdb.Spec.Subclusters)
 		}
 	}
 	return origNumSubclusters != len(s.Vdb.Spec.Subclusters)
@@ -120,12 +134,13 @@ func (s *SubclusterScaleReconciler) considerRemovingSubclusters(podsToRemove int
 func (s *SubclusterScaleReconciler) considerAddingSubclusters(newPodsNeeded int32) bool {
 	origNumSubclusters := len(s.Vdb.Spec.Subclusters)
 	scMap := s.Vdb.GenSubclusterMap()
-	newScSize, ok := s.calcNextSubclusterSize(scMap)
-	if !ok {
+	baseSc := s.calcNextSubcluster(newPodsNeeded)
+	if baseSc == nil {
 		return false
 	}
-	for newPodsNeeded >= newScSize {
-		newSc, _ := s.calcNextSubcluster(scMap)
+	for newPodsNeeded >= baseSc.Size {
+		newSc := baseSc.DeepCopy()
+		newSc.Name = s.genNextSubclusterName(scMap)
 		s.Vdb.Spec.Subclusters = append(s.Vdb.Spec.Subclusters, *newSc)
 		scMap[newSc.Name] = &s.Vdb.Spec.Subclusters[len(s.Vdb.Spec.Subclusters)-1]
 		newPodsNeeded -= newSc.Size
@@ -151,36 +166,29 @@ func (s *SubclusterScaleReconciler) genNextSubclusterName(scMap map[string]*vapi
 	}
 }
 
-// calcNextSubclusterSize returns the size of the next subcluster
-func (s *SubclusterScaleReconciler) calcNextSubclusterSize(scMap map[string]*vapi.Subcluster) (int32, bool) {
-	newSc, ok := s.calcNextSubcluster(scMap)
-	if !ok {
-		return 0, false
-	}
-	return newSc.Size, true
-}
-
 // calcNextSubcluster build the next subcluster that we want to add to the vdb.
-// Returns false for second parameter if unable to construct one.  An event will
-// be logged if this happens.
-func (s *SubclusterScaleReconciler) calcNextSubcluster(scMap map[string]*vapi.Subcluster) (*vapi.Subcluster, bool) {
+func (s *SubclusterScaleReconciler) calcNextSubcluster(newPodsNeeded int32) *vapi.Subcluster {
 	// If the template is set, we will use that.  Otherwise, we try to use an
 	// existing subcluster (last one added) as a base.
 	if s.Vas.CanUseTemplate() {
-		sc := v1beta1.GetV1SubclusterFromV1beta1(s.Vas.Spec.Template.DeepCopy())
-		sc.Name = s.genNextSubclusterName(scMap)
-		return &sc, true
+		sc := s.Vas.Spec.Template.DeepCopy()
+		if newPodsNeeded >= sc.Size {
+			return sc
+		}
+		return nil
 	}
 	scs, _ := s.Vdb.FindSubclusterForServiceName(s.Vas.Spec.ServiceName)
-	if len(scs) == 0 {
-		msg := "Could not determine size of the next subcluster.  Template in VerticaAutoscaler "
-		msg += "is empty and no existing subcluster can be used as a base"
-		s.VRec.Log.Info(msg)
-		s.VRec.EVRec.Event(s.Vas, corev1.EventTypeWarning, events.NoSubclusterTemplate, msg)
-		return nil, false
+	for j := len(scs) - 1; j >= 0; j-- {
+		// we pick the first subcluster (starting from the last) that
+		// has a size not greater than the number of pods to add.
+		if newPodsNeeded >= scs[j].Size {
+			scs[j].ServiceName = s.Vas.Spec.ServiceName
+			return scs[j]
+		}
 	}
-	newSc := scs[len(scs)-1].DeepCopy()
-	newSc.ServiceName = s.Vas.Spec.ServiceName
-	newSc.Name = s.genNextSubclusterName(scMap)
-	return newSc, true
+	msg := "Could not determine size of the next subcluster.  Template in VerticaAutoscaler "
+	msg += "is empty and no existing subcluster can be used as a base"
+	s.VRec.Log.Info(msg)
+	s.VRec.EVRec.Event(s.Vas, corev1.EventTypeWarning, events.NoSubclusterTemplate, msg)
+	return nil
 }

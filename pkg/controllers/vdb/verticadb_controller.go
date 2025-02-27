@@ -31,6 +31,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	"github.com/google/uuid"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
@@ -48,10 +49,12 @@ import (
 // VerticaDBReconciler reconciles a VerticaDB object
 type VerticaDBReconciler struct {
 	client.Client
-	Log    logr.Logger
-	Scheme *runtime.Scheme
-	Cfg    *rest.Config
-	EVRec  record.EventRecorder
+	Log                logr.Logger
+	Scheme             *runtime.Scheme
+	Cfg                *rest.Config
+	EVRec              record.EventRecorder
+	Namespace          string
+	MaxBackOffDuration int
 }
 
 // +kubebuilder:rbac:groups=vertica.com,resources=verticadbs,verbs=get;list;watch;create;update;patch;delete
@@ -74,6 +77,8 @@ type VerticaDBReconciler struct {
 // +kubebuilder:rbac:groups="",resources=events,verbs=create;patch
 
 // SetupWithManager sets up the controller with the Manager.
+//
+//nolint:gocritic
 func (r *VerticaDBReconciler) SetupWithManager(mgr ctrl.Manager, options controller.Options) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		WithOptions(options).
@@ -84,6 +89,12 @@ func (r *VerticaDBReconciler) SetupWithManager(mgr ctrl.Manager, options control
 		Owns(&corev1.Service{}).
 		Owns(&appsv1.StatefulSet{}).
 		Owns(&appsv1.Deployment{}).
+		WithEventFilter(predicate.NewPredicateFuncs(func(obj client.Object) bool {
+			if r.Namespace == "" {
+				return true
+			}
+			return obj.GetNamespace() == r.Namespace
+		})).
 		Complete(r)
 }
 
@@ -184,8 +195,10 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		// Handle upgrade actions for any k8s objects created in prior versions
 		// of the operator.
 		MakeUpgradeOperatorReconciler(r, log, vdb),
-		// Create a TLS secret for the NMA service
-		MakeHTTPServerCertGenReconciler(r, log, vdb),
+		// use the TLS secrets used by the NMA service, https service and clientserver
+		MakeTLSServerCertGenReconciler(r, log, vdb),
+		// Create a ConfigMap to store secret names for all tls certs
+		MakeNMACertConfigMapGenReconciler(r, log, vdb),
 		// Create ServiceAcount, Role and RoleBindings needed for vertica pods
 		MakeServiceAccountReconciler(r, log, vdb),
 		// Handle setting up the pod security context. This picks the

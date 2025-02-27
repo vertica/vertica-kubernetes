@@ -21,7 +21,7 @@ import (
 	"reflect"
 
 	"github.com/go-logr/logr"
-	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -66,10 +66,14 @@ func UpdateCondition(ctx context.Context, clnt client.Client, log logr.Logger,
 		if len(vas.Status.Conditions) == 0 {
 			vas.Status.Conditions = append(vas.Status.Conditions, vapi.VerticaAutoscalerCondition{})
 		}
+		if condition.Type == vapi.ScalingActive && len(vas.Status.Conditions) < 2 {
+			vas.Status.Conditions = append(vas.Status.Conditions, vapi.VerticaAutoscalerCondition{})
+		}
 		// Only update if status is different change.  Cannot compare the entire
 		// condition since LastTransitionTime will be different each time.
-		if vas.Status.Conditions[vapi.TargetSizeInitializedIndex].Status != condition.Status {
-			vas.Status.Conditions[vapi.TargetSizeInitializedIndex] = condition
+		index := vapi.VasConditionIndexMap[condition.Type]
+		if vas.Status.Conditions[index].Status != condition.Status {
+			vas.Status.Conditions[index] = condition
 		}
 	}
 
@@ -109,9 +113,14 @@ func vasStatusUpdater(ctx context.Context, c client.Client, log logr.Logger,
 
 // getLabelSelector will generate the label for use in the vas status field
 func getLabelSelector(vas *vapi.VerticaAutoscaler) string {
-	return fmt.Sprintf("%s=%s,%s=%s,%s=%s",
-		vmeta.SubclusterSvcNameLabel,
-		vas.Spec.ServiceName,
+	selector := ""
+	if vas.Spec.ServiceName != "" {
+		selector = fmt.Sprintf("%s=%s,", vmeta.SubclusterSvcNameLabel, vas.Spec.ServiceName)
+	}
+	return fmt.Sprintf("%s%s=%s,%s=%s,%s=%s",
+		selector,
+		vmeta.IsSandboxLabel,
+		vmeta.IsSandboxFalse,
 		vmeta.VDBInstanceLabel,
 		vas.Spec.VerticaDBName,
 		vmeta.ManagedByLabel,

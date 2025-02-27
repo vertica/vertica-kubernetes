@@ -34,6 +34,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
+	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
 const (
@@ -51,6 +52,7 @@ const (
 	Krb5SecretMountName   = "krb5"
 	SSHMountName          = "ssh"
 	NMACertsMountName     = "nma-certs"
+	NMATLSConfigMapName   = "nma-tls-config"
 	DepotMountName        = "depot"
 	S3Prefix              = "s3://"
 	GCloudPrefix          = "gs://"
@@ -75,7 +77,7 @@ func (v *VerticaDB) SetupWebhookWithManager(mgr ctrl.Manager) error {
 		Complete()
 }
 
-//+kubebuilder:webhook:path=/mutate-vertica-com-v1beta1-verticadb,mutating=true,failurePolicy=fail,sideEffects=None,groups=vertica.com,resources=verticadbs,verbs=create;update,versions=v1beta1,name=mverticadb.kb.io,admissionReviewVersions=v1
+// +kubebuilder:webhook:path=/mutate-vertica-com-v1-verticadb,mutating=true,failurePolicy=fail,sideEffects=None,groups=vertica.com,resources=verticadbs,verbs=create;update,versions=v1,name=mverticadb.kb.io,admissionReviewVersions=v1
 
 var _ webhook.Defaulter = &VerticaDB{}
 
@@ -109,33 +111,33 @@ func (v *VerticaDB) Default() {
 var _ webhook.Validator = &VerticaDB{}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
-func (v *VerticaDB) ValidateCreate() error {
+func (v *VerticaDB) ValidateCreate() (admission.Warnings, error) {
 	verticadblog.Info("validate create", "name", v.Name, "GroupVersion", GroupVersion)
 
 	allErrs := v.validateVerticaDBSpec()
 	if len(allErrs) == 0 {
-		return nil
+		return nil, nil
 	}
-	return apierrors.NewInvalid(schema.GroupKind{Group: Group, Kind: VerticaDBKind}, v.Name, allErrs)
+	return nil, apierrors.NewInvalid(schema.GroupKind{Group: Group, Kind: VerticaDBKind}, v.Name, allErrs)
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
-func (v *VerticaDB) ValidateUpdate(old runtime.Object) error {
+func (v *VerticaDB) ValidateUpdate(old runtime.Object) (admission.Warnings, error) {
 	verticadblog.Info("validate update", "name", v.Name, "GroupVersion", GroupVersion)
 
 	allErrs := append(v.validateImmutableFields(old), v.validateVerticaDBSpec()...)
 
 	if len(allErrs) == 0 {
-		return nil
+		return nil, nil
 	}
-	return apierrors.NewInvalid(schema.GroupKind{Group: Group, Kind: VerticaDBKind}, v.Name, allErrs)
+	return nil, apierrors.NewInvalid(schema.GroupKind{Group: Group, Kind: VerticaDBKind}, v.Name, allErrs)
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
-func (v *VerticaDB) ValidateDelete() error {
+func (v *VerticaDB) ValidateDelete() (admission.Warnings, error) {
 	verticadblog.Info("validate delete", "name", v.Name, "GroupVersion", GroupVersion)
 
-	return nil
+	return nil, nil
 }
 
 func (v *VerticaDB) validateImmutableFields(old runtime.Object) field.ErrorList {
@@ -165,7 +167,7 @@ func (v *VerticaDB) validateImmutableFields(old runtime.Object) field.ErrorList 
 	allErrs = v.checkSubclustersInShutdownSandbox(oldObj, allErrs)
 	allErrs = v.checkNewSBoxOrSClusterShutdownUnset(allErrs)
 	allErrs = v.checkSClusterToBeSandboxedShutdownUnset(allErrs)
-	allErrs = v.checkShutdownForScaleUpOrDown(oldObj, allErrs)
+	allErrs = v.checkShutdownForScaleOutOrIn(oldObj, allErrs)
 	return allErrs
 }
 
@@ -227,6 +229,7 @@ func (v *VerticaDB) validateVerticaDBSpec() field.ErrorList {
 	allErrs = v.isServiceTypeValid(allErrs)
 	allErrs = v.hasDuplicateScName(allErrs)
 	allErrs = v.hasValidVolumeName(allErrs)
+	allErrs = v.hasValidClientServerTLSMode(allErrs)
 	allErrs = v.hasValidVolumeMountName(allErrs)
 	allErrs = v.hasValidKerberosSetup(allErrs)
 	allErrs = v.hasValidTemporarySubclusterRouting(allErrs)
@@ -665,6 +668,26 @@ func (v *VerticaDB) hasDuplicateScName(allErrs field.ErrorList) field.ErrorList 
 				allErrs = append(allErrs, err)
 			}
 		}
+	}
+	return allErrs
+}
+
+func (v *VerticaDB) hasValidClientServerTLSMode(allErrs field.ErrorList) field.ErrorList {
+	tlsModes := []string{"enable", "disable", "try_verify", "verify_ca", "verify_full"}
+	if v.Spec.ClientServerTLSMode != "" {
+		TLSMode := strings.ToLower(v.Spec.ClientServerTLSMode)
+		validMode := false
+		for _, mode := range tlsModes {
+			if mode == TLSMode {
+				validMode = true
+			}
+		}
+		if !validMode {
+			err := field.Invalid(field.NewPath("spec").Child("clientSeverTLSSecret"), v.Spec.ClientServerTLSMode, "invalid tls mode")
+			allErrs = append(allErrs, err)
+		}
+	} else {
+		v.Spec.ClientServerTLSMode = "try_verify"
 	}
 	return allErrs
 }
@@ -1837,8 +1860,8 @@ func (v *VerticaDB) checkNewSBoxOrSClusterShutdownUnset(allErrs field.ErrorList)
 	return allErrs
 }
 
-// checkShutdownForScaleUpOrDown ensures a subcluster to be scaled up/down has Shutdown field set to false
-func (v *VerticaDB) checkShutdownForScaleUpOrDown(oldObj *VerticaDB, allErrs field.ErrorList) field.ErrorList {
+// checkShutdownForScaleOutOrIn ensures a subcluster to be scaled out/in has Shutdown field set to false
+func (v *VerticaDB) checkShutdownForScaleOutOrIn(oldObj *VerticaDB, allErrs field.ErrorList) field.ErrorList {
 	newSclusterMap := v.GenSubclusterMap()
 	oldSclusterMap := oldObj.GenSubclusterMap()
 	newSclusterIndexMap := v.GenSubclusterIndexMap()
@@ -1853,14 +1876,14 @@ func (v *VerticaDB) checkShutdownForScaleUpOrDown(oldObj *VerticaDB, allErrs fie
 		if inSandbox {
 			continue // this scenario is handled by checkImmutableSubclusterInSandbox()
 		}
-		if oldScluster.Size != newScluster.Size { // scale up/down
+		if oldScluster.Size != newScluster.Size { // scale out/in
 			subclusterStatus, hasStatus := statusSubclusterMap[subclusterName]
 			if newScluster.Shutdown || (hasStatus && subclusterStatus.Shutdown) {
 				i := newSclusterIndexMap[subclusterName]
 				p := field.NewPath("spec").Child("subclusters").Index(i).Child("size")
 				err := field.Invalid(p,
 					newScluster.Size,
-					fmt.Sprintf("cannot scale up/down %q which is marked for shutdown or has been shut down",
+					fmt.Sprintf("cannot scale out/in %q which is marked for shutdown or has been shut down",
 						subclusterName))
 				allErrs = append(allErrs, err)
 			}

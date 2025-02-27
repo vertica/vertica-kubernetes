@@ -22,13 +22,15 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/go-logr/logr"
+	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
 	v1vapi "github.com/vertica/vertica-kubernetes/api/v1"
-	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
@@ -44,11 +46,15 @@ type VerticaAutoscalerReconciler struct {
 	EVRec  record.EventRecorder
 }
 
-//+kubebuilder:rbac:groups=vertica.com,resources=verticaautoscalers,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=vertica.com,resources=verticaautoscalers/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=vertica.com,resources=verticaautoscalers/finalizers,verbs=update
-//+kubebuilder:rbac:groups=vertica.com,resources=verticadbs,verbs=get;list;create;update;patch;delete
-//+kubebuilder:rbac:groups=autoscaling,resources=horizontalpodautoscalers,verbs=get;list;watch;create;update;delete;patch
+// +kubebuilder:rbac:groups=vertica.com,resources=verticaautoscalers,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=vertica.com,resources=verticaautoscalers/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=vertica.com,resources=verticaautoscalers/finalizers,verbs=update
+// +kubebuilder:rbac:groups=vertica.com,resources=verticadbs,verbs=get;list;create;update;patch;delete
+// +kubebuilder:rbac:groups=autoscaling,resources=horizontalpodautoscalers,verbs=get;list;watch;create;update;delete;patch
+// +kubebuilder:rbac:groups=keda.sh,resources=scaledobjects,verbs=get;list;watch;create;update;delete;patch
+// +kubebuilder:rbac:groups=keda.sh,resources=triggerauthentications,verbs=get;list;watch;create;update;delete;patch
+// +kubebuilder:rbac:groups=apiextensions.k8s.io,resources=customresourcedefinitions,verbs=get;list;update;patch
+// +kubebuilder:rbac:groups="",resources=configmaps,verbs=get;list;watch
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -60,7 +66,7 @@ func (r *VerticaAutoscalerReconciler) Reconcile(ctx context.Context, req ctrl.Re
 	log.Info("starting reconcile of VerticaAutoscaler")
 
 	var res ctrl.Result
-	vas := &vapi.VerticaAutoscaler{}
+	vas := &v1vapi.VerticaAutoscaler{}
 	err := r.Get(ctx, req.NamespacedName, vas)
 	if err != nil {
 		if errors.IsNotFound(err) {
@@ -87,7 +93,12 @@ func (r *VerticaAutoscalerReconciler) Reconcile(ctx context.Context, req ctrl.Re
 		MakeRefreshCurrentSizeReconciler(r, vas),
 		// Update the selector in the status
 		MakeRefreshSelectorReconciler(r, vas),
-		MakeHorizontalPodAutoscalerReconciler(r, vas, log),
+		// // Create/Update the hpa/scaledObject
+		MakeObjReconciler(r, vas, log),
+		// Check if the autoscaler is ready
+		MakeVerifyAutoscalerReconciler(r, vas, log),
+		// Scale in based on the lower threshold
+		MakeScaleinReconciler(r, vas, log),
 		// If scaling granularity is Pod, this will resize existing subclusters
 		// depending on the targetSize.
 		MakeSubclusterResizeReconciler(r, vas),
@@ -111,16 +122,39 @@ func (r *VerticaAutoscalerReconciler) Reconcile(ctx context.Context, req ctrl.Re
 	return res, err
 }
 
+// Function to check if CRD exists
+func isScaledObjectInstalled(discoveryClient discovery.DiscoveryInterface) bool {
+	gvr := schema.GroupVersionResource{Group: "keda.sh", Version: "v1alpha1", Resource: "scaledobjects"}
+	_, err := discoveryClient.ServerResourcesForGroupVersion(gvr.GroupVersion().String())
+	return err == nil
+}
+
+func isTrigerAuthenticationInstalled(discoveryClient discovery.DiscoveryInterface) bool {
+	gvr := schema.GroupVersionResource{Group: "keda.sh", Version: "v1alpha1", Resource: "triggerauthentications"}
+	_, err := discoveryClient.ServerResourcesForGroupVersion(gvr.GroupVersion().String())
+	return err == nil
+}
+
 // SetupWithManager sets up the controller with the Manager.
 func (r *VerticaAutoscalerReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewControllerManagedBy(mgr).
-		For(&vapi.VerticaAutoscaler{}).
+	ctrlManager := ctrl.NewControllerManagedBy(mgr).
+		For(&v1vapi.VerticaAutoscaler{}).
 		// Not a strict ownership, but this is used so that the operator will
 		// reconcile the VerticaAutoscaler for any change in the VerticaDB.
 		// This ensures the status fields are kept up to date.
 		Owns(&v1vapi.VerticaDB{}).
-		Owns(&autoscalingv2.HorizontalPodAutoscaler{}).
-		Complete(r)
+		Owns(&autoscalingv2.HorizontalPodAutoscaler{})
+
+	// Check if ScaledObject CRD is installed
+	discoveryClient := discovery.NewDiscoveryClientForConfigOrDie(mgr.GetConfig())
+	if isScaledObjectInstalled(discoveryClient) {
+		ctrlManager = ctrlManager.Owns(&kedav1alpha1.ScaledObject{})
+	}
+	// Check if TriggerAuthentication CRD is installed
+	if isTrigerAuthenticationInstalled(discoveryClient) {
+		ctrlManager = ctrlManager.Owns(&kedav1alpha1.TriggerAuthentication{})
+	}
+	return ctrlManager.Complete(r)
 }
 
 func (r *VerticaAutoscalerReconciler) Eventf(vdb runtime.Object, eventtype, reason, messageFmt string, args ...interface{}) {

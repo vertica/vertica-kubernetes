@@ -132,7 +132,7 @@ ifeq ($(USE_IMAGE_DIGESTS), true)
 endif
 
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
-ENVTEST_K8S_VERSION = 1.26.0
+ENVTEST_K8S_VERSION = 1.30.0
 
 # Image URL for the OLM catalog.  This is for testing purposes only.
 ifeq ($(shell $(KIND_CHECK)), 1)
@@ -152,6 +152,7 @@ PROMETHEUS_ADAPTER_NAME ?= prometheus-adapter
 PROMETHEUS_ADAPTER_NAMESPACE ?= prometheus-adapter
 PROMETHEUS_ADAPTER_REPLICAS ?= 1
 # The Prometheus service URL and port for Prometheus adapter to connect to
+PROMETHEUS_TLS_URL ?= https://$(PROMETHEUS_HELM_NAME)-kube-prometheus-prometheus.$(PROMETHEUS_NAMESPACE).svc
 PROMETHEUS_URL ?= http://$(PROMETHEUS_HELM_NAME)-kube-prometheus-prometheus.$(PROMETHEUS_NAMESPACE).svc
 PROMETHEUS_PORT ?= 9090
 DB_USER?=dbadmin
@@ -231,8 +232,34 @@ export VDB_MAX_BACKOFF_DURATION
 #
 # The address the operators Prometheus metrics endpoint binds to. Setting this
 # to 0 will disable metric serving.
-METRICS_ADDR?=127.0.0.1:8080
+METRICS_ADDR?=0.0.0.0:8443
 export METRICS_ADDR
+#
+# The secret name that will be used to mount cert files in the operator
+# for providing server certs to Prometheus metrics endpoint. Setting this
+# to "" will use an auto-generated self-signed cert.
+export METRICS_TLS_SECRET
+#
+# Controls exposing of the prometheus metrics endpoint. The valid values are:
+# EnableWithAuth: A new service object will be created that exposes the
+#    metrics endpoint.  Access to the metrics are controlled by rbac rules.
+#    The metrics endpoint will use the https scheme.
+# EnableWithoutAuth: Like EnableWithAuth, this will create a service
+#    object to expose the metrics endpoint.  However, there is no authority
+#    checking when using the endpoint.  Anyone who had network access
+#    endpoint (i.e. any pod in k8s) will be able to read the metrics.  The
+#    metrics endpoint will use the http scheme.
+# EnableWithTLS: Like EnableWithAuth, this will create a service
+#    object to expose the metrics endpoint.  However, there is no authority
+#    checking when using the endpoint.  People with network access to the
+#    endpoint (i.e. any pod in k8s) and the correct certs can read the metrics.
+#    The metrics endpoint will use the https scheme. 
+#    It needs to be used with tlsSecret. If tlsSecret is not set, the behavior
+#    will be similar to EnableWithoutAuth, except that the endpoint will use 
+#    https schema.
+# Disable: Prometheus metrics are not exposed at all.
+METRICS_EXPOSE_MODE?=Disable
+export METRICS_EXPOSE_MODE
 #
 # The minimum logging level. Valid values are: debug, info, warn, and error.
 LOG_LEVEL?=info
@@ -267,7 +294,7 @@ OLM_TEST_CATALOG_SOURCE=e2e-test-catalog
 NAMESPACE?=verticadb-operator
 
 # The Go version that we will build the operator with
-GO_VERSION?=1.23.2
+GO_VERSION?=1.23.5
 GOPATH?=${HOME}/go
 TMPDIR?=$(PWD)
 HELM_UNITTEST_VERSION?=3.9.3-0.2.11
@@ -670,6 +697,14 @@ deploy-prometheus:
 	helm repo update
 	helm install $(DEPLOY_WAIT) -n $(PROMETHEUS_NAMESPACE) --create-namespace $(PROMETHEUS_HELM_NAME) $(PROMETHEUS_CHART) --values prometheus/values.yaml $(PROMETHEUS_HELM_OVERRIDES)
 
+.PHONY: deploy-prometheus-tls
+deploy-prometheus-tls:
+	kubectl create ns $(PROMETHEUS_NAMESPACE) || true
+	scripts/setup-prometheus-tls.sh $(PROMETHEUS_TLS_URL) $(PROMETHEUS_HELM_NAME)
+	helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+	helm repo update
+	helm install $(DEPLOY_WAIT) -n $(PROMETHEUS_NAMESPACE) --create-namespace $(PROMETHEUS_HELM_NAME) $(PROMETHEUS_CHART) --values prometheus/values-tls.yaml $(PROMETHEUS_HELM_OVERRIDES)
+
 .PHONY: undeploy-prometheus
 undeploy-prometheus: undeploy-prometheus-service-monitor-by-release
 	helm uninstall $(PROMETHEUS_HELM_NAME) -n $(PROMETHEUS_NAMESPACE)
@@ -696,9 +731,25 @@ deploy-prometheus-adapter:  ## Setup prometheus adapter for VerticaAutoscaler
 	helm repo update
 	helm install $(DEPLOY_WAIT) -n $(PROMETHEUS_ADAPTER_NAMESPACE) --create-namespace $(PROMETHEUS_ADAPTER_NAME) prometheus-community/prometheus-adapter --values prometheus/adapter.yaml --set prometheus.url=$(PROMETHEUS_URL) --set prometheus.port=$(PROMETHEUS_PORT) --set replicas=$(PROMETHEUS_ADAPTER_REPLICAS) $(PROMETHEUS_ADAPTER_HELM_OVERRIDES)
 
+.PHONY: deploy-prometheus-adapter-tls
+deploy-prometheus-adapter-tls: ## Setup prometheus adapter for VerticaAutoscaler
+	helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+	helm repo update
+	helm install $(DEPLOY_WAIT) -n $(PROMETHEUS_ADAPTER_NAMESPACE) --create-namespace $(PROMETHEUS_ADAPTER_NAME) prometheus-community/prometheus-adapter --values prometheus/adapter-tls.yaml --set prometheus.url=$(PROMETHEUS_TLS_URL) --set prometheus.port=$(PROMETHEUS_PORT) --set replicas=$(PROMETHEUS_ADAPTER_REPLICAS) $(PROMETHEUS_ADAPTER_HELM_OVERRIDES)
+
 .PHONY: undeploy-prometheus-adapter
 undeploy-prometheus-adapter:  ## Remove prometheus adapter
 	helm uninstall $(PROMETHEUS_ADAPTER_NAME) -n $(PROMETHEUS_ADAPTER_NAMESPACE)
+
+.PHONY: deploy-keda
+deploy-keda:
+	helm repo add kedacore https://kedacore.github.io/charts
+	helm repo update
+	helm install keda kedacore/keda --namespace keda --create-namespace
+
+.PHONY: undeploy-keda
+undeploy-keda:
+	helm uninstall keda -n keda
 
 .PHONY: cleanup-prometheus-leftover
 cleanup-prometheus-leftover: ## remove leftover Prometheus resouces due to e2e test failure.
@@ -730,11 +781,12 @@ KUBERNETES_SPLIT_YAML ?= $(LOCALBIN)/kubernetes-split-yaml
 GOLANGCI_LINT = $(LOCALBIN)/golangci-lint
 
 ## Tool Versions
-KUSTOMIZE_VERSION ?= v4.5.5
-CONTROLLER_TOOLS_VERSION ?= v0.14.0
+KUSTOMIZE_VERSION ?= v5.4.2
+CONTROLLER_TOOLS_VERSION ?= v0.15.0
+ENVTEST_VERSION ?= release-0.18
 KIND_VERSION ?= v0.20.0
 KUBERNETES_SPLIT_YAML_VERSION ?= v0.3.0
-GOLANGCI_LINT_VER ?= 1.61.0
+GOLANGCI_LINT_VERSION ?= v1.61.0
 
 ## Tool architecture
 GOOS ?= $(shell go env GOOS)
@@ -748,17 +800,17 @@ KUSTOMIZE_DOWNLOAD_URL?=https://github.com/kubernetes-sigs/kustomize/releases/do
 .PHONY: kustomize
 kustomize: $(KUSTOMIZE) ## Download kustomize locally if necessary.
 $(KUSTOMIZE): $(LOCALBIN)
-	test -s $(KUSTOMIZE) || { curl --retry 10 --retry-max-time 1800 -sL $(KUSTOMIZE_DOWNLOAD_URL) | tar xzf - --directory $(LOCALBIN); }
+	$(call go-install-tool,$(KUSTOMIZE),sigs.k8s.io/kustomize/kustomize/v5,$(KUSTOMIZE_VERSION))
 
 .PHONY: controller-gen
 controller-gen: $(CONTROLLER_GEN) ## Download controller-gen locally if necessary.
 $(CONTROLLER_GEN): $(LOCALBIN)
-	test -s $(CONTROLLER_GEN) || GOBIN=$(LOCALBIN) go install sigs.k8s.io/controller-tools/cmd/controller-gen@$(CONTROLLER_TOOLS_VERSION)
+	$(call go-install-tool,$(CONTROLLER_GEN),sigs.k8s.io/controller-tools/cmd/controller-gen,$(CONTROLLER_TOOLS_VERSION))
 
 .PHONY: envtest
 envtest: $(ENVTEST) ## Download envtest-setup locally if necessary.
 $(ENVTEST): $(LOCALBIN)
-	test -s $(ENVTEST) || GOBIN=$(LOCALBIN) go install sigs.k8s.io/controller-runtime/tools/setup-envtest@v0.0.0-20240320141353-395cfc7486e6
+	$(call go-install-tool,$(ENVTEST),sigs.k8s.io/controller-runtime/tools/setup-envtest,$(ENVTEST_VERSION))
 
 .PHONY: kind
 kind: $(KIND) ## Download kind locally if necessary
@@ -773,10 +825,7 @@ $(KUBERNETES_SPLIT_YAML): $(LOCALBIN)
 .PHONY: golangci-lint $(GOLANGCI_LINT)
 golangci-lint: $(GOLANGCI_LINT)
 $(GOLANGCI_LINT): $(LOCALBIN)
-ifneq (${GOLANGCI_LINT_VER}, $(shell [ -f $(GOLANGCI_LINT) ] && $(GOLANGCI_LINT) version --format short 2>&1))
-	@echo "golangci-lint missing or not version '${GOLANGCI_LINT_VER}', downloading..."
-	curl --retry 10 --retry-max-time 1800 -sSfL "https://raw.githubusercontent.com/golangci/golangci-lint/v${GOLANGCI_LINT_VER}/install.sh" | sh -s -- -b ./bin "v${GOLANGCI_LINT_VER}"
-endif
+	$(call go-install-tool,$(GOLANGCI_LINT),github.com/golangci/golangci-lint/cmd/golangci-lint,$(GOLANGCI_LINT_VERSION))
 
 krew: $(HOME)/.krew/bin/kubectl-krew ## Download krew plugin locally if necessary
 
@@ -792,7 +841,7 @@ $(OPM):
 	chmod +x $(OPM)
 
 OPERATOR_SDK = $(shell pwd)/bin/operator-sdk
-OPERATOR_SDK_VERSION = 1.28.0
+OPERATOR_SDK_VERSION = 1.38.0
 operator-sdk: $(OPERATOR_SDK)  ## Download operator-sdk locally if necessary
 $(OPERATOR_SDK):
 	curl --silent --show-error --retry 10 --retry-max-time 1800 --location --fail "https://github.com/operator-framework/operator-sdk/releases/download/v$(OPERATOR_SDK_VERSION)/operator-sdk_$(GOOS)_$(GOARCH)" --output $(OPERATOR_SDK)
@@ -844,3 +893,25 @@ echo-versions:  ## Print the current versions for various components
 .PHONY: echo-vars
 echo-vars:  echo-images echo-versions  ## Print out internal state
 	@echo "DEPLOY_WITH=$(DEPLOY_WITH)"
+
+.PHONY: build-installer
+build-installer: manifests generate kustomize ## Generate a consolidated YAML with CRDs and deployment.
+	mkdir -p dist
+	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}
+	$(KUSTOMIZE) build config/default > dist/install.yaml
+	
+# go-install-tool will 'go install' any package with custom target and name of binary, if it doesn't exist
+# $1 - target path with name of binary (ideally with version)
+# $2 - package url which can be installed
+# $3 - specific version of package
+define go-install-tool
+@[ -f "$(1)-$(3)" ] || { \
+set -e; \
+package=$(2)@$(3) ;\
+echo "Downloading $${package}" ;\
+rm -f $(1) || true ;\
+GOBIN=$(LOCALBIN) go install $${package} ;\
+mv $(1) $(1)-$(3) ;\
+} ;\
+ln -sf $(1)-$(3) $(1)
+endef

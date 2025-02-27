@@ -22,6 +22,7 @@ import (
 	"sort"
 	"strings"
 
+	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	v1beta1 "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/cloud"
@@ -99,7 +100,7 @@ const (
 	passwordSecretNameEnv      = "PASSWORD_SECRET_NAME"
 	// The path to the scrutinize tarball
 	scrutinizeTarball = "SCRUTINIZE_TARBALL"
-	passwordMountName = "password"
+	passwordMountName = v1beta1.PrometheusSecretKeyPassword
 
 	// Client proxy config file name
 	vProxyConfigFile = "config.yaml"
@@ -359,7 +360,6 @@ func buildScrutinizeVolumeMounts(vscr *v1beta1.VerticaScrutinize, vdb *vapi.Vert
 	volMnts := []corev1.VolumeMount{
 		buildScrutinizeSharedVolumeMount(vscr),
 	}
-
 	if vmeta.UseNMACertsMount(vdb.Annotations) &&
 		vdb.Spec.NMATLSSecret != "" &&
 		secrets.IsK8sSecret(vdb.Spec.NMATLSSecret) {
@@ -865,7 +865,7 @@ func makeScrutinizeInitContainers(vscr *v1beta1.VerticaScrutinize, vdb *vapi.Ver
 }
 
 // BuildHorizontalPodAutoscaler builds a manifest for the horizontal pod autoscaler.
-func BuildHorizontalPodAutoscaler(nm types.NamespacedName, vas *v1beta1.VerticaAutoscaler) *autoscalingv2.HorizontalPodAutoscaler {
+func BuildHorizontalPodAutoscaler(nm types.NamespacedName, vas *vapi.VerticaAutoscaler) *autoscalingv2.HorizontalPodAutoscaler {
 	return &autoscalingv2.HorizontalPodAutoscaler{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: nm.Namespace,
@@ -873,16 +873,200 @@ func BuildHorizontalPodAutoscaler(nm types.NamespacedName, vas *v1beta1.VerticaA
 		},
 		Spec: autoscalingv2.HorizontalPodAutoscalerSpec{
 			ScaleTargetRef: autoscalingv2.CrossVersionObjectReference{
-				APIVersion: v1beta1.GroupVersion.String(),
-				Kind:       v1beta1.VerticaAutoscalerKind,
+				APIVersion: vapi.GroupVersion.String(),
+				Kind:       vapi.VerticaAutoscalerKind,
 				Name:       vas.Name,
 			},
-			MinReplicas: vas.Spec.CustomAutoscaler.MinReplicas,
-			MaxReplicas: vas.Spec.CustomAutoscaler.MaxReplicas,
+			MinReplicas: vas.GetMinReplicas(),
+			MaxReplicas: vas.Spec.CustomAutoscaler.Hpa.MaxReplicas,
 			Metrics:     vas.GetHPAMetrics(),
-			Behavior:    vas.Spec.CustomAutoscaler.Behavior,
+			Behavior:    vas.Spec.CustomAutoscaler.Hpa.Behavior,
 		},
 	}
+}
+
+// BuildScaledObject builds a manifest for a keda scaledObject.
+func BuildScaledObject(nm types.NamespacedName, vas *vapi.VerticaAutoscaler) *kedav1alpha1.ScaledObject {
+	so := vas.Spec.CustomAutoscaler.ScaledObject
+	scaledObject := &kedav1alpha1.ScaledObject{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: nm.Namespace,
+			Name:      nm.Name,
+		},
+		Spec: kedav1alpha1.ScaledObjectSpec{
+			ScaleTargetRef: &kedav1alpha1.ScaleTarget{
+				APIVersion: vapi.GroupVersion.String(),
+				Kind:       vapi.VerticaAutoscalerKind,
+				Name:       vas.Name,
+			},
+			MinReplicaCount: so.MinReplicas,
+			MaxReplicaCount: so.MaxReplicas,
+			PollingInterval: so.PollingInterval,
+			CooldownPeriod:  so.CooldownPeriod,
+			Triggers:        buildTriggers(so.Metrics, vas),
+		},
+	}
+
+	if so.Behavior != nil {
+		scaledObject.Spec.Advanced = &kedav1alpha1.AdvancedConfig{
+			HorizontalPodAutoscalerConfig: &kedav1alpha1.HorizontalPodAutoscalerConfig{
+				Behavior: so.Behavior,
+			},
+		}
+	}
+	return scaledObject
+}
+
+// buildTriggers builds and return a list of scaled triggers.
+func buildTriggers(metrics []vapi.ScaleTrigger, vas *vapi.VerticaAutoscaler) []kedav1alpha1.ScaleTriggers {
+	triggers := make([]kedav1alpha1.ScaleTriggers, len(metrics))
+	for i := range metrics {
+		metric := &metrics[i]
+		if metric.IsNil() {
+			continue
+		}
+		metadata := metric.GetMetadata()
+		if metric.IsPrometheusMetric() {
+			metadata["namespace"] = vas.Namespace
+			metadata["unsafeSsl"] = metric.GetUnsafeSslStr()
+			if metric.Prometheus.AuthModes != "" {
+				metadata["authModes"] = string(metric.Prometheus.AuthModes)
+			}
+		} else {
+			metadata["containerName"] = names.ServerContainer
+		}
+		trigger := kedav1alpha1.ScaleTriggers{
+			Type:       metric.GetType(),
+			Name:       metric.Name,
+			MetricType: metric.MetricType,
+			Metadata:   metadata,
+		}
+		if metric.AuthSecret != "" {
+			taName := names.GenTriggerAuthenticationtName(vas, metric.AuthSecret)
+			trigger.AuthenticationRef = &kedav1alpha1.AuthenticationRef{
+				Name: taName.Name,
+			}
+		}
+		triggers[i] = trigger
+	}
+	return triggers
+}
+
+// BuildTriggerAuthentication builds a manifest for a keda TriggerAuthentication.
+func BuildTriggerAuthentication(vas *vapi.VerticaAutoscaler,
+	metric *vapi.ScaleTrigger, ta types.NamespacedName, secretData map[string][]byte) *kedav1alpha1.TriggerAuthentication {
+	authTargets := []kedav1alpha1.AuthSecretTargetRef{}
+	switch metric.Prometheus.AuthModes {
+	case vapi.PrometheusAuthBasic:
+		authTargets = append(authTargets, buildTriggerAuthForBasic(metric)...)
+	case vapi.PrometheusAuthBearer:
+		authTargets = append(authTargets, buildTriggerAuthForBearer(metric, secretData)...)
+	case vapi.PrometheusAuthTLS:
+		authTargets = append(authTargets, buildTriggerAuthForTLS(metric)...)
+	case vapi.PrometheusAuthCustom:
+		authTargets = append(authTargets, buildTriggerAuthForCustom(metric)...)
+	case vapi.PrometheusAuthTLSAndBasic:
+		authTargets = append(authTargets, buildTriggerAuthForTLSAndBasic(metric)...)
+	}
+	return &kedav1alpha1.TriggerAuthentication{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: vas.Namespace,
+			Name:      ta.Name,
+		},
+		Spec: kedav1alpha1.TriggerAuthenticationSpec{
+			SecretTargetRef: authTargets,
+		},
+	}
+}
+
+// buildTriggerAuthForBasic builds a list of manifest for a keda AuthSecretTargetRef.
+func buildTriggerAuthForBasic(metric *vapi.ScaleTrigger) []kedav1alpha1.AuthSecretTargetRef {
+	authTargets := []kedav1alpha1.AuthSecretTargetRef{}
+	// For 'basic' type, 'username' and 'password' are required fields in AuthSecret.
+	authTargets = append(authTargets,
+		kedav1alpha1.AuthSecretTargetRef{
+			Parameter: vapi.PrometheusSecretKeyUsername,
+			Name:      metric.AuthSecret,
+			Key:       vapi.PrometheusSecretKeyUsername,
+		},
+		kedav1alpha1.AuthSecretTargetRef{
+			Parameter: vapi.PrometheusSecretKeyPassword,
+			Name:      metric.AuthSecret,
+			Key:       vapi.PrometheusSecretKeyPassword,
+		})
+	return authTargets
+}
+
+// buildTriggerAuthForBearer builds a list of manifest for a keda AuthSecretTargetRef.
+func buildTriggerAuthForBearer(metric *vapi.ScaleTrigger, secretData map[string][]byte) []kedav1alpha1.AuthSecretTargetRef {
+	authTargets := []kedav1alpha1.AuthSecretTargetRef{}
+	// For 'bearer' type, 'bearerToken' is required field in AuthSecret.
+	authTargets = append(authTargets,
+		kedav1alpha1.AuthSecretTargetRef{
+			Parameter: vapi.PrometheusSecretKeyBearerToken,
+			Name:      metric.AuthSecret,
+			Key:       vapi.PrometheusSecretKeyBearerToken,
+		})
+	// For 'bearer' type, 'ca' is optional field in AuthSecret.
+	if _, ok := secretData[vapi.PrometheusSecretKeyCa]; ok {
+		authTargets = append(authTargets,
+			kedav1alpha1.AuthSecretTargetRef{
+				Parameter: vapi.PrometheusSecretKeyCa,
+				Name:      metric.AuthSecret,
+				Key:       vapi.PrometheusSecretKeyCa,
+			})
+	}
+	return authTargets
+}
+
+// buildTriggerAuthForTLS builds a list of manifest for a keda AuthSecretTargetRef.
+func buildTriggerAuthForTLS(metric *vapi.ScaleTrigger) []kedav1alpha1.AuthSecretTargetRef {
+	authTargets := []kedav1alpha1.AuthSecretTargetRef{}
+	// For 'tls' type, 'ca', 'cert' and 'key' are required fields in AuthSecret.
+	authTargets = append(authTargets,
+		kedav1alpha1.AuthSecretTargetRef{
+			Parameter: vapi.PrometheusSecretKeyCa,
+			Name:      metric.AuthSecret,
+			Key:       vapi.PrometheusSecretKeyCa,
+		},
+		kedav1alpha1.AuthSecretTargetRef{
+			Parameter: vapi.PrometheusSecretKeyCert,
+			Name:      metric.AuthSecret,
+			Key:       vapi.PrometheusSecretKeyCert,
+		},
+		kedav1alpha1.AuthSecretTargetRef{
+			Parameter: vapi.PrometheusSecretKeyKey,
+			Name:      metric.AuthSecret,
+			Key:       vapi.PrometheusSecretKeyKey,
+		})
+	return authTargets
+}
+
+// buildTriggerAuthForCustom builds a list of manifest for a keda AuthSecretTargetRef.
+func buildTriggerAuthForCustom(metric *vapi.ScaleTrigger) []kedav1alpha1.AuthSecretTargetRef {
+	authTargets := []kedav1alpha1.AuthSecretTargetRef{}
+	// For 'custom' type, 'customAuthHeader' and 'customAuthValue' are required fields in AuthSecret.
+	authTargets = append(authTargets,
+		kedav1alpha1.AuthSecretTargetRef{
+			Parameter: vapi.PrometheusSecretKeyCustomAuthHeader,
+			Name:      metric.AuthSecret,
+			Key:       vapi.PrometheusSecretKeyCustomAuthHeader,
+		},
+		kedav1alpha1.AuthSecretTargetRef{
+			Parameter: vapi.PrometheusSecretKeyCustomAuthValue,
+			Name:      metric.AuthSecret,
+			Key:       vapi.PrometheusSecretKeyCustomAuthValue,
+		})
+	return authTargets
+}
+
+// buildTriggerAuthForTLSAndBasic builds a list of manifest for a keda AuthSecretTargetRef.
+func buildTriggerAuthForTLSAndBasic(metric *vapi.ScaleTrigger) []kedav1alpha1.AuthSecretTargetRef {
+	authTargets := []kedav1alpha1.AuthSecretTargetRef{}
+	// For 'tls,basic' type, 'username', 'password', 'ca', 'cert' and 'key' are required fields in AuthSecret.
+	authTargets = append(authTargets, buildTriggerAuthForBasic(metric)...)
+	authTargets = append(authTargets, buildTriggerAuthForTLS(metric)...)
+	return authTargets
 }
 
 // BuildVProxyDeployment builds manifest for a subclusters VProxy deployment
@@ -914,7 +1098,7 @@ func BuildVProxyDeployment(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vap
 	}
 }
 
-// buildPodSpec creates a PodSpec for the deployment
+// buildVProxyPodSpec creates a PodSpec for the vproxy deployment
 func buildVProxyPodSpec(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.PodSpec {
 	termGracePeriod := int64(0)
 	return corev1.PodSpec{
@@ -1090,7 +1274,7 @@ func makeNMAContainer(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.Container
 	envVars = append(envVars,
 		corev1.EnvVar{Name: NMALogPath, Value: StdOut},
 	)
-	return corev1.Container{
+	cnt := corev1.Container{
 		Image:           pickImage(vdb, sc),
 		ImagePullPolicy: vdb.Spec.ImagePullPolicy,
 		Name:            names.NMAContainer,
@@ -1102,6 +1286,10 @@ func makeNMAContainer(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.Container
 		LivenessProbe:   makeNMAHealthProbe(vdb, vmeta.NMAHealthProbeLiveness),
 		StartupProbe:    makeNMAHealthProbe(vdb, vmeta.NMAHealthProbeStartup),
 	}
+	if vdb.Spec.NMASecurityContext != nil {
+		cnt.SecurityContext = vdb.Spec.NMASecurityContext
+	}
+	return cnt
 }
 
 // makeScrutinizeInitContainer builds the spec of the init container that collects
@@ -1498,7 +1686,7 @@ func BuildStsSpec(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi.Subclus
 					Spec: corev1.PersistentVolumeClaimSpec{
 						AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
 						StorageClassName: getStorageClassName(vdb),
-						Resources: corev1.ResourceRequirements{
+						Resources: corev1.VolumeResourceRequirements{
 							Requests: corev1.ResourceList{
 								corev1.ResourceStorage: vdb.Spec.Local.RequestSize,
 							},
@@ -1511,7 +1699,7 @@ func BuildStsSpec(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi.Subclus
 }
 
 // BuildSandboxConfigMap builds a config map for sandbox controller
-func BuildSandboxConfigMap(nm types.NamespacedName, vdb *vapi.VerticaDB, sandbox string) *corev1.ConfigMap {
+func BuildSandboxConfigMap(nm types.NamespacedName, vdb *vapi.VerticaDB, sandbox string, disableRouting bool) *corev1.ConfigMap {
 	immutable := true
 	return &corev1.ConfigMap{
 		TypeMeta: metav1.TypeMeta{
@@ -1522,7 +1710,7 @@ func BuildSandboxConfigMap(nm types.NamespacedName, vdb *vapi.VerticaDB, sandbox
 			Name:            nm.Name,
 			Namespace:       nm.Namespace,
 			Labels:          MakeLabelsForSandboxConfigMap(vdb),
-			Annotations:     MakeAnnotationsForSandboxConfigMap(vdb),
+			Annotations:     MakeAnnotationsForSandboxConfigMap(vdb, disableRouting),
 			OwnerReferences: []metav1.OwnerReference{vdb.GenerateOwnerReference()},
 		},
 		// the data should be immutable since dbName and sandboxName are fixed
@@ -1596,7 +1784,7 @@ func BuildPVC(vdb *vapi.VerticaDB, sc *vapi.Subcluster, podIndex int32) *corev1.
 			AccessModes: []corev1.PersistentVolumeAccessMode{
 				"ReadWriteOnce",
 			},
-			Resources: corev1.ResourceRequirements{
+			Resources: corev1.VolumeResourceRequirements{
 				Requests: corev1.ResourceList{
 					corev1.ResourceStorage: vdb.Spec.Local.RequestSize,
 				},
@@ -1798,11 +1986,37 @@ func buildNMATLSCertsEnvVars(vdb *vapi.VerticaDB) []corev1.EnvVar {
 			{Name: NMAKeyEnv, Value: fmt.Sprintf("%s/%s", paths.NMACertsRoot, corev1.TLSPrivateKeyKey)},
 		}
 	}
+	if !vmeta.EnableTLSCertsRotation(vdb.Annotations) {
+		return []corev1.EnvVar{
+			// The NMA will read the secrets directly from the secret store.
+			// We provide the secret namespace and name for this reason.
+			{Name: NMASecretNamespaceEnv, Value: vdb.ObjectMeta.Namespace},
+			{Name: NMASecretNameEnv, Value: vdb.Spec.NMATLSSecret},
+		}
+	}
+	notTrue := false
+	configMapName := fmt.Sprintf("%s-%s", vdb.Name, vapi.NMATLSConfigMapName)
 	return []corev1.EnvVar{
-		// The NMA will read the secrets directly from the secret store.
-		// We provide the secret namespace and name for this reason.
-		{Name: NMASecretNamespaceEnv, Value: vdb.ObjectMeta.Namespace},
-		{Name: NMASecretNameEnv, Value: vdb.Spec.NMATLSSecret},
+		{Name: NMASecretNamespaceEnv,
+			ValueFrom: &corev1.EnvVarSource{
+				ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: configMapName,
+					},
+					Key:      NMASecretNamespaceEnv,
+					Optional: &notTrue,
+				},
+			}},
+		{Name: NMASecretNameEnv,
+			ValueFrom: &corev1.EnvVarSource{
+				ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: configMapName,
+					},
+					Key:      NMASecretNameEnv,
+					Optional: &notTrue,
+				},
+			}},
 	}
 }
 
@@ -1890,4 +2104,26 @@ func GetTarballName(cmd []string) string {
 		}
 	}
 	return ""
+}
+
+// BuildNMATLSConfigMap builds a configmap with tls secret name in it.
+// The configmap will be mapped to two environmental variables in NMA pod
+func BuildNMATLSConfigMap(configMapName string, vdb *vapi.VerticaDB) *corev1.ConfigMap {
+	secretMap := map[string]string{
+		NMASecretNamespaceEnv: vdb.ObjectMeta.Namespace,
+		NMASecretNameEnv:      vdb.Spec.NMATLSSecret,
+	}
+	tlsConfigMap := &corev1.ConfigMap{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "ConfigMap",
+			APIVersion: "v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            configMapName,
+			Namespace:       vdb.Namespace,
+			OwnerReferences: []metav1.OwnerReference{vdb.GenerateOwnerReference()},
+		},
+		Data: secretMap,
+	}
+	return tlsConfigMap
 }

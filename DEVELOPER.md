@@ -591,6 +591,7 @@ A Prometheus service is running and accessible through an URL.
 
 2. Configuration
    Customize the adapter configuration to map Prometheus metrics to Kubernetes metrics. For example, you can configure rules to map a Prometheus query (e.g., vertica_query_requests_attempted_total) to a Kubernetes metric.
+   To customize the interval of a query, change the interval value "5m" on the metricsQuery to the prefered time range.
 
    ```shell
    rules:
@@ -685,8 +686,9 @@ kubectl logs <vertica-pod-name> -c vlogger
          ...
          - args:
            - --health-probe-bind-address=:8081
-           - --metrics-bind-address=127.0.0.1:8080
+           - --metrics-bind-address=0.0.0.0:8443
            - --leader-elect
+           - --health-probe-bind-address=:8081
            - --enable-profiler
            command:
            - /manager

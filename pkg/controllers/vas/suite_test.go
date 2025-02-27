@@ -16,15 +16,18 @@
 package vas
 
 import (
+	"context"
 	"path/filepath"
 	"testing"
 
 	"github.com/go-logr/logr"
+	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
-	v1beta1 "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
+	"github.com/vertica/vertica-kubernetes/pkg/names"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -32,6 +35,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 )
 
 var k8sClient client.Client
@@ -46,7 +50,8 @@ var _ = BeforeSuite(func() {
 
 	By("bootstrapping test environment")
 	testEnv = &envtest.Environment{
-		CRDDirectoryPaths:     []string{filepath.Join("..", "..", "..", "config", "crd", "bases")},
+		CRDDirectoryPaths: []string{filepath.Join("..", "..", "..", "config", "crd", "bases"),
+			filepath.Join("..", "..", "..", "external", "keda")},
 		ErrorIfCRDPathMissing: true,
 	}
 
@@ -55,17 +60,22 @@ var _ = BeforeSuite(func() {
 	ExpectWithOffset(1, cfg).NotTo(BeNil())
 	restCfg = cfg
 
-	err = v1beta1.AddToScheme(scheme.Scheme)
+	err = vapi.AddToScheme(scheme.Scheme)
 	ExpectWithOffset(1, err).NotTo(HaveOccurred())
 	err = vapi.AddToScheme(scheme.Scheme)
+	ExpectWithOffset(1, err).NotTo(HaveOccurred())
+	err = kedav1alpha1.AddToScheme(scheme.Scheme)
 	ExpectWithOffset(1, err).NotTo(HaveOccurred())
 
 	k8sClient, err = client.New(restCfg, client.Options{Scheme: scheme.Scheme})
 	ExpectWithOffset(1, err).NotTo(HaveOccurred())
 
+	metricsServerOptions := metricsserver.Options{
+		BindAddress: "0", // Disable metrics for the test
+	}
 	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
-		Scheme:             scheme.Scheme,
-		MetricsBindAddress: "0", // Disable metrics for the test
+		Scheme:  scheme.Scheme,
+		Metrics: metricsServerOptions,
 	})
 	Expect(err).NotTo(HaveOccurred())
 
@@ -87,4 +97,11 @@ func TestAPIs(t *testing.T) {
 	RegisterFailHandler(Fail)
 
 	RunSpecs(t, "vas Suite")
+}
+
+func deleteSecret(ctx context.Context, vas *vapi.VerticaAutoscaler, secretName string) {
+	nm := names.GenNamespacedName(vas, secretName)
+	secret := &corev1.Secret{}
+	Expect(k8sClient.Get(ctx, nm, secret)).Should(Succeed())
+	Expect(k8sClient.Delete(ctx, secret)).Should(Succeed())
 }

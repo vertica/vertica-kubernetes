@@ -18,7 +18,7 @@ package vas
 import (
 	"context"
 
-	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	"github.com/vertica/vertica-kubernetes/pkg/vasstatus"
 	ctrl "sigs.k8s.io/controller-runtime"

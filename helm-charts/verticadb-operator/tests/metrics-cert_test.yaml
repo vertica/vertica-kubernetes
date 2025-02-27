@@ -1,0 +1,37 @@
+suite: Metrics certificate tests
+templates:
+  - verticadb-operator-manager-deployment.yaml
+tests:
+  - it: should include the cert if prometheus.tlsSecret is set
+    set:
+      prometheus:
+        expose: EnableWithAuth
+        tlsSecret: my-secret
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].volumeMounts[1]
+          value:
+            name: auth-cert
+            mountPath: /cert
+      - equal:
+          path: spec.template.spec.volumes[0]
+          value:
+            name: auth-cert
+            secret:
+              defaultMode: 420
+              secretName: my-secret
+  - it: should not include the cert if prometheus.tlsSecret is not set
+    set:
+      prometheus:
+        expose: EnableWithAuth
+        tlsSecret: ""
+    asserts:
+      - notContains:
+          path: spec.template.spec.containers[0].volumeMounts
+          content:
+            name: auth-cert
+            mountPath: /cert
+      - notContains:
+          path: spec.template.spec.volumes
+          content:
+            name: auth-cert

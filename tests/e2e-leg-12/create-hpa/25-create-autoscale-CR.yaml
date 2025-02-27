@@ -11,7 +11,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1beta1
+apiVersion: vertica.com/v1
 kind: VerticaAutoscaler
 metadata:
   name: v-autoscale-by-pod-pri1
@@ -20,13 +20,15 @@ spec:
   serviceName: pri1
   scalingGranularity: Pod
   customAutoscaler:
-    minReplicas: 3
-    maxReplicas: 6
-    metrics:
-    - metric:
-        resource:
-          name: cpu
-          target:
-            averageUtilization: 50
-            type: Utilization
-        type: Resource
+    type: HPA
+    hpa:
+      minReplicas: 3
+      maxReplicas: 6
+      metrics:
+      - metric:
+          resource:
+            name: cpu
+            target:
+              averageUtilization: 50
+              type: Utilization
+          type: Resource

@@ -18,6 +18,7 @@ package v1
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"regexp"
 	"strconv"
@@ -26,7 +27,9 @@ import (
 
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
+	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
+	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -497,12 +500,14 @@ func (v *VerticaDB) GetVProxyDeploymentName(scName string) string {
 	return fmt.Sprintf("%s-%s-proxy", v.Name, GenCompatibleFQDNHelper(scName))
 }
 
-// FindSubclusterForServiceName will find any subclusters that match the given service name
+// FindSubclusterForServiceName will find any subclusters that match the given service name.
+// If service name is empty, it will return all the subclusters in vdb.
 func (v *VerticaDB) FindSubclusterForServiceName(svcName string) (scs []*Subcluster, totalSize int32) {
 	totalSize = int32(0)
 	scs = []*Subcluster{}
 	for i := range v.Spec.Subclusters {
-		if v.Spec.Subclusters[i].GetServiceName() == svcName {
+		sc := &v.Spec.Subclusters[i]
+		if svcName == "" || sc.GetServiceName() == svcName {
 			scs = append(scs, &v.Spec.Subclusters[i])
 			totalSize += v.Spec.Subclusters[i].Size
 		}
@@ -655,6 +660,18 @@ func (v *VerticaDB) GetFirstPrimarySubcluster() *Subcluster {
 	}
 	// We should never get here because the webhook prevents a vdb with no primary.
 	return nil
+}
+
+// GetPromaryCount returns the number of primary nodes in the cluster.
+func (v *VerticaDB) GetPrimaryCount() int {
+	sizeSum := 0
+	for i := range v.Spec.Subclusters {
+		sc := &v.Spec.Subclusters[i]
+		if sc.IsPrimary() && !sc.IsSandboxPrimary() {
+			sizeSum += int(sc.Size)
+		}
+	}
+	return sizeSum
 }
 
 // HasSecondarySubclusters returns true if at least 1 secondary subcluster
@@ -943,7 +960,7 @@ func (s *Subcluster) GetType() string {
 	// Transient subclusters are considered secondary subclusters. This exists
 	// for historical reasons because we added separate labels for
 	// primary/secondary and transient.
-	if s.IsTransient() {
+	if s.IsTransient() || s.Type == "" {
 		return SecondarySubcluster
 	}
 	return s.Type
@@ -1154,4 +1171,199 @@ func (v *VerticaDB) GetSubclustersInSandbox(sbName string) []string {
 		scNames = append(scNames, sb.Subclusters[i].Name)
 	}
 	return scNames
+}
+
+// GetHPAMetrics extract an return hpa metrics from MetricDefinition struct.
+func (v *VerticaAutoscaler) GetHPAMetrics() []autoscalingv2.MetricSpec {
+	metrics := make([]autoscalingv2.MetricSpec, len(v.Spec.CustomAutoscaler.Hpa.Metrics))
+	for i := range v.Spec.CustomAutoscaler.Hpa.Metrics {
+		metrics[i] = v.Spec.CustomAutoscaler.Hpa.Metrics[i].Metric
+	}
+	return metrics
+}
+
+// ValidatePrometheusAuthBasic will check if required key exists for type PrometheusAuthBasic
+func (authmode *PrometheusAuthModes) ValidatePrometheusAuthBasic(secretData map[string][]byte) error {
+	if _, ok := secretData[PrometheusSecretKeyUsername]; !ok {
+		return errors.New("username not found in secret")
+	}
+	if _, ok := secretData[PrometheusSecretKeyPassword]; !ok {
+		return errors.New("password not found in secret")
+	}
+	return nil
+}
+
+// ValidatePrometheusAuthBearer will check if required key exists for type PrometheusAuthBearer
+func (authmode *PrometheusAuthModes) ValidatePrometheusAuthBearer(secretData map[string][]byte) error {
+	if _, ok := secretData[PrometheusSecretKeyBearerToken]; !ok {
+		return errors.New("bearerToken not found in secret")
+	}
+	return nil
+}
+
+// ValidatePrometheusAuthTLS will check if required key exists for type PrometheusAuthTLS
+func (authmode *PrometheusAuthModes) ValidatePrometheusAuthTLS(secretData map[string][]byte) error {
+	if _, ok := secretData[PrometheusSecretKeyCa]; !ok {
+		return errors.New("ca not found in secret")
+	}
+	if _, ok := secretData[PrometheusSecretKeyCert]; !ok {
+		return errors.New("cert not found in secret")
+	}
+	if _, ok := secretData[PrometheusSecretKeyKey]; !ok {
+		return errors.New("key not found in secret")
+	}
+	return nil
+}
+
+// ValidatePrometheusAuthCustom will check if required key exists for type PrometheusAuthCustom
+func (authmode *PrometheusAuthModes) ValidatePrometheusAuthCustom(secretData map[string][]byte) error {
+	if _, ok := secretData[PrometheusSecretKeyCustomAuthHeader]; !ok {
+		return errors.New("customAuthHeader not found in secret")
+	}
+	if _, ok := secretData[PrometheusSecretKeyCustomAuthValue]; !ok {
+		return errors.New("customAuthValue not found in secret")
+	}
+	return nil
+}
+
+// ValidatePrometheusAuthTLSAndBasic will check if required key exists for type PrometheusAuthTLSAndBasic
+func (authmode *PrometheusAuthModes) ValidatePrometheusAuthTLSAndBasic(secretData map[string][]byte) error {
+	if err := authmode.ValidatePrometheusAuthBasic(secretData); err != nil {
+		return err
+	}
+	if err := authmode.ValidatePrometheusAuthTLS(secretData); err != nil {
+		return err
+	}
+	return nil
+}
+
+// GetMap Convert PrometheusSpec to map[string]string
+func (p *PrometheusSpec) GetMap() map[string]string {
+	result := make(map[string]string)
+	result["serverAddress"] = p.ServerAddress
+	result["query"] = p.Query
+	result["threshold"] = fmt.Sprintf("%d", p.Threshold)
+	// Only add ScaleInThreshold if it is non-zero
+	if p.ScaleInThreshold != 0 {
+		result["activationThreshold"] = fmt.Sprintf("%d", p.ScaleInThreshold)
+	}
+
+	return result
+}
+
+// GetMap converts CPUMemorySpec to map[string]string
+func (r *CPUMemorySpec) GetMap() map[string]string {
+	result := make(map[string]string)
+	result["value"] = fmt.Sprintf("%d", r.Threshold)
+	return result
+}
+
+// GetMetadata returns the metric parameters map
+func (s *ScaleTrigger) GetMetadata() map[string]string {
+	if s.IsPrometheusMetric() {
+		return s.Prometheus.GetMap()
+	}
+	return s.Resource.GetMap()
+}
+
+func (s *ScaleTrigger) IsNil() bool {
+	return s.Prometheus == nil && s.Resource == nil
+}
+
+func (s *ScaleTrigger) IsPrometheusMetric() bool {
+	return s.Type == PrometheusTriggerType || s.Type == ""
+}
+
+func (s *ScaleTrigger) GetUnsafeSslStr() string {
+	return strconv.FormatBool(s.Prometheus.UnsafeSsl)
+}
+
+func (s *ScaleTrigger) GetType() string {
+	if s.Type == "" {
+		return string(PrometheusTriggerType)
+	}
+	return string(s.Type)
+}
+
+// MakeScaledObjectSpec builds a sample scaleObjectSpec.
+// This is intended for test purposes.
+func MakeScaledObjectSpec() *ScaledObjectSpec {
+	return &ScaledObjectSpec{
+		MinReplicas:     &[]int32{3}[0],
+		MaxReplicas:     &[]int32{6}[0],
+		PollingInterval: &[]int32{5}[0],
+		Metrics: []ScaleTrigger{
+			{
+				Name: "sample-metric",
+				Prometheus: &PrometheusSpec{
+					ServerAddress: "http://localhost",
+					Query:         "query",
+					Threshold:     5,
+				},
+			},
+		},
+	}
+}
+
+// HasScaleInThreshold returns true if scale in threshold is set
+func (v *VerticaAutoscaler) HasScaleInThreshold() bool {
+	if !v.IsHpaEnabled() {
+		return false
+	}
+	for i := range v.Spec.CustomAutoscaler.Hpa.Metrics {
+		m := &v.Spec.CustomAutoscaler.Hpa.Metrics[i]
+		if m.ScaleInThreshold != nil {
+			return true
+		}
+	}
+	return false
+}
+
+// GetMinReplicas calculates the minReplicas based on the scale in
+// threshold, and returns it
+func (v *VerticaAutoscaler) GetMinReplicas() *int32 {
+	vasCopy := v.DeepCopy()
+	if v.HasScaleInThreshold() {
+		return &vasCopy.Spec.TargetSize
+	}
+	return vasCopy.Spec.CustomAutoscaler.Hpa.MinReplicas
+}
+
+// GetMetricMap returns a map whose key is the metric name and the value is
+// the metric's definition.
+func (v *VerticaAutoscaler) GetMetricMap() map[string]*MetricDefinition {
+	mMap := make(map[string]*MetricDefinition)
+	for i := range v.Spec.CustomAutoscaler.Hpa.Metrics {
+		m := &v.Spec.CustomAutoscaler.Hpa.Metrics[i]
+		var name string
+		if m.Metric.Pods != nil {
+			name = m.Metric.Pods.Metric.Name
+		} else if m.Metric.Object != nil {
+			name = m.Metric.Object.Metric.Name
+		} else if m.Metric.External != nil {
+			name = m.Metric.External.Metric.Name
+		} else if m.Metric.Resource != nil {
+			name = m.Metric.Resource.Name.String()
+		} else {
+			name = m.Metric.ContainerResource.Name.String()
+		}
+		mMap[name] = m
+	}
+	return mMap
+}
+
+func IsK8sSecretFound(ctx context.Context, vdb *VerticaDB, k8sClient client.Client, secretName *string,
+	secret *corev1.Secret) (bool, error) {
+	nm := types.NamespacedName{
+		Name:      *secretName,
+		Namespace: vdb.GetNamespace(),
+	}
+	err := k8sClient.Get(ctx, nm, secret)
+	if k8sErrors.IsNotFound(err) {
+		return false, nil
+	} else if err != nil {
+		return false, err
+	} else {
+		return true, nil
+	}
 }
