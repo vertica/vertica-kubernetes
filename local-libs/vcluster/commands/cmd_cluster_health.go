@@ -53,7 +53,6 @@ Examples:
   # Check the cluster health
   vcluster cluster_health
 `,
-		// TODO: modify this
 		[]string{dbNameFlag, configFlag, hostsFlag, ipv6Flag, passwordFlag, outputFileFlag},
 	)
 
@@ -80,6 +79,7 @@ func (c *CmdClusterHealth) setLocalFlags(cmd *cobra.Command) {
 	// --phase-duration-desc : the phase duration description (for get_slow_events)
 	// --event-desc : the event description (for get_slow_events)
 	// --user-name : the user name (for get_slow_events)
+	// --timezone: the timezone of the start and end time (e.g., -0500 or +0100)
 
 	cmd.Flags().StringVar(
 		&c.clusterHealthOptions.Operation,
@@ -146,6 +146,12 @@ func (c *CmdClusterHealth) setLocalFlags(cmd *cobra.Command) {
 		"display",
 		false,
 		"Wheather display the cascade graph in console",
+	)
+	cmd.Flags().StringVar(
+		&c.clusterHealthOptions.Timezone,
+		"timezone",
+		"",
+		"The timezone of the start and end time (e.g., -0500 or +0100). If not given, UTC will be used by default.",
 	)
 }
 
