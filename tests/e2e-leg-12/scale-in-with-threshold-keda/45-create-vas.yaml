@@ -27,8 +27,10 @@ spec:
       metrics:
       - name: vertica_sessions_running_total
         metricType: AverageValue
+        authSecret: prometheus-tls
         prometheus:
-          serverAddress: "http://prometheus-kube-prometheus-prometheus.prometheus.svc.cluster.local:9090"
+          serverAddress: "https://prometheus-tls-kube-promet-prometheus.prometheus-tls.svc:9090"
           query: sum(vertica_sessions_running_counter{type="active", initiator="user", service="v-scale-in-threshold-pri1"})
           threshold: 5
           scaleInThreshold: 1
+          authModes: tls

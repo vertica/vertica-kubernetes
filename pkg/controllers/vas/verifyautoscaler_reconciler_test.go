@@ -84,17 +84,17 @@ var _ = Describe("scalein_reconcile", func() {
 		res, err = r.Reconcile(ctx, &req)
 		Expect(err).Should(Succeed())
 		Expect(res.Requeue).Should(BeFalse())
-		fetchVas := &v1beta1.VerticaAutoscaler{}
-		Expect(k8sClient.Get(ctx, v1beta1.MakeVASName(), fetchVas)).Should(Succeed())
+		fetchVas := &vapi.VerticaAutoscaler{}
+		Expect(k8sClient.Get(ctx, vapi.MakeVASName(), fetchVas)).Should(Succeed())
 		Expect(len(fetchVas.Status.Conditions)).Should(Equal(2))
-		Expect(fetchVas.Status.Conditions[1].Type).Should(Equal(v1beta1.ScalingActive))
+		Expect(fetchVas.Status.Conditions[1].Type).Should(Equal(vapi.ScalingActive))
 		Expect(fetchVas.Status.Conditions[1].Status).Should(Equal(corev1.ConditionTrue))
 	})
 
 	It("should requeue if scaledObject is not ready", func() {
 		vas := vapi.MakeVASWithMetrics()
 		vas.Spec.CustomAutoscaler.Hpa = nil
-		vas.Spec.CustomAutoscaler.Type = v1beta1.ScaledObject
+		vas.Spec.CustomAutoscaler.Type = vapi.ScaledObject
 		vas.Spec.CustomAutoscaler.ScaledObject = vapi.MakeScaledObjectSpec()
 		v1beta1_test.CreateVAS(ctx, k8sClient, vas)
 		defer v1beta1_test.DeleteVAS(ctx, k8sClient, vas)
