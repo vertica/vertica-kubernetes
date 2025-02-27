@@ -11,11 +11,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: apps/v1
-kind: StatefulSet
----
-apiVersion: v1
-kind: Service
-metadata:
-  labels:
-    app.kubernetes.io/managed-by: verticadb-operator
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - script: cd ../../.. && make deploy-prometheus-tls PROMETHEUS_NAMESPACE=prometheus-tls PROMETHEUS_HELM_NAME=prometheus-tls PROMETHEUS_TLS_URL="https://prometheus-tls-kube-promet-prometheus.prometheus-tls.svc"
+  - script: cd ../../.. && make deploy-prometheus-service-monitor VDB_NAMESPACE=$NAMESPACE DB_USER=dbadmin DB_PASSWORD=topsecret VDB_NAME=v-scale-in-threshold PROMETHEUS_HELM_NAME=prometheus-tls

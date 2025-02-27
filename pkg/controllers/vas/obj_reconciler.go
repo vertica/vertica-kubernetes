@@ -17,6 +17,7 @@ package vas
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"reflect"
@@ -152,7 +153,7 @@ func (o *ObjReconciler) validateAuthSecret(secretData map[string][]byte, authMod
 	case vapi.PrometheusAuthTLSAndBasic:
 		return authMode.ValidatePrometheusAuthTLSAndBasic(secretData)
 	}
-	return nil
+	return errors.New("invalid authentication mode")
 }
 
 func (o *ObjReconciler) updateWorkload(ctx context.Context, curWorkload, expWorkload client.Object) error {

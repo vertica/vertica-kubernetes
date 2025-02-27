@@ -134,6 +134,7 @@ func convertVasFromScaledObjectSpec(src *v1.ScaledObjectSpec) *ScaledObjectSpec 
 				Query:            srcMetric.Prometheus.Query,
 				Threshold:        srcMetric.Prometheus.Threshold,
 				ScaleInThreshold: srcMetric.Prometheus.ScaleInThreshold,
+				AuthModes:        PrometheusAuthModes(srcMetric.Prometheus.AuthModes),
 			}
 		}
 		if srcMetric.Resource != nil {
@@ -224,6 +225,7 @@ func convertVasToScaledObjectSpec(src *ScaledObjectSpec) *v1.ScaledObjectSpec {
 				Query:            srcMetric.Prometheus.Query,
 				Threshold:        srcMetric.Prometheus.Threshold,
 				ScaleInThreshold: srcMetric.Prometheus.ScaleInThreshold,
+				AuthModes:        v1.PrometheusAuthModes(srcMetric.Prometheus.AuthModes),
 			}
 		}
 		if srcMetric.Resource != nil {
