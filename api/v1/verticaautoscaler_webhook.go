@@ -160,6 +160,7 @@ func (v *VerticaAutoscaler) validateScaledObject(allErrs field.ErrorList) field.
 	validTriggers := []TriggerType{CPUTriggerType, MemTriggerType, PrometheusTriggerType, ""}
 	prometheusMetricTypes := []autoscalingv2.MetricTargetType{autoscalingv2.ValueMetricType, autoscalingv2.AverageValueMetricType}
 	cpumemMetricTypes := []autoscalingv2.MetricTargetType{autoscalingv2.UtilizationMetricType, autoscalingv2.AverageValueMetricType}
+	authModeTypes := []PrometheusAuthModes{PrometheusAuthBasic, PrometheusAuthBearer, PrometheusAuthCustom, PrometheusAuthTLS, PrometheusAuthTLSAndBasic}
 	pathPrefix := field.NewPath("spec").Child("customAutoscaler")
 	if v.Spec.CustomAutoscaler != nil && v.IsScaledObjectType() && v.Spec.CustomAutoscaler.ScaledObject != nil {
 		for i := range v.Spec.CustomAutoscaler.ScaledObject.Metrics {
@@ -190,6 +191,23 @@ func (v *VerticaAutoscaler) validateScaledObject(allErrs field.ErrorList) field.
 					fmt.Sprintf("When Type is set to %s or %s "+
 						"metricType must be one of '%s', '%s'.",
 						CPUTriggerType, MemTriggerType, autoscalingv2.UtilizationMetricType, autoscalingv2.AverageValueMetricType),
+				)
+				allErrs = append(allErrs, err)
+			}
+			// validate if authSecert is set, AuthModes can not be empty
+			if metric.AuthSecret != "" && metric.Prometheus.AuthModes == "" {
+				err := field.Invalid(pathPrefix.Child("scaledObject").Child("metrics").Index(i).Child("prometheus").Child("authModes"),
+					v.Spec.CustomAutoscaler.ScaledObject.Metrics[i].Prometheus.AuthModes,
+					"When authSecret is set authModes can not be empty.",
+				)
+				allErrs = append(allErrs, err)
+			}
+			// validate AuthModes type if set
+			if metric.Prometheus != nil && metric.Prometheus.AuthModes != "" && !slices.Contains(authModeTypes, metric.Prometheus.AuthModes) {
+				err := field.Invalid(pathPrefix.Child("scaledObject").Child("metrics").Index(i).Child("prometheus").Child("authModes"),
+					v.Spec.CustomAutoscaler.ScaledObject.Metrics[i].Prometheus.AuthModes,
+					fmt.Sprintf("AuthModes type must be one of '%s', '%s' , '%s', '%s' or '%s'.",
+						PrometheusAuthBasic, PrometheusAuthBearer, PrometheusAuthCustom, PrometheusAuthTLS, PrometheusAuthTLSAndBasic),
 				)
 				allErrs = append(allErrs, err)
 			}
