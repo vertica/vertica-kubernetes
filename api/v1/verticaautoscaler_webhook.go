@@ -93,6 +93,7 @@ func (v *VerticaAutoscaler) validateSpec() field.ErrorList {
 	allErrs = v.validateCustomAutoscaler(allErrs)
 	allErrs = v.validateScaledObject(allErrs)
 	allErrs = v.validateHPA(allErrs)
+	allErrs = v.validatePrometheusAuthModes(allErrs)
 	return allErrs
 }
 
@@ -160,7 +161,6 @@ func (v *VerticaAutoscaler) validateScaledObject(allErrs field.ErrorList) field.
 	validTriggers := []TriggerType{CPUTriggerType, MemTriggerType, PrometheusTriggerType, ""}
 	prometheusMetricTypes := []autoscalingv2.MetricTargetType{autoscalingv2.ValueMetricType, autoscalingv2.AverageValueMetricType}
 	cpumemMetricTypes := []autoscalingv2.MetricTargetType{autoscalingv2.UtilizationMetricType, autoscalingv2.AverageValueMetricType}
-	authModeTypes := []PrometheusAuthModes{PrometheusAuthBasic, PrometheusAuthBearer, PrometheusAuthCustom, PrometheusAuthTLS, PrometheusAuthTLSAndBasic}
 	pathPrefix := field.NewPath("spec").Child("customAutoscaler")
 	if v.Spec.CustomAutoscaler != nil && v.IsScaledObjectType() && v.Spec.CustomAutoscaler.ScaledObject != nil {
 		for i := range v.Spec.CustomAutoscaler.ScaledObject.Metrics {
@@ -194,6 +194,17 @@ func (v *VerticaAutoscaler) validateScaledObject(allErrs field.ErrorList) field.
 				)
 				allErrs = append(allErrs, err)
 			}
+		}
+	}
+	return allErrs
+}
+
+func (v *VerticaAutoscaler) validatePrometheusAuthModes(allErrs field.ErrorList) field.ErrorList {
+	authModeTypes := []PrometheusAuthModes{PrometheusAuthBasic, PrometheusAuthBearer, PrometheusAuthCustom, PrometheusAuthTLS, PrometheusAuthTLSAndBasic}
+	pathPrefix := field.NewPath("spec").Child("customAutoscaler")
+	if v.Spec.CustomAutoscaler != nil && v.IsScaledObjectType() && v.Spec.CustomAutoscaler.ScaledObject != nil {
+		for i := range v.Spec.CustomAutoscaler.ScaledObject.Metrics {
+			metric := &v.Spec.CustomAutoscaler.ScaledObject.Metrics[i]
 			// validate if authSecert is set, AuthModes can not be empty
 			if metric.AuthSecret != "" && metric.Prometheus.AuthModes == "" {
 				err := field.Invalid(pathPrefix.Child("scaledObject").Child("metrics").Index(i).Child("prometheus").Child("authModes"),
@@ -241,7 +252,6 @@ func (v *VerticaAutoscaler) validateHPA(allErrs field.ErrorList) field.ErrorList
 				)
 				allErrs = append(allErrs, err)
 			}
-
 		}
 	}
 	return allErrs

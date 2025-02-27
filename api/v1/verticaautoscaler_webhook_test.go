@@ -114,4 +114,35 @@ var _ = Describe("verticaautoscaler_webhook", func() {
 		_, err = vas.ValidateCreate()
 		Expect(err).ShouldNot(Succeed())
 	})
+
+	It("should fail if scaledobject authSecret is set and authModes is empty", func() {
+		vas := MakeVASWithScaledObjectPrometheus()
+		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].AuthSecret = "somevalue"
+		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].Prometheus.AuthModes = ""
+		_, err := vas.ValidateCreate()
+		Expect(err).ShouldNot(Succeed())
+	})
+
+	It("should fail if scaledobject authModes is not set properly", func() {
+		vas := MakeVASWithScaledObjectPrometheus()
+		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].AuthSecret = "somevalue"
+		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].Prometheus.AuthModes = PrometheusAuthBasic
+		_, err := vas.ValidateCreate()
+		Expect(err).Should(Succeed())
+		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].Prometheus.AuthModes = PrometheusAuthBearer
+		_, err = vas.ValidateCreate()
+		Expect(err).Should(Succeed())
+		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].Prometheus.AuthModes = PrometheusAuthCustom
+		_, err = vas.ValidateCreate()
+		Expect(err).Should(Succeed())
+		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].Prometheus.AuthModes = PrometheusAuthTLS
+		_, err = vas.ValidateCreate()
+		Expect(err).Should(Succeed())
+		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].Prometheus.AuthModes = PrometheusAuthTLSAndBasic
+		_, err = vas.ValidateCreate()
+		Expect(err).Should(Succeed())
+		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].Prometheus.AuthModes = "invalid"
+		_, err = vas.ValidateCreate()
+		Expect(err).ShouldNot(Succeed())
+	})
 })
