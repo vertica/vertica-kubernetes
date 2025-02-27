@@ -11,14 +11,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: v1
-kind: Secret
-metadata:
-  name: prometheus-v-scale-in-threshold
----
-apiVersion: monitoring.coreos.com/v1
-kind: ServiceMonitor
-metadata:
-  name: k8s-vertica-prometheus-v-scale-in-threshold
-  labels:
-    release: prometheus-tls
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - script: cd ../../.. && make undeploy-prometheus-service-monitor VDB_NAMESPACE=$NAMESPACE DB_USER=dbadmin DB_PASSWORD=topsecret VDB_NAME=v-scale-in-auth-tls-keda PROMETHEUS_HELM_NAME=prometheus-tls
+  - script: cd ../../.. && make undeploy-prometheus PROMETHEUS_NAMESPACE=prometheus-tls PROMETHEUS_HELM_NAME=prometheus-tls
+  

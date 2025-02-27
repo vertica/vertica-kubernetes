@@ -17,6 +17,7 @@ package vas
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"reflect"
@@ -25,7 +26,9 @@ import (
 	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/builder"
+	"github.com/vertica/vertica-kubernetes/pkg/cloud"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
+	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -36,14 +39,25 @@ import (
 // ObjReconciler is a reconciler to handle reconciliation of VerticaAutoscaler-owned
 // objects.
 type ObjReconciler struct {
-	VRec *VerticaAutoscalerReconciler
-	Vas  *vapi.VerticaAutoscaler
-	Log  logr.Logger
+	VRec          *VerticaAutoscalerReconciler
+	Vas           *vapi.VerticaAutoscaler
+	Log           logr.Logger
+	SecretFetcher cloud.SecretFetcher
 }
 
 func MakeObjReconciler(v *VerticaAutoscalerReconciler, vas *vapi.VerticaAutoscaler,
 	log logr.Logger) controllers.ReconcileActor {
-	return &ObjReconciler{VRec: v, Vas: vas, Log: log.WithName("ObjReconciler")}
+	return &ObjReconciler{
+		VRec: v,
+		Vas:  vas,
+		Log:  log.WithName("ObjReconciler"),
+		SecretFetcher: cloud.SecretFetcher{
+			Client:   v.Client,
+			Log:      log.WithName("ObjReconciler"),
+			Obj:      vas,
+			EVWriter: v.EVRec,
+		},
+	}
 }
 
 // Reconcile will handle creating the hpa/scaledObject if it does not exist or updating
@@ -77,15 +91,69 @@ func (o *ObjReconciler) reconcileHpa(ctx context.Context) error {
 
 // reconcileScaledObject creates a scaledObject or updates an existing one.
 func (o *ObjReconciler) reconcileScaledObject(ctx context.Context) error {
+	err := o.createTriggerAuthentications(ctx)
+	if err != nil {
+		return err
+	}
 	nm := names.GenScaledObjectName(o.Vas)
 	curSO := &kedav1alpha1.ScaledObject{}
 	expSO := builder.BuildScaledObject(nm, o.Vas)
-	err := o.VRec.Client.Get(ctx, nm, curSO)
+	err = o.VRec.Client.Get(ctx, nm, curSO)
 	if err != nil && kerrors.IsNotFound(err) {
 		o.Log.Info("Creating scaledobject", "Name", nm.Name)
 		return createObject(ctx, expSO, o.VRec.Client, o.Vas)
 	}
 	return o.updateWorkload(ctx, curSO, expSO)
+}
+
+// createTriggerAuthentications will create or update TriggerAuthentication objects.
+func (o *ObjReconciler) createTriggerAuthentications(ctx context.Context) error {
+	metrics := o.Vas.Spec.CustomAutoscaler.ScaledObject.Metrics
+	for i := range metrics {
+		metric := metrics[i]
+		if metric.IsNil() || !metric.IsPrometheusMetric() || metric.AuthSecret == "" {
+			continue
+		}
+		secretData, res, err := o.SecretFetcher.FetchAllowRequeue(ctx, names.GenAuthSecretName(o.Vas, metric.AuthSecret))
+		if verrors.IsReconcileAborted(res, err) {
+			return err
+		}
+		err = o.validateAuthSecret(secretData, metric.Prometheus.AuthModes)
+		if err != nil {
+			o.Log.Error(err, "Invalid secret %s for %s authentication", metric.AuthSecret, metric.Prometheus.AuthModes)
+			return err
+		}
+		taName := names.GenTriggerAuthenticationtName(o.Vas, metric.AuthSecret)
+		curTA := &kedav1alpha1.TriggerAuthentication{}
+		newTA := builder.BuildTriggerAuthentication(o.Vas, &metric, taName, secretData)
+
+		err = o.VRec.Client.Get(ctx, taName, curTA)
+		if err != nil && kerrors.IsNotFound(err) {
+			o.Log.Info("Creating TrigerAuthentication object", "Name", taName)
+			err = createObject(ctx, newTA, o.VRec.Client, o.Vas)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// validateAuthSecret will check if required fields exist for different kind of Prometheus auth mode.
+func (o *ObjReconciler) validateAuthSecret(secretData map[string][]byte, authMode vapi.PrometheusAuthModes) error {
+	switch authMode {
+	case vapi.PrometheusAuthBasic:
+		return authMode.ValidatePrometheusAuthBasic(secretData)
+	case vapi.PrometheusAuthBearer:
+		return authMode.ValidatePrometheusAuthBearer(secretData)
+	case vapi.PrometheusAuthTLS:
+		return authMode.ValidatePrometheusAuthTLS(secretData)
+	case vapi.PrometheusAuthCustom:
+		return authMode.ValidatePrometheusAuthCustom(secretData)
+	case vapi.PrometheusAuthTLSAndBasic:
+		return authMode.ValidatePrometheusAuthTLSAndBasic(secretData)
+	}
+	return errors.New("invalid authentication mode")
 }
 
 func (o *ObjReconciler) updateWorkload(ctx context.Context, curWorkload, expWorkload client.Object) error {
