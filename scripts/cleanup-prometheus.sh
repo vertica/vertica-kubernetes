@@ -16,11 +16,26 @@
 # A script that will clean up left over resources of Prometheus.
 
 NAMESPACE=$1
-kubectl delete clusterrole prometheus-kube-prometheus-operator -n $NAMESPACE
-kubectl delete clusterrole prometheus-kube-prometheus-prometheus -n $NAMESPACE
-kubectl delete clusterrolebinding prometheus-kube-prometheus-operator -n $NAMESPACE
-kubectl delete clusterrolebinding prometheus-kube-prometheus-prometheus -n $NAMESPACE
-kubectl delete svc prometheus-kube-prometheus-kube-proxy -n kube-system
-kubectl delete svc prometheus-kube-prometheus-kubelet -n kube-system
-kubectl delete MutatingWebhookConfiguration prometheus-kube-prometheus-admission -n $NAMESPACE
-kubectl delete ValidatingWebhookConfiguration prometheus-kube-prometheus-admission -n $NAMESPACE
+if [ -z "$NAMESPACE" ]
+then
+  NAMESPACE=default
+fi
+
+function remove_prometheus_leftover
+{
+    NAMESPACE=$1
+    echo "Clean up Prometheus left over resources for ns: $NAMESPACE"
+    for obj in clusterrole clusterrolebinding mutatingwebhookconfigurations validatingwebhookconfigurations
+    do
+        if kubectl -n $NAMESPACE get $obj | grep '^prometheus-kube-'
+        then
+            kubectl delete -n $NAMESPACE $obj $(kubectl -n $NAMESPACE get $obj | grep '^prometheus-kube-' | cut -d' ' -f1) || true
+        fi
+    done
+    if kubectl -n kube-system get svc | grep '^prometheus-kube-'
+    then
+        kubectl -n kube-system delete svc $(kubectl -n kube-system get svc | grep '^prometheus-kube-' | cut -d' ' -f1) || true
+    fi
+}
+
+remove_prometheus_leftover $NAMESPACE

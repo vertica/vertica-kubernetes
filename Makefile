@@ -753,7 +753,7 @@ undeploy-keda:
 
 .PHONY: cleanup-prometheus-leftover
 cleanup-prometheus-leftover: ## remove leftover Prometheus resouces due to e2e test failure.
-	scripts/cleanup-prometheus.sh PROMETHEUS_NAMESPACE
+	scripts/cleanup-prometheus.sh $(PROMETHEUS_NAMESPACE)
 
 .PHONY: undeploy-operator
 undeploy-operator: ## Undeploy operator that was previously deployed
