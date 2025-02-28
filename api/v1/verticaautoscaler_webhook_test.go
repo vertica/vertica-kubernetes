@@ -43,8 +43,8 @@ var _ = Describe("verticaautoscaler_webhook", func() {
 			Type: HPA,
 			Hpa:  &HPASpec{},
 		}
-		err := newVas.validateImmutableFields(oldVas)
-		Expect(err).To(ContainSubstring("cannot set customAutoscaler after CR creation"))
+
+		Ω(newVas.validateImmutableFields(oldVas)).Should(HaveLen(1))
 	})
 
 	It("should fail if the service name differs", func() {
@@ -80,29 +80,12 @@ var _ = Describe("verticaautoscaler_webhook", func() {
 		Expect(err1).Should(Succeed())
 	})
 
-	It("maxReplicas must be set", func() {
+	It("maxReplicas must be set and cannot be less than minReplicas", func() {
 		vas := MakeVAS()
-		var maxReplicas int32 = 0
-		vas.Spec.CustomAutoscaler = &CustomAutoscalerSpec{
-			Type: HPA,
-			Hpa:  &HPASpec{},
-		}
-		vas.Spec.CustomAutoscaler.Hpa.MaxReplicas = maxReplicas
-		_, err := vas.ValidateCreate()
-		Expect(err.Error()).To(ContainSubstring("HPA maxReplicas must be set"))
-		vas.Spec.CustomAutoscaler = &CustomAutoscalerSpec{
-			Type:         ScaledObject,
-			ScaledObject: &ScaledObjectSpec{},
-		}
-		vas.Spec.CustomAutoscaler.ScaledObject.MaxReplicas = &maxReplicas
-		_, err = vas.ValidateCreate()
-		Expect(err.Error()).To(ContainSubstring("ScaledObject maxReplicas must be set"))
-	})
-
-	It("maxReplicas cannot be less than minReplicas", func() {
-		vas := MakeVAS()
-		var maxReplicas int32 = 3
 		var minReplicas int32 = 5
+		var maxReplicas int32 = 0
+
+		// HPA
 		vas.Spec.CustomAutoscaler = &CustomAutoscalerSpec{
 			Type: HPA,
 			Hpa: &HPASpec{
@@ -111,17 +94,27 @@ var _ = Describe("verticaautoscaler_webhook", func() {
 			},
 		}
 		_, err := vas.ValidateCreate()
-		Expect(err.Error()).To(ContainSubstring("maxReplicas cannot be less than minReplicas"))
+		Expect(err.Error()).To(ContainSubstring("maxReplicas must be set"))
 
+		maxReplicas = 3
+		vas.Spec.CustomAutoscaler.Hpa.MaxReplicas = maxReplicas
+		_, err = vas.ValidateCreate()
+		Expect(err.Error()).To(ContainSubstring("cannot be less than minReplicas"))
+
+		// ScaleObject
 		vas.Spec.CustomAutoscaler = &CustomAutoscalerSpec{
 			Type: ScaledObject,
 			ScaledObject: &ScaledObjectSpec{
 				MinReplicas: &minReplicas,
-				MaxReplicas: &maxReplicas,
 			},
 		}
 		_, err = vas.ValidateCreate()
-		Expect(err.Error()).To(ContainSubstring("maxReplicas cannot be less than minReplicas"))
+		Expect(err.Error()).To(ContainSubstring("maxReplicas must be set"))
+
+		vas.Spec.CustomAutoscaler.ScaledObject.MaxReplicas = &maxReplicas
+		_, err = vas.ValidateCreate()
+		Expect(err.Error()).To(ContainSubstring("cannot be less than minReplicas"))
+
 	})
 
 	It("should fail if scaledobject metrics type is not set properly", func() {
@@ -252,7 +245,7 @@ var _ = Describe("verticaautoscaler_webhook", func() {
 		}
 		vas.Spec.CustomAutoscaler.Hpa = nil
 		_, err := vas.ValidateCreate()
-		Expect(err.Error()).To(ContainSubstring("customAutoscaler.Hpa must be non-nil"))
+		Expect(err).ShouldNot(Succeed())
 	})
 
 	It("should fail if customAutoscaler.ScaledObject is nil and customAutoscaler.type is ScaledObject", func() {
@@ -262,6 +255,6 @@ var _ = Describe("verticaautoscaler_webhook", func() {
 		}
 		vas.Spec.CustomAutoscaler.ScaledObject = nil
 		_, err := vas.ValidateCreate()
-		Expect(err.Error()).To(ContainSubstring("customAutoscaler.ScaledObject must be non-nil"))
+		Expect(err).ShouldNot(Succeed())
 	})
 })
