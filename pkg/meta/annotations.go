@@ -147,6 +147,12 @@ const (
 	// reconciles we use the exponential backoff algorithm.
 	UpgradeRequeueTimeAnnotation = "vertica.com/upgrade-requeue-time"
 
+	// Annotation to disable depot volume management and let it be provided by
+	// a volumeMount for example. Useful for test environments and when using
+	// Ephemeral PVCs
+	NoDepotVolumeManagementAnnotation      = "vertica.com/disable-depot-volume-management"
+	NoDepotVolumeManagementAnnotationTrue  = "true"
+	NoDepotVolumeManagementAnnotationFalse = "false"
 	// A secret that has the files for /home/dbadmin/.ssh.  If this is
 	// omitted, the ssh files from the image are used (if applicable). SSH is
 	// only required when deploying via admintools and is present only in images
@@ -528,6 +534,12 @@ func IsHTTPSTLSConfGenerationEnabled(annotations map[string]string) bool {
 // the image was built for.
 func GetSkipDeploymentCheck(annotations map[string]string) bool {
 	return lookupBoolAnnotation(annotations, SkipDeploymentCheckAnnotation, false /* default value */)
+}
+
+// DisableDepotVolumeManagement will return true if we should not manage the depot volume
+// in the operator, allowing different provisioning mechanisms
+func DisableDepotVolumeManagement(annotations map[string]string) bool {
+	return lookupBoolAnnotation(annotations, NoDepotVolumeManagementAnnotation, false)
 }
 
 // GetNMAResource is used to retrieve a specific resource for the NMA
