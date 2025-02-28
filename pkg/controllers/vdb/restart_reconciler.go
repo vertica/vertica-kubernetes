@@ -579,12 +579,12 @@ func (r *RestartReconciler) killReadOnlyProcesses(ctx context.Context, pods []*p
 func (r *RestartReconciler) killVerticaProcesses(ctx context.Context, pods []*podfacts.PodFact, forReadOnly bool) (ctrl.Result, error) {
 	killedAtLeastOnePid := false
 	for _, pod := range pods {
-		// 1. killing read-only vertica processes
-		if !pod.GetReadOnly() {
+		// 1. skip killing non read-only vertica processes
+		if forReadOnly && !pod.GetReadOnly() {
 			continue
 		}
-		// 2. killing vertica processes in the pods with NMA as a sidecar
-		if !forReadOnly && !pod.GetHasNMASidecar() {
+		// 2. skip killing non read-only vertica processes within pods without NMA sidecar
+		if !forReadOnly && !pod.GetReadOnly() && !pod.GetHasNMASidecar() {
 			continue
 		}
 		const killMarker = "Killing process"
