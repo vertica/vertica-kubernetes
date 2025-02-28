@@ -614,6 +614,7 @@ type ClusterCommands interface {
 	VUnsandbox(options *VUnsandboxOptions) error
 	VUpgradeLicense(options *VUpgradeLicenseOptions) error
 	VClusterHealth(options *VClusterHealthOptions) error
+	VWorkloadCapture(options *VWorkloadCaptureOptions) error
 }
 
 type VClusterCommandsLogger struct {
