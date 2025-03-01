@@ -121,6 +121,9 @@ func (*MockVClusterOps) VManageConnectionDraining(_ *vclusterops.VManageConnecti
 func (*MockVClusterOps) VRotateNMACerts(_ *vclusterops.VRotateNMACertsOptions) error {
 	return nil
 }
+func (*MockVClusterOps) VRotateHTTPSCerts(_ *vclusterops.VRotateHTTPSCertsOptions) error {
+	return nil
+}
 
 // MakeMockVClusterOpsDispatch will create a mock vcluster dispatcher
 func MakeMockVClusterOpsDispatcher(vdb *vapi.VerticaDB, logger logr.Logger, cl client.Client,

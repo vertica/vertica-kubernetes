@@ -142,7 +142,7 @@ func (c *CreateDBReconciler) execCmd(ctx context.Context, initiatorPod types.Nam
 		}
 		chgs := vk8s.MetaChanges{
 			NewAnnotations: map[string]string{
-				vmeta.NMATLSSECRETAnnotation:          c.Vdb.Spec.NMATLSSecret,
+				vmeta.NMATLSSecretInUseAnnotation:     c.Vdb.Spec.NMATLSSecret,
 				vmeta.CLIENTSERVERTLSSecretAnnotation: c.Vdb.Spec.ClientServerTLSSecret,
 			},
 		}

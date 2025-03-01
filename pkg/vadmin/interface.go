@@ -45,6 +45,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/replicationstatus"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/restartnode"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/revivedb"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/rotatehttpscerts"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/rotatenmacerts"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/sandboxsc"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/saverestorepoint"
@@ -156,6 +157,9 @@ type Dispatcher interface {
 
 	// RotateNMACerts will rotate nma cert
 	RotateNMACerts(ctx context.Context, opts ...rotatenmacerts.Option) error
+
+	// RotateHTTPSCerts will rotate nma cert
+	RotateHTTPSCerts(ctx context.Context, opts ...rotatehttpscerts.Option) error
 }
 
 const (
@@ -311,4 +315,5 @@ type VClusterProvider interface {
 	VPollSubclusterState(options *vops.VPollSubclusterStateOptions) error
 	VManageConnectionDraining(options *vops.VManageConnectionDrainingOptions) error
 	VRotateNMACerts(options *vops.VRotateNMACertsOptions) error
+	VRotateHTTPSCerts(options *vops.VRotateHTTPSCertsOptions) error
 }

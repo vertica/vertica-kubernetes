@@ -360,6 +360,10 @@ func (m *MockVClusterOps) VRotateNMACerts(options *vops.VRotateNMACertsOptions) 
 	return nil
 }
 
+func (m *MockVClusterOps) VRotateHTTPSCerts(options *vops.VRotateHTTPSCertsOptions) error {
+	return nil
+}
+
 func (m *MockVClusterOps) VPollSubclusterState(_ *vops.VPollSubclusterStateOptions) error {
 	return nil
 }
