@@ -162,12 +162,13 @@ func (h *TLSCertRoationReconciler) rotateHTTPSTLSCert(ctx context.Context, newSe
 	}
 	currentSecretName := meta.GetNMATLSSecretNameInUse(h.Vdb.Annotations)
 	h.Log.Info("libo: to rotate certi from " + currentSecretName + " to " + h.Vdb.Spec.NMATLSSecret)
-	keyConfig := fmt.Sprintf("'{\"data-key\":\"%s\", \"namespace\":\"%s\"}'", corev1.TLSPrivateKeyKey, h.Vdb.Namespace)
-	certConfig := fmt.Sprintf("'{\"data-key\":\"%s\", \"namespace\":\"%s\"}'", corev1.TLSCertKey, h.Vdb.Namespace)
-	caCertConfig := fmt.Sprintf("'{\"data-key\":\"%s\", \"namespace\":\"%s\"}'", paths.HTTPServerCACrtName, h.Vdb.Namespace)
+	keyConfig := fmt.Sprintf("{\"data-key\":\"%s\", \"namespace\":\"%s\"}", corev1.TLSPrivateKeyKey, h.Vdb.Namespace)
+	certConfig := fmt.Sprintf("{\"data-key\":\"%s\", \"namespace\":\"%s\"}", corev1.TLSCertKey, h.Vdb.Namespace)
+	caCertConfig := fmt.Sprintf("{\"data-key\":\"%s\", \"namespace\":\"%s\"}", paths.HTTPServerCACrtName, h.Vdb.Namespace)
 	h.Log.Info("libo: keyConfig - " + keyConfig)
 	h.Log.Info("libo: certConfig - " + certConfig)
 	h.Log.Info("libo: caCertConfig - " + caCertConfig)
+	// currentSecretNameArg := fmt.Sprintf("'%s'", currentSecretName)
 	opts := []rotatehttpscerts.Option{
 		rotatehttpscerts.WithPollingKey(string(newSecret.Data[corev1.TLSPrivateKeyKey])),
 		rotatehttpscerts.WithPollingCert(string(newSecret.Data[corev1.TLSCertKey])),
@@ -175,7 +176,7 @@ func (h *TLSCertRoationReconciler) rotateHTTPSTLSCert(ctx context.Context, newSe
 		rotatehttpscerts.WithKey(currentSecretName, keyConfig),
 		rotatehttpscerts.WithCert(currentSecretName, certConfig),
 		rotatehttpscerts.WithCaCert(currentSecretName, caCertConfig),
-		rotatehttpscerts.WithTLSMode("'TRY_VERIFY'"),
+		rotatehttpscerts.WithTLSMode("TRY_VERIFY"),
 		rotatehttpscerts.WithInitiator(initiatorPod.GetPodIP()),
 	}
 	vdbContext := vadmin.GetContextForVdb(h.Vdb.Namespace, h.Vdb.Name)
