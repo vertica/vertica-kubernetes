@@ -41,6 +41,7 @@ type VClusterHealthOptions struct {
 	EventDesc         string
 	UserName          string
 	Display           bool
+	Timezone          string
 
 	// hidden option
 	CascadeStack            []SlowEventNode
@@ -58,7 +59,7 @@ type SlowEventNode struct {
 	Leaf            bool                `json:"leaf"`
 }
 
-const timeLayout = "2006-01-02 15:04:05.000000"
+const timeLayout = "2006-01-02 15:04:05.999999"
 const maxDepth = 100
 
 func VClusterHealthFactory() VClusterHealthOptions {
@@ -113,6 +114,37 @@ func (options *VClusterHealthOptions) analyzeOptions() (err error) {
 		}
 		options.normalizePaths()
 	}
+
+	// analyze start and end time
+	if options.Timezone != "" {
+		err := options.convertDateStringToUTC()
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (options *VClusterHealthOptions) convertDateStringToUTC() error {
+	// convert start time to UTC
+	if options.StartTime != "" {
+		startTime, err := util.ConvertDateStringToUTC(options.StartTime, options.Timezone)
+		if err != nil {
+			return err
+		}
+		options.StartTime = startTime
+	}
+
+	// convert end time to UTC
+	if options.EndTime != "" {
+		endTime, err := util.ConvertDateStringToUTC(options.EndTime, options.Timezone)
+		if err != nil {
+			return err
+		}
+		options.EndTime = endTime
+	}
+
 	return nil
 }
 
