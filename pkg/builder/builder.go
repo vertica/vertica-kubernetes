@@ -225,7 +225,10 @@ func buildVolumeMounts(vdb *vapi.VerticaDB) []corev1.VolumeMount {
 	// Only mount separate depot/catalog paths if the paths are different in the
 	// container. Otherwise, you will get multiple mount points shared the same
 	// path, which will prevent any pods from starting.
-	if vdb.Spec.Local.DataPath != vdb.Spec.Local.DepotPath {
+	// This does not apply if the depot volume is marked as not managed. In that
+	// case the depot filesystem location must be provided otherwise (for example,
+	// through an ephemeral PVC and the associated volumeMount)
+	if vdb.Spec.Local.DataPath != vdb.Spec.Local.DepotPath && vdb.IsDepotVolumeManaged() {
 		if vdb.IsDepotVolumeEmptyDir() {
 			// If depotVolume is EmptyDir, the depot is stored in its own 'emptyDir' volume
 			volMnts = append(volMnts, corev1.VolumeMount{
@@ -487,13 +490,14 @@ func buildVolumes(vdb *vapi.VerticaDB) []corev1.Volume {
 	if vdb.GetSSHSecretName() != "" {
 		vols = append(vols, buildSSHVolume(vdb))
 	}
+
 	if vmeta.UseVClusterOps(vdb.Annotations) &&
 		vmeta.UseNMACertsMount(vdb.Annotations) &&
 		vdb.Spec.NMATLSSecret != "" &&
 		secrets.IsK8sSecret(vdb.Spec.NMATLSSecret) {
 		vols = append(vols, buildNMACertsSecretVolume(vdb))
 	}
-	if vdb.IsDepotVolumeEmptyDir() {
+	if vdb.IsDepotVolumeEmptyDir() && vdb.IsDepotVolumeManaged() {
 		vols = append(vols, buildDepotVolume())
 	}
 	if vdb.IsNMASideCarDeploymentEnabled() {

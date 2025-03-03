@@ -58,7 +58,7 @@ func (opt *VGetConfigurationParameterOptions) validateParseOptions(logger vlog.P
 func (opt *VGetConfigurationParameterOptions) validateExtraOptions(logger vlog.Printer) error {
 	if opt.ConfigParameter == "" {
 		errStr := util.EmptyConfigParamErrMsg
-		logger.PrintError(errStr)
+		logger.PrintError("%s", errStr)
 		return errors.New(errStr)
 	}
 	// opt.Level could be empty (which means database level)
