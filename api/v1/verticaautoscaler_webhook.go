@@ -204,8 +204,8 @@ func (v *VerticaAutoscaler) validateHPA(allErrs field.ErrorList) field.ErrorList
 	// validate stabilization window
 	if v.HasScaleInThreshold() && v.Spec.CustomAutoscaler.Hpa.Behavior != nil &&
 		v.Spec.CustomAutoscaler.Hpa.Behavior.ScaleDown != nil && *v.Spec.CustomAutoscaler.Hpa.Behavior.ScaleDown.StabilizationWindowSeconds != 0 {
-		err := field.Invalid(pathPrefix.Child("hpa"),
-			v.Spec.CustomAutoscaler.Hpa,
+		err := field.Invalid(pathPrefix.Child("hpa").Child("behavior").Child("scaleDown").Child("stabilizationWindowSeconds"),
+			v.Spec.CustomAutoscaler.Hpa.Behavior.ScaleDown.StabilizationWindowSeconds,
 			"When scaledownThreshold is set, scaledown stabilization window must be 0")
 		allErrs = append(allErrs, err)
 	}
