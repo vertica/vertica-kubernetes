@@ -66,6 +66,15 @@ var _ = Describe("verticaautoscaler_webhook", func() {
 		Expect(err).ShouldNot(Succeed())
 	})
 
+	It("should not have invalid subcluster name", func() {
+		vas := MakeVAS()
+		vas.Spec.ScalingGranularity = SubclusterScalingGranularity
+		vas.Spec.Template.Name = "Sub_"
+		vas.Spec.Template.Size = 1
+		_, err := vas.ValidateCreate()
+		Expect(err).ShouldNot(Succeed())
+	})
+
 	It("should fail if you try to use the template with pod scalingGranularity", func() {
 		vas := MakeVAS()
 		vas.Spec.Template.ServiceName = vas.Spec.ServiceName
