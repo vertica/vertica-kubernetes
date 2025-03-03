@@ -150,7 +150,7 @@ var _ = Describe("verticaautoscaler_webhook", func() {
 		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].Type = PrometheusTriggerType
 		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].Prometheus = nil
 		_, err := vas.ValidateCreate()
-		Expect(err.Error()).To(ContainSubstring("metrics[].prometheus must not be nil"))
+		Expect(err.Error()).To(ContainSubstring("metrics[].prometheus must be set"))
 	})
 
 	It("should fail if scaledobject metrics type is cpu/mem and metrics[].resource is nil", func() {
@@ -158,12 +158,12 @@ var _ = Describe("verticaautoscaler_webhook", func() {
 		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].Type = CPUTriggerType
 		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].Resource = nil
 		_, err := vas.ValidateCreate()
-		Expect(err.Error()).To(ContainSubstring("metrics[].resource must not be nil"))
+		Expect(err.Error()).To(ContainSubstring("metrics[].resource must be set"))
 
 		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].Type = MemTriggerType
 		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].Resource = nil
 		_, err = vas.ValidateCreate()
-		Expect(err.Error()).To(ContainSubstring("metrics[].resource must not be nil"))
+		Expect(err.Error()).To(ContainSubstring("metrics[].resource must be set"))
 	})
 
 	It("should fail if scaledobject metrics type is prometheus and metricType is not set properly", func() {
