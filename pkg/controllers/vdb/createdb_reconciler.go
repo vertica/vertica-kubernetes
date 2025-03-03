@@ -142,8 +142,7 @@ func (c *CreateDBReconciler) execCmd(ctx context.Context, initiatorPod types.Nam
 		}
 		chgs := vk8s.MetaChanges{
 			NewAnnotations: map[string]string{
-				vmeta.NMATLSSECRETAnnotation:          c.Vdb.Spec.NMATLSSecret,
-				vmeta.CLIENTSERVERTLSSecretAnnotation: c.Vdb.Spec.ClientServerTLSSecret,
+				vmeta.NMATLSSECRETAnnotation: c.Vdb.Spec.NMATLSSecret,
 			},
 		}
 		if _, err := vk8s.MetaUpdate(ctx, c.VRec.Client, c.Vdb.ExtractNamespacedName(), c.Vdb, chgs); err != nil {
@@ -245,34 +244,8 @@ func (c *CreateDBReconciler) generatePostDBCreateSQL(ctx context.Context, initia
 			\"namespace\":\"%s\"}' SIGNED BY https_ca_cert_0 KEY https_key_0;`,
 			c.Vdb.Spec.NMATLSSecret, corev1.TLSCertKey, c.Vdb.ObjectMeta.Namespace))
 
-		sb.WriteString(`DROP KEY IF EXISTS server_key;`)
-
-		sb.WriteString(`DROP CERTIFICATE IF EXISTS server_cert;`)
-
-		sb.WriteString(`DROP CERTIFICATE IF EXISTS server_ca_cert;`)
-
-		sb.WriteString(fmt.Sprintf(
-			`CREATE KEY server_key TYPE 'rsa' SECRETMANAGER KubernetesSecretManager SECRETNAME '%s' CONFIGURATION '{\"data-key\":\"%s\", 
-			\"namespace\":\"%s\"}';`,
-			c.Vdb.Spec.ClientServerTLSSecret, corev1.TLSPrivateKeyKey, c.Vdb.ObjectMeta.Namespace))
-
-		sb.WriteString(fmt.Sprintf(
-			`CREATE CA CERTIFICATE server_ca_cert SECRETMANAGER KubernetesSecretManager SECRETNAME '%s' CONFIGURATION '{\"data-key\":\"%s\", 
-			\"namespace\":\"%s\"}';`,
-			c.Vdb.Spec.ClientServerTLSSecret, paths.HTTPServerCACrtName, c.Vdb.ObjectMeta.Namespace))
-
-		sb.WriteString(fmt.Sprintf(
-			`CREATE CERTIFICATE server_cert SECRETMANAGER KubernetesSecretManager SECRETNAME '%s' CONFIGURATION '{\"data-key\":\"%s\", 
-			\"namespace\":\"%s\"}' SIGNED BY server_ca_cert KEY server_key;`,
-			c.Vdb.Spec.ClientServerTLSSecret, corev1.TLSCertKey, c.Vdb.ObjectMeta.Namespace))
-
-		sb.WriteString(fmt.Sprintf(`ALTER TLS CONFIGURATION server CERTIFICATE server_cert ADD CA CERTIFICATES server_ca_cert TLSMODE '%s';`,
-			c.Vdb.Spec.ClientServerTLSMode))
-
 		sb.WriteString(`ALTER TLS CONFIGURATION https CERTIFICATE https_cert_0 ADD CA CERTIFICATES https_ca_cert_0 TLSMODE 'TRY_VERIFY';`)
-
 		sb.WriteString(`ALTER TLS CONFIGURATION https CERTIFICATE https_cert_0 REMOVE CA CERTIFICATES httpServerRootca;`)
-		sb.WriteString(`ALTER TLS CONFIGURATION server CERTIFICATE server_cert REMOVE CA CERTIFICATES httpServerRootca;`)
 		sb.WriteString(`CREATE AUTHENTICATION auth_tls METHOD 'tls' HOST TLS '0.0.0.0/0';`)
 		sb.WriteString(fmt.Sprintf(`GRANT AUTHENTICATION auth_tls TO %s;`, c.Vdb.GetVerticaUser()))
 	}
