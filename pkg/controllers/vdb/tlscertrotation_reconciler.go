@@ -72,7 +72,7 @@ func (h *TLSCertRoationReconciler) Reconcile(ctx context.Context, _ *ctrl.Reques
 		h.Vdb.Spec.NMATLSSecret == curretSecretName) {
 		return ctrl.Result{}, nil
 	}
-	h.Log.Info("libo: rotation is required")
+	h.Log.Info("libo: rotation is required from " + curretSecretName + " to " + h.Vdb.Spec.NMATLSSecret)
 	// rotation is required. Will check start conditions next
 	// check if secret is ready for rotation
 	currentSecret := corev1.Secret{}
@@ -173,9 +173,9 @@ func (h *TLSCertRoationReconciler) rotateHTTPSTLSCert(ctx context.Context, newSe
 		rotatehttpscerts.WithPollingKey(string(newSecret.Data[corev1.TLSPrivateKeyKey])),
 		rotatehttpscerts.WithPollingCert(string(newSecret.Data[corev1.TLSCertKey])),
 		rotatehttpscerts.WithPollingCaCert(string(newSecret.Data[corev1.ServiceAccountRootCAKey])),
-		rotatehttpscerts.WithKey(currentSecretName, keyConfig),
-		rotatehttpscerts.WithCert(currentSecretName, certConfig),
-		rotatehttpscerts.WithCaCert(currentSecretName, caCertConfig),
+		rotatehttpscerts.WithKey(h.Vdb.Spec.NMATLSSecret, keyConfig),
+		rotatehttpscerts.WithCert(h.Vdb.Spec.NMATLSSecret, certConfig),
+		rotatehttpscerts.WithCaCert(h.Vdb.Spec.NMATLSSecret, caCertConfig),
 		rotatehttpscerts.WithTLSMode("TRY_VERIFY"),
 		rotatehttpscerts.WithInitiator(initiatorPod.GetPodIP()),
 	}
