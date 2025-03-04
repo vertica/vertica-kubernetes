@@ -74,6 +74,9 @@ func (v *VClusterOps) genReIPOptions(s *reip.Parms, certs *HTTPSCerts) vops.VReI
 	// database name
 	opts.DBName = v.VDB.Spec.DBName
 
+	// sandbox name
+	opts.SandboxName = s.Sandbox
+
 	// re-ip list
 	for _, h := range s.Hosts {
 		var reIPInfo vops.ReIPInfo

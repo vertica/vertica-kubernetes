@@ -205,35 +205,41 @@ func (r *RestartReconciler) reconcileCluster(ctx context.Context) (ctrl.Result, 
 		!vmeta.UseVClusterOps(r.Vdb.Annotations), /* restartTransient */
 		true /* restartPendingDelete */)
 
-	// Kill any read-only vertica process that may still be running. This does
-	// not include any rogue process that is no longer communicating with
-	// spread; these are killed by the liveness probe. Read-only nodes need to
-	// be killed because we need to restart vertica on them so they join the new
-	// cluster and can gain write access.
-	if res, err := r.killReadOnlyProcesses(ctx, downPods); verrors.IsReconcileAborted(res, err) {
+	// Kill any read-only vertica process that may still be running and any vertica process
+	// within a pod that has NMA as a sidecar. This does not include rogue processes
+	// in pods without an NMA sidecar that are no longer communicating with spread;
+	// those are handled by the liveness probe.
+	// - Read-only nodes must be terminated to restart Vertica, allowing them to join
+	//   the new cluster and gain write access.
+	// - NMA-as-Sidecar nodes must be terminated to remove the startup config file,
+	//   enabling them to restart alongside other nodes.
+	if res, err := r.killVerticaProcesses(ctx, downPods, false); verrors.IsReconcileAborted(res, err) {
 		return res, err
 	}
 
-	// If any of the pods have finished the startupProbe, we need to wait for
-	// the livenessProbe to kill them before starting. If we don't do this, we
-	// run the risk of having the livenessProbe delete the pod while we
-	// are doing the startup. The startupProbe has a much longer timeout and can
-	// accommodate a slow startup.
-	if _, pc, err := r.filterNonActiveStartupProbe(ctx, downPods); err != nil {
-		return ctrl.Result{}, err
-	} else if pc != 0 {
-		r.Log.Info("Some pods have active livenessProbes. Waiting for them to be rescheduled before trying a restart.",
-			"podCount", pc)
-		return r.makeResultForLivenessProbeWait(ctx)
-	}
+	// For the pods without an NMA sidecar, we need to do startup check on them
+	if !r.Vdb.IsNMASideCarDeploymentEnabled() {
+		// If any of the pods have finished the startupProbe, we need to wait for
+		// the livenessProbe to kill them before starting. If we don't do this, we
+		// run the risk of having the livenessProbe delete the pod while we
+		// are doing the startup. The startupProbe has a much longer timeout and can
+		// accommodate a slow startup.
+		if _, pc, err := r.filterNonActiveStartupProbe(ctx, downPods); err != nil {
+			return ctrl.Result{}, err
+		} else if pc != 0 {
+			r.Log.Info("Some pods have active livenessProbes. Waiting for them to be rescheduled before trying a restart.",
+				"podCount", pc)
+			return r.makeResultForLivenessProbeWait(ctx)
+		}
 
-	// Similar to above, wait for any pods that are just slow starting. They
-	// probably have a large catalog. So, its best to wait it out. The health
-	// probes will eventually kill them if they can't make any progress.
-	if _, pc := r.filterSlowStartup(downPods); pc != 0 {
-		r.Log.Info("Some pods are slow starting up. Waiting for them to finish or abort before trying a cluster restart",
-			"podCount", pc)
-		return r.makeResultForLivenessProbeWait(ctx)
+		// Similar to above, wait for any pods that are just slow starting. They
+		// probably have a large catalog. So, its best to wait it out. The health
+		// probes will eventually kill them if they can't make any progress.
+		if _, pc := r.filterSlowStartup(downPods); pc != 0 {
+			r.Log.Info("Some pods are slow starting up. Waiting for them to finish or abort before trying a cluster restart",
+				"podCount", pc)
+			return r.makeResultForLivenessProbeWait(ctx)
+		}
 	}
 
 	if err := r.acceptEulaIfMissing(ctx); err != nil {
@@ -484,6 +490,7 @@ func (r *RestartReconciler) reipNodes(ctx context.Context, pods []*podfacts.PodF
 	}
 	opts := []reip.Option{
 		reip.WithInitiator(r.InitiatorPod, r.InitiatorPodIP),
+		reip.WithSandbox(r.PFacts.SandboxName),
 	}
 	// If a communal path is set, include all of the EON parameters.
 	if r.Vdb.Spec.Communal.Path != "" {
@@ -564,10 +571,20 @@ func (r *RestartReconciler) restartCluster(ctx context.Context, downPods []*podf
 // before starting a restart; this is done for the benefit of PD purposes and
 // stability in the restart test.
 func (r *RestartReconciler) killReadOnlyProcesses(ctx context.Context, pods []*podfacts.PodFact) (ctrl.Result, error) {
+	return r.killVerticaProcesses(ctx, pods, true)
+}
+
+// killVerticaProcesses will remove any running vertica processes that are currently in read-only
+// or any running vertica processes that are in the pods with NMA sidecar.
+func (r *RestartReconciler) killVerticaProcesses(ctx context.Context, pods []*podfacts.PodFact, forReadOnly bool) (ctrl.Result, error) {
 	killedAtLeastOnePid := false
 	for _, pod := range pods {
-		// Only killing read-only vertica processes
-		if !pod.GetReadOnly() {
+		// 1. skip killing non read-only vertica processes
+		if forReadOnly && !pod.GetReadOnly() {
+			continue
+		}
+		// 2. skip killing non read-only vertica processes within pods without NMA sidecar
+		if !forReadOnly && !pod.GetReadOnly() && !pod.GetHasNMASidecar() {
 			continue
 		}
 		const killMarker = "Killing process"
@@ -582,7 +599,8 @@ func (r *RestartReconciler) killReadOnlyProcesses(ctx context.Context, pods []*p
 		// the NMA sidecar, it is started as PID 1, which doesn't have a signal
 		// handler. So, it doesn't respond to kills. To force vertica down we
 		// are going to kill the spread process.
-		killCmd := fmt.Sprintf("for pid in $(pgrep ^spread$); do echo \"%s $pid\"; kill -n SIGKILL $pid; done", killMarker)
+		killCmd := fmt.Sprintf("for pid in $(pgrep -f '^/opt/vertica/spread/sbin/spread'); do echo \"%s $pid\"; kill -n SIGKILL $pid; done",
+			killMarker)
 		cmd := []string{
 			// Remove the startup file first, since deleting spread will cause the container to stop
 			"bash", "-c", fmt.Sprintf("%s; %s", rmCmd, killCmd),
@@ -598,7 +616,7 @@ func (r *RestartReconciler) killReadOnlyProcesses(ctx context.Context, pods []*p
 		// We are going to requeue if killed at least one process.  This is for
 		// the benefit of the status reconciler, so that we don't treat it as
 		// an up node anymore.
-		r.Log.Info("Requeue.  Killed at least one read-only vertica process.")
+		r.Log.Info("Requeue.  Killed at least one vertica process.")
 		return ctrl.Result{Requeue: true}, nil
 	}
 	return ctrl.Result{}, nil
