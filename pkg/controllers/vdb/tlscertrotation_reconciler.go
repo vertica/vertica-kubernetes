@@ -35,8 +35,10 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/rotatehttpscerts"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/rotatenmacerts"
+	"github.com/vertica/vertica-kubernetes/pkg/vdbstatus"
 	"github.com/vertica/vertica-kubernetes/pkg/vk8s"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -174,7 +176,14 @@ func (h *TLSCertRoationReconciler) rotateNmaTLSCert(ctx context.Context, newSecr
 		return ctrl.Result{}, err
 	}
 	h.Log.Info("saved new tls cert secret name " + h.Vdb.Spec.NMATLSSecret + " in annotation")
-	return h.checkCertAfterRoation("nma", initiatorPod.GetPodIP(), builder.VerticaHTTPPort, h.Vdb.Spec.NMATLSSecret, newCert, currentCert)
+	result, err2 := h.checkCertAfterRoation("nma", initiatorPod.GetPodIP(), builder.VerticaHTTPPort, h.Vdb.Spec.NMATLSSecret, newCert, currentCert)
+	if !result.Requeue && err2 == nil {
+		cond := vapi.MakeCondition(vapi.NmaTLSCertRotated, metav1.ConditionTrue, fmt.Sprintf("new cert: %s, old cert: %s", h.Vdb.Spec.NMATLSSecret, previousTLSSecretName))
+		if err := vdbstatus.UpdateCondition(ctx, h.VRec.GetClient(), h.Vdb, cond); err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+	return result, err2
 }
 
 // rotateHTTPSTLSCert will rotate https server's tls cert from currentSecret to newSecret
@@ -239,7 +248,7 @@ func (h *TLSCertRoationReconciler) checkCertAfterRoation(moduleName, ip string, 
 	if err != nil {
 		h.Log.Error(err, moduleName+" cert rotation aborted. Failed to verify new cert "+newCertName+" on "+
 			ip)
-		return ctrl.Result{Requeue: true}, nil
+		return ctrl.Result{}, err
 	}
 	if rotated == 1 {
 		h.Log.Info(moduleName + " cert rotation is NOT successful. Current cert " +
