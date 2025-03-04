@@ -16,7 +16,10 @@
 package vdb
 
 import (
+	"bytes"
 	"context"
+	"crypto/tls"
+	"encoding/pem"
 	"fmt"
 	"strconv"
 
@@ -112,26 +115,47 @@ func (h *TLSCertRoationReconciler) Reconcile(ctx context.Context, _ *ctrl.Reques
 		return res, err
 	}
 	h.Log.Info("libo: https cert rotation is finished. To rotate nma cert next")
-	return h.rotateNmaTLSCert(ctx, &newSecret)
+	return h.rotateNmaTLSCert(ctx, &newSecret, &currentSecret)
 }
 
-func (h *TLSCertRoationReconciler) rotateNmaTLSCert(ctx context.Context, nmaSecret *corev1.Secret) (ctrl.Result, error) {
+// rotateHTTPSTLSCert will rotate node management agent's tls cert from currentSecret to newSecret
+func (h *TLSCertRoationReconciler) rotateNmaTLSCert(ctx context.Context, newSecret, currentSecret *corev1.Secret) (ctrl.Result, error) {
 	initiatorPod, ok := h.Pfacts.FindFirstUpPod(false, "")
 	if !ok {
 		h.Log.Info("No pod found to run rotate nma cert. Requeue reconciliation.")
 		return ctrl.Result{Requeue: true}, nil
 	}
-	secretName := meta.GetNMATLSSecretNameInUse(h.Vdb.Annotations)
-	h.Log.Info("libo: to rotate certi from " + secretName + " to " + h.Vdb.Spec.NMATLSSecret)
+	currentSecretName := meta.GetNMATLSSecretNameInUse(h.Vdb.Annotations)
+
+	newCert := string(newSecret.Data[corev1.TLSCertKey])
+	currentCert := string(currentSecret.Data[corev1.TLSCertKey])
+	rotated, err := h.verifyCert(initiatorPod.GetPodIP(), builder.NMAPort, newCert, currentCert)
+	if err != nil {
+		h.Log.Error(err, "nma cert rotation aborted. Failed to verify new https cert for "+
+			initiatorPod.GetPodIP())
+		return ctrl.Result{}, err
+	}
+	if rotated == 2 {
+		h.Log.Info("nma cert rotation skipped. Neither new or existing nma cert is in use on " +
+			initiatorPod.GetPodIP())
+		return ctrl.Result{Requeue: true}, nil
+	}
+	if rotated == 0 {
+		h.Log.Info("nma cert rotation skipped. new nma cert for " +
+			" is already in use on " + initiatorPod.GetPodIP())
+		return ctrl.Result{}, nil
+	}
+
+	h.Log.Info("to rotate nma certi from " + currentSecretName + " to " + h.Vdb.Spec.NMATLSSecret)
 	opts := []rotatenmacerts.Option{
-		rotatenmacerts.WithKey(string(nmaSecret.Data[corev1.TLSPrivateKeyKey])),
-		rotatenmacerts.WithCert(string(nmaSecret.Data[corev1.TLSCertKey])),
-		rotatenmacerts.WithCaCert(string(nmaSecret.Data[corev1.ServiceAccountRootCAKey])),
+		rotatenmacerts.WithKey(string(newSecret.Data[corev1.TLSPrivateKeyKey])),
+		rotatenmacerts.WithCert(string(newSecret.Data[corev1.TLSCertKey])),
+		rotatenmacerts.WithCaCert(string(newSecret.Data[corev1.ServiceAccountRootCAKey])),
 		rotatenmacerts.WithInitiator(initiatorPod.GetPodIP()),
 	}
 	vdbContext := vadmin.GetContextForVdb(h.Vdb.Namespace, h.Vdb.Name)
-	h.Log.Info("libo: to call RotateNMACerts, use tls " + strconv.FormatBool(vdbContext.GetBoolValue(vadmin.UseTLSCert)))
-	err := h.Dispatcher.RotateNMACerts(ctx, opts...)
+	h.Log.Info("to call RotateNMACerts, use tls " + strconv.FormatBool(vdbContext.GetBoolValue(vadmin.UseTLSCert)))
+	err = h.Dispatcher.RotateNMACerts(ctx, opts...)
 	if err != nil {
 		h.Log.Error(err, "failed to rotate nma cer to "+h.Vdb.Spec.NMATLSSecret)
 		return ctrl.Result{}, err
@@ -142,36 +166,48 @@ func (h *TLSCertRoationReconciler) rotateNmaTLSCert(ctx context.Context, nmaSecr
 		h.Log.Error(err, "failed to save previously used tls cert secret name in annotation after cert rotation")
 		return ctrl.Result{}, err
 	}
-	h.Log.Info("libo: saved previously used tls cert secret name in annotation")
+	h.Log.Info("saved previously used tls cert secret name " + previousTLSSecretName + " in annotation")
 	err = vk8s.UpdateAnnotation(vmeta.NMATLSSecretInUseAnnotation, h.Vdb.Spec.NMATLSSecret, h.Vdb, ctx, h.VRec.Client, h.Log)
 
 	if err != nil {
 		h.Log.Error(err, "failed to save new tls cert secret name in annotation after cert rotation")
 		return ctrl.Result{}, err
 	}
-	h.Log.Info("libo: saved new tls cert secret name in annotation")
-	h.Log.Info("cert has been rotated to " + h.Vdb.Spec.NMATLSSecret)
-	return ctrl.Result{}, nil
+	h.Log.Info("saved new tls cert secret name " + h.Vdb.Spec.NMATLSSecret + " in annotation")
+	return h.checkCertAfterRoation("nma", initiatorPod.GetPodIP(), builder.VerticaHTTPPort, h.Vdb.Spec.NMATLSSecret, newCert, currentCert)
 }
 
-func (h *TLSCertRoationReconciler) rotateHTTPSTLSCert(ctx context.Context, newSecret *corev1.Secret, currentSecret *corev1.Secret) (ctrl.Result, error) {
+// rotateHTTPSTLSCert will rotate https server's tls cert from currentSecret to newSecret
+func (h *TLSCertRoationReconciler) rotateHTTPSTLSCert(ctx context.Context, newSecret, currentSecret *corev1.Secret) (ctrl.Result, error) {
 	initiatorPod, ok := h.Pfacts.FindFirstUpPod(false, "")
 	if !ok {
 		h.Log.Info("No pod found to run rotate https cert. Requeue reconciliation.")
 		return ctrl.Result{Requeue: true}, nil
 	}
+	newCert := string(newSecret.Data[corev1.TLSCertKey])
+	currentCert := string(currentSecret.Data[corev1.TLSCertKey])
+	rotated, err := h.verifyCert(initiatorPod.GetPodIP(), builder.VerticaHTTPPort, newCert, currentCert)
+	if err != nil {
+		h.Log.Error(err, "https cert rotation aborted. Failed to verify new https cert for "+
+			initiatorPod.GetPodIP())
+		return ctrl.Result{}, err
+	}
+	if rotated == 0 {
+		h.Log.Info("https cert rotation skipped. new https cert is already in use on " + initiatorPod.GetPodIP())
+		return ctrl.Result{}, nil
+	}
+	if rotated == 2 {
+		h.Log.Info("https cert rotation aborted. Neither new or current https cert is in use")
+		return ctrl.Result{Requeue: true}, nil
+	}
 	currentSecretName := meta.GetNMATLSSecretNameInUse(h.Vdb.Annotations)
-	h.Log.Info("libo: to rotate certi from " + currentSecretName + " to " + h.Vdb.Spec.NMATLSSecret)
+	h.Log.Info("ready to rotate certi from " + currentSecretName + " to " + h.Vdb.Spec.NMATLSSecret)
 	keyConfig := fmt.Sprintf("{\"data-key\":\"%s\", \"namespace\":\"%s\"}", corev1.TLSPrivateKeyKey, h.Vdb.Namespace)
 	certConfig := fmt.Sprintf("{\"data-key\":\"%s\", \"namespace\":\"%s\"}", corev1.TLSCertKey, h.Vdb.Namespace)
 	caCertConfig := fmt.Sprintf("{\"data-key\":\"%s\", \"namespace\":\"%s\"}", paths.HTTPServerCACrtName, h.Vdb.Namespace)
-	h.Log.Info("libo: keyConfig - " + keyConfig)
-	h.Log.Info("libo: certConfig - " + certConfig)
-	h.Log.Info("libo: caCertConfig - " + caCertConfig)
-	// currentSecretNameArg := fmt.Sprintf("'%s'", currentSecretName)
 	opts := []rotatehttpscerts.Option{
 		rotatehttpscerts.WithPollingKey(string(newSecret.Data[corev1.TLSPrivateKeyKey])),
-		rotatehttpscerts.WithPollingCert(string(newSecret.Data[corev1.TLSCertKey])),
+		rotatehttpscerts.WithPollingCert(newCert),
 		rotatehttpscerts.WithPollingCaCert(string(newSecret.Data[corev1.ServiceAccountRootCAKey])),
 		rotatehttpscerts.WithKey(h.Vdb.Spec.NMATLSSecret, keyConfig),
 		rotatehttpscerts.WithCert(h.Vdb.Spec.NMATLSSecret, certConfig),
@@ -180,13 +216,13 @@ func (h *TLSCertRoationReconciler) rotateHTTPSTLSCert(ctx context.Context, newSe
 		rotatehttpscerts.WithInitiator(initiatorPod.GetPodIP()),
 	}
 	vdbContext := vadmin.GetContextForVdb(h.Vdb.Namespace, h.Vdb.Name)
-	h.Log.Info("libo: to call RotateHTTPSCerts, use tls " + strconv.FormatBool(vdbContext.GetBoolValue(vadmin.UseTLSCert)))
-	err := h.Dispatcher.RotateHTTPSCerts(ctx, opts...)
+	h.Log.Info("to call RotateHTTPSCerts for cert " + h.Vdb.Spec.NMATLSSecret + ", use tls " +
+		strconv.FormatBool(vdbContext.GetBoolValue(vadmin.UseTLSCert)))
+	err = h.Dispatcher.RotateHTTPSCerts(ctx, opts...)
 	if err != nil {
 		h.Log.Error(err, "failed to rotate https cer to "+h.Vdb.Spec.NMATLSSecret)
-		return ctrl.Result{}, err
+		return ctrl.Result{Requeue: true}, err
 	}
-	h.Log.Info("https cert has been rotated to " + h.Vdb.Spec.NMATLSSecret)
 	/*h.Log.Info("libo: to save secret in annotation")
 	err = vapi.UpdateAnnotation(vmeta.NMATLSSecretInUseAnnotation, h.Vdb.Spec.NMATLSSecret, h.Vdb, ctx, h.VRec.Client, h.Log)
 	if err != nil {
@@ -194,5 +230,63 @@ func (h *TLSCertRoationReconciler) rotateHTTPSTLSCert(ctx context.Context, newSe
 		return ctrl.Result{}, err
 	}
 	h.Log.Info("rotated cert has been saved in annotation - " + h.Vdb.Spec.NMATLSSecret) */
+	return h.checkCertAfterRoation("https", initiatorPod.GetPodIP(), builder.VerticaHTTPPort, h.Vdb.Spec.NMATLSSecret, newCert, currentCert)
+}
+
+// checkCertAfterRoation will return different result and error based on result from calling verifyCert
+func (h *TLSCertRoationReconciler) checkCertAfterRoation(moduleName, ip string, port int, newCertName, newCert, currentCert string) (ctrl.Result, error) {
+	rotated, err := h.verifyCert(ip, port, newCert, currentCert)
+	if err != nil {
+		h.Log.Error(err, moduleName+" cert rotation aborted. Failed to verify new cert "+newCertName+" on "+
+			ip)
+		return ctrl.Result{Requeue: true}, nil
+	}
+	if rotated == 1 {
+		h.Log.Info(moduleName + " cert rotation is NOT successful. Current cert " +
+			" is still in use on " + ip)
+		return ctrl.Result{Requeue: true}, nil
+	}
+	if rotated == 2 {
+		h.Log.Info(moduleName + " cert rotation is NOT successful. Neither of new or current certs " +
+			" is in use on " + ip)
+		return ctrl.Result{Requeue: true}, nil
+	}
+	h.Log.Info(moduleName + " cert rotation is successful. New cert " + newCertName +
+		" is already in use on " + ip)
 	return ctrl.Result{}, nil
+}
+
+// verifyCert returns 0 when newCert is in use, 1 when currentCert is in use.
+// 2 when neither of them is in use
+func (h *TLSCertRoationReconciler) verifyCert(ip string, port int, newCert, currentCert string) (int, error) {
+	conf := &tls.Config{
+		InsecureSkipVerify: true,
+	}
+	url := fmt.Sprintf("%s:%d", ip, port)
+	conn, err := tls.Dial("tcp", url, conf)
+	if err != nil {
+		h.Log.Error(err, "dial error from verify https cert for "+url)
+		return -1, err
+	}
+	defer conn.Close()
+	certs := conn.ConnectionState().PeerCertificates
+	for _, cert := range certs {
+		var b bytes.Buffer
+		err := pem.Encode(&b, &pem.Block{
+			Type:  "CERTIFICATE",
+			Bytes: cert.Raw,
+		})
+		if err != nil {
+			h.Log.Error(err, "failed to convert cert to PEM for verification")
+			return -1, err
+		}
+		remoteCert := b.String()
+		h.Log.Info("raw cert from https service - " + url + " - " + remoteCert)
+		if newCert == remoteCert {
+			return 0, nil
+		} else if currentCert == remoteCert {
+			return 1, nil
+		}
+	}
+	return 2, nil
 }
