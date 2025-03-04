@@ -136,6 +136,11 @@ issues:
         - gocritic
       text: "unnecessaryDefer:"
 
+    # https://github.com/securego/gosec/issues/1185
+    - linters:
+        - gosec
+      text: "G115"      
+
 run:
   concurrency: 4
   timeout: 5m

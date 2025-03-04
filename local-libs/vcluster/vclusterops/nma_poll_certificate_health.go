@@ -73,7 +73,7 @@ func (op *nmaPollCertHealthOp) processResult(execContext *opEngineExecContext) e
 		// show the hosts that aren't responding
 		msg := fmt.Sprintf("did not successfully poll for NMA certificate health on the hosts '%v', details: %s",
 			util.SliceDiff(op.hosts, op.okHosts), err)
-		op.logger.PrintError(msg)
+		op.logger.PrintError("%s", msg)
 		return errors.New(msg)
 	}
 
