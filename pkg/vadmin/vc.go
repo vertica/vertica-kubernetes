@@ -45,7 +45,7 @@ func (v *VClusterOps) retrieveNMACerts(_ context.Context) (*HTTPSCerts, error) {
 	if err != nil {
 		return nil, err
 	}
-	v.Log.Info("libo: nma secret name to use " + namSecretName)
+	v.Log.Info("nma secret name to use " + namSecretName)
 	fetcher := cloud.VerticaDBSecretFetcher{
 		Client:   v.Client,
 		Log:      v.Log,

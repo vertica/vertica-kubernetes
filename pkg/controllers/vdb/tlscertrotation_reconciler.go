@@ -68,28 +68,28 @@ func (h *TLSCertRoationReconciler) Reconcile(ctx context.Context, _ *ctrl.Reques
 	if vmeta.UseNMACertsMount(h.Vdb.Annotations) || !vmeta.EnableTLSCertsRotation(h.Vdb.Annotations) {
 		return ctrl.Result{}, nil
 	}
-	h.Log.Info("libo: starting rotate reconcile")
 	curretSecretName := vmeta.GetNMATLSSecretNameInUse(h.Vdb.Annotations)
-	h.Log.Info("libo: currentSecretName - " + curretSecretName)
+	newSecretName := h.Vdb.Spec.NMATLSSecret
+	h.Log.Info("starting rotation reconcile, currentSecretName - " + curretSecretName + ", newSecretName - " + newSecretName)
 	// this condition excludes bootstrap scenario
-	if (h.Vdb.Spec.NMATLSSecret != "" && curretSecretName == "") || (h.Vdb.Spec.NMATLSSecret != "" &&
+	if (newSecretName != "" && curretSecretName == "") || (newSecretName != "" &&
 		curretSecretName != "" &&
-		h.Vdb.Spec.NMATLSSecret == curretSecretName) {
+		newSecretName == curretSecretName) {
 		return ctrl.Result{}, nil
 	}
-	h.Log.Info("libo: rotation is required from " + curretSecretName + " to " + h.Vdb.Spec.NMATLSSecret)
+	h.Log.Info("rotation is required from " + curretSecretName + " to " + h.Vdb.Spec.NMATLSSecret)
 	// rotation is required. Will check start conditions next
 	// check if secret is ready for rotation
 	currentSecret := corev1.Secret{}
 	found, err := vapi.IsK8sSecretFound(ctx, h.Vdb, h.VRec.Client, &curretSecretName, &currentSecret)
 	if !found || err != nil {
-		h.Log.Info("new secret is not ready yet for rotation. will retry")
+		h.Log.Info("current secret is not ready yet for rotation. will retry")
 		return ctrl.Result{Requeue: true}, nil
 	}
 	newSecret := corev1.Secret{}
-	found, err = vapi.IsK8sSecretFound(ctx, h.Vdb, h.VRec.Client, &h.Vdb.Spec.NMATLSSecret, &newSecret)
+	found, err = vapi.IsK8sSecretFound(ctx, h.Vdb, h.VRec.Client, &newSecretName, &newSecret)
 	if !found || err != nil {
-		h.Log.Info("current secret is not ready for rotation. will retry")
+		h.Log.Info("new secret is not ready for rotation. will retry")
 		return ctrl.Result{Requeue: true}, nil
 	}
 	// check if configmap is ready for rotation
@@ -105,18 +105,18 @@ func (h *TLSCertRoationReconciler) Reconcile(ctx context.Context, _ *ctrl.Reques
 		return ctrl.Result{Requeue: true}, nil
 	}
 	if configMap.Data[builder.NMASecretNamespaceEnv] != h.Vdb.GetObjectMeta().GetNamespace() ||
-		configMap.Data[builder.NMASecretNameEnv] != h.Vdb.Spec.NMATLSSecret {
-		h.Log.Info("new nma secret name not found in configmap. cert rotation will not start")
+		configMap.Data[builder.NMASecretNameEnv] != newSecretName {
+		h.Log.Info(newSecretName + " not found in configmap. cert rotation will not start")
 		return ctrl.Result{Requeue: true}, nil
 	}
-	h.Log.Info("libo: to start https cert rotation")
+	h.Log.Info("to start https cert rotation")
 	// Now https cert rotation will start
 	res, err := h.rotateHTTPSTLSCert(ctx, &newSecret, &currentSecret)
 	if verrors.IsReconcileAborted(res, err) {
 		h.Log.Info("https cert rotation is aborted.")
 		return res, err
 	}
-	h.Log.Info("libo: https cert rotation is finished. To rotate nma cert next")
+	h.Log.Info("https cert rotation is finished. To rotate nma cert next")
 	return h.rotateNmaTLSCert(ctx, &newSecret, &currentSecret)
 }
 
@@ -128,6 +128,7 @@ func (h *TLSCertRoationReconciler) rotateNmaTLSCert(ctx context.Context, newSecr
 		return ctrl.Result{Requeue: true}, nil
 	}
 	currentSecretName := meta.GetNMATLSSecretNameInUse(h.Vdb.Annotations)
+	newSecretName := h.Vdb.Spec.NMATLSSecret
 
 	newCert := string(newSecret.Data[corev1.TLSCertKey])
 	currentCert := string(currentSecret.Data[corev1.TLSCertKey])
@@ -148,7 +149,7 @@ func (h *TLSCertRoationReconciler) rotateNmaTLSCert(ctx context.Context, newSecr
 		return ctrl.Result{}, nil
 	}
 
-	h.Log.Info("to rotate nma certi from " + currentSecretName + " to " + h.Vdb.Spec.NMATLSSecret)
+	h.Log.Info("to rotate nma certi from " + currentSecretName + " to " + newSecretName)
 	opts := []rotatenmacerts.Option{
 		rotatenmacerts.WithKey(string(newSecret.Data[corev1.TLSPrivateKeyKey])),
 		rotatenmacerts.WithCert(string(newSecret.Data[corev1.TLSCertKey])),
@@ -159,7 +160,7 @@ func (h *TLSCertRoationReconciler) rotateNmaTLSCert(ctx context.Context, newSecr
 	h.Log.Info("to call RotateNMACerts, use tls " + strconv.FormatBool(vdbContext.GetBoolValue(vadmin.UseTLSCert)))
 	err = h.Dispatcher.RotateNMACerts(ctx, opts...)
 	if err != nil {
-		h.Log.Error(err, "failed to rotate nma cer to "+h.Vdb.Spec.NMATLSSecret)
+		h.Log.Error(err, "failed to rotate nma cer to "+newSecretName)
 		return ctrl.Result{}, err
 	}
 	previousTLSSecretName := meta.GetNMATLSSecretNameInUse(h.Vdb.Annotations)
@@ -169,16 +170,16 @@ func (h *TLSCertRoationReconciler) rotateNmaTLSCert(ctx context.Context, newSecr
 		return ctrl.Result{}, err
 	}
 	h.Log.Info("saved previously used tls cert secret name " + previousTLSSecretName + " in annotation")
-	err = vk8s.UpdateAnnotation(vmeta.NMATLSSecretInUseAnnotation, h.Vdb.Spec.NMATLSSecret, h.Vdb, ctx, h.VRec.Client, h.Log)
+	err = vk8s.UpdateAnnotation(vmeta.NMATLSSecretInUseAnnotation, newSecretName, h.Vdb, ctx, h.VRec.Client, h.Log)
 
 	if err != nil {
 		h.Log.Error(err, "failed to save new tls cert secret name in annotation after cert rotation")
 		return ctrl.Result{}, err
 	}
-	h.Log.Info("saved new tls cert secret name " + h.Vdb.Spec.NMATLSSecret + " in annotation")
-	result, err2 := h.checkCertAfterRoation("nma", initiatorPod.GetPodIP(), builder.VerticaHTTPPort, h.Vdb.Spec.NMATLSSecret, newCert, currentCert)
+	h.Log.Info("saved new tls cert secret name " + newSecretName + " in annotation")
+	result, err2 := h.checkCertAfterRoation("nma", initiatorPod.GetPodIP(), builder.VerticaHTTPPort, newSecretName, newCert, currentCert)
 	if !result.Requeue && err2 == nil {
-		cond := vapi.MakeCondition(vapi.NmaTLSCertRotated, metav1.ConditionTrue, fmt.Sprintf("new cert: %s, old cert: %s", h.Vdb.Spec.NMATLSSecret, previousTLSSecretName))
+		cond := vapi.MakeCondition(vapi.NmaTLSCertRotated, metav1.ConditionTrue, fmt.Sprintf("new cert: %s, old cert: %s", newSecretName, previousTLSSecretName))
 		if err := vdbstatus.UpdateCondition(ctx, h.VRec.GetClient(), h.Vdb, cond); err != nil {
 			return ctrl.Result{}, err
 		}
@@ -232,13 +233,6 @@ func (h *TLSCertRoationReconciler) rotateHTTPSTLSCert(ctx context.Context, newSe
 		h.Log.Error(err, "failed to rotate https cer to "+h.Vdb.Spec.NMATLSSecret)
 		return ctrl.Result{Requeue: true}, err
 	}
-	/*h.Log.Info("libo: to save secret in annotation")
-	err = vapi.UpdateAnnotation(vmeta.NMATLSSecretInUseAnnotation, h.Vdb.Spec.NMATLSSecret, h.Vdb, ctx, h.VRec.Client, h.Log)
-	if err != nil {
-		h.Log.Error(err, "failed to update secret name in annotation after cert rotation")
-		return ctrl.Result{}, err
-	}
-	h.Log.Info("rotated cert has been saved in annotation - " + h.Vdb.Spec.NMATLSSecret) */
 	return h.checkCertAfterRoation("https", initiatorPod.GetPodIP(), builder.VerticaHTTPPort, h.Vdb.Spec.NMATLSSecret, newCert, currentCert)
 }
 
@@ -290,7 +284,7 @@ func (h *TLSCertRoationReconciler) verifyCert(ip string, port int, newCert, curr
 			return -1, err
 		}
 		remoteCert := b.String()
-		h.Log.Info("raw cert from https service - " + url + " - " + remoteCert)
+		h.Log.Info("raw cert from service - " + url + " - " + remoteCert)
 		if newCert == remoteCert {
 			return 0, nil
 		} else if currentCert == remoteCert {

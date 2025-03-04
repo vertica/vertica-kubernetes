@@ -93,7 +93,6 @@ func (v *VClusterOps) genRotateHTTPSCertsOptions(s *rotatehttpscerts.Params, cer
 		opts.Cert = certs.Cert
 		opts.CaCert = certs.CaCert
 		opts.UserName = v.VDB.GetVerticaUser()
-		v.Log.Info("libo: user for rotate https cert options" + opts.UserName)
 	} else {
 		opts.Key = certs.Key
 		opts.Cert = certs.Cert
