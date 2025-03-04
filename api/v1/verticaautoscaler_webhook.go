@@ -361,7 +361,6 @@ func (v *VerticaAutoscaler) validateScaleInThreshold(allErrs field.ErrorList) fi
 	// validate scaleInThreshold type
 	if v.HasScaleInThreshold() {
 		pathPrefix := field.NewPath("spec").Child("customAutoscaler").Child("hpa").Child("metrics")
-
 		for i := range v.Spec.CustomAutoscaler.Hpa.Metrics {
 			metric := &v.Spec.CustomAutoscaler.Hpa.Metrics[i]
 			targetType := GetMetricTarget(&metric.Metric).Type
@@ -374,7 +373,6 @@ func (v *VerticaAutoscaler) validateScaleInThreshold(allErrs field.ErrorList) fi
 				)
 				allErrs = append(allErrs, err)
 			}
-
 		}
 	}
 	return allErrs
