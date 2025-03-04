@@ -141,8 +141,8 @@ func (opt *VRotateHTTPSCertsOptions) validateAnalyzeOptions(log vlog.Printer) er
 	}
 	opt.usePasswordForNMA = opt.usePassword
 	opt.usePassword = opt.usePassword && opt.AllowPasswordAuthForHTTPSOps
-	log.Info("Using certificate authentication for NMA SQL ops: %v", !opt.usePasswordForNMA)
-	log.Info("Using certificate authentication for HTTPS ops: %v", !opt.usePassword)
+	log.Info("Certificate authentication for NMA SQL ops", "isEnabled", !opt.usePasswordForNMA)
+	log.Info("Certificate authentication for HTTPS ops", "isEnabled", !opt.usePassword)
 	return nil
 }
 

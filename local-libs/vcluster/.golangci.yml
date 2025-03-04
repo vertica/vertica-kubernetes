@@ -17,7 +17,8 @@ linters-settings:
     - pattern: 'interface{}'
       replacement: 'any'
   gci:
-    local-prefixes: github.com/golangci/golangci-lint
+    sections:
+      - prefix(github.com/golangci/golangci-lint)
   goconst:
     min-len: 2
     min-occurrences: 2
@@ -37,14 +38,15 @@ linters-settings:
   gocyclo:
     min-complexity: 15
   goimports:
-    local-prefixes: github.com/golangci/golangci-lint
-  gomnd:
-    settings:
-      mnd:
-        # don't include the "operation" and "assign"
-        checks: [argument, case, condition, return]
+    prefixes: github.com/golangci/golangci-lint
+  mnd:
+    checks: 
+      - argument
+      - case
+      - condition
+      - return
   govet:
-    check-shadowing: true
+    shadow: true
     settings:
       printf:
         funcs:
@@ -69,11 +71,11 @@ linters:
   # inverted configuration with `enable-all` and `disable` is not scalable during updates of golangci-lint
   disable-all: true
   enable:
+    - copyloopvar
     - depguard
     - dogsled
     - dupl
     - errcheck
-    - exportloopref
     - exhaustive
     - funlen
     - goconst
@@ -82,7 +84,6 @@ linters:
     - gofmt
     - goimports
     - revive
-    - gomnd
     - goprintffuncname
     - gosec
     - gosimple
@@ -90,6 +91,7 @@ linters:
     - ineffassign
     - lll
     - misspell
+    - mnd
     - nakedret
     - nolintlint
     - staticcheck
@@ -129,7 +131,7 @@ issues:
   exclude-rules:
     - path: _test\.go
       linters:
-        - gomnd
+        - mnd
 
     # https://github.com/go-critic/go-critic/issues/926
     - linters:
