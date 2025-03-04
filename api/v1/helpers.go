@@ -1358,6 +1358,24 @@ func (v *VerticaAutoscaler) GetMetricMap() map[string]*MetricDefinition {
 	return mMap
 }
 
+// GetMetricTarget returns the autoscalingv2 metric target
+func GetMetricTarget(metric *autoscalingv2.MetricSpec) autoscalingv2.MetricTarget {
+	var metricTarget autoscalingv2.MetricTarget
+
+	if metric.Pods != nil {
+		metricTarget = metric.Pods.Target
+	} else if metric.Object != nil {
+		metricTarget = metric.Object.Target
+	} else if metric.External != nil {
+		metricTarget = metric.External.Target
+	} else if metric.Resource != nil {
+		metricTarget = metric.Resource.Target
+	} else {
+		metricTarget = metric.ContainerResource.Target
+	}
+	return metricTarget
+}
+
 func IsK8sSecretFound(ctx context.Context, vdb *VerticaDB, k8sClient client.Client, secretName *string,
 	secret *corev1.Secret) (bool, error) {
 	nm := types.NamespacedName{

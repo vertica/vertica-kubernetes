@@ -356,7 +356,7 @@ func (v *VerticaAutoscaler) validateHPA(allErrs field.ErrorList) field.ErrorList
 	return allErrs
 }
 
-// validateHPA will check if the HPA field is valid
+// validateScaleInThreshold will check if scaleInThreshold type matches the threshold used for scale out
 func (v *VerticaAutoscaler) validateScaleInThreshold(allErrs field.ErrorList) field.ErrorList {
 	// validate scaleInThreshold type
 	if v.HasScaleInThreshold() {
@@ -364,24 +364,17 @@ func (v *VerticaAutoscaler) validateScaleInThreshold(allErrs field.ErrorList) fi
 
 		for i := range v.Spec.CustomAutoscaler.Hpa.Metrics {
 			metric := &v.Spec.CustomAutoscaler.Hpa.Metrics[i]
+			targetType := GetMetricTarget(&metric.Metric).Type
 
-			metricTargets := map[string]*autoscalingv2.MetricTarget{
-				"pods":              &metric.Metric.Pods.Target,
-				"object":            &metric.Metric.Object.Target,
-				"containerResource": &metric.Metric.ContainerResource.Target,
-				"external":          &metric.Metric.External.Target,
-				"resource":          &metric.Metric.Resource.Target,
+			if targetType != metric.ScaleInThreshold.Type {
+				err := field.Invalid(pathPrefix.Index(i).Child("scaleInThreshold").Child("type"),
+					v.Spec.CustomAutoscaler.Hpa.Metrics[i].ScaleInThreshold.Type,
+					fmt.Sprintf("scaleInThreshold type %s must be of the same type as the threshold used for scale out %s",
+						metric.ScaleInThreshold.Type, targetType),
+				)
+				allErrs = append(allErrs, err)
 			}
-			for metricType, metricTarget := range metricTargets {
-				if metricTarget != nil && metricType != string(metric.ScaleInThreshold.Type) {
-					err := field.Invalid(pathPrefix.Index(i).Child("scaleInThreshold").Child("type"),
-						v.Spec.CustomAutoscaler.Hpa.Metrics[i].ScaleInThreshold.Type,
-						fmt.Sprintf("scaleInThreshold type %s must be of the same type as the threshold used for scale out %s",
-							metric.ScaleInThreshold.Type, metricTarget.Type),
-					)
-					allErrs = append(allErrs, err)
-				}
-			}
+
 		}
 	}
 	return allErrs
