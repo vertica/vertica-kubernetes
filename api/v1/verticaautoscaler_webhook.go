@@ -230,6 +230,7 @@ func (v *VerticaAutoscaler) validatePrometheusAuthModes(allErrs field.ErrorList)
 // validateHPA will check if the HPA field is valid
 func (v *VerticaAutoscaler) validateHPA(allErrs field.ErrorList) field.ErrorList {
 	pathPrefix := field.NewPath("spec").Child("customAutoscaler")
+
 	// validate stabilization window
 	if v.HasScaleInThreshold() && v.Spec.CustomAutoscaler.Hpa.Behavior != nil &&
 		v.Spec.CustomAutoscaler.Hpa.Behavior.ScaleDown != nil && *v.Spec.CustomAutoscaler.Hpa.Behavior.ScaleDown.StabilizationWindowSeconds != 0 {
@@ -237,6 +238,21 @@ func (v *VerticaAutoscaler) validateHPA(allErrs field.ErrorList) field.ErrorList
 			v.Spec.CustomAutoscaler.Hpa,
 			"When scaledownThreshold is set, scaledown stabilization window must be 0")
 		allErrs = append(allErrs, err)
+	}
+	if v.IsHpaEnabled() {
+		for i := range v.Spec.CustomAutoscaler.Hpa.Metrics {
+			metric := &v.Spec.CustomAutoscaler.Hpa.Metrics[i]
+			metricTarget := v.getMetricTarget(*metric)
+			// validate metric target
+			if metric.ScaleInThreshold != nil && &metric.Metric != nil && &metricTarget.Type != nil && metric.ScaleInThreshold.Type != metricTarget.Type {
+				err := field.Invalid(pathPrefix.Child("hpa").Child("metrics").Index(i).Child("ScaleInThreshold").Child("type"),
+					v.Spec.CustomAutoscaler.Hpa.Metrics[i].ScaleInThreshold.Type,
+					fmt.Sprintf("ScaleInThreshold metric target must be the same type as customAutoscaler.hpa.metrics[].metric.type: %s",
+						metricTarget.Type),
+				)
+				allErrs = append(allErrs, err)
+			}
+		}
 	}
 	return allErrs
 }

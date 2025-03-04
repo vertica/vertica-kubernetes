@@ -1311,6 +1311,33 @@ func MakeScaledObjectSpec() *ScaledObjectSpec {
 	}
 }
 
+func (v *VerticaAutoscaler) getMetricTarget(metric MetricDefinition) autoscalingv2.MetricTarget {
+	emptyTarget := autoscalingv2.MetricTarget{}
+	switch metric.Metric.Type {
+	case autoscalingv2.PodsMetricSourceType:
+		if metric.Metric.Pods != nil && &metric.Metric.Pods.Target != nil {
+			return metric.Metric.Pods.Target
+		}
+	case autoscalingv2.ObjectMetricSourceType:
+		if metric.Metric.Object != nil && &metric.Metric.Object.Target != nil {
+			return metric.Metric.Object.Target
+		}
+	case autoscalingv2.ContainerResourceMetricSourceType:
+		if metric.Metric.ContainerResource != nil && &metric.Metric.ContainerResource.Target != nil {
+			return metric.Metric.ContainerResource.Target
+		}
+	case autoscalingv2.ExternalMetricSourceType:
+		if metric.Metric.External != nil && &metric.Metric.External.Target != nil {
+			return metric.Metric.External.Target
+		}
+	case autoscalingv2.ResourceMetricSourceType:
+		if metric.Metric.Resource != nil && &metric.Metric.Resource.Target != nil {
+			return metric.Metric.Resource.Target
+		}
+	}
+	return emptyTarget
+}
+
 // HasScaleInThreshold returns true if scale in threshold is set
 func (v *VerticaAutoscaler) HasScaleInThreshold() bool {
 	if !v.IsHpaEnabled() {
