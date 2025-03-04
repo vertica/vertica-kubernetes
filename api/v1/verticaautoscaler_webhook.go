@@ -277,7 +277,7 @@ func (v *VerticaAutoscaler) validateMetricFields(metric *MetricDefinition, index
 		// Validate metric pods metric
 		if metric.Metric.Pods.Metric.Name == "" {
 			err := field.Invalid(pathPrefix.Child("pods"), metric.Metric.Pods.Metric, fmt.Sprintf("HPA metric %s type missing required fields: %s",
-				autoscalingv2.PodsMetricSourceType, pathPrefix.Child("pods").Child("metric")),
+				autoscalingv2.PodsMetricSourceType, pathPrefix.Child("pods").Child("metric").Child("name")),
 			)
 			allErrs = append(allErrs, err)
 		}
@@ -300,7 +300,7 @@ func (v *VerticaAutoscaler) validateMetricFields(metric *MetricDefinition, index
 		// Validate metric object metric
 		if metric.Metric.Object.Metric.Name == "" {
 			err := field.Invalid(pathPrefix.Child("object"), metric.Metric.Object.Metric, fmt.Sprintf("HPA metric %s type missing required fields: %s",
-				autoscalingv2.PodsMetricSourceType, pathPrefix.Child("object").Child("metric")),
+				autoscalingv2.PodsMetricSourceType, pathPrefix.Child("object").Child("metric").Child("name")),
 			)
 			allErrs = append(allErrs, err)
 		}
@@ -331,7 +331,7 @@ func (v *VerticaAutoscaler) validateMetricFields(metric *MetricDefinition, index
 		// Validate metric external metric
 		if metric.Metric.External.Metric.Name == "" {
 			err := field.Invalid(pathPrefix.Child("external"), metric.Metric.External.Metric, fmt.Sprintf("HPA metric %s type missing required fields: %s",
-				autoscalingv2.PodsMetricSourceType, pathPrefix.Child("external").Child("metric")),
+				autoscalingv2.PodsMetricSourceType, pathPrefix.Child("external").Child("metric").Child("name")),
 			)
 			allErrs = append(allErrs, err)
 		}
