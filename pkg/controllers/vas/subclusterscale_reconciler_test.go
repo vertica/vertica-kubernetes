@@ -211,7 +211,7 @@ var _ = Describe("subclusterscale_reconcile", func() {
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
 
 		vas := vapi.MakeVAS()
-		vas.Spec.ScalingGranularity = v1beta1.SubclusterScalingGranularity
+		vas.Spec.ScalingGranularity = vapi.SubclusterScalingGranularity
 		vas.Spec.ServiceName = "BrandNewServiceName"
 		vas.Spec.Template.Size = 0
 		vas.Spec.TargetSize = 50
@@ -225,5 +225,41 @@ var _ = Describe("subclusterscale_reconcile", func() {
 		vdbName := vdb.ExtractNamespacedName()
 		Expect(k8sClient.Get(ctx, vdbName, fetchVdb)).Should(Succeed())
 		Expect(len(fetchVdb.Spec.Subclusters)).Should(Equal(1))
+	})
+
+	It("should allow underscore in subcluster name", func() {
+		vdb := vapi.MakeVDB()
+		const serviceName = "vas-1"
+		const subclustereName = "vas_1"
+		vdb.Spec.Subclusters[0].ServiceName = serviceName
+		test.CreateVDB(ctx, k8sClient, vdb)
+		defer test.DeleteVDB(ctx, k8sClient, vdb)
+
+		vas := vapi.MakeVAS()
+		vas.Spec.ServiceName = serviceName
+		vas.Spec.ScalingGranularity = vapi.SubclusterScalingGranularity
+		vas.Spec.Template = vapi.Subcluster{
+			ServiceName: serviceName,
+			Name:        subclustereName,
+			Size:        8,
+		}
+		vas.Spec.TargetSize = vas.Spec.Template.Size*2 + 3
+		v1beta1_test.CreateVAS(ctx, k8sClient, vas)
+		defer v1beta1_test.DeleteVAS(ctx, k8sClient, vas)
+
+		req := ctrl.Request{NamespacedName: vapi.MakeVASName()}
+		Expect(vasRec.Reconcile(ctx, req)).Should(Equal(ctrl.Result{}))
+
+		fetchVdb := &vapi.VerticaDB{}
+		nm := vapi.MakeVDBName()
+		Expect(k8sClient.Get(ctx, nm, fetchVdb)).Should(Succeed())
+		Expect(len(fetchVdb.Spec.Subclusters)).Should(Equal(3))
+		Expect(fetchVdb.Spec.Subclusters[0].Size).Should(Equal(vdb.Spec.Subclusters[0].Size))
+		Expect(fetchVdb.Spec.Subclusters[1].Size).Should(Equal(vas.Spec.Template.Size))
+		Expect(fetchVdb.Spec.Subclusters[1].Name).Should(Equal(subclustereName + "-0"))
+		Expect(fetchVdb.Spec.Subclusters[1].ServiceName).Should(Equal(serviceName))
+		Expect(fetchVdb.Spec.Subclusters[2].Size).Should(Equal(vas.Spec.Template.Size))
+		Expect(fetchVdb.Spec.Subclusters[2].Name).Should(Equal(subclustereName + "-1"))
+		Expect(fetchVdb.Spec.Subclusters[2].ServiceName).Should(Equal(serviceName))
 	})
 })

@@ -11,7 +11,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: kuttl.dev/v1beta1
-kind: TestStep
-commands:
-  - script: kubectl -n $NAMESPACE get vas vas-webhook -o json | jq '.spec.serviceName="newvalue2"' | jq '.spec.template.serviceName="newvalue2"' | kubectl -n $NAMESPACE replace -f -
+apiVersion: vertica.com/v1
+kind: VerticaAutoscaler
+metadata:
+  name: vas-webhook
+spec:
+  serviceName: newvalue2
+  scalingGranularity: Subcluster
+  template:
+    name: sc_1
+    serviceName: newvalue2
