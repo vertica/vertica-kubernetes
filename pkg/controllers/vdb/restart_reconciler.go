@@ -575,7 +575,7 @@ func (r *RestartReconciler) killReadOnlyProcesses(ctx context.Context, pods []*p
 }
 
 // killVerticaProcesses will remove any running vertica processes that are currently in read-only
-// or any running vertica processes that are in the pods with NMA as a sidecar.
+// or any running vertica processes that are in the pods with NMA sidecar.
 func (r *RestartReconciler) killVerticaProcesses(ctx context.Context, pods []*podfacts.PodFact, forReadOnly bool) (ctrl.Result, error) {
 	killedAtLeastOnePid := false
 	for _, pod := range pods {
@@ -599,7 +599,8 @@ func (r *RestartReconciler) killVerticaProcesses(ctx context.Context, pods []*po
 		// the NMA sidecar, it is started as PID 1, which doesn't have a signal
 		// handler. So, it doesn't respond to kills. To force vertica down we
 		// are going to kill the spread process.
-		killCmd := fmt.Sprintf("for pid in $(pgrep ^spread$); do echo \"%s $pid\"; kill -n SIGKILL $pid; done", killMarker)
+		killCmd := fmt.Sprintf("for pid in $(pgrep -f '^/opt/vertica/spread/sbin/spread'); do echo \"%s $pid\"; kill -n SIGKILL $pid; done",
+			killMarker)
 		cmd := []string{
 			// Remove the startup file first, since deleting spread will cause the container to stop
 			"bash", "-c", fmt.Sprintf("%s; %s", rmCmd, killCmd),
