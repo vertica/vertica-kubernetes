@@ -273,7 +273,6 @@ func (v *VerticaAutoscaler) validateMetricFields(metric *MetricDefinition, index
 			)
 			allErrs = append(allErrs, err)
 		}
-		// Validate metric pods target fields
 		allErrs = append(allErrs, v.validateHPAMetricTarget(metric.Metric.Pods.Target, pathPrefix.Child("pods"), allErrs)...)
 		// Validate metric pods metric
 		if metric.Metric.Pods.Metric.Name == "" {
@@ -290,7 +289,6 @@ func (v *VerticaAutoscaler) validateMetricFields(metric *MetricDefinition, index
 			)
 			allErrs = append(allErrs, err)
 		}
-		// Validate metric object target fields
 		allErrs = append(allErrs, v.validateHPAMetricTarget(metric.Metric.Object.Target, pathPrefix.Child("object"), allErrs)...)
 		// Validate metric object DescribedObject
 		if metric.Metric.Object.DescribedObject.Name == "" || metric.Metric.Object.DescribedObject.Kind == "" {
@@ -314,7 +312,6 @@ func (v *VerticaAutoscaler) validateMetricFields(metric *MetricDefinition, index
 			)
 			allErrs = append(allErrs, err)
 		}
-		// Validate metric containerResource target fields
 		allErrs = append(allErrs, v.validateHPAMetricTarget(metric.Metric.ContainerResource.Target, pathPrefix.Child("containerResource"), allErrs)...)
 		// Validate metric containerResource name
 		if metric.Metric.ContainerResource.Name == "" {
@@ -331,6 +328,13 @@ func (v *VerticaAutoscaler) validateMetricFields(metric *MetricDefinition, index
 			allErrs = append(allErrs, err)
 		}
 	case autoscalingv2.ExternalMetricSourceType:
+		// Validate metric external metric
+		if metric.Metric.External.Metric.Name == "" {
+			err := field.Invalid(pathPrefix.Child("external"), metric.Metric.External.Metric, fmt.Sprintf("HPA metric %s type missing required fields: %s",
+				autoscalingv2.PodsMetricSourceType, pathPrefix.Child("external").Child("metric")),
+			)
+			allErrs = append(allErrs, err)
+		}
 		// Validate metric external target type
 		if metric.Metric.External == nil {
 			err := field.Invalid(pathPrefix.Child("external"), metric.Metric.External, fmt.Sprintf("HPA metric %s type missing required fields: %s",
@@ -338,7 +342,6 @@ func (v *VerticaAutoscaler) validateMetricFields(metric *MetricDefinition, index
 			)
 			allErrs = append(allErrs, err)
 		}
-		// Validate metric external target fields
 		allErrs = append(allErrs, v.validateHPAMetricTarget(metric.Metric.External.Target, pathPrefix.Child("external"), allErrs)...)
 	case autoscalingv2.ResourceMetricSourceType:
 		// Validate metric resource target type
@@ -348,7 +351,6 @@ func (v *VerticaAutoscaler) validateMetricFields(metric *MetricDefinition, index
 			)
 			allErrs = append(allErrs, err)
 		}
-		// Validate metric resource target fields
 		allErrs = append(allErrs, v.validateHPAMetricTarget(metric.Metric.Resource.Target, pathPrefix.Child("resource"), allErrs)...)
 		// Validate metric resource name
 		if metric.Metric.Resource.Name == "" {

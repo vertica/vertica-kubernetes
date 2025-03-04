@@ -145,4 +145,98 @@ var _ = Describe("verticaautoscaler_webhook", func() {
 		_, err = vas.ValidateCreate()
 		Expect(err).ShouldNot(Succeed())
 	})
+
+	It("should fail if hpa metrics scaleinThreshold type differ from hpa metrics metric target type", func() {
+		vas := MakeVASWithMetrics()
+		vas.Spec.CustomAutoscaler.Hpa.Metrics[0].ScaleInThreshold = &autoscalingv2.MetricTarget{Type: autoscalingv2.UtilizationMetricType}
+		_, err := vas.ValidateCreate()
+		Expect(err).Should(Succeed())
+		vas.Spec.CustomAutoscaler.Hpa.Metrics[0].ScaleInThreshold.Type = autoscalingv2.ValueMetricType
+		_, err = vas.ValidateCreate()
+		Expect(err).ShouldNot(Succeed())
+		vas.Spec.CustomAutoscaler.Hpa.Metrics[0].ScaleInThreshold.Type = autoscalingv2.AverageValueMetricType
+		_, err = vas.ValidateCreate()
+		Expect(err).ShouldNot(Succeed())
+	})
+
+	It("should fail if hpa metrics didn't follow the same rules as an horizontal pod", func() {
+		testInt := int32(3)
+		vas := MakeVASWithMetrics()
+		vas.Spec.CustomAutoscaler.Hpa.Metrics[0].Metric.Type = autoscalingv2.PodsMetricSourceType
+		vas.Spec.CustomAutoscaler.Hpa.Metrics[0].Metric.Pods = &autoscalingv2.PodsMetricSource{
+			Metric: autoscalingv2.MetricIdentifier{
+				Name: "pod",
+			},
+			Target: autoscalingv2.MetricTarget{
+				Type:               autoscalingv2.UtilizationMetricType,
+				AverageUtilization: &testInt,
+			},
+		}
+		_, err := vas.ValidateCreate()
+		Expect(err).Should(Succeed())
+		vas.Spec.CustomAutoscaler.Hpa.Metrics[0].Metric.Pods.Metric.Name = ""
+		_, err = vas.ValidateCreate()
+		Expect(err).ShouldNot(Succeed())
+		vas.Spec.CustomAutoscaler.Hpa.Metrics[0].Metric.Type = autoscalingv2.ObjectMetricSourceType
+		vas.Spec.CustomAutoscaler.Hpa.Metrics[0].Metric.Object = &autoscalingv2.ObjectMetricSource{
+			Metric: autoscalingv2.MetricIdentifier{
+				Name: "object",
+			},
+			Target: autoscalingv2.MetricTarget{
+				Type:               autoscalingv2.UtilizationMetricType,
+				AverageUtilization: &testInt,
+			},
+			DescribedObject: autoscalingv2.CrossVersionObjectReference{
+				Kind: "testKind",
+				Name: "testName",
+			},
+		}
+		_, err = vas.ValidateCreate()
+		Expect(err).Should(Succeed())
+		vas.Spec.CustomAutoscaler.Hpa.Metrics[0].Metric.Object.Metric.Name = ""
+		_, err = vas.ValidateCreate()
+		Expect(err).ShouldNot(Succeed())
+		vas.Spec.CustomAutoscaler.Hpa.Metrics[0].Metric.Type = autoscalingv2.ContainerResourceMetricSourceType
+		vas.Spec.CustomAutoscaler.Hpa.Metrics[0].Metric.ContainerResource = &autoscalingv2.ContainerResourceMetricSource{
+			Name: "container",
+			Target: autoscalingv2.MetricTarget{
+				Type:               autoscalingv2.UtilizationMetricType,
+				AverageUtilization: &testInt,
+			},
+			Container: "containerName",
+		}
+		_, err = vas.ValidateCreate()
+		Expect(err).Should(Succeed())
+		vas.Spec.CustomAutoscaler.Hpa.Metrics[0].Metric.ContainerResource.Name = ""
+		_, err = vas.ValidateCreate()
+		Expect(err).ShouldNot(Succeed())
+		vas.Spec.CustomAutoscaler.Hpa.Metrics[0].Metric.Type = autoscalingv2.ExternalMetricSourceType
+		vas.Spec.CustomAutoscaler.Hpa.Metrics[0].Metric.External = &autoscalingv2.ExternalMetricSource{
+			Metric: autoscalingv2.MetricIdentifier{
+				Name: "external",
+			},
+			Target: autoscalingv2.MetricTarget{
+				Type:               autoscalingv2.UtilizationMetricType,
+				AverageUtilization: &testInt,
+			},
+		}
+		_, err = vas.ValidateCreate()
+		Expect(err).Should(Succeed())
+		vas.Spec.CustomAutoscaler.Hpa.Metrics[0].Metric.External.Metric.Name = ""
+		_, err = vas.ValidateCreate()
+		Expect(err).ShouldNot(Succeed())
+		vas.Spec.CustomAutoscaler.Hpa.Metrics[0].Metric.Type = autoscalingv2.ResourceMetricSourceType
+		vas.Spec.CustomAutoscaler.Hpa.Metrics[0].Metric.Resource = &autoscalingv2.ResourceMetricSource{
+			Name: "resource",
+			Target: autoscalingv2.MetricTarget{
+				Type:               autoscalingv2.UtilizationMetricType,
+				AverageUtilization: &testInt,
+			},
+		}
+		_, err = vas.ValidateCreate()
+		Expect(err).Should(Succeed())
+		vas.Spec.CustomAutoscaler.Hpa.Metrics[0].Metric.Resource.Name = ""
+		_, err = vas.ValidateCreate()
+		Expect(err).ShouldNot(Succeed())
+	})
 })

@@ -34,7 +34,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/validation/field"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -1357,67 +1356,6 @@ func (v *VerticaAutoscaler) GetMetricMap() map[string]*MetricDefinition {
 		mMap[name] = m
 	}
 	return mMap
-}
-
-// Helper method to retrieve HPA metric target from a given metric
-func getMetricTarget(metric MetricDefinition) autoscalingv2.MetricTarget {
-	switch metric.Metric.Type {
-	case autoscalingv2.PodsMetricSourceType:
-		if metric.Metric.Pods != nil {
-			return metric.Metric.Pods.Target
-		}
-	case autoscalingv2.ObjectMetricSourceType:
-		if metric.Metric.Object != nil {
-			return metric.Metric.Object.Target
-		}
-	case autoscalingv2.ContainerResourceMetricSourceType:
-		if metric.Metric.ContainerResource != nil {
-			return metric.Metric.ContainerResource.Target
-		}
-	case autoscalingv2.ExternalMetricSourceType:
-		if metric.Metric.External != nil {
-			return metric.Metric.External.Target
-		}
-	case autoscalingv2.ResourceMetricSourceType:
-		if metric.Metric.Resource != nil {
-			return metric.Metric.Resource.Target
-		}
-	}
-	return autoscalingv2.MetricTarget{}
-}
-
-// Helper method to validate HPA metric target value based on its type
-func validateHPAMetricTarget(metric autoscalingv2.MetricTarget, pathPrefix *field.Path, allErrs field.ErrorList) field.ErrorList {
-	switch metric.Type {
-	case autoscalingv2.UtilizationMetricType:
-		if metric.AverageUtilization == nil {
-			err := field.Invalid(pathPrefix.Child("target").Child("averageUtilization"),
-				metric.AverageUtilization,
-				fmt.Sprintf("HPA metric %s type missing required value: %s",
-					autoscalingv2.UtilizationMetricType, "averageUtilization"),
-			)
-			allErrs = append(allErrs, err)
-		}
-	case autoscalingv2.ValueMetricType:
-		if metric.Value == nil {
-			err := field.Invalid(pathPrefix.Child("target").Child("value"),
-				metric.Value,
-				fmt.Sprintf("HPA metric %s type missing required value: %s",
-					autoscalingv2.ValueMetricType, "value"),
-			)
-			allErrs = append(allErrs, err)
-		}
-	case autoscalingv2.AverageValueMetricType:
-		if metric.AverageValue == nil {
-			err := field.Invalid(pathPrefix.Child("target").Child("averageValue"),
-				metric.AverageValue,
-				fmt.Sprintf("HPA metric %s type missing required value: %s",
-					autoscalingv2.AverageValueMetricType, "averageValue"),
-			)
-			allErrs = append(allErrs, err)
-		}
-	}
-	return allErrs
 }
 
 func IsK8sSecretFound(ctx context.Context, vdb *VerticaDB, k8sClient client.Client, secretName *string,
