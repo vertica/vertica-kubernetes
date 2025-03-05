@@ -168,8 +168,6 @@ spec:
           sizes of the replica sets can be specified to limit the use of resources.
         displayName: Custom Autoscaler
         path: customAutoscaler
-        x-descriptors:
-        - urn:alm:descriptor:com.tectonic.ui:fieldDependency:type:CustomAutoscaler
       - description: |-
           It refers to an autoscaling definition through the horizontal pod autoscaler.
           If type is "HPA", this must be set.
@@ -259,6 +257,22 @@ spec:
         path: customAutoscaler.scaledObject.metrics[0].prometheus
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:fieldDependency:customAutoscaler.scaledObject.metrics[0].type:prometheus
+      - description: |-
+          The authentication methods for Prometheus.
+          Allowed types are 'basic', 'bearer', 'tls', 'custom' and 'tls,basic'.
+          For 'basic' type, 'username' and 'password' are required fields in AuthSecret.
+          For 'bearer' type, 'bearerToken' is required field in AuthSecret.
+          For 'tls' type, 'ca', 'cert' and 'key' are required fields in AuthSecret.
+          For 'custom' type, 'customAuthHeader' and 'customAuthValue' are required fields in AuthSecret.
+          For 'tls,basic' type, 'username', 'password', 'ca', 'cert' and 'key' are required fields in AuthSecret.
+        displayName: Auth Modes
+        path: customAutoscaler.scaledObject.metrics[0].prometheus.authModes
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:select:basic
+        - urn:alm:descriptor:com.tectonic.ui:select:bearer
+        - urn:alm:descriptor:com.tectonic.ui:select:tls
+        - urn:alm:descriptor:com.tectonic.ui:select:custom
+        - urn:alm:descriptor:com.tectonic.ui:select:tls,basic
       - description: The PromQL query to fetch metrics (e.g., sum(vertica_sessions_running_counter{type="active",
           initiator="user"})).
         displayName: Query
@@ -278,6 +292,12 @@ spec:
         path: customAutoscaler.scaledObject.metrics[0].prometheus.threshold
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:number
+      - description: 'Used for skipping certificate check e.g: using self-signed certs.'
+        displayName: Unsafe Ssl
+        path: customAutoscaler.scaledObject.metrics[0].prometheus.unsafeSsl
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
+        - urn:alm:descriptor:com.tectonic.ui:advanced
       - description: |-
           The detail about the target value and container name. if type is cpu/memory
           this must be set.
@@ -624,8 +644,6 @@ spec:
           sizes of the replica sets can be specified to limit the use of resources.
         displayName: Custom Autoscaler
         path: customAutoscaler
-        x-descriptors:
-        - urn:alm:descriptor:com.tectonic.ui:fieldDependency:type:CustomAutoscaler
       - description: |-
           It refers to an autoscaling definition through the horizontal pod autoscaler.
           If type is "HPA", this must be set.
@@ -715,6 +733,22 @@ spec:
         path: customAutoscaler.scaledObject.metrics[0].prometheus
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:fieldDependency:customAutoscaler.scaledObject.metrics[0].type:prometheus
+      - description: |-
+          The authentication methods for Prometheus.
+          Allowed types are 'basic', 'bearer', 'tls', 'custom' and 'tls,basic'.
+          For 'basic' type, 'username' and 'password' are required fields in AuthSecret.
+          For 'bearer' type, 'bearerToken' is required field in AuthSecret.
+          For 'tls' type, 'ca', 'cert' and 'key' are required fields in AuthSecret.
+          For 'custom' type, 'customAuthHeader' and 'customAuthValue' are required fields in AuthSecret.
+          For 'tls,basic' type, 'username', 'password', 'ca', 'cert' and 'key' are required fields in AuthSecret.
+        displayName: Auth Modes
+        path: customAutoscaler.scaledObject.metrics[0].prometheus.authModes
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:select:basic
+        - urn:alm:descriptor:com.tectonic.ui:select:bearer
+        - urn:alm:descriptor:com.tectonic.ui:select:tls
+        - urn:alm:descriptor:com.tectonic.ui:select:custom
+        - urn:alm:descriptor:com.tectonic.ui:select:tls,basic
       - description: The PromQL query to fetch metrics (e.g., sum(vertica_sessions_running_counter{type="active",
           initiator="user"})).
         displayName: Query
@@ -734,6 +768,12 @@ spec:
         path: customAutoscaler.scaledObject.metrics[0].prometheus.threshold
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:number
+      - description: 'Used for skipping certificate check e.g: using self-signed certs.'
+        displayName: Unsafe Ssl
+        path: customAutoscaler.scaledObject.metrics[0].prometheus.unsafeSsl
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
+        - urn:alm:descriptor:com.tectonic.ui:advanced
       - description: |-
           The detail about the target value and container name. if type is cpu/memory
           this must be set.

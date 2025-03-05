@@ -784,3 +784,16 @@ func GetClusterName(sandbox string) string {
 	}
 	return "sandbox " + sandbox
 }
+
+func ConvertDateStringToUTC(date, timezone string) (string, error) {
+	const timeLayout = "2006-01-02 15:04:05.999999"
+	const timeLayoutTz = "2006-01-02 15:04:05.999999 Z0700"
+
+	dateStrTz := date + " " + timezone
+	dateTz, err := time.Parse(timeLayoutTz, dateStrTz)
+	if err != nil {
+		return "", err
+	}
+
+	return dateTz.UTC().Format(timeLayout), nil
+}

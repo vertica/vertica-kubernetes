@@ -82,7 +82,7 @@ type VerticaAutoscalerSpec struct {
 	TargetSize int32 `json:"targetSize"`
 
 	// +kubebuilder:validation:Optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:fieldDependency:type:CustomAutoscaler"
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// This struct allows customization of autoscaling. Custom metrics can be used instead of the memory and cpu metrics.
 	// The scaling behavior can also be customized to meet different performance requirements. The maximum and mininum of
 	// sizes of the replica sets can be specified to limit the use of resources.
