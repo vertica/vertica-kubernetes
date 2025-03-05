@@ -38,13 +38,13 @@ var _ = Describe("vdb_context", func() {
 			vdbContext := GetContextForVdb(dispatcher.VDB.Namespace, dispatcher.VDB.Name)
 			vdbContextStruct := vdbContext.(*VdbContextStruct) // get actual underlying data type
 			// use closure to mock secret retrieval
-			vdbContextStruct.retrieveSecret = func(s1, s2 string, fetcher cloud.VerticaDBSecretFetcher) (map[string][]byte, error) {
+			vdbContextStruct.retrieveSecret = func(s1, s2 string, fetcher cloud.SecretFetcher) (map[string][]byte, error) {
 				return secret.Data, nil
 			}
-			fetcher := cloud.VerticaDBSecretFetcher{
+			fetcher := cloud.SecretFetcher{
 				Client:   dispatcher.Client,
 				Log:      dispatcher.Log,
-				VDB:      dispatcher.VDB,
+				Obj:      dispatcher.VDB,
 				EVWriter: dispatcher.EVWriter,
 			}
 			cert, err := vdbContext.GetCertFromSecret(dispatcher.VDB.Spec.NMATLSSecret, fetcher)

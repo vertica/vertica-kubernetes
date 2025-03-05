@@ -29,13 +29,13 @@ import (
 
 // retrieveTargetNMACerts will retrieve the certs from NMATLSSecret for calling target NMA endpoints
 func (v *VClusterOps) retrieveTargetNMACerts(ctx context.Context) (*HTTPSCerts, error) {
-	fetcher := cloud.VerticaDBSecretFetcher{
+	fetcher := cloud.SecretFetcher{
 		Client:   v.Client,
 		Log:      v.Log,
-		VDB:      v.TargetVDB,
+		Obj:      v.TargetVDB,
 		EVWriter: v.EVWriter,
 	}
-	return retrieveNMACerts(ctx, fetcher)
+	return retrieveNMACerts(ctx, fetcher, v.TargetVDB)
 }
 
 // retrieveNMACerts will retrieve the certs from NMATLSSecret for calling NMA endpoints
@@ -45,32 +45,32 @@ func (v *VClusterOps) retrieveNMACerts(_ context.Context) (*HTTPSCerts, error) {
 	if err != nil {
 		return nil, err
 	}
-	fetcher := cloud.VerticaDBSecretFetcher{
+	fetcher := cloud.SecretFetcher{
 		Client:   v.Client,
 		Log:      v.Log,
-		VDB:      v.VDB,
+		Obj:      v.VDB,
 		EVWriter: v.EVWriter,
 	}
 	return vdbContext.GetCertFromSecret(namSecretName, fetcher)
 }
 
-func retrieveNMACerts(ctx context.Context, fetcher cloud.VerticaDBSecretFetcher) (*HTTPSCerts, error) {
-	tlsCerts, err := fetcher.Fetch(ctx, names.GenNamespacedName(fetcher.VDB, fetcher.VDB.Spec.NMATLSSecret))
+func retrieveNMACerts(ctx context.Context, fetcher cloud.SecretFetcher, vdb *vapi.VerticaDB) (*HTTPSCerts, error) {
+	tlsCerts, err := fetcher.Fetch(ctx, names.GenNamespacedName(vdb, vdb.Spec.NMATLSSecret))
 	if err != nil {
 		return nil, fmt.Errorf("fetching NMA certs: %w", err)
 	}
 
 	tlsKey, ok := tlsCerts[corev1.TLSPrivateKeyKey]
 	if !ok {
-		return nil, fmt.Errorf("key %s is missing in the secret %s", corev1.TLSPrivateKeyKey, fetcher.VDB.Spec.NMATLSSecret)
+		return nil, fmt.Errorf("key %s is missing in the secret %s", corev1.TLSPrivateKeyKey, vdb.Spec.NMATLSSecret)
 	}
 	tlsCrt, ok := tlsCerts[corev1.TLSCertKey]
 	if !ok {
-		return nil, fmt.Errorf("cert %s is missing in the secret %s", corev1.TLSCertKey, fetcher.VDB.Spec.NMATLSSecret)
+		return nil, fmt.Errorf("cert %s is missing in the secret %s", corev1.TLSCertKey, vdb.Spec.NMATLSSecret)
 	}
 	tlsCaCrt, ok := tlsCerts[corev1.ServiceAccountRootCAKey]
 	if !ok {
-		return nil, fmt.Errorf("ca cert %s is missing in the secret %s", corev1.ServiceAccountRootCAKey, fetcher.VDB.Spec.NMATLSSecret)
+		return nil, fmt.Errorf("ca cert %s is missing in the secret %s", corev1.ServiceAccountRootCAKey, vdb.Spec.NMATLSSecret)
 	}
 	return &HTTPSCerts{
 		Key:    string(tlsKey),

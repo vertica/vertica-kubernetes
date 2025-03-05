@@ -46,7 +46,7 @@ type VdbContext interface {
 
 	// This will read certificates from secrets
 	// Secrets will be cached after the initial loading
-	GetCertFromSecret(string, cloud.VerticaDBSecretFetcher) (*HTTPSCerts, error)
+	GetCertFromSecret(string, cloud.SecretFetcher) (*HTTPSCerts, error)
 
 	// This is for testing
 	// setCertForSecret(string, *HTTPSCerts)
@@ -59,7 +59,7 @@ type VdbContextStruct struct {
 	lockForSecret *sync.Mutex // lock that guards secrets
 	secretMap     map[string]map[string][]byte
 	// this pointer is used purely for ease of test purpose
-	retrieveSecret func(string, string, cloud.VerticaDBSecretFetcher) (map[string][]byte, error)
+	retrieveSecret func(string, string, cloud.SecretFetcher) (map[string][]byte, error)
 }
 
 type contextMap map[types.NamespacedName]*VdbContextStruct
@@ -119,7 +119,7 @@ func (c *VdbContextStruct) GetBoolValue(fieldName string) bool {
 
 // GetCertFromSecret will first try to get certs from its secretMap
 // If the secret is not found in map, it will be loaded from k8s and be cached
-func (c *VdbContextStruct) GetCertFromSecret(secretName string, fetcher cloud.VerticaDBSecretFetcher) (*HTTPSCerts, error) {
+func (c *VdbContextStruct) GetCertFromSecret(secretName string, fetcher cloud.SecretFetcher) (*HTTPSCerts, error) {
 	c.lockForSecret.Lock()
 	defer c.lockForSecret.Unlock()
 	secretMap, ok := c.secretMap[secretName]
@@ -140,7 +140,7 @@ func (c *VdbContextStruct) GetCertFromSecret(secretName string, fetcher cloud.Ve
 }
 
 // retrieveSecretByName loads secret from k8s by secret name
-func retrieveSecretByName(namespace, secretName string, fetcher cloud.VerticaDBSecretFetcher) (map[string][]byte, error) {
+func retrieveSecretByName(namespace, secretName string, fetcher cloud.SecretFetcher) (map[string][]byte, error) {
 	ctx := context.Background()
 	fetchName := types.NamespacedName{
 		Namespace: namespace,
