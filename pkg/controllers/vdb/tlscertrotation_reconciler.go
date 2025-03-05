@@ -28,6 +28,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/builder"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
+	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/meta"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
@@ -35,10 +36,8 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/rotatehttpscerts"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/rotatenmacerts"
-	"github.com/vertica/vertica-kubernetes/pkg/vdbstatus"
 	"github.com/vertica/vertica-kubernetes/pkg/vk8s"
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -150,12 +149,18 @@ func (h *TLSCertRoationReconciler) rotateNmaTLSCert(ctx context.Context, newSecr
 	}
 
 	h.Log.Info("to rotate nma certi from " + currentSecretName + " to " + newSecretName)
+	h.Pfacts.Collect(ctx, h.Vdb)
+	hosts := []string{}
+	for _, detail := range h.Pfacts.Detail {
+		hosts = append(hosts, detail.GetPodIP())
+	}
 	opts := []rotatenmacerts.Option{
 		rotatenmacerts.WithKey(string(newSecret.Data[corev1.TLSPrivateKeyKey])),
 		rotatenmacerts.WithCert(string(newSecret.Data[corev1.TLSCertKey])),
 		rotatenmacerts.WithCaCert(string(newSecret.Data[corev1.ServiceAccountRootCAKey])),
-		rotatenmacerts.WithInitiator(initiatorPod.GetPodIP()),
+		rotatenmacerts.WithHosts(hosts),
 	}
+
 	vdbContext := vadmin.GetContextForVdb(h.Vdb.Namespace, h.Vdb.Name)
 	h.Log.Info("to call RotateNMACerts, use tls " + strconv.FormatBool(vdbContext.GetBoolValue(vadmin.UseTLSCert)))
 	err = h.Dispatcher.RotateNMACerts(ctx, opts...)
@@ -163,7 +168,7 @@ func (h *TLSCertRoationReconciler) rotateNmaTLSCert(ctx context.Context, newSecr
 		h.Log.Error(err, "failed to rotate nma cer to "+newSecretName)
 		return ctrl.Result{}, err
 	}
-	result, err2 := h.checkCertAfterRoation("nma", initiatorPod.GetPodIP(), builder.VerticaHTTPPort, newSecretName, newCert, currentCert)
+	result, err2 := h.checkCertAfterRoation("nma", initiatorPod.GetPodIP(), builder.NMAPort, newSecretName, newCert, currentCert)
 	if !result.Requeue && err2 == nil { // if rotation succeeds update annotations
 		previousTLSSecretName := meta.GetNMATLSSecretNameInUse(h.Vdb.Annotations)
 		err = vk8s.UpdateAnnotation(vmeta.NMATLSSecretPreviouslyUsedAnnotation, previousTLSSecretName, h.Vdb, ctx, h.VRec.Client, h.Log)
@@ -179,10 +184,8 @@ func (h *TLSCertRoationReconciler) rotateNmaTLSCert(ctx context.Context, newSecr
 		}
 		h.Log.Info("saved new tls cert secret name " + newSecretName + " in annotation")
 		// last thing is to update vdb condition
-		cond := vapi.MakeCondition(vapi.NmaTLSCertRotated, metav1.ConditionTrue, fmt.Sprintf("new cert: %s, old cert: %s", newSecretName, previousTLSSecretName))
-		if err := vdbstatus.UpdateCondition(ctx, h.VRec.GetClient(), h.Vdb, cond); err != nil {
-			return ctrl.Result{}, err
-		}
+		h.VRec.Eventf(h.Vdb, corev1.EventTypeNormal, events.NmaTLSCertRotated,
+			"Successfully rotate tls cert from %s to %s", currentSecretName, newSecretName)
 	}
 	return result, err2
 }

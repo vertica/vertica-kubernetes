@@ -56,10 +56,9 @@ func (v *VClusterOps) genRotateNMACertsOptions(s *rotatenmacerts.Params, certs *
 
 	opts.DBName = v.VDB.Spec.DBName
 	opts.IsEon = v.VDB.IsEON()
+	opts.Hosts = s.Hosts
 
-	opts.RawHosts = append(opts.RawHosts, s.InitiatorIP)
-	v.Log.Info("Setup rotate nma cert options", "hosts", opts.RawHosts[0])
-	opts.IPv6 = net.IsIPv6(s.InitiatorIP)
+	opts.IPv6 = net.IsIPv6(s.Hosts[0])
 
 	opts.NewClientTLSConfig = vops.NewClientTLSConfig{
 		NewKey:    s.NewKey,

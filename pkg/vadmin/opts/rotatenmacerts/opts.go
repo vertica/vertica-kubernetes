@@ -22,8 +22,8 @@ type Params struct {
 	// TLS Certificate (PEM bytes)
 	NewCert string
 	// TLS CA Certificate (PEM bytes)
-	NewCaCert   string
-	InitiatorIP string
+	NewCaCert string
+	Hosts     []string
 }
 
 type Option func(*Params)
@@ -53,8 +53,8 @@ func WithCaCert(newCaCert string) Option {
 	}
 }
 
-func WithInitiator(ip string) Option {
+func WithHosts(hosts []string) Option {
 	return func(s *Params) {
-		s.InitiatorIP = ip
+		s.Hosts = hosts
 	}
 }
