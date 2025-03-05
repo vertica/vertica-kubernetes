@@ -257,4 +257,14 @@ var (
 		"Fetch information from a down database",
 		http.StatusInternalServerError,
 	)
+	TimeFormatError = newProblemID(
+		path.Join(errorEndpointsPrefix, "time-format-error"),
+		"Invalid time format",
+		http.StatusBadRequest,
+	)
+	InvalidTimeRange = newProblemID(
+		path.Join(errorEndpointsPrefix, "invalid-time-range"),
+		"Invalid time range",
+		http.StatusBadRequest,
+	)
 )

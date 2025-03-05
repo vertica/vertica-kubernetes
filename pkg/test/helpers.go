@@ -114,7 +114,7 @@ func CreateConfigMap(ctx context.Context, c client.Client, vdb *vapi.VerticaDB, 
 	Expect(cm.Annotations[ann]).Should(Equal(id))
 }
 
-func ScaleDownSubcluster(ctx context.Context, c client.Client, vdb *vapi.VerticaDB, sc *vapi.Subcluster, newSize int32) {
+func ScaleInSubcluster(ctx context.Context, c client.Client, vdb *vapi.VerticaDB, sc *vapi.Subcluster, newSize int32) {
 	ExpectWithOffset(1, sc.Size).Should(BeNumerically(">=", newSize))
 	for i := newSize; i < sc.Size; i++ {
 		pod := &corev1.Pod{}

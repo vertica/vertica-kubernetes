@@ -20,7 +20,7 @@ import (
 
 	"github.com/go-logr/logr"
 	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
-	v1beta1 "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	v1 "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/vasstatus"
@@ -33,11 +33,11 @@ import (
 // VerifyAutoscalerReconciler is a reconciler to check if the autoscaler is ready for scaling.
 type VerifyAutoscalerReconciler struct {
 	VRec *VerticaAutoscalerReconciler
-	Vas  *v1beta1.VerticaAutoscaler
+	Vas  *v1.VerticaAutoscaler
 	Log  logr.Logger
 }
 
-func MakeVerifyAutoscalerReconciler(v *VerticaAutoscalerReconciler, vas *v1beta1.VerticaAutoscaler,
+func MakeVerifyAutoscalerReconciler(v *VerticaAutoscalerReconciler, vas *v1.VerticaAutoscaler,
 	log logr.Logger) controllers.ReconcileActor {
 	return &VerifyAutoscalerReconciler{VRec: v, Vas: vas, Log: log.WithName("VerifyAutoscalerReconciler")}
 }
@@ -81,9 +81,9 @@ func isStatusConditionPresentAndEqualKeda(conditions kedav1alpha1.Conditions,
 }
 
 // getCondition returns the condition status that determines if the autoscaler is ready.
-func (v *VerifyAutoscalerReconciler) getCondition(ctx context.Context) (*v1beta1.VerticaAutoscalerCondition, error) {
-	cond := &v1beta1.VerticaAutoscalerCondition{
-		Type:   v1beta1.ScalingActive,
+func (v *VerifyAutoscalerReconciler) getCondition(ctx context.Context) (*v1.VerticaAutoscalerCondition, error) {
+	cond := &v1.VerticaAutoscalerCondition{
+		Type:   v1.ScalingActive,
 		Status: corev1.ConditionFalse,
 	}
 	if v.Vas.IsHpaEnabled() {

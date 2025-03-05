@@ -187,7 +187,7 @@ func (vcc *VClusterCommands) produceUpgradeLicenseInstructions(options *VUpgrade
 	// get up hosts
 	hosts := options.Hosts
 	// Trim host list
-	hosts = vdb.filterUpHostlist(hosts, util.MainClusterSandbox)
+	hosts = vdb.filterUpHostListBySandbox(hosts, util.MainClusterSandbox)
 
 	// should not happen, but adding a guardrail
 	if len(hosts) == 0 {

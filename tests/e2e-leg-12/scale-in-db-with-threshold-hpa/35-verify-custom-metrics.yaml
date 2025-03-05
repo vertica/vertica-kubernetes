@@ -1,0 +1,26 @@
+# (c) Copyright [2021-2024] Open Text.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# You may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - script: |
+      echo "sleep 60 seconds before starting to verify metrics"
+      sleep 60
+      RESULT=$(kubectl get --raw /apis/custom.metrics.k8s.io/v1beta1/namespaces/$NAMESPACE/pods/v-scale-in-threshold-db-pri1-0/vertica_sessions_running_total)
+      OUTPUT=$(echo $RESULT | jq -r '.items[0].value')
+      # verify the metrics result
+      if [[ "$OUTPUT" == "" ]]; then
+        echo "empty custom metrics result on vertica_sessions_running_total. Result: $RESULT"
+        exit 1
+      fi

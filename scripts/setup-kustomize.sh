@@ -320,7 +320,7 @@ replacements:
           - spec.sidecars.[name=vlogger].image
       - select:
           kind: VerticaDB
-          name: v-scale-up-and-down
+          name: v-scale-out-and-in
         fieldPaths:
           - spec.sidecars.[name=vlogger].image
       - select:

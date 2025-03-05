@@ -21,27 +21,27 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
-	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/secrets"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// VerticaDBSecretFetcher is secret reader designed for the verticadb
-// controller. It can handle retrival from different sources, such as Kubernetes
+// SecretFetcher is secret reader designed for the controllers that need to read a secret.
+// It can handle retrival from different sources, such as Kubernetes
 // secret store, Google Secrets Manager (GSM), etc.
-type VerticaDBSecretFetcher struct {
+type SecretFetcher struct {
 	client.Client
 	Log      logr.Logger
 	EVWriter events.EVWriter
-	VDB      *vapi.VerticaDB
+	Obj      runtime.Object
 }
 
 // Fetch reads the secret from a secret store. The contents of the secret is successful.
-func (v *VerticaDBSecretFetcher) Fetch(ctx context.Context, secretName types.NamespacedName) (map[string][]byte, error) {
+func (v *SecretFetcher) Fetch(ctx context.Context, secretName types.NamespacedName) (map[string][]byte, error) {
 	secretData, res, err := v.FetchAllowRequeue(ctx, secretName)
 	if res.Requeue && err == nil {
 		return secretData, fmt.Errorf("secret fetch ended with requeue but is not allowed in code path")
@@ -51,7 +51,7 @@ func (v *VerticaDBSecretFetcher) Fetch(ctx context.Context, secretName types.Nam
 
 // FetchAllowRequeue reads the secret from a secret store. This API has the
 // ability to requeue the reconcile iteration based on the error it finds.
-func (v *VerticaDBSecretFetcher) FetchAllowRequeue(ctx context.Context, secretName types.NamespacedName) (
+func (v *SecretFetcher) FetchAllowRequeue(ctx context.Context, secretName types.NamespacedName) (
 	map[string][]byte, ctrl.Result, error) {
 	sf := secrets.MultiSourceSecretFetcher{
 		K8sClient: v,
@@ -67,7 +67,7 @@ func (v *VerticaDBSecretFetcher) FetchAllowRequeue(ctx context.Context, secretNa
 // GetSecret will allow us to fulfill the client interface in
 // MultiSourceSecretFetcher. It is a wrapper to get a resource using the
 // controller's k8s client.
-func (v *VerticaDBSecretFetcher) GetSecret(ctx context.Context, name types.NamespacedName) (*corev1.Secret, error) {
+func (v *SecretFetcher) GetSecret(ctx context.Context, name types.NamespacedName) (*corev1.Secret, error) {
 	secret := corev1.Secret{}
 	err := v.Client.Get(ctx, name, &secret)
 	return &secret, err
@@ -75,10 +75,10 @@ func (v *VerticaDBSecretFetcher) GetSecret(ctx context.Context, name types.Names
 
 // handleFetchError is called when there is an error fetching the secret. It
 // will handle things like event logging and setting up the ctrl.Result.
-func (v *VerticaDBSecretFetcher) handleFetchError(secretName types.NamespacedName, err error) (map[string][]byte, ctrl.Result, error) {
+func (v *SecretFetcher) handleFetchError(secretName types.NamespacedName, err error) (map[string][]byte, ctrl.Result, error) {
 	nfe := &secrets.NotFoundError{}
 	if ok := errors.As(err, &nfe); ok {
-		v.EVWriter.Eventf(v.VDB, corev1.EventTypeWarning, events.ObjectNotFound,
+		v.EVWriter.Eventf(v.Obj, corev1.EventTypeWarning, events.ObjectNotFound,
 			"Could not find the secret '%s'", secretName.Name)
 		return nil, ctrl.Result{Requeue: true}, nil
 	}

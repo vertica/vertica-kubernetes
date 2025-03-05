@@ -152,6 +152,7 @@ PROMETHEUS_ADAPTER_NAME ?= prometheus-adapter
 PROMETHEUS_ADAPTER_NAMESPACE ?= prometheus-adapter
 PROMETHEUS_ADAPTER_REPLICAS ?= 1
 # The Prometheus service URL and port for Prometheus adapter to connect to
+PROMETHEUS_TLS_URL ?= https://$(PROMETHEUS_HELM_NAME)-kube-prometheus-prometheus.$(PROMETHEUS_NAMESPACE).svc
 PROMETHEUS_URL ?= http://$(PROMETHEUS_HELM_NAME)-kube-prometheus-prometheus.$(PROMETHEUS_NAMESPACE).svc
 PROMETHEUS_PORT ?= 9090
 DB_USER?=dbadmin
@@ -692,6 +693,14 @@ deploy-prometheus:
 	helm repo update
 	helm install $(DEPLOY_WAIT) -n $(PROMETHEUS_NAMESPACE) --create-namespace $(PROMETHEUS_HELM_NAME) $(PROMETHEUS_CHART) --values prometheus/values.yaml $(PROMETHEUS_HELM_OVERRIDES)
 
+.PHONY: deploy-prometheus-tls
+deploy-prometheus-tls:
+	kubectl create ns $(PROMETHEUS_NAMESPACE) || true
+	scripts/setup-prometheus-tls.sh $(PROMETHEUS_TLS_URL) $(PROMETHEUS_HELM_NAME)
+	helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+	helm repo update
+	helm install $(DEPLOY_WAIT) -n $(PROMETHEUS_NAMESPACE) --create-namespace $(PROMETHEUS_HELM_NAME) $(PROMETHEUS_CHART) --values prometheus/values-tls.yaml $(PROMETHEUS_HELM_OVERRIDES)
+
 .PHONY: undeploy-prometheus
 undeploy-prometheus: undeploy-prometheus-service-monitor-by-release
 	helm uninstall $(PROMETHEUS_HELM_NAME) -n $(PROMETHEUS_NAMESPACE)
@@ -717,6 +726,12 @@ deploy-prometheus-adapter:  ## Setup prometheus adapter for VerticaAutoscaler
 	helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
 	helm repo update
 	helm install $(DEPLOY_WAIT) -n $(PROMETHEUS_ADAPTER_NAMESPACE) --create-namespace $(PROMETHEUS_ADAPTER_NAME) prometheus-community/prometheus-adapter --values prometheus/adapter.yaml --set prometheus.url=$(PROMETHEUS_URL) --set prometheus.port=$(PROMETHEUS_PORT) --set replicas=$(PROMETHEUS_ADAPTER_REPLICAS) $(PROMETHEUS_ADAPTER_HELM_OVERRIDES)
+
+.PHONY: deploy-prometheus-adapter-tls
+deploy-prometheus-adapter-tls: ## Setup prometheus adapter for VerticaAutoscaler
+	helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+	helm repo update
+	helm install $(DEPLOY_WAIT) -n $(PROMETHEUS_ADAPTER_NAMESPACE) --create-namespace $(PROMETHEUS_ADAPTER_NAME) prometheus-community/prometheus-adapter --values prometheus/adapter-tls.yaml --set prometheus.url=$(PROMETHEUS_TLS_URL) --set prometheus.port=$(PROMETHEUS_PORT) --set replicas=$(PROMETHEUS_ADAPTER_REPLICAS) $(PROMETHEUS_ADAPTER_HELM_OVERRIDES)
 
 .PHONY: undeploy-prometheus-adapter
 undeploy-prometheus-adapter:  ## Remove prometheus adapter

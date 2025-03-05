@@ -17,12 +17,12 @@ limitations under the License.
 package v1beta1
 
 import (
+	"errors"
 	"fmt"
 	"regexp"
 	"strconv"
 	"time"
 
-	v1 "github.com/vertica/vertica-kubernetes/api/v1"
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -194,15 +194,70 @@ func (v *VerticaAutoscaler) GetHPAMetrics() []autoscalingv2.MetricSpec {
 	return metrics
 }
 
+// ValidatePrometheusAuthBasic will check if required key exists for type PrometheusAuthBasic
+func (authmode *PrometheusAuthModes) ValidatePrometheusAuthBasic(secretData map[string][]byte) error {
+	if _, ok := secretData[PrometheusSecretKeyUsername]; !ok {
+		return errors.New("username not found in secret")
+	}
+	if _, ok := secretData[PrometheusSecretKeyPassword]; !ok {
+		return errors.New("password not found in secret")
+	}
+	return nil
+}
+
+// ValidatePrometheusAuthBearer will check if required key exists for type PrometheusAuthBearer
+func (authmode *PrometheusAuthModes) ValidatePrometheusAuthBearer(secretData map[string][]byte) error {
+	if _, ok := secretData[PrometheusSecretKeyBearerToken]; !ok {
+		return errors.New("bearerToken not found in secret")
+	}
+	return nil
+}
+
+// ValidatePrometheusAuthTLS will check if required key exists for type PrometheusAuthTLS
+func (authmode *PrometheusAuthModes) ValidatePrometheusAuthTLS(secretData map[string][]byte) error {
+	if _, ok := secretData[PrometheusSecretKeyCa]; !ok {
+		return errors.New("ca not found in secret")
+	}
+	if _, ok := secretData[PrometheusSecretKeyCert]; !ok {
+		return errors.New("cert not found in secret")
+	}
+	if _, ok := secretData[PrometheusSecretKeyKey]; !ok {
+		return errors.New("key not found in secret")
+	}
+	return nil
+}
+
+// ValidatePrometheusAuthCustom will check if required key exists for type PrometheusAuthCustom
+func (authmode *PrometheusAuthModes) ValidatePrometheusAuthCustom(secretData map[string][]byte) error {
+	if _, ok := secretData[PrometheusSecretKeyCustomAuthHeader]; !ok {
+		return errors.New("customAuthHeader not found in secret")
+	}
+	if _, ok := secretData[PrometheusSecretKeyCustomAuthValue]; !ok {
+		return errors.New("customAuthValue not found in secret")
+	}
+	return nil
+}
+
+// ValidatePrometheusAuthTLSAndBasic will check if required key exists for type PrometheusAuthTLSAndBasic
+func (authmode *PrometheusAuthModes) ValidatePrometheusAuthTLSAndBasic(secretData map[string][]byte) error {
+	if err := authmode.ValidatePrometheusAuthBasic(secretData); err != nil {
+		return err
+	}
+	if err := authmode.ValidatePrometheusAuthTLS(secretData); err != nil {
+		return err
+	}
+	return nil
+}
+
 // GetMap Convert PrometheusSpec to map[string]string
 func (p *PrometheusSpec) GetMap() map[string]string {
 	result := make(map[string]string)
 	result["serverAddress"] = p.ServerAddress
 	result["query"] = p.Query
 	result["threshold"] = fmt.Sprintf("%d", p.Threshold)
-	// Only add ScaleDownThreshold if it is non-zero
-	if p.ScaleDownThreshold != 0 {
-		result["activationThreshold"] = fmt.Sprintf("%d", p.ScaleDownThreshold)
+	// Only add ScaleInThreshold if it is non-zero
+	if p.ScaleInThreshold != 0 {
+		result["activationThreshold"] = fmt.Sprintf("%d", p.ScaleInThreshold)
 	}
 
 	return result
@@ -229,6 +284,10 @@ func (s *ScaleTrigger) IsNil() bool {
 
 func (s *ScaleTrigger) IsPrometheusMetric() bool {
 	return s.Type == PrometheusTriggerType || s.Type == ""
+}
+
+func (s *ScaleTrigger) GetUnsafeSslStr() string {
+	return strconv.FormatBool(s.Prometheus.UnsafeSsl)
 }
 
 func (s *ScaleTrigger) GetType() string {
@@ -258,25 +317,25 @@ func MakeScaledObjectSpec() *ScaledObjectSpec {
 	}
 }
 
-// HasScaleDownThreshold returns true if scale down threshold is set
-func (v *VerticaAutoscaler) HasScaleDownThreshold() bool {
+// HasScaleInThreshold returns true if scale in threshold is set
+func (v *VerticaAutoscaler) HasScaleInThreshold() bool {
 	if !v.IsHpaEnabled() {
 		return false
 	}
 	for i := range v.Spec.CustomAutoscaler.Hpa.Metrics {
 		m := &v.Spec.CustomAutoscaler.Hpa.Metrics[i]
-		if m.ScaleDownThreshold != nil {
+		if m.ScaleInThreshold != nil {
 			return true
 		}
 	}
 	return false
 }
 
-// GetMinReplicas calculates the minReplicas based on the scale down
+// GetMinReplicas calculates the minReplicas based on the scale in
 // threshold, and returns it
 func (v *VerticaAutoscaler) GetMinReplicas() *int32 {
 	vasCopy := v.DeepCopy()
-	if v.HasScaleDownThreshold() {
+	if v.HasScaleInThreshold() {
 		return &vasCopy.Spec.TargetSize
 	}
 	return vasCopy.Spec.CustomAutoscaler.Hpa.MinReplicas
@@ -373,25 +432,11 @@ func GenCompatibleFQDNHelper(scName string) string {
 	return m.ReplaceAllString(scName, "-")
 }
 
-func GetV1SubclusterFromV1beta1(src *Subcluster) v1.Subcluster {
-	return v1.Subcluster{
-		Name:                src.Name,
-		Size:                src.Size,
-		Type:                convertToSubclusterType(src),
-		ImageOverride:       src.ImageOverride,
-		NodeSelector:        src.NodeSelector,
-		Affinity:            v1.Affinity(src.Affinity),
-		PriorityClassName:   src.PriorityClassName,
-		Tolerations:         src.Tolerations,
-		Resources:           src.Resources,
-		ServiceType:         src.ServiceType,
-		ServiceName:         src.ServiceName,
-		ClientNodePort:      src.NodePort,
-		VerticaHTTPNodePort: src.VerticaHTTPNodePort,
-		ExternalIPs:         src.ExternalIPs,
-		LoadBalancerIP:      src.LoadBalancerIP,
-		ServiceAnnotations:  src.ServiceAnnotations,
-		Annotations:         src.Annotations,
-		Proxy:               (*v1.ProxySubclusterConfig)(src.Proxy),
+// ptrOrNil is a helper function to create a new pointer if not nil
+func ptrOrNil[T any](val *T) *T {
+	if val == nil {
+		return nil
 	}
+	newVal := *val
+	return &newVal
 }
