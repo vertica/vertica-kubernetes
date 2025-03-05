@@ -250,16 +250,6 @@ func (v *VerticaAutoscaler) validateHPA(allErrs field.ErrorList) field.ErrorList
 	if v.IsHpaEnabled() {
 		for i := range v.Spec.CustomAutoscaler.Hpa.Metrics {
 			metric := &v.Spec.CustomAutoscaler.Hpa.Metrics[i]
-			metricTarget := v.getMetricTarget(*metric)
-			// validate metric target
-			if metric.ScaleInThreshold != nil && metric.ScaleInThreshold.Type != metricTarget.Type {
-				err := field.Invalid(pathPrefix.Child("hpa").Child("metrics").Index(i).Child("ScaleInThreshold").Child("type"),
-					v.Spec.CustomAutoscaler.Hpa.Metrics[i].ScaleInThreshold.Type,
-					fmt.Sprintf("ScaleInThreshold metric target must be the same type as customAutoscaler.hpa.metrics[].metric.type: %s",
-						metricTarget.Type),
-				)
-				allErrs = append(allErrs, err)
-			}
 			// validate metric fields
 			allErrs = append(allErrs, v.validateMetricFields(metric, i, allErrs)...)
 		}
@@ -401,33 +391,6 @@ func (v *VerticaAutoscaler) validateHPAMetricResourceFields(metric *MetricDefini
 		allErrs = append(allErrs, err)
 	}
 	return allErrs
-}
-
-// Helper method to retrieve HPA metric target from a given metric
-func (v *VerticaAutoscaler) getMetricTarget(metric MetricDefinition) autoscalingv2.MetricTarget {
-	switch metric.Metric.Type {
-	case autoscalingv2.PodsMetricSourceType:
-		if metric.Metric.Pods != nil {
-			return metric.Metric.Pods.Target
-		}
-	case autoscalingv2.ObjectMetricSourceType:
-		if metric.Metric.Object != nil {
-			return metric.Metric.Object.Target
-		}
-	case autoscalingv2.ContainerResourceMetricSourceType:
-		if metric.Metric.ContainerResource != nil {
-			return metric.Metric.ContainerResource.Target
-		}
-	case autoscalingv2.ExternalMetricSourceType:
-		if metric.Metric.External != nil {
-			return metric.Metric.External.Target
-		}
-	case autoscalingv2.ResourceMetricSourceType:
-		if metric.Metric.Resource != nil {
-			return metric.Metric.Resource.Target
-		}
-	}
-	return autoscalingv2.MetricTarget{}
 }
 
 // Helper method to validate HPA metric target value based on its type

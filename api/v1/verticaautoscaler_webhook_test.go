@@ -146,19 +146,6 @@ var _ = Describe("verticaautoscaler_webhook", func() {
 		Expect(err).ShouldNot(Succeed())
 	})
 
-	It("should fail if hpa metrics scaleinThreshold type differ from hpa metrics metric target type", func() {
-		vas := MakeVASWithMetrics()
-		vas.Spec.CustomAutoscaler.Hpa.Metrics[0].ScaleInThreshold = &autoscalingv2.MetricTarget{Type: autoscalingv2.UtilizationMetricType}
-		_, err := vas.ValidateCreate()
-		Expect(err).Should(Succeed())
-		vas.Spec.CustomAutoscaler.Hpa.Metrics[0].ScaleInThreshold.Type = autoscalingv2.ValueMetricType
-		_, err = vas.ValidateCreate()
-		Expect(err).ShouldNot(Succeed())
-		vas.Spec.CustomAutoscaler.Hpa.Metrics[0].ScaleInThreshold.Type = autoscalingv2.AverageValueMetricType
-		_, err = vas.ValidateCreate()
-		Expect(err).ShouldNot(Succeed())
-	})
-
 	It("should fail if hpa metrics didn't follow the same rules as an horizontal pod", func() {
 		testInt := int32(3)
 		vas := MakeVASWithMetrics()
