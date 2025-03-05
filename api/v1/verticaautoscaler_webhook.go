@@ -32,6 +32,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
+const (
+	defaultStabilizationWindowSeconds = 0
+)
+
 // log is for logging in this package.
 var verticaautoscalerlog = logf.Log.WithName("verticaautoscaler-resource")
 
@@ -51,6 +55,11 @@ func (v *VerticaAutoscaler) Default() {
 
 	if v.Spec.Template.Type == "" {
 		v.Spec.Template.Type = v.Spec.Template.GetType()
+	}
+	if v.HasScaleInThreshold() && v.Spec.CustomAutoscaler.Hpa.Behavior != nil && v.Spec.CustomAutoscaler.Hpa.Behavior.ScaleDown != nil &&
+		v.Spec.CustomAutoscaler.Hpa.Behavior.ScaleDown.StabilizationWindowSeconds == nil {
+		defaultV := int32(defaultStabilizationWindowSeconds)
+		v.Spec.CustomAutoscaler.Hpa.Behavior.ScaleDown.StabilizationWindowSeconds = &defaultV
 	}
 }
 
@@ -349,8 +358,8 @@ func (v *VerticaAutoscaler) validateHPA(allErrs field.ErrorList) field.ErrorList
 	// validate stabilization window
 	if v.HasScaleInThreshold() && v.Spec.CustomAutoscaler.Hpa.Behavior != nil &&
 		v.Spec.CustomAutoscaler.Hpa.Behavior.ScaleDown != nil && *v.Spec.CustomAutoscaler.Hpa.Behavior.ScaleDown.StabilizationWindowSeconds != 0 {
-		err := field.Invalid(pathPrefix.Child("hpa"),
-			v.Spec.CustomAutoscaler.Hpa,
+		err := field.Invalid(pathPrefix.Child("hpa").Child("behavior").Child("scaleDown").Child("stabilizationWindowSeconds"),
+			v.Spec.CustomAutoscaler.Hpa.Behavior.ScaleDown.StabilizationWindowSeconds,
 			"When scaleInThreshold is set, scalein stabilization window must be 0")
 		allErrs = append(allErrs, err)
 	}
