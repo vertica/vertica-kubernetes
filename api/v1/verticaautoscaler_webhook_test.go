@@ -114,4 +114,39 @@ var _ = Describe("verticaautoscaler_webhook", func() {
 		_, err = vas.ValidateCreate()
 		Expect(err).ShouldNot(Succeed())
 	})
+
+	It("should fail if scaledownThreshold is set, scaledown stabilization window is not 0", func() {
+		vas := MakeVASWithMetrics()
+		validValue := int32(0)
+		invalidValue := int32(3)
+		vas.Spec.CustomAutoscaler.Hpa.Metrics[0].ScaleInThreshold = &autoscalingv2.MetricTarget{
+			Type: autoscalingv2.AverageValueMetricType,
+		}
+		_, err := vas.ValidateCreate()
+		Expect(err).Should(Succeed())
+		vas.Spec.CustomAutoscaler.Hpa.Behavior = &autoscalingv2.HorizontalPodAutoscalerBehavior{
+			ScaleDown: &autoscalingv2.HPAScalingRules{
+				StabilizationWindowSeconds: &validValue,
+			},
+		}
+		_, err = vas.ValidateCreate()
+		Expect(err).Should(Succeed())
+		vas.Spec.CustomAutoscaler.Hpa.Behavior = &autoscalingv2.HorizontalPodAutoscalerBehavior{
+			ScaleDown: &autoscalingv2.HPAScalingRules{
+				StabilizationWindowSeconds: &invalidValue,
+			},
+		}
+		_, err = vas.ValidateCreate()
+		Expect(err).ShouldNot(Succeed())
+		testPolicy := autoscalingv2.MaxChangePolicySelect
+		vas.Spec.CustomAutoscaler.Hpa.Behavior = &autoscalingv2.HorizontalPodAutoscalerBehavior{
+			ScaleDown: &autoscalingv2.HPAScalingRules{
+				SelectPolicy: &testPolicy,
+			},
+		}
+		vas.Default()
+		_, err = vas.ValidateCreate()
+		Expect(err).Should(Succeed())
+		Expect(*vas.Spec.CustomAutoscaler.Hpa.Behavior.ScaleDown.StabilizationWindowSeconds).Should(Equal(int32(0)))
+	})
 })
