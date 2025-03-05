@@ -147,6 +147,6 @@ var _ = Describe("verticaautoscaler_webhook", func() {
 		vas.Default()
 		_, err = vas.ValidateCreate()
 		Expect(err).Should(Succeed())
-		Expect(*vas.Spec.CustomAutoscaler.Hpa.Behavior.ScaleDown.StabilizationWindowSeconds).Should(Equal(int32(defaultStabilizationWindowSeconds)))
+		Expect(*vas.Spec.CustomAutoscaler.Hpa.Behavior.ScaleDown.StabilizationWindowSeconds).Should(Equal(int32(0)))
 	})
 })
