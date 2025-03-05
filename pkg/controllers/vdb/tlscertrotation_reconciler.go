@@ -163,22 +163,22 @@ func (h *TLSCertRoationReconciler) rotateNmaTLSCert(ctx context.Context, newSecr
 		h.Log.Error(err, "failed to rotate nma cer to "+newSecretName)
 		return ctrl.Result{}, err
 	}
-	previousTLSSecretName := meta.GetNMATLSSecretNameInUse(h.Vdb.Annotations)
-	err = vk8s.UpdateAnnotation(vmeta.NMATLSSecretPreviouslyUsedAnnotation, previousTLSSecretName, h.Vdb, ctx, h.VRec.Client, h.Log)
-	if err != nil {
-		h.Log.Error(err, "failed to save previously used tls cert secret name in annotation after cert rotation")
-		return ctrl.Result{}, err
-	}
-	h.Log.Info("saved previously used tls cert secret name " + previousTLSSecretName + " in annotation")
-	err = vk8s.UpdateAnnotation(vmeta.NMATLSSecretInUseAnnotation, newSecretName, h.Vdb, ctx, h.VRec.Client, h.Log)
-
-	if err != nil {
-		h.Log.Error(err, "failed to save new tls cert secret name in annotation after cert rotation")
-		return ctrl.Result{}, err
-	}
-	h.Log.Info("saved new tls cert secret name " + newSecretName + " in annotation")
 	result, err2 := h.checkCertAfterRoation("nma", initiatorPod.GetPodIP(), builder.VerticaHTTPPort, newSecretName, newCert, currentCert)
-	if !result.Requeue && err2 == nil {
+	if !result.Requeue && err2 == nil { // if rotation succeeds update annotations
+		previousTLSSecretName := meta.GetNMATLSSecretNameInUse(h.Vdb.Annotations)
+		err = vk8s.UpdateAnnotation(vmeta.NMATLSSecretPreviouslyUsedAnnotation, previousTLSSecretName, h.Vdb, ctx, h.VRec.Client, h.Log)
+		if err != nil {
+			h.Log.Error(err, "failed to save previously used tls cert secret name in annotation after cert rotation")
+			return ctrl.Result{}, err
+		}
+		h.Log.Info("saved previously used tls cert secret name " + previousTLSSecretName + " in annotation")
+		err = vk8s.UpdateAnnotation(vmeta.NMATLSSecretInUseAnnotation, newSecretName, h.Vdb, ctx, h.VRec.Client, h.Log)
+		if err != nil {
+			h.Log.Error(err, "failed to save new tls cert secret name in annotation after cert rotation")
+			return ctrl.Result{}, err
+		}
+		h.Log.Info("saved new tls cert secret name " + newSecretName + " in annotation")
+		// last thing is to update vdb condition
 		cond := vapi.MakeCondition(vapi.NmaTLSCertRotated, metav1.ConditionTrue, fmt.Sprintf("new cert: %s, old cert: %s", newSecretName, previousTLSSecretName))
 		if err := vdbstatus.UpdateCondition(ctx, h.VRec.GetClient(), h.Vdb, cond); err != nil {
 			return ctrl.Result{}, err
