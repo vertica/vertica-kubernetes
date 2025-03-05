@@ -1359,21 +1359,30 @@ func (v *VerticaAutoscaler) GetMetricMap() map[string]*MetricDefinition {
 }
 
 // GetMetricTarget returns the autoscalingv2 metric target
-func GetMetricTarget(metric *autoscalingv2.MetricSpec) autoscalingv2.MetricTarget {
-	var metricTarget autoscalingv2.MetricTarget
-
-	if metric.Pods != nil {
-		metricTarget = metric.Pods.Target
-	} else if metric.Object != nil {
-		metricTarget = metric.Object.Target
-	} else if metric.External != nil {
-		metricTarget = metric.External.Target
-	} else if metric.Resource != nil {
-		metricTarget = metric.Resource.Target
-	} else {
-		metricTarget = metric.ContainerResource.Target
+func GetMetricTarget(metric *autoscalingv2.MetricSpec) *autoscalingv2.MetricTarget {
+	switch metric.Type {
+	case autoscalingv2.PodsMetricSourceType:
+		if metric.Pods != nil {
+			return &metric.Pods.Target
+		}
+	case autoscalingv2.ObjectMetricSourceType:
+		if metric.Object != nil {
+			return &metric.Object.Target
+		}
+	case autoscalingv2.ExternalMetricSourceType:
+		if metric.External != nil {
+			return &metric.External.Target
+		}
+	case autoscalingv2.ResourceMetricSourceType:
+		if metric.Resource != nil {
+			return &metric.Resource.Target
+		}
+	case autoscalingv2.ContainerResourceMetricSourceType:
+		if metric.ContainerResource != nil {
+			return &metric.ContainerResource.Target
+		}
 	}
-	return metricTarget
+	return nil
 }
 
 func IsK8sSecretFound(ctx context.Context, vdb *VerticaDB, k8sClient client.Client, secretName *string,

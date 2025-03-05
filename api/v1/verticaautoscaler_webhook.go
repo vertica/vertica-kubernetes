@@ -178,23 +178,22 @@ func (v *VerticaAutoscaler) validateCustomAutoscaler(allErrs field.ErrorList) fi
 		allErrs = append(allErrs, err)
 	}
 
-	if v.Spec.CustomAutoscaler != nil {
-		// customAutoscaler.Hpa must be non-nil if customAutoscaler.type is HPA
-		if v.Spec.CustomAutoscaler.Hpa == nil && v.Spec.CustomAutoscaler.Type == HPA {
-			err := field.Invalid(pathPrefix.Child("type"),
-				v.Spec.CustomAutoscaler.Type,
-				fmt.Sprintf("customAutoscaler.Hpa must be non-nil if customAutoscaler.type is %s.", HPA),
-			)
-			allErrs = append(allErrs, err)
-		}
-		// customAutoscaler.ScaledObject must be non-nil if customAutoscaler.type == "ScaledObject" or empty
-		if v.Spec.CustomAutoscaler.ScaledObject == nil && (v.Spec.CustomAutoscaler.Type == ScaledObject || v.Spec.CustomAutoscaler.Type == "") {
-			err := field.Invalid(pathPrefix.Child("type"),
-				v.Spec.CustomAutoscaler.Type,
-				fmt.Sprintf("customAutoscaler.ScaledObject must be non-nil if customAutoscaler.type is %s or empty.", ScaledObject),
-			)
-			allErrs = append(allErrs, err)
-		}
+	// customAutoscaler.Hpa must be set if customAutoscaler.type is HPA
+	if v.IsHpaType() && v.Spec.CustomAutoscaler.Hpa == nil {
+		err := field.Invalid(pathPrefix.Child("type"),
+			v.Spec.CustomAutoscaler.Type,
+			fmt.Sprintf("customAutoscaler.Hpa must be set if customAutoscaler.type is %s.", HPA),
+		)
+		allErrs = append(allErrs, err)
+	}
+
+	// customAutoscaler.ScaledObject must be set if customAutoscaler.type is ScaledObject
+	if v.IsScaledObjectType() && v.Spec.CustomAutoscaler.ScaledObject == nil {
+		err := field.Invalid(pathPrefix.Child("type"),
+			v.Spec.CustomAutoscaler.Type,
+			fmt.Sprintf("customAutoscaler.ScaledObject must be set if customAutoscaler.type is %s or empty.", ScaledObject),
+		)
+		allErrs = append(allErrs, err)
 	}
 	return allErrs
 }
@@ -260,6 +259,7 @@ func (v *VerticaAutoscaler) validateMetricsName(allErrs field.ErrorList) field.E
 			if _, exists := metricsSet[metric.Name]; exists {
 				err := field.Invalid(path, metric.Name, fmt.Sprintf("Metric name '%s' cannot be the same.", metric.Name))
 				allErrs = append(allErrs, err)
+				continue
 			}
 
 			// Store the metric name in the set
@@ -328,6 +328,7 @@ func (v *VerticaAutoscaler) validateScaledObjectMetric(allErrs field.ErrorList) 
 				)
 				allErrs = append(allErrs, err)
 			}
+
 			// metrics[].resource must be set if metrics[].type is "cpu" or "memory"
 			if (metric.Type == CPUTriggerType || metric.Type == MemTriggerType) && metric.Resource == nil {
 				err := field.Invalid(pathPrefix.Child("scaledObject").Child("metrics").Index(i).Child("type"),

@@ -206,35 +206,15 @@ var _ = Describe("verticaautoscaler_webhook", func() {
 	})
 
 	It("should fail if scaleInThreshold type is different to the threshold type used for scale out", func() {
-		vas := MakeVAS()
-		var maxReplicas int32 = 3
-		var minReplicas int32 = 5
-		// 	Metrics[0].Metric.Object.Target.Type "AverageValue" is different to Metrics[0].ScaleInThreshold.Type "Value"
-		vas.Spec.CustomAutoscaler = &CustomAutoscalerSpec{
-			Type: HPA,
-			Hpa: &HPASpec{
-				MinReplicas: &minReplicas,
-				MaxReplicas: maxReplicas,
-				Metrics: []MetricDefinition{
-					{
-						Metric: autoscalingv2.MetricSpec{
-							Pods: &autoscalingv2.PodsMetricSource{
-								Metric: autoscalingv2.MetricIdentifier{
-									Name: "vertica_queued_requests_count",
-								},
-								Target: autoscalingv2.MetricTarget{
-									Type: "AverageValue",
-								},
-							},
-						},
-						ScaleInThreshold: &autoscalingv2.MetricTarget{
-							Type: "Value",
-						},
-					},
-				},
-			},
-		}
+		vas := MakeVASWithMetrics()
+		vas.Spec.CustomAutoscaler.Hpa.Metrics[0].ScaleInThreshold = &autoscalingv2.MetricTarget{Type: autoscalingv2.UtilizationMetricType}
 		_, err := vas.ValidateCreate()
+		Expect(err).Should(Succeed())
+		vas.Spec.CustomAutoscaler.Hpa.Metrics[0].ScaleInThreshold.Type = autoscalingv2.ValueMetricType
+		_, err = vas.ValidateCreate()
+		Expect(err.Error()).To(ContainSubstring("must be of the same type as the threshold used for scale out"))
+		vas.Spec.CustomAutoscaler.Hpa.Metrics[0].ScaleInThreshold.Type = autoscalingv2.AverageValueMetricType
+		_, err = vas.ValidateCreate()
 		Expect(err.Error()).To(ContainSubstring("must be of the same type as the threshold used for scale out"))
 	})
 
