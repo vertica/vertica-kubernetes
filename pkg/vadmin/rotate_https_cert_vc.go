@@ -36,10 +36,10 @@ func (v *VClusterOps) RotateHTTPSCerts(ctx context.Context, opts ...rotatehttpsc
 	// get the certs
 	secretName := meta.GetNMATLSSecretNameInUse(v.VDB.Annotations)
 	vdbContext := GetContextForVdb(v.VDB.Namespace, v.VDB.Name)
-	fetcher := cloud.VerticaDBSecretFetcher{
+	fetcher := cloud.SecretFetcher{
 		Client:   v.Client,
 		Log:      v.Log,
-		VDB:      v.VDB,
+		Obj:      v.VDB,
 		EVWriter: v.EVWriter,
 	}
 	certs, err := vdbContext.GetCertFromSecret(secretName, fetcher)

@@ -21,4 +21,4 @@ kind: ServiceMonitor
 metadata:
   name: k8s-vertica-prometheus-v-scale-in-threshold
   labels:
-    release: prometheus
+    release: prometheus-tls

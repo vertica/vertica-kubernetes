@@ -26,16 +26,12 @@ import (
 
 // VerticaAutoscalerSpec defines the desired state of VerticaAutoscaler
 type VerticaAutoscalerSpec struct {
-	// Important: Run "make" to regenerate code after modifying this file
-
 	// +kubebuilder:validation:Required
-	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:text"
 	// The name of the VerticaDB CR that this autoscaler is defined for.  The
 	// VerticaDB object must exist in the same namespace as this object.
 	VerticaDBName string `json:"verticaDBName"`
 
-	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// +kubebuilder:default:="Subcluster"
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:select:Pod","urn:alm:descriptor:com.tectonic.ui:select:Subcluster"}
@@ -49,7 +45,6 @@ type VerticaAutoscalerSpec struct {
 	ScalingGranularity ScalingGranularityType `json:"scalingGranularity"`
 
 	// +kubebuilder:validation:Optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:text"
 	// This acts as a selector for the subclusters that are being scaled together.
 	// Each subcluster has a service name field, which if omitted is the same
@@ -58,8 +53,8 @@ type VerticaAutoscalerSpec struct {
 	// if this field is empty, all the subclusters will be selected for scaling.
 	ServiceName string `json:"serviceName,omitempty"`
 
-	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// When the scaling granularity is Subcluster, this field defines a template
 	// to use for when a new subcluster needs to be created.  If size is 0, then
 	// the operator will use an existing subcluster to use as the template.  If
@@ -77,7 +72,6 @@ type VerticaAutoscalerSpec struct {
 	// subclusters.
 	Template Subcluster `json:"template"`
 
-	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:podCount"
 	// This is the total pod count for all subclusters that match the
@@ -233,6 +227,27 @@ const (
 	PrometheusTriggerType TriggerType = "prometheus"
 )
 
+type PrometheusAuthModes string
+
+const (
+	PrometheusAuthBasic       PrometheusAuthModes = "basic"
+	PrometheusAuthBearer      PrometheusAuthModes = "bearer"
+	PrometheusAuthTLS         PrometheusAuthModes = "tls"
+	PrometheusAuthCustom      PrometheusAuthModes = "custom"
+	PrometheusAuthTLSAndBasic PrometheusAuthModes = "tls,basic"
+)
+
+const (
+	PrometheusSecretKeyUsername         string = "username"
+	PrometheusSecretKeyPassword         string = "password"
+	PrometheusSecretKeyBearerToken      string = "bearerToken"
+	PrometheusSecretKeyCa               string = "ca"
+	PrometheusSecretKeyCert             string = "cert"
+	PrometheusSecretKeyKey              string = "key"
+	PrometheusSecretKeyCustomAuthHeader string = "customAuthHeader"
+	PrometheusSecretKeyCustomAuthValue  string = "customAuthValue"
+)
+
 type PrometheusSpec struct {
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// The URL of the Prometheus server.
@@ -251,6 +266,24 @@ type PrometheusSpec struct {
 	// This is the lower bound at which the autoscaler starts scaling in to the minimum replica count.
 	// If the metric falls below threshold but is still above this value, the current replica count remains unchanged.
 	ScaleInThreshold int32 `json:"scaleInThreshold,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:default:=""
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:select:basic","urn:alm:descriptor:com.tectonic.ui:select:bearer","urn:alm:descriptor:com.tectonic.ui:select:tls","urn:alm:descriptor:com.tectonic.ui:select:custom","urn:alm:descriptor:com.tectonic.ui:select:tls,basic"}
+	// The authentication methods for Prometheus.
+	// Allowed types are 'basic', 'bearer', 'tls', 'custom' and 'tls,basic'.
+	// For 'basic' type, 'username' and 'password' are required fields in AuthSecret.
+	// For 'bearer' type, 'bearerToken' is required field in AuthSecret.
+	// For 'tls' type, 'ca', 'cert' and 'key' are required fields in AuthSecret.
+	// For 'custom' type, 'customAuthHeader' and 'customAuthValue' are required fields in AuthSecret.
+	// For 'tls,basic' type, 'username', 'password', 'ca', 'cert' and 'key' are required fields in AuthSecret.
+	AuthModes PrometheusAuthModes `json:"authModes,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:default=false
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:booleanSwitch","urn:alm:descriptor:com.tectonic.ui:advanced"}
+	// Used for skipping certificate check e.g: using self-signed certs.
+	UnsafeSsl bool `json:"unsafeSsl,omitempty"`
 }
 
 type CPUMemorySpec struct {
@@ -358,7 +391,8 @@ var VasConditionIndexMap = map[VerticaAutoscalerConditionType]int{
 // +kubebuilder:printcolumn:name="Target Size",type="integer",JSONPath=".spec.targetSize"
 // +kubebuilder:printcolumn:name="Scaling Count",type="integer",JSONPath=".status.scalingCount"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
-// +operator-sdk:csv:customresourcedefinitions:resources={{VerticaDB,vertica.com/v1beta1,""}}
+// +operator-sdk:csv:customresourcedefinitions:resources={{VerticaDB,vertica.com/v1beta1,""},{ScaledObject,keda.sh/v1alpha1,""},{TriggerAuthentication,keda.sh/v1alpha1,""}}
+// +kubebuilder:deprecatedversion:warning="vertica.com/v1beta1 VerticaAutoscaler is deprecated, use vertica.com/v1 VerticaAutoscaler"
 
 // VerticaAutoscaler is a CR that allows you to autoscale one or more
 // subclusters in a VerticaDB.
@@ -443,6 +477,32 @@ func MakeVASWithMetrics() *VerticaAutoscaler {
 	return vas
 }
 
+// MakeVASWithScaledObject is a helper that constructs a fully formed VerticaAutoscaler struct with custom autoscaling enabled.
+// This is intended for test purposes.
+func MakeVASWithScaledObject() *VerticaAutoscaler {
+	vas := MakeVAS()
+	minRep := int32(3)
+	maxRep := int32(6)
+	threshold := int32(50)
+	vas.Spec.CustomAutoscaler = &CustomAutoscalerSpec{
+		Type: ScaledObject,
+		ScaledObject: &ScaledObjectSpec{
+			MinReplicas: &minRep,
+			MaxReplicas: &maxRep,
+			Metrics: []ScaleTrigger{
+				{
+					Type:       CPUTriggerType,
+					MetricType: autoscalingv2.AverageValueMetricType,
+					Resource: &CPUMemorySpec{
+						Threshold: threshold,
+					},
+				},
+			},
+		},
+	}
+	return vas
+}
+
 // CanUseTemplate returns true if we can use the template provided in the spec
 func (v *VerticaAutoscaler) CanUseTemplate() bool {
 	return v.Spec.Template.Size > 0
@@ -468,4 +528,9 @@ func (v *VerticaAutoscaler) IsHpaEnabled() bool {
 // IsScaledObjectEnabled returns true if custom autoscaling with scaledObject is set.
 func (v *VerticaAutoscaler) IsScaledObjectEnabled() bool {
 	return v.IsCustomAutoScalerSet() && v.Spec.CustomAutoscaler.Type == ScaledObject && v.Spec.CustomAutoscaler.ScaledObject != nil
+}
+
+// IsScaledObjectType returns true if custom autoscaler type is SacledObject.
+func (v *VerticaAutoscaler) IsScaledObjectType() bool {
+	return v.IsCustomAutoScalerSet() && v.Spec.CustomAutoscaler.Type == ScaledObject
 }

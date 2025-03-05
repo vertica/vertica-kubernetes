@@ -695,6 +695,7 @@ deploy-prometheus:
 
 .PHONY: deploy-prometheus-tls
 deploy-prometheus-tls:
+	kubectl create ns $(PROMETHEUS_NAMESPACE) || true
 	scripts/setup-prometheus-tls.sh $(PROMETHEUS_TLS_URL) $(PROMETHEUS_HELM_NAME)
 	helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
 	helm repo update

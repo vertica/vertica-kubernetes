@@ -11,7 +11,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1beta1
+apiVersion: vertica.com/v1
 kind: VerticaAutoscaler
 metadata:
   name: v-scale-in-threshold-vas
@@ -28,15 +28,35 @@ spec:
   maxReplicaCount: 7
   minReplicaCount: 3
   scaleTargetRef:
-    apiVersion: vertica.com/v1beta1
+    apiVersion: vertica.com/v1
     kind: VerticaAutoscaler
     name: v-scale-in-threshold-vas
   triggers:
   - metadata:
       query: sum(vertica_sessions_running_counter{type="active", initiator="user", service="v-scale-in-threshold-pri1"})
-      serverAddress: http://prometheus-kube-prometheus-prometheus.prometheus.svc.cluster.local:9090
+      serverAddress: https://prometheus-tls-kube-promet-prometheus.prometheus-tls.svc:9090
       activationThreshold: "1"
       threshold: "5"
+      authModes: "tls"
+      unsafeSsl: "false"
+    authenticationRef: 
+      name: v-scale-in-threshold-vas-prometheus-tls-creds
     metricType: AverageValue
     name: vertica_sessions_running_total
     type: prometheus
+---
+apiVersion: keda.sh/v1alpha1
+kind: TriggerAuthentication
+metadata:
+  name: v-scale-in-threshold-vas-prometheus-tls-creds
+spec:
+  secretTargetRef:
+  - key: ca
+    name: prometheus-tls
+    parameter: ca
+  - key: cert
+    name: prometheus-tls
+    parameter: cert
+  - key: key
+    name: prometheus-tls
+    parameter: key

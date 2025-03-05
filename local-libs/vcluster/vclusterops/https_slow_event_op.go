@@ -32,14 +32,11 @@ type httpsSlowEventsOp struct {
 	transactionID string
 	nodeName      string
 	eventDesc     string
-	// when debug mode is on, this op will return stub data
-	debug bool
 }
 
 func makeHTTPSSlowEventOp(upHosts []string,
 	startTime, endTime, threadID, phaseDuration string,
-	transactionID, nodeName, eventDesc string,
-	debug bool) httpsSlowEventsOp {
+	transactionID, nodeName, eventDesc string) httpsSlowEventsOp {
 	op := httpsSlowEventsOp{}
 	op.name = "HTTPSSlowEventOp"
 	op.description = "Check slow events"
@@ -51,20 +48,17 @@ func makeHTTPSSlowEventOp(upHosts []string,
 	op.threadID = threadID
 	op.phaseDuration = phaseDuration
 	op.eventDesc = eventDesc
-	op.debug = debug
 	return op
 }
 
 func makeHTTPSSlowEventOpByThreadID(upHosts []string,
-	startTime, endTime, threadID string,
-	debug bool) httpsSlowEventsOp {
-	return makeHTTPSSlowEventOp(upHosts, startTime, endTime, threadID, "", "", "", "", debug)
+	startTime, endTime, threadID string) httpsSlowEventsOp {
+	return makeHTTPSSlowEventOp(upHosts, startTime, endTime, threadID, "", "", "", "")
 }
 
 func makeHTTPSSlowEventOpByKeyword(upHosts []string,
-	startTime, endTime, keyword string,
-	debug bool) httpsSlowEventsOp {
-	return makeHTTPSSlowEventOp(upHosts, startTime, endTime, "", keyword, "", "", "", debug)
+	startTime, endTime, keyword string) httpsSlowEventsOp {
+	return makeHTTPSSlowEventOp(upHosts, startTime, endTime, "", keyword, "", "", "")
 }
 
 const (
@@ -108,6 +102,7 @@ func (op *httpsSlowEventsOp) setupClusterHTTPRequest(hosts []string) error {
 			queryParts = append(queryParts, fmt.Sprintf("%s=%s", key, value))
 		}
 
+		// We use string concatenation to build the url to avoid query param encoding of the timestamp fields
 		// Join query parts to form a query string
 		queryString := url.PathEscape(strings.Join(queryParts, "&"))
 		httpRequest.buildHTTPSEndpoint(fmt.Sprintf("%s?%s", baseURL, queryString))
