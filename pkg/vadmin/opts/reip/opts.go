@@ -26,6 +26,7 @@ type Parms struct {
 	Hosts               []Host
 	CommunalPath        string
 	ConfigurationParams map[string]string
+	Sandbox             string
 }
 
 type Host struct {
@@ -72,5 +73,11 @@ func WithCommunalPath(path string) Option {
 func WithConfigurationParams(parms map[string]string) Option {
 	return func(s *Parms) {
 		s.ConfigurationParams = parms
+	}
+}
+
+func WithSandbox(sandbox string) Option {
+	return func(s *Parms) {
+		s.Sandbox = sandbox
 	}
 }

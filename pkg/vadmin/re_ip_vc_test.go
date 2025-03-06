@@ -50,6 +50,11 @@ func (m *MockVClusterOps) VReIP(options *vops.VReIPOptions) error {
 	if options.IsEon != TestIsEon {
 		return fmt.Errorf("failed to retrieve eon mode")
 	}
+
+	// verify sandbox name
+	if options.SandboxName != TestSandboxName {
+		return fmt.Errorf("failed to retrieve sandbox name")
+	}
 	return m.VerifyCommunalStorageOptions(options.CommunalStorageLocation, options.ConfigurationParameters)
 }
 
@@ -80,7 +85,8 @@ var _ = Describe("re_ip_vc", func() {
 			reip.WithHost(hosts[1].VNode, hosts[1].Compat21Node, hosts[1].IP),
 			reip.WithHost(hosts[1].VNode, hosts[1].Compat21Node, hosts[1].IP),
 			reip.WithCommunalPath(TestCommunalPath),
-			reip.WithConfigurationParams(TestCommunalStorageParams))
+			reip.WithConfigurationParams(TestCommunalStorageParams),
+			reip.WithSandbox(TestSandboxName))
 		Ω(err).Should(Succeed())
 		Ω(ctrlRes).Should(Equal(ctrl.Result{}))
 	})
