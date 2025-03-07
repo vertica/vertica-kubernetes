@@ -56,10 +56,19 @@ func (v *VerticaAutoscaler) Default() {
 	if v.Spec.Template.Type == "" {
 		v.Spec.Template.Type = v.Spec.Template.GetType()
 	}
-	if v.HasScaleInThreshold() && v.Spec.CustomAutoscaler.Hpa.Behavior != nil && v.Spec.CustomAutoscaler.Hpa.Behavior.ScaleDown != nil &&
-		v.Spec.CustomAutoscaler.Hpa.Behavior.ScaleDown.StabilizationWindowSeconds == nil {
+	if v.HasScaleInThreshold() {
 		defaultV := int32(defaultStabilizationWindowSeconds)
-		v.Spec.CustomAutoscaler.Hpa.Behavior.ScaleDown.StabilizationWindowSeconds = &defaultV
+		if v.Spec.CustomAutoscaler.Hpa.Behavior == nil {
+			v.Spec.CustomAutoscaler.Hpa.Behavior = &autoscalingv2.HorizontalPodAutoscalerBehavior{
+				ScaleDown: &autoscalingv2.HPAScalingRules{},
+			}
+		}
+		if v.Spec.CustomAutoscaler.Hpa.Behavior.ScaleDown == nil {
+			v.Spec.CustomAutoscaler.Hpa.Behavior.ScaleDown = &autoscalingv2.HPAScalingRules{}
+		}
+		if v.Spec.CustomAutoscaler.Hpa.Behavior.ScaleDown.StabilizationWindowSeconds == nil {
+			v.Spec.CustomAutoscaler.Hpa.Behavior.ScaleDown.StabilizationWindowSeconds = &defaultV
+		}
 	}
 }
 
