@@ -481,6 +481,7 @@ const (
 	FileExist    = 0
 	FileNotExist = 1
 	NoWritePerm  = 2
+	NoReadPerm   = 3
 	// this can be extended
 	// if we want to check other permissions
 )
@@ -494,14 +495,39 @@ func CanReadAccessDir(dirPath string) error {
 	return nil
 }
 
-// Check whether the directory is read accessible
-func CanWriteAccessPath(path string) int {
+// Check whether the path exists
+func FileExists(path string) bool {
 	// check whether the path exists
 	_, err := os.Stat(path)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return FileNotExist
+			return false
 		}
+	}
+	return true
+}
+
+// Check whether the path is read accessible
+func CanReadAccessPath(path string) int {
+	// check whether the path exists
+	if !FileExists(path) {
+		return FileNotExist
+	}
+
+	// check whether the path has write access
+	if err := unix.Access(path, unix.R_OK); err != nil {
+		log.Printf("Path '%s' is not readable.\n", path)
+		return NoReadPerm
+	}
+
+	return FileExist
+}
+
+// Check whether the path is write accessible
+func CanWriteAccessPath(path string) int {
+	// check whether the path exists
+	if !FileExists(path) {
+		return FileNotExist
 	}
 
 	// check whether the path has write access
