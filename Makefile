@@ -59,7 +59,6 @@ LOGDIR?=$(shell pwd)
 KIND_CHECK:=kubectl get node -o=jsonpath='{.items[0].spec.providerID}' 2> /dev/null | grep 'kind://' -c
 
 # By default, we set the version of our operator as the TAG
-
 TAG ?= $(VERSION)
 
 # We pick an image tag based on the environment we are in.  We special case kind
@@ -78,8 +77,16 @@ else
   HELM_IMAGE_PULL_POLICY ?= Always
 endif
 
+# The port number for the local registry
+REG_PORT ?= 5000
 # Image Repo to use when pushing/pulling any image
+ifeq ($(shell $(KIND_CHECK)), 1)
+# Multi-platform build images must be pushed to a repo as it uses --push while building
+IMG_REPO?=localhost:$(REG_PORT)/
+else
+# TODO: need to be set for non-kind PR build
 IMG_REPO?=
+endif
 # Image URL to use for building/pushing of the operator
 OPERATOR_IMG ?= $(IMG_REPO)verticadb-operator:$(TAG)
 export OPERATOR_IMG
@@ -106,8 +113,6 @@ export LEG9
 VLOGGER_BASE_IMG?=alpine
 # What version of alpine does the vlogger image use
 VLOGGER_ALPINE_VERSION?=3.19
-# The port number for the local registry
-REG_PORT ?= 5000
 # Image URL to use for the bundle.  We special case kind because to use it with
 # kind it must be pushed to a local registry.
 ifeq ($(shell $(KIND_CHECK)), 1)
@@ -186,9 +191,11 @@ E2E_ADDITIONAL_ARGS?=
 # If you wish to build the image targeting other platforms you can use the --platform flag: https://docs.docker.com/build/building/multi-platform/
 # (i.e. docker buildx build --platform=linux/amd64,linux/arm64). However, you must enable docker buildKit for it.
 # More info: https://docs.docker.com/develop/develop-images/build_enhancements/
-TARGET_ARCH?=linux/amd64
+# Target Architecture that the docker image can run on
+# Set to linux/amd64,linux/arm64 if you wish to build the image targeting multiple platforms
+# More info: https://docs.docker.com/develop/develop-images/build_enhancements/
+TARGET_ARCH ?= linux/amd64,linux/arm64
 
-#
 # Deployment Variables
 # ====================
 #
@@ -443,26 +450,52 @@ setup-olm: operator-sdk bundle docker-build-bundle docker-push-bundle docker-bui
 build: manifests generate fmt vet ## Build manager binary.
 	go build -o bin/manager cmd/operator/main.go
 
+COMMA = ,
 .PHONY: docker-build-operator
 docker-build-operator: manifests generate fmt vet ## Build operator docker image with the manager.
 	docker pull golang:${GO_VERSION} # Ensure we have the latest Go lang version
+# Building multi-platform image, a custom builder is required
+ifeq ($(COMMA), $(findstring $(COMMA), $(TARGET_ARCH)))
+	# copy existing Dockerfile and insert --platform=${BUILDPLATFORM} into Dockerfile.cross, and preserve the original Dockerfile
+	sed -e '1 s/\(^FROM\)/FROM --platform=\$$\{BUILDPLATFORM\}/; t' -e ' 1,// s//FROM --platform=\$$\{BUILDPLATFORM\}/' docker-operator/Dockerfile > Dockerfile.cross
+	- docker buildx create --name project-v3-builder --driver-opt network=host
+	docker buildx use project-v3-builder
+	docker buildx build \
+		--tag ${OPERATOR_IMG} \
+		--push \
+		--platform ${TARGET_ARCH} \
+		--build-arg GO_VERSION=${GO_VERSION} \
+		-f Dockerfile.cross .
+	- docker buildx rm project-v3-builder
+	rm Dockerfile.cross
+else
+# Building single platform image
 	docker buildx build \
 		--tag ${OPERATOR_IMG} \
 		--load \
 		--platform ${TARGET_ARCH} \
 		--build-arg GO_VERSION=${GO_VERSION} \
 		-f docker-operator/Dockerfile .
+endif
 
 .PHONY: docker-build-vlogger
 docker-build-vlogger:  ## Build vertica logger docker image
 	docker pull ${VLOGGER_BASE_IMG}:${VLOGGER_ALPINE_VERSION} # Ensure we have the latest alpine version
+# A custom builder is required to build multi-platform image
+ifeq ($(COMMA), $(findstring $(COMMA), $(TARGET_ARCH)))
+	- docker buildx create --name project-v3-builder --driver-opt network=host
+	docker buildx use project-v3-builder
+endif
 	docker buildx build \
 		-t ${VLOGGER_IMG} \
-		--load \
 		--platform ${TARGET_ARCH} \
 		--build-arg BASE_IMG=${VLOGGER_BASE_IMG} \
 		--build-arg ALPINE_VERSION=${VLOGGER_ALPINE_VERSION} \
+		${VERTICA_ADDITIONAL_DOCKER_BUILD_OPTIONS} \
 		-f docker-vlogger/Dockerfile .
+ifeq ($(COMMA), $(findstring $(COMMA), $(TARGET_ARCH)))
+	- docker buildx rm project-v3-builder
+endif
 
 # If you wish to build the manager image targeting other platforms you can use the --platform flag.
 # (i.e. docker buildx build --platform=linux/arm64 ). However, you must enable docker buildKit for it.
@@ -505,13 +538,20 @@ endif
 # Using --no-cache is important so that we pick up the latest security fixes.
 # Otherwise, we risk skipping the step in the docker build when we pull the
 # latest base image.
-VERTICA_ADDITIONAL_DOCKER_BUILD_OPTIONS?="--no-cache --load"
+# Use --push for multi-platform image and --load for single-platform image
+ifeq ($(COMMA), $(findstring $(COMMA), $(TARGET_ARCH)))
+VERTICA_ADDITIONAL_DOCKER_BUILD_OPTIONS?=--no-cache --push
+else
+VERTICA_ADDITIONAL_DOCKER_BUILD_OPTIONS?=--no-cache --load
+endif
+
 
 .PHONY: docker-build-vertica
 docker-build-vertica: docker-vertica/Dockerfile ## Build vertica server docker image
 	cd docker-vertica \
 	&& make \
 		VERTICA_IMG=${VERTICA_IMG} \
+		TARGET_ARCH=${TARGET_ARCH} \
 		MINIMAL_VERTICA_IMG=${MINIMAL_VERTICA_IMG} \
 		VERTICA_ADDITIONAL_DOCKER_BUILD_OPTIONS="${VERTICA_ADDITIONAL_DOCKER_BUILD_OPTIONS}"
 
@@ -520,9 +560,9 @@ docker-build-vertica-v2: docker-vertica-v2/Dockerfile ## Build next generation v
 	cd docker-vertica-v2 \
 	&& make \
 		VERTICA_IMG=${VERTICA_IMG} \
-		MINIMAL_VERTICA_IMG=${MINIMAL_VERTICA_IMG} \
 		TARGET_ARCH=${TARGET_ARCH} \
-		VERTICA_ADDITIONAL_DOCKER_BUILD_OPTIONS=${VERTICA_ADDITIONAL_DOCKER_BUILD_OPTIONS}
+		MINIMAL_VERTICA_IMG=${MINIMAL_VERTICA_IMG} \
+		VERTICA_ADDITIONAL_DOCKER_BUILD_OPTIONS="${VERTICA_ADDITIONAL_DOCKER_BUILD_OPTIONS}"
 
 .PHONY: docker-push-vertica
 docker-push-vertica:  ## Push vertica server image -- either v1 or v2.
