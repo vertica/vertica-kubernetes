@@ -291,5 +291,15 @@ var _ = Describe("verticaautoscaler_webhook", func() {
 		_, err = vas.ValidateCreate()
 		Expect(err).Should(Succeed())
 		Expect(*vas.Spec.CustomAutoscaler.Hpa.Behavior.ScaleDown.StabilizationWindowSeconds).Should(Equal(int32(0)))
+		vas.Spec.CustomAutoscaler.Hpa.Behavior = &autoscalingv2.HorizontalPodAutoscalerBehavior{}
+		vas.Default()
+		_, err = vas.ValidateCreate()
+		Expect(err).Should(Succeed())
+		Expect(*vas.Spec.CustomAutoscaler.Hpa.Behavior.ScaleDown.StabilizationWindowSeconds).Should(Equal(int32(0)))
+		vas.Spec.CustomAutoscaler.Hpa.Behavior = &autoscalingv2.HorizontalPodAutoscalerBehavior{ScaleDown: &autoscalingv2.HPAScalingRules{}}
+		vas.Default()
+		_, err = vas.ValidateCreate()
+		Expect(err).Should(Succeed())
+		Expect(*vas.Spec.CustomAutoscaler.Hpa.Behavior.ScaleDown.StabilizationWindowSeconds).Should(Equal(int32(0)))
 	})
 })
