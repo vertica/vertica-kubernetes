@@ -1031,6 +1031,12 @@ type SubclusterStatus struct {
 	Oid string `json:"oid"`
 
 	// +operator-sdk:csv:customresourcedefinitions:type=status
+	// +optional
+	// The type of the subcluster. It could be primary, secondary, transient, or empty if
+	// it's not in the db yet.
+	Type string `json:"type"`
+
+	// +operator-sdk:csv:customresourcedefinitions:type=status
 	// A count of the number of pods that have been added to the database for this subcluster.
 	AddedToDBCount int32 `json:"addedToDBCount"`
 

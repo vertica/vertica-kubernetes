@@ -63,6 +63,9 @@ type PodFact struct {
 	// The oid of the subcluster the pod is part of
 	subclusterOid string
 
+	// The type of the subcluster the pod is part of
+	subclusterType string
+
 	// The sandbox a pod is part of
 	sandbox string
 
@@ -260,6 +263,7 @@ func (p *PodFacts) ConstructsDetail(subclusters []vapi.Subcluster, upNodes []uin
 			pf := PodFact{
 				name:           types.NamespacedName{Name: fmt.Sprintf("%s-%d", sc.Name, j)},
 				subclusterName: sc.Name,
+				subclusterType: sc.Type,
 				isPrimary:      sc.IsPrimary(),
 				shutdown:       sc.Shutdown,
 				upNode:         isUp,
@@ -378,6 +382,7 @@ func (p *PodFacts) collectPodByStsIndex(ctx context.Context, vdb *vapi.VerticaDB
 	pf := PodFact{
 		name:              names.GenPodName(vdb, sc, podIndex),
 		subclusterName:    sc.Name,
+		subclusterType:    sc.Type,
 		isPrimary:         sc.IsPrimary(),
 		podIndex:          podIndex,
 		execContainerName: getExecContainerName(sts),
@@ -717,6 +722,11 @@ func (p *PodFact) GetSubclusterOid() string {
 	return p.subclusterOid
 }
 
+// GetSubclusterType returns the string value of subclusterOid in PodFact
+func (p *PodFact) GetSubclusterType() string {
+	return p.subclusterType
+}
+
 // GetAdmintoolsExists returns the bool value of admintoolsExists in PodFact
 func (p *PodFact) GetAdmintoolsExists() bool {
 	return p.admintoolsExists
@@ -895,6 +905,11 @@ func (p *PodFact) SetStartupInProgress(startupInProgress bool) {
 // SetSubclusterOid set the bool value of subclusterOid in PodFact
 func (p *PodFact) SetSubclusterOid(subclusterOid string) {
 	p.subclusterOid = subclusterOid
+}
+
+// SetSubclusterOid set the bool value of subclusterOid in PodFact
+func (p *PodFact) SetSubclusterType(subclusterType string) {
+	p.subclusterType = subclusterType
 }
 
 // SetDirExists set the map[string]bool value of dirExists in PodFact
