@@ -355,7 +355,8 @@ func (v *VerticaAutoscaler) validatePrometheusAuthModes(allErrs field.ErrorList)
 				allErrs = append(allErrs, err)
 			}
 			// validate AuthModes type if set
-			if metric.Prometheus != nil && metric.Prometheus.AuthModes != "" && !slices.Contains(authModeTypes, metric.Prometheus.AuthModes) {
+			if metric.Prometheus != nil && metric.AuthSecret != "" && metric.Prometheus.AuthModes != "" &&
+				!slices.Contains(authModeTypes, metric.Prometheus.AuthModes) {
 				err := field.Invalid(pathPrefix.Child("scaledObject").Child("metrics").Index(i).Child("prometheus").Child("authModes"),
 					v.Spec.CustomAutoscaler.ScaledObject.Metrics[i].Prometheus.AuthModes,
 					fmt.Sprintf("AuthModes type must be one of '%s', '%s' , '%s', '%s' or '%s'.",
