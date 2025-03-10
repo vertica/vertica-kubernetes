@@ -207,6 +207,8 @@ const (
 	HTTPSTLSConfGenerationAnnotationFalse = "false"
 	HTTPSTLSConfGenerationDefaultValue    = true
 
+	NMATLSSECRETAnnotation          = "vertica.com/nma-tls-secret"           // #nosec G101
+	CLIENTSERVERTLSSecretAnnotation = "vertica.com/client-server-tls-secret" // #nosec G101
 	// We have a deployment check that ensures that if running vcluster ops the
 	// image is built for that (and vice-versa). This annotation allows you to
 	// skip that check.
@@ -592,6 +594,10 @@ func GetNMAHealthProbeOverride(annotations map[string]string, probeName, field s
 		return 0, false
 	}
 	return int32(convVal), true //nolint:gosec
+}
+
+func GetNMATLSSecretName(annotations map[string]string) string {
+	return lookupStringAnnotation(annotations, NMATLSSECRETAnnotation, "")
 }
 
 // GetVProxyLogLevel returns scrutinize log age hours
