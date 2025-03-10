@@ -194,10 +194,6 @@ spec:
           the one used for scaling up, defined in the metric field.
         displayName: Scale In Threshold
         path: customAutoscaler.hpa.metrics[0].scaleInThreshold
-      - description: The value used to increase the threshold after a scale out or
-          a scale in.
-        displayName: Threshold Adjustment Value
-        path: customAutoscaler.hpa.metrics[0].thresholdAdjustmentValue
       - description: The miminum number of pods when scaling.
         displayName: Min Replicas
         path: customAutoscaler.hpa.minReplicas
@@ -297,7 +293,13 @@ spec:
         path: customAutoscaler.scaledObject.metrics[0].prometheus.unsafeSsl
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
-        - urn:alm:descriptor:com.tectonic.ui:advanced
+      - description: |-
+          Enables caching of metric values during polling interval. It is Used to control whether the autoscaler should use cached metrics for scaling
+          decisions rather than querying the external metric provider (e.g., Prometheus) on each scale event. This feature is not supported for cpu and memory.
+        displayName: Use Cached Metrics
+        path: customAutoscaler.scaledObject.metrics[0].prometheus.useCachedMetrics
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
       - description: |-
           The detail about the target value and container name. if type is cpu/memory
           this must be set.
@@ -672,10 +674,6 @@ spec:
           the one used for scaling up, defined in the metric field.
         displayName: Scale In Threshold
         path: customAutoscaler.hpa.metrics[0].scaleInThreshold
-      - description: The value used to increase the threshold after a scale out or
-          a scale in.
-        displayName: Threshold Adjustment Value
-        path: customAutoscaler.hpa.metrics[0].thresholdAdjustmentValue
       - description: The miminum number of pods when scaling.
         displayName: Min Replicas
         path: customAutoscaler.hpa.minReplicas
@@ -775,7 +773,13 @@ spec:
         path: customAutoscaler.scaledObject.metrics[0].prometheus.unsafeSsl
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
-        - urn:alm:descriptor:com.tectonic.ui:advanced
+      - description: |-
+          Enables caching of metric values during polling interval. It is Used to control whether the autoscaler should use cached metrics for scaling
+          decisions rather than querying the external metric provider (e.g., Prometheus) on each scale event. This feature is not supported for cpu and memory.
+        displayName: Use Cached Metrics
+        path: customAutoscaler.scaledObject.metrics[0].prometheus.useCachedMetrics
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
       - description: |-
           The detail about the target value and container name. if type is cpu/memory
           this must be set.

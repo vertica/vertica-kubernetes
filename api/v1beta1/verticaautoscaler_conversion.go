@@ -102,9 +102,8 @@ func convertVasFromHPASpec(src *v1.HPASpec) *HPASpec {
 	for i := range src.Metrics {
 		srcMetric := &src.Metrics[i]
 		dst.Metrics[i] = MetricDefinition{
-			ThresholdAdjustmentValue: srcMetric.ThresholdAdjustmentValue,
-			Metric:                   srcMetric.Metric,
-			ScaleInThreshold:         ptrOrNil(srcMetric.ScaleInThreshold),
+			Metric:           srcMetric.Metric,
+			ScaleInThreshold: ptrOrNil(srcMetric.ScaleInThreshold),
 		}
 	}
 	return dst
@@ -195,9 +194,8 @@ func convertVasToHPASpec(src *HPASpec) *v1.HPASpec {
 	for i := range src.Metrics {
 		srcMetric := &src.Metrics[i]
 		dst.Metrics[i] = v1.MetricDefinition{
-			ThresholdAdjustmentValue: srcMetric.ThresholdAdjustmentValue,
-			Metric:                   srcMetric.Metric,
-			ScaleInThreshold:         ptrOrNil(srcMetric.ScaleInThreshold),
+			Metric:           srcMetric.Metric,
+			ScaleInThreshold: ptrOrNil(srcMetric.ScaleInThreshold),
 		}
 	}
 	return dst
