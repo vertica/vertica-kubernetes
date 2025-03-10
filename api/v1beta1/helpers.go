@@ -101,32 +101,6 @@ func MakeVscr() *VerticaScrutinize {
 	}
 }
 
-// CopyLabels returns a copy of vscr.Spec.Labels. This is not cheap
-// as we have to iterate over the map and copy it entry by entry.
-// This is to be used when you want to do a deep copy of the map.
-// Once we move to go1.21, we can replace this with maps.Clone()
-// from the standard ibrary
-func (vscr *VerticaScrutinize) CopyLabels() map[string]string {
-	labels := make(map[string]string, len(vscr.Spec.Labels))
-	for k, v := range vscr.Spec.Labels {
-		labels[k] = v
-	}
-	return labels
-}
-
-// CopyAnnotations returns a copy of vscr.Spec.Annotations. This is not cheap
-// as we have to iterate over the map and copy it entry by entry.
-// This is to be used when you want to do a deep copy of the map.
-// Once we move to go1.21, we can replace this with maps.Clone()
-// from the standard ibrary
-func (vscr *VerticaScrutinize) CopyAnnotations() map[string]string {
-	annotations := make(map[string]string, len(vscr.Spec.Annotations))
-	for k, v := range vscr.Spec.Annotations {
-		annotations[k] = v
-	}
-	return annotations
-}
-
 // GenerateLogAgeTime returns a string in the format of YYYY-MM-DD HH [+/-XX]
 func GenerateLogAgeTime(hourOffset time.Duration, timeZone string) string {
 	timeOffset := time.Now().Add(hourOffset * time.Hour)

@@ -15,6 +15,9 @@ apiVersion: vertica.com/v1
 kind: VerticaAutoscaler
 metadata:
   name: v-scale-in-threshold-vas
+  annotations:
+    vertica.com/paused: "false"
+    test: "0"
 spec:
   verticaDBName: v-scale-in-threshold
   serviceName: pri1
@@ -34,3 +37,4 @@ spec:
           threshold: 5
           scaleInThreshold: 1
           authModes: tls
+          useCachedMetrics: true

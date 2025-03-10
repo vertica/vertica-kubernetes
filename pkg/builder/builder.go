@@ -17,6 +17,7 @@ package builder
 
 import (
 	"fmt"
+	"maps"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -894,8 +895,9 @@ func BuildScaledObject(nm types.NamespacedName, vas *vapi.VerticaAutoscaler) *ke
 	so := vas.Spec.CustomAutoscaler.ScaledObject
 	scaledObject := &kedav1alpha1.ScaledObject{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: nm.Namespace,
-			Name:      nm.Name,
+			Namespace:   nm.Namespace,
+			Name:        nm.Name,
+			Annotations: MakeAnnotationsForScaledObject(vas),
 		},
 		Spec: kedav1alpha1.ScaledObjectSpec{
 			ScaleTargetRef: &kedav1alpha1.ScaleTarget{
@@ -944,6 +946,9 @@ func buildTriggers(metrics []vapi.ScaleTrigger, vas *vapi.VerticaAutoscaler) []k
 			Name:       metric.Name,
 			MetricType: metric.MetricType,
 			Metadata:   metadata,
+		}
+		if metric.IsPrometheusMetric() {
+			trigger.UseCachedMetrics = metric.Prometheus.UseCachedMetrics
 		}
 		if metric.AuthSecret != "" {
 			taName := names.GenTriggerAuthenticationtName(vas, metric.AuthSecret)
@@ -1732,8 +1737,8 @@ func BuildScrutinizePod(vscr *v1beta1.VerticaScrutinize, vdb *vapi.VerticaDB, ar
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        vscr.Name,
 			Namespace:   vscr.Namespace,
-			Labels:      vscr.CopyLabels(),
-			Annotations: vscr.CopyAnnotations(),
+			Labels:      maps.Clone(vscr.Spec.Labels),
+			Annotations: maps.Clone(vscr.Spec.Annotations),
 		},
 		Spec: buildScrutinizePodSpec(vscr, vdb, args),
 	}

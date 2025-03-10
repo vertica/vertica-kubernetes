@@ -395,6 +395,8 @@ spec:
           subclusters.
         displayName: Template
         path: template
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:fieldDependency:scalingGranularity:Subcluster
       - description: |-
           Like nodeSelector this allows you to constrain the pod only to certain
           pods. It is more expressive than just using node selectors.
@@ -871,6 +873,8 @@ spec:
           subclusters.
         displayName: Template
         path: template
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:fieldDependency:scalingGranularity:Subcluster
       - description: |-
           Like nodeSelector this allows you to constrain the pod only to certain
           pods. It is more expressive than just using node selectors.

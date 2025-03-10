@@ -387,6 +387,15 @@ const (
 	// Annotation set in a sandbox configMap. Indicates that routing must be disabled
 	// on the sandbox nodes.
 	DisableRoutingAnnotation = "vertica.com/disable-routing"
+
+	// It will pause scaling immediately and use the current instance count.
+	// This only works for a scaledobject.
+	PausingAutoscalingAnnotation = "vertica.com/paused"
+
+	// It will scale your current workload to specified amount of replicas and pause autoscaling.
+	// You can set the value of replicas for an object to be paused to any arbitrary number.
+	// This only works for a scaledobject.
+	PausingAutoscalingReplicasAnnotation = "vertica.com/paused-replicas"
 )
 
 // IsPauseAnnotationSet will check the annotations for a special value that will

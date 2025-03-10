@@ -135,6 +135,8 @@ func convertVasFromScaledObjectSpec(src *v1.ScaledObjectSpec) *ScaledObjectSpec 
 				Threshold:        srcMetric.Prometheus.Threshold,
 				ScaleInThreshold: srcMetric.Prometheus.ScaleInThreshold,
 				AuthModes:        PrometheusAuthModes(srcMetric.Prometheus.AuthModes),
+				UnsafeSsl:        srcMetric.Prometheus.UnsafeSsl,
+				UseCachedMetrics: srcMetric.Prometheus.UseCachedMetrics,
 			}
 		}
 		if srcMetric.Resource != nil {
@@ -226,6 +228,8 @@ func convertVasToScaledObjectSpec(src *ScaledObjectSpec) *v1.ScaledObjectSpec {
 				Threshold:        srcMetric.Prometheus.Threshold,
 				ScaleInThreshold: srcMetric.Prometheus.ScaleInThreshold,
 				AuthModes:        v1.PrometheusAuthModes(srcMetric.Prometheus.AuthModes),
+				UnsafeSsl:        srcMetric.Prometheus.UnsafeSsl,
+				UseCachedMetrics: srcMetric.Prometheus.UseCachedMetrics,
 			}
 		}
 		if srcMetric.Resource != nil {
