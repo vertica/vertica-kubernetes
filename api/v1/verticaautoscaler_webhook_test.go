@@ -118,7 +118,7 @@ var _ = Describe("verticaautoscaler_webhook", func() {
 		maxReplicas = 3
 		vas.Spec.CustomAutoscaler.Hpa.MaxReplicas = maxReplicas
 		_, err = vas.ValidateCreate()
-		Expect(err.Error()).To(ContainSubstring("cannot be less than minReplicas"))
+		Expect(err.Error()).To(ContainSubstring("3 cannot be less than minReplicas 5"))
 
 		// ScaleObject
 		vas.Spec.CustomAutoscaler = &CustomAutoscalerSpec{
@@ -132,7 +132,7 @@ var _ = Describe("verticaautoscaler_webhook", func() {
 
 		vas.Spec.CustomAutoscaler.ScaledObject.MaxReplicas = &maxReplicas
 		_, err = vas.ValidateCreate()
-		Expect(err.Error()).To(ContainSubstring("cannot be less than minReplicas"))
+		Expect(err.Error()).To(ContainSubstring("3 cannot be less than minReplicas 5"))
 
 	})
 
