@@ -53,7 +53,7 @@ spec:
   restartPolicy: Never
   containers:
     - name: test
-      image: quay.io/helmpack/chart-testing:v3.3.1
+      image: quay.io/helmpack/chart-testing:v3.11.0
       command: ["/bin/entrypoint.sh"]
       volumeMounts:
         - name: entrypoint-volume
