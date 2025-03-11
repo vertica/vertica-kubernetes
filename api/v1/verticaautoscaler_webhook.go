@@ -251,7 +251,7 @@ func (v *VerticaAutoscaler) validateHPAReplicas(allErrs field.ErrorList) field.E
 			err := field.Invalid(pathPrefix.Child("MaxReplicas"),
 				v.Spec.CustomAutoscaler.Hpa.MaxReplicas,
 				fmt.Sprintf("maxReplicas %d cannot be less than minReplicas %d.",
-					v.Spec.CustomAutoscaler.Hpa.MaxReplicas, v.Spec.CustomAutoscaler.Hpa.MinReplicas),
+					v.Spec.CustomAutoscaler.Hpa.MaxReplicas, *v.Spec.CustomAutoscaler.Hpa.MinReplicas),
 			)
 			allErrs = append(allErrs, err)
 		}
@@ -276,7 +276,7 @@ func (v *VerticaAutoscaler) validateScaledObjectReplicas(allErrs field.ErrorList
 			err := field.Invalid(pathPrefix.Child("MaxReplicas"),
 				v.Spec.CustomAutoscaler.ScaledObject.MaxReplicas,
 				fmt.Sprintf("maxReplicas %d cannot be less than minReplicas %d.",
-					v.Spec.CustomAutoscaler.ScaledObject.MaxReplicas, v.Spec.CustomAutoscaler.ScaledObject.MinReplicas),
+					*v.Spec.CustomAutoscaler.ScaledObject.MaxReplicas, *v.Spec.CustomAutoscaler.ScaledObject.MinReplicas),
 			)
 			allErrs = append(allErrs, err)
 		}
