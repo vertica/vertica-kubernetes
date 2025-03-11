@@ -16,7 +16,7 @@ kind: VerticaAutoscaler
 metadata:
   name: v-scale-in-threshold-vas
   annotations:
-    vertica.com/paused: "false"
+    vertica.com/paused-scaling: "false"
     test: "0"
 spec:
   verticaDBName: v-scale-in-threshold

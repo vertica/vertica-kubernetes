@@ -70,7 +70,7 @@ func (o *ObjReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (ctrl.
 		return ctrl.Result{}, o.reconcileHpa(ctx)
 	}
 	if !o.Vas.IsScaledObjectEnabled() {
-		return ctrl.Result{}, errors.New("invalid customAutoscaler spec")
+		return ctrl.Result{}, errors.New("invalid customAutoscaler spec: no hpa or scaledObject enabled")
 	}
 	return ctrl.Result{}, o.reconcileScaledObject(ctx)
 }
