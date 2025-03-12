@@ -91,7 +91,8 @@ var _ = Describe("subclustershutdown_reconciler", func() {
 
 		// We sandbox 2 subclusters so they should be ignored
 		vdb.Spec.Sandboxes = []vapi.Sandbox{
-			{Name: sandbox1, Shutdown: true, Subclusters: []vapi.SandboxSubcluster{{Name: subcluster1}, {Name: subcluster3, Type: vapi.SecondarySubcluster}}},
+			{Name: sandbox1, Shutdown: true, Subclusters: []vapi.SandboxSubcluster{
+				{Name: subcluster1}, {Name: subcluster3, Type: vapi.SecondarySubcluster}}},
 		}
 		upNodes = []uint{4, 3, 3, 3, 3}
 		pfacts.ConstructsDetail(vdb.Spec.Subclusters, upNodes)
