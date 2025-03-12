@@ -1283,7 +1283,7 @@ var _ = Describe("verticadb_webhook", func() {
 		oldVdb := MakeVDB()
 		oldVdb.Spec.Subclusters = []Subcluster{
 			{Name: "sc1", Type: PrimarySubcluster, Size: 1},
-			{Name: "sc2", Type: SecondarySubcluster, Size: 1},
+			{Name: "sc2", Type: SandboxPrimarySubcluster, Size: 1},
 			{Name: "sc3", Type: SecondarySubcluster, Size: 1},
 		}
 		oldVdb.Spec.Sandboxes = []Sandbox{
@@ -1308,9 +1308,9 @@ var _ = Describe("verticadb_webhook", func() {
 		oldVdb := MakeVDB()
 		oldVdb.Spec.Subclusters = []Subcluster{
 			{Name: "sc1", Type: PrimarySubcluster, Size: 1},
-			{Name: "sc2", Type: SecondarySubcluster, Size: 1},
+			{Name: "sc2", Type: SandboxPrimarySubcluster, Size: 1},
 			{Name: "sc3", Type: SecondarySubcluster, Size: 1},
-			{Name: "sc4", Type: SecondarySubcluster, Size: 1},
+			{Name: "sc4", Type: SandboxPrimarySubcluster, Size: 1},
 			{Name: "sc5", Type: SecondarySubcluster, Size: 1},
 		}
 		oldVdb.Spec.Sandboxes = []Sandbox{
@@ -1344,7 +1344,7 @@ var _ = Describe("verticadb_webhook", func() {
 		oldVdb := MakeVDB()
 		oldVdb.Spec.Subclusters = []Subcluster{
 			{Name: "sc1", Type: PrimarySubcluster, Size: 3},
-			{Name: "sc2", Type: SecondarySubcluster, Size: 1},
+			{Name: "sc2", Type: SandboxPrimarySubcluster, Size: 1},
 			{Name: "sc3", Type: SecondarySubcluster, Size: 1},
 		}
 		newVdb := oldVdb.DeepCopy()
