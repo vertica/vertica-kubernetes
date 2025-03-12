@@ -213,8 +213,8 @@ func (s *StatusReconciler) calculateSubclusterStatus(ctx context.Context, sc *va
 		if pf.GetSubclusterOid() != "" {
 			curStat.Oid = pf.GetSubclusterOid()
 		}
-		if pf.GetSubclusterType() != "" {
-			curStat.Type = pf.GetSubclusterType()
+		if pf.GetSubclusterStatusType() != "" {
+			curStat.Type = pf.GetSubclusterStatusType()
 		}
 	}
 	// Refresh the counts

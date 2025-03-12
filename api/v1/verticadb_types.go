@@ -1013,11 +1013,14 @@ const (
 	PrimarySubcluster   = "primary"
 	SecondarySubcluster = "secondary"
 	TransientSubcluster = "transient"
-	// A sandbox primary subcluster is a secondary subcluster that was the first
-	// subcluster in a sandbox. These subclusters are primaries when they are
-	// sandboxed. When unsandboxed, they will go back to being just a secondary
-	// subcluster
+	// In subclusters status, a sandbox primary subcluster is a primary
+	// subcluster in a sandbox. These subclusters are primaries when they
+	// are sandboxed. When unsandboxed, they will go back to being just a
+	// secondary subcluster
 	SandboxPrimarySubcluster = "sandboxprimary"
+	// In subclusters status, a sandbox secondary subcluster is a secondary
+	// subcluster in a sandbox.
+	SandboxSecondarySubcluster = "sandboxsecondary"
 )
 
 // SubclusterStatus defines the per-subcluster status that we track
@@ -1032,8 +1035,8 @@ type SubclusterStatus struct {
 
 	// +operator-sdk:csv:customresourcedefinitions:type=status
 	// +optional
-	// The type of the subcluster. It could be primary, secondary, transient, or empty if
-	// it's not in the db yet.
+	// The type of the subcluster. It could be primary, secondary, sandboxprimary,
+	// sandboxsecondary, or empty if it's not in the db yet.
 	Type string `json:"type"`
 
 	// +operator-sdk:csv:customresourcedefinitions:type=status

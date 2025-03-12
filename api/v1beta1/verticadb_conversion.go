@@ -525,6 +525,7 @@ func convertToSubclusterStatus(src *SubclusterStatus) v1.SubclusterStatus {
 	return v1.SubclusterStatus{
 		Name:           src.Name,
 		Oid:            src.Oid,
+		Type:           src.Type,
 		AddedToDBCount: src.AddedToDBCount,
 		UpNodeCount:    src.UpNodeCount,
 		Detail:         convertToPodStatus(src.Detail),
