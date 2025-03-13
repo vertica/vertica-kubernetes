@@ -118,7 +118,7 @@ var _ = Describe("verticaautoscaler_webhook", func() {
 		maxReplicas = 3
 		vas.Spec.CustomAutoscaler.Hpa.MaxReplicas = maxReplicas
 		_, err = vas.ValidateCreate()
-		Expect(err.Error()).To(ContainSubstring("cannot be less than minReplicas"))
+		Expect(err.Error()).To(ContainSubstring("3 cannot be less than minReplicas 5"))
 
 		// ScaleObject
 		vas.Spec.CustomAutoscaler = &CustomAutoscalerSpec{
@@ -132,7 +132,7 @@ var _ = Describe("verticaautoscaler_webhook", func() {
 
 		vas.Spec.CustomAutoscaler.ScaledObject.MaxReplicas = &maxReplicas
 		_, err = vas.ValidateCreate()
-		Expect(err.Error()).To(ContainSubstring("cannot be less than minReplicas"))
+		Expect(err.Error()).To(ContainSubstring("3 cannot be less than minReplicas 5"))
 
 	})
 
@@ -224,6 +224,118 @@ var _ = Describe("verticaautoscaler_webhook", func() {
 		Expect(err).ShouldNot(Succeed())
 	})
 
+	It("should fail if scaledobject authSecret is set and authModes is empty", func() {
+		vas := MakeVASWithScaledObjectPrometheus()
+		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].AuthSecret = "somevalue"
+		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].Prometheus.AuthModes = ""
+		_, err := vas.ValidateCreate()
+		Expect(err).ShouldNot(Succeed())
+	})
+
+	It("should fail if scaledobject authModes is not set properly", func() {
+		vas := MakeVASWithScaledObjectPrometheus()
+		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].AuthSecret = "somevalue"
+		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].Prometheus.AuthModes = PrometheusAuthBasic
+		_, err := vas.ValidateCreate()
+		Expect(err).Should(Succeed())
+		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].Prometheus.AuthModes = PrometheusAuthBearer
+		_, err = vas.ValidateCreate()
+		Expect(err).Should(Succeed())
+		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].Prometheus.AuthModes = PrometheusAuthCustom
+		_, err = vas.ValidateCreate()
+		Expect(err).Should(Succeed())
+		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].Prometheus.AuthModes = PrometheusAuthTLS
+		_, err = vas.ValidateCreate()
+		Expect(err).Should(Succeed())
+		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].Prometheus.AuthModes = PrometheusAuthTLSAndBasic
+		_, err = vas.ValidateCreate()
+		Expect(err).Should(Succeed())
+		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].Prometheus.AuthModes = "invalid"
+		_, err = vas.ValidateCreate()
+		Expect(err).ShouldNot(Succeed())
+	})
+
+	It("should fail if hpa metrics didn't follow the same rules as an horizontal pod", func() {
+		testInt := int32(3)
+		vas := MakeVASWithMetrics()
+		vas.Spec.CustomAutoscaler.Hpa.Metrics[0].Metric.Type = autoscalingv2.PodsMetricSourceType
+		vas.Spec.CustomAutoscaler.Hpa.Metrics[0].Metric.Pods = &autoscalingv2.PodsMetricSource{
+			Metric: autoscalingv2.MetricIdentifier{
+				Name: "pod",
+			},
+			Target: autoscalingv2.MetricTarget{
+				Type:               autoscalingv2.UtilizationMetricType,
+				AverageUtilization: &testInt,
+			},
+		}
+		_, err := vas.ValidateCreate()
+		Expect(err).Should(Succeed())
+		vas.Spec.CustomAutoscaler.Hpa.Metrics[0].Metric.Pods.Metric.Name = ""
+		_, err = vas.ValidateCreate()
+		Expect(err).ShouldNot(Succeed())
+		vas.Spec.CustomAutoscaler.Hpa.Metrics[0].Metric.Type = autoscalingv2.ObjectMetricSourceType
+		vas.Spec.CustomAutoscaler.Hpa.Metrics[0].Metric.Object = &autoscalingv2.ObjectMetricSource{
+			Metric: autoscalingv2.MetricIdentifier{
+				Name: "object",
+			},
+			Target: autoscalingv2.MetricTarget{
+				Type:               autoscalingv2.UtilizationMetricType,
+				AverageUtilization: &testInt,
+			},
+			DescribedObject: autoscalingv2.CrossVersionObjectReference{
+				Kind: "testKind",
+				Name: "testName",
+			},
+		}
+		_, err = vas.ValidateCreate()
+		Expect(err).Should(Succeed())
+		vas.Spec.CustomAutoscaler.Hpa.Metrics[0].Metric.Object.Metric.Name = ""
+		_, err = vas.ValidateCreate()
+		Expect(err).ShouldNot(Succeed())
+		vas.Spec.CustomAutoscaler.Hpa.Metrics[0].Metric.Type = autoscalingv2.ContainerResourceMetricSourceType
+		vas.Spec.CustomAutoscaler.Hpa.Metrics[0].Metric.ContainerResource = &autoscalingv2.ContainerResourceMetricSource{
+			Name: "container",
+			Target: autoscalingv2.MetricTarget{
+				Type:               autoscalingv2.UtilizationMetricType,
+				AverageUtilization: &testInt,
+			},
+			Container: "containerName",
+		}
+		_, err = vas.ValidateCreate()
+		Expect(err).Should(Succeed())
+		vas.Spec.CustomAutoscaler.Hpa.Metrics[0].Metric.ContainerResource.Name = ""
+		_, err = vas.ValidateCreate()
+		Expect(err).ShouldNot(Succeed())
+		vas.Spec.CustomAutoscaler.Hpa.Metrics[0].Metric.Type = autoscalingv2.ExternalMetricSourceType
+		vas.Spec.CustomAutoscaler.Hpa.Metrics[0].Metric.External = &autoscalingv2.ExternalMetricSource{
+			Metric: autoscalingv2.MetricIdentifier{
+				Name: "external",
+			},
+			Target: autoscalingv2.MetricTarget{
+				Type:               autoscalingv2.UtilizationMetricType,
+				AverageUtilization: &testInt,
+			},
+		}
+		_, err = vas.ValidateCreate()
+		Expect(err).Should(Succeed())
+		vas.Spec.CustomAutoscaler.Hpa.Metrics[0].Metric.External.Metric.Name = ""
+		_, err = vas.ValidateCreate()
+		Expect(err).ShouldNot(Succeed())
+		vas.Spec.CustomAutoscaler.Hpa.Metrics[0].Metric.Type = autoscalingv2.ResourceMetricSourceType
+		vas.Spec.CustomAutoscaler.Hpa.Metrics[0].Metric.Resource = &autoscalingv2.ResourceMetricSource{
+			Name: "resource",
+			Target: autoscalingv2.MetricTarget{
+				Type:               autoscalingv2.UtilizationMetricType,
+				AverageUtilization: &testInt,
+			},
+		}
+		_, err = vas.ValidateCreate()
+		Expect(err).Should(Succeed())
+		vas.Spec.CustomAutoscaler.Hpa.Metrics[0].Metric.Resource.Name = ""
+		_, err = vas.ValidateCreate()
+		Expect(err).ShouldNot(Succeed())
+	})
+
 	It("should fail if scaleInThreshold type is different to the threshold type used for scale out", func() {
 		vas := MakeVASWithMetrics()
 		vas.Spec.CustomAutoscaler.Hpa.Metrics[0].ScaleInThreshold = &autoscalingv2.MetricTarget{Type: autoscalingv2.UtilizationMetricType}
@@ -287,6 +399,16 @@ var _ = Describe("verticaautoscaler_webhook", func() {
 				SelectPolicy: &testPolicy,
 			},
 		}
+		vas.Default()
+		_, err = vas.ValidateCreate()
+		Expect(err).Should(Succeed())
+		Expect(*vas.Spec.CustomAutoscaler.Hpa.Behavior.ScaleDown.StabilizationWindowSeconds).Should(Equal(int32(0)))
+		vas.Spec.CustomAutoscaler.Hpa.Behavior = &autoscalingv2.HorizontalPodAutoscalerBehavior{}
+		vas.Default()
+		_, err = vas.ValidateCreate()
+		Expect(err).Should(Succeed())
+		Expect(*vas.Spec.CustomAutoscaler.Hpa.Behavior.ScaleDown.StabilizationWindowSeconds).Should(Equal(int32(0)))
+		vas.Spec.CustomAutoscaler.Hpa.Behavior = &autoscalingv2.HorizontalPodAutoscalerBehavior{ScaleDown: &autoscalingv2.HPAScalingRules{}}
 		vas.Default()
 		_, err = vas.ValidateCreate()
 		Expect(err).Should(Succeed())
