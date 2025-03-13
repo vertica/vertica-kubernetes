@@ -1086,8 +1086,8 @@ type SubclusterStatus struct {
 
 	// +operator-sdk:csv:customresourcedefinitions:type=status
 	// +optional
-	// The type of the subcluster. It could be primary, secondary, transient, or empty if
-	// it's not in the db yet.
+	// The type of the subcluster. It could be primary, secondary, sandboxprimary,
+	// sandboxsecondary, or empty if it's not in the db yet.
 	Type string `json:"type"`
 
 	// +operator-sdk:csv:customresourcedefinitions:type=status

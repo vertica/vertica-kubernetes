@@ -719,21 +719,18 @@ func (p *PodFact) GetSubclusterOid() string {
 
 // GetSubclusterStatusType returns the subcluster status type depends on its type in subclusters and sandboxes
 func (p *PodFact) GetSubclusterStatusType() string {
-	if p.dbExists {
-		if p.isPrimary {
-			return vapi.PrimarySubcluster
-		} else {
-			if p.sandbox != "" {
-				// TODO: return SandboxSecondarySubcluster if pod is in sandbox with type secondary
-				return vapi.SandboxPrimarySubcluster
-			} else {
-				return vapi.SecondarySubcluster
-			}
-		}
+	if !p.dbExists {
+		// return empty if it's not in a subcluster yet
+		return ""
 	}
-
-	// return empty if it's not in a subcluster yet
-	return ""
+	if p.isPrimary {
+		if p.sandbox != vapi.MainCluster {
+			return vapi.SandboxPrimarySubcluster
+		}
+		return vapi.PrimarySubcluster
+	}
+	// TODO: return SandboxSecondarySubcluster if pod is in sandbox with type secondary
+	return vapi.SecondarySubcluster
 }
 
 // GetAdmintoolsExists returns the bool value of admintoolsExists in PodFact
