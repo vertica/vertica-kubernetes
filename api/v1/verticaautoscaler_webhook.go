@@ -432,6 +432,9 @@ func (v *VerticaAutoscaler) validateHPA(allErrs field.ErrorList) field.ErrorList
 
 // Helper method to validate metric target and its fields, for each type, check if required fields have been setup.
 func (v *VerticaAutoscaler) validateMetricFields(metric *MetricDefinition, index int, allErrs field.ErrorList) field.ErrorList {
+	if metric == nil {
+		return allErrs
+	}
 	switch metric.Metric.Type {
 	case autoscalingv2.PodsMetricSourceType:
 		allErrs = append(allErrs, v.validateHPAMetricPodFields(metric, index, allErrs)...)
