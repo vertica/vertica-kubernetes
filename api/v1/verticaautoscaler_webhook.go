@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"slices"
 
+	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -137,6 +138,7 @@ func (v *VerticaAutoscaler) validateSpec() field.ErrorList {
 	allErrs = v.validateHPAReplicas(allErrs)
 	allErrs = v.validateScaledObjectReplicas(allErrs)
 	allErrs = v.validateMetricsName(allErrs)
+	allErrs = v.validatePausingScalingAnnotations(allErrs)
 	return allErrs
 }
 
@@ -237,22 +239,30 @@ func (v *VerticaAutoscaler) validateCustomAutoscaler(allErrs field.ErrorList) fi
 
 // validateHPAReplicas will check if HPA minReplicas and maxReplicas are valid
 func (v *VerticaAutoscaler) validateHPAReplicas(allErrs field.ErrorList) field.ErrorList {
-	if v.IsHpaEnabled() {
-		pathPrefix := field.NewPath("spec").Child("customAutoscaler").Child("HPA")
-		if v.Spec.CustomAutoscaler.Hpa.MaxReplicas == 0 {
-			err := field.Invalid(pathPrefix.Child("MaxReplicas"),
-				v.Spec.CustomAutoscaler.Hpa.MaxReplicas,
-				"maxReplicas must be set.")
-			allErrs = append(allErrs, err)
-		}
+	if !v.IsHpaEnabled() {
+		return allErrs
+	}
 
-		if v.Spec.CustomAutoscaler.Hpa.MinReplicas != nil &&
-			v.Spec.CustomAutoscaler.Hpa.MaxReplicas < *v.Spec.CustomAutoscaler.Hpa.MinReplicas {
-			err := field.Invalid(pathPrefix.Child("MaxReplicas"),
-				v.Spec.CustomAutoscaler.Hpa.MaxReplicas,
-				fmt.Sprintf("maxReplicas %d cannot be less than minReplicas %d.",
-					v.Spec.CustomAutoscaler.Hpa.MaxReplicas, *v.Spec.CustomAutoscaler.Hpa.MinReplicas),
-			)
+	hpa := v.Spec.CustomAutoscaler.Hpa
+	pathPrefix := field.NewPath("spec", "customAutoscaler", "HPA")
+
+	if hpa.MaxReplicas == 0 {
+		allErrs = append(allErrs, field.Invalid(pathPrefix.Child("MaxReplicas"), hpa.MaxReplicas, "maxReplicas must be set and non-zero."))
+	}
+
+	if hpa.MinReplicas != nil && hpa.MaxReplicas < *hpa.MinReplicas {
+		allErrs = append(allErrs, field.Invalid(pathPrefix.Child("MaxReplicas"),
+			hpa.MaxReplicas, fmt.Sprintf("maxReplicas %d cannot be less than minReplicas %d.",
+				hpa.MaxReplicas, *hpa.MinReplicas)))
+	}
+
+	pausingScalingRep, pausingScalingRepSet := v.Annotations[vmeta.PausingAutoscalingReplicasAnnotation]
+	if hpa.MinReplicas != nil && pausingScalingRepSet {
+		varAsInt, ok := convertToInt(pausingScalingRep)
+		if ok && varAsInt < int(*hpa.MinReplicas) {
+			err := field.Invalid(field.NewPath("metadata").Child("annotations").Key(vmeta.PausingAutoscalingReplicasAnnotation),
+				v.Annotations[vmeta.PausingAutoscalingReplicasAnnotation],
+				fmt.Sprintf("int value of annotation %s cannot be lower than minReplicas", vmeta.PausingAutoscalingReplicasAnnotation))
 			allErrs = append(allErrs, err)
 		}
 	}
@@ -261,23 +271,32 @@ func (v *VerticaAutoscaler) validateHPAReplicas(allErrs field.ErrorList) field.E
 
 // validateScaledObjectReplicas will check if ScaledObject minReplicas and maxReplicas are valid
 func (v *VerticaAutoscaler) validateScaledObjectReplicas(allErrs field.ErrorList) field.ErrorList {
-	if v.IsScaledObjectEnabled() {
-		pathPrefix := field.NewPath("spec").Child("customAutoscaler").Child("ScaledObject")
+	if !v.IsScaledObjectEnabled() {
+		return allErrs
+	}
 
-		if v.Spec.CustomAutoscaler.ScaledObject.MaxReplicas == nil {
-			err := field.Invalid(pathPrefix.Child("MaxReplicas"),
-				v.Spec.CustomAutoscaler.ScaledObject.MaxReplicas,
-				"maxReplicas must be set.")
-			allErrs = append(allErrs, err)
-		}
+	scaledObject := v.Spec.CustomAutoscaler.ScaledObject
+	pathPrefix := field.NewPath("spec", "customAutoscaler", "ScaledObject")
 
-		if v.Spec.CustomAutoscaler.ScaledObject.MinReplicas != nil && v.Spec.CustomAutoscaler.ScaledObject.MaxReplicas != nil &&
-			*v.Spec.CustomAutoscaler.ScaledObject.MaxReplicas < *v.Spec.CustomAutoscaler.ScaledObject.MinReplicas {
-			err := field.Invalid(pathPrefix.Child("MaxReplicas"),
-				v.Spec.CustomAutoscaler.ScaledObject.MaxReplicas,
-				fmt.Sprintf("maxReplicas %d cannot be less than minReplicas %d.",
-					*v.Spec.CustomAutoscaler.ScaledObject.MaxReplicas, *v.Spec.CustomAutoscaler.ScaledObject.MinReplicas),
-			)
+	if scaledObject.MaxReplicas == nil {
+		allErrs = append(allErrs, field.Invalid(pathPrefix.Child("MaxReplicas"), scaledObject.MaxReplicas, "maxReplicas must be set."))
+		// Early return if MaxReplicas is not set.
+		return allErrs
+	}
+
+	if scaledObject.MinReplicas != nil && *scaledObject.MaxReplicas < *scaledObject.MinReplicas {
+		allErrs = append(allErrs, field.Invalid(pathPrefix.Child("MaxReplicas"),
+			scaledObject.MaxReplicas, fmt.Sprintf("maxReplicas %d cannot be less than minReplicas %d.",
+				*scaledObject.MaxReplicas, *scaledObject.MinReplicas)))
+	}
+
+	pausingScalingRep, pausingScalingRepSet := v.Annotations[vmeta.PausingAutoscalingReplicasAnnotation]
+	if scaledObject.MinReplicas != nil && pausingScalingRepSet {
+		varAsInt, ok := convertToInt(pausingScalingRep)
+		if ok && varAsInt < int(*scaledObject.MinReplicas) {
+			err := field.Invalid(field.NewPath("metadata").Child("annotations").Key(vmeta.PausingAutoscalingReplicasAnnotation),
+				v.Annotations[vmeta.PausingAutoscalingReplicasAnnotation],
+				fmt.Sprintf("int value of annotation %s cannot be lower than minReplicas", vmeta.PausingAutoscalingReplicasAnnotation))
 			allErrs = append(allErrs, err)
 		}
 	}
@@ -617,6 +636,44 @@ func (v *VerticaAutoscaler) validateScaleInThreshold(allErrs field.ErrorList) fi
 				)
 				allErrs = append(allErrs, err)
 			}
+		}
+	}
+	return allErrs
+}
+
+func (v *VerticaAutoscaler) validatePausingScalingAnnotations(allErrs field.ErrorList) field.ErrorList {
+	prefix := field.NewPath("metadata").Child("annotations")
+	pausingScaling, pausingScalingSet := v.Annotations[vmeta.PausingAutoscalingAnnotation]
+	pausingScalingRep, pausingScalingRepSet := v.Annotations[vmeta.PausingAutoscalingReplicasAnnotation]
+	if pausingScalingSet && pausingScalingRepSet {
+		err := field.Invalid(prefix,
+			v.Annotations,
+			fmt.Sprintf("%s and %s are mutually exclusive", vmeta.PausingAutoscalingAnnotation, vmeta.PausingAutoscalingReplicasAnnotation))
+		allErrs = append(allErrs, err)
+		return allErrs
+	}
+	if pausingScalingSet {
+		ok := convertToBool(pausingScaling)
+		if !ok {
+			err := field.Invalid(prefix.Key(vmeta.PausingAutoscalingAnnotation),
+				v.Annotations[vmeta.PausingAutoscalingAnnotation],
+				fmt.Sprintf("invalid value for annotation %s. must be a 'true' or 'false'", vmeta.PausingAutoscalingAnnotation))
+			allErrs = append(allErrs, err)
+			return allErrs
+		}
+	}
+	if pausingScalingRepSet {
+		varAsInt, ok := convertToInt(pausingScalingRep)
+		if !ok {
+			err := field.Invalid(prefix.Key(vmeta.PausingAutoscalingReplicasAnnotation),
+				v.Annotations[vmeta.PausingAutoscalingReplicasAnnotation],
+				fmt.Sprintf("invalid value for annotation %s. must be convertible to an int", vmeta.PausingAutoscalingReplicasAnnotation))
+			allErrs = append(allErrs, err)
+		} else if varAsInt < 0 {
+			err := field.Invalid(prefix.Key(vmeta.PausingAutoscalingReplicasAnnotation),
+				v.Annotations[vmeta.PausingAutoscalingReplicasAnnotation],
+				fmt.Sprintf("annotation %s must be greater than zero", vmeta.PausingAutoscalingReplicasAnnotation))
+			allErrs = append(allErrs, err)
 		}
 	}
 	return allErrs

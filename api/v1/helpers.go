@@ -1400,3 +1400,21 @@ func IsK8sSecretFound(ctx context.Context, vdb *VerticaDB, k8sClient client.Clie
 		return true, nil
 	}
 }
+
+func convertToBool(src string) bool {
+	converted := false
+	_, err := strconv.ParseBool(src)
+	if err == nil {
+		converted = true
+	}
+	return converted
+}
+
+func convertToInt(src string) (int, bool) {
+	converted := false
+	varAsInt, err := strconv.ParseInt(src, 10, 0)
+	if err == nil {
+		converted = true
+	}
+	return int(varAsInt), converted
+}
