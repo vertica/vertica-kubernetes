@@ -451,6 +451,8 @@ func (v *VerticaAutoscaler) validateMetricFields(metric *MetricDefinition, index
 }
 
 // Helper method to validate HPA pod metric and target
+//
+//nolint:dupl
 func (v *VerticaAutoscaler) validateHPAMetricPodFields(metric *MetricDefinition, index int, allErrs field.ErrorList) field.ErrorList {
 	pathPrefix := field.NewPath("spec").Child("customAutoscaler").Child("hpa").Child("metrics").Index(index).Child("metric").Child("pods")
 	// Validate metric pods target type
@@ -537,6 +539,8 @@ func (v *VerticaAutoscaler) validateHPAMetricContainerFields(metric *MetricDefin
 }
 
 // Helper method to validate HPA external mertric and target
+//
+//nolint:dupl
 func (v *VerticaAutoscaler) validateHPAMetricExternalFields(metric *MetricDefinition, index int, allErrs field.ErrorList) field.ErrorList {
 	pathPrefix := field.NewPath("spec").Child("customAutoscaler").Child("hpa").Child("metrics").Index(index).Child("metric").Child("external")
 	// Validate metric external target type
