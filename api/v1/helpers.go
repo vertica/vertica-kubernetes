@@ -1360,6 +1360,9 @@ func (v *VerticaAutoscaler) GetMetricMap() map[string]*MetricDefinition {
 
 // GetMetricTarget returns the autoscalingv2 metric target
 func GetMetricTarget(metric *autoscalingv2.MetricSpec) *autoscalingv2.MetricTarget {
+	if metric == nil {
+		return nil
+	}
 	switch metric.Type {
 	case autoscalingv2.PodsMetricSourceType:
 		if metric.Pods != nil {

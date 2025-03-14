@@ -459,6 +459,7 @@ func (v *VerticaAutoscaler) validateHPAMetricPodFields(metric *MetricDefinition,
 			autoscalingv2.PodsMetricSourceType, pathPrefix),
 		)
 		allErrs = append(allErrs, err)
+		return allErrs
 	}
 	allErrs = append(allErrs, v.validateHPAMetricTarget(metric.Metric.Pods.Target, pathPrefix, allErrs)...)
 	// Validate metric pods metric
@@ -480,6 +481,7 @@ func (v *VerticaAutoscaler) validateHPAMetricObjectFields(metric *MetricDefiniti
 			autoscalingv2.ObjectMetricSourceType, pathPrefix),
 		)
 		allErrs = append(allErrs, err)
+		return allErrs
 	}
 	allErrs = append(allErrs, v.validateHPAMetricTarget(metric.Metric.Object.Target, pathPrefix, allErrs)...)
 	// Validate metric object DescribedObject
@@ -514,6 +516,7 @@ func (v *VerticaAutoscaler) validateHPAMetricContainerFields(metric *MetricDefin
 			autoscalingv2.ContainerResourceMetricSourceType, pathPrefix),
 		)
 		allErrs = append(allErrs, err)
+		return allErrs
 	}
 	allErrs = append(allErrs, v.validateHPAMetricTarget(metric.Metric.ContainerResource.Target, pathPrefix, allErrs)...)
 	// Validate metric containerResource name
@@ -536,18 +539,19 @@ func (v *VerticaAutoscaler) validateHPAMetricContainerFields(metric *MetricDefin
 // Helper method to validate HPA external mertric and target
 func (v *VerticaAutoscaler) validateHPAMetricExternalFields(metric *MetricDefinition, index int, allErrs field.ErrorList) field.ErrorList {
 	pathPrefix := field.NewPath("spec").Child("customAutoscaler").Child("hpa").Child("metrics").Index(index).Child("metric").Child("external")
-	// Validate metric external metric
-	if metric.Metric.External.Metric.Name == "" {
-		err := field.Invalid(pathPrefix, metric.Metric.External.Metric, fmt.Sprintf("HPA metric %s type missing required fields: %s",
-			autoscalingv2.ExternalMetricSourceType, pathPrefix.Child("metric").Child("name")),
-		)
-		allErrs = append(allErrs, err)
-	}
-	allErrs = append(allErrs, v.validateHPAMetricTarget(metric.Metric.External.Target, pathPrefix, allErrs)...)
 	// Validate metric external target type
 	if metric.Metric.External == nil {
 		err := field.Invalid(pathPrefix, metric.Metric.External, fmt.Sprintf("HPA metric %s type missing required fields: %s",
 			autoscalingv2.ExternalMetricSourceType, pathPrefix),
+		)
+		allErrs = append(allErrs, err)
+		return allErrs
+	}
+	allErrs = append(allErrs, v.validateHPAMetricTarget(metric.Metric.External.Target, pathPrefix, allErrs)...)
+	// Validate metric external metric
+	if metric.Metric.External.Metric.Name == "" {
+		err := field.Invalid(pathPrefix, metric.Metric.External.Metric, fmt.Sprintf("HPA metric %s type missing required fields: %s",
+			autoscalingv2.ExternalMetricSourceType, pathPrefix.Child("metric").Child("name")),
 		)
 		allErrs = append(allErrs, err)
 	}
@@ -563,6 +567,7 @@ func (v *VerticaAutoscaler) validateHPAMetricResourceFields(metric *MetricDefini
 			autoscalingv2.ResourceMetricSourceType, pathPrefix),
 		)
 		allErrs = append(allErrs, err)
+		return allErrs
 	}
 	allErrs = append(allErrs, v.validateHPAMetricTarget(metric.Metric.Resource.Target, pathPrefix, allErrs)...)
 	// Validate metric resource name
@@ -616,13 +621,20 @@ func (v *VerticaAutoscaler) validateScaleInThreshold(allErrs field.ErrorList) fi
 		pathPrefix := field.NewPath("spec").Child("customAutoscaler").Child("hpa").Child("metrics")
 		for i := range v.Spec.CustomAutoscaler.Hpa.Metrics {
 			metric := &v.Spec.CustomAutoscaler.Hpa.Metrics[i]
-			targetType := GetMetricTarget(&metric.Metric).Type
-
-			if targetType != metric.ScaleInThreshold.Type {
+			metricTarget := GetMetricTarget(&metric.Metric)
+			if metricTarget == nil {
+				err := field.Invalid(pathPrefix.Index(i),
+					v.Spec.CustomAutoscaler.Hpa.Metrics[i],
+					"metric target is not set.",
+				)
+				allErrs = append(allErrs, err)
+				return allErrs
+			}
+			if metricTarget.Type != metric.ScaleInThreshold.Type {
 				err := field.Invalid(pathPrefix.Index(i).Child("scaleInThreshold").Child("type"),
 					v.Spec.CustomAutoscaler.Hpa.Metrics[i].ScaleInThreshold.Type,
 					fmt.Sprintf("scaleInThreshold type %s must be of the same type as the threshold used for scale out %s",
-						metric.ScaleInThreshold.Type, targetType),
+						metric.ScaleInThreshold.Type, metricTarget.Type),
 				)
 				allErrs = append(allErrs, err)
 			}
