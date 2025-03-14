@@ -483,9 +483,15 @@ func (v *VerticaAutoscaler) validateHPAMetricObjectFields(metric *MetricDefiniti
 	}
 	allErrs = append(allErrs, v.validateHPAMetricTarget(metric.Metric.Object.Target, pathPrefix, allErrs)...)
 	// Validate metric object DescribedObject
-	if metric.Metric.Object.DescribedObject.Name == "" || metric.Metric.Object.DescribedObject.Kind == "" {
-		err := field.Invalid(pathPrefix, metric.Metric.Object.Metric, fmt.Sprintf("HPA metric %s type missing required fields: %s",
-			autoscalingv2.ObjectMetricSourceType, pathPrefix.Child("describedObject")),
+	if metric.Metric.Object.DescribedObject.Name == "" {
+		err := field.Invalid(pathPrefix, metric.Metric.Object.DescribedObject.Name, fmt.Sprintf("HPA metric %s type missing required fields: %s",
+			autoscalingv2.ObjectMetricSourceType, pathPrefix.Child("describedObject").Child("name")),
+		)
+		allErrs = append(allErrs, err)
+	}
+	if metric.Metric.Object.DescribedObject.Kind == "" {
+		err := field.Invalid(pathPrefix, metric.Metric.Object.DescribedObject.Kind, fmt.Sprintf("HPA metric %s type missing required fields: %s",
+			autoscalingv2.ObjectMetricSourceType, pathPrefix.Child("describedObject").Child("kind")),
 		)
 		allErrs = append(allErrs, err)
 	}
