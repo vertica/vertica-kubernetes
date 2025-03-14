@@ -24,6 +24,9 @@ apiVersion: keda.sh/v1alpha1
 kind: ScaledObject
 metadata:
   name: v-scale-in-threshold-vas-keda
+  annotations:
+    autoscaling.keda.sh/paused: "false"
+    test: "0"
 spec:
   maxReplicaCount: 7
   minReplicaCount: 3
@@ -42,6 +45,7 @@ spec:
     authenticationRef: 
       name: v-scale-in-threshold-vas-prometheus-tls-creds
     metricType: AverageValue
+    useCachedMetrics: true
     name: vertica_sessions_running_total
     type: prometheus
 ---

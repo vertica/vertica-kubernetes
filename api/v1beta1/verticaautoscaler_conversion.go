@@ -102,9 +102,8 @@ func convertVasFromHPASpec(src *v1.HPASpec) *HPASpec {
 	for i := range src.Metrics {
 		srcMetric := &src.Metrics[i]
 		dst.Metrics[i] = MetricDefinition{
-			ThresholdAdjustmentValue: srcMetric.ThresholdAdjustmentValue,
-			Metric:                   srcMetric.Metric,
-			ScaleInThreshold:         ptrOrNil(srcMetric.ScaleInThreshold),
+			Metric:           srcMetric.Metric,
+			ScaleInThreshold: ptrOrNil(srcMetric.ScaleInThreshold),
 		}
 	}
 	return dst
@@ -135,6 +134,8 @@ func convertVasFromScaledObjectSpec(src *v1.ScaledObjectSpec) *ScaledObjectSpec 
 				Threshold:        srcMetric.Prometheus.Threshold,
 				ScaleInThreshold: srcMetric.Prometheus.ScaleInThreshold,
 				AuthModes:        PrometheusAuthModes(srcMetric.Prometheus.AuthModes),
+				UnsafeSsl:        srcMetric.Prometheus.UnsafeSsl,
+				UseCachedMetrics: srcMetric.Prometheus.UseCachedMetrics,
 			}
 		}
 		if srcMetric.Resource != nil {
@@ -193,9 +194,8 @@ func convertVasToHPASpec(src *HPASpec) *v1.HPASpec {
 	for i := range src.Metrics {
 		srcMetric := &src.Metrics[i]
 		dst.Metrics[i] = v1.MetricDefinition{
-			ThresholdAdjustmentValue: srcMetric.ThresholdAdjustmentValue,
-			Metric:                   srcMetric.Metric,
-			ScaleInThreshold:         ptrOrNil(srcMetric.ScaleInThreshold),
+			Metric:           srcMetric.Metric,
+			ScaleInThreshold: ptrOrNil(srcMetric.ScaleInThreshold),
 		}
 	}
 	return dst
@@ -226,6 +226,8 @@ func convertVasToScaledObjectSpec(src *ScaledObjectSpec) *v1.ScaledObjectSpec {
 				Threshold:        srcMetric.Prometheus.Threshold,
 				ScaleInThreshold: srcMetric.Prometheus.ScaleInThreshold,
 				AuthModes:        v1.PrometheusAuthModes(srcMetric.Prometheus.AuthModes),
+				UnsafeSsl:        srcMetric.Prometheus.UnsafeSsl,
+				UseCachedMetrics: srcMetric.Prometheus.UseCachedMetrics,
 			}
 		}
 		if srcMetric.Resource != nil {
