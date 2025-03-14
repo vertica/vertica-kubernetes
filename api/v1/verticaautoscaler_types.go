@@ -54,7 +54,7 @@ type VerticaAutoscalerSpec struct {
 	ServiceName string `json:"serviceName,omitempty"`
 
 	// +kubebuilder:validation:Optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:fieldDependency:scalingGranularity:Subcluster"
 	// When the scaling granularity is Subcluster, this field defines a template
 	// to use for when a new subcluster needs to be created.  If size is 0, then
 	// the operator will use an existing subcluster to use as the template.  If
@@ -281,9 +281,16 @@ type PrometheusSpec struct {
 
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:default=false
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:booleanSwitch","urn:alm:descriptor:com.tectonic.ui:advanced"}
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:booleanSwitch"
 	// Used for skipping certificate check e.g: using self-signed certs.
 	UnsafeSsl bool `json:"unsafeSsl,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:default=false
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:booleanSwitch"
+	// Enables caching of metric values during polling interval. It is Used to control whether the autoscaler should use cached metrics for scaling
+	// decisions rather than querying the external metric provider (e.g., Prometheus) on each scale event. This feature is not supported for cpu and memory.
+	UseCachedMetrics bool `json:"useCachedMetrics,omitempty"`
 }
 
 type CPUMemorySpec struct {
@@ -299,12 +306,6 @@ type CPUMemorySpec struct {
 
 // MetricDefinition defines increment and metric to be used for autoscaling
 type MetricDefinition struct {
-
-	// +kubebuilder:validation:Optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec
-	// +kubebuilder:Minimum:=0
-	// The value used to increase the threshold after a scale out or a scale in.
-	ThresholdAdjustmentValue int `json:"thresholdAdjustmentValue,omitempty"`
 
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
@@ -497,6 +498,29 @@ func MakeVASWithScaledObject() *VerticaAutoscaler {
 					Resource: &CPUMemorySpec{
 						Threshold: threshold,
 					},
+				},
+			},
+		},
+	}
+	return vas
+}
+
+// MakeVASWithScaledObjectPrometheus is a helper that constructs a fully formed VerticaAutoscaler struct with Prometheus.
+// This is intended for test purposes.
+func MakeVASWithScaledObjectPrometheus() *VerticaAutoscaler {
+	vas := MakeVAS()
+	minRep := int32(3)
+	maxRep := int32(6)
+	vas.Spec.CustomAutoscaler = &CustomAutoscalerSpec{
+		Type: ScaledObject,
+		ScaledObject: &ScaledObjectSpec{
+			MinReplicas: &minRep,
+			MaxReplicas: &maxRep,
+			Metrics: []ScaleTrigger{
+				{
+					Type:       PrometheusTriggerType,
+					Prometheus: &PrometheusSpec{},
+					MetricType: autoscalingv2.AverageValueMetricType,
 				},
 			},
 		},
