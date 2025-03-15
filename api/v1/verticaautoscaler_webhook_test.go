@@ -18,6 +18,7 @@ package v1
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
 )
 
@@ -445,5 +446,47 @@ var _ = Describe("verticaautoscaler_webhook", func() {
 		_, err = vas.ValidateCreate()
 		Expect(err).Should(Succeed())
 		Expect(*vas.Spec.CustomAutoscaler.Hpa.Behavior.ScaleDown.StabilizationWindowSeconds).Should(Equal(int32(0)))
+	})
+
+	It("should validate pause scaling annotations", func() {
+		vas := MakeVASWithMetrics()
+		_, err := vas.ValidateCreate()
+		Expect(err).Should(Succeed())
+		vas.Annotations = map[string]string{
+			vmeta.PausingAutoscalingAnnotation: "wrong",
+		}
+		_, err = vas.ValidateCreate()
+		Expect(err).ShouldNot(Succeed())
+		vas.Annotations = map[string]string{
+			vmeta.PausingAutoscalingAnnotation: "true",
+		}
+		_, err = vas.ValidateCreate()
+		Expect(err).Should(Succeed())
+		vas.Annotations = map[string]string{
+			vmeta.PausingAutoscalingReplicasAnnotation: "xxxx",
+		}
+		_, err = vas.ValidateCreate()
+		Expect(err).ShouldNot(Succeed())
+		vas.Annotations = map[string]string{
+			vmeta.PausingAutoscalingReplicasAnnotation: "-1",
+		}
+		_, err = vas.ValidateCreate()
+		Expect(err).ShouldNot(Succeed())
+		vas.Annotations = map[string]string{
+			vmeta.PausingAutoscalingReplicasAnnotation: "2",
+		}
+		_, err = vas.ValidateCreate()
+		Expect(err).ShouldNot(Succeed())
+		vas.Annotations = map[string]string{
+			vmeta.PausingAutoscalingReplicasAnnotation: "4",
+		}
+		_, err = vas.ValidateCreate()
+		Expect(err).Should(Succeed())
+		vas.Annotations = map[string]string{
+			vmeta.PausingAutoscalingAnnotation:         "true",
+			vmeta.PausingAutoscalingReplicasAnnotation: "4",
+		}
+		_, err = vas.ValidateCreate()
+		Expect(err).ShouldNot(Succeed())
 	})
 })
