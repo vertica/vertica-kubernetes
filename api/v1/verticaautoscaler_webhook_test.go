@@ -274,6 +274,7 @@ var _ = Describe("verticaautoscaler_webhook", func() {
 		vas.Spec.CustomAutoscaler.Hpa.Metrics[0].Metric.Pods.Metric.Name = ""
 		_, err = vas.ValidateCreate()
 		Expect(err).ShouldNot(Succeed())
+		Expect(err.Error()).To(ContainSubstring("metric name must not be empty"))
 		vas.Spec.CustomAutoscaler.Hpa.Metrics[0].Metric.Type = autoscalingv2.ObjectMetricSourceType
 		vas.Spec.CustomAutoscaler.Hpa.Metrics[0].Metric.Object = &autoscalingv2.ObjectMetricSource{
 			Metric: autoscalingv2.MetricIdentifier{
@@ -293,6 +294,17 @@ var _ = Describe("verticaautoscaler_webhook", func() {
 		vas.Spec.CustomAutoscaler.Hpa.Metrics[0].Metric.Object.Metric.Name = ""
 		_, err = vas.ValidateCreate()
 		Expect(err).ShouldNot(Succeed())
+		Expect(err.Error()).To(ContainSubstring("metric name must not be empty"))
+		vas.Spec.CustomAutoscaler.Hpa.Metrics[0].Metric.Object.Metric.Name = "validMetricName"
+		vas.Spec.CustomAutoscaler.Hpa.Metrics[0].Metric.Object.DescribedObject.Name = ""
+		_, err = vas.ValidateCreate()
+		Expect(err).ShouldNot(Succeed())
+		Expect(err.Error()).To(ContainSubstring("describedObject name must not be empty"))
+		vas.Spec.CustomAutoscaler.Hpa.Metrics[0].Metric.Object.DescribedObject.Name = "validObjectName"
+		vas.Spec.CustomAutoscaler.Hpa.Metrics[0].Metric.Object.DescribedObject.Kind = ""
+		_, err = vas.ValidateCreate()
+		Expect(err).ShouldNot(Succeed())
+		Expect(err.Error()).To(ContainSubstring("describedObject kind must not be empty"))
 		vas.Spec.CustomAutoscaler.Hpa.Metrics[0].Metric.Type = autoscalingv2.ContainerResourceMetricSourceType
 		vas.Spec.CustomAutoscaler.Hpa.Metrics[0].Metric.ContainerResource = &autoscalingv2.ContainerResourceMetricSource{
 			Name: "container",
@@ -307,6 +319,12 @@ var _ = Describe("verticaautoscaler_webhook", func() {
 		vas.Spec.CustomAutoscaler.Hpa.Metrics[0].Metric.ContainerResource.Name = ""
 		_, err = vas.ValidateCreate()
 		Expect(err).ShouldNot(Succeed())
+		Expect(err.Error()).To(ContainSubstring("resource name must not be empty"))
+		vas.Spec.CustomAutoscaler.Hpa.Metrics[0].Metric.ContainerResource.Name = "validContainerName"
+		vas.Spec.CustomAutoscaler.Hpa.Metrics[0].Metric.ContainerResource.Container = ""
+		_, err = vas.ValidateCreate()
+		Expect(err).ShouldNot(Succeed())
+		Expect(err.Error()).To(ContainSubstring("container name must be set"))
 		vas.Spec.CustomAutoscaler.Hpa.Metrics[0].Metric.Type = autoscalingv2.ExternalMetricSourceType
 		vas.Spec.CustomAutoscaler.Hpa.Metrics[0].Metric.External = &autoscalingv2.ExternalMetricSource{
 			Metric: autoscalingv2.MetricIdentifier{
@@ -322,6 +340,7 @@ var _ = Describe("verticaautoscaler_webhook", func() {
 		vas.Spec.CustomAutoscaler.Hpa.Metrics[0].Metric.External.Metric.Name = ""
 		_, err = vas.ValidateCreate()
 		Expect(err).ShouldNot(Succeed())
+		Expect(err.Error()).To(ContainSubstring("external metric name must be set"))
 		vas.Spec.CustomAutoscaler.Hpa.Metrics[0].Metric.Type = autoscalingv2.ResourceMetricSourceType
 		vas.Spec.CustomAutoscaler.Hpa.Metrics[0].Metric.Resource = &autoscalingv2.ResourceMetricSource{
 			Name: "resource",
@@ -335,6 +354,7 @@ var _ = Describe("verticaautoscaler_webhook", func() {
 		vas.Spec.CustomAutoscaler.Hpa.Metrics[0].Metric.Resource.Name = ""
 		_, err = vas.ValidateCreate()
 		Expect(err).ShouldNot(Succeed())
+		Expect("resource name must not be empty")
 	})
 
 	It("should fail if scaleInThreshold type is different to the threshold type used for scale out", func() {
@@ -348,6 +368,18 @@ var _ = Describe("verticaautoscaler_webhook", func() {
 		vas.Spec.CustomAutoscaler.Hpa.Metrics[0].ScaleInThreshold.Type = autoscalingv2.AverageValueMetricType
 		_, err = vas.ValidateCreate()
 		Expect(err.Error()).To(ContainSubstring("must be of the same type as the threshold used for scale out"))
+	})
+
+	It("should fail if metric target is not properly set", func() {
+		vas := MakeVASWithMetrics()
+		vas.Spec.CustomAutoscaler.Hpa.Metrics[0].Metric.Resource.Target = autoscalingv2.MetricTarget{}
+		_, err := vas.ValidateCreate()
+		Expect(err).ShouldNot(Succeed())
+		Expect(err.Error()).To(ContainSubstring("metric target type must be one of Utilization, Value, and AverageValue"))
+		vas.Spec.CustomAutoscaler.Hpa.Metrics[0].Metric.Type = ""
+		_, err = vas.ValidateCreate()
+		Expect(err).ShouldNot(Succeed())
+		Expect(err.Error()).To(ContainSubstring("metric type must be one of"))
 	})
 
 	It("should fail if customAutoscaler.Hpa is nil and customAutoscaler.type is HPA", func() {
