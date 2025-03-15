@@ -183,7 +183,7 @@ var _ = Describe("onlineupgrade_reconciler", func() {
 			{Name: "sec1", Type: vapi.SecondarySubcluster, Size: 2},
 		}
 		vdb.Spec.Sandboxes = []vapi.Sandbox{
-			{Name: preferredSandboxName, Subclusters: []vapi.SubclusterName{{Name: "sec1"}}},
+			{Name: preferredSandboxName, Subclusters: []vapi.SandboxSubcluster{{Name: "sec1"}}},
 		}
 		vdb.Spec.NMATLSSecret = "test-tls"
 		test.CreateVDB(ctx, k8sClient, vdb)

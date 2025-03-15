@@ -42,7 +42,7 @@ var _ = Describe("sandboxshutdown_reconciler", func() {
 		}
 
 		vdb.Spec.Sandboxes = []vapi.Sandbox{
-			{Name: sandbox1, Subclusters: []vapi.SubclusterName{{Name: subcluster1}}},
+			{Name: sandbox1, Subclusters: []vapi.SandboxSubcluster{{Name: subcluster1}}},
 		}
 		vdb.Status.Sandboxes = []vapi.SandboxStatus{
 			{Name: sandbox1, Subclusters: []string{subcluster1}},

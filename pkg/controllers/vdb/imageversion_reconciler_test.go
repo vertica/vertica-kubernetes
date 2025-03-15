@@ -83,7 +83,7 @@ vertica(v11.1.0) built by @re-docker2 from tag@releases/VER_10_1_RELEASE_BUILD_1
 			{Name: "default", Size: 1, Type: vapi.PrimarySubcluster},
 		}
 		vdb.Spec.Sandboxes = []vapi.Sandbox{
-			{Name: sbName, Subclusters: []vapi.SubclusterName{{Name: vdb.Spec.Subclusters[0].Name}}},
+			{Name: sbName, Subclusters: []vapi.SandboxSubcluster{{Name: vdb.Spec.Subclusters[0].Name}}},
 		}
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)

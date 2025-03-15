@@ -683,14 +683,23 @@ type Sandbox struct {
 	// This is the subcluster names that are part of the sandbox.
 	// There must be at least one subcluster listed. All subclusters
 	// listed need to be secondary subclusters.
-	Subclusters []SubclusterName `json:"subclusters"`
+	Subclusters []SandboxSubcluster `json:"subclusters"`
 }
 
-type SubclusterName struct {
+type SandboxSubcluster struct {
 	// +kubebuilder:validation:required
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// The name of a subcluster.
 	Name string `json:"name"`
+
+	// +kubebuilder:default:=primary
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:select:primary","urn:alm:descriptor:com.tectonic.ui:select:secondary"}
+	// Indicates the type of subcluster in a sandbox. Valid values are: primary,
+	// secondary. Types are case-sensitive.
+	// You must have at least one primary subcluster in the sandbox.
+	// If type is omitted, it will default to a primary.
+	Type string `json:"type"`
 }
 
 type Subcluster struct {
@@ -1013,11 +1022,14 @@ const (
 	PrimarySubcluster   = "primary"
 	SecondarySubcluster = "secondary"
 	TransientSubcluster = "transient"
-	// A sandbox primary subcluster is a secondary subcluster that was the first
-	// subcluster in a sandbox. These subclusters are primaries when they are
-	// sandboxed. When unsandboxed, they will go back to being just a secondary
-	// subcluster
+	// In subclusters status, a sandbox primary subcluster is a primary
+	// subcluster in a sandbox. These subclusters are primaries when they
+	// are sandboxed. When unsandboxed, they will go back to being just a
+	// secondary subcluster
 	SandboxPrimarySubcluster = "sandboxprimary"
+	// In subclusters status, a sandbox secondary subcluster is a secondary
+	// subcluster in a sandbox.
+	SandboxSecondarySubcluster = "sandboxsecondary"
 )
 
 // SubclusterStatus defines the per-subcluster status that we track
@@ -1029,6 +1041,12 @@ type SubclusterStatus struct {
 	// +operator-sdk:csv:customresourcedefinitions:type=status
 	// Object ID of the subcluster.
 	Oid string `json:"oid"`
+
+	// +operator-sdk:csv:customresourcedefinitions:type=status
+	// +optional
+	// The type of the subcluster. It could be primary, secondary, sandboxprimary,
+	// sandboxsecondary, or empty if it's not in the db yet.
+	Type string `json:"type"`
 
 	// +operator-sdk:csv:customresourcedefinitions:type=status
 	// A count of the number of pods that have been added to the database for this subcluster.
