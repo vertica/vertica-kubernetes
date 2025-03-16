@@ -729,7 +729,11 @@ func (p *PodFact) GetSubclusterStatusType() string {
 		}
 		return vapi.PrimarySubcluster
 	}
-	// TODO: return SandboxSecondarySubcluster if pod is in sandbox with type secondary
+	// return SandboxSecondarySubcluster if pod is in sandbox with type secondary
+	if !p.isPrimary && p.sandbox != vapi.MainCluster {
+		return vapi.SandboxSecondarySubcluster
+	}
+
 	return vapi.SecondarySubcluster
 }
 
