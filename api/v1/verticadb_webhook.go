@@ -1680,7 +1680,7 @@ func (v *VerticaDB) checkImmutableSubclusterDuringUpgrade(oldObj *VerticaDB, all
 func (v *VerticaDB) findPersistScsInSandbox(oldObj *VerticaDB) map[string]int {
 	oldSandboxes := oldObj.Spec.Sandboxes
 	newSandboxes := v.Spec.Sandboxes
-	sandboxScMap := make(map[string][]SubclusterName)
+	sandboxScMap := make(map[string][]SandboxSubcluster)
 	for _, sandbox := range oldSandboxes {
 		sandboxScMap[sandbox.Name] = sandbox.Subclusters
 	}

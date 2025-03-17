@@ -45,7 +45,7 @@ var _ = Describe("sandboxupgrade_reconciler", func() {
 		}
 
 		vdb.Spec.Sandboxes = []vapi.Sandbox{
-			{Name: sandbox1, Image: newImage, Subclusters: []vapi.SubclusterName{{Name: subcluster1}}},
+			{Name: sandbox1, Image: newImage, Subclusters: []vapi.SandboxSubcluster{{Name: subcluster1}}},
 		}
 		vdb.Status.Sandboxes = []vapi.SandboxStatus{
 			{Name: sandbox1, Subclusters: []string{subcluster1}},
@@ -79,7 +79,7 @@ var _ = Describe("sandboxupgrade_reconciler", func() {
 		}
 
 		vdb.Spec.Sandboxes = []vapi.Sandbox{
-			{Name: sandbox1, Subclusters: []vapi.SubclusterName{{Name: subcluster1}}},
+			{Name: sandbox1, Subclusters: []vapi.SandboxSubcluster{{Name: subcluster1}}},
 		}
 
 		// no sandbox in status
@@ -107,7 +107,7 @@ var _ = Describe("sandboxupgrade_reconciler", func() {
 		}
 
 		vdb.Spec.Sandboxes = []vapi.Sandbox{
-			{Name: sandbox1, Image: newImage, Subclusters: []vapi.SubclusterName{{Name: subcluster1}}},
+			{Name: sandbox1, Image: newImage, Subclusters: []vapi.SandboxSubcluster{{Name: subcluster1}}},
 		}
 		vdb.Status.Sandboxes = []vapi.SandboxStatus{
 			{Name: sandbox1, Subclusters: []string{subcluster1}},
