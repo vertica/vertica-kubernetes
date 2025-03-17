@@ -73,7 +73,7 @@ var _ = Describe("add_node_vc", func() {
 	ctx := context.Background()
 
 	It("should call vcluster-ops library with add_node task", func() {
-		dispatcher := mockVClusterOpsDispatcher()
+		dispatcher := mockMTLSVClusterOpsDispatcher()
 		dispatcher.VDB.Spec.NMATLSSecret = "add-node-test-secret"
 		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.NMATLSSecret)
 		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.NMATLSSecret)
