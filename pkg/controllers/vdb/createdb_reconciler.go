@@ -131,6 +131,7 @@ func (c *CreateDBReconciler) execCmd(ctx context.Context, initiatorPod types.Nam
 
 	start := time.Now()
 	if res, errTwo := c.Dispatcher.CreateDB(ctx, opts...); verrors.IsReconcileAborted(res, err) {
+		c.Log.Info(fmt.Sprintf("libo: CreateDB failure, res - %+v , err - %+v", res, errTwo))
 		return res, errTwo
 	}
 	if c.VInf.IsEqualOrNewer(vapi.NMATLSCertRotationMinVersion) && vmeta.EnableTLSCertsRotation(c.Vdb.Annotations) {
@@ -138,7 +139,7 @@ func (c *CreateDBReconciler) execCmd(ctx context.Context, initiatorPod types.Nam
 			"vsql", "-f", PostDBCreateSQLFile)
 		if errThree != nil || strings.Contains(stderr, "Error") {
 			c.Log.Error(errThree, "failed to execute TLS DDLs after db creation stderr - "+stderr)
-			return ctrl.Result{}, err
+			return ctrl.Result{}, errThree
 		}
 		chgs := vk8s.MetaChanges{
 			NewAnnotations: map[string]string{
