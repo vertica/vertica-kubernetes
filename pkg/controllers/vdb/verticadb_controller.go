@@ -343,15 +343,17 @@ func (r *VerticaDBReconciler) configureTLS(log logr.Logger, vdb *vapi.VerticaDB)
 	vdbContext := vadmin.GetContextForVdb(vdb.Namespace, vdb.Name)
 	VInf, err := vdb.MakeVersionInfoCheck()
 	dataInitialized := vdb.IsStatusConditionTrue(vapi.DBInitialized)
+	tlsSecretName := vmeta.GetNMATLSSecretName(vdb.Annotations)
+
 	if err != nil { // version info not available
-		if vmeta.EnableTLSCertsRotation(vdb.Annotations) && dataInitialized {
+		if vmeta.EnableTLSCertsRotation(vdb.Annotations) && dataInitialized && tlsSecretName != "" {
 			vdbContext.SetBoolValue(vadmin.UseTLSCert, true)
 			log.Info("based on annatation only, tls cert rotate is supported")
 			return
 		}
 	} else {
 		if VInf.IsEqualOrNewer(vapi.NMATLSCertRotationMinVersion) && vmeta.EnableTLSCertsRotation(vdb.Annotations) &&
-			dataInitialized {
+			dataInitialized && tlsSecretName != "" {
 			vdbContext.SetBoolValue(vadmin.UseTLSCert, true)
 			log.Info("based on annatation and version, tls cert rotate is supported")
 			return
