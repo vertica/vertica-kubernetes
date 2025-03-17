@@ -11,24 +11,30 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1beta1
+apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
   name: v-create-1-node
+  annotations:
+    vertica.com/k-safety: "0"
+    vertica.com/requeue-time: "5"
+    vertica.com/include-uid-in-path: "false"
 spec:
+  initPolicy: CreateSkipPackageInstall
   image: kustomize-vertica-image
-  superuserPasswordSecret: su-passwd
-  communal:
-    includeUIDInPath: false
+  communal: {}
   local:
     requestSize: 100Mi
-  initPolicy: CreateSkipPackageInstall
+    catalogPath: /catalog
   dbName: vertdb
+  encryptSpreadComm: vertica
   subclusters:
     - name: sc1
       size: 1
-  kSafety: "0"
-  requeueTime: 5
+  nmaTLSSecret: custom-cert
+  securityContext:
+    capabilities:
+      add: ["SYS_PTRACE"]
   certSecrets: []
   imagePullSecrets: []
   volumes: []
