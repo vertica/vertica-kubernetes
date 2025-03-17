@@ -21,7 +21,7 @@ status:
     type: TargetSizeInitialized
   - status: "True"
     type: ScalingActive
-  selector: vertica.com/subcluster-svc=pri1,vertica.com/is-sandbox=false,app.kubernetes.io/instance=v-scale-out-wildcard,app.kubernetes.io/managed-by=verticadb-operator
+  selector: vertica.com/is-sandbox=false,app.kubernetes.io/instance=v-scale-out-wildcard,app.kubernetes.io/managed-by=verticadb-operator
   scalingCount: 0
   currentSize: 3
 ---
@@ -39,7 +39,7 @@ spec:
   triggers:
   - metadata:
       query: sum(vertica_sessions_running_counter{type="active", initiator="user", pod=~"v-scale-out-wildcard-.*"})
-      serverAddress: http://prometheus-kube-prometheus-prometheus.prometheus.svc.cluster.local:9090
+      serverAddress: http://prometheus-kube-prometheus-prometheus.prometheus.svc:9090
       threshold: "2"
     metricType: Value
     name: vertica_sessions_running_total

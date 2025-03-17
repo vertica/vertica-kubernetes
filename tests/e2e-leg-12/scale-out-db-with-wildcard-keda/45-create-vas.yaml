@@ -27,6 +27,6 @@ spec:
       - name: vertica_sessions_running_total
         metricType: Value
         prometheus:
-          serverAddress: "http://prometheus-kube-prometheus-prometheus.prometheus.svc.cluster.local:9090"
+          serverAddress: "http://prometheus-kube-prometheus-prometheus.prometheus.svc:9090"
           query: sum(vertica_sessions_running_counter{type="active", initiator="user", pod=~"v-scale-out-wildcard-.*"})
           threshold: 2
