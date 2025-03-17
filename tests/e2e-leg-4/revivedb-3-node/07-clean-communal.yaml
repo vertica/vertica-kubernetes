@@ -11,29 +11,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1
-kind: VerticaDB
-metadata:
-  name: v-revive-3-node
-  annotations:
-    vertica.com/ignore-cluster-lease: true
-    vertica.com/requeue-time: "5"
-    vertica.com/include-uid-in-path: false
-spec:
-  image: kustomize-vertica-image
-  communal: {}
-  initPolicy: Revive
-  local:
-    dataPath: /my-data
-    depotPath: /my-depot
-    depotVolume: EmptyDir
-    requestSize: 100Mi
-  dbName: vertdb
-  subclusters:
-    - name: main
-      size: 3
-  certSecrets: []
-  nmaTLSSecret: custom-cert
-  imagePullSecrets: []
-  volumes: []
-  volumeMounts: []
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - command: bash -c "kustomize build clean-communal/overlay | kubectl -n $NAMESPACE apply -f - "
