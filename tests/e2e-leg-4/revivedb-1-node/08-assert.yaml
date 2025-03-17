@@ -11,4 +11,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Empty manifests to give the test a name in kuttl output
+apiVersion: v1
+kind: Secret
+metadata:
+  name: custom-cert
