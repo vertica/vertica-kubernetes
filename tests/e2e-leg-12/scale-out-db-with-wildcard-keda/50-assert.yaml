@@ -18,5 +18,5 @@ metadata:
 spec:
   targetSize: 3
 status:
-  scalingCount: 2
+  scalingCount: 0
   currentSize: 3
