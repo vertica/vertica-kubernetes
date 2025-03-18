@@ -1,5 +1,0 @@
-kind: Added
-body: Set nma container security context
-time: 2025-02-07T11:28:25.618011997+01:00
-custom:
-    Issue: "1057"
