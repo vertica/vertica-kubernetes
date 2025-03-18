@@ -19,22 +19,17 @@ metadata:
     vertica.com/requeue-time: "5"
     vertica.com/include-uid-in-path: false
 spec:
-  initPolicy: CreateSkipPackageInstall
   image: kustomize-vertica-image
   communal: {}
+  initPolicy: CreateSkipPackageInstall
   local:
     dataPath: /my-data
     depotPath: /my-data
     requestSize: 100Mi
   dbName: vertdb
-  encryptSpreadComm: vertica
   subclusters:
     - name: main
       size: 3
-  nmaTLSSecret: custom-cert
-  securityContext:
-    capabilities:
-      add: ["SYS_PTRACE"]
   certSecrets: []
   imagePullSecrets: []
   volumes: []

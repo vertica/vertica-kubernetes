@@ -11,8 +11,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: kuttl.dev/v1beta1
-kind: TestStep
-commands:
-  - command: kubectl exec --namespace $NAMESPACE v-create-3-node-main-0 -c server -- vsql -c "SELECT SYNC_CATALOG();"
-  - command: sleep 60
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: integration-test-role
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: integration-test-rb

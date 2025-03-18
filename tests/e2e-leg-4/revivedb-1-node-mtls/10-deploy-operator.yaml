@@ -10,9 +10,3 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-apiVersion: kuttl.dev/v1beta1
-kind: TestStep
-commands:
-  - command: kubectl exec --namespace $NAMESPACE v-create-1-node-sc1-0 -c server -- vsql -c "create table t (a int); insert into t select 1; commit;"
-  - command: sleep 240

@@ -33,7 +33,9 @@ metadata:
   name: v-create-multi-sc
 status:
   subclusters:
-    - addedToDBCount: 1
+    - installCount: 1
+      addedToDBCount: 1
       upNodeCount: 1
-    - addedToDBCount: 1
+    - installCount: 1
+      addedToDBCount: 1
       upNodeCount: 1

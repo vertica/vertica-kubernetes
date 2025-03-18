@@ -11,32 +11,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1beta1
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: v-create-1-node-mtls-sc1
+status:
+  replicas: 1
+  readyReplicas: 1
+---
+apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
-  name: v-create-multi-sc
-spec:
-  image: kustomize-vertica-image
-  sidecars:
-    - name: vlogger
-      image: kustomize-vlogger-image
-  communal:
-    includeUIDInPath: false
-  initPolicy: CreateSkipPackageInstall
-  local:
-    dataPath: /data
-    depotPath: /depot
-    requestSize: 100Mi
-  dbName: vert_db
+  name: v-create-1-node-mtls
+status:
   subclusters:
-    - name: main
-      isPrimary: true
-      size: 1
-    - name: secondary
-      isPrimary: false
-      size: 1
-  kSafety: "0"
-  certSecrets: []
-  imagePullSecrets: []
-  volumes: []
-  volumeMounts: []
+    - addedToDBCount: 1
+      upNodeCount: 1

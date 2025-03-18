@@ -11,32 +11,29 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1beta1
+apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
-  name: v-create-multi-sc
+  name: v-revive-3-node-mtls
+  annotations:
+    vertica.com/ignore-cluster-lease: true
+    vertica.com/requeue-time: "5"
+    vertica.com/include-uid-in-path: false
 spec:
   image: kustomize-vertica-image
-  sidecars:
-    - name: vlogger
-      image: kustomize-vlogger-image
-  communal:
-    includeUIDInPath: false
-  initPolicy: CreateSkipPackageInstall
+  communal: {}
+  initPolicy: Revive
   local:
-    dataPath: /data
-    depotPath: /depot
+    dataPath: /my-data
+    depotPath: /my-depot
+    depotVolume: EmptyDir
     requestSize: 100Mi
-  dbName: vert_db
+  dbName: vertdb
   subclusters:
     - name: main
-      isPrimary: true
-      size: 1
-    - name: secondary
-      isPrimary: false
-      size: 1
-  kSafety: "0"
+      size: 3
   certSecrets: []
+  nmaTLSSecret: custom-cert
   imagePullSecrets: []
   volumes: []
   volumeMounts: []
