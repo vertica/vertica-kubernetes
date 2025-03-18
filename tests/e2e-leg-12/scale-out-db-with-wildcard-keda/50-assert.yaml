@@ -16,7 +16,7 @@ kind: VerticaAutoscaler
 metadata:
   name: v-scale-out-wildcard-vas
 spec:
-  targetSize: 5
+  targetSize: 3
 status:
   scalingCount: 2
-  currentSize: 5
+  currentSize: 3

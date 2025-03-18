@@ -14,9 +14,9 @@
 apiVersion: vertica.com/v1
 kind: VerticaAutoscaler
 metadata:
-  name: v-scale-out-db-2-vas
+  name: v-scale-out-wildcard-vas
 spec:
-  targetSize: 3
+  targetSize: 5
 status:
   scalingCount: 2
-  currentSize: 3
+  currentSize: 5
