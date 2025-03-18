@@ -5,16 +5,5 @@ metadata:
 spec:
   verticaDBName: verticadb-sample
   scalingGranularity: Subcluster
-  customAutoscaler:
-    type: ScaledObject
-    scaledObject:
-      minReplicas: 3
-      maxReplicas: 6
-      metrics:
-      - name: vertica_sessions_running_total
-        metricType: AverageValue
-        prometheus:
-          serverAddress: "http://prometheus-kube-prometheus-prometheus.prometheus.svc.cluster.local:9090"
-          query: sum(vertica_sessions_running_counter{type="active", initiator="user",})
-          threshold: 5
-          scaleinThreshold: 1
+  serviceName: default-subcluster
+  customAutoscaler: {}

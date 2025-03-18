@@ -207,13 +207,13 @@ type ScaleTrigger struct {
 	MetricType autoscalingv2.MetricTargetType `json:"metricType,omitempty"`
 
 	// +kubebuilder:validation:Optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:fieldDependency:customAutoscaler.scaledObject.metrics[0].type:prometheus"
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// The detail about how to fetch metrics from Prometheus and scale workloads based on them.
 	// if type is "prometheus", this must be set.
 	Prometheus *PrometheusSpec `json:"prometheus,omitempty"`
 
 	// +kubebuilder:validation:Optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:fieldDependency:customAutoscaler.scaledObject.metrics[0].type:cpu","urn:alm:descriptor:com.tectonic.ui:fieldDependency:customAutoscaler.scaledObject.metrics[0].type:memory"}
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// The detail about the target value and container name. if type is cpu/memory
 	// this must be set.
 	Resource *CPUMemorySpec `json:"resource,omitempty"`
