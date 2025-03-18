@@ -15,6 +15,9 @@ apiVersion: vertica.com/v1beta1
 kind: VerticaDB
 metadata:
   name: v-revive-multi-sc
+  annotations:
+    vertica.com/requeue-time: "5"
+    vertica.com/include-uid-in-path: false
 spec:
   image: kustomize-vertica-image
   sidecars:
@@ -45,6 +48,7 @@ spec:
       size: 1
   kSafety: "0"
   certSecrets: []
+  nmaTLSSecret: custom-cert
   imagePullSecrets: []
   volumes: []
   volumeMounts: []

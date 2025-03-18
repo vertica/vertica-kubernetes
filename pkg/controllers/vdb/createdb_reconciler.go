@@ -249,6 +249,7 @@ func (c *CreateDBReconciler) generatePostDBCreateSQL(ctx context.Context, initia
 		sb.WriteString(`ALTER TLS CONFIGURATION https CERTIFICATE https_cert_0 REMOVE CA CERTIFICATES httpServerRootca;`)
 		sb.WriteString(`CREATE AUTHENTICATION auth_tls METHOD 'tls' HOST TLS '0.0.0.0/0';`)
 		sb.WriteString(fmt.Sprintf(`GRANT AUTHENTICATION auth_tls TO %s;`, c.Vdb.GetVerticaUser()))
+		sb.WriteString(`select sync_catalog();`)
 	}
 	_, _, err := c.PRunner.ExecInPod(ctx, initiatorPod, names.ServerContainer,
 		"bash", "-c", "cat > "+PostDBCreateSQLFile+"<<< \""+sb.String()+"\"",
