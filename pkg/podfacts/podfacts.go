@@ -718,20 +718,19 @@ func (p *PodFact) GetSubclusterOid() string {
 }
 
 // GetSubclusterStatusType returns the subcluster status type depends on its type in subclusters and sandboxes
+// From the pod fact, we know a pod will be sandboxed, but we don't know if it is already in the sandbox
+// at this point(in status reconciler). The type will be updated in unsandbox/sandbox reconciler.
+// TODO: when we have promote_subcluster reconciler, we can remove this function and update the "type" status in that reconciler.
 func (p *PodFact) GetSubclusterStatusType() string {
-	if !p.dbExists {
-		// return empty if it's not in a subcluster yet
+	// return empty
+	// 1. if it's not in a subcluster yet
+	// 2. when the pod is in a sandbox.
+	if !p.dbExists || p.sandbox != vapi.MainCluster {
 		return ""
 	}
+
 	if p.isPrimary {
-		if p.sandbox != vapi.MainCluster {
-			return vapi.SandboxPrimarySubcluster
-		}
 		return vapi.PrimarySubcluster
-	}
-	// return SandboxSecondarySubcluster if pod is in sandbox with type secondary
-	if !p.isPrimary && p.sandbox != vapi.MainCluster {
-		return vapi.SandboxSecondarySubcluster
 	}
 
 	return vapi.SecondarySubcluster
