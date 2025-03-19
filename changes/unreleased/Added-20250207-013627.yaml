@@ -1,5 +1,0 @@
-kind: Added
-body: Added parameters for operator securityContext and podSecurityContext
-time: 2025-02-07T01:36:27.730290351+01:00
-custom:
-    Issue: "1057"

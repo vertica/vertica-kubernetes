@@ -1,6 +1,0 @@
-kind: Added
-body: Added "EnableWithTLS" option to Helm parameter "prometheus.expose", allowing secure access
-  to metrics from outside the cluster
-time: 2025-01-31T22:14:06.675326382Z
-custom:
-  Issue: "1040"

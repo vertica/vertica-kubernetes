@@ -315,7 +315,7 @@ func convertFromStatus(src *v1.VerticaDBStatus) VerticaDBStatus {
 		}
 	}
 	for i := range src.Subclusters {
-		dst.Subclusters[i] = convertFromSubclusterStatus(src.Subclusters[i])
+		dst.Subclusters[i] = convertFromSubclusterStatus(&src.Subclusters[i])
 	}
 	for i := range src.Conditions {
 		dst.Conditions[i] = convertFromStatusCondition(&src.Conditions[i])
@@ -525,6 +525,7 @@ func convertToSubclusterStatus(src *SubclusterStatus) v1.SubclusterStatus {
 	return v1.SubclusterStatus{
 		Name:           src.Name,
 		Oid:            src.Oid,
+		Type:           src.Type,
 		AddedToDBCount: src.AddedToDBCount,
 		UpNodeCount:    src.UpNodeCount,
 		Detail:         convertToPodStatus(src.Detail),
@@ -532,7 +533,7 @@ func convertToSubclusterStatus(src *SubclusterStatus) v1.SubclusterStatus {
 }
 
 // convetFromSubcluterStatus will convert from a v1 SubcluterStatus to a v1beta1 version
-func convertFromSubclusterStatus(src v1.SubclusterStatus) SubclusterStatus {
+func convertFromSubclusterStatus(src *v1.SubclusterStatus) SubclusterStatus {
 	return SubclusterStatus{
 		Name:           src.Name,
 		Oid:            src.Oid,
