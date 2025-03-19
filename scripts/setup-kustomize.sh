@@ -514,7 +514,7 @@ EOF
       value: "aws s3 rm --recursive --endpoint $ENDPOINT s3://${BUCKET_OR_CLUSTER}${PATH_PREFIX}${TESTCASE_NAME} --no-verify-ssl"
     - op: replace
       path: /spec/containers/0/image
-      value: amazon/aws-cli:2.2.24
+      value: amazon/aws-cli:2.17.34
     - op: add
       path: /spec/containers/0/env/-
       value:
@@ -552,7 +552,7 @@ EOF
       value: az storage remove --account-name $BUCKET_OR_CLUSTER --container-name $CONTAINER_NAME --name ${PATH_PREFIX:1}${TESTCASE_NAME} --recursive
     - op: replace
       path: /spec/containers/0/image
-      value: mcr.microsoft.com/azure-cli:2.29.0
+      value: mcr.microsoft.com/azure-cli:2.63.0
 EOF
       if [ -n "$ACCOUNT_KEY" ]
       then
@@ -593,7 +593,7 @@ EOF
       value: az storage blob delete-batch --account-name $BUCKET_OR_CLUSTER --source $CONTAINER_NAME --pattern "${PATH_PREFIX:1}${TESTCASE_NAME}/*"
     - op: replace
       path: /spec/containers/0/image
-      value: mcr.microsoft.com/azure-cli:2.29.0
+      value: mcr.microsoft.com/azure-cli:2.63.0
     - op: add
       path: /spec/containers/0/env/-
       value:
@@ -608,7 +608,7 @@ EOF
       value: "cd ${COMMUNAL_PATH_PREFIX} && rm -rf ${TESTCASE_NAME}"
     - op: replace
       path: /spec/containers/0/image
-      value: quay.io/helmpack/chart-testing:v3.3.1
+      value: quay.io/helmpack/chart-testing:v3.11.0
     - op: add
       path: /spec/containers/0/volumeMounts/-
       value:
