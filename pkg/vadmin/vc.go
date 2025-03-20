@@ -27,17 +27,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-// retrieveTargetNMACerts will retrieve the certs from NMATLSSecret for calling target NMA endpoints
-func (v *VClusterOps) retrieveTargetNMACerts(ctx context.Context) (*HTTPSCerts, error) {
-	fetcher := cloud.SecretFetcher{
-		Client:   v.Client,
-		Log:      v.Log,
-		Obj:      v.TargetVDB,
-		EVWriter: v.EVWriter,
-	}
-	return retrieveNMACerts(ctx, fetcher, v.TargetVDB)
-}
-
 // retrieveNMACerts will retrieve the certs from NMATLSSecret for calling NMA endpoints
 func (v *VClusterOps) retrieveNMACerts(_ context.Context) (*HTTPSCerts, error) {
 	vdbContext := GetContextForVdb(v.VDB.Namespace, v.VDB.Name)
@@ -52,6 +41,17 @@ func (v *VClusterOps) retrieveNMACerts(_ context.Context) (*HTTPSCerts, error) {
 		EVWriter: v.EVWriter,
 	}
 	return vdbContext.GetCertFromSecret(namSecretName, fetcher)
+}
+
+// retrieveTargetNMACerts will retrieve the certs from NMATLSSecret for calling target NMA endpoints
+func (v *VClusterOps) retrieveTargetNMACerts(ctx context.Context) (*HTTPSCerts, error) {
+	fetcher := cloud.SecretFetcher{
+		Client:   v.Client,
+		Log:      v.Log,
+		Obj:      v.TargetVDB,
+		EVWriter: v.EVWriter,
+	}
+	return retrieveNMACerts(ctx, fetcher, v.TargetVDB)
 }
 
 func retrieveNMACerts(ctx context.Context, fetcher cloud.SecretFetcher, vdb *vapi.VerticaDB) (*HTTPSCerts, error) {
