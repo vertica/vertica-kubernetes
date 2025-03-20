@@ -93,15 +93,17 @@ func (v *VerticaDB) FindTransientSubcluster() *Subcluster {
 }
 
 // MakeVDB is a helper that constructs a fully formed VerticaDB struct using the sample name.
+// The version used does not support TLS Certificate rotation.
 // This is intended for test purposes.
 func MakeVDB() *VerticaDB {
 	return MakeVersionedVDB(LegacyVersion)
 }
 
-// MakeVDB is a helper that constructs a fully formed VerticaDB struct using the sample name.
+// MakeMTLSVDB is a helper that constructs a fully formed VerticaDB struct using the sample name.
+// The version used supports TLS Certificate rotation.
 // This is intended for test purposes.
 func MakeMTLSVDB() *VerticaDB {
-	return MakeVersionedVDB(NMATLSCertRotationMinVersion)
+	return MakeVersionedVDB(TLSCertRotationMinVersion)
 }
 
 // MakeVDB is a helper that constructs a fully formed VerticaDB struct using the sample name.

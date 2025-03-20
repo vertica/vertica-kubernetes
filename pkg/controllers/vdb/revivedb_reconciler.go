@@ -152,7 +152,7 @@ func (r *ReviveDBReconciler) execCmd(ctx context.Context, initiatorPod types.Nam
 	if res, err := r.Dispatcher.ReviveDB(ctx, opts...); verrors.IsReconcileAborted(res, err) {
 		return res, err
 	}
-	if r.VInf.IsEqualOrNewer(vapi.NMATLSCertRotationMinVersion) && vmeta.EnableTLSCertsRotation(r.Vdb.Annotations) {
+	if r.VInf.IsEqualOrNewer(vapi.TLSCertRotationMinVersion) && vmeta.EnableTLSCertsRotation(r.Vdb.Annotations) {
 		chgs := vk8s.MetaChanges{
 			NewAnnotations: map[string]string{
 				vmeta.NMATLSSECRETAnnotation: r.Vdb.Spec.NMATLSSecret,

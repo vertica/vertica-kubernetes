@@ -115,7 +115,7 @@ func (v *VClusterOps) shouldUseCertAuthentication() bool {
 		v.Log.Info("failed to get vertica version. disable TLS cert")
 		return false
 	}
-	if Vinf.IsEqualOrNewer(vapi.NMATLSCertRotationMinVersion) && meta.EnableTLSCertsRotation(v.VDB.Annotations) {
+	if Vinf.IsEqualOrNewer(vapi.TLSCertRotationMinVersion) && meta.EnableTLSCertsRotation(v.VDB.Annotations) {
 		vdbContext := GetContextForVdb(v.VDB.Namespace, v.VDB.Name)
 		return vdbContext.GetBoolValue(UseTLSCert)
 	}

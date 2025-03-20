@@ -134,7 +134,7 @@ func (c *CreateDBReconciler) execCmd(ctx context.Context, initiatorPod types.Nam
 		c.Log.Info(fmt.Sprintf("libo: CreateDB failure, res - %+v , err - %+v", res, errTwo))
 		return res, errTwo
 	}
-	if c.VInf.IsEqualOrNewer(vapi.NMATLSCertRotationMinVersion) && vmeta.EnableTLSCertsRotation(c.Vdb.Annotations) {
+	if c.VInf.IsEqualOrNewer(vapi.TLSCertRotationMinVersion) && vmeta.EnableTLSCertsRotation(c.Vdb.Annotations) {
 		_, stderr, errThree := c.PRunner.ExecInPod(ctx, initiatorPod, names.ServerContainer,
 			"vsql", "-f", PostDBCreateSQLFile)
 		if errThree != nil || strings.Contains(stderr, "Error") {
@@ -194,7 +194,7 @@ func (c *CreateDBReconciler) preCmdSetup(ctx context.Context, initiatorPod types
 func (c *CreateDBReconciler) generatePostDBCreateSQL(ctx context.Context, initiatorPod types.NamespacedName) (ctrl.Result, error) {
 	// On newer server versions we moved over the SQL to config parameters. So,
 	// if we are on a new enough version we can skip this function entirely.
-	if c.VInf.IsEqualOrNewer(vapi.DBSetupConfigParametersMinVersion) && c.VInf.IsOlder(vapi.NMATLSCertRotationMinVersion) {
+	if c.VInf.IsEqualOrNewer(vapi.DBSetupConfigParametersMinVersion) && c.VInf.IsOlder(vapi.TLSCertRotationMinVersion) {
 		return ctrl.Result{}, nil
 	}
 	// We include SQL to rename the default subcluster to match the name of the
@@ -219,7 +219,7 @@ func (c *CreateDBReconciler) generatePostDBCreateSQL(ctx context.Context, initia
 			`, vapi.EncryptSpreadCommWithVertica))
 		}
 	}
-	if c.VInf.IsEqualOrNewer(vapi.NMATLSCertRotationMinVersion) && vmeta.EnableTLSCertsRotation(c.Vdb.Annotations) {
+	if c.VInf.IsEqualOrNewer(vapi.TLSCertRotationMinVersion) && vmeta.EnableTLSCertsRotation(c.Vdb.Annotations) {
 		sb.WriteString(`CREATE OR REPLACE LIBRARY public.KubernetesLib AS '/opt/vertica/packages/kubernetes/lib/libkubernetes.so';`)
 		sb.WriteString(`CREATE OR REPLACE SECRETMANAGER KubernetesSecretManager AS LANGUAGE 'C++' NAME 'KubernetesSecretManagerFactory' 
 			LIBRARY KubernetesLib;`)
@@ -364,7 +364,7 @@ func (c *CreateDBReconciler) genOptions(ctx context.Context, initiatorPod types.
 		createdb.WithDataPath(c.Vdb.Spec.Local.DataPath),
 	}
 
-	if !c.VInf.IsEqualOrNewer(vapi.DBSetupConfigParametersMinVersion) || c.VInf.IsEqualOrNewer(vapi.NMATLSCertRotationMinVersion) {
+	if !c.VInf.IsEqualOrNewer(vapi.DBSetupConfigParametersMinVersion) || c.VInf.IsEqualOrNewer(vapi.TLSCertRotationMinVersion) {
 		opts = append(opts, createdb.WithPostDBCreateSQLFile(PostDBCreateSQLFile))
 	}
 
