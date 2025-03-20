@@ -192,8 +192,8 @@ func (c *CreateDBReconciler) preCmdSetup(ctx context.Context, initiatorPod types
 // generatePostDBCreateSQL is a function that creates a file with sql commands
 // to be run immediately after the database create.
 func (c *CreateDBReconciler) generatePostDBCreateSQL(ctx context.Context, initiatorPod types.NamespacedName) (ctrl.Result, error) {
-	// On newer server versions we moved over the SQL to config parameters. So,
-	// if we are on a new enough version we can skip this function entirely.
+	// If version is older than DBSetupConfigParametersMinVersion or newer than vapi.TLSCertRotationMinVersion,
+	// run SQL after DB creation. Otherwise, skip this function
 	if c.VInf.IsEqualOrNewer(vapi.DBSetupConfigParametersMinVersion) && c.VInf.IsOlder(vapi.TLSCertRotationMinVersion) {
 		return ctrl.Result{}, nil
 	}

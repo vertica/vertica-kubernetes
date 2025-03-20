@@ -19,6 +19,7 @@ import (
 	"context"
 	"fmt"
 
+	vops "github.com/vertica/vcluster/vclusterops"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/cloud"
 	"github.com/vertica/vertica-kubernetes/pkg/meta"
@@ -120,4 +121,14 @@ func (v *VClusterOps) shouldUseCertAuthentication() bool {
 		return vdbContext.GetBoolValue(UseTLSCert)
 	}
 	return false
+}
+
+func (v *VClusterOps) setAuthentication(opts *vops.DatabaseOptions, username string, password *string, certs *HTTPSCerts, useTLSCert bool) {
+	opts.Key = certs.Key
+	opts.Cert = certs.Cert
+	opts.CaCert = certs.CaCert
+	if !useTLSCert {
+		opts.UserName = username
+		opts.Password = password
+	}
 }

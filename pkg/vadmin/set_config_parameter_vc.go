@@ -66,18 +66,7 @@ func (v *VClusterOps) genSetConfigurationParameterOptions(s *setconfigparameter.
 	opts.IsEon = v.VDB.IsEON()
 	opts.IPv6 = net.IsIPv6(s.InitiatorIP)
 
-	// auth options
-	if v.shouldUseCertAuthentication() {
-		opts.Key = certs.Key
-		opts.Cert = certs.Cert
-		opts.CaCert = certs.CaCert
-	} else {
-		opts.Key = certs.Key
-		opts.Cert = certs.Cert
-		opts.CaCert = certs.CaCert
-		opts.UserName = s.UserName
-		opts.Password = &v.Password
-	}
+	v.setAuthentication(&opts.DatabaseOptions, s.UserName, &v.Password, certs, v.shouldUseCertAuthentication())
 
 	return &opts
 }

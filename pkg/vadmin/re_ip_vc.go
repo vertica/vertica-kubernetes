@@ -91,18 +91,7 @@ func (v *VClusterOps) genReIPOptions(s *reip.Parms, certs *HTTPSCerts) vops.VReI
 		opts.ConfigurationParameters = s.ConfigurationParams
 	}
 
-	// auth options
-	if v.shouldUseCertAuthentication() {
-		opts.Key = certs.Key
-		opts.Cert = certs.Cert
-		opts.CaCert = certs.CaCert
-	} else {
-		opts.Key = certs.Key
-		opts.Cert = certs.Cert
-		opts.CaCert = certs.CaCert
-		opts.UserName = v.VDB.GetVerticaUser()
-		opts.Password = &v.Password
-	}
+	v.setAuthentication(&opts.DatabaseOptions, v.VDB.GetVerticaUser(), &v.Password, certs, v.shouldUseCertAuthentication())
 
 	// other options
 	opts.TrimReIPList = true

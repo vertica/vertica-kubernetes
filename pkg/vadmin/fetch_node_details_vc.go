@@ -58,7 +58,6 @@ func (v *VClusterOps) FetchNodeDetails(ctx context.Context, opts ...fetchnodedet
 	return nodesDetails[0], nil
 }
 
-//nolint:dupl
 func (v *VClusterOps) genFetchNodeDetailsOptions(s *fetchnodedetails.Parms, certs *HTTPSCerts) vops.VFetchNodesDetailsOptions {
 	opts := vops.VFetchNodesDetailsOptionsFactory()
 
@@ -67,18 +66,7 @@ func (v *VClusterOps) genFetchNodeDetailsOptions(s *fetchnodedetails.Parms, cert
 
 	opts.IPv6 = net.IsIPv6(s.InitiatorIP)
 
-	// auth options
-	if v.shouldUseCertAuthentication() {
-		opts.Key = certs.Key
-		opts.Cert = certs.Cert
-		opts.CaCert = certs.CaCert
-	} else {
-		opts.Key = certs.Key
-		opts.Cert = certs.Cert
-		opts.CaCert = certs.CaCert
-		opts.UserName = v.VDB.GetVerticaUser()
-		opts.Password = &v.Password
-	}
+	v.setAuthentication(&opts.DatabaseOptions, v.VDB.GetVerticaUser(), &v.Password, certs, v.shouldUseCertAuthentication())
 
 	return opts
 }
