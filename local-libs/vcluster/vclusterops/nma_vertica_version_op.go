@@ -312,7 +312,8 @@ func (op *nmaVerticaVersionOp) readVersion() error {
 
 		versionMap, err := op.parseAndCheckMapResponse(host, result.content)
 		if err != nil {
-			return fmt.Errorf("[%s] fail to parse result on host %s, details: %w", op.name, host, err)
+			op.stopFailSpinnerWithMessage("fail to parse result on host %s, skip version reading", host)
+			return nil
 		}
 
 		// the versionStr looks like
