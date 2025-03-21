@@ -80,7 +80,7 @@ jobs:
       uses: spilchen/switch-case-action@v2
       id: full_vertica_image
       with:
-        default: lyu2584/vertica_k8s_test_repo_public:20250307
+        default: docker.io/opentext/vertica-k8s-private:latest-test-master
         conditionals-with-values: |
           ${{ inputs.full_vertica_image != '' }} => ${{ inputs.full_vertica_image }}
 
@@ -271,7 +271,7 @@ jobs:
       uses: spilchen/switch-case-action@v2
       id: minimal_vertica_image
       with:
-        default: lyu2584/vertica_k8s_test_repo_public:20250307-minimal
+        default: docker.io/opentext/vertica-k8s-private:latest-minimal-master
         conditionals-with-values: |
           ${{ inputs.minimal_vertica_image != '' }} => ${{ inputs.minimal_vertica_image }}
 
