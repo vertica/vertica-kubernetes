@@ -167,7 +167,7 @@ func TestAggregateWorkloadReplayReportData(t *testing.T) {
 		replayData:           replayData,
 	}
 
-	expected := []workloadReplayReportData{
+	expected := []WorkloadReplayReportData{
 		{
 			Request:            query1,
 			OriginalDurationMS: 10,
