@@ -11,28 +11,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1
-kind: VerticaDB
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
 metadata:
-  name: v-create-3-node
-  annotations:
-    vertica.com/requeue-time: "5"
-    vertica.com/include-uid-in-path: false
-    vertica.com/mount-nma-certs: "true"
-    vertica.com/enable-tls-certs-rotation: "false"
-spec:
-  image: kustomize-vertica-image
-  communal: {}
-  initPolicy: CreateSkipPackageInstall
-  local:
-    dataPath: /my-data
-    depotPath: /my-data
-    requestSize: 100Mi
-  dbName: vertdb
-  subclusters:
-    - name: main
-      size: 3
-  certSecrets: []
-  imagePullSecrets: []
-  volumes: []
-  volumeMounts: []
+  name: integration-test-role
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: integration-test-rb

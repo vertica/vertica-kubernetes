@@ -19,6 +19,8 @@ metadata:
     vertica.com/ignore-cluster-lease: true
     vertica.com/requeue-time: "5"
     vertica.com/include-uid-in-path: false
+    vertica.com/mount-nma-certs: "true"
+    vertica.com/enable-tls-certs-rotation: "false"
 spec:
   image: kustomize-vertica-image
   communal: {}

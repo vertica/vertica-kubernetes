@@ -15,6 +15,9 @@ apiVersion: vertica.com/v1beta1
 kind: VerticaDB
 metadata:
   name: v-revive-multi-sc
+  annotations:
+    vertica.com/mount-nma-certs: "true"
+    vertica.com/enable-tls-certs-rotation: "false"
 spec:
   image: kustomize-vertica-image
   sidecars:
