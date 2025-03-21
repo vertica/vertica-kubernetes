@@ -126,9 +126,6 @@ func (c *CreateDBReconciler) execCmd(ctx context.Context, initiatorPod types.Nam
 	}
 	c.VRec.Event(c.Vdb, corev1.EventTypeNormal, events.CreateDBStart, "Starting create database")
 
-	vdbContext := vadmin.GetContextForVdb(c.Vdb.Namespace, c.Vdb.Name)
-	vdbContext.SetBoolValue(vadmin.UseTLSCert, false)
-
 	start := time.Now()
 	if res, errTwo := c.Dispatcher.CreateDB(ctx, opts...); verrors.IsReconcileAborted(res, err) {
 		c.Log.Info(fmt.Sprintf("libo: CreateDB failure, res - %+v , err - %+v", res, errTwo))
@@ -149,7 +146,6 @@ func (c *CreateDBReconciler) execCmd(ctx context.Context, initiatorPod types.Nam
 		if _, err := vk8s.MetaUpdate(ctx, c.VRec.Client, c.Vdb.ExtractNamespacedName(), c.Vdb, chgs); err != nil {
 			return ctrl.Result{}, err
 		}
-		vdbContext.SetBoolValue(vadmin.UseTLSCert, true)
 		c.Log.Info("TLS DDLs executed and TLS Cert configured")
 	}
 	sc := c.getFirstPrimarySubcluster()
