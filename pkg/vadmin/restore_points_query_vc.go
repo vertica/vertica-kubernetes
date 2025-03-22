@@ -62,10 +62,7 @@ func (v *VClusterOps) genRestorePointsOptions(s *showrestorepoints.Parms, certs 
 	opts.IPv6 = net.IsIPv6(s.InitiatorIP)
 	opts.ConfigurationParameters = s.ConfigurationParams
 
-	// auth options
-	opts.Key = certs.Key
-	opts.Cert = certs.Cert
-	opts.CaCert = certs.CaCert
+	v.setAuthentication(&opts.DatabaseOptions, v.VDB.GetVerticaUser(), &v.Password, certs)
 
 	// optional query filter options
 	opts.FilterOptions = s.FilterOptions

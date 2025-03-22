@@ -64,12 +64,7 @@ func (v *VClusterOps) genSaveRestorePointOptions(s *saverestorepoint.Params, cer
 	opts.Sandbox = s.Sandbox
 	opts.IPv6 = net.IsIPv6(s.InitiatorIP)
 
-	// auth options
-	opts.UserName = v.VDB.GetVerticaUser()
-	opts.Password = &v.Password
-	opts.Key = certs.Key
-	opts.Cert = certs.Cert
-	opts.CaCert = certs.CaCert
+	v.setAuthentication(&opts.DatabaseOptions, v.VDB.GetVerticaUser(), &v.Password, certs)
 
 	return opts
 }

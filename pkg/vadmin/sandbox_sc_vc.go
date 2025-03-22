@@ -70,12 +70,7 @@ func (v *VClusterOps) genSandboxSubclusterOptions(s *sandboxsc.Params, certs *HT
 		opts.NodeNameAddressMap = s.NodeNameAddressMap
 	}
 
-	// auth options
-	opts.UserName = v.VDB.GetVerticaUser()
-	opts.Password = &v.Password
-	opts.Key = certs.Key
-	opts.Cert = certs.Cert
-	opts.CaCert = certs.CaCert
+	v.setAuthentication(&opts.DatabaseOptions, v.VDB.GetVerticaUser(), &v.Password, certs)
 
 	return opts
 }

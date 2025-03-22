@@ -19,6 +19,7 @@ import (
 	"context"
 	"fmt"
 
+	vops "github.com/vertica/vcluster/vclusterops"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/cloud"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
@@ -82,4 +83,14 @@ func (v *VClusterOps) logFailure(cmd, genericFailureReason string, err error) (c
 		EVWriter:             v.EVWriter,
 	}
 	return evLogr.LogFailure(cmd, err)
+}
+
+func (v *VClusterOps) setAuthentication(opts *vops.DatabaseOptions, username string, password *string, certs *HTTPSCerts) {
+	opts.Key = certs.Key
+	opts.Cert = certs.Cert
+	opts.CaCert = certs.CaCert
+	if !v.VDB.IsCertRotationEnabled() {
+		opts.UserName = username
+		opts.Password = password
+	}
 }

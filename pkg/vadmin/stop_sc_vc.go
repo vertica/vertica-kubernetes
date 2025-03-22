@@ -26,7 +26,7 @@ import (
 // StopSubcluster will stop the subcluster hosts of a running Vertica db
 //
 //nolint:dupl
-func (v *VClusterOps) StopSubcluster(_ context.Context, opts ...stopsubcluster.Option) error {
+func (v *VClusterOps) StopSubcluster(ctx context.Context, opts ...stopsubcluster.Option) error {
 	v.setupForAPICall("StopSubcluster")
 	defer v.tearDownForAPICall()
 	v.Log.Info("Starting vcluster StopSubcluster")
@@ -35,9 +35,15 @@ func (v *VClusterOps) StopSubcluster(_ context.Context, opts ...stopsubcluster.O
 	s := stopsubcluster.Parms{}
 	s.Make(opts...)
 
+	// get the certs
+	certs, err := v.retrieveNMACerts(ctx)
+	if err != nil {
+		return err
+	}
+
 	// call vcluster-ops library to stop subcluster
-	vopts := v.genStopSubclusterOptions(&s)
-	err := v.VStopSubcluster(&vopts)
+	vopts := v.genStopSubclusterOptions(&s, certs)
+	err = v.VStopSubcluster(&vopts)
 	if err != nil {
 		v.Log.Error(err, "failed to stop a subcluster")
 		return err
@@ -47,7 +53,7 @@ func (v *VClusterOps) StopSubcluster(_ context.Context, opts ...stopsubcluster.O
 	return nil
 }
 
-func (v *VClusterOps) genStopSubclusterOptions(s *stopsubcluster.Parms) vops.VStopSubclusterOptions {
+func (v *VClusterOps) genStopSubclusterOptions(s *stopsubcluster.Parms, certs *HTTPSCerts) vops.VStopSubclusterOptions {
 	opts := vops.VStopSubclusterOptionsFactory()
 
 	opts.RawHosts = append(opts.RawHosts, s.InitiatorIP)
@@ -61,9 +67,7 @@ func (v *VClusterOps) genStopSubclusterOptions(s *stopsubcluster.Parms) vops.VSt
 	opts.DrainSeconds = s.DrainSeconds
 	opts.Force = s.Force
 
-	// auth options
-	opts.UserName = v.VDB.GetVerticaUser()
-	opts.Password = &v.Password
+	v.setAuthentication(&opts.DatabaseOptions, v.VDB.GetVerticaUser(), &v.Password, certs)
 
 	return opts
 }

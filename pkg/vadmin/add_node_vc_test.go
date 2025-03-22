@@ -23,6 +23,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	vops "github.com/vertica/vcluster/vclusterops"
+	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/test"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/addnode"
 	"k8s.io/apimachinery/pkg/types"
@@ -66,6 +67,9 @@ func (m *MockVClusterOps) VAddNode(options *vops.VAddNodeOptions) (vops.VCoordin
 	if !reflect.DeepEqual(options.ExpectedNodeNames, testExpectedNodeNames) {
 		return vdb, fmt.Errorf("fail to retrieve ExpectedNodeNames")
 	}
+	if options.Password == nil || *options.Password != TestPassword {
+		return vdb, fmt.Errorf("missing password")
+	}
 	return vdb, nil
 }
 
@@ -87,5 +91,8 @@ var _ = Describe("add_node_vc", func() {
 			opts = append(opts, addnode.WithHost(n, TestNewPodNames[i]))
 		}
 		Ω(dispatcher.AddNode(ctx, opts...)).Should(Succeed())
+		vapi.SetVDBForTLS(dispatcher.VDB)
+		err := dispatcher.AddNode(ctx, opts...)
+		Ω(err.Error()).Should(ContainSubstring("missing password"))
 	})
 })

@@ -151,14 +151,6 @@ func (m *MockVClusterOps) VerifyCommonOptions(options *vops.DatabaseOptions) err
 		return err
 	}
 
-	// verify auth options
-	if options.UserName != vapi.SuperUser {
-		return fmt.Errorf("failed to retrieve Vertica username")
-	}
-	if *options.Password != TestPassword {
-		return fmt.Errorf("failed to retrieve Vertica password")
-	}
-
 	return nil
 }
 

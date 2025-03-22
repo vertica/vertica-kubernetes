@@ -25,7 +25,7 @@ import (
 )
 
 // InstallPackages will install all packages under /opt/vertica/packages where Autoinstall is marked true
-func (v *VClusterOps) InstallPackages(_ context.Context, opts ...installpackages.Option) (*vops.InstallPackageStatus, error) {
+func (v *VClusterOps) InstallPackages(ctx context.Context, opts ...installpackages.Option) (*vops.InstallPackageStatus, error) {
 	v.setupForAPICall("InstallPackages")
 	defer v.tearDownForAPICall()
 	v.Log.Info("Starting vcluster InstallPackages")
@@ -34,8 +34,13 @@ func (v *VClusterOps) InstallPackages(_ context.Context, opts ...installpackages
 	s := installpackages.Parms{}
 	s.Make(opts...)
 
+	certs, err := v.retrieveNMACerts(ctx)
+	if err != nil {
+		return &vops.InstallPackageStatus{}, err
+	}
+
 	// call vcluster-ops library to install packages
-	vopts := v.genInstallPackagesOptions(&s)
+	vopts := v.genInstallPackagesOptions(&s, certs)
 	status, err := v.VInstallPackages(&vopts)
 	if status == nil {
 		status = &vops.InstallPackageStatus{}
@@ -51,7 +56,7 @@ func (v *VClusterOps) InstallPackages(_ context.Context, opts ...installpackages
 	return status, nil
 }
 
-func (v *VClusterOps) genInstallPackagesOptions(i *installpackages.Parms) vops.VInstallPackagesOptions {
+func (v *VClusterOps) genInstallPackagesOptions(i *installpackages.Parms, certs *HTTPSCerts) vops.VInstallPackagesOptions {
 	opts := vops.VInstallPackagesOptionsFactory()
 
 	opts.RawHosts = append(opts.RawHosts, i.InitiatorIP)
@@ -61,9 +66,7 @@ func (v *VClusterOps) genInstallPackagesOptions(i *installpackages.Parms) vops.V
 	opts.DBName = v.VDB.Spec.DBName
 	opts.IsEon = v.VDB.IsEON()
 
-	// auth options
-	opts.UserName = v.VDB.GetVerticaUser()
-	opts.Password = &v.Password
+	v.setAuthentication(&opts.DatabaseOptions, v.VDB.GetVerticaUser(), &v.Password, certs)
 
 	// force reinstall option
 	opts.ForceReinstall = i.ForceReinstall

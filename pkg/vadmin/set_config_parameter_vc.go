@@ -57,8 +57,6 @@ func (v *VClusterOps) genSetConfigurationParameterOptions(s *setconfigparameter.
 
 	opts.RawHosts = append(opts.RawHosts, s.InitiatorIP)
 	opts.DBName = v.VDB.Spec.DBName
-	opts.UserName = s.UserName
-	opts.Password = &v.Password
 
 	opts.Sandbox = s.Sandbox
 	opts.ConfigParameter = s.ConfigParameter
@@ -68,10 +66,7 @@ func (v *VClusterOps) genSetConfigurationParameterOptions(s *setconfigparameter.
 	opts.IsEon = v.VDB.IsEON()
 	opts.IPv6 = net.IsIPv6(s.InitiatorIP)
 
-	// auth options
-	opts.Key = certs.Key
-	opts.Cert = certs.Cert
-	opts.CaCert = certs.CaCert
+	v.setAuthentication(&opts.DatabaseOptions, s.UserName, &v.Password, certs)
 
 	return &opts
 }

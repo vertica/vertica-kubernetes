@@ -23,6 +23,7 @@ import (
 	. "github.com/onsi/gomega"
 	vops "github.com/vertica/vcluster/vclusterops"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
+	"github.com/vertica/vertica-kubernetes/pkg/test"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/stopdb"
 )
 
@@ -59,6 +60,9 @@ var _ = Describe("stop_db_vc", func() {
 	It("should call vcluster-ops library with stop_db task", func() {
 		dispatcher := mockVClusterOpsDispatcher()
 		dispatcher.VDB.Spec.DBName = TestDBName
+		dispatcher.VDB.Spec.NMATLSSecret = "stop-db-vc-secret"
+		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.NMATLSSecret)
+		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.NMATLSSecret)
 		opts := []stopdb.Option{
 			stopdb.WithInitiator(dispatcher.VDB.ExtractNamespacedName(), TestInitiatorIP),
 			stopdb.WithSandbox(sbName),

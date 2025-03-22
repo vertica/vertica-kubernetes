@@ -22,6 +22,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	vops "github.com/vertica/vcluster/vclusterops"
+	"github.com/vertica/vertica-kubernetes/pkg/test"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/stopsubcluster"
 )
 
@@ -53,6 +54,9 @@ var _ = Describe("stop_subcluster_vc", func() {
 	It("should call vcluster-ops library with stop_subcluster task", func() {
 		dispatcher := mockVClusterOpsDispatcher()
 		dispatcher.VDB.Spec.DBName = TestDBName
+		dispatcher.VDB.Spec.NMATLSSecret = "stop-subcluster-vc-secret"
+		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.NMATLSSecret)
+		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.NMATLSSecret)
 		opts := []stopsubcluster.Option{
 			stopsubcluster.WithInitiator(TestInitiatorIP),
 			stopsubcluster.WithSCName(scName),

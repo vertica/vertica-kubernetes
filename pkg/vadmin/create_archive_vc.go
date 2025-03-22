@@ -32,9 +32,15 @@ func (v *VClusterOps) CreateArchive(ctx context.Context, opts ...createarchive.O
 	s := createarchive.Params{}
 	s.Make(opts...)
 
+	// get the certs
+	certs, err := v.retrieveNMACerts(ctx)
+	if err != nil {
+		return err
+	}
+
 	// call vclusterOps library to sandbox a subcluster
-	vopts := v.genCreateArchiveOptions(&s)
-	err := v.VCreateArchive(&vopts)
+	vopts := v.genCreateArchiveOptions(&s, certs)
+	err = v.VCreateArchive(&vopts)
 	if err != nil {
 		return err
 	}
@@ -44,7 +50,7 @@ func (v *VClusterOps) CreateArchive(ctx context.Context, opts ...createarchive.O
 	return nil
 }
 
-func (v *VClusterOps) genCreateArchiveOptions(s *createarchive.Params) vops.VCreateArchiveOptions {
+func (v *VClusterOps) genCreateArchiveOptions(s *createarchive.Params, certs *HTTPSCerts) vops.VCreateArchiveOptions {
 	opts := vops.VCreateArchiveFactory()
 
 	opts.DBName = v.VDB.Spec.DBName
@@ -55,9 +61,7 @@ func (v *VClusterOps) genCreateArchiveOptions(s *createarchive.Params) vops.VCre
 	opts.Sandbox = s.Sandbox
 	opts.NumRestorePoint = s.NumRestorePoints
 
-	// auth options
-	opts.UserName = v.VDB.GetVerticaUser()
-	opts.Password = &v.Password
+	v.setAuthentication(&opts.DatabaseOptions, v.VDB.GetVerticaUser(), &v.Password, certs)
 
 	return opts
 }

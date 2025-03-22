@@ -22,6 +22,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	vops "github.com/vertica/vcluster/vclusterops"
+	"github.com/vertica/vertica-kubernetes/pkg/test"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/fetchnodedetails"
 )
 
@@ -48,6 +49,10 @@ var _ = Describe("fetch_node_details_vc", func() {
 	It("should call vcluster-ops library with fetch_node_details task", func() {
 		dispatcher := mockVClusterOpsDispatcher()
 		dispatcher.VDB.Spec.DBName = TestDBName
+		dispatcher.VDB.Spec.NMATLSSecret = "fetch-node-details-vc-secret"
+		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.NMATLSSecret)
+		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.NMATLSSecret)
+
 		_, err := dispatcher.FetchNodeDetails(ctx,
 			fetchnodedetails.WithInitiator("192.168.1.1"),
 		)

@@ -84,12 +84,7 @@ func (v *VClusterOps) genStartDBOptions(s *startdb.Parms, certs *HTTPSCerts) (vo
 		opts.CommunalStorageLocation = s.CommunalPath
 	}
 
-	// auth options
-	opts.Key = certs.Key
-	opts.Cert = certs.Cert
-	opts.CaCert = certs.CaCert
-	opts.UserName = v.VDB.GetVerticaUser()
-	opts.Password = &v.Password
+	v.setAuthentication(&opts.DatabaseOptions, v.VDB.GetVerticaUser(), &v.Password, certs)
 
 	// timeout option
 	vdbTimeout := v.VDB.GetRestartTimeout()
