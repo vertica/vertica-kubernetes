@@ -66,7 +66,7 @@ func (v *VClusterOps) genFetchNodeDetailsOptions(s *fetchnodedetails.Parms, cert
 
 	opts.IPv6 = net.IsIPv6(s.InitiatorIP)
 
-	v.setAuthentication(&opts.DatabaseOptions, v.VDB.GetVerticaUser(), &v.Password, certs, v.shouldUseCertAuthentication())
+	v.setAuthentication(&opts.DatabaseOptions, v.VDB.GetVerticaUser(), &v.Password, certs)
 
 	return opts
 }

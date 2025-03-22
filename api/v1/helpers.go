@@ -92,23 +92,16 @@ func (v *VerticaDB) FindTransientSubcluster() *Subcluster {
 	return nil
 }
 
+func SetVDBForTLS(v *VerticaDB) {
+	v.Annotations[vmeta.EnableTLSCertsRotationAnnotation] = trueString
+	v.Annotations[vmeta.MountNMACertsAnnotation] = "false"
+	v.Annotations[vmeta.VersionAnnotation] = TLSCertRotationMinVersion
+	v.Annotations[vmeta.VClusterOpsAnnotation] = trueString
+}
+
 // MakeVDB is a helper that constructs a fully formed VerticaDB struct using the sample name.
-// The version used does not support TLS Certificate rotation.
 // This is intended for test purposes.
 func MakeVDB() *VerticaDB {
-	return MakeVersionedVDB(LegacyVersion)
-}
-
-// MakeMTLSVDB is a helper that constructs a fully formed VerticaDB struct using the sample name.
-// The version used supports TLS Certificate rotation.
-// This is intended for test purposes.
-func MakeMTLSVDB() *VerticaDB {
-	return MakeVersionedVDB(TLSCertRotationMinVersion)
-}
-
-// MakeVDB is a helper that constructs a fully formed VerticaDB struct using the sample name.
-// This is intended for test purposes.
-func MakeVersionedVDB(verticaVersion string) *VerticaDB {
 	nm := MakeVDBName()
 	replicas := int32(1)
 	return &VerticaDB{
@@ -122,7 +115,7 @@ func MakeVersionedVDB(verticaVersion string) *VerticaDB {
 			UID:       "abcdef-ghi",
 			Annotations: map[string]string{
 				vmeta.VClusterOpsAnnotation: vmeta.VClusterOpsAnnotationFalse,
-				vmeta.VersionAnnotation:     verticaVersion,
+				vmeta.VersionAnnotation:     "v23.4.0",
 			},
 		},
 		Spec: VerticaDBSpec{
@@ -811,6 +804,23 @@ func (v *VerticaDB) GetCreateDBNodeStartTimeout() int {
 // GetShutdownDrainSeconds returns time in seconds to wait for a subcluster/database users' disconnection
 func (v *VerticaDB) GetShutdownDrainSeconds() int {
 	return vmeta.GetShutdownDrainSeconds(v.Annotations)
+}
+
+// IsCertRotationEnabled returns true if the version supports certs and
+// cert rotation is enabled.
+func (v *VerticaDB) IsCertRotationEnabled() bool {
+	if !vmeta.UseVClusterOps(v.Annotations) {
+		return false
+	}
+	vinf, hasVersion := v.MakeVersionInfo()
+	// Assume we are running a version that does not support cert rotation
+	// if version is not present.
+	if !hasVersion {
+		return true
+	}
+	return vinf.IsEqualOrNewer(TLSCertRotationMinVersion) &&
+		!vmeta.UseNMACertsMount(v.Annotations) &&
+		vmeta.EnableTLSCertsRotation(v.Annotations)
 }
 
 // IsNMASideCarDeploymentEnabled returns true if the conditions to run NMA

@@ -76,7 +76,7 @@ func (v *VClusterOps) genAlterSubclusterTypeOptions(s *altersc.Parms, certs *HTT
 	opts.SCType = vops.SubclusterType(s.SCType)
 	opts.Sandbox = s.Sandbox
 
-	v.setAuthentication(&opts.DatabaseOptions, v.VDB.GetVerticaUser(), &v.Password, certs, v.shouldUseCertAuthentication())
+	v.setAuthentication(&opts.DatabaseOptions, v.VDB.GetVerticaUser(), &v.Password, certs)
 
 	return opts
 }

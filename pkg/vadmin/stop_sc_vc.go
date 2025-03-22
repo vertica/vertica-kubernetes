@@ -67,7 +67,7 @@ func (v *VClusterOps) genStopSubclusterOptions(s *stopsubcluster.Parms, certs *H
 	opts.DrainSeconds = s.DrainSeconds
 	opts.Force = s.Force
 
-	v.setAuthentication(&opts.DatabaseOptions, v.VDB.GetVerticaUser(), &v.Password, certs, v.shouldUseCertAuthentication())
+	v.setAuthentication(&opts.DatabaseOptions, v.VDB.GetVerticaUser(), &v.Password, certs)
 
 	return opts
 }

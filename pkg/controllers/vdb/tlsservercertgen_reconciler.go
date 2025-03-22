@@ -124,9 +124,10 @@ func (h *TLSServerCertGenReconciler) createSecret(secretFieldName, secretName st
 	caCert security.Certificate) (*corev1.Secret, error) {
 	secret := corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace:   h.Vdb.Namespace,
-			Annotations: builder.MakeAnnotationsForObject(h.Vdb),
-			Labels:      builder.MakeCommonLabels(h.Vdb, nil, false, false),
+			Namespace:       h.Vdb.Namespace,
+			Annotations:     builder.MakeAnnotationsForObject(h.Vdb),
+			Labels:          builder.MakeCommonLabels(h.Vdb, nil, false, false),
+			OwnerReferences: []metav1.OwnerReference{h.Vdb.GenerateOwnerReference()},
 		},
 		Type: corev1.SecretTypeTLS,
 		Data: map[string][]byte{

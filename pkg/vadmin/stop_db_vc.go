@@ -75,7 +75,7 @@ func (v *VClusterOps) genStopDBOptions(s *stopdb.Parms, certs *HTTPSCerts) vops.
 	// not both
 	opts.MainCluster = s.Sandbox == vapi.MainCluster
 
-	v.setAuthentication(&opts.DatabaseOptions, v.VDB.GetVerticaUser(), &v.Password, certs, v.shouldUseCertAuthentication())
+	v.setAuthentication(&opts.DatabaseOptions, v.VDB.GetVerticaUser(), &v.Password, certs)
 
 	return opts
 }

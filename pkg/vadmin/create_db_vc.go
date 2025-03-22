@@ -37,7 +37,6 @@ func (v *VClusterOps) CreateDB(ctx context.Context, opts ...createdb.Option) (ct
 
 	// get the certs
 	certs, err := v.retrieveNMACerts(ctx)
-	v.Log.Info("libo: create db, cert - " + certs.Cert + " ca cert - " + certs.CaCert + " key - " + certs.Key)
 	if err != nil {
 		return ctrl.Result{}, err
 	}

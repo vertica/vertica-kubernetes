@@ -6,9 +6,7 @@ status:
   containerStatuses:
   - name: nma
     ready: true
-    restartCount: 2
     started: true
   - name: server
     ready: true
-    restartCount: 0
     started: true

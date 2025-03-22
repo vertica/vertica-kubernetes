@@ -38,8 +38,6 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/describedb"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/revivedb"
 	config "github.com/vertica/vertica-kubernetes/pkg/vdbconfig"
-	"github.com/vertica/vertica-kubernetes/pkg/version"
-	"github.com/vertica/vertica-kubernetes/pkg/vk8s"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 	corev1 "k8s.io/api/core/v1"
@@ -59,7 +57,6 @@ type ReviveDBReconciler struct {
 	Planr               *reviveplanner.Planner
 	Dispatcher          vadmin.Dispatcher
 	ConfigurationParams *vtypes.CiMap
-	VInf                *version.Info
 }
 
 // MakeReviveDBReconciler will build a ReviveDBReconciler object
@@ -93,16 +90,6 @@ func (r *ReviveDBReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ct
 		if err := r.hasCompatibleVersionForRestore(); err != nil {
 			return ctrl.Result{}, err
 		}
-	}
-
-	var err error
-	r.VInf, err = r.Vdb.MakeVersionInfoCheck()
-	if err != nil {
-		// The version should be in the VerticaDB. Although it could be missing
-		// if we have a cached copy of the VerticaDB that is from prior to the
-		// annotation update. Requeue to force a new reconciliation to read
-		// latest copy.
-		return ctrl.Result{}, err
 	}
 
 	// The remaining revive_db logic is driven from GenericDatabaseInitializer.
@@ -146,23 +133,9 @@ func (r *ReviveDBReconciler) execCmd(ctx context.Context, initiatorPod types.Nam
 	hostList []string, podNames []types.NamespacedName) (ctrl.Result, error) {
 	opts := r.genReviveOpts(initiatorPod, hostList, podNames)
 	r.VRec.Event(r.Vdb, corev1.EventTypeNormal, events.ReviveDBStart, "Starting revive database")
-	vdbContext := vadmin.GetContextForVdb(r.Vdb.Namespace, r.Vdb.Name)
-	vdbContext.SetBoolValue(vadmin.UseTLSCert, false)
 	start := time.Now()
 	if res, err := r.Dispatcher.ReviveDB(ctx, opts...); verrors.IsReconcileAborted(res, err) {
 		return res, err
-	}
-	if r.VInf.IsEqualOrNewer(vapi.TLSCertRotationMinVersion) && vmeta.EnableTLSCertsRotation(r.Vdb.Annotations) {
-		chgs := vk8s.MetaChanges{
-			NewAnnotations: map[string]string{
-				vmeta.NMATLSSECRETAnnotation: r.Vdb.Spec.NMATLSSecret,
-			},
-		}
-		if _, err := vk8s.MetaUpdate(ctx, r.VRec.Client, r.Vdb.ExtractNamespacedName(), r.Vdb, chgs); err != nil {
-			return ctrl.Result{}, err
-		}
-		vdbContext.SetBoolValue(vadmin.UseTLSCert, true)
-		r.Log.Info("TLS Cert configured after revival")
 	}
 
 	r.VRec.Eventf(r.Vdb, corev1.EventTypeNormal, events.ReviveDBSucceeded,

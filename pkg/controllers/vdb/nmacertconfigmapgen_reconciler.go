@@ -42,7 +42,7 @@ func MakeNMACertConfigMapGenReconciler(vdbrecon *VerticaDBReconciler, log logr.L
 	return &NMACertConfigMapGenReconciler{
 		VRec: vdbrecon,
 		Vdb:  vdb,
-		Log:  log.WithName("TLSCertConfigMapGenReconciler"),
+		Log:  log.WithName("NMACertConfigMapGenReconciler"),
 	}
 }
 

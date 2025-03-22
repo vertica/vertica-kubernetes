@@ -60,7 +60,7 @@ func (v *VClusterOps) genRemoveNodeOptions(s *removenode.Parms, certs *HTTPSCert
 		opts.DepotPrefix = v.VDB.Spec.Local.DepotPath
 	}
 
-	v.setAuthentication(&opts.DatabaseOptions, v.VDB.GetVerticaUser(), &v.Password, certs, v.shouldUseCertAuthentication())
+	v.setAuthentication(&opts.DatabaseOptions, v.VDB.GetVerticaUser(), &v.Password, certs)
 
 	return opts
 }

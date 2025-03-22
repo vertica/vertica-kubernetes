@@ -60,7 +60,7 @@ func (v *VClusterOps) genPollSubclusterStateOptions(s *pollscstate.Params, certs
 	opts.SCName = s.Subcluster
 	opts.Timeout = s.Timeout
 
-	v.setAuthentication(&opts.DatabaseOptions, v.VDB.GetVerticaUser(), &v.Password, certs, v.shouldUseCertAuthentication())
+	v.setAuthentication(&opts.DatabaseOptions, v.VDB.GetVerticaUser(), &v.Password, certs)
 
 	return &opts
 }

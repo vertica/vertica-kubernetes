@@ -63,7 +63,7 @@ func (v *VClusterOps) genRenameSubclusterOptions(s *renamesc.Params, certs *HTTP
 	opts.SCName = s.Subcluster
 	opts.NewSCName = s.NewSubclusterName
 
-	v.setAuthentication(&opts.DatabaseOptions, v.VDB.GetVerticaUser(), &v.Password, certs, v.shouldUseCertAuthentication())
+	v.setAuthentication(&opts.DatabaseOptions, v.VDB.GetVerticaUser(), &v.Password, certs)
 
 	return opts
 }

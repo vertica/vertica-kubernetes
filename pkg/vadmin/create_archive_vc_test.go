@@ -46,7 +46,7 @@ var _ = Describe("create_archive_vc", func() {
 	ctx := context.Background()
 
 	It("should call vclusterOps library with create_archive task", func() {
-		dispatcher := mockMTLSVClusterOpsDispatcher()
+		dispatcher := mockVClusterOpsDispatcher()
 		dispatcher.VDB.Spec.DBName = TestDBName
 		dispatcher.VDB.Spec.NMATLSSecret = "create-archieve-vc-secret"
 		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.NMATLSSecret)

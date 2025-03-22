@@ -63,7 +63,7 @@ func (v *VClusterOps) genGetConfigurationParameterOptions(s *getconfigparameter.
 	opts.IsEon = v.VDB.IsEON()
 	opts.IPv6 = net.IsIPv6(s.InitiatorIP)
 
-	v.setAuthentication(&opts.DatabaseOptions, v.VDB.GetVerticaUser(), &v.Password, certs, v.shouldUseCertAuthentication())
+	v.setAuthentication(&opts.DatabaseOptions, v.VDB.GetVerticaUser(), &v.Password, certs)
 
 	return &opts
 }

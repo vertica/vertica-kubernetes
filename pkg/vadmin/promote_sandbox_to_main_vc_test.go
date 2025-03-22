@@ -52,7 +52,7 @@ var _ = Describe("promote_sandbox_to_main_vc", func() {
 	ctx := context.Background()
 
 	It("should call vclusterOps library with promote_sandbox_to_main task", func() {
-		dispatcher := mockMTLSVClusterOpsDispatcher()
+		dispatcher := mockVClusterOpsDispatcher()
 		dispatcher.VDB.Spec.DBName = TestDBName
 		dispatcher.VDB.Spec.NMATLSSecret = TestNMATLSSecret
 		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.NMATLSSecret)
