@@ -29,7 +29,10 @@ import (
 
 type NMAHealthOpResponse map[string]string
 
-const InvalChar = "invalid character in "
+const (
+	InvalChar       = "invalid character in "
+	doesntExistPath = "/doesnt/exist"
+)
 
 func redirectLog() (*bytes.Buffer, vlog.Printer) {
 	// redirect log to a local bytes.Buffer
@@ -39,6 +42,15 @@ func redirectLog() (*bytes.Buffer, vlog.Printer) {
 	vlogger.Log = log
 
 	return &logBuffer, vlogger
+}
+
+func createTestFile(t *testing.T, path string, permissions os.FileMode) {
+	file, err := os.Create(path)
+	assert.NoError(t, err)
+	defer file.Close()
+
+	err = os.Chmod(path, permissions)
+	assert.NoError(t, err)
 }
 
 func TestGetJSONLogErrors(t *testing.T) {
@@ -239,6 +251,54 @@ func TestValidateUsernamePassword(t *testing.T) {
 	// when user name is not empty and use password, the check should succeed
 	err = ValidateUsernameAndPassword("mock_op", true, "dkr_dbadmin")
 	assert.NoError(t, err)
+}
+
+func TestFileExists(t *testing.T) {
+	tempDir := t.TempDir()
+
+	fileExists := FileExists(tempDir)
+	assert.Equal(t, true, fileExists)
+
+	fileExists = FileExists(tempDir + doesntExistPath)
+	assert.Equal(t, false, fileExists)
+}
+
+func TestCanReadAccessPath(t *testing.T) {
+	// Create a file without read access
+	tempDir := t.TempDir()
+	tempFile := tempDir + "/no-read-access.txt"
+	createTestFile(t, tempFile, os.FileMode(0300))
+
+	// File exists but doesn't have read access
+	pathAccess := CanReadAccessPath(tempFile)
+	assert.Equal(t, NoReadPerm, pathAccess)
+
+	// File exists and can be read
+	pathAccess = CanReadAccessPath(tempDir)
+	assert.Equal(t, FileExist, pathAccess)
+
+	// File doesn't exist
+	pathAccess = CanReadAccessPath(tempDir + doesntExistPath)
+	assert.Equal(t, FileNotExist, pathAccess)
+}
+
+func TestCanWriteAccessPath(t *testing.T) {
+	// Create a file without write access
+	tempDir := t.TempDir()
+	tempFile := tempDir + "/readonly.txt"
+	createTestFile(t, tempFile, os.FileMode(0400))
+
+	// File exists but doesn't have write access
+	pathAccess := CanWriteAccessPath(tempFile)
+	assert.Equal(t, NoWritePerm, pathAccess)
+
+	// File exists and can be written to
+	pathAccess = CanWriteAccessPath(tempDir)
+	assert.Equal(t, FileExist, pathAccess)
+
+	// File doesn't exist
+	pathAccess = CanWriteAccessPath(tempDir + doesntExistPath)
+	assert.Equal(t, FileNotExist, pathAccess)
 }
 
 func TestNewErrorFormatVerb(t *testing.T) {

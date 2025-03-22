@@ -736,6 +736,31 @@ var _ = Describe("builder", func() {
 		Ω(configMap.Data[NMASecretNamespaceEnv]).Should(Equal(vdb.Namespace))
 	})
 
+	It("should set scaledobject annotation and prometheus unsafessl field", func() {
+		vas := vapi.MakeVASWithMetrics()
+		vas.Spec.CustomAutoscaler.Hpa = nil
+		vas.Spec.CustomAutoscaler.Type = vapi.ScaledObject
+		vas.Spec.CustomAutoscaler.ScaledObject = vapi.MakeScaledObjectSpec()
+		vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].Prometheus.UnsafeSsl = true
+		const ann1 = "ann1"
+		const ann2 = "ann2"
+		const val1 = "val1"
+		const val2 = "val2"
+		vas.Annotations = map[string]string{
+			ann1:                               val1,
+			ann2:                               val2,
+			vmeta.PausingAutoscalingAnnotation: "true",
+			vmeta.PausingAutoscalingReplicasAnnotation: "1",
+		}
+		nm := names.GenScaledObjectName(vas)
+		sa := BuildScaledObject(nm, vas)
+		Ω(len(sa.Annotations)).Should(Equal(4))
+		Ω(sa.Annotations[ann1]).Should(Equal(val1))
+		Ω(sa.Annotations[ann2]).Should(Equal(val2))
+		Ω(sa.Annotations[kedaPausingAutoscalingAnnotation]).Should(Equal("true"))
+		Ω(sa.Annotations[kedaPausingAutoscalingReplicasAnnotation]).Should(Equal("1"))
+		Ω(sa.Spec.Triggers[0].Metadata["unsafeSsl"]).Should(Equal(vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].GetUnsafeSslStr()))
+	})
 })
 
 func getFirstSSHSecretVolumeMountIndex(c *v1.Container) (int, bool) {

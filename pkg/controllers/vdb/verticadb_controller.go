@@ -196,7 +196,7 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		// Handle upgrade actions for any k8s objects created in prior versions
 		// of the operator.
 		MakeUpgradeOperatorReconciler(r, log, vdb),
-		// use the TLS secrets used by the NMA service, https service and clientserver
+		// use the TLS secrets used by the NMA service
 		MakeTLSServerCertGenReconciler(r, log, vdb),
 		// Create a ConfigMap to store secret names for all tls certs
 		MakeNMACertConfigMapGenReconciler(r, log, vdb),

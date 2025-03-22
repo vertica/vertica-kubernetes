@@ -29,7 +29,6 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
-	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -1383,18 +1382,50 @@ func (v *VerticaAutoscaler) GetMetricMap() map[string]*MetricDefinition {
 	return mMap
 }
 
-func IsK8sSecretFound(ctx context.Context, vdb *VerticaDB, k8sClient client.Client, secretName *string,
-	secret *corev1.Secret) (bool, error) {
-	nm := types.NamespacedName{
-		Name:      *secretName,
-		Namespace: vdb.GetNamespace(),
+// GetMetricTarget returns the autoscalingv2 metric target
+func GetMetricTarget(metric *autoscalingv2.MetricSpec) *autoscalingv2.MetricTarget {
+	if metric == nil {
+		return nil
 	}
-	err := k8sClient.Get(ctx, nm, secret)
-	if k8sErrors.IsNotFound(err) {
-		return false, nil
-	} else if err != nil {
-		return false, err
-	} else {
-		return true, nil
+	switch metric.Type {
+	case autoscalingv2.PodsMetricSourceType:
+		if metric.Pods != nil {
+			return &metric.Pods.Target
+		}
+	case autoscalingv2.ObjectMetricSourceType:
+		if metric.Object != nil {
+			return &metric.Object.Target
+		}
+	case autoscalingv2.ExternalMetricSourceType:
+		if metric.External != nil {
+			return &metric.External.Target
+		}
+	case autoscalingv2.ResourceMetricSourceType:
+		if metric.Resource != nil {
+			return &metric.Resource.Target
+		}
+	case autoscalingv2.ContainerResourceMetricSourceType:
+		if metric.ContainerResource != nil {
+			return &metric.ContainerResource.Target
+		}
 	}
+	return nil
+}
+
+func convertToBool(src string) bool {
+	converted := false
+	_, err := strconv.ParseBool(src)
+	if err == nil {
+		converted = true
+	}
+	return converted
+}
+
+func convertToInt(src string) (int, bool) {
+	converted := false
+	varAsInt, err := strconv.ParseInt(src, 10, 0)
+	if err == nil {
+		converted = true
+	}
+	return int(varAsInt), converted
 }

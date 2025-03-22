@@ -21,6 +21,11 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/opcfg"
 )
 
+const (
+	kedaPausingAutoscalingAnnotation         = "autoscaling.keda.sh/paused"
+	kedaPausingAutoscalingReplicasAnnotation = "autoscaling.keda.sh/paused-replicas"
+)
+
 // MakeSubclusterLabels returns the labels added for the subcluster
 func MakeSubclusterLabels(sc *vapi.Subcluster) map[string]string {
 	m := map[string]string{
@@ -186,6 +191,23 @@ func MakeAnnotationsForSandboxConfigMap(vdb *vapi.VerticaDB, forUpgrade bool) ma
 	}
 	if ver, ok := vdb.Annotations[vmeta.VersionAnnotation]; ok {
 		annotations[vmeta.VersionAnnotation] = ver
+	}
+	return annotations
+}
+
+// MakeAnnotationsForScaledObject builds the list of annotations that are included
+// in the scaledobject.
+func MakeAnnotationsForScaledObject(vas *vapi.VerticaAutoscaler) map[string]string {
+	annotations := make(map[string]string, len(vas.Annotations))
+	for k, v := range vas.Annotations {
+		key := k
+		if key == vmeta.PausingAutoscalingAnnotation {
+			key = kedaPausingAutoscalingAnnotation
+		}
+		if key == vmeta.PausingAutoscalingReplicasAnnotation {
+			key = kedaPausingAutoscalingReplicasAnnotation
+		}
+		annotations[key] = v
 	}
 	return annotations
 }

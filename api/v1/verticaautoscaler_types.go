@@ -54,7 +54,7 @@ type VerticaAutoscalerSpec struct {
 	ServiceName string `json:"serviceName,omitempty"`
 
 	// +kubebuilder:validation:Optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:fieldDependency:scalingGranularity:Subcluster"
 	// When the scaling granularity is Subcluster, this field defines a template
 	// to use for when a new subcluster needs to be created.  If size is 0, then
 	// the operator will use an existing subcluster to use as the template.  If
@@ -207,13 +207,13 @@ type ScaleTrigger struct {
 	MetricType autoscalingv2.MetricTargetType `json:"metricType,omitempty"`
 
 	// +kubebuilder:validation:Optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:fieldDependency:customAutoscaler.scaledObject.metrics[0].type:prometheus"
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// The detail about how to fetch metrics from Prometheus and scale workloads based on them.
 	// if type is "prometheus", this must be set.
 	Prometheus *PrometheusSpec `json:"prometheus,omitempty"`
 
 	// +kubebuilder:validation:Optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:fieldDependency:customAutoscaler.scaledObject.metrics[0].type:cpu","urn:alm:descriptor:com.tectonic.ui:fieldDependency:customAutoscaler.scaledObject.metrics[0].type:memory"}
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// The detail about the target value and container name. if type is cpu/memory
 	// this must be set.
 	Resource *CPUMemorySpec `json:"resource,omitempty"`
@@ -281,9 +281,16 @@ type PrometheusSpec struct {
 
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:default=false
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:booleanSwitch","urn:alm:descriptor:com.tectonic.ui:advanced"}
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:booleanSwitch"
 	// Used for skipping certificate check e.g: using self-signed certs.
 	UnsafeSsl bool `json:"unsafeSsl,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:default=false
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:booleanSwitch"
+	// Enables caching of metric values during polling interval. It is Used to control whether the autoscaler should use cached metrics for scaling
+	// decisions rather than querying the external metric provider (e.g., Prometheus) on each scale event. This feature is not supported for cpu and memory.
+	UseCachedMetrics bool `json:"useCachedMetrics,omitempty"`
 }
 
 type CPUMemorySpec struct {
@@ -299,12 +306,6 @@ type CPUMemorySpec struct {
 
 // MetricDefinition defines increment and metric to be used for autoscaling
 type MetricDefinition struct {
-
-	// +kubebuilder:validation:Optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec
-	// +kubebuilder:Minimum:=0
-	// The value used to increase the threshold after a scale out or a scale in.
-	ThresholdAdjustmentValue int `json:"thresholdAdjustmentValue,omitempty"`
 
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
@@ -504,6 +505,29 @@ func MakeVASWithScaledObject() *VerticaAutoscaler {
 	return vas
 }
 
+// MakeVASWithScaledObjectPrometheus is a helper that constructs a fully formed VerticaAutoscaler struct with Prometheus.
+// This is intended for test purposes.
+func MakeVASWithScaledObjectPrometheus() *VerticaAutoscaler {
+	vas := MakeVAS()
+	minRep := int32(3)
+	maxRep := int32(6)
+	vas.Spec.CustomAutoscaler = &CustomAutoscalerSpec{
+		Type: ScaledObject,
+		ScaledObject: &ScaledObjectSpec{
+			MinReplicas: &minRep,
+			MaxReplicas: &maxRep,
+			Metrics: []ScaleTrigger{
+				{
+					Type:       PrometheusTriggerType,
+					Prometheus: &PrometheusSpec{},
+					MetricType: autoscalingv2.AverageValueMetricType,
+				},
+			},
+		},
+	}
+	return vas
+}
+
 // CanUseTemplate returns true if we can use the template provided in the spec
 func (v *VerticaAutoscaler) CanUseTemplate() bool {
 	return v.Spec.Template.Size > 0
@@ -524,6 +548,11 @@ func (v *VerticaAutoscaler) IsCustomMetricsEnabled() bool {
 // IsHpaEnabled returns true if custom autoscaling with hpa is set.
 func (v *VerticaAutoscaler) IsHpaEnabled() bool {
 	return v.IsCustomAutoScalerSet() && v.Spec.CustomAutoscaler.Type == HPA && v.Spec.CustomAutoscaler.Hpa != nil
+}
+
+// IsHpaType returns true if custom autoscaler type is HPA.
+func (v *VerticaAutoscaler) IsHpaType() bool {
+	return v.IsCustomAutoScalerSet() && v.Spec.CustomAutoscaler.Type == HPA
 }
 
 // IsScaledObjectEnabled returns true if custom autoscaling with scaledObject is set.
