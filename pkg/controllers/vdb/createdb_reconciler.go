@@ -126,18 +126,16 @@ func (c *CreateDBReconciler) execCmd(ctx context.Context, initiatorPod types.Nam
 		return ctrl.Result{}, err
 	}
 	c.VRec.Event(c.Vdb, corev1.EventTypeNormal, events.CreateDBStart, "Starting create database")
-
 	start := time.Now()
-	if res, errTwo := c.Dispatcher.CreateDB(ctx, opts...); verrors.IsReconcileAborted(res, err) {
-		c.Log.Info(fmt.Sprintf("libo: CreateDB failure, res - %+v , err - %+v", res, errTwo))
-		return res, errTwo
+	if res, err := c.Dispatcher.CreateDB(ctx, opts...); verrors.IsReconcileAborted(res, err) {
+		return res, err
 	}
 	if c.Vdb.IsCertRotationEnabled() {
-		_, stderr, errThree := c.PRunner.ExecInPod(ctx, initiatorPod, names.ServerContainer,
+		_, stderr, err2 := c.PRunner.ExecInPod(ctx, initiatorPod, names.ServerContainer,
 			"vsql", "-f", PostDBCreateSQLFileVclusterOps)
-		if errThree != nil || strings.Contains(stderr, "Error") {
-			c.Log.Error(errThree, "failed to execute TLS DDLs after db creation stderr - "+stderr)
-			return ctrl.Result{}, errThree
+		if err2 != nil || strings.Contains(stderr, "Error") {
+			c.Log.Error(err2, "failed to execute TLS DDLs after db creation stderr - "+stderr)
+			return ctrl.Result{}, err2
 		}
 		c.Log.Info("TLS DDLs executed and TLS Cert configured")
 	}
@@ -183,7 +181,7 @@ func (c *CreateDBReconciler) preCmdSetup(ctx context.Context, initiatorPod types
 func (c *CreateDBReconciler) generatePostDBCreateSQL(ctx context.Context, initiatorPod types.NamespacedName) (ctrl.Result, error) {
 	// If version is older than DBSetupConfigParametersMinVersion or newer than vapi.TLSCertRotationMinVersion,
 	// run SQL after DB creation. Otherwise, skip this function
-	if c.VInf.IsEqualOrNewer(vapi.DBSetupConfigParametersMinVersion) && c.VInf.IsOlder(vapi.TLSCertRotationMinVersion) {
+	if c.VInf.IsEqualOrNewer(vapi.DBSetupConfigParametersMinVersion) && !c.Vdb.IsCertRotationEnabled() {
 		return ctrl.Result{}, nil
 	}
 	// We include SQL to rename the default subcluster to match the name of the
@@ -355,7 +353,7 @@ func (c *CreateDBReconciler) genOptions(ctx context.Context, initiatorPod types.
 		createdb.WithDataPath(c.Vdb.Spec.Local.DataPath),
 	}
 
-	if !c.VInf.IsEqualOrNewer(vapi.DBSetupConfigParametersMinVersion) || c.VInf.IsEqualOrNewer(vapi.TLSCertRotationMinVersion) {
+	if !c.VInf.IsEqualOrNewer(vapi.DBSetupConfigParametersMinVersion) {
 		opts = append(opts, createdb.WithPostDBCreateSQLFile(PostDBCreateSQLFile))
 	}
 
