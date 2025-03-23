@@ -487,7 +487,6 @@ var _ = Describe("builder", func() {
 		Ω(NMACertsVolumeMountExists(&c)).Should(BeTrue())
 		Ω(NMACertsEnvVarsExist(vdb, &c)).Should(BeTrue())
 		// test default value (which should be true)
-		delete(vdb.Annotations, vmeta.MountNMACertsAnnotation)
 		ps = buildPodSpec(vdb, &vdb.Spec.Subclusters[0])
 		c = makeServerContainer(vdb, &vdb.Spec.Subclusters[0])
 		Ω(NMACertsVolumeExists(vdb, ps.Volumes)).Should(BeTrue())
