@@ -90,6 +90,13 @@ func (v *VerticaDB) FindTransientSubcluster() *Subcluster {
 	return nil
 }
 
+func SetVDBForTLS(v *VerticaDB) {
+	v.Annotations[vmeta.EnableTLSCertsRotationAnnotation] = trueString
+	v.Annotations[vmeta.MountNMACertsAnnotation] = "false"
+	v.Annotations[vmeta.VersionAnnotation] = TLSCertRotationMinVersion
+	v.Annotations[vmeta.VClusterOpsAnnotation] = trueString
+}
+
 // MakeVDB is a helper that constructs a fully formed VerticaDB struct using the sample name.
 // This is intended for test purposes.
 func MakeVDB() *VerticaDB {
@@ -795,6 +802,23 @@ func (v *VerticaDB) GetCreateDBNodeStartTimeout() int {
 // GetShutdownDrainSeconds returns time in seconds to wait for a subcluster/database users' disconnection
 func (v *VerticaDB) GetShutdownDrainSeconds() int {
 	return vmeta.GetShutdownDrainSeconds(v.Annotations)
+}
+
+// IsCertRotationEnabled returns true if the version supports certs and
+// cert rotation is enabled.
+func (v *VerticaDB) IsCertRotationEnabled() bool {
+	if !vmeta.UseVClusterOps(v.Annotations) {
+		return false
+	}
+	vinf, hasVersion := v.MakeVersionInfo()
+	// Assume we are running a version that does not support cert rotation
+	// if version is not present.
+	if !hasVersion {
+		return false
+	}
+	return vinf.IsEqualOrNewer(TLSCertRotationMinVersion) &&
+		!vmeta.UseNMACertsMount(v.Annotations) &&
+		vmeta.EnableTLSCertsRotation(v.Annotations)
 }
 
 // IsNMASideCarDeploymentEnabled returns true if the conditions to run NMA
