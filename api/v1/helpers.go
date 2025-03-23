@@ -814,7 +814,7 @@ func (v *VerticaDB) IsCertRotationEnabled() bool {
 	// Assume we are running a version that does not support cert rotation
 	// if version is not present.
 	if !hasVersion {
-		return true
+		return false
 	}
 	return vinf.IsEqualOrNewer(TLSCertRotationMinVersion) &&
 		!vmeta.UseNMACertsMount(v.Annotations) &&
