@@ -17,6 +17,10 @@ inputs:
     description: 'Version of the suffix artifact file'
     required: false
     default: ''
+  cert-suffix:
+    description: 'Suffix for tests running with cert'
+    required: false
+    default: ''
   vertica-deployment-method:
     description: 'Vertica deployment method (admintools, vclusterops)'
     required: true
@@ -69,6 +73,10 @@ inputs:
     default: ''
   need-legacy-image:
     description: 'If the test needs vertica legacy image'
+    required: false
+    default: 'false'
+  use-cert:
+    description: 'If the test will have cert rotation enabled'
     required: false
     default: 'false'
   skip-download-test-packages:
@@ -176,6 +184,9 @@ runs:
             fi
           fi
 
+          # Run test with cert rotation enabled
+          export USE_CERT="${{ inputs.use-cert }}"
+
           if [[ "${{ inputs.leg-identifier }}" == "leg-4" || \
                   "${{ inputs.leg-identifier }}" == "leg-10" ]]; then
             export CONCURRENCY_VERTICADB=10
@@ -237,5 +248,5 @@ runs:
     - uses: actions/upload-artifact@v4
       if: failure()
       with:
-        name: logs-e2e-${{ inputs.leg-identifier }}-${{ inputs.vertica-deployment-method }}${{ inputs.artifact-suffix }}
+        name: logs-e2e-${{ inputs.leg-identifier }}-${{ inputs.vertica-deployment-method }}${{ inputs.cert-suffix }}${{ inputs.artifact-suffix }}
         path: ${{ github.workspace }}/int-tests-output/*

@@ -222,6 +222,18 @@ EOF
       value: $VERTICA_SUPERUSER_NAME
 EOF
         fi
+
+        if [ "$USE_CERT" == "true" ]
+        then
+            cat <<EOF >> kustomization.yaml
+    - op: add
+      path: /metadata/annotations/vertica.com~1mount-nma-certs
+      value: "false"
+    - op: add
+      path: /metadata/annotations/vertica.com~1enable-tls-certs-rotation
+      value: "true"
+EOF      
+        fi  
     fi
 
       cat <<EOF >> kustomization.yaml
