@@ -39,7 +39,6 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
-
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/metrics"
 	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
@@ -196,7 +195,7 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		// Handle upgrade actions for any k8s objects created in prior versions
 		// of the operator.
 		MakeUpgradeOperatorReconciler(r, log, vdb),
-		// use the TLS secrets used by the NMA service
+		// use the TLS secrets used by the NMA service, https service and clientserver
 		MakeTLSServerCertGenReconciler(r, log, vdb),
 		// Create a ConfigMap to store secret names for all tls certs
 		MakeNMACertConfigMapGenReconciler(r, log, vdb),
@@ -283,6 +282,8 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		MakeSandboxSubclusterReconciler(r, log, vdb, pfacts, dispatcher, r.Client, false),
 		// Handle calls to move subclusters from sandboxes to main cluster
 		MakeUnsandboxSubclusterReconciler(r, log, vdb, r.Client),
+		// Update the status subcluster types
+		MakeStatusReconciler(r.Client, r.Scheme, log, vdb, pfacts),
 		// Trigger sandbox upgrade when the image field for the sandbox
 		// is changed
 		MakeSandboxUpgradeReconciler(r, log, vdb),

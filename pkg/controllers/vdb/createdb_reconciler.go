@@ -51,8 +51,7 @@ const (
 	// This is a file that we run with the create_db to run custome SQL. This is
 	// passed with the --sql parameter when running create_db. This is no longer
 	// used starting with versions defined in vapi.DBSetupConfigParameters.
-	PostDBCreateSQLFile            = "/home/dbadmin/post-db-create.sql"
-	PostDBCreateSQLFileVclusterOps = "/tmp/post-db-create.sql"
+	PostDBCreateSQLFile = "/home/dbadmin/post-db-create.sql"
 )
 
 // CreateDBReconciler will create a database if one wasn't created yet.
@@ -129,15 +128,6 @@ func (c *CreateDBReconciler) execCmd(ctx context.Context, initiatorPod types.Nam
 	if res, err := c.Dispatcher.CreateDB(ctx, opts...); verrors.IsReconcileAborted(res, err) {
 		return res, err
 	}
-	if c.Vdb.IsCertRotationEnabled() {
-		_, stderr, err2 := c.PRunner.ExecInPod(ctx, initiatorPod, names.ServerContainer,
-			"vsql", "-f", PostDBCreateSQLFileVclusterOps)
-		if err2 != nil || strings.Contains(stderr, "Error") {
-			c.Log.Error(err2, "failed to execute TLS DDLs after db creation stderr - "+stderr)
-			return ctrl.Result{}, err2
-		}
-		c.Log.Info("TLS DDLs executed and TLS Cert configured")
-	}
 	sc := c.getFirstPrimarySubcluster()
 	c.VRec.Eventf(c.Vdb, corev1.EventTypeNormal, events.CreateDBSucceeded,
 		"Successfully created database with subcluster '%s'. It took %s", sc.Name, time.Since(start).Truncate(time.Second))
@@ -178,71 +168,35 @@ func (c *CreateDBReconciler) preCmdSetup(ctx context.Context, initiatorPod types
 // generatePostDBCreateSQL is a function that creates a file with sql commands
 // to be run immediately after the database create.
 func (c *CreateDBReconciler) generatePostDBCreateSQL(ctx context.Context, initiatorPod types.NamespacedName) (ctrl.Result, error) {
-	// If version is older than DBSetupConfigParametersMinVersion or newer than vapi.TLSCertRotationMinVersion,
-	// run SQL after DB creation. Otherwise, skip this function
-	if c.VInf.IsEqualOrNewer(vapi.DBSetupConfigParametersMinVersion) && !c.Vdb.IsCertRotationEnabled() {
+	// On newer server versions we moved over the SQL to config parameters. So,
+	// if we are on a new enough version we can skip this function entirely.
+	if c.VInf.IsEqualOrNewer(vapi.DBSetupConfigParametersMinVersion) {
 		return ctrl.Result{}, nil
 	}
+
 	// We include SQL to rename the default subcluster to match the name of the
 	// first subcluster in the spec -- any remaining subclusters will be added
 	// by DBAddSubclusterReconciler.
 	sc := c.getFirstPrimarySubcluster()
 	var sb strings.Builder
-	pcFile := PostDBCreateSQLFile
 	sb.WriteString("-- SQL that is run after the database is created\n")
-	if c.VInf.IsOlder(vapi.DBSetupConfigParametersMinVersion) {
-		if c.Vdb.IsEON() {
-			sb.WriteString(
-				fmt.Sprintf(`alter subcluster default_subcluster rename to \"%s\";`, sc.Name),
-			)
-		}
-		if c.Vdb.IsKSafety0() {
-			sb.WriteString("select set_preferred_ksafe(0);\n")
-		}
-		// On newer vertica versions, the EncrpytSpreadComm setting can be set as a
-		// config parm in the create db call.
-		if c.Vdb.Spec.EncryptSpreadComm != vapi.EncryptSpreadCommDisabled && c.VInf.IsOlder(vapi.SetEncryptSpreadCommAsConfigVersion) {
-			sb.WriteString(fmt.Sprintf(`alter database default set parameter EncryptSpreadComm = '%s';
-			`, vapi.EncryptSpreadCommWithVertica))
-		}
+	if c.Vdb.IsEON() {
+		sb.WriteString(
+			fmt.Sprintf(`alter subcluster default_subcluster rename to \"%s\";`, sc.Name),
+		)
 	}
-	if c.Vdb.IsCertRotationEnabled() {
-		sb.WriteString(`CREATE OR REPLACE LIBRARY public.KubernetesLib AS '/opt/vertica/packages/kubernetes/lib/libkubernetes.so';`)
-		sb.WriteString(`CREATE OR REPLACE SECRETMANAGER KubernetesSecretManager AS LANGUAGE 'C++' NAME 'KubernetesSecretManagerFactory' 
-			LIBRARY KubernetesLib;`)
-
-		sb.WriteString(`DROP KEY IF EXISTS https_key_0;`)
-
-		sb.WriteString(`DROP CERTIFICATE IF EXISTS https_cert_0;`)
-
-		sb.WriteString(`DROP CERTIFICATE IF EXISTS https_ca_cert_0;`)
-
-		sb.WriteString(fmt.Sprintf(
-			`CREATE KEY https_key_0 TYPE 'rsa' SECRETMANAGER KubernetesSecretManager SECRETNAME '%s' CONFIGURATION '{\"data-key\":\"%s\", 
-			\"namespace\":\"%s\"}';`,
-			c.Vdb.Spec.NMATLSSecret, corev1.TLSPrivateKeyKey, c.Vdb.ObjectMeta.Namespace))
-
-		sb.WriteString(fmt.Sprintf(
-			`CREATE CA CERTIFICATE https_ca_cert_0 SECRETMANAGER KubernetesSecretManager SECRETNAME '%s' CONFIGURATION '{\"data-key\":\"%s\", 
-			\"namespace\":\"%s\"}';`,
-			c.Vdb.Spec.NMATLSSecret, paths.HTTPServerCACrtName, c.Vdb.ObjectMeta.Namespace))
-
-		sb.WriteString(fmt.Sprintf(
-			`CREATE CERTIFICATE https_cert_0 SECRETMANAGER KubernetesSecretManager SECRETNAME '%s' CONFIGURATION '{\"data-key\":\"%s\", 
-			\"namespace\":\"%s\"}' SIGNED BY https_ca_cert_0 KEY https_key_0;`,
-			c.Vdb.Spec.NMATLSSecret, corev1.TLSCertKey, c.Vdb.ObjectMeta.Namespace))
-
-		sb.WriteString(`ALTER TLS CONFIGURATION https CERTIFICATE https_cert_0 ADD CA CERTIFICATES https_ca_cert_0 TLSMODE 'TRY_VERIFY';`)
-		sb.WriteString(`ALTER TLS CONFIGURATION https CERTIFICATE https_cert_0 REMOVE CA CERTIFICATES httpServerRootca;`)
-		sb.WriteString(`CREATE AUTHENTICATION auth_tls METHOD 'tls' HOST TLS '0.0.0.0/0';`)
-		sb.WriteString(fmt.Sprintf(`GRANT AUTHENTICATION auth_tls TO %s;`, c.Vdb.GetVerticaUser()))
-		sb.WriteString(`select sync_catalog();`)
-		pcFile = PostDBCreateSQLFileVclusterOps
+	if c.Vdb.IsKSafety0() {
+		sb.WriteString("select set_preferred_ksafe(0);\n")
+	}
+	// On newer vertica versions, the EncrpytSpreadComm setting can be set as a
+	// config parm in the create db call.
+	if c.Vdb.Spec.EncryptSpreadComm != vapi.EncryptSpreadCommDisabled && c.VInf.IsOlder(vapi.SetEncryptSpreadCommAsConfigVersion) {
+		sb.WriteString(fmt.Sprintf(`alter database default set parameter EncryptSpreadComm = '%s';
+		`, vapi.EncryptSpreadCommWithVertica))
 	}
 	_, _, err := c.PRunner.ExecInPod(ctx, initiatorPod, names.ServerContainer,
-		"bash", "-c", "cat > "+pcFile+"<<< \""+sb.String()+"\"",
+		"bash", "-c", "cat > "+PostDBCreateSQLFile+"<<< \""+sb.String()+"\"",
 	)
-	c.Log.Info("SQL to be executed after db creation: " + sb.String())
 	if err != nil {
 		return ctrl.Result{}, err
 	}

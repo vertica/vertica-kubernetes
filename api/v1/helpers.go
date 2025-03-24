@@ -29,6 +29,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
+	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -88,13 +89,6 @@ func (v *VerticaDB) FindTransientSubcluster() *Subcluster {
 		}
 	}
 	return nil
-}
-
-func SetVDBForTLS(v *VerticaDB) {
-	v.Annotations[vmeta.EnableTLSCertsRotationAnnotation] = trueString
-	v.Annotations[vmeta.MountNMACertsAnnotation] = "false"
-	v.Annotations[vmeta.VersionAnnotation] = TLSCertRotationMinVersion
-	v.Annotations[vmeta.VClusterOpsAnnotation] = trueString
 }
 
 // MakeVDB is a helper that constructs a fully formed VerticaDB struct using the sample name.
@@ -804,23 +798,6 @@ func (v *VerticaDB) GetShutdownDrainSeconds() int {
 	return vmeta.GetShutdownDrainSeconds(v.Annotations)
 }
 
-// IsCertRotationEnabled returns true if the version supports certs and
-// cert rotation is enabled.
-func (v *VerticaDB) IsCertRotationEnabled() bool {
-	if !vmeta.UseVClusterOps(v.Annotations) {
-		return false
-	}
-	vinf, hasVersion := v.MakeVersionInfo()
-	// Assume we are running a version that does not support cert rotation
-	// if version is not present.
-	if !hasVersion {
-		return false
-	}
-	return vinf.IsEqualOrNewer(TLSCertRotationMinVersion) &&
-		!vmeta.UseNMACertsMount(v.Annotations) &&
-		vmeta.EnableTLSCertsRotation(v.Annotations)
-}
-
 // IsNMASideCarDeploymentEnabled returns true if the conditions to run NMA
 // in a sidecar are met
 func (v *VerticaDB) IsNMASideCarDeploymentEnabled() bool {
@@ -1383,9 +1360,6 @@ func (v *VerticaAutoscaler) GetMetricMap() map[string]*MetricDefinition {
 
 // GetMetricTarget returns the autoscalingv2 metric target
 func GetMetricTarget(metric *autoscalingv2.MetricSpec) *autoscalingv2.MetricTarget {
-	if metric == nil {
-		return nil
-	}
 	switch metric.Type {
 	case autoscalingv2.PodsMetricSourceType:
 		if metric.Pods != nil {
@@ -1411,20 +1385,18 @@ func GetMetricTarget(metric *autoscalingv2.MetricSpec) *autoscalingv2.MetricTarg
 	return nil
 }
 
-func convertToBool(src string) bool {
-	converted := false
-	_, err := strconv.ParseBool(src)
-	if err == nil {
-		converted = true
+func IsK8sSecretFound(ctx context.Context, vdb *VerticaDB, k8sClient client.Client, secretName *string,
+	secret *corev1.Secret) (bool, error) {
+	nm := types.NamespacedName{
+		Name:      *secretName,
+		Namespace: vdb.GetNamespace(),
 	}
-	return converted
-}
-
-func convertToInt(src string) (int, bool) {
-	converted := false
-	varAsInt, err := strconv.ParseInt(src, 10, 0)
-	if err == nil {
-		converted = true
+	err := k8sClient.Get(ctx, nm, secret)
+	if k8sErrors.IsNotFound(err) {
+		return false, nil
+	} else if err != nil {
+		return false, err
+	} else {
+		return true, nil
 	}
-	return int(varAsInt), converted
 }

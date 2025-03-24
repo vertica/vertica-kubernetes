@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"slices"
 
-	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -138,7 +137,6 @@ func (v *VerticaAutoscaler) validateSpec() field.ErrorList {
 	allErrs = v.validateHPAReplicas(allErrs)
 	allErrs = v.validateScaledObjectReplicas(allErrs)
 	allErrs = v.validateMetricsName(allErrs)
-	allErrs = v.validatePausingScalingAnnotations(allErrs)
 	return allErrs
 }
 
@@ -239,30 +237,22 @@ func (v *VerticaAutoscaler) validateCustomAutoscaler(allErrs field.ErrorList) fi
 
 // validateHPAReplicas will check if HPA minReplicas and maxReplicas are valid
 func (v *VerticaAutoscaler) validateHPAReplicas(allErrs field.ErrorList) field.ErrorList {
-	if !v.IsHpaEnabled() {
-		return allErrs
-	}
+	if v.IsHpaEnabled() {
+		pathPrefix := field.NewPath("spec").Child("customAutoscaler").Child("HPA")
+		if v.Spec.CustomAutoscaler.Hpa.MaxReplicas == 0 {
+			err := field.Invalid(pathPrefix.Child("MaxReplicas"),
+				v.Spec.CustomAutoscaler.Hpa.MaxReplicas,
+				"maxReplicas must be set.")
+			allErrs = append(allErrs, err)
+		}
 
-	hpa := v.Spec.CustomAutoscaler.Hpa
-	pathPrefix := field.NewPath("spec", "customAutoscaler", "HPA")
-
-	if hpa.MaxReplicas == 0 {
-		allErrs = append(allErrs, field.Invalid(pathPrefix.Child("MaxReplicas"), hpa.MaxReplicas, "maxReplicas must be set and non-zero."))
-	}
-
-	if hpa.MinReplicas != nil && hpa.MaxReplicas < *hpa.MinReplicas {
-		allErrs = append(allErrs, field.Invalid(pathPrefix.Child("MaxReplicas"),
-			hpa.MaxReplicas, fmt.Sprintf("maxReplicas %d cannot be less than minReplicas %d.",
-				hpa.MaxReplicas, *hpa.MinReplicas)))
-	}
-
-	pausingScalingRep, pausingScalingRepSet := v.Annotations[vmeta.PausingAutoscalingReplicasAnnotation]
-	if hpa.MinReplicas != nil && pausingScalingRepSet {
-		varAsInt, ok := convertToInt(pausingScalingRep)
-		if ok && varAsInt < int(*hpa.MinReplicas) {
-			err := field.Invalid(field.NewPath("metadata").Child("annotations").Key(vmeta.PausingAutoscalingReplicasAnnotation),
-				v.Annotations[vmeta.PausingAutoscalingReplicasAnnotation],
-				fmt.Sprintf("int value of annotation %s cannot be lower than minReplicas", vmeta.PausingAutoscalingReplicasAnnotation))
+		if v.Spec.CustomAutoscaler.Hpa.MinReplicas != nil &&
+			v.Spec.CustomAutoscaler.Hpa.MaxReplicas < *v.Spec.CustomAutoscaler.Hpa.MinReplicas {
+			err := field.Invalid(pathPrefix.Child("MaxReplicas"),
+				v.Spec.CustomAutoscaler.Hpa.MaxReplicas,
+				fmt.Sprintf("maxReplicas %d cannot be less than minReplicas %d.",
+					v.Spec.CustomAutoscaler.Hpa.MaxReplicas, *v.Spec.CustomAutoscaler.Hpa.MinReplicas),
+			)
 			allErrs = append(allErrs, err)
 		}
 	}
@@ -271,32 +261,23 @@ func (v *VerticaAutoscaler) validateHPAReplicas(allErrs field.ErrorList) field.E
 
 // validateScaledObjectReplicas will check if ScaledObject minReplicas and maxReplicas are valid
 func (v *VerticaAutoscaler) validateScaledObjectReplicas(allErrs field.ErrorList) field.ErrorList {
-	if !v.IsScaledObjectEnabled() {
-		return allErrs
-	}
+	if v.IsScaledObjectEnabled() {
+		pathPrefix := field.NewPath("spec").Child("customAutoscaler").Child("ScaledObject")
 
-	scaledObject := v.Spec.CustomAutoscaler.ScaledObject
-	pathPrefix := field.NewPath("spec", "customAutoscaler", "ScaledObject")
+		if v.Spec.CustomAutoscaler.ScaledObject.MaxReplicas == nil {
+			err := field.Invalid(pathPrefix.Child("MaxReplicas"),
+				v.Spec.CustomAutoscaler.ScaledObject.MaxReplicas,
+				"maxReplicas must be set.")
+			allErrs = append(allErrs, err)
+		}
 
-	if scaledObject.MaxReplicas == nil {
-		allErrs = append(allErrs, field.Invalid(pathPrefix.Child("MaxReplicas"), scaledObject.MaxReplicas, "maxReplicas must be set."))
-		// Early return if MaxReplicas is not set.
-		return allErrs
-	}
-
-	if scaledObject.MinReplicas != nil && *scaledObject.MaxReplicas < *scaledObject.MinReplicas {
-		allErrs = append(allErrs, field.Invalid(pathPrefix.Child("MaxReplicas"),
-			scaledObject.MaxReplicas, fmt.Sprintf("maxReplicas %d cannot be less than minReplicas %d.",
-				*scaledObject.MaxReplicas, *scaledObject.MinReplicas)))
-	}
-
-	pausingScalingRep, pausingScalingRepSet := v.Annotations[vmeta.PausingAutoscalingReplicasAnnotation]
-	if scaledObject.MinReplicas != nil && pausingScalingRepSet {
-		varAsInt, ok := convertToInt(pausingScalingRep)
-		if ok && varAsInt < int(*scaledObject.MinReplicas) {
-			err := field.Invalid(field.NewPath("metadata").Child("annotations").Key(vmeta.PausingAutoscalingReplicasAnnotation),
-				v.Annotations[vmeta.PausingAutoscalingReplicasAnnotation],
-				fmt.Sprintf("int value of annotation %s cannot be lower than minReplicas", vmeta.PausingAutoscalingReplicasAnnotation))
+		if v.Spec.CustomAutoscaler.ScaledObject.MinReplicas != nil && v.Spec.CustomAutoscaler.ScaledObject.MaxReplicas != nil &&
+			*v.Spec.CustomAutoscaler.ScaledObject.MaxReplicas < *v.Spec.CustomAutoscaler.ScaledObject.MinReplicas {
+			err := field.Invalid(pathPrefix.Child("MaxReplicas"),
+				v.Spec.CustomAutoscaler.ScaledObject.MaxReplicas,
+				fmt.Sprintf("maxReplicas %d cannot be less than minReplicas %d.",
+					*v.Spec.CustomAutoscaler.ScaledObject.MaxReplicas, *v.Spec.CustomAutoscaler.ScaledObject.MinReplicas),
+			)
 			allErrs = append(allErrs, err)
 		}
 	}
@@ -332,22 +313,12 @@ func (v *VerticaAutoscaler) validateScaledObject(allErrs field.ErrorList) field.
 	cpumemMetricTypes := []autoscalingv2.MetricTargetType{autoscalingv2.UtilizationMetricType, autoscalingv2.AverageValueMetricType}
 	pathPrefix := field.NewPath("spec").Child("customAutoscaler")
 	if v.IsScaledObjectEnabled() {
-		metricsPathPrefix := pathPrefix.Child("scaledObject").Child("metrics")
-		if len(v.Spec.CustomAutoscaler.ScaledObject.Metrics) == 0 {
-			err := field.Invalid(metricsPathPrefix,
-				v.Spec.CustomAutoscaler.ScaledObject.Metrics,
-				"metrics must contain at least one element.",
-			)
-			allErrs = append(allErrs, err)
-			return allErrs
-		}
-		metrics := v.Spec.CustomAutoscaler.ScaledObject.Metrics
-		for i := range metrics {
-			metric := &metrics[i]
+		for i := range v.Spec.CustomAutoscaler.ScaledObject.Metrics {
+			metric := &v.Spec.CustomAutoscaler.ScaledObject.Metrics[i]
 			// validate metric type
 			if !slices.Contains(validTriggers, metric.Type) {
-				err := field.Invalid(metricsPathPrefix.Index(i).Child("type"),
-					metric.Type,
+				err := field.Invalid(pathPrefix.Child("scaledObject").Child("metrics").Index(i).Child("type"),
+					v.Spec.CustomAutoscaler.ScaledObject.Metrics[i].Type,
 					fmt.Sprintf("Type must be one of '%s', '%s', '%s' or empty.",
 						CPUTriggerType, MemTriggerType, PrometheusTriggerType),
 				)
@@ -355,8 +326,8 @@ func (v *VerticaAutoscaler) validateScaledObject(allErrs field.ErrorList) field.
 			}
 			// validate prometheus type metric
 			if metric.Type == PrometheusTriggerType && !slices.Contains(prometheusMetricTypes, metric.MetricType) {
-				err := field.Invalid(metricsPathPrefix.Index(i).Child("type"),
-					metric.MetricType,
+				err := field.Invalid(pathPrefix.Child("scaledObject").Child("metrics").Index(i).Child("type"),
+					v.Spec.CustomAutoscaler.ScaledObject.Metrics[i].MetricType,
 					fmt.Sprintf("When Type is set to %s "+
 						"metricType must be one of '%s', '%s'.",
 						PrometheusTriggerType, autoscalingv2.ValueMetricType, autoscalingv2.AverageValueMetricType),
@@ -365,8 +336,8 @@ func (v *VerticaAutoscaler) validateScaledObject(allErrs field.ErrorList) field.
 			}
 			// validate cpu/mem type metric
 			if (metric.Type == CPUTriggerType || metric.Type == MemTriggerType) && !slices.Contains(cpumemMetricTypes, metric.MetricType) {
-				err := field.Invalid(metricsPathPrefix.Index(i).Child("type"),
-					metric.MetricType,
+				err := field.Invalid(pathPrefix.Child("scaledObject").Child("metrics").Index(i).Child("type"),
+					v.Spec.CustomAutoscaler.ScaledObject.Metrics[i].MetricType,
 					fmt.Sprintf("When Type is set to %s or %s "+
 						"metricType must be one of '%s', '%s'.",
 						CPUTriggerType, MemTriggerType, autoscalingv2.UtilizationMetricType, autoscalingv2.AverageValueMetricType),
@@ -440,295 +411,193 @@ func (v *VerticaAutoscaler) validateScaledObjectMetric(allErrs field.ErrorList) 
 
 // validateHPA will check if the HPA field is valid
 func (v *VerticaAutoscaler) validateHPA(allErrs field.ErrorList) field.ErrorList {
-	if !v.IsHpaEnabled() {
-		// Early return if HPA is not enabled
-		return allErrs
-	}
-	pathPrefix := field.NewPath("spec", "customAutoscaler")
-	hpa := v.Spec.CustomAutoscaler.Hpa
-
+	pathPrefix := field.NewPath("spec").Child("customAutoscaler")
 	// validate stabilization window
-	if v.HasScaleInThreshold() && hpa.Behavior != nil &&
-		hpa.Behavior.ScaleDown != nil && *hpa.Behavior.ScaleDown.StabilizationWindowSeconds != 0 {
-		allErrs = append(allErrs, field.Invalid(
-			pathPrefix.Child("hpa", "behavior", "scaleDown", "stabilizationWindowSeconds"),
-			hpa.Behavior.ScaleDown.StabilizationWindowSeconds,
-			"When scaleInThreshold is set, scaleDown stabilization window must be 0",
-		))
-	}
-
-	metricsPathPrefix := pathPrefix.Child("hpa", "metrics")
-	if len(hpa.Metrics) == 0 {
-		err := field.Invalid(metricsPathPrefix,
-			hpa.Metrics,
-			"metrics must contain at least one element.",
-		)
+	if v.HasScaleInThreshold() && v.Spec.CustomAutoscaler.Hpa.Behavior != nil &&
+		v.Spec.CustomAutoscaler.Hpa.Behavior.ScaleDown != nil && *v.Spec.CustomAutoscaler.Hpa.Behavior.ScaleDown.StabilizationWindowSeconds != 0 {
+		err := field.Invalid(pathPrefix.Child("hpa").Child("behavior").Child("scaleDown").Child("stabilizationWindowSeconds"),
+			v.Spec.CustomAutoscaler.Hpa.Behavior.ScaleDown.StabilizationWindowSeconds,
+			"When scaleInThreshold is set, scaleDown stabilization window must be 0")
 		allErrs = append(allErrs, err)
-		return allErrs
 	}
-	for i := range hpa.Metrics {
-		metric := &hpa.Metrics[i]
-		allErrs = v.validateMetricFields(metric, i, allErrs)
+	if v.IsHpaEnabled() {
+		for i := range v.Spec.CustomAutoscaler.Hpa.Metrics {
+			metric := &v.Spec.CustomAutoscaler.Hpa.Metrics[i]
+			// validate metric fields
+			allErrs = append(allErrs, v.validateMetricFields(metric, i, allErrs)...)
+		}
 	}
-
 	return allErrs
 }
 
 // Helper method to validate metric target and its fields, for each type, check if required fields have been setup.
 func (v *VerticaAutoscaler) validateMetricFields(metric *MetricDefinition, index int, allErrs field.ErrorList) field.ErrorList {
-	if metric == nil {
-		return allErrs
-	}
 	switch metric.Metric.Type {
 	case autoscalingv2.PodsMetricSourceType:
-		allErrs = v.validateHPAMetricPodFields(metric, index, allErrs)
+		allErrs = append(allErrs, v.validateHPAMetricPodFields(metric, index, allErrs)...)
 	case autoscalingv2.ObjectMetricSourceType:
-		allErrs = v.validateHPAMetricObjectFields(metric, index, allErrs)
+		allErrs = append(allErrs, v.validateHPAMetricObjectFields(metric, index, allErrs)...)
 	case autoscalingv2.ContainerResourceMetricSourceType:
-		allErrs = v.validateHPAMetricContainerFields(metric, index, allErrs)
+		allErrs = append(allErrs, v.validateHPAMetricContainerFields(metric, index, allErrs)...)
 	case autoscalingv2.ExternalMetricSourceType:
-		allErrs = v.validateHPAMetricExternalFields(metric, index, allErrs)
+		allErrs = append(allErrs, v.validateHPAMetricExternalFields(metric, index, allErrs)...)
 	case autoscalingv2.ResourceMetricSourceType:
-		allErrs = v.validateHPAMetricResourceFields(metric, index, allErrs)
-	default:
-		pathPrefix := field.NewPath("spec", "customAutoscaler", "hpa", "metrics").Index(index).Child("metric", "type")
-		allErrs = append(allErrs, field.Invalid(
-			pathPrefix,
-			metric.Metric.Type,
-			fmt.Sprintf("metric type must be one of %s, %s, %s, %s and %s",
-				autoscalingv2.PodsMetricSourceType,
-				autoscalingv2.ObjectMetricSourceType,
-				autoscalingv2.ContainerResourceMetricSourceType,
-				autoscalingv2.ExternalMetricSourceType,
-				autoscalingv2.ResourceMetricSourceType,
-			),
-		))
+		allErrs = append(allErrs, v.validateHPAMetricResourceFields(metric, index, allErrs)...)
 	}
 	return allErrs
 }
 
 // Helper method to validate HPA pod metric and target
 func (v *VerticaAutoscaler) validateHPAMetricPodFields(metric *MetricDefinition, index int, allErrs field.ErrorList) field.ErrorList {
-	pathPrefix := field.NewPath("spec", "customAutoscaler", "hpa", "metrics").Index(index).Child("metric", "pods")
-	pods := metric.Metric.Pods
-
+	pathPrefix := field.NewPath("spec").Child("customAutoscaler").Child("hpa").Child("metrics").Index(index).Child("metric").Child("pods")
 	// Validate metric pods target type
-	if pods == nil {
-		allErrs = append(allErrs, field.Invalid(
-			pathPrefix,
-			pods,
-			fmt.Sprintf("required field 'pods' must be set when metric type is %s", autoscalingv2.PodsMetricSourceType),
-		))
-		return allErrs
+	if metric.Metric.Pods == nil {
+		err := field.Invalid(pathPrefix, metric.Metric.Pods, fmt.Sprintf("HPA metric %s type missing required fields: %s",
+			autoscalingv2.PodsMetricSourceType, pathPrefix),
+		)
+		allErrs = append(allErrs, err)
 	}
-
-	allErrs = v.validateHPAMetricTarget(pods.Target, pathPrefix, allErrs)
-
+	allErrs = append(allErrs, v.validateHPAMetricTarget(metric.Metric.Pods.Target, pathPrefix, allErrs)...)
 	// Validate metric pods metric
-	if pods.Metric.Name == "" {
-		allErrs = append(allErrs, field.Invalid(
-			pathPrefix.Child("metric", "name"),
-			pods.Metric.Name,
-			"metric name must not be empty",
-		))
+	if metric.Metric.Pods.Metric.Name == "" {
+		err := field.Invalid(pathPrefix, metric.Metric.Pods.Metric, fmt.Sprintf("HPA metric %s type missing required fields: %s",
+			autoscalingv2.PodsMetricSourceType, pathPrefix.Child("metric").Child("name")),
+		)
+		allErrs = append(allErrs, err)
 	}
-
 	return allErrs
 }
 
 // Helper method to validate HPA object metric, describedObject and target
 func (v *VerticaAutoscaler) validateHPAMetricObjectFields(metric *MetricDefinition, index int, allErrs field.ErrorList) field.ErrorList {
-	pathPrefix := field.NewPath("spec", "customAutoscaler", "hpa", "metrics").Index(index).Child("metric", "object")
-	object := metric.Metric.Object
-
+	pathPrefix := field.NewPath("spec").Child("customAutoscaler").Child("hpa").Child("metrics").Index(index).Child("metric").Child("object")
 	// Validate metric object target type
-	if object == nil {
-		allErrs = append(allErrs, field.Invalid(
-			pathPrefix,
-			object,
-			fmt.Sprintf("required field 'object' must be set when metric type is %s", autoscalingv2.ObjectMetricSourceType),
-		))
-		return allErrs
+	if metric.Metric.Object == nil {
+		err := field.Invalid(pathPrefix, metric.Metric.Object, fmt.Sprintf("HPA metric %s type missing required fields: %s",
+			autoscalingv2.ObjectMetricSourceType, pathPrefix),
+		)
+		allErrs = append(allErrs, err)
 	}
-
-	allErrs = v.validateHPAMetricTarget(object.Target, pathPrefix, allErrs)
-
+	allErrs = append(allErrs, v.validateHPAMetricTarget(metric.Metric.Object.Target, pathPrefix, allErrs)...)
 	// Validate metric object DescribedObject
-	if object.DescribedObject.Name == "" {
-		allErrs = append(allErrs, field.Invalid(
-			pathPrefix.Child("describedObject", "name"),
-			object.DescribedObject.Name,
-			"describedObject name must not be empty",
-		))
+	if metric.Metric.Object.DescribedObject.Name == "" || metric.Metric.Object.DescribedObject.Kind == "" {
+		err := field.Invalid(pathPrefix, metric.Metric.Object.Metric, fmt.Sprintf("HPA metric %s type missing required fields: %s",
+			autoscalingv2.ObjectMetricSourceType, pathPrefix.Child("describedObject")),
+		)
+		allErrs = append(allErrs, err)
 	}
-
-	if object.DescribedObject.Kind == "" {
-		allErrs = append(allErrs, field.Invalid(
-			pathPrefix.Child("describedObject", "kind"),
-			object.DescribedObject.Kind,
-			"describedObject kind must not be empty",
-		))
-	}
-
 	// Validate metric object metric
-	if object.Metric.Name == "" {
-		allErrs = append(allErrs, field.Invalid(
-			pathPrefix.Child("metric", "name"),
-			object.Metric.Name,
-			"metric name must not be empty",
-		))
+	if metric.Metric.Object.Metric.Name == "" {
+		err := field.Invalid(pathPrefix, metric.Metric.Object.Metric, fmt.Sprintf("HPA metric %s type missing required fields: %s",
+			autoscalingv2.ObjectMetricSourceType, pathPrefix.Child("metric").Child("name")),
+		)
+		allErrs = append(allErrs, err)
 	}
 	return allErrs
 }
 
 // Helper method to validate HPA container name, container and target
 func (v *VerticaAutoscaler) validateHPAMetricContainerFields(metric *MetricDefinition, index int, allErrs field.ErrorList) field.ErrorList {
-	pathPrefix := field.NewPath("spec", "customAutoscaler", "hpa", "metrics").Index(index).Child("metric", "containerResource")
-	containerResource := metric.Metric.ContainerResource
-
+	pathPrefix := field.NewPath("spec").Child("customAutoscaler").Child("hpa").Child("metrics").Index(index).Child("metric").Child("containerResource")
 	// Validate metric containerResource target type
-	if containerResource == nil {
-		allErrs = append(allErrs, field.Invalid(
-			pathPrefix,
-			containerResource,
-			fmt.Sprintf("required field 'containerResource' must be set when metric type is %s", autoscalingv2.ContainerResourceMetricSourceType),
-		))
-		return allErrs
+	if metric.Metric.ContainerResource == nil {
+		err := field.Invalid(pathPrefix, metric.Metric.ContainerResource, fmt.Sprintf("HPA metric %s type missing required fields: %s",
+			autoscalingv2.ContainerResourceMetricSourceType, pathPrefix),
+		)
+		allErrs = append(allErrs, err)
 	}
-
-	allErrs = v.validateHPAMetricTarget(containerResource.Target, pathPrefix, allErrs)
-
+	allErrs = append(allErrs, v.validateHPAMetricTarget(metric.Metric.ContainerResource.Target, pathPrefix, allErrs)...)
 	// Validate metric containerResource name
-	if containerResource.Name == "" {
-		allErrs = append(allErrs, field.Invalid(
-			pathPrefix.Child("name"),
-			containerResource.Name,
-			"resource name must not be empty",
-		))
+	if metric.Metric.ContainerResource.Name == "" {
+		err := field.Invalid(pathPrefix, metric.Metric.ContainerResource.Name, fmt.Sprintf("HPA metric %s type missing required fields: %s",
+			autoscalingv2.ContainerResourceMetricSourceType, pathPrefix.Child("name")),
+		)
+		allErrs = append(allErrs, err)
 	}
-
 	// Validate metric containerResource container
-	if containerResource.Container == "" {
-		allErrs = append(allErrs, field.Invalid(
-			pathPrefix.Child("container"),
-			containerResource.Container,
-			"container name must be set",
-		))
+	if metric.Metric.ContainerResource.Container == "" {
+		err := field.Invalid(pathPrefix, metric.Metric.ContainerResource.Container, fmt.Sprintf("HPA metric %s type missing required fields: %s",
+			autoscalingv2.ContainerResourceMetricSourceType, pathPrefix.Child("container")),
+		)
+		allErrs = append(allErrs, err)
 	}
-
 	return allErrs
 }
 
 // Helper method to validate HPA external mertric and target
 func (v *VerticaAutoscaler) validateHPAMetricExternalFields(metric *MetricDefinition, index int, allErrs field.ErrorList) field.ErrorList {
-	pathPrefix := field.NewPath("spec", "customAutoscaler", "hpa", "metrics").Index(index).Child("metric", "external")
-	external := metric.Metric.External
-
-	// Validate metric external target type
-	if external == nil {
-		allErrs = append(allErrs, field.Invalid(
-			pathPrefix,
-			external,
-			fmt.Sprintf("required field 'external' must be set when metric type is %s", autoscalingv2.ExternalMetricSourceType),
-		))
-		return allErrs
-	}
-
-	allErrs = v.validateHPAMetricTarget(external.Target, pathPrefix, allErrs)
-
+	pathPrefix := field.NewPath("spec").Child("customAutoscaler").Child("hpa").Child("metrics").Index(index).Child("metric").Child("external")
 	// Validate metric external metric
-	if external.Metric.Name == "" {
-		allErrs = append(allErrs, field.Invalid(
-			pathPrefix.Child("metric", "name"),
-			external.Metric,
-			"external metric name must be set",
-		))
+	if metric.Metric.External.Metric.Name == "" {
+		err := field.Invalid(pathPrefix, metric.Metric.External.Metric, fmt.Sprintf("HPA metric %s type missing required fields: %s",
+			autoscalingv2.ExternalMetricSourceType, pathPrefix.Child("metric").Child("name")),
+		)
+		allErrs = append(allErrs, err)
 	}
-
+	allErrs = append(allErrs, v.validateHPAMetricTarget(metric.Metric.External.Target, pathPrefix, allErrs)...)
+	// Validate metric external target type
+	if metric.Metric.External == nil {
+		err := field.Invalid(pathPrefix, metric.Metric.External, fmt.Sprintf("HPA metric %s type missing required fields: %s",
+			autoscalingv2.ExternalMetricSourceType, pathPrefix),
+		)
+		allErrs = append(allErrs, err)
+	}
 	return allErrs
 }
 
 // Helper method to validate HPA resource name and target
 func (v *VerticaAutoscaler) validateHPAMetricResourceFields(metric *MetricDefinition, index int, allErrs field.ErrorList) field.ErrorList {
-	pathPrefix := field.NewPath("spec", "customAutoscaler", "hpa", "metrics").Index(index).Child("metric", "resource")
-	resource := metric.Metric.Resource
-
+	pathPrefix := field.NewPath("spec").Child("customAutoscaler").Child("hpa").Child("metrics").Index(index).Child("metric").Child("resource")
 	// Validate metric resource target type
-	if resource == nil {
-		allErrs = append(allErrs, field.Invalid(
-			pathPrefix,
-			resource,
-			fmt.Sprintf("required field 'resource' must be set when metric type is %s", autoscalingv2.ResourceMetricSourceType),
-		))
-		return allErrs
+	if metric.Metric.Resource == nil {
+		err := field.Invalid(pathPrefix, metric.Metric.Resource, fmt.Sprintf("HPA metric %s type missing required fields: %s",
+			autoscalingv2.ResourceMetricSourceType, pathPrefix),
+		)
+		allErrs = append(allErrs, err)
 	}
-
-	allErrs = v.validateHPAMetricTarget(resource.Target, pathPrefix, allErrs)
-
+	allErrs = append(allErrs, v.validateHPAMetricTarget(metric.Metric.Resource.Target, pathPrefix, allErrs)...)
 	// Validate metric resource name
-	if resource.Name == "" {
-		allErrs = append(allErrs, field.Invalid(
-			pathPrefix.Child("name"),
-			resource.Name,
-			"resource name must not be empty",
-		))
+	if metric.Metric.Resource.Name == "" {
+		err := field.Invalid(pathPrefix, metric.Metric.Resource.Name, fmt.Sprintf("HPA metric %s type missing required fields: %s",
+			autoscalingv2.ResourceMetricSourceType, pathPrefix.Child("name")),
+		)
+		allErrs = append(allErrs, err)
 	}
-
 	return allErrs
 }
 
 // Helper method to validate HPA metric target value based on its type
 func (v *VerticaAutoscaler) validateHPAMetricTarget(metric autoscalingv2.MetricTarget, pathPrefix *field.Path, allErrs field.ErrorList) field.ErrorList {
-	targetPath := pathPrefix.Child("target")
-
 	switch metric.Type {
 	case autoscalingv2.UtilizationMetricType:
 		if metric.AverageUtilization == nil {
-			allErrs = append(allErrs, createInvalidError(
-				targetPath.Child("averageUtilization"),
+			err := field.Invalid(pathPrefix.Child("target").Child("averageUtilization"),
 				metric.AverageUtilization,
-				autoscalingv2.UtilizationMetricType,
-				"averageUtilization",
-			))
+				fmt.Sprintf("HPA metric %s type missing required value: %s",
+					autoscalingv2.UtilizationMetricType, "averageUtilization"),
+			)
+			allErrs = append(allErrs, err)
 		}
 	case autoscalingv2.ValueMetricType:
 		if metric.Value == nil {
-			allErrs = append(allErrs, createInvalidError(
-				targetPath.Child("value"),
+			err := field.Invalid(pathPrefix.Child("target").Child("value"),
 				metric.Value,
-				autoscalingv2.ValueMetricType,
-				"value",
-			))
+				fmt.Sprintf("HPA metric %s type missing required value: %s",
+					autoscalingv2.ValueMetricType, "value"),
+			)
+			allErrs = append(allErrs, err)
 		}
 	case autoscalingv2.AverageValueMetricType:
 		if metric.AverageValue == nil {
-			allErrs = append(allErrs, createInvalidError(
-				targetPath.Child("averageValue"),
+			err := field.Invalid(pathPrefix.Child("target").Child("averageValue"),
 				metric.AverageValue,
-				autoscalingv2.AverageValueMetricType,
-				"averageValue",
-			))
+				fmt.Sprintf("HPA metric %s type missing required value: %s",
+					autoscalingv2.AverageValueMetricType, "averageValue"),
+			)
+			allErrs = append(allErrs, err)
 		}
-	default:
-		allErrs = append(allErrs, field.Invalid(
-			targetPath.Child("type"),
-			metric.Type,
-			fmt.Sprintf("metric target type must be one of %s, %s, and %s",
-				autoscalingv2.UtilizationMetricType,
-				autoscalingv2.ValueMetricType,
-				autoscalingv2.AverageValueMetricType,
-			),
-		))
 	}
 	return allErrs
-}
-
-func createInvalidError(path *field.Path, value interface{}, metricType autoscalingv2.MetricTargetType, fieldName string) *field.Error {
-	return field.Invalid(
-		path,
-		value,
-		fmt.Sprintf("HPA metric %s type missing required value: %s", metricType, fieldName),
-	)
 }
 
 // validateScaleInThreshold will check if scaleInThreshold type matches the threshold used for scale out
@@ -738,59 +607,16 @@ func (v *VerticaAutoscaler) validateScaleInThreshold(allErrs field.ErrorList) fi
 		pathPrefix := field.NewPath("spec").Child("customAutoscaler").Child("hpa").Child("metrics")
 		for i := range v.Spec.CustomAutoscaler.Hpa.Metrics {
 			metric := &v.Spec.CustomAutoscaler.Hpa.Metrics[i]
-			metricTarget := GetMetricTarget(&metric.Metric)
-			if metricTarget == nil {
-				// Early exit because without appending a new error because
-				// we already checking metric target elsewhere
-				return allErrs
-			}
-			if metricTarget.Type != metric.ScaleInThreshold.Type {
+			targetType := GetMetricTarget(&metric.Metric).Type
+
+			if targetType != metric.ScaleInThreshold.Type {
 				err := field.Invalid(pathPrefix.Index(i).Child("scaleInThreshold").Child("type"),
 					v.Spec.CustomAutoscaler.Hpa.Metrics[i].ScaleInThreshold.Type,
 					fmt.Sprintf("scaleInThreshold type %s must be of the same type as the threshold used for scale out %s",
-						metric.ScaleInThreshold.Type, metricTarget.Type),
+						metric.ScaleInThreshold.Type, targetType),
 				)
 				allErrs = append(allErrs, err)
 			}
-		}
-	}
-	return allErrs
-}
-
-// validatePausingScalingAnnotations will check if the pausing annotations are properly set.
-func (v *VerticaAutoscaler) validatePausingScalingAnnotations(allErrs field.ErrorList) field.ErrorList {
-	prefix := field.NewPath("metadata").Child("annotations")
-	pausingScaling, pausingScalingSet := v.Annotations[vmeta.PausingAutoscalingAnnotation]
-	pausingScalingRep, pausingScalingRepSet := v.Annotations[vmeta.PausingAutoscalingReplicasAnnotation]
-	if pausingScalingSet && pausingScalingRepSet {
-		err := field.Invalid(prefix,
-			v.Annotations,
-			fmt.Sprintf("%s and %s are mutually exclusive", vmeta.PausingAutoscalingAnnotation, vmeta.PausingAutoscalingReplicasAnnotation))
-		allErrs = append(allErrs, err)
-		return allErrs
-	}
-	if pausingScalingSet {
-		ok := convertToBool(pausingScaling)
-		if !ok {
-			err := field.Invalid(prefix.Key(vmeta.PausingAutoscalingAnnotation),
-				v.Annotations[vmeta.PausingAutoscalingAnnotation],
-				fmt.Sprintf("invalid value for annotation %s. must be a 'true' or 'false'", vmeta.PausingAutoscalingAnnotation))
-			allErrs = append(allErrs, err)
-			return allErrs
-		}
-	}
-	if pausingScalingRepSet {
-		varAsInt, ok := convertToInt(pausingScalingRep)
-		if !ok {
-			err := field.Invalid(prefix.Key(vmeta.PausingAutoscalingReplicasAnnotation),
-				v.Annotations[vmeta.PausingAutoscalingReplicasAnnotation],
-				fmt.Sprintf("invalid value for annotation %s. must be convertible to an int", vmeta.PausingAutoscalingReplicasAnnotation))
-			allErrs = append(allErrs, err)
-		} else if varAsInt < 0 {
-			err := field.Invalid(prefix.Key(vmeta.PausingAutoscalingReplicasAnnotation),
-				v.Annotations[vmeta.PausingAutoscalingReplicasAnnotation],
-				fmt.Sprintf("annotation %s must be greater than zero", vmeta.PausingAutoscalingReplicasAnnotation))
-			allErrs = append(allErrs, err)
 		}
 	}
 	return allErrs

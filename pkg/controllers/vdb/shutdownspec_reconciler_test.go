@@ -43,7 +43,8 @@ var _ = Describe("shutdownspec_reconciler", func() {
 			{Name: subcluster2, Size: 1, Type: vapi.SecondarySubcluster},
 		}
 		vdb.Spec.Sandboxes = []vapi.Sandbox{
-			{Name: sandbox1, Shutdown: true, Subclusters: []vapi.SubclusterName{{Name: subcluster1}, {Name: subcluster2}}},
+			{Name: sandbox1, Shutdown: true, Subclusters: []vapi.SandboxSubcluster{
+				{Name: subcluster1}, {Name: subcluster2, Type: vapi.SecondarySubcluster}}},
 		}
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
