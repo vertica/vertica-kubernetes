@@ -77,7 +77,7 @@ var _ = Describe("upgrade", func() {
 		}
 		const sbName = "sand"
 		vdb.Spec.Sandboxes = []vapi.Sandbox{
-			{Name: sbName, Image: "new-img", Subclusters: []vapi.SubclusterName{{Name: "sc2"}}},
+			{Name: sbName, Image: "new-img", Subclusters: []vapi.SandboxSubcluster{{Name: "sc2"}}},
 		}
 		vdb.Status.Sandboxes = []vapi.SandboxStatus{
 			{Name: sbName, Subclusters: []string{"sc2"}},

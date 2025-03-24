@@ -283,6 +283,8 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		MakeSandboxSubclusterReconciler(r, log, vdb, pfacts, dispatcher, r.Client, false),
 		// Handle calls to move subclusters from sandboxes to main cluster
 		MakeUnsandboxSubclusterReconciler(r, log, vdb, r.Client),
+		// Update the status subcluster types
+		MakeStatusReconciler(r.Client, r.Scheme, log, vdb, pfacts),
 		// Trigger sandbox upgrade when the image field for the sandbox
 		// is changed
 		MakeSandboxUpgradeReconciler(r, log, vdb),
