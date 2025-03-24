@@ -209,7 +209,7 @@ EOF
     - op: add
       path: /metadata/annotations/vertica.com~1enable-tls-certs-rotation
       value: "true"
-EOF      
+EOF
         fi
 
         if [ "$VERTICA_DEPLOYMENT_METHOD" == "vclusterops" ]
