@@ -42,9 +42,15 @@ func (v *VClusterOps) AlterSubclusterType(ctx context.Context, opts ...altersc.O
 		return fmt.Errorf("invalid subcluster type: must be %q or %q", primary, secondary)
 	}
 
+	// get the certs
+	certs, err := v.retrieveNMACerts(ctx)
+	if err != nil {
+		return err
+	}
+
 	// call vcluster-ops library to alter a subcluster
-	vopts := v.genAlterSubclusterTypeOptions(&s)
-	err := v.VAlterSubclusterType(&vopts)
+	vopts := v.genAlterSubclusterTypeOptions(&s, certs)
+	err = v.VAlterSubclusterType(&vopts)
 	if err != nil {
 		v.Log.Error(err, "failed to alter a subcluster's type", "scName", vopts.SCName)
 		return err
@@ -58,7 +64,7 @@ func (v *VClusterOps) AlterSubclusterType(ctx context.Context, opts ...altersc.O
 	return nil
 }
 
-func (v *VClusterOps) genAlterSubclusterTypeOptions(s *altersc.Parms) vops.VAlterSubclusterTypeOptions {
+func (v *VClusterOps) genAlterSubclusterTypeOptions(s *altersc.Parms, certs *HTTPSCerts) vops.VAlterSubclusterTypeOptions {
 	opts := vops.VPromoteDemoteFactory()
 
 	opts.RawHosts = append(opts.RawHosts, s.InitiatorIP)
@@ -70,9 +76,7 @@ func (v *VClusterOps) genAlterSubclusterTypeOptions(s *altersc.Parms) vops.VAlte
 	opts.SCType = vops.SubclusterType(s.SCType)
 	opts.Sandbox = s.Sandbox
 
-	// auth options
-	opts.UserName = v.VDB.GetVerticaUser()
-	opts.Password = &v.Password
+	v.setAuthentication(&opts.DatabaseOptions, v.VDB.GetVerticaUser(), &v.Password, certs)
 
 	return opts
 }

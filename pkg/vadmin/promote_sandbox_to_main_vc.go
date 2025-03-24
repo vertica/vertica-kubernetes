@@ -63,12 +63,7 @@ func (v *VClusterOps) genPromoteSandboxToMainOptions(s *promotesandboxtomain.Par
 
 	opts.SandboxName = s.Sandbox
 
-	// auth options
-	opts.UserName = v.VDB.GetVerticaUser()
-	opts.Password = &v.Password
-	opts.Key = certs.Key
-	opts.Cert = certs.Cert
-	opts.CaCert = certs.CaCert
+	v.setAuthentication(&opts.DatabaseOptions, v.VDB.GetVerticaUser(), &v.Password, certs)
 
 	return &opts
 }

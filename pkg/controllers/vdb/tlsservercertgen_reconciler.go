@@ -87,7 +87,8 @@ func (h *TLSServerCertGenReconciler) reconcileOneSecret(secretFieldName, secretN
 		if errors.IsNotFound(err) {
 			h.Log.Info(secretName+" is set but doesn't exist. Will recreate the secret.", "name", nm)
 		} else if err != nil {
-			return fmt.Errorf("failed while attempting to read the tls secret %s: %w", secretName, err)
+			h.Log.Error(err, "failed to read tls secret", "secretName", secretName)
+			return err
 		} else {
 			// Secret is filled in and exists. We can exit.
 			return err
@@ -105,7 +106,7 @@ func (h *TLSServerCertGenReconciler) reconcileOneSecret(secretFieldName, secretN
 	if err != nil {
 		return err
 	}
-	h.Log.Info("created certificate and secret for " + secret.Name)
+	h.Log.Info("created certificate and secret " + secret.Name)
 	return h.setSecretNameInVDB(ctx, secretFieldName, secret.ObjectMeta.Name)
 }
 

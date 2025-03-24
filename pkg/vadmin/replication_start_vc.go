@@ -72,8 +72,7 @@ func (v *VClusterOps) genReplicateDBOptions(s *replicationstart.Parms,
 	opts := vops.VReplicationDatabaseFactory()
 	opts.RawHosts = append(opts.RawHosts, s.SourceIP)
 	opts.DBName = v.VDB.Spec.DBName
-	opts.UserName = s.SourceUserName
-	opts.Password = &v.Password
+
 	opts.TargetDB.DBName = s.TargetDBName
 	opts.TargetDB.UserName = s.TargetUserName
 	opts.SandboxName = s.SourceSandboxName
@@ -89,10 +88,7 @@ func (v *VClusterOps) genReplicateDBOptions(s *replicationstart.Parms,
 	opts.IPv6 = net.IsIPv6(s.SourceIP)
 	opts.TargetDB.IPv6 = net.IsIPv6(s.TargetIP)
 
-	// auth options
-	opts.Key = certs.Key
-	opts.Cert = certs.Cert
-	opts.CaCert = certs.CaCert
+	v.setAuthentication(&opts.DatabaseOptions, s.SourceUserName, &v.Password, certs)
 
 	// Target auth options
 	opts.TargetDB.Key = targetCerts.Key
