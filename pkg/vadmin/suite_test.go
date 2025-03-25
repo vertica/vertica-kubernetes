@@ -356,6 +356,14 @@ func (m *MockVClusterOps) VerifyTransactionID(options *vops.VReplicationStatusDa
 	return nil
 }
 
+func (m *MockVClusterOps) VRotateNMACerts(options *vops.VRotateNMACertsOptions) error {
+	return nil
+}
+
+func (m *MockVClusterOps) VRotateHTTPSCerts(options *vops.VRotateHTTPSCertsOptions) error {
+	return nil
+}
+
 func (m *MockVClusterOps) VPollSubclusterState(_ *vops.VPollSubclusterStateOptions) error {
 	return nil
 }
@@ -363,7 +371,19 @@ func (m *MockVClusterOps) VPollSubclusterState(_ *vops.VPollSubclusterStateOptio
 // mockVClusterOpsDispatcher will create an vcluster-ops dispatcher for test
 // purposes. This uses a standard function to setup the API.
 func mockVClusterOpsDispatcher() *VClusterOps {
-	vdb := vapi.MakeVDB()
+	return mockVersionedVClusterOpsDispatcher(vapi.LegacyVersion)
+}
+
+// mockVClusterOpsDispatcher will create an vcluster-ops dispatcher for test
+// purposes. This uses a standard function to setup the API.
+func mockMTLSVClusterOpsDispatcher() *VClusterOps {
+	return mockVersionedVClusterOpsDispatcher(vapi.TLSCertRotationMinVersion)
+}
+
+// mockVClusterOpsDispatcher will create an vcluster-ops dispatcher for test
+// purposes. This uses a standard function to setup the API.
+func mockVersionedVClusterOpsDispatcher(verticaVersion string) *VClusterOps {
+	vdb := vapi.MakeVersionedVDB(verticaVersion)
 	vdb.Spec.NMATLSSecret = TestNMATLSSecret
 	// We use a function to construct the VClusterProvider. This is called
 	// ahead of each API rather than once so that we can setup a custom
@@ -384,7 +404,7 @@ func mockVClusterOpsDispatcherWithCustomSetup(vdb *vapi.VerticaDB,
 }
 
 func mockVclusteropsDispatcherWithTarget() *VClusterOps {
-	vdb := vapi.MakeVDB()
+	vdb := vapi.MakeMTLSVDB()
 	vdb.Spec.NMATLSSecret = TestNMATLSSecret
 	targetVDB := vapi.MakeVDB()
 	targetVDB.Spec.NMATLSSecret = TestNMATLSSecret

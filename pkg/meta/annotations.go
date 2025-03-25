@@ -207,6 +207,9 @@ const (
 	HTTPSTLSConfGenerationAnnotationFalse = "false"
 	HTTPSTLSConfGenerationDefaultValue    = true
 
+	NMATLSSecretInUseAnnotation          = "vertica.com/nma-tls-secret-in-use"          // #nosec G101
+	NMATLSSecretPreviouslyUsedAnnotation = "vertica.com/nma-tls-secret-previously-used" // #nosec G101
+	CLIENTSERVERTLSSecretAnnotation      = "vertica.com/client-server-tls-secret"       // #nosec G101
 	// We have a deployment check that ensures that if running vcluster ops the
 	// image is built for that (and vice-versa). This annotation allows you to
 	// skip that check.
@@ -420,17 +423,17 @@ func UseVProxy(annotations map[string]string) bool {
 // UseVProxyCertsMount returns true if the proxy reads certs from the mounted secret
 // volume rather than directly from k8s secret store.
 func UseVProxyCertsMount(annotations map[string]string) bool {
-	return lookupBoolAnnotation(annotations, MountVProxyCertsAnnotation, true /* default value */)
+	return lookupBoolAnnotation(annotations, MountVProxyCertsAnnotation, false /* default value */)
 }
 
 // UseNMACertsMount returns true if the NMA reads certs from the mounted secret
 // volume rather than directly from k8s secret store.
 func UseNMACertsMount(annotations map[string]string) bool {
-	return lookupBoolAnnotation(annotations, MountNMACertsAnnotation, true /* default value */)
+	return lookupBoolAnnotation(annotations, MountNMACertsAnnotation, false /* default value */)
 }
 
 func EnableTLSCertsRotation(annotations map[string]string) bool {
-	return lookupBoolAnnotation(annotations, EnableTLSCertsRotationAnnotation, false /* default value */)
+	return lookupBoolAnnotation(annotations, EnableTLSCertsRotationAnnotation, true /* default value */)
 }
 
 // IgnoreClusterLease returns true if revive/start should ignore the cluster lease
@@ -601,6 +604,16 @@ func GetNMAHealthProbeOverride(annotations map[string]string, probeName, field s
 		return 0, false
 	}
 	return int32(convVal), true //nolint:gosec
+}
+
+// GetNMATLSSecretNameInUse returns the tls cert secret name in use
+func GetNMATLSSecretNameInUse(annotations map[string]string) string {
+	return lookupStringAnnotation(annotations, NMATLSSecretInUseAnnotation, "")
+}
+
+// GetNMATLSSecretNamePreviouslyUsed returns the tls cert secret name that was used previously
+func GetNMATLSSecretNamePreviouslyUsed(annotations map[string]string) string {
+	return lookupStringAnnotation(annotations, NMATLSSecretPreviouslyUsedAnnotation, "")
 }
 
 // GetVProxyLogLevel returns scrutinize log age hours

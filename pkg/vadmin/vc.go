@@ -22,21 +22,11 @@ import (
 	vops "github.com/vertica/vcluster/vclusterops"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/cloud"
+	"github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	corev1 "k8s.io/api/core/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
-
-// retrieveNMACerts will retrieve the certs from NMATLSSecret for calling NMA endpoints
-func (v *VClusterOps) retrieveNMACerts(ctx context.Context) (*HTTPSCerts, error) {
-	fetcher := cloud.SecretFetcher{
-		Client:   v.Client,
-		Log:      v.Log,
-		Obj:      v.VDB,
-		EVWriter: v.EVWriter,
-	}
-	return retrieveNMACerts(ctx, &fetcher, v.VDB)
-}
 
 // retrieveTargetNMACerts will retrieve the certs from NMATLSSecret for calling target NMA endpoints
 func (v *VClusterOps) retrieveTargetNMACerts(ctx context.Context) (*HTTPSCerts, error) {
@@ -46,10 +36,27 @@ func (v *VClusterOps) retrieveTargetNMACerts(ctx context.Context) (*HTTPSCerts, 
 		Obj:      v.TargetVDB,
 		EVWriter: v.EVWriter,
 	}
-	return retrieveNMACerts(ctx, &fetcher, v.TargetVDB)
+	return retrieveNMACerts(ctx, fetcher, v.TargetVDB)
 }
 
-func retrieveNMACerts(ctx context.Context, fetcher *cloud.SecretFetcher, vdb *vapi.VerticaDB) (*HTTPSCerts, error) {
+// retrieveNMACerts will retrieve the certs from NMATLSSecret for calling NMA endpoints
+func (v *VClusterOps) retrieveNMACerts(_ context.Context) (*HTTPSCerts, error) {
+	vdbContext := GetContextForVdb(v.VDB.Namespace, v.VDB.Name)
+	namSecretName, err := getNMATLSSecretName(v.VDB)
+	if err != nil {
+		return nil, err
+	}
+	v.Log.Info("nma secret name to use " + namSecretName)
+	fetcher := cloud.SecretFetcher{
+		Client:   v.Client,
+		Log:      v.Log,
+		Obj:      v.VDB,
+		EVWriter: v.EVWriter,
+	}
+	return vdbContext.GetCertFromSecret(namSecretName, fetcher)
+}
+
+func retrieveNMACerts(ctx context.Context, fetcher cloud.SecretFetcher, vdb *vapi.VerticaDB) (*HTTPSCerts, error) {
 	tlsCerts, err := fetcher.Fetch(ctx, names.GenNamespacedName(vdb, vdb.Spec.NMATLSSecret))
 	if err != nil {
 		return nil, fmt.Errorf("fetching NMA certs: %w", err)
@@ -74,6 +81,24 @@ func retrieveNMACerts(ctx context.Context, fetcher *cloud.SecretFetcher, vdb *va
 	}, nil
 }
 
+// getNMATLSSecretName returns the name of the secret that stores TLS cert
+// when tls cert is NOT used, it returns vdb.Spec.NMATLSSecret. This includes
+// the time before a vdb is created
+// when tls cert is used, it returns secert name saved in annotation
+func getNMATLSSecretName(vdb *vapi.VerticaDB) (string, error) {
+	vdbContext := GetContextForVdb(vdb.Namespace, vdb.Name)
+	secretName := ""
+	if vdbContext.GetBoolValue(UseTLSCert) {
+		secretName = meta.GetNMATLSSecretNameInUse(vdb.Annotations)
+	} else {
+		secretName = vdb.Spec.NMATLSSecret
+	}
+	if secretName == "" {
+		return "", fmt.Errorf("failed to retrieve nma secret name")
+	}
+	return secretName, nil
+}
+
 // logFailure will log and record an event for a vclusterOps API failure
 func (v *VClusterOps) logFailure(cmd, genericFailureReason string, err error) (ctrl.Result, error) {
 	evLogr := vcErrors{
@@ -83,6 +108,20 @@ func (v *VClusterOps) logFailure(cmd, genericFailureReason string, err error) (c
 		EVWriter:             v.EVWriter,
 	}
 	return evLogr.LogFailure(cmd, err)
+}
+
+// shouldUseCertAuthentication returns true when tls cert is used
+func (v *VClusterOps) shouldUseCertAuthentication() bool {
+	Vinf, ok := v.VDB.MakeVersionInfo()
+	if !ok {
+		v.Log.Info("failed to get vertica version. disable TLS cert")
+		return false
+	}
+	if Vinf.IsEqualOrNewer(vapi.TLSCertRotationMinVersion) && meta.EnableTLSCertsRotation(v.VDB.Annotations) {
+		vdbContext := GetContextForVdb(v.VDB.Namespace, v.VDB.Name)
+		return vdbContext.GetBoolValue(UseTLSCert)
+	}
+	return false
 }
 
 func (v *VClusterOps) setAuthentication(opts *vops.DatabaseOptions, username string, password *string, certs *HTTPSCerts) {

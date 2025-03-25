@@ -125,8 +125,10 @@ func (r *VerticaDBReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		return ctrl.Result{}, err
 	}
 	log.Info("VerticaDB details", "uid", vdb.UID, "resourceVersion", vdb.ResourceVersion,
-		"vclusterOps", vmeta.UseVClusterOps(vdb.Annotations), "user", vdb.GetVerticaUser())
+		"vclusterOps", vmeta.UseVClusterOps(vdb.Annotations), "user", vdb.GetVerticaUser(),
+		"tls cert rotate enabled", vmeta.EnableTLSCertsRotation(vdb.Annotations))
 
+	r.configureTLS(log, vdb)
 	if vmeta.IsPauseAnnotationSet(vdb.Annotations) {
 		log.Info(fmt.Sprintf("The pause annotation %s is set. Suspending the iteration", vmeta.PauseOperatorAnnotation),
 			"result", ctrl.Result{}, "err", nil)
@@ -200,6 +202,8 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		MakeTLSServerCertGenReconciler(r, log, vdb),
 		// Create a ConfigMap to store secret names for all tls certs
 		MakeNMACertConfigMapGenReconciler(r, log, vdb),
+		// rotate nma tls cert when tls cert secret name is changed in vdb.spec
+		MakeTLSCertRotationReconciler(r, log, vdb, dispatcher, pfacts),
 		// Create ServiceAcount, Role and RoleBindings needed for vertica pods
 		MakeServiceAccountReconciler(r, log, vdb),
 		// Handle setting up the pod security context. This picks the
@@ -335,6 +339,28 @@ func (r *VerticaDBReconciler) makeDispatcher(log logr.Logger, vdb *vapi.VerticaD
 		return vadmin.MakeVClusterOps(log, vdb, r.Client, passwd, r.EVRec, vadmin.SetupVClusterOps)
 	}
 	return vadmin.MakeAdmintools(log, vdb, prunner, r.EVRec)
+}
+
+func (r *VerticaDBReconciler) configureTLS(log logr.Logger, vdb *vapi.VerticaDB) {
+	vdbContext := vadmin.GetContextForVdb(vdb.Namespace, vdb.Name)
+	VInf, err := vdb.MakeVersionInfoCheck()
+	dataInitialized := vdb.IsStatusConditionTrue(vapi.DBInitialized)
+	if err != nil { // version info not available
+		if vmeta.EnableTLSCertsRotation(vdb.Annotations) && dataInitialized {
+			vdbContext.SetBoolValue(vadmin.UseTLSCert, true)
+			log.Info("based on annatation only, tls cert rotate is supported")
+			return
+		}
+	} else {
+		if VInf.IsEqualOrNewer(vapi.TLSCertRotationMinVersion) && vmeta.EnableTLSCertsRotation(vdb.Annotations) &&
+			dataInitialized {
+			vdbContext.SetBoolValue(vadmin.UseTLSCert, true)
+			log.Info("based on annatation and version, tls cert rotate is supported")
+			return
+		}
+	}
+	vdbContext.SetBoolValue(vadmin.UseTLSCert, false)
+	log.Info("tls cert rotate is not supported")
 }
 
 // Event a wrapper for Event() that also writes a log entry

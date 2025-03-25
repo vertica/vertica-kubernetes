@@ -65,7 +65,7 @@ var _ = Describe("revive_db_vc", func() {
 	ctx := context.Background()
 
 	It("should call vcluster-ops library with revive_db task", func() {
-		dispatcher := mockVClusterOpsDispatcher()
+		dispatcher := mockMTLSVClusterOpsDispatcher()
 		dispatcher.VDB.Spec.DBName = TestDBName
 		dispatcher.VDB.Spec.NMATLSSecret = "revive-db-test-secret"
 		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.NMATLSSecret)

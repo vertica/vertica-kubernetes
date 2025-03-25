@@ -72,7 +72,7 @@ var _ = Describe("re_ip_vc", func() {
 	}
 
 	It("should call vcluster-ops library with re_ip task", func() {
-		dispatcher := mockVClusterOpsDispatcher()
+		dispatcher := mockMTLSVClusterOpsDispatcher()
 		dispatcher.VDB.Spec.DBName = TestDBName
 		dispatcher.VDB.Spec.NMATLSSecret = "re-ip-test-secret"
 		dispatcher.VDB.Spec.InitPolicy = vapi.CommunalInitPolicyRevive

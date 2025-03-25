@@ -29,6 +29,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -51,6 +52,7 @@ const (
 
 	VerticaDBNameKey = "verticaDBName"
 	SandboxNameKey   = "sandboxName"
+	LegacyVersion    = "v23.4.0"
 )
 
 // ExtractNamespacedName gets the name and returns it as a NamespacedName
@@ -100,6 +102,18 @@ func SetVDBForTLS(v *VerticaDB) {
 // MakeVDB is a helper that constructs a fully formed VerticaDB struct using the sample name.
 // This is intended for test purposes.
 func MakeVDB() *VerticaDB {
+	return MakeVersionedVDB(LegacyVersion)
+}
+
+// MakeVDB is a helper that constructs a fully formed VerticaDB struct using the sample name.
+// This is intended for test purposes.
+func MakeMTLSVDB() *VerticaDB {
+	return MakeVersionedVDB(TLSCertRotationMinVersion)
+}
+
+// MakeVDB is a helper that constructs a fully formed VerticaDB struct using the sample name.
+// This is intended for test purposes.
+func MakeVersionedVDB(verticaVersion string) *VerticaDB {
 	nm := MakeVDBName()
 	replicas := int32(1)
 	return &VerticaDB{
@@ -113,7 +127,7 @@ func MakeVDB() *VerticaDB {
 			UID:       "abcdef-ghi",
 			Annotations: map[string]string{
 				vmeta.VClusterOpsAnnotation: vmeta.VClusterOpsAnnotationFalse,
-				vmeta.VersionAnnotation:     "v23.4.0",
+				vmeta.VersionAnnotation:     verticaVersion,
 			},
 		},
 		Spec: VerticaDBSpec{
@@ -1409,6 +1423,22 @@ func GetMetricTarget(metric *autoscalingv2.MetricSpec) *autoscalingv2.MetricTarg
 		}
 	}
 	return nil
+}
+
+func IsK8sSecretFound(ctx context.Context, vdb *VerticaDB, k8sClient client.Client, secretName *string,
+	secret *corev1.Secret) (bool, error) {
+	nm := types.NamespacedName{
+		Name:      *secretName,
+		Namespace: vdb.GetNamespace(),
+	}
+	err := k8sClient.Get(ctx, nm, secret)
+	if k8serrors.IsNotFound(err) {
+		return false, nil
+	} else if err != nil {
+		return false, err
+	} else {
+		return true, nil
+	}
 }
 
 func convertToBool(src string) bool {
