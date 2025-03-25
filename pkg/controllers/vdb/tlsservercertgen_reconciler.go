@@ -35,8 +35,7 @@ import (
 )
 
 const (
-	clientServerTLSSecret = "ClientServerTLSSecret"
-	nmaTLSSecret          = "NMATLSSecret"
+	nmaTLSSecret = "NMATLSSecret"
 )
 
 // TLSServerCertGenReconciler will create a secret that has TLS credentials.  This
@@ -107,7 +106,7 @@ func (h *TLSServerCertGenReconciler) reconcileOneSecret(secretFieldName, secretN
 	if err != nil {
 		return err
 	}
-	h.Log.Info("created certificate and secret and cached " + secret.Name)
+	h.Log.Info("created certificate and secret " + secret.Name)
 	return h.setSecretNameInVDB(ctx, secretFieldName, secret.ObjectMeta.Name)
 }
 
@@ -142,8 +141,6 @@ func (h *TLSServerCertGenReconciler) createSecret(secretFieldName, secretName st
 	if secretName == "" {
 		if secretFieldName == nmaTLSSecret {
 			secret.GenerateName = fmt.Sprintf("%s-nma-tls-", h.Vdb.Name)
-		} else {
-			secret.GenerateName = fmt.Sprintf("%s-clientserver-tls-", h.Vdb.Name)
 		}
 	} else {
 		secret.Name = secretName

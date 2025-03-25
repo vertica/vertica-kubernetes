@@ -52,7 +52,8 @@ const (
 	// This is a file that we run with the create_db to run custome SQL. This is
 	// passed with the --sql parameter when running create_db. This is no longer
 	// used starting with versions defined in vapi.DBSetupConfigParameters.
-	PostDBCreateSQLFile = "/tmp/post-db-create.sql"
+	PostDBCreateSQLFile            = "/home/dbadmin/post-db-create.sql"
+	PostDBCreateSQLFileVclusterOps = "/tmp/post-db-create.sql"
 )
 
 // CreateDBReconciler will create a database if one wasn't created yet.
@@ -133,12 +134,20 @@ func (c *CreateDBReconciler) execCmd(ctx context.Context, initiatorPod types.Nam
 	if res, errTwo := c.Dispatcher.CreateDB(ctx, opts...); verrors.IsReconcileAborted(res, err) {
 		return res, errTwo
 	}
-	if c.VInf.IsEqualOrNewer(vapi.NMATLSCertRotationMinVersion) && vmeta.EnableTLSCertsRotation(c.Vdb.Annotations) {
+	if !c.Vdb.IsCertRotationEnabled() {
 		_, stderr, errThree := c.PRunner.ExecInPod(ctx, initiatorPod, names.ServerContainer,
 			"vsql", "-f", PostDBCreateSQLFile)
 		if errThree != nil || strings.Contains(stderr, "Error") {
-			c.Log.Error(errThree, "failed to execute TLS DDLs after db creation stderr - "+stderr)
+			c.Log.Error(errThree, "failed to execute post createdb ddls after db creation stderr - "+stderr)
 			return ctrl.Result{}, err
+		}
+		c.Log.Info("post createdb ddls executed")
+	} else {
+		_, stderr, err2 := c.PRunner.ExecInPod(ctx, initiatorPod, names.ServerContainer,
+			"vsql", "-f", PostDBCreateSQLFileVclusterOps)
+		if err2 != nil || strings.Contains(stderr, "Error") {
+			c.Log.Error(err2, "failed to execute TLS DDLs after db creation stderr - "+stderr)
+			return ctrl.Result{}, err2
 		}
 		chgs := vk8s.MetaChanges{
 			NewAnnotations: map[string]string{
@@ -191,9 +200,9 @@ func (c *CreateDBReconciler) preCmdSetup(ctx context.Context, initiatorPod types
 // generatePostDBCreateSQL is a function that creates a file with sql commands
 // to be run immediately after the database create.
 func (c *CreateDBReconciler) generatePostDBCreateSQL(ctx context.Context, initiatorPod types.NamespacedName) (ctrl.Result, error) {
-	// On newer server versions we moved over the SQL to config parameters. So,
-	// if we are on a new enough version we can skip this function entirely.
-	if c.VInf.IsEqualOrNewer(vapi.DBSetupConfigParametersMinVersion) && c.VInf.IsOlder(vapi.NMATLSCertRotationMinVersion) {
+	// If version is older than DBSetupConfigParametersMinVersion or newer than vapi.TLSCertRotationMinVersion,
+	// run SQL after DB creation. Otherwise, skip this function
+	if c.VInf.IsEqualOrNewer(vapi.DBSetupConfigParametersMinVersion) && !c.Vdb.IsCertRotationEnabled() {
 		return ctrl.Result{}, nil
 	}
 	// We include SQL to rename the default subcluster to match the name of the
@@ -201,6 +210,7 @@ func (c *CreateDBReconciler) generatePostDBCreateSQL(ctx context.Context, initia
 	// by DBAddSubclusterReconciler.
 	sc := c.getFirstPrimarySubcluster()
 	var sb strings.Builder
+	pcFile := PostDBCreateSQLFile
 	sb.WriteString("-- SQL that is run after the database is created\n")
 	if c.VInf.IsOlder(vapi.DBSetupConfigParametersMinVersion) {
 		if c.Vdb.IsEON() {
@@ -218,7 +228,7 @@ func (c *CreateDBReconciler) generatePostDBCreateSQL(ctx context.Context, initia
 			`, vapi.EncryptSpreadCommWithVertica))
 		}
 	}
-	if c.VInf.IsEqualOrNewer(vapi.NMATLSCertRotationMinVersion) && vmeta.EnableTLSCertsRotation(c.Vdb.Annotations) {
+	if c.Vdb.IsCertRotationEnabled() {
 		sb.WriteString(`CREATE OR REPLACE LIBRARY public.KubernetesLib AS '/opt/vertica/packages/kubernetes/lib/libkubernetes.so';`)
 		sb.WriteString(`CREATE OR REPLACE SECRETMANAGER KubernetesSecretManager AS LANGUAGE 'C++' NAME 'KubernetesSecretManagerFactory' 
 			LIBRARY KubernetesLib;`)
@@ -248,9 +258,11 @@ func (c *CreateDBReconciler) generatePostDBCreateSQL(ctx context.Context, initia
 		sb.WriteString(`ALTER TLS CONFIGURATION https CERTIFICATE https_cert_0 REMOVE CA CERTIFICATES httpServerRootca;`)
 		sb.WriteString(`CREATE AUTHENTICATION auth_tls METHOD 'tls' HOST TLS '0.0.0.0/0';`)
 		sb.WriteString(fmt.Sprintf(`GRANT AUTHENTICATION auth_tls TO %s;`, c.Vdb.GetVerticaUser()))
+		sb.WriteString(`select sync_catalog();`)
+		pcFile = PostDBCreateSQLFileVclusterOps
 	}
 	_, _, err := c.PRunner.ExecInPod(ctx, initiatorPod, names.ServerContainer,
-		"bash", "-c", "cat > "+PostDBCreateSQLFile+"<<< \""+sb.String()+"\"",
+		"bash", "-c", "cat > "+pcFile+"<<< \""+sb.String()+"\"",
 	)
 	c.Log.Info("SQL to be executed after db creation: " + sb.String())
 	if err != nil {
@@ -362,7 +374,7 @@ func (c *CreateDBReconciler) genOptions(ctx context.Context, initiatorPod types.
 		createdb.WithDataPath(c.Vdb.Spec.Local.DataPath),
 	}
 
-	if !c.VInf.IsEqualOrNewer(vapi.DBSetupConfigParametersMinVersion) || c.VInf.IsEqualOrNewer(vapi.NMATLSCertRotationMinVersion) {
+	if !c.VInf.IsEqualOrNewer(vapi.DBSetupConfigParametersMinVersion) || c.VInf.IsEqualOrNewer(vapi.TLSCertRotationMinVersion) {
 		opts = append(opts, createdb.WithPostDBCreateSQLFile(PostDBCreateSQLFile))
 	}
 

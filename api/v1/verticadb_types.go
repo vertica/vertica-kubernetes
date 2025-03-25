@@ -289,21 +289,6 @@ type VerticaDBSpec struct {
 	NMATLSSecret string `json:"nmaTLSSecret,omitempty"`
 
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:hidden"
-	// +kubebuilder:default:=TRY_VERIFY
-	// +kubebuilder:validation:Optional
-	// This field configures the Vertica's connection mode for client-server TLS.
-	// Choose one of the following TLSMODEs, listed in ascending security:
-	// - DISABLE: Disables TLS. All other options for this parameter enable TLS.
-	// - ENABLE: Enables TLS. Vertica does not verify client certificates.
-	// - TRY_VERIFY: Establishes a TLS connection if one of the following is true:
-	//   - The client presents a valid certificate.
-	//   - The client doesn't present a certificate
-	//   If the client presents an invalid certificate, the connection is rejected.
-	// - VERIFY_CA: Connection succeeds if Vertica verifies that the client certificate is from a trusted CA.
-	//   If the client does not present a client certificate, the connection is rejected.
-	ClientServerTLSMode string `json:"clientServerTLSMode,omitempty"`
-
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:hidden"
 	// +kubebuilder:validation:Optional
 	// Allows tuning of the Vertica pods readiness probe. Each of the values
 	// here are applied to the default readiness probe we create. If this is
@@ -1004,11 +989,14 @@ const (
 	PrimarySubcluster   = "primary"
 	SecondarySubcluster = "secondary"
 	TransientSubcluster = "transient"
-	// A sandbox primary subcluster is a secondary subcluster that was the first
-	// subcluster in a sandbox. These subclusters are primaries when they are
-	// sandboxed. When unsandboxed, they will go back to being just a secondary
-	// subcluster
+	// In subclusters status, a sandbox primary subcluster is a primary
+	// subcluster in a sandbox. These subclusters are primaries when they
+	// are sandboxed. When unsandboxed, they will go back to being just a
+	// secondary subcluster
 	SandboxPrimarySubcluster = "sandboxprimary"
+	// In subclusters status, a sandbox secondary subcluster is a secondary
+	// subcluster in a sandbox.
+	SandboxSecondarySubcluster = "sandboxsecondary"
 )
 
 // SubclusterStatus defines the per-subcluster status that we track
@@ -1020,6 +1008,12 @@ type SubclusterStatus struct {
 	// +operator-sdk:csv:customresourcedefinitions:type=status
 	// Object ID of the subcluster.
 	Oid string `json:"oid"`
+
+	// +operator-sdk:csv:customresourcedefinitions:type=status
+	// +optional
+	// The type of the subcluster. It could be primary, secondary, sandboxprimary,
+	// sandboxsecondary, or empty if it's not in the db yet.
+	Type string `json:"type"`
 
 	// +operator-sdk:csv:customresourcedefinitions:type=status
 	// A count of the number of pods that have been added to the database for this subcluster.

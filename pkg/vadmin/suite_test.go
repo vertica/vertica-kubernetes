@@ -377,7 +377,7 @@ func mockVClusterOpsDispatcher() *VClusterOps {
 // mockVClusterOpsDispatcher will create an vcluster-ops dispatcher for test
 // purposes. This uses a standard function to setup the API.
 func mockMTLSVClusterOpsDispatcher() *VClusterOps {
-	return mockVersionedVClusterOpsDispatcher(vapi.NMATLSCertRotationMinVersion)
+	return mockVersionedVClusterOpsDispatcher(vapi.TLSCertRotationMinVersion)
 }
 
 // mockVClusterOpsDispatcher will create an vcluster-ops dispatcher for test

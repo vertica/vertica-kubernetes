@@ -22,6 +22,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	vops "github.com/vertica/vcluster/vclusterops"
+	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/test"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/addsc"
 )
@@ -53,6 +54,10 @@ func (m *MockVClusterOps) VAddSubcluster(options *vops.VAddSubclusterOptions) er
 		return fmt.Errorf("failed to retrieve subcluster type")
 	}
 
+	if options.Password == nil || *options.Password != TestPassword {
+		return fmt.Errorf("missing password")
+	}
+
 	return nil
 }
 
@@ -69,5 +74,11 @@ var _ = Describe("add_sc_vc", func() {
 			addsc.WithInitiator(dispatcher.VDB.ExtractNamespacedName(), TestInitiatorIP),
 			addsc.WithSubcluster(TestSCName),
 			addsc.WithIsPrimary(TestIsPrimary))).Should(Succeed())
+		vapi.SetVDBForTLS(dispatcher.VDB)
+		err := dispatcher.AddSubcluster(ctx,
+			addsc.WithInitiator(dispatcher.VDB.ExtractNamespacedName(), TestInitiatorIP),
+			addsc.WithSubcluster(TestSCName),
+			addsc.WithIsPrimary(TestIsPrimary))
+		Ω(err.Error()).Should(ContainSubstring("missing password"))
 	})
 })

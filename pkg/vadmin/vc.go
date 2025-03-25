@@ -19,6 +19,7 @@ import (
 	"context"
 	"fmt"
 
+	vops "github.com/vertica/vcluster/vclusterops"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/cloud"
 	"github.com/vertica/vertica-kubernetes/pkg/meta"
@@ -116,9 +117,19 @@ func (v *VClusterOps) shouldUseCertAuthentication() bool {
 		v.Log.Info("failed to get vertica version. disable TLS cert")
 		return false
 	}
-	if Vinf.IsEqualOrNewer(vapi.NMATLSCertRotationMinVersion) && meta.EnableTLSCertsRotation(v.VDB.Annotations) {
+	if Vinf.IsEqualOrNewer(vapi.TLSCertRotationMinVersion) && meta.EnableTLSCertsRotation(v.VDB.Annotations) {
 		vdbContext := GetContextForVdb(v.VDB.Namespace, v.VDB.Name)
 		return vdbContext.GetBoolValue(UseTLSCert)
 	}
 	return false
+}
+
+func (v *VClusterOps) setAuthentication(opts *vops.DatabaseOptions, username string, password *string, certs *HTTPSCerts) {
+	opts.Key = certs.Key
+	opts.Cert = certs.Cert
+	opts.CaCert = certs.CaCert
+	if !v.VDB.IsCertRotationEnabled() {
+		opts.UserName = username
+		opts.Password = password
+	}
 }

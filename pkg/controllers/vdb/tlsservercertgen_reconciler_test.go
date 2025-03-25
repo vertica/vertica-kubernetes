@@ -30,7 +30,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-var _ = Describe("httpservercertgen_reconcile", func() {
+var _ = Describe("tlsservercertgen_reconcile", func() {
 	ctx := context.Background()
 
 	It("should be a op if not using vclusterops", func() {

@@ -1,11 +1,12 @@
-apiVersion: vertica.com/v1beta1
-kind: VerticaDB
+apiVersion: v1
+kind: Pod
 metadata:
-  name: v-tls-certs
+  name: v-tls-certs-sc1-0
 status:
-  subclusters:
-    - addedToDBCount: 1
-      upNodeCount: 1
-      name: sc1
-      detail:
-        - upNode: true
+  containerStatuses:
+  - name: nma
+    ready: true
+    started: true
+  - name: server
+    ready: true
+    started: true
