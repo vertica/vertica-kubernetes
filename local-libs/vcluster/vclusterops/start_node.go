@@ -54,8 +54,6 @@ type VStartNodesInfo struct {
 	Sandbox string
 	// this can help decide whether there are nodes down that do not need to re-ip
 	hasDownNodeNoNeedToReIP bool
-	// old-ip to new-ip map (in case of re-ip)
-	oldToNewIPMap map[string]string
 	// hosts that are not reachable through NMA
 	unreachableHosts []string
 	// is start subcluster command
@@ -487,26 +485,15 @@ func produceStartNodeReIPInstructions(instructions *[]clusterOp,
 		}
 		*instructions = append(*instructions, &httpsReIPOp)
 	}
-
 	// host is set to nil value in the reload spread step
 	// we use information from node information to find the up host later
 	httpsReloadSpreadOp, err := makeHTTPSReloadSpreadOp(options.usePassword, options.UserName, options.Password)
 	if err != nil {
 		return err
 	}
-	// update hosts list with new IP
-	for i, oldIP := range options.Hosts {
-		if newIP, exists := startNodeInfo.oldToNewIPMap[oldIP]; exists {
-			options.Hosts[i] = newIP
-		}
-	}
-	allowSandboxResponse := false
-	if startNodeInfo.Sandbox != util.MainClusterSandbox {
-		allowSandboxResponse = true
-	}
 	// update new vdb information after re-ip
 	httpsGetNodesInfoOp, err := makeHTTPSGetNodesInfoOp(options.DBName, options.Hosts,
-		options.usePassword, options.UserName, options.Password, vdb, allowSandboxResponse, startNodeInfo.Sandbox)
+		options.usePassword, options.UserName, options.Password, vdb, options.usePassword, startNodeInfo.Sandbox)
 	if err != nil {
 		return err
 	}
@@ -570,7 +557,6 @@ func (options *VStartNodesOptions) separateHostsBasedOnReIPNeed(
 	vdb *VCoordinationDatabase,
 	logger vlog.Printer) ([]string, error) {
 	var sortedHosts []string // control nodes first
-	startNodeInfo.oldToNewIPMap = make(map[string]string)
 	for nodename, newIP := range options.Nodes {
 		oldIP, ok := hostNodeNameMap[nodename]
 		if !ok {
@@ -585,7 +571,6 @@ func (options *VStartNodesOptions) separateHostsBasedOnReIPNeed(
 		// if the IP that is given is different than the IP in the catalog, a re-ip is necessary
 		if oldIP != newIP {
 			startNodeInfo.ReIPList = append(startNodeInfo.ReIPList, newIP)
-			startNodeInfo.oldToNewIPMap[oldIP] = newIP
 			startNodeInfo.NodeNamesToStart = append(startNodeInfo.NodeNamesToStart, nodename)
 		} else {
 			vnode, ok := vdb.HostNodeMap[newIP]

@@ -23,8 +23,6 @@ import (
 	"strconv"
 )
 
-const csvTag = "csv"
-
 // WriteCSV will create and write to a CSV file.
 // 'rows' should be a 2D slice where each inner slice is a row, and each element in the inner slice is a column
 // The first row should contain headers (if using)
@@ -114,9 +112,9 @@ func ConvertToCSVRows(slice any) ([][]string, error) {
 func getCSVHeaders(elementType reflect.Type) []string {
 	var headers []string
 	for i := 0; i < elementType.NumField(); i++ {
-		csvTag := elementType.Field(i).Tag.Get(csvTag)
-		if csvTag != "" {
-			headers = append(headers, csvTag)
+		jsonTag := elementType.Field(i).Tag.Get("csv")
+		if jsonTag != "" {
+			headers = append(headers, jsonTag)
 		} else {
 			headers = append(headers, elementType.Field(i).Name)
 		}
@@ -153,108 +151,4 @@ func getCSVRowValues(elementValue reflect.Value) []string {
 	}
 
 	return row
-}
-
-// Convert a 2D slice of strings (the format returned by ReadCSV) to a slice of structs
-func ConvertFromCSVRows[T any](rows [][]string) ([]T, error) {
-	if reflect.ValueOf(new(T)).Elem().Kind() != reflect.Struct {
-		return nil, fmt.Errorf("expected a struct type")
-	}
-
-	// Empty CSV - nothing to do
-	if len(rows) == 0 {
-		return []T{}, nil
-	}
-
-	// Build a map of CSV tag to field index for faster lookups later
-	fieldIndexMap := make(map[string]int)
-	outputType := reflect.TypeOf(new(T)).Elem()
-	for i := 0; i < outputType.NumField(); i++ {
-		field := outputType.Field(i)
-		tag := field.Tag.Get(csvTag)
-		if tag != "" {
-			fieldIndexMap[tag] = i
-		} else {
-			fieldIndexMap[field.Name] = i
-		}
-	}
-
-	// Get the headers from the first row
-	headers := rows[0]
-
-	outputRows := []T{}
-	for rowIndex, row := range rows[1:] {
-		// Create a new instance of the struct type
-		outputRow := new(T)
-		outputValue := reflect.ValueOf(outputRow)
-
-		// Loop through the CSV headers and set the corresponding struct fields
-		for colIndex, header := range headers {
-			// Look up the field index
-			fieldIndex, found := fieldIndexMap[header]
-			if !found {
-				return nil, fmt.Errorf("invalid header '%s' does not match any field", header)
-			}
-
-			// Get the field and ensure we can set its value
-			fieldValue := outputValue.Elem().Field(fieldIndex)
-			if !fieldValue.IsValid() || !fieldValue.CanSet() {
-				return nil, fmt.Errorf("can't set field '%s'", fieldValue.Type().Name())
-			}
-
-			// Set the field
-			err := setFieldValue(row[colIndex], fieldValue)
-			if err != nil {
-				return nil, fmt.Errorf("in row %d: %v", rowIndex+1, err)
-			}
-		}
-
-		// Append the item to the result slice
-		outputRows = append(outputRows, *outputRow)
-	}
-
-	return outputRows, nil
-}
-
-// Set a field's value by converting it from a string to the correct type
-func setFieldValue(stringValue string, fieldValue reflect.Value) error {
-	switch fieldValue.Kind() {
-	case reflect.String:
-		fieldValue.SetString(stringValue)
-
-	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		intValue, err := strconv.ParseInt(stringValue, 10, 64)
-		if err != nil {
-			return fmt.Errorf("failed to parse integer: %v", err)
-		}
-		fieldValue.SetInt(intValue)
-
-	case reflect.Float32, reflect.Float64:
-		floatValue, err := strconv.ParseFloat(stringValue, 64)
-		if err != nil {
-			return fmt.Errorf("failed to parse float: %v", err)
-		}
-		fieldValue.SetFloat(floatValue)
-
-	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-		uintValue, err := strconv.ParseUint(stringValue, 10, 64)
-		if err != nil {
-			return fmt.Errorf("failed to parse unsigned integer: %v", err)
-		}
-		fieldValue.SetUint(uintValue)
-
-	case reflect.Bool:
-		boolValue, err := strconv.ParseBool(stringValue)
-		if err != nil {
-			return fmt.Errorf("failed to parse boolean: %v", err)
-		}
-		fieldValue.SetBool(boolValue)
-
-	case reflect.Invalid, reflect.Uintptr, reflect.Complex64, reflect.Complex128, reflect.Array, reflect.Chan,
-		reflect.Func, reflect.Interface, reflect.Map, reflect.Pointer, reflect.Slice, reflect.Struct,
-		reflect.UnsafePointer:
-		return fmt.Errorf("cannot convert string to type '%s'", fieldValue.Kind().String())
-	}
-
-	return nil
 }

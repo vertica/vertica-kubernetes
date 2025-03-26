@@ -219,23 +219,23 @@ func convertFromCSV(data [][]string) ([]workloadQuery, error) {
 	return capturedWorkloadRequests, nil
 }
 
-type WorkloadReplayReportData struct {
-	Request            string `json:"request" csv:"request"`
-	OriginalDurationMS int64  `json:"original_duration_ms" csv:"original_duration_ms"`
-	OriginalNodeName   string `json:"original_node_name" csv:"original_node_name"`
-	ReplayDurationMS   int64  `json:"replay_duration_ms" csv:"replay_duration_ms"`
-	ReplayNodeName     string `json:"replay_node_name" csv:"replay_node_name"`
-	ErrorDetails       string `json:"error" csv:"error"`
+type workloadReplayReportData struct {
+	Request            string `csv:"request"`
+	OriginalDurationMS int64  `csv:"original_duration_ms"`
+	OriginalNodeName   string `csv:"original_node_name"`
+	ReplayDurationMS   int64  `csv:"replay_duration_ms"`
+	ReplayNodeName     string `csv:"replay_node_name"`
+	ErrorDetails       string `csv:"error"`
 }
 
 // Aggregate original captured workload and replay information into one struct that can be written to a CSV file
-func aggregateWorkloadReplayReportData(data workloadReplayData) []WorkloadReplayReportData {
-	reportData := []WorkloadReplayReportData{}
+func aggregateWorkloadReplayReportData(data workloadReplayData) []workloadReplayReportData {
+	reportData := []workloadReplayReportData{}
 
 	for index, originalRow := range data.originalWorkloadData {
 		replayRow := data.replayData[index]
 
-		reportRow := WorkloadReplayReportData{
+		reportRow := workloadReplayReportData{
 			Request:            originalRow.Request,
 			OriginalDurationMS: originalRow.RequestDurationMS,
 			OriginalNodeName:   originalRow.NodeName,
