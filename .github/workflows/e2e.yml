@@ -853,6 +853,7 @@ jobs:
       e2e-leg-10-vcluster,
       e2e-leg-11-vcluster,
       e2e-leg-12-vcluster,
+      e2e-leg-12-vcluster-cert,
       e2e-server-upgrade-vcluster,
       e2e-operator-upgrade,
       e2e-udx-vcluster,
