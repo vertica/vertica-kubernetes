@@ -130,9 +130,10 @@ func (c *CreateDBReconciler) execCmd(ctx context.Context, initiatorPod types.Nam
 	if res, err := c.Dispatcher.CreateDB(ctx, opts...); verrors.IsReconcileAborted(res, err) {
 		return res, err
 	}
+	clusterPodRunner := c.PRunner.(*cmds.ClusterPodRunner)
 	if c.Vdb.IsCertRotationEnabled() {
 		cmd := []string{
-			"-f", PostDBCreateSQLFileVclusterOps,
+			"--password", clusterPodRunner.VerticaSUPassword, "-f", PostDBCreateSQLFileVclusterOps,
 		}
 		_, stderr, err2 := c.PRunner.ExecVSQL(ctx, initiatorPod, names.ServerContainer, cmd...)
 		if err2 != nil || strings.Contains(stderr, "Error") {
