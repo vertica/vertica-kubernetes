@@ -698,6 +698,29 @@ jobs:
           # Include the vertica license so we can test multiple subclusters.
           vertica-license: ${{ secrets.VERTICA_LICENSE }}
 
+  e2e-leg-12-vcluster-cert:
+    if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'vcluster leg 12 cert' || inputs.e2e_test_suites == '')}}
+    needs: [build]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Test
+        uses: ./.github/actions/run-e2e-leg
+        with:
+          leg-identifier: 'leg-12'
+          dockerhub-username: ${{ secrets.DOCKERHUB_USERNAME }}
+          dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}
+          vlogger-image: ${{ needs.build.outputs.vlogger-image }}
+          operator-image: ${{ needs.build.outputs.operator-image }}
+          vertica-image: ${{ needs.build.outputs.full-vertica-image }}
+          vertica-deployment-method: vclusterops
+          communal-storage-type: s3
+          use-cert: true
+          cert-suffix: cert
+          # Include the vertica license so we can test multiple subclusters.
+          vertica-license: ${{ secrets.VERTICA_LICENSE }}
+
   e2e-server-upgrade-admintools:
     if: ${{ ! contains(github.ref, 'k8s-sync')  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools server upgrade' || inputs.e2e_test_suites == '') }}
     needs: [build]

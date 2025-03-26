@@ -130,8 +130,10 @@ func (c *CreateDBReconciler) execCmd(ctx context.Context, initiatorPod types.Nam
 		return res, err
 	}
 	if c.Vdb.IsCertRotationEnabled() {
-		_, stderr, err2 := c.PRunner.ExecInPod(ctx, initiatorPod, names.ServerContainer,
-			"vsql", "-f", PostDBCreateSQLFileVclusterOps)
+		cmd := []string{
+			"-f", PostDBCreateSQLFileVclusterOps,
+		}
+		_, stderr, err2 := c.PRunner.ExecVSQL(ctx, initiatorPod, names.ServerContainer, cmd...)
 		if err2 != nil || strings.Contains(stderr, "Error") {
 			c.Log.Error(err2, "failed to execute TLS DDLs after db creation stderr - "+stderr)
 			return ctrl.Result{}, err2
