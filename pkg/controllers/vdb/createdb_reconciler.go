@@ -129,9 +129,10 @@ func (c *CreateDBReconciler) execCmd(ctx context.Context, initiatorPod types.Nam
 	if res, err := c.Dispatcher.CreateDB(ctx, opts...); verrors.IsReconcileAborted(res, err) {
 		return res, err
 	}
+	clusterPodRunner := c.PRunner.(*cmds.ClusterPodRunner)
 	if c.Vdb.IsCertRotationEnabled() {
 		_, stderr, err2 := c.PRunner.ExecInPod(ctx, initiatorPod, names.ServerContainer,
-			"vsql", "-f", PostDBCreateSQLFileVclusterOps)
+			"vsql", "--password", clusterPodRunner.VerticaSUPassword, "-f", PostDBCreateSQLFileVclusterOps)
 		if err2 != nil || strings.Contains(stderr, "Error") {
 			c.Log.Error(err2, "failed to execute TLS DDLs after db creation stderr - "+stderr)
 			return ctrl.Result{}, err2
