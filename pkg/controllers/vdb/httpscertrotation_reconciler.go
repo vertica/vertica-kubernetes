@@ -28,6 +28,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/builder"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
+	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/meta"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
@@ -69,20 +70,20 @@ func (h *HTTPSCertRoationReconciler) Reconcile(ctx context.Context, _ *ctrl.Requ
 	if h.Vdb.IsStatusConditionTrue(vapi.HTTPSCertRotationFinished) && h.Vdb.IsStatusConditionTrue(vapi.TLSCertRotationInProgress) {
 		return ctrl.Result{}, nil
 	}
-	curretSecretName := vmeta.GetNMATLSSecretNameInUse(h.Vdb.Annotations)
+	currentSecretName := vmeta.GetNMATLSSecretNameInUse(h.Vdb.Annotations)
 	newSecretName := h.Vdb.Spec.NMATLSSecret
-	h.Log.Info("starting rotation reconcile, currentSecretName - " + curretSecretName + ", newSecretName - " + newSecretName)
+	h.Log.Info("starting rotation reconcile, currentSecretName - " + currentSecretName + ", newSecretName - " + newSecretName)
 	// this condition excludes bootstrap scenario
-	if (newSecretName != "" && curretSecretName == "") || (newSecretName != "" &&
-		curretSecretName != "" &&
-		newSecretName == curretSecretName) {
+	if (newSecretName != "" && currentSecretName == "") || (newSecretName != "" &&
+		currentSecretName != "" &&
+		newSecretName == currentSecretName) {
 		return ctrl.Result{}, nil
 	}
-	h.Log.Info("rotation is required from " + curretSecretName + " to " + h.Vdb.Spec.NMATLSSecret)
+	h.Log.Info("rotation is required from " + currentSecretName + " to " + h.Vdb.Spec.NMATLSSecret)
 	// rotation is required. Will check start conditions next
 	// check if secret is ready for rotation
 	currentSecret := corev1.Secret{}
-	found, err := vapi.IsK8sSecretFound(ctx, h.Vdb, h.VRec.Client, &curretSecretName, &currentSecret)
+	found, err := vapi.IsK8sSecretFound(ctx, h.Vdb, h.VRec.Client, &currentSecretName, &currentSecret)
 	if !found || err != nil {
 		h.Log.Info("current secret is not ready yet for rotation. will retry")
 		return ctrl.Result{Requeue: true}, nil
@@ -111,6 +112,8 @@ func (h *HTTPSCertRoationReconciler) Reconcile(ctx context.Context, _ *ctrl.Requ
 		return ctrl.Result{Requeue: true}, nil
 	}
 	h.Log.Info("to start https cert rotation")
+	h.VRec.Eventf(h.Vdb, corev1.EventTypeNormal, events.HTTPSCertRotationStarted,
+		"Start to rotate https cert from %s to %s", currentSecretName, newSecretName)
 	cond := vapi.MakeCondition(vapi.TLSCertRotationInProgress, metav1.ConditionTrue, "Started")
 	if err := vdbstatus.UpdateCondition(ctx, h.VRec.GetClient(), h.Vdb, cond); err != nil {
 		return ctrl.Result{}, err
@@ -126,6 +129,8 @@ func (h *HTTPSCertRoationReconciler) Reconcile(ctx context.Context, _ *ctrl.Requ
 	if err := vdbstatus.UpdateCondition(ctx, h.VRec.GetClient(), h.Vdb, cond); err != nil {
 		return ctrl.Result{}, err
 	}
+	h.VRec.Eventf(h.Vdb, corev1.EventTypeNormal, events.HTTPSCertRotationSucceded,
+		"Successfully rotate https cert from %s to %s", currentSecretName, newSecretName)
 	h.Log.Info("https cert rotation is finished. To rotate nma cert next")
 	return ctrl.Result{}, nil
 }

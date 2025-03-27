@@ -118,7 +118,11 @@ const (
 	InDBSaveRestorePointNotSupported = "InDBSaveRestorePointNotSupported"
 	PauseConnectionsRetry            = "PauseConnectionsRetry"
 	UpgradeFailed                    = "UpgradeFailed"
-	NmaTLSCertRotated                = "NmaTLSCertRotated"
+	NMATLSCertRotationStarted        = "NMATLSCertRotationStarted"
+	NMATLSCertRotationSucceeded      = "NMATLSCertRotationSucceeded"
+	HTTPSCertRotationStarted         = "HTTPSCertRotationStarted"
+	HTTPSCertRotationSucceded        = "HTTPSCertRotationSucceded"
+	HTTPSCertRotationFailed          = "HTTPSCertRotationFailed"
 )
 
 // Constants for VerticaAutoscaler reconciler
