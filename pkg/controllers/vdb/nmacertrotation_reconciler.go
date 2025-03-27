@@ -127,7 +127,7 @@ func (h *NMACertRoationReconciler) rotateNmaTLSCert(ctx context.Context, newSecr
 		return ctrl.Result{}, nil
 	}
 	h.VRec.Eventf(h.Vdb, corev1.EventTypeNormal, events.NMATLSCertRotationStarted,
-		"Started to rotate tls cert from %s to %s", currentSecretName, newSecretName)
+		"Start rotating nma cert from %s to %s", currentSecretName, newSecretName)
 	h.Log.Info("to rotate nma certi from " + currentSecretName + " to " + newSecretName)
 	h.Pfacts.Collect(ctx, h.Vdb)
 	hosts := []string{}
@@ -165,7 +165,7 @@ func (h *NMACertRoationReconciler) rotateNmaTLSCert(ctx context.Context, newSecr
 		h.Log.Info("saved new tls cert secret name " + newSecretName + " in annotation")
 		// last thing is to update vdb condition
 		h.VRec.Eventf(h.Vdb, corev1.EventTypeNormal, events.NMATLSCertRotationSucceeded,
-			"Successfully rotate tls cert from %s to %s", currentSecretName, newSecretName)
+			"Successfully rotated nma cert from %s to %s", currentSecretName, newSecretName)
 	}
 	return result, err2
 }

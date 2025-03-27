@@ -113,7 +113,7 @@ func (h *HTTPSCertRoationReconciler) Reconcile(ctx context.Context, _ *ctrl.Requ
 	}
 	h.Log.Info("to start https cert rotation")
 	h.VRec.Eventf(h.Vdb, corev1.EventTypeNormal, events.HTTPSCertRotationStarted,
-		"Start to rotate https cert from %s to %s", currentSecretName, newSecretName)
+		"Start rotating https cert from %s to %s", currentSecretName, newSecretName)
 	cond := vapi.MakeCondition(vapi.TLSCertRotationInProgress, metav1.ConditionTrue, "Started")
 	if err := vdbstatus.UpdateCondition(ctx, h.VRec.GetClient(), h.Vdb, cond); err != nil {
 		return ctrl.Result{}, err
@@ -130,7 +130,7 @@ func (h *HTTPSCertRoationReconciler) Reconcile(ctx context.Context, _ *ctrl.Requ
 		return ctrl.Result{}, err
 	}
 	h.VRec.Eventf(h.Vdb, corev1.EventTypeNormal, events.HTTPSCertRotationSucceded,
-		"Successfully rotate https cert from %s to %s", currentSecretName, newSecretName)
+		"Successfully rotated https cert from %s to %s", currentSecretName, newSecretName)
 	h.Log.Info("https cert rotation is finished. To rotate nma cert next")
 	return ctrl.Result{}, nil
 }
