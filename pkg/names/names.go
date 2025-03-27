@@ -145,3 +145,7 @@ func GenAuthSecretName(vas *vapi.VerticaAutoscaler, secretName string) types.Nam
 func GenTriggerAuthenticationtName(vas *vapi.VerticaAutoscaler, secretName string) types.NamespacedName {
 	return GenNamespacedName(vas, fmt.Sprintf("%s-%s-creds", vas.Name, secretName))
 }
+
+func GenNMACertConfigMap(vdb *vapi.VerticaDB) types.NamespacedName {
+	return GenNamespacedName(vdb, fmt.Sprintf("%s-%s", vdb.Name, vapi.NMATLSConfigMapName))
+}
