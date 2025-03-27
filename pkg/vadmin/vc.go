@@ -24,19 +24,31 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/cloud"
 	"github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
+	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 // retrieveNMACerts will retrieve the certs from NMATLSSecret for calling NMA endpoints
-func (v *VClusterOps) retrieveNMACerts(ctx context.Context) (*HTTPSCerts, error) {
+func (v *VClusterOps) retrieveNMACerts(_ context.Context) (*HTTPSCerts, error) {
 	fetcher := cloud.SecretFetcher{
 		Client:   v.Client,
 		Log:      v.Log,
 		Obj:      v.VDB,
 		EVWriter: v.EVWriter,
 	}
-	return retrieveNMACerts(ctx, &fetcher, v.VDB)
+	secretName, err := getNMATLSSecretName(v.VDB)
+	if err != nil {
+		v.Log.Error(err, "libo: failed to get nma secret name")
+		return nil, err
+	}
+	httpCerts, err2 := getCertFromSecret(v.VDB.Namespace, secretName, fetcher)
+	if err2 != nil {
+		v.Log.Error(err2, "libo: failed to get cert from secret")
+	}
+	v.Log.Info("libo: nma secret name " + secretName + ", cert " + httpCerts.Cert)
+	return httpCerts, err2
 }
 
 // retrieveTargetNMACerts will retrieve the certs from NMATLSSecret for calling target NMA endpoints
@@ -103,7 +115,7 @@ func (v *VClusterOps) setAuthentication(opts *vops.DatabaseOptions, username str
 func getNMATLSSecretName(vdb *vapi.VerticaDB) (string, error) {
 
 	secretName := ""
-	if vdb.IsCertRotationEnabled() {
+	if vdb.IsCertRotationEnabled() && vdb.IsStatusConditionTrue(vapi.DBInitialized) {
 		secretName = meta.GetNMATLSSecretNameInUse(vdb.Annotations)
 	} else {
 		secretName = vdb.Spec.NMATLSSecret
@@ -112,4 +124,27 @@ func getNMATLSSecretName(vdb *vapi.VerticaDB) (string, error) {
 		return "", fmt.Errorf("failed to retrieve nma secret name")
 	}
 	return secretName, nil
+}
+
+// getCertFromSecret will read secret from the secret name and return a cert
+func getCertFromSecret(namespace, secretName string, fetcher cloud.SecretFetcher) (*HTTPSCerts, error) {
+	secretMap, err := retrieveSecretFromName(namespace, secretName, fetcher)
+	if err != nil {
+		return nil, err // failed to load secret
+	}
+	return &HTTPSCerts{
+		Key:    string(secretMap[corev1.TLSPrivateKeyKey]),
+		Cert:   string(secretMap[corev1.TLSCertKey]),
+		CaCert: string(secretMap[paths.HTTPServerCACrtName]),
+	}, nil
+}
+
+// retrieveSecretByName loads secret from k8s by secret name
+func retrieveSecretFromName(namespace, secretName string, fetcher cloud.SecretFetcher) (map[string][]byte, error) {
+	ctx := context.Background()
+	fetchName := types.NamespacedName{
+		Namespace: namespace,
+		Name:      secretName,
+	}
+	return fetcher.Fetch(ctx, fetchName)
 }
