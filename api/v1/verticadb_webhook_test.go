@@ -1222,6 +1222,13 @@ var _ = Describe("verticadb_webhook", func() {
 		Ω(vdb.validateVerticaDBSpec()).Should(HaveLen(1))
 		vdb.ObjectMeta.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
 
+		// cannot define subclusters type neither primary nor secondary
+		vdb.Spec.Sandboxes = []Sandbox{
+			{Name: "sandbox1", Image: mainClusterImageVer, Subclusters: []SandboxSubcluster{
+				{Name: "sc1", Type: "inalidType"}}},
+		}
+		Ω(vdb.validateVerticaDBSpec()).Should(HaveLen(1))
+
 		// cannot have duplicate subclusters defined in a sandbox
 		vdb.Spec.Sandboxes = []Sandbox{
 			{Name: "sandbox1", Image: mainClusterImageVer, Subclusters: []SandboxSubcluster{

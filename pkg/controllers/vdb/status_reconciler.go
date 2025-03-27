@@ -190,11 +190,11 @@ func (s *StatusReconciler) getSubclusterStatusType(podName types.NamespacedName)
 	}
 
 	if s.PFacts.Detail[podName].GetIsPrimary() {
-		if s.PFacts.GetSandboxName() != vapi.MainCluster {
+		if s.Vdb.GetSandboxStatus(s.PFacts.SandboxName) != nil && s.Vdb.GetSandboxStatus(s.PFacts.SandboxName).Name != vapi.MainCluster {
 			return vapi.SandboxPrimarySubcluster
 		}
 		return vapi.PrimarySubcluster
-	} else if s.PFacts.GetSandboxName() != vapi.MainCluster {
+	} else if s.Vdb.GetSandboxStatus(s.PFacts.SandboxName) != nil && s.Vdb.GetSandboxStatus(s.PFacts.SandboxName).Name != vapi.MainCluster {
 		return vapi.SandboxSecondarySubcluster
 	}
 
