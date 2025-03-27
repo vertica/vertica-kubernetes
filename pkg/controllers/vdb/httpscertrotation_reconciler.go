@@ -173,9 +173,8 @@ func (h *HTTPSCertRoationReconciler) rotateHTTPSTLSCert(ctx context.Context, new
 		rotatehttpscerts.WithTLSMode("TRY_VERIFY"),
 		rotatehttpscerts.WithInitiator(initiatorPod.GetPodIP()),
 	}
-	vdbContext := vadmin.GetContextForVdb(h.Vdb.Namespace, h.Vdb.Name)
-	h.Log.Info("to call RotateHTTPSCerts for cert " + h.Vdb.Spec.NMATLSSecret + ", use tls " +
-		strconv.FormatBool(vdbContext.GetBoolValue(vadmin.UseTLSCert)))
+	h.Log.Info("to call RotateHTTPSCerts for cert " + h.Vdb.Spec.NMATLSSecret + ", tls enabled " +
+		strconv.FormatBool(h.Vdb.IsCertRotationEnabled()))
 	err = h.Dispatcher.RotateHTTPSCerts(ctx, opts...)
 	if err != nil {
 		h.Log.Error(err, "failed to rotate https cer to "+h.Vdb.Spec.NMATLSSecret)

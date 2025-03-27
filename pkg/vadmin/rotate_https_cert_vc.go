@@ -32,17 +32,15 @@ func (v *VClusterOps) RotateHTTPSCerts(ctx context.Context, opts ...rotatehttpsc
 	v.setupForAPICall("RotateHTTPSCerts")
 	defer v.tearDownForAPICall()
 	v.Log.Info("Starting vcluster RotateHTTPSCerts")
-
-	// get the certs
 	secretName := meta.GetNMATLSSecretNameInUse(v.VDB.Annotations)
-	vdbContext := GetContextForVdb(v.VDB.Namespace, v.VDB.Name)
+	// get the certs
 	fetcher := cloud.SecretFetcher{
 		Client:   v.Client,
 		Log:      v.Log,
 		Obj:      v.VDB,
 		EVWriter: v.EVWriter,
 	}
-	certs, err := vdbContext.GetCertFromSecret(secretName, fetcher)
+	certs, err := getCertFromSecret(v.VDB.Namespace, secretName, fetcher)
 	/* certs, err := v.retrieveNMACerts(ctx) */
 	if err != nil {
 		return err

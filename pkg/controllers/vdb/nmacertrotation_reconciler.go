@@ -141,8 +141,7 @@ func (h *NMACertRoationReconciler) rotateNmaTLSCert(ctx context.Context, newSecr
 		rotatenmacerts.WithHosts(hosts),
 	}
 
-	vdbContext := vadmin.GetContextForVdb(h.Vdb.Namespace, h.Vdb.Name)
-	h.Log.Info("to call RotateNMACerts, use tls " + strconv.FormatBool(vdbContext.GetBoolValue(vadmin.UseTLSCert)))
+	h.Log.Info("to call RotateNMACerts, tls enabled " + strconv.FormatBool(h.Vdb.IsCertRotationEnabled()))
 	err = h.Dispatcher.RotateNMACerts(ctx, opts...)
 	if err != nil {
 		h.Log.Error(err, "failed to rotate nma cer to "+newSecretName)
