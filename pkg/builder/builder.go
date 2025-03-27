@@ -2117,7 +2117,7 @@ func GetTarballName(cmd []string) string {
 
 // BuildNMATLSConfigMap builds a configmap with tls secret name in it.
 // The configmap will be mapped to two environmental variables in NMA pod
-func BuildNMATLSConfigMap(configMapName string, vdb *vapi.VerticaDB) *corev1.ConfigMap {
+func BuildNMATLSConfigMap(nm types.NamespacedName, vdb *vapi.VerticaDB) *corev1.ConfigMap {
 	secretMap := map[string]string{
 		NMASecretNamespaceEnv: vdb.ObjectMeta.Namespace,
 		NMASecretNameEnv:      vdb.Spec.NMATLSSecret,
@@ -2128,8 +2128,8 @@ func BuildNMATLSConfigMap(configMapName string, vdb *vapi.VerticaDB) *corev1.Con
 			APIVersion: "v1",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:            configMapName,
-			Namespace:       vdb.Namespace,
+			Name:            nm.Name,
+			Namespace:       nm.Namespace,
 			OwnerReferences: []metav1.OwnerReference{vdb.GenerateOwnerReference()},
 		},
 		Data: secretMap,
