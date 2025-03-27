@@ -40,14 +40,14 @@ func (v *VClusterOps) retrieveNMACerts(_ context.Context) (*HTTPSCerts, error) {
 	}
 	secretName, err := getNMATLSSecretName(v.VDB)
 	if err != nil {
-		v.Log.Error(err, "libo: failed to get nma secret name")
+		v.Log.Error(err, "failed to get nma secret name")
 		return nil, err
 	}
 	httpCerts, err2 := getCertFromSecret(v.VDB.Namespace, secretName, fetcher)
 	if err2 != nil {
-		v.Log.Error(err2, "libo: failed to get cert from secret")
+		v.Log.Error(err2, "failed to get cert from secret")
 	}
-	v.Log.Info("libo: nma secret name " + secretName + ", cert " + httpCerts.Cert)
+	v.Log.Info("nma secret name " + secretName + ", cert " + httpCerts.Cert)
 	return httpCerts, err2
 }
 

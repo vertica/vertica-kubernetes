@@ -86,6 +86,7 @@ func (v *VClusterOps) genRotateHTTPSCertsOptions(s *rotatehttpscerts.Params, cer
 		CACertConfig:     s.CACertConfig,
 		TLSMode:          s.TLSMode,
 	}
+	opts.UserName = v.VDB.GetVerticaUser()
 	v.setAuthentication(&opts.DatabaseOptions, v.VDB.GetVerticaUser(), &v.Password, certs)
 	return opts
 }
