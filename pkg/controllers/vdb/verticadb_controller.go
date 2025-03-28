@@ -212,10 +212,6 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		// preserving other things.
 		MakeObjReconciler(r, log, vdb, pfacts,
 			ObjReconcileModePreserveScaling|ObjReconcileModePreserveUpdateStrategy),
-		// rotate https tls cert when tls cert secret name is changed in vdb.spec
-		MakeHTTPSCertRotationReconciler(r, log, vdb, dispatcher, pfacts),
-		// rotate nma tls cert when tls cert secret name is changed in vdb.spec
-		MakeNMACertRotationReconciler(r, log, vdb, dispatcher, pfacts),
 		// Add annotations/labels to each pod about the host running them
 		MakeAnnotateAndLabelPodReconciler(r, log, vdb, pfacts),
 		// Handles vertica server upgrade (i.e., when spec.image changes)
@@ -298,6 +294,10 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		MakeObjReconciler(r, log, vdb, pfacts, ObjReconcileModeAll),
 		// Handle calls to create a restore point
 		MakeSaveRestorePointReconciler(r, vdb, log, pfacts, dispatcher, r.Client),
+		// rotate https tls cert when tls cert secret name is changed in vdb.spec
+		MakeHTTPSCertRotationReconciler(r, log, vdb, dispatcher, pfacts),
+		// rotate nma tls cert when tls cert secret name is changed in vdb.spec
+		MakeNMACertRotationReconciler(r, log, vdb, dispatcher, pfacts),
 		// Resize any PVs if the local data size changed in the vdb
 		MakeResizePVReconciler(r, log, vdb, prunner, pfacts),
 		// This must be the last reconciler. It makes sure that all dependent
