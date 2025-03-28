@@ -100,12 +100,13 @@ func addOrReplaceMap(oldMap, newMap map[string]string) (map[string]string, bool)
 	return oldMap, mapChanged
 }
 
-func UpdateAnnotation(annotationField, annotationValue string, vdb *vapi.VerticaDB, ctx context.Context, client client.Client, logger logr.Logger) error {
+func UpdateAnnotation(annotationField, annotationValue string, vdb *vapi.VerticaDB, ctx context.Context,
+	k8sClient client.Client, logger logr.Logger) error {
 	chgs := MetaChanges{
 		NewAnnotations: map[string]string{
 			annotationField: annotationValue,
 		},
 	}
-	_, err := MetaUpdate(ctx, client, vdb.ExtractNamespacedName(), vdb, chgs)
+	_, err := MetaUpdate(ctx, k8sClient, vdb.ExtractNamespacedName(), vdb, chgs)
 	return err
 }

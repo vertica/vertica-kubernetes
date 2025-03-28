@@ -63,6 +63,8 @@ func MakeHTTPSCertRotationReconciler(vdbrecon *VerticaDBReconciler, log logr.Log
 }
 
 // Reconcile will rotate TLS certificate.
+//
+//nolint:all
 func (h *HTTPSCertRoationReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
 	if vmeta.UseNMACertsMount(h.Vdb.Annotations) || !vmeta.EnableTLSCertsRotation(h.Vdb.Annotations) {
 		return ctrl.Result{}, nil
@@ -111,12 +113,13 @@ func (h *HTTPSCertRoationReconciler) Reconcile(ctx context.Context, _ *ctrl.Requ
 		h.Log.Info(newSecretName + " not found in configmap. cert rotation will not start")
 		return ctrl.Result{Requeue: true}, nil
 	}
+
 	h.Log.Info("to start https cert rotation")
 	h.VRec.Eventf(h.Vdb, corev1.EventTypeNormal, events.HTTPSCertRotationStarted,
 		"Start rotating https cert from %s to %s", currentSecretName, newSecretName)
 	cond := vapi.MakeCondition(vapi.TLSCertRotationInProgress, metav1.ConditionTrue, "Started")
-	if err := vdbstatus.UpdateCondition(ctx, h.VRec.GetClient(), h.Vdb, cond); err != nil {
-		return ctrl.Result{}, err
+	if err2 := vdbstatus.UpdateCondition(ctx, h.VRec.GetClient(), h.Vdb, cond); err2 != nil {
+		return ctrl.Result{}, err2
 	}
 
 	// Now https cert rotation will start
@@ -184,7 +187,10 @@ func (h *HTTPSCertRoationReconciler) rotateHTTPSTLSCert(ctx context.Context, new
 }
 
 // checkCertAfterRoation will return different result and error based on result from calling verifyCert
-func (h *HTTPSCertRoationReconciler) checkCertAfterRoation(moduleName, ip string, port int, newCertName, newCert, currentCert string) (ctrl.Result, error) {
+//
+//nolint:dupl
+func (h *HTTPSCertRoationReconciler) checkCertAfterRoation(moduleName, ip string, port int, newCertName, newCert,
+	currentCert string) (ctrl.Result, error) {
 	rotated, err := h.verifyCert(ip, port, newCert, currentCert)
 	if err != nil {
 		h.Log.Error(err, moduleName+" cert rotation aborted. Failed to verify new cert "+newCertName+" on "+

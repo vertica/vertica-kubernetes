@@ -113,7 +113,6 @@ func (v *VClusterOps) setAuthentication(opts *vops.DatabaseOptions, username str
 // the time before a vdb is created
 // when tls cert is used, it returns secert name saved in annotation
 func getNMATLSSecretName(vdb *vapi.VerticaDB) (string, error) {
-
 	secretName := ""
 	if vdb.IsCertRotationEnabled() && vdb.IsStatusConditionTrue(vapi.DBInitialized) {
 		secretName = meta.GetNMATLSSecretNameInUse(vdb.Annotations)

@@ -85,17 +85,22 @@ func (h *NMACertRoationReconciler) Reconcile(ctx context.Context, _ *ctrl.Reques
 	}
 
 	h.Log.Info("to start nma cert rotation")
-	res, err := h.rotateNmaTLSCert(ctx, &newSecret, &currentSecret)
-
-	cond := vapi.MakeCondition(vapi.TLSCertRotationInProgress, metav1.ConditionFalse, "Completed")
-	if err = vdbstatus.UpdateCondition(ctx, h.VRec.GetClient(), h.Vdb, cond); err != nil {
-		return ctrl.Result{}, err
+	res, err2 := h.rotateNmaTLSCert(ctx, &newSecret, &currentSecret)
+	if err2 == nil {
+		cond := vapi.MakeCondition(vapi.TLSCertRotationInProgress, metav1.ConditionFalse, "Completed")
+		if err3 := vdbstatus.UpdateCondition(ctx, h.VRec.GetClient(), h.Vdb, cond); err3 != nil {
+			h.Log.Error(err3, "failed to set condition \"TLSCertRotationInProgress\"")
+			return ctrl.Result{}, err3
+		}
+		cond = vapi.MakeCondition(vapi.HTTPSCertRotationFinished, metav1.ConditionFalse, "Completed")
+		if err4 := vdbstatus.UpdateCondition(ctx, h.VRec.GetClient(), h.Vdb, cond); err4 != nil {
+			h.Log.Error(err4, "\"HTTPSCertRotationFinished\"")
+			return ctrl.Result{}, err4
+		}
+	} else {
+		h.Log.Error(err2, "failed to rotate nma cert")
 	}
-	cond = vapi.MakeCondition(vapi.HTTPSCertRotationFinished, metav1.ConditionFalse, "Completed")
-	if err := vdbstatus.UpdateCondition(ctx, h.VRec.GetClient(), h.Vdb, cond); err != nil {
-		return ctrl.Result{}, err
-	}
-	return res, err
+	return res, err2
 }
 
 // rotateHTTPSTLSCert will rotate node management agent's tls cert from currentSecret to newSecret
@@ -174,7 +179,10 @@ func (h *NMACertRoationReconciler) rotateNmaTLSCert(ctx context.Context, newSecr
 }
 
 // checkCertAfterRoation will return different result and error based on result from calling verifyCert
-func (h *NMACertRoationReconciler) checkCertAfterRoation(moduleName, ip string, port int, newCertName, newCert, currentCert string) (ctrl.Result, error) {
+//
+//nolint:dupl
+func (h *NMACertRoationReconciler) checkCertAfterRoation(moduleName, ip string, port int, newCertName, newCert,
+	currentCert string) (ctrl.Result, error) {
 	rotated, err := h.verifyCert(ip, port, newCert, currentCert)
 	if err != nil {
 		h.Log.Error(err, moduleName+" cert rotation aborted. Failed to verify new cert "+newCertName+" on "+
