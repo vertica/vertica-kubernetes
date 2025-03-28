@@ -429,11 +429,11 @@ func UseVProxyCertsMount(annotations map[string]string) bool {
 // UseNMACertsMount returns true if the NMA reads certs from the mounted secret
 // volume rather than directly from k8s secret store.
 func UseNMACertsMount(annotations map[string]string) bool {
-	return lookupBoolAnnotation(annotations, MountNMACertsAnnotation, false /* default value */)
+	return lookupBoolAnnotation(annotations, MountNMACertsAnnotation, true /* default value */)
 }
 
 func EnableTLSCertsRotation(annotations map[string]string) bool {
-	return lookupBoolAnnotation(annotations, EnableTLSCertsRotationAnnotation, true /* default value */)
+	return lookupBoolAnnotation(annotations, EnableTLSCertsRotationAnnotation, false /* default value */)
 }
 
 // IgnoreClusterLease returns true if revive/start should ignore the cluster lease
