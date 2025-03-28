@@ -40,6 +40,12 @@ on:
       DOCKERHUB_TOKEN:
         description: 'When working with images from docker.io, this is the password for login purposes'
         required: true
+      AWS_ACCESS_KEY_ID:
+        description: 'When downloading with rpm from AWS s3, this is the AWS_ACCESS_KEY_ID for login purposes'
+        required: true
+      AWS_SECRET_ACCESS_KEY:
+        description: 'When downloading with rpm from AWS s3, this is the AWS_SECRET_ACCESS_KEY for login purposes'
+        required: true
     outputs:
       operator-image:
         description: "The image name of the VerticaDB operator"
@@ -68,8 +74,16 @@ permissions:
 env:
   TRIVY_DB_REPOSITORY: ghcr.io/aquasecurity/trivy-db,public.ecr.aws/aquasecurity/trivy-db
   TRIVY_JAVA_DB_REPOSITORY: ghcr.io/aquasecurity/trivy-java-db,public.ecr.aws/aquasecurity/trivy-java-db
+  GITHUB_REGISTRY: ghcr.io/vertica/
+  # The script guess-server-upgrade-base-image.sh parses this URL. So,
+  # if the structure of this URL ever changes be sure to verify if that
+  # script needs an update.
+  VERTICA_CE_URL: "s3://vertica-community-edition-for-testing/XCz9cp7m/vertica-25.1.0-0.RHEL8.x86_64.rpm"
+  VERTICA_CE_URL_ARM64: "s3://vertica-community-edition-for-testing/XCz9cp7m/vertica-25.1.0-0.RHEL8.aarch64.rpm"
+  AWS_REGION: 'us-east-1'
 
 jobs:
+
   build-server-full:
     runs-on: ubuntu-latest
     outputs:
@@ -83,10 +97,11 @@ jobs:
         default: docker.io/opentext/vertica-k8s-private:latest-test-master
         conditionals-with-values: |
           ${{ inputs.full_vertica_image != '' }} => ${{ inputs.full_vertica_image }}
+          ${{ github.event_name == 'pull_request' }} => ${{ env.GITHUB_REGISTRY }}vertica-k8s-private:kind
 
-    - name: Login to GitHub Container registry for non-PRs
+    - name: Login to GitHub Container registry
       uses: docker/login-action@v3
-      if: ${{ github.event_name != 'pull_request' && startsWith(inputs.full_vertica_image, 'ghcr.io') }}
+      if: ${{ startsWith(steps.full_vertica_image.outputs.value, 'ghcr.io') }}
       with:
         registry: ghcr.io
         username: ${{ github.repository_owner }}
@@ -102,9 +117,31 @@ jobs:
     - uses: actions/checkout@v4
       if: ${{ inputs.full_vertica_image == '' }}
 
-    - name: Download the RPM
-      uses: ./.github/actions/download-rpm
-      if: ${{ inputs.full_vertica_image == '' }}
+    # Will download the RPM as prep for container building
+    - name: Download Vertica x86_64 RPM
+      uses: keithweaver/aws-s3-github-action@v1.0.0
+      with:
+        command: cp
+        source: ${{ env.VERTICA_CE_URL }}
+        destination: docker-vertica/packages/vertica-latest.RHEL8.x86_64.rpm
+        aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws_region: ${{ env.AWS_REGION }}
+
+    # For multi-platform build
+    - name: Download Vertica aarch64 RPM
+      uses: keithweaver/aws-s3-github-action@v1.0.0
+      with:
+        command: cp
+        source: ${{ env.VERTICA_CE_URL_ARM64 }}
+        destination: docker-vertica/packages/vertica-latest.RHEL8.aarch64.rpm
+        aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws_region: ${{ env.AWS_REGION }}
+
+    - name: Copy RPMs to v2 packages
+      run: |
+        cp docker-vertica/packages/*rpm docker-vertica-v2/packages
 
     - name: Build the full server image
       if: ${{ inputs.full_vertica_image == '' }}
@@ -114,7 +151,7 @@ jobs:
         # here only to test the creation of the image. We don't verify this
         # image in the remaining CI. Pick a dummy image name so as not to
         # overwrite the output build image that the e2e tests will use.
-        export VERTICA_IMG=vertica-k8s:kind
+        export VERTICA_IMG=${{ env.GITHUB_REGISTRY }}vertica-k8s-private:kind
         make docker-build-vertica-v2
 
     - name: Do a local pull of the image
@@ -203,10 +240,11 @@ jobs:
         default: docker.io/opentext/vertica-k8s-private:20250320-legacy
         conditionals-with-values: |
           ${{ inputs.legacy_vertica_image != '' }} => ${{ inputs.legacy_vertica_image }}
+          ${{ github.event_name == 'pull_request' }} => ${{ env.GITHUB_REGISTRY }}vertica-k8s-private:kind-legacy
 
-    - name: Login to GitHub Container registry for non-PRs
+    - name: Login to GitHub Container registry
       uses: docker/login-action@v3
-      if: ${{ github.event_name != 'pull_request' && startsWith(inputs.legacy_vertica_image, 'ghcr.io') }}
+      if: ${{ startsWith(steps.legacy_vertica_image.outputs.value, 'ghcr.io') }}
       with:
         registry: ghcr.io
         username: ${{ github.repository_owner }}
@@ -222,9 +260,31 @@ jobs:
     - uses: actions/checkout@v4
       if: ${{ inputs.legacy_vertica_image == '' }}
 
-    - name: Download the RPM
-      uses: ./.github/actions/download-rpm
-      if: ${{ inputs.legacy_vertica_image == '' }}
+    # Will download the RPM as prep for container building
+    - name: Download Vertica x86_64 RPM
+      uses: keithweaver/aws-s3-github-action@v1.0.0
+      with:
+        command: cp
+        source: ${{ env.VERTICA_CE_URL }}
+        destination: docker-vertica/packages/vertica-latest.RHEL8.x86_64.rpm
+        aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws_region: ${{ env.AWS_REGION }}
+
+    # For multi-platform build
+    - name: Download Vertica aarch64 RPM
+      uses: keithweaver/aws-s3-github-action@v1.0.0
+      with:
+        command: cp
+        source: ${{ env.VERTICA_CE_URL_ARM64 }}
+        destination: docker-vertica/packages/vertica-latest.RHEL8.aarch64.rpm
+        aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws_region: ${{ env.AWS_REGION }}
+
+    - name: Copy RPMs to v2 packages
+      run: |
+        cp docker-vertica/packages/*rpm docker-vertica-v2/packages
 
     - name: Build legacy server image
       if: ${{ inputs.legacy_vertica_image == '' }}
@@ -232,6 +292,7 @@ jobs:
         # Do not push the image to remote registry because we
         # do not want to overwrite the existing images. Here we
         # just validate if dockerfile works fine.
+        export VERTICA_IMG=${{ env.GITHUB_REGISTRY }}vertica-k8s-private:kind-legacy
         make docker-build-vertica
 
     - name: Do a local pull of the image if we didn't create it
@@ -242,6 +303,7 @@ jobs:
     - name: Save the image for consumption by dependent jobs (PRs only)
       if: ${{ github.event_name == 'pull_request' }}
       run: |
+        docker pull ${{ steps.legacy_vertica_image.outputs.value }}
         docker save ${{ steps.legacy_vertica_image.outputs.value }} > legacy-vertica-image.tar
 
     - uses: actions/upload-artifact@v4
@@ -261,6 +323,7 @@ jobs:
         echo -n "Vertica Version: **" >> $GITHUB_STEP_SUMMARY
         echo -n $(docker inspect --format '{{index .Config.Labels "vertica-version"}}' ${{ steps.legacy_vertica_image.outputs.value }}) >> $GITHUB_STEP_SUMMARY
         echo "**" >> $GITHUB_STEP_SUMMARY
+
   build-server-minimal:
     runs-on: ubuntu-latest
     outputs:
@@ -274,10 +337,11 @@ jobs:
         default: docker.io/opentext/vertica-k8s-private:latest-minimal-master
         conditionals-with-values: |
           ${{ inputs.minimal_vertica_image != '' }} => ${{ inputs.minimal_vertica_image }}
+          ${{ github.event_name == 'pull_request' }} => ${{ env.GITHUB_REGISTRY }}vertica-k8s-private:kind-minimal
 
-    - name: Login to GitHub Container registry for non-PRs
+    - name: Login to GitHub Container registry
       uses: docker/login-action@v3
-      if: ${{ github.event_name != 'pull_request' && startsWith(inputs.minimal_vertica_image, 'ghcr.io') }}
+      if: ${{ startsWith(steps.minimal_vertica_image.outputs.value, 'ghcr.io') }}
       with:
         registry: ghcr.io
         username: ${{ github.repository_owner }}
@@ -293,9 +357,31 @@ jobs:
     - uses: actions/checkout@v4
       if: ${{ inputs.minimal_vertica_image == '' }}
 
-    - name: Download the RPM
-      uses: ./.github/actions/download-rpm
-      if: ${{ inputs.minimal_vertica_image == '' }}
+    # Will download the RPM as prep for container building
+    - name: Download Vertica x86_64 RPM
+      uses: keithweaver/aws-s3-github-action@v1.0.0
+      with:
+        command: cp
+        source: ${{ env.VERTICA_CE_URL }}
+        destination: docker-vertica/packages/vertica-latest.RHEL8.x86_64.rpm
+        aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws_region: ${{ env.AWS_REGION }}
+
+    # For multi-platform build
+    - name: Download Vertica aarch64 RPM
+      uses: keithweaver/aws-s3-github-action@v1.0.0
+      with:
+        command: cp
+        source: ${{ env.VERTICA_CE_URL_ARM64 }}
+        destination: docker-vertica/packages/vertica-latest.RHEL8.aarch64.rpm
+        aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws_region: ${{ env.AWS_REGION }}
+
+    - name: Copy RPMs to v2 packages
+      run: |
+        cp docker-vertica/packages/*rpm docker-vertica-v2/packages
 
     - name: Build the minimal server image
       if: ${{ inputs.minimal_vertica_image == '' }}
@@ -305,7 +391,7 @@ jobs:
         # here only to test the creation of the image. We don't verify this
         # image in the remaining CI. Pick a dummy image name so as not to
         # overwrite the output build image that the e2e tests will use.
-        export VERTICA_IMG=vertica-k8s:kind-minimal
+        export VERTICA_IMG=${{ env.GITHUB_REGISTRY }}vertica-k8s-private:kind-minimal
         export MINIMAL_VERTICA_IMG=yes
         make docker-build-vertica-v2 
 
@@ -345,11 +431,11 @@ jobs:
         default: ghcr.io/${{ env.OWNER_LC }}/verticadb-operator:${{ github.sha }}
         conditionals-with-values: |
           ${{ inputs.operator_image != '' }} => ${{ inputs.operator_image }}
-          ${{ github.event_name == 'pull_request' }} => verticadb-operator:kind
+          ${{ github.event_name == 'pull_request' }} => ${{ env.GITHUB_REGISTRY }}verticadb-operator:kind
 
-    - name: Login to GitHub Container registry for non-PRs
+    - name: Login to GitHub Container registry
       uses: docker/login-action@v3
-      if: ${{ github.event_name != 'pull_request' && inputs.operator_image == '' || startsWith(inputs.operator_image, 'ghcr.io') }}
+      if: ${{ startsWith(steps.operator_image.outputs.value, 'ghcr.io') }}
       with:
         registry: ghcr.io
         username: ${{ github.repository_owner }}
@@ -388,6 +474,7 @@ jobs:
     - name: Save the image for consumption by dependent jobs (PRs only)
       if: ${{ github.event_name == 'pull_request' }}
       run: |
+        docker pull ${{ steps.operator_image.outputs.value }}
         docker save ${{ steps.operator_image.outputs.value }} > operator-image.tar
 
     - uses: actions/upload-artifact@v4
@@ -479,11 +566,11 @@ jobs:
         default: ghcr.io/${{ env.OWNER_LC }}/vertica-logger:${{ github.sha }}
         conditionals-with-values: |
           ${{ inputs.vlogger_image != '' }} => ${{ inputs.vlogger_image }}
-          ${{ github.event_name == 'pull_request' }} => vertica-logger:kind
+          ${{ github.event_name == 'pull_request' }} => ${{ env.GITHUB_REGISTRY }}vertica-logger:kind
 
-    - name: Login to GitHub Container registry for non-PRs
+    - name: Login to GitHub Container registry
       uses: docker/login-action@v3
-      if: ${{ github.event_name != 'pull_request' && inputs.vlogger_image == '' || startsWith(inputs.vlogger_image, 'ghcr.io') }}
+      if: ${{ startsWith(steps.vlogger_image.outputs.value, 'ghcr.io') }}
       with:
         registry: ghcr.io
         username: ${{ github.repository_owner }}
@@ -505,6 +592,7 @@ jobs:
     - name: Save the image for consumption by dependent jobs (PRs only)
       if: ${{ github.event_name == 'pull_request' }}
       run: |
+        docker pull ${{ steps.vlogger_image.outputs.value }}
         docker save ${{ steps.vlogger_image.outputs.value }} > vlogger-image.tar
 
     - uses: actions/upload-artifact@v4
