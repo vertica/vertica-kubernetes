@@ -127,7 +127,6 @@ func (r *VerticaDBReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	log.Info("VerticaDB details", "uid", vdb.UID, "resourceVersion", vdb.ResourceVersion,
 		"vclusterOps", vmeta.UseVClusterOps(vdb.Annotations), "user", vdb.GetVerticaUser(),
 		"tls cert rotate enabled", vmeta.EnableTLSCertsRotation(vdb.Annotations))
-
 	if vmeta.IsPauseAnnotationSet(vdb.Annotations) {
 		log.Info(fmt.Sprintf("The pause annotation %s is set. Suspending the iteration", vmeta.PauseOperatorAnnotation),
 			"result", ctrl.Result{}, "err", nil)
@@ -199,12 +198,6 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		MakeUpgradeOperatorReconciler(r, log, vdb),
 		// use the TLS secrets used by the NMA service
 		MakeTLSServerCertGenReconciler(r, log, vdb),
-		// Create a ConfigMap to store secret names for all tls certs
-		MakeNMACertConfigMapGenReconciler(r, log, vdb),
-		// rotate https tls cert when tls cert secret name is changed in vdb.spec
-		MakeHTTPSCertRotationReconciler(r, log, vdb, dispatcher, pfacts),
-		// rotate nma tls cert when tls cert secret name is changed in vdb.spec
-		MakeNMACertRotationReconciler(r, log, vdb, dispatcher, pfacts),
 		// Create ServiceAcount, Role and RoleBindings needed for vertica pods
 		MakeServiceAccountReconciler(r, log, vdb),
 		// Handle setting up the pod security context. This picks the
@@ -219,6 +212,10 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		// preserving other things.
 		MakeObjReconciler(r, log, vdb, pfacts,
 			ObjReconcileModePreserveScaling|ObjReconcileModePreserveUpdateStrategy),
+		// rotate https tls cert when tls cert secret name is changed in vdb.spec
+		MakeHTTPSCertRotationReconciler(r, log, vdb, dispatcher, pfacts),
+		// rotate nma tls cert when tls cert secret name is changed in vdb.spec
+		MakeNMACertRotationReconciler(r, log, vdb, dispatcher, pfacts),
 		// Add annotations/labels to each pod about the host running them
 		MakeAnnotateAndLabelPodReconciler(r, log, vdb, pfacts),
 		// Handles vertica server upgrade (i.e., when spec.image changes)
