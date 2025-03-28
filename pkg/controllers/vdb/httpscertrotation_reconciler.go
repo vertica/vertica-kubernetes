@@ -29,7 +29,6 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
-	"github.com/vertica/vertica-kubernetes/pkg/meta"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
@@ -52,7 +51,8 @@ type HTTPSCertRoationReconciler struct {
 	Pfacts     *podfacts.PodFacts
 }
 
-func MakeHTTPSCertRotationReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger, vdb *vapi.VerticaDB, dispatcher vadmin.Dispatcher, pfacts *podfacts.PodFacts) controllers.ReconcileActor {
+func MakeHTTPSCertRotationReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger, vdb *vapi.VerticaDB, dispatcher vadmin.Dispatcher,
+	pfacts *podfacts.PodFacts) controllers.ReconcileActor {
 	return &HTTPSCertRoationReconciler{
 		VRec:       vdbrecon,
 		Vdb:        vdb,
@@ -158,7 +158,7 @@ func (h *HTTPSCertRoationReconciler) rotateHTTPSTLSCert(ctx context.Context, new
 		h.Log.Info("https cert rotation aborted. Neither new or current https cert is in use")
 		return ctrl.Result{Requeue: true}, nil
 	}
-	currentSecretName := meta.GetNMATLSSecretNameInUse(h.Vdb.Annotations)
+	currentSecretName := vmeta.GetNMATLSSecretNameInUse(h.Vdb.Annotations)
 	h.Log.Info("ready to rotate certi from " + currentSecretName + " to " + h.Vdb.Spec.NMATLSSecret)
 	keyConfig := fmt.Sprintf("{\"data-key\":\"%s\", \"namespace\":\"%s\"}", corev1.TLSPrivateKeyKey, h.Vdb.Namespace)
 	certConfig := fmt.Sprintf("{\"data-key\":\"%s\", \"namespace\":\"%s\"}", corev1.TLSCertKey, h.Vdb.Namespace)
@@ -210,7 +210,7 @@ func (h *HTTPSCertRoationReconciler) checkCertAfterRoation(moduleName, ip string
 // 2 when neither of them is in use
 func (h *HTTPSCertRoationReconciler) verifyCert(ip string, port int, newCert, currentCert string) (int, error) {
 	conf := &tls.Config{
-		InsecureSkipVerify: true,
+		InsecureSkipVerify: true, // #nosec G402
 	}
 	url := fmt.Sprintf("%s:%d", ip, port)
 	conn, err := tls.Dial("tcp", url, conf)

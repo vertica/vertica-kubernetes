@@ -28,7 +28,6 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/builder"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
-	"github.com/vertica/vertica-kubernetes/pkg/meta"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
@@ -50,7 +49,8 @@ type NMACertRoationReconciler struct {
 	Pfacts     *podfacts.PodFacts
 }
 
-func MakeNMACertRotationReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger, vdb *vapi.VerticaDB, dispatcher vadmin.Dispatcher, pfacts *podfacts.PodFacts) controllers.ReconcileActor {
+func MakeNMACertRotationReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger, vdb *vapi.VerticaDB, dispatcher vadmin.Dispatcher,
+	pfacts *podfacts.PodFacts) controllers.ReconcileActor {
 	return &NMACertRoationReconciler{
 		VRec:       vdbrecon,
 		Vdb:        vdb,
@@ -88,7 +88,7 @@ func (h *NMACertRoationReconciler) Reconcile(ctx context.Context, _ *ctrl.Reques
 	res, err := h.rotateNmaTLSCert(ctx, &newSecret, &currentSecret)
 
 	cond := vapi.MakeCondition(vapi.TLSCertRotationInProgress, metav1.ConditionFalse, "Completed")
-	if err := vdbstatus.UpdateCondition(ctx, h.VRec.GetClient(), h.Vdb, cond); err != nil {
+	if err = vdbstatus.UpdateCondition(ctx, h.VRec.GetClient(), h.Vdb, cond); err != nil {
 		return ctrl.Result{}, err
 	}
 	cond = vapi.MakeCondition(vapi.HTTPSCertRotationFinished, metav1.ConditionFalse, "Completed")
@@ -105,7 +105,7 @@ func (h *NMACertRoationReconciler) rotateNmaTLSCert(ctx context.Context, newSecr
 		h.Log.Info("No pod found to run rotate nma cert. Requeue reconciliation.")
 		return ctrl.Result{Requeue: true}, nil
 	}
-	currentSecretName := meta.GetNMATLSSecretNameInUse(h.Vdb.Annotations)
+	currentSecretName := vmeta.GetNMATLSSecretNameInUse(h.Vdb.Annotations)
 	newSecretName := h.Vdb.Spec.NMATLSSecret
 
 	newCert := string(newSecret.Data[corev1.TLSCertKey])
@@ -149,7 +149,7 @@ func (h *NMACertRoationReconciler) rotateNmaTLSCert(ctx context.Context, newSecr
 	}
 	result, err2 := h.checkCertAfterRoation("nma", initiatorPod.GetPodIP(), builder.NMAPort, newSecretName, newCert, currentCert)
 	if !result.Requeue && err2 == nil { // if rotation succeeds update annotations
-		previousTLSSecretName := meta.GetNMATLSSecretNameInUse(h.Vdb.Annotations)
+		previousTLSSecretName := vmeta.GetNMATLSSecretNameInUse(h.Vdb.Annotations)
 		err = vk8s.UpdateAnnotation(vmeta.NMATLSSecretPreviouslyUsedAnnotation, previousTLSSecretName, h.Vdb, ctx, h.VRec.Client, h.Log)
 		if err != nil {
 			h.Log.Error(err, "failed to save previously used tls cert secret name in annotation after cert rotation")
@@ -196,7 +196,7 @@ func (h *NMACertRoationReconciler) checkCertAfterRoation(moduleName, ip string, 
 // 2 when neither of them is in use
 func (h *NMACertRoationReconciler) verifyCert(ip string, port int, newCert, currentCert string) (int, error) {
 	conf := &tls.Config{
-		InsecureSkipVerify: true,
+		InsecureSkipVerify: true, // #nosec G402
 	}
 	url := fmt.Sprintf("%s:%d", ip, port)
 	conn, err := tls.Dial("tcp", url, conf)

@@ -26,8 +26,6 @@ import (
 )
 
 // RotateNMACerts will rotate nma cert
-//
-//nolint:dupl
 func (v *VClusterOps) RotateHTTPSCerts(ctx context.Context, opts ...rotatehttpscerts.Option) error {
 	v.setupForAPICall("RotateHTTPSCerts")
 	defer v.tearDownForAPICall()
