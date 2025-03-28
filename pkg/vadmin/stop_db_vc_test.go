@@ -58,7 +58,7 @@ var _ = Describe("stop_db_vc", func() {
 	ctx := context.Background()
 
 	It("should call vcluster-ops library with stop_db task", func() {
-		dispatcher := mockVClusterOpsDispatcher()
+		dispatcher := mockMTLSVClusterOpsDispatcher()
 		dispatcher.VDB.Spec.DBName = TestDBName
 		dispatcher.VDB.Spec.NMATLSSecret = "stop-db-vc-secret"
 		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.NMATLSSecret)

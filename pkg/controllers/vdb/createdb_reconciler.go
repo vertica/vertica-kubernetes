@@ -30,6 +30,7 @@ import (
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/license"
+
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
@@ -125,18 +126,33 @@ func (c *CreateDBReconciler) execCmd(ctx context.Context, initiatorPod types.Nam
 		return ctrl.Result{}, err
 	}
 	c.VRec.Event(c.Vdb, corev1.EventTypeNormal, events.CreateDBStart, "Starting create database")
+
 	start := time.Now()
-	if res, err := c.Dispatcher.CreateDB(ctx, opts...); verrors.IsReconcileAborted(res, err) {
-		return res, err
+	if res, errTwo := c.Dispatcher.CreateDB(ctx, opts...); verrors.IsReconcileAborted(res, err) {
+		return res, errTwo
 	}
-	if c.Vdb.IsCertRotationEnabled() {
-		cmd := []string{
-			"-f", PostDBCreateSQLFileVclusterOps,
+	if !c.Vdb.IsCertRotationEnabled() {
+		_, stderr, errThree := c.PRunner.ExecInPod(ctx, initiatorPod, names.ServerContainer,
+			"vsql", "-f", PostDBCreateSQLFile)
+		if errThree != nil || strings.Contains(stderr, "Error") {
+			c.Log.Error(errThree, "failed to execute post createdb ddls after db creation stderr - "+stderr)
+			return ctrl.Result{}, err
 		}
-		_, stderr, err2 := c.PRunner.ExecVSQL(ctx, initiatorPod, names.ServerContainer, cmd...)
+		c.Log.Info("post createdb ddls executed")
+	} else {
+		_, stderr, err2 := c.PRunner.ExecInPod(ctx, initiatorPod, names.ServerContainer,
+			"vsql", "-f", PostDBCreateSQLFileVclusterOps)
 		if err2 != nil || strings.Contains(stderr, "Error") {
 			c.Log.Error(err2, "failed to execute TLS DDLs after db creation stderr - "+stderr)
 			return ctrl.Result{}, err2
+		}
+		chgs := vk8s.MetaChanges{
+			NewAnnotations: map[string]string{
+				vmeta.NMATLSSecretInUseAnnotation: c.Vdb.Spec.NMATLSSecret,
+			},
+		}
+		if _, err := vk8s.MetaUpdate(ctx, c.VRec.Client, c.Vdb.ExtractNamespacedName(), c.Vdb, chgs); err != nil {
+			return ctrl.Result{}, err
 		}
 		c.Log.Info("TLS DDLs executed and TLS Cert configured")
 	}
@@ -236,8 +252,8 @@ func (c *CreateDBReconciler) generatePostDBCreateSQL(ctx context.Context, initia
 
 		sb.WriteString(`ALTER TLS CONFIGURATION https CERTIFICATE https_cert_0 ADD CA CERTIFICATES https_ca_cert_0 TLSMODE 'TRY_VERIFY';`)
 		sb.WriteString(`ALTER TLS CONFIGURATION https CERTIFICATE https_cert_0 REMOVE CA CERTIFICATES httpServerRootca;`)
-		sb.WriteString(`CREATE AUTHENTICATION k8s_tls_builtin_auth METHOD 'tls' HOST TLS '0.0.0.0/0' FALLTHROUGH;`)
-		sb.WriteString(fmt.Sprintf(`GRANT AUTHENTICATION k8s_tls_builtin_auth TO %s;`, c.Vdb.GetVerticaUser()))
+		sb.WriteString(`CREATE AUTHENTICATION auth_tls METHOD 'tls' HOST TLS '0.0.0.0/0';`)
+		sb.WriteString(fmt.Sprintf(`GRANT AUTHENTICATION auth_tls TO %s;`, c.Vdb.GetVerticaUser()))
 		sb.WriteString(`select sync_catalog();`)
 		pcFile = PostDBCreateSQLFileVclusterOps
 	}
@@ -354,7 +370,7 @@ func (c *CreateDBReconciler) genOptions(ctx context.Context, initiatorPod types.
 		createdb.WithDataPath(c.Vdb.Spec.Local.DataPath),
 	}
 
-	if !c.VInf.IsEqualOrNewer(vapi.DBSetupConfigParametersMinVersion) {
+	if !c.VInf.IsEqualOrNewer(vapi.DBSetupConfigParametersMinVersion) || c.VInf.IsEqualOrNewer(vapi.TLSCertRotationMinVersion) {
 		opts = append(opts, createdb.WithPostDBCreateSQLFile(PostDBCreateSQLFile))
 	}
 
