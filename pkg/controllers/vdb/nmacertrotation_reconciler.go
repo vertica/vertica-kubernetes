@@ -129,7 +129,11 @@ func (h *NMACertRoationReconciler) rotateNmaTLSCert(ctx context.Context, newSecr
 	h.VRec.Eventf(h.Vdb, corev1.EventTypeNormal, events.NMATLSCertRotationStarted,
 		"Start rotating nma cert from %s to %s", currentSecretName, newSecretName)
 	h.Log.Info("to rotate nma certi from " + currentSecretName + " to " + newSecretName)
-	h.Pfacts.Collect(ctx, h.Vdb)
+	err = h.Pfacts.Collect(ctx, h.Vdb)
+	if err != nil {
+		h.Log.Error(err, "nma cert rotation aborted. Failed to collect pod facts ")
+		return ctrl.Result{}, err
+	}
 	hosts := []string{}
 	for _, detail := range h.Pfacts.Detail {
 		hosts = append(hosts, detail.GetPodIP())
