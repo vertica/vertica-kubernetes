@@ -597,13 +597,12 @@ func (r *RestartReconciler) killVerticaProcesses(ctx context.Context, pods []*po
 		rmCmd := fmt.Sprintf("rm -rf %s", paths.StartupConfFile)
 		// We cannot always kill the vertica process though. When running with
 		// the NMA sidecar, it is started as PID 1, which doesn't have a signal
-		// handler. So, it doesn't respond to kills. We will also kill the spread
-		// process to force vertica down.
-		killCmd := fmt.Sprintf("pids=$(pgrep -f '^/opt/vertica/spread/sbin/spread'); if [ -n \"$pids\" ]; then "+
-			"for pid in 1 $pids; do echo \"%s $pid\"; kill $pid; done; else echo \"No spread process found\"; fi",
+		// handler. So, it doesn't respond to kills. To force vertica down we
+		// are going to kill the spread process.
+		killCmd := fmt.Sprintf("for pid in $(pgrep -f '^/opt/vertica/spread/sbin/spread'); do echo \"%s $pid\"; kill -n SIGKILL $pid; done",
 			killMarker)
 		cmd := []string{
-			// Remove the startup file first, since deleting vertica/spread will cause the container to stop
+			// Remove the startup file first, since deleting spread will cause the container to stop
 			"bash", "-c", fmt.Sprintf("%s; %s", rmCmd, killCmd),
 		}
 		// Avoid all errors since the process may not even be running

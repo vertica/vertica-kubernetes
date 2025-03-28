@@ -144,7 +144,7 @@ echo "Vertica superuser name: $VERTICA_SUPERUSER_NAME"
 echo "Test running on Github CI: $FOR_GITHUB_CI"
 echo "Broadcaster burst size: $BROADCASTER_BURST_SIZE"
 echo "VDB Maximum Backoff Duration: $VDB_MAX_BACKOFF_DURATION"
-echo "Cert rotation enabled: $USE_CERT"
+echo "Cert rotation anabled: $USE_CERT"
 
 function create_vdb_kustomization {
     BASE_DIR=$1

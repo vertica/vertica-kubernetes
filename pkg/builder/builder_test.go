@@ -731,7 +731,7 @@ var _ = Describe("builder", func() {
 		// server container
 		vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
 		vdb.Annotations[vmeta.VersionAnnotation] = vapi.NMAInSideCarDeploymentMinVersion
-		configMap := BuildNMATLSConfigMap(names.GenNamespacedName(vdb, "nma-configmap"), vdb)
+		configMap := BuildNMATLSConfigMap("nma-configmap", vdb)
 		Ω(configMap.Data[NMASecretNameEnv]).Should(Equal(vdb.Spec.NMATLSSecret))
 		Ω(configMap.Data[NMASecretNamespaceEnv]).Should(Equal(vdb.Namespace))
 	})

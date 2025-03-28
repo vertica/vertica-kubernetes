@@ -1987,8 +1987,7 @@ func buildScrutinizeDBPasswordEnvVars(nm types.NamespacedName) []corev1.EnvVar {
 // buildNMATLSCertsEnvVars returns environment variables about NMA certs,
 // that are needed by NMA and vcluster scrutinize
 func buildNMATLSCertsEnvVars(vdb *vapi.VerticaDB) []corev1.EnvVar {
-	useNmaCertsMount := vmeta.UseNMACertsMount(vdb.Annotations)
-	if useNmaCertsMount && secrets.IsK8sSecret(vdb.Spec.NMATLSSecret) {
+	if vmeta.UseNMACertsMount(vdb.Annotations) && secrets.IsK8sSecret(vdb.Spec.NMATLSSecret) {
 		return []corev1.EnvVar{
 			// Provide the path to each of the certs that are mounted in the container.
 			{Name: NMARootCAEnv, Value: fmt.Sprintf("%s/%s", paths.NMACertsRoot, paths.HTTPServerCACrtName)},
@@ -1996,7 +1995,7 @@ func buildNMATLSCertsEnvVars(vdb *vapi.VerticaDB) []corev1.EnvVar {
 			{Name: NMAKeyEnv, Value: fmt.Sprintf("%s/%s", paths.NMACertsRoot, corev1.TLSPrivateKeyKey)},
 		}
 	}
-	if useNmaCertsMount || !vmeta.EnableTLSCertsRotation(vdb.Annotations) {
+	if !vmeta.EnableTLSCertsRotation(vdb.Annotations) {
 		return []corev1.EnvVar{
 			// The NMA will read the secrets directly from the secret store.
 			// We provide the secret namespace and name for this reason.
@@ -2118,7 +2117,7 @@ func GetTarballName(cmd []string) string {
 
 // BuildNMATLSConfigMap builds a configmap with tls secret name in it.
 // The configmap will be mapped to two environmental variables in NMA pod
-func BuildNMATLSConfigMap(nm types.NamespacedName, vdb *vapi.VerticaDB) *corev1.ConfigMap {
+func BuildNMATLSConfigMap(configMapName string, vdb *vapi.VerticaDB) *corev1.ConfigMap {
 	secretMap := map[string]string{
 		NMASecretNamespaceEnv: vdb.ObjectMeta.Namespace,
 		NMASecretNameEnv:      vdb.Spec.NMATLSSecret,
@@ -2129,8 +2128,8 @@ func BuildNMATLSConfigMap(nm types.NamespacedName, vdb *vapi.VerticaDB) *corev1.
 			APIVersion: "v1",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:            nm.Name,
-			Namespace:       nm.Namespace,
+			Name:            configMapName,
+			Namespace:       vdb.Namespace,
 			OwnerReferences: []metav1.OwnerReference{vdb.GenerateOwnerReference()},
 		},
 		Data: secretMap,

@@ -199,6 +199,8 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		MakeUpgradeOperatorReconciler(r, log, vdb),
 		// use the TLS secrets used by the NMA service
 		MakeTLSServerCertGenReconciler(r, log, vdb),
+		// Create a ConfigMap to store secret names for all tls certs
+		MakeNMACertConfigMapGenReconciler(r, log, vdb),
 		// rotate https tls cert when tls cert secret name is changed in vdb.spec
 		MakeHTTPSCertRotationReconciler(r, log, vdb, dispatcher, pfacts),
 		// rotate nma tls cert when tls cert secret name is changed in vdb.spec
