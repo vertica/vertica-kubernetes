@@ -160,9 +160,9 @@ func (h *HTTPSCertRoationReconciler) rotateHTTPSTLSCert(ctx context.Context, new
 	}
 	currentSecretName := vmeta.GetNMATLSSecretNameInUse(h.Vdb.Annotations)
 	h.Log.Info("ready to rotate certi from " + currentSecretName + " to " + h.Vdb.Spec.NMATLSSecret)
-	keyConfig := fmt.Sprintf("{\"data-key\":\"%s\", \"namespace\":\"%s\"}", corev1.TLSPrivateKeyKey, h.Vdb.Namespace)
-	certConfig := fmt.Sprintf("{\"data-key\":\"%s\", \"namespace\":\"%s\"}", corev1.TLSCertKey, h.Vdb.Namespace)
-	caCertConfig := fmt.Sprintf("{\"data-key\":\"%s\", \"namespace\":\"%s\"}", paths.HTTPServerCACrtName, h.Vdb.Namespace)
+	keyConfig := fmt.Sprintf("{\"data-key\":\"%s\", \"namespace\":%q}", corev1.TLSPrivateKeyKey, h.Vdb.Namespace)
+	certConfig := fmt.Sprintf("{\"data-key\":\"%s\", \"namespace\":%q}", corev1.TLSCertKey, h.Vdb.Namespace)
+	caCertConfig := fmt.Sprintf("{\"data-key\":\"%s\", \"namespace\":%q}", paths.HTTPServerCACrtName, h.Vdb.Namespace)
 	opts := []rotatehttpscerts.Option{
 		rotatehttpscerts.WithPollingKey(string(newSecret.Data[corev1.TLSPrivateKeyKey])),
 		rotatehttpscerts.WithPollingCert(newCert),
