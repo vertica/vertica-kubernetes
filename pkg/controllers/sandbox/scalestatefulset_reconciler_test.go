@@ -39,7 +39,7 @@ var _ = Describe("scalestatefulset_reconciler", func() {
 			{Name: sc1, Size: 3, Shutdown: false},
 		}
 		vdb.Spec.Sandboxes = []v1.Sandbox{
-			{Name: sc1, Subclusters: []v1.SubclusterName{{Name: sc1}}},
+			{Name: sc1, Subclusters: []v1.SandboxSubcluster{{Name: sc1}}},
 		}
 		vdb.Status.Subclusters = []v1.SubclusterStatus{
 			{Name: sc1, Shutdown: true},

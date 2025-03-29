@@ -81,8 +81,8 @@ var _ = Describe("sandboxsubcluster_reconcile", func() {
 			{Name: subcluster2, Size: 1, Type: vapi.SecondarySubcluster},
 		}
 		vdb.Spec.Sandboxes = []vapi.Sandbox{
-			{Name: sandbox1, Subclusters: []vapi.SubclusterName{{Name: subcluster1}}},
-			{Name: sandbox2, Subclusters: []vapi.SubclusterName{{Name: subcluster2}}},
+			{Name: sandbox1, Subclusters: []vapi.SandboxSubcluster{{Name: subcluster1}}},
+			{Name: sandbox2, Subclusters: []vapi.SandboxSubcluster{{Name: subcluster2}}},
 		}
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
@@ -104,8 +104,8 @@ var _ = Describe("sandboxsubcluster_reconcile", func() {
 			{Name: subcluster2, Size: 1, Type: vapi.SecondarySubcluster},
 		}
 		vdb.Spec.Sandboxes = []vapi.Sandbox{
-			{Name: sandbox1, Subclusters: []vapi.SubclusterName{{Name: subcluster1}}},
-			{Name: sandbox2, Subclusters: []vapi.SubclusterName{{Name: subcluster2}}},
+			{Name: sandbox1, Subclusters: []vapi.SandboxSubcluster{{Name: subcluster1}}},
+			{Name: sandbox2, Subclusters: []vapi.SandboxSubcluster{{Name: subcluster2}}},
 		}
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
@@ -125,8 +125,8 @@ var _ = Describe("sandboxsubcluster_reconcile", func() {
 			{Name: subcluster2, Size: 1, Type: vapi.SecondarySubcluster},
 		}
 		vdb.Spec.Sandboxes = []vapi.Sandbox{
-			{Name: sandbox1, Subclusters: []vapi.SubclusterName{{Name: subcluster1}}},
-			{Name: sandbox2, Subclusters: []vapi.SubclusterName{{Name: subcluster2}}},
+			{Name: sandbox1, Subclusters: []vapi.SandboxSubcluster{{Name: subcluster1}}},
+			{Name: sandbox2, Subclusters: []vapi.SandboxSubcluster{{Name: subcluster2}}},
 		}
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
@@ -152,8 +152,8 @@ var _ = Describe("sandboxsubcluster_reconcile", func() {
 			{Name: subcluster2, Size: 1, Type: vapi.SecondarySubcluster},
 		}
 		vdb.Spec.Sandboxes = []vapi.Sandbox{
-			{Name: sandbox1, Subclusters: []vapi.SubclusterName{{Name: subcluster1}}},
-			{Name: sandbox2, Subclusters: []vapi.SubclusterName{{Name: subcluster2}}},
+			{Name: sandbox1, Subclusters: []vapi.SandboxSubcluster{{Name: subcluster1}}},
+			{Name: sandbox2, Subclusters: []vapi.SandboxSubcluster{{Name: subcluster2}}},
 		}
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
@@ -185,8 +185,8 @@ var _ = Describe("sandboxsubcluster_reconcile", func() {
 			{Name: "sc3", Size: 1, Type: vapi.SecondarySubcluster},
 		}
 		vdb.Spec.Sandboxes = []vapi.Sandbox{
-			{Name: sandbox1, Subclusters: []vapi.SubclusterName{{Name: subcluster1}}},
-			{Name: sandbox2, Subclusters: []vapi.SubclusterName{{Name: subcluster2}}},
+			{Name: sandbox1, Subclusters: []vapi.SandboxSubcluster{{Name: subcluster1}}},
+			{Name: sandbox2, Subclusters: []vapi.SandboxSubcluster{{Name: subcluster2}}},
 		}
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
@@ -216,8 +216,8 @@ var _ = Describe("sandboxsubcluster_reconcile", func() {
 			{Name: subcluster2, Size: 1, Type: vapi.SecondarySubcluster},
 		}
 		vdb.Spec.Sandboxes = []vapi.Sandbox{
-			{Name: sandbox1, Subclusters: []vapi.SubclusterName{{Name: subcluster1}}},
-			{Name: sandbox2, Subclusters: []vapi.SubclusterName{{Name: subcluster2}}},
+			{Name: sandbox1, Subclusters: []vapi.SandboxSubcluster{{Name: subcluster1}}},
+			{Name: sandbox2, Subclusters: []vapi.SandboxSubcluster{{Name: subcluster2}}},
 		}
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
@@ -250,7 +250,7 @@ var _ = Describe("sandboxsubcluster_reconcile", func() {
 			{Name: subcluster1, Size: 1, Type: vapi.SecondarySubcluster},
 		}
 		vdb.Spec.Sandboxes = []vapi.Sandbox{
-			{Name: sandbox1, Subclusters: []vapi.SubclusterName{{Name: subcluster1}}},
+			{Name: sandbox1, Subclusters: []vapi.SandboxSubcluster{{Name: subcluster1}}},
 		}
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
@@ -320,7 +320,7 @@ var _ = Describe("sandboxsubcluster_reconcile", func() {
 		// Sandbox the first subcluster. Only use IP from a host in the main cluster.
 		Ω(k8sClient.Get(ctx, vdb.ExtractNamespacedName(), vdb)).Should(Succeed())
 		vdb.Spec.Sandboxes = []vapi.Sandbox{
-			{Name: sandbox1, Subclusters: []vapi.SubclusterName{{Name: subcluster1}}},
+			{Name: sandbox1, Subclusters: []vapi.SandboxSubcluster{{Name: subcluster1}}},
 		}
 		Ω(k8sClient.Update(ctx, vdb)).Should(Succeed())
 
@@ -343,7 +343,7 @@ var _ = Describe("sandboxsubcluster_reconcile", func() {
 		// existing sandbox.
 		Ω(k8sClient.Get(ctx, vdb.ExtractNamespacedName(), vdb)).Should(Succeed())
 		vdb.Spec.Sandboxes[0].Subclusters = append(vdb.Spec.Sandboxes[0].Subclusters,
-			vapi.SubclusterName{Name: subcluster2})
+			vapi.SandboxSubcluster{Name: subcluster2})
 		Ω(k8sClient.Update(ctx, vdb)).Should(Succeed())
 
 		Ω(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
