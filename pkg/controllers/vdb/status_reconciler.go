@@ -30,7 +30,6 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -184,18 +183,27 @@ func (s *StatusReconciler) calculateClusterStatus(stat *vapi.VerticaDBStatus) {
 }
 
 // getSubclusterStatusType returns the subcluster status type depends on its type in subclusters and sandboxes
-func (s *StatusReconciler) getSubclusterStatusType(podName types.NamespacedName) string {
+func (s *StatusReconciler) getSubclusterStatusType(sc *vapi.Subcluster) string {
 	if !s.PFacts.DoesDBExist() {
+		s.Log.Info("Subcluster type status is not available as it's not in a db yet",
+			"status", s.Vdb.Status.Subclusters)
 		return ""
 	}
 
-	if s.PFacts.Detail[podName].GetIsPrimary() {
-		if s.Vdb.GetSandboxStatus(s.PFacts.SandboxName) != nil && s.Vdb.GetSandboxStatus(s.PFacts.SandboxName).Name != vapi.MainCluster {
+	// if in a sandbox, set subcluster type according to the sandbox status
+	sandboxStatus := s.Vdb.GetSandboxStatus(s.PFacts.SandboxName)
+	isSandbox := sandboxStatus != nil && sandboxStatus.Name != vapi.MainCluster
+	if isSandbox {
+		if sc.IsSandboxPrimary() {
 			return vapi.SandboxPrimarySubcluster
+		} else {
+			return vapi.SandboxSecondarySubcluster
+
 		}
+	}
+
+	if sc.IsPrimary() {
 		return vapi.PrimarySubcluster
-	} else if s.Vdb.GetSandboxStatus(s.PFacts.SandboxName) != nil && s.Vdb.GetSandboxStatus(s.PFacts.SandboxName).Name != vapi.MainCluster {
-		return vapi.SandboxSecondarySubcluster
 	}
 
 	return vapi.SecondarySubcluster
@@ -207,6 +215,11 @@ func (s *StatusReconciler) calculateSubclusterStatus(ctx context.Context, sc *va
 
 	if err := s.resizeSubclusterStatus(ctx, sc, curStat); err != nil {
 		return err
+	}
+
+	scType := s.getSubclusterStatusType(sc)
+	if scType != "" {
+		curStat.Type = scType
 	}
 
 	for podIndex := int32(0); podIndex < int32(len(curStat.Detail)); podIndex++ { //nolint:gosec
@@ -231,9 +244,6 @@ func (s *StatusReconciler) calculateSubclusterStatus(ctx context.Context, sc *va
 		}
 		if pf.GetSubclusterOid() != "" {
 			curStat.Oid = pf.GetSubclusterOid()
-		}
-		if s.getSubclusterStatusType(podName) != "" {
-			curStat.Type = s.getSubclusterStatusType(podName)
 		}
 	}
 	// Refresh the counts
