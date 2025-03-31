@@ -131,15 +131,7 @@ func (c *CreateDBReconciler) execCmd(ctx context.Context, initiatorPod types.Nam
 	if res, errTwo := c.Dispatcher.CreateDB(ctx, opts...); verrors.IsReconcileAborted(res, err) {
 		return res, errTwo
 	}
-	if !c.Vdb.IsCertRotationEnabled() {
-		_, stderr, errThree := c.PRunner.ExecInPod(ctx, initiatorPod, names.ServerContainer,
-			"vsql", "-f", PostDBCreateSQLFile)
-		if errThree != nil || strings.Contains(stderr, "Error") {
-			c.Log.Error(errThree, "failed to execute post createdb ddls after db creation stderr - "+stderr)
-			return ctrl.Result{}, err
-		}
-		c.Log.Info("post createdb ddls executed")
-	} else {
+	if c.Vdb.IsCertRotationEnabled() {
 		_, stderr, err2 := c.PRunner.ExecInPod(ctx, initiatorPod, names.ServerContainer,
 			"vsql", "-f", PostDBCreateSQLFileVclusterOps)
 		if err2 != nil || strings.Contains(stderr, "Error") {
@@ -252,8 +244,8 @@ func (c *CreateDBReconciler) generatePostDBCreateSQL(ctx context.Context, initia
 
 		sb.WriteString(`ALTER TLS CONFIGURATION https CERTIFICATE https_cert_0 ADD CA CERTIFICATES https_ca_cert_0 TLSMODE 'TRY_VERIFY';`)
 		sb.WriteString(`ALTER TLS CONFIGURATION https CERTIFICATE https_cert_0 REMOVE CA CERTIFICATES httpServerRootca;`)
-		sb.WriteString(`CREATE AUTHENTICATION auth_tls METHOD 'tls' HOST TLS '0.0.0.0/0';`)
-		sb.WriteString(fmt.Sprintf(`GRANT AUTHENTICATION auth_tls TO %s;`, c.Vdb.GetVerticaUser()))
+		sb.WriteString(`CREATE AUTHENTICATION k8s_tls_builtin_auth METHOD 'tls' HOST TLS '0.0.0.0/0' FALLTHROUGH;`)
+		sb.WriteString(fmt.Sprintf(`GRANT AUTHENTICATION k8s_tls_builtin_auth TO %s;`, c.Vdb.GetVerticaUser()))
 		sb.WriteString(`select sync_catalog();`)
 		pcFile = PostDBCreateSQLFileVclusterOps
 	}
@@ -370,7 +362,7 @@ func (c *CreateDBReconciler) genOptions(ctx context.Context, initiatorPod types.
 		createdb.WithDataPath(c.Vdb.Spec.Local.DataPath),
 	}
 
-	if !c.VInf.IsEqualOrNewer(vapi.DBSetupConfigParametersMinVersion) || c.VInf.IsEqualOrNewer(vapi.TLSCertRotationMinVersion) {
+	if !c.VInf.IsEqualOrNewer(vapi.DBSetupConfigParametersMinVersion) {
 		opts = append(opts, createdb.WithPostDBCreateSQLFile(PostDBCreateSQLFile))
 	}
 
