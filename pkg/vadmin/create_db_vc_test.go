@@ -106,7 +106,7 @@ var _ = Describe("create_db_vc", func() {
 	ctx := context.Background()
 
 	It("should call vcluster-ops library with create_db task", func() {
-		dispatcher := mockMTLSVClusterOpsDispatcher()
+		dispatcher := mockVClusterOpsDispatcher()
 		dispatcher.VDB.Spec.NMATLSSecret = TestNMATLSSecret
 		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.NMATLSSecret)
 		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.NMATLSSecret)
@@ -114,7 +114,7 @@ var _ = Describe("create_db_vc", func() {
 	})
 
 	It("should detect DBIsRunningError", func() {
-		vdb := vapi.MakeMTLSVDB()
+		vdb := vapi.MakeVDB()
 		vdb.Spec.NMATLSSecret = TestNMATLSSecret
 		vdb.Annotations[vmeta.FailCreateDBIfVerticaIsRunningAnnotation] = vmeta.FailCreateDBIfVerticaIsRunningAnnotationTrue
 		setupAPIFunc := func(logr.Logger, string) (VClusterProvider, logr.Logger) {
@@ -134,7 +134,7 @@ var _ = Describe("create_db_vc", func() {
 	})
 
 	It("should detect TimeoutNodeStartupSeconds", func() {
-		vdb := vapi.MakeMTLSVDB()
+		vdb := vapi.MakeVDB()
 		vdb.Spec.NMATLSSecret = TestNMATLSSecret
 		vdb.Annotations[vmeta.CreateDBTimeoutAnnotation] = fmt.Sprint(TestTimeoutNodeStartupSeconds)
 		Ω(vdb.GetCreateDBNodeStartTimeout()).Should(Equal(TestTimeoutNodeStartupSeconds))

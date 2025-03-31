@@ -47,7 +47,7 @@ var _ = Describe("fetch_node_details_vc", func() {
 	ctx := context.Background()
 
 	It("should call vcluster-ops library with fetch_node_details task", func() {
-		dispatcher := mockMTLSVClusterOpsDispatcher()
+		dispatcher := mockVClusterOpsDispatcher()
 		dispatcher.VDB.Spec.DBName = TestDBName
 		dispatcher.VDB.Spec.NMATLSSecret = "fetch-node-details-vc-secret"
 		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.NMATLSSecret)

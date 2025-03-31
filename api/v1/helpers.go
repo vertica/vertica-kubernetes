@@ -102,18 +102,6 @@ func SetVDBForTLS(v *VerticaDB) {
 // MakeVDB is a helper that constructs a fully formed VerticaDB struct using the sample name.
 // This is intended for test purposes.
 func MakeVDB() *VerticaDB {
-	return MakeVersionedVDB(LegacyVersion)
-}
-
-// MakeVDB is a helper that constructs a fully formed VerticaDB struct using the sample name.
-// This is intended for test purposes.
-func MakeMTLSVDB() *VerticaDB {
-	return MakeVersionedVDB(TLSCertRotationMinVersion)
-}
-
-// MakeVDB is a helper that constructs a fully formed VerticaDB struct using the sample name.
-// This is intended for test purposes.
-func MakeVersionedVDB(verticaVersion string) *VerticaDB {
 	nm := MakeVDBName()
 	replicas := int32(1)
 	return &VerticaDB{
@@ -127,7 +115,7 @@ func MakeVersionedVDB(verticaVersion string) *VerticaDB {
 			UID:       "abcdef-ghi",
 			Annotations: map[string]string{
 				vmeta.VClusterOpsAnnotation: vmeta.VClusterOpsAnnotationFalse,
-				vmeta.VersionAnnotation:     verticaVersion,
+				vmeta.VersionAnnotation:     "v23.4.0",
 			},
 		},
 		Spec: VerticaDBSpec{

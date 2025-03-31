@@ -53,7 +53,7 @@ var _ = Describe("remove_sc_vc", func() {
 	ctx := context.Background()
 
 	It("should call vcluster-ops library with remove_subcluster task", func() {
-		dispatcher := mockMTLSVClusterOpsDispatcher()
+		dispatcher := mockVClusterOpsDispatcher()
 		dispatcher.VDB.Spec.DBName = TestDBName
 		dispatcher.VDB.Spec.NMATLSSecret = "remove-sc-test-secret"
 		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.NMATLSSecret)

@@ -57,7 +57,7 @@ var _ = Describe("rename_sc_vc", func() { //nolint:dupl
 	ctx := context.Background()
 
 	It("should call vclusterOps library with rename_subcluster task", func() {
-		dispatcher := mockMTLSVClusterOpsDispatcher()
+		dispatcher := mockVClusterOpsDispatcher()
 		dispatcher.VDB.Spec.DBName = TestDBName
 		dispatcher.VDB.Spec.NMATLSSecret = "rename-sc-vc-secret"
 		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.NMATLSSecret)

@@ -79,7 +79,7 @@ var _ = Describe("start_db_vc", func() {
 	}
 
 	It("should call vcluster-ops library with start_db task", func() {
-		dispatcher := mockMTLSVClusterOpsDispatcher()
+		dispatcher := mockVClusterOpsDispatcher()
 		dispatcher.VDB.Spec.DBName = TestDBName
 		dispatcher.VDB.Annotations[vmeta.RestartTimeoutAnnotation] = "10"
 		dispatcher.VDB.Spec.NMATLSSecret = "start-db-test-secret"
