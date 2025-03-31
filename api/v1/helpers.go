@@ -51,7 +51,6 @@ const (
 
 	VerticaDBNameKey = "verticaDBName"
 	SandboxNameKey   = "sandboxName"
-	LegacyVersion    = "v23.4.0"
 )
 
 // ExtractNamespacedName gets the name and returns it as a NamespacedName

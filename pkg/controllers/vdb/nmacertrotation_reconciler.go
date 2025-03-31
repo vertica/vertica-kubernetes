@@ -181,19 +181,11 @@ func (h *NMACertRoationReconciler) rotateNmaTLSCert(ctx context.Context, newSecr
 	}
 	result, err2 := h.checkCertAfterRoation("nma", initiatorPod.GetPodIP(), builder.NMAPort, newSecretName, newCert, currentCert)
 	if !result.Requeue && err2 == nil { // if rotation succeeds update annotations
-		previousTLSSecretName := vmeta.GetNMATLSSecretNameInUse(h.Vdb.Annotations)
 		nmVdbName := types.NamespacedName{
 			Name:      h.Vdb.Name,
 			Namespace: h.Vdb.GetNamespace(),
 		}
-		updated, err := vk8s.UpdateAnnotation(vmeta.NMATLSSecretPreviouslyUsedAnnotation, previousTLSSecretName, h.Vdb, ctx,
-			h.VRec.Client, nmVdbName)
-		if !updated {
-			h.Log.Error(err, "failed to save previously used tls cert secret name in annotation after cert rotation")
-			return ctrl.Result{}, err
-		}
-		h.Log.Info("saved previously used tls cert secret name " + previousTLSSecretName + " in annotation")
-		updated, err = vk8s.UpdateAnnotation(vmeta.NMATLSSecretInUseAnnotation, newSecretName, h.Vdb, ctx, h.VRec.Client, nmVdbName)
+		updated, err := vk8s.UpdateAnnotation(vmeta.NMAHTTPSPreviousSecret, newSecretName, h.Vdb, ctx, h.VRec.Client, nmVdbName)
 		if !updated {
 			h.Log.Error(err, "failed to save new tls cert secret name in annotation after cert rotation")
 			return ctrl.Result{}, err

@@ -207,9 +207,7 @@ const (
 	HTTPSTLSConfGenerationAnnotationFalse = "false"
 	HTTPSTLSConfGenerationDefaultValue    = true
 
-	NMATLSSecretInUseAnnotation          = "vertica.com/nma-tls-secret-in-use"          // #nosec G101
-	NMATLSSecretPreviouslyUsedAnnotation = "vertica.com/nma-tls-secret-previously-used" // #nosec G101
-	CLIENTSERVERTLSSecretAnnotation      = "vertica.com/client-server-tls-secret"       // #nosec G101
+	NMAHTTPSPreviousSecret = "vertica.com/nma-https-previous-secret" // #nosec G101
 	// We have a deployment check that ensures that if running vcluster ops the
 	// image is built for that (and vice-versa). This annotation allows you to
 	// skip that check.
@@ -608,12 +606,7 @@ func GetNMAHealthProbeOverride(annotations map[string]string, probeName, field s
 
 // GetNMATLSSecretNameInUse returns the tls cert secret name in use
 func GetNMATLSSecretNameInUse(annotations map[string]string) string {
-	return lookupStringAnnotation(annotations, NMATLSSecretInUseAnnotation, "")
-}
-
-// GetNMATLSSecretNamePreviouslyUsed returns the tls cert secret name that was used previously
-func GetNMATLSSecretNamePreviouslyUsed(annotations map[string]string) string {
-	return lookupStringAnnotation(annotations, NMATLSSecretPreviouslyUsedAnnotation, "")
+	return lookupStringAnnotation(annotations, NMAHTTPSPreviousSecret, "")
 }
 
 // GetVProxyLogLevel returns scrutinize log age hours
