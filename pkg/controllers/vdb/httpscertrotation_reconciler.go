@@ -26,7 +26,9 @@ import (
 	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/builder"
+	"github.com/vertica/vertica-kubernetes/pkg/cloud"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
+	"github.com/vertica/vertica-kubernetes/pkg/errors"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
@@ -84,17 +86,38 @@ func (h *HTTPSCertRoationReconciler) Reconcile(ctx context.Context, _ *ctrl.Requ
 	h.Log.Info("rotation is required from " + currentSecretName + " to " + h.Vdb.Spec.NMATLSSecret)
 	// rotation is required. Will check start conditions next
 	// check if secret is ready for rotation
-	currentSecret := corev1.Secret{}
-	found, err := vapi.IsK8sSecretFound(ctx, h.Vdb, h.VRec.Client, &currentSecretName, &currentSecret)
-	if !found || err != nil {
-		h.Log.Info("current secret is not ready yet for rotation. will retry")
-		return ctrl.Result{Requeue: true}, nil
+
+	evWriter := events.Writer{
+		Log:   h.Log,
+		EVRec: h.VRec.EVRec,
 	}
-	newSecret := corev1.Secret{}
-	found, err = vapi.IsK8sSecretFound(ctx, h.Vdb, h.VRec.Client, &newSecretName, &newSecret)
-	if !found || err != nil {
-		h.Log.Info("new secret is not ready for rotation. will retry")
-		return ctrl.Result{Requeue: true}, nil
+	secretFetcher := &cloud.SecretFetcher{
+		Client:   h.VRec.Client,
+		Log:      h.Log,
+		EVWriter: evWriter,
+		Obj:      h.Vdb,
+	}
+	nmCurrentSecretName := types.NamespacedName{
+		Name:      currentSecretName,
+		Namespace: h.Vdb.GetNamespace(),
+	}
+	currentSecretData, res, err := secretFetcher.FetchAllowRequeue(ctx, nmCurrentSecretName)
+	if errors.IsReconcileAborted(res, err) {
+		return res, err
+	}
+	currentSecret := corev1.Secret{
+		Data: currentSecretData,
+	}
+	nnNewSecretName := types.NamespacedName{
+		Name:      newSecretName,
+		Namespace: h.Vdb.GetNamespace(),
+	}
+	newSecretData, res, err := secretFetcher.FetchAllowRequeue(ctx, nnNewSecretName)
+	if errors.IsReconcileAborted(res, err) {
+		return res, err
+	}
+	newSecret := corev1.Secret{
+		Data: newSecretData,
 	}
 	// check if configmap is ready for rotation
 	name := fmt.Sprintf("%s-%s", h.Vdb.Name, vapi.NMATLSConfigMapName)
@@ -102,11 +125,9 @@ func (h *HTTPSCertRoationReconciler) Reconcile(ctx context.Context, _ *ctrl.Requ
 		Name:      name,
 		Namespace: h.Vdb.GetNamespace(),
 	}
-	configMap := &corev1.ConfigMap{}
-	err = h.VRec.Client.Get(ctx, configMapName, configMap)
-	if err != nil {
-		h.Log.Info("failed to retrieve configmap for rotation. will retry")
-		return ctrl.Result{Requeue: true}, nil
+	configMap, res, err := getConfigMap(ctx, h.VRec, h.Vdb, configMapName)
+	if errors.IsReconcileAborted(res, err) {
+		return res, err
 	}
 	if configMap.Data[builder.NMASecretNamespaceEnv] != h.Vdb.GetObjectMeta().GetNamespace() ||
 		configMap.Data[builder.NMASecretNameEnv] != newSecretName {
@@ -123,10 +144,10 @@ func (h *HTTPSCertRoationReconciler) Reconcile(ctx context.Context, _ *ctrl.Requ
 	}
 
 	// Now https cert rotation will start
-	res, err := h.rotateHTTPSTLSCert(ctx, &newSecret, &currentSecret)
+	res, err2 := h.rotateHTTPSTLSCert(ctx, &newSecret, &currentSecret)
 	if verrors.IsReconcileAborted(res, err) {
 		h.Log.Info("https cert rotation is aborted.")
-		return res, err
+		return res, err2
 	}
 	cond = vapi.MakeCondition(vapi.HTTPSCertRotationFinished, metav1.ConditionTrue, "Completed")
 	if err := vdbstatus.UpdateCondition(ctx, h.VRec.GetClient(), h.Vdb, cond); err != nil {
