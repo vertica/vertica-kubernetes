@@ -198,7 +198,6 @@ func (s *StatusReconciler) getSubclusterStatusType(sc *vapi.Subcluster) string {
 			return vapi.SandboxPrimarySubcluster
 		} else {
 			return vapi.SandboxSecondarySubcluster
-
 		}
 	}
 
