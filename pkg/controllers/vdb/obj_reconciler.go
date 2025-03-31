@@ -116,6 +116,12 @@ func (o *ObjReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Re
 		return ctrl.Result{}, err
 	}
 
+	// We need to create/update the configmap that contains the tls secret name
+	err := o.reconcileNMACertConfigMap(ctx)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
 	// Check the objects for subclusters that should exist.  This will create
 	// missing objects and update existing objects to match the vdb.
 	if res, err := o.checkForCreatedSubclusters(ctx); verrors.IsReconcileAborted(res, err) {
@@ -610,6 +616,12 @@ func (o *ObjReconciler) reconcileSts(ctx context.Context, sc *vapi.Subcluster) (
 		return ctrl.Result{}, nil
 	}
 
+	return o.handleStatefulSetUpdate(ctx, sc, curSts, expSts, curDep)
+}
+
+// handleStatefulSetUpdate handles the update of an existing StatefulSet.
+func (o *ObjReconciler) handleStatefulSetUpdate(ctx context.Context, sc *vapi.Subcluster,
+	curSts, expSts *appsv1.StatefulSet, curDep *appsv1.Deployment) (ctrl.Result, error) {
 	// We can only remove pods if we have called remove node and done the
 	// uninstall.  If we haven't yet done that we will requeue the
 	// reconciliation.  This will cause us to go through the remove node and
@@ -672,6 +684,40 @@ func (o *ObjReconciler) reconcileSts(ctx context.Context, sc *vapi.Subcluster) (
 	}
 
 	return ctrl.Result{}, o.updateVProxyDeployment(ctx, expSts, curDep, sc)
+}
+
+// reconcileNMACertConfigMap creates/updates the configmap that contains the tls
+// secret name
+func (o *ObjReconciler) reconcileNMACertConfigMap(ctx context.Context) error {
+	if vmeta.UseNMACertsMount(o.Vdb.Annotations) || !vmeta.EnableTLSCertsRotation(o.Vdb.Annotations) {
+		return nil
+	}
+	configMapName := names.GenNMACertConfigMap(o.Vdb)
+	configMap := &corev1.ConfigMap{}
+	err := o.Rec.GetClient().Get(ctx, configMapName, configMap)
+	if err != nil {
+		if kerrors.IsNotFound(err) {
+			configMap = builder.BuildNMATLSConfigMap(configMapName, o.Vdb)
+			err = o.Rec.GetClient().Create(ctx, configMap)
+			if err != nil {
+				return err
+			}
+			o.Log.Info("created TLS cert secret configmap", "nm", configMapName.Name)
+			return nil
+		}
+		o.Log.Error(err, "failed to retrieve TLS cert secret configmap")
+		return err
+	}
+	if configMap.Data[builder.NMASecretNameEnv] == o.Vdb.Spec.NMATLSSecret {
+		return nil
+	}
+
+	configMap.Data[builder.NMASecretNameEnv] = o.Vdb.Spec.NMATLSSecret
+	err = o.Rec.GetClient().Update(ctx, configMap)
+	if err == nil {
+		o.Log.Info("updated tls cert secret configmap", "name", configMapName.Name, "new-secret", o.Vdb.Spec.NMATLSSecret)
+	}
+	return err
 }
 
 // updateSts will patch an existing statefulset.

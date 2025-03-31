@@ -130,8 +130,10 @@ func (c *CreateDBReconciler) execCmd(ctx context.Context, initiatorPod types.Nam
 		return res, err
 	}
 	if c.Vdb.IsCertRotationEnabled() {
-		_, stderr, err2 := c.PRunner.ExecInPod(ctx, initiatorPod, names.ServerContainer,
-			"vsql", "-f", PostDBCreateSQLFileVclusterOps)
+		cmd := []string{
+			"-f", PostDBCreateSQLFileVclusterOps,
+		}
+		_, stderr, err2 := c.PRunner.ExecVSQL(ctx, initiatorPod, names.ServerContainer, cmd...)
 		if err2 != nil || strings.Contains(stderr, "Error") {
 			c.Log.Error(err2, "failed to execute TLS DDLs after db creation stderr - "+stderr)
 			return ctrl.Result{}, err2
@@ -234,8 +236,8 @@ func (c *CreateDBReconciler) generatePostDBCreateSQL(ctx context.Context, initia
 
 		sb.WriteString(`ALTER TLS CONFIGURATION https CERTIFICATE https_cert_0 ADD CA CERTIFICATES https_ca_cert_0 TLSMODE 'TRY_VERIFY';`)
 		sb.WriteString(`ALTER TLS CONFIGURATION https CERTIFICATE https_cert_0 REMOVE CA CERTIFICATES httpServerRootca;`)
-		sb.WriteString(`CREATE AUTHENTICATION auth_tls METHOD 'tls' HOST TLS '0.0.0.0/0';`)
-		sb.WriteString(fmt.Sprintf(`GRANT AUTHENTICATION auth_tls TO %s;`, c.Vdb.GetVerticaUser()))
+		sb.WriteString(`CREATE AUTHENTICATION k8s_tls_builtin_auth METHOD 'tls' HOST TLS '0.0.0.0/0' FALLTHROUGH;`)
+		sb.WriteString(fmt.Sprintf(`GRANT AUTHENTICATION k8s_tls_builtin_auth TO %s;`, c.Vdb.GetVerticaUser()))
 		sb.WriteString(`select sync_catalog();`)
 		pcFile = PostDBCreateSQLFileVclusterOps
 	}

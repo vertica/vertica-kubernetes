@@ -144,6 +144,7 @@ echo "Vertica superuser name: $VERTICA_SUPERUSER_NAME"
 echo "Test running on Github CI: $FOR_GITHUB_CI"
 echo "Broadcaster burst size: $BROADCASTER_BURST_SIZE"
 echo "VDB Maximum Backoff Duration: $VDB_MAX_BACKOFF_DURATION"
+echo "Cert rotation enabled: $USE_CERT"
 
 function create_vdb_kustomization {
     BASE_DIR=$1
@@ -199,6 +200,18 @@ EOF
           exit 1
         fi
 
+        if [ "$USE_CERT" == "true" ]
+        then
+            cat <<EOF >> kustomization.yaml
+    - op: add
+      path: /metadata/annotations/vertica.com~1mount-nma-certs
+      value: "false"
+    - op: add
+      path: /metadata/annotations/vertica.com~1enable-tls-certs-rotation
+      value: "true"
+EOF
+        fi
+
         if [ "$VERTICA_DEPLOYMENT_METHOD" == "vclusterops" ]
         then
             cat <<EOF >> kustomization.yaml
@@ -221,7 +234,7 @@ EOF
       path: /metadata/annotations/vertica.com~1superuser-name
       value: $VERTICA_SUPERUSER_NAME
 EOF
-        fi
+        fi  
     fi
 
       cat <<EOF >> kustomization.yaml
