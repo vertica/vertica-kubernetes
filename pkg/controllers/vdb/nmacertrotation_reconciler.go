@@ -26,7 +26,9 @@ import (
 	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/builder"
+	"github.com/vertica/vertica-kubernetes/pkg/cloud"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
+	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
@@ -69,20 +71,40 @@ func (h *NMACertRoationReconciler) Reconcile(ctx context.Context, _ *ctrl.Reques
 	if !h.Vdb.IsStatusConditionTrue(vapi.HTTPSCertRotationFinished) || !h.Vdb.IsStatusConditionTrue(vapi.TLSCertRotationInProgress) {
 		return ctrl.Result{}, nil
 	}
-	curretSecretName := vmeta.GetNMATLSSecretNameInUse(h.Vdb.Annotations)
+	currentSecretName := vmeta.GetNMATLSSecretNameInUse(h.Vdb.Annotations)
 	newSecretName := h.Vdb.Spec.NMATLSSecret
 
-	currentSecret := corev1.Secret{}
-	found, err := vapi.IsK8sSecretFound(ctx, h.Vdb, h.VRec.Client, &curretSecretName, &currentSecret)
-	if !found || err != nil {
-		h.Log.Info("current secret is not ready yet for rotation. will retry")
-		return ctrl.Result{Requeue: true}, nil
+	evWriter := events.Writer{
+		Log:   h.Log,
+		EVRec: h.VRec.EVRec,
 	}
-	newSecret := corev1.Secret{}
-	found, err = vapi.IsK8sSecretFound(ctx, h.Vdb, h.VRec.Client, &newSecretName, &newSecret)
-	if !found || err != nil {
-		h.Log.Info("new secret is not ready for rotation. will retry")
-		return ctrl.Result{Requeue: true}, nil
+	secretFetcher := &cloud.SecretFetcher{
+		Client:   h.VRec.Client,
+		Log:      h.Log,
+		EVWriter: evWriter,
+		Obj:      h.Vdb,
+	}
+	nmCurrentSecretName := types.NamespacedName{
+		Name:      currentSecretName,
+		Namespace: h.Vdb.GetNamespace(),
+	}
+	currentSecretData, res, err := secretFetcher.FetchAllowRequeue(ctx, nmCurrentSecretName)
+	if verrors.IsReconcileAborted(res, err) {
+		return res, err
+	}
+	currentSecret := corev1.Secret{
+		Data: currentSecretData,
+	}
+	nmNewSecretName := types.NamespacedName{
+		Name:      newSecretName,
+		Namespace: h.Vdb.GetNamespace(),
+	}
+	newSecretData, res, err := secretFetcher.FetchAllowRequeue(ctx, nmNewSecretName)
+	if verrors.IsReconcileAborted(res, err) {
+		return res, err
+	}
+	newSecret := corev1.Secret{
+		Data: newSecretData,
 	}
 
 	h.Log.Info("to start nma cert rotation")
