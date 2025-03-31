@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"time"
 
 	"github.com/vertica/vcluster/vclusterops/util"
@@ -35,6 +36,7 @@ type nmaWorkloadReplayOp struct {
 	hosts              []string
 	hostNodeMap        vHostNodeMap
 	hostRequestBodyMap map[string]string
+
 	workloadReplayData *workloadReplayData
 }
 
@@ -99,12 +101,13 @@ func (op *nmaWorkloadReplayOp) updateRequestBody(hosts []string, query VWorkload
 }
 
 // Set up HTTP requests to send to NMA hosts
-func (op *nmaWorkloadReplayOp) setupClusterHTTPRequest(hosts []string) error {
+func (op *nmaWorkloadReplayOp) setupClusterHTTPRequest(hosts []string, timeout int) error {
 	for _, host := range hosts {
 		httpRequest := hostHTTPRequest{}
 		httpRequest.Method = PostMethod
 		httpRequest.buildNMAEndpoint("workload-replay/replay")
 		httpRequest.RequestData = op.hostRequestBodyMap[host]
+		httpRequest.Timeout = timeout
 		op.clusterHTTPRequest.RequestCollection[host] = httpRequest
 	}
 
@@ -144,17 +147,30 @@ func (op *nmaWorkloadReplayOp) prepare(execContext *opEngineExecContext) error {
 	op.workloadReplayData.replayData = []workloadQuery{}
 
 	execContext.dispatcher.setup(op.hosts)
-	return op.setupClusterHTTPRequest(op.hosts)
+	return op.setupClusterHTTPRequest(op.hosts, 0)
 }
 
 // Set up HTTP request for a particular query
-func (op *nmaWorkloadReplayOp) prepareRequest(query VWorkloadPreprocessResponse) error {
+func (op *nmaWorkloadReplayOp) prepareRequest(originalQuery *workloadQuery, query VWorkloadPreprocessResponse) error {
 	err := op.updateRequestBody(op.hosts, query)
 	if err != nil {
 		return err
 	}
 
-	return op.setupClusterHTTPRequest(op.hosts)
+	// Queries can take a long time to complete, so increase the request timeout if necessary
+	// Use either the default (5 minutes) or 1.5x original captured duration, whichever is higher
+	timeoutMultiplier := 1.5
+	originalRequestDurationTimeout := math.Floor(float64(originalQuery.RequestDurationMS) / 1000 * timeoutMultiplier)
+	timeout := math.Max(defaultRequestTimeout, originalRequestDurationTimeout)
+
+	// Convert timeout from int64 to int
+	timeoutInt := 0
+	if timeout <= math.MaxInt { // Max int in seconds is billions of years. This should never be false
+		timeoutInt = int(timeout)
+	}
+	op.logger.Log.Info(fmt.Sprintf("Using timeout of %d seconds", timeoutInt), "name", op.name)
+
+	return op.setupClusterHTTPRequest(op.hosts, timeoutInt)
 }
 
 func parseWorkloadTime(timestamp string) (time.Time, error) {
@@ -223,7 +239,7 @@ func (op *nmaWorkloadReplayOp) executeWorkloadReplay(execContext *opEngineExecCo
 
 		// Send request to NMA to run the query
 		op.logger.Log.Info("Replaying query "+workloadQuery.Request, "name", op.name, "progress", replayProgress)
-		err = op.prepareRequest(preprocessedQuery)
+		err = op.prepareRequest(&workloadQuery, preprocessedQuery)
 		if err != nil {
 			op.appendReplayErrorRow(err)
 			continue
