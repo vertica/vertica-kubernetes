@@ -18,8 +18,6 @@ package vk8s
 import (
 	"context"
 
-	"github.com/go-logr/logr"
-	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/retry"
@@ -100,13 +98,10 @@ func addOrReplaceMap(oldMap, newMap map[string]string) (map[string]string, bool)
 	return oldMap, mapChanged
 }
 
-func UpdateAnnotation(annotationField, annotationValue string, vdb *vapi.VerticaDB, ctx context.Context,
-	k8sClient client.Client, logger logr.Logger) error {
-	chgs := MetaChanges{
-		NewAnnotations: map[string]string{
-			annotationField: annotationValue,
-		},
+func UpdateAnnotation(annotationField, annotationValue string, obj client.Object, ctx context.Context,
+	k8sClient client.Client, nm types.NamespacedName) (bool, error) {
+	anns := map[string]string{
+		annotationField: annotationValue,
 	}
-	_, err := MetaUpdate(ctx, k8sClient, vdb.ExtractNamespacedName(), vdb, chgs)
-	return err
+	return MetaUpdateWithAnnotations(ctx, k8sClient, nm, obj, anns)
 }

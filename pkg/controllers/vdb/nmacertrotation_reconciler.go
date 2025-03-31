@@ -36,6 +36,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/vk8s"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
@@ -159,14 +160,18 @@ func (h *NMACertRoationReconciler) rotateNmaTLSCert(ctx context.Context, newSecr
 	result, err2 := h.checkCertAfterRoation("nma", initiatorPod.GetPodIP(), builder.NMAPort, newSecretName, newCert, currentCert)
 	if !result.Requeue && err2 == nil { // if rotation succeeds update annotations
 		previousTLSSecretName := vmeta.GetNMATLSSecretNameInUse(h.Vdb.Annotations)
-		err = vk8s.UpdateAnnotation(vmeta.NMATLSSecretPreviouslyUsedAnnotation, previousTLSSecretName, h.Vdb, ctx, h.VRec.Client, h.Log)
-		if err != nil {
+		nmVdbName := types.NamespacedName{
+			Name:      h.Vdb.Name,
+			Namespace: h.Vdb.GetNamespace(),
+		}
+		updated, err := vk8s.UpdateAnnotation(vmeta.NMATLSSecretPreviouslyUsedAnnotation, previousTLSSecretName, h.Vdb, ctx, h.VRec.Client, nmVdbName)
+		if !updated {
 			h.Log.Error(err, "failed to save previously used tls cert secret name in annotation after cert rotation")
 			return ctrl.Result{}, err
 		}
 		h.Log.Info("saved previously used tls cert secret name " + previousTLSSecretName + " in annotation")
-		err = vk8s.UpdateAnnotation(vmeta.NMATLSSecretInUseAnnotation, newSecretName, h.Vdb, ctx, h.VRec.Client, h.Log)
-		if err != nil {
+		updated, err = vk8s.UpdateAnnotation(vmeta.NMATLSSecretInUseAnnotation, newSecretName, h.Vdb, ctx, h.VRec.Client, nmVdbName)
+		if !updated {
 			h.Log.Error(err, "failed to save new tls cert secret name in annotation after cert rotation")
 			return ctrl.Result{}, err
 		}
