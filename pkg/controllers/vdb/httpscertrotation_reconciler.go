@@ -28,7 +28,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/builder"
 	"github.com/vertica/vertica-kubernetes/pkg/cloud"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
-	"github.com/vertica/vertica-kubernetes/pkg/errors"
+
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
@@ -102,7 +102,7 @@ func (h *HTTPSCertRoationReconciler) Reconcile(ctx context.Context, _ *ctrl.Requ
 		Namespace: h.Vdb.GetNamespace(),
 	}
 	currentSecretData, res, err := secretFetcher.FetchAllowRequeue(ctx, nmCurrentSecretName)
-	if errors.IsReconcileAborted(res, err) {
+	if verrors.IsReconcileAborted(res, err) {
 		return res, err
 	}
 	currentSecret := corev1.Secret{
@@ -113,7 +113,7 @@ func (h *HTTPSCertRoationReconciler) Reconcile(ctx context.Context, _ *ctrl.Requ
 		Namespace: h.Vdb.GetNamespace(),
 	}
 	newSecretData, res, err := secretFetcher.FetchAllowRequeue(ctx, nnNewSecretName)
-	if errors.IsReconcileAborted(res, err) {
+	if verrors.IsReconcileAborted(res, err) {
 		return res, err
 	}
 	newSecret := corev1.Secret{
@@ -126,7 +126,7 @@ func (h *HTTPSCertRoationReconciler) Reconcile(ctx context.Context, _ *ctrl.Requ
 		Namespace: h.Vdb.GetNamespace(),
 	}
 	configMap, res, err := getConfigMap(ctx, h.VRec, h.Vdb, configMapName)
-	if errors.IsReconcileAborted(res, err) {
+	if verrors.IsReconcileAborted(res, err) {
 		return res, err
 	}
 	if configMap.Data[builder.NMASecretNamespaceEnv] != h.Vdb.GetObjectMeta().GetNamespace() ||

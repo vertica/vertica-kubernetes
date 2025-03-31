@@ -164,7 +164,8 @@ func (h *NMACertRoationReconciler) rotateNmaTLSCert(ctx context.Context, newSecr
 			Name:      h.Vdb.Name,
 			Namespace: h.Vdb.GetNamespace(),
 		}
-		updated, err := vk8s.UpdateAnnotation(vmeta.NMATLSSecretPreviouslyUsedAnnotation, previousTLSSecretName, h.Vdb, ctx, h.VRec.Client, nmVdbName)
+		updated, err := vk8s.UpdateAnnotation(vmeta.NMATLSSecretPreviouslyUsedAnnotation, previousTLSSecretName, h.Vdb, ctx,
+			h.VRec.Client, nmVdbName)
 		if !updated {
 			h.Log.Error(err, "failed to save previously used tls cert secret name in annotation after cert rotation")
 			return ctrl.Result{}, err
