@@ -45,7 +45,7 @@ import (
 
 // HTTPSCertRoationReconciler will compare the nma tls secret with the one saved in
 // "vertica.com/nma-https-previous-secret". If different, it will try to rotate the
-// cert currently used with the one saved the nma tls secret for https sevice
+// cert currently used with the one saved the nma tls secret for https service
 type HTTPSCertRoationReconciler struct {
 	VRec       *VerticaDBReconciler
 	Vdb        *vapi.VerticaDB // Vdb is the CRD we are acting on.

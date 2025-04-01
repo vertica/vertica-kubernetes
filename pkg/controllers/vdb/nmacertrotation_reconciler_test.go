@@ -27,8 +27,8 @@ import (
 )
 
 const (
-	rotateNMACertNewNMASecretName     = "rotate-nma-new-cert-test-secret"
-	rotateNMACertCurrentNMASecretName = "rotate-nma-current-cert-test-secret"
+	rotateNMACertNewNMASecretName     = "rotate-nma-new-cert-test-secret"     //nolint:gosec
+	rotateNMACertCurrentNMASecretName = "rotate-nma-current-cert-test-secret" //nolint:gosec
 )
 
 var _ = Describe("nmacertrotation_reconciler", func() {

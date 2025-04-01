@@ -44,7 +44,7 @@ import (
 
 // NMACertRoationReconciler will compare the nma tls secret with the one saved in
 // "vertica.com/nma-https-previous-secret". If different, it will try to rotate the
-// cert currently used with the one saved the nma tls secret for nma sevice. This
+// cert currently used with the one saved the nma tls secret for nma service. This
 // happens after the cert rotation is successful for https service
 type NMACertRoationReconciler struct {
 	VRec       *VerticaDBReconciler

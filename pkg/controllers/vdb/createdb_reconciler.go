@@ -128,8 +128,8 @@ func (c *CreateDBReconciler) execCmd(ctx context.Context, initiatorPod types.Nam
 	c.VRec.Event(c.Vdb, corev1.EventTypeNormal, events.CreateDBStart, "Starting create database")
 
 	start := time.Now()
-	if res, errTwo := c.Dispatcher.CreateDB(ctx, opts...); verrors.IsReconcileAborted(res, err) {
-		return res, errTwo
+	if res, err := c.Dispatcher.CreateDB(ctx, opts...); verrors.IsReconcileAborted(res, err) {
+		return res, err
 	}
 	if c.Vdb.IsCertRotationEnabled() {
 		cmd := []string{

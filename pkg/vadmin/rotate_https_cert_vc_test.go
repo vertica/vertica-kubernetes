@@ -28,8 +28,8 @@ import (
 )
 
 const (
-	rotateHttpsCertNewNMASecretName     = "rotate-https-new-cert-test-secret"
-	rotateHttpsCertCurrentNMASecretName = "rotate-https-current-cert-test-secret"
+	rotateHTTPSCertNewNMASecretName     = "rotate-https-new-cert-test-secret"     //nolint:gosec
+	rotateHTTPSCertCurrentNMASecretName = "rotate-https-current-cert-test-secret" //nolint:gosec
 )
 
 // mock version of VRotateHTTPSCerts() that is invoked inside VClusterOps.RotateHTTPSCerts()
@@ -46,13 +46,13 @@ func (m *MockVClusterOps) VRotateHTTPSCerts(options *vops.VRotateHTTPSCertsOptio
 		return err
 	}
 
-	if options.NewSecretMetadata.KeySecretName != rotateHttpsCertNewNMASecretName {
+	if options.NewSecretMetadata.KeySecretName != rotateHTTPSCertNewNMASecretName {
 		return fmt.Errorf("new key secret is not passed properly")
 	}
-	if options.NewSecretMetadata.CertSecretName != rotateHttpsCertNewNMASecretName {
+	if options.NewSecretMetadata.CertSecretName != rotateHTTPSCertNewNMASecretName {
 		return fmt.Errorf("new cert secret is not passed properly")
 	}
-	if options.NewSecretMetadata.CACertSecretName != rotateHttpsCertNewNMASecretName {
+	if options.NewSecretMetadata.CACertSecretName != rotateHTTPSCertNewNMASecretName {
 		return fmt.Errorf("new ca cert secret is not passed properly")
 	}
 
@@ -88,12 +88,12 @@ var _ = Describe("rotate_https_cert", func() {
 
 	It("should call vcluster-ops library with rotate_https_cert task", func() {
 		dispatcher := mockVClusterOpsDispatcher()
-		dispatcher.VDB.Spec.NMATLSSecret = rotateHttpsCertNewNMASecretName
+		dispatcher.VDB.Spec.NMATLSSecret = rotateHTTPSCertNewNMASecretName
 		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.NMATLSSecret)
-		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, rotateHttpsCertCurrentNMASecretName)
+		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, rotateHTTPSCertCurrentNMASecretName)
 		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.NMATLSSecret)
 		dispatcher.VDB.Spec.DBName = TestDBName
-		vapi.SetVDBWithSecretForTLS(dispatcher.VDB, rotateHttpsCertCurrentNMASecretName)
+		vapi.SetVDBWithSecretForTLS(dispatcher.VDB, rotateHTTPSCertCurrentNMASecretName)
 		Ω(dispatcher.RotateHTTPSCerts(ctx,
 			rotatehttpscerts.WithInitiator(TestInitiatorIP),
 			rotatehttpscerts.WithPollingKey(TestPollingKey),
@@ -104,11 +104,5 @@ var _ = Describe("rotate_https_cert", func() {
 			rotatehttpscerts.WithCaCert(dispatcher.VDB.Spec.NMATLSSecret, TestCaCertConfig),
 			rotatehttpscerts.WithTLSMode("TRY_VERIFY"),
 		)).Should(Succeed())
-
-		/*err := dispatcher.AddSubcluster(ctx,
-		addsc.WithInitiator(dispatcher.VDB.ExtractNamespacedName(), TestInitiatorIP),
-		addsc.WithSubcluster(TestSCName),
-		addsc.WithIsPrimary(TestIsPrimary))
-		Ω(err.Error()).Should(ContainSubstring("missing password"))*/
 	})
 })

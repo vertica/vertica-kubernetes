@@ -28,8 +28,8 @@ import (
 )
 
 const (
-	rotateNmaCertNewNMASecretName     = "rotate-nma-new-cert-test-secret"
-	rotateNmaCertCurrentNMASecretName = "rotate-nma-current-cert-test-secret"
+	rotateNmaCertNewNMASecretName     = "rotate-nma-new-cert-test-secret"     //nolint:gosec
+	rotateNmaCertCurrentNMASecretName = "rotate-nma-current-cert-test-secret" //nolint:gosec
 )
 
 // mock version of VRotateHTTPSCerts() that is invoked inside VClusterOps.RotateHTTPSCerts()
@@ -41,7 +41,7 @@ func (m *MockVClusterOps) VRotateNMACerts(options *vops.VRotateNMACertsOptions) 
 	}
 
 	// verify hosts and eon mode
-	if !(options.Hosts != nil && options.Hosts[0] == TestInitiatorIP) {
+	if !(len(options.Hosts) != 0 && options.Hosts[0] == TestInitiatorIP) {
 		return fmt.Errorf("failed to retrieve hosts")
 	}
 
