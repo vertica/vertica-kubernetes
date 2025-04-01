@@ -973,7 +973,7 @@ const (
 	SaveRestorePointNeeded = "SaveRestorePointNeeded"
 	// NmaTLSCertRotated indicates the nma TLS cert has been rotated
 	NmaTLSCertRotated = "NmaTLSCertRotated"
-	// HTTPSTLSCertRotated indicates the HTTPS TLS cert has been rotated
+	// HTTPSCertRotationFinished indicates the HTTPS TLS cert has been rotated
 	HTTPSCertRotationFinished = "HTTPSCertRotationFinished"
 	// TLSCertRotationInProgress indicates the TLS cert rotation has started
 	TLSCertRotationInProgress = "TLSCertRotationInProgress"
