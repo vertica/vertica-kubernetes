@@ -1258,6 +1258,14 @@ func (v *VerticaDB) validateSubclustersInSandboxes(allErrs field.ErrorList) fiel
 	for i, sandbox := range sandboxes {
 		scInSandbox := make(map[string]int)
 		for _, sc := range sandbox.Subclusters {
+			// check if sandbox type is either primary or secondary
+			if sc.Type != "" && sc.Type != PrimarySubcluster && sc.Type != SecondarySubcluster {
+				err := field.Invalid(path.Index(i),
+					sandboxes[i],
+					fmt.Sprintf("if sandbox subcluster type is not empty, it should be either %s or %s", PrimarySubcluster, SecondarySubcluster))
+				allErrs = append(allErrs, err)
+			}
+
 			// check if we have duplicate subclusters in a sandbox
 			if _, ok := scInSandbox[sc.Name]; ok {
 				err := field.Invalid(path.Index(i),
@@ -1659,7 +1667,7 @@ func (v *VerticaDB) checkImmutableSubclusterDuringUpgrade(oldObj *VerticaDB, all
 func (v *VerticaDB) findPersistScsInSandbox(oldObj *VerticaDB) map[string]int {
 	oldSandboxes := oldObj.Spec.Sandboxes
 	newSandboxes := v.Spec.Sandboxes
-	sandboxScMap := make(map[string][]SubclusterName)
+	sandboxScMap := make(map[string][]SandboxSubcluster)
 	for _, sandbox := range oldSandboxes {
 		sandboxScMap[sandbox.Name] = sandbox.Subclusters
 	}

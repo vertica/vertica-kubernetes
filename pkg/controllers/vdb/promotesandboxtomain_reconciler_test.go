@@ -46,8 +46,8 @@ var _ = Describe("promotesandboxtomain_reconcile", func() {
 		vdb := vapi.MakeVDBForVclusterOps()
 		vdb.Spec.ShardCount = 0 // Force enterprise database
 		vdb.Spec.Sandboxes = []vapi.Sandbox{
-			{Name: sandbox1, Subclusters: []vapi.SubclusterName{{Name: subcluster1}}},
-			{Name: sandbox2, Subclusters: []vapi.SubclusterName{{Name: subcluster2}}},
+			{Name: sandbox1, Subclusters: []vapi.SandboxSubcluster{{Name: subcluster1}}},
+			{Name: sandbox2, Subclusters: []vapi.SandboxSubcluster{{Name: subcluster2}}},
 		}
 		vdb.Spec.Subclusters = []vapi.Subcluster{
 			{Name: maincluster, Size: 3, Type: vapi.PrimarySubcluster},
@@ -69,7 +69,7 @@ var _ = Describe("promotesandboxtomain_reconcile", func() {
 		vdb := vapi.MakeVDBForVclusterOps()
 		vdb.Spec.ShardCount = 4
 		vdb.Spec.Sandboxes = []vapi.Sandbox{
-			{Name: sandbox1, Subclusters: []vapi.SubclusterName{{Name: subcluster1}}},
+			{Name: sandbox1, Subclusters: []vapi.SandboxSubcluster{{Name: subcluster1}}},
 		}
 		vdb.Spec.Subclusters = []vapi.Subcluster{
 			{Name: maincluster, Size: 3, Type: vapi.PrimarySubcluster},
