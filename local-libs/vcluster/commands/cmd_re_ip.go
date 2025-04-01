@@ -136,7 +136,7 @@ func (c *CmdReIP) Run(vcc vclusterops.ClusterCommands) error {
 	canUpdateConfig := true
 	dbConfig, err := readConfig()
 	if err != nil {
-		vcc.LogInfo("Failed to read the configuration file", "err", err)
+		vcc.LogInfo("Failed to read the configuration file: %v", err)
 		canUpdateConfig = false
 	}
 

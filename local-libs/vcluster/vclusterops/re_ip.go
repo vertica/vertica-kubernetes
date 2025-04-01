@@ -200,7 +200,7 @@ func (vcc VClusterCommands) VReIP(options *VReIPOptions) error {
 			return fmt.Errorf("fail to re-ip: %w", runError)
 		}
 	} else {
-		vcc.LogInfo("Re-IP the sandbox", "sandbox", options.SandboxName)
+		vcc.LogInfo("Re-IP the sandbox %s", options.SandboxName)
 		runError := clusterOpEngine.runInSandbox(vcc.Log, pVDB, options.SandboxName)
 		if runError != nil {
 			return fmt.Errorf("fail to re-ip: %w", runError)
