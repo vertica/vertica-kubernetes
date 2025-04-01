@@ -60,7 +60,7 @@ var _ = Describe("altersubcluster_reconcile", func() {
 		vdb.Spec.Sandboxes = []vapi.Sandbox{
 			{
 				Name: sbName,
-				Subclusters: []vapi.SubclusterName{
+				Subclusters: []vapi.SandboxSubcluster{
 					{Name: "sc3"},
 					{Name: "sc4"},
 				},

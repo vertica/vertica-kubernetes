@@ -137,6 +137,7 @@ type dcSlowEvents struct {
 	SlowEventList []dcSlowEvent `json:"dc_slow_event_list"`
 }
 
+// Random comment
 type dcSlowEvent struct {
 	Time             string `json:"timestamp"`
 	NodeName         string `json:"node_name"`

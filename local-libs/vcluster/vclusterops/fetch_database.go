@@ -95,6 +95,7 @@ func (vcc VClusterCommands) VFetchCoordinationDatabase(options *VFetchCoordinati
 	vdb.Ipv6 = options.IPv6
 
 	// produce list_all_nodes instructions
+	// which can also be used to rebuild the config file
 	instructions, err := vcc.produceRecoverConfigInstructions(options, &vdb)
 	if err != nil {
 		return vdb, fmt.Errorf("fail to produce instructions, %w", err)
@@ -151,13 +152,13 @@ func (vcc VClusterCommands) produceRecoverConfigInstructions(
 	vdb *VCoordinationDatabase) ([]clusterOp, error) {
 	var instructions []clusterOp
 
-	nmaHealthOp := makeNMAHealthOp(options.Hosts)
-	instructions = append(instructions, &nmaHealthOp)
-
 	// Try fetching nodes info from a running db, if possible.
 	err := vcc.getVDBFromRunningDBIncludeSandbox(vdb, &options.DatabaseOptions, AnySandbox)
 	if err != nil {
-		vcc.PrintWarning("No running db found. For eon db, restart the database to recover accurate sandbox information")
+		vcc.PrintWarning("No running database found. For Eon database, restart the database to recover accurate sandbox information")
+
+		nmaHealthOp := makeNMAHealthOp(options.Hosts)
+
 		nmaGetNodesInfoOp := makeNMAGetNodesInfoOp(options.Hosts, options.DBName, options.CatalogPrefix,
 			true /* ignore internal errors */, vdb)
 		nmaReadCatalogEditorOp, err := makeNMAReadCatalogEditorOp(vdb)
@@ -166,9 +167,11 @@ func (vcc VClusterCommands) produceRecoverConfigInstructions(
 		}
 		instructions = append(
 			instructions,
+			&nmaHealthOp,
 			&nmaGetNodesInfoOp,
 			&nmaReadCatalogEditorOp)
 	}
+
 	nmaReadVerticaVersionOp := makeNMAReadVerticaVersionOp(vdb)
 
 	instructions = append(
