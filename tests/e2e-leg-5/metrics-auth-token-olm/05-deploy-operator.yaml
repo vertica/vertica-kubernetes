@@ -16,4 +16,4 @@ kind: TestStep
 commands:
   - command: sh -c "cd ../../.. && make undeploy-operator || true"
   - command: sh -c "cd ../../.. && make setup-olm DEPLOY_WITH=olm METRICS_EXPOSE_MODE=EnableWithAuth"
-  - command: sh -c "cd ../../.. && make deploy-operator DEPLOY_WITH=olm"
+  - command: sh -c "cd ../../.. && make deploy-operator DEPLOY_WITH=olm NAMESPACE=$NAMESPACE" HELM_OVERRIDES='--set prometheus.expose=EnableWithAuth'"
