@@ -34,6 +34,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
+	"github.com/vertica/vertica-kubernetes/pkg/secrets"
 	vtypes "github.com/vertica/vertica-kubernetes/pkg/types"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/createdb"
@@ -209,46 +210,99 @@ func (c *CreateDBReconciler) generatePostDBCreateSQL(ctx context.Context, initia
 		}
 	}
 	if c.Vdb.IsCertRotationEnabled() {
-		sb.WriteString(`CREATE OR REPLACE LIBRARY public.KubernetesLib AS '/opt/vertica/packages/kubernetes/lib/libkubernetes.so';`)
-		sb.WriteString(`CREATE OR REPLACE SECRETMANAGER KubernetesSecretManager AS LANGUAGE 'C++' NAME 'KubernetesSecretManagerFactory' 
-			LIBRARY KubernetesLib;`)
-
-		sb.WriteString(`DROP KEY IF EXISTS https_key_0;`)
-
-		sb.WriteString(`DROP CERTIFICATE IF EXISTS https_cert_0;`)
-
-		sb.WriteString(`DROP CERTIFICATE IF EXISTS https_ca_cert_0;`)
-
-		sb.WriteString(fmt.Sprintf(
-			`CREATE KEY https_key_0 TYPE 'rsa' SECRETMANAGER KubernetesSecretManager SECRETNAME '%s' CONFIGURATION '{\"data-key\":\"%s\", 
-			\"namespace\":\"%s\"}';`,
-			c.Vdb.Spec.NMATLSSecret, corev1.TLSPrivateKeyKey, c.Vdb.ObjectMeta.Namespace))
-
-		sb.WriteString(fmt.Sprintf(
-			`CREATE CA CERTIFICATE https_ca_cert_0 SECRETMANAGER KubernetesSecretManager SECRETNAME '%s' CONFIGURATION '{\"data-key\":\"%s\", 
-			\"namespace\":\"%s\"}';`,
-			c.Vdb.Spec.NMATLSSecret, paths.HTTPServerCACrtName, c.Vdb.ObjectMeta.Namespace))
-
-		sb.WriteString(fmt.Sprintf(
-			`CREATE CERTIFICATE https_cert_0 SECRETMANAGER KubernetesSecretManager SECRETNAME '%s' CONFIGURATION '{\"data-key\":\"%s\", 
-			\"namespace\":\"%s\"}' SIGNED BY https_ca_cert_0 KEY https_key_0;`,
-			c.Vdb.Spec.NMATLSSecret, corev1.TLSCertKey, c.Vdb.ObjectMeta.Namespace))
-
-		sb.WriteString(`ALTER TLS CONFIGURATION https CERTIFICATE https_cert_0 ADD CA CERTIFICATES https_ca_cert_0 TLSMODE 'TRY_VERIFY';`)
-		sb.WriteString(`ALTER TLS CONFIGURATION https CERTIFICATE https_cert_0 REMOVE CA CERTIFICATES httpServerRootca;`)
-		sb.WriteString(`CREATE AUTHENTICATION k8s_tls_builtin_auth METHOD 'tls' HOST TLS '0.0.0.0/0' FALLTHROUGH;`)
-		sb.WriteString(fmt.Sprintf(`GRANT AUTHENTICATION k8s_tls_builtin_auth TO %s;`, c.Vdb.GetVerticaUser()))
+		switch {
+		case secrets.IsGSMSecret(c.Vdb.Spec.NMATLSSecret):
+			return ctrl.Result{}, nil
+		case secrets.IsAWSSecretsManagerSecret(c.Vdb.Spec.NMATLSSecret):
+			c.generateAWSTlsSQL(&sb)
+		default:
+			c.generateKubernetesTLSSQL(&sb)
+		}
 		sb.WriteString(`select sync_catalog();`)
 		pcFile = PostDBCreateSQLFileVclusterOps
 	}
+
+	c.Log.Info("executing the following script", "script", sb.String())
 	_, _, err := c.PRunner.ExecInPod(ctx, initiatorPod, names.ServerContainer,
-		"bash", "-c", "cat > "+pcFile+"<<< \""+sb.String()+"\"",
+		"bash", "-c", "cat > "+pcFile+"<<< "+escapeForBash(sb.String()),
 	)
 	c.Log.Info("SQL to be executed after db creation: " + sb.String())
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 	return ctrl.Result{}, nil
+}
+
+func (c *CreateDBReconciler) generateKubernetesTLSSQL(sb *strings.Builder) {
+	fmt.Fprintf(sb, "CREATE OR REPLACE LIBRARY public.KubernetesLib AS ")
+	fmt.Fprintf(sb, "'/opt/vertica/packages/kubernetes/lib/libkubernetes.so';\n")
+	fmt.Fprintf(sb, "CREATE OR REPLACE SECRETMANAGER KubernetesSecretManager AS LANGUAGE 'C++' ")
+	fmt.Fprintf(sb, "NAME 'KubernetesSecretManagerFactory' LIBRARY KubernetesLib;\n")
+
+	fmt.Fprintf(sb, "DROP KEY IF EXISTS https_key_0;\n")
+	fmt.Fprintf(sb, "DROP CERTIFICATE IF EXISTS https_cert_0;\n")
+	fmt.Fprintf(sb, "DROP CERTIFICATE IF EXISTS https_ca_cert_0;\n")
+
+	fmt.Fprintf(sb, "CREATE KEY https_key_0 TYPE 'rsa' SECRETMANAGER KubernetesSecretManager ")
+	fmt.Fprintf(sb, "SECRETNAME '%s' CONFIGURATION '{\"data-key\":\"%s\", \"namespace\":\"%s\"}';\n",
+		c.Vdb.Spec.NMATLSSecret, corev1.TLSPrivateKeyKey, c.Vdb.ObjectMeta.Namespace)
+
+	fmt.Fprintf(sb, "CREATE CA CERTIFICATE https_ca_cert_0 SECRETMANAGER KubernetesSecretManager ")
+	fmt.Fprintf(sb, "SECRETNAME '%s' CONFIGURATION '{\"data-key\":\"%s\", \"namespace\":\"%s\"}';\n",
+		c.Vdb.Spec.NMATLSSecret, paths.HTTPServerCACrtName, c.Vdb.ObjectMeta.Namespace)
+
+	fmt.Fprintf(sb, "CREATE CERTIFICATE https_cert_0 SECRETMANAGER KubernetesSecretManager ")
+	fmt.Fprintf(sb, "SECRETNAME '%s' CONFIGURATION '{\"data-key\":\"%s\", \"namespace\":\"%s\"}' ",
+		c.Vdb.Spec.NMATLSSecret, corev1.TLSCertKey, c.Vdb.ObjectMeta.Namespace)
+	fmt.Fprintf(sb, "SIGNED BY https_ca_cert_0 KEY https_key_0;\n")
+
+	fmt.Fprintf(sb, "ALTER TLS CONFIGURATION https CERTIFICATE https_cert_0 ADD CA CERTIFICATES ")
+	fmt.Fprintf(sb, "https_ca_cert_0 TLSMODE 'TRY_VERIFY';\n")
+	fmt.Fprintf(sb, "ALTER TLS CONFIGURATION https CERTIFICATE https_cert_0 REMOVE CA CERTIFICATES ")
+	fmt.Fprintf(sb, "httpServerRootca;\n")
+	fmt.Fprintf(sb, "CREATE AUTHENTICATION k8s_tls_builtin_auth METHOD 'tls' HOST TLS '0.0.0.0/0' FALLTHROUGH;\n")
+	fmt.Fprintf(sb, "GRANT AUTHENTICATION k8s_tls_builtin_auth TO %s;\n", c.Vdb.GetVerticaUser())
+}
+
+func (c *CreateDBReconciler) generateAWSTlsSQL(sb *strings.Builder) {
+	fmt.Fprintf(sb, "CREATE OR REPLACE LIBRARY public.AWSLib AS ")
+	fmt.Fprintf(sb, "'/opt/vertica/packages/aws/lib/libaws.so';\n")
+	fmt.Fprintf(sb, "CREATE SECRETMANAGER IF NOT EXISTS AWSSecretManager AS ")
+	fmt.Fprintf(sb, "LANGUAGE 'C++' NAME 'AWSSecretManagerFactory' LIBRARY AWSLib;\n")
+
+	fmt.Fprintf(sb, "DROP KEY IF EXISTS https_key_0;\n")
+	fmt.Fprintf(sb, "DROP CERTIFICATE IF EXISTS https_cert_0;\n")
+	fmt.Fprintf(sb, "DROP CERTIFICATE IF EXISTS https_ca_cert_0;\n")
+
+	region, _ := secrets.GetAWSRegion(c.Vdb.Spec.NMATLSSecret)
+
+	secretName := secrets.RemovePathReference(c.Vdb.Spec.NMATLSSecret)
+	fmt.Fprintf(sb, "CREATE KEY https_key_0 TYPE 'rsa' SECRETMANAGER AWSSecretManager ")
+	fmt.Fprintf(sb, "SECRETNAME '%s' CONFIGURATION '{\"json-key\":\"%s\", \"region\":\"%s\"}';\n",
+		secretName, corev1.TLSPrivateKeyKey, region)
+
+	fmt.Fprintf(sb, "CREATE CA CERTIFICATE https_ca_cert_0 SECRETMANAGER AWSSecretManager ")
+	fmt.Fprintf(sb, "SECRETNAME '%s' CONFIGURATION '{\"json-key\":\"%s\", \"region\":\"%s\"}';\n",
+		secretName, paths.HTTPServerCACrtName, region)
+
+	fmt.Fprintf(sb, "CREATE CERTIFICATE https_cert_0 SECRETMANAGER AWSSecretManager ")
+	fmt.Fprintf(sb, "SECRETNAME '%s' CONFIGURATION '{\"json-key\":\"%s\", \"region\":\"%s\"}' ",
+		secretName, corev1.TLSCertKey, region)
+	fmt.Fprintf(sb, "SIGNED BY https_ca_cert_0 KEY https_key_0;\n")
+
+	fmt.Fprintf(sb, "ALTER TLS CONFIGURATION https CERTIFICATE https_cert_0 ")
+	fmt.Fprintf(sb, "ADD CA CERTIFICATES https_ca_cert_0 TLSMODE 'TRY_VERIFY';\n")
+	fmt.Fprintf(sb, "ALTER TLS CONFIGURATION https CERTIFICATE https_cert_0 ")
+	fmt.Fprintf(sb, "REMOVE CA CERTIFICATES httpServerRootca;\n")
+	fmt.Fprintf(sb, "CREATE AUTHENTICATION aws_tls_builtin_auth METHOD 'tls' HOST TLS ")
+	fmt.Fprintf(sb, "'0.0.0.0/0' FALLTHROUGH;\n")
+	fmt.Fprintf(sb, "GRANT AUTHENTICATION aws_tls_builtin_auth TO %s;\n", c.Vdb.GetVerticaUser())
+}
+
+// Escape function to handle special characters in Bash
+func escapeForBash(input string) string {
+	input = strings.ReplaceAll(input, `"`, `\"`) // Escape double quotes
+	return fmt.Sprintf("\"%s\"", input)          // Wrap in double quotes for echo
 }
 
 // postCmdCleanup will handle any cleanup action after initializing the database
