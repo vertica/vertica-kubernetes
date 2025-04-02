@@ -66,8 +66,6 @@ func MakeHTTPSCertRotationReconciler(vdbrecon *VerticaDBReconciler, log logr.Log
 }
 
 // Reconcile will rotate TLS certificate.
-//
-//nolint:all
 func (h *HTTPSCertRoationReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
 	if !h.Vdb.IsCertRotationEnabled() {
 		return ctrl.Result{}, nil
@@ -88,52 +86,9 @@ func (h *HTTPSCertRoationReconciler) Reconcile(ctx context.Context, _ *ctrl.Requ
 	// rotation is required. Will check start conditions next
 	// check if secret is ready for rotation
 
-	evWriter := events.Writer{
-		Log:   h.Log,
-		EVRec: h.VRec.EVRec,
-	}
-	secretFetcher := &cloud.SecretFetcher{
-		Client:   h.VRec.Client,
-		Log:      h.Log,
-		EVWriter: evWriter,
-		Obj:      h.Vdb,
-	}
-	nmCurrentSecretName := types.NamespacedName{
-		Name:      currentSecretName,
-		Namespace: h.Vdb.GetNamespace(),
-	}
-	currentSecretData, res, err := secretFetcher.FetchAllowRequeue(ctx, nmCurrentSecretName)
+	currentSecret, newSecret, res, err := h.readSecretsAndConfigMap(ctx, currentSecretName, newSecretName)
 	if verrors.IsReconcileAborted(res, err) {
 		return res, err
-	}
-	currentSecret := corev1.Secret{
-		Data: currentSecretData,
-	}
-	nnNewSecretName := types.NamespacedName{
-		Name:      newSecretName,
-		Namespace: h.Vdb.GetNamespace(),
-	}
-	newSecretData, res, err := secretFetcher.FetchAllowRequeue(ctx, nnNewSecretName)
-	if verrors.IsReconcileAborted(res, err) {
-		return res, err
-	}
-	newSecret := corev1.Secret{
-		Data: newSecretData,
-	}
-	// check if configmap is ready for rotation
-	name := fmt.Sprintf("%s-%s", h.Vdb.Name, vapi.NMATLSConfigMapName)
-	configMapName := types.NamespacedName{
-		Name:      name,
-		Namespace: h.Vdb.GetNamespace(),
-	}
-	configMap, res, err := getConfigMap(ctx, h.VRec, h.Vdb, configMapName)
-	if verrors.IsReconcileAborted(res, err) {
-		return res, err
-	}
-	if configMap.Data[builder.NMASecretNamespaceEnv] != h.Vdb.GetObjectMeta().GetNamespace() ||
-		configMap.Data[builder.NMASecretNameEnv] != newSecretName {
-		h.Log.Info(newSecretName + " not found in configmap. cert rotation will not start")
-		return ctrl.Result{Requeue: true}, nil
 	}
 
 	h.Log.Info("to start https cert rotation")
@@ -145,7 +100,7 @@ func (h *HTTPSCertRoationReconciler) Reconcile(ctx context.Context, _ *ctrl.Requ
 	}
 
 	// Now https cert rotation will start
-	res, err2 := h.rotateHTTPSTLSCert(ctx, &newSecret, &currentSecret)
+	res, err2 := h.rotateHTTPSTLSCert(ctx, newSecret, currentSecret)
 	if verrors.IsReconcileAborted(res, err) {
 		h.Log.Info("https cert rotation is aborted.")
 		return res, err2
@@ -267,4 +222,59 @@ func (h *HTTPSCertRoationReconciler) verifyCert(ip string, port int, newCert, cu
 		}
 	}
 	return 2, nil
+}
+
+func (h *HTTPSCertRoationReconciler) readSecretsAndConfigMap(ctx context.Context, currentSecretName,
+	newSecretName string) (currentSecret, newSecret *corev1.Secret, res ctrl.Result, err error) {
+	nmCurrentSecretName := types.NamespacedName{
+		Name:      currentSecretName,
+		Namespace: h.Vdb.GetNamespace(),
+	}
+
+	nnNewSecretName := types.NamespacedName{
+		Name:      newSecretName,
+		Namespace: h.Vdb.GetNamespace(),
+	}
+	evWriter := events.Writer{
+		Log:   h.Log,
+		EVRec: h.VRec.EVRec,
+	}
+	secretFetcher := &cloud.SecretFetcher{
+		Client:   h.VRec.Client,
+		Log:      h.Log,
+		EVWriter: evWriter,
+		Obj:      h.Vdb,
+	}
+
+	currentSecretData, res, err := secretFetcher.FetchAllowRequeue(ctx, nmCurrentSecretName)
+	if verrors.IsReconcileAborted(res, err) {
+		return nil, nil, res, err
+	}
+	currentSecret = &corev1.Secret{
+		Data: currentSecretData,
+	}
+
+	newSecretData, res, err := secretFetcher.FetchAllowRequeue(ctx, nnNewSecretName)
+	if verrors.IsReconcileAborted(res, err) {
+		return nil, nil, res, err
+	}
+	newSecret = &corev1.Secret{
+		Data: newSecretData,
+	}
+	// check if configmap is ready for rotation
+	name := fmt.Sprintf("%s-%s", h.Vdb.Name, vapi.NMATLSConfigMapName)
+	configMapName := types.NamespacedName{
+		Name:      name,
+		Namespace: h.Vdb.GetNamespace(),
+	}
+	configMap, res, err := getConfigMap(ctx, h.VRec, h.Vdb, configMapName)
+	if verrors.IsReconcileAborted(res, err) {
+		return nil, nil, res, err
+	}
+	if configMap.Data[builder.NMASecretNamespaceEnv] != h.Vdb.GetObjectMeta().GetNamespace() ||
+		configMap.Data[builder.NMASecretNameEnv] != newSecretName {
+		h.Log.Info(newSecretName + " not found in configmap. cert rotation will not start")
+		return nil, nil, ctrl.Result{Requeue: true}, nil
+	}
+	return currentSecret, newSecret, res, err
 }
