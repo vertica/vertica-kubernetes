@@ -33,7 +33,6 @@ spec:
     - name: sc1
       size: 1
   certSecrets: []
-  httpServerTLSSecret: custom-cert
   imagePullSecrets: []
   volumes: []
   volumeMounts: []
