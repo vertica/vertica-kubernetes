@@ -11,27 +11,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: v-verify-server-logrotate-main
+status:
+  currentReplicas: 1
+  readyReplicas: 1
+---
 apiVersion: vertica.com/v1beta1
 kind: VerticaDB
 metadata:
   name: v-verify-server-logrotate
-spec:
-  initPolicy: CreateSkipPackageInstall
-  image: kustomize-vertica-image
-  sidecars:
-    - name: vlogger
-      image: kustomize-vlogger-image
-  communal:
-    includeUIDInPath: true
-  local:
-    requestSize: 100Mi
-  encryptSpreadComm: vertica
+status:
   subclusters:
-    - name: main
-      size: 1
-  kSafety: "0"
-  nmaTLSSecret: custom-cert
-  certSecrets: []
-  imagePullSecrets: []
-  volumes: []
-  volumeMounts: []
+    - installCount: 1
