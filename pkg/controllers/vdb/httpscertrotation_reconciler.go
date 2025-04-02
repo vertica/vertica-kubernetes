@@ -160,33 +160,7 @@ func (h *HTTPSCertRoationReconciler) rotateHTTPSTLSCert(ctx context.Context, new
 		h.Log.Error(err, "failed to rotate https cer to "+h.Vdb.Spec.NMATLSSecret)
 		return ctrl.Result{Requeue: true}, err
 	}
-	return h.checkCertAfterRoation("https", initiatorPod.GetPodIP(), builder.VerticaHTTPPort, h.Vdb.Spec.NMATLSSecret, newCert, currentCert)
-}
-
-// checkCertAfterRoation will return different result and error based on result from calling verifyCert
-//
-//nolint:dupl
-func (h *HTTPSCertRoationReconciler) checkCertAfterRoation(moduleName, ip string, port int, newCertName, newCert,
-	currentCert string) (ctrl.Result, error) {
-	rotated, err := h.verifyCert(ip, port, newCert, currentCert)
-	if err != nil {
-		h.Log.Error(err, moduleName+" cert rotation aborted. Failed to verify new cert "+newCertName+" on "+
-			ip)
-		return ctrl.Result{}, err
-	}
-	if rotated == 1 {
-		h.Log.Info(moduleName + " cert rotation is NOT successful. Current cert " +
-			" is still in use on " + ip)
-		return ctrl.Result{Requeue: true}, nil
-	}
-	if rotated == 2 {
-		h.Log.Info(moduleName + " cert rotation is NOT successful. Neither of new or current certs " +
-			" is in use on " + ip)
-		return ctrl.Result{Requeue: true}, nil
-	}
-	h.Log.Info(moduleName + " cert rotation is successful. New cert " + newCertName +
-		" is already in use on " + ip)
-	return ctrl.Result{}, nil
+	return ctrl.Result{}, err
 }
 
 // verifyCert returns 0 when newCert is in use, 1 when currentCert is in use.

@@ -181,49 +181,21 @@ func (h *NMACertRoationReconciler) rotateNmaTLSCert(ctx context.Context, newSecr
 		h.Log.Error(err, "failed to rotate nma cer to "+newSecretName)
 		return ctrl.Result{}, err
 	}
-	result, err2 := h.checkCertAfterRoation("nma", initiatorPod.GetPodIP(), builder.NMAPort, newSecretName, newCert, currentCert)
-	if !result.Requeue && err2 == nil { // if rotation succeeds update annotations
-		nmVdbName := types.NamespacedName{
-			Name:      h.Vdb.Name,
-			Namespace: h.Vdb.GetNamespace(),
-		}
-		updated, err := vk8s.UpdateAnnotation(vmeta.NMAHTTPSPreviousSecret, newSecretName, h.Vdb, ctx, h.VRec.Client, nmVdbName)
-		if !updated {
-			h.Log.Error(err, "failed to save new tls cert secret name in annotation after cert rotation")
-			return ctrl.Result{}, err
-		}
-		h.Log.Info("saved new tls cert secret name " + newSecretName + " in annotation")
-		// last thing is to update vdb condition
-		h.VRec.Eventf(h.Vdb, corev1.EventTypeNormal, events.NMATLSCertRotationSucceeded,
-			"Successfully rotated nma cert from %s to %s", currentSecretName, newSecretName)
+	nmVdbName := types.NamespacedName{
+		Name:      h.Vdb.Name,
+		Namespace: h.Vdb.GetNamespace(),
 	}
-	return result, err2
-}
-
-// checkCertAfterRoation will return different result and error based on result from calling verifyCert
-//
-//nolint:dupl
-func (h *NMACertRoationReconciler) checkCertAfterRoation(moduleName, ip string, port int, newCertName, newCert,
-	currentCert string) (ctrl.Result, error) {
-	rotated, err := h.verifyCert(ip, port, newCert, currentCert)
-	if err != nil {
-		h.Log.Error(err, moduleName+" cert rotation aborted. Failed to verify new cert "+newCertName+" on "+
-			ip)
+	updated, err := vk8s.UpdateAnnotation(vmeta.NMAHTTPSPreviousSecret, newSecretName, h.Vdb, ctx, h.VRec.Client, nmVdbName)
+	if !updated {
+		h.Log.Error(err, "failed to save new tls cert secret name in annotation after cert rotation")
 		return ctrl.Result{}, err
 	}
-	if rotated == 1 {
-		h.Log.Info(moduleName + " cert rotation is NOT successful. Current cert " +
-			" is still in use on " + ip)
-		return ctrl.Result{Requeue: true}, nil
-	}
-	if rotated == 2 {
-		h.Log.Info(moduleName + " cert rotation is NOT successful. Neither of new or current certs " +
-			" is in use on " + ip)
-		return ctrl.Result{Requeue: true}, nil
-	}
-	h.Log.Info(moduleName + " cert rotation is successful. New cert " + newCertName +
-		" is already in use on " + ip)
-	return ctrl.Result{}, nil
+	h.Log.Info("saved new tls cert secret name " + newSecretName + " in annotation")
+	// last thing is to update vdb condition
+	h.VRec.Eventf(h.Vdb, corev1.EventTypeNormal, events.NMATLSCertRotationSucceeded,
+		"Successfully rotated nma cert from %s to %s", currentSecretName, newSecretName)
+
+	return ctrl.Result{}, err
 }
 
 // verifyCert returns 0 when newCert is in use, 1 when currentCert is in use.
