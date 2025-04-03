@@ -24,11 +24,18 @@ data:
     set -o errexit
     set -o xtrace
 
+    USE_CERT_ROTATION=$(kubectl get pod $POD_NAME -o jsonpath='{.metadata.annotations.vertica\.com/enable-tls-certs-rotation}')
     SQL_SCRIPT=/tmp/logrotate.sql
     POD_NAME=v-verify-server-logrotate-main-0
+    LOGRORATE_EXPECTED_OUTPUT=/tmp/logrotateTimerServiceOut.txt
     LOGROTATE_OP=$(kubectl exec $POD_NAME -i -c server -- bash -c "cd /tmp; vsql -U dbadmin -f $SQL_SCRIPT")
+    if [[ $USE_CERT_ROTATION -eq "true" ]]; then
+      LOGRORATE_EXPECTED_OUTPUT=/tmp/logrotateTimerServiceOutWithCustomCert.txt
+    fi
+    echo "use cert rotation: $USE_CERT_ROTATION"
+    echo "output file: $LOGRORATE_EXPECTED_OUTPUT"
     echo "$LOGROTATE_OP"
-    kubectl exec $POD_NAME -i -c server -- bash -c "echo '$LOGROTATE_OP' | diff - /tmp/logrotateTimerServiceOut.txt"
+    kubectl exec $POD_NAME -i -c server -- bash -c "echo '$LOGROTATE_OP' | diff - $LOGRORATE_EXPECTED_OUTPUT"
 ---
 apiVersion: v1
 kind: Pod
