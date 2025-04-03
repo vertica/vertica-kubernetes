@@ -421,7 +421,7 @@ func UseVProxy(annotations map[string]string) bool {
 // UseVProxyCertsMount returns true if the proxy reads certs from the mounted secret
 // volume rather than directly from k8s secret store.
 func UseVProxyCertsMount(annotations map[string]string) bool {
-	return lookupBoolAnnotation(annotations, MountVProxyCertsAnnotation, false /* default value */)
+	return lookupBoolAnnotation(annotations, MountVProxyCertsAnnotation, true /* default value */)
 }
 
 // UseNMACertsMount returns true if the NMA reads certs from the mounted secret
