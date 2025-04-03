@@ -180,6 +180,8 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 	// Note, we run the StatusReconciler multiple times. This allows us to
 	// refresh the status of the vdb as we do operations that affect it.
 	return []controllers.ReconcileActor{
+		// Always generate cert first if nothing is provided
+		MakeTLSServerCertGenReconciler(r, log, vdb),
 		// Log an event if we are in a crash loop due to a bad deployment type
 		// chosen. This should be at or near the top as it will help with error
 		// detection when we can't even run anything in the pod. So any
@@ -196,8 +198,6 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		// Handle upgrade actions for any k8s objects created in prior versions
 		// of the operator.
 		MakeUpgradeOperatorReconciler(r, log, vdb),
-		// use the TLS secrets used by the NMA service
-		MakeTLSServerCertGenReconciler(r, log, vdb),
 		// Create ServiceAcount, Role and RoleBindings needed for vertica pods
 		MakeServiceAccountReconciler(r, log, vdb),
 		// Handle setting up the pod security context. This picks the
