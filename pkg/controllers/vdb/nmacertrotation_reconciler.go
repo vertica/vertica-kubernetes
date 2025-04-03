@@ -16,11 +16,7 @@
 package vdb
 
 import (
-	"bytes"
 	"context"
-	"crypto/tls"
-	"encoding/pem"
-	"fmt"
 	"strconv"
 
 	"github.com/go-logr/logr"
@@ -32,6 +28,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
+	"github.com/vertica/vertica-kubernetes/pkg/security"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/rotatenmacerts"
 	"github.com/vertica/vertica-kubernetes/pkg/vdbstatus"
@@ -140,7 +137,7 @@ func (h *NMACertRoationReconciler) rotateNmaTLSCert(ctx context.Context, newSecr
 
 	newCert := string(newSecret.Data[corev1.TLSCertKey])
 	currentCert := string(currentSecret.Data[corev1.TLSCertKey])
-	rotated, err := h.verifyCert(initiatorPod.GetPodIP(), builder.NMAPort, newCert, currentCert)
+	rotated, err := security.VerifyCert(initiatorPod.GetPodIP(), builder.NMAPort, newCert, currentCert, h.Log)
 	if err != nil {
 		h.Log.Error(err, "nma cert rotation aborted. Failed to verify new https cert for "+
 			initiatorPod.GetPodIP())
@@ -196,39 +193,4 @@ func (h *NMACertRoationReconciler) rotateNmaTLSCert(ctx context.Context, newSecr
 		"Successfully rotated nma cert from %s to %s", currentSecretName, newSecretName)
 
 	return ctrl.Result{}, err
-}
-
-// verifyCert returns 0 when newCert is in use, 1 when currentCert is in use.
-// 2 when neither of them is in use
-func (h *NMACertRoationReconciler) verifyCert(ip string, port int, newCert, currentCert string) (int, error) {
-	conf := &tls.Config{
-		InsecureSkipVerify: true, // #nosec G402
-	}
-	url := fmt.Sprintf("%s:%d", ip, port)
-	conn, err := tls.Dial("tcp", url, conf)
-	if err != nil {
-		h.Log.Error(err, "dial error from verify https cert for "+url)
-		return -1, err
-	}
-	defer conn.Close()
-	certs := conn.ConnectionState().PeerCertificates
-	for _, cert := range certs {
-		var b bytes.Buffer
-		err := pem.Encode(&b, &pem.Block{
-			Type:  "CERTIFICATE",
-			Bytes: cert.Raw,
-		})
-		if err != nil {
-			h.Log.Error(err, "failed to convert cert to PEM for verification")
-			return -1, err
-		}
-		remoteCert := b.String()
-		h.Log.Info("raw cert from service - " + url + " - " + remoteCert)
-		if newCert == remoteCert {
-			return 0, nil
-		} else if currentCert == remoteCert {
-			return 1, nil
-		}
-	}
-	return 2, nil
 }
