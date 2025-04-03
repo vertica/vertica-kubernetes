@@ -11,27 +11,23 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1
-kind: VerticaDB
+# This is applied through envsubst so that the $NAMESPACE gets filled in
+
+apiVersion: cert-manager.io/v1
+kind: Certificate
 metadata:
-  name: v-create-1-node
-  annotations:
-    vertica.com/include-uid-in-path: false
-    vertica.com/k-safety: "0"
-    vertica.com/requeue-time: "5"
+  name: serving-cert
 spec:
-  image: kustomize-vertica-image
-  passwordSecret: su-passwd
-  communal: {}
-  local:
-    requestSize: 100Mi
-  initPolicy: CreateSkipPackageInstall
-  dbName: vertdb
-  subclusters:
-    - name: sc1
-      size: 1
-  certSecrets: []
-  nmaTLSSecret: custom-cert
-  imagePullSecrets: []
-  volumes: []
-  volumeMounts: []
+  commonName: dbadmin
+  isCA: true
+  issuerRef:
+    kind: Issuer
+    name: selfsigned-issuer
+  secretName: custom-cert
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: selfsigned-issuer
+spec:
+  selfSigned: {}

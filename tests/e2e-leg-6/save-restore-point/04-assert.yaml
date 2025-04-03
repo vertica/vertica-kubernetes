@@ -11,27 +11,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: v-restore-point-sc1
+status:
+  replicas: 1
+  readyReplicas: 1
+---
 apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
-  name: v-create-1-node
-  annotations:
-    vertica.com/include-uid-in-path: false
-    vertica.com/k-safety: "0"
-    vertica.com/requeue-time: "5"
-spec:
-  image: kustomize-vertica-image
-  passwordSecret: su-passwd
-  communal: {}
-  local:
-    requestSize: 100Mi
-  initPolicy: CreateSkipPackageInstall
-  dbName: vertdb
+  name: v-restore-point
+status:
   subclusters:
-    - name: sc1
-      size: 1
-  certSecrets: []
-  nmaTLSSecret: custom-cert
-  imagePullSecrets: []
-  volumes: []
-  volumeMounts: []
+    - addedToDBCount: 1
+      upNodeCount: 1
