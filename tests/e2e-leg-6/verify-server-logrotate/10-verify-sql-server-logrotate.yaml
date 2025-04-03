@@ -29,7 +29,7 @@ data:
     POD_NAME=v-verify-server-logrotate-main-0
     LOGRORATE_EXPECTED_OUTPUT=/tmp/logrotateTimerServiceOut.txt
     LOGROTATE_OP=$(kubectl exec $POD_NAME -i -c server -- bash -c "cd /tmp; vsql -U dbadmin -f $SQL_SCRIPT")
-    if [[ $USE_CERT_ROTATION -eq "true" ]]; then
+    if [[ "$USE_CERT_ROTATION" = "true" ]]; then
       LOGRORATE_EXPECTED_OUTPUT=/tmp/logrotateTimerServiceOutWithCustomCert.txt
     fi
     echo "use cert rotation: $USE_CERT_ROTATION"
