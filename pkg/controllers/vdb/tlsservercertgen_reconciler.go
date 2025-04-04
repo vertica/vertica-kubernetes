@@ -23,6 +23,7 @@ import (
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/builder"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
+	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	"github.com/vertica/vertica-kubernetes/pkg/secrets"
@@ -58,6 +59,9 @@ func MakeTLSServerCertGenReconciler(vdbrecon *VerticaDBReconciler, log logr.Logg
 func (h *TLSServerCertGenReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
 	secretFieldNameMap := map[string]string{
 		nmaTLSSecret: h.Vdb.Spec.NMATLSSecret,
+	}
+	if !vmeta.UseNMACertsMount(h.Vdb.Annotations) && vmeta.EnableTLSCertsRotation(h.Vdb.Annotations) {
+		secretFieldNameMap[clientServerTLSSecret] = h.Vdb.Spec.ClientServerTLSSecret
 	}
 	err := error(nil)
 	for secretFieldName, secretName := range secretFieldNameMap {
@@ -157,7 +161,9 @@ func (h *TLSServerCertGenReconciler) setSecretNameInVDB(ctx context.Context, sec
 		if err := h.VRec.Client.Get(ctx, nm, h.Vdb); err != nil {
 			return err
 		}
-		if secretFieldName == nmaTLSSecret {
+		if secretFieldName == clientServerTLSSecret {
+			h.Vdb.Spec.ClientServerTLSSecret = secretName
+		} else if secretFieldName == nmaTLSSecret {
 			h.Vdb.Spec.NMATLSSecret = secretName
 		}
 		return h.VRec.Client.Update(ctx, h.Vdb)
