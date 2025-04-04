@@ -197,6 +197,7 @@ runs:
           if [[ "${{ inputs.leg-identifier }}" == "leg-4" || \
                   "${{ inputs.leg-identifier }}" == "leg-10" ]]; then
             export CONCURRENCY_VERTICADB=10
+            export CONCURRENCY_SANDBOXCONFIGMAP=10
           fi
 
           # Set BASE_VERTICA_IMG based on $VERTICA_IMG
