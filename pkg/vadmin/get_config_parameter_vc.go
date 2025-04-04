@@ -53,8 +53,6 @@ func (v *VClusterOps) genGetConfigurationParameterOptions(s *getconfigparameter.
 
 	opts.RawHosts = append(opts.RawHosts, s.InitiatorIP)
 	opts.DBName = v.VDB.Spec.DBName
-	opts.UserName = s.UserName
-	opts.Password = &v.Password
 
 	opts.Sandbox = s.Sandbox
 	opts.ConfigParameter = s.ConfigParameter
