@@ -118,6 +118,7 @@ func (e *SubclusterNotSandboxedError) Error() string {
 
 // info to be used while populating vdb
 type ProcessedVDBInfo struct {
+	hostToCatalogMap map[string]string // map of hosts to their catalog paths
 	// expect to fill the fields with info obtained from the main cluster
 	MainClusterUpHosts            []string          // all UP hosts in the main cluster
 	MainPrimaryUpHost             string            // primary UP host in the main cluster
@@ -255,6 +256,7 @@ func (vcc *VClusterCommands) updateSandboxDetailsFromMainCluster(
 	info *ProcessedVDBInfo,
 ) {
 	for _, vnode := range vdb.HostNodeMap {
+		info.hostToCatalogMap[vnode.Address] = vnode.CatalogPath
 		if vnode.Sandbox == info.SandboxName {
 			info.SandboxedHosts = append(info.SandboxedHosts, vnode.Address)
 			if vnode.Subcluster != options.SCName {
@@ -280,10 +282,12 @@ func (vcc *VClusterCommands) processMainClusterNodes(
 	info *ProcessedVDBInfo,
 ) error {
 	info.mainClusterNodeNameAddressMap = make(map[string]string)
+	info.hostToCatalogMap = make(map[string]string)
 	info.ScFound = false
 
 	for _, vnode := range vdb.HostNodeMap {
 		// Collect UP hosts and primary host
+		info.hostToCatalogMap[vnode.Address] = vnode.CatalogPath
 		if vnode.Sandbox == util.MainClusterSandbox {
 			// Populate main cluster node map
 			info.mainClusterNodeNameAddressMap[vnode.Name] = vnode.Address
@@ -378,7 +382,6 @@ func (vcc *VClusterCommands) reIPNodes(options *VUnsandboxOptions, upSandboxHost
 //     4. Poll for started nodes to be UP
 func (vcc *VClusterCommands) produceUnsandboxSCInstructions(options *VUnsandboxOptions, info *ProcessedVDBInfo) ([]clusterOp, error) {
 	var instructions []clusterOp
-
 	// when password is specified, we will use username/password to call https endpoints
 	usePassword := false
 	if options.Password != nil {
@@ -391,7 +394,6 @@ func (vcc *VClusterCommands) produceUnsandboxSCInstructions(options *VUnsandboxO
 	username := options.UserName
 	// Check NMA health on sandbox hosts
 	nmaHealthOp := makeNMAHealthOp(options.SCHosts)
-	instructions = append(instructions, &nmaHealthOp)
 	// Get all up nodes
 	// options.Hosts has main cluster hosts and info.upSCHosts has UP Sandbox hosts, both of them
 	// are used to update the execContext and used later in various unsandboxing related Ops
@@ -401,7 +403,7 @@ func (vcc *VClusterCommands) produceUnsandboxSCInstructions(options *VUnsandboxO
 	if err != nil {
 		return instructions, err
 	}
-	instructions = append(instructions, &httpsGetUpNodesOp)
+	instructions = append(instructions, &nmaHealthOp, &httpsGetUpNodesOp)
 	scHosts := []string{}
 	scNodeNames := []string{}
 	for nodeName, host := range options.NodeNameAddressMap {
@@ -409,23 +411,10 @@ func (vcc *VClusterCommands) produceUnsandboxSCInstructions(options *VUnsandboxO
 		scNodeNames = append(scNodeNames, nodeName)
 	}
 	if info.hasUpNodeInSC {
-		// Stop the nodes in the subcluster that is to be unsandboxed
-		httpsStopNodeOp, e := makeHTTPSStopNodeOp(scHosts, scNodeNames, usePassword,
-			username, options.Password, nil)
-		if e != nil {
-			return instructions, e
+		instructions, err = buildStopNodeInstructions(instructions, scHosts, scNodeNames, usePassword, username, options)
+		if err != nil {
+			return instructions, err
 		}
-		// Poll for nodes down
-		httpsPollScDown, e := makeHTTPSPollSubclusterNodeStateDownOp(scHosts, options.SCName,
-			usePassword, username, options.Password)
-		if e != nil {
-			return instructions, e
-		}
-
-		instructions = append(instructions,
-			&httpsStopNodeOp,
-			&httpsPollScDown,
-		)
 	}
 	if info.hasOtherScInSandbox && info.UpSandboxHost != "" {
 		// Run Unsandboxing on sandbox
@@ -444,38 +433,75 @@ func (vcc *VClusterCommands) produceUnsandboxSCInstructions(options *VUnsandboxO
 		return instructions, fmt.Errorf("unsandboxing op failed on main cluster, the nodes in %s are currently down. Details: %w",
 			options.SCName, err)
 	}
-
 	// Clean catalog dirs
 	nmaDeleteDirsOp, err := makeNMADeleteDirsSandboxOp(scHosts, true, true /* sandbox */)
 	if err != nil {
 		return instructions, err
 	}
-
 	instructions = append(instructions,
 		&httpsUnsandboxSubclusterMainClusterOp,
 		&nmaDeleteDirsOp,
 	)
-
 	if options.RestartSC {
-		// NMA check vertica versions before restart
-		nmaVersionCheck := makeNMAVerticaVersionOpAfterUnsandbox(true, options.SCName)
-
-		// Get startup commands
-		httpsStartUpCommandOp, err := makeHTTPSStartUpCommandOpAfterUnsandbox(usePassword, username, options.Password)
+		instructions, err = buildRestartScInstructions(instructions, info, scHosts, usePassword, username, options)
 		if err != nil {
 			return instructions, err
 		}
+	}
+	return instructions, nil
+}
 
-		// Start the nodes
-		nmaStartNodesOp := makeNMAStartNodeOpAfterUnsandbox("")
-
-		instructions = append(instructions,
-			&nmaVersionCheck,
-			&httpsStartUpCommandOp,
-			&nmaStartNodesOp,
-		)
+func buildStopNodeInstructions(instructions []clusterOp,
+	scHosts, scNodeNames []string,
+	usePassword bool, username string,
+	options *VUnsandboxOptions) ([]clusterOp, error) {
+	httpsStopNodeOp, err := makeHTTPSStopNodeOp(scHosts, scNodeNames, usePassword, username, options.Password, nil)
+	if err != nil {
+		return instructions, err
 	}
 
+	httpsPollScDown, err := makeHTTPSPollSubclusterNodeStateDownOp(scHosts, options.SCName, usePassword, username, options.Password)
+	if err != nil {
+		return instructions, err
+	}
+	instructions = append(instructions,
+		&httpsStopNodeOp,
+		&httpsPollScDown,
+	)
+	return instructions, nil
+}
+
+func buildRestartScInstructions(instructions []clusterOp,
+	info *ProcessedVDBInfo,
+	scHosts []string,
+	usePassword bool, username string,
+	options *VUnsandboxOptions) ([]clusterOp, error) {
+	// NMA check vertica versions before restart
+	nmaVersionCheck := makeNMAVerticaVersionOpAfterUnsandbox(true, options.SCName)
+	if info.hasUpNodeInSC {
+		// Confirm that the there are no http/vertica processes lurking around in the nodes to be started
+		// We ignore error because if there is no lurking vertica process, the op would error out. But, we don't care
+		nmaSigKillNodeOp, _ := makeNMASigKillVerticaOp(scHosts, info.hostToCatalogMap, true /* ignore error */)
+		// Poll for nodes down
+		httpsPollNodesDown, err := makeHTTPSPollNodeStateDownOp(scHosts, usePassword, username, options.Password)
+		if err != nil {
+			return instructions, err
+		}
+		instructions = append(instructions, &nmaSigKillNodeOp, &httpsPollNodesDown)
+	}
+
+	// Get startup commands
+	httpsStartUpCommandOp, err := makeHTTPSStartUpCommandOpAfterUnsandbox(usePassword, username, options.Password)
+	if err != nil {
+		return instructions, err
+	}
+	// Start the nodes
+	nmaStartNodesOp := makeNMAStartNodeOpAfterUnsandbox("")
+	instructions = append(instructions,
+		&nmaVersionCheck,
+		&httpsStartUpCommandOp,
+		&nmaStartNodesOp,
+	)
 	return instructions, nil
 }
 
