@@ -195,7 +195,7 @@ runs:
           fi
 
           if [[ "${{ inputs.leg-identifier }}" == "leg-4" || \
-                "${{ inputs.leg-identifier }}" == "leg-9" || \                                       
+                "${{ inputs.leg-identifier }}" == "leg-9" || \
                 "${{ inputs.leg-identifier }}" == "leg-10" ]]; then
             export CONCURRENCY_VERTICADB=10
             export CONCURRENCY_SANDBOXCONFIGMAP=10
