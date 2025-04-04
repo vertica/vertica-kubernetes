@@ -143,6 +143,7 @@ func (c *CreateDBReconciler) execCmd(ctx context.Context, initiatorPod types.Nam
 		chgs := vk8s.MetaChanges{
 			NewAnnotations: map[string]string{
 				vmeta.NMAHTTPSPreviousSecret: c.Vdb.Spec.NMATLSSecret,
+				vmeta.ClientServerPreviousSecret: c.Vdb.Spec.ClientServerTLSSecret,
 			},
 		}
 		if _, err := vk8s.MetaUpdate(ctx, c.VRec.Client, c.Vdb.ExtractNamespacedName(), c.Vdb, chgs); err != nil {
@@ -266,9 +267,31 @@ func (c *CreateDBReconciler) generateKubernetesTLSSQL(sb *strings.Builder) {
 		c.Vdb.Spec.NMATLSSecret, corev1.TLSCertKey, c.Vdb.ObjectMeta.Namespace)
 	fmt.Fprintf(sb, "SIGNED BY https_ca_cert_0 KEY https_key_0;\n")
 
+	fmt.Fprintf(sb, "DROP KEY IF EXISTS server_key;\n")
+	fmt.Fprintf(sb, "DROP CERTIFICATE IF EXISTS server_cert;\n")
+	fmt.Fprintf(sb, "DROP CERTIFICATE IF EXISTS server_ca_cert;\n")
+
+	fmt.Fprintf(sb, "CREATE KEY server_key TYPE 'rsa' SECRETMANAGER KubernetesSecretManager ")
+	fmt.Fprintf(sb, "SECRETNAME '%s' CONFIGURATION '{\"data-key\":\"%s\", \"namespace\":\"%s\"}';\n",
+		c.Vdb.Spec.ClientServerTLSSecret, corev1.TLSPrivateKeyKey, c.Vdb.ObjectMeta.Namespace)
+
+	fmt.Fprintf(sb, "CREATE CA CERTIFICATE server_ca_cert SECRETMANAGER KubernetesSecretManager ")
+	fmt.Fprintf(sb, "SECRETNAME '%s' CONFIGURATION '{\"data-key\":\"%s\", \"namespace\":\"%s\"}';\n",
+		c.Vdb.Spec.ClientServerTLSSecret, paths.HTTPServerCACrtName, c.Vdb.ObjectMeta.Namespace)
+
+	fmt.Fprintf(sb, "CREATE CERTIFICATE server_cert SECRETMANAGER KubernetesSecretManager ")
+	fmt.Fprintf(sb, "SECRETNAME '%s' CONFIGURATION '{\"data-key\":\"%s\", \"namespace\":\"%s\"}' ",
+		c.Vdb.Spec.ClientServerTLSSecret, corev1.TLSCertKey, c.Vdb.ObjectMeta.Namespace)
+	fmt.Fprintf(sb, "SIGNED BY server_ca_cert KEY server_key;\n")
+   
+
+	fmt.Fprintf(sb, "ALTER TLS CONFIGURATION server CERTIFICATE server_cert ADD CA CERTIFICATES ")
+	fmt.Fprintf(sb, "server_ca_cert TLSMODE '%s';\n", c.Vdb.Spec.ClientServerTLSMode)
 	fmt.Fprintf(sb, "ALTER TLS CONFIGURATION https CERTIFICATE https_cert_0 ADD CA CERTIFICATES ")
 	fmt.Fprintf(sb, "https_ca_cert_0 TLSMODE 'TRY_VERIFY';\n")
 	fmt.Fprintf(sb, "ALTER TLS CONFIGURATION https CERTIFICATE https_cert_0 REMOVE CA CERTIFICATES ")
+	fmt.Fprintf(sb, "httpServerRootca;\n")
+	fmt.Fprintf(sb, "ALTER TLS CONFIGURATION server CERTIFICATE server_cert REMOVE CA CERTIFICATES ")
 	fmt.Fprintf(sb, "httpServerRootca;\n")
 	fmt.Fprintf(sb, "CREATE AUTHENTICATION k8s_tls_builtin_auth METHOD 'tls' HOST TLS '0.0.0.0/0' FALLTHROUGH;\n")
 	fmt.Fprintf(sb, "GRANT AUTHENTICATION k8s_tls_builtin_auth TO %s;\n", c.Vdb.GetVerticaUser())
