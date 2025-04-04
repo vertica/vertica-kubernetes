@@ -109,6 +109,9 @@ const (
 	ShutdownDrainSecondsAnnotation = "vertica.com/shutdown-drain-seconds"
 	ShutdownDefaultDrainSeconds    = 60
 
+	RemoveDrainSecondsAnnotation    = "vertica.com/remove-drain-seconds"
+	RemoveDrainSecondsDisabledValue = -1
+
 	// The timeout, in seconds, to use when the operator is performing online upgrade
 	// for various tasks. If omitted, we use the default timeout of 5 minutes.
 	OnlineUpgradeTimeoutAnnotation = "vertica.com/online-upgrade-timeout"
@@ -456,9 +459,17 @@ func GetCreateDBNodeStartTimeout(annotations map[string]string) int {
 	return lookupIntAnnotation(annotations, CreateDBTimeoutAnnotation, 0 /* default value */)
 }
 
-// GetShutdownCDrainSeconds returns the time in seconds to wait for a subcluster/database users' disconnection
+// GetShutdownDrainSeconds returns the time in seconds to wait for a subcluster/database users' disconnection
 func GetShutdownDrainSeconds(annotations map[string]string) int {
 	return lookupIntAnnotation(annotations, ShutdownDrainSecondsAnnotation, ShutdownDefaultDrainSeconds /* default value */)
+}
+
+func GetRemoveDrainSeconds(annotations map[string]string) int {
+	val := lookupIntAnnotation(annotations, RemoveDrainSecondsAnnotation, RemoveDrainSecondsDisabledValue /* default value */)
+	if val < 0 {
+		return RemoveDrainSecondsDisabledValue
+	}
+	return val
 }
 
 // GetOnlineUpgradeTimeout returns the timeout to use for pause/redirect sessions

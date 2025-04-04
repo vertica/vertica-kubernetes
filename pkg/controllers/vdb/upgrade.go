@@ -765,6 +765,24 @@ func (i *UpgradeManager) closeAllUnpausedSessions(ctx context.Context, pfacts *p
 	return errs
 }
 
+func killSessions(ctx context.Context, sessionIds []string, pfacts *podfacts.PodFacts, pf *podfacts.PodFact,
+	log logr.Logger) error {
+	var errs error
+	for _, id := range sessionIds {
+		if id == "" {
+			continue
+		}
+		killCmd := []string{"-tAc", fmt.Sprintf("select close_session('%s')", id)}
+		_, stderr, err := pfacts.PRunner.ExecVSQL(ctx, pf.GetName(), names.ServerContainer, killCmd...)
+		if err != nil {
+			log.Error(err, "failed to kill session", "session_id", id, "stderr", stderr)
+			errs = errors.Join(errs, err)
+		}
+	}
+
+	return errs
+}
+
 // createRestorePoint creates a restore point to backup the db in case upgrade does not go well.
 func (i *UpgradeManager) createRestorePoint(ctx context.Context, pfacts *podfacts.PodFacts, archive string) (ctrl.Result, error) {
 	pf, ok := pfacts.FindFirstPodSorted(func(v *podfacts.PodFact) bool {
