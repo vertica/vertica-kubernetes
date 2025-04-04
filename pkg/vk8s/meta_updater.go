@@ -97,3 +97,11 @@ func addOrReplaceMap(oldMap, newMap map[string]string) (map[string]string, bool)
 	}
 	return oldMap, mapChanged
 }
+
+func UpdateAnnotation(annotationField, annotationValue string, obj client.Object, ctx context.Context,
+	k8sClient client.Client, nm types.NamespacedName) (bool, error) {
+	anns := map[string]string{
+		annotationField: annotationValue,
+	}
+	return MetaUpdateWithAnnotations(ctx, k8sClient, nm, obj, anns)
+}
