@@ -210,23 +210,27 @@ func (c *CmdClusterHealth) Run(vcc vclusterops.ClusterCommands) error {
 		return err
 	}
 
+	const getSlowEvents = "get_slow_events"
+
 	var bytes []byte
 	switch c.clusterHealthOptions.Operation {
-	case "get_slow_events":
+	case getSlowEvents:
 		bytes, err = json.MarshalIndent(options.SlowEventsResult, "" /*prefix*/, " " /* indent for one space*/)
 	case "get_session_starts":
 		bytes, err = json.MarshalIndent(options.SessionStartsResult, "" /*prefix*/, " " /* indent for one space*/)
 	case "get_transaction_starts":
 		bytes, err = json.MarshalIndent(options.TransactionStartsResult, "" /*prefix*/, " " /* indent for one space*/)
 	default: // by default, we will build a cascade graph
-		bytes, err = json.MarshalIndent(options.CascadeStack, "", " ")
+		bytes, err = json.MarshalIndent(options.SlowEventCascade, "", " ")
 	}
 
 	if err != nil {
 		return fmt.Errorf("failed to marshal the traceback result, details: %w", err)
 	}
 
-	vcc.DisplayInfo("Successfully build the cascade graph for the slow events")
+	if options.Operation == getSlowEvents {
+		vcc.DisplayInfo("Successfully build the cascade graph for the slow events")
+	}
 
 	// output the result to console or file
 	c.writeCmdOutputToFile(globals.file, bytes, vcc.GetLog())
