@@ -2071,7 +2071,6 @@ var _ = Describe("verticadb_webhook", func() {
 		newVdb.Spec.ClientServerTLSMode = ""
 		Ω(newVdb.validateVerticaDBSpec()).Should(HaveLen(0))
 	})
-
 })
 
 func createVDBHelper() *VerticaDB {

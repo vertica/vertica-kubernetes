@@ -64,6 +64,9 @@ const (
 // hdfsPrefixes are prefixes for an HDFS path.
 var hdfsPrefixes = []string{"webhdfs://", "swebhdfs://"}
 
+// tlsModes are tls modes that a Vertica DB supports
+var tlsModes = []string{"enable", "disable", "try_verify", "verify_ca", "verify_full"}
+
 // validProxyLogLevel are acceptable values for proxy log level annotation
 var validProxyLogLevel = []string{"TRACE", "DEBUG", "INFO", "WARN", "FATAL", "NONE"}
 
@@ -250,6 +253,7 @@ func (v *VerticaDB) validateVerticaDBSpec() field.ErrorList {
 	allErrs = v.validateSandboxes(allErrs)
 	allErrs = v.checkNewSBoxOrSClusterShutdownUnset(allErrs)
 	allErrs = v.validateProxyConfig(allErrs)
+	allErrs = v.hasValidNMATLSMode(allErrs)
 	if len(allErrs) == 0 {
 		return nil
 	}
@@ -2167,6 +2171,7 @@ func (v *VerticaDB) checkImmutableClientProxy(oldObj *VerticaDB, allErrs field.E
 	return allErrs
 }
 
+<<<<<<< HEAD
 // checkImmutableCertRotation will validate the nmaTLSSecret spec fields in vdb
 func (v *VerticaDB) checkImmutableCertRotation(oldObj *VerticaDB, allErrs field.ErrorList) field.ErrorList {
 	// If cert rotation is set, nmaTLSSecret can not be empty
