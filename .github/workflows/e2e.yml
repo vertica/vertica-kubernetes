@@ -56,6 +56,7 @@ on:
         - vcluster leg 9
         - vcluster leg 10
         - vcluster leg 11
+        - vcluster leg 13
         - vcluster server upgrade
         - vcluster udx
       e2e_retry_times:
@@ -722,7 +723,7 @@ jobs:
           vertica-license: ${{ secrets.VERTICA_LICENSE }}
 
   e2e-leg-13-vcluster:
-    if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'vcluster leg 4' || inputs.e2e_test_suites == '')}}
+    if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'vcluster leg 13' || inputs.e2e_test_suites == '')}}
     needs: [build]
     runs-on: ubuntu-latest
     steps:
