@@ -415,6 +415,9 @@ const (
 	// You can set the value of replicas for an object to be paused to any arbitrary number.
 	// This only works for a scaledobject.
 	PausingAutoscalingReplicasAnnotation = "vertica.com/paused-scaling-replicas"
+
+	// the tls mode currently being used
+	NMAHTTPSPreviousTLSMode = "vertica.com/nma-https-previous-tls-mode"
 )
 
 // IsPauseAnnotationSet will check the annotations for a special value that will
@@ -450,6 +453,10 @@ func UseNMACertsMount(annotations map[string]string) bool {
 
 func EnableTLSCertsRotation(annotations map[string]string) bool {
 	return lookupBoolAnnotation(annotations, EnableTLSCertsRotationAnnotation, false /* default value */)
+}
+
+func GetNMAHTTPSPreviousTLSMode(annotations map[string]string) string {
+	return lookupStringAnnotation(annotations, NMAHTTPSPreviousTLSMode, "" /* default value */)
 }
 
 // IgnoreClusterLease returns true if revive/start should ignore the cluster lease

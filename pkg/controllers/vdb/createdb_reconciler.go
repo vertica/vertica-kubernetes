@@ -144,6 +144,7 @@ func (c *CreateDBReconciler) execCmd(ctx context.Context, initiatorPod types.Nam
 			NewAnnotations: map[string]string{
 				vmeta.NMAHTTPSPreviousSecret:     c.Vdb.Spec.NMATLSSecret,
 				vmeta.ClientServerPreviousSecret: c.Vdb.Spec.ClientServerTLSSecret,
+				vmeta.NMAHTTPSPreviousTLSMode: c.Vdb.Spec.NMATLSMode,
 			},
 		}
 		if _, err := vk8s.MetaUpdate(ctx, c.VRec.Client, c.Vdb.ExtractNamespacedName(), c.Vdb, chgs); err != nil {
