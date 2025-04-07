@@ -74,11 +74,13 @@ const (
 	VProxySecretNameEnv      = "VPROXY_SECRET_NAME"
 
 	// Environment variables that are (optionally) set when deployed with vclusterops
-	NMARootCAEnv          = "NMA_ROOTCA_PATH"
-	NMACertEnv            = "NMA_CERT_PATH"
-	NMAKeyEnv             = "NMA_KEY_PATH"
-	NMASecretNamespaceEnv = "NMA_SECRET_NAMESPACE"
-	NMASecretNameEnv      = "NMA_SECRET_NAME"
+	NMARootCAEnv                   = "NMA_ROOTCA_PATH"
+	NMACertEnv                     = "NMA_CERT_PATH"
+	NMAKeyEnv                      = "NMA_KEY_PATH"
+	NMASecretNamespaceEnv          = "NMA_SECRET_NAMESPACE"
+	NMASecretNameEnv               = "NMA_SECRET_NAME"
+	ClientServerSecretNamespaceEnv = "CLIENTSERVER_SECRET_NAMESPACE"
+	ClientServerSecretNameEnv      = "CLIENTSERVER_SECRET_NAME"
 
 	// Environment variables that are set only in the nma container
 	NMALogPath = "NMA_LOG_PATH"

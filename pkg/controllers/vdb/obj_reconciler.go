@@ -708,14 +708,18 @@ func (o *ObjReconciler) reconcileNMACertConfigMap(ctx context.Context) error {
 		o.Log.Error(err, "failed to retrieve TLS cert secret configmap")
 		return err
 	}
-	if configMap.Data[builder.NMASecretNameEnv] == o.Vdb.Spec.NMATLSSecret {
+	if configMap.Data[builder.NMASecretNameEnv] == o.Vdb.Spec.NMATLSSecret &&
+		configMap.Data[builder.ClientServerSecretNameEnv] == o.Vdb.Spec.ClientServerTLSSecret {
 		return nil
 	}
 
 	configMap.Data[builder.NMASecretNameEnv] = o.Vdb.Spec.NMATLSSecret
+	configMap.Data[builder.ClientServerSecretNameEnv] = o.Vdb.Spec.ClientServerTLSSecret
+
 	err = o.Rec.GetClient().Update(ctx, configMap)
 	if err == nil {
-		o.Log.Info("updated tls cert secret configmap", "name", configMapName.Name, "new-secret", o.Vdb.Spec.NMATLSSecret)
+		o.Log.Info("updated tls cert secret configmap", "name", configMapName.Name, "nma-secret", o.Vdb.Spec.NMATLSSecret,
+			"clientserver-secret", o.Vdb.Spec.ClientServerTLSSecret)
 	}
 	return err
 }
