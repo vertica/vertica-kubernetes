@@ -142,6 +142,7 @@ func (c *CreateDBReconciler) execCmd(ctx context.Context, initiatorPod types.Nam
 		chgs := vk8s.MetaChanges{
 			NewAnnotations: map[string]string{
 				vmeta.NMAHTTPSPreviousSecret: c.Vdb.Spec.NMATLSSecret,
+				vmeta.NMAHTTPSPreviousTLSMode: c.Vdb.Spec.NMATLSMode,
 			},
 		}
 		if _, err := vk8s.MetaUpdate(ctx, c.VRec.Client, c.Vdb.ExtractNamespacedName(), c.Vdb, chgs); err != nil {
@@ -243,7 +244,8 @@ func (c *CreateDBReconciler) generatePostDBCreateSQL(ctx context.Context, initia
 			\"namespace\":\"%s\"}' SIGNED BY https_ca_cert_0 KEY https_key_0;`,
 			c.Vdb.Spec.NMATLSSecret, corev1.TLSCertKey, c.Vdb.ObjectMeta.Namespace))
 
-		sb.WriteString(`ALTER TLS CONFIGURATION https CERTIFICATE https_cert_0 ADD CA CERTIFICATES https_ca_cert_0 TLSMODE 'TRY_VERIFY';`)
+		sb.WriteString(fmt.Sprintf(`ALTER TLS CONFIGURATION https CERTIFICATE https_cert_0 ADD CA CERTIFICATES https_ca_cert_0 TLSMODE '%s';`,
+			c.Vdb.Spec.NMATLSMode))
 		sb.WriteString(`ALTER TLS CONFIGURATION https CERTIFICATE https_cert_0 REMOVE CA CERTIFICATES httpServerRootca;`)
 		sb.WriteString(`CREATE AUTHENTICATION k8s_tls_builtin_auth METHOD 'tls' HOST TLS '0.0.0.0/0' FALLTHROUGH;`)
 		sb.WriteString(fmt.Sprintf(`GRANT AUTHENTICATION k8s_tls_builtin_auth TO %s;`, c.Vdb.GetVerticaUser()))
