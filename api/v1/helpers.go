@@ -51,6 +51,7 @@ const (
 
 	VerticaDBNameKey = "verticaDBName"
 	SandboxNameKey   = "sandboxName"
+	invalidNameChars = "$=<>`" + `'^\".@*?#&/:;{}()[] \~!%+|,`
 )
 
 // ExtractNamespacedName gets the name and returns it as a NamespacedName
@@ -1427,4 +1428,21 @@ func convertToInt(src string) (int, bool) {
 		converted = true
 	}
 	return int(varAsInt), converted
+}
+
+// Check for invalid characters in an object name (such as DB or archive name)
+func findInvalidChars(objName string, allowDash bool) string {
+	invalidChars := invalidNameChars
+
+	if !allowDash {
+		invalidChars += "-"
+	}
+
+	foundChars := ""
+	for _, c := range invalidChars {
+		if strings.Contains(objName, string(c)) {
+			foundChars += string(c)
+		}
+	}
+	return foundChars
 }

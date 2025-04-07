@@ -494,6 +494,11 @@ var _ = Describe("verticadb_webhook", func() {
 		vdb.Spec.RestorePoint.ID = ""
 		vdb.Spec.RestorePoint.Index = 1
 		validateSpecValuesHaveErr(vdb, false)
+		// archive name cannot have invalid chars
+		vdb.Spec.RestorePoint.Archive = "bad@archive"
+		validateSpecValuesHaveErr(vdb, true)
+		vdb.Spec.RestorePoint.Archive = "archive"
+		validateSpecValuesHaveErr(vdb, false)
 	})
 
 	It("should only allow nodePort if serviceType allows for it", func() {
