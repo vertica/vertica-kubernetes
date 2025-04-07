@@ -26,7 +26,7 @@ ENTRYPOINT ["/sbin/tini", "--"]
 # exact location isn't known until the server pod has come up and is added to
 # the cluster. 
 # Note: we use the '-F' option with tail so that it survives log rotations.
-CMD ["sh", "-c", "FN=$DBPATH/v_*_catalog/vertica.log; until [ -f $FN ]; do sleep 5; done; tail -n 1 -F $FN"]
+CMD ["sh", "-c", "FN=$DBPATH/v_*_catalog/vertica.log; until [ -f $FN ]; do sleep 5; done; tail -n 1 -F $FN $LOG_FILTER"]
 
 LABEL org.opencontainers.image.source=https://github.com/vertica/vertica-kubernetes/tree/main/docker-vlogger \
       org.opencontainers.image.title='Vertica Logger' \
