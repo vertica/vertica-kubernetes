@@ -2023,6 +2023,26 @@ var _ = Describe("verticadb_webhook", func() {
 		Ω(newVdb.checkShutdownForSubclustersToBeRemoved(oldVdb, field.ErrorList{})).Should(HaveLen(1))
 	})
 
+	It("should not accept invalid nma tls modes", func() {
+		newVdb := MakeVDB()
+		newVdb.Spec.NMATLSMode = "TRY_VERIFY"
+		Ω(newVdb.validateVerticaDBSpec()).Should(HaveLen(0))
+		newVdb.Spec.NMATLSMode = "try_verify"
+		Ω(newVdb.validateVerticaDBSpec()).Should(HaveLen(0))
+		newVdb.Spec.NMATLSMode = "try_VERIFY"
+		Ω(newVdb.validateVerticaDBSpec()).Should(HaveLen(0))
+		newVdb.Spec.NMATLSMode = "disable"
+		Ω(newVdb.validateVerticaDBSpec()).Should(HaveLen(0))
+		newVdb.Spec.NMATLSMode = "Enable"
+		Ω(newVdb.validateVerticaDBSpec()).Should(HaveLen(0))
+		newVdb.Spec.NMATLSMode = "VERIFY_CA"
+		Ω(newVdb.validateVerticaDBSpec()).Should(HaveLen(0))
+		newVdb.Spec.NMATLSMode = "VERIFYCA"
+		Ω(newVdb.validateVerticaDBSpec()).Should(HaveLen(1))
+		newVdb.Spec.NMATLSMode = ""
+		Ω(newVdb.validateVerticaDBSpec()).Should(HaveLen(0))
+
+	})
 })
 
 func createVDBHelper() *VerticaDB {

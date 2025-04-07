@@ -64,6 +64,9 @@ const (
 // hdfsPrefixes are prefixes for an HDFS path.
 var hdfsPrefixes = []string{"webhdfs://", "swebhdfs://"}
 
+// tlsModes are tls modes that a Vertica DB supports
+var tlsModes = []string{"enable", "disable", "try_verify", "verify_ca", "verify_full"}
+
 // validProxyLogLevel are acceptable values for proxy log level annotation
 var validProxyLogLevel = []string{"TRACE", "DEBUG", "INFO", "WARN", "FATAL", "NONE"}
 
@@ -248,6 +251,7 @@ func (v *VerticaDB) validateVerticaDBSpec() field.ErrorList {
 	allErrs = v.validateSandboxes(allErrs)
 	allErrs = v.checkNewSBoxOrSClusterShutdownUnset(allErrs)
 	allErrs = v.validateProxyConfig(allErrs)
+	allErrs = v.hasValidNMATLSMode(allErrs)
 	if len(allErrs) == 0 {
 		return nil
 	}
@@ -2156,6 +2160,25 @@ func (v *VerticaDB) checkImmutableClientProxy(oldObj *VerticaDB, allErrs field.E
 			v.Spec.Proxy.Image,
 			"proxy.image cannot change after creation, otherwise, as doing so will disrupt current user connections")
 		allErrs = append(allErrs, err)
+	}
+	return allErrs
+}
+
+func (v *VerticaDB) hasValidNMATLSMode(allErrs field.ErrorList) field.ErrorList {
+	if v.Spec.NMATLSMode != "" {
+		TLSMode := strings.ToLower(v.Spec.NMATLSMode)
+		validMode := false
+		for _, mode := range tlsModes {
+			if mode == TLSMode {
+				validMode = true
+			}
+		}
+		if !validMode {
+			err := field.Invalid(field.NewPath("spec").Child("nmaTLSSecret"), v.Spec.NMATLSMode, "invalid tls mode")
+			allErrs = append(allErrs, err)
+		}
+	} else {
+		v.Spec.NMATLSMode = "try_verify"
 	}
 	return allErrs
 }
