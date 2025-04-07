@@ -38,7 +38,7 @@ func (v *VClusterOps) RotateHTTPSCerts(ctx context.Context, opts ...rotatehttpsc
 		Obj:      v.VDB,
 		EVWriter: v.EVWriter,
 	}
-	certs, err := getCertFromSecret(v.VDB.Namespace, secretName, fetcher)
+	certs, err := getCertFromSecret(ctx, v.VDB.Namespace, secretName, fetcher)
 	if err != nil {
 		return err
 	}
