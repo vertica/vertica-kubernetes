@@ -33,7 +33,7 @@ ALTER DATABASE
 -------------------+---------+-----------+---------+-----------------------------------------------------------------------+---------------
  v_vertdb_node0001 | t       |         0 | 7       | Debug Reports Profile Cleanup                                         | f
  v_vertdb_node0001 | t       |      1024 | 7       | /data/vertdb/v_vertdb_node0001_catalog/editor.log                     | t
- v_vertdb_node0001 | t       |      1024 | 7       | /data/vertdb/v_vertdb_node0001_catalog/UDxLogs/UDxFencedProcesses.log | t
+ v_vertdb_node0001 | t       |      1024 | 7       | /data/vertdb/v_vertdb_node0001_catalog/UDxLogs/UDxFencedProcesses.log | f
  v_vertdb_node0001 | t       |      1024 | 7       | /data/vertdb/v_vertdb_node0001_catalog/vertica.log                    | t
  v_vertdb_node0001 | t       |         0 | 7       | Debug Reports Profile Cleanup                                         | f
  v_vertdb_node0001 | t       | 104857600 | 7       | /data/vertdb/v_vertdb_node0001_catalog/editor.log                     | f
