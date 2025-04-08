@@ -106,7 +106,8 @@ func createDep(ctx context.Context, vrec config.ReconcilerInterface, vpDep *apps
 }
 
 // readSecretsAndConfigMap will read current/new secrets and configmap
-func readSecretsAndConfigMap(skipConfigmap bool, vdb *vapi.VerticaDB, vrec config.ReconcilerInterface, client client.Client, log logr.Logger, ctx context.Context, currentSecretName,
+func readSecretsAndConfigMap(skipConfigmap bool, vdb *vapi.VerticaDB, vrec config.ReconcilerInterface, k8sClient client.Client,
+	log logr.Logger, ctx context.Context, currentSecretName,
 	newSecretName string) (currentSecret, newSecret *corev1.Secret, res ctrl.Result, err error) {
 	nmCurrentSecretName := types.NamespacedName{
 		Name:      currentSecretName,
@@ -122,7 +123,7 @@ func readSecretsAndConfigMap(skipConfigmap bool, vdb *vapi.VerticaDB, vrec confi
 		EVRec: vrec.GetEventRecorder(),
 	}
 	secretFetcher := &cloud.SecretFetcher{
-		Client:   client,
+		Client:   k8sClient,
 		Log:      log,
 		EVWriter: evWriter,
 		Obj:      vdb,
@@ -150,9 +151,9 @@ func readSecretsAndConfigMap(skipConfigmap bool, vdb *vapi.VerticaDB, vrec confi
 			Name:      name,
 			Namespace: vdb.GetNamespace(),
 		}
-		configMap, res, err := getConfigMap(ctx, vrec, vdb, configMapName)
+		configMap, res2, err2 := getConfigMap(ctx, vrec, vdb, configMapName)
 		if verrors.IsReconcileAborted(res, err) {
-			return nil, nil, res, err
+			return nil, nil, res2, err2
 		}
 		if configMap.Data[builder.NMASecretNamespaceEnv] != vdb.GetObjectMeta().GetNamespace() ||
 			configMap.Data[builder.NMASecretNameEnv] != newSecretName {
