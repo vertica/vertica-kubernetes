@@ -21,14 +21,10 @@ FROM ${BASE_IMG}:${ALPINE_VERSION}
 # Tini - A tiny but valid init for containers
 RUN apk add --no-cache tini
 ENTRYPOINT ["/sbin/tini", "--"]
-# $DBPATH is set by the operator and is the /<localDataPath>/<dbName>.
-# The tail can't be done until the vertica.log is created.  This is because the
-# exact location isn't known until the server pod has come up and is added to
-# the cluster. 
-# Note: we use the '-F' option with tail so that it survives log rotations.
-COPY ./docker-vlogger/log.sh /tmp/log.sh
-RUN chmod +x /tmp/log.sh
-CMD sh /tmp/log.sh
+
+COPY ./tail_vertica_log.sh /tmp/tail_vertica_log.sh
+RUN chmod +x /tmp/tail_vertica_log.sh
+CMD ["/bin/sh", "/tmp/tail_vertica_log.sh"]
 
 LABEL org.opencontainers.image.source=https://github.com/vertica/vertica-kubernetes/tree/main/docker-vlogger \
       org.opencontainers.image.title='Vertica Logger' \
