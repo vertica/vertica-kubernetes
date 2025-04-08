@@ -22,7 +22,6 @@ import (
 	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/builder"
-	"github.com/vertica/vertica-kubernetes/pkg/cloud"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
@@ -73,50 +72,23 @@ func (h *NMACertRoationReconciler) Reconcile(ctx context.Context, _ *ctrl.Reques
 	currentSecretName := vmeta.GetNMATLSSecretNameInUse(h.Vdb.Annotations)
 	newSecretName := h.Vdb.Spec.NMATLSSecret
 
-	evWriter := events.Writer{
-		Log:   h.Log,
-		EVRec: h.VRec.EVRec,
-	}
-	secretFetcher := &cloud.SecretFetcher{
-		Client:   h.VRec.Client,
-		Log:      h.Log,
-		EVWriter: evWriter,
-		Obj:      h.Vdb,
-	}
-	nmCurrentSecretName := types.NamespacedName{
-		Name:      currentSecretName,
-		Namespace: h.Vdb.GetNamespace(),
-	}
-	currentSecretData, res, err := secretFetcher.FetchAllowRequeue(ctx, nmCurrentSecretName)
+	currentSecret, newSecret, res, err := readSecretsAndConfigMap(true, h.Vdb, h.VRec, h.VRec.GetClient(), h.Log, ctx,
+		currentSecretName, newSecretName)
 	if verrors.IsReconcileAborted(res, err) {
 		return res, err
-	}
-	currentSecret := corev1.Secret{
-		Data: currentSecretData,
-	}
-	nmNewSecretName := types.NamespacedName{
-		Name:      newSecretName,
-		Namespace: h.Vdb.GetNamespace(),
-	}
-	newSecretData, res, err := secretFetcher.FetchAllowRequeue(ctx, nmNewSecretName)
-	if verrors.IsReconcileAborted(res, err) {
-		return res, err
-	}
-	newSecret := corev1.Secret{
-		Data: newSecretData,
 	}
 
 	h.Log.Info("to start nma cert rotation")
-	res, err2 := h.rotateNmaTLSCert(ctx, &newSecret, &currentSecret)
+	res, err2 := h.rotateNmaTLSCert(ctx, newSecret, currentSecret)
 	if err2 == nil {
 		cond := vapi.MakeCondition(vapi.TLSCertRotationInProgress, metav1.ConditionFalse, "Completed")
 		if err3 := vdbstatus.UpdateCondition(ctx, h.VRec.GetClient(), h.Vdb, cond); err3 != nil {
-			h.Log.Error(err3, "failed to set condition \"TLSCertRotationInProgress\"")
+			h.Log.Error(err3, "failed to reset condition \"TLSCertRotationInProgress\"")
 			return ctrl.Result{}, err3
 		}
 		cond = vapi.MakeCondition(vapi.HTTPSCertRotationFinished, metav1.ConditionFalse, "Completed")
 		if err4 := vdbstatus.UpdateCondition(ctx, h.VRec.GetClient(), h.Vdb, cond); err4 != nil {
-			h.Log.Error(err4, "\"HTTPSCertRotationFinished\"")
+			h.Log.Error(err4, "failed to reset condition \"HTTPSCertRotationFinished\"")
 			return ctrl.Result{}, err4
 		}
 	} else {
@@ -127,6 +99,11 @@ func (h *NMACertRoationReconciler) Reconcile(ctx context.Context, _ *ctrl.Reques
 
 // rotateHTTPSTLSCert will rotate node management agent's tls cert from currentSecret to newSecret
 func (h *NMACertRoationReconciler) rotateNmaTLSCert(ctx context.Context, newSecret, currentSecret *corev1.Secret) (ctrl.Result, error) {
+	err := h.Pfacts.Collect(ctx, h.Vdb)
+	if err != nil {
+		h.Log.Error(err, "nma cert rotation aborted. Failed to collect pod facts ")
+		return ctrl.Result{}, err
+	}
 	initiatorPod, ok := h.Pfacts.FindFirstUpPod(false, "")
 	if !ok {
 		h.Log.Info("No pod found to run rotate nma cert. Requeue reconciliation.")
@@ -139,7 +116,7 @@ func (h *NMACertRoationReconciler) rotateNmaTLSCert(ctx context.Context, newSecr
 	currentCert := string(currentSecret.Data[corev1.TLSCertKey])
 	rotated, err := security.VerifyCert(initiatorPod.GetPodIP(), builder.NMAPort, newCert, currentCert, h.Log)
 	if err != nil {
-		h.Log.Error(err, "nma cert rotation aborted. Failed to verify new https cert for "+
+		h.Log.Error(err, "nma cert rotation aborted. Failed to verify new nma cert for "+
 			initiatorPod.GetPodIP())
 		return ctrl.Result{}, err
 	}
@@ -156,11 +133,6 @@ func (h *NMACertRoationReconciler) rotateNmaTLSCert(ctx context.Context, newSecr
 	h.VRec.Eventf(h.Vdb, corev1.EventTypeNormal, events.NMATLSCertRotationStarted,
 		"Start rotating nma cert from %s to %s", currentSecretName, newSecretName)
 	h.Log.Info("to rotate nma certi from " + currentSecretName + " to " + newSecretName)
-	err = h.Pfacts.Collect(ctx, h.Vdb)
-	if err != nil {
-		h.Log.Error(err, "nma cert rotation aborted. Failed to collect pod facts ")
-		return ctrl.Result{}, err
-	}
 	hosts := []string{}
 	for _, detail := range h.Pfacts.Detail {
 		hosts = append(hosts, detail.GetPodIP())
