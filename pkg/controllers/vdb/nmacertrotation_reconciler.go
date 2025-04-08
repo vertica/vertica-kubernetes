@@ -131,7 +131,8 @@ func (h *NMACertRoationReconciler) rotateNmaTLSCert(ctx context.Context, newSecr
 	} else {
 		h.VRec.Eventf(h.Vdb, corev1.EventTypeNormal, events.NMATLSCertRotationStarted,
 			"Start rotating nma cert from %s to %s", currentSecretName, newSecretName)
-		h.Log.Info("to rotate nma certi from " + currentSecretName + " to " + newSecretName)
+		h.Log.Info("to rotate nma certi from " + currentSecretName + " to " + newSecretName +
+			", tls enabled " + strconv.FormatBool(h.Vdb.IsCertRotationEnabled()))
 		hosts := []string{}
 		for _, detail := range h.Pfacts.Detail {
 			hosts = append(hosts, detail.GetPodIP())
@@ -142,7 +143,6 @@ func (h *NMACertRoationReconciler) rotateNmaTLSCert(ctx context.Context, newSecr
 			rotatenmacerts.WithCaCert(string(newSecret.Data[corev1.ServiceAccountRootCAKey])),
 			rotatenmacerts.WithHosts(hosts),
 		}
-		h.Log.Info("to call RotateNMACerts, tls enabled " + strconv.FormatBool(h.Vdb.IsCertRotationEnabled()))
 		err = h.Dispatcher.RotateNMACerts(ctx, opts...)
 		if err != nil {
 			h.Log.Error(err, "failed to rotate nma cer to "+newSecretName)

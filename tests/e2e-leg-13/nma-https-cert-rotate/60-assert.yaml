@@ -37,3 +37,26 @@ involvedObject:
   apiVersion: vertica.com/v1
   kind: VerticaDB
   name: v-tls-certs
+---
+apiVersion: vertica.com/v1
+kind: VerticaDB
+metadata:
+  name: v-tls-certs
+status:
+  conditions:
+  - reason: Detected
+    status: "True"
+    type: AutoRestartVertica
+  - reason: Initialized
+    status: "True"
+    type: DBInitialized
+  - reason: Completed
+    status: "False"
+    type: TLSCertRotationInProgress  
+  - reason: Completed
+    status: "False"
+    type: HTTPSCertRotationFinished 
+  subclusters:
+    - addedToDBCount: 3
+      upNodeCount: 3
+  
