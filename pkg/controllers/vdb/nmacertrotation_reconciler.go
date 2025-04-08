@@ -121,34 +121,33 @@ func (h *NMACertRoationReconciler) rotateNmaTLSCert(ctx context.Context, newSecr
 		return ctrl.Result{}, err
 	}
 	if rotated == 2 {
-		h.Log.Info("nma cert rotation skipped. Neither new or existing nma cert is in use on " +
+		h.Log.Info("nma cert rotation skipped. Neither new nor existing nma cert is in use on " +
 			initiatorPod.GetPodIP())
 		return ctrl.Result{Requeue: true}, nil
 	}
 	if rotated == 0 {
 		h.Log.Info("nma cert rotation skipped. new nma cert for " +
 			" is already in use on " + initiatorPod.GetPodIP())
-		return ctrl.Result{}, nil
-	}
-	h.VRec.Eventf(h.Vdb, corev1.EventTypeNormal, events.NMATLSCertRotationStarted,
-		"Start rotating nma cert from %s to %s", currentSecretName, newSecretName)
-	h.Log.Info("to rotate nma certi from " + currentSecretName + " to " + newSecretName)
-	hosts := []string{}
-	for _, detail := range h.Pfacts.Detail {
-		hosts = append(hosts, detail.GetPodIP())
-	}
-	opts := []rotatenmacerts.Option{
-		rotatenmacerts.WithKey(string(newSecret.Data[corev1.TLSPrivateKeyKey])),
-		rotatenmacerts.WithCert(string(newSecret.Data[corev1.TLSCertKey])),
-		rotatenmacerts.WithCaCert(string(newSecret.Data[corev1.ServiceAccountRootCAKey])),
-		rotatenmacerts.WithHosts(hosts),
-	}
-
-	h.Log.Info("to call RotateNMACerts, tls enabled " + strconv.FormatBool(h.Vdb.IsCertRotationEnabled()))
-	err = h.Dispatcher.RotateNMACerts(ctx, opts...)
-	if err != nil {
-		h.Log.Error(err, "failed to rotate nma cer to "+newSecretName)
-		return ctrl.Result{}, err
+	} else {
+		h.VRec.Eventf(h.Vdb, corev1.EventTypeNormal, events.NMATLSCertRotationStarted,
+			"Start rotating nma cert from %s to %s", currentSecretName, newSecretName)
+		h.Log.Info("to rotate nma certi from " + currentSecretName + " to " + newSecretName)
+		hosts := []string{}
+		for _, detail := range h.Pfacts.Detail {
+			hosts = append(hosts, detail.GetPodIP())
+		}
+		opts := []rotatenmacerts.Option{
+			rotatenmacerts.WithKey(string(newSecret.Data[corev1.TLSPrivateKeyKey])),
+			rotatenmacerts.WithCert(string(newSecret.Data[corev1.TLSCertKey])),
+			rotatenmacerts.WithCaCert(string(newSecret.Data[corev1.ServiceAccountRootCAKey])),
+			rotatenmacerts.WithHosts(hosts),
+		}
+		h.Log.Info("to call RotateNMACerts, tls enabled " + strconv.FormatBool(h.Vdb.IsCertRotationEnabled()))
+		err = h.Dispatcher.RotateNMACerts(ctx, opts...)
+		if err != nil {
+			h.Log.Error(err, "failed to rotate nma cer to "+newSecretName)
+			return ctrl.Result{}, err
+		}
 	}
 	nmVdbName := types.NamespacedName{
 		Name:      h.Vdb.Name,

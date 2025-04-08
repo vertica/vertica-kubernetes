@@ -125,35 +125,35 @@ func (h *HTTPSCertRoationReconciler) rotateHTTPSTLSCert(ctx context.Context, new
 			initiatorPod.GetPodIP())
 		return ctrl.Result{}, err
 	}
-	if rotated == 0 {
-		h.Log.Info("https cert rotation skipped. new https cert is already in use on " + initiatorPod.GetPodIP())
-		return ctrl.Result{}, nil
-	}
 	if rotated == 2 {
-		h.Log.Info("https cert rotation aborted. Neither new or current https cert is in use")
+		h.Log.Info("https cert rotation aborted. Neither new nor current https cert is in use")
 		return ctrl.Result{Requeue: true}, nil
 	}
-	currentSecretName := vmeta.GetNMATLSSecretNameInUse(h.Vdb.Annotations)
-	h.Log.Info("ready to rotate certi from " + currentSecretName + " to " + h.Vdb.Spec.NMATLSSecret)
-	keyConfig := fmt.Sprintf("{\"data-key\":%q, \"namespace\":%q}", corev1.TLSPrivateKeyKey, h.Vdb.Namespace)
-	certConfig := fmt.Sprintf("{\"data-key\":%q, \"namespace\":%q}", corev1.TLSCertKey, h.Vdb.Namespace)
-	caCertConfig := fmt.Sprintf("{\"data-key\":%q, \"namespace\":%q}", paths.HTTPServerCACrtName, h.Vdb.Namespace)
-	opts := []rotatehttpscerts.Option{
-		rotatehttpscerts.WithPollingKey(string(newSecret.Data[corev1.TLSPrivateKeyKey])),
-		rotatehttpscerts.WithPollingCert(newCert),
-		rotatehttpscerts.WithPollingCaCert(string(newSecret.Data[corev1.ServiceAccountRootCAKey])),
-		rotatehttpscerts.WithKey(h.Vdb.Spec.NMATLSSecret, keyConfig),
-		rotatehttpscerts.WithCert(h.Vdb.Spec.NMATLSSecret, certConfig),
-		rotatehttpscerts.WithCaCert(h.Vdb.Spec.NMATLSSecret, caCertConfig),
-		rotatehttpscerts.WithTLSMode("TRY_VERIFY"),
-		rotatehttpscerts.WithInitiator(initiatorPod.GetPodIP()),
-	}
-	h.Log.Info("to call RotateHTTPSCerts for cert " + h.Vdb.Spec.NMATLSSecret + ", tls enabled " +
-		strconv.FormatBool(h.Vdb.IsCertRotationEnabled()))
-	err = h.Dispatcher.RotateHTTPSCerts(ctx, opts...)
-	if err != nil {
-		h.Log.Error(err, "failed to rotate https cer to "+h.Vdb.Spec.NMATLSSecret)
-		return ctrl.Result{Requeue: true}, err
+	if rotated == 0 {
+		h.Log.Info("https cert rotation skipped. new https cert is already in use on " + initiatorPod.GetPodIP())
+	} else {
+		currentSecretName := vmeta.GetNMATLSSecretNameInUse(h.Vdb.Annotations)
+		h.Log.Info("ready to rotate certi from " + currentSecretName + " to " + h.Vdb.Spec.NMATLSSecret)
+		keyConfig := fmt.Sprintf("{\"data-key\":%q, \"namespace\":%q}", corev1.TLSPrivateKeyKey, h.Vdb.Namespace)
+		certConfig := fmt.Sprintf("{\"data-key\":%q, \"namespace\":%q}", corev1.TLSCertKey, h.Vdb.Namespace)
+		caCertConfig := fmt.Sprintf("{\"data-key\":%q, \"namespace\":%q}", paths.HTTPServerCACrtName, h.Vdb.Namespace)
+		opts := []rotatehttpscerts.Option{
+			rotatehttpscerts.WithPollingKey(string(newSecret.Data[corev1.TLSPrivateKeyKey])),
+			rotatehttpscerts.WithPollingCert(newCert),
+			rotatehttpscerts.WithPollingCaCert(string(newSecret.Data[corev1.ServiceAccountRootCAKey])),
+			rotatehttpscerts.WithKey(h.Vdb.Spec.NMATLSSecret, keyConfig),
+			rotatehttpscerts.WithCert(h.Vdb.Spec.NMATLSSecret, certConfig),
+			rotatehttpscerts.WithCaCert(h.Vdb.Spec.NMATLSSecret, caCertConfig),
+			rotatehttpscerts.WithTLSMode("TRY_VERIFY"),
+			rotatehttpscerts.WithInitiator(initiatorPod.GetPodIP()),
+		}
+		h.Log.Info("to call RotateHTTPSCerts for cert " + h.Vdb.Spec.NMATLSSecret + ", tls enabled " +
+			strconv.FormatBool(h.Vdb.IsCertRotationEnabled()))
+		err = h.Dispatcher.RotateHTTPSCerts(ctx, opts...)
+		if err != nil {
+			h.Log.Error(err, "failed to rotate https cer to "+h.Vdb.Spec.NMATLSSecret)
+			return ctrl.Result{Requeue: true}, err
+		}
 	}
 	return ctrl.Result{}, err
 }
