@@ -497,6 +497,9 @@ var _ = Describe("verticadb_webhook", func() {
 		// archive name cannot have invalid chars
 		vdb.Spec.RestorePoint.Archive = "bad@archive"
 		validateSpecValuesHaveErr(vdb, true)
+		// dash character is valid in archive name
+		vdb.Spec.RestorePoint.Archive = "good-archive"
+		validateSpecValuesHaveErr(vdb, false)
 		vdb.Spec.RestorePoint.Archive = "archive"
 		validateSpecValuesHaveErr(vdb, false)
 	})

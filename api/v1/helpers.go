@@ -1434,6 +1434,7 @@ func convertToInt(src string) (int, bool) {
 func findInvalidChars(objName string, allowDash bool) string {
 	invalidChars := invalidNameChars
 
+	// Dash is supported in some object names (eg archive name) but not others (eg db name)
 	if !allowDash {
 		invalidChars += "-"
 	}
