@@ -14,7 +14,8 @@
 # Configuration & Valid Log Levels
 # -------------------------------
 
-VALID_LEVELS="TRACE DEBUG INFO WARN WARNING ERROR FATAL CRITICAL"
+# Ref: https://docs.vertica.com/23.3.x/en/connecting-to/client-libraries/client-drivers/install-config/ado-netr/ado-net-logging/
+VALID_LEVELS="TRACE DEBUG INFO WARNING ERROR FATAL" 
 LOG_FILE=$DBPATH/v_*_catalog/vertica.log # DBPATH is set by operator
 RAW_LEVELS="${LOG_LEVELS:-$*}" # LOG_LEVELS is set through crd side cars env value
 
