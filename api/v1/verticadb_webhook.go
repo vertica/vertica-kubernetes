@@ -2165,8 +2165,8 @@ func (v *VerticaDB) checkImmutableClientProxy(oldObj *VerticaDB, allErrs field.E
 }
 
 func (v *VerticaDB) hasValidNMATLSMode(allErrs field.ErrorList) field.ErrorList {
-	if v.Spec.NMATLSMode != "" {
-		TLSMode := strings.ToLower(v.Spec.NMATLSMode)
+	if v.Spec.HTTPSTLSMode != "" {
+		TLSMode := strings.ToLower(v.Spec.HTTPSTLSMode)
 		validMode := false
 		for _, mode := range tlsModes {
 			if mode == TLSMode {
@@ -2174,11 +2174,11 @@ func (v *VerticaDB) hasValidNMATLSMode(allErrs field.ErrorList) field.ErrorList 
 			}
 		}
 		if !validMode {
-			err := field.Invalid(field.NewPath("spec").Child("nmaTLSSecret"), v.Spec.NMATLSMode, "invalid tls mode")
+			err := field.Invalid(field.NewPath("spec").Child("nmaTLSSecret"), v.Spec.HTTPSTLSMode, "invalid tls mode")
 			allErrs = append(allErrs, err)
 		}
 	} else {
-		v.Spec.NMATLSMode = "try_verify"
+		v.Spec.HTTPSTLSMode = "try_verify"
 	}
 	return allErrs
 }
