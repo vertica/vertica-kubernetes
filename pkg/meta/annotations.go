@@ -109,6 +109,10 @@ const (
 	ShutdownDrainSecondsAnnotation = "vertica.com/shutdown-drain-seconds"
 	ShutdownDefaultDrainSeconds    = 60
 
+	// The time at which draining pending delete pods has started. When greater than 'vertica.com/remove-drain-seconds'
+	// it means the timeout has expired and all active connections will be closed.
+	DrainStartAnnotation = "vertica.com/drain-start-time"
+
 	RemoveDrainSecondsAnnotation    = "vertica.com/remove-drain-seconds"
 	RemoveDrainSecondsDisabledValue = -1
 

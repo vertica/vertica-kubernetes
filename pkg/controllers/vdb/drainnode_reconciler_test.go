@@ -17,11 +17,14 @@ package vdb
 
 import (
 	"context"
+	"fmt"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
+	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
 	"github.com/vertica/vertica-kubernetes/pkg/test"
@@ -34,6 +37,7 @@ var _ = Describe("drainnode_reconcile", func() {
 	It("should query sessions if pod is pending delete", func() {
 		const origSize = 2
 		vdb := vapi.MakeVDB()
+		vdb.Annotations[vmeta.RemoveDrainSecondsAnnotation] = "-3"
 		vdb.Spec.Subclusters = []vapi.Subcluster{
 			{Name: "sc1", Size: origSize},
 		}
@@ -97,5 +101,179 @@ var _ = Describe("drainnode_reconcile", func() {
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: true}))
 		cmds := fpr.FindCommands("select count(*) from session")
 		Expect(len(cmds)).Should(Equal(1))
+	})
+
+	It("should set drain-start annotation if not present and timeout > 0", func() {
+		const origSize = 3
+		vdb := vapi.MakeVDB()
+		vdb.Annotations[vmeta.RemoveDrainSecondsAnnotation] = "10"
+
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
+		// Restore original size prior to deletion to ensure all pods are cleaned up
+		defer func() { vdb.Spec.Subclusters[0].Size = origSize; test.DeletePods(ctx, k8sClient, vdb) }()
+		vdb.Spec.Subclusters[0].Size -= 2 // Reduce size to make two pods pending delete
+		test.CreateVDB(ctx, k8sClient, vdb)
+		defer test.DeleteVDB(ctx, k8sClient, vdb)
+
+		fpr := &cmds.FakePodRunner{Results: make(cmds.CmdResults)}
+		pfacts := createPodFactsDefault(fpr)
+		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
+		fpr.Results[names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 1)] = []cmds.CmdResult{
+			{Stdout: "10\n"},
+		}
+		fpr.Results[names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 2)] = []cmds.CmdResult{
+			{Stdout: "10\n"},
+		}
+		r := MakeDrainNodeReconciler(vdbRec, vdb, fpr, pfacts)
+
+		res, err := r.Reconcile(ctx, &ctrl.Request{})
+		Expect(err).Should(Succeed())
+		Expect(res.RequeueAfter).Should(Equal(1 * time.Second))
+		cmds := fpr.FindCommands("select count(*) from session")
+		Expect(len(cmds)).Should(Equal(2))
+
+		// Check annotation was added
+		Expect(vdb.Annotations).To(HaveKey(vmeta.DrainStartAnnotation))
+	})
+
+	It("should kill sessions if timeout has expired", func() {
+		const origSize = 3
+		vdb := vapi.MakeVDB()
+		vdb.Annotations[vmeta.RemoveDrainSecondsAnnotation] = "1"
+		vdb.Annotations[vmeta.DrainStartAnnotation] = time.Now().Add(-2 * time.Second).Format(time.RFC3339)
+
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
+		// Restore original size prior to deletion to ensure all pods are cleaned up
+		defer func() { vdb.Spec.Subclusters[0].Size = origSize; test.DeletePods(ctx, k8sClient, vdb) }()
+		vdb.Spec.Subclusters[0].Size-- // Reduce size to make one pod pending delete
+		test.CreateVDB(ctx, k8sClient, vdb)
+		defer test.DeleteVDB(ctx, k8sClient, vdb)
+
+		fpr := &cmds.FakePodRunner{Results: make(cmds.CmdResults)}
+		pfacts := createPodFactsDefault(fpr)
+		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
+		fpr.Results[names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 2)] = []cmds.CmdResult{
+			{Stdout: "10\n"},
+			{Stdout: "123\n"},
+		}
+		r := MakeDrainNodeReconciler(vdbRec, vdb, fpr, pfacts)
+
+		res, err := r.Reconcile(ctx, &ctrl.Request{})
+		Expect(err).Should(Succeed())
+		Expect(res.Requeue).Should(BeTrue())
+
+		cmds := fpr.FindCommands("select count(*) from session")
+		Expect(len(cmds)).Should(Equal(1))
+
+		killCmds := fpr.FindCommands("select session_id from session")
+		Expect(len(killCmds)).Should(Equal(1)) // Session kill occurred
+	})
+
+	It("should remove drain-start annotation if no pods are pending delete", func() {
+		vdb := vapi.MakeVDB()
+		vdb.Annotations[vmeta.RemoveDrainSecondsAnnotation] = "10"
+		vdb.Annotations[vmeta.DrainStartAnnotation] = time.Now().Format(time.RFC3339)
+
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
+		test.CreateVDB(ctx, k8sClient, vdb)
+		defer test.DeleteVDB(ctx, k8sClient, vdb)
+
+		fpr := &cmds.FakePodRunner{}
+		pfacts := createPodFactsDefault(fpr)
+		r := MakeDrainNodeReconciler(vdbRec, vdb, fpr, pfacts)
+
+		res, err := r.Reconcile(ctx, &ctrl.Request{})
+		Expect(err).Should(Succeed())
+		Expect(res.Requeue).Should(BeFalse())
+		Expect(vdb.Annotations).NotTo(HaveKey(vmeta.DrainStartAnnotation))
+	})
+
+	It("should kill sessions immediately if timeout is zero", func() {
+		const origSize = 3
+		vdb := vapi.MakeVDB()
+		vdb.Annotations[vmeta.RemoveDrainSecondsAnnotation] = "0"
+
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
+		// Restore original size prior to deletion to ensure all pods are cleaned up
+		defer func() { vdb.Spec.Subclusters[0].Size = origSize; test.DeletePods(ctx, k8sClient, vdb) }()
+		vdb.Spec.Subclusters[0].Size-- // Reduce size to make one pod pending delete
+		test.CreateVDB(ctx, k8sClient, vdb)
+		defer test.DeleteVDB(ctx, k8sClient, vdb)
+
+		fpr := &cmds.FakePodRunner{Results: make(cmds.CmdResults)}
+		pfacts := createPodFactsDefault(fpr)
+		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
+		fpr.Results[names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 2)] = []cmds.CmdResult{
+			{Stdout: "10\n"},
+			{Stdout: "123\n"},
+		}
+
+		r := MakeDrainNodeReconciler(vdbRec, vdb, fpr, pfacts)
+
+		res, err := r.Reconcile(ctx, &ctrl.Request{})
+		Expect(err).Should(Succeed())
+		Expect(res.Requeue).Should(BeFalse())
+
+		killCmds := fpr.FindCommands("select session_id from sessions")
+		Expect(len(killCmds)).Should(Equal(1)) // Kill session executed
+	})
+
+	It("should skip draining logic if RemoveDrainSeconds is disabled", func() {
+		const origSize = 3
+		vdb := vapi.MakeVDB()
+		vdb.Annotations[vmeta.RemoveDrainSecondsAnnotation] = fmt.Sprintf("%d", vmeta.RemoveDrainSecondsDisabledValue)
+
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
+		// Restore original size prior to deletion to ensure all pods are cleaned up
+		defer func() { vdb.Spec.Subclusters[0].Size = origSize; test.DeletePods(ctx, k8sClient, vdb) }()
+		vdb.Spec.Subclusters[0].Size-- // Reduce size to make one pod pending delete
+		test.CreateVDB(ctx, k8sClient, vdb)
+		defer test.DeleteVDB(ctx, k8sClient, vdb)
+
+		fpr := &cmds.FakePodRunner{Results: make(cmds.CmdResults)}
+		pfacts := createPodFactsDefault(fpr)
+		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
+		fpr.Results[names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 2)] = []cmds.CmdResult{
+			{Stdout: "10\n"},
+			{Stdout: "123\n"},
+		}
+		r := MakeDrainNodeReconciler(vdbRec, vdb, fpr, pfacts)
+
+		res, err := r.Reconcile(ctx, &ctrl.Request{})
+		Expect(err).Should(Succeed())
+		Expect(res.Requeue).Should(BeTrue()) // Normal reconcile
+
+		cmds := fpr.FindCommands("select count(*) from session")
+		Expect(len(cmds)).Should(Equal(1))
+
+		killCmds := fpr.FindCommands("select session_id from session")
+		Expect(len(killCmds)).Should(Equal(0))
+	})
+
+	It("should not query sessions if pod is not pending delete", func() {
+		vdb := vapi.MakeVDB()
+		vdb.Annotations[vmeta.RemoveDrainSecondsAnnotation] = "5" // Arbitrary positive timeout
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
+
+		test.CreateVDB(ctx, k8sClient, vdb)
+		defer test.DeleteVDB(ctx, k8sClient, vdb)
+
+		fpr := &cmds.FakePodRunner{Results: make(cmds.CmdResults)}
+		pfacts := createPodFactsDefault(fpr)
+		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
+		fpr.Results[names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 2)] = []cmds.CmdResult{
+			{Stdout: "10\n"},
+			{Stdout: "123\n"},
+		}
+		r := MakeDrainNodeReconciler(vdbRec, vdb, fpr, pfacts)
+
+		res, err := r.Reconcile(ctx, &ctrl.Request{})
+		Expect(err).Should(Succeed())
+		Expect(res).Should(Equal(ctrl.Result{}))
+
+		cmds := fpr.FindCommands("select count(*) from sessions")
+		Expect(len(cmds)).Should(Equal(0)) // No queries made
 	})
 })

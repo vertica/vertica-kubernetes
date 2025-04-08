@@ -29,6 +29,7 @@ import (
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
+	"github.com/vertica/vertica-kubernetes/pkg/vk8s"
 	corev1 "k8s.io/api/core/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -58,46 +59,54 @@ func (s *DrainNodeReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (c
 		return ctrl.Result{}, err
 	}
 
-	timeout := vmeta.GetRemoveDrainSeconds(s.Vdb.Annotations)
-	if timeout == vmeta.RemoveDrainSecondsDisabledValue {
+	// Note: this reconciler depends on the client routing reconciler to have run
+	// and directed traffic away from pending delete pods.
+	timeoutInt := vmeta.GetRemoveDrainSeconds(s.Vdb.Annotations)
+	// if timeout is default, we just requeue until there is no pod pending delete
+	// with active connections
+	if timeoutInt == vmeta.RemoveDrainSecondsDisabledValue {
 		return s.reconcilePods(ctx)
 	}
 	hasTimeoutZero := false
-	if timeout == 0 {
-		timeout = 1
+	if timeoutInt == 0 {
 		hasTimeoutZero = true
 	}
 
-	// Note: this reconciler depends on the client routing reconciler to have run
-	// and directed traffic away from pending delete pods.
-	pfs := []*podfacts.PodFact{}
-	for i := 0; i < timeout; i++ {
-		active := false
-		for _, pf := range s.PFacts.Detail {
-			if pf.GetIsPendingDelete() && pf.GetUpNode() {
-				result, err := s.reconcilePod(ctx, pf)
-				if err != nil {
-					return ctrl.Result{}, err
-				} else if result.Requeue {
-					active = true
-					// we start collecting pods that needs connections to be killed in
-					// the last second
-					if i+1 == timeout {
-						pfs = append(pfs, pf)
-					}
-				}
-			}
-		}
-		if !active {
-			return ctrl.Result{}, nil
-		}
-		if hasTimeoutZero {
-			break
-		}
-		time.Sleep(1 * time.Second)
+	pfs, err := s.getPendingDeletePods(ctx)
+	if err != nil {
+		return ctrl.Result{}, err
 	}
 
-	return ctrl.Result{}, s.waitForConnectionsToEnd(ctx, pfs)
+	// If no pending delete pods have active connection, we remove
+	// the drain start time annotation (if set) and return
+	if len(pfs) == 0 {
+		return ctrl.Result{}, s.removeDrainStartAnnotation(ctx)
+	}
+
+	// If timeout is zero, we immediately kill all active sessions
+	if hasTimeoutZero {
+		return ctrl.Result{}, s.killConnectionsToPendingDeletePods(ctx, pfs)
+	}
+
+	drainStartTimeStr, found := s.Vdb.Annotations[vmeta.DrainStartAnnotation]
+	// If drain start time annotation is not set, we set it and requeue after 1s
+	if !found {
+		return ctrl.Result{RequeueAfter: 1 * time.Second}, s.setDrainStartAnnotation(ctx)
+	}
+
+	var drainStartTime time.Time
+	drainStartTime, err = time.Parse(time.RFC3339, drainStartTimeStr)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	elapsed := time.Since(drainStartTime)
+	timeout := time.Duration(timeoutInt) * time.Second
+	// If timeout has expired, we kill all active sessions
+	if elapsed > timeout {
+		return ctrl.Result{Requeue: true}, s.killConnectionsToPendingDeletePods(ctx, pfs)
+	}
+
+	return ctrl.Result{RequeueAfter: 1 * time.Second}, nil
 }
 
 // reconcilePod will handle drain logic for a single pod
@@ -124,28 +133,50 @@ func (s *DrainNodeReconciler) reconcilePod(ctx context.Context, pf *podfacts.Pod
 	return ctrl.Result{Requeue: activeConnections}, nil
 }
 
-func (s *DrainNodeReconciler) waitForConnectionsToEnd(ctx context.Context, pfs []*podfacts.PodFact) error {
+// getPendingDeletePods returns pods that are pending delete and still have active connections
+func (s *DrainNodeReconciler) getPendingDeletePods(ctx context.Context) ([]*podfacts.PodFact, error) {
+	pfs := []*podfacts.PodFact{}
+	for _, pf := range s.PFacts.FindPendingDeletePods() {
+		result, err := s.reconcilePod(ctx, pf)
+		if err != nil {
+			return nil, err
+		} else if result.Requeue {
+			pfs = append(pfs, pf)
+		}
+	}
+	return pfs, nil
+}
+
+// killConnections close active connections in the given pod
+func (s *DrainNodeReconciler) killConnections(ctx context.Context, pf *podfacts.PodFact) error {
+	sessionIds := []string{}
+	sql := fmt.Sprintf(
+		"select session_id"+
+			" from sessions"+
+			" where node_name = '%s'"+
+			" and session_id not in ("+
+			" select session_id from current_session"+
+			" )", pf.GetVnodeName())
+	stdout, stderr, err := s.PFacts.PRunner.ExecVSQL(ctx, pf.GetName(), names.ServerContainer, "-tAc", sql)
+	if err != nil {
+		s.VRec.Log.Error(err, "failed to retrieve active sessions", "stderr", stderr)
+		return err
+	}
+	sessionIds = append(sessionIds, strings.Split(strings.TrimSuffix(stdout, "\n"), "\n")...)
+	return killSessions(ctx, sessionIds, s.PFacts, pf, s.VRec.Log)
+}
+
+// killConnectionsToPendingDeletePods close active connections in pending delete pods
+func (s *DrainNodeReconciler) killConnectionsToPendingDeletePods(ctx context.Context, pfs []*podfacts.PodFact) error {
 	if len(pfs) == 0 {
 		return nil
 	}
-	sessionIds := []string{}
-	for _, pf := range pfs {
-		sql := fmt.Sprintf(
-			"select session_id"+
-				" from sessions"+
-				" where node_name = '%s'"+
-				" and session_id not in ("+
-				" select session_id from current_session"+
-				" )", pf.GetVnodeName())
-		stdout, stderr, err := s.PFacts.PRunner.ExecVSQL(ctx, pf.GetName(), names.ServerContainer, "-tAc", sql)
-		if err != nil {
-			s.VRec.Log.Error(err, "failed to retrieve active sessions", "stderr", stderr)
+	for _, pod := range pfs {
+		if err := s.killConnections(ctx, pod); err != nil {
 			return err
 		}
-		sessionIds = append(sessionIds, strings.Split(strings.TrimSuffix(stdout, "\n"), "\n")...)
 	}
-
-	return killSessions(ctx, sessionIds, s.PFacts, pfs[0], s.VRec.Log)
+	return nil
 }
 
 func (s *DrainNodeReconciler) reconcilePods(ctx context.Context) (ctrl.Result, error) {
@@ -157,4 +188,31 @@ func (s *DrainNodeReconciler) reconcilePods(ctx context.Context) (ctrl.Result, e
 		}
 	}
 	return ctrl.Result{}, nil
+}
+
+func (s *DrainNodeReconciler) removeDrainStartAnnotation(ctx context.Context) error {
+	clearDrainStartAnnotation := func() (updated bool, err error) {
+		if _, found := s.Vdb.Annotations[vmeta.DrainStartAnnotation]; found {
+			delete(s.Vdb.Annotations, vmeta.DrainStartAnnotation)
+			updated = true
+		}
+		return
+	}
+	_, err := vk8s.UpdateVDBWithRetry(ctx, s.VRec, s.Vdb, clearDrainStartAnnotation)
+	return err
+}
+
+func (s *DrainNodeReconciler) setDrainStartAnnotation(ctx context.Context) error {
+	addDrainStartAnnotation := func() (updated bool, err error) {
+		if s.Vdb.Annotations == nil {
+			s.Vdb.Annotations = make(map[string]string)
+		}
+		if _, found := s.Vdb.Annotations[vmeta.DrainStartAnnotation]; !found {
+			s.Vdb.Annotations[vmeta.DrainStartAnnotation] = time.Now().Format(time.RFC3339)
+			updated = true
+		}
+		return
+	}
+	_, err := vk8s.UpdateVDBWithRetry(ctx, s.VRec, s.Vdb, addDrainStartAnnotation)
+	return err
 }
