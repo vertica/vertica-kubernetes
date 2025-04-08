@@ -15,6 +15,8 @@ apiVersion: vertica.com/v1beta1
 kind: VerticaDB
 metadata:
   name: v-multi-sc
+  annotations:
+    vertica.com/remove-drain-seconds: "30"
 spec:
   subclusters:
     - name: new-sc3
