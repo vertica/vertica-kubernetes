@@ -371,7 +371,7 @@ type VerticaDBSpec struct {
 	//   If the client presents an invalid certificate, the connection is rejected.
 	// - VERIFY_CA: Connection succeeds if Vertica verifies that the client certificate is from a trusted CA.
 	//   If the client does not present a client certificate, the connection is rejected.
-	NMATLSMode string `json:"nmaTLSMode,omitempty"`
+	HTTPSTLSMode string `json:"httpsTLSMode,omitempty"`
 }
 
 // LocalObjectReference is used instead of corev1.LocalObjectReference and behaves the same.

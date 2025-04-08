@@ -2171,7 +2171,6 @@ func (v *VerticaDB) checkImmutableClientProxy(oldObj *VerticaDB, allErrs field.E
 	return allErrs
 }
 
-<<<<<<< HEAD
 // checkImmutableCertRotation will validate the nmaTLSSecret spec fields in vdb
 func (v *VerticaDB) checkImmutableCertRotation(oldObj *VerticaDB, allErrs field.ErrorList) field.ErrorList {
 	// If cert rotation is set, nmaTLSSecret can not be empty
