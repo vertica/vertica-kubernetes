@@ -11,7 +11,7 @@ export VERSION
 # order to have a different release cadence.
 #
 # When changing this, be sure to update the tags in docker-vlogger/README.md
-VLOGGER_VERSION ?= 1.0.1
+VLOGGER_VERSION ?= 2.0.1
 
 REPO_DIR:=$(dir $(word $(words $(MAKEFILE_LIST)),$(MAKEFILE_LIST)))
 
@@ -455,13 +455,14 @@ docker-build-operator: manifests generate fmt vet ## Build operator docker image
 
 docker-build-vlogger:  ## Build vertica logger docker image
 	docker pull ${VLOGGER_BASE_IMG}:${VLOGGER_ALPINE_VERSION} # Ensure we have the latest alpine version
-	docker buildx build \
+	cd docker-vlogger \
+	&& docker buildx build \
 		-t ${VLOGGER_IMG} \
 		--load \
 		--platform ${TARGET_ARCH} \
 		--build-arg BASE_IMG=${VLOGGER_BASE_IMG} \
 		--build-arg ALPINE_VERSION=${VLOGGER_ALPINE_VERSION} \
-		-f docker-vlogger/Dockerfile .
+		-f Dockerfile .
 
 # If you wish to build the manager image targeting other platforms you can use the --platform flag.
 # (i.e. docker buildx build --platform=linux/arm64 ). However, you must enable docker buildKit for it.
