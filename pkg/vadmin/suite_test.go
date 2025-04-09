@@ -126,6 +126,12 @@ const (
 	TestConfigParamValue   = "test-config-param-value"
 	TestConfigParamLevel   = "test-config-param-level"
 	TestTransactionID      = 1234567890123456
+	TestPollingKey         = "test-polling-key"
+	TestPollingCert        = "test-polling-cert"
+	TestPollingCaCert      = "test-polling-cacert"
+	TestKeyConfig          = "test-key-config"
+	TestCertConfig         = "test-cert-config"
+	TestCaCertConfig       = "test-cacert-config"
 )
 
 var TestCommunalStorageParams = map[string]string{"awsauth": "test-auth", "awsconnecttimeout": "10"}

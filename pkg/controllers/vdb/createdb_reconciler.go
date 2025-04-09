@@ -125,6 +125,7 @@ func (c *CreateDBReconciler) execCmd(ctx context.Context, initiatorPod types.Nam
 		return ctrl.Result{}, err
 	}
 	c.VRec.Event(c.Vdb, corev1.EventTypeNormal, events.CreateDBStart, "Starting create database")
+
 	start := time.Now()
 	if res, err := c.Dispatcher.CreateDB(ctx, opts...); verrors.IsReconcileAborted(res, err) {
 		return res, err
@@ -137,6 +138,14 @@ func (c *CreateDBReconciler) execCmd(ctx context.Context, initiatorPod types.Nam
 		if err2 != nil || strings.Contains(stderr, "Error") {
 			c.Log.Error(err2, "failed to execute TLS DDLs after db creation stderr - "+stderr)
 			return ctrl.Result{}, err2
+		}
+		chgs := vk8s.MetaChanges{
+			NewAnnotations: map[string]string{
+				vmeta.NMAHTTPSPreviousSecret: c.Vdb.Spec.NMATLSSecret,
+			},
+		}
+		if _, err := vk8s.MetaUpdate(ctx, c.VRec.Client, c.Vdb.ExtractNamespacedName(), c.Vdb, chgs); err != nil {
+			return ctrl.Result{}, err
 		}
 		c.Log.Info("TLS DDLs executed and TLS Cert configured")
 	}
