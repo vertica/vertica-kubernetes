@@ -985,6 +985,10 @@ const (
 	// operator create a restore point, using the spec.restorePoint.archive
 	// as the archive name to save to.
 	SaveRestorePointNeeded = "SaveRestorePointNeeded"
+	// HTTPSCertRotationFinished indicates the HTTPS TLS cert has been rotated
+	HTTPSCertRotationFinished = "HTTPSCertRotationFinished"
+	// TLSCertRotationInProgress indicates the TLS cert rotation has started
+	TLSCertRotationInProgress = "TLSCertRotationInProgress"
 )
 
 const (
