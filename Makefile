@@ -11,7 +11,7 @@ export VERSION
 # order to have a different release cadence.
 #
 # When changing this, be sure to update the tags in docker-vlogger/README.md
-VLOGGER_VERSION ?= 2.0.1
+VLOGGER_VERSION ?= 2.0.0
 
 REPO_DIR:=$(dir $(word $(words $(MAKEFILE_LIST)),$(MAKEFILE_LIST)))
 
