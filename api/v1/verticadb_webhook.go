@@ -339,7 +339,7 @@ func (v *VerticaDB) hasValidSaveRestorePointConfig(allErrs field.ErrorList) fiel
 		if invalidChars != "" {
 			err := field.Invalid(field.NewPath("spec").Child("restorePoint").Child("archive"),
 				v.Spec.RestorePoint.Archive,
-				fmt.Sprintf(`archive cannot have the characters '%s'`, invalidChars))
+				fmt.Sprintf(`archive cannot have the characters %q`, invalidChars))
 			allErrs = append(allErrs, err)
 		}
 	}
@@ -473,7 +473,7 @@ func (v *VerticaDB) hasValidDBName(allErrs field.ErrorList) field.ErrorList {
 	if invalidChars != "" {
 		err := field.Invalid(field.NewPath("spec").Child("dbName"),
 			v.Spec.DBName,
-			fmt.Sprintf(`dbName cannot have the characters '%s'`, invalidChars))
+			fmt.Sprintf(`dbName cannot have the characters %q`, invalidChars))
 		allErrs = append(allErrs, err)
 	}
 	return allErrs
