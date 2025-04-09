@@ -242,6 +242,7 @@ func (v *VerticaDB) validateVerticaDBSpec() field.ErrorList {
 	allErrs = v.hasValidPodSecurityContext(allErrs)
 	allErrs = v.hasValidNMAResourceLimit(allErrs)
 	allErrs = v.hasValidCreateDBTimeout(allErrs)
+	allErrs = v.hasValidDrainTimeout(allErrs)
 	allErrs = v.hasValidUpgradePolicy(allErrs)
 	allErrs = v.hasValidReplicaGroups(allErrs)
 	allErrs = v.validateVersionAnnotation(allErrs)
@@ -1033,14 +1034,11 @@ func (v *VerticaDB) hasValidNMAResourceLimit(allErrs field.ErrorList) field.Erro
 }
 
 func (v *VerticaDB) hasValidCreateDBTimeout(allErrs field.ErrorList) field.ErrorList {
-	createDBTimeout := v.GetCreateDBNodeStartTimeout()
-	if createDBTimeout < 0 {
-		annotationName := vmeta.CreateDBTimeoutAnnotation
-		err := field.Invalid(field.NewPath("metadata").Child("annotations").Child(annotationName),
-			createDBTimeout, fmt.Sprintf("%s must be non-negative", annotationName))
-		allErrs = append(allErrs, err)
-	}
-	return allErrs
+	return hasValidIntAnnotation(allErrs, vmeta.CreateDBTimeoutAnnotation, v.GetCreateDBNodeStartTimeout())
+}
+
+func (v *VerticaDB) hasValidDrainTimeout(allErrs field.ErrorList) field.ErrorList {
+	return hasValidIntAnnotation(allErrs, vmeta.ActiveConnectionsDrainSecondsAnnotation, v.GetActiveConnectionsDrainSeconds())
 }
 
 func (v *VerticaDB) hasValidUpgradePolicy(allErrs field.ErrorList) field.ErrorList {

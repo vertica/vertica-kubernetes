@@ -175,7 +175,7 @@ func (s *SubclusterShutdownReconciler) genStopSubclusterOpts(initiatorIP, scName
 	opts := []stopsubcluster.Option{
 		stopsubcluster.WithInitiator(initiatorIP),
 		stopsubcluster.WithSCName(scName),
-		stopsubcluster.WithDrainSeconds(s.Vdb.GetShutdownDrainSeconds()),
+		stopsubcluster.WithDrainSeconds(s.Vdb.GetActiveConnectionsDrainSeconds()),
 	}
 	return opts
 }

@@ -16,7 +16,7 @@ kind: VerticaDB
 metadata:
   name: v-multi-sc
   annotations:
-    vertica.com/remove-drain-seconds: "30"
+    vertica.com/active-connections-drain-seconds: "30"
 spec:
   subclusters:
     - name: new-sc3

@@ -18,13 +18,11 @@ package vdb
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
-	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
@@ -61,12 +59,7 @@ func (s *DrainNodeReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (c
 
 	// Note: this reconciler depends on the client routing reconciler to have run
 	// and directed traffic away from pending delete pods.
-	timeoutInt := vmeta.GetRemoveDrainSeconds(s.Vdb.Annotations)
-	// if timeout is default, we just requeue until there is no pod pending delete
-	// with active connections
-	if timeoutInt == vmeta.RemoveDrainSecondsDisabledValue {
-		return s.reconcilePods(ctx)
-	}
+	timeoutInt := s.Vdb.GetActiveConnectionsDrainSeconds()
 	hasTimeoutZero := false
 	if timeoutInt == 0 {
 		hasTimeoutZero = true
@@ -83,14 +76,15 @@ func (s *DrainNodeReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (c
 		return ctrl.Result{}, s.removeDrainStartAnnotation(ctx)
 	}
 
-	// If timeout is zero, we immediately kill all active sessions
+	// If timeout is zero, we move on to the next reconciler (DBRemoveNodeReconciler|DBRemoveSubclusterReconciler)
 	if hasTimeoutZero {
-		return ctrl.Result{}, s.killConnectionsToPendingDeletePods(ctx, pfs)
+		return ctrl.Result{}, nil
 	}
 
 	drainStartTimeStr, found := s.Vdb.Annotations[vmeta.DrainStartAnnotation]
 	// If drain start time annotation is not set, we set it and requeue after 1s
 	if !found {
+		s.VRec.Log.Info("Starting draining before removing nodes")
 		return ctrl.Result{RequeueAfter: 1 * time.Second}, s.setDrainStartAnnotation(ctx)
 	}
 
@@ -101,9 +95,10 @@ func (s *DrainNodeReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (c
 	}
 	elapsed := time.Since(drainStartTime)
 	timeout := time.Duration(timeoutInt) * time.Second
-	// If timeout has expired, we kill all active sessions
-	if elapsed > timeout {
-		return ctrl.Result{Requeue: true}, s.killConnectionsToPendingDeletePods(ctx, pfs)
+	// If timeout has expired, we move on to the next reconciler (DBRemoveNodeReconciler|DBRemoveSubclusterReconciler)
+	if elapsed >= timeout {
+		s.VRec.Log.Info("Draining timeout has expired")
+		return ctrl.Result{}, s.removeDrainStartAnnotation(ctx)
 	}
 
 	return ctrl.Result{RequeueAfter: 1 * time.Second}, nil
@@ -145,49 +140,6 @@ func (s *DrainNodeReconciler) getPendingDeletePods(ctx context.Context) ([]*podf
 		}
 	}
 	return pfs, nil
-}
-
-// killConnections close active connections in the given pod
-func (s *DrainNodeReconciler) killConnections(ctx context.Context, pf *podfacts.PodFact) error {
-	sessionIds := []string{}
-	sql := fmt.Sprintf(
-		"select session_id"+
-			" from sessions"+
-			" where node_name = '%s'"+
-			" and session_id not in ("+
-			" select session_id from current_session"+
-			" )", pf.GetVnodeName())
-	stdout, stderr, err := s.PFacts.PRunner.ExecVSQL(ctx, pf.GetName(), names.ServerContainer, "-tAc", sql)
-	if err != nil {
-		s.VRec.Log.Error(err, "failed to retrieve active sessions", "stderr", stderr)
-		return err
-	}
-	sessionIds = append(sessionIds, strings.Split(strings.TrimSuffix(stdout, "\n"), "\n")...)
-	return killSessions(ctx, sessionIds, s.PFacts, pf, s.VRec.Log)
-}
-
-// killConnectionsToPendingDeletePods close active connections in pending delete pods
-func (s *DrainNodeReconciler) killConnectionsToPendingDeletePods(ctx context.Context, pfs []*podfacts.PodFact) error {
-	if len(pfs) == 0 {
-		return nil
-	}
-	for _, pod := range pfs {
-		if err := s.killConnections(ctx, pod); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (s *DrainNodeReconciler) reconcilePods(ctx context.Context) (ctrl.Result, error) {
-	for _, pf := range s.PFacts.Detail {
-		if pf.GetIsPendingDelete() && pf.GetUpNode() {
-			if res, err := s.reconcilePod(ctx, pf); verrors.IsReconcileAborted(res, err) {
-				return res, err
-			}
-		}
-	}
-	return ctrl.Result{}, nil
 }
 
 func (s *DrainNodeReconciler) removeDrainStartAnnotation(ctx context.Context) error {

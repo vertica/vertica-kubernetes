@@ -315,6 +315,13 @@ var _ = Describe("verticadb_webhook", func() {
 		validateSpecValuesHaveErr(vdb, true)
 	})
 
+	It("should not have negative drain timeout", func() {
+		vdb := MakeVDB()
+		annotationName := vmeta.ActiveConnectionsDrainSecondsAnnotation
+		vdb.Annotations[annotationName] = "-1"
+		validateSpecValuesHaveErr(vdb, true)
+	})
+
 	It("should not include UID in path if revive_db", func() {
 		vdb := MakeVDB()
 		annotationName := vmeta.IncludeUIDInPathAnnotation
