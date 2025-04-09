@@ -471,8 +471,8 @@ func getShutdownDrainSeconds(annotations map[string]string) int {
 	return lookupIntAnnotation(annotations, ShutdownDrainSecondsAnnotation, ShutdownDefaultDrainSeconds /* default value */)
 }
 
-// GetActiveConnectionsDrainSeconds returns the timeout for draining active connections
-// before deleting a pod. It checks the ActiveConnectionsDrainSeconds annotation first,
+// GetActiveConnectionsDrainSeconds returns the time in seconds to wait for a subcluster/database users' disconnection.
+// It checks the ActiveConnectionsDrainSeconds annotation first,
 // falling back to ShutdownDrainSeconds if not set, and finally uses the default.
 func GetActiveConnectionsDrainSeconds(annotations map[string]string) int {
 	if _, found := annotations[ActiveConnectionsDrainSecondsAnnotation]; found {
