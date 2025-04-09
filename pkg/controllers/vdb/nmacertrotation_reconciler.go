@@ -78,7 +78,7 @@ func (h *NMACertRoationReconciler) Reconcile(ctx context.Context, _ *ctrl.Reques
 		return res, err
 	}
 
-	h.Log.Info("to start nma cert rotation")
+	h.Log.Info("start nma cert rotation")
 	res, err2 := h.rotateNmaTLSCert(ctx, newSecret, currentSecret)
 	if err2 == nil {
 		cond := vapi.MakeCondition(vapi.TLSCertRotationInProgress, metav1.ConditionFalse, "Completed")

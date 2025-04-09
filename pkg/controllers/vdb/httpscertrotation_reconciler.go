@@ -76,7 +76,7 @@ func (h *HTTPSCertRoationReconciler) Reconcile(ctx context.Context, _ *ctrl.Requ
 	if currentSecretName == "" || newSecretName == currentSecretName {
 		return ctrl.Result{}, nil
 	}
-	h.Log.Info("rotation is required from " + currentSecretName + " to " + h.Vdb.Spec.NMATLSSecret)
+	h.Log.Info("rotation is required from " + currentSecretName + " to " + newSecretName)
 	// rotation is required. Will check start conditions next
 	// check if secret is ready for rotation
 
@@ -86,11 +86,12 @@ func (h *HTTPSCertRoationReconciler) Reconcile(ctx context.Context, _ *ctrl.Requ
 		return res, err
 	}
 
-	h.Log.Info("to start https cert rotation")
+	h.Log.Info("start https cert rotation")
 	h.VRec.Eventf(h.Vdb, corev1.EventTypeNormal, events.HTTPSCertRotationStarted,
 		"Start rotating https cert from %s to %s", currentSecretName, newSecretName)
 	cond := vapi.MakeCondition(vapi.TLSCertRotationInProgress, metav1.ConditionTrue, "InProgress")
 	if err2 := vdbstatus.UpdateCondition(ctx, h.VRec.GetClient(), h.Vdb, cond); err2 != nil {
+		h.Log.Error(err2, "failed to set condition "+vapi.TLSCertRotationInProgress+" to true")
 		return ctrl.Result{}, err2
 	}
 
@@ -102,6 +103,7 @@ func (h *HTTPSCertRoationReconciler) Reconcile(ctx context.Context, _ *ctrl.Requ
 	}
 	cond = vapi.MakeCondition(vapi.HTTPSCertRotationFinished, metav1.ConditionTrue, "Completed")
 	if err := vdbstatus.UpdateCondition(ctx, h.VRec.GetClient(), h.Vdb, cond); err != nil {
+		h.Log.Error(err2, "failed to set condition "+vapi.HTTPSCertRotationFinished+" to true")
 		return ctrl.Result{}, err
 	}
 	h.VRec.Eventf(h.Vdb, corev1.EventTypeNormal, events.HTTPSCertRotationSucceded,
