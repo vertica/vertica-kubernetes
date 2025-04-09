@@ -153,6 +153,13 @@ const (
 	NoDepotVolumeManagementAnnotation      = "vertica.com/disable-depot-volume-management"
 	NoDepotVolumeManagementAnnotationTrue  = "true"
 	NoDepotVolumeManagementAnnotationFalse = "false"
+
+	// Annotation to disable auto-mounting of extraPaths to local volumes
+	// as this behavior interferes with manual volume management
+	NoExtraPathsAutoMountAnnotation      = "vertica.com/disable-extra-paths-auto-mount"
+	NoExtraPathsAutoMountAnnotationTrue  = "true"
+	NoExtraPathsAutoMountAnnotationFalse = "false"
+
 	// A secret that has the files for /home/dbadmin/.ssh.  If this is
 	// omitted, the ssh files from the image are used (if applicable). SSH is
 	// only required when deploying via admintools and is present only in images
@@ -549,6 +556,12 @@ func GetSkipDeploymentCheck(annotations map[string]string) bool {
 // in the operator, allowing different provisioning mechanisms
 func DisableDepotVolumeManagement(annotations map[string]string) bool {
 	return lookupBoolAnnotation(annotations, NoDepotVolumeManagementAnnotation, false)
+}
+
+// DisableExtraPathsAutoMount will return true if we should not auto-mount the extra paths
+// in the operator, allowing different provisioning mechanisms (such as manual mounts)
+func DisableExtraPathsAutoMount(annotations map[string]string) bool {
+	return lookupBoolAnnotation(annotations, NoExtraPathsAutoMountAnnotation, false)
 }
 
 // GetNMAResource is used to retrieve a specific resource for the NMA
