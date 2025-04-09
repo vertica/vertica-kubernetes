@@ -210,6 +210,8 @@ func (c *CmdClusterHealth) Run(vcc vclusterops.ClusterCommands) error {
 		return err
 	}
 
+	const lockCascade = "lock_cascade"
+
 	var bytes []byte
 	switch c.clusterHealthOptions.Operation {
 	case "get_slow_events":
@@ -218,15 +220,21 @@ func (c *CmdClusterHealth) Run(vcc vclusterops.ClusterCommands) error {
 		bytes, err = json.MarshalIndent(options.SessionStartsResult, "" /*prefix*/, " " /* indent for one space*/)
 	case "get_transaction_starts":
 		bytes, err = json.MarshalIndent(options.TransactionStartsResult, "" /*prefix*/, " " /* indent for one space*/)
+	case lockCascade:
+		bytes, err = json.MarshalIndent(options.LockEventCascade, "", " ")
 	default: // by default, we will build a cascade graph
-		bytes, err = json.MarshalIndent(options.CascadeStack, "", " ")
+		bytes, err = json.MarshalIndent(options.SlowEventCascade, "", " ")
 	}
 
 	if err != nil {
 		return fmt.Errorf("failed to marshal the traceback result, details: %w", err)
 	}
 
-	vcc.DisplayInfo("Successfully build the cascade graph for the slow events")
+	if options.Operation == "" {
+		vcc.DisplayInfo("Successfully build the cascade graph for the slow events")
+	} else if options.Operation == lockCascade {
+		vcc.DisplayInfo("Successfully build the cascade graph for the lock events")
+	}
 
 	// output the result to console or file
 	c.writeCmdOutputToFile(globals.file, bytes, vcc.GetLog())
