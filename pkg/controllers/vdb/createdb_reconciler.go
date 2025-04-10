@@ -124,10 +124,6 @@ func (c *CreateDBReconciler) execCmd(ctx context.Context, initiatorPod types.Nam
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	passwd, err := vk8s.GetSuperuserPassword(ctx, c.VRec.Client, c.Log, c.VRec.GetEventRecorder(), c.Vdb)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
 	c.VRec.Event(c.Vdb, corev1.EventTypeNormal, events.CreateDBStart, "Starting create database")
 	start := time.Now()
 	if res, err := c.Dispatcher.CreateDB(ctx, opts...); verrors.IsReconcileAborted(res, err) {
@@ -135,7 +131,7 @@ func (c *CreateDBReconciler) execCmd(ctx context.Context, initiatorPod types.Nam
 	}
 	if c.Vdb.IsCertRotationEnabled() {
 		cmd := []string{
-			"--password", passwd, "-f", PostDBCreateSQLFileVclusterOps,
+			"-f", PostDBCreateSQLFileVclusterOps,
 		}
 		_, stderr, err2 := c.PRunner.ExecVSQL(ctx, initiatorPod, names.ServerContainer, cmd...)
 		if err2 != nil || strings.Contains(stderr, "Error") {
