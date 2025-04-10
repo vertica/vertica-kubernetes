@@ -19,7 +19,7 @@ commands:
       SQL_SCRIPT=/tmp/logrotate.sql
       POD_NAME=v-verify-server-logrotate-main-0
       LOGRORATE_EXPECTED_OUTPUT=/tmp/logrotateTimerServiceOut.txt
-      LOGROTATE_OP=$(kubectl exec $POD_NAME -i -c server -- bash -c "cd /tmp; vsql -U dbadmin -f $SQL_SCRIPT")
+      LOGROTATE_OP=$(kubectl exec $POD_NAME -n $NAMESPACE  -i -c server -- bash -c "cd /tmp; vsql -U dbadmin -f $SQL_SCRIPT")
       if [[ "$USE_CERT_ROTATION" = "true" ]]; then
         LOGRORATE_EXPECTED_OUTPUT=/tmp/logrotateTimerServiceOutWithCustomCert.txt
       fi
@@ -28,7 +28,7 @@ commands:
       echo "use cert rotation: $USE_CERT_ROTATION"
       echo "output file: $LOGRORATE_EXPECTED_OUTPUT"
       echo "$LOGROTATE_OP"
-      RESULT_DIFF=$(kubectl exec $POD_NAME -i -c server -- bash -c "echo '$LOGROTATE_OP' | diff - $LOGRORATE_EXPECTED_OUTPUT")
+      RESULT_DIFF=$(kubectl exec $POD_NAME -n $NAMESPACE -i -c server -- bash -c "echo '$LOGROTATE_OP' | diff - $LOGRORATE_EXPECTED_OUTPUT")
       if [[ "$RESULT_DIFF" == "" ]]; then
         echo "Result is good. No diff."
       else
