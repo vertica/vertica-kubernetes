@@ -105,9 +105,19 @@ const (
 	// waits for its startup.  If omitted, we use the default timeout of 5 minutes.
 	CreateDBTimeoutAnnotation = "vertica.com/createdb-timeout"
 
-	// The time in seconds to wait for a subcluster or database users' disconnection, its default value is 60
+	// The time in seconds to wait for a subcluster or database users' disconnection, its default value is 60.
+	// This is a leagacy code as we used to use this to control draining timeout during stop db and stop subcmuster.
+	// Now there is a single annotation "vertica.com/active-connections-drain-seconds" to drain users' connections.
 	ShutdownDrainSecondsAnnotation = "vertica.com/shutdown-drain-seconds"
 	ShutdownDefaultDrainSeconds    = 60
+
+	// The time at which draining pending delete pods has started. When greater than 'vertica.com/remove-drain-seconds'
+	// it means the timeout has expired and all active connections will be closed.
+	DrainStartAnnotation = "vertica.com/drain-start-time"
+
+	// The time in seconds to wait for a subcluster or database users' disconnection, its default value is 60
+	ActiveConnectionsDrainSecondsAnnotation = "vertica.com/active-connections-drain-seconds"
+	ActiveConnectionsDefaultDrainSeconds    = 60
 
 	// The timeout, in seconds, to use when the operator is performing online upgrade
 	// for various tasks. If omitted, we use the default timeout of 5 minutes.
@@ -457,9 +467,22 @@ func GetCreateDBNodeStartTimeout(annotations map[string]string) int {
 	return lookupIntAnnotation(annotations, CreateDBTimeoutAnnotation, 0 /* default value */)
 }
 
-// GetShutdownCDrainSeconds returns the time in seconds to wait for a subcluster/database users' disconnection
-func GetShutdownDrainSeconds(annotations map[string]string) int {
+// getShutdownDrainSeconds returns the time in seconds to wait for a subcluster/database users' disconnection
+func getShutdownDrainSeconds(annotations map[string]string) int {
 	return lookupIntAnnotation(annotations, ShutdownDrainSecondsAnnotation, ShutdownDefaultDrainSeconds /* default value */)
+}
+
+// GetActiveConnectionsDrainSeconds returns the time in seconds to wait for a subcluster/database users' disconnection.
+// It checks the ActiveConnectionsDrainSeconds annotation first,
+// falling back to ShutdownDrainSeconds if not set, and finally uses the default.
+func GetActiveConnectionsDrainSeconds(annotations map[string]string) int {
+	if _, found := annotations[ActiveConnectionsDrainSecondsAnnotation]; found {
+		return lookupIntAnnotation(annotations, ActiveConnectionsDrainSecondsAnnotation, ActiveConnectionsDefaultDrainSeconds /* default value */)
+	}
+	if _, found := annotations[ShutdownDrainSecondsAnnotation]; found {
+		return getShutdownDrainSeconds(annotations)
+	}
+	return ActiveConnectionsDefaultDrainSeconds
 }
 
 // GetOnlineUpgradeTimeout returns the timeout to use for pause/redirect sessions

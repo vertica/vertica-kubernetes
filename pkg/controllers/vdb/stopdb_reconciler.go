@@ -116,7 +116,7 @@ func (s *StopDBReconciler) runATCmd(ctx context.Context, initiatorName types.Nam
 		stopdb.WithInitiator(initiatorName, initiatorIP),
 		stopdb.WithSandbox(s.PFacts.GetSandboxName()),
 		stopdb.WithZeroDrain(false),
-		stopdb.WithDrainSeconds(s.Vdb.GetShutdownDrainSeconds()),
+		stopdb.WithDrainSeconds(s.Vdb.GetActiveConnectionsDrainSeconds()),
 	}
 	start := time.Now()
 	if err := s.Dispatcher.StopDB(ctx, opts...); err != nil {
