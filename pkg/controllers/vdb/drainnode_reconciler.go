@@ -60,9 +60,9 @@ func (s *DrainNodeReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (c
 	// Note: this reconciler depends on the client routing reconciler to have run
 	// and directed traffic away from pending delete pods.
 	timeoutInt := s.Vdb.GetActiveConnectionsDrainSeconds()
-	hasTimeoutZero := false
+	// If timeout is zero, we move on to the next reconciler (DBRemoveNodeReconciler|DBRemoveSubclusterReconciler)
 	if timeoutInt == 0 {
-		hasTimeoutZero = true
+		return ctrl.Result{}, nil
 	}
 
 	pfs, err := s.getPendingDeletePods(ctx)
@@ -74,11 +74,6 @@ func (s *DrainNodeReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (c
 	// the drain start time annotation (if set) and return
 	if len(pfs) == 0 {
 		return ctrl.Result{}, s.removeDrainStartAnnotation(ctx)
-	}
-
-	// If timeout is zero, we move on to the next reconciler (DBRemoveNodeReconciler|DBRemoveSubclusterReconciler)
-	if hasTimeoutZero {
-		return ctrl.Result{}, nil
 	}
 
 	drainStartTimeStr, found := s.Vdb.Annotations[vmeta.DrainStartAnnotation]
