@@ -127,6 +127,7 @@ type nodeStateInfo struct {
 	Version          string   `json:"build_info"`
 	IsControlNode    bool     `json:"is_control_node"`
 	ControlNode      string   `json:"control_node"`
+	IsComputeNode    bool     `json:"is_compute_node"`
 }
 
 func (node *nodeStateInfo) asNodeInfo() (n NodeInfo, err error) {
@@ -286,7 +287,8 @@ func (vcc VClusterCommands) getVDBFromRunningDBImpl(vdb *VCoordinationDatabase, 
 	if err != nil {
 		return fmt.Errorf("fail to set userPassword while retrieving database configurations, %w", err)
 	}
-
+	// this excludes responses from compute nodes, which is a must-have
+	// because compute nodes may not have up-to-date catalog
 	httpsGetNodesInfoOp, err := makeHTTPSGetNodesInfoOp(options.DBName, options.Hosts,
 		options.usePassword, options.UserName, options.Password, vdb, allowUseSandboxRes, sandbox)
 	if err != nil {
@@ -304,6 +306,8 @@ func (vcc VClusterCommands) getVDBFromRunningDBImpl(vdb *VCoordinationDatabase, 
 
 	// update node state for sandboxed nodes
 	if allowUseSandboxRes || updateNodeState {
+		// this op gets node status via https call to each single node
+		// such that it knows the true status for every node.
 		httpsUpdateNodeState, e := makeHTTPSUpdateNodeStateOp(vdb, options.usePassword, options.UserName, options.Password)
 		if e != nil {
 			return fmt.Errorf("fail to produce httpsUpdateNodeState instruction while updating node states, %w", e)
@@ -419,6 +423,45 @@ func getInitiatorFromUpHosts(upHosts, userProvidedHosts []string) string {
 
 	// Return an empty string if no matching host is found
 	return ""
+}
+
+func getPrimaryUpInitiatorForDBGroup(vdb *VCoordinationDatabase, targetSandbox string) string {
+	for _, host := range vdb.PrimaryUpNodes {
+		vnode, ok := vdb.HostNodeMap[host]
+		if !ok {
+			return ""
+		}
+		if (vnode.Sandbox == targetSandbox) && (!vnode.IsComputeNode) {
+			return host
+		}
+	}
+	return ""
+}
+
+func getSecondaryUpInitiatorForDBGroup(vdb *VCoordinationDatabase, targetSandbox string) string {
+	for _, host := range vdb.SecondaryUpNodes {
+		vnode, ok := vdb.HostNodeMap[host]
+		if !ok {
+			return ""
+		}
+		if (vnode.Sandbox == targetSandbox) && (!vnode.IsComputeNode) {
+			return host
+		}
+	}
+	return ""
+}
+
+// pick an intiator from the relevant sandbox
+// this first considers primary UP nodes, and then secondary UP nodes
+func getInitiatorForDBGroupFromVDB(vdb *VCoordinationDatabase, targetSandbox string) (string, error) {
+	host := getPrimaryUpInitiatorForDBGroup(vdb, targetSandbox)
+	if host == "" {
+		host = getSecondaryUpInitiatorForDBGroup(vdb, targetSandbox)
+		if host == "" {
+			return host, fmt.Errorf("cannot find any UP host for the operation")
+		}
+	}
+	return host, nil
 }
 
 // validates each host has an entry in each map
@@ -571,4 +614,13 @@ func extractCatalogPrefix(catalogPath, dbName, nodeName string) (string, bool) {
 		return "", false
 	}
 	return strings.TrimSuffix(catalogPath, catalogSuffix), true
+}
+
+func isResultsFromComputeNodes(host string, nodesStates *nodesStateInfo) bool {
+	for _, node := range nodesStates.NodeList {
+		if node.Address == host && node.IsComputeNode {
+			return true
+		}
+	}
+	return false
 }

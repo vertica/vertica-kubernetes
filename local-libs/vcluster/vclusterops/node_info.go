@@ -27,9 +27,10 @@ type NodeInfo struct {
 	Sandbox     string `json:"sandbox"`
 	IsPrimary   bool   `json:"is_primary"`
 	Version     string `json:"version"`
+	IsCompute   bool   `json:"is_compute"`
 }
 
-// NodeInfo does not contain Eon specific information
+// NodeInfo does not contain Eon specific information such as sandbox and compute node info
 type NodeInfoEnterprise struct {
 	Address     string `json:"address"`
 	Name        string `json:"name"` // vnode name, e.g., v_dbname_node0001
@@ -48,7 +49,8 @@ func (info *nodesInfo) findHosts(hosts []string) bool {
 	inputHostSet := mapset.NewSet(hosts...)
 
 	nodeAddrSet := mapset.NewSet[string]()
-	for _, n := range info.NodeList {
+	for i := range info.NodeList {
+		n := &info.NodeList[i]
 		nodeAddrSet.Add(n.Address)
 	}
 

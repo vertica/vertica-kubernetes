@@ -18,8 +18,6 @@ package vclusterops
 import (
 	"errors"
 	"fmt"
-
-	"github.com/vertica/vcluster/vclusterops/util"
 )
 
 const (
@@ -152,7 +150,7 @@ func (op *nmaDownloadConfigOp) prepareForDownloadConfigs(execContext *opEngineEx
 		var primaryUpHosts []string
 		var upHosts []string
 		for host, vnode := range op.vdb.HostNodeMap {
-			if vnode.State == util.NodeUpState {
+			if vnode.isUpPermanentNode() {
 				// If we do not find a primary up host in the same cluster(or sandbox), try to find a secondary up host
 				if vnode.IsPrimary {
 					primaryUpHosts = append(primaryUpHosts, host)

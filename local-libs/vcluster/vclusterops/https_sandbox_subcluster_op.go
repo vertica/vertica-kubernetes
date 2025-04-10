@@ -158,7 +158,8 @@ func (op *httpsSandboxingOp) processResult(_ *opEngineExecContext) error {
 }
 
 func (op *httpsSandboxingOp) finalize(execContext *opEngineExecContext) error {
-	for _, vnode := range execContext.scNodesInfo {
+	for i := range execContext.scNodesInfo {
+		vnode := &execContext.scNodesInfo[i]
 		*op.sbHosts = append(*op.sbHosts, vnode.Address)
 	}
 	return nil
