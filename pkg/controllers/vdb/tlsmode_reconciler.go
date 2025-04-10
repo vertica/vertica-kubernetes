@@ -55,46 +55,42 @@ func MakeTLSModeReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger, vdb *
 
 // Reconcile will create a TLS secret for the http server if one is missing
 func (h *TLSModeReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
-	if !h.Vdb.IsCertRotationEnabled() || h.Vdb.IsStatusConditionTrue(vapi.TLSCertRotationInProgress) {
+	if !h.Vdb.IsCertRotationEnabled() || h.Vdb.IsStatusConditionTrue(vapi.TLSCertRotationInProgress) ||
+		!h.Vdb.IsStatusConditionTrue(vapi.DBInitialized) {
 		return ctrl.Result{}, nil
 	}
-
 	currentTLSMode := vmeta.GetNMAHTTPSPreviousTLSMode(h.Vdb.Annotations)
 	newTLSMode := h.Vdb.Spec.HTTPSTLSMode
-	h.Log.Info("starting to tls mode reconcile, currentTLSMode - " + currentTLSMode + ", newTLSMode - " + newTLSMode)
+	h.Log.Info("starting to tls mode reconcile, current TLS mode - " + currentTLSMode + ", new TLS mode - " + newTLSMode)
 	// this condition excludes bootstrap scenario
-	if (newTLSMode != "" && currentTLSMode == "") || (newTLSMode != "" &&
-		currentTLSMode != "" && newTLSMode == currentTLSMode) {
+	if currentTLSMode == "" || newTLSMode == currentTLSMode {
 		return ctrl.Result{}, nil
 	}
 	h.VRec.Eventf(h.Vdb, corev1.EventTypeNormal, events.NMATLSModeUpdateStarted,
 		"Starting alter NMA TLS Mode to %s", h.Vdb.Spec.HTTPSTLSMode)
-
 	initiatorPod, ok := h.Pfacts.FindFirstUpPod(false, "")
 	if !ok {
 		h.Log.Info("No pod found to run vsql to alter tls mode. Requeue reconciliation.")
 		return ctrl.Result{Requeue: true}, nil
 	}
-
 	cmd := []string{
-		"-c", fmt.Sprintf(`alter TLS CONFIGURATION https tlsmode '%s';`, h.Vdb.Spec.HTTPSTLSMode),
+		"-c", fmt.Sprintf(`alter TLS CONFIGURATION https tlsmode '%s';`, newTLSMode),
 	}
 	_, stderr, err2 := h.PRunner.ExecVSQL(ctx, initiatorPod.GetName(), names.ServerContainer, cmd...)
 	if err2 != nil || strings.Contains(stderr, "Error") {
-		h.Log.Error(err2, "failed to execute TLS DDL to alter tls mode to "+h.Vdb.Spec.HTTPSTLSMode+" stderr - "+stderr)
+		h.Log.Error(err2, "failed to execute TLS DDL to alter tls mode to "+newTLSMode+" stderr - "+stderr)
 		return ctrl.Result{}, err2
 	}
 	chgs := vk8s.MetaChanges{
 		NewAnnotations: map[string]string{
-			vmeta.NMAHTTPSPreviousTLSMode: h.Vdb.Spec.HTTPSTLSMode,
+			vmeta.NMAHTTPSPreviousTLSMode: newTLSMode,
 		},
 	}
 	if _, err := vk8s.MetaUpdate(ctx, h.VRec.Client, h.Vdb.ExtractNamespacedName(), h.Vdb, chgs); err != nil {
 		return ctrl.Result{}, err
 	}
-	h.Log.Info("TLS DDL executed and TLS mode is set to " + h.Vdb.Spec.HTTPSTLSMode)
+	h.Log.Info("TLS DDL executed and TLS mode is set to " + newTLSMode)
 	h.VRec.Eventf(h.Vdb, corev1.EventTypeNormal, events.NMATLSModeUpdateSucceeded,
-		"Successfully altered NMA TLS Mode to %s", h.Vdb.Spec.HTTPSTLSMode)
-
+		"Successfully altered NMA TLS Mode to %s", newTLSMode)
 	return ctrl.Result{}, nil
 }
