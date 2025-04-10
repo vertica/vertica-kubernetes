@@ -251,7 +251,7 @@ func (v *VerticaDB) validateVerticaDBSpec() field.ErrorList {
 	allErrs = v.validateSandboxes(allErrs)
 	allErrs = v.checkNewSBoxOrSClusterShutdownUnset(allErrs)
 	allErrs = v.validateProxyConfig(allErrs)
-	allErrs = v.hasValidNMATLSMode(allErrs)
+	allErrs = v.hasValidHTTPSTLSMode(allErrs)
 	if len(allErrs) == 0 {
 		return nil
 	}
@@ -2164,21 +2164,20 @@ func (v *VerticaDB) checkImmutableClientProxy(oldObj *VerticaDB, allErrs field.E
 	return allErrs
 }
 
-func (v *VerticaDB) hasValidNMATLSMode(allErrs field.ErrorList) field.ErrorList {
-	if v.Spec.HTTPSTLSMode != "" {
-		TLSMode := strings.ToLower(v.Spec.HTTPSTLSMode)
-		validMode := false
-		for _, mode := range tlsModes {
-			if mode == TLSMode {
-				validMode = true
-			}
+func (v *VerticaDB) hasValidHTTPSTLSMode(allErrs field.ErrorList) field.ErrorList {
+	if !v.IsCertRotationEnabled() {
+		return allErrs
+	}
+	TLSMode := strings.ToLower(v.Spec.HTTPSTLSMode)
+	validMode := false
+	for _, mode := range tlsModes {
+		if mode == TLSMode {
+			validMode = true
 		}
-		if !validMode {
-			err := field.Invalid(field.NewPath("spec").Child("nmaTLSSecret"), v.Spec.HTTPSTLSMode, "invalid tls mode")
-			allErrs = append(allErrs, err)
-		}
-	} else {
-		v.Spec.HTTPSTLSMode = "try_verify"
+	}
+	if !validMode {
+		err := field.Invalid(field.NewPath("spec").Child("httpsTLSMode"), v.Spec.HTTPSTLSMode, "invalid tls mode")
+		allErrs = append(allErrs, err)
 	}
 	return allErrs
 }
