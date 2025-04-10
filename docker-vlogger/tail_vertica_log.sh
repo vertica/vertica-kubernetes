@@ -1,8 +1,22 @@
 #!/bin/sh
 
 # -------------------------------
-# Example usage: LOG_LEVELS="INFO -DEBUG" ./tail_vertica_log.sh
-# Prefix level with '-' to exclude.
+# Parameters: 
+# LOG_LEVEL: Defines the minimum log severity level to print.
+# LOG_FILTER: Comma-separated list (e.g., INFO,-DEBUG) to override LOG_LEVEL, supports includes/excludes
+# 
+# Example usage:
+# Minimal setup: show INFO and above
+# LOG_LEVEL=INFO ./tail_vertica_log.sh
+# 
+# Override log level filter. Show ERROR and above, but keep DEBUG level.
+# LOG_LEVEL=ERROR LOG_FILTER="DEBUG" ./tail_vertica_log.sh
+# 
+# Show log WARNING and above, exclude ERROR. Put log Prefix level with '-' to exclude.
+# LOG_LEVEL=WARNING LOG_FILTER="-ERROR,-WARNING" ./tail_vertica_log.sh
+#
+# Fallback to CLI if env not set: ./tail_vertica_log.sh $LOG_LEVEL $LOG_FILTER
+# e.g: ./tail_vertica_log.sh WARN "DEBUG,-TRACE"
 # 
 # $DBPATH is set by the operator and is the /<localDataPath>/<dbName>.
 # The tail can't be done until the vertica.log is created.  This is because the
@@ -14,56 +28,90 @@
 # Configuration & Valid Log Levels
 # -------------------------------
 
-# Ref: https://docs.vertica.com/23.3.x/en/connecting-to/client-libraries/client-drivers/install-config/ado-netr/ado-net-logging/
-VALID_LEVELS="TRACE DEBUG INFO WARNING ERROR FATAL" 
-LOG_FILE=$DBPATH/v_*_catalog/vertica.log # DBPATH is set by operator
-RAW_LEVELS="${LOG_LEVELS:-$*}" # LOG_LEVELS is set through crd side cars env value
+VALID_LEVELS="DEBUG INFO WARNING ERROR" 
+LOG_LEVEL="${LOG_LEVEL:-$1}" # Defines the minimum log severity level to print.
+LOG_FILTER="${LOG_FILTER:-$2}" # Comma-separated list (e.g., INFO,-DEBUG) to override LOG_LEVEL, supports includes/excludes
+LOG_FILE=$DBPATH/v_*_catalog/vertica.log # Log file path. DBPATH is set by operator
 
 # -------------------------------
 # Helper Functions
 # -------------------------------
 
+# Convert string to upper case
 to_upper() {
   echo "$1" | tr '[:lower:]' '[:upper:]'
 }
 
-is_valid_level() {
-  for lev in $VALID_LEVELS; do
-    [ "$lev" = "$1" ] && return 1
+# Check if a level is valid
+is_invalid_level() {
+  for lvl in $VALID_LEVELS; do [ "$1" = "$lvl" ] && return 0; done
+  return 1
+}
+
+# Build inclusive log pattern from base level
+build_from_base_level() {
+  local base="$1" found=0 result=""
+  for lvl in $VALID_LEVELS; do
+    [ "$lvl" = "$base" ] && found=1
+    [ $found -eq 1 ] && result="$result|<$lvl>"
   done
-  return 0
+  echo "$result" | sed 's/^|//'
 }
 
 # -------------------------------
-# Parse log levels
+# Parse log level filter
 # -------------------------------
 
-for raw in $RAW_LEVELS; do
-  EXCLUDE=0
-  case "$raw" in
-    -*)
-      EXCLUDE=1
-      raw=$(echo "$raw" | sed 's/^-//')
-      ;;
-  esac
+# Parse LOG_FILTER string into include/exclude
+parse_log_filter() {
+  INCLUDE=""
+  EXCLUDE=""
+  IFS=','
 
-  level=$(to_upper "$raw")
-  is_valid_level "$level"
-  if [ $? -ne 1 ]; then
-    echo "Invalid log level found, skip: $level"
-    echo "Valid levels: $VALID_LEVELS"
-    continue
-  fi
+  set -- $1
+  for raw in "$@"; do
+    case "$raw" in
+      -*)
+        lev=$(to_upper "$(echo "$raw" | sed 's/^-//')")
+        ;;
+      *)
+        lev=$(to_upper "$raw")
+        ;;
+    esac
 
-  if [ "$EXCLUDE" -eq 1 ]; then
-    EXCLUDE_LEVELS="${EXCLUDE_LEVELS}${level}|"
-  else
-    INCLUDE_LEVELS="${INCLUDE_LEVELS}${level}|"
-  fi
-done
+    if is_invalid_level "$lev"; then
+      echo "Invalid log level found, skip: $is_valid_level"
+      echo "Valid levels: $VALID_LEVELS"
+      continue
+    fi
+  
+    case "$raw" in
+      -*)
+        EXCLUDE="${EXCLUDE}<${lev}>|"
+        ;;
+      *)
+        INCLUDE="${INCLUDE}<${lev}>|"
+        ;;
+    esac
+  done
+  
+  # Clean trailing pipes
+  INCLUDE_PATTERN=$(echo "$INCLUDE" | sed 's/|$//') # e.g: <INFO>|<WARNING>
+  EXCLUDE_PATTERN=$(echo "$EXCLUDE" | sed 's/|$//') # e.g: <ERROR>|<WARNING>
+}
 
-INCLUDE_PATTERN=$(echo "$INCLUDE_LEVELS" | sed 's/|$//') # e.g: Including log levels: INFO|WARNING
-EXCLUDE_PATTERN=$(echo "$EXCLUDE_LEVELS" | sed 's/|$//') # e.g: Excluding log levels: ERROR|CRITICAL
+# -------------------------------
+# Determine log and filter pattern
+# -------------------------------
+
+if [ -n "$LOG_LEVEL" ]; then
+  LEVEL=$(to_upper "$LOG_LEVEL")
+  is_invalid_level "$LEVEL" || LEVEL="INFO"
+  LEVEL_PATTERN=$(build_from_base_level "$LEVEL") # Provide all log levels after the base level
+fi
+if [ -n "$LOG_FILTER" ]; then
+  parse_log_filter "$LOG_FILTER"
+fi
 
 # -------------------------------
 # Tail and Filter log content with include and exclude pattern
@@ -71,28 +119,33 @@ EXCLUDE_PATTERN=$(echo "$EXCLUDE_LEVELS" | sed 's/|$//') # e.g: Excluding log le
 
 print_logs() {
   tail -n 1 -F $LOG_FILE | while read -r line; do
-    UPPER_LINE=$(to_upper "$line")
-    INCLUDE_MATCH=1
-    EXCLUDE_MATCH=0
-    # Check if new line is in include pattern
-    if [ -n "$INCLUDE_PATTERN" ]; then
-      echo "$UPPER_LINE" | grep -qiE "$INCLUDE_PATTERN" || INCLUDE_MATCH=0
-    fi
-    # Check if new line is in exclude pattern
-    if [ -n "$EXCLUDE_PATTERN" ]; then
-      echo "$UPPER_LINE" | grep -qiE "$EXCLUDE_PATTERN" && EXCLUDE_MATCH=1
+    upper_line=$(to_upper "$line")
+    show=1
+    # Apply Log Level
+    if [ -n "$LEVEL_PATTERN" ]; then # e.g: <INFO>|<WARNING>|<ERROR>
+      echo "$upper_line" | grep -qiE "$LEVEL_PATTERN" || show=0
     fi
 
-    if [ "$INCLUDE_MATCH" -eq 1 ] && [ "$EXCLUDE_MATCH" -eq 0 ]; then
-      echo "$line"
+    # Apply INCLUDE filter, overwrite if needed
+    if [ -n "$INCLUDE_PATTERN" ]; then
+      echo "$upper_line" | grep -qiE "$INCLUDE_PATTERN" && show=1
     fi
+
+    # Apply EXCLUDE filter, overwrite if needed
+    if [ -n "$EXCLUDE_PATTERN" ]; then
+      echo "$upper_line" | grep -qiE "$EXCLUDE_PATTERN" && show=0
+    fi
+
+    [ "$show" -eq 1 ] && echo "$line"
   done
 }
 
 # -------------------------------
 # Keep checking if log file available and read
 # -------------------------------
+echo "Waiting for log file: $LOG_FILE"
 until [ -f $LOG_FILE ]; do 
   sleep 5; 
 done; 
+echo "Log file Ready. Tailing..."
 print_logs
