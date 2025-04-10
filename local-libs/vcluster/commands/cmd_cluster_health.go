@@ -51,7 +51,7 @@ This is used for testing and debugging only.
 
 Examples:
   # Check the cluster health
-  vcluster cluster_health
+  vcluster cluster_health --start-time <start_time> --end-time <end_time>
 `,
 		[]string{dbNameFlag, configFlag, hostsFlag, ipv6Flag, passwordFlag, outputFileFlag},
 	)
@@ -64,23 +64,8 @@ Examples:
 	return cmd
 }
 
-// setLocalFlags will set the local flags the command has
+// setLocalFlags will set the local flags the command has local flag of CmdClusterHealth
 func (c *CmdClusterHealth) setLocalFlags(cmd *cobra.Command) {
-	// TODO: add some code here
-	// local flag of CmdClusterHealth,
-	// --operation : the operation type, including "check", "get_slow_events", "get_transaction_starts", "get_session_starts"
-	// --txn-id : the transaction id (for slow event and trsanction start)
-	// --node-name : the node name (for all operations)
-	// --start-time : the start time (for all operations)
-	// --end-time : the end time (for all operations)
-	// --session-id : the session id  (for session start and slow event)
-	// --threshold : the threadhold of seconds for slow events (for get_slow_events)
-	// --thread-id : the thread id (for get_slow_events)
-	// --phase-duration-desc : the phase duration description (for get_slow_events)
-	// --event-desc : the event description (for get_slow_events)
-	// --user-name : the user name (for get_slow_events)
-	// --timezone: the timezone of the start and end time (e.g., -0500 or +0100)
-
 	cmd.Flags().StringVar(
 		&c.clusterHealthOptions.Operation,
 		"operation",
@@ -210,6 +195,8 @@ func (c *CmdClusterHealth) Run(vcc vclusterops.ClusterCommands) error {
 		return err
 	}
 
+	const lockCascade = "lock_cascade"
+
 	var bytes []byte
 	switch c.clusterHealthOptions.Operation {
 	case "get_slow_events":
@@ -218,15 +205,21 @@ func (c *CmdClusterHealth) Run(vcc vclusterops.ClusterCommands) error {
 		bytes, err = json.MarshalIndent(options.SessionStartsResult, "" /*prefix*/, " " /* indent for one space*/)
 	case "get_transaction_starts":
 		bytes, err = json.MarshalIndent(options.TransactionStartsResult, "" /*prefix*/, " " /* indent for one space*/)
+	case lockCascade:
+		bytes, err = json.MarshalIndent(options.LockEventCascade, "", " ")
 	default: // by default, we will build a cascade graph
-		bytes, err = json.MarshalIndent(options.CascadeStack, "", " ")
+		bytes, err = json.MarshalIndent(options.SlowEventCascade, "", " ")
 	}
 
 	if err != nil {
 		return fmt.Errorf("failed to marshal the traceback result, details: %w", err)
 	}
 
-	vcc.DisplayInfo("Successfully build the cascade graph for the slow events")
+	if options.Operation == "" {
+		vcc.DisplayInfo("Successfully build the cascade graph for the slow events")
+	} else if options.Operation == lockCascade {
+		vcc.DisplayInfo("Successfully build the cascade graph for the lock events")
+	}
 
 	// output the result to console or file
 	c.writeCmdOutputToFile(globals.file, bytes, vcc.GetLog())
