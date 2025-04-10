@@ -253,7 +253,7 @@ func (v *VerticaDB) validateVerticaDBSpec() field.ErrorList {
 	allErrs = v.validateSandboxes(allErrs)
 	allErrs = v.checkNewSBoxOrSClusterShutdownUnset(allErrs)
 	allErrs = v.validateProxyConfig(allErrs)
-	allErrs = v.hasValidNMATLSMode(allErrs)
+	allErrs = v.hasValidHTTPSTLSMode(allErrs)
 	if len(allErrs) == 0 {
 		return nil
 	}
