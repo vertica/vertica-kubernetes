@@ -31,6 +31,8 @@ data:
     if [[ "$USE_CERT_ROTATION" = "true" ]]; then
       LOGRORATE_EXPECTED_OUTPUT=/tmp/logrotateTimerServiceOutWithCustomCert.txt
     fi
+    DEBUG_OUTPUT=$(kubectl describe pod $POD_NAME)
+    echo "DEBUG_OUTPUT"
     echo "use cert rotation: $USE_CERT_ROTATION"
     echo "output file: $LOGRORATE_EXPECTED_OUTPUT"
     echo "$LOGROTATE_OP"
