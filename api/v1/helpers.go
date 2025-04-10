@@ -98,6 +98,11 @@ func SetVDBForTLS(v *VerticaDB) {
 	v.Annotations[vmeta.VClusterOpsAnnotation] = trueString
 }
 
+func SetVDBWithSecretForTLS(v *VerticaDB, secretName string) {
+	SetVDBForTLS(v)
+	v.Annotations[vmeta.NMAHTTPSPreviousSecret] = secretName
+}
+
 // MakeVDB is a helper that constructs a fully formed VerticaDB struct using the sample name.
 // This is intended for test purposes.
 func MakeVDB() *VerticaDB {
