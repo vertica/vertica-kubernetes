@@ -30,6 +30,7 @@ spec:
   subclusters:
     - name: main
       size: 3
+  nmaTLSSecret: custom-cert
   certSecrets: []
   imagePullSecrets: []
   volumes: []
