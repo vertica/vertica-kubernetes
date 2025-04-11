@@ -4,17 +4,19 @@
 # Parameters: 
 # LOG_LEVEL: Defines the minimum log severity level to print.
 # LOG_FILTER: Comma-separated list (e.g., INFO,-DEBUG) to override LOG_LEVEL, supports includes/excludes
-# 
+#  
 # Example usage:
-# Minimal setup: show INFO and above
+# No env setup: prints all logs
+# 
+# Minimal setup: show INFO and above(INFO,WARNING,ERROR)
 # LOG_LEVEL=INFO ./tail_vertica_log.sh
 # 
-# Override log level filter. Show ERROR and above, but keep DEBUG level.
+# Override log level filter. Show ERROR and above, but keep the DEBUG level(DEBUG,ERROR)
 # LOG_LEVEL=ERROR LOG_FILTER="DEBUG" ./tail_vertica_log.sh
 # 
-# Show log WARNING and above, exclude ERROR. Put log Prefix level with '-' to exclude.
-# LOG_LEVEL=WARNING LOG_FILTER="-ERROR,-WARNING" ./tail_vertica_log.sh
-#
+# Show log DEBUG and above, exclude INFO. Put log Prefix level with '-' to exclude(DEBUG,WARNING,ERROR)
+# LOG_LEVEL=DEBUG LOG_FILTER="-INFO" ./tail_vertica_log.sh
+# 
 # Fallback to CLI if env not set: ./tail_vertica_log.sh $LOG_LEVEL $LOG_FILTER
 # e.g: ./tail_vertica_log.sh WARN "DEBUG,-TRACE"
 # 
