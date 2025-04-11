@@ -73,6 +73,7 @@ func (op *httpsSlowEventsOp) setupClusterHTTPRequest(hosts []string) error {
 	// compose url from options
 	baseURL := slowEventsURL
 
+	// set up the request for one of the up hosts only
 	for _, host := range hosts[:1] {
 		httpRequest := hostHTTPRequest{}
 		httpRequest.Method = GetMethod
@@ -166,7 +167,7 @@ func (op *httpsSlowEventsOp) processResult(execContext *opEngineExecContext) err
 			}
 
 			// we only need result from one host
-			execContext.slowEvents = &slowEvents
+			execContext.dcSlowEvents = &slowEvents
 			return allErrs
 		}
 	}
