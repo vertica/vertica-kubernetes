@@ -376,7 +376,7 @@ jobs:
           e2e-retry-times: ${{ inputs.e2e_retry_times || 2 }}
   
   e2e-leg-4-vcluster:
-    if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'vcluster leg 4' || inputs.e2e_test_suites == 'vcluster leg 4 cert'  || inputs.e2e_test_suites == '')}}
+    if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'vcluster leg 4' || inputs.e2e_test_suites == '')}}
     needs: [build]
     runs-on: ubuntu-latest
     steps:
@@ -399,7 +399,7 @@ jobs:
           e2e-retry-times: ${{ inputs.e2e_retry_times || 2 }}
 
   e2e-leg-4-vcluster-cert:
-    if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'vcluster leg 4' || inputs.e2e_test_suites == '')}}
+    if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'vcluster leg 4 cert' || inputs.e2e_test_suites == '')}}
     needs: [build]
     runs-on: ubuntu-latest
     steps:
