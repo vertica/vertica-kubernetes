@@ -52,13 +52,19 @@ type opEngineExecContext struct {
 	vdbForSandboxInfo *VCoordinationDatabase
 
 	// slow events
-	slowEvents *dcSlowEvents
+	dcSlowEvents *dcSlowEvents
 
 	// transaction starts
 	dcTransactionStarts *dcTransactionStarts
 
 	// session starts
 	dcSessionStarts *dcSessionStarts
+
+	// lockAttempts list
+	dcLockAttemptsList *[]dcLockAttempts
+
+	// lockReleases list
+	dcLockReleasesList *[]dcLockReleases
 }
 
 func makeOpEngineExecContext(logger vlog.Printer) opEngineExecContext {
