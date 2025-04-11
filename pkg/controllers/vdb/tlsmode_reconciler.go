@@ -61,16 +61,16 @@ func (h *TLSModeReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctr
 	}
 	currentTLSMode := vmeta.GetNMAHTTPSPreviousTLSMode(h.Vdb.Annotations)
 	newTLSMode := h.Vdb.Spec.HTTPSTLSMode
-	h.Log.Info("starting to tls mode reconcile, current TLS mode - " + currentTLSMode + ", new TLS mode - " + newTLSMode)
+	h.Log.Info("starting to reconcile https tls mode, current TLS mode - " + currentTLSMode + ", new TLS mode - " + newTLSMode)
 	// this condition excludes bootstrap scenario
 	if currentTLSMode == "" || newTLSMode == currentTLSMode {
 		return ctrl.Result{}, nil
 	}
 	h.VRec.Eventf(h.Vdb, corev1.EventTypeNormal, events.NMATLSModeUpdateStarted,
-		"Starting alter NMA TLS Mode to %s", h.Vdb.Spec.HTTPSTLSMode)
+		"Starting to update HTTPS TLS Mode to %s", newTLSMode)
 	initiatorPod, ok := h.Pfacts.FindFirstUpPod(false, "")
 	if !ok {
-		h.Log.Info("No pod found to run vsql to alter tls mode. Requeue reconciliation.")
+		h.Log.Info("No pod found to run vsql to update https tls mode. Requeue reconciliation.")
 		return ctrl.Result{Requeue: true}, nil
 	}
 	cmd := []string{
@@ -78,7 +78,7 @@ func (h *TLSModeReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctr
 	}
 	_, stderr, err2 := h.PRunner.ExecVSQL(ctx, initiatorPod.GetName(), names.ServerContainer, cmd...)
 	if err2 != nil || strings.Contains(stderr, "Error") {
-		h.Log.Error(err2, "failed to execute TLS DDL to alter tls mode to "+newTLSMode+" stderr - "+stderr)
+		h.Log.Error(err2, "failed to execute TLS DDL to alter https tls mode to "+newTLSMode+" stderr - "+stderr)
 		return ctrl.Result{}, err2
 	}
 	chgs := vk8s.MetaChanges{
@@ -89,8 +89,8 @@ func (h *TLSModeReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctr
 	if _, err := vk8s.MetaUpdate(ctx, h.VRec.Client, h.Vdb.ExtractNamespacedName(), h.Vdb, chgs); err != nil {
 		return ctrl.Result{}, err
 	}
-	h.Log.Info("TLS DDL executed and TLS mode is set to " + newTLSMode)
+	h.Log.Info("TLS DDL executed and HTTPS TLS mode is updated to " + newTLSMode)
 	h.VRec.Eventf(h.Vdb, corev1.EventTypeNormal, events.NMATLSModeUpdateSucceeded,
-		"Successfully altered NMA TLS Mode to %s", newTLSMode)
+		"Successfully updated HTTPS TLS Mode to %s", newTLSMode)
 	return ctrl.Result{}, nil
 }
