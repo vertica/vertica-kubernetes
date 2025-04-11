@@ -38,7 +38,6 @@ import (
 )
 
 const (
-	invalidDBNameChars    = "$=<>`" + `'^\".@*?#&/-:;{}()[] \~!%+|,`
 	dbNameLengthLimit     = 30
 	KSafety0MinHosts      = 1
 	KSafety0MaxHosts      = 3
@@ -242,6 +241,7 @@ func (v *VerticaDB) validateVerticaDBSpec() field.ErrorList {
 	allErrs = v.hasValidPodSecurityContext(allErrs)
 	allErrs = v.hasValidNMAResourceLimit(allErrs)
 	allErrs = v.hasValidCreateDBTimeout(allErrs)
+	allErrs = v.hasValidDrainTimeout(allErrs)
 	allErrs = v.hasValidUpgradePolicy(allErrs)
 	allErrs = v.hasValidReplicaGroups(allErrs)
 	allErrs = v.validateVersionAnnotation(allErrs)
@@ -334,6 +334,15 @@ func (v *VerticaDB) hasValidSaveRestorePointConfig(allErrs field.ErrorList) fiel
 			"restorePoint is invalid. When save restore point is enabled, "+
 				"archive must be specified.")
 		allErrs = append(allErrs, err)
+	}
+	if v.Spec.RestorePoint != nil {
+		invalidChars := findInvalidChars(v.Spec.RestorePoint.Archive, true)
+		if invalidChars != "" {
+			err := field.Invalid(field.NewPath("spec").Child("restorePoint").Child("archive"),
+				v.Spec.RestorePoint.Archive,
+				fmt.Sprintf(`archive cannot have the characters %q`, invalidChars))
+			allErrs = append(allErrs, err)
+		}
 	}
 	return allErrs
 }
@@ -461,14 +470,12 @@ func (v *VerticaDB) hasValidDBName(allErrs field.ErrorList) field.ErrorList {
 			"dbName cannot exceed 30 characters")
 		allErrs = append(allErrs, err)
 	}
-	invalidChar := invalidDBNameChars
-	for _, c := range invalidChar {
-		if strings.Contains(dbName, string(c)) {
-			err := field.Invalid(field.NewPath("spec").Child("dbName"),
-				v.Spec.DBName,
-				fmt.Sprintf(`dbName cannot have the '%s' character`, string(c)))
-			allErrs = append(allErrs, err)
-		}
+	invalidChars := findInvalidChars(dbName, false)
+	if invalidChars != "" {
+		err := field.Invalid(field.NewPath("spec").Child("dbName"),
+			v.Spec.DBName,
+			fmt.Sprintf(`dbName cannot have the characters %q`, invalidChars))
+		allErrs = append(allErrs, err)
 	}
 	return allErrs
 }
@@ -1033,14 +1040,11 @@ func (v *VerticaDB) hasValidNMAResourceLimit(allErrs field.ErrorList) field.Erro
 }
 
 func (v *VerticaDB) hasValidCreateDBTimeout(allErrs field.ErrorList) field.ErrorList {
-	createDBTimeout := v.GetCreateDBNodeStartTimeout()
-	if createDBTimeout < 0 {
-		annotationName := vmeta.CreateDBTimeoutAnnotation
-		err := field.Invalid(field.NewPath("metadata").Child("annotations").Child(annotationName),
-			createDBTimeout, fmt.Sprintf("%s must be non-negative", annotationName))
-		allErrs = append(allErrs, err)
-	}
-	return allErrs
+	return hasValidIntAnnotation(allErrs, vmeta.CreateDBTimeoutAnnotation, v.GetCreateDBNodeStartTimeout())
+}
+
+func (v *VerticaDB) hasValidDrainTimeout(allErrs field.ErrorList) field.ErrorList {
+	return hasValidIntAnnotation(allErrs, vmeta.ActiveConnectionsDrainSecondsAnnotation, v.GetActiveConnectionsDrainSeconds())
 }
 
 func (v *VerticaDB) hasValidUpgradePolicy(allErrs field.ErrorList) field.ErrorList {

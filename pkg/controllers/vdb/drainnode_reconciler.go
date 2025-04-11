@@ -18,14 +18,16 @@ package vdb
 import (
 	"context"
 	"fmt"
+	"time"
 
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
-	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
+	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
+	"github.com/vertica/vertica-kubernetes/pkg/vk8s"
 	corev1 "k8s.io/api/core/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -55,17 +57,46 @@ func (s *DrainNodeReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (c
 		return ctrl.Result{}, err
 	}
 
-	// Note: this reconciler depends on the clien routing reconciler to have run
+	// Note: this reconciler depends on the client routing reconciler to have run
 	// and directed traffic away from pending delete pods.
-	for _, pf := range s.PFacts.Detail {
-		if pf.GetIsPendingDelete() && pf.GetUpNode() {
-			if res, err := s.reconcilePod(ctx, pf); verrors.IsReconcileAborted(res, err) {
-				return res, err
-			}
-		}
+	timeoutInt := s.Vdb.GetActiveConnectionsDrainSeconds()
+	// If timeout is zero, we move on to the next reconciler (DBRemoveNodeReconciler|DBRemoveSubclusterReconciler)
+	if timeoutInt == 0 {
+		return ctrl.Result{}, nil
 	}
 
-	return ctrl.Result{}, nil
+	pfs, err := s.getPendingDeletePods(ctx)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	// If no pending delete pods have active connection, we remove
+	// the drain start time annotation (if set) and return
+	if len(pfs) == 0 {
+		return ctrl.Result{}, s.removeDrainStartAnnotation(ctx)
+	}
+
+	drainStartTimeStr, found := s.Vdb.Annotations[vmeta.DrainStartAnnotation]
+	// If drain start time annotation is not set, we set it and requeue after 1s
+	if !found {
+		s.VRec.Log.Info("Starting draining before removing nodes")
+		return ctrl.Result{RequeueAfter: 1 * time.Second}, s.setDrainStartAnnotation(ctx)
+	}
+
+	var drainStartTime time.Time
+	drainStartTime, err = time.Parse(time.RFC3339, drainStartTimeStr)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	elapsed := time.Since(drainStartTime)
+	timeout := time.Duration(timeoutInt) * time.Second
+	// If timeout has expired, we move on to the next reconciler (DBRemoveNodeReconciler|DBRemoveSubclusterReconciler)
+	if elapsed >= timeout {
+		s.VRec.Log.Info("Draining timeout has expired")
+		return ctrl.Result{}, s.removeDrainStartAnnotation(ctx)
+	}
+
+	return ctrl.Result{RequeueAfter: 1 * time.Second}, nil
 }
 
 // reconcilePod will handle drain logic for a single pod
@@ -90,4 +121,45 @@ func (s *DrainNodeReconciler) reconcilePod(ctx context.Context, pf *podfacts.Pod
 			"Pod '%s' has active connections preventing the drain from succeeding", pf.GetName().Name)
 	}
 	return ctrl.Result{Requeue: activeConnections}, nil
+}
+
+// getPendingDeletePods returns pods that are pending delete and still have active connections
+func (s *DrainNodeReconciler) getPendingDeletePods(ctx context.Context) ([]*podfacts.PodFact, error) {
+	pfs := []*podfacts.PodFact{}
+	for _, pf := range s.PFacts.FindPendingDeletePods() {
+		result, err := s.reconcilePod(ctx, pf)
+		if err != nil {
+			return nil, err
+		} else if result.Requeue {
+			pfs = append(pfs, pf)
+		}
+	}
+	return pfs, nil
+}
+
+func (s *DrainNodeReconciler) removeDrainStartAnnotation(ctx context.Context) error {
+	clearDrainStartAnnotation := func() (updated bool, err error) {
+		if _, found := s.Vdb.Annotations[vmeta.DrainStartAnnotation]; found {
+			delete(s.Vdb.Annotations, vmeta.DrainStartAnnotation)
+			updated = true
+		}
+		return
+	}
+	_, err := vk8s.UpdateVDBWithRetry(ctx, s.VRec, s.Vdb, clearDrainStartAnnotation)
+	return err
+}
+
+func (s *DrainNodeReconciler) setDrainStartAnnotation(ctx context.Context) error {
+	addDrainStartAnnotation := func() (updated bool, err error) {
+		if s.Vdb.Annotations == nil {
+			s.Vdb.Annotations = make(map[string]string)
+		}
+		if _, found := s.Vdb.Annotations[vmeta.DrainStartAnnotation]; !found {
+			s.Vdb.Annotations[vmeta.DrainStartAnnotation] = time.Now().Format(time.RFC3339)
+			updated = true
+		}
+		return
+	}
+	_, err := vk8s.UpdateVDBWithRetry(ctx, s.VRec, s.Vdb, addDrainStartAnnotation)
+	return err
 }
