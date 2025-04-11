@@ -44,10 +44,11 @@ type VClusterHealthOptions struct {
 	Timezone          string
 
 	// hidden option
-	CascadeStack            []SlowEventNode
+	SlowEventCascade        []SlowEventNode
 	SessionStartsResult     *dcSessionStarts
 	TransactionStartsResult *dcTransactionStarts
 	SlowEventsResult        *dcSlowEvents
+	LockEventCascade        []nodeLockEvents
 }
 
 type SlowEventNode struct {
@@ -59,8 +60,14 @@ type SlowEventNode struct {
 	Leaf            bool                `json:"leaf"`
 }
 
-const timeLayout = "2006-01-02 15:04:05.999999"
-const maxDepth = 100
+const (
+	timeLayout       = "2006-01-02 15:04:05.999999"
+	maxDepth         = 100
+	lockCascade      = "lock_cascade"
+	getTxnStarts     = "get_transaction_starts"
+	getSessionStarts = "get_session_starts"
+	getSlowEvents    = "get_slow_events"
+)
 
 func VClusterHealthFactory() VClusterHealthOptions {
 	options := VClusterHealthOptions{}
@@ -160,10 +167,16 @@ func (options *VClusterHealthOptions) validateAnalyzeOptions(log vlog.Printer) e
 }
 
 func (vcc VClusterCommands) VClusterHealth(options *VClusterHealthOptions) error {
+	// need username for Go client authentication
+	err := options.validateUserName(vcc.Log)
+	if err != nil {
+		return err
+	}
+
 	vdb := makeVCoordinationDatabase()
 
 	// validate and analyze options
-	err := options.validateAnalyzeOptions(vcc.Log)
+	err = options.validateAnalyzeOptions(vcc.Log)
 	if err != nil {
 		return err
 	}
@@ -176,13 +189,15 @@ func (vcc VClusterCommands) VClusterHealth(options *VClusterHealthOptions) error
 	operation := options.Operation
 	var runError error
 	switch operation {
-	case "get_slow_events":
+	case getSlowEvents:
 		options.SlowEventsResult, runError = options.getSlowEvents(vcc.Log, vdb.PrimaryUpNodes, options.ThreadID, options.StartTime,
 			options.EndTime, false /*Not for cascade*/)
-	case "get_session_starts":
+	case getSessionStarts:
 		options.SessionStartsResult, runError = options.getSessionStarts(vcc.Log, vdb.PrimaryUpNodes, options.SessionID)
-	case "get_transaction_starts":
+	case getTxnStarts:
 		options.TransactionStartsResult, runError = options.getTransactionStarts(vcc.Log, vdb.PrimaryUpNodes, options.TxnID)
+	case lockCascade:
+		runError = options.buildLockCascadeGraph(vcc.Log, vdb.PrimaryUpNodes)
 	default: // by default, we will build a cascade graph
 		runError = options.buildCascadeGraph(vcc.Log, vdb.PrimaryUpNodes)
 	}
@@ -227,7 +242,7 @@ func (options *VClusterHealthOptions) buildCascadeGraph(logger vlog.Printer, upH
 		return err
 	}
 
-	options.CascadeStack = append(options.CascadeStack, SlowEventNode{0, &slowestEvent,
+	options.SlowEventCascade = append(options.SlowEventCascade, SlowEventNode{0, &slowestEvent,
 		sessionInfo, transactionInfo, nil /*prior hold events*/, false})
 
 	// recursively traceback
@@ -257,8 +272,8 @@ func (options *VClusterHealthOptions) recursiveTraceback(logger vlog.Printer,
 
 	// update the leaf node info
 	if len(slowEvents.SlowEventList) == 0 {
-		length := len(options.CascadeStack)
-		options.CascadeStack[length-1].Leaf = true
+		length := len(options.SlowEventCascade)
+		options.SlowEventCascade[length-1].Leaf = true
 		return nil
 	}
 
@@ -285,8 +300,8 @@ func (options *VClusterHealthOptions) recursiveTraceback(logger vlog.Printer,
 		// - the caller's thread ID is empty or
 		// - the caller's thread ID is same as the current event thread ID
 		if callerThreadID == "" || callerThreadID == threadID {
-			length := len(options.CascadeStack)
-			options.CascadeStack[length-1].Leaf = true
+			length := len(options.SlowEventCascade)
+			options.SlowEventCascade[length-1].Leaf = true
 			return nil
 		}
 
@@ -295,7 +310,7 @@ func (options *VClusterHealthOptions) recursiveTraceback(logger vlog.Printer,
 			return nil
 		}
 
-		options.CascadeStack = append(options.CascadeStack, SlowEventNode{depth, &event,
+		options.SlowEventCascade = append(options.SlowEventCascade, SlowEventNode{depth, &event,
 			sessionInfo, transactionInfo, nil, leaf})
 
 		// go to trace the caller event
@@ -341,7 +356,7 @@ func analyzeSlowEvent(event *dcSlowEvent) (
 }
 
 func (options *VClusterHealthOptions) fillLockHoldInfo(logger vlog.Printer, upHosts []string) error {
-	for i, event := range options.CascadeStack {
+	for i, event := range options.SlowEventCascade {
 		if !event.Leaf {
 			continue
 		}
@@ -352,12 +367,12 @@ func (options *VClusterHealthOptions) fillLockHoldInfo(logger vlog.Printer, upHo
 			return nil
 		}
 
-		holdEvents, err := options.getLockHoldEvents(logger, upHosts, start.Format(timeLayout), end.Format(timeLayout))
+		holdEvents, err := options.getLockHoldSlowEvents(logger, upHosts, start.Format(timeLayout), end.Format(timeLayout))
 		if err != nil {
 			return err
 		}
 		event.PriorHoldEvents = holdEvents.SlowEventList
-		options.CascadeStack[i] = event
+		options.SlowEventCascade[i] = event
 	}
 
 	return nil
@@ -380,12 +395,12 @@ func (options *VClusterHealthOptions) getSlowEvents(logger vlog.Printer, upHosts
 	clusterOpEngine := makeClusterOpEngine(instructions, &options.DatabaseOptions)
 	err = clusterOpEngine.run(logger)
 	if err != nil {
-		return slowEvents, fmt.Errorf("fail to retrieve database configurations, %w", err)
+		return slowEvents, fmt.Errorf("fail to get slow events, %w", err)
 	}
-	return clusterOpEngine.execContext.slowEvents, nil
+	return clusterOpEngine.execContext.dcSlowEvents, nil
 }
 
-func (options *VClusterHealthOptions) getLockHoldEvents(logger vlog.Printer, upHosts []string,
+func (options *VClusterHealthOptions) getLockHoldSlowEvents(logger vlog.Printer, upHosts []string,
 	startTime, endTime string) (slowEvents *dcSlowEvents, err error) {
 	var instructions []clusterOp
 
@@ -396,10 +411,10 @@ func (options *VClusterHealthOptions) getLockHoldEvents(logger vlog.Printer, upH
 	clusterOpEngine := makeClusterOpEngine(instructions, &options.DatabaseOptions)
 	err = clusterOpEngine.run(logger)
 	if err != nil {
-		return slowEvents, fmt.Errorf("fail to retrieve database configurations, %w", err)
+		return slowEvents, fmt.Errorf("fail to get hold-related slow events, %w", err)
 	}
 
-	return clusterOpEngine.execContext.slowEvents, nil
+	return clusterOpEngine.execContext.dcSlowEvents, nil
 }
 
 func (options *VClusterHealthOptions) getSessionStarts(logger vlog.Printer, upHosts []string,
@@ -413,7 +428,7 @@ func (options *VClusterHealthOptions) getSessionStarts(logger vlog.Printer, upHo
 	clusterOpEngine := makeClusterOpEngine(instructions, &options.DatabaseOptions)
 	err = clusterOpEngine.run(logger)
 	if err != nil {
-		return sessionStarts, fmt.Errorf("fail to retrieve database configurations, %w", err)
+		return sessionStarts, fmt.Errorf("fail to get session starts, %w", err)
 	}
 
 	return clusterOpEngine.execContext.dcSessionStarts, nil
@@ -446,7 +461,7 @@ func (options *VClusterHealthOptions) getTransactionStarts(logger vlog.Printer, 
 	clusterOpEngine := makeClusterOpEngine(instructions, &options.DatabaseOptions)
 	err = clusterOpEngine.run(logger)
 	if err != nil {
-		return transactionInfo, fmt.Errorf("fail to retrieve database configurations, %w", err)
+		return transactionInfo, fmt.Errorf("fail to get transaction starts, %w", err)
 	}
 
 	return clusterOpEngine.execContext.dcTransactionStarts, nil
@@ -484,18 +499,26 @@ func (options *VClusterHealthOptions) getEventSessionAndTxnInfo(logger vlog.Prin
 }
 
 func (options *VClusterHealthOptions) DisplayCascadeGraph() {
-	for _, eventNode := range options.CascadeStack {
-		indent := strings.Repeat(" ", eventNode.Depth)
-		var prefix string
-		if eventNode.Depth > 0 {
-			prefix = "|-"
+	if options.Operation == "" { // slow events cascade
+		for _, eventNode := range options.SlowEventCascade {
+			indent := strings.Repeat(" ", eventNode.Depth)
+			var prefix string
+			if eventNode.Depth > 0 {
+				prefix = "|-"
+			}
+			if eventNode.Leaf {
+				fmt.Printf("%s%s slow_event: %+v session: %+v transaction: %+v hold_events: %d #\n",
+					indent, prefix, *eventNode.Event, *eventNode.Session, *eventNode.Transaction, len(eventNode.PriorHoldEvents))
+			} else {
+				fmt.Printf("%s%s slow_event: %+v session: %+v transaction: %+v\n",
+					indent, prefix, *eventNode.Event, *eventNode.Session, *eventNode.Transaction)
+			}
 		}
-		if eventNode.Leaf {
-			fmt.Printf("%s%s slow_event: %+v session: %+v transaction: %+v hold_events: %d #\n",
-				indent, prefix, *eventNode.Event, *eventNode.Session, *eventNode.Transaction, len(eventNode.PriorHoldEvents))
-		} else {
-			fmt.Printf("%s%s slow_event: %+v session: %+v transaction: %+v\n",
-				indent, prefix, *eventNode.Event, *eventNode.Session, *eventNode.Transaction)
+	} else if options.Operation == lockCascade { // lock events cascade
+		for _, eventNode := range options.LockEventCascade {
+			fmt.Println(eventNode.NodeName)
+			fmt.Printf("  Wait locks: %+v\n", eventNode.LockWaitEvents)
+			fmt.Printf("  Hold locks related to the earliest wait lock: %+v\n", eventNode.LockHoldEvents)
 		}
 	}
 }
