@@ -153,6 +153,11 @@ func addReconcilersToManager(mgr manager.Manager, restCfg *rest.Config) {
 		setupLog.Error(err, "unable to create controller", "controller", "VerticaScrutinize")
 		os.Exit(1)
 	}
+	sbRateLimiter := workqueue.NewItemExponentialFailureRateLimiter(1*time.Millisecond,
+		time.Duration(opcfg.GetSandboxMaxBackoffDuration())*time.Millisecond)
+	sbOptions := controller.Options{
+		RateLimiter: sbRateLimiter,
+	}
 	if err := (&sandbox.SandboxConfigMapReconciler{
 		Client:      mgr.GetClient(),
 		Scheme:      mgr.GetScheme(),
@@ -160,7 +165,7 @@ func addReconcilersToManager(mgr manager.Manager, restCfg *rest.Config) {
 		EVRec:       mgr.GetEventRecorderFor(vmeta.OperatorName),
 		Log:         ctrl.Log.WithName("controllers").WithName("sandbox"),
 		Concurrency: opcfg.GetSandboxConfigMapConcurrency(),
-	}).SetupWithManager(mgr); err != nil {
+	}).SetupWithManager(mgr, &sbOptions); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "sandbox")
 		os.Exit(1)
 	}
