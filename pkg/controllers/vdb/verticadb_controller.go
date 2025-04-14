@@ -188,9 +188,15 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		MakeCrashLoopReconciler(r, log, vdb),
 		// Always generate cert first if nothing is provided
 		MakeTLSServerCertGenReconciler(r, log, vdb),
+		// Trigger sandbox upgrade when the image field for the sandbox
+		// is changed
+		MakeSandboxUpgradeReconciler(r, log, vdb, false),
 		// Update the sandbox/subclusters' shutdown field to match the value of
 		// the spec.
 		MakeShutdownSpecReconciler(r, vdb),
+		// Trigger sandbox shutdown when the shutdown field of the sandbox
+		// is changed
+		MakeSandboxShutdownReconciler(r, log, vdb, false),
 		// Update the vertica image for unsandboxed subclusters
 		MakeUnsandboxImageVersionReconciler(r, vdb, log, pfacts),
 		// Always start with a status reconcile in case the prior reconcile failed.
@@ -288,10 +294,10 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		MakeStatusReconciler(r.Client, r.Scheme, log, vdb, pfacts),
 		// Trigger sandbox upgrade when the image field for the sandbox
 		// is changed
-		MakeSandboxUpgradeReconciler(r, log, vdb),
+		MakeSandboxUpgradeReconciler(r, log, vdb, true),
 		// Trigger sandbox shutdown when the shutdown field of the sandbox
 		// is changed
-		MakeSandboxShutdownReconciler(r, log, vdb),
+		MakeSandboxShutdownReconciler(r, log, vdb, true),
 		// Add the label after update the sandbox subcluster status field
 		MakeObjReconciler(r, log, vdb, pfacts, ObjReconcileModeAll),
 		// Handle calls to create a restore point
