@@ -47,6 +47,7 @@ on:
         - vcluster leg 2
         - vcluster leg 3
         - vcluster leg 4
+        - vcluster leg 4 cert
         - vcluster leg 4 vdb-gen
         - vcluster leg 5
         - vcluster leg 6
@@ -893,6 +894,7 @@ jobs:
       e2e-leg-3-vclusterops-previous-release,
       e2e-leg-3-vcluster,
       e2e-leg-4-vcluster,
+      e2e-leg-4-vcluster-cert,
       e2e-leg-4-vcluster-vdb-gen,
       e2e-leg-5-vcluster,
       e2e-leg-6-vcluster,
