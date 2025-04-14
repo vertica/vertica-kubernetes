@@ -47,6 +47,7 @@ on:
         - vcluster leg 2
         - vcluster leg 3
         - vcluster leg 4
+        - vcluster leg 4 cert
         - vcluster leg 4 vdb-gen
         - vcluster leg 5
         - vcluster leg 6
@@ -392,6 +393,31 @@ jobs:
           operator-image: ${{ needs.build.outputs.operator-image }}
           vertica-image: ${{ needs.build.outputs.minimal-vertica-image }}
           vertica-deployment-method: vclusterops
+          communal-storage-type: s3
+          vertica-superuser-name: myadmin
+          # All helm deployments will use cert-manager to create the webhook cert
+          helm-overrides: '--set webhook.certSource=cert-manager'
+          e2e-retry-times: ${{ inputs.e2e_retry_times || 2 }}
+
+  e2e-leg-4-vcluster-cert:
+    if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'vcluster leg 4 cert' || inputs.e2e_test_suites == '')}}
+    needs: [build]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Test
+        uses: ./.github/actions/run-e2e-leg
+        with:
+          leg-identifier: 'leg-4'
+          dockerhub-username: ${{ secrets.DOCKERHUB_USERNAME }}
+          dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}
+          vlogger-image: ${{ needs.build.outputs.vlogger-image }}
+          operator-image: ${{ needs.build.outputs.operator-image }}
+          vertica-image: ${{ needs.build.outputs.minimal-vertica-image }}
+          vertica-deployment-method: vclusterops
+          use-cert: true
+          cert-suffix: cert
           communal-storage-type: s3
           vertica-superuser-name: myadmin
           # All helm deployments will use cert-manager to create the webhook cert
@@ -868,6 +894,7 @@ jobs:
       e2e-leg-3-vclusterops-previous-release,
       e2e-leg-3-vcluster,
       e2e-leg-4-vcluster,
+      e2e-leg-4-vcluster-cert,
       e2e-leg-4-vcluster-vdb-gen,
       e2e-leg-5-vcluster,
       e2e-leg-6-vcluster,

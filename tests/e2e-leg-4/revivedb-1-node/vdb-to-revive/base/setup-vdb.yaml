@@ -29,6 +29,7 @@ spec:
   subclusters:
     - name: sc1
       size: 1
+  httpServerTLSSecret: custom-cert
   kSafety: "0"
   requeueTime: 5
   certSecrets: []
