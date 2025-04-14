@@ -18,38 +18,45 @@ package vdb
 import (
 	"context"
 	"fmt"
-	"strings"
+	"strconv"
 
 	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
+	"github.com/vertica/vertica-kubernetes/pkg/cloud"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
+	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
-	"github.com/vertica/vertica-kubernetes/pkg/names"
+	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/rotatehttpscerts"
 	"github.com/vertica/vertica-kubernetes/pkg/vk8s"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 // TLSModeReconciler will update the tls modes when they are changed by users
 type TLSModeReconciler struct {
-	VRec    *VerticaDBReconciler
-	Vdb     *vapi.VerticaDB // Vdb is the CRD we are acting on.
-	Log     logr.Logger
-	PRunner cmds.PodRunner
-	Pfacts  *podfacts.PodFacts
+	VRec       *VerticaDBReconciler
+	Vdb        *vapi.VerticaDB // Vdb is the CRD we are acting on.
+	Log        logr.Logger
+	PRunner    cmds.PodRunner
+	Dispatcher vadmin.Dispatcher
+	Pfacts     *podfacts.PodFacts
 }
 
 func MakeTLSModeReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger, vdb *vapi.VerticaDB, prunner cmds.PodRunner,
-	pfacts *podfacts.PodFacts) controllers.ReconcileActor {
+	dispatcher vadmin.Dispatcher, pfacts *podfacts.PodFacts) controllers.ReconcileActor {
 	return &TLSModeReconciler{
-		VRec:    vdbrecon,
-		Vdb:     vdb,
-		Log:     log.WithName("TLSModeReconciler"),
-		PRunner: prunner,
-		Pfacts:  pfacts,
+		VRec:       vdbrecon,
+		Vdb:        vdb,
+		Log:        log.WithName("TLSModeReconciler"),
+		Dispatcher: dispatcher,
+		PRunner:    prunner,
+		Pfacts:     pfacts,
 	}
 }
 
@@ -73,14 +80,49 @@ func (h *TLSModeReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctr
 		h.Log.Info("No pod found to run vsql to update https tls mode. Requeue reconciliation.")
 		return ctrl.Result{Requeue: true}, nil
 	}
-	cmd := []string{
-		"-c", fmt.Sprintf(`alter TLS CONFIGURATION https tlsmode '%s';`, newTLSMode),
+
+	currentSecretName := vmeta.GetNMATLSSecretNameInUse(h.Vdb.Annotations)
+	nmCurrentSecretName := types.NamespacedName{
+		Name:      currentSecretName,
+		Namespace: h.Vdb.GetNamespace(),
 	}
-	_, stderr, err2 := h.PRunner.ExecVSQL(ctx, initiatorPod.GetName(), names.ServerContainer, cmd...)
-	if err2 != nil || strings.Contains(stderr, "Error") {
-		h.Log.Error(err2, "failed to execute TLS DDL to alter https tls mode to "+newTLSMode+" stderr - "+stderr)
-		return ctrl.Result{}, err2
+	secretFetcher := &cloud.SecretFetcher{
+		Client:   h.VRec.Client,
+		Log:      h.Log,
+		EVWriter: h.VRec,
+		Obj:      h.Vdb,
 	}
+	currentSecretData, res, err := secretFetcher.FetchAllowRequeue(ctx, nmCurrentSecretName)
+	if verrors.IsReconcileAborted(res, err) {
+		return res, err
+	}
+	currentSecret := &corev1.Secret{
+		Data: currentSecretData,
+	}
+
+	h.Log.Info("ready to change HTTPS TLS mode from " + currentTLSMode + " to " + newTLSMode)
+	currentCert := string(currentSecret.Data[corev1.TLSCertKey])
+	keyConfig := fmt.Sprintf("{\"data-key\":%q, \"namespace\":%q}", corev1.TLSPrivateKeyKey, h.Vdb.Namespace)
+	certConfig := fmt.Sprintf("{\"data-key\":%q, \"namespace\":%q}", corev1.TLSCertKey, h.Vdb.Namespace)
+	caCertConfig := fmt.Sprintf("{\"data-key\":%q, \"namespace\":%q}", paths.HTTPServerCACrtName, h.Vdb.Namespace)
+	opts := []rotatehttpscerts.Option{
+		rotatehttpscerts.WithPollingKey(string(currentSecret.Data[corev1.TLSPrivateKeyKey])),
+		rotatehttpscerts.WithPollingCert(currentCert),
+		rotatehttpscerts.WithPollingCaCert(string(currentSecret.Data[corev1.ServiceAccountRootCAKey])),
+		rotatehttpscerts.WithKey(h.Vdb.Spec.NMATLSSecret, keyConfig),
+		rotatehttpscerts.WithCert(h.Vdb.Spec.NMATLSSecret, certConfig),
+		rotatehttpscerts.WithCaCert(h.Vdb.Spec.NMATLSSecret, caCertConfig),
+		rotatehttpscerts.WithTLSMode("TRY_VERIFY"),
+		rotatehttpscerts.WithInitiator(initiatorPod.GetPodIP()),
+	}
+	h.Log.Info("to call RotateHTTPSCerts for cert " + h.Vdb.Spec.NMATLSSecret + ", tls enabled " +
+		strconv.FormatBool(h.Vdb.IsCertRotationEnabled()))
+	err = h.Dispatcher.RotateHTTPSCerts(ctx, opts...)
+	if err != nil {
+		h.Log.Error(err, "failed to rotate https cer to "+h.Vdb.Spec.NMATLSSecret)
+		return ctrl.Result{Requeue: true}, err
+	}
+
 	chgs := vk8s.MetaChanges{
 		NewAnnotations: map[string]string{
 			vmeta.NMAHTTPSPreviousTLSMode: newTLSMode,
