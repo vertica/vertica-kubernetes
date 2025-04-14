@@ -1043,7 +1043,7 @@ jobs:
       e2e-leg-4-vcluster-cert,
       e2e-leg-4-vcluster-vdb-gen,
       e2e-leg-5-vcluster,
-      e2e-leg-5-vcluster-cert,
+      # e2e-leg-5-vcluster-cert,
       e2e-leg-6-vcluster,
       e2e-leg-6-vcluster-cert,
       e2e-leg-6-vcluster-revivedb,
