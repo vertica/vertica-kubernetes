@@ -12,20 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: v1
-kind: Event
-reason: SandboxNotFound
-source:
-  component: verticadb-operator
-involvedObject:
-  apiVersion: vertica.com/v1beta1
-  kind: VerticaScrutinize
-  name: vertica-scrutinize
----
 apiVersion: vertica.com/v1beta1
 kind: VerticaScrutinize
 metadata:
-  name: vertica-scrutinize
+  name: vertica-scrutinize-sandbox-notexists
 status:
   conditions:
   - reason: SandboxNotFound

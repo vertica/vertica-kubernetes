@@ -14,7 +14,7 @@
 apiVersion: vertica.com/v1beta1
 kind: VerticaScrutinize
 metadata:
-  name: vertica-scrutinize
+  name: vertica-scrutinize-sandbox-notexists
 spec:
   verticaDBName: v-collect-scrutinize
   sandbox: doesnotexist
