@@ -562,6 +562,11 @@ func (v *VerticaDB) IsUpgradeInProgress() bool {
 	return v.IsStatusConditionTrue(UpgradeInProgress)
 }
 
+// IsCertRotationInProgress returns true if an online upgrade is in progress
+func (v *VerticaDB) IsCertRotationInProgress() bool {
+	return v.IsStatusConditionTrue(TLSCertRotationInProgress)
+}
+
 // IsStatusConditionTrue returns true when the conditionType is present and set to
 // `metav1.ConditionTrue`
 func (v *VerticaDB) IsStatusConditionTrue(statusCondition string) bool {
