@@ -38,6 +38,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/describedb"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/revivedb"
 	config "github.com/vertica/vertica-kubernetes/pkg/vdbconfig"
+	"github.com/vertica/vertica-kubernetes/pkg/vk8s"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 	corev1 "k8s.io/api/core/v1"
@@ -137,7 +138,15 @@ func (r *ReviveDBReconciler) execCmd(ctx context.Context, initiatorPod types.Nam
 	if res, err := r.Dispatcher.ReviveDB(ctx, opts...); verrors.IsReconcileAborted(res, err) {
 		return res, err
 	}
-
+	chgs := vk8s.MetaChanges{
+		NewAnnotations: map[string]string{
+			vmeta.NMAHTTPSPreviousSecret: r.Vdb.Spec.NMATLSSecret,
+		},
+	}
+	if _, err := vk8s.MetaUpdate(ctx, r.VRec.Client, r.Vdb.ExtractNamespacedName(), r.Vdb, chgs); err != nil {
+		return ctrl.Result{}, err
+	}
+	r.Log.Info("TLS Cert configured after revival")
 	r.VRec.Eventf(r.Vdb, corev1.EventTypeNormal, events.ReviveDBSucceeded,
 		"Successfully revived database. It took %s", time.Since(start).Truncate(time.Second))
 	return ctrl.Result{}, nil

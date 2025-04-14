@@ -98,7 +98,7 @@ func (h *TLSServerCertGenReconciler) reconcileOneSecret(secretFieldName, secretN
 	if err != nil {
 		return err
 	}
-	cert, err := security.NewCertificate(caCert, "dbadmin", h.getDNSNames())
+	cert, err := security.NewCertificate(caCert, h.Vdb.GetVerticaUser(), h.getDNSNames())
 	if err != nil {
 		return err
 	}
