@@ -1,0 +1,7 @@
+apiVersion: vertica.com/v1
+kind: VerticaDB
+metadata:
+  name: v-tls-certs
+spec:
+  nmaTLSSecret: custom-cert
+  httpsTLSMode: try_verify
