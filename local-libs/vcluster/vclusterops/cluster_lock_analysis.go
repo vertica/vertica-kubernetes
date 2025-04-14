@@ -29,10 +29,10 @@ type nodeLockEvents struct {
 	LockHoldEvents *[]dcLockReleases `json:"hold_locks"` // hold locks related to earliest wait locks
 }
 
-func (options *VClusterHealthOptions) buildLockCascadeGraph(logger vlog.Printer,
+func (opt *VClusterHealthOptions) buildLockCascadeGraph(logger vlog.Printer,
 	upHosts []string) error {
-	lockAttempts, err := options.getLockAttempts(logger, upHosts,
-		options.StartTime, options.EndTime)
+	lockAttempts, err := opt.getLockAttempts(logger, upHosts,
+		opt.StartTime, opt.EndTime)
 	if err != nil {
 		return err
 	}
@@ -63,7 +63,7 @@ func (options *VClusterHealthOptions) buildLockCascadeGraph(logger vlog.Printer,
 	// - start_time - tracebackTime as the new start_time
 	// then request /v1/dc/lock-attempts using the node_name and the new times
 	for _, event := range nodeLockStartMap {
-		e := options.recursiveTraceLocks(logger, upHosts, event, 1)
+		e := opt.recursiveTraceLocks(logger, upHosts, event, 1)
 		if e != nil {
 			return e
 		}
@@ -71,9 +71,9 @@ func (options *VClusterHealthOptions) buildLockCascadeGraph(logger vlog.Printer,
 
 	// sort the cascade result by the start time and duration
 	// node with earlier time and longer duration goes first
-	sort.Slice(options.LockEventCascade, func(i, j int) bool {
-		event1 := options.LockEventCascade[i].LockWaitEvents[len(options.LockEventCascade[i].LockWaitEvents)-1]
-		event2 := options.LockEventCascade[j].LockWaitEvents[len(options.LockEventCascade[j].LockWaitEvents)-1]
+	sort.Slice(opt.LockEventCascade, func(i, j int) bool {
+		event1 := opt.LockEventCascade[i].LockWaitEvents[len(opt.LockEventCascade[i].LockWaitEvents)-1]
+		event2 := opt.LockEventCascade[j].LockWaitEvents[len(opt.LockEventCascade[j].LockWaitEvents)-1]
 		if event1.StartTime != event2.StartTime {
 			return event1.StartTime < event2.StartTime
 		}
@@ -82,9 +82,9 @@ func (options *VClusterHealthOptions) buildLockCascadeGraph(logger vlog.Printer,
 
 	// for each node's result, we pick its earliest lock wait event,
 	// then find out the event's related/correlated lock hold events
-	for i, item := range options.LockEventCascade {
+	for i, item := range opt.LockEventCascade {
 		earliestEvent := item.LockWaitEvents[len(item.LockWaitEvents)-1]
-		e := options.getLockReleases(logger, upHosts, earliestEvent.NodeName,
+		e := opt.getLockReleases(logger, upHosts, earliestEvent.NodeName,
 			earliestEvent.StartTime, earliestEvent.Time, i)
 		if e != nil {
 			return e
@@ -94,19 +94,19 @@ func (options *VClusterHealthOptions) buildLockCascadeGraph(logger vlog.Printer,
 	return nil
 }
 
-func (options *VClusterHealthOptions) getLockAttempts(logger vlog.Printer, upHosts []string,
+func (opt *VClusterHealthOptions) getLockAttempts(logger vlog.Printer, upHosts []string,
 	startTime, endTime string) (lockAttempts *[]dcLockAttempts, err error) {
 	var instructions []clusterOp
 
 	const resultLimit = 1024
-	nmaLockAttemptsOp, err := makeNMALockAttemptsOp(upHosts, options.DatabaseOptions.UserName,
+	nmaLockAttemptsOp, err := makeNMALockAttemptsOp(upHosts, opt.DatabaseOptions.UserName,
 		startTime, endTime, "" /*node name*/, resultLimit)
 	if err != nil {
 		return nil, err
 	}
 	instructions = append(instructions, &nmaLockAttemptsOp)
 
-	clusterOpEngine := makeClusterOpEngine(instructions, &options.DatabaseOptions)
+	clusterOpEngine := makeClusterOpEngine(instructions, &opt.DatabaseOptions)
 	err = clusterOpEngine.run(logger)
 	if err != nil {
 		return nil, fmt.Errorf("fail to get lock waiting events, %w", err)
@@ -115,7 +115,7 @@ func (options *VClusterHealthOptions) getLockAttempts(logger vlog.Printer, upHos
 	return clusterOpEngine.execContext.dcLockAttemptsList, nil
 }
 
-func (options *VClusterHealthOptions) recursiveTraceLocks(logger vlog.Printer, upHosts []string,
+func (opt *VClusterHealthOptions) recursiveTraceLocks(logger vlog.Printer, upHosts []string,
 	event *dcLockAttempts, depth int) error {
 	logger.Info("Lock wait event", "node name", event.NodeName, "event", event)
 
@@ -125,20 +125,20 @@ func (options *VClusterHealthOptions) recursiveTraceLocks(logger vlog.Printer, u
 	}
 
 	var lastElem nodeLockEvents
-	count := len(options.LockEventCascade)
+	count := len(opt.LockEventCascade)
 	if count > 0 {
-		lastElem = options.LockEventCascade[count-1]
+		lastElem = opt.LockEventCascade[count-1]
 	}
 	// if node exists in the result, append new event into it
 	// otherwise, create a new node elem
 	if count > 0 && lastElem.NodeName == event.NodeName {
 		lastElem.LockWaitEvents = append(lastElem.LockWaitEvents, event)
-		options.LockEventCascade[count-1] = lastElem
+		opt.LockEventCascade[count-1] = lastElem
 	} else {
 		var locksInNode nodeLockEvents
 		locksInNode.NodeName = event.NodeName
 		locksInNode.LockWaitEvents = append(locksInNode.LockWaitEvents, event)
-		options.LockEventCascade = append(options.LockEventCascade, locksInNode)
+		opt.LockEventCascade = append(opt.LockEventCascade, locksInNode)
 	}
 
 	var instructions []clusterOp
@@ -153,14 +153,14 @@ func (options *VClusterHealthOptions) recursiveTraceLocks(logger vlog.Printer, u
 	priorTimePoint := start.Add(-time.Duration(tracebackTime) * time.Second)
 	priorTimeStr := priorTimePoint.Format(timeLayout)
 
-	nmaLockAttemptsOp, err := makeNMALockAttemptsOp(upHosts, options.DatabaseOptions.UserName,
+	nmaLockAttemptsOp, err := makeNMALockAttemptsOp(upHosts, opt.DatabaseOptions.UserName,
 		priorTimeStr, event.StartTime, event.NodeName, resultLimit)
 	if err != nil {
 		return err
 	}
 	instructions = append(instructions, &nmaLockAttemptsOp)
 
-	clusterOpEngine := makeClusterOpEngine(instructions, &options.DatabaseOptions)
+	clusterOpEngine := makeClusterOpEngine(instructions, &opt.DatabaseOptions)
 	err = clusterOpEngine.run(logger)
 	if err != nil {
 		return fmt.Errorf("fail to get lock waiting events, %w", err)
@@ -177,30 +177,38 @@ func (options *VClusterHealthOptions) recursiveTraceLocks(logger vlog.Printer, u
 	// here we pick the first element as the result is sorted by start_time already
 	eventWithEarliestStartTime := (*lockAttemptList)[0]
 
-	return options.recursiveTraceLocks(logger, upHosts, &eventWithEarliestStartTime, depth+1)
+	return opt.recursiveTraceLocks(logger, upHosts, &eventWithEarliestStartTime, depth+1)
 }
 
-func (options *VClusterHealthOptions) getLockReleases(logger vlog.Printer, upHosts []string,
+func (opt *VClusterHealthOptions) getLockReleases(logger vlog.Printer, upHosts []string,
 	nodeName, startTime, endTime string, cascadeIndex int) error {
 	var instructions []clusterOp
 
 	const resultLimit = 5
-	nmaLockAttemptsOp, err := makeNMALockReleasesOp(upHosts, options.DatabaseOptions.UserName,
+	nmaLockAttemptsOp, err := makeNMALockReleasesOp(upHosts, opt.DatabaseOptions.UserName,
 		startTime, endTime, nodeName, resultLimit)
 	if err != nil {
 		return err
 	}
 	instructions = append(instructions, &nmaLockAttemptsOp)
 
-	clusterOpEngine := makeClusterOpEngine(instructions, &options.DatabaseOptions)
+	clusterOpEngine := makeClusterOpEngine(instructions, &opt.DatabaseOptions)
 	err = clusterOpEngine.run(logger)
 	if err != nil {
 		return fmt.Errorf("fail to get lock waiting events, %w", err)
 	}
 
 	if clusterOpEngine.execContext.dcLockReleasesList != nil {
-		options.LockEventCascade[cascadeIndex].LockHoldEvents = clusterOpEngine.execContext.dcLockReleasesList
+		opt.LockEventCascade[cascadeIndex].LockHoldEvents = clusterOpEngine.execContext.dcLockReleasesList
 	}
 
 	return nil
+}
+
+func (opt *VClusterHealthOptions) DisplayLockEventsCascade() {
+	for _, eventNode := range opt.LockEventCascade {
+		fmt.Println(eventNode.NodeName)
+		fmt.Printf("  Wait locks: %+v\n", eventNode.LockWaitEvents)
+		fmt.Printf("  Hold locks related to the earliest wait lock: %+v\n", eventNode.LockHoldEvents)
+	}
 }
