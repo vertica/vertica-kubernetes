@@ -125,8 +125,8 @@ func (r *VerticaDBReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		return ctrl.Result{}, err
 	}
 	log.Info("VerticaDB details", "uid", vdb.UID, "resourceVersion", vdb.ResourceVersion,
-		"vclusterOps", vmeta.UseVClusterOps(vdb.Annotations), "user", vdb.GetVerticaUser())
-
+		"vclusterOps", vmeta.UseVClusterOps(vdb.Annotations), "user", vdb.GetVerticaUser(),
+		"tls cert rotate enabled", vmeta.EnableTLSCertsRotation(vdb.Annotations))
 	if vmeta.IsPauseAnnotationSet(vdb.Annotations) {
 		log.Info(fmt.Sprintf("The pause annotation %s is set. Suspending the iteration", vmeta.PauseOperatorAnnotation),
 			"result", ctrl.Result{}, "err", nil)
@@ -186,6 +186,8 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		// reconcile actor that depends on running pods should not be before
 		// this one.
 		MakeCrashLoopReconciler(r, log, vdb),
+		// Always generate cert first if nothing is provided
+		MakeTLSServerCertGenReconciler(r, log, vdb),
 		// Update the vertica image for unsandboxed subclusters
 		MakeUnsandboxImageVersionReconciler(r, vdb, log, pfacts),
 		// Always start with a status reconcile in case the prior reconcile failed.
@@ -196,8 +198,6 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		// Handle upgrade actions for any k8s objects created in prior versions
 		// of the operator.
 		MakeUpgradeOperatorReconciler(r, log, vdb),
-		// use the TLS secrets used by the NMA service
-		MakeTLSServerCertGenReconciler(r, log, vdb),
 		// Create ServiceAcount, Role and RoleBindings needed for vertica pods
 		MakeServiceAccountReconciler(r, log, vdb),
 		// Handle setting up the pod security context. This picks the
@@ -296,6 +296,10 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		MakeObjReconciler(r, log, vdb, pfacts, ObjReconcileModeAll),
 		// Handle calls to create a restore point
 		MakeSaveRestorePointReconciler(r, vdb, log, pfacts, dispatcher, r.Client),
+		// rotate https tls cert when tls cert secret name is changed in vdb.spec
+		MakeHTTPSCertRotationReconciler(r, log, vdb, dispatcher, pfacts),
+		// rotate nma tls cert when tls cert secret name is changed in vdb.spec
+		MakeNMACertRotationReconciler(r, log, vdb, dispatcher, pfacts),
 		// Resize any PVs if the local data size changed in the vdb
 		MakeResizePVReconciler(r, log, vdb, prunner, pfacts),
 		// This must be the last reconciler. It makes sure that all dependent

@@ -22,6 +22,7 @@ import (
 	"strings"
 	"time"
 
+	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/vertica/vcluster/rfc7807"
 	"github.com/vertica/vcluster/vclusterops/util"
 	"golang.org/x/exp/slices"
@@ -288,6 +289,7 @@ func (op *httpsCheckRunningDBOp) processResult(_ *opEngineExecContext) error {
 	downHosts := make(map[string]bool)
 	exceptionHosts := make(map[string]bool)
 	sandboxedHosts := make(map[string]string)
+	httpsRunning := mapset.NewSet[string]()
 	mainClusterHosts := make(map[string]struct{})
 	// print msg
 	msg := ""
@@ -302,14 +304,26 @@ func (op *httpsCheckRunningDBOp) processResult(_ *opEngineExecContext) error {
 		if !result.isPassing() {
 			allErrs = errors.Join(allErrs, result.err)
 		}
-		if result.isFailing() && !result.isHTTPRunning() {
-			downHosts[host] = true
-			continue
+		if result.isFailing() {
+			if op.opType == StopDB {
+				downHosts[host] = true
+				if result.isHTTPRunning() {
+					httpsRunning.Add(host)
+				}
+			} else if !result.isHTTPRunning() {
+				downHosts[host] = true
+				continue
+			}
 		} else if result.isException() || result.isEOF() {
 			exceptionHosts[host] = true
 			continue
 		}
-
+		if httpsRunning.Cardinality() > 0 {
+			op.logger.PrintInfo("[%s] Vertica process might still be running on these hosts: %v "+
+				"hint: consider using NMA endpoint /v1/vertica-process/signal?signal_type=kill "+
+				"to kill a hanging Vertica process on the failed hosts before proceeding with "+
+				"future vcluster operations", op.name, httpsRunning.ToSlice())
+		}
 		upHosts[host] = true
 
 		// a passing result means that the db isn't down

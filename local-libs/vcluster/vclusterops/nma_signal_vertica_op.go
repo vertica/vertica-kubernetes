@@ -25,6 +25,7 @@ type nmaSignalVerticaOp struct {
 	opBase
 	signal         string            // signal type ("term" or "kill" or "" for endpoint default)
 	hostCatPathMap map[string]string // map of hosts to catalog paths. may be nil to allow backend to auto-detect vertica pids.
+	ignoreErr      bool              // ignore errors if true, example use cases are Vertica process cannot be found or has already been killed
 }
 
 func makeNMASignalVerticaOpHelper(hosts []string, hostCatPathMap map[string]string) (op nmaSignalVerticaOp, err error) {
@@ -43,6 +44,13 @@ func makeNMASignalVerticaOpHelper(hosts []string, hostCatPathMap map[string]stri
 func makeNMASigTermVerticaOp(hosts []string, hostCatPathMap map[string]string) (op nmaSignalVerticaOp, err error) {
 	op, err = makeNMASignalVerticaOpHelper(hosts, hostCatPathMap)
 	op.signal = "term"
+	return op, err
+}
+
+func makeNMASigKillVerticaOp(hosts []string, hostCatPathMap map[string]string, ignoreErr bool) (op nmaSignalVerticaOp, err error) {
+	op, err = makeNMASignalVerticaOpHelper(hosts, hostCatPathMap)
+	op.signal = "kill"
+	op.ignoreErr = ignoreErr
 	return op, err
 }
 
@@ -93,7 +101,6 @@ func (op *nmaSignalVerticaOp) processResult(_ *opEngineExecContext) error {
 	for host, result := range op.clusterHTTPRequest.ResultCollection {
 		op.logResponse(host, result)
 		var err error
-
 		if result.isPassing() {
 			_, err = op.parseAndCheckMapResponse(host, result.content)
 			if err == nil {
@@ -112,6 +119,8 @@ func (op *nmaSignalVerticaOp) processResult(_ *opEngineExecContext) error {
 		err := fmt.Errorf("Error terminating Vertica via signal on hosts %v", errorHosts)
 		allErrs = errors.Join(err, allErrs)
 	}
-
+	if op.ignoreErr {
+		return nil
+	}
 	return allErrs
 }

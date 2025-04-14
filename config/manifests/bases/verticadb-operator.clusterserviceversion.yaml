@@ -2136,6 +2136,11 @@ spec:
           and must not be restarted.
         displayName: Shutdown
         path: subclusters[0].shutdown
+      - description: |-
+          The type of the subcluster. It could be primary, secondary, sandboxprimary,
+          sandboxsecondary, or empty if it's not in the db yet.
+        displayName: Type
+        path: subclusters[0].type
       - description: A count of the number of pods that have a running vertica process
           in this subcluster.
         displayName: Up Node Count
@@ -3316,6 +3321,11 @@ spec:
           and must not be restarted.
         displayName: Shutdown
         path: subclusters[0].shutdown
+      - description: |-
+          The type of the subcluster. It could be primary, secondary, sandboxprimary,
+          sandboxsecondary, or empty if it's not in the db yet.
+        displayName: Type
+        path: subclusters[0].type
       - description: A count of the number of pods that have a running vertica process
           in this subcluster.
         displayName: Up Node Count

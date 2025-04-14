@@ -273,7 +273,7 @@ func buildVolumeMounts(vdb *vapi.VerticaDB) []corev1.VolumeMount {
 	volMnts = append(volMnts, vdb.Spec.VolumeMounts...)
 
 	extraPathsStr := vmeta.GetExtraLocalPaths(vdb.Annotations)
-	if extraPathsStr != "" {
+	if extraPathsStr != "" && !vmeta.DisableExtraPathsAutoMount(vdb.Annotations) {
 		extraPaths := strings.Split(extraPathsStr, ",")
 		for _, path := range extraPaths {
 			volMnts = append(volMnts, corev1.VolumeMount{
