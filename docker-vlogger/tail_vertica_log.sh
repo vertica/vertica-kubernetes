@@ -6,13 +6,15 @@
 # LOG_FILTER: Comma-separated list (e.g., WARNING) to override LOG_LEVEL, supports includes
 #  
 # Example usage:
-# No env setup: prints all logs
+# No env variable setup: prints all logs
+# or LOG_LEVEL=* : prints all logs
 # 
 # Minimal setup: show INFO and above(INFO,WARNING,ERROR)
 # LOG_LEVEL=INFO ./tail_vertica_log.sh
 # 
 # Override log level filter. Show ERROR and above, but keep the DEBUG level(DEBUG,ERROR)
 # LOG_LEVEL=ERROR LOG_FILTER="DEBUG" ./tail_vertica_log.sh
+# or LOG_FILTER="DEBUG,ERROR" ./tail_vertica_log.sh
 # 
 # 
 # Fallback to CLI if env not set: ./tail_vertica_log.sh $LOG_LEVEL $LOG_FILTER
@@ -28,9 +30,9 @@
 # Configuration & Valid Log Levels
 # -------------------------------
 
-VALID_LEVELS="DEBUG INFO WARNING ERROR" 
+VALID_LEVELS="* DEBUG INFO WARNING ERROR" 
 LOG_LEVEL="${LOG_LEVEL:-$1}" # Defines the minimum log severity level to print.
-LOG_FILTER="${LOG_FILTER:-$2}" # Comma-separated list (e.g., INFO) to override LOG_LEVEL, supports includes.
+LOG_FILTER="${LOG_FILTER:-$2}" # Comma-separated list (e.g. WARNING) to override LOG_LEVEL, supports includes.
 LOG_FILE=$DBPATH/v_*_catalog/vertica.log # Log file path. DBPATH is set by operator
 
 # -------------------------------
@@ -101,7 +103,7 @@ parse_log_filter() {
 
 if [ -n "$LOG_LEVEL" ]; then
   LEVEL=$(to_upper "$LOG_LEVEL")
-  is_invalid_level "$LEVEL" || LEVEL="INFO"
+  is_invalid_level "$LEVEL" || LEVEL="*"
   LEVEL_PATTERN=$(build_from_base_level "$LEVEL") # Provide all log levels after the base level
 fi
 if [ -n "$LOG_FILTER" ]; then
