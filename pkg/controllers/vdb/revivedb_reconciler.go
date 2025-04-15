@@ -19,7 +19,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -139,29 +138,14 @@ func (r *ReviveDBReconciler) execCmd(ctx context.Context, initiatorPod types.Nam
 	if res, err := r.Dispatcher.ReviveDB(ctx, opts...); verrors.IsReconcileAborted(res, err) {
 		return res, err
 	}
-	sql := "select mode from tls_configurations where name='https';"
-	initiatingPod, ok := r.PFacts.FindFirstUpPod(false, "")
-	if !ok {
-		r.Log.Info("No pod found to run rotate https cert. Requeue reconciliation.")
-		return ctrl.Result{Requeue: true}, nil
-	}
-	// time.Sleep(20 * time.Second)
-	cmd := []string{"-tAc", sql}
-	stdout, stderr, err2 := r.PRunner.ExecVSQL(ctx, initiatingPod.GetName(), names.ServerContainer, cmd...)
-	if err2 != nil || strings.Contains(stderr, "Error") {
-		r.Log.Error(err2, "failed to retrieve HTTPS TLS mode after reviving db, stderr - "+stderr)
-		return ctrl.Result{}, err2
-	}
-
-	httpsTLSMode := r.getTLSMode(stdout)
-	r.Log.Info("tls mode of revivied db " + httpsTLSMode)
 	chgs := vk8s.MetaChanges{
 		NewAnnotations: map[string]string{
 			vmeta.NMAHTTPSPreviousSecret:  r.Vdb.Spec.NMATLSSecret,
-			vmeta.NMAHTTPSPreviousTLSMode: httpsTLSMode,
+			vmeta.NMAHTTPSPreviousTLSMode: r.Vdb.Spec.HTTPSTLSMode,
 		},
 	}
 	if _, err := vk8s.MetaUpdate(ctx, r.VRec.Client, r.Vdb.ExtractNamespacedName(), r.Vdb, chgs); err != nil {
+		r.Log.Error(err, "failed to save secret name and tls mode into annotation after reviving db")
 		return ctrl.Result{}, err
 	}
 	r.Log.Info("TLS Cert configured after revival")
@@ -385,10 +369,4 @@ func (r *ReviveDBReconciler) runRevivePlanner(ctx context.Context, op string) (c
 
 	// Always requeue if the vdb was changed in this function.
 	return ctrl.Result{Requeue: vdbChanged}, err
-}
-
-func (r *ReviveDBReconciler) getTLSMode(stdout string) string {
-	lines := strings.Split(stdout, "\n")
-	res := strings.Trim(lines[0], " ")
-	return res
 }
