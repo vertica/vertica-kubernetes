@@ -14,7 +14,7 @@
 apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
-  name: v-restore-point
+  name: v-restore-point-overwrite
   annotations:
     vertica.com/include-uid-in-path: "true"
     vertica.com/k-safety: "0"
@@ -31,7 +31,7 @@ spec:
   dbName: vertdb
   restorePoint:
     archive: test
-    numRestorePoints: 2
+    numRestorePoints: 1
   subclusters:
     - name: sc1
       size: 1

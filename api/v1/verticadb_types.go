@@ -387,7 +387,7 @@ const (
 )
 
 // RestorePointPolicy is used to locate the exact archive and restore point within archive
-// when a database restore is intended
+// when a database restore is intended or when saving a restore point
 type RestorePointPolicy struct {
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// +kubebuilder:validation:Optional
