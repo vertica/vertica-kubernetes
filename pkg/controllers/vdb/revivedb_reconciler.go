@@ -140,14 +140,21 @@ func (r *ReviveDBReconciler) execCmd(ctx context.Context, initiatorPod types.Nam
 		return res, err
 	}
 	sql := "select mode from tls_configurations where name='https';"
-
+	initiatingPod, ok := r.PFacts.FindFirstUpPod(false, "")
+	if !ok {
+		r.Log.Info("No pod found to run rotate https cert. Requeue reconciliation.")
+		return ctrl.Result{Requeue: true}, nil
+	}
+	// time.Sleep(20 * time.Second)
 	cmd := []string{"-tAc", sql}
-	stdout, stderr, err2 := r.PRunner.ExecVSQL(ctx, initiatorPod, names.ServerContainer, cmd...)
+	stdout, stderr, err2 := r.PRunner.ExecVSQL(ctx, initiatingPod.GetName(), names.ServerContainer, cmd...)
 	if err2 != nil || strings.Contains(stderr, "Error") {
 		r.Log.Error(err2, "failed to retrieve HTTPS TLS mode after reviving db, stderr - "+stderr)
 		return ctrl.Result{}, err2
 	}
+
 	httpsTLSMode := r.getTLSMode(stdout)
+	r.Log.Info("tls mode of revivied db " + httpsTLSMode)
 	chgs := vk8s.MetaChanges{
 		NewAnnotations: map[string]string{
 			vmeta.NMAHTTPSPreviousSecret:  r.Vdb.Spec.NMATLSSecret,
