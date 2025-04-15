@@ -18,6 +18,7 @@ package vdb
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
@@ -91,12 +92,15 @@ func (s *DrainNodeReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (c
 	elapsed := time.Since(drainStartTime)
 	timeout := time.Duration(timeoutInt) * time.Second
 	// If timeout has expired, we move on to the next reconciler (DBRemoveNodeReconciler|DBRemoveSubclusterReconciler)
+	s.VRec.Log.Info("Draining in progress", "start", drainStartTime, "elapsed", elapsed, "timeout", timeout)
 	if elapsed >= timeout {
 		s.VRec.Log.Info("Draining timeout has expired")
+		s.killConnectionsToPendingDeletePods(ctx, pfs)
+		s.PFacts.Invalidate()
 		return ctrl.Result{}, s.removeDrainStartAnnotation(ctx)
 	}
 
-	return ctrl.Result{RequeueAfter: 1 * time.Second}, nil
+	return ctrl.Result{RequeueAfter: calculateRequeueDelay(elapsed, timeout)}, nil
 }
 
 // reconcilePod will handle drain logic for a single pod
@@ -113,8 +117,7 @@ func (s *DrainNodeReconciler) reconcilePod(ctx context.Context, pf *podfacts.Pod
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	// If there is an active connection, we will requeue, which causes us to use
-	// the exponential backoff algorithm.
+	// If there is an active connection, we will retry until timeout expires
 	activeConnections := anyActiveConnections(stdout)
 	if activeConnections {
 		s.VRec.Eventf(s.Vdb, corev1.EventTypeWarning, events.DrainNodeRetry,
@@ -162,4 +165,63 @@ func (s *DrainNodeReconciler) setDrainStartAnnotation(ctx context.Context) error
 	}
 	_, err := vk8s.UpdateVDBWithRetry(ctx, s.VRec, s.Vdb, addDrainStartAnnotation)
 	return err
+}
+
+// killConnections close active connections in the given pod
+func (s *DrainNodeReconciler) killConnections(ctx context.Context, pf *podfacts.PodFact) {
+	sessionIds := []string{}
+	sql := fmt.Sprintf(
+		"select session_id"+
+			" from sessions"+
+			" where node_name = '%s'"+
+			" and session_id not in ("+
+			" select session_id from current_session"+
+			" )", pf.GetVnodeName())
+	stdout, stderr, err := s.PFacts.PRunner.ExecVSQL(ctx, pf.GetName(), names.ServerContainer, "-tAc", sql)
+	if err != nil {
+		s.VRec.Log.Error(err, "failed to retrieve active sessions", "stderr", stderr)
+		return
+	}
+	sessionIds = append(sessionIds, strings.Split(strings.TrimSuffix(stdout, "\n"), "\n")...)
+	s.killSessions(ctx, sessionIds, pf)
+}
+
+// killConnectionsToPendingDeletePods close active connections in pending delete pods. This is best-effort,
+// meaning even if it fails, we will continue as the next reconcilers will kill the connections by removing
+// the nodes/subclusters.
+func (s *DrainNodeReconciler) killConnectionsToPendingDeletePods(ctx context.Context, pfs []*podfacts.PodFact) {
+	if len(pfs) == 0 {
+		return
+	}
+	for _, pod := range pfs {
+		s.VRec.Log.Info("Closing active sessions in pod", "pod", pod.GetName().Name)
+		s.killConnections(ctx, pod)
+	}
+}
+
+func (s *DrainNodeReconciler) killSessions(ctx context.Context, sessionIds []string, pf *podfacts.PodFact) {
+	for _, id := range sessionIds {
+		if id == "" {
+			continue
+		}
+		killCmd := []string{"-tAc", fmt.Sprintf("select close_session('%s')", id)}
+		_, stderr, err := s.PFacts.PRunner.ExecVSQL(ctx, pf.GetName(), names.ServerContainer, killCmd...)
+		if err != nil {
+			s.VRec.Log.Error(err, "failed to kill session", "session_id", id, "stderr", stderr)
+		}
+	}
+}
+
+// calculateRequeueDelay calculates how long we wait between consecutive requeues
+func calculateRequeueDelay(elapsed, timeout time.Duration) time.Duration {
+	remaining := timeout - elapsed
+
+	if remaining <= 0 {
+		return 0
+	}
+	if remaining > 10*time.Second {
+		return 5 * time.Second
+	}
+	// Requeue more frequently as you get closer to timeout
+	return 1 * time.Second
 }
