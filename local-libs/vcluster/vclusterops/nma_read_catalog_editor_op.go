@@ -217,6 +217,15 @@ func (op *nmaReadCatalogEditorOp) processResult(_ *opEngineExecContext) error {
 				continue
 			}
 
+			// ignore secondary nodes when finding the latest catalog
+			isSecondary, err := op.isCurrentNodeSecondary(host, &nmaVDB)
+			if err != nil {
+				return err
+			}
+			if isSecondary {
+				continue
+			}
+
 			var primaryNodeCount uint
 			// build host to node map for NMAStartNodeOp
 			hostNodeMap := make(map[string]*nmaVNode)
@@ -267,6 +276,26 @@ func (op *nmaReadCatalogEditorOp) processResult(_ *opEngineExecContext) error {
 
 	// let finalize() handle error conditions, in case this function is skipped
 	return nil
+}
+
+// isCurrentNodeSecondary returns true if the current node is a secondary node
+func (op *nmaReadCatalogEditorOp) isCurrentNodeSecondary(host string, nmaVDB *nmaVDatabase) (bool, error) {
+	if op.vdb == nil {
+		return false, fmt.Errorf("received vdb is nil")
+	}
+	node, ok := op.vdb.HostNodeMap[host]
+	if !ok || node == nil {
+		return false, fmt.Errorf("invalid entry for host %q in vdb.HostNodeMap (missing or nil)", host)
+	}
+	currentNodeName := node.Name
+
+	for i := 0; i < len(nmaVDB.Nodes); i++ {
+		n := nmaVDB.Nodes[i]
+		if n.Name == currentNodeName {
+			return !n.IsPrimary, nil
+		}
+	}
+	return false, fmt.Errorf("node %q not found in catalog", currentNodeName)
 }
 
 // finalize contains the final logic that would otherwise be in execute, but since execute

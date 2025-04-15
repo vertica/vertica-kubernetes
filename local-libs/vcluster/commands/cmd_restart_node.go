@@ -105,6 +105,12 @@ func (c *CmdStartNodes) setLocalFlags(cmd *cobra.Command) {
 		util.GetEnvInt("NODE_STATE_POLLING_TIMEOUT", util.DefaultTimeoutSeconds),
 		"The timeout (in seconds) to wait for polling node state operation",
 	)
+	cmd.Flags().BoolVar(
+		&c.ifSyncCatalog,
+		"sync-catalog",
+		false,
+		"Whether to sync the catalog after the node is up",
+	)
 
 	// users only input --start or --start-hosts
 	cmd.MarkFlagsMutuallyExclusive([]string{startNodeFlag, startHostFlag}...)
@@ -183,6 +189,7 @@ func (c *CmdStartNodes) Run(vcc vclusterops.ClusterCommands) error {
 // SetDatabaseOptions will assign a vclusterops.DatabaseOptions instance to the one in CmdStartNodes
 func (c *CmdStartNodes) SetDatabaseOptions(opt *vclusterops.DatabaseOptions) {
 	c.startNodesOptions.DatabaseOptions = *opt
+	c.startNodesOptions.IfSyncCatalog = c.ifSyncCatalog
 }
 
 func (c *CmdStartNodes) buildStartNodeHostMap() error {
