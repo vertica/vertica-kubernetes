@@ -65,7 +65,7 @@ const (
 var hdfsPrefixes = []string{"webhdfs://", "swebhdfs://"}
 
 // tlsModes are tls modes that a Vertica DB supports
-var tlsModes = []string{"enable", "disable", "try_verify", "verify_ca", "verify_full"}
+var tlsModes = []string{"try_verify", "verify_ca"}
 
 // validProxyLogLevel are acceptable values for proxy log level annotation
 var validProxyLogLevel = []string{"TRACE", "DEBUG", "INFO", "WARN", "FATAL", "NONE"}
@@ -2171,11 +2171,13 @@ func (v *VerticaDB) hasValidHTTPSTLSMode(allErrs field.ErrorList) field.ErrorLis
 	TLSMode := strings.ToLower(v.Spec.HTTPSTLSMode)
 	validMode := false
 	for _, mode := range tlsModes {
+		fmt.Println("mode - " + mode + ", TLSMode - " + TLSMode)
 		if mode == TLSMode {
 			validMode = true
 		}
 	}
 	if !validMode {
+		fmt.Println("libo: mode invalid")
 		err := field.Invalid(field.NewPath("spec").Child("httpsTLSMode"), v.Spec.HTTPSTLSMode, "invalid tls mode")
 		allErrs = append(allErrs, err)
 	}

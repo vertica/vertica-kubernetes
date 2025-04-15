@@ -2023,8 +2023,9 @@ var _ = Describe("verticadb_webhook", func() {
 		Ω(newVdb.checkShutdownForSubclustersToBeRemoved(oldVdb, field.ErrorList{})).Should(HaveLen(1))
 	})
 
-	It("should not accept invalid nma tls modes", func() {
+	It("should not accept invalid https tls modes", func() {
 		newVdb := MakeVDB()
+		SetVDBForTLS(newVdb)
 		newVdb.Spec.HTTPSTLSMode = "TRY_VERIFY"
 		Ω(newVdb.validateVerticaDBSpec()).Should(HaveLen(0))
 		newVdb.Spec.HTTPSTLSMode = "try_verify"
@@ -2032,15 +2033,15 @@ var _ = Describe("verticadb_webhook", func() {
 		newVdb.Spec.HTTPSTLSMode = "try_VERIFY"
 		Ω(newVdb.validateVerticaDBSpec()).Should(HaveLen(0))
 		newVdb.Spec.HTTPSTLSMode = "disable"
-		Ω(newVdb.validateVerticaDBSpec()).Should(HaveLen(0))
+		Ω(newVdb.validateVerticaDBSpec()).Should(HaveLen(1))
 		newVdb.Spec.HTTPSTLSMode = "Enable"
-		Ω(newVdb.validateVerticaDBSpec()).Should(HaveLen(0))
+		Ω(newVdb.validateVerticaDBSpec()).Should(HaveLen(1))
 		newVdb.Spec.HTTPSTLSMode = "VERIFY_CA"
 		Ω(newVdb.validateVerticaDBSpec()).Should(HaveLen(0))
 		newVdb.Spec.HTTPSTLSMode = "VERIFYCA"
 		Ω(newVdb.validateVerticaDBSpec()).Should(HaveLen(1))
 		newVdb.Spec.HTTPSTLSMode = ""
-		Ω(newVdb.validateVerticaDBSpec()).Should(HaveLen(0))
+		Ω(newVdb.validateVerticaDBSpec()).Should(HaveLen(1))
 
 	})
 })
