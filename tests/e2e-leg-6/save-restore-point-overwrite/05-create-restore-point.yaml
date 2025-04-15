@@ -16,8 +16,8 @@ kind: TestStep
 commands:
   - command: >
       kubectl patch vdb v-restore-point-overwrite --type='json' -p='[{
-      "op": "add", 
-      "path": "/status/conditions/-", 
+      "op": "add",
+      "path": "/status/conditions/-",
       "value": {"type": "SaveRestorePointNeeded", "status": "True", "message": "test", "reason": "test", "lastTransitionTime": "2024-09-16T21:38:27Z"}
       }]' --subresource='status'
     namespaced: true
