@@ -72,8 +72,8 @@ func (s *VDBVerifyReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (c
 
 	// If sandbox is defined and sandbox does not exist, we want to exit early
 	sandbox := s.Vscr.Spec.Sandbox
-	if sandbox != "" && s.Vdb.GetSandbox(sandbox) == nil {
-		s.VRec.Eventf(s.Vscr, corev1.EventTypeWarning, events.VerticaVersionNotFound,
+	if sandbox != "" && s.Vdb.GetSandboxStatus(sandbox) == nil {
+		s.VRec.Eventf(s.Vscr, corev1.EventTypeWarning, events.SandboxNotFound,
 			"Sandbox '%s' was not found in the Vertica DB", sandbox)
 		return ctrl.Result{}, s.updateStateAndScrutinizeReadyCondition(ctx, metav1.ConditionFalse, events.SandboxNotFound,
 			fmt.Sprintf("NotReady:%s", events.SandboxNotFound))
