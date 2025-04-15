@@ -33,6 +33,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/validation/field"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -51,6 +52,7 @@ const (
 
 	VerticaDBNameKey = "verticaDBName"
 	SandboxNameKey   = "sandboxName"
+	invalidNameChars = "$=<>`" + `'^\".@*?#&/:;{}()[] \~!%+|,`
 )
 
 // ExtractNamespacedName gets the name and returns it as a NamespacedName
@@ -95,6 +97,11 @@ func SetVDBForTLS(v *VerticaDB) {
 	v.Annotations[vmeta.MountNMACertsAnnotation] = "false"
 	v.Annotations[vmeta.VersionAnnotation] = TLSCertRotationMinVersion
 	v.Annotations[vmeta.VClusterOpsAnnotation] = trueString
+}
+
+func SetVDBWithSecretForTLS(v *VerticaDB, secretName string) {
+	SetVDBForTLS(v)
+	v.Annotations[vmeta.NMAHTTPSPreviousSecret] = secretName
 }
 
 // MakeVDB is a helper that constructs a fully formed VerticaDB struct using the sample name.
@@ -799,9 +806,9 @@ func (v *VerticaDB) GetCreateDBNodeStartTimeout() int {
 	return vmeta.GetCreateDBNodeStartTimeout(v.Annotations)
 }
 
-// GetShutdownDrainSeconds returns time in seconds to wait for a subcluster/database users' disconnection
-func (v *VerticaDB) GetShutdownDrainSeconds() int {
-	return vmeta.GetShutdownDrainSeconds(v.Annotations)
+// GetActiveConnectionsDrainSeconds returns time in seconds to wait for a subcluster/database users' disconnection
+func (v *VerticaDB) GetActiveConnectionsDrainSeconds() int {
+	return vmeta.GetActiveConnectionsDrainSeconds(v.Annotations)
 }
 
 // IsCertRotationEnabled returns true if the version supports certs and
@@ -1427,4 +1434,31 @@ func convertToInt(src string) (int, bool) {
 		converted = true
 	}
 	return int(varAsInt), converted
+}
+
+func hasValidIntAnnotation(allErrs field.ErrorList, annotationName string, val int) field.ErrorList {
+	if val < 0 {
+		err := field.Invalid(field.NewPath("metadata").Child("annotations").Child(annotationName),
+			val, fmt.Sprintf("%s must be non-negative", annotationName))
+		allErrs = append(allErrs, err)
+	}
+	return allErrs
+}
+
+// Check for invalid characters in an object name (such as DB or archive name)
+func findInvalidChars(objName string, allowDash bool) string {
+	invalidChars := invalidNameChars
+
+	// Dash is supported in some object names (eg archive name) but not others (eg db name)
+	if !allowDash {
+		invalidChars += "-"
+	}
+
+	foundChars := ""
+	for _, c := range invalidChars {
+		if strings.Contains(objName, string(c)) {
+			foundChars += string(c)
+		}
+	}
+	return foundChars
 }

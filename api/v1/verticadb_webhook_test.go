@@ -315,6 +315,13 @@ var _ = Describe("verticadb_webhook", func() {
 		validateSpecValuesHaveErr(vdb, true)
 	})
 
+	It("should not have negative drain timeout", func() {
+		vdb := MakeVDB()
+		annotationName := vmeta.ActiveConnectionsDrainSecondsAnnotation
+		vdb.Annotations[annotationName] = "-1"
+		validateSpecValuesHaveErr(vdb, true)
+	})
+
 	It("should not include UID in path if revive_db", func() {
 		vdb := MakeVDB()
 		annotationName := vmeta.IncludeUIDInPathAnnotation
@@ -493,6 +500,14 @@ var _ = Describe("verticadb_webhook", func() {
 		// only index is provided
 		vdb.Spec.RestorePoint.ID = ""
 		vdb.Spec.RestorePoint.Index = 1
+		validateSpecValuesHaveErr(vdb, false)
+		// archive name cannot have invalid chars
+		vdb.Spec.RestorePoint.Archive = "bad@archive"
+		validateSpecValuesHaveErr(vdb, true)
+		// dash character is valid in archive name
+		vdb.Spec.RestorePoint.Archive = "good-archive"
+		validateSpecValuesHaveErr(vdb, false)
+		vdb.Spec.RestorePoint.Archive = "archive"
 		validateSpecValuesHaveErr(vdb, false)
 	})
 
