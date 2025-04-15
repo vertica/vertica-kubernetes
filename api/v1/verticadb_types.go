@@ -359,12 +359,10 @@ type VerticaDBSpec struct {
 	Proxy *Proxy `json:"proxy,omitempty"`
 
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:hidden"
-	// +kubebuilder:default:=TRY_VERIFY
+	// +kubebuilder:default:=VERIFY_CA
 	// +kubebuilder:validation:Optional
 	// This field configures the Vertica's connection mode for client-server TLS.
 	// Choose one of the following TLSMODEs, listed in ascending security:
-	// - DISABLE: Disables TLS. All other options for this parameter enable TLS.
-	// - ENABLE: Enables TLS. Vertica does not verify client certificates.
 	// - TRY_VERIFY: Establishes a TLS connection if one of the following is true:
 	//   - The client presents a valid certificate.
 	//   - The client doesn't present a certificate

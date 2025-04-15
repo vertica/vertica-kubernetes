@@ -65,7 +65,7 @@ const (
 var hdfsPrefixes = []string{"webhdfs://", "swebhdfs://"}
 
 // tlsModes are tls modes that a Vertica DB supports
-var tlsModes = []string{"enable", "disable", "try_verify", "verify_ca", "verify_full"}
+var tlsModes = []string{"try_verify", "verify_ca"}
 
 // validProxyLogLevel are acceptable values for proxy log level annotation
 var validProxyLogLevel = []string{"TRACE", "DEBUG", "INFO", "WARN", "FATAL", "NONE"}
