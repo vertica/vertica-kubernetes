@@ -192,10 +192,7 @@ func MakeVDBForScrutinize() *VerticaDB {
 // cert rotation. This is intended for test purposes.
 func MakeVDBForCertRotationEnabled() *VerticaDB {
 	vdb := MakeVDB()
-	vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
-	vdb.Annotations[vmeta.MountNMACertsAnnotation] = vmeta.VClusterOpsAnnotationFalse
-	vdb.Annotations[vmeta.EnableTLSCertsRotationAnnotation] = vmeta.VClusterOpsAnnotationTrue
-	vdb.Annotations[vmeta.VersionAnnotation] = TLSCertRotationMinVersion
+	SetVDBForTLS(vdb)
 	return vdb
 }
 
