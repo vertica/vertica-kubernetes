@@ -439,6 +439,23 @@ var _ = Describe("verticadb_webhook", func() {
 		resetStatusConditionsForDBInitialized(vdbUpdate)
 		validateImmutableFields(vdbUpdate, true)
 	})
+	It("nmaTLSSecret cannot be empty when cert rotation is enabled", func() {
+		vdb := MakeVDBForCertRotationEnabled()
+		oldVdb := vdb.DeepCopy()
+		oldVdb.Spec.NMATLSSecret = "oldSecret"
+		vdb.Spec.NMATLSSecret = ""
+		allErrs := vdb.validateImmutableFields(oldVdb)
+		Expect(allErrs).ShouldNot(BeNil())
+	})
+	It("nmaTLSSecret cannot be changed when cert rotation is in progress", func() {
+		vdb := MakeVDBForCertRotationEnabled()
+		oldVdb := vdb.DeepCopy()
+		oldVdb.Spec.NMATLSSecret = "oldSecret"
+		vdb.Spec.NMATLSSecret = "newSecretValue"
+		resetStatusConditionsForCertRotationInProgress(vdb)
+		allErrs := vdb.validateImmutableFields(oldVdb)
+		Expect(allErrs).ShouldNot(BeNil())
+	})
 
 	It("should not have zero matched subcluster names to the old subcluster names", func() {
 		vdb := createVDBHelper()
@@ -2070,6 +2087,10 @@ func unsetStatusConditionsForUpgradeInProgress(v *VerticaDB) {
 
 func resetStatusConditionsForDBInitialized(v *VerticaDB) {
 	resetStatusConditionsForCondition(v, DBInitialized, metav1.ConditionTrue)
+}
+
+func resetStatusConditionsForCertRotationInProgress(v *VerticaDB) {
+	resetStatusConditionsForCondition(v, TLSCertRotationInProgress, metav1.ConditionTrue)
 }
 
 func resetStatusConditionsForCondition(v *VerticaDB, conditionType string, status metav1.ConditionStatus) {
