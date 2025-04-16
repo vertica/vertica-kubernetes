@@ -140,6 +140,7 @@ const (
 	VclusterOpsScrutinizeNotSupported = "VclusterOpsScrutinizeNotSupported"
 	VclusterOpsScrutinizeSucceeded    = "VclusterOpsScrutinizeSucceeded"
 	VclusterOpsScrutinizeFailed       = "VclusterOpsScrutinizeFailed"
+	SandboxNotFound                   = "SandboxNotFound"
 )
 
 // Constants for VerticaReplicator reconciler
