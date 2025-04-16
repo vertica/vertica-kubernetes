@@ -157,6 +157,7 @@ func (v *VerticaDB) validateImmutableFields(old runtime.Object) field.ErrorList 
 	allErrs = v.checkImmutableSubclusterInSandbox(oldObj, allErrs)
 	allErrs = v.checkImmutableStsName(oldObj, allErrs)
 	allErrs = v.checkImmutableClientProxy(oldObj, allErrs)
+	allErrs = v.checkImmutableCertRotation(oldObj, allErrs)
 	allErrs = v.checkValidSubclusterTypeTransition(oldObj, allErrs)
 	allErrs = v.checkSandboxesDuringUpgrade(oldObj, allErrs)
 	allErrs = v.checkShutdownSandboxImage(oldObj, allErrs)
@@ -2155,6 +2156,25 @@ func (v *VerticaDB) checkImmutableClientProxy(oldObj *VerticaDB, allErrs field.E
 		err := field.Invalid(field.NewPath("spec").Child("proxy").Child("image"),
 			v.Spec.Proxy.Image,
 			"proxy.image cannot change after creation, otherwise, as doing so will disrupt current user connections")
+		allErrs = append(allErrs, err)
+	}
+	return allErrs
+}
+
+// checkImmutableCertRotation will validate the nmaTLSSecret spec fields in vdb
+func (v *VerticaDB) checkImmutableCertRotation(oldObj *VerticaDB, allErrs field.ErrorList) field.ErrorList {
+	// If cert rotation is set, nmaTLSSecret can not be empty
+	if v.IsCertRotationEnabled() && oldObj.Spec.NMATLSSecret != "" && v.Spec.NMATLSSecret == "" {
+		err := field.Invalid(field.NewPath("spec").Child("nmaTLSSecret"),
+			v.Spec.NMATLSSecret,
+			"nmaTLSSecret cannot be empty when cert rotation is enabled")
+		allErrs = append(allErrs, err)
+	}
+	// If cert rotation is in progress, nmaTLSSecret can not be changed
+	if v.IsCertRotationEnabled() && v.IsCertRotationInProgress() && oldObj.Spec.NMATLSSecret != v.Spec.NMATLSSecret {
+		err := field.Invalid(field.NewPath("spec").Child("nmaTLSSecret"),
+			v.Spec.NMATLSSecret,
+			"nmaTLSSecret cannot be changed when cert rotation is in progress")
 		allErrs = append(allErrs, err)
 	}
 	return allErrs
