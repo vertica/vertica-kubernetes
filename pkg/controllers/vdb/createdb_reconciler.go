@@ -311,7 +311,7 @@ func (c *CreateDBReconciler) generateAWSTlsSQL(sb *strings.Builder) {
 // Escape function to handle special characters in Bash
 func escapeForBash(input string) string {
 	input = strings.ReplaceAll(input, `"`, `\"`) // Escape double quotes
-	return fmt.Sprintf("\"%s\"", input)          // Wrap in double quotes for echo
+	return "\"" + input + "\""                   // Wrap in double quotes for echo
 }
 
 // postCmdCleanup will handle any cleanup action after initializing the database
