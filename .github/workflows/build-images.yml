@@ -199,7 +199,7 @@ jobs:
     - name: Set legacy Vertica image
       id: legacy_vertica_image
       run: |
-        echo "image=docker.io/opentext/vertica-k8s-private:20250320-legacy" >> $GITHUB_OUTPUT
+        echo "value=docker.io/opentext/vertica-k8s-private:20250320-legacy" >> $GITHUB_OUTPUT
 
 
     - name: Login to GitHub Container registry for non-PRs
