@@ -47,6 +47,7 @@ on:
         - vcluster leg 2
         - vcluster leg 3
         - vcluster leg 4
+        - vcluster leg 4 cert
         - vcluster leg 4 vdb-gen
         - vcluster leg 5
         - vcluster leg 6
@@ -56,6 +57,7 @@ on:
         - vcluster leg 9
         - vcluster leg 10
         - vcluster leg 11
+        - vcluster leg 13
         - vcluster server upgrade
         - vcluster udx
       e2e_retry_times:
@@ -397,6 +399,31 @@ jobs:
           helm-overrides: '--set webhook.certSource=cert-manager'
           e2e-retry-times: ${{ inputs.e2e_retry_times || 2 }}
 
+  e2e-leg-4-vcluster-cert:
+    if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'vcluster leg 4 cert' || inputs.e2e_test_suites == '')}}
+    needs: [build]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Test
+        uses: ./.github/actions/run-e2e-leg
+        with:
+          leg-identifier: 'leg-4'
+          dockerhub-username: ${{ secrets.DOCKERHUB_USERNAME }}
+          dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}
+          vlogger-image: ${{ needs.build.outputs.vlogger-image }}
+          operator-image: ${{ needs.build.outputs.operator-image }}
+          vertica-image: ${{ needs.build.outputs.minimal-vertica-image }}
+          vertica-deployment-method: vclusterops
+          use-cert: true
+          cert-suffix: cert
+          communal-storage-type: s3
+          vertica-superuser-name: myadmin
+          # All helm deployments will use cert-manager to create the webhook cert
+          helm-overrides: '--set webhook.certSource=cert-manager'
+          e2e-retry-times: ${{ inputs.e2e_retry_times || 2 }}
+
   e2e-leg-4-admintools-vdb-gen:
     if: ${{ ! contains(github.ref, 'k8s-sync')  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools leg 4 vdb-gen' || inputs.e2e_test_suites == '') }}
     needs: [build]
@@ -721,6 +748,29 @@ jobs:
           # Include the vertica license so we can test multiple subclusters.
           vertica-license: ${{ secrets.VERTICA_LICENSE }}
 
+  e2e-leg-13-vcluster:
+    if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'vcluster leg 13' || inputs.e2e_test_suites == '')}}
+    needs: [build]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Test
+        uses: ./.github/actions/run-e2e-leg
+        with:
+          leg-identifier: 'leg-13'
+          dockerhub-username: ${{ secrets.DOCKERHUB_USERNAME }}
+          dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}
+          vlogger-image: ${{ needs.build.outputs.vlogger-image }}
+          operator-image: ${{ needs.build.outputs.operator-image }}
+          vertica-image: ${{ needs.build.outputs.minimal-vertica-image }}
+          vertica-deployment-method: vclusterops
+          communal-storage-type: s3
+          vertica-superuser-name: dbadmin
+          # All helm deployments will use cert-manager to create the webhook cert
+          helm-overrides: '--set webhook.certSource=cert-manager'
+          e2e-retry-times: ${{ inputs.e2e_retry_times || 2 }}
+
   e2e-server-upgrade-admintools:
     if: ${{ ! contains(github.ref, 'k8s-sync')  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools server upgrade' || inputs.e2e_test_suites == '') }}
     needs: [build]
@@ -844,6 +894,7 @@ jobs:
       e2e-leg-3-vclusterops-previous-release,
       e2e-leg-3-vcluster,
       e2e-leg-4-vcluster,
+      e2e-leg-4-vcluster-cert,
       e2e-leg-4-vcluster-vdb-gen,
       e2e-leg-5-vcluster,
       e2e-leg-6-vcluster,
@@ -854,6 +905,7 @@ jobs:
       e2e-leg-11-vcluster,
       e2e-leg-12-vcluster,
       e2e-leg-12-vcluster-cert,
+      e2e-leg-13-vcluster,
       e2e-server-upgrade-vcluster,
       e2e-operator-upgrade,
       e2e-udx-vcluster,
@@ -903,6 +955,7 @@ jobs:
       e2e-leg-10-vcluster,
       e2e-leg-11-vcluster,
       e2e-leg-12-vcluster,
+      e2e-leg-13-vcluster,
       e2e-server-upgrade-vcluster,
       e2e-operator-upgrade,
       e2e-udx-vcluster
