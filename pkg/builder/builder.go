@@ -74,13 +74,13 @@ const (
 	VProxySecretNameEnv      = "VPROXY_SECRET_NAME"
 
 	// Environment variables that are (optionally) set when deployed with vclusterops
-	NMARootCAEnv                   = "NMA_ROOTCA_PATH"
-	NMACertEnv                     = "NMA_CERT_PATH"
-	NMAKeyEnv                      = "NMA_KEY_PATH"
-	NMASecretNamespaceEnv          = "NMA_SECRET_NAMESPACE"
-	NMASecretNameEnv               = "NMA_SECRET_NAME"
-	ClientServerSecretNamespaceEnv = "CLIENTSERVER_SECRET_NAMESPACE"
-	ClientServerSecretNameEnv      = "CLIENTSERVER_SECRET_NAME"
+	NMARootCAEnv                = "NMA_ROOTCA_PATH"
+	NMACertEnv                  = "NMA_CERT_PATH"
+	NMAKeyEnv                   = "NMA_KEY_PATH"
+	NMASecretNamespaceEnv       = "NMA_SECRET_NAMESPACE"        // #nosec G101
+	NMASecretNameEnv            = "NMA_SECRET_NAME"             // #nosec G101
+	NMAClientSecretNamespaceEnv = "NMA_CLIENT_SECRET_NAMESPACE" // #nosec G101
+	NMAClientSecretNameEnv      = "NMA_CLIENT_SECRET_NAME"      // #nosec G101
 
 	// Environment variables that are set only in the nma container
 	NMALogPath = "NMA_LOG_PATH"
@@ -2030,6 +2030,26 @@ func buildNMATLSCertsEnvVars(vdb *vapi.VerticaDB) []corev1.EnvVar {
 					Optional: &notTrue,
 				},
 			}},
+		{Name: NMAClientSecretNamespaceEnv,
+			ValueFrom: &corev1.EnvVarSource{
+				ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: configMapName,
+					},
+					Key:      NMAClientSecretNamespaceEnv,
+					Optional: &notTrue,
+				},
+			}},
+		{Name: NMAClientSecretNameEnv,
+			ValueFrom: &corev1.EnvVarSource{
+				ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: configMapName,
+					},
+					Key:      NMAClientSecretNameEnv,
+					Optional: &notTrue,
+				},
+			}},
 	}
 }
 
@@ -2123,8 +2143,10 @@ func GetTarballName(cmd []string) string {
 // The configmap will be mapped to two environmental variables in NMA pod
 func BuildNMATLSConfigMap(nm types.NamespacedName, vdb *vapi.VerticaDB) *corev1.ConfigMap {
 	secretMap := map[string]string{
-		NMASecretNamespaceEnv: vdb.ObjectMeta.Namespace,
-		NMASecretNameEnv:      vdb.Spec.NMATLSSecret,
+		NMASecretNamespaceEnv:       vdb.ObjectMeta.Namespace,
+		NMASecretNameEnv:            vdb.Spec.NMATLSSecret,
+		NMAClientSecretNamespaceEnv: vdb.ObjectMeta.Namespace,
+		NMAClientSecretNameEnv:      vdb.Spec.ClientServerTLSSecret,
 	}
 	tlsConfigMap := &corev1.ConfigMap{
 		TypeMeta: metav1.TypeMeta{

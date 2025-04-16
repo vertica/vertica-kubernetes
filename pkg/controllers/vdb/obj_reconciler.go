@@ -709,12 +709,16 @@ func (o *ObjReconciler) reconcileNMACertConfigMap(ctx context.Context) error {
 		return err
 	}
 	if configMap.Data[builder.NMASecretNameEnv] == o.Vdb.Spec.NMATLSSecret &&
-		configMap.Data[builder.ClientServerSecretNameEnv] == o.Vdb.Spec.ClientServerTLSSecret {
+		configMap.Data[builder.NMAClientSecretNameEnv] == o.Vdb.Spec.ClientServerTLSSecret &&
+		configMap.Data[builder.NMASecretNamespaceEnv] == o.Vdb.ObjectMeta.Namespace &&
+		configMap.Data[builder.NMAClientSecretNamespaceEnv] == o.Vdb.ObjectMeta.Namespace {
 		return nil
 	}
 
 	configMap.Data[builder.NMASecretNameEnv] = o.Vdb.Spec.NMATLSSecret
-	configMap.Data[builder.ClientServerSecretNameEnv] = o.Vdb.Spec.ClientServerTLSSecret
+	configMap.Data[builder.NMASecretNamespaceEnv] = o.Vdb.ObjectMeta.Namespace
+	configMap.Data[builder.NMAClientSecretNameEnv] = o.Vdb.Spec.ClientServerTLSSecret
+	configMap.Data[builder.NMAClientSecretNamespaceEnv] = o.Vdb.ObjectMeta.Namespace
 
 	err = o.Rec.GetClient().Update(ctx, configMap)
 	if err == nil {
