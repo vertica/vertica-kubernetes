@@ -42,7 +42,7 @@ data:
       wait $pid
     done
     
-    HTTP_STATUS=$(kubectl exec -it svc/v-http-custom-certs -c server -- vsql -U dbadmin -c "select http_server_ctrl('status','')")
+    HTTP_STATUS=$(kubectl exec -it svc/v-http-custom-certs-main -c server -- vsql -U dbadmin -c "select http_server_ctrl('status','')")
     echo $HTTP_STATUS
     echo $HTTP_STATUS | grep -cq "Http server is running"
 ---
