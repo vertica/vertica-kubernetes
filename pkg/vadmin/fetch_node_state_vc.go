@@ -51,7 +51,8 @@ func (v *VClusterOps) FetchNodeState(ctx context.Context, opts ...fetchnodestate
 
 	// parse node states
 	stateMap := map[string]string{} // node name to state map
-	for _, nodeInfo := range nodesInfo {
+	for i := range nodesInfo {
+		nodeInfo := &nodesInfo[i]
 		stateMap[nodeInfo.Name] = nodeInfo.State
 	}
 
