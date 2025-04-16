@@ -327,6 +327,19 @@ type VerticaDBSpec struct {
 	// Create client proxy pods for the subcluster if defined
 	// All incoming connections to the subclusters will be routed through the proxy pods
 	Proxy *Proxy `json:"proxy,omitempty"`
+
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:hidden"
+	// +kubebuilder:default:=VERIFY_CA
+	// +kubebuilder:validation:Optional
+	// This field configures the Vertica's connection mode for client-server TLS.
+	// Choose one of the following TLSMODEs, listed in ascending security:
+	// - TRY_VERIFY: Establishes a TLS connection if one of the following is true:
+	//   - The client presents a valid certificate.
+	//   - The client doesn't present a certificate
+	//   If the client presents an invalid certificate, the connection is rejected.
+	// - VERIFY_CA: Connection succeeds if Vertica verifies that the client certificate is from a trusted CA.
+	//   If the client does not present a client certificate, the connection is rejected.
+	HTTPSTLSMode string `json:"httpsTLSMode,omitempty"`
 }
 
 // LocalObjectReference is used instead of corev1.LocalObjectReference and behaves the same.

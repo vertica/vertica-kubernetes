@@ -123,6 +123,8 @@ const (
 	HTTPSCertRotationStarted         = "HTTPSCertRotationStarted"
 	HTTPSCertRotationSucceded        = "HTTPSCertRotationSucceded"
 	HTTPSCertRotationFailed          = "HTTPSCertRotationFailed"
+	NMATLSModeUpdateStarted          = "NMATLSModeUpdateStarted"
+	NMATLSModeUpdateSucceeded        = "NMATLSModeUpdateSucceeded"
 )
 
 // Constants for VerticaAutoscaler reconciler

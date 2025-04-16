@@ -64,6 +64,9 @@ const (
 // hdfsPrefixes are prefixes for an HDFS path.
 var hdfsPrefixes = []string{"webhdfs://", "swebhdfs://"}
 
+// tlsModes are tls modes that a Vertica DB supports
+var tlsModes = []string{"try_verify", "verify_ca"}
+
 // validProxyLogLevel are acceptable values for proxy log level annotation
 var validProxyLogLevel = []string{"TRACE", "DEBUG", "INFO", "WARN", "FATAL", "NONE"}
 
@@ -248,6 +251,7 @@ func (v *VerticaDB) validateVerticaDBSpec() field.ErrorList {
 	allErrs = v.validateSandboxes(allErrs)
 	allErrs = v.checkNewSBoxOrSClusterShutdownUnset(allErrs)
 	allErrs = v.validateProxyConfig(allErrs)
+	allErrs = v.hasValidHTTPSTLSMode(allErrs)
 	if len(allErrs) == 0 {
 		return nil
 	}
@@ -2155,6 +2159,26 @@ func (v *VerticaDB) checkImmutableClientProxy(oldObj *VerticaDB, allErrs field.E
 		err := field.Invalid(field.NewPath("spec").Child("proxy").Child("image"),
 			v.Spec.Proxy.Image,
 			"proxy.image cannot change after creation, otherwise, as doing so will disrupt current user connections")
+		allErrs = append(allErrs, err)
+	}
+	return allErrs
+}
+
+func (v *VerticaDB) hasValidHTTPSTLSMode(allErrs field.ErrorList) field.ErrorList {
+	if !v.IsCertRotationEnabled() {
+		return allErrs
+	}
+	TLSMode := strings.ToLower(v.Spec.HTTPSTLSMode)
+	validMode := false
+	for _, mode := range tlsModes {
+		fmt.Println("mode - " + mode + ", TLSMode - " + TLSMode)
+		if mode == TLSMode {
+			validMode = true
+		}
+	}
+	if !validMode {
+		fmt.Println("libo: mode invalid")
+		err := field.Invalid(field.NewPath("spec").Child("httpsTLSMode"), v.Spec.HTTPSTLSMode, "invalid tls mode")
 		allErrs = append(allErrs, err)
 	}
 	return allErrs

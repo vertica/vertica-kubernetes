@@ -146,7 +146,7 @@ func (h *HTTPSCertRoationReconciler) rotateHTTPSTLSCert(ctx context.Context, new
 			rotatehttpscerts.WithKey(h.Vdb.Spec.NMATLSSecret, keyConfig),
 			rotatehttpscerts.WithCert(h.Vdb.Spec.NMATLSSecret, certConfig),
 			rotatehttpscerts.WithCaCert(h.Vdb.Spec.NMATLSSecret, caCertConfig),
-			rotatehttpscerts.WithTLSMode("TRY_VERIFY"),
+			rotatehttpscerts.WithTLSMode(h.Vdb.Spec.HTTPSTLSMode),
 			rotatehttpscerts.WithInitiator(initiatorPod.GetPodIP()),
 		}
 		h.Log.Info("to call RotateHTTPSCerts for cert " + h.Vdb.Spec.NMATLSSecret + ", tls enabled " +
