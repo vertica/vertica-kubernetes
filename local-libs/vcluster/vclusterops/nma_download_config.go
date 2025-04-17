@@ -149,35 +149,48 @@ func (op *nmaDownloadConfigOp) prepareForDownloadConfigs(execContext *opEngineEx
 		// Otherwise, we set catalogPathMap from the catalog editor (start_db, create_db).
 		// For startNodes, If the sourceConfigHost input is a nil value, we find any UP primary nodes as source host to update the host input.
 		// we update the catalogPathMap for next download operation's steps from node information by using HTTPS /v1/nodes
-		var primaryUpHosts []string
-		var upHosts []string
-		for host, vnode := range op.vdb.HostNodeMap {
-			if vnode.State == util.NodeUpState {
-				// If we do not find a primary up host in the same cluster(or sandbox), try to find a secondary up host
-				if vnode.IsPrimary {
-					primaryUpHosts = append(primaryUpHosts, host)
-					op.catalogPathMap[host] = getCatalogPath(vnode.CatalogPath)
-					break
-				} else if op.sandbox != nil && vnode.Sandbox == *op.sandbox {
-					upHosts = append(upHosts, host)
-					op.catalogPathMap[host] = getCatalogPath(vnode.CatalogPath)
+		primaryUpHosts, upHosts := op.populateUpPrimaryHosts()
+		if len(op.hosts) == 0 {
+			if len(primaryUpHosts) == 0 {
+				op.logger.Info("could not find any primary UP nodes, considering secondary UP nodes.")
+				if len(upHosts) == 0 {
+					return fmt.Errorf("could not find any up nodes")
 				}
+				op.hosts = []string{upHosts[0]}
+			} else {
+				op.hosts = primaryUpHosts
 			}
-		}
-		if len(primaryUpHosts) == 0 {
-			op.logger.Info("could not find any primary UP nodes, considering secondary UP nodes.")
-			if len(upHosts) == 0 {
-				return fmt.Errorf("could not find any up nodes")
-			}
-			op.hosts = []string{upHosts[0]}
-		} else {
-			op.hosts = primaryUpHosts
 		}
 	}
 
 	execContext.dispatcher.setup(op.hosts)
 
 	return op.setupClusterHTTPRequest(op.hosts)
+}
+
+// populate catalog path, primary up hosts and all up hosts for executing download config
+func (op *nmaDownloadConfigOp) populateUpPrimaryHosts() (primaryUpHosts, upHosts []string) {
+	for host, vnode := range op.vdb.HostNodeMap {
+		if vnode.State == util.NodeUpState {
+			// If we do not find a primary up host in the same cluster(or sandbox), try to find a secondary up host
+			if vnode.IsPrimary {
+				primaryUpHosts = append(primaryUpHosts, host)
+				op.catalogPathMap[host] = getCatalogPath(vnode.CatalogPath)
+				break
+			} else if op.sandbox != nil && vnode.Sandbox == *op.sandbox {
+				upHosts = append(upHosts, host)
+				op.catalogPathMap[host] = getCatalogPath(vnode.CatalogPath)
+			}
+		}
+	}
+	if len(op.hosts) > 0 {
+		for _, host := range op.hosts {
+			if vnode, ok := op.vdb.HostNodeMap[host]; ok {
+				op.catalogPathMap[host] = getCatalogPath(vnode.CatalogPath)
+			}
+		}
+	}
+	return primaryUpHosts, upHosts
 }
 
 func (op *nmaDownloadConfigOp) execute(execContext *opEngineExecContext) error {
