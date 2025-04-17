@@ -1,0 +1,5 @@
+kind: Added
+body: Enable users to configure the maximum backoff duration for sandbox controller through a Helm parameter or an environment variable.
+time: 2025-04-14T23:36:06.05304572Z
+custom:
+  Issue: "1192"

@@ -63,8 +63,9 @@ type SandboxConfigMapReconciler struct {
 // +kubebuilder:rbac:groups="",resources=configmaps,verbs=get;list;watch
 // +kubebuilder:rbac:groups=vertica.com,resources=verticadbs,verbs=get;list;watch
 
-func (r *SandboxConfigMapReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *SandboxConfigMapReconciler) SetupWithManager(mgr ctrl.Manager, options *controller.Options) error {
 	return ctrl.NewControllerManagedBy(mgr).
+		WithOptions(*options).
 		For(
 			&corev1.ConfigMap{},
 			builder.WithPredicates(r.predicateFuncs(), predicate.ResourceVersionChangedPredicate{}),

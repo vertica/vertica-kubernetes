@@ -50,6 +50,10 @@ controllers:
   # Default value is 1000 ms (1 second). Increase this value to reduce the requeue rate
   # if you have multiple databases running and want a lower rate limit.
   vdbMaxBackoffDuration: 1000
+  # Controls the maximum backoff requeue duration (in milliseconds) for the sandbox controller.
+  # Default value is 1000 ms (1 second). Increase this value to reduce the requeue rate
+  # if you have multiple sandboxes running and want a lower rate limit.
+  sandboxMaxBackoffDuration: 1000
 
 webhook:
   # The webhook requires a TLS certificate to work. This parm defines how the
