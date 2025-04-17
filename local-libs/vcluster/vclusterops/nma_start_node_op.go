@@ -79,7 +79,8 @@ func (op *nmaStartNodeOp) updateRequestBody(execContext *opEngineExecContext) er
 			if len(execContext.scNodesInfo) == 0 {
 				return fmt.Errorf(`[%s] Cannot find any node information of target subcluster in OpEngineExecContext`, op.name)
 			}
-			for _, vnode := range execContext.scNodesInfo {
+			for i := range execContext.scNodesInfo {
+				vnode := &execContext.scNodesInfo[i]
 				op.hosts = append(op.hosts, vnode.Address)
 				hoststartCommand, ok := execContext.startupCommandMap[vnode.Name]
 				if ok {

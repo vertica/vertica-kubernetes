@@ -155,7 +155,8 @@ func (op *httpsCheckRunningDBOp) prepare(execContext *opEngineExecContext) error
 			return fmt.Errorf(`[%s] Cannot find any node information of target subcluster in OpEngineExecContext`, op.name)
 		}
 		hostsInSC := make([]string, 0, len(execContext.nodesInfo))
-		for _, node := range execContext.nodesInfo {
+		for i := range execContext.nodesInfo {
+			node := &execContext.nodesInfo[i]
 			hostsInSC = append(hostsInSC, node.Address)
 		}
 		op.hosts = hostsInSC

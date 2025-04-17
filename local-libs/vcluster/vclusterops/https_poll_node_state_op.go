@@ -90,19 +90,6 @@ func makeHTTPSPollNodeStateOp(hosts []string,
 	return op, err
 }
 
-// makeHTTPSPollPermanentNodeStateOp will filter out non-permanent hosts from
-// polling, as identified dynamically by a previous op
-func makeHTTPSPollPermanentNodeStateOp(hosts []string,
-	permanentHosts *[]string, useHTTPPassword bool, userName string,
-	httpsPassword *string, timeout int) (httpsPollNodeStateOp, error) {
-	op, err := makeHTTPSPollNodeStateOp(hosts, useHTTPPassword, userName, httpsPassword, timeout)
-	if err != nil {
-		return op, err
-	}
-	op.permanentHosts = permanentHosts
-	return op, nil
-}
-
 func (op *httpsPollNodeStateOp) getPollingTimeout() int {
 	return max(op.timeout, 0)
 }
