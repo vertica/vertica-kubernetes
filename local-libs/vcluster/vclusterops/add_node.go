@@ -287,14 +287,14 @@ func (vcc VClusterCommands) trimNodesInCatalog(vdb *VCoordinationDatabase,
 			// This could be counting a DOWN compute node as counting towards
 			// k-safety. When compute nodes can be identified when down or offline,
 			// this should do so instead of checking state.
-			if vnode.State != util.NodeComputeState {
+			if !vnode.IsComputeNode {
 				subscribingHostsCount++
 			}
 		} else if vnode.Sandbox != "" { // add sandbox node to allExistingHostNodeMap as well
 			existingHostNodeMap[h] = vnode
 		} else { // main cluster catalog node is not expected, trim it
 			// cannot trim UP nodes
-			if vnode.State == util.NodeUpState || vnode.State == util.NodeComputeState {
+			if vnode.State == util.NodeUpState {
 				return existingHostNodeMap, fmt.Errorf("cannot trim the %s node %s (address %s)",
 					vnode.State, vnode.Name, h)
 			}
@@ -436,23 +436,12 @@ func (vcc VClusterCommands) produceAddNodeInstructions(vdb *VCoordinationDatabas
 
 	nmaStartNewNodesOp := makeNMAStartNodeOpWithVDB(newHosts, options.StartUpConf, vdb)
 	var pollNodeStateOp clusterOp
-	if options.ComputeGroup == "" {
-		// poll normally
-		httpsPollNodeStateOp, err := makeHTTPSPollNodeStateOp(newHosts, usePassword, username, password, options.TimeOut)
-		if err != nil {
-			return instructions, err
-		}
-		httpsPollNodeStateOp.cmdType = AddNodeCmd
-		pollNodeStateOp = &httpsPollNodeStateOp
-	} else {
-		// poll indirectly via nodes with catalog access
-		httpsPollComputeNodeStateOp, err := makeHTTPSPollComputeNodeStateOp(vdb.PrimaryUpNodes, newHosts, usePassword,
-			username, password, options.TimeOut)
-		if err != nil {
-			return instructions, err
-		}
-		pollNodeStateOp = &httpsPollComputeNodeStateOp
+	httpsPollNodeStateOp, err := makeHTTPSPollNodeStateOp(newHosts, usePassword, username, password, options.TimeOut)
+	if err != nil {
+		return instructions, err
 	}
+	httpsPollNodeStateOp.cmdType = AddNodeCmd
+	pollNodeStateOp = &httpsPollNodeStateOp
 	instructions = append(instructions,
 		&nmaStartNewNodesOp,
 		pollNodeStateOp,

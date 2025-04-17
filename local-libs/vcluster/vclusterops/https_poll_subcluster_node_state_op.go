@@ -107,7 +107,8 @@ func (op *httpsPollSubclusterNodeStateOp) prepare(execContext *opEngineExecConte
 	// We need to ensure that the https request to fetch the node state goes to the sandboxed node
 	// because the main cluster will report the status of sandboxed nodes as "UNKNOWN".
 	if len(op.hosts) == 0 {
-		for _, vnode := range execContext.scNodesInfo {
+		for i := range execContext.nodesInfo {
+			vnode := &execContext.nodesInfo[i]
 			op.hosts = append(op.hosts, vnode.Address)
 		}
 	}

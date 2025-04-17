@@ -21,6 +21,9 @@ import (
 	"github.com/vertica/vcluster/vclusterops/util"
 )
 
+// this op obtains /nodes/<host_ip> for each host in the database
+// this is because every host knows its own status the best
+// e.g., a sandboxed node knows whether itself is UP or DOWN, while main cluster nodes may not know that
 type httpsUpdateNodeStateOp struct {
 	opBase
 	opHTTPSBase
@@ -91,17 +94,10 @@ func (op *httpsUpdateNodeStateOp) processResult(execContext *opEngineExecContext
 		// "Local node has not joined cluster yet, HTTP server will accept connections when the node has joined the cluster"
 		// In this case, we mark the node status as UNKNOWN
 		if result.hasPreconditionFailed() {
-			vnode, ok := op.vdb.HostNodeMap[host]
+			_, ok := op.vdb.HostNodeMap[host]
 			if !ok {
 				return fmt.Errorf("cannot find host %s in vdb", host)
 			}
-			// Compute nodes will persistently fail the precondition, and shouldn't have status overwritten.
-			// Note that if the vdb was constructed by querying node(s) from a different sandbox than the
-			// compute node, it will already have UNKNOWN state in the vdb and that will not change here.
-			if vnode.State != util.NodeComputeState {
-				vnode.State = util.NodeUnknownState
-			}
-
 			continue
 		}
 
@@ -143,6 +139,7 @@ func (op *httpsUpdateNodeStateOp) processResult(execContext *opEngineExecContext
 			}
 			vnode.State = nodeInfo.State
 			vnode.IsPrimary = nodeInfo.IsPrimary
+			vnode.IsComputeNode = nodeInfo.IsCompute
 		} else {
 			// if the result format is wrong on any of the hosts, we should throw an error
 			return fmt.Errorf(util.NodeInfoCountMismatch, op.name, len(nodesInformation.NodeList), host)

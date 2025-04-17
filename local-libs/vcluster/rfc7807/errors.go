@@ -267,4 +267,19 @@ var (
 		"Invalid time range",
 		http.StatusBadRequest,
 	)
+	GenericSearchVerticaProcessError = newProblemID(
+		path.Join(errorEndpointsPrefix, "failed-to-find-vertica-process"),
+		"failed finding Vertica processes",
+		http.StatusInternalServerError,
+	)
+	InvalidSignalVerticaProcessErrnoError = newProblemID(
+		path.Join(errorEndpointsPrefix, "invalid-signal-vertica-process-errno"),
+		"invalid errno of sending signal to Vertica processes",
+		http.StatusInternalServerError,
+	)
+	GenericSignalVerticaProcessError = newProblemID(
+		path.Join(errorEndpointsPrefix, "failed-to-signal-vertica-process"),
+		"failed to signal Vertica processes",
+		http.StatusInternalServerError,
+	)
 )
