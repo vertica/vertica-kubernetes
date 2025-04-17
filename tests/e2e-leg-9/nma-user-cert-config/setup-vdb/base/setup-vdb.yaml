@@ -32,7 +32,8 @@ spec:
   subclusters:
     - name: sc1
       size: 1
-  nmaTLSSecret: custom-cert
+  nmaTLSSecret: nma-cert
+  clientServerTLSSecret: client-cert
   securityContext:
     capabilities:
       add: ["SYS_PTRACE"]

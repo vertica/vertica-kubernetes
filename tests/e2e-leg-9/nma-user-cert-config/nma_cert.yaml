@@ -11,11 +11,23 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: kuttl.dev/v1beta2
-kind: TestStep
-commands:
-  # nma env variable should exist.
-  - command: kubectl exec -n $NAMESPACE v-tls-certs-sc1-0 -c nma -- bash -c "env | grep NMA_SECRET_NAME=nma-cert"
-  - command: kubectl exec -n $NAMESPACE v-tls-certs-sc1-0 -c nma -- bash -c "env | grep NMA_SECRET_NAMESPACE=$NAMESPACE"
-  - command: kubectl exec -n $NAMESPACE v-tls-certs-sc1-0 -c nma -- bash -c "env | grep NMA_CLIENT_SECRET_NAME=client-cert"
-  - command: kubectl exec -n $NAMESPACE v-tls-certs-sc1-0 -c nma -- bash -c "env | grep NMA_CLIENT_SECRET_NAMESPACE=$NAMESPACE"
+# This is applied through envsubst so that the $NAMESPACE gets filled in
+
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: serving-cert
+spec:
+  commonName: dbadmin
+  isCA: true
+  issuerRef:
+    kind: Issuer
+    name: selfsigned-issuer
+  secretName: nma-cert
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: selfsigned-issuer
+spec:
+  selfSigned: {}
