@@ -190,6 +190,7 @@ func (c *CreateDBReconciler) preCmdSetup(ctx context.Context, initiatorPod types
 // generatePostDBCreateSQL is a function that creates a file with sql commands
 // to be run immediately after the database create.
 func (c *CreateDBReconciler) generatePostDBCreateSQL(ctx context.Context, initiatorPod types.NamespacedName) (ctrl.Result, error) {
+	cmd := ""
 	// If version is older than DBSetupConfigParametersMinVersion or newer than vapi.TLSCertRotationMinVersion,
 	// run SQL after DB creation. Otherwise, skip this function
 	if c.VInf.IsEqualOrNewer(vapi.DBSetupConfigParametersMinVersion) && !c.Vdb.IsCertRotationEnabled() {
@@ -200,7 +201,6 @@ func (c *CreateDBReconciler) generatePostDBCreateSQL(ctx context.Context, initia
 	// by DBAddSubclusterReconciler.
 	sc := c.getFirstPrimarySubcluster()
 	var sb strings.Builder
-	pcFile := PostDBCreateSQLFile
 	sb.WriteString("-- SQL that is run after the database is created\n")
 	if c.VInf.IsOlder(vapi.DBSetupConfigParametersMinVersion) {
 		if c.Vdb.IsEON() {
@@ -217,6 +217,7 @@ func (c *CreateDBReconciler) generatePostDBCreateSQL(ctx context.Context, initia
 			sb.WriteString(fmt.Sprintf(`alter database default set parameter EncryptSpreadComm = '%s';
 			`, vapi.EncryptSpreadCommWithVertica))
 		}
+		cmd = "cat > " + PostDBCreateSQLFile + "<<< \"" + sb.String() + "\""
 	}
 	if c.Vdb.IsCertRotationEnabled() {
 		switch {
@@ -228,12 +229,12 @@ func (c *CreateDBReconciler) generatePostDBCreateSQL(ctx context.Context, initia
 			c.generateKubernetesTLSSQL(&sb)
 		}
 		sb.WriteString(`select sync_catalog();`)
-		pcFile = PostDBCreateSQLFileVclusterOps
+		cmd = "cat > " + PostDBCreateSQLFileVclusterOps + "<<< " + escapeForBash(sb.String())
 	}
 
 	c.Log.Info("executing the following script", "script", sb.String())
 	_, _, err := c.PRunner.ExecInPod(ctx, initiatorPod, names.ServerContainer,
-		"bash", "-c", "cat > "+pcFile+"<<< "+escapeForBash(sb.String()),
+		"bash", "-c", cmd,
 	)
 	c.Log.Info("SQL to be executed after db creation: " + sb.String())
 	if err != nil {
