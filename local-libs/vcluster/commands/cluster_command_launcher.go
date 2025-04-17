@@ -68,6 +68,10 @@ const (
 	eonModeKey                  = "eonMode"
 	configParamFlag             = "config-param"
 	configParamKey              = "configParam"
+	serverTLSConfigFlag         = "server-tls-config"
+	serverTLSConfigKey          = "serverTLSConfig"
+	httpsTLSConfigFlag          = "https-tls-config"
+	httpsTLSConfigKey           = "httpsTLSConfig"
 	configParamFileFlag         = "config-param-file"
 	configParamFileKey          = "configParamFile"
 	licenseFileFlag             = "license-file"
@@ -162,6 +166,8 @@ var flagKeyMap = map[string]string{
 	ipv6Flag:                    ipv6Key,
 	eonModeFlag:                 eonModeKey,
 	configParamFlag:             configParamKey,
+	serverTLSConfigFlag:         serverTLSConfigKey,
+	httpsTLSConfigFlag:          httpsTLSConfigKey,
 	logPathFlag:                 logPathKey,
 	keyFileFlag:                 keyFileKey,
 	certFileFlag:                certFileKey,

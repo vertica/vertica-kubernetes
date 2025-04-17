@@ -169,7 +169,7 @@ func (opt *VClusterHealthOptions) recursiveTraceLocks(logger vlog.Printer, upHos
 	lockAttemptList := clusterOpEngine.execContext.dcLockAttemptsList
 
 	// stop recursion if no more events found
-	if len(*lockAttemptList) == 0 {
+	if lockAttemptList == nil || len(*lockAttemptList) == 0 {
 		return nil
 	}
 
@@ -207,6 +207,7 @@ func (opt *VClusterHealthOptions) getLockReleases(logger vlog.Printer, upHosts [
 
 func (opt *VClusterHealthOptions) DisplayLockEventsCascade() {
 	for _, eventNode := range opt.LockEventCascade {
+		// white spaces in this block are for indentation only
 		fmt.Println(eventNode.NodeName)
 		fmt.Println("  Wait locks:")
 		for _, event := range eventNode.LockWaitEvents {
