@@ -18,7 +18,7 @@ metadata:
 spec:
   containers:
   - name: main
-    image: mcr.microsoft.com/azure-cli:2.29.0
+    image: mcr.microsoft.com/azure-cli:2.63.0
     imagePullPolicy: IfNotPresent
     command:
       - az

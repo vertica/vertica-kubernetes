@@ -17,14 +17,16 @@ ARG BUILDER_OS_NAME
 ARG BUILDER_OS_VERSION
 ARG MINIMAL=""
 ARG S6_OVERLAY_VERSION=3.1.2.1
-FROM ${BUILDER_OS_NAME}:${BUILDER_OS_VERSION} as builder
+FROM ${BUILDER_OS_NAME}:${BUILDER_OS_VERSION} AS builder
 
-ARG VERTICA_RPM
+ARG VERTICA_X86_RPM
+ARG VERTICA_ARM64_RPM
 ARG MINIMAL
 ARG DBADMIN_GID=5000
 ARG DBADMIN_UID=5000
 
-COPY ./packages/${VERTICA_RPM} /tmp/
+COPY ./packages/${VERTICA_X86_RPM} /tmp/
+COPY ./packages/${VERTICA_ARM64_RPM} /tmp/
 # this is a script which removes unnecessary stuff from the
 # container image
 COPY ./packages/cleanup.sh /tmp/
@@ -33,6 +35,7 @@ COPY ./packages/10-vertica-sshd.conf /etc/ssh/sshd_config.d/10-vertica-sshd.conf
 COPY ./packages/10-vertica-ssh.conf /etc/ssh/ssh_config.d/10-vertica-ssh.conf
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+ARG TARGETARCH
 RUN set -x \
   # Update is needed to be confident that we're picking up
   # fixed libraries.
@@ -52,7 +55,15 @@ RUN set -x \
   binutils \
   && /usr/sbin/groupadd -r verticadba --gid ${DBADMIN_GID} \
   && /usr/sbin/useradd -r -m -s /bin/bash -g verticadba --uid ${DBADMIN_UID} dbadmin \
-  && yum localinstall -q -y /tmp/${VERTICA_RPM} \
+  && ls /tmp/ \
+  && if [[ "$TARGETARCH" == "arm64" ]] ; then \
+      uname -m && \
+      yum localinstall -y /tmp/${VERTICA_ARM64_RPM} ; \
+    elif [[ "$TARGETARCH" == "amd64" ]] ; then \
+      yum localinstall -y /tmp/${VERTICA_X86_RPM} ; \
+    else \
+      exit 1; \
+    fi \
   # Run install_vertica script to prepare environment
   && /opt/vertica/sbin/install_vertica \
   --accept-eula \
@@ -96,7 +107,7 @@ RUN set -x \
   && chmod go-w /etc/ssh/sshd_config.d/* /etc/ssh/ssh_config.d/* 
 
 ##############################################################################################
-FROM ${BASE_OS_NAME}:${BASE_OS_VERSION} as initial
+FROM ${BASE_OS_NAME}:${BASE_OS_VERSION} AS initial
 
 # Controls the version of jre to be installed. The list of all available jre
 # packages can be queried through dnf. For instance, "dnf search openjdk"
@@ -164,7 +175,7 @@ COPY --from=builder /var/spool/cron/ /var/spool/cron/crontabs
 COPY --from=builder /etc/ssh/sshd_config.d/* /etc/ssh/sshd_config.d/
 COPY --from=builder /etc/ssh/ssh_config.d/* /etc/ssh/ssh_config.d/
 
-ENV PATH "$PATH:/opt/vertica/bin:/opt/vertica/sbin"
+ENV PATH="$PATH:/opt/vertica/bin:/opt/vertica/sbin"
 
 # For the init program (process 1), we use s6-overlay. This ensures none of the
 # processes we start ever become zombie's. It will also restart long running

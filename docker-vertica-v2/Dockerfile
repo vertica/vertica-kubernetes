@@ -147,9 +147,9 @@ COPY --from=initial / /
 COPY --from=builder /opt/vertica /opt/vertica
 COPY --from=builder /home/dbadmin /home/dbadmin
 
-ENV PATH "$PATH:/opt/vertica/bin:/opt/vertica/sbin"
-ENV JAVA_HOME "/usr"
-ENV VERTICA_STARTUP_LOG_DUPLICATE "/proc/1/fd/1"
+ENV PATH="$PATH:/opt/vertica/bin:/opt/vertica/sbin"
+ENV JAVA_HOME="/usr"
+ENV VERTICA_STARTUP_LOG_DUPLICATE="/proc/1/fd/1"
 
 # vertica port
 EXPOSE 5433

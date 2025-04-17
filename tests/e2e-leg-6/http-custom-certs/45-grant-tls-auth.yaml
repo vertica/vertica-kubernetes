@@ -58,7 +58,7 @@ spec:
           restartPolicy: Never
           containers:
             - name: test
-              image: bitnami/kubectl:1.20.4
+              image: bitnami/kubectl:1.30.4
               command: ["/bin/entrypoint.sh"]
               volumeMounts:
                 - name: entrypoint-volume
