@@ -344,6 +344,12 @@ func (v *VerticaDB) hasValidSaveRestorePointConfig(allErrs field.ErrorList) fiel
 				fmt.Sprintf(`archive cannot have the characters %q`, invalidChars))
 			allErrs = append(allErrs, err)
 		}
+		if v.Spec.RestorePoint.NumRestorePoints < 0 {
+			err := field.Invalid(field.NewPath("spec").Child("restorePoint").Child("numRestorePoints"),
+				v.Spec.RestorePoint.NumRestorePoints,
+				"numRestorePoints must be set to 0 or greater")
+			allErrs = append(allErrs, err)
+		}
 	}
 	return allErrs
 }
