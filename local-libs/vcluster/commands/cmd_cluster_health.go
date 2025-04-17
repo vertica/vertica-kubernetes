@@ -231,11 +231,7 @@ func (c *CmdClusterHealth) Run(vcc vclusterops.ClusterCommands) error {
 	vcc.LogInfo("Slow event traceback: ", "slow events", string(bytes))
 
 	if options.Display {
-		if options.Operation == "" {
-			options.DisplaySlowEventsCascade()
-		} else if options.Operation == lockCascade {
-			options.DisplayLockEventsCascade()
-		}
+		options.DisplayCascadeGraph()
 	}
 
 	return nil

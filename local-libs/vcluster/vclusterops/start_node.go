@@ -446,7 +446,7 @@ func (vcc VClusterCommands) produceStartNodesInstructions(startNodeInfo *VStartN
 		&httpsPollNodeStateIndirectOp,
 		&httpsPollNodeStateOp,
 	)
-	if vdb.IsEon {
+	if vdb.IsEon && options.IfSyncCatalog {
 		httpsSyncCatalogOp, err := makeHTTPSSyncCatalogOp(options.Hosts, options.usePassword, options.UserName,
 			options.Password, StartNodeSyncCat)
 		if err != nil {

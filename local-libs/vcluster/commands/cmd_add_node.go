@@ -127,6 +127,12 @@ func (c *CmdAddNode) setLocalFlags(cmd *cobra.Command) {
 		util.GetEnvInt("NODE_STATE_POLLING_TIMEOUT", util.DefaultTimeoutSeconds),
 		"The time, in seconds, to wait for the specified nodes to be added.",
 	)
+	cmd.Flags().BoolVar(
+		&c.ifSyncCatalog,
+		"sync-catalog",
+		false,
+		"Whether to sync the catalog after the node is up",
+	)
 }
 
 func (c *CmdAddNode) Parse(inputArgv []string, logger vlog.Printer) error {
@@ -219,4 +225,5 @@ func (c *CmdAddNode) Run(vcc vclusterops.ClusterCommands) error {
 // SetDatabaseOptions will assign a vclusterops.DatabaseOptions instance to the one in CmdAddNode
 func (c *CmdAddNode) SetDatabaseOptions(opt *vclusterops.DatabaseOptions) {
 	c.addNodeOptions.DatabaseOptions = *opt
+	c.addNodeOptions.IfSyncCatalog = c.ifSyncCatalog
 }
