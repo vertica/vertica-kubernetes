@@ -477,11 +477,13 @@ func (vcc VClusterCommands) prepareAdditionalEonInstructions(vdb *VCoordinationD
 	}
 
 	if vdb.IsEon {
-		httpsSyncCatalogOp, err := makeHTTPSSyncCatalogOp(initiatorHost, usePassword, username, options.Password, AddNodeSyncCat)
-		if err != nil {
-			return instructions, err
+		if options.IfSyncCatalog {
+			httpsSyncCatalogOp, err := makeHTTPSSyncCatalogOp(initiatorHost, usePassword, username, options.Password, AddNodeSyncCat)
+			if err != nil {
+				return instructions, err
+			}
+			instructions = append(instructions, &httpsSyncCatalogOp)
 		}
-		instructions = append(instructions, &httpsSyncCatalogOp)
 		// Rebalancing shards after only adding compute nodes is pointless as compute nodes only
 		// have ephemeral subscriptions. However, it may be needed if real nodes were just trimmed.
 		// Only ignore the specified option if compute nodes were added with no trimming.

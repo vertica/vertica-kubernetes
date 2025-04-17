@@ -21,7 +21,7 @@ import (
 	v1 "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
-	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
+	config "github.com/vertica/vertica-kubernetes/pkg/vdbconfig"
 	"github.com/vertica/vertica-kubernetes/pkg/vk8s"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -29,17 +29,15 @@ import (
 // ShutdownSpecReconciler will make sure that subclusters, part of a sandbox,
 // that needs to be shutdown/restarted, have the correct shutdown value.
 type ShutdownSpecReconciler struct {
-	VRec   *VerticaDBReconciler
-	Vdb    *v1.VerticaDB
-	PFacts *podfacts.PodFacts
+	VRec config.ReconcilerInterface
+	Vdb  *v1.VerticaDB
 }
 
-func MakeShutdownSpecReconciler(r *VerticaDBReconciler,
-	vdb *v1.VerticaDB, pfacts *podfacts.PodFacts) controllers.ReconcileActor {
+func MakeShutdownSpecReconciler(r config.ReconcilerInterface,
+	vdb *v1.VerticaDB) controllers.ReconcileActor {
 	return &ShutdownSpecReconciler{
-		VRec:   r,
-		Vdb:    vdb,
-		PFacts: pfacts,
+		VRec: r,
+		Vdb:  vdb,
 	}
 }
 

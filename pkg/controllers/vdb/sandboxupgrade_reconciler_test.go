@@ -115,7 +115,7 @@ var _ = Describe("sandboxupgrade_reconciler", func() {
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
-		r := MakeSandboxUpgradeReconciler(vdbRec, logger, vdb)
+		r := MakeSandboxUpgradeReconciler(vdbRec, logger, vdb, true)
 		res, err := r.Reconcile(ctx, &ctrl.Request{})
 		Expect(err).ShouldNot(Succeed())
 		Expect(res).Should(Equal(ctrl.Result{}))
@@ -123,7 +123,7 @@ var _ = Describe("sandboxupgrade_reconciler", func() {
 })
 
 func validateReconcile(ctx context.Context, vdb *vapi.VerticaDB, requeue bool) {
-	r := MakeSandboxUpgradeReconciler(vdbRec, logger, vdb)
+	r := MakeSandboxUpgradeReconciler(vdbRec, logger, vdb, true)
 	res, err := r.Reconcile(ctx, &ctrl.Request{})
 	Expect(err).Should(Succeed())
 	Expect(res).Should(Equal(ctrl.Result{Requeue: requeue}))
