@@ -117,7 +117,7 @@ func (s *SaveRestorePointReconciler) Reconcile(ctx context.Context, _ *ctrl.Requ
 	if s.Vdb.Spec.RestorePoint != nil && s.Vdb.Spec.RestorePoint.Archive != "" {
 		// Always tried to create archive
 		// params: context, host, archive-name, sandbox, num of restore point(0 is unlimited)
-		err = s.runCreateArchiveVclusterAPI(ctx, hostIP, s.Vdb.Spec.RestorePoint.Archive, "", 0)
+		err = s.runCreateArchiveVclusterAPI(ctx, hostIP, s.Vdb.Spec.RestorePoint.Archive, "", s.Vdb.Spec.RestorePoint.NumRestorePoints)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
@@ -132,8 +132,8 @@ func (s *SaveRestorePointReconciler) Reconcile(ctx context.Context, _ *ctrl.Requ
 // runCreateArchiveVclusterAPI will do the actual execution of creating archive.
 // This handles logging of necessary events.
 func (s *SaveRestorePointReconciler) runCreateArchiveVclusterAPI(ctx context.Context,
-	host string, archiveName string, sandbox string, numRestorePoint int) error {
-	opts := s.genCreateArchiveOpts(host, archiveName, numRestorePoint, sandbox)
+	host string, archiveName string, sandbox string, numRestorePoints int) error {
+	opts := s.genCreateArchiveOpts(host, archiveName, numRestorePoints, sandbox)
 	s.VRec.Event(s.Vdb, corev1.EventTypeNormal, events.CreateArchiveStart, "Starting create archive")
 	start := time.Now()
 
@@ -183,11 +183,11 @@ func (s *SaveRestorePointReconciler) runSaveRestorePointVclusterAPI(ctx context.
 
 // genCreateArchiveOpts will return the options to use with the create archive apiS
 func (s *SaveRestorePointReconciler) genCreateArchiveOpts(initiatorIP string, archiveName string,
-	numRestorePoint int, sandbox string) []createarchive.Option {
+	numRestorePoints int, sandbox string) []createarchive.Option {
 	opts := []createarchive.Option{
 		createarchive.WithInitiator(initiatorIP),
 		createarchive.WithArchiveName(archiveName),
-		createarchive.WithNumRestorePoints(numRestorePoint),
+		createarchive.WithNumRestorePoints(numRestorePoints),
 		createarchive.WithSandbox(sandbox),
 	}
 	return opts
