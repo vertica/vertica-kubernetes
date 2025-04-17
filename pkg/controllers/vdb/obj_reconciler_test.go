@@ -125,7 +125,7 @@ var _ = Describe("obj_reconcile", func() {
 			Expect(foundSvc.Spec.ClusterIP).ShouldNot(Equal("None"))
 			Expect(foundSvc.Spec.Type).Should(Equal(corev1.ServiceTypeClusterIP))
 			Expect(foundSvc.Spec.Ports[0].Port).Should(Equal(int32(5433)))
-			Expect(foundSvc.Spec.Ports[1].Port).Should(Equal(int32(8443)))
+			Expect(foundSvc.Spec.Ports[1].Port).Should(Equal(vdb.Spec.Subclusters[0].ServiceHTTPSPort))
 
 			By("Checking the VerticaDB has a headless service object")
 			hlNameLookup := names.GenHlSvcName(vdb)

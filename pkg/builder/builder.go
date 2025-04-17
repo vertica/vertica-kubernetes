@@ -120,6 +120,10 @@ type ProxyData struct {
 // BuildExtSvc creates desired spec for the external service.
 func BuildExtSvc(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi.Subcluster,
 	selectorLabelCreator func(*vapi.VerticaDB, *vapi.Subcluster) map[string]string) *corev1.Service {
+	ServiceHTTPSPort := int32(VerticaHTTPPort)
+	if sc.ServiceHTTPSPort > 0 {
+		ServiceHTTPSPort = sc.ServiceHTTPSPort
+	}
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        nm.Name,
@@ -132,7 +136,7 @@ func BuildExtSvc(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi.Subclust
 			Type:     sc.ServiceType,
 			Ports: []corev1.ServicePort{
 				{Port: VerticaClientPort, Name: "vertica", NodePort: sc.ClientNodePort},
-				{Port: VerticaHTTPPort, Name: "vertica-http", NodePort: sc.VerticaHTTPNodePort},
+				{Port: ServiceHTTPSPort, Name: "vertica-http", NodePort: sc.VerticaHTTPNodePort},
 			},
 			ExternalIPs:    sc.ExternalIPs,
 			LoadBalancerIP: sc.LoadBalancerIP,
@@ -167,8 +171,12 @@ func BuildHlSvc(nm types.NamespacedName, vdb *vapi.VerticaDB) *corev1.Service {
 		},
 	}
 	if vmeta.UseVClusterOps(vdb.Annotations) {
+		HeadlessHTTPSPort := int32(VerticaHTTPPort)
+		if vdb.Spec.HeadlessHTTPSPort > 0 {
+			HeadlessHTTPSPort = vdb.Spec.HeadlessHTTPSPort
+		}
 		svc.Spec.Ports = append(svc.Spec.Ports,
-			corev1.ServicePort{Port: VerticaHTTPPort, Name: "tcp-httpservice"},
+			corev1.ServicePort{Port: HeadlessHTTPSPort, Name: "tcp-httpservice"},
 			corev1.ServicePort{Port: NMAPort, Name: "tcp-nma"},
 		)
 	} else {
@@ -1353,12 +1361,16 @@ func makeScrutinizeMainContainer(vscr *v1beta1.VerticaScrutinize, tarballName st
 }
 
 // makeHTTPServerVersionEndpointProbe will build an HTTPGet probe
-func makeHTTPServerVersionEndpointProbe() *corev1.Probe {
+func makeHTTPServerVersionEndpointProbe(vdb *vapi.VerticaDB) *corev1.Probe {
+	ClientHTTPSPort := int32(VerticaHTTPPort)
+	if vdb.Spec.ClientHTTPSPort > 0 {
+		ClientHTTPSPort = vdb.Spec.ClientHTTPSPort
+	}
 	return &corev1.Probe{
 		ProbeHandler: corev1.ProbeHandler{
 			HTTPGet: &corev1.HTTPGetAction{
 				Path:   HTTPServerVersionPath,
-				Port:   intstr.FromInt(VerticaHTTPPort),
+				Port:   intstr.FromInt32(ClientHTTPSPort),
 				Scheme: corev1.URISchemeHTTPS,
 			},
 		},
@@ -1393,7 +1405,7 @@ func makeCanaryQueryProbe(vdb *vapi.VerticaDB) *corev1.Probe {
 // is enabled
 func getHTTPServerVersionEndpointProbe(vdb *vapi.VerticaDB) *corev1.Probe {
 	if vmeta.UseVClusterOps(vdb.Annotations) {
-		return makeHTTPServerVersionEndpointProbe()
+		return makeHTTPServerVersionEndpointProbe(vdb)
 	}
 	return nil
 }

@@ -317,6 +317,20 @@ type VerticaDBSpec struct {
 	// RoleBinding.
 	ServiceAccountName string `json:"serviceAccountName,omitempty"`
 
+	// +kubebuilder:default:=8443
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:number","urn:alm:descriptor:com.tectonic.ui:advanced"}
+	// HTTPS port for the headless service
+	// Default is 8443
+	HeadlessHTTPSPort int32 `json:"headlessHTTPSPort,omitempty"`
+
+	// +kubebuilder:default:=8443
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:number","urn:alm:descriptor:com.tectonic.ui:advanced"}
+	// HTTPS port for client connections
+	// Default is 8443
+	ClientHTTPSPort int32 `json:"clientHTTPSPort,omitempty"`
+
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:advanced"
 	// +kubebuilder:validation:Optional
 	// Identifies any sandboxes that exist for the database
@@ -789,6 +803,13 @@ type Subcluster struct {
 	// must be defined within the range allocated by the control plane, if
 	// omitted Kubernetes will choose the port automatically.
 	VerticaHTTPNodePort int32 `json:"verticaHTTPNodePort,omitempty"`
+
+	// +kubebuilder:default:=8443
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// HTTPS port for this subcluster's services
+	// Default is 8443
+	ServiceHTTPSPort int32 `json:"serviceHTTPSPort,omitempty"`
 
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:advanced"
