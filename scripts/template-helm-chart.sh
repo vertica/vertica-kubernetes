@@ -126,12 +126,14 @@ echo "{{- end }}" >> $TEMPLATE_DIR/verticadb-operator-metrics-service-svc.yaml
 
 # 13.  Template the roles/rolebindings for access to prometheus metrics
 for f in verticadb-operator-metrics-reader-cr.yaml \
-    verticadb-operator-metrics-reader-crb.yaml
+    verticadb-operator-metrics-reader-crb.yaml \
+    verticadb-operator-metrics-auth-role-cr.yaml \
+    verticadb-operator-metrics-auth-rolebinding-crb.yaml
 do
     perl -i -pe 's/^/{{- if and (.Values.prometheus.createProxyRBAC) (eq .Values.prometheus.expose "EnableWithAuth") -}}\n/ if 1 .. 1' $TEMPLATE_DIR/$f
     echo "{{- end }}" >> $TEMPLATE_DIR/$f
     perl -i -0777 -pe 's/-metrics-reader/-{{ include "vdb-op.metricsRbacPrefix" . }}metrics-reader/g' $TEMPLATE_DIR/$f
-    perl -i -0777 -pe 's/-(proxy-role.*)/-{{ include "vdb-op.metricsRbacPrefix" . }}$1/g' $TEMPLATE_DIR/$f
+    perl -i -0777 -pe 's/-(metrics-auth-role.*)/-{{ include "vdb-op.metricsRbacPrefix" . }}$1/g' $TEMPLATE_DIR/$f
 done
 
 # 14.  Template the metrics bind address
