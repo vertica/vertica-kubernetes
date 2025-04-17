@@ -55,7 +55,7 @@ var _ = Describe("shutdownspec_reconciler", func() {
 		pfacts := podfacts.MakePodFacts(vdbRec, fpr, logger, TestPassword)
 		pfacts.SandboxName = sandbox1
 
-		r := MakeShutdownSpecReconciler(vdbRec, vdb, &pfacts)
+		r := MakeShutdownSpecReconciler(vdbRec, vdb)
 		res, err := r.Reconcile(ctx, &ctrl.Request{})
 		Expect(err).Should(BeNil())
 		Expect(res).Should(Equal(ctrl.Result{}))
@@ -68,7 +68,7 @@ var _ = Describe("shutdownspec_reconciler", func() {
 
 		newVdb.Spec.Sandboxes[0].Shutdown = false
 		Expect(k8sClient.Update(ctx, newVdb)).Should(Succeed())
-		r = MakeShutdownSpecReconciler(vdbRec, newVdb, &pfacts)
+		r = MakeShutdownSpecReconciler(vdbRec, newVdb)
 		res, err = r.Reconcile(ctx, &ctrl.Request{})
 		Expect(err).Should(BeNil())
 		Expect(res).Should(Equal(ctrl.Result{}))

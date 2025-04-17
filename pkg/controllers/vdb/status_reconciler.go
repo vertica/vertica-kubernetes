@@ -268,6 +268,7 @@ func (s *StatusReconciler) setSubclusterStatusWhenShutdown(podIndex int32, curSt
 }
 
 func (s *StatusReconciler) updateShutdownStatus(sc *vapi.Subcluster, curStat *vapi.SubclusterStatus) {
+	s.Log.Info("Updating subcluster shutdown status", "old", curStat.Shutdown, "new", sc.Shutdown)
 	curStat.Shutdown = sc.Shutdown
 }
 

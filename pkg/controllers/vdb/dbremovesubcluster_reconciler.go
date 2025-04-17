@@ -19,6 +19,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
@@ -163,6 +164,10 @@ func (d *DBRemoveSubclusterReconciler) removeSubcluster(ctx context.Context, scN
 		nodesToPollSubs = d.PFacts.FindNodeNamesInSubclusters(scNames)
 	}
 
+	d.VRec.Eventf(d.Vdb, corev1.EventTypeNormal, events.RemoveSubcluserStart,
+		"Starting database remove subcluster for subcluster %q", scName)
+	start := time.Now()
+
 	err := d.Dispatcher.RemoveSubcluster(ctx,
 		removesc.WithInitiator(d.ATPod.GetName(), d.ATPod.GetPodIP()),
 		removesc.WithSubcluster(scName),
@@ -171,10 +176,12 @@ func (d *DBRemoveSubclusterReconciler) removeSubcluster(ctx context.Context, scN
 		removesc.WithNodesToPollSubs(nodesToPollSubs),
 	)
 	if err != nil {
+		d.VRec.Eventf(d.Vdb, corev1.EventTypeWarning, events.RemoveSubclusterFailed,
+			"Failed to remove subcluster %q", scName)
 		return err
 	}
 	d.VRec.Eventf(d.Vdb, corev1.EventTypeNormal, events.SubclusterRemoved,
-		"Removed subcluster '%s'", scName)
+		"Removed subcluster %q and it took %s", scName, time.Since(start).Truncate(time.Second))
 	return nil
 }
 
