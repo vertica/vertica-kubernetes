@@ -137,6 +137,10 @@ type dcLockReleases struct {
 	// TODO: let endpoint make this as a string
 	UserID   int64  `json:"user_id"`
 	UserName string `json:"user_name"`
+	// TxnInfo and SessionInfo are not used for parsing data from the NMA endpoint
+	// but will be used to show detailed info about the retrieved TxnID and SessionID
+	TxnInfo     dcTransactionStart `json:"transaction_info"`
+	SessionInfo dcSessionStart     `json:"session_info"`
 }
 
 func (op *nmaLockReleasesOp) processResult(execContext *opEngineExecContext) error {

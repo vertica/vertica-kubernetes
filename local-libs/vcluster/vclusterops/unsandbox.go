@@ -263,12 +263,14 @@ func (vcc *VClusterCommands) updateSandboxDetailsFromMainCluster(
 				info.hasOtherScInSandbox = true
 			}
 		}
-		if vnode.State != util.NodeDownState && vnode.Subcluster == options.SCName {
-			info.hasUpNodeInSC = true
-			info.upSCHosts = append(info.upSCHosts, vnode.Address)
-			// reip requires an UP Primary node in the sandbox
-			if vnode.IsPrimary && vnode.Sandbox == info.SandboxName {
-				info.UpSandboxHost = vnode.Address
+		if vnode.Subcluster == options.SCName {
+			if vnode.State != util.NodeDownState {
+				info.hasUpNodeInSC = true
+				info.upSCHosts = append(info.upSCHosts, vnode.Address)
+				// reip requires an UP Primary node in the sandbox
+				if vnode.IsPrimary && vnode.Sandbox == info.SandboxName {
+					info.UpSandboxHost = vnode.Address
+				}
 			}
 			info.SandboxedSubclusterHosts = append(info.SandboxedSubclusterHosts, vnode.Address)
 			info.SandboxedNodeNameAddressMap[vnode.Name] = vnode.Address
@@ -380,7 +382,8 @@ func (vcc *VClusterCommands) reIPNodes(options *VUnsandboxOptions, upSandboxHost
 //     2. get start commands from UP main cluster node
 //     3. run startup commands for unsandboxed nodes
 //     4. Poll for started nodes to be UP
-func (vcc *VClusterCommands) produceUnsandboxSCInstructions(options *VUnsandboxOptions, info *ProcessedVDBInfo) ([]clusterOp, error) {
+func (vcc *VClusterCommands) produceUnsandboxSCInstructions(options *VUnsandboxOptions, info *ProcessedVDBInfo,
+	vdb *VCoordinationDatabase) ([]clusterOp, error) {
 	var instructions []clusterOp
 	// when password is specified, we will use username/password to call https endpoints
 	usePassword := false
@@ -416,6 +419,7 @@ func (vcc *VClusterCommands) produceUnsandboxSCInstructions(options *VUnsandboxO
 			return instructions, err
 		}
 	}
+
 	if info.hasOtherScInSandbox && info.UpSandboxHost != "" {
 		// Run Unsandboxing on sandbox
 		httpsUnsandboxSubclusterOp, e := makeHTTPSUnsandboxingOp(options.SCName,
@@ -443,7 +447,7 @@ func (vcc *VClusterCommands) produceUnsandboxSCInstructions(options *VUnsandboxO
 		&nmaDeleteDirsOp,
 	)
 	if options.RestartSC {
-		instructions, err = buildRestartScInstructions(instructions, info, scHosts, usePassword, username, options)
+		instructions, err = buildRestartScInstructions(instructions, vdb, info, scHosts, usePassword, username, options)
 		if err != nil {
 			return instructions, err
 		}
@@ -472,6 +476,7 @@ func buildStopNodeInstructions(instructions []clusterOp,
 }
 
 func buildRestartScInstructions(instructions []clusterOp,
+	vdb *VCoordinationDatabase,
 	info *ProcessedVDBInfo,
 	scHosts []string,
 	usePassword bool, username string,
@@ -489,7 +494,10 @@ func buildRestartScInstructions(instructions []clusterOp,
 		}
 		instructions = append(instructions, &nmaSigKillNodeOp, &httpsPollNodesDown)
 	}
-
+	// after unsandboxing, transfer config files from main cluster to the unsandboxed nodes
+	mainClusterSandbox := util.MainClusterSandbox
+	produceTransferConfigOps(&instructions, info.MainClusterUpHosts, info.SandboxedSubclusterHosts,
+		vdb, &mainClusterSandbox)
 	// Get startup commands
 	httpsStartUpCommandOp, err := makeHTTPSStartUpCommandOpAfterUnsandbox(usePassword, username, options.Password)
 	if err != nil {
@@ -529,7 +537,7 @@ func (options *VUnsandboxOptions) runCommand(vcc VClusterCommands) error {
 		return err
 	}
 	// make instructions
-	instructions, err := vcc.produceUnsandboxSCInstructions(options, &vdbInfo)
+	instructions, err := vcc.produceUnsandboxSCInstructions(options, &vdbInfo, &vdb)
 	if err != nil {
 		return fmt.Errorf("fail to produce instructions, %w", err)
 	}
