@@ -3,22 +3,27 @@
 # -------------------------------
 # Parameters: 
 # LOG_LEVEL: Defines the minimum log severity level to print.
-# LOG_FILTER: Comma-separated list (e.g., WARNING) to override LOG_LEVEL, supports includes
+# LOG_FILTER: Comma-separated list (e.g., INFO,ERROR) supports including specific levels in the list.
 #  
 # Example usage:
-# No env variable setup: prints all logs
-# or LOG_LEVEL=* : prints all logs
+# No env variable setup, prints all logs: ./tail_vertica_log.sh
+# or LOG_LEVEL=* ./tail_vertica_log.sh
 # 
 # Minimal setup: show INFO and above(INFO,WARNING,ERROR)
 # LOG_LEVEL=INFO ./tail_vertica_log.sh
 # 
-# Override log level filter. Show ERROR and above, but keep the DEBUG level(DEBUG,ERROR)
-# LOG_LEVEL=ERROR LOG_FILTER="DEBUG" ./tail_vertica_log.sh
-# or LOG_FILTER="DEBUG,ERROR" ./tail_vertica_log.sh
+# Show WARNING and above(WARNING,ERROR):
+# LOG_LEVEL=WARNING ./tail_vertica_log.sh
+# or LOG_FILTER="WARNING,ERROR" ./tail_vertica_log.sh
+#
+# Show INFO and WARNING(INFO,WARNING):
+# LOG_FILTER="INFO,WARNING" ./tail_vertica_log.sh
+#
+# If both LOG_LEVEL and LOG_FILTER are set, LOG_LEVEL will be ignored(WARNING,ERROR):
+# LOG_LEVEL=* LOG_FILTER="WARNING,ERROR" ./tail_vertica_log.sh
 # 
-# 
-# Fallback to CLI if env not set: ./tail_vertica_log.sh $LOG_LEVEL $LOG_FILTER
-# e.g: ./tail_vertica_log.sh WARN "DEBUG,INFO"
+# Fallback to CLI usage if env not set: ./tail_vertica_log.sh $LOG_LEVEL $LOG_FILTER
+# e.g: ./tail_vertica_log.sh WARNING "WARNING,ERROR"
 # 
 # $DBPATH is set by the operator and is the /<localDataPath>/<dbName>.
 # The tail can't be done until the vertica.log is created.  This is because the
@@ -50,7 +55,11 @@ is_invalid_level() {
   return 1
 }
 
-# Build inclusive log pattern from base level
+# -------------------------------
+# Parse log level filter
+# -------------------------------
+
+# Build inclusive log pattern from base level, return pattern string: e.g: <*>|<INFO>
 build_from_base_level() {
   local base="$1" found=0 result=""
   for lvl in $VALID_LEVELS; do
@@ -60,11 +69,7 @@ build_from_base_level() {
   echo "$result" | sed 's/^|//'
 }
 
-# -------------------------------
-# Parse log level filter
-# -------------------------------
-
-# Parse LOG_FILTER string into include
+# Parse LOG_FILTER string into include, return pattern string: e.g: <INFO>|<WARNING>
 parse_log_filter() {
   INCLUDE=""
   IFS=','
@@ -72,9 +77,6 @@ parse_log_filter() {
   set -- $1
   for raw in "$@"; do
     case "$raw" in
-      -*)
-        lev=$(to_upper "$(echo "$raw" | sed 's/^-//')")
-        ;;
       *)
         lev=$(to_upper "$raw")
         ;;
@@ -94,20 +96,23 @@ parse_log_filter() {
   done
   
   # Clean trailing pipes
-  INCLUDE_PATTERN=$(echo "$INCLUDE" | sed 's/|$//') # e.g: <INFO>|<WARNING>
+  echo "$INCLUDE" | sed 's/|$//' # e.g: <INFO>|<WARNING>
 }
 
 # -------------------------------
 # Determine log and filter pattern
 # -------------------------------
 
+# If LOG_LEVEL set, build LEVEL_PATTERN
 if [ -n "$LOG_LEVEL" ]; then
   LEVEL=$(to_upper "$LOG_LEVEL")
   is_invalid_level "$LEVEL" || LEVEL="*"
   LEVEL_PATTERN=$(build_from_base_level "$LEVEL") # Provide all log levels after the base level
 fi
+# If LOG_FILTER set, build LEVEL_PATTERN
+# If both LOG_LEVEL and LOG_FILTER, LOG_LEVEL will be ignored
 if [ -n "$LOG_FILTER" ]; then
-  parse_log_filter "$LOG_FILTER"
+  LEVEL_PATTERN=$(parse_log_filter "$LOG_FILTER")
 fi
 
 # -------------------------------
@@ -119,13 +124,8 @@ print_logs() {
     upper_line=$(to_upper "$line")
     show=1
     # Apply Log Level
-    if [ -n "$LEVEL_PATTERN" ]; then # e.g: <INFO>|<WARNING>|<ERROR>
+    if [ -n "$LEVEL_PATTERN" ]; then # e.g: INFO|WARNING|ERROR
       echo "$upper_line" | grep -qiE "$LEVEL_PATTERN" || show=0
-    fi
-
-    # Apply INCLUDE filter, overwrite if needed
-    if [ -n "$INCLUDE_PATTERN" ]; then
-      echo "$upper_line" | grep -qiE "$INCLUDE_PATTERN" && show=1
     fi
 
     [ "$show" -eq 1 ] && echo "$line"
