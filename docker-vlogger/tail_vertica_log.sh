@@ -35,7 +35,7 @@
 # Configuration & Valid Log Levels
 # -------------------------------
 
-VALID_LEVELS="* DEBUG INFO WARNING ERROR" 
+VALID_LEVELS="DEBUG INFO WARNING ERROR" 
 LOG_LEVEL="${LOG_LEVEL:-$1}" # Defines the minimum log severity level to print.
 LOG_FILTER="${LOG_FILTER:-$2}" # Comma-separated list (e.g. WARNING) to override LOG_LEVEL, supports includes.
 LOG_FILE=$DBPATH/v_*_catalog/vertica.log # Log file path. DBPATH is set by operator
@@ -50,16 +50,15 @@ to_upper() {
 }
 
 # Check if a level is valid
-is_invalid_level() {
-  for lvl in $VALID_LEVELS; do [ "$1" = "$lvl" ] && return 0; done
-  return 1
+is_valid_level() {
+  echo "$VALID_LEVELS" | grep -qw "$1"
 }
 
 # -------------------------------
 # Parse log level filter
 # -------------------------------
 
-# Build inclusive log pattern from base level, return pattern string: e.g: <*>|<INFO>
+# Build inclusive log pattern from base level, return pattern string: e.g: <INFO>
 build_from_base_level() {
   local base="$1" found=0 result=""
   for lvl in $VALID_LEVELS; do
@@ -82,17 +81,13 @@ parse_log_filter() {
         ;;
     esac
 
-    if is_invalid_level "$lev"; then
-      echo "Invalid log level found, skip: $is_valid_level"
-      echo "Valid levels: $VALID_LEVELS"
-      continue
+    if is_valid_level "$lev"; then
+      case "$raw" in
+        *)
+          INCLUDE="${INCLUDE}<${lev}>|"
+          ;;
+      esac
     fi
-  
-    case "$raw" in
-      *)
-        INCLUDE="${INCLUDE}<${lev}>|"
-        ;;
-    esac
   done
   
   # Clean trailing pipes
@@ -106,7 +101,7 @@ parse_log_filter() {
 # If LOG_LEVEL set, build LEVEL_PATTERN
 if [ -n "$LOG_LEVEL" ]; then
   LEVEL=$(to_upper "$LOG_LEVEL")
-  is_invalid_level "$LEVEL" || LEVEL="*"
+  is_valid_level "$LEVEL" || LEVEL="INFO"
   LEVEL_PATTERN=$(build_from_base_level "$LEVEL") # Provide all log levels after the base level
 fi
 # If LOG_FILTER set, build LEVEL_PATTERN
@@ -123,8 +118,18 @@ print_logs() {
   tail -n 1 -F $LOG_FILE | while read -r line; do
     upper_line=$(to_upper "$line")
     show=1
-    # Apply Log Level
-    if [ -n "$LEVEL_PATTERN" ]; then # e.g: INFO|WARNING|ERROR
+    # untagged lines, treated as INFO level
+    if ! echo "$upper_line" | grep -qE "<(DEBUG|INFO|WARNING|ERROR)>"; then
+      # if <INFO> in level pattern, print it
+      if echo "$LEVEL_PATTERN" | grep -q "<INFO>"; then 
+        # If Debug tag found, not print it
+        echo "$upper_line" | grep -q "<DEBUG>" && show=0
+      else
+        # Otherwise not on INFO level, not print untagged lines
+        show=0
+      fi
+    # Apply level pattern in normal cases
+    elif [ -n "$LEVEL_PATTERN" ]; then # e.g: <INFO>|<WARNING>|<ERROR>
       echo "$upper_line" | grep -qiE "$LEVEL_PATTERN" || show=0
     fi
 
