@@ -118,6 +118,10 @@ type ProxyData struct {
 // BuildExtSvc creates desired spec for the external service.
 func BuildExtSvc(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi.Subcluster,
 	selectorLabelCreator func(*vapi.VerticaDB, *vapi.Subcluster) map[string]string) *corev1.Service {
+	HTTPSPort := vdb.Spec.ServiceHTTPSPort
+	if sc.ServiceHTTPSPort > 0 {
+		HTTPSPort = sc.ServiceHTTPSPort
+	}
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        nm.Name,
@@ -130,7 +134,7 @@ func BuildExtSvc(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi.Subclust
 			Type:     sc.ServiceType,
 			Ports: []corev1.ServicePort{
 				{Port: vdb.Spec.ServiceClientPort, Name: "vertica", NodePort: sc.ClientNodePort},
-				{Port: sc.ServiceHTTPSPort, Name: "vertica-http", NodePort: sc.VerticaHTTPNodePort},
+				{Port: HTTPSPort, Name: "vertica-http", NodePort: sc.VerticaHTTPNodePort},
 			},
 			ExternalIPs:    sc.ExternalIPs,
 			LoadBalancerIP: sc.LoadBalancerIP,

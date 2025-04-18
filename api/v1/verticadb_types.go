@@ -804,11 +804,11 @@ type Subcluster struct {
 	// omitted Kubernetes will choose the port automatically.
 	VerticaHTTPNodePort int32 `json:"verticaHTTPNodePort,omitempty"`
 
-	// +kubebuilder:default:=8443
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// HTTPS port for this subcluster's services
-	// Default is 8443
+	// If not set, it will use the port number specified in spec.ServiceHTTPSPort,
+	// which is defaulted to be 8443
 	ServiceHTTPSPort int32 `json:"serviceHTTPSPort,omitempty"`
 
 	// +kubebuilder:validation:Optional
