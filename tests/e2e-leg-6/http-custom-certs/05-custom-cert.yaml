@@ -27,6 +27,7 @@ metadata:
 spec:
   # For the certs to be used to authenticate, the commonName must have the username the cert is for
   commonName: 'dbadmin'
+  isCA: true
   issuerRef:
     kind: Issuer
     name: http-server-selfsigned-issuer
