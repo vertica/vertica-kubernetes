@@ -22,7 +22,6 @@ import (
 	vops "github.com/vertica/vcluster/vclusterops"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/cloud"
-	"github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	corev1 "k8s.io/api/core/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -116,7 +115,7 @@ func (v *VClusterOps) setAuthentication(opts *vops.DatabaseOptions, username str
 func getNMATLSSecretName(vdb *vapi.VerticaDB) (string, error) {
 	secretName := ""
 	if vdb.IsCertRotationEnabled() && vdb.IsStatusConditionTrue(vapi.DBInitialized) {
-		secretName = meta.GetNMATLSSecretNameInUse(vdb.Annotations)
+		secretName = vdb.GetNMATLSSecretNameInUse()
 	} else {
 		secretName = vdb.Spec.NMATLSSecret
 	}

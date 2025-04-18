@@ -104,6 +104,11 @@ func (g *GenericDatabaseInitializer) runInit(ctx context.Context) (ctrl.Result, 
 		return ctrl.Result{}, err
 	}
 
+	sec := vapi.MakeNMATLSSecretRef(g.Vdb.Spec.NMATLSSecret)
+	if err := vdbstatus.UpdateSecretRef(ctx, g.VRec.GetClient(), g.Vdb, sec); err != nil {
+		return ctrl.Result{}, err
+	}
+
 	// The DB has been initialized. We invalidate the cache now so that next
 	// access will refresh with the new db state. A status reconciler will
 	// follow this that will update the Vdb status about the db existence.

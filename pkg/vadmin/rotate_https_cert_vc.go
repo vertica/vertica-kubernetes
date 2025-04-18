@@ -20,7 +20,6 @@ import (
 
 	vops "github.com/vertica/vcluster/vclusterops"
 	"github.com/vertica/vertica-kubernetes/pkg/cloud"
-	"github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/net"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/rotatehttpscerts"
 )
@@ -30,7 +29,7 @@ func (v *VClusterOps) RotateHTTPSCerts(ctx context.Context, opts ...rotatehttpsc
 	v.setupForAPICall("RotateHTTPSCerts")
 	defer v.tearDownForAPICall()
 	v.Log.Info("Starting vcluster RotateHTTPSCerts")
-	secretName := meta.GetNMATLSSecretNameInUse(v.VDB.Annotations)
+	secretName := v.VDB.GetNMATLSSecretNameInUse()
 	// get the certs
 	fetcher := cloud.SecretFetcher{
 		Client:   v.Client,

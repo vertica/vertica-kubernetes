@@ -39,8 +39,11 @@ var _ = Describe("httpscertrotation_reconciler", func() {
 		vdb.Spec.EncryptSpreadComm = vapi.EncryptSpreadCommDisabled
 		vdb.Spec.Subclusters[0].Size = 3
 		vdb.Spec.NMATLSSecret = rotateHTTPSCertNewNMASecretName
+		vapi.SetVDBForTLS(vdb)
 		test.CreateFakeTLSSecret(ctx, vdb, k8sClient, vdb.Spec.NMATLSSecret)
+		defer test.DeleteSecret(ctx, k8sClient, vdb.Spec.NMATLSSecret)
 		test.CreateFakeTLSSecret(ctx, vdb, k8sClient, rotateHTTPSCertCurrentNMASecretName)
+		defer test.DeleteSecret(ctx, k8sClient, rotateHTTPSCertCurrentNMASecretName)
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
@@ -51,7 +54,13 @@ var _ = Describe("httpscertrotation_reconciler", func() {
 		fpr := &cmds.FakePodRunner{}
 		pfacts := createPodFactsWithNoDB(ctx, vdb, fpr, 3)
 		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
-		vapi.SetVDBWithSecretForTLS(vdb, rotateHTTPSCertCurrentNMASecretName)
+		vdb.Status.SecretRefs = []vapi.SecretRef{
+			{
+				Name: rotateHTTPSCertCurrentNMASecretName,
+				Type: vapi.NMATLSSecretType,
+			},
+		}
+		Expect(k8sClient.Status().Update(ctx, vdb)).Should(Succeed())
 
 		r := MakeHTTPSCertRotationReconciler(vdbRec, logger, vdb, dispatcher, pfacts)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: true}))

@@ -137,7 +137,8 @@ func (m *MultiSourceSecretFetcher) readFromGSM(ctx context.Context, secName stri
 // readFromAWS will fetch a secret from AWS Secrets Manager. The secretName
 // should be of the format awssm://<secret-arn>.
 func (m *MultiSourceSecretFetcher) readFromAWS(secretName string) (map[string][]byte, error) {
-	secretARN := RemovePathReference(secretName)
+	secretARNWithVersionID := RemovePathReference(secretName)
+	secretARN, versionID := getAWSSecretVersionID(secretARNWithVersionID)
 	if !arn.IsARN(secretARN) {
 		return nil, fmt.Errorf("the secret name '%s' to fetch from AWS is not an ARN", secretARN)
 	}
@@ -160,6 +161,9 @@ func (m *MultiSourceSecretFetcher) readFromAWS(secretName string) (map[string][]
 	input := &secretsmanager.GetSecretValueInput{
 		SecretId: aws.String(secretARN),
 	}
+	if versionID != "" {
+		input.SetVersionId(versionID)
+	}
 
 	result, err := svc.GetSecretValue(input)
 	if err != nil {
@@ -176,6 +180,9 @@ func (m *MultiSourceSecretFetcher) readFromAWS(secretName string) (map[string][]
 
 	if result.SecretString == nil {
 		return nil, fmt.Errorf("AWS secret %s does not have SecretString", secretName)
+	}
+	if expected := versionID; expected != "" && result.VersionId != nil && expected != *result.VersionId {
+		return nil, fmt.Errorf("unexpected AWS secret version: expected %q, got %q", expected, *result.VersionId)
 	}
 
 	contents := make(map[string][]byte)

@@ -1000,6 +1000,17 @@ type VerticaDBStatus struct {
 	// +optional
 	// The details about the last created restore point
 	RestorePoint *RestorePointInfo `json:"restorePoint"`
+
+	SecretRefs []SecretRef `json:"secretRefs,omitempty"`
+}
+
+const (
+	NMATLSSecretType = "NMATLSSecretType" // #nosec G101
+)
+
+type SecretRef struct {
+	Name string `json:"name"`
+	Type string `json:"type"`
 }
 
 type RestorePointInfo struct {
