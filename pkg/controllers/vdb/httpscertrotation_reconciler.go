@@ -38,10 +38,10 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-// HTTPSCertRoationReconciler will compare the nma tls secret with the one saved in
+// HTTPSCertRotationReconciler will compare the nma tls secret with the one saved in
 // "vertica.com/nma-https-previous-secret". If different, it will try to rotate the
 // cert currently used with the one saved the nma tls secret for https service
-type HTTPSCertRoationReconciler struct {
+type HTTPSCertRotationReconciler struct {
 	VRec       *VerticaDBReconciler
 	Vdb        *vapi.VerticaDB // Vdb is the CRD we are acting on.
 	Log        logr.Logger
@@ -51,17 +51,17 @@ type HTTPSCertRoationReconciler struct {
 
 func MakeHTTPSCertRotationReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger, vdb *vapi.VerticaDB, dispatcher vadmin.Dispatcher,
 	pfacts *podfacts.PodFacts) controllers.ReconcileActor {
-	return &HTTPSCertRoationReconciler{
+	return &HTTPSCertRotationReconciler{
 		VRec:       vdbrecon,
 		Vdb:        vdb,
-		Log:        log.WithName("HTTPSCertRoationReconciler"),
+		Log:        log.WithName("HTTPSCertRotationReconciler"),
 		Dispatcher: dispatcher,
 		PFacts:     pfacts,
 	}
 }
 
 // Reconcile will rotate TLS certificate.
-func (h *HTTPSCertRoationReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
+func (h *HTTPSCertRotationReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
 	if !h.Vdb.IsCertRotationEnabled() {
 		return ctrl.Result{}, nil
 	}
@@ -117,7 +117,7 @@ func (h *HTTPSCertRoationReconciler) Reconcile(ctx context.Context, _ *ctrl.Requ
 }
 
 // rotateHTTPSTLSCert will rotate https server's tls cert from currentSecret to newSecret
-func (h *HTTPSCertRoationReconciler) rotateHTTPSTLSCert(ctx context.Context, newSecret,
+func (h *HTTPSCertRotationReconciler) rotateHTTPSTLSCert(ctx context.Context, newSecret,
 	currentSecret map[string][]byte) (ctrl.Result, error) {
 	initiatorPod, ok := h.PFacts.FindFirstUpPod(false, "")
 	if !ok {
