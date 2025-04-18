@@ -27,7 +27,6 @@ import (
 
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
-	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
 	"github.com/vertica/vertica-kubernetes/pkg/security"
@@ -47,7 +46,7 @@ type HTTPSCertRoationReconciler struct {
 	Vdb        *vapi.VerticaDB // Vdb is the CRD we are acting on.
 	Log        logr.Logger
 	Dispatcher vadmin.Dispatcher
-	Pfacts     *podfacts.PodFacts
+	PFacts     *podfacts.PodFacts
 }
 
 func MakeHTTPSCertRotationReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger, vdb *vapi.VerticaDB, dispatcher vadmin.Dispatcher,
@@ -57,7 +56,7 @@ func MakeHTTPSCertRotationReconciler(vdbrecon *VerticaDBReconciler, log logr.Log
 		Vdb:        vdb,
 		Log:        log.WithName("HTTPSCertRoationReconciler"),
 		Dispatcher: dispatcher,
-		Pfacts:     pfacts,
+		PFacts:     pfacts,
 	}
 }
 
@@ -69,9 +68,9 @@ func (h *HTTPSCertRoationReconciler) Reconcile(ctx context.Context, _ *ctrl.Requ
 	if h.Vdb.IsStatusConditionTrue(vapi.HTTPSCertRotationFinished) && h.Vdb.IsStatusConditionTrue(vapi.TLSCertRotationInProgress) {
 		return ctrl.Result{}, nil
 	}
-	currentSecretName := vmeta.GetNMATLSSecretNameInUse(h.Vdb.Annotations)
+	currentSecretName := h.Vdb.GetNMATLSSecretNameInUse()
 	newSecretName := h.Vdb.Spec.NMATLSSecret
-	h.Log.Info("starting rotation reconcile, currentSecretName - " + currentSecretName + ", newSecretName - " + newSecretName)
+	h.Log.Info("Starting rotation reconcile", "currentSecretName", currentSecretName, "newSecretName", newSecretName)
 	// this condition excludes bootstrap scenario
 	if currentSecretName == "" || newSecretName == currentSecretName {
 		return ctrl.Result{}, nil
@@ -80,7 +79,7 @@ func (h *HTTPSCertRoationReconciler) Reconcile(ctx context.Context, _ *ctrl.Requ
 	// rotation is required. Will check start conditions next
 	// check if secret is ready for rotation
 
-	currentSecret, newSecret, res, err := readSecretsAndConfigMap(false, h.Vdb, h.VRec, h.VRec.GetClient(), h.Log, ctx,
+	currentSecretData, newSecretData, res, err := readSecrets(h.Vdb, h.VRec, h.VRec.GetClient(), h.Log, ctx,
 		currentSecretName, newSecretName)
 	if verrors.IsReconcileAborted(res, err) {
 		return res, err
@@ -91,12 +90,17 @@ func (h *HTTPSCertRoationReconciler) Reconcile(ctx context.Context, _ *ctrl.Requ
 		"Start rotating https cert from %s to %s", currentSecretName, newSecretName)
 	cond := vapi.MakeCondition(vapi.TLSCertRotationInProgress, metav1.ConditionTrue, "InProgress")
 	if err2 := vdbstatus.UpdateCondition(ctx, h.VRec.GetClient(), h.Vdb, cond); err2 != nil {
-		h.Log.Error(err2, "failed to set condition "+vapi.TLSCertRotationInProgress+" to true")
+		h.Log.Error(err2, "Failed to set condition to true", "conditionType", vapi.TLSCertRotationInProgress)
 		return ctrl.Result{}, err2
 	}
 
+	err = h.PFacts.Collect(ctx, h.Vdb)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
 	// Now https cert rotation will start
-	res, err2 := h.rotateHTTPSTLSCert(ctx, newSecret, currentSecret)
+	res, err2 := h.rotateHTTPSTLSCert(ctx, newSecretData, currentSecretData)
 	if verrors.IsReconcileAborted(res, err) {
 		h.Log.Info("https cert rotation is aborted.")
 		return res, err2
@@ -113,14 +117,15 @@ func (h *HTTPSCertRoationReconciler) Reconcile(ctx context.Context, _ *ctrl.Requ
 }
 
 // rotateHTTPSTLSCert will rotate https server's tls cert from currentSecret to newSecret
-func (h *HTTPSCertRoationReconciler) rotateHTTPSTLSCert(ctx context.Context, newSecret, currentSecret *corev1.Secret) (ctrl.Result, error) {
-	initiatorPod, ok := h.Pfacts.FindFirstUpPod(false, "")
+func (h *HTTPSCertRoationReconciler) rotateHTTPSTLSCert(ctx context.Context, newSecret,
+	currentSecret map[string][]byte) (ctrl.Result, error) {
+	initiatorPod, ok := h.PFacts.FindFirstUpPod(false, "")
 	if !ok {
 		h.Log.Info("No pod found to run rotate https cert. Requeue reconciliation.")
 		return ctrl.Result{Requeue: true}, nil
 	}
-	newCert := string(newSecret.Data[corev1.TLSCertKey])
-	currentCert := string(currentSecret.Data[corev1.TLSCertKey])
+	newCert := string(newSecret[corev1.TLSCertKey])
+	currentCert := string(currentSecret[corev1.TLSCertKey])
 	rotated, err := security.VerifyCert(initiatorPod.GetPodIP(), builder.VerticaHTTPPort, newCert, currentCert, h.Log)
 	if err != nil {
 		h.Log.Error(err, "https cert rotation aborted. Failed to verify new https cert for "+
@@ -134,15 +139,15 @@ func (h *HTTPSCertRoationReconciler) rotateHTTPSTLSCert(ctx context.Context, new
 	if rotated == 0 {
 		h.Log.Info("https cert rotation skipped. new https cert is already in use on " + initiatorPod.GetPodIP())
 	} else {
-		currentSecretName := vmeta.GetNMATLSSecretNameInUse(h.Vdb.Annotations)
+		currentSecretName := h.Vdb.GetNMATLSSecretNameInUse()
 		h.Log.Info("ready to rotate certi from " + currentSecretName + " to " + h.Vdb.Spec.NMATLSSecret)
 		keyConfig := fmt.Sprintf("{\"data-key\":%q, \"namespace\":%q}", corev1.TLSPrivateKeyKey, h.Vdb.Namespace)
 		certConfig := fmt.Sprintf("{\"data-key\":%q, \"namespace\":%q}", corev1.TLSCertKey, h.Vdb.Namespace)
 		caCertConfig := fmt.Sprintf("{\"data-key\":%q, \"namespace\":%q}", paths.HTTPServerCACrtName, h.Vdb.Namespace)
 		opts := []rotatehttpscerts.Option{
-			rotatehttpscerts.WithPollingKey(string(newSecret.Data[corev1.TLSPrivateKeyKey])),
+			rotatehttpscerts.WithPollingKey(string(newSecret[corev1.TLSPrivateKeyKey])),
 			rotatehttpscerts.WithPollingCert(newCert),
-			rotatehttpscerts.WithPollingCaCert(string(newSecret.Data[corev1.ServiceAccountRootCAKey])),
+			rotatehttpscerts.WithPollingCaCert(string(newSecret[corev1.ServiceAccountRootCAKey])),
 			rotatehttpscerts.WithKey(h.Vdb.Spec.NMATLSSecret, keyConfig),
 			rotatehttpscerts.WithCert(h.Vdb.Spec.NMATLSSecret, certConfig),
 			rotatehttpscerts.WithCaCert(h.Vdb.Spec.NMATLSSecret, caCertConfig),
@@ -153,8 +158,8 @@ func (h *HTTPSCertRoationReconciler) rotateHTTPSTLSCert(ctx context.Context, new
 			strconv.FormatBool(h.Vdb.IsCertRotationEnabled()))
 		err = h.Dispatcher.RotateHTTPSCerts(ctx, opts...)
 		if err != nil {
-			h.Log.Error(err, "failed to rotate https cer to "+h.Vdb.Spec.NMATLSSecret)
-			return ctrl.Result{Requeue: true}, err
+			h.Log.Error(err, "failed to rotate https cert to "+h.Vdb.Spec.NMATLSSecret)
+			return ctrl.Result{}, err
 		}
 	}
 	return ctrl.Result{}, err
