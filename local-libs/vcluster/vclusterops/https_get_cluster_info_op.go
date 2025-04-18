@@ -100,6 +100,8 @@ func (op *httpsGetClusterInfoOp) processResult(_ *opEngineExecContext) error {
 
 		if result.isPassing() {
 			// unmarshal the response content
+			// it is ok even if the info is obtained from compute nodes
+			// as the cluster info field values are stable and consistent
 			clusterState := clusterStateInfo{}
 			err := op.parseAndCheckResponse(host, result.content, &clusterState)
 			if err != nil {

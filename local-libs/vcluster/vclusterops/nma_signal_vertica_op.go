@@ -19,6 +19,8 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+
+	"github.com/vertica/vcluster/rfc7807"
 )
 
 type nmaSignalVerticaOp struct {
@@ -109,6 +111,13 @@ func (op *nmaSignalVerticaOp) processResult(_ *opEngineExecContext) error {
 				continue
 			}
 		} else {
+			rfcError := &rfc7807.VProblem{}
+			// if there's no pid file, then we consider no Vertica process is running under the specified catalog
+			// directory, we log a warning, but don't error out
+			if ok := errors.As(result.err, &rfcError); ok && (rfcError.ProblemID == rfc7807.UndefinedFile) {
+				op.logger.Info("Unable to find Vertica pid file", "details", result.err.Error())
+				continue
+			}
 			err = result.err
 		}
 		errorHosts = append(errorHosts, host)

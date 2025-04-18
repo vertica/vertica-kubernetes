@@ -57,6 +57,7 @@ type VCoordinationDatabase struct {
 	Ipv6 bool
 
 	PrimaryUpNodes        []string
+	SecondaryUpNodes      []string
 	ComputeNodes          []string
 	FirstStartAfterRevive bool
 
@@ -415,7 +416,7 @@ func (vdb *VCoordinationDatabase) filterUpHostListBySandbox(inputHosts []string,
 			// host address not found in vdb, skip it
 			continue
 		}
-		if vnode.Sandbox == util.MainClusterSandbox && vnode.State == util.NodeUpState {
+		if vnode.Sandbox == util.MainClusterSandbox && vnode.isUpPermanentNode() {
 			clusterHosts = append(clusterHosts, vnode.Address)
 		} else if vnode.Sandbox == sandbox && vnode.State == util.NodeUpState {
 			upSandboxHosts = append(upSandboxHosts, vnode.Address)
@@ -477,6 +478,7 @@ type VCoordinationNode struct {
 	Version       string
 	IsControlNode bool
 	ControlNode   string
+	IsComputeNode bool
 }
 
 func CloneVCoordinationNode(node *VCoordinationNode) *VCoordinationNode {
@@ -563,4 +565,8 @@ func (vnode *VCoordinationNode) setNode(vdb *VCoordinationDatabase, address, nam
 	} else {
 		vnode.ControlAddressFamily = util.DefaultControlAddressFamily
 	}
+}
+
+func (vnode *VCoordinationNode) isUpPermanentNode() bool {
+	return (vnode.State == util.NodeUpState) && (!vnode.IsComputeNode)
 }
