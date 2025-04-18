@@ -162,7 +162,8 @@ func (c *CmdListAllNodes) marshalNoteStates(nodeStates []vclusterops.NodeInfo) (
 		}
 	} else {
 		var nodeStatesEnterprise []vclusterops.NodeInfoEnterprise
-		for _, n := range nodeStates {
+		for i := range nodeStates {
+			n := &nodeStates[i]
 			var nEnterprise vclusterops.NodeInfoEnterprise
 			nEnterprise.Address = n.Address
 			nEnterprise.Name = n.Name
