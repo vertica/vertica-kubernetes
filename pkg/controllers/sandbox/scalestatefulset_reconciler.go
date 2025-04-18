@@ -72,6 +72,11 @@ func (s *ScaleStafulsetReconciler) Reconcile(ctx context.Context, _ *ctrl.Reques
 			if *oldSize == newSize {
 				return nil
 			}
+			if newSize == 0 {
+				s.Log.Info("scaling in sts to zero", "sts", sts.Name)
+			} else {
+				s.Log.Info("scaling out sts back to its original size", "sts", sts.Name, "size", newSize)
+			}
 			sts.Spec.Replicas = &newSize
 			return s.VRec.GetClient().Update(ctx, sts)
 		})

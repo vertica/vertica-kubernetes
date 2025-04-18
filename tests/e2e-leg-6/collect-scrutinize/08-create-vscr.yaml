@@ -11,10 +11,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: kuttl.dev/v1beta1
-kind: TestStep
-delete:
-  - apiVersion: vertica.com/v1
-    kind: VerticaDB
-  - apiVersion: vertica.com/v1beta1
-    kind: VerticaScrutinize
+apiVersion: vertica.com/v1beta1
+kind: VerticaScrutinize
+metadata:
+  name: vertica-scrutinize-sandbox-notexists
+spec:
+  verticaDBName: v-collect-scrutinize
+  sandbox: doesnotexist
+  volume:
+    name: scrutinize-vol
+    emptyDir: {}

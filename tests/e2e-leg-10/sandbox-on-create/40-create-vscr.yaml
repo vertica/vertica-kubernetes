@@ -11,10 +11,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: kuttl.dev/v1beta1
-kind: TestStep
-delete:
-  - apiVersion: vertica.com/v1
-    kind: VerticaDB
-  - apiVersion: vertica.com/v1beta1
-    kind: VerticaScrutinize
+apiVersion: vertica.com/v1beta1
+kind: VerticaScrutinize
+metadata:
+  name: vertica-scrutinize-sandbox
+  annotations:
+    vertica.com/scrutinize-main-container-resources-limits-cpu: "4"
+spec:
+  verticaDBName: v-sandbox-on-create
+  sandbox: sand_1
+  resources:
+    requests:
+      cpu: "2"
+      memory: 300Mi
+    limits:
+      cpu: "4"
+  volume:
+    name: scrutinize-vol
+    emptyDir: {}
+    

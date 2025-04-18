@@ -73,7 +73,9 @@ const (
 	StopSubclusterFailed             = "StopSubclusterFailed"
 	SlowRestartDetected              = "SlowRestartDetected"
 	SubclusterAdded                  = "SubclusterAdded"
+	RemoveSubcluserStart             = "RemoveSubcluserStart"
 	SubclusterRemoved                = "SubclusterRemoved"
+	RemoveSubclusterFailed           = "RemoveSubclusterFailed"
 	AlterSubclusterStart             = "AlterSubclusterStart"
 	AlterSubclusterFailed            = "AlterSubclusterFailed"
 	AlterSubclusterSucceeded         = "AlterSubclusterSucceeded"
@@ -140,6 +142,7 @@ const (
 	VclusterOpsScrutinizeNotSupported = "VclusterOpsScrutinizeNotSupported"
 	VclusterOpsScrutinizeSucceeded    = "VclusterOpsScrutinizeSucceeded"
 	VclusterOpsScrutinizeFailed       = "VclusterOpsScrutinizeFailed"
+	SandboxNotFound                   = "SandboxNotFound"
 )
 
 // Constants for VerticaReplicator reconciler

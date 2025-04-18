@@ -83,6 +83,11 @@ type VerticaScrutinizeSpec struct {
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// A list of labels that will be added to the scrutinize pod.
 	Labels map[string]string `json:"labels,omitempty"`
+
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// Set scrutinize to run using the hosts of a single sandbox
+	// If this is omitted, it will run using the main cluster
+	Sandbox string `json:"sandbox,omitempty"`
 }
 
 // VerticaScrutinizeStatus defines the observed state of VerticaScrutinize

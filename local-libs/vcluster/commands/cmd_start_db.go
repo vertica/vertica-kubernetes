@@ -111,6 +111,12 @@ func (c *CmdStartDB) setLocalFlags(cmd *cobra.Command) {
 		false,
 		"Starts the database on a main cluster and does not start any sandboxes.",
 	)
+	cmd.Flags().BoolVar(
+		&c.ifSyncCatalog,
+		"sync-catalog",
+		false,
+		"Whether to sync the catalog after all nodes are up",
+	)
 }
 
 // setHiddenFlags will set the hidden flags the command has.
@@ -288,4 +294,5 @@ func (c *CmdStartDB) UpdateConfigFileForEon(vdb *vclusterops.VCoordinationDataba
 // SetDatabaseOptions will assign a vclusterops.DatabaseOptions instance to the one in CmdStartDB
 func (c *CmdStartDB) SetDatabaseOptions(opt *vclusterops.DatabaseOptions) {
 	c.startDBOptions.DatabaseOptions = *opt
+	c.startDBOptions.IfSyncCatalog = c.ifSyncCatalog
 }

@@ -53,6 +53,8 @@ type DatabaseOptions struct {
 	CommunalStorageLocation string
 	// database configuration parameters
 	ConfigurationParameters map[string]string
+	// whether to sync catalog
+	IfSyncCatalog bool
 
 	/* part 3: authentication info */
 

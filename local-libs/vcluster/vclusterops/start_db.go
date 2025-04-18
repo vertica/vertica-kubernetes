@@ -353,7 +353,7 @@ func (vcc VClusterCommands) produceStartDBInstructions(options *VStartDatabaseOp
 		&httpsPollNodeStateOp,
 	)
 
-	if options.IsEon {
+	if options.IsEon && options.IfSyncCatalog {
 		httpsSyncCatalogOp, err := makeHTTPSSyncCatalogOp(options.Hosts, options.usePassword, options.UserName, options.Password, StartDBSyncCat)
 		if err != nil {
 			return instructions, err

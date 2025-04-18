@@ -89,6 +89,12 @@ func (c *CmdStopDB) setLocalFlags(cmd *cobra.Command) {
 		false,
 		"Stop the database, but don't stop any sandboxes.",
 	)
+	cmd.Flags().BoolVar(
+		&c.ifSyncCatalog,
+		"sync-catalog",
+		false,
+		"Whether to sync the catalog before stopping the database",
+	)
 }
 
 // setHiddenFlags will set the hidden flags the command has.
@@ -169,4 +175,5 @@ func (c *CmdStopDB) Run(vcc vclusterops.ClusterCommands) error {
 // SetDatabaseOptions will assign a vclusterops.DatabaseOptions instance to the one in CmdStopDB
 func (c *CmdStopDB) SetDatabaseOptions(opt *vclusterops.DatabaseOptions) {
 	c.stopDBOptions.DatabaseOptions = *opt
+	c.stopDBOptions.IfSyncCatalog = c.ifSyncCatalog
 }
