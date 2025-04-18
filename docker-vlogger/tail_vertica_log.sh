@@ -6,21 +6,20 @@
 # LOG_FILTER: Comma-separated list (e.g., INFO,ERROR) supports including specific levels in the list.
 #  
 # Example usage:
-# No env variable setup, prints all logs: ./tail_vertica_log.sh
-# or LOG_LEVEL=* ./tail_vertica_log.sh
+# No env variable setup, prints all logs under INFO level: ./tail_vertica_log.sh
 # 
 # Minimal setup: show INFO and above(INFO,WARNING,ERROR)
 # LOG_LEVEL=INFO ./tail_vertica_log.sh
 # 
 # Show WARNING and above(WARNING,ERROR):
 # LOG_LEVEL=WARNING ./tail_vertica_log.sh
-# or LOG_FILTER="WARNING,ERROR" ./tail_vertica_log.sh
+# or LOG_FILTER=WARNING,ERROR ./tail_vertica_log.sh
 #
 # Show INFO and WARNING(INFO,WARNING):
-# LOG_FILTER="INFO,WARNING" ./tail_vertica_log.sh
+# LOG_FILTER=INFO,WARNING ./tail_vertica_log.sh
 #
 # If both LOG_LEVEL and LOG_FILTER are set, LOG_LEVEL will be ignored(WARNING,ERROR):
-# LOG_LEVEL=* LOG_FILTER="WARNING,ERROR" ./tail_vertica_log.sh
+# LOG_LEVEL=INFO LOG_FILTER="WARNING,ERROR" ./tail_vertica_log.sh
 # 
 # Fallback to CLI usage if env not set: ./tail_vertica_log.sh $LOG_LEVEL $LOG_FILTER
 # e.g: ./tail_vertica_log.sh WARNING "WARNING,ERROR"
