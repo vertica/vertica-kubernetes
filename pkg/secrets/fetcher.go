@@ -185,3 +185,12 @@ func (m *MultiSourceSecretFetcher) readFromAWS(secretName string) (map[string][]
 	}
 	return contents, nil
 }
+
+func GetAWSRegion(secretName string) (string, error) {
+	secretARN := RemovePathReference(secretName)
+	arnComp, err := arn.Parse(secretARN)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse ARN for AWS secret fetch: %w", err)
+	}
+	return arnComp.Region, nil
+}
