@@ -374,16 +374,16 @@ type VerticaDBSpec struct {
 	// +kubebuilder:default:=8443
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:number","urn:alm:descriptor:com.tectonic.ui:advanced"}
-	// HTTPS port for the headless service
+	// Port to use for Vertica HTTPS services
 	// Default is 8443
-	HeadlessHTTPSPort int32 `json:"headlessHTTPSPort,omitempty"`
+	ServiceHTTPSPort int32 `json:"serviceHTTPSPort,omitempty"`
 
-	// +kubebuilder:default:=8443
+	// +kubebuilder:default:=5433
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:number","urn:alm:descriptor:com.tectonic.ui:advanced"}
-	// HTTPS port for client connections
-	// Default is 8443
-	ClientHTTPSPort int32 `json:"clientHTTPSPort,omitempty"`
+	// Port to use for Vertica client service
+	// Default is 5433
+	ServiceClientPort int32 `json:"serviceClientPort,omitempty"`
 
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:advanced"
 	// +kubebuilder:validation:Optional

@@ -164,6 +164,8 @@ func convertToSpec(src *VerticaDBSpec) v1.VerticaDBSpec {
 		LivenessProbeOverride:  src.LivenessProbeOverride,
 		StartupProbeOverride:   src.StartupProbeOverride,
 		ServiceAccountName:     src.ServiceAccountName,
+		ServiceHTTPSPort:       src.ServiceHTTPSPort,
+		ServiceClientPort:      src.ServiceClientPort,
 		Sandboxes:              convertToSandboxSlice(src.Sandboxes),
 	}
 	if src.Proxy != nil {
@@ -235,8 +237,8 @@ func convertFromSpec(src *v1.VerticaDB) VerticaDBSpec {
 		LivenessProbeOverride:   srcSpec.LivenessProbeOverride,
 		StartupProbeOverride:    srcSpec.StartupProbeOverride,
 		ServiceAccountName:      srcSpec.ServiceAccountName,
-		HeadlessHTTPSPort:       srcSpec.HeadlessHTTPSPort,
-		ClientHTTPSPort:         srcSpec.ClientHTTPSPort,
+		ServiceHTTPSPort:        srcSpec.ServiceHTTPSPort,
+		ServiceClientPort:       srcSpec.ServiceClientPort,
 		Sandboxes:               convertFromSandboxSlice(srcSpec.Sandboxes),
 	}
 	if srcSpec.Proxy != nil {
@@ -377,6 +379,7 @@ func convertFromSubcluster(src *v1.Subcluster) Subcluster {
 		ServiceName:         src.ServiceName,
 		NodePort:            src.ClientNodePort,
 		VerticaHTTPNodePort: src.VerticaHTTPNodePort,
+		ServiceHTTPSPort:    src.ServiceHTTPSPort,
 		ExternalIPs:         src.ExternalIPs,
 		LoadBalancerIP:      src.LoadBalancerIP,
 		ServiceAnnotations:  src.ServiceAnnotations,

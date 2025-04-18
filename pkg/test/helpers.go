@@ -304,6 +304,9 @@ func CreateSvcs(ctx context.Context, c client.Client, vdb *vapi.VerticaDB) {
 	ExpectWithOffset(1, c.Create(ctx, svc)).Should(Succeed())
 	for i := range vdb.Spec.Subclusters {
 		sc := &vdb.Spec.Subclusters[i]
+		if sc.ServiceHTTPSPort == 0 {
+			sc.ServiceHTTPSPort = 8443
+		}
 		svc := builder.BuildExtSvc(names.GenExtSvcName(vdb, sc), vdb, sc, builder.MakeSvcSelectorLabelsForServiceNameRouting)
 		ExpectWithOffset(1, c.Create(ctx, svc)).Should(Succeed())
 	}

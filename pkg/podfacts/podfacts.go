@@ -567,7 +567,7 @@ func (p *PodFacts) genGatherScriptBase(vdb *vapi.VerticaDB, pf *PodFact) string 
 		vdb.GenInstallerIndicatorFileName(),
 		vdb.GenInstallerIndicatorFileName(),
 		pf.catalogPath, vdb.Spec.DBName, strings.ToLower(vdb.Spec.DBName),
-		checkIfNodeUpCmd(pf.podIP),
+		checkIfNodeUpCmd(pf.podIP, vdb.Spec.ServiceHTTPSPort),
 		fmt.Sprintf("%s/%s/*_catalog/startup.log", pf.catalogPath, vdb.Spec.DBName),
 		pf.catalogPath,
 		pf.catalogPath,
@@ -1537,9 +1537,9 @@ func (p *PodFacts) GetClusterExtendedName() string {
 
 // checkIfNodeUpCmd builds and returns the command to check
 // if a node is up using an HTTPS endpoint
-func checkIfNodeUpCmd(podIP string) string {
+func checkIfNodeUpCmd(podIP string, httpPort int32) string {
 	url := fmt.Sprintf("https://%s:%d%s",
-		podIP, builder.VerticaHTTPPort, builder.HTTPServerVersionPath)
+		podIP, httpPort, builder.HTTPServerVersionPath)
 	curlCmd := "curl -k -s -o /dev/null -w '%{http_code}'"
 	return fmt.Sprintf("%s %s", curlCmd, url)
 }
