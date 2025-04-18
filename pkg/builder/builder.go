@@ -45,8 +45,6 @@ import (
 const (
 	SuperuserPasswordPath   = "superuser-passwd"
 	TestStorageClassName    = "test-storage-class"
-	VerticaClientPort       = 5433
-	VerticaHTTPPort         = 8443
 	InternalVerticaCommPort = 5434
 	SSHPort                 = 22
 	VerticaClusterCommPort  = 5434
@@ -120,6 +118,10 @@ type ProxyData struct {
 // BuildExtSvc creates desired spec for the external service.
 func BuildExtSvc(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi.Subcluster,
 	selectorLabelCreator func(*vapi.VerticaDB, *vapi.Subcluster) map[string]string) *corev1.Service {
+	HTTPSPort := vdb.Spec.ServiceHTTPSPort
+	if sc.ServiceHTTPSPort > 0 {
+		HTTPSPort = sc.ServiceHTTPSPort
+	}
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        nm.Name,
@@ -131,8 +133,8 @@ func BuildExtSvc(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi.Subclust
 			Selector: selectorLabelCreator(vdb, sc),
 			Type:     sc.ServiceType,
 			Ports: []corev1.ServicePort{
-				{Port: VerticaClientPort, Name: "vertica", NodePort: sc.ClientNodePort},
-				{Port: VerticaHTTPPort, Name: "vertica-http", NodePort: sc.VerticaHTTPNodePort},
+				{Port: vdb.Spec.ServiceClientPort, Name: "vertica", NodePort: sc.ClientNodePort},
+				{Port: HTTPSPort, Name: "vertica-http", NodePort: sc.VerticaHTTPNodePort},
 			},
 			ExternalIPs:    sc.ExternalIPs,
 			LoadBalancerIP: sc.LoadBalancerIP,
@@ -168,7 +170,7 @@ func BuildHlSvc(nm types.NamespacedName, vdb *vapi.VerticaDB) *corev1.Service {
 	}
 	if vmeta.UseVClusterOps(vdb.Annotations) {
 		svc.Spec.Ports = append(svc.Spec.Ports,
-			corev1.ServicePort{Port: VerticaHTTPPort, Name: "tcp-httpservice"},
+			corev1.ServicePort{Port: vdb.Spec.ServiceHTTPSPort, Name: "tcp-httpservice"},
 			corev1.ServicePort{Port: NMAPort, Name: "tcp-nma"},
 		)
 	} else {
@@ -1234,7 +1236,7 @@ func makeVProxyContainer(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.Contai
 		Env:             envVars,
 		Resources:       resources,
 		Ports: []corev1.ContainerPort{
-			{ContainerPort: VerticaClientPort, Name: "vertica"},
+			{ContainerPort: vdb.Spec.ServiceClientPort, Name: "vertica"},
 		},
 		VolumeMounts: []corev1.VolumeMount{
 			{Name: vProxyVolumeName, MountPath: "/config"},
@@ -1259,7 +1261,7 @@ func makeServerContainer(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.Contai
 		Name:            names.ServerContainer,
 		Resources:       sc.Resources,
 		Ports: []corev1.ContainerPort{
-			{ContainerPort: VerticaClientPort, Name: "vertica"},
+			{ContainerPort: vdb.Spec.ServiceClientPort, Name: "vertica"},
 			{ContainerPort: InternalVerticaCommPort, Name: "vertica-int"},
 			{ContainerPort: SSHPort, Name: "ssh"},
 		},
@@ -1354,12 +1356,12 @@ func makeScrutinizeMainContainer(vscr *v1beta1.VerticaScrutinize, tarballName st
 }
 
 // makeHTTPServerVersionEndpointProbe will build an HTTPGet probe
-func makeHTTPServerVersionEndpointProbe() *corev1.Probe {
+func makeHTTPServerVersionEndpointProbe(vdb *vapi.VerticaDB) *corev1.Probe {
 	return &corev1.Probe{
 		ProbeHandler: corev1.ProbeHandler{
 			HTTPGet: &corev1.HTTPGetAction{
 				Path:   HTTPServerVersionPath,
-				Port:   intstr.FromInt(VerticaHTTPPort),
+				Port:   intstr.FromInt32(vdb.Spec.ServiceHTTPSPort),
 				Scheme: corev1.URISchemeHTTPS,
 			},
 		},
@@ -1368,11 +1370,11 @@ func makeHTTPServerVersionEndpointProbe() *corev1.Probe {
 
 // makeVerticaClientPortProbe will build a probe that if vertica is up by seeing
 // if the vertica client port is being listened on.
-func makeVerticaClientPortProbe() *corev1.Probe {
+func makeVerticaClientPortProbe(vdb *vapi.VerticaDB) *corev1.Probe {
 	return &corev1.Probe{
 		ProbeHandler: corev1.ProbeHandler{
 			TCPSocket: &corev1.TCPSocketAction{
-				Port: intstr.FromInt(VerticaClientPort),
+				Port: intstr.FromInt32(vdb.Spec.ServiceClientPort),
 			},
 		},
 	}
@@ -1394,7 +1396,7 @@ func makeCanaryQueryProbe(vdb *vapi.VerticaDB) *corev1.Probe {
 // is enabled
 func getHTTPServerVersionEndpointProbe(vdb *vapi.VerticaDB) *corev1.Probe {
 	if vmeta.UseVClusterOps(vdb.Annotations) {
-		return makeHTTPServerVersionEndpointProbe()
+		return makeHTTPServerVersionEndpointProbe(vdb)
 	}
 	return nil
 }
@@ -1411,7 +1413,7 @@ func makeDefaultReadinessOrStartupProbe(vdb *vapi.VerticaDB) *corev1.Probe {
 	// mounted in the file system. Default to just checking if the client port
 	// is being listened on.
 	if secrets.IsGSMSecret(vdb.Spec.PasswordSecret) {
-		return makeVerticaClientPortProbe()
+		return makeVerticaClientPortProbe(vdb)
 	}
 	return makeCanaryQueryProbe(vdb)
 }
@@ -1426,7 +1428,7 @@ func makeDefaultLivenessProbe(vdb *vapi.VerticaDB) *corev1.Probe {
 	// rather than issuing 'select 1' like readinessProbe because we need
 	// to minimize variability. If the livenessProbe fails, the pod is
 	// rescheduled. So, it isn't as forgiving as the readinessProbe.
-	return makeVerticaClientPortProbe()
+	return makeVerticaClientPortProbe(vdb)
 }
 
 // makeReadinessProbe will build the readiness probe. It has a default probe

@@ -153,11 +153,14 @@ func MakeVDB() *VerticaDB {
 					Proxy: &ProxySubclusterConfig{
 						Replicas: &replicas,
 					},
+					ServiceHTTPSPort: 8443,
 				},
 			},
 			Proxy: &Proxy{
 				Image: "opentext/client-proxy:latest",
 			},
+			ServiceHTTPSPort:  8443,
+			ServiceClientPort: 5433,
 		},
 	}
 }
