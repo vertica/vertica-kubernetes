@@ -418,6 +418,37 @@ var _ = Describe("builder", func() {
 		Ω(c.StartupProbe.HTTPGet.Scheme).Should(Equal(v1.URISchemeHTTPS))
 	})
 
+	It("should use non-default service ports", func() {
+		vdb := vapi.MakeVDB()
+		vdb.Spec.ServiceHTTPSPort = 8449
+		vdb.Spec.ServiceClientPort = 5439
+		vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
+
+		c := makeServerContainer(vdb, &vdb.Spec.Subclusters[0])
+		Ω(c.ReadinessProbe.HTTPGet.Port).Should(Equal(intstr.FromInt32(vdb.Spec.ServiceHTTPSPort)))
+		Ω(c.LivenessProbe.HTTPGet.Port).Should(Equal(intstr.FromInt32(vdb.Spec.ServiceHTTPSPort)))
+		Ω(c.StartupProbe.HTTPGet.Port).Should(Equal(intstr.FromInt32(vdb.Spec.ServiceHTTPSPort)))
+
+		sc := &vdb.Spec.Subclusters[0]
+		svcName := names.GenExtSvcName(vdb, sc)
+		extSvc := BuildExtSvc(svcName, vdb, sc, MakeSvcSelectorLabelsForSubclusterNameRouting)
+		Ω(extSvc.Spec.Ports[0].Port).Should(Equal(vdb.Spec.ServiceClientPort))
+		Ω(extSvc.Spec.Ports[1].Port).Should(Equal(vdb.Spec.ServiceHTTPSPort))
+	})
+
+	It("should use non-default service ports when set on a specific subcluster", func() {
+		vdb := vapi.MakeVDB()
+		vdb.Spec.Subclusters[0].ServiceHTTPSPort = 8449
+		vdb.Spec.Subclusters[0].ServiceClientPort = 5439
+		vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
+
+		sc := &vdb.Spec.Subclusters[0]
+		svcName := names.GenExtSvcName(vdb, sc)
+		extSvc := BuildExtSvc(svcName, vdb, sc, MakeSvcSelectorLabelsForSubclusterNameRouting)
+		Ω(extSvc.Spec.Ports[0].Port).Should(Equal(sc.ServiceClientPort))
+		Ω(extSvc.Spec.Ports[1].Port).Should(Equal(sc.ServiceHTTPSPort))
+	})
+
 	It("should not mount superuser password", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Spec.PasswordSecret = "some-secret"

@@ -53,6 +53,9 @@ const (
 	VerticaDBNameKey = "verticaDBName"
 	SandboxNameKey   = "sandboxName"
 	invalidNameChars = "$=<>`" + `'^\".@*?#&/:;{}()[] \~!%+|,`
+
+	DefaultServiceHTTPSPort  = 8443
+	DefaultServiceClientPort = 5433
 )
 
 // ExtractNamespacedName gets the name and returns it as a NamespacedName
@@ -153,14 +156,13 @@ func MakeVDB() *VerticaDB {
 					Proxy: &ProxySubclusterConfig{
 						Replicas: &replicas,
 					},
-					ServiceHTTPSPort: 8443,
 				},
 			},
 			Proxy: &Proxy{
 				Image: "opentext/client-proxy:latest",
 			},
-			ServiceHTTPSPort:  8443,
-			ServiceClientPort: 5433,
+			ServiceHTTPSPort:  DefaultServiceHTTPSPort,
+			ServiceClientPort: DefaultServiceClientPort,
 		},
 	}
 }

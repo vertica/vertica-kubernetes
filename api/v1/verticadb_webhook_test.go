@@ -537,6 +537,23 @@ var _ = Describe("verticadb_webhook", func() {
 		validateSpecValuesHaveErr(vdb, true)
 	})
 
+	It("should only allow valid ServiceHTTPSPort and ServiceClientPort", func() {
+		vdb := createVDBHelper()
+		vdb.Spec.ServiceHTTPSPort = -1
+		validateSpecValuesHaveErr(vdb, true)
+		vdb.Spec.ServiceHTTPSPort = 8443
+		vdb.Spec.ServiceClientPort = -1
+		validateSpecValuesHaveErr(vdb, true)
+		vdb.Spec.ServiceClientPort = 5433
+		vdb.Spec.Subclusters[0].ServiceHTTPSPort = -1
+		validateSpecValuesHaveErr(vdb, true)
+		vdb.Spec.Subclusters[0].ServiceHTTPSPort = 8443
+		vdb.Spec.Subclusters[0].ServiceClientPort = -1
+		validateSpecValuesHaveErr(vdb, true)
+		vdb.Spec.Subclusters[0].ServiceClientPort = 5433
+		validateSpecValuesHaveErr(vdb, false)
+	})
+
 	It("should default endpoint for google cloud", func() {
 		vdb := createVDBHelper()
 		vdb.Spec.Communal.Path = "gs://some-bucket/db"

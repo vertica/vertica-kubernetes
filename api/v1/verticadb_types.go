@@ -812,6 +812,13 @@ type Subcluster struct {
 	ServiceHTTPSPort int32 `json:"serviceHTTPSPort,omitempty"`
 
 	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// Client port for this subcluster's services
+	// If not set, it will use the port number specified in spec.ServiceClientPort,
+	// which is defaulted to be 5433
+	ServiceClientPort int32 `json:"serviceClientPort,omitempty"`
+
+	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:advanced"
 	// Allows the service object to be attached to a list of external IPs that you
 	// specify. If not set, the external IP list is left empty in the service object.
