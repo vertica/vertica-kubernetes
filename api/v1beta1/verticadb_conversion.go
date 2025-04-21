@@ -33,7 +33,7 @@ var verticadblog = logf.Log.WithName("verticadb-resource")
 
 // ConvertTo is a function to convert a v1beta1 CR to the v1 version of the CR.
 func (v *VerticaDB) ConvertTo(dstRaw conversion.Hub) error {
-	verticadblog.Info("ConvertTo", "GroupVersion", GroupVersion, "name", v.Name, "namespace", v.Namespace, "uid", v.UID)
+	verticadblog.Info("ConvertTo", "GroupVersion", GroupVersion, "name", v.Name, "namespace", v.Namespace, "uid", v.UID, "libo client cert", v.Spec.ClientServerTLSSecret)
 	dst := dstRaw.(*v1.VerticaDB)
 	dst.Name = v.Name
 	dst.Namespace = v.Namespace
@@ -160,6 +160,8 @@ func convertToSpec(src *VerticaDBSpec) v1.VerticaDBSpec {
 		NMASecurityContext:     src.NMASecurityContext,
 		PodSecurityContext:     src.PodSecurityContext,
 		NMATLSSecret:           src.HTTPServerTLSSecret,
+		ClientServerTLSSecret:  src.ClientServerTLSSecret,
+		ClientServerTLSMode:    src.ClientServerTLSMode,
 		ReadinessProbeOverride: src.ReadinessProbeOverride,
 		LivenessProbeOverride:  src.LivenessProbeOverride,
 		StartupProbeOverride:   src.StartupProbeOverride,
@@ -231,6 +233,8 @@ func convertFromSpec(src *v1.VerticaDB) VerticaDBSpec {
 		NMASecurityContext:      srcSpec.NMASecurityContext,
 		PodSecurityContext:      srcSpec.PodSecurityContext,
 		HTTPServerTLSSecret:     srcSpec.NMATLSSecret,
+		ClientServerTLSSecret:   srcSpec.ClientServerTLSSecret,
+		ClientServerTLSMode:     srcSpec.ClientServerTLSMode,
 		ReadinessProbeOverride:  srcSpec.ReadinessProbeOverride,
 		LivenessProbeOverride:   srcSpec.LivenessProbeOverride,
 		StartupProbeOverride:    srcSpec.StartupProbeOverride,
