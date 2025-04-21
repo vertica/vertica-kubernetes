@@ -11,30 +11,23 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1
-kind: VerticaDB
+# This is applied through envsubst so that the $NAMESPACE gets filled in
+
+apiVersion: cert-manager.io/v1
+kind: Certificate
 metadata:
-  name: v-revive-3-node
-  annotations:
-    vertica.com/ignore-cluster-lease: true
-    vertica.com/requeue-time: "5"
-    vertica.com/include-uid-in-path: false
+  name: serving-cert
 spec:
-  image: kustomize-vertica-image
-  communal: {}
-  initPolicy: Revive
-  local:
-    dataPath: /my-data
-    depotPath: /my-depot
-    depotVolume: EmptyDir
-    requestSize: 100Mi
-  dbName: vertdb
-  subclusters:
-    - name: main
-      size: 3
-  nmaTLSSecret: custom-cert 
-  clientServerTLSSecret: client-cert 
-  certSecrets: []
-  imagePullSecrets: []
-  volumes: []
-  volumeMounts: []
+  commonName: myadmin
+  isCA: true
+  issuerRef:
+    kind: Issuer
+    name: selfsigned-issuer
+  secretName: nma-cert
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: selfsigned-issuer
+spec:
+  selfSigned: {}
