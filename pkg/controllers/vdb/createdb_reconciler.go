@@ -24,7 +24,9 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
+	v1 "github.com/vertica/vertica-kubernetes/api/v1"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
+	"github.com/vertica/vertica-kubernetes/pkg/cloud"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
@@ -186,6 +188,120 @@ func (c *CreateDBReconciler) preCmdSetup(ctx context.Context, initiatorPod types
 	return c.generatePostDBCreateSQL(ctx, initiatorPod)
 }
 
+// GetEndpoint get the endpoint for inclusion in the auth files.
+// Takes the endpoint from vdb and strips off the protocol.
+func (c *CreateDBReconciler) GetEndpoint(endPoint string) string {
+	if endPoint == "" {
+		return ""
+	}
+	prefix := []string{"https://", "http://"}
+	for _, pref := range prefix {
+		if i := strings.Index(endPoint, pref); i == 0 {
+			return strings.TrimSuffix(endPoint[len(pref):], "/")
+		}
+	}
+	return endPoint
+}
+
+// getEnableHTTPS will return "1" if connecting to https otherwise return "0"
+func (c *CreateDBReconciler) GetEnableHTTPS(endPoint string) string {
+	if endPoint == "" {
+		return ""
+	}
+	if strings.HasPrefix(endPoint, "https://") {
+		return "1"
+	}
+	return "0"
+}
+
+// GetCredsSecret returns the contents of the credentials
+// secret. It handles if the secret is not found and will log an event.
+func (c *CreateDBReconciler) GetCredsSecret(ctx context.Context, credsSecret string) (map[string][]byte, ctrl.Result, error) {
+	fetcher := cloud.SecretFetcher{
+		Client:   c.VRec.GetClient(),
+		Log:      c.Log,
+		Obj:      c.Vdb,
+		EVWriter: c.VRec,
+	}
+	return fetcher.FetchAllowRequeue(ctx, names.GenNamespacedName(c.Vdb, credsSecret))
+}
+
+// getAuth will return the access key and secret key.
+// Value is returned in the format: <accessKey>:<secretKey>
+func (c *CreateDBReconciler) GetAuth(ctx context.Context, credsSecret string) (string, ctrl.Result, error) {
+	secret, res, err := c.GetCredsSecret(ctx, credsSecret)
+	if verrors.IsReconcileAborted(res, err) {
+		return "", res, err
+	}
+
+	accessKey, ok := secret[cloud.CommunalAccessKeyName]
+	if !ok {
+		c.VRec.Eventf(c.Vdb, corev1.EventTypeWarning, events.CommunalCredsWrongKey,
+			"The credential secret '%s' does not have a key named '%s'", credsSecret, cloud.CommunalAccessKeyName)
+		return "", ctrl.Result{Requeue: true}, nil
+	}
+
+	secretKey, ok := secret[cloud.CommunalSecretKeyName]
+	if !ok {
+		c.VRec.Eventf(c.Vdb, corev1.EventTypeWarning, events.CommunalCredsWrongKey,
+			"The credential secret '%s' does not have a key named '%s'", credsSecret, cloud.CommunalSecretKeyName)
+		return "", ctrl.Result{Requeue: true}, nil
+	}
+
+	auth := fmt.Sprintf("%s:%s", strings.TrimSuffix(string(accessKey), "\n"),
+		strings.TrimSuffix(string(secretKey), "\n"))
+	return auth, ctrl.Result{}, nil
+}
+
+// getAzureAuth gets the azure credentials from the communal auth secret
+func (c *CreateDBReconciler) GetAzureAuth(ctx context.Context, credsSecret string) (
+	cloud.AzureCredential, cloud.AzureEndpointConfig, ctrl.Result, error) {
+	secretData, res, err := c.GetCredsSecret(ctx, credsSecret)
+	if verrors.IsReconcileAborted(res, err) {
+		return cloud.AzureCredential{}, cloud.AzureEndpointConfig{}, res, err
+	}
+
+	accountName, hasAccountName := secretData[cloud.AzureAccountName]
+	blobEndpointRaw, hasBlobEndpoint := secretData[cloud.AzureBlobEndpoint]
+
+	if !hasAccountName && !hasBlobEndpoint {
+		c.VRec.Eventf(c.Vdb, corev1.EventTypeWarning, events.CommunalCredsWrongKey,
+			"The credential secret '%s' is not setup properly for azure.  It must have one '%s' or '%s'",
+			credsSecret, cloud.AzureAccountName, cloud.AzureBlobEndpoint)
+		return cloud.AzureCredential{}, cloud.AzureEndpointConfig{}, ctrl.Result{Requeue: true}, nil
+	}
+
+	// The blob endpoint may have a protocol scheme as a prefix.  Strip that off
+	// so its just the host and port.
+	var blobEndpoint string
+	if hasBlobEndpoint {
+		blobEndpoint = config.GetEndpointHostPort(string(blobEndpointRaw))
+	}
+
+	accountKey, hasAccountKey := secretData[cloud.AzureAccountKey]
+	sas, hasSAS := secretData[cloud.AzureSharedAccessSignature]
+
+	if hasAccountKey && hasSAS {
+		c.VRec.Eventf(c.Vdb, corev1.EventTypeWarning, events.CommunalCredsWrongKey,
+			"The credential secret '%s' is not setup properly for azure.  It cannot have both '%s' and '%s'",
+			credsSecret, cloud.AzureAccountKey, cloud.AzureSharedAccessSignature)
+		return cloud.AzureCredential{}, cloud.AzureEndpointConfig{}, ctrl.Result{Requeue: true}, nil
+	}
+
+	return cloud.AzureCredential{
+			AccountName:           string(accountName),
+			BlobEndpoint:          blobEndpoint,
+			AccountKey:            string(accountKey),
+			SharedAccessSignature: string(sas),
+		},
+		cloud.AzureEndpointConfig{
+			AccountName:  string(accountName),
+			BlobEndpoint: blobEndpoint,
+			Protocol:     config.GetEndpointProtocol(string(blobEndpointRaw)),
+		},
+		ctrl.Result{}, nil
+}
+
 // generatePostDBCreateSQL is a function that creates a file with sql commands
 // to be run immediately after the database create.
 func (c *CreateDBReconciler) generatePostDBCreateSQL(ctx context.Context, initiatorPod types.NamespacedName) (ctrl.Result, error) {
@@ -250,6 +366,64 @@ func (c *CreateDBReconciler) generatePostDBCreateSQL(ctx context.Context, initia
 		sb.WriteString(`select sync_catalog();`)
 		pcFile = PostDBCreateSQLFileVclusterOps
 	}
+
+	if c.Vdb.HasAdditionalBuckets() {
+		for _, bucket := range c.Vdb.Spec.AdditionalBuckets {
+			// Extract the auth from the credential secret.
+			auth, res, err := c.GetAuth(ctx, bucket.CredentialSecret)
+			if verrors.IsReconcileAborted(res, err) {
+				return res, err
+			}
+
+			if strings.HasPrefix(bucket.Path, v1.S3Prefix) {
+				if c.Vdb.IsS3() {
+					continue
+				}
+
+				sb.WriteString(fmt.Sprintf(`ALTER DATABASE default SET AWSAuth = '%s';`, auth))
+				sb.WriteString(fmt.Sprintf(`ALTER DATABASE default SET AWSEndpoint = '%s';`, c.GetEndpoint(bucket.Endpoint)))
+				sb.WriteString(fmt.Sprintf(`ALTER DATABASE default SET AWSEnableHttps = '%s';`, c.GetEnableHTTPS(bucket.Endpoint)))
+				sb.WriteString(fmt.Sprintf(`ALTER DATABASE default SET AWSRegion = '%s';`, bucket.Region))
+			}
+
+			if c.Vdb.IsPathHDFS(bucket.Path) {
+				if c.Vdb.IsHDFS() {
+					continue
+				}
+
+				// TODO: set HDFS configuration parameters
+			}
+
+			if strings.HasPrefix(bucket.Path, v1.GCloudPrefix) {
+				if c.Vdb.IsGCloud() {
+					continue
+				}
+
+				sb.WriteString(fmt.Sprintf(`ALTER DATABASE default SET GCSAuth = '%s';`, auth))
+				sb.WriteString(fmt.Sprintf(`ALTER DATABASE default SET GCSEndpoint = '%s';`, c.GetEndpoint(bucket.Endpoint)))
+				sb.WriteString(fmt.Sprintf(`ALTER DATABASE default SET GCSEnableHttps = '%s';`, c.GetEnableHTTPS(bucket.Endpoint)))
+			}
+
+			if strings.HasPrefix(bucket.Path, v1.AzurePrefix) {
+				if c.Vdb.IsAzure() {
+					continue
+				}
+
+				azureCreds, azureConfig, res, err := c.GetAzureAuth(ctx, bucket.CredentialSecret)
+				if verrors.IsReconcileAborted(res, err) {
+					return res, err
+				}
+
+				sb.WriteString(fmt.Sprintf(
+					`ALTER DATABASE default SET AzureStorageCredentials = '[{\"accountName\": \"%s\", \"accountKey\": \"%s\"}]';`,
+					azureCreds.AccountName, azureCreds.AccountKey))
+				sb.WriteString(fmt.Sprintf(
+					`ALTER DATABASE default SET AzureStorageEndpointConfig = '[{\"accountName\": \"%s\", \"blobEndpoint\": \"%s\", \"protocol\":\"%s\"}]';`,
+					azureCreds.AccountName, azureConfig.BlobEndpoint, azureConfig.Protocol))
+			}
+		}
+	}
+
 	_, _, err := c.PRunner.ExecInPod(ctx, initiatorPod, names.ServerContainer,
 		"bash", "-c", "cat > "+pcFile+"<<< \""+sb.String()+"\"",
 	)

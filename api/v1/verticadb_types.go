@@ -177,6 +177,11 @@ type VerticaDBSpec struct {
 	Communal CommunalStorage `json:"communal"`
 
 	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// Contains details about the addtionsl buckets for data replication
+	AdditionalBuckets []CommunalStorage `json:"additionalBuckets,omitempty"`
+
+	// +kubebuilder:validation:Optional
 	// +kubebuilder:default={requestSize:"500Gi", dataPath:"/data", depotPath:"/depot"}
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// Contain details about the local storage

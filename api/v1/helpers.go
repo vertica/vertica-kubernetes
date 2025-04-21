@@ -898,14 +898,19 @@ func (v *VerticaDB) IncludeUIDInPath() bool {
 	return vmeta.IncludeUIDInPath(v.Annotations)
 }
 
-// IsHDFS returns true if the communal path is stored in an HDFS path
-func (v *VerticaDB) IsHDFS() bool {
+// IsPathHDFS returns true if the path is an HDFS path
+func (v *VerticaDB) IsPathHDFS(path string) bool {
 	for _, p := range hdfsPrefixes {
-		if strings.HasPrefix(v.Spec.Communal.Path, p) {
+		if strings.HasPrefix(path, p) {
 			return true
 		}
 	}
 	return false
+}
+
+// IsHDFS returns true if the communal path is stored in an HDFS path
+func (v *VerticaDB) IsHDFS() bool {
+	return v.IsPathHDFS(v.Spec.Communal.Path)
 }
 
 // IsS3 returns true if VerticaDB has a communal path for S3 compatible storage.
@@ -969,6 +974,11 @@ func (v *VerticaDB) GetKerberosRealm() string {
 
 func (v *VerticaDB) GetKerberosServiceName() string {
 	return v.Spec.Communal.AdditionalConfig[vmeta.KerberosServiceNameConfig]
+}
+
+// HasAdditionalBuckets returns true if addtionalBuckets is configured for data replication
+func (v *VerticaDB) HasAdditionalBuckets() bool {
+	return v.Spec.AdditionalBuckets != nil
 }
 
 func (s *Subcluster) IsPrimary() bool {
