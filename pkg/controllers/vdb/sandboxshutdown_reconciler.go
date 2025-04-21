@@ -34,15 +34,17 @@ type SandboxShutdownReconciler struct {
 	Log     logr.Logger
 	Vdb     *vapi.VerticaDB // Vdb is the CRD we are acting on
 	Manager UpgradeManager
+	Requeue bool
 }
 
 // MakeSandboxShutdownReconciler will build a SandboxShutdownReconciler object
 func MakeSandboxShutdownReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
-	vdb *vapi.VerticaDB) controllers.ReconcileActor {
+	vdb *vapi.VerticaDB, requeue bool) controllers.ReconcileActor {
 	return &SandboxShutdownReconciler{
-		VRec: vdbrecon,
-		Log:  log.WithName("SandboxShutdownReconciler"),
-		Vdb:  vdb,
+		VRec:    vdbrecon,
+		Log:     log.WithName("SandboxShutdownReconciler"),
+		Vdb:     vdb,
+		Requeue: requeue,
 	}
 }
 
@@ -67,8 +69,13 @@ func (s *SandboxShutdownReconciler) reconcileSandboxShutdown(ctx context.Context
 	sbName := sb.Name
 	sbStatus := s.Vdb.GetSandboxStatus(sbName)
 	if sbStatus == nil {
-		s.Log.Info("Requeue because the sandbox does not exist yet", "sandbox", sbName)
-		return ctrl.Result{Requeue: true}, nil
+		if s.Requeue {
+			s.Log.Info("Requeue because the sandbox does not exist yet", "sandbox", sbName)
+		} else {
+			s.Log.Info("sandbox does not exist in the database yet", "sandbox", sbName)
+		}
+
+		return ctrl.Result{Requeue: s.Requeue}, nil
 	}
 	scMap := s.Vdb.GenSubclusterMap()
 	scStatusMap := s.Vdb.GenSubclusterStatusMap()

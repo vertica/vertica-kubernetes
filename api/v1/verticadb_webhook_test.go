@@ -531,6 +531,16 @@ var _ = Describe("verticadb_webhook", func() {
 		validateSpecValuesHaveErr(vdb, true)
 		vdb.Spec.RestorePoint.NumRestorePoints = 0
 		validateSpecValuesHaveErr(vdb, false)
+		// when db is already initialized, we shouldn't report an error about missing archive or restore point
+		vdb2 := createVDBHelper()
+		vdb2.Spec.InitPolicy = "Revive"
+		vdb2.Spec.RestorePoint = &RestorePointPolicy{}
+		resetStatusConditionsForDBInitialized(vdb2)
+		// archive is not provided
+		validateSpecValuesHaveErr(vdb2, false)
+		vdb2.Spec.RestorePoint.Archive = "archive2"
+		// neither id nor index is provided
+		validateSpecValuesHaveErr(vdb2, false)
 	})
 
 	It("should only allow nodePort if serviceType allows for it", func() {

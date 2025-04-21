@@ -89,6 +89,12 @@ func (c *CmdRemoveNode) setLocalFlags(cmd *cobra.Command) {
 			"Unbound nodes do not have associated IPs in the catalog. "+
 			"Use this option only if there are unbound nodes to remove.",
 	)
+	cmd.Flags().BoolVar(
+		&c.ifSyncCatalog,
+		"sync-catalog",
+		false,
+		"Whether to sync the catalog after the node is removed",
+	)
 }
 
 func (c *CmdRemoveNode) Parse(inputArgv []string, logger vlog.Printer) error {
@@ -161,4 +167,5 @@ func (c *CmdRemoveNode) Run(vcc vclusterops.ClusterCommands) error {
 // SetDatabaseOptions will assign a vclusterops.DatabaseOptions instance to the one in CmdRemoveNode
 func (c *CmdRemoveNode) SetDatabaseOptions(opt *vclusterops.DatabaseOptions) {
 	c.removeNodeOptions.DatabaseOptions = *opt
+	c.removeNodeOptions.IfSyncCatalog = c.ifSyncCatalog
 }

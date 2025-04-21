@@ -111,7 +111,8 @@ func (op *nmaDeleteDirectoriesOp) prepare(execContext *opEngineExecContext) erro
 		hosts := []string{}
 		op.hostRequestBodyMap = make(map[string]string)
 
-		for _, node := range execContext.scNodesInfo {
+		for i := range execContext.scNodesInfo {
+			node := &execContext.scNodesInfo[i]
 			p := deleteDirParams{}
 			p.Directories = append(p.Directories, node.CatalogPath)
 			p.ForceDelete = true

@@ -91,10 +91,15 @@ func (op *httpsGetNodesInfoOp) shouldUseResponse(host string, nodesStates *nodes
 	responseSandbox := ""
 	for _, node := range nodesStates.NodeList {
 		if node.Address == host {
+			// prefer to use a permanent node's result
+			if node.IsComputeNode {
+				return false
+			}
 			responseSandbox = node.Sandbox
 			break
 		}
 	}
+
 	// continue to parse next response if a response from main cluster node is expected
 	if responseSandbox != "" && !op.allowUseSandboxResponse {
 		return false
@@ -149,10 +154,14 @@ func (op *httpsGetNodesInfoOp) processResult(_ *opEngineExecContext) error {
 					return appendHTTPSFailureError(allErrs)
 				}
 				vnode := buildVnodeFromNodeStateInfo(node)
-				if node.IsPrimary && node.State == util.NodeUpState {
-					op.vdb.PrimaryUpNodes = append(op.vdb.PrimaryUpNodes, node.Address)
-				} else if node.State == util.NodeComputeState {
-					op.vdb.ComputeNodes = append(op.vdb.ComputeNodes, node.Address)
+				if node.State == util.NodeUpState {
+					if node.IsPrimary {
+						op.vdb.PrimaryUpNodes = append(op.vdb.PrimaryUpNodes, node.Address)
+					} else if node.IsComputeNode {
+						op.vdb.ComputeNodes = append(op.vdb.ComputeNodes, node.Address)
+					} else {
+						op.vdb.SecondaryUpNodes = append(op.vdb.SecondaryUpNodes, node.Address)
+					}
 				}
 				err := op.vdb.addNode(&vnode)
 				if err != nil {
@@ -192,6 +201,7 @@ func buildVnodeFromNodeStateInfo(node *nodeStateInfo) VCoordinationNode {
 	vnode.Sandbox = node.Sandbox
 	vnode.IsControlNode = node.IsControlNode
 	vnode.ControlNode = node.ControlNode
+	vnode.IsComputeNode = node.IsComputeNode
 
 	return vnode
 }

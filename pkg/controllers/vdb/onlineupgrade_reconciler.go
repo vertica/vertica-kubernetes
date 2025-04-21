@@ -670,7 +670,7 @@ func (r *OnlineUpgradeReconciler) upgradeSandbox(ctx context.Context) (ctrl.Resu
 			return ctrl.Result{Requeue: true}, nil
 		}
 		// update sandbox config map
-		act := MakeSandboxUpgradeReconciler(r.VRec, r.Log, r.VDB)
+		act := MakeSandboxUpgradeReconciler(r.VRec, r.Log, r.VDB, true)
 		r.Manager.traceActorReconcile(act)
 		res, err := act.Reconcile(ctx, &ctrl.Request{})
 		if verrors.IsReconcileAborted(res, err) {

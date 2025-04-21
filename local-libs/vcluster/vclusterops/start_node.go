@@ -261,6 +261,7 @@ func (vcc VClusterCommands) VStartNodes(options *VStartNodesOptions) error {
 	}
 
 	hostNodeNameMap := make(map[string]string)
+	// preStartNodeCheck() fills/updates vdb info
 	err = vcc.preStartNodeCheck(options, &vdb, hostNodeNameMap, startNodeInfo)
 	if err != nil {
 		return err
@@ -375,9 +376,8 @@ func (options *VStartNodesOptions) checkQuorum(vdb *VCoordinationDatabase, resta
 //   - Sync the confs to the nodes to be started
 //   - Call https /v1/startup/command to get start command of the nodes to be started
 //   - start nodes
-//   - Poll all node start up indirectly
-//   - Poll permanent node start up directly
-//   - sync catalog
+//   - Poll all nodes start up directly
+//   - sync catalog -- should skip compute nodes
 func (vcc VClusterCommands) produceStartNodesInstructions(startNodeInfo *VStartNodesInfo, options *VStartNodesOptions,
 	vdb *VCoordinationDatabase) ([]clusterOp, error) {
 	var instructions []clusterOp
@@ -426,28 +426,28 @@ func (vcc VClusterCommands) produceStartNodesInstructions(startNodeInfo *VStartN
 		return instructions, err
 	}
 	nmaStartNewNodesOp := makeNMAStartNodeOpWithVDB(startNodeInfo.HostsToStart, options.StartUpConf, vdb)
-	permanentNodes := make([]string, 0, len(startNodeInfo.HostsToStart))
-	httpsPollNodeStateIndirectOp, err := makeHTTPSPollUnknownNodeStateOp(startNodeInfo.HostsToStart,
-		&permanentNodes, options.usePassword, options.UserName, options.Password,
-		options.StatePollingTimeout)
+	httpsPollNodeStateOp, err := makeHTTPSPollNodeStateOp(startNodeInfo.HostsToStart,
+		options.usePassword, options.UserName, options.Password, options.StatePollingTimeout)
+
 	if err != nil {
 		return instructions, err
 	}
-	httpsPollNodeStateOp, err := makeHTTPSPollPermanentNodeStateOp(startNodeInfo.HostsToStart,
-		&permanentNodes, options.usePassword, options.UserName, options.Password,
-		options.StatePollingTimeout)
-	if err != nil {
-		return instructions, err
-	}
+
 	httpsPollNodeStateOp.cmdType = StartNodeCmd
 	instructions = append(instructions,
 		&httpsRestartUpCommandOp,
 		&nmaStartNewNodesOp,
-		&httpsPollNodeStateIndirectOp,
 		&httpsPollNodeStateOp,
 	)
-	if vdb.IsEon {
-		httpsSyncCatalogOp, err := makeHTTPSSyncCatalogOp(options.Hosts, options.usePassword, options.UserName,
+	if vdb.IsEon && options.IfSyncCatalog {
+		// sync catalog should be called on one primary UP host in the currently operating DB group, i.e., relevant sandbox or main cluster
+		// this set of instructions are already running in the relevant DB group, so we just need to get an initiator using vdb
+		initiator, setInitiatorErr := getInitiatorForDBGroupFromVDB(vdb, startNodeInfo.Sandbox)
+		if setInitiatorErr != nil {
+			return instructions, setInitiatorErr
+		}
+		initiatorHost := []string{initiator}
+		httpsSyncCatalogOp, err := makeHTTPSSyncCatalogOp(initiatorHost, options.usePassword, options.UserName,
 			options.Password, StartNodeSyncCat)
 		if err != nil {
 			return instructions, err
@@ -591,7 +591,7 @@ func (options *VStartNodesOptions) separateHostsBasedOnReIPNeed(
 			vnode, ok := vdb.HostNodeMap[newIP]
 			if ok && vnode.State == util.NodeDownState {
 				startNodeInfo.hasDownNodeNoNeedToReIP = true
-			} else if ok && (vnode.State == util.NodeUpState || vnode.State == util.NodeComputeState) {
+			} else if ok && (vnode.State == util.NodeUpState || vnode.IsComputeNode) {
 				// skip UP or COMPUTE nodes with no re-ip need
 				continue
 			}
