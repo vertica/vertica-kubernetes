@@ -53,6 +53,13 @@ const (
 	VerticaDBNameKey = "verticaDBName"
 	SandboxNameKey   = "sandboxName"
 	invalidNameChars = "$=<>`" + `'^\".@*?#&/:;{}()[] \~!%+|,`
+
+	// TLS modes
+	tlsModeDisable    = "disable"
+	tlsModeEnable     = "enable"
+	tlsModeVerifyCA   = "verify_ca"
+	tlsModeTryVerify  = "try_verify"
+	tlsModeVerifyFull = "verify_full"
 )
 
 // ExtractNamespacedName gets the name and returns it as a NamespacedName

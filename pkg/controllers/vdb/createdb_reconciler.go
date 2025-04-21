@@ -283,7 +283,6 @@ func (c *CreateDBReconciler) generateKubernetesTLSSQL(sb *strings.Builder) {
 	fmt.Fprintf(sb, "SECRETNAME '%s' CONFIGURATION '{\"data-key\":\"%s\", \"namespace\":\"%s\"}' ",
 		c.Vdb.Spec.ClientServerTLSSecret, corev1.TLSCertKey, c.Vdb.ObjectMeta.Namespace)
 	fmt.Fprintf(sb, "SIGNED BY server_ca_cert KEY server_key;\n")
-   
 
 	fmt.Fprintf(sb, "ALTER TLS CONFIGURATION server CERTIFICATE server_cert ADD CA CERTIFICATES ")
 	fmt.Fprintf(sb, "server_ca_cert TLSMODE '%s';\n", c.Vdb.Spec.ClientServerTLSMode)

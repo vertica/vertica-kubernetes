@@ -33,7 +33,7 @@ var verticadblog = logf.Log.WithName("verticadb-resource")
 
 // ConvertTo is a function to convert a v1beta1 CR to the v1 version of the CR.
 func (v *VerticaDB) ConvertTo(dstRaw conversion.Hub) error {
-	verticadblog.Info("ConvertTo", "GroupVersion", GroupVersion, "name", v.Name, "namespace", v.Namespace, "uid", v.UID, "libo client cert", v.Spec.ClientServerTLSSecret)
+	verticadblog.Info("ConvertTo", "GroupVersion", GroupVersion, "name", v.Name, "namespace", v.Namespace, "uid", v.UID)
 	dst := dstRaw.(*v1.VerticaDB)
 	dst.Name = v.Name
 	dst.Namespace = v.Namespace

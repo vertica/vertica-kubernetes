@@ -276,7 +276,8 @@ type VerticaDBSpec struct {
 	// the default context is used.
 	PodSecurityContext *corev1.PodSecurityContext `json:"podSecurityContext,omitempty"`
 
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:hidden"
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:io.kubernetes:Secret",
+	// "urn:alm:descriptor:com.tectonic.ui:advanced"
 	// +kubebuilder:default:=""
 	// +kubebuilder:validation:Optional
 	// A secret that contains the TLS credentials to use for Vertica's node
@@ -288,22 +289,27 @@ type VerticaDBSpec struct {
 	// prefix is the name of the secret in the service you are storing.
 	NMATLSSecret string `json:"nmaTLSSecret,omitempty"`
 
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:hidden"
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:io.kubernetes:Secret",
+	// "urn:alm:descriptor:com.tectonic.ui:advanced"
 	// +kubebuilder:default:=""
 	// +kubebuilder:validation:Optional
 	// A secret that contains the TLS credentials to be used to authenticate Vertica clients' certificates.
-	// If this is empty, the operator will create a secret to use and addthe name of the generate secret to this field.
-	// When set, the secret must have the following keys defined: tls.key,
-	// tls.crt and ca.crt.  To store this secret outside of Kubernetes, you can
-	// use a secret path reference prefix, such as gsm://. Everything after the
-	// prefix is the name of the secret in the service you are storing.
+	// If this is empty, the operator will create a secret to use and add the name of the generate secret to this field.
+	// The private key, certificate, and CA certificate should be stored in the secret using the following keys: tls.key,
+	// tls.crt, and ca.crt, respectively. To store this secret outside of Kubernetes, you can
+	// use a secret path reference prefix, such as gsm://. Everything after the prefix is the name of the secret in the
+	// service you are storing.
 	ClientServerTLSSecret string `json:"clientServerTLSSecret,omitempty"`
 
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:hidden"
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:select:DISABLE",
+	// "urn:alm:descriptor:com.tectonic.ui:select:ENABLE","urn:alm:descriptor:com.tectonic.ui:select:TRY_VERIFY",
+	// "urn:alm:descriptor:com.tectonic.ui:select:VERIFY_CA"}
 	// +kubebuilder:default:=VERIFY_CA
 	// +kubebuilder:validation:Optional
 	// This field configures the Vertica's connection mode for client-server TLS.
 	// Choose one of the following TLSMODEs, listed in ascending security:
+	// - DISABLE: Disables TLS. All other options for this parameter enable TLS.
+	// - ENABLE: Enables TLS. Vertica does not verify client certificates.
 	// - TRY_VERIFY: Establishes a TLS connection if one of the following is true:
 	//   - The client presents a valid certificate.
 	//   - The client doesn't present a certificate
