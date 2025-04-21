@@ -46,6 +46,7 @@ on:
         - vcluster leg 1
         - vcluster leg 2
         - vcluster leg 3
+        - vcluster leg 3 cert
         - vcluster leg 4
         - vcluster leg 4 cert
         - vcluster leg 4 vdb-gen
