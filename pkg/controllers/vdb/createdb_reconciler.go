@@ -344,63 +344,7 @@ func (c *CreateDBReconciler) generatePostDBCreateSQL(ctx context.Context, initia
 	}
 
 	if c.Vdb.HasAdditionalBuckets() {
-		for _, bucket := range c.Vdb.Spec.AdditionalBuckets {
-			// Extract the auth from the credential secret.
-			accessKey, secretKey, res, err := c.GetAuth(ctx, bucket.CredentialSecret)
-			if verrors.IsReconcileAborted(res, err) {
-				return res, err
-			}
-
-			if strings.HasPrefix(bucket.Path, v1.S3Prefix) {
-				sb.WriteString(fmt.Sprintf(
-					`ALTER DATABASE default SET S3BucketConfig = '[{\"bucket\": \"%s\", \"region\": \"%s\", \"protocol\": \"%s\", \"endpoint\": \"%s\"}]';`,
-					c.GetBucket(bucket.Path), bucket.Region, config.GetEndpointProtocol(bucket.Endpoint), c.GetEndpoint(bucket.Endpoint)))
-
-				sb.WriteString(fmt.Sprintf(
-					`ALTER DATABASE default SET S3BucketCredentials = '[{\"bucket\": \"%s\", \"accessKey\": \"%s\", \"secretAccessKey\": \"%s\"}]';`,
-					c.GetBucket(bucket.Path), accessKey, secretKey))
-			}
-
-			if c.Vdb.IsPathHDFS(bucket.Path) {
-				if c.Vdb.IsHDFS() {
-					continue
-				}
-
-				// TODO: set HDFS configuration parameters
-			}
-
-			if strings.HasPrefix(bucket.Path, v1.GCloudPrefix) {
-				if c.Vdb.IsGCloud() {
-					continue
-				}
-
-				sb.WriteString(fmt.Sprintf(
-					`ALTER DATABASE default SET S3BucketConfig = '[{\"bucket\": \"%s\", \"region\": \"%s\", \"protocol\": \"%s\", \"endpoint\": \"%s\"}]';`,
-					c.GetBucket(bucket.Path), bucket.Region, config.GetEndpointProtocol(bucket.Endpoint), c.GetEndpoint(bucket.Endpoint)))
-
-				sb.WriteString(fmt.Sprintf(
-					`ALTER DATABASE default SET S3BucketCredentials = '[{\"bucket\": \"%s\", \"accessKey\": \"%s\", \"secretAccessKey\": \"%s\"}]';`,
-					c.GetBucket(bucket.Path), accessKey, secretKey))
-			}
-
-			if strings.HasPrefix(bucket.Path, v1.AzurePrefix) {
-				if c.Vdb.IsAzure() {
-					continue
-				}
-
-				azureCreds, azureConfig, res, err := c.GetAzureAuth(ctx, bucket.CredentialSecret)
-				if verrors.IsReconcileAborted(res, err) {
-					return res, err
-				}
-
-				sb.WriteString(fmt.Sprintf(
-					`ALTER DATABASE default SET AzureStorageCredentials = '[{\"accountName\": \"%s\", \"accountKey\": \"%s\"}]';`,
-					azureCreds.AccountName, azureCreds.AccountKey))
-				sb.WriteString(fmt.Sprintf(
-					`ALTER DATABASE default SET AzureStorageEndpointConfig = '[{\"accountName\": \"%s\", \"blobEndpoint\": \"%s\", \"protocol\":\"%s\"}]';`,
-					azureCreds.AccountName, azureConfig.BlobEndpoint, azureConfig.Protocol))
-			}
-		}
+		c.addAdditionalBuckets(ctx, &sb)
 	}
 
 	c.Log.Info("executing the following script", "script", sb.String())
@@ -478,6 +422,73 @@ func (c *CreateDBReconciler) generateAWSTlsSQL(sb *strings.Builder) {
 	fmt.Fprintf(sb, "CREATE AUTHENTICATION aws_tls_builtin_auth METHOD 'tls' HOST TLS ")
 	fmt.Fprintf(sb, "'0.0.0.0/0' FALLTHROUGH;\n")
 	fmt.Fprintf(sb, "GRANT AUTHENTICATION aws_tls_builtin_auth TO %s;\n", c.Vdb.GetVerticaUser())
+}
+
+func (c *CreateDBReconciler) addAdditionalBuckets(ctx context.Context, sb *strings.Builder) (ctrl.Result, error) {
+	var res ctrl.Result
+	var err error
+	var accessKey string
+	var secretKey string
+
+	for _, bucket := range c.Vdb.Spec.AdditionalBuckets {
+		// Extract the auth from the credential secret.
+		accessKey, secretKey, res, err = c.GetAuth(ctx, bucket.CredentialSecret)
+		if verrors.IsReconcileAborted(res, err) {
+			return res, err
+		}
+
+		if strings.HasPrefix(bucket.Path, v1.S3Prefix) {
+			sb.WriteString(fmt.Sprintf(
+				`ALTER DATABASE default SET S3BucketConfig = '[{\"bucket\": \"%s\", \"region\": \"%s\", \"protocol\": \"%s\", \"endpoint\": \"%s\"}]';`,
+				c.GetBucket(bucket.Path), bucket.Region, config.GetEndpointProtocol(bucket.Endpoint), c.GetEndpoint(bucket.Endpoint)))
+
+			sb.WriteString(fmt.Sprintf(
+				`ALTER DATABASE default SET S3BucketCredentials = '[{\"bucket\": \"%s\", \"accessKey\": \"%s\", \"secretAccessKey\": \"%s\"}]';`,
+				c.GetBucket(bucket.Path), accessKey, secretKey))
+		}
+
+		if c.Vdb.IsPathHDFS(bucket.Path) {
+			if c.Vdb.IsHDFS() {
+				continue
+			}
+
+			// TODO: set HDFS configuration parameters
+		}
+
+		if strings.HasPrefix(bucket.Path, v1.GCloudPrefix) {
+			if c.Vdb.IsGCloud() {
+				continue
+			}
+
+			sb.WriteString(fmt.Sprintf(
+				`ALTER DATABASE default SET S3BucketConfig = '[{\"bucket\": \"%s\", \"region\": \"%s\", \"protocol\": \"%s\", \"endpoint\": \"%s\"}]';`,
+				c.GetBucket(bucket.Path), bucket.Region, config.GetEndpointProtocol(bucket.Endpoint), c.GetEndpoint(bucket.Endpoint)))
+
+			sb.WriteString(fmt.Sprintf(
+				`ALTER DATABASE default SET S3BucketCredentials = '[{\"bucket\": \"%s\", \"accessKey\": \"%s\", \"secretAccessKey\": \"%s\"}]';`,
+				c.GetBucket(bucket.Path), accessKey, secretKey))
+		}
+
+		if strings.HasPrefix(bucket.Path, v1.AzurePrefix) {
+			if c.Vdb.IsAzure() {
+				continue
+			}
+
+			azureCreds, azureConfig, res, err := c.GetAzureAuth(ctx, bucket.CredentialSecret)
+			if verrors.IsReconcileAborted(res, err) {
+				return res, err
+			}
+
+			sb.WriteString(fmt.Sprintf(
+				`ALTER DATABASE default SET AzureStorageCredentials = '[{\"accountName\": \"%s\", \"accountKey\": \"%s\"}]';`,
+				azureCreds.AccountName, azureCreds.AccountKey))
+			sb.WriteString(fmt.Sprintf(
+				`ALTER DATABASE default SET AzureStorageEndpointConfig = '[{\"accountName\": \"%s\", \"blobEndpoint\": \"%s\", \"protocol\":\"%s\"}]';`,
+				azureCreds.AccountName, azureConfig.BlobEndpoint, azureConfig.Protocol))
+		}
+	}
+
+	return res, err
 }
 
 // Escape function to handle special characters in Bash
