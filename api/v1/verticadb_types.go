@@ -408,7 +408,7 @@ type RestorePointPolicy struct {
 	// +kubebuilder:default:=0
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
-	// Number of restore points to save for this archive.
+	// Maximum number of restore points to save for this archive.
 	NumRestorePoints int `json:"numRestorePoints,omitempty"`
 }
 
