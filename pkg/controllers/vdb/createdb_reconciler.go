@@ -188,8 +188,7 @@ func (c *CreateDBReconciler) preCmdSetup(ctx context.Context, initiatorPod types
 	return c.generatePostDBCreateSQL(ctx, initiatorPod)
 }
 
-// GetEndpoint get the endpoint for inclusion in the auth files.
-// Takes the endpoint from vdb and strips off the protocol.
+// GetEndpoint gets the endpoint from the endpoint URL and strips off the protocol.
 func (c *CreateDBReconciler) GetEndpoint(endPoint string) string {
 	if endPoint == "" {
 		return ""
@@ -203,15 +202,13 @@ func (c *CreateDBReconciler) GetEndpoint(endPoint string) string {
 	return endPoint
 }
 
-// getEnableHTTPS will return "1" if connecting to https otherwise return "0"
-func (c *CreateDBReconciler) GetEnableHTTPS(endPoint string) string {
-	if endPoint == "" {
+// GetBucket returns the bucket name from the path URL
+func (c *CreateDBReconciler) GetBucket(path string) string {
+	if path == "" {
 		return ""
 	}
-	if strings.HasPrefix(endPoint, "https://") {
-		return "1"
-	}
-	return "0"
+
+	return strings.TrimLeft(strings.TrimRight(path, "/"), "//")
 }
 
 // GetCredsSecret returns the contents of the credentials
@@ -228,29 +225,27 @@ func (c *CreateDBReconciler) GetCredsSecret(ctx context.Context, credsSecret str
 
 // getAuth will return the access key and secret key.
 // Value is returned in the format: <accessKey>:<secretKey>
-func (c *CreateDBReconciler) GetAuth(ctx context.Context, credsSecret string) (string, ctrl.Result, error) {
+func (c *CreateDBReconciler) GetAuth(ctx context.Context, credsSecret string) (string, string, ctrl.Result, error) {
 	secret, res, err := c.GetCredsSecret(ctx, credsSecret)
 	if verrors.IsReconcileAborted(res, err) {
-		return "", res, err
+		return "", "", res, err
 	}
 
 	accessKey, ok := secret[cloud.CommunalAccessKeyName]
 	if !ok {
 		c.VRec.Eventf(c.Vdb, corev1.EventTypeWarning, events.CommunalCredsWrongKey,
 			"The credential secret '%s' does not have a key named '%s'", credsSecret, cloud.CommunalAccessKeyName)
-		return "", ctrl.Result{Requeue: true}, nil
+		return "", "", ctrl.Result{Requeue: true}, nil
 	}
 
 	secretKey, ok := secret[cloud.CommunalSecretKeyName]
 	if !ok {
 		c.VRec.Eventf(c.Vdb, corev1.EventTypeWarning, events.CommunalCredsWrongKey,
 			"The credential secret '%s' does not have a key named '%s'", credsSecret, cloud.CommunalSecretKeyName)
-		return "", ctrl.Result{Requeue: true}, nil
+		return "", "", ctrl.Result{Requeue: true}, nil
 	}
 
-	auth := fmt.Sprintf("%s:%s", strings.TrimSuffix(string(accessKey), "\n"),
-		strings.TrimSuffix(string(secretKey), "\n"))
-	return auth, ctrl.Result{}, nil
+	return string(accessKey), string(secretKey), ctrl.Result{}, nil
 }
 
 // getAzureAuth gets the azure credentials from the communal auth secret
@@ -370,20 +365,19 @@ func (c *CreateDBReconciler) generatePostDBCreateSQL(ctx context.Context, initia
 	if c.Vdb.HasAdditionalBuckets() {
 		for _, bucket := range c.Vdb.Spec.AdditionalBuckets {
 			// Extract the auth from the credential secret.
-			auth, res, err := c.GetAuth(ctx, bucket.CredentialSecret)
+			accessKey, secretKey, res, err := c.GetAuth(ctx, bucket.CredentialSecret)
 			if verrors.IsReconcileAborted(res, err) {
 				return res, err
 			}
 
 			if strings.HasPrefix(bucket.Path, v1.S3Prefix) {
-				if c.Vdb.IsS3() {
-					continue
-				}
+				sb.WriteString(fmt.Sprintf(
+					`ALTER DATABASE default SET S3BucketConfig = '[{\"bucket\": \"%s\", \"region\": \"%s\", \"protocol\": \"%s\", \"endpoint\": \"%s\"}]';`,
+					c.GetBucket(bucket.Path), bucket.Region, config.GetEndpointProtocol(bucket.Endpoint), c.GetEndpoint(bucket.Endpoint)))
 
-				sb.WriteString(fmt.Sprintf(`ALTER DATABASE default SET AWSAuth = '%s';`, auth))
-				sb.WriteString(fmt.Sprintf(`ALTER DATABASE default SET AWSEndpoint = '%s';`, c.GetEndpoint(bucket.Endpoint)))
-				sb.WriteString(fmt.Sprintf(`ALTER DATABASE default SET AWSEnableHttps = '%s';`, c.GetEnableHTTPS(bucket.Endpoint)))
-				sb.WriteString(fmt.Sprintf(`ALTER DATABASE default SET AWSRegion = '%s';`, bucket.Region))
+				sb.WriteString(fmt.Sprintf(
+					`ALTER DATABASE default SET S3BucketCredentials = '[{\"bucket\": \"%s\", \"accessKey\": \"%s\", \"secretAccessKey\": \"%s\"}]';`,
+					c.GetBucket(bucket.Path), accessKey, secretKey))
 			}
 
 			if c.Vdb.IsPathHDFS(bucket.Path) {
@@ -399,9 +393,13 @@ func (c *CreateDBReconciler) generatePostDBCreateSQL(ctx context.Context, initia
 					continue
 				}
 
-				sb.WriteString(fmt.Sprintf(`ALTER DATABASE default SET GCSAuth = '%s';`, auth))
-				sb.WriteString(fmt.Sprintf(`ALTER DATABASE default SET GCSEndpoint = '%s';`, c.GetEndpoint(bucket.Endpoint)))
-				sb.WriteString(fmt.Sprintf(`ALTER DATABASE default SET GCSEnableHttps = '%s';`, c.GetEnableHTTPS(bucket.Endpoint)))
+				sb.WriteString(fmt.Sprintf(
+					`ALTER DATABASE default SET S3BucketConfig = '[{\"bucket\": \"%s\", \"region\": \"%s\", \"protocol\": \"%s\", \"endpoint\": \"%s\"}]';`,
+					c.GetBucket(bucket.Path), bucket.Region, config.GetEndpointProtocol(bucket.Endpoint), c.GetEndpoint(bucket.Endpoint)))
+
+				sb.WriteString(fmt.Sprintf(
+					`ALTER DATABASE default SET S3BucketCredentials = '[{\"bucket\": \"%s\", \"accessKey\": \"%s\", \"secretAccessKey\": \"%s\"}]';`,
+					c.GetBucket(bucket.Path), accessKey, secretKey))
 			}
 
 			if strings.HasPrefix(bucket.Path, v1.AzurePrefix) {
