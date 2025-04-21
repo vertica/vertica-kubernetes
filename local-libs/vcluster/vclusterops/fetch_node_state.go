@@ -118,7 +118,8 @@ func (vcc VClusterCommands) VFetchNodeState(options *VFetchNodeStateOptions) ([]
 	runError := clusterOpEngine.run(vcc.Log)
 	if runError == nil {
 		// fill node version
-		for i, nodeInfo := range nodeStates {
+		for i := range nodeStates {
+			nodeInfo := &nodeStates[i]
 			vnode, ok := vdb.HostNodeMap[nodeInfo.Address]
 			if ok {
 				nodeStates[i].Version = vnode.Version

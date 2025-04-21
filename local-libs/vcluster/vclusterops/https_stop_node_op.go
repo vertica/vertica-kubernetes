@@ -91,7 +91,8 @@ func (op *httpsStopNodeOp) prepare(execContext *opEngineExecContext) error {
 			return fmt.Errorf(`[%s] List of nodes to be stopped is empty`, op.name)
 		}
 		if len(op.StopNodes) == 0 {
-			for _, node := range execContext.nodesInfo {
+			for i := range execContext.nodesInfo {
+				node := &execContext.nodesInfo[i]
 				nodenames = append(nodenames, node.Name)
 				hosts = append(hosts, node.Address)
 			}

@@ -213,13 +213,13 @@ func (vcc *VClusterCommands) produceStopDBInstructions(options *VStopDatabaseOpt
 		return instructions, err
 	}
 	instructions = append(instructions, &httpsGetUpNodesOp)
-	if options.IsEon {
+	if options.IsEon && options.IfSyncCatalog {
 		httpsSyncCatalogOp, e := makeHTTPSSyncCatalogOpWithoutHosts(usePassword, options.UserName, options.Password, StopDBSyncCat)
 		if e != nil {
 			return instructions, e
 		}
 		instructions = append(instructions, &httpsSyncCatalogOp)
-	} else {
+	} else if options.IfSyncCatalog {
 		vcc.Log.PrintInfo("Skipping sync catalog for an enterprise database")
 	}
 

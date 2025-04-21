@@ -11,10 +11,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# Wait for the scrutinize pod creation
+
 apiVersion: kuttl.dev/v1beta1
 kind: TestStep
-delete:
-  - apiVersion: vertica.com/v1
-    kind: VerticaDB
-  - apiVersion: vertica.com/v1beta1
-    kind: VerticaScrutinize
+commands:
+    - script: kubectl wait --for=condition=ScrutinizeCollectionFinished=True -n $NAMESPACE vscr/vertica-scrutinize-sandbox --timeout=600s
+

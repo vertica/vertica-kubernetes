@@ -133,7 +133,8 @@ func (op *nmaVerticaVersionOp) prepareSandboxVers(execContext *opEngineExecConte
 	if len(execContext.scNodesInfo) == 0 {
 		return fmt.Errorf(`[%s] Cannot find any node information of target subcluster in OpEngineExecContext`, op.name)
 	}
-	for _, node := range execContext.scNodesInfo {
+	for i := range execContext.scNodesInfo {
+		node := &execContext.scNodesInfo[i]
 		op.hosts = append(op.hosts, node.Address)
 	}
 	// Add Up main cluster hosts

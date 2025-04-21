@@ -57,6 +57,7 @@ type CmdBase struct {
 	configParamFile        string
 	passwordFile           string
 	readPasswordFromPrompt bool
+	ifSyncCatalog          bool
 }
 
 // ValidateParseBaseOptions will validate and parse the required base options in each command

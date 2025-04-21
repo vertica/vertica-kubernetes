@@ -78,7 +78,7 @@ var _ = Describe("sandboxshutdown_reconciler", func() {
 })
 
 func validateShutdownReconcile(ctx context.Context, vdb *vapi.VerticaDB, requeue bool) {
-	r := MakeSandboxShutdownReconciler(vdbRec, logger, vdb)
+	r := MakeSandboxShutdownReconciler(vdbRec, logger, vdb, true)
 	res, err := r.Reconcile(ctx, &ctrl.Request{})
 	Expect(err).Should(Succeed())
 	Expect(res).Should(Equal(ctrl.Result{Requeue: requeue}))

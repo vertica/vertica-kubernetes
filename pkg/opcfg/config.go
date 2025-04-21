@@ -419,3 +419,18 @@ func GetVdbMaxBackoffDuration() int {
 	}
 	return valInt
 }
+
+// GetSandboxMaxBackoffDuration returns maximum backoff requeue duration in milliseconds for sandbox controller
+func GetSandboxMaxBackoffDuration() int {
+	const envName = "SANDBOX_MAX_BACKOFF_DURATION"
+	duration := lookupStringEnvVar(envName, envCanNotExist)
+	if duration == "" {
+		// Default value is 1000ms
+		return 1000
+	}
+	valInt, err := strconv.Atoi(duration)
+	if err != nil || valInt < 0 {
+		dieIfNotValid(envName)
+	}
+	return valInt
+}

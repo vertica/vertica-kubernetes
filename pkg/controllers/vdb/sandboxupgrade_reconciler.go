@@ -33,17 +33,19 @@ type SandboxUpgradeReconciler struct {
 	Log     logr.Logger
 	Vdb     *vapi.VerticaDB // Vdb is the CRD we are acting on
 	Manager UpgradeManager
+	Requeue bool
 }
 
 // MakeSandboxUpgradeReconciler will build a SandboxUpgradeReconciler object
 func MakeSandboxUpgradeReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
-	vdb *vapi.VerticaDB) controllers.ReconcileActor {
+	vdb *vapi.VerticaDB, requeue bool) controllers.ReconcileActor {
 	fn := func(vdb *vapi.VerticaDB) bool { return true }
 	return &SandboxUpgradeReconciler{
 		VRec:    vdbrecon,
 		Log:     log.WithName("SandboxUpgradeReconciler"),
 		Vdb:     vdb,
 		Manager: *MakeUpgradeManager(vdbrecon, log, vdb, vapi.OfflineUpgradeInProgress, fn),
+		Requeue: requeue,
 	}
 }
 
@@ -65,8 +67,13 @@ func (s *SandboxUpgradeReconciler) Reconcile(ctx context.Context, _ *ctrl.Reques
 // reconcileSandboxImage will handle sandbox configmap update based on the sandbox image change
 func (s *SandboxUpgradeReconciler) reconcileSandboxImage(ctx context.Context, sbName string) (ctrl.Result, error) {
 	if !s.doesSandboxExist(sbName) {
-		s.Log.Info("Requeue because the sandbox does not exist yet", "sandbox", sbName)
-		return ctrl.Result{Requeue: true}, nil
+		if s.Requeue {
+			s.Log.Info("Requeue because the sandbox does not exist yet", "sandbox", sbName)
+		} else {
+			s.Log.Info("sandbox does not exist in the database yet", "sandbox", sbName)
+		}
+
+		return ctrl.Result{Requeue: s.Requeue}, nil
 	}
 	if ok, err := s.isSandboxUpgradeNeeded(ctx, sbName); !ok || err != nil {
 		return ctrl.Result{}, err

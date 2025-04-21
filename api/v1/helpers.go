@@ -188,6 +188,14 @@ func MakeVDBForScrutinize() *VerticaDB {
 	return vdb
 }
 
+// MakeVDBForCertRotationEnabled is a helper that constructs a VerticaDB struct for
+// cert rotation. This is intended for test purposes.
+func MakeVDBForCertRotationEnabled() *VerticaDB {
+	vdb := MakeVDB()
+	SetVDBForTLS(vdb)
+	return vdb
+}
+
 // GenSubclusterMap will organize all of the subclusters into a map for quicker lookup.
 // The key is the subcluster name and the value is a pointer to its Subcluster struct.
 func (v *VerticaDB) GenSubclusterMap() map[string]*Subcluster {
@@ -560,6 +568,11 @@ func (v *VerticaDB) IsROUpgradeInProgress() bool {
 // IsUpgradeInProgress returns true if an upgrade is in progress
 func (v *VerticaDB) IsUpgradeInProgress() bool {
 	return v.IsStatusConditionTrue(UpgradeInProgress)
+}
+
+// IsCertRotationInProgress returns true if an online upgrade is in progress
+func (v *VerticaDB) IsCertRotationInProgress() bool {
+	return v.IsStatusConditionTrue(TLSCertRotationInProgress)
 }
 
 // IsStatusConditionTrue returns true when the conditionType is present and set to

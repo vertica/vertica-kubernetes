@@ -43,7 +43,7 @@ func (opt *VClusterHealthOptions) buildCascadeGraph(logger vlog.Printer, upHosts
 	}
 
 	// find the slowest event during the given time
-	if len(slowEvents.SlowEventList) == 0 {
+	if slowEvents == nil || len(slowEvents.SlowEventList) == 0 {
 		return nil
 	}
 
@@ -76,7 +76,7 @@ func (opt *VClusterHealthOptions) buildCascadeGraph(logger vlog.Printer, upHosts
 
 	// recursively traceback
 	const recursiveDepth = 1
-	err = opt.recursiveTraceback(logger, upHosts, threadIDStr,
+	err = opt.recursiveTraceSlowEvents(logger, upHosts, threadIDStr,
 		startTime, endTime, recursiveDepth)
 	if err != nil {
 		return err
@@ -90,7 +90,7 @@ func (opt *VClusterHealthOptions) buildCascadeGraph(logger vlog.Printer, upHosts
 	return err
 }
 
-func (opt *VClusterHealthOptions) recursiveTraceback(logger vlog.Printer,
+func (opt *VClusterHealthOptions) recursiveTraceSlowEvents(logger vlog.Printer,
 	upHosts []string,
 	threadID, startTime, endTime string,
 	depth int) error {
@@ -100,7 +100,7 @@ func (opt *VClusterHealthOptions) recursiveTraceback(logger vlog.Printer,
 	}
 
 	// update the leaf node info
-	if len(slowEvents.SlowEventList) == 0 {
+	if slowEvents == nil || len(slowEvents.SlowEventList) == 0 {
 		length := len(opt.SlowEventCascade)
 		opt.SlowEventCascade[length-1].Leaf = true
 		return nil
@@ -144,7 +144,7 @@ func (opt *VClusterHealthOptions) recursiveTraceback(logger vlog.Printer,
 
 		// go to trace the caller event
 		if callerThreadID != "" && callerStartTime != "" && callerEndTime != "" {
-			e := opt.recursiveTraceback(logger, upHosts,
+			e := opt.recursiveTraceSlowEvents(logger, upHosts,
 				callerThreadID, callerStartTime, callerEndTime,
 				depth+1,
 			)
@@ -230,7 +230,7 @@ func (opt *VClusterHealthOptions) getEventTransactionInfo(logger vlog.Printer, u
 		if err != nil {
 			return transactionInfo, err
 		}
-		if len(transactions.TransactionStartsList) > 0 {
+		if transactions != nil && len(transactions.TransactionStartsList) > 0 {
 			transactionInfo = &transactions.TransactionStartsList[0]
 		}
 	}
@@ -246,7 +246,7 @@ func (opt *VClusterHealthOptions) getEventSessionInfo(logger vlog.Printer, upHos
 		if err != nil {
 			return sessionInfo, err
 		}
-		if len(sessions.SessionStartsList) > 0 {
+		if sessions != nil && len(sessions.SessionStartsList) > 0 {
 			sessionInfo = &sessions.SessionStartsList[0]
 		}
 	}

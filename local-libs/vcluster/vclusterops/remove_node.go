@@ -367,7 +367,7 @@ func getMainClusterNodes(vdb *VCoordinationDatabase, options *VRemoveNodeOptions
 	hostsAfterRemoval := util.SliceDiff(vdb.HostList, options.HostsToRemove)
 	for _, host := range hostsAfterRemoval {
 		vnode := vdb.HostNodeMap[host]
-		if vnode.Sandbox == util.MainClusterSandbox && vnode.State == util.NodeUpState {
+		if vnode.Sandbox == util.MainClusterSandbox && vnode.isUpPermanentNode() {
 			*mainClusterNodes = append(*mainClusterNodes, vnode.Name)
 		}
 	}
@@ -461,14 +461,6 @@ func (vcc VClusterCommands) produceRemoveNodeInstructions(vdb *VCoordinationData
 		return instructions, err
 	}
 
-	// compute nodes don't get the distcall to stop upon drop, so terminate them directly
-	computeHostsToRemove := util.SliceCommon(options.HostsToRemove, vdb.ComputeNodes)
-	err = vcc.produceStopAndPollComputeNodeOps(&instructions, computeHostsToRemove, vdb.HostNodeMap,
-		usePassword, username, password)
-	if err != nil {
-		return instructions, nil
-	}
-
 	httpsReloadSpreadOp, err := makeHTTPSReloadSpreadOpWithInitiator(initiatorHost, usePassword, username, password)
 	if err != nil {
 		return instructions, err
@@ -485,7 +477,7 @@ func (vcc VClusterCommands) produceRemoveNodeInstructions(vdb *VCoordinationData
 	}
 	instructions = append(instructions, &nmaHealthOp, &nmaDeleteDirectoriesOp)
 
-	if vdb.IsEon {
+	if vdb.IsEon && options.IfSyncCatalog {
 		httpsSyncCatalogOp, err := makeHTTPSSyncCatalogOp(initiatorHost, usePassword, username, password, RemoveNodeSyncCat)
 		if err != nil {
 			return instructions, err
@@ -591,29 +583,6 @@ func (vcc VClusterCommands) produceDropNodeOps(instructions *[]clusterOp, target
 		*instructions = append(*instructions, &httpsDropNodeOp)
 	}
 
-	return nil
-}
-
-// produceStopAndPollComputeNodeOps produces the instructions to stop compute nodes
-// and poll only the compute nodes for DOWN state.
-func (vcc VClusterCommands) produceStopAndPollComputeNodeOps(instructions *[]clusterOp,
-	computeHostsToStop []string,
-	hostNodeMap vHostNodeMap,
-	usePassword bool, username string, password *string) error {
-	if len(computeHostsToStop) > 0 {
-		err := vcc.produceStopComputeNodeOps(instructions, computeHostsToStop, hostNodeMap)
-		if err != nil {
-			return err
-		}
-
-		// Poll for compute nodes down
-		httpsPollNodesDownOp, err := makeHTTPSPollNodeStateDownOp(computeHostsToStop,
-			usePassword, username, password)
-		if err != nil {
-			return err
-		}
-		*instructions = append(*instructions, &httpsPollNodesDownOp)
-	}
 	return nil
 }
 
