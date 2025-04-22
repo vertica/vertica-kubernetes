@@ -240,3 +240,6 @@ do
   perl -i -0777 -pe 's/(WEBHOOK_CERT_SECRET: )(.*)/$1\{\{ include "vdb-op.certSecret" . \}\}/g' $fn
   perl -i -0777 -pe 's/(LOG_LEVEL: )(.*)/$1\{{ quote .Values.logging.level }}\n  LOG_FILE_PATH: {{ default "" .Values.logging.filePath | quote }}\n  LOG_MAX_FILE_SIZE: {{ default "" .Values.logging.maxFileSize | quote }}\n  LOG_MAX_FILE_AGE: {{ default "" .Values.logging.maxFileAge | quote }}\n  LOG_MAX_FILE_ROTATION: {{ default "" .Values.logging.maxFileRotation | quote }}\n  DEV_MODE: {{ default "" .Values.logging.dev | quote }}/g' $fn
 done
+
+# Conditionally add rules for keda objects
+perl -i -0777 -pe 's/(- apiGroups:\n\s+- keda\.sh.*?)\n(?=- apiGroups:|\Z)/{{- if .Values.keda.createRBACRules }}\n\1\n{{- end }}\n/sg' $TEMPLATE_DIR/verticadb-operator-manager-role-cr.yaml

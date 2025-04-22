@@ -1,0 +1,54 @@
+suite: Keda RBAC rules conditional test
+templates:
+  - verticadb-operator-manager-role-cr.yaml
+tests:
+  - it: should not include keda.sh scaledobjects when keda is disabled
+    set:
+      controllers:
+        enable: true
+      keda:
+        createRBACRules: false
+    asserts:
+      - notContains:
+          path: rules
+          any: true
+          content:
+            apiGroups:
+              - keda.sh
+  - it: should include keda.sh scaledobjects and triggerauthentications when keda is enabled
+    set:
+      controllers:
+        enable: true
+      keda:
+        createRBACRules: true
+    asserts:
+      - contains:
+          path: rules
+          content:
+            apiGroups:
+              - keda.sh
+            resources:
+              - scaledobjects
+            verbs:
+              - create
+              - delete
+              - get
+              - list
+              - patch
+              - update
+              - watch
+      - contains:
+          path: rules
+          content:
+            apiGroups:
+              - keda.sh
+            resources:
+              - triggerauthentications
+            verbs:
+              - create
+              - delete
+              - get
+              - list
+              - patch
+              - update
+              - watch
