@@ -24,6 +24,8 @@ kind: VerticaDB
 metadata:
   name: v-tls-certs
 status:
+  secretRefs:
+    - type: NMATLSSecretType
   subclusters:
     - addedToDBCount: 3
       upNodeCount: 3
