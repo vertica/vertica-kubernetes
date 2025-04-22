@@ -23,7 +23,40 @@ import (
 
 	"github.com/vertica/vcluster/vclusterops/util"
 	"github.com/vertica/vcluster/vclusterops/vlog"
+	"golang.org/x/exp/slices"
 )
+
+const (
+	serverTLSKeyPrefix string = "server_tls"
+	httpsTLSKeyPrefix  string = "https_tls"
+)
+
+type VerticaTLSModeType string
+
+// TLS modes
+const (
+	tlsModeDisable    VerticaTLSModeType = "disable"
+	tlsModeEnable     VerticaTLSModeType = "enable"
+	tlsModeVerifyCA   VerticaTLSModeType = "verify-ca"
+	tlsModeTryVerify  VerticaTLSModeType = "try-verify"
+	tlsModeVerifyFull VerticaTLSModeType = "verify-full"
+)
+
+// Below constants are the key name used to set Vertica TLS configuration from K8S operator
+/* example: {"Namespace": "default", "SecretManager": "kubernetes", "SecretName":"Secret"}*/
+const (
+	tlsSecretManagerKeyNamespace     string = "Namespace"
+	tlsSecretManagerKeySecretManager string = "SecretManager"
+	tlsSecretManagerKeySecretName    string = "SecretName"
+	tlsSecretManagerKeyCACertDataKey string = "CADataKey"
+	tlsSecretManagerKeyCertDataKey   string = "CertDataKey"
+	tlsSecretManagerKeyKeyDataKey    string = "KeyDataKey"
+	tlsSecretManagerKeyTLSMode       string = "TLSMode"
+)
+
+var ValidSecretManagerType = []string{"kubernetes", "GCP", "AWS"}
+var ValidTLSMode = []VerticaTLSModeType{tlsModeDisable, tlsModeEnable,
+	tlsModeVerifyCA, tlsModeTryVerify, tlsModeVerifyFull}
 
 // VCreateDatabaseOptions represents the available options when you create a database with
 // VCreateDatabase.
@@ -61,6 +94,10 @@ type VCreateDatabaseOptions struct {
 
 	SkipStartupPolling bool // whether skip startup polling
 	GenerateHTTPCerts  bool // whether generate http certificates
+	// Server TLS Configuration
+	ServerTLSConfiguration map[string]string
+	// HTTPS TLS Configuration
+	HTTPSTLSConfiguration map[string]string
 	// If the path is set, the NMA will store the Vertica start command at the path
 	// instead of executing it. This is useful in containerized environments where
 	// you may not want to have both the NMA and Vertica server in the same container.
@@ -97,6 +134,8 @@ func (options *VCreateDatabaseOptions) setDefaultValues() {
 	options.SpreadLoggingLevel = util.DefaultSpreadLoggingLevel
 	// specify whether to enable TLS authentication method upon database creation
 	options.EnableTLSAuth = false
+	options.ServerTLSConfiguration = make(map[string]string)
+	options.HTTPSTLSConfiguration = make(map[string]string)
 }
 
 func (options *VCreateDatabaseOptions) validateRequiredOptions(logger vlog.Printer) error {
@@ -127,7 +166,69 @@ func (options *VCreateDatabaseOptions) validateRequiredOptions(logger vlog.Print
 		return fmt.Errorf("must provide a fully qualified path for license file")
 	}
 
+	if len(options.ServerTLSConfiguration) > 0 {
+		logger.Info("Validating options for customize server cert")
+		if _, exist := options.ServerTLSConfiguration[tlsSecretManagerKeyTLSMode]; !exist {
+			options.ServerTLSConfiguration[tlsSecretManagerKeyTLSMode] = string(tlsModeTryVerify)
+		}
+		if !slices.Contains(ValidTLSMode, VerticaTLSModeType(options.ServerTLSConfiguration[tlsSecretManagerKeyTLSMode])) {
+			return fmt.Errorf("if tls-config is set, the %s key must be one of %s",
+				tlsSecretManagerKeyTLSMode, ValidTLSMode)
+		}
+		requiredKeys := getRequiredTLSConfigKeys(VerticaTLSModeType(options.ServerTLSConfiguration[tlsSecretManagerKeyTLSMode]))
+		err = validateTLSConfigs(options.ServerTLSConfiguration, requiredKeys)
+		if err != nil {
+			return err
+		}
+	}
+	if len(options.HTTPSTLSConfiguration) > 0 {
+		logger.Info("Validating options for customize https cert")
+		if _, exist := options.HTTPSTLSConfiguration[tlsSecretManagerKeyTLSMode]; !exist {
+			options.HTTPSTLSConfiguration[tlsSecretManagerKeyTLSMode] = string(tlsModeTryVerify)
+		}
+		if !slices.Contains(ValidTLSMode, VerticaTLSModeType(options.HTTPSTLSConfiguration[tlsSecretManagerKeyTLSMode])) {
+			return fmt.Errorf("if tls-config is set, the %s key must be one of %s",
+				tlsSecretManagerKeyTLSMode, ValidTLSMode)
+		}
+		if VerticaTLSModeType(options.HTTPSTLSConfiguration[tlsSecretManagerKeyTLSMode]) == tlsModeDisable {
+			return fmt.Errorf("tlsmode cannot be disable for https tls config")
+		}
+		requiredKeys := getRequiredTLSConfigKeys(VerticaTLSModeType(options.HTTPSTLSConfiguration[tlsSecretManagerKeyTLSMode]))
+		err = validateTLSConfigs(options.HTTPSTLSConfiguration, requiredKeys)
+		if err != nil {
+			return err
+		}
+	}
 	return nil
+}
+
+// validateTLSConfigs will validate the fields in tls-config map
+func validateTLSConfigs(configMap map[string]string, requiredKeys []string) error {
+	if !slices.Contains(ValidSecretManagerType, configMap[tlsSecretManagerKeySecretManager]) {
+		return fmt.Errorf("if tls-config is set, the %s key must be one of %s",
+			tlsSecretManagerKeySecretManager, ValidSecretManagerType)
+	}
+	for _, key := range requiredKeys {
+		if _, exist := configMap[key]; !exist {
+			return fmt.Errorf("if tls-config is set, the %s key can not be empty", key)
+		}
+	}
+	return nil
+}
+
+// getRequiredTLSConfigKeys will return a list of required key names based on the TLS mode
+func getRequiredTLSConfigKeys(tlsmode VerticaTLSModeType) []string {
+	requiredKeys := []string{tlsSecretManagerKeySecretName, tlsSecretManagerKeyNamespace, tlsSecretManagerKeySecretName,
+		tlsSecretManagerKeyTLSMode, tlsSecretManagerKeySecretManager}
+	switch tlsmode {
+	case tlsModeVerifyCA, tlsModeTryVerify, tlsModeVerifyFull:
+		requiredKeys = append(requiredKeys, tlsSecretManagerKeyKeyDataKey, tlsSecretManagerKeyCACertDataKey, tlsSecretManagerKeyCertDataKey)
+	case tlsModeEnable:
+		requiredKeys = append(requiredKeys, tlsSecretManagerKeyKeyDataKey, tlsSecretManagerKeyCertDataKey)
+	case tlsModeDisable:
+		return requiredKeys
+	}
+	return requiredKeys
 }
 
 func validateDepotSizePercent(size string) (bool, error) {
@@ -362,8 +463,14 @@ func (vcc VClusterCommands) produceCreateDBInstructions(
 		return instructions, err
 	}
 
+	tlsInstructions, err := vcc.produceAdditionalTLSInstructions(options)
+	if err != nil {
+		return instructions, err
+	}
+
 	instructions = append(instructions, workerNodesInstructions...)
 	instructions = append(instructions, additionalInstructions...)
+	instructions = append(instructions, tlsInstructions...)
 
 	return instructions, nil
 }
@@ -574,6 +681,32 @@ func (vcc VClusterCommands) produceAdditionalCreateDBInstructions(vdb *VCoordina
 			return instructions, err
 		}
 		instructions = append(instructions, &httpsSyncCatalogOp)
+	}
+	return instructions, nil
+}
+
+// produceAdditionalTLSInstructions returns additional TLS instruction necessary for create_db.
+func (vcc VClusterCommands) produceAdditionalTLSInstructions(options *VCreateDatabaseOptions) ([]clusterOp, error) {
+	var instructions []clusterOp
+	if _, exist := options.ServerTLSConfiguration[tlsSecretManagerKeySecretName]; exist {
+		nmaSetServerTLSOp, err := makeNMASetTLSOp(&options.DatabaseOptions, serverTLSKeyPrefix,
+			false, // grantAuth
+			false, // syncCatalog
+			options.ServerTLSConfiguration)
+		if err != nil {
+			return instructions, err
+		}
+		instructions = append(instructions, &nmaSetServerTLSOp)
+	}
+	if _, exist := options.HTTPSTLSConfiguration[tlsSecretManagerKeySecretName]; exist {
+		nmaSetHTTPSTLSOp, err := makeNMASetTLSOp(&options.DatabaseOptions, httpsTLSKeyPrefix,
+			true, // grantAuth
+			true, // syncCatalog
+			options.ServerTLSConfiguration)
+		if err != nil {
+			return instructions, err
+		}
+		instructions = append(instructions, &nmaSetHTTPSTLSOp)
 	}
 	return instructions, nil
 }
