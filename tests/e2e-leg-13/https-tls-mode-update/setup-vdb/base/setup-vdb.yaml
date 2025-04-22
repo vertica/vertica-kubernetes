@@ -29,6 +29,7 @@ spec:
     catalogPath: /catalog
   dbName: vertdb
   encryptSpreadComm: vertica
+  httpsTLSMode: TRY_VERIFY
   subclusters:
     - name: sc1
       size: 3

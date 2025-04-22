@@ -14,5 +14,7 @@
 apiVersion: kuttl.dev/v1beta2
 kind: TestStep
 commands:
-  - command: bash ./vsql_verify_try_verify.sh
+  - command: kubectl exec -n $NAMESPACE v-tls-certs-sc1-0 -c server -- bash -c "openssl s_client -showcerts -connect localhost:5554 </dev/null > /tmp/tls_from_nma.crt"
+  - command: kubectl cp -n $NAMESPACE -c server v-tls-certs-sc1-0:tmp/tls_from_nma.crt /tmp/tls_from_nma.crt
+  - command: bash ./compare_cert.sh $NAMESPACE /tmp/tls_from_nma.crt
 

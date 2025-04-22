@@ -19,8 +19,8 @@ if [[ $KEY_NAME != "https_key_1" ]]; then
     exit 1
 fi
 HTTPS_TLS_MODE=$(kubectl exec -n $NAMESPACE v-tls-certs-sc1-0 -c server -- vsql -tAc "select mode FROM tls_configurations WHERE name='https';")
-if [[ $KEY_NAME != "https_key_1" ]]; then
-    echo "ERROR: key https_key_1 not found"
+if [[ $HTTPS_TLS_MODE != "VERIFY_CA" ]]; then
+    echo "ERROR: tls mode VERIFY_CA not found"
     exit 1
 fi
 exit 0
