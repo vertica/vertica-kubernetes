@@ -64,9 +64,6 @@ const (
 // hdfsPrefixes are prefixes for an HDFS path.
 var hdfsPrefixes = []string{"webhdfs://", "swebhdfs://"}
 
-// tlsModes are tls modes that a Vertica DB supports
-var tlsModes = []string{"try_verify", "verify_ca"}
-
 // validProxyLogLevel are acceptable values for proxy log level annotation
 var validProxyLogLevel = []string{"TRACE", "DEBUG", "INFO", "WARN", "FATAL", "NONE"}
 
@@ -253,7 +250,6 @@ func (v *VerticaDB) validateVerticaDBSpec() field.ErrorList {
 	allErrs = v.validateSandboxes(allErrs)
 	allErrs = v.checkNewSBoxOrSClusterShutdownUnset(allErrs)
 	allErrs = v.validateProxyConfig(allErrs)
-	allErrs = v.hasValidHTTPSTLSMode(allErrs)
 	if len(allErrs) == 0 {
 		return nil
 	}

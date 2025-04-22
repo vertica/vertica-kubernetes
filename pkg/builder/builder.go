@@ -47,6 +47,7 @@ const (
 	TestStorageClassName    = "test-storage-class"
 	VerticaClientPort       = 5433
 	VerticaHTTPPort         = 8443
+	VerticaNonTLSHTTPPort   = 8080
 	InternalVerticaCommPort = 5434
 	SSHPort                 = 22
 	VerticaClusterCommPort  = 5434
@@ -1355,14 +1356,27 @@ func makeScrutinizeMainContainer(vscr *v1beta1.VerticaScrutinize, tarballName st
 	}
 }
 
-// makeHTTPServerVersionEndpointProbe will build an HTTPGet probe
-func makeHTTPServerVersionEndpointProbe() *corev1.Probe {
+// makeHTTPSVersionEndpointProbe will build an HTTPS Get probe
+func makeHTTPSVersionEndpointProbe() *corev1.Probe {
 	return &corev1.Probe{
 		ProbeHandler: corev1.ProbeHandler{
 			HTTPGet: &corev1.HTTPGetAction{
 				Path:   HTTPServerVersionPath,
 				Port:   intstr.FromInt(VerticaHTTPPort),
 				Scheme: corev1.URISchemeHTTPS,
+			},
+		},
+	}
+}
+
+// makeHTTPVersionEndpointProbe will build an HTTP Get probe
+func makeHTTPVersionEndpointProbe() *corev1.Probe {
+	return &corev1.Probe{
+		ProbeHandler: corev1.ProbeHandler{
+			HTTPGet: &corev1.HTTPGetAction{
+				Path:   HTTPServerVersionPath,
+				Port:   intstr.FromInt(VerticaNonTLSHTTPPort),
+				Scheme: corev1.URISchemeHTTP,
 			},
 		},
 	}
@@ -1396,7 +1410,11 @@ func makeCanaryQueryProbe(vdb *vapi.VerticaDB) *corev1.Probe {
 // is enabled
 func getHTTPServerVersionEndpointProbe(vdb *vapi.VerticaDB) *corev1.Probe {
 	if vmeta.UseVClusterOps(vdb.Annotations) {
-		return makeHTTPServerVersionEndpointProbe()
+		if vdb.IsCertRotationEnabled() {
+			return makeHTTPVersionEndpointProbe()
+		} else {
+			return makeHTTPSVersionEndpointProbe()
+		}
 	}
 	return nil
 }
