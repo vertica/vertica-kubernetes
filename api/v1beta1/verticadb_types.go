@@ -1001,6 +1001,9 @@ type VerticaDBStatus struct {
 	// The details about the last created restore point
 	RestorePoint *RestorePointInfo `json:"restorePoint"`
 
+	// +operator-sdk:csv:customresourcedefinitions:type=status
+	// +optional
+	// The list of secrets currently in use
 	SecretRefs []SecretRef `json:"secretRefs,omitempty"`
 }
 
@@ -1009,7 +1012,12 @@ const (
 )
 
 type SecretRef struct {
+	// +operator-sdk:csv:customresourcedefinitions:type=status
+	// Name of the secret
 	Name string `json:"name"`
+	// +operator-sdk:csv:customresourcedefinitions:type=status
+	// The type of the secret which represents what the secret
+	// is used for
 	Type string `json:"type"`
 }
 

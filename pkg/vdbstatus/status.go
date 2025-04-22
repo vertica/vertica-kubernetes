@@ -71,6 +71,7 @@ func UpdateCondition(ctx context.Context, clnt client.Client, vdb *vapi.VerticaD
 	return Update(ctx, clnt, vdb, refreshConditionInPlace)
 }
 
+// UpdateSecretRef will update a secret status. There is no-op if the status secret is already set.
 func UpdateSecretRef(ctx context.Context, clnt client.Client, vdb *vapi.VerticaDB, sRef *vapi.SecretRef) error {
 	// refreshConditionInPlace will update the status secretRef in vdb.  The update
 	// will be applied in-place.

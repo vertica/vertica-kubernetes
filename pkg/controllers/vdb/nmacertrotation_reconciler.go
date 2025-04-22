@@ -35,11 +35,11 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-// NMACertRoationReconciler will compare the nma tls secret with the one saved in
+// NMACertRotationReconciler will compare the nma tls secret with the one saved in
 // "vertica.com/nma-https-previous-secret". If different, it will try to rotate the
 // cert currently used with the one saved the nma tls secret for nma service. This
 // happens after the cert rotation is successful for https service
-type NMACertRoationReconciler struct {
+type NMACertRotationReconciler struct {
 	VRec       *VerticaDBReconciler
 	Vdb        *vapi.VerticaDB // Vdb is the CRD we are acting on.
 	Log        logr.Logger
@@ -49,17 +49,17 @@ type NMACertRoationReconciler struct {
 
 func MakeNMACertRotationReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger, vdb *vapi.VerticaDB, dispatcher vadmin.Dispatcher,
 	pfacts *podfacts.PodFacts) controllers.ReconcileActor {
-	return &NMACertRoationReconciler{
+	return &NMACertRotationReconciler{
 		VRec:       vdbrecon,
 		Vdb:        vdb,
-		Log:        log.WithName("NMACertRoationReconciler"),
+		Log:        log.WithName("NMACertRotationReconciler"),
 		Dispatcher: dispatcher,
 		Pfacts:     pfacts,
 	}
 }
 
 // Reconcile will rotate TLS certificate.
-func (h *NMACertRoationReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
+func (h *NMACertRotationReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
 	if !h.Vdb.IsCertRotationEnabled() {
 		return ctrl.Result{}, nil
 	}
@@ -104,7 +104,7 @@ func (h *NMACertRoationReconciler) Reconcile(ctx context.Context, _ *ctrl.Reques
 }
 
 // rotateHTTPSTLSCert will rotate node management agent's tls cert from currentSecret to newSecret
-func (h *NMACertRoationReconciler) rotateNmaTLSCert(ctx context.Context, newSecret, currentSecret map[string][]byte) (ctrl.Result, error) {
+func (h *NMACertRotationReconciler) rotateNmaTLSCert(ctx context.Context, newSecret, currentSecret map[string][]byte) (ctrl.Result, error) {
 	err := h.Pfacts.Collect(ctx, h.Vdb)
 	if err != nil {
 		h.Log.Error(err, "nma cert rotation aborted. Failed to collect pod facts ")
