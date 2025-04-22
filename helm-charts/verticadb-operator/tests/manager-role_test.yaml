@@ -7,7 +7,7 @@ tests:
       controllers:
         enable: true
       keda:
-        createProxyRBAC: false
+        createRBACRules: false
     asserts:
       - notContains:
           path: rules
@@ -20,7 +20,7 @@ tests:
       controllers:
         enable: true
       keda:
-        createProxyRBAC: true
+        createRBACRules: true
     asserts:
       - contains:
           path: rules

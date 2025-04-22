@@ -239,4 +239,4 @@ do
 done
 
 # Conditionally add rules for keda objects
-perl -i -0777 -pe 's/(- apiGroups:\n\s+- keda\.sh.*?)\n(?=- apiGroups:|\Z)/{{- if .Values.keda.createProxyRBAC }}\n\1\n{{- end }}\n/sg' $TEMPLATE_DIR/verticadb-operator-manager-role-cr.yaml
+perl -i -0777 -pe 's/(- apiGroups:\n\s+- keda\.sh.*?)\n(?=- apiGroups:|\Z)/{{- if .Values.keda.createRBACRules }}\n\1\n{{- end }}\n/sg' $TEMPLATE_DIR/verticadb-operator-manager-role-cr.yaml

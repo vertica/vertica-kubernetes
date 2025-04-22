@@ -201,4 +201,4 @@ containerSecurityContext:
 
 keda:
   # This controls the creation of ClusterRole rules for KEDA objects.
-  createProxyRBAC: true
+  createRBACRules: true
