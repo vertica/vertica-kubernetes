@@ -1,0 +1,5 @@
+kind: Security
+body: Fix for CVE-2025-22869, CVE-2024-45337, CVE-2025-29786
+time: 2025-04-21T03:46:35.036096853Z
+custom:
+  Issue: "1202"
