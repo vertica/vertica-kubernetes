@@ -52,7 +52,7 @@ on:
         - vcluster leg 5
         - vcluster leg 6
         - vcluster leg 6 revivedb
-        - vcluster leg 6 revivedb cert
+        - vcluster leg 6 revived cert
         - vcluster leg 6 cert
         - vcluster leg 7
         - vcluster leg 7 cert
@@ -592,7 +592,7 @@ jobs:
           e2e-retry-times: ${{ inputs.e2e_retry_times || 2 }}
 
   e2e-leg-6-vcluster-revivedb-cert:
-    if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'vcluster leg 6 revivedb cert' || inputs.e2e_test_suites == '')}}
+    if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'vcluster leg 6 revived cert' || inputs.e2e_test_suites == '')}}
     needs: [build]
     runs-on: ubuntu-latest
     steps:
