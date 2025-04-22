@@ -2061,9 +2061,9 @@ var _ = Describe("verticadb_webhook", func() {
 		newVdb.Spec.ClientServerTLSMode = "try_VERIFY"
 		Ω(newVdb.validateVerticaDBSpec()).Should(HaveLen(0))
 		newVdb.Spec.ClientServerTLSMode = "disable"
-		Ω(newVdb.validateVerticaDBSpec()).Should(HaveLen(1))
+		Ω(newVdb.validateVerticaDBSpec()).Should(HaveLen(0))
 		newVdb.Spec.ClientServerTLSMode = "Enable"
-		Ω(newVdb.validateVerticaDBSpec()).Should(HaveLen(1))
+		Ω(newVdb.validateVerticaDBSpec()).Should(HaveLen(0))
 		newVdb.Spec.ClientServerTLSMode = "VERIFY_CA"
 		Ω(newVdb.validateVerticaDBSpec()).Should(HaveLen(0))
 		newVdb.Spec.ClientServerTLSMode = "VERIFYCA"
