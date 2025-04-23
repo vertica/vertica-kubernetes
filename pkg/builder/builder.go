@@ -124,7 +124,6 @@ type ProxyData struct {
 // BuildExtSvc creates desired spec for the external service.
 func BuildExtSvc(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi.Subcluster,
 	selectorLabelCreator func(*vapi.VerticaDB, *vapi.Subcluster) map[string]string) *corev1.Service {
-
 	// Use spec.subclusters[].ServiceHTTPSPort, if set
 	// If not, use spec.ServiceHTTPSPort (default 8443)
 	HTTPSPort := vdb.Spec.ServiceHTTPSPort
