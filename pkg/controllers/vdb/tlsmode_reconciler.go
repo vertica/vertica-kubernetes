@@ -81,7 +81,7 @@ func (h *TLSModeReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctr
 		return ctrl.Result{Requeue: true}, nil
 	}
 
-	currentSecretName := vmeta.GetNMATLSSecretNameInUse(h.Vdb.Annotations)
+	currentSecretName := h.Vdb.GetNMATLSSecretNameInUse()
 	nmCurrentSecretName := types.NamespacedName{
 		Name:      currentSecretName,
 		Namespace: h.Vdb.GetNamespace(),
