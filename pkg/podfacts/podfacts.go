@@ -1354,7 +1354,7 @@ func (p *PodFacts) CountRunningAndInstalled() int {
 
 // CountNotRestartablePods returns number of pods that aren't yet
 // running but the restart reconciler needs to handle them.
-func (p *PodFacts) CountNotRestartablePods(vclusterOps bool) int {
+func (p *PodFacts) CountNotRestartablePods(vclusterOps bool, scStatus map[string]*vapi.SubclusterStatus) int {
 	return p.countPods(func(v *PodFact) int {
 		// Non-restartable pods are pods that aren't yet running, or don't have
 		// the necessary DC table annotations, but need to be handled by the
@@ -1368,6 +1368,13 @@ func (p *PodFacts) CountNotRestartablePods(vclusterOps bool) int {
 		// to update its IP.
 		if ((!vclusterOps && v.isInstalled) || v.dbExists) && v.managedByParent &&
 			(!v.isPodRunning || !v.hasDCTableAnnotations) {
+			return 1
+		}
+		// When shutdown pods are restarted, they might not reach the Running state (e.g., they could remain Pending).
+		// In such cases, we want to requeue the restart reconciler to ensure the pods are properly restarted.
+		// Otherwise, these pods in the sandbox might be skipped, and the restart reconciler would no longer be triggered.
+		status, exist := scStatus[v.GetSubclusterName()]
+		if exist && status.Shutdown && !v.shutdown && !v.isPodRunning {
 			return 1
 		}
 		return 0
