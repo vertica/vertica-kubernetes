@@ -387,7 +387,7 @@ const (
 )
 
 // RestorePointPolicy is used to locate the exact archive and restore point within archive
-// when a database restore is intended
+// when a database restore is intended or when saving a restore point
 type RestorePointPolicy struct {
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// +kubebuilder:validation:Optional
@@ -405,6 +405,11 @@ type RestorePointPolicy struct {
 	// The identifier of the restore point in the restore archive to restore from.
 	// Specify either index or id exclusively; one of these fields is mandatory, but both cannot be used concurrently.
 	ID string `json:"id,omitempty"`
+	// +kubebuilder:default:=0
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// Maximum number of restore points to save for this archive.
+	NumRestorePoints int `json:"numRestorePoints,omitempty"`
 }
 
 // Set constant Upgrade Requeue Time

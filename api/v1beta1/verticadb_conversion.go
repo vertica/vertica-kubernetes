@@ -174,9 +174,10 @@ func convertToSpec(src *VerticaDBSpec) v1.VerticaDBSpec {
 	}
 	if src.RestorePoint != nil {
 		dst.RestorePoint = &v1.RestorePointPolicy{
-			Archive: src.RestorePoint.Archive,
-			Index:   src.RestorePoint.Index,
-			ID:      src.RestorePoint.ID,
+			Archive:          src.RestorePoint.Archive,
+			Index:            src.RestorePoint.Index,
+			ID:               src.RestorePoint.ID,
+			NumRestorePoints: src.RestorePoint.NumRestorePoints,
 		}
 	}
 	for i := range src.ReviveOrder {
@@ -245,9 +246,10 @@ func convertFromSpec(src *v1.VerticaDB) VerticaDBSpec {
 	}
 	if srcSpec.RestorePoint != nil {
 		dst.RestorePoint = &RestorePointPolicy{
-			Archive: srcSpec.RestorePoint.Archive,
-			Index:   srcSpec.RestorePoint.Index,
-			ID:      srcSpec.RestorePoint.ID,
+			Archive:          srcSpec.RestorePoint.Archive,
+			Index:            srcSpec.RestorePoint.Index,
+			ID:               srcSpec.RestorePoint.ID,
+			NumRestorePoints: srcSpec.RestorePoint.NumRestorePoints,
 		}
 	}
 	for i := range srcSpec.ReviveOrder {
