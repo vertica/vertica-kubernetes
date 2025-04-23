@@ -279,6 +279,7 @@ func convertToStatus(src *VerticaDBStatus) v1.VerticaDBStatus {
 		Conditions:      make([]metav1.Condition, 0),
 		UpgradeStatus:   src.UpgradeStatus,
 		Sandboxes:       make([]v1.SandboxStatus, len(src.Sandboxes)),
+		SecretRefs:      make([]v1.SecretRef, len(src.SecretRefs)),
 	}
 	if src.RestorePoint != nil {
 		dst.RestorePoint = &v1.RestorePointInfo{
@@ -296,6 +297,12 @@ func convertToStatus(src *VerticaDBStatus) v1.VerticaDBStatus {
 	for i := range src.Sandboxes {
 		dst.Sandboxes[i] = convertToSandboxStatus(src.Sandboxes[i])
 	}
+	for i := range src.SecretRefs {
+		dst.SecretRefs[i] = v1.SecretRef{
+			Name: src.SecretRefs[i].Name,
+			Type: src.SecretRefs[i].Type,
+		}
+	}
 	return dst
 }
 
@@ -310,6 +317,7 @@ func convertFromStatus(src *v1.VerticaDBStatus) VerticaDBStatus {
 		Conditions:      make([]VerticaDBCondition, len(src.Conditions)),
 		UpgradeStatus:   src.UpgradeStatus,
 		Sandboxes:       make([]SandboxStatus, len(src.Sandboxes)),
+		SecretRefs:      make([]SecretRef, len(src.SecretRefs)),
 	}
 	if src.RestorePoint != nil {
 		dst.RestorePoint = &RestorePointInfo{
@@ -326,6 +334,12 @@ func convertFromStatus(src *v1.VerticaDBStatus) VerticaDBStatus {
 	}
 	for i := range src.Sandboxes {
 		dst.Sandboxes[i] = convertFromSandboxStatus(src.Sandboxes[i])
+	}
+	for i := range src.SecretRefs {
+		dst.SecretRefs[i] = SecretRef{
+			Name: src.SecretRefs[i].Name,
+			Type: src.SecretRefs[i].Type,
+		}
 	}
 	return dst
 }

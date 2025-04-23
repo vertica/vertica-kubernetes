@@ -140,15 +140,6 @@ func (c *CreateDBReconciler) execCmd(ctx context.Context, initiatorPod types.Nam
 			c.Log.Error(err2, "failed to execute TLS DDLs after db creation stderr - "+stderr)
 			return ctrl.Result{}, err2
 		}
-		chgs := vk8s.MetaChanges{
-			NewAnnotations: map[string]string{
-				vmeta.NMAHTTPSPreviousSecret:     c.Vdb.Spec.NMATLSSecret,
-				vmeta.ClientServerPreviousSecret: c.Vdb.Spec.ClientServerTLSSecret,
-			},
-		}
-		if _, err := vk8s.MetaUpdate(ctx, c.VRec.Client, c.Vdb.ExtractNamespacedName(), c.Vdb, chgs); err != nil {
-			return ctrl.Result{}, err
-		}
 		c.Log.Info("TLS DDLs executed and TLS Cert configured")
 	}
 	sc := c.getFirstPrimarySubcluster()

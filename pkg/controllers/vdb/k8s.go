@@ -21,7 +21,6 @@ import (
 
 	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
-	"github.com/vertica/vertica-kubernetes/pkg/builder"
 	"github.com/vertica/vertica-kubernetes/pkg/cloud"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
@@ -105,16 +104,16 @@ func createDep(ctx context.Context, vrec config.ReconcilerInterface, vpDep *apps
 	return vrec.GetClient().Create(ctx, vpDep)
 }
 
-// readSecretsAndConfigMap will read current/new secrets and configmap
-func readSecretsAndConfigMap(skipConfigmap bool, vdb *vapi.VerticaDB, vrec config.ReconcilerInterface, k8sClient client.Client,
+// readSecrets will read current/new secrets
+func readSecrets(vdb *vapi.VerticaDB, vrec config.ReconcilerInterface, k8sClient client.Client,
 	log logr.Logger, ctx context.Context, currentSecretName,
-	newSecretName string) (currentSecret, newSecret *corev1.Secret, res ctrl.Result, err error) {
+	newSecretName string) (currentSecret, newSecret map[string][]byte, res ctrl.Result, err error) {
 	nmCurrentSecretName := types.NamespacedName{
 		Name:      currentSecretName,
 		Namespace: vdb.GetNamespace(),
 	}
 
-	nnNewSecretName := types.NamespacedName{
+	nmNewSecretName := types.NamespacedName{
 		Name:      newSecretName,
 		Namespace: vdb.GetNamespace(),
 	}
@@ -133,33 +132,11 @@ func readSecretsAndConfigMap(skipConfigmap bool, vdb *vapi.VerticaDB, vrec confi
 	if verrors.IsReconcileAborted(res, err) {
 		return nil, nil, res, err
 	}
-	currentSecret = &corev1.Secret{
-		Data: currentSecretData,
-	}
 
-	newSecretData, res, err := secretFetcher.FetchAllowRequeue(ctx, nnNewSecretName)
+	newSecretData, res, err := secretFetcher.FetchAllowRequeue(ctx, nmNewSecretName)
 	if verrors.IsReconcileAborted(res, err) {
 		return nil, nil, res, err
 	}
-	newSecret = &corev1.Secret{
-		Data: newSecretData,
-	}
-	if !skipConfigmap {
-		// check if configmap is ready for rotation
-		name := fmt.Sprintf("%s-%s", vdb.Name, vapi.NMATLSConfigMapName)
-		configMapName := types.NamespacedName{
-			Name:      name,
-			Namespace: vdb.GetNamespace(),
-		}
-		configMap, res2, err2 := getConfigMap(ctx, vrec, vdb, configMapName)
-		if verrors.IsReconcileAborted(res, err) {
-			return nil, nil, res2, err2
-		}
-		if configMap.Data[builder.NMASecretNamespaceEnv] != vdb.GetObjectMeta().GetNamespace() ||
-			configMap.Data[builder.NMASecretNameEnv] != newSecretName {
-			log.Info(newSecretName + " not found in configmap. cert rotation will not start")
-			return nil, nil, ctrl.Result{Requeue: true}, nil
-		}
-	}
-	return currentSecret, newSecret, res, err
+
+	return currentSecretData, newSecretData, res, err
 }
