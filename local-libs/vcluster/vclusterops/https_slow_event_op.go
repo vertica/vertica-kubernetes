@@ -155,6 +155,14 @@ type dcSlowEvent struct {
 	Val3             string `json:"val3"`
 }
 
+func (event *dcSlowEvent) getSessionID() string {
+	return event.SessionID
+}
+
+func (event *dcSlowEvent) getTxnID() string {
+	return event.TxnID
+}
+
 func (op *httpsSlowEventsOp) processResult(execContext *opEngineExecContext) error {
 	var allErrs error
 	for host, result := range op.clusterHTTPRequest.ResultCollection {

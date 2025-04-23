@@ -83,6 +83,17 @@ func (opt *VClusterHealthOptions) buildLockCascadeGraph(logger vlog.Printer,
 	// for each node's result, we pick its earliest lock wait event,
 	// then find out the event's related/correlated lock hold events
 	for i, item := range opt.LockEventCascade {
+		// fill session and transaction info
+		for _, event := range item.LockWaitEvents {
+			sessionInfo, transactionInfo, e := opt.getEventSessionAndTxnInfo(logger, upHosts, event)
+			if e != nil {
+				return e
+			}
+			event.SessionInfo = *sessionInfo
+			event.TxnInfo = *transactionInfo
+		}
+
+		// fill lock hold info for the earliest wait event
 		earliestEvent := item.LockWaitEvents[len(item.LockWaitEvents)-1]
 		e := opt.getLockReleases(logger, upHosts, earliestEvent.NodeName,
 			earliestEvent.StartTime, earliestEvent.Time, i)
