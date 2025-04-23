@@ -22,6 +22,7 @@ import (
 
 	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
+	"github.com/vertica/vertica-kubernetes/pkg/builder"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
@@ -120,7 +121,7 @@ func (h *HTTPSCertRoationReconciler) rotateHTTPSTLSCert(ctx context.Context, new
 	}
 	newCert := string(newSecret.Data[corev1.TLSCertKey])
 	currentCert := string(currentSecret.Data[corev1.TLSCertKey])
-	rotated, err := security.VerifyCert(initiatorPod.GetPodIP(), int(h.Vdb.Spec.ServiceHTTPSPort), newCert, currentCert, h.Log)
+	rotated, err := security.VerifyCert(initiatorPod.GetPodIP(), builder.VerticaHTTPPort, newCert, currentCert, h.Log)
 	if err != nil {
 		h.Log.Error(err, "https cert rotation aborted. Failed to verify new https cert for "+
 			initiatorPod.GetPodIP())

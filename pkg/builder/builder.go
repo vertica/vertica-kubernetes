@@ -45,7 +45,6 @@ import (
 const (
 	SuperuserPasswordPath   = "superuser-passwd"
 	TestStorageClassName    = "test-storage-class"
-	VerticaClientPort       = 5433
 	InternalVerticaCommPort = 5434
 	SSHPort                 = 22
 	VerticaClusterCommPort  = 5434
@@ -53,6 +52,12 @@ const (
 	NMAPort                 = 5554
 	StdOut                  = "/proc/1/fd/1"
 	VProxyDefaultImage      = "opentext/client-proxy:latest"
+
+	// Port for Vertica processes within pods
+	// For the ports of the services, use:
+	// vdb.spec.ServiceHTTPSPort and vdb.spec.ServiceClientPort
+	VerticaClientPort = 5433
+	VerticaHTTPPort   = 8443
 
 	// Standard environment variables that are set in each pod
 	PodIPEnv                   = "POD_IP"
@@ -119,10 +124,16 @@ type ProxyData struct {
 // BuildExtSvc creates desired spec for the external service.
 func BuildExtSvc(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi.Subcluster,
 	selectorLabelCreator func(*vapi.VerticaDB, *vapi.Subcluster) map[string]string) *corev1.Service {
+
+	// Use spec.subclusters[].ServiceHTTPSPort, if set
+	// If not, use spec.ServiceHTTPSPort (default 8443)
 	HTTPSPort := vdb.Spec.ServiceHTTPSPort
 	if sc.ServiceHTTPSPort > 0 {
 		HTTPSPort = sc.ServiceHTTPSPort
 	}
+
+	// Use spec.subclusters[].ServiceClientPort, if set
+	// If not, use spec.ServiceClientPort (default 5433)
 	ClientPort := vdb.Spec.ServiceClientPort
 	if sc.ServiceClientPort > 0 {
 		ClientPort = sc.ServiceClientPort
@@ -138,8 +149,8 @@ func BuildExtSvc(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi.Subclust
 			Selector: selectorLabelCreator(vdb, sc),
 			Type:     sc.ServiceType,
 			Ports: []corev1.ServicePort{
-				{Port: ClientPort, Name: "vertica", NodePort: sc.ClientNodePort},
-				{Port: HTTPSPort, Name: "vertica-http", NodePort: sc.VerticaHTTPNodePort},
+				{Port: ClientPort, Name: "vertica", NodePort: sc.ClientNodePort, TargetPort: intstr.FromInt(VerticaClientPort)},
+				{Port: HTTPSPort, Name: "vertica-http", NodePort: sc.VerticaHTTPNodePort, TargetPort: intstr.FromInt(VerticaHTTPPort)},
 			},
 			ExternalIPs:    sc.ExternalIPs,
 			LoadBalancerIP: sc.LoadBalancerIP,
@@ -1360,12 +1371,12 @@ func makeScrutinizeMainContainer(vscr *v1beta1.VerticaScrutinize, tarballName st
 }
 
 // makeHTTPServerVersionEndpointProbe will build an HTTPGet probe
-func makeHTTPServerVersionEndpointProbe(vdb *vapi.VerticaDB) *corev1.Probe {
+func makeHTTPServerVersionEndpointProbe() *corev1.Probe {
 	return &corev1.Probe{
 		ProbeHandler: corev1.ProbeHandler{
 			HTTPGet: &corev1.HTTPGetAction{
 				Path:   HTTPServerVersionPath,
-				Port:   intstr.FromInt32(vdb.Spec.ServiceHTTPSPort),
+				Port:   intstr.FromInt(VerticaHTTPPort),
 				Scheme: corev1.URISchemeHTTPS,
 			},
 		},
@@ -1378,7 +1389,7 @@ func makeVerticaClientPortProbe() *corev1.Probe {
 	return &corev1.Probe{
 		ProbeHandler: corev1.ProbeHandler{
 			TCPSocket: &corev1.TCPSocketAction{
-				Port: intstr.FromInt32(VerticaClientPort),
+				Port: intstr.FromInt(VerticaClientPort),
 			},
 		},
 	}
@@ -1400,7 +1411,7 @@ func makeCanaryQueryProbe(vdb *vapi.VerticaDB) *corev1.Probe {
 // is enabled
 func getHTTPServerVersionEndpointProbe(vdb *vapi.VerticaDB) *corev1.Probe {
 	if vmeta.UseVClusterOps(vdb.Annotations) {
-		return makeHTTPServerVersionEndpointProbe(vdb)
+		return makeHTTPServerVersionEndpointProbe()
 	}
 	return nil
 }

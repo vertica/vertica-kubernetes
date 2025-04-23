@@ -408,13 +408,13 @@ var _ = Describe("builder", func() {
 
 		c := makeServerContainer(vdb, &vdb.Spec.Subclusters[0])
 		Ω(c.ReadinessProbe.HTTPGet.Path).Should(Equal(HTTPServerVersionPath))
-		Ω(c.ReadinessProbe.HTTPGet.Port).Should(Equal(intstr.FromInt32(vdb.Spec.ServiceHTTPSPort)))
+		Ω(c.ReadinessProbe.HTTPGet.Port).Should(Equal(intstr.FromInt(VerticaHTTPPort)))
 		Ω(c.ReadinessProbe.HTTPGet.Scheme).Should(Equal(v1.URISchemeHTTPS))
 		Ω(c.LivenessProbe.HTTPGet.Path).Should(Equal(HTTPServerVersionPath))
-		Ω(c.LivenessProbe.HTTPGet.Port).Should(Equal(intstr.FromInt32(vdb.Spec.ServiceHTTPSPort)))
+		Ω(c.LivenessProbe.HTTPGet.Port).Should(Equal(intstr.FromInt(VerticaHTTPPort)))
 		Ω(c.LivenessProbe.HTTPGet.Scheme).Should(Equal(v1.URISchemeHTTPS))
 		Ω(c.StartupProbe.HTTPGet.Path).Should(Equal(HTTPServerVersionPath))
-		Ω(c.StartupProbe.HTTPGet.Port).Should(Equal(intstr.FromInt32(vdb.Spec.ServiceHTTPSPort)))
+		Ω(c.StartupProbe.HTTPGet.Port).Should(Equal(intstr.FromInt(VerticaHTTPPort)))
 		Ω(c.StartupProbe.HTTPGet.Scheme).Should(Equal(v1.URISchemeHTTPS))
 	})
 
@@ -423,11 +423,6 @@ var _ = Describe("builder", func() {
 		vdb.Spec.ServiceHTTPSPort = 8449
 		vdb.Spec.ServiceClientPort = 5439
 		vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
-
-		c := makeServerContainer(vdb, &vdb.Spec.Subclusters[0])
-		Ω(c.ReadinessProbe.HTTPGet.Port).Should(Equal(intstr.FromInt32(vdb.Spec.ServiceHTTPSPort)))
-		Ω(c.LivenessProbe.HTTPGet.Port).Should(Equal(intstr.FromInt32(vdb.Spec.ServiceHTTPSPort)))
-		Ω(c.StartupProbe.HTTPGet.Port).Should(Equal(intstr.FromInt32(vdb.Spec.ServiceHTTPSPort)))
 
 		sc := &vdb.Spec.Subclusters[0]
 		svcName := names.GenExtSvcName(vdb, sc)
@@ -603,7 +598,7 @@ var _ = Describe("builder", func() {
 		vdb.Spec.LivenessProbeOverride = &v1.Probe{
 			ProbeHandler: v1.ProbeHandler{
 				TCPSocket: &v1.TCPSocketAction{
-					Port: intstr.FromInt32(vdb.Spec.ServiceClientPort),
+					Port: intstr.FromInt(VerticaClientPort),
 				},
 			},
 		}
