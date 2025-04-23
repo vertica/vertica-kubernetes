@@ -301,7 +301,7 @@ type VerticaDBSpec struct {
 	// service you are storing.
 	ClientServerTLSSecret string `json:"clientServerTLSSecret,omitempty"`
 
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:select:DISABLE"
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:select:DISABLE",
 	// "urn:alm:descriptor:com.tectonic.ui:select:ENABLE","urn:alm:descriptor:com.tectonic.ui:select:TRY_VERIFY",
 	// "urn:alm:descriptor:com.tectonic.ui:select:VERIFY_CA"}
 	// +kubebuilder:default:=VERIFY_CA
