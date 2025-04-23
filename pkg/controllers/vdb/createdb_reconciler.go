@@ -189,29 +189,6 @@ func (c *CreateDBReconciler) preCmdSetup(ctx context.Context, initiatorPod types
 	return c.generatePostDBCreateSQL(ctx, initiatorPod)
 }
 
-// GetEndpoint gets the endpoint from the endpoint URL and strips off the protocol.
-func (c *CreateDBReconciler) GetEndpoint(endPoint string) string {
-	if endPoint == "" {
-		return ""
-	}
-	prefix := []string{"https://", "http://"}
-	for _, pref := range prefix {
-		if i := strings.Index(endPoint, pref); i == 0 {
-			return strings.TrimSuffix(endPoint[len(pref):], "/")
-		}
-	}
-	return endPoint
-}
-
-// GetBucket returns the bucket name from the path URL
-func (c *CreateDBReconciler) GetBucket(path string) string {
-	if path == "" {
-		return ""
-	}
-
-	return strings.TrimLeft(strings.TrimRight(path, "/"), "//")
-}
-
 // GetCredsSecret returns the contents of the credentials
 // secret. It handles if the secret is not found and will log an event.
 func (c *CreateDBReconciler) GetCredsSecret(ctx context.Context, credsSecret string) (map[string][]byte, ctrl.Result, error) {
@@ -427,53 +404,37 @@ func (c *CreateDBReconciler) generateAWSTlsSQL(sb *strings.Builder) {
 func (c *CreateDBReconciler) addAdditionalBuckets(ctx context.Context, sb *strings.Builder) (ctrl.Result, error) {
 	var res ctrl.Result
 	var err error
-	var accessKey string
-	var secretKey string
 
 	for _, bucket := range c.Vdb.Spec.AdditionalBuckets {
-		// Extract the auth from the credential secret.
-		accessKey, secretKey, res, err = c.GetAuth(ctx, bucket.CredentialSecret)
-		if verrors.IsReconcileAborted(res, err) {
-			return res, err
-		}
-
+		// using s3
 		if strings.HasPrefix(bucket.Path, v1.S3Prefix) {
+			accessKey, secretKey, res, err := c.GetAuth(ctx, bucket.CredentialSecret)
+			if verrors.IsReconcileAborted(res, err) {
+				return res, err
+			}
+
 			sb.WriteString(fmt.Sprintf(
 				`ALTER DATABASE default SET S3BucketConfig = '[{\"bucket\": \"%s\", \"region\": \"%s\", \"protocol\": \"%s\", \"endpoint\": \"%s\"}]';`,
-				c.GetBucket(bucket.Path), bucket.Region, config.GetEndpointProtocol(bucket.Endpoint), c.GetEndpoint(bucket.Endpoint)))
+				config.GetBucket(bucket.Path), bucket.Region, config.GetEndpointProtocol(bucket.Endpoint), config.GetEndpoint(bucket.Endpoint)))
 
 			sb.WriteString(fmt.Sprintf(
 				`ALTER DATABASE default SET S3BucketCredentials = '[{\"bucket\": \"%s\", \"accessKey\": \"%s\", \"secretAccessKey\": \"%s\"}]';`,
-				c.GetBucket(bucket.Path), accessKey, secretKey))
+				config.GetBucket(bucket.Path), accessKey, secretKey))
 		}
 
-		if c.Vdb.IsPathHDFS(bucket.Path) {
-			if c.Vdb.IsHDFS() {
-				continue
-			}
-
-			// TODO: set HDFS configuration parameters
-		}
-
+		// using gs
 		if strings.HasPrefix(bucket.Path, v1.GCloudPrefix) {
-			if c.Vdb.IsGCloud() {
-				continue
+			accessKey, secretKey, res, err := c.GetAuth(ctx, bucket.CredentialSecret)
+			if verrors.IsReconcileAborted(res, err) {
+				return res, err
 			}
 
 			sb.WriteString(fmt.Sprintf(
-				`ALTER DATABASE default SET S3BucketConfig = '[{\"bucket\": \"%s\", \"region\": \"%s\", \"protocol\": \"%s\", \"endpoint\": \"%s\"}]';`,
-				c.GetBucket(bucket.Path), bucket.Region, config.GetEndpointProtocol(bucket.Endpoint), c.GetEndpoint(bucket.Endpoint)))
-
-			sb.WriteString(fmt.Sprintf(
-				`ALTER DATABASE default SET S3BucketCredentials = '[{\"bucket\": \"%s\", \"accessKey\": \"%s\", \"secretAccessKey\": \"%s\"}]';`,
-				c.GetBucket(bucket.Path), accessKey, secretKey))
+				`ALTER SESSION SET GCSAuth='%s:%s';`, accessKey, secretKey))
 		}
 
+		// using azb
 		if strings.HasPrefix(bucket.Path, v1.AzurePrefix) {
-			if c.Vdb.IsAzure() {
-				continue
-			}
-
 			azureCreds, azureConfig, res, err := c.GetAzureAuth(ctx, bucket.CredentialSecret)
 			if verrors.IsReconcileAborted(res, err) {
 				return res, err

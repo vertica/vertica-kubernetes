@@ -467,21 +467,24 @@ func (g *ConfigParamsGenerator) GetS3SseCustomerKeySecret(ctx context.Context) (
 	return getSecret(ctx, g.VRec, g.Vdb, names.GenS3SseCustomerKeySecretName(g.Vdb))
 }
 
-// GetCommunalEndpoint get the communal endpoint for inclusion in the auth files.
-// Takes the endpoint from vdb and strips off the protocol.
-func (g *ConfigParamsGenerator) GetCommunalEndpoint() string {
-	// Early out if the endpoint isn't set. For this case, we let the server
-	// pick the endpoint based on the communal path chosen.
-	if g.Vdb.Spec.Communal.Endpoint == "" {
+// GetEndpoint gets the endpoint from the endpoint URL and strips off the protocol.
+func GetEndpoint(endPoint string) string {
+	if endPoint == "" {
 		return ""
 	}
 	prefix := []string{"https://", "http://"}
 	for _, pref := range prefix {
-		if i := strings.Index(g.Vdb.Spec.Communal.Endpoint, pref); i == 0 {
-			return strings.TrimSuffix(g.Vdb.Spec.Communal.Endpoint[len(pref):], "/")
+		if i := strings.Index(endPoint, pref); i == 0 {
+			return strings.TrimSuffix(endPoint[len(pref):], "/")
 		}
 	}
-	return g.Vdb.Spec.Communal.Endpoint
+	return endPoint
+}
+
+// GetCommunalEndpoint get the communal endpoint for inclusion in the auth files.
+// Takes the endpoint from vdb and strips off the protocol.
+func (g *ConfigParamsGenerator) GetCommunalEndpoint() string {
+	return GetEndpoint(g.Vdb.Spec.Communal.Endpoint)
 }
 
 // getEnableHTTPS will return "1" if connecting to https otherwise return "0"
@@ -594,6 +597,23 @@ func GetEndpointHostPort(blobEndpoint string) string {
 		return blobEndpoint
 	}
 	return strings.TrimSuffix(m[0][2], "/")
+}
+
+// GetBucket returns the bucket name from the path URL
+func GetBucket(path string) string {
+	re := regexp.MustCompile(`([a-z][0-9]+)://(.*)`)
+	m := re.FindAllStringSubmatch(path, 1)
+
+	if len(m) == 0 || len(m[0]) < 3 {
+		return path
+	}
+
+	p := strings.Split(m[0][2], "/")
+	if len(p) == 0 || len(p[0]) < 3 {
+		return m[0][2]
+	}
+
+	return strings.TrimRight(p[0], "/")
 }
 
 // setHadoopConfDir adds an entry to the config parms map for
