@@ -140,7 +140,8 @@ func (r *ReviveDBReconciler) execCmd(ctx context.Context, initiatorPod types.Nam
 	}
 	chgs := vk8s.MetaChanges{
 		NewAnnotations: map[string]string{
-			vmeta.NMAHTTPSPreviousSecret: r.Vdb.Spec.NMATLSSecret,
+			vmeta.NMAHTTPSPreviousSecret:     r.Vdb.Spec.NMATLSSecret,
+			vmeta.ClientServerPreviousSecret: r.Vdb.Spec.ClientServerTLSSecret,
 		},
 	}
 	if _, err := vk8s.MetaUpdate(ctx, r.VRec.Client, r.Vdb.ExtractNamespacedName(), r.Vdb, chgs); err != nil {
