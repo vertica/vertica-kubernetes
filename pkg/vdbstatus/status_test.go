@@ -75,6 +75,7 @@ func TestAPIs(t *testing.T) {
 
 var _ = Describe("status", func() {
 	ctx := context.Background()
+	const secretName = "test"
 
 	It("should update status condition when no conditions have been set", func() {
 		vdb := vapi.MakeVDB()
@@ -203,5 +204,73 @@ var _ = Describe("status", func() {
 		fetchVdb := &vapi.VerticaDB{}
 		Expect(k8sClient.Get(ctx, vdb.ExtractNamespacedName(), fetchVdb)).Should(Succeed())
 		Expect(fetchVdb.Status.UpgradeStatus).Should(Equal("upgrade started"))
+	})
+
+	It("should update status secret when no secrets have been set", func() {
+		vdb := vapi.MakeVDB()
+		Expect(k8sClient.Create(ctx, vdb)).Should(Succeed())
+		defer func() { Expect(k8sClient.Delete(ctx, vdb)).Should(Succeed()) }()
+
+		sec := vapi.MakeSecretRef(vapi.NMATLSSecretType, secretName)
+		Expect(UpdateSecretRef(ctx, k8sClient, vdb, sec)).Should(Succeed())
+		fetchVdb := &vapi.VerticaDB{}
+		nm := types.NamespacedName{Namespace: vdb.Namespace, Name: vdb.Name}
+		Expect(k8sClient.Get(ctx, nm, fetchVdb)).Should(Succeed())
+		for _, v := range []*vapi.VerticaDB{vdb, fetchVdb} {
+			Expect(len(v.Status.SecretRefs)).Should(Equal(1))
+			Expect(v.Status.SecretRefs[0].Type).Should(Equal(vapi.NMATLSSecretType))
+			Expect(v.Status.SecretRefs[0].Name).Should(Equal(secretName))
+		}
+	})
+
+	It("should be able to change an existing status secret", func() {
+		const sn = "test1"
+		vdb := vapi.MakeVDB()
+		Expect(k8sClient.Create(ctx, vdb)).Should(Succeed())
+		defer func() { Expect(k8sClient.Delete(ctx, vdb)).Should(Succeed()) }()
+
+		secs := []vapi.SecretRef{
+			{Type: vapi.NMATLSSecretType, Name: sn},
+			{Type: vapi.NMATLSSecretType, Name: secretName},
+		}
+
+		for i := range secs {
+			Expect(UpdateSecretRef(ctx, k8sClient, vdb, &secs[i])).Should(Succeed())
+			fetchVdb := &vapi.VerticaDB{}
+			nm := types.NamespacedName{Namespace: vdb.Namespace, Name: vdb.Name}
+			Expect(k8sClient.Get(ctx, nm, fetchVdb)).Should(Succeed())
+			for _, v := range []*vapi.VerticaDB{vdb, fetchVdb} {
+				Expect(len(v.Status.SecretRefs)).Should(Equal(1))
+				Expect(v.Status.SecretRefs[0].Type).Should(Equal(secs[i].Type))
+				Expect(v.Status.SecretRefs[0].Name).Should(Equal(secs[i].Name))
+			}
+		}
+	})
+
+	It("should be able to handle multiple status secrets", func() {
+		const sn = "test1"
+		vdb := vapi.MakeVDB()
+		Expect(k8sClient.Create(ctx, vdb)).Should(Succeed())
+		defer func() { Expect(k8sClient.Delete(ctx, vdb)).Should(Succeed()) }()
+
+		secs := []vapi.SecretRef{
+			{Type: "type1", Name: "sec1"},
+			{Type: vapi.NMATLSSecretType, Name: sn},
+			{Type: vapi.NMATLSSecretType, Name: secretName},
+		}
+
+		for i := range secs {
+			Expect(UpdateSecretRef(ctx, k8sClient, vdb, &secs[i])).Should(Succeed())
+		}
+
+		fetchVdb := &vapi.VerticaDB{}
+		nm := types.NamespacedName{Namespace: vdb.Namespace, Name: vdb.Name}
+		Expect(k8sClient.Get(ctx, nm, fetchVdb)).Should(Succeed())
+		for _, v := range []*vapi.VerticaDB{vdb, fetchVdb} {
+			Expect(len(v.Status.SecretRefs)).Should(Equal(2))
+			Expect(v.Status.SecretRefs[0].Type).Should(Equal(secs[0].Type))
+			Expect(v.Status.SecretRefs[1].Type).Should(Equal(secs[2].Type))
+			Expect(v.Status.SecretRefs[1].Name).Should(Equal(secs[2].Name))
+		}
 	})
 })

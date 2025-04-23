@@ -24,6 +24,9 @@ kind: VerticaDB
 metadata:
   name: v-http-custom-certs
 status:
+  secretRefs:
+    - name: custom-certs
+      type: NMATLSSecretType
   subclusters:
     - installCount: 1
       addedToDBCount: 1

@@ -276,8 +276,7 @@ type VerticaDBSpec struct {
 	// the default context is used.
 	PodSecurityContext *corev1.PodSecurityContext `json:"podSecurityContext,omitempty"`
 
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:io.kubernetes:Secret",
-	// "urn:alm:descriptor:com.tectonic.ui:advanced"
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:io.kubernetes:Secret","urn:alm:descriptor:com.tectonic.ui:advanced"}
 	// +kubebuilder:default:=""
 	// +kubebuilder:validation:Optional
 	// A secret that contains the TLS credentials to use for Vertica's node
@@ -289,8 +288,7 @@ type VerticaDBSpec struct {
 	// prefix is the name of the secret in the service you are storing.
 	NMATLSSecret string `json:"nmaTLSSecret,omitempty"`
 
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:io.kubernetes:Secret",
-	// "urn:alm:descriptor:com.tectonic.ui:advanced"
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:io.kubernetes:Secret","urn:alm:descriptor:com.tectonic.ui:advanced"}
 	// +kubebuilder:default:=""
 	// +kubebuilder:validation:Optional
 	// A secret that contains the TLS credentials to be used to authenticate Vertica clients' certificates.
@@ -301,10 +299,7 @@ type VerticaDBSpec struct {
 	// service you are storing.
 	ClientServerTLSSecret string `json:"clientServerTLSSecret,omitempty"`
 
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:select:DISABLE",
-	// "urn:alm:descriptor:com.tectonic.ui:select:ENABLE","urn:alm:descriptor:com.tectonic.ui:select:TRY_VERIFY",
-	// "urn:alm:descriptor:com.tectonic.ui:select:VERIFY_CA"}
-	// +kubebuilder:default:=VERIFY_CA
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:advanced","urn:alm:descriptor:com.tectonic.ui:select:DISABLE","urn:alm:descriptor:com.tectonic.ui:select:ENABLE","urn:alm:descriptor:com.tectonic.ui:select:TRY_VERIFY","urn:alm:descriptor:com.tectonic.ui:select:VERIFY_CA"}
 	// +kubebuilder:validation:Optional
 	// This field configures the Vertica's connection mode for client-server TLS.
 	// Choose one of the following TLSMODEs, listed in ascending security:
@@ -962,6 +957,26 @@ type VerticaDBStatus struct {
 	// +optional
 	// The details about the last created restore point
 	RestorePoint *RestorePointInfo `json:"restorePoint"`
+
+	// +operator-sdk:csv:customresourcedefinitions:type=status
+	// +optional
+	// The list of secrets currently in use
+	SecretRefs []SecretRef `json:"secretRefs,omitempty"`
+}
+
+const (
+	NMATLSSecretType          = "NMATLSSecretType"          // #nosec G101
+	ClientServerTLSSecretType = "ClientServerTLSSecretType" // #nosec G101
+)
+
+type SecretRef struct {
+	// +operator-sdk:csv:customresourcedefinitions:type=status
+	// Name of the secret
+	Name string `json:"name"`
+	// +operator-sdk:csv:customresourcedefinitions:type=status
+	// The type of the secret which represents what the secret
+	// is used for
+	Type string `json:"type"`
 }
 
 type RestorePointInfo struct {
