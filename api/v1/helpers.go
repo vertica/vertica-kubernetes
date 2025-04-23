@@ -369,6 +369,10 @@ func MakeSecretRef(stype, name string) *SecretRef {
 	}
 }
 
+func MakeClientServerTLSSecretRef(name string) *SecretRef {
+	return MakeSecretRef(ClientServerTLSSecretType, name)
+}
+
 func MakeNMATLSSecretRef(name string) *SecretRef {
 	return MakeSecretRef(NMATLSSecretType, name)
 }

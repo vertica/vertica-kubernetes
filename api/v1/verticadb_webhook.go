@@ -2191,7 +2191,7 @@ func (v *VerticaDB) hasValidTLSMode(tlsModeToValidate, fieldName string, allErrs
 	if !v.IsCertRotationEnabled() {
 		return allErrs
 	}
-	tlsModes := []string{tlsModeDisable, tlsModeEnable, tlsModeTryVerify, tlsModeVerifyCA}
+	tlsModes := []string{tlsModeDisable, tlsModeEnable, tlsModeTryVerify, tlsModeVerifyCA, tlsModeVerifyFull}
 	if tlsModeToValidate != "" {
 		tlsMode := strings.ToLower(tlsModeToValidate)
 		validMode := false
