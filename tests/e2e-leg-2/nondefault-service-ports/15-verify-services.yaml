@@ -18,8 +18,8 @@ commands:
       sc1_ip=$(kubectl get svc -n $NAMESPACE v-nondefault-service-ports-default-subcluster -o custom-columns="CLUSTER-IP:.spec.clusterIP" --no-headers)
       sc2_ip=$(kubectl get svc -n $NAMESPACE v-nondefault-service-ports-new-subcluster -o custom-columns="CLUSTER-IP:.spec.clusterIP" --no-headers)
 
-      sc1_query=$(kubectl -n $NAMESPACE exec -it v-nondefault-service-ports-new-subcluster -- vsql -h $sc1_ip -d vertdb -p 5438 -tAc "select 1")
-      sc2_query=$(kubectl -n $NAMESPACE exec -it v-nondefault-service-ports-default-subcluster -- vsql -h $sc2_ip -d vertdb -p 5439 -tAc "select 1")
+      sc1_query=$(kubectl -n $NAMESPACE exec -it v-nondefault-service-ports-new-subcluster-0 -- vsql -h $sc1_ip -p 5438 -tAc "select 1")
+      sc2_query=$(kubectl -n $NAMESPACE exec -it v-nondefault-service-ports-default-subcluster-0 -- vsql -h $sc2_ip -p 5439 -tAc "select 1")
 
       if [ "$sc1_query" != "1" ]; then
         echo "Assertion failed: failed to query service for subcluster v-nondefault-service-ports-default-subcluster"

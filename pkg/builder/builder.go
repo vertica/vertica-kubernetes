@@ -186,7 +186,7 @@ func BuildHlSvc(nm types.NamespacedName, vdb *vapi.VerticaDB) *corev1.Service {
 	}
 	if vmeta.UseVClusterOps(vdb.Annotations) {
 		svc.Spec.Ports = append(svc.Spec.Ports,
-			corev1.ServicePort{Port: vdb.Spec.ServiceHTTPSPort, Name: "tcp-httpservice"},
+			corev1.ServicePort{Port: vdb.Spec.ServiceHTTPSPort, Name: "tcp-httpservice", TargetPort: intstr.FromInt(VerticaHTTPPort)},
 			corev1.ServicePort{Port: NMAPort, Name: "tcp-nma"},
 		)
 	} else {
