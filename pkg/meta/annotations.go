@@ -416,8 +416,10 @@ const (
 	// This only works for a scaledobject.
 	PausingAutoscalingReplicasAnnotation = "vertica.com/paused-scaling-replicas"
 
-	// the tls mode currently being used
+	// the https/nma tls mode currently being used
 	NMAHTTPSPreviousTLSMode = "vertica.com/nma-https-previous-tls-mode"
+	// the client server tls mode currently being used
+	ClientServerPreviousTLSMode = "vertica.com/client-server-previous-tls-mode"
 )
 
 // IsPauseAnnotationSet will check the annotations for a special value that will

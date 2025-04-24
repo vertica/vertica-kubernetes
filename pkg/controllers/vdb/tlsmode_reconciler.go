@@ -19,6 +19,7 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
@@ -28,6 +29,7 @@ import (
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
+	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
@@ -62,17 +64,62 @@ func MakeTLSModeReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger, vdb *
 
 // Reconcile will create a TLS secret for the http server if one is missing
 func (h *TLSModeReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
+	h.Log.Info("libo: in tls mode reconcile")
 	if !h.Vdb.IsCertRotationEnabled() || h.Vdb.IsStatusConditionTrue(vapi.TLSCertRotationInProgress) ||
 		!h.Vdb.IsStatusConditionTrue(vapi.DBInitialized) {
 		return ctrl.Result{}, nil
 	}
 	currentTLSMode := vmeta.GetNMAHTTPSPreviousTLSMode(h.Vdb.Annotations)
 	newTLSMode := h.Vdb.Spec.HTTPSTLSMode
-	h.Log.Info("starting to reconcile https tls mode, current TLS mode - " + currentTLSMode + ", new TLS mode - " + newTLSMode)
+	h.Log.Info("libo starting to reconcile https tls mode, current TLS mode - " + currentTLSMode + ", new TLS mode - " + newTLSMode)
 	// this condition excludes bootstrap scenario
-	if currentTLSMode == "" || newTLSMode == currentTLSMode {
+	if currentTLSMode != "" && newTLSMode == currentTLSMode {
 		return ctrl.Result{}, nil
+	} else if currentTLSMode == "" {
+		h.Log.Info("bootstrapping tls mode after reviving")
+		initiatorPod, ok := h.Pfacts.FindFirstUpPod(false, "")
+		if !ok {
+			h.Log.Info("No pod found to run sql to get tls mode. Requeue reconciliation.")
+			return ctrl.Result{Requeue: true}, nil
+		}
+		sql := "select mode from tls_configurations where name='https';"
+		cmd := []string{"-tAc", sql}
+		stdout, stderr, err2 := h.PRunner.ExecVSQL(ctx, initiatorPod.GetName(), names.ServerContainer, cmd...)
+		h.Log.Info("https tls mode from db - " + stdout)
+		if err2 != nil || strings.Contains(stderr, "Error") {
+			h.Log.Error(err2, "failed to retrieve HTTPS TLS mode after reviving db, stderr - "+stderr)
+			return ctrl.Result{}, err2
+		}
+		httpsTLSMode := h.getTLSMode(stdout)
+		sql = "select mode from tls_configurations where name='server';"
+		stdout, stderr, err2 = h.PRunner.ExecVSQL(ctx, initiatorPod.GetName(), names.ServerContainer, cmd...)
+		h.Log.Info("client tls mode from db - " + stdout)
+		if err2 != nil || strings.Contains(stderr, "Error") {
+			h.Log.Error(err2, "failed to retrieve client server TLS mode after reviving db, stderr - "+stderr)
+			return ctrl.Result{}, err2
+		}
+		clientServerTLSMode := h.getTLSMode(stdout)
+		h.Vdb.Spec.HTTPSTLSMode = httpsTLSMode
+		h.Vdb.Spec.ClientServerTLSMode = clientServerTLSMode
+		err := h.VRec.Client.Update(ctx, h.Vdb)
+		if err != nil {
+			h.Log.Error(err2, "failed to update https and client server tls modes for vdb")
+			return ctrl.Result{}, err2
+		}
+		h.Log.Info("tls modes retrieved from db are saved into vdb spec")
+		chgs := vk8s.MetaChanges{
+			NewAnnotations: map[string]string{
+				vmeta.NMAHTTPSPreviousTLSMode:     httpsTLSMode,
+				vmeta.ClientServerPreviousTLSMode: clientServerTLSMode,
+			},
+		}
+		if _, err := vk8s.MetaUpdate(ctx, h.VRec.Client, h.Vdb.ExtractNamespacedName(), h.Vdb, chgs); err != nil {
+
+		}
+		h.Log.Info("tls modes retrieved from db are saved into vdb annotations")
+		return ctrl.Result{}, err
 	}
+
 	h.VRec.Eventf(h.Vdb, corev1.EventTypeNormal, events.NMATLSModeUpdateStarted,
 		"Starting to update HTTPS TLS Mode to %s", newTLSMode)
 	initiatorPod, ok := h.Pfacts.FindFirstUpPod(false, "")
@@ -135,4 +182,9 @@ func (h *TLSModeReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctr
 	h.VRec.Eventf(h.Vdb, corev1.EventTypeNormal, events.NMATLSModeUpdateSucceeded,
 		"Successfully updated HTTPS TLS Mode to %s", newTLSMode)
 	return ctrl.Result{}, nil
+}
+func (h *TLSModeReconciler) getTLSMode(stdout string) string {
+	lines := strings.Split(stdout, "\n")
+	res := strings.Trim(lines[0], " ")
+	return res
 }
