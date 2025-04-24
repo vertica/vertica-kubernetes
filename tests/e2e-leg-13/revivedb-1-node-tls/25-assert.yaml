@@ -25,7 +25,6 @@ metadata:
   name: v-revive-1-node
   annotations:
     vertica.com/nma-https-previous-tls-mode: "TRY_VERIFY"
-    vertica.com/nma-https-previous-secret: "custom-cert"
 status:
   subclusters:
     - addedToDBCount: 1
