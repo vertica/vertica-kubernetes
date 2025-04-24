@@ -62,7 +62,6 @@ CONFIG_FILE=$1
 
 KUTTL_OUT="int-tests-output/soak.out"
 KUTTL_STEP_GEN_OUT="int-tests-output/kuttl_step_gen.out"
-STEP_OUTPUT_DIR="./tests/soak/steps"
 
 mkdir -p int-tests-output
 rm $KUTTL_OUT 2> /dev/null || :
