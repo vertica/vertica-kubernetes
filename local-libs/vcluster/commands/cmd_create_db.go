@@ -235,7 +235,22 @@ func (c *CmdCreateDB) setHiddenFlags(cmd *cobra.Command) {
 		false,
 		"",
 	)
-	hideLocalFlags(cmd, []string{"policy", "sql", "client-port", "skip-startup-polling", "generate-http-certs"})
+	cmd.Flags().StringToStringVar(
+		&c.createDBOptions.ServerTLSConfiguration,
+		serverTLSConfigFlag,
+		map[string]string{},
+		"A comma-separated list of *`PARAMETER`*`=`*`VALUE`* pairs.\n"+
+			"Parameters and values will be used to set Vertica server TLS configuration. \n"+
+			"Take the following parameters: CertDataKey, KeyDataKey, CADataKey, SecretName, Namespace, SecretManager")
+	cmd.Flags().StringToStringVar(
+		&c.createDBOptions.HTTPSTLSConfiguration,
+		httpsTLSConfigFlag,
+		map[string]string{},
+		"A comma-separated list of *`PARAMETER`*`=`*`VALUE`* pairs.\n"+
+			"Parameters and values will be used to set Vertica HTTPS TLS configuration. \n"+
+			"Take the following parameters: CertDataKey, KeyDataKey, CADataKey, SecretName, Namespace, SecretManager")
+	hideLocalFlags(cmd, []string{"policy", "sql", "client-port", "skip-startup-polling",
+		"generate-http-certs", serverTLSConfigFlag, httpsTLSConfigFlag})
 }
 
 func (c *CmdCreateDB) Parse(inputArgv []string, logger vlog.Printer) error {

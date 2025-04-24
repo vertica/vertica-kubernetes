@@ -93,7 +93,6 @@ func UpdateSecretRefs(ctx context.Context, clnt client.Client, vdb *vapi.Vertica
 		}
 		return nil
 	}
-
 	return Update(ctx, clnt, vdb, refreshConditionInPlace)
 }
 
