@@ -65,7 +65,7 @@ func (h *TLSServerCertGenReconciler) Reconcile(ctx context.Context, _ *ctrl.Requ
 	for secretFieldName, secretName := range secretFieldNameMap {
 		err = h.reconcileOneSecret(secretFieldName, secretName, ctx)
 		if err != nil {
-			h.Log.Error(err, "failed to reconcile secret for "+secretFieldName)
+			h.Log.Error(err, fmt.Sprintf("failed to reconcile secret for %s", secretFieldName))
 			break
 		}
 	}
@@ -109,7 +109,7 @@ func (h *TLSServerCertGenReconciler) reconcileOneSecret(secretFieldName, secretN
 	if err != nil {
 		return err
 	}
-	h.Log.Info("created certificate and secret " + secret.Name + " for " + secretFieldName)
+	h.Log.Info(fmt.Sprintf("created certificate and secret %s for %s", secret.Name, secretFieldName))
 	return h.setSecretNameInVDB(ctx, secretFieldName, secret.ObjectMeta.Name)
 }
 
