@@ -29,7 +29,13 @@ import (
 	"go.uber.org/zap"
 )
 
-const configPath = "/tmp/local-soak.cfg"
+const (
+	configPath = "/tmp/local-soak.cfg"
+	// The directory where the test steps will be generated
+	outputDir = "./tests/soak/steps"
+	// The relative directory to the output directory where the repository scripts directory is located
+	scriptsDir = "../../../scripts"
+)
 
 func setupLog() logr.Logger {
 	cfg := zap.Config{
@@ -59,11 +65,8 @@ func setupLog() logr.Logger {
 func main() {
 	flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ExitOnError)
 	var locations kstepgen.Locations
-	flag.StringVar(&locations.OutputDir, "output-dir", "",
-		"The directory where the test steps will be generated.")
-	flag.StringVar(&locations.ScriptsDir, "scripts-dir", "",
-		"The relative directory to the output directory where the repository scripts directory is located.")
-	flag.Parse()
+	locations.OutputDir = outputDir
+	locations.ScriptsDir = scriptsDir
 
 	if !filepath.IsAbs(configPath) {
 		fmt.Printf("'%s' is not an absolute path", configPath)

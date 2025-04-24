@@ -87,7 +87,7 @@ do
 
     # Generate the kuttl test steps for this iteration
     logInfo "\tGenerating test steps. Appending output to $KUTTL_STEP_GEN_OUT"
-    bin/kuttl-step-gen --output-dir=$STEP_OUTPUT_DIR --scripts-dir="../../../scripts" 2>> $KUTTL_STEP_GEN_OUT
+    bin/kuttl-step-gen 2>> $KUTTL_STEP_GEN_OUT
 
     KUTTL_CFG="kuttl-soak-test-iteration.yaml"
     logInfo "\tRunning kuttl.  Appending output to $KUTTL_OUT"
