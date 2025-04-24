@@ -27,7 +27,6 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/altersc"
-	"github.com/vertica/vertica-kubernetes/pkg/vk8s"
 	corev1 "k8s.io/api/core/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -101,27 +100,8 @@ func (a *AlterSubclusterTypeReconciler) alterSubclusters(ctx context.Context, sc
 		if err != nil {
 			return ctrl.Result{}, err
 		}
-		a.PFacts.Invalidate()
-		err = a.updateSubclusterTypeInVDB(ctx, sc)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
 	}
 	return ctrl.Result{}, nil
-}
-
-// updateSubclusterTypeInVDB updates the given subcluster's type in VDB
-func (a *AlterSubclusterTypeReconciler) updateSubclusterTypeInVDB(ctx context.Context, sc *vapi.Subcluster) error {
-	_, err := vk8s.UpdateVDBWithRetry(ctx, a.VRec, a.Vdb, func() (bool, error) {
-		scMap := a.Vdb.GenSubclusterMap()
-		vdbSc, found := scMap[sc.Name]
-		if !found {
-			return false, fmt.Errorf("subcluster %q missing in vdb %q", sc.Name, a.Vdb.Name)
-		}
-		vdbSc.Type = vapi.SandboxPrimarySubcluster
-		return true, nil
-	})
-	return err
 }
 
 // alterSubclusterType changes the given subcluster's type

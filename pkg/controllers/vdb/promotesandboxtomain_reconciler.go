@@ -116,8 +116,7 @@ func (s *PromoteSandboxToMainReconciler) promoteSandboxToMain(ctx context.Contex
 	return ctrl.Result{}, nil
 }
 
-// updateSandboxInVdb update SandboxPrimarySubcluster to PrimarySubcluster in vdb.spec.subclusters
-// and remove sandbox spec and status in vdb after promoting sandbox to main
+// updateSandboxInVdb removes sandbox spec and status in vdb after promoting sandbox to main
 func (s *PromoteSandboxToMainReconciler) updateSandboxInVdb(ctx context.Context, sandboxName string) error {
 	err := s.updateSandboxInSpec(ctx, sandboxName)
 	if err != nil {
@@ -131,8 +130,6 @@ func (s *PromoteSandboxToMainReconciler) updateSandboxInVdb(ctx context.Context,
 }
 
 func (s *PromoteSandboxToMainReconciler) updateSandboxInSpec(ctx context.Context, sandboxName string) error {
-	scSbMap := s.Vdb.GenSubclusterSandboxMap()
-
 	// remove sandbox in spec
 	for i := len(s.Vdb.Spec.Sandboxes) - 1; i >= 0; i-- {
 		_, err := vk8s.UpdateVDBWithRetry(ctx, s.VRec, s.Vdb, func() (bool, error) {
@@ -146,22 +143,6 @@ func (s *PromoteSandboxToMainReconciler) updateSandboxInSpec(ctx context.Context
 		}
 	}
 
-	// update sandboxPrimarySubcluster to primarySubcluster in spec
-	for sc, sb := range scSbMap {
-		if sb == sandboxName {
-			_, err := vk8s.UpdateVDBWithRetry(ctx, s.VRec, s.Vdb, func() (bool, error) {
-				for j := range s.Vdb.Spec.Subclusters {
-					if s.Vdb.Spec.Subclusters[j].Name == sc && s.Vdb.Spec.Subclusters[j].Type == vapi.SandboxPrimarySubcluster {
-						s.Vdb.Spec.Subclusters[j].Type = vapi.PrimarySubcluster
-					}
-				}
-				return true, nil
-			})
-			if err != nil {
-				return err
-			}
-		}
-	}
 	return nil
 }
 

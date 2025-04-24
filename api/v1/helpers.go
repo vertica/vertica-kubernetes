@@ -241,6 +241,19 @@ func (v *VerticaDB) GenSubclusterSandboxMap() map[string]string {
 	return scSbMap
 }
 
+// GenSubclusterSandboxTypeMap will scan all sandboxes and return a map
+// with subcluster name as the key and sandbox subcluster type as the value
+func (v *VerticaDB) GenSubclusterSandboxTypeMap() map[string]string {
+	scSbMap := make(map[string]string)
+	for i := range v.Spec.Sandboxes {
+		sb := &v.Spec.Sandboxes[i]
+		for _, sc := range sb.Subclusters {
+			scSbMap[sc.Name] = sc.Type
+		}
+	}
+	return scSbMap
+}
+
 // GenSubclusterSandboxStatusMap will scan sandbox status and return a map
 // with subcluster name as the key and sandbox name as the value
 func (v *VerticaDB) GenSubclusterSandboxStatusMap() map[string]string {
@@ -699,7 +712,7 @@ func (v *VerticaDB) GetPrimaryCount() int {
 	sizeSum := 0
 	for i := range v.Spec.Subclusters {
 		sc := &v.Spec.Subclusters[i]
-		if sc.IsPrimary() && !sc.IsSandboxPrimary() {
+		if sc.IsPrimary() && !sc.IsSandboxPrimary(v) {
 			sizeSum += int(sc.Size)
 		}
 	}
@@ -985,15 +998,11 @@ func (v *VerticaDB) GetKerberosServiceName() string {
 }
 
 func (s *Subcluster) IsPrimary() bool {
-	return s.Type == PrimarySubcluster || s.Type == SandboxPrimarySubcluster
-}
-
-func (s *Subcluster) IsMainPrimary() bool {
 	return s.Type == PrimarySubcluster
 }
 
-func (s *Subcluster) IsSandboxPrimary() bool {
-	return s.Type == SandboxPrimarySubcluster
+func (s *Subcluster) IsSandboxPrimary(v *VerticaDB) bool {
+	return v.GetSubclusterSandboxType(s.Name) == PrimarySubcluster
 }
 
 func (s *Subcluster) IsSecondary() bool {
@@ -1136,6 +1145,12 @@ func (v *VerticaDB) GetSubclusterSandboxName(scName string) string {
 	return MainCluster
 }
 
+// GetSubclusterSandboxType returns the subcluster type in a sandbox
+func (v *VerticaDB) GetSubclusterSandboxType(scName string) string {
+	typeScSbMap := v.GenSubclusterSandboxTypeMap()
+	return typeScSbMap[scName]
+}
+
 // getNumberOfNodes returns the number of nodes defined in the database, as per the CR.
 func (v *VerticaDB) getNumberOfNodes() int {
 	count := 0
@@ -1165,6 +1180,16 @@ func (v *VerticaDB) GetSandboxStatus(sbName string) *SandboxStatus {
 		}
 	}
 	return nil
+}
+
+// GetSubclusterStatusType returns the subcluster status type
+func (v *VerticaDB) GetSubclusterStatusType(scName string) string {
+	scStatus, ok := v.FindSubclusterStatus(scName)
+	if ok {
+		return scStatus.Type
+	}
+
+	return ""
 }
 
 // GetSandboxStatusCheck is like GetSandboxStatus but returns an error if the sandbox

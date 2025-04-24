@@ -365,7 +365,6 @@ func convertFromSubcluster(src *v1.Subcluster) Subcluster {
 		Size:                src.Size,
 		IsPrimary:           src.IsPrimary(),
 		IsTransient:         src.IsTransient(),
-		IsSandboxPrimary:    src.IsSandboxPrimary(),
 		ImageOverride:       src.ImageOverride,
 		NodeSelector:        src.NodeSelector,
 		Affinity:            Affinity(src.Affinity),
@@ -612,9 +611,6 @@ func convertFromStatusCondition(src *metav1.Condition) VerticaDBCondition {
 // convertToSubclusterType returns the v1 Subcluster type for a given v1beta1
 // Subcluster
 func convertToSubclusterType(src *Subcluster) string {
-	if src.IsSandboxPrimary {
-		return v1.SandboxPrimarySubcluster
-	}
 	if src.IsPrimary {
 		return v1.PrimarySubcluster
 	}
