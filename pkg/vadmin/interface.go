@@ -165,6 +165,8 @@ type Dispatcher interface {
 const (
 	// Constant for an up node, this is taken from the STATE column in NODES table
 	StateUp = "UP"
+
+	fetchNodeDetails = "FetchNodeDetails"
 )
 
 // Admintools is the legacy style of running admin commands. All commands are
@@ -267,6 +269,12 @@ func SetupVClusterOps(log logr.Logger, apiName string) (VClusterProvider, logr.L
 //	}
 func (v *VClusterOps) setupForAPICall(apiName string) {
 	v.VClusterProvider, v.Log = v.APISetupFunc(v.BaseLog, apiName)
+	if apiName == fetchNodeDetails {
+		vc, ok := v.VClusterProvider.(*vops.VClusterCommands)
+		if ok {
+			vc.VClusterCommandsLogger.Log.Mute = v.VDB.IsFetchNodeDetailsLogDisabled()
+		}
+	}
 }
 
 // tearDownForAPICall will cleanup from the setupForAPICall. This function

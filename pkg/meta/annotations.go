@@ -413,6 +413,9 @@ const (
 	// You can set the value of replicas for an object to be paused to any arbitrary number.
 	// This only works for a scaledobject.
 	PausingAutoscalingReplicasAnnotation = "vertica.com/paused-scaling-replicas"
+
+	// It will disable fetch_node_details log info. This makes debugging easier.
+	DisableFetchNodeDetailsInfoLog = "vertica.com/disable-fetch-node-details-log-info"
 )
 
 // IsPauseAnnotationSet will check the annotations for a special value that will
@@ -798,6 +801,12 @@ func GetReplicationPollingFrequency(annotations map[string]string) int {
 // nodes.
 func GetDisableRouting(annotations map[string]string) bool {
 	return lookupBoolAnnotation(annotations, DisableRoutingAnnotation, false)
+}
+
+// IsFetchNodeDetailsLogDisabled returns true if fetch node details vcluster api's
+// log info must be disabled.
+func IsFetchNodeDetailsLogDisabled(annotations map[string]string) bool {
+	return lookupBoolAnnotation(annotations, DisableFetchNodeDetailsInfoLog, false)
 }
 
 // lookupBoolAnnotation is a helper function to lookup a specific annotation and

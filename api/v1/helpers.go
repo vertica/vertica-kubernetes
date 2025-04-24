@@ -1057,6 +1057,10 @@ func (v *VerticaDB) IsKSafetyCheckStrict() bool {
 	return vmeta.IsKSafetyCheckStrict(v.Annotations)
 }
 
+func (v *VerticaDB) IsFetchNodeDetailsLogDisabled() bool {
+	return vmeta.IsFetchNodeDetailsLogDisabled(v.Annotations)
+}
+
 // IsValidRestorePointPolicy returns true if the RestorePointPolicy is properly specified,
 // i.e., it has a non-empty archive, and either a valid index or a valid id (but not both).
 func (r *RestorePointPolicy) IsValidRestorePointPolicy() bool {
