@@ -26,7 +26,7 @@ import (
 
 // FetchNodeDetails will return details for a node, including its state, sandbox, and storage locations
 func (v *VClusterOps) FetchNodeDetails(ctx context.Context, opts ...fetchnodedetails.Option) (vops.NodeDetails, error) {
-	v.setupForAPICall("FetchNodeDetails")
+	v.setupForAPICall(fetchNodeDetails)
 	defer v.tearDownForAPICall()
 	v.Log.Info("Starting vcluster FetchNodeDetails")
 
