@@ -261,15 +261,13 @@ func (c *CmdBase) setConfigFlags(cmd *cobra.Command, flags []string) {
 	}
 	if util.StringInArray(configParamFlag, flags) {
 		cmd.Flags().StringToStringVar(
-			&dbOptions.ConfigurationParameters,
-			configParamFlag,
+			&dbOptions.ConfigurationParameters, configParamFlag,
 			map[string]string{},
 			"A comma-separated list of *`PARAMETER`*`=`*`VALUE`* pairs.\n"+
 				"Parameters specified with this option override the ones in configuration parameter files, if any,\n"+
 				"and take the following parameters: AWSAuth, AWSEndpoint, AWSEneableHttps, AWSRegion")
 		cmd.Flags().StringVar(
-			&c.configParamFile,
-			configParamFileFlag,
+			&c.configParamFile, configParamFileFlag,
 			"",
 			"The absolute path to a file containing configuration parameters and their values.")
 	}

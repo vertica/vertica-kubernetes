@@ -526,7 +526,11 @@ var _ = Describe("verticadb_webhook", func() {
 		validateSpecValuesHaveErr(vdb, false)
 		vdb.Spec.RestorePoint.Archive = "archive"
 		validateSpecValuesHaveErr(vdb, false)
-
+		// numRestorePoints 0 or greater
+		vdb.Spec.RestorePoint.NumRestorePoints = -1
+		validateSpecValuesHaveErr(vdb, true)
+		vdb.Spec.RestorePoint.NumRestorePoints = 0
+		validateSpecValuesHaveErr(vdb, false)
 		// when db is already initialized, we shouldn't report an error about missing archive or restore point
 		vdb2 := createVDBHelper()
 		vdb2.Spec.InitPolicy = "Revive"
