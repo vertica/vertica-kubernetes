@@ -38,9 +38,6 @@ type VStartNodesOptions struct {
 	// This feature requires version 24.2.0+.
 	StartUpConf string
 	vdb         *VCoordinationDatabase
-	// whether allow start unbound nodes individually
-	// currently, we only allow the Kubernetes operator to do so
-	DoAllowStartUnboundNodes bool
 }
 
 type VStartNodesInfo struct {
@@ -67,6 +64,9 @@ type VStartNodesInfo struct {
 	SerialReIP bool
 	// Number of up hosts
 	upHostCount int
+	// whether allow start unbound nodes individually
+	// currently, we only allow the Kubernetes operator to do so
+	DoAllowStartUnboundNodes bool
 }
 
 func VStartNodesOptionsFactory() VStartNodesOptions {
@@ -223,7 +223,7 @@ func (vcc VClusterCommands) preStartNodeCheck(options *VStartNodesOptions, vdb *
 		}
 	}
 
-	if isStartingUnboundNodes && (!startNodeInfo.isStartSc && !options.DoAllowStartUnboundNodes) {
+	if isStartingUnboundNodes && (!startNodeInfo.isStartSc && !startNodeInfo.DoAllowStartUnboundNodes) {
 		return errors.New("cannot directly start unbound nodes. " +
 			"Please use start_subclusters to start unbound subclusters with new IP addresses")
 	}

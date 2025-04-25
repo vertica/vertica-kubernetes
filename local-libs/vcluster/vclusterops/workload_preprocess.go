@@ -53,15 +53,11 @@ func (p *vWorkloadPreprocessCall) PreprocessQuery() error {
 		return err
 	}
 
-	// commented out GenerateCopyQuery as COPY statement is not supported
-	// if strings.Contains(strings.ToLower(p.bodyParams.VRequest), "copy") {
-	// 	p.GenerateCopyQuery(p.bodyParams.VRequest)
-	// } else {
-	// 	p.DefaultQuery()
-	// }
-
-	p.DefaultQuery()
-
+	if strings.Contains(strings.ToLower(p.bodyParams.VRequest), "copy") {
+		p.GenerateCopyQuery(p.bodyParams.VRequest)
+	} else {
+		p.DefaultQuery()
+	}
 	return nil
 }
 
