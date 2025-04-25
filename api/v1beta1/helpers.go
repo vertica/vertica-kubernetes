@@ -271,6 +271,17 @@ func (s *ScaleTrigger) GetType() string {
 	return string(s.Type)
 }
 
+// GetIsSandboxPrimary checks the subcluster isSandboxPrimary by its name
+func (spec *VerticaDBSpec) GetIsSandboxPrimary(scName string) bool {
+	for i := range spec.Subclusters {
+		if spec.Subclusters[i].Name == scName {
+			return spec.Subclusters[i].IsSandboxPrimary
+		}
+	}
+
+	return false
+}
+
 // MakeScaledObjectSpec builds a sample scaleObjectSpec.
 // This is intended for test purposes.
 func MakeScaledObjectSpec() *ScaledObjectSpec {
