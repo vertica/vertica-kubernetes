@@ -20,10 +20,18 @@ apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: v-nondefault-service-ports-default-subcluster
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
   name: v-nondefault-service-ports-new-subcluster
 ---
 apiVersion: v1
 kind: Pod
 metadata:
   name: v-nondefault-service-ports-default-subcluster-0
+---
+apiVersion: v1
+kind: Pod
+metadata:
   name: v-nondefault-service-ports-new-subcluster-0
