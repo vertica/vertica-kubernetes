@@ -34,6 +34,7 @@ spec:
   subclusters:
     - name: sc1
       size: 1
+  clientServerTLSSecret: custom-cert
   nmaTLSSecret: custom-cert
   httpsTLSMode: TRY_VERIFY
   certSecrets: []

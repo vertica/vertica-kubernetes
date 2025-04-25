@@ -33,6 +33,7 @@ spec:
     - name: sc1
       size: 1
   certSecrets: []
+  clientServerTLSSecret: custom-cert
   nmaTLSSecret: custom-cert
   httpsTLSMode: TRY_VERIFY
   imagePullSecrets: []

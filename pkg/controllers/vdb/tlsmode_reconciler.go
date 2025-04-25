@@ -64,14 +64,14 @@ func MakeTLSModeReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger, vdb *
 
 // Reconcile will create a TLS secret for the http server if one is missing
 func (h *TLSModeReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
-	h.Log.Info("libo: in tls mode reconcile")
+	h.Log.Info("in tls mode reconcile")
 	if !h.Vdb.IsCertRotationEnabled() || h.Vdb.IsStatusConditionTrue(vapi.TLSCertRotationInProgress) ||
 		!h.Vdb.IsStatusConditionTrue(vapi.DBInitialized) {
 		return ctrl.Result{}, nil
 	}
 	currentTLSMode := vmeta.GetNMAHTTPSPreviousTLSMode(h.Vdb.Annotations)
 	newTLSMode := h.Vdb.Spec.HTTPSTLSMode
-	h.Log.Info("libo starting to reconcile https tls mode, current TLS mode - " + currentTLSMode + ", new TLS mode - " + newTLSMode)
+	h.Log.Info("starting to reconcile https tls mode, current TLS mode - " + currentTLSMode + ", new TLS mode - " + newTLSMode)
 	// this condition excludes bootstrap scenario
 	if currentTLSMode != "" && newTLSMode == currentTLSMode {
 		return ctrl.Result{}, nil
