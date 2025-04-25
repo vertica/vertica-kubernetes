@@ -83,7 +83,7 @@ func (a *AlterSubclusterTypeReconciler) findSandboxSubclustersToAlter() ([]*vapi
 			return scs, fmt.Errorf("could not find subcluster %s", sb.Subclusters[i].Name)
 		}
 		targetType, found := sc.Annotations[vmeta.ParentSubclusterTypeAnnotation]
-		if found && targetType == vapi.PrimarySubcluster && !sc.IsPrimary() {
+		if found && targetType == vapi.PrimarySubcluster && !sc.IsPrimary(a.Vdb) {
 			scs = append(scs, sc)
 		}
 	}
@@ -109,7 +109,7 @@ func (a *AlterSubclusterTypeReconciler) alterSubclusterType(ctx context.Context,
 	initiatorIP string) error {
 	scType := vapi.SecondarySubcluster
 	newType := vapi.PrimarySubcluster
-	if sc.IsPrimary() {
+	if sc.IsPrimary(a.Vdb) {
 		scType = vapi.PrimarySubcluster
 		newType = vapi.SecondarySubcluster
 	}

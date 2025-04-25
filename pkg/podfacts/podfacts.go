@@ -260,7 +260,7 @@ func (p *PodFacts) ConstructsDetail(subclusters []vapi.Subcluster, upNodes []uin
 			pf := PodFact{
 				name:           types.NamespacedName{Name: fmt.Sprintf("%s-%d", sc.Name, j)},
 				subclusterName: sc.Name,
-				isPrimary:      sc.IsPrimary(),
+				isPrimary:      true,
 				shutdown:       sc.Shutdown,
 				upNode:         isUp,
 				podIP:          "10.10.10.10",
@@ -378,7 +378,7 @@ func (p *PodFacts) collectPodByStsIndex(ctx context.Context, vdb *vapi.VerticaDB
 	pf := PodFact{
 		name:              names.GenPodName(vdb, sc, podIndex),
 		subclusterName:    sc.Name,
-		isPrimary:         sc.IsPrimary(),
+		isPrimary:         sc.IsPrimary(vdb),
 		podIndex:          podIndex,
 		execContainerName: getExecContainerName(sts),
 		shutdown:          sc.Shutdown,

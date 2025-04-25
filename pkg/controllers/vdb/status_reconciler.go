@@ -201,7 +201,7 @@ func (s *StatusReconciler) calculateSubclusterStatusType(sc *vapi.Subcluster) st
 		}
 	}
 
-	if sc.IsPrimary() {
+	if sc.IsPrimary(s.Vdb) {
 		return vapi.PrimarySubcluster
 	}
 

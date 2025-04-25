@@ -490,7 +490,7 @@ func (v *VerticaDB) hasValidDBName(allErrs field.ErrorList) field.ErrorList {
 func (v *VerticaDB) hasPrimarySubcluster(allErrs field.ErrorList) field.ErrorList {
 	for i := range v.Spec.Subclusters {
 		sc := &v.Spec.Subclusters[i]
-		if sc.IsPrimary() {
+		if sc.IsPrimary(v) {
 			return allErrs
 		}
 	}
@@ -533,7 +533,7 @@ func (v *VerticaDB) getClusterSize() int {
 		// we calculate the cluster size on the primary nodes only
 		for i := range v.Spec.Subclusters {
 			sc := &v.Spec.Subclusters[i]
-			if sc.IsPrimary() && !sc.IsSandboxPrimary(v) {
+			if sc.IsPrimary(v) && !sc.IsSandboxPrimary(v) {
 				sizeSum += int(sc.Size)
 			}
 		}
@@ -1306,7 +1306,7 @@ func (v *VerticaDB) validateSubclustersInSandboxes(allErrs field.ErrorList) fiel
 				sandboxes[i],
 				fmt.Sprintf("subcluster %s does not exist", sc))
 			allErrs = append(allErrs, err)
-		} else if scInfo.IsPrimary() {
+		} else if scInfo.IsPrimary(v) {
 			err := field.Invalid(path.Index(i),
 				sandboxes[i],
 				fmt.Sprintf("subcluster %s is a primary subcluster that is not allowed to be in a sandbox", sc))

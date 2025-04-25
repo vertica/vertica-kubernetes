@@ -138,7 +138,7 @@ func (d *DBAddSubclusterReconciler) createSubcluster(ctx context.Context, sc *va
 	err := d.Dispatcher.AddSubcluster(ctx,
 		addsc.WithInitiator(d.ATPod.GetName(), d.ATPod.GetPodIP()),
 		addsc.WithSubcluster(sc.Name),
-		addsc.WithIsPrimary(sc.IsPrimary()),
+		addsc.WithIsPrimary(sc.IsPrimary(d.Vdb)),
 	)
 	if err != nil {
 		return err

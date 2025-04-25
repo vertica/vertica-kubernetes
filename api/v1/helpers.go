@@ -699,7 +699,7 @@ func (v *VerticaDB) IsDepotVolumeManaged() bool {
 func (v *VerticaDB) GetFirstPrimarySubcluster() *Subcluster {
 	for i := range v.Spec.Subclusters {
 		sc := &v.Spec.Subclusters[i]
-		if sc.IsPrimary() {
+		if sc.IsPrimary(v) {
 			return sc
 		}
 	}
@@ -712,7 +712,7 @@ func (v *VerticaDB) GetPrimaryCount() int {
 	sizeSum := 0
 	for i := range v.Spec.Subclusters {
 		sc := &v.Spec.Subclusters[i]
-		if sc.IsPrimary() && !sc.IsSandboxPrimary(v) {
+		if sc.IsPrimary(v) && !sc.IsSandboxPrimary(v) {
 			sizeSum += int(sc.Size)
 		}
 	}
@@ -997,7 +997,11 @@ func (v *VerticaDB) GetKerberosServiceName() string {
 	return v.Spec.Communal.AdditionalConfig[vmeta.KerberosServiceNameConfig]
 }
 
-func (s *Subcluster) IsPrimary() bool {
+func (s *Subcluster) IsPrimary(v *VerticaDB) bool {
+	return s.Type == PrimarySubcluster || s.IsSandboxPrimary(v)
+}
+
+func (s *Subcluster) IsMainPrimary() bool {
 	return s.Type == PrimarySubcluster
 }
 
@@ -1022,6 +1026,17 @@ func (s *Subcluster) GetType() string {
 		return SecondarySubcluster
 	}
 	return s.Type
+}
+
+// GetTypeByName returns the type of the subcluster by its name
+func (spec *VerticaDBSpec) GetTypeByName(scName string) string {
+	for i := range spec.Subclusters {
+		if spec.Subclusters[i].Name == scName {
+			return spec.Subclusters[i].Type
+		}
+	}
+
+	return SecondarySubcluster
 }
 
 func (v *VerticaDBStatus) InstallCount() int32 {
