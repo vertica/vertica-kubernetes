@@ -86,8 +86,11 @@ const (
 	// Environment variables that are set only in the nma container
 	NMALogPath = "NMA_LOG_PATH"
 
-	// HTTP endpoint used for health check probe
+	// HTTPS endpoint used for health check probe
 	HTTPServerVersionPath = "/v1/version"
+
+	// HTTP endpoint used for health check probe
+	HTTPServerHealthPathV2 = "/v2/health"
 
 	// Endpoint in the NMA to check its health and readiness
 	NMAHealthPath = "/v1/health"
@@ -1374,7 +1377,7 @@ func makeHTTPVersionEndpointProbe() *corev1.Probe {
 	return &corev1.Probe{
 		ProbeHandler: corev1.ProbeHandler{
 			HTTPGet: &corev1.HTTPGetAction{
-				Path:   HTTPServerVersionPath,
+				Path:   HTTPServerHealthPathV2,
 				Port:   intstr.FromInt(VerticaNonTLSHTTPPort),
 				Scheme: corev1.URISchemeHTTP,
 			},

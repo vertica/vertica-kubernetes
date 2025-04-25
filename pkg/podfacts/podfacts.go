@@ -1540,7 +1540,7 @@ func (p *PodFacts) GetClusterExtendedName() string {
 func checkIfNodeUpCmd(vdb *vapi.VerticaDB, podIP string) string {
 	if vdb.IsCertRotationEnabled() {
 		url := fmt.Sprintf("http://%s:%d%s",
-			podIP, builder.VerticaNonTLSHTTPPort, builder.HTTPServerVersionPath)
+			podIP, builder.VerticaNonTLSHTTPPort, builder.HTTPServerHealthPathV2)
 		curlCmd := "curl -k -s -o /dev/null -w '%{http_code}'"
 		return fmt.Sprintf("%s %s", curlCmd, url)
 	} else {
