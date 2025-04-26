@@ -43,12 +43,17 @@ func (opEngine *VClusterOpEngine) run(logger vlog.Printer) error {
 
 func (opEngine *VClusterOpEngine) runInSandbox(logger vlog.Printer,
 	vdb *VCoordinationDatabase, sandbox string) error {
-	execContext := makeOpEngineExecContext(logger)
-	execContext.vdbForSandboxInfo = vdb
-	execContext.sandbox = sandbox
-	opEngine.execContext = &execContext
+	// use the existing opEngine.execContext if it's already set
+	// else we create a new execContext
+	if opEngine.execContext == nil {
+		opEngine.execContext = new(opEngineExecContext)
+		*opEngine.execContext = makeOpEngineExecContext(logger)
+	}
 
-	return opEngine.runWithExecContext(logger, &execContext)
+	opEngine.execContext.vdbForSandboxInfo = vdb
+	opEngine.execContext.sandbox = sandbox
+
+	return opEngine.runWithExecContext(logger, opEngine.execContext)
 }
 
 func (opEngine *VClusterOpEngine) runWithExecContext(logger vlog.Printer, execContext *opEngineExecContext) error {

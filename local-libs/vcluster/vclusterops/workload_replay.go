@@ -16,10 +16,12 @@
 package vclusterops
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/vertica/vcluster/vclusterops/util"
 	"github.com/vertica/vcluster/vclusterops/vlog"
@@ -29,6 +31,7 @@ type workloadReplayOptions struct {
 	WorkloadFileLocation      string
 	ReplayResultsFileLocation string
 	Sandbox                   string
+	JobID                     int64
 }
 
 type VWorkloadReplayOptions struct {
@@ -128,6 +131,10 @@ func (options *VWorkloadReplayOptions) validateRequiredOptions(logger vlog.Print
 	err = options.validateSandbox()
 	if err != nil {
 		return err
+	}
+
+	if options.JobID == 0 {
+		return fmt.Errorf("JobID must be provided")
 	}
 	return nil
 }
@@ -232,8 +239,8 @@ type WorkloadReplayReportData struct {
 func aggregateWorkloadReplayReportData(data workloadReplayData) []WorkloadReplayReportData {
 	reportData := []WorkloadReplayReportData{}
 
-	for index, originalRow := range data.originalWorkloadData {
-		replayRow := data.replayData[index]
+	for index, replayRow := range data.replayData {
+		originalRow := data.originalWorkloadData[index]
 
 		reportRow := WorkloadReplayReportData{
 			Request:            originalRow.Request,
@@ -269,7 +276,7 @@ func saveWorkloadReplayReportCSV(data workloadReplayData, replayResultsFileLocat
 }
 
 // VWorkloadReplay replays a workload and saves a comparison of the original vs. replay timings in a CSV file
-func (vcc VClusterCommands) VWorkloadReplay(options *VWorkloadReplayOptions) error {
+func (vcc VClusterCommands) VWorkloadReplay(ctx context.Context, options *VWorkloadReplayOptions) error {
 	/*
 	 *   - Read/parse the captured workload CSV file
 	 *   - Produce Instructions
@@ -301,22 +308,35 @@ func (vcc VClusterCommands) VWorkloadReplay(options *VWorkloadReplayOptions) err
 		return fmt.Errorf("fail to produce instructions, %w", err)
 	}
 
-	// create a VClusterOpEngine, and add certs to the engine
+	// create a VClusterOpEngine, and add latest context to the engine
+	execContext := &opEngineExecContext{ctx: ctx}
+
 	clusterOpEngine := makeClusterOpEngine(instructions, options)
+	clusterOpEngine.execContext = execContext
 
-	// give the instructions to the VClusterOpEngine to run
-	runError := clusterOpEngine.run(vcc.Log)
-	if runError != nil {
-		return fmt.Errorf("fail to replay workload: %w", runError)
-	}
+	// wait for workload execution to finish before proceeding with next steps
+	var wg sync.WaitGroup
+	wg.Add(1)
+	var runError error
+	go func() {
+		defer wg.Done()
+		runError = clusterOpEngine.run(vcc.Log)
+	}()
 
-	// Save results as a CSV
+	vcc.Log.Info("VWorkloadReplay: Waiting for workload execution to finish.")
+	wg.Wait()
+
 	err = saveWorkloadReplayReportCSV(replayData, options.ReplayResultsFileLocation)
 	if err != nil {
-		return fmt.Errorf("fail to save workload replay report CSV: %w", err)
+		vcc.Log.PrintInfo("fail to save workload replay report CSV: %v", err)
+		return fmt.Errorf("fail to save workload replay report CSV: %v", err)
 	}
 
-	return nil
+	if ctx.Err() != nil {
+		vcc.Log.PrintInfo("VWorkloadReplay: Context canceled.")
+		return ctx.Err()
+	}
+	return runError
 }
 
 // The generated instructions will later perform the following operations necessary for workload replay
@@ -354,6 +374,7 @@ func (vcc VClusterCommands) produceWorkloadReplayInstructions(options *VWorkload
 	nmaWorkloadReplayData.DBName = options.DBName
 	nmaWorkloadReplayData.UserName = options.UserName
 	nmaWorkloadReplayData.Password = options.Password
+	nmaWorkloadReplayData.JobID = options.JobID
 
 	nmaWorkloadReplayOp, err := makeNMAWorkloadReplayOp(initiatorHost, options.usePassword, vdb.HostNodeMap,
 		&nmaWorkloadReplayData, workloadReplayData)
