@@ -207,53 +207,6 @@ func (opt *VClusterHealthOptions) fillLockHoldInfo(logger vlog.Printer, upHosts 
 	return nil
 }
 
-func (opt *VClusterHealthOptions) getEventSessionAndTxnInfo(logger vlog.Printer, upHosts []string,
-	event *dcSlowEvent) (sessionInfo *dcSessionStart, transactionInfo *dcTransactionStart, err error) {
-	sessionInfo, err = opt.getEventSessionInfo(logger, upHosts, event)
-	if err != nil {
-		return sessionInfo, transactionInfo, err
-	}
-
-	transactionInfo, err = opt.getEventTransactionInfo(logger, upHosts, event)
-	if err != nil {
-		return sessionInfo, transactionInfo, err
-	}
-
-	return sessionInfo, transactionInfo, err
-}
-
-func (opt *VClusterHealthOptions) getEventTransactionInfo(logger vlog.Printer, upHosts []string,
-	event *dcSlowEvent) (transactionInfo *dcTransactionStart, err error) {
-	transactionInfo = new(dcTransactionStart)
-	if event.TxnID != "" {
-		transactions, err := opt.getTransactionStarts(logger, upHosts, event.TxnID)
-		if err != nil {
-			return transactionInfo, err
-		}
-		if transactions != nil && len(transactions.TransactionStartsList) > 0 {
-			transactionInfo = &transactions.TransactionStartsList[0]
-		}
-	}
-
-	return transactionInfo, nil
-}
-
-func (opt *VClusterHealthOptions) getEventSessionInfo(logger vlog.Printer, upHosts []string,
-	event *dcSlowEvent) (sessionInfo *dcSessionStart, err error) {
-	sessionInfo = new(dcSessionStart)
-	if event.SessionID != "" {
-		sessions, err := opt.getSessionStarts(logger, upHosts, event.SessionID)
-		if err != nil {
-			return sessionInfo, err
-		}
-		if sessions != nil && len(sessions.SessionStartsList) > 0 {
-			sessionInfo = &sessions.SessionStartsList[0]
-		}
-	}
-
-	return sessionInfo, nil
-}
-
 func (opt *VClusterHealthOptions) getLockHoldSlowEvents(logger vlog.Printer, upHosts []string,
 	startTime, endTime string) (slowEvents *dcSlowEvents, err error) {
 	var instructions []clusterOp
