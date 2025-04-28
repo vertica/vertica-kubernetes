@@ -183,10 +183,11 @@ var _ = Describe("unsandboxsubcluster_reconcile", func() {
 			{Name: sandbox1, Subclusters: []string{subcluster1}},
 		}
 		vdb.Status.Subclusters = []vapi.SubclusterStatus{
-			{Name: maincluster, Type: vapi.PrimarySubcluster},
-			{Name: subcluster1, Type: vapi.SandboxPrimarySubcluster},
+			{Name: maincluster, Type: vapi.PrimarySubcluster, Detail: []vapi.VerticaDBPodStatus{}},
+			{Name: subcluster1, Type: vapi.SandboxPrimarySubcluster, Detail: []vapi.VerticaDBPodStatus{}},
 		}
 		Expect(k8sClient.Status().Update(ctx, vdb)).Should(Succeed())
+		Expect(vdb.Status.Subclusters[1].Type).Should(Equal(vapi.SandboxPrimarySubcluster))
 
 		fpr := &cmds.FakePodRunner{}
 		pfacts := podfacts.MakePodFacts(sbRec, fpr, logger, TestPassword)

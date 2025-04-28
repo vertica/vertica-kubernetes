@@ -190,8 +190,11 @@ func (s *StatusReconciler) calculateSubclusterStatusType(sc *vapi.Subcluster) st
 		return ""
 	}
 
-	// if in a sandbox, set subcluster type according to the sandbox status
+	// if in a sandbox, set subcluster status type according to the sandbox status
 	sandboxStatus := s.Vdb.GetSandboxStatus(s.PFacts.SandboxName)
+	s.Log.Info("calculateSubclusterStatusType",
+		"subclusterStatus", s.Vdb.Status.Subclusters, "sandboxStatus", sandboxStatus)
+
 	isSandbox := sandboxStatus != nil && sandboxStatus.Name != vapi.MainCluster
 	if isSandbox {
 		if sc.IsSandboxPrimary(s.Vdb) {

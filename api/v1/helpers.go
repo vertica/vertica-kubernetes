@@ -236,9 +236,9 @@ func (v *VerticaDB) GenSubclusterSandboxMap() map[string]string {
 	return scSbMap
 }
 
-// GenSubclusterSandboxTypeMap will scan all sandboxes and return a map
+// GenSandboxSubclusterTypeMap will scan all sandboxes and return a map
 // with subcluster name as the key and sandbox subcluster type as the value
-func (v *VerticaDB) GenSubclusterSandboxTypeMap() map[string]string {
+func (v *VerticaDB) GenSandboxSubclusterTypeMap() map[string]string {
 	scSbMap := make(map[string]string)
 	for i := range v.Spec.Sandboxes {
 		sb := &v.Spec.Sandboxes[i]
@@ -1012,7 +1012,7 @@ func (s *Subcluster) IsMainPrimary() bool {
 }
 
 func (s *Subcluster) IsSandboxPrimary(v *VerticaDB) bool {
-	return v.GetSubclusterSandboxType(s.Name) == PrimarySubcluster
+	return v.GetSubclusterStatusType(s.Name) == SandboxPrimarySubcluster
 }
 
 func (s *Subcluster) IsSecondary() bool {
@@ -1170,9 +1170,9 @@ func (v *VerticaDB) GetSubclusterSandboxName(scName string) string {
 	return MainCluster
 }
 
-// GetSubclusterSandboxType returns the subcluster type in a sandbox
-func (v *VerticaDB) GetSubclusterSandboxType(scName string) string {
-	typeScSbMap := v.GenSubclusterSandboxTypeMap()
+// GetSandboxSubclusterType returns the subcluster type in a sandbox
+func (v *VerticaDB) GetSandboxSubclusterType(scName string) string {
+	typeScSbMap := v.GenSandboxSubclusterTypeMap()
 	return typeScSbMap[scName]
 }
 
