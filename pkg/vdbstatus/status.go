@@ -83,6 +83,19 @@ func UpdateSecretRef(ctx context.Context, clnt client.Client, vdb *vapi.VerticaD
 	return Update(ctx, clnt, vdb, refreshConditionInPlace)
 }
 
+// UpdateTLSModes will update a TLS modes in status. There is no-op if the status TLS mode is already set.
+func UpdateTLSModes(ctx context.Context, clnt client.Client, vdb *vapi.VerticaDB, TLSModes []*vapi.TLSMode) error {
+	// refreshConditionInPlace will update the status secretRef in vdb.  The update
+	// will be applied in-place.
+	refreshConditionInPlace := func(vdb *vapi.VerticaDB) error {
+		for _, tlsMode := range TLSModes {
+			vapi.SetTLSMode(&vdb.Status.TLSModes, *tlsMode)
+		}
+		return nil
+	}
+	return Update(ctx, clnt, vdb, refreshConditionInPlace)
+}
+
 // SetUpgradeStatusMessage will set the upgrade status message.  The
 // input vdb will be updated with the status message.
 func SetUpgradeStatusMessage(ctx context.Context, clnt client.Client, vdb *vapi.VerticaDB, msg string) error {

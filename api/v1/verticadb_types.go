@@ -963,11 +963,18 @@ type VerticaDBStatus struct {
 	// +optional
 	// The list of secrets currently in use
 	SecretRefs []SecretRef `json:"secretRefs,omitempty"`
+
+	// +operator-sdk:csv:customresourcedefinitions:type=status
+	// +optional
+	// The list of TLS modes currently in use
+	TLSModes []TLSMode `json:"tlsModes,omitempty"`
 }
 
 const (
 	NMATLSSecretType          = "NMATLSSecretType"          // #nosec G101
 	ClientServerTLSSecretType = "ClientServerTLSSecretType" // #nosec G101
+	NMATLSModeType            = "NMATLSModeType"
+	ClientServerTLSModeType   = "ClientServerTLSModeType"
 )
 
 type SecretRef struct {
@@ -977,6 +984,15 @@ type SecretRef struct {
 	// +operator-sdk:csv:customresourcedefinitions:type=status
 	// The type of the secret which represents what the secret
 	// is used for
+	Type string `json:"type"`
+}
+
+type TLSMode struct {
+	// +operator-sdk:csv:customresourcedefinitions:type=status
+	// TLS mode
+	Mode string `json:"name"`
+	// +operator-sdk:csv:customresourcedefinitions:type=status
+	// The type of the TLS mode
 	Type string `json:"type"`
 }
 

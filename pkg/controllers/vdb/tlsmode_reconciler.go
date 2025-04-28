@@ -28,13 +28,12 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
-	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/rotatehttpscerts"
-	"github.com/vertica/vertica-kubernetes/pkg/vk8s"
+	"github.com/vertica/vertica-kubernetes/pkg/vdbstatus"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -80,10 +79,12 @@ func (h *TLSModeReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctr
 		!h.Vdb.IsStatusConditionTrue(vapi.DBInitialized) {
 		return ctrl.Result{}, nil
 	}
-	if h.Vdb.Spec.HTTPSTLSMode == vmeta.GetNMAHTTPSPreviousTLSMode(h.Vdb.Annotations) &&
-		h.Vdb.Spec.ClientServerTLSMode == vmeta.GetClientServerPreviousTLSMode(h.Vdb.Annotations) {
+	if h.Vdb.Spec.HTTPSTLSMode == h.Vdb.GetNMATLSModeInUse() &&
+		h.Vdb.Spec.ClientServerTLSMode == h.Vdb.GetClientServerTLSModeInUse() {
 		return ctrl.Result{}, nil
 	}
+	h.Log.Info("libo: https - current tls mode " + h.Vdb.GetNMATLSModeInUse() + ", new tls mode " + h.Vdb.Spec.HTTPSTLSMode)
+	h.Log.Info("libo: client - current tls mode " + h.Vdb.GetClientServerTLSModeInUse() + ", new tls mode " + h.Vdb.Spec.ClientServerTLSMode)
 	h.VRec.Eventf(h.Vdb, corev1.EventTypeNormal, events.NMATLSModeUpdateStarted,
 		"Starting to update TLS Mode")
 	res, err := h.reconcileAfterRevive(ctx)
@@ -122,9 +123,9 @@ func (h *TLSModeReconciler) rotateTLSMode(ctx context.Context) (ctrl.Result, err
 	currentSecret := &corev1.Secret{
 		Data: currentSecretData,
 	}
-	currentHTTPSTLSMode := vmeta.GetNMAHTTPSPreviousTLSMode(h.Vdb.Annotations)
+	currentHTTPSTLSMode := h.Vdb.GetNMATLSModeInUse()
 	newHTTPSTLSMode := h.Vdb.Spec.HTTPSTLSMode
-	currentClientTLSMode := vmeta.GetClientServerPreviousTLSMode(h.Vdb.Annotations)
+	currentClientTLSMode := h.Vdb.GetClientServerTLSModeInUse()
 	newClientTLSMode := h.Vdb.Spec.ClientServerTLSMode
 
 	if currentHTTPSTLSMode != newHTTPSTLSMode {
@@ -156,7 +157,7 @@ func (h *TLSModeReconciler) rotateTLSMode(ctx context.Context) (ctrl.Result, err
 		return ctrl.Result{}, err
 	}
 
-	chgs := vk8s.MetaChanges{
+	/* chgs := vk8s.MetaChanges{
 		NewAnnotations: map[string]string{
 			vmeta.NMAHTTPSPreviousTLSMode:     newHTTPSTLSMode,
 			vmeta.ClientServerPreviousTLSMode: newClientTLSMode,
@@ -164,19 +165,24 @@ func (h *TLSModeReconciler) rotateTLSMode(ctx context.Context) (ctrl.Result, err
 	}
 	if _, err := vk8s.MetaUpdate(ctx, h.VRec.Client, h.Vdb.ExtractNamespacedName(), h.Vdb, chgs); err != nil {
 		return ctrl.Result{}, err
-	}
+	}*/
+	httpsTLSMode := vapi.MakeNMATLSMode(h.Vdb.Spec.HTTPSTLSMode)
+	clientTLSMode := vapi.MakeClientServerTLSMode(h.Vdb.Spec.ClientServerTLSMode)
+	vdbstatus.UpdateTLSModes(ctx, h.VRec.Client, h.Vdb, []*vapi.TLSMode{httpsTLSMode, clientTLSMode})
+
 	h.Log.Info(fmt.Sprintf("HTTPS TLS mode is %s, client TLS mode is %s", newHTTPSTLSMode, newClientTLSMode))
+
 	h.VRec.Eventf(h.Vdb, corev1.EventTypeNormal, events.NMATLSModeUpdateSucceeded,
-		"Successfully updated TLS Mode. HTTPS TLS mode is %s, client TLS mode is %s", newHTTPSTLSMode, newClientTLSMode)
+		"Successfully updated TLS modes. https:  %s -> %s, client: %s -> %s",
+		newHTTPSTLSMode, newClientTLSMode, currentHTTPSTLSMode, currentClientTLSMode)
 	return ctrl.Result{}, nil
 }
 
 func (h *TLSModeReconciler) reconcileAfterRevive(ctx context.Context) (ctrl.Result, error) {
 	requireUpdate := false
 	configSet := []int{httpsTLSConfig, clientServerTLSConfig}
-	var newAnnotations map[string]string
 	for _, tlsConfig := range configSet {
-		needUpdate, res, err := h.loadTLSModeAfterRevive(ctx, tlsConfig, newAnnotations)
+		needUpdate, res, err := h.loadTLSModeAfterRevive(ctx, tlsConfig)
 		if verrors.IsReconcileAborted(res, err) {
 			return res, err
 		}
@@ -191,7 +197,10 @@ func (h *TLSModeReconciler) reconcileAfterRevive(ctx context.Context) (ctrl.Resu
 			return ctrl.Result{}, err
 		}
 		h.Log.Info("tls modes retrieved from db are saved into vdb spec")
-		chgs := vk8s.MetaChanges{
+		httpsTLSMode := vapi.MakeNMATLSMode(h.Vdb.Spec.HTTPSTLSMode)
+		clientTLSMode := vapi.MakeClientServerTLSMode(h.Vdb.Spec.ClientServerTLSMode)
+		vdbstatus.UpdateTLSModes(ctx, h.VRec.Client, h.Vdb, []*vapi.TLSMode{httpsTLSMode, clientTLSMode})
+		/* chgs := vk8s.MetaChanges{
 			NewAnnotations: map[string]string{
 				vmeta.NMAHTTPSPreviousTLSMode:     h.Vdb.Spec.HTTPSTLSMode,
 				vmeta.ClientServerPreviousTLSMode: h.Vdb.Spec.ClientServerTLSMode,
@@ -199,16 +208,16 @@ func (h *TLSModeReconciler) reconcileAfterRevive(ctx context.Context) (ctrl.Resu
 		}
 		if _, err := vk8s.MetaUpdate(ctx, h.VRec.Client, h.Vdb.ExtractNamespacedName(), h.Vdb, chgs); err != nil {
 
-		}
+		} */
 		h.Log.Info("tls modes retrieved from db are saved into vdb annotations")
 		h.VRec.Eventf(h.Vdb, corev1.EventTypeNormal, events.NMATLSModeUpdateSucceeded,
-			"Successfully updated HTTPS TLS mode to %s, client server TLS mode to %s", h.Vdb.Spec.HTTPSTLSMode,
+			"Successfully updated TLS modes after reviving. htts - %s, client - %s", h.Vdb.Spec.HTTPSTLSMode,
 			h.Vdb.Spec.ClientServerTLSMode)
 	}
 	return ctrl.Result{}, nil
 }
 
-func (h *TLSModeReconciler) loadTLSModeAfterRevive(ctx context.Context, tlsConfig int, newAnnotations map[string]string) (bool, ctrl.Result, error) {
+func (h *TLSModeReconciler) loadTLSModeAfterRevive(ctx context.Context, tlsConfig int) (bool, ctrl.Result, error) {
 	currentTLSMode, _ := h.getCurrentTLSMode(tlsConfig)
 	newTLSMode, _ := h.getNewTLSMode(tlsConfig)
 	h.Log.Info(fmt.Sprintf("starting to reconcile https tls mode, current TLS mode - %s, new TLS mode - %s", currentTLSMode, newTLSMode))
@@ -231,7 +240,7 @@ func (h *TLSModeReconciler) loadTLSModeAfterRevive(ctx context.Context, tlsConfi
 		return false, ctrl.Result{}, err
 	}
 	currentTLSMode = h.getTLSMode(stdout)
-	h.setCurrentTLSMode(tlsConfig, currentTLSMode, newAnnotations)
+	h.setNewTLSMode(tlsConfig, currentTLSMode)
 	return true, ctrl.Result{}, nil
 }
 
@@ -265,22 +274,20 @@ func (h *TLSModeReconciler) getNewTLSMode(tlsConfig int) (string, error) {
 func (h *TLSModeReconciler) getCurrentTLSMode(tlsConfig int) (string, error) {
 	switch tlsConfig {
 	case httpsTLSConfig:
-		return vmeta.GetNMAHTTPSPreviousTLSMode(h.Vdb.Annotations), nil
+		return h.Vdb.GetNMATLSModeInUse(), nil
 	case clientServerTLSConfig:
-		return vmeta.GetClientServerPreviousTLSMode(h.Vdb.Annotations), nil
+		return h.Vdb.GetClientServerTLSModeInUse(), nil
 	}
 	return "", fmt.Errorf("invalid tlsConfig %d", tlsConfig)
 }
 
-func (h *TLSModeReconciler) setCurrentTLSMode(tlsConfig int, currentTLSMode string, newAnnotations map[string]string) error {
+func (h *TLSModeReconciler) setNewTLSMode(tlsConfig int, currentTLSMode string) error {
 	switch tlsConfig {
 	case httpsTLSConfig:
 		h.Vdb.Spec.HTTPSTLSMode = currentTLSMode
-		newAnnotations[vmeta.NMAHTTPSPreviousTLSMode] = currentTLSMode
 		return nil
 	case clientServerTLSConfig:
 		h.Vdb.Spec.ClientServerTLSMode = currentTLSMode
-		newAnnotations[vmeta.ClientServerPreviousTLSMode] = currentTLSMode
 		return nil
 	}
 	return fmt.Errorf("invalid tlsConfig %d", tlsConfig)

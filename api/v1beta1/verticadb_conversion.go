@@ -280,6 +280,7 @@ func convertToStatus(src *VerticaDBStatus) v1.VerticaDBStatus {
 		UpgradeStatus:   src.UpgradeStatus,
 		Sandboxes:       make([]v1.SandboxStatus, len(src.Sandboxes)),
 		SecretRefs:      make([]v1.SecretRef, len(src.SecretRefs)),
+		TLSModes:        make([]v1.TLSMode, len(src.TLSModes)),
 	}
 	if src.RestorePoint != nil {
 		dst.RestorePoint = &v1.RestorePointInfo{
@@ -301,6 +302,12 @@ func convertToStatus(src *VerticaDBStatus) v1.VerticaDBStatus {
 		dst.SecretRefs[i] = v1.SecretRef{
 			Name: src.SecretRefs[i].Name,
 			Type: src.SecretRefs[i].Type,
+		}
+	}
+	for i := range src.TLSModes {
+		dst.TLSModes[i] = v1.TLSMode{
+			Mode: src.TLSModes[i].Mode,
+			Type: src.TLSModes[i].Type,
 		}
 	}
 	return dst
@@ -339,6 +346,12 @@ func convertFromStatus(src *v1.VerticaDBStatus) VerticaDBStatus {
 		dst.SecretRefs[i] = SecretRef{
 			Name: src.SecretRefs[i].Name,
 			Type: src.SecretRefs[i].Type,
+		}
+	}
+	for i := range src.TLSModes {
+		dst.TLSModes[i] = TLSMode{
+			Mode: src.TLSModes[i].Mode,
+			Type: src.TLSModes[i].Type,
 		}
 	}
 	return dst
