@@ -461,6 +461,10 @@ func GetNMAHTTPSPreviousTLSMode(annotations map[string]string) string {
 	return lookupStringAnnotation(annotations, NMAHTTPSPreviousTLSMode, "" /* default value */)
 }
 
+func GetClientServerPreviousTLSMode(annotations map[string]string) string {
+	return lookupStringAnnotation(annotations, ClientServerPreviousTLSMode, "" /* default value */)
+}
+
 // IgnoreClusterLease returns true if revive/start should ignore the cluster lease
 func IgnoreClusterLease(annotations map[string]string) bool {
 	return lookupBoolAnnotation(annotations, IgnoreClusterLeaseAnnotation, false /* default value */)
