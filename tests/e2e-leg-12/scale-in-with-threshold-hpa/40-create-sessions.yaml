@@ -21,10 +21,30 @@ data:
     set -o errexit
     set -o xtrace
 
+    # Function to retry kubectl exec
+    execute_query() {
+      local attempt=0
+      local max_attempts=5
+      local delay=1
+      while (( attempt < max_attempts )); do
+        if kubectl exec svc/v-scale-in-threshold-pri1 -c server -- vsql -U dbadmin -w topsecret -c "select sleep('300')"; then
+          return 0
+        fi
+        (( attempt++ ))
+        echo "Retrying ($attempt/$max_attempts)..."
+        sleep $delay
+      done
+      echo "Failed after $max_attempts attempts" >&2
+      return 1
+    }
+
+    # Launch queries in the background
     for i in {1..8}; do
-      kubectl exec svc/v-scale-in-threshold-pri1 -c server -- vsql -U dbadmin -w topsecret -c "select sleep('240');" &
+      execute_query &
     done
-    sleep 60
+
+    # Wait for all background jobs to complete
+    wait
 ---
 apiVersion: v1
 kind: Pod
