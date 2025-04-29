@@ -1,5 +1,5 @@
 kind: Fixed
-body: Added brackets for IPv6 address to check if nodes up
+body: Resolved the issue where the cluster keeps restarting when using IPv6.
 time: 2025-04-28T16:07:25.154116225-04:00
 custom:
     Issue: "1237"
