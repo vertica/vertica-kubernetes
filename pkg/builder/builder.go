@@ -45,8 +45,6 @@ import (
 const (
 	SuperuserPasswordPath   = "superuser-passwd"
 	TestStorageClassName    = "test-storage-class"
-	VerticaClientPort       = 5433
-	VerticaHTTPPort         = 8443
 	InternalVerticaCommPort = 5434
 	SSHPort                 = 22
 	VerticaClusterCommPort  = 5434
@@ -54,6 +52,12 @@ const (
 	NMAPort                 = 5554
 	StdOut                  = "/proc/1/fd/1"
 	VProxyDefaultImage      = "opentext/client-proxy:latest"
+
+	// Port for Vertica processes within pods
+	// For the ports of the services, use:
+	// vdb.spec.ServiceHTTPSPort and vdb.spec.ServiceClientPort
+	VerticaClientPort = 5433
+	VerticaHTTPPort   = 8443
 
 	// Standard environment variables that are set in each pod
 	PodIPEnv                   = "POD_IP"
@@ -122,6 +126,19 @@ type ProxyData struct {
 // BuildExtSvc creates desired spec for the external service.
 func BuildExtSvc(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi.Subcluster,
 	selectorLabelCreator func(*vapi.VerticaDB, *vapi.Subcluster) map[string]string) *corev1.Service {
+	// Use spec.subclusters[].ServiceHTTPSPort, if set
+	// If not, use spec.ServiceHTTPSPort (default 8443)
+	HTTPSPort := vdb.Spec.ServiceHTTPSPort
+	if sc.ServiceHTTPSPort > 0 {
+		HTTPSPort = sc.ServiceHTTPSPort
+	}
+
+	// Use spec.subclusters[].ServiceClientPort, if set
+	// If not, use spec.ServiceClientPort (default 5433)
+	ClientPort := vdb.Spec.ServiceClientPort
+	if sc.ServiceClientPort > 0 {
+		ClientPort = sc.ServiceClientPort
+	}
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        nm.Name,
@@ -133,8 +150,8 @@ func BuildExtSvc(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi.Subclust
 			Selector: selectorLabelCreator(vdb, sc),
 			Type:     sc.ServiceType,
 			Ports: []corev1.ServicePort{
-				{Port: VerticaClientPort, Name: "vertica", NodePort: sc.ClientNodePort},
-				{Port: VerticaHTTPPort, Name: "vertica-http", NodePort: sc.VerticaHTTPNodePort},
+				{Port: ClientPort, Name: "vertica", NodePort: sc.ClientNodePort, TargetPort: intstr.FromInt(VerticaClientPort)},
+				{Port: HTTPSPort, Name: "vertica-http", NodePort: sc.VerticaHTTPNodePort, TargetPort: intstr.FromInt(VerticaHTTPPort)},
 			},
 			ExternalIPs:    sc.ExternalIPs,
 			LoadBalancerIP: sc.LoadBalancerIP,
@@ -170,7 +187,7 @@ func BuildHlSvc(nm types.NamespacedName, vdb *vapi.VerticaDB) *corev1.Service {
 	}
 	if vmeta.UseVClusterOps(vdb.Annotations) {
 		svc.Spec.Ports = append(svc.Spec.Ports,
-			corev1.ServicePort{Port: VerticaHTTPPort, Name: "tcp-httpservice"},
+			corev1.ServicePort{Port: vdb.Spec.ServiceHTTPSPort, Name: "tcp-httpservice", TargetPort: intstr.FromInt(VerticaHTTPPort)},
 			corev1.ServicePort{Port: NMAPort, Name: "tcp-nma"},
 		)
 	} else {

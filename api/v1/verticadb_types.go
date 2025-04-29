@@ -342,6 +342,20 @@ type VerticaDBSpec struct {
 	// RoleBinding.
 	ServiceAccountName string `json:"serviceAccountName,omitempty"`
 
+	// +kubebuilder:default:=8443
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:number","urn:alm:descriptor:com.tectonic.ui:advanced"}
+	// Port to use for Vertica HTTPS services
+	// Default is 8443
+	ServiceHTTPSPort int32 `json:"serviceHTTPSPort,omitempty"`
+
+	// +kubebuilder:default:=5433
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:number","urn:alm:descriptor:com.tectonic.ui:advanced"}
+	// Port to use for Vertica client service
+	// Default is 5433
+	ServiceClientPort int32 `json:"serviceClientPort,omitempty"`
+
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:advanced"
 	// +kubebuilder:validation:Optional
 	// Identifies any sandboxes that exist for the database
@@ -819,6 +833,20 @@ type Subcluster struct {
 	// must be defined within the range allocated by the control plane, if
 	// omitted Kubernetes will choose the port automatically.
 	VerticaHTTPNodePort int32 `json:"verticaHTTPNodePort,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// HTTPS port for this subcluster's services
+	// If not set, it will use the port number specified in spec.ServiceHTTPSPort,
+	// which is defaulted to be 8443
+	ServiceHTTPSPort int32 `json:"serviceHTTPSPort,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// Client port for this subcluster's services
+	// If not set, it will use the port number specified in spec.ServiceClientPort,
+	// which is defaulted to be 5433
+	ServiceClientPort int32 `json:"serviceClientPort,omitempty"`
 
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:advanced"

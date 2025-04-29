@@ -162,8 +162,9 @@ func (r *RestartReconciler) reconcileClusterPreCheck() ctrl.Result {
 		return ctrl.Result{Requeue: true}
 	}
 	// Check if cluster start needs to include all of the pods.
+	scStatus := r.Vdb.GenStatusSubclusterMap()
 	if r.Vdb.IsKSafety0() &&
-		r.PFacts.CountNotRestartablePods(vmeta.UseVClusterOps(r.Vdb.Annotations)) > 0 {
+		r.PFacts.CountNotRestartablePods(vmeta.UseVClusterOps(r.Vdb.Annotations), scStatus) > 0 {
 		// For k-safety 0, we need all of the pods because the absence of one
 		// will cause us not to have enough pods for cluster quorum.
 		r.Log.Info("Waiting for all installed pods to be running before attempt a cluster restart")
@@ -750,7 +751,8 @@ func (r *RestartReconciler) setInitiatorPod(findFunc func() (*podfacts.PodFact, 
 // whether a requeue of the reconcile is necessary because some pods are not yet
 // running.
 func (r *RestartReconciler) shouldRequeueIfPodsNotRunning() bool {
-	if r.PFacts.CountNotRestartablePods(vmeta.UseVClusterOps(r.Vdb.Annotations)) > 0 {
+	scStatus := r.Vdb.GenStatusSubclusterMap()
+	if r.PFacts.CountNotRestartablePods(vmeta.UseVClusterOps(r.Vdb.Annotations), scStatus) > 0 {
 		r.Log.Info("Requeue since some pods needed by restart are not yet running.")
 		return true
 	}
