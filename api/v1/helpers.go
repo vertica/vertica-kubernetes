@@ -859,13 +859,9 @@ func (v *VerticaDB) GetActiveConnectionsDrainSeconds() int {
 // IsCertRotationEnabled returns true if the version supports certs and
 // cert rotation is enabled.
 func (v *VerticaDB) IsCertRotationEnabled() bool {
-	verticadblog.Info("libo: probe 3")
 	if !vmeta.UseVClusterOps(v.Annotations) {
-		verticadblog.Info("libo: probe 4 use vcluster ops false")
 		return false
 	}
-	verticadblog.Info("libo: probe 5")
-
 	return !vmeta.UseNMACertsMount(v.Annotations) && vmeta.EnableTLSCertsRotation(v.Annotations)
 }
 

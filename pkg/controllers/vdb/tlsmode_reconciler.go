@@ -83,8 +83,8 @@ func (h *TLSModeReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctr
 		h.Vdb.Spec.ClientServerTLSMode == h.Vdb.GetClientServerTLSModeInUse() {
 		return ctrl.Result{}, nil
 	}
-	h.Log.Info("libo: https - current tls mode " + h.Vdb.GetNMATLSModeInUse() + ", new tls mode " + h.Vdb.Spec.HTTPSTLSMode)
-	h.Log.Info("libo: client - current tls mode " + h.Vdb.GetClientServerTLSModeInUse() + ", new tls mode " + h.Vdb.Spec.ClientServerTLSMode)
+	h.Log.Info("https - current tls mode " + h.Vdb.GetNMATLSModeInUse() + ", new tls mode " + h.Vdb.Spec.HTTPSTLSMode)
+	h.Log.Info("client - current tls mode " + h.Vdb.GetClientServerTLSModeInUse() + ", new tls mode " + h.Vdb.Spec.ClientServerTLSMode)
 	h.VRec.Eventf(h.Vdb, corev1.EventTypeNormal, events.NMATLSModeUpdateStarted,
 		"Starting to update TLS Mode")
 	if h.Vdb.GetNMATLSModeInUse() == "" || h.Vdb.GetClientServerTLSModeInUse() == "" {
@@ -163,19 +163,13 @@ func (h *TLSModeReconciler) rotateTLSMode(ctx context.Context) (ctrl.Result, err
 		h.Log.Error(err, "failed to rotate HTTPS/client TLS mode")
 		return ctrl.Result{}, err
 	}
-
-	/* chgs := vk8s.MetaChanges{
-		NewAnnotations: map[string]string{
-			vmeta.NMAHTTPSPreviousTLSMode:     newHTTPSTLSMode,
-			vmeta.ClientServerPreviousTLSMode: newClientTLSMode,
-		},
-	}
-	if _, err := vk8s.MetaUpdate(ctx, h.VRec.Client, h.Vdb.ExtractNamespacedName(), h.Vdb, chgs); err != nil {
-		return ctrl.Result{}, err
-	}*/
 	httpsTLSMode := vapi.MakeNMATLSMode(h.Vdb.Spec.HTTPSTLSMode)
 	clientTLSMode := vapi.MakeClientServerTLSMode(h.Vdb.Spec.ClientServerTLSMode)
-	vdbstatus.UpdateTLSModes(ctx, h.VRec.Client, h.Vdb, []*vapi.TLSMode{httpsTLSMode, clientTLSMode})
+	err = vdbstatus.UpdateTLSModes(ctx, h.VRec.Client, h.Vdb, []*vapi.TLSMode{httpsTLSMode, clientTLSMode})
+	if err != nil {
+		h.Log.Error(err, "failed to update tls mode after rotating tls mode")
+		return ctrl.Result{}, err
+	}
 
 	h.Log.Info(fmt.Sprintf("HTTPS TLS mode is %s, client TLS mode is %s", newHTTPSTLSMode, newClientTLSMode))
 
@@ -198,24 +192,13 @@ func (h *TLSModeReconciler) reconcileAfterRevive(ctx context.Context) (ctrl.Resu
 		}
 	}
 	if requireUpdate {
-		/* err := h.VRec.Client.Update(ctx, h.Vdb)
-		if err != nil {
-			h.Log.Error(err, "failed to update https and client server tls modes for vdb")
-			return ctrl.Result{}, err
-		}
-		h.Log.Info("tls modes retrieved from db are saved into vdb spec") */
 		httpsTLSMode := vapi.MakeNMATLSMode(h.Vdb.Spec.HTTPSTLSMode)
 		clientTLSMode := vapi.MakeClientServerTLSMode(h.Vdb.Spec.ClientServerTLSMode)
-		vdbstatus.UpdateTLSModes(ctx, h.VRec.Client, h.Vdb, []*vapi.TLSMode{httpsTLSMode, clientTLSMode})
-		/* chgs := vk8s.MetaChanges{
-			NewAnnotations: map[string]string{
-				vmeta.NMAHTTPSPreviousTLSMode:     h.Vdb.Spec.HTTPSTLSMode,
-				vmeta.ClientServerPreviousTLSMode: h.Vdb.Spec.ClientServerTLSMode,
-			},
+		err := vdbstatus.UpdateTLSModes(ctx, h.VRec.Client, h.Vdb, []*vapi.TLSMode{httpsTLSMode, clientTLSMode})
+		if err != nil {
+			h.Log.Error(err, "failed to update tls mode after reviving")
+			return ctrl.Result{}, err
 		}
-		if _, err := vk8s.MetaUpdate(ctx, h.VRec.Client, h.Vdb.ExtractNamespacedName(), h.Vdb, chgs); err != nil {
-
-		} */
 		h.Log.Info("tls modes retrieved from db are saved into vdb annotations")
 		h.VRec.Eventf(h.Vdb, corev1.EventTypeNormal, events.NMATLSModeUpdateSucceeded,
 			"Successfully updated TLS modes after reviving. https - %s, client - %s", h.Vdb.Spec.HTTPSTLSMode,
@@ -247,7 +230,7 @@ func (h *TLSModeReconciler) loadTLSModeAfterRevive(ctx context.Context, tlsConfi
 		return false, ctrl.Result{}, err
 	}
 	currentTLSMode = h.getTLSMode(stdout)
-	h.setNewTLSMode(tlsConfig, currentTLSMode)
+	_ = h.setNewTLSMode(tlsConfig, currentTLSMode)
 	return true, ctrl.Result{}, nil
 }
 
@@ -265,7 +248,6 @@ func (h *TLSModeReconciler) getTLSConfig(tlsConfig int) (string, error) {
 		return "server", nil
 	}
 	return "", fmt.Errorf("invalid tlsConfig %d", tlsConfig)
-
 }
 
 func (h *TLSModeReconciler) getNewTLSMode(tlsConfig int) (string, error) {
