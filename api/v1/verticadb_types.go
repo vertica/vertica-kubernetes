@@ -312,6 +312,8 @@ type VerticaDBSpec struct {
 	//   If the client presents an invalid certificate, the connection is rejected.
 	// - VERIFY_CA: Connection succeeds if Vertica verifies that the client certificate is from a trusted CA.
 	//   If the client does not present a client certificate, the connection is rejected.
+	// - VERIFY_FULL: Connection succeeds if Vertica verifies that the other host's certificate is from a trusted CA and
+	//   the certificate's cn (Common Name) or subjectAltName attribute matches the hostname or IP address of the other host.
 	ClientServerTLSMode string `json:"clientServerTLSMode,omitempty"`
 
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:hidden"
