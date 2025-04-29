@@ -87,15 +87,18 @@ func (h *TLSModeReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctr
 	h.Log.Info("libo: client - current tls mode " + h.Vdb.GetClientServerTLSModeInUse() + ", new tls mode " + h.Vdb.Spec.ClientServerTLSMode)
 	h.VRec.Eventf(h.Vdb, corev1.EventTypeNormal, events.NMATLSModeUpdateStarted,
 		"Starting to update TLS Mode")
-	res, err := h.reconcileAfterRevive(ctx)
-	if verrors.IsReconcileAborted(res, err) {
-		return res, err
+	if h.Vdb.GetNMATLSModeInUse() == "" || h.Vdb.GetClientServerTLSModeInUse() == "" {
+		res, err := h.reconcileAfterRevive(ctx)
+		if verrors.IsReconcileAborted(res, err) {
+			return res, err
+		}
+	} else {
+		res, err := h.rotateTLSMode(ctx)
+		if verrors.IsReconcileAborted(res, err) {
+			return res, err
+		}
 	}
-	res, err = h.rotateTLSMode(ctx)
-	if verrors.IsReconcileAborted(res, err) {
-		return res, err
-	}
-	return res, err
+	return ctrl.Result{}, nil
 }
 
 func (h *TLSModeReconciler) rotateTLSMode(ctx context.Context) (ctrl.Result, error) {
@@ -211,7 +214,7 @@ func (h *TLSModeReconciler) reconcileAfterRevive(ctx context.Context) (ctrl.Resu
 		} */
 		h.Log.Info("tls modes retrieved from db are saved into vdb annotations")
 		h.VRec.Eventf(h.Vdb, corev1.EventTypeNormal, events.NMATLSModeUpdateSucceeded,
-			"Successfully updated TLS modes after reviving. htts - %s, client - %s", h.Vdb.Spec.HTTPSTLSMode,
+			"Successfully updated TLS modes after reviving. https - %s, client - %s", h.Vdb.Spec.HTTPSTLSMode,
 			h.Vdb.Spec.ClientServerTLSMode)
 	}
 	return ctrl.Result{}, nil

@@ -325,6 +325,7 @@ func convertFromStatus(src *v1.VerticaDBStatus) VerticaDBStatus {
 		UpgradeStatus:   src.UpgradeStatus,
 		Sandboxes:       make([]SandboxStatus, len(src.Sandboxes)),
 		SecretRefs:      make([]SecretRef, len(src.SecretRefs)),
+		TLSModes:        make([]TLSMode, len(src.TLSModes)),
 	}
 	if src.RestorePoint != nil {
 		dst.RestorePoint = &RestorePointInfo{

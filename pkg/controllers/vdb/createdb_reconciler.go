@@ -143,11 +143,6 @@ func (c *CreateDBReconciler) execCmd(ctx context.Context, initiatorPod types.Nam
 		httpsTLSMode := vapi.MakeNMATLSMode(c.Vdb.Spec.HTTPSTLSMode)
 		clientTLSMode := vapi.MakeClientServerTLSMode(c.Vdb.Spec.ClientServerTLSMode)
 		vdbstatus.UpdateTLSModes(ctx, c.VRec.GetClient(), c.Vdb, []*vapi.TLSMode{httpsTLSMode, clientTLSMode})
-		cond := vapi.MakeCondition(vapi.DBInitialized, metav1.ConditionTrue, "Initialized")
-		if err := vdbstatus.UpdateCondition(ctx, c.VRec.GetClient(), c.Vdb, cond); err != nil {
-			c.Log.Error(err, "failed to save tls modes into status after creating the db")
-			return ctrl.Result{}, err
-		}
 		c.Log.Info("TLS DDLs executed and TLS Cert configured")
 	}
 	sc := c.getFirstPrimarySubcluster()
