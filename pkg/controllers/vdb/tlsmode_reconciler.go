@@ -92,12 +92,16 @@ func (h *TLSModeReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctr
 		if verrors.IsReconcileAborted(res, err) {
 			return res, err
 		}
-	} else {
-		res, err := h.rotateTLSMode(ctx)
-		if verrors.IsReconcileAborted(res, err) {
-			return res, err
+		if h.Vdb.Spec.HTTPSTLSMode == h.Vdb.GetNMATLSModeInUse() &&
+			h.Vdb.Spec.ClientServerTLSMode == h.Vdb.GetClientServerTLSModeInUse() {
+			return ctrl.Result{}, nil
 		}
 	}
+	res, err := h.rotateTLSMode(ctx)
+	if verrors.IsReconcileAborted(res, err) {
+		return res, err
+	}
+
 	return ctrl.Result{}, nil
 }
 
@@ -194,12 +198,12 @@ func (h *TLSModeReconciler) reconcileAfterRevive(ctx context.Context) (ctrl.Resu
 		}
 	}
 	if requireUpdate {
-		err := h.VRec.Client.Update(ctx, h.Vdb)
+		/* err := h.VRec.Client.Update(ctx, h.Vdb)
 		if err != nil {
 			h.Log.Error(err, "failed to update https and client server tls modes for vdb")
 			return ctrl.Result{}, err
 		}
-		h.Log.Info("tls modes retrieved from db are saved into vdb spec")
+		h.Log.Info("tls modes retrieved from db are saved into vdb spec") */
 		httpsTLSMode := vapi.MakeNMATLSMode(h.Vdb.Spec.HTTPSTLSMode)
 		clientTLSMode := vapi.MakeClientServerTLSMode(h.Vdb.Spec.ClientServerTLSMode)
 		vdbstatus.UpdateTLSModes(ctx, h.VRec.Client, h.Vdb, []*vapi.TLSMode{httpsTLSMode, clientTLSMode})
