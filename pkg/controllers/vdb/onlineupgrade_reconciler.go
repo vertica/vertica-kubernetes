@@ -1349,7 +1349,7 @@ func (r *OnlineUpgradeReconciler) moveReplicaGroupBSubclusterToSandbox() (bool, 
 		Image: oldImage,
 	}
 	for _, nm := range scNames {
-		sandbox.Subclusters = append(sandbox.Subclusters, vapi.SandboxSubcluster{Name: nm})
+		sandbox.Subclusters = append(sandbox.Subclusters, vapi.SubclusterName{Name: nm})
 	}
 	r.VDB.Annotations[vmeta.OnlineUpgradeSandboxAnnotation] = sandboxName
 	r.VDB.Spec.Sandboxes = append(r.VDB.Spec.Sandboxes, sandbox)

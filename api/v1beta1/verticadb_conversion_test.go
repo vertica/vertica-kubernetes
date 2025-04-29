@@ -272,8 +272,8 @@ var _ = Describe("verticadb_conversion", func() {
 		v1VDB := v1.VerticaDB{}
 
 		v1beta1VDB.Spec.Sandboxes = []Sandbox{
-			{Name: "sb1", Image: "img", Subclusters: []SandboxSubcluster{{Name: "sc1"}}},
-			{Name: "sb2", Image: "img2", Subclusters: []SandboxSubcluster{{Name: "sc2"}}},
+			{Name: "sb1", Image: "img", Subclusters: []SubclusterName{{Name: "sc1"}}},
+			{Name: "sb2", Image: "img2", Subclusters: []SubclusterName{{Name: "sc2"}}},
 		}
 		v1beta1VDB.Status.Sandboxes = []SandboxStatus{
 			{Name: "sb1", Subclusters: []string{"sc1"}},
@@ -284,9 +284,9 @@ var _ = Describe("verticadb_conversion", func() {
 		verifySandboxConversionInStatus(v1beta1VDB, &v1VDB)
 
 		v1VDB.Spec.Sandboxes = []v1.Sandbox{
-			{Name: "sb1", Image: "img", Subclusters: []v1.SandboxSubcluster{{Name: "sc1"}}},
-			{Name: "sb2", Image: "img2", Subclusters: []v1.SandboxSubcluster{{Name: "sc2"}}},
-			{Name: "sb3", Image: "img3", Subclusters: []v1.SandboxSubcluster{{Name: "sc3"}}},
+			{Name: "sb1", Image: "img", Subclusters: []v1.SubclusterName{{Name: "sc1"}}},
+			{Name: "sb2", Image: "img2", Subclusters: []v1.SubclusterName{{Name: "sc2"}}},
+			{Name: "sb3", Image: "img3", Subclusters: []v1.SubclusterName{{Name: "sc3"}}},
 		}
 		v1VDB.Status.Sandboxes = []v1.SandboxStatus{
 			{Name: "sb1", Subclusters: []string{"sc1"}},

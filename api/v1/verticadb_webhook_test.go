@@ -592,9 +592,9 @@ var _ = Describe("verticadb_webhook", func() {
 			{Name: "sc3", Size: 1, Type: SecondarySubcluster},
 		}
 		vdb.Spec.Sandboxes = []Sandbox{
-			{Name: sb1, Image: img, Subclusters: []SandboxSubcluster{{Name: vdb.Spec.Subclusters[1].Name}}},
-			{Name: sb2, Subclusters: []SandboxSubcluster{{Name: vdb.Spec.Subclusters[2].Name}}},
-			{Name: sb3, Subclusters: []SandboxSubcluster{{Name: vdb.Spec.Subclusters[3].Name}}},
+			{Name: sb1, Image: img, Subclusters: []SubclusterName{{Name: vdb.Spec.Subclusters[1].Name}}},
+			{Name: sb2, Subclusters: []SubclusterName{{Name: vdb.Spec.Subclusters[2].Name}}},
+			{Name: sb3, Subclusters: []SubclusterName{{Name: vdb.Spec.Subclusters[3].Name}}},
 		}
 		vdb.Default()
 		Expect(vdb.Spec.Sandboxes[0].Image).Should(Equal(img))
@@ -1138,10 +1138,8 @@ var _ = Describe("verticadb_webhook", func() {
 			{Name: "sc4", Size: 3, Type: SecondarySubcluster, ServiceType: v1.ServiceTypeClusterIP},
 		}
 		newVdb.Spec.Sandboxes = []Sandbox{
-			{Name: "sandbox1", Image: mainClusterImageVer, Subclusters: []SandboxSubcluster{
-				{Name: "sc1"}}},
-			{Name: "sandbox2", Image: mainClusterImageVer, Subclusters: []SandboxSubcluster{
-				{Name: "sc2"}, {Name: "sc3", Type: SecondarySubcluster}}},
+			{Name: "sandbox1", Image: mainClusterImageVer, Subclusters: []SubclusterName{{Name: "sc1"}}},
+			{Name: "sandbox2", Image: mainClusterImageVer, Subclusters: []SubclusterName{{Name: "sc2"}, {Name: "sc3"}}},
 		}
 		newVdb.Status.Subclusters = []SubclusterStatus{
 			{Name: "main"},
@@ -1171,10 +1169,8 @@ var _ = Describe("verticadb_webhook", func() {
 			{Name: "sc4", Size: 3, Type: SecondarySubcluster, ServiceType: v1.ServiceTypeClusterIP},
 		}
 		newVdb.Spec.Sandboxes = []Sandbox{
-			{Name: "sandbox1", Image: mainClusterImageVer, Subclusters: []SandboxSubcluster{
-				{Name: "sc1"}}},
-			{Name: "sandbox2", Image: mainClusterImageVer, Subclusters: []SandboxSubcluster{
-				{Name: "sc2"}, {Name: "sc3", Type: SecondarySubcluster}}},
+			{Name: "sandbox1", Image: mainClusterImageVer, Subclusters: []SubclusterName{{Name: "sc1"}}},
+			{Name: "sandbox2", Image: mainClusterImageVer, Subclusters: []SubclusterName{{Name: "sc2"}, {Name: "sc3"}}},
 		}
 		Ω(newVdb.validateImmutableFields(oldVdb)).Should(HaveLen(2))
 
@@ -1188,8 +1184,8 @@ var _ = Describe("verticadb_webhook", func() {
 			{Name: "sc4", Size: 3, Type: SecondarySubcluster, ServiceType: v1.ServiceTypeClusterIP},
 		}
 		newVdb.Spec.Sandboxes = []Sandbox{
-			{Name: "sandbox1", Image: mainClusterImageVer, Subclusters: []SandboxSubcluster{{Name: "sc1"}}},
-			{Name: "sandbox2", Image: mainClusterImageVer, Subclusters: []SandboxSubcluster{{Name: "sc2"}}},
+			{Name: "sandbox1", Image: mainClusterImageVer, Subclusters: []SubclusterName{{Name: "sc1"}}},
+			{Name: "sandbox2", Image: mainClusterImageVer, Subclusters: []SubclusterName{{Name: "sc2"}}},
 		}
 		Ω(newVdb.validateImmutableFields(oldVdb)).Should(HaveLen(0))
 
@@ -1202,7 +1198,7 @@ var _ = Describe("verticadb_webhook", func() {
 			{Name: "sc4", Size: 3, Type: SecondarySubcluster, ServiceType: v1.ServiceTypeClusterIP},
 		}
 		newVdb.Spec.Sandboxes = []Sandbox{
-			{Name: "sandbox2", Image: mainClusterImageVer, Subclusters: []SandboxSubcluster{{Name: "sc2"}}},
+			{Name: "sandbox2", Image: mainClusterImageVer, Subclusters: []SubclusterName{{Name: "sc2"}}},
 		}
 		Ω(newVdb.validateImmutableFields(oldVdb)).Should(HaveLen(0))
 
@@ -1215,10 +1211,8 @@ var _ = Describe("verticadb_webhook", func() {
 			{Name: "sc3", Size: 3, Type: SecondarySubcluster, ServiceType: v1.ServiceTypeClusterIP},
 		}
 		newVdb.Spec.Sandboxes = []Sandbox{
-			{Name: "sandbox1", Image: mainClusterImageVer, Subclusters: []SandboxSubcluster{
-				{Name: "sc1"}}},
-			{Name: "sandbox2", Image: mainClusterImageVer, Subclusters: []SandboxSubcluster{
-				{Name: "sc2"}, {Name: "sc3", Type: SecondarySubcluster}}},
+			{Name: "sandbox1", Image: mainClusterImageVer, Subclusters: []SubclusterName{{Name: "sc1"}}},
+			{Name: "sandbox2", Image: mainClusterImageVer, Subclusters: []SubclusterName{{Name: "sc2"}, {Name: "sc3"}}},
 		}
 		Ω(newVdb.validateImmutableFields(oldVdb)).Should(HaveLen(0))
 
@@ -1235,10 +1229,8 @@ var _ = Describe("verticadb_webhook", func() {
 			{Name: "sc4", Size: 3, Type: SecondarySubcluster, ServiceType: v1.ServiceTypeClusterIP},
 		}
 		vdb.Spec.Sandboxes = []Sandbox{
-			{Name: "sandbox1", Image: mainClusterImageVer, Subclusters: []SandboxSubcluster{
-				{Name: "sc1"}}},
-			{Name: "sandbox2", Image: mainClusterImageVer, Subclusters: []SandboxSubcluster{
-				{Name: "sc2"}, {Name: "sc3", Type: SecondarySubcluster}}},
+			{Name: "sandbox1", Image: mainClusterImageVer, Subclusters: []SubclusterName{{Name: "sc1"}}},
+			{Name: "sandbox2", Image: mainClusterImageVer, Subclusters: []SubclusterName{{Name: "sc2"}, {Name: "sc3"}}},
 		}
 		vdb.ObjectMeta.Annotations[vmeta.VersionAnnotation] = SandboxSupportedMinVersion
 		vdb.ObjectMeta.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
@@ -1286,37 +1278,24 @@ var _ = Describe("verticadb_webhook", func() {
 		Ω(vdb.validateVerticaDBSpec()).Should(HaveLen(1))
 		vdb.ObjectMeta.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
 
-		// cannot define subclusters type neither primary nor secondary
-		vdb.Spec.Sandboxes = []Sandbox{
-			{Name: "sandbox1", Image: mainClusterImageVer, Subclusters: []SandboxSubcluster{
-				{Name: "sc1", Type: "inalidType"}}},
-		}
-		Ω(vdb.validateVerticaDBSpec()).Should(HaveLen(1))
-
 		// cannot have duplicate subclusters defined in a sandbox
 		vdb.Spec.Sandboxes = []Sandbox{
-			{Name: "sandbox1", Image: mainClusterImageVer, Subclusters: []SandboxSubcluster{
-				{Name: "sc1"}}},
-			{Name: "sandbox2", Image: mainClusterImageVer, Subclusters: []SandboxSubcluster{
-				{Name: "sc2"}, {Name: "sc2", Type: SecondarySubcluster}}},
+			{Name: "sandbox1", Image: mainClusterImageVer, Subclusters: []SubclusterName{{Name: "sc1"}}},
+			{Name: "sandbox2", Image: mainClusterImageVer, Subclusters: []SubclusterName{{Name: "sc2"}, {Name: "sc2"}}},
 		}
 		Ω(vdb.validateVerticaDBSpec()).Should(HaveLen(1))
 
 		// cannot have a subcluster defined in multiple sandboxes
 		vdb.Spec.Sandboxes = []Sandbox{
-			{Name: "sandbox1", Image: mainClusterImageVer, Subclusters: []SandboxSubcluster{
-				{Name: "sc1"}}},
-			{Name: "sandbox2", Image: mainClusterImageVer, Subclusters: []SandboxSubcluster{
-				{Name: "sc1"}, {Name: "sc2", Type: SecondarySubcluster}}},
+			{Name: "sandbox1", Image: mainClusterImageVer, Subclusters: []SubclusterName{{Name: "sc1"}}},
+			{Name: "sandbox2", Image: mainClusterImageVer, Subclusters: []SubclusterName{{Name: "sc1"}, {Name: "sc2"}}},
 		}
 		Ω(vdb.validateVerticaDBSpec()).Should(HaveLen(1))
 
 		// cannot have a non-existing subcluster defined in a sandbox
 		vdb.Spec.Sandboxes = []Sandbox{
-			{Name: "sandbox1", Image: mainClusterImageVer, Subclusters: []SandboxSubcluster{
-				{Name: "sc1"}, {Name: "fake-sc", Type: SecondarySubcluster}}},
-			{Name: "sandbox2", Image: mainClusterImageVer, Subclusters: []SandboxSubcluster{
-				{Name: "sc2"}, {Name: "sc3", Type: SecondarySubcluster}}},
+			{Name: "sandbox1", Image: mainClusterImageVer, Subclusters: []SubclusterName{{Name: "sc1"}, {Name: "fake-sc"}}},
+			{Name: "sandbox2", Image: mainClusterImageVer, Subclusters: []SubclusterName{{Name: "sc2"}, {Name: "sc3"}}},
 		}
 		Ω(vdb.validateVerticaDBSpec()).Should(HaveLen(1))
 
@@ -1324,10 +1303,8 @@ var _ = Describe("verticadb_webhook", func() {
 		// change sc1 from a secondary subcluster to a primary subcluster
 		vdb.Spec.Subclusters[1].Type = PrimarySubcluster
 		vdb.Spec.Sandboxes = []Sandbox{
-			{Name: "sandbox1", Image: mainClusterImageVer, Subclusters: []SandboxSubcluster{
-				{Name: "sc1"}}},
-			{Name: "sandbox2", Image: mainClusterImageVer, Subclusters: []SandboxSubcluster{
-				{Name: "sc2"}, {Name: "sc3", Type: SecondarySubcluster}}},
+			{Name: "sandbox1", Image: mainClusterImageVer, Subclusters: []SubclusterName{{Name: "sc1"}}},
+			{Name: "sandbox2", Image: mainClusterImageVer, Subclusters: []SubclusterName{{Name: "sc2"}, {Name: "sc3"}}},
 		}
 		Ω(vdb.validateVerticaDBSpec()).Should(HaveLen(1))
 	})
@@ -1358,8 +1335,7 @@ var _ = Describe("verticadb_webhook", func() {
 			{Name: "sc3", Type: SandboxPrimarySubcluster, Size: 1},
 		}
 		oldVdb.Spec.Sandboxes = []Sandbox{
-			{Name: "sand1", Subclusters: []SandboxSubcluster{
-				{Name: "sc2", Type: SecondarySubcluster}, {Name: "sc3", Type: PrimarySubcluster}}},
+			{Name: "sand1", Subclusters: []SubclusterName{{Name: "sc2"}, {Name: "sc3"}}},
 		}
 		newVdb := oldVdb.DeepCopy()
 		newVdb.Status.Subclusters = []SubclusterStatus{
@@ -1367,9 +1343,9 @@ var _ = Describe("verticadb_webhook", func() {
 			{Name: "sc2"},
 			{Name: "sc3"},
 		}
-		newVdb.Spec.Sandboxes[0].Subclusters = []SandboxSubcluster{{Name: "sc2"}}
+		newVdb.Spec.Sandboxes[0].Subclusters = []SubclusterName{{Name: "sc2"}}
 		Ω(newVdb.validateImmutableFields(oldVdb)).Should(HaveLen(1))
-		newVdb.Spec.Sandboxes[0].Subclusters = []SandboxSubcluster{{Name: "sc3"}}
+		newVdb.Spec.Sandboxes[0].Subclusters = []SubclusterName{{Name: "sc3"}}
 		Ω(newVdb.validateImmutableFields(oldVdb)).Should(HaveLen(0))
 		newVdb.Spec.Sandboxes = nil
 		Ω(newVdb.validateImmutableFields(oldVdb)).Should(HaveLen(0))
@@ -1385,10 +1361,8 @@ var _ = Describe("verticadb_webhook", func() {
 			{Name: "sc5", Type: SandboxPrimarySubcluster, Size: 1},
 		}
 		oldVdb.Spec.Sandboxes = []Sandbox{
-			{Name: "sand1", Subclusters: []SandboxSubcluster{
-				{Name: "sc2", Type: SecondarySubcluster}, {Name: "sc3", Type: PrimarySubcluster}}},
-			{Name: "sand2", Subclusters: []SandboxSubcluster{
-				{Name: "sc4", Type: SecondarySubcluster}, {Name: "sc5", Type: PrimarySubcluster}}},
+			{Name: "sand1", Subclusters: []SubclusterName{{Name: "sc2"}, {Name: "sc3"}}},
+			{Name: "sand2", Subclusters: []SubclusterName{{Name: "sc4"}, {Name: "sc5"}}},
 		}
 		newVdb := oldVdb.DeepCopy()
 		newVdb.Spec.Sandboxes[0].Name = "sand2"
@@ -1405,8 +1379,7 @@ var _ = Describe("verticadb_webhook", func() {
 			{Name: "sc3", Type: SandboxPrimarySubcluster, Size: 3, ServiceType: v1.ServiceTypeNodePort},
 		}
 		vdb.Spec.Sandboxes = []Sandbox{
-			{Name: "sand1", Subclusters: []SandboxSubcluster{
-				{Name: "sc2"}, {Name: "sc3", Type: SecondarySubcluster}}},
+			{Name: "sand1", Subclusters: []SubclusterName{{Name: "sc2"}, {Name: "sc3"}}},
 		}
 		Ω(vdb.validateVerticaDBSpec()).Should(HaveLen(0))
 	})
@@ -1422,7 +1395,7 @@ var _ = Describe("verticadb_webhook", func() {
 		newVdb.Spec.Subclusters[2].Type = SandboxPrimarySubcluster
 		Ω(newVdb.validateImmutableFields(oldVdb)).Should(HaveLen(1))
 		newVdb.Spec.Sandboxes = []Sandbox{
-			{Name: "sand1", Subclusters: []SandboxSubcluster{{Name: "sc3"}}},
+			{Name: "sand1", Subclusters: []SubclusterName{{Name: "sc3"}}},
 		}
 		Ω(newVdb.validateImmutableFields(oldVdb)).Should(HaveLen(0))
 		newVdb.Spec.Subclusters[1].Type = PrimarySubcluster
@@ -1448,14 +1421,14 @@ var _ = Describe("verticadb_webhook", func() {
 		}
 		Ω(newVdb.validateImmutableFields(oldVdb)).Should(HaveLen(0))
 		newVdb.Spec.Sandboxes = []Sandbox{
-			{Name: sbName, Subclusters: []SandboxSubcluster{{Name: "sc3"}}},
+			{Name: sbName, Subclusters: []SubclusterName{{Name: "sc3"}}},
 		}
 		Ω(newVdb.validateImmutableFields(oldVdb)).Should(HaveLen(1))
 		newVdb.Annotations[vmeta.OnlineUpgradeSandboxAnnotation] = sbName
 		Ω(newVdb.validateImmutableFields(oldVdb)).Should(HaveLen(0))
 		newVdb.Spec.Sandboxes = nil
 		oldVdb.Spec.Sandboxes = []Sandbox{
-			{Name: sbName, Subclusters: []SandboxSubcluster{{Name: "sc3"}}},
+			{Name: sbName, Subclusters: []SubclusterName{{Name: "sc3"}}},
 		}
 		Ω(newVdb.validateImmutableFields(oldVdb)).Should(HaveLen(0))
 	})
@@ -1469,9 +1442,7 @@ var _ = Describe("verticadb_webhook", func() {
 			{Name: "sc3", Type: SandboxPrimarySubcluster, Size: 3, ServiceType: v1.ServiceTypeNodePort},
 		}
 		vdb.Spec.Sandboxes = []Sandbox{
-			{Name: "sand1", Subclusters: []SandboxSubcluster{
-				{Name: "sc2"}, {Name: "sc3"}},
-				Shutdown: true},
+			{Name: "sand1", Subclusters: []SubclusterName{{Name: "sc2"}, {Name: "sc3"}}, Shutdown: true},
 		}
 		Ω(vdb.checkNewSBoxOrSClusterShutdownUnset(field.ErrorList{})).Should(HaveLen(1))
 		vdb.Spec.Sandboxes[0].Shutdown = false
@@ -1487,8 +1458,7 @@ var _ = Describe("verticadb_webhook", func() {
 			{Name: "sc3", Type: SecondarySubcluster, Size: 3, ServiceType: v1.ServiceTypeNodePort, Shutdown: true},
 		}
 		vdb.Spec.Sandboxes = []Sandbox{
-			{Name: "sand1", Subclusters: []SandboxSubcluster{
-				{Name: "sc2"}, {Name: "sc3", Type: SecondarySubcluster}}},
+			{Name: "sand1", Subclusters: []SubclusterName{{Name: "sc2"}, {Name: "sc3"}}},
 		}
 		Ω(vdb.checkNewSBoxOrSClusterShutdownUnset(field.ErrorList{})).Should(HaveLen(1))
 		vdb.Spec.Subclusters[2].Shutdown = false
@@ -1502,8 +1472,7 @@ var _ = Describe("verticadb_webhook", func() {
 	It("should not allow to add a subcluster whose Shutdown is true to a vdb", func() {
 		newVdb := MakeVDB()
 		newVdb.Spec.Sandboxes = []Sandbox{
-			{Name: "sand1", Subclusters: []SandboxSubcluster{
-				{Name: "sc2"}, {Name: "sc3", Type: SecondarySubcluster}}},
+			{Name: "sand1", Subclusters: []SubclusterName{{Name: "sc2"}, {Name: "sc3"}}},
 		}
 		newVdb.Status.Sandboxes = []SandboxStatus{
 			{Name: "sand1", Subclusters: []string{"sc2", "sc3"}},
@@ -1527,10 +1496,8 @@ var _ = Describe("verticadb_webhook", func() {
 	It("should not allow to add a sanbox whose Shutdown is true to a vdb", func() {
 		newVdb := MakeVDB()
 		newVdb.Spec.Sandboxes = []Sandbox{
-			{Name: "sand1", Subclusters: []SandboxSubcluster{
-				{Name: "sc1"}, {Name: "sc2", Type: SecondarySubcluster}}},
-			{Name: "sand2", Subclusters: []SandboxSubcluster{
-				{Name: "sc3"}}, Shutdown: true}, // cause of error
+			{Name: "sand1", Subclusters: []SubclusterName{{Name: "sc1"}, {Name: "sc2"}}},
+			{Name: "sand2", Subclusters: []SubclusterName{{Name: "sc3"}}, Shutdown: true}, // cause of error
 		}
 		newVdb.Status.Sandboxes = []SandboxStatus{
 			{Name: "sand1", Subclusters: []string{"sc1", "sc2"}},
@@ -1557,8 +1524,7 @@ var _ = Describe("verticadb_webhook", func() {
 					Annotations: map[string]string{"vertica.com/shutdown-driven-by-sandbox": trueString}},
 			}
 			oldVdb.Spec.Sandboxes = []Sandbox{
-				{Name: "sand1", Shutdown: true, Subclusters: []SandboxSubcluster{
-					{Name: "sc2"}, {Name: "sc3", Type: SecondarySubcluster}}},
+				{Name: "sand1", Shutdown: true, Subclusters: []SubclusterName{{Name: "sc2"}, {Name: "sc3"}}},
 			}
 			newVdb := oldVdb.DeepCopy()
 			newVdb.Spec.Subclusters[2].Shutdown = false
@@ -1581,13 +1547,11 @@ var _ = Describe("verticadb_webhook", func() {
 			{Name: "sc4", Type: SecondarySubcluster, Size: 3, ServiceType: v1.ServiceTypeNodePort},
 		}
 		oldVdb.Spec.Sandboxes = []Sandbox{
-			{Name: "sand1", Subclusters: []SandboxSubcluster{
-				{Name: "sc2"}, {Name: "sc3", Type: SecondarySubcluster}, {Name: "sc4", Type: SecondarySubcluster}}},
+			{Name: "sand1", Subclusters: []SubclusterName{{Name: "sc2"}, {Name: "sc3"}, {Name: "sc4"}}},
 		}
 		newVdb := oldVdb.DeepCopy()
 		newVdb.Spec.Sandboxes = []Sandbox{
-			{Name: "sand1", Subclusters: []SandboxSubcluster{
-				{Name: "sc2"}, {Name: "sc4", Type: SecondarySubcluster}}}, // to unsandbox sc3
+			{Name: "sand1", Subclusters: []SubclusterName{{Name: "sc2"}, {Name: "sc4"}}}, // to unsandbox sc3
 		}
 		newVdb.Status.Sandboxes = []SandboxStatus{
 			{Name: "sand1", Subclusters: []string{"sc2", "sc3", "sc4"}},
@@ -1620,13 +1584,11 @@ var _ = Describe("verticadb_webhook", func() {
 		oldVdb.Spec.Sandboxes[0].Shutdown = true
 		newVdb = oldVdb.DeepCopy()
 		newVdb.Spec.Sandboxes = []Sandbox{
-			{Name: "sand1", Shutdown: true, Subclusters: []SandboxSubcluster{
-				{Name: "sc2"}, {Name: "sc4", Type: SecondarySubcluster}}}, // to unsandbox sc3
+			{Name: "sand1", Shutdown: true, Subclusters: []SubclusterName{{Name: "sc2"}, {Name: "sc4"}}}, // to unsandbox sc3
 		}
 		Ω(newVdb.checkUnsandboxShutdownConditions(oldVdb, field.ErrorList{})).Should(HaveLen(1))
 		newVdb.Spec.Sandboxes = []Sandbox{
-			{Name: "sand1", Shutdown: true, Subclusters: []SandboxSubcluster{{Name: "sc2"},
-				{Name: "sc3", Type: SecondarySubcluster}, {Name: "sc4", Type: SecondarySubcluster}}}, // to unsandbox sc3
+			{Name: "sand1", Shutdown: true, Subclusters: []SubclusterName{{Name: "sc2"}, {Name: "sc3"}, {Name: "sc4"}}}, // to unsandbox sc3
 		}
 		Ω(newVdb.checkUnsandboxShutdownConditions(oldVdb, field.ErrorList{})).Should(HaveLen(0))
 		// to unsandbox sc3 and remove it
@@ -1641,8 +1603,7 @@ var _ = Describe("verticadb_webhook", func() {
 			{Name: "sc4", Type: SecondarySubcluster, Size: 3, ServiceType: v1.ServiceTypeNodePort},
 		}
 		newVdb.Spec.Sandboxes = []Sandbox{
-			{Name: "sand1", Shutdown: false, Subclusters: []SandboxSubcluster{
-				{Name: "sc2"}, {Name: "sc4", Type: SecondarySubcluster}}},
+			{Name: "sand1", Shutdown: false, Subclusters: []SubclusterName{{Name: "sc2"}, {Name: "sc4"}}},
 		}
 		newVdb.Status.Subclusters = []SubclusterStatus{
 			{Name: "sc1"},
@@ -1671,15 +1632,12 @@ var _ = Describe("verticadb_webhook", func() {
 			{Name: "sc4", Type: SandboxPrimarySubcluster, Size: 3, ServiceType: v1.ServiceTypeNodePort},
 		}
 		oldVdb.Spec.Sandboxes = []Sandbox{
-			{Name: "sand1", Subclusters: []SandboxSubcluster{
-				{Name: "sc2"}, {Name: "sc3", Type: SecondarySubcluster}}},
-			{Name: "sand2", Subclusters: []SandboxSubcluster{
-				{Name: "sc4"}}},
+			{Name: "sand1", Subclusters: []SubclusterName{{Name: "sc2"}, {Name: "sc3"}}},
+			{Name: "sand2", Subclusters: []SubclusterName{{Name: "sc4"}}},
 		}
 		newVdb := oldVdb.DeepCopy()
 		newVdb.Spec.Sandboxes = []Sandbox{
-			{Name: "sand1", Subclusters: []SandboxSubcluster{
-				{Name: "sc2"}, {Name: "sc3", Type: SecondarySubcluster}}}, // to unsandbox sc4
+			{Name: "sand1", Subclusters: []SubclusterName{{Name: "sc2"}, {Name: "sc3"}}}, // to unsandbox sc4
 		}
 		newVdb.Status.Sandboxes = []SandboxStatus{
 			{Name: "sand1", Subclusters: []string{"sc2", "sc3"}},
@@ -1715,17 +1673,13 @@ var _ = Describe("verticadb_webhook", func() {
 			{Name: "sc4", Type: SecondarySubcluster, Size: 3, ServiceType: v1.ServiceTypeNodePort},
 		}
 		oldVdb.Spec.Sandboxes = []Sandbox{
-			{Name: "sand1", Subclusters: []SandboxSubcluster{
-				{Name: "sc2"}, {Name: "sc3", Type: SecondarySubcluster}}},
-			{Name: "sand2", Subclusters: []SandboxSubcluster{
-				{Name: "sc4"}}},
+			{Name: "sand1", Subclusters: []SubclusterName{{Name: "sc2"}, {Name: "sc3"}}},
+			{Name: "sand2", Subclusters: []SubclusterName{{Name: "sc4"}}},
 		}
 		newVdb := oldVdb.DeepCopy()
 		newVdb.Spec.Sandboxes = []Sandbox{
-			{Name: "sand1", Subclusters: []SandboxSubcluster{
-				{Name: "sc2"}}}, // sc3 moved to sand2
-			{Name: "sand2", Subclusters: []SandboxSubcluster{
-				{Name: "sc3"}, {Name: "sc4", Type: SecondarySubcluster}}},
+			{Name: "sand1", Subclusters: []SubclusterName{{Name: "sc2"}}}, // sc3 moved to sand2
+			{Name: "sand2", Subclusters: []SubclusterName{{Name: "sc3"}, {Name: "sc4"}}},
 		}
 		newVdb.Status.Sandboxes = []SandboxStatus{
 			{Name: "sand1", Subclusters: []string{"sc2"}},
@@ -1761,8 +1715,8 @@ var _ = Describe("verticadb_webhook", func() {
 			{Name: "sc3", Type: SecondarySubcluster, Size: 3, ServiceType: v1.ServiceTypeNodePort},
 		}
 		oldVdb.Spec.Sandboxes = []Sandbox{
-			{Name: "sand1", Subclusters: []SandboxSubcluster{{Name: "sc1"}}},
-			{Name: "sand2", Subclusters: []SandboxSubcluster{{Name: "sc2"}}},
+			{Name: "sand1", Subclusters: []SubclusterName{{Name: "sc1"}}},
+			{Name: "sand2", Subclusters: []SubclusterName{{Name: "sc2"}}},
 		}
 		newVdb := oldVdb.DeepCopy()
 		newVdb.Status.Sandboxes = []SandboxStatus{
@@ -1802,10 +1756,8 @@ var _ = Describe("verticadb_webhook", func() {
 		}
 		// to sandbox sc3 in sand2. sc3 was existing previously but not in a sandbox
 		newVdb.Spec.Sandboxes = []Sandbox{
-			{Name: "sand1", Subclusters: []SandboxSubcluster{
-				{Name: "sc1"}}},
-			{Name: "sand2", Subclusters: []SandboxSubcluster{
-				{Name: "sc2"}, {Name: "sc3", Type: SecondarySubcluster}}},
+			{Name: "sand1", Subclusters: []SubclusterName{{Name: "sc1"}}},
+			{Name: "sand2", Subclusters: []SubclusterName{{Name: "sc2"}, {Name: "sc3"}}},
 		}
 		newVdb.Status.Sandboxes = []SandboxStatus{
 			{Name: "sand1", Subclusters: []string{"sc1"}},
@@ -1851,10 +1803,8 @@ var _ = Describe("verticadb_webhook", func() {
 			{Name: "sc3", Type: SecondarySubcluster, Size: 3, ServiceType: v1.ServiceTypeNodePort},
 		}
 		oldVdb.Spec.Sandboxes = []Sandbox{
-			{Name: "sand1", Subclusters: []SandboxSubcluster{
-				{Name: "sc1"}, {Name: "sc3", Type: SecondarySubcluster}}},
-			{Name: "sand2", Subclusters: []SandboxSubcluster{
-				{Name: "sc2"}}},
+			{Name: "sand1", Subclusters: []SubclusterName{{Name: "sc1"}, {Name: "sc3"}}},
+			{Name: "sand2", Subclusters: []SubclusterName{{Name: "sc2"}}},
 		}
 		newVdb = oldVdb.DeepCopy()
 		newVdb.Status.Subclusters = []SubclusterStatus{
@@ -1868,10 +1818,8 @@ var _ = Describe("verticadb_webhook", func() {
 			{Name: "sand2", Subclusters: []string{"sc2"}},
 		}
 		newVdb.Spec.Sandboxes = []Sandbox{
-			{Name: "sand1", Subclusters: []SandboxSubcluster{
-				{Name: "sc1"}}},
-			{Name: "sand2", Subclusters: []SandboxSubcluster{
-				{Name: "sc2"}, {Name: "sc3", Type: SecondarySubcluster}}},
+			{Name: "sand1", Subclusters: []SubclusterName{{Name: "sc1"}}},
+			{Name: "sand2", Subclusters: []SubclusterName{{Name: "sc2"}, {Name: "sc3"}}},
 		}
 		Ω(newVdb.checkSClusterToBeSandboxedShutdownUnset(field.ErrorList{})).Should(HaveLen(0))
 		newVdb.Spec.Subclusters[3].Shutdown = true
@@ -1899,10 +1847,8 @@ var _ = Describe("verticadb_webhook", func() {
 		}
 		// to sandbox sc3 in sand2. sc3 was existing previously but not in a sandbox
 		newVdb.Spec.Sandboxes = []Sandbox{
-			{Name: "sand1", Subclusters: []SandboxSubcluster{
-				{Name: "sc1"}}},
-			{Name: "sand2", Subclusters: []SandboxSubcluster{
-				{Name: "sc2"}, {Name: "sc3", Type: SecondarySubcluster}}},
+			{Name: "sand1", Subclusters: []SubclusterName{{Name: "sc1"}}},
+			{Name: "sand2", Subclusters: []SubclusterName{{Name: "sc2"}, {Name: "sc3"}}},
 		}
 		newVdb.Status.Sandboxes = []SandboxStatus{
 			{Name: "sand1", Subclusters: []string{"sc1"}},
@@ -1939,13 +1885,11 @@ var _ = Describe("verticadb_webhook", func() {
 			{Name: "sc4", Type: SecondarySubcluster, Size: 3, ServiceType: v1.ServiceTypeNodePort},
 		}
 		oldVdb.Spec.Sandboxes = []Sandbox{
-			{Name: "sand1", Image: "vertica-k8s:v1", Subclusters: []SandboxSubcluster{{Name: "sc2"},
-				{Name: "sc3", Type: SecondarySubcluster}, {Name: "sc4", Type: SecondarySubcluster}}},
+			{Name: "sand1", Image: "vertica-k8s:v1", Subclusters: []SubclusterName{{Name: "sc2"}, {Name: "sc3"}, {Name: "sc4"}}},
 		}
 		newVdb := oldVdb.DeepCopy()
 		newVdb.Spec.Sandboxes = []Sandbox{
-			{Name: "sand1", Subclusters: []SandboxSubcluster{{Name: "sc2"},
-				{Name: "sc3", Type: SecondarySubcluster}, {Name: "sc4", Type: SecondarySubcluster}}},
+			{Name: "sand1", Subclusters: []SubclusterName{{Name: "sc2"}, {Name: "sc3"}, {Name: "sc4"}}},
 		}
 
 		newVdb.Status.Sandboxes = []SandboxStatus{
@@ -1994,8 +1938,7 @@ var _ = Describe("verticadb_webhook", func() {
 			{Name: "sc4", Type: SecondarySubcluster, Size: 3, ServiceType: v1.ServiceTypeNodePort},
 		}
 		oldVdb.Spec.Sandboxes = []Sandbox{
-			{Name: "sand1", Image: "vertica-k8s:v1", Subclusters: []SandboxSubcluster{
-				{Name: "sc2"}, {Name: "sc3", Type: SecondarySubcluster}}},
+			{Name: "sand1", Image: "vertica-k8s:v1", Subclusters: []SubclusterName{{Name: "sc2"}, {Name: "sc3"}}},
 		}
 		newVdb := oldVdb.DeepCopy()
 		newVdb.Spec.Sandboxes = []Sandbox{} // sandbox and its subclusters are gone
@@ -2030,8 +1973,7 @@ var _ = Describe("verticadb_webhook", func() {
 			{Name: "sc4", Type: SecondarySubcluster, Size: 3, ServiceType: v1.ServiceTypeNodePort},
 		}
 		oldVdb.Spec.Sandboxes = []Sandbox{
-			{Name: "sand1", Image: "vertica-k8s:v1", Shutdown: true, Subclusters: []SandboxSubcluster{
-				{Name: "sc2"}, {Name: "sc3", Type: SecondarySubcluster}}},
+			{Name: "sand1", Image: "vertica-k8s:v1", Shutdown: true, Subclusters: []SubclusterName{{Name: "sc2"}, {Name: "sc3"}}},
 		}
 		newVdb := oldVdb.DeepCopy()
 		newVdb.Spec.Subclusters = []Subcluster{ // sc3 is removed from sandbox and vdb
@@ -2040,7 +1982,7 @@ var _ = Describe("verticadb_webhook", func() {
 			{Name: "sc4", Type: SecondarySubcluster, Size: 3, ServiceType: v1.ServiceTypeNodePort},
 		}
 		newVdb.Spec.Sandboxes = []Sandbox{
-			{Name: "sand1", Image: "vertica-k8s:v1", Shutdown: true, Subclusters: []SandboxSubcluster{{Name: "sc2"}}},
+			{Name: "sand1", Image: "vertica-k8s:v1", Shutdown: true, Subclusters: []SubclusterName{{Name: "sc2"}}},
 		}
 		newVdb.Status.Subclusters = []SubclusterStatus{
 			{Name: "sc1"},

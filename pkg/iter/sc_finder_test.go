@@ -156,7 +156,7 @@ var _ = Describe("sc_finder", func() {
 		const sbName = "sand"
 		// sandbox scNames[0]
 		vdb.Spec.Sandboxes = []vapi.Sandbox{
-			{Name: sbName, Subclusters: []vapi.SandboxSubcluster{{Name: scNames[0]}}},
+			{Name: sbName, Subclusters: []vapi.SubclusterName{{Name: scNames[0]}}},
 		}
 		vdb.Status.Sandboxes = []vapi.SandboxStatus{
 			{Name: sbName, Subclusters: []string{scNames[0]}},
@@ -206,7 +206,7 @@ var _ = Describe("sc_finder", func() {
 		}
 		const sbName = "sand"
 		vdb.Spec.Sandboxes = []vapi.Sandbox{
-			{Name: sbName, Subclusters: []vapi.SandboxSubcluster{{Name: scNames[0]}}},
+			{Name: sbName, Subclusters: []vapi.SubclusterName{{Name: scNames[0]}}},
 		}
 		vdb.Status.Sandboxes = []vapi.SandboxStatus{
 			{Name: sbName, Subclusters: []string{scNames[0]}},

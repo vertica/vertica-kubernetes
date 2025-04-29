@@ -504,7 +504,7 @@ func convertToSandboxSlice(src []Sandbox) []v1.Sandbox {
 		dst[i] = v1.Sandbox{
 			Name:        src[i].Name,
 			Image:       src[i].Image,
-			Subclusters: convertToSandboxSubclusterSlice(src[i].Subclusters),
+			Subclusters: convertToSubclusterNameSlice(src[i].Subclusters),
 		}
 	}
 	return dst
@@ -518,28 +518,28 @@ func convertFromSandboxSlice(src []v1.Sandbox) []Sandbox {
 		dst[i] = Sandbox{
 			Name:        src[i].Name,
 			Image:       src[i].Image,
-			Subclusters: convertFromSandboxSubclusterSlice(src[i].Subclusters),
+			Subclusters: convertFromSubclusterNameSlice(src[i].Subclusters),
 		}
 	}
 	return dst
 }
 
-// convertToSandboxSubclusterSlice will convert a []SandboxSubcluster from v1beta1
+// convertToSubclusterNameSlice will convert a []SubclusterName from v1beta1
 // to v1 versions
-func convertToSandboxSubclusterSlice(src []SandboxSubcluster) []v1.SandboxSubcluster {
-	dst := make([]v1.SandboxSubcluster, len(src))
+func convertToSubclusterNameSlice(src []SubclusterName) []v1.SubclusterName {
+	dst := make([]v1.SubclusterName, len(src))
 	for i := range src {
-		dst[i] = v1.SandboxSubcluster(src[i])
+		dst[i] = v1.SubclusterName(src[i])
 	}
 	return dst
 }
 
-// convertFromSandboxSubclusterSlice will convert a []SandboxSubcluster from v1
+// convertFromSubclusterNameSlice will convert a []SubclusterName from v1
 // to v1beta1 versions
-func convertFromSandboxSubclusterSlice(src []v1.SandboxSubcluster) []SandboxSubcluster {
-	dst := make([]SandboxSubcluster, len(src))
+func convertFromSubclusterNameSlice(src []v1.SubclusterName) []SubclusterName {
+	dst := make([]SubclusterName, len(src))
 	for i := range src {
-		dst[i] = SandboxSubcluster(src[i])
+		dst[i] = SubclusterName(src[i])
 	}
 	return dst
 }

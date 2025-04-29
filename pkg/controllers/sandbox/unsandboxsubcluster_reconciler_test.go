@@ -122,7 +122,7 @@ var _ = Describe("unsandboxsubcluster_reconcile", func() {
 			{Name: subcluster1, Size: 1, Type: vapi.SecondarySubcluster},
 		}
 		vdb.Spec.Sandboxes = []vapi.Sandbox{
-			{Name: sandbox1, Subclusters: []vapi.SandboxSubcluster{{Name: subcluster1}}},
+			{Name: sandbox1, Subclusters: []vapi.SubclusterName{{Name: subcluster1}}},
 		}
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
