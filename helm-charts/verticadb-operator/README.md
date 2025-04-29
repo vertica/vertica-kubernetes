@@ -8,7 +8,7 @@ This helm chart will install the operator and an admission controller webhook.  
 | controllers.burstSize | This controls the burst size for even recording in the operator. Increasing this allows the controllers to record more events in a short period. | 100 |
 | controllers.vdbMaxBackoffDuration | This controls the maximum backoff requeue duration (in milliseconds) for the vdb controller. Increase this value to reduce the requeue rate if you have multiple databases running and want a lower rate limit. | 1000 |
 | controllers.sandboxMaxBackoffDuration | This controls the maximum backoff requeue duration (in milliseconds) for the sandbox controller. Increase this value to reduce the requeue rate if you have multiple sandboxes running and want a lower rate limit. | 1000 |
-| image.name | The name of image that runs the operator. | opentext/verticadb-operator:25.2.0-0 |
+| image.name | The name of image that runs the operator. | opentext/verticadb-operator:25.2.0-1-0 |
 | image.repo | Repo server hosting image.name | docker.io |
 | image.pullPolicy | The pull policy for the image that runs the operator  | IfNotPresent |
 | imagePullSecrets | List of Secret names containing login credentials for above repos | null (pull images anonymously) |
