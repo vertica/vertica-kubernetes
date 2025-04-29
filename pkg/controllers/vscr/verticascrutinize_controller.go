@@ -225,8 +225,6 @@ func (r *VerticaScrutinizeReconciler) logScrutinizeNotReadyMsg(log logr.Logger, 
 		msg = fmt.Sprintf("The server version could not be found in the VerticaDB %s", vdbName)
 	case events.VclusterOpsScrutinizeNotSupported:
 		msg = "The server version does not have scrutinize support through vclusterOps"
-	case events.SandboxNotFound:
-		msg = "Sandbox could not be found"
 	default:
 		msg = "The server version does not support vclusterOps scrutinize reading db password from secret"
 	}

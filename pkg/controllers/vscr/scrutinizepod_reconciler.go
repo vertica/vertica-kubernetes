@@ -95,20 +95,14 @@ func (s *ScrutinizePodReconciler) Reconcile(ctx context.Context, _ *ctrl.Request
 // to the vcluster scrutinize CLI
 func (s *ScrutinizePodReconciler) collectInfoFromVdb(ctx context.Context) (ctrl.Result, error) {
 	finder := iter.MakeSubclusterFinder(s.VRec.Client, s.Vdb)
-
-	cluster := v1.MainCluster
-	if s.Vscr.Spec.Sandbox != "" {
-		cluster = s.Vscr.Spec.Sandbox
-	}
-
-	pods, err := finder.FindPods(ctx, iter.FindExisting, cluster)
+	pods, err := finder.FindPods(ctx, iter.FindExisting, v1.MainCluster)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 
 	hosts := s.getHostList(pods.Items)
 	if len(hosts) == 0 {
-		s.Log.Info("could not find any pod with NMA running, requeue reconciliation", "Cluster", cluster)
+		s.Log.Info("could not find any pod with NMA running, requeue reconciliation")
 		return ctrl.Result{Requeue: true}, nil
 	}
 	s.ScrArgs = &ScrutinizeCmdArgs{}
