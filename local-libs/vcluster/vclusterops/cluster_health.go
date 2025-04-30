@@ -44,13 +44,19 @@ type VClusterHealthOptions struct {
 	SessionStartsResult     *dcSessionStarts
 	TransactionStartsResult *dcTransactionStarts
 	SlowEventsResult        *dcSlowEvents
-	LockEventCascade        []nodeLockEvents
+	LockEventCascade        []NodeLockEvents
+}
+
+type dcEvent interface {
+	getSessionID() string
+	getTxnID() string
 }
 
 const (
 	timeLayout       = "2006-01-02 15:04:05.999999"
 	maxDepth         = 100
 	lockCascade      = "lock_cascade"
+	slowEventCascade = "slow_event_cascade"
 	getTxnStarts     = "get_transaction_starts"
 	getSessionStarts = "get_session_starts"
 	getSlowEvents    = "get_slow_events"
@@ -164,6 +170,8 @@ func (vcc VClusterCommands) VClusterHealth(options *VClusterHealthOptions) error
 		options.SessionStartsResult, runError = options.getSessionStarts(vcc.Log, vdb.PrimaryUpNodes, options.SessionID)
 	case getTxnStarts:
 		options.TransactionStartsResult, runError = options.getTransactionStarts(vcc.Log, vdb.PrimaryUpNodes, options.TxnID)
+	case slowEventCascade:
+		runError = options.buildCascadeGraph(vcc.Log, vdb.PrimaryUpNodes)
 	case lockCascade:
 		runError = options.buildLockCascadeGraph(vcc.Log, vdb.PrimaryUpNodes)
 	default: // by default, we will build a cascade graph
@@ -227,4 +235,57 @@ func (opt *VClusterHealthOptions) getTransactionStarts(logger vlog.Printer, upHo
 	}
 
 	return clusterOpEngine.execContext.dcTransactionStarts, nil
+}
+
+// getEventSessionAndTxnInfo retrieves session and transaction info
+// from an object that implements the dcEvent interface
+func (opt *VClusterHealthOptions) getEventSessionAndTxnInfo(logger vlog.Printer, upHosts []string,
+	event dcEvent) (sessionInfo *dcSessionStart, transactionInfo *dcTransactionStart, err error) {
+	sessionInfo, err = opt.getEventSessionInfo(logger, upHosts, event)
+	if err != nil {
+		return sessionInfo, transactionInfo, err
+	}
+
+	transactionInfo, err = opt.getEventTransactionInfo(logger, upHosts, event)
+	if err != nil {
+		return sessionInfo, transactionInfo, err
+	}
+
+	return sessionInfo, transactionInfo, err
+}
+
+// getEventTransactionInfo retrieves transaction info
+// from an object that implements the dcEvent interface
+func (opt *VClusterHealthOptions) getEventTransactionInfo(logger vlog.Printer, upHosts []string,
+	event dcEvent) (transactionInfo *dcTransactionStart, err error) {
+	transactionInfo = new(dcTransactionStart)
+	if event.getTxnID() != "" {
+		transactions, err := opt.getTransactionStarts(logger, upHosts, event.getTxnID())
+		if err != nil {
+			return transactionInfo, err
+		}
+		if transactions != nil && len(transactions.TransactionStartsList) > 0 {
+			transactionInfo = &transactions.TransactionStartsList[0]
+		}
+	}
+
+	return transactionInfo, nil
+}
+
+// getEventSessionInfo retrieves session info
+// from an object that implements the dcEvent interface
+func (opt *VClusterHealthOptions) getEventSessionInfo(logger vlog.Printer, upHosts []string,
+	event dcEvent) (sessionInfo *dcSessionStart, err error) {
+	sessionInfo = new(dcSessionStart)
+	if event.getSessionID() != "" {
+		sessions, err := opt.getSessionStarts(logger, upHosts, event.getSessionID())
+		if err != nil {
+			return sessionInfo, err
+		}
+		if sessions != nil && len(sessions.SessionStartsList) > 0 {
+			sessionInfo = &sessions.SessionStartsList[0]
+		}
+	}
+
+	return sessionInfo, nil
 }

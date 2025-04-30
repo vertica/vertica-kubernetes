@@ -199,6 +199,7 @@ func (c *CmdClusterHealth) Run(vcc vclusterops.ClusterCommands) error {
 		getSlowEvents    = "get_slow_events"
 		getSessionStarts = "get_session_starts"
 		getTxnStarts     = "get_transaction_starts"
+		slowEventCascade = "slow_event_cascade"
 		lockCascade      = "lock_cascade"
 	)
 
@@ -210,6 +211,8 @@ func (c *CmdClusterHealth) Run(vcc vclusterops.ClusterCommands) error {
 		bytes, err = json.MarshalIndent(options.SessionStartsResult, "" /*prefix*/, " " /* indent for one space*/)
 	case getTxnStarts:
 		bytes, err = json.MarshalIndent(options.TransactionStartsResult, "" /*prefix*/, " " /* indent for one space*/)
+	case slowEventCascade:
+		bytes, err = json.MarshalIndent(options.SlowEventCascade, "", " ")
 	case lockCascade:
 		bytes, err = json.MarshalIndent(options.LockEventCascade, "", " ")
 	default: // by default, we will build a cascade graph
@@ -220,7 +223,7 @@ func (c *CmdClusterHealth) Run(vcc vclusterops.ClusterCommands) error {
 		return fmt.Errorf("failed to marshal the traceback result, details: %w", err)
 	}
 
-	if options.Operation == "" {
+	if options.Operation == "" || options.Operation == slowEventCascade {
 		vcc.DisplayInfo("Successfully build the cascade graph for the slow events")
 	} else if options.Operation == lockCascade {
 		vcc.DisplayInfo("Successfully build the cascade graph for the lock events")
@@ -231,7 +234,7 @@ func (c *CmdClusterHealth) Run(vcc vclusterops.ClusterCommands) error {
 	vcc.LogInfo("Slow event traceback: ", "slow events", string(bytes))
 
 	if options.Display {
-		if options.Operation == "" {
+		if options.Operation == "" || options.Operation == slowEventCascade {
 			options.DisplaySlowEventsCascade()
 		} else if options.Operation == lockCascade {
 			options.DisplayLockEventsCascade()
