@@ -52,8 +52,7 @@ const (
 	// This is a file that we run with the create_db to run custome SQL. This is
 	// passed with the --sql parameter when running create_db. This is no longer
 	// used starting with versions defined in vapi.DBSetupConfigParameters.
-	PostDBCreateSQLFile            = "/home/dbadmin/post-db-create.sql"
-	PostDBCreateSQLFileVclusterOps = "/tmp/post-db-create.sql"
+	PostDBCreateSQLFile = "/home/dbadmin/post-db-create.sql"
 )
 
 // CreateDBReconciler will create a database if one wasn't created yet.
@@ -133,17 +132,6 @@ func (c *CreateDBReconciler) execCmd(ctx context.Context, initiatorPod types.Nam
 	start := time.Now()
 	if res, err := c.Dispatcher.CreateDB(ctx, opts...); verrors.IsReconcileAborted(res, err) {
 		return res, err
-	}
-	if c.Vdb.IsCertRotationEnabled() {
-		cmd := []string{
-			"-f", PostDBCreateSQLFileVclusterOps,
-		}
-		_, stderr, err2 := c.PRunner.ExecVSQL(ctx, initiatorPod, names.ServerContainer, cmd...)
-		if err2 != nil || strings.Contains(stderr, "Error") {
-			c.Log.Error(err2, "failed to execute TLS DDLs after db creation stderr - "+stderr)
-			return ctrl.Result{}, err2
-		}
-		c.Log.Info("TLS DDLs executed and TLS Cert configured")
 	}
 	sc := c.getFirstPrimarySubcluster()
 	c.VRec.Eventf(c.Vdb, corev1.EventTypeNormal, events.CreateDBSucceeded,

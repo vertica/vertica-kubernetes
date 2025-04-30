@@ -755,7 +755,7 @@ func (vcc VClusterCommands) produceAdditionalTLSInstructions(options *VCreateDat
 		nmaSetHTTPSTLSOp, err := makeNMASetTLSOp(&options.DatabaseOptions, httpsTLSKeyPrefix,
 			true, // grantAuth
 			true, // syncCatalog
-			options.ServerTLSConfiguration)
+			options.HTTPSTLSConfiguration)
 		if err != nil {
 			return instructions, err
 		}

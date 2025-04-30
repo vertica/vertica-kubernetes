@@ -18,6 +18,8 @@ package vadmin
 import (
 	"context"
 	"fmt"
+	"regexp"
+	"strings"
 
 	vops "github.com/vertica/vcluster/vclusterops"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
@@ -111,7 +113,7 @@ func genTLSConfigurationMap(tlsMode, secretNameInVdb, secretNamespace string) ma
 	}
 	configMap[vops.TLSSecretManagerKeySecretManager] = secretManager
 	configMap[vops.TLSSecretManagerKeySecretName] = secretName
-	configMap[vops.TLSSecretManagerKeyTLSMode] = tlsMode
+	configMap[vops.TLSSecretManagerKeyTLSMode] = strings.ToLower(genVclusteropsCompatibleTLSMode(tlsMode))
 
 	return configMap
 }
@@ -152,4 +154,9 @@ func getNMATLSSecretName(vdb *vapi.VerticaDB) (string, error) {
 		return "", fmt.Errorf("failed to retrieve nma secret name")
 	}
 	return secretName, nil
+}
+
+func genVclusteropsCompatibleTLSMode(tlsMode string) string {
+	m := regexp.MustCompile(`_`)
+	return m.ReplaceAllString(tlsMode, "-")
 }
