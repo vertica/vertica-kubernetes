@@ -164,6 +164,8 @@ func convertToSpec(src *VerticaDBSpec) v1.VerticaDBSpec {
 		LivenessProbeOverride:  src.LivenessProbeOverride,
 		StartupProbeOverride:   src.StartupProbeOverride,
 		ServiceAccountName:     src.ServiceAccountName,
+		ServiceHTTPSPort:       src.ServiceHTTPSPort,
+		ServiceClientPort:      src.ServiceClientPort,
 		Sandboxes:              convertToSandboxSlice(src.Sandboxes),
 	}
 	if src.Proxy != nil {
@@ -236,6 +238,8 @@ func convertFromSpec(src *v1.VerticaDB) VerticaDBSpec {
 		LivenessProbeOverride:   srcSpec.LivenessProbeOverride,
 		StartupProbeOverride:    srcSpec.StartupProbeOverride,
 		ServiceAccountName:      srcSpec.ServiceAccountName,
+		ServiceHTTPSPort:        srcSpec.ServiceHTTPSPort,
+		ServiceClientPort:       srcSpec.ServiceClientPort,
 		Sandboxes:               convertFromSandboxSlice(srcSpec.Sandboxes),
 	}
 	if srcSpec.Proxy != nil {
@@ -358,6 +362,8 @@ func convertToSubcluster(src *Subcluster) v1.Subcluster {
 		ServiceName:         src.ServiceName,
 		ClientNodePort:      src.NodePort,
 		VerticaHTTPNodePort: src.VerticaHTTPNodePort,
+		ServiceHTTPSPort:    src.ServiceHTTPSPort,
+		ServiceClientPort:   src.ServiceClientPort,
 		ExternalIPs:         src.ExternalIPs,
 		LoadBalancerIP:      src.LoadBalancerIP,
 		ServiceAnnotations:  src.ServiceAnnotations,
@@ -390,6 +396,8 @@ func convertFromSubcluster(src *v1.Subcluster) Subcluster {
 		ServiceName:         src.ServiceName,
 		NodePort:            src.ClientNodePort,
 		VerticaHTTPNodePort: src.VerticaHTTPNodePort,
+		ServiceHTTPSPort:    src.ServiceHTTPSPort,
+		ServiceClientPort:   src.ServiceClientPort,
 		ExternalIPs:         src.ExternalIPs,
 		LoadBalancerIP:      src.LoadBalancerIP,
 		ServiceAnnotations:  src.ServiceAnnotations,

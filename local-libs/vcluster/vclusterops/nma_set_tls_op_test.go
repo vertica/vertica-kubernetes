@@ -10,22 +10,24 @@ import (
 
 //nolint:gosec // test uses "hardcoded credentials"
 func TestNMASetTLSOp(t *testing.T) {
-	const KubernetesSecretManagerName string = "KubernetesSecretManager"
-	const TLSMode string = "TLSMode"
-	const CADataKey string = "CADataKey"
-	const CertDataKey string = "CertDataKey"
-	const KeyDataKey string = "KeyDataKey"
+	const (
+		kubernetesSecretManager = "kubernetes"
+		awsSecretManager        = "AWS"
+		tlsMode                 = "try-verify"
+		userName                = "test_tls_user"
+		dbName                  = "test_tls_db"
+		namespace               = "test_ns"
+		secretName              = "test_secret"
+		caDataKey               = "test_ca_data_key"
+		certDataKey             = "test_cert_data_key"
+		keyDataKey              = "test_key_data_key"
+		region                  = "us-east-1"
+		versionID               = "v1"
+	)
 	hosts := []string{"host1"}
 	pwStr := "test_tls_pw_str"
-	userName := "test_tls_user"
-	dbName := "test_tls_db"
-	namespace := "test_ns"
-	secretName := "test_secret"
-	caDataKey := "test_ca_data_key"
-	certDataKey := "test_cert_data_key"
-	keyDataKey := "test_key_data_key"
-	tlsMode := "try-verify"
-	options := VCreateDatabaseOptions{
+
+	baseOptions := VCreateDatabaseOptions{
 		DatabaseOptions: DatabaseOptions{
 			UserName:    userName,
 			DBName:      dbName,
@@ -33,47 +35,64 @@ func TestNMASetTLSOp(t *testing.T) {
 			usePassword: true,
 			Hosts:       hosts,
 		},
-		ServerTLSConfiguration: map[string]string{
-			"Namespace":     namespace,
-			"SecretManager": KubernetesSecretManagerName,
-			"SecretName":    secretName,
-			CADataKey:       caDataKey,
-			CertDataKey:     certDataKey,
-			KeyDataKey:      keyDataKey,
-			TLSMode:         tlsMode,
-		},
 	}
 
-	// construction should succeed
-	op, err := makeNMASetTLSOp(&options.DatabaseOptions, serverTLSKeyPrefix, true, true, options.ServerTLSConfiguration)
-	assert.NoError(t, err)
+	commonTLSConfig := map[string]string{
+		TLSSecretManagerKeySecretName:    secretName,
+		TLSSecretManagerKeyCACertDataKey: caDataKey,
+		TLSSecretManagerKeyCertDataKey:   certDataKey,
+		TLSSecretManagerKeyKeyDataKey:    keyDataKey,
+		TLSSecretManagerKeyTLSMode:       tlsMode,
+	}
 
-	// run through prepare() phase only
-	op.skipExecute = true
-	instructions := []clusterOp{&op}
-	log := vlog.Printer{}
-	clusterOpEngine := makeClusterOpEngine(instructions, nil)
-	err = clusterOpEngine.run(log)
-	assert.NoError(t, err)
-
-	// check that requests are well-formed
-	for _, host := range hosts {
-		httpRequest := op.clusterHTTPRequest.RequestCollection[host]
-		assert.Equal(t, "v1/vertica/tls", httpRequest.Endpoint)
-		assert.Equal(t, PutMethod, httpRequest.Method)
-		data := nmaSetTLSRequestData{}
-		err = json.Unmarshal([]byte(httpRequest.RequestData), &data)
-
+	runTLSOp := func(tlsConfig map[string]string, validate func(data nmaSetTLSRequestData)) {
+		baseOptions.ServerTLSConfiguration = tlsConfig
+		op, err := makeNMASetTLSOp(&baseOptions.DatabaseOptions, serverTLSKeyPrefix, true, true, tlsConfig)
 		assert.NoError(t, err)
-		assert.Equal(t, userName, data.DBUsername)
-		assert.Equal(t, pwStr, data.DBPassword)
-		assert.Equal(t, dbName, data.DBName)
-		assert.Equal(t, KubernetesSecretManagerName, data.TLSSecretManager)
+
+		op.skipExecute = true
+		engine := makeClusterOpEngine([]clusterOp{&op}, nil)
+		assert.NoError(t, engine.run(vlog.Printer{}))
+
+		for _, host := range hosts {
+			req := op.clusterHTTPRequest.RequestCollection[host]
+			assert.Equal(t, "v1/vertica/tls", req.Endpoint)
+			assert.Equal(t, PutMethod, req.Method)
+
+			var data nmaSetTLSRequestData
+			err := json.Unmarshal([]byte(req.RequestData), &data)
+			assert.NoError(t, err)
+			validate(data)
+		}
+	}
+
+	// Kubernetes secret manager test
+	k8sConfig := cloneMap(commonTLSConfig)
+	k8sConfig[TLSSecretManagerKeySecretManager] = kubernetesSecretManager
+	k8sConfig[TLSSecretManagerKeyNamespace] = namespace
+
+	runTLSOp(k8sConfig, func(data nmaSetTLSRequestData) {
+		assert.Equal(t, kubernetesSecretManager, data.TLSSecretManager)
 		assert.Equal(t, namespace, data.TLSNamespace)
 		assert.Equal(t, secretName, data.TLSSecretName)
 		assert.Equal(t, keyDataKey, data.TLSKeyDataKey)
 		assert.Equal(t, certDataKey, data.TLSCertDataKey)
 		assert.Equal(t, caDataKey, data.TLSCADataKey)
 		assert.Equal(t, tlsMode, data.TLSMode)
-	}
+		assert.Equal(t, userName, data.DBUsername)
+		assert.Equal(t, pwStr, data.DBPassword)
+		assert.Equal(t, dbName, data.DBName)
+	})
+
+	// AWS secret manager test
+	awsConfig := cloneMap(commonTLSConfig)
+	awsConfig[TLSSecretManagerKeySecretManager] = awsSecretManager
+	awsConfig[TLSSecretManagerKeyAWSRegion] = region
+	awsConfig[TLSSecretManagerKeyAWSSecretVersionID] = versionID
+
+	runTLSOp(awsConfig, func(data nmaSetTLSRequestData) {
+		assert.Equal(t, awsSecretManager, data.TLSSecretManager)
+		assert.Equal(t, region, data.AWSRegion)
+		assert.Equal(t, versionID, data.AWSSecretVersionID)
+	})
 }
