@@ -1012,7 +1012,7 @@ func (s *Subcluster) IsMainPrimary() bool {
 }
 
 func (s *Subcluster) IsSandboxPrimary(v *VerticaDB) bool {
-	return v.GetSubclusterStatusType(s.Name) == SandboxPrimarySubcluster
+	return v.GetSandboxSubclusterType(s.Name) == PrimarySubcluster
 }
 
 func (s *Subcluster) IsSecondary() bool {
@@ -1031,7 +1031,17 @@ func (s *Subcluster) GetType() string {
 	if s.IsTransient() || s.Type == "" {
 		return SecondarySubcluster
 	}
+
 	return s.Type
+}
+
+// GenSubclusterType calls GetType but returns the type based on its sandbox type
+func (s *Subcluster) GenSubclusterType(v *VerticaDB) string {
+	if s.IsSandboxPrimary(v) {
+		return SandboxPrimarySubcluster
+	}
+
+	return s.GetType()
 }
 
 // GetTypeByName returns the type of the subcluster by its name

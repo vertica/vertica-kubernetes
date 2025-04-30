@@ -48,7 +48,7 @@ var _ = Describe("altersubcluster_reconcile", func() {
 				// we are only going to find the subclusters that need
 				// promotion
 				Name:        "sc3",
-				Type:        vapi.SandboxPrimarySubcluster,
+				Type:        vapi.SecondarySubcluster,
 				Annotations: annSec,
 			},
 			{
@@ -61,8 +61,8 @@ var _ = Describe("altersubcluster_reconcile", func() {
 			{
 				Name: sbName,
 				Subclusters: []vapi.SandboxSubcluster{
-					{Name: "sc3"},
-					{Name: "sc4"},
+					{Name: "sc3", Type: vapi.PrimarySubcluster},
+					{Name: "sc4", Type: vapi.SecondarySubcluster},
 				},
 			},
 		}

@@ -200,7 +200,7 @@ func (v *VerticaDB) checkValidSubclusterTypeTransition(oldObj *VerticaDB, allErr
 		} else if oldType == SecondarySubcluster && sc.Type != SecondarySubcluster {
 			_, found := scToSbMap[sc.Name]
 			// You can only transition out of a secondary subcluster if its during sandboxing.
-			if sc.Type != SandboxPrimarySubcluster || !found {
+			if sc.IsSandboxPrimary(v) || !found {
 				invalidStateTransitionErr(i)
 			}
 		}
@@ -270,15 +270,15 @@ func (v *VerticaDB) hasValidSubclusterTypes(allErrs field.ErrorList) field.Error
 	for i := range v.Spec.Subclusters {
 		sc := &v.Spec.Subclusters[i]
 		if sc.Type == PrimarySubcluster || sc.Type == SecondarySubcluster ||
-			sc.Type == TransientSubcluster || sc.Type == SandboxPrimarySubcluster {
+			sc.Type == TransientSubcluster {
 			continue
 		}
 		fieldPrefix := field.NewPath("spec").Child("subclusters").Index(i)
 		err := field.Invalid(fieldPrefix.Child("type"),
 			sc.Type,
 			fmt.Sprintf("subcluster type is invalid. A valid case-sensitive type a user can specify is %q or %q. "+
-				"(%q and %q are valid types that should only be set by the operator)",
-				PrimarySubcluster, SecondarySubcluster, SandboxPrimarySubcluster, TransientSubcluster))
+				"(%q are valid types that should only be set by the operator)",
+				PrimarySubcluster, SecondarySubcluster, TransientSubcluster))
 		allErrs = append(allErrs, err)
 	}
 	return allErrs
@@ -1802,7 +1802,7 @@ func (v *VerticaDB) checkSandboxPrimary(allErrs field.ErrorList, oldObj *Vertica
 
 		newSbName, newFound := newScInSandbox[oldScName]
 		// old sandbox still exits
-		if !newFound && sc.Type == SandboxPrimarySubcluster {
+		if !newFound && sc.IsSandboxPrimary(v) {
 			i := oldScIndexMap[oldScName]
 			err := field.Invalid(path.Index(i),
 				oldObj.Spec.Subclusters[i],
@@ -1816,7 +1816,7 @@ func (v *VerticaDB) checkSandboxPrimary(allErrs field.ErrorList, oldObj *Vertica
 			continue
 		}
 		// old sandbox name does not match new sandbox name
-		if sc.Type == SandboxPrimarySubcluster {
+		if sc.IsSandboxPrimary(v) {
 			i := oldSbIndexMap[oldSbName]
 			p := field.NewPath("spec").Child("sandboxes")
 			err := field.Invalid(p.Index(i),

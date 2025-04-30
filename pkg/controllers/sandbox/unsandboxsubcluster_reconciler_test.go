@@ -184,7 +184,7 @@ var _ = Describe("unsandboxsubcluster_reconcile", func() {
 		}
 		vdb.Status.Subclusters = []vapi.SubclusterStatus{
 			{Name: maincluster, Type: vapi.PrimarySubcluster, Detail: []vapi.VerticaDBPodStatus{}},
-			{Name: subcluster1, Type: vapi.SandboxPrimarySubcluster, Detail: []vapi.VerticaDBPodStatus{}},
+			{Name: subcluster1, Type: vapi.SecondarySubcluster, Detail: []vapi.VerticaDBPodStatus{}},
 		}
 		Expect(k8sClient.Status().Update(ctx, vdb)).Should(Succeed())
 		Expect(vdb.Status.Subclusters[1].Type).Should(Equal(vapi.SandboxPrimarySubcluster))

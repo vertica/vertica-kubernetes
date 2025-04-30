@@ -17,7 +17,6 @@ package vdb
 
 import (
 	"context"
-	"fmt"
 	"reflect"
 
 	"github.com/go-logr/logr"
@@ -33,7 +32,6 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/pollscstate"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/sandboxsc"
 	"github.com/vertica/vertica-kubernetes/pkg/vdbstatus"
-	"github.com/vertica/vertica-kubernetes/pkg/vk8s"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -196,23 +194,6 @@ func (s *SandboxSubclusterReconciler) executeSandboxCommand(ctx context.Context,
 				return res, err
 			}
 			seenSandboxes[sb] = struct{}{}
-
-			// The first subcluster in a sandbox turns into a primary. Set
-			// state in the vdb to indicate that.
-			if j == 0 {
-				_, err = vk8s.UpdateVDBWithRetry(ctx, s.VRec, s.Vdb, func() (bool, error) {
-					scMap := s.Vdb.GenSubclusterMap()
-					vdbSc, found := scMap[sc]
-					if !found {
-						return false, fmt.Errorf("subcluster %q missing in vdb %q", sc, s.Vdb.Name)
-					}
-					vdbSc.Type = vapi.SandboxPrimarySubcluster
-					return true, nil
-				})
-				if err != nil {
-					return ctrl.Result{}, err
-				}
-			}
 
 			// Always update status as we go. When sandboxing two subclusters in
 			// the same sandbox, the second subcluster depends on the status
