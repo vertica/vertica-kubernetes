@@ -23,6 +23,7 @@ import (
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/cloud"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
+	"github.com/vertica/vertica-kubernetes/pkg/secrets"
 	corev1 "k8s.io/api/core/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -85,6 +86,34 @@ func retrieveNMACerts(ctx context.Context, fetcher *cloud.SecretFetcher, vdb *va
 		Cert:   string(tlsCrt),
 		CaCert: string(tlsCaCrt),
 	}, nil
+}
+
+func (v *VClusterOps) genTLSConfigurationMap(tlsMode, secretNameInVdb string) map[string]string {
+	configMap := make(map[string]string)
+	configMap[vops.TLSSecretManagerKeyCACertDataKey] = corev1.ServiceAccountRootCAKey
+	configMap[vops.TLSSecretManagerKeyCertDataKey] = corev1.TLSCertKey
+	configMap[vops.TLSSecretManagerKeyKeyDataKey] = corev1.TLSPrivateKeyKey
+	secretName := secretNameInVdb
+	secretManager := ""
+	switch {
+	case secrets.IsGSMSecret(secretNameInVdb):
+		return configMap
+	case secrets.IsAWSSecretsManagerSecret(secretNameInVdb):
+		region, _ := secrets.GetAWSRegion(secretNameInVdb)
+		configMap[vops.TLSSecretManagerKeyAWSRegion] = region
+		secretARN, versionID := secrets.GetAWSSecretARN(secretNameInVdb)
+		configMap[vops.TLSSecretManagerKeyAWSSecretVersionID] = versionID
+		secretName = secretARN
+		secretManager = vops.AWSSecretManagerType
+	default:
+		secretManager = vops.K8sSecretManagerType
+		configMap[vops.TLSSecretManagerKeyNamespace] = v.VDB.Namespace
+	}
+	configMap[vops.TLSSecretManagerKeySecretManager] = secretManager
+	configMap[vops.TLSSecretManagerKeySecretName] = secretName
+	configMap[vops.TLSSecretManagerKeyTLSMode] = tlsMode
+
+	return configMap
 }
 
 // logFailure will log and record an event for a vclusterOps API failure

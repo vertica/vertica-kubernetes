@@ -87,3 +87,8 @@ func RemovePathReference(secretName string) string {
 	_, nameWithoutPathReference := getSecretSourceType(secretName)
 	return nameWithoutPathReference
 }
+
+func GetAWSSecretARN(secretName string) (string, string) {
+	secretARNWithVersionID := RemovePathReference(secretName)
+	return getAWSSecretVersionID(secretARNWithVersionID)
+}
