@@ -290,19 +290,18 @@ func (s *SandboxSubclusterReconciler) checkSandboxConfigMap(ctx context.Context,
 // if so, we will update the content of that config map and return true
 func (s *SandboxSubclusterReconciler) updateSandboxConfigMapFields(curCM, newCM *corev1.ConfigMap) bool {
 	updated := false
-	// exclude sandbox controller upgrade & unsandbox trigger ID from the annotations
+	// exclude sandbox controller upgrade, unsandbox, shutdown trigger ID from the annotations
 	// because vdb controller will set this in current config map, and the new
 	// config map cannot get it
 	upgradeTriggerID, hasUpgradeTriggerID := curCM.Annotations[vmeta.SandboxControllerUpgradeTriggerID]
-	if hasUpgradeTriggerID {
-		delete(curCM.Annotations, vmeta.SandboxControllerUpgradeTriggerID)
-	}
+	delete(curCM.Annotations, vmeta.SandboxControllerUpgradeTriggerID)
 	delete(newCM.Annotations, vmeta.SandboxControllerUpgradeTriggerID)
 	unsandboxTriggerID, hasUnsandboxTriggerID := curCM.Annotations[vmeta.SandboxControllerUnsandboxTriggerID]
-	if hasUnsandboxTriggerID {
-		delete(curCM.Annotations, vmeta.SandboxControllerUnsandboxTriggerID)
-	}
+	delete(curCM.Annotations, vmeta.SandboxControllerUnsandboxTriggerID)
 	delete(newCM.Annotations, vmeta.SandboxControllerUnsandboxTriggerID)
+	shutdownTriggerID, hasShutdownTriggerID := curCM.Annotations[vmeta.SandboxControllerShutdownTriggerID]
+	delete(curCM.Annotations, vmeta.SandboxControllerShutdownTriggerID)
+	delete(newCM.Annotations, vmeta.SandboxControllerShutdownTriggerID)
 
 	// exclude version annotation because vdb controller can set a different
 	// vertica version annotation for a sandbox in current config map
@@ -323,6 +322,9 @@ func (s *SandboxSubclusterReconciler) updateSandboxConfigMapFields(curCM, newCM 
 	}
 	if hasUnsandboxTriggerID {
 		curCM.Annotations[vmeta.SandboxControllerUnsandboxTriggerID] = unsandboxTriggerID
+	}
+	if hasShutdownTriggerID {
+		curCM.Annotations[vmeta.SandboxControllerShutdownTriggerID] = shutdownTriggerID
 	}
 	// add vertica version back to the annotations
 	if hasVersion {

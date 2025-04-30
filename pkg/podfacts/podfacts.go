@@ -34,6 +34,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/iter"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
+	"github.com/vertica/vertica-kubernetes/pkg/net"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	config "github.com/vertica/vertica-kubernetes/pkg/vdbconfig"
 	"github.com/vertica/vertica-kubernetes/pkg/vk8s"
@@ -1338,7 +1339,7 @@ func (p *PodFacts) CountRunningAndInstalled() int {
 
 // CountNotRestartablePods returns number of pods that aren't yet
 // running but the restart reconciler needs to handle them.
-func (p *PodFacts) CountNotRestartablePods(vclusterOps bool) int {
+func (p *PodFacts) CountNotRestartablePods(vclusterOps bool, scStatus map[string]*vapi.SubclusterStatus) int {
 	return p.countPods(func(v *PodFact) int {
 		// Non-restartable pods are pods that aren't yet running, or don't have
 		// the necessary DC table annotations, but need to be handled by the
@@ -1352,6 +1353,13 @@ func (p *PodFacts) CountNotRestartablePods(vclusterOps bool) int {
 		// to update its IP.
 		if ((!vclusterOps && v.isInstalled) || v.dbExists) && v.managedByParent &&
 			(!v.isPodRunning || !v.hasDCTableAnnotations) {
+			return 1
+		}
+		// When shutdown pods are restarted, they might not reach the Running state (e.g., they could remain Pending).
+		// In such cases, we want to requeue the restart reconciler to ensure the pods are properly restarted.
+		// Otherwise, these pods in the sandbox might be skipped, and the restart reconciler would no longer be triggered.
+		status, exist := scStatus[v.GetSubclusterName()]
+		if exist && status.Shutdown && !v.shutdown && !v.isPodRunning {
 			return 1
 		}
 		return 0
@@ -1522,6 +1530,10 @@ func (p *PodFacts) GetClusterExtendedName() string {
 // checkIfNodeUpCmd builds and returns the command to check
 // if a node is up using an HTTPS endpoint
 func checkIfNodeUpCmd(podIP string) string {
+	if net.IsIPv6(podIP) {
+		podIP = "[" + podIP + "]"
+	}
+
 	url := fmt.Sprintf("https://%s:%d%s",
 		podIP, builder.VerticaHTTPPort, builder.HTTPServerVersionPath)
 	curlCmd := "curl -k -s -o /dev/null -w '%{http_code}'"

@@ -366,8 +366,6 @@ const (
 	// This will  be set in a sandbox configMap by the vdb controller to wake up the sandbox
 	// controller for stopping/starting a sandbox
 	SandboxControllerShutdownTriggerID = "vertica.com/sandbox-controller-shutdown-trigger-id"
-	// This will  be set in a subclusters configMap by the vdb controller to stop/start a subcluter
-	VdbControllerShutdownClusterTriggerID = "vertica.com/vdb-controller-shutdown-subcluster-trigger-id"
 
 	// Use this to override the name of the statefulset and its pods. This needs
 	// to be set in the spec.subclusters[].annotations field to take effect. If
