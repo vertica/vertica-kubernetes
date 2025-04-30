@@ -21,6 +21,7 @@
 package vclusterops
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net"
@@ -614,8 +615,9 @@ type ClusterCommands interface {
 	VUnsandbox(options *VUnsandboxOptions) error
 	VUpgradeLicense(options *VUpgradeLicenseOptions) error
 	VClusterHealth(options *VClusterHealthOptions) error
-	VWorkloadReplay(options *VWorkloadReplayOptions) error
+	VWorkloadReplay(ctx context.Context, options *VWorkloadReplayOptions) error
 	VWorkloadCapture(options *VWorkloadCaptureOptions) error
+	VWorkloadCancel(options *VWorkloadCancelOptions) error
 }
 
 type VClusterCommandsLogger struct {

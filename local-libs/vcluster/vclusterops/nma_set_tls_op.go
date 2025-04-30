@@ -29,7 +29,7 @@ type nmaSetTLSOp struct {
 type nmaSetTLSRequestData struct {
 	sqlEndpointData
 	TLSNamespace         string `json:"k8s_tls_namespace"`
-	TLSSecretName        string `json:"tls_secret_name"`
+	TLSSecretName        string `json:"k8s_tls_secret_name"`
 	TLSConfigName        string `json:"tls_config"`
 	TLSKeyDataKey        string `json:"tls_key_data_key"`
 	TLSCertDataKey       string `json:"tls_cert_data_key"`
@@ -38,8 +38,6 @@ type nmaSetTLSRequestData struct {
 	TLSMode              string `json:"tls_mode"`
 	TLSConfigGrantAuth   bool   `json:"tls_config_grant_auth,omitempty"`
 	TLSConfigSyncCatalog bool   `json:"tls_config_sync_catalog,omitempty"`
-	AWSRegion            string `json:"aws_region"`
-	AWSSecretVersionID   string `json:"aws_secret_version_id"`
 }
 
 func makeNMASetTLSOp(options *DatabaseOptions, configName string,
@@ -67,16 +65,14 @@ func (op *nmaSetTLSOp) setupRequestBody(
 	}
 	setConfigData := nmaSetTLSRequestData{}
 	setConfigData.sqlEndpointData = createSQLEndpointData(username, dbName, useDBPassword, password)
-	setConfigData.TLSCADataKey = configMap[TLSSecretManagerKeyCACertDataKey]
-	setConfigData.TLSCertDataKey = configMap[TLSSecretManagerKeyCertDataKey]
-	setConfigData.TLSKeyDataKey = configMap[TLSSecretManagerKeyKeyDataKey]
+	setConfigData.TLSCADataKey = configMap[tlsSecretManagerKeyCACertDataKey]
+	setConfigData.TLSCertDataKey = configMap[tlsSecretManagerKeyCertDataKey]
+	setConfigData.TLSKeyDataKey = configMap[tlsSecretManagerKeyKeyDataKey]
 	setConfigData.TLSConfigName = configName
-	setConfigData.TLSNamespace = configMap[TLSSecretManagerKeyNamespace]
-	setConfigData.TLSSecretName = configMap[TLSSecretManagerKeySecretName]
-	setConfigData.TLSMode = configMap[TLSSecretManagerKeyTLSMode]
-	setConfigData.TLSSecretManager = configMap[TLSSecretManagerKeySecretManager]
-	setConfigData.AWSRegion = configMap[TLSSecretManagerKeyAWSRegion]
-	setConfigData.AWSSecretVersionID = configMap[TLSSecretManagerKeyAWSSecretVersionID]
+	setConfigData.TLSNamespace = configMap[tlsSecretManagerKeyNamespace]
+	setConfigData.TLSSecretName = configMap[tlsSecretManagerKeySecretName]
+	setConfigData.TLSMode = configMap[tlsSecretManagerKeyTLSMode]
+	setConfigData.TLSSecretManager = configMap[tlsSecretManagerKeySecretManager]
 	setConfigData.TLSConfigGrantAuth = grantAuth
 	setConfigData.TLSConfigSyncCatalog = syncCatalog
 
