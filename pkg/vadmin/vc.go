@@ -88,7 +88,7 @@ func retrieveNMACerts(ctx context.Context, fetcher *cloud.SecretFetcher, vdb *va
 	}, nil
 }
 
-func (v *VClusterOps) genTLSConfigurationMap(tlsMode, secretNameInVdb string) map[string]string {
+func genTLSConfigurationMap(tlsMode, secretNameInVdb, secretNamespace string) map[string]string {
 	configMap := make(map[string]string)
 	configMap[vops.TLSSecretManagerKeyCACertDataKey] = corev1.ServiceAccountRootCAKey
 	configMap[vops.TLSSecretManagerKeyCertDataKey] = corev1.TLSCertKey
@@ -107,7 +107,7 @@ func (v *VClusterOps) genTLSConfigurationMap(tlsMode, secretNameInVdb string) ma
 		secretManager = vops.AWSSecretManagerType
 	default:
 		secretManager = vops.K8sSecretManagerType
-		configMap[vops.TLSSecretManagerKeyNamespace] = v.VDB.Namespace
+		configMap[vops.TLSSecretManagerKeyNamespace] = secretNamespace
 	}
 	configMap[vops.TLSSecretManagerKeySecretManager] = secretManager
 	configMap[vops.TLSSecretManagerKeySecretName] = secretName

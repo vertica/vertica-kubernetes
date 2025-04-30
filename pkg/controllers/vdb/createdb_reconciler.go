@@ -222,12 +222,6 @@ func (c *CreateDBReconciler) generatePostDBCreateSQL(ctx context.Context, initia
 	return ctrl.Result{}, nil
 }
 
-// Escape function to handle special characters in Bash
-func escapeForBash(input string) string {
-	input = strings.ReplaceAll(input, `"`, `\"`) // Escape double quotes
-	return "\"" + input + "\""                   // Wrap in double quotes for echo
-}
-
 // postCmdCleanup will handle any cleanup action after initializing the database
 func (c *CreateDBReconciler) postCmdCleanup(ctx context.Context) (ctrl.Result, error) {
 	pf, ok := c.findPodToRunInit()
