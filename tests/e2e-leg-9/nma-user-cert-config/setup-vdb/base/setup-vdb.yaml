@@ -34,6 +34,7 @@ spec:
       size: 1
   nmaTLSSecret: nma-cert
   clientServerTLSSecret: client-cert
+  clientServerTLSMode: VERIFY_CA
   securityContext:
     capabilities:
       add: ["SYS_PTRACE"]
