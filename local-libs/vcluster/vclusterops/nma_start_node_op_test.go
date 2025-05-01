@@ -34,6 +34,8 @@ func TestStartNodeOp(t *testing.T) {
 	// for testing
 	execContext.nmaVDatabase.HostNodeMap[hosts[0]] = &nmaVNode{StartCommand: startCmd}
 
+	// for testing
+	// err := clusterOpEngine.runWithExecContext(vl)
 	err := clusterOpEngine.runWithExecContext(vl, &execContext)
 	assert.NoError(t, err)
 	httpRequest := op.clusterHTTPRequest.RequestCollection[hosts[0]]
