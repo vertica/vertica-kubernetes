@@ -33,6 +33,14 @@ on:
         type: string
         required: false
         default: 'all, except vertica server'
+      build-timeout-minutes:
+        description: 'Maximum duration (in minutes) to allow an image build to run before forcefully terminating it.'
+        required: false
+        default: '600'
+      build-retry-times:
+        description: 'Maximum number of retry attempts for failed image builds before giving up.'
+        required: false
+        default: '3'
     secrets:
       DOCKERHUB_USERNAME:
         description: 'When working with images from docker.io, this is the username for login purposes'
@@ -108,14 +116,19 @@ jobs:
 
     - name: Build the full server image
       if: ${{ inputs.full_vertica_image == '' }}
-      run: |
-        # We never push the image we build here because the RPM we use is too
-        # old. The RPM needs to be from at least a 23.3.0 server. So, we build
-        # here only to test the creation of the image. We don't verify this
-        # image in the remaining CI. Pick a dummy image name so as not to
-        # overwrite the output build image that the e2e tests will use.
-        export VERTICA_IMG=vertica-k8s:kind
-        make docker-build-vertica-v2
+      uses: nick-fields/retry@v3
+      with:
+        timeout_minutes: ${{ inputs.build-timeout-minutes }}
+        max_attempts: ${{ inputs.build-retry-times }}
+        shell: bash
+        command: |
+          # We never push the image we build here because the RPM we use is too
+          # old. The RPM needs to be from at least a 23.3.0 server. So, we build
+          # here only to test the creation of the image. We don't verify this
+          # image in the remaining CI. Pick a dummy image name so as not to
+          # overwrite the output build image that the e2e tests will use.
+          export VERTICA_IMG=vertica-k8s:kind
+          make docker-build-vertica-v2
 
     - name: Do a local pull of the image
       run: |
@@ -226,11 +239,16 @@ jobs:
 
     - name: Build legacy server image
       if: ${{ inputs.legacy_vertica_image == '' }}
-      run: |
-        # Do not push the image to remote registry because we
-        # do not want to overwrite the existing images. Here we
-        # just validate if dockerfile works fine.
-        make docker-build-vertica
+      uses: nick-fields/retry@v3
+      with:
+        timeout_minutes: ${{ inputs.build-timeout-minutes }}
+        max_attempts: ${{ inputs.build-retry-times }}
+        shell: bash
+        command: |
+          # Do not push the image to remote registry because we
+          # do not want to overwrite the existing images. Here we
+          # just validate if dockerfile works fine.
+          make docker-build-vertica
 
     - name: Do a local pull of the image if we didn't create it
       if: ${{ steps.legacy_vertica_image.outputs.value != '' }}
@@ -297,15 +315,20 @@ jobs:
 
     - name: Build the minimal server image
       if: ${{ inputs.minimal_vertica_image == '' }}
-      run: |
-        # We never push the image we build here because the RPM we use is too
-        # old. The RPM needs to be from at least a 23.3.0 server. So, we build
-        # here only to test the creation of the image. We don't verify this
-        # image in the remaining CI. Pick a dummy image name so as not to
-        # overwrite the output build image that the e2e tests will use.
-        export VERTICA_IMG=vertica-k8s:kind-minimal
-        export MINIMAL_VERTICA_IMG=yes
-        make docker-build-vertica-v2 
+      uses: nick-fields/retry@v3
+      with:
+        timeout_minutes: ${{ inputs.build-timeout-minutes }}
+        max_attempts: ${{ inputs.build-retry-times }}
+        shell: bash
+        command: |
+          # We never push the image we build here because the RPM we use is too
+          # old. The RPM needs to be from at least a 23.3.0 server. So, we build
+          # here only to test the creation of the image. We don't verify this
+          # image in the remaining CI. Pick a dummy image name so as not to
+          # overwrite the output build image that the e2e tests will use.
+          export VERTICA_IMG=vertica-k8s:kind-minimal
+          export MINIMAL_VERTICA_IMG=yes
+          make docker-build-vertica-v2 
 
     - name: Do a local pull of the image
       run: |
@@ -362,26 +385,31 @@ jobs:
 
     - name: Build and optionally push operator image
       if: ${{ inputs.operator_image == '' }}
-      run: |
-        export OPERATOR_IMG=${{ steps.operator_image.outputs.value }}
-        export PLATFORMS=${{ inputs.operator_platform }}
-        # For pull requests we build the operator locally then pass it around
-        # to dependent stages as an artifact. Otherwise, we will build a
-        # cross-platform operator. The make target we use for that handles
-        # pushing it up to an external repository.
-        if [ $GITHUB_EVENT_NAME != 'pull_request' ]
-        then
-          # Will be removed once we merge this and make the multiarch builds as the default
-          EXIT_CODE="$(docker manifest inspect ${OPERATOR_IMG} > /dev/null ; echo $?)"
-          if [ $EXIT_CODE -eq 0 ]; then
-            echo "image exists"
-          else 
-            echo "image does not exist, making a push"
-            make docker-build-crossplatform-operator
+      uses: nick-fields/retry@v3
+      with:
+        timeout_minutes: ${{ inputs.build-timeout-minutes }}
+        max_attempts: ${{ inputs.build-retry-times }}
+        shell: bash
+        command: |
+          export OPERATOR_IMG=${{ steps.operator_image.outputs.value }}
+          export PLATFORMS=${{ inputs.operator_platform }}
+          # For pull requests we build the operator locally then pass it around
+          # to dependent stages as an artifact. Otherwise, we will build a
+          # cross-platform operator. The make target we use for that handles
+          # pushing it up to an external repository.
+          if [ $GITHUB_EVENT_NAME != 'pull_request' ]
+          then
+            # Will be removed once we merge this and make the multiarch builds as the default
+            EXIT_CODE="$(docker manifest inspect ${OPERATOR_IMG} > /dev/null ; echo $?)"
+            if [ $EXIT_CODE -eq 0 ]; then
+              echo "image exists"
+            else 
+              echo "image does not exist, making a push"
+              make docker-build-crossplatform-operator
+            fi
+          else
+            make docker-build-operator
           fi
-        else
-          make docker-build-operator
-        fi
 
     - name: Save the image for consumption by dependent jobs (PRs only)
       if: ${{ github.event_name == 'pull_request' }}
@@ -492,13 +520,18 @@ jobs:
 
     - name: Build and optionally push vlogger image
       if: ${{ inputs.vlogger_image == '' }}
-      run: |
-        export VLOGGER_IMG=${{ steps.vlogger_image.outputs.value }}
-        make docker-build-vlogger
-        if [ $GITHUB_EVENT_NAME != 'pull_request' ]
-        then
-          make docker-push-vlogger
-        fi
+      uses: nick-fields/retry@v3
+      with:
+        timeout_minutes: ${{ inputs.build-timeout-minutes }}
+        max_attempts: ${{ inputs.build-retry-times }}
+        shell: bash
+        command: |
+          export VLOGGER_IMG=${{ steps.vlogger_image.outputs.value }}
+          make docker-build-vlogger
+          if [ $GITHUB_EVENT_NAME != 'pull_request' ]
+          then
+            make docker-push-vlogger
+          fi
 
     - name: Save the image for consumption by dependent jobs (PRs only)
       if: ${{ github.event_name == 'pull_request' }}
