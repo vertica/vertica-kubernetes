@@ -97,7 +97,7 @@ jobs:
       full_vertica_image: ${{ inputs.full_vertica_image }}
       legacy_vertica_image: ${{ inputs.legacy_vertica_image }}
       run_security_scan: ${{ inputs.run_security_scan }}
-      # build-retry-times: ${{ inputs.e2e_retry_times || 3 }}
+      build-retry-times: ${{ inputs.e2e_retry_times || 3 }}
     secrets:
       DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
       DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}

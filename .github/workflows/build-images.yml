@@ -35,10 +35,12 @@ on:
         default: 'all, except vertica server'
       build-timeout-minutes:
         description: 'Maximum duration (in minutes) to allow an image build to run before forcefully terminating it.'
+        type: string
         required: false
         default: '600'
       build-retry-times:
         description: 'Maximum number of retry attempts for failed image builds before giving up.'
+        type: string
         required: false
         default: '3'
     secrets:
