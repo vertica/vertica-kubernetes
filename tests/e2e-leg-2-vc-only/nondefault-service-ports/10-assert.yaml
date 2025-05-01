@@ -81,8 +81,7 @@ metadata:
   name: v-nondefault-service-ports-default-subcluster
 subsets:
 - addresses:
-  - nodeName: devcluster-control-plane
-    targetRef:
+  - targetRef:
       kind: Pod
       name: v-nondefault-service-ports-default-subcluster-0  
 ---
@@ -92,7 +91,6 @@ metadata:
   name: v-nondefault-service-ports-new-subcluster
 subsets:
 - addresses:  
-  - nodeName: devcluster-control-plane
-    targetRef:
+  - targetRef:
       kind: Pod
       name: v-nondefault-service-ports-new-subcluster-0
