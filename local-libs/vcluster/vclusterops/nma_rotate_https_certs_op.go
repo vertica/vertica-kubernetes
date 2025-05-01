@@ -92,7 +92,7 @@ func (op *nmaRotateHTTPSCertsOp) setupRequestBody(
 		return errors.New("argument opData cannot be a nil pointer")
 	}
 	endpointData.RotateHTTPSCertsData = *opData
-	endpointData.SecretManager = "KubernetesSecretManager" // others NYI
+	endpointData.SecretManager = "AWSSecretManager" // others NYI
 
 	dataBytes, err := json.Marshal(endpointData)
 	if err != nil {
