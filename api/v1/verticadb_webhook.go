@@ -200,7 +200,7 @@ func (v *VerticaDB) checkValidSubclusterTypeTransition(oldObj *VerticaDB, allErr
 		} else if oldType == SecondarySubcluster && sc.Type != SecondarySubcluster {
 			_, found := scToSbMap[sc.Name]
 			// You can only transition out of a secondary subcluster if its during sandboxing.
-			if sc.IsSandboxPrimary(v) || !found {
+			if sc.IsSandboxPrimary(oldObj) || !found {
 				invalidStateTransitionErr(i)
 			}
 		}
@@ -1337,7 +1337,7 @@ func (v *VerticaDB) validateSubclustersInSandboxes(allErrs field.ErrorList) fiel
 				sandboxes[i],
 				fmt.Sprintf("subcluster %s does not exist", sc))
 			allErrs = append(allErrs, err)
-		} else if scInfo.IsPrimary(v) {
+		} else if scInfo.IsMainPrimary() {
 			err := field.Invalid(path.Index(i),
 				sandboxes[i],
 				fmt.Sprintf("subcluster %s is a primary subcluster that is not allowed to be in a sandbox", sc))
@@ -1833,7 +1833,7 @@ func (v *VerticaDB) checkSandboxPrimary(allErrs field.ErrorList, oldObj *Vertica
 
 		newSbName, newFound := newScInSandbox[oldScName]
 		// old sandbox still exits
-		if !newFound && sc.IsSandboxPrimary(v) {
+		if !newFound && sc.IsSandboxPrimary(oldObj) {
 			i := oldScIndexMap[oldScName]
 			err := field.Invalid(path.Index(i),
 				oldObj.Spec.Subclusters[i],
@@ -1847,7 +1847,7 @@ func (v *VerticaDB) checkSandboxPrimary(allErrs field.ErrorList, oldObj *Vertica
 			continue
 		}
 		// old sandbox name does not match new sandbox name
-		if sc.IsSandboxPrimary(v) {
+		if sc.IsSandboxPrimary(oldObj) {
 			i := oldSbIndexMap[oldSbName]
 			p := field.NewPath("spec").Child("sandboxes")
 			err := field.Invalid(p.Index(i),

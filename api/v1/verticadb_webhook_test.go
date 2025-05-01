@@ -1409,9 +1409,6 @@ var _ = Describe("verticadb_webhook", func() {
 				{Name: "sc2", Type: PrimarySubcluster}, {Name: "sc3", Type: PrimarySubcluster}}},
 		}
 		Ω(vdb.validateVerticaDBSpec()).Should(HaveLen(0))
-		Expect(vdb.Status.Subclusters[1].Type).Should(Equal(SandboxPrimarySubcluster))
-		Expect(vdb.Status.Subclusters[2].Type).Should(Equal(SandboxPrimarySubcluster))
-
 	})
 
 	It("should only allow sc type change for secondaries in a sandbox", func() {
@@ -1426,7 +1423,6 @@ var _ = Describe("verticadb_webhook", func() {
 			{Name: "sand1", Subclusters: []SandboxSubcluster{{Name: "sc3"}}},
 		}
 		Ω(newVdb.validateImmutableFields(oldVdb)).Should(HaveLen(0))
-		Expect(newVdb.Status.Subclusters[2].Type).Should(Equal(SandboxPrimarySubcluster))
 
 		// TODO: should subcluster promotion be allowed from SecondarySubcluster to PrimarySubcluster?
 		newVdb.Spec.Subclusters[1].Type = PrimarySubcluster
