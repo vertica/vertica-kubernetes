@@ -79,8 +79,20 @@ apiVersion: v1
 kind: Endpoints
 metadata:
   name: v-nondefault-service-ports-default-subcluster
+subsets:
+- addresses:
+  - nodeName: devcluster-control-plane
+    targetRef:
+      kind: Pod
+      name: v-nondefault-service-ports-default-subcluster-0  
 ---
 apiVersion: v1
 kind: Endpoints
 metadata:
   name: v-nondefault-service-ports-new-subcluster
+subsets:
+- addresses:  
+  - nodeName: devcluster-control-plane
+    targetRef:
+      kind: Pod
+      name: v-nondefault-service-ports-new-subcluster-0
