@@ -52,7 +52,7 @@ type opEngineExecContext struct {
 	vdbForSandboxInfo *VCoordinationDatabase
 
 	// slow events
-	dcSlowEvents *dcSlowEvents
+	dcSlowEventList *[]dcSlowEvent
 
 	// transaction starts
 	dcTransactionStarts *dcTransactionStarts
