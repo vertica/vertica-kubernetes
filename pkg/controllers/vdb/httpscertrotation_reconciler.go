@@ -101,13 +101,13 @@ func (h *HTTPSCertRotationReconciler) Reconcile(ctx context.Context, _ *ctrl.Req
 
 	// Now https cert rotation will start
 	res, err2 := h.rotateHTTPSTLSCert(ctx, newSecretData, currentSecretData)
-	if verrors.IsReconcileAborted(res, err) {
+	if verrors.IsReconcileAborted(res, err2) {
 		h.Log.Info("https cert rotation is aborted.")
 		return res, err2
 	}
 	cond = vapi.MakeCondition(vapi.HTTPSCertRotationFinished, metav1.ConditionTrue, "Completed")
 	if err := vdbstatus.UpdateCondition(ctx, h.VRec.GetClient(), h.Vdb, cond); err != nil {
-		h.Log.Error(err2, "failed to set condition "+vapi.HTTPSCertRotationFinished+" to true")
+		h.Log.Error(err, "failed to set condition "+vapi.HTTPSCertRotationFinished+" to true")
 		return ctrl.Result{}, err
 	}
 	h.VRec.Eventf(h.Vdb, corev1.EventTypeNormal, events.HTTPSCertRotationSucceded,

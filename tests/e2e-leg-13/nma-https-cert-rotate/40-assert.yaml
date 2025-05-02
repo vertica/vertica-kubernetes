@@ -51,3 +51,4 @@ status:
   secretRefs:
     - name: custom-cert
       type: NMATLSSecretType
+    - type: ClientServerTLSSecretType

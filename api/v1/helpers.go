@@ -54,6 +54,12 @@ const (
 	SandboxNameKey   = "sandboxName"
 	invalidNameChars = "$=<>`" + `'^\".@*?#&/:;{}()[] \~!%+|,`
 
+	// TLS modes
+	tlsModeDisable           = "disable"
+	tlsModeEnable            = "enable"
+	tlsModeVerifyCA          = "verify_ca"
+	tlsModeTryVerify         = "try_verify"
+	tlsModeVerifyFull        = "verify_full"
 	DefaultServiceHTTPSPort  = 8443
 	DefaultServiceClientPort = 5433
 )
@@ -365,6 +371,10 @@ func MakeSecretRef(stype, name string) *SecretRef {
 		Name: name,
 		Type: stype,
 	}
+}
+
+func MakeClientServerTLSSecretRef(name string) *SecretRef {
+	return MakeSecretRef(ClientServerTLSSecretType, name)
 }
 
 func MakeNMATLSSecretRef(name string) *SecretRef {

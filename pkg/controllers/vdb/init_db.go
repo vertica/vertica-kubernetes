@@ -99,13 +99,17 @@ func (g *GenericDatabaseInitializer) runInit(ctx context.Context) (ctrl.Result, 
 		return res, err
 	}
 
-	cond := vapi.MakeCondition(vapi.DBInitialized, metav1.ConditionTrue, "Initialized")
-	if err := vdbstatus.UpdateCondition(ctx, g.VRec.GetClient(), g.Vdb, cond); err != nil {
+	sec := vapi.MakeNMATLSSecretRef(g.Vdb.Spec.NMATLSSecret)
+	clientSec := vapi.MakeClientServerTLSSecretRef(g.Vdb.Spec.ClientServerTLSSecret)
+	sRefs := []*vapi.SecretRef{
+		sec, clientSec,
+	}
+	if err := vdbstatus.UpdateSecretRefs(ctx, g.VRec.GetClient(), g.Vdb, sRefs); err != nil {
 		return ctrl.Result{}, err
 	}
 
-	sec := vapi.MakeNMATLSSecretRef(g.Vdb.Spec.NMATLSSecret)
-	if err := vdbstatus.UpdateSecretRef(ctx, g.VRec.GetClient(), g.Vdb, sec); err != nil {
+	cond := vapi.MakeCondition(vapi.DBInitialized, metav1.ConditionTrue, "Initialized")
+	if err := vdbstatus.UpdateCondition(ctx, g.VRec.GetClient(), g.Vdb, cond); err != nil {
 		return ctrl.Result{}, err
 	}
 
