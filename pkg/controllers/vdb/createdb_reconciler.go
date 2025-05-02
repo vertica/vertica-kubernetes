@@ -318,9 +318,7 @@ func (c *CreateDBReconciler) generateAWSTlsSQL(sb *strings.Builder) {
 	fmt.Fprintf(sb, "ALTER TLS CONFIGURATION https CERTIFICATE https_cert_0 ")
 	fmt.Fprintf(sb, "REMOVE CA CERTIFICATES httpServerRootca;\n")
 
-	/**********************/
 	clientSecretRegion, _ := secrets.GetAWSRegion(c.Vdb.Spec.ClientServerTLSSecret)
-
 	clientSecretName := secrets.RemovePathReference(c.Vdb.Spec.ClientServerTLSSecret)
 
 	fmt.Fprintf(sb, "DROP KEY IF EXISTS server_key;\n")
@@ -344,8 +342,6 @@ func (c *CreateDBReconciler) generateAWSTlsSQL(sb *strings.Builder) {
 	fmt.Fprintf(sb, "ADD CA CERTIFICATES server_ca_cert TLSMODE 'TRY_VERIFY';\n")
 	fmt.Fprintf(sb, "ALTER TLS CONFIGURATION server CERTIFICATE server_cert ")
 	fmt.Fprintf(sb, "REMOVE CA CERTIFICATES httpServerRootca;\n")
-
-	/************************/
 
 	fmt.Fprintf(sb, "CREATE AUTHENTICATION aws_tls_builtin_auth METHOD 'tls' HOST TLS ")
 	fmt.Fprintf(sb, "'0.0.0.0/0' FALLTHROUGH;\n")
