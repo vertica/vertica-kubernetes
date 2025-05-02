@@ -216,10 +216,20 @@ func (c *CreateDBReconciler) generatePostDBCreateSQL(ctx context.Context, initia
 		case secrets.IsGSMSecret(c.Vdb.Spec.NMATLSSecret):
 			return ctrl.Result{}, nil
 		case secrets.IsAWSSecretsManagerSecret(c.Vdb.Spec.NMATLSSecret):
-			c.generateAWSTlsSQL(&sb)
+			c.generateAWSNMATLSSQL(&sb)
 		default:
-			c.generateKubernetesTLSSQL(&sb)
+			c.generateK8sNMATLSSQL(&sb)
 		}
+		switch {
+		case secrets.IsGSMSecret(c.Vdb.Spec.ClientServerTLSSecret):
+			return ctrl.Result{}, nil
+		case secrets.IsAWSSecretsManagerSecret(c.Vdb.Spec.ClientServerTLSSecret):
+			c.generateAWSClientServerTLSSQL(&sb)
+		default:
+			c.generateK8sClientServerTLSSQL(&sb)
+		}
+		fmt.Fprintf(&sb, "CREATE AUTHENTICATION k8s_tls_builtin_auth METHOD 'tls' HOST TLS '0.0.0.0/0' FALLTHROUGH;\n")
+		fmt.Fprintf(&sb, "GRANT AUTHENTICATION k8s_tls_builtin_auth TO %s;\n", c.Vdb.GetVerticaUser())
 		sb.WriteString(`select sync_catalog();`)
 		cmd = "cat > " + PostDBCreateSQLFileVclusterOps + "<<< " + escapeForBash(sb.String())
 	}
@@ -235,7 +245,8 @@ func (c *CreateDBReconciler) generatePostDBCreateSQL(ctx context.Context, initia
 	return ctrl.Result{}, nil
 }
 
-func (c *CreateDBReconciler) generateKubernetesTLSSQL(sb *strings.Builder) {
+// generateK8sNMATLSSQL prepares SQL to generate certs from nma secret
+func (c *CreateDBReconciler) generateK8sNMATLSSQL(sb *strings.Builder) {
 	fmt.Fprintf(sb, "CREATE OR REPLACE LIBRARY public.KubernetesLib AS ")
 	fmt.Fprintf(sb, "'/opt/vertica/packages/kubernetes/lib/libkubernetes.so';\n")
 	fmt.Fprintf(sb, "CREATE OR REPLACE SECRETMANAGER KubernetesSecretManager AS LANGUAGE 'C++' ")
@@ -258,6 +269,18 @@ func (c *CreateDBReconciler) generateKubernetesTLSSQL(sb *strings.Builder) {
 		c.Vdb.Spec.NMATLSSecret, corev1.TLSCertKey, c.Vdb.ObjectMeta.Namespace)
 	fmt.Fprintf(sb, "SIGNED BY https_ca_cert_0 KEY https_key_0;\n")
 
+	fmt.Fprintf(sb, "ALTER TLS CONFIGURATION https CERTIFICATE https_cert_0 ADD CA CERTIFICATES ")
+	fmt.Fprintf(sb, "https_ca_cert_0 TLSMODE 'TRY_VERIFY';\n")
+	fmt.Fprintf(sb, "ALTER TLS CONFIGURATION https CERTIFICATE https_cert_0 REMOVE CA CERTIFICATES ")
+	fmt.Fprintf(sb, "httpServerRootca;\n")
+}
+
+// generateK8sClientServerTLSSQL prepares SQL to generate certs from client server secret
+func (c *CreateDBReconciler) generateK8sClientServerTLSSQL(sb *strings.Builder) {
+	fmt.Fprintf(sb, "CREATE OR REPLACE LIBRARY public.KubernetesLib AS ")
+	fmt.Fprintf(sb, "'/opt/vertica/packages/kubernetes/lib/libkubernetes.so';\n")
+	fmt.Fprintf(sb, "CREATE OR REPLACE SECRETMANAGER KubernetesSecretManager AS LANGUAGE 'C++' ")
+	fmt.Fprintf(sb, "NAME 'KubernetesSecretManagerFactory' LIBRARY KubernetesLib;\n")
 	fmt.Fprintf(sb, "DROP KEY IF EXISTS server_key;\n")
 	fmt.Fprintf(sb, "DROP CERTIFICATE IF EXISTS server_cert;\n")
 	fmt.Fprintf(sb, "DROP CERTIFICATE IF EXISTS server_ca_cert;\n")
@@ -277,17 +300,12 @@ func (c *CreateDBReconciler) generateKubernetesTLSSQL(sb *strings.Builder) {
 
 	fmt.Fprintf(sb, "ALTER TLS CONFIGURATION server CERTIFICATE server_cert ADD CA CERTIFICATES ")
 	fmt.Fprintf(sb, "server_ca_cert TLSMODE '%s';\n", c.Vdb.Spec.ClientServerTLSMode)
-	fmt.Fprintf(sb, "ALTER TLS CONFIGURATION https CERTIFICATE https_cert_0 ADD CA CERTIFICATES ")
-	fmt.Fprintf(sb, "https_ca_cert_0 TLSMODE 'TRY_VERIFY';\n")
-	fmt.Fprintf(sb, "ALTER TLS CONFIGURATION https CERTIFICATE https_cert_0 REMOVE CA CERTIFICATES ")
-	fmt.Fprintf(sb, "httpServerRootca;\n")
 	fmt.Fprintf(sb, "ALTER TLS CONFIGURATION server CERTIFICATE server_cert REMOVE CA CERTIFICATES ")
 	fmt.Fprintf(sb, "httpServerRootca;\n")
-	fmt.Fprintf(sb, "CREATE AUTHENTICATION k8s_tls_builtin_auth METHOD 'tls' HOST TLS '0.0.0.0/0' FALLTHROUGH;\n")
-	fmt.Fprintf(sb, "GRANT AUTHENTICATION k8s_tls_builtin_auth TO %s;\n", c.Vdb.GetVerticaUser())
 }
 
-func (c *CreateDBReconciler) generateAWSTlsSQL(sb *strings.Builder) {
+// generateAWSNMATlsSQL prepares SQL to generate certs from nma aws secret
+func (c *CreateDBReconciler) generateAWSNMATLSSQL(sb *strings.Builder) {
 	fmt.Fprintf(sb, "CREATE OR REPLACE LIBRARY public.AWSLib AS ")
 	fmt.Fprintf(sb, "'/opt/vertica/packages/aws/lib/libaws.so';\n")
 	fmt.Fprintf(sb, "CREATE SECRETMANAGER IF NOT EXISTS AWSSecretManager AS ")
@@ -318,9 +336,19 @@ func (c *CreateDBReconciler) generateAWSTlsSQL(sb *strings.Builder) {
 	fmt.Fprintf(sb, "ALTER TLS CONFIGURATION https CERTIFICATE https_cert_0 ")
 	fmt.Fprintf(sb, "REMOVE CA CERTIFICATES httpServerRootca;\n")
 
-	/**********************/
-	clientSecretRegion, _ := secrets.GetAWSRegion(c.Vdb.Spec.ClientServerTLSSecret)
+	// fmt.Fprintf(sb, "CREATE AUTHENTICATION aws_tls_builtin_auth METHOD 'tls' HOST TLS ")
+	// fmt.Fprintf(sb, "'0.0.0.0/0' FALLTHROUGH;\n")
+	// fmt.Fprintf(sb, "GRANT AUTHENTICATION aws_tls_builtin_auth TO %s;\n", c.Vdb.GetVerticaUser())
+}
 
+// generateAWSClientServerTLSSQL prepares SQL to generate certs from client server aws secret
+func (c *CreateDBReconciler) generateAWSClientServerTLSSQL(sb *strings.Builder) {
+	fmt.Fprintf(sb, "CREATE OR REPLACE LIBRARY public.AWSLib AS ")
+	fmt.Fprintf(sb, "'/opt/vertica/packages/aws/lib/libaws.so';\n")
+	fmt.Fprintf(sb, "CREATE SECRETMANAGER IF NOT EXISTS AWSSecretManager AS ")
+	fmt.Fprintf(sb, "LANGUAGE 'C++' NAME 'AWSSecretManagerFactory' LIBRARY AWSLib;\n")
+
+	clientSecretRegion, _ := secrets.GetAWSRegion(c.Vdb.Spec.ClientServerTLSSecret)
 	clientSecretName := secrets.RemovePathReference(c.Vdb.Spec.ClientServerTLSSecret)
 
 	fmt.Fprintf(sb, "DROP KEY IF EXISTS server_key;\n")
@@ -344,12 +372,6 @@ func (c *CreateDBReconciler) generateAWSTlsSQL(sb *strings.Builder) {
 	fmt.Fprintf(sb, "ADD CA CERTIFICATES server_ca_cert TLSMODE 'TRY_VERIFY';\n")
 	fmt.Fprintf(sb, "ALTER TLS CONFIGURATION server CERTIFICATE server_cert ")
 	fmt.Fprintf(sb, "REMOVE CA CERTIFICATES httpServerRootca;\n")
-
-	/************************/
-
-	fmt.Fprintf(sb, "CREATE AUTHENTICATION aws_tls_builtin_auth METHOD 'tls' HOST TLS ")
-	fmt.Fprintf(sb, "'0.0.0.0/0' FALLTHROUGH;\n")
-	fmt.Fprintf(sb, "GRANT AUTHENTICATION aws_tls_builtin_auth TO %s;\n", c.Vdb.GetVerticaUser())
 }
 
 // Escape function to handle special characters in Bash
