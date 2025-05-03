@@ -162,9 +162,7 @@ func (s *SandboxSubclusterReconciler) sandboxSubclusters(ctx context.Context) (c
 func (s *SandboxSubclusterReconciler) executeSandboxCommand(ctx context.Context, scSbMap map[string]string) (ctrl.Result, error) {
 	seenSandboxes := make(map[string]any)
 
-	// We can simply loop over the scSbMap and sandbox each subcluster. However,
-	// we want to sandbox in a deterministic order because the first subcluster
-	// in a sandbox is the primary.
+	// We can simply loop over the scSbMap and sandbox each subcluster.
 	for i := range s.Vdb.Spec.Sandboxes {
 		vdbSb := &s.Vdb.Spec.Sandboxes[i]
 		var sbName string
@@ -187,6 +185,12 @@ func (s *SandboxSubclusterReconciler) executeSandboxCommand(ctx context.Context,
 			sbName = sb
 			sbScs = append(sbScs, sc)
 
+			// Set sandbox subcluster type default to primary if it is empty
+			if vdbSb.Subclusters[j].Type == "" {
+				vdbSb.Subclusters[j].Type = vapi.PrimarySubcluster
+			}
+
+			// Call vclusterOps to add the subcluster to the sandbox
 			res, err := s.sandboxSubcluster(ctx, sc, sb)
 			if verrors.IsReconcileAborted(res, err) {
 				return res, err

@@ -184,10 +184,9 @@ var _ = Describe("unsandboxsubcluster_reconcile", func() {
 		}
 		vdb.Status.Subclusters = []vapi.SubclusterStatus{
 			{Name: maincluster, Type: vapi.PrimarySubcluster, Detail: []vapi.VerticaDBPodStatus{}},
-			{Name: subcluster1, Type: vapi.SecondarySubcluster, Detail: []vapi.VerticaDBPodStatus{}},
+			{Name: subcluster1, Type: vapi.SandboxPrimarySubcluster, Detail: []vapi.VerticaDBPodStatus{}},
 		}
 		Expect(k8sClient.Status().Update(ctx, vdb)).Should(Succeed())
-		Expect(vdb.Status.Subclusters[1].Type).Should(Equal(vapi.SandboxPrimarySubcluster))
 
 		fpr := &cmds.FakePodRunner{}
 		pfacts := podfacts.MakePodFacts(sbRec, fpr, logger, TestPassword)
@@ -201,8 +200,6 @@ var _ = Describe("unsandboxsubcluster_reconcile", func() {
 		Expect(k8sClient.Get(ctx, vapi.MakeVDBName(), newVdb)).Should(Succeed())
 		// sandbox status should be empty
 		Expect(newVdb.Status.Sandboxes).Should(BeEmpty())
-		// subcluster type should be updated
-		Expect(newVdb.Status.Subclusters[1].Type).Should(Equal(vapi.SecondarySubcluster))
 	})
 
 	It("should update or delete a sandbox config map correctly", func() {

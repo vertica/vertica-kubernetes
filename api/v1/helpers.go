@@ -1040,6 +1040,15 @@ func (s *Subcluster) GetType() string {
 	return s.Type
 }
 
+// GetSubcluster returns returns the subcluster based on the subcluster name
+func (v *VerticaDB) GetSubcluster(scName string) *Subcluster {
+	scMap := v.GenSubclusterMap()
+	if sc, ok := scMap[scName]; ok {
+		return sc
+	}
+	return nil
+}
+
 // GenSubclusterType calls GetType but returns the type based on its sandbox type
 func (s *Subcluster) GenSubclusterType(v *VerticaDB) string {
 	if s.IsSandboxPrimary(v) {

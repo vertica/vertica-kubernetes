@@ -248,7 +248,8 @@ func MakePodFactsForSandbox(vrec config.ReconcilerInterface, prunner cmds.PodRun
 }
 
 // ConstructsDetail sets the Detail field in PodFacts, for test purposes
-func (p *PodFacts) ConstructsDetail(subclusters []vapi.Subcluster, upNodes []uint) {
+func (p *PodFacts) ConstructsDetail(vdb *vapi.VerticaDB, upNodes []uint) {
+	subclusters := vdb.Spec.Subclusters
 	p.Detail = make(PodFactDetail)
 	if len(subclusters) != len(upNodes) {
 		return
@@ -261,7 +262,7 @@ func (p *PodFacts) ConstructsDetail(subclusters []vapi.Subcluster, upNodes []uin
 			pf := PodFact{
 				name:           types.NamespacedName{Name: fmt.Sprintf("%s-%d", sc.Name, j)},
 				subclusterName: sc.Name,
-				isPrimary:      true,
+				isPrimary:      sc.IsPrimary(vdb),
 				shutdown:       sc.Shutdown,
 				upNode:         isUp,
 				podIP:          "10.10.10.10",

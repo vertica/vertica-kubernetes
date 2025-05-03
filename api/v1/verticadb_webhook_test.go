@@ -1712,7 +1712,6 @@ var _ = Describe("verticadb_webhook", func() {
 			{Name: "sc1", Type: PrimarySubcluster, Size: 3, ServiceType: v1.ServiceTypeClusterIP},
 			{Name: "sc2", Type: SecondarySubcluster, Size: 3, ServiceType: v1.ServiceTypeClusterIP},
 			{Name: "sc3", Type: SecondarySubcluster, Size: 3, ServiceType: v1.ServiceTypeNodePort},
-			// TODO: should sc4 be SandboxPrimarySubcluster before the change?
 			{Name: "sc4", Type: SecondarySubcluster, Size: 3, ServiceType: v1.ServiceTypeNodePort},
 		}
 		oldVdb.Spec.Sandboxes = []Sandbox{
@@ -1758,7 +1757,6 @@ var _ = Describe("verticadb_webhook", func() {
 		oldVdb.Spec.Subclusters = []Subcluster{
 			{Name: "main", Type: PrimarySubcluster, Size: 3, ServiceType: v1.ServiceTypeClusterIP},
 			{Name: "sc1", Type: SecondarySubcluster, Size: 3, ServiceType: v1.ServiceTypeClusterIP},
-			// TODO: should sc2 be SandboxPrimarySubcluster before the change?
 			{Name: "sc2", Type: SecondarySubcluster, Size: 3, ServiceType: v1.ServiceTypeNodePort},
 			{Name: "sc3", Type: SecondarySubcluster, Size: 3, ServiceType: v1.ServiceTypeNodePort},
 		}
@@ -1849,7 +1847,6 @@ var _ = Describe("verticadb_webhook", func() {
 		oldVdb.Spec.Subclusters = []Subcluster{
 			{Name: "main", Type: PrimarySubcluster, Size: 3, ServiceType: v1.ServiceTypeClusterIP},
 			{Name: "sc1", Type: SecondarySubcluster, Size: 3, ServiceType: v1.ServiceTypeClusterIP},
-			// TODO: should sc2 be SandboxPrimarySubcluster before the change?
 			{Name: "sc2", Type: SecondarySubcluster, Size: 3, ServiceType: v1.ServiceTypeNodePort},
 			{Name: "sc3", Type: SecondarySubcluster, Size: 3, ServiceType: v1.ServiceTypeNodePort},
 		}
@@ -1897,11 +1894,9 @@ var _ = Describe("verticadb_webhook", func() {
 		newVdb.Spec.Subclusters = []Subcluster{
 			{Name: "main", Type: PrimarySubcluster, Size: 3, ServiceType: v1.ServiceTypeClusterIP},
 			{Name: "sc1", Type: SecondarySubcluster, Size: 3, ServiceType: v1.ServiceTypeClusterIP},
-			// TODO: should sc2 be SandboxPrimarySubcluster before the change?
 			{Name: "sc2", Type: SecondarySubcluster, Size: 3, ServiceType: v1.ServiceTypeNodePort},
 			{Name: "sc3", Type: SecondarySubcluster, Size: 3, ServiceType: v1.ServiceTypeNodePort},
 		}
-		// TODO: create an oldVDB first?
 		// to sandbox sc3 in sand2. sc3 was existing previously but not in a sandbox
 		newVdb.Spec.Sandboxes = []Sandbox{
 			{Name: "sand1", Subclusters: []SandboxSubcluster{
@@ -1911,8 +1906,7 @@ var _ = Describe("verticadb_webhook", func() {
 		}
 		newVdb.Status.Sandboxes = []SandboxStatus{
 			{Name: "sand1", Subclusters: []string{"sc1"}},
-			// TODO: should sc3 be in the status sandboxes list?
-			{Name: "sand2", Subclusters: []string{"sc2", "sc3"}},
+			{Name: "sand2", Subclusters: []string{"sc2"}},
 		}
 		newVdb.Status.Subclusters = []SubclusterStatus{
 			{Name: "main", Type: PrimarySubcluster},
@@ -2051,7 +2045,6 @@ var _ = Describe("verticadb_webhook", func() {
 		newVdb.Status.Subclusters = []SubclusterStatus{
 			{Name: "sc1", Type: PrimarySubcluster},
 			{Name: "sc2", Shutdown: true, Type: SandboxPrimarySubcluster},
-			// TODO: should sc3 be gone from status subclusters?
 			{Name: "sc3", Shutdown: true, Type: SecondarySubcluster},
 			{Name: "sc4", Type: SecondarySubcluster},
 		}
