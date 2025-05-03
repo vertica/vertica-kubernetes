@@ -156,18 +156,8 @@ func (vcc VClusterCommands) VStopDatabase(options *VStopDatabaseOptions) error {
 			return err
 		}
 	}
-	filteredHosts := []string{}
-	for _, h := range options.Hosts {
-		if vnode, exists := vdb.HostNodeMap[h]; exists {
-			if (options.MainCluster && vnode.Sandbox == util.MainClusterSandbox) ||
-				(options.SandboxName == vnode.Sandbox && options.SandboxName != util.MainClusterSandbox) {
-				filteredHosts = append(filteredHosts, h)
-			}
-		}
-	}
-	if len(filteredHosts) > 0 {
-		options.Hosts = filteredHosts
-	}
+
+	options.setAllHosts(&vdb)
 
 	instructions, err := vcc.produceStopDBInstructions(options)
 	if err != nil {
@@ -261,4 +251,23 @@ func (options *VStopDatabaseOptions) checkStopDBRequirements(vdb *VCoordinationD
 		}
 	}
 	return nil
+}
+
+// setAllHosts set the list of all nodes. It will contain the following list of hosts:
+//   - Case 1: users specified to stop main cluster only and the currently processing node belongs to the main cluster.
+//   - Case 2: users did not specify only stopping main cluster:
+//   - case 2.1: users did not specify a specific sandbox, in this case,
+//     it's stopping the entire database, we include all nodes of the database.
+//   - case 2.2: users specified a specific sandbox, in this case, we only include the nodes in the specific sandbox.
+func (options *VStopDatabaseOptions) setAllHosts(vdb *VCoordinationDatabase) {
+	allHosts := []string{}
+	for h, vnode := range vdb.HostNodeMap {
+		if (options.MainCluster && vnode.Sandbox == util.MainClusterSandbox) ||
+			(!options.MainCluster && (options.SandboxName == util.MainClusterSandbox || options.SandboxName == vnode.Sandbox)) {
+			allHosts = append(allHosts, h)
+		}
+	}
+	if len(allHosts) > 0 {
+		options.Hosts = allHosts
+	}
 }

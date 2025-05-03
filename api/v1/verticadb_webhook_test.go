@@ -526,7 +526,11 @@ var _ = Describe("verticadb_webhook", func() {
 		validateSpecValuesHaveErr(vdb, false)
 		vdb.Spec.RestorePoint.Archive = "archive"
 		validateSpecValuesHaveErr(vdb, false)
-
+		// numRestorePoints 0 or greater
+		vdb.Spec.RestorePoint.NumRestorePoints = -1
+		validateSpecValuesHaveErr(vdb, true)
+		vdb.Spec.RestorePoint.NumRestorePoints = 0
+		validateSpecValuesHaveErr(vdb, false)
 		// when db is already initialized, we shouldn't report an error about missing archive or restore point
 		vdb2 := createVDBHelper()
 		vdb2.Spec.InitPolicy = "Revive"
@@ -546,6 +550,23 @@ var _ = Describe("verticadb_webhook", func() {
 		validateSpecValuesHaveErr(vdb, false)
 		vdb.Spec.Subclusters[0].ServiceType = v1.ServiceTypeClusterIP
 		validateSpecValuesHaveErr(vdb, true)
+	})
+
+	It("should only allow valid ServiceHTTPSPort and ServiceClientPort", func() {
+		vdb := createVDBHelper()
+		vdb.Spec.ServiceHTTPSPort = -1
+		validateSpecValuesHaveErr(vdb, true)
+		vdb.Spec.ServiceHTTPSPort = 8443
+		vdb.Spec.ServiceClientPort = -1
+		validateSpecValuesHaveErr(vdb, true)
+		vdb.Spec.ServiceClientPort = 5433
+		vdb.Spec.Subclusters[0].ServiceHTTPSPort = -1
+		validateSpecValuesHaveErr(vdb, true)
+		vdb.Spec.Subclusters[0].ServiceHTTPSPort = 8443
+		vdb.Spec.Subclusters[0].ServiceClientPort = -1
+		validateSpecValuesHaveErr(vdb, true)
+		vdb.Spec.Subclusters[0].ServiceClientPort = 5433
+		validateSpecValuesHaveErr(vdb, false)
 	})
 
 	It("should default endpoint for google cloud", func() {

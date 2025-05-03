@@ -223,9 +223,6 @@ const (
 	HTTPSTLSConfGenerationAnnotationFalse = "false"
 	HTTPSTLSConfGenerationDefaultValue    = true
 
-	NMAHTTPSPreviousSecret     = "vertica.com/nma-https-previous-secret"     // #nosec G101
-	ClientServerPreviousSecret = "vertica.com/client-server-previous-secret" // #nosec G101
-
 	// We have a deployment check that ensures that if running vcluster ops the
 	// image is built for that (and vice-versa). This annotation allows you to
 	// skip that check.
@@ -368,8 +365,6 @@ const (
 	// This will  be set in a sandbox configMap by the vdb controller to wake up the sandbox
 	// controller for stopping/starting a sandbox
 	SandboxControllerShutdownTriggerID = "vertica.com/sandbox-controller-shutdown-trigger-id"
-	// This will  be set in a subclusters configMap by the vdb controller to stop/start a subcluter
-	VdbControllerShutdownClusterTriggerID = "vertica.com/vdb-controller-shutdown-subcluster-trigger-id"
 
 	// Use this to override the name of the statefulset and its pods. This needs
 	// to be set in the spec.subclusters[].annotations field to take effect. If
@@ -416,10 +411,8 @@ const (
 	// This only works for a scaledobject.
 	PausingAutoscalingReplicasAnnotation = "vertica.com/paused-scaling-replicas"
 
-	// the https/nma tls mode currently being used
-	NMAHTTPSPreviousTLSMode = "vertica.com/nma-https-previous-tls-mode"
-	// the client server tls mode currently being used
-	ClientServerPreviousTLSMode = "vertica.com/client-server-previous-tls-mode"
+	// It will disable fetch_node_details log info. This makes debugging easier.
+	DisableFetchNodeDetailsInfoLog = "vertica.com/disable-fetch-node-details-log-info"
 )
 
 // IsPauseAnnotationSet will check the annotations for a special value that will
@@ -455,14 +448,6 @@ func UseNMACertsMount(annotations map[string]string) bool {
 
 func EnableTLSCertsRotation(annotations map[string]string) bool {
 	return lookupBoolAnnotation(annotations, EnableTLSCertsRotationAnnotation, false /* default value */)
-}
-
-func GetNMAHTTPSPreviousTLSMode(annotations map[string]string) string {
-	return lookupStringAnnotation(annotations, NMAHTTPSPreviousTLSMode, "" /* default value */)
-}
-
-func GetClientServerPreviousTLSMode(annotations map[string]string) string {
-	return lookupStringAnnotation(annotations, ClientServerPreviousTLSMode, "" /* default value */)
 }
 
 // IgnoreClusterLease returns true if revive/start should ignore the cluster lease
@@ -654,15 +639,6 @@ func GetNMAHealthProbeOverride(annotations map[string]string, probeName, field s
 	return int32(convVal), true //nolint:gosec
 }
 
-// GetNMATLSSecretNameInUse returns the tls cert secret name in use
-func GetNMATLSSecretNameInUse(annotations map[string]string) string {
-	return lookupStringAnnotation(annotations, NMAHTTPSPreviousSecret, "")
-}
-
-func GetClientServerSecretNameInUse(annotations map[string]string) string {
-	return lookupStringAnnotation(annotations, ClientServerPreviousSecret, "")
-}
-
 // GetVProxyLogLevel returns scrutinize log age hours
 func GetVProxyLogLevel(annotations map[string]string) string {
 	return strings.ToUpper(lookupStringAnnotation(annotations, VProxyLogLevelAnnotation, VProxyLogLevelDefaultLevel))
@@ -817,6 +793,12 @@ func GetReplicationPollingFrequency(annotations map[string]string) int {
 // nodes.
 func GetDisableRouting(annotations map[string]string) bool {
 	return lookupBoolAnnotation(annotations, DisableRoutingAnnotation, false)
+}
+
+// IsFetchNodeDetailsLogDisabled returns true if fetch node details vcluster api's
+// log info must be disabled.
+func IsFetchNodeDetailsLogDisabled(annotations map[string]string) bool {
+	return lookupBoolAnnotation(annotations, DisableFetchNodeDetailsInfoLog, false)
 }
 
 // lookupBoolAnnotation is a helper function to lookup a specific annotation and

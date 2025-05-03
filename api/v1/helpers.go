@@ -55,11 +55,13 @@ const (
 	invalidNameChars = "$=<>`" + `'^\".@*?#&/:;{}()[] \~!%+|,`
 
 	// TLS modes
-	tlsModeDisable    = "disable"
-	tlsModeEnable     = "enable"
-	tlsModeVerifyCA   = "verify_ca"
-	tlsModeTryVerify  = "try_verify"
-	tlsModeVerifyFull = "verify_full"
+	tlsModeDisable           = "disable"
+	tlsModeEnable            = "enable"
+	tlsModeVerifyCA          = "verify_ca"
+	tlsModeTryVerify         = "try_verify"
+	tlsModeVerifyFull        = "verify_full"
+	DefaultServiceHTTPSPort  = 8443
+	DefaultServiceClientPort = 5433
 )
 
 // ExtractNamespacedName gets the name and returns it as a NamespacedName
@@ -160,6 +162,8 @@ func MakeVDB() *VerticaDB {
 			Proxy: &Proxy{
 				Image: "opentext/client-proxy:latest",
 			},
+			ServiceHTTPSPort:  DefaultServiceHTTPSPort,
+			ServiceClientPort: DefaultServiceClientPort,
 		},
 	}
 }
@@ -1073,6 +1077,10 @@ func (v *VerticaDB) GetEncryptSpreadComm() string {
 
 func (v *VerticaDB) IsKSafetyCheckStrict() bool {
 	return vmeta.IsKSafetyCheckStrict(v.Annotations)
+}
+
+func (v *VerticaDB) IsFetchNodeDetailsLogDisabled() bool {
+	return vmeta.IsFetchNodeDetailsLogDisabled(v.Annotations)
 }
 
 // IsValidRestorePointPolicy returns true if the RestorePointPolicy is properly specified,

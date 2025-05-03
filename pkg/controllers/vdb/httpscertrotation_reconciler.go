@@ -24,11 +24,9 @@ import (
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/builder"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
-	"github.com/vertica/vertica-kubernetes/pkg/vk8s"
 
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
-	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
 	"github.com/vertica/vertica-kubernetes/pkg/security"
@@ -103,27 +101,14 @@ func (h *HTTPSCertRotationReconciler) Reconcile(ctx context.Context, _ *ctrl.Req
 
 	// Now https cert rotation will start
 	res, err2 := h.rotateHTTPSTLSCert(ctx, newSecretData, currentSecretData)
-	if verrors.IsReconcileAborted(res, err) {
+	if verrors.IsReconcileAborted(res, err2) {
 		h.Log.Info("https cert rotation is aborted.")
 		return res, err2
-	}
-	currentTLSMode := vmeta.GetNMAHTTPSPreviousTLSMode(h.Vdb.Annotations)
-
-	if currentTLSMode != h.Vdb.Spec.HTTPSTLSMode {
-		chgs := vk8s.MetaChanges{
-			NewAnnotations: map[string]string{
-				vmeta.NMAHTTPSPreviousTLSMode: h.Vdb.Spec.HTTPSTLSMode,
-			},
-		}
-		if _, err := vk8s.MetaUpdate(ctx, h.VRec.Client, h.Vdb.ExtractNamespacedName(), h.Vdb, chgs); err != nil {
-			return ctrl.Result{}, err
-		}
-		h.Log.Info("after cert rotation, https tls mode is updated to " + h.Vdb.Spec.HTTPSTLSMode)
 	}
 
 	cond = vapi.MakeCondition(vapi.HTTPSCertRotationFinished, metav1.ConditionTrue, "Completed")
 	if err := vdbstatus.UpdateCondition(ctx, h.VRec.GetClient(), h.Vdb, cond); err != nil {
-		h.Log.Error(err2, "failed to set condition "+vapi.HTTPSCertRotationFinished+" to true")
+		h.Log.Error(err, "failed to set condition "+vapi.HTTPSCertRotationFinished+" to true")
 		return ctrl.Result{}, err
 	}
 	h.VRec.Eventf(h.Vdb, corev1.EventTypeNormal, events.HTTPSCertRotationSucceded,

@@ -360,7 +360,6 @@ func (vcc VClusterCommands) produceStartDBInstructions(options *VStartDatabaseOp
 		}
 		instructions = append(instructions, &httpsSyncCatalogOp)
 	}
-
 	return instructions, nil
 }
 

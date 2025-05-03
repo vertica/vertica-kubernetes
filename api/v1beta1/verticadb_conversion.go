@@ -166,6 +166,8 @@ func convertToSpec(src *VerticaDBSpec) v1.VerticaDBSpec {
 		LivenessProbeOverride:  src.LivenessProbeOverride,
 		StartupProbeOverride:   src.StartupProbeOverride,
 		ServiceAccountName:     src.ServiceAccountName,
+		ServiceHTTPSPort:       src.ServiceHTTPSPort,
+		ServiceClientPort:      src.ServiceClientPort,
 		Sandboxes:              convertToSandboxSlice(src.Sandboxes),
 	}
 	if src.Proxy != nil {
@@ -176,9 +178,10 @@ func convertToSpec(src *VerticaDBSpec) v1.VerticaDBSpec {
 	}
 	if src.RestorePoint != nil {
 		dst.RestorePoint = &v1.RestorePointPolicy{
-			Archive: src.RestorePoint.Archive,
-			Index:   src.RestorePoint.Index,
-			ID:      src.RestorePoint.ID,
+			Archive:          src.RestorePoint.Archive,
+			Index:            src.RestorePoint.Index,
+			ID:               src.RestorePoint.ID,
+			NumRestorePoints: src.RestorePoint.NumRestorePoints,
 		}
 	}
 	for i := range src.ReviveOrder {
@@ -239,6 +242,8 @@ func convertFromSpec(src *v1.VerticaDB) VerticaDBSpec {
 		LivenessProbeOverride:   srcSpec.LivenessProbeOverride,
 		StartupProbeOverride:    srcSpec.StartupProbeOverride,
 		ServiceAccountName:      srcSpec.ServiceAccountName,
+		ServiceHTTPSPort:        srcSpec.ServiceHTTPSPort,
+		ServiceClientPort:       srcSpec.ServiceClientPort,
 		Sandboxes:               convertFromSandboxSlice(srcSpec.Sandboxes),
 	}
 	if srcSpec.Proxy != nil {
@@ -249,9 +254,10 @@ func convertFromSpec(src *v1.VerticaDB) VerticaDBSpec {
 	}
 	if srcSpec.RestorePoint != nil {
 		dst.RestorePoint = &RestorePointPolicy{
-			Archive: srcSpec.RestorePoint.Archive,
-			Index:   srcSpec.RestorePoint.Index,
-			ID:      srcSpec.RestorePoint.ID,
+			Archive:          srcSpec.RestorePoint.Archive,
+			Index:            srcSpec.RestorePoint.Index,
+			ID:               srcSpec.RestorePoint.ID,
+			NumRestorePoints: srcSpec.RestorePoint.NumRestorePoints,
 		}
 	}
 	for i := range srcSpec.ReviveOrder {
@@ -374,6 +380,8 @@ func convertToSubcluster(src *Subcluster) v1.Subcluster {
 		ServiceName:         src.ServiceName,
 		ClientNodePort:      src.NodePort,
 		VerticaHTTPNodePort: src.VerticaHTTPNodePort,
+		ServiceHTTPSPort:    src.ServiceHTTPSPort,
+		ServiceClientPort:   src.ServiceClientPort,
 		ExternalIPs:         src.ExternalIPs,
 		LoadBalancerIP:      src.LoadBalancerIP,
 		ServiceAnnotations:  src.ServiceAnnotations,
@@ -406,6 +414,8 @@ func convertFromSubcluster(src *v1.Subcluster) Subcluster {
 		ServiceName:         src.ServiceName,
 		NodePort:            src.ClientNodePort,
 		VerticaHTTPNodePort: src.VerticaHTTPNodePort,
+		ServiceHTTPSPort:    src.ServiceHTTPSPort,
+		ServiceClientPort:   src.ServiceClientPort,
 		ExternalIPs:         src.ExternalIPs,
 		LoadBalancerIP:      src.LoadBalancerIP,
 		ServiceAnnotations:  src.ServiceAnnotations,

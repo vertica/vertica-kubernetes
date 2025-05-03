@@ -299,8 +299,8 @@ type VerticaDBSpec struct {
 	// service you are storing.
 	ClientServerTLSSecret string `json:"clientServerTLSSecret,omitempty"`
 
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:advanced","urn:alm:descriptor:com.tectonic.ui:select:DISABLE","urn:alm:descriptor:com.tectonic.ui:select:ENABLE","urn:alm:descriptor:com.tectonic.ui:select:TRY_VERIFY","urn:alm:descriptor:com.tectonic.ui:select:VERIFY_CA"}
-	// +kubebuilder:default:=VERIFY_CA
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:advanced","urn:alm:descriptor:com.tectonic.ui:select:DISABLE","urn:alm:descriptor:com.tectonic.ui:select:ENABLE","urn:alm:descriptor:com.tectonic.ui:select:TRY_VERIFY","urn:alm:descriptor:com.tectonic.ui:select:VERIFY_CA","urn:alm:descriptor:com.tectonic.ui:select:VERIFY_FULL"}
+	// +kubebuilder:default:=TRY_VERIFY
 	// +kubebuilder:validation:Optional
 	// This field configures the Vertica's connection mode for client-server TLS.
 	// Choose one of the following TLSMODEs, listed in ascending security:
@@ -344,6 +344,20 @@ type VerticaDBSpec struct {
 	// create one, using the specified name if provided, along with a Role and
 	// RoleBinding.
 	ServiceAccountName string `json:"serviceAccountName,omitempty"`
+
+	// +kubebuilder:default:=8443
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:number","urn:alm:descriptor:com.tectonic.ui:advanced"}
+	// Port to use for Vertica HTTPS services
+	// Default is 8443
+	ServiceHTTPSPort int32 `json:"serviceHTTPSPort,omitempty"`
+
+	// +kubebuilder:default:=5433
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:number","urn:alm:descriptor:com.tectonic.ui:advanced"}
+	// Port to use for Vertica client service
+	// Default is 5433
+	ServiceClientPort int32 `json:"serviceClientPort,omitempty"`
 
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:advanced"
 	// +kubebuilder:validation:Optional
@@ -428,7 +442,7 @@ const (
 )
 
 // RestorePointPolicy is used to locate the exact archive and restore point within archive
-// when a database restore is intended
+// when a database restore is intended or when saving a restore point
 type RestorePointPolicy struct {
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// +kubebuilder:validation:Optional
@@ -446,6 +460,11 @@ type RestorePointPolicy struct {
 	// The identifier of the restore point in the restore archive to restore from.
 	// Specify either index or id exclusively; one of these fields is mandatory, but both cannot be used concurrently.
 	ID string `json:"id,omitempty"`
+	// +kubebuilder:default:=0
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// Maximum number of restore points to save for this archive.
+	NumRestorePoints int `json:"numRestorePoints,omitempty"`
 }
 
 // Set constant Upgrade Requeue Time
@@ -830,6 +849,20 @@ type Subcluster struct {
 	// must be defined within the range allocated by the control plane, if
 	// omitted Kubernetes will choose the port automatically.
 	VerticaHTTPNodePort int32 `json:"verticaHTTPNodePort,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// HTTPS port for this subcluster's services
+	// If not set, it will use the port number specified in spec.ServiceHTTPSPort,
+	// which is defaulted to be 8443
+	ServiceHTTPSPort int32 `json:"serviceHTTPSPort,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// Client port for this subcluster's services
+	// If not set, it will use the port number specified in spec.ServiceClientPort,
+	// which is defaulted to be 5433
+	ServiceClientPort int32 `json:"serviceClientPort,omitempty"`
 
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:advanced"

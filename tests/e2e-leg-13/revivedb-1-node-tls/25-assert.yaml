@@ -30,5 +30,5 @@ status:
   tlsModes:
   - name: TRY_VERIFY
     type: NMATLSModeType
-  - name: VERIFY_CA
+  - name: TRY_VERIFY
     type: ClientServerTLSModeType

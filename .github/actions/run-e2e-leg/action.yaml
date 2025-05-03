@@ -182,6 +182,12 @@ runs:
                 E2E_TEST_DIRS+=" tests/e2e-${{ inputs.leg-identifier }}-at-only";
               fi
             fi
+            # These legs have some tests that only run with vclusterops deployment
+            if [[ "${{ inputs.leg-identifier }}" == "leg-2" ]]; then
+              if [[ "${VERTICA_DEPLOYMENT_METHOD}" == "vclusterops" ]]; then
+                E2E_TEST_DIRS+=" tests/e2e-${{ inputs.leg-identifier }}-vc-only";
+              fi
+            fi
           fi
 
           # Run test with cert rotation enabled

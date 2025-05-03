@@ -226,6 +226,7 @@ func (v *VerticaDB) validateVerticaDBSpec() field.ErrorList {
 	allErrs = v.hasValidSvcAndScName(allErrs)
 	allErrs = v.hasValidNodePort(allErrs)
 	allErrs = v.isNodePortProperlySpecified(allErrs)
+	allErrs = v.hasValidServicePorts(allErrs)
 	allErrs = v.isServiceTypeValid(allErrs)
 	allErrs = v.hasDuplicateScName(allErrs)
 	allErrs = v.hasValidVolumeName(allErrs)
@@ -343,6 +344,12 @@ func (v *VerticaDB) hasValidSaveRestorePointConfig(allErrs field.ErrorList) fiel
 			err := field.Invalid(field.NewPath("spec").Child("restorePoint").Child("archive"),
 				v.Spec.RestorePoint.Archive,
 				fmt.Sprintf(`archive cannot have the characters %q`, invalidChars))
+			allErrs = append(allErrs, err)
+		}
+		if v.Spec.RestorePoint.NumRestorePoints < 0 {
+			err := field.Invalid(field.NewPath("spec").Child("restorePoint").Child("numRestorePoints"),
+				v.Spec.RestorePoint.NumRestorePoints,
+				"numRestorePoints must be set to 0 or greater")
 			allErrs = append(allErrs, err)
 		}
 	}
@@ -632,6 +639,36 @@ func (v *VerticaDB) isNodePortProperlySpecified(allErrs field.ErrorList) field.E
 						v1.ServiceTypeLoadBalancer, v1.ServiceTypeNodePort))
 				allErrs = append(allErrs, err)
 			}
+		}
+	}
+	return allErrs
+}
+func (v *VerticaDB) hasValidServicePorts(allErrs field.ErrorList) field.ErrorList {
+	if v.Spec.ServiceHTTPSPort < 0 {
+		err := field.Invalid(field.NewPath("spec").Child("serviceHTTPSPort"),
+			v.Spec.ServiceHTTPSPort,
+			"serviceHTTPSPort must be a positive number")
+		allErrs = append(allErrs, err)
+	}
+	if v.Spec.ServiceClientPort < 0 {
+		err := field.Invalid(field.NewPath("spec").Child("serviceClientPort"),
+			v.Spec.ServiceClientPort,
+			"serviceClientPort must be a positive number")
+		allErrs = append(allErrs, err)
+	}
+	for i := range v.Spec.Subclusters {
+		sc := &v.Spec.Subclusters[i]
+		if sc.ServiceHTTPSPort < 0 {
+			err := field.Invalid(field.NewPath("spec").Child("subclusters").Index(i).Child("serviceHTTPSPort"),
+				v.Spec.Subclusters[i].ServiceHTTPSPort,
+				"serviceHTTPSPort must be a positive number")
+			allErrs = append(allErrs, err)
+		}
+		if sc.ServiceClientPort < 0 {
+			err := field.Invalid(field.NewPath("spec").Child("subclusters").Index(i).Child("serviceClientPort"),
+				v.Spec.Subclusters[i].ServiceClientPort,
+				"serviceClientPort must be a positive number")
+			allErrs = append(allErrs, err)
 		}
 	}
 	return allErrs
