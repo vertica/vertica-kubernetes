@@ -19,7 +19,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"strconv"
 )
 
 type nmaLockAttemptsOp struct {
@@ -131,13 +130,12 @@ type dcLockAttempts struct {
 	Duration    string `json:"duration"`
 	Mode        string `json:"mode"`
 	NodeName    string `json:"node_name"`
-	Object      int    `json:"object"`
+	Object      string `json:"object"`
 	ObjectName  string `json:"object_name"`
 	SessionID   string `json:"session_id"`
 	StartTime   string `json:"start_time"`
 	Time        string `json:"time"`
-	// TODO: let endpoint make this as a string
-	TxnID int `json:"transaction_id"`
+	TxnID       string `json:"transaction_id"`
 	// TxnInfo and SessionInfo are not used for parsing data from the NMA endpoint
 	// but will be used to show detailed info about the retrieved TxnID and SessionID
 	TxnInfo     dcTransactionStart `json:"transaction_info"`
@@ -149,8 +147,7 @@ func (event *dcLockAttempts) getSessionID() string {
 }
 
 func (event *dcLockAttempts) getTxnID() string {
-	// TODO: make the TxnID into string
-	return strconv.Itoa(event.TxnID)
+	return event.TxnID
 }
 
 func (op *nmaLockAttemptsOp) processResult(execContext *opEngineExecContext) error {
