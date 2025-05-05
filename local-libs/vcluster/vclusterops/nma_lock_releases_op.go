@@ -127,16 +127,14 @@ func (op *nmaLockReleasesOp) finalize(_ *opEngineExecContext) error {
 type dcLockReleases struct {
 	Duration   string `json:"duration"`
 	NodeName   string `json:"node_name"`
-	Object     int    `json:"object"`
+	Object     string `json:"object"`
 	ObjectName string `json:"object_name"`
 	SessionID  string `json:"session_id"`
 	GrantTime  string `json:"grant_time"`
 	Time       string `json:"time"`
-	// TODO: let endpoint make this as a string
-	TxnID int `json:"transaction_id"`
-	// TODO: let endpoint make this as a string
-	UserID   int64  `json:"user_id"`
-	UserName string `json:"user_name"`
+	TxnID      string `json:"transaction_id"`
+	UserID     string `json:"user_id"`
+	UserName   string `json:"user_name"`
 	// TxnInfo and SessionInfo are not used for parsing data from the NMA endpoint
 	// but will be used to show detailed info about the retrieved TxnID and SessionID
 	TxnInfo     dcTransactionStart `json:"transaction_info"`
