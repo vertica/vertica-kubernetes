@@ -47,6 +47,7 @@ const (
 	ClusterHealthCmd
 	WorkloadReplayCmd
 	WorkloadCaptureCmd
+	WorkloadCancelCmd
 	RotateNMACertsCmd
 	RotateHTTPSCertsCmd
 )
