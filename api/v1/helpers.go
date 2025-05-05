@@ -1252,6 +1252,21 @@ func (v *VerticaDB) GetSandboxStatusCheck(sbName string) (*SandboxStatus, error)
 	return sb, nil
 }
 
+// DoesSandboxHaveQuorum returns true if the sandbox will keep quorum
+func (v *VerticaDB) DoesSandboxHaveQuorum(sbName string, offset int) bool {
+	totalPrimaryCount := 0
+	scMap := v.GenSubclusterMap()
+	sb := v.GetSandbox(sbName)
+	for i := range sb.Subclusters {
+		sc := sb.Subclusters[i]
+		if sc.Type != PrimarySubcluster {
+			continue
+		}
+		totalPrimaryCount += int(scMap[sc.Name].Size)
+	}
+	return 2*(totalPrimaryCount-offset) > totalPrimaryCount
+}
+
 // IsSubclusterInStatus will check if a subcluster in vdb status
 func (v *VerticaDB) IsSubclusterInStatus(scName string) bool {
 	for i := range v.Status.Subclusters {
