@@ -18,7 +18,6 @@ package vdb
 import (
 	"context"
 	"fmt"
-	"strconv"
 	"strings"
 
 	"github.com/go-logr/logr"
@@ -49,12 +48,6 @@ type TLSModeReconciler struct {
 	Pfacts     *podfacts.PodFacts
 }
 
-/* type TLSMode struct {
-	GetCurrentTLSMode	func(*vapi.VerticaDB) string
-	GetNewTLSMode	func(*vapi.VerticaDB) string
-	TLSConfigName   string
-}*/
-
 const (
 	httpsTLSConfig = iota
 	clientServerTLSConfig
@@ -74,7 +67,6 @@ func MakeTLSModeReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger, vdb *
 
 // Reconcile will create a TLS secret for the http server if one is missing
 func (h *TLSModeReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
-	h.Log.Info("in tls mode reconcile")
 	if !h.Vdb.IsCertRotationEnabled() || h.Vdb.IsStatusConditionTrue(vapi.TLSCertRotationInProgress) ||
 		!h.Vdb.IsStatusConditionTrue(vapi.DBInitialized) {
 		return ctrl.Result{}, nil
@@ -83,8 +75,9 @@ func (h *TLSModeReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctr
 		h.Vdb.Spec.ClientServerTLSMode == h.Vdb.GetClientServerTLSModeInUse() {
 		return ctrl.Result{}, nil
 	}
-	h.Log.Info("https - current tls mode " + h.Vdb.GetNMATLSModeInUse() + ", new tls mode " + h.Vdb.Spec.HTTPSTLSMode)
-	h.Log.Info("client - current tls mode " + h.Vdb.GetClientServerTLSModeInUse() + ", new tls mode " + h.Vdb.Spec.ClientServerTLSMode)
+	h.Log.Info(fmt.Sprintf("https: current tls mode - %s, spec tls mode - %s", h.Vdb.GetNMATLSModeInUse(), h.Vdb.Spec.HTTPSTLSMode))
+	h.Log.Info(fmt.Sprintf("client: current tls mode - %s, spec tls mode - %s", h.Vdb.GetClientServerTLSModeInUse(),
+		h.Vdb.Spec.ClientServerTLSMode))
 	h.VRec.Eventf(h.Vdb, corev1.EventTypeNormal, events.NMATLSModeUpdateStarted,
 		"Starting to update TLS Mode")
 	if h.Vdb.GetNMATLSModeInUse() == "" || h.Vdb.GetClientServerTLSModeInUse() == "" {
@@ -156,8 +149,7 @@ func (h *TLSModeReconciler) rotateTLSMode(ctx context.Context) (ctrl.Result, err
 		rotatehttpscerts.WithTLSMode(newHTTPSTLSMode),
 		rotatehttpscerts.WithInitiator(initiatorPod.GetPodIP()),
 	}
-	h.Log.Info("call RotateHTTPSCerts for cert - " + h.Vdb.Spec.NMATLSSecret + ", tls mode - " + newHTTPSTLSMode +
-		", tls enabled " + strconv.FormatBool(h.Vdb.IsCertRotationEnabled()))
+	h.Log.Info(fmt.Sprintf("call RotateHTTPSCerts for cert - %s , tls mode - %s", h.Vdb.Spec.NMATLSSecret, newHTTPSTLSMode))
 	err = h.Dispatcher.RotateHTTPSCerts(ctx, opts...)
 	if err != nil {
 		h.Log.Error(err, "failed to rotate HTTPS/client TLS mode")
@@ -199,7 +191,7 @@ func (h *TLSModeReconciler) reconcileAfterRevive(ctx context.Context) (ctrl.Resu
 			h.Log.Error(err, "failed to update tls mode after reviving")
 			return ctrl.Result{}, err
 		}
-		h.Log.Info("tls modes retrieved from db are saved into vdb annotations")
+		h.Log.Info("tls modes retrieved from db are saved into vdb status")
 		h.VRec.Eventf(h.Vdb, corev1.EventTypeNormal, events.NMATLSModeUpdateSucceeded,
 			"Successfully updated TLS modes after reviving. https - %s, client - %s", h.Vdb.Spec.HTTPSTLSMode,
 			h.Vdb.Spec.ClientServerTLSMode)

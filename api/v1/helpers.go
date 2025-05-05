@@ -1478,6 +1478,10 @@ func (v *VerticaDB) GetNMATLSSecretNameInUse() string {
 	return v.GetSecretNameInUse(NMATLSSecretType)
 }
 
+func (v *VerticaDB) GetClientServerTLSSecretNameInUse() string {
+	return v.GetSecretNameInUse(ClientServerTLSSecretType)
+}
+
 // FindSecretRef returns a pointer to the SecretRef with the given type, or nil if not found.
 func FindSecretRef(refs []SecretRef, typ string) *SecretRef {
 	for i := range refs {
