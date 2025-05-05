@@ -123,7 +123,11 @@ def patch_dir(dir, old_checksum):
      None
     """
     libname = 'lib' + os.path.basename(dir) + '.so'
-    xsum_out = str(subprocess.check_output(['md5sum', dir + '/lib/' + libname]))
+    lib_path = os.path.join(dir, 'lib', libname)
+    if not os.path.isfile(lib_path):
+        print(f'Warning: {lib_path} not found. Skipping {dir}.')
+        return
+    xsum_out = str(subprocess.check_output(['md5sum', lib_path]))
     new_checksum = xsum_out.split(' ')[0]
     # converting byte-like object to string prefixes the string with "b'"
     if new_checksum.startswith("b'"):
