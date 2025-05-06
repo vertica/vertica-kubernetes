@@ -59,10 +59,21 @@ func (r *ShutdownSpecReconciler) updateSubclustersShutdownState(ctx context.Cont
 func (r *ShutdownSpecReconciler) updateSubclustersShutdownStateCallback() (bool, error) {
 	needUpdate := false
 	scMap := r.Vdb.GenSubclusterMap()
+	scStatusMap := r.Vdb.GenSubclusterStatusMap()
 	for i := range r.Vdb.Spec.Sandboxes {
 		sb := &r.Vdb.Spec.Sandboxes[i]
+		sbStatus := r.Vdb.GetSandboxStatus(sb.Name)
+		if sbStatus == nil {
+			continue
+		}
 		for j := range sb.Subclusters {
-			sc := scMap[sb.Subclusters[j].Name]
+			scName := sb.Subclusters[j].Name
+			sc := scMap[scName]
+			scStatus := scStatusMap[scName]
+			if !sbStatus.IsSubclusterInSandbox(scName) || scStatus == nil {
+				break
+			}
+
 			if sb.Shutdown {
 				if sc.Annotations == nil {
 					sc.Annotations = make(map[string]string, 1)
