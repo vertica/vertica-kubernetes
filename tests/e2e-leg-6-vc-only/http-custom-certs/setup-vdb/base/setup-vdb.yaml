@@ -11,24 +11,24 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: apps/v1
-kind: StatefulSet
-metadata:
-  name: v-http-custom-certs-main
-status:
-  replicas: 1
-  readyReplicas: 1
----
 apiVersion: vertica.com/v1beta1
 kind: VerticaDB
 metadata:
   name: v-http-custom-certs
-status:
-  secretRefs:
-    - name: custom-certs
-      type: NMATLSSecretType
-    - type: ClientServerTLSSecretType
+spec:
+  image: kustomize-vertica-image
+  communal:
+    includeUIDInPath: true
+  local:
+    requestSize: 100Mi
+  dbName: vertdb
+  httpServerMode: TRY_VERIFY
+  httpServerTLSSecret: custom-certs
   subclusters:
-    - installCount: 1
-      addedToDBCount: 1
-      upNodeCount: 1
+    - name: main
+      size: 1
+  kSafety: "0"
+  certSecrets: []
+  imagePullSecrets: []
+  volumes: []
+  volumeMounts: []
