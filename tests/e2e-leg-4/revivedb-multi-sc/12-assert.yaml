@@ -11,29 +11,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1beta1
-kind: VerticaDB
+apiVersion: v1
+kind: Secret
 metadata:
-  name: v-revive-1-node
-spec:
-  image: kustomize-vertica-image
-  superuserPasswordSecret: su-passwd
-  ignoreClusterLease: true
-  communal:
-    includeUIDInPath: false
-  local:
-    depotVolume: EmptyDir
-    requestSize: 100Mi
-  initPolicy: Revive
-  dbName: vertdb
-  subclusters:
-    - name: sc1
-      size: 1
-  httpServerTLSSecret: nma-cert
-  clientServerTLSSecret: client-cert
-  kSafety: "0"
-  requeueTime: 5
-  certSecrets: []
-  imagePullSecrets: []
-  volumes: []
-  volumeMounts: []
+  name: client-cert

@@ -35,7 +35,8 @@ import (
 )
 
 const (
-	nmaTLSSecret = "NMATLSSecret"
+	nmaTLSSecret          = "NMATLSSecret"
+	clientServerTLSSecret = "ClientServerTLSSecret"
 )
 
 // TLSServerCertGenReconciler will create a secret that has TLS credentials.  This
@@ -57,12 +58,14 @@ func MakeTLSServerCertGenReconciler(vdbrecon *VerticaDBReconciler, log logr.Logg
 // Reconcile will create a TLS secret for the http server if one is missing
 func (h *TLSServerCertGenReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
 	secretFieldNameMap := map[string]string{
-		nmaTLSSecret: h.Vdb.Spec.NMATLSSecret,
+		nmaTLSSecret:          h.Vdb.Spec.NMATLSSecret,
+		clientServerTLSSecret: h.Vdb.Spec.ClientServerTLSSecret,
 	}
 	err := error(nil)
 	for secretFieldName, secretName := range secretFieldNameMap {
 		err = h.reconcileOneSecret(secretFieldName, secretName, ctx)
 		if err != nil {
+			h.Log.Error(err, fmt.Sprintf("failed to reconcile secret for %s", secretFieldName))
 			break
 		}
 	}
@@ -106,7 +109,7 @@ func (h *TLSServerCertGenReconciler) reconcileOneSecret(secretFieldName, secretN
 	if err != nil {
 		return err
 	}
-	h.Log.Info("created certificate and secret " + secret.Name)
+	h.Log.Info(fmt.Sprintf("created certificate and secret %s for %s", secret.Name, secretFieldName))
 	return h.setSecretNameInVDB(ctx, secretFieldName, secret.ObjectMeta.Name)
 }
 
@@ -141,6 +144,8 @@ func (h *TLSServerCertGenReconciler) createSecret(secretFieldName, secretName st
 	if secretName == "" {
 		if secretFieldName == nmaTLSSecret {
 			secret.GenerateName = fmt.Sprintf("%s-nma-tls-", h.Vdb.Name)
+		} else if secretFieldName == clientServerTLSSecret {
+			secret.GenerateName = fmt.Sprintf("%s-clientserver-tls-", h.Vdb.Name)
 		}
 	} else {
 		secret.Name = secretName
@@ -157,7 +162,9 @@ func (h *TLSServerCertGenReconciler) setSecretNameInVDB(ctx context.Context, sec
 		if err := h.VRec.Client.Get(ctx, nm, h.Vdb); err != nil {
 			return err
 		}
-		if secretFieldName == nmaTLSSecret {
+		if secretFieldName == clientServerTLSSecret {
+			h.Vdb.Spec.ClientServerTLSSecret = secretName
+		} else if secretFieldName == nmaTLSSecret {
 			h.Vdb.Spec.NMATLSSecret = secretName
 		}
 		return h.VRec.Client.Update(ctx, h.Vdb)

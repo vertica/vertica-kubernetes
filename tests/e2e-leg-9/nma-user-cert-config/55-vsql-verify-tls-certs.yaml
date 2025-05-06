@@ -1,0 +1,5 @@
+apiVersion: kuttl.dev/v1beta2
+kind: TestStep
+commands:
+  - command: bash ./vsql_verify_nma_tls.sh
+  - command: bash ./vsql_verify_nma_client_tls.sh

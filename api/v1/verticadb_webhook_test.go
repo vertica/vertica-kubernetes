@@ -2124,6 +2124,29 @@ var _ = Describe("verticadb_webhook", func() {
 		Ω(newVdb.checkShutdownForSubclustersToBeRemoved(oldVdb, field.ErrorList{})).Should(HaveLen(1))
 	})
 
+	It("should not accept invalid client server tls modes", func() {
+		newVdb := MakeVDB()
+		SetVDBForTLS(newVdb)
+		newVdb.Spec.ClientServerTLSMode = "TRY_VERIFY"
+		Ω(newVdb.validateVerticaDBSpec()).Should(HaveLen(0))
+		newVdb.Spec.ClientServerTLSMode = "try_verify"
+		Ω(newVdb.validateVerticaDBSpec()).Should(HaveLen(0))
+		newVdb.Spec.ClientServerTLSMode = "try_VERIFY"
+		Ω(newVdb.validateVerticaDBSpec()).Should(HaveLen(0))
+		newVdb.Spec.ClientServerTLSMode = "disable"
+		Ω(newVdb.validateVerticaDBSpec()).Should(HaveLen(0))
+		newVdb.Spec.ClientServerTLSMode = "Enable"
+		Ω(newVdb.validateVerticaDBSpec()).Should(HaveLen(0))
+		newVdb.Spec.ClientServerTLSMode = "VERIFY_CA"
+		Ω(newVdb.validateVerticaDBSpec()).Should(HaveLen(0))
+		newVdb.Spec.ClientServerTLSMode = "VERIFY_FULL"
+		Ω(newVdb.validateVerticaDBSpec()).Should(HaveLen(0))
+		newVdb.Spec.ClientServerTLSMode = "VERIFYCA"
+		Ω(newVdb.validateVerticaDBSpec()).Should(HaveLen(1))
+		newVdb.Spec.ClientServerTLSMode = ""
+		Ω(newVdb.validateVerticaDBSpec()).Should(HaveLen(0))
+	})
+
 })
 
 func createVDBHelper() *VerticaDB {

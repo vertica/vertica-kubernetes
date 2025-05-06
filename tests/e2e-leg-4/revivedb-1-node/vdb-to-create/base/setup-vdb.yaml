@@ -30,7 +30,8 @@ spec:
   kSafety: "0"
   requeueTime: 5
   certSecrets: []
-  httpServerTLSSecret: custom-cert
+  httpServerTLSSecret: nma-cert
+  clientServerTLSSecret: client-cert 
   imagePullSecrets: []
   volumes: []
   volumeMounts: []

@@ -230,6 +230,7 @@ func (v *VerticaDB) validateVerticaDBSpec() field.ErrorList {
 	allErrs = v.isServiceTypeValid(allErrs)
 	allErrs = v.hasDuplicateScName(allErrs)
 	allErrs = v.hasValidVolumeName(allErrs)
+	allErrs = v.hasValidClientServerTLSMode(allErrs)
 	allErrs = v.hasValidVolumeMountName(allErrs)
 	allErrs = v.hasValidKerberosSetup(allErrs)
 	allErrs = v.hasValidTemporarySubclusterRouting(allErrs)
@@ -713,6 +714,11 @@ func (v *VerticaDB) hasDuplicateScName(allErrs field.ErrorList) field.ErrorList 
 			}
 		}
 	}
+	return allErrs
+}
+
+func (v *VerticaDB) hasValidClientServerTLSMode(allErrs field.ErrorList) field.ErrorList {
+	allErrs = v.hasValidTLSMode(v.Spec.ClientServerTLSMode, "clientServerTLSMode", allErrs)
 	return allErrs
 }
 
@@ -2262,6 +2268,28 @@ func (v *VerticaDB) checkImmutableCertRotation(oldObj *VerticaDB, allErrs field.
 			v.Spec.NMATLSSecret,
 			"nmaTLSSecret cannot be changed when cert rotation is in progress")
 		allErrs = append(allErrs, err)
+	}
+	return allErrs
+}
+
+// hasValidTLSMode checks if the tls mode is valid
+func (v *VerticaDB) hasValidTLSMode(tlsModeToValidate, fieldName string, allErrs field.ErrorList) field.ErrorList {
+	if !v.IsCertRotationEnabled() {
+		return allErrs
+	}
+	tlsModes := []string{tlsModeDisable, tlsModeEnable, tlsModeTryVerify, tlsModeVerifyCA, tlsModeVerifyFull}
+	if tlsModeToValidate != "" {
+		tlsMode := strings.ToLower(tlsModeToValidate)
+		validMode := false
+		for _, mode := range tlsModes {
+			if mode == tlsMode {
+				validMode = true
+			}
+		}
+		if !validMode {
+			err := field.Invalid(field.NewPath("spec").Child(fieldName), tlsModeToValidate, "invalid tls mode")
+			allErrs = append(allErrs, err)
+		}
 	}
 	return allErrs
 }
