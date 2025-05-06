@@ -51,18 +51,6 @@ var _ = Describe("shutdownspec_reconciler", func() {
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
 
-		vdb.Status.Sandboxes = []vapi.SandboxStatus{
-			{Name: sandbox1, Subclusters: []string{subcluster1, subcluster2}},
-		}
-
-		vdb.Status.Subclusters = []vapi.SubclusterStatus{
-			{Name: maincluster, Type: vapi.PrimarySubcluster, Detail: []vapi.VerticaDBPodStatus{}},
-			{Name: subcluster1, Type: vapi.SecondarySubcluster, Detail: []vapi.VerticaDBPodStatus{}},
-			{Name: subcluster2, Type: vapi.SecondarySubcluster, Detail: []vapi.VerticaDBPodStatus{}},
-		}
-
-		Ω(k8sClient.Status().Update(ctx, vdb)).Should(Succeed())
-
 		fpr := &cmds.FakePodRunner{}
 		pfacts := podfacts.MakePodFacts(vdbRec, fpr, logger, TestPassword)
 		pfacts.SandboxName = sandbox1
