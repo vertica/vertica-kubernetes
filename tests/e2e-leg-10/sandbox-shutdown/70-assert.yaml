@@ -22,7 +22,7 @@ spec:
     - name: sec1
       type: secondary
     - name: sec2
-      type: sandboxprimary
+      type: secondary
     - name: sec3
       type: secondary
 status:
@@ -34,12 +34,16 @@ status:
     - addedToDBCount: 3
       upNodeCount: 3
       name: pri1
+      type: primary
     - addedToDBCount: 3
       upNodeCount: 3
       name: sec1
+      type: secondary
     - addedToDBCount: 1
       upNodeCount: 1
       name: sec2
+      type: sandboxprimary
     - addedToDBCount: 1
       upNodeCount: 1
       name: sec3
+      type: secondary

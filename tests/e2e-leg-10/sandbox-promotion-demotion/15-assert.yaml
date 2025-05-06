@@ -23,14 +23,14 @@ kind: StatefulSet
 metadata:
   name: v-sandbox-sec1
 status:
-  currentReplicas: 2
+  currentReplicas: 1
 ---
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: v-sandbox-sec2
 status:
-  currentReplicas: 1
+  currentReplicas: 2
 ---
 apiVersion: apps/v1
 kind: StatefulSet

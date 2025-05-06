@@ -49,10 +49,10 @@ status:
     - addedToDBCount: 3
       name: pri1
       type: primary
-    - addedToDBCount: 2
+    - addedToDBCount: 1
       name: sec1
       type: sandboxprimary
-    - addedToDBCount: 1
+    - addedToDBCount: 2
       name: sec2
       type: secondary
     - addedToDBCount: 1

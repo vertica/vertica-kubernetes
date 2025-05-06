@@ -27,16 +27,16 @@ kind: StatefulSet
 metadata:
   name: v-sandbox-sec1
 status:
-  currentReplicas: 2
-  readyReplicas: 2
+  currentReplicas: 1
+  readyReplicas: 1
 ---
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: v-sandbox-sec2
 status:
-  currentReplicas: 1
-  readyReplicas: 1
+  currentReplicas: 2
+  readyReplicas: 2
 ---
 apiVersion: apps/v1
 kind: StatefulSet
@@ -56,12 +56,12 @@ status:
       upNodeCount: 3
       name: pri1
       type: primary
-    - addedToDBCount: 2
-      upNodeCount: 2
-      name: sec1
-      type: secondary
     - addedToDBCount: 1
       upNodeCount: 1
+      name: sec1
+      type: secondary
+    - addedToDBCount: 2
+      upNodeCount: 2
       name: sec2
       type: secondary
     - addedToDBCount: 1

@@ -28,9 +28,12 @@ status:
     - addedToDBCount: 3
       upNodeCount: 3
       name: pri1
-    - addedToDBCount: 3
-      upNodeCount: 3
+      type: primary
+    - addedToDBCount: 1
+      upNodeCount: 1
       name: sec1
+      type: sandboxprimary
     - addedToDBCount: 1
       upNodeCount: 1
       name: sec3
+      type: secondary

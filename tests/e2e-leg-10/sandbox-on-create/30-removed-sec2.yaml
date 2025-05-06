@@ -26,4 +26,19 @@ spec:
       type: primary
     - name: sec1
       size: 1
+      type: secondary
+status:
+  sandboxes:
+    - name: sand_1
+      subclusters:
+        - sec1
+  subclusters:
+    - addedToDBCount: 3
+      upNodeCount: 3
+      name: pri1
+      type: primary
+    - addedToDBCount: 1
+      upNodeCount: 1
+      name: sec1
       type: sandboxprimary
+
