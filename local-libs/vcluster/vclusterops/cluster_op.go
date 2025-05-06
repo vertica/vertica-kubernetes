@@ -21,6 +21,7 @@
 package vclusterops
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net"
@@ -438,6 +439,10 @@ func (op *opBase) applyTLSOptions(tlsOptions opTLSOptions) error {
 		request := op.clusterHTTPRequest.RequestCollection[host]
 		request.setCerts(certs)
 		request.setTLSMode(tlsModes)
+		// when UsePasswordForNMAOnly is set to be true, we should disable password
+		if request.UsePasswordForSQLClientOnly {
+			request.UseCertsInOptions = true
+		}
 		op.clusterHTTPRequest.RequestCollection[host] = request
 	}
 	return nil
@@ -614,8 +619,9 @@ type ClusterCommands interface {
 	VUnsandbox(options *VUnsandboxOptions) error
 	VUpgradeLicense(options *VUpgradeLicenseOptions) error
 	VClusterHealth(options *VClusterHealthOptions) error
-	VWorkloadReplay(options *VWorkloadReplayOptions) error
+	VWorkloadReplay(ctx context.Context, options *VWorkloadReplayOptions) error
 	VWorkloadCapture(options *VWorkloadCaptureOptions) error
+	VWorkloadCancel(options *VWorkloadCancelOptions) error
 }
 
 type VClusterCommandsLogger struct {

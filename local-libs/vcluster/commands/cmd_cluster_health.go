@@ -53,7 +53,8 @@ Examples:
   # Check the cluster health
   vcluster cluster_health --start-time <start_time> --end-time <end_time>
 `,
-		[]string{dbNameFlag, configFlag, hostsFlag, ipv6Flag, passwordFlag, outputFileFlag},
+		[]string{dbNameFlag, configFlag, hostsFlag, ipv6Flag, passwordFlag, outputFileFlag,
+			usePasswordForSQLClientOnlyFlag},
 	)
 
 	// local flags

@@ -26,11 +26,16 @@ type hostHTTPRequest struct {
 	Password *string // optional, for HTTPS endpoints only
 	Timeout  int     // optional, set it if an Op needs longer time to complete
 
-	// optional, for calling NMA/Vertica HTTPS endpoints. If Username/Password is set, that takes precedence over this for HTTPS calls.
+	// optional, for calling NMA/Vertica HTTPS endpoints.
+	// If Username/Password is set, that takes precedence over this for HTTPS calls.
 	UseCertsInOptions   bool
 	Certs               httpsCerts
 	TLSDoVerify         bool
 	TLSDoVerifyHostname bool
+
+	// When this is set to be true, vcluster will only use password for NMA using the SQL client
+	// and use certs for the HTTPS service
+	UsePasswordForSQLClientOnly bool
 }
 
 type httpsCerts struct {
