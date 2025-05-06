@@ -28,8 +28,8 @@ import (
 )
 
 const (
-	serverTLSKeyPrefix string = "server_tls"
-	httpsTLSKeyPrefix  string = "https_tls"
+	serverTLSKeyPrefix string = "server"
+	httpsTLSKeyPrefix  string = "https"
 )
 
 type VerticaTLSModeType string
