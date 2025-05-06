@@ -14,8 +14,6 @@
 apiVersion: v1
 kind: Pod
 metadata:
-  namespace: verticadb-operator
-  labels:
-    control-plane: verticadb-operator
+  name: clean-communal
 status:
-  phase: Running
+  phase: Succeeded

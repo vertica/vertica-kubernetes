@@ -24,7 +24,8 @@ kind: VerticaDB
 metadata:
   name: v-tls-certs
 spec:
-  nmaTLSSecret: custom-cert
+  nmaTLSSecret: nma-cert
+  clientServerTLSSecret: client-cert
 status:
   subclusters:
     - addedToDBCount: 1
@@ -35,4 +36,5 @@ kind: ConfigMap
 metadata:
   name: v-tls-certs-nma-tls-config
 data:
-  NMA_SECRET_NAME: custom-cert
+  NMA_SECRET_NAME: nma-cert
+  NMA_CLIENT_SECRET_NAME: client-cert
