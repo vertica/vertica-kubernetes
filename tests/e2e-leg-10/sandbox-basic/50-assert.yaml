@@ -20,9 +20,9 @@ spec:
   - name: pri1
     type: primary
   - name: sec1
-    type: sandboxprimary
+    type: secondary
   - name: sec2
-    type: sandboxprimary
+    type: secondary
   - name: sec3
     type: secondary
 status:

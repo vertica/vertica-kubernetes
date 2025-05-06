@@ -54,6 +54,11 @@ spec:
     shutdown: true
     type: secondary
 status:
+  sandboxes:
+    - name: sandbox1
+      subclusters:
+        - sec1
+        - sec3
   subclusters:
     - addedToDBCount: 4
       upNodeCount: 4

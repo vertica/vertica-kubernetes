@@ -88,7 +88,7 @@ status:
     - addedToDBCount: 1
       name: pri_2
       type: primary
-    - addedToDBCount: 1
+    - addedToDBCount: 3
       name: sec1
       type: secondary
     - addedToDBCount: 2
@@ -97,6 +97,6 @@ status:
     - addedToDBCount: 1
       name: pri_2-sb
       type: sandboxprimary
-    - addedToDBCount: 1
+    - addedToDBCount: 3
       name: sec1-sb
       type: sandboxsecondary

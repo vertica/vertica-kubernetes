@@ -30,6 +30,11 @@ kind: VerticaDB
 metadata:
   name: v-subcluster-shutdown
 status:
+  sandboxes:
+    - name: sandbox1
+      subclusters:
+        - sec1
+        - sec3
   subclusters:
     - addedToDBCount: 4
       upNodeCount: 4
