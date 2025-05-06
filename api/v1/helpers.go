@@ -1040,7 +1040,7 @@ func (s *Subcluster) GetType() string {
 	return s.Type
 }
 
-// GetSubcluster returns returns the subcluster based on the subcluster name
+// GetSubcluster returns the subcluster based on the subcluster name
 func (v *VerticaDB) GetSubcluster(scName string) *Subcluster {
 	scMap := v.GenSubclusterMap()
 	if sc, ok := scMap[scName]; ok {
@@ -1049,8 +1049,8 @@ func (v *VerticaDB) GetSubcluster(scName string) *Subcluster {
 	return nil
 }
 
-// GenSubclusterType calls GetType but returns the type based on its sandbox type
-func (s *Subcluster) GenSubclusterType(v *VerticaDB) string {
+// GetSubclusterType calls GetType but returns the type based on its sandbox type
+func (s *Subcluster) GetSubclusterType(v *VerticaDB) string {
 	if s.IsSandboxPrimary(v) {
 		return SandboxPrimarySubcluster
 	}
@@ -1066,7 +1066,8 @@ func (spec *VerticaDBSpec) GetTypeByName(scName string) string {
 		}
 	}
 
-	return SecondarySubcluster
+	// return empty if sc does not exist
+	return ""
 }
 
 func (v *VerticaDBStatus) InstallCount() int32 {
@@ -1253,6 +1254,17 @@ func (v *VerticaDB) GetSandboxStatusCheck(sbName string) (*SandboxStatus, error)
 }
 
 // DoesSandboxHaveQuorum returns true if the sandbox will keep quorum
+// For example, a sandbox sand1 has 2 primary subclusters sc1 and sc2 with 1 and 2 nodes separately:
+//
+//	sandboxes
+//	- name: sand1
+//	  subclusters:
+//	  - name: sc1 (default primary, 1 node)
+//	  - name: sc2 (default primary, 2 nodes)
+//
+// The totalPrimaryCount is 3. When removing/demoting a subcluster from the sandbox:
+// - removing/demoting sc1: offset is 1, then 2*(3-1) > 3 is true, DoesSandboxHaveQuorum(sand1, 1) will return true
+// - removing/demoting sc2: offset is 2, then 2*(3-2) > 3 is false, DoesSandboxHaveQuorum(sand1, 2) will return false
 func (v *VerticaDB) DoesSandboxHaveQuorum(sbName string, offset int) bool {
 	totalPrimaryCount := 0
 	scMap := v.GenSubclusterMap()

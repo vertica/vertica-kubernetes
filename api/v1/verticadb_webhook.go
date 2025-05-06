@@ -1292,19 +1292,26 @@ func (v *VerticaDB) validateProxyLogLevel(allErrs field.ErrorList) field.ErrorLi
 	return allErrs
 }
 
-// check if sandbox has a primary subcluster
-func (sand *Sandbox) hasSandboxPrimarySubcluster(allErrs field.ErrorList) field.ErrorList {
-	for _, sc := range sand.Subclusters {
+// hasPrimarySubcluster checks if a sandbox has a primary subcluster
+func (sand *Sandbox) hasPrimarySubcluster() bool {
+	for i := range sand.Subclusters {
+		sc := &sand.Subclusters[i]
 		if sc.Type == PrimarySubcluster {
-			return allErrs
+			return true
 		}
 	}
+	return false
+}
 
-	err := field.Invalid(field.NewPath("spec").Child("sandboxes"),
-		sand.Subclusters,
-		fmt.Sprintf("there must be at least one primary subcluster in the sandbox %s", sand.Name))
-	allErrs = append(allErrs, err)
-
+// validateSandboxPrimarySubcluster validates if a sandbox has a primary subcluster
+func (v *VerticaDB) validateSandboxPrimarySubcluster(allErrs field.ErrorList, sbIndex int) field.ErrorList {
+	sb := &v.Spec.Sandboxes[sbIndex]
+	if sb != nil && !sb.hasPrimarySubcluster() {
+		err := field.Invalid(field.NewPath("spec").Child("sandboxes").Index(sbIndex),
+			sb.Subclusters,
+			fmt.Sprintf("there must be at least one primary subcluster in the sandbox %s", sb.Name))
+		allErrs = append(allErrs, err)
+	}
 	return allErrs
 }
 
@@ -1345,7 +1352,7 @@ func (v *VerticaDB) validateSubclustersInSandboxes(allErrs field.ErrorList) fiel
 		}
 
 		// sandboxHasPrimarySubcluster checks if there is a primary subcluster in the sandboxe
-		allErrs = sandbox.hasSandboxPrimarySubcluster(allErrs)
+		allErrs = v.validateSandboxPrimarySubcluster(allErrs, i)
 	}
 
 	// check if a non-existing subcluster is defined in a sandbox

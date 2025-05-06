@@ -30,7 +30,7 @@ const (
 func MakeSubclusterLabels(sc *vapi.Subcluster, vdb *vapi.VerticaDB) map[string]string {
 	m := map[string]string{
 		vmeta.SubclusterNameLabel: sc.Name,
-		vmeta.SubclusterTypeLabel: sc.GenSubclusterType(vdb),
+		vmeta.SubclusterTypeLabel: sc.GetSubclusterType(vdb),
 	}
 	return m
 }
