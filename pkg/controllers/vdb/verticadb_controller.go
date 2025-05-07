@@ -295,6 +295,9 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		// Trigger sandbox upgrade when the image field for the sandbox
 		// is changed
 		MakeSandboxUpgradeReconciler(r, log, vdb, true),
+		// Update the sandbox/subclusters' shutdown field to match the value of
+		// the spec.
+		MakeShutdownSpecReconciler(r, vdb),
 		// Trigger sandbox shutdown when the shutdown field of the sandbox
 		// is changed
 		MakeSandboxShutdownReconciler(r, log, vdb, false),
