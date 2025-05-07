@@ -82,5 +82,7 @@ func (v *VClusterOps) genRotateHTTPSCertsOptions(s *rotatehttpscerts.Params, cer
 	}
 	opts.UserName = v.VDB.GetVerticaUser()
 	v.setAuthentication(&opts.DatabaseOptions, v.VDB.GetVerticaUser(), &v.Password, certs)
+	// This is only to allow the leg-13 to pass
+	opts.TLSSecretManager = vops.K8sSecretManagerType
 	return opts
 }
