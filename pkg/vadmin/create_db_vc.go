@@ -88,6 +88,7 @@ func (v *VClusterOps) genCreateDBOptions(s *createdb.Parms, certs *HTTPSCerts) v
 	if v.VDB.IsNMASideCarDeploymentEnabled() {
 		opts.StartUpConf = paths.StartupConfFile
 	}
+	opts.SpreadLogging = true
 
 	// If a communal path is set, include all of the EON parameters.
 	if s.CommunalPath != "" {
