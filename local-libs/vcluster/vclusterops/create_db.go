@@ -28,8 +28,8 @@ import (
 )
 
 const (
-	serverTLSKeyPrefix string = "server"
-	httpsTLSKeyPrefix  string = "https"
+	serverTLSKeyPrefix string = "server_tls"
+	httpsTLSKeyPrefix  string = "https_tls"
 )
 
 type VerticaTLSModeType string
@@ -755,7 +755,7 @@ func (vcc VClusterCommands) produceAdditionalTLSInstructions(options *VCreateDat
 		nmaSetHTTPSTLSOp, err := makeNMASetTLSOp(&options.DatabaseOptions, httpsTLSKeyPrefix,
 			true, // grantAuth
 			true, // syncCatalog
-			options.HTTPSTLSConfiguration)
+			options.ServerTLSConfiguration)
 		if err != nil {
 			return instructions, err
 		}
