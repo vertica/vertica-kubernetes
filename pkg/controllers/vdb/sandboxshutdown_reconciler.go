@@ -34,17 +34,20 @@ type SandboxShutdownReconciler struct {
 	Log     logr.Logger
 	Vdb     *vapi.VerticaDB // Vdb is the CRD we are acting on
 	Manager UpgradeManager
-	Requeue bool
+	// This means some errors can be ignored because they are expected.
+	// It is set to true when we need to call the reconciler early when
+	// some subclusters might not exist yet.
+	IgnoreError bool
 }
 
 // MakeSandboxShutdownReconciler will build a SandboxShutdownReconciler object
 func MakeSandboxShutdownReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
-	vdb *vapi.VerticaDB, requeue bool) controllers.ReconcileActor {
+	vdb *vapi.VerticaDB, ignore bool) controllers.ReconcileActor {
 	return &SandboxShutdownReconciler{
-		VRec:    vdbrecon,
-		Log:     log.WithName("SandboxShutdownReconciler"),
-		Vdb:     vdb,
-		Requeue: requeue,
+		VRec:        vdbrecon,
+		Log:         log.WithName("SandboxShutdownReconciler"),
+		Vdb:         vdb,
+		IgnoreError: ignore,
 	}
 }
 
@@ -69,13 +72,14 @@ func (s *SandboxShutdownReconciler) reconcileSandboxShutdown(ctx context.Context
 	sbName := sb.Name
 	sbStatus := s.Vdb.GetSandboxStatus(sbName)
 	if sbStatus == nil {
-		if s.Requeue {
+		requeue := !s.IgnoreError
+		if requeue {
 			s.Log.Info("Requeue because the sandbox does not exist yet", "sandbox", sbName)
 		} else {
 			s.Log.Info("sandbox does not exist in the database yet", "sandbox", sbName)
 		}
 
-		return ctrl.Result{Requeue: s.Requeue}, nil
+		return ctrl.Result{Requeue: requeue}, nil
 	}
 	scMap := s.Vdb.GenSubclusterMap()
 	scStatusMap := s.Vdb.GenSubclusterStatusMap()
@@ -83,6 +87,12 @@ func (s *SandboxShutdownReconciler) reconcileSandboxShutdown(ctx context.Context
 		sc := scMap[sb.Subclusters[i].Name]
 		scStatus := scStatusMap[sb.Subclusters[i].Name]
 		if sc == nil || scStatus == nil {
+			if s.IgnoreError {
+				// when calling this reconciler early, it is expected that
+				// some subclusters might not be in the db yet. Instead of returning
+				// an error, we simply skipped to the next subcluster
+				continue
+			}
 			return ctrl.Result{}, fmt.Errorf("subcluster %s not found", sb.Subclusters[i].Name)
 		}
 		// Proceeds only if the status does not match the spec
