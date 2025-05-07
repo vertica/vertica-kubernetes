@@ -21,6 +21,7 @@ import (
 	vops "github.com/vertica/vcluster/vclusterops"
 	"github.com/vertica/vertica-kubernetes/pkg/cloud"
 	"github.com/vertica/vertica-kubernetes/pkg/net"
+	"github.com/vertica/vertica-kubernetes/pkg/secrets"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/rotatehttpscerts"
 )
 
@@ -82,6 +83,13 @@ func (v *VClusterOps) genRotateHTTPSCertsOptions(s *rotatehttpscerts.Params, cer
 	}
 	opts.UserName = v.VDB.GetVerticaUser()
 	v.setAuthentication(&opts.DatabaseOptions, v.VDB.GetVerticaUser(), &v.Password, certs)
-	opts.TLSSecretManager = vops.K8sSecretManagerType
+	secretManager := ""
+	switch {
+	case secrets.IsAWSSecretsManagerSecret(v.VDB.Spec.NMATLSSecret):
+		secretManager = vops.AWSSecretManagerType
+	case secrets.IsK8sSecret(v.VDB.Spec.NMATLSSecret):
+		secretManager = vops.K8sSecretManagerType
+	}
+	opts.TLSSecretManager = secretManager
 	return opts
 }
