@@ -203,4 +203,6 @@ containerSecurityContext:
     drop:
     - ALL
 
-
+keda:
+  # This controls the creation of ClusterRole rules for KEDA objects.
+  createRBACRules: true

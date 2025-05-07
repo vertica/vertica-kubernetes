@@ -42,3 +42,13 @@ status:
     ready: true
     restartCount: 0
     started: true
+---
+apiVersion: vertica.com/v1
+kind: VerticaDB
+metadata:
+  name: v-tls-certs
+status:
+  secretRefs:
+    - name: custom-cert
+      type: NMATLSSecretType
+    - type: ClientServerTLSSecretType

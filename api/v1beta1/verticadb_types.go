@@ -330,7 +330,7 @@ type VerticaDBSpec struct {
 	// deployment type now.
 	DeprecatedHTTPServerMode HTTPServerModeType `json:"httpServerMode,omitempty"`
 
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:hidden"
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:Secret"
 	// +kubebuilder:default:=""
 	// +kubebuilder:validation:Optional
 	// A secret that contains the TLS credentials to use for the node management
@@ -341,6 +341,35 @@ type VerticaDBSpec struct {
 	// - tls.crt: The signed certificate chain for the private key
 	// - ca.crt: The CA certificate
 	HTTPServerTLSSecret string `json:"httpServerTLSSecret,omitempty"`
+
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:io.kubernetes:Secret"
+	// "urn:alm:descriptor:com.tectonic.ui:advanced"
+	// +kubebuilder:default:=""
+	// +kubebuilder:validation:Optional
+	// A secret that contains the TLS credentials to be used to authenticate Vertica clients' certificates.
+	// If this is empty, the operator will create a secret to use and add the name of the generate secret to this field.
+	// The private key, certificate, and CA certificate should be stored in the secret using the following keys: tls.key,
+	// tls.crt, and ca.crt, respectively. To store this secret outside of Kubernetes, you can
+	// use a secret path reference prefix, such as gsm://. Everything after the prefix is the name of the secret in the
+	// service you are storing.
+	ClientServerTLSSecret string `json:"clientServerTLSSecret,omitempty"`
+
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:advanced","urn:alm:descriptor:com.tectonic.ui:select:DISABLE","urn:alm:descriptor:com.tectonic.ui:select:ENABLE","urn:alm:descriptor:com.tectonic.ui:select:TRY_VERIFY","urn:alm:descriptor:com.tectonic.ui:select:VERIFY_CA","urn:alm:descriptor:com.tectonic.ui:select:VERIFY_FULL"}
+	// +kubebuilder:default:=TRY_VERIFY
+	// +kubebuilder:validation:Optional
+	// This field configures the Vertica's connection mode for client-server TLS.
+	// Choose one of the following TLSMODEs, listed in ascending security:
+	// - DISABLE: Disables TLS. All other options for this parameter enable TLS.
+	// - ENABLE: Enables TLS. Vertica does not verify client certificates.
+	// - TRY_VERIFY: Establishes a TLS connection if one of the following is true:
+	//   - The client presents a valid certificate.
+	//   - The client doesn't present a certificate
+	//   If the client presents an invalid certificate, the connection is rejected.
+	// - VERIFY_CA: Connection succeeds if Vertica verifies that the client certificate is from a trusted CA.
+	//   If the client does not present a client certificate, the connection is rejected.
+	// - VERIFY_FULL: Connection succeeds if Vertica verifies that the other host's certificate is from a trusted CA and
+	//   the certificate's cn (Common Name) or subjectAltName attribute matches the hostname or IP address of the other host.
+	ClientServerTLSMode string `json:"clientServerTLSMode,omitempty"`
 
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:hidden"
 	// +kubebuilder:validation:Optional
@@ -370,6 +399,20 @@ type VerticaDBSpec struct {
 	// create one, using the specified name if provided, along with a Role and
 	// RoleBinding.
 	ServiceAccountName string `json:"serviceAccountName,omitempty"`
+
+	// +kubebuilder:default:=8443
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:number","urn:alm:descriptor:com.tectonic.ui:advanced"}
+	// Port to use for Vertica HTTPS services
+	// Default is 8443
+	ServiceHTTPSPort int32 `json:"serviceHTTPSPort,omitempty"`
+
+	// +kubebuilder:default:=5433
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:number","urn:alm:descriptor:com.tectonic.ui:advanced"}
+	// Port to use for Vertica client service
+	// Default is 5433
+	ServiceClientPort int32 `json:"serviceClientPort,omitempty"`
 
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:advanced"
 	// +kubebuilder:validation:Optional
@@ -459,6 +502,11 @@ type RestorePointPolicy struct {
 	// The identifier of the restore point in the restore archive to restore from.
 	// Specify either index or id exclusively; one of these fields is mandatory, but both cannot be used concurrently.
 	ID string `json:"id,omitempty"`
+	// +kubebuilder:default:=0
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// Maximum number of restore points to save for this archive.
+	NumRestorePoints int `json:"numRestorePoints,omitempty"`
 }
 
 // Set constant Upgrade Requeue Time
@@ -889,6 +937,20 @@ type Subcluster struct {
 	VerticaHTTPNodePort int32 `json:"verticaHTTPNodePort,omitempty"`
 
 	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:number","urn:alm:descriptor:com.tectonic.ui:advanced"}
+	// HTTPS port for this subcluster's services
+	// If not set, it will use the port number specified in spec.ServiceHTTPSPort,
+	// which is defaulted to be 8443
+	ServiceHTTPSPort int32 `json:"serviceHTTPSPort,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// Client port for this subcluster's services
+	// If not set, it will use the port number specified in spec.ServiceClientPort,
+	// which is defaulted to be 5433
+	ServiceClientPort int32 `json:"serviceClientPort,omitempty"`
+
+	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:advanced"
 	// Allows the service object to be attached to a list of external IPs that you
 	// specify. If not set, the external IP list is left empty in the service object.
@@ -1000,6 +1062,25 @@ type VerticaDBStatus struct {
 	// +optional
 	// The details about the last created restore point
 	RestorePoint *RestorePointInfo `json:"restorePoint"`
+
+	// +operator-sdk:csv:customresourcedefinitions:type=status
+	// +optional
+	// The list of secrets currently in use
+	SecretRefs []SecretRef `json:"secretRefs,omitempty"`
+}
+
+const (
+	NMATLSSecretType = "NMATLSSecretType" // #nosec G101
+)
+
+type SecretRef struct {
+	// +operator-sdk:csv:customresourcedefinitions:type=status
+	// Name of the secret
+	Name string `json:"name"`
+	// +operator-sdk:csv:customresourcedefinitions:type=status
+	// The type of the secret which represents what the secret
+	// is used for
+	Type string `json:"type"`
 }
 
 type RestorePointInfo struct {

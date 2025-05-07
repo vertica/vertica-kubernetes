@@ -526,6 +526,21 @@ var _ = Describe("verticadb_webhook", func() {
 		validateSpecValuesHaveErr(vdb, false)
 		vdb.Spec.RestorePoint.Archive = "archive"
 		validateSpecValuesHaveErr(vdb, false)
+		// numRestorePoints 0 or greater
+		vdb.Spec.RestorePoint.NumRestorePoints = -1
+		validateSpecValuesHaveErr(vdb, true)
+		vdb.Spec.RestorePoint.NumRestorePoints = 0
+		validateSpecValuesHaveErr(vdb, false)
+		// when db is already initialized, we shouldn't report an error about missing archive or restore point
+		vdb2 := createVDBHelper()
+		vdb2.Spec.InitPolicy = "Revive"
+		vdb2.Spec.RestorePoint = &RestorePointPolicy{}
+		resetStatusConditionsForDBInitialized(vdb2)
+		// archive is not provided
+		validateSpecValuesHaveErr(vdb2, false)
+		vdb2.Spec.RestorePoint.Archive = "archive2"
+		// neither id nor index is provided
+		validateSpecValuesHaveErr(vdb2, false)
 	})
 
 	It("should only allow nodePort if serviceType allows for it", func() {
@@ -535,6 +550,23 @@ var _ = Describe("verticadb_webhook", func() {
 		validateSpecValuesHaveErr(vdb, false)
 		vdb.Spec.Subclusters[0].ServiceType = v1.ServiceTypeClusterIP
 		validateSpecValuesHaveErr(vdb, true)
+	})
+
+	It("should only allow valid ServiceHTTPSPort and ServiceClientPort", func() {
+		vdb := createVDBHelper()
+		vdb.Spec.ServiceHTTPSPort = -1
+		validateSpecValuesHaveErr(vdb, true)
+		vdb.Spec.ServiceHTTPSPort = 8443
+		vdb.Spec.ServiceClientPort = -1
+		validateSpecValuesHaveErr(vdb, true)
+		vdb.Spec.ServiceClientPort = 5433
+		vdb.Spec.Subclusters[0].ServiceHTTPSPort = -1
+		validateSpecValuesHaveErr(vdb, true)
+		vdb.Spec.Subclusters[0].ServiceHTTPSPort = 8443
+		vdb.Spec.Subclusters[0].ServiceClientPort = -1
+		validateSpecValuesHaveErr(vdb, true)
+		vdb.Spec.Subclusters[0].ServiceClientPort = 5433
+		validateSpecValuesHaveErr(vdb, false)
 	})
 
 	It("should default endpoint for google cloud", func() {
@@ -2038,6 +2070,29 @@ var _ = Describe("verticadb_webhook", func() {
 			{Name: "sc4"},
 		}
 		Ω(newVdb.checkShutdownForSubclustersToBeRemoved(oldVdb, field.ErrorList{})).Should(HaveLen(1))
+	})
+
+	It("should not accept invalid client server tls modes", func() {
+		newVdb := MakeVDB()
+		SetVDBForTLS(newVdb)
+		newVdb.Spec.ClientServerTLSMode = "TRY_VERIFY"
+		Ω(newVdb.validateVerticaDBSpec()).Should(HaveLen(0))
+		newVdb.Spec.ClientServerTLSMode = "try_verify"
+		Ω(newVdb.validateVerticaDBSpec()).Should(HaveLen(0))
+		newVdb.Spec.ClientServerTLSMode = "try_VERIFY"
+		Ω(newVdb.validateVerticaDBSpec()).Should(HaveLen(0))
+		newVdb.Spec.ClientServerTLSMode = "disable"
+		Ω(newVdb.validateVerticaDBSpec()).Should(HaveLen(0))
+		newVdb.Spec.ClientServerTLSMode = "Enable"
+		Ω(newVdb.validateVerticaDBSpec()).Should(HaveLen(0))
+		newVdb.Spec.ClientServerTLSMode = "VERIFY_CA"
+		Ω(newVdb.validateVerticaDBSpec()).Should(HaveLen(0))
+		newVdb.Spec.ClientServerTLSMode = "VERIFY_FULL"
+		Ω(newVdb.validateVerticaDBSpec()).Should(HaveLen(0))
+		newVdb.Spec.ClientServerTLSMode = "VERIFYCA"
+		Ω(newVdb.validateVerticaDBSpec()).Should(HaveLen(1))
+		newVdb.Spec.ClientServerTLSMode = ""
+		Ω(newVdb.validateVerticaDBSpec()).Should(HaveLen(0))
 	})
 
 })

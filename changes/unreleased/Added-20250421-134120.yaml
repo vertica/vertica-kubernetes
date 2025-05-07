@@ -1,0 +1,5 @@
+kind: Added
+body: Set archive's max restore points when saving restore point
+time: 2025-04-21T13:41:20.041082604-04:00
+custom:
+    Issue: "1209"

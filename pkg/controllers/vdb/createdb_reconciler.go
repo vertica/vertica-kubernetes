@@ -142,14 +142,6 @@ func (c *CreateDBReconciler) execCmd(ctx context.Context, initiatorPod types.Nam
 			c.Log.Error(err2, "failed to execute TLS DDLs after db creation stderr - "+stderr)
 			return ctrl.Result{}, err2
 		}
-		chgs := vk8s.MetaChanges{
-			NewAnnotations: map[string]string{
-				vmeta.NMAHTTPSPreviousSecret: c.Vdb.Spec.NMATLSSecret,
-			},
-		}
-		if _, err := vk8s.MetaUpdate(ctx, c.VRec.Client, c.Vdb.ExtractNamespacedName(), c.Vdb, chgs); err != nil {
-			return ctrl.Result{}, err
-		}
 		c.Log.Info("TLS DDLs executed and TLS Cert configured")
 	}
 	sc := c.getFirstPrimarySubcluster()
@@ -358,9 +350,30 @@ func (c *CreateDBReconciler) generateKubernetesTLSSQL(sb *strings.Builder) {
 		c.Vdb.Spec.NMATLSSecret, corev1.TLSCertKey, c.Vdb.ObjectMeta.Namespace)
 	fmt.Fprintf(sb, "SIGNED BY https_ca_cert_0 KEY https_key_0;\n")
 
+	fmt.Fprintf(sb, "DROP KEY IF EXISTS server_key;\n")
+	fmt.Fprintf(sb, "DROP CERTIFICATE IF EXISTS server_cert;\n")
+	fmt.Fprintf(sb, "DROP CERTIFICATE IF EXISTS server_ca_cert;\n")
+
+	fmt.Fprintf(sb, "CREATE KEY server_key TYPE 'rsa' SECRETMANAGER KubernetesSecretManager ")
+	fmt.Fprintf(sb, "SECRETNAME '%s' CONFIGURATION '{\"data-key\":\"%s\", \"namespace\":\"%s\"}';\n",
+		c.Vdb.Spec.ClientServerTLSSecret, corev1.TLSPrivateKeyKey, c.Vdb.ObjectMeta.Namespace)
+
+	fmt.Fprintf(sb, "CREATE CA CERTIFICATE server_ca_cert SECRETMANAGER KubernetesSecretManager ")
+	fmt.Fprintf(sb, "SECRETNAME '%s' CONFIGURATION '{\"data-key\":\"%s\", \"namespace\":\"%s\"}';\n",
+		c.Vdb.Spec.ClientServerTLSSecret, paths.HTTPServerCACrtName, c.Vdb.ObjectMeta.Namespace)
+
+	fmt.Fprintf(sb, "CREATE CERTIFICATE server_cert SECRETMANAGER KubernetesSecretManager ")
+	fmt.Fprintf(sb, "SECRETNAME '%s' CONFIGURATION '{\"data-key\":\"%s\", \"namespace\":\"%s\"}' ",
+		c.Vdb.Spec.ClientServerTLSSecret, corev1.TLSCertKey, c.Vdb.ObjectMeta.Namespace)
+	fmt.Fprintf(sb, "SIGNED BY server_ca_cert KEY server_key;\n")
+
+	fmt.Fprintf(sb, "ALTER TLS CONFIGURATION server CERTIFICATE server_cert ADD CA CERTIFICATES ")
+	fmt.Fprintf(sb, "server_ca_cert TLSMODE '%s';\n", c.Vdb.Spec.ClientServerTLSMode)
 	fmt.Fprintf(sb, "ALTER TLS CONFIGURATION https CERTIFICATE https_cert_0 ADD CA CERTIFICATES ")
 	fmt.Fprintf(sb, "https_ca_cert_0 TLSMODE 'TRY_VERIFY';\n")
 	fmt.Fprintf(sb, "ALTER TLS CONFIGURATION https CERTIFICATE https_cert_0 REMOVE CA CERTIFICATES ")
+	fmt.Fprintf(sb, "httpServerRootca;\n")
+	fmt.Fprintf(sb, "ALTER TLS CONFIGURATION server CERTIFICATE server_cert REMOVE CA CERTIFICATES ")
 	fmt.Fprintf(sb, "httpServerRootca;\n")
 	fmt.Fprintf(sb, "CREATE AUTHENTICATION k8s_tls_builtin_auth METHOD 'tls' HOST TLS '0.0.0.0/0' FALLTHROUGH;\n")
 	fmt.Fprintf(sb, "GRANT AUTHENTICATION k8s_tls_builtin_auth TO %s;\n", c.Vdb.GetVerticaUser())
@@ -396,6 +409,32 @@ func (c *CreateDBReconciler) generateAWSTlsSQL(sb *strings.Builder) {
 	fmt.Fprintf(sb, "ADD CA CERTIFICATES https_ca_cert_0 TLSMODE 'TRY_VERIFY';\n")
 	fmt.Fprintf(sb, "ALTER TLS CONFIGURATION https CERTIFICATE https_cert_0 ")
 	fmt.Fprintf(sb, "REMOVE CA CERTIFICATES httpServerRootca;\n")
+
+	clientSecretRegion, _ := secrets.GetAWSRegion(c.Vdb.Spec.ClientServerTLSSecret)
+	clientSecretName := secrets.RemovePathReference(c.Vdb.Spec.ClientServerTLSSecret)
+
+	fmt.Fprintf(sb, "DROP KEY IF EXISTS server_key;\n")
+	fmt.Fprintf(sb, "DROP CERTIFICATE IF EXISTS server_cert;\n")
+	fmt.Fprintf(sb, "DROP CERTIFICATE IF EXISTS server_ca_cert;\n")
+
+	fmt.Fprintf(sb, "CREATE KEY server_key TYPE 'rsa' SECRETMANAGER AWSSecretManager ")
+	fmt.Fprintf(sb, "SECRETNAME '%s' CONFIGURATION '{\"json-key\":\"%s\", \"region\":\"%s\"}';\n",
+		clientSecretName, corev1.TLSPrivateKeyKey, clientSecretRegion)
+
+	fmt.Fprintf(sb, "CREATE CA CERTIFICATE server_ca_cert SECRETMANAGER AWSSecretManager ")
+	fmt.Fprintf(sb, "SECRETNAME '%s' CONFIGURATION '{\"json-key\":\"%s\", \"region\":\"%s\"}';\n",
+		clientSecretName, paths.HTTPServerCACrtName, clientSecretRegion)
+
+	fmt.Fprintf(sb, "CREATE CERTIFICATE server_cert SECRETMANAGER AWSSecretManager ")
+	fmt.Fprintf(sb, "SECRETNAME '%s' CONFIGURATION '{\"json-key\":\"%s\", \"region\":\"%s\"}' ",
+		clientSecretName, corev1.TLSCertKey, clientSecretRegion)
+	fmt.Fprintf(sb, "SIGNED BY server_ca_cert KEY server_key;\n")
+
+	fmt.Fprintf(sb, "ALTER TLS CONFIGURATION server CERTIFICATE server_cert ")
+	fmt.Fprintf(sb, "ADD CA CERTIFICATES server_ca_cert TLSMODE 'TRY_VERIFY';\n")
+	fmt.Fprintf(sb, "ALTER TLS CONFIGURATION server CERTIFICATE server_cert ")
+	fmt.Fprintf(sb, "REMOVE CA CERTIFICATES httpServerRootca;\n")
+
 	fmt.Fprintf(sb, "CREATE AUTHENTICATION aws_tls_builtin_auth METHOD 'tls' HOST TLS ")
 	fmt.Fprintf(sb, "'0.0.0.0/0' FALLTHROUGH;\n")
 	fmt.Fprintf(sb, "GRANT AUTHENTICATION aws_tls_builtin_auth TO %s;\n", c.Vdb.GetVerticaUser())

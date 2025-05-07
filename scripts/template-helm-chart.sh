@@ -126,12 +126,14 @@ echo "{{- end }}" >> $TEMPLATE_DIR/verticadb-operator-metrics-service-svc.yaml
 
 # 13.  Template the roles/rolebindings for access to prometheus metrics
 for f in verticadb-operator-metrics-reader-cr.yaml \
-    verticadb-operator-metrics-reader-crb.yaml
+    verticadb-operator-metrics-reader-crb.yaml \
+    verticadb-operator-metrics-auth-role-cr.yaml \
+    verticadb-operator-metrics-auth-rolebinding-crb.yaml
 do
-    perl -i -pe 's/^/{{- if and (.Values.prometheus.createProxyRBAC) (eq .Values.prometheus.expose "EnableWithAuth") -}}\n/ if 1 .. 1' $TEMPLATE_DIR/$f
+    perl -i -pe 's/^/{{- if and (.Values.prometheus.createProxyRBAC) (ne .Values.prometheus.expose "Disable") -}}\n/ if 1 .. 1' $TEMPLATE_DIR/$f
     echo "{{- end }}" >> $TEMPLATE_DIR/$f
     perl -i -0777 -pe 's/-metrics-reader/-{{ include "vdb-op.metricsRbacPrefix" . }}metrics-reader/g' $TEMPLATE_DIR/$f
-    perl -i -0777 -pe 's/-(proxy-role.*)/-{{ include "vdb-op.metricsRbacPrefix" . }}$1/g' $TEMPLATE_DIR/$f
+    perl -i -0777 -pe 's/-(metrics-auth-role.*)/-{{ include "vdb-op.metricsRbacPrefix" . }}$1/g' $TEMPLATE_DIR/$f
 done
 
 # 14.  Template the metrics bind address
@@ -238,3 +240,6 @@ do
   perl -i -0777 -pe 's/(WEBHOOK_CERT_SECRET: )(.*)/$1\{\{ include "vdb-op.certSecret" . \}\}/g' $fn
   perl -i -0777 -pe 's/(LOG_LEVEL: )(.*)/$1\{{ quote .Values.logging.level }}\n  LOG_FILE_PATH: {{ default "" .Values.logging.filePath | quote }}\n  LOG_MAX_FILE_SIZE: {{ default "" .Values.logging.maxFileSize | quote }}\n  LOG_MAX_FILE_AGE: {{ default "" .Values.logging.maxFileAge | quote }}\n  LOG_MAX_FILE_ROTATION: {{ default "" .Values.logging.maxFileRotation | quote }}\n  DEV_MODE: {{ default "" .Values.logging.dev | quote }}/g' $fn
 done
+
+# Conditionally add rules for keda objects
+perl -i -0777 -pe 's/(- apiGroups:\n\s+- keda\.sh.*?)\n(?=- apiGroups:|\Z)/{{- if .Values.keda.createRBACRules }}\n\1\n{{- end }}\n/sg' $TEMPLATE_DIR/verticadb-operator-manager-role-cr.yaml

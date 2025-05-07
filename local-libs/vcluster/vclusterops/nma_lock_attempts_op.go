@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
 )
 
 type nmaLockAttemptsOp struct {
@@ -141,6 +142,15 @@ type dcLockAttempts struct {
 	// but will be used to show detailed info about the retrieved TxnID and SessionID
 	TxnInfo     dcTransactionStart `json:"transaction_info"`
 	SessionInfo dcSessionStart     `json:"session_info"`
+}
+
+func (event *dcLockAttempts) getSessionID() string {
+	return event.SessionID
+}
+
+func (event *dcLockAttempts) getTxnID() string {
+	// TODO: make the TxnID into string
+	return strconv.Itoa(event.TxnID)
 }
 
 func (op *nmaLockAttemptsOp) processResult(execContext *opEngineExecContext) error {

@@ -2,7 +2,7 @@ name: e2e tests
 
 on: 
   push:
-    branches: [main, k8s-sync-*]
+    branches: [main, k8s-sync-*, k8s-test-*]
   pull_request:
   workflow_dispatch:
     inputs:
@@ -63,7 +63,7 @@ on:
       e2e_retry_times:
         description: 'Number of times to retry failed e2e tests'
         required: false
-        default: '2'
+        default: '3'
       run_security_scan:
         description: 'What images to scan?'
         type: choice
@@ -97,6 +97,7 @@ jobs:
       full_vertica_image: ${{ inputs.full_vertica_image }}
       legacy_vertica_image: ${{ inputs.legacy_vertica_image }}
       run_security_scan: ${{ inputs.run_security_scan }}
+      build-retry-times: ${{ inputs.e2e_retry_times || 3 }}
     secrets:
       DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
       DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
@@ -653,7 +654,7 @@ jobs:
           # Include the vertica license so we can test scaling past 3 nodes.
           vertica-license: ${{ secrets.VERTICA_LICENSE }}
           need-base-vertica-image: 'true'
-          e2e-retry-times: ${{ inputs.e2e_retry_times || 2 }}
+          e2e-retry-times: ${{ inputs.e2e_retry_times || 3 }}
 
   e2e-leg-10-vcluster:
     if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'vcluster leg 10' || inputs.e2e_test_suites == '')}}
@@ -677,7 +678,7 @@ jobs:
           # Include the vertica license so we can test scaling past 3 nodes.
           vertica-license: ${{ secrets.VERTICA_LICENSE }}
           need-base-vertica-image: 'true'
-          e2e-retry-times: ${{ inputs.e2e_retry_times || 2 }}
+          e2e-retry-times: ${{ inputs.e2e_retry_times || 3 }}
 
   e2e-leg-11-vcluster:
     if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'vcluster leg 11' || inputs.e2e_test_suites == '')}}
@@ -702,7 +703,7 @@ jobs:
           # Include the vertica license so we can test multiple subclusters.
           vertica-license: ${{ secrets.VERTICA_LICENSE }}
           need-base-vertica-image: 'true'
-          e2e-retry-times: ${{ inputs.e2e_retry_times || 2 }}
+          e2e-retry-times: ${{ inputs.e2e_retry_times || 3 }}
 
   e2e-leg-12-vcluster:
     if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'vcluster leg 12' || inputs.e2e_test_suites == '')}}

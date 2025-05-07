@@ -53,6 +53,15 @@ const (
 	VerticaDBNameKey = "verticaDBName"
 	SandboxNameKey   = "sandboxName"
 	invalidNameChars = "$=<>`" + `'^\".@*?#&/:;{}()[] \~!%+|,`
+
+	// TLS modes
+	tlsModeDisable           = "disable"
+	tlsModeEnable            = "enable"
+	tlsModeVerifyCA          = "verify_ca"
+	tlsModeTryVerify         = "try_verify"
+	tlsModeVerifyFull        = "verify_full"
+	DefaultServiceHTTPSPort  = 8443
+	DefaultServiceClientPort = 5433
 )
 
 // ExtractNamespacedName gets the name and returns it as a NamespacedName
@@ -97,11 +106,6 @@ func SetVDBForTLS(v *VerticaDB) {
 	v.Annotations[vmeta.MountNMACertsAnnotation] = "false"
 	v.Annotations[vmeta.VersionAnnotation] = TLSCertRotationMinVersion
 	v.Annotations[vmeta.VClusterOpsAnnotation] = trueString
-}
-
-func SetVDBWithSecretForTLS(v *VerticaDB, secretName string) {
-	SetVDBForTLS(v)
-	v.Annotations[vmeta.NMAHTTPSPreviousSecret] = secretName
 }
 
 // MakeVDB is a helper that constructs a fully formed VerticaDB struct using the sample name.
@@ -158,6 +162,8 @@ func MakeVDB() *VerticaDB {
 			Proxy: &Proxy{
 				Image: "opentext/client-proxy:latest",
 			},
+			ServiceHTTPSPort:  DefaultServiceHTTPSPort,
+			ServiceClientPort: DefaultServiceClientPort,
 		},
 	}
 }
@@ -358,6 +364,21 @@ func MakeCondition(ctype string, status metav1.ConditionStatus, reason string) *
 		Status: status,
 		Reason: r,
 	}
+}
+
+func MakeSecretRef(stype, name string) *SecretRef {
+	return &SecretRef{
+		Name: name,
+		Type: stype,
+	}
+}
+
+func MakeClientServerTLSSecretRef(name string) *SecretRef {
+	return MakeSecretRef(ClientServerTLSSecretType, name)
+}
+
+func MakeNMATLSSecretRef(name string) *SecretRef {
+	return MakeSecretRef(NMATLSSecretType, name)
 }
 
 // HasReviveInstanceIDAnnotation is true when an annotation exists for the db's
@@ -1061,6 +1082,10 @@ func (v *VerticaDB) IsKSafetyCheckStrict() bool {
 	return vmeta.IsKSafetyCheckStrict(v.Annotations)
 }
 
+func (v *VerticaDB) IsFetchNodeDetailsLogDisabled() bool {
+	return vmeta.IsFetchNodeDetailsLogDisabled(v.Annotations)
+}
+
 // IsValidRestorePointPolicy returns true if the RestorePointPolicy is properly specified,
 // i.e., it has a non-empty archive, and either a valid index or a valid id (but not both).
 func (r *RestorePointPolicy) IsValidRestorePointPolicy() bool {
@@ -1439,6 +1464,55 @@ func GetMetricTarget(metric *autoscalingv2.MetricSpec) *autoscalingv2.MetricTarg
 		}
 	}
 	return nil
+}
+
+func (v *VerticaDB) GetSecretStatus(sType string) *SecretRef {
+	return FindSecretRef(v.Status.SecretRefs, sType)
+}
+
+func (v *VerticaDB) GetSecretNameInUse(sType string) string {
+	if v.GetSecretStatus(sType) == nil {
+		return ""
+	}
+	return v.GetSecretStatus(sType).Name
+}
+
+func (v *VerticaDB) GetNMATLSSecretNameInUse() string {
+	return v.GetSecretNameInUse(NMATLSSecretType)
+}
+
+// FindSecretRef returns a pointer to the SecretRef with the given type, or nil if not found.
+func FindSecretRef(refs []SecretRef, typ string) *SecretRef {
+	for i := range refs {
+		if refs[i].Type == typ {
+			return &refs[i]
+		}
+	}
+	return nil
+}
+
+// SetSecretRef updates the slice with a new SecretRef by Type, and returns true if any changes occurred.
+func SetSecretRef(refs *[]SecretRef, newRef SecretRef) (changed bool) {
+	if refs == nil {
+		return false
+	}
+
+	existing := FindSecretRef(*refs, newRef.Type)
+	if existing == nil {
+		*refs = append(*refs, newRef)
+		return true
+	}
+
+	if existing.Name != newRef.Name {
+		existing.Name = newRef.Name
+		changed = true
+	}
+	if existing.Type != newRef.Type {
+		existing.Type = newRef.Type
+		changed = true
+	}
+
+	return changed
 }
 
 func convertToBool(src string) bool {

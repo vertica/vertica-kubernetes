@@ -66,5 +66,6 @@ func (v *VClusterOps) genStartNodeOptions(s *restartnode.Parms, certs *HTTPSCert
 	if v.VDB.IsNMASideCarDeploymentEnabled() {
 		opts.StartUpConf = paths.StartupConfFile
 	}
+	opts.DoAllowStartUnboundNodes = true
 	return &opts
 }

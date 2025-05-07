@@ -160,10 +160,14 @@ func convertToSpec(src *VerticaDBSpec) v1.VerticaDBSpec {
 		NMASecurityContext:     src.NMASecurityContext,
 		PodSecurityContext:     src.PodSecurityContext,
 		NMATLSSecret:           src.HTTPServerTLSSecret,
+		ClientServerTLSSecret:  src.ClientServerTLSSecret,
+		ClientServerTLSMode:    src.ClientServerTLSMode,
 		ReadinessProbeOverride: src.ReadinessProbeOverride,
 		LivenessProbeOverride:  src.LivenessProbeOverride,
 		StartupProbeOverride:   src.StartupProbeOverride,
 		ServiceAccountName:     src.ServiceAccountName,
+		ServiceHTTPSPort:       src.ServiceHTTPSPort,
+		ServiceClientPort:      src.ServiceClientPort,
 		Sandboxes:              convertToSandboxSlice(src.Sandboxes),
 	}
 	if src.Proxy != nil {
@@ -174,9 +178,10 @@ func convertToSpec(src *VerticaDBSpec) v1.VerticaDBSpec {
 	}
 	if src.RestorePoint != nil {
 		dst.RestorePoint = &v1.RestorePointPolicy{
-			Archive: src.RestorePoint.Archive,
-			Index:   src.RestorePoint.Index,
-			ID:      src.RestorePoint.ID,
+			Archive:          src.RestorePoint.Archive,
+			Index:            src.RestorePoint.Index,
+			ID:               src.RestorePoint.ID,
+			NumRestorePoints: src.RestorePoint.NumRestorePoints,
 		}
 	}
 	for i := range src.ReviveOrder {
@@ -231,10 +236,14 @@ func convertFromSpec(src *v1.VerticaDB) VerticaDBSpec {
 		NMASecurityContext:      srcSpec.NMASecurityContext,
 		PodSecurityContext:      srcSpec.PodSecurityContext,
 		HTTPServerTLSSecret:     srcSpec.NMATLSSecret,
+		ClientServerTLSSecret:   srcSpec.ClientServerTLSSecret,
+		ClientServerTLSMode:     srcSpec.ClientServerTLSMode,
 		ReadinessProbeOverride:  srcSpec.ReadinessProbeOverride,
 		LivenessProbeOverride:   srcSpec.LivenessProbeOverride,
 		StartupProbeOverride:    srcSpec.StartupProbeOverride,
 		ServiceAccountName:      srcSpec.ServiceAccountName,
+		ServiceHTTPSPort:        srcSpec.ServiceHTTPSPort,
+		ServiceClientPort:       srcSpec.ServiceClientPort,
 		Sandboxes:               convertFromSandboxSlice(srcSpec.Sandboxes),
 	}
 	if srcSpec.Proxy != nil {
@@ -245,9 +254,10 @@ func convertFromSpec(src *v1.VerticaDB) VerticaDBSpec {
 	}
 	if srcSpec.RestorePoint != nil {
 		dst.RestorePoint = &RestorePointPolicy{
-			Archive: srcSpec.RestorePoint.Archive,
-			Index:   srcSpec.RestorePoint.Index,
-			ID:      srcSpec.RestorePoint.ID,
+			Archive:          srcSpec.RestorePoint.Archive,
+			Index:            srcSpec.RestorePoint.Index,
+			ID:               srcSpec.RestorePoint.ID,
+			NumRestorePoints: srcSpec.RestorePoint.NumRestorePoints,
 		}
 	}
 	for i := range srcSpec.ReviveOrder {
@@ -275,6 +285,7 @@ func convertToStatus(src *VerticaDBStatus) v1.VerticaDBStatus {
 		Conditions:      make([]metav1.Condition, 0),
 		UpgradeStatus:   src.UpgradeStatus,
 		Sandboxes:       make([]v1.SandboxStatus, len(src.Sandboxes)),
+		SecretRefs:      make([]v1.SecretRef, len(src.SecretRefs)),
 	}
 	if src.RestorePoint != nil {
 		dst.RestorePoint = &v1.RestorePointInfo{
@@ -292,6 +303,12 @@ func convertToStatus(src *VerticaDBStatus) v1.VerticaDBStatus {
 	for i := range src.Sandboxes {
 		dst.Sandboxes[i] = convertToSandboxStatus(src.Sandboxes[i])
 	}
+	for i := range src.SecretRefs {
+		dst.SecretRefs[i] = v1.SecretRef{
+			Name: src.SecretRefs[i].Name,
+			Type: src.SecretRefs[i].Type,
+		}
+	}
 	return dst
 }
 
@@ -306,6 +323,7 @@ func convertFromStatus(src *v1.VerticaDBStatus) VerticaDBStatus {
 		Conditions:      make([]VerticaDBCondition, len(src.Conditions)),
 		UpgradeStatus:   src.UpgradeStatus,
 		Sandboxes:       make([]SandboxStatus, len(src.Sandboxes)),
+		SecretRefs:      make([]SecretRef, len(src.SecretRefs)),
 	}
 	if src.RestorePoint != nil {
 		dst.RestorePoint = &RestorePointInfo{
@@ -322,6 +340,12 @@ func convertFromStatus(src *v1.VerticaDBStatus) VerticaDBStatus {
 	}
 	for i := range src.Sandboxes {
 		dst.Sandboxes[i] = convertFromSandboxStatus(src.Sandboxes[i])
+	}
+	for i := range src.SecretRefs {
+		dst.SecretRefs[i] = SecretRef{
+			Name: src.SecretRefs[i].Name,
+			Type: src.SecretRefs[i].Type,
+		}
 	}
 	return dst
 }
@@ -342,6 +366,8 @@ func convertToSubcluster(src *Subcluster) v1.Subcluster {
 		ServiceName:         src.ServiceName,
 		ClientNodePort:      src.NodePort,
 		VerticaHTTPNodePort: src.VerticaHTTPNodePort,
+		ServiceHTTPSPort:    src.ServiceHTTPSPort,
+		ServiceClientPort:   src.ServiceClientPort,
 		ExternalIPs:         src.ExternalIPs,
 		LoadBalancerIP:      src.LoadBalancerIP,
 		ServiceAnnotations:  src.ServiceAnnotations,
@@ -374,6 +400,8 @@ func convertFromSubcluster(src *v1.Subcluster) Subcluster {
 		ServiceName:         src.ServiceName,
 		NodePort:            src.ClientNodePort,
 		VerticaHTTPNodePort: src.VerticaHTTPNodePort,
+		ServiceHTTPSPort:    src.ServiceHTTPSPort,
+		ServiceClientPort:   src.ServiceClientPort,
 		ExternalIPs:         src.ExternalIPs,
 		LoadBalancerIP:      src.LoadBalancerIP,
 		ServiceAnnotations:  src.ServiceAnnotations,

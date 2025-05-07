@@ -1,0 +1,45 @@
+# (c) Copyright [2021-2024] Open Text.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# You may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - script: |
+      sc1_ip=$(kubectl get svc -n $NAMESPACE v-nondefault-service-ports-default-subcluster -o custom-columns="CLUSTER-IP:.spec.clusterIP" --no-headers)
+      sc2_ip=$(kubectl get svc -n $NAMESPACE v-nondefault-service-ports-new-subcluster -o custom-columns="CLUSTER-IP:.spec.clusterIP" --no-headers)
+
+      sc1_https=$(kubectl -n $NAMESPACE exec -it v-nondefault-service-ports-default-subcluster-0 -- curl --max-time 10 -ki https://${sc1_ip}:8448/v1/version | grep '^HTTP' | awk {'print$3'})
+      sc2_https=$(kubectl -n $NAMESPACE exec -it v-nondefault-service-ports-new-subcluster-0 -- curl --max-time 10 -ki https://${sc2_ip}:8449/v1/version | grep '^HTTP' | awk {'print$3'})
+
+      if [ -z $(echo "$sc1_https" | grep "^OK") ]; then
+        echo "Assertion failed: failed connecting to HTTPS service for subcluster v-nondefault-service-ports-default-subcluster"
+        exit 1
+      fi
+
+      if [ -z $(echo "$sc2_https" | grep "^OK") ]; then
+        echo "Assertion failed: failed connecting to HTTPS service for subcluster v-nondefault-service-ports-new-subcluster"
+        exit 1
+      fi
+
+      sc1_query=$(kubectl -n $NAMESPACE exec -it v-nondefault-service-ports-default-subcluster-0 -- vsql -h $sc1_ip -p 5438 -tAc "select 1")
+      sc2_query=$(kubectl -n $NAMESPACE exec -it v-nondefault-service-ports-new-subcluster-0 -- vsql -h $sc2_ip -p 5439 -tAc "select 1")
+
+      if [ "$sc1_query" != "1" ]; then
+        echo "Assertion failed: failed to query service for subcluster v-nondefault-service-ports-default-subcluster"
+        exit 1
+      fi
+
+      if [ "$sc2_query" != "1" ]; then
+        echo "Assertion failed: failed to query service for subcluster v-nondefault-service-ports-new-subcluster"
+        exit 1
+      fi

@@ -50,6 +50,17 @@ func getSecretSourceType(secretName string) (stype sourceType, nameWithoutPathRe
 	return source, comps[1]
 }
 
+// getAWSSecretVersionID given a secret name, parse it and return the name
+// and the version id
+func getAWSSecretVersionID(secretName string) (nameWithoutVersionID, versionID string) {
+	comps := strings.Split(secretName, "@")
+	if len(comps) <= 1 {
+		return secretName, ""
+	}
+
+	return comps[0], comps[1]
+}
+
 // IsGSMSecret returns true if the given secret name should be fetched from
 // Google Secret Manager (GSM)
 func IsGSMSecret(secretName string) bool {

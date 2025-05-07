@@ -223,7 +223,6 @@ const (
 	HTTPSTLSConfGenerationAnnotationFalse = "false"
 	HTTPSTLSConfGenerationDefaultValue    = true
 
-	NMAHTTPSPreviousSecret = "vertica.com/nma-https-previous-secret" // #nosec G101
 	// We have a deployment check that ensures that if running vcluster ops the
 	// image is built for that (and vice-versa). This annotation allows you to
 	// skip that check.
@@ -366,8 +365,6 @@ const (
 	// This will  be set in a sandbox configMap by the vdb controller to wake up the sandbox
 	// controller for stopping/starting a sandbox
 	SandboxControllerShutdownTriggerID = "vertica.com/sandbox-controller-shutdown-trigger-id"
-	// This will  be set in a subclusters configMap by the vdb controller to stop/start a subcluter
-	VdbControllerShutdownClusterTriggerID = "vertica.com/vdb-controller-shutdown-subcluster-trigger-id"
 
 	// Use this to override the name of the statefulset and its pods. This needs
 	// to be set in the spec.subclusters[].annotations field to take effect. If
@@ -413,6 +410,9 @@ const (
 	// You can set the value of replicas for an object to be paused to any arbitrary number.
 	// This only works for a scaledobject.
 	PausingAutoscalingReplicasAnnotation = "vertica.com/paused-scaling-replicas"
+
+	// It will disable fetch_node_details log info. This makes debugging easier.
+	DisableFetchNodeDetailsInfoLog = "vertica.com/disable-fetch-node-details-log-info"
 )
 
 // IsPauseAnnotationSet will check the annotations for a special value that will
@@ -639,11 +639,6 @@ func GetNMAHealthProbeOverride(annotations map[string]string, probeName, field s
 	return int32(convVal), true //nolint:gosec
 }
 
-// GetNMATLSSecretNameInUse returns the tls cert secret name in use
-func GetNMATLSSecretNameInUse(annotations map[string]string) string {
-	return lookupStringAnnotation(annotations, NMAHTTPSPreviousSecret, "")
-}
-
 // GetVProxyLogLevel returns scrutinize log age hours
 func GetVProxyLogLevel(annotations map[string]string) string {
 	return strings.ToUpper(lookupStringAnnotation(annotations, VProxyLogLevelAnnotation, VProxyLogLevelDefaultLevel))
@@ -798,6 +793,12 @@ func GetReplicationPollingFrequency(annotations map[string]string) int {
 // nodes.
 func GetDisableRouting(annotations map[string]string) bool {
 	return lookupBoolAnnotation(annotations, DisableRoutingAnnotation, false)
+}
+
+// IsFetchNodeDetailsLogDisabled returns true if fetch node details vcluster api's
+// log info must be disabled.
+func IsFetchNodeDetailsLogDisabled(annotations map[string]string) bool {
+	return lookupBoolAnnotation(annotations, DisableFetchNodeDetailsInfoLog, false)
 }
 
 // lookupBoolAnnotation is a helper function to lookup a specific annotation and

@@ -226,9 +226,11 @@ func (v *VerticaDB) validateVerticaDBSpec() field.ErrorList {
 	allErrs = v.hasValidSvcAndScName(allErrs)
 	allErrs = v.hasValidNodePort(allErrs)
 	allErrs = v.isNodePortProperlySpecified(allErrs)
+	allErrs = v.hasValidServicePorts(allErrs)
 	allErrs = v.isServiceTypeValid(allErrs)
 	allErrs = v.hasDuplicateScName(allErrs)
 	allErrs = v.hasValidVolumeName(allErrs)
+	allErrs = v.hasValidClientServerTLSMode(allErrs)
 	allErrs = v.hasValidVolumeMountName(allErrs)
 	allErrs = v.hasValidKerberosSetup(allErrs)
 	allErrs = v.hasValidTemporarySubclusterRouting(allErrs)
@@ -302,7 +304,7 @@ func (v *VerticaDB) hasValidInitPolicy(allErrs field.ErrorList) field.ErrorList 
 }
 
 func (v *VerticaDB) hasValidRestorePolicy(allErrs field.ErrorList) field.ErrorList {
-	if v.IsRestoreDuringReviveEnabled() && !v.Spec.RestorePoint.IsValidRestorePointPolicy() {
+	if !v.isDBInitialized() && v.IsRestoreDuringReviveEnabled() && !v.Spec.RestorePoint.IsValidRestorePointPolicy() {
 		if v.Spec.RestorePoint.Archive == "" {
 			err := field.Invalid(field.NewPath("spec").Child("restorePoint"),
 				v.Spec.RestorePoint,
@@ -342,6 +344,12 @@ func (v *VerticaDB) hasValidSaveRestorePointConfig(allErrs field.ErrorList) fiel
 			err := field.Invalid(field.NewPath("spec").Child("restorePoint").Child("archive"),
 				v.Spec.RestorePoint.Archive,
 				fmt.Sprintf(`archive cannot have the characters %q`, invalidChars))
+			allErrs = append(allErrs, err)
+		}
+		if v.Spec.RestorePoint.NumRestorePoints < 0 {
+			err := field.Invalid(field.NewPath("spec").Child("restorePoint").Child("numRestorePoints"),
+				v.Spec.RestorePoint.NumRestorePoints,
+				"numRestorePoints must be set to 0 or greater")
 			allErrs = append(allErrs, err)
 		}
 	}
@@ -635,6 +643,36 @@ func (v *VerticaDB) isNodePortProperlySpecified(allErrs field.ErrorList) field.E
 	}
 	return allErrs
 }
+func (v *VerticaDB) hasValidServicePorts(allErrs field.ErrorList) field.ErrorList {
+	if v.Spec.ServiceHTTPSPort < 0 {
+		err := field.Invalid(field.NewPath("spec").Child("serviceHTTPSPort"),
+			v.Spec.ServiceHTTPSPort,
+			"serviceHTTPSPort must be a positive number")
+		allErrs = append(allErrs, err)
+	}
+	if v.Spec.ServiceClientPort < 0 {
+		err := field.Invalid(field.NewPath("spec").Child("serviceClientPort"),
+			v.Spec.ServiceClientPort,
+			"serviceClientPort must be a positive number")
+		allErrs = append(allErrs, err)
+	}
+	for i := range v.Spec.Subclusters {
+		sc := &v.Spec.Subclusters[i]
+		if sc.ServiceHTTPSPort < 0 {
+			err := field.Invalid(field.NewPath("spec").Child("subclusters").Index(i).Child("serviceHTTPSPort"),
+				v.Spec.Subclusters[i].ServiceHTTPSPort,
+				"serviceHTTPSPort must be a positive number")
+			allErrs = append(allErrs, err)
+		}
+		if sc.ServiceClientPort < 0 {
+			err := field.Invalid(field.NewPath("spec").Child("subclusters").Index(i).Child("serviceClientPort"),
+				v.Spec.Subclusters[i].ServiceClientPort,
+				"serviceClientPort must be a positive number")
+			allErrs = append(allErrs, err)
+		}
+	}
+	return allErrs
+}
 
 func (v *VerticaDB) isServiceTypeValid(allErrs field.ErrorList) field.ErrorList {
 	for i := range v.Spec.Subclusters {
@@ -676,6 +714,11 @@ func (v *VerticaDB) hasDuplicateScName(allErrs field.ErrorList) field.ErrorList 
 			}
 		}
 	}
+	return allErrs
+}
+
+func (v *VerticaDB) hasValidClientServerTLSMode(allErrs field.ErrorList) field.ErrorList {
+	allErrs = v.hasValidTLSMode(v.Spec.ClientServerTLSMode, "clientServerTLSMode", allErrs)
 	return allErrs
 }
 
@@ -2176,6 +2219,28 @@ func (v *VerticaDB) checkImmutableCertRotation(oldObj *VerticaDB, allErrs field.
 			v.Spec.NMATLSSecret,
 			"nmaTLSSecret cannot be changed when cert rotation is in progress")
 		allErrs = append(allErrs, err)
+	}
+	return allErrs
+}
+
+// hasValidTLSMode checks if the tls mode is valid
+func (v *VerticaDB) hasValidTLSMode(tlsModeToValidate, fieldName string, allErrs field.ErrorList) field.ErrorList {
+	if !v.IsCertRotationEnabled() {
+		return allErrs
+	}
+	tlsModes := []string{tlsModeDisable, tlsModeEnable, tlsModeTryVerify, tlsModeVerifyCA, tlsModeVerifyFull}
+	if tlsModeToValidate != "" {
+		tlsMode := strings.ToLower(tlsModeToValidate)
+		validMode := false
+		for _, mode := range tlsModes {
+			if mode == tlsMode {
+				validMode = true
+			}
+		}
+		if !validMode {
+			err := field.Invalid(field.NewPath("spec").Child(fieldName), tlsModeToValidate, "invalid tls mode")
+			allErrs = append(allErrs, err)
+		}
 	}
 	return allErrs
 }

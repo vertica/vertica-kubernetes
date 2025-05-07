@@ -51,7 +51,14 @@ var _ = Describe("nmacertrotation_reconciler", func() {
 		fpr := &cmds.FakePodRunner{}
 		pfacts := createPodFactsWithNoDB(ctx, vdb, fpr, 3)
 		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
-		vapi.SetVDBWithSecretForTLS(vdb, rotateNMACertCurrentNMASecretName)
+		vapi.SetVDBForTLS(vdb)
+		vdb.Status.SecretRefs = []vapi.SecretRef{
+			{
+				Name: rotateHTTPSCertCurrentNMASecretName,
+				Type: vapi.NMATLSSecretType,
+			},
+		}
+		Expect(k8sClient.Status().Update(ctx, vdb)).Should(Succeed())
 
 		r := MakeNMACertRotationReconciler(vdbRec, logger, vdb, dispatcher, pfacts)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
