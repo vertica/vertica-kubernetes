@@ -24,7 +24,6 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
-	v1 "github.com/vertica/vertica-kubernetes/api/v1"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/cloud"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
@@ -193,80 +192,6 @@ func (c *CreateDBReconciler) GetCredsSecret(ctx context.Context, credsSecret str
 	return fetcher.FetchAllowRequeue(ctx, names.GenNamespacedName(c.Vdb, credsSecret))
 }
 
-// getAuth will return the access key and secret key.
-// Value is returned in the format: <accessKey>:<secretKey>
-func (c *CreateDBReconciler) GetAuth(ctx context.Context, credsSecret string) (string, string, ctrl.Result, error) {
-	secret, res, err := c.GetCredsSecret(ctx, credsSecret)
-	if verrors.IsReconcileAborted(res, err) {
-		return "", "", res, err
-	}
-
-	accessKey, ok := secret[cloud.CommunalAccessKeyName]
-	if !ok {
-		c.VRec.Eventf(c.Vdb, corev1.EventTypeWarning, events.CommunalCredsWrongKey,
-			"The credential secret '%s' does not have a key named '%s'", credsSecret, cloud.CommunalAccessKeyName)
-		return "", "", ctrl.Result{Requeue: true}, nil
-	}
-
-	secretKey, ok := secret[cloud.CommunalSecretKeyName]
-	if !ok {
-		c.VRec.Eventf(c.Vdb, corev1.EventTypeWarning, events.CommunalCredsWrongKey,
-			"The credential secret '%s' does not have a key named '%s'", credsSecret, cloud.CommunalSecretKeyName)
-		return "", "", ctrl.Result{Requeue: true}, nil
-	}
-
-	return string(accessKey), string(secretKey), ctrl.Result{}, nil
-}
-
-// getAzureAuth gets the azure credentials from the communal auth secret
-func (c *CreateDBReconciler) GetAzureAuth(ctx context.Context, credsSecret string) (
-	cloud.AzureCredential, cloud.AzureEndpointConfig, ctrl.Result, error) {
-	secretData, res, err := c.GetCredsSecret(ctx, credsSecret)
-	if verrors.IsReconcileAborted(res, err) {
-		return cloud.AzureCredential{}, cloud.AzureEndpointConfig{}, res, err
-	}
-
-	accountName, hasAccountName := secretData[cloud.AzureAccountName]
-	blobEndpointRaw, hasBlobEndpoint := secretData[cloud.AzureBlobEndpoint]
-
-	if !hasAccountName && !hasBlobEndpoint {
-		c.VRec.Eventf(c.Vdb, corev1.EventTypeWarning, events.CommunalCredsWrongKey,
-			"The credential secret '%s' is not setup properly for azure.  It must have one '%s' or '%s'",
-			credsSecret, cloud.AzureAccountName, cloud.AzureBlobEndpoint)
-		return cloud.AzureCredential{}, cloud.AzureEndpointConfig{}, ctrl.Result{Requeue: true}, nil
-	}
-
-	// The blob endpoint may have a protocol scheme as a prefix.  Strip that off
-	// so its just the host and port.
-	var blobEndpoint string
-	if hasBlobEndpoint {
-		blobEndpoint = config.GetEndpointHostPort(string(blobEndpointRaw))
-	}
-
-	accountKey, hasAccountKey := secretData[cloud.AzureAccountKey]
-	sas, hasSAS := secretData[cloud.AzureSharedAccessSignature]
-
-	if hasAccountKey && hasSAS {
-		c.VRec.Eventf(c.Vdb, corev1.EventTypeWarning, events.CommunalCredsWrongKey,
-			"The credential secret '%s' is not setup properly for azure.  It cannot have both '%s' and '%s'",
-			credsSecret, cloud.AzureAccountKey, cloud.AzureSharedAccessSignature)
-		return cloud.AzureCredential{}, cloud.AzureEndpointConfig{}, ctrl.Result{Requeue: true}, nil
-	}
-
-	return cloud.AzureCredential{
-			AccountName:           string(accountName),
-			BlobEndpoint:          blobEndpoint,
-			AccountKey:            string(accountKey),
-			SharedAccessSignature: string(sas),
-		},
-		cloud.AzureEndpointConfig{
-			AccountName:  string(accountName),
-			BlobEndpoint: blobEndpoint,
-			Protocol:     config.GetEndpointProtocol(string(blobEndpointRaw)),
-		},
-		ctrl.Result{}, nil
-}
-
 // generatePostDBCreateSQL is a function that creates a file with sql commands
 // to be run immediately after the database create.
 func (c *CreateDBReconciler) generatePostDBCreateSQL(ctx context.Context, initiatorPod types.NamespacedName) (ctrl.Result, error) {
@@ -310,10 +235,6 @@ func (c *CreateDBReconciler) generatePostDBCreateSQL(ctx context.Context, initia
 		}
 		sb.WriteString(`select sync_catalog();`)
 		cmd = "cat > " + PostDBCreateSQLFileVclusterOps + "<<< " + escapeForBash(sb.String())
-	}
-
-	if c.Vdb.HasAdditionalBuckets() {
-		c.addAdditionalBuckets(ctx, &sb)
 	}
 
 	c.Log.Info("executing the following script", "script", sb.String())
@@ -438,57 +359,6 @@ func (c *CreateDBReconciler) generateAWSTlsSQL(sb *strings.Builder) {
 	fmt.Fprintf(sb, "CREATE AUTHENTICATION aws_tls_builtin_auth METHOD 'tls' HOST TLS ")
 	fmt.Fprintf(sb, "'0.0.0.0/0' FALLTHROUGH;\n")
 	fmt.Fprintf(sb, "GRANT AUTHENTICATION aws_tls_builtin_auth TO %s;\n", c.Vdb.GetVerticaUser())
-}
-
-func (c *CreateDBReconciler) addAdditionalBuckets(ctx context.Context, sb *strings.Builder) (ctrl.Result, error) {
-	var res ctrl.Result
-	var err error
-
-	for _, bucket := range c.Vdb.Spec.AdditionalBuckets {
-		// using s3
-		if strings.HasPrefix(bucket.Path, v1.S3Prefix) {
-			accessKey, secretKey, res, err := c.GetAuth(ctx, bucket.CredentialSecret)
-			if verrors.IsReconcileAborted(res, err) {
-				return res, err
-			}
-
-			sb.WriteString(fmt.Sprintf(
-				`ALTER DATABASE default SET S3BucketConfig = '[{\"bucket\": \"%s\", \"region\": \"%s\", \"protocol\": \"%s\", \"endpoint\": \"%s\"}]';`,
-				config.GetBucket(bucket.Path), bucket.Region, config.GetEndpointProtocol(bucket.Endpoint), config.GetEndpoint(bucket.Endpoint)))
-
-			sb.WriteString(fmt.Sprintf(
-				`ALTER DATABASE default SET S3BucketCredentials = '[{\"bucket\": \"%s\", \"accessKey\": \"%s\", \"secretAccessKey\": \"%s\"}]';`,
-				config.GetBucket(bucket.Path), accessKey, secretKey))
-		}
-
-		// using gs
-		if strings.HasPrefix(bucket.Path, v1.GCloudPrefix) {
-			accessKey, secretKey, res, err := c.GetAuth(ctx, bucket.CredentialSecret)
-			if verrors.IsReconcileAborted(res, err) {
-				return res, err
-			}
-
-			sb.WriteString(fmt.Sprintf(
-				`ALTER SESSION SET GCSAuth='%s:%s';`, accessKey, secretKey))
-		}
-
-		// using azb
-		if strings.HasPrefix(bucket.Path, v1.AzurePrefix) {
-			azureCreds, azureConfig, res, err := c.GetAzureAuth(ctx, bucket.CredentialSecret)
-			if verrors.IsReconcileAborted(res, err) {
-				return res, err
-			}
-
-			sb.WriteString(fmt.Sprintf(
-				`ALTER DATABASE default SET AzureStorageCredentials = '[{\"accountName\": \"%s\", \"accountKey\": \"%s\"}]';`,
-				azureCreds.AccountName, azureCreds.AccountKey))
-			sb.WriteString(fmt.Sprintf(
-				`ALTER DATABASE default SET AzureStorageEndpointConfig = '[{\"accountName\": \"%s\", \"blobEndpoint\": \"%s\", \"protocol\":\"%s\"}]';`,
-				azureCreds.AccountName, azureConfig.BlobEndpoint, azureConfig.Protocol))
-		}
-	}
-
-	return res, err
 }
 
 // Escape function to handle special characters in Bash
