@@ -85,31 +85,15 @@ func (h *TLSConfigReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (c
 	h.VRec.Eventf(h.Vdb, corev1.EventTypeNormal, events.TLSConfigurationStarted,
 		"Starting to configure TLS")
 	h.Log.Info("tls enabled, start to set up tls config")
-	configMapName := names.GenNMACertConfigMap(h.Vdb)
-	configMap := &corev1.ConfigMap{}
-
-	tlsMap := map[string]string{
-		builder.NMASecretNamespaceEnv:       h.Vdb.ObjectMeta.Namespace,
-		builder.NMASecretNameEnv:            h.Vdb.Spec.NMATLSSecret,
-		builder.NMAClientSecretNamespaceEnv: h.Vdb.ObjectMeta.Namespace,
-		builder.NMAClientSecretNameEnv:      h.Vdb.Spec.ClientServerTLSSecret,
-	}
-	configMap.Data = tlsMap
-	err := h.VRec.GetClient().Update(ctx, configMap)
-	if err == nil {
-		h.Log.Info("updated tls cert secret configmap", "name", configMapName.Name, "nma-secret", h.Vdb.Spec.NMATLSSecret,
-			"clientserver-secret", h.Vdb.Spec.ClientServerTLSSecret)
-	}
-	h.Log.Info("tls config map updated")
-	err = h.Pfacts.Collect(ctx, h.Vdb)
+	err := h.Pfacts.Collect(ctx, h.Vdb)
 	if err != nil {
-		h.Log.Error(err, "failed to collect pfacts to set up tls")
-		return ctrl.Result{}, err
+		h.Log.Error(err, "failed to collect pfacts to set up tls. skip current loop")
+		return ctrl.Result{}, nil
 	}
 	initiatorPod, ok := h.Pfacts.FindFirstUpPod(false, "")
 	if !ok {
-		h.Log.Info("No pod found to set up tls config. Requeue reconciliation.")
-		return ctrl.Result{Requeue: true}, nil
+		h.Log.Info("No pod found to set up tls config. skip current loop.")
+		return ctrl.Result{}, nil
 	}
 	currentSecretData, res, err := h.readSecret(h.Vdb, h.VRec, h.VRec.GetClient(), h.Log, ctx,
 		h.Vdb.Spec.NMATLSSecret)
@@ -117,6 +101,21 @@ func (h *TLSConfigReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (c
 		h.Log.Error(err, "failed to read secret to set up TLS config")
 		return res, err
 	}
+	configMapName := names.GenNMACertConfigMap(h.Vdb)
+	configMap := &corev1.ConfigMap{}
+	tlsMap := map[string]string{
+		builder.NMASecretNamespaceEnv:       h.Vdb.ObjectMeta.Namespace,
+		builder.NMASecretNameEnv:            h.Vdb.Spec.NMATLSSecret,
+		builder.NMAClientSecretNamespaceEnv: h.Vdb.ObjectMeta.Namespace,
+		builder.NMAClientSecretNameEnv:      h.Vdb.Spec.ClientServerTLSSecret,
+	}
+	configMap.Data = tlsMap
+	err = h.VRec.GetClient().Update(ctx, configMap)
+	if err == nil {
+		h.Log.Info("updated tls cert secret configmap", "name", configMapName.Name, "nma-secret", h.Vdb.Spec.NMATLSSecret,
+			"clientserver-secret", h.Vdb.Spec.ClientServerTLSSecret)
+	}
+	h.Log.Info("tls config map updated")
 	/* currentCert := string(currentSecretData[corev1.TLSCertKey])
 	 rotated, err := security.VerifyCert(initiatorPod.GetPodIP(), builder.NMAPort, "", currentCert, h.Log)
 	if err != nil {
