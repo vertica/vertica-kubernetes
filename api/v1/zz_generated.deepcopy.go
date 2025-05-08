@@ -782,6 +782,13 @@ func (in *VerticaDBSpec) DeepCopyInto(out *VerticaDBSpec) {
 		copy(*out, *in)
 	}
 	in.Communal.DeepCopyInto(&out.Communal)
+	if in.AdditionalBuckets != nil {
+		in, out := &in.AdditionalBuckets, &out.AdditionalBuckets
+		*out = make([]CommunalStorage, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
+	}
 	in.Local.DeepCopyInto(&out.Local)
 	if in.Subclusters != nil {
 		in, out := &in.Subclusters, &out.Subclusters
@@ -903,6 +910,13 @@ func (in *VerticaDBStatus) DeepCopyInto(out *VerticaDBStatus) {
 		in, out := &in.RestorePoint, &out.RestorePoint
 		*out = new(RestorePointInfo)
 		**out = **in
+	}
+	if in.AdditionalBuckets != nil {
+		in, out := &in.AdditionalBuckets, &out.AdditionalBuckets
+		*out = make([]CommunalStorage, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
 	}
 	if in.SecretRefs != nil {
 		in, out := &in.SecretRefs, &out.SecretRefs
