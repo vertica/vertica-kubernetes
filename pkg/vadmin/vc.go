@@ -102,8 +102,8 @@ func (v *VClusterOps) setAuthentication(opts *vops.DatabaseOptions, username str
 	opts.Key = certs.Key
 	opts.Cert = certs.Cert
 	opts.CaCert = certs.CaCert
+	opts.UserName = username
 	if !v.VDB.IsCertRotationEnabled() {
-		opts.UserName = username
 		opts.Password = password
 	}
 }
