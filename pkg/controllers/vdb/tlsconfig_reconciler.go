@@ -22,6 +22,7 @@ import (
 
 	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
+	"github.com/vertica/vertica-kubernetes/pkg/builder"
 	"github.com/vertica/vertica-kubernetes/pkg/cloud"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
@@ -81,11 +82,26 @@ func (h *TLSConfigReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (c
 	if !meta.SetupTLSConfig(h.Vdb.Annotations) {
 		return ctrl.Result{}, nil
 	}
-
 	h.VRec.Eventf(h.Vdb, corev1.EventTypeNormal, events.TLSConfigurationStarted,
 		"Starting to configure TLS")
 	h.Log.Info("tls enabled, start to set up tls config")
-	err := h.Pfacts.Collect(ctx, h.Vdb)
+	configMapName := names.GenNMACertConfigMap(h.Vdb)
+	configMap := &corev1.ConfigMap{}
+
+	tlsMap := map[string]string{
+		builder.NMASecretNamespaceEnv:       h.Vdb.ObjectMeta.Namespace,
+		builder.NMASecretNameEnv:            h.Vdb.Spec.NMATLSSecret,
+		builder.NMAClientSecretNamespaceEnv: h.Vdb.ObjectMeta.Namespace,
+		builder.NMAClientSecretNameEnv:      h.Vdb.Spec.ClientServerTLSSecret,
+	}
+	configMap.Data = tlsMap
+	err := h.VRec.GetClient().Update(ctx, configMap)
+	if err == nil {
+		h.Log.Info("updated tls cert secret configmap", "name", configMapName.Name, "nma-secret", h.Vdb.Spec.NMATLSSecret,
+			"clientserver-secret", h.Vdb.Spec.ClientServerTLSSecret)
+	}
+	h.Log.Info("tls config map updated")
+	err = h.Pfacts.Collect(ctx, h.Vdb)
 	if err != nil {
 		h.Log.Error(err, "failed to collect pfacts to set up tls")
 		return ctrl.Result{}, err

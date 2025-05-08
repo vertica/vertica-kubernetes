@@ -1429,14 +1429,14 @@ func makeCanaryQueryProbe(vdb *vapi.VerticaDB) *corev1.Probe {
 // getHTTPServerVersionEndpointProbe returns an HTTPGet probe if vclusterops
 // is enabled
 func getHTTPServerVersionEndpointProbe(vdb *vapi.VerticaDB) *corev1.Probe {
-	if vmeta.UseVClusterOps(vdb.Annotations) {
-		if vdb.IsCertRotationEnabled() {
-			return makeHTTPVersionEndpointProbe()
-		} else {
+	/*if vmeta.UseVClusterOps(vdb.Annotations) {
+	if vdb.IsCertRotationEnabled() {*/
+	return makeHTTPVersionEndpointProbe()
+	/*} else {
 			return makeHTTPSVersionEndpointProbe()
 		}
 	}
-	return nil
+	return nil */
 }
 
 // makeDefaultReadinessOrStartupProbe will return the default probe to use for
@@ -2037,14 +2037,6 @@ func buildNMATLSCertsEnvVars(vdb *vapi.VerticaDB) []corev1.EnvVar {
 			{Name: NMAKeyEnv, Value: fmt.Sprintf("%s/%s", paths.NMACertsRoot, corev1.TLSPrivateKeyKey)},
 		}
 	}
-	if useNmaCertsMount || !vmeta.EnableTLSCertsRotation(vdb.Annotations) {
-		return []corev1.EnvVar{
-			// The NMA will read the secrets directly from the secret store.
-			// We provide the secret namespace and name for this reason.
-			{Name: NMASecretNamespaceEnv, Value: vdb.ObjectMeta.Namespace},
-			{Name: NMASecretNameEnv, Value: vdb.Spec.NMATLSSecret},
-		}
-	}
 	notTrue := false
 	configMapName := fmt.Sprintf("%s-%s", vdb.Name, vapi.NMATLSConfigMapName)
 	return []corev1.EnvVar{
@@ -2180,11 +2172,22 @@ func GetTarballName(cmd []string) string {
 // BuildNMATLSConfigMap builds a configmap with tls secret name in it.
 // The configmap will be mapped to two environmental variables in NMA pod
 func BuildNMATLSConfigMap(nm types.NamespacedName, vdb *vapi.VerticaDB) *corev1.ConfigMap {
-	secretMap := map[string]string{
+	var secretMap map[string]string
+	mountMap := map[string]string{
+		NMARootCAEnv: fmt.Sprintf("%s/%s", paths.NMACertsRoot, paths.HTTPServerCACrtName),
+		NMACertEnv:   fmt.Sprintf("%s/%s", paths.NMACertsRoot, corev1.TLSCertKey),
+		NMAKeyEnv:    fmt.Sprintf("%s/%s", paths.NMACertsRoot, corev1.TLSPrivateKeyKey),
+	}
+	tlsMap := map[string]string{
 		NMASecretNamespaceEnv:       vdb.ObjectMeta.Namespace,
 		NMASecretNameEnv:            vdb.Spec.NMATLSSecret,
 		NMAClientSecretNamespaceEnv: vdb.ObjectMeta.Namespace,
 		NMAClientSecretNameEnv:      vdb.Spec.ClientServerTLSSecret,
+	}
+	if vdb.IsCertRotationEnabled() {
+		secretMap = tlsMap
+	} else {
+		secretMap = mountMap
 	}
 	tlsConfigMap := &corev1.ConfigMap{
 		TypeMeta: metav1.TypeMeta{

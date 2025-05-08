@@ -117,10 +117,10 @@ func (o *ObjReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Re
 	}
 
 	// We need to create/update the configmap that contains the tls secret name
-	err := o.reconcileNMACertConfigMap(ctx)
+	/* err := o.reconcileNMACertConfigMap(ctx)
 	if err != nil {
 		return ctrl.Result{}, err
-	}
+	} */
 
 	// Check the objects for subclusters that should exist.  This will create
 	// missing objects and update existing objects to match the vdb.
@@ -688,7 +688,7 @@ func (o *ObjReconciler) handleStatefulSetUpdate(ctx context.Context, sc *vapi.Su
 
 // reconcileNMACertConfigMap creates/updates the configmap that contains the tls
 // secret name
-func (o *ObjReconciler) reconcileNMACertConfigMap(ctx context.Context) error {
+/* func (o *ObjReconciler) reconcileNMACertConfigMap(ctx context.Context) error {
 	if vmeta.UseNMACertsMount(o.Vdb.Annotations) || !vmeta.EnableTLSCertsRotation(o.Vdb.Annotations) {
 		return nil
 	}
@@ -726,7 +726,7 @@ func (o *ObjReconciler) reconcileNMACertConfigMap(ctx context.Context) error {
 			"clientserver-secret", o.Vdb.Spec.ClientServerTLSSecret)
 	}
 	return err
-}
+} */
 
 // updateSts will patch an existing statefulset.
 func (o *ObjReconciler) updateSts(ctx context.Context, curSts, expSts *appsv1.StatefulSet) error {

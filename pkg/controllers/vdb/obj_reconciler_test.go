@@ -986,7 +986,7 @@ var _ = Describe("obj_reconcile", func() {
 			deleteProxy(ctx, vdb, vpName, cmName)
 		})
 
-		It("should be a no-op if UseNMACertsMount is enabled", func() {
+		/* It("should be a no-op if UseNMACertsMount is enabled", func() {
 			vdb := vapi.MakeVDB()
 			vdb.Annotations[vmeta.MountNMACertsAnnotation] = trueStr
 			vdb.Annotations[vmeta.EnableTLSCertsRotationAnnotation] = falseStr
@@ -1069,7 +1069,7 @@ var _ = Describe("obj_reconcile", func() {
 			err = k8sClient.Get(ctx, nm, configMap)
 			Expect(err).Should(Succeed())
 			Expect(configMap.Data[builder.NMASecretNameEnv]).Should(Equal("updated-secret"))
-		})
+		}) */
 	})
 })
 

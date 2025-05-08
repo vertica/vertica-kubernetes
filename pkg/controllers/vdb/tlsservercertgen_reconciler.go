@@ -23,12 +23,14 @@ import (
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/builder"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
+	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	"github.com/vertica/vertica-kubernetes/pkg/secrets"
 	"github.com/vertica/vertica-kubernetes/pkg/security"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -66,8 +68,12 @@ func (h *TLSServerCertGenReconciler) Reconcile(ctx context.Context, _ *ctrl.Requ
 		err = h.reconcileOneSecret(secretFieldName, secretName, ctx)
 		if err != nil {
 			h.Log.Error(err, fmt.Sprintf("failed to reconcile secret for %s", secretFieldName))
-			break
+			return ctrl.Result{}, err
 		}
+	}
+	err = h.reconcileNMACertConfigMap(ctx)
+	if err != nil {
+		h.Log.Error(err, "failed to reconcile tls configmap")
 	}
 	return ctrl.Result{}, err
 }
@@ -169,4 +175,46 @@ func (h *TLSServerCertGenReconciler) setSecretNameInVDB(ctx context.Context, sec
 		}
 		return h.VRec.Client.Update(ctx, h.Vdb)
 	})
+}
+
+// reconcileNMACertConfigMap creates/updates the configmap that contains the tls
+// secret name
+func (h *TLSServerCertGenReconciler) reconcileNMACertConfigMap(ctx context.Context) error {
+	configMapName := names.GenNMACertConfigMap(h.Vdb)
+	configMap := &corev1.ConfigMap{}
+	err := h.VRec.GetClient().Get(ctx, configMapName, configMap)
+	if err != nil {
+		if kerrors.IsNotFound(err) {
+			configMap = builder.BuildNMATLSConfigMap(configMapName, h.Vdb)
+			err = h.VRec.GetClient().Create(ctx, configMap)
+			if err != nil {
+				return err
+			}
+			h.Log.Info("created TLS cert secret configmap", "nm", configMapName.Name)
+			return nil
+		}
+		h.Log.Error(err, "failed to retrieve TLS cert secret configmap")
+		return err
+	}
+	if vmeta.UseNMACertsMount(h.Vdb.Annotations) || !vmeta.EnableTLSCertsRotation(h.Vdb.Annotations) {
+		return nil
+	}
+	if configMap.Data[builder.NMASecretNameEnv] == h.Vdb.Spec.NMATLSSecret &&
+		configMap.Data[builder.NMAClientSecretNameEnv] == h.Vdb.Spec.ClientServerTLSSecret &&
+		configMap.Data[builder.NMASecretNamespaceEnv] == h.Vdb.ObjectMeta.Namespace &&
+		configMap.Data[builder.NMAClientSecretNamespaceEnv] == h.Vdb.ObjectMeta.Namespace {
+		return nil
+	}
+
+	configMap.Data[builder.NMASecretNameEnv] = h.Vdb.Spec.NMATLSSecret
+	configMap.Data[builder.NMASecretNamespaceEnv] = h.Vdb.ObjectMeta.Namespace
+	configMap.Data[builder.NMAClientSecretNameEnv] = h.Vdb.Spec.ClientServerTLSSecret
+	configMap.Data[builder.NMAClientSecretNamespaceEnv] = h.Vdb.ObjectMeta.Namespace
+
+	err = h.VRec.GetClient().Update(ctx, configMap)
+	if err == nil {
+		h.Log.Info("updated tls cert secret configmap", "name", configMapName.Name, "nma-secret", h.Vdb.Spec.NMATLSSecret,
+			"clientserver-secret", h.Vdb.Spec.ClientServerTLSSecret)
+	}
+	return err
 }
