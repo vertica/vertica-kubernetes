@@ -446,17 +446,6 @@ func (v *VerticaDB) GetCommunalPath() string {
 	return fmt.Sprintf("%s/%s", strings.TrimSuffix(v.Spec.Communal.Path, "/"), v.UID)
 }
 
-// IsSubclusterInSandbox returns true if the given subcluster is in the
-// sandbox status
-func (s *SandboxStatus) IsSubclusterInSandbox(scName string) bool {
-	for i := range s.Subclusters {
-		if scName == s.Subclusters[i] {
-			return true
-		}
-	}
-	return false
-}
-
 // GenCompatibleFQDN returns a name of the subcluster that is
 // compatible inside a fully-qualified domain name.
 func (s *Subcluster) GenCompatibleFQDN() string {
@@ -943,14 +932,19 @@ func (v *VerticaDB) IncludeUIDInPath() bool {
 	return vmeta.IncludeUIDInPath(v.Annotations)
 }
 
-// IsHDFS returns true if the communal path is stored in an HDFS path
-func (v *VerticaDB) IsHDFS() bool {
+// IsPathHDFS returns true if the path is an HDFS path
+func (v *VerticaDB) IsPathHDFS(path string) bool {
 	for _, p := range hdfsPrefixes {
-		if strings.HasPrefix(v.Spec.Communal.Path, p) {
+		if strings.HasPrefix(path, p) {
 			return true
 		}
 	}
 	return false
+}
+
+// IsHDFS returns true if the communal path is stored in an HDFS path
+func (v *VerticaDB) IsHDFS() bool {
+	return v.IsPathHDFS(v.Spec.Communal.Path)
 }
 
 // IsS3 returns true if VerticaDB has a communal path for S3 compatible storage.
@@ -1014,6 +1008,11 @@ func (v *VerticaDB) GetKerberosRealm() string {
 
 func (v *VerticaDB) GetKerberosServiceName() string {
 	return v.Spec.Communal.AdditionalConfig[vmeta.KerberosServiceNameConfig]
+}
+
+// HasAdditionalBuckets returns true if addtionalBuckets is configured for data replication
+func (v *VerticaDB) HasAdditionalBuckets() bool {
+	return v.Spec.AdditionalBuckets != nil
 }
 
 func (s *Subcluster) IsPrimary() bool {
