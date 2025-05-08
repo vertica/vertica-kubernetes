@@ -2028,7 +2028,7 @@ func buildScrutinizeDBPasswordEnvVars(nm types.NamespacedName) []corev1.EnvVar {
 // buildNMATLSCertsEnvVars returns environment variables about NMA certs,
 // that are needed by NMA and vcluster scrutinize
 func buildNMATLSCertsEnvVars(vdb *vapi.VerticaDB) []corev1.EnvVar {
-	useNmaCertsMount := vmeta.UseNMACertsMount(vdb.Annotations)
+	/* useNmaCertsMount := vmeta.UseNMACertsMount(vdb.Annotations)
 	if useNmaCertsMount && secrets.IsK8sSecret(vdb.Spec.NMATLSSecret) {
 		return []corev1.EnvVar{
 			// Provide the path to each of the certs that are mounted in the container.
@@ -2036,8 +2036,8 @@ func buildNMATLSCertsEnvVars(vdb *vapi.VerticaDB) []corev1.EnvVar {
 			{Name: NMACertEnv, Value: fmt.Sprintf("%s/%s", paths.NMACertsRoot, corev1.TLSCertKey)},
 			{Name: NMAKeyEnv, Value: fmt.Sprintf("%s/%s", paths.NMACertsRoot, corev1.TLSPrivateKeyKey)},
 		}
-	}
-	notTrue := false
+	} */
+	notTrue := true
 	configMapName := fmt.Sprintf("%s-%s", vdb.Name, vapi.NMATLSConfigMapName)
 	return []corev1.EnvVar{
 		{Name: NMASecretNamespaceEnv,
@@ -2077,6 +2077,36 @@ func buildNMATLSCertsEnvVars(vdb *vapi.VerticaDB) []corev1.EnvVar {
 						Name: configMapName,
 					},
 					Key:      NMAClientSecretNameEnv,
+					Optional: &notTrue,
+				},
+			}},
+		{Name: NMARootCAEnv,
+			ValueFrom: &corev1.EnvVarSource{
+				ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: configMapName,
+					},
+					Key:      NMARootCAEnv,
+					Optional: &notTrue,
+				},
+			}},
+		{Name: NMACertEnv,
+			ValueFrom: &corev1.EnvVarSource{
+				ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: configMapName,
+					},
+					Key:      NMACertEnv,
+					Optional: &notTrue,
+				},
+			}},
+		{Name: NMAKeyEnv,
+			ValueFrom: &corev1.EnvVarSource{
+				ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: configMapName,
+					},
+					Key:      NMAKeyEnv,
 					Optional: &notTrue,
 				},
 			}},
