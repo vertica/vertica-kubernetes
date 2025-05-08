@@ -36,14 +36,15 @@ func TestNMARotateHTTPSCertsOp(t *testing.T) {
 
 	// construction should succeed
 	op, err := makeNMARotateHTTPSCertsOp(hosts, username, dbName, hostsToSandboxes,
-		&opData, AWSSecretManagerType, &pwStr, usePW)
+		&opData, &pwStr, usePW)
 	assert.NoError(t, err)
 
 	// run through prepare() phase only
 	op.skipExecute = true
 	instructions := []clusterOp{&op}
 	log := vlog.Printer{}
-	clusterOpEngine := makeClusterOpEngine(instructions, nil)
+	var options DatabaseOptions
+	clusterOpEngine := makeClusterOpEngine(instructions, &options)
 	err = clusterOpEngine.run(log)
 	assert.NoError(t, err)
 
@@ -60,6 +61,6 @@ func TestNMARotateHTTPSCertsOp(t *testing.T) {
 		assert.Equal(t, pwStr, data.DBPassword)
 		assert.Equal(t, dbName, data.DBName)
 		assert.Equal(t, opData, data.RotateHTTPSCertsData)
-		assert.Equal(t, awsSecretManagerName, data.SecretManager)
+		assert.Equal(t, "KubernetesSecretManager", data.SecretManager)
 	}
 }

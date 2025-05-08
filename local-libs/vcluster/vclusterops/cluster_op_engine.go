@@ -96,6 +96,7 @@ func (opEngine *VClusterOpEngine) runInstruction(
 	if err != nil {
 		return fmt.Errorf("prepare %s failed, details: %w", op.getName(), err)
 	}
+	execContext.usePasswordForSQLClientOnly = opEngine.tlsOptions.usePasswordForSQLClientOnly()
 
 	if !op.isSkipExecute() {
 		// start the progress spinner
