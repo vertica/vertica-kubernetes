@@ -25,6 +25,7 @@ import (
 
 type NodeLockEvents struct {
 	NodeName       string
+	MaxDuration    string            `json:"max_duration"`
 	LockWaitEvents []*dcLockAttempts `json:"wait_locks"`
 	LockHoldEvents *[]dcLockReleases `json:"hold_locks"` // hold locks related to earliest wait locks
 }
@@ -149,6 +150,16 @@ func (opt *VClusterHealthOptions) recursiveTraceLocks(logger vlog.Printer, upHos
 		var locksInNode NodeLockEvents
 		locksInNode.NodeName = event.NodeName
 		locksInNode.LockWaitEvents = append(locksInNode.LockWaitEvents, event)
+
+		// get the maximum duration for each node
+		maxDuration := "00:00:00.000" // the duration is saved in this format
+		for _, event := range locksInNode.LockWaitEvents {
+			if event.Duration > maxDuration {
+				maxDuration = event.Duration
+			}
+		}
+		locksInNode.MaxDuration = maxDuration
+
 		opt.LockEventCascade = append(opt.LockEventCascade, locksInNode)
 	}
 

@@ -182,6 +182,10 @@ func (vdb *VCoordinationDatabase) setFromCreateDBOptions(options *VCreateDatabas
 		return err
 	}
 
+	if err := options.setUsePassword(logger); err != nil {
+		return err
+	}
+
 	err = vdb.setFromBasicDBOptions(options)
 	if err != nil {
 		return err

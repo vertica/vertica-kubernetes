@@ -58,6 +58,7 @@ func makeNMARotateHTTPSCertsOp(hosts []string,
 	username, dbName string,
 	hostsToSandboxes map[string]string,
 	opData *RotateHTTPSCertsData,
+	secretManagerType string,
 	password *string,
 	useHTTPPassword bool) (nmaRotateHTTPSCertsOp, error) {
 	op := nmaRotateHTTPSCertsOp{}
@@ -69,7 +70,7 @@ func makeNMARotateHTTPSCertsOp(hosts []string,
 	if err != nil {
 		return op, fmt.Errorf("could not find sandbox for each initiator host: %w", err)
 	}
-	err = op.setupRequestBody(username, dbName, opData, password, useHTTPPassword)
+	err = op.setupRequestBody(username, dbName, opData, secretManagerType, password, useHTTPPassword)
 	if err != nil {
 		return op, err
 	}
@@ -80,6 +81,7 @@ func makeNMARotateHTTPSCertsOp(hosts []string,
 func (op *nmaRotateHTTPSCertsOp) setupRequestBody(
 	username, dbName string,
 	opData *RotateHTTPSCertsData,
+	secretManagerType string,
 	password *string,
 	useDBPassword bool) error {
 	err := ValidateSQLEndpointData(op.name, useDBPassword, username, password, dbName)
@@ -92,7 +94,7 @@ func (op *nmaRotateHTTPSCertsOp) setupRequestBody(
 		return errors.New("argument opData cannot be a nil pointer")
 	}
 	endpointData.RotateHTTPSCertsData = *opData
-	endpointData.SecretManager = "KubernetesSecretManager" // others NYI
+	endpointData.SecretManager = getSecretManager(secretManagerType)
 
 	dataBytes, err := json.Marshal(endpointData)
 	if err != nil {
