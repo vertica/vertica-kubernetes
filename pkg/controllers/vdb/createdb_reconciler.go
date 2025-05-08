@@ -25,7 +25,6 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
-	"github.com/vertica/vertica-kubernetes/pkg/cloud"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
@@ -178,18 +177,6 @@ func (c *CreateDBReconciler) preCmdSetup(ctx context.Context, initiatorPod types
 	}
 
 	return c.generatePostDBCreateSQL(ctx, initiatorPod)
-}
-
-// GetCredsSecret returns the contents of the credentials
-// secret. It handles if the secret is not found and will log an event.
-func (c *CreateDBReconciler) GetCredsSecret(ctx context.Context, credsSecret string) (map[string][]byte, ctrl.Result, error) {
-	fetcher := cloud.SecretFetcher{
-		Client:   c.VRec.GetClient(),
-		Log:      c.Log,
-		Obj:      c.Vdb,
-		EVWriter: c.VRec,
-	}
-	return fetcher.FetchAllowRequeue(ctx, names.GenNamespacedName(c.Vdb, credsSecret))
 }
 
 // generatePostDBCreateSQL is a function that creates a file with sql commands
