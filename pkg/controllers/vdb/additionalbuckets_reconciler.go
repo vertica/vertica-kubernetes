@@ -21,48 +21,176 @@ import (
 	"strings"
 
 	"github.com/go-logr/logr"
-	"github.com/pkg/errors"
-	v1 "github.com/vertica/vertica-kubernetes/api/v1"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/cloud"
+	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
-	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	config "github.com/vertica/vertica-kubernetes/pkg/vdbconfig"
+	"github.com/vertica/vertica-kubernetes/pkg/vdbstatus"
 	corev1 "k8s.io/api/core/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // AddtionalBucketsReconciler will add additional buckets for data replication
 type AddtionalBucketsReconciler struct {
-	VRec       *VerticaDBReconciler
-	Log        logr.Logger
-	Vdb        *vapi.VerticaDB // Vdb is the CRD we are acting on.
-	PFacts     *podfacts.PodFacts
-	Dispatcher vadmin.Dispatcher
+	VRec    *VerticaDBReconciler
+	Log     logr.Logger
+	Vdb     *vapi.VerticaDB // Vdb is the CRD we are acting on.
+	PFacts  *podfacts.PodFacts
+	PRunner cmds.PodRunner
+	client.Client
 }
 
 // MakeAddtionalBucketsReconciler will build a AddtionalBucketsReconciler object
 func MakeAddtionalBucketsReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
-	vdb *vapi.VerticaDB, pfacts *podfacts.PodFacts, dispatcher vadmin.Dispatcher) controllers.ReconcileActor {
+	vdb *vapi.VerticaDB, prunner cmds.PodRunner, pfacts *podfacts.PodFacts, cli client.Client) controllers.ReconcileActor {
 	return &AddtionalBucketsReconciler{
-		VRec:       vdbrecon,
-		Log:        log.WithName("AddtionalBucketsReconciler"),
-		Vdb:        vdb,
-		PFacts:     pfacts,
-		Dispatcher: dispatcher,
+		VRec:    vdbrecon,
+		Log:     log.WithName("AddtionalBucketsReconciler"),
+		Vdb:     vdb,
+		PFacts:  pfacts,
+		PRunner: prunner,
+		Client:  cli,
 	}
 }
 
 func (a *AddtionalBucketsReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
-	if a.Vdb.Spec.AdditionalBuckets != nil {
-		return a.addAdditionalBuckets(ctx)
+	if a.Vdb.Spec.AdditionalBuckets == nil {
+		return ctrl.Result{}, nil
 	}
 
-	return ctrl.Result{}, errors.New("no addtional buckets set in spec")
+	// check if the additional buckets are updated
+	if !a.isAddtionalBucketsUpdated() {
+		return ctrl.Result{}, nil
+	}
+
+	res, err := a.updateAdditionalBuckets(ctx)
+	if verrors.IsReconcileAborted(res, err) {
+		return res, err
+	}
+
+	return ctrl.Result{}, a.updateAdditionalBucketsStatus(ctx)
+}
+
+func (a *AddtionalBucketsReconciler) isAddtionalBucketsUpdated() bool {
+	// check if the additional buckets are updated
+	// if the additional buckets are not set, return false
+	if a.Vdb.Status.AdditionalBuckets == nil {
+		return false
+	}
+	// check if the additional buckets are updated
+	if len(a.Vdb.Spec.AdditionalBuckets) != len(a.Vdb.Status.AdditionalBuckets) {
+		return true
+	}
+
+	// check if the additional buckets are updated
+	for i, bucket := range a.Vdb.Spec.AdditionalBuckets {
+		if a.Vdb.Status.AdditionalBuckets[i].Path != bucket.Path {
+			return true
+		}
+		if a.Vdb.Status.AdditionalBuckets[i].Region != bucket.Region {
+			return true
+		}
+		if a.Vdb.Status.AdditionalBuckets[i].Endpoint != bucket.Endpoint {
+			return true
+		}
+		if a.Vdb.Status.AdditionalBuckets[i].CredentialSecret != bucket.CredentialSecret {
+			return true
+		}
+	}
+
+	return false
+}
+
+// updateAdditionalBucketsStatus will update additional buckets status in vdb
+func (a *AddtionalBucketsReconciler) updateAdditionalBucketsStatus(ctx context.Context) error {
+	updateStatus := func(vdbChg *vapi.VerticaDB) error {
+		if a.Vdb.Spec.AdditionalBuckets == nil {
+			return nil
+		}
+
+		// simply make a copy of the additional buckets in the status
+		vdbChg.Status.AdditionalBuckets = a.Vdb.Spec.AdditionalBuckets
+		return nil
+	}
+
+	return vdbstatus.Update(ctx, a.Client, a.Vdb, updateStatus)
+}
+
+func (a *AddtionalBucketsReconciler) updateAdditionalBuckets(ctx context.Context) (ctrl.Result, error) {
+	var res ctrl.Result
+	var err error
+	var accessKey, secretKey string
+
+	pf, found := a.PFacts.FindFirstUpPod(true, a.Vdb.GetFirstPrimarySubcluster().Name)
+	if !found {
+		return ctrl.Result{Requeue: true}, nil
+	}
+
+	sb := strings.Builder{}
+	for _, bucket := range a.Vdb.Spec.AdditionalBuckets {
+		// using s3
+		if strings.HasPrefix(bucket.Path, vapi.S3Prefix) {
+			accessKey, secretKey, res, err = a.GetAuth(ctx, bucket.CredentialSecret)
+			if verrors.IsReconcileAborted(res, err) {
+				return res, err
+			}
+
+			sb.WriteString(fmt.Sprintf(
+				`ALTER DATABASE default SET S3BucketConfig = '[{\"bucket\": \"%s\", \"region\": \"%s\", \"protocol\": \"%s\", \"endpoint\": \"%s\"}]';`,
+				config.GetBucket(bucket.Path), bucket.Region, config.GetEndpointProtocol(bucket.Endpoint), config.GetEndpoint(bucket.Endpoint)))
+
+			sb.WriteString(fmt.Sprintf(
+				`ALTER DATABASE default SET S3BucketCredentials = '[{\"bucket\": \"%s\", \"accessKey\": \"%s\", \"secretAccessKey\": \"%s\"}]';`,
+				config.GetBucket(bucket.Path), accessKey, secretKey))
+		}
+
+		// using gs
+		if strings.HasPrefix(bucket.Path, vapi.GCloudPrefix) {
+			accessKey, secretKey, res, err = a.GetAuth(ctx, bucket.CredentialSecret)
+			if verrors.IsReconcileAborted(res, err) {
+				return res, err
+			}
+
+			sb.WriteString(fmt.Sprintf(
+				`ALTER SESSION SET GCSAuth='%s:%s';`, accessKey, secretKey))
+		}
+
+		// using azb
+		if strings.HasPrefix(bucket.Path, vapi.AzurePrefix) {
+			var azureCreds cloud.AzureCredential
+			var azureConfig cloud.AzureEndpointConfig
+			azureCreds, azureConfig, res, err = a.GetAzureAuth(ctx, bucket.CredentialSecret)
+			if verrors.IsReconcileAborted(res, err) {
+				return res, err
+			}
+
+			sb.WriteString(fmt.Sprintf(
+				`ALTER DATABASE default SET AzureStorageCredentials = '[{\"accountName\": \"%s\", \"accountKey\": \"%s\"}]';`,
+				azureCreds.AccountName, azureCreds.AccountKey))
+			sb.WriteString(fmt.Sprintf(
+				`ALTER DATABASE default SET AzureStorageEndpointConfig = '[{\"accountName\": \"%s\", \"blobEndpoint\": \"%s\", \"protocol\":\"%s\"}]';`,
+				azureCreds.AccountName, azureConfig.BlobEndpoint, azureConfig.Protocol))
+		}
+	}
+
+	cmd := []string{"-tAc", sb.String()}
+	stdout, stderr, err := a.PRunner.ExecVSQL(ctx, pf.GetName(), names.ServerContainer, cmd...)
+	if err != nil {
+		a.VRec.Log.Error(err, "failed to retrieve active sessions", "stderr", stderr)
+		return ctrl.Result{}, err
+	}
+
+	a.VRec.Eventf(a.Vdb, corev1.EventTypeNormal, events.AdditionalBucketsUpdated,
+		"Additional buckets updated")
+	a.VRec.Log.Info("Updating additional buckets", "stdout", stdout)
+
+	return res, err
 }
 
 // GetCredsSecret returns the contents of the credentials
@@ -79,7 +207,8 @@ func (a *AddtionalBucketsReconciler) GetCredsSecret(ctx context.Context, credsSe
 
 // getAuth will return the access key and secret key.
 // Value is returned in the format: <accessKey>:<secretKey>
-func (a *AddtionalBucketsReconciler) GetAuth(ctx context.Context, credsSecret string) (string, string, ctrl.Result, error) {
+func (a *AddtionalBucketsReconciler) GetAuth(ctx context.Context, credsSecret string) (accesskey, secretkey string,
+	res ctrl.Result, err error) {
 	secret, res, err := a.GetCredsSecret(ctx, credsSecret)
 	if verrors.IsReconcileAborted(res, err) {
 		return "", "", res, err
@@ -149,57 +278,4 @@ func (a *AddtionalBucketsReconciler) GetAzureAuth(ctx context.Context, credsSecr
 			Protocol:     config.GetEndpointProtocol(string(blobEndpointRaw)),
 		},
 		ctrl.Result{}, nil
-}
-
-func (a *AddtionalBucketsReconciler) addAdditionalBuckets(ctx context.Context) (ctrl.Result, error) {
-	var res ctrl.Result
-	var err error
-
-	sb := strings.Builder{}
-
-	for _, bucket := range a.Vdb.Spec.AdditionalBuckets {
-		// using s3
-		if strings.HasPrefix(bucket.Path, v1.S3Prefix) {
-			accessKey, secretKey, res, err := a.GetAuth(ctx, bucket.CredentialSecret)
-			if verrors.IsReconcileAborted(res, err) {
-				return res, err
-			}
-
-			sb.WriteString(fmt.Sprintf(
-				`ALTER DATABASE default SET S3BucketConfig = '[{\"bucket\": \"%s\", \"region\": \"%s\", \"protocol\": \"%s\", \"endpoint\": \"%s\"}]';`,
-				config.GetBucket(bucket.Path), bucket.Region, config.GetEndpointProtocol(bucket.Endpoint), config.GetEndpoint(bucket.Endpoint)))
-
-			sb.WriteString(fmt.Sprintf(
-				`ALTER DATABASE default SET S3BucketCredentials = '[{\"bucket\": \"%s\", \"accessKey\": \"%s\", \"secretAccessKey\": \"%s\"}]';`,
-				config.GetBucket(bucket.Path), accessKey, secretKey))
-		}
-
-		// using gs
-		if strings.HasPrefix(bucket.Path, v1.GCloudPrefix) {
-			accessKey, secretKey, res, err := a.GetAuth(ctx, bucket.CredentialSecret)
-			if verrors.IsReconcileAborted(res, err) {
-				return res, err
-			}
-
-			sb.WriteString(fmt.Sprintf(
-				`ALTER SESSION SET GCSAuth='%s:%s';`, accessKey, secretKey))
-		}
-
-		// using azb
-		if strings.HasPrefix(bucket.Path, v1.AzurePrefix) {
-			azureCreds, azureConfig, res, err := a.GetAzureAuth(ctx, bucket.CredentialSecret)
-			if verrors.IsReconcileAborted(res, err) {
-				return res, err
-			}
-
-			sb.WriteString(fmt.Sprintf(
-				`ALTER DATABASE default SET AzureStorageCredentials = '[{\"accountName\": \"%s\", \"accountKey\": \"%s\"}]';`,
-				azureCreds.AccountName, azureCreds.AccountKey))
-			sb.WriteString(fmt.Sprintf(
-				`ALTER DATABASE default SET AzureStorageEndpointConfig = '[{\"accountName\": \"%s\", \"blobEndpoint\": \"%s\", \"protocol\":\"%s\"}]';`,
-				azureCreds.AccountName, azureConfig.BlobEndpoint, azureConfig.Protocol))
-		}
-	}
-
-	return res, err
 }

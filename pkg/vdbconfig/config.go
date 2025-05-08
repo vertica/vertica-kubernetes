@@ -601,7 +601,7 @@ func GetEndpointHostPort(blobEndpoint string) string {
 
 // GetBucket returns the bucket name from the path URL
 func GetBucket(path string) string {
-	re := regexp.MustCompile(`([a-z][0-9]+)://(.*)`)
+	re := regexp.MustCompile(`([a-z]\d+)://(.*)`)
 	m := re.FindAllStringSubmatch(path, 1)
 
 	if len(m) == 0 || len(m[0]) < 3 {

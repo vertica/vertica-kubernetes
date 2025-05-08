@@ -987,6 +987,11 @@ type VerticaDBStatus struct {
 	RestorePoint *RestorePointInfo `json:"restorePoint"`
 
 	// +operator-sdk:csv:customresourcedefinitions:type=status
+	// +Optional
+	// The details of the current using addtionsl buckets
+	AdditionalBuckets []CommunalStorage `json:"additionalBuckets,omitempty"`
+
+	// +operator-sdk:csv:customresourcedefinitions:type=status
 	// +optional
 	// The list of secrets currently in use
 	SecretRefs []SecretRef `json:"secretRefs,omitempty"`

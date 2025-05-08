@@ -268,6 +268,8 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		MakeCreateDBReconciler(r, log, vdb, prunner, pfacts, dispatcher),
 		// Handle calls to revive a database
 		MakeReviveDBReconciler(r, log, vdb, prunner, pfacts, dispatcher),
+		// Add additional buckets for data replication
+		MakeAddtionalBucketsReconciler(r, log, vdb, prunner, pfacts, r.Client),
 		MakeMetricReconciler(r, log, vdb, prunner, pfacts),
 		// Create and revive are mutually exclusive exclusive, so this handles
 		// status updates after both of them.
