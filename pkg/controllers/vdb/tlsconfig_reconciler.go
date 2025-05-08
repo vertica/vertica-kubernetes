@@ -22,19 +22,20 @@ import (
 
 	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
-	"github.com/vertica/vertica-kubernetes/pkg/builder"
 	"github.com/vertica/vertica-kubernetes/pkg/cloud"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
+	"github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
-	"github.com/vertica/vertica-kubernetes/pkg/security"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/rotatenmacerts"
 	config "github.com/vertica/vertica-kubernetes/pkg/vdbconfig"
 	"github.com/vertica/vertica-kubernetes/pkg/vdbstatus"
+	"github.com/vertica/vertica-kubernetes/pkg/vk8s"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -70,12 +71,17 @@ func MakeTLSConfigReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger, vdb
 // Reconcile will create a TLS secret for the http server if one is missing
 func (h *TLSConfigReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
 	h.Log.Info("in tls config reconcile 1")
-	if !h.Vdb.IsCertRotationEnabled() || !h.Vdb.IsStatusConditionTrue(vapi.DBInitialized) {
+	if h.Vdb.IsCertRotationEnabled() || !h.Vdb.IsStatusConditionTrue(vapi.DBInitialized) {
 		return ctrl.Result{}, nil
 	}
-	if len(h.Vdb.Status.SecretRefs) != 0 {
+	/* if len(h.Vdb.Status.SecretRefs) != 0 {
+		return ctrl.Result{}, nil
+	}*/
+
+	if !meta.SetupTLSConfig(h.Vdb.Annotations) {
 		return ctrl.Result{}, nil
 	}
+
 	h.VRec.Eventf(h.Vdb, corev1.EventTypeNormal, events.TLSConfigurationStarted,
 		"Starting to configure TLS")
 	h.Log.Info("tls enabled, start to set up tls config")
@@ -95,17 +101,32 @@ func (h *TLSConfigReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (c
 		h.Log.Error(err, "failed to read secret to set up TLS config")
 		return res, err
 	}
-	currentCert := string(currentSecretData[corev1.TLSCertKey])
-	rotated, err := security.VerifyCert(initiatorPod.GetPodIP(), builder.NMAPort, "", currentCert, h.Log)
+	/* currentCert := string(currentSecretData[corev1.TLSCertKey])
+	 rotated, err := security.VerifyCert(initiatorPod.GetPodIP(), builder.NMAPort, "", currentCert, h.Log)
 	if err != nil {
 		h.Log.Error(err, "set up TLS aborted. Failed to verify nma cert for "+
 			initiatorPod.GetPodIP())
 		return ctrl.Result{}, err
 	}
-	if rotated == 2 { // restart nma container
-
+	if rotated == 2 { // restart nma container */
+	h.Log.Info("will restart nma before setting up tls config")
+	hosts := []string{}
+	for _, detail := range h.Pfacts.Detail {
+		hosts = append(hosts, detail.GetPodIP())
 	}
-
+	opts := []rotatenmacerts.Option{
+		rotatenmacerts.WithKey(string(currentSecretData[corev1.TLSPrivateKeyKey])),
+		rotatenmacerts.WithCert(string(currentSecretData[corev1.TLSCertKey])),
+		rotatenmacerts.WithCaCert(string(currentSecretData[corev1.ServiceAccountRootCAKey])),
+		rotatenmacerts.WithHosts(hosts),
+	}
+	err = h.Dispatcher.RotateNMACerts(ctx, opts...)
+	if err != nil {
+		h.Log.Error(err, "failed to set nma cert to "+h.Vdb.Spec.NMATLSSecret)
+		return ctrl.Result{}, err
+	}
+	h.Log.Info("restarted nma before setting up tls config")
+	//}
 	var sb strings.Builder
 	h.generateKubernetesTLSSQL(&sb)
 	sb.WriteString(`select sync_catalog();`)
@@ -118,6 +139,7 @@ func (h *TLSConfigReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (c
 		h.Log.Info("failed to prepare the SQL scripts to set up TLS")
 		return ctrl.Result{}, err
 	}
+	h.Log.Info("generated SQL to set up TLS")
 	setupCmd := []string{
 		"-f", PostDBCreateSQLFileVclusterOps,
 	}
@@ -126,6 +148,22 @@ func (h *TLSConfigReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (c
 		h.Log.Error(err2, "failed to execute TLS DDLs,  stderr - "+stderr)
 		return ctrl.Result{}, err2
 	}
+	h.Log.Info("executed SQL to set up TLS")
+	sec := vapi.MakeNMATLSSecretRef(h.Vdb.Spec.NMATLSSecret)
+	if err := vdbstatus.UpdateSecretRef(ctx, h.VRec.GetClient(), h.Vdb, sec); err != nil {
+		return ctrl.Result{}, err
+	}
+	clientSec := vapi.MakeClientServerTLSSecretRef(h.Vdb.Spec.ClientServerTLSSecret)
+	if err := vdbstatus.UpdateSecretRef(ctx, h.VRec.GetClient(), h.Vdb, clientSec); err != nil {
+		return ctrl.Result{}, err
+	}
+	sRefs := []*vapi.SecretRef{
+		sec, clientSec,
+	}
+	if err := vdbstatus.UpdateSecretRefs(ctx, h.VRec.GetClient(), h.Vdb, sRefs); err != nil {
+		return ctrl.Result{}, err
+	}
+	h.Log.Info("saved secrets into status")
 	httpsTLSMode := vapi.MakeNMATLSMode(h.Vdb.Spec.HTTPSTLSMode)
 	clientTLSMode := vapi.MakeClientServerTLSMode(h.Vdb.Spec.ClientServerTLSMode)
 	err = vdbstatus.UpdateTLSModes(ctx, h.VRec.GetClient(), h.Vdb, []*vapi.TLSMode{httpsTLSMode, clientTLSMode})
@@ -133,8 +171,18 @@ func (h *TLSConfigReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (c
 		h.Log.Error(err, "failed to update tls mode when setting up TLS")
 		return ctrl.Result{}, err
 	}
+	chgs := vk8s.MetaChanges{
+		NewAnnotations: map[string]string{
+			meta.EnableTLSCertsRotationAnnotation: "true",
+			meta.SetupTLSConfigAnnotation:         "false",
+		},
+	}
+	if _, err := vk8s.MetaUpdate(ctx, h.VRec.Client, h.Vdb.ExtractNamespacedName(), h.Vdb, chgs); err != nil {
+		h.Log.Error(err, "failed to update tls annotations after setting up TLS")
+		return ctrl.Result{}, err
+	}
+	h.Log.Info("saved TLS modes into status")
 	h.Log.Info("TLS DDLs executed and TLS configured for the existing vdb")
-
 	h.VRec.Eventf(h.Vdb, corev1.EventTypeNormal, events.TLSConfigurationSucceeded,
 		"Successfully configured TLS")
 	return ctrl.Result{}, nil
