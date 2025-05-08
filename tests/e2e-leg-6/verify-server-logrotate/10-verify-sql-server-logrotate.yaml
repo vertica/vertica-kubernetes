@@ -11,44 +11,24 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Verifies access to the external service through port 5433.  It does this
-# by connecting using vsql
-
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: script-verify-server-logrotate-test
-data:
-  entrypoint.sh: |-
-    #!/bin/bash
-    set -o errexit
-    set -o xtrace
-
-    SQL_SCRIPT=/tmp/logrotate.sql
-    POD_NAME=v-verify-server-logrotate-main-0
-    LOGROTATE_OP=$(kubectl exec $POD_NAME -i -c server -- bash -c "cd /tmp; vsql -U dbadmin -f $SQL_SCRIPT")
-    echo "$LOGROTATE_OP"
-    kubectl exec $POD_NAME -i -c server -- bash -c "echo '$LOGROTATE_OP' | diff - /tmp/logrotateTimerServiceOut.txt"
----
-apiVersion: v1
-kind: Pod
-metadata:
-  name: test-verify-server-logrotate
-  labels:
-    stern: include
-spec:
-  restartPolicy: Never
-  containers:
-    - name: test
-      image: bitnami/kubectl:1.20.4
-      command: ["/bin/entrypoint.sh"]
-      volumeMounts:
-        - name: entrypoint-volume
-          mountPath: /bin/entrypoint.sh
-          readOnly: true
-          subPath: entrypoint.sh
-  volumes:
-    - name: entrypoint-volume
-      configMap:
-        defaultMode: 0777
-        name: script-verify-server-logrotate-test
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - script: |
+      USE_CERT_ROTATION=$(kubectl get vdb -n $NAMESPACE v-verify-server-logrotate -o jsonpath='{.metadata.annotations.vertica\.com/enable-tls-certs-rotation}')
+      SQL_SCRIPT=/tmp/logrotate.sql
+      POD_NAME=v-verify-server-logrotate-main-0
+      LOGRORATE_EXPECTED_OUTPUT=/tmp/logrotateTimerServiceOut.txt
+      LOGROTATE_OP=$(kubectl exec $POD_NAME -n $NAMESPACE  -i -c server -- bash -c "cd /tmp; vsql -U dbadmin -f $SQL_SCRIPT")
+      if [ "$USE_CERT_ROTATION" = "true" ]; then
+        LOGRORATE_EXPECTED_OUTPUT=/tmp/logrotateTimerServiceOutWithCustomCert.txt
+      fi
+      echo "use cert rotation: $USE_CERT_ROTATION"
+      echo "output file: $LOGRORATE_EXPECTED_OUTPUT"
+      RESULT_DIFF=$(kubectl exec $POD_NAME -n $NAMESPACE -i -c server -- bash -c "echo '$LOGROTATE_OP' | diff - $LOGRORATE_EXPECTED_OUTPUT")
+      if [ "$RESULT_DIFF" = "" ]; then
+        echo "Result is good. No diff."
+      else
+        echo "Diff found: $RESULT_DIFF"
+        exit 1
+      fi

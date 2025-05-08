@@ -11,13 +11,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: v1
-kind: Pod
-metadata:
-  name: test-verify-server-logrotate
-status:
-  containerStatuses:
-    - name: test
-      state:
-        terminated:
-          exitCode: 0 
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - command: sh -c "envsubst < cert.yaml | kubectl apply -n $NAMESPACE -f -"
