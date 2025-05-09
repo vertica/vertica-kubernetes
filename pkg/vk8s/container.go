@@ -118,6 +118,18 @@ func HasNMAContainer(podSpec *corev1.PodSpec) bool {
 	return GetNMAContainer(podSpec.Containers) != nil
 }
 
+// GetLivenessProbePort returns the http port used by the server pod for liveness probe
+func GetLivenessProbePort(podSpec *corev1.PodSpec) int {
+	var livenessPort int
+	for i := 0; i < len(podSpec.Containers); i++ {
+		if podSpec.Containers[i].Name == "server" {
+			livenessPort = int(podSpec.Containers[i].LivenessProbe.HTTPGet.Port.IntVal)
+			break
+		}
+	}
+	return livenessPort
+}
+
 // IsNMAContainerReady returns true if the NMA container has its status
 // in the given pod status and is in ready state
 func IsNMAContainerReady(pod *corev1.Pod) bool {
