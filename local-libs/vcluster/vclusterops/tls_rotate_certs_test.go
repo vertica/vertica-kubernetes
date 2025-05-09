@@ -9,13 +9,13 @@ import (
 	"github.com/vertica/vcluster/vclusterops/util"
 )
 
-type mockRotateHTTPSCertsVnodes struct {
+type mockRotateTLSCertsVnodes struct {
 	nodes            []*VCoordinationNode
 	hosts            []string
 	hostsToSandboxes map[string]string
 }
 
-func (vnodes *mockRotateHTTPSCertsVnodes) addHost(sandbox, status string) {
+func (vnodes *mockRotateTLSCertsVnodes) addHost(sandbox, status string) {
 	vnode := makeVCoordinationNode()
 	index := len(vnodes.hosts)
 	vnode.Name = fmt.Sprintf("vnode%d", index)
@@ -27,18 +27,18 @@ func (vnodes *mockRotateHTTPSCertsVnodes) addHost(sandbox, status string) {
 	vnodes.hostsToSandboxes[vnode.Address] = vnode.Sandbox
 }
 
-func (vnodes *mockRotateHTTPSCertsVnodes) addUpHost(sandbox string) {
+func (vnodes *mockRotateTLSCertsVnodes) addUpHost(sandbox string) {
 	vnodes.addHost(sandbox, util.NodeUpState)
 }
 
-func (vnodes *mockRotateHTTPSCertsVnodes) addDownHost(sandbox string) {
+func (vnodes *mockRotateTLSCertsVnodes) addDownHost(sandbox string) {
 	vnodes.addHost(sandbox, util.NodeDownState)
 }
 
-// makeMockRotateHTTPSCertsVnodes adds one down node per sandbox + main cluster, and if the sandbox
+// makeMockRotateTLSCertsVnodes adds one down node per sandbox + main cluster, and if the sandbox
 // is not excluded, two up nodes as well
-func makeMockRotateHTTPSCertsVnodes(sandboxes []string, allDownSandboxes ...string) mockRotateHTTPSCertsVnodes {
-	vnodes := mockRotateHTTPSCertsVnodes{hostsToSandboxes: map[string]string{}}
+func makeMockRotateTLSCertsVnodes(sandboxes []string, allDownSandboxes ...string) mockRotateTLSCertsVnodes {
+	vnodes := mockRotateTLSCertsVnodes{hostsToSandboxes: map[string]string{}}
 	for _, sandbox := range sandboxes {
 		vnodes.addDownHost(sandbox)
 		if !slices.Contains(allDownSandboxes, sandbox) {
@@ -49,7 +49,7 @@ func makeMockRotateHTTPSCertsVnodes(sandboxes []string, allDownSandboxes ...stri
 	return vnodes
 }
 
-func (vnodes *mockRotateHTTPSCertsVnodes) makeVDB() *VCoordinationDatabase {
+func (vnodes *mockRotateTLSCertsVnodes) makeVDB() *VCoordinationDatabase {
 	vdb := makeVCoordinationDatabase()
 	vdb.HostNodeMap = makeVHostNodeMap()
 	for _, vnode := range vnodes.nodes {
@@ -65,14 +65,14 @@ func (vnodes *mockRotateHTTPSCertsVnodes) makeVDB() *VCoordinationDatabase {
 	return &vdb
 }
 
-func (vnodes *mockRotateHTTPSCertsVnodes) makeOptions() *VRotateHTTPSCertsOptions {
-	opts := VRotateHTTPSCertsOptionsFactory()
+func (vnodes *mockRotateTLSCertsVnodes) makeOptions() *VRotateTLSCertsOptions {
+	opts := VRotateTLSCertsOptionsFactory()
 	opts.Hosts = vnodes.hosts
 	return &opts
 }
 
 //nolint:dogsled // doesn't like _, _, _, but we only care about the errors here
-func TestRotateHTTPSCertsGetVDBInfo(t *testing.T) {
+func TestRotateTLSCertsGetVDBInfo(t *testing.T) {
 	// fake cluster info
 	mc := ""
 	sb1 := "sand_A"
@@ -80,7 +80,7 @@ func TestRotateHTTPSCertsGetVDBInfo(t *testing.T) {
 	sandboxes := []string{mc, sb1, sb2}
 
 	// UP host present in each sb + main cluster -> success
-	vnodes := makeMockRotateHTTPSCertsVnodes(sandboxes)
+	vnodes := makeMockRotateTLSCertsVnodes(sandboxes)
 	opts := vnodes.makeOptions()
 	vdb := vnodes.makeVDB()
 	upHosts, initiatorHosts, hostsToSandboxes, err := opts.getVDBInfo(vdb)
@@ -94,7 +94,7 @@ func TestRotateHTTPSCertsGetVDBInfo(t *testing.T) {
 	}
 
 	// no UP host in main cluster -> failure
-	vnodes = makeMockRotateHTTPSCertsVnodes(sandboxes, mc)
+	vnodes = makeMockRotateTLSCertsVnodes(sandboxes, mc)
 	opts = vnodes.makeOptions()
 	vdb = vnodes.makeVDB()
 	_, _, _, err = opts.getVDBInfo(vdb)
@@ -102,7 +102,7 @@ func TestRotateHTTPSCertsGetVDBInfo(t *testing.T) {
 	assert.ErrorContains(t, err, "main cluster")
 
 	// no UP host in sandbox -> failure
-	vnodes = makeMockRotateHTTPSCertsVnodes(sandboxes, sb1)
+	vnodes = makeMockRotateTLSCertsVnodes(sandboxes, sb1)
 	opts = vnodes.makeOptions()
 	vdb = vnodes.makeVDB()
 	_, _, _, err = opts.getVDBInfo(vdb)

@@ -323,5 +323,5 @@ type VClusterProvider interface {
 	VPollSubclusterState(options *vops.VPollSubclusterStateOptions) error
 	VManageConnectionDraining(options *vops.VManageConnectionDrainingOptions) error
 	VRotateNMACerts(options *vops.VRotateNMACertsOptions) error
-	VRotateHTTPSCerts(options *vops.VRotateHTTPSCertsOptions) error
+	VRotateTLSCerts(options *vops.VRotateTLSCertsOptions) error
 }

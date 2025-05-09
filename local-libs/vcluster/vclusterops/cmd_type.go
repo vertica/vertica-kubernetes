@@ -49,7 +49,7 @@ const (
 	WorkloadCaptureCmd
 	WorkloadCancelCmd
 	RotateNMACertsCmd
-	RotateHTTPSCertsCmd
+	RotateVerticaCertsCmd
 )
 
 var cmdStringMap = map[CmdType]string{
@@ -96,7 +96,7 @@ var cmdStringMap = map[CmdType]string{
 	WorkloadReplayCmd:            "workload_replay",
 	WorkloadCaptureCmd:           "workload_capture",
 	RotateNMACertsCmd:            "rotate_nma_certs",
-	RotateHTTPSCertsCmd:          "rotate_https_certs",
+	RotateVerticaCertsCmd:        "rotate_vertica_certs",
 }
 
 func (cmd CmdType) CmdString() string {
