@@ -16,6 +16,7 @@
 package vclusterops
 
 import (
+	"errors"
 	"fmt"
 	"regexp"
 	"strconv"
@@ -23,12 +24,49 @@ import (
 
 	"github.com/vertica/vcluster/vclusterops/util"
 	"github.com/vertica/vcluster/vclusterops/vlog"
+	"golang.org/x/exp/slices"
 )
 
 const (
-	serverTLSKeyPrefix string = "server"
-	httpsTLSKeyPrefix  string = "https"
+	serverTLSKeyPrefix string = "server_tls"
+	httpsTLSKeyPrefix  string = "https_tls"
 )
+
+type VerticaTLSModeType string
+
+// TLS modes
+const (
+	tlsModeDisable    VerticaTLSModeType = "disable"
+	tlsModeEnable     VerticaTLSModeType = "enable"
+	tlsModeVerifyCA   VerticaTLSModeType = "verify-ca"
+	tlsModeTryVerify  VerticaTLSModeType = "try-verify"
+	tlsModeVerifyFull VerticaTLSModeType = "verify-full"
+)
+
+// Below constants are the key name used to set Vertica TLS configuration from K8S operator
+/* example: {"Namespace": "default", "SecretManager": "kubernetes", "SecretName":"Secret"}*/
+const (
+	TLSSecretManagerKeyNamespace          string = "Namespace"
+	TLSSecretManagerKeySecretManager      string = "SecretManager"
+	TLSSecretManagerKeySecretName         string = "SecretName"
+	TLSSecretManagerKeyCACertDataKey      string = "CADataKey"
+	TLSSecretManagerKeyCertDataKey        string = "CertDataKey"
+	TLSSecretManagerKeyKeyDataKey         string = "KeyDataKey"
+	TLSSecretManagerKeyTLSMode            string = "TLSMode"
+	TLSSecretManagerKeyAWSRegion          string = "AWSRegion"
+	TLSSecretManagerKeyAWSSecretVersionID string = "AWSVersion"
+)
+
+// secret manager types
+const (
+	K8sSecretManagerType string = "kubernetes"
+	AWSSecretManagerType string = "AWS"
+	GCPSecretManagerType string = "GCP"
+)
+
+var validSecretManagerType = []string{K8sSecretManagerType, GCPSecretManagerType, AWSSecretManagerType}
+var ValidTLSMode = []VerticaTLSModeType{tlsModeDisable, tlsModeEnable,
+	tlsModeVerifyCA, tlsModeTryVerify, tlsModeVerifyFull}
 
 // VCreateDatabaseOptions represents the available options when you create a database with
 // VCreateDatabase.
@@ -174,6 +212,76 @@ func validateTLSConfigurationMap(configMap map[string]string, configType string,
 	}
 
 	return validateRequiredKeysBasedOnSecretManager(configMap)
+}
+
+// validateAllwaysRequiredKeys validates tls keys that must always be set in a
+// tls configuration map
+func validateAllwaysRequiredKeys(configMap map[string]string) error {
+	if secretName, exist := configMap[TLSSecretManagerKeySecretName]; !exist || secretName == "" {
+		return fmt.Errorf("the %s key must exist with a non-empty value", TLSSecretManagerKeySecretName)
+	}
+	if !slices.Contains(validSecretManagerType, configMap[TLSSecretManagerKeySecretManager]) {
+		return fmt.Errorf("the %s key must exist and its value must be one of %s",
+			TLSSecretManagerKeySecretManager, validSecretManagerType)
+	}
+	return nil
+}
+
+// validateRequiredKeysBasedOnSecretManager validates required tls keys based on the
+// the secret manager that is passed
+func validateRequiredKeysBasedOnSecretManager(configMap map[string]string) error {
+	secretManager := configMap[TLSSecretManagerKeySecretManager]
+	switch secretManager {
+	case K8sSecretManagerType:
+		if secretNamespace, exist := configMap[TLSSecretManagerKeyNamespace]; !exist || secretNamespace == "" {
+			return fmt.Errorf("when the secret manager is %s, the %s key is required and must have a non-empty value",
+				K8sSecretManagerType, TLSSecretManagerKeyNamespace)
+		}
+	case AWSSecretManagerType:
+		if region, exist := configMap[TLSSecretManagerKeyAWSRegion]; !exist || region == "" {
+			return fmt.Errorf("when the secret manager is %s, the %s key is required and must have a non-empty value",
+				AWSSecretManagerType, TLSSecretManagerKeyAWSRegion)
+		}
+	case GCPSecretManagerType:
+		return errors.New("not implemented")
+	}
+	return nil
+}
+
+// validateRequiredKeysBasedOnTLSMode validate required tls keys based on the given tls mode
+func validateRequiredKeysBasedOnTLSMode(configMap map[string]string, configType string) error {
+	tlsMode := configMap[TLSSecretManagerKeyTLSMode]
+	if !slices.Contains(ValidTLSMode, VerticaTLSModeType(tlsMode)) {
+		return fmt.Errorf("the %s key's value must be one of %s",
+			TLSSecretManagerKeyTLSMode, ValidTLSMode)
+	}
+	if configType == "https" {
+		if VerticaTLSModeType(tlsMode) == tlsModeDisable {
+			return fmt.Errorf("tls mode cannot be %s for %s tls config", tlsModeDisable, configType)
+		}
+	}
+	requiredKeys := getRequiredTLSConfigKeys(VerticaTLSModeType(tlsMode))
+	for _, key := range requiredKeys {
+		if _, exist := configMap[key]; !exist {
+			return fmt.Errorf("when tls mode is %s, the %s key must exist and have a non-empty value",
+				tlsMode, key)
+		}
+	}
+	return nil
+}
+
+// getRequiredTLSConfigKeys will return a list of required key names based on the TLS mode
+func getRequiredTLSConfigKeys(tlsmode VerticaTLSModeType) []string {
+	switch tlsmode {
+	case tlsModeVerifyCA, tlsModeTryVerify, tlsModeVerifyFull:
+		return []string{TLSSecretManagerKeyKeyDataKey, TLSSecretManagerKeyCACertDataKey, TLSSecretManagerKeyCertDataKey}
+	case tlsModeEnable:
+		return []string{TLSSecretManagerKeyKeyDataKey, TLSSecretManagerKeyCertDataKey}
+	case tlsModeDisable:
+		return []string{}
+	default:
+		return nil
+	}
 }
 
 func validateDepotSizePercent(size string) (bool, error) {
@@ -647,7 +755,7 @@ func (vcc VClusterCommands) produceAdditionalTLSInstructions(options *VCreateDat
 		nmaSetHTTPSTLSOp, err := makeNMASetTLSOp(&options.DatabaseOptions, httpsTLSKeyPrefix,
 			true, // grantAuth
 			true, // syncCatalog
-			options.HTTPSTLSConfiguration)
+			options.ServerTLSConfiguration)
 		if err != nil {
 			return instructions, err
 		}
