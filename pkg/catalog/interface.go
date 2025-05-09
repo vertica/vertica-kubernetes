@@ -32,6 +32,7 @@ type NodeDetails struct {
 	SubclusterOid        string
 	ReadOnly             bool
 	SandboxName          string
+	IsPrimary            bool
 	ShardSubscriptions   int
 	MaxDepotSize         uint64
 	DepotDiskPercentSize string

@@ -262,7 +262,7 @@ func (p *PodFacts) ConstructsDetail(vdb *vapi.VerticaDB, upNodes []uint) {
 			pf := PodFact{
 				name:           types.NamespacedName{Name: fmt.Sprintf("%s-%d", sc.Name, j)},
 				subclusterName: sc.Name,
-				isPrimary:      sc.IsPrimary(vdb),
+				isPrimary:      sc.IsPrimary(vdb), // get from vdb for test only
 				shutdown:       sc.Shutdown,
 				upNode:         isUp,
 				podIP:          "10.10.10.10",
@@ -380,7 +380,6 @@ func (p *PodFacts) collectPodByStsIndex(ctx context.Context, vdb *vapi.VerticaDB
 	pf := PodFact{
 		name:              names.GenPodName(vdb, sc, podIndex),
 		subclusterName:    sc.Name,
-		isPrimary:         sc.IsPrimary(vdb),
 		podIndex:          podIndex,
 		execContainerName: getExecContainerName(sts),
 		shutdown:          sc.Shutdown,
@@ -1099,6 +1098,7 @@ func (p *PodFacts) checkNodeDetails(ctx context.Context, vdb *vapi.VerticaDB, pf
 		pf.readOnly = nodeDetails.ReadOnly
 		pf.subclusterOid = nodeDetails.SubclusterOid
 		pf.sandbox = nodeDetails.SandboxName
+		pf.isPrimary = nodeDetails.IsPrimary
 		pf.shardSubscriptions = nodeDetails.ShardSubscriptions
 		pf.maxDepotSize = nodeDetails.MaxDepotSize
 		pf.depotDiskPercentSize = nodeDetails.DepotDiskPercentSize

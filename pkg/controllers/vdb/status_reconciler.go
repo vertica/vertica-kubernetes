@@ -182,7 +182,7 @@ func (s *StatusReconciler) calculateClusterStatus(stat *vapi.VerticaDBStatus) {
 	}
 }
 
-// calculateSubclusterStatusType will figure out the statusw type for the given subcluster
+// calculateSubclusterStatusType will figure out the status type for the given subcluster
 func (s *StatusReconciler) calculateSubclusterStatusType(sc *vapi.Subcluster) string {
 	if !s.PFacts.DoesDBExist() {
 		s.Log.Info("Subcluster type status is not available as it's not in a db yet",
@@ -190,21 +190,24 @@ func (s *StatusReconciler) calculateSubclusterStatusType(sc *vapi.Subcluster) st
 		return ""
 	}
 
-	// if in a sandbox, set subcluster status type according to the sandbox status
-	sandboxStatus := s.Vdb.GetSandboxStatus(s.PFacts.SandboxName)
-	s.Log.Info("calculateSubclusterStatusType",
-		"subclusterStatus", s.Vdb.Status.Subclusters, "sandboxStatus", sandboxStatus)
+	pn := names.GenPodName(s.Vdb, sc, 0)
+	pf, ok := s.PFacts.Detail[pn]
+	if !ok {
+		s.Log.Info("No pods found in the subcluster",
+			"subcluster", sc.Name)
+		return ""
+	}
 
-	isSandbox := sandboxStatus != nil && sandboxStatus.Name != vapi.MainCluster
+	isSandbox := pf.GetSandbox() != ""
 	if isSandbox {
-		if sc.IsSandboxPrimary(s.Vdb) {
+		if pf.GetIsPrimary() {
 			return vapi.SandboxPrimarySubcluster
 		} else {
 			return vapi.SandboxSecondarySubcluster
 		}
 	}
 
-	if sc.IsPrimary(s.Vdb) {
+	if pf.GetIsPrimary() {
 		return vapi.PrimarySubcluster
 	}
 
