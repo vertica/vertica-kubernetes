@@ -67,7 +67,7 @@ var _ = Describe("analyze", func() {
 			"/data/prefix/v/v_v_node0001_depot",
 			"/data/prefix/v/v_v_node0002_depot",
 			"/data/prefix/v/v_v_node0003_depot",
-		})).Should(Equal([]string{"/data/prefix"}))
+		}, false)).Should(Equal([]string{"/data/prefix"}))
 
 		paths := []string{
 			"/p1/v/v_v_node0001_depot",
@@ -78,11 +78,11 @@ var _ = Describe("analyze", func() {
 			"/p1",
 			"/p2",
 		}
-		outPaths, err := p.getLocalPaths(paths)
+		outPaths, err := p.getLocalPaths(paths, false)
 		Expect(err).Should(BeNil())
 		Expect(outPaths).To(ConsistOf(paths2))
 
-		_, err = p.getLocalPaths(nil)
+		_, err = p.getLocalPaths(nil, false)
 		Expect(err).ShouldNot(Succeed())
 
 		paths = []string{
@@ -94,13 +94,13 @@ var _ = Describe("analyze", func() {
 			"/p1",
 			"/p2/v/path/no/vnode",
 		}
-		outPaths, err = p.getLocalPaths(paths)
+		outPaths, err = p.getLocalPaths(paths, false)
 		Expect(err).Should(BeNil())
 		Expect(outPaths).To(ConsistOf(paths2))
 
 		// ignore remote paths
 		paths = append(paths, "s3://some/path")
-		outPaths, err = p.getLocalPaths(paths)
+		outPaths, err = p.getLocalPaths(paths, false)
 		Expect(err).Should(BeNil())
 		Expect(outPaths).To(ConsistOf(paths2))
 
@@ -120,7 +120,7 @@ var _ = Describe("analyze", func() {
 			"/some/path3",
 			"/data/prefix",
 		}
-		outPaths, err = p.getLocalPaths(paths)
+		outPaths, err = p.getLocalPaths(paths, false)
 		Expect(err).Should(BeNil())
 		Expect(outPaths).To(ConsistOf(paths2))
 	})

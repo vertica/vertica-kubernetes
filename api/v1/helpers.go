@@ -459,6 +459,17 @@ func (v *VerticaDB) GetCommunalPath() string {
 	return fmt.Sprintf("%s/%s", strings.TrimSuffix(v.Spec.Communal.Path, "/"), v.UID)
 }
 
+// IsSubclusterInSandbox returns true if the given subcluster is in the
+// sandbox status
+func (s *SandboxStatus) IsSubclusterInSandbox(scName string) bool {
+	for i := range s.Subclusters {
+		if scName == s.Subclusters[i] {
+			return true
+		}
+	}
+	return false
+}
+
 // GenCompatibleFQDN returns a name of the subcluster that is
 // compatible inside a fully-qualified domain name.
 func (s *Subcluster) GenCompatibleFQDN() string {

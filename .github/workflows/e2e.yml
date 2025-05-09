@@ -2,7 +2,7 @@ name: e2e tests
 
 on: 
   push:
-    branches: [main, k8s-sync-*]
+    branches: [main, k8s-sync-*, k8s-test-*]
   pull_request:
   workflow_dispatch:
     inputs:
@@ -116,7 +116,7 @@ jobs:
     if: ${{ inputs.build_release_assets == 'all' || inputs.build_release_assests == '' }}
 
   e2e-leg-1-admintools:
-    if: ${{ ! contains(github.ref, 'k8s-sync')  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools leg 1' || inputs.e2e_test_suites == '') }}
+    if: ${{ ! (contains(github.ref, 'k8s-sync') || contains(github.ref, 'k8s-test'))  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools leg 1' || inputs.e2e_test_suites == '') }}
     needs: [build]
     runs-on: ubuntu-22.04
     steps:
@@ -138,7 +138,7 @@ jobs:
           e2e-retry-times: ${{ inputs.e2e_retry_times || 2 }}
   
   e2e-leg-1-admintools-previous-release:
-    if: ${{ ! contains(github.ref, 'k8s-sync')  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools leg 1' || inputs.e2e_test_suites == '') }}
+    if: ${{ ! (contains(github.ref, 'k8s-sync') || contains(github.ref, 'k8s-test'))  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools leg 1' || inputs.e2e_test_suites == '') }}
     needs: [build]
     runs-on: ubuntu-22.04
     steps:
@@ -204,7 +204,7 @@ jobs:
           e2e-retry-times: ${{ inputs.e2e_retry_times || 2 }}
 
   e2e-leg-2-admintools:
-    if: ${{ ! contains(github.ref, 'k8s-sync')  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools leg 2' || inputs.e2e_test_suites == '') }}
+    if: ${{ ! (contains(github.ref, 'k8s-sync') || contains(github.ref, 'k8s-test'))  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools leg 2' || inputs.e2e_test_suites == '') }}
     needs: [build]
     runs-on: ubuntu-22.04
     steps:
@@ -226,7 +226,7 @@ jobs:
           e2e-retry-times: ${{ inputs.e2e_retry_times || 2 }}
 
   e2e-leg-2-admintools-previous-release:
-    if: ${{ ! contains(github.ref, 'k8s-sync')  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools leg 2' || inputs.e2e_test_suites == '') }}
+    if: ${{ ! (contains(github.ref, 'k8s-sync') || contains(github.ref, 'k8s-test'))  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools leg 2' || inputs.e2e_test_suites == '') }}
     needs: [build]
     runs-on: ubuntu-22.04
     steps:
@@ -292,7 +292,7 @@ jobs:
           e2e-retry-times: ${{ inputs.e2e_retry_times || 2 }}
 
   e2e-leg-3-admintools:
-    if: ${{ ! contains(github.ref, 'k8s-sync')  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools leg 3' || inputs.e2e_test_suites == '') }}
+    if: ${{ ! (contains(github.ref, 'k8s-sync') || contains(github.ref, 'k8s-test'))  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools leg 3' || inputs.e2e_test_suites == '') }}
     needs: [build]
     runs-on: ubuntu-22.04
     steps:
@@ -354,7 +354,7 @@ jobs:
           e2e-retry-times: ${{ inputs.e2e_retry_times || 2 }}
 
   e2e-leg-4-admintools:
-    if: ${{ ! contains(github.ref, 'k8s-sync')  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools leg 4' || inputs.e2e_test_suites == '') }}
+    if: ${{ ! (contains(github.ref, 'k8s-sync') || contains(github.ref, 'k8s-test'))  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools leg 4' || inputs.e2e_test_suites == '') }}
     needs: [build]
     runs-on: ubuntu-22.04
     steps:
@@ -426,7 +426,7 @@ jobs:
           e2e-retry-times: ${{ inputs.e2e_retry_times || 2 }}
 
   e2e-leg-4-admintools-vdb-gen:
-    if: ${{ ! contains(github.ref, 'k8s-sync')  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools leg 4 vdb-gen' || inputs.e2e_test_suites == '') }}
+    if: ${{ ! (contains(github.ref, 'k8s-sync') || contains(github.ref, 'k8s-test'))  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools leg 4 vdb-gen' || inputs.e2e_test_suites == '') }}
     needs: [build]
     runs-on: ubuntu-22.04
     steps:
@@ -473,7 +473,7 @@ jobs:
           e2e-retry-times: ${{ inputs.e2e_retry_times || 2 }}
 
   e2e-leg-5-admintools:
-    if: ${{ ! contains(github.ref, 'k8s-sync')  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools leg 5' || inputs.e2e_test_suites == '') }}
+    if: ${{ ! (contains(github.ref, 'k8s-sync') || contains(github.ref, 'k8s-test'))  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools leg 5' || inputs.e2e_test_suites == '') }}
     needs: [build]
     runs-on: ubuntu-22.04
     steps:
@@ -773,7 +773,7 @@ jobs:
           e2e-retry-times: ${{ inputs.e2e_retry_times || 2 }}
 
   e2e-server-upgrade-admintools:
-    if: ${{ ! contains(github.ref, 'k8s-sync')  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools server upgrade' || inputs.e2e_test_suites == '') }}
+    if: ${{ ! (contains(github.ref, 'k8s-sync') || contains(github.ref, 'k8s-test'))  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools server upgrade' || inputs.e2e_test_suites == '') }}
     needs: [build]
     runs-on: ubuntu-22.04
     steps:
@@ -816,7 +816,7 @@ jobs:
           e2e-retry-times: ${{ inputs.e2e_retry_times || 2 }}
 
   e2e-operator-upgrade:
-    if: ${{ ! contains(github.ref, 'k8s-sync')  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools operator upgrade' || inputs.e2e_test_suites == '') }}
+    if: ${{ ! (contains(github.ref, 'k8s-sync') || contains(github.ref, 'k8s-test'))  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools operator upgrade' || inputs.e2e_test_suites == '') }}
     needs: [build]
     runs-on: ubuntu-22.04
     steps:
@@ -841,7 +841,7 @@ jobs:
           e2e-retry-times: ${{ inputs.e2e_retry_times || 2 }}
 
   e2e-udx-admintools:
-    if: ${{ ! contains(github.ref, 'k8s-sync')  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools udx' || inputs.e2e_test_suites == '') }}
+    if: ${{ ! (contains(github.ref, 'k8s-sync') || contains(github.ref, 'k8s-test'))  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools udx' || inputs.e2e_test_suites == '') }}
     needs: [build]
     runs-on: ubuntu-22.04
     steps:
@@ -986,7 +986,7 @@ jobs:
     name: team-notification
     needs: [sync-vcluster]
     runs-on: ubuntu-latest
-    if: ${{ always() && contains(github.ref, 'k8s-sync') }}
+    if: ${{ always() && (contains(github.ref, 'k8s-sync') || contains(github.ref, 'k8s-test')) }}
     steps:
       - name: notification on success
         if: ${{ always() && contains(needs.sync-vcluster.result, 'success') }}
