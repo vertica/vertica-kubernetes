@@ -234,7 +234,10 @@ func (vcc *VClusterCommands) produceUpgradeLicenseInstructions(options *VUpgrade
 	instructions = append(instructions, &httpsInstallLicenseOp)
 
 	// step 3: clean up the stage license file
-	nmaDeleteFileOp := makeNMADeleteFileOp(initiatorHost, options.StageLicensePath)
+	nmaDeleteFileOp, nmaDeleteDirErr := makeNMADeleteFileOp(initiatorHost, options.StageLicensePath)
+	if nmaDeleteDirErr != nil {
+		return instructions, nmaDeleteDirErr
+	}
 	instructions = append(instructions, &nmaDeleteFileOp)
 	return instructions, nil
 }

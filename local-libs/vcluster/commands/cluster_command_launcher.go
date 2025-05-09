@@ -114,6 +114,8 @@ const (
 	removeUnboundNodesFlag      = "remove-unbound-nodes"
 	startNodeFlag               = "start"
 	startHostFlag               = "start-hosts"
+	useExistingCatalogDirFlag   = "use-existing-catalog-directory"
+	retainCatalogDirFlag        = "retain-catalog-directory"
 )
 
 // Flag and key for database replication

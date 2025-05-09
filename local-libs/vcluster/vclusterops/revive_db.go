@@ -43,6 +43,8 @@ type VReviveDatabaseOptions struct {
 	Sandbox string
 	// Revive db on main cluster only
 	MainCluster bool
+	// Use existing catalog dir if exists
+	UseExistingCatalogDir bool
 }
 
 type RestorePointPolicy struct {
@@ -429,7 +431,8 @@ func (vcc VClusterCommands) produceReviveDBInstructions(options *VReviveDatabase
 	}
 
 	// prepare all directories
-	nmaPrepareDirectoriesOp, err := makeNMAPrepareDirectoriesOp(hostNodeMap, options.ForceRemoval, true /*for db revive*/)
+	nmaPrepareDirectoriesOp, err := makeNMAPrepareDirsUseExistingCatalogDirOp(hostNodeMap, options.ForceRemoval,
+		true /*for db revive*/, options.UseExistingCatalogDir /*use existing dir*/)
 	if err != nil {
 		return instructions, err
 	}

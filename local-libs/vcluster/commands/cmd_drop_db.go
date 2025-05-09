@@ -57,7 +57,13 @@ Examples:
 	)
 
 	// hide flags since we expect it to come from config file, not from user input
-	hideLocalFlags(cmd, []string{hostsFlag, catalogPathFlag, dataPathFlag, depotPathFlag})
+	cmd.Flags().BoolVar(
+		&newCmd.dropDBOptions.RetainCatalogDir,
+		"retain-catalog-directory",
+		false,
+		"Retain existing catalog directories",
+	)
+	hideLocalFlags(cmd, []string{hostsFlag, catalogPathFlag, dataPathFlag, depotPathFlag, retainCatalogDirFlag})
 
 	return cmd
 }
