@@ -55,6 +55,9 @@ type opEngineExecContext struct {
 	// this vdb will only be used to get sandbox info of the nodes
 	vdbForSandboxInfo *VCoordinationDatabase
 
+	// whether only use password for SQL client
+	usePasswordForSQLClientOnly bool
+
 	// slow events
 	dcSlowEventList *[]dcSlowEvent
 
