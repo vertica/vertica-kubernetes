@@ -751,6 +751,51 @@ func (v *VerticaDB) GetPrimaryCount() int {
 	return sizeSum
 }
 
+// GetMainPrimaryUpCount returns the number of primary nodes in the main subcluster in up state.
+func (v *VerticaDB) GetMainPrimaryUpCount() int {
+	sizeSum := 0
+	for i := range v.Spec.Subclusters {
+		sc := &v.Spec.Subclusters[i]
+		if sc.IsPrimary(v) && !sc.IsSandboxPrimary(v) {
+			ss, ok := v.FindSubclusterStatus(sc.Name)
+			if ok {
+				sizeSum += int(ss.UpNodeCount)
+			}
+		}
+	}
+	return sizeSum
+}
+
+// GetSandboxPrimaryUpCount returns the number of primary nodes in a sandbox in up state.
+func (v *VerticaDB) GetSandboxPrimaryUpCount(sbName string) int {
+	if sbName == MainCluster {
+		return v.GetMainPrimaryUpCount()
+	}
+
+	sbMap := v.GenSandboxMap()
+	sb, ok := sbMap[sbName]
+	if !ok {
+		return 0
+	}
+
+	sizeSum := 0
+	scMap := v.GenSubclusterMap()
+	for i := range sb.Subclusters {
+		sbSc := sb.Subclusters[i]
+		sc := scMap[sbSc.Name]
+		if sc == nil {
+			continue
+		}
+		if sc.IsPrimary(v) && !sc.IsSandboxPrimary(v) {
+			ss, ok := v.FindSubclusterStatus(sc.Name)
+			if ok {
+				sizeSum += int(ss.UpNodeCount)
+			}
+		}
+	}
+	return sizeSum
+}
+
 // HasSecondarySubclusters returns true if at least 1 secondary subcluster
 // exists in the database.
 func (v *VerticaDB) HasSecondarySubclusters() bool {
@@ -924,7 +969,23 @@ func (v *VerticaDB) GetKSafety() string {
 	return "1"
 }
 
-// GetRequeueTime returns the time in seconds to wait for the next reconiliation iteration.
+// IsKSafetyAfterRemoval checks whether a subcluster is k-safety after some primary nodes removed
+// when sbName is empty, it will check the main cluster
+func (v *VerticaDB) IsKSafetyAfterRemoval(sbName string, offset int) bool {
+	minHosts := KSafety0MinHosts
+	if !v.IsKSafety0() {
+		minHosts = KSafety1MinHosts
+	}
+
+	primaryCount := v.GetSandboxPrimaryUpCount(sbName)
+	if sbName == MainCluster {
+		primaryCount = v.GetMainPrimaryUpCount()
+	}
+
+	return primaryCount-offset >= minHosts
+}
+
+// GetRequeueTime returns the time in seconds to wait for the next reconciliation iteration.
 func (v *VerticaDB) GetRequeueTime() int {
 	return vmeta.GetRequeueTime(v.Annotations)
 }
@@ -1272,32 +1333,6 @@ func (v *VerticaDB) GetSandboxStatusCheck(sbName string) (*SandboxStatus, error)
 		return nil, fmt.Errorf("could not find sandbox %q in status", sbName)
 	}
 	return sb, nil
-}
-
-// DoesSandboxHaveQuorum returns true if the sandbox will keep quorum
-// For example, a sandbox sand1 has 2 primary subclusters sc1 and sc2 with 1 and 2 nodes separately:
-//
-//	sandboxes
-//	- name: sand1
-//	  subclusters:
-//	  - name: sc1 (default primary, 1 node)
-//	  - name: sc2 (default primary, 2 nodes)
-//
-// The totalPrimaryCount is 3. When removing/demoting a subcluster from the sandbox:
-// - removing/demoting sc1: offset is 1, then 2*(3-1) > 3 is true, DoesSandboxHaveQuorum(sand1, 1) will return true
-// - removing/demoting sc2: offset is 2, then 2*(3-2) > 3 is false, DoesSandboxHaveQuorum(sand1, 2) will return false
-func (v *VerticaDB) DoesSandboxHaveQuorum(sbName string, offset int) bool {
-	totalPrimaryCount := 0
-	scMap := v.GenSubclusterMap()
-	sb := v.GetSandbox(sbName)
-	for i := range sb.Subclusters {
-		sc := sb.Subclusters[i]
-		if sc.Type != PrimarySubcluster {
-			continue
-		}
-		totalPrimaryCount += int(scMap[sc.Name].Size)
-	}
-	return 2*(totalPrimaryCount-offset) > totalPrimaryCount
 }
 
 // IsSubclusterInStatus will check if a subcluster in vdb status

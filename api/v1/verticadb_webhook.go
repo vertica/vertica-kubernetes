@@ -178,7 +178,6 @@ func (v *VerticaDB) checkValidSubclusterTypeTransition(oldObj *VerticaDB, allErr
 		sc := oldObj.Spec.Subclusters[i]
 		nameToTypeMap[sc.Name] = sc.Type
 	}
-	scToSbMap := v.GenSubclusterSandboxMap()
 	// Helper function to log an error
 	invalidStateTransitionErr := func(inx int) {
 		path := field.NewPath("spec").Child("subclusters").Index(inx).Child("type")
@@ -195,12 +194,18 @@ func (v *VerticaDB) checkValidSubclusterTypeTransition(oldObj *VerticaDB, allErr
 		if !ok {
 			continue
 		}
-		if (oldType == PrimarySubcluster || oldType == TransientSubcluster) && oldType != sc.Type {
+		if (oldType == TransientSubcluster) && oldType != sc.Type {
 			invalidStateTransitionErr(i)
+		} else if oldType == PrimarySubcluster && sc.Type != PrimarySubcluster {
+			// main cluster should maintain k-safety after primary subcluster demotion
+			if !oldObj.IsKSafetyAfterRemoval(MainCluster, int(sc.Size)) {
+				invalidStateTransitionErr(i)
+			}
 		} else if oldType == SecondarySubcluster && sc.Type != SecondarySubcluster {
+			scToSbMap := oldObj.GenSubclusterSandboxMap()
 			_, found := scToSbMap[sc.Name]
-			// You can only transition out of a secondary subcluster if its during sandboxing.
-			if sc.IsSandboxPrimary(oldObj) || !found {
+			// subclusters type are not allowed to be updated if it's in a sandbox
+			if found {
 				invalidStateTransitionErr(i)
 			}
 		}
@@ -1309,6 +1314,20 @@ func (sand *Sandbox) hasPrimarySubcluster() bool {
 	return false
 }
 
+// hasPrimaryAfterRemoval checks if a sandbox has a primary subcluster after a sc removed
+func (sand *Sandbox) hasPrimaryAfterRemoval(scName string) bool {
+	for i := range sand.Subclusters {
+		sc := &sand.Subclusters[i]
+		if sc.Name == scName {
+			continue
+		}
+		if sc.Type == PrimarySubcluster {
+			return true
+		}
+	}
+	return false
+}
+
 // validateSandboxPrimarySubcluster validates if a sandbox has a primary subcluster
 func (v *VerticaDB) validateSandboxPrimarySubcluster(allErrs field.ErrorList, sbIndex int) field.ErrorList {
 	sb := &v.Spec.Sandboxes[sbIndex]
@@ -1865,12 +1884,12 @@ func (v *VerticaDB) checkSandboxPrimary(allErrs field.ErrorList, oldObj *Vertica
 		if !newFound && sc.IsSandboxPrimary(oldObj) {
 			// calculate the number of primary subcluster nodes to be removed from the old sandbox
 			offsetMap[oldSbName] += int(sc.Size)
-			// check if the old sandbox has enough primary subcluster nodes
-			if !oldObj.DoesSandboxHaveQuorum(oldSbName, offsetMap[oldSbName]) {
+			// check if the old sandbox has enough primary subcluster nodes after old subcluster removed
+			if !oldSbMap[oldSbName].hasPrimaryAfterRemoval(oldScName) {
 				i := oldScIndexMap[oldScName]
 				err := field.Invalid(path.Index(i),
 					oldObj.Spec.Subclusters[i],
-					fmt.Sprintf("quorum not meet, cannot remove the primary subcluster %q from sandbox %q", oldScName, oldSbName))
+					fmt.Sprintf("cannot remove the primary subcluster %q from sandbox %q", oldScName, oldSbName))
 				allErrs = append(allErrs, err)
 			}
 
@@ -1882,12 +1901,12 @@ func (v *VerticaDB) checkSandboxPrimary(allErrs field.ErrorList, oldObj *Vertica
 			if sc.IsSandboxPrimary(oldObj) && !sc.IsSandboxPrimary(v) {
 				// calculate the number of primary subcluster nodes to be demoted from the old sandbox
 				offsetMap[oldSbName] += int(sc.Size)
-				// check if the old sandbox has enough primary subcluster nodes
-				if !oldObj.DoesSandboxHaveQuorum(oldSbName, offsetMap[oldSbName]) {
+				// check if the old sandbox has primary subcluster after old subcluster demoted
+				if !oldSbMap[oldSbName].hasPrimaryAfterRemoval(oldScName) {
 					i := oldScIndexMap[oldScName]
 					err := field.Invalid(path.Index(i),
 						oldObj.Spec.Subclusters[i],
-						fmt.Sprintf("quorum not meet, cannot demote the primary subcluster %q to secondary in sandbox %q", oldScName, oldSbName))
+						fmt.Sprintf("cannot demote the primary subcluster %q to secondary in sandbox %q", oldScName, oldSbName))
 					allErrs = append(allErrs, err)
 				}
 			}
@@ -1896,16 +1915,16 @@ func (v *VerticaDB) checkSandboxPrimary(allErrs field.ErrorList, oldObj *Vertica
 		}
 		// old sandbox name does not match new sandbox name, the sc will be moved to a new sandbox
 		if sc.IsSandboxPrimary(oldObj) {
-			// calculate the number of primary subcluster nodes to be removed from the old sandbox
+			// calculate the number of primary subcluster nodes to be moved out from the old sandbox
 			offsetMap[oldSbName] += int(sc.Size)
 
-			// check if the old sandbox has enough primary subcluster nodes
-			if !oldObj.DoesSandboxHaveQuorum(oldSbName, offsetMap[oldSbName]) {
+			// check if the old sandbox has primary subcluster after old subcluster moved out
+			if !oldSbMap[oldSbName].hasPrimaryAfterRemoval(oldScName) {
 				i := oldSbIndexMap[oldSbName]
 				p := field.NewPath("spec").Child("sandboxes")
 				err := field.Invalid(p.Index(i),
 					oldSbMap[oldSbName],
-					fmt.Sprintf("quorum not meet, cannot move the primary subcluster %q from sandbox %q to %q",
+					fmt.Sprintf("cannot move the primary subcluster %q from sandbox %q to %q",
 						oldScName, oldSbName, newSbName))
 				allErrs = append(allErrs, err)
 			}
