@@ -17,7 +17,6 @@ package vdb
 
 import (
 	"context"
-	"fmt"
 	"reflect"
 
 	"github.com/go-logr/logr"
@@ -33,7 +32,6 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/pollscstate"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/sandboxsc"
 	"github.com/vertica/vertica-kubernetes/pkg/vdbstatus"
-	"github.com/vertica/vertica-kubernetes/pkg/vk8s"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -161,14 +159,10 @@ func (s *SandboxSubclusterReconciler) sandboxSubclusters(ctx context.Context) (c
 
 // executeSandboxCommand will call sandbox API in vclusterOps, create/update sandbox config maps,
 // and update sandbox status in vdb
-//
-//nolint:gocyclo
 func (s *SandboxSubclusterReconciler) executeSandboxCommand(ctx context.Context, scSbMap map[string]string) (ctrl.Result, error) {
 	seenSandboxes := make(map[string]any)
 
-	// We can simply loop over the scSbMap and sandbox each subcluster. However,
-	// we want to sandbox in a deterministic order because the first subcluster
-	// in a sandbox is the primary.
+	// We can simply loop over the scSbMap and sandbox each subcluster.
 	for i := range s.Vdb.Spec.Sandboxes {
 		vdbSb := &s.Vdb.Spec.Sandboxes[i]
 		var sbName string
@@ -191,28 +185,17 @@ func (s *SandboxSubclusterReconciler) executeSandboxCommand(ctx context.Context,
 			sbName = sb
 			sbScs = append(sbScs, sc)
 
+			// Set sandbox subcluster type default to primary if it is empty
+			if vdbSb.Subclusters[j].Type == "" {
+				vdbSb.Subclusters[j].Type = vapi.PrimarySubcluster
+			}
+
+			// Call vclusterOps to add the subcluster to the sandbox
 			res, err := s.sandboxSubcluster(ctx, sc, sb)
 			if verrors.IsReconcileAborted(res, err) {
 				return res, err
 			}
 			seenSandboxes[sb] = struct{}{}
-
-			// The first subcluster in a sandbox turns into a primary. Set
-			// state in the vdb to indicate that.
-			if j == 0 {
-				_, err = vk8s.UpdateVDBWithRetry(ctx, s.VRec, s.Vdb, func() (bool, error) {
-					scMap := s.Vdb.GenSubclusterMap()
-					vdbSc, found := scMap[sc]
-					if !found {
-						return false, fmt.Errorf("subcluster %q missing in vdb %q", sc, s.Vdb.Name)
-					}
-					vdbSc.Type = vapi.SandboxPrimarySubcluster
-					return true, nil
-				})
-				if err != nil {
-					return ctrl.Result{}, err
-				}
-			}
 
 			// Always update status as we go. When sandboxing two subclusters in
 			// the same sandbox, the second subcluster depends on the status

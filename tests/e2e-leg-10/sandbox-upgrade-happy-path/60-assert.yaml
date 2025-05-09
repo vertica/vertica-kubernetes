@@ -30,3 +30,17 @@ status:
     - subclusters:
         - pri1-sb
         - sec1-sb
+  subclusters:
+    - addedToDBCount: 3
+      name: pri1
+      type: primary
+    - addedToDBCount: 1
+      name: sec1
+      type: secondary
+    - addedToDBCount: 3
+      name: pri1-sb
+      type: sandboxprimary
+    - addedToDBCount: 1
+      name: sec1-sb
+      type: sandboxsecondary
+
