@@ -123,7 +123,9 @@ func GetLivenessProbePort(podSpec *corev1.PodSpec) int {
 	var livenessPort int
 	for i := 0; i < len(podSpec.Containers); i++ {
 		if podSpec.Containers[i].Name == "server" {
-			livenessPort = int(podSpec.Containers[i].LivenessProbe.HTTPGet.Port.IntVal)
+			if podSpec.Containers[i].LivenessProbe != nil && podSpec.Containers[i].LivenessProbe.HTTPGet != nil {
+				livenessPort = int(podSpec.Containers[i].LivenessProbe.HTTPGet.Port.IntVal)
+			}
 			break
 		}
 	}
