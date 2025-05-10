@@ -51,7 +51,8 @@ func TestNMASetTLSOp(t *testing.T) {
 		assert.NoError(t, err)
 
 		op.skipExecute = true
-		engine := makeClusterOpEngine([]clusterOp{&op}, nil)
+		var options DatabaseOptions
+		engine := makeClusterOpEngine([]clusterOp{&op}, &options)
 		assert.NoError(t, engine.run(vlog.Printer{}))
 
 		for _, host := range hosts {

@@ -72,6 +72,7 @@ func (pool *adapterPool) sendRequest(httpRequest *clusterHTTPRequest, spinner *y
 	var adapterToRequestCollection []adapterToRequest
 	for host := range httpRequest.RequestCollection {
 		request := httpRequest.RequestCollection[host]
+		request.usePasswordForSQLClientOnly = httpRequest.usePasswordForSQLClientOnly
 		adpt, ok := pool.connections[host]
 		if !ok {
 			return fmt.Errorf("host %s is not found in the adapter pool", host)

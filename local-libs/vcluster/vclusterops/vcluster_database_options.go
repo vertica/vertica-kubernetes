@@ -81,6 +81,8 @@ type DatabaseOptions struct {
 	LogPath string
 	// whether use password
 	usePassword bool
+	// whether only use password for the NMA SQL client
+	UsePasswordForSQLClientOnly bool
 }
 
 const (
@@ -444,6 +446,10 @@ func (opt *DatabaseOptions) getTLSModes() *tlsModes {
 		doVerifyHTTPSServerCert:  opt.DoVerifyHTTPSServerCert,
 		doVerifyPeerCertHostname: opt.DoVerifyPeerCertHostname,
 	}
+}
+
+func (opt *DatabaseOptions) usePasswordForSQLClientOnly() bool {
+	return opt.UsePasswordForSQLClientOnly
 }
 
 /* End opTLSOptions interface */

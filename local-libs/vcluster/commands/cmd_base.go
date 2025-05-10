@@ -53,11 +53,12 @@ type CmdBase struct {
 	// for some commands like list_all_nodes, we want to allow the output to be written
 	// to a file instead of being displayed in stdout. This is the file the output will
 	// be written to
-	output                 string
-	configParamFile        string
-	passwordFile           string
-	readPasswordFromPrompt bool
-	ifSyncCatalog          bool
+	output                      string
+	configParamFile             string
+	passwordFile                string
+	readPasswordFromPrompt      bool
+	usePasswordForSQLClientOnly bool
+	ifSyncCatalog               bool
 }
 
 // ValidateParseBaseOptions will validate and parse the required base options in each command
@@ -312,6 +313,13 @@ func (c *CmdBase) setTLSFlags(cmd *cobra.Command) {
 		fmt.Sprintf("Mode for TLS validation. Allowed values '%s', '%s', and '%s'. Default value is '%s'.",
 			tlsModeEnable, tlsModeVerifyCA, tlsModeVerifyFull, tlsModeEnable),
 	)
+
+	cmd.Flags().BoolVar(
+		&c.usePasswordForSQLClientOnly,
+		usePasswordForSQLClientOnlyFlag,
+		false,
+		"Whether only use password for the NMA SQL client.",
+	)
 }
 
 func (c *CmdBase) setTargetDBFlags(cmd *cobra.Command) {
@@ -543,6 +551,7 @@ func (c *CmdBase) setDBPassword(opt *vclusterops.DatabaseOptions) error {
 	if c.parser.Changed(passwordFlag) {
 		// no-op, password has been set elsewhere,
 		// through --password flag
+		opt.UsePasswordForSQLClientOnly = c.usePasswordForSQLClientOnly
 		return nil
 	}
 	if opt.Password == nil {

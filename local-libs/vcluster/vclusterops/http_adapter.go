@@ -277,8 +277,9 @@ func whetherUsePassword(request *hostHTTPRequest) (bool, error) {
 		return false, nil
 	}
 
-	// in case that password is provided
-	if request.Password != nil {
+	// in case that password is provided and
+	// usePwForSQLClientOnly is not set
+	if request.Password != nil && !request.usePasswordForSQLClientOnly {
 		return true, nil
 	}
 

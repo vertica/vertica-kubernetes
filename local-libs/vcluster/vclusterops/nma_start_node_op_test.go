@@ -19,7 +19,8 @@ func TestStartNodeOp(t *testing.T) {
 	op := makeNMAStartNodeOp(hosts, startupConf)
 	op.skipExecute = true
 	instructions := []clusterOp{&op}
-	clusterOpEngine := makeClusterOpEngine(instructions, nil)
+	var options DatabaseOptions
+	clusterOpEngine := makeClusterOpEngine(instructions, &options)
 
 	execContext := makeOpEngineExecContext(vl)
 	clusterOpEngine.execContext = &execContext
