@@ -369,6 +369,19 @@ type VerticaDBSpec struct {
 	// Create client proxy pods for the subcluster if defined
 	// All incoming connections to the subclusters will be routed through the proxy pods
 	Proxy *Proxy `json:"proxy,omitempty"`
+
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:hidden"
+	// +kubebuilder:default:=VERIFY_CA
+	// +kubebuilder:validation:Optional
+	// This field configures the Vertica's connection mode for client-server TLS.
+	// Choose one of the following TLSMODEs, listed in ascending security:
+	// - TRY_VERIFY: Establishes a TLS connection if one of the following is true:
+	//   - The client presents a valid certificate.
+	//   - The client doesn't present a certificate
+	//   If the client presents an invalid certificate, the connection is rejected.
+	// - VERIFY_CA: Connection succeeds if Vertica verifies that the client certificate is from a trusted CA.
+	//   If the client does not present a client certificate, the connection is rejected.
+	HTTPSTLSMode string `json:"httpsTLSMode,omitempty"`
 }
 
 // LocalObjectReference is used instead of corev1.LocalObjectReference and behaves the same.
@@ -985,11 +998,18 @@ type VerticaDBStatus struct {
 	// +optional
 	// The list of secrets currently in use
 	SecretRefs []SecretRef `json:"secretRefs,omitempty"`
+
+	// +operator-sdk:csv:customresourcedefinitions:type=status
+	// +optional
+	// The list of TLS modes currently in use
+	TLSModes []TLSMode `json:"tlsModes,omitempty"`
 }
 
 const (
 	NMATLSSecretType          = "NMATLSSecretType"          // #nosec G101
 	ClientServerTLSSecretType = "ClientServerTLSSecretType" // #nosec G101
+	NMATLSModeType            = "NMATLSModeType"
+	ClientServerTLSModeType   = "ClientServerTLSModeType"
 )
 
 type SecretRef struct {
@@ -999,6 +1019,15 @@ type SecretRef struct {
 	// +operator-sdk:csv:customresourcedefinitions:type=status
 	// The type of the secret which represents what the secret
 	// is used for
+	Type string `json:"type"`
+}
+
+type TLSMode struct {
+	// +operator-sdk:csv:customresourcedefinitions:type=status
+	// TLS mode
+	Mode string `json:"name"`
+	// +operator-sdk:csv:customresourcedefinitions:type=status
+	// The type of the TLS mode
 	Type string `json:"type"`
 }
 

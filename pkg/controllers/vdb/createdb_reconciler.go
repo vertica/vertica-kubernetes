@@ -128,8 +128,8 @@ func (c *CreateDBReconciler) execCmd(ctx context.Context, initiatorPod types.Nam
 	c.VRec.Event(c.Vdb, corev1.EventTypeNormal, events.CreateDBStart, "Starting create database")
 
 	start := time.Now()
-	if res, err := c.Dispatcher.CreateDB(ctx, opts...); verrors.IsReconcileAborted(res, err) {
-		return res, err
+	if res, err2 := c.Dispatcher.CreateDB(ctx, opts...); verrors.IsReconcileAborted(res, err) {
+		return res, err2
 	}
 	if c.Vdb.IsCertRotationEnabled() {
 		cmd := []string{
@@ -139,6 +139,13 @@ func (c *CreateDBReconciler) execCmd(ctx context.Context, initiatorPod types.Nam
 		if err2 != nil || strings.Contains(stderr, "Error") {
 			c.Log.Error(err2, "failed to execute TLS DDLs after db creation stderr - "+stderr)
 			return ctrl.Result{}, err2
+		}
+		httpsTLSMode := vapi.MakeNMATLSMode(c.Vdb.Spec.HTTPSTLSMode)
+		clientTLSMode := vapi.MakeClientServerTLSMode(c.Vdb.Spec.ClientServerTLSMode)
+		err = vdbstatus.UpdateTLSModes(ctx, c.VRec.GetClient(), c.Vdb, []*vapi.TLSMode{httpsTLSMode, clientTLSMode})
+		if err != nil {
+			c.Log.Error(err, "failed to update tls mode after creating db")
+			return ctrl.Result{}, err
 		}
 		c.Log.Info("TLS DDLs executed and TLS Cert configured")
 	}
@@ -342,7 +349,6 @@ func (c *CreateDBReconciler) generateAWSTlsSQL(sb *strings.Builder) {
 	fmt.Fprintf(sb, "ADD CA CERTIFICATES server_ca_cert TLSMODE 'TRY_VERIFY';\n")
 	fmt.Fprintf(sb, "ALTER TLS CONFIGURATION server CERTIFICATE server_cert ")
 	fmt.Fprintf(sb, "REMOVE CA CERTIFICATES httpServerRootca;\n")
-
 	fmt.Fprintf(sb, "CREATE AUTHENTICATION aws_tls_builtin_auth METHOD 'tls' HOST TLS ")
 	fmt.Fprintf(sb, "'0.0.0.0/0' FALLTHROUGH;\n")
 	fmt.Fprintf(sb, "GRANT AUTHENTICATION aws_tls_builtin_auth TO %s;\n", c.Vdb.GetVerticaUser())
