@@ -78,7 +78,7 @@ Examples:
 
 	// local flags
 	newCmd.setLocalFlags(cmd)
-
+	newCmd.setHiddenFlags(cmd)
 	// require db-name and communal-storage-location
 	markFlagsRequired(cmd, dbNameFlag, communalStorageLocationFlag)
 
@@ -145,6 +145,16 @@ func (c *CmdReviveDB) setLocalFlags(cmd *cobra.Command) {
 	)
 	// only one of restore-point-index or restore-point-id" will be required
 	cmd.MarkFlagsMutuallyExclusive("restore-point-index", "restore-point-id")
+}
+
+func (c *CmdReviveDB) setHiddenFlags(cmd *cobra.Command) {
+	cmd.Flags().BoolVar(
+		&c.reviveDBOptions.UseExistingCatalogDir,
+		"use-existing-catalog-directory",
+		false,
+		"Use existing catalog directory if present",
+	)
+	hideLocalFlags(cmd, []string{"use-existing-catalog-directory"})
 }
 
 func (c *CmdReviveDB) Parse(inputArgv []string, logger vlog.Printer) error {
