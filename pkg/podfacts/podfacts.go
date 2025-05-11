@@ -380,6 +380,7 @@ func (p *PodFacts) collectPodByStsIndex(ctx context.Context, vdb *vapi.VerticaDB
 	pf := PodFact{
 		name:              names.GenPodName(vdb, sc, podIndex),
 		subclusterName:    sc.Name,
+		isPrimary:         sc.IsPrimary(vdb), // isPrimary will be overridden by checkNodeDetails
 		podIndex:          podIndex,
 		execContainerName: getExecContainerName(sts),
 		shutdown:          sc.Shutdown,

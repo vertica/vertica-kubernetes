@@ -142,7 +142,7 @@ func (nodeDetails *NodeDetails) parseNodeState(stdout string) error {
 	lines := strings.Split(stdout, "\n")
 	cols := strings.Split(lines[0], "|")
 	var err error
-	const MinExpectedCols = 3
+	const MinExpectedCols = 4
 	if len(cols) < MinExpectedCols {
 		err = fmt.Errorf("expected at least %d columns from node query but only got %d", MinExpectedCols, len(cols))
 		return err
