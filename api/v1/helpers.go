@@ -779,18 +779,11 @@ func (v *VerticaDB) GetSandboxPrimaryUpCount(sbName string) int {
 	}
 
 	sizeSum := 0
-	scMap := v.GenSubclusterMap()
 	for i := range sb.Subclusters {
 		sbSc := sb.Subclusters[i]
-		sc := scMap[sbSc.Name]
-		if sc == nil {
-			continue
-		}
-		if sc.IsPrimary(v) && !sc.IsSandboxPrimary(v) {
-			ss, ok := v.FindSubclusterStatus(sc.Name)
-			if ok {
-				sizeSum += int(ss.UpNodeCount)
-			}
+		ss, ok := v.FindSubclusterStatus(sbSc.Name)
+		if ok && ss.Type == SandboxPrimarySubcluster {
+			sizeSum += int(ss.UpNodeCount)
 		}
 	}
 	return sizeSum
