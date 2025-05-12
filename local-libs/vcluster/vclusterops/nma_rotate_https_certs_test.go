@@ -36,7 +36,7 @@ func TestNMARotateHTTPSCertsOp(t *testing.T) {
 
 	// construction should succeed
 	op, err := makeNMARotateHTTPSCertsOp(hosts, username, dbName, hostsToSandboxes,
-		&opData, &pwStr, usePW)
+		&opData, AWSSecretManagerType, &pwStr, usePW)
 	assert.NoError(t, err)
 
 	// run through prepare() phase only
@@ -60,6 +60,6 @@ func TestNMARotateHTTPSCertsOp(t *testing.T) {
 		assert.Equal(t, pwStr, data.DBPassword)
 		assert.Equal(t, dbName, data.DBName)
 		assert.Equal(t, opData, data.RotateHTTPSCertsData)
-		assert.Equal(t, "KubernetesSecretManager", data.SecretManager)
+		assert.Equal(t, awsSecretManagerName, data.SecretManager)
 	}
 }

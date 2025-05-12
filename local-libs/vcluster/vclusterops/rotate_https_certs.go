@@ -21,6 +21,7 @@ import (
 
 	"github.com/vertica/vcluster/vclusterops/util"
 	"github.com/vertica/vcluster/vclusterops/vlog"
+	"golang.org/x/exp/slices"
 )
 
 type VRotateHTTPSCertsOptions struct {
@@ -70,6 +71,9 @@ type VRotateHTTPSCertsOptions struct {
 	 */
 	AllowPasswordAuthForHTTPSOps bool
 
+	// The type of secret manager. It is one of "kubernetes", "AWS" and "GCP"
+	TLSSecretManager string
+
 	// internal use: controls NMA SQL op pw auth
 	usePasswordForNMA bool
 }
@@ -108,6 +112,10 @@ func (opt *VRotateHTTPSCertsOptions) validateParseOptions(logger vlog.Printer) e
 	}
 	if opt.NewSecretMetadata.CACertSecretName == "" {
 		return errors.New("CACertSecretName cannot be empty")
+	}
+	validSecretManagerTypes := []string{K8sSecretManagerType, AWSSecretManagerType}
+	if !slices.Contains(validSecretManagerTypes, opt.TLSSecretManager) {
+		return fmt.Errorf("secretmanager type must be one of %s", validSecretManagerTypes)
 	}
 
 	return opt.validateBaseOptions(RotateHTTPSCertsCmd, logger)
@@ -239,7 +247,7 @@ func (vcc VClusterCommands) produceRotateHTTPSCertsInstructions(
 	var instructions []clusterOp
 	nmaHealthOp := makeNMAHealthOp(initiatorHosts)
 	nmaRotateHTTPSCertsOp, err := makeNMARotateHTTPSCertsOp(initiatorHosts, options.UserName,
-		options.DBName, hostsToSandboxes, &options.NewSecretMetadata,
+		options.DBName, hostsToSandboxes, &options.NewSecretMetadata, options.TLSSecretManager,
 		options.Password, options.usePasswordForNMA)
 	if err != nil {
 		return instructions, err
