@@ -168,7 +168,7 @@ var _ = Describe("podfacts", func() {
 		fpr := &cmds.FakePodRunner{
 			Results: cmds.CmdResults{
 				pn: []cmds.CmdResult{
-					{Stdout: "v_db_node0001|UP|t|123456|t"},
+					{Stdout: "v_db_node0001|UP|123456|t"},
 				},
 			},
 		}
@@ -215,7 +215,7 @@ var _ = Describe("podfacts", func() {
 		fpr := &cmds.FakePodRunner{
 			Results: cmds.CmdResults{
 				pn: []cmds.CmdResult{
-					{Stdout: "v_db_node0001|UP|t||f"},
+					{Stdout: "v_db_node0001|UP||f"},
 				},
 			},
 		}
