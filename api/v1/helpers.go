@@ -866,7 +866,15 @@ func (v *VerticaDB) IsCertRotationEnabled() bool {
 	if !vmeta.UseVClusterOps(v.Annotations) {
 		return false
 	}
-	return !vmeta.UseNMACertsMount(v.Annotations) && vmeta.EnableTLSCertsRotation(v.Annotations)
+	vinf, hasVersion := v.MakeVersionInfo()
+	// Assume we are running a version that does not support cert rotation
+	// if version is not present.
+	if !hasVersion {
+		return false
+	}
+	return vinf.IsEqualOrNewer(TLSCertRotationMinVersion) &&
+		!vmeta.UseNMACertsMount(v.Annotations) &&
+		vmeta.EnableTLSCertsRotation(v.Annotations)
 }
 
 // IsNMASideCarDeploymentEnabled returns true if the conditions to run NMA
