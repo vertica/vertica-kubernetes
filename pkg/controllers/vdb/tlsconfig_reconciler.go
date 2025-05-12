@@ -18,11 +18,11 @@ package vdb
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
-	"github.com/vertica/vertica-kubernetes/pkg/builder"
 	"github.com/vertica/vertica-kubernetes/pkg/cloud"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
@@ -72,13 +72,19 @@ func MakeTLSConfigReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger, vdb
 // Reconcile will create a TLS secret for the http server if one is missing
 func (h *TLSConfigReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
 	h.Log.Info("in tls config reconcile 1")
-	if h.Vdb.IsCertRotationEnabled() && len(h.Vdb.Status.SecretRefs) != 0 || !h.Vdb.IsStatusConditionTrue(vapi.DBInitialized) {
+	// this is for after revivie scenario
+	// if !meta.SetupTLSConfig(h.Vdb.Annotations) && (!h.Vdb.IsCertRotationEnabled() || h.Vdb.IsCertRotationEnabled() && len(h.Vdb.Status.SecretRefs) != 0) ||
+	//	!h.Vdb.IsStatusConditionTrue(vapi.DBInitialized) {
+	if (!meta.SetupTLSConfig(h.Vdb.Annotations) || h.Vdb.IsCertRotationEnabled() && len(h.Vdb.Status.SecretRefs) != 0) && h.Vdb.IsStatusConditionTrue(vapi.DBInitialized) ||
+		!h.Vdb.IsStatusConditionTrue(vapi.DBInitialized) {
 		return ctrl.Result{}, nil
 	}
-
-	if !meta.SetupTLSConfig(h.Vdb.Annotations) {
+	h.Log.Info("libo: entry condition, cert rotate enabled ? " + strconv.FormatBool(h.Vdb.IsCertRotationEnabled()) +
+		", num of status secrets - " + strconv.Itoa(len(h.Vdb.Status.SecretRefs)) + ", is db initialized ? " + strconv.FormatBool(h.Vdb.IsStatusConditionTrue(vapi.DBInitialized)))
+	// this is for after db creation or upgrade scenarios
+	/* if !meta.SetupTLSConfig(h.Vdb.Annotations) {
 		return ctrl.Result{}, nil
-	}
+	} */
 	h.VRec.Eventf(h.Vdb, corev1.EventTypeNormal, events.TLSConfigurationStarted,
 		"Starting to configure TLS")
 	h.Log.Info("tls enabled, start to set up tls config")
@@ -98,7 +104,7 @@ func (h *TLSConfigReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (c
 		h.Log.Error(err, "failed to read secret to set up TLS config")
 		return res, err
 	}
-	if meta.SetupTLSConfig(h.Vdb.Annotations) {
+	/* if meta.SetupTLSConfig(h.Vdb.Annotations) {
 		configMapName := names.GenNMACertConfigMap(h.Vdb)
 		configMap := &corev1.ConfigMap{}
 		tlsMap := map[string]string{
@@ -114,7 +120,7 @@ func (h *TLSConfigReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (c
 				"clientserver-secret", h.Vdb.Spec.ClientServerTLSSecret)
 		}
 		h.Log.Info("tls config map updated")
-	}
+	} */
 	/* currentCert := string(currentSecretData[corev1.TLSCertKey])
 	 rotated, err := security.VerifyCert(initiatorPod.GetPodIP(), builder.NMAPort, "", currentCert, h.Log)
 	if err != nil {
