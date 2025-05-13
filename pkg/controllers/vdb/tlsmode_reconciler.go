@@ -65,7 +65,7 @@ func MakeTLSModeReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger, vdb *
 	}
 }
 
-// Reconcile will create a TLS secret for the http server if one is missing
+// Reconcile will call cert rotation API to update the TLS mode of the https server
 func (h *TLSModeReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
 	if !h.Vdb.IsCertRotationEnabled() || h.Vdb.IsStatusConditionTrue(vapi.TLSCertRotationInProgress) ||
 		!h.Vdb.IsStatusConditionTrue(vapi.DBInitialized) {
@@ -78,7 +78,7 @@ func (h *TLSModeReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctr
 	h.Log.Info(fmt.Sprintf("https: current tls mode - %s, spec tls mode - %s", h.Vdb.GetNMATLSModeInUse(), h.Vdb.Spec.HTTPSTLSMode))
 	h.Log.Info(fmt.Sprintf("client: current tls mode - %s, spec tls mode - %s", h.Vdb.GetClientServerTLSModeInUse(),
 		h.Vdb.Spec.ClientServerTLSMode))
-	h.VRec.Eventf(h.Vdb, corev1.EventTypeNormal, events.NMATLSModeUpdateStarted,
+	h.VRec.Eventf(h.Vdb, corev1.EventTypeNormal, events.TLSModeUpdateStarted,
 		"Starting to update TLS Mode")
 	if h.Vdb.GetNMATLSModeInUse() == "" || h.Vdb.GetClientServerTLSModeInUse() == "" {
 		res, err := h.reconcileAfterRevive(ctx)
@@ -165,7 +165,7 @@ func (h *TLSModeReconciler) rotateTLSMode(ctx context.Context) (ctrl.Result, err
 
 	h.Log.Info(fmt.Sprintf("HTTPS TLS mode is %s, client TLS mode is %s", newHTTPSTLSMode, newClientTLSMode))
 
-	h.VRec.Eventf(h.Vdb, corev1.EventTypeNormal, events.NMATLSModeUpdateSucceeded,
+	h.VRec.Eventf(h.Vdb, corev1.EventTypeNormal, events.TLSModeUpdateSucceeded,
 		"Successfully updated TLS modes. https:  %s -> %s, client: %s -> %s",
 		newHTTPSTLSMode, newClientTLSMode, currentHTTPSTLSMode, currentClientTLSMode)
 	return ctrl.Result{}, nil
@@ -192,7 +192,7 @@ func (h *TLSModeReconciler) reconcileAfterRevive(ctx context.Context) (ctrl.Resu
 			return ctrl.Result{}, err
 		}
 		h.Log.Info("tls modes retrieved from db are saved into vdb status")
-		h.VRec.Eventf(h.Vdb, corev1.EventTypeNormal, events.NMATLSModeUpdateSucceeded,
+		h.VRec.Eventf(h.Vdb, corev1.EventTypeNormal, events.TLSModeUpdateSucceeded,
 			"Successfully updated TLS modes after reviving. https - %s, client - %s", h.Vdb.Spec.HTTPSTLSMode,
 			h.Vdb.Spec.ClientServerTLSMode)
 	}

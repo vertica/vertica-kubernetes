@@ -1008,7 +1008,7 @@ type VerticaDBStatus struct {
 const (
 	NMATLSSecretType          = "NMATLSSecretType"          // #nosec G101
 	ClientServerTLSSecretType = "ClientServerTLSSecretType" // #nosec G101
-	NMATLSModeType            = "NMATLSModeType"
+	HTTPSTTLSModeType         = "HTTPSTTLSModeType"
 	ClientServerTLSModeType   = "ClientServerTLSModeType"
 )
 

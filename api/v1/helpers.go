@@ -393,7 +393,7 @@ func MakeClientServerTLSMode(mode string) *TLSMode {
 }
 
 func MakeNMATLSMode(mode string) *TLSMode {
-	return MakeTLSMode(NMATLSModeType, mode)
+	return MakeTLSMode(HTTPSTTLSModeType, mode)
 }
 
 // HasReviveInstanceIDAnnotation is true when an annotation exists for the db's
@@ -1512,7 +1512,7 @@ func (v *VerticaDB) GetTLSModeInUse(sType string) string {
 }
 
 func (v *VerticaDB) GetNMATLSModeInUse() string {
-	return v.GetTLSModeInUse(NMATLSModeType)
+	return v.GetTLSModeInUse(HTTPSTTLSModeType)
 }
 
 func (v *VerticaDB) GetClientServerTLSModeInUse() string {
@@ -1531,10 +1531,6 @@ func FindTLSMode(refs []TLSMode, typ string) *TLSMode {
 
 // SetSecretRef updates the slice with a new SecretRef by Type, and returns true if any changes occurred.
 func SetSecretRef(refs *[]SecretRef, newRef SecretRef) (changed bool) {
-	if refs == nil {
-		return false
-	}
-
 	existing := FindSecretRef(*refs, newRef.Type)
 	if existing == nil {
 		*refs = append(*refs, newRef)
@@ -1555,9 +1551,6 @@ func SetSecretRef(refs *[]SecretRef, newRef SecretRef) (changed bool) {
 
 // SetTLSMode updates the slice with a new TLSMode by Type, and returns true if any changes occurred.
 func SetTLSMode(refs *[]TLSMode, newRef TLSMode) (changed bool) {
-	if refs == nil {
-		return false
-	}
 	existing := FindTLSMode(*refs, newRef.Type)
 	if existing == nil {
 		*refs = append(*refs, newRef)
