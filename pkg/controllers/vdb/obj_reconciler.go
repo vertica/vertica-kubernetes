@@ -671,7 +671,7 @@ func (o *ObjReconciler) handleStatefulSetUpdate(ctx context.Context, sc *vapi.Su
 	// If the NMA deployment type is changing, we cannot do a rolling update for
 	// this change. All pods need to have the same NMA deployment type. So, we
 	// drop the old sts and create a fresh one.
-	if isNMADeploymentDifferent(curSts, expSts) {
+	if isNMADeploymentDifferent(curSts, expSts) || isLivenessPortDifferent(curSts, expSts) {
 		o.Log.Info("Dropping then recreating statefulset", "Name", expSts.Name)
 		// Invalidate the pod facts cache since we are recreating a new sts
 		o.PFacts.Invalidate()
@@ -813,6 +813,11 @@ func mergeAnnotations(existing, expected map[string]string) map[string]string {
 // NMA sidecar deployment and the other one doesn't.
 func isNMADeploymentDifferent(sts1, sts2 *appsv1.StatefulSet) bool {
 	return vk8s.HasNMAContainer(&sts1.Spec.Template.Spec) != vk8s.HasNMAContainer(&sts2.Spec.Template.Spec)
+}
+
+// isLivenessPortDifferent will return true if the two stateful sets use different http port for livness check
+func isLivenessPortDifferent(sts1, sts2 *appsv1.StatefulSet) bool {
+	return vk8s.GetLivenessProbePort(&sts1.Spec.Template.Spec) != vk8s.GetLivenessProbePort(&sts2.Spec.Template.Spec)
 }
 
 // checkIfReadyForStsUpdate will check whether it is okay to proceed

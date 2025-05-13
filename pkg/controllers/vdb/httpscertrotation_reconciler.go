@@ -105,6 +105,16 @@ func (h *HTTPSCertRotationReconciler) Reconcile(ctx context.Context, _ *ctrl.Req
 		h.Log.Info("https cert rotation is aborted.")
 		return res, err2
 	}
+	currentTLSMode := h.Vdb.GetNMATLSModeInUse()
+	if currentTLSMode != h.Vdb.Spec.HTTPSTLSMode {
+		httpsTLSMode := vapi.MakeNMATLSMode(h.Vdb.Spec.HTTPSTLSMode)
+		err = vdbstatus.UpdateTLSModes(ctx, h.VRec.GetClient(), h.Vdb, []*vapi.TLSMode{httpsTLSMode})
+		if err != nil {
+			h.Log.Error(err, "failed to update tls mode after https cert rotation")
+			return ctrl.Result{}, err
+		}
+	}
+	h.Log.Info(fmt.Sprintf("https tls mode is changed to %s after https cert rotation", h.Vdb.Spec.HTTPSTLSMode))
 	cond = vapi.MakeCondition(vapi.HTTPSCertRotationFinished, metav1.ConditionTrue, "Completed")
 	if err := vdbstatus.UpdateCondition(ctx, h.VRec.GetClient(), h.Vdb, cond); err != nil {
 		h.Log.Error(err, "failed to set condition "+vapi.HTTPSCertRotationFinished+" to true")
@@ -151,7 +161,7 @@ func (h *HTTPSCertRotationReconciler) rotateHTTPSTLSCert(ctx context.Context, ne
 			rotatehttpscerts.WithKey(h.Vdb.Spec.NMATLSSecret, keyConfig),
 			rotatehttpscerts.WithCert(h.Vdb.Spec.NMATLSSecret, certConfig),
 			rotatehttpscerts.WithCaCert(h.Vdb.Spec.NMATLSSecret, caCertConfig),
-			rotatehttpscerts.WithTLSMode("TRY_VERIFY"),
+			rotatehttpscerts.WithTLSMode(h.Vdb.Spec.HTTPSTLSMode),
 			rotatehttpscerts.WithInitiator(initiatorPod.GetPodIP()),
 		}
 		h.Log.Info("to call RotateHTTPSCerts for cert " + h.Vdb.Spec.NMATLSSecret + ", tls enabled " +

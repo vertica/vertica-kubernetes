@@ -98,14 +98,21 @@ func (g *GenericDatabaseInitializer) runInit(ctx context.Context) (ctrl.Result, 
 	if res, err := g.initializer.execCmd(ctx, initiatorPod, host, postNames); verrors.IsReconcileAborted(res, err) {
 		return res, err
 	}
-
-	sec := vapi.MakeNMATLSSecretRef(g.Vdb.Spec.NMATLSSecret)
-	clientSec := vapi.MakeClientServerTLSSecretRef(g.Vdb.Spec.ClientServerTLSSecret)
-	sRefs := []*vapi.SecretRef{
-		sec, clientSec,
-	}
-	if err := vdbstatus.UpdateSecretRefs(ctx, g.VRec.GetClient(), g.Vdb, sRefs); err != nil {
-		return ctrl.Result{}, err
+	if g.Vdb.IsCertRotationEnabled() {
+		sec := vapi.MakeNMATLSSecretRef(g.Vdb.Spec.NMATLSSecret)
+		if err := vdbstatus.UpdateSecretRef(ctx, g.VRec.GetClient(), g.Vdb, sec); err != nil {
+			return ctrl.Result{}, err
+		}
+		clientSec := vapi.MakeClientServerTLSSecretRef(g.Vdb.Spec.ClientServerTLSSecret)
+		if err := vdbstatus.UpdateSecretRef(ctx, g.VRec.GetClient(), g.Vdb, clientSec); err != nil {
+			return ctrl.Result{}, err
+		}
+		sRefs := []*vapi.SecretRef{
+			sec, clientSec,
+		}
+		if err := vdbstatus.UpdateSecretRefs(ctx, g.VRec.GetClient(), g.Vdb, sRefs); err != nil {
+			return ctrl.Result{}, err
+		}
 	}
 
 	cond := vapi.MakeCondition(vapi.DBInitialized, metav1.ConditionTrue, "Initialized")
