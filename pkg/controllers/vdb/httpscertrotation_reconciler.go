@@ -24,6 +24,7 @@ import (
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/builder"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
+	"github.com/vertica/vertica-kubernetes/pkg/secrets"
 
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
@@ -141,16 +142,22 @@ func (h *HTTPSCertRotationReconciler) rotateHTTPSTLSCert(ctx context.Context, ne
 	} else {
 		currentSecretName := h.Vdb.GetNMATLSSecretNameInUse()
 		h.Log.Info("ready to rotate certi from " + currentSecretName + " to " + h.Vdb.Spec.NMATLSSecret)
-		keyConfig := fmt.Sprintf("{\"data-key\":%q, \"namespace\":%q}", corev1.TLSPrivateKeyKey, h.Vdb.Namespace)
-		certConfig := fmt.Sprintf("{\"data-key\":%q, \"namespace\":%q}", corev1.TLSCertKey, h.Vdb.Namespace)
-		caCertConfig := fmt.Sprintf("{\"data-key\":%q, \"namespace\":%q}", paths.HTTPServerCACrtName, h.Vdb.Namespace)
+		var keyConfig, certConfig, caCertConfig, secretName string
+		switch {
+		case secrets.IsAWSSecretsManagerSecret(h.Vdb.Spec.NMATLSSecret):
+			keyConfig, certConfig, caCertConfig = h.getAWSCertsConfig()
+			secretName = secrets.RemovePathReference(h.Vdb.Spec.NMATLSSecret)
+		default:
+			keyConfig, certConfig, caCertConfig = h.getK8sCertsConfig()
+			secretName = h.Vdb.Spec.NMATLSSecret
+		}
 		opts := []rotatehttpscerts.Option{
 			rotatehttpscerts.WithPollingKey(string(newSecret[corev1.TLSPrivateKeyKey])),
 			rotatehttpscerts.WithPollingCert(newCert),
 			rotatehttpscerts.WithPollingCaCert(string(newSecret[corev1.ServiceAccountRootCAKey])),
-			rotatehttpscerts.WithKey(h.Vdb.Spec.NMATLSSecret, keyConfig),
-			rotatehttpscerts.WithCert(h.Vdb.Spec.NMATLSSecret, certConfig),
-			rotatehttpscerts.WithCaCert(h.Vdb.Spec.NMATLSSecret, caCertConfig),
+			rotatehttpscerts.WithKey(secretName, keyConfig),
+			rotatehttpscerts.WithCert(secretName, certConfig),
+			rotatehttpscerts.WithCaCert(secretName, caCertConfig),
 			rotatehttpscerts.WithTLSMode("TRY_VERIFY"),
 			rotatehttpscerts.WithInitiator(initiatorPod.GetPodIP()),
 		}
@@ -163,4 +170,20 @@ func (h *HTTPSCertRotationReconciler) rotateHTTPSTLSCert(ctx context.Context, ne
 		}
 	}
 	return ctrl.Result{}, err
+}
+
+func (h *HTTPSCertRotationReconciler) getK8sCertsConfig() (keyConfig, certConfig, caCertConfig string) {
+	keyConfig = fmt.Sprintf("{\"data-key\":%q, \"namespace\":%q}", corev1.TLSPrivateKeyKey, h.Vdb.Namespace)
+	certConfig = fmt.Sprintf("{\"data-key\":%q, \"namespace\":%q}", corev1.TLSCertKey, h.Vdb.Namespace)
+	caCertConfig = fmt.Sprintf("{\"data-key\":%q, \"namespace\":%q}", paths.HTTPServerCACrtName, h.Vdb.Namespace)
+	return
+}
+
+func (h *HTTPSCertRotationReconciler) getAWSCertsConfig() (keyConfig, certConfig, caCertConfig string) {
+	region, _ := secrets.GetAWSRegion(h.Vdb.Spec.NMATLSSecret)
+
+	keyConfig = fmt.Sprintf("{\"json-key\":%q, \"region\":%q}", corev1.TLSPrivateKeyKey, region)
+	certConfig = fmt.Sprintf("{\"json-key\":%q, \"region\":%q}", corev1.TLSCertKey, region)
+	caCertConfig = fmt.Sprintf("{\"json-key\":%q, \"region\":%q}", paths.HTTPServerCACrtName, region)
+	return
 }
