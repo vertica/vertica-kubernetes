@@ -1409,60 +1409,6 @@ var _ = Describe("verticadb_webhook", func() {
 		Ω(vdb.validateVerticaDBSpec()).Should(HaveLen(0))
 	})
 
-	It("should allow promoting a secondary sandbox subcluster to primary", func() {
-		oldVdb := MakeVDB()
-		oldVdb.Spec.Subclusters = []Subcluster{
-			{Name: "sc1", Type: PrimarySubcluster, Size: 1},
-			{Name: "sc2", Type: SecondarySubcluster, Size: 1},
-			{Name: "sc3", Type: SecondarySubcluster, Size: 1},
-		}
-		oldVdb.Spec.Sandboxes = []Sandbox{
-			{Name: "sand1", Subclusters: []SandboxSubcluster{
-				{Name: "sc2", Type: PrimarySubcluster}, {Name: "sc3", Type: SecondarySubcluster}}},
-		}
-		oldVdb.Status.Subclusters = []SubclusterStatus{
-			{Name: "sc1", Type: PrimarySubcluster},
-			{Name: "sc2", Type: SandboxPrimarySubcluster},
-			{Name: "sc3", Type: SandboxSecondarySubcluster},
-		}
-		newVdb := oldVdb.DeepCopy()
-
-		// promote secondary subcluster to primary in a sandbox
-		newVdb.Spec.Sandboxes[0].Subclusters = []SandboxSubcluster{
-			{Name: "sc2", Type: PrimarySubcluster}, {Name: "sc3", Type: PrimarySubcluster}}
-		Ω(newVdb.validateImmutableFields(oldVdb)).Should(HaveLen(0))
-	})
-
-	It("should allow demoting a primary sandbox subcluster to secondary", func() {
-		oldVdb := MakeVDB()
-		oldVdb.ObjectMeta.Annotations[vmeta.KSafetyAnnotation] = "0"
-		oldVdb.Spec.Subclusters = []Subcluster{
-			{Name: "sc1", Type: PrimarySubcluster, Size: 1},
-			{Name: "sc2", Type: SecondarySubcluster, Size: 2},
-			{Name: "sc3", Type: SecondarySubcluster, Size: 1},
-		}
-		oldVdb.Spec.Sandboxes = []Sandbox{
-			{Name: "sand1", Subclusters: []SandboxSubcluster{
-				{Name: "sc2", Type: PrimarySubcluster}, {Name: "sc3", Type: PrimarySubcluster}}},
-		}
-		oldVdb.Status.Subclusters = []SubclusterStatus{
-			{Name: "sc1", Type: PrimarySubcluster, UpNodeCount: 1},
-			{Name: "sc2", Type: SandboxPrimarySubcluster, UpNodeCount: 2},
-			{Name: "sc3", Type: SandboxPrimarySubcluster, UpNodeCount: 1},
-		}
-		newVdb := oldVdb.DeepCopy()
-
-		// demote a primary subcluster to secondary in a sandbox
-		newVdb.Spec.Sandboxes[0].Subclusters = []SandboxSubcluster{
-			{Name: "sc2", Type: SecondarySubcluster}, {Name: "sc3", Type: PrimarySubcluster}}
-		Ω(newVdb.validateImmutableFields(oldVdb)).Should(HaveLen(0))
-
-		// demote all primary subcluster to secondary in a sandbox
-		newVdb.Spec.Sandboxes[0].Subclusters = []SandboxSubcluster{
-			{Name: "sc2", Type: SecondarySubcluster}, {Name: "sc3", Type: SecondarySubcluster}}
-		Ω(newVdb.validateImmutableFields(oldVdb)).Should(HaveLen(1))
-	})
-
 	It("should not allow sc type change if it's in a sandbox", func() {
 		oldVdb := MakeVDB()
 		oldVdb.Spec.Subclusters = []Subcluster{

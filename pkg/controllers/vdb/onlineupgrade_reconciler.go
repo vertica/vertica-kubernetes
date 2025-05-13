@@ -1351,8 +1351,8 @@ func (r *OnlineUpgradeReconciler) moveReplicaGroupBSubclusterToSandbox() (bool, 
 	for _, nm := range scNames {
 		// When sandboxing, we fetch the type of the base subclsuter which this subcluster duplicated from.
 		// Later when promoting the sandbox to main, we can use this sandbox subcluster type to set the main subcluster type.
+		scType := vapi.PrimarySubcluster
 		sc := r.VDB.GetSubcluster(nm)
-		scType := vapi.SecondarySubcluster
 		if sc != nil {
 			scType = sc.Annotations[vmeta.ParentSubclusterTypeAnnotation]
 		}
