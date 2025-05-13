@@ -52,8 +52,7 @@ const (
 	// This is a file that we run with the create_db to run custome SQL. This is
 	// passed with the --sql parameter when running create_db. This is no longer
 	// used starting with versions defined in vapi.DBSetupConfigParameters.
-	PostDBCreateSQLFile            = "/home/dbadmin/post-db-create.sql"
-	PostDBCreateSQLFileVclusterOps = "/tmp/post-db-create.sql"
+	PostDBCreateSQLFile = "/home/dbadmin/post-db-create.sql"
 )
 
 // CreateDBReconciler will create a database if one wasn't created yet.
@@ -121,6 +120,9 @@ func (c *CreateDBReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ct
 // This handles logging of necessary events.
 func (c *CreateDBReconciler) execCmd(ctx context.Context, initiatorPod types.NamespacedName,
 	hostList []string, podNames []types.NamespacedName) (ctrl.Result, error) {
+	if c.Vdb.IsCertRotationEnabled() && secrets.IsGSMSecret(c.Vdb.Spec.NMATLSSecret) {
+		return ctrl.Result{}, fmt.Errorf("tls configuration setting with GSM not implemented")
+	}
 	opts, err := c.genOptions(ctx, initiatorPod, podNames, hostList)
 	if err != nil {
 		return ctrl.Result{}, err
@@ -130,17 +132,6 @@ func (c *CreateDBReconciler) execCmd(ctx context.Context, initiatorPod types.Nam
 	start := time.Now()
 	if res, err := c.Dispatcher.CreateDB(ctx, opts...); verrors.IsReconcileAborted(res, err) {
 		return res, err
-	}
-	if c.Vdb.IsCertRotationEnabled() {
-		cmd := []string{
-			"-f", PostDBCreateSQLFileVclusterOps,
-		}
-		_, stderr, err2 := c.PRunner.ExecVSQL(ctx, initiatorPod, names.ServerContainer, cmd...)
-		if err2 != nil || strings.Contains(stderr, "Error") {
-			c.Log.Error(err2, "failed to execute TLS DDLs after db creation stderr - "+stderr)
-			return ctrl.Result{}, err2
-		}
-		c.Log.Info("TLS DDLs executed and TLS Cert configured")
 	}
 	sc := c.getFirstPrimarySubcluster()
 	c.VRec.Eventf(c.Vdb, corev1.EventTypeNormal, events.CreateDBSucceeded,
@@ -182,10 +173,9 @@ func (c *CreateDBReconciler) preCmdSetup(ctx context.Context, initiatorPod types
 // generatePostDBCreateSQL is a function that creates a file with sql commands
 // to be run immediately after the database create.
 func (c *CreateDBReconciler) generatePostDBCreateSQL(ctx context.Context, initiatorPod types.NamespacedName) (ctrl.Result, error) {
-	cmd := ""
-	// If version is older than DBSetupConfigParametersMinVersion or newer than vapi.TLSCertRotationMinVersion,
-	// run SQL after DB creation. Otherwise, skip this function
-	if c.VInf.IsEqualOrNewer(vapi.DBSetupConfigParametersMinVersion) && !c.Vdb.IsCertRotationEnabled() {
+	// On newer server versions we moved over the SQL to config parameters. So,
+	// if we are on a new enough version we can skip this function entirely.
+	if c.VInf.IsEqualOrNewer(vapi.DBSetupConfigParametersMinVersion) {
 		return ctrl.Result{}, nil
 	}
 	// We include SQL to rename the default subcluster to match the name of the
@@ -194,164 +184,30 @@ func (c *CreateDBReconciler) generatePostDBCreateSQL(ctx context.Context, initia
 	sc := c.getFirstPrimarySubcluster()
 	var sb strings.Builder
 	sb.WriteString("-- SQL that is run after the database is created\n")
-	if c.VInf.IsOlder(vapi.DBSetupConfigParametersMinVersion) {
-		if c.Vdb.IsEON() {
-			sb.WriteString(
-				fmt.Sprintf(`alter subcluster default_subcluster rename to \"%s\";`, sc.Name),
-			)
-		}
-		if c.Vdb.IsKSafety0() {
-			sb.WriteString("select set_preferred_ksafe(0);\n")
-		}
-		// On newer vertica versions, the EncrpytSpreadComm setting can be set as a
-		// config parm in the create db call.
-		if c.Vdb.Spec.EncryptSpreadComm != vapi.EncryptSpreadCommDisabled && c.VInf.IsOlder(vapi.SetEncryptSpreadCommAsConfigVersion) {
-			sb.WriteString(fmt.Sprintf(`alter database default set parameter EncryptSpreadComm = '%s';
-			`, vapi.EncryptSpreadCommWithVertica))
-		}
-		cmd = "cat > " + PostDBCreateSQLFile + "<<< \"" + sb.String() + "\""
+	if c.Vdb.IsEON() {
+		sb.WriteString(
+			fmt.Sprintf(`alter subcluster default_subcluster rename to \"%s\";`, sc.Name),
+		)
 	}
-	if c.Vdb.IsCertRotationEnabled() {
-		switch {
-		case secrets.IsGSMSecret(c.Vdb.Spec.NMATLSSecret):
-			return ctrl.Result{}, nil
-		case secrets.IsAWSSecretsManagerSecret(c.Vdb.Spec.NMATLSSecret):
-			c.generateAWSTlsSQL(&sb)
-		default:
-			c.generateKubernetesTLSSQL(&sb)
-		}
-		sb.WriteString(`select sync_catalog();`)
-		cmd = "cat > " + PostDBCreateSQLFileVclusterOps + "<<< " + escapeForBash(sb.String())
+	if c.Vdb.IsKSafety0() {
+		sb.WriteString("select set_preferred_ksafe(0);\n")
+	}
+	// On newer vertica versions, the EncrpytSpreadComm setting can be set as a
+	// config parm in the create db call.
+	if c.Vdb.Spec.EncryptSpreadComm != vapi.EncryptSpreadCommDisabled && c.VInf.IsOlder(vapi.SetEncryptSpreadCommAsConfigVersion) {
+		sb.WriteString(fmt.Sprintf(`alter database default set parameter EncryptSpreadComm = '%s';
+		`, vapi.EncryptSpreadCommWithVertica))
 	}
 
 	c.Log.Info("executing the following script", "script", sb.String())
 	_, _, err := c.PRunner.ExecInPod(ctx, initiatorPod, names.ServerContainer,
-		"bash", "-c", cmd,
+		"bash", "-c", "cat > "+PostDBCreateSQLFile+"<<< \""+sb.String()+"\"",
 	)
-	c.Log.Info("SQL to be executed after db creation: " + sb.String())
+
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 	return ctrl.Result{}, nil
-}
-
-func (c *CreateDBReconciler) generateKubernetesTLSSQL(sb *strings.Builder) {
-	fmt.Fprintf(sb, "CREATE OR REPLACE LIBRARY public.KubernetesLib AS ")
-	fmt.Fprintf(sb, "'/opt/vertica/packages/kubernetes/lib/libkubernetes.so';\n")
-	fmt.Fprintf(sb, "CREATE OR REPLACE SECRETMANAGER KubernetesSecretManager AS LANGUAGE 'C++' ")
-	fmt.Fprintf(sb, "NAME 'KubernetesSecretManagerFactory' LIBRARY KubernetesLib;\n")
-
-	fmt.Fprintf(sb, "DROP KEY IF EXISTS https_key_0;\n")
-	fmt.Fprintf(sb, "DROP CERTIFICATE IF EXISTS https_cert_0;\n")
-	fmt.Fprintf(sb, "DROP CERTIFICATE IF EXISTS https_ca_cert_0;\n")
-
-	fmt.Fprintf(sb, "CREATE KEY https_key_0 TYPE 'rsa' SECRETMANAGER KubernetesSecretManager ")
-	fmt.Fprintf(sb, "SECRETNAME '%s' CONFIGURATION '{\"data-key\":\"%s\", \"namespace\":\"%s\"}';\n",
-		c.Vdb.Spec.NMATLSSecret, corev1.TLSPrivateKeyKey, c.Vdb.ObjectMeta.Namespace)
-
-	fmt.Fprintf(sb, "CREATE CA CERTIFICATE https_ca_cert_0 SECRETMANAGER KubernetesSecretManager ")
-	fmt.Fprintf(sb, "SECRETNAME '%s' CONFIGURATION '{\"data-key\":\"%s\", \"namespace\":\"%s\"}';\n",
-		c.Vdb.Spec.NMATLSSecret, paths.HTTPServerCACrtName, c.Vdb.ObjectMeta.Namespace)
-
-	fmt.Fprintf(sb, "CREATE CERTIFICATE https_cert_0 SECRETMANAGER KubernetesSecretManager ")
-	fmt.Fprintf(sb, "SECRETNAME '%s' CONFIGURATION '{\"data-key\":\"%s\", \"namespace\":\"%s\"}' ",
-		c.Vdb.Spec.NMATLSSecret, corev1.TLSCertKey, c.Vdb.ObjectMeta.Namespace)
-	fmt.Fprintf(sb, "SIGNED BY https_ca_cert_0 KEY https_key_0;\n")
-
-	fmt.Fprintf(sb, "DROP KEY IF EXISTS server_key;\n")
-	fmt.Fprintf(sb, "DROP CERTIFICATE IF EXISTS server_cert;\n")
-	fmt.Fprintf(sb, "DROP CERTIFICATE IF EXISTS server_ca_cert;\n")
-
-	fmt.Fprintf(sb, "CREATE KEY server_key TYPE 'rsa' SECRETMANAGER KubernetesSecretManager ")
-	fmt.Fprintf(sb, "SECRETNAME '%s' CONFIGURATION '{\"data-key\":\"%s\", \"namespace\":\"%s\"}';\n",
-		c.Vdb.Spec.ClientServerTLSSecret, corev1.TLSPrivateKeyKey, c.Vdb.ObjectMeta.Namespace)
-
-	fmt.Fprintf(sb, "CREATE CA CERTIFICATE server_ca_cert SECRETMANAGER KubernetesSecretManager ")
-	fmt.Fprintf(sb, "SECRETNAME '%s' CONFIGURATION '{\"data-key\":\"%s\", \"namespace\":\"%s\"}';\n",
-		c.Vdb.Spec.ClientServerTLSSecret, paths.HTTPServerCACrtName, c.Vdb.ObjectMeta.Namespace)
-
-	fmt.Fprintf(sb, "CREATE CERTIFICATE server_cert SECRETMANAGER KubernetesSecretManager ")
-	fmt.Fprintf(sb, "SECRETNAME '%s' CONFIGURATION '{\"data-key\":\"%s\", \"namespace\":\"%s\"}' ",
-		c.Vdb.Spec.ClientServerTLSSecret, corev1.TLSCertKey, c.Vdb.ObjectMeta.Namespace)
-	fmt.Fprintf(sb, "SIGNED BY server_ca_cert KEY server_key;\n")
-
-	fmt.Fprintf(sb, "ALTER TLS CONFIGURATION server CERTIFICATE server_cert ADD CA CERTIFICATES ")
-	fmt.Fprintf(sb, "server_ca_cert TLSMODE '%s';\n", c.Vdb.Spec.ClientServerTLSMode)
-	fmt.Fprintf(sb, "ALTER TLS CONFIGURATION https CERTIFICATE https_cert_0 ADD CA CERTIFICATES ")
-	fmt.Fprintf(sb, "https_ca_cert_0 TLSMODE 'TRY_VERIFY';\n")
-	fmt.Fprintf(sb, "ALTER TLS CONFIGURATION https CERTIFICATE https_cert_0 REMOVE CA CERTIFICATES ")
-	fmt.Fprintf(sb, "httpServerRootca;\n")
-	fmt.Fprintf(sb, "ALTER TLS CONFIGURATION server CERTIFICATE server_cert REMOVE CA CERTIFICATES ")
-	fmt.Fprintf(sb, "httpServerRootca;\n")
-	fmt.Fprintf(sb, "CREATE AUTHENTICATION k8s_tls_builtin_auth METHOD 'tls' HOST TLS '0.0.0.0/0' FALLTHROUGH;\n")
-	fmt.Fprintf(sb, "GRANT AUTHENTICATION k8s_tls_builtin_auth TO %s;\n", c.Vdb.GetVerticaUser())
-}
-
-func (c *CreateDBReconciler) generateAWSTlsSQL(sb *strings.Builder) {
-	fmt.Fprintf(sb, "CREATE OR REPLACE LIBRARY public.AWSLib AS ")
-	fmt.Fprintf(sb, "'/opt/vertica/packages/aws/lib/libaws.so';\n")
-	fmt.Fprintf(sb, "CREATE SECRETMANAGER IF NOT EXISTS AWSSecretManager AS ")
-	fmt.Fprintf(sb, "LANGUAGE 'C++' NAME 'AWSSecretManagerFactory' LIBRARY AWSLib;\n")
-
-	fmt.Fprintf(sb, "DROP KEY IF EXISTS https_key_0;\n")
-	fmt.Fprintf(sb, "DROP CERTIFICATE IF EXISTS https_cert_0;\n")
-	fmt.Fprintf(sb, "DROP CERTIFICATE IF EXISTS https_ca_cert_0;\n")
-
-	region, _ := secrets.GetAWSRegion(c.Vdb.Spec.NMATLSSecret)
-
-	secretName := secrets.RemovePathReference(c.Vdb.Spec.NMATLSSecret)
-	fmt.Fprintf(sb, "CREATE KEY https_key_0 TYPE 'rsa' SECRETMANAGER AWSSecretManager ")
-	fmt.Fprintf(sb, "SECRETNAME '%s' CONFIGURATION '{\"json-key\":\"%s\", \"region\":\"%s\"}';\n",
-		secretName, corev1.TLSPrivateKeyKey, region)
-
-	fmt.Fprintf(sb, "CREATE CA CERTIFICATE https_ca_cert_0 SECRETMANAGER AWSSecretManager ")
-	fmt.Fprintf(sb, "SECRETNAME '%s' CONFIGURATION '{\"json-key\":\"%s\", \"region\":\"%s\"}';\n",
-		secretName, paths.HTTPServerCACrtName, region)
-
-	fmt.Fprintf(sb, "CREATE CERTIFICATE https_cert_0 SECRETMANAGER AWSSecretManager ")
-	fmt.Fprintf(sb, "SECRETNAME '%s' CONFIGURATION '{\"json-key\":\"%s\", \"region\":\"%s\"}' ",
-		secretName, corev1.TLSCertKey, region)
-	fmt.Fprintf(sb, "SIGNED BY https_ca_cert_0 KEY https_key_0;\n")
-
-	fmt.Fprintf(sb, "ALTER TLS CONFIGURATION https CERTIFICATE https_cert_0 ")
-	fmt.Fprintf(sb, "ADD CA CERTIFICATES https_ca_cert_0 TLSMODE 'TRY_VERIFY';\n")
-	fmt.Fprintf(sb, "ALTER TLS CONFIGURATION https CERTIFICATE https_cert_0 ")
-	fmt.Fprintf(sb, "REMOVE CA CERTIFICATES httpServerRootca;\n")
-
-	clientSecretRegion, _ := secrets.GetAWSRegion(c.Vdb.Spec.ClientServerTLSSecret)
-	clientSecretName := secrets.RemovePathReference(c.Vdb.Spec.ClientServerTLSSecret)
-
-	fmt.Fprintf(sb, "DROP KEY IF EXISTS server_key;\n")
-	fmt.Fprintf(sb, "DROP CERTIFICATE IF EXISTS server_cert;\n")
-	fmt.Fprintf(sb, "DROP CERTIFICATE IF EXISTS server_ca_cert;\n")
-
-	fmt.Fprintf(sb, "CREATE KEY server_key TYPE 'rsa' SECRETMANAGER AWSSecretManager ")
-	fmt.Fprintf(sb, "SECRETNAME '%s' CONFIGURATION '{\"json-key\":\"%s\", \"region\":\"%s\"}';\n",
-		clientSecretName, corev1.TLSPrivateKeyKey, clientSecretRegion)
-
-	fmt.Fprintf(sb, "CREATE CA CERTIFICATE server_ca_cert SECRETMANAGER AWSSecretManager ")
-	fmt.Fprintf(sb, "SECRETNAME '%s' CONFIGURATION '{\"json-key\":\"%s\", \"region\":\"%s\"}';\n",
-		clientSecretName, paths.HTTPServerCACrtName, clientSecretRegion)
-
-	fmt.Fprintf(sb, "CREATE CERTIFICATE server_cert SECRETMANAGER AWSSecretManager ")
-	fmt.Fprintf(sb, "SECRETNAME '%s' CONFIGURATION '{\"json-key\":\"%s\", \"region\":\"%s\"}' ",
-		clientSecretName, corev1.TLSCertKey, clientSecretRegion)
-	fmt.Fprintf(sb, "SIGNED BY server_ca_cert KEY server_key;\n")
-
-	fmt.Fprintf(sb, "ALTER TLS CONFIGURATION server CERTIFICATE server_cert ")
-	fmt.Fprintf(sb, "ADD CA CERTIFICATES server_ca_cert TLSMODE 'TRY_VERIFY';\n")
-	fmt.Fprintf(sb, "ALTER TLS CONFIGURATION server CERTIFICATE server_cert ")
-	fmt.Fprintf(sb, "REMOVE CA CERTIFICATES httpServerRootca;\n")
-
-	fmt.Fprintf(sb, "CREATE AUTHENTICATION aws_tls_builtin_auth METHOD 'tls' HOST TLS ")
-	fmt.Fprintf(sb, "'0.0.0.0/0' FALLTHROUGH;\n")
-	fmt.Fprintf(sb, "GRANT AUTHENTICATION aws_tls_builtin_auth TO %s;\n", c.Vdb.GetVerticaUser())
-}
-
-// Escape function to handle special characters in Bash
-func escapeForBash(input string) string {
-	input = strings.ReplaceAll(input, `"`, `\"`) // Escape double quotes
-	return "\"" + input + "\""                   // Wrap in double quotes for echo
 }
 
 // postCmdCleanup will handle any cleanup action after initializing the database

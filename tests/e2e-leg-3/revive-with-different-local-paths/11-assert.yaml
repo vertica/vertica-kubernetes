@@ -11,7 +11,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: kuttl.dev/v1beta1
-kind: TestStep
-commands:
-  - command: ../../../scripts/patch-image-in-vdb.sh -n $NAMESPACE v-online-upgrade opentext/vertica-k8s-private:20250423-minimal
+apiVersion: v1
+kind: Secret
+metadata:
+  name: custom-cert

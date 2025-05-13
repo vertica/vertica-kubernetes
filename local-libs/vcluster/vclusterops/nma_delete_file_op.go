@@ -4,16 +4,21 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+
+	"github.com/vertica/vcluster/vclusterops/util"
 )
 
 const (
-	delFileOpName = "NMADeleteFileOp"
-	delFileOpDesc = "Delete file"
+	delFileOpName            = "NMADeleteFileOp"
+	delFileOpDesc            = "Delete file"
+	delVerticaConfFileOpName = "NMADeleteVerticaConfigFileOp"
+	delVerticaConfFileOpDesc = "Delete Vertica config file"
 )
 
-// this op is for deleting a single file on the specified host
+// this op is for deleting a single file on the specified hosts
 type nmaDeleteFileOp struct {
 	opBase
+	// use this option if deleting the same file on the specified hosts
 	filePath           string
 	hostRequestBodyMap map[string]string
 }
@@ -22,32 +27,65 @@ type deleteFileData struct {
 	FilePath string `json:"file_path"`
 }
 
-func makeNMADeleteFileOp(hosts []string, filePath string) nmaDeleteFileOp {
+func makeNMADeleteFileOp(hosts []string, filePath string) (nmaDeleteFileOp, error) {
 	op := nmaDeleteFileOp{}
 	op.name = delFileOpName
 	op.description = delFileOpDesc
 	op.hosts = hosts
 	op.filePath = filePath
-
-	return op
+	err := op.setupRequestBody()
+	if err != nil {
+		return op, err
+	}
+	return op, nil
 }
 
-// make https json data
-func (op *nmaDeleteFileOp) setupRequestBody() (map[string]string, error) {
-	hostRequestBodyMap := make(map[string]string, len(op.hosts))
+func makeNMADeleteVerticaConfFilesOp(hosts []string, vdb *VCoordinationDatabase) (nmaDeleteFileOp, error) {
+	op := nmaDeleteFileOp{}
+	op.name = delVerticaConfFileOpName
+	op.description = delVerticaConfFileOpDesc
+	op.hosts = hosts
+	err := op.buildDeleteVerticaConfRequestBody(vdb)
+	if err != nil {
+		return op, err
+	}
+	return op, nil
+}
+
+// make https json data for deleting the same file on specified hosts
+func (op *nmaDeleteFileOp) setupRequestBody() error {
+	op.hostRequestBodyMap = make(map[string]string, len(op.hosts))
+
 	for _, host := range op.hosts {
 		requestData := deleteFileData{}
 		requestData.FilePath = op.filePath
 
 		dataBytes, err := json.Marshal(requestData)
 		if err != nil {
-			return nil, fmt.Errorf("[%s] fail to marshal request data to JSON string, detail %w", op.name, err)
+			return fmt.Errorf("[%s] fail to marshal request data to JSON string, detail %w", op.name, err)
 		}
-		hostRequestBodyMap[host] = string(dataBytes)
+		op.hostRequestBodyMap[host] = string(dataBytes)
 	}
 
 	op.logger.Info("request data", "op name", op.name, "hostRequestBodyMap", op.hostRequestBodyMap)
-	return hostRequestBodyMap, nil
+	return nil
+}
+
+// build https request body by looking at the vdb values
+func (op *nmaDeleteFileOp) buildDeleteVerticaConfRequestBody(vdb *VCoordinationDatabase) error {
+	op.hostRequestBodyMap = make(map[string]string, len(op.hosts))
+	for h, vnode := range vdb.HostNodeMap {
+		p := deleteFileData{}
+		p.FilePath = vnode.CatalogPath + "/" + util.VerticaConf
+
+		dataBytes, err := json.Marshal(p)
+		if err != nil {
+			return fmt.Errorf("[%s] fail to marshal request data to JSON string, detail %w", op.name, err)
+		}
+		op.hostRequestBodyMap[h] = string(dataBytes)
+	}
+	op.logger.Info("request data", "op name", op.name, "hostRequestBodyMap", op.hostRequestBodyMap)
+	return nil
 }
 
 func (op *nmaDeleteFileOp) setupClusterHTTPRequest(hostRequestBodyMap map[string]string) error {
@@ -63,14 +101,9 @@ func (op *nmaDeleteFileOp) setupClusterHTTPRequest(hostRequestBodyMap map[string
 }
 
 func (op *nmaDeleteFileOp) prepare(execContext *opEngineExecContext) error {
-	hostRequestBodyMap, err := op.setupRequestBody()
-	if err != nil {
-		return err
-	}
-
 	execContext.dispatcher.setup(op.hosts)
 
-	return op.setupClusterHTTPRequest(hostRequestBodyMap)
+	return op.setupClusterHTTPRequest(op.hostRequestBodyMap)
 }
 
 func (op *nmaDeleteFileOp) execute(execContext *opEngineExecContext) error {

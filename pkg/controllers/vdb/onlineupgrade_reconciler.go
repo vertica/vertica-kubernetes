@@ -856,6 +856,10 @@ func (r *OnlineUpgradeReconciler) startReplicationToReplicaGroupB(ctx context.Co
 		return ctrl.Result{}, nil
 	}
 
+	tlsConfig := ""
+	if r.VDB.IsCertRotationEnabled() {
+		tlsConfig = "server"
+	}
 	vrep := &v1beta1.VerticaReplicator{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: v1beta1.GroupVersion.String(),
@@ -878,6 +882,8 @@ func (r *OnlineUpgradeReconciler) startReplicationToReplicaGroupB(ctx context.Co
 					SandboxName: r.sandboxName,
 				},
 			},
+			Mode:      v1beta1.ReplicationModeSync,
+			TLSConfig: tlsConfig,
 		},
 	}
 	err := r.VRec.Client.Create(ctx, vrep)
