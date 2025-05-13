@@ -45,75 +45,79 @@ const (
 // *Flag is for the flag name, *Key is for viper key name
 // They are bound together
 const (
-	dbNameFlag                  = "db-name"
-	dbNameKey                   = "dbName"
-	dbUserFlag                  = "db-user"
-	dbUserKey                   = "dbUser"
-	hostsFlag                   = "hosts"
-	hostsKey                    = "hosts"
-	catalogPathFlag             = "catalog-path"
-	catalogPathKey              = "catalogPath"
-	depotPathFlag               = "depot-path"
-	depotPathKey                = "depotPath"
-	dataPathFlag                = "data-path"
-	dataPathKey                 = "dataPath"
-	communalStorageLocationFlag = "communal-storage-location"
-	communalStorageLocationKey  = "communalStorageLocation"
-	archiveNameFlag             = "archive-name"
-	archiveNameKey              = "archiveName"
-	ipv6Flag                    = "ipv6"
-	ipv6Key                     = "ipv6"
-	enableTLSAuthFlag           = "enable-tls-authentication"
-	eonModeFlag                 = "eon-mode"
-	eonModeKey                  = "eonMode"
-	configParamFlag             = "config-param"
-	configParamKey              = "configParam"
-	serverTLSConfigFlag         = "server-tls-config"
-	serverTLSConfigKey          = "serverTLSConfig"
-	httpsTLSConfigFlag          = "https-tls-config"
-	httpsTLSConfigKey           = "httpsTLSConfig"
-	configParamFileFlag         = "config-param-file"
-	configParamFileKey          = "configParamFile"
-	licenseFileFlag             = "license-file"
-	licenseHostFlag             = "license-host"
-	logPathFlag                 = "log-path"
-	logPathKey                  = "logPath"
-	keyFileFlag                 = "key-file"
-	keyFileKey                  = "keyFile"
-	certFileFlag                = "cert-file"
-	certFileKey                 = "certFile"
-	caCertFileFlag              = "ca-cert-file"
-	caCertFileKey               = "caCertFile"
-	tlsModeFlag                 = "tls-mode"
-	tlsModeKey                  = "tlsMode"
-	passwordFlag                = "password"
-	passwordKey                 = "password"
-	passwordFileFlag            = "password-file"
-	passwordFileKey             = "passwordFile"
-	readPasswordFromPromptFlag  = "read-password-from-prompt"
-	readPasswordFromPromptKey   = "readPasswordFromPrompt"
-	configFlag                  = "config"
-	configKey                   = "config"
-	verboseFlag                 = "verbose"
-	verboseKey                  = "verbose"
-	outputFileFlag              = "output-file"
-	outputFileKey               = "outputFile"
-	subclusterFlag              = "subcluster"
-	addNodeFlag                 = "new-hosts"
-	sandboxFlag                 = "sandbox"
-	saveRpFlag                  = "save-restore-point"
-	isolateMetadataFlag         = "isolate-metadata"
-	createStorageLocationsFlag  = "create-storage-locations"
-	forUpgradeFlag              = "for-upgrade"
-	sandboxKey                  = "sandbox"
-	connFlag                    = "conn"
-	connKey                     = "conn"
-	stopNodeFlag                = "stop-hosts"
-	reIPFileFlag                = "re-ip-file"
-	removeNodeFlag              = "remove"
-	removeUnboundNodesFlag      = "remove-unbound-nodes"
-	startNodeFlag               = "start"
-	startHostFlag               = "start-hosts"
+	dbNameFlag                      = "db-name"
+	dbNameKey                       = "dbName"
+	dbUserFlag                      = "db-user"
+	dbUserKey                       = "dbUser"
+	hostsFlag                       = "hosts"
+	hostsKey                        = "hosts"
+	catalogPathFlag                 = "catalog-path"
+	catalogPathKey                  = "catalogPath"
+	depotPathFlag                   = "depot-path"
+	depotPathKey                    = "depotPath"
+	dataPathFlag                    = "data-path"
+	dataPathKey                     = "dataPath"
+	communalStorageLocationFlag     = "communal-storage-location"
+	communalStorageLocationKey      = "communalStorageLocation"
+	archiveNameFlag                 = "archive-name"
+	archiveNameKey                  = "archiveName"
+	ipv6Flag                        = "ipv6"
+	ipv6Key                         = "ipv6"
+	enableTLSAuthFlag               = "enable-tls-authentication"
+	eonModeFlag                     = "eon-mode"
+	eonModeKey                      = "eonMode"
+	configParamFlag                 = "config-param"
+	configParamKey                  = "configParam"
+	serverTLSConfigFlag             = "server-tls-config"
+	serverTLSConfigKey              = "serverTLSConfig"
+	httpsTLSConfigFlag              = "https-tls-config"
+	httpsTLSConfigKey               = "httpsTLSConfig"
+	configParamFileFlag             = "config-param-file"
+	configParamFileKey              = "configParamFile"
+	licenseFileFlag                 = "license-file"
+	licenseHostFlag                 = "license-host"
+	logPathFlag                     = "log-path"
+	logPathKey                      = "logPath"
+	keyFileFlag                     = "key-file"
+	keyFileKey                      = "keyFile"
+	certFileFlag                    = "cert-file"
+	certFileKey                     = "certFile"
+	caCertFileFlag                  = "ca-cert-file"
+	caCertFileKey                   = "caCertFile"
+	tlsModeFlag                     = "tls-mode"
+	tlsModeKey                      = "tlsMode"
+	passwordFlag                    = "password"
+	passwordKey                     = "password"
+	passwordFileFlag                = "password-file"
+	passwordFileKey                 = "passwordFile"
+	readPasswordFromPromptFlag      = "read-password-from-prompt"
+	readPasswordFromPromptKey       = "readPasswordFromPrompt"
+	usePasswordForSQLClientOnlyFlag = "use-password-for-sql-client-only"
+	usePasswordForSQLClientOnlyKey  = "UsePasswordForSQLClientOnly"
+	configFlag                      = "config"
+	configKey                       = "config"
+	verboseFlag                     = "verbose"
+	verboseKey                      = "verbose"
+	outputFileFlag                  = "output-file"
+	outputFileKey                   = "outputFile"
+	subclusterFlag                  = "subcluster"
+	addNodeFlag                     = "new-hosts"
+	sandboxFlag                     = "sandbox"
+	saveRpFlag                      = "save-restore-point"
+	isolateMetadataFlag             = "isolate-metadata"
+	createStorageLocationsFlag      = "create-storage-locations"
+	forUpgradeFlag                  = "for-upgrade"
+	sandboxKey                      = "sandbox"
+	connFlag                        = "conn"
+	connKey                         = "conn"
+	stopNodeFlag                    = "stop-hosts"
+	reIPFileFlag                    = "re-ip-file"
+	removeNodeFlag                  = "remove"
+	removeUnboundNodesFlag          = "remove-unbound-nodes"
+	startNodeFlag                   = "start"
+	startHostFlag                   = "start-hosts"
+	useExistingCatalogDirFlag       = "use-existing-catalog-directory"
+	retainCatalogDirFlag            = "retain-catalog-directory"
 )
 
 // Flag and key for database replication
@@ -156,47 +160,48 @@ const (
 
 // flags to viper key map
 var flagKeyMap = map[string]string{
-	dbNameFlag:                  dbNameKey,
-	dbUserFlag:                  dbUserKey,
-	hostsFlag:                   hostsKey,
-	catalogPathFlag:             catalogPathKey,
-	depotPathFlag:               depotPathKey,
-	dataPathFlag:                dataPathKey,
-	communalStorageLocationFlag: communalStorageLocationKey,
-	ipv6Flag:                    ipv6Key,
-	eonModeFlag:                 eonModeKey,
-	configParamFlag:             configParamKey,
-	serverTLSConfigFlag:         serverTLSConfigKey,
-	httpsTLSConfigFlag:          httpsTLSConfigKey,
-	logPathFlag:                 logPathKey,
-	keyFileFlag:                 keyFileKey,
-	certFileFlag:                certFileKey,
-	caCertFileFlag:              caCertFileKey,
-	tlsModeFlag:                 tlsModeKey,
-	passwordFlag:                passwordKey,
-	passwordFileFlag:            passwordFileKey,
-	readPasswordFromPromptFlag:  readPasswordFromPromptKey,
-	configFlag:                  configKey,
-	verboseFlag:                 verboseKey,
-	outputFileFlag:              outputFileKey,
-	sandboxFlag:                 sandboxKey,
-	archiveNameFlag:             archiveNameKey,
-	targetDBNameFlag:            targetDBNameKey,
-	targetHostsFlag:             targetHostsKey,
-	targetUserNameFlag:          targetUserNameKey,
-	targetPasswordFileFlag:      targetPasswordFileKey,
-	targetKeyFileFlag:           targetKeyFileKey,
-	targetCertFileFlag:          targetCertFileKey,
-	targetCaCertFileFlag:        targetCaCertFileKey,
-	targetTLSModeFlag:           targetTLSModeKey,
-	targetIPv6Flag:              targetIPv6Key,
-	asyncFlag:                   asyncKey,
-	sourceTLSConfigFlag:         sourceTLSConfigKey,
-	tableOrSchemaNameFlag:       tableOrSchemaNameKey,
-	includePatternFlag:          includePatternKey,
-	excludePatternFlag:          excludePatternKey,
-	targetNamespaceFlag:         targetNamespaceKey,
-	transactionIDFlag:           transactionIDKey,
+	dbNameFlag:                      dbNameKey,
+	dbUserFlag:                      dbUserKey,
+	hostsFlag:                       hostsKey,
+	catalogPathFlag:                 catalogPathKey,
+	depotPathFlag:                   depotPathKey,
+	dataPathFlag:                    dataPathKey,
+	communalStorageLocationFlag:     communalStorageLocationKey,
+	ipv6Flag:                        ipv6Key,
+	eonModeFlag:                     eonModeKey,
+	configParamFlag:                 configParamKey,
+	serverTLSConfigFlag:             serverTLSConfigKey,
+	httpsTLSConfigFlag:              httpsTLSConfigKey,
+	logPathFlag:                     logPathKey,
+	keyFileFlag:                     keyFileKey,
+	certFileFlag:                    certFileKey,
+	caCertFileFlag:                  caCertFileKey,
+	tlsModeFlag:                     tlsModeKey,
+	passwordFlag:                    passwordKey,
+	passwordFileFlag:                passwordFileKey,
+	readPasswordFromPromptFlag:      readPasswordFromPromptKey,
+	usePasswordForSQLClientOnlyFlag: usePasswordForSQLClientOnlyKey,
+	configFlag:                      configKey,
+	verboseFlag:                     verboseKey,
+	outputFileFlag:                  outputFileKey,
+	sandboxFlag:                     sandboxKey,
+	archiveNameFlag:                 archiveNameKey,
+	targetDBNameFlag:                targetDBNameKey,
+	targetHostsFlag:                 targetHostsKey,
+	targetUserNameFlag:              targetUserNameKey,
+	targetPasswordFileFlag:          targetPasswordFileKey,
+	targetKeyFileFlag:               targetKeyFileKey,
+	targetCertFileFlag:              targetCertFileKey,
+	targetCaCertFileFlag:            targetCaCertFileKey,
+	targetTLSModeFlag:               targetTLSModeKey,
+	targetIPv6Flag:                  targetIPv6Key,
+	asyncFlag:                       asyncKey,
+	sourceTLSConfigFlag:             sourceTLSConfigKey,
+	tableOrSchemaNameFlag:           tableOrSchemaNameKey,
+	includePatternFlag:              includePatternKey,
+	excludePatternFlag:              excludePatternKey,
+	targetNamespaceFlag:             targetNamespaceKey,
+	transactionIDFlag:               transactionIDKey,
 }
 
 // target database flags to viper key map

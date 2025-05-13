@@ -73,8 +73,11 @@ func TestSkipExecuteOp(t *testing.T) {
 	opWithSkipEnabled := makeMockOp(true)
 	opWithSkipDisabled := makeMockOp(false)
 	instructions := []clusterOp{&opWithSkipDisabled, &opWithSkipEnabled}
-	opEngn := makeClusterOpEngine(instructions, nil)
+
+	var options DatabaseOptions
+	opEngn := makeClusterOpEngine(instructions, &options)
 	err := opEngn.run(vlog.Printer{})
+
 	assert.Equal(t, nil, err)
 	assert.True(t, opWithSkipDisabled.calledPrepare)
 	assert.True(t, opWithSkipDisabled.calledExecute)

@@ -26,11 +26,13 @@ type hostHTTPRequest struct {
 	Password *string // optional, for HTTPS endpoints only
 	Timeout  int     // optional, set it if an Op needs longer time to complete
 
-	// optional, for calling NMA/Vertica HTTPS endpoints. If Username/Password is set, that takes precedence over this for HTTPS calls.
-	UseCertsInOptions   bool
-	Certs               httpsCerts
-	TLSDoVerify         bool
-	TLSDoVerifyHostname bool
+	// optional, for calling NMA/Vertica HTTPS endpoints.
+	// If Username/Password is set, that takes precedence over this for HTTPS calls.
+	UseCertsInOptions           bool
+	Certs                       httpsCerts
+	TLSDoVerify                 bool
+	TLSDoVerifyHostname         bool
+	usePasswordForSQLClientOnly bool
 }
 
 type httpsCerts struct {
@@ -82,8 +84,9 @@ func (req *hostHTTPRequest) buildHTTPSEndpoint(url string) {
 
 // this is used as the "ATModuleBase" in Admintools
 type clusterHTTPRequest struct {
-	RequestCollection map[string]hostHTTPRequest
-	ResultCollection  map[string]hostHTTPResult
-	SemVar            semVer
-	Name              string
+	RequestCollection           map[string]hostHTTPRequest
+	ResultCollection            map[string]hostHTTPResult
+	SemVar                      semVer
+	Name                        string
+	usePasswordForSQLClientOnly bool
 }
