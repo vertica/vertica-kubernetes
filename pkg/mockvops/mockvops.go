@@ -129,6 +129,10 @@ func (*MockVClusterOps) VSetTLSConfig(_ *vclusterops.VSetTLSConfigOptions) error
 	return nil
 }
 
+func (*MockVClusterOps) VDropDatabase(_ *vclusterops.VDropDatabaseOptions) error {
+	return nil
+}
+
 // MakeMockVClusterOpsDispatch will create a mock vcluster dispatcher
 func MakeMockVClusterOpsDispatcher(vdb *vapi.VerticaDB, logger logr.Logger, cl client.Client,
 	setupAPIFunc func(logr.Logger, string) (vadmin.VClusterProvider, logr.Logger)) *vadmin.VClusterOps {

@@ -36,6 +36,7 @@ import (
 	vtypes "github.com/vertica/vertica-kubernetes/pkg/types"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/describedb"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/dropdb"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/revivedb"
 	config "github.com/vertica/vertica-kubernetes/pkg/vdbconfig"
 	"golang.org/x/text/cases"
@@ -134,6 +135,17 @@ func (r *ReviveDBReconciler) execCmd(ctx context.Context, initiatorPod types.Nam
 	opts := r.genReviveOpts(initiatorPod, hostList, podNames)
 	r.VRec.Event(r.Vdb, corev1.EventTypeNormal, events.ReviveDBStart, "Starting revive database")
 	start := time.Now()
+	// when preserving DB directory, we need to delete vertica.conf and catalog files using drop_db
+	if vmeta.GetPreserveDBDirectory(r.Vdb.Annotations) {
+		opts := []dropdb.Option{
+			dropdb.WithInitiator(initiatorPod),
+			dropdb.WithHosts(hostList),
+			dropdb.WithDBName(r.Vdb.Spec.DBName),
+		}
+		if err := r.Dispatcher.DropDB(ctx, opts...); err != nil {
+			return ctrl.Result{}, err
+		}
+	}
 	if res, err := r.Dispatcher.ReviveDB(ctx, opts...); verrors.IsReconcileAborted(res, err) {
 		return res, err
 	}
