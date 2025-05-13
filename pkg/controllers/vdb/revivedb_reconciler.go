@@ -38,7 +38,6 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/describedb"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/revivedb"
 	config "github.com/vertica/vertica-kubernetes/pkg/vdbconfig"
-	"github.com/vertica/vertica-kubernetes/pkg/vk8s"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 	corev1 "k8s.io/api/core/v1"
