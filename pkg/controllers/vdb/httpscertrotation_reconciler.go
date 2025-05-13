@@ -19,6 +19,7 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
@@ -100,9 +101,14 @@ func (h *HTTPSCertRotationReconciler) Reconcile(ctx context.Context, _ *ctrl.Req
 	}
 
 	// Now https cert rotation will start
-	res, err2 := h.rotateHTTPSTLSCert(ctx, newSecretData, currentSecretData)
+	res, err2, calledVclusterops := h.rotateHTTPSTLSCert(ctx, newSecretData, currentSecretData)
 	if verrors.IsReconcileAborted(res, err2) {
 		h.Log.Info("https cert rotation is aborted.")
+		if calledVclusterops {
+			// we trigger rollback only when we are sure we did
+			// call vclusterops api
+			return res, h.triggerRollback(ctx, err2)
+		}
 		return res, err2
 	}
 	cond = vapi.MakeCondition(vapi.HTTPSCertRotationFinished, metav1.ConditionTrue, "Completed")
@@ -116,13 +122,14 @@ func (h *HTTPSCertRotationReconciler) Reconcile(ctx context.Context, _ *ctrl.Req
 	return ctrl.Result{}, nil
 }
 
-// rotateHTTPSTLSCert will rotate https server's tls cert from currentSecret to newSecret
+// rotateHTTPSTLSCert will rotate https server's tls cert from currentSecret to newSecret.
+// It will also return true if the rotate_https_cert vclusterops api was called
 func (h *HTTPSCertRotationReconciler) rotateHTTPSTLSCert(ctx context.Context, newSecret,
-	currentSecret map[string][]byte) (ctrl.Result, error) {
+	currentSecret map[string][]byte) (ctrl.Result, error, bool) {
 	initiatorPod, ok := h.PFacts.FindFirstUpPod(false, "")
 	if !ok {
 		h.Log.Info("No pod found to run rotate https cert. Requeue reconciliation.")
-		return ctrl.Result{Requeue: true}, nil
+		return ctrl.Result{Requeue: true}, nil, false
 	}
 	newCert := string(newSecret[corev1.TLSCertKey])
 	currentCert := string(currentSecret[corev1.TLSCertKey])
@@ -130,11 +137,11 @@ func (h *HTTPSCertRotationReconciler) rotateHTTPSTLSCert(ctx context.Context, ne
 	if err != nil {
 		h.Log.Error(err, "https cert rotation aborted. Failed to verify new https cert for "+
 			initiatorPod.GetPodIP())
-		return ctrl.Result{}, err
+		return ctrl.Result{}, err, false
 	}
 	if rotated == 2 {
 		h.Log.Info("https cert rotation aborted. Neither new nor current https cert is in use")
-		return ctrl.Result{Requeue: true}, nil
+		return ctrl.Result{Requeue: true}, nil, false
 	}
 	if rotated == 0 {
 		h.Log.Info("https cert rotation skipped. new https cert is already in use on " + initiatorPod.GetPodIP())
@@ -159,8 +166,23 @@ func (h *HTTPSCertRotationReconciler) rotateHTTPSTLSCert(ctx context.Context, ne
 		err = h.Dispatcher.RotateHTTPSCerts(ctx, opts...)
 		if err != nil {
 			h.Log.Error(err, "failed to rotate https cert to "+h.Vdb.Spec.NMATLSSecret)
-			return ctrl.Result{}, err
+			return ctrl.Result{}, err, true
 		}
 	}
-	return ctrl.Result{}, err
+	return ctrl.Result{}, err, true
+}
+
+// triggerRollback sets  a condition that lets the operator know that https cert rotation
+// has failed and a rollback is needed
+func (h *HTTPSCertRotationReconciler) triggerRollback(ctx context.Context, err error) error {
+	if err == nil {
+		return nil
+	}
+	errMsg := err.Error()
+	reason := vapi.FailureBeforeCertHealthPollingReason
+	if strings.Contains(errMsg, "HTTPSPollCertificateHealthOp") {
+		reason = vapi.RollbackAfterHTTPSCertRotationReason
+	}
+	cond := vapi.MakeCondition(vapi.TLSCertRollbackNeeded, metav1.ConditionTrue, reason)
+	return vdbstatus.UpdateCondition(ctx, h.VRec.GetClient(), h.Vdb, cond)
 }
