@@ -18,6 +18,7 @@ package vadmin
 import (
 	"context"
 	"errors"
+	"maps"
 	"strings"
 
 	vops "github.com/vertica/vcluster/vclusterops"
@@ -121,5 +122,11 @@ func (v *VClusterOps) genCreateDBOptions(s *createdb.Parms, certs *HTTPSCerts) v
 		opts.TimeoutNodeStartupSeconds = timeout
 	}
 
+	if v.VDB.IsCertRotationEnabled() {
+		configMap := genTLSConfigurationMap("TRY_VERIFY", v.VDB.Spec.NMATLSSecret, v.VDB.Namespace)
+		opts.HTTPSTLSConfiguration = maps.Clone(configMap)
+		configMap = genTLSConfigurationMap(v.VDB.Spec.ClientServerTLSMode, v.VDB.Spec.ClientServerTLSSecret, v.VDB.Namespace)
+		opts.ServerTLSConfiguration = maps.Clone(configMap)
+	}
 	return opts
 }

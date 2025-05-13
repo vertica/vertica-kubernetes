@@ -18,11 +18,13 @@ package vadmin
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	vops "github.com/vertica/vcluster/vclusterops"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/cloud"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
+	"github.com/vertica/vertica-kubernetes/pkg/secrets"
 	corev1 "k8s.io/api/core/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -87,6 +89,34 @@ func retrieveNMACerts(ctx context.Context, fetcher *cloud.SecretFetcher, vdb *va
 	}, nil
 }
 
+func genTLSConfigurationMap(tlsMode, secretNameInVdb, secretNamespace string) map[string]string {
+	configMap := make(map[string]string)
+	configMap[vops.TLSSecretManagerKeyCACertDataKey] = corev1.ServiceAccountRootCAKey
+	configMap[vops.TLSSecretManagerKeyCertDataKey] = corev1.TLSCertKey
+	configMap[vops.TLSSecretManagerKeyKeyDataKey] = corev1.TLSPrivateKeyKey
+	secretName := secretNameInVdb
+	secretManager := ""
+	switch {
+	case secrets.IsGSMSecret(secretNameInVdb):
+		return configMap
+	case secrets.IsAWSSecretsManagerSecret(secretNameInVdb):
+		region, _ := secrets.GetAWSRegion(secretNameInVdb)
+		configMap[vops.TLSSecretManagerKeyAWSRegion] = region
+		secretARN, versionID := secrets.GetAWSSecretARN(secretNameInVdb)
+		configMap[vops.TLSSecretManagerKeyAWSSecretVersionID] = versionID
+		secretName = secretARN
+		secretManager = vops.AWSSecretManagerType
+	default:
+		secretManager = vops.K8sSecretManagerType
+		configMap[vops.TLSSecretManagerKeyNamespace] = secretNamespace
+	}
+	configMap[vops.TLSSecretManagerKeySecretManager] = secretManager
+	configMap[vops.TLSSecretManagerKeySecretName] = secretName
+	configMap[vops.TLSSecretManagerKeyTLSMode] = strings.ToLower(tlsMode)
+
+	return configMap
+}
+
 // logFailure will log and record an event for a vclusterOps API failure
 func (v *VClusterOps) logFailure(cmd, genericFailureReason string, err error) (ctrl.Result, error) {
 	evLogr := vcErrors{
@@ -102,8 +132,8 @@ func (v *VClusterOps) setAuthentication(opts *vops.DatabaseOptions, username str
 	opts.Key = certs.Key
 	opts.Cert = certs.Cert
 	opts.CaCert = certs.CaCert
+	opts.UserName = username
 	if !v.VDB.IsCertRotationEnabled() {
-		opts.UserName = username
 		opts.Password = password
 	}
 }
