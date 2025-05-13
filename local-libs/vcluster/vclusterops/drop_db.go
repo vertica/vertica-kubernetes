@@ -27,6 +27,11 @@ type VDropDatabaseOptions struct {
 	ForceDelete bool // whether force delete directories
 	// node and their directories to clean up
 	NodesToDrop []VCoordinationNode
+	// Internal use only - keep catalog directory: keep v_<node_name>_catalog dir, but delete
+	// v_<node_name>_catalog/Catalog sub directory, this is for reviving
+	// with --use-existing-catalog-directory option
+	// this option helps preserving DC tables before reviving.
+	RetainCatalogDir bool
 }
 
 func VDropDatabaseOptionsFactory() VDropDatabaseOptions {
@@ -34,6 +39,9 @@ func VDropDatabaseOptionsFactory() VDropDatabaseOptions {
 	// set default values to the params
 	options.setDefaultValues()
 	options.ForceDelete = true
+	// default to false for retaining catalog dir
+	// this option is for internal use only
+	options.RetainCatalogDir = false
 
 	return options
 }
@@ -142,7 +150,7 @@ func (vcc VClusterCommands) produceDropDBInstructions(vdb *VCoordinationDatabase
 		return instructions, err
 	}
 
-	nmaDeleteDirectoriesOp, err := makeNMADeleteDirectoriesOp(vdb, options.ForceDelete)
+	nmaDeleteDirectoriesOp, err := makeNMADeleteDirsRetainCatalogDirOp(vdb, options.ForceDelete, options.RetainCatalogDir)
 	if err != nil {
 		return instructions, err
 	}
@@ -152,6 +160,15 @@ func (vcc VClusterCommands) produceDropDBInstructions(vdb *VCoordinationDatabase
 		&checkDBRunningOp,
 		&nmaDeleteDirectoriesOp,
 	)
+	// if retaining catalog dir, need to also remove vertica.conf on every node
+	if options.RetainCatalogDir {
+		nmaDeleteVerticaConfOp, err := makeNMADeleteVerticaConfFilesOp(hosts, vdb)
+		if err != nil {
+			return instructions, err
+		}
+		instructions = append(instructions,
+			&nmaDeleteVerticaConfOp)
+	}
 
 	return instructions, nil
 }
