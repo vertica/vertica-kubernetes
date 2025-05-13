@@ -21,7 +21,7 @@ data:
     set -o errexit
     set -o xtrace
 
-    for i in {1..8}; do
+    for i in {1..15}; do
       kubectl exec svc/v-scale-out-hpa-pri1 -c server -- vsql -U dbadmin -w topsecret -c "select sleep('240');" &
     done
     sleep 240
