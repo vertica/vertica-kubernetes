@@ -32,7 +32,7 @@ status:
     - addedToDBCount: 1
       upNodeCount: 1
       name: sec1
-      type: sandboxprimary
+      type: secondary
     - addedToDBCount: 1
       upNodeCount: 1
       name: sec3
