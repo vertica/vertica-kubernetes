@@ -1014,7 +1014,7 @@ jobs:
       e2e-leg-10-vcluster,
       e2e-leg-10-vcluster-cert,
       e2e-leg-11-vcluster,
-      e2e-leg-1-vcluster-cert,
+      e2e-leg-11-vcluster-cert,
       e2e-leg-12-vcluster,
       e2e-leg-12-vcluster-cert,
       e2e-leg-13-vcluster,
