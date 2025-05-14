@@ -25,7 +25,7 @@ import (
 
 var _ = Describe("altersubcluster_reconcile", func() {
 
-	It("should find subclusters to alter", func() {
+	It("should find subclusters to alter for upgrade", func() {
 		vdb := vapi.MakeVDB()
 		annPri := map[string]string{
 			vmeta.ParentSubclusterTypeAnnotation: vapi.PrimarySubcluster,
@@ -71,7 +71,7 @@ var _ = Describe("altersubcluster_reconcile", func() {
 			Vdb:    vdb,
 			Log:    logger,
 		}
-		scs, err := a.findSandboxSubclustersToAlter()
+		scs, err := a.findSandboxSubclustersToAlter(true)
 		Expect(err).Should(BeNil())
 		Expect(len(scs)).Should(Equal(1))
 		Expect(scs[0].Name).Should(Equal("sc4"))

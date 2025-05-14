@@ -1875,7 +1875,7 @@ func (v *VerticaDB) checkSandboxPrimary(allErrs field.ErrorList, oldObj *Vertica
 				i := oldScIndexMap[oldScName]
 				err := field.Invalid(path.Index(i),
 					oldObj.Spec.Subclusters[i],
-					fmt.Sprintf("cannot remove the primary subcluster %q from sandbox %q", oldScName, oldSbName))
+					fmt.Sprintf("the sandbox %q does not have enough primary nodes after removing %q", oldSbName, oldScName))
 				allErrs = append(allErrs, err)
 			}
 
@@ -1896,8 +1896,8 @@ func (v *VerticaDB) checkSandboxPrimary(allErrs field.ErrorList, oldObj *Vertica
 				p := field.NewPath("spec").Child("sandboxes")
 				err := field.Invalid(p.Index(i),
 					oldSbMap[oldSbName],
-					fmt.Sprintf("cannot move the primary subcluster %q from sandbox %q to %q",
-						oldScName, oldSbName, newSbName))
+					fmt.Sprintf("the sandbox %q does not have enough primary nodes after moving %q to %q",
+						oldSbName, oldScName, newSbName))
 				allErrs = append(allErrs, err)
 			}
 		}

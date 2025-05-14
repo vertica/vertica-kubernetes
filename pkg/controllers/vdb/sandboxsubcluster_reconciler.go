@@ -154,7 +154,7 @@ func (s *SandboxSubclusterReconciler) sandboxSubclusters(ctx context.Context) (c
 	}
 	s.PFacts.Invalidate()
 
-	return ctrl.Result{}, nil
+	return s.updateSandboxSubclusterType(ctx, scSbMap)
 }
 
 // executeSandboxCommand will call sandbox API in vclusterOps, create/update sandbox config maps,
@@ -228,6 +228,36 @@ func (s *SandboxSubclusterReconciler) executeSandboxCommand(ctx context.Context,
 		if err != nil {
 			// when creating/updating sandbox config map failed, update sandbox status and return error
 			return ctrl.Result{}, err
+		}
+	}
+
+	return ctrl.Result{}, nil
+}
+
+// updateSandboxSubclusterType updates is_primary to true in database for the primary subclusters in sandboxes
+func (s *SandboxSubclusterReconciler) updateSandboxSubclusterType(ctx context.Context, scSbMap map[string]string) (ctrl.Result, error) {
+	// get sandboxes that need to be updated
+	sbToUpdate := []string{}
+	seen := make(map[string]bool)
+	for sc := range scSbMap {
+		sb := scSbMap[sc]
+		if seen[sb] {
+			continue
+		}
+		sbToUpdate = append(sbToUpdate, sb)
+		seen[sb] = true
+	}
+
+	// vclusterOps will set the first primary subcluster in the sandbox, so we need to update
+	// is_primary to true in database for the rest of the primary subclusters
+	sbPFacts := s.PFacts
+	for i := range sbToUpdate {
+		sbPFacts.SandboxName = sbToUpdate[i]
+		actor := MakeAlterSubclusterTypeReconciler(s.VRec, s.Log, s.Vdb, sbPFacts, s.Dispatcher, false /* forUpgrade */)
+		res, err := actor.Reconcile(ctx, &ctrl.Request{})
+		if err != nil {
+			s.Log.Error(err, "Failed to update subcluster is_primary in sandbox", "sandbox", sbPFacts.SandboxName)
+			return res, err
 		}
 	}
 

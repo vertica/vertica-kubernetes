@@ -616,7 +616,7 @@ func (r *OnlineUpgradeReconciler) promoteReplicaBSubclusters(ctx context.Context
 		return ctrl.Result{}, err
 	}
 	sbPFacts.Invalidate()
-	actor := MakeAlterSubclusterTypeReconciler(r.VRec, r.Log, r.VDB, sbPFacts, r.Dispatcher)
+	actor := MakeAlterSubclusterTypeReconciler(r.VRec, r.Log, r.VDB, sbPFacts, r.Dispatcher, true /* forUpgrade */)
 	r.Manager.traceActorReconcile(actor)
 	return actor.Reconcile(ctx, &ctrl.Request{})
 }
@@ -860,6 +860,7 @@ func (r *OnlineUpgradeReconciler) startReplicationToReplicaGroupB(ctx context.Co
 	if r.VDB.IsCertRotationEnabled() {
 		tlsConfig = "server"
 	}
+
 	vrep := &v1beta1.VerticaReplicator{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: v1beta1.GroupVersion.String(),
