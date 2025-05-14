@@ -30,7 +30,7 @@ func (v *VClusterOps) RotateNMACerts(ctx context.Context, opts ...rotatenmacerts
 	v.Log.Info("Starting vcluster RotateNMACerts")
 
 	// get the certs
-	certs, err := v.retrieveNMACerts(ctx)
+	certs, err := v.retrieveHTTPSCerts(ctx)
 	if err != nil {
 		return err
 	}

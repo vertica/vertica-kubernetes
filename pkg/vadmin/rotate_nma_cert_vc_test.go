@@ -62,16 +62,16 @@ var _ = Describe("rotate_https_cert", func() {
 
 	It("should call vcluster-ops library with rotate_nma_cert task", func() {
 		dispatcher := mockVClusterOpsDispatcher()
-		dispatcher.VDB.Spec.NMATLSSecret = rotateNmaCertNewNMASecretName
-		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.NMATLSSecret)
+		dispatcher.VDB.Spec.HTTPSTLSSecret = rotateNmaCertNewNMASecretName
+		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.HTTPSTLSSecret)
 		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, rotateNmaCertCurrentNMASecretName)
-		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.NMATLSSecret)
+		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.HTTPSTLSSecret)
 		dispatcher.VDB.Spec.DBName = TestDBName
 		vapi.SetVDBForTLS(dispatcher.VDB)
 		dispatcher.VDB.Status.SecretRefs = []vapi.SecretRef{
 			{
 				Name: rotateHTTPSCertCurrentNMASecretName,
-				Type: vapi.NMATLSSecretType,
+				Type: vapi.HTTPSTLSSecretType,
 			},
 		}
 		hosts := []string{TestInitiatorIP}

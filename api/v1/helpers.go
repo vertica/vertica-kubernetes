@@ -173,7 +173,7 @@ func MakeVDB() *VerticaDB {
 func MakeVDBForHTTP(httpServerTLSSecretName string) *VerticaDB {
 	vdb := MakeVDB()
 	vdb.Annotations[vmeta.VersionAnnotation] = HTTPServerMinVersion
-	vdb.Spec.NMATLSSecret = httpServerTLSSecretName
+	vdb.Spec.HTTPSTLSSecret = httpServerTLSSecretName
 	return vdb
 }
 
@@ -377,8 +377,8 @@ func MakeClientServerTLSSecretRef(name string) *SecretRef {
 	return MakeSecretRef(ClientServerTLSSecretType, name)
 }
 
-func MakeNMATLSSecretRef(name string) *SecretRef {
-	return MakeSecretRef(NMATLSSecretType, name)
+func MakeHTTPSTLSSecretRef(name string) *SecretRef {
+	return MakeSecretRef(HTTPSTLSSecretType, name)
 }
 
 func MakeTLSMode(stype, mode string) *TLSMode {
@@ -392,8 +392,8 @@ func MakeClientServerTLSMode(mode string) *TLSMode {
 	return MakeTLSMode(ClientServerTLSModeType, mode)
 }
 
-func MakeNMATLSMode(mode string) *TLSMode {
-	return MakeTLSMode(HTTPSTTLSModeType, mode)
+func MakeHTTPSTLSMode(mode string) *TLSMode {
+	return MakeTLSMode(HTTPSTLSModeType, mode)
 }
 
 // HasReviveInstanceIDAnnotation is true when an annotation exists for the db's
@@ -1482,8 +1482,8 @@ func (v *VerticaDB) GetSecretNameInUse(sType string) string {
 	return v.GetSecretStatus(sType).Name
 }
 
-func (v *VerticaDB) GetNMATLSSecretNameInUse() string {
-	return v.GetSecretNameInUse(NMATLSSecretType)
+func (v *VerticaDB) GetHTTPSTLSSecretNameInUse() string {
+	return v.GetSecretNameInUse(HTTPSTLSSecretType)
 }
 
 func (v *VerticaDB) GetClientServerTLSSecretNameInUse() string {
@@ -1511,8 +1511,8 @@ func (v *VerticaDB) GetTLSModeInUse(sType string) string {
 	return v.GetTLSModeStatus(sType).Mode
 }
 
-func (v *VerticaDB) GetNMATLSModeInUse() string {
-	return v.GetTLSModeInUse(HTTPSTTLSModeType)
+func (v *VerticaDB) GetHTTPSTLSModeInUse() string {
+	return v.GetTLSModeInUse(HTTPSTLSModeType)
 }
 
 func (v *VerticaDB) GetClientServerTLSModeInUse() string {

@@ -2204,20 +2204,20 @@ func (v *VerticaDB) checkImmutableClientProxy(oldObj *VerticaDB, allErrs field.E
 	return allErrs
 }
 
-// checkImmutableCertRotation will validate the nmaTLSSecret spec fields in vdb
+// checkImmutableCertRotation will validate the httpsTLSSecret spec fields in vdb
 func (v *VerticaDB) checkImmutableCertRotation(oldObj *VerticaDB, allErrs field.ErrorList) field.ErrorList {
-	// If cert rotation is set, nmaTLSSecret can not be empty
-	if v.IsCertRotationEnabled() && oldObj.Spec.NMATLSSecret != "" && v.Spec.NMATLSSecret == "" {
-		err := field.Invalid(field.NewPath("spec").Child("nmaTLSSecret"),
-			v.Spec.NMATLSSecret,
-			"nmaTLSSecret cannot be empty when cert rotation is enabled")
+	// If cert rotation is set, httpsTLSSecret can not be empty
+	if v.IsCertRotationEnabled() && oldObj.Spec.HTTPSTLSSecret != "" && v.Spec.HTTPSTLSSecret == "" {
+		err := field.Invalid(field.NewPath("spec").Child("httpsTLSSecret"),
+			v.Spec.HTTPSTLSSecret,
+			"httpsTLSSecret cannot be empty when cert rotation is enabled")
 		allErrs = append(allErrs, err)
 	}
-	// If cert rotation is in progress, nmaTLSSecret can not be changed
-	if v.IsCertRotationEnabled() && v.IsCertRotationInProgress() && oldObj.Spec.NMATLSSecret != v.Spec.NMATLSSecret {
-		err := field.Invalid(field.NewPath("spec").Child("nmaTLSSecret"),
-			v.Spec.NMATLSSecret,
-			"nmaTLSSecret cannot be changed when cert rotation is in progress")
+	// If cert rotation is in progress, httpsTLSSecret can not be changed
+	if v.IsCertRotationEnabled() && v.IsCertRotationInProgress() && oldObj.Spec.HTTPSTLSSecret != v.Spec.HTTPSTLSSecret {
+		err := field.Invalid(field.NewPath("spec").Child("httpsTLSSecret"),
+			v.Spec.HTTPSTLSSecret,
+			"httpsTLSSecret cannot be changed when cert rotation is in progress")
 		allErrs = append(allErrs, err)
 	}
 	return allErrs

@@ -291,6 +291,18 @@ type VerticaDBSpec struct {
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:io.kubernetes:Secret","urn:alm:descriptor:com.tectonic.ui:advanced"}
 	// +kubebuilder:default:=""
 	// +kubebuilder:validation:Optional
+	// A secret that contains the TLS credentials to be used  by Vertica's
+	// embedded https service. If this is empty, the operator will create a
+	// secret to use and add the name of the generate secret in this field.
+	// When set, the secret must have the following keys defined: tls.key,
+	// tls.crt and ca.crt.  To store this secret outside of Kubernetes, you can
+	// use a secret path reference prefix, such as gsm://. Everything after the
+	// prefix is the name of the secret in the service you are storing.
+	HTTPSTLSSecret string `json:"httpsTLSSecret,omitempty"`
+
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:io.kubernetes:Secret","urn:alm:descriptor:com.tectonic.ui:advanced"}
+	// +kubebuilder:default:=""
+	// +kubebuilder:validation:Optional
 	// A secret that contains the TLS credentials to be used to authenticate Vertica clients' certificates.
 	// If this is empty, the operator will create a secret to use and add the name of the generate secret to this field.
 	// The private key, certificate, and CA certificate should be stored in the secret using the following keys: tls.key,
@@ -1006,9 +1018,9 @@ type VerticaDBStatus struct {
 }
 
 const (
-	NMATLSSecretType          = "NMATLSSecretType"          // #nosec G101
+	HTTPSTLSSecretType        = "HTTPSTLSSecretType"        // #nosec G101
 	ClientServerTLSSecretType = "ClientServerTLSSecretType" // #nosec G101
-	HTTPSTTLSModeType         = "HTTPSTTLSModeType"
+	HTTPSTLSModeType          = "HTTPSTLSModeType"
 	ClientServerTLSModeType   = "ClientServerTLSModeType"
 )
 

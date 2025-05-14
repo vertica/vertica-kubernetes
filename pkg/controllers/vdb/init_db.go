@@ -99,7 +99,7 @@ func (g *GenericDatabaseInitializer) runInit(ctx context.Context) (ctrl.Result, 
 		return res, err
 	}
 	if g.Vdb.IsCertRotationEnabled() {
-		sec := vapi.MakeNMATLSSecretRef(g.Vdb.Spec.NMATLSSecret)
+		sec := vapi.MakeHTTPSTLSSecretRef(g.Vdb.Spec.HTTPSTLSSecret)
 		if err := vdbstatus.UpdateSecretRef(ctx, g.VRec.GetClient(), g.Vdb, sec); err != nil {
 			return ctrl.Result{}, err
 		}

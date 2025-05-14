@@ -140,7 +140,7 @@ func (c *CreateDBReconciler) execCmd(ctx context.Context, initiatorPod types.Nam
 			c.Log.Error(err2, "failed to execute TLS DDLs after db creation stderr - "+stderr)
 			return ctrl.Result{}, err2
 		}
-		httpsTLSMode := vapi.MakeNMATLSMode(c.Vdb.Spec.HTTPSTLSMode)
+		httpsTLSMode := vapi.MakeHTTPSTLSMode(c.Vdb.Spec.HTTPSTLSMode)
 		clientTLSMode := vapi.MakeClientServerTLSMode(c.Vdb.Spec.ClientServerTLSMode)
 		err = vdbstatus.UpdateTLSModes(ctx, c.VRec.GetClient(), c.Vdb, []*vapi.TLSMode{httpsTLSMode, clientTLSMode})
 		if err != nil {
@@ -220,9 +220,9 @@ func (c *CreateDBReconciler) generatePostDBCreateSQL(ctx context.Context, initia
 	}
 	if c.Vdb.IsCertRotationEnabled() {
 		switch {
-		case secrets.IsGSMSecret(c.Vdb.Spec.NMATLSSecret):
+		case secrets.IsGSMSecret(c.Vdb.Spec.HTTPSTLSSecret):
 			return ctrl.Result{}, nil
-		case secrets.IsAWSSecretsManagerSecret(c.Vdb.Spec.NMATLSSecret):
+		case secrets.IsAWSSecretsManagerSecret(c.Vdb.Spec.HTTPSTLSSecret):
 			c.generateAWSTlsSQL(&sb)
 		default:
 			c.generateKubernetesTLSSQL(&sb)
@@ -254,15 +254,15 @@ func (c *CreateDBReconciler) generateKubernetesTLSSQL(sb *strings.Builder) {
 
 	fmt.Fprintf(sb, "CREATE KEY https_key_0 TYPE 'rsa' SECRETMANAGER KubernetesSecretManager ")
 	fmt.Fprintf(sb, "SECRETNAME '%s' CONFIGURATION '{\"data-key\":\"%s\", \"namespace\":\"%s\"}';\n",
-		c.Vdb.Spec.NMATLSSecret, corev1.TLSPrivateKeyKey, c.Vdb.ObjectMeta.Namespace)
+		c.Vdb.Spec.HTTPSTLSSecret, corev1.TLSPrivateKeyKey, c.Vdb.ObjectMeta.Namespace)
 
 	fmt.Fprintf(sb, "CREATE CA CERTIFICATE https_ca_cert_0 SECRETMANAGER KubernetesSecretManager ")
 	fmt.Fprintf(sb, "SECRETNAME '%s' CONFIGURATION '{\"data-key\":\"%s\", \"namespace\":\"%s\"}';\n",
-		c.Vdb.Spec.NMATLSSecret, paths.HTTPServerCACrtName, c.Vdb.ObjectMeta.Namespace)
+		c.Vdb.Spec.HTTPSTLSSecret, paths.HTTPServerCACrtName, c.Vdb.ObjectMeta.Namespace)
 
 	fmt.Fprintf(sb, "CREATE CERTIFICATE https_cert_0 SECRETMANAGER KubernetesSecretManager ")
 	fmt.Fprintf(sb, "SECRETNAME '%s' CONFIGURATION '{\"data-key\":\"%s\", \"namespace\":\"%s\"}' ",
-		c.Vdb.Spec.NMATLSSecret, corev1.TLSCertKey, c.Vdb.ObjectMeta.Namespace)
+		c.Vdb.Spec.HTTPSTLSSecret, corev1.TLSCertKey, c.Vdb.ObjectMeta.Namespace)
 	fmt.Fprintf(sb, "SIGNED BY https_ca_cert_0 KEY https_key_0;\n")
 
 	fmt.Fprintf(sb, "DROP KEY IF EXISTS server_key;\n")
@@ -304,9 +304,9 @@ func (c *CreateDBReconciler) generateAWSTlsSQL(sb *strings.Builder) {
 	fmt.Fprintf(sb, "DROP CERTIFICATE IF EXISTS https_cert_0;\n")
 	fmt.Fprintf(sb, "DROP CERTIFICATE IF EXISTS https_ca_cert_0;\n")
 
-	region, _ := secrets.GetAWSRegion(c.Vdb.Spec.NMATLSSecret)
+	region, _ := secrets.GetAWSRegion(c.Vdb.Spec.HTTPSTLSSecret)
 
-	secretName := secrets.RemovePathReference(c.Vdb.Spec.NMATLSSecret)
+	secretName := secrets.RemovePathReference(c.Vdb.Spec.HTTPSTLSSecret)
 	fmt.Fprintf(sb, "CREATE KEY https_key_0 TYPE 'rsa' SECRETMANAGER AWSSecretManager ")
 	fmt.Fprintf(sb, "SECRETNAME '%s' CONFIGURATION '{\"json-key\":\"%s\", \"region\":\"%s\"}';\n",
 		secretName, corev1.TLSPrivateKeyKey, region)
