@@ -16,7 +16,7 @@ kind: VerticaAutoscaler
 metadata:
   name: v-scale-out-hpa-vas
 spec:
-  targetSize: 5
+  targetSize: 4
 status:
   scalingCount: 1
-  currentSize: 5
+  currentSize: 4

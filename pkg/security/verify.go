@@ -34,6 +34,7 @@ func VerifyCert(ip string, port int, newCert, currentCert string, log logr.Logge
 			return -1, err
 		}
 		remoteCert := b.String()
+		log.Info("raw cert from service - " + url + " - " + remoteCert)
 		if newCert == remoteCert {
 			return 0, nil
 		} else if currentCert == remoteCert {

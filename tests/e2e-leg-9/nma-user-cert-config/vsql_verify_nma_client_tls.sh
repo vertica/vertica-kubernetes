@@ -1,4 +1,4 @@
-SERVER_TLS_SECRET_NAME=$(kubectl exec -n $NAMESPACE v-tls-certs-sc1-0 -c server -- vsql -tAc "select secret_name from certificates where name='server_cert_0';")
+SERVER_TLS_SECRET_NAME=$(kubectl exec -n $NAMESPACE v-tls-certs-sc1-0 -c server -- vsql -tAc "select secret_name from certificates where name='server_cert';")
 if [[ $SERVER_TLS_SECRET_NAME != "client-cert" ]]; then
     echo "ERROR: server TLS secret name is not client-cert"
     exit 1
