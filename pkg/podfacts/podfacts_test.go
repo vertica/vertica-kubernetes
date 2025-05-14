@@ -181,6 +181,27 @@ var _ = Describe("podfacts", func() {
 		Expect(pf.readOnly).Should(BeTrue())
 	})
 
+	It("GetIsPrimary should get correct is_primary values in db", func() {
+		vdb := vapi.MakeVDB()
+		pn := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)
+		fpr := &cmds.FakePodRunner{
+			Results: cmds.CmdResults{
+				pn: []cmds.CmdResult{
+					// node_name|node_state|subcluster_oid|is_readonly|sandbox|is_primary
+					{Stdout: "v_db_node0001|UP|123456|t|sandbox1|t"},
+				},
+			},
+		}
+		pfs := MakePodFacts(vdbRec, fpr, logger, TestPassword)
+		pf := &PodFact{name: pn, isPodRunning: true, dbExists: true}
+		gs := &GatherState{VerticaPIDRunning: true}
+		Expect(pfs.checkForSimpleGatherStateMapping(ctx, vdb, pf, gs)).Should(Succeed())
+		Expect(pfs.checkNodeDetails(ctx, vdb, pf, gs)).Should(Succeed())
+		Expect(pf.upNode).Should(BeTrue())
+		Expect(pf.GetSandbox()).Should(Equal("sandbox1"))
+		Expect(pf.isPrimary).Should(BeTrue())
+	})
+
 	It("should detect startup in progress correctly", func() {
 		vdb := vapi.MakeVDB()
 		sc := &vdb.Spec.Subclusters[0]

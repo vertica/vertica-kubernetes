@@ -1099,6 +1099,7 @@ func (p *PodFacts) checkNodeDetails(ctx context.Context, vdb *vapi.VerticaDB, pf
 		pf.readOnly = nodeDetails.ReadOnly
 		pf.subclusterOid = nodeDetails.SubclusterOid
 		pf.sandbox = nodeDetails.SandboxName
+		pf.isPrimary = nodeDetails.IsPrimary
 		pf.shardSubscriptions = nodeDetails.ShardSubscriptions
 		pf.maxDepotSize = nodeDetails.MaxDepotSize
 		pf.depotDiskPercentSize = nodeDetails.DepotDiskPercentSize
