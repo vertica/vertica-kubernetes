@@ -21,27 +21,27 @@ import (
 	"fmt"
 )
 
-// nmaRotateHTTPSCertsOp will, via the NMA SQL proxy, rotate the cert,
+// nmaRotateTLSCertsOp will, via the NMA SQL proxy, rotate the cert,
 // key, ca cert, and optionally tlsmode used by the HTTPS service if
 // the new secrets are backed by a secrets manager.
 // Since this is a catalog operation, the hosts list should have exactly
 // one host per sandbox to keep all db groups in sync.
-type nmaRotateHTTPSCertsOp struct {
+type nmaRotateTLSCertsOp struct {
 	opBase
 	hostRequestBody  string            // constructed by make function
 	hostsToSandboxes map[string]string // for logging
 }
 
-type rotateHTTPSCertsData struct {
+type rotateTLSCertsData struct {
 	sqlEndpointData
-	RotateHTTPSCertsData
+	RotateTLSCertsData
 	// name of the secret manager, e.g. "KubernetesSecretManager"
-	// currently only that, and can be moved to RotateHTTPSCertsData
+	// currently only that, and can be moved to RotateTLSCertsData
 	// to expose it to the caller of vclusterops
 	SecretManager string `json:"secret_manager"` // required
 }
 
-type rotateHTTPSCertsResponse struct {
+type rotateTLSCertsResponse struct {
 	// Catalog name of the key created by the rotation
 	KeyName string `json:"key_name"`
 	// Catalog name of the cert created by the rotation
@@ -52,18 +52,18 @@ type rotateHTTPSCertsResponse struct {
 	TLSConfigName string `json:"tls_config_name"`
 }
 
-// makeNMARotateHTTPSCertsOp should be passed a host list of one initiator
+// makeNMARotateTLSCertsOp should be passed a host list of one initiator
 // per sandbox to keep all db groups in sync (including main)
-func makeNMARotateHTTPSCertsOp(hosts []string,
+func makeNMARotateTLSCertsOp(hosts []string,
 	username, dbName string,
 	hostsToSandboxes map[string]string,
-	opData *RotateHTTPSCertsData,
+	opData *RotateTLSCertsData,
 	secretManagerType string,
 	password *string,
-	useHTTPPassword bool) (nmaRotateHTTPSCertsOp, error) {
-	op := nmaRotateHTTPSCertsOp{}
-	op.name = "NMARotateHTTPSCertsOp"
-	op.description = "Rotate the HTTPS service certificates"
+	useHTTPPassword bool) (nmaRotateTLSCertsOp, error) {
+	op := nmaRotateTLSCertsOp{}
+	op.name = "NMARotateTLSCertsOp"
+	op.description = "Rotate " + opData.TLSConfig + " certificates"
 	op.hosts = hosts
 	op.hostsToSandboxes = hostsToSandboxes
 	err := validateHostMapsAllowEmpty(hosts, op.hostsToSandboxes)
@@ -78,9 +78,9 @@ func makeNMARotateHTTPSCertsOp(hosts []string,
 	return op, nil
 }
 
-func (op *nmaRotateHTTPSCertsOp) setupRequestBody(
+func (op *nmaRotateTLSCertsOp) setupRequestBody(
 	username, dbName string,
-	opData *RotateHTTPSCertsData,
+	opData *RotateTLSCertsData,
 	secretManagerType string,
 	password *string,
 	useDBPassword bool) error {
@@ -88,12 +88,12 @@ func (op *nmaRotateHTTPSCertsOp) setupRequestBody(
 	if err != nil {
 		return err
 	}
-	endpointData := rotateHTTPSCertsData{}
+	endpointData := rotateTLSCertsData{}
 	endpointData.sqlEndpointData = createSQLEndpointData(username, dbName, useDBPassword, password)
 	if opData == nil {
 		return errors.New("argument opData cannot be a nil pointer")
 	}
-	endpointData.RotateHTTPSCertsData = *opData
+	endpointData.RotateTLSCertsData = *opData
 	endpointData.SecretManager = getSecretManager(secretManagerType)
 
 	dataBytes, err := json.Marshal(endpointData)
@@ -108,11 +108,11 @@ func (op *nmaRotateHTTPSCertsOp) setupRequestBody(
 	return nil
 }
 
-func (op *nmaRotateHTTPSCertsOp) setupClusterHTTPRequest(hosts []string) error {
+func (op *nmaRotateTLSCertsOp) setupClusterHTTPRequest(hosts []string) error {
 	// the request is the same for all hosts
 	httpRequest := hostHTTPRequest{}
 	httpRequest.Method = PostMethod
-	httpRequest.buildNMAEndpoint("vertica/https/rotate-certs")
+	httpRequest.buildNMAEndpoint("vertica/tls/rotate-certs")
 	httpRequest.RequestData = op.hostRequestBody
 	for _, host := range hosts {
 		op.clusterHTTPRequest.RequestCollection[host] = httpRequest
@@ -120,14 +120,14 @@ func (op *nmaRotateHTTPSCertsOp) setupClusterHTTPRequest(hosts []string) error {
 	return nil
 }
 
-func (op *nmaRotateHTTPSCertsOp) prepare(execContext *opEngineExecContext) error {
+func (op *nmaRotateTLSCertsOp) prepare(execContext *opEngineExecContext) error {
 	// the host list should already have been filtered to select initiators across all
 	// db groups
 	execContext.dispatcher.setup(op.hosts)
 	return op.setupClusterHTTPRequest(op.hosts)
 }
 
-func (op *nmaRotateHTTPSCertsOp) execute(execContext *opEngineExecContext) error {
+func (op *nmaRotateTLSCertsOp) execute(execContext *opEngineExecContext) error {
 	if err := op.runExecute(execContext); err != nil {
 		return err
 	}
@@ -135,16 +135,16 @@ func (op *nmaRotateHTTPSCertsOp) execute(execContext *opEngineExecContext) error
 	return op.processResult(execContext)
 }
 
-func (op *nmaRotateHTTPSCertsOp) finalize(_ *opEngineExecContext) error {
+func (op *nmaRotateTLSCertsOp) finalize(_ *opEngineExecContext) error {
 	return nil
 }
 
-func (op *nmaRotateHTTPSCertsOp) processResult(_ *opEngineExecContext) error {
+func (op *nmaRotateTLSCertsOp) processResult(_ *opEngineExecContext) error {
 	var allErrs error
 
 	for host, result := range op.clusterHTTPRequest.ResultCollection {
 		if result.isPassing() {
-			resp := rotateHTTPSCertsResponse{}
+			resp := rotateTLSCertsResponse{}
 			err := op.parseAndCheckResponse(host, result.content, &resp)
 			if err != nil {
 				op.logResponse(host, result)
