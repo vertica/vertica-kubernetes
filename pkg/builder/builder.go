@@ -27,7 +27,6 @@ import (
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	v1beta1 "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/cloud"
-	"github.com/vertica/vertica-kubernetes/pkg/meta"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
@@ -1431,7 +1430,7 @@ func makeCanaryQueryProbe(vdb *vapi.VerticaDB) *corev1.Probe {
 // is enabled
 func getHTTPServerVersionEndpointProbe(vdb *vapi.VerticaDB) *corev1.Probe {
 	if vmeta.UseVClusterOps(vdb.Annotations) {
-		if vdb.IsCertRotationEnabled() || meta.SetupTLSConfig(vdb.Annotations) {
+		if vdb.IsCertRotationEnabled() {
 			return makeHTTPVersionEndpointProbe()
 		} else {
 			return makeHTTPSVersionEndpointProbe()

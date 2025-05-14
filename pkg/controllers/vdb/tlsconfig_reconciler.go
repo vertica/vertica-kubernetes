@@ -18,6 +18,7 @@ package vdb
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/go-logr/logr"
@@ -72,15 +73,18 @@ func MakeTLSConfigReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger, vdb
 // Reconcile will create a TLS secret for the http server if one is missing
 func (h *TLSConfigReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
 	h.Log.Info("in tls config reconcile 1")
-	if h.Vdb.IsCertRotationEnabled() && len(h.Vdb.Status.SecretRefs) != 0 || !h.Vdb.IsStatusConditionTrue(vapi.DBInitialized) {
+	if h.Vdb.IsCertRotationEnabled() && len(h.Vdb.Status.SecretRefs) != 0 || !h.Vdb.IsStatusConditionTrue(vapi.DBInitialized) ||
+		h.Vdb.IsStatusConditionTrue(vapi.UpgradeInProgress) {
 		return ctrl.Result{}, nil
 	}
 
 	if !meta.SetupTLSConfig(h.Vdb.Annotations) {
 		return ctrl.Result{}, nil
 	}
-	h.VRec.Eventf(h.Vdb, corev1.EventTypeNormal, events.TLSConfigurationStarted,
-		"Starting to configure TLS")
+	h.Log.Info("entry condition, cert rotate enabled ? " + strconv.FormatBool(h.Vdb.IsCertRotationEnabled()) +
+		", num of status secrets - " + strconv.Itoa(len(h.Vdb.Status.SecretRefs)) + ", is db initialized ? " +
+		strconv.FormatBool(h.Vdb.IsStatusConditionTrue(vapi.DBInitialized)) + ", setup tls - " +
+		strconv.FormatBool(meta.SetupTLSConfig(h.Vdb.Annotations)))
 	h.Log.Info("tls enabled, start to set up tls config")
 	err := h.Pfacts.Collect(ctx, h.Vdb)
 	if err != nil {
@@ -92,6 +96,8 @@ func (h *TLSConfigReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (c
 		h.Log.Info("No pod found to set up tls config. skip current loop.")
 		return ctrl.Result{}, nil
 	}
+	h.VRec.Eventf(h.Vdb, corev1.EventTypeNormal, events.TLSConfigurationStarted,
+		"Starting to configure TLS")
 	currentSecretData, res, err := h.readSecret(h.Vdb, h.VRec, h.VRec.GetClient(), h.Log, ctx,
 		h.Vdb.Spec.NMATLSSecret)
 	if verrors.IsReconcileAborted(res, err) {
@@ -108,12 +114,14 @@ func (h *TLSConfigReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (c
 			builder.NMAClientSecretNameEnv:      h.Vdb.Spec.ClientServerTLSSecret,
 		}
 		configMap.Data = tlsMap
+		configMap.SetName(configMapName.Name)
+		configMap.SetNamespace(configMap.GetNamespace())
 		err = h.VRec.GetClient().Update(ctx, configMap)
-		if err == nil {
-			h.Log.Info("updated tls cert secret configmap", "name", configMapName.Name, "nma-secret", h.Vdb.Spec.NMATLSSecret,
-				"clientserver-secret", h.Vdb.Spec.ClientServerTLSSecret)
+		if err != nil {
+			h.Log.Error(err, "failed to update tls cert secret configmap")
 		}
-		h.Log.Info("tls config map updated")
+		h.Log.Info("updated tls cert secret configmap", "name", configMapName.Name, "nma-secret", h.Vdb.Spec.NMATLSSecret,
+			"clientserver-secret", h.Vdb.Spec.ClientServerTLSSecret)
 	}
 	/* currentCert := string(currentSecretData[corev1.TLSCertKey])
 	 rotated, err := security.VerifyCert(initiatorPod.GetPodIP(), builder.NMAPort, "", currentCert, h.Log)
