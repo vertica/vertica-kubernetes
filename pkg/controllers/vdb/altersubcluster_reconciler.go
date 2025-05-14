@@ -103,9 +103,9 @@ func (a *AlterSubclusterTypeReconciler) findSandboxSubclustersToAlter(isUpgrade 
 			// we need to change the subcluster is_primary to true in the database
 			pn := names.GenPodName(a.Vdb, sc, int32(i))
 			pf, ok := a.PFacts.Detail[pn]
-			// Bail out if one of the pods in the subcluster isn't found
+			// skip if one of the pods in the subcluster isn't found
 			if !ok {
-				return scs, fmt.Errorf("could not find pod %s", pn)
+				continue
 			}
 			if sb.Subclusters[i].Type == vapi.PrimarySubcluster && !pf.GetIsPrimary() {
 				scs = append(scs, sc)
