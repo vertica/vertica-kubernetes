@@ -26,7 +26,7 @@ spec:
     - name: sec2
       type: primary
     - name: sec3
-      type: secondary
+      type: primary
   subclusters:
   - name: pri1
     type: primary
@@ -52,9 +52,9 @@ status:
     - addedToDBCount: 1
       name: sec1
       type: sandboxprimary
-    - addedToDBCount: 2
+    - addedToDBCount: 3
       name: sec2
       type: sandboxprimary
     - addedToDBCount: 1
       name: sec3
-      type: sandboxsecondary
+      type: sandboxprimary

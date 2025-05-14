@@ -35,8 +35,8 @@ kind: StatefulSet
 metadata:
   name: v-sandbox-sec2
 status:
-  currentReplicas: 2
-  readyReplicas: 2
+  currentReplicas: 3
+  readyReplicas: 3
 ---
 apiVersion: apps/v1
 kind: StatefulSet
@@ -60,8 +60,8 @@ status:
       upNodeCount: 1
       name: sec1
       type: secondary
-    - addedToDBCount: 2
-      upNodeCount: 2
+    - addedToDBCount: 3
+      upNodeCount: 3
       name: sec2
       type: secondary
     - addedToDBCount: 1

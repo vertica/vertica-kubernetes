@@ -25,4 +25,4 @@ spec:
       - name: sec2
         type: primary
       - name: sec3
-        type: secondary
+        type: primary

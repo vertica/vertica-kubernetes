@@ -52,7 +52,7 @@ status:
     - addedToDBCount: 1
       name: sec1
       type: sandboxprimary
-    - addedToDBCount: 2
+    - addedToDBCount: 3
       name: sec2
       type: secondary
     - addedToDBCount: 1
