@@ -20,7 +20,6 @@ spec:
   ignoreClusterLease: true
   communal:
     includeUIDInPath: false
-  httpServerTLSSecret: custom-cert
   initPolicy: Revive
   local:
     # The operator will overwrite the paths with the correct ones. So put
