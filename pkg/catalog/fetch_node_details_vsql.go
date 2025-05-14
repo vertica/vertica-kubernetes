@@ -85,6 +85,7 @@ func (v *VSQL) buildFetchNodeStateQuery() string {
 	}
 	if v.VDB.IsEON() && ok && vinf.IsEqualOrNewer(vapi.NodesHaveSandboxStateVersion) {
 		cols = fmt.Sprintf("%s, n.sandbox", cols)
+		cols = fmt.Sprintf("%s, n.is_primary", cols)
 	}
 	var sql string
 	if v.VDB.IsEON() {
@@ -130,9 +131,11 @@ func (nodeDetails *NodeDetails) parseNodeState(stdout string) error {
 		return nil
 	}
 	// The stdout comes in the form like this:
-	// v_vertdb_node0001|UP|41231232423|t|sandbox1
+	// node_name|node_state|subcluster_oid|is_readonly|sandbox|is_primary
+	// v_vertdb_node0001|UP|41231232423|t|sandbox1|t
 	// This means upNode is true, subcluster oid is 41231232423 readOnly is
-	// true and the node is part of sandbox1. The node name is included in the output for debug purposes, but
+	// true, the node is part of sandbox1 and is_primary is true. The node
+	// name is included in the output for debug purposes, but
 	// otherwise not used.
 	//
 	// The 2nd column for node state is ignored in here. It is just for
@@ -154,6 +157,9 @@ func (nodeDetails *NodeDetails) parseNodeState(stdout string) error {
 		// sandbox can be missing on versions that don't support that state
 		if len(cols) > MinExpectedCols+1 {
 			nodeDetails.SandboxName = cols[4]
+		}
+		if len(cols) > MinExpectedCols+2 {
+			nodeDetails.IsPrimary = cols[5] == "t"
 		}
 	} else {
 		nodeDetails.ReadOnly = false
