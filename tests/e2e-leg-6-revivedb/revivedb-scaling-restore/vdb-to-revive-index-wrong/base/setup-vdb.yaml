@@ -39,3 +39,5 @@ spec:
   restorePoint:
     archive: "db"
     index: 100
+  nmaTLSSecret: custom-cert
+  clientServerTLSSecret: custom-cert
