@@ -97,7 +97,12 @@ func (a *AlterSubclusterTypeReconciler) findSandboxSubclustersToAlter(isUpgrade 
 			// if sandbox subcluster type is primary but podfacts (from database) is_primary is false,
 			// we need to change the subcluster is_primary to true in the database
 			pf, ok := a.PFacts.FindFirstUpPod(false, sc.Name)
-			if ok && sb.Subclusters[i].Type == vapi.PrimarySubcluster && !pf.GetIsPrimary() {
+			// skip if one of the pods in the subcluster isn't found
+			if !ok {
+				continue
+			}
+			if sb.Subclusters[i].Type == vapi.PrimarySubcluster && !pf.GetIsPrimary() ||
+				sb.Subclusters[i].Type == vapi.SecondarySubcluster && pf.GetIsPrimary() {
 				scs = append(scs, sc)
 			}
 		}

@@ -191,8 +191,8 @@ func (s *StatusReconciler) calculateSubclusterStatusType(sc *vapi.Subcluster) st
 	}
 
 	pf, ok := s.PFacts.FindFirstUpPod(true, sc.Name)
-	// If we don't have any pods in the subcluster, we can't determine the type
-	// of the subcluster.
+	// If we don't have any up pods (could be read-only) in the subcluster, we
+	// can't determine the type of the subcluster.
 	if !ok {
 		s.Log.Info("No up pods found in the subcluster to calculate its status type",
 			"subcluster", sc.Name)

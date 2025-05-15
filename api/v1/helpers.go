@@ -970,13 +970,6 @@ func (v *VerticaDB) IsKSafetyAfterRemoval(sbName string, offset int) bool {
 		minHosts = KSafety1MinHosts
 	}
 
-	// TODO: to use the same k-safety min hosts for sandbox.
-	// currently we allow sandbox to have at least 1 primary node
-	// because no k-safety check when sandboxing subclusters
-	if sbName != MainCluster {
-		minHosts = 1
-	}
-
 	primaryCount := v.GetSandboxPrimaryUpCount(sbName)
 	if sbName == MainCluster {
 		primaryCount = v.GetMainPrimaryUpCount()
