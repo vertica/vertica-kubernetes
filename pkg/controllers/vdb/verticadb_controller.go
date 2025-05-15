@@ -188,8 +188,6 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		MakeCrashLoopReconciler(r, log, vdb),
 		// Always generate cert first if nothing is provided
 		MakeTLSServerCertGenReconciler(r, log, vdb),
-		// Set up TLS config if users turn it on
-		MakeTLSConfigReconciler(r, log, vdb, prunner, dispatcher, pfacts),
 		// Trigger sandbox upgrade when the image field for the sandbox
 		// is changed
 		MakeSandboxUpgradeReconciler(r, log, vdb, false),
@@ -304,6 +302,8 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		MakeObjReconciler(r, log, vdb, pfacts, ObjReconcileModeAll),
 		// Handle calls to create a restore point
 		MakeSaveRestorePointReconciler(r, vdb, log, pfacts, dispatcher, r.Client),
+		// Set up TLS config if users turn it on
+		MakeTLSConfigReconciler(r, log, vdb, prunner, dispatcher, pfacts),
 		// rotate https tls cert when tls cert secret name is changed in vdb.spec
 		MakeHTTPSCertRotationReconciler(r, log, vdb, dispatcher, pfacts),
 		// rotate nma tls cert when tls cert secret name is changed in vdb.spec

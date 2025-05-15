@@ -74,7 +74,7 @@ func MakeTLSConfigReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger, vdb
 func (h *TLSConfigReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
 	h.Log.Info("in tls config reconcile 1")
 	if h.Vdb.IsCertRotationEnabled() && len(h.Vdb.Status.SecretRefs) != 0 || !h.Vdb.IsStatusConditionTrue(vapi.DBInitialized) ||
-		h.Vdb.IsStatusConditionTrue(vapi.UpgradeInProgress) {
+		h.Vdb.IsStatusConditionTrue(vapi.UpgradeInProgress) || h.Vdb.IsStatusConditionTrue(vapi.VerticaRestartNeeded) {
 		return ctrl.Result{}, nil
 	}
 
