@@ -24,7 +24,6 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
-	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/altersc"
@@ -73,10 +72,6 @@ func (a *AlterSubclusterTypeReconciler) Reconcile(ctx context.Context, _ *ctrl.R
 }
 
 // findSandboxSubclustersToAlter returns a list of subclusters whose type needs to be changed
-//
-// to G115: integer overflow conversion int -> int32 (gosec)
-//
-//nolint:gosec
 func (a *AlterSubclusterTypeReconciler) findSandboxSubclustersToAlter(isUpgrade bool) ([]*vapi.Subcluster, error) {
 	scs := []*vapi.Subcluster{}
 
@@ -101,13 +96,8 @@ func (a *AlterSubclusterTypeReconciler) findSandboxSubclustersToAlter(isUpgrade 
 			// set the first one as primary
 			// if sandbox subcluster type is primary but podfacts (from database) is_primary is false,
 			// we need to change the subcluster is_primary to true in the database
-			pn := names.GenPodName(a.Vdb, sc, int32(i))
-			pf, ok := a.PFacts.Detail[pn]
-			// skip if one of the pods in the subcluster isn't found
-			if !ok {
-				continue
-			}
-			if sb.Subclusters[i].Type == vapi.PrimarySubcluster && !pf.GetIsPrimary() {
+			pf, ok := a.PFacts.FindFirstUpPod(false, sc.Name)
+			if ok && sb.Subclusters[i].Type == vapi.PrimarySubcluster && !pf.GetIsPrimary() {
 				scs = append(scs, sc)
 			}
 		}
@@ -134,7 +124,9 @@ func (a *AlterSubclusterTypeReconciler) alterSubclusterType(ctx context.Context,
 	initiatorIP string) error {
 	scType := vapi.SecondarySubcluster
 	newType := vapi.PrimarySubcluster
-	if sc.IsPrimary(a.Vdb) {
+	// check db is_primary
+	pf, ok := a.PFacts.FindFirstUpPod(false, sc.Name)
+	if ok && pf.GetIsPrimary() {
 		scType = vapi.PrimarySubcluster
 		newType = vapi.SecondarySubcluster
 	}

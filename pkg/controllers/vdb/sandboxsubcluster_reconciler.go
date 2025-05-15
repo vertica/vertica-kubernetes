@@ -18,6 +18,7 @@ package vdb
 import (
 	"context"
 	"reflect"
+	"sort"
 
 	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
@@ -152,9 +153,10 @@ func (s *SandboxSubclusterReconciler) sandboxSubclusters(ctx context.Context) (c
 	if verrors.IsReconcileAborted(res, err) {
 		return res, err
 	}
+
 	s.PFacts.Invalidate()
 
-	return s.updateSandboxSubclusterType(ctx, scSbMap)
+	return ctrl.Result{}, nil
 }
 
 // executeSandboxCommand will call sandbox API in vclusterOps, create/update sandbox config maps,
@@ -162,11 +164,21 @@ func (s *SandboxSubclusterReconciler) sandboxSubclusters(ctx context.Context) (c
 func (s *SandboxSubclusterReconciler) executeSandboxCommand(ctx context.Context, scSbMap map[string]string) (ctrl.Result, error) {
 	seenSandboxes := make(map[string]any)
 
-	// We can simply loop over the scSbMap and sandbox each subcluster.
+	// We can simply loop over the scSbMap and sandbox each subcluster. However,
+	// we want to sandbox in a deterministic order because the first subcluster
+	// in a sandbox is the primary.
 	for i := range s.Vdb.Spec.Sandboxes {
-		vdbSb := &s.Vdb.Spec.Sandboxes[i]
+		sbs := &s.Vdb.Spec.Sandboxes[i]
 		var sbName string
 		sbScs := []string{}
+
+		// sort sandbox subclusters according to the order of sandbox subclusters type (primary, secondary)
+		// to make sure the first subcluster is always sandbox primary
+		vdbSb := sbs.DeepCopy()
+		sort.Slice(vdbSb.Subclusters, func(i, j int) bool {
+			return vdbSb.Subclusters[i].Type < vdbSb.Subclusters[j].Type
+		})
+
 		for j := range vdbSb.Subclusters {
 			sc := vdbSb.Subclusters[j].Name
 			sb, found := scSbMap[sc]
@@ -195,6 +207,7 @@ func (s *SandboxSubclusterReconciler) executeSandboxCommand(ctx context.Context,
 			if verrors.IsReconcileAborted(res, err) {
 				return res, err
 			}
+
 			seenSandboxes[sb] = struct{}{}
 
 			// Always update status as we go. When sandboxing two subclusters in
@@ -220,6 +233,14 @@ func (s *SandboxSubclusterReconciler) executeSandboxCommand(ctx context.Context,
 			s.Log.Error(err, "failed waiting for newly sandboxed subclusters to be up", "sandbox", sbName, "subclusters", sbScs)
 			return ctrl.Result{Requeue: true}, nil
 		}
+
+		// vclusterOps only set the first subcluster to primary in the sandbox, so
+		// after the newly sandboxed subclusters is up, we need to update is_primary
+		// in database according to vdb sandbox subcluster type
+		res, err := s.updateSandboxSubclusterType(ctx, sbName)
+		if verrors.IsReconcileAborted(res, err) {
+			return res, err
+		}
 	}
 
 	// create/update a sandbox config map
@@ -234,31 +255,14 @@ func (s *SandboxSubclusterReconciler) executeSandboxCommand(ctx context.Context,
 	return ctrl.Result{}, nil
 }
 
-// updateSandboxSubclusterType updates is_primary to true in database for the primary subclusters in sandboxes
-func (s *SandboxSubclusterReconciler) updateSandboxSubclusterType(ctx context.Context, scSbMap map[string]string) (ctrl.Result, error) {
-	// get sandboxes that need to be updated
-	sbToUpdate := []string{}
-	seen := make(map[string]bool)
-	for sc := range scSbMap {
-		sb := scSbMap[sc]
-		if seen[sb] {
-			continue
-		}
-		sbToUpdate = append(sbToUpdate, sb)
-		seen[sb] = true
-	}
-
-	// vclusterOps will set the first primary subcluster in the sandbox, so we need to update
-	// is_primary to true in database for the rest of the primary subclusters
-	sbPFacts := s.PFacts
-	for i := range sbToUpdate {
-		sbPFacts.SandboxName = sbToUpdate[i]
-		actor := MakeAlterSubclusterTypeReconciler(s.VRec, s.Log, s.Vdb, sbPFacts, s.Dispatcher, false /* forUpgrade */)
-		res, err := actor.Reconcile(ctx, &ctrl.Request{})
-		if err != nil {
-			s.Log.Error(err, "Failed to update subcluster is_primary in sandbox", "sandbox", sbPFacts.SandboxName)
-			return res, err
-		}
+// updateSandboxSubclusterType updates is_primary in database according to sandbox subcluster type
+func (s *SandboxSubclusterReconciler) updateSandboxSubclusterType(ctx context.Context, sb string) (ctrl.Result, error) {
+	sbPFacts := s.PFacts.Copy(sb)
+	actor := MakeAlterSubclusterTypeReconciler(s.VRec, s.Log, s.Vdb, &sbPFacts, s.Dispatcher, false /* forUpgrade */)
+	res, err := actor.Reconcile(ctx, &ctrl.Request{})
+	if err != nil {
+		s.Log.Error(err, "Failed to update subcluster is_primary in sandbox", "sandbox", sb)
+		return res, err
 	}
 
 	return ctrl.Result{}, nil
