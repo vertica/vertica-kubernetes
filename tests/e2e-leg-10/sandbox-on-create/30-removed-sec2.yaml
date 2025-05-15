@@ -25,7 +25,7 @@ spec:
       size: 3
       type: primary
     - name: sec1
-      size: 1
+      size: 3
       type: secondary
 status:
   sandboxes:
@@ -37,8 +37,8 @@ status:
       upNodeCount: 3
       name: pri1
       type: primary
-    - addedToDBCount: 1
-      upNodeCount: 1
+    - addedToDBCount: 3
+      upNodeCount: 3
       name: sec1
       type: sandboxprimary
 
