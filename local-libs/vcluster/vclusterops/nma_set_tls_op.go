@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"regexp"
 )
 
 type nmaSetTLSOp struct {
@@ -74,7 +75,7 @@ func (op *nmaSetTLSOp) setupRequestBody(
 	setConfigData.TLSNamespace = configMap[TLSSecretManagerKeyNamespace]
 	setConfigData.TLSSecretName = configMap[TLSSecretManagerKeySecretName]
 	setConfigData.TLSMode = configMap[TLSSecretManagerKeyTLSMode]
-	setConfigData.TLSSecretManager = configMap[TLSSecretManagerKeySecretManager]
+	setConfigData.TLSSecretManager = genNMACompatibleTLSMode(configMap[TLSSecretManagerKeySecretManager])
 	setConfigData.AWSRegion = configMap[TLSSecretManagerKeyAWSRegion]
 	setConfigData.AWSSecretVersionID = configMap[TLSSecretManagerKeyAWSSecretVersionID]
 	setConfigData.TLSConfigGrantAuth = grantAuth
@@ -136,4 +137,9 @@ func (op *nmaSetTLSOp) processResult(_ *opEngineExecContext) error {
 	}
 
 	return allErrs
+}
+
+func genNMACompatibleTLSMode(tlsMode string) string {
+	m := regexp.MustCompile(`_`)
+	return m.ReplaceAllString(tlsMode, "-")
 }
