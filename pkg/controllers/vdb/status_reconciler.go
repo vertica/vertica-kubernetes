@@ -190,17 +190,16 @@ func (s *StatusReconciler) calculateSubclusterStatusType(sc *vapi.Subcluster) st
 		return ""
 	}
 
-	pn := names.GenPodName(s.Vdb, sc, 0)
-	pf, ok := s.PFacts.Detail[pn]
+	pf, ok := s.PFacts.FindFirstUpPod(true, sc.Name)
+	// If we don't have any pods in the subcluster, we can't determine the type
+	// of the subcluster.
 	if !ok {
-		s.Log.Info("No pods found in the subcluster to calculate its status type",
+		s.Log.Info("No up pods found in the subcluster to calculate its status type",
 			"subcluster", sc.Name)
 		return ""
 	}
 
-	// if in a sandbox, set subcluster type according to the sandbox status
-	isSandbox := pf.GetSandbox() != ""
-	if isSandbox {
+	if pf.GetSandbox() != "" {
 		if pf.GetIsPrimary() {
 			return vapi.SandboxPrimarySubcluster
 		} else {
