@@ -18,7 +18,7 @@ metadata:
   annotations:
     vertica.com/statefulset-name-override: "v-upgrade-bad-image-main-sb"
 status:
-  currentReplicas: 3
+  availableReplicas: 3
   readyReplicas: 3
 ---
 apiVersion: vertica.com/v1
