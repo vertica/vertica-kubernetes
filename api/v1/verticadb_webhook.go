@@ -1374,7 +1374,7 @@ func (v *VerticaDB) validateSubclustersInSandboxes(allErrs field.ErrorList) fiel
 				sandboxes[i],
 				fmt.Sprintf("subcluster %s does not exist", sc))
 			allErrs = append(allErrs, err)
-		} else if scInfo.IsMainPrimary() {
+		} else if scInfo.IsPrimary(v) && !scInfo.IsSandboxPrimary(v) {
 			err := field.Invalid(path.Index(i),
 				sandboxes[i],
 				fmt.Sprintf("subcluster %s is a primary subcluster that is not allowed to be in a sandbox", sc))
