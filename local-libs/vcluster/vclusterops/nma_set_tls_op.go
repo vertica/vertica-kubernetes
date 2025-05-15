@@ -74,8 +74,8 @@ func (op *nmaSetTLSOp) setupRequestBody(
 	setConfigData.TLSConfigName = configName
 	setConfigData.TLSNamespace = configMap[TLSSecretManagerKeyNamespace]
 	setConfigData.TLSSecretName = configMap[TLSSecretManagerKeySecretName]
-	setConfigData.TLSMode = configMap[TLSSecretManagerKeyTLSMode]
-	setConfigData.TLSSecretManager = genNMACompatibleTLSMode(configMap[TLSSecretManagerKeySecretManager])
+	setConfigData.TLSMode = genNMACompatibleTLSMode(configMap[TLSSecretManagerKeyTLSMode])
+	setConfigData.TLSSecretManager = configMap[TLSSecretManagerKeySecretManager]
 	setConfigData.AWSRegion = configMap[TLSSecretManagerKeyAWSRegion]
 	setConfigData.AWSSecretVersionID = configMap[TLSSecretManagerKeyAWSSecretVersionID]
 	setConfigData.TLSConfigGrantAuth = grantAuth
