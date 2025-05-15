@@ -204,7 +204,6 @@ func (r *OnlineUpgradeReconciler) Reconcile(ctx context.Context, _ *ctrl.Request
 		r.clearConfigParamDisableNonReplicatableQueries,
 		// Change replica b subcluster types to match the main cluster's
 		r.postPromoteSubclustersInSandboxMsg,
-		r.promoteReplicaBSubclusters,
 		// Upgrade the version in the sandbox to the new version.
 		r.postUpgradeSandboxMsg,
 		r.upgradeSandbox,
@@ -600,25 +599,6 @@ func (r *OnlineUpgradeReconciler) sandboxReplicaGroupB(ctx context.Context) (ctr
 // we are going to prmote subclusters in sandbox.
 func (r *OnlineUpgradeReconciler) postPromoteSubclustersInSandboxMsg(ctx context.Context) (ctrl.Result, error) {
 	return r.postNextStatusMsg(ctx, promoteSubclustersInSandboxMsgInx)
-}
-
-// promoteReplicaBSubclusters promotes all of the secondaries in replica group B whose
-// parent subcluster is primary
-func (r *OnlineUpgradeReconciler) promoteReplicaBSubclusters(ctx context.Context) (ctrl.Result, error) {
-	// If we have already promoted sandbox to main, we don't need to promote subclusters in sandbox
-	if vmeta.GetOnlineUpgradeStepInx(r.VDB.Annotations) > promoteSandboxInx {
-		return ctrl.Result{}, nil
-	}
-
-	// Get the sandbox podfacts only to invalidate the cache
-	sbPFacts, err := r.getSandboxPodFacts(ctx, false)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-	sbPFacts.Invalidate()
-	actor := MakeAlterSubclusterTypeReconciler(r.VRec, r.Log, r.VDB, sbPFacts, r.Dispatcher, true /* forUpgrade */)
-	r.Manager.traceActorReconcile(actor)
-	return actor.Reconcile(ctx, &ctrl.Request{})
 }
 
 // postUpgradeSandboxMsg will update the status message to indicate that
