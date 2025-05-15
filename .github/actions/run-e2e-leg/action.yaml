@@ -194,9 +194,10 @@ runs:
           export USE_CERT="${{ inputs.use-cert }}"
 
           if [[ "${{ inputs.leg-identifier }}" == "leg-1" || \
-                "${{ inputs.leg-identifier }}" == "leg-2" ]]; then
-            if [[ "${USE_CERT}" != "true" ]]; then
-                E2E_TEST_DIRS+=" tests/e2e-${{ inputs.leg-identifier }}-failed-with-cert";
+                "${{ inputs.leg-identifier }}" == "leg-2" || \
+                "${{ inputs.leg-identifier }}" == "leg-5" ]]; then
+            if [[ "${USE_CERT}" == "true" ]]; then
+                E2E_TEST_DIRS+=" tests/e2e-${{ inputs.leg-identifier }}-with-cert";
             fi
           fi
 
