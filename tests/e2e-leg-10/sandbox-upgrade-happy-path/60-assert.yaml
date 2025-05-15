@@ -22,7 +22,7 @@ spec:
   - name: sec1
     type: secondary
   - name: pri1-sb
-    type: sandboxprimary
+    type: secondary
   - name: sec1-sb
     type: secondary
 status:

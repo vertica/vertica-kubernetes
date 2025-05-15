@@ -26,11 +26,11 @@ spec:
     type: primary
   - name: sec1
     size: 3
-    shutdown: true
     type: sandboxprimary
   - name: sec2
     size: 1
-    type: secondary
+    shutdown: true
+    type: sandboxprimary
   - name: sec3
     size: 1
     type: secondary
