@@ -1,6 +1,16 @@
-K8S_TLS_ENABLED=$(kubectl exec -n $NAMESPACE v-tls-certs-sc1-0 -c server -- vsql -tAc "SELECT is_auth_enabled FROM client_auth where auth_name='aws_k8s_tls_builtin_auth';")
-if [[ $K8S_TLS_ENABLED != "True" ]]; then
-    echo "ERROR: aws_k8s_tls_builtin_auth not enabled"
+K8S_LOCAL_TLS_ENABLED=$(kubectl exec -n $NAMESPACE v-tls-certs-sc1-0 -c server -- vsql -tAc "SELECT is_auth_enabled FROM client_auth where auth_name='k8s_local_tls_builtin_auth';")
+if [[ $K8S_LOCAL_TLS_ENABLED != "True" ]]; then
+    echo "ERROR: k8s_local_tls_builtin_auth not enabled"
+    exit 1
+fi
+K8S_REMOTE_IPv4_TLS_ENABLED=$(kubectl exec -n $NAMESPACE v-tls-certs-sc1-0 -c server -- vsql -tAc "SELECT is_auth_enabled FROM client_auth where auth_name='k8s_remote_ipv4_tls_builtin_auth';")
+if [[ $K8S_REMOTE_IPv4_TLS_ENABLED != "True" ]]; then
+    echo "ERROR: k8s_remote_ipv4_tls_builtin_auth not enabled"
+    exit 1
+fi
+K8S_REMOTE_IPv6_TLS_ENABLED=$(kubectl exec -n $NAMESPACE v-tls-certs-sc1-0 -c server -- vsql -tAc "SELECT is_auth_enabled FROM client_auth where auth_name='k8s_remote_ipv6_tls_builtin_auth';")
+if [[ $K8S_REMOTE_IPv6_TLS_ENABLED != "True" ]]; then
+    echo "ERROR: k8s_remote_ipv6_tls_builtin_auth not enabled"
     exit 1
 fi
 CERT_NAME=$(kubectl exec -n $NAMESPACE v-tls-certs-sc1-0 -c server -- vsql -tAc "select certificate from tls_configurations where name='https' and owner='dbadmin';")
