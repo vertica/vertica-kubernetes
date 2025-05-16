@@ -25,11 +25,6 @@ import (
 	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
-const (
-	serverTLSKeyPrefix string = "server"
-	httpsTLSKeyPrefix  string = "https"
-)
-
 // VCreateDatabaseOptions represents the available options when you create a database with
 // VCreateDatabase.
 type VCreateDatabaseOptions struct {
@@ -142,7 +137,7 @@ func (options *VCreateDatabaseOptions) validateRequiredOptions(logger vlog.Print
 		if _, exist := options.ServerTLSConfiguration[TLSSecretManagerKeyTLSMode]; !exist {
 			options.ServerTLSConfiguration[TLSSecretManagerKeyTLSMode] = string(tlsModeTryVerify)
 		}
-		err = validateTLSConfigurationMap(options.ServerTLSConfiguration, "server", logger)
+		err = validateTLSConfigurationMap(options.ServerTLSConfiguration, serverTLSKeyPrefix, logger)
 		if err != nil {
 			return err
 		}
@@ -151,7 +146,7 @@ func (options *VCreateDatabaseOptions) validateRequiredOptions(logger vlog.Print
 		if _, exist := options.HTTPSTLSConfiguration[TLSSecretManagerKeyTLSMode]; !exist {
 			options.HTTPSTLSConfiguration[TLSSecretManagerKeyTLSMode] = string(tlsModeTryVerify)
 		}
-		err = validateTLSConfigurationMap(options.HTTPSTLSConfiguration, "https", logger)
+		err = validateTLSConfigurationMap(options.HTTPSTLSConfiguration, httpsTLSKeyPrefix, logger)
 		if err != nil {
 			return err
 		}
@@ -162,6 +157,12 @@ func (options *VCreateDatabaseOptions) validateRequiredOptions(logger vlog.Print
 // validateTLSConfigurationMap validates a given tls configuration map
 func validateTLSConfigurationMap(configMap map[string]string, configType string, logger vlog.Printer) error {
 	logger.Info(fmt.Sprintf("Validating options for customize %s cert", configType))
+
+	if doUseBootstrapTLSConfig(configMap, configType) {
+		// skip remaining validation, as using the JSON bootstrap requires no inputs
+		logger.Info(fmt.Sprintf("Using server bootstrap configuration for %q TLS instead of a secrets manager", configType))
+		return nil
+	}
 
 	err := validateAllwaysRequiredKeys(configMap)
 	if err != nil {
@@ -389,6 +390,7 @@ func (vcc VClusterCommands) VCreateDatabase(options *VCreateDatabaseOptions) (VC
 //   - Mark design ksafe
 //   - Install packages
 //   - Enable TLS authentication if needed
+//   - Bootstrap https and/or client/server TLS if needed
 //   - Sync catalog
 func (vcc VClusterCommands) produceCreateDBInstructions(
 	vdb *VCoordinationDatabase,
@@ -413,9 +415,15 @@ func (vcc VClusterCommands) produceCreateDBInstructions(
 		return instructions, err
 	}
 
+	finalInstructions, err := vcc.produceFinalCreateDBInstructions(vdb, options)
+	if err != nil {
+		return instructions, err
+	}
+
 	instructions = append(instructions, workerNodesInstructions...)
 	instructions = append(instructions, additionalInstructions...)
 	instructions = append(instructions, tlsInstructions...)
+	instructions = append(instructions, finalInstructions...)
 
 	return instructions, nil
 }
@@ -599,6 +607,16 @@ func (vcc VClusterCommands) produceAdditionalCreateDBInstructions(vdb *VCoordina
 		}
 		instructions = append(instructions, &httpsInstallPackagesOp)
 	}
+	return instructions, nil
+}
+
+// produceAdditionalTLSInstructions returns additional TLS instruction necessary for create_db.
+func (vcc VClusterCommands) produceAdditionalTLSInstructions(options *VCreateDatabaseOptions) ([]clusterOp, error) {
+	var instructions []clusterOp
+
+	bootstrapHost := options.bootstrapHost
+	username := options.UserName
+
 	if options.EnableTLSAuth {
 		authName := util.DefaultIPv4AuthName
 		authHosts := util.DefaultIPv4AuthHosts
@@ -606,6 +624,7 @@ func (vcc VClusterCommands) produceAdditionalCreateDBInstructions(vdb *VCoordina
 			authName = util.DefaultIPv6AuthName
 			authHosts = util.DefaultIPv6AuthHosts
 		}
+		// create cluster (i.e. HOST TLS) authentication for future HTTPS ops
 		httpsCreateTLSAuthOp, err := makeHTTPSCreateTLSAuthOp(bootstrapHost, true /* use password */, username, options.Password,
 			authName, authHosts)
 		if err != nil {
@@ -619,7 +638,62 @@ func (vcc VClusterCommands) produceAdditionalCreateDBInstructions(vdb *VCoordina
 			return instructions, err
 		}
 		instructions = append(instructions, &httpsGrantTLSAuthOp)
+
+		// if client/server TLS is being bootstrapped, set up LOCAL TLS auth as well for NMA SQL ops
+		if vcc.doSetServerTLSFromBootstrapConfig(options) {
+			localAuthName := util.DefaultLocalAuthName
+			httpsCreateLocalTLSAuthOp, err := makeHTTPSCreateLocalTLSAuthOp(bootstrapHost, true /* use password */, username, options.Password,
+				localAuthName)
+			if err != nil {
+				return instructions, err
+			}
+			instructions = append(instructions, &httpsCreateLocalTLSAuthOp)
+
+			httpsGrantLocalTLSAuthOp, err := makeHTTPSGrantTLSAuthOp(bootstrapHost, true /* use password */, username, options.Password,
+				localAuthName, username /*grantee of tls auth*/)
+			if err != nil {
+				return instructions, err
+			}
+			instructions = append(instructions, &httpsGrantLocalTLSAuthOp)
+		}
 	}
+	if vcc.doSetServerTLSFromBootstrapConfig(options) {
+		httpsSetTLSConfigOp, err := makeHTTPSSetTLSConfigAuthOp(bootstrapHost, true, username, options.Password)
+		if err != nil {
+			return instructions, err
+		}
+		instructions = append(instructions, &httpsSetTLSConfigOp)
+	} else if vcc.doSetServerTLSWithSecretManager(options) {
+		nmaSetServerTLSOp, err := makeNMASetTLSOp(&options.DatabaseOptions, serverTLSKeyPrefix,
+			false, // grantAuth
+			false, // syncCatalog
+			options.ServerTLSConfiguration)
+		if err != nil {
+			return instructions, err
+		}
+		instructions = append(instructions, &nmaSetServerTLSOp)
+	}
+	if vcc.doSetHTTPSTLSWithSecretManager(options) {
+		nmaSetHTTPSTLSOp, err := makeNMASetTLSOp(&options.DatabaseOptions, httpsTLSKeyPrefix,
+			true,  // grantAuth
+			false, // syncCatalog - will be done as a final step anyway
+			options.HTTPSTLSConfiguration)
+		if err != nil {
+			return instructions, err
+		}
+		instructions = append(instructions, &nmaSetHTTPSTLSOp)
+	}
+	return instructions, nil
+}
+
+// produceFinalCreateDBInstructions is where any ops which must be last go
+func (vcc VClusterCommands) produceFinalCreateDBInstructions(vdb *VCoordinationDatabase,
+	options *VCreateDatabaseOptions) ([]clusterOp, error) {
+	var instructions []clusterOp
+
+	bootstrapHost := options.bootstrapHost
+	username := options.UserName
+
 	if vdb.IsEon {
 		httpsSyncCatalogOp, err := makeHTTPSSyncCatalogOp(bootstrapHost, true, username, options.Password, CreateDBSyncCat)
 		if err != nil {
@@ -630,34 +704,36 @@ func (vcc VClusterCommands) produceAdditionalCreateDBInstructions(vdb *VCoordina
 	return instructions, nil
 }
 
-// produceAdditionalTLSInstructions returns additional TLS instruction necessary for create_db.
-func (vcc VClusterCommands) produceAdditionalTLSInstructions(options *VCreateDatabaseOptions) ([]clusterOp, error) {
-	var instructions []clusterOp
-	if _, exist := options.ServerTLSConfiguration[TLSSecretManagerKeySecretName]; exist {
-		nmaSetServerTLSOp, err := makeNMASetTLSOp(&options.DatabaseOptions, serverTLSKeyPrefix,
-			false, // grantAuth
-			false, // syncCatalog
-			options.ServerTLSConfiguration)
-		if err != nil {
-			return instructions, err
-		}
-		instructions = append(instructions, &nmaSetServerTLSOp)
-	}
-	if _, exist := options.HTTPSTLSConfiguration[TLSSecretManagerKeySecretName]; exist {
-		nmaSetHTTPSTLSOp, err := makeNMASetTLSOp(&options.DatabaseOptions, httpsTLSKeyPrefix,
-			true, // grantAuth
-			true, // syncCatalog
-			options.HTTPSTLSConfiguration)
-		if err != nil {
-			return instructions, err
-		}
-		instructions = append(instructions, &nmaSetHTTPSTLSOp)
-	}
-	return instructions, nil
-}
-
 func (vcc VClusterCommands) addEnableSpreadEncryptionOp(keyType string) clusterOp {
 	vcc.Log.Info("adding instruction to set key for spread encryption")
 	op := makeNMASpreadSecurityOp(vcc.Log, keyType)
 	return &op
+}
+
+func (vcc VClusterCommands) doSetServerTLSWithSecretManager(options *VCreateDatabaseOptions) bool {
+	if _, exist := options.ServerTLSConfiguration[TLSSecretManagerKeySecretManager]; exist {
+		if !doUseBootstrapTLSConfig(options.ServerTLSConfiguration, serverTLSKeyPrefix) {
+			vcc.Log.Info("using secrets manager to initialize client/server TLS")
+			return true
+		}
+	}
+	return false
+}
+
+func (vcc VClusterCommands) doSetServerTLSFromBootstrapConfig(options *VCreateDatabaseOptions) bool {
+	if _, exist := options.ServerTLSConfiguration[TLSSecretManagerKeySecretManager]; exist {
+		if doUseBootstrapTLSConfig(options.ServerTLSConfiguration, serverTLSKeyPrefix) {
+			vcc.Log.Info("using server-side bootstrap config to initialize client/server TLS")
+			return true
+		}
+	}
+	return false
+}
+
+func (vcc VClusterCommands) doSetHTTPSTLSWithSecretManager(options *VCreateDatabaseOptions) bool {
+	if _, exist := options.HTTPSTLSConfiguration[TLSSecretManagerKeySecretManager]; exist {
+		vcc.Log.Info("using secrets manager to initialize HTTPS server TLS")
+		return true
+	}
+	return false
 }

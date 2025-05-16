@@ -21,7 +21,6 @@ import (
 	"fmt"
 
 	mapset "github.com/deckarep/golang-set/v2"
-	"github.com/vertica/vcluster/vclusterops/util"
 )
 
 type nmaReplicationStatusOp struct {
@@ -44,25 +43,20 @@ func makeNMAReplicationStatusOp(targetHosts []string, targetUsePassword bool,
 	op.transactionIDs = transactionIDs
 	op.replicationStatus = replicationStatus
 
-	if targetUsePassword {
-		err := util.ValidateUsernameAndPassword(op.name, targetUsePassword, replicationStatusData.UserName)
-		if err != nil {
-			return op, err
-		}
-		op.UserName = replicationStatusData.UserName
-		op.Password = replicationStatusData.Password
+	err := ValidateSQLEndpointData(op.name, targetUsePassword,
+		replicationStatusData.DBUsername, &replicationStatusData.DBPassword, replicationStatusData.DBName)
+	if err != nil {
+		return op, err
 	}
 
 	return op, nil
 }
 
 type nmaReplicationStatusRequestData struct {
-	DBName                 string  `json:"dbname"`
+	sqlEndpointData
 	ExcludedTransactionIDs []int64 `json:"excluded_txn_ids,omitempty"`
 	GetTransactionIDsOnly  bool    `json:"get_txn_ids_only,omitempty"`
 	TransactionID          int64   `json:"txn_id,omitempty"`
-	UserName               string  `json:"username"`
-	Password               *string `json:"password"`
 }
 
 func (op *nmaReplicationStatusOp) updateRequestBody(hosts []string) error {
