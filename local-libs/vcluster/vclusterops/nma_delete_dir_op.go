@@ -100,16 +100,19 @@ func (op *nmaDeleteDirectoriesOp) buildRequestBody(
 
 		// directories
 		dbCatalogPath := filepath.Join(vdb.CatalogPrefix, vdb.Name)
-		dbDataPath := filepath.Join(vdb.DataPrefix, vdb.Name)
 		// most common case
 		if !op.retainCatalogDir {
+			dbDataPath := filepath.Join(vdb.DataPrefix, vdb.Name)
 			p.Directories = append(p.Directories, vnode.CatalogPath, dbCatalogPath, dbDataPath)
-		} else {
-			p.Directories = append(p.Directories, vnode.CatalogPath+nodeCatalogSubDirSuffix)
-			// avoid removing catalog path in case they have the same prefix as data path
-			if dbDataPath != dbCatalogPath {
-				p.Directories = append(p.Directories, dbDataPath)
+			p.Directories = append(p.Directories, vnode.StorageLocations...)
+			if vdb.UseDepot {
+				dbDepotPath := filepath.Join(vdb.DepotPrefix, vdb.Name)
+				p.Directories = append(p.Directories, vnode.DepotPath, dbDepotPath)
 			}
+		} else {
+			// if retainCatalogDir
+			// we only remove the v_<nodename>_catalog/Catalog directory
+			p.Directories = append(p.Directories, vnode.CatalogPath+nodeCatalogSubDirSuffix)
 			op.logger.Info("user specified retaining catalog directory of the database")
 		}
 
