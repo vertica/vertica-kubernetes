@@ -52,7 +52,10 @@ on:
         - vcluster leg 5
         - vcluster leg 6
         - vcluster leg 6 revivedb
+        - vcluster leg 6 revivedb cert
+        - vcluster leg 6 cert
         - vcluster leg 7
+        - vcluster leg 7 cert
         - leg 8
         - vcluster leg 9
         - vcluster leg 10
@@ -543,7 +546,30 @@ jobs:
           communal-storage-type: hostpath
           minimum-vertica-image: '24.2.0'
           e2e-retry-times: ${{ inputs.e2e_retry_times || 2 }}
-
+  
+  e2e-leg-6-vcluster-cert:
+    if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'vcluster leg 6 cert' || inputs.e2e_test_suites == '')}}
+    needs: [build]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Test
+        uses: ./.github/actions/run-e2e-leg
+        with:
+          leg-identifier: 'leg-6'
+          dockerhub-username: ${{ secrets.DOCKERHUB_USERNAME }}
+          dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}
+          vlogger-image: ${{ needs.build.outputs.vlogger-image }}
+          operator-image: ${{ needs.build.outputs.operator-image }}
+          vertica-image: ${{ needs.build.outputs.full-vertica-image }}
+          vertica-deployment-method: vclusterops
+          communal-storage-type: hostpath
+          minimum-vertica-image: '24.2.0'
+          e2e-retry-times: ${{ inputs.e2e_retry_times || 2 }}
+          use-cert: true
+          cert-suffix: cert
+  
   e2e-leg-6-vcluster-revivedb:
     if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'vcluster leg 6 revivedb' || inputs.e2e_test_suites == '')}}
     needs: [build]
@@ -565,6 +591,29 @@ jobs:
           minimum-vertica-image: '24.2.0'
           e2e-retry-times: ${{ inputs.e2e_retry_times || 2 }}
 
+  e2e-leg-6-vcluster-revivedb-cert:
+    if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'vcluster leg 6 revivedb cert' || inputs.e2e_test_suites == '')}}
+    needs: [build]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Test
+        uses: ./.github/actions/run-e2e-leg
+        with:
+          leg-identifier: 'leg-6-revivedb'
+          dockerhub-username: ${{ secrets.DOCKERHUB_USERNAME }}
+          dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}
+          vlogger-image: ${{ needs.build.outputs.vlogger-image }}
+          operator-image: ${{ needs.build.outputs.operator-image }}
+          vertica-image: ${{ needs.build.outputs.full-vertica-image }}
+          vertica-deployment-method: vclusterops
+          communal-storage-type: hostpath
+          minimum-vertica-image: '24.2.0'
+          e2e-retry-times: ${{ inputs.e2e_retry_times || 2 }}
+          use-cert: true
+          cert-suffix: cert
+  
   e2e-leg-7-vcluster:
     if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'vcluster leg 7' || inputs.e2e_test_suites == '')}}
     needs: [build]
@@ -585,6 +634,29 @@ jobs:
           communal-storage-type: hostpath
           minimum-vertica-image: '24.2.0'
           e2e-retry-times: ${{ inputs.e2e_retry_times || 2 }}
+
+  e2e-leg-7-vcluster-cert:
+    if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'vcluster leg 7 cert' || inputs.e2e_test_suites == '')}}
+    needs: [build]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Test
+        uses: ./.github/actions/run-e2e-leg
+        with:
+          leg-identifier: 'leg-7'
+          dockerhub-username: ${{ secrets.DOCKERHUB_USERNAME }}
+          dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}
+          vlogger-image: ${{ needs.build.outputs.vlogger-image }}
+          operator-image: ${{ needs.build.outputs.operator-image }}
+          vertica-image: ${{ needs.build.outputs.full-vertica-image }}
+          vertica-deployment-method: vclusterops
+          communal-storage-type: hostpath
+          minimum-vertica-image: '24.2.0'
+          e2e-retry-times: ${{ inputs.e2e_retry_times || 2 }}
+          use-cert: true
+          cert-suffix: cert
 
   e2e-leg-8-admintools-offline:
     if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'leg 8' || inputs.e2e_test_suites == '')}}
@@ -948,8 +1020,11 @@ jobs:
       e2e-leg-4-vcluster-vdb-gen,
       e2e-leg-5-vcluster,
       e2e-leg-6-vcluster,
+      e2e-leg-6-vcluster-cert,
       e2e-leg-6-vcluster-revivedb,
+      e2e-leg-6-vcluster-revivedb-cert,
       e2e-leg-7-vcluster,
+      e2e-leg-7-vcluster-cert,
       e2e-leg-9-vcluster,
       e2e-leg-9-vcluster-cert,
       e2e-leg-10-vcluster,
