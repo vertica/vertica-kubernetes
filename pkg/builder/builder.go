@@ -1430,7 +1430,7 @@ func makeCanaryQueryProbe(vdb *vapi.VerticaDB) *corev1.Probe {
 // is enabled
 func getHTTPServerVersionEndpointProbe(vdb *vapi.VerticaDB) *corev1.Probe {
 	if vmeta.UseVClusterOps(vdb.Annotations) {
-		if vdb.IsCertRotationEnabled() {
+		if vdb.IsCertRotationSupportedByVersion() {
 			return makeHTTPVersionEndpointProbe()
 		} else {
 			return makeHTTPSVersionEndpointProbe()
@@ -2202,22 +2202,15 @@ func GetTarballName(cmd []string) string {
 // BuildNMATLSConfigMap builds a configmap with tls secret name in it.
 // The configmap will be mapped to two environmental variables in NMA pod
 func BuildNMATLSConfigMap(nm types.NamespacedName, vdb *vapi.VerticaDB) *corev1.ConfigMap {
-	var secretMap map[string]string
-	mountMap := map[string]string{
-		NMARootCAEnv: fmt.Sprintf("%s/%s", paths.NMACertsRoot, paths.HTTPServerCACrtName),
-		NMACertEnv:   fmt.Sprintf("%s/%s", paths.NMACertsRoot, corev1.TLSCertKey),
-		NMAKeyEnv:    fmt.Sprintf("%s/%s", paths.NMACertsRoot, corev1.TLSPrivateKeyKey),
-	}
-	tlsMap := map[string]string{
+	// var secretMap map[string]string
+	secretMap := map[string]string{
+		NMARootCAEnv:                fmt.Sprintf("%s/%s", paths.NMACertsRoot, paths.HTTPServerCACrtName),
+		NMACertEnv:                  fmt.Sprintf("%s/%s", paths.NMACertsRoot, corev1.TLSCertKey),
+		NMAKeyEnv:                   fmt.Sprintf("%s/%s", paths.NMACertsRoot, corev1.TLSPrivateKeyKey),
 		NMASecretNamespaceEnv:       vdb.ObjectMeta.Namespace,
 		NMASecretNameEnv:            vdb.Spec.NMATLSSecret,
 		NMAClientSecretNamespaceEnv: vdb.ObjectMeta.Namespace,
 		NMAClientSecretNameEnv:      vdb.Spec.ClientServerTLSSecret,
-	}
-	if vmeta.UseNMACertsMount(vdb.Annotations) && secrets.IsK8sSecret(vdb.Spec.NMATLSSecret) {
-		secretMap = mountMap
-	} else {
-		secretMap = tlsMap
 	}
 	tlsConfigMap := &corev1.ConfigMap{
 		TypeMeta: metav1.TypeMeta{

@@ -23,7 +23,6 @@ import (
 
 	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
-	"github.com/vertica/vertica-kubernetes/pkg/builder"
 	"github.com/vertica/vertica-kubernetes/pkg/cloud"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
@@ -104,33 +103,6 @@ func (h *TLSConfigReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (c
 		h.Log.Error(err, "failed to read secret to set up TLS config")
 		return res, err
 	}
-	if meta.SetupTLSConfig(h.Vdb.Annotations) {
-		configMapName := names.GenNMACertConfigMap(h.Vdb)
-		configMap := &corev1.ConfigMap{}
-		tlsMap := map[string]string{
-			builder.NMASecretNamespaceEnv:       h.Vdb.ObjectMeta.Namespace,
-			builder.NMASecretNameEnv:            h.Vdb.Spec.NMATLSSecret,
-			builder.NMAClientSecretNamespaceEnv: h.Vdb.ObjectMeta.Namespace,
-			builder.NMAClientSecretNameEnv:      h.Vdb.Spec.ClientServerTLSSecret,
-		}
-		configMap.Data = tlsMap
-		configMap.SetName(configMapName.Name)
-		configMap.SetNamespace(configMap.GetNamespace())
-		err = h.VRec.GetClient().Update(ctx, configMap)
-		if err != nil {
-			h.Log.Error(err, "failed to update tls cert secret configmap")
-		}
-		h.Log.Info("updated tls cert secret configmap", "name", configMapName.Name, "nma-secret", h.Vdb.Spec.NMATLSSecret,
-			"clientserver-secret", h.Vdb.Spec.ClientServerTLSSecret)
-	}
-	/* currentCert := string(currentSecretData[corev1.TLSCertKey])
-	 rotated, err := security.VerifyCert(initiatorPod.GetPodIP(), builder.NMAPort, "", currentCert, h.Log)
-	if err != nil {
-		h.Log.Error(err, "set up TLS aborted. Failed to verify nma cert for "+
-			initiatorPod.GetPodIP())
-		return ctrl.Result{}, err
-	}
-	if rotated == 2 { // restart nma container */
 	h.Log.Info("will restart nma before setting up tls config")
 	hosts := []string{}
 	for _, detail := range h.Pfacts.Detail {
@@ -148,7 +120,6 @@ func (h *TLSConfigReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (c
 		return ctrl.Result{}, err
 	}
 	h.Log.Info("restarted nma before setting up tls config")
-	//}
 	var sb strings.Builder
 	h.generateKubernetesTLSSQL(&sb)
 	sb.WriteString(`select sync_catalog();`)
