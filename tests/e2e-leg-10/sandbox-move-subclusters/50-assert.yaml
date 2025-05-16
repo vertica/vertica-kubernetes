@@ -50,4 +50,4 @@ status:
     - addedToDBCount: 1
       upNodeCount: 1
       name: sec3
-      type: sandboxprimary
+      type: sandboxsecondary

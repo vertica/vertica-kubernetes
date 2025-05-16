@@ -26,10 +26,10 @@ spec:
     type: primary
   - name: sec1
     size: 3
-    shutdown: false
-    type: sandboxprimary
+    type: secondary
   - name: sec2
     size: 1
+    shutdown: false
     type: secondary
   - name: sec3
     size: 1

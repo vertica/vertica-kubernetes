@@ -68,9 +68,8 @@ status:
     - addedToDBCount: 3
       upNodeCount: 3
       name: sec2
-      type: sandboxprimary
+      type: sandboxsecondary
     - addedToDBCount: 1
       upNodeCount: 1
       name: sec3
-      type: sandboxprimary
-
+      type: sandboxsecondary

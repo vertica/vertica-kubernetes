@@ -24,6 +24,7 @@ status:
     - name: sandbox1
       subclusters:
         - sec1
+        - sec2
         - sec3
   subclusters:
     - addedToDBCount: 4
@@ -41,7 +42,7 @@ status:
     - addedToDBCount: 1
       upNodeCount: 1
       name: sec2
-      type: secondary
+      type: sandboxprimary
     - addedToDBCount: 1
       upNodeCount: 1
       name: sec3

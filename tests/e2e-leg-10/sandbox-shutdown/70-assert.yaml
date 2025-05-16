@@ -27,9 +27,10 @@ spec:
       type: secondary
 status:
   sandboxes:
-    - name: sandbox2
+    - name: sandbox1
       subclusters:
         - sec1
+        - sec3
   subclusters:
     - addedToDBCount: 3
       upNodeCount: 3
@@ -46,4 +47,4 @@ status:
     - addedToDBCount: 1
       upNodeCount: 1
       name: sec3
-      type: secondary
+      type: sandboxsecondary
