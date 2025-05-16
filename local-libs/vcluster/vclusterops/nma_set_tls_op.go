@@ -74,7 +74,7 @@ func (op *nmaSetTLSOp) setupRequestBody(
 	setConfigData.TLSConfigName = configName
 	setConfigData.TLSNamespace = configMap[TLSSecretManagerKeyNamespace]
 	setConfigData.TLSSecretName = configMap[TLSSecretManagerKeySecretName]
-	setConfigData.TLSMode = genNMACompatibleTLSMode(configMap[TLSSecretManagerKeyTLSMode])
+	setConfigData.TLSMode = configMap[TLSSecretManagerKeyTLSMode]
 	setConfigData.TLSSecretManager = configMap[TLSSecretManagerKeySecretManager]
 	setConfigData.AWSRegion = configMap[TLSSecretManagerKeyAWSRegion]
 	setConfigData.AWSSecretVersionID = configMap[TLSSecretManagerKeyAWSSecretVersionID]
@@ -137,9 +137,4 @@ func (op *nmaSetTLSOp) processResult(_ *opEngineExecContext) error {
 	}
 
 	return allErrs
-}
-
-func genNMACompatibleTLSMode(tlsMode string) string {
-	m := regexp.MustCompile(`_`)
-	return m.ReplaceAllString(tlsMode, "-")
 }
