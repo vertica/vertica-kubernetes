@@ -49,9 +49,16 @@ const (
 
 // secret manager types
 const (
+	NoSecretManagerType  string = "none" // generally not a valid type for things actually using SMs
 	K8sSecretManagerType string = "kubernetes"
 	AWSSecretManagerType string = "AWS"
 	GCPSecretManagerType string = "GCP"
+)
+
+// config types
+const (
+	serverTLSKeyPrefix string = "server"
+	httpsTLSKeyPrefix  string = "https"
 )
 
 var validSecretManagerType = []string{K8sSecretManagerType, GCPSecretManagerType, AWSSecretManagerType}
@@ -105,7 +112,7 @@ func validateRequiredKeysBasedOnTLSMode(configMap map[string]string, configType 
 		return fmt.Errorf("the %s key's value must be one of %s",
 			TLSSecretManagerKeyTLSMode, ValidTLSMode)
 	}
-	if configType == "https" {
+	if configType == httpsTLSKeyPrefix {
 		if VerticaTLSModeType(tlsMode) == tlsModeDisable {
 			return fmt.Errorf("tls mode cannot be %s for %s tls config", tlsModeDisable, configType)
 		}
@@ -142,4 +149,11 @@ func getRequiredTLSConfigKeys(tlsmode VerticaTLSModeType) []string {
 	default:
 		return nil
 	}
+}
+
+// doUseBootstrapTLSConfig checks if for client/server TLS, we should use the bootstrap JSON
+// instead of secrets managers
+func doUseBootstrapTLSConfig(configMap map[string]string, configType string) bool {
+	sm, exist := configMap[TLSSecretManagerKeySecretManager]
+	return exist && sm == NoSecretManagerType && configType == serverTLSKeyPrefix
 }
