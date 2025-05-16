@@ -2028,15 +2028,6 @@ func buildScrutinizeDBPasswordEnvVars(nm types.NamespacedName) []corev1.EnvVar {
 // buildNMATLSCertsEnvVars returns environment variables about NMA certs,
 // that are needed by NMA and vcluster scrutinize
 func buildNMATLSCertsEnvVars(vdb *vapi.VerticaDB) []corev1.EnvVar {
-	/* useNmaCertsMount := vmeta.UseNMACertsMount(vdb.Annotations)
-	if useNmaCertsMount && secrets.IsK8sSecret(vdb.Spec.NMATLSSecret) {
-		return []corev1.EnvVar{
-			// Provide the path to each of the certs that are mounted in the container.
-			{Name: NMARootCAEnv, Value: fmt.Sprintf("%s/%s", paths.NMACertsRoot, paths.HTTPServerCACrtName)},
-			{Name: NMACertEnv, Value: fmt.Sprintf("%s/%s", paths.NMACertsRoot, corev1.TLSCertKey)},
-			{Name: NMAKeyEnv, Value: fmt.Sprintf("%s/%s", paths.NMACertsRoot, corev1.TLSPrivateKeyKey)},
-		}
-	} */
 	notTrue := true
 	configMapName := fmt.Sprintf("%s-%s", vdb.Name, vapi.NMATLSConfigMapName)
 	return []corev1.EnvVar{
@@ -2202,7 +2193,6 @@ func GetTarballName(cmd []string) string {
 // BuildNMATLSConfigMap builds a configmap with tls secret name in it.
 // The configmap will be mapped to two environmental variables in NMA pod
 func BuildNMATLSConfigMap(nm types.NamespacedName, vdb *vapi.VerticaDB) *corev1.ConfigMap {
-	// var secretMap map[string]string
 	secretMap := map[string]string{
 		NMARootCAEnv:                fmt.Sprintf("%s/%s", paths.NMACertsRoot, paths.HTTPServerCACrtName),
 		NMACertEnv:                  fmt.Sprintf("%s/%s", paths.NMACertsRoot, corev1.TLSCertKey),

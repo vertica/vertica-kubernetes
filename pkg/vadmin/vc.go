@@ -18,14 +18,11 @@ package vadmin
 import (
 	"context"
 	"fmt"
-	"regexp"
-	"strings"
 
 	vops "github.com/vertica/vcluster/vclusterops"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/cloud"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
-	"github.com/vertica/vertica-kubernetes/pkg/secrets"
 	corev1 "k8s.io/api/core/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -126,37 +123,4 @@ func getNMATLSSecretName(vdb *vapi.VerticaDB) (string, error) {
 		return "", fmt.Errorf("failed to retrieve nma secret name")
 	}
 	return secretName, nil
-}
-
-func genTLSConfigurationMap(tlsMode, secretNameInVdb, secretNamespace string) map[string]string {
-	configMap := make(map[string]string)
-	configMap[vops.TLSSecretManagerKeyCACertDataKey] = corev1.ServiceAccountRootCAKey
-	configMap[vops.TLSSecretManagerKeyCertDataKey] = corev1.TLSCertKey
-	configMap[vops.TLSSecretManagerKeyKeyDataKey] = corev1.TLSPrivateKeyKey
-	secretName := secretNameInVdb
-	secretManager := ""
-	switch {
-	case secrets.IsGSMSecret(secretNameInVdb):
-		return configMap
-	case secrets.IsAWSSecretsManagerSecret(secretNameInVdb):
-		region, _ := secrets.GetAWSRegion(secretNameInVdb)
-		configMap[vops.TLSSecretManagerKeyAWSRegion] = region
-		secretARN, versionID := secrets.GetAWSSecretARN(secretNameInVdb)
-		configMap[vops.TLSSecretManagerKeyAWSSecretVersionID] = versionID
-		secretName = secretARN
-		secretManager = vops.AWSSecretManagerType
-	default:
-		secretManager = vops.K8sSecretManagerType
-		configMap[vops.TLSSecretManagerKeyNamespace] = secretNamespace
-	}
-	configMap[vops.TLSSecretManagerKeySecretManager] = secretManager
-	configMap[vops.TLSSecretManagerKeySecretName] = secretName
-	configMap[vops.TLSSecretManagerKeyTLSMode] = strings.ToLower(genVclusteropsCompatibleTLSMode(tlsMode))
-
-	return configMap
-}
-
-func genVclusteropsCompatibleTLSMode(tlsMode string) string {
-	m := regexp.MustCompile(`_`)
-	return m.ReplaceAllString(tlsMode, "-")
 }

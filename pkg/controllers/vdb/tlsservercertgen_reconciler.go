@@ -29,7 +29,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/secrets"
 	"github.com/vertica/vertica-kubernetes/pkg/security"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
+
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/util/retry"
@@ -93,7 +93,7 @@ func (h *TLSServerCertGenReconciler) reconcileOneSecret(secretFieldName, secretN
 		nm := names.GenNamespacedName(h.Vdb, secretName)
 		secret := corev1.Secret{}
 		err := h.VRec.Client.Get(ctx, nm, &secret)
-		if errors.IsNotFound(err) {
+		if kerrors.IsNotFound(err) {
 			h.Log.Info(secretName+" is set but doesn't exist. Will recreate the secret.", "name", nm)
 		} else if err != nil {
 			h.Log.Error(err, "failed to read tls secret", "secretName", secretName)

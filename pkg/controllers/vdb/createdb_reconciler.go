@@ -242,6 +242,7 @@ func (c *CreateDBReconciler) generatePostDBCreateSQL(ctx context.Context, initia
 	return ctrl.Result{}, nil
 }
 
+//nolint:dupl
 func (c *CreateDBReconciler) generateKubernetesTLSSQL(sb *strings.Builder) {
 	fmt.Fprintf(sb, "CREATE OR REPLACE LIBRARY public.KubernetesLib AS ")
 	fmt.Fprintf(sb, "'/opt/vertica/packages/kubernetes/lib/libkubernetes.so';\n")
