@@ -54,6 +54,12 @@ const (
 	GCPSecretManagerType string = "GCP"
 )
 
+// config types
+const (
+	serverTLSKeyPrefix string = "server"
+	httpsTLSKeyPrefix  string = "https"
+)
+
 var validSecretManagerType = []string{K8sSecretManagerType, GCPSecretManagerType, AWSSecretManagerType}
 var ValidTLSMode = []VerticaTLSModeType{tlsModeDisable, tlsModeEnable,
 	tlsModeVerifyCA, tlsModeTryVerify, tlsModeVerifyFull}
@@ -105,7 +111,7 @@ func validateRequiredKeysBasedOnTLSMode(configMap map[string]string, configType 
 		return fmt.Errorf("the %s key's value must be one of %s",
 			TLSSecretManagerKeyTLSMode, ValidTLSMode)
 	}
-	if configType == "https" {
+	if configType == httpsTLSKeyPrefix {
 		if VerticaTLSModeType(tlsMode) == tlsModeDisable {
 			return fmt.Errorf("tls mode cannot be %s for %s tls config", tlsModeDisable, configType)
 		}
