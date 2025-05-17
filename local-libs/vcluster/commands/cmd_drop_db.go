@@ -103,9 +103,11 @@ func (c *CmdDropDB) buildHostVNodeMap(logger vlog.Printer) error {
 		vNode.Address = n.Address
 		vNode.Name = n.Name
 		vNode.CatalogPath = n.CatalogPath
-		vNode.StorageLocations = append(vNode.StorageLocations, n.DataPath)
-		if n.DepotPath != "" {
-			vNode.DepotPath = n.DepotPath
+		if !c.dropDBOptions.RetainCatalogDir {
+			vNode.StorageLocations = append(vNode.StorageLocations, n.DataPath)
+			if n.DepotPath != "" {
+				vNode.DepotPath = n.DepotPath
+			}
 		}
 		c.dropDBOptions.NodesToDrop = append(c.dropDBOptions.NodesToDrop, vNode)
 	}
