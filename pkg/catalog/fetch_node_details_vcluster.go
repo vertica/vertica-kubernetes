@@ -46,6 +46,7 @@ func (nodeDetails *NodeDetails) parseVNodeDetails(vnodeDetails *vclusterops.Node
 	nodeDetails.SubclusterOid = strconv.FormatUint(vnodeDetails.SubclusterID, 10)
 	nodeDetails.ReadOnly = vnodeDetails.IsReadOnly
 	nodeDetails.SandboxName = vnodeDetails.SandboxName
+	nodeDetails.IsPrimary = vnodeDetails.IsPrimary
 	nodeDetails.ShardSubscriptions = int(vnodeDetails.NumberShardSubscriptions) //nolint:gosec
 	// The shard subscriptions we get from vcluster includes the replica shard.
 	// We decrement that by one to account for that. We want to know when there

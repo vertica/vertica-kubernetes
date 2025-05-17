@@ -40,27 +40,39 @@ spec:
     type: primary
     shutdown: true
   - name: sec1
-    type: sandboxprimary
-    shutdown: true
+    type: secondary
   - name: sec2
+    shutdown: true
     type: secondary
   - name: sec3
     type: secondary
 status:
+  sandboxes:
+    - name: sandbox1
+      subclusters:
+        - sec1
+        - sec2
+        - sec3
   subclusters:
     - addedToDBCount: 4
       upNodeCount: 4
       name: pri1
+      type: primary
     - addedToDBCount: 0
       upNodeCount: 0
       shutdown: true
       name: pri2
+      type: primary
     - addedToDBCount: 3
       upNodeCount: 3
       name: sec1
-    - addedToDBCount: 1
-      upNodeCount: 1
+      type: sandboxprimary
+    - addedToDBCount: 0
+      upNodeCount: 0
+      shutdown: true
       name: sec2
+      type: sandboxprimary
     - addedToDBCount: 1
       upNodeCount: 1
       name: sec3
+      type: sandboxsecondary

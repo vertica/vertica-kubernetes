@@ -79,6 +79,7 @@ var _ = Describe("nodedetailsvcluster", func() {
 		Expect(nodeDetails.SubclusterOid).Should(Equal("45035996273704988"))
 		Expect(nodeDetails.ReadOnly).Should(BeFalse())
 		Expect(nodeDetails.SandboxName).Should(Equal("sandbox1"))
+		Expect(nodeDetails.IsPrimary).Should(BeFalse())
 		Expect(nodeDetails.ShardSubscriptions).Should(Equal(2))
 		Expect(nodeDetails.MaxDepotSize).Should(Equal(uint64(8215897325568)))
 		Expect(nodeDetails.DepotDiskPercentSize).Should(Equal("60%"))

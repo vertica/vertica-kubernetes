@@ -20,7 +20,6 @@ metadata:
   labels:
     vertica.com/sandbox: replica-group-b
 status:
-  currentReplicas: 2
   readyReplicas: 2
 ---
 apiVersion: apps/v1
@@ -32,7 +31,6 @@ metadata:
   labels:
     vertica.com/sandbox: replica-group-b
 status:
-  currentReplicas: 1
   readyReplicas: 1
 ---
 apiVersion: apps/v1
@@ -44,7 +42,6 @@ metadata:
   labels:
     vertica.com/sandbox: replica-group-b
 status:
-  currentReplicas: 3
   readyReplicas: 3
 ---
 apiVersion: v1
