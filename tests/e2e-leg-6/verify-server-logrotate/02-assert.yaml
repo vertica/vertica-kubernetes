@@ -11,31 +11,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: v-verify-server-logrotate-main
+status:
+  currentReplicas: 1
+  readyReplicas: 1
+---
+apiVersion: vertica.com/v1beta1
 kind: VerticaDB
 metadata:
-  name: v-restore-point
-  annotations:
-    vertica.com/include-uid-in-path: "true"
-    vertica.com/k-safety: "0"
-    vertica.com/requeue-time: "5"
-spec:
-  image: kustomize-vertica-image
-  communal:
-    path: "s3://nimbusdb/db"
-    endpoint: "http://minio"
-    credentialSecret: s3-auth
-  local:
-    requestSize: 100Mi
-  initPolicy: CreateSkipPackageInstall
-  dbName: vertdb
-  restorePoint:
-    archive: test
+  name: v-verify-server-logrotate
+status:
   subclusters:
-    - name: sc1
-      size: 1
-  certSecrets: []
-  nmaTLSSecret: custom-cert
-  imagePullSecrets: []
-  volumes: []
-  volumeMounts: []
+    - installCount: 1
