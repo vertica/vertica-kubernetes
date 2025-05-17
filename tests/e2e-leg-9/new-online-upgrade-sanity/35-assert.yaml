@@ -14,47 +14,44 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  annotations:
-    vertica.com/statefulset-name-override: v-online-upgrade-pri-2-sb
-  labels:
-    vertica.com/sandbox: replica-group-b
-  name: v-online-upgrade-pri-2-sb
-status:
-  availableReplicas: 1
-  readyReplicas: 1
----
-apiVersion: apps/v1
-kind: StatefulSet
-metadata:
-  annotations:
-    vertica.com/statefulset-name-override: v-online-upgrade-pri1-sb
-  labels:
-    vertica.com/sandbox: replica-group-b
   name: v-online-upgrade-pri1-sb
+  annotations:
+    vertica.com/statefulset-name-override: "v-online-upgrade-pri1-sb"
+  labels:
+    vertica.com/sandbox: replica-group-b
 status:
-  availableReplicas: 2
   readyReplicas: 2
 ---
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
+  name: v-online-upgrade-pri-2-sb
   annotations:
-    vertica.com/statefulset-name-override: v-online-upgrade-sec1-sb
+    vertica.com/statefulset-name-override: "v-online-upgrade-pri-2-sb"
   labels:
     vertica.com/sandbox: replica-group-b
-  name: v-online-upgrade-sec1-sb
 status:
-  availableReplicas: 3
+  readyReplicas: 1
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: v-online-upgrade-sec1-sb
+  annotations:
+    vertica.com/statefulset-name-override: "v-online-upgrade-sec1-sb"
+  labels:
+    vertica.com/sandbox: replica-group-b
+status:
   readyReplicas: 3
 ---
 apiVersion: v1
 kind: ConfigMap
+metadata:
+  name: v-online-upgrade-replica-group-b
 data:
   sandboxName: replica-group-b
   verticaDBName: v-online-upgrade
 immutable: true
-metadata:
-  name: v-online-upgrade-replica-group-b
 ---
 apiVersion: vertica.com/v1
 kind: VerticaDB
@@ -66,37 +63,18 @@ spec:
   - name: pri1
   - name: pri_2
   - name: pri1-sb
-    type: secondary
+    type: sandboxprimary
     size: 2
   - name: pri_2-sb
-    type: secondary
+    type: sandboxprimary
     size: 1
   - name: sec1-sb
     type: secondary
     size: 3
 status:
   sandboxes:
-  - name: replica-group-b
-    subclusters:
-    - pri1-sb
-    - pri_2-sb
-    - sec1-sb
-  subclusters:
-  - addedToDBCount: 3
-    name: sec1
-    type: secondary
-  - addedToDBCount: 2
-    name: pri1
-    type: primary
-  - addedToDBCount: 1
-    name: pri_2
-    type: primary
-  - addedToDBCount: 2
-    name: pri1-sb
-    type: sandboxprimary
-  - addedToDBCount: 1
-    name: pri_2-sb
-    type: sandboxprimary
-  - addedToDBCount: 3
-    name: sec1-sb
-    type: sandboxsecondary
+    - name: replica-group-b
+      subclusters:
+        - pri1-sb
+        - pri_2-sb
+        - sec1-sb
