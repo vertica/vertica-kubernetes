@@ -16,7 +16,7 @@ kind: VerticaDB
 metadata:
   name: v-base-upgrade
   annotations:
-    vertica.com/requeue-time: "4"
+    vertica.com/requeue-time: "30"
     vertica.com/include-uid-in-path: true
 spec:
   image: kustomize-vertica-image

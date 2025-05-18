@@ -31,4 +31,4 @@ spec:
       size: 2
   # Set requeueTime since we are intentionally failing.  This prevents the
   # exponential backoff kicking in, which can cause the test to timeout.
-  requeueTime: 10
+  requeueTime: 30
