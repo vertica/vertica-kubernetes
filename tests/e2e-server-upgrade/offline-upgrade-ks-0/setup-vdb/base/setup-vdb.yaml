@@ -32,7 +32,7 @@ spec:
       size: 2
   # Set requeueTime to prevent the exponential backoff kicking in, which can
   # cause the test to timeout.
-  requeueTime: 5
+  requeueTime: 10
   certSecrets: []
   imagePullSecrets: []
   volumes: []

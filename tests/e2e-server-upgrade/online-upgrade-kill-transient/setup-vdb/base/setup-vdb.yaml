@@ -35,7 +35,7 @@ spec:
       name: transient
       size: 1
   certSecrets: []
-  requeueTime: 4
+  requeueTime: 10
   imagePullSecrets: []
   volumes: []
   volumeMounts: []

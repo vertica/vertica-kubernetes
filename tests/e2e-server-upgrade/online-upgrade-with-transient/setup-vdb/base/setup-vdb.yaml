@@ -30,7 +30,7 @@ spec:
     - name: sec
       size: 1
       isPrimary: false
-  requeueTime: 5
+  requeueTime: 10
   temporarySubclusterRouting:
     template:
       name: transient
