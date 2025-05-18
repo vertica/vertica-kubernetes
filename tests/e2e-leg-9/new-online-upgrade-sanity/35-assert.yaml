@@ -11,6 +11,51 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: v-online-upgrade-pri1-sb
+  annotations:
+    vertica.com/statefulset-name-override: "v-online-upgrade-pri1-sb"
+  labels:
+    vertica.com/sandbox: replica-group-b
+status:
+  currentReplicas: 2
+  readyReplicas: 2
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: v-online-upgrade-pri-2-sb
+  annotations:
+    vertica.com/statefulset-name-override: "v-online-upgrade-pri-2-sb"
+  labels:
+    vertica.com/sandbox: replica-group-b
+status:
+  currentReplicas: 1
+  readyReplicas: 1
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: v-online-upgrade-sec1-sb
+  annotations:
+    vertica.com/statefulset-name-override: "v-online-upgrade-sec1-sb"
+  labels:
+    vertica.com/sandbox: replica-group-b
+status:
+  currentReplicas: 3
+  readyReplicas: 3
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: v-online-upgrade-replica-group-b
+data:
+  sandboxName: replica-group-b
+  verticaDBName: v-online-upgrade
+immutable: true
+---
 apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
@@ -37,21 +82,15 @@ status:
         - pri_2-sb
         - sec1-sb
   subclusters:
-    - addedToDBCount: 3
-      name: sec1
+    - name: sec1
       type: secondary
-    - addedToDBCount: 2
-      name: pri1
+    - name: pri1
       type: primary
-    - addedToDBCount: 1
-      name: pri_2
+    - name: pri_2
       type: primary
-    - addedToDBCount: 2
-      name: pri1-sb
+    - name: pri1-sb
       type: sandboxprimary
-    - addedToDBCount: 1
-      name: pri_2-sb
+    - name: pri_2-sb
       type: sandboxprimary
-    - addedToDBCount: 3
-      name: sec1-sb
+    - name: sec1-sb
       type: sandboxsecondary
