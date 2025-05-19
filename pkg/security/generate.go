@@ -21,10 +21,15 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
+	"fmt"
 	"math/big"
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"github.com/pkg/errors"
+	"github.com/vertica/vertica-kubernetes/pkg/paths"
 )
 
 const pkKeySize = 2048
@@ -104,4 +109,26 @@ func NewCertificate(ca Certificate, commonName string, dnsNames []string) (Certi
 		tlsKey: pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(pk)}),
 		tlsCrt: pem.EncodeToMemory((&pem.Block{Type: "CERTIFICATE", Bytes: keyCert})),
 	}, nil
+}
+
+func GetDNSNames(namespace string) []string {
+	return []string{
+		fmt.Sprintf("*.%s.svc", namespace),
+		fmt.Sprintf("*.%s.svc.cluster.local", namespace),
+	}
+}
+
+func GenSecret(secretName, namespace string, cert, caCert Certificate) *corev1.Secret {
+	return &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: namespace,
+			Name:      secretName,
+		},
+		Type: corev1.SecretTypeTLS,
+		Data: map[string][]byte{
+			corev1.TLSPrivateKeyKey:   cert.TLSKey(),
+			corev1.TLSCertKey:         cert.TLSCrt(),
+			paths.HTTPServerCACrtName: caCert.TLSCrt(),
+		},
+	}
 }
