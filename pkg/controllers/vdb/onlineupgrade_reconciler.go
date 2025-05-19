@@ -618,6 +618,8 @@ func (r *OnlineUpgradeReconciler) upgradeSandbox(ctx context.Context) (ctrl.Resu
 	if sb == nil {
 		return ctrl.Result{}, fmt.Errorf("could not find sandbox %q", r.sandboxName)
 	}
+	r.Log.Info("DEBUG: qin test sleep")
+	time.Sleep(time.Second * 5000)
 
 	// We can skip updating vdb if the image in the sandbox matches the image in the vdb.
 	updated := false
