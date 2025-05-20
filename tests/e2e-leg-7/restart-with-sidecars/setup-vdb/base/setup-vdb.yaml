@@ -11,22 +11,23 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1beta1
+apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
   name: v-restart-with-sidecars
+  annotations:
+    vertica.com/include-uid-in-path: "true"
+    vertica.com/k-safety: "0"
+    vertica.com/requeue-time: 5
 spec:
   image: kustomize-vertica-image
-  communal:
-    includeUIDInPath: true
+  communal: {}
   local:
     requestSize: 100Mi
     catalogPath: /vertica/catalog
     dataPath: /ssd
   dbName: Vertica_DB
   initPolicy: CreateSkipPackageInstall
-  requeueTime: 5
-  kSafety: "0"
   sidecars:
   - name: vlogger
     image: kustomize-vlogger-image

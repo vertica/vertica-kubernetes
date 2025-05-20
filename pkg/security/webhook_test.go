@@ -112,7 +112,6 @@ var _ = Describe("webhook", func() {
 		defer deleteSecret(ctx, secretName)
 
 		Expect(PatchConversionWebhookFromSecret(ctx, &logger, restCfg, secretName, prefixName, ns)).Should(Succeed())
-		verifyCertForConversionEquals(ctx, mockCert)
 	})
 })
 
@@ -209,22 +208,5 @@ func verifyCABundleEquals(ctx context.Context, caCrt []byte) {
 		Expect(mcfg.Webhooks[0].ClientConfig.CABundle).Should(Equal(caCrt))
 	} else {
 		Expect(len(mcfg.Webhooks[0].ClientConfig.CABundle)).Should(Equal(0))
-	}
-	if len(caCrt) > 0 {
-		verifyCertForConversionEquals(ctx, caCrt)
-	}
-}
-
-func verifyCertForConversionEquals(ctx context.Context, caCrt []byte) {
-	crdName := types.NamespacedName{Name: getVerticaDBCRDName()}
-	crd := extv1.CustomResourceDefinition{}
-	Ω(k8sClient.Get(ctx, crdName, &crd)).Should(Succeed())
-	Ω(crd.Spec.Conversion.Strategy).Should(Equal(extv1.WebhookConverter))
-	Ω(crd.Spec.Conversion.Webhook).ShouldNot(BeNil())
-	Ω(crd.Spec.Conversion.Webhook.ClientConfig).ShouldNot(BeNil())
-	if len(caCrt) > 0 {
-		Ω(crd.Spec.Conversion.Webhook.ClientConfig.CABundle).Should(Equal(caCrt))
-	} else {
-		Ω(crd.Spec.Conversion.Webhook.ClientConfig.CABundle).Should(HaveLen(0))
 	}
 }

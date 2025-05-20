@@ -59,7 +59,7 @@ func PatchWebhookCABundle(ctx context.Context, log *logr.Logger, cfg *rest.Confi
 		return errors.Wrap(err, "failed to patch the mutating webhook cfg")
 	}
 
-	return patchConversionWebhookConfig(ctx, log, cfg, prefixName, namespace, nil, caCert)
+	return nil
 }
 
 // AddCertManagerAnnotation will annotate the CRD so that cert-manager can

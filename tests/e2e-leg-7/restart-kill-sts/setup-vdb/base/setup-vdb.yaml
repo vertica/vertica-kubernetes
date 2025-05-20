@@ -11,19 +11,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1beta1
+apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
   name: v-restart-kill-sts
+  annotations:
+    vertica.com/include-uid-in-path: "true"
+    vertica.com/requeue-time: 4 
 spec:
   image: kustomize-vertica-image
-  communal:
-    includeUIDInPath: true
+  communal: {}
   local:
     requestSize: 100Mi
   dbName: vertica1
   initPolicy: CreateSkipPackageInstall
-  requeueTime: 5
   subclusters:
     - name: pri1
       size: 1

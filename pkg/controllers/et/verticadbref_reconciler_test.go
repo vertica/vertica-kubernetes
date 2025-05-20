@@ -49,7 +49,7 @@ var _ = Describe("createet_reconciler", func() {
 	})
 
 	It("should succeed with no-op when VerticaDB condition type doesn't exist", func() {
-		vdb := vapi.MakeVDB()
+		vdb := v1vapi.MakeVDB()
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
 
@@ -67,7 +67,7 @@ var _ = Describe("createet_reconciler", func() {
 	})
 
 	It("should succeed with no-op when VerticaDB condition type not match", func() {
-		vdb := vapi.MakeVDB()
+		vdb := v1vapi.MakeVDB()
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
 
@@ -78,7 +78,7 @@ var _ = Describe("createet_reconciler", func() {
 		Expect(setVerticaStatus(ctx, k8sClient, vdb, cond)).Should(Succeed())
 
 		et := vapi.MakeET()
-		et.Spec.Matches[0].Condition.Type = string(vapi.VerticaRestartNeeded)
+		et.Spec.Matches[0].Condition.Type = string(v1vapi.VerticaRestartNeeded)
 
 		Expect(k8sClient.Create(ctx, et)).Should(Succeed())
 		defer func() { Expect(k8sClient.Delete(ctx, et)).Should(Succeed()) }()
@@ -93,7 +93,7 @@ var _ = Describe("createet_reconciler", func() {
 	})
 
 	It("should succeed with no-op when reference status job exists already exists", func() {
-		vdb := vapi.MakeVDB()
+		vdb := v1vapi.MakeVDB()
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
 
@@ -116,7 +116,7 @@ var _ = Describe("createet_reconciler", func() {
 	})
 
 	It("should succeed with no-op when creating the job", func() {
-		vdb := vapi.MakeVDB()
+		vdb := v1vapi.MakeVDB()
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
 
@@ -149,13 +149,9 @@ func getEventTriggerStatus(ctx context.Context, nm types.NamespacedName) vapi.Ev
 	return etrigger
 }
 
-func setVerticaStatus(ctx context.Context, clnt client.Client, vdb *vapi.VerticaDB, conditions []metav1.Condition) error {
-	v1vdb := v1vapi.VerticaDB{}
-	err := vdb.ConvertTo(&v1vdb)
-	Expect(err).Should(Succeed())
-
+func setVerticaStatus(ctx context.Context, clnt client.Client, vdb *v1vapi.VerticaDB, conditions []metav1.Condition) error {
 	for idx := range conditions {
-		if err := vdbstatus.UpdateCondition(ctx, clnt, &v1vdb, &conditions[idx]); err != nil {
+		if err := vdbstatus.UpdateCondition(ctx, clnt, vdb, &conditions[idx]); err != nil {
 			return err
 		}
 	}
