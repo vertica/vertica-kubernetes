@@ -29,7 +29,6 @@ import (
 	"github.com/vertica/vcluster/vclusterops"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/api/v1beta1"
-	"github.com/vertica/vertica-kubernetes/pkg/catalog"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
@@ -128,14 +127,13 @@ const (
 // using failover strategies to keep the database online.
 // We have podfacts for main cluster and replica sandbox.
 type OnlineUpgradeReconciler struct {
-	VRec                                                  *VerticaDBReconciler
-	Log                                                   logr.Logger
-	VDB                                                   *vapi.VerticaDB
-	PFacts                                                map[string]*podfacts.PodFacts
-	Manager                                               UpgradeManager
-	Dispatcher                                            vadmin.Dispatcher
-	sandboxName                                           string // name of the sandbox created for replica group B
-	originalConfigParamDisableNonReplicatableQueriesValue string
+	VRec        *VerticaDBReconciler
+	Log         logr.Logger
+	VDB         *vapi.VerticaDB
+	PFacts      map[string]*podfacts.PodFacts
+	Manager     UpgradeManager
+	Dispatcher  vadmin.Dispatcher
+	sandboxName string // name of the sandbox created for replica group B
 }
 
 // MakeOnlineUpgradeReconciler will build a OnlineUpgradeReconciler object
@@ -152,8 +150,6 @@ func MakeOnlineUpgradeReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
 }
 
 // Reconcile will automate the process of a online upgrade.
-//
-//nolint:funlen
 func (r *OnlineUpgradeReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
 	if ok, err := r.Manager.IsUpgradeNeeded(ctx, vapi.MainCluster); !ok || err != nil {
 		return ctrl.Result{}, err
@@ -433,94 +429,6 @@ func (r *OnlineUpgradeReconciler) assignSubclustersToReplicaGroupB(ctx context.C
 		r.Log.Info("new secondary subclusters added to mimic the existing subclusters", "len(subclusters)", len(r.VDB.Spec.Subclusters))
 	}
 	return ctrl.Result{}, nil
-}
-
-// postQueryOriginalConfigParamDisableNonReplicatableQueriesMsg updates the status message to indicate that
-// we are going to query the original value of config parameter DisableNonReplicatableQueries.
-func (r *OnlineUpgradeReconciler) postQueryOriginalConfigParamDisableNonReplicatableQueriesMsg(
-	ctx context.Context) (ctrl.Result, error) {
-	return r.postNextStatusMsg(ctx, queryOriginalConfigParamDisableNonReplicatableQueriesMsgInx)
-}
-
-// queryOriginalConfigParamDisableNonReplicatableQueries gets value of the config parameter
-// DisableNonReplicatableQueries at database level within main cluster
-func (r *OnlineUpgradeReconciler) queryOriginalConfigParamDisableNonReplicatableQueries(ctx context.Context) (res ctrl.Result, err error) {
-	if r.originalConfigParamDisableNonReplicatableQueriesValue != "" ||
-		vmeta.GetOnlineUpgradeStepInx(r.VDB.Annotations) > setConfigParamInx {
-		return ctrl.Result{}, err
-	}
-	pf := r.PFacts[vapi.MainCluster]
-	initiator, ok := pf.FindFirstUpPod(false /* not allow read-only */, "" /* arbitrary subcluster */)
-	if !ok {
-		r.Log.Info("No Up nodes found. Requeue reconciliation.")
-		return ctrl.Result{Requeue: true}, nil
-	}
-	vc := catalog.MakeVCluster(r.VDB, pf.VerticaSUPassword, initiator.GetPodIP(), r.Log, r.VRec.Client, r.VRec.EVRec)
-	r.originalConfigParamDisableNonReplicatableQueriesValue, err = vc.GetConfigurationParameter(ConfigParamDisableNonReplicatableQueries,
-		ConfigParamLevelDatabase, vapi.MainCluster, ctx)
-	return ctrl.Result{}, err
-}
-
-// postDisableNonReplicatableQueriesMsg updates the status message to indicate that
-// we are going to disable non-replicatable queries by setting config parameter DisableNonReplicatableQueries.
-func (r *OnlineUpgradeReconciler) postDisableNonReplicatableQueriesMsg(ctx context.Context) (ctrl.Result, error) {
-	return r.postNextStatusMsg(ctx, disableNonReplicatableQueriesMsgInx)
-}
-
-// setConfigParamDisableNonReplicatableQueries sets the config parameter
-// DisableNonReplicatableQueries to true ("1") at database level within a given cluster
-func (r *OnlineUpgradeReconciler) setConfigParamDisableNonReplicatableQueries(ctx context.Context) (ctrl.Result, error) {
-	if vmeta.GetOnlineUpgradeStepInx(r.VDB.Annotations) > setConfigParamInx {
-		return ctrl.Result{}, nil
-	}
-	if r.originalConfigParamDisableNonReplicatableQueriesValue == "1" {
-		return ctrl.Result{}, r.updateOnlineUpgradeStepAnnotation(ctx, r.getNextStep())
-	}
-	res, err := r.setConfigParamDisableNonReplicatableQueriesImpl(ctx, ConfigParamBoolTrue, r.sandboxName)
-	if verrors.IsReconcileAborted(res, err) {
-		return res, err
-	}
-	r.Log.Info("set DisableNonReplicatableQueries in main cluster before sandboxing")
-	return ctrl.Result{}, r.updateOnlineUpgradeStepAnnotation(ctx, r.getNextStep())
-}
-
-// postClearConfigParamDisableNonReplicatableQueriesMsg updates the status message to indicate that
-// we are going to clear the config parameter DisableNonReplicatableQueries.
-func (r *OnlineUpgradeReconciler) postClearConfigParamDisableNonReplicatableQueriesMsg(ctx context.Context) (ctrl.Result, error) {
-	return r.postNextStatusMsg(ctx, clearDisableNonReplicatableQueriesMsgInx)
-}
-
-// clearConfigParamDisableNonReplicatableQueries clears the config parameter
-// DisableNonReplicatableQueries from the sandbox
-func (r *OnlineUpgradeReconciler) clearConfigParamDisableNonReplicatableQueries(ctx context.Context) (ctrl.Result, error) {
-	if vmeta.GetOnlineUpgradeStepInx(r.VDB.Annotations) > clearConfigParamInx {
-		return ctrl.Result{}, nil
-	}
-	// update podfacts for sandbox
-	if _, err := r.getSandboxPodFacts(ctx, true); err != nil {
-		return ctrl.Result{}, err
-	}
-	res, err := r.setConfigParamDisableNonReplicatableQueriesImpl(ctx, ConfigParamBoolFalse, r.sandboxName)
-	if verrors.IsReconcileAborted(res, err) {
-		return res, err
-	}
-	r.Log.Info(fmt.Sprintf("cleared DisableNonReplicatableQueries in sandbox %s", r.sandboxName))
-	return ctrl.Result{}, r.updateOnlineUpgradeStepAnnotation(ctx, r.getNextStep())
-}
-
-// setConfigParamDisableNonReplicatableQueriesImpl sets the config parameter
-// DisableNonReplicatableQueries to a certain value at database level within a given cluster
-func (r *OnlineUpgradeReconciler) setConfigParamDisableNonReplicatableQueriesImpl(ctx context.Context,
-	value, clusterName string) (ctrl.Result, error) {
-	pf := r.PFacts[clusterName]
-	initiator, ok := pf.FindFirstUpPod(false /* not allow read-only */, "" /* arbitrary subcluster */)
-	if !ok {
-		r.Log.Info("No Up nodes found. Requeue reconciliation.")
-		return ctrl.Result{Requeue: true}, nil
-	}
-	vc := catalog.MakeVCluster(r.VDB, pf.VerticaSUPassword, initiator.GetPodIP(), r.Log, r.VRec.Client, r.VRec.EVRec)
-	err := vc.SetConfigurationParameter(ConfigParamDisableNonReplicatableQueries, value, ConfigParamLevelDatabase, clusterName, ctx)
-	return ctrl.Result{}, err
 }
 
 // postSandboxSubclustersMsg will update the status message to indicate that
