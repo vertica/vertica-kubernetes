@@ -25,6 +25,9 @@ import (
 // log is for logging in this package.
 var verticaautoscalerlog = logf.Log.WithName("verticaautoscaler-resource")
 
+// log is for logging in this package.
+var verticadblog = logf.Log.WithName("verticadb-resource")
+
 // ConvertTo is a function to convert a v1beta1 CR to the v1 version of the CR.
 func (v *VerticaAutoscaler) ConvertTo(dstRaw conversion.Hub) error {
 	verticaautoscalerlog.Info("ConvertToVas", "GroupVersion", GroupVersion, "name", v.Name, "namespace", v.Namespace, "uid", v.UID)
@@ -59,7 +62,7 @@ func convertVasToSpec(src *VerticaAutoscalerSpec) v1.VerticaAutoscalerSpec {
 		VerticaDBName:      src.VerticaDBName,
 		ServiceName:        src.ServiceName,
 		ScalingGranularity: v1.ScalingGranularityType(src.ScalingGranularity),
-		Template:           convertToSubcluster(&src.Template),
+		Template:           src.Template,
 		TargetSize:         src.TargetSize,
 		CustomAutoscaler:   convertVasToCustomAutoscaler(src.CustomAutoscaler),
 	}
@@ -74,7 +77,7 @@ func convertVasFromSpec(src *v1.VerticaAutoscaler) VerticaAutoscalerSpec {
 		VerticaDBName:      srcSpec.VerticaDBName,
 		ServiceName:        srcSpec.ServiceName,
 		ScalingGranularity: ScalingGranularityType(srcSpec.ScalingGranularity),
-		Template:           convertFromSubcluster(&srcSpec.Template),
+		Template:           srcSpec.Template,
 		TargetSize:         srcSpec.TargetSize,
 	}
 	if srcSpec.CustomAutoscaler != nil {

@@ -11,14 +11,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1beta1
+apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
   name: v-nondefault-service-ports
+  annotations:
+    vertica.com/include-uid-in-path: "true"
+    vertica.com/k-safety: "0"
+    vertica.com/requeue-time: 4
 spec:
   image: kustomize-vertica-image
-  communal:
-    includeUIDInPath: true
+  communal: {}
   local:
     requestSize: 100Mi
   subclusters:
@@ -28,8 +31,6 @@ spec:
       size: 1
       serviceHTTPSPort: 8449
       serviceClientPort: 5439
-  kSafety: "0"
-  requeueTime: 4
   certSecrets: []
   imagePullSecrets: []
   volumes: []

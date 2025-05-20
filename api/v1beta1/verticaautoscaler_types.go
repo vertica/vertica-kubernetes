@@ -18,6 +18,7 @@ limitations under the License.
 package v1beta1
 
 import (
+	v1 "github.com/vertica/vertica-kubernetes/api/v1"
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -70,7 +71,7 @@ type VerticaAutoscalerSpec struct {
 	// here it will be used as a prefix for the new subcluster.  Otherwise, we
 	// use the name of this VerticaAutoscaler object as a prefix for all
 	// subclusters.
-	Template Subcluster `json:"template"`
+	Template v1.Subcluster `json:"template"`
 
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:podCount"
@@ -426,7 +427,7 @@ func MakeVASName() types.NamespacedName {
 // This is intended for test purposes.
 func MakeVAS() *VerticaAutoscaler {
 	vasNm := MakeVASName()
-	vdbNm := MakeVDBName()
+	vdbNm := v1.MakeVDBName()
 	return &VerticaAutoscaler{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: GroupVersion.String(),

@@ -11,16 +11,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1beta1
+apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
   name: v-multi-sc
+  annotations:
+    vertica.com/include-uid-in-path: "true"
+    vertica.com/k-safety: "0"
 spec:
   initPolicy: CreateSkipPackageInstall
   image: kustomize-vertica-image
   superuserPasswordSecret: su-passwd
-  communal:
-    includeUIDInPath: true
+  communal: {}
   local:
     requestSize: 100Mi
   subclusters:
@@ -30,7 +32,6 @@ spec:
     - name: sc-1
       size: 1
       isPrimary: true
-  kSafety: "0"
   # Override the readiness/startup probes to not use the dbadmin password. This
   # will cause the dbadmin password not to be mounted in the container.
   readinessProbeOverride:

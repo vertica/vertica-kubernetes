@@ -1656,3 +1656,13 @@ func findInvalidChars(objName string, allowDash bool) string {
 	}
 	return foundChars
 }
+
+// MakeSourceVDBName is a helper that creates a sample name for the source VerticaDB for test purposes
+func MakeSourceVDBName() types.NamespacedName {
+	return types.NamespacedName{Name: "vertica-source-sample", Namespace: "default"}
+}
+
+// MakeTargetVDBName is a helper that creates a sample name for the target VerticaDB for test purposes
+func MakeTargetVDBName() types.NamespacedName {
+	return types.NamespacedName{Name: "vertica-target-sample", Namespace: "default"}
+}

@@ -11,18 +11,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1beta1
+apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
   name: v-mc-restart
+  annotations:
+    vertica.com/include-uid-in-path: "true"
+    vertica.com/requeue-time: 4 
 spec:
   initPolicy: CreateSkipPackageInstall
   image: kustomize-vertica-image
   sidecars:
     - name: vlogger
       image: kustomize-vlogger-image
-  communal:
-    includeUIDInPath: true
+  communal: {}
   local:
     depotVolume: EmptyDir
     requestSize: 100Mi
@@ -39,7 +41,6 @@ spec:
     - name: sc3
       size: 2
       isPrimary: false
-  requeueTime: 10
   certSecrets: []
   imagePullSecrets: []
   volumes: []

@@ -11,15 +11,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1beta1
+apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
   name: v-revive-2
+  annotations:
+    vertica.com/include-uid-in-path: "false"
+    vertica.com/k-safety: "0"
+    vertica.com/requeue-time: 5
+    vertica.com/ignore-cluster-lease: "true"
 spec:
   image: kustomize-vertica-image
-  ignoreClusterLease: true
-  communal:
-    includeUIDInPath: false
+  communal: {}
   httpServerTLSSecret: custom-cert
   clientServerTLSSecret: client-cert
   initPolicy: Revive
@@ -32,8 +35,6 @@ spec:
     requestSize: 100Mi
   dbName: entdb
   shardCount: 99 # Operator should change this to match what was used at create
-  requeueTime: 5
-  kSafety: "0"
   subclusters:
     - name: main
       size: 3
