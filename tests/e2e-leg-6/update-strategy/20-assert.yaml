@@ -20,6 +20,5 @@ metadata:
     vertica.com/https-tls-conf-generation: "false"
 status:
   subclusters:
-    - installCount: 1
-      addedToDBCount: 1
+    - addedToDBCount: 1
       upNodeCount: 1

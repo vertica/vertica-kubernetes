@@ -25,8 +25,7 @@ metadata:
   name: v-pending-pod
 status:
   subclusters:
-    - installCount: 3
-      addedToDBCount: 3
+    - addedToDBCount: 3
       upNodeCount: 3
 ---
 apiVersion: v1

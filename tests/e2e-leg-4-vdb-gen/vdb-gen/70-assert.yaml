@@ -30,4 +30,4 @@ kind: VerticaDB
 metadata:
   name: v-vdb-gen-revive2
 status:
-  installCount: 2
+  addedToDBCount: 2

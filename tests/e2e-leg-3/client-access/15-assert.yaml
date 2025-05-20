@@ -24,4 +24,4 @@ metadata:
   name: v-client-access
 status:
   subclusters:
-    - installCount: 2
+    - addedToDBCount: 2

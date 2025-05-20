@@ -25,5 +25,4 @@ metadata:
   name: v-k-safety-0-scaling
 status:
   subclusters:
-    - installCount: 3
-      addedToDBCount: 3
+    - addedToDBCount: 3

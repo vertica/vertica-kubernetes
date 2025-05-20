@@ -17,7 +17,7 @@ metadata:
   name: v-ks-1-update-strategy
 status:
   subclusters:
-    - installCount: 3
+    - addedToDBCount: 3
 ---
 apiVersion: apps/v1
 kind: StatefulSet

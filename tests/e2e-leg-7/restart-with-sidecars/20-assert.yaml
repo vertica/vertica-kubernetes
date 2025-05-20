@@ -16,7 +16,6 @@ kind: VerticaDB
 metadata:
   name: v-restart-with-sidecars
 status:
-  installCount: 1
   addedToDBCount: 1
   upNodeCount: 1
   subclusterCount: 1

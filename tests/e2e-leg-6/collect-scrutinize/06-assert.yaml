@@ -24,4 +24,4 @@ metadata:
   name: v-collect-scrutinize
 status:
   subclusters:
-    - installCount: 3
+    - addedToDBCount: 3

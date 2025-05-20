@@ -25,4 +25,4 @@ metadata:
   name: v-verify-server-logrotate
 status:
   subclusters:
-    - installCount: 1
+    - addedToDBCount: 1

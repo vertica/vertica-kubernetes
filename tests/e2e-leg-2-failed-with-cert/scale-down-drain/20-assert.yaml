@@ -17,11 +17,9 @@ metadata:
   name: v-scale-in-drain
 status:
   subclusters:
-    - installCount: 1
-      addedToDBCount: 1
+    - addedToDBCount: 1
       upNodeCount: 1
-    - installCount: 2
-      addedToDBCount: 2
+    - addedToDBCount: 2
       upNodeCount: 2
 ---
 apiVersion: v1

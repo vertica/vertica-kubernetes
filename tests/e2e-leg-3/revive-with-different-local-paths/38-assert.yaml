@@ -25,6 +25,5 @@ metadata:
   name: v-revive-1
 status:
   subclusters:
-    - installCount: 2
-      addedToDBCount: 2
+    - addedToDBCount: 2
       upNodeCount: 2

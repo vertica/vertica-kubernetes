@@ -17,12 +17,10 @@ metadata:
   name: v-kill
 status:
   subclusterCount: 1
-  installCount: 2
   addedToDBCount: 1
   upNodeCount: 1
   subclusters:
-    - installCount: 2
-      addedToDBCount: 1
+    - addedToDBCount: 1
       upNodeCount: 1
 ---
 apiVersion: v1

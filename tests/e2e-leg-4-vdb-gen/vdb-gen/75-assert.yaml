@@ -34,7 +34,6 @@ spec:
       isPrimary: true
       size: 1
 status:
-  installCount: 2
   subclusterCount: 2
   upNodeCount: 2
   addedToDBCount: 2

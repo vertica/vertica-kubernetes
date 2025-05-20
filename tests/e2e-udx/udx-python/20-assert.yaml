@@ -25,6 +25,5 @@ metadata:
   name: v-udx-python
 status:
   subclusters:
-    - installCount: 1
-      addedToDBCount: 1
+    - addedToDBCount: 1
       upNodeCount: 1

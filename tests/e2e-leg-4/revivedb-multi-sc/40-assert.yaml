@@ -31,5 +31,5 @@ metadata:
   name: v-revive-multi-sc
 status:
   subclusters:
-    - installCount: 2
-    - installCount: 1
+    - addedToDBCount: 2
+    - addedToDBCount: 1

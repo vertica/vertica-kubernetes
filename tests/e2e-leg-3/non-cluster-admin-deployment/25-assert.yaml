@@ -17,4 +17,4 @@ metadata:
   name: v-non-cluster-admin-deployment
 status:
   subclusterCount: 1
-  installCount: 1
+  addedToDBCount: 1

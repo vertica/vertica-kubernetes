@@ -24,4 +24,4 @@ metadata:
   name: v-tls-certs
 status:
   subclusters:
-    - installCount: 3
+    - addedToDBCount: 3
