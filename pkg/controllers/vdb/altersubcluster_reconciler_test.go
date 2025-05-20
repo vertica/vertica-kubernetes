@@ -16,13 +16,19 @@
 package vdb
 
 import (
+	"context"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
+	"github.com/vertica/vertica-kubernetes/pkg/cmds"
+	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
+	"github.com/vertica/vertica-kubernetes/pkg/test"
 )
 
 var _ = Describe("altersubcluster_reconcile", func() {
+	ctx := context.Background()
 
 	It("should find subclusters to alter for upgrade", func() {
 		vdb := vapi.MakeVDB()
@@ -32,10 +38,12 @@ var _ = Describe("altersubcluster_reconcile", func() {
 			{
 				Name: "sc1",
 				Type: vapi.SecondarySubcluster,
+				Size: 3,
 			},
 			{
 				Name: "sc2",
 				Type: vapi.PrimarySubcluster,
+				Size: 3,
 			},
 			{
 				// we don't support demote subcluster for now so
@@ -43,10 +51,14 @@ var _ = Describe("altersubcluster_reconcile", func() {
 				// promotion
 				Name: "sc3",
 				Type: vapi.SecondarySubcluster,
+				Size: 3,
 			},
 			{
+				// sc4 is the 2nd primary subcluster in sandbox
+				// its type in db is secondary so it will be promoted to primary
 				Name: "sc4",
 				Type: vapi.SecondarySubcluster,
+				Size: 3,
 			},
 		}
 		vdb.Spec.Sandboxes = []vapi.Sandbox{
@@ -54,12 +66,40 @@ var _ = Describe("altersubcluster_reconcile", func() {
 				Name: sbName,
 				Subclusters: []vapi.SandboxSubcluster{
 					{Name: "sc3", Type: vapi.PrimarySubcluster},
-					{Name: "sc4", Type: vapi.SecondarySubcluster},
+					{Name: "sc4", Type: vapi.PrimarySubcluster},
 				},
 			},
 		}
+
+		// pFacts.Collect requires UpNodeCount to be set
+		vdb.Status.Subclusters = []vapi.SubclusterStatus{
+			{Name: "sc1", Type: vapi.SecondarySubcluster, UpNodeCount: 3,
+				Detail: []vapi.VerticaDBPodStatus{{Installed: true, AddedToDB: true}}},
+			{Name: "sc2", Type: vapi.PrimarySubcluster, UpNodeCount: 3,
+				Detail: []vapi.VerticaDBPodStatus{{Installed: true, AddedToDB: true}}},
+			{Name: "sc3", Type: vapi.SandboxPrimarySubcluster, UpNodeCount: 3,
+				Detail: []vapi.VerticaDBPodStatus{{Installed: true, AddedToDB: true}}},
+			{Name: "sc4", Type: vapi.SandboxPrimarySubcluster, UpNodeCount: 3,
+				Detail: []vapi.VerticaDBPodStatus{{Installed: true, AddedToDB: true}}},
+		}
+
+		// findSandboxSubclustersToAlter relys on podfacts status
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsNotRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
+		fpr := &cmds.FakePodRunner{}
+		pFacts := podfacts.PodFacts{VRec: vdbRec, PRunner: fpr, NeedCollection: true, Detail: make(podfacts.PodFactDetail)}
+		Expect(pFacts.Collect(ctx, vdb)).Should(Succeed())
+
+		// set sc4 pods to be up
+		sc := &vdb.Spec.Subclusters[3]
+		nm := names.GenPodName(vdb, sc, 0)
+		pFacts.Detail[nm].SetUpNode(true)
+		pFacts.Detail[nm].SetIsPrimary(false)
+
+		// find the subclusters to alter
+		pFacts.SandboxName = sbName
 		a := AlterSubclusterTypeReconciler{
-			PFacts: &podfacts.PodFacts{SandboxName: sbName},
+			PFacts: &pFacts,
 			Vdb:    vdb,
 			Log:    logger,
 		}
