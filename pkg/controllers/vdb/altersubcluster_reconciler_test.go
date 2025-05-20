@@ -19,7 +19,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
-	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
 )
 
@@ -27,13 +26,8 @@ var _ = Describe("altersubcluster_reconcile", func() {
 
 	It("should find subclusters to alter for upgrade", func() {
 		vdb := vapi.MakeVDB()
-		annPri := map[string]string{
-			vmeta.ParentSubclusterTypeAnnotation: vapi.PrimarySubcluster,
-		}
-		annSec := map[string]string{
-			vmeta.ParentSubclusterTypeAnnotation: vapi.SecondarySubcluster,
-		}
 		const sbName = "sand"
+
 		vdb.Spec.Subclusters = []vapi.Subcluster{
 			{
 				Name: "sc1",
@@ -47,14 +41,12 @@ var _ = Describe("altersubcluster_reconcile", func() {
 				// we don't support demote subcluster for now so
 				// we are only going to find the subclusters that need
 				// promotion
-				Name:        "sc3",
-				Type:        vapi.SecondarySubcluster,
-				Annotations: annSec,
+				Name: "sc3",
+				Type: vapi.SecondarySubcluster,
 			},
 			{
-				Name:        "sc4",
-				Type:        vapi.SecondarySubcluster,
-				Annotations: annPri,
+				Name: "sc4",
+				Type: vapi.SecondarySubcluster,
 			},
 		}
 		vdb.Spec.Sandboxes = []vapi.Sandbox{

@@ -246,9 +246,13 @@ func (s *SandboxSubclusterReconciler) executeSandboxCommand(ctx context.Context,
 		// vclusterOps only set the first subcluster to primary in the sandbox, so
 		// after the newly sandboxed subclusters is up, we need to update their type
 		// in database according to vdb sandbox subcluster type
-		res, err := s.updateSandboxSubclusterType(ctx, sb)
-		if verrors.IsReconcileAborted(res, err) {
-			return res, err
+		// skip this step if we are in online upgrade process, because subculuster types
+		// will be handled after sandbox subcluster reconciler
+		if !s.ForUpgrade {
+			res, err := s.updateSandboxSubclusterType(ctx, sb)
+			if verrors.IsReconcileAborted(res, err) {
+				return res, err
+			}
 		}
 	}
 

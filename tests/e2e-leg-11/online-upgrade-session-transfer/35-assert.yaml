@@ -86,13 +86,13 @@ status:
       name: pri1
       type: primary
     - addedToDBCount: 1
-      name: pri_2
+      name: pri-2
       type: primary
     - addedToDBCount: 2
       name: pri1-sb
       type: sandboxprimary
     - addedToDBCount: 1
-      name: pri_2-sb
+      name: pri-2-sb
       type: sandboxprimary
     - addedToDBCount: 3
       name: sec1-sb
