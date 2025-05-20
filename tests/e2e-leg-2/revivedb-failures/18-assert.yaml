@@ -16,7 +16,6 @@ kind: VerticaDB
 metadata:
   name: v-revive-failures-cluster-lease
 status:
-  installCount: 2
   addedToDBCount: 0
   upNodeCount: 0
 ---

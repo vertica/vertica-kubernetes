@@ -17,5 +17,4 @@ metadata:
   name: v-kill-controller
 status:
   upNodeCount: 1
-  installCount: 1
   addedToDBCount: 1

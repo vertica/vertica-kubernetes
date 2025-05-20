@@ -17,11 +17,9 @@ metadata:
   name: v-multi-sc
 status:
   subclusterCount: 1
-  installCount: 2
   addedToDBCount: 2
   upNodeCount: 2
   subclusters:
-    - installCount: 2
-      addedToDBCount: 2
+    - addedToDBCount: 2
       upNodeCount: 2
       name: new-sc3

@@ -25,5 +25,4 @@ metadata:
   name: v-scale-out-and-in
 status:
   subclusters:
-    - installCount: 5
-      addedToDBCount: 3
+    - addedToDBCount: 3

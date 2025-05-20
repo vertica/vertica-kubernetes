@@ -25,18 +25,14 @@ metadata:
   name: v-multi-sc
 status:
   subclusterCount: 3
-  installCount: 3
   addedToDBCount: 3
   upNodeCount: 3
   subclusters:
-    - installCount: 1
-      addedToDBCount: 1
+    - addedToDBCount: 1
       upNodeCount: 1
-    - installCount: 1
-      addedToDBCount: 1
+    - addedToDBCount: 1
       upNodeCount: 1
-    - installCount: 1
-      addedToDBCount: 1
+    - addedToDBCount: 1
       upNodeCount: 1
 ---
 apiVersion: v1

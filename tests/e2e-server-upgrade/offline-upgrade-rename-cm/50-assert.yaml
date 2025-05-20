@@ -26,5 +26,4 @@ status:
     - type: OfflineUpgradeInProgress
       status: "False"
   subclusterCount: 1
-  installCount: 1
   upNodeCount: 1

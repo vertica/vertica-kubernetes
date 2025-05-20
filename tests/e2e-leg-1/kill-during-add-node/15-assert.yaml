@@ -25,10 +25,8 @@ metadata:
   name: v-kill
 status:
   subclusterCount: 1
-  installCount: 1
   addedToDBCount: 1
   upNodeCount: 1
   subclusters:
-    - installCount: 1
-      addedToDBCount: 1
+    - addedToDBCount: 1
       upNodeCount: 1

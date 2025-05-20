@@ -16,5 +16,4 @@ kind: VerticaDB
 metadata:
   name: v-from-x
 status:
-  installCount: 3
   upNodeCount: 3

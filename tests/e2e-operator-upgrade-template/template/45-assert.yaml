@@ -33,9 +33,7 @@ metadata:
   name: v-from-x
 status:
   subclusters:
-    - installCount: 2
-      addedToDBCount: 2
+    - addedToDBCount: 2
       upNodeCount: 2
-    - installCount: 1
-      addedToDBCount: 1
+    - addedToDBCount: 1
       upNodeCount: 1

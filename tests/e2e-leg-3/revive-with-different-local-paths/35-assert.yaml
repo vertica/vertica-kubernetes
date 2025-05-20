@@ -33,6 +33,5 @@ spec:
   shardCount: 32
 status:
   subclusters:
-    - installCount: 2
-      addedToDBCount: 2
+    - addedToDBCount: 2
       upNodeCount: 2

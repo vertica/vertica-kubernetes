@@ -17,4 +17,4 @@ metadata:
   name: v-managed
 status:
   subclusters:
-    - installCount: 1
+    - addedToDBCount: 1

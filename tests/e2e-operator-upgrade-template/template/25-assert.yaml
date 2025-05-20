@@ -30,4 +30,4 @@ kind: VerticaDB
 metadata:
   name: v-from-x
 status:
-  installCount: 3
+  addedToDBCount: 3

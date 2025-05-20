@@ -16,7 +16,6 @@ kind: VerticaDB
 metadata:
   name: v-revive-failures-too-many-nodes
 status:
-  installCount: 3
   addedToDBCount: 0
   upNodeCount: 0
 ---
