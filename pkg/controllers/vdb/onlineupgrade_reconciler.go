@@ -188,22 +188,10 @@ func (r *OnlineUpgradeReconciler) Reconcile(ctx context.Context, _ *ctrl.Request
 		r.runAddSubclusterReconcilerForMainCluster,
 		r.runAddNodesReconcilerForMainCluster,
 		r.runRebalanceSandboxSubcluster,
-		// Get the original value of config parameter DisableNonReplicatableQueries at database level
-		r.postQueryOriginalConfigParamDisableNonReplicatableQueriesMsg,
-		r.queryOriginalConfigParamDisableNonReplicatableQueries,
-		// Disable all non-replicatable queries by setting config parameter DisableNonReplicatableQueries
-		// at database level
-		r.postDisableNonReplicatableQueriesMsg,
-		r.setConfigParamDisableNonReplicatableQueries,
 		// Sandbox all of the secondary subclusters that are destined for
 		// replica group B.
 		r.postSandboxSubclustersMsg,
 		r.sandboxReplicaGroupB,
-		// workaround: clear the value to force vertica.conf to be rewritten
-		r.postClearConfigParamDisableNonReplicatableQueriesMsg,
-		r.clearConfigParamDisableNonReplicatableQueries,
-		// Change replica b subcluster types to match the main cluster's
-		r.postPromoteSubclustersInSandboxMsg,
 		// Upgrade the version in the sandbox to the new version.
 		r.postUpgradeSandboxMsg,
 		r.upgradeSandbox,
@@ -595,12 +583,6 @@ func (r *OnlineUpgradeReconciler) sandboxReplicaGroupB(ctx context.Context) (ctr
 	return ctrl.Result{}, r.updateOnlineUpgradeStepAnnotation(ctx, r.getNextStep())
 }
 
-// postPromoteSubclustersInSandboxMsg will update the status message to indicate that
-// we are going to prmote subclusters in sandbox.
-func (r *OnlineUpgradeReconciler) postPromoteSubclustersInSandboxMsg(ctx context.Context) (ctrl.Result, error) {
-	return r.postNextStatusMsg(ctx, promoteSubclustersInSandboxMsgInx)
-}
-
 // postUpgradeSandboxMsg will update the status message to indicate that
 // we are going to upgrade the vertica version in the sandbox.
 func (r *OnlineUpgradeReconciler) postUpgradeSandboxMsg(ctx context.Context) (ctrl.Result, error) {
@@ -618,8 +600,6 @@ func (r *OnlineUpgradeReconciler) upgradeSandbox(ctx context.Context) (ctrl.Resu
 	if sb == nil {
 		return ctrl.Result{}, fmt.Errorf("could not find sandbox %q", r.sandboxName)
 	}
-	r.Log.Info("DEBUG: qin test sleep")
-	time.Sleep(time.Second * 5000)
 
 	// We can skip updating vdb if the image in the sandbox matches the image in the vdb.
 	updated := false
