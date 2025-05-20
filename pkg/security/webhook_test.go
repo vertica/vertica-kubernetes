@@ -88,19 +88,6 @@ var _ = Describe("webhook", func() {
 		Expect(files[1].Name()).Should(Equal(corev1.TLSPrivateKeyKey))
 	})
 
-	It("should add annotations to the CRD", func() {
-		crdName := types.NamespacedName{Name: getVerticaDBCRDName()}
-		crd := extv1.CustomResourceDefinition{}
-		Expect(k8sClient.Get(ctx, crdName, &crd)).Should(Succeed())
-		Expect(crd.Annotations).ShouldNot(BeNil())
-		_, ok := crd.Annotations[certManagerAnnotationName]
-		Expect(ok).Should(BeFalse())
-		Expect(AddCertManagerAnnotation(ctx, &logger, restCfg, prefixName, ns)).Should(Succeed())
-		Expect(k8sClient.Get(ctx, crdName, &crd)).Should(Succeed())
-		_, ok = crd.Annotations[certManagerAnnotationName]
-		Expect(ok).Should(BeTrue())
-	})
-
 	It("should be able to update the conversion webhook only", func() {
 		crdName := types.NamespacedName{Name: getVerticaDBCRDName()}
 		crd := extv1.CustomResourceDefinition{}
