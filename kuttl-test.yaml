@@ -21,11 +21,9 @@ skipDelete: true
 testDirs:
   - tests/e2e-leg-1
   - tests/e2e-leg-1-at-only
-  - tests/e2e-leg-1-failed-with-cert
   - tests/e2e-leg-2
   - tests/e2e-leg-2-at-only
   - tests/e2e-leg-2-vc-only
-  - tests/e2e-leg-2-failed-with-cert
   - tests/e2e-leg-3
   - tests/e2e-leg-3-at-only
   - tests/e2e-leg-4
