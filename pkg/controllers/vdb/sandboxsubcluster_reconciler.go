@@ -233,22 +233,22 @@ func (s *SandboxSubclusterReconciler) executeSandboxCommand(ctx context.Context,
 			s.Log.Error(err, "failed waiting for newly sandboxed subclusters to be up", "sandbox", sbName, "subclusters", sbScs)
 			return ctrl.Result{Requeue: true}, nil
 		}
-
-		// vclusterOps only set the first subcluster to primary in the sandbox, so
-		// after the newly sandboxed subclusters is up, we need to update their type
-		// in database according to vdb sandbox subcluster type
-		res, err := s.updateSandboxSubclusterType(ctx, sbName)
-		if verrors.IsReconcileAborted(res, err) {
-			return res, err
-		}
 	}
 
-	// create/update a sandbox config map
+	// create/update a sandbox config map and update subcluster type in database
 	for sb := range seenSandboxes {
 		err := s.checkSandboxConfigMap(ctx, sb)
 		if err != nil {
 			// when creating/updating sandbox config map failed, update sandbox status and return error
 			return ctrl.Result{}, err
+		}
+
+		// vclusterOps only set the first subcluster to primary in the sandbox, so
+		// after the newly sandboxed subclusters is up, we need to update their type
+		// in database according to vdb sandbox subcluster type
+		res, err := s.updateSandboxSubclusterType(ctx, sb)
+		if verrors.IsReconcileAborted(res, err) {
+			return res, err
 		}
 	}
 
@@ -259,7 +259,7 @@ func (s *SandboxSubclusterReconciler) executeSandboxCommand(ctx context.Context,
 func (s *SandboxSubclusterReconciler) updateSandboxSubclusterType(ctx context.Context, sb string) (ctrl.Result, error) {
 	sbPFacts := s.PFacts.Copy(sb)
 
-	actor := MakeAlterSubclusterTypeReconciler(s.VRec, s.Log, s.Vdb, &sbPFacts, s.Dispatcher, false /* forUpgrade */)
+	actor := MakeAlterSubclusterTypeReconciler(s.VRec, s.Log, s.Vdb, &sbPFacts, s.Dispatcher)
 	res, err := actor.Reconcile(ctx, &ctrl.Request{})
 	if err != nil {
 		s.Log.Error(err, "Failed to update subcluster type in sandbox", "sandbox", sb)
