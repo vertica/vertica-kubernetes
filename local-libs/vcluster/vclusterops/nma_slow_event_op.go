@@ -32,6 +32,7 @@ type nmaSlowEventsOp struct {
 	transactionID      string
 	nodeName           string
 	eventDesc          string
+	durationUs         string
 }
 
 type slowEventRequestData struct {
@@ -41,7 +42,7 @@ type slowEventRequestData struct {
 
 func makeNMASlowEventOp(upHosts []string, userName string,
 	startTime, endTime, threadID, phaseDuration string,
-	transactionID, nodeName, eventDesc string) (nmaSlowEventsOp, error) {
+	transactionID, nodeName, eventDesc, durationUs string) (nmaSlowEventsOp, error) {
 	op := nmaSlowEventsOp{}
 	op.name = "NMASlowEventOp"
 	op.description = "Check slow events"
@@ -54,6 +55,7 @@ func makeNMASlowEventOp(upHosts []string, userName string,
 	op.threadID = threadID
 	op.phasesDuration = phaseDuration
 	op.eventDesc = eventDesc
+	op.durationUs = durationUs
 
 	err := op.setupRequestBody()
 	if err != nil {
@@ -61,16 +63,6 @@ func makeNMASlowEventOp(upHosts []string, userName string,
 	}
 
 	return op, nil
-}
-
-func makeNMASlowEventOpByThreadID(upHosts []string, userName string,
-	startTime, endTime, threadID string) (nmaSlowEventsOp, error) {
-	return makeNMASlowEventOp(upHosts, userName, startTime, endTime, threadID, "", "", "", "")
-}
-
-func makeNMASlowEventOpByKeyword(upHosts []string, userName string,
-	startTime, endTime, keyword string) (nmaSlowEventsOp, error) {
-	return makeNMASlowEventOp(upHosts, userName, startTime, endTime, "", keyword, "", "", "")
 }
 
 func (op *nmaSlowEventsOp) setupRequestBody() error {
@@ -102,6 +94,9 @@ func (op *nmaSlowEventsOp) setupRequestBody() error {
 		}
 		if op.eventDesc != "" {
 			requestData.Params["event-desc"] = op.eventDesc
+		}
+		if op.durationUs != "" {
+			requestData.Params["duration-us"] = op.durationUs
 		}
 
 		dataBytes, err := json.Marshal(requestData)
@@ -156,7 +151,7 @@ type dcSlowEvent struct {
 	SessionID        string `json:"session_id"`
 	UserID           string `json:"user_id"`
 	UserName         string `json:"user_name"`
-	TxnID            string `json:"txn_id"`
+	TxnID            string `json:"transaction_id"`
 	StatementID      string `json:"statement_id"`
 	RequestID        string `json:"request_id"`
 	EventDescription string `json:"event_description"`
@@ -173,6 +168,10 @@ func (event *dcSlowEvent) getSessionID() string {
 
 func (event *dcSlowEvent) getTxnID() string {
 	return event.TxnID
+}
+
+func (event *dcSlowEvent) getThreadID() string {
+	return event.ThreadID
 }
 
 func (op *nmaSlowEventsOp) processResult(execContext *opEngineExecContext) error {

@@ -18,101 +18,104 @@ package vclusterops
 import (
 	"fmt"
 	"sort"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
 type NodeLockEvents struct {
-	NodeName       string
-	MaxDuration    string            `json:"max_duration"`
-	LockWaitEvents []*dcLockAttempts `json:"wait_locks"`
-	LockHoldEvents *[]dcLockReleases `json:"hold_locks"` // hold locks related to earliest wait locks
+	NodeName        string
+	MaxDuration     string            `json:"max_duration"`
+	WaitStartTime   string            `json:"wait_start_time"`
+	WaitEndTime     string            `json:"wait_end_time"`
+	TotalWaitEvents int               `json:"total_wait_events"`
+	LockWaitEvents  *[]dcLockAttempts `json:"wait_locks"`
+	LockHoldEvents  *[]dcLockReleases `json:"hold_locks"` // hold locks related to earliest wait locks
 }
 
-func (opt *VClusterHealthOptions) buildLockCascadeGraph(logger vlog.Printer,
-	upHosts []string) error {
-	lockAttempts, err := opt.getLockAttempts(logger, upHosts,
-		opt.StartTime, opt.EndTime)
+type parsedEvent struct {
+	Original        any
+	NodeName        string
+	Duration        time.Duration
+	TotalWaitEvents int
+	Start           time.Time
+	End             time.Time
+	Processed       bool
+}
+
+const (
+	maxLockWaitEvents = 10    // max number of lock wait events to display
+	lockAttemptsLimit = 40960 // max number of lock attempts to load from database in one batch
+	lockReleasesLimit = 10240 // max number of lock releases to load from database in one batch
+	// as lock will timeout in 45 minutes, we need to check the lock attempts in the previous 45 minutes
+	lockEventsTraceBack = -45 * time.Minute
+)
+
+func parseCustomDuration(timeStr string) (time.Duration, error) {
+	const (
+		secondsSplitParts = 2
+		nanosecondDigits  = 9
+	)
+
+	parts := strings.Split(timeStr, ":")
+	if len(parts) < 3 || len(parts) > 3 {
+		return 0, fmt.Errorf("invalid time format, expected HH:MM:SS[.fff...]")
+	}
+
+	// Parse hours
+	hours, err := strconv.Atoi(parts[0])
 	if err != nil {
-		return err
+		return 0, fmt.Errorf("invalid hours: %v", err)
 	}
 
-	// find the earliest lock waiting event in each node
-	if lockAttempts == nil || len(*lockAttempts) == 0 {
-		return nil
+	// Parse minutes
+	minutes, err := strconv.Atoi(parts[1])
+	if err != nil {
+		return 0, fmt.Errorf("invalid minutes: %v", err)
 	}
 
-	vlog.DisplayColorInfo("Building cascade graph for lock events")
+	// Parse seconds and optional fractional seconds
+	secondsParts := strings.SplitN(parts[2], ".", secondsSplitParts)
+	seconds, err := strconv.Atoi(secondsParts[0])
+	if err != nil {
+		return 0, fmt.Errorf("invalid seconds: %v", err)
+	}
 
-	nodeLockStartMap := make(map[string]*dcLockAttempts)
-	for i := range *lockAttempts {
-		event := (*lockAttempts)[i]
-		nodeName := event.NodeName
-		if _, exists := nodeLockStartMap[nodeName]; exists {
-			if event.StartTime < nodeLockStartMap[nodeName].StartTime {
-				nodeLockStartMap[nodeName] = &event
-			}
+	// Handle fractional seconds if they exist
+	nanoseconds := 0
+	if len(secondsParts) == secondsSplitParts {
+		fracStr := secondsParts[1]
+		// Pad or truncate to 9 digits (nanoseconds)
+		if len(fracStr) > nanosecondDigits {
+			fracStr = fracStr[:nanosecondDigits]
 		} else {
-			nodeLockStartMap[event.NodeName] = &event
+			fracStr += strings.Repeat("0", nanosecondDigits-len(fracStr))
+		}
+		nanoseconds, err = strconv.Atoi(fracStr)
+		if err != nil {
+			return 0, fmt.Errorf("invalid fractional seconds: %v", err)
 		}
 	}
 
-	// recursively track the earliest lock wait event in each node
-	// i.e., given a detected lock wait event:
-	// - use its start_time as the new end_time
-	// - start_time - tracebackTime as the new start_time
-	// then request /v1/dc/lock-attempts using the node_name and the new times
-	for _, event := range nodeLockStartMap {
-		e := opt.recursiveTraceLocks(logger, upHosts, event, 1)
-		if e != nil {
-			return e
-		}
-	}
+	total := time.Duration(hours)*time.Hour +
+		time.Duration(minutes)*time.Minute +
+		time.Duration(seconds)*time.Second +
+		time.Duration(nanoseconds)*time.Nanosecond
 
-	// sort the cascade result by the start time and duration
-	// node with earlier time and longer duration goes first
-	sort.Slice(opt.LockEventCascade, func(i, j int) bool {
-		event1 := opt.LockEventCascade[i].LockWaitEvents[len(opt.LockEventCascade[i].LockWaitEvents)-1]
-		event2 := opt.LockEventCascade[j].LockWaitEvents[len(opt.LockEventCascade[j].LockWaitEvents)-1]
-		if event1.StartTime != event2.StartTime {
-			return event1.StartTime < event2.StartTime
-		}
-		return event1.Duration > event2.Duration
-	})
-
-	// for each node's result, we pick its earliest lock wait event,
-	// then find out the event's related/correlated lock hold events
-	for i, item := range opt.LockEventCascade {
-		// fill session and transaction info
-		for _, event := range item.LockWaitEvents {
-			sessionInfo, transactionInfo, e := opt.getEventSessionAndTxnInfo(logger, upHosts, event)
-			if e != nil {
-				return e
-			}
-			event.SessionInfo = *sessionInfo
-			event.TxnInfo = *transactionInfo
-		}
-
-		// fill lock hold info for the earliest wait event
-		earliestEvent := item.LockWaitEvents[len(item.LockWaitEvents)-1]
-		e := opt.getLockReleases(logger, upHosts, earliestEvent.NodeName,
-			earliestEvent.StartTime, earliestEvent.Time, i)
-		if e != nil {
-			return e
-		}
-	}
-
-	return nil
+	return total, nil
 }
 
+// getLockAttempts gets the lock attempts events from the database.
+//
+//nolint:dupl
 func (opt *VClusterHealthOptions) getLockAttempts(logger vlog.Printer, upHosts []string,
-	startTime, endTime string) (lockAttempts *[]dcLockAttempts, err error) {
+	startTime, endTime string, thresHold string) (lockAttempts *[]dcLockAttempts, err error) {
 	var instructions []clusterOp
 
-	const resultLimit = 1024
 	nmaLockAttemptsOp, err := makeNMALockAttemptsOp(upHosts, opt.DatabaseOptions.UserName,
-		startTime, endTime, "" /*node name*/, resultLimit)
+		startTime, endTime, "" /*node name*/, thresHold, lockAttemptsLimit)
 	if err != nil {
 		return nil, err
 	}
@@ -123,117 +126,367 @@ func (opt *VClusterHealthOptions) getLockAttempts(logger vlog.Printer, upHosts [
 	if err != nil {
 		return nil, fmt.Errorf("fail to get lock waiting events, %w", err)
 	}
-
 	return clusterOpEngine.execContext.dcLockAttemptsList, nil
 }
 
-func (opt *VClusterHealthOptions) recursiveTraceLocks(logger vlog.Printer, upHosts []string,
-	event *dcLockAttempts, depth int) error {
-	logger.Info("Lock wait event", "node name", event.NodeName, "event", event)
-
-	// set a max depth to avoid exhaustive recursion
-	if depth > maxDepth {
-		return nil
-	}
-
-	var lastElem NodeLockEvents
-	count := len(opt.LockEventCascade)
-	if count > 0 {
-		lastElem = opt.LockEventCascade[count-1]
-	}
-	// if node exists in the result, append new event into it
-	// otherwise, create a new node elem
-	if count > 0 && lastElem.NodeName == event.NodeName {
-		lastElem.LockWaitEvents = append(lastElem.LockWaitEvents, event)
-		opt.LockEventCascade[count-1] = lastElem
-	} else {
-		var locksInNode NodeLockEvents
-		locksInNode.NodeName = event.NodeName
-		locksInNode.LockWaitEvents = append(locksInNode.LockWaitEvents, event)
-
-		// get the maximum duration for each node
-		maxDuration := "00:00:00.000" // the duration is saved in this format
-		for _, event := range locksInNode.LockWaitEvents {
-			if event.Duration > maxDuration {
-				maxDuration = event.Duration
-			}
-		}
-		locksInNode.MaxDuration = maxDuration
-
-		opt.LockEventCascade = append(opt.LockEventCascade, locksInNode)
-	}
-
+// getLockReleases gets the lock releases events from the database.
+//
+//nolint:dupl
+func (opt *VClusterHealthOptions) getLockReleases(logger vlog.Printer,
+	upHosts []string, startTime, endTime string, thresHold string) (lockReleases *[]dcLockReleases, err error) {
 	var instructions []clusterOp
-
-	const resultLimit = 5
-	const tracebackTime = 60 * 10 // seconds
-
-	start, err := time.Parse(timeLayout, event.StartTime)
+	nmaLockAttemptsOp, err := makeNMALockReleasesOp(upHosts, opt.DatabaseOptions.UserName,
+		startTime, endTime, "", lockReleasesLimit, thresHold)
 	if err != nil {
-		return err
-	}
-	priorTimePoint := start.Add(-time.Duration(tracebackTime) * time.Second)
-	priorTimeStr := priorTimePoint.Format(timeLayout)
-
-	nmaLockAttemptsOp, err := makeNMALockAttemptsOp(upHosts, opt.DatabaseOptions.UserName,
-		priorTimeStr, event.StartTime, event.NodeName, resultLimit)
-	if err != nil {
-		return err
+		return nil, err
 	}
 	instructions = append(instructions, &nmaLockAttemptsOp)
 
 	clusterOpEngine := makeClusterOpEngine(instructions, &opt.DatabaseOptions)
 	err = clusterOpEngine.run(logger)
 	if err != nil {
-		return fmt.Errorf("fail to get lock waiting events, %w", err)
+		return nil, fmt.Errorf("fail to get lock holding events, %w", err)
 	}
-
-	lockAttemptList := clusterOpEngine.execContext.dcLockAttemptsList
-
-	// stop recursion if no more events found
-	if lockAttemptList == nil || len(*lockAttemptList) == 0 {
-		return nil
-	}
-
-	// pick the event that has the earliest start_time, then keep tracing
-	// here we pick the first element as the result is sorted by start_time already
-	eventWithEarliestStartTime := (*lockAttemptList)[0]
-
-	return opt.recursiveTraceLocks(logger, upHosts, &eventWithEarliestStartTime, depth+1)
+	return clusterOpEngine.execContext.dcLockReleasesList, nil
 }
 
-func (opt *VClusterHealthOptions) getLockReleases(logger vlog.Printer, upHosts []string,
-	nodeName, startTime, endTime string, cascadeIndex int) error {
-	var instructions []clusterOp
+// parseAttemptsEvents parses the lock attempts events and groups them by node name.
+func parseAttemptsEvents(events *[]dcLockAttempts) (map[string][]parsedEvent, error) {
+	if events == nil || len(*events) == 0 {
+		return nil, nil
+	}
 
-	const resultLimit = 5
-	nmaLockAttemptsOp, err := makeNMALockReleasesOp(upHosts, opt.DatabaseOptions.UserName,
-		startTime, endTime, nodeName, resultLimit)
+	var parsed []parsedEvent
+
+	for i := range *events {
+		e := &(*events)[i]
+		start, err := time.Parse(timeLayout, e.StartTime)
+		if err != nil {
+			return nil, fmt.Errorf("invalid StartTime: %v", err)
+		}
+		dur, err := parseCustomDuration(e.Duration)
+		if err != nil {
+			return nil, fmt.Errorf("invalid Duration: %v", err)
+		}
+		parsed = append(parsed, parsedEvent{
+			Original: *e,
+			NodeName: e.NodeName,
+			Duration: dur,
+			Start:    start,
+			End:      start.Add(dur),
+		})
+	}
+	// group parsed events by node_name
+	grouped := make(map[string][]parsedEvent)
+	for _, event := range parsed {
+		grouped[event.NodeName] = append(grouped[event.NodeName], event)
+	}
+
+	return grouped, nil
+}
+
+// parseReleasesEvents parses the lock releases events and groups them by node name.
+func parseReleasesEvents(events *[]dcLockReleases) (map[string][]parsedEvent, error) {
+	if events == nil || len(*events) == 0 {
+		return nil, nil
+	}
+	var parsed []parsedEvent
+	for i := range *events {
+		e := &(*events)[i]
+		start, err := time.Parse(timeLayout, e.GrantTime)
+		if err != nil {
+			return nil, fmt.Errorf("invalid StartTime: %v", err)
+		}
+		dur, err := parseCustomDuration(e.Duration)
+		if err != nil {
+			return nil, fmt.Errorf("invalid Duration: %v", err)
+		}
+		end, err := time.Parse(timeLayout, e.Time)
+		if err != nil {
+			return nil, fmt.Errorf("invalid EndTime: %v", err)
+		}
+		parsed = append(parsed, parsedEvent{
+			Original: *e,
+			NodeName: e.NodeName,
+			Duration: dur,
+			Start:    start,
+			End:      end,
+		})
+	}
+	// group parsed events by node_name
+	grouped := make(map[string][]parsedEvent)
+	for _, event := range parsed {
+		// sort the events by duration
+		grouped[event.NodeName] = append(grouped[event.NodeName], event)
+	}
+	// sort each group by duration descending
+	for nodeName, events := range grouped {
+		sort.Slice(events, func(i, j int) bool {
+			return events[i].Duration > events[j].Duration
+		})
+		grouped[nodeName] = events
+	}
+	return grouped, nil
+}
+
+// findLockWaitSeries finds the longest series of lock wait events within the given time range.
+func findLockWaitSeries(parsed *[]parsedEvent, startTime, endTime string) (
+	lockSeries []parsedEvent, duration time.Duration, start, end time.Time, totalEvents int) {
+	if len(*parsed) == 0 {
+		return nil, 0, start, end, 0
+	}
+
+	startT, endT, err := parseTimeRange(startTime, endTime)
+	if err != nil {
+		return nil, 0, start, end, 0
+	}
+
+	processed := make(map[int]bool)
+	var longestSeries []parsedEvent
+	var maxDuration time.Duration
+	longestStart := time.Time{}
+	longestEnd := time.Time{}
+	// find the longest series of lock wait events
+	for {
+		series, seriesStart, seriesEnd, _ := findInitialSeries(parsed, startT, endT, processed)
+		if len(series) == 0 {
+			break
+		}
+		series, seriesStart, seriesEnd = expandSeries(parsed, &series, seriesStart, seriesEnd, processed)
+		duration := seriesEnd.Sub(seriesStart)
+		if duration > maxDuration {
+			longestSeries = series
+			maxDuration = duration
+			longestStart = seriesStart
+			longestEnd = seriesEnd
+		}
+	}
+	totalEvents = len(longestSeries)
+	if len(longestSeries) > maxLockWaitEvents {
+		longestSeries = longestSeries[:maxLockWaitEvents]
+	}
+	maxEventDuration := time.Duration(0)
+	if len(longestSeries) > 0 {
+		maxEventDuration = longestSeries[0].Duration
+	}
+	return longestSeries, maxEventDuration, longestStart, longestEnd, totalEvents
+}
+
+func parseTimeRange(startTime, endTime string) (startT, endT time.Time, err error) {
+	startT, err = time.Parse(timeLayout, startTime)
+	if err != nil {
+		return time.Time{}, time.Time{}, err
+	}
+	endT, err = time.Parse(timeLayout, endTime)
+	if err != nil {
+		return time.Time{}, time.Time{}, err
+	}
+	return startT, endT, nil
+}
+
+func findInitialSeries(parsed *[]parsedEvent, startT, endT time.Time, processed map[int]bool) (
+	series []parsedEvent, seriesStart, seriesEnd time.Time, foundNew bool) {
+	foundNew = false
+	for i, e := range *parsed {
+		if processed[i] || e.End.Before(startT) || e.End.After(endT) {
+			continue
+		}
+		series = append(series, e)
+		seriesStart = e.Start
+		seriesEnd = e.End
+		processed[i] = true
+		foundNew = true
+		break
+	}
+	return series, seriesStart, seriesEnd, foundNew
+}
+
+func expandSeries(parsed, series *[]parsedEvent, seriesStart, seriesEnd time.Time, processed map[int]bool) (
+	updatedSeries []parsedEvent, newSeriesStart, newSeriesEnd time.Time) {
+	for {
+		foundOverlap := false
+		for i, e := range *parsed {
+			if processed[i] || !isOverlapping(&e, seriesStart, seriesEnd) {
+				continue
+			}
+			*series = append(*series, e)
+			processed[i] = true
+			foundOverlap = true
+			if e.Start.Before(seriesStart) {
+				seriesStart = e.Start
+			}
+			if e.End.After(seriesEnd) {
+				seriesEnd = e.End
+			}
+		}
+		if !foundOverlap {
+			break
+		}
+	}
+	return *series, seriesStart, seriesEnd
+}
+
+func isOverlapping(event *parsedEvent, seriesStart, seriesEnd time.Time) bool {
+	return (event.Start.After(seriesStart) && event.Start.Before(seriesEnd)) ||
+		(event.End.After(seriesStart) && event.End.Before(seriesEnd)) ||
+		(event.Start.Before(seriesStart) && event.End.After(seriesEnd))
+}
+
+func findLockHoldSeries(parsed *[]parsedEvent, seriesStart time.Time) ([]parsedEvent, time.Duration) {
+	// find lock hold events which falls into the wait event's time range
+	var holdEvents []parsedEvent
+	holdDuration := time.Duration(0)
+	const maxHoldEvents = 3
+	// return top up to 3 hold events
+	for _, e := range *parsed {
+		if e.End.After(seriesStart) && e.Start.Before(seriesStart) {
+			holdEvents = append(holdEvents, e)
+			holdDuration += e.Duration
+		}
+		if len(holdEvents) >= maxHoldEvents {
+			break
+		}
+	}
+
+	return holdEvents, holdDuration
+}
+
+func (opt *VClusterHealthOptions) buildLockCascadeGraph(logger vlog.Printer,
+	upHosts []string, attemptThresHold string, releaseThresHold string) error {
+	opt.LockEventCascade = make([]NodeLockEvents, 0)
+
+	lockStartTime, err := time.Parse(timeLayout, opt.StartTime)
 	if err != nil {
 		return err
 	}
-	instructions = append(instructions, &nmaLockAttemptsOp)
-
-	clusterOpEngine := makeClusterOpEngine(instructions, &opt.DatabaseOptions)
-	err = clusterOpEngine.run(logger)
+	lockStartTime = lockStartTime.Add(lockEventsTraceBack) // find if there are any lock attempts in the previous 45 minutes
+	lockStartTimeStr := lockStartTime.Format(timeLayout)
+	lockAttempts, err := opt.getLockAttempts(logger, upHosts, lockStartTimeStr, opt.EndTime, attemptThresHold)
 	if err != nil {
-		return fmt.Errorf("fail to get lock waiting events, %w", err)
+		return err
+	}
+	lockAttemptsParsed, err := parseAttemptsEvents(lockAttempts)
+	if err != nil {
+		return err
 	}
 
-	if clusterOpEngine.execContext.dcLockReleasesList != nil {
-		opt.LockEventCascade[cascadeIndex].LockHoldEvents = clusterOpEngine.execContext.dcLockReleasesList
+	lockReleases, err := opt.getLockReleases(logger, upHosts, lockStartTimeStr, opt.EndTime, releaseThresHold)
+	if err != nil {
+		return err
 	}
 
+	lockReleasesParsed, err := parseReleasesEvents(lockReleases)
+	if err != nil {
+		return err
+	}
+
+	for nodeName, nodeAttemptsEvents := range lockAttemptsParsed {
+		if len(nodeAttemptsEvents) == 0 {
+			continue
+		}
+		nodeReleasesEvents, ok := lockReleasesParsed[nodeName]
+		if !ok {
+			nodeReleasesEvents = make([]parsedEvent, 0)
+		}
+		opt.processNodeEvents(logger, nodeName, &nodeAttemptsEvents,
+			&nodeReleasesEvents, opt.StartTime, opt.EndTime)
+	}
+
+	// sort the lock events cascade by max duration descending
+	sort.Slice(opt.LockEventCascade, func(i, j int) bool {
+		return opt.LockEventCascade[i].NodeName < opt.LockEventCascade[j].NodeName
+	})
+
+	// fill session and transaction info
+	if opt.NeedSessionTnxInfo {
+		opt.fillEventSessionAndTxnInfo(logger)
+	}
 	return nil
 }
 
+func (opt *VClusterHealthOptions) processNodeEvents(logger vlog.Printer, nodeName string, nodeLockEventsParsed,
+	lockReleasesParsed *[]parsedEvent, startTime, endTime string) {
+	nodeLockWaitSeries, duration, seriesStart, seriesEnd, totalEvents := findLockWaitSeries(nodeLockEventsParsed, startTime, endTime)
+	lockWaitEvents := extractLockWaitEvents(nodeLockWaitSeries)
+	nodeLockHoldSeries, durHold := findLockHoldSeries(lockReleasesParsed, seriesStart)
+	lockHoldEvents := extractLockHoldEvents(nodeLockHoldSeries)
+	if duration.Seconds() <= 1 {
+		return
+	}
+	opt.LockEventCascade = append(opt.LockEventCascade, NodeLockEvents{
+		NodeName:        nodeName,
+		MaxDuration:     fmt.Sprintf("%0.4f", duration.Seconds()),
+		WaitStartTime:   seriesStart.Format(timeLayout),
+		WaitEndTime:     seriesEnd.Format(timeLayout),
+		TotalWaitEvents: totalEvents,
+		LockWaitEvents:  &lockWaitEvents,
+		LockHoldEvents:  &lockHoldEvents,
+	})
+
+	logMessage := fmt.Sprintf("Adding node %s, max duration %0.4f lockWaitEvents %d, lockHoldEvents %d",
+		nodeName, duration.Seconds()+durHold.Seconds(), len(lockWaitEvents), len(lockHoldEvents))
+	logger.Info(logMessage)
+}
+
+func extractLockWaitEvents(nodeLockWaitSeries []parsedEvent) []dcLockAttempts {
+	lockWaitEvents := make([]dcLockAttempts, 0)
+	for _, event := range nodeLockWaitSeries {
+		if originalEvent, ok := event.Original.(dcLockAttempts); ok {
+			lockWaitEvents = append(lockWaitEvents, originalEvent)
+		}
+	}
+	// sort the lock wait events by start time
+	sort.Slice(lockWaitEvents, func(i, j int) bool {
+		return lockWaitEvents[i].StartTime < lockWaitEvents[j].StartTime
+	})
+	return lockWaitEvents
+}
+
+func extractLockHoldEvents(nodeLockHoldSeries []parsedEvent) []dcLockReleases {
+	lockHoldEvents := make([]dcLockReleases, 0)
+	for _, event := range nodeLockHoldSeries {
+		if originalEvent, ok := event.Original.(dcLockReleases); ok {
+			lockHoldEvents = append(lockHoldEvents, originalEvent)
+		}
+	}
+	// sort the lock hold events by start time
+	sort.Slice(lockHoldEvents, func(i, j int) bool {
+		return lockHoldEvents[i].Time < lockHoldEvents[j].Time
+	})
+	return lockHoldEvents
+}
+
+func (opt *VClusterHealthOptions) fillEventSessionAndTxnInfo(logger vlog.Printer) {
+	events := opt.LockEventCascade
+	sessionMap := make(map[string]dcSessionStarts)
+	txnMap := make(map[string]dcTransactionStarts)
+	// get all session id and txn id from the lock events
+	for i := range events {
+		event := &events[i]
+		for j := range *event.LockWaitEvents {
+			waitEvent := &(*event.LockWaitEvents)[j]
+			sessionMap[waitEvent.SessionID] = dcSessionStarts{}
+			txnMap[waitEvent.TxnID] = dcTransactionStarts{}
+		}
+		for j := range *event.LockHoldEvents {
+			holdEvent := &(*event.LockHoldEvents)[j]
+			sessionMap[holdEvent.SessionID] = dcSessionStarts{}
+			txnMap[holdEvent.TxnID] = dcTransactionStarts{}
+		}
+	}
+	logger.Info("Filling session and transaction info for lock events",
+		"session count", len(sessionMap), "txn count", len(txnMap))
+}
+
+// DisplayLockEventsCascade prints the lock events cascade for each node in a readable format.
 func (opt *VClusterHealthOptions) DisplayLockEventsCascade() {
 	for _, eventNode := range opt.LockEventCascade {
 		// white spaces in this block are for indentation only
 		fmt.Println(eventNode.NodeName)
 		fmt.Println("  Wait locks:")
-		for _, event := range eventNode.LockWaitEvents {
-			fmt.Printf("    %+v\n", *event)
+		for i := range *eventNode.LockWaitEvents {
+			event := (*eventNode.LockWaitEvents)[i]
+			fmt.Printf("    %+v\n", event)
 		}
 		fmt.Printf("  Hold locks related to the earliest wait lock: %+v\n", eventNode.LockHoldEvents)
 		fmt.Println("---")

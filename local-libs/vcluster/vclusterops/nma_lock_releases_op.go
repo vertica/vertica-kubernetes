@@ -29,6 +29,7 @@ type nmaLockReleasesOp struct {
 	endTime            string
 	nodeName           string
 	resultLimit        int
+	duration           string
 }
 
 type lockReleasesRequestData struct {
@@ -36,16 +37,18 @@ type lockReleasesRequestData struct {
 	Username string         `json:"username"`
 }
 
-// TODO: We should let the endpoint just accept the seconds
-const minLockHoldDuration = "00:00:01"
-
 func makeNMALockReleasesOp(upHosts []string, userName string,
 	startTime, endTime, nodeName string,
-	resultLimit int) (nmaLockReleasesOp, error) {
+	resultLimit int, duration string) (nmaLockReleasesOp, error) {
 	op := nmaLockReleasesOp{}
 	op.name = "NMALockReleasesOp"
 	op.description = "Check lock holding events"
 	op.hosts = upHosts[:1] // set up the request for one of the up hosts only
+	if duration == "" {
+		op.duration = lockReleaseThresHold
+	} else {
+		op.duration = duration
+	}
 	op.userName = userName
 	op.startTime = startTime
 	op.endTime = endTime
@@ -75,7 +78,7 @@ func (op *nmaLockReleasesOp) setupRequestBody() error {
 		}
 		requestData.Params["object-name"] = lockObjectName
 		requestData.Params["mode"] = "X"
-		requestData.Params["duration"] = minLockHoldDuration
+		requestData.Params["duration"] = op.duration
 		requestData.Params["limit"] = op.resultLimit
 		requestData.Params["orderby"] = "duration DESC"
 
@@ -137,8 +140,16 @@ type dcLockReleases struct {
 	UserName   string `json:"user_name"`
 	// TxnInfo and SessionInfo are not used for parsing data from the NMA endpoint
 	// but will be used to show detailed info about the retrieved TxnID and SessionID
-	TxnInfo     dcTransactionStart `json:"transaction_info"`
-	SessionInfo dcSessionStart     `json:"session_info"`
+	// TxnInfo     dcTransactionStart `json:"transaction_info"`
+	// SessionInfo dcSessionStart     `json:"session_info"`
+}
+
+func (event *dcLockReleases) getTxnID() string {
+	return event.TxnID
+}
+
+func (event *dcLockReleases) getSessionID() string {
+	return event.SessionID
 }
 
 func (op *nmaLockReleasesOp) processResult(execContext *opEngineExecContext) error {
