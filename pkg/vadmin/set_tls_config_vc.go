@@ -62,11 +62,7 @@ func (v *VClusterOps) genSetTLSConfigOptions(s *settlsconfig.Parms,
 	opts.IsEon = v.VDB.IsEON()
 	opts.IPv6 = net.IsIPv6(s.InitiatorIP)
 
-	opts.Key = certs.Key
-	opts.Cert = certs.Cert
-	opts.CaCert = certs.CaCert
-	opts.UserName = v.VDB.GetVerticaUser()
-	opts.Password = &v.Password
+	v.setAuthentication(&opts.DatabaseOptions, v.VDB.GetVerticaUser(), &v.Password, certs)
 
 	configMap := genTLSConfigurationMap(s.HTTPSTLSMode, s.HTTPSTLSSecretName, s.Namespace)
 	opts.HTTPSTLSConfig.SetConfigMap(maps.Clone(configMap))
