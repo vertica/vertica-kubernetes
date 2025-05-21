@@ -1096,13 +1096,6 @@ var _ = Describe("obj_reconcile", func() {
 			fetchedSecret := &corev1.Secret{}
 			secretName := names.GenNamespacedName(o.Vdb, vdb.Spec.NMATLSSecret)
 			Expect(k8sClient.Get(ctx, secretName, fetchedSecret)).Should(Succeed())
-			Expect(len(fetchedSecret.OwnerReferences)).Should(Equal(1))
-			Expect(fetchedSecret.OwnerReferences[0].UID).Should(Equal(vdb.UID))
-
-			o.Vdb.Annotations[vmeta.VersionAnnotation] = vapi.TLSCertRotationMinVersion
-			err = o.updateOwnerReferenceInTLSSecret(ctx, vdb.Spec.NMATLSSecret)
-			Expect(err).Should(Succeed())
-			Expect(k8sClient.Get(ctx, secretName, fetchedSecret)).Should(Succeed())
 			Expect(len(fetchedSecret.OwnerReferences)).Should(Equal(0))
 		})
 	})
