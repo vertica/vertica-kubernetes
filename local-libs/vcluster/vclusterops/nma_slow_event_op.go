@@ -24,7 +24,6 @@ import (
 type nmaSlowEventsOp struct {
 	opBase
 	hostRequestBodyMap map[string]string
-	userName           string
 	startTime          string
 	endTime            string
 	threadID           string
@@ -35,18 +34,17 @@ type nmaSlowEventsOp struct {
 }
 
 type slowEventRequestData struct {
-	Params   map[string]any `json:"params"`
-	Username string         `json:"username"`
+	sqlEndpointData
+	Params map[string]any `json:"params"`
 }
 
-func makeNMASlowEventOp(upHosts []string, userName string,
-	startTime, endTime, threadID, phaseDuration string,
+func makeNMASlowEventOp(upHosts []string, userName, dbName string,
+	password *string, startTime, endTime, threadID, phaseDuration string,
 	transactionID, nodeName, eventDesc string) (nmaSlowEventsOp, error) {
 	op := nmaSlowEventsOp{}
 	op.name = "NMASlowEventOp"
 	op.description = "Check slow events"
 	op.hosts = upHosts // set up the request for one of the up hosts only
-	op.userName = userName
 	op.startTime = startTime
 	op.endTime = endTime
 	op.transactionID = transactionID
@@ -55,31 +53,35 @@ func makeNMASlowEventOp(upHosts []string, userName string,
 	op.phasesDuration = phaseDuration
 	op.eventDesc = eventDesc
 
-	err := op.setupRequestBody()
+	// NMA endpoints don't need to differentiate between empty password and no password
+	useDBPassword := password != nil
+	err := ValidateSQLEndpointData(op.name,
+		useDBPassword, userName, password, dbName)
 	if err != nil {
 		return op, err
 	}
-
-	return op, nil
+	err = op.setupRequestBody(userName, dbName, useDBPassword, password)
+	return op, err
 }
 
-func makeNMASlowEventOpByThreadID(upHosts []string, userName string,
-	startTime, endTime, threadID string) (nmaSlowEventsOp, error) {
-	return makeNMASlowEventOp(upHosts, userName, startTime, endTime, threadID, "", "", "", "")
+func makeNMASlowEventOpByThreadID(upHosts []string, userName, dbName string,
+	password *string, startTime, endTime, threadID string) (nmaSlowEventsOp, error) {
+	return makeNMASlowEventOp(upHosts, userName, dbName, password, startTime, endTime, threadID, "", "", "", "")
 }
 
-func makeNMASlowEventOpByKeyword(upHosts []string, userName string,
-	startTime, endTime, keyword string) (nmaSlowEventsOp, error) {
-	return makeNMASlowEventOp(upHosts, userName, startTime, endTime, "", keyword, "", "", "")
+func makeNMASlowEventOpByKeyword(upHosts []string, userName string, dbName string,
+	password *string, startTime, endTime, keyword string) (nmaSlowEventsOp, error) {
+	return makeNMASlowEventOp(upHosts, userName, dbName, password, startTime, endTime, "", keyword, "", "", "")
 }
 
-func (op *nmaSlowEventsOp) setupRequestBody() error {
+func (op *nmaSlowEventsOp) setupRequestBody(username, dbName string, useDBPassword bool,
+	password *string) error {
 	op.hostRequestBodyMap = make(map[string]string)
 
 	for _, host := range op.hosts {
 		requestData := slowEventRequestData{}
 
-		requestData.Username = op.userName
+		requestData.sqlEndpointData = createSQLEndpointData(username, dbName, useDBPassword, password)
 		requestData.Params = make(map[string]any)
 		// TODO: the endpoint validator should tolerate empty input
 		if op.startTime != "" {
