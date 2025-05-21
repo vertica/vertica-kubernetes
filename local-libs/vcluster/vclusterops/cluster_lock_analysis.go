@@ -112,6 +112,7 @@ func (opt *VClusterHealthOptions) getLockAttempts(logger vlog.Printer, upHosts [
 
 	const resultLimit = 1024
 	nmaLockAttemptsOp, err := makeNMALockAttemptsOp(upHosts, opt.DatabaseOptions.UserName,
+		opt.DatabaseOptions.DBName, opt.DatabaseOptions.Password,
 		startTime, endTime, "" /*node name*/, resultLimit)
 	if err != nil {
 		return nil, err
@@ -176,6 +177,7 @@ func (opt *VClusterHealthOptions) recursiveTraceLocks(logger vlog.Printer, upHos
 	priorTimeStr := priorTimePoint.Format(timeLayout)
 
 	nmaLockAttemptsOp, err := makeNMALockAttemptsOp(upHosts, opt.DatabaseOptions.UserName,
+		opt.DatabaseOptions.DBName, opt.DatabaseOptions.Password,
 		priorTimeStr, event.StartTime, event.NodeName, resultLimit)
 	if err != nil {
 		return err
@@ -208,6 +210,7 @@ func (opt *VClusterHealthOptions) getLockReleases(logger vlog.Printer, upHosts [
 
 	const resultLimit = 5
 	nmaLockAttemptsOp, err := makeNMALockReleasesOp(upHosts, opt.DatabaseOptions.UserName,
+		opt.DatabaseOptions.DBName, opt.DatabaseOptions.Password,
 		startTime, endTime, nodeName, resultLimit)
 	if err != nil {
 		return err
