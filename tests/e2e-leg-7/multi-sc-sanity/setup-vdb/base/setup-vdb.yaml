@@ -21,7 +21,7 @@ metadata:
 spec:
   initPolicy: CreateSkipPackageInstall
   image: kustomize-vertica-image
-  superuserPasswordSecret: su-passwd
+  PasswordSecret: su-passwd
   communal: {}
   local:
     requestSize: 100Mi

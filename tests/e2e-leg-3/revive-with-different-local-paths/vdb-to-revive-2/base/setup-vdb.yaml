@@ -23,7 +23,7 @@ metadata:
 spec:
   image: kustomize-vertica-image
   communal: {}
-  httpServerTLSSecret: custom-cert
+  nmaTLSSecret: custom-cert
   clientServerTLSSecret: client-cert
   initPolicy: Revive
   local:

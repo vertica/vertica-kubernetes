@@ -22,7 +22,7 @@ metadata:
     vertica.com/ignore-cluster-lease: "true"
 spec:
   image: kustomize-vertica-image
-  superuserPasswordSecret: su-passwd
+  PasswordSecret: su-passwd
   communal: {}
   local:
     depotVolume: EmptyDir
@@ -32,7 +32,7 @@ spec:
   subclusters:
     - name: sc1
       size: 1
-  httpServerTLSSecret: nma-cert
+  nmaTLSSecret: nma-cert
   clientServerTLSSecret: client-cert
   certSecrets: []
   imagePullSecrets: []
