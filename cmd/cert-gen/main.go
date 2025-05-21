@@ -20,6 +20,7 @@ import (
 	"encoding/base64"
 	"flag"
 	"fmt"
+	"net"
 	"os"
 
 	"github.com/vertica/vertica-kubernetes/pkg/certgen"
@@ -45,7 +46,7 @@ func encodeSecretData(secret *corev1.Secret) map[string]string {
 }
 
 func usage() {
-	fmt.Printf("Usage: %s <secret-name> <secret-namespace> <common-name>\n", os.Args[0])
+	fmt.Printf("Usage: %s [OPTIONS] <secret-name> <secret-namespace> <common-name>\n", os.Args[0])
 	flag.PrintDefaults()
 }
 
@@ -53,7 +54,11 @@ func main() {
 	opts := certgen.Options{}
 	flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ExitOnError)
 	flag.Usage = usage
+	flag.StringVar(&opts.ClusterIPs, "cluster-ips", "", "Comma-separated list of cluster IPs")
+	flag.StringVar(&opts.LoadBalancerIPs, "load-balancer-ips", "",
+		"Comma-separated list of load balancer IPs. A list of provisioned load balancers' ips.")
 	flag.Parse()
+
 	if flag.NArg() < NumPositionalArgs {
 		fmt.Println(flag.NArg())
 		fmt.Println("Not enough positional arguments.")
@@ -64,12 +69,31 @@ func main() {
 	opts.Namespace = flag.Arg(NamespaceArg)
 	opts.CommonName = flag.Arg(CommonNameArg)
 
+	var ips []net.IP
+	if opts.ClusterIPs != "" {
+		clusterIPs, err := certgen.ParseAndValidateIPs(opts.ClusterIPs)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		ips = append(ips, clusterIPs...)
+	}
+
+	if opts.LoadBalancerIPs != "" {
+		lbIPs, err := certgen.ParseAndValidateIPs(opts.ClusterIPs)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		ips = append(ips, lbIPs...)
+	}
+
 	caCert, err := security.NewSelfSignedCACertificate()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
-	cert, err := security.NewCertificate(caCert, opts.CommonName, security.GetDNSNames(opts.Namespace))
+	cert, err := security.NewCertificateWithIPs(caCert, opts.CommonName, security.GetDNSNames(opts.Namespace), ips)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
