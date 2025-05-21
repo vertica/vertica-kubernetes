@@ -18,26 +18,20 @@ package vclusterops
 import (
 	"errors"
 	"fmt"
-	"strconv"
 
 	"github.com/vertica/vcluster/vclusterops/util"
 )
 
-type httpsCreateTLSAuthOp struct {
+type httpsSetTLSConfigOp struct {
 	opBase
 	opHTTPSBase
-	authName  string
-	authHosts string
-	isLocal   bool
 }
 
-func makeHTTPSCreateTLSAuthOp(hosts []string, useHTTPPassword bool, userName string, httpsPassword *string,
-	authName, authHosts string) (httpsCreateTLSAuthOp, error) {
-	op := httpsCreateTLSAuthOp{}
-	op.name = "HTTPSCreateTLSAuthOp"
-	op.description = "Create TLS Authentication method"
-	op.authName = authName
-	op.authHosts = authHosts
+func makeHTTPSSetTLSConfigAuthOp(hosts []string, useHTTPPassword bool, userName string,
+	httpsPassword *string) (httpsSetTLSConfigOp, error) {
+	op := httpsSetTLSConfigOp{}
+	op.name = "HTTPSSetTLSConfigOp"
+	op.description = "Initialize client-server TLS from bootstrap config"
 	// this op is a cluster-wide op, should be sent to only one host
 	op.hosts = hosts
 	op.useHTTPPassword = useHTTPPassword
@@ -52,26 +46,11 @@ func makeHTTPSCreateTLSAuthOp(hosts []string, useHTTPPassword bool, userName str
 	return op, nil
 }
 
-func makeHTTPSCreateLocalTLSAuthOp(hosts []string, useHTTPPassword bool, userName string, httpsPassword *string,
-	authName string) (httpsCreateTLSAuthOp, error) {
-	op, err := makeHTTPSCreateTLSAuthOp(hosts, useHTTPPassword, userName, httpsPassword, authName, "" /* hosts ignored */)
-	if err != nil {
-		return op, err
-	}
-	op.description = "Create TLS Authentication method for local connections"
-	op.isLocal = true
-	return op, nil
-}
-
-func (op *httpsCreateTLSAuthOp) setupClusterHTTPRequest(hosts []string) error {
+func (op *httpsSetTLSConfigOp) setupClusterHTTPRequest(hosts []string) error {
 	for _, host := range hosts {
 		httpRequest := hostHTTPRequest{}
 		httpRequest.Method = PostMethod
-		httpRequest.buildHTTPSEndpoint(util.TLSAuthEndpoint + op.authName)
-		httpRequest.QueryParams = map[string]string{
-			"host":    op.authHosts,
-			"isLocal": strconv.FormatBool(op.isLocal),
-		}
+		httpRequest.buildHTTPSEndpoint(util.TLSBootstrapEndpoint)
 		if op.useHTTPPassword {
 			httpRequest.Password = op.httpsPassword
 			httpRequest.Username = op.userName
@@ -82,13 +61,13 @@ func (op *httpsCreateTLSAuthOp) setupClusterHTTPRequest(hosts []string) error {
 	return nil
 }
 
-func (op *httpsCreateTLSAuthOp) prepare(execContext *opEngineExecContext) error {
+func (op *httpsSetTLSConfigOp) prepare(execContext *opEngineExecContext) error {
 	execContext.dispatcher.setup(op.hosts)
 
 	return op.setupClusterHTTPRequest(op.hosts)
 }
 
-func (op *httpsCreateTLSAuthOp) execute(execContext *opEngineExecContext) error {
+func (op *httpsSetTLSConfigOp) execute(execContext *opEngineExecContext) error {
 	if err := op.runExecute(execContext); err != nil {
 		return err
 	}
@@ -96,7 +75,7 @@ func (op *httpsCreateTLSAuthOp) execute(execContext *opEngineExecContext) error 
 	return op.processResult(execContext)
 }
 
-func (op *httpsCreateTLSAuthOp) processResult(_ *opEngineExecContext) error {
+func (op *httpsSetTLSConfigOp) processResult(_ *opEngineExecContext) error {
 	var allErrs error
 
 	// should only send request to one host as creating authentication method is a cluster-wide op
@@ -112,7 +91,7 @@ func (op *httpsCreateTLSAuthOp) processResult(_ *opEngineExecContext) error {
 		// Example successful response object:
 		/*
 			{
-			  "detail": ""
+			  "detail": "INITIALIZED CLIENT-SERVER TLS"
 			}
 		*/
 		_, err = op.parseAndCheckMapResponse(host, result.content)
@@ -125,6 +104,6 @@ func (op *httpsCreateTLSAuthOp) processResult(_ *opEngineExecContext) error {
 	return allErrs
 }
 
-func (op *httpsCreateTLSAuthOp) finalize(_ *opEngineExecContext) error {
+func (op *httpsSetTLSConfigOp) finalize(_ *opEngineExecContext) error {
 	return nil
 }
