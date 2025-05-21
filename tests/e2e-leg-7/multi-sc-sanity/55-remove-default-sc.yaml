@@ -21,4 +21,4 @@ spec:
   subclusters:
     - name: new-sc3
       size: 2
-      isPrimary: true
+      type: primary

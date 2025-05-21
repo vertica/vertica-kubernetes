@@ -19,4 +19,4 @@ spec:
   subclusters:
     - name: sc1
       size: 2
-      isPrimary: true
+      type: primary

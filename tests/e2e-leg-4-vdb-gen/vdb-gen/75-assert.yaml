@@ -28,10 +28,10 @@ spec:
     depotVolume: EmptyDir
   subclusters:
     - name: sc1
-      isPrimary: true
+      type: primary
       size: 1
     - name: sc2
-      isPrimary: true
+      type: primary
       size: 1
 status:
   subclusterCount: 2

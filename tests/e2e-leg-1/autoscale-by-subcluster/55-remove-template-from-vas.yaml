@@ -23,4 +23,4 @@ spec:
     name: ""
     size: 0
     serviceName: ""
-    isPrimary: false
+    type: secondary

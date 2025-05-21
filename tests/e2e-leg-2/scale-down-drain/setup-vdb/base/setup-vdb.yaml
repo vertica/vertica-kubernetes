@@ -27,10 +27,10 @@ spec:
   subclusters:
     - name: pri1
       size: 1
-      isPrimary: true
+      type: primary
     - name: sec1
       size: 2
-      isPrimary: false
+      type: secondary
   certSecrets: []
   imagePullSecrets: []
   volumes: []

@@ -28,10 +28,10 @@ spec:
   subclusters:
     - name: sc-2
       size: 1
-      isPrimary: false
+      type: secondary
     - name: sc-1
       size: 1
-      isPrimary: true
+      type: primary
   # Override the readiness/startup probes to not use the dbadmin password. This
   # will cause the dbadmin password not to be mounted in the container.
   readinessProbeOverride:
