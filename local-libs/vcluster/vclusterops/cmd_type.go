@@ -50,7 +50,6 @@ const (
 	WorkloadCancelCmd
 	RotateNMACertsCmd
 	RotateVerticaCertsCmd
-	SetTLSConfigCmd
 )
 
 var cmdStringMap = map[CmdType]string{
@@ -98,7 +97,6 @@ var cmdStringMap = map[CmdType]string{
 	WorkloadCaptureCmd:           "workload_capture",
 	RotateNMACertsCmd:            "rotate_nma_certs",
 	RotateVerticaCertsCmd:        "rotate_vertica_certs",
-	SetTLSConfigCmd:              "set_tls_config",
 }
 
 func (cmd CmdType) CmdString() string {

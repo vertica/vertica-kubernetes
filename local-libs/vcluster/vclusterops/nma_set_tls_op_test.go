@@ -47,7 +47,7 @@ func TestNMASetTLSOp(t *testing.T) {
 
 	runTLSOp := func(tlsConfig map[string]string, validate func(data nmaSetTLSRequestData)) {
 		baseOptions.ServerTLSConfiguration = tlsConfig
-		op, err := makeNMASetTLSOp(&baseOptions.DatabaseOptions, string(ServerTLSKeyPrefix), true, true, tlsConfig)
+		op, err := makeNMASetTLSOp(&baseOptions.DatabaseOptions, serverTLSKeyPrefix, true, true, tlsConfig)
 		assert.NoError(t, err)
 
 		op.skipExecute = true

@@ -24,6 +24,7 @@ import (
 type nmaLockAttemptsOp struct {
 	opBase
 	hostRequestBodyMap map[string]string
+	userName           string
 	startTime          string
 	endTime            string
 	nodeName           string
@@ -31,8 +32,8 @@ type nmaLockAttemptsOp struct {
 }
 
 type lockAttemptsRequestData struct {
-	sqlEndpointData
-	Params map[string]any `json:"params"`
+	Params   map[string]any `json:"params"`
+	Username string         `json:"username"`
 }
 
 const lockObjectName = "Global Catalog"
@@ -40,38 +41,34 @@ const lockObjectName = "Global Catalog"
 // TODO: We should let the endpoint just accept the seconds
 const minLockWaitDuration = "00:00:30"
 
-//nolint:dupl // TODO all "SQL" endpoints could use a style and refactor pass
-func makeNMALockAttemptsOp(upHosts []string, userName, dbName string,
-	password *string, startTime, endTime, nodeName string,
+func makeNMALockAttemptsOp(upHosts []string, userName string,
+	startTime, endTime, nodeName string,
 	resultLimit int) (nmaLockAttemptsOp, error) {
 	op := nmaLockAttemptsOp{}
 	op.name = "NMALockAttemptsOp"
 	op.description = "Check lock waiting events"
 	op.hosts = upHosts[:1] // set up the request for one of the up hosts only
+	op.userName = userName
 	op.startTime = startTime
 	op.endTime = endTime
 	op.nodeName = nodeName
 	op.resultLimit = resultLimit
 
-	// NMA endpoints don't need to differentiate between empty password and no password
-	useDBPassword := password != nil
-	err := ValidateSQLEndpointData(op.name,
-		useDBPassword, userName, password, dbName)
+	err := op.setupRequestBody()
 	if err != nil {
 		return op, err
 	}
-	err = op.setupRequestBody(userName, dbName, useDBPassword, password)
-	return op, err
+
+	return op, nil
 }
 
-func (op *nmaLockAttemptsOp) setupRequestBody(username, dbName string, useDBPassword bool,
-	password *string) error {
+func (op *nmaLockAttemptsOp) setupRequestBody() error {
 	op.hostRequestBodyMap = make(map[string]string)
 
 	for _, host := range op.hosts {
 		requestData := lockAttemptsRequestData{}
 
-		requestData.sqlEndpointData = createSQLEndpointData(username, dbName, useDBPassword, password)
+		requestData.Username = op.userName
 		requestData.Params = make(map[string]any)
 		requestData.Params["start-time"] = op.startTime
 		requestData.Params["end-time"] = op.endTime

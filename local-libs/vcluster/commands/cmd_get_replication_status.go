@@ -69,6 +69,7 @@ Examples:
 	markFlagsOneRequired(cmd, []string{targetConnFlag, targetDBNameFlag})
 	markFlagsOneRequired(cmd, []string{targetConnFlag, targetHostsFlag})
 	markFlagsOneRequired(cmd, []string{targetConnFlag, targetUserNameFlag})
+	markFlagsOneRequired(cmd, []string{targetConnFlag, targetPasswordFileFlag})
 
 	markFlagsRequired(cmd, transactionIDFlag)
 

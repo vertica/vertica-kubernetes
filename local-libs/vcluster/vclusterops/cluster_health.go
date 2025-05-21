@@ -205,14 +205,13 @@ func (opt *VClusterHealthOptions) getSlowEvents(logger vlog.Printer, upHosts []s
 	if forCascade {
 		// if the up nodes are not healthy, we can early fail out
 		nmaSlowEventWithThreadIDOp, err := makeNMASlowEventOpByThreadID(upHosts, opt.DatabaseOptions.UserName,
-			opt.DatabaseOptions.DBName, opt.DatabaseOptions.Password, startTime, endTime, threadID)
+			startTime, endTime, threadID)
 		if err != nil {
 			return nil, err
 		}
 		instructions = append(instructions, &nmaSlowEventWithThreadIDOp)
 	} else {
 		httpsSlowEventOp, err := makeNMASlowEventOp(upHosts, opt.DatabaseOptions.UserName,
-			opt.DatabaseOptions.DBName, opt.DatabaseOptions.Password,
 			startTime, endTime, threadID, opt.PhaseDurationDesc,
 			opt.TxnID, opt.EventDesc, opt.NodeName)
 		if err != nil {
