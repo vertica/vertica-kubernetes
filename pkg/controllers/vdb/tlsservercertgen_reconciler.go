@@ -88,6 +88,16 @@ func (h *TLSServerCertGenReconciler) reconcileOneSecret(secretFieldName, secretN
 		secret := corev1.Secret{}
 		err := h.VRec.Client.Get(ctx, nm, &secret)
 		if errors.IsNotFound(err) {
+			sType := vapi.NMATLSSecretType
+			if secretFieldName == clientServerTLSSecret {
+				sType = vapi.ClientServerTLSSecretType
+			}
+			secStatus := h.Vdb.GetSecretStatus(sType)
+			if secStatus != nil {
+				// we do not recreate the secret as there is already
+				// a secret of this type in the status.
+				return nil
+			}
 			h.Log.Info(secretName+" is set but doesn't exist. Will recreate the secret.", "name", nm)
 		} else if err != nil {
 			h.Log.Error(err, "failed to read tls secret", "secretName", secretName)

@@ -13,5 +13,6 @@
 
 apiVersion: kuttl.dev/v1beta1
 kind: TestStep
-commands:
-  - command: sh -c "envsubst < nma_cert.yaml | kubectl apply -n $NAMESPACE -f -"
+delete:
+  - apiVersion: vertica.com/v1
+    kind: VerticaDB
