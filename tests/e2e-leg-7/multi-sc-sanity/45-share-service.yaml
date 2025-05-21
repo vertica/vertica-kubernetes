@@ -19,9 +19,9 @@ spec:
   subclusters:
     - name: sc-1
       size: 1
-      isPrimary: true
+      type: primary
       serviceName: connections
     - name: new-sc3
       size: 2
-      isPrimary: true
+      type: primary
       serviceName: connections

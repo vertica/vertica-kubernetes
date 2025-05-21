@@ -40,10 +40,10 @@ spec:
   dbName: vert_db
   subclusters:
     - name: main
-      isPrimary: true
+      type: primary
       size: 2
     - name: secondary
-      isPrimary: false
+      type: secondary
       size: 1
   httpServerTLSSecret: nma-cert
   clientServerTLSSecret: client-cert

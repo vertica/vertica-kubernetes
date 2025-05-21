@@ -23,7 +23,7 @@ spec:
     name: as
     size: 2
     serviceName: sec1
-    isPrimary: false
+    type: secondary
 status:
   scalingCount: 0
   currentSize: 1

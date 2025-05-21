@@ -31,10 +31,10 @@ spec:
     catalogPath: /catalog
   subclusters:
     - name: sc1
-      isPrimary: true
+      type: primary
       size: 2
     - name: sc2
-      isPrimary: true
+      type: primary
       size: 1
 status:
   subclusterCount: 2
