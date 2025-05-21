@@ -36,25 +36,32 @@ func TestValidateTLSConfigurationMap(t *testing.T) {
 		TLSSecretManagerKeyCertDataKey:   "cert-data",
 		TLSSecretManagerKeyCACertDataKey: "ca-cert-data",
 	}
-	err := validateTLSConfigurationMap(validConfig, "https", logger)
+	cfg := &TLSConfig{
+		ConfigMap:  validConfig,
+		ConfigType: HTTPSTLSKeyPrefix,
+	}
+	err := cfg.validate(logger)
 	assert.Nil(t, err)
 
 	// Negative: missing TLSSecretManagerKeySecretName
 	configMissingSecretName := cloneMap(validConfig)
 	delete(configMissingSecretName, TLSSecretManagerKeySecretName)
-	err = validateTLSConfigurationMap(configMissingSecretName, "https", logger)
+	cfg.ConfigMap = configMissingSecretName
+	err = cfg.validate(logger)
 	assert.ErrorContains(t, err, fmt.Sprintf("the %s key must exist with a non-empty value", TLSSecretManagerKeySecretName))
 
 	// Negative: invalid secret manager
 	configInvalidSM := cloneMap(validConfig)
 	configInvalidSM[TLSSecretManagerKeySecretManager] = "invalid"
-	err = validateTLSConfigurationMap(configInvalidSM, "https", logger)
+	cfg.ConfigMap = configInvalidSM
+	err = cfg.validate(logger)
 	assert.ErrorContains(t, err, fmt.Sprintf("the %s key must exist and its value must be one of", TLSSecretManagerKeySecretManager))
 
 	// Negative: missing required k8s namespace
 	configMissingNS := cloneMap(validConfig)
 	delete(configMissingNS, TLSSecretManagerKeyNamespace)
-	err = validateTLSConfigurationMap(configMissingNS, "https", logger)
+	cfg.ConfigMap = configMissingNS
+	err = cfg.validate(logger)
 	assert.ErrorContains(t, err, fmt.Sprintf("when the secret manager is %s, the %s key is required",
 		K8sSecretManagerType, TLSSecretManagerKeyNamespace))
 
@@ -67,33 +74,40 @@ func TestValidateTLSConfigurationMap(t *testing.T) {
 		TLSSecretManagerKeyKeyDataKey:    "key-data",
 		TLSSecretManagerKeyCertDataKey:   "cert-data",
 	}
-	err = validateTLSConfigurationMap(awsConfig, "server", logger)
+	cfg.ConfigMap = awsConfig
+	cfg.ConfigType = ServerTLSKeyPrefix
+	err = cfg.validate(logger)
 	assert.Nil(t, err)
 
 	// Negative: missing AWS region
 	awsConfigMissingRegion := cloneMap(awsConfig)
 	delete(awsConfigMissingRegion, TLSSecretManagerKeyAWSRegion)
-	err = validateTLSConfigurationMap(awsConfigMissingRegion, "server", logger)
+	cfg.ConfigMap = awsConfigMissingRegion
+	err = cfg.validate(logger)
 	assert.ErrorContains(t, err, fmt.Sprintf("when the secret manager is %s, the %s key is required",
 		AWSSecretManagerType, TLSSecretManagerKeyAWSRegion))
 
 	// Negative: unknown tls mode
 	configBadMode := cloneMap(validConfig)
 	configBadMode[TLSSecretManagerKeyTLSMode] = "badmode"
-	err = validateTLSConfigurationMap(configBadMode, "https", logger)
+	cfg.ConfigMap = configBadMode
+	cfg.ConfigType = HTTPSTLSKeyPrefix
+	err = cfg.validate(logger)
 	assert.ErrorContains(t, err, fmt.Sprintf("the %s key's value must be one of %s",
 		TLSSecretManagerKeyTLSMode, ValidTLSMode))
 
 	// Negative: tls mode "disable" used for https config
 	configDisableTLS := cloneMap(validConfig)
 	configDisableTLS[TLSSecretManagerKeyTLSMode] = string(tlsModeDisable)
-	err = validateTLSConfigurationMap(configDisableTLS, "https", logger)
+	cfg.ConfigMap = configDisableTLS
+	err = cfg.validate(logger)
 	assert.ErrorContains(t, err, fmt.Sprintf("tls mode cannot be %s for https tls config", tlsModeDisable))
 
 	// Negative: missing required key for verify-full
 	configMissingCert := cloneMap(validConfig)
 	delete(configMissingCert, TLSSecretManagerKeyCertDataKey)
-	err = validateTLSConfigurationMap(configMissingCert, "https", logger)
+	cfg.ConfigMap = configMissingCert
+	err = cfg.validate(logger)
 	tlsMode := configMissingCert[TLSSecretManagerKeyTLSMode]
 	assert.ErrorContains(t, err, fmt.Sprintf("when tls mode is %s, the %s key must exist",
 		tlsMode, TLSSecretManagerKeyCertDataKey))
