@@ -135,6 +135,9 @@ func (v *VClusterOps) setAuthentication(opts *vops.DatabaseOptions, username str
 	opts.UserName = username
 	if !v.VDB.IsCertRotationEnabled() {
 		opts.Password = password
+	} else if !v.VDB.IsCertNeededForClientServerAuth() {
+		opts.Password = password
+		opts.UsePasswordForSQLClientOnly = true
 	}
 }
 

@@ -1482,6 +1482,27 @@ func (v *VerticaDB) GetNMATLSSecretNameInUse() string {
 	return v.GetSecretNameInUse(NMATLSSecretType)
 }
 
+// IsCertNeededForClientServerAuth returns true if certificate is needed for client-server authentication
+func (v *VerticaDB) IsCertNeededForClientServerAuth() bool {
+	tlsMode := strings.ToLower(v.Spec.ClientServerTLSMode)
+	return tlsMode != tlsModeDisable && tlsMode != tlsModeEnable
+}
+
+// GetNMAClientServerTLSMode returns the tlsMode for NMA client-server communication
+func (v *VerticaDB) GetNMAClientServerTLSMode() string {
+	tlsMode := strings.ToLower(v.Spec.ClientServerTLSMode)
+	switch tlsMode {
+	case tlsModeDisable:
+		return tlsModeDisable
+	case tlsModeEnable, tlsModeTryVerify:
+		return tlsModeEnable
+	case tlsModeVerifyCA, tlsModeVerifyFull:
+		return tlsModeVerifyCA
+	default:
+		return tlsModeEnable
+	}
+}
+
 // FindSecretRef returns a pointer to the SecretRef with the given type, or nil if not found.
 func FindSecretRef(refs []SecretRef, typ string) *SecretRef {
 	for i := range refs {
