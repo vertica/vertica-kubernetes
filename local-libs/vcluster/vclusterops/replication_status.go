@@ -81,11 +81,6 @@ func (options *VReplicationStatusDatabaseOptions) validateRequiredOptions(_ vlog
 		return err
 	}
 
-	// need to provide a password or TLSconfig if source and target username are different
-	if options.TargetDB.Password == nil {
-		return fmt.Errorf("must specify a target password")
-	}
-
 	if options.TransactionID <= 0 {
 		return fmt.Errorf("must specify a valid transaction ID")
 	}
@@ -184,12 +179,14 @@ func (vcc VClusterCommands) produceReplicationStatusInstructions(options *VRepli
 	nmaHealthOp := makeNMAHealthOp(options.TargetDB.Hosts)
 
 	nmaReplicationStatusData := nmaReplicationStatusRequestData{}
-	nmaReplicationStatusData.DBName = options.TargetDB.DBName
+	nmaReplicationStatusData.sqlEndpointData = createSQLEndpointData(
+		options.TargetDB.UserName,
+		options.TargetDB.DBName,
+		targetUsePassword,
+		options.TargetDB.Password)
 	nmaReplicationStatusData.ExcludedTransactionIDs = []int64{} // Doesn't matter since we specify a transaction ID
 	nmaReplicationStatusData.GetTransactionIDsOnly = false      // Get all replication status info
 	nmaReplicationStatusData.TransactionID = options.TransactionID
-	nmaReplicationStatusData.UserName = options.TargetDB.UserName
-	nmaReplicationStatusData.Password = options.TargetDB.Password
 
 	nmaReplicationStatusOp, err := makeNMAReplicationStatusOp(options.TargetDB.Hosts, targetUsePassword,
 		&nmaReplicationStatusData, nil, replicationStatus)

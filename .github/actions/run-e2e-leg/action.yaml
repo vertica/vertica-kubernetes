@@ -193,13 +193,6 @@ runs:
           # Run test with cert rotation enabled
           export USE_CERT="${{ inputs.use-cert }}"
 
-          if [[ "${{ inputs.leg-identifier }}" == "leg-1" || \
-                "${{ inputs.leg-identifier }}" == "leg-2" ]]; then
-            if [[ "${USE_CERT}" != "true" ]]; then
-                E2E_TEST_DIRS+=" tests/e2e-${{ inputs.leg-identifier }}-failed-with-cert";
-            fi
-          fi
-
           if [[ "${{ inputs.leg-identifier }}" == "leg-4" || \
                 "${{ inputs.leg-identifier }}" == "leg-9" || \
                 "${{ inputs.leg-identifier }}" == "leg-10" ]]; then

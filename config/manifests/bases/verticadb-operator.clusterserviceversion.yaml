@@ -508,6 +508,18 @@ spec:
         displayName: Service Annotations
         path: template.serviceAnnotations
       - description: |-
+          Client port for this subcluster's services
+          If not set, it will use the port number specified in spec.ServiceClientPort,
+          which is defaulted to be 5433
+        displayName: Service Client Port
+        path: template.serviceClientPort
+      - description: |-
+          HTTPS port for this subcluster's services
+          If not set, it will use the port number specified in spec.ServiceHTTPSPort,
+          which is defaulted to be 8443
+        displayName: Service HTTPSPort
+        path: template.serviceHTTPSPort
+      - description: |-
           Identifies the name of the service object that will serve this
           subcluster.  If multiple subclusters share the same service name then
           they all share the same service object.  This allows for a single service
@@ -1008,6 +1020,21 @@ spec:
         displayName: Service Annotations
         path: template.serviceAnnotations
       - description: |-
+          Client port for this subcluster's services
+          If not set, it will use the port number specified in spec.ServiceClientPort,
+          which is defaulted to be 5433
+        displayName: Service Client Port
+        path: template.serviceClientPort
+      - description: |-
+          HTTPS port for this subcluster's services
+          If not set, it will use the port number specified in spec.ServiceHTTPSPort,
+          which is defaulted to be 8443
+        displayName: Service HTTPSPort
+        path: template.serviceHTTPSPort
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:number
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+      - description: |-
           Identifies the name of the service object that will serve this
           subcluster.  If multiple subclusters share the same service name then
           they all share the same service object.  This allows for a single service
@@ -1155,6 +1182,40 @@ spec:
         path: certSecrets[0].name
         x-descriptors:
         - urn:alm:descriptor:io.kubernetes:Secret
+      - description: |-
+          This field configures the Vertica's connection mode for client-server TLS.
+          Choose one of the following TLSMODEs, listed in ascending security:
+          - DISABLE: Disables TLS. All other options for this parameter enable TLS.
+          - ENABLE: Enables TLS. Vertica does not verify client certificates.
+          - TRY_VERIFY: Establishes a TLS connection if one of the following is true:
+            - The client presents a valid certificate.
+            - The client doesn't present a certificate
+            If the client presents an invalid certificate, the connection is rejected.
+          - VERIFY_CA: Connection succeeds if Vertica verifies that the client certificate is from a trusted CA.
+            If the client does not present a client certificate, the connection is rejected.
+          - VERIFY_FULL: Connection succeeds if Vertica verifies that the other host's certificate is from a trusted CA and
+            the certificate's cn (Common Name) or subjectAltName attribute matches the hostname or IP address of the other host.
+        displayName: Client Server TLSMode
+        path: clientServerTLSMode
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+        - urn:alm:descriptor:com.tectonic.ui:select:DISABLE
+        - urn:alm:descriptor:com.tectonic.ui:select:ENABLE
+        - urn:alm:descriptor:com.tectonic.ui:select:TRY_VERIFY
+        - urn:alm:descriptor:com.tectonic.ui:select:VERIFY_CA
+        - urn:alm:descriptor:com.tectonic.ui:select:VERIFY_FULL
+      - description: |-
+          A secret that contains the TLS credentials to be used to authenticate Vertica clients' certificates.
+          If this is empty, the operator will create a secret to use and add the name of the generate secret to this field.
+          The private key, certificate, and CA certificate should be stored in the secret using the following keys: tls.key,
+          tls.crt, and ca.crt, respectively. To store this secret outside of Kubernetes, you can
+          use a secret path reference prefix, such as gsm://. Everything after the prefix is the name of the secret in the
+          service you are storing.
+        displayName: Client Server TLSSecret
+        path: clientServerTLSSecret
+        x-descriptors:
+        - urn:alm:descriptor:io.kubernetes:Secret
+        - urn:alm:descriptor:com.tectonic.ui:advanced
       - description: Contains details about the communal storage.
         displayName: Communal
         path: communal
@@ -1407,7 +1468,8 @@ spec:
         displayName: NMATLSSecret
         path: nmaTLSSecret
         x-descriptors:
-        - urn:alm:descriptor:com.tectonic.ui:hidden
+        - urn:alm:descriptor:io.kubernetes:Secret
+        - urn:alm:descriptor:com.tectonic.ui:advanced
       - description: |-
           An optional name for a secret that contains the password for the
           database's superuser. If this is not set, then we assume no such password
@@ -1481,6 +1543,9 @@ spec:
         path: restorePoint.index
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:number
+      - description: Maximum number of restore points to save for this archive.
+        displayName: Num Restore Points
+        path: restorePoint.numRestorePoints
       - description: |-
           This specifies the order of nodes when doing a revive.  Each entry
           contains an index to a subcluster, which is an index in Subclusters[],
@@ -1579,6 +1644,22 @@ spec:
         path: serviceAccountName
         x-descriptors:
         - urn:alm:descriptor:io.kubernetes:ServiceAccount
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+      - description: |-
+          Port to use for Vertica client service
+          Default is 5433
+        displayName: Service Client Port
+        path: serviceClientPort
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:number
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+      - description: |-
+          Port to use for Vertica HTTPS services
+          Default is 8443
+        displayName: Service HTTPSPort
+        path: serviceHTTPSPort
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:number
         - urn:alm:descriptor:com.tectonic.ui:advanced
       - description: |-
           The number of shards to create in the database. This cannot be updated
@@ -1720,6 +1801,18 @@ spec:
       - description: A map of key/value pairs appended to service metadata.annotations.
         displayName: Service Annotations
         path: subclusters[0].serviceAnnotations
+      - description: |-
+          Client port for this subcluster's services
+          If not set, it will use the port number specified in spec.ServiceClientPort,
+          which is defaulted to be 5433
+        displayName: Service Client Port
+        path: subclusters[0].serviceClientPort
+      - description: |-
+          HTTPS port for this subcluster's services
+          If not set, it will use the port number specified in spec.ServiceHTTPSPort,
+          which is defaulted to be 8443
+        displayName: Service HTTPSPort
+        path: subclusters[0].serviceHTTPSPort
       - description: |-
           Identifies the name of the service object that will serve this
           subcluster.  If multiple subclusters share the same service name then
@@ -1936,6 +2029,18 @@ spec:
         displayName: Service Annotations
         path: temporarySubclusterRouting.template.serviceAnnotations
       - description: |-
+          Client port for this subcluster's services
+          If not set, it will use the port number specified in spec.ServiceClientPort,
+          which is defaulted to be 5433
+        displayName: Service Client Port
+        path: temporarySubclusterRouting.template.serviceClientPort
+      - description: |-
+          HTTPS port for this subcluster's services
+          If not set, it will use the port number specified in spec.ServiceHTTPSPort,
+          which is defaulted to be 8443
+        displayName: Service HTTPSPort
+        path: temporarySubclusterRouting.template.serviceHTTPSPort
+      - description: |-
           Identifies the name of the service object that will serve this
           subcluster.  If multiple subclusters share the same service name then
           they all share the same service object.  This allows for a single service
@@ -2107,6 +2212,17 @@ spec:
           is occurring, this message remains blank.
         displayName: Upgrade Status
         path: sandboxes[0].upgradeState.upgradeStatus
+      - description: The list of secrets currently in use
+        displayName: Secret Refs
+        path: secretRefs
+      - description: Name of the secret
+        displayName: Name
+        path: secretRefs[0].name
+      - description: |-
+          The type of the secret which represents what the secret
+          is used for
+        displayName: Type
+        path: secretRefs[0].type
       - description: The number of subclusters in the database
         displayName: Subcluster Count
         path: subclusterCount
@@ -2210,6 +2326,40 @@ spec:
           More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
         displayName: Name
         path: certSecrets[0].name
+        x-descriptors:
+        - urn:alm:descriptor:io.kubernetes:Secret
+      - description: |-
+          This field configures the Vertica's connection mode for client-server TLS.
+          Choose one of the following TLSMODEs, listed in ascending security:
+          - DISABLE: Disables TLS. All other options for this parameter enable TLS.
+          - ENABLE: Enables TLS. Vertica does not verify client certificates.
+          - TRY_VERIFY: Establishes a TLS connection if one of the following is true:
+            - The client presents a valid certificate.
+            - The client doesn't present a certificate
+            If the client presents an invalid certificate, the connection is rejected.
+          - VERIFY_CA: Connection succeeds if Vertica verifies that the client certificate is from a trusted CA.
+            If the client does not present a client certificate, the connection is rejected.
+          - VERIFY_FULL: Connection succeeds if Vertica verifies that the other host's certificate is from a trusted CA and
+            the certificate's cn (Common Name) or subjectAltName attribute matches the hostname or IP address of the other host.
+        displayName: Client Server TLSMode
+        path: clientServerTLSMode
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+        - urn:alm:descriptor:com.tectonic.ui:select:DISABLE
+        - urn:alm:descriptor:com.tectonic.ui:select:ENABLE
+        - urn:alm:descriptor:com.tectonic.ui:select:TRY_VERIFY
+        - urn:alm:descriptor:com.tectonic.ui:select:VERIFY_CA
+        - urn:alm:descriptor:com.tectonic.ui:select:VERIFY_FULL
+      - description: |-
+          "urn:alm:descriptor:com.tectonic.ui:advanced"
+          A secret that contains the TLS credentials to be used to authenticate Vertica clients' certificates.
+          If this is empty, the operator will create a secret to use and add the name of the generate secret to this field.
+          The private key, certificate, and CA certificate should be stored in the secret using the following keys: tls.key,
+          tls.crt, and ca.crt, respectively. To store this secret outside of Kubernetes, you can
+          use a secret path reference prefix, such as gsm://. Everything after the prefix is the name of the secret in the
+          service you are storing.
+        displayName: Client Server TLSSecret
+        path: clientServerTLSSecret
         x-descriptors:
         - urn:alm:descriptor:io.kubernetes:Secret
       - description: Contains details about the communal storage.
@@ -2362,7 +2512,7 @@ spec:
         displayName: HTTPServer TLSSecret
         path: httpServerTLSSecret
         x-descriptors:
-        - urn:alm:descriptor:com.tectonic.ui:hidden
+        - urn:alm:descriptor:com.tectonic.ui:Secret
       - description: |-
           Ignore the cluster lease when doing a revive or start_db.  Use this with
           caution, as ignoring the cluster lease when another system is using the
@@ -2610,6 +2760,9 @@ spec:
         path: restorePoint.index
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:number
+      - description: Maximum number of restore points to save for this archive.
+        displayName: Num Restore Points
+        path: restorePoint.numRestorePoints
       - description: |-
           This specifies the order of nodes when doing a revive.  Each entry
           contains an index to a subcluster, which is an index in Subclusters[],
@@ -2708,6 +2861,22 @@ spec:
         path: serviceAccountName
         x-descriptors:
         - urn:alm:descriptor:io.kubernetes:ServiceAccount
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+      - description: |-
+          Port to use for Vertica client service
+          Default is 5433
+        displayName: Service Client Port
+        path: serviceClientPort
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:number
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+      - description: |-
+          Port to use for Vertica HTTPS services
+          Default is 8443
+        displayName: Service HTTPSPort
+        path: serviceHTTPSPort
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:number
         - urn:alm:descriptor:com.tectonic.ui:advanced
       - description: |-
           The number of shards to create in the database. This cannot be updated
@@ -2885,6 +3054,21 @@ spec:
       - description: A map of key/value pairs appended to service metadata.annotations.
         displayName: Service Annotations
         path: subclusters[0].serviceAnnotations
+      - description: |-
+          Client port for this subcluster's services
+          If not set, it will use the port number specified in spec.ServiceClientPort,
+          which is defaulted to be 5433
+        displayName: Service Client Port
+        path: subclusters[0].serviceClientPort
+      - description: |-
+          HTTPS port for this subcluster's services
+          If not set, it will use the port number specified in spec.ServiceHTTPSPort,
+          which is defaulted to be 8443
+        displayName: Service HTTPSPort
+        path: subclusters[0].serviceHTTPSPort
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:number
+        - urn:alm:descriptor:com.tectonic.ui:advanced
       - description: |-
           Identifies the name of the service object that will serve this
           subcluster.  If multiple subclusters share the same service name then
@@ -3122,6 +3306,21 @@ spec:
         displayName: Service Annotations
         path: temporarySubclusterRouting.template.serviceAnnotations
       - description: |-
+          Client port for this subcluster's services
+          If not set, it will use the port number specified in spec.ServiceClientPort,
+          which is defaulted to be 5433
+        displayName: Service Client Port
+        path: temporarySubclusterRouting.template.serviceClientPort
+      - description: |-
+          HTTPS port for this subcluster's services
+          If not set, it will use the port number specified in spec.ServiceHTTPSPort,
+          which is defaulted to be 8443
+        displayName: Service HTTPSPort
+        path: temporarySubclusterRouting.template.serviceHTTPSPort
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:number
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+      - description: |-
           Identifies the name of the service object that will serve this
           subcluster.  If multiple subclusters share the same service name then
           they all share the same service object.  This allows for a single service
@@ -3291,6 +3490,17 @@ spec:
           is occurring, this message remains blank.
         displayName: Upgrade Status
         path: sandboxes[0].upgradeState.upgradeStatus
+      - description: The list of secrets currently in use
+        displayName: Secret Refs
+        path: secretRefs
+      - description: Name of the secret
+        displayName: Name
+        path: secretRefs[0].name
+      - description: |-
+          The type of the secret which represents what the secret
+          is used for
+        displayName: Type
+        path: secretRefs[0].type
       - description: The number of subclusters in the database
         displayName: Subcluster Count
         path: subclusterCount
@@ -3648,6 +3858,11 @@ spec:
         path: resources
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:resourceRequirements
+      - description: |-
+          Set scrutinize to run using the hosts of a single sandbox
+          If this is omitted, it will run using the main cluster
+        displayName: Sandbox
+        path: sandbox
       - description: |-
           Any tolerations and taints to use to aid in where to schedule a pod.
           More info: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/

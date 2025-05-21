@@ -20,8 +20,6 @@ import (
 	"errors"
 	"fmt"
 	"slices"
-
-	"github.com/vertica/vcluster/vclusterops/util"
 )
 
 type nmaPollReplicationStatusOp struct {
@@ -46,13 +44,12 @@ func makeNMAPollReplicationStatusOp(targetDBOpt *DatabaseOptions, targetUsePassw
 	op.existingTransactionIDs = existingTransactionIDs
 	op.newTransactionID = newTransactionID
 	op.TargetDB.UserName = targetDBOpt.UserName
+	op.TargetDB.Password = targetDBOpt.Password
 
-	if targetUsePassword {
-		err := util.ValidateUsernameAndPassword(op.name, targetUsePassword, targetDBOpt.UserName)
-		if err != nil {
-			return op, err
-		}
-		op.TargetDB.Password = targetDBOpt.Password
+	err := ValidateSQLEndpointData(op.name, targetUsePassword,
+		op.TargetDB.UserName, op.TargetDB.Password, op.TargetDB.DBName)
+	if err != nil {
+		return op, err
 	}
 
 	return op, nil
@@ -67,9 +64,10 @@ func (op *nmaPollReplicationStatusOp) updateRequestBody(hosts []string) error {
 		requestData.ExcludedTransactionIDs = *op.existingTransactionIDs
 		requestData.GetTransactionIDsOnly = true
 		requestData.TransactionID = 0
-		requestData.UserName = op.TargetDB.UserName
-		requestData.Password = op.TargetDB.Password
-
+		requestData.DBUsername = op.TargetDB.UserName
+		if op.TargetDB.Password != nil {
+			requestData.DBPassword = *op.TargetDB.Password
+		}
 		dataBytes, err := json.Marshal(requestData)
 		if err != nil {
 			return fmt.Errorf("[%s] fail to marshal request data to JSON string, detail %w", op.name, err)
