@@ -22,7 +22,7 @@ metadata:
 spec:
   image: kustomize-vertica-image
   imagePullPolicy: IfNotPresent
-  superuserPasswordSecret: su-passwd
+  PasswordSecret: su-passwd
   communal: {}
   local:
     requestSize: 100Mi

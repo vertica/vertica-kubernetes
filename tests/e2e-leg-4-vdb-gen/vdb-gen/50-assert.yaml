@@ -23,7 +23,7 @@ spec:
   initPolicy: Revive
   dbName: vertdb
   shardCount: 6
-  superuserPasswordSecret: v-vdb-gen-revive-su-passwd
+  PasswordSecret: v-vdb-gen-revive-su-passwd
   local:
     dataPath: /data
     depotPath: /depot
