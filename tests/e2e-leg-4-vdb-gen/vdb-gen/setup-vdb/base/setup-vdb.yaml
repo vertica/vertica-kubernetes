@@ -20,7 +20,7 @@ metadata:
     vertica.com/k-safety: "0"
 spec:
   image: kustomize-vertica-image
-  PasswordSecret: su-passwd
+  passwordSecret: su-passwd
   initPolicy: CreateSkipPackageInstall
   communal: {}
   local:
