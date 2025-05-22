@@ -151,15 +151,15 @@ func (h *HTTPSCertRotationReconciler) rotateHTTPSTLSCert(ctx context.Context, ne
 		h.Log.Info("https cert rotation skipped. new https cert is already in use on " + initiatorPod.GetPodIP())
 	} else {
 		currentSecretName := h.Vdb.GetHTTPSTLSSecretNameInUse()
-		h.Log.Info("ready to rotate certi from " + currentSecretName + " to " + h.Vdb.Spec.NMATLSSecret)
+		h.Log.Info("ready to rotate certi from " + currentSecretName + " to " + h.Vdb.Spec.HTTPSTLSSecret)
 		var keyConfig, certConfig, caCertConfig, secretName string
 		switch {
-		case secrets.IsAWSSecretsManagerSecret(h.Vdb.Spec.NMATLSSecret):
+		case secrets.IsAWSSecretsManagerSecret(h.Vdb.Spec.HTTPSTLSSecret):
 			keyConfig, certConfig, caCertConfig = GetAWSCertsConfig(h.Vdb)
-			secretName = secrets.RemovePathReference(h.Vdb.Spec.NMATLSSecret)
+			secretName = secrets.RemovePathReference(h.Vdb.Spec.HTTPSTLSSecret)
 		default:
 			keyConfig, certConfig, caCertConfig = GetK8sCertsConfig(h.Vdb)
-			secretName = h.Vdb.Spec.NMATLSSecret
+			secretName = h.Vdb.Spec.HTTPSTLSSecret
 		}
 		opts := []rotatehttpscerts.Option{
 			rotatehttpscerts.WithPollingKey(string(newSecret[corev1.TLSPrivateKeyKey])),
@@ -168,7 +168,7 @@ func (h *HTTPSCertRotationReconciler) rotateHTTPSTLSCert(ctx context.Context, ne
 			rotatehttpscerts.WithKey(secretName, keyConfig),
 			rotatehttpscerts.WithCert(secretName, certConfig),
 			rotatehttpscerts.WithCaCert(secretName, caCertConfig),
-			rotatehttpscerts.WithTLSMode("TRY_VERIFY"),
+			rotatehttpscerts.WithTLSMode(h.Vdb.Spec.HTTPSTLSMode),
 			rotatehttpscerts.WithInitiator(initiatorPod.GetPodIP()),
 		}
 		h.Log.Info("to call RotateHTTPSCerts for cert " + h.Vdb.Spec.HTTPSTLSSecret + ", tls enabled " +
