@@ -18,10 +18,10 @@ metadata:
 status:
   replicas: 1
 ---
-apiVersion: vertica.com/v1
+apiVersion: vertica.com/v1beta1
 kind: VerticaDB
 metadata:
   name: v-base-upgrade
 status:
   subclusters:
-    - addedToDBCount: 1
+    - installCount: 1

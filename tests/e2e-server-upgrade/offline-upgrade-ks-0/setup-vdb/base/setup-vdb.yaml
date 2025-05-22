@@ -11,29 +11,28 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1
+apiVersion: vertica.com/v1beta1
 kind: VerticaDB
 metadata:
   name: v-base-upgrade
-  annotations:
-    vertica.com/k-safety: "0"
-    # Set requeueTime to prevent the exponential backoff kicking in, which can
-    # cause the test to timeout.
-    vertica.com/requeue-time: "5"
-    vertica.com/include-uid-in-path: true
 spec:
   image: kustomize-vertica-image
   imagePullPolicy: IfNotPresent
-  passwordSecret: su-passwd
-  communal: {}
+  superuserPasswordSecret: su-passwd
+  communal:
+    includeUIDInPath: true
   local:
     requestSize: 100Mi
   dbName: vd
   upgradePolicy: Offline
   shardCount: 17
+  kSafety: "0"
   subclusters:
     - name: defsc
       size: 2
+  # Set requeueTime to prevent the exponential backoff kicking in, which can
+  # cause the test to timeout.
+  requeueTime: 5
   certSecrets: []
   imagePullSecrets: []
   volumes: []

@@ -16,11 +16,12 @@ kind: StatefulSet
 metadata:
   name: v-base-upgrade-sc1
 ---
-apiVersion: vertica.com/v1
+apiVersion: vertica.com/v1beta1
 kind: VerticaDB
 metadata:
   name: v-base-upgrade
 status:
   subclusters:
-    - addedToDBCount: 0
+    - installCount: 2
+      addedToDBCount: 0
       upNodeCount: 0
