@@ -17,6 +17,7 @@ metadata:
   name: v-schedule-only
   annotations:
     vertica.com/requeue-time: 4
+    vertica.com/k-safety: "0"
 spec:
   autoRestartVertica: false
   initPolicy: ScheduleOnly
