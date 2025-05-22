@@ -71,7 +71,7 @@ type VerticaAutoscalerSpec struct {
 	// here it will be used as a prefix for the new subcluster.  Otherwise, we
 	// use the name of this VerticaAutoscaler object as a prefix for all
 	// subclusters.
-	Template v1.Subcluster `json:"template"`
+	Template Subcluster `json:"template"`
 
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:podCount"
@@ -325,6 +325,198 @@ const (
 	PodScalingGranularity        = "Pod"
 	SubclusterScalingGranularity = "Subcluster"
 )
+
+type Subcluster struct {
+	// +kubebuilder:validation:required
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// The name of the subcluster. This is a required parameter. This cannot
+	// change after CRD creation.
+	Name string `json:"name"`
+
+	// +kubebuilder:default:=3
+	// +kubebuilder:Minimum:=3
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:podCount"
+	// The number of pods that the subcluster will have. This determines the
+	// number of Vertica nodes that it will have. Changing this number will
+	// either delete or schedule new pods.
+	//
+	// The database has a k-safety of 1. So, if this is a primary subcluster,
+	// the minimum value is 3. If this is a secondary subcluster, the minimum is
+	// 0.
+	//
+	// Note, you must have a valid license to pick a value larger than 3. The
+	// default license that comes in the vertica container is for the community
+	// edition, which can only have 3 nodes. The license can be set with the
+	// db.licenseSecret parameter.
+	Size int32 `json:"size"`
+
+	// +kubebuilder:default:=true
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:booleanSwitch"
+	// Indicates whether the subcluster is a primary or secondary. You must have
+	// at least one primary subcluster in the database.
+	IsPrimary bool `json:"isPrimary"`
+
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:hidden"
+	// Internal state that indicates whether this is a transient read-only
+	// subcluster used for online upgrade.  A subcluster that exists
+	// temporarily to serve traffic for subclusters that are restarting with the
+	// new image.
+	IsTransient bool `json:"isTransient,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:hidden"
+	// A sandbox primary subcluster is a secondary subcluster that was the first
+	// subcluster in a sandbox. These subclusters are primaries when they are
+	// sandboxed. When unsandboxed, they will go back to being just a secondary
+	// subcluster
+	IsSandboxPrimary bool `json:"isSandboxPrimary"`
+
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:hidden"
+	// This allows a different image to be used for the subcluster than the one
+	// in VerticaDB.  This is intended to be used internally by the online image
+	// change process.
+	ImageOverride string `json:"imageOverride,omitempty"`
+
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// A map of label keys and values to restrict Vertica node scheduling to workers
+	// with matching labels.
+	// More info: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector
+	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
+
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// Like nodeSelector this allows you to constrain the pod only to certain
+	// pods. It is more expressive than just using node selectors.
+	// More info: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#affinity-and-anti-affinity
+	Affinity Affinity `json:"affinity,omitempty"`
+
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:advanced"
+	// The priority class name given to pods in this subcluster. This affects
+	// where the pod gets scheduled.
+	// More info: https://kubernetes.io/docs/concepts/configuration/pod-priority-preemption/#priorityclass
+	PriorityClassName string `json:"priorityClassName,omitempty"`
+
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:advanced"
+	// Any tolerations and taints to use to aid in where to schedule a pod.
+	// More info: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
+	Tolerations []corev1.Toleration `json:"tolerations,omitempty"`
+
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:resourceRequirements"
+	// This defines the resource requests and limits for pods in the subcluster.
+	// It is advisable that the request and limits match as this ensures the
+	// pods are assigned to the guaranteed QoS class. This will reduces the
+	// chance that pods are chosen by the OOM killer.
+	// More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
+
+	// +kubebuilder:default:=ClusterIP
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:select:ClusterIP","urn:alm:descriptor:com.tectonic.ui:select:NodePort","urn:alm:descriptor:com.tectonic.ui:select:LoadBalancer"}
+	// Identifies the type of Kubernetes service to use for external client
+	// connectivity. The default is to use a ClusterIP, which sets a stable IP
+	// and port to use that is accessible only from within Kubernetes itself.
+	// Depending on the service type chosen the user may need to set other
+	// config knobs to further config it. These other knobs follow this one.
+	// More info: https://kubernetes.io/docs/concepts/services-networking/service/#publishing-services-service-types
+	ServiceType corev1.ServiceType `json:"serviceType,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:advanced"
+	// Identifies the name of the service object that will serve this
+	// subcluster.  If multiple subclusters share the same service name then
+	// they all share the same service object.  This allows for a single service
+	// object to round robin between multiple subclusters.  If this is left
+	// blank, a service object matching the subcluster name is used.  The actual
+	// name of the service object is always prefixed with the name of the owning
+	// VerticaDB.
+	ServiceName string `json:"serviceName,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:number","urn:alm:descriptor:com.tectonic.ui:advanced"}
+	// When setting serviceType to NodePort, this parameter allows you to define the
+	// port that is opened at each node for Vertica client connections. If using
+	// NodePort and this is omitted, Kubernetes will choose the port
+	// automatically. This port must be from within the defined range allocated
+	// by the control plane (default is 30000-32767).
+	NodePort int32 `json:"nodePort,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:number","urn:alm:descriptor:com.tectonic.ui:advanced"}
+	// Like the nodePort parameter, except this controls the node port to use
+	// for the http endpoint in the Vertica server.  The same rules apply: it
+	// must be defined within the range allocated by the control plane, if
+	// omitted Kubernetes will choose the port automatically.
+	VerticaHTTPNodePort int32 `json:"verticaHTTPNodePort,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:number","urn:alm:descriptor:com.tectonic.ui:advanced"}
+	// HTTPS port for this subcluster's services
+	// If not set, it will use the port number specified in spec.ServiceHTTPSPort,
+	// which is defaulted to be 8443
+	ServiceHTTPSPort int32 `json:"serviceHTTPSPort,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// Client port for this subcluster's services
+	// If not set, it will use the port number specified in spec.ServiceClientPort,
+	// which is defaulted to be 5433
+	ServiceClientPort int32 `json:"serviceClientPort,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:advanced"
+	// Allows the service object to be attached to a list of external IPs that you
+	// specify. If not set, the external IP list is left empty in the service object.
+	// More info: https://kubernetes.io/docs/concepts/services-networking/service/#external-ips
+	ExternalIPs []string `json:"externalIPs,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:advanced"
+	// Specify IP address of LoadBalancer service for this subcluster.
+	// This field is ignored when serviceType != "LoadBalancer".
+	// More info: https://kubernetes.io/docs/concepts/services-networking/service/#loadbalancer
+	LoadBalancerIP string `json:"loadBalancerIP,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// A map of key/value pairs appended to service metadata.annotations.
+	ServiceAnnotations map[string]string `json:"serviceAnnotations,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// A map of key/value pairs appended to the stateful metadata.annotations of
+	// the subcluster.
+	Annotations map[string]string `json:"annotations,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// State to indicate whether the operator must shut down the subcluster
+	// and not try to restart it.
+	Shutdown bool `json:"shutdown,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// Create client proxy pods for the subcluster if defined
+	// All incoming connections to the subclusters will be routed through the proxy pods
+	Proxy *ProxySubclusterConfig `json:"proxy,omitempty"`
+}
+
+type ProxySubclusterConfig struct {
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// The number of replicas that the proxy server will have.
+	Replicas *int32 `json:"replicas,omitempty"`
+
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:resourceRequirements"
+	// This defines the resource requests and limits for the client proxy pods in the subcluster.
+	// It is advisable that the request and limits match as this ensures the
+	// pods are assigned to the guaranteed QoS class. This will reduces the
+	// chance that pods are chosen by the OOM killer.
+	// More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+	Resources *corev1.ResourceRequirements `json:"resources,omitempty"`
+}
 
 // VerticaAutoscalerStatus defines the observed state of VerticaAutoscaler
 type VerticaAutoscalerStatus struct {
