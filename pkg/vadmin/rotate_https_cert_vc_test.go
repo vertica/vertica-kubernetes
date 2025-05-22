@@ -32,8 +32,8 @@ const (
 	rotateHTTPSCertCurrentNMASecretName = "rotate-https-current-cert-test-secret" //nolint:gosec
 )
 
-// mock version of VRotateHTTPSCerts() that is invoked inside VClusterOps.RotateHTTPSCerts()
-func (m *MockVClusterOps) VRotateHTTPSCerts(options *vops.VRotateHTTPSCertsOptions) error {
+// mock version of VRotateTLSCerts() that is invoked inside VClusterOps.RotateHTTPSCerts()
+func (m *MockVClusterOps) VRotateTLSCerts(options *vops.VRotateTLSCertsOptions) error {
 	// verify common options
 	err := m.VerifyCommonOptions(&options.DatabaseOptions)
 	if err != nil {

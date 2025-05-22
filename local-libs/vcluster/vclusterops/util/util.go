@@ -70,6 +70,7 @@ const (
 	ArchiveEndpoint       = "archives"
 	LicenseEndpoint       = "license"
 	TLSAuthEndpoint       = "authentication/tls/"
+	TLSBootstrapEndpoint  = "authentication/client"
 )
 
 const (
@@ -325,7 +326,7 @@ func ResolveToIPAddrs(hostname string, ipv6 bool) ([]string, error) {
 	// resolve hostname using local resolver
 	hostIPs, err := net.LookupHost(hostname)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("net.LookupHost() failed: %s", err.Error())
 	}
 	if len(hostIPs) < 1 {
 		return nil, fmt.Errorf("cannot resolve %s to a valid IP address", hostname)

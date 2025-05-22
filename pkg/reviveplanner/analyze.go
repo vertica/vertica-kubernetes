@@ -55,12 +55,12 @@ func (p *Planner) IsCompatible() (string, bool) {
 // paths. It returns an error if the paths aren't compatible.
 func (p *Planner) checkForCompatiblePaths() error {
 	// verify if we can get any local depot paths
-	if _, err := p.getLocalPaths(p.Parser.GetDepotPaths()); err != nil {
+	if _, err := p.getLocalPaths(p.Parser.GetDepotPaths(), false); err != nil {
 		return err
 	}
 
 	// verify if we can get any local catalog paths
-	paths, err := p.getLocalPaths(p.Parser.GetCatalogPaths())
+	paths, err := p.getLocalPaths(p.Parser.GetCatalogPaths(), false)
 	if err != nil {
 		return err
 	}
@@ -69,7 +69,7 @@ func (p *Planner) checkForCompatiblePaths() error {
 	}
 
 	// verify if we can get any local data paths
-	_, err = p.getLocalPaths(p.Parser.GetDataPaths())
+	_, err = p.getLocalPaths(p.Parser.GetDataPaths(), false)
 	return err
 }
 
@@ -98,7 +98,7 @@ func (p *Planner) ApplyChanges(vdb *vapi.VerticaDB) (updated bool, err error) {
 
 	otherPaths := p.Parser.GetOtherPaths()
 	if len(otherPaths) > 0 {
-		paths, e := p.getLocalPaths(p.Parser.GetOtherPaths())
+		paths, e := p.getLocalPaths(p.Parser.GetOtherPaths(), true)
 		if e != nil {
 			return updated, e
 		}
@@ -126,7 +126,7 @@ func (p *Planner) ApplyChanges(vdb *vapi.VerticaDB) (updated bool, err error) {
 
 // updateLocalPathsInVdb will update the local.catalogPath, local.dataPath, and local.depotPath if needed
 func (p *Planner) updateLocalPathsInVdb(vdb *vapi.VerticaDB, extraPaths map[string]struct{}) (updated bool, err error) {
-	catPaths, err := p.getLocalPaths(p.Parser.GetCatalogPaths())
+	catPaths, err := p.getLocalPaths(p.Parser.GetCatalogPaths(), false)
 	if err != nil {
 		return updated, err
 	}
@@ -136,7 +136,7 @@ func (p *Planner) updateLocalPathsInVdb(vdb *vapi.VerticaDB, extraPaths map[stri
 		updated = true
 	}
 
-	dataPaths, err := p.getLocalPaths(p.Parser.GetDataPaths())
+	dataPaths, err := p.getLocalPaths(p.Parser.GetDataPaths(), false)
 	if err != nil {
 		return updated, err
 	}
@@ -153,7 +153,7 @@ func (p *Planner) updateLocalPathsInVdb(vdb *vapi.VerticaDB, extraPaths map[stri
 		extraPaths[path] = struct{}{}
 	}
 
-	depotPaths, err := p.getLocalPaths(p.Parser.GetDepotPaths())
+	depotPaths, err := p.getLocalPaths(p.Parser.GetDepotPaths(), false)
 	if err != nil {
 		return updated, err
 	}
@@ -189,7 +189,7 @@ func (p *Planner) logPathChange(pathType, oldPath, newPath string) {
 // getLocalPaths takes a slice of file paths and returns the common prefixes
 // of Vertica auto-generated paths, along with user-created paths. It ignores
 // non-absolute paths, as these may represent remote storage locations.
-func (p *Planner) getLocalPaths(paths []string) ([]string, error) {
+func (p *Planner) getLocalPaths(paths []string, allowEmpty bool) ([]string, error) {
 	if len(paths) == 0 {
 		return nil, fmt.Errorf("no paths passed in")
 	}
@@ -217,6 +217,10 @@ func (p *Planner) getLocalPaths(paths []string) ([]string, error) {
 	}
 
 	if len(localPaths) == 0 {
+		// For USER or TEMP paths, they can be all remote paths so we return nil
+		if allowEmpty {
+			return nil, nil
+		}
 		return nil, fmt.Errorf("no local paths found")
 	}
 	delete(localPaths, verticaPrefix)

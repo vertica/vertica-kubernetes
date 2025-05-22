@@ -43,7 +43,7 @@ type VClusterHealthOptions struct {
 	SlowEventCascade        []SlowEventNode
 	SessionStartsResult     *dcSessionStarts
 	TransactionStartsResult *dcTransactionStarts
-	SlowEventsResult        *dcSlowEvents
+	SlowEventsResult        *[]dcSlowEvent
 	LockEventCascade        []NodeLockEvents
 }
 
@@ -161,6 +161,12 @@ func (vcc VClusterCommands) VClusterHealth(options *VClusterHealthOptions) error
 		return err
 	}
 
+	// if the up nodes are not healthy, we can early fail out
+	err = options.checkNMAHealth(vcc.Log, vdb.PrimaryUpNodes)
+	if err != nil {
+		return err
+	}
+
 	var runError error
 	switch options.Operation {
 	case getSlowEvents:
@@ -181,17 +187,37 @@ func (vcc VClusterCommands) VClusterHealth(options *VClusterHealthOptions) error
 	return runError
 }
 
+func (opt *VClusterHealthOptions) checkNMAHealth(logger vlog.Printer, upHosts []string) error {
+	var instructions []clusterOp
+
+	nmaHealthOp := makeNMAHealthOp(upHosts)
+	instructions = append(instructions, &nmaHealthOp)
+
+	clusterOpEngine := makeClusterOpEngine(instructions, &opt.DatabaseOptions)
+
+	return clusterOpEngine.run(logger)
+}
+
 func (opt *VClusterHealthOptions) getSlowEvents(logger vlog.Printer, upHosts []string,
-	threadID, startTime, endTime string, forCascade bool) (slowEvents *dcSlowEvents, err error) {
+	threadID, startTime, endTime string, forCascade bool) (slowEvents *[]dcSlowEvent, err error) {
 	var instructions []clusterOp
 
 	if forCascade {
-		httpsSlowEventWithThreadIDOp := makeHTTPSSlowEventOpByThreadID(upHosts, startTime, endTime,
-			threadID)
-		instructions = append(instructions, &httpsSlowEventWithThreadIDOp)
+		// if the up nodes are not healthy, we can early fail out
+		nmaSlowEventWithThreadIDOp, err := makeNMASlowEventOpByThreadID(upHosts, opt.DatabaseOptions.UserName,
+			opt.DatabaseOptions.DBName, opt.DatabaseOptions.Password, startTime, endTime, threadID)
+		if err != nil {
+			return nil, err
+		}
+		instructions = append(instructions, &nmaSlowEventWithThreadIDOp)
 	} else {
-		httpsSlowEventOp := makeHTTPSSlowEventOp(upHosts, startTime, endTime,
-			threadID, opt.PhaseDurationDesc, opt.TxnID, opt.EventDesc, opt.NodeName)
+		httpsSlowEventOp, err := makeNMASlowEventOp(upHosts, opt.DatabaseOptions.UserName,
+			opt.DatabaseOptions.DBName, opt.DatabaseOptions.Password,
+			startTime, endTime, threadID, opt.PhaseDurationDesc,
+			opt.TxnID, opt.EventDesc, opt.NodeName)
+		if err != nil {
+			return nil, err
+		}
 		instructions = append(instructions, &httpsSlowEventOp)
 	}
 
@@ -200,7 +226,7 @@ func (opt *VClusterHealthOptions) getSlowEvents(logger vlog.Printer, upHosts []s
 	if err != nil {
 		return slowEvents, fmt.Errorf("fail to get slow events, %w", err)
 	}
-	return clusterOpEngine.execContext.dcSlowEvents, nil
+	return clusterOpEngine.execContext.dcSlowEventList, nil
 }
 
 func (opt *VClusterHealthOptions) getSessionStarts(logger vlog.Printer, upHosts []string,

@@ -21,6 +21,7 @@
 package vclusterops
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net"
@@ -392,6 +393,7 @@ func (op *opBase) logFinalize() {
 }
 
 func (op *opBase) runExecute(execContext *opEngineExecContext) error {
+	op.clusterHTTPRequest.usePasswordForSQLClientOnly = execContext.usePasswordForSQLClientOnly
 	err := execContext.dispatcher.sendRequest(&op.clusterHTTPRequest, op.spinner)
 	if err != nil {
 		op.logger.Error(err, "Fail to dispatch request, detail", "dispatch request", op.clusterHTTPRequest)
@@ -404,6 +406,7 @@ type opTLSOptions interface {
 	hasCerts() bool
 	getCerts() *httpsCerts
 	getTLSModes() *tlsModes
+	usePasswordForSQLClientOnly() bool
 }
 
 // applyTLSOptions processes TLS options here, like in-memory certificates or TLS modes,
@@ -438,6 +441,10 @@ func (op *opBase) applyTLSOptions(tlsOptions opTLSOptions) error {
 		request := op.clusterHTTPRequest.RequestCollection[host]
 		request.setCerts(certs)
 		request.setTLSMode(tlsModes)
+		// when UsePasswordForNMAOnly is set to be true, we should use UseCertsInOptions
+		if request.usePasswordForSQLClientOnly {
+			request.UseCertsInOptions = true
+		}
 		op.clusterHTTPRequest.RequestCollection[host] = request
 	}
 	return nil
@@ -614,8 +621,9 @@ type ClusterCommands interface {
 	VUnsandbox(options *VUnsandboxOptions) error
 	VUpgradeLicense(options *VUpgradeLicenseOptions) error
 	VClusterHealth(options *VClusterHealthOptions) error
-	VWorkloadReplay(options *VWorkloadReplayOptions) error
+	VWorkloadReplay(ctx context.Context, options *VWorkloadReplayOptions) error
 	VWorkloadCapture(options *VWorkloadCaptureOptions) error
+	VWorkloadCancel(options *VWorkloadCancelOptions) error
 }
 
 type VClusterCommandsLogger struct {

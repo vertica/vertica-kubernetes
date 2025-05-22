@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/vertica/vcluster/rfc7807"
 	"golang.org/x/exp/maps"
 )
 
@@ -28,6 +29,9 @@ type nmaPrepareDirectoriesOp struct {
 	hostRequestBodyMap map[string]string
 	forceCleanup       bool
 	forRevive          bool
+	// Hidden option for internal use
+	// Used in db revive - re-use existing catalog directories for reviving if true
+	useExistingCatalogDir bool
 }
 
 type prepareDirectoriesRequestData struct {
@@ -47,6 +51,7 @@ func makeNMAPrepareDirectoriesOp(hostNodeMap vHostNodeMap,
 	op.description = "Create necessary directories on Vertica hosts"
 	op.forceCleanup = forceCleanup
 	op.forRevive = forRevive
+	op.useExistingCatalogDir = false
 
 	err := op.setupRequestBody(hostNodeMap)
 	if err != nil {
@@ -54,6 +59,22 @@ func makeNMAPrepareDirectoriesOp(hostNodeMap vHostNodeMap,
 	}
 
 	op.hosts = maps.Keys(hostNodeMap)
+
+	return op, nil
+}
+
+func makeNMAPrepareDirsUseExistingCatalogDirOp(hostNodeMap vHostNodeMap,
+	forceCleanup, forRevive bool, useExistingCatalogDir bool) (nmaPrepareDirectoriesOp, error) {
+	op, err := makeNMAPrepareDirectoriesOp(hostNodeMap, forceCleanup, forRevive)
+	if err != nil {
+		return op, err
+	}
+	op.useExistingCatalogDir = useExistingCatalogDir
+	// overwrite the descriptions
+	if op.useExistingCatalogDir {
+		op.name = "NMAPrepareDirsAllowUsingExistingCatalogDirOp"
+		op.description = "Create necessary directories on Vertica hosts, allowing using existing catalog directories"
+	}
 
 	return op, nil
 }
@@ -130,6 +151,15 @@ func (op *nmaPrepareDirectoriesOp) processResult(_ *opEngineExecContext) error {
 				allErrs = errors.Join(allErrs, err)
 			}
 		} else {
+			// if catalog directory exists and user specified using existing dir, skip the error
+			if op.useExistingCatalogDir {
+				rfcError := &rfc7807.VProblem{}
+				if isRFCError := errors.As(result.err, &rfcError); isRFCError && (rfcError.ProblemID == rfc7807.CreateDirectoryExistError) {
+					op.logger.Info("using existing catalog directory", "details", result.err.Error())
+					continue
+				}
+			}
+
 			allErrs = errors.Join(allErrs, result.err)
 		}
 	}

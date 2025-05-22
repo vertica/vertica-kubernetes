@@ -39,3 +39,5 @@ spec:
   restorePoint:
     archive: "db"
     id: "wrong-id"
+  nmaTLSSecret: custom-cert
+  clientServerTLSSecret: custom-cert

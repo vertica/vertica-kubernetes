@@ -15,7 +15,11 @@
 
 package vclusterops
 
-import "github.com/vertica/vcluster/vclusterops/vlog"
+import (
+	"context"
+
+	"github.com/vertica/vcluster/vclusterops/vlog"
+)
 
 type opEngineExecContext struct {
 	dispatcher      requestDispatcher
@@ -51,8 +55,11 @@ type opEngineExecContext struct {
 	// this vdb will only be used to get sandbox info of the nodes
 	vdbForSandboxInfo *VCoordinationDatabase
 
+	// whether only use password for SQL client
+	usePasswordForSQLClientOnly bool
+
 	// slow events
-	dcSlowEvents *dcSlowEvents
+	dcSlowEventList *[]dcSlowEvent
 
 	// transaction starts
 	dcTransactionStarts *dcTransactionStarts
@@ -60,6 +67,7 @@ type opEngineExecContext struct {
 	// session starts
 	dcSessionStarts *dcSessionStarts
 
+	workloadReplyCtx context.Context
 	// lockAttempts list
 	dcLockAttemptsList *[]dcLockAttempts
 

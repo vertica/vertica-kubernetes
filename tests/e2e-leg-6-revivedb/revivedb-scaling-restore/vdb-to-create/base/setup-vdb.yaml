@@ -31,6 +31,8 @@ spec:
     - name: sc1
       size: 1
   certSecrets: []
+  nmaTLSSecret: custom-cert
+  clientServerTLSSecret: custom-cert
   imagePullSecrets: []
   volumes: []
   volumeMounts: []

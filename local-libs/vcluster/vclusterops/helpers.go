@@ -622,3 +622,13 @@ func isResultsFromComputeNodes(host string, nodesStates *nodesStateInfo) bool {
 	}
 	return false
 }
+
+// getSecretManager given the secret manager type, returns
+// the secret manager name
+func getSecretManager(secretManagerType string) string {
+	secretManagerMap := map[string]string{
+		K8sSecretManagerType: kubernetesSecretManagerName,
+		AWSSecretManagerType: awsSecretManagerName,
+	}
+	return secretManagerMap[secretManagerType]
+}

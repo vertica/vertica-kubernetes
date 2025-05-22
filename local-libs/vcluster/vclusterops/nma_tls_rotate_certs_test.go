@@ -9,7 +9,7 @@ import (
 )
 
 //nolint:gosec // test uses "hardcoded credentials"
-func TestNMARotateHTTPSCertsOp(t *testing.T) {
+func TestNMARotateTLSCertsOp(t *testing.T) {
 	// make a mock op
 	host1 := "host1"
 	host2 := "host2"
@@ -24,7 +24,7 @@ func TestNMARotateHTTPSCertsOp(t *testing.T) {
 	pwStr := "test_pw_str"
 	dbName := "test_db_name"
 	usePW := true
-	opData := RotateHTTPSCertsData{
+	opData := RotateTLSCertsData{
 		KeySecretName:    "key",
 		KeyConfig:        "key_config",
 		CertSecretName:   "cert",
@@ -32,34 +32,36 @@ func TestNMARotateHTTPSCertsOp(t *testing.T) {
 		CACertSecretName: "ca_cert",
 		CACertConfig:     "ca_cert_config",
 		TLSMode:          "try_verify",
+		TLSConfig:        "HTTPS",
 	}
 
 	// construction should succeed
-	op, err := makeNMARotateHTTPSCertsOp(hosts, username, dbName, hostsToSandboxes,
-		&opData, &pwStr, usePW)
+	op, err := makeNMARotateTLSCertsOp(hosts, username, dbName, hostsToSandboxes,
+		&opData, AWSSecretManagerType, &pwStr, usePW)
 	assert.NoError(t, err)
 
 	// run through prepare() phase only
 	op.skipExecute = true
 	instructions := []clusterOp{&op}
 	log := vlog.Printer{}
-	clusterOpEngine := makeClusterOpEngine(instructions, nil)
+	var options DatabaseOptions
+	clusterOpEngine := makeClusterOpEngine(instructions, &options)
 	err = clusterOpEngine.run(log)
 	assert.NoError(t, err)
 
 	// check that requests are well-formed
 	for _, host := range hosts {
 		httpRequest := op.clusterHTTPRequest.RequestCollection[host]
-		assert.Equal(t, "v1/vertica/https/rotate-certs", httpRequest.Endpoint)
+		assert.Equal(t, "v1/vertica/tls/rotate-certs", httpRequest.Endpoint)
 		assert.Equal(t, PostMethod, httpRequest.Method)
-		data := rotateHTTPSCertsData{}
+		data := rotateTLSCertsData{}
 		err = json.Unmarshal([]byte(httpRequest.RequestData), &data)
 
 		assert.NoError(t, err)
 		assert.Equal(t, username, data.DBUsername)
 		assert.Equal(t, pwStr, data.DBPassword)
 		assert.Equal(t, dbName, data.DBName)
-		assert.Equal(t, opData, data.RotateHTTPSCertsData)
-		assert.Equal(t, "KubernetesSecretManager", data.SecretManager)
+		assert.Equal(t, opData, data.RotateTLSCertsData)
+		assert.Equal(t, awsSecretManagerName, data.SecretManager)
 	}
 }
