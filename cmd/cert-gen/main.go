@@ -54,9 +54,10 @@ func main() {
 	opts := certgen.Options{}
 	flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ExitOnError)
 	flag.Usage = usage
-	flag.StringVar(&opts.ClusterIPs, "cluster-ips", "", "Comma-separated list of cluster IPs")
-	flag.StringVar(&opts.LoadBalancerIPs, "load-balancer-ips", "",
-		"Comma-separated list of load balancer IPs. A list of provisioned load balancers' ips.")
+	flag.StringVar(&opts.DNSNames, "extra-dns-names", "",
+		"Comma-separated list of dns names that will be included in the certificate's Subject Alternative Name (SAN) extension.")
+	flag.StringVar(&opts.IPAddresses, "ips", "",
+		"Comma-separated list of ip addresses that will be included in the certificate's Subject Alternative Name (SAN) extension.")
 	flag.Parse()
 
 	if flag.NArg() < NumPositionalArgs {
@@ -69,31 +70,25 @@ func main() {
 	opts.Namespace = flag.Arg(NamespaceArg)
 	opts.CommonName = flag.Arg(CommonNameArg)
 
-	var ips []net.IP
-	if opts.ClusterIPs != "" {
-		clusterIPs, err := certgen.ParseAndValidateIPs(opts.ClusterIPs)
+	var ipAddresses []net.IP
+	if opts.IPAddresses != "" {
+		ips, err := certgen.ParseAndValidateIPs(opts.IPAddresses)
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
-		ips = append(ips, clusterIPs...)
+		ipAddresses = append(ipAddresses, ips...)
 	}
 
-	if opts.LoadBalancerIPs != "" {
-		lbIPs, err := certgen.ParseAndValidateIPs(opts.ClusterIPs)
-		if err != nil {
-			fmt.Fprintln(os.Stderr, err)
-			os.Exit(1)
-		}
-		ips = append(ips, lbIPs...)
-	}
+	dnsNames := security.GetDNSNames(opts.Namespace)
+	dnsNames = append(dnsNames, certgen.ParseCommaSeparatedString(opts.DNSNames)...)
 
 	caCert, err := security.NewSelfSignedCACertificate()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
-	cert, err := security.NewCertificateWithIPs(caCert, opts.CommonName, security.GetDNSNames(opts.Namespace), ips)
+	cert, err := security.NewCertificateWithIPs(caCert, opts.CommonName, dnsNames, ipAddresses)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
