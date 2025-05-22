@@ -28,8 +28,8 @@ import (
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
-	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
+	"github.com/vertica/vertica-kubernetes/pkg/secrets"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/rotatehttpscerts"
 	"github.com/vertica/vertica-kubernetes/pkg/vdbstatus"
@@ -135,17 +135,25 @@ func (h *TLSModeReconciler) rotateTLSMode(ctx context.Context) (ctrl.Result, err
 		h.Log.Info(fmt.Sprintf("ready to change client TLS mode from %s to %s", currentClientTLSMode, newClientTLSMode))
 	}
 
+	var keyConfig, certConfig, caCertConfig, secretName string
+	switch {
+	case secrets.IsAWSSecretsManagerSecret(h.Vdb.Spec.HTTPSTLSSecret):
+		keyConfig, certConfig, caCertConfig = GetAWSCertsConfig(h.Vdb)
+		secretName = secrets.RemovePathReference(h.Vdb.Spec.HTTPSTLSSecret)
+	default:
+		keyConfig, certConfig, caCertConfig = GetK8sCertsConfig(h.Vdb)
+		secretName = h.Vdb.Spec.HTTPSTLSSecret
+	}
+
 	currentCert := string(currentSecret.Data[corev1.TLSCertKey])
-	keyConfig := fmt.Sprintf("{\"data-key\":%q, \"namespace\":%q}", corev1.TLSPrivateKeyKey, h.Vdb.Namespace)
-	certConfig := fmt.Sprintf("{\"data-key\":%q, \"namespace\":%q}", corev1.TLSCertKey, h.Vdb.Namespace)
-	caCertConfig := fmt.Sprintf("{\"data-key\":%q, \"namespace\":%q}", paths.HTTPServerCACrtName, h.Vdb.Namespace)
+
 	opts := []rotatehttpscerts.Option{
 		rotatehttpscerts.WithPollingKey(string(currentSecret.Data[corev1.TLSPrivateKeyKey])),
 		rotatehttpscerts.WithPollingCert(currentCert),
 		rotatehttpscerts.WithPollingCaCert(string(currentSecret.Data[corev1.ServiceAccountRootCAKey])),
-		rotatehttpscerts.WithKey(h.Vdb.Spec.HTTPSTLSSecret, keyConfig),
-		rotatehttpscerts.WithCert(h.Vdb.Spec.HTTPSTLSSecret, certConfig),
-		rotatehttpscerts.WithCaCert(h.Vdb.Spec.HTTPSTLSSecret, caCertConfig),
+		rotatehttpscerts.WithKey(secretName, keyConfig),
+		rotatehttpscerts.WithCert(secretName, certConfig),
+		rotatehttpscerts.WithCaCert(secretName, caCertConfig),
 		rotatehttpscerts.WithTLSMode(newHTTPSTLSMode),
 		rotatehttpscerts.WithInitiator(initiatorPod.GetPodIP()),
 	}
