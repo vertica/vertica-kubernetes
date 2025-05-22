@@ -14,4 +14,4 @@
 apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 commands:
-  - command: sh -c "envsubst < client_cert.yaml | kubectl apply -n $NAMESPACE -f -"
+  - script: cd ../../.. && make create-tls-secret SECRET_NAME=client-cert SECRET_NAMESPACE=$NAMESPACE DB_USER=$VERTICA_SUPERUSER_NAME
