@@ -32,6 +32,7 @@ type VDropDatabaseOptions struct {
 	// with --use-existing-catalog-directory option
 	// this option helps preserving DC tables before reviving.
 	RetainCatalogDir bool
+	NodeNameToHost   map[string]string
 }
 
 func VDropDatabaseOptionsFactory() VDropDatabaseOptions {
