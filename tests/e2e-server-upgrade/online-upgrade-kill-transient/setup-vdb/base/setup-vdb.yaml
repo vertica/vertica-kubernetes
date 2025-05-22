@@ -35,6 +35,7 @@ spec:
   temporarySubclusterRouting:
     template:
       name: transient
+      type: secondary
       size: 1
   certSecrets: []
   imagePullSecrets: []

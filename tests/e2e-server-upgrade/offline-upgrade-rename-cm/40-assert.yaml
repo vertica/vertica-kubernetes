@@ -21,7 +21,7 @@ status:
       status: "True"
     - type: DBInitialized
       status: "True"
-    - type: ImageChangeInProgress
+    - type: UpgradeInProgress
       status: "True"
     - type: OfflineUpgradeInProgress
       status: "True"
