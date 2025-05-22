@@ -17,6 +17,7 @@ metadata:
   name: v-mc-restart
   annotations:
     vertica.com/include-uid-in-path: "true"
+    vertica.com/k-safety: "0"
     vertica.com/requeue-time: 4 
 spec:
   initPolicy: CreateSkipPackageInstall
