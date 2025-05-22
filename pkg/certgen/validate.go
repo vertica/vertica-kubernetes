@@ -29,7 +29,7 @@ func ParseAndValidateIPs(ipsString string) ([]net.IP, error) {
 		return nil, nil
 	}
 
-	ipList := strings.Split(ipsString, ",")
+	ipList := ParseCommaSeparatedString(ipsString)
 	validIPs := make([]net.IP, 0, len(ipList))
 	var invalidIPs []string
 
@@ -48,4 +48,11 @@ func ParseAndValidateIPs(ipsString string) ([]net.IP, error) {
 	}
 
 	return validIPs, nil
+}
+
+func ParseCommaSeparatedString(s string) []string {
+	if s == "" {
+		return []string{} // Return an empty slice for an empty input
+	}
+	return strings.Split(s, ",")
 }

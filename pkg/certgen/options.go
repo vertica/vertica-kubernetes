@@ -17,9 +17,9 @@ package certgen
 
 // Options contain the command line options and positional arguments
 type Options struct {
-	SecretName      string
-	Namespace       string
-	CommonName      string
-	ClusterIPs      string
-	LoadBalancerIPs string
+	SecretName  string
+	Namespace   string
+	CommonName  string
+	DNSNames    string
+	IPAddresses string
 }
