@@ -279,11 +279,6 @@ func getWebhookServiceName(prefixName string) string {
 	return fmt.Sprintf("%s-webhook-service", prefixName)
 }
 
-// getVerticaDBCRDName returns the name of the CRD for VerticaDB
-func getVerticaDBCRDName() string {
-	return fmt.Sprintf("%s.%s", v1vapi.VerticaDBKindPlural, v1vapi.Group)
-}
-
 // getVerticaAutoscalerCRDName returns the name of the CRD for VerticaDB
 func getVerticaAutoscalerCRDName() string {
 	return fmt.Sprintf("%s.%s", v1vapi.VerticaAutoscalerPlural, v1vapi.Group)
