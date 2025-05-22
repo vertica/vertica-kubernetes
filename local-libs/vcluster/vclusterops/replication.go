@@ -315,10 +315,9 @@ func (vcc VClusterCommands) produceGetTransactionIDsInstructions(options *VRepli
 	nmaReplicationStatusData.ExcludedTransactionIDs = []int64{} // Get all transaction IDs
 	nmaReplicationStatusData.GetTransactionIDsOnly = true       // We only care about transaction IDs here
 	nmaReplicationStatusData.TransactionID = 0                  // Set this to 0 so NMA returns all IDs
-	nmaReplicationStatusData.DBUsername = options.TargetDB.UserName
-	if targetUsePassword {
-		nmaReplicationStatusData.DBPassword = *options.TargetDB.Password
-	}
+	nmaReplicationStatusData.UserName = options.TargetDB.UserName
+	nmaReplicationStatusData.Password = options.TargetDB.Password
+
 	nmaReplicationStatusOp, err := makeNMAReplicationStatusOp(options.TargetDB.Hosts, targetUsePassword,
 		&nmaReplicationStatusData, transactionIDs, nil)
 	if err != nil {

@@ -19,7 +19,6 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/vertica/vcluster/vclusterops/vlog"
 	"golang.org/x/exp/slices"
 )
 
@@ -65,26 +64,13 @@ const (
 	awsSecretManagerName        string = "AWSSecretManager"
 )
 
-type TLSConfigType string
-
-const (
-	ServerTLSKeyPrefix TLSConfigType = "server"
-	HTTPSTLSKeyPrefix  TLSConfigType = "https"
-)
-
-type TLSConfig struct {
-	ConfigMap  map[string]string
-	ConfigType TLSConfigType
-}
-
 // validateAllwaysRequiredKeys validates tls keys that must always be set in a
 // tls configuration map
-func (cfg *TLSConfig) validateAllwaysRequiredKeys() error {
-	secretName := cfg.ConfigMap[TLSSecretManagerKeySecretName]
-	if secretName == "" {
+func validateAllwaysRequiredKeys(configMap map[string]string) error {
+	if secretName, exist := configMap[TLSSecretManagerKeySecretName]; !exist || secretName == "" {
 		return fmt.Errorf("the %s key must exist with a non-empty value", TLSSecretManagerKeySecretName)
 	}
-	if !slices.Contains(validSecretManagerType, cfg.ConfigMap[TLSSecretManagerKeySecretManager]) {
+	if !slices.Contains(validSecretManagerType, configMap[TLSSecretManagerKeySecretManager]) {
 		return fmt.Errorf("the %s key must exist and its value must be one of %s",
 			TLSSecretManagerKeySecretManager, validSecretManagerType)
 	}
@@ -93,16 +79,16 @@ func (cfg *TLSConfig) validateAllwaysRequiredKeys() error {
 
 // validateRequiredKeysBasedOnSecretManager validates required tls keys based on the
 // the secret manager that is passed
-func (cfg *TLSConfig) validateRequiredKeysBasedOnSecretManager() error {
-	secretManager := cfg.ConfigMap[TLSSecretManagerKeySecretManager]
+func validateRequiredKeysBasedOnSecretManager(configMap map[string]string) error {
+	secretManager := configMap[TLSSecretManagerKeySecretManager]
 	switch secretManager {
 	case K8sSecretManagerType:
-		if cfg.ConfigMap[TLSSecretManagerKeyNamespace] == "" {
+		if secretNamespace, exist := configMap[TLSSecretManagerKeyNamespace]; !exist || secretNamespace == "" {
 			return fmt.Errorf("when the secret manager is %s, the %s key is required and must have a non-empty value",
 				K8sSecretManagerType, TLSSecretManagerKeyNamespace)
 		}
 	case AWSSecretManagerType:
-		if cfg.ConfigMap[TLSSecretManagerKeyAWSRegion] == "" {
+		if region, exist := configMap[TLSSecretManagerKeyAWSRegion]; !exist || region == "" {
 			return fmt.Errorf("when the secret manager is %s, the %s key is required and must have a non-empty value",
 				AWSSecretManagerType, TLSSecretManagerKeyAWSRegion)
 		}
@@ -112,19 +98,21 @@ func (cfg *TLSConfig) validateRequiredKeysBasedOnSecretManager() error {
 	return nil
 }
 
-// validateRequiredKeysBasedOnTLSMode validate required tls keys based on the tls mode
-func (cfg *TLSConfig) validateRequiredKeysBasedOnTLSMode() error {
-	tlsMode := VerticaTLSModeType(cfg.ConfigMap[TLSSecretManagerKeyTLSMode])
-	if !slices.Contains(ValidTLSMode, tlsMode) {
+// validateRequiredKeysBasedOnTLSMode validate required tls keys based on the given tls mode
+func validateRequiredKeysBasedOnTLSMode(configMap map[string]string, configType string) error {
+	tlsMode := configMap[TLSSecretManagerKeyTLSMode]
+	if !slices.Contains(ValidTLSMode, VerticaTLSModeType(tlsMode)) {
 		return fmt.Errorf("the %s key's value must be one of %s",
 			TLSSecretManagerKeyTLSMode, ValidTLSMode)
 	}
-	if cfg.ConfigType == HTTPSTLSKeyPrefix && tlsMode == tlsModeDisable {
-		return fmt.Errorf("tls mode cannot be %s for %s tls config", tlsModeDisable, cfg.ConfigType)
+	if configType == "https" {
+		if VerticaTLSModeType(tlsMode) == tlsModeDisable {
+			return fmt.Errorf("tls mode cannot be %s for %s tls config", tlsModeDisable, configType)
+		}
 	}
-	requiredKeys := getRequiredTLSConfigKeys(tlsMode)
+	requiredKeys := getRequiredTLSConfigKeys(VerticaTLSModeType(tlsMode))
 	for _, key := range requiredKeys {
-		if val := cfg.ConfigMap[key]; val == "" {
+		if _, exist := configMap[key]; !exist {
 			return fmt.Errorf("when tls mode is %s, the %s key must exist and have a non-empty value",
 				tlsMode, key)
 		}
@@ -132,44 +120,14 @@ func (cfg *TLSConfig) validateRequiredKeysBasedOnTLSMode() error {
 	return nil
 }
 
-// validate validates tls configuration parameters
-func (cfg *TLSConfig) validate(logger vlog.Printer) error {
-	if !cfg.hasConfigParam() {
-		return nil
+// getSecretManager given the secret manager type, returns
+// the secret manager name
+func getSecretManager(secretManagerType string) string {
+	secretManagerMap := map[string]string{
+		K8sSecretManagerType: kubernetesSecretManagerName,
+		AWSSecretManagerType: awsSecretManagerName,
 	}
-
-	logger.Info(fmt.Sprintf("Validating options for customize %s cert", cfg.ConfigType))
-
-	cfg.setDefault()
-
-	err := cfg.validateAllwaysRequiredKeys()
-	if err != nil {
-		return err
-	}
-
-	err = cfg.validateRequiredKeysBasedOnTLSMode()
-	if err != nil {
-		return err
-	}
-
-	return cfg.validateRequiredKeysBasedOnSecretManager()
-}
-
-// hasConfigParam returns true if the tls config map is
-// not empty
-func (cfg *TLSConfig) hasConfigParam() bool {
-	return len(cfg.ConfigMap) > 0
-}
-
-// setDefault sets the default value of some tls parameters
-func (cfg *TLSConfig) setDefault() {
-	if tlsMode := cfg.ConfigMap[TLSSecretManagerKeyTLSMode]; tlsMode == "" {
-		cfg.ConfigMap[TLSSecretManagerKeyTLSMode] = string(tlsModeTryVerify)
-	}
-}
-
-func (cfg *TLSConfig) SetConfigMap(tlsMap map[string]string) {
-	cfg.ConfigMap = tlsMap
+	return secretManagerMap[secretManagerType]
 }
 
 // getRequiredTLSConfigKeys will return a list of required key names based on the TLS mode

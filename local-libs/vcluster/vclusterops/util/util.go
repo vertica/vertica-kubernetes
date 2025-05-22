@@ -70,7 +70,6 @@ const (
 	ArchiveEndpoint       = "archives"
 	LicenseEndpoint       = "license"
 	TLSAuthEndpoint       = "authentication/tls/"
-	TLSBootstrapEndpoint  = "authentication/client"
 )
 
 const (

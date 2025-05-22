@@ -23,8 +23,6 @@ type sqlEndpointData struct {
 	DBName     string `json:"dbname"`
 }
 
-// TODO useDBPassword is a holdover from HTTPS endpoint style.  NMA client connections don't need to care about
-// the difference between the empty password and no password, so this option should be removed.
 func createSQLEndpointData(username, dbName string, useDBPassword bool, password *string) sqlEndpointData {
 	sqlConnectionData := sqlEndpointData{}
 	sqlConnectionData.DBUsername = username

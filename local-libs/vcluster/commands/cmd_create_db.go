@@ -177,12 +177,6 @@ func (c *CmdCreateDB) setLocalFlags(cmd *cobra.Command) {
 		false,
 		"Enable TLS authentication for all users after database creation",
 	)
-	cmd.Flags().BoolVar(
-		&c.createDBOptions.EnableSQLClientTLS,
-		enableSQLClientTLSFlag,
-		false,
-		"Initialize the client/server TLS config using bootstrap certificates",
-	)
 	c.setSpreadlFlags(cmd)
 }
 
