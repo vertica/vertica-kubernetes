@@ -42,6 +42,7 @@ const (
 	TestShardCount                = 11
 	TestSkipPackageInstall        = true
 	TestTimeoutNodeStartupSeconds = 600
+	TestTLSMode                   = "VERIFY_CA"
 )
 
 // mock version of VCreateDatabase() that is invoked inside VClusterOps.CreateDB()
@@ -93,7 +94,14 @@ func (m *MockVClusterOps) VCreateDatabase(options *vops.VCreateDatabaseOptions) 
 	}
 
 	if len(options.HTTPSTLSConfiguration) > 0 {
-		configMap := genTLSConfigurationMap("TRY_VERIFY", TestNMATLSSecret, "default")
+		configMap := genTLSConfigurationMap(TestTLSMode, TestNMATLSSecret, "default")
+		for k, v := range configMap {
+			fmt.Println("libo 1: key - " + k + ", value - " + v)
+		}
+
+		for k, v := range options.HTTPSTLSConfiguration {
+			fmt.Println("libo 2: key - " + k + ", value - " + v)
+		}
 		if !maps.Equal(options.HTTPSTLSConfiguration, configMap) {
 			return vdb, fmt.Errorf("https tls configuration not valid")
 		}
@@ -125,6 +133,7 @@ var _ = Describe("create_db_vc", func() {
 	It("should call vcluster-ops library with create_db task", func() {
 		dispatcher := mockVClusterOpsDispatcher()
 		dispatcher.VDB.Spec.HTTPSTLSSecret = TestNMATLSSecret
+		dispatcher.VDB.Spec.HTTPSTLSMode = TestTLSMode
 		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.HTTPSTLSSecret)
 		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.HTTPSTLSSecret)
 		Ω(callCreateDB(ctx, dispatcher)).Should(Equal(ctrl.Result{}))
