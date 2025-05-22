@@ -60,6 +60,9 @@ const (
 	tlsModeVerifyCA          = "verify_ca"
 	tlsModeTryVerify         = "try_verify"
 	tlsModeVerifyFull        = "verify_full"
+	nmaTLSModeDisable        = "disable"
+	nmaTLSModeEnable         = "enable"
+	nmaTLSModeVerifyCA       = "verify-ca"
 	DefaultServiceHTTPSPort  = 8443
 	DefaultServiceClientPort = 5433
 )
@@ -1493,13 +1496,13 @@ func (v *VerticaDB) GetNMAClientServerTLSMode() string {
 	tlsMode := strings.ToLower(v.Spec.ClientServerTLSMode)
 	switch tlsMode {
 	case tlsModeDisable:
-		return tlsModeDisable
+		return nmaTLSModeDisable
 	case tlsModeEnable, tlsModeTryVerify:
-		return tlsModeEnable
+		return nmaTLSModeEnable
 	case tlsModeVerifyCA, tlsModeVerifyFull:
-		return tlsModeVerifyCA
+		return nmaTLSModeVerifyCA
 	default:
-		return tlsModeEnable
+		return nmaTLSModeEnable
 	}
 }
 
