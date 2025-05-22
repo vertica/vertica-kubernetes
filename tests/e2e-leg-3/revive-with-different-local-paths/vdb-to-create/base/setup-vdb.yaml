@@ -20,6 +20,7 @@ spec:
   communal:
     includeUIDInPath: false
   httpServerTLSSecret: custom-cert
+  clientServerTLSSecret: client-cert
   initPolicy: CreateSkipPackageInstall
   local:
     dataPath: /vertica/data

@@ -21,10 +21,16 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
+	"fmt"
 	"math/big"
+	"net"
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"github.com/pkg/errors"
+	"github.com/vertica/vertica-kubernetes/pkg/paths"
 )
 
 const pkKeySize = 2048
@@ -61,8 +67,8 @@ func NewSelfSignedCACertificate() (Certificate, error) {
 	}, nil
 }
 
-// NewCertificate will create a certificate using the given CA.
-func NewCertificate(ca Certificate, commonName string, dnsNames []string) (Certificate, error) {
+// NewCertificateWithIPs will create a certificate using the given CA.
+func NewCertificateWithIPs(ca Certificate, commonName string, dnsNames []string, ips []net.IP) (Certificate, error) {
 	caCrt, err := ca.Buildx509()
 	if err != nil {
 		return nil, err
@@ -79,6 +85,24 @@ func NewCertificate(ca Certificate, commonName string, dnsNames []string) (Certi
 		return nil, errors.Wrap(err, "failed to create private key")
 	}
 
+	crt := newx509Certificate(commonName, dnsNames, ips)
+	keyCert, err := x509.CreateCertificate(rand.Reader, crt, caCrt, &pk.PublicKey, caPK)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create certificate")
+	}
+
+	return &certificate{
+		tlsKey: pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(pk)}),
+		tlsCrt: pem.EncodeToMemory((&pem.Block{Type: "CERTIFICATE", Bytes: keyCert})),
+	}, nil
+}
+
+// NewCertificate will create a certificate using the given CA.
+func NewCertificate(ca Certificate, commonName string, dnsNames []string) (Certificate, error) {
+	return NewCertificateWithIPs(ca, commonName, dnsNames, nil)
+}
+
+func newx509Certificate(commonName string, dnsNames []string, ips []net.IP) *x509.Certificate {
 	crt := &x509.Certificate{
 		SerialNumber: big.NewInt(1),
 		Subject: pkix.Name{
@@ -95,13 +119,32 @@ func NewCertificate(ca Certificate, commonName string, dnsNames []string) (Certi
 		DNSNames:              dnsNames,
 		BasicConstraintsValid: true,
 	}
-	keyCert, err := x509.CreateCertificate(rand.Reader, crt, caCrt, &pk.PublicKey, caPK)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to create certificate")
+
+	if len(ips) != 0 {
+		crt.IPAddresses = append(crt.IPAddresses, ips...)
 	}
 
-	return &certificate{
-		tlsKey: pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(pk)}),
-		tlsCrt: pem.EncodeToMemory((&pem.Block{Type: "CERTIFICATE", Bytes: keyCert})),
-	}, nil
+	return crt
+}
+
+func GetDNSNames(namespace string) []string {
+	return []string{
+		fmt.Sprintf("*.%s.svc", namespace),
+		fmt.Sprintf("*.%s.svc.cluster.local", namespace),
+	}
+}
+
+func GenSecret(secretName, namespace string, cert, caCert Certificate) *corev1.Secret {
+	return &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: namespace,
+			Name:      secretName,
+		},
+		Type: corev1.SecretTypeTLS,
+		Data: map[string][]byte{
+			corev1.TLSPrivateKeyKey:   cert.TLSKey(),
+			corev1.TLSCertKey:         cert.TLSCrt(),
+			paths.HTTPServerCACrtName: caCert.TLSCrt(),
+		},
+	}
 }

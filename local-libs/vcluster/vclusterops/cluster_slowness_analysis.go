@@ -227,6 +227,7 @@ func (opt *VClusterHealthOptions) getLockHoldSlowEvents(logger vlog.Printer, upH
 	var instructions []clusterOp
 
 	nmaSlowEventOp, err := makeNMASlowEventOpByKeyword(upHosts, opt.DatabaseOptions.UserName,
+		opt.DatabaseOptions.DBName, opt.DatabaseOptions.Password,
 		startTime, endTime, "hold" /*key word in phases_duration_us*/)
 	if err != nil {
 		return nil, err

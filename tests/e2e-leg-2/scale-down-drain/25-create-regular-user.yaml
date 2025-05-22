@@ -11,23 +11,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# This is applied through envsubst so that the $NAMESPACE gets filled in
+# Creates a user in the database that we will connect with to create a
+# long-running connection.
 
-apiVersion: cert-manager.io/v1
-kind: Certificate
-metadata:
-  name: serving-cert
-spec:
-  commonName: dbadmin
-  isCA: true
-  issuerRef:
-    kind: Issuer
-    name: selfsigned-issuer
-  secretName: custom-cert
----
-apiVersion: cert-manager.io/v1
-kind: Issuer
-metadata:
-  name: selfsigned-issuer
-spec:
-  selfSigned: {}
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - command: kubectl exec -i -n $NAMESPACE v-scale-in-drain-pri1-0 -c server -- vsql -c "create user joeuser identified by 'Vertica123'; grant usage on schema public to joeuser;"
