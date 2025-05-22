@@ -133,6 +133,9 @@ func (v *VClusterOps) setAuthentication(opts *vops.DatabaseOptions, username str
 	opts.Cert = certs.Cert
 	opts.CaCert = certs.CaCert
 	opts.UserName = username
+	// When cert rotation is not enabled, we always use password authentication for both https and nma.
+	// When cert rotation is enabled and VCluster doesn't need cert for client server auth,
+	// we use password authentication for NMA.
 	if !v.VDB.IsCertRotationEnabled() {
 		opts.Password = password
 	} else if !v.VDB.IsCertNeededForClientServerAuth() {

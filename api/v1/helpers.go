@@ -1500,6 +1500,12 @@ func (v *VerticaDB) GetNMAClientServerTLSMode() string {
 	case tlsModeEnable, tlsModeTryVerify:
 		return nmaTLSModeEnable
 	case tlsModeVerifyCA, tlsModeVerifyFull:
+		// There is still a flaw in vclusterOps: create_db set_tls will fail
+		// since nma cannot verify server certificate. After we extract set_tls
+		// from create_db, we can remove the db init check.
+		if !v.isDBInitialized() {
+			return nmaTLSModeEnable
+		}
 		return nmaTLSModeVerifyCA
 	default:
 		return nmaTLSModeEnable
