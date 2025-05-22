@@ -16,6 +16,8 @@
 package commands
 
 import (
+	"path/filepath"
+
 	"github.com/spf13/cobra"
 	"github.com/vertica/vcluster/vclusterops"
 	"github.com/vertica/vcluster/vclusterops/vlog"
@@ -63,7 +65,14 @@ Examples:
 		false,
 		"Retain existing catalog directories",
 	)
-	hideLocalFlags(cmd, []string{hostsFlag, catalogPathFlag, dataPathFlag, depotPathFlag, retainCatalogDirFlag})
+	cmd.Flags().StringToStringVar(
+		&newCmd.dropDBOptions.NodeNameToHost,
+		nodeNameToHostFlag,
+		map[string]string{},
+		"A comma-separated list of node_name=ip_address pairs",
+	)
+	hideLocalFlags(cmd, []string{hostsFlag, catalogPathFlag, dataPathFlag, depotPathFlag,
+		retainCatalogDirFlag, nodeNameToHostFlag})
 
 	return cmd
 }
@@ -83,12 +92,34 @@ func (c *CmdDropDB) validateParse(logger vlog.Printer) error {
 			return err
 		}
 	}
+
 	// build a map for host-directories
-	err := c.buildHostVNodeMap(logger)
-	if err != nil {
-		return err
+	if len(c.dropDBOptions.NodeNameToHost) > 0 {
+		// we skip using the config file if --nodename-to-host is provided
+		// this is in particular for the k8s operator, which doesn't have the config file
+		c.buildHostVNodeMapWithoutConfig()
+	} else {
+		err := c.buildHostVNodeMap(logger)
+		if err != nil {
+			return err
+		}
 	}
 	return c.ValidateParseBaseOptions(&c.dropDBOptions.DatabaseOptions)
+}
+
+func (c *CmdDropDB) buildHostVNodeMapWithoutConfig() {
+	options := c.dropDBOptions
+	dbName := options.DBName
+
+	c.dropDBOptions.NodesToDrop = []vclusterops.VCoordinationNode{}
+	for nodeName, host := range options.NodeNameToHost {
+		vnode := vclusterops.MakeVCoordinationNode()
+		vnode.Address = host
+		vnode.Name = nodeName
+		pathSuffix := nodeName + "_catalog"
+		vnode.CatalogPath = filepath.Join(options.CatalogPrefix, dbName, pathSuffix)
+		c.dropDBOptions.NodesToDrop = append(c.dropDBOptions.NodesToDrop, vnode)
+	}
 }
 
 func (c *CmdDropDB) buildHostVNodeMap(logger vlog.Printer) error {
