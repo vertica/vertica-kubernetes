@@ -168,7 +168,8 @@ var _ = Describe("podfacts", func() {
 		fpr := &cmds.FakePodRunner{
 			Results: cmds.CmdResults{
 				pn: []cmds.CmdResult{
-					{Stdout: "v_db_node0001|UP|123456|t"},
+					// node_name|node_state|is_primary|subcluster_oid|is_readonly
+					{Stdout: "v_db_node0001|UP|t|123456|t"},
 				},
 			},
 		}
@@ -177,29 +178,9 @@ var _ = Describe("podfacts", func() {
 		gs := &GatherState{VerticaPIDRunning: true}
 		Expect(pfs.checkForSimpleGatherStateMapping(ctx, vdb, pf, gs)).Should(Succeed())
 		Expect(pfs.checkNodeDetails(ctx, vdb, pf, gs)).Should(Succeed())
+		Expect(pf.isPrimary).Should(BeTrue())
 		Expect(pf.upNode).Should(BeTrue())
 		Expect(pf.readOnly).Should(BeTrue())
-	})
-
-	It("GetIsPrimary should get correct is_primary values in db", func() {
-		vdb := vapi.MakeVDB()
-		pn := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)
-		fpr := &cmds.FakePodRunner{
-			Results: cmds.CmdResults{
-				pn: []cmds.CmdResult{
-					// node_name|node_state|subcluster_oid|is_readonly|sandbox|is_primary
-					{Stdout: "v_db_node0001|UP|123456|t|sandbox1|t"},
-				},
-			},
-		}
-		pfs := MakePodFacts(vdbRec, fpr, logger, TestPassword)
-		pf := &PodFact{name: pn, isPodRunning: true, dbExists: true}
-		gs := &GatherState{VerticaPIDRunning: true}
-		Expect(pfs.checkForSimpleGatherStateMapping(ctx, vdb, pf, gs)).Should(Succeed())
-		Expect(pfs.checkNodeDetails(ctx, vdb, pf, gs)).Should(Succeed())
-		Expect(pf.upNode).Should(BeTrue())
-		Expect(pf.GetSandbox()).Should(Equal("sandbox1"))
-		Expect(pf.isPrimary).Should(BeTrue())
 	})
 
 	It("should detect startup in progress correctly", func() {
@@ -236,7 +217,7 @@ var _ = Describe("podfacts", func() {
 		fpr := &cmds.FakePodRunner{
 			Results: cmds.CmdResults{
 				pn: []cmds.CmdResult{
-					{Stdout: "v_db_node0001|UP||f"},
+					{Stdout: "v_db_node0001|UP|t||f"},
 				},
 			},
 		}
@@ -245,6 +226,7 @@ var _ = Describe("podfacts", func() {
 		pf := &PodFact{name: pn, isPodRunning: true, dbExists: true}
 		Expect(pfs.checkForSimpleGatherStateMapping(ctx, vdb, pf, gs)).Should(Succeed())
 		Expect(pfs.checkNodeDetails(ctx, vdb, pf, gs)).Should(Succeed())
+		Expect(pf.isPrimary).Should(BeTrue())
 		Expect(pf.upNode).Should(BeTrue())
 		Expect(pf.readOnly).Should(BeFalse())
 		Expect(pf.subclusterOid).Should(Equal(""))
