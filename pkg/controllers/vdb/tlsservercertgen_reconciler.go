@@ -97,7 +97,7 @@ func (h *TLSServerCertGenReconciler) reconcileOneSecret(secretFieldName, secretN
 		secret := corev1.Secret{}
 		err := h.VRec.Client.Get(ctx, nm, &secret)
 		if errors.IsNotFound(err) {
-			sType := vapi.NMATLSSecretType
+			sType := vapi.HTTPSTLSSecretType
 			if secretFieldName == clientServerTLSSecret {
 				sType = vapi.ClientServerTLSSecretType
 			}
