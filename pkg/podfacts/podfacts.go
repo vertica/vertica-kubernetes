@@ -248,7 +248,8 @@ func MakePodFactsForSandbox(vrec config.ReconcilerInterface, prunner cmds.PodRun
 }
 
 // ConstructsDetail sets the Detail field in PodFacts, for test purposes
-func (p *PodFacts) ConstructsDetail(subclusters []vapi.Subcluster, upNodes []uint) {
+func (p *PodFacts) ConstructsDetail(vdb *vapi.VerticaDB, upNodes []uint) {
+	subclusters := vdb.Spec.Subclusters
 	p.Detail = make(PodFactDetail)
 	if len(subclusters) != len(upNodes) {
 		return
@@ -261,7 +262,7 @@ func (p *PodFacts) ConstructsDetail(subclusters []vapi.Subcluster, upNodes []uin
 			pf := PodFact{
 				name:           types.NamespacedName{Name: fmt.Sprintf("%s-%d", sc.Name, j)},
 				subclusterName: sc.Name,
-				isPrimary:      sc.IsPrimary(),
+				isPrimary:      sc.IsPrimary(vdb), // get from vdb for test only
 				shutdown:       sc.Shutdown,
 				upNode:         isUp,
 				podIP:          "10.10.10.10",
@@ -379,7 +380,7 @@ func (p *PodFacts) collectPodByStsIndex(ctx context.Context, vdb *vapi.VerticaDB
 	pf := PodFact{
 		name:              names.GenPodName(vdb, sc, podIndex),
 		subclusterName:    sc.Name,
-		isPrimary:         sc.IsPrimary(),
+		isPrimary:         sc.IsPrimary(vdb), // isPrimary will be overridden by checkNodeDetails
 		podIndex:          podIndex,
 		execContainerName: getExecContainerName(sts),
 		shutdown:          sc.Shutdown,
@@ -716,22 +717,6 @@ func (p *PodFact) GetUpNode() bool {
 // GetSubclusterOid returns the string value of subclusterOid in PodFact
 func (p *PodFact) GetSubclusterOid() string {
 	return p.subclusterOid
-}
-
-// GetSubclusterStatusType returns the subcluster status type depends on its type in subclusters and sandboxes
-func (p *PodFact) GetSubclusterStatusType() string {
-	if !p.dbExists {
-		// return empty if it's not in a subcluster yet
-		return ""
-	}
-	if p.isPrimary {
-		if p.sandbox != vapi.MainCluster {
-			return vapi.SandboxPrimarySubcluster
-		}
-		return vapi.PrimarySubcluster
-	}
-	// TODO: return SandboxSecondarySubcluster if pod is in sandbox with type secondary
-	return vapi.SecondarySubcluster
 }
 
 // GetAdmintoolsExists returns the bool value of admintoolsExists in PodFact
@@ -1114,6 +1099,7 @@ func (p *PodFacts) checkNodeDetails(ctx context.Context, vdb *vapi.VerticaDB, pf
 		pf.readOnly = nodeDetails.ReadOnly
 		pf.subclusterOid = nodeDetails.SubclusterOid
 		pf.sandbox = nodeDetails.SandboxName
+		pf.isPrimary = nodeDetails.IsPrimary
 		pf.shardSubscriptions = nodeDetails.ShardSubscriptions
 		pf.maxDepotSize = nodeDetails.MaxDepotSize
 		pf.depotDiskPercentSize = nodeDetails.DepotDiskPercentSize
