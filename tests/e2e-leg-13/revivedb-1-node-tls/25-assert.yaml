@@ -28,7 +28,7 @@ status:
     - addedToDBCount: 1
       upNodeCount: 1
   tlsModes:
-  - name: TRY_VERIFY
+  - mode: TRY_VERIFY
     type: HTTPSTLSModeType
-  - name: TRY_VERIFY
+  - mode: TRY_VERIFY
     type: ClientServerTLSModeType

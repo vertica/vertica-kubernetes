@@ -1038,7 +1038,7 @@ type SecretRef struct {
 type TLSMode struct {
 	// +operator-sdk:csv:customresourcedefinitions:type=status
 	// TLS mode
-	Mode string `json:"name"`
+	Mode string `json:"mode"`
 	// +operator-sdk:csv:customresourcedefinitions:type=status
 	// The type of the TLS mode
 	Type string `json:"type"`
