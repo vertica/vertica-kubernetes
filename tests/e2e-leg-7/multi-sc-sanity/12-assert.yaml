@@ -37,21 +37,18 @@ kind: Service
 metadata:
   name: v-multi-sc-sc-2
 ---
-apiVersion: vertica.com/v1beta1
+apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
   name: v-multi-sc
 status:
   subclusterCount: 2
-  installCount: 2
   addedToDBCount: 2
   upNodeCount: 2
   subclusters:
-    - installCount: 1
-      addedToDBCount: 1
+    - addedToDBCount: 1
       upNodeCount: 1
-    - installCount: 1
-      addedToDBCount: 1
+    - addedToDBCount: 1
       upNodeCount: 1
 ---
 apiVersion: v1

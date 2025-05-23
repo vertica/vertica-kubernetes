@@ -11,15 +11,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1beta1
+apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
   name: v-revive-failures-too-many-nodes
+  annotations:
+    vertica.com/include-uid-in-path: "true"
+    vertica.com/requeue-time: 4
+    vertica.com/ignore-cluster-lease: "true"
 spec:
   image: kustomize-vertica-image
-  ignoreClusterLease: true
-  communal:
-    includeUIDInPath: false
+  communal: {}
   initPolicy: Revive
   local:
     dataPath: "/data"
@@ -29,7 +31,6 @@ spec:
   subclusters:
     - name: main
       size: 3
-  requeueTime: 4
   certSecrets: []
   imagePullSecrets: []
   volumes: []

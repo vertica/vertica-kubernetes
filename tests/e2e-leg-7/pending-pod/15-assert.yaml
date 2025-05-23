@@ -28,10 +28,10 @@ spec:
 status:
   currentReplicas: 3
 ---
-apiVersion: vertica.com/v1beta1
+apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
   name: v-pending-pod
 status:
   subclusters:
-    - installCount: 3
+    - addedToDBCount: 3
