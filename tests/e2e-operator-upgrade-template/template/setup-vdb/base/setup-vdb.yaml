@@ -11,26 +11,25 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1
+apiVersion: vertica.com/v1beta1
 kind: VerticaDB
 metadata:
   name: v-from-x
-  annotations:
-    vertica.com/include-uid-in-path: "true"
-    vertica.com/k-safety: "1"
 spec:
   image: kustomize-vertica-image
-  communal: {}
+  communal:
+    includeUIDInPath: true
   local:
     requestSize: 100Mi
   dbName: vertdb
   subclusters:
     - name: pri1
       size: 2
-      type: primary
+      isPrimary: true
     - name: sec1
       size: 1
-      type: secondary
+      isPrimary: false
+  kSafety: "1"
   certSecrets: []
   imagePullSecrets: []
   volumes: []

@@ -24,7 +24,6 @@ spec:
   local:
     requestSize: 100Mi
   dbName: vertdb
-  httpServerMode: Enabled
   nmaTLSSecret: custom-certs
   subclusters:
     - name: main
