@@ -218,21 +218,21 @@ func (h *TLSServerCertGenReconciler) reconcileNMACertConfigMap(ctx context.Conte
 	if vmeta.UseNMACertsMount(h.Vdb.Annotations) || !vmeta.EnableTLSCertsRotation(h.Vdb.Annotations) {
 		return nil
 	}
-	if configMap.Data[builder.NMASecretNameEnv] == h.Vdb.Spec.NMATLSSecret &&
+	if configMap.Data[builder.NMASecretNameEnv] == h.Vdb.Spec.HTTPSTLSSecret &&
 		configMap.Data[builder.NMAClientSecretNameEnv] == h.Vdb.Spec.ClientServerTLSSecret &&
 		configMap.Data[builder.NMASecretNamespaceEnv] == h.Vdb.ObjectMeta.Namespace &&
 		configMap.Data[builder.NMAClientSecretNamespaceEnv] == h.Vdb.ObjectMeta.Namespace {
 		return nil
 	}
 
-	configMap.Data[builder.NMASecretNameEnv] = h.Vdb.Spec.NMATLSSecret
+	configMap.Data[builder.NMASecretNameEnv] = h.Vdb.Spec.HTTPSTLSSecret
 	configMap.Data[builder.NMASecretNamespaceEnv] = h.Vdb.ObjectMeta.Namespace
 	configMap.Data[builder.NMAClientSecretNameEnv] = h.Vdb.Spec.ClientServerTLSSecret
 	configMap.Data[builder.NMAClientSecretNamespaceEnv] = h.Vdb.ObjectMeta.Namespace
 
 	err = h.VRec.GetClient().Update(ctx, configMap)
 	if err == nil {
-		h.Log.Info("updated tls cert secret configmap", "name", configMapName.Name, "nma-secret", h.Vdb.Spec.NMATLSSecret,
+		h.Log.Info("updated tls cert secret configmap", "name", configMapName.Name, "nma-secret", h.Vdb.Spec.HTTPSTLSSecret,
 			"clientserver-secret", h.Vdb.Spec.ClientServerTLSSecret)
 	}
 	return err
