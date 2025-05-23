@@ -18,54 +18,59 @@ package vadmin
 import (
 	"context"
 	"fmt"
+	"maps"
 
 	vops "github.com/vertica/vcluster/vclusterops"
+
 	"github.com/vertica/vertica-kubernetes/pkg/net"
-	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/manageconnectiondraining"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/settlsconfig"
 )
 
-// ManageConnectionDraining pauses/redirects/resumes connections on the vertica cluster
+// SetTLSConfig given an https and client server secret, will set tls configuration
+// in the database.
 //
 //nolint:dupl
-func (v *VClusterOps) ManageConnectionDraining(ctx context.Context, opts ...manageconnectiondraining.Option) error {
-	v.setupForAPICall("ManageConnectionDraining")
+func (v *VClusterOps) SetTLSConfig(ctx context.Context, opts ...settlsconfig.Option) error {
+	v.setupForAPICall("SetTLSConfig")
 	defer v.tearDownForAPICall()
-	v.Log.Info("Starting vcluster ManageConnectionDraining")
+	v.Log.Info("Starting vcluster SetTLSConfig")
 
-	certs, err := v.retrieveHTTPSCerts(ctx)
+	certs, err := v.retrieveNMACerts(ctx)
 	if err != nil {
 		return err
 	}
 
-	s := manageconnectiondraining.Params{}
+	s := settlsconfig.Parms{}
 	s.Make(opts...)
 
-	vcOpts := v.genManageConnectionDrainingOptions(&s, certs)
-	err = v.VManageConnectionDraining(vcOpts)
+	vcOpts := v.genSetTLSConfigOptions(&s, certs)
+	err = v.VSetTLSConfig(vcOpts)
 	if err != nil {
-		return fmt.Errorf("failed to get run connection draining operation: %w", err)
+		return fmt.Errorf("failed to set tls config: %w", err)
 	}
 
 	return nil
 }
 
-func (v *VClusterOps) genManageConnectionDrainingOptions(s *manageconnectiondraining.Params,
-	certs *HTTPSCerts) *vops.VManageConnectionDrainingOptions {
-	opts := vops.VManageConnectionDrainingOptionsFactory()
+func (v *VClusterOps) genSetTLSConfigOptions(s *settlsconfig.Parms,
+	certs *HTTPSCerts) *vops.VSetTLSConfigOptions {
+	opts := vops.VSetTLSConfigOptionsFactory()
 
 	opts.RawHosts = append(opts.RawHosts, s.InitiatorIP)
 	opts.DBName = v.VDB.Spec.DBName
 
-	opts.Sandbox = s.Sandbox
-	opts.SCName = s.SCName
-	opts.Action = s.Action
-	opts.RedirectHostname = s.RedirectHostname
-
 	opts.IsEon = v.VDB.IsEON()
 	opts.IPv6 = net.IsIPv6(s.InitiatorIP)
 
-	opts.UserName = v.VDB.GetVerticaUser()
 	v.setAuthentication(&opts.DatabaseOptions, v.VDB.GetVerticaUser(), &v.Password, certs)
+	if v.Password != "" {
+		opts.Password = &v.Password
+	}
+
+	configMap := genTLSConfigurationMap(s.HTTPSTLSMode, s.HTTPSTLSSecretName, s.Namespace)
+	opts.HTTPSTLSConfig.SetConfigMap(maps.Clone(configMap))
+	configMap = genTLSConfigurationMap(s.ClientServerTLSMode, s.ClientServerTLSSecretName, s.Namespace)
+	opts.ServerTLSConfig.SetConfigMap(maps.Clone(configMap))
 
 	return &opts
 }

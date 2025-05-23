@@ -324,4 +324,5 @@ type VClusterProvider interface {
 	VManageConnectionDraining(options *vops.VManageConnectionDrainingOptions) error
 	VRotateNMACerts(options *vops.VRotateNMACertsOptions) error
 	VRotateTLSCerts(options *vops.VRotateTLSCertsOptions) error
+	VSetTLSConfig(options *vops.VSetTLSConfigOptions) error
 }

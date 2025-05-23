@@ -119,6 +119,7 @@ const (
 	startHostFlag                   = "start-hosts"
 	useExistingCatalogDirFlag       = "use-existing-catalog-directory"
 	retainCatalogDirFlag            = "retain-catalog-directory"
+	nodeNameToHostFlag              = "nodename-to-host"
 )
 
 // Flag and key for database replication
