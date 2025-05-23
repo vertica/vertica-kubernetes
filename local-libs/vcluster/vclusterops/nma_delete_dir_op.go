@@ -8,8 +8,12 @@ import (
 )
 
 const (
-	delDirOpName = "NMADeleteDirectoriesOp"
-	delDirOpDesc = "Delete database directories"
+	delDirOpName                = "NMADeleteDirectoriesOp"
+	delDirOpDesc                = "Delete database directories"
+	delDirRetainCatlogDirOpName = "NMADeleteDirsRetainCatalogDirOp"
+	delDirRetainCatlogDirOpDesc = "Delete database directories except for catalog directory"
+	// the real dir storing catalog content
+	nodeCatalogSubDirSuffix = "/Catalog"
 )
 
 type nmaDeleteDirectoriesOp struct {
@@ -17,6 +21,7 @@ type nmaDeleteDirectoriesOp struct {
 	hostRequestBodyMap map[string]string
 	sandbox            bool
 	forceDelete        bool
+	retainCatalogDir   bool
 }
 
 type deleteDirParams struct {
@@ -25,15 +30,22 @@ type deleteDirParams struct {
 	Sandbox     bool     `json:"sandbox"`
 }
 
-func makeNMADeleteDirectoriesOp(
-	vdb *VCoordinationDatabase,
-	forceDelete bool,
-) (nmaDeleteDirectoriesOp, error) {
+func makeNMADeleteDirOpHelper(vdb *VCoordinationDatabase,
+	forceDelete, retainCatalogDir bool) (nmaDeleteDirectoriesOp, error) {
 	op := nmaDeleteDirectoriesOp{}
 	op.name = delDirOpName
 	op.description = delDirOpDesc
+	op.retainCatalogDir = retainCatalogDir
+	if op.retainCatalogDir {
+		op.name = delDirRetainCatlogDirOpName
+		op.description = delDirRetainCatlogDirOpDesc
+	}
 	op.hosts = vdb.HostList
+	// op.sandbox being false indicates that this is NOT an unsandbox operation
+	// when unsandboxing, removing the entire v_<node_name>_catalog dir is mandatory
+	// in other cases, one may choose to retain the catalog dirs
 	op.sandbox = false
+
 	err := op.buildRequestBody(vdb, forceDelete)
 	if err != nil {
 		return op, err
@@ -41,6 +53,18 @@ func makeNMADeleteDirectoriesOp(
 
 	return op, nil
 }
+
+func makeNMADeleteDirectoriesOp(
+	vdb *VCoordinationDatabase,
+	forceDelete bool,
+) (nmaDeleteDirectoriesOp, error) {
+	op, err := makeNMADeleteDirOpHelper(vdb, forceDelete, false /*retain catalog dir?*/)
+	if err != nil {
+		return op, err
+	}
+	return op, nil
+}
+
 func makeNMADeleteDirsSandboxOp(
 	hosts []string,
 	forceDelete bool,
@@ -55,26 +79,53 @@ func makeNMADeleteDirsSandboxOp(
 	return op, nil
 }
 
-func (op *nmaDeleteDirectoriesOp) buildRequestBody(
+func makeNMADeleteDirsRetainCatalogDirOp(
 	vdb *VCoordinationDatabase,
 	forceDelete bool,
-) error {
+	retainCatalogDir bool) (nmaDeleteDirectoriesOp, error) {
+	op, err := makeNMADeleteDirOpHelper(vdb, forceDelete, retainCatalogDir)
+	if err != nil {
+		return op, err
+	}
+
+	return op, nil
+}
+
+func (op *nmaDeleteDirectoriesOp) buildRequestBody(
+	vdb *VCoordinationDatabase,
+	forceDelete bool) error {
 	op.hostRequestBodyMap = make(map[string]string)
 	for h, vnode := range vdb.HostNodeMap {
 		p := deleteDirParams{}
 
 		// directories
-		p.Directories = append(p.Directories, vnode.CatalogPath)
-		p.Directories = append(p.Directories, vnode.StorageLocations...)
-
-		if vdb.UseDepot {
-			dbDepotPath := filepath.Join(vdb.DepotPrefix, vdb.Name)
-			p.Directories = append(p.Directories, vnode.DepotPath, dbDepotPath)
-		}
-
 		dbCatalogPath := filepath.Join(vdb.CatalogPrefix, vdb.Name)
-		dbDataPath := filepath.Join(vdb.DataPrefix, vdb.Name)
-		p.Directories = append(p.Directories, dbCatalogPath, dbDataPath)
+
+		if !op.retainCatalogDir {
+			// most common case
+			// if no need to retain catalog dir, remove everything
+			dbDataPath := filepath.Join(vdb.DataPrefix, vdb.Name)
+			p.Directories = append(p.Directories, vnode.CatalogPath, dbCatalogPath, dbDataPath)
+			p.Directories = append(p.Directories, vnode.StorageLocations...)
+			if vdb.UseDepot {
+				dbDepotPath := filepath.Join(vdb.DepotPrefix, vdb.Name)
+				p.Directories = append(p.Directories, vnode.DepotPath, dbDepotPath)
+			}
+
+			p.Directories = append(p.Directories, vnode.StorageLocations...)
+			if vdb.UseDepot {
+				dbDepotPath := filepath.Join(vdb.DepotPrefix, vdb.Name)
+				p.Directories = append(p.Directories, vnode.DepotPath)
+				if dbDepotPath != dbCatalogPath {
+					p.Directories = append(p.Directories, dbDepotPath)
+				}
+			}
+		} else {
+			// if retainCatalogDir
+			// we only remove the v_<nodename>_catalog/Catalog directory
+			p.Directories = append(p.Directories, vnode.CatalogPath+nodeCatalogSubDirSuffix)
+			op.logger.Info("user specified retaining catalog directory of the database")
+		}
 
 		// force-delete
 		p.ForceDelete = forceDelete
@@ -114,6 +165,8 @@ func (op *nmaDeleteDirectoriesOp) prepare(execContext *opEngineExecContext) erro
 		for i := range execContext.scNodesInfo {
 			node := &execContext.scNodesInfo[i]
 			p := deleteDirParams{}
+			// op.sandbox being true indicates that this is an unsandbox operation
+			// removing the entire v_<node_name>_catalog dir is mandatory
 			p.Directories = append(p.Directories, node.CatalogPath)
 			p.ForceDelete = true
 			p.Sandbox = op.sandbox

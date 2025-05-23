@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"math/big"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -30,7 +31,7 @@ type SlowEventNode struct {
 	Event           *dcSlowEvent        `json:"slow_event"`
 	Session         *dcSessionStart     `json:"session"`
 	Transaction     *dcTransactionStart `json:"transaction"`
-	PriorHoldEvents []dcSlowEvent       `json:"prior_hold_events"`
+	PriorHoldEvents *[]dcSlowEvent      `json:"prior_hold_events"`
 	Leaf            bool                `json:"leaf"`
 }
 
@@ -43,7 +44,7 @@ func (opt *VClusterHealthOptions) buildCascadeGraph(logger vlog.Printer, upHosts
 	}
 
 	// find the slowest event during the given time
-	if slowEvents == nil || len(slowEvents.SlowEventList) == 0 {
+	if slowEvents == nil || len(*slowEvents) == 0 {
 		return nil
 	}
 
@@ -51,16 +52,21 @@ func (opt *VClusterHealthOptions) buildCascadeGraph(logger vlog.Printer, upHosts
 
 	var slowestIdx int
 	var maxDuration int64
-	for idx := range slowEvents.SlowEventList {
-		event := slowEvents.SlowEventList[idx]
-		if event.DurationUs > maxDuration {
+	for idx := range *slowEvents {
+		event := (*slowEvents)[idx]
+		durationInt, err := strconv.ParseInt(event.DurationUs, 10, 64)
+		if err != nil {
+			return err
+		}
+
+		if durationInt > maxDuration {
 			slowestIdx = idx
-			maxDuration = event.DurationUs
+			maxDuration = durationInt
 		}
 	}
 
 	// analyze the slowest event's info
-	slowestEvent := slowEvents.SlowEventList[slowestIdx]
+	slowestEvent := (*slowEvents)[slowestIdx]
 	threadIDStr, startTime, endTime, err := analyzeSlowEvent(&slowestEvent)
 	if err != nil {
 		return err
@@ -100,14 +106,14 @@ func (opt *VClusterHealthOptions) recursiveTraceSlowEvents(logger vlog.Printer,
 	}
 
 	// update the leaf node info
-	if slowEvents == nil || len(slowEvents.SlowEventList) == 0 {
+	if slowEvents == nil || len(*slowEvents) == 0 {
 		length := len(opt.SlowEventCascade)
 		opt.SlowEventCascade[length-1].Leaf = true
 		return nil
 	}
 
-	for idx := range slowEvents.SlowEventList {
-		event := slowEvents.SlowEventList[idx]
+	for idx := range *slowEvents {
+		event := (*slowEvents)[idx]
 
 		sessionInfo, transactionInfo, err := opt.getEventSessionAndTxnInfo(logger, upHosts, &event)
 		if err != nil {
@@ -176,7 +182,11 @@ func analyzeSlowEvent(event *dcSlowEvent) (
 		// we search for the caller events that
 		// - have the thread_id mentioned in phases_duration_us, and
 		// - happened before (the event time) and after (the event time minus the event duration)
-		start := end.Add(time.Duration(-event.DurationUs) * time.Microsecond)
+		durationInt, err := strconv.ParseInt(event.DurationUs, 10, 64)
+		if err != nil {
+			return threadIDStr, startTime, endTime, err
+		}
+		start := end.Add(time.Duration(-durationInt) * time.Microsecond)
 
 		return threadIDStr, start.Format(timeLayout), end.Format(timeLayout), nil
 	}
@@ -191,16 +201,21 @@ func (opt *VClusterHealthOptions) fillLockHoldInfo(logger vlog.Printer, upHosts 
 		}
 
 		end, err := time.Parse(timeLayout, event.Event.Time)
-		start := end.Add(time.Duration(-event.Event.DurationUs) * time.Microsecond)
 		if err != nil {
 			return nil
 		}
+
+		durationInt, err := strconv.ParseInt(event.Event.DurationUs, 10, 64)
+		if err != nil {
+			return err
+		}
+		start := end.Add(time.Duration(-durationInt) * time.Microsecond)
 
 		holdEvents, err := opt.getLockHoldSlowEvents(logger, upHosts, start.Format(timeLayout), end.Format(timeLayout))
 		if err != nil {
 			return err
 		}
-		event.PriorHoldEvents = holdEvents.SlowEventList
+		event.PriorHoldEvents = holdEvents
 		opt.SlowEventCascade[i] = event
 	}
 
@@ -208,12 +223,16 @@ func (opt *VClusterHealthOptions) fillLockHoldInfo(logger vlog.Printer, upHosts 
 }
 
 func (opt *VClusterHealthOptions) getLockHoldSlowEvents(logger vlog.Printer, upHosts []string,
-	startTime, endTime string) (slowEvents *dcSlowEvents, err error) {
+	startTime, endTime string) (slowEvents *[]dcSlowEvent, err error) {
 	var instructions []clusterOp
 
-	httpsSlowEventOp := makeHTTPSSlowEventOpByKeyword(upHosts, startTime, endTime,
-		"hold" /*key word in phases_duration_us*/)
-	instructions = append(instructions, &httpsSlowEventOp)
+	nmaSlowEventOp, err := makeNMASlowEventOpByKeyword(upHosts, opt.DatabaseOptions.UserName,
+		opt.DatabaseOptions.DBName, opt.DatabaseOptions.Password,
+		startTime, endTime, "hold" /*key word in phases_duration_us*/)
+	if err != nil {
+		return nil, err
+	}
+	instructions = append(instructions, &nmaSlowEventOp)
 
 	clusterOpEngine := makeClusterOpEngine(instructions, &opt.DatabaseOptions)
 	err = clusterOpEngine.run(logger)
@@ -221,7 +240,7 @@ func (opt *VClusterHealthOptions) getLockHoldSlowEvents(logger vlog.Printer, upH
 		return slowEvents, fmt.Errorf("fail to get hold-related slow events, %w", err)
 	}
 
-	return clusterOpEngine.execContext.dcSlowEvents, nil
+	return clusterOpEngine.execContext.dcSlowEventList, nil
 }
 
 func (opt *VClusterHealthOptions) DisplaySlowEventsCascade() {
@@ -233,7 +252,7 @@ func (opt *VClusterHealthOptions) DisplaySlowEventsCascade() {
 		}
 		if eventNode.Leaf {
 			fmt.Printf("%s%s slow_event: %+v session: %+v transaction: %+v hold_events: %d #\n",
-				indent, prefix, *eventNode.Event, *eventNode.Session, *eventNode.Transaction, len(eventNode.PriorHoldEvents))
+				indent, prefix, *eventNode.Event, *eventNode.Session, *eventNode.Transaction, len(*eventNode.PriorHoldEvents))
 		} else {
 			fmt.Printf("%s%s slow_event: %+v session: %+v transaction: %+v\n",
 				indent, prefix, *eventNode.Event, *eventNode.Session, *eventNode.Transaction)

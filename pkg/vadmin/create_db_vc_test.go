@@ -28,6 +28,7 @@ import (
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/test"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/createdb"
+	"golang.org/x/exp/maps"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
@@ -41,6 +42,7 @@ const (
 	TestShardCount                = 11
 	TestSkipPackageInstall        = true
 	TestTimeoutNodeStartupSeconds = 600
+	TestTLSMode                   = "VERIFY_CA"
 )
 
 // mock version of VCreateDatabase() that is invoked inside VClusterOps.CreateDB()
@@ -62,17 +64,9 @@ func (m *MockVClusterOps) VCreateDatabase(options *vops.VCreateDatabaseOptions) 
 	if err != nil {
 		return vdb, err
 	}
-	if options.CatalogPrefix != TestCatalogPath {
-		return vdb, fmt.Errorf("failed to retrieve catalog path")
-	}
-	if options.DepotPrefix != TestDepotPath {
-		return vdb, fmt.Errorf("failed to retrieve depot path")
-	}
-	if options.DataPrefix != TestDataPath {
-		return vdb, fmt.Errorf("failed to retrieve data path")
-	}
-	if options.LicensePathOnNode != TestLicensePath {
-		return vdb, fmt.Errorf("failed to retrieve license path")
+	err = m.verifyPaths(options)
+	if err != nil {
+		return vdb, err
 	}
 	if options.ShardCount != TestShardCount {
 		return vdb, fmt.Errorf("failed to retrieve shard count")
@@ -99,7 +93,38 @@ func (m *MockVClusterOps) VCreateDatabase(options *vops.VCreateDatabaseOptions) 
 		return vdb, fmt.Errorf("fail to read TimeoutNodeStartupSeconds from annotations: %d", options.TimeoutNodeStartupSeconds)
 	}
 
+	if len(options.HTTPSTLSConfiguration) > 0 {
+		configMap := genTLSConfigurationMap(TestTLSMode, TestNMATLSSecret, "default")
+		for k, v := range configMap {
+			fmt.Println("libo 1: key - " + k + ", value - " + v)
+		}
+
+		for k, v := range options.HTTPSTLSConfiguration {
+			fmt.Println("libo 2: key - " + k + ", value - " + v)
+		}
+		if !maps.Equal(options.HTTPSTLSConfiguration, configMap) {
+			return vdb, fmt.Errorf("https tls configuration not valid")
+		}
+	}
+
 	return vdb, nil
+}
+
+func (m *MockVClusterOps) verifyPaths(options *vops.VCreateDatabaseOptions) error {
+	if options.CatalogPrefix != TestCatalogPath {
+		return fmt.Errorf("failed to retrieve catalog path")
+	}
+	if options.DepotPrefix != TestDepotPath {
+		return fmt.Errorf("failed to retrieve depot path")
+	}
+	if options.DataPrefix != TestDataPath {
+		return fmt.Errorf("failed to retrieve data path")
+	}
+	if options.LicensePathOnNode != TestLicensePath {
+		return fmt.Errorf("failed to retrieve license path")
+	}
+
+	return nil
 }
 
 var _ = Describe("create_db_vc", func() {
@@ -107,22 +132,26 @@ var _ = Describe("create_db_vc", func() {
 
 	It("should call vcluster-ops library with create_db task", func() {
 		dispatcher := mockVClusterOpsDispatcher()
-		dispatcher.VDB.Spec.NMATLSSecret = TestNMATLSSecret
-		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.NMATLSSecret)
-		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.NMATLSSecret)
+		dispatcher.VDB.Spec.HTTPSTLSSecret = TestNMATLSSecret
+		dispatcher.VDB.Spec.HTTPSTLSMode = TestTLSMode
+		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.HTTPSTLSSecret)
+		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.HTTPSTLSSecret)
+		Ω(callCreateDB(ctx, dispatcher)).Should(Equal(ctrl.Result{}))
+
+		vapi.SetVDBForTLS(dispatcher.VDB)
 		Ω(callCreateDB(ctx, dispatcher)).Should(Equal(ctrl.Result{}))
 	})
 
 	It("should detect DBIsRunningError", func() {
 		vdb := vapi.MakeVDB()
-		vdb.Spec.NMATLSSecret = TestNMATLSSecret
+		vdb.Spec.HTTPSTLSSecret = TestNMATLSSecret
 		vdb.Annotations[vmeta.FailCreateDBIfVerticaIsRunningAnnotation] = vmeta.FailCreateDBIfVerticaIsRunningAnnotationTrue
 		setupAPIFunc := func(logr.Logger, string) (VClusterProvider, logr.Logger) {
 			return &MockVClusterOps{ReturnDBIsRunning: true}, logr.Logger{}
 		}
 		dispatcher := mockVClusterOpsDispatcherWithCustomSetup(vdb, setupAPIFunc)
-		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.NMATLSSecret)
-		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.NMATLSSecret)
+		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.HTTPSTLSSecret)
+		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.HTTPSTLSSecret)
 		_, err := callCreateDB(ctx, dispatcher)
 		Ω(err).ShouldNot(Succeed())
 		dbIsRunningError := &vops.DBIsRunningError{}
@@ -135,15 +164,15 @@ var _ = Describe("create_db_vc", func() {
 
 	It("should detect TimeoutNodeStartupSeconds", func() {
 		vdb := vapi.MakeVDB()
-		vdb.Spec.NMATLSSecret = TestNMATLSSecret
+		vdb.Spec.HTTPSTLSSecret = TestNMATLSSecret
 		vdb.Annotations[vmeta.CreateDBTimeoutAnnotation] = fmt.Sprint(TestTimeoutNodeStartupSeconds)
 		Ω(vdb.GetCreateDBNodeStartTimeout()).Should(Equal(TestTimeoutNodeStartupSeconds))
 		setupAPIFunc := func(logr.Logger, string) (VClusterProvider, logr.Logger) {
 			return &MockVClusterOps{VerifyTimeoutNodeStartupSeconds: true}, logr.Logger{}
 		}
 		dispatcher := mockVClusterOpsDispatcherWithCustomSetup(vdb, setupAPIFunc)
-		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.NMATLSSecret)
-		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.NMATLSSecret)
+		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.HTTPSTLSSecret)
+		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.HTTPSTLSSecret)
 		Ω(callCreateDB(ctx, dispatcher)).Should(Equal(ctrl.Result{}))
 	})
 })

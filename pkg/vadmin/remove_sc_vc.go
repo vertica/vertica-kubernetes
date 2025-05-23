@@ -32,7 +32,7 @@ func (v *VClusterOps) RemoveSubcluster(ctx context.Context, opts ...removesc.Opt
 	v.Log.Info("Starting vcluster RemoveSubcluster")
 
 	// get the certs
-	certs, err := v.retrieveNMACerts(ctx)
+	certs, err := v.retrieveHTTPSCerts(ctx)
 	if err != nil {
 		return err
 	}

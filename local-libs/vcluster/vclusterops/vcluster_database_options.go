@@ -81,6 +81,8 @@ type DatabaseOptions struct {
 	LogPath string
 	// whether use password
 	usePassword bool
+	// whether only use password for the NMA SQL client
+	UsePasswordForSQLClientOnly bool
 }
 
 const (
@@ -290,6 +292,20 @@ func (opt *DatabaseOptions) normalizePaths() {
 	opt.DepotPrefix = util.GetCleanPath(opt.DepotPrefix)
 }
 
+// resolveToIP resolve raw hosts to be IP addresses. It will also
+// normalize catalog, data and depot paths
+func (opt *DatabaseOptions) resolveToIPAndNormalizePaths() (err error) {
+	if len(opt.RawHosts) > 0 {
+		// resolve RawHosts to be IP addresses
+		opt.Hosts, err = util.ResolveRawHostsToAddresses(opt.RawHosts, opt.IPv6)
+		if err != nil {
+			return
+		}
+		opt.normalizePaths()
+	}
+	return
+}
+
 // getVDBFromSandboxWhenDBIsDown can retrieve db configurations about a given sandbox
 // from the NMA /nodes endpoint and cluster_config.json when db is down
 func (opt *DatabaseOptions) getVDBFromSandboxWhenDBIsDown(vcc VClusterCommands,
@@ -444,6 +460,10 @@ func (opt *DatabaseOptions) getTLSModes() *tlsModes {
 		doVerifyHTTPSServerCert:  opt.DoVerifyHTTPSServerCert,
 		doVerifyPeerCertHostname: opt.DoVerifyPeerCertHostname,
 	}
+}
+
+func (opt *DatabaseOptions) usePasswordForSQLClientOnly() bool {
+	return opt.UsePasswordForSQLClientOnly
 }
 
 /* End opTLSOptions interface */

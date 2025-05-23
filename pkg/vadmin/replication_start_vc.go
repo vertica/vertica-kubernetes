@@ -30,7 +30,7 @@ func (v *VClusterOps) ReplicateDB(ctx context.Context, opts ...replicationstart.
 	v.Log.Info("Starting vcluster ReplicateDB")
 
 	// get the certs
-	certs, err := v.retrieveNMACerts(ctx)
+	certs, err := v.retrieveHTTPSCerts(ctx)
 	if err != nil {
 		return 0, err
 	}
@@ -42,7 +42,7 @@ func (v *VClusterOps) ReplicateDB(ctx context.Context, opts ...replicationstart.
 	// Get target certs
 	targetCerts := &HTTPSCerts{}
 	if r.Async {
-		targetCerts, err = v.retrieveTargetNMACerts(ctx)
+		targetCerts, err = v.retrieveTargetHTTPSCerts(ctx)
 		if err != nil {
 			return 0, err
 		}

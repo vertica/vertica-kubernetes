@@ -24,7 +24,6 @@ import (
 type nmaLockReleasesOp struct {
 	opBase
 	hostRequestBodyMap map[string]string
-	userName           string
 	startTime          string
 	endTime            string
 	nodeName           string
@@ -32,41 +31,45 @@ type nmaLockReleasesOp struct {
 }
 
 type lockReleasesRequestData struct {
-	Params   map[string]any `json:"params"`
-	Username string         `json:"username"`
+	sqlEndpointData
+	Params map[string]any `json:"params"`
 }
 
 // TODO: We should let the endpoint just accept the seconds
 const minLockHoldDuration = "00:00:01"
 
-func makeNMALockReleasesOp(upHosts []string, userName string,
-	startTime, endTime, nodeName string,
+//nolint:dupl // all "SQL" endpoints could use a style and refactor pass
+func makeNMALockReleasesOp(upHosts []string, userName, dbName string,
+	password *string, startTime, endTime, nodeName string,
 	resultLimit int) (nmaLockReleasesOp, error) {
 	op := nmaLockReleasesOp{}
 	op.name = "NMALockReleasesOp"
 	op.description = "Check lock holding events"
 	op.hosts = upHosts[:1] // set up the request for one of the up hosts only
-	op.userName = userName
 	op.startTime = startTime
 	op.endTime = endTime
 	op.nodeName = nodeName
 	op.resultLimit = resultLimit
 
-	err := op.setupRequestBody()
+	// NMA endpoints don't need to differentiate between empty password and no password
+	useDBPassword := password != nil
+	err := ValidateSQLEndpointData(op.name,
+		useDBPassword, userName, password, dbName)
 	if err != nil {
 		return op, err
 	}
-
-	return op, nil
+	err = op.setupRequestBody(userName, dbName, useDBPassword, password)
+	return op, err
 }
 
-func (op *nmaLockReleasesOp) setupRequestBody() error {
+func (op *nmaLockReleasesOp) setupRequestBody(username, dbName string, useDBPassword bool,
+	password *string) error {
 	op.hostRequestBodyMap = make(map[string]string)
 
 	for _, host := range op.hosts {
 		requestData := lockReleasesRequestData{}
 
-		requestData.Username = op.userName
+		requestData.sqlEndpointData = createSQLEndpointData(username, dbName, useDBPassword, password)
 		requestData.Params = make(map[string]any)
 		requestData.Params["start-time"] = op.startTime
 		requestData.Params["end-time"] = op.endTime
@@ -127,16 +130,14 @@ func (op *nmaLockReleasesOp) finalize(_ *opEngineExecContext) error {
 type dcLockReleases struct {
 	Duration   string `json:"duration"`
 	NodeName   string `json:"node_name"`
-	Object     int    `json:"object"`
+	Object     string `json:"object"`
 	ObjectName string `json:"object_name"`
 	SessionID  string `json:"session_id"`
 	GrantTime  string `json:"grant_time"`
 	Time       string `json:"time"`
-	// TODO: let endpoint make this as a string
-	TxnID int `json:"transaction_id"`
-	// TODO: let endpoint make this as a string
-	UserID   int64  `json:"user_id"`
-	UserName string `json:"user_name"`
+	TxnID      string `json:"transaction_id"`
+	UserID     string `json:"user_id"`
+	UserName   string `json:"user_name"`
 	// TxnInfo and SessionInfo are not used for parsing data from the NMA endpoint
 	// but will be used to show detailed info about the retrieved TxnID and SessionID
 	TxnInfo     dcTransactionStart `json:"transaction_info"`

@@ -29,6 +29,6 @@ status:
       upNodeCount: 1
   tlsModes:
   - name: TRY_VERIFY
-    type: NMATLSModeType
+    type: HTTPSTLSModeType
   - name: TRY_VERIFY
     type: ClientServerTLSModeType

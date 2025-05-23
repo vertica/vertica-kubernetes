@@ -25,12 +25,14 @@ import (
 )
 
 // ManageConnectionDraining pauses/redirects/resumes connections on the vertica cluster
+//
+//nolint:dupl
 func (v *VClusterOps) ManageConnectionDraining(ctx context.Context, opts ...manageconnectiondraining.Option) error {
 	v.setupForAPICall("ManageConnectionDraining")
 	defer v.tearDownForAPICall()
 	v.Log.Info("Starting vcluster ManageConnectionDraining")
 
-	certs, err := v.retrieveNMACerts(ctx)
+	certs, err := v.retrieveHTTPSCerts(ctx)
 	if err != nil {
 		return err
 	}
@@ -62,6 +64,7 @@ func (v *VClusterOps) genManageConnectionDrainingOptions(s *manageconnectiondrai
 	opts.IsEon = v.VDB.IsEON()
 	opts.IPv6 = net.IsIPv6(s.InitiatorIP)
 
+	opts.UserName = v.VDB.GetVerticaUser()
 	v.setAuthentication(&opts.DatabaseOptions, v.VDB.GetVerticaUser(), &v.Password, certs)
 
 	return &opts

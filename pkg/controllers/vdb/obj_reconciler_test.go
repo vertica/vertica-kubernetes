@@ -46,6 +46,8 @@ import (
 
 var _ = Describe("obj_reconcile", func() {
 	ctx := context.Background()
+	const trueStr = "true"
+	const falseStr = "false"
 
 	runReconciler := func(vdb *vapi.VerticaDB, expResult ctrl.Result, mode ObjReconcileModeType) {
 		// Create any dependent objects for the CRD.
@@ -662,7 +664,7 @@ var _ = Describe("obj_reconcile", func() {
 
 		It("should requeue if vclusterops is enabled but HTTP secret isn't setup properly", func() {
 			vdb := vapi.MakeVDB()
-			vdb.Spec.NMATLSSecret = ""
+			vdb.Spec.HTTPSTLSSecret = ""
 			vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
 			createCrd(vdb, false)
 			defer deleteCrd(vdb)
@@ -670,7 +672,7 @@ var _ = Describe("obj_reconcile", func() {
 			runReconciler(vdb, ctrl.Result{Requeue: true}, ObjReconcileModeAll)
 
 			// Having a secret name, but not created should force a requeue too
-			vdb.Spec.NMATLSSecret = "dummy1"
+			vdb.Spec.HTTPSTLSSecret = "dummy1"
 			runReconciler(vdb, ctrl.Result{Requeue: true}, ObjReconcileModeAll)
 		})
 
@@ -812,9 +814,9 @@ var _ = Describe("obj_reconcile", func() {
 			vdb := vapi.MakeVDB()
 			vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
 			vdb.Annotations[vmeta.VersionAnnotation] = vapi.VcluseropsAsDefaultDeploymentMethodMinVersion
-			vdb.Spec.NMATLSSecret = "tls-abcdef"
-			test.CreateFakeTLSSecret(ctx, vdb, k8sClient, vdb.Spec.NMATLSSecret)
-			defer test.DeleteSecret(ctx, k8sClient, vdb.Spec.NMATLSSecret)
+			vdb.Spec.HTTPSTLSSecret = "tls-abcdef"
+			test.CreateFakeTLSSecret(ctx, vdb, k8sClient, vdb.Spec.HTTPSTLSSecret)
+			defer test.DeleteSecret(ctx, k8sClient, vdb.Spec.HTTPSTLSSecret)
 			createCrd(vdb, true)
 			defer deleteCrd(vdb)
 
@@ -984,6 +986,33 @@ var _ = Describe("obj_reconcile", func() {
 			deleteProxy(ctx, vdb, vpName, cmName)
 		})
 
+		It("should remove ownerReference from tls secret", func() {
+			vdb := vapi.MakeVDB()
+			vdb.Spec.NMATLSSecret = "test-secret"
+			vdb.Annotations[vmeta.MountNMACertsAnnotation] = falseStr
+			vdb.Annotations[vmeta.EnableTLSCertsRotationAnnotation] = trueStr
+			createCrd(vdb, false)
+			defer deleteCrd(vdb)
+			secret := test.BuildTLSSecret(vdb, vdb.Spec.NMATLSSecret, test.TestKeyValue, test.TestCertValue, test.TestCaCertValue)
+			secret.OwnerReferences = []metav1.OwnerReference{
+				{UID: vdb.GetUID(), Name: vdb.Name, Kind: vapi.VerticaDBKind, APIVersion: vapi.GroupVersion.String()},
+			}
+			Expect(k8sClient.Create(ctx, secret)).Should(Succeed())
+			defer test.DeleteSecret(ctx, k8sClient, vdb.Spec.NMATLSSecret)
+
+			o := &ObjReconciler{
+				Rec: vdbRec,
+				Vdb: vdb,
+				Log: logger,
+			}
+			err := o.updateOwnerReferenceInTLSSecret(ctx, vdb.Spec.NMATLSSecret)
+			Expect(err).Should(Succeed())
+
+			fetchedSecret := &corev1.Secret{}
+			secretName := names.GenNamespacedName(o.Vdb, vdb.Spec.NMATLSSecret)
+			Expect(k8sClient.Get(ctx, secretName, fetchedSecret)).Should(Succeed())
+			Expect(len(fetchedSecret.OwnerReferences)).Should(Equal(0))
+		})
 	})
 })
 

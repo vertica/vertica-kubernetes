@@ -32,8 +32,8 @@ const (
 	rotateHTTPSCertCurrentNMASecretName = "rotate-https-current-cert-test-secret" //nolint:gosec
 )
 
-// mock version of VRotateHTTPSCerts() that is invoked inside VClusterOps.RotateHTTPSCerts()
-func (m *MockVClusterOps) VRotateHTTPSCerts(options *vops.VRotateHTTPSCertsOptions) error {
+// mock version of VRotateTLSCerts() that is invoked inside VClusterOps.RotateHTTPSCerts()
+func (m *MockVClusterOps) VRotateTLSCerts(options *vops.VRotateTLSCertsOptions) error {
 	// verify common options
 	err := m.VerifyCommonOptions(&options.DatabaseOptions)
 	if err != nil {
@@ -88,15 +88,15 @@ var _ = Describe("rotate_https_cert", func() {
 
 	It("should call vcluster-ops library with rotate_https_cert task", func() {
 		dispatcher := mockVClusterOpsDispatcher()
-		dispatcher.VDB.Spec.NMATLSSecret = rotateHTTPSCertNewNMASecretName
-		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.NMATLSSecret)
+		dispatcher.VDB.Spec.HTTPSTLSSecret = rotateHTTPSCertNewNMASecretName
+		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.HTTPSTLSSecret)
 		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, rotateHTTPSCertCurrentNMASecretName)
-		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.NMATLSSecret)
+		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.HTTPSTLSSecret)
 		dispatcher.VDB.Spec.DBName = TestDBName
 		dispatcher.VDB.Status.SecretRefs = []vapi.SecretRef{
 			{
 				Name: rotateHTTPSCertCurrentNMASecretName,
-				Type: vapi.NMATLSSecretType,
+				Type: vapi.HTTPSTLSSecretType,
 			},
 		}
 		Ω(dispatcher.RotateHTTPSCerts(ctx,
@@ -104,9 +104,9 @@ var _ = Describe("rotate_https_cert", func() {
 			rotatehttpscerts.WithPollingKey(TestPollingKey),
 			rotatehttpscerts.WithPollingCert(TestPollingCert),
 			rotatehttpscerts.WithPollingCaCert(TestPollingCaCert),
-			rotatehttpscerts.WithKey(dispatcher.VDB.Spec.NMATLSSecret, TestKeyConfig),
-			rotatehttpscerts.WithCert(dispatcher.VDB.Spec.NMATLSSecret, TestCertConfig),
-			rotatehttpscerts.WithCaCert(dispatcher.VDB.Spec.NMATLSSecret, TestCaCertConfig),
+			rotatehttpscerts.WithKey(dispatcher.VDB.Spec.HTTPSTLSSecret, TestKeyConfig),
+			rotatehttpscerts.WithCert(dispatcher.VDB.Spec.HTTPSTLSSecret, TestCertConfig),
+			rotatehttpscerts.WithCaCert(dispatcher.VDB.Spec.HTTPSTLSSecret, TestCaCertConfig),
 			rotatehttpscerts.WithTLSMode("TRY_VERIFY"),
 		)).Should(Succeed())
 	})

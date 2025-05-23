@@ -25,7 +25,7 @@ metadata:
   name: v-tls-certs
 status:
   secretRefs:
-    - type: NMATLSSecretType
+    - type: HTTPSTLSSecretType
     - type: ClientServerTLSSecretType
   subclusters:
     - addedToDBCount: 3

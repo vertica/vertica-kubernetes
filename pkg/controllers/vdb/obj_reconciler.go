@@ -40,6 +40,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -116,6 +117,10 @@ func (o *ObjReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Re
 		return ctrl.Result{}, err
 	}
 
+	if err := o.reconcileTLSSecrets(ctx); err != nil {
+		return ctrl.Result{}, err
+	}
+
 	// Check the objects for subclusters that should exist.  This will create
 	// missing objects and update existing objects to match the vdb.
 	if res, err := o.checkForCreatedSubclusters(ctx); verrors.IsReconcileAborted(res, err) {
@@ -156,13 +161,13 @@ func (o *ObjReconciler) checkMountedObjs(ctx context.Context) (ctrl.Result, erro
 		// that has the certs to use for it.  There is a reconciler that is run
 		// before this that will create the secret.  We will requeue if we find
 		// the Vdb doesn't have the secret set.
-		if o.Vdb.Spec.NMATLSSecret == "" {
+		if o.Vdb.Spec.HTTPSTLSSecret == "" {
 			o.Rec.Event(o.Vdb, corev1.EventTypeWarning, events.HTTPServerNotSetup,
-				"The nmaTLSSecret must be set when running with vclusterops deployment")
+				"The httpsTLSSecret must be set when running with vclusterops deployment")
 			return ctrl.Result{Requeue: true}, nil
 		}
 		_, res, err := o.SecretFetcher.FetchAllowRequeue(ctx,
-			names.GenNamespacedName(o.Vdb, o.Vdb.Spec.NMATLSSecret))
+			names.GenNamespacedName(o.Vdb, o.Vdb.Spec.HTTPSTLSSecret))
 		if verrors.IsReconcileAborted(res, err) {
 			return res, err
 		}
@@ -183,10 +188,20 @@ func (o *ObjReconciler) checkMountedObjs(ctx context.Context) (ctrl.Result, erro
 		}
 	}
 
-	if o.Vdb.Spec.NMATLSSecret != "" {
-		keyNames := []string{corev1.TLSPrivateKeyKey, corev1.TLSCertKey, paths.HTTPServerCACrtName}
-		if res, err := o.checkSecretHasKeys(ctx, "NMA TLS", o.Vdb.Spec.NMATLSSecret, keyNames); verrors.IsReconcileAborted(res, err) {
-			return res, err
+	return o.checkTLSSecrets(ctx)
+}
+
+func (o *ObjReconciler) checkTLSSecrets(ctx context.Context) (ctrl.Result, error) {
+	tlsSecrets := map[string]string{
+		"NMA TLS":           o.Vdb.Spec.HTTPSTLSSecret,
+		"Client Server TLS": o.Vdb.Spec.ClientServerTLSSecret,
+	}
+	for k, tlsSecret := range tlsSecrets {
+		if tlsSecret != "" {
+			keyNames := []string{corev1.TLSPrivateKeyKey, corev1.TLSCertKey, paths.HTTPServerCACrtName}
+			if res, err := o.checkSecretHasKeys(ctx, k, tlsSecret, keyNames); verrors.IsReconcileAborted(res, err) {
+				return res, err
+			}
 		}
 	}
 
@@ -702,25 +717,65 @@ func (o *ObjReconciler) handleStatefulSetUpdate(ctx context.Context, sc *vapi.Su
 		o.Log.Error(err, "failed to retrieve TLS cert secret configmap")
 		return err
 	}
-	if configMap.Data[builder.NMASecretNameEnv] == o.Vdb.Spec.NMATLSSecret &&
+	if configMap.Data[builder.NMASecretNameEnv] == o.Vdb.Spec.HTTPSTLSSecret &&
 		configMap.Data[builder.NMAClientSecretNameEnv] == o.Vdb.Spec.ClientServerTLSSecret &&
 		configMap.Data[builder.NMASecretNamespaceEnv] == o.Vdb.ObjectMeta.Namespace &&
-		configMap.Data[builder.NMAClientSecretNamespaceEnv] == o.Vdb.ObjectMeta.Namespace {
+		configMap.Data[builder.NMAClientSecretNamespaceEnv] == o.Vdb.ObjectMeta.Namespace &&
+		configMap.Data[builder.NMAClientSecretTLSModeEnv] == o.Vdb.GetNMAClientServerTLSMode() {
 		return nil
 	}
 
-	configMap.Data[builder.NMASecretNameEnv] = o.Vdb.Spec.NMATLSSecret
+	configMap.Data[builder.NMASecretNameEnv] = o.Vdb.Spec.HTTPSTLSSecret
 	configMap.Data[builder.NMASecretNamespaceEnv] = o.Vdb.ObjectMeta.Namespace
 	configMap.Data[builder.NMAClientSecretNameEnv] = o.Vdb.Spec.ClientServerTLSSecret
 	configMap.Data[builder.NMAClientSecretNamespaceEnv] = o.Vdb.ObjectMeta.Namespace
+	configMap.Data[builder.NMAClientSecretTLSModeEnv] = o.Vdb.GetNMAClientServerTLSMode()
 
 	err = o.Rec.GetClient().Update(ctx, configMap)
 	if err == nil {
-		o.Log.Info("updated tls cert secret configmap", "name", configMapName.Name, "nma-secret", o.Vdb.Spec.NMATLSSecret,
+		o.Log.Info("updated tls cert secret configmap", "name", configMapName.Name, "nma-secret", o.Vdb.Spec.HTTPSTLSSecret,
 			"clientserver-secret", o.Vdb.Spec.ClientServerTLSSecret)
 	}
 	return err
 } */
+
+// reconcileTLSSecrets will update tls secrets
+func (o *ObjReconciler) reconcileTLSSecrets(ctx context.Context) error {
+	if !o.Vdb.IsCertRotationEnabled() {
+		return nil
+	}
+
+	tlsSecrets := []string{
+		o.Vdb.Spec.HTTPSTLSSecret,
+		o.Vdb.Spec.ClientServerTLSSecret,
+	}
+	for _, tlsSecret := range tlsSecrets {
+		err := o.updateOwnerReferenceInTLSSecret(ctx, tlsSecret)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// updateOwnerReferenceInTLSSecret gets a tls secret name and remove the vdb ownership.
+// This is to prevent an auto-generated secret to get deleted on vdb delete
+func (o *ObjReconciler) updateOwnerReferenceInTLSSecret(ctx context.Context, name string) error {
+	secretName := names.GenNamespacedName(o.Vdb, name)
+	secret := &corev1.Secret{}
+	err := o.Rec.GetClient().Get(ctx, secretName, secret)
+	if err != nil {
+		return err
+	}
+	if o.removeOwnerReference(secret) {
+		if err := o.Rec.GetClient().Update(ctx, secret); err != nil {
+			return err
+		}
+		o.Log.Info("Removed owner reference from secret", "secret", secret.Name)
+	}
+	return nil
+}
 
 // updateSts will patch an existing statefulset.
 func (o *ObjReconciler) updateSts(ctx context.Context, curSts, expSts *appsv1.StatefulSet) error {
@@ -860,4 +915,24 @@ func (o *ObjReconciler) getZombieSubclusters(ctx context.Context) ([]vapi.Subclu
 		}
 	}
 	return subclusters, nil
+}
+
+// removeOwnerReference removes the vdb owner reference from the given secret
+func (o *ObjReconciler) removeOwnerReference(secret *corev1.Secret) bool {
+	newRefs := []metav1.OwnerReference{}
+	changed := false
+
+	for _, ref := range secret.OwnerReferences {
+		if ref.UID != o.Vdb.UID {
+			newRefs = append(newRefs, ref)
+		} else {
+			changed = true
+		}
+	}
+
+	if changed {
+		secret.OwnerReferences = newRefs
+	}
+
+	return changed
 }

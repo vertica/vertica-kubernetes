@@ -47,6 +47,13 @@ const (
 	PredefinedTLSConfigName = "k8s_tls_builtin_auth"
 )
 
+const (
+	// This is a file that we run with the create_db to run custome SQL. This is
+	// passed with the --sql parameter when running create_db. This is no longer
+	// used starting with versions defined in vapi.DBSetupConfigParameters.
+	PostDBCreateSQLFileVclusterOps = "/tmp/post-db-create.sql"
+)
+
 // TLSConfigReconciler will turn on the tls config when users request it
 type TLSConfigReconciler struct {
 	VRec       *VerticaDBReconciler
@@ -177,7 +184,7 @@ func (h *TLSConfigReconciler) runTLSDDL(ctx context.Context, initiatorPod *podfa
 	return nil
 }
 func (h *TLSConfigReconciler) updateStatus(ctx context.Context) error {
-	sec := vapi.MakeNMATLSSecretRef(h.Vdb.Spec.NMATLSSecret)
+	sec := vapi.MakeHTTPSTLSSecretRef(h.Vdb.Spec.NMATLSSecret)
 	if err1 := vdbstatus.UpdateSecretRef(ctx, h.VRec.GetClient(), h.Vdb, sec); err1 != nil {
 		return err1
 	}
@@ -192,7 +199,7 @@ func (h *TLSConfigReconciler) updateStatus(ctx context.Context) error {
 		return err2
 	}
 	h.Log.Info("saved secrets into status")
-	httpsTLSMode := vapi.MakeNMATLSMode(h.Vdb.Spec.HTTPSTLSMode)
+	httpsTLSMode := vapi.MakeHTTPSTLSMode(h.Vdb.Spec.HTTPSTLSMode)
 	clientTLSMode := vapi.MakeClientServerTLSMode(h.Vdb.Spec.ClientServerTLSMode)
 	err := vdbstatus.UpdateTLSModes(ctx, h.VRec.GetClient(), h.Vdb, []*vapi.TLSMode{httpsTLSMode, clientTLSMode})
 	if err != nil {
@@ -278,4 +285,10 @@ func (h *TLSConfigReconciler) readSecret(vdb *vapi.VerticaDB, vrec config.Reconc
 		return nil, res, err
 	}
 	return currentSecretData, res, err
+}
+
+// Escape function to handle special characters in Bash
+func escapeForBash(input string) string {
+	input = strings.ReplaceAll(input, `"`, `\"`) // Escape double quotes
+	return "\"" + input + "\""                   // Wrap in double quotes for echo
 }

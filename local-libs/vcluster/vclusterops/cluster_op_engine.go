@@ -41,6 +41,18 @@ func (opEngine *VClusterOpEngine) run(logger vlog.Printer) error {
 	return opEngine.runInSandbox(logger, nil /*vdb*/, util.MainClusterSandbox)
 }
 
+// use this function when running in a sandbox with existing/predefined context
+func (opEngine *VClusterOpEngine) runInSandboxWithExistingCtx(logger vlog.Printer,
+	vdb *VCoordinationDatabase, sandbox string) error {
+	if opEngine.execContext == nil {
+		return fmt.Errorf("cannot run in sandbox with existing context: execContext is nil")
+	}
+	opEngine.execContext.vdbForSandboxInfo = vdb
+	opEngine.execContext.sandbox = sandbox
+	return opEngine.runWithExecContext(logger, opEngine.execContext)
+}
+
+// run this function when needing a new execContext
 func (opEngine *VClusterOpEngine) runInSandbox(logger vlog.Printer,
 	vdb *VCoordinationDatabase, sandbox string) error {
 	execContext := makeOpEngineExecContext(logger)
@@ -84,6 +96,7 @@ func (opEngine *VClusterOpEngine) runInstruction(
 	if err != nil {
 		return fmt.Errorf("prepare %s failed, details: %w", op.getName(), err)
 	}
+	execContext.usePasswordForSQLClientOnly = opEngine.tlsOptions.usePasswordForSQLClientOnly()
 
 	if !op.isSkipExecute() {
 		// start the progress spinner

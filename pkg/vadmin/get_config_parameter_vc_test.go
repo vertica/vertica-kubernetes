@@ -50,6 +50,10 @@ func (m *MockVClusterOps) VGetConfigurationParameters(options *vops.VGetConfigur
 		return "", err
 	}
 
+	if options.Password == nil || *options.Password != TestPassword {
+		return "", fmt.Errorf("missing password")
+	}
+
 	return TestConfigParamValue, nil
 }
 
@@ -59,9 +63,9 @@ var _ = Describe("get_config_parameter_vc", func() {
 	It("should call VGetConfigurationParameters in the vcluster-ops library", func() {
 		dispatcher := mockVClusterOpsDispatcher()
 		dispatcher.VDB.Spec.DBName = TestDBName
-		dispatcher.VDB.Spec.NMATLSSecret = "get-config-parameter-test-secret"
-		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.NMATLSSecret)
-		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.NMATLSSecret)
+		dispatcher.VDB.Spec.HTTPSTLSSecret = "get-config-parameter-test-secret"
+		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.HTTPSTLSSecret)
+		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.HTTPSTLSSecret)
 
 		value, err := dispatcher.GetConfigurationParameter(ctx,
 			getconfigparameter.WithUserName(vapi.SuperUser),
@@ -72,5 +76,15 @@ var _ = Describe("get_config_parameter_vc", func() {
 		)
 		Ω(err).Should(Succeed())
 		Ω(value).Should(Equal(TestConfigParamValue))
+
+		vapi.SetVDBForTLS(dispatcher.VDB)
+		_, err = dispatcher.GetConfigurationParameter(ctx,
+			getconfigparameter.WithUserName(vapi.SuperUser),
+			getconfigparameter.WithInitiatorIP(TestSourceIP),
+			getconfigparameter.WithSandbox(TestConfigParamSandbox),
+			getconfigparameter.WithConfigParameter(TestConfigParamName),
+			getconfigparameter.WithLevel(TestConfigParamLevel),
+		)
+		Ω(err.Error()).Should(ContainSubstring("missing password"))
 	})
 })

@@ -60,6 +60,9 @@ const (
 	tlsModeVerifyCA          = "verify_ca"
 	tlsModeTryVerify         = "try_verify"
 	tlsModeVerifyFull        = "verify_full"
+	nmaTLSModeDisable        = "disable"
+	nmaTLSModeEnable         = "enable"
+	nmaTLSModeVerifyCA       = "verify-ca"
 	DefaultServiceHTTPSPort  = 8443
 	DefaultServiceClientPort = 5433
 )
@@ -173,7 +176,7 @@ func MakeVDB() *VerticaDB {
 func MakeVDBForHTTP(httpServerTLSSecretName string) *VerticaDB {
 	vdb := MakeVDB()
 	vdb.Annotations[vmeta.VersionAnnotation] = HTTPServerMinVersion
-	vdb.Spec.NMATLSSecret = httpServerTLSSecretName
+	vdb.Spec.HTTPSTLSSecret = httpServerTLSSecretName
 	return vdb
 }
 
@@ -377,8 +380,8 @@ func MakeClientServerTLSSecretRef(name string) *SecretRef {
 	return MakeSecretRef(ClientServerTLSSecretType, name)
 }
 
-func MakeNMATLSSecretRef(name string) *SecretRef {
-	return MakeSecretRef(NMATLSSecretType, name)
+func MakeHTTPSTLSSecretRef(name string) *SecretRef {
+	return MakeSecretRef(HTTPSTLSSecretType, name)
 }
 
 func MakeTLSMode(stype, mode string) *TLSMode {
@@ -392,8 +395,8 @@ func MakeClientServerTLSMode(mode string) *TLSMode {
 	return MakeTLSMode(ClientServerTLSModeType, mode)
 }
 
-func MakeNMATLSMode(mode string) *TLSMode {
-	return MakeTLSMode(NMATLSModeType, mode)
+func MakeHTTPSTLSMode(mode string) *TLSMode {
+	return MakeTLSMode(HTTPSTLSModeType, mode)
 }
 
 // HasReviveInstanceIDAnnotation is true when an annotation exists for the db's
@@ -459,6 +462,17 @@ func (v *VerticaDB) GetCommunalPath() string {
 		return v.Spec.Communal.Path
 	}
 	return fmt.Sprintf("%s/%s", strings.TrimSuffix(v.Spec.Communal.Path, "/"), v.UID)
+}
+
+// IsSubclusterInSandbox returns true if the given subcluster is in the
+// sandbox status
+func (s *SandboxStatus) IsSubclusterInSandbox(scName string) bool {
+	for i := range s.Subclusters {
+		if scName == s.Subclusters[i] {
+			return true
+		}
+	}
+	return false
 }
 
 // GenCompatibleFQDN returns a name of the subcluster that is
@@ -1493,12 +1507,39 @@ func (v *VerticaDB) GetSecretNameInUse(sType string) string {
 	return v.GetSecretStatus(sType).Name
 }
 
-func (v *VerticaDB) GetNMATLSSecretNameInUse() string {
-	return v.GetSecretNameInUse(NMATLSSecretType)
+func (v *VerticaDB) GetHTTPSTLSSecretNameInUse() string {
+	return v.GetSecretNameInUse(HTTPSTLSSecretType)
 }
 
 func (v *VerticaDB) GetClientServerTLSSecretNameInUse() string {
 	return v.GetSecretNameInUse(ClientServerTLSSecretType)
+}
+
+// IsCertNeededForClientServerAuth returns true if certificate is needed for client-server authentication
+func (v *VerticaDB) IsCertNeededForClientServerAuth() bool {
+	tlsMode := strings.ToLower(v.Spec.ClientServerTLSMode)
+	return tlsMode != tlsModeDisable && tlsMode != tlsModeEnable
+}
+
+// GetNMAClientServerTLSMode returns the tlsMode for NMA client-server communication
+func (v *VerticaDB) GetNMAClientServerTLSMode() string {
+	tlsMode := strings.ToLower(v.Spec.ClientServerTLSMode)
+	switch tlsMode {
+	case tlsModeDisable:
+		return nmaTLSModeDisable
+	case tlsModeEnable, tlsModeTryVerify:
+		return nmaTLSModeEnable
+	case tlsModeVerifyCA, tlsModeVerifyFull:
+		// There is still a flaw in vclusterOps: create_db set_tls will fail
+		// since nma cannot verify server certificate. After we extract set_tls
+		// from create_db, we can remove the db init check.
+		if !v.isDBInitialized() {
+			return nmaTLSModeEnable
+		}
+		return nmaTLSModeVerifyCA
+	default:
+		return nmaTLSModeEnable
+	}
 }
 
 // FindSecretRef returns a pointer to the SecretRef with the given type, or nil if not found.
@@ -1522,8 +1563,8 @@ func (v *VerticaDB) GetTLSModeInUse(sType string) string {
 	return v.GetTLSModeStatus(sType).Mode
 }
 
-func (v *VerticaDB) GetNMATLSModeInUse() string {
-	return v.GetTLSModeInUse(NMATLSModeType)
+func (v *VerticaDB) GetHTTPSTLSModeInUse() string {
+	return v.GetTLSModeInUse(HTTPSTLSModeType)
 }
 
 func (v *VerticaDB) GetClientServerTLSModeInUse() string {
@@ -1542,10 +1583,6 @@ func FindTLSMode(refs []TLSMode, typ string) *TLSMode {
 
 // SetSecretRef updates the slice with a new SecretRef by Type, and returns true if any changes occurred.
 func SetSecretRef(refs *[]SecretRef, newRef SecretRef) (changed bool) {
-	if refs == nil {
-		return false
-	}
-
 	existing := FindSecretRef(*refs, newRef.Type)
 	if existing == nil {
 		*refs = append(*refs, newRef)
@@ -1566,9 +1603,6 @@ func SetSecretRef(refs *[]SecretRef, newRef SecretRef) (changed bool) {
 
 // SetTLSMode updates the slice with a new TLSMode by Type, and returns true if any changes occurred.
 func SetTLSMode(refs *[]TLSMode, newRef TLSMode) (changed bool) {
-	if refs == nil {
-		return false
-	}
 	existing := FindTLSMode(*refs, newRef.Type)
 	if existing == nil {
 		*refs = append(*refs, newRef)

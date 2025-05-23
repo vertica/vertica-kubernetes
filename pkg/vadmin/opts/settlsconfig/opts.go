@@ -15,117 +15,63 @@
 
 package settlsconfig
 
-import (
-	"k8s.io/apimachinery/pkg/types"
-)
-
-// Parms holds all of the option for a create DB invocation.
 type Parms struct {
-	Initiator             types.NamespacedName
-	PodNames              []types.NamespacedName
-	Hosts                 []string
-	PostDBCreateSQLFile   string
-	CatalogPath           string
-	DepotPath             string
-	DataPath              string
-	DBName                string
-	LicensePath           string
-	CommunalPath          string
-	CommunalStorageParams string
-	ConfigurationParams   map[string]string
-	ShardCount            int
-	SkipPackageInstall    bool
+	InitiatorIP               string
+	ClientServerTLSMode       string
+	HTTPSTLSMode              string
+	ClientServerTLSSecretName string
+	HTTPSTLSSecretName        string
+	Namespace                 string
 }
 
+// Option is a function that configures a Parms instance.
 type Option func(*Parms)
 
 // Make will fill in the Parms based on the options chosen
-func (s *Parms) Make(opts ...Option) {
+func (p *Parms) Make(opts ...Option) {
 	for _, opt := range opts {
-		opt(s)
+		opt(p)
 	}
 }
 
-func WithInitiator(nm types.NamespacedName) Option {
-	return func(s *Parms) {
-		s.Initiator = nm
+// WithClientServerTLSSecretName sets the ClientServerTLSSecretName field of the Parms struct.
+func WithClientServerTLSSecretName(secret string) Option {
+	return func(p *Parms) {
+		p.ClientServerTLSSecretName = secret
 	}
 }
 
-func WithPods(nm []types.NamespacedName) Option {
-	return func(s *Parms) {
-		s.PodNames = nm
+// WithHTTPSTLSMode sets the HTTPSTLSMode field of the Parms struct.
+func WithHTTPSTLSMode(tlsMode string) Option {
+	return func(p *Parms) {
+		p.HTTPSTLSMode = tlsMode
 	}
 }
 
-func WithHosts(hosts []string) Option {
-	return func(s *Parms) {
-		s.Hosts = hosts
+// WithHTTPSTLSSecretName sets the HTTPSTLSSecretName field of the Parms struct.
+func WithHTTPSTLSSecretName(secret string) Option {
+	return func(p *Parms) {
+		p.HTTPSTLSSecretName = secret
 	}
 }
 
-func WithPostDBCreateSQLFile(file string) Option {
-	return func(s *Parms) {
-		s.PostDBCreateSQLFile = file
+// WithClientServerTLSMode sets the ClientServerTLSMode field of the Parms struct.
+func WithClientServerTLSMode(tlsMode string) Option {
+	return func(p *Parms) {
+		p.ClientServerTLSMode = tlsMode
 	}
 }
 
-func WithCatalogPath(path string) Option {
-	return func(s *Parms) {
-		s.CatalogPath = path
+// WithNamespace sets the Namespace field of the Parms struct.
+func WithNamespace(namespace string) Option {
+	return func(p *Parms) {
+		p.Namespace = namespace
 	}
 }
 
-func WithDepotPath(path string) Option {
-	return func(s *Parms) {
-		s.DepotPath = path
-	}
-}
-
-func WithDataPath(path string) Option {
-	return func(s *Parms) {
-		s.DataPath = path
-	}
-}
-
-func WithDBName(name string) Option {
-	return func(s *Parms) {
-		s.DBName = name
-	}
-}
-
-func WithLicensePath(path string) Option {
-	return func(s *Parms) {
-		s.LicensePath = path
-	}
-}
-
-func WithCommunalPath(path string) Option {
-	return func(s *Parms) {
-		s.CommunalPath = path
-	}
-}
-
-func WithCommunalStorageParams(path string) Option {
-	return func(s *Parms) {
-		s.CommunalStorageParams = path
-	}
-}
-
-func WithConfigurationParams(parms map[string]string) Option {
-	return func(s *Parms) {
-		s.ConfigurationParams = parms
-	}
-}
-
-func WithShardCount(shards int) Option {
-	return func(s *Parms) {
-		s.ShardCount = shards
-	}
-}
-
-func WithSkipPackageInstall() Option {
-	return func(s *Parms) {
-		s.SkipPackageInstall = true
+// WithInitiatorIP sets the InitiatorIP field of the Parms struct.
+func WithInitiatorIP(initiatorIP string) Option {
+	return func(p *Parms) {
+		p.InitiatorIP = initiatorIP
 	}
 }

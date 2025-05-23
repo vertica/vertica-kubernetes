@@ -30,7 +30,7 @@ func (v *VClusterOps) GetConfigurationParameter(ctx context.Context, opts ...get
 	defer v.tearDownForAPICall()
 	v.Log.Info("Starting vcluster GetConfigurationParameter")
 
-	certs, err := v.retrieveNMACerts(ctx)
+	certs, err := v.retrieveHTTPSCerts(ctx)
 	if err != nil {
 		return "", err
 	}
@@ -53,8 +53,6 @@ func (v *VClusterOps) genGetConfigurationParameterOptions(s *getconfigparameter.
 
 	opts.RawHosts = append(opts.RawHosts, s.InitiatorIP)
 	opts.DBName = v.VDB.Spec.DBName
-	opts.UserName = s.UserName
-	opts.Password = &v.Password
 
 	opts.Sandbox = s.Sandbox
 	opts.ConfigParameter = s.ConfigParameter
@@ -63,6 +61,7 @@ func (v *VClusterOps) genGetConfigurationParameterOptions(s *getconfigparameter.
 	opts.IsEon = v.VDB.IsEON()
 	opts.IPv6 = net.IsIPv6(s.InitiatorIP)
 
+	opts.UserName = v.VDB.GetVerticaUser()
 	v.setAuthentication(&opts.DatabaseOptions, v.VDB.GetVerticaUser(), &v.Password, certs)
 
 	return &opts

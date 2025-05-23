@@ -129,6 +129,8 @@ const (
 	NMATLSModeUpdateSucceeded        = "NMATLSModeUpdateSucceeded"
 	TLSConfigurationStarted          = "TLSConfigurationStarted"
 	TLSConfigurationSucceeded        = "TLSConfigurationSucceeded"
+	TLSModeUpdateStarted             = "TLSModeUpdateStarted"
+	TLSModeUpdateSucceeded           = "TLSModeUpdateSucceeded"
 )
 
 // Constants for VerticaAutoscaler reconciler

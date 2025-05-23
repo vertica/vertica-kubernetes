@@ -34,7 +34,7 @@ func (v *VClusterOps) SetConfigurationParameter(ctx context.Context, opts ...set
 	defer v.tearDownForAPICall()
 	v.Log.Info("Starting vcluster SetConfigurationParameter")
 
-	certs, err := v.retrieveNMACerts(ctx)
+	certs, err := v.retrieveHTTPSCerts(ctx)
 	if err != nil {
 		return err
 	}
@@ -66,6 +66,7 @@ func (v *VClusterOps) genSetConfigurationParameterOptions(s *setconfigparameter.
 	opts.IsEon = v.VDB.IsEON()
 	opts.IPv6 = net.IsIPv6(s.InitiatorIP)
 
+	opts.UserName = s.UserName
 	v.setAuthentication(&opts.DatabaseOptions, s.UserName, &v.Password, certs)
 
 	return &opts

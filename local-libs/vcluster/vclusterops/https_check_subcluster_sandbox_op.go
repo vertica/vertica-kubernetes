@@ -18,6 +18,7 @@ package vclusterops
 import (
 	"errors"
 	"fmt"
+	"slices"
 
 	"github.com/vertica/vcluster/vclusterops/util"
 )
@@ -158,7 +159,7 @@ func (op *httpsCheckSubclusterSandboxOp) processResult(execContext *opEngineExec
 	// Use updated scInfo
 	for host, sb := range existingSandboxedHosts {
 		// Check if existing sandbox is aware of the new subcluster or not
-		if !op.checkScAwareness(host) {
+		if slices.Contains(op.hosts, host) && !op.checkScAwareness(host) {
 			return fmt.Errorf("target sandbox %s is unaware of the subcluster to be sandboxed - %s\n"+
 				"Hint: try recreating the sandbox after unsandboxing the existing sandboxed subclusters", op.Sandbox, op.ScToSandbox)
 		}

@@ -19,13 +19,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"strconv"
 )
 
 type nmaLockAttemptsOp struct {
 	opBase
 	hostRequestBodyMap map[string]string
-	userName           string
 	startTime          string
 	endTime            string
 	nodeName           string
@@ -33,8 +31,8 @@ type nmaLockAttemptsOp struct {
 }
 
 type lockAttemptsRequestData struct {
-	Params   map[string]any `json:"params"`
-	Username string         `json:"username"`
+	sqlEndpointData
+	Params map[string]any `json:"params"`
 }
 
 const lockObjectName = "Global Catalog"
@@ -42,34 +40,38 @@ const lockObjectName = "Global Catalog"
 // TODO: We should let the endpoint just accept the seconds
 const minLockWaitDuration = "00:00:30"
 
-func makeNMALockAttemptsOp(upHosts []string, userName string,
-	startTime, endTime, nodeName string,
+//nolint:dupl // TODO all "SQL" endpoints could use a style and refactor pass
+func makeNMALockAttemptsOp(upHosts []string, userName, dbName string,
+	password *string, startTime, endTime, nodeName string,
 	resultLimit int) (nmaLockAttemptsOp, error) {
 	op := nmaLockAttemptsOp{}
 	op.name = "NMALockAttemptsOp"
 	op.description = "Check lock waiting events"
 	op.hosts = upHosts[:1] // set up the request for one of the up hosts only
-	op.userName = userName
 	op.startTime = startTime
 	op.endTime = endTime
 	op.nodeName = nodeName
 	op.resultLimit = resultLimit
 
-	err := op.setupRequestBody()
+	// NMA endpoints don't need to differentiate between empty password and no password
+	useDBPassword := password != nil
+	err := ValidateSQLEndpointData(op.name,
+		useDBPassword, userName, password, dbName)
 	if err != nil {
 		return op, err
 	}
-
-	return op, nil
+	err = op.setupRequestBody(userName, dbName, useDBPassword, password)
+	return op, err
 }
 
-func (op *nmaLockAttemptsOp) setupRequestBody() error {
+func (op *nmaLockAttemptsOp) setupRequestBody(username, dbName string, useDBPassword bool,
+	password *string) error {
 	op.hostRequestBodyMap = make(map[string]string)
 
 	for _, host := range op.hosts {
 		requestData := lockAttemptsRequestData{}
 
-		requestData.Username = op.userName
+		requestData.sqlEndpointData = createSQLEndpointData(username, dbName, useDBPassword, password)
 		requestData.Params = make(map[string]any)
 		requestData.Params["start-time"] = op.startTime
 		requestData.Params["end-time"] = op.endTime
@@ -131,13 +133,12 @@ type dcLockAttempts struct {
 	Duration    string `json:"duration"`
 	Mode        string `json:"mode"`
 	NodeName    string `json:"node_name"`
-	Object      int    `json:"object"`
+	Object      string `json:"object"`
 	ObjectName  string `json:"object_name"`
 	SessionID   string `json:"session_id"`
 	StartTime   string `json:"start_time"`
 	Time        string `json:"time"`
-	// TODO: let endpoint make this as a string
-	TxnID int `json:"transaction_id"`
+	TxnID       string `json:"transaction_id"`
 	// TxnInfo and SessionInfo are not used for parsing data from the NMA endpoint
 	// but will be used to show detailed info about the retrieved TxnID and SessionID
 	TxnInfo     dcTransactionStart `json:"transaction_info"`
@@ -149,8 +150,7 @@ func (event *dcLockAttempts) getSessionID() string {
 }
 
 func (event *dcLockAttempts) getTxnID() string {
-	// TODO: make the TxnID into string
-	return strconv.Itoa(event.TxnID)
+	return event.TxnID
 }
 
 func (op *nmaLockAttemptsOp) processResult(execContext *opEngineExecContext) error {

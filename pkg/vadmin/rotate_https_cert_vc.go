@@ -21,6 +21,7 @@ import (
 	vops "github.com/vertica/vcluster/vclusterops"
 	"github.com/vertica/vertica-kubernetes/pkg/cloud"
 	"github.com/vertica/vertica-kubernetes/pkg/net"
+	"github.com/vertica/vertica-kubernetes/pkg/secrets"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/rotatehttpscerts"
 )
 
@@ -29,7 +30,7 @@ func (v *VClusterOps) RotateHTTPSCerts(ctx context.Context, opts ...rotatehttpsc
 	v.setupForAPICall("RotateHTTPSCerts")
 	defer v.tearDownForAPICall()
 	v.Log.Info("Starting vcluster RotateHTTPSCerts")
-	secretName := v.VDB.GetNMATLSSecretNameInUse()
+	secretName := v.VDB.GetHTTPSTLSSecretNameInUse()
 	// get the certs
 	fetcher := cloud.SecretFetcher{
 		Client:   v.Client,
@@ -47,7 +48,7 @@ func (v *VClusterOps) RotateHTTPSCerts(ctx context.Context, opts ...rotatehttpsc
 
 	// call vclusterOps library to rotate nma cert
 	vopts := v.genRotateHTTPSCertsOptions(&s, certs)
-	err = v.VRotateHTTPSCerts(&vopts)
+	err = v.VRotateTLSCerts(&vopts)
 	if err != nil {
 		v.Log.Error(err, "failed to rotate https cert")
 		return err
@@ -56,8 +57,8 @@ func (v *VClusterOps) RotateHTTPSCerts(ctx context.Context, opts ...rotatehttpsc
 	return nil
 }
 
-func (v *VClusterOps) genRotateHTTPSCertsOptions(s *rotatehttpscerts.Params, certs *HTTPSCerts) vops.VRotateHTTPSCertsOptions {
-	opts := vops.VRotateHTTPSCertsOptionsFactory()
+func (v *VClusterOps) genRotateHTTPSCertsOptions(s *rotatehttpscerts.Params, certs *HTTPSCerts) vops.VRotateTLSCertsOptions {
+	opts := vops.VRotateTLSCertsOptionsFactory()
 
 	opts.DBName = v.VDB.Spec.DBName
 	opts.IsEon = v.VDB.IsEON()
@@ -71,7 +72,7 @@ func (v *VClusterOps) genRotateHTTPSCertsOptions(s *rotatehttpscerts.Params, cer
 		NewCert:   s.NewCert,
 		NewCaCert: s.NewCaCert,
 	}
-	opts.NewSecretMetadata = vops.RotateHTTPSCertsData{
+	opts.NewSecretMetadata = vops.RotateTLSCertsData{
 		KeySecretName:    s.KeySecretName,
 		KeyConfig:        s.KeyConfig,
 		CertSecretName:   s.CertSecretName,
@@ -79,8 +80,17 @@ func (v *VClusterOps) genRotateHTTPSCertsOptions(s *rotatehttpscerts.Params, cer
 		CACertSecretName: s.CACertSecretName,
 		CACertConfig:     s.CACertConfig,
 		TLSMode:          s.TLSMode,
+		TLSConfig:        "HTTP",
 	}
 	opts.UserName = v.VDB.GetVerticaUser()
 	v.setAuthentication(&opts.DatabaseOptions, v.VDB.GetVerticaUser(), &v.Password, certs)
+	secretManager := ""
+	switch {
+	case secrets.IsAWSSecretsManagerSecret(v.VDB.Spec.HTTPSTLSSecret):
+		secretManager = vops.AWSSecretManagerType
+	case secrets.IsK8sSecret(v.VDB.Spec.HTTPSTLSSecret):
+		secretManager = vops.K8sSecretManagerType
+	}
+	opts.TLSSecretManager = secretManager
 	return opts
 }
