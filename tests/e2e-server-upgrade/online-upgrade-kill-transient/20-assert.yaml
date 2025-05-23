@@ -19,5 +19,5 @@ status:
   subclusters:
     - addedToDBCount: 1
       upNodeCount: 1
-    -   addedToDBCount: 1
+    - addedToDBCount: 1
       upNodeCount: 1
