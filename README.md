@@ -41,7 +41,7 @@ After the operator is installed and running, create a Vertica deployment by gene
 Launching a new Vertica deployment with the operator is simple. Below is the minimal required CR configuration:
 
 ```shell
-apiVersion: vertica.com/v1beta1
+apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
   name: vertica-sample
