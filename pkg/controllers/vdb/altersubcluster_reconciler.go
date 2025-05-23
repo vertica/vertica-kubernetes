@@ -37,7 +37,6 @@ type AlterSubclusterTypeReconciler struct {
 	Vdb        *vapi.VerticaDB // Vdb is the CRD we are acting on.
 	PFacts     *podfacts.PodFacts
 	Dispatcher vadmin.Dispatcher
-	IsUpgrade  bool
 }
 
 // MakeAlterSubclusterTypeReconciler will build a AlterSubclusterTypeReconciler object

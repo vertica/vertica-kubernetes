@@ -178,14 +178,6 @@ func (v *VerticaDB) checkValidSubclusterTypeTransition(oldObj *VerticaDB, allErr
 		sc := oldObj.Spec.Subclusters[i]
 		nameToTypeMap[sc.Name] = sc.Type
 	}
-	// Helper function to log an error
-	invalidStateTransitionErr := func(inx int) {
-		path := field.NewPath("spec").Child("subclusters").Index(inx).Child("type")
-		err := field.Invalid(path,
-			v.Spec.Subclusters[inx].Type,
-			fmt.Sprintf("subcluster %s has invalid type change", v.Spec.Subclusters[inx].Name))
-		allErrs = append(allErrs, err)
-	}
 	// Go through new object to see that existing subclusters have a valid type change.
 	for i := range v.Spec.Subclusters {
 		sc := v.Spec.Subclusters[i]
@@ -195,18 +187,30 @@ func (v *VerticaDB) checkValidSubclusterTypeTransition(oldObj *VerticaDB, allErr
 			continue
 		}
 		if (oldType == TransientSubcluster) && oldType != sc.Type {
-			invalidStateTransitionErr(i)
+			err := field.Invalid(field.NewPath("spec").Child("subclusters").Index(i).Child("type"),
+				v.Spec.Subclusters[i].Type,
+				fmt.Sprintf("Subcluster %q with type %q can only be changed by the operator",
+					v.Spec.Subclusters[i].Name, TransientSubcluster))
+			allErrs = append(allErrs, err)
 		} else if oldType == PrimarySubcluster && sc.Type != PrimarySubcluster {
 			// main cluster should maintain k-safety after primary subcluster demotion
-			if !oldObj.IsKSafetyAfterRemoval(MainCluster, int(sc.Size)) {
-				invalidStateTransitionErr(i)
+			if !oldObj.HasKSafetyAfterRemoval(MainCluster, int(sc.Size)) {
+				err := field.Invalid(field.NewPath("spec").Child("subclusters").Index(i).Child("type"),
+					v.Spec.Subclusters[i].Type,
+					fmt.Sprintf("Main cluster lost k-safety after removing primary subcluster %q",
+						v.Spec.Subclusters[i].Name))
+				allErrs = append(allErrs, err)
 			}
 		} else if oldType == SecondarySubcluster && sc.Type != SecondarySubcluster {
 			scToSbMap := oldObj.GenSubclusterSandboxMap()
 			_, found := scToSbMap[sc.Name]
 			// subclusters type are not allowed to be updated if it's in a sandbox
 			if found {
-				invalidStateTransitionErr(i)
+				err := field.Invalid(field.NewPath("spec").Child("subclusters").Index(i).Child("type"),
+					v.Spec.Subclusters[i].Type,
+					fmt.Sprintf("Subcluster %q in sandbox cannot change its type in the main cluster",
+						v.Spec.Subclusters[i].Name))
+				allErrs = append(allErrs, err)
 			}
 		}
 	}
@@ -1847,7 +1851,7 @@ func (v *VerticaDB) checkSandboxSubclustersRemoved(allErrs field.ErrorList, oldO
 	return allErrs
 }
 
-// checkSandboxPrimary ensures number of the primary subclusters in the sandbox meets the quorum requirement
+// checkSandboxPrimary ensures number of the primary subclusters in the sandbox meets the k-safety requirement
 func (v *VerticaDB) checkSandboxPrimary(allErrs field.ErrorList, oldObj *VerticaDB, oldScIndexMap map[string]int,
 	oldScMap map[string]*Subcluster, path *field.Path) field.ErrorList {
 	oldScInSandbox := oldObj.GenSubclusterSandboxMap()
@@ -1871,11 +1875,12 @@ func (v *VerticaDB) checkSandboxPrimary(allErrs field.ErrorList, oldObj *Vertica
 			// calculate the number of primary subcluster nodes to be removed from the old sandbox
 			offsetMap[oldSbName] += int(sc.Size)
 			// check if the old sandbox has enough primary subcluster nodes after old subcluster removed
-			if !oldObj.IsKSafetyAfterRemoval(oldSbName, offsetMap[oldSbName]) {
+			if !oldObj.HasKSafetyAfterRemoval(oldSbName, offsetMap[oldSbName]) {
 				i := oldScIndexMap[oldScName]
 				err := field.Invalid(path.Index(i),
 					oldObj.Spec.Subclusters[i],
-					fmt.Sprintf("the sandbox %q does not have enough primary nodes after removing %q", oldSbName, oldScName))
+					fmt.Sprintf("the sandbox %q does not have enough primary nodes after removing %q",
+						oldSbName, oldScName))
 				allErrs = append(allErrs, err)
 			}
 
@@ -1891,7 +1896,7 @@ func (v *VerticaDB) checkSandboxPrimary(allErrs field.ErrorList, oldObj *Vertica
 			offsetMap[oldSbName] += int(sc.Size)
 
 			// check if the old sandbox has primary subcluster after old subcluster moved out
-			if !oldObj.IsKSafetyAfterRemoval(oldSbName, offsetMap[oldSbName]) {
+			if !oldObj.HasKSafetyAfterRemoval(oldSbName, offsetMap[oldSbName]) {
 				i := oldSbIndexMap[oldSbName]
 				p := field.NewPath("spec").Child("sandboxes")
 				err := field.Invalid(p.Index(i),

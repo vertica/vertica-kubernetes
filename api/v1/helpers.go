@@ -962,17 +962,19 @@ func (v *VerticaDB) GetKSafety() string {
 	return "1"
 }
 
-// IsKSafetyAfterRemoval checks whether a subcluster is k-safety after some primary nodes removed
-// when sbName is empty, it will check the main cluster
-func (v *VerticaDB) IsKSafetyAfterRemoval(sbName string, offset int) bool {
+// HasKSafetyAfterRemoval checks whether a main cluster or sandbox is k-safety
+// after some primary nodes removed
+func (v *VerticaDB) HasKSafetyAfterRemoval(sbName string, offset int) bool {
 	minHosts := KSafety0MinHosts
 	if !v.IsKSafety0() {
 		minHosts = KSafety1MinHosts
 	}
 
-	primaryCount := v.GetSandboxPrimaryUpCount(sbName)
+	primaryCount := 0
 	if sbName == MainCluster {
 		primaryCount = v.GetMainPrimaryUpCount()
+	} else {
+		primaryCount = v.GetSandboxPrimaryUpCount(sbName)
 	}
 
 	return primaryCount-offset >= minHosts
