@@ -11,7 +11,5 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: kuttl.dev/v1beta1
-kind: TestStep
-commands:
-  - script: cd ../../.. && make create-tls-secret SECRET_NAME=nma-cert SECRET_NAMESPACE=$NAMESPACE DB_USER=$VERTICA_SUPERUSER_NAME
+apiVersion: v1
+kind: PersistentVolumeClaim

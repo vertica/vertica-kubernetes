@@ -85,3 +85,5 @@ commands:
   - script: if [ "$NEED_PROMETHEUS" = "true" ]; then make deploy-prometheus-adapter; fi
   - script: make undeploy-keda || true
   - script: if [ "$NEED_PROMETHEUS" = "true" ]; then make deploy-keda; fi
+  - script: if [ "$USE_CERT" = "true" ]; then cat tests/e2e-leg-6/http-generated-certs/delete-cr-errors-cert.yaml > tests/e2e-leg-6/http-generated-certs/95-errors.yaml; fi
+  - script: if [ "$USE_CERT" != "true" ]; then cat tests/e2e-leg-6/http-generated-certs/delete-cr-errors.yaml > tests/e2e-leg-6/http-generated-certs/95-errors.yaml; fi
