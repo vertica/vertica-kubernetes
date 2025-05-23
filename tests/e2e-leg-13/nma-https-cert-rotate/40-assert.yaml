@@ -50,5 +50,5 @@ metadata:
 status:
   secretRefs:
     - name: custom-cert
-      type: NMATLSSecretType
+      type: HTTPSTLSSecretType
     - type: ClientServerTLSSecretType

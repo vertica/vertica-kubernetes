@@ -30,7 +30,7 @@ func (v *VClusterOps) UnsandboxSubcluster(ctx context.Context, opts ...unsandbox
 	v.Log.Info("Starting vcluster UnsandboxSubcluster")
 
 	// get the certs
-	certs, err := v.retrieveNMACerts(ctx)
+	certs, err := v.retrieveHTTPSCerts(ctx)
 	if err != nil {
 		return err
 	}

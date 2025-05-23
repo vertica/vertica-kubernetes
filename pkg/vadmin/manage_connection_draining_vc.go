@@ -32,7 +32,7 @@ func (v *VClusterOps) ManageConnectionDraining(ctx context.Context, opts ...mana
 	defer v.tearDownForAPICall()
 	v.Log.Info("Starting vcluster ManageConnectionDraining")
 
-	certs, err := v.retrieveNMACerts(ctx)
+	certs, err := v.retrieveHTTPSCerts(ctx)
 	if err != nil {
 		return err
 	}

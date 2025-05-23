@@ -32,7 +32,7 @@ func (v *VClusterOps) ShowRestorePoints(ctx context.Context, opts ...showrestore
 	defer v.tearDownForAPICall()
 	v.Log.Info("Starting vcluster ShowRestorePoints")
 
-	certs, err := v.retrieveNMACerts(ctx)
+	certs, err := v.retrieveHTTPSCerts(ctx)
 	if err != nil {
 		return restorePoints, err
 	}

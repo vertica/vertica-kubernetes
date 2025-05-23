@@ -1,0 +1,10 @@
+apiVersion: vertica.com/v1
+kind: VerticaDB
+metadata:
+  name: v-tls-certs
+status:
+  tlsModes:
+  - mode: TRY_VERIFY
+    type: HTTPSTLSModeType
+  - mode: TRY_VERIFY
+    type: ClientServerTLSModeType

@@ -167,13 +167,13 @@ func (o *ObjReconciler) checkMountedObjs(ctx context.Context) (ctrl.Result, erro
 		// that has the certs to use for it.  There is a reconciler that is run
 		// before this that will create the secret.  We will requeue if we find
 		// the Vdb doesn't have the secret set.
-		if o.Vdb.Spec.NMATLSSecret == "" {
+		if o.Vdb.Spec.HTTPSTLSSecret == "" {
 			o.Rec.Event(o.Vdb, corev1.EventTypeWarning, events.HTTPServerNotSetup,
-				"The nmaTLSSecret must be set when running with vclusterops deployment")
+				"The httpsTLSSecret must be set when running with vclusterops deployment")
 			return ctrl.Result{Requeue: true}, nil
 		}
 		_, res, err := o.SecretFetcher.FetchAllowRequeue(ctx,
-			names.GenNamespacedName(o.Vdb, o.Vdb.Spec.NMATLSSecret))
+			names.GenNamespacedName(o.Vdb, o.Vdb.Spec.HTTPSTLSSecret))
 		if verrors.IsReconcileAborted(res, err) {
 			return res, err
 		}
@@ -199,7 +199,7 @@ func (o *ObjReconciler) checkMountedObjs(ctx context.Context) (ctrl.Result, erro
 
 func (o *ObjReconciler) checkTLSSecrets(ctx context.Context) (ctrl.Result, error) {
 	tlsSecrets := map[string]string{
-		"NMA TLS":           o.Vdb.Spec.NMATLSSecret,
+		"NMA TLS":           o.Vdb.Spec.HTTPSTLSSecret,
 		"Client Server TLS": o.Vdb.Spec.ClientServerTLSSecret,
 	}
 	for k, tlsSecret := range tlsSecrets {
@@ -686,7 +686,7 @@ func (o *ObjReconciler) handleStatefulSetUpdate(ctx context.Context, sc *vapi.Su
 	// If the NMA deployment type is changing, we cannot do a rolling update for
 	// this change. All pods need to have the same NMA deployment type. So, we
 	// drop the old sts and create a fresh one.
-	if isNMADeploymentDifferent(curSts, expSts) {
+	if isNMADeploymentDifferent(curSts, expSts) || isLivenessPortDifferent(curSts, expSts) {
 		o.Log.Info("Dropping then recreating statefulset", "Name", expSts.Name)
 		// Invalidate the pod facts cache since we are recreating a new sts
 		o.PFacts.Invalidate()
@@ -723,21 +723,21 @@ func (o *ObjReconciler) reconcileNMACertConfigMap(ctx context.Context) error {
 		o.Log.Error(err, "failed to retrieve TLS cert secret configmap")
 		return err
 	}
-	if configMap.Data[builder.NMASecretNameEnv] == o.Vdb.Spec.NMATLSSecret &&
+	if configMap.Data[builder.NMASecretNameEnv] == o.Vdb.Spec.HTTPSTLSSecret &&
 		configMap.Data[builder.NMAClientSecretNameEnv] == o.Vdb.Spec.ClientServerTLSSecret &&
 		configMap.Data[builder.NMASecretNamespaceEnv] == o.Vdb.ObjectMeta.Namespace &&
 		configMap.Data[builder.NMAClientSecretNamespaceEnv] == o.Vdb.ObjectMeta.Namespace {
 		return nil
 	}
 
-	configMap.Data[builder.NMASecretNameEnv] = o.Vdb.Spec.NMATLSSecret
+	configMap.Data[builder.NMASecretNameEnv] = o.Vdb.Spec.HTTPSTLSSecret
 	configMap.Data[builder.NMASecretNamespaceEnv] = o.Vdb.ObjectMeta.Namespace
 	configMap.Data[builder.NMAClientSecretNameEnv] = o.Vdb.Spec.ClientServerTLSSecret
 	configMap.Data[builder.NMAClientSecretNamespaceEnv] = o.Vdb.ObjectMeta.Namespace
 
 	err = o.Rec.GetClient().Update(ctx, configMap)
 	if err == nil {
-		o.Log.Info("updated tls cert secret configmap", "name", configMapName.Name, "nma-secret", o.Vdb.Spec.NMATLSSecret,
+		o.Log.Info("updated tls cert secret configmap", "name", configMapName.Name, "nma-secret", o.Vdb.Spec.HTTPSTLSSecret,
 			"clientserver-secret", o.Vdb.Spec.ClientServerTLSSecret)
 	}
 	return err
@@ -750,7 +750,7 @@ func (o *ObjReconciler) reconcileTLSSecrets(ctx context.Context) error {
 	}
 
 	tlsSecrets := []string{
-		o.Vdb.Spec.NMATLSSecret,
+		o.Vdb.Spec.HTTPSTLSSecret,
 		o.Vdb.Spec.ClientServerTLSSecret,
 	}
 	for _, tlsSecret := range tlsSecrets {
@@ -866,6 +866,11 @@ func mergeAnnotations(existing, expected map[string]string) map[string]string {
 // NMA sidecar deployment and the other one doesn't.
 func isNMADeploymentDifferent(sts1, sts2 *appsv1.StatefulSet) bool {
 	return vk8s.HasNMAContainer(&sts1.Spec.Template.Spec) != vk8s.HasNMAContainer(&sts2.Spec.Template.Spec)
+}
+
+// isLivenessPortDifferent will return true if the two stateful sets use different http port for livness check
+func isLivenessPortDifferent(sts1, sts2 *appsv1.StatefulSet) bool {
+	return vk8s.GetLivenessProbePort(&sts1.Spec.Template.Spec) != vk8s.GetLivenessProbePort(&sts2.Spec.Template.Spec)
 }
 
 // checkIfReadyForStsUpdate will check whether it is okay to proceed

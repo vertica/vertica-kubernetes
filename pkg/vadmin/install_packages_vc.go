@@ -34,7 +34,7 @@ func (v *VClusterOps) InstallPackages(ctx context.Context, opts ...installpackag
 	s := installpackages.Parms{}
 	s.Make(opts...)
 
-	certs, err := v.retrieveNMACerts(ctx)
+	certs, err := v.retrieveHTTPSCerts(ctx)
 	if err != nil {
 		return &vops.InstallPackageStatus{}, err
 	}

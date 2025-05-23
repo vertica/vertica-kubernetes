@@ -211,14 +211,14 @@ var _ = Describe("status", func() {
 		Expect(k8sClient.Create(ctx, vdb)).Should(Succeed())
 		defer func() { Expect(k8sClient.Delete(ctx, vdb)).Should(Succeed()) }()
 
-		sec := vapi.MakeSecretRef(vapi.NMATLSSecretType, secretName)
+		sec := vapi.MakeSecretRef(vapi.HTTPSTLSSecretType, secretName)
 		Expect(UpdateSecretRef(ctx, k8sClient, vdb, sec)).Should(Succeed())
 		fetchVdb := &vapi.VerticaDB{}
 		nm := types.NamespacedName{Namespace: vdb.Namespace, Name: vdb.Name}
 		Expect(k8sClient.Get(ctx, nm, fetchVdb)).Should(Succeed())
 		for _, v := range []*vapi.VerticaDB{vdb, fetchVdb} {
 			Expect(len(v.Status.SecretRefs)).Should(Equal(1))
-			Expect(v.Status.SecretRefs[0].Type).Should(Equal(vapi.NMATLSSecretType))
+			Expect(v.Status.SecretRefs[0].Type).Should(Equal(vapi.HTTPSTLSSecretType))
 			Expect(v.Status.SecretRefs[0].Name).Should(Equal(secretName))
 		}
 	})
@@ -230,8 +230,8 @@ var _ = Describe("status", func() {
 		defer func() { Expect(k8sClient.Delete(ctx, vdb)).Should(Succeed()) }()
 
 		secs := []vapi.SecretRef{
-			{Type: vapi.NMATLSSecretType, Name: sn},
-			{Type: vapi.NMATLSSecretType, Name: secretName},
+			{Type: vapi.HTTPSTLSSecretType, Name: sn},
+			{Type: vapi.HTTPSTLSSecretType, Name: secretName},
 		}
 
 		for i := range secs {
@@ -255,8 +255,8 @@ var _ = Describe("status", func() {
 
 		secs := []vapi.SecretRef{
 			{Type: "type1", Name: "sec1"},
-			{Type: vapi.NMATLSSecretType, Name: sn},
-			{Type: vapi.NMATLSSecretType, Name: secretName},
+			{Type: vapi.HTTPSTLSSecretType, Name: sn},
+			{Type: vapi.HTTPSTLSSecretType, Name: secretName},
 		}
 
 		for i := range secs {

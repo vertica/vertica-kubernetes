@@ -53,9 +53,9 @@ var _ = Describe("manage_connection_draining_vc", func() {
 	It("should call VManageConnectionDraining in the vcluster-ops library", func() {
 		dispatcher := mockVClusterOpsDispatcher()
 		dispatcher.VDB.Spec.DBName = TestDBName
-		dispatcher.VDB.Spec.NMATLSSecret = "manage-conn-drain-test-secret"
-		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.NMATLSSecret)
-		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.NMATLSSecret)
+		dispatcher.VDB.Spec.HTTPSTLSSecret = "manage-conn-drain-test-secret"
+		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.HTTPSTLSSecret)
+		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.HTTPSTLSSecret)
 
 		err := dispatcher.ManageConnectionDraining(ctx,
 			manageconnectiondraining.WithInitiator(TestSourceIP),

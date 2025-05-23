@@ -43,7 +43,7 @@ func (v *VClusterOps) AlterSubclusterType(ctx context.Context, opts ...altersc.O
 	}
 
 	// get the certs
-	certs, err := v.retrieveNMACerts(ctx)
+	certs, err := v.retrieveHTTPSCerts(ctx)
 	if err != nil {
 		return err
 	}

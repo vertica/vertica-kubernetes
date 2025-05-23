@@ -35,7 +35,7 @@ func (v *VClusterOps) SetTLSConfig(ctx context.Context, opts ...settlsconfig.Opt
 	defer v.tearDownForAPICall()
 	v.Log.Info("Starting vcluster SetTLSConfig")
 
-	certs, err := v.retrieveNMACerts(ctx)
+	certs, err := v.retrieveHTTPSCerts(ctx)
 	if err != nil {
 		return err
 	}

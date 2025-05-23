@@ -34,7 +34,7 @@ func (v *VClusterOps) SetConfigurationParameter(ctx context.Context, opts ...set
 	defer v.tearDownForAPICall()
 	v.Log.Info("Starting vcluster SetConfigurationParameter")
 
-	certs, err := v.retrieveNMACerts(ctx)
+	certs, err := v.retrieveHTTPSCerts(ctx)
 	if err != nil {
 		return err
 	}
