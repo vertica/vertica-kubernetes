@@ -704,7 +704,7 @@ func (o *ObjReconciler) handleStatefulSetUpdate(ctx context.Context, sc *vapi.Su
 // reconcileNMACertConfigMap creates/updates the configmap that contains the tls
 // secret name
 func (o *ObjReconciler) reconcileNMACertConfigMap(ctx context.Context) error {
-	if vmeta.UseNMACertsMount(o.Vdb.Annotations) || !vmeta.EnableTLSCertsRotation(o.Vdb.Annotations) {
+	if vmeta.UseTLSAuth(o.Vdb.Annotations) {
 		return nil
 	}
 	configMapName := names.GenNMACertConfigMap(o.Vdb)

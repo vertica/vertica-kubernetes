@@ -105,8 +105,7 @@ func (v *VerticaDB) FindTransientSubcluster() *Subcluster {
 }
 
 func SetVDBForTLS(v *VerticaDB) {
-	v.Annotations[vmeta.EnableTLSCertsRotationAnnotation] = trueString
-	v.Annotations[vmeta.MountNMACertsAnnotation] = "false"
+	v.Annotations[vmeta.EnableTLSAuth] = trueString
 	v.Annotations[vmeta.VersionAnnotation] = TLSCertRotationMinVersion
 	v.Annotations[vmeta.VClusterOpsAnnotation] = trueString
 }
@@ -891,8 +890,7 @@ func (v *VerticaDB) IsCertRotationEnabled() bool {
 		return false
 	}
 	return vinf.IsEqualOrNewer(TLSCertRotationMinVersion) &&
-		!vmeta.UseNMACertsMount(v.Annotations) &&
-		vmeta.EnableTLSCertsRotation(v.Annotations)
+		vmeta.UseTLSAuth(v.Annotations)
 }
 
 // IsNMASideCarDeploymentEnabled returns true if the conditions to run NMA

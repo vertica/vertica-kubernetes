@@ -77,9 +77,8 @@ const (
 	MountNMACertsAnnotationTrue  = "true"
 	MountNMACertsAnnotationFalse = "false"
 
-	// A temporary annotation to enable NMA certs rotation. It will be removed once we
-	// are sure to have a smooth transition from a version that supports NMA certs mount.
-	EnableTLSCertsRotationAnnotation = "vertica.com/enable-tls-certs-rotation"
+	// This is a feature flag for enables authentication via Mutual TLS
+	EnableTLSAuth = "vertica.com/enable-tls-auth"
 
 	// Two annotations that are set by the operator when creating objects.
 	OperatorDeploymentMethodAnnotation = "vertica.com/operator-deployment-method"
@@ -449,11 +448,11 @@ func UseVProxyCertsMount(annotations map[string]string) bool {
 // UseNMACertsMount returns true if the NMA reads certs from the mounted secret
 // volume rather than directly from k8s secret store.
 func UseNMACertsMount(annotations map[string]string) bool {
-	return lookupBoolAnnotation(annotations, MountNMACertsAnnotation, true /* default value */)
+	return lookupBoolAnnotation(annotations, MountNMACertsAnnotation, false /* default value */)
 }
 
-func EnableTLSCertsRotation(annotations map[string]string) bool {
-	return lookupBoolAnnotation(annotations, EnableTLSCertsRotationAnnotation, false /* default value */)
+func UseTLSAuth(annotations map[string]string) bool {
+	return lookupBoolAnnotation(annotations, EnableTLSAuth, false /* default value */)
 }
 
 // IgnoreClusterLease returns true if revive/start should ignore the cluster lease
