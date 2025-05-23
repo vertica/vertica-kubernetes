@@ -60,6 +60,9 @@ const (
 	tlsModeVerifyCA          = "verify_ca"
 	tlsModeTryVerify         = "try_verify"
 	tlsModeVerifyFull        = "verify_full"
+	nmaTLSModeDisable        = "disable"
+	nmaTLSModeEnable         = "enable"
+	nmaTLSModeVerifyCA       = "verify-ca"
 	DefaultServiceHTTPSPort  = 8443
 	DefaultServiceClientPort = 5433
 )
@@ -1499,6 +1502,33 @@ func (v *VerticaDB) GetHTTPSTLSSecretNameInUse() string {
 
 func (v *VerticaDB) GetClientServerTLSSecretNameInUse() string {
 	return v.GetSecretNameInUse(ClientServerTLSSecretType)
+}
+
+// IsCertNeededForClientServerAuth returns true if certificate is needed for client-server authentication
+func (v *VerticaDB) IsCertNeededForClientServerAuth() bool {
+	tlsMode := strings.ToLower(v.Spec.ClientServerTLSMode)
+	return tlsMode != tlsModeDisable && tlsMode != tlsModeEnable
+}
+
+// GetNMAClientServerTLSMode returns the tlsMode for NMA client-server communication
+func (v *VerticaDB) GetNMAClientServerTLSMode() string {
+	tlsMode := strings.ToLower(v.Spec.ClientServerTLSMode)
+	switch tlsMode {
+	case tlsModeDisable:
+		return nmaTLSModeDisable
+	case tlsModeEnable, tlsModeTryVerify:
+		return nmaTLSModeEnable
+	case tlsModeVerifyCA, tlsModeVerifyFull:
+		// There is still a flaw in vclusterOps: create_db set_tls will fail
+		// since nma cannot verify server certificate. After we extract set_tls
+		// from create_db, we can remove the db init check.
+		if !v.isDBInitialized() {
+			return nmaTLSModeEnable
+		}
+		return nmaTLSModeVerifyCA
+	default:
+		return nmaTLSModeEnable
+	}
 }
 
 // FindSecretRef returns a pointer to the SecretRef with the given type, or nil if not found.
