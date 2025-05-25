@@ -1,10 +1,19 @@
-apiVersion: vertica.com/v1
-kind: VerticaDB
-metadata:
+apiVersion: v1
+kind: Event
+reason: TLSModeUpdateStarted
+source:
+  component: verticadb-operator
+involvedObject:
+  apiVersion: vertica.com/v1
+  kind: VerticaDB
   name: v-tls-certs
-status:
-  tlsModes:
-  - mode: TRY_VERIFY
-    type: HTTPSTLSModeType
-  - mode: TRY_VERIFY
-    type: ClientServerTLSModeType
+---
+apiVersion: v1
+kind: Event
+reason: TLSModeUpdateSucceeded
+source:
+  component: verticadb-operator
+involvedObject:
+  apiVersion: vertica.com/v1
+  kind: VerticaDB
+  name: v-tls-certs

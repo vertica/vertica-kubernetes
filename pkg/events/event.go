@@ -123,7 +123,7 @@ const (
 	NMATLSCertRotationStarted        = "NMATLSCertRotationStarted"
 	NMATLSCertRotationSucceeded      = "NMATLSCertRotationSucceeded"
 	HTTPSCertRotationStarted         = "HTTPSCertRotationStarted"
-	HTTPSCertRotationSucceeded       = "HTTPSCertRotationSucceeded"
+	HTTPSCertRotationSucceded        = "HTTPSCertRotationSucceded"
 	HTTPSCertRotationFailed          = "HTTPSCertRotationFailed"
 	TLSModeUpdateStarted             = "TLSModeUpdateStarted"
 	TLSModeUpdateSucceeded           = "TLSModeUpdateSucceeded"

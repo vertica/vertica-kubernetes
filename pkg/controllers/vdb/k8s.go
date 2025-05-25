@@ -140,30 +140,3 @@ func readSecrets(vdb *vapi.VerticaDB, vrec config.ReconcilerInterface, k8sClient
 
 	return currentSecretData, newSecretData, res, err
 }
-
-// readSecret will read a songle secret
-func readSecret(vdb *vapi.VerticaDB, vrec config.ReconcilerInterface, k8sClient client.Client,
-	log logr.Logger, ctx context.Context, secretName string) (secret map[string][]byte, res ctrl.Result, err error) {
-	nmSecretName := types.NamespacedName{
-		Name:      secretName,
-		Namespace: vdb.GetNamespace(),
-	}
-
-	evWriter := events.Writer{
-		Log:   log,
-		EVRec: vrec.GetEventRecorder(),
-	}
-	secretFetcher := &cloud.SecretFetcher{
-		Client:   k8sClient,
-		Log:      log,
-		EVWriter: evWriter,
-		Obj:      vdb,
-	}
-
-	secretData, res, err := secretFetcher.FetchAllowRequeue(ctx, nmSecretName)
-	if verrors.IsReconcileAborted(res, err) {
-		return nil, res, err
-	}
-
-	return secretData, res, err
-}
