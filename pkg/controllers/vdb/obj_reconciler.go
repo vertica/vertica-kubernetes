@@ -750,7 +750,7 @@ func (o *ObjReconciler) reconcileTLSSecrets(ctx context.Context) error {
 	}
 
 	tlsSecrets := []string{
-		o.Vdb.Spec.NMATLSSecret,
+		o.Vdb.Spec.HTTPSTLSSecret,
 		o.Vdb.Spec.ClientServerTLSSecret,
 	}
 	for _, tlsSecret := range tlsSecrets {
