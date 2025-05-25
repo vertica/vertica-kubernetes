@@ -22,7 +22,6 @@ import (
 
 	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
-	"github.com/vertica/vertica-kubernetes/pkg/builder"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	"github.com/vertica/vertica-kubernetes/pkg/secrets"
 
@@ -30,7 +29,6 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
-	"github.com/vertica/vertica-kubernetes/pkg/security"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/rotatehttpscerts"
 	"github.com/vertica/vertica-kubernetes/pkg/vdbstatus"
@@ -80,7 +78,7 @@ func (h *HTTPSCertRotationReconciler) Reconcile(ctx context.Context, _ *ctrl.Req
 	// rotation is required. Will check start conditions next
 	// check if secret is ready for rotation
 
-	currentSecretData, newSecretData, res, err := readSecrets(h.Vdb, h.VRec, h.VRec.GetClient(), h.Log, ctx,
+	_, newSecretData, res, err := readSecrets(h.Vdb, h.VRec, h.VRec.GetClient(), h.Log, ctx,
 		currentSecretName, newSecretName)
 	if verrors.IsReconcileAborted(res, err) {
 		return res, err
@@ -101,7 +99,7 @@ func (h *HTTPSCertRotationReconciler) Reconcile(ctx context.Context, _ *ctrl.Req
 	}
 
 	// Now https cert rotation will start
-	res, err2 := h.rotateHTTPSTLSCert(ctx, newSecretData, currentSecretData)
+	res, err2 := h.rotateHTTPSTLSCert(ctx, newSecretData)
 	if verrors.IsReconcileAborted(res, err2) {
 		h.Log.Info("https cert rotation is aborted.")
 		return res, err2
@@ -128,56 +126,40 @@ func (h *HTTPSCertRotationReconciler) Reconcile(ctx context.Context, _ *ctrl.Req
 }
 
 // rotateHTTPSTLSCert will rotate https server's tls cert from currentSecret to newSecret
-func (h *HTTPSCertRotationReconciler) rotateHTTPSTLSCert(ctx context.Context, newSecret,
-	currentSecret map[string][]byte) (ctrl.Result, error) {
+func (h *HTTPSCertRotationReconciler) rotateHTTPSTLSCert(ctx context.Context, newSecret map[string][]byte) (ctrl.Result, error) {
 	initiatorPod, ok := h.PFacts.FindFirstUpPod(false, "")
 	if !ok {
 		h.Log.Info("No pod found to run rotate https cert. Requeue reconciliation.")
 		return ctrl.Result{Requeue: true}, nil
 	}
 	newCert := string(newSecret[corev1.TLSCertKey])
-	currentCert := string(currentSecret[corev1.TLSCertKey])
-	rotated, err := security.VerifyCert(initiatorPod.GetPodIP(), builder.VerticaHTTPPort, newCert, currentCert, h.Log)
+	currentSecretName := h.Vdb.GetHTTPSTLSSecretNameInUse()
+	h.Log.Info("ready to rotate certi from " + currentSecretName + " to " + h.Vdb.Spec.HTTPSTLSSecret)
+	var keyConfig, certConfig, caCertConfig, secretName string
+	switch {
+	case secrets.IsAWSSecretsManagerSecret(h.Vdb.Spec.HTTPSTLSSecret):
+		keyConfig, certConfig, caCertConfig = GetAWSCertsConfig(h.Vdb)
+		secretName = secrets.RemovePathReference(h.Vdb.Spec.HTTPSTLSSecret)
+	default:
+		keyConfig, certConfig, caCertConfig = GetK8sCertsConfig(h.Vdb)
+		secretName = h.Vdb.Spec.HTTPSTLSSecret
+	}
+	opts := []rotatehttpscerts.Option{
+		rotatehttpscerts.WithPollingKey(string(newSecret[corev1.TLSPrivateKeyKey])),
+		rotatehttpscerts.WithPollingCert(newCert),
+		rotatehttpscerts.WithPollingCaCert(string(newSecret[corev1.ServiceAccountRootCAKey])),
+		rotatehttpscerts.WithKey(secretName, keyConfig),
+		rotatehttpscerts.WithCert(secretName, certConfig),
+		rotatehttpscerts.WithCaCert(secretName, caCertConfig),
+		rotatehttpscerts.WithTLSMode(h.Vdb.Spec.HTTPSTLSMode),
+		rotatehttpscerts.WithInitiator(initiatorPod.GetPodIP()),
+	}
+	h.Log.Info("to call RotateHTTPSCerts for cert " + h.Vdb.Spec.HTTPSTLSSecret + ", tls enabled " +
+		strconv.FormatBool(h.Vdb.IsCertRotationEnabled()))
+	err := h.Dispatcher.RotateHTTPSCerts(ctx, opts...)
 	if err != nil {
-		h.Log.Error(err, "https cert rotation aborted. Failed to verify new https cert for "+
-			initiatorPod.GetPodIP())
+		h.Log.Error(err, "failed to rotate https cert to "+h.Vdb.Spec.HTTPSTLSSecret)
 		return ctrl.Result{}, err
-	}
-	if rotated == 2 {
-		h.Log.Info("https cert rotation aborted. Neither new nor current https cert is in use")
-		return ctrl.Result{Requeue: true}, nil
-	}
-	if rotated == 0 {
-		h.Log.Info("https cert rotation skipped. new https cert is already in use on " + initiatorPod.GetPodIP())
-	} else {
-		currentSecretName := h.Vdb.GetHTTPSTLSSecretNameInUse()
-		h.Log.Info("ready to rotate certi from " + currentSecretName + " to " + h.Vdb.Spec.HTTPSTLSSecret)
-		var keyConfig, certConfig, caCertConfig, secretName string
-		switch {
-		case secrets.IsAWSSecretsManagerSecret(h.Vdb.Spec.HTTPSTLSSecret):
-			keyConfig, certConfig, caCertConfig = GetAWSCertsConfig(h.Vdb)
-			secretName = secrets.RemovePathReference(h.Vdb.Spec.HTTPSTLSSecret)
-		default:
-			keyConfig, certConfig, caCertConfig = GetK8sCertsConfig(h.Vdb)
-			secretName = h.Vdb.Spec.HTTPSTLSSecret
-		}
-		opts := []rotatehttpscerts.Option{
-			rotatehttpscerts.WithPollingKey(string(newSecret[corev1.TLSPrivateKeyKey])),
-			rotatehttpscerts.WithPollingCert(newCert),
-			rotatehttpscerts.WithPollingCaCert(string(newSecret[corev1.ServiceAccountRootCAKey])),
-			rotatehttpscerts.WithKey(secretName, keyConfig),
-			rotatehttpscerts.WithCert(secretName, certConfig),
-			rotatehttpscerts.WithCaCert(secretName, caCertConfig),
-			rotatehttpscerts.WithTLSMode(h.Vdb.Spec.HTTPSTLSMode),
-			rotatehttpscerts.WithInitiator(initiatorPod.GetPodIP()),
-		}
-		h.Log.Info("to call RotateHTTPSCerts for cert " + h.Vdb.Spec.HTTPSTLSSecret + ", tls enabled " +
-			strconv.FormatBool(h.Vdb.IsCertRotationEnabled()))
-		err = h.Dispatcher.RotateHTTPSCerts(ctx, opts...)
-		if err != nil {
-			h.Log.Error(err, "failed to rotate https cert to "+h.Vdb.Spec.HTTPSTLSSecret)
-			return ctrl.Result{}, err
-		}
 	}
 	return ctrl.Result{}, err
 }
