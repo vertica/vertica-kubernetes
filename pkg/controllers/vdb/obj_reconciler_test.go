@@ -988,28 +988,28 @@ var _ = Describe("obj_reconcile", func() {
 
 		It("should remove ownerReference from tls secret", func() {
 			vdb := vapi.MakeVDB()
-			vdb.Spec.NMATLSSecret = "test-secret"
+			vdb.Spec.HTTPSTLSSecret = "test-secret"
 			vdb.Annotations[vmeta.MountNMACertsAnnotation] = falseStr
 			vdb.Annotations[vmeta.EnableTLSCertsRotationAnnotation] = trueStr
 			createCrd(vdb, false)
 			defer deleteCrd(vdb)
-			secret := test.BuildTLSSecret(vdb, vdb.Spec.NMATLSSecret, test.TestKeyValue, test.TestCertValue, test.TestCaCertValue)
+			secret := test.BuildTLSSecret(vdb, vdb.Spec.HTTPSTLSSecret, test.TestKeyValue, test.TestCertValue, test.TestCaCertValue)
 			secret.OwnerReferences = []metav1.OwnerReference{
 				{UID: vdb.GetUID(), Name: vdb.Name, Kind: vapi.VerticaDBKind, APIVersion: vapi.GroupVersion.String()},
 			}
 			Expect(k8sClient.Create(ctx, secret)).Should(Succeed())
-			defer test.DeleteSecret(ctx, k8sClient, vdb.Spec.NMATLSSecret)
+			defer test.DeleteSecret(ctx, k8sClient, vdb.Spec.HTTPSTLSSecret)
 
 			o := &ObjReconciler{
 				Rec: vdbRec,
 				Vdb: vdb,
 				Log: logger,
 			}
-			err := o.updateOwnerReferenceInTLSSecret(ctx, vdb.Spec.NMATLSSecret)
+			err := o.updateOwnerReferenceInTLSSecret(ctx, vdb.Spec.HTTPSTLSSecret)
 			Expect(err).Should(Succeed())
 
 			fetchedSecret := &corev1.Secret{}
-			secretName := names.GenNamespacedName(o.Vdb, vdb.Spec.NMATLSSecret)
+			secretName := names.GenNamespacedName(o.Vdb, vdb.Spec.HTTPSTLSSecret)
 			Expect(k8sClient.Get(ctx, secretName, fetchedSecret)).Should(Succeed())
 			Expect(len(fetchedSecret.OwnerReferences)).Should(Equal(0))
 		})
