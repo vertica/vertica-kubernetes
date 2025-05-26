@@ -221,7 +221,8 @@ func (h *TLSServerCertGenReconciler) reconcileNMACertConfigMap(ctx context.Conte
 	if configMap.Data[builder.NMASecretNameEnv] == h.Vdb.Spec.HTTPSTLSSecret &&
 		configMap.Data[builder.NMAClientSecretNameEnv] == h.Vdb.Spec.ClientServerTLSSecret &&
 		configMap.Data[builder.NMASecretNamespaceEnv] == h.Vdb.ObjectMeta.Namespace &&
-		configMap.Data[builder.NMAClientSecretNamespaceEnv] == h.Vdb.ObjectMeta.Namespace {
+		configMap.Data[builder.NMAClientSecretNamespaceEnv] == h.Vdb.ObjectMeta.Namespace &&
+		configMap.Data[builder.NMAClientSecretTLSModeEnv] == o.Vdb.GetNMAClientServerTLSMode() {
 		return nil
 	}
 
@@ -229,6 +230,7 @@ func (h *TLSServerCertGenReconciler) reconcileNMACertConfigMap(ctx context.Conte
 	configMap.Data[builder.NMASecretNamespaceEnv] = h.Vdb.ObjectMeta.Namespace
 	configMap.Data[builder.NMAClientSecretNameEnv] = h.Vdb.Spec.ClientServerTLSSecret
 	configMap.Data[builder.NMAClientSecretNamespaceEnv] = h.Vdb.ObjectMeta.Namespace
+	configMap.Data[builder.NMAClientSecretTLSModeEnv] = h.Vdb.GetNMAClientServerTLSMode()
 
 	err = h.VRec.GetClient().Update(ctx, configMap)
 	if err == nil {
