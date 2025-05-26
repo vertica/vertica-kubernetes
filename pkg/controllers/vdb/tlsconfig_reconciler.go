@@ -104,29 +104,34 @@ func (h *TLSConfigReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (c
 	h.VRec.Eventf(h.Vdb, corev1.EventTypeNormal, events.TLSConfigurationStarted,
 		"Starting to configure TLS")
 
-	h.Log.Info("will restart nma before setting up tls config")
+	err = h.updateAnnotations(ctx, map[string]string{
+		meta.MountNMACertsAnnotation: "false",
+	})
+	if err != nil {
+		h.Log.Error(err, fmt.Sprintf("failed to set annotation %s to false", meta.MountNMACertsAnnotation))
+	}
+	/*h.Log.Info("will restart nma before setting up tls config")
 	res, err := h.restartNMA(ctx)
 	if verrors.IsReconcileAborted(res, err) {
 		return res, err
 	}
-	h.Log.Info("restarted nma before setting up tls config")
-	h.Log.Info("generate SQL to set up TLS")
+	h.Log.Info("restarted nma before setting up tls config")*/
+	h.Log.Info("run DDL to set up TLS")
 	err = h.runDDLToConfigureTLS(ctx, initiatorPod)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	h.Log.Info("executed SQL to set up TLS")
+	h.Log.Info("executed DDL to set up TLS")
 	err = h.updateStatus(ctx)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	chgs := vk8s.MetaChanges{
-		NewAnnotations: map[string]string{
-			meta.EnableTLSCertsRotationAnnotation: "true",
-			meta.SetupTLSConfigAnnotation:         "false",
-		},
-	}
-	if _, err := vk8s.MetaUpdate(ctx, h.VRec.Client, h.Vdb.ExtractNamespacedName(), h.Vdb, chgs); err != nil {
+	err = h.updateAnnotations(ctx, map[string]string{
+		meta.EnableTLSCertsRotationAnnotation: "true",
+		meta.SetupTLSConfigAnnotation:         "false",
+		meta.MountNMACertsAnnotation:          "false",
+	})
+	if err != nil {
 		h.Log.Error(err, "failed to update tls annotations after setting up TLS")
 		return ctrl.Result{}, err
 	}
@@ -135,6 +140,14 @@ func (h *TLSConfigReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (c
 	h.VRec.Eventf(h.Vdb, corev1.EventTypeNormal, events.TLSConfigurationSucceeded,
 		"Successfully configured TLS")
 	return ctrl.Result{}, nil
+}
+
+func (h *TLSConfigReconciler) updateAnnotations(ctx context.Context, newAnnotations map[string]string) error {
+	chgs := vk8s.MetaChanges{
+		NewAnnotations: newAnnotations,
+	}
+	_, err := vk8s.MetaUpdate(ctx, h.VRec.Client, h.Vdb.ExtractNamespacedName(), h.Vdb, chgs)
+	return err
 }
 
 func (h *TLSConfigReconciler) restartNMA(ctx context.Context) (ctrl.Result, error) {
