@@ -34,6 +34,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/rotatenmacerts"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/settlsconfig"
 	config "github.com/vertica/vertica-kubernetes/pkg/vdbconfig"
 	"github.com/vertica/vertica-kubernetes/pkg/vdbstatus"
 	"github.com/vertica/vertica-kubernetes/pkg/vk8s"
@@ -110,7 +111,7 @@ func (h *TLSConfigReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (c
 	}
 	h.Log.Info("restarted nma before setting up tls config")
 	h.Log.Info("generate SQL to set up TLS")
-	err = h.runTLSDDL(ctx, initiatorPod)
+	err = h.runDDLToConfigureTLS(ctx, initiatorPod)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -158,6 +159,18 @@ func (h *TLSConfigReconciler) restartNMA(ctx context.Context) (ctrl.Result, erro
 		h.Log.Error(err, "failed to set nma cert to "+h.Vdb.Spec.HTTPSTLSSecret)
 	}
 	return ctrl.Result{}, err
+}
+
+func (h *TLSConfigReconciler) runDDLToConfigureTLS(ctx context.Context, initiatorPod *podfacts.PodFact) error {
+	opts := []settlsconfig.Option{
+		settlsconfig.WithHTTPSTLSMode(h.Vdb.Spec.HTTPSTLSMode),
+		settlsconfig.WithHTTPSTLSSecretName(h.Vdb.Spec.HTTPSTLSSecret),
+		settlsconfig.WithClientServerTLSMode(h.Vdb.Spec.ClientServerTLSMode),
+		settlsconfig.WithClientServerTLSSecretName(h.Vdb.Spec.ClientServerTLSSecret),
+		settlsconfig.WithInitiatorIP(initiatorPod.GetPodIP()),
+		settlsconfig.WithNamespace(h.Vdb.GetObjectMeta().GetNamespace()),
+	}
+	return h.Dispatcher.SetTLSConfig(ctx, opts...)
 }
 
 func (h *TLSConfigReconciler) runTLSDDL(ctx context.Context, initiatorPod *podfacts.PodFact) error {
