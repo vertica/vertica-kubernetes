@@ -222,7 +222,7 @@ func (h *TLSServerCertGenReconciler) reconcileNMACertConfigMap(ctx context.Conte
 		configMap.Data[builder.NMAClientSecretNameEnv] == h.Vdb.Spec.ClientServerTLSSecret &&
 		configMap.Data[builder.NMASecretNamespaceEnv] == h.Vdb.ObjectMeta.Namespace &&
 		configMap.Data[builder.NMAClientSecretNamespaceEnv] == h.Vdb.ObjectMeta.Namespace &&
-		configMap.Data[builder.NMAClientSecretTLSModeEnv] == o.Vdb.GetNMAClientServerTLSMode() {
+		configMap.Data[builder.NMAClientSecretTLSModeEnv] == h.Vdb.GetNMAClientServerTLSMode() {
 		return nil
 	}
 
