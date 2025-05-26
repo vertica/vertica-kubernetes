@@ -156,7 +156,7 @@ func (vcc VClusterCommands) VClusterHealth(options *VClusterHealthOptions) error
 		return err
 	}
 
-	err = vcc.getVDBFromRunningDB(&vdb, &options.DatabaseOptions)
+	err = vcc.getVDBFromRunningDBIncludeSandbox(&vdb, &options.DatabaseOptions, util.MainClusterSandbox)
 	if err != nil {
 		return err
 	}
