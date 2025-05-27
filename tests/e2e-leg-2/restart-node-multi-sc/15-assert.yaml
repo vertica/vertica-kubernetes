@@ -17,4 +17,4 @@ metadata:
   name: v-mc-restart
 status:
   subclusterCount: 3
-  addedToDBCount: 3
+  addedToDBCount: 2
