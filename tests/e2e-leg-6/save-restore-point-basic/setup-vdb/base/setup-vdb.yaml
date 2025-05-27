@@ -11,34 +11,32 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: apps/v1
-kind: StatefulSet
-metadata:
-  name: v-revive-3-node-main
-status:
-  replicas: 3
-  readyReplicas: 3
----
 apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
-  name: v-revive-3-node
+  name: v-restore-point
+  annotations:
+    vertica.com/include-uid-in-path: "true"
+    vertica.com/k-safety: "0"
+    vertica.com/requeue-time: "5"
 spec:
+  image: kustomize-vertica-image
+  communal:
+    path: "s3://nimbusdb/db"
+    endpoint: "http://minio"
+    credentialSecret: s3-auth
   local:
-    dataPath: /my-data
-    depotPath: /my-data
-    depotVolume: PersistentVolume
-status:
+    requestSize: 100Mi
+  initPolicy: CreateSkipPackageInstall
+  dbName: vertdb
+  restorePoint:
+    archive: test
   subclusters:
-    - addedToDBCount: 3
-      upNodeCount: 3
----
-apiVersion: v1
-kind: Event
-reason: ClusterRestartSucceeded
-source:
-  component: verticadb-operator
-involvedObject:
-  apiVersion: vertica.com/v1
-  kind: VerticaDB
-  name: v-revive-3-node
+    - name: sc1
+      size: 1
+  certSecrets: []
+  nmaTLSSecret: custom-cert
+  imagePullSecrets: []
+  volumes: []
+  volumeMounts: []
+  clientServerTLSMode: disable

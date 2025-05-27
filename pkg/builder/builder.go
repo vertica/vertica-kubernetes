@@ -85,6 +85,7 @@ const (
 	NMASecretNameEnv            = "NMA_SECRET_NAME"             // #nosec G101
 	NMAClientSecretNamespaceEnv = "NMA_CLIENT_SECRET_NAMESPACE" // #nosec G101
 	NMAClientSecretNameEnv      = "NMA_CLIENT_SECRET_NAME"      // #nosec G101
+	NMAClientSecretTLSModeEnv   = "NMA_CLIENT_TLS_MODE"         // #nosec G101
 
 	// Environment variables that are set only in the nma container
 	NMALogPath = "NMA_LOG_PATH"
@@ -2067,6 +2068,16 @@ func buildNMATLSCertsEnvVars(vdb *vapi.VerticaDB) []corev1.EnvVar {
 					Optional: &notTrue,
 				},
 			}},
+		{Name: NMAClientSecretTLSModeEnv,
+			ValueFrom: &corev1.EnvVarSource{
+				ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: configMapName,
+					},
+					Key:      NMAClientSecretTLSModeEnv,
+					Optional: &notTrue,
+				},
+			}},
 	}
 }
 
@@ -2164,6 +2175,7 @@ func BuildNMATLSConfigMap(nm types.NamespacedName, vdb *vapi.VerticaDB) *corev1.
 		NMASecretNameEnv:            vdb.Spec.NMATLSSecret,
 		NMAClientSecretNamespaceEnv: vdb.ObjectMeta.Namespace,
 		NMAClientSecretNameEnv:      vdb.Spec.ClientServerTLSSecret,
+		NMAClientSecretTLSModeEnv:   vdb.GetNMAClientServerTLSMode(),
 	}
 	tlsConfigMap := &corev1.ConfigMap{
 		TypeMeta: metav1.TypeMeta{
