@@ -121,6 +121,12 @@ func (o *ObjReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Re
 		return ctrl.Result{}, err
 	}
 
+	// We need to create/update the configmap that contains the tls secret name
+	err := o.reconcileNMACertConfigMap(ctx)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
 	// Check the objects for subclusters that should exist.  This will create
 	// missing objects and update existing objects to match the vdb.
 	if res, err := o.checkForCreatedSubclusters(ctx); verrors.IsReconcileAborted(res, err) {
@@ -697,10 +703,7 @@ func (o *ObjReconciler) handleStatefulSetUpdate(ctx context.Context, sc *vapi.Su
 
 // reconcileNMACertConfigMap creates/updates the configmap that contains the tls
 // secret name
-/* func (o *ObjReconciler) reconcileNMACertConfigMap(ctx context.Context) error {
-	if vmeta.UseNMACertsMount(o.Vdb.Annotations) || !vmeta.EnableTLSCertsRotation(o.Vdb.Annotations) {
-		return nil
-	}
+func (o *ObjReconciler) reconcileNMACertConfigMap(ctx context.Context) error {
 	configMapName := names.GenNMACertConfigMap(o.Vdb)
 	configMap := &corev1.ConfigMap{}
 	err := o.Rec.GetClient().Get(ctx, configMapName, configMap)
@@ -716,6 +719,9 @@ func (o *ObjReconciler) handleStatefulSetUpdate(ctx context.Context, sc *vapi.Su
 		}
 		o.Log.Error(err, "failed to retrieve TLS cert secret configmap")
 		return err
+	}
+	if vmeta.UseNMACertsMount(o.Vdb.Annotations) || !vmeta.EnableTLSCertsRotation(o.Vdb.Annotations) {
+		return nil
 	}
 	if configMap.Data[builder.NMASecretNameEnv] == o.Vdb.Spec.HTTPSTLSSecret &&
 		configMap.Data[builder.NMAClientSecretNameEnv] == o.Vdb.Spec.ClientServerTLSSecret &&
@@ -737,7 +743,7 @@ func (o *ObjReconciler) handleStatefulSetUpdate(ctx context.Context, sc *vapi.Su
 			"clientserver-secret", o.Vdb.Spec.ClientServerTLSSecret)
 	}
 	return err
-} */
+}
 
 // reconcileTLSSecrets will update tls secrets
 func (o *ObjReconciler) reconcileTLSSecrets(ctx context.Context) error {

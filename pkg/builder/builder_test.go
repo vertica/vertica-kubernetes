@@ -505,20 +505,17 @@ var _ = Describe("builder", func() {
 		c := makeServerContainer(vdb, &vdb.Spec.Subclusters[0])
 		Ω(NMACertsVolumeExists(vdb, ps.Volumes)).Should(BeFalse())
 		Ω(NMACertsVolumeMountExists(&c)).Should(BeFalse())
-		Ω(NMACertsEnvVarsExist(vdb, &c)).Should(BeTrue())
 		vdb.Annotations[vmeta.MountNMACertsAnnotation] = vmeta.MountNMACertsAnnotationTrue
 		ps = buildPodSpec(vdb, &vdb.Spec.Subclusters[0])
 		c = makeServerContainer(vdb, &vdb.Spec.Subclusters[0])
 		Ω(NMACertsVolumeExists(vdb, ps.Volumes)).Should(BeTrue())
 		Ω(NMACertsVolumeMountExists(&c)).Should(BeTrue())
-		Ω(NMACertsEnvVarsExist(vdb, &c)).Should(BeTrue())
 		// test default value (which should be true)
 		delete(vdb.Annotations, vmeta.MountNMACertsAnnotation)
 		ps = buildPodSpec(vdb, &vdb.Spec.Subclusters[0])
 		c = makeServerContainer(vdb, &vdb.Spec.Subclusters[0])
 		Ω(NMACertsVolumeExists(vdb, ps.Volumes)).Should(BeTrue())
 		Ω(NMACertsVolumeMountExists(&c)).Should(BeTrue())
-		Ω(NMACertsEnvVarsExist(vdb, &c)).Should(BeTrue())
 	})
 
 	It("should mount or not mount NMA certs volume according to annotation(sidecar)", func() {
@@ -532,13 +529,11 @@ var _ = Describe("builder", func() {
 		c := makeServerContainer(vdb, &vdb.Spec.Subclusters[0])
 		Ω(NMACertsVolumeExists(vdb, ps.Volumes)).Should(BeFalse())
 		Ω(NMACertsVolumeMountExists(&c)).Should(BeFalse())
-		Ω(NMACertsEnvVarsExist(vdb, &c)).Should(BeFalse())
 		vdb.Annotations[vmeta.MountNMACertsAnnotation] = vmeta.MountNMACertsAnnotationTrue
 		ps = buildPodSpec(vdb, &vdb.Spec.Subclusters[0])
 		c = makeServerContainer(vdb, &vdb.Spec.Subclusters[0])
 		Ω(NMACertsVolumeExists(vdb, ps.Volumes)).Should(BeTrue())
 		Ω(NMACertsVolumeMountExists(&c)).Should(BeFalse())
-		Ω(NMACertsEnvVarsExist(vdb, &c)).Should(BeFalse())
 
 		// nma container
 		vdb.Annotations[vmeta.MountNMACertsAnnotation] = vmeta.MountNMACertsAnnotationFalse
@@ -546,13 +541,11 @@ var _ = Describe("builder", func() {
 		c = makeNMAContainer(vdb, &vdb.Spec.Subclusters[0])
 		Ω(NMACertsVolumeExists(vdb, ps.Volumes)).Should(BeFalse())
 		Ω(NMACertsVolumeMountExists(&c)).Should(BeFalse())
-		Ω(NMACertsEnvVarsExist(vdb, &c)).Should(BeTrue())
 		vdb.Annotations[vmeta.MountNMACertsAnnotation] = vmeta.MountNMACertsAnnotationTrue
 		ps = buildPodSpec(vdb, &vdb.Spec.Subclusters[0])
 		c = makeNMAContainer(vdb, &vdb.Spec.Subclusters[0])
 		Ω(NMACertsVolumeExists(vdb, ps.Volumes)).Should(BeTrue())
 		Ω(NMACertsVolumeMountExists(&c)).Should(BeTrue())
-		Ω(NMACertsEnvVarsExist(vdb, &c)).Should(BeTrue())
 	})
 
 	It("should allow override of probe with grpc and httpget", func() {

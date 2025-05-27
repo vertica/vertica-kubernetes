@@ -110,12 +110,12 @@ func (h *TLSConfigReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (c
 	if err != nil {
 		h.Log.Error(err, fmt.Sprintf("failed to set annotation %s to false", meta.MountNMACertsAnnotation))
 	}
-	/*h.Log.Info("will restart nma before setting up tls config")
+	h.Log.Info("will restart nma before setting up tls config")
 	res, err := h.restartNMA(ctx)
 	if verrors.IsReconcileAborted(res, err) {
 		return res, err
 	}
-	h.Log.Info("restarted nma before setting up tls config")*/
+	h.Log.Info("restarted nma before setting up tls config")
 	h.Log.Info("run DDL to set up TLS")
 	err = h.runDDLToConfigureTLS(ctx, initiatorPod)
 	if err != nil {
