@@ -26,6 +26,7 @@ import (
 	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
+	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	"golang.org/x/exp/maps"
 )
 
@@ -96,6 +97,7 @@ func (p *Planner) ApplyChanges(vdb *vapi.VerticaDB) (updated bool, err error) {
 		return updated, err
 	}
 
+	// TEMP and USER paths
 	otherPaths := p.Parser.GetOtherPaths()
 	if len(otherPaths) > 0 {
 		paths, e := p.getLocalPaths(p.Parser.GetOtherPaths(), true)
@@ -107,13 +109,31 @@ func (p *Planner) ApplyChanges(vdb *vapi.VerticaDB) (updated bool, err error) {
 			extraPaths[path] = struct{}{}
 		}
 	}
-	// remove local.catalogPath, local.dataPath, and local.depotPath from extraPaths
-	delete(extraPaths, vdb.Spec.Local.GetCatalogPath())
-	delete(extraPaths, vdb.Spec.Local.DataPath)
-	delete(extraPaths, vdb.Spec.Local.DepotPath)
 
-	if len(extraPaths) > 0 {
-		paths := maps.Keys(extraPaths)
+	// When reviving on EKS, VolumeMounts set extra storage location paths (such as
+	// /home/dbadmin/local-data/custom/DBD) ownership as uid:gid root:5000. this will cause
+	// permissions issues for the DB to start because dbadmin user is running as 5000:root.
+	//
+	// We can add only the parent paths of storage location (/home/dbadmin/local-data/custom)
+	// to the extraPaths, then vclusterops will create the child directory (DBD) with
+	// expected ownership 5000:5000 during the reviving process.
+	xPaths := maps.Keys(extraPaths)
+	parentPaths := make(map[string]struct{})
+	for i := range xPaths {
+		parent := filepath.Dir(xPaths[i])
+		parentPaths[parent] = struct{}{}
+	}
+	// remove local.catalogPath, local.dataPath, and local.depotPath
+	delete(parentPaths, vdb.Spec.Local.GetCatalogPath())
+	delete(parentPaths, vdb.Spec.Local.DataPath)
+	delete(parentPaths, vdb.Spec.Local.DepotPath)
+	// remove local-data
+	delete(parentPaths, filepath.Dir(vdb.Spec.Local.DataPath))
+	delete(parentPaths, paths.LocalDataPath)
+
+	// put parentPaths in the vdb annotations for revive using
+	if len(parentPaths) > 0 {
+		paths := maps.Keys(parentPaths)
 		sort.Strings(paths)
 		extraPathsStr := strings.Join(paths, ",")
 		if extraPathsStr != vmeta.GetExtraLocalPaths(vdb.Annotations) {
