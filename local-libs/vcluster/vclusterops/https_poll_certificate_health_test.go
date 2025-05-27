@@ -28,7 +28,8 @@ func TestHTTPSPollCertificateHealthOp(t *testing.T) {
 	op.skipExecute = true
 	instructions := []clusterOp{&op}
 	log := vlog.Printer{}
-	clusterOpEngine := makeClusterOpEngine(instructions, nil)
+	var options DatabaseOptions
+	clusterOpEngine := makeClusterOpEngine(instructions, &options)
 	err = clusterOpEngine.run(log)
 	assert.NoError(t, err)
 

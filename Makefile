@@ -393,7 +393,7 @@ endif
 init-e2e-env: install-kuttl-plugin install-stern-plugin kustomize ## Download necessary tools to run the integration tests
 
 .PHONY: run-int-tests
-run-int-tests: init-e2e-env vdb-gen setup-e2e-communal ## Run the integration tests
+run-int-tests: init-e2e-env vdb-gen cert-gen setup-e2e-communal ## Run the integration tests
 ifeq ($(DEPLOY_WITH), $(filter $(DEPLOY_WITH), olm))
 	$(MAKE) setup-olm
 endif
@@ -550,7 +550,7 @@ endif
 docker-push-extra-vertica: # Push a hard-coded image used in multi-online-upgrade test
 ifeq ($(LEG9), yes)
 ifeq ($(shell $(KIND_CHECK)), 1)
-	scripts/push-to-kind.sh -i opentext/vertica-k8s-private:20240929-minimal
+	scripts/push-to-kind.sh -i opentext/vertica-k8s-private:20250515-minimal
 endif
 endif
 
@@ -638,6 +638,10 @@ kuttl-step-gen: ## Builds the kuttl-step-gen tool
 .PHONY: vdb-gen
 vdb-gen: generate manifests ## Builds the vdb-gen tool
 	CGO_ENABLED=0 go build -o bin/$@ ./cmd/$@
+
+.PHONY: cert-gen
+cert-gen: ## Builds the cert-gen tool
+	go build -o bin/$@ ./cmd/$@
 
 ##@ Deployment
 
@@ -742,13 +746,13 @@ undeploy-prometheus-adapter:  ## Remove prometheus adapter
 	helm uninstall $(PROMETHEUS_ADAPTER_NAME) -n $(PROMETHEUS_ADAPTER_NAMESPACE)
 
 .PHONY: deploy-keda
-deploy-keda:
+deploy-keda: ## Deploy keda operator for autoscaling
 	helm repo add kedacore https://kedacore.github.io/charts
 	helm repo update
 	helm install keda kedacore/keda --namespace keda --create-namespace
 
 .PHONY: undeploy-keda
-undeploy-keda:
+undeploy-keda: ## Undeploy keda operator previously deployed
 	helm uninstall keda -n keda
 
 .PHONY: undeploy-operator
@@ -760,6 +764,10 @@ deploy: deploy-operator
 
 .PHONY: undeploy
 undeploy: undeploy-operator
+
+.PHONY: create-tls-secret
+create-tls-secret: cert-gen
+	bin/cert-gen $(SECRET_NAME) $(SECRET_NAMESPACE) $(DB_USER) | kubectl apply -f -
 
 ##@ Build Dependencies
 

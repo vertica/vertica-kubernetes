@@ -45,6 +45,7 @@ const (
 	NodeComputeType                  = "COMPUTE" // this is for node of type COMPUTE, compute nodes can have UP/DOWN states
 	SuppressHelp                     = "SUPPRESS_HELP"
 	MainClusterSandbox               = ""
+	VerticaConf                      = "vertica.conf"
 )
 
 // TLS authentication related consts
@@ -55,6 +56,8 @@ const (
 	// IPv6 defaults
 	DefaultIPv6AuthName  = "vcluster_mtls_v6"
 	DefaultIPv6AuthHosts = "::/0"
+	// Local defaults
+	DefaultLocalAuthName = "vcluster_mtls_local"
 )
 
 var RestartPolicyList = []string{"never", DefaultRestartPolicy, "always"}

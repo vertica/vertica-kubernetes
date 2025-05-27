@@ -46,14 +46,19 @@ on:
         - vcluster leg 1
         - vcluster leg 2
         - vcluster leg 3
+        - vcluster leg 3 cert
         - vcluster leg 4
         - vcluster leg 4 cert
         - vcluster leg 4 vdb-gen
         - vcluster leg 5
         - vcluster leg 6
         - vcluster leg 6 revivedb
+        - vcluster leg 6 revivedb cert
+        - vcluster leg 6 cert
         - vcluster leg 7
+        - vcluster leg 7 cert
         - leg 8
+        - leg 8 cert
         - vcluster leg 9
         - vcluster leg 10
         - vcluster leg 11
@@ -116,7 +121,7 @@ jobs:
     if: ${{ inputs.build_release_assets == 'all' || inputs.build_release_assests == '' }}
 
   e2e-leg-1-admintools:
-    if: ${{ ! contains(github.ref, 'k8s-sync')  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools leg 1' || inputs.e2e_test_suites == '') }}
+    if: ${{ ! (contains(github.ref, 'k8s-sync') || contains(github.ref, 'k8s-test'))  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools leg 1' || inputs.e2e_test_suites == '') }}
     needs: [build]
     runs-on: ubuntu-22.04
     steps:
@@ -138,7 +143,7 @@ jobs:
           e2e-retry-times: ${{ inputs.e2e_retry_times || 2 }}
   
   e2e-leg-1-admintools-previous-release:
-    if: ${{ ! contains(github.ref, 'k8s-sync')  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools leg 1' || inputs.e2e_test_suites == '') }}
+    if: ${{ ! (contains(github.ref, 'k8s-sync') || contains(github.ref, 'k8s-test'))  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools leg 1' || inputs.e2e_test_suites == '') }}
     needs: [build]
     runs-on: ubuntu-22.04
     steps:
@@ -204,7 +209,7 @@ jobs:
           e2e-retry-times: ${{ inputs.e2e_retry_times || 2 }}
 
   e2e-leg-2-admintools:
-    if: ${{ ! contains(github.ref, 'k8s-sync')  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools leg 2' || inputs.e2e_test_suites == '') }}
+    if: ${{ ! (contains(github.ref, 'k8s-sync') || contains(github.ref, 'k8s-test'))  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools leg 2' || inputs.e2e_test_suites == '') }}
     needs: [build]
     runs-on: ubuntu-22.04
     steps:
@@ -226,7 +231,7 @@ jobs:
           e2e-retry-times: ${{ inputs.e2e_retry_times || 2 }}
 
   e2e-leg-2-admintools-previous-release:
-    if: ${{ ! contains(github.ref, 'k8s-sync')  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools leg 2' || inputs.e2e_test_suites == '') }}
+    if: ${{ ! (contains(github.ref, 'k8s-sync') || contains(github.ref, 'k8s-test'))  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools leg 2' || inputs.e2e_test_suites == '') }}
     needs: [build]
     runs-on: ubuntu-22.04
     steps:
@@ -292,7 +297,7 @@ jobs:
           e2e-retry-times: ${{ inputs.e2e_retry_times || 2 }}
 
   e2e-leg-3-admintools:
-    if: ${{ ! contains(github.ref, 'k8s-sync')  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools leg 3' || inputs.e2e_test_suites == '') }}
+    if: ${{ ! (contains(github.ref, 'k8s-sync') || contains(github.ref, 'k8s-test'))  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools leg 3' || inputs.e2e_test_suites == '') }}
     needs: [build]
     runs-on: ubuntu-22.04
     steps:
@@ -353,8 +358,30 @@ jobs:
           communal-storage-type: hostpath
           e2e-retry-times: ${{ inputs.e2e_retry_times || 2 }}
 
+  e2e-leg-3-vcluster-cert:
+    if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'vcluster leg 3 cert' || inputs.e2e_test_suites == '')}}
+    needs: [build]
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Test
+        uses: ./.github/actions/run-e2e-leg
+        with:
+          leg-identifier: 'leg-3'
+          dockerhub-username: ${{ secrets.DOCKERHUB_USERNAME }}
+          dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}
+          vlogger-image: ${{ needs.build.outputs.vlogger-image }}
+          operator-image: ${{ needs.build.outputs.operator-image }}
+          vertica-image: ${{ needs.build.outputs.full-vertica-image }}
+          use-cert: true
+          cert-suffix: cert
+          vertica-deployment-method: vclusterops
+          communal-storage-type: hostpath
+          e2e-retry-times: ${{ inputs.e2e_retry_times || 2 }}
+
   e2e-leg-4-admintools:
-    if: ${{ ! contains(github.ref, 'k8s-sync')  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools leg 4' || inputs.e2e_test_suites == '') }}
+    if: ${{ ! (contains(github.ref, 'k8s-sync') || contains(github.ref, 'k8s-test'))  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools leg 4' || inputs.e2e_test_suites == '') }}
     needs: [build]
     runs-on: ubuntu-22.04
     steps:
@@ -426,7 +453,7 @@ jobs:
           e2e-retry-times: ${{ inputs.e2e_retry_times || 2 }}
 
   e2e-leg-4-admintools-vdb-gen:
-    if: ${{ ! contains(github.ref, 'k8s-sync')  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools leg 4 vdb-gen' || inputs.e2e_test_suites == '') }}
+    if: ${{ ! (contains(github.ref, 'k8s-sync') || contains(github.ref, 'k8s-test'))  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools leg 4 vdb-gen' || inputs.e2e_test_suites == '') }}
     needs: [build]
     runs-on: ubuntu-22.04
     steps:
@@ -473,7 +500,7 @@ jobs:
           e2e-retry-times: ${{ inputs.e2e_retry_times || 2 }}
 
   e2e-leg-5-admintools:
-    if: ${{ ! contains(github.ref, 'k8s-sync')  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools leg 5' || inputs.e2e_test_suites == '') }}
+    if: ${{ ! (contains(github.ref, 'k8s-sync') || contains(github.ref, 'k8s-test'))  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools leg 5' || inputs.e2e_test_suites == '') }}
     needs: [build]
     runs-on: ubuntu-22.04
     steps:
@@ -543,7 +570,30 @@ jobs:
           communal-storage-type: hostpath
           minimum-vertica-image: '24.2.0'
           e2e-retry-times: ${{ inputs.e2e_retry_times || 2 }}
-
+  
+  e2e-leg-6-vcluster-cert:
+    if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'vcluster leg 6 cert' || inputs.e2e_test_suites == '')}}
+    needs: [build]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Test
+        uses: ./.github/actions/run-e2e-leg
+        with:
+          leg-identifier: 'leg-6'
+          dockerhub-username: ${{ secrets.DOCKERHUB_USERNAME }}
+          dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}
+          vlogger-image: ${{ needs.build.outputs.vlogger-image }}
+          operator-image: ${{ needs.build.outputs.operator-image }}
+          vertica-image: ${{ needs.build.outputs.full-vertica-image }}
+          vertica-deployment-method: vclusterops
+          communal-storage-type: hostpath
+          minimum-vertica-image: '24.2.0'
+          e2e-retry-times: ${{ inputs.e2e_retry_times || 2 }}
+          use-cert: true
+          cert-suffix: cert
+  
   e2e-leg-6-vcluster-revivedb:
     if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'vcluster leg 6 revivedb' || inputs.e2e_test_suites == '')}}
     needs: [build]
@@ -565,6 +615,29 @@ jobs:
           minimum-vertica-image: '24.2.0'
           e2e-retry-times: ${{ inputs.e2e_retry_times || 2 }}
 
+  e2e-leg-6-vcluster-revivedb-cert:
+    if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'vcluster leg 6 revivedb cert' || inputs.e2e_test_suites == '')}}
+    needs: [build]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Test
+        uses: ./.github/actions/run-e2e-leg
+        with:
+          leg-identifier: 'leg-6-revivedb'
+          dockerhub-username: ${{ secrets.DOCKERHUB_USERNAME }}
+          dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}
+          vlogger-image: ${{ needs.build.outputs.vlogger-image }}
+          operator-image: ${{ needs.build.outputs.operator-image }}
+          vertica-image: ${{ needs.build.outputs.full-vertica-image }}
+          vertica-deployment-method: vclusterops
+          communal-storage-type: hostpath
+          minimum-vertica-image: '24.2.0'
+          e2e-retry-times: ${{ inputs.e2e_retry_times || 2 }}
+          use-cert: true
+          cert-suffix: cert
+  
   e2e-leg-7-vcluster:
     if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'vcluster leg 7' || inputs.e2e_test_suites == '')}}
     needs: [build]
@@ -585,6 +658,29 @@ jobs:
           communal-storage-type: hostpath
           minimum-vertica-image: '24.2.0'
           e2e-retry-times: ${{ inputs.e2e_retry_times || 2 }}
+
+  e2e-leg-7-vcluster-cert:
+    if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'vcluster leg 7 cert' || inputs.e2e_test_suites == '')}}
+    needs: [build]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Test
+        uses: ./.github/actions/run-e2e-leg
+        with:
+          leg-identifier: 'leg-7'
+          dockerhub-username: ${{ secrets.DOCKERHUB_USERNAME }}
+          dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}
+          vlogger-image: ${{ needs.build.outputs.vlogger-image }}
+          operator-image: ${{ needs.build.outputs.operator-image }}
+          vertica-image: ${{ needs.build.outputs.full-vertica-image }}
+          vertica-deployment-method: vclusterops
+          communal-storage-type: hostpath
+          minimum-vertica-image: '24.2.0'
+          e2e-retry-times: ${{ inputs.e2e_retry_times || 2 }}
+          use-cert: true
+          cert-suffix: cert
 
   e2e-leg-8-admintools-offline:
     if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'leg 8' || inputs.e2e_test_suites == '')}}
@@ -632,6 +728,54 @@ jobs:
           minimum-vertica-image: '24.2.0'
           e2e-retry-times: ${{ inputs.e2e_retry_times || 2 }}
 
+  e2e-leg-8-vcluster-online:
+    if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'leg 8' || inputs.e2e_test_suites == '')}}
+    needs: [build]
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Test
+        uses: ./.github/actions/run-e2e-leg
+        with:
+          leg-identifier: 'leg-8-online-vcluster'
+          dockerhub-username: ${{ secrets.DOCKERHUB_USERNAME }}
+          dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}
+          vlogger-image: ${{ needs.build.outputs.vlogger-image }}
+          operator-image: ${{ needs.build.outputs.operator-image }}
+          vertica-image: ${{ needs.build.outputs.minimal-vertica-image }}
+          vertica-deployment-method: vclusterops
+          communal-storage-type: hostpath
+          minimum-vertica-image: '24.2.0'
+          e2e-parallelism: 1
+          need-base-vertica-image: 'true'
+          e2e-retry-times: ${{ inputs.e2e_retry_times || 2 }}
+
+  e2e-leg-8-vcluster-online-cert:
+    if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'leg 8 cert' || inputs.e2e_test_suites == '')}}
+    needs: [build]
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Test
+        uses: ./.github/actions/run-e2e-leg
+        with:
+          leg-identifier: 'leg-8-online-vcluster'
+          dockerhub-username: ${{ secrets.DOCKERHUB_USERNAME }}
+          dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}
+          vlogger-image: ${{ needs.build.outputs.vlogger-image }}
+          operator-image: ${{ needs.build.outputs.operator-image }}
+          vertica-image: ${{ needs.build.outputs.minimal-vertica-image }}
+          vertica-deployment-method: vclusterops
+          communal-storage-type: hostpath
+          minimum-vertica-image: '24.2.0'
+          e2e-parallelism: 1
+          need-base-vertica-image: 'true'
+          e2e-retry-times: ${{ inputs.e2e_retry_times || 2 }}
+          use-cert: true
+          cert-suffix: cert
+
   e2e-leg-9-vcluster:
     if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'vcluster leg 9' || inputs.e2e_test_suites == '')}}
     needs: [build]
@@ -655,6 +799,32 @@ jobs:
           vertica-license: ${{ secrets.VERTICA_LICENSE }}
           need-base-vertica-image: 'true'
           e2e-retry-times: ${{ inputs.e2e_retry_times || 3 }}
+
+  e2e-leg-9-vcluster-cert:
+    if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'vcluster leg 9 cert' || inputs.e2e_test_suites == '')}}
+    needs: [build]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Test
+        uses: ./.github/actions/run-e2e-leg
+        with:
+          leg-identifier: 'leg-9'
+          dockerhub-username: ${{ secrets.DOCKERHUB_USERNAME }}
+          dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}
+          vlogger-image: ${{ needs.build.outputs.vlogger-image }}
+          operator-image: ${{ needs.build.outputs.operator-image }}
+          vertica-image: ${{ needs.build.outputs.minimal-vertica-image }}
+          vertica-deployment-method: vclusterops
+          communal-storage-type: s3
+          minimum-vertica-image: '24.3.0'
+          use-cert: true
+          cert-suffix: cert
+          # Include the vertica license so we can test scaling past 3 nodes.
+          vertica-license: ${{ secrets.VERTICA_LICENSE }}
+          need-base-vertica-image: 'true'
+          e2e-retry-times: ${{ inputs.e2e_retry_times || 2 }}
 
   e2e-leg-10-vcluster:
     if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'vcluster leg 10' || inputs.e2e_test_suites == '')}}
@@ -773,7 +943,7 @@ jobs:
           e2e-retry-times: ${{ inputs.e2e_retry_times || 2 }}
 
   e2e-server-upgrade-admintools:
-    if: ${{ ! contains(github.ref, 'k8s-sync')  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools server upgrade' || inputs.e2e_test_suites == '') }}
+    if: ${{ ! (contains(github.ref, 'k8s-sync') || contains(github.ref, 'k8s-test'))  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools server upgrade' || inputs.e2e_test_suites == '') }}
     needs: [build]
     runs-on: ubuntu-22.04
     steps:
@@ -815,8 +985,31 @@ jobs:
           need-base-vertica-image: 'true'
           e2e-retry-times: ${{ inputs.e2e_retry_times || 2 }}
 
+  e2e-server-upgrade-vcluster-cert:
+    if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'vcluster server upgrade cert' || inputs.e2e_test_suites == '')}}
+    needs: [build]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Test
+        uses: ./.github/actions/run-e2e-leg
+        with:
+          leg-identifier: 'server-upgrade'
+          dockerhub-username: ${{ secrets.DOCKERHUB_USERNAME }}
+          dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}
+          vlogger-image: ${{ needs.build.outputs.vlogger-image }}
+          operator-image: ${{ needs.build.outputs.operator-image }}
+          vertica-image: ${{ needs.build.outputs.full-vertica-image }}
+          vertica-deployment-method: vclusterops
+          communal-storage-type: s3
+          use-cert: true
+          cert-suffix: cert
+          need-base-vertica-image: 'true'
+          e2e-retry-times: ${{ inputs.e2e_retry_times || 2 }}
+
   e2e-operator-upgrade:
-    if: ${{ ! contains(github.ref, 'k8s-sync')  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools operator upgrade' || inputs.e2e_test_suites == '') }}
+    if: ${{ ! (contains(github.ref, 'k8s-sync') || contains(github.ref, 'k8s-test'))  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools operator upgrade' || inputs.e2e_test_suites == '') }}
     needs: [build]
     runs-on: ubuntu-22.04
     steps:
@@ -841,7 +1034,7 @@ jobs:
           e2e-retry-times: ${{ inputs.e2e_retry_times || 2 }}
 
   e2e-udx-admintools:
-    if: ${{ ! contains(github.ref, 'k8s-sync')  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools udx' || inputs.e2e_test_suites == '') }}
+    if: ${{ ! (contains(github.ref, 'k8s-sync') || contains(github.ref, 'k8s-test'))  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools udx' || inputs.e2e_test_suites == '') }}
     needs: [build]
     runs-on: ubuntu-22.04
     steps:
@@ -894,20 +1087,28 @@ jobs:
       e2e-leg-2-vcluster-cert,
       e2e-leg-3-vclusterops-previous-release,
       e2e-leg-3-vcluster,
+      e2e-leg-3-vcluster-cert,
       e2e-leg-4-vcluster,
       e2e-leg-4-vcluster-cert,
       e2e-leg-4-vcluster-vdb-gen,
       e2e-leg-5-vcluster,
       e2e-leg-6-vcluster,
+      e2e-leg-6-vcluster-cert,
       e2e-leg-6-vcluster-revivedb,
+      e2e-leg-6-vcluster-revivedb-cert,
       e2e-leg-7-vcluster,
+      e2e-leg-7-vcluster-cert,
+      e2e-leg-8-vcluster-online,
+      e2e-leg-8-vcluster-online-cert,
       e2e-leg-9-vcluster,
+      e2e-leg-9-vcluster-cert,
       e2e-leg-10-vcluster,
       e2e-leg-11-vcluster,
       e2e-leg-12-vcluster,
       e2e-leg-12-vcluster-cert,
       e2e-leg-13-vcluster,
       e2e-server-upgrade-vcluster,
+      e2e-server-upgrade-vcluster-cert,
       e2e-operator-upgrade,
       e2e-udx-vcluster,
       e2e-leg-1-admintools,
@@ -943,21 +1144,33 @@ jobs:
     name: Sync-vcluster-code
     needs: [
       e2e-leg-1-vcluster,
+      e2e-leg-1-vcluster-cert,
       e2e-leg-2-vcluster,
+      e2e-leg-2-vcluster-cert,
       e2e-leg-3-vclusterops-previous-release,
       e2e-leg-3-vcluster,
+      e2e-leg-3-vcluster-cert,
       e2e-leg-4-vcluster,
+      e2e-leg-4-vcluster-cert,
       e2e-leg-4-vcluster-vdb-gen,
       e2e-leg-5-vcluster,
       e2e-leg-6-vcluster,
+      e2e-leg-6-vcluster-cert,
       e2e-leg-6-vcluster-revivedb,
+      e2e-leg-6-vcluster-revivedb-cert,
       e2e-leg-7-vcluster,
+      e2e-leg-7-vcluster-cert,
+      e2e-leg-8-vcluster-online,
+      e2e-leg-8-vcluster-online-cert,
       e2e-leg-9-vcluster,
+      e2e-leg-9-vcluster-cert,
       e2e-leg-10-vcluster,
       e2e-leg-11-vcluster,
       e2e-leg-12-vcluster,
+      e2e-leg-12-vcluster-cert,
       e2e-leg-13-vcluster,
       e2e-server-upgrade-vcluster,
+      e2e-server-upgrade-vcluster-cert,
       e2e-operator-upgrade,
       e2e-udx-vcluster
     ]
@@ -986,7 +1199,7 @@ jobs:
     name: team-notification
     needs: [sync-vcluster]
     runs-on: ubuntu-latest
-    if: ${{ always() && contains(github.ref, 'k8s-sync') }}
+    if: ${{ always() && (contains(github.ref, 'k8s-sync') || contains(github.ref, 'k8s-test')) }}
     steps:
       - name: notification on success
         if: ${{ always() && contains(needs.sync-vcluster.result, 'success') }}

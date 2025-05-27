@@ -37,7 +37,8 @@ func TestTimeoutErrorCase(t *testing.T) {
 	instructions = append(instructions, &httpsPollNodeStateOp)
 
 	// default timeout value for the op
-	clusterOpEngine := makeClusterOpEngine(instructions, nil)
+	var options DatabaseOptions
+	clusterOpEngine := makeClusterOpEngine(instructions, &options)
 	err = clusterOpEngine.run(vlog.Printer{})
 	// expect timeout error in http response
 	assert.ErrorContains(t, err, "[HTTPSPollNodeStateOp] cannot connect to host 192.0.2.1, please check if the host is still alive")
@@ -49,7 +50,7 @@ func TestTimeoutErrorCase(t *testing.T) {
 	assert.Nil(t, err)
 	httpsPollNodeStateOp.httpRequestTimeout = httpRequestTimeoutForTest
 	instructions = append(instructions, &httpsPollNodeStateOp)
-	clusterOpEngine = makeClusterOpEngine(instructions, nil)
+	clusterOpEngine = makeClusterOpEngine(instructions, &options)
 	err = clusterOpEngine.run(vlog.Printer{})
 	// negative value means no polling timeout
 	assert.ErrorContains(t, err, "[HTTPSPollNodeStateOp] cannot connect to host")

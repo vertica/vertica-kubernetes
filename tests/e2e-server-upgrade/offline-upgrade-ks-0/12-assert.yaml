@@ -21,3 +21,10 @@ status:
       status: "True"
     - type: DBInitialized
       status: "True"
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: v-base-upgrade-defsc
+status:
+  readyReplicas: 2

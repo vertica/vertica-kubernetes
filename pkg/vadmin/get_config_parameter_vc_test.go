@@ -50,6 +50,10 @@ func (m *MockVClusterOps) VGetConfigurationParameters(options *vops.VGetConfigur
 		return "", err
 	}
 
+	if options.Password == nil || *options.Password != TestPassword {
+		return "", fmt.Errorf("missing password")
+	}
+
 	return TestConfigParamValue, nil
 }
 
@@ -72,5 +76,15 @@ var _ = Describe("get_config_parameter_vc", func() {
 		)
 		Ω(err).Should(Succeed())
 		Ω(value).Should(Equal(TestConfigParamValue))
+
+		vapi.SetVDBForTLS(dispatcher.VDB)
+		_, err = dispatcher.GetConfigurationParameter(ctx,
+			getconfigparameter.WithUserName(vapi.SuperUser),
+			getconfigparameter.WithInitiatorIP(TestSourceIP),
+			getconfigparameter.WithSandbox(TestConfigParamSandbox),
+			getconfigparameter.WithConfigParameter(TestConfigParamName),
+			getconfigparameter.WithLevel(TestConfigParamLevel),
+		)
+		Ω(err.Error()).Should(ContainSubstring("missing password"))
 	})
 })

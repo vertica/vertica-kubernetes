@@ -18,6 +18,7 @@ package vadmin
 import (
 	"context"
 	"errors"
+	"maps"
 	"strings"
 
 	vops "github.com/vertica/vcluster/vclusterops"
@@ -88,6 +89,8 @@ func (v *VClusterOps) genCreateDBOptions(s *createdb.Parms, certs *HTTPSCerts) v
 	if v.VDB.IsNMASideCarDeploymentEnabled() {
 		opts.StartUpConf = paths.StartupConfFile
 	}
+	opts.SpreadLogging = true
+	opts.SpreadLoggingLevel = 1
 
 	// If a communal path is set, include all of the EON parameters.
 	if s.CommunalPath != "" {
@@ -119,5 +122,11 @@ func (v *VClusterOps) genCreateDBOptions(s *createdb.Parms, certs *HTTPSCerts) v
 		opts.TimeoutNodeStartupSeconds = timeout
 	}
 
+	if v.VDB.IsCertRotationEnabled() {
+		configMap := genTLSConfigurationMap("TRY_VERIFY", v.VDB.Spec.NMATLSSecret, v.VDB.Namespace)
+		opts.HTTPSTLSConfiguration = maps.Clone(configMap)
+		configMap = genTLSConfigurationMap(v.VDB.Spec.ClientServerTLSMode, v.VDB.Spec.ClientServerTLSSecret, v.VDB.Namespace)
+		opts.ServerTLSConfiguration = maps.Clone(configMap)
+	}
 	return opts
 }

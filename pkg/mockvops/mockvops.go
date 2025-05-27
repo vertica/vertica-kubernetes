@@ -121,7 +121,11 @@ func (*MockVClusterOps) VManageConnectionDraining(_ *vclusterops.VManageConnecti
 func (*MockVClusterOps) VRotateNMACerts(_ *vclusterops.VRotateNMACertsOptions) error {
 	return nil
 }
-func (*MockVClusterOps) VRotateHTTPSCerts(_ *vclusterops.VRotateHTTPSCertsOptions) error {
+func (*MockVClusterOps) VRotateTLSCerts(_ *vclusterops.VRotateTLSCertsOptions) error {
+	return nil
+}
+
+func (*MockVClusterOps) VSetTLSConfig(_ *vclusterops.VSetTLSConfigOptions) error {
 	return nil
 }
 

@@ -18,6 +18,7 @@ package vclusterops
 import (
 	"errors"
 	"fmt"
+	"strconv"
 
 	"github.com/vertica/vcluster/vclusterops/util"
 )
@@ -27,6 +28,7 @@ type httpsCreateTLSAuthOp struct {
 	opHTTPSBase
 	authName  string
 	authHosts string
+	isLocal   bool
 }
 
 func makeHTTPSCreateTLSAuthOp(hosts []string, useHTTPPassword bool, userName string, httpsPassword *string,
@@ -50,12 +52,26 @@ func makeHTTPSCreateTLSAuthOp(hosts []string, useHTTPPassword bool, userName str
 	return op, nil
 }
 
+func makeHTTPSCreateLocalTLSAuthOp(hosts []string, useHTTPPassword bool, userName string, httpsPassword *string,
+	authName string) (httpsCreateTLSAuthOp, error) {
+	op, err := makeHTTPSCreateTLSAuthOp(hosts, useHTTPPassword, userName, httpsPassword, authName, "" /* hosts ignored */)
+	if err != nil {
+		return op, err
+	}
+	op.description = "Create TLS Authentication method for local connections"
+	op.isLocal = true
+	return op, nil
+}
+
 func (op *httpsCreateTLSAuthOp) setupClusterHTTPRequest(hosts []string) error {
 	for _, host := range hosts {
 		httpRequest := hostHTTPRequest{}
 		httpRequest.Method = PostMethod
 		httpRequest.buildHTTPSEndpoint(util.TLSAuthEndpoint + op.authName)
-		httpRequest.QueryParams = map[string]string{"host": op.authHosts}
+		httpRequest.QueryParams = map[string]string{
+			"host":    op.authHosts,
+			"isLocal": strconv.FormatBool(op.isLocal),
+		}
 		if op.useHTTPPassword {
 			httpRequest.Password = op.httpsPassword
 			httpRequest.Username = op.userName
