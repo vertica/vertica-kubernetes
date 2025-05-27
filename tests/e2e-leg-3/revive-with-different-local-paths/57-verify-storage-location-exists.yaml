@@ -26,11 +26,23 @@ commands:
         exit 1; \
       fi
   - script: |
-      val=$(kubectl exec -n $NAMESPACE v-revive-2-main-2 -c server -- vsql -tAc "select count(*) from storage_locations where location_path = '/vertica/data/user' and location_usage = 'USER'"); \
+      val=$(kubectl exec -n $NAMESPACE v-revive-2-main-2 -c server -- vsql -tAc "select count(*) from storage_locations where location_path = '/tmp/custom/DBD' and location_usage = 'TEMP'"); \
       if [ $val == 0 ]; then \
         exit 1; \
       fi
-  # verify the directory is created in the pod
-  - command: kubectl exec -n $NAMESPACE v-revive-2-main-2 -c server -- test -d /vertica/data/storage
-  - command: kubectl exec -n $NAMESPACE v-revive-2-main-2 -c server -- test -d /tmp/test
+  - script: |
+      val=$(kubectl exec -n $NAMESPACE v-revive-2-main-2 -c server -- vsql -tAc "select count(*) from storage_locations where location_path = '/home/dbadmin/local-data/custom/DBD' and location_usage = 'DATA'"); \
+      if [ $val == 0 ]; then \
+        exit 1; \
+      fi
+  - script: |
+      val=$(kubectl exec -n $NAMESPACE v-revive-2-main-2 -c server -- vsql -tAc "select count(*) from storage_locations where location_path = '/vertica/data/user/DBD' and location_usage = 'USER'"); \
+      if [ $val == 0 ]; then \
+        exit 1; \
+      fi
+  # verify the parent directory is created in the pod
+  - command: kubectl exec -n $NAMESPACE v-revive-2-main-2 -c server -- test -d /vertica/data
+  - command: kubectl exec -n $NAMESPACE v-revive-2-main-2 -c server -- test -d /tmp
+  - command: kubectl exec -n $NAMESPACE v-revive-2-main-2 -c server -- test -d /tmp/custom
+  - command: kubectl exec -n $NAMESPACE v-revive-2-main-2 -c server -- test -d /home/dbadmin/local-data/custom
   - command: kubectl exec -n $NAMESPACE v-revive-2-main-2 -c server -- test -d /vertica/data/user

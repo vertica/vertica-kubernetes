@@ -23,7 +23,7 @@ apiVersion: vertica.com/v1beta1
 kind: VerticaDB
 metadata:
   annotations:
-    vertica.com/extra-local-paths: /tmp/test,/vertica/data/storage,/vertica/data/user
+    vertica.com/extra-local-paths: /home/dbadmin/local-data/custom,/tmp,/tmp/custom,/vertica/data/user
   name: v-revive-2
 spec:
   local:

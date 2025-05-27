@@ -16,4 +16,6 @@ kind: TestStep
 commands:
   - command: kubectl exec --namespace $NAMESPACE v-create-main-0 -c server -- vsql -c "create location '/vertica/data/storage' ALL NODES USAGE 'DATA';"
   - command: kubectl exec --namespace $NAMESPACE v-create-main-0 -c server -- vsql -c "create location '/tmp/test' NODE 'v_entdb_node0001' USAGE 'TEMP';"
-  - command: kubectl exec --namespace $NAMESPACE v-create-main-0 -c server -- vsql -c "create location '/vertica/data/user' ALL NODES USAGE 'USER'; select sync_catalog();"
+  - command: kubectl exec --namespace $NAMESPACE v-create-main-0 -c server -- vsql -c "create location '/tmp/custom/DBD' NODE 'v_entdb_node0001' USAGE 'TEMP';"
+  - command: kubectl exec --namespace $NAMESPACE v-create-main-0 -c server -- vsql -c "create location '/home/dbadmin/local-data/custom/DBD' ALL NODES USAGE 'DATA'; select sync_catalog();"
+  - command: kubectl exec --namespace $NAMESPACE v-create-main-0 -c server -- vsql -c "create location '/vertica/data/user/DBD' ALL NODES USAGE 'USER'; select sync_catalog();"
