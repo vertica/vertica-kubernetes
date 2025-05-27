@@ -25,9 +25,9 @@ metadata:
 status:
   replicas: 1
 ---
-apiVersion: vertica.com/v1
+apiVersion: vertica.com/v1beta1
 kind: VerticaDB
 metadata:
   name: v-from-x
 status:
-  addedToDBCount: 3
+  installCount: 3
