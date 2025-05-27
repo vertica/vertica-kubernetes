@@ -130,6 +130,7 @@ func (p *Planner) ApplyChanges(vdb *vapi.VerticaDB) (updated bool, err error) {
 	// remove local-data
 	delete(parentPaths, filepath.Dir(vdb.Spec.Local.DataPath))
 	delete(parentPaths, vpath.LocalDataPath)
+	delete(parentPaths, vpath.RootPath)
 
 	// put parentPaths in the vdb annotations for revive using
 	if len(parentPaths) > 0 {
