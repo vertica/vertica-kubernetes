@@ -26,7 +26,7 @@ import (
 	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
-	"github.com/vertica/vertica-kubernetes/pkg/paths"
+	vpath "github.com/vertica/vertica-kubernetes/pkg/paths"
 	"golang.org/x/exp/maps"
 )
 
@@ -110,11 +110,11 @@ func (p *Planner) ApplyChanges(vdb *vapi.VerticaDB) (updated bool, err error) {
 		}
 	}
 
-	// When reviving on EKS, VolumeMounts set extra storage location paths (such as
-	// /home/dbadmin/local-data/custom/DBD) ownership as uid:gid root:5000. this will cause
+	// When reviving on EKS, VolumeMounts sets extra storage location paths (such as
+	// /home/dbadmin/local-data/custom/DBD) ownership as uid:gid root:5000. This will cause
 	// permissions issues for the DB to start because dbadmin user is running as 5000:root.
 	//
-	// We can add only the parent paths of storage location (/home/dbadmin/local-data/custom)
+	// We can add the parent paths of the storage location (/home/dbadmin/local-data/custom)
 	// to the extraPaths, then vclusterops will create the child directory (DBD) with
 	// expected ownership 5000:5000 during the reviving process.
 	xPaths := maps.Keys(extraPaths)
@@ -129,7 +129,7 @@ func (p *Planner) ApplyChanges(vdb *vapi.VerticaDB) (updated bool, err error) {
 	delete(parentPaths, vdb.Spec.Local.DepotPath)
 	// remove local-data
 	delete(parentPaths, filepath.Dir(vdb.Spec.Local.DataPath))
-	delete(parentPaths, paths.LocalDataPath)
+	delete(parentPaths, vpath.LocalDataPath)
 
 	// put parentPaths in the vdb annotations for revive using
 	if len(parentPaths) > 0 {
