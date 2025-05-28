@@ -111,7 +111,7 @@ func (h *TLSServerCertGenReconciler) reconcileOneSecret(secretFieldName, secretN
 	if err != nil {
 		return err
 	}
-	cert, err := security.NewCertificate(caCert, h.Vdb.GetVerticaUser(), h.getDNSNames())
+	cert, err := security.NewCertificate(caCert, h.Vdb.GetVerticaUser(), h.getDNSNames(ctx))
 	if err != nil {
 		return err
 	}
@@ -124,11 +124,40 @@ func (h *TLSServerCertGenReconciler) reconcileOneSecret(secretFieldName, secretN
 }
 
 // getDNSNames returns the DNS names to include in the certificate that we generate
-func (h *TLSServerCertGenReconciler) getDNSNames() []string {
-	return []string{
+func (h *TLSServerCertGenReconciler) getDNSNames(ctx context.Context) []string {
+	lbSAN := h.getLoadBalancerSAN(ctx)
+	return append(lbSAN,
 		fmt.Sprintf("*.%s.svc", h.Vdb.Namespace),
 		fmt.Sprintf("*.%s.svc.cluster.local", h.Vdb.Namespace),
+	)
+}
+
+// getLoadBalancerSAN returns DNS names or IPs for load balancer services
+func (h *TLSServerCertGenReconciler) getLoadBalancerSAN(ctx context.Context) (lbSAN []string) {
+	for i := range h.Vdb.Spec.Subclusters {
+		svc := &corev1.Service{}
+		err := h.VRec.Client.Get(ctx, names.GenExtSvcName(h.Vdb, &h.Vdb.Spec.Subclusters[i]), svc)
+		if err != nil {
+			// Log the error without returning it because setting the DNS is a minor operation
+			h.Log.Error(err, "failed to get service", "name", names.GenExtSvcName(h.Vdb, &h.Vdb.Spec.Subclusters[i]))
+			continue
+		}
+		if svc.Spec.Type != corev1.ServiceTypeLoadBalancer {
+			continue
+		}
+		if len(svc.Status.LoadBalancer.Ingress) == 0 {
+			h.Log.Info("no ingress available yet", "name", names.GenExtSvcName(h.Vdb, &h.Vdb.Spec.Subclusters[i]))
+			continue
+		}
+		ingress := svc.Status.LoadBalancer.Ingress[0]
+		if ingress.IP != "" {
+			lbSAN = append(lbSAN, ingress.IP)
+		}
+		if ingress.Hostname != "" {
+			lbSAN = append(lbSAN, ingress.Hostname)
+		}
 	}
+	return lbSAN
 }
 
 // createSecret returns a secret that store TLS certificate information
