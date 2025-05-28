@@ -188,6 +188,7 @@ func (c *CmdClusterHealth) Run(vcc vclusterops.ClusterCommands) error {
 	vcc.LogInfo("Called method Run()")
 
 	options := c.clusterHealthOptions
+	options.NeedSessionTnxInfo = false
 
 	err := vcc.VClusterHealth(options)
 	if err != nil {
@@ -231,7 +232,7 @@ func (c *CmdClusterHealth) Run(vcc vclusterops.ClusterCommands) error {
 
 	// output the result to console or file
 	c.writeCmdOutputToFile(globals.file, bytes, vcc.GetLog())
-	vcc.LogInfo("Slow event traceback: ", "slow events", string(bytes))
+	vcc.LogInfo("event traceback: ", "slow events", string(bytes))
 
 	if options.Display {
 		if options.Operation == "" || options.Operation == slowEventCascade {
