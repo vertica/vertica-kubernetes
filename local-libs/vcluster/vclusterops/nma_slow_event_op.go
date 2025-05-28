@@ -31,6 +31,7 @@ type nmaSlowEventsOp struct {
 	transactionID      string
 	nodeName           string
 	eventDesc          string
+	durationUs         string
 }
 
 type slowEventRequestData struct {
@@ -38,9 +39,10 @@ type slowEventRequestData struct {
 	Params map[string]any `json:"params"`
 }
 
-func makeNMASlowEventOp(upHosts []string, userName, dbName string,
-	password *string, startTime, endTime, threadID, phaseDuration string,
-	transactionID, nodeName, eventDesc string) (nmaSlowEventsOp, error) {
+func makeNMASlowEventOp(upHosts []string, userName string,
+	dbName string, password *string,
+	startTime, endTime, threadID, phaseDuration string,
+	transactionID, nodeName, eventDesc, durationUs string) (nmaSlowEventsOp, error) {
 	op := nmaSlowEventsOp{}
 	op.name = "NMASlowEventOp"
 	op.description = "Check slow events"
@@ -52,6 +54,7 @@ func makeNMASlowEventOp(upHosts []string, userName, dbName string,
 	op.threadID = threadID
 	op.phasesDuration = phaseDuration
 	op.eventDesc = eventDesc
+	op.durationUs = durationUs
 
 	// NMA endpoints don't need to differentiate between empty password and no password
 	useDBPassword := password != nil
@@ -62,16 +65,6 @@ func makeNMASlowEventOp(upHosts []string, userName, dbName string,
 	}
 	err = op.setupRequestBody(userName, dbName, useDBPassword, password)
 	return op, err
-}
-
-func makeNMASlowEventOpByThreadID(upHosts []string, userName, dbName string,
-	password *string, startTime, endTime, threadID string) (nmaSlowEventsOp, error) {
-	return makeNMASlowEventOp(upHosts, userName, dbName, password, startTime, endTime, threadID, "", "", "", "")
-}
-
-func makeNMASlowEventOpByKeyword(upHosts []string, userName string, dbName string,
-	password *string, startTime, endTime, keyword string) (nmaSlowEventsOp, error) {
-	return makeNMASlowEventOp(upHosts, userName, dbName, password, startTime, endTime, "", keyword, "", "", "")
 }
 
 func (op *nmaSlowEventsOp) setupRequestBody(username, dbName string, useDBPassword bool,
@@ -104,6 +97,9 @@ func (op *nmaSlowEventsOp) setupRequestBody(username, dbName string, useDBPasswo
 		}
 		if op.eventDesc != "" {
 			requestData.Params["event-desc"] = op.eventDesc
+		}
+		if op.durationUs != "" {
+			requestData.Params["duration-us"] = op.durationUs
 		}
 
 		dataBytes, err := json.Marshal(requestData)
@@ -158,7 +154,7 @@ type dcSlowEvent struct {
 	SessionID        string `json:"session_id"`
 	UserID           string `json:"user_id"`
 	UserName         string `json:"user_name"`
-	TxnID            string `json:"txn_id"`
+	TxnID            string `json:"transaction_id"`
 	StatementID      string `json:"statement_id"`
 	RequestID        string `json:"request_id"`
 	EventDescription string `json:"event_description"`
@@ -177,10 +173,13 @@ func (event *dcSlowEvent) getTxnID() string {
 	return event.TxnID
 }
 
+func (event *dcSlowEvent) getThreadID() string {
+	return event.ThreadID
+}
+
 func (op *nmaSlowEventsOp) processResult(execContext *opEngineExecContext) error {
 	var allErrs error
 	for host, result := range op.clusterHTTPRequest.ResultCollection {
-		op.logResponse(host, result)
 		// for any passing result, directly return
 		if result.isPassing() {
 			var slowEventList []dcSlowEvent

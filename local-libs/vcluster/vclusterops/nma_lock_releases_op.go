@@ -28,6 +28,7 @@ type nmaLockReleasesOp struct {
 	endTime            string
 	nodeName           string
 	resultLimit        int
+	duration           string
 }
 
 type lockReleasesRequestData struct {
@@ -35,17 +36,19 @@ type lockReleasesRequestData struct {
 	Params map[string]any `json:"params"`
 }
 
-// TODO: We should let the endpoint just accept the seconds
-const minLockHoldDuration = "00:00:01"
-
-//nolint:dupl // all "SQL" endpoints could use a style and refactor pass
-func makeNMALockReleasesOp(upHosts []string, userName, dbName string,
-	password *string, startTime, endTime, nodeName string,
-	resultLimit int) (nmaLockReleasesOp, error) {
+func makeNMALockReleasesOp(upHosts []string, userName string,
+	dbName string, password *string,
+	startTime, endTime, nodeName string,
+	resultLimit int, duration string) (nmaLockReleasesOp, error) {
 	op := nmaLockReleasesOp{}
 	op.name = "NMALockReleasesOp"
 	op.description = "Check lock holding events"
 	op.hosts = upHosts[:1] // set up the request for one of the up hosts only
+	if duration == "" {
+		op.duration = lockReleaseThresHold
+	} else {
+		op.duration = duration
+	}
 	op.startTime = startTime
 	op.endTime = endTime
 	op.nodeName = nodeName
@@ -78,7 +81,7 @@ func (op *nmaLockReleasesOp) setupRequestBody(username, dbName string, useDBPass
 		}
 		requestData.Params["object-name"] = lockObjectName
 		requestData.Params["mode"] = "X"
-		requestData.Params["duration"] = minLockHoldDuration
+		requestData.Params["duration"] = op.duration
 		requestData.Params["limit"] = op.resultLimit
 		requestData.Params["orderby"] = "duration DESC"
 
@@ -138,16 +141,24 @@ type dcLockReleases struct {
 	TxnID      string `json:"transaction_id"`
 	UserID     string `json:"user_id"`
 	UserName   string `json:"user_name"`
-	// TxnInfo and SessionInfo are not used for parsing data from the NMA endpoint
-	// but will be used to show detailed info about the retrieved TxnID and SessionID
-	TxnInfo     dcTransactionStart `json:"transaction_info"`
-	SessionInfo dcSessionStart     `json:"session_info"`
+	// TODO: as for now http client not support retrieving batch results for txn info and session info
+	// To improve the performance, we move the txn info and session info to the demond request by UI
+	// when we migrate to use nma client, we can retrieve the txn info and session info in batch request
+	// TxnInfo     dcTransactionStart `json:"transaction_info"`
+	// SessionInfo dcSessionStart     `json:"session_info"`
+}
+
+func (event *dcLockReleases) getTxnID() string {
+	return event.TxnID
+}
+
+func (event *dcLockReleases) getSessionID() string {
+	return event.SessionID
 }
 
 func (op *nmaLockReleasesOp) processResult(execContext *opEngineExecContext) error {
 	var allErrs error
 	for host, result := range op.clusterHTTPRequest.ResultCollection {
-		op.logResponse(host, result)
 		// for any passing result, directly return
 		if result.isPassing() {
 			var lockReleasesList []dcLockReleases
