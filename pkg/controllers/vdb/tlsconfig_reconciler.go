@@ -80,8 +80,11 @@ func MakeTLSConfigReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger, vdb
 // Reconcile will create a TLS secret for the http server if one is missing
 func (h *TLSConfigReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
 	h.Log.Info("in tls config reconcile 1")
-	if !meta.SetupTLSConfig(h.Vdb.Annotations) || h.Vdb.IsCertRotationEnabled() && len(h.Vdb.Status.SecretRefs) != 0 ||
-		!h.Vdb.IsStatusConditionTrue(vapi.DBInitialized) || h.Vdb.IsStatusConditionTrue(vapi.UpgradeInProgress) ||
+	// !meta.SetupTLSConfig(h.Vdb.Annotations) ||
+	// h.Vdb.IsCertRotationEnabledNew() && len(h.Vdb.Status.SecretRefs) != 0
+	if !h.Vdb.IsCertRotationRequested() || h.Vdb.IsCertRotationEnabled() ||
+		!h.Vdb.IsStatusConditionTrue(vapi.DBInitialized) ||
+		h.Vdb.IsStatusConditionTrue(vapi.UpgradeInProgress) ||
 		h.Vdb.IsStatusConditionTrue(vapi.VerticaRestartNeeded) {
 		return ctrl.Result{}, nil
 	}
@@ -106,7 +109,7 @@ func (h *TLSConfigReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (c
 
 	err = h.updateAnnotations(ctx, map[string]string{
 		meta.MountNMACertsAnnotation: "false",
-	})
+	}) // removed
 	if err != nil {
 		h.Log.Error(err, fmt.Sprintf("failed to set annotation %s to false", meta.MountNMACertsAnnotation))
 	}
@@ -126,15 +129,15 @@ func (h *TLSConfigReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (c
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	err = h.updateAnnotations(ctx, map[string]string{
+	/*err = h.updateAnnotations(ctx, map[string]string{
 		meta.EnableTLSCertsRotationAnnotation: "true",
 		meta.SetupTLSConfigAnnotation:         "false",
-		meta.MountNMACertsAnnotation:          "false",
+		meta.MountNMACertsAnnotation: "false",
 	})
 	if err != nil {
 		h.Log.Error(err, "failed to update tls annotations after setting up TLS")
 		return ctrl.Result{}, err
-	}
+	}*/
 	h.Log.Info("saved TLS modes into status")
 	h.Log.Info("TLS DDLs executed and TLS configured for the existing vdb")
 	h.VRec.Eventf(h.Vdb, corev1.EventTypeNormal, events.TLSConfigurationSucceeded,
