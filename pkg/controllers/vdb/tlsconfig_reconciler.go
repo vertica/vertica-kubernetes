@@ -97,22 +97,22 @@ func (h *TLSConfigReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (c
 	err := h.Pfacts.Collect(ctx, h.Vdb)
 	if err != nil {
 		h.Log.Error(err, "failed to collect pfacts to set up tls. skip current loop")
-		return ctrl.Result{}, nil
+		return ctrl.Result{Requeue: true}, nil
 	}
 	initiatorPod, ok := h.Pfacts.FindFirstUpPod(false, "")
 	if !ok {
 		h.Log.Info("No pod found to set up tls config. skip current loop.")
-		return ctrl.Result{}, nil
+		return ctrl.Result{Requeue: true}, nil
 	}
 	h.VRec.Eventf(h.Vdb, corev1.EventTypeNormal, events.TLSConfigurationStarted,
 		"Starting to configure TLS")
 
-	err = h.updateAnnotations(ctx, map[string]string{
+	/* err = h.updateAnnotations(ctx, map[string]string{
 		meta.MountNMACertsAnnotation: "false",
-	}) // removed
+	})
 	if err != nil {
 		h.Log.Error(err, fmt.Sprintf("failed to set annotation %s to false", meta.MountNMACertsAnnotation))
-	}
+	} */
 	h.Log.Info("will restart nma before setting up tls config")
 	res, err := h.restartNMA(ctx)
 	if verrors.IsReconcileAborted(res, err) {
