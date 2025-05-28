@@ -33,6 +33,7 @@ type nmaLoadRemoteCatalogOp struct {
 	primaryNodeCount        uint
 	restorePoint            *RestorePointPolicy
 	Sandbox                 string
+	forInPlaceRevive        bool
 }
 
 type loadRemoteCatalogRequestData struct {
@@ -81,8 +82,23 @@ func makeNMALoadRemoteCatalogWithSandboxOp(oldHosts []string, configurationParam
 	return op
 }
 
+func makeNMALoadRemoteCatalogForInPlaceRevive(oldHosts []string, configurationParameters map[string]string,
+	vdb *VCoordinationDatabase, sandbox string) nmaLoadRemoteCatalogOp {
+	op := makeNMALoadRemoteCatalogOp(oldHosts, configurationParameters, vdb, 0, nil)
+	op.Sandbox = sandbox
+	op.forInPlaceRevive = true
+	return op
+}
+
 // make https json data
 func (op *nmaLoadRemoteCatalogOp) setupRequestBody(execContext *opEngineExecContext) error {
+	if op.forInPlaceRevive && op.vdb == nil {
+		op.vdb = new(VCoordinationDatabase)
+		populateVdbFromNMACatalogEditor(op.vdb, &execContext.nmaVDatabase)
+		for h := range execContext.nmaVDatabase.HostNodeMap {
+			op.hosts = append(op.hosts, h)
+		}
+	}
 	if len(execContext.networkProfiles) != len(op.hosts) {
 		return fmt.Errorf("[%s] the number of hosts in networkProfiles does not match"+
 			" the number of hosts that will load remote catalogs", op.name)
@@ -105,11 +121,15 @@ func (op *nmaLoadRemoteCatalogOp) setupRequestBody(execContext *opEngineExecCont
 		requestData := loadRemoteCatalogRequestData{}
 		requestData.DBName = op.vdb.Name
 		requestData.CommunalLocation = op.vdb.CommunalStorageLocation
-		requestData.Host = op.oldHosts[index]
 		vNode := op.vdb.HostNodeMap[host]
 		requestData.NodeName = vNode.Name
 		requestData.CatalogPath = vNode.CatalogPath
 		requestData.StorageLocations = vNode.StorageLocations
+		if len(op.oldHosts) == 0 || len(op.oldHosts) <= index {
+			requestData.Host = host
+		} else {
+			requestData.Host = op.oldHosts[index]
+		}
 		requestData.NodeAddresses = nodeAddresses
 		requestData.Parameters = op.configurationParameters
 		if op.restorePoint != nil {
@@ -147,6 +167,9 @@ func (op *nmaLoadRemoteCatalogOp) setupClusterHTTPRequest(hosts []string) error 
 }
 
 func (op *nmaLoadRemoteCatalogOp) prepare(execContext *opEngineExecContext) error {
+	if op.vdb == nil {
+		op.primaryNodeCount = execContext.nmaVDatabase.PrimaryNodeCount
+	}
 	err := op.setupRequestBody(execContext)
 	if err != nil {
 		return err
@@ -168,10 +191,12 @@ func (op *nmaLoadRemoteCatalogOp) finalize(_ *opEngineExecContext) error {
 	return nil
 }
 
-func (op *nmaLoadRemoteCatalogOp) processResult(_ *opEngineExecContext) error {
+func (op *nmaLoadRemoteCatalogOp) processResult(e *opEngineExecContext) error {
 	var allErrs error
 	var successPrimaryNodeCount uint
-
+	if !e.hasNoQuorum && op.forInPlaceRevive {
+		return nil
+	}
 	for host, result := range op.clusterHTTPRequest.ResultCollection {
 		op.logResponse(host, result)
 
@@ -192,6 +217,7 @@ func (op *nmaLoadRemoteCatalogOp) processResult(_ *opEngineExecContext) error {
 			if op.vdb.HostNodeMap[host].IsPrimary {
 				successPrimaryNodeCount++
 			}
+
 			continue
 		}
 

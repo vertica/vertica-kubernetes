@@ -290,10 +290,35 @@ func (vcc VClusterCommands) produceReIPInstructions(options *VReIPOptions, vdb *
 	// at this stage the re-ip info should either by provided by
 	// the re-ip file (for vcluster CLI) or the Kubernetes operator
 	nmaReIPOP := makeNMAReIPOp(options.ReIPList, vdb, options.TrimReIPList)
-
 	instructions = append(instructions, &nmaReIPOP)
+	// Load Catalog from communal location on primary nodes in case we lose quorum during reip
+	if options.IsEon {
+		for _, info := range options.ReIPList {
+			// update old IPs to new IPs
+			if node, ok := vdb.HostNodeMap[info.NodeAddress]; ok {
+				node.Address = info.TargetAddress
+				vdb.HostNodeMap[info.TargetAddress] = node
+			} else {
+				vcc.Log.PrintWarning("old host IP %s not found in vdb, ignoring this host for further processing", info.NodeAddress)
+			}
+		}
+		hostList := getAllHostsFromVdb(vdb)
+		vdb.HostList = hostList
+		nmaNetworkProfilePostReip := makeNMANetworkProfileOp(hostList)
+		nmaLoadRemoteCatalogOp := makeNMALoadRemoteCatalogForInPlaceRevive(hostList, options.ConfigurationParameters,
+			vdb, options.SandboxName)
+		instructions = append(instructions, &nmaNetworkProfilePostReip, &nmaLoadRemoteCatalogOp)
+	}
 
 	return instructions, nil
+}
+
+func getAllHostsFromVdb(vdb *VCoordinationDatabase) []string {
+	var allHosts []string
+	for h := range vdb.HostNodeMap {
+		allHosts = append(allHosts, h)
+	}
+	return allHosts
 }
 
 type reIPRow struct {
