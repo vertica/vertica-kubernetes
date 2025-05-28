@@ -60,6 +60,7 @@ const (
 	HTTPServerCACrtName       = "ca.crt"
 	StartupConfDir            = "/tmp/startup"
 	StartupConfFile           = "/tmp/startup/startup.json"
+	TmpPath                   = "/tmp"
 	RootPath                  = "/"
 )
 
