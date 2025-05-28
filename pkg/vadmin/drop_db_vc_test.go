@@ -22,9 +22,9 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	vops "github.com/vertica/vcluster/vclusterops"
+	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/test"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/dropdb"
-	"k8s.io/apimachinery/pkg/types"
 )
 
 // mock version of VDropDatabase() that is invoked inside VClusterOps
@@ -35,15 +35,23 @@ func (m *MockVClusterOps) VDropDatabase(options *vops.VDropDatabaseOptions) erro
 		return err
 	}
 
-	var expectedHosts = TestHosts
-	err = m.VerifyHosts(&options.DatabaseOptions, expectedHosts)
+	err = m.VerifyCerts(&options.DatabaseOptions)
 	if err != nil {
 		return err
 	}
 
-	err = m.VerifyCerts(&options.DatabaseOptions)
-	if err != nil {
-		return err
+	for i := range options.NodesToDrop {
+		node := &options.NodesToDrop[i]
+		if node.Address != fmt.Sprintf("192.168.1.%d", i+1) {
+			return fmt.Errorf("failed to retrieve node address")
+		}
+		nodeName := fmt.Sprintf("v_%s_%s%d", TestDBName, "node000", i+1)
+		if node.Name != nodeName {
+			return fmt.Errorf("failed to retrieve node name")
+		}
+		if node.CatalogPath != fmt.Sprintf("%s/%s/%s_catalog", TestCatalogPath, TestDBName, nodeName) {
+			return fmt.Errorf("failed to retrieve node catalog path")
+		}
 	}
 
 	if options.RetainCatalogDir != true {
@@ -60,13 +68,23 @@ var _ = Describe("drop_db_vc", func() {
 		dispatcher := mockVClusterOpsDispatcher()
 		dispatcher.VDB.Spec.DBName = TestDBName
 		dispatcher.VDB.Spec.NMATLSSecret = "drop-db-test-secret"
+		dispatcher.VDB.Spec.Local.CatalogPath = TestCatalogPath
 		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.NMATLSSecret)
 		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.NMATLSSecret)
-		dispatcher.VDB.Spec.Annotations = map[string]string{"vertica.com/preserve-db-dir": "true"}
+		dispatcher.VDB.Annotations = map[string]string{vmeta.PreserveDBDirectoryAnnotation: "true"}
+
+		var hosts []dropdb.Host
+		for i := 1; i <= 3; i++ {
+			var h dropdb.Host
+			h.IP = fmt.Sprintf("192.168.1.%d", i)
+			h.VNode = fmt.Sprintf("v_%s_%s%d", TestDBName, "node000", i)
+			hosts = append(hosts, h)
+		}
 
 		err := dispatcher.DropDB(ctx,
-			dropdb.WithInitiator(types.NamespacedName{}),
-			dropdb.WithHosts(TestHosts),
+			dropdb.WithHost(hosts[0].VNode, hosts[0].IP),
+			dropdb.WithHost(hosts[1].VNode, hosts[1].IP),
+			dropdb.WithHost(hosts[2].VNode, hosts[2].IP),
 			dropdb.WithDBName(TestDBName))
 		Ω(err).Should(Succeed())
 	})

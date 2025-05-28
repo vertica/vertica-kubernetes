@@ -19,6 +19,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -136,15 +137,33 @@ func (r *ReviveDBReconciler) execCmd(ctx context.Context, initiatorPod types.Nam
 	r.VRec.Event(r.Vdb, corev1.EventTypeNormal, events.ReviveDBStart, "Starting revive database")
 	start := time.Now()
 	// when preserving DB directory, we need to delete vertica.conf and catalog files using drop_db
-	if vmeta.GetPreserveDBDirectory(r.Vdb.Annotations) {
+	if vmeta.UseVClusterOps(r.Vdb.Annotations) && vmeta.GetPreserveDBDirectory(r.Vdb.Annotations) {
 		opts := []dropdb.Option{
-			dropdb.WithInitiator(initiatorPod),
-			dropdb.WithHosts(hostList),
 			dropdb.WithDBName(r.Vdb.Spec.DBName),
 		}
+		for _, pod := range r.PFacts.Detail {
+			if !pod.GetIsPodRunning() {
+				r.Log.Info("Some pods are not running. Need to requeue revivedb reconciler.", "pod", pod.GetName())
+				return ctrl.Result{Requeue: true}, nil
+			}
+			cmd := []string{"bash", "-c", fmt.Sprintf("ls /%s/%s | grep -E '^v_%s_node[0-9]{4}_catalog$' | sed 's/_catalog$//'",
+				r.Vdb.Spec.Local.GetCatalogPath(), r.Vdb.Spec.DBName, r.Vdb.Spec.DBName)}
+			nodeName, _, err := r.PRunner.ExecInPod(ctx, pod.GetName(), pod.GetExecContainerName(), cmd...)
+			if err != nil {
+				r.Log.Error(err, "Failed to get node name inside a pod", "pod", pod.GetName())
+				return ctrl.Result{}, err
+			}
+			opts = append(opts, dropdb.WithHost(strings.TrimSpace(nodeName), pod.GetPodIP()))
+		}
+		r.VRec.Eventf(r.Vdb, corev1.EventTypeNormal, events.DropDBStart,
+			"Starting drop database %q", r.Vdb.Spec.DBName)
 		if err := r.Dispatcher.DropDB(ctx, opts...); err != nil {
+			r.VRec.Eventf(r.Vdb, corev1.EventTypeWarning, events.DropDBFailed,
+				"Failed to drrop database %q", r.Vdb.Spec.DBName)
 			return ctrl.Result{}, err
 		}
+		r.VRec.Eventf(r.Vdb, corev1.EventTypeNormal, events.DropDBSucceeded,
+			"Successfully dropped the database %q", r.Vdb.Spec.DBName)
 	}
 	if res, err := r.Dispatcher.ReviveDB(ctx, opts...); verrors.IsReconcileAborted(res, err) {
 		return res, err

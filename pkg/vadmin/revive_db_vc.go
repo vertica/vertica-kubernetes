@@ -59,7 +59,7 @@ func (v *VClusterOps) genReviveDBOptions(s *revivedb.Parms, certs *HTTPSCerts) *
 	opts.IPv6 = net.IsIPv6(opts.RawHosts[0])
 	opts.CommunalStorageLocation = s.CommunalPath
 	opts.ConfigurationParameters = s.ConfigurationParams
-	opts.ForceRemoval = true
+	opts.ForceRemoval = !vmeta.GetPreserveDBDirectory(v.VDB.Annotations)
 	opts.IgnoreClusterLease = s.IgnoreClusterLease
 	opts.UseExistingCatalogDir = vmeta.GetPreserveDBDirectory(v.VDB.Annotations)
 

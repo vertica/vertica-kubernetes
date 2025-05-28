@@ -15,16 +15,16 @@
 
 package dropdb
 
-import (
-	"k8s.io/apimachinery/pkg/types"
-)
-
 // Parms holds all of the option for an invocation to drop the database in
 // communal storage.
 type Parms struct {
-	Initiator types.NamespacedName
-	Hosts     []string
-	DBName    string
+	Hosts  []Host
+	DBName string
+}
+
+type Host struct {
+	VNode string // Vertica node name in the format of v_<db>_node####
+	IP    string // Current IP address of this host/pod
 }
 
 type Option func(*Parms)
@@ -36,15 +36,15 @@ func (s *Parms) Make(opts ...Option) {
 	}
 }
 
-func WithInitiator(nm types.NamespacedName) Option {
+func WithHost(vnode, ip string) Option {
 	return func(s *Parms) {
-		s.Initiator = nm
-	}
-}
-
-func WithHosts(hosts []string) Option {
-	return func(s *Parms) {
-		s.Hosts = hosts
+		if s.Hosts == nil {
+			s.Hosts = make([]Host, 0)
+		}
+		s.Hosts = append(s.Hosts, Host{
+			VNode: vnode,
+			IP:    ip,
+		})
 	}
 }
 

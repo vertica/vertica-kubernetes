@@ -17,6 +17,7 @@ package vadmin
 
 import (
 	"context"
+	"path/filepath"
 
 	vops "github.com/vertica/vcluster/vclusterops"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
@@ -41,11 +42,10 @@ func (v *VClusterOps) DropDB(ctx context.Context, opts ...dropdb.Option) error {
 	vcOpts := v.genDropDBOptions(&s, certs)
 	err = v.VDropDatabase(vcOpts)
 	if err != nil {
-		// just log the error since even the drop_db failed, revive_db can still succeed
-		v.Log.Error(err, "failed to drop the database", "database", vcOpts.DBName, "hosts", vcOpts.RawHosts)
+		return err
 	}
 
-	v.Log.Info("Successfully dropped the database", "database", vcOpts.DBName, "hosts", vcOpts.RawHosts)
+	v.Log.Info("Successfully dropped the database", "database", vcOpts.DBName)
 	return nil
 }
 
@@ -53,10 +53,20 @@ func (v *VClusterOps) genDropDBOptions(s *dropdb.Parms, certs *HTTPSCerts) *vops
 	opts := vops.VDropDatabaseOptionsFactory()
 
 	opts.DBName = s.DBName
-	opts.RawHosts = s.Hosts
-	v.Log.Info("Setup drop database options", "hosts", opts.RawHosts)
-	opts.IPv6 = net.IsIPv6(opts.RawHosts[0])
+	for _, h := range s.Hosts {
+		var node vops.VCoordinationNode
+		node.Name = h.VNode
+		node.Address = h.IP
+		pathSuffix := h.VNode + "_catalog"
+		node.CatalogPath = filepath.Join(v.VDB.Spec.Local.GetCatalogPath(), s.DBName, pathSuffix)
+		opts.NodesToDrop = append(opts.NodesToDrop, node)
+	}
+
+	if len(opts.NodesToDrop) > 0 {
+		opts.IPv6 = net.IsIPv6(opts.NodesToDrop[0].Address)
+	}
 	opts.RetainCatalogDir = vmeta.GetPreserveDBDirectory(v.VDB.Annotations)
+	v.Log.Info("Setup drop database options", "opts", opts)
 
 	// auth options
 	opts.Key = certs.Key
