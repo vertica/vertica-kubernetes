@@ -11,24 +11,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: apps/v1
-kind: StatefulSet
+apiVersion: v1
+kind: Secret
 metadata:
-  name: v-revive-1-node-sc1
-status:
-  replicas: 1
-  readyReplicas: 1
----
-apiVersion: vertica.com/v1
-kind: VerticaDB
-metadata:
-  name: v-revive-1-node
-status:
-  subclusters:
-    - addedToDBCount: 1
-      upNodeCount: 1
-  tlsModes:
-  - name: VERIFY_CA
-    type: HTTPSTLSModeType
-  - name: TRY_VERIFY
-    type: ClientServerTLSModeType
+  name: su-passwd
+type: Opaque
+data:
+  password: c3VwZXJ1c2Vy

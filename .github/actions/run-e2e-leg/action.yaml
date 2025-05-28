@@ -184,7 +184,9 @@ runs:
             fi
             export E2E_TEST_DIRS_EXCLUDE_VC_ONLY=$E2E_TEST_DIRS
             # These legs have some tests that only run with vclusterops deployment
-            if [[ "${{ inputs.leg-identifier }}" == "leg-2" ]]; then
+
+            if [[ "${{ inputs.leg-identifier }}" == "leg-2" || \
+                  "${{ inputs.leg-identifier }}" == "leg-6" ]]; then            
               if [[ "${VERTICA_DEPLOYMENT_METHOD}" == "vclusterops" ]]; then
                 E2E_TEST_DIRS+=" tests/e2e-${{ inputs.leg-identifier }}-vc-only";
               fi
