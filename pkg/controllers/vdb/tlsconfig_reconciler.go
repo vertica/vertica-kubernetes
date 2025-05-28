@@ -118,13 +118,22 @@ func (h *TLSConfigReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (c
 	if verrors.IsReconcileAborted(res, err) {
 		return res, err
 	}
-	h.Log.Info("restarted nma before setting up tls config")
-	h.Log.Info("run DDL to set up TLS")
-	err = h.runDDLToConfigureTLS(ctx, initiatorPod)
+	configured, err := h.checkIfTLSConfiguredInDB(ctx, initiatorPod)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	h.Log.Info("executed DDL to set up TLS")
+	h.Log.Info("restarted nma before setting up tls config")
+
+	if !configured {
+		h.Log.Info("run DDL to set up TLS")
+		err = h.runDDLToConfigureTLS(ctx, initiatorPod)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+		h.Log.Info("executed DDL to set up TLS")
+	} else {
+		h.Log.Info("TLS already configured in db. Skip running DDL.")
+	}
 	err = h.updateStatus(ctx)
 	if err != nil {
 		return ctrl.Result{}, err
@@ -314,6 +323,19 @@ func (h *TLSConfigReconciler) readSecret(vdb *vapi.VerticaDB, vrec config.Reconc
 		return nil, res, err
 	}
 	return currentSecretData, res, err
+}
+
+func (h *TLSConfigReconciler) checkIfTLSConfiguredInDB(ctx context.Context, initiatorPod *podfacts.PodFact) (bool, error) {
+	sql := "select is_auth_enabled from client_auth where auth_name='k8s_remote_ipv4_tls_builtin_auth';"
+	cmd := []string{"-tAc", sql}
+	stdout, stderr, err := h.PRunner.ExecVSQL(ctx, initiatorPod.GetName(), names.ServerContainer, cmd...)
+	if err != nil || strings.Contains(stderr, "Error") {
+		h.Log.Error(err, fmt.Sprintf("failed to check if TLS authentication is configured, stderr - %s", stderr))
+		return false, err
+	}
+	lines := strings.Split(stdout, "\n")
+	res := strings.Trim(lines[0], " ")
+	return "True" == res, nil
 }
 
 // Escape function to handle special characters in Bash
