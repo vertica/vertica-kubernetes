@@ -18,7 +18,7 @@ metadata:
   annotations:
     vertica.com/include-uid-in-path: "true"
     vertica.com/k-safety: "1"
-    vertica.com/requeue-time: 5
+    vertica.com/requeue-time: "5"
     vertica.com/nma-resources-limits-cpu: "4"
     vertica.com/nma-startup-probe-initial-delay-seconds: "5"
     vertica.com/nma-startup-probe-period-seconds: "60"
