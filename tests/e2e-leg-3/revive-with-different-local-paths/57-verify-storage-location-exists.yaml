@@ -40,9 +40,9 @@ commands:
       if [ $val == 0 ]; then \
         exit 1; \
       fi
-  # verify the parent directory is created in the pod
-  - command: kubectl exec -n $NAMESPACE v-revive-2-main-2 -c server -- test -d /vertica/data
-  - command: kubectl exec -n $NAMESPACE v-revive-2-main-2 -c server -- test -d /tmp
-  - command: kubectl exec -n $NAMESPACE v-revive-2-main-2 -c server -- test -d /tmp/custom
-  - command: kubectl exec -n $NAMESPACE v-revive-2-main-2 -c server -- test -d /home/dbadmin/local-data/custom
-  - command: kubectl exec -n $NAMESPACE v-revive-2-main-2 -c server -- test -d /vertica/data/user
+  # verify the parent directory is owned by root:5000
+  - command: kubectl exec -n $NAMESPACE v-revive-1-main-0 -c server -- stat -c "%u:%g" /vertica/data | grep "root:5000"
+  - command: kubectl exec -n $NAMESPACE v-revive-1-main-0 -c server -- stat -c "%u:%g" /tmp | grep "root:5000"
+  - command: kubectl exec -n $NAMESPACE v-revive-1-main-0 -c server -- stat -c "%u:%g" /tmp/custom | grep "root:5000"
+  - command: kubectl exec -n $NAMESPACE v-revive-1-main-0 -c server -- stat -c "%u:%g" /home/dbadmin/local-data/custom | grep "root:5000"
+  - command: kubectl exec -n $NAMESPACE v-revive-1-main-0 -c server -- stat -c "%u:%g" /vertica/data/user | grep "root:5000"

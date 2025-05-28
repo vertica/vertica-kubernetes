@@ -40,12 +40,12 @@ commands:
       if [ $val == 0 ]; then \
         exit 1; \
       fi
-  # verify the directory is created in the pod
-  - command: kubectl exec -n $NAMESPACE v-revive-1-main-0 -c server -- test -d /vertica/data/storage
-  - command: kubectl exec -n $NAMESPACE v-revive-1-main-0 -c server -- test -d /tmp/test
-  - command: kubectl exec -n $NAMESPACE v-revive-1-main-0 -c server -- test -d /tmp/custom/DBD
-  - command: kubectl exec -n $NAMESPACE v-revive-1-main-0 -c server -- test -d /home/dbadmin/local-data/custom/DBD
-  - command: kubectl exec -n $NAMESPACE v-revive-1-main-0 -c server -- test -d /vertica/data/user/DBD
+  # verify the directory is owned by 5000:5000
+  - command: kubectl exec -n $NAMESPACE v-revive-1-main-0 -c server -- stat -c "%u:%g" /vertica/data/storage | grep "5000:5000"
+  - command: kubectl exec -n $NAMESPACE v-revive-1-main-0 -c server -- stat -c "%u:%g" /tmp/test | grep "5000:5000"
+  - command: kubectl exec -n $NAMESPACE v-revive-1-main-0 -c server -- stat -c "%u:%g" /tmp/custom/DBD | grep "5000:5000"
+  - command: kubectl exec -n $NAMESPACE v-revive-1-main-0 -c server -- stat -c "%u:%g" /home/dbadmin/local-data/custom/DBD | grep "5000:5000"
+  - command: kubectl exec -n $NAMESPACE v-revive-1-main-0 -c server -- stat -c "%u:%g" /vertica/data/user/DBD | grep "5000:5000"
   # delete the pod to ensure the directory is presistent
   - command: kubectl delete pod v-revive-1-main-0
     namespaced: true
