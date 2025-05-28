@@ -32,6 +32,7 @@ spec:
     template:
       name: "temp"
       size: 2
+      type: secondary
   certSecrets: []
   imagePullSecrets: []
   volumes: []

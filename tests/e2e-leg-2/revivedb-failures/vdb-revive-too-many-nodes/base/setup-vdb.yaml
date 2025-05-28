@@ -17,7 +17,7 @@ metadata:
   name: v-revive-failures-too-many-nodes
   annotations:
     vertica.com/include-uid-in-path: "false"
-    vertica.com/requeue-time: 4
+    vertica.com/requeue-time: "4"
     vertica.com/ignore-cluster-lease: "true"
 spec:
   image: kustomize-vertica-image
