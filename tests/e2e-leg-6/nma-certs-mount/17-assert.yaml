@@ -25,7 +25,6 @@ metadata:
   name: v-nma-certs
   annotations:
     vertica.com/vcluster-ops: "true"
-    vertica.com/mount-nma-certs: "false"
 status:
   subclusters:
     - installCount: 1

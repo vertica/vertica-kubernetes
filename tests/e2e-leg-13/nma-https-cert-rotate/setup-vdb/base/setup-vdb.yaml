@@ -18,8 +18,7 @@ metadata:
   annotations:
     vertica.com/k-safety: "1"
     vertica.com/include-uid-in-path: "true"
-    vertica.com/enable-tls-certs-rotation: "true"
-    vertica.com/mount-nma-certs: "false"
+    vertica.com/enable-tls-auth: "true"
 spec:
   initPolicy: CreateSkipPackageInstall
   image: kustomize-vertica-image
