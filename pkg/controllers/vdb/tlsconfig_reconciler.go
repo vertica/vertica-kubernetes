@@ -79,11 +79,11 @@ func MakeTLSConfigReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger, vdb
 
 // Reconcile will create a TLS secret for the http server if one is missing
 func (h *TLSConfigReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
-	h.Log.Info("in tls config reconcile 1")
+	h.Log.Info("in tls config reconcile 1, enabled ? " + strconv.FormatBool(h.Vdb.IsCertRotationEnabled()))
 	// !meta.SetupTLSConfig(h.Vdb.Annotations) ||
-	// h.Vdb.IsCertRotationEnabledNew() && len(h.Vdb.Status.SecretRefs) != 0
-	if !h.Vdb.IsCertRotationRequested() || h.Vdb.IsCertRotationEnabled() ||
-		!h.Vdb.IsStatusConditionTrue(vapi.DBInitialized) ||
+	//
+	if h.Vdb.IsCertRotationEnabled() && len(h.Vdb.Status.SecretRefs) != 0 ||
+		!h.Vdb.IsCertRotationEnabled() || !h.Vdb.IsStatusConditionTrue(vapi.DBInitialized) ||
 		h.Vdb.IsStatusConditionTrue(vapi.UpgradeInProgress) ||
 		h.Vdb.IsStatusConditionTrue(vapi.VerticaRestartNeeded) {
 		return ctrl.Result{}, nil
@@ -113,13 +113,14 @@ func (h *TLSConfigReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (c
 	if err != nil {
 		h.Log.Error(err, fmt.Sprintf("failed to set annotation %s to false", meta.MountNMACertsAnnotation))
 	} */
-	h.Log.Info("will restart nma before setting up tls config")
+	/*h.Log.Info("will restart nma before setting up tls config")
 	res, err := h.restartNMA(ctx)
 	if verrors.IsReconcileAborted(res, err) {
 		return res, err
-	}
+	}*/
 	configured, err := h.checkIfTLSConfiguredInDB(ctx, initiatorPod)
 	if err != nil {
+		h.Log.Error(err, "failed to check TLS configuration before setting up TLS")
 		return ctrl.Result{}, err
 	}
 	h.Log.Info("restarted nma before setting up tls config")
@@ -147,7 +148,7 @@ func (h *TLSConfigReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (c
 		h.Log.Error(err, "failed to update tls annotations after setting up TLS")
 		return ctrl.Result{}, err
 	}*/
-	h.Log.Info("saved TLS modes into status")
+	h.Log.Info("saved TLS secrets and modes into status")
 	h.Log.Info("TLS DDLs executed and TLS configured for the existing vdb")
 	h.VRec.Eventf(h.Vdb, corev1.EventTypeNormal, events.TLSConfigurationSucceeded,
 		"Successfully configured TLS")
