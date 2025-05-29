@@ -26,14 +26,46 @@ commands:
         exit 1; \
       fi
   - script: |
-      val=$(kubectl exec -n $NAMESPACE v-revive-1-main-0 -c server -- vsql -tAc "select count(*) from storage_locations where location_path = '/vertica/data/user' and location_usage = 'USER'"); \
+      val=$(kubectl exec -n $NAMESPACE v-revive-1-main-0 -c server -- vsql -tAc "select count(*) from storage_locations where location_path = '/tmp/custom/DBD' and location_usage = 'TEMP'"); \
       if [ $val == 0 ]; then \
         exit 1; \
       fi
-  # verify the directory is created in the pod
-  - command: kubectl exec -n $NAMESPACE v-revive-1-main-0 -c server -- test -d /vertica/data/storage
-  - command: kubectl exec -n $NAMESPACE v-revive-1-main-0 -c server -- test -d /tmp/test
-  - command: kubectl exec -n $NAMESPACE v-revive-1-main-0 -c server -- test -d /vertica/data/user
+  - script: |
+      val=$(kubectl exec -n $NAMESPACE v-revive-1-main-0 -c server -- vsql -tAc "select count(*) from storage_locations where location_path = '/home/dbadmin/local-data/custom/DBD' and location_usage = 'DATA'"); \
+      if [ $val == 0 ]; then \
+        exit 1; \
+      fi
+  - script: |
+      val=$(kubectl exec -n $NAMESPACE v-revive-1-main-0 -c server -- vsql -tAc "select count(*) from storage_locations where location_path = '/vertica/data/user/DBD' and location_usage = 'USER'"); \
+      if [ $val == 0 ]; then \
+        exit 1; \
+      fi
+  # verify the directory is owned by 5000 (vcluster is 5000:0, admintools and EKS is 5000:5000)
+  - script: |
+      val=$(kubectl exec -n $NAMESPACE v-revive-1-main-0 -c server -- stat -c "%u" /vertica/data/storage); \
+      if [ "$val" != "5000" ]; then \
+        exit 1; \
+      fi
+  - script: |
+      val=$(kubectl exec -n $NAMESPACE v-revive-1-main-0 -c server -- stat -c "%u" /tmp/test); \
+      if [ "$val" != "5000" ]; then \
+        exit 1; \
+      fi
+  - script: |
+      val=$(kubectl exec -n $NAMESPACE v-revive-1-main-0 -c server -- stat -c "%u" /tmp/custom/DBD); \
+      if [ "$val" != "5000" ]; then \
+        exit 1; \
+      fi
+  - script: |
+      val=$(kubectl exec -n $NAMESPACE v-revive-1-main-0 -c server -- stat -c "%u" /home/dbadmin/local-data/custom/DBD); \
+      if [ "$val" != "5000" ]; then \
+        exit 1; \
+      fi
+  - script: |
+      val=$(kubectl exec -n $NAMESPACE v-revive-1-main-0 -c server -- stat -c "%u" /vertica/data/user/DBD); \
+      if [ "$val" != "5000" ]; then \
+        exit 1; \
+      fi
   # delete the pod to ensure the directory is presistent
   - command: kubectl delete pod v-revive-1-main-0
     namespaced: true
