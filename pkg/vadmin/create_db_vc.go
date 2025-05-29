@@ -123,7 +123,7 @@ func (v *VClusterOps) genCreateDBOptions(s *createdb.Parms, certs *HTTPSCerts) v
 	}
 
 	if v.VDB.IsCertRotationEnabled() {
-		configMap := genTLSConfigurationMap(v.VDB.Spec.HTTPSTLSMode, v.VDB.Spec.HTTPSTLSSecret, v.VDB.Namespace)
+		configMap := genTLSConfigurationMap(v.VDB.Spec.HTTPSTLSMode, v.VDB.Spec.HTTPSNMATLSSecret, v.VDB.Namespace)
 		opts.HTTPSTLSConfiguration = maps.Clone(configMap)
 		configMap = genTLSConfigurationMap(v.VDB.Spec.ClientServerTLSMode, v.VDB.Spec.ClientServerTLSSecret, v.VDB.Namespace)
 		opts.ServerTLSConfiguration = maps.Clone(configMap)

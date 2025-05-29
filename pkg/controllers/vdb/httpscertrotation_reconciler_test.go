@@ -38,10 +38,10 @@ var _ = Describe("httpscertrotation_reconciler", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Spec.EncryptSpreadComm = vapi.EncryptSpreadCommDisabled
 		vdb.Spec.Subclusters[0].Size = 3
-		vdb.Spec.HTTPSTLSSecret = rotateHTTPSCertNewNMASecretName
+		vdb.Spec.HTTPSNMATLSSecret = rotateHTTPSCertNewNMASecretName
 		vapi.SetVDBForTLS(vdb)
-		test.CreateFakeTLSSecret(ctx, vdb, k8sClient, vdb.Spec.HTTPSTLSSecret)
-		defer test.DeleteSecret(ctx, k8sClient, vdb.Spec.HTTPSTLSSecret)
+		test.CreateFakeTLSSecret(ctx, vdb, k8sClient, vdb.Spec.HTTPSNMATLSSecret)
+		defer test.DeleteSecret(ctx, k8sClient, vdb.Spec.HTTPSNMATLSSecret)
 		test.CreateFakeTLSSecret(ctx, vdb, k8sClient, rotateHTTPSCertCurrentNMASecretName)
 		defer test.DeleteSecret(ctx, k8sClient, rotateHTTPSCertCurrentNMASecretName)
 		test.CreateVDB(ctx, k8sClient, vdb)

@@ -1,5 +1,5 @@
 kind: Added
-body: ClientServerTLSMode has been added to Vertica DB definition. Users can choose different TLSMODEs when setting up client-server TLS.
+body: HTTPSNMATLSSecret, HTTPSTLSMode, ClientServerTLSMode fields are added to VDB to support mTLS
 time: 2025-05-15T14:52:24.802270572-04:00
 custom:
     Issue: "1198"

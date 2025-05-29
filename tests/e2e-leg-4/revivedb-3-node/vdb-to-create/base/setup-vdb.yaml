@@ -30,7 +30,7 @@ spec:
   subclusters:
     - name: main
       size: 3
-  httpsTLSSecret: nma-cert
+  httpsNMATLSSecret: nma-cert
   clientServerTLSSecret: client-cert 
   certSecrets: []
   imagePullSecrets: []
