@@ -11,29 +11,29 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1beta1
+apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
   name: v-vdb-gen-revive2
+  annotations:
+    vertica.com/k-safety: "0"
 spec:
   initPolicy: Revive
   dbName: vertdb
   shardCount: 6
-  superuserPasswordSecret: v-vdb-gen-revive2-su-passwd
+  passwordSecret: v-vdb-gen-revive2-su-passwd
   local:
     dataPath: /data
     depotPath: /depot
     depotVolume: EmptyDir
-  kSafety: "0"
   subclusters:
     - name: sc1
-      isPrimary: true
+      type: primary
       size: 1
     - name: sc2
-      isPrimary: true
+      type: primary
       size: 1
 status:
-  installCount: 2
   subclusterCount: 2
   upNodeCount: 2
   addedToDBCount: 2

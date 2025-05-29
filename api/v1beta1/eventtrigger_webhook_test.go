@@ -3,6 +3,7 @@ package v1beta1
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	v1 "github.com/vertica/vertica-kubernetes/api/v1"
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -27,7 +28,7 @@ var _ = Describe("eventtrigger_webhook", func() {
 
 	It("should fail on multiple reference objects", func() {
 		et := MakeET()
-		name := MakeVDBName().Name
+		name := v1.MakeVDBName().Name
 		ref := ETReference{
 			Object: &ETRefObject{
 				APIVersion: GroupVersion.String(),
@@ -48,7 +49,7 @@ var _ = Describe("eventtrigger_webhook", func() {
 		et := MakeET()
 		match := ETMatch{
 			Condition: &ETCondition{
-				Type:   string(DBInitialized),
+				Type:   string(v1.DBInitialized),
 				Status: corev1.ConditionTrue,
 			},
 		}
