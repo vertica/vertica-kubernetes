@@ -40,9 +40,31 @@ commands:
       if [ $val == 0 ]; then \
         exit 1; \
       fi
-  # verify the parent directory is owned by root:5000
-  - command: kubectl exec -n $NAMESPACE v-revive-1-main-0 -c server -- stat -c "%u:%g" /vertica/data | grep "root:5000"
-  - command: kubectl exec -n $NAMESPACE v-revive-1-main-0 -c server -- stat -c "%u:%g" /tmp | grep "root:5000"
-  - command: kubectl exec -n $NAMESPACE v-revive-1-main-0 -c server -- stat -c "%u:%g" /tmp/custom | grep "root:5000"
-  - command: kubectl exec -n $NAMESPACE v-revive-1-main-0 -c server -- stat -c "%u:%g" /home/dbadmin/local-data/custom | grep "root:5000"
-  - command: kubectl exec -n $NAMESPACE v-revive-1-main-0 -c server -- stat -c "%u:%g" /vertica/data/user | grep "root:5000"
+  # verify the parent directory is owned by root:root (on EKS is root:5000)
+  - script: |
+      val=$(kubectl exec -n $NAMESPACE v-revive-2-main-2 -c server -- stat -c "%u:%g" /vertica/data); \
+      if [ "$val" != "0:0" ]; then \
+        exit 1; \
+      fi
+
+  - script: |
+      val=$(kubectl exec -n $NAMESPACE v-revive-2-main-2 -c server -- stat -c "%u:%g" /tmp/custom); \
+      if [ "$val" != "0:0" ]; then \
+        exit 1; \
+      fi
+  - script: |
+      val=$(kubectl exec -n $NAMESPACE v-revive-2-main-2 -c server -- stat -c "%u:%g" /home/dbadmin/local-data/custom); \
+      if [ "$val" != "0:0" ]; then \
+        exit 1; \
+      fi
+  - script: |
+      val=$(kubectl exec -n $NAMESPACE v-revive-2-main-2 -c server -- stat -c "%u:%g" /vertica/data/user); \
+      if [ "$val" != "0:0" ]; then \
+        exit 1; \
+      fi
+  # /tmp is not a mount path and should be owned by root:root (on EKS is also root:root)
+  - script: |
+      val=$(kubectl exec -n $NAMESPACE v-revive-2-main-2 -c server -- stat -c "%u:%g" /tmp); \
+      if [ "$val" != "0:0" ]; then \
+        exit 1; \
+      fi
