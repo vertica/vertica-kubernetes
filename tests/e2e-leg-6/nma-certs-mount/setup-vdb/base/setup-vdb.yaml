@@ -17,7 +17,6 @@ metadata:
   name: v-nma-certs
   annotations:
     vertica.com/vcluster-ops: "true"
-    vertica.com/mount-nma-certs: "false"
 spec:
   initPolicy: CreateSkipPackageInstall
   image: kustomize-vertica-image

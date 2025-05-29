@@ -15,7 +15,7 @@ apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 commands:
   - script: |
-      USE_CERT_ROTATION=$(kubectl get vdb -n $NAMESPACE v-verify-server-logrotate -o jsonpath='{.metadata.annotations.vertica\.com/enable-tls-certs-rotation}')
+      USE_CERT_ROTATION=$(kubectl get vdb -n $NAMESPACE v-verify-server-logrotate -o jsonpath='{.metadata.annotations.vertica\.com/enable-tls-auth}')
       SQL_SCRIPT=/tmp/logrotate.sql
       POD_NAME=v-verify-server-logrotate-main-0
       LOGRORATE_EXPECTED_OUTPUT=/tmp/logrotateTimerServiceOut.txt
