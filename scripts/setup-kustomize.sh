@@ -205,10 +205,7 @@ EOF
         then
             cat <<EOF >> kustomization.yaml
     - op: add
-      path: /metadata/annotations/vertica.com~1mount-nma-certs
-      value: "false"
-    - op: add
-      path: /metadata/annotations/vertica.com~1enable-tls-certs-rotation
+      path: /metadata/annotations/vertica.com~1enable-tls-auth
       value: "true"
 EOF
         fi
