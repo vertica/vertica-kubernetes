@@ -109,10 +109,6 @@ func (p *Planner) ApplyChanges(vdb *vapi.VerticaDB) (updated bool, err error) {
 			extraPaths[path] = struct{}{}
 		}
 	}
-	// remove local.catalogPath, local.dataPath, and local.depotPath from extraPaths
-	delete(extraPaths, vdb.Spec.Local.GetCatalogPath())
-	delete(extraPaths, vdb.Spec.Local.DataPath)
-	delete(extraPaths, vdb.Spec.Local.DepotPath)
 
 	// When reviving on EKS, VolumeMounts sets extra storage location paths (such as
 	// /home/dbadmin/local-data/custom/DBD) ownership as uid:gid root:5000. This will cause
@@ -128,9 +124,19 @@ func (p *Planner) ApplyChanges(vdb *vapi.VerticaDB) (updated bool, err error) {
 		parentPaths[parent] = struct{}{}
 	}
 
-	// remove system paths
-	delete(parentPaths, vpath.RootPath)
-	delete(parentPaths, vpath.TmpPath)
+	// remove local.catalogPath, local.dataPath, local.depotPath, /tmp
+	// and their parent dirs from parentPaths
+	pathsToRemove := []string{
+		vdb.Spec.Local.GetCatalogPath(),
+		vdb.Spec.Local.DataPath,
+		vdb.Spec.Local.DepotPath,
+		vpath.TmpPath,
+	}
+	for _, p := range pathsToRemove {
+		delete(parentPaths, p)
+		delete(parentPaths, filepath.Dir(p))
+	}
+
 	// remove all the paths that are already in vpath.MountPaths
 	for _, mountPath := range vpath.MountPaths {
 		delete(parentPaths, mountPath)

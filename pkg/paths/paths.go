@@ -61,7 +61,6 @@ const (
 	StartupConfDir            = "/tmp/startup"
 	StartupConfFile           = "/tmp/startup/startup.json"
 	TmpPath                   = "/tmp"
-	RootPath                  = "/"
 )
 
 // MountPaths lists all of the paths for internally generated mounts.
