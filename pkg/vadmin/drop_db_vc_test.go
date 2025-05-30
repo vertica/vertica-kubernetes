@@ -67,10 +67,10 @@ var _ = Describe("drop_db_vc", func() {
 	It("should call vcluster-ops library with drop_db task", func() {
 		dispatcher := mockVClusterOpsDispatcher()
 		dispatcher.VDB.Spec.DBName = TestDBName
-		dispatcher.VDB.Spec.HTTPSTLSSecret = "drop-db-test-secret"
+		dispatcher.VDB.Spec.HTTPSNMATLSSecret = "drop-db-test-secret"
 		dispatcher.VDB.Spec.Local.CatalogPath = TestCatalogPath
-		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.HTTPSTLSSecret)
-		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.HTTPSTLSSecret)
+		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.HTTPSNMATLSSecret)
+		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.HTTPSNMATLSSecret)
 		dispatcher.VDB.Annotations = map[string]string{vmeta.PreserveDBDirectoryAnnotation: "true"}
 
 		var hosts []dropdb.Host
