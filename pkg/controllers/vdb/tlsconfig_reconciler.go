@@ -63,10 +63,11 @@ type TLSConfigReconciler struct {
 	PRunner    cmds.PodRunner
 	Dispatcher vadmin.Dispatcher
 	Pfacts     *podfacts.PodFacts
+	Restart    bool
 }
 
 func MakeTLSConfigReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger, vdb *vapi.VerticaDB, prunner cmds.PodRunner,
-	dispatcher vadmin.Dispatcher, pfacts *podfacts.PodFacts) controllers.ReconcileActor {
+	dispatcher vadmin.Dispatcher, pfacts *podfacts.PodFacts, restart bool) controllers.ReconcileActor {
 	return &TLSConfigReconciler{
 		VRec:       vdbrecon,
 		Vdb:        vdb,
@@ -74,11 +75,12 @@ func MakeTLSConfigReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger, vdb
 		Dispatcher: dispatcher,
 		PRunner:    prunner,
 		Pfacts:     pfacts,
+		Restart:    restart,
 	}
 }
 
 // Reconcile will create a TLS secret for the http server if one is missing
-func (h *TLSConfigReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
+func (h *TLSConfigReconciler) Reconcile(ctx context.Context, request *ctrl.Request) (ctrl.Result, error) {
 	h.Log.Info("in tls config reconcile 1, enabled ? " + strconv.FormatBool(h.Vdb.IsCertRotationEnabled()))
 	// !meta.SetupTLSConfig(h.Vdb.Annotations) ||
 	//
@@ -97,12 +99,14 @@ func (h *TLSConfigReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (c
 	err := h.Pfacts.Collect(ctx, h.Vdb)
 	if err != nil {
 		h.Log.Error(err, "failed to collect pfacts to set up tls. skip current loop")
-		return ctrl.Result{Requeue: true}, nil
+		return ctrl.Result{}, nil
 	}
 	initiatorPod, ok := h.Pfacts.FindFirstUpPod(false, "")
 	if !ok {
-		h.Log.Info("No pod found to set up tls config. skip current loop.")
-		return ctrl.Result{Requeue: true}, nil
+		h.Log.Info("No pod found to set up tls config. restart next.")
+		restartReconciler := MakeRestartReconciler(h.VRec, h.Log, h.Vdb, h.PRunner, h.Pfacts, true, h.Dispatcher)
+		restartReconciler.Reconcile(ctx, request)
+		return ctrl.Result{}, nil
 	}
 	h.VRec.Eventf(h.Vdb, corev1.EventTypeNormal, events.TLSConfigurationStarted,
 		"Starting to configure TLS")

@@ -23,6 +23,7 @@ import (
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/builder"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
+	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	"github.com/vertica/vertica-kubernetes/pkg/secrets"
@@ -79,10 +80,10 @@ func (h *TLSServerCertGenReconciler) Reconcile(ctx context.Context, _ *ctrl.Requ
 			return ctrl.Result{}, err
 		}
 	}
-	/*err = h.reconcileNMACertConfigMap(ctx)
+	err = h.reconcileNMACertConfigMap(ctx)
 	if err != nil {
 		h.Log.Error(err, "failed to reconcile tls configmap")
-	}*/
+	}
 	return ctrl.Result{}, err
 }
 
@@ -197,7 +198,7 @@ func (h *TLSServerCertGenReconciler) setSecretNameInVDB(ctx context.Context, sec
 
 // reconcileNMACertConfigMap creates/updates the configmap that contains the tls
 // secret name
-/*func (h *TLSServerCertGenReconciler) reconcileNMACertConfigMap(ctx context.Context) error {
+func (h *TLSServerCertGenReconciler) reconcileNMACertConfigMap(ctx context.Context) error {
 	configMapName := names.GenNMACertConfigMap(h.Vdb)
 	configMap := &corev1.ConfigMap{}
 	err := h.VRec.GetClient().Get(ctx, configMapName, configMap)
@@ -237,4 +238,4 @@ func (h *TLSServerCertGenReconciler) setSecretNameInVDB(ctx context.Context, sec
 			"clientserver-secret", h.Vdb.Spec.ClientServerTLSSecret)
 	}
 	return err
-}*/
+}

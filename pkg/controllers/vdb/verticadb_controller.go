@@ -188,6 +188,8 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		MakeCrashLoopReconciler(r, log, vdb),
 		// Always generate cert first if nothing is provided
 		MakeTLSServerCertGenReconciler(r, log, vdb),
+		// Set up TLS config if users turn it on
+		MakeTLSConfigReconciler(r, log, vdb, prunner, dispatcher, pfacts, false),
 		// Trigger sandbox upgrade when the image field for the sandbox
 		// is changed
 		MakeSandboxUpgradeReconciler(r, log, vdb, false),
@@ -268,8 +270,7 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		MakeCreateDBReconciler(r, log, vdb, prunner, pfacts, dispatcher),
 		// Handle calls to revive a database
 		MakeReviveDBReconciler(r, log, vdb, prunner, pfacts, dispatcher),
-		// Set up TLS config if users turn it on
-		MakeTLSConfigReconciler(r, log, vdb, prunner, dispatcher, pfacts),
+		MakeTLSConfigReconciler(r, log, vdb, prunner, dispatcher, pfacts, true),
 		MakeMetricReconciler(r, log, vdb, prunner, pfacts),
 		// Create and revive are mutually exclusive exclusive, so this handles
 		// status updates after both of them.

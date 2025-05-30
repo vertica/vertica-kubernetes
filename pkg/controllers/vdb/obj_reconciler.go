@@ -122,10 +122,10 @@ func (o *ObjReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Re
 	}
 
 	// We need to create/update the configmap that contains the tls secret name
-	err := o.reconcileNMACertConfigMap(ctx)
+	/* err := o.reconcileNMACertConfigMap(ctx)
 	if err != nil {
 		return ctrl.Result{}, err
-	}
+	} */
 
 	// Check the objects for subclusters that should exist.  This will create
 	// missing objects and update existing objects to match the vdb.
