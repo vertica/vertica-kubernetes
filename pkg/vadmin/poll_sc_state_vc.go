@@ -33,7 +33,7 @@ func (v *VClusterOps) PollSubclusterState(ctx context.Context, opts ...pollscsta
 	s := pollscstate.Params{}
 	s.Make(opts...)
 
-	certs, err := v.retrieveNMACerts(ctx)
+	certs, err := v.retrieveHTTPSCerts(ctx)
 	if err != nil {
 		return err
 	}

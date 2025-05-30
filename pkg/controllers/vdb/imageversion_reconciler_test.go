@@ -248,7 +248,7 @@ func testNMATLSSecretWithVersion(ctx context.Context, secretName, oldVersion, ne
 	vdb.ObjectMeta.Annotations = map[string]string{
 		vmeta.VClusterOpsAnnotation: vmeta.VClusterOpsAnnotationTrue,
 	}
-	vdb.Spec.NMATLSSecret = secretName
+	vdb.Spec.HTTPSTLSSecret = secretName
 	test.CreateVDB(ctx, k8sClient, vdb)
 	defer test.DeleteVDB(ctx, k8sClient, vdb)
 	test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)

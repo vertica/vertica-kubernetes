@@ -255,12 +255,12 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		// Handle calls to remove hosts from admintools.conf
 		MakeUninstallReconciler(r, log, vdb, prunner, pfacts),
 		MakeStatusReconciler(r.Client, r.Scheme, log, vdb, pfacts),
-		// Creates or updates any k8s objects the CRD creates. This includes any
-		// statefulsets and service objects.
-		MakeObjReconciler(r, log, vdb, pfacts, ObjReconcileModeAll),
 		// Set version info in the annotations and check that the deployment is
 		// compatible with the image.
 		MakeImageVersionReconciler(r, log, vdb, prunner, pfacts, false /* enforceUpgradePath */),
+		// Creates or updates any k8s objects the CRD creates. This includes any
+		// statefulsets and service objects.
+		MakeObjReconciler(r, log, vdb, pfacts, ObjReconcileModeAll),
 		// Handle calls to add hosts to admintools.conf
 		MakeInstallReconciler(r, log, vdb, prunner, pfacts),
 		MakeStatusReconciler(r.Client, r.Scheme, log, vdb, pfacts),
@@ -309,6 +309,8 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		MakeHTTPSCertRotationReconciler(r, log, vdb, dispatcher, pfacts),
 		// rotate nma tls cert when tls cert secret name is changed in vdb.spec
 		MakeNMACertRotationReconciler(r, log, vdb, dispatcher, pfacts),
+		// update the tls modes
+		MakeTLSModeReconciler(r, log, vdb, prunner, dispatcher, pfacts),
 		// Resize any PVs if the local data size changed in the vdb
 		MakeResizePVReconciler(r, log, vdb, prunner, pfacts),
 		// This must be the last reconciler. It makes sure that all dependent

@@ -34,7 +34,7 @@ func (v *VClusterOps) AddNode(ctx context.Context, opts ...addnode.Option) error
 	v.Log.Info("Starting vcluster AddNode")
 
 	// get the certs
-	certs, err := v.retrieveNMACerts(ctx)
+	certs, err := v.retrieveHTTPSCerts(ctx)
 	if err != nil {
 		return err
 	}

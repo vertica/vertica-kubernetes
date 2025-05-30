@@ -37,7 +37,7 @@ func (v *VClusterOps) StopDB(ctx context.Context, opts ...stopdb.Option) error {
 	s.Make(opts...)
 
 	// get the certs
-	certs, err := v.retrieveNMACerts(ctx)
+	certs, err := v.retrieveHTTPSCerts(ctx)
 	if err != nil {
 		return err
 	}

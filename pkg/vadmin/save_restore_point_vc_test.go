@@ -63,9 +63,9 @@ var _ = Describe("save_restore_point_vc", func() { //nolint:dupl
 	It("should call vclusterOps library with save_restore_point task", func() {
 		dispatcher := mockVClusterOpsDispatcher()
 		dispatcher.VDB.Spec.DBName = TestDBName
-		dispatcher.VDB.Spec.NMATLSSecret = "save-restore-point"
-		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.NMATLSSecret)
-		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.NMATLSSecret)
+		dispatcher.VDB.Spec.HTTPSTLSSecret = "save-restore-point"
+		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.HTTPSTLSSecret)
+		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.HTTPSTLSSecret)
 		Ω(dispatcher.SaveRestorePoint(ctx,
 			saverestorepoint.WithInitiator(TestInitiatorIP),
 			saverestorepoint.WithSandbox(sb),

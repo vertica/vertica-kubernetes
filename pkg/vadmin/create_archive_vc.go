@@ -33,7 +33,7 @@ func (v *VClusterOps) CreateArchive(ctx context.Context, opts ...createarchive.O
 	s.Make(opts...)
 
 	// get the certs
-	certs, err := v.retrieveNMACerts(ctx)
+	certs, err := v.retrieveHTTPSCerts(ctx)
 	if err != nil {
 		return err
 	}
