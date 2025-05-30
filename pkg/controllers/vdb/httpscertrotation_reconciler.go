@@ -69,9 +69,6 @@ func (h *HTTPSCertRotationReconciler) Reconcile(ctx context.Context, _ *ctrl.Req
 	}
 	currentSecretName := h.Vdb.GetHTTPSTLSSecretNameInUse()
 	newSecretName := h.Vdb.Spec.HTTPSNMATLSSecret
-	if newSecretName == "" {
-		newSecretName = h.Vdb.Spec.NMATLSSecret
-	}
 	h.Log.Info("Starting rotation reconcile", "currentSecretName", currentSecretName, "newSecretName", newSecretName)
 	// this condition excludes bootstrap scenario
 	if currentSecretName == "" || newSecretName == currentSecretName {

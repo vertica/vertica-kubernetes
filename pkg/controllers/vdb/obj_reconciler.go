@@ -874,25 +874,22 @@ func isNMADeploymentDifferent(sts1, sts2 *appsv1.StatefulSet) bool {
 func isHealthCheckDifferent(sts1, sts2 *appsv1.StatefulSet) bool {
 	spec1 := sts1.Spec.Template.Spec
 	spec2 := sts2.Spec.Template.Spec
-	var livenessProbe1, livenessProbe2, readnessProbe1, readnessProbe2, startupProbe1, startupProbe2 *corev1.Probe
+	var livenessProbe1, livenessProbe2, startupProbe1, startupProbe2 *corev1.Probe
 	for i := 0; i < len(spec1.Containers); i++ {
 		if spec1.Containers[i].Name == names.ServerContainer {
 			livenessProbe1 = spec1.Containers[i].LivenessProbe
-			readnessProbe1 = spec1.Containers[i].ReadinessProbe
 			startupProbe1 = spec1.Containers[i].StartupProbe
 			break
 		}
 	}
 	for i := 0; i < len(spec2.Containers); i++ {
-		if spec1.Containers[i].Name == names.ServerContainer {
-			livenessProbe2 = spec1.Containers[i].LivenessProbe
-			readnessProbe2 = spec1.Containers[i].ReadinessProbe
-			startupProbe2 = spec1.Containers[i].StartupProbe
+		if spec2.Containers[i].Name == names.ServerContainer {
+			livenessProbe2 = spec2.Containers[i].LivenessProbe
+			startupProbe2 = spec2.Containers[i].StartupProbe
 			break
 		}
 	}
-	return !reflect.DeepEqual(livenessProbe1, livenessProbe2) || !reflect.DeepEqual(readnessProbe1, readnessProbe2) ||
-		!reflect.DeepEqual(startupProbe1, startupProbe2)
+	return !reflect.DeepEqual(livenessProbe1, livenessProbe2) || !reflect.DeepEqual(startupProbe1, startupProbe2)
 }
 
 // checkIfReadyForStsUpdate will check whether it is okay to proceed

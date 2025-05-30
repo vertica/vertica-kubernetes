@@ -1387,6 +1387,7 @@ func makeHTTPSVersionEndpointProbe() *corev1.Probe {
 				Scheme: corev1.URISchemeHTTPS,
 			},
 		},
+		SuccessThreshold: 1,
 	}
 }
 
@@ -1400,6 +1401,7 @@ func makeHTTPVersionEndpointProbe() *corev1.Probe {
 				Scheme: corev1.URISchemeHTTP,
 			},
 		},
+		SuccessThreshold: 1,
 	}
 }
 
