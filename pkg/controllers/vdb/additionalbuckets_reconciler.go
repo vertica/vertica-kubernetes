@@ -77,13 +77,13 @@ func (a *AddtionalBucketsReconciler) Reconcile(ctx context.Context, _ *ctrl.Requ
 	return ctrl.Result{}, a.updateAdditionalBucketsStatus(ctx)
 }
 
+// isAddtionalBucketsUpdated checks if the additional buckets are updated
 func (a *AddtionalBucketsReconciler) isAddtionalBucketsUpdated() bool {
-	// check if the additional buckets are updated
-	// if the additional buckets are not set, return false
 	if a.Vdb.Status.AdditionalBuckets == nil {
-		return false
+		return true
 	}
-	// check if the additional buckets are updated
+
+	// status should have the same length as spec
 	if len(a.Vdb.Spec.AdditionalBuckets) != len(a.Vdb.Status.AdditionalBuckets) {
 		return true
 	}
@@ -122,6 +122,7 @@ func (a *AddtionalBucketsReconciler) updateAdditionalBucketsStatus(ctx context.C
 	return vdbstatus.Update(ctx, a.Client, a.Vdb, updateStatus)
 }
 
+// updateAdditionalBuckets will update the additional buckets in the database
 func (a *AddtionalBucketsReconciler) updateAdditionalBuckets(ctx context.Context) (ctrl.Result, error) {
 	var res ctrl.Result
 	var err error
@@ -142,11 +143,11 @@ func (a *AddtionalBucketsReconciler) updateAdditionalBuckets(ctx context.Context
 			}
 
 			sb.WriteString(fmt.Sprintf(
-				`ALTER DATABASE default SET S3BucketConfig = '[{\"bucket\": \"%s\", \"region\": \"%s\", \"protocol\": \"%s\", \"endpoint\": \"%s\"}]';`,
+				`ALTER DATABASE default SET S3BucketConfig = '[{"bucket": %q, "region": %q, "protocol": %q, "endpoint": %q}]';`,
 				config.GetBucket(bucket.Path), bucket.Region, config.GetEndpointProtocol(bucket.Endpoint), config.GetEndpoint(bucket.Endpoint)))
 
 			sb.WriteString(fmt.Sprintf(
-				`ALTER DATABASE default SET S3BucketCredentials = '[{\"bucket\": \"%s\", \"accessKey\": \"%s\", \"secretAccessKey\": \"%s\"}]';`,
+				`ALTER DATABASE default SET S3BucketCredentials = '[{"bucket": %q, "accessKey": %q, "secretAccessKey": %q}]';`,
 				config.GetBucket(bucket.Path), accessKey, secretKey))
 		}
 
@@ -171,10 +172,11 @@ func (a *AddtionalBucketsReconciler) updateAdditionalBuckets(ctx context.Context
 			}
 
 			sb.WriteString(fmt.Sprintf(
-				`ALTER DATABASE default SET AzureStorageCredentials = '[{\"accountName\": \"%s\", \"accountKey\": \"%s\"}]';`,
+				`ALTER DATABASE default SET AzureStorageCredentials = '[{"accountName": %q, "accountKey": %q}]';`,
 				azureCreds.AccountName, azureCreds.AccountKey))
 			sb.WriteString(fmt.Sprintf(
-				`ALTER DATABASE default SET AzureStorageEndpointConfig = '[{\"accountName\": \"%s\", \"blobEndpoint\": \"%s\", \"protocol\":\"%s\"}]';`,
+				`ALTER DATABASE default SET AzureStorageEndpointConfig = '[{"accountName": %q, "blobEndpoint": %q,
+				 "protocol":%q}]';`,
 				azureCreds.AccountName, azureConfig.BlobEndpoint, azureConfig.Protocol))
 		}
 	}
