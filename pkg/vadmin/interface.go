@@ -30,6 +30,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/createarchive"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/createdb"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/describedb"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/dropdb"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/fetchnodedetails"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/fetchnodestate"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/getconfigparameter"
@@ -160,6 +161,9 @@ type Dispatcher interface {
 
 	// RotateHTTPSCerts will rotate nma cert
 	RotateHTTPSCerts(ctx context.Context, opts ...rotatehttpscerts.Option) error
+
+	// DropDB will drop vertica.conf and catalog files before db revival
+	DropDB(ctx context.Context, opts ...dropdb.Option) error
 }
 
 const (
@@ -325,4 +329,5 @@ type VClusterProvider interface {
 	VRotateNMACerts(options *vops.VRotateNMACertsOptions) error
 	VRotateTLSCerts(options *vops.VRotateTLSCertsOptions) error
 	VSetTLSConfig(options *vops.VSetTLSConfigOptions) error
+	VDropDatabase(options *vops.VDropDatabaseOptions) error
 }

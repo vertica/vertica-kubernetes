@@ -413,6 +413,12 @@ const (
 
 	// It will disable fetch_node_details log info. This makes debugging easier.
 	DisableFetchNodeDetailsInfoLog = "vertica.com/disable-fetch-node-details-log-info"
+
+	// This annotation ensures the database directory is preserved after the VDB is removed.
+	// As a result, when the user revives the old database, the directory still exists,
+	// allowing us to retain the DC tables.
+	// This is currently used internally for K8s stress test.
+	PreserveDBDirectoryAnnotation = "vertica.com/preserve-db-dir"
 )
 
 // IsPauseAnnotationSet will check the annotations for a special value that will
@@ -799,6 +805,11 @@ func GetDisableRouting(annotations map[string]string) bool {
 // log info must be disabled.
 func IsFetchNodeDetailsLogDisabled(annotations map[string]string) bool {
 	return lookupBoolAnnotation(annotations, DisableFetchNodeDetailsInfoLog, false)
+}
+
+// GetPreserveDBDirectory returns true if the operator must preserve the DB directory
+func GetPreserveDBDirectory(annotations map[string]string) bool {
+	return lookupBoolAnnotation(annotations, PreserveDBDirectoryAnnotation, false)
 }
 
 // lookupBoolAnnotation is a helper function to lookup a specific annotation and
