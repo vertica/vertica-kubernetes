@@ -76,7 +76,7 @@ func (s *ServiceAccountReconciler) Reconcile(ctx context.Context, _ *ctrl.Reques
 	// There is no need to create the role and rolebinding when the following condition is met:
 	//	- NMA reads certs from mounted volume or non-k8s secret store
 	if vmeta.UseVClusterOps(s.Vdb.Annotations) &&
-		(vmeta.UseNMACertsMount(s.Vdb.Annotations) || !secrets.IsK8sSecret(s.Vdb.Spec.HTTPSTLSSecret)) {
+		(vmeta.UseNMACertsMount(s.Vdb.Annotations) || !secrets.IsK8sSecret(s.Vdb.Spec.HTTPSNMATLSSecret)) {
 		return ctrl.Result{}, s.saveServiceAccountNameInVDB(ctx, sa.Name)
 	}
 

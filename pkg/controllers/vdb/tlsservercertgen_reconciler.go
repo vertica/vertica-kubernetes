@@ -35,7 +35,7 @@ import (
 )
 
 const (
-	httpsTLSSecret        = "HTTPSTLSSecret" //nolint:gosec
+	httpsNMATLSSecret     = "HTTPSNMATLSSecret" //nolint:gosec
 	clientServerTLSSecret = "ClientServerTLSSecret"
 )
 
@@ -57,17 +57,17 @@ func MakeTLSServerCertGenReconciler(vdbrecon *VerticaDBReconciler, log logr.Logg
 
 // Reconcile will create a TLS secret for the http server if one is missing
 func (h *TLSServerCertGenReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
-	if h.Vdb.Spec.NMATLSSecret != "" && h.Vdb.Spec.HTTPSTLSSecret == "" {
-		h.Log.Info("httpsTLSSecret is initialized from nmaTLSSecret")
-		err := h.setSecretNameInVDB(ctx, httpsTLSSecret, h.Vdb.Spec.NMATLSSecret)
+	if h.Vdb.Spec.NMATLSSecret != "" && h.Vdb.Spec.HTTPSNMATLSSecret == "" {
+		h.Log.Info("httpsNMATLSSecret is initialized from nmaTLSSecret")
+		err := h.setSecretNameInVDB(ctx, httpsNMATLSSecret, h.Vdb.Spec.NMATLSSecret)
 		if err != nil {
-			h.Log.Error(err, "failed to initialize httpsTLSSecret from nmaTLSSecret")
+			h.Log.Error(err, "failed to initialize httpsNMATLSSecret from nmaTLSSecret")
 			return ctrl.Result{}, err
 		}
-		h.Vdb.Spec.HTTPSTLSSecret = h.Vdb.Spec.NMATLSSecret
+		h.Vdb.Spec.HTTPSNMATLSSecret = h.Vdb.Spec.NMATLSSecret
 	}
 	secretFieldNameMap := map[string]string{
-		httpsTLSSecret:        h.Vdb.Spec.HTTPSTLSSecret,
+		httpsNMATLSSecret:     h.Vdb.Spec.HTTPSNMATLSSecret,
 		clientServerTLSSecret: h.Vdb.Spec.ClientServerTLSSecret,
 	}
 	err := error(nil)
@@ -161,7 +161,7 @@ func (h *TLSServerCertGenReconciler) createSecret(secretFieldName, secretName st
 	// the name already present is the case where the name was filled in but the
 	// secret didn't exist.
 	if secretName == "" {
-		if secretFieldName == httpsTLSSecret {
+		if secretFieldName == httpsNMATLSSecret {
 			secret.GenerateName = fmt.Sprintf("%s-https-tls-", h.Vdb.Name)
 		} else if secretFieldName == clientServerTLSSecret {
 			secret.GenerateName = fmt.Sprintf("%s-clientserver-tls-", h.Vdb.Name)
@@ -183,8 +183,8 @@ func (h *TLSServerCertGenReconciler) setSecretNameInVDB(ctx context.Context, sec
 		}
 		if secretFieldName == clientServerTLSSecret {
 			h.Vdb.Spec.ClientServerTLSSecret = secretName
-		} else if secretFieldName == httpsTLSSecret {
-			h.Vdb.Spec.HTTPSTLSSecret = secretName
+		} else if secretFieldName == httpsNMATLSSecret {
+			h.Vdb.Spec.HTTPSNMATLSSecret = secretName
 		}
 		return h.VRec.Client.Update(ctx, h.Vdb)
 	})

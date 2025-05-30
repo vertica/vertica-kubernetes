@@ -167,13 +167,13 @@ func (o *ObjReconciler) checkMountedObjs(ctx context.Context) (ctrl.Result, erro
 		// that has the certs to use for it.  There is a reconciler that is run
 		// before this that will create the secret.  We will requeue if we find
 		// the Vdb doesn't have the secret set.
-		if o.Vdb.Spec.HTTPSTLSSecret == "" {
+		if o.Vdb.Spec.HTTPSNMATLSSecret == "" {
 			o.Rec.Event(o.Vdb, corev1.EventTypeWarning, events.HTTPServerNotSetup,
-				"The httpsTLSSecret must be set when running with vclusterops deployment")
+				"The httpsNMATLSSecret must be set when running with vclusterops deployment")
 			return ctrl.Result{Requeue: true}, nil
 		}
 		_, res, err := o.SecretFetcher.FetchAllowRequeue(ctx,
-			names.GenNamespacedName(o.Vdb, o.Vdb.Spec.HTTPSTLSSecret))
+			names.GenNamespacedName(o.Vdb, o.Vdb.Spec.HTTPSNMATLSSecret))
 		if verrors.IsReconcileAborted(res, err) {
 			return res, err
 		}
@@ -199,7 +199,7 @@ func (o *ObjReconciler) checkMountedObjs(ctx context.Context) (ctrl.Result, erro
 
 func (o *ObjReconciler) checkTLSSecrets(ctx context.Context) (ctrl.Result, error) {
 	tlsSecrets := map[string]string{
-		"NMA TLS":           o.Vdb.Spec.HTTPSTLSSecret,
+		"NMA TLS":           o.Vdb.Spec.HTTPSNMATLSSecret,
 		"Client Server TLS": o.Vdb.Spec.ClientServerTLSSecret,
 	}
 	for k, tlsSecret := range tlsSecrets {
@@ -683,10 +683,10 @@ func (o *ObjReconciler) handleStatefulSetUpdate(ctx context.Context, sc *vapi.Su
 	// change it here.
 	expSts.Spec.VolumeClaimTemplates = curSts.Spec.VolumeClaimTemplates
 
-	// If the NMA deployment type is changing, we cannot do a rolling update for
-	// this change. All pods need to have the same NMA deployment type. So, we
-	// drop the old sts and create a fresh one.
-	if isNMADeploymentDifferent(curSts, expSts) || isLivenessPortDifferent(curSts, expSts) {
+	// If the NMA deployment type or health check setting is changing,
+	// we cannot do a rolling update for this change. All pods need to have the
+	// same NMA deployment type. So, we drop the old sts and create a fresh one.
+	if isNMADeploymentDifferent(curSts, expSts) || isHealthCheckDifferent(curSts, expSts) {
 		o.Log.Info("Dropping then recreating statefulset", "Name", expSts.Name)
 		// Invalidate the pod facts cache since we are recreating a new sts
 		o.PFacts.Invalidate()
@@ -723,7 +723,7 @@ func (o *ObjReconciler) reconcileNMACertConfigMap(ctx context.Context) error {
 		o.Log.Error(err, "failed to retrieve TLS cert secret configmap")
 		return err
 	}
-	if configMap.Data[builder.NMASecretNameEnv] == o.Vdb.Spec.HTTPSTLSSecret &&
+	if configMap.Data[builder.NMASecretNameEnv] == o.Vdb.Spec.HTTPSNMATLSSecret &&
 		configMap.Data[builder.NMAClientSecretNameEnv] == o.Vdb.Spec.ClientServerTLSSecret &&
 		configMap.Data[builder.NMASecretNamespaceEnv] == o.Vdb.ObjectMeta.Namespace &&
 		configMap.Data[builder.NMAClientSecretNamespaceEnv] == o.Vdb.ObjectMeta.Namespace &&
@@ -731,7 +731,7 @@ func (o *ObjReconciler) reconcileNMACertConfigMap(ctx context.Context) error {
 		return nil
 	}
 
-	configMap.Data[builder.NMASecretNameEnv] = o.Vdb.Spec.HTTPSTLSSecret
+	configMap.Data[builder.NMASecretNameEnv] = o.Vdb.Spec.HTTPSNMATLSSecret
 	configMap.Data[builder.NMASecretNamespaceEnv] = o.Vdb.ObjectMeta.Namespace
 	configMap.Data[builder.NMAClientSecretNameEnv] = o.Vdb.Spec.ClientServerTLSSecret
 	configMap.Data[builder.NMAClientSecretNamespaceEnv] = o.Vdb.ObjectMeta.Namespace
@@ -739,7 +739,7 @@ func (o *ObjReconciler) reconcileNMACertConfigMap(ctx context.Context) error {
 
 	err = o.Rec.GetClient().Update(ctx, configMap)
 	if err == nil {
-		o.Log.Info("updated tls cert secret configmap", "name", configMapName.Name, "nma-secret", o.Vdb.Spec.HTTPSTLSSecret,
+		o.Log.Info("updated tls cert secret configmap", "name", configMapName.Name, "nma-secret", o.Vdb.Spec.HTTPSNMATLSSecret,
 			"clientserver-secret", o.Vdb.Spec.ClientServerTLSSecret)
 	}
 	return err
@@ -752,7 +752,7 @@ func (o *ObjReconciler) reconcileTLSSecrets(ctx context.Context) error {
 	}
 
 	tlsSecrets := []string{
-		o.Vdb.Spec.HTTPSTLSSecret,
+		o.Vdb.Spec.HTTPSNMATLSSecret,
 		o.Vdb.Spec.ClientServerTLSSecret,
 	}
 	for _, tlsSecret := range tlsSecrets {
@@ -870,9 +870,29 @@ func isNMADeploymentDifferent(sts1, sts2 *appsv1.StatefulSet) bool {
 	return vk8s.HasNMAContainer(&sts1.Spec.Template.Spec) != vk8s.HasNMAContainer(&sts2.Spec.Template.Spec)
 }
 
-// isLivenessPortDifferent will return true if the two stateful sets use different http port for livness check
-func isLivenessPortDifferent(sts1, sts2 *appsv1.StatefulSet) bool {
-	return vk8s.GetLivenessProbePort(&sts1.Spec.Template.Spec) != vk8s.GetLivenessProbePort(&sts2.Spec.Template.Spec)
+// isHealthCheckDifferent will return true if the two stateful sets use different health checks
+func isHealthCheckDifferent(sts1, sts2 *appsv1.StatefulSet) bool {
+	spec1 := sts1.Spec.Template.Spec
+	spec2 := sts2.Spec.Template.Spec
+	var livenessProbe1, livenessProbe2, readnessProbe1, readnessProbe2, startupProbe1, startupProbe2 *corev1.Probe
+	for i := 0; i < len(spec1.Containers); i++ {
+		if spec1.Containers[i].Name == names.ServerContainer {
+			livenessProbe1 = spec1.Containers[i].LivenessProbe
+			readnessProbe1 = spec1.Containers[i].ReadinessProbe
+			startupProbe1 = spec1.Containers[i].StartupProbe
+			break
+		}
+	}
+	for i := 0; i < len(spec2.Containers); i++ {
+		if spec1.Containers[i].Name == names.ServerContainer {
+			livenessProbe2 = spec1.Containers[i].LivenessProbe
+			readnessProbe2 = spec1.Containers[i].ReadinessProbe
+			startupProbe2 = spec1.Containers[i].StartupProbe
+			break
+		}
+	}
+	return reflect.DeepEqual(livenessProbe1, livenessProbe2) && reflect.DeepEqual(readnessProbe1, readnessProbe2) &&
+		reflect.DeepEqual(startupProbe1, startupProbe2)
 }
 
 // checkIfReadyForStsUpdate will check whether it is okay to proceed

@@ -99,7 +99,7 @@ func (g *GenericDatabaseInitializer) runInit(ctx context.Context) (ctrl.Result, 
 		return res, err
 	}
 	if g.Vdb.IsCertRotationEnabled() {
-		sec := vapi.MakeHTTPSTLSSecretRef(g.Vdb.Spec.HTTPSTLSSecret)
+		sec := vapi.MakeHTTPSTLSSecretRef(g.Vdb.Spec.HTTPSNMATLSSecret)
 		clientSec := vapi.MakeClientServerTLSSecretRef(g.Vdb.Spec.ClientServerTLSSecret)
 		sRefs := []*vapi.SecretRef{
 			sec, clientSec,

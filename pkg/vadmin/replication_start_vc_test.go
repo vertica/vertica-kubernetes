@@ -80,12 +80,12 @@ var _ = Describe("replication_start_vc", func() {
 	It("should call ReplicateDB in the vcluster-ops library", func() {
 		dispatcher := mockVclusteropsDispatcherWithTarget()
 		dispatcher.VDB.Spec.DBName = TestDBName
-		dispatcher.VDB.Spec.HTTPSTLSSecret = "replication-start-test-secret"
+		dispatcher.VDB.Spec.HTTPSNMATLSSecret = "replication-start-test-secret"
 		dispatcher.TargetVDB.Spec.DBName = TestTargetDBName
-		dispatcher.TargetVDB.Spec.HTTPSTLSSecret = "replication-start-test-target-secret"
-		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.HTTPSTLSSecret)
-		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.TargetVDB.Spec.HTTPSTLSSecret)
-		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.HTTPSTLSSecret)
+		dispatcher.TargetVDB.Spec.HTTPSNMATLSSecret = "replication-start-test-target-secret"
+		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.HTTPSNMATLSSecret)
+		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.TargetVDB.Spec.HTTPSNMATLSSecret)
+		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.HTTPSNMATLSSecret)
 
 		_, err := dispatcher.ReplicateDB(ctx,
 			replicationstart.WithSourceIP(TestSourceIP),

@@ -32,7 +32,7 @@ spec:
   subclusters:
     - name: sc1
       size: 1
-  httpsTLSSecret: nma-cert
+  httpsNMATLSSecret: nma-cert
   httpsTLSMode: VERIFY_CA
   clientServerTLSSecret: client-cert
   clientServerTLSMode: VERIFY_CA
