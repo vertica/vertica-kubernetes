@@ -891,8 +891,8 @@ func isHealthCheckDifferent(sts1, sts2 *appsv1.StatefulSet) bool {
 			break
 		}
 	}
-	return reflect.DeepEqual(livenessProbe1, livenessProbe2) && reflect.DeepEqual(readnessProbe1, readnessProbe2) &&
-		reflect.DeepEqual(startupProbe1, startupProbe2)
+	return !reflect.DeepEqual(livenessProbe1, livenessProbe2) || !reflect.DeepEqual(readnessProbe1, readnessProbe2) ||
+		!reflect.DeepEqual(startupProbe1, startupProbe2)
 }
 
 // checkIfReadyForStsUpdate will check whether it is okay to proceed
