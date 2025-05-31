@@ -120,7 +120,7 @@ func (c *CreateDBReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ct
 // This handles logging of necessary events.
 func (c *CreateDBReconciler) execCmd(ctx context.Context, initiatorPod types.NamespacedName,
 	hostList []string, podNames []types.NamespacedName) (ctrl.Result, error) {
-	if c.Vdb.IsCertRotationEnabled() && secrets.IsGSMSecret(c.Vdb.Spec.NMATLSSecret) {
+	if c.Vdb.IsCertRotationEnabled() && secrets.IsGSMSecret(c.Vdb.Spec.HTTPSNMATLSSecret) {
 		return ctrl.Result{}, fmt.Errorf("tls configuration setting with GSM not implemented")
 	}
 	opts, err := c.genOptions(ctx, initiatorPod, podNames, hostList)
@@ -130,8 +130,18 @@ func (c *CreateDBReconciler) execCmd(ctx context.Context, initiatorPod types.Nam
 	c.VRec.Event(c.Vdb, corev1.EventTypeNormal, events.CreateDBStart, "Starting create database")
 
 	start := time.Now()
-	if res, err := c.Dispatcher.CreateDB(ctx, opts...); verrors.IsReconcileAborted(res, err) {
-		return res, err
+	if res, err2 := c.Dispatcher.CreateDB(ctx, opts...); verrors.IsReconcileAborted(res, err2) {
+		return res, err2
+	}
+	if c.Vdb.IsCertRotationEnabled() {
+		httpsTLSMode := vapi.MakeHTTPSTLSMode(c.Vdb.Spec.HTTPSTLSMode)
+		clientTLSMode := vapi.MakeClientServerTLSMode(c.Vdb.Spec.ClientServerTLSMode)
+		err = vdbstatus.UpdateTLSModes(ctx, c.VRec.GetClient(), c.Vdb, []*vapi.TLSMode{httpsTLSMode, clientTLSMode})
+		if err != nil {
+			c.Log.Error(err, "failed to update tls mode after creating db")
+			return ctrl.Result{}, err
+		}
+		c.Log.Info("TLS DDLs executed and TLS Cert configured")
 	}
 	sc := c.getFirstPrimarySubcluster()
 	c.VRec.Eventf(c.Vdb, corev1.EventTypeNormal, events.CreateDBSucceeded,

@@ -34,7 +34,7 @@ func (v *VClusterOps) RenameSubcluster(ctx context.Context, opts ...renamesc.Opt
 	s.Make(opts...)
 
 	// get the certs
-	certs, err := v.retrieveNMACerts(ctx)
+	certs, err := v.retrieveHTTPSCerts(ctx)
 	if err != nil {
 		return err
 	}

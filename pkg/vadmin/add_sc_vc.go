@@ -30,7 +30,7 @@ func (v *VClusterOps) AddSubcluster(ctx context.Context, opts ...addsc.Option) e
 	v.Log.Info("Starting vcluster AddSubcluster")
 
 	// get the certs
-	certs, err := v.retrieveNMACerts(ctx)
+	certs, err := v.retrieveHTTPSCerts(ctx)
 	if err != nil {
 		return err
 	}

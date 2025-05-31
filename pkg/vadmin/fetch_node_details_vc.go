@@ -35,7 +35,7 @@ func (v *VClusterOps) FetchNodeDetails(ctx context.Context, opts ...fetchnodedet
 	s.Make(opts...)
 
 	// get the certs
-	certs, err := v.retrieveNMACerts(ctx)
+	certs, err := v.retrieveHTTPSCerts(ctx)
 	if err != nil {
 		return vops.NodeDetails{}, err
 	}

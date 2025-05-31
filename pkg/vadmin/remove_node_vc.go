@@ -30,7 +30,7 @@ func (v *VClusterOps) RemoveNode(ctx context.Context, opts ...removenode.Option)
 	v.Log.Info("Starting vcluster RemoveNode")
 
 	// get the certs
-	certs, err := v.retrieveNMACerts(ctx)
+	certs, err := v.retrieveHTTPSCerts(ctx)
 	if err != nil {
 		return err
 	}

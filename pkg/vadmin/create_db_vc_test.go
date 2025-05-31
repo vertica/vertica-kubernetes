@@ -42,6 +42,7 @@ const (
 	TestShardCount                = 11
 	TestSkipPackageInstall        = true
 	TestTimeoutNodeStartupSeconds = 600
+	TestTLSMode                   = "VERIFY_CA"
 )
 
 // mock version of VCreateDatabase() that is invoked inside VClusterOps.CreateDB()
@@ -93,7 +94,14 @@ func (m *MockVClusterOps) VCreateDatabase(options *vops.VCreateDatabaseOptions) 
 	}
 
 	if len(options.HTTPSTLSConfiguration) > 0 {
-		configMap := genTLSConfigurationMap("TRY_VERIFY", TestNMATLSSecret, "default")
+		configMap := genTLSConfigurationMap(TestTLSMode, TestNMATLSSecret, "default")
+		for k, v := range configMap {
+			fmt.Println("libo 1: key - " + k + ", value - " + v)
+		}
+
+		for k, v := range options.HTTPSTLSConfiguration {
+			fmt.Println("libo 2: key - " + k + ", value - " + v)
+		}
 		if !maps.Equal(options.HTTPSTLSConfiguration, configMap) {
 			return vdb, fmt.Errorf("https tls configuration not valid")
 		}
@@ -124,9 +132,10 @@ var _ = Describe("create_db_vc", func() {
 
 	It("should call vcluster-ops library with create_db task", func() {
 		dispatcher := mockVClusterOpsDispatcher()
-		dispatcher.VDB.Spec.NMATLSSecret = TestNMATLSSecret
-		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.NMATLSSecret)
-		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.NMATLSSecret)
+		dispatcher.VDB.Spec.HTTPSNMATLSSecret = TestNMATLSSecret
+		dispatcher.VDB.Spec.HTTPSTLSMode = TestTLSMode
+		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.HTTPSNMATLSSecret)
+		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.HTTPSNMATLSSecret)
 		Ω(callCreateDB(ctx, dispatcher)).Should(Equal(ctrl.Result{}))
 
 		vapi.SetVDBForTLS(dispatcher.VDB)
@@ -135,14 +144,14 @@ var _ = Describe("create_db_vc", func() {
 
 	It("should detect DBIsRunningError", func() {
 		vdb := vapi.MakeVDB()
-		vdb.Spec.NMATLSSecret = TestNMATLSSecret
+		vdb.Spec.HTTPSNMATLSSecret = TestNMATLSSecret
 		vdb.Annotations[vmeta.FailCreateDBIfVerticaIsRunningAnnotation] = vmeta.FailCreateDBIfVerticaIsRunningAnnotationTrue
 		setupAPIFunc := func(logr.Logger, string) (VClusterProvider, logr.Logger) {
 			return &MockVClusterOps{ReturnDBIsRunning: true}, logr.Logger{}
 		}
 		dispatcher := mockVClusterOpsDispatcherWithCustomSetup(vdb, setupAPIFunc)
-		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.NMATLSSecret)
-		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.NMATLSSecret)
+		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.HTTPSNMATLSSecret)
+		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.HTTPSNMATLSSecret)
 		_, err := callCreateDB(ctx, dispatcher)
 		Ω(err).ShouldNot(Succeed())
 		dbIsRunningError := &vops.DBIsRunningError{}
@@ -155,15 +164,15 @@ var _ = Describe("create_db_vc", func() {
 
 	It("should detect TimeoutNodeStartupSeconds", func() {
 		vdb := vapi.MakeVDB()
-		vdb.Spec.NMATLSSecret = TestNMATLSSecret
+		vdb.Spec.HTTPSNMATLSSecret = TestNMATLSSecret
 		vdb.Annotations[vmeta.CreateDBTimeoutAnnotation] = fmt.Sprint(TestTimeoutNodeStartupSeconds)
 		Ω(vdb.GetCreateDBNodeStartTimeout()).Should(Equal(TestTimeoutNodeStartupSeconds))
 		setupAPIFunc := func(logr.Logger, string) (VClusterProvider, logr.Logger) {
 			return &MockVClusterOps{VerifyTimeoutNodeStartupSeconds: true}, logr.Logger{}
 		}
 		dispatcher := mockVClusterOpsDispatcherWithCustomSetup(vdb, setupAPIFunc)
-		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.NMATLSSecret)
-		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.NMATLSSecret)
+		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.HTTPSNMATLSSecret)
+		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.HTTPSNMATLSSecret)
 		Ω(callCreateDB(ctx, dispatcher)).Should(Equal(ctrl.Result{}))
 	})
 })

@@ -36,7 +36,7 @@ func (v *VClusterOps) StopSubcluster(ctx context.Context, opts ...stopsubcluster
 	s.Make(opts...)
 
 	// get the certs
-	certs, err := v.retrieveNMACerts(ctx)
+	certs, err := v.retrieveHTTPSCerts(ctx)
 	if err != nil {
 		return err
 	}
