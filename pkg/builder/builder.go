@@ -1474,8 +1474,8 @@ func makeDefaultLivenessProbe(vdb *vapi.VerticaDB) *corev1.Probe {
 // that can be overridden with the spec.readinessProbeOverride parameter.
 func makeReadinessProbe(vdb *vapi.VerticaDB) *corev1.Probe {
 	probe := makeDefaultReadinessOrStartupProbe(vdb)
-	overrideProbe(probe, vdb.Spec.ReadinessProbeOverride)
 	probe.SuccessThreshold = 1
+	overrideProbe(probe, vdb.Spec.ReadinessProbeOverride)
 	return probe
 }
 
