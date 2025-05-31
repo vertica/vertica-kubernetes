@@ -1387,7 +1387,6 @@ func makeHTTPSVersionEndpointProbe() *corev1.Probe {
 				Scheme: corev1.URISchemeHTTPS,
 			},
 		},
-		SuccessThreshold: 1,
 	}
 }
 
@@ -1401,7 +1400,6 @@ func makeHTTPVersionEndpointProbe() *corev1.Probe {
 				Scheme: corev1.URISchemeHTTP,
 			},
 		},
-		SuccessThreshold: 1,
 	}
 }
 
@@ -1477,6 +1475,7 @@ func makeDefaultLivenessProbe(vdb *vapi.VerticaDB) *corev1.Probe {
 func makeReadinessProbe(vdb *vapi.VerticaDB) *corev1.Probe {
 	probe := makeDefaultReadinessOrStartupProbe(vdb)
 	overrideProbe(probe, vdb.Spec.ReadinessProbeOverride)
+	probe.SuccessThreshold = 1
 	return probe
 }
 
@@ -1490,6 +1489,7 @@ func makeStartupProbe(vdb *vapi.VerticaDB) *corev1.Probe {
 	probe.PeriodSeconds = 10
 	probe.FailureThreshold = 117
 	probe.TimeoutSeconds = 5
+	probe.SuccessThreshold = 1
 
 	overrideProbe(probe, vdb.Spec.StartupProbeOverride)
 	return probe
@@ -1508,6 +1508,7 @@ func makeLivenessProbe(vdb *vapi.VerticaDB) *corev1.Probe {
 	probe.TimeoutSeconds = 1
 	probe.PeriodSeconds = 30
 	probe.FailureThreshold = 3
+	probe.SuccessThreshold = 1
 
 	overrideProbe(probe, vdb.Spec.LivenessProbeOverride)
 	return probe
