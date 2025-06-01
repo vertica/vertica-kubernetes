@@ -11,24 +11,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1beta1
-kind: VerticaDB
+apiVersion: apps/v1
+kind: StatefulSet
+---
+apiVersion: v1
+kind: Service
 metadata:
-  name: v-http-custom-certs
-spec:
-  image: kustomize-vertica-image
-  communal:
-    includeUIDInPath: true
-  local:
-    requestSize: 100Mi
-  dbName: vertdb
-  httpServerMode: Enabled
-  httpServerTLSSecret: custom-certs
-  subclusters:
-    - name: main
-      size: 1
-  kSafety: "0"
-  certSecrets: []
-  imagePullSecrets: []
-  volumes: []
-  volumeMounts: []
+  labels:
+    app.kubernetes.io/managed-by: verticadb-operator

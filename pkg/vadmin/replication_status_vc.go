@@ -31,7 +31,7 @@ func (v *VClusterOps) GetReplicationStatus(ctx context.Context, opts ...replicat
 	v.Log.Info("Starting vcluster GetReplicationStatus")
 
 	// Get target certs
-	targetCerts, err := v.retrieveTargetNMACerts(ctx)
+	targetCerts, err := v.retrieveTargetHTTPSCerts(ctx)
 	if err != nil {
 		return nil, err
 	}

@@ -66,9 +66,9 @@ var _ = Describe("add_sc_vc", func() {
 
 	It("should call vcluster-ops library with add_subcluster task", func() {
 		dispatcher := mockVClusterOpsDispatcher()
-		dispatcher.VDB.Spec.NMATLSSecret = "add-sc-test-secret"
-		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.NMATLSSecret)
-		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.NMATLSSecret)
+		dispatcher.VDB.Spec.HTTPSNMATLSSecret = "add-sc-test-secret"
+		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.HTTPSNMATLSSecret)
+		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.HTTPSNMATLSSecret)
 		dispatcher.VDB.Spec.DBName = TestDBName
 		Ω(dispatcher.AddSubcluster(ctx,
 			addsc.WithInitiator(dispatcher.VDB.ExtractNamespacedName(), TestInitiatorIP),

@@ -31,7 +31,7 @@ func (v *VClusterOps) DropDB(ctx context.Context, opts ...dropdb.Option) error {
 	defer v.tearDownForAPICall()
 	v.Log.Info("Starting vcluster DropDB")
 
-	certs, err := v.retrieveNMACerts(ctx)
+	certs, err := v.retrieveHTTPSCerts(ctx)
 	if err != nil {
 		return err
 	}
