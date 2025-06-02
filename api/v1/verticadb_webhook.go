@@ -218,6 +218,7 @@ func (v *VerticaDB) validateVerticaDBSpec() field.ErrorList {
 	allErrs = v.hasPrimarySubcluster(allErrs)
 	allErrs = v.validateKsafety(allErrs)
 	allErrs = v.validateCommunalPath(allErrs)
+	allErrs = v.validateAdditionalBuckets(allErrs)
 	allErrs = v.validateS3ServerSideEncryption(allErrs)
 	allErrs = v.validateAdditionalConfigParms(allErrs)
 	allErrs = v.validateCustomLabels(allErrs)
@@ -367,6 +368,65 @@ func (v *VerticaDB) validateCommunalPath(allErrs field.ErrorList) field.ErrorLis
 		v.Spec.Communal.Path,
 		"communal.path cannot be empty")
 	return append(allErrs, err)
+}
+
+func (v *VerticaDB) validateAdditionalBuckets(allErrs field.ErrorList) field.ErrorList {
+	if v.Spec.InitPolicy == CommunalInitPolicyScheduleOnly {
+		return allErrs
+	}
+	pathsSeen := map[string]struct{}{}
+	communalPrefix := ""
+	switch {
+	case strings.HasPrefix(v.Spec.Communal.Path, S3Prefix):
+		communalPrefix = S3Prefix
+	case strings.HasPrefix(v.Spec.Communal.Path, GCloudPrefix):
+		communalPrefix = GCloudPrefix
+	case strings.HasPrefix(v.Spec.Communal.Path, AzurePrefix):
+		communalPrefix = AzurePrefix
+	}
+
+	for i, bucket := range v.Spec.AdditionalBuckets {
+		fieldPrefix := field.NewPath("spec").Child("additionalBuckets").Index(i)
+		// Path must not be empty
+		if bucket.Path == "" {
+			err := field.Invalid(fieldPrefix.Child("path"), bucket.Path, "path cannot be empty")
+			allErrs = append(allErrs, err)
+		}
+		// Path must have a valid prefix
+		var bucketPrefix string
+		switch {
+		case strings.HasPrefix(bucket.Path, S3Prefix):
+			bucketPrefix = S3Prefix
+		case strings.HasPrefix(bucket.Path, GCloudPrefix):
+			bucketPrefix = GCloudPrefix
+		case strings.HasPrefix(bucket.Path, AzurePrefix):
+			bucketPrefix = AzurePrefix
+		default:
+			err := field.Invalid(fieldPrefix.Child("path"), bucket.Path,
+				"path must start with s3://, gs://, or azb://")
+			allErrs = append(allErrs, err)
+		}
+		// Protocol must be different from communal path if additional bucket is gs, or azb
+		if (bucketPrefix == GCloudPrefix || bucketPrefix == AzurePrefix) && bucketPrefix == communalPrefix {
+			err := field.Invalid(fieldPrefix.Child("path"), bucket.Path,
+				fmt.Sprintf("additional bucket %q must use a different protocol than communal.path %q",
+					bucket.Path, v.Spec.Communal.Path))
+			allErrs = append(allErrs, err)
+		}
+		// CredentialSecret must not be empty
+		if bucket.CredentialSecret == "" {
+			err := field.Invalid(fieldPrefix.Child("credentialSecret"), bucket.CredentialSecret,
+				"credentialSecret cannot be empty")
+			allErrs = append(allErrs, err)
+		}
+		// Check for duplicate paths
+		if _, exists := pathsSeen[bucket.Path]; exists {
+			err := field.Invalid(fieldPrefix.Child("path"), bucket.Path, "duplicate path in additionalBuckets")
+			allErrs = append(allErrs, err)
+		}
+		pathsSeen[bucket.Path] = struct{}{}
+	}
+	return allErrs
 }
 
 func (v *VerticaDB) validateS3ServerSideEncryption(allErrs field.ErrorList) field.ErrorList {
