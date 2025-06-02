@@ -64,7 +64,6 @@ func (h *TLSServerCertGenReconciler) Reconcile(ctx context.Context, _ *ctrl.Requ
 			h.Log.Error(err, "failed to initialize httpsNMATLSSecret from nmaTLSSecret")
 			return ctrl.Result{}, err
 		}
-		h.Vdb.Spec.HTTPSNMATLSSecret = h.Vdb.Spec.NMATLSSecret
 	}
 	secretFieldNameMap := map[string]string{
 		httpsNMATLSSecret:     h.Vdb.Spec.HTTPSNMATLSSecret,

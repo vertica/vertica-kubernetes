@@ -95,13 +95,6 @@ func (m *MockVClusterOps) VCreateDatabase(options *vops.VCreateDatabaseOptions) 
 
 	if len(options.HTTPSTLSConfiguration) > 0 {
 		configMap := genTLSConfigurationMap(TestTLSMode, TestNMATLSSecret, "default")
-		for k, v := range configMap {
-			fmt.Println("libo 1: key - " + k + ", value - " + v)
-		}
-
-		for k, v := range options.HTTPSTLSConfiguration {
-			fmt.Println("libo 2: key - " + k + ", value - " + v)
-		}
 		if !maps.Equal(options.HTTPSTLSConfiguration, configMap) {
 			return vdb, fmt.Errorf("https tls configuration not valid")
 		}
