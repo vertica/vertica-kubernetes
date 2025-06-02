@@ -101,6 +101,12 @@ var _ = Describe("additioanalbuckets_reconcile", func() {
 				Region:           "us-central1",
 				CredentialSecret: "secret2",
 			},
+			{
+				Path:             "azb://azbaccount/anotherbucket",
+				Endpoint:         "https://azbaccount.blob.core.windows.net",
+				Region:           "us-central1",
+				CredentialSecret: "secret3",
+			},
 		}
 		fpr := &cmds.FakePodRunner{}
 		pfacts := podfacts.PodFacts{}

@@ -153,17 +153,29 @@ func (a *AddtionalBucketsReconciler) updateAdditionalBuckets(ctx context.Context
 
 		// using gs
 		if strings.HasPrefix(bucket.Path, vapi.GCloudPrefix) {
+			if strings.HasPrefix(a.Vdb.Spec.Communal.Path, vapi.GCloudPrefix) {
+				a.VRec.Log.Error(err, "cannot overwrite existing GCS parameters",
+					"additional bucket path", bucket.Path, "existing gs path", a.Vdb.Spec.Communal.Path)
+				return ctrl.Result{}, err
+			}
+
 			accessKey, secretKey, res, err = a.GetAuth(ctx, bucket.CredentialSecret)
 			if verrors.IsReconcileAborted(res, err) {
 				return res, err
 			}
 
 			sb.WriteString(fmt.Sprintf(
-				`ALTER SESSION SET GCSAuth='%s:%s';`, accessKey, secretKey))
+				`ALTER DATABASE default SET GCSAuth='%s:%s';`, accessKey, secretKey))
 		}
 
 		// using azb
 		if strings.HasPrefix(bucket.Path, vapi.AzurePrefix) {
+			if strings.HasPrefix(a.Vdb.Spec.Communal.Path, vapi.AzurePrefix) {
+				a.VRec.Log.Error(err, "cannot overwrite existing Azure parameters",
+					"additional bucket path", bucket.Path, "existing azb path", a.Vdb.Spec.Communal.Path)
+				return ctrl.Result{}, err
+			}
+
 			var azureCreds cloud.AzureCredential
 			var azureConfig cloud.AzureEndpointConfig
 			azureCreds, azureConfig, res, err = a.GetAzureAuth(ctx, bucket.CredentialSecret)
