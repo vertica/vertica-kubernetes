@@ -29,7 +29,6 @@ import (
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
-	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/rotatenmacerts"
@@ -43,17 +42,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-const (
-	PredefinedTLSConfigName = "k8s_tls_builtin_auth"
-)
-
-const (
-	// This is a file that we run with the create_db to run custome SQL. This is
-	// passed with the --sql parameter when running create_db. This is no longer
-	// used starting with versions defined in vapi.DBSetupConfigParameters.
-	PostDBCreateSQLFileVclusterOps = "/tmp/post-db-create.sql"
-)
-
 // TLSConfigReconciler will turn on the tls config when users request it
 type TLSConfigReconciler struct {
 	VRec       *VerticaDBReconciler
@@ -62,11 +50,10 @@ type TLSConfigReconciler struct {
 	PRunner    cmds.PodRunner
 	Dispatcher vadmin.Dispatcher
 	Pfacts     *podfacts.PodFacts
-	Restart    bool
 }
 
 func MakeTLSConfigReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger, vdb *vapi.VerticaDB, prunner cmds.PodRunner,
-	dispatcher vadmin.Dispatcher, pfacts *podfacts.PodFacts, restart bool) controllers.ReconcileActor {
+	dispatcher vadmin.Dispatcher, pfacts *podfacts.PodFacts) controllers.ReconcileActor {
 	return &TLSConfigReconciler{
 		VRec:       vdbrecon,
 		Vdb:        vdb,
@@ -74,15 +61,12 @@ func MakeTLSConfigReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger, vdb
 		Dispatcher: dispatcher,
 		PRunner:    prunner,
 		Pfacts:     pfacts,
-		Restart:    restart,
 	}
 }
 
 // Reconcile will create a TLS secret for the http server if one is missing
 func (h *TLSConfigReconciler) Reconcile(ctx context.Context, request *ctrl.Request) (ctrl.Result, error) {
 	h.Log.Info("in tls config reconcile 1, enabled ? " + strconv.FormatBool(h.Vdb.IsCertRotationEnabled()))
-	// !meta.SetupTLSConfig(h.Vdb.Annotations) ||
-	//
 	if h.Vdb.IsCertRotationEnabled() && len(h.Vdb.Status.SecretRefs) != 0 ||
 		!h.Vdb.IsCertRotationEnabled() || !h.Vdb.IsStatusConditionTrue(vapi.DBInitialized) ||
 		h.Vdb.IsStatusConditionTrue(vapi.UpgradeInProgress) ||
@@ -109,17 +93,6 @@ func (h *TLSConfigReconciler) Reconcile(ctx context.Context, request *ctrl.Reque
 	h.VRec.Eventf(h.Vdb, corev1.EventTypeNormal, events.TLSConfigurationStarted,
 		"Starting to configure TLS")
 
-	/* err = h.updateAnnotations(ctx, map[string]string{
-		meta.MountNMACertsAnnotation: "false",
-	})
-	if err != nil {
-		h.Log.Error(err, fmt.Sprintf("failed to set annotation %s to false", meta.MountNMACertsAnnotation))
-	} */
-	/*h.Log.Info("will restart nma before setting up tls config")
-	res, err := h.restartNMA(ctx)
-	if verrors.IsReconcileAborted(res, err) {
-		return res, err
-	}*/
 	configured, err := h.checkIfTLSConfiguredInDB(ctx, initiatorPod)
 	if err != nil {
 		h.Log.Error(err, "failed to check TLS configuration before setting up TLS")
@@ -191,29 +164,6 @@ func (h *TLSConfigReconciler) runDDLToConfigureTLS(ctx context.Context, initiato
 	return h.Dispatcher.SetTLSConfig(ctx, opts...)
 }
 
-func (h *TLSConfigReconciler) runTLSDDL(ctx context.Context, initiatorPod *podfacts.PodFact) error {
-	var sb strings.Builder
-	h.generateKubernetesTLSSQL(&sb)
-	sb.WriteString(`select sync_catalog();`)
-	cmd := "cat > " + PostDBCreateSQLFileVclusterOps + "<<< " + escapeForBash(sb.String())
-	h.Log.Info("SQL to be executed after db creation: " + sb.String())
-	_, _, err := h.PRunner.ExecInPod(ctx, initiatorPod.GetName(), names.ServerContainer,
-		"bash", "-c", cmd,
-	)
-	if err != nil {
-		h.Log.Error(err, "failed to prepare the SQL scripts to set up TLS")
-		return err
-	}
-	setupCmd := []string{
-		"-f", PostDBCreateSQLFileVclusterOps,
-	}
-	_, stderr, err2 := h.PRunner.ExecVSQL(ctx, initiatorPod.GetName(), names.ServerContainer, setupCmd...)
-	if err2 != nil || strings.Contains(stderr, "Error") {
-		h.Log.Error(err2, "failed to execute TLS DDLs,  stderr - "+stderr)
-		return err2
-	}
-	return nil
-}
 func (h *TLSConfigReconciler) updateStatus(ctx context.Context) error {
 	sec := vapi.MakeHTTPSTLSSecretRef(h.Vdb.Spec.HTTPSNMATLSSecret)
 	if err1 := vdbstatus.UpdateSecretRef(ctx, h.VRec.GetClient(), h.Vdb, sec); err1 != nil {
@@ -238,59 +188,6 @@ func (h *TLSConfigReconciler) updateStatus(ctx context.Context) error {
 		return err
 	}
 	return nil
-}
-
-//nolint:dupl
-func (h *TLSConfigReconciler) generateKubernetesTLSSQL(sb *strings.Builder) {
-	fmt.Fprintf(sb, "CREATE OR REPLACE LIBRARY public.KubernetesLib AS ")
-	fmt.Fprintf(sb, "'/opt/vertica/packages/kubernetes/lib/libkubernetes.so';\n")
-	fmt.Fprintf(sb, "CREATE OR REPLACE SECRETMANAGER KubernetesSecretManager AS LANGUAGE 'C++' ")
-	fmt.Fprintf(sb, "NAME 'KubernetesSecretManagerFactory' LIBRARY KubernetesLib;\n")
-
-	fmt.Fprintf(sb, "DROP KEY IF EXISTS https_key_0;\n")
-	fmt.Fprintf(sb, "DROP CERTIFICATE IF EXISTS https_cert_0;\n")
-	fmt.Fprintf(sb, "DROP CERTIFICATE IF EXISTS https_ca_cert_0;\n")
-
-	fmt.Fprintf(sb, "CREATE KEY https_key_0 TYPE 'rsa' SECRETMANAGER KubernetesSecretManager ")
-	fmt.Fprintf(sb, "SECRETNAME '%s' CONFIGURATION '{\"data-key\":\"%s\", \"namespace\":\"%s\"}';\n",
-		h.Vdb.Spec.HTTPSNMATLSSecret, corev1.TLSPrivateKeyKey, h.Vdb.ObjectMeta.Namespace)
-
-	fmt.Fprintf(sb, "CREATE CA CERTIFICATE https_ca_cert_0 SECRETMANAGER KubernetesSecretManager ")
-	fmt.Fprintf(sb, "SECRETNAME '%s' CONFIGURATION '{\"data-key\":\"%s\", \"namespace\":\"%s\"}';\n",
-		h.Vdb.Spec.HTTPSNMATLSSecret, paths.HTTPServerCACrtName, h.Vdb.ObjectMeta.Namespace)
-
-	fmt.Fprintf(sb, "CREATE CERTIFICATE https_cert_0 SECRETMANAGER KubernetesSecretManager ")
-	fmt.Fprintf(sb, "SECRETNAME '%s' CONFIGURATION '{\"data-key\":\"%s\", \"namespace\":\"%s\"}' ",
-		h.Vdb.Spec.HTTPSNMATLSSecret, corev1.TLSCertKey, h.Vdb.ObjectMeta.Namespace)
-	fmt.Fprintf(sb, "SIGNED BY https_ca_cert_0 KEY https_key_0;\n")
-
-	fmt.Fprintf(sb, "DROP KEY IF EXISTS server_key;\n")
-	fmt.Fprintf(sb, "DROP CERTIFICATE IF EXISTS server_cert;\n")
-	fmt.Fprintf(sb, "DROP CERTIFICATE IF EXISTS server_ca_cert;\n")
-
-	fmt.Fprintf(sb, "CREATE KEY server_key TYPE 'rsa' SECRETMANAGER KubernetesSecretManager ")
-	fmt.Fprintf(sb, "SECRETNAME '%s' CONFIGURATION '{\"data-key\":\"%s\", \"namespace\":\"%s\"}';\n",
-		h.Vdb.Spec.ClientServerTLSSecret, corev1.TLSPrivateKeyKey, h.Vdb.ObjectMeta.Namespace)
-
-	fmt.Fprintf(sb, "CREATE CA CERTIFICATE server_ca_cert SECRETMANAGER KubernetesSecretManager ")
-	fmt.Fprintf(sb, "SECRETNAME '%s' CONFIGURATION '{\"data-key\":\"%s\", \"namespace\":\"%s\"}';\n",
-		h.Vdb.Spec.ClientServerTLSSecret, paths.HTTPServerCACrtName, h.Vdb.ObjectMeta.Namespace)
-
-	fmt.Fprintf(sb, "CREATE CERTIFICATE server_cert SECRETMANAGER KubernetesSecretManager ")
-	fmt.Fprintf(sb, "SECRETNAME '%s' CONFIGURATION '{\"data-key\":\"%s\", \"namespace\":\"%s\"}' ",
-		h.Vdb.Spec.ClientServerTLSSecret, corev1.TLSCertKey, h.Vdb.ObjectMeta.Namespace)
-	fmt.Fprintf(sb, "SIGNED BY server_ca_cert KEY server_key;\n")
-
-	fmt.Fprintf(sb, "ALTER TLS CONFIGURATION server CERTIFICATE server_cert ADD CA CERTIFICATES ")
-	fmt.Fprintf(sb, "server_ca_cert TLSMODE '%s';\n", h.Vdb.Spec.ClientServerTLSMode)
-	fmt.Fprintf(sb, "ALTER TLS CONFIGURATION https CERTIFICATE https_cert_0 ADD CA CERTIFICATES ")
-	fmt.Fprintf(sb, "https_ca_cert_0 TLSMODE 'TRY_VERIFY';\n")
-	fmt.Fprintf(sb, "ALTER TLS CONFIGURATION https CERTIFICATE https_cert_0 REMOVE CA CERTIFICATES ")
-	fmt.Fprintf(sb, "httpServerRootca;\n")
-	fmt.Fprintf(sb, "ALTER TLS CONFIGURATION server CERTIFICATE server_cert REMOVE CA CERTIFICATES ")
-	fmt.Fprintf(sb, "httpServerRootca;\n")
-	fmt.Fprintf(sb, "CREATE AUTHENTICATION k8s_tls_builtin_auth METHOD 'tls' HOST TLS '0.0.0.0/0' FALLTHROUGH;\n")
-	fmt.Fprintf(sb, "GRANT AUTHENTICATION k8s_tls_builtin_auth TO %s;\n", h.Vdb.GetVerticaUser())
 }
 
 func (h *TLSConfigReconciler) readSecret(vdb *vapi.VerticaDB, vrec config.ReconcilerInterface, k8sClient client.Client,

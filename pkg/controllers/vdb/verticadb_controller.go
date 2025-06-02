@@ -189,7 +189,7 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		// Always generate cert first if nothing is provided
 		MakeTLSServerCertGenReconciler(r, log, vdb),
 		// Set up TLS config if users turn it on
-		MakeTLSConfigReconciler(r, log, vdb, prunner, dispatcher, pfacts, false),
+		MakeHTTPSTLSeconciler(r, log, vdb, prunner, dispatcher, pfacts),
 		// Trigger sandbox upgrade when the image field for the sandbox
 		// is changed
 		MakeSandboxUpgradeReconciler(r, log, vdb, false),
@@ -270,13 +270,10 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		MakeCreateDBReconciler(r, log, vdb, prunner, pfacts, dispatcher),
 		// Handle calls to revive a database
 		MakeReviveDBReconciler(r, log, vdb, prunner, pfacts, dispatcher),
-		MakeTLSConfigReconciler(r, log, vdb, prunner, dispatcher, pfacts, true),
-		MakeMetricReconciler(r, log, vdb, prunner, pfacts),
+		MakeHTTPSTLSeconciler(r, log, vdb, prunner, dispatcher, pfacts),
 		// Create and revive are mutually exclusive exclusive, so this handles
 		// status updates after both of them.
 		MakeStatusReconciler(r.Client, r.Scheme, log, vdb, pfacts),
-		// Get the tls mode from the db after revive_db
-		MakeGetTLSModeAfterReviveReconciler(r, log, vdb, prunner, pfacts),
 		// Update the labels in pods so that Services route to nodes to them.
 		MakeClientRoutingLabelReconciler(r, log, vdb, pfacts, PodRescheduleApplyMethod, ""),
 		// Handle calls to add new subcluster to the catalog
