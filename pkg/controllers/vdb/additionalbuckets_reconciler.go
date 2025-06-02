@@ -133,7 +133,10 @@ func (a *AddtionalBucketsReconciler) updateAdditionalBuckets(ctx context.Context
 		return ctrl.Result{Requeue: true}, nil
 	}
 
+	var s3BucketConfigs []string
+	var s3BucketCreds []string
 	sb := strings.Builder{}
+
 	for _, bucket := range a.Vdb.Spec.AdditionalBuckets {
 		// using s3
 		if strings.HasPrefix(bucket.Path, vapi.S3Prefix) {
@@ -142,12 +145,13 @@ func (a *AddtionalBucketsReconciler) updateAdditionalBuckets(ctx context.Context
 				return res, err
 			}
 
-			sb.WriteString(fmt.Sprintf(
-				`ALTER DATABASE default SET S3BucketConfig = '[{"bucket": %q, "region": %q, "protocol": %q, "endpoint": %q}]';`,
-				config.GetBucket(bucket.Path), bucket.Region, config.GetEndpointProtocol(bucket.Endpoint), config.GetEndpoint(bucket.Endpoint)))
+			s3BucketConfigs = append(s3BucketConfigs, fmt.Sprintf(
+				`{"bucket": %q, "region": %q, "protocol": %q, "endpoint": %q}`,
+				config.GetBucket(bucket.Path), bucket.Region, config.GetEndpointProtocol(bucket.Endpoint),
+				config.GetEndpoint(bucket.Endpoint)))
 
-			sb.WriteString(fmt.Sprintf(
-				`ALTER DATABASE default SET S3BucketCredentials = '[{"bucket": %q, "accessKey": %q, "secretAccessKey": %q}]';`,
+			s3BucketCreds = append(s3BucketCreds, fmt.Sprintf(
+				`{"bucket": %q, "accessKey": %q, "secretAccessKey": %q}`,
 				config.GetBucket(bucket.Path), accessKey, secretKey))
 		}
 
@@ -188,9 +192,21 @@ func (a *AddtionalBucketsReconciler) updateAdditionalBuckets(ctx context.Context
 				azureCreds.AccountName, azureCreds.AccountKey))
 			sb.WriteString(fmt.Sprintf(
 				`ALTER DATABASE default SET AzureStorageEndpointConfig = '[{"accountName": %q, "blobEndpoint": %q,
-				 "protocol":%q}]';`,
+                 "protocol":%q}]';`,
 				azureCreds.AccountName, azureConfig.BlobEndpoint, azureConfig.Protocol))
 		}
+	}
+
+	// Write S3 configs if any S3 buckets were found
+	if len(s3BucketConfigs) > 0 {
+		sb.WriteString(fmt.Sprintf(
+			`ALTER DATABASE default SET S3BucketConfig = '[%s]';`, strings.Join(s3BucketConfigs, ","),
+		))
+	}
+	if len(s3BucketCreds) > 0 {
+		sb.WriteString(fmt.Sprintf(
+			`ALTER DATABASE default SET S3BucketCredentials = '[%s]';`, strings.Join(s3BucketCreds, ","),
+		))
 	}
 
 	cmd := []string{"-tAc", sb.String()}
