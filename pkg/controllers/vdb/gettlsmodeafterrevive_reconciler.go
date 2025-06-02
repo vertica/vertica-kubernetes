@@ -63,7 +63,7 @@ func (h *GetTLSModeAfterReviveReconciler) Reconcile(ctx context.Context, _ *ctrl
 		return ctrl.Result{}, nil
 	}
 
-	if h.Vdb.GetHTTPSTLSModeInUse() == "" && h.Vdb.GetClientServerTLSModeInUse() == "" {
+	if h.Vdb.GetHTTPSTLSModeInUse() != "" && h.Vdb.GetClientServerTLSModeInUse() != "" {
 		// no-op tls modes already in status
 		return ctrl.Result{}, nil
 	}
