@@ -60,13 +60,12 @@ func MakeTLSServerCertGenReconciler(vdbrecon *VerticaDBReconciler, log logr.Logg
 // Reconcile will create a TLS secret for the http server if one is missing
 func (h *TLSServerCertGenReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
 	if h.Vdb.Spec.NMATLSSecret != "" && h.Vdb.Spec.HTTPSNMATLSSecret == "" {
-		h.Log.Info("httpsTLSSecret is initialized from nmaTLSSecret")
+		h.Log.Info("httpsNMATLSSecret is initialized from nmaTLSSecret")
 		err := h.setSecretNameInVDB(ctx, httpsNMATLSSecret, h.Vdb.Spec.NMATLSSecret)
 		if err != nil {
-			h.Log.Error(err, "failed to initialize httpsTLSSecret from nmaTLSSecret")
+			h.Log.Error(err, "failed to initialize httpsNMATLSSecret from nmaTLSSecret")
 			return ctrl.Result{}, err
 		}
-		h.Vdb.Spec.HTTPSNMATLSSecret = h.Vdb.Spec.NMATLSSecret
 	}
 	secretFieldNameMap := map[string]string{
 		httpsNMATLSSecret:     h.Vdb.Spec.HTTPSNMATLSSecret,

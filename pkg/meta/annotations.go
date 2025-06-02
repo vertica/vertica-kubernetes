@@ -81,10 +81,6 @@ const (
 	// are sure to have a smooth transition from a version that supports NMA certs mount.
 	EnableTLSCertsRotationAnnotation = "vertica.com/enable-tls-certs-rotation"
 
-	// A temporary annotation to setup NMA certs rotation. It will be removed once we
-	// are sure to have a smooth transition from a version that supports NMA certs mount.
-	SetupTLSConfigAnnotation = "vertica.com/setup-tls-config"
-
 	// Two annotations that are set by the operator when creating objects.
 	OperatorDeploymentMethodAnnotation = "vertica.com/operator-deployment-method"
 	OperatorVersionAnnotation          = "vertica.com/operator-version"
@@ -458,10 +454,6 @@ func UseNMACertsMount(annotations map[string]string) bool {
 
 func EnableTLSCertsRotation(annotations map[string]string) bool {
 	return lookupBoolAnnotation(annotations, EnableTLSCertsRotationAnnotation, false /* default value */)
-}
-
-func SetupTLSConfig(annotations map[string]string) bool {
-	return lookupBoolAnnotation(annotations, SetupTLSConfigAnnotation, false /* default value */)
 }
 
 // IgnoreClusterLease returns true if revive/start should ignore the cluster lease

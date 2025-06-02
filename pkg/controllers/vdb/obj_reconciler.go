@@ -121,12 +121,6 @@ func (o *ObjReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Re
 		return ctrl.Result{}, err
 	}
 
-	// We need to create/update the configmap that contains the tls secret name
-	/* err := o.reconcileNMACertConfigMap(ctx)
-	if err != nil {
-		return ctrl.Result{}, err
-	} */
-
 	// Check the objects for subclusters that should exist.  This will create
 	// missing objects and update existing objects to match the vdb.
 	if res, err := o.checkForCreatedSubclusters(ctx); verrors.IsReconcileAborted(res, err) {
@@ -699,50 +693,6 @@ func (o *ObjReconciler) handleStatefulSetUpdate(ctx context.Context, sc *vapi.Su
 	}
 
 	return ctrl.Result{}, o.updateVProxyDeployment(ctx, expSts, curDep, sc)
-}
-
-// reconcileNMACertConfigMap creates/updates the configmap that contains the tls
-// secret name
-func (o *ObjReconciler) reconcileNMACertConfigMap(ctx context.Context) error {
-	configMapName := names.GenNMACertConfigMap(o.Vdb)
-	configMap := &corev1.ConfigMap{}
-	err := o.Rec.GetClient().Get(ctx, configMapName, configMap)
-	if err != nil {
-		if kerrors.IsNotFound(err) {
-			configMap = builder.BuildNMATLSConfigMap(configMapName, o.Vdb)
-			err = o.Rec.GetClient().Create(ctx, configMap)
-			if err != nil {
-				return err
-			}
-			o.Log.Info("created TLS cert secret configmap", "nm", configMapName.Name)
-			return nil
-		}
-		o.Log.Error(err, "failed to retrieve TLS cert secret configmap")
-		return err
-	}
-	if vmeta.UseNMACertsMount(o.Vdb.Annotations) || !vmeta.EnableTLSCertsRotation(o.Vdb.Annotations) {
-		return nil
-	}
-	if configMap.Data[builder.NMASecretNameEnv] == o.Vdb.Spec.HTTPSNMATLSSecret &&
-		configMap.Data[builder.NMAClientSecretNameEnv] == o.Vdb.Spec.ClientServerTLSSecret &&
-		configMap.Data[builder.NMASecretNamespaceEnv] == o.Vdb.ObjectMeta.Namespace &&
-		configMap.Data[builder.NMAClientSecretNamespaceEnv] == o.Vdb.ObjectMeta.Namespace &&
-		configMap.Data[builder.NMAClientSecretTLSModeEnv] == o.Vdb.GetNMAClientServerTLSMode() {
-		return nil
-	}
-
-	configMap.Data[builder.NMASecretNameEnv] = o.Vdb.Spec.HTTPSNMATLSSecret
-	configMap.Data[builder.NMASecretNamespaceEnv] = o.Vdb.ObjectMeta.Namespace
-	configMap.Data[builder.NMAClientSecretNameEnv] = o.Vdb.Spec.ClientServerTLSSecret
-	configMap.Data[builder.NMAClientSecretNamespaceEnv] = o.Vdb.ObjectMeta.Namespace
-	configMap.Data[builder.NMAClientSecretTLSModeEnv] = o.Vdb.GetNMAClientServerTLSMode()
-
-	err = o.Rec.GetClient().Update(ctx, configMap)
-	if err == nil {
-		o.Log.Info("updated tls cert secret configmap", "name", configMapName.Name, "nma-secret", o.Vdb.Spec.HTTPSNMATLSSecret,
-			"clientserver-secret", o.Vdb.Spec.ClientServerTLSSecret)
-	}
-	return err
 }
 
 // reconcileTLSSecrets will update tls secrets

@@ -28,7 +28,6 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
-	"github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
@@ -93,8 +92,7 @@ func (h *TLSConfigReconciler) Reconcile(ctx context.Context, request *ctrl.Reque
 
 	h.Log.Info("entry condition, cert rotate enabled ? " + strconv.FormatBool(h.Vdb.IsCertRotationEnabled()) +
 		", num of status secrets - " + strconv.Itoa(len(h.Vdb.Status.SecretRefs)) + ", is db initialized ? " +
-		strconv.FormatBool(h.Vdb.IsStatusConditionTrue(vapi.DBInitialized)) + ", setup tls - " +
-		strconv.FormatBool(meta.SetupTLSConfig(h.Vdb.Annotations)))
+		strconv.FormatBool(h.Vdb.IsStatusConditionTrue(vapi.DBInitialized)) + ", setup tls - ")
 	h.Log.Info("tls enabled, start to set up tls config")
 	err := h.Pfacts.Collect(ctx, h.Vdb)
 	if err != nil {
