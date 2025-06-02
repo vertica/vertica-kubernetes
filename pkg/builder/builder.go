@@ -389,8 +389,8 @@ func buildScrutinizeVolumeMounts(vscr *v1beta1.VerticaScrutinize, vdb *vapi.Vert
 		buildScrutinizeSharedVolumeMount(vscr),
 	}
 	if vmeta.UseNMACertsMount(vdb.Annotations) &&
-		vdb.Spec.HTTPSTLSSecret != "" &&
-		secrets.IsK8sSecret(vdb.Spec.HTTPSTLSSecret) {
+		vdb.Spec.HTTPSNMATLSSecret != "" &&
+		secrets.IsK8sSecret(vdb.Spec.HTTPSNMATLSSecret) {
 		volMnts = append(volMnts, buildNMACertsVolumeMount()...)
 	}
 	return volMnts
@@ -454,8 +454,8 @@ func buildSSHVolumeMounts() []corev1.VolumeMount {
 func buildCommonNMAVolumeMounts(vdb *vapi.VerticaDB) []corev1.VolumeMount {
 	volMnts := buildScrutinizeVolumeMountForVerticaPod(vdb)
 	if vmeta.UseNMACertsMount(vdb.Annotations) &&
-		vdb.Spec.HTTPSTLSSecret != "" &&
-		secrets.IsK8sSecret(vdb.Spec.HTTPSTLSSecret) {
+		vdb.Spec.HTTPSNMATLSSecret != "" &&
+		secrets.IsK8sSecret(vdb.Spec.HTTPSNMATLSSecret) {
 		volMnts = append(volMnts, buildNMACertsVolumeMount()...)
 	}
 	return volMnts
@@ -518,8 +518,8 @@ func buildVolumes(vdb *vapi.VerticaDB) []corev1.Volume {
 
 	if vmeta.UseVClusterOps(vdb.Annotations) &&
 		vmeta.UseNMACertsMount(vdb.Annotations) &&
-		vdb.Spec.HTTPSTLSSecret != "" &&
-		secrets.IsK8sSecret(vdb.Spec.HTTPSTLSSecret) {
+		vdb.Spec.HTTPSNMATLSSecret != "" &&
+		secrets.IsK8sSecret(vdb.Spec.HTTPSNMATLSSecret) {
 		vols = append(vols, buildNMACertsSecretVolume(vdb))
 	}
 	if vdb.IsDepotVolumeEmptyDir() && vdb.IsDepotVolumeManaged() {
@@ -538,8 +538,8 @@ func buildScrutinizeVolumes(vscr *v1beta1.VerticaScrutinize, vdb *vapi.VerticaDB
 	vols := []corev1.Volume{}
 	if vmeta.UseVClusterOps(vdb.Annotations) &&
 		vmeta.UseNMACertsMount(vdb.Annotations) &&
-		vdb.Spec.HTTPSTLSSecret != "" &&
-		secrets.IsK8sSecret(vdb.Spec.HTTPSTLSSecret) {
+		vdb.Spec.HTTPSNMATLSSecret != "" &&
+		secrets.IsK8sSecret(vdb.Spec.HTTPSNMATLSSecret) {
 		vols = append(vols, buildNMACertsSecretVolume(vdb))
 	}
 	// we add a volume for the password when the password secret
@@ -808,7 +808,7 @@ func buildNMACertsSecretVolume(vdb *vapi.VerticaDB) corev1.Volume {
 		Name: vapi.NMACertsMountName,
 		VolumeSource: corev1.VolumeSource{
 			Secret: &corev1.SecretVolumeSource{
-				SecretName: vdb.Spec.HTTPSTLSSecret,
+				SecretName: vdb.Spec.HTTPSNMATLSSecret,
 			},
 		},
 	}
@@ -2209,7 +2209,7 @@ func BuildNMATLSConfigMap(nm types.NamespacedName, vdb *vapi.VerticaDB) *corev1.
 		NMACertEnv:                  fmt.Sprintf("%s/%s", paths.NMACertsRoot, corev1.TLSCertKey),
 		NMAKeyEnv:                   fmt.Sprintf("%s/%s", paths.NMACertsRoot, corev1.TLSPrivateKeyKey),
 		NMASecretNamespaceEnv:       vdb.ObjectMeta.Namespace,
-		NMASecretNameEnv:            vdb.Spec.HTTPSTLSSecret,
+		NMASecretNameEnv:            vdb.Spec.HTTPSNMATLSSecret,
 		NMAClientSecretNamespaceEnv: vdb.ObjectMeta.Namespace,
 		NMAClientSecretNameEnv:      vdb.Spec.ClientServerTLSSecret,
 		NMAClientSecretTLSModeEnv:   vdb.GetNMAClientServerTLSMode(),

@@ -169,7 +169,7 @@ func (h *TLSConfigReconciler) updateAnnotations(ctx context.Context, newAnnotati
 
 func (h *TLSConfigReconciler) restartNMA(ctx context.Context) (ctrl.Result, error) {
 	currentSecretData, res, err := h.readSecret(h.Vdb, h.VRec, h.VRec.GetClient(), h.Log, ctx,
-		h.Vdb.Spec.HTTPSTLSSecret)
+		h.Vdb.Spec.HTTPSNMATLSSecret)
 	if verrors.IsReconcileAborted(res, err) {
 		h.Log.Error(err, "failed to read secret to set up TLS config")
 		return res, err
@@ -186,7 +186,7 @@ func (h *TLSConfigReconciler) restartNMA(ctx context.Context) (ctrl.Result, erro
 	}
 	err = h.Dispatcher.RotateNMACerts(ctx, opts...)
 	if err != nil {
-		h.Log.Error(err, "failed to set nma cert to "+h.Vdb.Spec.HTTPSTLSSecret)
+		h.Log.Error(err, "failed to set nma cert to "+h.Vdb.Spec.HTTPSNMATLSSecret)
 	}
 	return ctrl.Result{}, err
 }
@@ -194,7 +194,7 @@ func (h *TLSConfigReconciler) restartNMA(ctx context.Context) (ctrl.Result, erro
 func (h *TLSConfigReconciler) runDDLToConfigureTLS(ctx context.Context, initiatorPod *podfacts.PodFact) error {
 	opts := []settlsconfig.Option{
 		settlsconfig.WithHTTPSTLSMode(h.Vdb.Spec.HTTPSTLSMode),
-		settlsconfig.WithHTTPSTLSSecretName(h.Vdb.Spec.HTTPSTLSSecret),
+		settlsconfig.WithHTTPSTLSSecretName(h.Vdb.Spec.HTTPSNMATLSSecret),
 		settlsconfig.WithClientServerTLSMode(h.Vdb.Spec.ClientServerTLSMode),
 		settlsconfig.WithClientServerTLSSecretName(h.Vdb.Spec.ClientServerTLSSecret),
 		settlsconfig.WithInitiatorIP(initiatorPod.GetPodIP()),
@@ -227,7 +227,7 @@ func (h *TLSConfigReconciler) runTLSDDL(ctx context.Context, initiatorPod *podfa
 	return nil
 }
 func (h *TLSConfigReconciler) updateStatus(ctx context.Context) error {
-	sec := vapi.MakeHTTPSTLSSecretRef(h.Vdb.Spec.HTTPSTLSSecret)
+	sec := vapi.MakeHTTPSTLSSecretRef(h.Vdb.Spec.HTTPSNMATLSSecret)
 	if err1 := vdbstatus.UpdateSecretRef(ctx, h.VRec.GetClient(), h.Vdb, sec); err1 != nil {
 		return err1
 	}
@@ -265,15 +265,15 @@ func (h *TLSConfigReconciler) generateKubernetesTLSSQL(sb *strings.Builder) {
 
 	fmt.Fprintf(sb, "CREATE KEY https_key_0 TYPE 'rsa' SECRETMANAGER KubernetesSecretManager ")
 	fmt.Fprintf(sb, "SECRETNAME '%s' CONFIGURATION '{\"data-key\":\"%s\", \"namespace\":\"%s\"}';\n",
-		h.Vdb.Spec.HTTPSTLSSecret, corev1.TLSPrivateKeyKey, h.Vdb.ObjectMeta.Namespace)
+		h.Vdb.Spec.HTTPSNMATLSSecret, corev1.TLSPrivateKeyKey, h.Vdb.ObjectMeta.Namespace)
 
 	fmt.Fprintf(sb, "CREATE CA CERTIFICATE https_ca_cert_0 SECRETMANAGER KubernetesSecretManager ")
 	fmt.Fprintf(sb, "SECRETNAME '%s' CONFIGURATION '{\"data-key\":\"%s\", \"namespace\":\"%s\"}';\n",
-		h.Vdb.Spec.HTTPSTLSSecret, paths.HTTPServerCACrtName, h.Vdb.ObjectMeta.Namespace)
+		h.Vdb.Spec.HTTPSNMATLSSecret, paths.HTTPServerCACrtName, h.Vdb.ObjectMeta.Namespace)
 
 	fmt.Fprintf(sb, "CREATE CERTIFICATE https_cert_0 SECRETMANAGER KubernetesSecretManager ")
 	fmt.Fprintf(sb, "SECRETNAME '%s' CONFIGURATION '{\"data-key\":\"%s\", \"namespace\":\"%s\"}' ",
-		h.Vdb.Spec.HTTPSTLSSecret, corev1.TLSCertKey, h.Vdb.ObjectMeta.Namespace)
+		h.Vdb.Spec.HTTPSNMATLSSecret, corev1.TLSCertKey, h.Vdb.ObjectMeta.Namespace)
 	fmt.Fprintf(sb, "SIGNED BY https_ca_cert_0 KEY https_key_0;\n")
 
 	fmt.Fprintf(sb, "DROP KEY IF EXISTS server_key;\n")

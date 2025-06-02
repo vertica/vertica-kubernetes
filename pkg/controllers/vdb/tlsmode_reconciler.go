@@ -139,12 +139,12 @@ func (h *TLSModeReconciler) rotateTLSMode(ctx context.Context) (ctrl.Result, err
 
 	var keyConfig, certConfig, caCertConfig, secretName string
 	switch {
-	case secrets.IsAWSSecretsManagerSecret(h.Vdb.Spec.HTTPSTLSSecret):
+	case secrets.IsAWSSecretsManagerSecret(h.Vdb.Spec.HTTPSNMATLSSecret):
 		keyConfig, certConfig, caCertConfig = GetAWSCertsConfig(h.Vdb)
-		secretName = secrets.RemovePathReference(h.Vdb.Spec.HTTPSTLSSecret)
+		secretName = secrets.RemovePathReference(h.Vdb.Spec.HTTPSNMATLSSecret)
 	default:
 		keyConfig, certConfig, caCertConfig = GetK8sCertsConfig(h.Vdb)
-		secretName = h.Vdb.Spec.HTTPSTLSSecret
+		secretName = h.Vdb.Spec.HTTPSNMATLSSecret
 	}
 
 	currentCert := string(currentSecret.Data[corev1.TLSCertKey])
@@ -159,7 +159,7 @@ func (h *TLSModeReconciler) rotateTLSMode(ctx context.Context) (ctrl.Result, err
 		rotatehttpscerts.WithTLSMode(newHTTPSTLSMode),
 		rotatehttpscerts.WithInitiator(initiatorPod.GetPodIP()),
 	}
-	h.Log.Info(fmt.Sprintf("call RotateHTTPSCerts for cert - %s , tls mode - %s", h.Vdb.Spec.HTTPSTLSSecret, newHTTPSTLSMode))
+	h.Log.Info(fmt.Sprintf("call RotateHTTPSCerts for cert - %s , tls mode - %s", h.Vdb.Spec.HTTPSNMATLSSecret, newHTTPSTLSMode))
 	err = h.Dispatcher.RotateHTTPSCerts(ctx, opts...)
 	if err != nil {
 		h.Log.Error(err, "failed to rotate HTTPS/client TLS mode")

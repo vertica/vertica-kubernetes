@@ -59,17 +59,17 @@ func MakeTLSServerCertGenReconciler(vdbrecon *VerticaDBReconciler, log logr.Logg
 
 // Reconcile will create a TLS secret for the http server if one is missing
 func (h *TLSServerCertGenReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
-	if h.Vdb.Spec.NMATLSSecret != "" && h.Vdb.Spec.HTTPSTLSSecret == "" {
+	if h.Vdb.Spec.NMATLSSecret != "" && h.Vdb.Spec.HTTPSNMATLSSecret == "" {
 		h.Log.Info("httpsTLSSecret is initialized from nmaTLSSecret")
 		err := h.setSecretNameInVDB(ctx, httpsTLSSecret, h.Vdb.Spec.NMATLSSecret)
 		if err != nil {
 			h.Log.Error(err, "failed to initialize httpsTLSSecret from nmaTLSSecret")
 			return ctrl.Result{}, err
 		}
-		h.Vdb.Spec.HTTPSTLSSecret = h.Vdb.Spec.NMATLSSecret
+		h.Vdb.Spec.HTTPSNMATLSSecret = h.Vdb.Spec.NMATLSSecret
 	}
 	secretFieldNameMap := map[string]string{
-		httpsTLSSecret:        h.Vdb.Spec.HTTPSTLSSecret,
+		httpsTLSSecret:        h.Vdb.Spec.HTTPSNMATLSSecret,
 		clientServerTLSSecret: h.Vdb.Spec.ClientServerTLSSecret,
 	}
 	err := error(nil)
@@ -190,7 +190,7 @@ func (h *TLSServerCertGenReconciler) setSecretNameInVDB(ctx context.Context, sec
 		if secretFieldName == clientServerTLSSecret {
 			h.Vdb.Spec.ClientServerTLSSecret = secretName
 		} else if secretFieldName == httpsTLSSecret {
-			h.Vdb.Spec.HTTPSTLSSecret = secretName
+			h.Vdb.Spec.HTTPSNMATLSSecret = secretName
 		}
 		return h.VRec.Client.Update(ctx, h.Vdb)
 	})
@@ -218,7 +218,7 @@ func (h *TLSServerCertGenReconciler) reconcileNMACertConfigMap(ctx context.Conte
 	if vmeta.UseNMACertsMount(h.Vdb.Annotations) || !vmeta.EnableTLSCertsRotation(h.Vdb.Annotations) {
 		return nil
 	}
-	if configMap.Data[builder.NMASecretNameEnv] == h.Vdb.Spec.HTTPSTLSSecret &&
+	if configMap.Data[builder.NMASecretNameEnv] == h.Vdb.Spec.HTTPSNMATLSSecret &&
 		configMap.Data[builder.NMAClientSecretNameEnv] == h.Vdb.Spec.ClientServerTLSSecret &&
 		configMap.Data[builder.NMASecretNamespaceEnv] == h.Vdb.ObjectMeta.Namespace &&
 		configMap.Data[builder.NMAClientSecretNamespaceEnv] == h.Vdb.ObjectMeta.Namespace &&
@@ -226,7 +226,7 @@ func (h *TLSServerCertGenReconciler) reconcileNMACertConfigMap(ctx context.Conte
 		return nil
 	}
 
-	configMap.Data[builder.NMASecretNameEnv] = h.Vdb.Spec.HTTPSTLSSecret
+	configMap.Data[builder.NMASecretNameEnv] = h.Vdb.Spec.HTTPSNMATLSSecret
 	configMap.Data[builder.NMASecretNamespaceEnv] = h.Vdb.ObjectMeta.Namespace
 	configMap.Data[builder.NMAClientSecretNameEnv] = h.Vdb.Spec.ClientServerTLSSecret
 	configMap.Data[builder.NMAClientSecretNamespaceEnv] = h.Vdb.ObjectMeta.Namespace
@@ -234,7 +234,7 @@ func (h *TLSServerCertGenReconciler) reconcileNMACertConfigMap(ctx context.Conte
 
 	err = h.VRec.GetClient().Update(ctx, configMap)
 	if err == nil {
-		h.Log.Info("updated tls cert secret configmap", "name", configMapName.Name, "nma-secret", h.Vdb.Spec.HTTPSTLSSecret,
+		h.Log.Info("updated tls cert secret configmap", "name", configMapName.Name, "nma-secret", h.Vdb.Spec.HTTPSNMATLSSecret,
 			"clientserver-secret", h.Vdb.Spec.ClientServerTLSSecret)
 	}
 	return err

@@ -60,9 +60,9 @@ var _ = Describe("stop_db_vc", func() {
 	It("should call vcluster-ops library with stop_db task", func() {
 		dispatcher := mockVClusterOpsDispatcher()
 		dispatcher.VDB.Spec.DBName = TestDBName
-		dispatcher.VDB.Spec.HTTPSTLSSecret = "stop-db-vc-secret"
-		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.HTTPSTLSSecret)
-		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.HTTPSTLSSecret)
+		dispatcher.VDB.Spec.HTTPSNMATLSSecret = "stop-db-vc-secret"
+		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.HTTPSNMATLSSecret)
+		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.HTTPSNMATLSSecret)
 		opts := []stopdb.Option{
 			stopdb.WithInitiator(dispatcher.VDB.ExtractNamespacedName(), TestInitiatorIP),
 			stopdb.WithSandbox(sbName),

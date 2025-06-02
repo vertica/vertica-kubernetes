@@ -64,9 +64,9 @@ var _ = Describe("alter_sc_vc", func() {
 	It("should call vcluster-ops library with alter_subcluster_type task", func() {
 		dispatcher := mockVClusterOpsDispatcher()
 		dispatcher.VDB.Spec.DBName = TestDBName
-		dispatcher.VDB.Spec.HTTPSTLSSecret = "alter-sc-vc-secret"
-		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.HTTPSTLSSecret)
-		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.HTTPSTLSSecret)
+		dispatcher.VDB.Spec.HTTPSNMATLSSecret = "alter-sc-vc-secret"
+		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.HTTPSNMATLSSecret)
+		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.HTTPSNMATLSSecret)
 		Ω(dispatcher.AlterSubclusterType(ctx,
 			altersc.WithInitiator(TestInitiatorIP),
 			altersc.WithSubcluster(TestSCName),

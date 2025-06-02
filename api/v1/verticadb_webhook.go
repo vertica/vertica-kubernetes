@@ -2207,16 +2207,16 @@ func (v *VerticaDB) checkImmutableClientProxy(oldObj *VerticaDB, allErrs field.E
 // checkImmutableCertRotation will validate the httpsTLSSecret spec fields in vdb
 func (v *VerticaDB) checkImmutableCertRotation(oldObj *VerticaDB, allErrs field.ErrorList) field.ErrorList {
 	// If cert rotation is set, httpsTLSSecret can not be empty
-	if v.IsCertRotationEnabled() && oldObj.Spec.HTTPSTLSSecret != "" && v.Spec.HTTPSTLSSecret == "" {
+	if v.IsCertRotationEnabled() && oldObj.Spec.HTTPSNMATLSSecret != "" && v.Spec.HTTPSNMATLSSecret == "" {
 		err := field.Invalid(field.NewPath("spec").Child("httpsTLSSecret"),
-			v.Spec.HTTPSTLSSecret,
+			v.Spec.HTTPSNMATLSSecret,
 			"httpsTLSSecret cannot be empty when cert rotation is enabled")
 		allErrs = append(allErrs, err)
 	}
 	// If cert rotation is in progress, httpsTLSSecret can not be changed
-	if v.IsCertRotationEnabled() && v.IsCertRotationInProgress() && oldObj.Spec.HTTPSTLSSecret != v.Spec.HTTPSTLSSecret {
+	if v.IsCertRotationEnabled() && v.IsCertRotationInProgress() && oldObj.Spec.HTTPSNMATLSSecret != v.Spec.HTTPSNMATLSSecret {
 		err := field.Invalid(field.NewPath("spec").Child("httpsTLSSecret"),
-			v.Spec.HTTPSTLSSecret,
+			v.Spec.HTTPSNMATLSSecret,
 			"httpsTLSSecret cannot be changed when cert rotation is in progress")
 		allErrs = append(allErrs, err)
 	}

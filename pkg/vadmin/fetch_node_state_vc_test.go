@@ -66,9 +66,9 @@ var _ = Describe("fetch_node_state_vc", func() {
 	It("should call vcluster-ops library with fetch_node_state task", func() {
 		dispatcher := mockVClusterOpsDispatcher()
 		dispatcher.VDB.Spec.DBName = TestDBName
-		dispatcher.VDB.Spec.HTTPSTLSSecret = "fetch-node-state-vc-secret"
-		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.HTTPSTLSSecret)
-		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.HTTPSTLSSecret)
+		dispatcher.VDB.Spec.HTTPSNMATLSSecret = "fetch-node-state-vc-secret"
+		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.HTTPSNMATLSSecret)
+		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.HTTPSNMATLSSecret)
 		actualResults, ctrlRes, err := dispatcher.FetchNodeState(ctx,
 			fetchnodestate.WithInitiator(dispatcher.VDB.ExtractNamespacedName(), nodeIPs[0]),
 		)

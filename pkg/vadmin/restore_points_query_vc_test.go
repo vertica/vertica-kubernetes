@@ -73,9 +73,9 @@ var _ = Describe("restore_points_vc", func() {
 	It("should call ShowRestorePoints in the vcluster-ops library", func() {
 		dispatcher := mockVClusterOpsDispatcher()
 		dispatcher.VDB.Spec.DBName = TestDBName
-		dispatcher.VDB.Spec.HTTPSTLSSecret = "restore-point-test-secret"
-		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.HTTPSTLSSecret)
-		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.HTTPSTLSSecret)
+		dispatcher.VDB.Spec.HTTPSNMATLSSecret = "restore-point-test-secret"
+		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.HTTPSNMATLSSecret)
+		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.HTTPSNMATLSSecret)
 
 		showRestorePoints, err := dispatcher.ShowRestorePoints(ctx,
 			showrestorepoints.WithInitiator(dispatcher.VDB.ExtractNamespacedName(), nodeIPs[0]),

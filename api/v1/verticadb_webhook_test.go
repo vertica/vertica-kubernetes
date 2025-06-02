@@ -442,16 +442,16 @@ var _ = Describe("verticadb_webhook", func() {
 	It("nmaTLSSecret cannot be empty when cert rotation is enabled", func() {
 		vdb := MakeVDBForCertRotationEnabled()
 		oldVdb := vdb.DeepCopy()
-		oldVdb.Spec.HTTPSTLSSecret = "oldSecret"
-		vdb.Spec.HTTPSTLSSecret = ""
+		oldVdb.Spec.HTTPSNMATLSSecret = "oldSecret"
+		vdb.Spec.HTTPSNMATLSSecret = ""
 		allErrs := vdb.validateImmutableFields(oldVdb)
 		Expect(allErrs).ShouldNot(BeNil())
 	})
 	It("nmaTLSSecret cannot be changed when cert rotation is in progress", func() {
 		vdb := MakeVDBForCertRotationEnabled()
 		oldVdb := vdb.DeepCopy()
-		oldVdb.Spec.HTTPSTLSSecret = "oldSecret"
-		vdb.Spec.HTTPSTLSSecret = "newSecretValue"
+		oldVdb.Spec.HTTPSNMATLSSecret = "oldSecret"
+		vdb.Spec.HTTPSNMATLSSecret = "newSecretValue"
 		resetStatusConditionsForCertRotationInProgress(vdb)
 		allErrs := vdb.validateImmutableFields(oldVdb)
 		Expect(allErrs).ShouldNot(BeNil())

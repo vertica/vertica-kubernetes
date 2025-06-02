@@ -36,7 +36,7 @@ var _ = Describe("podsecurity_reconcile", func() {
 	It("should set PodSecurityContext if not already set", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
-		vdb.Spec.HTTPSTLSSecret = "psc-nma-secret"
+		vdb.Spec.HTTPSNMATLSSecret = "psc-nma-secret"
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
 
@@ -75,7 +75,7 @@ var _ = Describe("podsecurity_reconcile", func() {
 	It("should setup PodSecurityContext using range for OpenShift in vclusterops", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
-		vdb.Spec.HTTPSTLSSecret = "os-nma-secret"
+		vdb.Spec.HTTPSNMATLSSecret = "os-nma-secret"
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
 

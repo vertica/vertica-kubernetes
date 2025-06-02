@@ -299,7 +299,7 @@ type VerticaDBSpec struct {
 	// tls.crt and ca.crt.  To store this secret outside of Kubernetes, you can
 	// use a secret path reference prefix, such as gsm://. Everything after the
 	// prefix is the name of the secret in the service you are storing.
-	HTTPSTLSSecret string `json:"httpsTLSSecret,omitempty"`
+	HTTPSNMATLSSecret string `json:"httpsTLSSecret,omitempty"`
 
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:io.kubernetes:Secret","urn:alm:descriptor:com.tectonic.ui:advanced"}
 	// +kubebuilder:default:=""
