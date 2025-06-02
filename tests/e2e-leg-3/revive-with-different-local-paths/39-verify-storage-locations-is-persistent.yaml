@@ -15,6 +15,28 @@ apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 commands:
   # verify the directory is recreated in the pod
-  - command: kubectl exec -n $NAMESPACE v-revive-1-main-1 -c server -- test -d /vertica/data/storage
-  - command: kubectl exec -n $NAMESPACE v-revive-1-main-1 -c server -- test -d /tmp/test
-  - command: kubectl exec -n $NAMESPACE v-revive-1-main-1 -c server -- test -d /vertica/data/user
+  - script: |
+      val=$(kubectl exec -n $NAMESPACE v-revive-1-main-0 -c server -- stat -c "%u" /vertica/data/storage); \
+      if [ "$val" != "5000" ]; then \
+        exit 1; \
+      fi
+  - script: |
+      val=$(kubectl exec -n $NAMESPACE v-revive-1-main-0 -c server -- stat -c "%u" /tmp/test); \
+      if [ "$val" != "5000" ]; then \
+        exit 1; \
+      fi
+  - script: |
+      val=$(kubectl exec -n $NAMESPACE v-revive-1-main-0 -c server -- stat -c "%u" /tmp/custom/DBD); \
+      if [ "$val" != "5000" ]; then \
+        exit 1; \
+      fi
+  - script: |
+      val=$(kubectl exec -n $NAMESPACE v-revive-1-main-0 -c server -- stat -c "%u" /home/dbadmin/local-data/custom/DBD); \
+      if [ "$val" != "5000" ]; then \
+        exit 1; \
+      fi
+  - script: |
+      val=$(kubectl exec -n $NAMESPACE v-revive-1-main-0 -c server -- stat -c "%u" /vertica/data/user/DBD); \
+      if [ "$val" != "5000" ]; then \
+        exit 1; \
+      fi

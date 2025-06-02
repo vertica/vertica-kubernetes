@@ -1474,6 +1474,7 @@ func makeDefaultLivenessProbe(vdb *vapi.VerticaDB) *corev1.Probe {
 // that can be overridden with the spec.readinessProbeOverride parameter.
 func makeReadinessProbe(vdb *vapi.VerticaDB) *corev1.Probe {
 	probe := makeDefaultReadinessOrStartupProbe(vdb)
+	probe.SuccessThreshold = 1
 	overrideProbe(probe, vdb.Spec.ReadinessProbeOverride)
 	return probe
 }
@@ -1488,6 +1489,7 @@ func makeStartupProbe(vdb *vapi.VerticaDB) *corev1.Probe {
 	probe.PeriodSeconds = 10
 	probe.FailureThreshold = 117
 	probe.TimeoutSeconds = 5
+	probe.SuccessThreshold = 1
 
 	overrideProbe(probe, vdb.Spec.StartupProbeOverride)
 	return probe
@@ -1506,6 +1508,7 @@ func makeLivenessProbe(vdb *vapi.VerticaDB) *corev1.Probe {
 	probe.TimeoutSeconds = 1
 	probe.PeriodSeconds = 30
 	probe.FailureThreshold = 3
+	probe.SuccessThreshold = 1
 
 	overrideProbe(probe, vdb.Spec.LivenessProbeOverride)
 	return probe
@@ -1705,6 +1708,11 @@ func getStorageClassName(vdb *vapi.VerticaDB) *string {
 // BuildStsSpec builds manifest for a subclusters statefulset
 func BuildStsSpec(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi.Subcluster) *appsv1.StatefulSet {
 	scSize := sc.GetStsSize(vdb)
+	ownerRef := []metav1.OwnerReference{vdb.GenerateOwnerReference()}
+	// when preserveDBDirectory is enabled, we don't want PVCs to be owned by VerticaDB
+	if vmeta.GetPreserveDBDirectory(vdb.Annotations) {
+		ownerRef = nil
+	}
 	return &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        nm.Name,
@@ -1732,7 +1740,7 @@ func BuildStsSpec(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi.Subclus
 					ObjectMeta: metav1.ObjectMeta{
 						Name: vapi.LocalDataPVC,
 						// Set the ownerReference so that we get auto-deletion
-						OwnerReferences: []metav1.OwnerReference{vdb.GenerateOwnerReference()},
+						OwnerReferences: ownerRef,
 					},
 					Spec: corev1.PersistentVolumeClaimSpec{
 						AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},

@@ -30,6 +30,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/createarchive"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/createdb"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/describedb"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/dropdb"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/fetchnodedetails"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/fetchnodestate"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/getconfigparameter"
@@ -164,6 +165,8 @@ type Dispatcher interface {
 
 	// SetTLSConfig will run DDL to configure TLS
 	SetTLSConfig(ctx context.Context, opts ...settlsconfig.Option) error
+	// DropDB will drop vertica.conf and catalog files before db revival
+	DropDB(ctx context.Context, opts ...dropdb.Option) error
 }
 
 const (
@@ -329,4 +332,5 @@ type VClusterProvider interface {
 	VRotateNMACerts(options *vops.VRotateNMACertsOptions) error
 	VRotateTLSCerts(options *vops.VRotateTLSCertsOptions) error
 	VSetTLSConfig(options *vops.VSetTLSConfigOptions) error
+	VDropDatabase(options *vops.VDropDatabaseOptions) error
 }

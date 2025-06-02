@@ -20,3 +20,5 @@ nodeExporter:
   enabled: false
 prometheus:
   enabled: true
+  prometheusSpec:
+    maximumStartupDurationSeconds: 300

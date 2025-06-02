@@ -11,8 +11,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: kuttl.dev/v1beta1
-kind: TestStep
-commands:
-  - command: bash -c "kubectl get vdb -n $NAMESPACE v-http-generated-certs -o json | jq -r '.spec.httpsTLSSecret' | tee /tmp/generated-secret-name.txt"
-  - command: bash -c "export SN=$(cat /tmp/generated-secret-name.txt); kubectl get -n $NAMESPACE secret $$SN -o yaml | sed \"s/$$SN/http-server-tls-copy/\" | kubectl apply -n $NAMESPACE -f -"
+apiVersion: apps/v1
+kind: StatefulSet
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: verticadb-operator

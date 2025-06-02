@@ -81,14 +81,6 @@ func (h *TLSModeReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctr
 	h.VRec.Eventf(h.Vdb, corev1.EventTypeNormal, events.TLSModeUpdateStarted,
 		"Starting to update TLS Mode")
 	if h.Vdb.GetHTTPSTLSModeInUse() == "" || h.Vdb.GetClientServerTLSModeInUse() == "" {
-		/*res, err := h.reconcileAfterRevive(ctx)
-		if verrors.IsReconcileAborted(res, err) {
-			return res, err
-		}
-		if h.Vdb.Spec.HTTPSTLSMode == h.Vdb.GetHTTPSTLSModeInUse() &&
-			h.Vdb.Spec.ClientServerTLSMode == h.Vdb.GetClientServerTLSModeInUse() {
-			return ctrl.Result{}, nil
-		}*/
 		h.Log.Info("skip reconciling tls mode for revive scenario")
 		return ctrl.Result{}, nil
 	}

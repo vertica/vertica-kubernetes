@@ -32,12 +32,12 @@ import (
 
 var vcLog = logf.Log.WithName("vadmin")
 
-// retrieveHTTPSCerts will retrieve the certs from HTTPSTLSSecret for calling NMA endpoints
+// retrieveHTTPSCerts will retrieve the certs from HTTPSNMATLSSecret for calling NMA endpoints
 func (v *VClusterOps) retrieveHTTPSCerts(ctx context.Context) (*HTTPSCerts, error) {
 	return v.retrieveHTTPSCertsWithTarget(ctx, false)
 }
 
-// retrieveTargetHTTPSCerts will retrieve the certs from HTTPSTLSSecret for calling target NMA endpoints
+// retrieveTargetHTTPSCerts will retrieve the certs from HTTPSNMATLSSecret for calling target NMA endpoints
 func (v *VClusterOps) retrieveTargetHTTPSCerts(ctx context.Context) (*HTTPSCerts, error) {
 	return v.retrieveHTTPSCertsWithTarget(ctx, true)
 }
@@ -148,7 +148,7 @@ func (v *VClusterOps) setAuthentication(opts *vops.DatabaseOptions, username str
 }
 
 // getHTTPSTLSSecretName returns the name of the secret that stores TLS cert
-// when tls cert is NOT used, it returns vdb.Spec.HTTPSTLSSecret. This includes
+// when tls cert is NOT used, it returns vdb.Spec.HTTPSNMATLSSecret. This includes
 // the time before a vdb is created
 // when tls cert is used, it returns secert name saved in annotation
 func getHTTPSTLSSecretName(vdb *vapi.VerticaDB) (string, error) {

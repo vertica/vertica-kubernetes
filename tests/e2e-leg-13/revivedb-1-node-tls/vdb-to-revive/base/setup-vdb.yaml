@@ -35,8 +35,8 @@ spec:
     - name: sc1
       size: 1
   clientServerTLSSecret: custom-cert
-  httpsTLSSecret: custom-cert
-  httpsTLSMode: TRY_VERIFY
+  httpsNMATLSSecret: custom-cert
+  httpsTLSMode: VERIFY_CA
   certSecrets: []
   imagePullSecrets: []
   volumes: []

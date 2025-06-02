@@ -20,6 +20,7 @@ import (
 
 	vops "github.com/vertica/vcluster/vclusterops"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
+	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/net"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/revivedb"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -58,8 +59,9 @@ func (v *VClusterOps) genReviveDBOptions(s *revivedb.Parms, certs *HTTPSCerts) *
 	opts.IPv6 = net.IsIPv6(opts.RawHosts[0])
 	opts.CommunalStorageLocation = s.CommunalPath
 	opts.ConfigurationParameters = s.ConfigurationParams
-	opts.ForceRemoval = true
+	opts.ForceRemoval = !vmeta.GetPreserveDBDirectory(v.VDB.Annotations)
 	opts.IgnoreClusterLease = s.IgnoreClusterLease
+	opts.UseExistingCatalogDir = vmeta.GetPreserveDBDirectory(v.VDB.Annotations)
 
 	// auth options
 	opts.Key = certs.Key

@@ -286,20 +286,21 @@ type VerticaDBSpec struct {
 	// tls.crt and ca.crt.  To store this secret outside of Kubernetes, you can
 	// use a secret path reference prefix, such as gsm://. Everything after the
 	// prefix is the name of the secret in the service you are storing.
-	// This field has been deprecated. HTTPSTLSSecret field is the replacement.
+	// This field has been deprecated. HTTPSNMATLSSecret field is the replacement.
 	NMATLSSecret string `json:"nmaTLSSecret,omitempty"`
 
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:io.kubernetes:Secret","urn:alm:descriptor:com.tectonic.ui:advanced"}
 	// +kubebuilder:default:=""
 	// +kubebuilder:validation:Optional
 	// A secret that contains the TLS credentials to be used  by Vertica's
-	// embedded https service. If this is empty, the operator will create a
-	// secret to use and add the name of the generate secret in this field.
-	// When set, the secret must have the following keys defined: tls.key,
-	// tls.crt and ca.crt.  To store this secret outside of Kubernetes, you can
-	// use a secret path reference prefix, such as gsm://. Everything after the
-	// prefix is the name of the secret in the service you are storing.
-	HTTPSNMATLSSecret string `json:"httpsTLSSecret,omitempty"`
+	// embedded https service and node management agent (NMA). If this is empty,
+	// the operator will create a secret to use and add the name of the generate
+	// secret in this field. When set, the secret must have the following keys
+	// defined: tls.key, tls.crt and ca.crt. To store this secret outside of
+	// Kubernetes, you can use a secret path reference prefix, such as gsm://.
+	// Everything after the prefix is the name of the secret in the service you
+	// are storing.
+	HTTPSNMATLSSecret string `json:"httpsNMATLSSecret,omitempty"`
 
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:io.kubernetes:Secret","urn:alm:descriptor:com.tectonic.ui:advanced"}
 	// +kubebuilder:default:=""
@@ -384,7 +385,7 @@ type VerticaDBSpec struct {
 	Proxy *Proxy `json:"proxy,omitempty"`
 
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:hidden"
-	// +kubebuilder:default:=VERIFY_CA
+	// +kubebuilder:default:=TRY_VERIFY
 	// +kubebuilder:validation:Optional
 	// This field configures the Vertica's connection mode for client-server TLS.
 	// Choose one of the following TLSMODEs, listed in ascending security:
@@ -1038,7 +1039,7 @@ type SecretRef struct {
 type TLSMode struct {
 	// +operator-sdk:csv:customresourcedefinitions:type=status
 	// TLS mode
-	Mode string `json:"name"`
+	Mode string `json:"mode"`
 	// +operator-sdk:csv:customresourcedefinitions:type=status
 	// The type of the TLS mode
 	Type string `json:"type"`

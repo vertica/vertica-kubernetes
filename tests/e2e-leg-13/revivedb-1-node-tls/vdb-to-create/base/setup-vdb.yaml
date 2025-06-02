@@ -34,8 +34,8 @@ spec:
       size: 1
   certSecrets: []
   clientServerTLSSecret: custom-cert
-  httpsTLSSecret: custom-cert
-  httpsTLSMode: TRY_VERIFY
+  httpsNMATLSSecret: custom-cert
+  httpsTLSMode: VERIFY_CA
   imagePullSecrets: []
   volumes: []
   volumeMounts: []

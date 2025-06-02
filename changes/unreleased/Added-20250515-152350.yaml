@@ -1,5 +1,0 @@
-kind: Added
-body: HTTPSTLSSecret has been added to Vertica DB definition. This new field replaces NMATLSSecret which has been depreciated.
-time: 2025-05-15T15:23:50.602348817-04:00
-custom:
-    Issue: "1198"

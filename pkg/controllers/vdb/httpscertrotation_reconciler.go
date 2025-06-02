@@ -119,7 +119,7 @@ func (h *HTTPSCertRotationReconciler) Reconcile(ctx context.Context, _ *ctrl.Req
 		h.Log.Error(err, "failed to set condition "+vapi.HTTPSCertRotationFinished+" to true")
 		return ctrl.Result{}, err
 	}
-	h.VRec.Eventf(h.Vdb, corev1.EventTypeNormal, events.HTTPSCertRotationSucceded,
+	h.VRec.Eventf(h.Vdb, corev1.EventTypeNormal, events.HTTPSCertRotationSucceeded,
 		"Successfully rotated https cert from %s to %s", currentSecretName, newSecretName)
 	h.Log.Info("https cert rotation is finished. To rotate nma cert next")
 	return ctrl.Result{}, nil

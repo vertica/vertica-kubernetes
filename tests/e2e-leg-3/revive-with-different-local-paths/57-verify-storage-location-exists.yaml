@@ -26,11 +26,45 @@ commands:
         exit 1; \
       fi
   - script: |
-      val=$(kubectl exec -n $NAMESPACE v-revive-2-main-2 -c server -- vsql -tAc "select count(*) from storage_locations where location_path = '/vertica/data/user' and location_usage = 'USER'"); \
+      val=$(kubectl exec -n $NAMESPACE v-revive-2-main-2 -c server -- vsql -tAc "select count(*) from storage_locations where location_path = '/tmp/custom/DBD' and location_usage = 'TEMP'"); \
       if [ $val == 0 ]; then \
         exit 1; \
       fi
-  # verify the directory is created in the pod
-  - command: kubectl exec -n $NAMESPACE v-revive-2-main-2 -c server -- test -d /vertica/data/storage
-  - command: kubectl exec -n $NAMESPACE v-revive-2-main-2 -c server -- test -d /tmp/test
-  - command: kubectl exec -n $NAMESPACE v-revive-2-main-2 -c server -- test -d /vertica/data/user
+  - script: |
+      val=$(kubectl exec -n $NAMESPACE v-revive-2-main-2 -c server -- vsql -tAc "select count(*) from storage_locations where location_path = '/home/dbadmin/local-data/custom/DBD' and location_usage = 'DATA'"); \
+      if [ $val == 0 ]; then \
+        exit 1; \
+      fi
+  - script: |
+      val=$(kubectl exec -n $NAMESPACE v-revive-2-main-2 -c server -- vsql -tAc "select count(*) from storage_locations where location_path = '/vertica/data/user/DBD' and location_usage = 'USER'"); \
+      if [ $val == 0 ]; then \
+        exit 1; \
+      fi
+  # verify the parent directory is owned by root:root (on EKS is root:5000)
+  - script: |
+      val=$(kubectl exec -n $NAMESPACE v-revive-2-main-2 -c server -- stat -c "%u:%g" /vertica/data); \
+      if [ "$val" != "0:0" ]; then \
+        exit 1; \
+      fi
+
+  - script: |
+      val=$(kubectl exec -n $NAMESPACE v-revive-2-main-2 -c server -- stat -c "%u:%g" /tmp/custom); \
+      if [ "$val" != "0:0" ]; then \
+        exit 1; \
+      fi
+  - script: |
+      val=$(kubectl exec -n $NAMESPACE v-revive-2-main-2 -c server -- stat -c "%u:%g" /home/dbadmin/local-data/custom); \
+      if [ "$val" != "0:0" ]; then \
+        exit 1; \
+      fi
+  - script: |
+      val=$(kubectl exec -n $NAMESPACE v-revive-2-main-2 -c server -- stat -c "%u:%g" /vertica/data/user); \
+      if [ "$val" != "0:0" ]; then \
+        exit 1; \
+      fi
+  # /tmp is not a mount path and should be owned by root:root (on EKS is also root:root)
+  - script: |
+      val=$(kubectl exec -n $NAMESPACE v-revive-2-main-2 -c server -- stat -c "%u:%g" /tmp); \
+      if [ "$val" != "0:0" ]; then \
+        exit 1; \
+      fi

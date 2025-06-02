@@ -434,6 +434,10 @@ func (v *VerticaDB) GenInstallerIndicatorFileName() string {
 // We use the UID so that we create unique paths in the PV.  If the PV is reused
 // for a new vdb, the UID will be different.
 func (v *VerticaDB) GetPVSubPath(subPath string) string {
+	// when preserving the db directory, we need to use a fixed path
+	if vmeta.GetPreserveDBDirectory(v.Annotations) {
+		return fmt.Sprintf("%s/%s", "preserved-db-directory", subPath)
+	}
 	return fmt.Sprintf("%s/%s", v.UID, subPath)
 }
 
