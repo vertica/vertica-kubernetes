@@ -65,9 +65,9 @@ var _ = Describe("unsandbox_sc_vc", func() {
 	It("should call vclusterOps library with unsandbox_subcluster task", func() {
 		dispatcher := mockVClusterOpsDispatcher()
 		dispatcher.VDB.Spec.DBName = TestDBName
-		dispatcher.VDB.Spec.NMATLSSecret = TestNMATLSSecret
-		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.NMATLSSecret)
-		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.NMATLSSecret)
+		dispatcher.VDB.Spec.HTTPSNMATLSSecret = TestNMATLSSecret
+		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.HTTPSNMATLSSecret)
+		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.HTTPSNMATLSSecret)
 		Ω(dispatcher.UnsandboxSubcluster(ctx,
 			unsandboxsc.WithInitiator(TestInitiatorIP),
 			unsandboxsc.WithSubcluster(TestSCName),

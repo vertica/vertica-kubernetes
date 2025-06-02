@@ -14,7 +14,7 @@
 apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
-  name: v-tls-certs
+  name: v-nma-https-cert-rotate
   annotations:
     vertica.com/k-safety: "1"
     vertica.com/include-uid-in-path: "true"
@@ -29,6 +29,7 @@ spec:
     catalogPath: /catalog
   dbName: vertdb
   encryptSpreadComm: vertica
+  httpsTLSMode: VERIFY_CA
   subclusters:
     - name: sc1
       size: 3

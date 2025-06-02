@@ -183,7 +183,8 @@ runs:
               fi
             fi
             # These legs have some tests that only run with vclusterops deployment
-            if [[ "${{ inputs.leg-identifier }}" == "leg-2" ]]; then
+            if [[ "${{ inputs.leg-identifier }}" == "leg-2" || \
+                  ( "${{ inputs.leg-identifier }}" == "leg-6" && "${{ inputs.use-cert }}" != "true" ) ]]; then            
               if [[ "${VERTICA_DEPLOYMENT_METHOD}" == "vclusterops" ]]; then
                 E2E_TEST_DIRS+=" tests/e2e-${{ inputs.leg-identifier }}-vc-only";
               fi
@@ -195,6 +196,9 @@ runs:
 
           if [[ "${{ inputs.leg-identifier }}" == "leg-4" || \
                 "${{ inputs.leg-identifier }}" == "leg-9" || \
+                "${{ inputs.leg-identifier }}" == "leg-10-sandbox-upgrade" || \
+                "${{ inputs.leg-identifier }}" == "leg-10-shutdown" || \
+                "${{ inputs.leg-identifier }}" == "leg-10-vrep" || \
                 "${{ inputs.leg-identifier }}" == "leg-10" ]]; then
             export CONCURRENCY_VERTICADB=10
             export CONCURRENCY_SANDBOXCONFIGMAP=10

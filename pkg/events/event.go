@@ -25,6 +25,9 @@ const (
 	CreateDBStart                    = "CreateDBStart"
 	CreateDBSucceeded                = "CreateDBSucceeded"
 	CreateDBFailed                   = "CreateDBFailed"
+	DropDBStart                      = "DropDBStart"
+	DropDBSucceeded                  = "DropDBSucceeded"
+	DropDBFailed                     = "DropDBFailed"
 	ReviveDBStart                    = "ReviveDBStart"
 	ReviveDBSucceeded                = "ReviveDBSucceeded"
 	ReviveDBFailed                   = "ReviveDBFailed"
@@ -124,8 +127,10 @@ const (
 	NMATLSCertRotationStarted        = "NMATLSCertRotationStarted"
 	NMATLSCertRotationSucceeded      = "NMATLSCertRotationSucceeded"
 	HTTPSCertRotationStarted         = "HTTPSCertRotationStarted"
-	HTTPSCertRotationSucceded        = "HTTPSCertRotationSucceded"
+	HTTPSCertRotationSucceeded       = "HTTPSCertRotationSucceeded"
 	HTTPSCertRotationFailed          = "HTTPSCertRotationFailed"
+	TLSModeUpdateStarted             = "TLSModeUpdateStarted"
+	TLSModeUpdateSucceeded           = "TLSModeUpdateSucceeded"
 )
 
 // Constants for VerticaAutoscaler reconciler

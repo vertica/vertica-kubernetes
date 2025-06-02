@@ -45,6 +45,7 @@ import (
 const (
 	SuperuserPasswordPath   = "superuser-passwd"
 	TestStorageClassName    = "test-storage-class"
+	VerticaNonTLSHTTPPort   = 8080
 	InternalVerticaCommPort = 5434
 	SSHPort                 = 22
 	VerticaClusterCommPort  = 5434
@@ -90,8 +91,11 @@ const (
 	// Environment variables that are set only in the nma container
 	NMALogPath = "NMA_LOG_PATH"
 
-	// HTTP endpoint used for health check probe
+	// HTTPS endpoint used for health check probe
 	HTTPServerVersionPath = "/v1/version"
+
+	// HTTP endpoint used for health check probe
+	HTTPServerHealthPathV2 = "/v2/health"
 
 	// Endpoint in the NMA to check its health and readiness
 	NMAHealthPath = "/v1/health"
@@ -385,8 +389,8 @@ func buildScrutinizeVolumeMounts(vscr *v1beta1.VerticaScrutinize, vdb *vapi.Vert
 		buildScrutinizeSharedVolumeMount(vscr),
 	}
 	if vmeta.UseNMACertsMount(vdb.Annotations) &&
-		vdb.Spec.NMATLSSecret != "" &&
-		secrets.IsK8sSecret(vdb.Spec.NMATLSSecret) {
+		vdb.Spec.HTTPSNMATLSSecret != "" &&
+		secrets.IsK8sSecret(vdb.Spec.HTTPSNMATLSSecret) {
 		volMnts = append(volMnts, buildNMACertsVolumeMount()...)
 	}
 	return volMnts
@@ -450,8 +454,8 @@ func buildSSHVolumeMounts() []corev1.VolumeMount {
 func buildCommonNMAVolumeMounts(vdb *vapi.VerticaDB) []corev1.VolumeMount {
 	volMnts := buildScrutinizeVolumeMountForVerticaPod(vdb)
 	if vmeta.UseNMACertsMount(vdb.Annotations) &&
-		vdb.Spec.NMATLSSecret != "" &&
-		secrets.IsK8sSecret(vdb.Spec.NMATLSSecret) {
+		vdb.Spec.HTTPSNMATLSSecret != "" &&
+		secrets.IsK8sSecret(vdb.Spec.HTTPSNMATLSSecret) {
 		volMnts = append(volMnts, buildNMACertsVolumeMount()...)
 	}
 	return volMnts
@@ -514,8 +518,8 @@ func buildVolumes(vdb *vapi.VerticaDB) []corev1.Volume {
 
 	if vmeta.UseVClusterOps(vdb.Annotations) &&
 		vmeta.UseNMACertsMount(vdb.Annotations) &&
-		vdb.Spec.NMATLSSecret != "" &&
-		secrets.IsK8sSecret(vdb.Spec.NMATLSSecret) {
+		vdb.Spec.HTTPSNMATLSSecret != "" &&
+		secrets.IsK8sSecret(vdb.Spec.HTTPSNMATLSSecret) {
 		vols = append(vols, buildNMACertsSecretVolume(vdb))
 	}
 	if vdb.IsDepotVolumeEmptyDir() && vdb.IsDepotVolumeManaged() {
@@ -534,8 +538,8 @@ func buildScrutinizeVolumes(vscr *v1beta1.VerticaScrutinize, vdb *vapi.VerticaDB
 	vols := []corev1.Volume{}
 	if vmeta.UseVClusterOps(vdb.Annotations) &&
 		vmeta.UseNMACertsMount(vdb.Annotations) &&
-		vdb.Spec.NMATLSSecret != "" &&
-		secrets.IsK8sSecret(vdb.Spec.NMATLSSecret) {
+		vdb.Spec.HTTPSNMATLSSecret != "" &&
+		secrets.IsK8sSecret(vdb.Spec.HTTPSNMATLSSecret) {
 		vols = append(vols, buildNMACertsSecretVolume(vdb))
 	}
 	// we add a volume for the password when the password secret
@@ -804,7 +808,7 @@ func buildNMACertsSecretVolume(vdb *vapi.VerticaDB) corev1.Volume {
 		Name: vapi.NMACertsMountName,
 		VolumeSource: corev1.VolumeSource{
 			Secret: &corev1.SecretVolumeSource{
-				SecretName: vdb.Spec.NMATLSSecret,
+				SecretName: vdb.Spec.HTTPSNMATLSSecret,
 			},
 		},
 	}
@@ -1373,14 +1377,27 @@ func makeScrutinizeMainContainer(vscr *v1beta1.VerticaScrutinize, tarballName st
 	}
 }
 
-// makeHTTPServerVersionEndpointProbe will build an HTTPGet probe
-func makeHTTPServerVersionEndpointProbe() *corev1.Probe {
+// makeHTTPSVersionEndpointProbe will build an HTTPS Get probe
+func makeHTTPSVersionEndpointProbe() *corev1.Probe {
 	return &corev1.Probe{
 		ProbeHandler: corev1.ProbeHandler{
 			HTTPGet: &corev1.HTTPGetAction{
 				Path:   HTTPServerVersionPath,
 				Port:   intstr.FromInt(VerticaHTTPPort),
 				Scheme: corev1.URISchemeHTTPS,
+			},
+		},
+	}
+}
+
+// makeHTTPVersionEndpointProbe will build an HTTP Get probe
+func makeHTTPVersionEndpointProbe() *corev1.Probe {
+	return &corev1.Probe{
+		ProbeHandler: corev1.ProbeHandler{
+			HTTPGet: &corev1.HTTPGetAction{
+				Path:   HTTPServerHealthPathV2,
+				Port:   intstr.FromInt(VerticaNonTLSHTTPPort),
+				Scheme: corev1.URISchemeHTTP,
 			},
 		},
 	}
@@ -1414,7 +1431,11 @@ func makeCanaryQueryProbe(vdb *vapi.VerticaDB) *corev1.Probe {
 // is enabled
 func getHTTPServerVersionEndpointProbe(vdb *vapi.VerticaDB) *corev1.Probe {
 	if vmeta.UseVClusterOps(vdb.Annotations) {
-		return makeHTTPServerVersionEndpointProbe()
+		if vdb.IsCertRotationEnabled() {
+			return makeHTTPVersionEndpointProbe()
+		} else {
+			return makeHTTPSVersionEndpointProbe()
+		}
 	}
 	return nil
 }
@@ -1453,6 +1474,7 @@ func makeDefaultLivenessProbe(vdb *vapi.VerticaDB) *corev1.Probe {
 // that can be overridden with the spec.readinessProbeOverride parameter.
 func makeReadinessProbe(vdb *vapi.VerticaDB) *corev1.Probe {
 	probe := makeDefaultReadinessOrStartupProbe(vdb)
+	probe.SuccessThreshold = 1
 	overrideProbe(probe, vdb.Spec.ReadinessProbeOverride)
 	return probe
 }
@@ -1467,6 +1489,7 @@ func makeStartupProbe(vdb *vapi.VerticaDB) *corev1.Probe {
 	probe.PeriodSeconds = 10
 	probe.FailureThreshold = 117
 	probe.TimeoutSeconds = 5
+	probe.SuccessThreshold = 1
 
 	overrideProbe(probe, vdb.Spec.StartupProbeOverride)
 	return probe
@@ -1485,6 +1508,7 @@ func makeLivenessProbe(vdb *vapi.VerticaDB) *corev1.Probe {
 	probe.TimeoutSeconds = 1
 	probe.PeriodSeconds = 30
 	probe.FailureThreshold = 3
+	probe.SuccessThreshold = 1
 
 	overrideProbe(probe, vdb.Spec.LivenessProbeOverride)
 	return probe
@@ -1684,6 +1708,11 @@ func getStorageClassName(vdb *vapi.VerticaDB) *string {
 // BuildStsSpec builds manifest for a subclusters statefulset
 func BuildStsSpec(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi.Subcluster) *appsv1.StatefulSet {
 	scSize := sc.GetStsSize(vdb)
+	ownerRef := []metav1.OwnerReference{vdb.GenerateOwnerReference()}
+	// when preserveDBDirectory is enabled, we don't want PVCs to be owned by VerticaDB
+	if vmeta.GetPreserveDBDirectory(vdb.Annotations) {
+		ownerRef = nil
+	}
 	return &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        nm.Name,
@@ -1711,7 +1740,7 @@ func BuildStsSpec(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi.Subclus
 					ObjectMeta: metav1.ObjectMeta{
 						Name: vapi.LocalDataPVC,
 						// Set the ownerReference so that we get auto-deletion
-						OwnerReferences: []metav1.OwnerReference{vdb.GenerateOwnerReference()},
+						OwnerReferences: ownerRef,
 					},
 					Spec: corev1.PersistentVolumeClaimSpec{
 						AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
@@ -2009,7 +2038,7 @@ func buildScrutinizeDBPasswordEnvVars(nm types.NamespacedName) []corev1.EnvVar {
 // that are needed by NMA and vcluster scrutinize
 func buildNMATLSCertsEnvVars(vdb *vapi.VerticaDB) []corev1.EnvVar {
 	useNmaCertsMount := vmeta.UseNMACertsMount(vdb.Annotations)
-	if useNmaCertsMount && secrets.IsK8sSecret(vdb.Spec.NMATLSSecret) {
+	if useNmaCertsMount && secrets.IsK8sSecret(vdb.Spec.HTTPSNMATLSSecret) {
 		return []corev1.EnvVar{
 			// Provide the path to each of the certs that are mounted in the container.
 			{Name: NMARootCAEnv, Value: fmt.Sprintf("%s/%s", paths.NMACertsRoot, paths.HTTPServerCACrtName)},
@@ -2022,7 +2051,7 @@ func buildNMATLSCertsEnvVars(vdb *vapi.VerticaDB) []corev1.EnvVar {
 			// The NMA will read the secrets directly from the secret store.
 			// We provide the secret namespace and name for this reason.
 			{Name: NMASecretNamespaceEnv, Value: vdb.ObjectMeta.Namespace},
-			{Name: NMASecretNameEnv, Value: vdb.Spec.NMATLSSecret},
+			{Name: NMASecretNameEnv, Value: vdb.Spec.HTTPSNMATLSSecret},
 		}
 	}
 	notTrue := false
@@ -2172,7 +2201,7 @@ func GetTarballName(cmd []string) string {
 func BuildNMATLSConfigMap(nm types.NamespacedName, vdb *vapi.VerticaDB) *corev1.ConfigMap {
 	secretMap := map[string]string{
 		NMASecretNamespaceEnv:       vdb.ObjectMeta.Namespace,
-		NMASecretNameEnv:            vdb.Spec.NMATLSSecret,
+		NMASecretNameEnv:            vdb.Spec.HTTPSNMATLSSecret,
 		NMAClientSecretNamespaceEnv: vdb.ObjectMeta.Namespace,
 		NMAClientSecretNameEnv:      vdb.Spec.ClientServerTLSSecret,
 		NMAClientSecretTLSModeEnv:   vdb.GetNMAClientServerTLSMode(),

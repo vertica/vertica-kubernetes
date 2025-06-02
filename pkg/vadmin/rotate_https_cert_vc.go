@@ -30,7 +30,7 @@ func (v *VClusterOps) RotateHTTPSCerts(ctx context.Context, opts ...rotatehttpsc
 	v.setupForAPICall("RotateHTTPSCerts")
 	defer v.tearDownForAPICall()
 	v.Log.Info("Starting vcluster RotateHTTPSCerts")
-	secretName := v.VDB.GetNMATLSSecretNameInUse()
+	secretName := v.VDB.GetHTTPSTLSSecretNameInUse()
 	// get the certs
 	fetcher := cloud.SecretFetcher{
 		Client:   v.Client,
@@ -86,9 +86,9 @@ func (v *VClusterOps) genRotateHTTPSCertsOptions(s *rotatehttpscerts.Params, cer
 	v.setAuthentication(&opts.DatabaseOptions, v.VDB.GetVerticaUser(), &v.Password, certs)
 	secretManager := ""
 	switch {
-	case secrets.IsAWSSecretsManagerSecret(v.VDB.Spec.NMATLSSecret):
+	case secrets.IsAWSSecretsManagerSecret(v.VDB.Spec.HTTPSNMATLSSecret):
 		secretManager = vops.AWSSecretManagerType
-	case secrets.IsK8sSecret(v.VDB.Spec.NMATLSSecret):
+	case secrets.IsK8sSecret(v.VDB.Spec.HTTPSNMATLSSecret):
 		secretManager = vops.K8sSecretManagerType
 	}
 	opts.TLSSecretManager = secretManager

@@ -23,6 +23,7 @@ prometheus:
   # enable tls config
   # https://github.com/prometheus-community/helm-charts/issues/2828
   prometheusSpec:
+    maximumStartupDurationSeconds: 300
     web:
       tlsConfig:
         keySecret:

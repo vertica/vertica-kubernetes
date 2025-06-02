@@ -23,6 +23,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/vertica/vertica-kubernetes/pkg/names"
 )
 
 func TestCmds(t *testing.T) {
@@ -38,7 +39,7 @@ var _ = Describe("k8s/cmds", func() {
 		cmd := []string{"-tAc", "select 1"}
 		fpr := &FakePodRunner{VerticaSUPassword: "vertica"}
 		podName := types.NamespacedName{Namespace: "default", Name: "vdb-pod"}
-		_, _, _ = fpr.ExecVSQL(ctx, podName, "server", cmd...)
+		_, _, _ = fpr.ExecVSQL(ctx, podName, names.ServerContainer, cmd...)
 		lastCall := fpr.FindCommands("vsql", "--password", fpr.VerticaSUPassword, "-tAc", "select 1")
 		Expect(len(lastCall)).Should(Equal(1))
 	})
@@ -47,7 +48,7 @@ var _ = Describe("k8s/cmds", func() {
 		cmd := []string{"-t", "db_add_node"}
 		fpr := &FakePodRunner{VerticaSUPassword: "vertica"}
 		podName := types.NamespacedName{Namespace: "default", Name: "vdb-pod"}
-		_, _, _ = fpr.ExecAdmintools(ctx, podName, "server", cmd...)
+		_, _, _ = fpr.ExecAdmintools(ctx, podName, names.ServerContainer, cmd...)
 		lastCall := fpr.FindCommands("/opt/vertica/bin/admintools", "-t", "db_add_node", "--password", fpr.VerticaSUPassword)
 		Expect(len(lastCall)).Should(Equal(1))
 	})
@@ -56,7 +57,7 @@ var _ = Describe("k8s/cmds", func() {
 		cmd := []string{"-t", "list_allnodes"}
 		fpr := &FakePodRunner{VerticaSUPassword: "vertica"}
 		podName := types.NamespacedName{Namespace: "default", Name: "vdb-pod"}
-		_, _, _ = fpr.ExecAdmintools(ctx, podName, "server", cmd...)
+		_, _, _ = fpr.ExecAdmintools(ctx, podName, names.ServerContainer, cmd...)
 		lastCall := fpr.FindCommands("/opt/vertica/bin/admintools", "-t", "list_allnodes")
 		Expect(len(lastCall)).Should(Equal(1))
 	})
@@ -65,7 +66,7 @@ var _ = Describe("k8s/cmds", func() {
 		cmd := []string{"-tAc", "select 1"}
 		fpr := &FakePodRunner{VerticaSUPassword: ""}
 		podName := types.NamespacedName{Namespace: "default", Name: "vdb-pod"}
-		_, _, _ = fpr.ExecVSQL(ctx, podName, "server", cmd...)
+		_, _, _ = fpr.ExecVSQL(ctx, podName, names.ServerContainer, cmd...)
 		lastCall := fpr.FindCommands("vsql", "-tAc", "select 1")
 		Expect(len(lastCall)).Should(Equal(1))
 	})
@@ -74,7 +75,7 @@ var _ = Describe("k8s/cmds", func() {
 		cmd := []string{"-t", "db_add_node"}
 		fpr := &FakePodRunner{VerticaSUPassword: ""}
 		podName := types.NamespacedName{Namespace: "default", Name: "vdb-pod"}
-		_, _, _ = fpr.ExecAdmintools(ctx, podName, "server", cmd...)
+		_, _, _ = fpr.ExecAdmintools(ctx, podName, names.ServerContainer, cmd...)
 		lastCall := fpr.FindCommands("/opt/vertica/bin/admintools", "-t", "db_add_node")
 		Expect(len(lastCall)).Should(Equal(1))
 	})

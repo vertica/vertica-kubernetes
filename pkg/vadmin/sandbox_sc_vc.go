@@ -32,7 +32,7 @@ func (v *VClusterOps) SandboxSubcluster(ctx context.Context, opts ...sandboxsc.O
 	v.Log.Info("Starting vcluster SandboxSubcluster")
 
 	// get the certs
-	certs, err := v.retrieveNMACerts(ctx)
+	certs, err := v.retrieveHTTPSCerts(ctx)
 	if err != nil {
 		return err
 	}

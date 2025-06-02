@@ -34,7 +34,7 @@ func (v *VClusterOps) PromoteSandboxToMain(ctx context.Context, opts ...promotes
 	v.Log.Info("Starting vcluster PromoteSandboxToMain")
 
 	// get the certs
-	certs, err := v.retrieveNMACerts(ctx)
+	certs, err := v.retrieveHTTPSCerts(ctx)
 	if err != nil {
 		return err
 	}

@@ -14,7 +14,7 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: v-tls-certs-sc1
+  name: v-nma-https-cert-rotate-sc1
 status:
   replicas: 3
   readyReplicas: 3
@@ -22,10 +22,10 @@ status:
 apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
-  name: v-tls-certs
+  name: v-nma-https-cert-rotate
 status:
   secretRefs:
-    - type: NMATLSSecretType
+    - type: HTTPSTLSSecretType
     - type: ClientServerTLSSecretType
   subclusters:
     - addedToDBCount: 3
