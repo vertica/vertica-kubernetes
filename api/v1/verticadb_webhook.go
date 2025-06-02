@@ -374,6 +374,7 @@ func (v *VerticaDB) validateAdditionalBuckets(allErrs field.ErrorList) field.Err
 	if v.Spec.InitPolicy == CommunalInitPolicyScheduleOnly {
 		return allErrs
 	}
+	// Use a composite key of path, region, and endpoint to check for duplicates
 	pathsSeen := map[string]struct{}{}
 	communalPrefix := ""
 	switch {
@@ -387,6 +388,12 @@ func (v *VerticaDB) validateAdditionalBuckets(allErrs field.ErrorList) field.Err
 
 	for i, bucket := range v.Spec.AdditionalBuckets {
 		fieldPrefix := field.NewPath("spec").Child("additionalBuckets").Index(i)
+		// CredentialSecret must not be empty
+		if bucket.CredentialSecret == "" {
+			err := field.Invalid(fieldPrefix.Child("credentialSecret"), bucket.CredentialSecret,
+				"credentialSecret cannot be empty")
+			allErrs = append(allErrs, err)
+		}
 		// Path must not be empty
 		if bucket.Path == "" {
 			err := field.Invalid(fieldPrefix.Child("path"), bucket.Path, "path cannot be empty")
@@ -413,18 +420,13 @@ func (v *VerticaDB) validateAdditionalBuckets(allErrs field.ErrorList) field.Err
 					bucket.Path, v.Spec.Communal.Path))
 			allErrs = append(allErrs, err)
 		}
-		// CredentialSecret must not be empty
-		if bucket.CredentialSecret == "" {
-			err := field.Invalid(fieldPrefix.Child("credentialSecret"), bucket.CredentialSecret,
-				"credentialSecret cannot be empty")
+		// Check for duplicate buckets based on path, region, and endpoint
+		dupKey := fmt.Sprintf("%s|%s|%s", bucket.Path, bucket.Region, bucket.Endpoint)
+		if _, exists := pathsSeen[dupKey]; exists {
+			err := field.Invalid(fieldPrefix, bucket, "duplicate additionalBucket (path, region, endpoint) in additionalBuckets")
 			allErrs = append(allErrs, err)
 		}
-		// Check for duplicate paths
-		if _, exists := pathsSeen[bucket.Path]; exists {
-			err := field.Invalid(fieldPrefix.Child("path"), bucket.Path, "duplicate path in additionalBuckets")
-			allErrs = append(allErrs, err)
-		}
-		pathsSeen[bucket.Path] = struct{}{}
+		pathsSeen[dupKey] = struct{}{}
 	}
 	return allErrs
 }
