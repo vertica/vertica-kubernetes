@@ -63,9 +63,10 @@ func (h *HTTPSTLSReconciler) Reconcile(ctx context.Context, request *ctrl.Reques
 	return ctrl.Result{}, nil
 }
 
-func (h *HTTPSTLSReconciler) constructActors(log logr.Logger, vdb *vapi.VerticaDB, prunner cmds.PodRunner, pfacts *podfacts.PodFacts, dispatcher vadmin.Dispatcher) []controllers.ReconcileActor {
+func (h *HTTPSTLSReconciler) constructActors(log logr.Logger, vdb *vapi.VerticaDB, prunner cmds.PodRunner, pfacts *podfacts.PodFacts,
+	dispatcher vadmin.Dispatcher) []controllers.ReconcileActor {
 	return []controllers.ReconcileActor{
-		// set up intial tls configuration for https service after db creation, reviving or upgrading
+		// set up initial tls configuration for https service after db creation, reviving or upgrading
 		MakeTLSConfigReconciler(h.VRec, log, vdb, prunner, dispatcher, pfacts),
 		// rotate https tls cert when tls cert secret name is changed in vdb.spec
 		MakeHTTPSCertRotationReconciler(h.VRec, log, vdb, dispatcher, pfacts),

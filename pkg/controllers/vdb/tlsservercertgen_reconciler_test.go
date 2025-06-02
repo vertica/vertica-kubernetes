@@ -21,7 +21,9 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
+	"github.com/vertica/vertica-kubernetes/pkg/builder"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
+	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	"github.com/vertica/vertica-kubernetes/pkg/test"
 	corev1 "k8s.io/api/core/v1"
@@ -32,6 +34,8 @@ import (
 
 var _ = Describe("tlsservercertgen_reconcile", func() {
 	ctx := context.Background()
+	const trueStr = "true"
+	const falseStr = "false"
 
 	It("should be a op if not using vclusterops", func() {
 		vdb := vapi.MakeVDB()
@@ -96,5 +100,90 @@ var _ = Describe("tlsservercertgen_reconcile", func() {
 		Expect(len(secret.Data[corev1.TLSPrivateKeyKey])).ShouldNot(Equal(0))
 		Expect(len(secret.Data[corev1.TLSCertKey])).ShouldNot(Equal(0))
 		Expect(len(secret.Data[paths.HTTPServerCACrtName])).ShouldNot(Equal(0))
+
 	})
+
+	It("should create configmap even when tls is not enabled", func() {
+		const existing = "existing-secret"
+		vdb := vapi.MakeVDBForHTTP(existing)
+		vdb.Annotations[vmeta.MountNMACertsAnnotation] = trueStr
+		vdb.Annotations[vmeta.EnableTLSCertsRotationAnnotation] = falseStr
+
+		// Delete configmap if it exists from other test cases
+		configMapName := names.GenNMACertConfigMap(vdb)
+		configMap := &corev1.ConfigMap{}
+		deleteConfigMap(ctx, vdb, configMapName.Name)
+
+		test.CreateVDB(ctx, k8sClient, vdb)
+		defer test.DeleteVDB(ctx, k8sClient, vdb)
+		defer deleteConfigMap(ctx, vdb, configMapName.Name)
+
+		// Ensure the ConfigMap doesn't exist
+		err := k8sClient.Get(ctx, configMapName, configMap)
+		Expect(errors.IsNotFound(err)).Should(BeTrue())
+
+		objr := MakeTLSServerCertGenReconciler(vdbRec, logger, vdb)
+		r := objr.(*TLSServerCertGenReconciler)
+		err = r.reconcileNMACertConfigMap(ctx)
+		// Verify that the ConfigMap was created
+		err = k8sClient.Get(ctx, configMapName, configMap)
+		Expect(err).Should(Succeed())
+		Expect(configMap.Data[builder.NMASecretNameEnv]).Should(Equal(vdb.Spec.HTTPSNMATLSSecret))
+	})
+
+	It("should create the ConfigMap if it does not exist", func() {
+		vdb := vapi.MakeVDB()
+		vdb.Annotations[vmeta.MountNMACertsAnnotation] = falseStr
+		vdb.Annotations[vmeta.EnableTLSCertsRotationAnnotation] = trueStr
+		const existing = "existing-secret"
+		vdb.Spec.HTTPSNMATLSSecret = existing
+		test.CreateVDB(ctx, k8sClient, vdb)
+		defer test.DeleteVDB(ctx, k8sClient, vdb)
+
+		// Ensure the ConfigMap doesn't exist
+		configMapName := names.GenNMACertConfigMap(vdb)
+		configMap := &corev1.ConfigMap{}
+		err := k8sClient.Get(ctx, configMapName, configMap)
+		Expect(errors.IsNotFound(err)).Should(BeTrue())
+
+		objr := MakeTLSServerCertGenReconciler(vdbRec, logger, vdb)
+		r := objr.(*TLSServerCertGenReconciler)
+		err = r.reconcileNMACertConfigMap(ctx)
+		defer deleteConfigMap(ctx, vdb, configMapName.Name)
+		Expect(err).Should(Succeed())
+
+		// Verify that the ConfigMap was created
+		err = k8sClient.Get(ctx, configMapName, configMap)
+		Expect(err).Should(Succeed())
+		Expect(configMap.Data[builder.NMASecretNameEnv]).Should(Equal(vdb.Spec.HTTPSNMATLSSecret))
+	})
+
+	It("should update the ConfigMap if the secret name changes", func() {
+		vdb := vapi.MakeVDB()
+		vdb.Annotations[vmeta.MountNMACertsAnnotation] = falseStr
+		vdb.Annotations[vmeta.EnableTLSCertsRotationAnnotation] = trueStr
+		const initial = "initial-secret"
+		vdb.Spec.HTTPSNMATLSSecret = initial
+		test.CreateVDB(ctx, k8sClient, vdb)
+		defer test.DeleteVDB(ctx, k8sClient, vdb)
+
+		nm := names.GenNMACertConfigMap(vdb)
+		configMap := builder.BuildNMATLSConfigMap(nm, vdb)
+		Expect(k8sClient.Create(ctx, configMap)).Should(Succeed())
+		defer deleteConfigMap(ctx, vdb, nm.Name)
+
+		vdb.Spec.HTTPSNMATLSSecret = "updated-secret"
+		Expect(k8sClient.Update(ctx, vdb)).Should(Succeed())
+
+		objr := MakeTLSServerCertGenReconciler(vdbRec, logger, vdb)
+		r := objr.(*TLSServerCertGenReconciler)
+		err := r.reconcileNMACertConfigMap(ctx)
+		Expect(err).Should(Succeed())
+
+		// Verify that the ConfigMap was updated
+		err = k8sClient.Get(ctx, nm, configMap)
+		Expect(err).Should(Succeed())
+		Expect(configMap.Data[builder.NMASecretNameEnv]).Should(Equal("updated-secret"))
+	})
+
 })

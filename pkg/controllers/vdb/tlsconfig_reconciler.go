@@ -23,23 +23,16 @@ import (
 
 	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
-	"github.com/vertica/vertica-kubernetes/pkg/cloud"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
-	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
-	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/rotatenmacerts"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/settlsconfig"
-	config "github.com/vertica/vertica-kubernetes/pkg/vdbconfig"
 	"github.com/vertica/vertica-kubernetes/pkg/vdbstatus"
-	"github.com/vertica/vertica-kubernetes/pkg/vk8s"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // TLSConfigReconciler will turn on the tls config when users request it
@@ -87,8 +80,8 @@ func (h *TLSConfigReconciler) Reconcile(ctx context.Context, request *ctrl.Reque
 	if !ok {
 		h.Log.Info("No pod found to set up tls config. restart next.")
 		restartReconciler := MakeRestartReconciler(h.VRec, h.Log, h.Vdb, h.PRunner, h.Pfacts, true, h.Dispatcher)
-		restartReconciler.Reconcile(ctx, request)
-		return ctrl.Result{}, nil
+		res, err2 := restartReconciler.Reconcile(ctx, request)
+		return res, err2
 	}
 	h.VRec.Eventf(h.Vdb, corev1.EventTypeNormal, events.TLSConfigurationStarted,
 		"Starting to configure TLS")
@@ -118,38 +111,6 @@ func (h *TLSConfigReconciler) Reconcile(ctx context.Context, request *ctrl.Reque
 	h.VRec.Eventf(h.Vdb, corev1.EventTypeNormal, events.TLSConfigurationSucceeded,
 		"Successfully configured TLS")
 	return ctrl.Result{}, nil
-}
-
-func (h *TLSConfigReconciler) updateAnnotations(ctx context.Context, newAnnotations map[string]string) error {
-	chgs := vk8s.MetaChanges{
-		NewAnnotations: newAnnotations,
-	}
-	_, err := vk8s.MetaUpdate(ctx, h.VRec.Client, h.Vdb.ExtractNamespacedName(), h.Vdb, chgs)
-	return err
-}
-
-func (h *TLSConfigReconciler) restartNMA(ctx context.Context) (ctrl.Result, error) {
-	currentSecretData, res, err := h.readSecret(h.Vdb, h.VRec, h.VRec.GetClient(), h.Log, ctx,
-		h.Vdb.Spec.HTTPSNMATLSSecret)
-	if verrors.IsReconcileAborted(res, err) {
-		h.Log.Error(err, "failed to read secret to set up TLS config")
-		return res, err
-	}
-	hosts := []string{}
-	for _, detail := range h.Pfacts.Detail {
-		hosts = append(hosts, detail.GetPodIP())
-	}
-	opts := []rotatenmacerts.Option{
-		rotatenmacerts.WithKey(string(currentSecretData[corev1.TLSPrivateKeyKey])),
-		rotatenmacerts.WithCert(string(currentSecretData[corev1.TLSCertKey])),
-		rotatenmacerts.WithCaCert(string(currentSecretData[corev1.ServiceAccountRootCAKey])),
-		rotatenmacerts.WithHosts(hosts),
-	}
-	err = h.Dispatcher.RotateNMACerts(ctx, opts...)
-	if err != nil {
-		h.Log.Error(err, "failed to set nma cert to "+h.Vdb.Spec.HTTPSNMATLSSecret)
-	}
-	return ctrl.Result{}, err
 }
 
 func (h *TLSConfigReconciler) runDDLToConfigureTLS(ctx context.Context, initiatorPod *podfacts.PodFact) error {
@@ -190,31 +151,6 @@ func (h *TLSConfigReconciler) updateStatus(ctx context.Context) error {
 	return nil
 }
 
-func (h *TLSConfigReconciler) readSecret(vdb *vapi.VerticaDB, vrec config.ReconcilerInterface, k8sClient client.Client,
-	log logr.Logger, ctx context.Context, currentSecretName string) (currentSecretData map[string][]byte, res ctrl.Result, err error) {
-	nmCurrentSecretName := types.NamespacedName{
-		Name:      currentSecretName,
-		Namespace: vdb.GetNamespace(),
-	}
-
-	evWriter := events.Writer{
-		Log:   log,
-		EVRec: vrec.GetEventRecorder(),
-	}
-	secretFetcher := &cloud.SecretFetcher{
-		Client:   k8sClient,
-		Log:      log,
-		EVWriter: evWriter,
-		Obj:      vdb,
-	}
-
-	currentSecretData, res, err = secretFetcher.FetchAllowRequeue(ctx, nmCurrentSecretName)
-	if verrors.IsReconcileAborted(res, err) {
-		return nil, res, err
-	}
-	return currentSecretData, res, err
-}
-
 func (h *TLSConfigReconciler) checkIfTLSConfiguredInDB(ctx context.Context, initiatorPod *podfacts.PodFact) (bool, error) {
 	sql := "select is_auth_enabled from client_auth where auth_name='k8s_remote_ipv4_tls_builtin_auth';"
 	cmd := []string{"-tAc", sql}
@@ -225,11 +161,5 @@ func (h *TLSConfigReconciler) checkIfTLSConfiguredInDB(ctx context.Context, init
 	}
 	lines := strings.Split(stdout, "\n")
 	res := strings.Trim(lines[0], " ")
-	return "True" == res, nil
-}
-
-// Escape function to handle special characters in Bash
-func escapeForBash(input string) string {
-	input = strings.ReplaceAll(input, `"`, `\"`) // Escape double quotes
-	return "\"" + input + "\""                   // Wrap in double quotes for echo
+	return res == "True", nil
 }

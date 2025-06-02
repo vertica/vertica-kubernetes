@@ -44,7 +44,7 @@ type SecretFetcher struct {
 func (v *SecretFetcher) Fetch(ctx context.Context, secretName types.NamespacedName) (map[string][]byte, error) {
 	secretData, res, err := v.FetchAllowRequeue(ctx, secretName)
 	if res.Requeue && err == nil {
-		return secretData, fmt.Errorf("secret fetch ended with requeue but is not allowed in code path")
+		return secretData, fmt.Errorf("secret fetch ended with requeue but is not allowed in code path, secret name - %s", secretName.Name)
 	}
 	return secretData, err
 }
@@ -59,6 +59,7 @@ func (v *SecretFetcher) FetchAllowRequeue(ctx context.Context, secretName types.
 	}
 	secretData, err := sf.Fetch(ctx, secretName)
 	if err != nil {
+		fmt.Println("libo: not found secret " + secretName.Name)
 		return v.handleFetchError(secretName, err)
 	}
 	return secretData, ctrl.Result{}, err

@@ -85,6 +85,7 @@ func (m *MultiSourceSecretFetcher) Fetch(ctx context.Context, secretName types.N
 // readFromK8s reads the secret using the K8s Secret API.
 func (m *MultiSourceSecretFetcher) readFromK8s(ctx context.Context, secretName types.NamespacedName) (
 	map[string][]byte, error) {
+	fmt.Println("libo: Reading secret with K8s client" + secretName.Name)
 	m.Log.Info("Reading secret with K8s client", "secretName", secretName)
 	// If no k8s client was given, use the standard one.
 	if m.K8sClient == nil {
@@ -92,6 +93,7 @@ func (m *MultiSourceSecretFetcher) readFromK8s(ctx context.Context, secretName t
 	}
 	tlsCerts, err := m.K8sClient.GetSecret(ctx, secretName)
 	if err != nil {
+		fmt.Println("libo: error from k8s client")
 		if kerrors.IsNotFound(err) {
 			errs := errors.Join(err, &NotFoundError{
 				msg: fmt.Sprintf("Could not find the secret '%s'", secretName.Name),

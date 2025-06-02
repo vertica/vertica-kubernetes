@@ -986,45 +986,6 @@ var _ = Describe("obj_reconcile", func() {
 			deleteProxy(ctx, vdb, vpName, cmName)
 		})
 
-		It("should create the ConfigMap if it does not exist", func() {
-			vdb := vapi.MakeVDB()
-			vdb.Annotations[vmeta.MountNMACertsAnnotation] = falseStr
-			vdb.Annotations[vmeta.EnableTLSCertsRotationAnnotation] = trueStr
-			const existing = "existing-secret"
-			vdb.Spec.HTTPSNMATLSSecret = existing
-			test.CreateVDB(ctx, k8sClient, vdb)
-			defer test.DeleteVDB(ctx, k8sClient, vdb)
-
-			// Ensure the ConfigMap doesn't exist
-			configMapName := names.GenNMACertConfigMap(vdb)
-			configMap := &corev1.ConfigMap{}
-			err := k8sClient.Get(ctx, configMapName, configMap)
-			Expect(errors.IsNotFound(err)).Should(BeFalse())
-
-			// Verify that the ConfigMap was created
-			err = k8sClient.Get(ctx, configMapName, configMap)
-			Expect(err).Should(Succeed())
-			Expect(configMap.Data[builder.NMASecretNameEnv]).Should(Equal(vdb.Spec.HTTPSNMATLSSecret))
-		})
-
-		It("should update the ConfigMap if the secret name changes", func() {
-			vdb := vapi.MakeVDB()
-			vdb.Annotations[vmeta.MountNMACertsAnnotation] = falseStr
-			vdb.Annotations[vmeta.EnableTLSCertsRotationAnnotation] = trueStr
-			const initial = "initial-secret"
-			vdb.Spec.HTTPSNMATLSSecret = initial
-			test.CreateVDB(ctx, k8sClient, vdb)
-			defer test.DeleteVDB(ctx, k8sClient, vdb)
-
-			nm := names.GenNMACertConfigMap(vdb)
-			configMap := builder.BuildNMATLSConfigMap(nm, vdb)
-			Expect(k8sClient.Create(ctx, configMap)).Should(Succeed())
-			defer deleteConfigMap(ctx, vdb, nm.Name)
-
-			vdb.Spec.HTTPSNMATLSSecret = "updated-secret"
-			Expect(k8sClient.Update(ctx, vdb)).Should(Succeed())
-		})
-
 		It("should remove ownerReference from tls secret", func() {
 			vdb := vapi.MakeVDB()
 			vdb.Spec.HTTPSNMATLSSecret = "test-secret"
