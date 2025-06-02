@@ -18,8 +18,7 @@ metadata:
   annotations:
     vertica.com/include-uid-in-path: "false"
     vertica.com/k-safety: "0"
-    vertica.com/mount-nma-certs: "false"
-    vertica.com/enable-tls-certs-rotation: "true"
+    vertica.com/enable-tls-auth: "true"
     vertica.com/ignore-cluster-lease: "true"
     vertica.com/requeue-time: "5"
 spec:
