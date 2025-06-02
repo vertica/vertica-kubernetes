@@ -62,10 +62,10 @@ type opEngineExecContext struct {
 	dcSlowEventList *[]dcSlowEvent
 
 	// transaction starts
-	dcTransactionStarts *dcTransactionStarts
+	dcTransactionStarts *[]dcTransactionStart
 
 	// session starts
-	dcSessionStarts *dcSessionStarts
+	dcSessionStarts *[]dcSessionStart
 
 	workloadReplyCtx context.Context
 	// lockAttempts list

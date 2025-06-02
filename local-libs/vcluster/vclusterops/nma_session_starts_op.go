@@ -16,69 +16,91 @@
 package vclusterops
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
-	"net/url"
-	"strings"
 )
 
-type httpsSessionStartsOp struct {
+type nmaSessionStartsOp struct {
 	opBase
-
-	sessionID string
-	startTime string
-	endTime   string
+	hostRequestBodyMap map[string]string
+	sessionID          string
+	startTime          string
+	endTime            string
 }
 
-func makeHTTPSSessionStartsOp(upHosts []string, sessionID, startTime, endTime string) httpsSessionStartsOp {
-	op := httpsSessionStartsOp{}
-	op.name = "HTTPSSessionStartsOp"
+type sessionStartsRequestData struct {
+	sqlEndpointData
+	Params map[string]any `json:"params"`
+}
+
+const sessionStartsURL = "dc/session-starts"
+
+func makeNMASessionStartsOp(upHosts []string, userName string, dbName string, password *string,
+	sessionID, startTime, endTime string) (nmaSessionStartsOp, error) {
+	op := nmaSessionStartsOp{}
+	op.name = "NMASessionStartsOp"
 	op.description = "Check Session Starts"
 	op.hosts = upHosts
 	op.sessionID = sessionID
 	op.startTime = startTime
 	op.endTime = endTime
-	return op
+
+	// NMA endpoints don't need to differentiate between empty password and no password
+	useDBPassword := password != nil
+	err := ValidateSQLEndpointData(op.name,
+		useDBPassword, userName, password, dbName)
+	if err != nil {
+		return op, err
+	}
+	err = op.setupRequestBody(userName, dbName, useDBPassword, password)
+	return op, err
 }
 
-const sessionStartsURL = "dc/session-starts"
+func (op *nmaSessionStartsOp) setupRequestBody(username, dbName string, useDBPassword bool,
+	password *string) error {
+	op.hostRequestBodyMap = make(map[string]string)
 
-// setupClusterHTTPRequest works as the module setup in Admintools
-func (op *httpsSessionStartsOp) setupClusterHTTPRequest(hosts []string) error {
-	// this op may consume resources of the database,
-	// thus we only need to send https request to one of the up hosts
-	baseURL := sessionStartsURL
-	for _, host := range hosts[:1] {
-		httpRequest := hostHTTPRequest{}
-		httpRequest.Method = GetMethod
-		queryParams := make(map[string]string)
-		if op.sessionID != "" {
-			queryParams["session-id"] = op.sessionID
-		}
+	for _, host := range op.hosts {
+		requestData := sessionStartsRequestData{}
+
+		requestData.sqlEndpointData = createSQLEndpointData(username, dbName, useDBPassword, password)
+		requestData.Params = make(map[string]any)
 		if op.startTime != "" {
-			queryParams["start-time"] = op.startTime
+			requestData.Params["start-time"] = op.startTime
 		}
 		if op.endTime != "" {
-			queryParams["end-time"] = op.endTime
+			requestData.Params["end-time"] = op.endTime
+		}
+		if op.sessionID != "" {
+			requestData.Params["session-id"] = op.sessionID
 		}
 
-		// Build query string
-		var queryParts []string
-		for key, value := range queryParams {
-			queryParts = append(queryParts, fmt.Sprintf("%s=%s", key, value))
+		dataBytes, err := json.Marshal(requestData)
+		if err != nil {
+			return fmt.Errorf("[%s] fail to marshal request data to JSON string, detail %w", op.name, err)
 		}
-		// We use string concatenation to build the url to avoid query param encoding of the timestamp fields
-		// Join query parts to form a query string
-		queryString := url.PathEscape(strings.Join(queryParts, "&"))
-		httpRequest.buildHTTPSEndpoint(fmt.Sprintf("%s?%s", baseURL, queryString))
 
+		op.hostRequestBodyMap[host] = string(dataBytes)
+	}
+
+	return nil
+}
+
+// setupClusterHTTPRequest works as the module setup in Admintools
+func (op *nmaSessionStartsOp) setupClusterHTTPRequest(hosts []string) error {
+	for _, host := range hosts {
+		httpRequest := hostHTTPRequest{}
+		httpRequest.Method = PostMethod
+		httpRequest.buildNMAEndpoint(sessionStartsURL)
+		httpRequest.RequestData = op.hostRequestBodyMap[host]
 		op.clusterHTTPRequest.RequestCollection[host] = httpRequest
 	}
 
 	return nil
 }
 
-func (op *httpsSessionStartsOp) prepare(execContext *opEngineExecContext) error {
+func (op *nmaSessionStartsOp) prepare(execContext *opEngineExecContext) error {
 	execContext.dispatcher.setup(op.hosts)
 	// Disable the spinner for this op as the op can be called multiple times.
 	// This way would avoid repetive and confusing information.
@@ -87,7 +109,7 @@ func (op *httpsSessionStartsOp) prepare(execContext *opEngineExecContext) error 
 	return op.setupClusterHTTPRequest(op.hosts)
 }
 
-func (op *httpsSessionStartsOp) execute(execContext *opEngineExecContext) error {
+func (op *nmaSessionStartsOp) execute(execContext *opEngineExecContext) error {
 	if err := op.runExecute(execContext); err != nil {
 		return err
 	}
@@ -95,16 +117,12 @@ func (op *httpsSessionStartsOp) execute(execContext *opEngineExecContext) error 
 	return op.processResult(execContext)
 }
 
-func (op *httpsSessionStartsOp) finalize(_ *opEngineExecContext) error {
+func (op *nmaSessionStartsOp) finalize(_ *opEngineExecContext) error {
 	return nil
 }
 
-type dcSessionStarts struct {
-	SessionStartsList []dcSessionStart `json:"dc_session_starts_list"`
-}
-
 type dcSessionStart struct {
-	Time                     string `json:"timestamp"`
+	Time                     string `json:"time"`
 	NodeName                 string `json:"node_name"`
 	SessionID                string `json:"session_id"`
 	UserID                   string `json:"user_id"`
@@ -125,27 +143,27 @@ type dcSessionStart struct {
 	SSLCAFingerPrint         string `json:"ssl_ca_fingerprint"`
 	AuthenticationMethod     string `json:"authentication_method"`
 	ClientAuthenticationName string `json:"client_authentication_name"`
-	IsInternal               bool   `json:"is_internal"`
+	IsInternal               string `json:"is_internal"`
 	RequestedProtocol        string `json:"requested_protocol"`
 	EffectiveProtocol        string `json:"effective_protocol"`
 	SessionType              string `json:"session_type"`
-	IsBinaryTransfer         bool   `json:"is_binary_transfer"`
+	IsBinaryTransfer         string `json:"is_binary_transfer"`
 }
 
-func (op *httpsSessionStartsOp) processResult(execContext *opEngineExecContext) error {
+func (op *nmaSessionStartsOp) processResult(execContext *opEngineExecContext) error {
 	var allErrs error
 	for host, result := range op.clusterHTTPRequest.ResultCollection {
 		op.logResponse(host, result)
 
 		if result.isPassing() {
-			var sessionStarts dcSessionStarts
-			err := op.parseAndCheckResponse(host, result.content, &sessionStarts)
+			var sessionStartList []dcSessionStart
+			err := op.parseAndCheckResponse(host, result.content, &sessionStartList)
 			if err != nil {
 				return errors.Join(allErrs, err)
 			}
 
 			// we only need result from one host
-			execContext.dcSessionStarts = &sessionStarts
+			execContext.dcSessionStarts = &sessionStartList
 			return allErrs
 		}
 	}
