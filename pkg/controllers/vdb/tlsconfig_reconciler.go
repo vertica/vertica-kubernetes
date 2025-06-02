@@ -141,17 +141,7 @@ func (h *TLSConfigReconciler) Reconcile(ctx context.Context, request *ctrl.Reque
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	/*err = h.updateAnnotations(ctx, map[string]string{
-		meta.EnableTLSCertsRotationAnnotation: "true",
-		meta.SetupTLSConfigAnnotation:         "false",
-		meta.MountNMACertsAnnotation: "false",
-	})
-	if err != nil {
-		h.Log.Error(err, "failed to update tls annotations after setting up TLS")
-		return ctrl.Result{}, err
-	}*/
 	h.Log.Info("saved TLS secrets and modes into status")
-	h.Log.Info("TLS DDLs executed and TLS configured for the existing vdb")
 	h.VRec.Eventf(h.Vdb, corev1.EventTypeNormal, events.TLSConfigurationSucceeded,
 		"Successfully configured TLS")
 	return ctrl.Result{}, nil
