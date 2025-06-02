@@ -38,6 +38,9 @@ testDirs:
   - tests/e2e-leg-8-online-vcluster
   - tests/e2e-leg-9
   - tests/e2e-leg-10
+  - tests/e2e-leg-10-sandbox-upgrade
+  - tests/e2e-leg-10-shutdown
+  - tests/e2e-leg-10-vrep
   - tests/e2e-leg-11
   - tests/e2e-leg-12
   - tests/e2e-leg-13
