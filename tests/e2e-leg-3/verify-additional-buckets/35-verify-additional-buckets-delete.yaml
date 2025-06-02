@@ -21,19 +21,11 @@ data:
     set -o errexit
     set -o xtrace
 
-    POD_NAMES=v-additional-buckets-sc1-0
+    POD_NAME=v-additional-buckets-sc1-0
 
-    # s3 nimbusdb should fail as it was removed
+    # s3 nimbusdb should be removed
     result=$(kubectl exec $POD_NAME -i -c server -- bash -c "vsql -U dbadmin -tAc \"SHOW current S3BucketConfig;\"")
-    echo "$result" | grep -Pzo '{"bucket": "nimbusdb-additional-bucket", "region": "us-east-2", "protocol": "HTTPS", "endpoint": "s3.amazonaws.com"}' > /dev/null
-    if [ $? -ne 1 ]; then
-      echo "Assertion failed: expected 0, got $result"
-      exit 1
-    fi
-
-    # s3 vertdb
-    result=$(kubectl exec $POD_NAME -i -c server -- bash -c "vsql -U dbadmin -tAc \"SHOW current S3BucketConfig;\"")
-    echo "$result" | grep -Pzo '{"bucket": "vertdb-additional-bucket", "region": "us-east-1", "protocol": "HTTPS", "endpoint": "s3.amazonaws.com"}' > /dev/null
+    echo "$result" | grep -Pzo '\[{"bucket": "vertdb-additional-bucket", "region": "us-east-1", "protocol": "HTTPS", "endpoint": "s3.amazonaws.com"}\]' > /dev/null
     if [ $? -ne 0 ]; then
       echo "Assertion failed: expected 0, got $result"
       exit 1
