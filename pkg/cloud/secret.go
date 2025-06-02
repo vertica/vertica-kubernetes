@@ -28,6 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 // SecretFetcher is secret reader designed for the controllers that need to read a secret.
@@ -39,6 +40,8 @@ type SecretFetcher struct {
 	EVWriter events.EVWriter
 	Obj      runtime.Object
 }
+
+var fetcherLog = logf.Log.WithName("secretfetcher")
 
 // Fetch reads the secret from a secret store. The contents of the secret is successful.
 func (v *SecretFetcher) Fetch(ctx context.Context, secretName types.NamespacedName) (map[string][]byte, error) {
@@ -59,7 +62,7 @@ func (v *SecretFetcher) FetchAllowRequeue(ctx context.Context, secretName types.
 	}
 	secretData, err := sf.Fetch(ctx, secretName)
 	if err != nil {
-		fmt.Println("libo: not found secret " + secretName.Name)
+		fetcherLog.Error(err, fmt.Sprintf("secret not found, name - %s", secretName.Name))
 		return v.handleFetchError(secretName, err)
 	}
 	return secretData, ctrl.Result{}, err

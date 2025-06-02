@@ -125,6 +125,7 @@ var _ = Describe("tlsservercertgen_reconcile", func() {
 		objr := MakeTLSServerCertGenReconciler(vdbRec, logger, vdb)
 		r := objr.(*TLSServerCertGenReconciler)
 		err = r.reconcileNMACertConfigMap(ctx)
+		Expect(err).Should(Succeed())
 		// Verify that the ConfigMap was created
 		err = k8sClient.Get(ctx, configMapName, configMap)
 		Expect(err).Should(Succeed())
