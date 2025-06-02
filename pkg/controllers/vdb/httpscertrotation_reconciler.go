@@ -21,7 +21,6 @@ import (
 
 	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
-	"github.com/vertica/vertica-kubernetes/pkg/builder"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	"github.com/vertica/vertica-kubernetes/pkg/secrets"
 
@@ -29,7 +28,6 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
-	"github.com/vertica/vertica-kubernetes/pkg/security"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/rotatehttpscerts"
 	"github.com/vertica/vertica-kubernetes/pkg/vdbstatus"
@@ -211,23 +209,6 @@ func (h *HTTPSCertRotationReconciler) buildHTTPSTLSUpdateData(ctx context.Contex
 		newSecretData, res, err = readSecret(h.Vdb, h.VRec, h.VRec.GetClient(), h.Log, ctx, newSecretName)
 		if verrors.IsReconcileAborted(res, err) {
 			return nil, res, err
-		}
-		newCert := string(newSecretData[corev1.TLSCertKey])
-		currentCert := string(currentSecretData[corev1.TLSCertKey])
-		var rotated int
-		rotated, err = security.VerifyCert(initiatorPod.GetPodIP(), builder.VerticaHTTPPort, newCert, currentCert, h.Log)
-		if err != nil {
-			h.Log.Error(err, "https cert rotation aborted. Failed to verify new https cert for "+
-				initiatorPod.GetPodIP())
-			return nil, ctrl.Result{}, err
-		}
-		if rotated == 2 {
-			h.Log.Info("https cert rotation aborted. Neither new nor current https cert is in use")
-			return nil, ctrl.Result{Requeue: true}, nil
-		}
-		if rotated == 0 && updateType == httpsCertChangeOnly {
-			h.Log.Info("https cert rotation skipped. new https cert is already in use on " + initiatorPod.GetPodIP())
-			return nil, ctrl.Result{}, nil
 		}
 		tlsData.key = string(newSecretData[corev1.TLSPrivateKeyKey])
 		tlsData.cert = string(newSecretData[corev1.TLSCertKey])
