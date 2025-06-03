@@ -75,7 +75,7 @@ func (t *TLSConfigManager) setHTTPSTLSUpdateData(ctx context.Context) (ctrl.Resu
 	var err error
 	t.TLSData = &TLSUpdateData{}
 
-	t.TLSData.TLSMode, _ = t.getTLSModes()
+	_, t.TLSData.TLSMode = t.getTLSModes()
 
 	currentSecretName, newSecretName := t.getSecrets()
 	currentSecretData, res, err = readSecret(t.Vdb, t.Rec, t.Rec.GetClient(), t.Log, ctx, currentSecretName)
