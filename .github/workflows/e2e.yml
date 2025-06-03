@@ -850,7 +850,6 @@ jobs:
           minimum-vertica-image: '24.3.0'
           # Include the vertica license so we can test scaling past 3 nodes.
           vertica-license: ${{ secrets.VERTICA_LICENSE }}
-          need-base-vertica-image: 'true'
           e2e-retry-times: ${{ inputs.e2e_retry_times || 3 }}
 
   e2e-leg-10-sandbox-upgrade-vcluster:
@@ -896,9 +895,9 @@ jobs:
           vertica-deployment-method: vclusterops
           communal-storage-type: s3
           minimum-vertica-image: '24.3.0'
+          e2e-parallelism: 1
           # Include the vertica license so we can test scaling past 3 nodes.
           vertica-license: ${{ secrets.VERTICA_LICENSE }}
-          need-base-vertica-image: 'true'
           e2e-retry-times: ${{ inputs.e2e_retry_times || 3 }}
 
   e2e-leg-10-vrep-vcluster:
@@ -922,7 +921,6 @@ jobs:
           minimum-vertica-image: '24.3.0'
           # Include the vertica license so we can test scaling past 3 nodes.
           vertica-license: ${{ secrets.VERTICA_LICENSE }}
-          need-base-vertica-image: 'true'
           e2e-retry-times: ${{ inputs.e2e_retry_times || 3 }}
 
   e2e-leg-11-vcluster:
