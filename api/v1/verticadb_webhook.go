@@ -376,6 +376,10 @@ func (v *VerticaDB) validateAdditionalBuckets(allErrs field.ErrorList) field.Err
 	}
 	// Use a composite key of path, region, and endpoint to check for duplicates
 	pathsSeen := map[string]struct{}{}
+	// Allow only one gs or azb to be defined as they share the same parameters in db
+	gsFound := false
+	azbFound := false
+
 	communalPrefix := ""
 	switch {
 	case strings.HasPrefix(v.Spec.Communal.Path, S3Prefix):
@@ -399,6 +403,12 @@ func (v *VerticaDB) validateAdditionalBuckets(allErrs field.ErrorList) field.Err
 			err := field.Invalid(fieldPrefix.Child("path"), bucket.Path, "path cannot be empty")
 			allErrs = append(allErrs, err)
 		}
+		// Make sure only one gs or azb defined
+		if gsFound || azbFound {
+			err := field.Invalid(fieldPrefix.Child("path"), bucket.Path,
+				"only one gs or azb additional storage can be defined")
+			allErrs = append(allErrs, err)
+		}
 		// Path must have a valid prefix
 		var bucketPrefix string
 		switch {
@@ -406,22 +416,24 @@ func (v *VerticaDB) validateAdditionalBuckets(allErrs field.ErrorList) field.Err
 			bucketPrefix = S3Prefix
 		case strings.HasPrefix(bucket.Path, GCloudPrefix):
 			bucketPrefix = GCloudPrefix
+			gsFound = true
 		case strings.HasPrefix(bucket.Path, AzurePrefix):
 			bucketPrefix = AzurePrefix
+			azbFound = true
 		default:
 			err := field.Invalid(fieldPrefix.Child("path"), bucket.Path,
 				"path must start with s3://, gs://, or azb://")
 			allErrs = append(allErrs, err)
 		}
-		// Protocol must be different from communal path if additional bucket is gs, or azb
+		// Protocol must be different from communal path if additional bucket is gs or azb
 		if (bucketPrefix == GCloudPrefix || bucketPrefix == AzurePrefix) && bucketPrefix == communalPrefix {
 			err := field.Invalid(fieldPrefix.Child("path"), bucket.Path,
 				fmt.Sprintf("additional bucket %q must use a different protocol than communal.path %q",
 					bucket.Path, v.Spec.Communal.Path))
 			allErrs = append(allErrs, err)
 		}
-		// Check for duplicate buckets based on path, region, and endpoint
-		dupKey := fmt.Sprintf("%s|%s|%s", bucket.Path, bucket.Region, bucket.Endpoint)
+		// Check for duplicate buckets based on bucket, region, and endpoint
+		dupKey := fmt.Sprintf("%s|%s|%s", GetBucket(bucket.Path), bucket.Region, bucket.Endpoint)
 		if _, exists := pathsSeen[dupKey]; exists {
 			err := field.Invalid(fieldPrefix, bucket, "duplicate additionalBucket (path, region, endpoint) in additionalBuckets")
 			allErrs = append(allErrs, err)

@@ -145,12 +145,12 @@ func (a *AddtionalBucketsReconciler) updateAdditionalBuckets(ctx context.Context
 
 			s3BucketConfigs = append(s3BucketConfigs, fmt.Sprintf(
 				`{"bucket": %q, "region": %q, "protocol": %q, "endpoint": %q}`,
-				config.GetBucket(bucket.Path), bucket.Region, config.GetEndpointProtocol(bucket.Endpoint),
+				vapi.GetBucket(bucket.Path), bucket.Region, config.GetEndpointProtocol(bucket.Endpoint),
 				config.GetEndpoint(bucket.Endpoint)))
 
 			s3BucketCreds = append(s3BucketCreds, fmt.Sprintf(
 				`{"bucket": %q, "accessKey": %q, "secretAccessKey": %q}`,
-				config.GetBucket(bucket.Path), accessKey, secretKey))
+				vapi.GetBucket(bucket.Path), accessKey, secretKey))
 		}
 
 		// using gs
