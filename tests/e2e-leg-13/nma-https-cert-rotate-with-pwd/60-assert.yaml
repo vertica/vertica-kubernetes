@@ -52,10 +52,10 @@ status:
     type: DBInitialized
   - reason: Completed
     status: "False"
-    type: TLSCertRotationInProgress  
+    type: HTTPSNMATLSConfigUpdateInProgress  
   - reason: Completed
     status: "False"
-    type: HTTPSCertRotationFinished 
+    type: HTTPSTLSConfigUpdateFinished 
   subclusters:
     - addedToDBCount: 3
       upNodeCount: 3

@@ -1105,9 +1105,13 @@ const (
 	// as the archive name to save to.
 	SaveRestorePointNeeded = "SaveRestorePointNeeded"
 	// HTTPSCertRotationFinished indicates the HTTPS TLS cert has been rotated
-	HTTPSCertRotationFinished = "HTTPSCertRotationFinished"
+	HTTPSCertRotationFinished     = "HTTPSCertRotationFinished"
+	HTTPSTLSConfigUpdateFinished  = "HTTPSTLSConfigUpdateFinished"
+	ClientServerTLSUpdateFinished = "ClientServerTLSUpdateFinished"
 	// TLSCertRotationInProgress indicates the TLS cert rotation has started
-	TLSCertRotationInProgress = "TLSCertRotationInProgress"
+	TLSCertRotationInProgress         = "TLSCertRotationInProgress"
+	HTTPSNMATLSConfigUpdateInProgress = "HTTPSNMATLSConfigUpdateInProgress"
+	ClientServerTLSUpdateInProgress   = "ClientServerTLSUpdateInProgress"
 )
 
 const (

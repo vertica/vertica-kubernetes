@@ -31,6 +31,11 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
+const (
+	httpsTLSConfig = iota
+	clientServerTLSConfig
+)
+
 // GetTLSModeAfterReviveReconciler gets the tls modes from the db
 // and cache them in the status. This is for a db that have been revived
 // from a db with tls config set.

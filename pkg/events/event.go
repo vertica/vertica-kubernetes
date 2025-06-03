@@ -128,6 +128,9 @@ const (
 	HTTPSCertRotationStarted         = "HTTPSCertRotationStarted"
 	HTTPSCertRotationSucceeded       = "HTTPSCertRotationSucceeded"
 	HTTPSCertRotationFailed          = "HTTPSCertRotationFailed"
+	ClientServerTLSUpdateStarted     = "ClientServerTLSUpdateStarted"
+	ClientServerTLSUpdateSucceeded   = "ClientServerTLSUpdateSucceeded"
+	ClientServerTLSUpdateFailed      = "ClientServerTLSUpdateFailed"
 	TLSModeUpdateStarted             = "TLSModeUpdateStarted"
 	TLSModeUpdateSucceeded           = "TLSModeUpdateSucceeded"
 )

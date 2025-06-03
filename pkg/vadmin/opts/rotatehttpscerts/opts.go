@@ -38,6 +38,8 @@ type Params struct {
 	// TLS CA Certificate (PEM bytes)
 	NewCaCert   string
 	InitiatorIP string
+	// TLS config name. can be "HTTP" or "Server"
+	TLSConfig string
 }
 
 type Option func(*Params)
@@ -97,5 +99,11 @@ func WithPollingCaCert(newCaCert string) Option {
 func WithInitiator(ip string) Option {
 	return func(s *Params) {
 		s.InitiatorIP = ip
+	}
+}
+
+func WithTLSConfig(config string) Option {
+	return func(s *Params) {
+		s.TLSConfig = config
 	}
 }

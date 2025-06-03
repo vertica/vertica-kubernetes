@@ -2137,7 +2137,7 @@ func resetStatusConditionsForDBInitialized(v *VerticaDB) {
 }
 
 func resetStatusConditionsForCertRotationInProgress(v *VerticaDB) {
-	resetStatusConditionsForCondition(v, TLSCertRotationInProgress, metav1.ConditionTrue)
+	resetStatusConditionsForCondition(v, HTTPSNMATLSConfigUpdateInProgress, metav1.ConditionTrue)
 }
 
 func resetStatusConditionsForCondition(v *VerticaDB, conditionType string, status metav1.ConditionStatus) {

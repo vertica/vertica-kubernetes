@@ -63,7 +63,8 @@ func (h *NMACertRotationReconciler) Reconcile(ctx context.Context, _ *ctrl.Reque
 	if !h.Vdb.IsCertRotationEnabled() {
 		return ctrl.Result{}, nil
 	}
-	if !h.Vdb.IsStatusConditionTrue(vapi.HTTPSCertRotationFinished) || !h.Vdb.IsStatusConditionTrue(vapi.TLSCertRotationInProgress) {
+	if !h.Vdb.IsStatusConditionTrue(vapi.HTTPSTLSConfigUpdateFinished) ||
+		!h.Vdb.IsStatusConditionTrue(vapi.HTTPSNMATLSConfigUpdateInProgress) {
 		return ctrl.Result{}, nil
 	}
 	currentSecretName := h.Vdb.GetHTTPSTLSSecretNameInUse()
@@ -91,12 +92,12 @@ func (h *NMACertRotationReconciler) Reconcile(ctx context.Context, _ *ctrl.Reque
 	}
 
 	// Clear TLSCertRotationInProgress condition
-	if err := updateCond(vapi.MakeCondition(vapi.TLSCertRotationInProgress, metav1.ConditionFalse, "Completed")); err != nil {
+	if err := updateCond(vapi.MakeCondition(vapi.HTTPSNMATLSConfigUpdateInProgress, metav1.ConditionFalse, "Completed")); err != nil {
 		return ctrl.Result{}, err
 	}
 
-	// Clear HTTPSCertRotationFinished condition
-	if err := updateCond(vapi.MakeCondition(vapi.HTTPSCertRotationFinished, metav1.ConditionFalse, "Completed")); err != nil {
+	// Clear HTTPSTLSConfigUpdateFinished condition
+	if err := updateCond(vapi.MakeCondition(vapi.HTTPSTLSConfigUpdateFinished, metav1.ConditionFalse, "Completed")); err != nil {
 		return ctrl.Result{}, err
 	}
 

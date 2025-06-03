@@ -30,18 +30,11 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-// HTTPSCertRotationReconciler will compare the nma tls secret with the one saved in
+// ClientServerTLSReconciler will compare the nma tls secret with the one saved in
 // "vertica.com/nma-https-previous-secret". If different, it will try to rotate the
 // cert currently used with the one saved the nma tls secret for https service
 
-const (
-	noTLSChange = iota
-	tlsModeChangeOnly
-	httpsCertChangeOnly
-	tlsModeAndCertChange
-)
-
-type HTTPSCertRotationReconciler struct {
+type ClientServerTLSReconciler struct {
 	VRec       *VerticaDBReconciler
 	Vdb        *vapi.VerticaDB // Vdb is the CRD we are acting on.
 	Log        logr.Logger
@@ -50,29 +43,29 @@ type HTTPSCertRotationReconciler struct {
 	Manager    *TLSConfigManager
 }
 
-func MakeHTTPSCertRotationReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger, vdb *vapi.VerticaDB, dispatcher vadmin.Dispatcher,
+func MakeClientServerTLSReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger, vdb *vapi.VerticaDB, dispatcher vadmin.Dispatcher,
 	pfacts *podfacts.PodFacts) controllers.ReconcileActor {
-	return &HTTPSCertRotationReconciler{
+	return &ClientServerTLSReconciler{
 		VRec:       vdbrecon,
 		Vdb:        vdb,
-		Log:        log.WithName("HTTPSCertRotationReconciler"),
+		Log:        log.WithName("ClientServerTLSReconciler"),
 		Dispatcher: dispatcher,
 		PFacts:     pfacts,
-		Manager:    MakeTLSConfigManager(vdbrecon, log, vdb, tlsConfigHTTPS, dispatcher),
+		Manager:    MakeTLSConfigManager(vdbrecon, log, vdb, tlsConfigServer, dispatcher),
 	}
 }
 
 // Reconcile will rotate TLS certificate.
-func (h *HTTPSCertRotationReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
+func (h *ClientServerTLSReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
 	if !h.Vdb.IsCertRotationEnabled() {
 		return ctrl.Result{}, nil
 	}
 
-	if h.Vdb.GetHTTPSTLSModeInUse() == "" {
+	if h.Vdb.GetClientServerTLSModeInUse() == "" {
 		return ctrl.Result{}, h.Manager.setTLSConfig()
 	}
 
-	if h.Vdb.IsStatusConditionTrue(vapi.HTTPSTLSConfigUpdateFinished) && h.Vdb.IsStatusConditionTrue(vapi.HTTPSNMATLSConfigUpdateInProgress) {
+	if h.Vdb.IsStatusConditionTrue(vapi.ClientServerTLSUpdateFinished) {
 		return ctrl.Result{}, nil
 	}
 
@@ -83,10 +76,10 @@ func (h *HTTPSCertRotationReconciler) Reconcile(ctx context.Context, _ *ctrl.Req
 		return ctrl.Result{}, nil
 	}
 
-	h.Log.Info("start https cert rotation")
-	cond := vapi.MakeCondition(vapi.HTTPSNMATLSConfigUpdateInProgress, metav1.ConditionTrue, "InProgress")
+	h.Log.Info("start client server tls config update")
+	cond := vapi.MakeCondition(vapi.TLSCertRotationInProgress, metav1.ConditionTrue, "InProgress")
 	if err2 := vdbstatus.UpdateCondition(ctx, h.VRec.GetClient(), h.Vdb, cond); err2 != nil {
-		h.Log.Error(err2, "Failed to set condition to true", "conditionType", vapi.HTTPSNMATLSConfigUpdateInProgress)
+		h.Log.Error(err2, "Failed to set condition to true", "conditionType", vapi.TLSCertRotationInProgress)
 		return ctrl.Result{}, err2
 	}
 
@@ -115,15 +108,15 @@ func (h *HTTPSCertRotationReconciler) Reconcile(ctx context.Context, _ *ctrl.Req
 		return ctrl.Result{}, err
 	}
 
-	cond = vapi.MakeCondition(vapi.HTTPSTLSConfigUpdateFinished, metav1.ConditionTrue, "Completed")
+	cond = vapi.MakeCondition(vapi.ClientServerTLSUpdateFinished, metav1.ConditionTrue, "Completed")
 	if err := vdbstatus.UpdateCondition(ctx, h.VRec.GetClient(), h.Vdb, cond); err != nil {
-		h.Log.Error(err, "failed to set condition "+vapi.HTTPSTLSConfigUpdateFinished+" to true")
+		h.Log.Error(err, "failed to set condition "+vapi.ClientServerTLSUpdateFinished+" to true")
 		return ctrl.Result{}, err
 	}
-	// Clear HTTPSNMATLSConfigUpdateInProgress condition if only tls mode changed.
+	// Clear TLSCertRotationInProgress condition if only tls mode changed.
 	// This way, we will skip nma cert rotation
 	if h.Manager.TLSUpdateType == tlsModeChangeOnly {
-		cond = vapi.MakeCondition(vapi.HTTPSNMATLSConfigUpdateInProgress, metav1.ConditionFalse, "Completed")
+		cond = vapi.MakeCondition(vapi.TLSCertRotationInProgress, metav1.ConditionFalse, "Completed")
 		if err := vdbstatus.UpdateCondition(ctx, h.VRec.GetClient(), h.Vdb, cond); err != nil {
 			return ctrl.Result{}, err
 		}

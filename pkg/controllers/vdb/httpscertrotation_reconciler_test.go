@@ -63,7 +63,7 @@ var _ = Describe("httpscertrotation_reconciler", func() {
 		Expect(k8sClient.Status().Update(ctx, vdb)).Should(Succeed())
 
 		r := MakeHTTPSCertRotationReconciler(vdbRec, logger, vdb, dispatcher, pfacts)
-		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: true}))
+		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: false}))
 	})
 
 })
