@@ -992,7 +992,7 @@ jobs:
           # Include the vertica license so we can test multiple subclusters.
           vertica-license: ${{ secrets.VERTICA_LICENSE }}
 
-  e2e-leg-13-vcluster:
+  e2e-leg-13-vcluster-cert:
     if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'vcluster leg 13' || inputs.e2e_test_suites == '')}}
     needs: [build]
     runs-on: ubuntu-latest
@@ -1014,6 +1014,8 @@ jobs:
           # All helm deployments will use cert-manager to create the webhook cert
           helm-overrides: '--set webhook.certSource=cert-manager'
           e2e-retry-times: ${{ inputs.e2e_retry_times || 2 }}
+          use-cert: true
+          cert-suffix: cert
 
   e2e-server-upgrade-admintools:
     if: ${{ ! (contains(github.ref, 'k8s-sync') || contains(github.ref, 'k8s-test'))  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools server upgrade' || inputs.e2e_test_suites == '') }}
@@ -1182,7 +1184,7 @@ jobs:
       e2e-leg-11-vcluster,
       e2e-leg-12-vcluster,
       e2e-leg-12-vcluster-cert,
-      e2e-leg-13-vcluster,
+      e2e-leg-13-vcluster-cert,
       e2e-server-upgrade-vcluster,
       e2e-server-upgrade-vcluster-cert,
       e2e-operator-upgrade,
@@ -1247,7 +1249,7 @@ jobs:
       e2e-leg-11-vcluster,
       e2e-leg-12-vcluster,
       e2e-leg-12-vcluster-cert,
-      e2e-leg-13-vcluster,
+      e2e-leg-13-vcluster-cert,
       e2e-server-upgrade-vcluster,
       e2e-server-upgrade-vcluster-cert,
       e2e-operator-upgrade,
