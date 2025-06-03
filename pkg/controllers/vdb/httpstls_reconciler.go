@@ -67,7 +67,8 @@ func (h *HTTPSTLSReconciler) constructActors(log logr.Logger, vdb *vapi.VerticaD
 	dispatcher vadmin.Dispatcher) []controllers.ReconcileActor {
 	return []controllers.ReconcileActor{
 		// set up initial tls configuration for https service after db creation, reviving or upgrading
-		MakeTLSConfigReconciler(h.VRec, log, vdb, prunner, dispatcher, pfacts),
+		MakeTLSConfigReconciler(h.VRec, log, vdb, prunner, dispatcher, pfacts, vapi.HTTPSTLSSecretType),
+		MakeTLSConfigReconciler(h.VRec, log, vdb, prunner, dispatcher, pfacts, vapi.ClientServerTLSSecretType),
 		// rotate https tls cert when tls cert secret name is changed in vdb.spec
 		MakeHTTPSCertRotationReconciler(h.VRec, log, vdb, dispatcher, pfacts),
 		// rotate nma tls cert when tls cert secret name is changed in vdb.spec

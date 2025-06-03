@@ -22,6 +22,7 @@ type Parms struct {
 	ClientServerTLSSecretName string
 	HTTPSTLSSecretName        string
 	Namespace                 string
+	IsHTTPSTLSConfig          bool
 }
 
 // Option is a function that configures a Parms instance.
@@ -73,5 +74,11 @@ func WithNamespace(namespace string) Option {
 func WithInitiatorIP(initiatorIP string) Option {
 	return func(p *Parms) {
 		p.InitiatorIP = initiatorIP
+	}
+}
+
+func WithHTTPSTLSConfig(isHTTPSTLSConfig bool) Option {
+	return func(p *Parms) {
+		p.IsHTTPSTLSConfig = isHTTPSTLSConfig
 	}
 }

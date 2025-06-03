@@ -76,7 +76,8 @@ func MakeHTTPSCertRotationReconciler(vdbrecon *VerticaDBReconciler, log logr.Log
 
 // Reconcile will rotate TLS certificate.
 func (h *HTTPSCertRotationReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
-	if !h.Vdb.IsCertRotationEnabled() {
+	h.Log.Info("in https cert rotation, secret name - " + h.Vdb.GetHTTPSTLSSecretNameInUse())
+	if !h.Vdb.IsCertRotationEnabled() || h.Vdb.IsCertRotationEnabled() && h.Vdb.GetHTTPSTLSSecretNameInUse() == "" {
 		return ctrl.Result{}, nil
 	}
 	if h.Vdb.IsStatusConditionTrue(vapi.HTTPSCertRotationFinished) && h.Vdb.IsStatusConditionTrue(vapi.TLSCertRotationInProgress) {
@@ -87,6 +88,7 @@ func (h *HTTPSCertRotationReconciler) Reconcile(ctx context.Context, _ *ctrl.Req
 	// no-op if neither https secret nor tls mode
 	// changed
 	if changeTLS == noTLSChange {
+		h.Log.Info("libo: no https tls change")
 		return ctrl.Result{}, nil
 	}
 
@@ -242,7 +244,8 @@ func GetAWSCertsConfig(vdb *vapi.VerticaDB) (keyConfig, certConfig, caCertConfig
 func (h *HTTPSCertRotationReconciler) updateTLSConfig() int {
 	currentSecretName := h.Vdb.GetHTTPSTLSSecretNameInUse()
 	newSecretName := h.Vdb.Spec.HTTPSNMATLSSecret
-	h.Log.Info("Starting rotation reconcile", "currentSecretName", currentSecretName, "newSecretName", newSecretName)
+	h.Log.Info(fmt.Sprintf("Starting rotation reconcile, currentSecretName - %s, newSecretName - %s, currentTLSMode - %s, newTLSMode - %s",
+		currentSecretName, newSecretName, h.Vdb.GetHTTPSTLSModeInUse(), h.Vdb.Spec.HTTPSTLSMode))
 	// this condition excludes bootstrap scenario
 	certChanged := currentSecretName != "" && newSecretName != currentSecretName
 
