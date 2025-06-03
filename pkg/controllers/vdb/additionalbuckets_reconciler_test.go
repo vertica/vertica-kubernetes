@@ -112,7 +112,6 @@ var _ = Describe("additioanalbuckets_reconcile", func() {
 		pfacts := podfacts.PodFacts{}
 		rec := MakeAddtionalBucketsReconciler(vdbRec, logger, vdb, fpr, &pfacts)
 		r := rec.(*AddtionalBucketsReconciler)
-		r.Client = k8sClient
 
 		// Add this line to create the vdb in the fake client
 		test.CreateVDB(ctx, k8sClient, vdb)

@@ -33,7 +33,6 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/vdbstatus"
 	corev1 "k8s.io/api/core/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // AddtionalBucketsReconciler will add additional buckets for data replication
@@ -43,7 +42,6 @@ type AddtionalBucketsReconciler struct {
 	Vdb     *vapi.VerticaDB // Vdb is the CRD we are acting on.
 	PFacts  *podfacts.PodFacts
 	PRunner cmds.PodRunner
-	client.Client
 }
 
 // MakeAddtionalBucketsReconciler will build an AddtionalBucketsReconciler object
@@ -119,7 +117,7 @@ func (a *AddtionalBucketsReconciler) updateAdditionalBucketsStatus(ctx context.C
 		return nil
 	}
 
-	return vdbstatus.Update(ctx, a.Client, a.Vdb, updateStatus)
+	return vdbstatus.Update(ctx, a.VRec.GetClient(), a.Vdb, updateStatus)
 }
 
 // updateAdditionalBuckets will update the additional buckets in the database
