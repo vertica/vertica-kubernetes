@@ -22,9 +22,13 @@ data:
     set -o xtrace
 
     POD_NAME=v-additional-buckets-sc1-0
+    VDB_USER=$(kubectl get vdb -o custom-columns=":metadata.annotations.vertica\.com\/superuser-name")
+    if [ $VDB_USER == "<none>" ]; then
+      VDB_USER=dbadmin
+    fi
 
     # s3 nimbusdb
-    result=$(kubectl exec $POD_NAME -i -c server -- bash -c "vsql -U dbadmin -tAc \"SHOW current S3BucketConfig;\"")
+    result=$(kubectl exec $POD_NAME -i -c server -- bash -c "vsql -U $VDB_USER -tAc \"SHOW current S3BucketConfig;\"")
     echo "$result" | grep -Pzo '{"bucket": "nimbusdb-additional-bucket", "region": "us-east-2", "protocol": "HTTPS", "endpoint": "s3.amazonaws.com"}' > /dev/null
     if [ $? -ne 0 ]; then
       echo "Assertion failed: expected 0, got $result"
