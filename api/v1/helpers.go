@@ -1043,9 +1043,9 @@ func (v *VerticaDB) GetKerberosServiceName() string {
 	return v.Spec.Communal.AdditionalConfig[vmeta.KerberosServiceNameConfig]
 }
 
-// HasAdditionalBuckets returns true if addtionalBuckets is configured for data replication
+// HasAdditionalBuckets returns true if additionalBuckets is configured for data replication
 func (v *VerticaDB) HasAdditionalBuckets() bool {
-	return v.Spec.AdditionalBuckets != nil
+	return len(v.Spec.AdditionalBuckets) != 0
 }
 
 func (s *Subcluster) IsPrimary() bool {

@@ -46,16 +46,15 @@ type AddtionalBucketsReconciler struct {
 	client.Client
 }
 
-// MakeAddtionalBucketsReconciler will build a AddtionalBucketsReconciler object
+// MakeAddtionalBucketsReconciler will build an AddtionalBucketsReconciler object
 func MakeAddtionalBucketsReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
-	vdb *vapi.VerticaDB, prunner cmds.PodRunner, pfacts *podfacts.PodFacts, cli client.Client) controllers.ReconcileActor {
+	vdb *vapi.VerticaDB, prunner cmds.PodRunner, pfacts *podfacts.PodFacts) controllers.ReconcileActor {
 	return &AddtionalBucketsReconciler{
 		VRec:    vdbrecon,
 		Log:     log.WithName("AddtionalBucketsReconciler"),
 		Vdb:     vdb,
 		PFacts:  pfacts,
 		PRunner: prunner,
-		Client:  cli,
 	}
 }
 
@@ -64,8 +63,9 @@ func (a *AddtionalBucketsReconciler) Reconcile(ctx context.Context, _ *ctrl.Requ
 		return ctrl.Result{}, nil
 	}
 
-	// check if the additional buckets are updated
-	if !a.isAddtionalBucketsUpdated() {
+	// We put the same content to the status if additional buckets are added to the DB
+	// No actions needed if status content is the same to spec
+	if a.statusMatchesSpec() {
 		return ctrl.Result{}, nil
 	}
 
@@ -77,34 +77,34 @@ func (a *AddtionalBucketsReconciler) Reconcile(ctx context.Context, _ *ctrl.Requ
 	return ctrl.Result{}, a.updateAdditionalBucketsStatus(ctx)
 }
 
-// isAddtionalBucketsUpdated checks if the additional buckets are updated
-func (a *AddtionalBucketsReconciler) isAddtionalBucketsUpdated() bool {
+// statusMatchesSpec checks if the additional buckets status is the same to spec or not
+func (a *AddtionalBucketsReconciler) statusMatchesSpec() bool {
 	if a.Vdb.Status.AdditionalBuckets == nil {
-		return true
+		return false
 	}
 
 	// status should have the same length as spec
 	if len(a.Vdb.Spec.AdditionalBuckets) != len(a.Vdb.Status.AdditionalBuckets) {
-		return true
+		return false
 	}
 
-	// check if the additional buckets are updated
+	// check if the additional buckets need to be updated
 	for i, bucket := range a.Vdb.Spec.AdditionalBuckets {
 		if a.Vdb.Status.AdditionalBuckets[i].Path != bucket.Path {
-			return true
+			return false
 		}
 		if a.Vdb.Status.AdditionalBuckets[i].Region != bucket.Region {
-			return true
+			return false
 		}
 		if a.Vdb.Status.AdditionalBuckets[i].Endpoint != bucket.Endpoint {
-			return true
+			return false
 		}
 		if a.Vdb.Status.AdditionalBuckets[i].CredentialSecret != bucket.CredentialSecret {
-			return true
+			return false
 		}
 	}
 
-	return false
+	return true
 }
 
 // updateAdditionalBucketsStatus will update additional buckets status in vdb

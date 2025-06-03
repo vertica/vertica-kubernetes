@@ -178,7 +178,7 @@ type VerticaDBSpec struct {
 
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
-	// Contains details about the addtionsl buckets for data replication
+	// Contains details about the additional buckets for data replication
 	AdditionalBuckets []CommunalStorage `json:"additionalBuckets,omitempty"`
 
 	// +kubebuilder:validation:Optional
@@ -1015,7 +1015,7 @@ type VerticaDBStatus struct {
 
 	// +operator-sdk:csv:customresourcedefinitions:type=status
 	// +Optional
-	// The details of the current using addtionsl buckets
+	// The details of the current using additional buckets
 	AdditionalBuckets []CommunalStorage `json:"additionalBuckets,omitempty"`
 
 	// +operator-sdk:csv:customresourcedefinitions:type=status

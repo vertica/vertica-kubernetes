@@ -29,16 +29,16 @@ import (
 var _ = Describe("additioanalbuckets_reconcile", func() {
 	ctx := context.Background()
 
-	It("should return true if status is nil", func() {
+	It("should return false if status is nil", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Spec.AdditionalBuckets = []vapi.CommunalStorage{
 			{Path: "s3://bucket1", Region: "us-east-1", Endpoint: "https://s3.example.com", CredentialSecret: "secret1"},
 		}
 		a := AddtionalBucketsReconciler{Vdb: vdb, Log: logger}
-		Expect(a.isAddtionalBucketsUpdated()).To(BeTrue())
+		Expect(a.statusMatchesSpec()).To(BeFalse())
 	})
 
-	It("should return true if spec and status have different lengths", func() {
+	It("should return false if spec and status have different lengths", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Spec.AdditionalBuckets = []vapi.CommunalStorage{
 			{Path: "s3://bucket1", Region: "us-east-1", Endpoint: "https://s3.example.com", CredentialSecret: "secret1"},
@@ -48,10 +48,10 @@ var _ = Describe("additioanalbuckets_reconcile", func() {
 			{Path: "s3://bucket1", Region: "us-east-1", Endpoint: "https://s3.example.com", CredentialSecret: "secret1"},
 		}
 		a := AddtionalBucketsReconciler{Vdb: vdb, Log: logger}
-		Expect(a.isAddtionalBucketsUpdated()).To(BeTrue())
+		Expect(a.statusMatchesSpec()).To(BeFalse())
 	})
 
-	It("should return true if any field differs", func() {
+	It("should return false if any field differs", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Spec.AdditionalBuckets = []vapi.CommunalStorage{
 			{Path: "s3://bucket1", Region: "us-east-1", Endpoint: "https://s3.example.com", CredentialSecret: "secret1"},
@@ -60,22 +60,22 @@ var _ = Describe("additioanalbuckets_reconcile", func() {
 			{Path: "s3://bucket2", Region: "us-east-1", Endpoint: "https://s3.example.com", CredentialSecret: "secret1"},
 		}
 		a := AddtionalBucketsReconciler{Vdb: vdb, Log: logger}
-		Expect(a.isAddtionalBucketsUpdated()).To(BeTrue())
+		Expect(a.statusMatchesSpec()).To(BeFalse())
 
 		vdb.Status.AdditionalBuckets[0].Path = "s3://bucket1"
 		vdb.Status.AdditionalBuckets[0].Region = "us-west-2"
-		Expect(a.isAddtionalBucketsUpdated()).To(BeTrue())
+		Expect(a.statusMatchesSpec()).To(BeFalse())
 
 		vdb.Status.AdditionalBuckets[0].Region = "us-east-1"
 		vdb.Status.AdditionalBuckets[0].Endpoint = "https://other.example.com"
-		Expect(a.isAddtionalBucketsUpdated()).To(BeTrue())
+		Expect(a.statusMatchesSpec()).To(BeFalse())
 
 		vdb.Status.AdditionalBuckets[0].Endpoint = "https://s3.example.com"
 		vdb.Status.AdditionalBuckets[0].CredentialSecret = "secret2"
-		Expect(a.isAddtionalBucketsUpdated()).To(BeTrue())
+		Expect(a.statusMatchesSpec()).To(BeFalse())
 	})
 
-	It("should return false if all fields match", func() {
+	It("should return true if all fields match", func() {
 		vdb := vapi.MakeVDB()
 		bucket := vapi.CommunalStorage{
 			Path: "s3://bucket1", Region: "us-east-1", Endpoint: "https://s3.example.com", CredentialSecret: "secret1",
@@ -83,7 +83,7 @@ var _ = Describe("additioanalbuckets_reconcile", func() {
 		vdb.Spec.AdditionalBuckets = []vapi.CommunalStorage{bucket}
 		vdb.Status.AdditionalBuckets = []vapi.CommunalStorage{bucket}
 		a := AddtionalBucketsReconciler{Vdb: vdb, Log: logger}
-		Expect(a.isAddtionalBucketsUpdated()).To(BeFalse())
+		Expect(a.statusMatchesSpec()).To(BeTrue())
 	})
 
 	It("should update AdditionalBuckets in status to match spec", func() {
@@ -110,15 +110,16 @@ var _ = Describe("additioanalbuckets_reconcile", func() {
 		}
 		fpr := &cmds.FakePodRunner{}
 		pfacts := podfacts.PodFacts{}
-		rec := MakeAddtionalBucketsReconciler(vdbRec, logger, vdb, fpr, &pfacts, k8sClient)
+		rec := MakeAddtionalBucketsReconciler(vdbRec, logger, vdb, fpr, &pfacts)
 		r := rec.(*AddtionalBucketsReconciler)
 
 		// Add this line to create the vdb in the fake client
-		test.CreateVDB(ctx, k8sClient, vdb)
-		defer test.DeleteVDB(ctx, k8sClient, vdb)
+		test.CreateVDB(ctx, r.Client, vdb)
+		defer test.DeleteVDB(ctx, r.Client, vdb)
 
 		// Status should be empty before update
 		Expect(vdb.Status.AdditionalBuckets).To(BeNil())
+		Expect(r.statusMatchesSpec()).To(BeFalse())
 
 		err := r.updateAdditionalBucketsStatus(ctx)
 		Expect(err).Should(BeNil())
