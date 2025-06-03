@@ -112,10 +112,11 @@ var _ = Describe("additioanalbuckets_reconcile", func() {
 		pfacts := podfacts.PodFacts{}
 		rec := MakeAddtionalBucketsReconciler(vdbRec, logger, vdb, fpr, &pfacts)
 		r := rec.(*AddtionalBucketsReconciler)
+		r.Client = k8sClient
 
 		// Add this line to create the vdb in the fake client
-		test.CreateVDB(ctx, r.Client, vdb)
-		defer test.DeleteVDB(ctx, r.Client, vdb)
+		test.CreateVDB(ctx, k8sClient, vdb)
+		defer test.DeleteVDB(ctx, k8sClient, vdb)
 
 		// Status should be empty before update
 		Expect(vdb.Status.AdditionalBuckets).To(BeNil())
