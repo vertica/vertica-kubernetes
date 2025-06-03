@@ -18,7 +18,6 @@ metadata:
   annotations:
     vertica.com/include-uid-in-path: "false"
     vertica.com/k-safety: "0"
-    vertica.com/enable-tls-auth: "true"
     vertica.com/ignore-cluster-lease: "true"
     vertica.com/requeue-time: "5"
 spec:

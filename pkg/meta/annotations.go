@@ -78,7 +78,7 @@ const (
 	MountNMACertsAnnotationFalse = "false"
 
 	// This is a feature flag for enables authentication via Mutual TLS
-	EnableTLSAuth = "vertica.com/enable-tls-auth"
+	EnableTLSAuthAnnotation = "vertica.com/enable-tls-auth"
 
 	// Two annotations that are set by the operator when creating objects.
 	OperatorDeploymentMethodAnnotation = "vertica.com/operator-deployment-method"
@@ -452,7 +452,7 @@ func UseNMACertsMount(annotations map[string]string) bool {
 }
 
 func UseTLSAuth(annotations map[string]string) bool {
-	return lookupBoolAnnotation(annotations, EnableTLSAuth, false /* default value */)
+	return lookupBoolAnnotation(annotations, EnableTLSAuthAnnotation, false /* default value */)
 }
 
 // IgnoreClusterLease returns true if revive/start should ignore the cluster lease

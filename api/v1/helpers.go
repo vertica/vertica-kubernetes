@@ -105,7 +105,7 @@ func (v *VerticaDB) FindTransientSubcluster() *Subcluster {
 }
 
 func SetVDBForTLS(v *VerticaDB) {
-	v.Annotations[vmeta.EnableTLSAuth] = trueString
+	v.Annotations[vmeta.EnableTLSAuthAnnotation] = trueString
 	v.Annotations[vmeta.VersionAnnotation] = TLSCertRotationMinVersion
 	v.Annotations[vmeta.VClusterOpsAnnotation] = trueString
 }
