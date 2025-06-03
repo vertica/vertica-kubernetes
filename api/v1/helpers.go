@@ -1048,6 +1048,23 @@ func (v *VerticaDB) HasAdditionalBuckets() bool {
 	return len(v.Spec.AdditionalBuckets) != 0
 }
 
+// GetBucket returns the bucket name from the path URL
+func GetBucket(path string) string {
+	re := regexp.MustCompile(`([a-z]\d+)://(.*)`)
+	m := re.FindAllStringSubmatch(path, 1)
+
+	if len(m) == 0 || len(m[0]) < 3 {
+		return path
+	}
+
+	p := strings.Split(m[0][2], "/")
+	if len(p) == 0 || len(p[0]) < 3 {
+		return m[0][2]
+	}
+
+	return strings.TrimRight(p[0], "/")
+}
+
 func (s *Subcluster) IsPrimary() bool {
 	return s.Type == PrimarySubcluster || s.Type == SandboxPrimarySubcluster
 }
