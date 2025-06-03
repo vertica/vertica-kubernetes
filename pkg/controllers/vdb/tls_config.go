@@ -206,7 +206,7 @@ func (t *TLSConfigManager) getSecrets() (currentSecret, newSecret string) {
 		currentSecret = t.Vdb.GetHTTPSTLSSecretNameInUse()
 		newSecret = t.Vdb.Spec.HTTPSNMATLSSecret
 	} else if t.TLSConfig == tlsConfigServer {
-		currentSecret = t.Vdb.GetClientServerTLSModeInUse()
+		currentSecret = t.Vdb.GetClientServerTLSSecretNameInUse()
 		newSecret = t.Vdb.Spec.ClientServerTLSSecret
 	}
 

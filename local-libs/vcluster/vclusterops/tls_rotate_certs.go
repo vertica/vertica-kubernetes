@@ -18,6 +18,7 @@ package vclusterops
 import (
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/vertica/vcluster/vclusterops/util"
 	"github.com/vertica/vcluster/vclusterops/vlog"
@@ -212,6 +213,11 @@ func (vcc VClusterCommands) VRotateTLSCerts(options *VRotateTLSCertsOptions) err
 	newCertsDatabaseOptions.Key = options.NewKey
 	newCertsDatabaseOptions.Cert = options.NewCert
 	newCertsDatabaseOptions.CaCert = options.NewCaCert
+
+	if options.NewSecretMetadata.TLSConfig == "Server" {
+		time.Sleep(15 * OneSecond * time.Second)
+		return nil
+	}
 
 	// Create a VClusterOpEngine with the new certs
 	clusterOpEngine = makeClusterOpEngine(instructions, &newCertsDatabaseOptions)

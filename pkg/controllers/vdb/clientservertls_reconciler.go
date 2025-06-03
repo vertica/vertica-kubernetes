@@ -21,12 +21,11 @@ import (
 	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
+	"github.com/vertica/vertica-kubernetes/pkg/vdbstatus"
 
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
-	"github.com/vertica/vertica-kubernetes/pkg/vdbstatus"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
@@ -77,11 +76,6 @@ func (h *ClientServerTLSReconciler) Reconcile(ctx context.Context, _ *ctrl.Reque
 	}
 
 	h.Log.Info("start client server tls config update")
-	cond := vapi.MakeCondition(vapi.TLSCertRotationInProgress, metav1.ConditionTrue, "InProgress")
-	if err2 := vdbstatus.UpdateCondition(ctx, h.VRec.GetClient(), h.Vdb, cond); err2 != nil {
-		h.Log.Error(err2, "Failed to set condition to true", "conditionType", vapi.TLSCertRotationInProgress)
-		return ctrl.Result{}, err2
-	}
 
 	err := h.PFacts.Collect(ctx, h.Vdb)
 	if err != nil {
@@ -108,19 +102,7 @@ func (h *ClientServerTLSReconciler) Reconcile(ctx context.Context, _ *ctrl.Reque
 		return ctrl.Result{}, err
 	}
 
-	cond = vapi.MakeCondition(vapi.ClientServerTLSUpdateFinished, metav1.ConditionTrue, "Completed")
-	if err := vdbstatus.UpdateCondition(ctx, h.VRec.GetClient(), h.Vdb, cond); err != nil {
-		h.Log.Error(err, "failed to set condition "+vapi.ClientServerTLSUpdateFinished+" to true")
-		return ctrl.Result{}, err
-	}
-	// Clear TLSCertRotationInProgress condition if only tls mode changed.
-	// This way, we will skip nma cert rotation
-	if h.Manager.TLSUpdateType == tlsModeChangeOnly {
-		cond = vapi.MakeCondition(vapi.TLSCertRotationInProgress, metav1.ConditionFalse, "Completed")
-		if err := vdbstatus.UpdateCondition(ctx, h.VRec.GetClient(), h.Vdb, cond); err != nil {
-			return ctrl.Result{}, err
-		}
-	}
-
-	return ctrl.Result{}, nil
+	// temporary just for testing
+	sec := vapi.MakeClientServerTLSSecretRef(h.Vdb.Spec.ClientServerTLSSecret)
+	return ctrl.Result{}, vdbstatus.UpdateSecretRef(ctx, h.VRec.GetClient(), h.Vdb, sec)
 }
