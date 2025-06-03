@@ -47,7 +47,7 @@ type TLSConfigReconciler struct {
 }
 
 func MakeTLSConfigReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger, vdb *vapi.VerticaDB, prunner cmds.PodRunner,
-	dispatcher vadmin.Dispatcher, pfacts *podfacts.PodFacts, serviceName string) controllers.ReconcileActor {
+	dispatcher vadmin.Dispatcher, pfacts *podfacts.PodFacts, tlsSecretType string) controllers.ReconcileActor {
 	return &TLSConfigReconciler{
 		VRec:          vdbrecon,
 		Vdb:           vdb,
@@ -55,20 +55,18 @@ func MakeTLSConfigReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger, vdb
 		Dispatcher:    dispatcher,
 		PRunner:       prunner,
 		Pfacts:        pfacts,
-		TLSSecretType: serviceName,
+		TLSSecretType: tlsSecretType,
 	}
 }
 
 // Reconcile will create a TLS secret for the http server if one is missing
 func (h *TLSConfigReconciler) Reconcile(ctx context.Context, request *ctrl.Request) (ctrl.Result, error) {
-	h.Log.Info("in tls config reconcile 1, enabled ? " + strconv.FormatBool(h.Vdb.IsCertRotationEnabled()))
 	if h.Vdb.IsCertRotationEnabled() && h.Vdb.GetSecretNameInUse(h.TLSSecretType) != "" ||
 		!h.Vdb.IsCertRotationEnabled() || !h.Vdb.IsStatusConditionTrue(vapi.DBInitialized) ||
 		h.Vdb.IsStatusConditionTrue(vapi.UpgradeInProgress) ||
 		h.Vdb.IsStatusConditionTrue(vapi.VerticaRestartNeeded) {
 		return ctrl.Result{}, nil
 	}
-
 	h.Log.Info("entry condition, cert rotate enabled ? " + strconv.FormatBool(h.Vdb.IsCertRotationEnabled()) +
 		", status secret name - " + h.Vdb.GetSecretNameInUse(h.TLSSecretType) + ", is db initialized ? " +
 		strconv.FormatBool(h.Vdb.IsStatusConditionTrue(vapi.DBInitialized)))
@@ -178,7 +176,12 @@ func (h *TLSConfigReconciler) updateStatus(ctx context.Context) error {
 }
 
 func (h *TLSConfigReconciler) checkIfTLSConfiguredInDB(ctx context.Context, initiatorPod *podfacts.PodFact) (bool, error) {
-	sql := "select is_auth_enabled from client_auth where auth_name='k8s_remote_ipv4_tls_builtin_auth';"
+	var sql string
+	if h.TLSSecretType == vapi.HTTPSTLSSecretType {
+		sql = "select certificate from tls_configurations where name='https';"
+	} else {
+		sql = "select certificate from tls_configurations where name='server';"
+	}
 	cmd := []string{"-tAc", sql}
 	stdout, stderr, err := h.PRunner.ExecVSQL(ctx, initiatorPod.GetName(), names.ServerContainer, cmd...)
 	if err != nil || strings.Contains(stderr, "Error") {
@@ -187,5 +190,5 @@ func (h *TLSConfigReconciler) checkIfTLSConfiguredInDB(ctx context.Context, init
 	}
 	lines := strings.Split(stdout, "\n")
 	res := strings.Trim(lines[0], " ")
-	return res == "True", nil
+	return res != "httpServerCert", nil
 }
