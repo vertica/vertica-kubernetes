@@ -61,9 +61,13 @@ on:
         - leg 8 cert
         - vcluster leg 9
         - vcluster leg 10
+        - vcluster leg 10 cert
         - vcluster leg 10 sandbox upgrade
+        - vcluster leg 10 sandbox upgrade cert
         - vcluster leg 10 shutdown
+        - vcluster leg 10 shutdown cert
         - vcluster leg 10 vrep
+        - vcluster leg 10 vrep cert
         - vcluster leg 11
         - vcluster leg 13
         - vcluster server upgrade
@@ -852,6 +856,31 @@ jobs:
           vertica-license: ${{ secrets.VERTICA_LICENSE }}
           e2e-retry-times: ${{ inputs.e2e_retry_times || 3 }}
 
+  e2e-leg-10-vcluster-cert:
+    if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'vcluster leg 10 cert' || inputs.e2e_test_suites == '')}}
+    needs: [build]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Test
+        uses: ./.github/actions/run-e2e-leg
+        with:
+          leg-identifier: 'leg-10'
+          dockerhub-username: ${{ secrets.DOCKERHUB_USERNAME }}
+          dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}
+          vlogger-image: ${{ needs.build.outputs.vlogger-image }}
+          operator-image: ${{ needs.build.outputs.operator-image }}
+          vertica-image: ${{ needs.build.outputs.minimal-vertica-image }}
+          vertica-deployment-method: vclusterops
+          communal-storage-type: s3
+          minimum-vertica-image: '24.3.0'
+          use-cert: true
+          cert-suffix: cert
+          # Include the vertica license so we can test scaling past 3 nodes.
+          vertica-license: ${{ secrets.VERTICA_LICENSE }}
+          e2e-retry-times: ${{ inputs.e2e_retry_times || 3 }}
+
   e2e-leg-10-sandbox-upgrade-vcluster:
     if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'vcluster leg 10 sandbox upgrade' || inputs.e2e_test_suites == '')}}
     needs: [build]
@@ -871,6 +900,32 @@ jobs:
           vertica-deployment-method: vclusterops
           communal-storage-type: s3
           minimum-vertica-image: '24.3.0'
+          # Include the vertica license so we can test scaling past 3 nodes.
+          vertica-license: ${{ secrets.VERTICA_LICENSE }}
+          need-base-vertica-image: 'true'
+          e2e-retry-times: ${{ inputs.e2e_retry_times || 3 }}
+
+  e2e-leg-10-sandbox-upgrade-vcluster-cert:
+    if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'vcluster leg 10 sandbox upgrade cert' || inputs.e2e_test_suites == '')}}
+    needs: [build]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Test
+        uses: ./.github/actions/run-e2e-leg
+        with:
+          leg-identifier: 'leg-10-sandbox-upgrade'
+          dockerhub-username: ${{ secrets.DOCKERHUB_USERNAME }}
+          dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}
+          vlogger-image: ${{ needs.build.outputs.vlogger-image }}
+          operator-image: ${{ needs.build.outputs.operator-image }}
+          vertica-image: ${{ needs.build.outputs.minimal-vertica-image }}
+          vertica-deployment-method: vclusterops
+          communal-storage-type: s3
+          minimum-vertica-image: '24.3.0'
+          use-cert: true
+          cert-suffix: cert
           # Include the vertica license so we can test scaling past 3 nodes.
           vertica-license: ${{ secrets.VERTICA_LICENSE }}
           need-base-vertica-image: 'true'
@@ -900,6 +955,32 @@ jobs:
           vertica-license: ${{ secrets.VERTICA_LICENSE }}
           e2e-retry-times: ${{ inputs.e2e_retry_times || 3 }}
 
+  e2e-leg-10-shutdown-vcluster-cert:
+    if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'vcluster leg 10 shutdown cert' || inputs.e2e_test_suites == '')}}
+    needs: [build]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Test
+        uses: ./.github/actions/run-e2e-leg
+        with:
+          leg-identifier: 'leg-10-shutdown'
+          dockerhub-username: ${{ secrets.DOCKERHUB_USERNAME }}
+          dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}
+          vlogger-image: ${{ needs.build.outputs.vlogger-image }}
+          operator-image: ${{ needs.build.outputs.operator-image }}
+          vertica-image: ${{ needs.build.outputs.minimal-vertica-image }}
+          vertica-deployment-method: vclusterops
+          communal-storage-type: s3
+          minimum-vertica-image: '24.3.0'
+          use-cert: true
+          cert-suffix: cert
+          e2e-parallelism: 1
+          # Include the vertica license so we can test scaling past 3 nodes.
+          vertica-license: ${{ secrets.VERTICA_LICENSE }}
+          e2e-retry-times: ${{ inputs.e2e_retry_times || 3 }}
+
   e2e-leg-10-vrep-vcluster:
     if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'vcluster leg 10 vrep' || inputs.e2e_test_suites == '')}}
     needs: [build]
@@ -919,6 +1000,31 @@ jobs:
           vertica-deployment-method: vclusterops
           communal-storage-type: s3
           minimum-vertica-image: '24.3.0'
+          # Include the vertica license so we can test scaling past 3 nodes.
+          vertica-license: ${{ secrets.VERTICA_LICENSE }}
+          e2e-retry-times: ${{ inputs.e2e_retry_times || 3 }}
+
+  e2e-leg-10-vrep-vcluster-cert:
+    if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'vcluster leg 10 vrep cert' || inputs.e2e_test_suites == '')}}
+    needs: [build]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Test
+        uses: ./.github/actions/run-e2e-leg
+        with:
+          leg-identifier: 'leg-10-vrep'
+          dockerhub-username: ${{ secrets.DOCKERHUB_USERNAME }}
+          dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}
+          vlogger-image: ${{ needs.build.outputs.vlogger-image }}
+          operator-image: ${{ needs.build.outputs.operator-image }}
+          vertica-image: ${{ needs.build.outputs.minimal-vertica-image }}
+          vertica-deployment-method: vclusterops
+          communal-storage-type: s3
+          minimum-vertica-image: '24.3.0'
+          use-cert: true
+          cert-suffix: cert
           # Include the vertica license so we can test scaling past 3 nodes.
           vertica-license: ${{ secrets.VERTICA_LICENSE }}
           e2e-retry-times: ${{ inputs.e2e_retry_times || 3 }}
@@ -1176,9 +1282,13 @@ jobs:
       e2e-leg-9-vcluster,
       e2e-leg-9-vcluster-cert,
       e2e-leg-10-vcluster,
+      e2e-leg-10-vcluster-cert,
       e2e-leg-10-sandbox-upgrade-vcluster,
+      e2e-leg-10-sandbox-upgrade-vcluster-cert,
       e2e-leg-10-shutdown-vcluster,
+      e2e-leg-10-shutdown-vcluster-cert,
       e2e-leg-10-vrep-vcluster,
+      e2e-leg-10-vrep-vcluster-cert,
       e2e-leg-11-vcluster,
       e2e-leg-12-vcluster,
       e2e-leg-12-vcluster-cert,
@@ -1241,9 +1351,13 @@ jobs:
       e2e-leg-9-vcluster,
       e2e-leg-9-vcluster-cert,
       e2e-leg-10-vcluster,
+      e2e-leg-10-vcluster-cert,
       e2e-leg-10-sandbox-upgrade-vcluster,
+      e2e-leg-10-sandbox-upgrade-vcluster-cert,
       e2e-leg-10-shutdown-vcluster,
+      e2e-leg-10-shutdown-vcluster-cert,
       e2e-leg-10-vrep-vcluster,
+      e2e-leg-10-vrep-vcluster-cert,
       e2e-leg-11-vcluster,
       e2e-leg-12-vcluster,
       e2e-leg-12-vcluster-cert,
