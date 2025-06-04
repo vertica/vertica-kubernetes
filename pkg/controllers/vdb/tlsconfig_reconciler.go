@@ -83,7 +83,7 @@ func (h *TLSConfigReconciler) Reconcile(ctx context.Context, request *ctrl.Reque
 		return res, err2
 	}
 	h.VRec.Eventf(h.Vdb, corev1.EventTypeNormal, events.TLSConfigurationStarted,
-		fmt.Sprintf("Starting to configure TLS for %s", h.TLSSecretType))
+		"Starting to configure TLS for %s", h.TLSSecretType)
 
 	configured, err := h.checkIfTLSConfiguredInDB(ctx, initiatorPod)
 	if err != nil {
@@ -106,8 +106,7 @@ func (h *TLSConfigReconciler) Reconcile(ctx context.Context, request *ctrl.Reque
 		h.Log.Error(err, "failed to save TLS secret and mode into status")
 		return ctrl.Result{}, err
 	}
-	h.VRec.Eventf(h.Vdb, corev1.EventTypeNormal, events.TLSConfigurationSucceeded,
-		fmt.Sprintf("Successfully configured TLS for %s", h.TLSSecretType))
+	h.VRec.Eventf(h.Vdb, corev1.EventTypeNormal, events.TLSConfigurationSucceeded, "Successfully configured TLS for %s", h.TLSSecretType)
 	return ctrl.Result{}, nil
 }
 

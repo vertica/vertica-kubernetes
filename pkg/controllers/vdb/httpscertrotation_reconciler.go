@@ -76,19 +76,15 @@ func MakeHTTPSCertRotationReconciler(vdbrecon *VerticaDBReconciler, log logr.Log
 
 // Reconcile will rotate TLS certificate.
 func (h *HTTPSCertRotationReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
-	h.Log.Info("in https cert rotation, secret name - " + h.Vdb.GetHTTPSTLSSecretNameInUse())
-	if !h.Vdb.IsCertRotationEnabled() || h.Vdb.IsCertRotationEnabled() && h.Vdb.GetHTTPSTLSSecretNameInUse() == "" {
+	if !h.Vdb.IsCertRotationEnabled() || h.Vdb.IsCertRotationEnabled() && h.Vdb.GetHTTPSTLSSecretNameInUse() == "" ||
+		h.Vdb.IsStatusConditionTrue(vapi.HTTPSCertRotationFinished) &&
+			h.Vdb.IsStatusConditionTrue(vapi.TLSCertRotationInProgress) {
 		return ctrl.Result{}, nil
 	}
-	if h.Vdb.IsStatusConditionTrue(vapi.HTTPSCertRotationFinished) && h.Vdb.IsStatusConditionTrue(vapi.TLSCertRotationInProgress) {
-		return ctrl.Result{}, nil
-	}
-
 	changeTLS := h.updateTLSConfig()
 	// no-op if neither https secret nor tls mode
 	// changed
 	if changeTLS == noTLSChange {
-		h.Log.Info("libo: no https tls change")
 		return ctrl.Result{}, nil
 	}
 
@@ -114,31 +110,47 @@ func (h *HTTPSCertRotationReconciler) Reconcile(ctx context.Context, _ *ctrl.Req
 	if err2 != nil {
 		return ctrl.Result{}, err2
 	}
-	currentTLSMode := h.Vdb.GetHTTPSTLSModeInUse()
-	if currentTLSMode != h.Vdb.Spec.HTTPSTLSMode {
-		httpsTLSMode := vapi.MakeHTTPSTLSMode(h.Vdb.Spec.HTTPSTLSMode)
-		err = vdbstatus.UpdateTLSModes(ctx, h.VRec.GetClient(), h.Vdb, []*vapi.TLSMode{httpsTLSMode})
-		if err != nil {
-			h.Log.Error(err, "failed to update tls mode after https cert rotation")
-			return ctrl.Result{}, err
-		}
+	err2 = h.updateTLSMode(ctx)
+	if err2 != nil {
+		return ctrl.Result{}, err2
 	}
-	h.Log.Info(fmt.Sprintf("https tls mode is changed to %s after https cert rotation", h.Vdb.Spec.HTTPSTLSMode))
-	cond = vapi.MakeCondition(vapi.HTTPSCertRotationFinished, metav1.ConditionTrue, "Completed")
+
+	err2 = h.handleConditions(ctx, changeTLS)
+	if err2 != nil {
+		return ctrl.Result{}, err2
+	}
+	return ctrl.Result{}, nil
+}
+
+func (h *HTTPSCertRotationReconciler) handleConditions(ctx context.Context, changeTLS int) error {
+	cond := vapi.MakeCondition(vapi.HTTPSCertRotationFinished, metav1.ConditionTrue, "Completed")
 	if err := vdbstatus.UpdateCondition(ctx, h.VRec.GetClient(), h.Vdb, cond); err != nil {
 		h.Log.Error(err, "failed to set condition "+vapi.HTTPSCertRotationFinished+" to true")
-		return ctrl.Result{}, err
+		return err
 	}
 	// Clear TLSCertRotationInProgress condition if only tls mode changed.
 	// This way, we will skip nma cert rotation
 	if changeTLS == tlsModeChangeOnly {
 		cond = vapi.MakeCondition(vapi.TLSCertRotationInProgress, metav1.ConditionFalse, "Completed")
 		if err := vdbstatus.UpdateCondition(ctx, h.VRec.GetClient(), h.Vdb, cond); err != nil {
-			return ctrl.Result{}, err
+			return err
 		}
 	}
+	return nil
+}
 
-	return ctrl.Result{}, nil
+func (h *HTTPSCertRotationReconciler) updateTLSMode(ctx context.Context) error {
+	currentTLSMode := h.Vdb.GetHTTPSTLSModeInUse()
+	if currentTLSMode != h.Vdb.Spec.HTTPSTLSMode {
+		httpsTLSMode := vapi.MakeHTTPSTLSMode(h.Vdb.Spec.HTTPSTLSMode)
+		err := vdbstatus.UpdateTLSModes(ctx, h.VRec.GetClient(), h.Vdb, []*vapi.TLSMode{httpsTLSMode})
+		if err != nil {
+			h.Log.Error(err, "failed to update tls mode after https cert rotation")
+			return err
+		}
+	}
+	h.Log.Info(fmt.Sprintf("https tls mode is changed to %s after https cert rotation", h.Vdb.Spec.HTTPSTLSMode))
+	return nil
 }
 
 // rotateHTTPSTLSCert will rotate https server's tls cert from currentSecret to newSecret
