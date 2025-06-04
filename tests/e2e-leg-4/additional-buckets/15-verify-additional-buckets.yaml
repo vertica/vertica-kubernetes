@@ -22,7 +22,8 @@ data:
     set -o xtrace
 
     POD_NAME=v-additional-buckets-sc1-0
-    VDB_USER=$(kubectl get pod $POD_NAME -o custom-columns=":spec.containers[0].env[10].value" | xargs)
+    # get VSQL_USER from pod's env with format map[name:VSQL_USER value:myadmin]
+    VDB_USER=$(kubectl get pod $POD_NAME -o 'custom-columns=:spec.containers[0].env' | grep -o 'VSQL_USER value:[^]]*' | cut -d ":" -f2)
     if [ $VDB_USER == "<none>" ]; then
       VDB_USER=dbadmin
     fi
