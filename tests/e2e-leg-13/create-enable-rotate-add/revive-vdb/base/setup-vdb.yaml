@@ -17,13 +17,13 @@ metadata:
   name: v-create-enable-rotate-add
   annotations:
     vertica.com/k-safety: "1"
-    vertica.com/enable-tls-auth: "false"
     vertica.com/include-uid-in-path: "false"
     vertica.com/ignore-cluster-lease: "true"
+    vertica.com/enable-tls-certs-rotation: "true"
     vertica.com/mount-nma-certs: "false"
     vertica.com/vcluster-ops: "true"
 spec:
-  initPolicy: CreateSkipPackageInstall
+  initPolicy: Revive
   image: kustomize-vertica-image
   communal: {}
   local:
@@ -31,10 +31,13 @@ spec:
     catalogPath: /catalog
   dbName: vertdb
   encryptSpreadComm: vertica
-  clientServerTLSSecret: custom-cert
   subclusters:
     - name: sc1
       size: 3
+  clientServerTLSSecret: custom-cert
+  clientServerTLSMode: TRY_VERIFY
+  httpsNMATLSSecret: custom-cert
+  httpsTLSMode: VERIFY_CA
   securityContext:
     capabilities:
       add: ["SYS_PTRACE"]
