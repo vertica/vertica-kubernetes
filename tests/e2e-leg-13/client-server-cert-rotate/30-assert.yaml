@@ -29,7 +29,13 @@ status:
     type: AutoRestartVertica
   - reason: Initialized
     status: "True"
-    type: DBInitialized 
+    type: DBInitialized
+  - reason: Completed
+    status: "False"
+    type: TLSConfigUpdateInProgress
+  - reason: Completed
+    status: "False"
+    type: ClientServerTLSUpdateFinished 
   subclusters:
     - addedToDBCount: 3
       upNodeCount: 3

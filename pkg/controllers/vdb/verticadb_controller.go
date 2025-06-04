@@ -309,9 +309,9 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		MakeSaveRestorePointReconciler(r, vdb, log, pfacts, dispatcher, r.Client),
 		// rotate https tls cert when tls cert secret name is changed in vdb.spec
 		MakeHTTPSCertRotationReconciler(r, log, vdb, dispatcher, pfacts),
+		MakeClientServerTLSReconciler(r, log, vdb, dispatcher, pfacts),
 		// rotate nma tls cert when tls cert secret name is changed in vdb.spec
 		MakeNMACertRotationReconciler(r, log, vdb, dispatcher, pfacts),
-		MakeClientServerTLSReconciler(r, log, vdb, dispatcher, pfacts),
 		// Resize any PVs if the local data size changed in the vdb
 		MakeResizePVReconciler(r, log, vdb, prunner, pfacts),
 		// This must be the last reconciler. It makes sure that all dependent

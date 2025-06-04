@@ -22,6 +22,7 @@ import (
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	"github.com/vertica/vertica-kubernetes/pkg/vdbstatus"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
@@ -29,10 +30,9 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-// ClientServerTLSReconciler will compare the nma tls secret with the one saved in
-// "vertica.com/nma-https-previous-secret". If different, it will try to rotate the
-// cert currently used with the one saved the nma tls secret for https service
-
+// ClientServerTLSReconciler will compare the client server tls secret or tls mode with the one saved in
+// status. If different, it will try to rotate the
+// cert currently used with the one saved the client server tls secret, and/or will update tls mode
 type ClientServerTLSReconciler struct {
 	VRec       *VerticaDBReconciler
 	Vdb        *vapi.VerticaDB // Vdb is the CRD we are acting on.
@@ -60,29 +60,39 @@ func (h *ClientServerTLSReconciler) Reconcile(ctx context.Context, _ *ctrl.Reque
 		return ctrl.Result{}, nil
 	}
 
-	if h.Vdb.GetClientServerTLSModeInUse() == "" {
-		return ctrl.Result{}, h.Manager.setTLSConfig()
-	}
-
-	if h.Vdb.IsStatusConditionTrue(vapi.ClientServerTLSUpdateFinished) {
-		return ctrl.Result{}, nil
-	}
-
-	h.Manager.setTLSUpdateType()
-	// no-op if neither https secret nor tls mode
-	// changed
-	if h.Manager.TLSUpdateType == noTLSChange {
-		return ctrl.Result{}, nil
-	}
-
-	h.Log.Info("start client server tls config update")
-
 	err := h.PFacts.Collect(ctx, h.Vdb)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 
-	res, err := h.Manager.setHTTPSTLSUpdateData(ctx)
+	h.Manager.setTLSUpdatedata()
+	h.Manager.setTLSUpdateType()
+
+	if h.Vdb.GetClientServerTLSSecretNameInUse() == "" {
+		return h.Manager.setTLSConfig(ctx, h.PFacts)
+	}
+
+	if h.Vdb.IsStatusConditionTrue(vapi.ClientServerTLSUpdateFinished) &&
+		h.Vdb.IsStatusConditionTrue(vapi.TLSConfigUpdateInProgress) {
+		return ctrl.Result{}, nil
+	}
+
+	// no-op if neither client server secret nor tls mode
+	// changed
+	if !h.Manager.needTLSConfigChange() {
+		return ctrl.Result{}, nil
+	}
+
+	h.Log.Info("start client server cert rotation")
+	cond := vapi.MakeCondition(vapi.TLSConfigUpdateInProgress, metav1.ConditionTrue, "InProgress")
+	if err2 := vdbstatus.UpdateCondition(ctx, h.VRec.GetClient(), h.Vdb, cond); err2 != nil {
+		h.Log.Error(err2, "Failed to set condition to true", "conditionType", vapi.TLSConfigUpdateInProgress)
+		return ctrl.Result{}, err2
+	}
+
+	h.Log.Info("start client server tls config update")
+
+	res, err := h.Manager.setPollingCertMetadata(ctx)
 	if verrors.IsReconcileAborted(res, err) {
 		return res, err
 	}
@@ -99,6 +109,12 @@ func (h *ClientServerTLSReconciler) Reconcile(ctx context.Context, _ *ctrl.Reque
 	}
 
 	if err := h.Manager.updateTLSModeInStatus(ctx); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	cond = vapi.MakeCondition(vapi.ClientServerTLSUpdateFinished, metav1.ConditionTrue, "Completed")
+	if err := vdbstatus.UpdateCondition(ctx, h.VRec.GetClient(), h.Vdb, cond); err != nil {
+		h.Log.Error(err, "failed to set condition "+vapi.ClientServerTLSUpdateFinished+" to true")
 		return ctrl.Result{}, err
 	}
 

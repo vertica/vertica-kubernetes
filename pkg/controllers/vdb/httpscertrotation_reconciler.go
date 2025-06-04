@@ -68,34 +68,36 @@ func (h *HTTPSCertRotationReconciler) Reconcile(ctx context.Context, _ *ctrl.Req
 		return ctrl.Result{}, nil
 	}
 
-	if h.Vdb.GetHTTPSTLSModeInUse() == "" {
-		return ctrl.Result{}, h.Manager.setTLSConfig()
-	}
-
-	if h.Vdb.IsStatusConditionTrue(vapi.HTTPSTLSConfigUpdateFinished) && h.Vdb.IsStatusConditionTrue(vapi.HTTPSNMATLSConfigUpdateInProgress) {
-		return ctrl.Result{}, nil
-	}
-
-	h.Manager.setTLSUpdateType()
-	// no-op if neither https secret nor tls mode
-	// changed
-	if h.Manager.TLSUpdateType == noTLSChange {
-		return ctrl.Result{}, nil
-	}
-
-	h.Log.Info("start https cert rotation")
-	cond := vapi.MakeCondition(vapi.HTTPSNMATLSConfigUpdateInProgress, metav1.ConditionTrue, "InProgress")
-	if err2 := vdbstatus.UpdateCondition(ctx, h.VRec.GetClient(), h.Vdb, cond); err2 != nil {
-		h.Log.Error(err2, "Failed to set condition to true", "conditionType", vapi.HTTPSNMATLSConfigUpdateInProgress)
-		return ctrl.Result{}, err2
-	}
-
 	err := h.PFacts.Collect(ctx, h.Vdb)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 
-	res, err := h.Manager.setHTTPSTLSUpdateData(ctx)
+	h.Manager.setTLSUpdatedata()
+	h.Manager.setTLSUpdateType()
+
+	if h.Vdb.GetHTTPSTLSSecretNameInUse() == "" {
+		return h.Manager.setTLSConfig(ctx, h.PFacts)
+	}
+
+	if h.Vdb.IsStatusConditionTrue(vapi.HTTPSTLSConfigUpdateFinished) && h.Vdb.IsStatusConditionTrue(vapi.TLSConfigUpdateInProgress) {
+		return ctrl.Result{}, nil
+	}
+
+	// no-op if neither https secret nor tls mode
+	// changed
+	if !h.Manager.needTLSConfigChange() {
+		return ctrl.Result{}, nil
+	}
+
+	h.Log.Info("start https cert rotation")
+	cond := vapi.MakeCondition(vapi.TLSConfigUpdateInProgress, metav1.ConditionTrue, "InProgress")
+	if err2 := vdbstatus.UpdateCondition(ctx, h.VRec.GetClient(), h.Vdb, cond); err2 != nil {
+		h.Log.Error(err2, "Failed to set condition to true", "conditionType", vapi.TLSConfigUpdateInProgress)
+		return ctrl.Result{}, err2
+	}
+
+	res, err := h.Manager.setPollingCertMetadata(ctx)
 	if verrors.IsReconcileAborted(res, err) {
 		return res, err
 	}
@@ -115,18 +117,17 @@ func (h *HTTPSCertRotationReconciler) Reconcile(ctx context.Context, _ *ctrl.Req
 		return ctrl.Result{}, err
 	}
 
+	// Clear TLSConfigUpdateInProgress condition if only tls mode changed.
+	// This way, we will skip nma cert rotation
+	if h.Manager.TLSUpdateType == tlsModeChangeOnly {
+		cond = vapi.MakeCondition(vapi.TLSConfigUpdateInProgress, metav1.ConditionFalse, "Completed")
+		return ctrl.Result{}, vdbstatus.UpdateCondition(ctx, h.VRec.GetClient(), h.Vdb, cond)
+	}
+
 	cond = vapi.MakeCondition(vapi.HTTPSTLSConfigUpdateFinished, metav1.ConditionTrue, "Completed")
 	if err := vdbstatus.UpdateCondition(ctx, h.VRec.GetClient(), h.Vdb, cond); err != nil {
 		h.Log.Error(err, "failed to set condition "+vapi.HTTPSTLSConfigUpdateFinished+" to true")
 		return ctrl.Result{}, err
-	}
-	// Clear HTTPSNMATLSConfigUpdateInProgress condition if only tls mode changed.
-	// This way, we will skip nma cert rotation
-	if h.Manager.TLSUpdateType == tlsModeChangeOnly {
-		cond = vapi.MakeCondition(vapi.HTTPSNMATLSConfigUpdateInProgress, metav1.ConditionFalse, "Completed")
-		if err := vdbstatus.UpdateCondition(ctx, h.VRec.GetClient(), h.Vdb, cond); err != nil {
-			return ctrl.Result{}, err
-		}
 	}
 
 	return ctrl.Result{}, nil

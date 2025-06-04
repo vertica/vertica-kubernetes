@@ -52,7 +52,7 @@ status:
     type: DBInitialized
   - reason: Completed
     status: "False"
-    type: HTTPSNMATLSConfigUpdateInProgress  
+    type: TLSConfigUpdateInProgress   
   - reason: Completed
     status: "False"
     type: HTTPSTLSConfigUpdateFinished 

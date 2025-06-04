@@ -624,8 +624,8 @@ func (v *VerticaDB) IsUpgradeInProgress() bool {
 	return v.IsStatusConditionTrue(UpgradeInProgress)
 }
 
-func (v *VerticaDB) IsHTTPSNMATLSUpdateInProgress() bool {
-	return v.IsStatusConditionTrue(HTTPSNMATLSConfigUpdateInProgress)
+func (v *VerticaDB) IsTLSConfigUpdateInProgress() bool {
+	return v.IsStatusConditionTrue(TLSConfigUpdateInProgress)
 }
 
 // IsStatusConditionTrue returns true when the conditionType is present and set to

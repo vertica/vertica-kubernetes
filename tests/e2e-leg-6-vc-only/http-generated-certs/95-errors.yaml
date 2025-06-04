@@ -11,39 +11,29 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: kuttl.dev/v1beta1
-kind: TestAssert
-timeout: 1200
+apiVersion: apps/v1
+kind: StatefulSet
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: verticadb-operator
 ---
 apiVersion: vertica.com/v1
 kind: VerticaDB
+---
+apiVersion: v1
+kind: Secret
 metadata:
-  name: v-sandbox-shutdown
-spec:
-  subclusters:
-    - name: pri1
-      type: primary
-    - name: sec1
-      type: secondary
-    - name: sec2
-      type: sandboxprimary
-    - name: sec3
-      type: secondary
-status:
-  sandboxes:
-    - name: sandbox2
-      subclusters:
-        - sec2
-  subclusters:
-    - addedToDBCount: 3
-      upNodeCount: 3
-      name: pri1
-    - addedToDBCount: 3
-      upNodeCount: 3
-      name: sec1
-    - addedToDBCount: 1
-      upNodeCount: 1
-      name: sec2
-    - addedToDBCount: 1
-      upNodeCount: 1
-      name: sec3
+  labels:
+    app.kubernetes.io/name: vertica
+    app.kubernetes.io/component: database
+    vertica.com/database: vertdb
+    app.kubernetes.io/instance: v-http-generated-certs
+---
+apiVersion: batch/v1
+kind: Job
+---
+apiVersion: vertica.com/v1beta1
+kind: EventTrigger
