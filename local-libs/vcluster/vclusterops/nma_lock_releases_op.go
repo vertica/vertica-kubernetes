@@ -131,29 +131,18 @@ func (op *nmaLockReleasesOp) finalize(_ *opEngineExecContext) error {
 }
 
 type dcLockReleases struct {
-	Duration   string `json:"duration"`
-	NodeName   string `json:"node_name"`
-	Object     string `json:"object"`
-	ObjectName string `json:"object_name"`
-	SessionID  string `json:"session_id"`
-	GrantTime  string `json:"grant_time"`
-	Time       string `json:"time"`
-	TxnID      string `json:"transaction_id"`
-	UserID     string `json:"user_id"`
-	UserName   string `json:"user_name"`
-	// TODO: as for now http client not support retrieving batch results for txn info and session info
-	// To improve the performance, we move the txn info and session info to the demond request by UI
-	// when we migrate to use nma client, we can retrieve the txn info and session info in batch request
-	// TxnInfo     dcTransactionStart `json:"transaction_info"`
-	// SessionInfo dcSessionStart     `json:"session_info"`
-}
-
-func (event *dcLockReleases) getTxnID() string {
-	return event.TxnID
-}
-
-func (event *dcLockReleases) getSessionID() string {
-	return event.SessionID
+	Duration    string               `json:"duration"`
+	NodeName    string               `json:"node_name"`
+	Object      string               `json:"object"`
+	ObjectName  string               `json:"object_name"`
+	SessionID   string               `json:"session_id"`
+	GrantTime   string               `json:"grant_time"`
+	Time        string               `json:"time"`
+	TxnID       string               `json:"transaction_id"`
+	UserID      string               `json:"user_id"`
+	UserName    string               `json:"user_name"`
+	TxnInfo     *dcTransactionStarts `json:"transaction_info"`
+	SessionInfo *dcSessionStarts     `json:"session_info"`
 }
 
 func (op *nmaLockReleasesOp) processResult(execContext *opEngineExecContext) error {
