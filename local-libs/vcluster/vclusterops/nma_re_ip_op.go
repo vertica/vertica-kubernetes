@@ -218,7 +218,10 @@ func (op *nmaReIPOp) prepare(execContext *opEngineExecContext) error {
 
 	// quorum check
 	if !op.hasQuorum(uint(len(op.hosts)), op.primaryNodeCount) {
-		return fmt.Errorf("failed quorum check, not enough primaries exist with: %d", len(op.hosts))
+		execContext.hasNoQuorum = true
+		op.skipExecute = true
+		op.logger.Info("failed quorum check, not enough primary nodes exist: ", "primary node count", len(op.hosts))
+		return nil
 	}
 
 	// update re-ip list
