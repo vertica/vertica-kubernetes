@@ -143,6 +143,7 @@ func (v *VerticaDB) validateImmutableFields(old runtime.Object) field.ErrorList 
 	var allErrs field.ErrorList
 	oldObj := old.(*VerticaDB)
 
+	allErrs = v.validateTLSCertRotation(oldObj, allErrs)
 	allErrs = v.checkImmutableBasic(oldObj, allErrs)
 	allErrs = v.checkImmutableUpgradePolicy(oldObj, allErrs)
 	allErrs = v.checkImmutableDeploymentMethod(oldObj, allErrs)
@@ -2236,6 +2237,55 @@ func (v *VerticaDB) hasValidTLSMode(tlsModeToValidate, fieldName string, allErrs
 		}
 	}
 	return allErrs
+}
+
+// validateTLSCertRotation enforces:
+// 1. If cert rotation is in progress, all other operations are not allowed.
+// 2. Cannot disable mutual TLS after it's enabled.
+// 3. Prevent user from changing nmaTLSSecret.
+//
+//nolint:unparam
+func (v *VerticaDB) validateTLSCertRotation(oldObj *VerticaDB, allErrs field.ErrorList) field.ErrorList {
+	// rule 1
+	if oldObj.IsCertRotationInProgress() {
+		if !v.isOnlyCertRotationChange(oldObj) {
+			err := field.Forbidden(field.NewPath("spec"),
+				"no changes allowed while cert rotation is in progress")
+			allErrs = append(allErrs, err)
+			return allErrs
+		}
+	}
+
+	// rule 2
+	if oldObj.Spec.HTTPSNMATLSSecret != "" && v.Spec.HTTPSNMATLSSecret == "" {
+		err := field.Forbidden(field.NewPath("spec").Child("HTTPSNMATLSSecret"),
+			"cannot disable mutual TLS after it's enabled")
+		allErrs = append(allErrs, err)
+	}
+
+	// rule 3
+	if oldObj.Spec.NMATLSSecret != v.Spec.NMATLSSecret {
+		err := field.Forbidden(field.NewPath("spec").Child("nmaTLSSecret"),
+			"nmaTLSSecret cannot be changed")
+		allErrs = append(allErrs, err)
+	}
+
+	return allErrs
+}
+
+// isOnlyCertRotationChange allows only cert rotation related changes when cert rotation is in progress
+func (v *VerticaDB) isOnlyCertRotationChange(oldVdb *VerticaDB) bool {
+	// Only allow changes to cert rotation status/fields.
+	// If any other field in spec changes, return false.
+	oldSpec := oldVdb.Spec
+	newSpec := v.Spec
+
+	// Allow only httpsNMATLSSecret to change
+	oldCopy := oldSpec
+	newCopy := newSpec
+	oldCopy.HTTPSNMATLSSecret = ""
+	newCopy.HTTPSNMATLSSecret = ""
+	return reflect.DeepEqual(oldCopy, newCopy)
 }
 
 // setDefaultServiceName will explicitly set the serviceName in any subcluster
