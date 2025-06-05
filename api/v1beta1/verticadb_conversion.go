@@ -159,7 +159,7 @@ func convertToSpec(src *VerticaDBSpec) v1.VerticaDBSpec {
 		SecurityContext:        src.SecurityContext,
 		NMASecurityContext:     src.NMASecurityContext,
 		PodSecurityContext:     src.PodSecurityContext,
-		NMATLSSecret:           src.HTTPServerTLSSecret,
+		HTTPSNMATLSSecret:      src.HTTPServerTLSSecret,
 		ClientServerTLSSecret:  src.ClientServerTLSSecret,
 		ClientServerTLSMode:    src.ClientServerTLSMode,
 		ReadinessProbeOverride: src.ReadinessProbeOverride,
@@ -235,7 +235,7 @@ func convertFromSpec(src *v1.VerticaDB) VerticaDBSpec {
 		SecurityContext:         srcSpec.SecurityContext,
 		NMASecurityContext:      srcSpec.NMASecurityContext,
 		PodSecurityContext:      srcSpec.PodSecurityContext,
-		HTTPServerTLSSecret:     srcSpec.NMATLSSecret,
+		HTTPServerTLSSecret:     srcSpec.HTTPSNMATLSSecret,
 		ClientServerTLSSecret:   srcSpec.ClientServerTLSSecret,
 		ClientServerTLSMode:     srcSpec.ClientServerTLSMode,
 		ReadinessProbeOverride:  srcSpec.ReadinessProbeOverride,
@@ -288,6 +288,7 @@ func convertToStatus(src *VerticaDBStatus) v1.VerticaDBStatus {
 		UpgradeStatus:   src.UpgradeStatus,
 		Sandboxes:       make([]v1.SandboxStatus, len(src.Sandboxes)),
 		SecretRefs:      make([]v1.SecretRef, len(src.SecretRefs)),
+		TLSModes:        make([]v1.TLSMode, len(src.TLSModes)),
 	}
 	if src.RestorePoint != nil {
 		dst.RestorePoint = &v1.RestorePointInfo{
@@ -311,6 +312,12 @@ func convertToStatus(src *VerticaDBStatus) v1.VerticaDBStatus {
 			Type: src.SecretRefs[i].Type,
 		}
 	}
+	for i := range src.TLSModes {
+		dst.TLSModes[i] = v1.TLSMode{
+			Mode: src.TLSModes[i].Mode,
+			Type: src.TLSModes[i].Type,
+		}
+	}
 	return dst
 }
 
@@ -326,6 +333,7 @@ func convertFromStatus(src *v1.VerticaDBStatus) VerticaDBStatus {
 		UpgradeStatus:   src.UpgradeStatus,
 		Sandboxes:       make([]SandboxStatus, len(src.Sandboxes)),
 		SecretRefs:      make([]SecretRef, len(src.SecretRefs)),
+		TLSModes:        make([]TLSMode, len(src.TLSModes)),
 	}
 	if src.RestorePoint != nil {
 		dst.RestorePoint = &RestorePointInfo{
@@ -347,6 +355,12 @@ func convertFromStatus(src *v1.VerticaDBStatus) VerticaDBStatus {
 		dst.SecretRefs[i] = SecretRef{
 			Name: src.SecretRefs[i].Name,
 			Type: src.SecretRefs[i].Type,
+		}
+	}
+	for i := range src.TLSModes {
+		dst.TLSModes[i] = TLSMode{
+			Mode: src.TLSModes[i].Mode,
+			Type: src.TLSModes[i].Type,
 		}
 	}
 	return dst

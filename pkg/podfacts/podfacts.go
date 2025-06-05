@@ -569,7 +569,7 @@ func (p *PodFacts) genGatherScriptBase(vdb *vapi.VerticaDB, pf *PodFact) string 
 		vdb.GenInstallerIndicatorFileName(),
 		vdb.GenInstallerIndicatorFileName(),
 		pf.catalogPath, vdb.Spec.DBName, strings.ToLower(vdb.Spec.DBName),
-		checkIfNodeUpCmd(pf.podIP),
+		checkIfNodeUpCmd(vdb, pf.podIP),
 		fmt.Sprintf("%s/%s/*_catalog/startup.log", pf.catalogPath, vdb.Spec.DBName),
 		pf.catalogPath,
 		pf.catalogPath,
@@ -1530,16 +1530,22 @@ func (p *PodFacts) GetClusterExtendedName() string {
 }
 
 // checkIfNodeUpCmd builds and returns the command to check
-// if a node is up using an HTTPS endpoint
-func checkIfNodeUpCmd(podIP string) string {
+// if a node is up using an HTTPS or HTTP endpoint
+func checkIfNodeUpCmd(vdb *vapi.VerticaDB, podIP string) string {
 	if net.IsIPv6(podIP) {
 		podIP = "[" + podIP + "]"
 	}
-
-	url := fmt.Sprintf("https://%s:%d%s",
-		podIP, builder.VerticaHTTPPort, builder.HTTPServerVersionPath)
-	curlCmd := "curl -k -s -o /dev/null -w '%{http_code}'"
-	return fmt.Sprintf("%s %s", curlCmd, url)
+	if vdb.IsCertRotationEnabled() {
+		url := fmt.Sprintf("http://%s:%d%s",
+			podIP, builder.VerticaNonTLSHTTPPort, builder.HTTPServerHealthPathV2)
+		curlCmd := "curl -k -s -o /dev/null -w '%{http_code}'"
+		return fmt.Sprintf("%s %s", curlCmd, url)
+	} else {
+		url := fmt.Sprintf("https://%s:%d%s",
+			podIP, builder.VerticaHTTPPort, builder.HTTPServerVersionPath)
+		curlCmd := "curl -k -s -o /dev/null -w '%{http_code}'"
+		return fmt.Sprintf("%s %s", curlCmd, url)
+	}
 }
 
 // FindFirstPrimaryUpPodIP returns the ip of first pod that

@@ -32,7 +32,7 @@ func (v *VClusterOps) SaveRestorePoint(ctx context.Context, opts ...saverestorep
 	v.Log.Info("Starting vcluster SaveRestorePoint")
 
 	// get the certs
-	certs, err := v.retrieveNMACerts(ctx)
+	certs, err := v.retrieveHTTPSCerts(ctx)
 	if err != nil {
 		return err
 	}

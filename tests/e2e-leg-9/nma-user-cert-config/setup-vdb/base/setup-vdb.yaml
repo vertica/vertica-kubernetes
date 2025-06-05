@@ -18,8 +18,7 @@ metadata:
   annotations:
     vertica.com/k-safety: "0"
     vertica.com/include-uid-in-path: "true"
-    vertica.com/enable-tls-certs-rotation: "true"
-    vertica.com/mount-nma-certs: "false"
+    vertica.com/enable-tls-auth: "true"
 spec:
   initPolicy: CreateSkipPackageInstall
   image: kustomize-vertica-image
@@ -32,7 +31,8 @@ spec:
   subclusters:
     - name: sc1
       size: 1
-  nmaTLSSecret: nma-cert
+  httpsNMATLSSecret: nma-cert
+  httpsTLSMode: VERIFY_CA
   clientServerTLSSecret: client-cert
   clientServerTLSMode: VERIFY_CA
   securityContext:

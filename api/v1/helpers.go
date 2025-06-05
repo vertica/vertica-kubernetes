@@ -60,6 +60,9 @@ const (
 	tlsModeVerifyCA          = "verify_ca"
 	tlsModeTryVerify         = "try_verify"
 	tlsModeVerifyFull        = "verify_full"
+	nmaTLSModeDisable        = "disable"
+	nmaTLSModeEnable         = "enable"
+	nmaTLSModeVerifyCA       = "verify-ca"
 	DefaultServiceHTTPSPort  = 8443
 	DefaultServiceClientPort = 5433
 )
@@ -102,8 +105,7 @@ func (v *VerticaDB) FindTransientSubcluster() *Subcluster {
 }
 
 func SetVDBForTLS(v *VerticaDB) {
-	v.Annotations[vmeta.EnableTLSCertsRotationAnnotation] = trueString
-	v.Annotations[vmeta.MountNMACertsAnnotation] = "false"
+	v.Annotations[vmeta.EnableTLSAuthAnnotation] = trueString
 	v.Annotations[vmeta.VersionAnnotation] = TLSCertRotationMinVersion
 	v.Annotations[vmeta.VClusterOpsAnnotation] = trueString
 }
@@ -173,7 +175,7 @@ func MakeVDB() *VerticaDB {
 func MakeVDBForHTTP(httpServerTLSSecretName string) *VerticaDB {
 	vdb := MakeVDB()
 	vdb.Annotations[vmeta.VersionAnnotation] = HTTPServerMinVersion
-	vdb.Spec.NMATLSSecret = httpServerTLSSecretName
+	vdb.Spec.HTTPSNMATLSSecret = httpServerTLSSecretName
 	return vdb
 }
 
@@ -390,8 +392,23 @@ func MakeClientServerTLSSecretRef(name string) *SecretRef {
 	return MakeSecretRef(ClientServerTLSSecretType, name)
 }
 
-func MakeNMATLSSecretRef(name string) *SecretRef {
-	return MakeSecretRef(NMATLSSecretType, name)
+func MakeHTTPSTLSSecretRef(name string) *SecretRef {
+	return MakeSecretRef(HTTPSTLSSecretType, name)
+}
+
+func MakeTLSMode(stype, mode string) *TLSMode {
+	return &TLSMode{
+		Mode: mode,
+		Type: stype,
+	}
+}
+
+func MakeClientServerTLSMode(mode string) *TLSMode {
+	return MakeTLSMode(ClientServerTLSModeType, mode)
+}
+
+func MakeHTTPSTLSMode(mode string) *TLSMode {
+	return MakeTLSMode(HTTPSTLSModeType, mode)
 }
 
 // HasReviveInstanceIDAnnotation is true when an annotation exists for the db's
@@ -429,6 +446,10 @@ func (v *VerticaDB) GenInstallerIndicatorFileName() string {
 // We use the UID so that we create unique paths in the PV.  If the PV is reused
 // for a new vdb, the UID will be different.
 func (v *VerticaDB) GetPVSubPath(subPath string) string {
+	// when preserving the db directory, we need to use a fixed path
+	if vmeta.GetPreserveDBDirectory(v.Annotations) {
+		return fmt.Sprintf("%s/%s", "preserved-db-directory", subPath)
+	}
 	return fmt.Sprintf("%s/%s", v.UID, subPath)
 }
 
@@ -920,8 +941,7 @@ func (v *VerticaDB) IsCertRotationEnabled() bool {
 		return false
 	}
 	return vinf.IsEqualOrNewer(TLSCertRotationMinVersion) &&
-		!vmeta.UseNMACertsMount(v.Annotations) &&
-		vmeta.EnableTLSCertsRotation(v.Annotations)
+		vmeta.UseTLSAuth(v.Annotations)
 }
 
 // IsNMASideCarDeploymentEnabled returns true if the conditions to run NMA
@@ -1594,8 +1614,39 @@ func (v *VerticaDB) GetSecretNameInUse(sType string) string {
 	return v.GetSecretStatus(sType).Name
 }
 
-func (v *VerticaDB) GetNMATLSSecretNameInUse() string {
-	return v.GetSecretNameInUse(NMATLSSecretType)
+func (v *VerticaDB) GetHTTPSTLSSecretNameInUse() string {
+	return v.GetSecretNameInUse(HTTPSTLSSecretType)
+}
+
+func (v *VerticaDB) GetClientServerTLSSecretNameInUse() string {
+	return v.GetSecretNameInUse(ClientServerTLSSecretType)
+}
+
+// IsCertNeededForClientServerAuth returns true if certificate is needed for client-server authentication
+func (v *VerticaDB) IsCertNeededForClientServerAuth() bool {
+	tlsMode := strings.ToLower(v.Spec.ClientServerTLSMode)
+	return tlsMode != tlsModeDisable && tlsMode != tlsModeEnable
+}
+
+// GetNMAClientServerTLSMode returns the tlsMode for NMA client-server communication
+func (v *VerticaDB) GetNMAClientServerTLSMode() string {
+	tlsMode := strings.ToLower(v.Spec.ClientServerTLSMode)
+	switch tlsMode {
+	case tlsModeDisable:
+		return nmaTLSModeDisable
+	case tlsModeEnable, tlsModeTryVerify:
+		return nmaTLSModeEnable
+	case tlsModeVerifyCA, tlsModeVerifyFull:
+		// There is still a flaw in vclusterOps: create_db set_tls will fail
+		// since nma cannot verify server certificate. After we extract set_tls
+		// from create_db, we can remove the db init check.
+		if !v.isDBInitialized() {
+			return nmaTLSModeEnable
+		}
+		return nmaTLSModeVerifyCA
+	default:
+		return nmaTLSModeEnable
+	}
 }
 
 // FindSecretRef returns a pointer to the SecretRef with the given type, or nil if not found.
@@ -1608,12 +1659,37 @@ func FindSecretRef(refs []SecretRef, typ string) *SecretRef {
 	return nil
 }
 
+func (v *VerticaDB) GetTLSModeStatus(sType string) *TLSMode {
+	return FindTLSMode(v.Status.TLSModes, sType)
+}
+
+func (v *VerticaDB) GetTLSModeInUse(sType string) string {
+	if v.GetTLSModeStatus(sType) == nil {
+		return ""
+	}
+	return v.GetTLSModeStatus(sType).Mode
+}
+
+func (v *VerticaDB) GetHTTPSTLSModeInUse() string {
+	return v.GetTLSModeInUse(HTTPSTLSModeType)
+}
+
+func (v *VerticaDB) GetClientServerTLSModeInUse() string {
+	return v.GetTLSModeInUse(ClientServerTLSModeType)
+}
+
+// FindTLSMode returns a pointer to the SecretRef with the given type, or nil if not found.
+func FindTLSMode(refs []TLSMode, typ string) *TLSMode {
+	for i := range refs {
+		if refs[i].Type == typ {
+			return &refs[i]
+		}
+	}
+	return nil
+}
+
 // SetSecretRef updates the slice with a new SecretRef by Type, and returns true if any changes occurred.
 func SetSecretRef(refs *[]SecretRef, newRef SecretRef) (changed bool) {
-	if refs == nil {
-		return false
-	}
-
 	existing := FindSecretRef(*refs, newRef.Type)
 	if existing == nil {
 		*refs = append(*refs, newRef)
@@ -1629,6 +1705,24 @@ func SetSecretRef(refs *[]SecretRef, newRef SecretRef) (changed bool) {
 		changed = true
 	}
 
+	return changed
+}
+
+// SetTLSMode updates the slice with a new TLSMode by Type, and returns true if any changes occurred.
+func SetTLSMode(refs *[]TLSMode, newRef TLSMode) (changed bool) {
+	existing := FindTLSMode(*refs, newRef.Type)
+	if existing == nil {
+		*refs = append(*refs, newRef)
+		return true
+	}
+	if existing.Mode != newRef.Mode {
+		existing.Mode = newRef.Mode
+		changed = true
+	}
+	if existing.Type != newRef.Type {
+		existing.Type = newRef.Type
+		changed = true
+	}
 	return changed
 }
 

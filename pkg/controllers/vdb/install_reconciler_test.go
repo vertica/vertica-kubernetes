@@ -38,7 +38,7 @@ var _ = Describe("k8s/install_reconcile_test", func() {
 	It("should detect no install is needed", func() {
 		secretName := "tls-1"
 		vdb := vapi.MakeVDB()
-		vdb.Spec.NMATLSSecret = secretName
+		vdb.Spec.HTTPSNMATLSSecret = secretName
 		test.CreatePods(ctx, k8sClient, vdb, true)
 		defer test.DeletePods(ctx, k8sClient, vdb)
 		test.CreateFakeTLSSecret(ctx, vdb, k8sClient, secretName)
@@ -58,7 +58,7 @@ var _ = Describe("k8s/install_reconcile_test", func() {
 	It("should try install if a pod has not run the installer yet", func() {
 		secretName := "tls-2"
 		vdb := vapi.MakeVDB()
-		vdb.Spec.NMATLSSecret = secretName
+		vdb.Spec.HTTPSNMATLSSecret = secretName
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
 		test.CreateFakeTLSSecret(ctx, vdb, k8sClient, secretName)
@@ -169,7 +169,7 @@ var _ = Describe("k8s/install_reconcile_test", func() {
 	It("should generate https config with admintools", func() {
 		secretName := "tls-secret"
 		vdb := vapi.MakeVDB()
-		vdb.Spec.NMATLSSecret = secretName
+		vdb.Spec.HTTPSNMATLSSecret = secretName
 		test.CreateFakeTLSSecret(ctx, vdb, k8sClient, secretName)
 		defer test.DeleteSecret(ctx, k8sClient, secretName)
 		vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationFalse
@@ -191,7 +191,7 @@ var _ = Describe("k8s/install_reconcile_test", func() {
 	It("should not generate https config with vclusterOps", func() {
 		secretName := "tls-secret-1"
 		vdb := vapi.MakeVDB()
-		vdb.Spec.NMATLSSecret = secretName
+		vdb.Spec.HTTPSNMATLSSecret = secretName
 		vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
 		vdb.Annotations[vmeta.VersionAnnotation] = vapi.VcluseropsAsDefaultDeploymentMethodMinVersion
 		test.CreateFakeTLSSecret(ctx, vdb, k8sClient, secretName)

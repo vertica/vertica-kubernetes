@@ -77,9 +77,8 @@ const (
 	MountNMACertsAnnotationTrue  = "true"
 	MountNMACertsAnnotationFalse = "false"
 
-	// A temporary annotation to enable NMA certs rotation. It will be removed once we
-	// are sure to have a smooth transition from a version that supports NMA certs mount.
-	EnableTLSCertsRotationAnnotation = "vertica.com/enable-tls-certs-rotation"
+	// This is a feature flag for enables authentication via Mutual TLS
+	EnableTLSAuthAnnotation = "vertica.com/enable-tls-auth"
 
 	// Two annotations that are set by the operator when creating objects.
 	OperatorDeploymentMethodAnnotation = "vertica.com/operator-deployment-method"
@@ -413,6 +412,12 @@ const (
 
 	// It will disable fetch_node_details log info. This makes debugging easier.
 	DisableFetchNodeDetailsInfoLog = "vertica.com/disable-fetch-node-details-log-info"
+
+	// This annotation ensures the database directory is preserved after the VDB is removed.
+	// As a result, when the user revives the old database, the directory still exists,
+	// allowing us to retain the DC tables.
+	// This is currently used internally for K8s stress test.
+	PreserveDBDirectoryAnnotation = "vertica.com/preserve-db-dir"
 )
 
 // IsPauseAnnotationSet will check the annotations for a special value that will
@@ -443,11 +448,11 @@ func UseVProxyCertsMount(annotations map[string]string) bool {
 // UseNMACertsMount returns true if the NMA reads certs from the mounted secret
 // volume rather than directly from k8s secret store.
 func UseNMACertsMount(annotations map[string]string) bool {
-	return lookupBoolAnnotation(annotations, MountNMACertsAnnotation, true /* default value */)
+	return lookupBoolAnnotation(annotations, MountNMACertsAnnotation, false /* default value */)
 }
 
-func EnableTLSCertsRotation(annotations map[string]string) bool {
-	return lookupBoolAnnotation(annotations, EnableTLSCertsRotationAnnotation, false /* default value */)
+func UseTLSAuth(annotations map[string]string) bool {
+	return lookupBoolAnnotation(annotations, EnableTLSAuthAnnotation, false /* default value */)
 }
 
 // IgnoreClusterLease returns true if revive/start should ignore the cluster lease
@@ -799,6 +804,11 @@ func GetDisableRouting(annotations map[string]string) bool {
 // log info must be disabled.
 func IsFetchNodeDetailsLogDisabled(annotations map[string]string) bool {
 	return lookupBoolAnnotation(annotations, DisableFetchNodeDetailsInfoLog, false)
+}
+
+// GetPreserveDBDirectory returns true if the operator must preserve the DB directory
+func GetPreserveDBDirectory(annotations map[string]string) bool {
+	return lookupBoolAnnotation(annotations, PreserveDBDirectoryAnnotation, false)
 }
 
 // lookupBoolAnnotation is a helper function to lookup a specific annotation and

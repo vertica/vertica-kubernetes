@@ -812,6 +812,7 @@ func GetClusterName(sandbox string) string {
 	return "sandbox " + sandbox
 }
 
+// ConvertDateStringToUTC converts a date string with a timezone to UTC format.
 func ConvertDateStringToUTC(date, timezone string) (string, error) {
 	const timeLayout = "2006-01-02 15:04:05.999999"
 	const timeLayoutTz = "2006-01-02 15:04:05.999999 Z0700"
@@ -823,4 +824,13 @@ func ConvertDateStringToUTC(date, timezone string) (string, error) {
 	}
 
 	return dateTz.UTC().Format(timeLayout), nil
+}
+
+// JoinMapKeys joins the keys of a map into a single string, separated by the specified delimiter.
+func JoinMapKeys(m map[string]any, delimiter string) string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	return strings.Join(keys, delimiter)
 }

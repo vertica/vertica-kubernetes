@@ -40,6 +40,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -116,6 +117,10 @@ func (o *ObjReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Re
 		return ctrl.Result{}, err
 	}
 
+	if err := o.reconcileTLSSecrets(ctx); err != nil {
+		return ctrl.Result{}, err
+	}
+
 	// We need to create/update the configmap that contains the tls secret name
 	err := o.reconcileNMACertConfigMap(ctx)
 	if err != nil {
@@ -162,13 +167,13 @@ func (o *ObjReconciler) checkMountedObjs(ctx context.Context) (ctrl.Result, erro
 		// that has the certs to use for it.  There is a reconciler that is run
 		// before this that will create the secret.  We will requeue if we find
 		// the Vdb doesn't have the secret set.
-		if o.Vdb.Spec.NMATLSSecret == "" {
+		if o.Vdb.Spec.HTTPSNMATLSSecret == "" {
 			o.Rec.Event(o.Vdb, corev1.EventTypeWarning, events.HTTPServerNotSetup,
-				"The nmaTLSSecret must be set when running with vclusterops deployment")
+				"The httpsNMATLSSecret must be set when running with vclusterops deployment")
 			return ctrl.Result{Requeue: true}, nil
 		}
 		_, res, err := o.SecretFetcher.FetchAllowRequeue(ctx,
-			names.GenNamespacedName(o.Vdb, o.Vdb.Spec.NMATLSSecret))
+			names.GenNamespacedName(o.Vdb, o.Vdb.Spec.HTTPSNMATLSSecret))
 		if verrors.IsReconcileAborted(res, err) {
 			return res, err
 		}
@@ -189,10 +194,20 @@ func (o *ObjReconciler) checkMountedObjs(ctx context.Context) (ctrl.Result, erro
 		}
 	}
 
-	if o.Vdb.Spec.NMATLSSecret != "" {
-		keyNames := []string{corev1.TLSPrivateKeyKey, corev1.TLSCertKey, paths.HTTPServerCACrtName}
-		if res, err := o.checkSecretHasKeys(ctx, "NMA TLS", o.Vdb.Spec.NMATLSSecret, keyNames); verrors.IsReconcileAborted(res, err) {
-			return res, err
+	return o.checkTLSSecrets(ctx)
+}
+
+func (o *ObjReconciler) checkTLSSecrets(ctx context.Context) (ctrl.Result, error) {
+	tlsSecrets := map[string]string{
+		"NMA TLS":           o.Vdb.Spec.HTTPSNMATLSSecret,
+		"Client Server TLS": o.Vdb.Spec.ClientServerTLSSecret,
+	}
+	for k, tlsSecret := range tlsSecrets {
+		if tlsSecret != "" {
+			keyNames := []string{corev1.TLSPrivateKeyKey, corev1.TLSCertKey, paths.HTTPServerCACrtName}
+			if res, err := o.checkSecretHasKeys(ctx, k, tlsSecret, keyNames); verrors.IsReconcileAborted(res, err) {
+				return res, err
+			}
 		}
 	}
 
@@ -668,10 +683,10 @@ func (o *ObjReconciler) handleStatefulSetUpdate(ctx context.Context, sc *vapi.Su
 	// change it here.
 	expSts.Spec.VolumeClaimTemplates = curSts.Spec.VolumeClaimTemplates
 
-	// If the NMA deployment type is changing, we cannot do a rolling update for
-	// this change. All pods need to have the same NMA deployment type. So, we
-	// drop the old sts and create a fresh one.
-	if isNMADeploymentDifferent(curSts, expSts) {
+	// If the NMA deployment type or health check setting is changing,
+	// we cannot do a rolling update for this change. All pods need to have the
+	// same NMA deployment type. So, we drop the old sts and create a fresh one.
+	if isNMADeploymentDifferent(curSts, expSts) || isHealthCheckDifferent(curSts, expSts) {
 		o.Log.Info("Dropping then recreating statefulset", "Name", expSts.Name)
 		// Invalidate the pod facts cache since we are recreating a new sts
 		o.PFacts.Invalidate()
@@ -689,7 +704,7 @@ func (o *ObjReconciler) handleStatefulSetUpdate(ctx context.Context, sc *vapi.Su
 // reconcileNMACertConfigMap creates/updates the configmap that contains the tls
 // secret name
 func (o *ObjReconciler) reconcileNMACertConfigMap(ctx context.Context) error {
-	if vmeta.UseNMACertsMount(o.Vdb.Annotations) || !vmeta.EnableTLSCertsRotation(o.Vdb.Annotations) {
+	if !vmeta.UseTLSAuth(o.Vdb.Annotations) {
 		return nil
 	}
 	configMapName := names.GenNMACertConfigMap(o.Vdb)
@@ -708,24 +723,64 @@ func (o *ObjReconciler) reconcileNMACertConfigMap(ctx context.Context) error {
 		o.Log.Error(err, "failed to retrieve TLS cert secret configmap")
 		return err
 	}
-	if configMap.Data[builder.NMASecretNameEnv] == o.Vdb.Spec.NMATLSSecret &&
+	if configMap.Data[builder.NMASecretNameEnv] == o.Vdb.Spec.HTTPSNMATLSSecret &&
 		configMap.Data[builder.NMAClientSecretNameEnv] == o.Vdb.Spec.ClientServerTLSSecret &&
 		configMap.Data[builder.NMASecretNamespaceEnv] == o.Vdb.ObjectMeta.Namespace &&
-		configMap.Data[builder.NMAClientSecretNamespaceEnv] == o.Vdb.ObjectMeta.Namespace {
+		configMap.Data[builder.NMAClientSecretNamespaceEnv] == o.Vdb.ObjectMeta.Namespace &&
+		configMap.Data[builder.NMAClientSecretTLSModeEnv] == o.Vdb.GetNMAClientServerTLSMode() {
 		return nil
 	}
 
-	configMap.Data[builder.NMASecretNameEnv] = o.Vdb.Spec.NMATLSSecret
+	configMap.Data[builder.NMASecretNameEnv] = o.Vdb.Spec.HTTPSNMATLSSecret
 	configMap.Data[builder.NMASecretNamespaceEnv] = o.Vdb.ObjectMeta.Namespace
 	configMap.Data[builder.NMAClientSecretNameEnv] = o.Vdb.Spec.ClientServerTLSSecret
 	configMap.Data[builder.NMAClientSecretNamespaceEnv] = o.Vdb.ObjectMeta.Namespace
+	configMap.Data[builder.NMAClientSecretTLSModeEnv] = o.Vdb.GetNMAClientServerTLSMode()
 
 	err = o.Rec.GetClient().Update(ctx, configMap)
 	if err == nil {
-		o.Log.Info("updated tls cert secret configmap", "name", configMapName.Name, "nma-secret", o.Vdb.Spec.NMATLSSecret,
+		o.Log.Info("updated tls cert secret configmap", "name", configMapName.Name, "nma-secret", o.Vdb.Spec.HTTPSNMATLSSecret,
 			"clientserver-secret", o.Vdb.Spec.ClientServerTLSSecret)
 	}
 	return err
+}
+
+// reconcileTLSSecrets will update tls secrets
+func (o *ObjReconciler) reconcileTLSSecrets(ctx context.Context) error {
+	if !o.Vdb.IsCertRotationEnabled() {
+		return nil
+	}
+
+	tlsSecrets := []string{
+		o.Vdb.Spec.HTTPSNMATLSSecret,
+		o.Vdb.Spec.ClientServerTLSSecret,
+	}
+	for _, tlsSecret := range tlsSecrets {
+		err := o.updateOwnerReferenceInTLSSecret(ctx, tlsSecret)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// updateOwnerReferenceInTLSSecret gets a tls secret name and remove the vdb ownership.
+// This is to prevent an auto-generated secret to get deleted on vdb delete
+func (o *ObjReconciler) updateOwnerReferenceInTLSSecret(ctx context.Context, name string) error {
+	secretName := names.GenNamespacedName(o.Vdb, name)
+	secret := &corev1.Secret{}
+	err := o.Rec.GetClient().Get(ctx, secretName, secret)
+	if err != nil {
+		return err
+	}
+	if o.removeOwnerReference(secret) {
+		if err := o.Rec.GetClient().Update(ctx, secret); err != nil {
+			return err
+		}
+		o.Log.Info("Removed owner reference from secret", "secret", secret.Name)
+	}
+	return nil
 }
 
 // updateSts will patch an existing statefulset.
@@ -815,6 +870,28 @@ func isNMADeploymentDifferent(sts1, sts2 *appsv1.StatefulSet) bool {
 	return vk8s.HasNMAContainer(&sts1.Spec.Template.Spec) != vk8s.HasNMAContainer(&sts2.Spec.Template.Spec)
 }
 
+// isHealthCheckDifferent will return true if the two stateful sets use different health checks
+func isHealthCheckDifferent(sts1, sts2 *appsv1.StatefulSet) bool {
+	spec1 := sts1.Spec.Template.Spec
+	spec2 := sts2.Spec.Template.Spec
+	var livenessProbe1, livenessProbe2, startupProbe1, startupProbe2 *corev1.Probe
+	for i := 0; i < len(spec1.Containers); i++ {
+		if spec1.Containers[i].Name == names.ServerContainer {
+			livenessProbe1 = spec1.Containers[i].LivenessProbe
+			startupProbe1 = spec1.Containers[i].StartupProbe
+			break
+		}
+	}
+	for i := 0; i < len(spec2.Containers); i++ {
+		if spec2.Containers[i].Name == names.ServerContainer {
+			livenessProbe2 = spec2.Containers[i].LivenessProbe
+			startupProbe2 = spec2.Containers[i].StartupProbe
+			break
+		}
+	}
+	return !reflect.DeepEqual(livenessProbe1, livenessProbe2) || !reflect.DeepEqual(startupProbe1, startupProbe2)
+}
+
 // checkIfReadyForStsUpdate will check whether it is okay to proceed
 // with the statefulset update.  This checks if we are deleting pods/sts and if
 // what we are deleting has had proper cleanup. In the case of admintools, failure to
@@ -861,4 +938,24 @@ func (o *ObjReconciler) getZombieSubclusters(ctx context.Context) ([]vapi.Subclu
 		}
 	}
 	return subclusters, nil
+}
+
+// removeOwnerReference removes the vdb owner reference from the given secret
+func (o *ObjReconciler) removeOwnerReference(secret *corev1.Secret) bool {
+	newRefs := []metav1.OwnerReference{}
+	changed := false
+
+	for _, ref := range secret.OwnerReferences {
+		if ref.UID != o.Vdb.UID {
+			newRefs = append(newRefs, ref)
+		} else {
+			changed = true
+		}
+	}
+
+	if changed {
+		secret.OwnerReferences = newRefs
+	}
+
+	return changed
 }

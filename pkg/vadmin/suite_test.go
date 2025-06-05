@@ -98,40 +98,44 @@ type MockVClusterOps struct {
 
 // const variables used for vcluster-ops unit test
 const (
-	TestDBName             = "test-db"
-	TestTargetDBName       = "test-target-db"
-	TestPassword           = "test-pw"
-	TestTargetPassword     = "test-target-pw"
-	TestTargetUserName     = "test-target-user"
-	TestAsync              = true
-	TestTableOrSchemaName  = "test-table"
-	TestIncludePattern     = "test.*"
-	TestExcludePattern     = "*.test"
-	TestTargetNamespace    = "test-namespace"
-	TestIPv6               = false
-	TestParm               = "Parm1"
-	TestValue              = "val1"
-	TestInitiatorIP        = "10.10.10.10"
-	TestSourceIP           = "10.10.10.10"
-	TestTargetIP           = "10.10.10.11"
-	TestSourceTLSConfig    = "test-tls-config"
-	TestIsEon              = true
-	TestCommunalPath       = "/communal"
-	TestNMATLSSecret       = "test-secret"
-	TestArchiveName        = "test-archive-name"
-	TestStartTimestamp     = "2006-01-02"
-	TestEndTimestamp       = "2006-01-02 15:04:05"
-	TestConfigParamSandbox = "test-config-param-sandbox"
-	TestConfigParamName    = "test-config-param-name"
-	TestConfigParamValue   = "test-config-param-value"
-	TestConfigParamLevel   = "test-config-param-level"
-	TestTransactionID      = 1234567890123456
-	TestPollingKey         = "test-polling-key"
-	TestPollingCert        = "test-polling-cert"
-	TestPollingCaCert      = "test-polling-cacert"
-	TestKeyConfig          = "test-key-config"
-	TestCertConfig         = "test-cert-config"
-	TestCaCertConfig       = "test-cacert-config"
+	TestDBName              = "test-db"
+	TestTargetDBName        = "test-target-db"
+	TestPassword            = "test-pw"
+	TestTargetPassword      = "test-target-pw"
+	TestTargetUserName      = "test-target-user"
+	TestAsync               = true
+	TestTableOrSchemaName   = "test-table"
+	TestIncludePattern      = "test.*"
+	TestExcludePattern      = "*.test"
+	TestTargetNamespace     = "test-namespace"
+	TestIPv6                = false
+	TestParm                = "Parm1"
+	TestValue               = "val1"
+	TestInitiatorIP         = "10.10.10.10"
+	TestSourceIP            = "10.10.10.10"
+	TestTargetIP            = "10.10.10.11"
+	TestSourceTLSConfig     = "test-tls-config"
+	TestIsEon               = true
+	TestCommunalPath        = "/communal"
+	TestNMATLSSecret        = "test-secret"
+	TestClientServerSecret  = "test-client-server"
+	TestArchiveName         = "test-archive-name"
+	TestStartTimestamp      = "2006-01-02"
+	TestEndTimestamp        = "2006-01-02 15:04:05"
+	TestConfigParamSandbox  = "test-config-param-sandbox"
+	TestConfigParamName     = "test-config-param-name"
+	TestConfigParamValue    = "test-config-param-value"
+	TestConfigParamLevel    = "test-config-param-level"
+	TestTransactionID       = 1234567890123456
+	TestPollingKey          = "test-polling-key"
+	TestPollingCert         = "test-polling-cert"
+	TestPollingCaCert       = "test-polling-cacert"
+	TestKeyConfig           = "test-key-config"
+	TestCertConfig          = "test-cert-config"
+	TestCaCertConfig        = "test-cacert-config"
+	TestHTTPSTLSMode        = "test-tls-mode"
+	TestClientServerTLSMode = "test-client-server-tls-mode"
+	TestNamespace           = "default"
 )
 
 var TestCommunalStorageParams = map[string]string{"awsauth": "test-auth", "awsconnecttimeout": "10"}
@@ -370,7 +374,7 @@ func (m *MockVClusterOps) VPollSubclusterState(_ *vops.VPollSubclusterStateOptio
 // purposes. This uses a standard function to setup the API.
 func mockVClusterOpsDispatcher() *VClusterOps {
 	vdb := vapi.MakeVDB()
-	vdb.Spec.NMATLSSecret = TestNMATLSSecret
+	vdb.Spec.HTTPSNMATLSSecret = TestNMATLSSecret
 	// We use a function to construct the VClusterProvider. This is called
 	// ahead of each API rather than once so that we can setup a custom
 	// logger for each API call.
@@ -391,9 +395,9 @@ func mockVClusterOpsDispatcherWithCustomSetup(vdb *vapi.VerticaDB,
 
 func mockVclusteropsDispatcherWithTarget() *VClusterOps {
 	vdb := vapi.MakeVDB()
-	vdb.Spec.NMATLSSecret = TestNMATLSSecret
+	vdb.Spec.HTTPSNMATLSSecret = TestNMATLSSecret
 	targetVDB := vapi.MakeVDB()
-	targetVDB.Spec.NMATLSSecret = TestNMATLSSecret
+	targetVDB.Spec.HTTPSNMATLSSecret = TestNMATLSSecret
 	// We use a function to construct the VClusterProvider. This is called
 	// ahead of each API rather than once so that we can setup a custom
 	// logger for each API call.

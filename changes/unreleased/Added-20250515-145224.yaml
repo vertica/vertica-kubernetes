@@ -1,0 +1,5 @@
+kind: Added
+body: HTTPSNMATLSSecret, HTTPSTLSMode, ClientServerTLSMode fields are added to VDB to support mTLS
+time: 2025-05-15T14:52:24.802270572-04:00
+custom:
+    Issue: "1198"

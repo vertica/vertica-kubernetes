@@ -664,7 +664,7 @@ var _ = Describe("obj_reconcile", func() {
 
 		It("should requeue if vclusterops is enabled but HTTP secret isn't setup properly", func() {
 			vdb := vapi.MakeVDB()
-			vdb.Spec.NMATLSSecret = ""
+			vdb.Spec.HTTPSNMATLSSecret = ""
 			vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
 			createCrd(vdb, false)
 			defer deleteCrd(vdb)
@@ -672,7 +672,7 @@ var _ = Describe("obj_reconcile", func() {
 			runReconciler(vdb, ctrl.Result{Requeue: true}, ObjReconcileModeAll)
 
 			// Having a secret name, but not created should force a requeue too
-			vdb.Spec.NMATLSSecret = "dummy1"
+			vdb.Spec.HTTPSNMATLSSecret = "dummy1"
 			runReconciler(vdb, ctrl.Result{Requeue: true}, ObjReconcileModeAll)
 		})
 
@@ -814,9 +814,9 @@ var _ = Describe("obj_reconcile", func() {
 			vdb := vapi.MakeVDB()
 			vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
 			vdb.Annotations[vmeta.VersionAnnotation] = vapi.VcluseropsAsDefaultDeploymentMethodMinVersion
-			vdb.Spec.NMATLSSecret = "tls-abcdef"
-			test.CreateFakeTLSSecret(ctx, vdb, k8sClient, vdb.Spec.NMATLSSecret)
-			defer test.DeleteSecret(ctx, k8sClient, vdb.Spec.NMATLSSecret)
+			vdb.Spec.HTTPSNMATLSSecret = "tls-abcdef"
+			test.CreateFakeTLSSecret(ctx, vdb, k8sClient, vdb.Spec.HTTPSNMATLSSecret)
+			defer test.DeleteSecret(ctx, k8sClient, vdb.Spec.HTTPSNMATLSSecret)
 			createCrd(vdb, true)
 			defer deleteCrd(vdb)
 
@@ -986,24 +986,9 @@ var _ = Describe("obj_reconcile", func() {
 			deleteProxy(ctx, vdb, vpName, cmName)
 		})
 
-		It("should be a no-op if UseNMACertsMount is enabled", func() {
+		It("should be a no-op if EnableTLSAuthAnnotation is disabled", func() {
 			vdb := vapi.MakeVDB()
-			vdb.Annotations[vmeta.MountNMACertsAnnotation] = trueStr
-			vdb.Annotations[vmeta.EnableTLSCertsRotationAnnotation] = falseStr
-			test.CreateVDB(ctx, k8sClient, vdb)
-			defer test.DeleteVDB(ctx, k8sClient, vdb)
-
-			pfacts := podfacts.MakePodFacts(vdbRec, &cmds.FakePodRunner{}, logger, TestPassword)
-			objr := MakeObjReconciler(vdbRec, logger, vdb, &pfacts, ObjReconcileModeAll)
-			r := objr.(*ObjReconciler)
-			err := r.reconcileNMACertConfigMap(ctx)
-			Expect(err).Should(Succeed())
-		})
-
-		It("should be a no-op if TLSCertsRotation is disabled", func() {
-			vdb := vapi.MakeVDB()
-			vdb.Annotations[vmeta.MountNMACertsAnnotation] = falseStr
-			vdb.Annotations[vmeta.EnableTLSCertsRotationAnnotation] = falseStr
+			vdb.Annotations[vmeta.EnableTLSAuthAnnotation] = falseStr
 			test.CreateVDB(ctx, k8sClient, vdb)
 			defer test.DeleteVDB(ctx, k8sClient, vdb)
 
@@ -1016,10 +1001,9 @@ var _ = Describe("obj_reconcile", func() {
 
 		It("should create the ConfigMap if it does not exist", func() {
 			vdb := vapi.MakeVDB()
-			vdb.Annotations[vmeta.MountNMACertsAnnotation] = falseStr
-			vdb.Annotations[vmeta.EnableTLSCertsRotationAnnotation] = trueStr
+			vdb.Annotations[vmeta.EnableTLSAuthAnnotation] = trueStr
 			const existing = "existing-secret"
-			vdb.Spec.NMATLSSecret = existing
+			vdb.Spec.HTTPSNMATLSSecret = existing
 			test.CreateVDB(ctx, k8sClient, vdb)
 			defer test.DeleteVDB(ctx, k8sClient, vdb)
 
@@ -1039,15 +1023,14 @@ var _ = Describe("obj_reconcile", func() {
 			// Verify that the ConfigMap was created
 			err = k8sClient.Get(ctx, configMapName, configMap)
 			Expect(err).Should(Succeed())
-			Expect(configMap.Data[builder.NMASecretNameEnv]).Should(Equal(vdb.Spec.NMATLSSecret))
+			Expect(configMap.Data[builder.NMASecretNameEnv]).Should(Equal(vdb.Spec.HTTPSNMATLSSecret))
 		})
 
 		It("should update the ConfigMap if the secret name changes", func() {
 			vdb := vapi.MakeVDB()
-			vdb.Annotations[vmeta.MountNMACertsAnnotation] = falseStr
-			vdb.Annotations[vmeta.EnableTLSCertsRotationAnnotation] = trueStr
+			vdb.Annotations[vmeta.EnableTLSAuthAnnotation] = trueStr
 			const initial = "initial-secret"
-			vdb.Spec.NMATLSSecret = initial
+			vdb.Spec.HTTPSNMATLSSecret = initial
 			test.CreateVDB(ctx, k8sClient, vdb)
 			defer test.DeleteVDB(ctx, k8sClient, vdb)
 
@@ -1056,7 +1039,7 @@ var _ = Describe("obj_reconcile", func() {
 			Expect(k8sClient.Create(ctx, configMap)).Should(Succeed())
 			defer deleteConfigMap(ctx, vdb, nm.Name)
 
-			vdb.Spec.NMATLSSecret = "updated-secret"
+			vdb.Spec.HTTPSNMATLSSecret = "updated-secret"
 			Expect(k8sClient.Update(ctx, vdb)).Should(Succeed())
 
 			pfacts := podfacts.MakePodFacts(vdbRec, &cmds.FakePodRunner{}, logger, TestPassword)
@@ -1069,6 +1052,33 @@ var _ = Describe("obj_reconcile", func() {
 			err = k8sClient.Get(ctx, nm, configMap)
 			Expect(err).Should(Succeed())
 			Expect(configMap.Data[builder.NMASecretNameEnv]).Should(Equal("updated-secret"))
+		})
+
+		It("should remove ownerReference from tls secret", func() {
+			vdb := vapi.MakeVDB()
+			vdb.Spec.HTTPSNMATLSSecret = "test-secret"
+			vdb.Annotations[vmeta.EnableTLSAuthAnnotation] = trueStr
+			createCrd(vdb, false)
+			defer deleteCrd(vdb)
+			secret := test.BuildTLSSecret(vdb, vdb.Spec.HTTPSNMATLSSecret, test.TestKeyValue, test.TestCertValue, test.TestCaCertValue)
+			secret.OwnerReferences = []metav1.OwnerReference{
+				{UID: vdb.GetUID(), Name: vdb.Name, Kind: vapi.VerticaDBKind, APIVersion: vapi.GroupVersion.String()},
+			}
+			Expect(k8sClient.Create(ctx, secret)).Should(Succeed())
+			defer test.DeleteSecret(ctx, k8sClient, vdb.Spec.HTTPSNMATLSSecret)
+
+			o := &ObjReconciler{
+				Rec: vdbRec,
+				Vdb: vdb,
+				Log: logger,
+			}
+			err := o.updateOwnerReferenceInTLSSecret(ctx, vdb.Spec.HTTPSNMATLSSecret)
+			Expect(err).Should(Succeed())
+
+			fetchedSecret := &corev1.Secret{}
+			secretName := names.GenNamespacedName(o.Vdb, vdb.Spec.HTTPSNMATLSSecret)
+			Expect(k8sClient.Get(ctx, secretName, fetchedSecret)).Should(Succeed())
+			Expect(len(fetchedSecret.OwnerReferences)).Should(Equal(0))
 		})
 	})
 })

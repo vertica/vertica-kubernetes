@@ -29,24 +29,24 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-// retrieveNMACerts will retrieve the certs from NMATLSSecret for calling NMA endpoints
-func (v *VClusterOps) retrieveNMACerts(ctx context.Context) (*HTTPSCerts, error) {
-	return v.retrieveNMACertsWithTarget(ctx, false)
+// retrieveHTTPSCerts will retrieve the certs from HTTPSNMATLSSecret for calling NMA endpoints
+func (v *VClusterOps) retrieveHTTPSCerts(ctx context.Context) (*HTTPSCerts, error) {
+	return v.retrieveHTTPSCertsWithTarget(ctx, false)
 }
 
-// retrieveTargetNMACerts will retrieve the certs from NMATLSSecret for calling target NMA endpoints
-func (v *VClusterOps) retrieveTargetNMACerts(ctx context.Context) (*HTTPSCerts, error) {
-	return v.retrieveNMACertsWithTarget(ctx, true)
+// retrieveTargetHTTPSCerts will retrieve the certs from HTTPSNMATLSSecret for calling target NMA endpoints
+func (v *VClusterOps) retrieveTargetHTTPSCerts(ctx context.Context) (*HTTPSCerts, error) {
+	return v.retrieveHTTPSCertsWithTarget(ctx, true)
 }
 
-func (v *VClusterOps) retrieveNMACertsWithTarget(ctx context.Context, forTarget bool) (*HTTPSCerts, error) {
+func (v *VClusterOps) retrieveHTTPSCertsWithTarget(ctx context.Context, forTarget bool) (*HTTPSCerts, error) {
 	vdb := v.VDB
 	if forTarget {
 		vdb = v.TargetVDB
 	}
 
 	// Determine the secret name
-	secretName, err := getNMATLSSecretName(vdb)
+	secretName, err := getHTTPSTLSSecretName(vdb)
 	if err != nil {
 		v.Log.Error(err, "failed to get nma secret name")
 		return nil, err
@@ -72,15 +72,15 @@ func retrieveNMACerts(ctx context.Context, fetcher *cloud.SecretFetcher, vdb *va
 
 	tlsKey, ok := tlsCerts[corev1.TLSPrivateKeyKey]
 	if !ok {
-		return nil, fmt.Errorf("key %s is missing in the secret %s", corev1.TLSPrivateKeyKey, vdb.Spec.NMATLSSecret)
+		return nil, fmt.Errorf("key %s is missing in the secret %s", corev1.TLSPrivateKeyKey, vdb.Spec.HTTPSNMATLSSecret)
 	}
 	tlsCrt, ok := tlsCerts[corev1.TLSCertKey]
 	if !ok {
-		return nil, fmt.Errorf("cert %s is missing in the secret %s", corev1.TLSCertKey, vdb.Spec.NMATLSSecret)
+		return nil, fmt.Errorf("cert %s is missing in the secret %s", corev1.TLSCertKey, vdb.Spec.HTTPSNMATLSSecret)
 	}
 	tlsCaCrt, ok := tlsCerts[corev1.ServiceAccountRootCAKey]
 	if !ok {
-		return nil, fmt.Errorf("ca cert %s is missing in the secret %s", corev1.ServiceAccountRootCAKey, vdb.Spec.NMATLSSecret)
+		return nil, fmt.Errorf("ca cert %s is missing in the secret %s", corev1.ServiceAccountRootCAKey, vdb.Spec.HTTPSNMATLSSecret)
 	}
 	return &HTTPSCerts{
 		Key:    string(tlsKey),
@@ -133,21 +133,27 @@ func (v *VClusterOps) setAuthentication(opts *vops.DatabaseOptions, username str
 	opts.Cert = certs.Cert
 	opts.CaCert = certs.CaCert
 	opts.UserName = username
+	// When cert rotation is not enabled, we always use password authentication for both https and nma.
+	// When cert rotation is enabled and VCluster doesn't need cert for client server auth,
+	// we use password authentication for NMA.
 	if !v.VDB.IsCertRotationEnabled() {
 		opts.Password = password
+	} else if !v.VDB.IsCertNeededForClientServerAuth() {
+		opts.Password = password
+		opts.UsePasswordForSQLClientOnly = true
 	}
 }
 
-// getNMATLSSecretName returns the name of the secret that stores TLS cert
-// when tls cert is NOT used, it returns vdb.Spec.NMATLSSecret. This includes
+// getHTTPSTLSSecretName returns the name of the secret that stores TLS cert
+// when tls cert is NOT used, it returns vdb.Spec.HTTPSNMATLSSecret. This includes
 // the time before a vdb is created
 // when tls cert is used, it returns secert name saved in annotation
-func getNMATLSSecretName(vdb *vapi.VerticaDB) (string, error) {
+func getHTTPSTLSSecretName(vdb *vapi.VerticaDB) (string, error) {
 	secretName := ""
 	if vdb.IsCertRotationEnabled() && vdb.IsStatusConditionTrue(vapi.DBInitialized) {
-		secretName = vdb.GetNMATLSSecretNameInUse()
+		secretName = vdb.GetHTTPSTLSSecretNameInUse()
 	} else {
-		secretName = vdb.Spec.NMATLSSecret
+		secretName = vdb.Spec.HTTPSNMATLSSecret
 	}
 	if secretName == "" {
 		return "", fmt.Errorf("failed to retrieve nma secret name")

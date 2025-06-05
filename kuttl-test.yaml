@@ -38,6 +38,9 @@ testDirs:
   - tests/e2e-leg-8-online-vcluster
   - tests/e2e-leg-9
   - tests/e2e-leg-10
+  - tests/e2e-leg-10-sandbox-upgrade
+  - tests/e2e-leg-10-shutdown
+  - tests/e2e-leg-10-vrep
   - tests/e2e-leg-11
   - tests/e2e-leg-12
   - tests/e2e-leg-13
@@ -85,3 +88,4 @@ commands:
   - script: if [ "$NEED_PROMETHEUS" = "true" ]; then make deploy-prometheus-adapter; fi
   - script: make undeploy-keda || true
   - script: if [ "$NEED_PROMETHEUS" = "true" ]; then make deploy-keda; fi
+  - script: if [ "$USE_CERT" != "true" ]; then cat tests/e2e-leg-6-vc-only/http-generated-certs/delete-cr-errors.yaml > tests/e2e-leg-6-vc-only/http-generated-certs/95-errors.yaml; fi

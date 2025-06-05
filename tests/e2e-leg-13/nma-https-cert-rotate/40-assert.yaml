@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: Pod
 metadata:
-  name: v-tls-certs-sc1-0
+  name: v-nma-https-cert-rotate-sc1-0
 status:
   containerStatuses:
   - name: nma
@@ -16,7 +16,7 @@ status:
 apiVersion: v1
 kind: Pod
 metadata:
-  name: v-tls-certs-sc1-1
+  name: v-nma-https-cert-rotate-sc1-1
 status:
   containerStatuses:
   - name: nma
@@ -31,7 +31,7 @@ status:
 apiVersion: v1
 kind: Pod
 metadata:
-  name: v-tls-certs-sc1-2
+  name: v-nma-https-cert-rotate-sc1-2
 status:
   containerStatuses:
   - name: nma
@@ -46,9 +46,9 @@ status:
 apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
-  name: v-tls-certs
+  name: v-nma-https-cert-rotate
 status:
   secretRefs:
     - name: custom-cert
-      type: NMATLSSecretType
+      type: HTTPSTLSSecretType
     - type: ClientServerTLSSecretType
