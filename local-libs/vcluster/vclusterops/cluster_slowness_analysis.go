@@ -459,6 +459,8 @@ func (opt *VClusterHealthOptions) getSessionTxnInfo(sessionIDs, txnIDs map[strin
 		logger.PrintInfo("No session or transaction IDs found, skipping retrieval")
 		return sessionMap, txnMap, nil
 	}
+	opt.StartTime = ""
+	opt.EndTime = "" // reset time range to avoid unnecessary filtering for sessions and transactions
 	sessions, err := opt.getSessionStarts(logger, upHosts, sessionStr)
 	if err != nil {
 		return sessionMap, txnMap, fmt.Errorf("failed to get session starts: %w", err)
