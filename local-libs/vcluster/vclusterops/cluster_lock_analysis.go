@@ -407,9 +407,7 @@ func (opt *VClusterHealthOptions) buildLockCascadeGraph(logger vlog.Printer,
 	})
 
 	// fill session and transaction info
-	if opt.NeedSessionTnxInfo {
-		opt.fillEventSessionAndTxnInfo(logger)
-	}
+	opt.fillEventSessionAndTxnInfo(logger, upHosts)
 	return nil
 }
 
@@ -469,10 +467,10 @@ func extractLockHoldEvents(nodeLockHoldSeries []parsedEvent) []dcLockReleases {
 	return lockHoldEvents
 }
 
-func (opt *VClusterHealthOptions) fillEventSessionAndTxnInfo(logger vlog.Printer) {
+func (opt *VClusterHealthOptions) fillEventSessionAndTxnInfo(logger vlog.Printer, upHosts []string) {
 	events := opt.LockEventCascade
-	sessionMap := make(map[string]dcSessionStarts)
-	txnMap := make(map[string]dcTransactionStarts)
+	sessionMap := make(map[string]any)
+	txnMap := make(map[string]any)
 	// get all session id and txn id from the lock events
 	for i := range events {
 		event := &events[i]
@@ -485,6 +483,37 @@ func (opt *VClusterHealthOptions) fillEventSessionAndTxnInfo(logger vlog.Printer
 			holdEvent := &(*event.LockHoldEvents)[j]
 			sessionMap[holdEvent.SessionID] = dcSessionStarts{}
 			txnMap[holdEvent.TxnID] = dcTransactionStarts{}
+		}
+	}
+
+	sessionInfo, txnInfo, err := opt.getSessionTxnInfo(
+		sessionMap, txnMap, logger, upHosts)
+	if err != nil {
+		logger.Error(err, "Failed to get session and transaction info for lock events")
+		return
+	}
+
+	for i := range events {
+		event := &events[i]
+		// fill session and txn info for lock wait events
+		for j := range *event.LockWaitEvents {
+			waitEvent := &(*event.LockWaitEvents)[j]
+			if s, ok := sessionInfo[waitEvent.SessionID]; ok {
+				waitEvent.SessionInfo = s
+			}
+			if t, ok := txnInfo[waitEvent.TxnID]; ok {
+				waitEvent.TxnInfo = t
+			}
+		}
+		// fill session and txn info for lock hold events
+		for j := range *event.LockHoldEvents {
+			holdEvent := &(*event.LockHoldEvents)[j]
+			if s, ok := sessionInfo[holdEvent.SessionID]; ok {
+				holdEvent.SessionInfo = s
+			}
+			if t, ok := txnInfo[holdEvent.TxnID]; ok {
+				holdEvent.TxnInfo = t
+			}
 		}
 	}
 	logger.Info("Filling session and transaction info for lock events",
