@@ -21,7 +21,9 @@ import (
 
 	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
+	"github.com/vertica/vertica-kubernetes/pkg/builder"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
+	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/secrets"
 
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
@@ -87,7 +89,10 @@ func (h *HTTPSCertRotationReconciler) Reconcile(ctx context.Context, _ *ctrl.Req
 	if changeTLS == noTLSChange {
 		return ctrl.Result{}, nil
 	}
-
+	res, err := h.checkConfigMap(ctx, h.Vdb.Spec.HTTPSNMATLSSecret)
+	if verrors.IsReconcileAborted(res, err) {
+		return res, err
+	}
 	h.Log.Info("start https cert rotation")
 	cond := vapi.MakeCondition(vapi.TLSCertRotationInProgress, metav1.ConditionTrue, "InProgress")
 	if err2 := vdbstatus.UpdateCondition(ctx, h.VRec.GetClient(), h.Vdb, cond); err2 != nil {
@@ -95,7 +100,7 @@ func (h *HTTPSCertRotationReconciler) Reconcile(ctx context.Context, _ *ctrl.Req
 		return ctrl.Result{}, err2
 	}
 
-	err := h.PFacts.Collect(ctx, h.Vdb)
+	err = h.PFacts.Collect(ctx, h.Vdb)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -118,6 +123,22 @@ func (h *HTTPSCertRotationReconciler) Reconcile(ctx context.Context, _ *ctrl.Req
 	err2 = h.handleConditions(ctx, changeTLS)
 	if err2 != nil {
 		return ctrl.Result{}, err2
+	}
+	return ctrl.Result{}, nil
+}
+
+func (h *HTTPSCertRotationReconciler) checkConfigMap(ctx context.Context, newSecretName string) (ctrl.Result, error) {
+	configMapName := names.GenNMACertConfigMap(h.Vdb)
+	configMap := &corev1.ConfigMap{}
+	err := h.VRec.GetClient().Get(ctx, configMapName, configMap)
+	if err != nil {
+		h.Log.Info("failed to retrieve configmap for rotation. will retry")
+		return ctrl.Result{Requeue: true}, nil
+	}
+	if configMap.Data[builder.NMASecretNamespaceEnv] != h.Vdb.GetObjectMeta().GetNamespace() ||
+		configMap.Data[builder.NMASecretNameEnv] != newSecretName {
+		h.Log.Info(newSecretName + " not found in configmap. will retry")
+		return ctrl.Result{Requeue: true}, nil
 	}
 	return ctrl.Result{}, nil
 }
