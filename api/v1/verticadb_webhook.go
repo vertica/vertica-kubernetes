@@ -99,7 +99,7 @@ func (v *VerticaDB) Default() {
 	if v.Spec.Communal.Endpoint == "" && v.IsGCloud() {
 		v.Spec.Communal.Endpoint = DefaultGCloudEndpoint
 	}
-	// Default s3 additional buckets configurations
+	// Default additional buckets configurations
 	if v.HasAdditionalBuckets() {
 		for i := range v.Spec.AdditionalBuckets {
 			bucket := v.Spec.AdditionalBuckets[i]
@@ -109,6 +109,14 @@ func (v *VerticaDB) Default() {
 				}
 				if bucket.Endpoint == "" {
 					v.Spec.AdditionalBuckets[i].Endpoint = DefaultS3Endpoint
+				}
+			}
+			if strings.HasPrefix(bucket.Path, GCloudPrefix) {
+				if bucket.Region == "" {
+					v.Spec.AdditionalBuckets[i].Region = DefaultGCloudRegion
+				}
+				if bucket.Endpoint == "" {
+					v.Spec.AdditionalBuckets[i].Endpoint = DefaultGCloudEndpoint
 				}
 			}
 		}
