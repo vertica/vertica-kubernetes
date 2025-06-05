@@ -99,31 +99,10 @@ func (v *VerticaDB) Default() {
 	if v.Spec.Communal.Endpoint == "" && v.IsGCloud() {
 		v.Spec.Communal.Endpoint = DefaultGCloudEndpoint
 	}
-	// Default additional buckets configurations
-	if v.HasAdditionalBuckets() {
-		for i := range v.Spec.AdditionalBuckets {
-			bucket := v.Spec.AdditionalBuckets[i]
-			if strings.HasPrefix(bucket.Path, S3Prefix) {
-				if bucket.Region == "" {
-					v.Spec.AdditionalBuckets[i].Region = DefaultS3Region
-				}
-				if bucket.Endpoint == "" {
-					v.Spec.AdditionalBuckets[i].Endpoint = DefaultS3Endpoint
-				}
-			}
-			if strings.HasPrefix(bucket.Path, GCloudPrefix) {
-				if bucket.Region == "" {
-					v.Spec.AdditionalBuckets[i].Region = DefaultGCloudRegion
-				}
-				if bucket.Endpoint == "" {
-					v.Spec.AdditionalBuckets[i].Endpoint = DefaultGCloudEndpoint
-				}
-			}
-		}
-	}
 	if v.Spec.TemporarySubclusterRouting != nil {
 		v.Spec.TemporarySubclusterRouting.Template.Type = SecondarySubcluster
 	}
+	v.setDefaultAdditionalBuckets()
 	v.setDefaultServiceName()
 	v.setDefaultSandboxImages()
 	v.setDefaultProxy()
@@ -2350,6 +2329,32 @@ func (v *VerticaDB) hasValidTLSMode(tlsModeToValidate, fieldName string, allErrs
 		}
 	}
 	return allErrs
+}
+
+// setDefaultAdditionalBuckets sets default additional buckets configurations
+func (v *VerticaDB) setDefaultAdditionalBuckets() {
+	if !v.HasAdditionalBuckets() {
+		return
+	}
+	for i := range v.Spec.AdditionalBuckets {
+		bucket := v.Spec.AdditionalBuckets[i]
+		if strings.HasPrefix(bucket.Path, S3Prefix) {
+			if bucket.Region == "" {
+				v.Spec.AdditionalBuckets[i].Region = DefaultS3Region
+			}
+			if bucket.Endpoint == "" {
+				v.Spec.AdditionalBuckets[i].Endpoint = DefaultS3Endpoint
+			}
+		}
+		if strings.HasPrefix(bucket.Path, GCloudPrefix) {
+			if bucket.Region == "" {
+				v.Spec.AdditionalBuckets[i].Region = DefaultGCloudRegion
+			}
+			if bucket.Endpoint == "" {
+				v.Spec.AdditionalBuckets[i].Endpoint = DefaultGCloudEndpoint
+			}
+		}
+	}
 }
 
 // setDefaultServiceName will explicitly set the serviceName in any subcluster
