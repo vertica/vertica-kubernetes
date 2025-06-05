@@ -14,7 +14,7 @@
 apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 delete:
-  - apiVersion: vertica.com/v1beta1
+  - apiVersion: vertica.com/v1
     kind: VerticaDB
   - apiVersion: vertica.com/v1beta1
     kind: EventTrigger

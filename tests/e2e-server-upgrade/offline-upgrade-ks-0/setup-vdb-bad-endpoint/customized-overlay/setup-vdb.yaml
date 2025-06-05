@@ -11,10 +11,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1beta1
+apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
   name: v-base-upgrade
+  annotations:
+    vertica.com/include-uid-in-path: "true"
+    vertica.com/k-safety: "0"
+    # Set requeueTime since we are intentionally failing.  This prevents the
+    # exponential backoff kicking in, which can cause the test to timeout.
+    vertica.com/requeue-time: "5"
 spec:
   image: wrong-image
   imagePullPolicy: IfNotPresent
@@ -25,10 +31,6 @@ spec:
     requestSize: 100Mi
   dbName: verticadb
   shardCount: 11
-  kSafety: "0"
   subclusters:
     - name: sc1
       size: 2
-  # Set requeueTime since we are intentionally failing.  This prevents the
-  # exponential backoff kicking in, which can cause the test to timeout.
-  requeueTime: 5
