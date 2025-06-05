@@ -17,6 +17,7 @@ metadata:
   name: v-additional-buckets
   annotations:
     vertica.com/include-uid-in-path: "true"
+    vertica.com/superuser-name: "dbadmin"
 spec:
   image: kustomize-vertica-image
   initPolicy: CreateSkipPackageInstall
