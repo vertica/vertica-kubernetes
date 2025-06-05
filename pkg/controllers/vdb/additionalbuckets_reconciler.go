@@ -189,8 +189,7 @@ func (a *AddtionalBucketsReconciler) updateAdditionalBuckets(ctx context.Context
 				`ALTER DATABASE default SET AzureStorageCredentials = '[{"accountName": %q, "accountKey": %q}]';`,
 				azureCreds.AccountName, azureCreds.AccountKey))
 			sb.WriteString(fmt.Sprintf(
-				`ALTER DATABASE default SET AzureStorageEndpointConfig = '[{"accountName": %q, "blobEndpoint": %q,
-                 "protocol":%q}]';`,
+				`ALTER DATABASE default SET AzureStorageEndpointConfig = '[{"accountName": %q, "blobEndpoint": %q, "protocol":%q}]';`,
 				azureCreds.AccountName, azureConfig.BlobEndpoint, azureConfig.Protocol))
 		}
 	}

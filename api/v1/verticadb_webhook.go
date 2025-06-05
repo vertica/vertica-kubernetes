@@ -99,6 +99,20 @@ func (v *VerticaDB) Default() {
 	if v.Spec.Communal.Endpoint == "" && v.IsGCloud() {
 		v.Spec.Communal.Endpoint = DefaultGCloudEndpoint
 	}
+	// Default s3 additional buckets configurations
+	if v.HasAdditionalBuckets() {
+		for i := range v.Spec.AdditionalBuckets {
+			bucket := v.Spec.AdditionalBuckets[i]
+			if strings.HasPrefix(bucket.Path, S3Prefix) {
+				if bucket.Region == "" {
+					v.Spec.AdditionalBuckets[i].Region = DefaultS3Region
+				}
+				if bucket.Endpoint == "" {
+					v.Spec.AdditionalBuckets[i].Endpoint = DefaultS3Endpoint
+				}
+			}
+		}
+	}
 	if v.Spec.TemporarySubclusterRouting != nil {
 		v.Spec.TemporarySubclusterRouting.Template.Type = SecondarySubcluster
 	}
@@ -421,12 +435,7 @@ func (v *VerticaDB) validateAdditionalBucketsTypes(allErrs field.ErrorList) fiel
 
 	for i, bucket := range v.Spec.AdditionalBuckets {
 		fieldPrefix := field.NewPath("spec").Child("additionalBuckets").Index(i)
-		// Make sure only one gs or azb defined
-		if gsFound || azbFound {
-			err := field.Invalid(fieldPrefix.Child("path"), bucket.Path,
-				"only one gs or azb additional storage can be defined")
-			allErrs = append(allErrs, err)
-		}
+
 		// Path must have a valid prefix
 		var bucketPrefix string
 		switch {
@@ -434,9 +443,21 @@ func (v *VerticaDB) validateAdditionalBucketsTypes(allErrs field.ErrorList) fiel
 			bucketPrefix = S3Prefix
 		case strings.HasPrefix(bucket.Path, GCloudPrefix):
 			bucketPrefix = GCloudPrefix
+			// Make sure only one gs defined
+			if gsFound {
+				err := field.Invalid(fieldPrefix.Child("path"), bucket.Path,
+					"only one gs additional storage can be defined")
+				allErrs = append(allErrs, err)
+			}
 			gsFound = true
 		case strings.HasPrefix(bucket.Path, AzurePrefix):
 			bucketPrefix = AzurePrefix
+			// Make sure only one azb defined
+			if azbFound {
+				err := field.Invalid(fieldPrefix.Child("path"), bucket.Path,
+					"only one azb additional storage can be defined")
+				allErrs = append(allErrs, err)
+			}
 			azbFound = true
 		default:
 			err := field.Invalid(fieldPrefix.Child("path"), bucket.Path,
@@ -446,8 +467,8 @@ func (v *VerticaDB) validateAdditionalBucketsTypes(allErrs field.ErrorList) fiel
 		// Protocol must be different from communal path if additional bucket is gs or azb
 		if (bucketPrefix == GCloudPrefix || bucketPrefix == AzurePrefix) && bucketPrefix == communalPrefix {
 			err := field.Invalid(fieldPrefix.Child("path"), bucket.Path,
-				fmt.Sprintf("additional bucket %q must use a different protocol than communal.path %q",
-					bucket.Path, v.Spec.Communal.Path))
+				fmt.Sprintf("additional bucket %q cannot use the same protocol as communal.path %q",
+					bucket.Path, communalPrefix))
 			allErrs = append(allErrs, err)
 		}
 	}

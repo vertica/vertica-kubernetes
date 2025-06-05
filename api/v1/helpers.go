@@ -39,6 +39,7 @@ import (
 
 const (
 	DefaultS3Region       = "us-east-1"
+	DefaultS3Endpoint     = "https://s3.amazonaws.com"
 	DefaultGCloudRegion   = "US-EAST1"
 	DefaultGCloudEndpoint = "https://storage.googleapis.com"
 
