@@ -85,7 +85,7 @@ var _ = Describe("httpstls_reconciler", func() {
 
 		initiatorPod := &podfacts.PodFact{}
 		tlsConfigReconciler := r.(*TLSConfigReconciler)
-		Expect(tlsConfigReconciler.runDDLToConfigureTLS(ctx, initiatorPod)).Should(Succeed())
+		Expect(tlsConfigReconciler.runDDLToConfigureTLS(ctx, initiatorPod, true)).Should(Succeed())
 	})
 
 })
