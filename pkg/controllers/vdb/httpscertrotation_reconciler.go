@@ -277,8 +277,12 @@ func GetAWSCertsConfig(vdb *vapi.VerticaDB) (keyConfig, certConfig, caCertConfig
 func (h *HTTPSCertRotationReconciler) updateTLSConfig() int {
 	currentSecretName := h.Vdb.GetHTTPSTLSSecretNameInUse()
 	newSecretName := h.Vdb.Spec.HTTPSNMATLSSecret
-	h.Log.Info(fmt.Sprintf("Starting rotation reconcile, currentSecretName - %s, newSecretName - %s, currentTLSMode - %s, newTLSMode - %s",
-		currentSecretName, newSecretName, h.Vdb.GetHTTPSTLSModeInUse(), h.Vdb.Spec.HTTPSTLSMode))
+h.Log.Info("Starting rotation reconcile",
+	"currentSecretName", currentSecretName,
+	"newSecretName", newSecretName,
+	"currentTLSMode", h.Vdb.GetHTTPSTLSModeInUse(),
+	"newTLSMode", h.Vdb.Spec.HTTPSTLSMode,
+)
 	// this condition excludes bootstrap scenario
 	certChanged := currentSecretName != "" && newSecretName != currentSecretName
 
