@@ -17,6 +17,7 @@ package vdb
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/go-logr/logr"
@@ -28,7 +29,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/secrets"
 	"github.com/vertica/vertica-kubernetes/pkg/security"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -57,6 +58,10 @@ func MakeTLSServerCertGenReconciler(vdbrecon *VerticaDBReconciler, log logr.Logg
 
 // Reconcile will create a TLS secret for the http server if one is missing
 func (h *TLSServerCertGenReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
+	secretStatus := h.Vdb.GetSecretStatus(httpsNMATLSSecret)
+	if secretStatus != nil && secretStatus.Name == h.Vdb.Spec.HTTPSNMATLSSecret {
+		return ctrl.Result{}, nil
+	}
 	if h.Vdb.Spec.NMATLSSecret != "" && h.Vdb.Spec.HTTPSNMATLSSecret == "" {
 		h.Log.Info("httpsNMATLSSecret is initialized from nmaTLSSecret")
 		err := h.setSecretNameInVDB(ctx, httpsNMATLSSecret, h.Vdb.Spec.NMATLSSecret)
@@ -93,9 +98,10 @@ func (h *TLSServerCertGenReconciler) reconcileOneSecret(secretFieldName, secretN
 			return nil
 		}
 		nm := names.GenNamespacedName(h.Vdb, secretName)
-		secret := corev1.Secret{}
-		err := h.VRec.Client.Get(ctx, nm, &secret)
-		if errors.IsNotFound(err) {
+		secret := &corev1.Secret{}
+		err := h.VRec.Client.Get(ctx, nm, secret)
+		// Secret defined but not found
+		if k8serrors.IsNotFound(err) {
 			sType := vapi.HTTPSTLSSecretType
 			if secretFieldName == clientServerTLSSecret {
 				sType = vapi.ClientServerTLSSecretType
@@ -107,11 +113,18 @@ func (h *TLSServerCertGenReconciler) reconcileOneSecret(secretFieldName, secretN
 				return nil
 			}
 			h.Log.Info(secretName+" is set but doesn't exist. Will recreate the secret.", "name", nm)
+			// Secret found but could not be read
 		} else if err != nil {
 			h.Log.Error(err, "failed to read tls secret", "secretName", secretName)
 			return err
+			// Successfully read secret
 		} else {
-			// Secret is filled in and exists. We can exit.
+			// Validate secret certificate
+			err = h.ValidateSecretCertificate(ctx, secret)
+			if err != nil {
+				return err
+			}
+			// Secret is filled in, exists, and is valid. We can exit.
 			return err
 		}
 	}
@@ -127,6 +140,10 @@ func (h *TLSServerCertGenReconciler) reconcileOneSecret(secretFieldName, secretN
 	if err != nil {
 		return err
 	}
+	if err := h.ValidateSecretCertificate(ctx, secret); err != nil {
+		return err
+	}
+
 	h.Log.Info(fmt.Sprintf("created certificate and secret %s for %s", secret.Name, secretFieldName))
 	return h.setSecretNameInVDB(ctx, secretFieldName, secret.ObjectMeta.Name)
 }
@@ -187,4 +204,30 @@ func (h *TLSServerCertGenReconciler) setSecretNameInVDB(ctx context.Context, sec
 		}
 		return h.VRec.Client.Update(ctx, h.Vdb)
 	})
+}
+
+// Validate that Secret contains a valid certificate
+// If certificate is expiring soon, alert user
+func (h *TLSServerCertGenReconciler) ValidateSecretCertificate(ctx context.Context, secret *corev1.Secret) error {
+	certPEM := secret.Data["tls.crt"]
+	if certPEM == nil {
+		return errors.New("failed to decode PEM block containing certificate")
+	}
+
+	err := security.ValidateCertificate(certPEM)
+	if err != nil {
+		return err
+	}
+
+	expiringSoon, expireTime, err := security.CheckCertificateExpiringSoon(certPEM)
+
+	if err != nil {
+		return err
+	}
+
+	if expiringSoon {
+		h.Log.Info("certificate is nearing expiration, consider regenerating", "expiresAt", expireTime)
+	}
+
+	return nil
 }
