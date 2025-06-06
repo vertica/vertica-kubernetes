@@ -89,6 +89,24 @@ func updateCatalogPathMapFromCatalogEditor(hosts []string, nmaVDB *nmaVDatabase,
 	return nil
 }
 
+// populate vdb from nmaVdb
+func populateVdbFromNMACatalogEditor(vdb *VCoordinationDatabase, nmaVdb *nmaVDatabase) {
+	vdb.Name = nmaVdb.Name
+	vdb.CommunalStorageLocation = nmaVdb.CommunalStorageLocation
+	vdb.HostNodeMap = make(map[string]*VCoordinationNode)
+	for h, nmaVnode := range nmaVdb.HostNodeMap {
+		vn := MakeVCoordinationNode()
+		vn.Name = nmaVnode.Name
+		vn.Address = h
+		vn.Subcluster = nmaVnode.Subcluster.Name
+		vn.Sandbox = nmaVnode.Subcluster.SandboxName
+		vn.CatalogPath = nmaVnode.CatalogPath
+		vn.StorageLocations = nmaVnode.StorageLocations
+		vn.IsPrimary = nmaVnode.IsPrimary
+		vdb.HostNodeMap[h] = &vn
+	}
+}
+
 // Get primary nodes with latest catalog from catalog editor if the primaryHostsWithLatestCatalog info doesn't exist in execContext
 func getPrimaryHostsWithLatestCatalog(nmaVDB *nmaVDatabase, hostsWithLatestCatalog []string, execContext *opEngineExecContext) []string {
 	if len(execContext.primaryHostsWithLatestCatalog) > 0 {

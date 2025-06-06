@@ -2046,7 +2046,7 @@ func buildNMATLSCertsEnvVars(vdb *vapi.VerticaDB) []corev1.EnvVar {
 			{Name: NMAKeyEnv, Value: fmt.Sprintf("%s/%s", paths.NMACertsRoot, corev1.TLSPrivateKeyKey)},
 		}
 	}
-	if useNmaCertsMount || !vmeta.EnableTLSCertsRotation(vdb.Annotations) {
+	if !vmeta.UseTLSAuth(vdb.Annotations) {
 		return []corev1.EnvVar{
 			// The NMA will read the secrets directly from the secret store.
 			// We provide the secret namespace and name for this reason.
