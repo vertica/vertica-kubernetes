@@ -91,8 +91,13 @@ func (h *TLSConfigReconciler) Reconcile(ctx context.Context, request *ctrl.Reque
 		return ctrl.Result{}, err
 	}
 	if !configured {
+		authCreated, err := h.checkIfTLSAuthenticationCreatedInDB(ctx, initiatorPod)
+		if err != nil {
+			h.Log.Error(err, "failed to check TLS authentication before running DDL")
+			return ctrl.Result{}, err
+		}
 		h.Log.Info("Run DDL to set up TLS")
-		err = h.runDDLToConfigureTLS(ctx, initiatorPod)
+		err = h.runDDLToConfigureTLS(ctx, initiatorPod, !authCreated)
 		if err != nil {
 			h.Log.Error(err, "failed to run DDL to set up TLS")
 			return ctrl.Result{}, err
@@ -110,7 +115,7 @@ func (h *TLSConfigReconciler) Reconcile(ctx context.Context, request *ctrl.Reque
 	return ctrl.Result{}, nil
 }
 
-func (h *TLSConfigReconciler) runDDLToConfigureTLS(ctx context.Context, initiatorPod *podfacts.PodFact) error {
+func (h *TLSConfigReconciler) runDDLToConfigureTLS(ctx context.Context, initiatorPod *podfacts.PodFact, grantAuth bool) error {
 	var opts []settlsconfig.Option
 	if h.TLSSecretType == vapi.HTTPSTLSSecretType {
 		opts = []settlsconfig.Option{
@@ -119,6 +124,7 @@ func (h *TLSConfigReconciler) runDDLToConfigureTLS(ctx context.Context, initiato
 			settlsconfig.WithInitiatorIP(initiatorPod.GetPodIP()),
 			settlsconfig.WithNamespace(h.Vdb.GetObjectMeta().GetNamespace()),
 			settlsconfig.WithHTTPSTLSConfig(true),
+			settlsconfig.WithGrantAuth(grantAuth),
 		}
 	} else {
 		opts = []settlsconfig.Option{
@@ -127,6 +133,7 @@ func (h *TLSConfigReconciler) runDDLToConfigureTLS(ctx context.Context, initiato
 			settlsconfig.WithInitiatorIP(initiatorPod.GetPodIP()),
 			settlsconfig.WithNamespace(h.Vdb.GetObjectMeta().GetNamespace()),
 			settlsconfig.WithHTTPSTLSConfig(false),
+			settlsconfig.WithGrantAuth(grantAuth),
 		}
 	}
 	return h.Dispatcher.SetTLSConfig(ctx, opts...)
@@ -184,10 +191,23 @@ func (h *TLSConfigReconciler) checkIfTLSConfiguredInDB(ctx context.Context, init
 	cmd := []string{"-tAc", sql}
 	stdout, stderr, err := h.PRunner.ExecVSQL(ctx, initiatorPod.GetName(), names.ServerContainer, cmd...)
 	if err != nil || strings.Contains(stderr, "Error") {
-		h.Log.Error(err, fmt.Sprintf("failed to check if TLS authentication is configured, stderr - %s", stderr))
+		h.Log.Error(err, fmt.Sprintf("failed to check if TLS is configured for %s, stderr - %s", h.TLSSecretType, stderr))
 		return false, err
 	}
 	lines := strings.Split(stdout, "\n")
 	res := strings.Trim(lines[0], " ")
 	return res != "httpServerCert", nil
+}
+
+func (h *TLSConfigReconciler) checkIfTLSAuthenticationCreatedInDB(ctx context.Context, initiatorPod *podfacts.PodFact) (bool, error) {
+	sql := "select is_auth_enabled from client_auth where auth_name='k8s_remote_ipv4_tls_builtin_auth';"
+	cmd := []string{"-tAc", sql}
+	stdout, stderr, err := h.PRunner.ExecVSQL(ctx, initiatorPod.GetName(), names.ServerContainer, cmd...)
+	if err != nil || strings.Contains(stderr, "Error") {
+		h.Log.Error(err, fmt.Sprintf("failed to check if TLS authentication is configured, stderr - %s", stderr))
+		return false, err
+	}
+	lines := strings.Split(stdout, "\n")
+	res := strings.Trim(lines[0], " ")
+	return res != "True", nil
 }
