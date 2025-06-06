@@ -242,33 +242,6 @@ func (s *SandboxSubclusterReconciler) executeSandboxCommand(ctx context.Context,
 			// when creating/updating sandbox config map failed, update sandbox status and return error
 			return ctrl.Result{}, err
 		}
-
-		// vclusterOps only set the first subcluster to primary in the sandbox, so
-		// after the newly sandboxed subclusters is up, we need to update their type
-		// in database according to vdb sandbox subcluster type
-		res, err := s.updateSandboxSubclusterType(ctx, sb)
-		if verrors.IsReconcileAborted(res, err) {
-			return res, err
-		}
-	}
-
-	return ctrl.Result{}, nil
-}
-
-// updateSandboxSubclusterType updates is_primary in database according to sandbox subcluster type
-func (s *SandboxSubclusterReconciler) updateSandboxSubclusterType(ctx context.Context, sb string) (ctrl.Result, error) {
-	// skip altering subcluster type if we are in online upgrade process, as it
-	// will be handled in online upgrade reconciler
-	if s.ForUpgrade {
-		return ctrl.Result{}, nil
-	}
-
-	sbPFacts := s.PFacts.Copy(sb)
-	actor := MakeAlterSubclusterTypeReconciler(s.VRec, s.Log, s.Vdb, &sbPFacts, s.Dispatcher)
-	res, err := actor.Reconcile(ctx, &ctrl.Request{})
-	if err != nil {
-		s.Log.Error(err, "Failed to update subcluster type in sandbox", "sandbox", sb)
-		return res, err
 	}
 
 	return ctrl.Result{}, nil
