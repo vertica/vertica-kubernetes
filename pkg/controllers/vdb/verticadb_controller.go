@@ -268,13 +268,15 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		MakeCreateDBReconciler(r, log, vdb, prunner, pfacts, dispatcher),
 		// Handle calls to revive a database
 		MakeReviveDBReconciler(r, log, vdb, prunner, pfacts, dispatcher),
-		// Add additional buckets for data replication
-		MakeAddtionalBucketsReconciler(r, log, vdb, prunner, pfacts),
 		MakeMetricReconciler(r, log, vdb, prunner, pfacts),
 		// Create and revive are mutually exclusive exclusive, so this handles
 		// status updates after both of them.
 		MakeStatusReconciler(r.Client, r.Scheme, log, vdb, pfacts),
+		// Restart the cluster only the first time after revivedb, when tls auth
+		// is enabled
 		MakeRestartReconcilerForRevive(r, log, vdb, prunner, pfacts, true, dispatcher),
+		// Add additional buckets for data replication
+		MakeAddtionalBucketsReconciler(r, log, vdb, prunner, pfacts),
 		// rotate https tls cert when tls cert secret name is changed in vdb.spec
 		MakeHTTPSCertRotationReconciler(r, log, vdb, dispatcher, pfacts),
 		MakeClientServerTLSReconciler(r, log, vdb, dispatcher, pfacts),

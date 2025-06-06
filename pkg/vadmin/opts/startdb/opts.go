@@ -27,7 +27,6 @@ type Parms struct {
 	CommunalPath        string
 	ConfigurationParams map[string]string
 	HostsInSandbox      bool
-	ForRevive           bool
 }
 
 type Option func(*Parms)
@@ -70,11 +69,5 @@ func WithConfigurationParams(parms map[string]string) Option {
 func WithHostsInSandboxFlag(hostsInSandbox bool) Option {
 	return func(s *Parms) {
 		s.HostsInSandbox = hostsInSandbox
-	}
-}
-
-func WithForRevive(forRevive bool) Option {
-	return func(s *Parms) {
-		s.ForRevive = forRevive
 	}
 }

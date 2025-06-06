@@ -105,7 +105,7 @@ func MakeRestartReconcilerForRevive(recon config.ReconcilerInterface, log logr.L
 // On success, each node will have a running vertica process.
 func (r *RestartReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
 	if r.forRevive {
-		if r.Vdb.Spec.InitPolicy != vapi.CommunalInitPolicyRevive ||
+		if !r.Vdb.IsInitPolicyRevive() ||
 			r.Vdb.HasReviveInstanceIDAnnotation() ||
 			!r.Vdb.IsSetForTLS() {
 			return ctrl.Result{}, nil
@@ -565,7 +565,7 @@ func (r *RestartReconciler) restartCluster(ctx context.Context, downPods []*podf
 		}
 		opts = append(opts, startdb.WithHost(downPods[i].GetPodIP()))
 	}
-	opts = append(opts, startdb.WithHostsInSandboxFlag(hostsInSandbox), startdb.WithForRevive(r.forRevive))
+	opts = append(opts, startdb.WithHostsInSandboxFlag(hostsInSandbox))
 	r.VRec.Eventf(r.Vdb, corev1.EventTypeNormal, events.ClusterRestartStarted,
 		"Starting restart of the %s", r.PFacts.GetClusterExtendedName())
 	start := time.Now()

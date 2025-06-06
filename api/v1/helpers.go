@@ -1168,7 +1168,12 @@ func (r *RestorePointPolicy) IsValidForSaveRestorePoint() bool {
 // IsRestoreDuringReviveEnabled will return whether the vdb is configured to initialize by reviving from
 // a restore point in an archive
 func (v *VerticaDB) IsRestoreDuringReviveEnabled() bool {
-	return v.Spec.InitPolicy == CommunalInitPolicyRevive && v.Spec.RestorePoint != nil
+	return v.IsInitPolicyRevive() && v.Spec.RestorePoint != nil
+}
+
+// IsInitPolicyRevive returns true if init policy is revive
+func (v *VerticaDB) IsInitPolicyRevive() bool {
+	return v.Spec.InitPolicy == CommunalInitPolicyRevive
 }
 
 // IsSaveRestorepointEnabled returns true if the status condition that
