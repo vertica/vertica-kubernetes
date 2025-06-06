@@ -11,30 +11,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: v-create-enable-rotate-add-sc1
+status:
+  replicas: 3
+---
+apiVersion: vertica.com/v1beta1
 kind: VerticaDB
 metadata:
-  name: v-create-1-node
-  annotations:
-    vertica.com/include-uid-in-path: "false"
-    vertica.com/k-safety: "0"
-    vertica.com/ignore-cluster-lease: "true"
-    vertica.com/requeue-time: "5"
-    vertica.com/enable-tls-auth: "true"
-spec:
-  image: kustomize-vertica-image
-  communal: {}
-  local:
-    requestSize: 100Mi
-  initPolicy: CreateSkipPackageInstall
-  dbName: vertdb
+  name: v-create-enable-rotate-add
+status:
   subclusters:
-    - name: sc1
-      size: 1
-  certSecrets: []
-  clientServerTLSSecret: custom-cert
-  httpsNMATLSSecret: custom-cert
-  httpsTLSMode: VERIFY_CA
-  imagePullSecrets: []
-  volumes: []
-  volumeMounts: []
+    - installCount: 3
