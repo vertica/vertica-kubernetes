@@ -16,12 +16,11 @@
 package settlsconfig
 
 type Parms struct {
-	InitiatorIP               string
-	ClientServerTLSMode       string
-	HTTPSTLSMode              string
-	ClientServerTLSSecretName string
-	HTTPSTLSSecretName        string
-	Namespace                 string
+	InitiatorIP    string
+	TLSMode        string
+	TLSSecretName  string
+	HTTPSTLSConfig bool
+	Namespace      string
 }
 
 // Option is a function that configures a Parms instance.
@@ -34,31 +33,24 @@ func (p *Parms) Make(opts ...Option) {
 	}
 }
 
-// WithClientServerTLSSecretName sets the ClientServerTLSSecretName field of the Parms struct.
-func WithClientServerTLSSecretName(secret string) Option {
+// WithTLSSecretName sets the secret name field of the Parms struct.
+func WithTLSSecretName(secret string) Option {
 	return func(p *Parms) {
-		p.ClientServerTLSSecretName = secret
+		p.TLSSecretName = secret
 	}
 }
 
 // WithHTTPSTLSMode sets the HTTPSTLSMode field of the Parms struct.
-func WithHTTPSTLSMode(tlsMode string) Option {
+func WithTLSMode(tlsMode string) Option {
 	return func(p *Parms) {
-		p.HTTPSTLSMode = tlsMode
+		p.TLSMode = tlsMode
 	}
 }
 
-// WithHTTPSTLSSecretName sets the HTTPSTLSSecretName field of the Parms struct.
-func WithHTTPSTLSSecretName(secret string) Option {
+// WithTLSConfig sets TLSConfig field of the Parms struct.
+func WithHTTPSTLSConfig(isHTTPSTLSConfig bool) Option {
 	return func(p *Parms) {
-		p.HTTPSTLSSecretName = secret
-	}
-}
-
-// WithClientServerTLSMode sets the ClientServerTLSMode field of the Parms struct.
-func WithClientServerTLSMode(tlsMode string) Option {
-	return func(p *Parms) {
-		p.ClientServerTLSMode = tlsMode
+		p.HTTPSTLSConfig = isHTTPSTLSConfig
 	}
 }
 

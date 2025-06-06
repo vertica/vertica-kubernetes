@@ -1549,7 +1549,7 @@ func checkIfNodeUpCmd(vdb *vapi.VerticaDB, podIP string) string {
 	if net.IsIPv6(podIP) {
 		podIP = "[" + podIP + "]"
 	}
-	if vdb.IsCertRotationEnabled() {
+	if vdb.IsSetForTLS() {
 		url := fmt.Sprintf("http://%s:%d%s",
 			podIP, builder.VerticaNonTLSHTTPPort, builder.HTTPServerHealthPathV2)
 		curlCmd := "curl -k -s -o /dev/null -w '%{http_code}'"

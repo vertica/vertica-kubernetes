@@ -85,6 +85,9 @@ func (v *VClusterOps) genStartDBOptions(s *startdb.Parms, certs *HTTPSCerts) (vo
 	}
 
 	v.setAuthentication(&opts.DatabaseOptions, v.VDB.GetVerticaUser(), &v.Password, certs)
+	if s.ForRevive && v.VDB.IsSetForTLS() {
+		opts.Password = nil
+	}
 
 	// timeout option
 	vdbTimeout := v.VDB.GetRestartTimeout()

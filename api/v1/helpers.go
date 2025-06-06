@@ -110,6 +110,15 @@ func SetVDBForTLS(v *VerticaDB) {
 	v.Annotations[vmeta.VersionAnnotation] = TLSCertRotationMinVersion
 	v.Annotations[vmeta.VClusterOpsAnnotation] = trueString
 }
+func SetVDBWithTLSSecretsInStatus(v *VerticaDB) {
+	SetVDBForTLS(v)
+	v.Status = VerticaDBStatus{
+		SecretRefs: []SecretRef{
+			{Name: "sec1", Type: HTTPSTLSSecretType},
+			{Name: "sec2", Type: ClientServerTLSSecretType},
+		},
+	}
+}
 
 // MakeVDB is a helper that constructs a fully formed VerticaDB struct using the sample name.
 // This is intended for test purposes.
@@ -877,9 +886,18 @@ func (v *VerticaDB) GetActiveConnectionsDrainSeconds() int {
 	return vmeta.GetActiveConnectionsDrainSeconds(v.Annotations)
 }
 
-// IsCertRotationEnabled returns true if the version supports certs and
-// cert rotation is enabled.
-func (v *VerticaDB) IsCertRotationEnabled() bool {
+// IsTLSConfigEnabled returns true if tls is enabled and https and client-server tls configs
+// exists in the db. It means the db ops can start using tls
+func (v *VerticaDB) IsTLSConfigEnabled() bool {
+	return v.IsSetForTLS() &&
+		v.GetHTTPSTLSSecretNameInUse() != "" &&
+		v.GetClientServerTLSSecretNameInUse() != ""
+}
+
+// IsSetForTLS returns true if VerticaDB is set and ready for tls.
+// It does not mean vclusterops can now operate using tls, for
+// that we need to wait until tls configurations are created
+func (v *VerticaDB) IsSetForTLS() bool {
 	if !vmeta.UseVClusterOps(v.Annotations) {
 		return false
 	}
@@ -889,6 +907,7 @@ func (v *VerticaDB) IsCertRotationEnabled() bool {
 	if !hasVersion {
 		return false
 	}
+
 	return vinf.IsEqualOrNewer(TLSCertRotationMinVersion) &&
 		!vmeta.UseNMACertsMount(v.Annotations) &&
 		vmeta.EnableTLSCertsRotation(v.Annotations)

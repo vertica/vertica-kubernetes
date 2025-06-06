@@ -58,15 +58,17 @@ func MakeNMACertRotationReconciler(vdbrecon *VerticaDBReconciler, log logr.Logge
 
 // Reconcile will rotate TLS certificate.
 func (h *NMACertRotationReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
-	if !h.Vdb.IsCertRotationEnabled() {
+	if !h.Vdb.IsTLSConfigEnabled() {
 		return ctrl.Result{}, nil
 	}
+	// no-op if tls update has not occurred
 	if (!h.Vdb.IsStatusConditionTrue(vapi.HTTPSTLSConfigUpdateFinished) &&
 		!h.Vdb.IsStatusConditionTrue(vapi.ClientServerTLSUpdateFinished)) ||
 		!h.Vdb.IsStatusConditionTrue(vapi.TLSConfigUpdateInProgress) {
 		return ctrl.Result{}, nil
 	}
 
+	// nma secret
 	newSecretName := h.Vdb.Spec.HTTPSNMATLSSecret
 
 	newSecret, res, err := readSecret(h.Vdb, h.VRec, h.VRec.GetClient(), h.Log, ctx, newSecretName)
@@ -124,7 +126,7 @@ func (h *NMACertRotationReconciler) rotateNmaTLSCert(ctx context.Context, newSec
 	h.VRec.Eventf(h.Vdb, corev1.EventTypeNormal, events.NMATLSCertRotationStarted,
 		"Start rotating nma cert from %s to %s", currentSecretName, newSecretName)
 	h.Log.Info("to rotate nma certi from " + currentSecretName + " to " + newSecretName +
-		", tls enabled " + strconv.FormatBool(h.Vdb.IsCertRotationEnabled()))
+		", tls enabled " + strconv.FormatBool(h.Vdb.IsTLSConfigEnabled()))
 	hosts := []string{}
 	for _, detail := range h.Pfacts.Detail {
 		hosts = append(hosts, detail.GetPodIP())

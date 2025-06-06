@@ -133,6 +133,9 @@ const (
 	ClientServerTLSUpdateFailed      = "ClientServerTLSUpdateFailed"
 	TLSModeUpdateStarted             = "TLSModeUpdateStarted"
 	TLSModeUpdateSucceeded           = "TLSModeUpdateSucceeded"
+	SetTLSConfigStarted              = "SetTLSConfigStarted"
+	SetTLSConfigFailed               = "SetTLSConfigFailed"
+	SetTLSConfigSucceeded            = "SetTLSConfigSucceeded"
 )
 
 // Constants for VerticaAutoscaler reconciler

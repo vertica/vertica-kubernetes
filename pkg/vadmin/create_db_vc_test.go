@@ -28,7 +28,6 @@ import (
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/test"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/createdb"
-	"golang.org/x/exp/maps"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
@@ -91,13 +90,6 @@ func (m *MockVClusterOps) VCreateDatabase(options *vops.VCreateDatabaseOptions) 
 	// verify TimeoutNodeStartupSeconds
 	if m.VerifyTimeoutNodeStartupSeconds && options.TimeoutNodeStartupSeconds != TestTimeoutNodeStartupSeconds {
 		return vdb, fmt.Errorf("fail to read TimeoutNodeStartupSeconds from annotations: %d", options.TimeoutNodeStartupSeconds)
-	}
-
-	if len(options.HTTPSTLSConfiguration) > 0 {
-		configMap := genTLSConfigurationMap(TestTLSMode, TestNMATLSSecret, "default")
-		if !maps.Equal(options.HTTPSTLSConfiguration, configMap) {
-			return vdb, fmt.Errorf("https tls configuration not valid")
-		}
 	}
 
 	return vdb, nil

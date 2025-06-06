@@ -272,8 +272,12 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		// Create and revive are mutually exclusive exclusive, so this handles
 		// status updates after both of them.
 		MakeStatusReconciler(r.Client, r.Scheme, log, vdb, pfacts),
-		// Get the tls mode from the db after revive_db
-		MakeGetTLSModeAfterReviveReconciler(r, log, vdb, prunner, pfacts),
+		MakeRestartReconcilerForRevive(r, log, vdb, prunner, pfacts, true, dispatcher),
+		// rotate https tls cert when tls cert secret name is changed in vdb.spec
+		MakeHTTPSCertRotationReconciler(r, log, vdb, dispatcher, pfacts),
+		MakeClientServerTLSReconciler(r, log, vdb, dispatcher, pfacts),
+		// rotate nma tls cert when tls cert secret name is changed in vdb.spec
+		MakeNMACertRotationReconciler(r, log, vdb, dispatcher, pfacts),
 		// Update the labels in pods so that Services route to nodes to them.
 		MakeClientRoutingLabelReconciler(r, log, vdb, pfacts, PodRescheduleApplyMethod, ""),
 		// Handle calls to add new subcluster to the catalog
@@ -307,11 +311,6 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		MakeObjReconciler(r, log, vdb, pfacts, ObjReconcileModeAll),
 		// Handle calls to create a restore point
 		MakeSaveRestorePointReconciler(r, vdb, log, pfacts, dispatcher, r.Client),
-		// rotate https tls cert when tls cert secret name is changed in vdb.spec
-		MakeHTTPSCertRotationReconciler(r, log, vdb, dispatcher, pfacts),
-		MakeClientServerTLSReconciler(r, log, vdb, dispatcher, pfacts),
-		// rotate nma tls cert when tls cert secret name is changed in vdb.spec
-		MakeNMACertRotationReconciler(r, log, vdb, dispatcher, pfacts),
 		// Resize any PVs if the local data size changed in the vdb
 		MakeResizePVReconciler(r, log, vdb, prunner, pfacts),
 		// This must be the last reconciler. It makes sure that all dependent

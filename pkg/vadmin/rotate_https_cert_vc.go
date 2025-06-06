@@ -26,10 +26,10 @@ import (
 )
 
 // RotateNMACerts will rotate nma cert
-func (v *VClusterOps) RotateHTTPSCerts(ctx context.Context, opts ...rotatehttpscerts.Option) error {
-	v.setupForAPICall("RotateHTTPSCerts")
+func (v *VClusterOps) RotateTLSCerts(ctx context.Context, opts ...rotatehttpscerts.Option) error {
+	v.setupForAPICall("RotateTLSCerts")
 	defer v.tearDownForAPICall()
-	v.Log.Info("Starting vcluster RotateHTTPSCerts")
+	v.Log.Info("Starting vcluster RotateTLSCerts")
 	secretName := v.VDB.GetHTTPSTLSSecretNameInUse()
 	// get the certs
 	fetcher := cloud.SecretFetcher{
@@ -47,7 +47,7 @@ func (v *VClusterOps) RotateHTTPSCerts(ctx context.Context, opts ...rotatehttpsc
 	s.Make(opts...)
 
 	// call vclusterOps library to rotate nma cert
-	vopts := v.genRotateHTTPSCertsOptions(&s, certs)
+	vopts := v.genRotateTLSCertsOptions(&s, certs)
 	err = v.VRotateTLSCerts(&vopts)
 	if err != nil {
 		v.Log.Error(err, "failed to rotate https cert")
@@ -57,7 +57,7 @@ func (v *VClusterOps) RotateHTTPSCerts(ctx context.Context, opts ...rotatehttpsc
 	return nil
 }
 
-func (v *VClusterOps) genRotateHTTPSCertsOptions(s *rotatehttpscerts.Params, certs *HTTPSCerts) vops.VRotateTLSCertsOptions {
+func (v *VClusterOps) genRotateTLSCertsOptions(s *rotatehttpscerts.Params, certs *HTTPSCerts) vops.VRotateTLSCertsOptions {
 	opts := vops.VRotateTLSCertsOptionsFactory()
 
 	opts.DBName = v.VDB.Spec.DBName

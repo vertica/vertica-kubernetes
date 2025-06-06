@@ -11,32 +11,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: v-create-1-node-sc1
+status:
+  replicas: 1
+  readyReplicas: 1
+---
 apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
-  name: v-client-server-cert-rotate
-  annotations:
-    vertica.com/k-safety: "1"
-    vertica.com/include-uid-in-path: "true"
-    vertica.com/enable-tls-certs-rotation: "true"
-    vertica.com/mount-nma-certs: "false"
-spec:
-  initPolicy: CreateSkipPackageInstall
-  image: kustomize-vertica-image
-  passwordSecret: su-passwd
-  communal: {}
-  local:
-    requestSize: 100Mi
-    catalogPath: /catalog
-  dbName: vertdb
-  clientServerTLSMode: TRY_VERIFY
+  name: v-create-1-node
+status:
+  secretRefs:
+    - type: HTTPSTLSSecretType
+    - type: ClientServerTLSSecretType
   subclusters:
-    - name: sc1
-      size: 3
-  securityContext:
-    capabilities:
-      add: ["SYS_PTRACE"]
-  certSecrets: []
-  imagePullSecrets: []
-  volumes: []
-  volumeMounts: []
+    - addedToDBCount: 1
+      upNodeCount: 1

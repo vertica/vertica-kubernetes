@@ -74,7 +74,7 @@ var _ = Describe("add_sc_vc", func() {
 			addsc.WithInitiator(dispatcher.VDB.ExtractNamespacedName(), TestInitiatorIP),
 			addsc.WithSubcluster(TestSCName),
 			addsc.WithIsPrimary(TestIsPrimary))).Should(Succeed())
-		vapi.SetVDBForTLS(dispatcher.VDB)
+		vapi.SetVDBWithTLSSecretsInStatus(dispatcher.VDB)
 		err := dispatcher.AddSubcluster(ctx,
 			addsc.WithInitiator(dispatcher.VDB.ExtractNamespacedName(), TestInitiatorIP),
 			addsc.WithSubcluster(TestSCName),

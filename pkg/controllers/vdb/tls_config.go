@@ -30,6 +30,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/secrets"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/rotatehttpscerts"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/settlsconfig"
 	config "github.com/vertica/vertica-kubernetes/pkg/vdbconfig"
 	"github.com/vertica/vertica-kubernetes/pkg/vdbstatus"
 	corev1 "k8s.io/api/core/v1"
@@ -37,8 +38,9 @@ import (
 )
 
 const (
-	tlsConfigServer = "Server"
-	tlsConfigHTTPS  = "HTTP"
+	tlsConfigServer      = "Server"
+	tlsConfigHTTPS       = "HTTP"
+	certicatePrefixHTTPS = ""
 )
 
 type TLSUpdateData struct {
@@ -50,12 +52,16 @@ type TLSUpdateData struct {
 	tlsModeType    string
 }
 
+// Struct that contains the cert metadata
+// for polling cert after cert rotation
 type TLSPollingCertMetadata struct {
 	Key    string
 	Cert   string
 	CACert string
 }
 
+// Structs that owns the logic of different tls operations.
+// It can set a tls config, rotate a tls cert
 type TLSConfigManager struct {
 	Rec        config.ReconcilerInterface
 	Vdb        *vapi.VerticaDB
@@ -79,13 +85,15 @@ func MakeTLSConfigManager(recon config.ReconcilerInterface, log logr.Logger, vdb
 	return t
 }
 
-// buildHTTPSTLSUpdateData constructs the data needed for tls update
+// setPollingCertMetadata sets the metadata needed for polling cert
 func (t *TLSConfigManager) setPollingCertMetadata(ctx context.Context) (ctrl.Result, error) {
 	var currentSecretData map[string][]byte
 	var newSecretData map[string][]byte
 	var res ctrl.Result
 	var err error
 
+	// The polling is done using an https endpoint, so we always need
+	// httpsNMATLSSecret
 	currentSecretName := t.Vdb.GetHTTPSTLSSecretNameInUse()
 	newSecretName := t.Vdb.Spec.HTTPSNMATLSSecret
 	currentSecretData, res, err = readSecret(t.Vdb, t.Rec, t.Rec.GetClient(), t.Log, ctx, currentSecretName)
@@ -110,6 +118,8 @@ func (t *TLSConfigManager) setPollingCertMetadata(ctx context.Context) (ctrl.Res
 	return res, err
 }
 
+// updateTLSConfig calls the vclusterops api that will update the tls config by cert
+// rotation and/or tls mode update
 func (t *TLSConfigManager) updateTLSConfig(ctx context.Context, initiatorIP string) error {
 	if t.TLSUpdateType == tlsModeAndCertChange || t.TLSUpdateType == httpsCertChangeOnly {
 		t.Log.Info(fmt.Sprintf("ready to rotate %s cert from %s to %s", t.TLSConfig, t.CurrentSecret, t.NewSecret))
@@ -141,20 +151,22 @@ func (t *TLSConfigManager) updateTLSConfig(ctx context.Context, initiatorIP stri
 	}
 	started, failed, succeeded := t.getEvents()
 	t.Rec.Eventf(t.Vdb, corev1.EventTypeNormal, started,
-		"Starting https cert rotation with secret name %s and mode %s",
-		t.NewSecret, t.CurrentTLSMode)
-	err := t.Dispatcher.RotateHTTPSCerts(ctx, opts...)
+		"Starting tls cert rotation for %s with secret name %s and mode %s",
+		t.TLSConfig, t.NewSecret, t.CurrentTLSMode)
+	err := t.Dispatcher.RotateTLSCerts(ctx, opts...)
 	if err != nil {
 		t.Rec.Eventf(t.Vdb, corev1.EventTypeWarning, failed,
-			"Failed to rotate https cert with secret name %s and mode %s", t.NewSecret, t.NewTLSMode)
+			"Failed to rotate %s tls cert with secret name %s and mode %s", t.TLSConfig, t.NewSecret, t.NewTLSMode)
 		return err
 	}
 	t.Rec.Eventf(t.Vdb, corev1.EventTypeNormal, succeeded,
-		"Successfully rotated https cert with secret name %s and mode %s", t.NewSecret, t.NewTLSMode)
+		"Successfully rotated %s tls cert with secret name %s and mode %s", t.TLSConfig, t.NewSecret, t.NewTLSMode)
 
 	return err
 }
 
+// updateTLSModeInStatus updates the tls mode in the status after it was updated
+// in the database
 func (t *TLSConfigManager) updateTLSModeInStatus(ctx context.Context) error {
 	if t.CurrentTLSMode != t.NewTLSMode {
 		t.Log.Info("Starting tls mode update in status", "old", t.CurrentTLSMode, "new", t.NewTLSMode)
@@ -169,26 +181,55 @@ func (t *TLSConfigManager) updateTLSModeInStatus(ctx context.Context) error {
 	return nil
 }
 
+// setTLSConfig creates a tls config in the db , if it does not exist yet,
+// and updates the status
 func (t *TLSConfigManager) setTLSConfig(ctx context.Context, pfacts *podfacts.PodFacts) (ctrl.Result, error) {
-	tlsMode, res, err := t.getTLSConfigFromDB(ctx, pfacts)
-	if verrors.IsReconcileAborted(res, err) {
-		return res, err
+	initiatorPod, ok := pfacts.FindFirstUpPod(false, "")
+	if !ok {
+		t.Log.Info("No pod found to run sql to set tls config. Requeue reconciliation.")
+		return ctrl.Result{Requeue: true}, nil
 	}
-	if tlsMode != "" {
+	certificate, tlsMode, err := t.getTLSConfigFromDB(ctx, pfacts, initiatorPod)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	// if tls config already exists in the db, we just
+	// need to update the status
+	if strings.Contains(certificate, t.getCertificatePrefix()) {
 		err = t.setTLSConfigInStatus(ctx, tlsMode)
 		return ctrl.Result{}, err
 	}
-	return ctrl.Result{}, t.setTLSConfigInDB()
+	return ctrl.Result{}, t.setTLSConfigInDB(ctx, initiatorPod)
 }
 
-func (t *TLSConfigManager) setTLSConfigInDB() error {
-	// To Do
-	return nil
+// setTLSConfigInDB creates a tls config in the database and update the status
+func (t *TLSConfigManager) setTLSConfigInDB(ctx context.Context, initiatorPod *podfacts.PodFact) error {
+	t.Rec.Eventf(t.Vdb, corev1.EventTypeNormal, events.SetTLSConfigStarted,
+		"Starting set tls for %s with secret name %s and mode %s",
+		t.TLSConfig, t.NewSecret, t.NewTLSMode)
+	opts := []settlsconfig.Option{
+		settlsconfig.WithTLSMode(t.NewTLSMode),
+		settlsconfig.WithTLSSecretName(t.NewSecret),
+		settlsconfig.WithInitiatorIP(initiatorPod.GetPodIP()),
+		settlsconfig.WithNamespace(t.Vdb.GetNamespace()),
+		settlsconfig.WithHTTPSTLSConfig(t.isHTTPSTLSConfig()),
+	}
+	err := t.Dispatcher.SetTLSConfig(ctx, opts...)
+	if err != nil {
+		t.Rec.Eventf(t.Vdb, corev1.EventTypeWarning, events.SetTLSConfigFailed,
+			"Failed to set %s tls config with secret name %s and mode %s", t.TLSConfig, t.NewSecret, t.NewTLSMode)
+		return err
+	}
+	t.Rec.Eventf(t.Vdb, corev1.EventTypeNormal, events.SetTLSConfigSucceeded,
+		"Successfully set %s tls configwith secret name %s and mode %s", t.TLSConfig, t.NewSecret, t.NewTLSMode)
+
+	return t.setTLSConfigInStatus(ctx, t.NewTLSMode)
 }
 
+// setTLSConfigInStatus updates the status with the current tls config in the db
 func (t *TLSConfigManager) setTLSConfigInStatus(ctx context.Context, tlsMode string) error {
 	mode := vapi.MakeTLSMode(t.tlsModeType, tlsMode)
-	// TO DO: remove this once tls mode and secret are i the same struct
+	// TO DO: remove this once tls mode and secret are in the same struct
 	if err := vdbstatus.UpdateTLSModes(ctx, t.Rec.GetClient(), t.Vdb, []*vapi.TLSMode{mode}); err != nil {
 		return err
 	}
@@ -200,34 +241,48 @@ func (t *TLSConfigManager) setTLSConfigInStatus(ctx context.Context, tlsMode str
 	return nil
 }
 
-func (t *TLSConfigManager) getTLSConfigFromDB(ctx context.Context, pfacts *podfacts.PodFacts) (string, ctrl.Result, error) {
-	initiatorPod, ok := pfacts.FindFirstUpPod(false, "")
-	if !ok {
-		t.Log.Info("No pod found to run sql to get tls config. Requeue reconciliation.")
-		return "", ctrl.Result{Requeue: true}, nil
-	}
-	sql := fmt.Sprintf("select mode from tls_configurations where name='%s';", t.TLSConfig)
+// getTLSConfigFromDB will check if the given tls config is already in the db, and return
+// a proof
+func (t *TLSConfigManager) getTLSConfigFromDB(ctx context.Context, pfacts *podfacts.PodFacts,
+	initiatorPod *podfacts.PodFact) (certificate, mode string, err error) {
+	sql := fmt.Sprintf("select certificate, mode from tls_configurations where name='%s';", t.getTLSConfigName())
 	cmd := []string{"-tAc", sql}
 	t.Log.Info("Getting tls config from db", "tlsConfig", t.TLSConfig)
-	stdout, stderr, err := pfacts.PRunner.ExecVSQL(ctx, initiatorPod.GetName(), names.ServerContainer, cmd...)
-	if err != nil || strings.Contains(stderr, "Error") {
+	stdout, stderr, errVsql := pfacts.PRunner.ExecVSQL(ctx, initiatorPod.GetName(), names.ServerContainer, cmd...)
+	if errVsql != nil || strings.Contains(stderr, "Error") {
 		t.Log.Error(err, fmt.Sprintf("failed to retrieve %s TLS config from db, stderr - %s", t.TLSConfig, stderr))
-		return "", ctrl.Result{}, err
+		err = errVsql
+		return
 	}
 
-	return t.parseTLSMode(stdout), ctrl.Result{}, nil
+	certificate, mode, err = t.parseConfig(stdout)
+	return
 }
 
 func (t *TLSConfigManager) isClientServerTLSConfig() bool {
 	return t.TLSConfig == tlsConfigServer
 }
 
-func (t *TLSConfigManager) parseTLSMode(stdout string) string {
-	lines := strings.Split(stdout, "\n")
-	res := strings.Trim(lines[0], " ")
-	return res
+func (t *TLSConfigManager) isHTTPSTLSConfig() bool {
+	return t.TLSConfig == tlsConfigHTTPS
 }
 
+// parseConfig parses the query output and returns the certificate and tls mode
+func (t *TLSConfigManager) parseConfig(stdout string) (certificate, mode string, err error) {
+	lines := strings.Split(stdout, "\n")
+	cols := strings.Split(lines[0], "|")
+	const ExpectedCols = 2
+	if len(cols) != ExpectedCols {
+		err = fmt.Errorf("expected %d columns from tls_configurations query but only got %d", ExpectedCols, len(cols))
+		return
+	}
+
+	certificate = cols[0]
+	mode = cols[1]
+	return
+}
+
+// getEvents returns the correct set of events based on the tls config
 func (t *TLSConfigManager) getEvents() (started, failed, succeeded string) {
 	if t.TLSConfig == tlsConfigHTTPS {
 		started = events.HTTPSCertRotationStarted
@@ -242,6 +297,9 @@ func (t *TLSConfigManager) getEvents() (started, failed, succeeded string) {
 	return
 }
 
+// setTLSUpdateType sets the field used to determine what kind of tls update
+// is needed. Possible options are: no tls change, only tls mode update,
+// only cert rotation or both cert rotation and tls mode update
 func (t *TLSConfigManager) setTLSUpdateType() {
 	certChanged := t.CurrentSecret != "" && t.NewSecret != t.CurrentSecret
 	modeChanged := t.NewTLSMode != t.CurrentTLSMode
@@ -294,4 +352,16 @@ func (t *TLSConfigManager) setTLSUpdatedata() {
 		t.secretType = vapi.ClientServerTLSSecretType
 		t.tlsModeType = vapi.ClientServerTLSModeType
 	}
+}
+
+func (t *TLSConfigManager) getTLSConfigName() string {
+	if t.isHTTPSTLSConfig() {
+		return "https"
+	}
+
+	return "server"
+}
+
+func (t *TLSConfigManager) getCertificatePrefix() string {
+	return fmt.Sprintf("%s_cert_", t.getTLSConfigName())
 }

@@ -11,9 +11,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: apps/v1
-kind: StatefulSet
-metadata:
-  name: v-create-1-node-sc1
-status:
-  replicas: 1
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - script: kubectl exec -n $NAMESPACE v-create-1-node-sc1-0 -c server -- vsql -U dbadmin -w superuser -c "select sync_catalog();"
