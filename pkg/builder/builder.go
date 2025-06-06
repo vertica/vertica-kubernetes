@@ -2037,7 +2037,7 @@ func buildScrutinizeDBPasswordEnvVars(nm types.NamespacedName) []corev1.EnvVar {
 // buildNMATLSCertsEnvVars returns environment variables about NMA certs,
 // that are needed by NMA and vcluster scrutinize
 func buildNMATLSCertsEnvVars(vdb *vapi.VerticaDB) []corev1.EnvVar {
-	notTrue := true
+	True := true
 	configMapName := fmt.Sprintf("%s-%s", vdb.Name, vapi.NMATLSConfigMapName)
 	return []corev1.EnvVar{
 		{Name: NMASecretNamespaceEnv,
@@ -2047,7 +2047,7 @@ func buildNMATLSCertsEnvVars(vdb *vapi.VerticaDB) []corev1.EnvVar {
 						Name: configMapName,
 					},
 					Key:      NMASecretNamespaceEnv,
-					Optional: &notTrue,
+					Optional: &True,
 				},
 			}},
 		{Name: NMASecretNameEnv,
@@ -2057,7 +2057,7 @@ func buildNMATLSCertsEnvVars(vdb *vapi.VerticaDB) []corev1.EnvVar {
 						Name: configMapName,
 					},
 					Key:      NMASecretNameEnv,
-					Optional: &notTrue,
+					Optional: &True,
 				},
 			}},
 		{Name: NMAClientSecretNamespaceEnv,
@@ -2067,7 +2067,7 @@ func buildNMATLSCertsEnvVars(vdb *vapi.VerticaDB) []corev1.EnvVar {
 						Name: configMapName,
 					},
 					Key:      NMAClientSecretNamespaceEnv,
-					Optional: &notTrue,
+					Optional: &True,
 				},
 			}},
 		{Name: NMAClientSecretNameEnv,
@@ -2077,7 +2077,7 @@ func buildNMATLSCertsEnvVars(vdb *vapi.VerticaDB) []corev1.EnvVar {
 						Name: configMapName,
 					},
 					Key:      NMAClientSecretNameEnv,
-					Optional: &notTrue,
+					Optional: &True,
 				},
 			}},
 		{Name: NMARootCAEnv,
@@ -2087,7 +2087,7 @@ func buildNMATLSCertsEnvVars(vdb *vapi.VerticaDB) []corev1.EnvVar {
 						Name: configMapName,
 					},
 					Key:      NMARootCAEnv,
-					Optional: &notTrue,
+					Optional: &True,
 				},
 			}},
 		{Name: NMACertEnv,
@@ -2097,7 +2097,7 @@ func buildNMATLSCertsEnvVars(vdb *vapi.VerticaDB) []corev1.EnvVar {
 						Name: configMapName,
 					},
 					Key:      NMACertEnv,
-					Optional: &notTrue,
+					Optional: &True,
 				},
 			}},
 		{Name: NMAKeyEnv,
@@ -2107,7 +2107,7 @@ func buildNMATLSCertsEnvVars(vdb *vapi.VerticaDB) []corev1.EnvVar {
 						Name: configMapName,
 					},
 					Key:      NMAKeyEnv,
-					Optional: &notTrue,
+					Optional: &True,
 				},
 			}},
 		{Name: NMAClientSecretTLSModeEnv,
@@ -2117,7 +2117,7 @@ func buildNMATLSCertsEnvVars(vdb *vapi.VerticaDB) []corev1.EnvVar {
 						Name: configMapName,
 					},
 					Key:      NMAClientSecretTLSModeEnv,
-					Optional: &notTrue,
+					Optional: &True,
 				},
 			}},
 	}

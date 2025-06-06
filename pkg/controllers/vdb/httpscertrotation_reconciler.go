@@ -78,7 +78,9 @@ func MakeHTTPSCertRotationReconciler(vdbrecon *VerticaDBReconciler, log logr.Log
 
 // Reconcile will rotate TLS certificate.
 func (h *HTTPSCertRotationReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
-	if !h.Vdb.IsCertRotationEnabled() || h.Vdb.IsCertRotationEnabled() && h.Vdb.GetHTTPSTLSSecretNameInUse() == "" ||
+	// we should not rotate when tls is not enabled or is enabled but not ready yet
+	if !h.Vdb.IsCertRotationEnabled() ||
+		h.Vdb.IsCertRotationEnabled() && h.Vdb.GetHTTPSTLSSecretNameInUse() == "" ||
 		h.Vdb.IsStatusConditionTrue(vapi.HTTPSCertRotationFinished) &&
 			h.Vdb.IsStatusConditionTrue(vapi.TLSCertRotationInProgress) {
 		return ctrl.Result{}, nil
@@ -133,7 +135,7 @@ func (h *HTTPSCertRotationReconciler) checkConfigMap(ctx context.Context, newSec
 	err := h.VRec.GetClient().Get(ctx, configMapName, configMap)
 	if err != nil {
 		h.Log.Info("failed to retrieve configmap for rotation. will retry")
-		return ctrl.Result{Requeue: true}, nil
+		return ctrl.Result{Requeue: true}, err
 	}
 	if configMap.Data[builder.NMASecretNamespaceEnv] != h.Vdb.GetObjectMeta().GetNamespace() ||
 		configMap.Data[builder.NMASecretNameEnv] != newSecretName {
