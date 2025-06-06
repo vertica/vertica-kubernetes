@@ -418,6 +418,22 @@ var _ = Describe("builder", func() {
 		Ω(c.StartupProbe.HTTPGet.Scheme).Should(Equal(v1.URISchemeHTTPS))
 	})
 
+	It("should have all probes use the V2 http version endpoint", func() {
+		vdb := vapi.MakeVDB()
+		vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
+		vdb.Annotations[vmeta.VersionAnnotation] = "v25.4.0"
+		c := makeServerContainer(vdb, &vdb.Spec.Subclusters[0])
+		Ω(c.ReadinessProbe.HTTPGet.Path).Should(Equal(HTTPServerHealthPathV2))
+		Ω(c.ReadinessProbe.HTTPGet.Port).Should(Equal(intstr.FromInt(VerticaNonTLSHTTPPort)))
+		Ω(c.ReadinessProbe.HTTPGet.Scheme).Should(Equal(v1.URISchemeHTTP))
+		Ω(c.LivenessProbe.HTTPGet.Path).Should(Equal(HTTPServerHealthPathV2))
+		Ω(c.LivenessProbe.HTTPGet.Port).Should(Equal(intstr.FromInt(VerticaNonTLSHTTPPort)))
+		Ω(c.LivenessProbe.HTTPGet.Scheme).Should(Equal(v1.URISchemeHTTP))
+		Ω(c.StartupProbe.HTTPGet.Path).Should(Equal(HTTPServerHealthPathV2))
+		Ω(c.StartupProbe.HTTPGet.Port).Should(Equal(intstr.FromInt(VerticaNonTLSHTTPPort)))
+		Ω(c.StartupProbe.HTTPGet.Scheme).Should(Equal(v1.URISchemeHTTP))
+	})
+
 	It("should use non-default service ports", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Spec.ServiceHTTPSPort = 8449
