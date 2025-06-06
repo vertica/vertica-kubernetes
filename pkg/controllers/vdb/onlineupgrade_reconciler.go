@@ -860,6 +860,7 @@ func (r *OnlineUpgradeReconciler) startReplicationToReplicaGroupB(ctx context.Co
 	if r.VDB.IsCertRotationEnabled() {
 		tlsConfig = "server"
 	}
+
 	vrep := &v1beta1.VerticaReplicator{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: v1beta1.GroupVersion.String(),
@@ -1355,7 +1356,14 @@ func (r *OnlineUpgradeReconciler) moveReplicaGroupBSubclusterToSandbox() (bool, 
 		Image: oldImage,
 	}
 	for _, nm := range scNames {
-		sandbox.Subclusters = append(sandbox.Subclusters, vapi.SandboxSubcluster{Name: nm})
+		// When sandboxing, we fetch the type of the base subclsuter which this subcluster duplicated from.
+		// Later when promoting the sandbox to main, we can use this sandbox subcluster type to set the main subcluster type.
+		scType := vapi.PrimarySubcluster
+		sc := r.VDB.GetSubcluster(nm)
+		if sc != nil {
+			scType = sc.Annotations[vmeta.ParentSubclusterTypeAnnotation]
+		}
+		sandbox.Subclusters = append(sandbox.Subclusters, vapi.SandboxSubcluster{Name: nm, Type: scType})
 	}
 	r.VDB.Annotations[vmeta.OnlineUpgradeSandboxAnnotation] = sandboxName
 	r.VDB.Spec.Sandboxes = append(r.VDB.Spec.Sandboxes, sandbox)

@@ -23,7 +23,7 @@ kind: StatefulSet
 metadata:
   name: v-sandbox-on-create-sec1
 status:
-  currentReplicas: 1
+  currentReplicas: 3
 ---
 apiVersion: apps/v1
 kind: StatefulSet

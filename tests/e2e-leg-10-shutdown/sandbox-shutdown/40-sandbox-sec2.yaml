@@ -21,6 +21,7 @@ spec:
     subclusters:
       - name: sec1
       - name: sec3
+        type: secondary
   - name: sandbox2
     subclusters:
       - name: sec2
