@@ -23,11 +23,9 @@ import (
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
-	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/altersc"
-	"github.com/vertica/vertica-kubernetes/pkg/vk8s"
 	corev1 "k8s.io/api/core/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -73,6 +71,7 @@ func (a *AlterSubclusterTypeReconciler) Reconcile(ctx context.Context, _ *ctrl.R
 // findSandboxSubclustersToAlter returns a list of subclusters whose type needs to be changed
 func (a *AlterSubclusterTypeReconciler) findSandboxSubclustersToAlter() ([]*vapi.Subcluster, error) {
 	scs := []*vapi.Subcluster{}
+
 	sb := a.Vdb.GetSandbox(a.PFacts.SandboxName)
 	if sb == nil {
 		return scs, fmt.Errorf("could not find sandbox %s", a.PFacts.SandboxName)
@@ -83,8 +82,18 @@ func (a *AlterSubclusterTypeReconciler) findSandboxSubclustersToAlter() ([]*vapi
 		if sc == nil {
 			return scs, fmt.Errorf("could not find subcluster %s", sb.Subclusters[i].Name)
 		}
-		targetType, found := sc.Annotations[vmeta.ParentSubclusterTypeAnnotation]
-		if found && targetType == vapi.PrimarySubcluster && !sc.IsPrimary() {
+
+		// for sandbox subcluster with multiple primary subclusters, vclusterops only
+		// set the first one as primary
+		// if sandbox subcluster type is primary but podfacts (from database) is_primary is false,
+		// we need to change the subcluster is_primary to true in the database
+		pf, ok := a.PFacts.FindFirstUpPod(false, sc.Name)
+		// skip if one of the pods in the subcluster isn't found
+		if !ok {
+			continue
+		}
+		if sb.Subclusters[i].Type == vapi.PrimarySubcluster && !pf.GetIsPrimary() ||
+			sb.Subclusters[i].Type == vapi.SecondarySubcluster && pf.GetIsPrimary() {
 			scs = append(scs, sc)
 		}
 	}
@@ -101,27 +110,8 @@ func (a *AlterSubclusterTypeReconciler) alterSubclusters(ctx context.Context, sc
 		if err != nil {
 			return ctrl.Result{}, err
 		}
-		a.PFacts.Invalidate()
-		err = a.updateSubclusterTypeInVDB(ctx, sc)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
 	}
 	return ctrl.Result{}, nil
-}
-
-// updateSubclusterTypeInVDB updates the given subcluster's type in VDB
-func (a *AlterSubclusterTypeReconciler) updateSubclusterTypeInVDB(ctx context.Context, sc *vapi.Subcluster) error {
-	_, err := vk8s.UpdateVDBWithRetry(ctx, a.VRec, a.Vdb, func() (bool, error) {
-		scMap := a.Vdb.GenSubclusterMap()
-		vdbSc, found := scMap[sc.Name]
-		if !found {
-			return false, fmt.Errorf("subcluster %q missing in vdb %q", sc.Name, a.Vdb.Name)
-		}
-		vdbSc.Type = vapi.SandboxPrimarySubcluster
-		return true, nil
-	})
-	return err
 }
 
 // alterSubclusterType changes the given subcluster's type
@@ -129,7 +119,9 @@ func (a *AlterSubclusterTypeReconciler) alterSubclusterType(ctx context.Context,
 	initiatorIP string) error {
 	scType := vapi.SecondarySubcluster
 	newType := vapi.PrimarySubcluster
-	if sc.IsPrimary() {
+	// check db is_primary
+	pf, ok := a.PFacts.FindFirstUpPod(false, sc.Name)
+	if ok && pf.GetIsPrimary() {
 		scType = vapi.PrimarySubcluster
 		newType = vapi.SecondarySubcluster
 	}
