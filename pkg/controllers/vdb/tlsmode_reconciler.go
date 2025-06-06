@@ -67,7 +67,7 @@ func MakeTLSModeReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger, vdb *
 
 // Reconcile will call cert rotation API to update the TLS mode of the https server
 func (h *TLSModeReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
-	if !h.Vdb.IsCertRotationEnabled() || h.Vdb.IsStatusConditionTrue(vapi.TLSCertRotationInProgress) ||
+	if !h.Vdb.IsTLSAuthEnabled() || h.Vdb.IsStatusConditionTrue(vapi.TLSCertRotationInProgress) ||
 		!h.Vdb.IsStatusConditionTrue(vapi.DBInitialized) {
 		return ctrl.Result{}, nil
 	}

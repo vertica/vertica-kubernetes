@@ -120,7 +120,7 @@ func (c *CreateDBReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ct
 // This handles logging of necessary events.
 func (c *CreateDBReconciler) execCmd(ctx context.Context, initiatorPod types.NamespacedName,
 	hostList []string, podNames []types.NamespacedName) (ctrl.Result, error) {
-	if c.Vdb.IsCertRotationEnabled() && secrets.IsGSMSecret(c.Vdb.Spec.HTTPSNMATLSSecret) {
+	if c.Vdb.IsTLSAuthEnabled() && secrets.IsGSMSecret(c.Vdb.Spec.HTTPSNMATLSSecret) {
 		return ctrl.Result{}, fmt.Errorf("tls configuration setting with GSM not implemented")
 	}
 	opts, err := c.genOptions(ctx, initiatorPod, podNames, hostList)
@@ -133,7 +133,7 @@ func (c *CreateDBReconciler) execCmd(ctx context.Context, initiatorPod types.Nam
 	if res, err2 := c.Dispatcher.CreateDB(ctx, opts...); verrors.IsReconcileAborted(res, err2) {
 		return res, err2
 	}
-	if c.Vdb.IsCertRotationEnabled() {
+	if c.Vdb.IsTLSAuthEnabled() {
 		httpsTLSMode := vapi.MakeHTTPSTLSMode(c.Vdb.Spec.HTTPSTLSMode)
 		clientTLSMode := vapi.MakeClientServerTLSMode(c.Vdb.Spec.ClientServerTLSMode)
 		err = vdbstatus.UpdateTLSModes(ctx, c.VRec.GetClient(), c.Vdb, []*vapi.TLSMode{httpsTLSMode, clientTLSMode})
