@@ -898,6 +898,13 @@ func (v *VerticaDB) IsTLSConfigEnabled() bool {
 // It does not mean vclusterops can now operate using tls, for
 // that we need to wait until tls configurations are created
 func (v *VerticaDB) IsSetForTLS() bool {
+	return v.IsValidVersionForTLS() &&
+		vmeta.UseTLSAuth(v.Annotations)
+}
+
+// IsValidVersionForTLS returns true if the server version
+// supports tls
+func (v *VerticaDB) IsValidVersionForTLS() bool {
 	if !vmeta.UseVClusterOps(v.Annotations) {
 		return false
 	}
@@ -908,8 +915,7 @@ func (v *VerticaDB) IsSetForTLS() bool {
 		return false
 	}
 
-	return vinf.IsEqualOrNewer(TLSCertRotationMinVersion) &&
-		vmeta.UseTLSAuth(v.Annotations)
+	return vinf.IsEqualOrNewer(TLSCertRotationMinVersion)
 }
 
 // IsNMASideCarDeploymentEnabled returns true if the conditions to run NMA

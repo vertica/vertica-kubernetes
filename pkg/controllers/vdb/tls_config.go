@@ -22,6 +22,7 @@ import (
 
 	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
+	"github.com/vertica/vertica-kubernetes/pkg/builder"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
@@ -34,6 +35,7 @@ import (
 	config "github.com/vertica/vertica-kubernetes/pkg/vdbconfig"
 	"github.com/vertica/vertica-kubernetes/pkg/vdbstatus"
 	corev1 "k8s.io/api/core/v1"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
@@ -162,7 +164,8 @@ func (t *TLSConfigManager) updateTLSConfig(ctx context.Context, initiatorIP stri
 	t.Rec.Eventf(t.Vdb, corev1.EventTypeNormal, succeeded,
 		"Successfully rotated %s tls cert with secret name %s and mode %s", t.TLSConfig, t.NewSecret, t.NewTLSMode)
 
-	return err
+	// update the tls mode in the status
+	return t.updateTLSModeInStatus(ctx)
 }
 
 // updateTLSModeInStatus updates the tls mode in the status after it was updated
@@ -184,6 +187,10 @@ func (t *TLSConfigManager) updateTLSModeInStatus(ctx context.Context) error {
 // setTLSConfig creates a tls config in the db , if it does not exist yet,
 // and updates the status
 func (t *TLSConfigManager) setTLSConfig(ctx context.Context, pfacts *podfacts.PodFacts) (ctrl.Result, error) {
+	// we want to be sure nma tls configmap exists and has the freshest values
+	if res, errCheck := t.checkNMATLSConfigMap(ctx); verrors.IsReconcileAborted(res, errCheck) {
+		return res, errCheck
+	}
 	initiatorPod, ok := pfacts.FindFirstUpPod(false, "")
 	if !ok {
 		t.Log.Info("No pod found to run sql to set tls config. Requeue reconciliation.")
@@ -257,6 +264,37 @@ func (t *TLSConfigManager) getTLSConfigFromDB(ctx context.Context, pfacts *podfa
 
 	certificate, mode, err = t.parseConfig(stdout)
 	return
+}
+
+// checkNMATLSConfigMap checks if nma tls config map exists and has the
+// latest values
+func (t *TLSConfigManager) checkNMATLSConfigMap(ctx context.Context) (ctrl.Result, error) {
+	configMapName := names.GenNMACertConfigMap(t.Vdb)
+	configMap := &corev1.ConfigMap{}
+	err := t.Rec.GetClient().Get(ctx, configMapName, configMap)
+	if err != nil {
+		if kerrors.IsNotFound(err) {
+			t.Log.Info("TLS config map does not exist yet. Requeueing")
+			return ctrl.Result{Requeue: true}, nil
+		}
+		t.Log.Error(err, "failed to retrieve TLS cert secret configmap")
+		return ctrl.Result{}, err
+	}
+
+	var isUpToDate bool
+	if t.isHTTPSTLSConfig() {
+		isUpToDate = configMap.Data[builder.NMASecretNameEnv] == t.Vdb.Spec.HTTPSNMATLSSecret
+	} else {
+		isUpToDate = configMap.Data[builder.NMAClientSecretNameEnv] == t.Vdb.Spec.ClientServerTLSSecret &&
+			configMap.Data[builder.NMAClientSecretTLSModeEnv] == t.Vdb.GetNMAClientServerTLSMode()
+	}
+
+	if !isUpToDate {
+		t.Log.Info("TLS config map is not up to date. Requeueing")
+		return ctrl.Result{Requeue: true}, nil
+	}
+
+	return ctrl.Result{}, nil
 }
 
 func (t *TLSConfigManager) isClientServerTLSConfig() bool {

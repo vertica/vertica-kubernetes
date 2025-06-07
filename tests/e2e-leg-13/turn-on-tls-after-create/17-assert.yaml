@@ -24,6 +24,11 @@ kind: VerticaDB
 metadata:
   name: v-create-enable-rotate-add
 status:
+  conditions:
+    - type: AutoRestartVertica
+      status: "True"
+    - type: DBInitialized
+      status: "True"
   subclusters:
     - addedToDBCount: 3
       upNodeCount: 3

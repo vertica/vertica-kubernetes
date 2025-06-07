@@ -65,6 +65,12 @@ func (h *ClientServerTLSReconciler) Reconcile(ctx context.Context, _ *ctrl.Reque
 		return ctrl.Result{}, err
 	}
 
+	if h.Vdb.IsStatusConditionTrue(vapi.ClientServerTLSUpdateFinished) &&
+		h.Vdb.IsStatusConditionTrue(vapi.TLSConfigUpdateInProgress) {
+		return ctrl.Result{}, nil
+	}
+
+	// initialize the manager
 	h.Manager.setTLSUpdatedata()
 	h.Manager.setTLSUpdateType()
 
@@ -72,15 +78,15 @@ func (h *ClientServerTLSReconciler) Reconcile(ctx context.Context, _ *ctrl.Reque
 		return h.Manager.setTLSConfig(ctx, h.PFacts)
 	}
 
-	if h.Vdb.IsStatusConditionTrue(vapi.ClientServerTLSUpdateFinished) &&
-		h.Vdb.IsStatusConditionTrue(vapi.TLSConfigUpdateInProgress) {
-		return ctrl.Result{}, nil
-	}
-
 	// no-op if neither client server secret nor tls mode
 	// changed
 	if !h.Manager.needTLSConfigChange() {
 		return ctrl.Result{}, nil
+	}
+
+	// we want to be sure nma tls configmap exists and has the freshest values
+	if res, errCheck := h.Manager.checkNMATLSConfigMap(ctx); verrors.IsReconcileAborted(res, errCheck) {
+		return res, errCheck
 	}
 
 	h.Log.Info("start client server cert rotation")
@@ -108,17 +114,11 @@ func (h *ClientServerTLSReconciler) Reconcile(ctx context.Context, _ *ctrl.Reque
 		return ctrl.Result{}, err
 	}
 
-	if err := h.Manager.updateTLSModeInStatus(ctx); err != nil {
-		return ctrl.Result{}, err
-	}
-
 	cond = vapi.MakeCondition(vapi.ClientServerTLSUpdateFinished, metav1.ConditionTrue, "Completed")
 	if err := vdbstatus.UpdateCondition(ctx, h.VRec.GetClient(), h.Vdb, cond); err != nil {
 		h.Log.Error(err, "failed to set condition "+vapi.ClientServerTLSUpdateFinished+" to true")
 		return ctrl.Result{}, err
 	}
 
-	// temporary just for testing
-	sec := vapi.MakeClientServerTLSSecretRef(h.Vdb.Spec.ClientServerTLSSecret)
-	return ctrl.Result{}, vdbstatus.UpdateSecretRef(ctx, h.VRec.GetClient(), h.Vdb, sec)
+	return ctrl.Result{}, nil
 }

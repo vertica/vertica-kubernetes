@@ -73,6 +73,11 @@ func (h *HTTPSCertRotationReconciler) Reconcile(ctx context.Context, _ *ctrl.Req
 		return ctrl.Result{}, err
 	}
 
+	if h.Vdb.IsStatusConditionTrue(vapi.HTTPSTLSConfigUpdateFinished) && h.Vdb.IsStatusConditionTrue(vapi.TLSConfigUpdateInProgress) {
+		return ctrl.Result{}, nil
+	}
+
+	// initialize the manager
 	h.Manager.setTLSUpdatedata()
 	h.Manager.setTLSUpdateType()
 
@@ -80,14 +85,15 @@ func (h *HTTPSCertRotationReconciler) Reconcile(ctx context.Context, _ *ctrl.Req
 		return h.Manager.setTLSConfig(ctx, h.PFacts)
 	}
 
-	if h.Vdb.IsStatusConditionTrue(vapi.HTTPSTLSConfigUpdateFinished) && h.Vdb.IsStatusConditionTrue(vapi.TLSConfigUpdateInProgress) {
-		return ctrl.Result{}, nil
-	}
-
 	// no-op if neither https secret nor tls mode
 	// changed
 	if !h.Manager.needTLSConfigChange() {
 		return ctrl.Result{}, nil
+	}
+
+	// we want to be sure nma tls configmap exists and has the freshest values
+	if res, errCheck := h.Manager.checkNMATLSConfigMap(ctx); verrors.IsReconcileAborted(res, errCheck) {
+		return res, errCheck
 	}
 
 	h.Log.Info("start https cert rotation")
@@ -110,10 +116,6 @@ func (h *HTTPSCertRotationReconciler) Reconcile(ctx context.Context, _ *ctrl.Req
 
 	err = h.Manager.updateTLSConfig(ctx, initiatorPod.GetPodIP())
 	if err != nil {
-		return ctrl.Result{}, err
-	}
-
-	if err := h.Manager.updateTLSModeInStatus(ctx); err != nil {
 		return ctrl.Result{}, err
 	}
 

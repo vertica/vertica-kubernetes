@@ -277,6 +277,9 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		MakeRestartReconcilerForRevive(r, log, vdb, prunner, pfacts, true, dispatcher),
 		// Add additional buckets for data replication
 		MakeAddtionalBucketsReconciler(r, log, vdb, prunner, pfacts),
+		// Makes sure all pods are running with valid health probes, before
+		// tls update. It will also reconcile the nma tls config map
+		MakeObjReconciler(r, log, vdb, pfacts, ObjReconcileModeAll),
 		// rotate https tls cert when tls cert secret name is changed in vdb.spec
 		MakeHTTPSCertRotationReconciler(r, log, vdb, dispatcher, pfacts),
 		MakeClientServerTLSReconciler(r, log, vdb, dispatcher, pfacts),
