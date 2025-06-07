@@ -85,6 +85,13 @@ func (v *VClusterOps) genStartDBOptions(s *startdb.Parms, certs *HTTPSCerts) (vo
 	}
 
 	v.setAuthentication(&opts.DatabaseOptions, v.VDB.GetVerticaUser(), &v.Password, certs)
+	// revivedb is tricky. You cannot if the original db had tls configurations until the db
+	// is running, but in order to start db you need to know if tls configurations exist.
+	// There is not much we can do but based our decision on the server version and the anno
+	// tation. Users must set enable-tls-auth to true if the original db also had it set to true
+	if v.VDB.IsInitPolicyRevive() && v.VDB.IsSetForTLS() {
+		opts.Password = nil
+	}
 
 	// timeout option
 	vdbTimeout := v.VDB.GetRestartTimeout()

@@ -20,6 +20,7 @@ metadata:
     vertica.com/k-safety: "0"
     vertica.com/ignore-cluster-lease: "true"
     vertica.com/requeue-time: "5"
+    vertica.com/enable-tls-auth: "true"
 spec:
   image: kustomize-vertica-image
   passwordSecret: su-passwd

@@ -67,10 +67,12 @@ func (v *VClusterOps) genSetTLSConfigOptions(s *settlsconfig.Parms,
 		opts.Password = &v.Password
 	}
 
-	configMap := genTLSConfigurationMap(s.HTTPSTLSMode, s.HTTPSTLSSecretName, s.Namespace)
-	opts.HTTPSTLSConfig.SetConfigMap(maps.Clone(configMap))
-	configMap = genTLSConfigurationMap(s.ClientServerTLSMode, s.ClientServerTLSSecretName, s.Namespace)
-	opts.ServerTLSConfig.SetConfigMap(maps.Clone(configMap))
+	configMap := genTLSConfigurationMap(s.TLSMode, s.TLSSecretName, s.Namespace)
+	if s.HTTPSTLSConfig {
+		opts.HTTPSTLSConfig.SetConfigMap(maps.Clone(configMap))
+	} else {
+		opts.ServerTLSConfig.SetConfigMap(maps.Clone(configMap))
+	}
 
 	return &opts
 }

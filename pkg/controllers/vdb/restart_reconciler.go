@@ -68,6 +68,7 @@ type RestartReconciler struct {
 	InitiatorPodIP  string               // The IP of the initiating pod
 	RestartReadOnly bool                 // Whether to restart nodes that are in read-only mode
 	Dispatcher      vadmin.Dispatcher
+	forRevive       bool
 	config.ConfigParamsGenerator
 }
 
@@ -91,9 +92,26 @@ func MakeRestartReconciler(recon config.ReconcilerInterface, log logr.Logger,
 	}
 }
 
+func MakeRestartReconcilerForRevive(recon config.ReconcilerInterface, log logr.Logger,
+	vdb *vapi.VerticaDB, prunner cmds.PodRunner, pfacts *podfacts.PodFacts, restartReadOnly bool,
+	dispatcher vadmin.Dispatcher) controllers.ReconcileActor {
+	act := MakeRestartReconciler(recon, log, vdb, prunner, pfacts, restartReadOnly, dispatcher)
+	r := act.(*RestartReconciler)
+	r.forRevive = true
+	return act
+}
+
 // Reconcile will ensure each pod is UP in the vertica sense.
 // On success, each node will have a running vertica process.
 func (r *RestartReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
+	if r.forRevive {
+		if !r.Vdb.IsInitPolicyRevive() ||
+			r.Vdb.HasReviveInstanceIDAnnotation() ||
+			!r.Vdb.IsSetForTLS() {
+			return ctrl.Result{}, nil
+		}
+	}
+
 	if !r.Vdb.Spec.AutoRestartVertica {
 		err := vdbstatus.UpdateCondition(ctx, r.VRec.GetClient(), r.Vdb,
 			vapi.MakeCondition(vapi.AutoRestartVertica, metav1.ConditionFalse, "Detected"),

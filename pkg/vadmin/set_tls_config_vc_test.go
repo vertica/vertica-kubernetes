@@ -49,10 +49,6 @@ func (m *MockVClusterOps) VSetTLSConfig(options *vops.VSetTLSConfigOptions) (err
 	if !maps.Equal(options.HTTPSTLSConfig.ConfigMap, configMap) {
 		return fmt.Errorf("https tls configuration not valid")
 	}
-	configMap = genTLSConfigurationMap(TestClientServerTLSMode, TestClientServerSecret, TestNamespace)
-	if !maps.Equal(options.ServerTLSConfig.ConfigMap, configMap) {
-		return fmt.Errorf("client server tls configuration not valid")
-	}
 
 	return nil
 }
@@ -67,16 +63,13 @@ var _ = Describe("set_config_parameter_vc", func() {
 		dispatcher.VDB.Spec.ClientServerTLSSecret = TestClientServerSecret
 		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.NMATLSSecret)
 		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.NMATLSSecret)
-		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.ClientServerTLSSecret)
-		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.ClientServerTLSSecret)
 
 		err := dispatcher.SetTLSConfig(ctx,
 			settlsconfig.WithInitiatorIP(TestSourceIP),
-			settlsconfig.WithClientServerTLSMode(TestClientServerTLSMode),
-			settlsconfig.WithHTTPSTLSMode(TestHTTPSTLSMode),
-			settlsconfig.WithClientServerTLSSecretName(dispatcher.VDB.Spec.ClientServerTLSSecret),
-			settlsconfig.WithHTTPSTLSSecretName(dispatcher.VDB.Spec.NMATLSSecret),
+			settlsconfig.WithTLSMode(TestHTTPSTLSMode),
+			settlsconfig.WithTLSSecretName(dispatcher.VDB.Spec.NMATLSSecret),
 			settlsconfig.WithNamespace(TestNamespace),
+			settlsconfig.WithHTTPSTLSConfig(true),
 		)
 		Ω(err).Should(Succeed())
 	})

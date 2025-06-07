@@ -32,7 +32,7 @@ const (
 	rotateHTTPSCertCurrentNMASecretName = "rotate-https-current-cert-test-secret" //nolint:gosec
 )
 
-// mock version of VRotateTLSCerts() that is invoked inside VClusterOps.RotateHTTPSCerts()
+// mock version of VRotateTLSCerts() that is invoked inside VClusterOps.RotateTLSCerts()
 func (m *MockVClusterOps) VRotateTLSCerts(options *vops.VRotateTLSCertsOptions) error {
 	// verify common options
 	err := m.VerifyCommonOptions(&options.DatabaseOptions)
@@ -99,7 +99,7 @@ var _ = Describe("rotate_https_cert", func() {
 				Type: vapi.HTTPSTLSSecretType,
 			},
 		}
-		Ω(dispatcher.RotateHTTPSCerts(ctx,
+		Ω(dispatcher.RotateTLSCerts(ctx,
 			rotatehttpscerts.WithInitiator(TestInitiatorIP),
 			rotatehttpscerts.WithPollingKey(TestPollingKey),
 			rotatehttpscerts.WithPollingCert(TestPollingCert),

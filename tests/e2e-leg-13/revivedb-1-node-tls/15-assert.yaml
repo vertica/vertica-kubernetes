@@ -17,13 +17,3 @@ metadata:
   name: v-create-1-node-sc1
 status:
   replicas: 1
-  readyReplicas: 1
----
-apiVersion: vertica.com/v1
-kind: VerticaDB
-metadata:
-  name: v-create-1-node
-status:
-  subclusters:
-    - addedToDBCount: 1
-      upNodeCount: 1

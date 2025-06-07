@@ -136,7 +136,7 @@ func (v *VClusterOps) setAuthentication(opts *vops.DatabaseOptions, username str
 	// When cert rotation is not enabled, we always use password authentication for both https and nma.
 	// When cert rotation is enabled and VCluster doesn't need cert for client server auth,
 	// we use password authentication for NMA.
-	if !v.VDB.IsCertRotationEnabled() {
+	if !v.VDB.IsTLSConfigEnabled() {
 		opts.Password = password
 	} else if !v.VDB.IsCertNeededForClientServerAuth() {
 		opts.Password = password
@@ -150,11 +150,14 @@ func (v *VClusterOps) setAuthentication(opts *vops.DatabaseOptions, username str
 // when tls cert is used, it returns secert name saved in annotation
 func getHTTPSTLSSecretName(vdb *vapi.VerticaDB) (string, error) {
 	secretName := ""
-	if vdb.IsCertRotationEnabled() && vdb.IsStatusConditionTrue(vapi.DBInitialized) {
+	if vdb.IsTLSConfigEnabled() && vdb.IsStatusConditionTrue(vapi.DBInitialized) {
 		secretName = vdb.GetHTTPSTLSSecretNameInUse()
-	} else {
-		secretName = vdb.Spec.HTTPSNMATLSSecret
+		if secretName != "" {
+			return secretName, nil
+		}
 	}
+
+	secretName = vdb.Spec.HTTPSNMATLSSecret
 	if secretName == "" {
 		return "", fmt.Errorf("failed to retrieve nma secret name")
 	}

@@ -91,7 +91,7 @@ var _ = Describe("add_node_vc", func() {
 			opts = append(opts, addnode.WithHost(n, TestNewPodNames[i]))
 		}
 		Ω(dispatcher.AddNode(ctx, opts...)).Should(Succeed())
-		vapi.SetVDBForTLS(dispatcher.VDB)
+		vapi.SetVDBWithTLSSecretsInStatus(dispatcher.VDB)
 		err := dispatcher.AddNode(ctx, opts...)
 		Ω(err.Error()).Should(ContainSubstring("missing password"))
 	})
