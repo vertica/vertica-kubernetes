@@ -83,6 +83,12 @@ func (c *CmdAddNode) setLocalFlags(cmd *cobra.Command) {
 		[]string{},
 		"A comma-separated list of hosts to add to the database.",
 	)
+	cmd.Flags().StringVar(
+		&c.addNodeOptions.Sandbox,
+		sandboxFlag,
+		"",
+		"The name of the sandbox of the subcluster where the node is to be added.",
+	)
 	cmd.Flags().BoolVar(
 		&c.addNodeOptions.ForceRemoval,
 		"force-removal",
@@ -146,6 +152,24 @@ func (c *CmdAddNode) Parse(inputArgv []string, logger vlog.Printer) error {
 	return c.validateParse(logger)
 }
 
+// Update sandbox info for the provided subcluster where the node is to be added
+func (c *CmdAddNode) updateSandboxInfo(dbConfig *DatabaseConfig) bool {
+	// Honor user input, if provided
+	if c.addNodeOptions.Sandbox != util.MainClusterSandbox {
+		return true
+	}
+	updatedSandboxInfo := false
+	for _, n := range dbConfig.Nodes {
+		if c.addNodeOptions.SCName == n.Subcluster {
+			updatedSandboxInfo = true
+			if n.Sandbox != util.MainClusterSandbox {
+				c.addNodeOptions.Sandbox = n.Sandbox
+			}
+		}
+	}
+	return updatedSandboxInfo
+}
+
 func (c *CmdAddNode) validateParse(logger vlog.Printer) error {
 	logger.Info("Called validateParse()")
 
@@ -206,6 +230,19 @@ func (c *CmdAddNode) Run(vcc vclusterops.ClusterCommands) error {
 
 	options := c.addNodeOptions
 
+	// Read sandbox information on config file
+	// Hint: This would only work when there is atleast one node in the target subcluster
+	dbConfig, configErr := readConfig()
+	if configErr != nil {
+		vcc.DisplayWarning("Failed to read the configuration file, skipping configuration file update", "error", configErr)
+	} else {
+		// update sandbox option as per the provided subcluster
+		updatedConfig := c.updateSandboxInfo(dbConfig)
+		if !updatedConfig {
+			vcc.DisplayWarning("Did not update sandbox info for given subcluster " + options.SCName +
+				", In case of failure, try again with --sandbox argument, if the target subcluster is sandboxed ")
+		}
+	}
 	vdb, err := vcc.VAddNode(options)
 	if err != nil {
 		vcc.LogError(err, "failed to add node")

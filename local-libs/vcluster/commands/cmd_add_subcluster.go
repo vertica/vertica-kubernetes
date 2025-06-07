@@ -108,6 +108,12 @@ func (c *CmdAddSubcluster) setLocalFlags(cmd *cobra.Command) {
 		false,
 		"Whether the new subcluster should be a primary subcluster. If this option is omitted, new subclusters are secondary.",
 	)
+	cmd.Flags().StringVar(
+		&c.addSubclusterOptions.SandboxName,
+		sandboxFlag,
+		"",
+		"The name of the sandbox where the subcluster is to be added.",
+	)
 	cmd.Flags().IntVar(
 		&c.addSubclusterOptions.ControlSetSize,
 		"control-set-size",
@@ -212,7 +218,7 @@ func (c *CmdAddSubcluster) Run(vcc vclusterops.ClusterCommands) error {
 
 		options.VAddNodeOptions.DatabaseOptions = c.addSubclusterOptions.DatabaseOptions
 		options.VAddNodeOptions.SCName = c.addSubclusterOptions.SCName
-
+		options.VAddNodeOptions.Sandbox = c.addSubclusterOptions.SandboxName
 		vdb, err := vcc.VAddNode(&options.VAddNodeOptions)
 		if err != nil {
 			const msg = "Failed to add nodes to the new subcluster"
