@@ -26,20 +26,14 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-const (
-	rotateHTTPSCertNewNMASecretName     = "rotate-https-new-cert-test-secret"     //nolint:gosec
-	rotateHTTPSCertCurrentNMASecretName = "rotate-https-current-cert-test-secret" //nolint:gosec
-)
-
-var _ = Describe("httpscertrotation_reconciler", func() {
+var _ = Describe("httpstls_reconciler", func() {
 	ctx := context.Background()
 
-	It("https cert reconciler should requeue", func() {
+	It("tls config reconciler should skip reconcile loop", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Spec.EncryptSpreadComm = vapi.EncryptSpreadCommDisabled
 		vdb.Spec.Subclusters[0].Size = 3
 		vdb.Spec.HTTPSNMATLSSecret = rotateHTTPSCertNewNMASecretName
-		vapi.SetVDBForTLS(vdb)
 		test.CreateFakeTLSSecret(ctx, vdb, k8sClient, vdb.Spec.HTTPSNMATLSSecret)
 		defer test.DeleteSecret(ctx, k8sClient, vdb.Spec.HTTPSNMATLSSecret)
 		test.CreateFakeTLSSecret(ctx, vdb, k8sClient, rotateHTTPSCertCurrentNMASecretName)
@@ -54,6 +48,13 @@ var _ = Describe("httpscertrotation_reconciler", func() {
 		fpr := &cmds.FakePodRunner{}
 		pfacts := createPodFactsWithNoDB(ctx, vdb, fpr, 3)
 		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
+
+		r := MakeTLSConfigReconciler(vdbRec, logger, vdb, fpr, dispatcher, pfacts, vapi.HTTPSTLSSecretType)
+		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
+		vapi.SetVDBForTLS(vdb)
+		Expect(vdb.IsStatusConditionTrue(vapi.DBInitialized)).Should(Equal(false))
+		r = MakeTLSConfigReconciler(vdbRec, logger, vdb, fpr, dispatcher, pfacts, vapi.HTTPSTLSSecretType)
+		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 		vdb.Status.SecretRefs = []vapi.SecretRef{
 			{
 				Name: rotateHTTPSCertCurrentNMASecretName,
@@ -61,10 +62,6 @@ var _ = Describe("httpscertrotation_reconciler", func() {
 			},
 		}
 		Expect(k8sClient.Status().Update(ctx, vdb)).Should(Succeed())
-		test.CreateTLSConfigMap(ctx, k8sClient, vdb)
-		defer test.DeleteTLSConfigMap(ctx, k8sClient, vdb)
-		r := MakeHTTPSCertRotationReconciler(vdbRec, logger, vdb, dispatcher, pfacts)
-		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: true}))
+		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 	})
-
 })

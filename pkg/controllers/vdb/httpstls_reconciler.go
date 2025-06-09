@@ -38,7 +38,7 @@ type HTTPSTLSReconciler struct {
 	Pfacts     *podfacts.PodFacts
 }
 
-func MakeHTTPSTLSeconciler(vdbrecon *VerticaDBReconciler, log logr.Logger, vdb *vapi.VerticaDB, prunner cmds.PodRunner,
+func MakeHTTPSTLSReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger, vdb *vapi.VerticaDB, prunner cmds.PodRunner,
 	dispatcher vadmin.Dispatcher, pfacts *podfacts.PodFacts) controllers.ReconcileActor {
 	return &HTTPSTLSReconciler{
 		VRec:       vdbrecon,
