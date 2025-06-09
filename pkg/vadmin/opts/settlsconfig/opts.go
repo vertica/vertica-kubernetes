@@ -77,6 +77,8 @@ func WithInitiatorIP(initiatorIP string) Option {
 	}
 }
 
+// WithHTTPSTLSConfig specifies whether the current API call is for https
+// or client server. Trues means the call is for https.
 func WithHTTPSTLSConfig(isHTTPSTLSConfig bool) Option {
 	return func(p *Parms) {
 		p.IsHTTPSTLSConfig = isHTTPSTLSConfig

@@ -22,6 +22,7 @@ import (
 	. "github.com/onsi/gomega"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
+	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
 	"github.com/vertica/vertica-kubernetes/pkg/test"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -29,7 +30,7 @@ import (
 var _ = Describe("httpstls_reconciler", func() {
 	ctx := context.Background()
 
-	It("tls config reconciler should skip reconcile loop", func() {
+	It("tls config reconciler skips reconcile loop when conditions are not met", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Spec.EncryptSpreadComm = vapi.EncryptSpreadCommDisabled
 		vdb.Spec.Subclusters[0].Size = 3
@@ -64,4 +65,27 @@ var _ = Describe("httpstls_reconciler", func() {
 		Expect(k8sClient.Status().Update(ctx, vdb)).Should(Succeed())
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 	})
+
+	It("verify the parameters passed to set_tls_config API", func() {
+		vdb := vapi.MakeVDB()
+		vdb.Spec.EncryptSpreadComm = vapi.EncryptSpreadCommDisabled
+		vdb.Spec.Subclusters[0].Size = 3
+		vdb.Spec.HTTPSNMATLSSecret = rotateHTTPSCertNewNMASecretName
+		test.CreateFakeTLSSecret(ctx, vdb, k8sClient, vdb.Spec.HTTPSNMATLSSecret)
+
+		// sc := &vdb.Spec.Subclusters[0]
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
+
+		fpr := &cmds.FakePodRunner{}
+		pfacts := createPodFactsWithNoDB(ctx, vdb, fpr, 3)
+		dispatcher := mockVClusterOpsDispatcher(vdb)
+		vapi.SetVDBForTLS(vdb)
+		r := MakeTLSConfigReconciler(vdbRec, logger, vdb, fpr, dispatcher, pfacts, vapi.HTTPSTLSSecretType)
+
+		initiatorPod := &podfacts.PodFact{}
+		tlsConfigReconciler := r.(*TLSConfigReconciler)
+		Expect(tlsConfigReconciler.runDDLToConfigureTLS(ctx, initiatorPod)).Should(Succeed())
+	})
+
 })

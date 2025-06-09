@@ -258,6 +258,11 @@ func (vcc VClusterCommands) produceRotateTLSCertsInstructions(
 		&nmaHealthOp,
 		&nmaRotateTLSCertsOp,
 	)
+	httpsSyncCatalogOp, err := makeHTTPSSyncCatalogOp(initiatorHosts, true, options.UserName, options.Password, CreateDBSyncCat)
+	if err != nil {
+		return instructions, err
+	}
+	instructions = append(instructions, &httpsSyncCatalogOp)
 	return instructions, nil
 }
 
