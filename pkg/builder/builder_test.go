@@ -961,3 +961,20 @@ func verifyScrutinizePasswordEnvVars(secret string, offset int, should bool) {
 	Ω(makeEnvVars(&cnt)).ShouldNot(ContainElement(ContainSubstring(passwordSecretNameEnv)))
 	Ω(makeEnvVars(&cnt)).ShouldNot(ContainElement(ContainSubstring(passwordSecretNamespaceEnv)))
 }
+
+func verifyNMATLSCertsEnvVars() {
+	vdb := vapi.MakeVDB()
+	envVars := buildNMATLSCertsEnvVars(vdb)
+	configMapName := fmt.Sprintf("%s-%s", vdb.Name, vapi.NMATLSConfigMapName)
+	Ω(len(envVars)).Should(Equal(7))
+	Ω(envVars[1].Name).Should(Equal(NMASecretNameEnv))
+	Ω(envVars[1].ValueFrom.ConfigMapKeyRef.LocalObjectReference.Name).Should(Equal(configMapName))
+	Ω(envVars[1].ValueFrom.ConfigMapKeyRef.Key).Should(Equal(NMASecretNameEnv))
+	Ω(envVars[3].Name).Should(Equal(NMAClientSecretNameEnv))
+	Ω(envVars[3].ValueFrom.ConfigMapKeyRef.LocalObjectReference.Name).Should(Equal(configMapName))
+	Ω(envVars[3].ValueFrom.ConfigMapKeyRef.Key).Should(Equal(NMAClientSecretNameEnv))
+	Ω(envVars[6].Name).Should(Equal(NMAClientSecretTLSModeEnv))
+	Ω(envVars[6].ValueFrom.ConfigMapKeyRef.LocalObjectReference.Name).Should(Equal(configMapName))
+	Ω(envVars[6].ValueFrom.ConfigMapKeyRef.Key).Should(Equal(NMAClientSecretTLSModeEnv))
+
+}
