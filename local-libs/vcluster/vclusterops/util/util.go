@@ -71,6 +71,7 @@ const (
 	LicenseEndpoint       = "license"
 	TLSAuthEndpoint       = "authentication/tls/"
 	TLSBootstrapEndpoint  = "authentication/client"
+	TLSInfoEndpoint       = "tls/info"
 )
 
 const (
@@ -139,11 +140,41 @@ func CheckNotEmpty(a string) bool {
 	return a != ""
 }
 
+const (
+	trueStr  = "true"
+	falseStr = "false"
+)
+
 func BoolToStr(b bool) string {
 	if b {
-		return "true"
+		return trueStr
 	}
-	return "false"
+	return falseStr
+}
+
+type BoolFromStr bool
+
+func (b BoolFromStr) MarshalJSON() ([]byte, error) {
+	s := BoolToStr(bool(b))
+	return json.Marshal(s)
+}
+
+func (b *BoolFromStr) UnmarshalJSON(data []byte) error {
+	var s string
+	if err := json.Unmarshal(data, &s); err != nil {
+		return fmt.Errorf("unmarshaling into BoolFromStr: expected string, got %s", data)
+	}
+
+	switch strings.ToLower(s) {
+	case trueStr:
+		*b = true
+	case falseStr:
+		*b = false
+	default:
+		return fmt.Errorf("unmarshaling into BoolFromStr: invalid value %q", s)
+	}
+
+	return nil
 }
 
 func CheckAllEmptyOrNonEmpty(vars ...string) bool {
