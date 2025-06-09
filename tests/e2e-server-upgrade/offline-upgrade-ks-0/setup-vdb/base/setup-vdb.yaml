@@ -38,3 +38,4 @@ spec:
   imagePullSecrets: []
   volumes: []
   volumeMounts: []
+  encryptSpreadComm: disabled

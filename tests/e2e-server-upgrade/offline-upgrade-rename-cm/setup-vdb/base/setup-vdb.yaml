@@ -42,3 +42,4 @@ spec:
   volumeMounts:
     - name: cm
       mountPath: /configmap
+  encryptSpreadComm: disabled
