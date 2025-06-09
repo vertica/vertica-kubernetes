@@ -71,7 +71,7 @@ func ValidateCertificate(certPEM []byte) error {
 		return err
 	}
 
-	if len(cert.SubjectKeyId) == 0 {
+	if cert.IsCA && len(cert.SubjectKeyId) == 0 {
 		return errors.New("certificate is missing SubjectKeyIdentifier extension")
 	}
 

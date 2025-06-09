@@ -41,6 +41,9 @@ var _ = Describe("certificate validation", func() {
 		expiringSoon, _, err := CheckCertificateExpiringSoon(cert.TLSCrt())
 		Expect(err).ShouldNot(HaveOccurred())
 		Expect(expiringSoon).Should(BeFalse())
+
+		// Check SKI for CA cert
+		Expect(ValidateCertificate(caCert.TLSCrt())).Should(Succeed())
 	})
 
 	It("should fail validation if EKU is missing clientAuth", func() {
