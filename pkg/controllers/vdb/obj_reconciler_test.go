@@ -989,8 +989,7 @@ var _ = Describe("obj_reconcile", func() {
 		It("should remove ownerReference from tls secret", func() {
 			vdb := vapi.MakeVDB()
 			vdb.Spec.HTTPSNMATLSSecret = "test-secret"
-			vdb.Annotations[vmeta.MountNMACertsAnnotation] = falseStr
-			vdb.Annotations[vmeta.EnableTLSCertsRotationAnnotation] = trueStr
+			vdb.Annotations[vmeta.EnableTLSAuthAnnotation] = trueStr
 			createCrd(vdb, false)
 			defer deleteCrd(vdb)
 			secret := test.BuildTLSSecret(vdb, vdb.Spec.HTTPSNMATLSSecret, test.TestKeyValue, test.TestCertValue, test.TestCaCertValue)

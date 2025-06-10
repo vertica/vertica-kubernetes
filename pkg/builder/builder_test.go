@@ -530,8 +530,8 @@ var _ = Describe("builder", func() {
 		delete(vdb.Annotations, vmeta.MountNMACertsAnnotation)
 		ps = buildPodSpec(vdb, &vdb.Spec.Subclusters[0])
 		c = makeServerContainer(vdb, &vdb.Spec.Subclusters[0])
-		Ω(NMACertsVolumeExists(vdb, ps.Volumes)).Should(BeTrue())
-		Ω(NMACertsVolumeMountExists(&c)).Should(BeTrue())
+		Ω(NMACertsVolumeExists(vdb, ps.Volumes)).Should(BeFalse())
+		Ω(NMACertsVolumeMountExists(&c)).Should(BeFalse())
 	})
 
 	It("should mount or not mount NMA certs volume according to annotation(sidecar)", func() {

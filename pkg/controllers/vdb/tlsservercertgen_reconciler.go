@@ -214,7 +214,7 @@ func (h *TLSServerCertGenReconciler) reconcileNMACertConfigMap(ctx context.Conte
 		h.Log.Error(err, "failed to retrieve TLS cert secret configmap")
 		return err
 	}
-	if !vmeta.EnableTLSCertsRotation(h.Vdb.Annotations) {
+	if !vmeta.UseTLSAuth(h.Vdb.Annotations) {
 		return nil
 	}
 	if configMap.Data[builder.NMASecretNameEnv] == h.Vdb.Spec.HTTPSNMATLSSecret &&

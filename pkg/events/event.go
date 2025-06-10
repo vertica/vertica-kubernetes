@@ -44,6 +44,7 @@ const (
 	S3BucketDoesNotExist             = "S3BucketDoesNotExist"
 	S3WrongRegion                    = "S3WrongRegion"
 	S3SseCustomerWrongKey            = "S3SseCustomerWrongKey"
+	AdditionalBucketsUpdated         = "AdditionalBucketsUpdated"
 	InvalidS3SseCustomerKey          = "InvalidS3SseCustomerKey"
 	InvalidConfigParm                = "InvalidConfigParm"
 	CommunalPathIsNotEmpty           = "CommunalPathIsNotEmpty"

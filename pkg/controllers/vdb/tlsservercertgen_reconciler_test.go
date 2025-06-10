@@ -107,7 +107,7 @@ var _ = Describe("tlsservercertgen_reconcile", func() {
 		const existing = "existing-secret"
 		vdb := vapi.MakeVDBForHTTP(existing)
 		vdb.Annotations[vmeta.MountNMACertsAnnotation] = trueStr
-		vdb.Annotations[vmeta.EnableTLSCertsRotationAnnotation] = falseStr
+		vdb.Annotations[vmeta.EnableTLSAuthAnnotation] = falseStr
 
 		// Delete configmap if it exists from other test cases
 		configMapName := names.GenNMACertConfigMap(vdb)
@@ -135,7 +135,7 @@ var _ = Describe("tlsservercertgen_reconcile", func() {
 	It("should create the ConfigMap if it does not exist", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Annotations[vmeta.MountNMACertsAnnotation] = falseStr
-		vdb.Annotations[vmeta.EnableTLSCertsRotationAnnotation] = trueStr
+		vdb.Annotations[vmeta.EnableTLSAuthAnnotation] = trueStr
 		const existing = "existing-secret"
 		vdb.Spec.HTTPSNMATLSSecret = existing
 		test.CreateVDB(ctx, k8sClient, vdb)
@@ -162,7 +162,7 @@ var _ = Describe("tlsservercertgen_reconcile", func() {
 	It("should update the ConfigMap if the secret name changes", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Annotations[vmeta.MountNMACertsAnnotation] = falseStr
-		vdb.Annotations[vmeta.EnableTLSCertsRotationAnnotation] = trueStr
+		vdb.Annotations[vmeta.EnableTLSAuthAnnotation] = trueStr
 		const initial = "initial-secret"
 		vdb.Spec.HTTPSNMATLSSecret = initial
 		test.CreateVDB(ctx, k8sClient, vdb)

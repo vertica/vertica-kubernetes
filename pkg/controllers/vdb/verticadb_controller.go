@@ -126,7 +126,7 @@ func (r *VerticaDBReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	}
 	log.Info("VerticaDB details", "uid", vdb.UID, "resourceVersion", vdb.ResourceVersion,
 		"vclusterOps", vmeta.UseVClusterOps(vdb.Annotations), "user", vdb.GetVerticaUser(),
-		"tls cert rotate enabled", vmeta.EnableTLSCertsRotation(vdb.Annotations))
+		"tls cert rotate enabled", vmeta.UseTLSAuth(vdb.Annotations))
 	if vmeta.IsPauseAnnotationSet(vdb.Annotations) {
 		log.Info(fmt.Sprintf("The pause annotation %s is set. Suspending the iteration", vmeta.PauseOperatorAnnotation),
 			"result", ctrl.Result{}, "err", nil)
@@ -271,6 +271,9 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		// Handle calls to revive a database
 		MakeReviveDBReconciler(r, log, vdb, prunner, pfacts, dispatcher),
 		MakeHTTPSTLSReconciler(r, log, vdb, prunner, dispatcher, pfacts),
+		// Add additional buckets for data replication
+		MakeAddtionalBucketsReconciler(r, log, vdb, prunner, pfacts),
+		MakeMetricReconciler(r, log, vdb, prunner, pfacts),
 		// Create and revive are mutually exclusive exclusive, so this handles
 		// status updates after both of them.
 		MakeStatusReconciler(r.Client, r.Scheme, log, vdb, pfacts),
