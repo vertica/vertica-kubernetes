@@ -38,6 +38,7 @@ import (
 const (
 	httpsNMATLSSecret     = "HTTPSNMATLSSecret" //nolint:gosec
 	clientServerTLSSecret = "ClientServerTLSSecret"
+	TLSCertName           = "tls.crt"
 )
 
 // TLSServerCertGenReconciler will create a secret that has TLS credentials.  This
@@ -58,8 +59,12 @@ func MakeTLSServerCertGenReconciler(vdbrecon *VerticaDBReconciler, log logr.Logg
 
 // Reconcile will create a TLS secret for the http server if one is missing
 func (h *TLSServerCertGenReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
-	secretStatus := h.Vdb.GetSecretStatus(httpsNMATLSSecret)
-	if secretStatus != nil && secretStatus.Name == h.Vdb.Spec.HTTPSNMATLSSecret {
+	nmaSecretStatus := h.Vdb.GetSecretStatus(httpsNMATLSSecret)
+	if nmaSecretStatus != nil && nmaSecretStatus.Name == h.Vdb.Spec.HTTPSNMATLSSecret {
+		return ctrl.Result{}, nil
+	}
+	clientSecretStatus := h.Vdb.GetSecretStatus(clientServerTLSSecret)
+	if clientSecretStatus != nil && clientSecretStatus.Name == h.Vdb.Spec.ClientServerTLSSecret {
 		return ctrl.Result{}, nil
 	}
 	if h.Vdb.Spec.NMATLSSecret != "" && h.Vdb.Spec.HTTPSNMATLSSecret == "" {
@@ -88,6 +93,10 @@ func (h *TLSServerCertGenReconciler) Reconcile(ctx context.Context, _ *ctrl.Requ
 // reconcileOneSecret will create a TLS secret for the http server if one is missing
 func (h *TLSServerCertGenReconciler) reconcileOneSecret(secretFieldName, secretName string,
 	ctx context.Context) error {
+	sType := vapi.HTTPSTLSSecretType
+	if secretFieldName == clientServerTLSSecret {
+		sType = vapi.ClientServerTLSSecretType
+	}
 	// If the secret name is set, check that it exists.
 	if secretName != "" {
 		// As a convenience we will regenerate the secret using the same name. But
@@ -102,10 +111,6 @@ func (h *TLSServerCertGenReconciler) reconcileOneSecret(secretFieldName, secretN
 		err := h.VRec.Client.Get(ctx, nm, secret)
 		// Secret defined but not found
 		if k8serrors.IsNotFound(err) {
-			sType := vapi.HTTPSTLSSecretType
-			if secretFieldName == clientServerTLSSecret {
-				sType = vapi.ClientServerTLSSecretType
-			}
 			secStatus := h.Vdb.GetSecretStatus(sType)
 			if secStatus != nil {
 				// we do not recreate the secret as there is already
@@ -120,7 +125,7 @@ func (h *TLSServerCertGenReconciler) reconcileOneSecret(secretFieldName, secretN
 			// Successfully read secret
 		} else {
 			// Validate secret certificate
-			err = h.ValidateSecretCertificate(ctx, secret)
+			err = h.ValidateSecretCertificate(ctx, secret, sType)
 			if err != nil {
 				return err
 			}
@@ -140,7 +145,7 @@ func (h *TLSServerCertGenReconciler) reconcileOneSecret(secretFieldName, secretN
 	if err != nil {
 		return err
 	}
-	if err := h.ValidateSecretCertificate(ctx, secret); err != nil {
+	if err := h.ValidateSecretCertificate(ctx, secret, sType); err != nil {
 		return err
 	}
 
@@ -208,14 +213,15 @@ func (h *TLSServerCertGenReconciler) setSecretNameInVDB(ctx context.Context, sec
 
 // Validate that Secret contains a valid certificate
 // If certificate is expiring soon, alert user
-func (h *TLSServerCertGenReconciler) ValidateSecretCertificate(ctx context.Context, secret *corev1.Secret) error {
-	certPEM := secret.Data["tls.crt"]
+func (h *TLSServerCertGenReconciler) ValidateSecretCertificate(ctx context.Context, secret *corev1.Secret, sType string) error {
+	certPEM := secret.Data[TLSCertName]
 	if certPEM == nil {
 		return errors.New("failed to decode PEM block containing certificate")
 	}
 
 	err := security.ValidateCertificate(certPEM)
 	if err != nil {
+		h.Log.Error(err, "TLS certificate failed validation", "secretType", sType)
 		return err
 	}
 
