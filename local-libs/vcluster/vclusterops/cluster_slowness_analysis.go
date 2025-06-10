@@ -23,6 +23,7 @@ import (
 	"strings"
 	"time"
 
+	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/vertica/vcluster/vclusterops/util"
 	"github.com/vertica/vcluster/vclusterops/vlog"
 )
@@ -83,8 +84,8 @@ func (opt *VClusterHealthOptions) buildCascadeGraph(logger vlog.Printer, upHosts
 		return fmt.Errorf("failed to build event map: %w", err)
 	}
 
-	sessionIDs := make(map[string]any)
-	txnIDs := make(map[string]any)
+	sessionIDs := mapset.NewSet[string]()
+	txnIDs := mapset.NewSet[string]()
 	const initialDepth = 0
 	rootNode, err := buildCascadeTree(slowestEvent, eventMap, initialDepth, maxDepth, sessionIDs, txnIDs)
 	if err != nil {
@@ -116,7 +117,7 @@ func (opt *VClusterHealthOptions) loadAllMutexEvents(logger vlog.Printer,
 }
 
 // attachSessionTxnInfo attaches session and transaction info to the slow event cascade.
-func (opt *VClusterHealthOptions) attachSessionTxnInfo(sessionIDs, txnIDs map[string]any, logger vlog.Printer, upHosts []string) error {
+func (opt *VClusterHealthOptions) attachSessionTxnInfo(sessionIDs, txnIDs mapset.Set[string], logger vlog.Printer, upHosts []string) error {
 	sessions, txns, err := opt.getSessionTxnInfo(sessionIDs, txnIDs, logger, upHosts)
 	if err != nil {
 		return fmt.Errorf("failed to get session/txn info: %w", err)
@@ -208,7 +209,7 @@ func buildEventMap(events *[]dcSlowEvent) (map[string][]*eventMapEntry, error) {
 }
 
 func buildCascadeTree(parentEvent *dcSlowEvent, eventMap map[string][]*eventMapEntry, currentDepth,
-	maxDepth int, sessionIDs, txnIDs map[string]any) (*SlowEventNode, error) {
+	maxDepth int, sessionIDs, txnIDs mapset.Set[string]) (*SlowEventNode, error) {
 	if currentDepth > maxDepth {
 		return nil, nil
 	}
@@ -240,18 +241,18 @@ func buildCascadeTree(parentEvent *dcSlowEvent, eventMap map[string][]*eventMapE
 }
 
 // updateSessionAndTxnIDs adds session and txn IDs to their respective maps if present.
-func updateSessionAndTxnIDs(event *dcSlowEvent, sessionIDs, txnIDs map[string]any) {
+func updateSessionAndTxnIDs(event *dcSlowEvent, sessionIDs, txnIDs mapset.Set[string]) {
 	if event.getSessionID() != "" && event.getSessionID() != internalSessionID {
-		sessionIDs[event.getSessionID()] = struct{}{}
+		sessionIDs.Add(event.getSessionID())
 	}
 	if event.getTxnID() != "" {
-		txnIDs[event.getTxnID()] = struct{}{}
+		txnIDs.Add(event.getTxnID())
 	}
 }
 
 // findChildNodes processes threadIDs and returns child nodes for the cascade tree.
 func findChildNodes(threadIDs []string, eventMap map[string][]*eventMapEntry, currentTime time.Time,
-	currentDepth, maxDepth int, sessionIDs, txnIDs map[string]any) ([]*SlowEventNode, error) {
+	currentDepth, maxDepth int, sessionIDs, txnIDs mapset.Set[string]) ([]*SlowEventNode, error) {
 	var children []*SlowEventNode
 	for _, threadID := range threadIDs {
 		candidateEvents, exists := eventMap[threadID]
@@ -269,7 +270,7 @@ func findChildNodes(threadIDs []string, eventMap map[string][]*eventMapEntry, cu
 
 // processCandidateEvents processes candidate events for a threadID and returns child nodes.
 func processCandidateEvents(candidateEvents []*eventMapEntry, currentTime time.Time, currentDepth, maxDepth int,
-	eventMap map[string][]*eventMapEntry, sessionIDs, txnIDs map[string]any) ([]*SlowEventNode, error) {
+	eventMap map[string][]*eventMapEntry, sessionIDs, txnIDs mapset.Set[string]) ([]*SlowEventNode, error) {
 	var children []*SlowEventNode
 	for _, entry := range candidateEvents {
 		if entry.processed {
@@ -351,7 +352,8 @@ func analyzeSlowEvent(event *dcSlowEvent) (
 	return threadIDStrs
 }
 
-func (opt *VClusterHealthOptions) fillLockHoldInfo(logger vlog.Printer, events *[]dcSlowEvent, sessionIDs, txnIDs map[string]any) error {
+func (opt *VClusterHealthOptions) fillLockHoldInfo(logger vlog.Printer, events *[]dcSlowEvent,
+	sessionIDs, txnIDs mapset.Set[string]) error {
 	for i, event := range opt.SlowEventCascade {
 		if !event.Leaf {
 			continue
@@ -375,10 +377,10 @@ func (opt *VClusterHealthOptions) fillLockHoldInfo(logger vlog.Printer, events *
 		for j := range *holdEvents {
 			holdEvent := &(*holdEvents)[j]
 			if holdEvent.getSessionID() != "" && holdEvent.getSessionID() != internalSessionID {
-				sessionIDs[holdEvent.getSessionID()] = struct{}{}
+				sessionIDs.Add(holdEvent.getSessionID())
 			}
 			if holdEvent.getTxnID() != "" {
-				txnIDs[holdEvent.getTxnID()] = struct{}{}
+				txnIDs.Add(holdEvent.getTxnID())
 			}
 		}
 		event.PriorHoldEvents = holdEvents
@@ -444,7 +446,7 @@ func (opt *VClusterHealthOptions) DisplayMutexEventsCascade() {
 	}
 }
 
-func (opt *VClusterHealthOptions) getSessionTxnInfo(sessionIDs, txnIDs map[string]any, logger vlog.Printer,
+func (opt *VClusterHealthOptions) getSessionTxnInfo(sessionIDs, txnIDs mapset.Set[string], logger vlog.Printer,
 	upHosts []string) (sessionMap map[string]*dcSessionStarts, txnMap map[string]*dcTransactionStarts, err error) {
 	// If we don't need session or transaction info, return early
 	sessionMap = make(map[string]*dcSessionStarts)
@@ -453,8 +455,8 @@ func (opt *VClusterHealthOptions) getSessionTxnInfo(sessionIDs, txnIDs map[strin
 		logger.PrintInfo("Skipping session and transaction info retrieval")
 		return sessionMap, txnMap, nil
 	}
-	sessionStr := util.JoinMapKeys(sessionIDs, ",")
-	txnStr := util.JoinMapKeys(txnIDs, ",")
+	sessionStr := util.JoinMapSetKeys(sessionIDs, ",")
+	txnStr := util.JoinMapSetKeys(txnIDs, ",")
 	if sessionStr == "" && txnStr == "" {
 		logger.PrintInfo("No session or transaction IDs found, skipping retrieval")
 		return sessionMap, txnMap, nil
