@@ -39,6 +39,12 @@ type VClusterHealthOptions struct {
 	Display            bool
 	Timezone           string
 	NeedSessionTnxInfo bool
+	// duration threshold for slow events
+	MinSlowDuration string
+	// duration threshold for lock attempt
+	LockAttemptThresHold string
+	// duration threshold for lock release
+	LockReleaseThresHold string
 
 	// hidden option
 	SlowEventCascade        []SlowEventNode
@@ -48,10 +54,10 @@ type VClusterHealthOptions struct {
 	LockEventCascade        []NodeLockEvents
 }
 
-var (
-	lockAttemptThresHold = "00:00:05" // 5 second
-	lockReleaseThresHold = "00:00:05" // 5 second
-	minSlowDuration      = "1000000"  // 1 second
+const (
+	DefaultLockAttemptThresHold = "00:00:05" // 5 second
+	DefaultLockReleaseThresHold = "00:00:05" // 5 second
+	DefaultMinSlowDuration      = "1000000"  // 1 second
 )
 
 const (
@@ -70,20 +76,26 @@ const (
 	LockReleaseDurationEnv = "VCLUSTER_GCLX_LOCK_RELEASE_DURATION"
 )
 
+// VClusterHealthFactory creates and returns a VClusterHealthOptions instance with default values set.
 func VClusterHealthFactory() VClusterHealthOptions {
 	options := VClusterHealthOptions{}
 	// set default values to the params
 	options.setDefaultValues()
-
-	minSlowDuration = util.GetEnv(SlowDurationEnv, minSlowDuration)
-	lockAttemptThresHold = util.GetEnv(LockAttemptDurationEnv, lockAttemptThresHold)
-	lockReleaseThresHold = util.GetEnv(LockReleaseDurationEnv, lockReleaseThresHold)
 
 	return options
 }
 
 func (opt *VClusterHealthOptions) setDefaultValues() {
 	opt.DatabaseOptions.setDefaultValues()
+	if opt.MinSlowDuration == "" {
+		opt.MinSlowDuration = DefaultMinSlowDuration
+	}
+	if opt.LockAttemptThresHold == "" {
+		opt.LockAttemptThresHold = DefaultLockAttemptThresHold
+	}
+	if opt.LockReleaseThresHold == "" {
+		opt.LockReleaseThresHold = DefaultLockReleaseThresHold
+	}
 }
 
 func (opt *VClusterHealthOptions) validateRequiredOptions(logger vlog.Printer) error {
@@ -192,7 +204,7 @@ func (vcc VClusterCommands) VClusterHealth(options *VClusterHealthOptions) error
 		options.NeedSessionTnxInfo = true
 		runError = options.buildCascadeGraph(vcc.Log, vdb.PrimaryUpNodes)
 	case lockCascade:
-		runError = options.buildLockCascadeGraph(vcc.Log, vdb.PrimaryUpNodes, lockAttemptThresHold, lockReleaseThresHold)
+		runError = options.buildLockCascadeGraph(vcc.Log, vdb.PrimaryUpNodes)
 	default: // by default, we will build a cascade graph
 		runError = options.buildCascadeGraph(vcc.Log, vdb.PrimaryUpNodes)
 	}
@@ -218,7 +230,7 @@ func (opt *VClusterHealthOptions) getSlowEvents(logger vlog.Printer, upHosts []s
 	nmaSlowEventOp, err := makeNMASlowEventOp(upHosts, opt.DatabaseOptions.UserName,
 		opt.DatabaseOptions.DBName, opt.DatabaseOptions.Password,
 		startTime, endTime, threadID, opt.PhaseDurationDesc,
-		opt.TxnID, opt.EventDesc, opt.NodeName, minSlowDuration)
+		opt.TxnID, opt.EventDesc, opt.NodeName, opt.MinSlowDuration)
 	if err != nil {
 		return nil, err
 	}

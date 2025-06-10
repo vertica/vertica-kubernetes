@@ -137,6 +137,24 @@ func (c *CmdClusterHealth) setLocalFlags(cmd *cobra.Command) {
 		"",
 		"The timezone of the start and end time (e.g., -0500 or +0100). If not given, UTC will be used by default.",
 	)
+	cmd.Flags().StringVar(
+		&c.clusterHealthOptions.MinSlowDuration,
+		"min-slow-duration",
+		vclusterops.DefaultMinSlowDuration,
+		"The minimum duration of slow events in microseconds (default: 1000000, which is 1 second).",
+	)
+	cmd.Flags().StringVar(
+		&c.clusterHealthOptions.LockAttemptThresHold,
+		"lock-attempt-threshold",
+		vclusterops.DefaultLockAttemptThresHold,
+		"The threshold of lock attempt duration in seconds (default: 5 seconds).",
+	)
+	cmd.Flags().StringVar(
+		&c.clusterHealthOptions.LockReleaseThresHold,
+		"lock-release-threshold",
+		vclusterops.DefaultLockReleaseThresHold,
+		"The threshold of lock release duration in seconds (default: 5 seconds).",
+	)
 }
 
 func (c *CmdClusterHealth) Parse(inputArgv []string, logger vlog.Printer) error {
