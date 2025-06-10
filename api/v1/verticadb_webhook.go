@@ -102,6 +102,7 @@ func (v *VerticaDB) Default() {
 	if v.Spec.TemporarySubclusterRouting != nil {
 		v.Spec.TemporarySubclusterRouting.Template.Type = SecondarySubcluster
 	}
+	v.setDefaultAdditionalBuckets()
 	v.setDefaultServiceName()
 	v.setDefaultSandboxImages()
 	v.setDefaultProxy()
@@ -219,6 +220,8 @@ func (v *VerticaDB) validateVerticaDBSpec() field.ErrorList {
 	allErrs = v.hasPrimarySubcluster(allErrs)
 	allErrs = v.validateKsafety(allErrs)
 	allErrs = v.validateCommunalPath(allErrs)
+	allErrs = v.validateAdditionalBuckets(allErrs)
+	allErrs = v.validateAdditionalBucketsTypes(allErrs)
 	allErrs = v.validateS3ServerSideEncryption(allErrs)
 	allErrs = v.validateAdditionalConfigParms(allErrs)
 	allErrs = v.validateCustomLabels(allErrs)
@@ -368,6 +371,96 @@ func (v *VerticaDB) validateCommunalPath(allErrs field.ErrorList) field.ErrorLis
 		v.Spec.Communal.Path,
 		"communal.path cannot be empty")
 	return append(allErrs, err)
+}
+
+// validateAdditionalBuckets checks the basic requirements
+func (v *VerticaDB) validateAdditionalBuckets(allErrs field.ErrorList) field.ErrorList {
+	if v.Spec.InitPolicy == CommunalInitPolicyScheduleOnly {
+		return allErrs
+	}
+
+	// Use a composite key of bucket, region, and endpoint to check for duplicates
+	pathsSeen := map[string]struct{}{}
+	for i, bucket := range v.Spec.AdditionalBuckets {
+		fieldPrefix := field.NewPath("spec").Child("additionalBuckets").Index(i)
+		// CredentialSecret must not be empty
+		if bucket.CredentialSecret == "" {
+			err := field.Invalid(fieldPrefix.Child("credentialSecret"), bucket.CredentialSecret,
+				"credentialSecret cannot be empty")
+			allErrs = append(allErrs, err)
+		}
+		// Path must not be empty
+		if bucket.Path == "" {
+			err := field.Invalid(fieldPrefix.Child("path"), bucket.Path, "path cannot be empty")
+			allErrs = append(allErrs, err)
+		}
+		// Check for duplicate buckets based on bucket, region, and endpoint
+		dupKey := fmt.Sprintf("%s|%s|%s", GetBucket(bucket.Path), bucket.Region, bucket.Endpoint)
+		if _, exists := pathsSeen[dupKey]; exists {
+			err := field.Invalid(fieldPrefix, bucket,
+				"duplicate additionalBucket (path, region, endpoint) in additionalBuckets")
+			allErrs = append(allErrs, err)
+		}
+		pathsSeen[dupKey] = struct{}{}
+	}
+	return allErrs
+}
+
+// validateAdditionalBucketsTypes checks different storage types (s3, gs, azb)
+func (v *VerticaDB) validateAdditionalBucketsTypes(allErrs field.ErrorList) field.ErrorList {
+	// Allow only one gs or azb to be defined as they share the same parameters in db
+	gsFound := false
+	azbFound := false
+	communalPrefix := ""
+	switch {
+	case strings.HasPrefix(v.Spec.Communal.Path, S3Prefix):
+		communalPrefix = S3Prefix
+	case strings.HasPrefix(v.Spec.Communal.Path, GCloudPrefix):
+		communalPrefix = GCloudPrefix
+	case strings.HasPrefix(v.Spec.Communal.Path, AzurePrefix):
+		communalPrefix = AzurePrefix
+	}
+
+	for i, bucket := range v.Spec.AdditionalBuckets {
+		fieldPrefix := field.NewPath("spec").Child("additionalBuckets").Index(i)
+
+		// Path must have a valid prefix
+		var bucketPrefix string
+		switch {
+		case strings.HasPrefix(bucket.Path, S3Prefix):
+			bucketPrefix = S3Prefix
+		case strings.HasPrefix(bucket.Path, GCloudPrefix):
+			bucketPrefix = GCloudPrefix
+			// Make sure only one gs defined
+			if gsFound {
+				err := field.Invalid(fieldPrefix.Child("path"), bucket.Path,
+					"only one gs additional storage can be defined")
+				allErrs = append(allErrs, err)
+			}
+			gsFound = true
+		case strings.HasPrefix(bucket.Path, AzurePrefix):
+			bucketPrefix = AzurePrefix
+			// Make sure only one azb defined
+			if azbFound {
+				err := field.Invalid(fieldPrefix.Child("path"), bucket.Path,
+					"only one azb additional storage can be defined")
+				allErrs = append(allErrs, err)
+			}
+			azbFound = true
+		default:
+			err := field.Invalid(fieldPrefix.Child("path"), bucket.Path,
+				"path must start with s3://, gs://, or azb://")
+			allErrs = append(allErrs, err)
+		}
+		// Protocol must be different from communal path if additional bucket is gs or azb
+		if (bucketPrefix == GCloudPrefix || bucketPrefix == AzurePrefix) && bucketPrefix == communalPrefix {
+			err := field.Invalid(fieldPrefix.Child("path"), bucket.Path,
+				fmt.Sprintf("additional bucket %q cannot use the same protocol as communal.path %q",
+					bucket.Path, communalPrefix))
+			allErrs = append(allErrs, err)
+		}
+	}
+	return allErrs
 }
 
 func (v *VerticaDB) validateS3ServerSideEncryption(allErrs field.ErrorList) field.ErrorList {
@@ -2286,6 +2379,32 @@ func (v *VerticaDB) isOnlyCertRotationChange(oldVdb *VerticaDB) bool {
 	oldCopy.HTTPSNMATLSSecret = ""
 	newCopy.HTTPSNMATLSSecret = ""
 	return reflect.DeepEqual(oldCopy, newCopy)
+}
+
+// setDefaultAdditionalBuckets sets default additional buckets configurations
+func (v *VerticaDB) setDefaultAdditionalBuckets() {
+	if !v.HasAdditionalBuckets() {
+		return
+	}
+	for i := range v.Spec.AdditionalBuckets {
+		bucket := v.Spec.AdditionalBuckets[i]
+		if strings.HasPrefix(bucket.Path, S3Prefix) {
+			if bucket.Region == "" {
+				v.Spec.AdditionalBuckets[i].Region = DefaultS3Region
+			}
+			if bucket.Endpoint == "" {
+				v.Spec.AdditionalBuckets[i].Endpoint = DefaultS3Endpoint
+			}
+		}
+		if strings.HasPrefix(bucket.Path, GCloudPrefix) {
+			if bucket.Region == "" {
+				v.Spec.AdditionalBuckets[i].Region = DefaultGCloudRegion
+			}
+			if bucket.Endpoint == "" {
+				v.Spec.AdditionalBuckets[i].Endpoint = DefaultGCloudEndpoint
+			}
+		}
+	}
 }
 
 // setDefaultServiceName will explicitly set the serviceName in any subcluster
