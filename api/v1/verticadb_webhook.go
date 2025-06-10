@@ -2350,10 +2350,31 @@ func (v *VerticaDB) validateTLSCertRotation(oldObj *VerticaDB, allErrs field.Err
 	}
 
 	// rule 2
-	if oldObj.Spec.HTTPSNMATLSSecret != "" && v.Spec.HTTPSNMATLSSecret == "" {
-		err := field.Forbidden(field.NewPath("spec").Child("HTTPSNMATLSSecret"),
-			"cannot disable mutual TLS after it's enabled")
-		allErrs = append(allErrs, err)
+	// - when the annotation is true, don't allow the user to change it to false.
+	// - when that annotation is false, don't allow the user to change HTTPSNMATLSSecret,
+	//   clientServerTLSSecret and tls modes.
+	if vmeta.UseTLSAuth(oldObj.Annotations) {
+		if !vmeta.UseTLSAuth(v.Annotations) {
+			err := field.Forbidden(field.NewPath("spec").Child("HTTPSNMATLSSecret"),
+				"cannot disable mutual TLS after it's enabled")
+			allErrs = append(allErrs, err)
+		}
+	} else {
+		if oldObj.Spec.HTTPSNMATLSSecret != v.Spec.HTTPSNMATLSSecret {
+			err := field.Forbidden(field.NewPath("spec").Child("HTTPSNMATLSSecret"),
+				"cannot change HTTPSNMATLSSecret when mutual TLS is disabled")
+			allErrs = append(allErrs, err)
+		}
+		if oldObj.Spec.ClientServerTLSSecret != v.Spec.ClientServerTLSSecret {
+			err := field.Forbidden(field.NewPath("spec").Child("clientServerTLSSecret"),
+				"cannot change clientServerTLSSecret when mutual TLS is disabled")
+			allErrs = append(allErrs, err)
+		}
+		if oldObj.Spec.ClientServerTLSMode != v.Spec.ClientServerTLSMode {
+			err := field.Forbidden(field.NewPath("spec").Child("clientServerTLSMode"),
+				"cannot change clientServerTLSMode when mutual TLS is disabled")
+			allErrs = append(allErrs, err)
+		}
 	}
 
 	// rule 3
@@ -2378,6 +2399,11 @@ func (v *VerticaDB) isOnlyCertRotationChange(oldVdb *VerticaDB) bool {
 	newCopy := newSpec
 	oldCopy.HTTPSNMATLSSecret = ""
 	newCopy.HTTPSNMATLSSecret = ""
+	oldCopy.ClientServerTLSSecret = ""
+	newCopy.ClientServerTLSSecret = ""
+	oldCopy.ClientServerTLSMode = ""
+	newCopy.ClientServerTLSMode = ""
+
 	return reflect.DeepEqual(oldCopy, newCopy)
 }
 

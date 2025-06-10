@@ -508,15 +508,26 @@ var _ = Describe("verticadb_webhook", func() {
 			Type:   TLSCertRotationInProgress,
 			Status: metav1.ConditionTrue,
 		})
-		oldVdb.Spec.HTTPSNMATLSSecret = "old-secret"
+		oldVdb.Spec.HTTPSNMATLSSecret = "secret1"
+		oldVdb.Spec.ClientServerTLSSecret = "secret1"
+		oldVdb.Spec.ClientServerTLSMode = tlsModeVerifyCA
+
 		oldVdb.Spec.Subclusters = []Subcluster{
 			{Name: "default", Size: 3, Type: PrimarySubcluster},
 			{Name: "sc1", Size: 1, Type: SecondarySubcluster},
 		}
-		// Only HTTPSNMATLSSecret changes: allowed
+		// Only cert-rotation-related changes: allowed
 		newVdb := oldVdb.DeepCopy()
-		newVdb.Spec.HTTPSNMATLSSecret = "new-secret"
+		newVdb.Spec.HTTPSNMATLSSecret = "secret2"
 		allErrs := newVdb.validateTLSCertRotation(oldVdb, nil)
+		Ω(allErrs).Should(BeEmpty())
+
+		newVdb.Spec.ClientServerTLSSecret = "secret2"
+		allErrs = newVdb.validateTLSCertRotation(oldVdb, nil)
+		Ω(allErrs).Should(BeEmpty())
+
+		newVdb.Spec.ClientServerTLSMode = tlsModeTryVerify
+		allErrs = newVdb.validateTLSCertRotation(oldVdb, nil)
 		Ω(allErrs).Should(BeEmpty())
 
 		// SomeOtherField changes: forbidden
@@ -532,6 +543,31 @@ var _ = Describe("verticadb_webhook", func() {
 		newVdb := oldVdb.DeepCopy()
 		newVdb.Spec.HTTPSNMATLSSecret = ""
 		allErrs := newVdb.validateTLSCertRotation(oldVdb, nil)
+		Ω(allErrs).ShouldNot(BeEmpty())
+	})
+
+	It("should not allow cert-rotation-related changes when cert rotation is disabled", func() {
+		oldVdb := MakeVDB()
+		Expect(vmeta.UseTLSAuth(oldVdb.Annotations)).Should(BeFalse())
+
+		oldVdb.Spec.HTTPSNMATLSSecret = "old-secret"
+		oldVdb.Spec.ClientServerTLSSecret = "old-secret"
+		oldVdb.Spec.ClientServerTLSMode = tlsModeVerifyCA
+		oldVdb.Spec.Subclusters = []Subcluster{
+			{Name: "default", Size: 3, Type: PrimarySubcluster},
+		}
+		// No cert-rotation-related changes is allowed
+		newVdb := oldVdb.DeepCopy()
+		newVdb.Spec.HTTPSNMATLSSecret = "new-secret"
+		allErrs := newVdb.validateTLSCertRotation(oldVdb, nil)
+		Ω(allErrs).ShouldNot(BeEmpty())
+
+		newVdb.Spec.ClientServerTLSSecret = "new-secret"
+		allErrs = newVdb.validateTLSCertRotation(oldVdb, nil)
+		Ω(allErrs).ShouldNot(BeEmpty())
+
+		newVdb.Spec.ClientServerTLSMode = tlsModeTryVerify
+		allErrs = newVdb.validateTLSCertRotation(oldVdb, nil)
 		Ω(allErrs).ShouldNot(BeEmpty())
 	})
 
