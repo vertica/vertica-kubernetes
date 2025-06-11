@@ -18,6 +18,7 @@ package vclusterops
 import (
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/vertica/vcluster/vclusterops/util"
 	"github.com/vertica/vcluster/vclusterops/vlog"
@@ -35,13 +36,21 @@ type VRotateTLSCertsOptions struct {
 	DatabaseOptions
 
 	/*
-	 * Part 2: new client TLS options
+	 * Part 2: new vclusterops client TLS options
+	 * If this command is altering the HTTPS service TLS config, and the CA
+	 * was rotated, vclusterops will need to use a new client key/cert pair
+	 * (and probably the new CA) to connect to the HTTPS service.
+	 * If this command is not altering the HTTPS service TLS config, this
+	 * parameter can be ignored.
+	 * If the command is altering the HTTPS service TLS config in such a way
+	 * that the caller expects the old vclusterops client certs to work, this
+	 * should be the same as the Key/Cert/CACert in DatabaseOptions.
 	 * Note that these are the PEM bytes of the new client key/cert pair and
 	 * ca cert, used directly by vclusterops for polling after the HTTPS service
 	 * TLS config is updated.  They are not the new HTTPS service key/cert pair,
 	 * although the ca cert is probably the same.
-	 * NMA operations here use the "old" client TLS params from the standard
-	 * DatabaseOptions flags.
+	 * Operations prior to rotation taking effect, including the NMA operations,
+	 * use the "old" client TLS params from the standard DatabaseOptions flags.
 	 */
 	NewClientTLSConfig
 
@@ -115,9 +124,11 @@ func (opt *VRotateTLSCertsOptions) validateParseOptions(logger vlog.Printer) err
 	if opt.NewSecretMetadata.CACertSecretName == "" {
 		return errors.New("CACertSecretName cannot be empty")
 	}
-	validSecretManagerTypes := []string{K8sSecretManagerType, AWSSecretManagerType}
-	if !slices.Contains(validSecretManagerTypes, opt.TLSSecretManager) {
-		return fmt.Errorf("secretmanager type must be one of %s", validSecretManagerTypes)
+	if !slices.Contains(validSecretManagerType, opt.TLSSecretManager) {
+		return fmt.Errorf("secretmanager type must be one of %s", validSecretManagerType)
+	}
+	if opt.isHTTPS() && opt.isDisabled() {
+		return fmt.Errorf("tls mode cannot be %s for %s tls config", tlsModeDisable, opt.NewSecretMetadata.TLSConfig)
 	}
 
 	return opt.validateBaseOptions(RotateVerticaCertsCmd, logger)
@@ -156,9 +167,18 @@ func (opt *VRotateTLSCertsOptions) validateAnalyzeOptions(log vlog.Printer) erro
 	return nil
 }
 
+func (opt *VRotateTLSCertsOptions) isHTTPS() bool {
+	return strings.EqualFold(opt.NewSecretMetadata.TLSConfig, string(HTTPSTLSKeyPrefix))
+}
+
+func (opt *VRotateTLSCertsOptions) isDisabled() bool {
+	return strings.EqualFold(opt.NewSecretMetadata.TLSMode, string(tlsModeDisable))
+}
+
 // VRotateTLSCerts takes some parameters used by the secrets manager which Vertica
 // hooks into for TLS configuration for the HTTPS service, and uses them to update
-// that configuration, then polls for HTTPS service restart.
+// that configuration.
+// If it's the HTTPS service config, also polls for HTTPS service restart.
 // It returns any error encountered.
 func (vcc VClusterCommands) VRotateTLSCerts(options *VRotateTLSCertsOptions) error {
 	// validate and analyze all options
@@ -185,8 +205,13 @@ func (vcc VClusterCommands) VRotateTLSCerts(options *VRotateTLSCertsOptions) err
 		return err
 	}
 
+	// If we're rotating the https service config, cache the fingerprint of the updated
+	// tls config so we can poll for restart.
+	// Polling for other tls config updates is NYI, but error scenarios are much less likely.
+	expectedTLSConfigInfo := &tlsConfigInfo{}
+
 	// produce rotation instructions
-	instructions, err := vcc.produceRotateTLSCertsInstructions(options, initiatorHosts, hostsToSandboxes)
+	instructions, err := vcc.produceRotateTLSCertsInstructions(options, initiatorHosts, hostsToSandboxes, expectedTLSConfigInfo)
 	if err != nil {
 		return fmt.Errorf("failed to produce rotate HTTPS certs instructions, %w", err)
 	}
@@ -201,8 +226,14 @@ func (vcc VClusterCommands) VRotateTLSCerts(options *VRotateTLSCertsOptions) err
 		return fmt.Errorf("failed to rotate HTTPS service certs: %w", runError)
 	}
 
+	// only the https service tls config rotation is async and requires polling
+	if !options.isHTTPS() {
+		vcc.Log.Info("Skipping polling for non-https tls config", "config", options.NewSecretMetadata.TLSConfig)
+		return nil
+	}
+
 	// produce polling instructions
-	instructions, err = vcc.producePollHTTPSRestartInstructions(options, upHosts)
+	instructions, err = vcc.producePollHTTPSRestartInstructions(options, upHosts, expectedTLSConfigInfo)
 	if err != nil {
 		return fmt.Errorf("failed to produce poll HTTPS restart instructions, %w", err)
 	}
@@ -217,7 +248,7 @@ func (vcc VClusterCommands) VRotateTLSCerts(options *VRotateTLSCertsOptions) err
 	clusterOpEngine = makeClusterOpEngine(instructions, &newCertsDatabaseOptions)
 
 	// Give the instructions to the VClusterOpEngine to run
-	vcc.Log.Info("Polling for HTTPS service restart on all UP hosts", "hosts", options.Hosts)
+	vcc.Log.Info("Polling for HTTPS service restart with updated config on all UP hosts", "hosts", options.Hosts)
 	runError = clusterOpEngine.run(vcc.Log)
 	if runError != nil {
 		return fmt.Errorf("failed to restart HTTPS service with correct certs: %w", runError)
@@ -239,43 +270,43 @@ func (opt *VRotateTLSCertsOptions) getVDBInfo(
 }
 
 // The generated instructions will later perform the following operations necessary
-// to update the TLS config for the HTTPS service in all sandboxes and the main cluster.
+// to update a TLS config in all sandboxes and the main cluster.
 //   - Check NMA connectivity
+//   - If changing HTTPS service TLS config, cache the current fingerprint
 //   - Rotate the certs (and optionally update TLS mode)
 func (vcc VClusterCommands) produceRotateTLSCertsInstructions(
 	options *VRotateTLSCertsOptions,
 	initiatorHosts []string,
-	hostsToSandboxes map[string]string) ([]clusterOp, error) {
+	hostsToSandboxes map[string]string,
+	expectedTLSConfigInfo *tlsConfigInfo) ([]clusterOp, error) {
 	var instructions []clusterOp
 	nmaHealthOp := makeNMAHealthOp(initiatorHosts)
+	instructions = append(instructions, &nmaHealthOp)
+
 	nmaRotateTLSCertsOp, err := makeNMARotateTLSCertsOp(initiatorHosts, options.UserName,
 		options.DBName, hostsToSandboxes, &options.NewSecretMetadata, options.TLSSecretManager,
-		options.Password, options.usePasswordForNMA)
+		options.Password, options.usePasswordForNMA, expectedTLSConfigInfo)
 	if err != nil {
 		return instructions, err
 	}
-	instructions = append(instructions,
-		&nmaHealthOp,
-		&nmaRotateTLSCertsOp,
-	)
-	httpsSyncCatalogOp, err := makeHTTPSSyncCatalogOp(initiatorHosts, true, options.UserName, options.Password, CreateDBSyncCat)
-	if err != nil {
-		return instructions, err
-	}
-	instructions = append(instructions, &httpsSyncCatalogOp)
+	instructions = append(instructions, &nmaRotateTLSCertsOp)
 	return instructions, nil
 }
 
 // The generated instructions will later perform the following operations necessary
 // to check if the HTTPS certs have been rotated
-//   - Check HTTPS service connectivity (with new certs)
+//   - Check HTTPS service connectivity (with new certs) AND
+//   - Check that the altered TLS config is active (same op)
 func (vcc VClusterCommands) producePollHTTPSRestartInstructions(
 	options *VRotateTLSCertsOptions,
-	upHosts []string) ([]clusterOp, error) {
+	upHosts []string,
+	expectedTLSConfigInfo *tlsConfigInfo) ([]clusterOp, error) {
 	var instructions []clusterOp
-	// the HTTPS service health endpoint requires a successful TLS handshake plus authentication
+	// The HTTPS tls config info endpoint requires a successful TLS handshake plus authentication.
+	// By polling it, we check that the service is using the new config, plus that auth
+	// works with the correct certs.
 	httpsPollCertHealthOp, err := makeHTTPSPollCertificateHealthOp(upHosts,
-		options.usePassword, options.UserName, options.Password)
+		expectedTLSConfigInfo, options.usePassword, options.UserName, options.Password)
 	if err != nil {
 		return instructions, err
 	}
