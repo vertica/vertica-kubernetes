@@ -128,7 +128,7 @@ func (s *SubclusterShutdownReconciler) getSubclustersToShutdown() (map[string]st
 			}
 			continue
 		}
-		if sc.IsPrimary() {
+		if sc.IsPrimary(s.Vdb) {
 			primarySubclusters = append(primarySubclusters, sc.Name)
 			upPrimaryNodes += s.PFacts.GetSubclusterUpNodeCount(sc.Name)
 			// If stopping a subcluster would cause cluster quorum, we abort
