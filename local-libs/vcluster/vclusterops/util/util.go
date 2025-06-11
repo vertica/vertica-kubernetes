@@ -857,10 +857,10 @@ func ConvertDateStringToUTC(date, timezone string) (string, error) {
 	return dateTz.UTC().Format(timeLayout), nil
 }
 
-// JoinMapKeys joins the keys of a map into a single string, separated by the specified delimiter.
-func JoinMapKeys(m map[string]any, delimiter string) string {
-	keys := make([]string, 0, len(m))
-	for k := range m {
+// JoinMapSetKeys joins the keys of a mapset into a single string, separated by the specified delimiter.
+func JoinMapSetKeys(m mapset.Set[string], delimiter string) string {
+	keys := make([]string, 0, m.Cardinality())
+	for k := range m.Iter() {
 		keys = append(keys, k)
 	}
 	return strings.Join(keys, delimiter)
