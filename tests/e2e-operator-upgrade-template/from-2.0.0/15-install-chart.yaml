@@ -11,17 +11,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# In v1.7 operator, we added support for VDB api v1 and deprecated api v1beta1
-# Any VDB saved as v1beta1 would be auto-converted to v1
-#
-# In v25.3 operator, we fully removed support for v1beta1
-#
-# However, if we have a VDB created before 1.7, it will be still be in v1beta1
-# Thus, directly upgrading operator from <1.7 to >=25.3 will not work
-#
-# Instead, we do an intermediate upgrade in between
-# This intermediate upgrade is currently v2.0.0
-
 apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 commands:

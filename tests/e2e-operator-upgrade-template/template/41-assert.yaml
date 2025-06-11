@@ -14,12 +14,18 @@
 apiVersion: v1
 kind: Pod
 metadata:
-  labels:
-    control-plane: controller-manager
-spec:
-  containers:
-  - name: manager
-    image: vertica/verticadb-operator:1.4.0
-  - name: kube-rbac-proxy
+  name: v-from-x-pri1-1
 status:
-  phase: Running
+  containerStatuses:
+  - name: server
+    ready: false
+---
+apiVersion: v1
+kind: Event
+reason: ClusterRestartStarted
+source:
+  component: verticadb-operator
+involvedObject:
+  apiVersion: vertica.com/v1
+  kind: VerticaDB
+  name: v-from-x

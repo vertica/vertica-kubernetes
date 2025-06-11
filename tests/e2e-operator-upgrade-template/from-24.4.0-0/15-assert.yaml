@@ -11,7 +11,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: kuttl.dev/v1beta1
-kind: TestStep
-commands:
-  - command: helm uninstall -n $NAMESPACE vdb-op
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    control-plane: verticadb-operator
+spec:
+  containers:
+  - name: manager
+    image: docker.io/opentext/verticadb-operator:24.4.0-0
+status:
+  phase: Running

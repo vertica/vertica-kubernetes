@@ -15,11 +15,10 @@ apiVersion: v1
 kind: Pod
 metadata:
   labels:
-    control-plane: controller-manager
+    control-plane: verticadb-operator
 spec:
   containers:
   - name: manager
-    image: vertica/verticadb-operator:1.2.0
-  - name: kube-rbac-proxy
+    image: docker.io/opentext/verticadb-operator:25.1.0-0
 status:
   phase: Running
