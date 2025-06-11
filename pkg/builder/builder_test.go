@@ -796,6 +796,22 @@ var _ = Describe("builder", func() {
 		Ω(sa.Annotations[kedaPausingAutoscalingReplicasAnnotation]).Should(Equal("1"))
 		Ω(sa.Spec.Triggers[0].Metadata["unsafeSsl"]).Should(Equal(vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].GetUnsafeSslStr()))
 	})
+
+	It("nma container should have all eight environmental variables", func() {
+		vdb := vapi.MakeVDB()
+		envVars := buildNMATLSCertsEnvVars(vdb)
+		configMapName := fmt.Sprintf("%s-%s", vdb.Name, vapi.NMATLSConfigMapName)
+		Ω(len(envVars)).Should(Equal(8))
+		Ω(envVars[1].Name).Should(Equal(NMASecretNameEnv))
+		Ω(envVars[1].ValueFrom.ConfigMapKeyRef.LocalObjectReference.Name).Should(Equal(configMapName))
+		Ω(envVars[1].ValueFrom.ConfigMapKeyRef.Key).Should(Equal(NMASecretNameEnv))
+		Ω(envVars[3].Name).Should(Equal(NMAClientSecretNameEnv))
+		Ω(envVars[3].ValueFrom.ConfigMapKeyRef.LocalObjectReference.Name).Should(Equal(configMapName))
+		Ω(envVars[3].ValueFrom.ConfigMapKeyRef.Key).Should(Equal(NMAClientSecretNameEnv))
+		Ω(envVars[7].Name).Should(Equal(NMAClientSecretTLSModeEnv))
+		Ω(envVars[7].ValueFrom.ConfigMapKeyRef.LocalObjectReference.Name).Should(Equal(configMapName))
+		Ω(envVars[7].ValueFrom.ConfigMapKeyRef.Key).Should(Equal(NMAClientSecretTLSModeEnv))
+	})
 })
 
 func getFirstSSHSecretVolumeMountIndex(c *v1.Container) (int, bool) {
@@ -960,21 +976,4 @@ func verifyScrutinizePasswordEnvVars(secret string, offset int, should bool) {
 	}
 	Ω(makeEnvVars(&cnt)).ShouldNot(ContainElement(ContainSubstring(passwordSecretNameEnv)))
 	Ω(makeEnvVars(&cnt)).ShouldNot(ContainElement(ContainSubstring(passwordSecretNamespaceEnv)))
-}
-
-func verifyNMATLSCertsEnvVars() {
-	vdb := vapi.MakeVDB()
-	envVars := buildNMATLSCertsEnvVars(vdb)
-	configMapName := fmt.Sprintf("%s-%s", vdb.Name, vapi.NMATLSConfigMapName)
-	Ω(len(envVars)).Should(Equal(7))
-	Ω(envVars[1].Name).Should(Equal(NMASecretNameEnv))
-	Ω(envVars[1].ValueFrom.ConfigMapKeyRef.LocalObjectReference.Name).Should(Equal(configMapName))
-	Ω(envVars[1].ValueFrom.ConfigMapKeyRef.Key).Should(Equal(NMASecretNameEnv))
-	Ω(envVars[3].Name).Should(Equal(NMAClientSecretNameEnv))
-	Ω(envVars[3].ValueFrom.ConfigMapKeyRef.LocalObjectReference.Name).Should(Equal(configMapName))
-	Ω(envVars[3].ValueFrom.ConfigMapKeyRef.Key).Should(Equal(NMAClientSecretNameEnv))
-	Ω(envVars[6].Name).Should(Equal(NMAClientSecretTLSModeEnv))
-	Ω(envVars[6].ValueFrom.ConfigMapKeyRef.LocalObjectReference.Name).Should(Equal(configMapName))
-	Ω(envVars[6].ValueFrom.ConfigMapKeyRef.Key).Should(Equal(NMAClientSecretTLSModeEnv))
-
 }

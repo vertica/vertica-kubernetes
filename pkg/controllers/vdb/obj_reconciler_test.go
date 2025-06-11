@@ -47,7 +47,6 @@ import (
 var _ = Describe("obj_reconcile", func() {
 	ctx := context.Background()
 	const trueStr = "true"
-	const falseStr = "false"
 
 	runReconciler := func(vdb *vapi.VerticaDB, expResult ctrl.Result, mode ObjReconcileModeType) {
 		// Create any dependent objects for the CRD.
