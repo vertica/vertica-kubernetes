@@ -131,6 +131,7 @@ const (
 	HTTPSCertRotationFailed          = "HTTPSCertRotationFailed"
 	TLSModeUpdateStarted             = "TLSModeUpdateStarted"
 	TLSModeUpdateSucceeded           = "TLSModeUpdateSucceeded"
+	TLSCertValidationFailed          = "TLSCertValidationFailed"
 )
 
 // Constants for VerticaAutoscaler reconciler
