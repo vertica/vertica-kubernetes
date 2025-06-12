@@ -214,7 +214,7 @@ func (h *TLSServerCertGenReconciler) setSecretNameInVDB(ctx context.Context, sec
 
 // Validate that Secret contains a valid certificate
 // If certificate is expiring soon, alert user
-func (h *TLSServerCertGenReconciler) ValidateSecretCertificate(ctx context.Context, secret *corev1.Secret, sType string, secretName string) error {
+func (h *TLSServerCertGenReconciler) ValidateSecretCertificate(ctx context.Context, secret *corev1.Secret, sType, secretName string) error {
 	certPEM := secret.Data[TLSCertName]
 	if certPEM == nil {
 		return errors.New("failed to decode PEM block containing certificate")
