@@ -83,11 +83,12 @@ func TestRotateTLSCertsGetVDBInfo(t *testing.T) {
 	vnodes := makeMockRotateTLSCertsVnodes(sandboxes)
 	opts := vnodes.makeOptions()
 	vdb := vnodes.makeVDB()
-	upHosts, initiatorHosts, hostsToSandboxes, err := opts.getVDBInfo(vdb)
+	upHosts, initiatorHosts, mainClusterHosts, hostsToSandboxes, err := opts.getVDBInfo(vdb)
 
 	assert.NoError(t, err)
 	assert.Len(t, upHosts, 2*len(sandboxes))
 	assert.Len(t, initiatorHosts, len(sandboxes))
+	assert.Len(t, mainClusterHosts, 1)
 	assert.Len(t, hostsToSandboxes, len(vnodes.hostsToSandboxes))
 	for host, sandbox := range hostsToSandboxes {
 		assert.Equal(t, vnodes.hostsToSandboxes[host], sandbox)
@@ -97,7 +98,7 @@ func TestRotateTLSCertsGetVDBInfo(t *testing.T) {
 	vnodes = makeMockRotateTLSCertsVnodes(sandboxes, mc)
 	opts = vnodes.makeOptions()
 	vdb = vnodes.makeVDB()
-	_, _, _, err = opts.getVDBInfo(vdb)
+	_, _, _, _, err = opts.getVDBInfo(vdb)
 
 	assert.ErrorContains(t, err, "main cluster")
 
@@ -105,7 +106,7 @@ func TestRotateTLSCertsGetVDBInfo(t *testing.T) {
 	vnodes = makeMockRotateTLSCertsVnodes(sandboxes, sb1)
 	opts = vnodes.makeOptions()
 	vdb = vnodes.makeVDB()
-	_, _, _, err = opts.getVDBInfo(vdb)
+	_, _, _, _, err = opts.getVDBInfo(vdb)
 
 	assert.ErrorContains(t, err, "sandbox")
 }

@@ -22,6 +22,8 @@ type Parms struct {
 	ClientServerTLSSecretName string
 	HTTPSTLSSecretName        string
 	Namespace                 string
+	IsHTTPSTLSConfig          bool
+	GrantAuth                 bool
 }
 
 // Option is a function that configures a Parms instance.
@@ -73,5 +75,20 @@ func WithNamespace(namespace string) Option {
 func WithInitiatorIP(initiatorIP string) Option {
 	return func(p *Parms) {
 		p.InitiatorIP = initiatorIP
+	}
+}
+
+// WithHTTPSTLSConfig specify if the config is for https
+// true means it is for https. false means it is for client server
+func WithHTTPSTLSConfig(isHTTPSTLSConfig bool) Option {
+	return func(p *Parms) {
+		p.IsHTTPSTLSConfig = isHTTPSTLSConfig
+	}
+}
+
+// WithGrantAuth specify if the set_tls_config should create tls authencations
+func WithGrantAuth(grantAuth bool) Option {
+	return func(p *Parms) {
+		p.GrantAuth = grantAuth
 	}
 }
