@@ -18,6 +18,7 @@ package security
 import (
 	"crypto/rand"
 	"crypto/rsa"
+	"crypto/sha256"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
@@ -147,4 +148,59 @@ func GenSecret(secretName, namespace string, cert, caCert Certificate) *corev1.S
 			paths.HTTPServerCACrtName: caCert.TLSCrt(),
 		},
 	}
+}
+
+// Certificate for unit tests, with customizeable fields
+func NewTestCertificate(ca Certificate, commonName string, dnsNames []string, ips []net.IP,
+	notBefore, notAfter time.Time,
+	extUsages []x509.ExtKeyUsage,
+	keyUsage x509.KeyUsage,
+	isCA bool,
+) (Certificate, error) {
+	caCrt, err := ca.Buildx509()
+	if err != nil {
+		return nil, err
+	}
+	caPK, err := ca.BuildPrivateKey()
+	if err != nil {
+		return nil, err
+	}
+
+	pk, err := rsa.GenerateKey(rand.Reader, pkKeySize)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create private key")
+	}
+
+	// Get SubjectKeyId
+	pubKeyBytes, _ := x509.MarshalPKIXPublicKey(&pk.PublicKey)
+	ski := sha256.Sum256(pubKeyBytes)
+
+	crt := &x509.Certificate{
+		SerialNumber: big.NewInt(1),
+		Subject: pkix.Name{
+			Organization:       []string{"Open Text"},
+			Country:            []string{"US"},
+			OrganizationalUnit: []string{"Vertica"},
+			CommonName:         commonName,
+		},
+		NotBefore:             notBefore,
+		NotAfter:              notAfter,
+		IsCA:                  isCA,
+		ExtKeyUsage:           extUsages,
+		KeyUsage:              keyUsage,
+		DNSNames:              dnsNames,
+		IPAddresses:           ips,
+		BasicConstraintsValid: true,
+		SubjectKeyId:          ski[:],
+	}
+
+	keyCert, err := x509.CreateCertificate(rand.Reader, crt, caCrt, &pk.PublicKey, caPK)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create custom certificate")
+	}
+
+	return &certificate{
+		tlsKey: pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(pk)}),
+		tlsCrt: pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: keyCert}),
+	}, nil
 }

@@ -747,7 +747,7 @@ func (o *ObjReconciler) reconcileNMACertConfigMap(ctx context.Context) error {
 
 // reconcileTLSSecrets will update tls secrets
 func (o *ObjReconciler) reconcileTLSSecrets(ctx context.Context) error {
-	if !o.Vdb.IsCertRotationEnabled() {
+	if !o.Vdb.IsTLSAuthEnabled() {
 		return nil
 	}
 
