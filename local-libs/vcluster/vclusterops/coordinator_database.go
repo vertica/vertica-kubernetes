@@ -231,7 +231,7 @@ func (vdb *VCoordinationDatabase) addNode(vnode *VCoordinationNode) error {
 // addHosts adds a given list of hosts to the VDB's HostList
 // and HostNodeMap. existingHostNodeMap contains entries for nodes
 // in all clusters (main and sandboxes)
-func (vdb *VCoordinationDatabase) addHosts(hosts []string, scName string,
+func (vdb *VCoordinationDatabase) addHosts(hosts []string, scName, sandbox string,
 	existingHostNodeMap vHostNodeMap) error {
 	totalHostCount := len(hosts) + len(existingHostNodeMap) + len(vdb.UnboundNodes)
 	nodeNameToHost := genNodeNameToHostMap(existingHostNodeMap)
@@ -250,7 +250,7 @@ func (vdb *VCoordinationDatabase) addHosts(hosts []string, scName string,
 			return fmt.Errorf("could not generate a vnode name for %s", host)
 		}
 		nodeNameToHost[name] = host
-		vNode.setNode(vdb, host, name, scName)
+		vNode.setNode(vdb, host, name, scName, sandbox)
 		err := vdb.addNode(&vNode)
 		if err != nil {
 			return err
@@ -407,6 +407,20 @@ func (vdb *VCoordinationDatabase) filterPrimaryNodes() {
 	vdb.HostList = maps.Keys(vdb.HostNodeMap)
 }
 
+// filterSandboxNodes will remove main cluster nodes and other sandbox nodes from vdb
+func (vdb *VCoordinationDatabase) filterSandboxNodes(sandbox string) {
+	sandHostNodeMap := makeVHostNodeMap()
+
+	for h, vnode := range vdb.HostNodeMap {
+		if vnode.Sandbox == sandbox {
+			sandHostNodeMap[h] = vnode
+		}
+	}
+	vdb.HostNodeMap = sandHostNodeMap
+
+	vdb.HostList = maps.Keys(vdb.HostNodeMap)
+}
+
 // Update and limit the hostlist based on status and sandbox info
 // If sandbox provided, pick up sandbox up hosts and return. Else return up hosts
 // from the main cluster.
@@ -552,12 +566,13 @@ func (vnode *VCoordinationNode) setFromBasicDBOptions(
 	return fmt.Errorf("fail to set up vnode from options: host %s does not exist in options", host)
 }
 
-func (vnode *VCoordinationNode) setNode(vdb *VCoordinationDatabase, address, name, scName string) {
+func (vnode *VCoordinationNode) setNode(vdb *VCoordinationDatabase, address, name, scName, sandbox string) {
 	// we trust the information in the config file
 	// so we do not perform validation here
 	vnode.Address = address
 	vnode.Name = name
 	vnode.Subcluster = scName
+	vnode.Sandbox = sandbox
 	vnode.CatalogPath = vdb.GenCatalogPath(vnode.Name)
 	dataPath := vdb.GenDataPath(vnode.Name)
 	vnode.StorageLocations = append(vnode.StorageLocations, dataPath)
