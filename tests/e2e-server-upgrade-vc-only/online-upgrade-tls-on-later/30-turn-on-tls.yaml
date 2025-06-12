@@ -3,4 +3,4 @@ kind: VerticaDB
 metadata:
   name: v-base-upgrade
   annotations:
-    vertica.com/enable-tls-certs-rotation: "true"
+    vertica.com/enable-tls-auth: "true"
