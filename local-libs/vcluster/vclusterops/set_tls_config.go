@@ -29,16 +29,20 @@ type VSetTLSConfigOptions struct {
 	HTTPSTLSConfig TLSConfig
 }
 
+const DefaultCacheDuration = 1 * 24 * 3600 // 1 day
+
 func VSetTLSConfigOptionsFactory() VSetTLSConfigOptions {
 	options := VSetTLSConfigOptions{}
 	options.setDefaultValues()
 	options.ServerTLSConfig = TLSConfig{
-		ConfigMap:  make(map[string]string),
-		ConfigType: ServerTLSKeyPrefix,
+		ConfigMap:     make(map[string]string),
+		ConfigType:    ServerTLSKeyPrefix,
+		CacheDuration: uint64(DefaultCacheDuration),
 	}
 	options.HTTPSTLSConfig = TLSConfig{
-		ConfigMap:  make(map[string]string),
-		ConfigType: HTTPSTLSKeyPrefix,
+		ConfigMap:     make(map[string]string),
+		ConfigType:    HTTPSTLSKeyPrefix,
+		CacheDuration: uint64(DefaultCacheDuration),
 	}
 
 	return options
@@ -122,6 +126,7 @@ func (vcc VClusterCommands) produceSetTLSConfigInstructions(options *VSetTLSConf
 		nmaSetServerTLSOp, err := makeNMASetTLSOp(&options.DatabaseOptions, string(options.ServerTLSConfig.ConfigType),
 			false, // grantAuth
 			false, // syncCatalog
+			options.ServerTLSConfig.CacheDuration,
 			options.ServerTLSConfig.ConfigMap)
 		if err != nil {
 			return instructions, err
@@ -132,7 +137,8 @@ func (vcc VClusterCommands) produceSetTLSConfigInstructions(options *VSetTLSConf
 	if options.HTTPSTLSConfig.hasConfigParam() {
 		nmaSetHTTPSTLSOp, err := makeNMASetTLSOp(&options.DatabaseOptions, string(options.HTTPSTLSConfig.ConfigType),
 			true, // grantAuth
-			true, // syncCatalog
+			true, // syncCatalog,
+			options.HTTPSTLSConfig.CacheDuration,
 			options.HTTPSTLSConfig.ConfigMap)
 		if err != nil {
 			return instructions, err
