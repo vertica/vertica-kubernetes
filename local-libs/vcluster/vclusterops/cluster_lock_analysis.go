@@ -22,7 +22,6 @@ import (
 	"strings"
 	"time"
 
-	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
@@ -470,25 +469,25 @@ func extractLockHoldEvents(nodeLockHoldSeries []parsedEvent) []dcLockReleases {
 
 func (opt *VClusterHealthOptions) fillEventSessionAndTxnInfo(logger vlog.Printer, upHosts []string) {
 	events := opt.LockEventCascade
-	sessionSet := mapset.NewSet[string]()
-	txnSet := mapset.NewSet[string]()
+	sessionMap := make(map[string]any)
+	txnMap := make(map[string]any)
 	// get all session id and txn id from the lock events
 	for i := range events {
 		event := &events[i]
 		for j := range *event.LockWaitEvents {
 			waitEvent := &(*event.LockWaitEvents)[j]
-			sessionSet.Add(waitEvent.SessionID)
-			txnSet.Add(waitEvent.TxnID)
+			sessionMap[waitEvent.SessionID] = dcSessionStarts{}
+			txnMap[waitEvent.TxnID] = dcTransactionStarts{}
 		}
 		for j := range *event.LockHoldEvents {
 			holdEvent := &(*event.LockHoldEvents)[j]
-			sessionSet.Add(holdEvent.SessionID)
-			txnSet.Add(holdEvent.TxnID)
+			sessionMap[holdEvent.SessionID] = dcSessionStarts{}
+			txnMap[holdEvent.TxnID] = dcTransactionStarts{}
 		}
 	}
 
 	sessionInfo, txnInfo, err := opt.getSessionTxnInfo(
-		sessionSet, txnSet, logger, upHosts)
+		sessionMap, txnMap, logger, upHosts)
 	if err != nil {
 		logger.Error(err, "Failed to get session and transaction info for lock events")
 		return
@@ -518,7 +517,7 @@ func (opt *VClusterHealthOptions) fillEventSessionAndTxnInfo(logger vlog.Printer
 		}
 	}
 	logger.Info("Filling session and transaction info for lock events",
-		"session count", sessionSet.Cardinality(), "txn count", txnSet.Cardinality())
+		"session count", len(sessionMap), "txn count", len(txnMap))
 }
 
 // DisplayLockEventsCascade prints the lock events cascade for each node in a readable format.

@@ -30,7 +30,6 @@ type nmaRotateTLSCertsOp struct {
 	opBase
 	hostRequestBody  string            // constructed by make function
 	hostsToSandboxes map[string]string // for logging
-	configInfo       *tlsConfigInfo    // for caching fingerprint of the resulting tlsconfig
 }
 
 type rotateTLSCertsData struct {
@@ -51,8 +50,6 @@ type rotateTLSCertsResponse struct {
 	CACertName string `json:"ca_cert_name"`
 	// Catalog name of the tls config object modified by the rotation
 	TLSConfigName string `json:"tls_config_name"`
-	// Fingerprint of the tls config object modified by the rotation
-	TLSConfigDigest string `json:"tls_config_digest"`
 }
 
 // makeNMARotateTLSCertsOp should be passed a host list of one initiator
@@ -63,8 +60,7 @@ func makeNMARotateTLSCertsOp(hosts []string,
 	opData *RotateTLSCertsData,
 	secretManagerType string,
 	password *string,
-	useHTTPPassword bool,
-	configInfo *tlsConfigInfo) (nmaRotateTLSCertsOp, error) {
+	useHTTPPassword bool) (nmaRotateTLSCertsOp, error) {
 	op := nmaRotateTLSCertsOp{}
 	op.name = "NMARotateTLSCertsOp"
 	op.description = "Rotate " + opData.TLSConfig + " certificates"
@@ -74,11 +70,6 @@ func makeNMARotateTLSCertsOp(hosts []string,
 	if err != nil {
 		return op, fmt.Errorf("could not find sandbox for each initiator host: %w", err)
 	}
-	if configInfo == nil {
-		// really an assertion - this should never fail
-		return op, errors.New("cannot cache tls config info")
-	}
-	op.configInfo = configInfo
 	err = op.setupRequestBody(username, dbName, opData, secretManagerType, password, useHTTPPassword)
 	if err != nil {
 		return op, err
@@ -150,7 +141,6 @@ func (op *nmaRotateTLSCertsOp) finalize(_ *opEngineExecContext) error {
 
 func (op *nmaRotateTLSCertsOp) processResult(_ *opEngineExecContext) error {
 	var allErrs error
-	var prevDigest string
 
 	for host, result := range op.clusterHTTPRequest.ResultCollection {
 		if result.isPassing() {
@@ -159,33 +149,14 @@ func (op *nmaRotateTLSCertsOp) processResult(_ *opEngineExecContext) error {
 			if err != nil {
 				op.logResponse(host, result)
 				allErrs = errors.Join(allErrs, err)
-				continue
 			}
-			op.logger.Info("rotated tls configuration", "host", host, "sandbox", op.hostsToSandboxes[host],
-				"tlsConfig", resp.TLSConfigName, "tlsConfigDigest", resp.TLSConfigDigest,
-				"key", resp.KeyName, "cert", resp.CertName, "caCert", resp.CACertName)
-
-			// check the retrieved tls config digest
-			if resp.TLSConfigDigest == "" {
-				err = fmt.Errorf(`[%s] failed to retrieve updated tls config digest for host %s`, op.name, host)
-				allErrs = errors.Join(allErrs, err)
-				continue
-			}
-			if prevDigest == "" {
-				prevDigest = resp.TLSConfigDigest
-			} else if prevDigest != resp.TLSConfigDigest {
-				err = fmt.Errorf(`[%s] received mismatching tls config digest from host %s`, op.name, host)
-				allErrs = errors.Join(allErrs, err)
-			}
+			op.logger.Info("rotated https service certs", "host", host, "sandbox", op.hostsToSandboxes[host],
+				"tlsConfig", resp.TLSConfigName, "key", resp.KeyName, "cert", resp.CertName, "caCert", resp.CACertName)
 		} else {
 			op.logResponse(host, result)
 			allErrs = errors.Join(allErrs, result.err)
 		}
 	}
-
-	// cache the altered tls config info
-	op.configInfo.Digest = prevDigest
-	op.configInfo.IsBootstrap = false
 
 	return allErrs
 }

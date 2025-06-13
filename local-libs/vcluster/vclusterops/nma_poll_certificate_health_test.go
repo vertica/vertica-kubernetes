@@ -10,62 +10,47 @@ import (
 	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
-// mockOpHTTPResult exists to prevent IDE autocomplete from cluttering
-type mockOpHTTPResult struct {
+// mockNMAPollCertHealthOpHTTPResult exists to prevent IDE autocomplete from cluttering
+type mockNMAPollCertHealthOpHTTPResult struct {
 	hostHTTPResult
 }
 
-func makeMockOpResponse(host string) *mockOpHTTPResult {
-	res := mockOpHTTPResult{}
+func makeMockNMAPollCertHealthOpResponse(host string) *mockNMAPollCertHealthOpHTTPResult {
+	res := mockNMAPollCertHealthOpHTTPResult{}
 	res.host = host
 	return &res
 }
 
-func (res *mockOpHTTPResult) setSuccess() *mockOpHTTPResult {
+func (res *mockNMAPollCertHealthOpHTTPResult) setSuccess() *mockNMAPollCertHealthOpHTTPResult {
 	res.status = SUCCESS
 	res.statusCode = SuccessCode
+	res.content = `{"healthy":"true"}`
 	return res
 }
 
-func (res *mockOpHTTPResult) setFailure() *mockOpHTTPResult {
+func (res *mockNMAPollCertHealthOpHTTPResult) setFailure() *mockNMAPollCertHealthOpHTTPResult {
 	res.status = FAILURE
 	res.statusCode = InternalErrorCode
 	res.err = fmt.Errorf("something's always wrong")
 	return res
 }
 
-func (res *mockOpHTTPResult) setException() *mockOpHTTPResult {
+func (res *mockNMAPollCertHealthOpHTTPResult) setException() *mockNMAPollCertHealthOpHTTPResult {
 	res.status = EXCEPTION
 	res.err = fmt.Errorf("tls: peer cert isn't worth the bytes it's written on")
 	return res
 }
 
-func (res *mockOpHTTPResult) setEOF() *mockOpHTTPResult {
+func (res *mockNMAPollCertHealthOpHTTPResult) setEOF() *mockNMAPollCertHealthOpHTTPResult {
 	res.status = EOFEXCEPTION
 	res.err = io.EOF
 	return res
 }
 
-func (res *mockOpHTTPResult) setUnauthorized() *mockOpHTTPResult {
+func (res *mockNMAPollCertHealthOpHTTPResult) setUnauthorized() *mockNMAPollCertHealthOpHTTPResult {
 	res.status = FAILURE
 	res.statusCode = UnauthorizedCode
-	res.err = fmt.Errorf("peer rejects our rotten old certs")
-	return res
-}
-
-type mockNMAPollCertHealthOpHTTPResult struct {
-	mockOpHTTPResult
-}
-
-func makeMockNMAPollCertHealthOpResponse(host string) *mockNMAPollCertHealthOpHTTPResult {
-	return &mockNMAPollCertHealthOpHTTPResult{
-		*makeMockOpResponse(host),
-	}
-}
-
-func (res *mockNMAPollCertHealthOpHTTPResult) setSuccess() *mockNMAPollCertHealthOpHTTPResult {
-	res.mockOpHTTPResult.setSuccess()
-	res.content = `{"healthy":"true"}`
+	res.err = fmt.Errorf("nma rejects our rotten old certs")
 	return res
 }
 
