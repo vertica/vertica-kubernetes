@@ -519,21 +519,21 @@ var _ = Describe("verticadb_webhook", func() {
 		// Only cert-rotation-related changes: allowed
 		newVdb := oldVdb.DeepCopy()
 		newVdb.Spec.HTTPSNMATLSSecret = "secret2"
-		allErrs := newVdb.validateTLSCertRotation(oldVdb, nil)
+		allErrs := newVdb.checkValidTLSCertRotation(oldVdb, nil)
 		Ω(allErrs).Should(BeEmpty())
 
 		newVdb.Spec.ClientServerTLSSecret = "secret2"
-		allErrs = newVdb.validateTLSCertRotation(oldVdb, nil)
+		allErrs = newVdb.checkValidTLSCertRotation(oldVdb, nil)
 		Ω(allErrs).Should(BeEmpty())
 
 		newVdb.Spec.ClientServerTLSMode = tlsModeTryVerify
-		allErrs = newVdb.validateTLSCertRotation(oldVdb, nil)
+		allErrs = newVdb.checkValidTLSCertRotation(oldVdb, nil)
 		Ω(allErrs).Should(BeEmpty())
 
 		// SomeOtherField changes: forbidden
 		newVdb = oldVdb.DeepCopy()
 		newVdb.Spec.Subclusters[1].Size = 3
-		allErrs = newVdb.validateTLSCertRotation(oldVdb, nil)
+		allErrs = newVdb.checkValidTLSCertRotation(oldVdb, nil)
 		Ω(allErrs).ShouldNot(BeEmpty())
 	})
 
@@ -542,7 +542,7 @@ var _ = Describe("verticadb_webhook", func() {
 		oldVdb.Spec.HTTPSNMATLSSecret = "enabled"
 		newVdb := oldVdb.DeepCopy()
 		newVdb.Spec.HTTPSNMATLSSecret = ""
-		allErrs := newVdb.validateTLSCertRotation(oldVdb, nil)
+		allErrs := newVdb.checkValidTLSCertRotation(oldVdb, nil)
 		Ω(allErrs).ShouldNot(BeEmpty())
 	})
 
@@ -559,15 +559,15 @@ var _ = Describe("verticadb_webhook", func() {
 		// No cert-rotation-related changes is allowed
 		newVdb := oldVdb.DeepCopy()
 		newVdb.Spec.HTTPSNMATLSSecret = "new-secret"
-		allErrs := newVdb.validateTLSCertRotation(oldVdb, nil)
+		allErrs := newVdb.checkValidTLSCertRotation(oldVdb, nil)
 		Ω(allErrs).ShouldNot(BeEmpty())
 
 		newVdb.Spec.ClientServerTLSSecret = "new-secret"
-		allErrs = newVdb.validateTLSCertRotation(oldVdb, nil)
+		allErrs = newVdb.checkValidTLSCertRotation(oldVdb, nil)
 		Ω(allErrs).ShouldNot(BeEmpty())
 
 		newVdb.Spec.ClientServerTLSMode = tlsModeTryVerify
-		allErrs = newVdb.validateTLSCertRotation(oldVdb, nil)
+		allErrs = newVdb.checkValidTLSCertRotation(oldVdb, nil)
 		Ω(allErrs).ShouldNot(BeEmpty())
 	})
 
@@ -576,7 +576,7 @@ var _ = Describe("verticadb_webhook", func() {
 		oldVdb.Spec.NMATLSSecret = "old-nma"
 		newVdb := oldVdb.DeepCopy()
 		newVdb.Spec.NMATLSSecret = "new-nma"
-		allErrs := newVdb.validateTLSCertRotation(oldVdb, nil)
+		allErrs := newVdb.checkValidTLSCertRotation(oldVdb, nil)
 		Ω(allErrs).ShouldNot(BeEmpty())
 	})
 

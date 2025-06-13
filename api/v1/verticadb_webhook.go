@@ -144,7 +144,6 @@ func (v *VerticaDB) validateImmutableFields(old runtime.Object) field.ErrorList 
 	var allErrs field.ErrorList
 	oldObj := old.(*VerticaDB)
 
-	allErrs = v.validateTLSCertRotation(oldObj, allErrs)
 	allErrs = v.checkImmutableBasic(oldObj, allErrs)
 	allErrs = v.checkImmutableUpgradePolicy(oldObj, allErrs)
 	allErrs = v.checkImmutableDeploymentMethod(oldObj, allErrs)
@@ -160,6 +159,7 @@ func (v *VerticaDB) validateImmutableFields(old runtime.Object) field.ErrorList 
 	allErrs = v.checkImmutableStsName(oldObj, allErrs)
 	allErrs = v.checkImmutableClientProxy(oldObj, allErrs)
 	allErrs = v.checkImmutableCertRotation(oldObj, allErrs)
+	allErrs = v.checkValidTLSCertRotation(oldObj, allErrs)
 	allErrs = v.checkValidSubclusterTypeTransition(oldObj, allErrs)
 	allErrs = v.checkSandboxesDuringUpgrade(oldObj, allErrs)
 	allErrs = v.checkShutdownSandboxImage(oldObj, allErrs)
@@ -2332,13 +2332,11 @@ func (v *VerticaDB) hasValidTLSMode(tlsModeToValidate, fieldName string, allErrs
 	return allErrs
 }
 
-// validateTLSCertRotation enforces:
+// checkValidTLSCertRotation enforces:
 // 1. If cert rotation is in progress, all other operations are not allowed.
 // 2. Cannot disable mutual TLS after it's enabled.
 // 3. Prevent user from changing nmaTLSSecret.
-//
-//nolint:unparam
-func (v *VerticaDB) validateTLSCertRotation(oldObj *VerticaDB, allErrs field.ErrorList) field.ErrorList {
+func (v *VerticaDB) checkValidTLSCertRotation(oldObj *VerticaDB, allErrs field.ErrorList) field.ErrorList {
 	// rule 1
 	if oldObj.IsCertRotationInProgress() {
 		if !v.isOnlyCertRotationChange(oldObj) {
@@ -2360,17 +2358,22 @@ func (v *VerticaDB) validateTLSCertRotation(oldObj *VerticaDB, allErrs field.Err
 			allErrs = append(allErrs, err)
 		}
 	} else {
-		if oldObj.Spec.HTTPSNMATLSSecret != v.Spec.HTTPSNMATLSSecret {
+		if oldObj.Spec.HTTPSNMATLSSecret != "" && oldObj.Spec.HTTPSNMATLSSecret != v.Spec.HTTPSNMATLSSecret {
 			err := field.Forbidden(field.NewPath("spec").Child("HTTPSNMATLSSecret"),
 				"cannot change HTTPSNMATLSSecret when mutual TLS is disabled")
 			allErrs = append(allErrs, err)
 		}
-		if oldObj.Spec.ClientServerTLSSecret != v.Spec.ClientServerTLSSecret {
+		if oldObj.Spec.HTTPSTLSMode != "" && oldObj.Spec.HTTPSTLSMode != v.Spec.HTTPSTLSMode {
+			err := field.Forbidden(field.NewPath("spec").Child("HTTPSTLSMode"),
+				"cannot change HTTPSTLSMode when mutual TLS is disabled")
+			allErrs = append(allErrs, err)
+		}
+		if oldObj.Spec.ClientServerTLSSecret != "" && oldObj.Spec.ClientServerTLSSecret != v.Spec.ClientServerTLSSecret {
 			err := field.Forbidden(field.NewPath("spec").Child("clientServerTLSSecret"),
 				"cannot change clientServerTLSSecret when mutual TLS is disabled")
 			allErrs = append(allErrs, err)
 		}
-		if oldObj.Spec.ClientServerTLSMode != v.Spec.ClientServerTLSMode {
+		if oldObj.Spec.ClientServerTLSMode != "" && oldObj.Spec.ClientServerTLSMode != v.Spec.ClientServerTLSMode {
 			err := field.Forbidden(field.NewPath("spec").Child("clientServerTLSMode"),
 				"cannot change clientServerTLSMode when mutual TLS is disabled")
 			allErrs = append(allErrs, err)
