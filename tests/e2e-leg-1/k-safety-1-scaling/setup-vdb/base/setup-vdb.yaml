@@ -11,26 +11,27 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1beta1
+apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
   name: v-scale-out-and-in
+  annotations:
+    vertica.com/include-uid-in-path: "true"
+    vertica.com/k-safety: "1"
+    vertica.com/ssh-secret: "ssh-keys"
 spec:
   initPolicy: CreateSkipPackageInstall
   image: kustomize-vertica-image
-  sshSecret: ssh-keys
   sidecars:
     - name: vlogger
       image: kustomize-vlogger-image
-  communal:
-    includeUIDInPath: true
+  communal: {}
   local:
     requestSize: 100Mi
   encryptSpreadComm: vertica
   subclusters:
     - name: main
       size: 3
-  kSafety: "1"
   certSecrets: []
   imagePullSecrets: []
   volumes: []

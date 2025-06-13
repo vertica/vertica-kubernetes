@@ -11,21 +11,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1beta1
+apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
   name: v-use-own-serviceaccount
+  annotations:
+    vertica.com/include-uid-in-path: "true"
+    vertica.com/k-safety: "0"
+    vertica.com/requeue-time: "4" 
 spec:
   image: kustomize-vertica-image
-  communal:
-    includeUIDInPath: true
+  communal: {}
   local:
     requestSize: 100Mi
   subclusters:
     - name: default_subcluster
       size: 1
-  kSafety: "0"
-  requeueTime: 4
   serviceAccountName: vertica-server-sa
   certSecrets: []
   imagePullSecrets: []

@@ -11,19 +11,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1beta1
-kind: VerticaAutoscaler
-metadata:
-  name: v-from-x
-spec:
-  verticaDBName: v-from-x
-  serviceName: sec1
-  scalingGranularity: Subcluster
-  template:
-    name: as
-    size: 2
-    serviceName: sec1
-    isPrimary: false
-status:
-  scalingCount: 0
-  currentSize: 1
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - command: curl --fail --retry 10 --retry-max-time 1800 -LO https://github.com/vertica/vertica-kubernetes/releases/download/v24.4.0-0/verticadb-operator-24.4.0-0.tgz
+  - command: helm install --wait -n $NAMESPACE vdb-op verticadb-operator-24.4.0-0.tgz

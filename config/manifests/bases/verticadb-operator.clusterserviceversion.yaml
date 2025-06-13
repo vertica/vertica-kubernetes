@@ -647,7 +647,7 @@ spec:
         version: keda.sh/v1alpha1
       - kind: VerticaDB
         name: ""
-        version: vertica.com/v1beta1
+        version: vertica.com/v1
       specDescriptors:
       - description: |-
           This struct allows customization of autoscaling. Custom metrics can be used instead of the memory and cpu metrics.
@@ -3568,7 +3568,7 @@ spec:
           is occurring, this message remains blank.
         displayName: Upgrade Status
         path: upgradeStatus
-      version: v1beta1
+      version: v1
     - description: VerticaReplicator is the Schema for the verticareplicators API
       displayName: Vertica Replicator
       kind: VerticaReplicator
@@ -3576,7 +3576,7 @@ spec:
       resources:
       - kind: VerticaDB
         name: ""
-        version: vertica.com/v1beta1
+        version: vertica.com/v1
       specDescriptors:
       - description: 'Determines how replication is done. Available options: async,
           sync'
@@ -3735,7 +3735,7 @@ spec:
       resources:
       - kind: VerticaDB
         name: ""
-        version: vertica.com/v1beta1
+        version: vertica.com/v1
       specDescriptors:
       - description: Optional parameter that will limit the query to only restore
           points satisfying provided filter options
@@ -3795,7 +3795,7 @@ spec:
         version: v1
       - kind: VerticaDB
         name: ""
-        version: vertica.com/v1beta1
+        version: vertica.com/v1
       specDescriptors:
       - description: |-
           Like nodeSelector this allows you to constrain the pod only to certain

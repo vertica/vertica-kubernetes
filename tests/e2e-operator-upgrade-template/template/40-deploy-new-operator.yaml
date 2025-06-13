@@ -14,5 +14,7 @@
 apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 commands:
+- command: sh -c "cd ../../.. && make config-transformer"
+- command: sh -c "kubectl patch crd verticadbs.vertica.com --type merge -p '{\"spec\":{\"conversion\":null}}'"
 - command: kubectl apply --server-side=true --force-conflicts -f ../../../helm-charts/verticadb-operator/crds/*yaml
 - command: sh -c "cd ../../.. && make deploy-operator NAMESPACE=$NAMESPACE"
