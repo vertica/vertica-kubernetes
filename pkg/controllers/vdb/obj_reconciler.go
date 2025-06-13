@@ -35,6 +35,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
+	"github.com/vertica/vertica-kubernetes/pkg/secrets"
 	config "github.com/vertica/vertica-kubernetes/pkg/vdbconfig"
 	"github.com/vertica/vertica-kubernetes/pkg/vk8s"
 	appsv1 "k8s.io/api/apps/v1"
@@ -756,6 +757,10 @@ func (o *ObjReconciler) reconcileTLSSecrets(ctx context.Context) error {
 		o.Vdb.Spec.ClientServerTLSSecret,
 	}
 	for _, tlsSecret := range tlsSecrets {
+		// non-k8s secrets are ignored
+		if !secrets.IsK8sSecret(tlsSecret) {
+			continue
+		}
 		err := o.updateOwnerReferenceInTLSSecret(ctx, tlsSecret)
 		if err != nil {
 			return err
