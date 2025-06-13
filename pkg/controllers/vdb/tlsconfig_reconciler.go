@@ -101,7 +101,7 @@ func (h *TLSConfigReconciler) Reconcile(ctx context.Context, request *ctrl.Reque
 		h.Log.Info("TLS already configured in db. Skip running DDL.")
 	}
 	h.Log.Info("Save TLS secret and mode into status")
-	err = h.updateStatus(ctx)
+	err = h.updateStatus(ctx, initiatorPod, configured)
 	if err != nil {
 		h.Log.Error(err, "failed to save TLS secret and mode into status")
 		return ctrl.Result{}, err
@@ -132,7 +132,19 @@ func (h *TLSConfigReconciler) runDDLToConfigureTLS(ctx context.Context, initiato
 	return h.Dispatcher.SetTLSConfig(ctx, opts...)
 }
 
-func (h *TLSConfigReconciler) updateStatus(ctx context.Context) error {
+func (h *TLSConfigReconciler) updateStatus(ctx context.Context, initiatorPod *podfacts.PodFact, tlsConfiguredInDB bool) error {
+	err := h.updateSecretsInStatus(ctx)
+	if err != nil {
+		return err
+	}
+	err = h.updateTLSModesInStatus(ctx, initiatorPod, tlsConfiguredInDB)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (h *TLSConfigReconciler) updateSecretsInStatus(ctx context.Context) error {
 	var sRefs []*vapi.SecretRef
 	if h.TLSSecretType == vapi.HTTPSTLSSecretType {
 		sec := vapi.MakeHTTPSTLSSecretRef(h.Vdb.Spec.HTTPSNMATLSSecret)
@@ -156,21 +168,37 @@ func (h *TLSConfigReconciler) updateStatus(ctx context.Context) error {
 	if err2 := vdbstatus.UpdateSecretRefs(ctx, h.VRec.GetClient(), h.Vdb, sRefs); err2 != nil {
 		return err2
 	}
-	var tlsModes []*vapi.TLSMode
-	if h.TLSSecretType == vapi.HTTPSTLSSecretType {
-		httpsTLSMode := vapi.MakeHTTPSTLSMode(h.Vdb.Spec.HTTPSTLSMode)
-		tlsModes = []*vapi.TLSMode{httpsTLSMode}
-		h.Log.Info(fmt.Sprintf("Save TLS mode %s into status", h.Vdb.Spec.HTTPSTLSMode))
+	return nil
+}
+
+func (h *TLSConfigReconciler) updateTLSModesInStatus(ctx context.Context, initiatorPod *podfacts.PodFact, tlsConfiguredInDB bool) error {
+	var tlsModeStr string
+	err := error(nil)
+	if tlsConfiguredInDB {
+		tlsModeStr, err = h.loadTLSModeFromDB(ctx, initiatorPod)
+		if err != nil {
+			return err
+		}
 	} else {
-		clientTLSMode := vapi.MakeClientServerTLSMode(h.Vdb.Spec.ClientServerTLSMode)
-		tlsModes = []*vapi.TLSMode{clientTLSMode}
-		h.Log.Info(fmt.Sprintf("Save TLS mode %s into status", h.Vdb.Spec.ClientServerTLSMode))
+		if h.TLSSecretType == vapi.HTTPSTLSSecretType {
+			tlsModeStr = h.Vdb.Spec.HTTPSTLSMode
+		} else {
+			tlsModeStr = h.Vdb.Spec.ClientServerTLSMode
+		}
 	}
-	err := vdbstatus.UpdateTLSModes(ctx, h.VRec.GetClient(), h.Vdb, tlsModes)
+	var tlsMode *vapi.TLSMode
+	if h.TLSSecretType == vapi.HTTPSTLSSecretType {
+		tlsMode = vapi.MakeHTTPSTLSMode(tlsModeStr)
+	} else {
+		tlsMode = vapi.MakeClientServerTLSMode(tlsModeStr)
+	}
+	tlsModes := []*vapi.TLSMode{tlsMode}
+	err = vdbstatus.UpdateTLSModes(ctx, h.VRec.GetClient(), h.Vdb, tlsModes)
 	if err != nil {
 		h.Log.Error(err, "failed to update tls mode when setting up TLS")
 		return err
 	}
+	h.Log.Info(fmt.Sprintf("tls mode %s has been saved into vdb status for secret type %s", tlsModeStr, h.TLSSecretType))
 	return nil
 }
 
@@ -190,4 +218,30 @@ func (h *TLSConfigReconciler) checkIfTLSConfiguredInDB(ctx context.Context, init
 	lines := strings.Split(stdout, "\n")
 	res := strings.Trim(lines[0], " ")
 	return res != "httpServerCert", nil
+}
+
+func (h *TLSConfigReconciler) loadTLSModeFromDB(ctx context.Context, initiatorPod *podfacts.PodFact) (string, error) {
+	var tlsConfigName string
+	if h.TLSSecretType == vapi.HTTPSTLSSecretType {
+		tlsConfigName = "https"
+	} else {
+		tlsConfigName = "server"
+	}
+	h.Log.Info(fmt.Sprintf("read tls mode from db for %s", tlsConfigName))
+	sql := fmt.Sprintf("select mode from tls_configurations where name='%s';", tlsConfigName)
+	cmd := []string{"-tAc", sql}
+	stdout, stderr, err := h.PRunner.ExecVSQL(ctx, initiatorPod.GetName(), names.ServerContainer, cmd...)
+	h.Log.Info(fmt.Sprintf("%s tls mode from db - %s", tlsConfigName, stdout))
+	if err != nil || strings.Contains(stderr, "Error") {
+		h.Log.Error(err, fmt.Sprintf("failed to retrieve %s TLS mode after reviving db, stderr - %s", tlsConfigName, stderr))
+		return "", err
+	}
+	currentTLSMode := h.getTLSMode(stdout)
+	return currentTLSMode, nil
+}
+
+func (h *TLSConfigReconciler) getTLSMode(stdout string) string {
+	lines := strings.Split(stdout, "\n")
+	res := strings.Trim(lines[0], " ")
+	return res
 }

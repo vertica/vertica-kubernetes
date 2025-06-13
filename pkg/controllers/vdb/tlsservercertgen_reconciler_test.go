@@ -32,8 +32,6 @@ import (
 
 var _ = Describe("tlsservercertgen_reconcile", func() {
 	ctx := context.Background()
-	const trueStr = "true"
-	const falseStr = "false"
 
 	It("should be a op if not using vclusterops", func() {
 		vdb := vapi.MakeVDB()
