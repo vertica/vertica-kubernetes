@@ -804,10 +804,10 @@ func (o *ReadOnlyOnlineUpgradeReconciler) pickDefaultSubclusterForTemporaryRouti
 	// the first secondary we can find.  If there are no secondaries, then
 	// selecting the first subcluster will do.  The upgrade won't be online in
 	// this case, but there isn't anything we can do.
-	if offlineSc.IsPrimary() {
+	if offlineSc.IsPrimary(o.Vdb) {
 		for i := range o.Vdb.Spec.Subclusters {
 			sc := &o.Vdb.Spec.Subclusters[i]
-			if !sc.IsPrimary() {
+			if !sc.IsPrimary(o.Vdb) {
 				return sc
 			}
 		}
