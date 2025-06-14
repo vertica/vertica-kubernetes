@@ -71,7 +71,6 @@ const (
 	LicenseEndpoint       = "license"
 	TLSAuthEndpoint       = "authentication/tls/"
 	TLSBootstrapEndpoint  = "authentication/client"
-	TLSInfoEndpoint       = "tls/info"
 )
 
 const (
@@ -140,41 +139,11 @@ func CheckNotEmpty(a string) bool {
 	return a != ""
 }
 
-const (
-	trueStr  = "true"
-	falseStr = "false"
-)
-
 func BoolToStr(b bool) string {
 	if b {
-		return trueStr
+		return "true"
 	}
-	return falseStr
-}
-
-type BoolFromStr bool
-
-func (b BoolFromStr) MarshalJSON() ([]byte, error) {
-	s := BoolToStr(bool(b))
-	return json.Marshal(s)
-}
-
-func (b *BoolFromStr) UnmarshalJSON(data []byte) error {
-	var s string
-	if err := json.Unmarshal(data, &s); err != nil {
-		return fmt.Errorf("unmarshaling into BoolFromStr: expected string, got %s", data)
-	}
-
-	switch strings.ToLower(s) {
-	case trueStr:
-		*b = true
-	case falseStr:
-		*b = false
-	default:
-		return fmt.Errorf("unmarshaling into BoolFromStr: invalid value %q", s)
-	}
-
-	return nil
+	return "false"
 }
 
 func CheckAllEmptyOrNonEmpty(vars ...string) bool {
@@ -857,10 +826,10 @@ func ConvertDateStringToUTC(date, timezone string) (string, error) {
 	return dateTz.UTC().Format(timeLayout), nil
 }
 
-// JoinMapSetKeys joins the keys of a mapset into a single string, separated by the specified delimiter.
-func JoinMapSetKeys(m mapset.Set[string], delimiter string) string {
-	keys := make([]string, 0, m.Cardinality())
-	for k := range m.Iter() {
+// JoinMapKeys joins the keys of a map into a single string, separated by the specified delimiter.
+func JoinMapKeys(m map[string]any, delimiter string) string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
 		keys = append(keys, k)
 	}
 	return strings.Join(keys, delimiter)

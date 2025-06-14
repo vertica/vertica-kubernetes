@@ -63,7 +63,6 @@ var ValidTLSMode = []VerticaTLSModeType{tlsModeDisable, tlsModeEnable,
 const (
 	kubernetesSecretManagerName string = "KubernetesSecretManager"
 	awsSecretManagerName        string = "AWSSecretManager"
-	gcpSecretManagerName        string = "GCPSecretManager"
 )
 
 type TLSConfigType string
@@ -76,17 +75,6 @@ const (
 type TLSConfig struct {
 	ConfigMap  map[string]string
 	ConfigType TLSConfigType
-}
-
-// getSecretManager given the secret manager type, returns
-// the secret manager name
-func getSecretManager(secretManagerType string) string {
-	secretManagerMap := map[string]string{
-		K8sSecretManagerType: kubernetesSecretManagerName,
-		AWSSecretManagerType: awsSecretManagerName,
-		GCPSecretManagerType: gcpSecretManagerName,
-	}
-	return secretManagerMap[secretManagerType]
 }
 
 // validateAllwaysRequiredKeys validates tls keys that must always be set in a
