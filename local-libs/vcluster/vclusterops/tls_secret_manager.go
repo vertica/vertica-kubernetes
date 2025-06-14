@@ -76,6 +76,7 @@ const (
 type TLSConfig struct {
 	ConfigMap  map[string]string
 	ConfigType TLSConfigType
+	GrantAuth  bool
 }
 
 // getSecretManager given the secret manager type, returns
