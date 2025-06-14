@@ -894,6 +894,21 @@ func (v *VerticaDB) IsCertRotationEnabled() bool {
 		vmeta.UseTLSAuth(v.Annotations)
 }
 
+// IsHTTPProbeSupported returns true if the version supports certs
+func (v *VerticaDB) IsHTTPProbeSupported() bool {
+	if v.IsStatusConditionTrue(OfflineUpgradeInProgress) || v.IsStatusConditionTrue(OnlineUpgradeInProgress) ||
+		v.IsStatusConditionTrue(ReadOnlyOnlineUpgradeInProgress) {
+		return v.IsCertRotationEnabled()
+	}
+	vinf, hasVersion := v.MakeVersionInfo()
+	// Assume we are running a version that does not support cert rotation
+	// if version is not present.
+	if !hasVersion {
+		return false
+	}
+	return vinf.IsEqualOrNewer(TLSCertRotationMinVersion)
+}
+
 // IsNMASideCarDeploymentEnabled returns true if the conditions to run NMA
 // in a sidecar are met
 func (v *VerticaDB) IsNMASideCarDeploymentEnabled() bool {

@@ -1431,7 +1431,7 @@ func makeCanaryQueryProbe(vdb *vapi.VerticaDB) *corev1.Probe {
 // is enabled
 func getHTTPServerVersionEndpointProbe(vdb *vapi.VerticaDB) *corev1.Probe {
 	if vmeta.UseVClusterOps(vdb.Annotations) {
-		if vdb.IsCertRotationEnabled() {
+		if vdb.IsHTTPProbeSupported() {
 			return makeHTTPVersionEndpointProbe()
 		} else {
 			return makeHTTPSVersionEndpointProbe()
@@ -2037,24 +2037,7 @@ func buildScrutinizeDBPasswordEnvVars(nm types.NamespacedName) []corev1.EnvVar {
 // buildNMATLSCertsEnvVars returns environment variables about NMA certs,
 // that are needed by NMA and vcluster scrutinize
 func buildNMATLSCertsEnvVars(vdb *vapi.VerticaDB) []corev1.EnvVar {
-	useNmaCertsMount := vmeta.UseNMACertsMount(vdb.Annotations)
-	if useNmaCertsMount && secrets.IsK8sSecret(vdb.Spec.HTTPSNMATLSSecret) {
-		return []corev1.EnvVar{
-			// Provide the path to each of the certs that are mounted in the container.
-			{Name: NMARootCAEnv, Value: fmt.Sprintf("%s/%s", paths.NMACertsRoot, paths.HTTPServerCACrtName)},
-			{Name: NMACertEnv, Value: fmt.Sprintf("%s/%s", paths.NMACertsRoot, corev1.TLSCertKey)},
-			{Name: NMAKeyEnv, Value: fmt.Sprintf("%s/%s", paths.NMACertsRoot, corev1.TLSPrivateKeyKey)},
-		}
-	}
-	if !vmeta.UseTLSAuth(vdb.Annotations) {
-		return []corev1.EnvVar{
-			// The NMA will read the secrets directly from the secret store.
-			// We provide the secret namespace and name for this reason.
-			{Name: NMASecretNamespaceEnv, Value: vdb.ObjectMeta.Namespace},
-			{Name: NMASecretNameEnv, Value: vdb.Spec.HTTPSNMATLSSecret},
-		}
-	}
-	notTrue := false
+	True := true
 	configMapName := fmt.Sprintf("%s-%s", vdb.Name, vapi.NMATLSConfigMapName)
 	return []corev1.EnvVar{
 		{Name: NMASecretNamespaceEnv,
@@ -2064,7 +2047,7 @@ func buildNMATLSCertsEnvVars(vdb *vapi.VerticaDB) []corev1.EnvVar {
 						Name: configMapName,
 					},
 					Key:      NMASecretNamespaceEnv,
-					Optional: &notTrue,
+					Optional: &True,
 				},
 			}},
 		{Name: NMASecretNameEnv,
@@ -2074,7 +2057,7 @@ func buildNMATLSCertsEnvVars(vdb *vapi.VerticaDB) []corev1.EnvVar {
 						Name: configMapName,
 					},
 					Key:      NMASecretNameEnv,
-					Optional: &notTrue,
+					Optional: &True,
 				},
 			}},
 		{Name: NMAClientSecretNamespaceEnv,
@@ -2084,7 +2067,7 @@ func buildNMATLSCertsEnvVars(vdb *vapi.VerticaDB) []corev1.EnvVar {
 						Name: configMapName,
 					},
 					Key:      NMAClientSecretNamespaceEnv,
-					Optional: &notTrue,
+					Optional: &True,
 				},
 			}},
 		{Name: NMAClientSecretNameEnv,
@@ -2094,7 +2077,37 @@ func buildNMATLSCertsEnvVars(vdb *vapi.VerticaDB) []corev1.EnvVar {
 						Name: configMapName,
 					},
 					Key:      NMAClientSecretNameEnv,
-					Optional: &notTrue,
+					Optional: &True,
+				},
+			}},
+		{Name: NMARootCAEnv,
+			ValueFrom: &corev1.EnvVarSource{
+				ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: configMapName,
+					},
+					Key:      NMARootCAEnv,
+					Optional: &True,
+				},
+			}},
+		{Name: NMACertEnv,
+			ValueFrom: &corev1.EnvVarSource{
+				ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: configMapName,
+					},
+					Key:      NMACertEnv,
+					Optional: &True,
+				},
+			}},
+		{Name: NMAKeyEnv,
+			ValueFrom: &corev1.EnvVarSource{
+				ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: configMapName,
+					},
+					Key:      NMAKeyEnv,
+					Optional: &True,
 				},
 			}},
 		{Name: NMAClientSecretTLSModeEnv,
@@ -2104,7 +2117,7 @@ func buildNMATLSCertsEnvVars(vdb *vapi.VerticaDB) []corev1.EnvVar {
 						Name: configMapName,
 					},
 					Key:      NMAClientSecretTLSModeEnv,
-					Optional: &notTrue,
+					Optional: &True,
 				},
 			}},
 	}
@@ -2200,6 +2213,9 @@ func GetTarballName(cmd []string) string {
 // The configmap will be mapped to two environmental variables in NMA pod
 func BuildNMATLSConfigMap(nm types.NamespacedName, vdb *vapi.VerticaDB) *corev1.ConfigMap {
 	secretMap := map[string]string{
+		NMARootCAEnv:                fmt.Sprintf("%s/%s", paths.NMACertsRoot, paths.HTTPServerCACrtName),
+		NMACertEnv:                  fmt.Sprintf("%s/%s", paths.NMACertsRoot, corev1.TLSCertKey),
+		NMAKeyEnv:                   fmt.Sprintf("%s/%s", paths.NMACertsRoot, corev1.TLSPrivateKeyKey),
 		NMASecretNamespaceEnv:       vdb.ObjectMeta.Namespace,
 		NMASecretNameEnv:            vdb.Spec.HTTPSNMATLSSecret,
 		NMAClientSecretNamespaceEnv: vdb.ObjectMeta.Namespace,

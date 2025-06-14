@@ -1,0 +1,5 @@
+kind: Added
+body: HTTPSTLSMode has been added to Vertica DB definition. Users can choose different TLSMODEs when setting up https service TLS.
+time: 2025-05-15T14:53:58.306470481-04:00
+custom:
+    Issue: "1198"

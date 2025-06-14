@@ -418,6 +418,22 @@ var _ = Describe("builder", func() {
 		Ω(c.StartupProbe.HTTPGet.Scheme).Should(Equal(v1.URISchemeHTTPS))
 	})
 
+	It("should have all probes use the V2 http version endpoint", func() {
+		vdb := vapi.MakeVDB()
+		vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
+		vdb.Annotations[vmeta.VersionAnnotation] = "v25.4.0"
+		c := makeServerContainer(vdb, &vdb.Spec.Subclusters[0])
+		Ω(c.ReadinessProbe.HTTPGet.Path).Should(Equal(HTTPServerHealthPathV2))
+		Ω(c.ReadinessProbe.HTTPGet.Port).Should(Equal(intstr.FromInt(VerticaNonTLSHTTPPort)))
+		Ω(c.ReadinessProbe.HTTPGet.Scheme).Should(Equal(v1.URISchemeHTTP))
+		Ω(c.LivenessProbe.HTTPGet.Path).Should(Equal(HTTPServerHealthPathV2))
+		Ω(c.LivenessProbe.HTTPGet.Port).Should(Equal(intstr.FromInt(VerticaNonTLSHTTPPort)))
+		Ω(c.LivenessProbe.HTTPGet.Scheme).Should(Equal(v1.URISchemeHTTP))
+		Ω(c.StartupProbe.HTTPGet.Path).Should(Equal(HTTPServerHealthPathV2))
+		Ω(c.StartupProbe.HTTPGet.Port).Should(Equal(intstr.FromInt(VerticaNonTLSHTTPPort)))
+		Ω(c.StartupProbe.HTTPGet.Scheme).Should(Equal(v1.URISchemeHTTP))
+	})
+
 	It("should use non-default service ports", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Spec.ServiceHTTPSPort = 8449
@@ -505,20 +521,17 @@ var _ = Describe("builder", func() {
 		c := makeServerContainer(vdb, &vdb.Spec.Subclusters[0])
 		Ω(NMACertsVolumeExists(vdb, ps.Volumes)).Should(BeFalse())
 		Ω(NMACertsVolumeMountExists(&c)).Should(BeFalse())
-		Ω(NMACertsEnvVarsExist(vdb, &c)).Should(BeTrue())
 		vdb.Annotations[vmeta.MountNMACertsAnnotation] = vmeta.MountNMACertsAnnotationTrue
 		ps = buildPodSpec(vdb, &vdb.Spec.Subclusters[0])
 		c = makeServerContainer(vdb, &vdb.Spec.Subclusters[0])
 		Ω(NMACertsVolumeExists(vdb, ps.Volumes)).Should(BeTrue())
 		Ω(NMACertsVolumeMountExists(&c)).Should(BeTrue())
-		Ω(NMACertsEnvVarsExist(vdb, &c)).Should(BeTrue())
-		// test default value (which should be false)
+		// test default value (which should be true)
 		delete(vdb.Annotations, vmeta.MountNMACertsAnnotation)
 		ps = buildPodSpec(vdb, &vdb.Spec.Subclusters[0])
 		c = makeServerContainer(vdb, &vdb.Spec.Subclusters[0])
 		Ω(NMACertsVolumeExists(vdb, ps.Volumes)).Should(BeFalse())
 		Ω(NMACertsVolumeMountExists(&c)).Should(BeFalse())
-		Ω(NMACertsEnvVarsExist(vdb, &c)).Should(BeTrue())
 	})
 
 	It("should mount or not mount NMA certs volume according to annotation(sidecar)", func() {
@@ -532,13 +545,11 @@ var _ = Describe("builder", func() {
 		c := makeServerContainer(vdb, &vdb.Spec.Subclusters[0])
 		Ω(NMACertsVolumeExists(vdb, ps.Volumes)).Should(BeFalse())
 		Ω(NMACertsVolumeMountExists(&c)).Should(BeFalse())
-		Ω(NMACertsEnvVarsExist(vdb, &c)).Should(BeFalse())
 		vdb.Annotations[vmeta.MountNMACertsAnnotation] = vmeta.MountNMACertsAnnotationTrue
 		ps = buildPodSpec(vdb, &vdb.Spec.Subclusters[0])
 		c = makeServerContainer(vdb, &vdb.Spec.Subclusters[0])
 		Ω(NMACertsVolumeExists(vdb, ps.Volumes)).Should(BeTrue())
 		Ω(NMACertsVolumeMountExists(&c)).Should(BeFalse())
-		Ω(NMACertsEnvVarsExist(vdb, &c)).Should(BeFalse())
 
 		// nma container
 		vdb.Annotations[vmeta.MountNMACertsAnnotation] = vmeta.MountNMACertsAnnotationFalse
@@ -546,13 +557,11 @@ var _ = Describe("builder", func() {
 		c = makeNMAContainer(vdb, &vdb.Spec.Subclusters[0])
 		Ω(NMACertsVolumeExists(vdb, ps.Volumes)).Should(BeFalse())
 		Ω(NMACertsVolumeMountExists(&c)).Should(BeFalse())
-		Ω(NMACertsEnvVarsExist(vdb, &c)).Should(BeTrue())
 		vdb.Annotations[vmeta.MountNMACertsAnnotation] = vmeta.MountNMACertsAnnotationTrue
 		ps = buildPodSpec(vdb, &vdb.Spec.Subclusters[0])
 		c = makeNMAContainer(vdb, &vdb.Spec.Subclusters[0])
 		Ω(NMACertsVolumeExists(vdb, ps.Volumes)).Should(BeTrue())
 		Ω(NMACertsVolumeMountExists(&c)).Should(BeTrue())
-		Ω(NMACertsEnvVarsExist(vdb, &c)).Should(BeTrue())
 	})
 
 	It("should allow override of probe with grpc and httpget", func() {
@@ -786,6 +795,22 @@ var _ = Describe("builder", func() {
 		Ω(sa.Annotations[kedaPausingAutoscalingAnnotation]).Should(Equal("true"))
 		Ω(sa.Annotations[kedaPausingAutoscalingReplicasAnnotation]).Should(Equal("1"))
 		Ω(sa.Spec.Triggers[0].Metadata["unsafeSsl"]).Should(Equal(vas.Spec.CustomAutoscaler.ScaledObject.Metrics[0].GetUnsafeSslStr()))
+	})
+
+	It("nma container should have all eight environmental variables", func() {
+		vdb := vapi.MakeVDB()
+		envVars := buildNMATLSCertsEnvVars(vdb)
+		configMapName := fmt.Sprintf("%s-%s", vdb.Name, vapi.NMATLSConfigMapName)
+		Ω(len(envVars)).Should(Equal(8))
+		Ω(envVars[1].Name).Should(Equal(NMASecretNameEnv))
+		Ω(envVars[1].ValueFrom.ConfigMapKeyRef.LocalObjectReference.Name).Should(Equal(configMapName))
+		Ω(envVars[1].ValueFrom.ConfigMapKeyRef.Key).Should(Equal(NMASecretNameEnv))
+		Ω(envVars[3].Name).Should(Equal(NMAClientSecretNameEnv))
+		Ω(envVars[3].ValueFrom.ConfigMapKeyRef.LocalObjectReference.Name).Should(Equal(configMapName))
+		Ω(envVars[3].ValueFrom.ConfigMapKeyRef.Key).Should(Equal(NMAClientSecretNameEnv))
+		Ω(envVars[7].Name).Should(Equal(NMAClientSecretTLSModeEnv))
+		Ω(envVars[7].ValueFrom.ConfigMapKeyRef.LocalObjectReference.Name).Should(Equal(configMapName))
+		Ω(envVars[7].ValueFrom.ConfigMapKeyRef.Key).Should(Equal(NMAClientSecretTLSModeEnv))
 	})
 })
 
