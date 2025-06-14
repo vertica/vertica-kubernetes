@@ -1431,7 +1431,7 @@ func makeCanaryQueryProbe(vdb *vapi.VerticaDB) *corev1.Probe {
 // is enabled
 func getHTTPServerVersionEndpointProbe(vdb *vapi.VerticaDB) *corev1.Probe {
 	if vmeta.UseVClusterOps(vdb.Annotations) {
-		if vdb.IsHttpProbeSupported() {
+		if vdb.IsHTTPProbeSupported() {
 			return makeHTTPVersionEndpointProbe()
 		} else {
 			return makeHTTPSVersionEndpointProbe()
