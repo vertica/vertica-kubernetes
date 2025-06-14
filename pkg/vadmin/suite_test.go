@@ -136,6 +136,7 @@ const (
 	TestHTTPSTLSMode        = "test-tls-mode"
 	TestClientServerTLSMode = "test-client-server-tls-mode"
 	TestNamespace           = "default"
+	TestIsHTTPSConfig       = true
 )
 
 var TestCommunalStorageParams = map[string]string{"awsauth": "test-auth", "awsconnecttimeout": "10"}
