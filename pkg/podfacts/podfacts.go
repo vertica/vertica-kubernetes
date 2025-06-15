@@ -914,6 +914,11 @@ func (p *PodFact) SetIsPrimary(isPrimary bool) {
 	p.isPrimary = isPrimary
 }
 
+// SetSandbox set the string value of sandbox in PodFact
+func (p *PodFact) SetSandbox(sbName string) {
+	p.sandbox = sbName
+}
+
 // SetHasNMASidecar set the bool value of hasNMASidecar in PodFact
 func (p *PodFact) SetHasNMASidecar(hasNMASidecar bool) {
 	p.hasNMASidecar = hasNMASidecar
