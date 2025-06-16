@@ -184,6 +184,7 @@ runs:
             fi
             # These legs have some tests that only run with vclusterops deployment
             if [[ ( "${{ inputs.leg-identifier }}" == "leg-2" || \
+                  "${{ inputs.leg-identifier }}" == "leg-13" || \
                   "${{ inputs.leg-identifier }}" == "server-upgrade" || \
                   "${{ inputs.leg-identifier }}" == "leg-6" ) && "${{ inputs.use-cert }}" != "true" ]]; then            
               if [[ "${VERTICA_DEPLOYMENT_METHOD}" == "vclusterops" ]]; then

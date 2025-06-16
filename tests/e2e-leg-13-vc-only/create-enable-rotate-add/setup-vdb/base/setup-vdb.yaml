@@ -21,7 +21,7 @@ metadata:
     vertica.com/ignore-cluster-lease: "true"
     vertica.com/vcluster-ops: "true"
 spec:
-  initPolicy: Revive
+  initPolicy: CreateSkipPackageInstall
   image: kustomize-vertica-image
   communal: {}
   local:
@@ -29,10 +29,8 @@ spec:
     catalogPath: /catalog
   dbName: vertdb
   encryptSpreadComm: vertica
+  clientServerTLSSecret: custom-cert
   subclusters:
     - name: sc1
       size: 3
-  clientServerTLSSecret: custom-cert
-  clientServerTLSMode: TRY_VERIFY
-  httpsNMATLSSecret: custom-cert
-  httpsTLSMode: VERIFY_CA
+  certSecrets: []
