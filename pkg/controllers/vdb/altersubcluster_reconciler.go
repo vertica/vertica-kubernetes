@@ -22,12 +22,10 @@ import (
 	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
-	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/altersc"
 	config "github.com/vertica/vertica-kubernetes/pkg/vdbconfig"
-	corev1 "k8s.io/api/core/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
@@ -55,10 +53,6 @@ func MakeAlterSubclusterTypeReconciler(vdbrecon config.ReconcilerInterface, log 
 }
 
 func (a *AlterSubclusterTypeReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
-	if a.PFacts.SandboxName == vapi.MainCluster {
-		return ctrl.Result{}, nil
-	}
-
 	if err := a.PFacts.Collect(ctx, a.Vdb); err != nil {
 		return ctrl.Result{}, err
 	}
@@ -149,14 +143,14 @@ func (a *AlterSubclusterTypeReconciler) alterSubclusterType(ctx context.Context,
 	initiatorIP string) error {
 	scType := vapi.SecondarySubcluster
 	newType := vapi.PrimarySubcluster
+
 	// check db is_primary
 	pf, ok := a.PFacts.FindFirstUpPod(false, sc.Name)
 	if ok && pf.GetIsPrimary() {
 		scType = vapi.PrimarySubcluster
 		newType = vapi.SecondarySubcluster
 	}
-	a.VRec.Eventf(a.Vdb, corev1.EventTypeNormal, events.AlterSubclusterStart,
-		"Starting alter subcluster on %q from %q to %q", sc.Name, scType, newType)
+	a.Log.Info("Starting alter subcluster", "subcluster", sc.Name, "from", scType, "to", newType)
 	err := a.Dispatcher.AlterSubclusterType(ctx,
 		altersc.WithInitiator(initiatorIP),
 		altersc.WithSubcluster(sc.Name),
@@ -164,15 +158,12 @@ func (a *AlterSubclusterTypeReconciler) alterSubclusterType(ctx context.Context,
 		altersc.WithSandbox(a.PFacts.GetSandboxName()),
 	)
 	if err != nil {
-		a.VRec.Eventf(a.Vdb, corev1.EventTypeWarning, events.AlterSubclusterFailed,
-			"Failed to alter the type of subcluster %q to %q", sc.Name, newType)
+		a.Log.Error(err, "Failed to alter the type of subcluster", "subcluster", sc.Name, "to", newType)
 		return err
 	}
 
-	a.PFacts.Invalidate()
 	pf.SetIsPrimary(newType == vapi.PrimarySubcluster)
-	a.VRec.Eventf(a.Vdb, corev1.EventTypeNormal, events.AlterSubclusterSucceeded,
-		"Successfully altered the type of subcluster %q to %q", sc.Name, newType)
+	a.Log.Info("Successfully altered the type of subcluster", "subcluster", sc.Name, "to", newType)
 	return nil
 }
 

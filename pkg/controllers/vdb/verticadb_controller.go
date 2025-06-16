@@ -196,8 +196,6 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		MakeShutdownSpecReconciler(r, vdb),
 		// Update the vertica image for unsandboxed subclusters
 		MakeUnsandboxImageVersionReconciler(r, vdb, log, pfacts),
-		// Update subcluster type in db according to its type in vdb spec
-		MakeAlterSubclusterTypeReconciler(r, log, vdb, pfacts, dispatcher, false /* isSandbox */),
 		// Always start with a status reconcile in case the prior reconcile failed.
 		MakeStatusReconciler(r.Client, r.Scheme, log, vdb, pfacts),
 		MakeMetricReconciler(r, log, vdb, prunner, pfacts),
