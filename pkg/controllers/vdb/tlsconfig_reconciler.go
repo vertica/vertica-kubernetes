@@ -263,5 +263,5 @@ func (h *TLSConfigReconciler) checkIfTLSAuthenticationCreatedInDB(ctx context.Co
 	}
 	lines := strings.Split(stdout, "\n")
 	res := strings.Trim(lines[0], " ")
-	return res != "True", nil
+	return res == "True", nil
 }
