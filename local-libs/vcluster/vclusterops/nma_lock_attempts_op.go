@@ -43,18 +43,14 @@ func makeNMALockAttemptsOp(upHosts []string, userName string,
 	startTime, endTime, nodeName string, duration string,
 	resultLimit int) (nmaLockAttemptsOp, error) {
 	op := nmaLockAttemptsOp{}
-	op.name = "NMALockAttemptsOp"
-	op.description = "Check lock waiting events"
 	op.hosts = upHosts[:1] // set up the request for one of the up hosts only
 	op.startTime = startTime
 	op.endTime = endTime
 	op.nodeName = nodeName
 	op.resultLimit = resultLimit
-	if duration == "" {
-		op.duration = lockAttemptThresHold
-	} else {
-		op.duration = duration
-	}
+	op.duration = duration
+	op.name = "NMALockAttemptsOp"
+	op.description = "Check lock waiting events"
 
 	// NMA endpoints don't need to differentiate between empty password and no password
 	useDBPassword := password != nil

@@ -35,12 +35,10 @@ func VSetTLSConfigOptionsFactory() VSetTLSConfigOptions {
 	options.ServerTLSConfig = TLSConfig{
 		ConfigMap:  make(map[string]string),
 		ConfigType: ServerTLSKeyPrefix,
-		GrantAuth:  false,
 	}
 	options.HTTPSTLSConfig = TLSConfig{
 		ConfigMap:  make(map[string]string),
 		ConfigType: HTTPSTLSKeyPrefix,
-		GrantAuth:  true,
 	}
 
 	return options
@@ -53,10 +51,6 @@ func (options *VSetTLSConfigOptions) validateTLSConfig(logger vlog.Printer) erro
 
 	if !options.ServerTLSConfig.hasConfigParam() && !options.HTTPSTLSConfig.hasConfigParam() {
 		return fmt.Errorf("missing TLS configuration: specify settings for at least one of server or HTTPS")
-	}
-
-	if options.ServerTLSConfig.GrantAuth == options.HTTPSTLSConfig.GrantAuth {
-		return fmt.Errorf("server and https TLS configurations cannot both set GrantAuth to true or both set to false")
 	}
 
 	err = options.ServerTLSConfig.validate(logger)
@@ -126,8 +120,8 @@ func (vcc VClusterCommands) produceSetTLSConfigInstructions(options *VSetTLSConf
 	instructions = append(instructions, &nmaHealthOp)
 	if options.ServerTLSConfig.hasConfigParam() {
 		nmaSetServerTLSOp, err := makeNMASetTLSOp(&options.DatabaseOptions, string(options.ServerTLSConfig.ConfigType),
-			options.ServerTLSConfig.GrantAuth,
-			true, // syncCatalog
+			false, // grantAuth
+			false, // syncCatalog
 			options.ServerTLSConfig.ConfigMap)
 		if err != nil {
 			return instructions, err
@@ -137,7 +131,7 @@ func (vcc VClusterCommands) produceSetTLSConfigInstructions(options *VSetTLSConf
 
 	if options.HTTPSTLSConfig.hasConfigParam() {
 		nmaSetHTTPSTLSOp, err := makeNMASetTLSOp(&options.DatabaseOptions, string(options.HTTPSTLSConfig.ConfigType),
-			options.HTTPSTLSConfig.GrantAuth,
+			true, // grantAuth
 			true, // syncCatalog
 			options.HTTPSTLSConfig.ConfigMap)
 		if err != nil {

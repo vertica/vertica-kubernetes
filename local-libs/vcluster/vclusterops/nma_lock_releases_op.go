@@ -44,11 +44,7 @@ func makeNMALockReleasesOp(upHosts []string, userName string,
 	op.name = "NMALockReleasesOp"
 	op.description = "Check lock holding events"
 	op.hosts = upHosts[:1] // set up the request for one of the up hosts only
-	if duration == "" {
-		op.duration = lockReleaseThresHold
-	} else {
-		op.duration = duration
-	}
+	op.duration = duration
 	op.startTime = startTime
 	op.endTime = endTime
 	op.nodeName = nodeName
