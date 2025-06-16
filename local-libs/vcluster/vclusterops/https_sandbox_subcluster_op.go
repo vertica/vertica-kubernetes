@@ -34,6 +34,7 @@ type httpsSandboxingOp struct {
 	Sls                bool
 	ForUpgrade         bool
 	sbHosts            *[]string
+	hosts              []string
 }
 
 // This op is used to sandbox the given subcluster `scName` as `sandboxName`
@@ -65,6 +66,17 @@ func makeHTTPSandboxingOp(logger vlog.Printer, scName, sandboxName string, useHT
 	return op, nil
 }
 
+func makeHTTPSandboxingForAddScOp(execHosts []string, logger vlog.Printer, scName, sandboxName string, useHTTPPassword bool,
+	userName string, httpsPassword *string, saveRp, imeta, sls, forUpgrade bool, hosts *[]string) (httpsSandboxingOp, error) {
+	op, err := makeHTTPSandboxingOp(logger, scName, sandboxName, useHTTPPassword, userName, httpsPassword, saveRp, imeta, sls,
+		forUpgrade, hosts)
+	if err != nil {
+		return op, err
+	}
+	op.hosts = execHosts
+	return op, nil
+}
+
 func (op *httpsSandboxingOp) setupClusterHTTPRequest(hosts []string) error {
 	for _, host := range hosts {
 		httpRequest := hostHTTPRequest{}
@@ -92,8 +104,8 @@ func (op *httpsSandboxingOp) setupRequestBody() error {
 }
 
 func (op *httpsSandboxingOp) prepare(execContext *opEngineExecContext) error {
-	if len(execContext.upHostsToSandboxes) == 0 {
-		return fmt.Errorf(`[%s] Cannot find any up hosts in OpEngineExecContext`, op.name)
+	if len(execContext.upHostsToSandboxes) == 0 && len(op.hosts) == 0 {
+		return fmt.Errorf(`[%s] Cannot find any up hosts in target cluster to execute sandboxing operation`, op.name)
 	}
 	// use shortlisted hosts to execute https post request, this host/hosts will be the initiator
 	var hosts []string
@@ -109,6 +121,9 @@ func (op *httpsSandboxingOp) prepare(execContext *opEngineExecContext) error {
 	err := op.setupRequestBody()
 	if err != nil {
 		return err
+	}
+	if len(op.hosts) != 0 {
+		hosts = op.hosts
 	}
 	execContext.dispatcher.setup(hosts)
 

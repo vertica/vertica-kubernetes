@@ -31,6 +31,8 @@ type VAddNodeOptions struct {
 	NewHosts []string
 	// Name of the subcluster that the new nodes will be added to
 	SCName string
+	// Sandbox name of the sc
+	Sandbox string
 	// A primary up host that will be used to execute add_node operations
 	Initiator string
 	// Depot size, e.g., 10G
@@ -53,6 +55,16 @@ type VAddNodeOptions struct {
 
 	// timeout for polling nodes in seconds when we add Nodes
 	TimeOut int
+
+	// Sandbox related args
+	// indicate whether a restore point is created when create the sandbox
+	SaveRp bool
+	// indicate whether the metadata of sandbox should be isolated
+	Imeta bool
+	// indicate whether the sandbox should create its own storage locations
+	Sls bool
+	// indicate wether the sandbox is being created for online upgrade
+	ForUpgrade bool
 }
 
 func VAddNodeOptionsFactory() VAddNodeOptions {
@@ -155,9 +167,16 @@ func (vcc VClusterCommands) VAddNode(options *VAddNodeOptions) (VCoordinationDat
 		return vdb, err
 	}
 
-	err = vcc.getVDBFromRunningDB(&vdb, &options.DatabaseOptions)
-	if err != nil {
-		return vdb, err
+	if options.Sandbox != util.MainClusterSandbox {
+		err = vcc.getVDBFromRunningDBIncludeSandbox(&vdb, &options.DatabaseOptions, options.Sandbox)
+		if err != nil {
+			return vdb, err
+		}
+	} else {
+		err = vcc.getVDBFromRunningDB(&vdb, &options.DatabaseOptions)
+		if err != nil {
+			return vdb, err
+		}
 	}
 
 	err = options.completeVDBSetting(&vdb)
@@ -194,7 +213,11 @@ func (vcc VClusterCommands) VAddNode(options *VAddNodeOptions) (VCoordinationDat
 		return vdb, err
 	}
 
-	err = vdb.addHosts(options.NewHosts, options.SCName, existingHostNodeMap)
+	// Filter out non sandbox hosts from vdb
+	if options.Sandbox != util.MainClusterSandbox {
+		vdb.filterSandboxNodes(options.Sandbox)
+	}
+	err = vdb.addHosts(options.NewHosts, options.SCName, options.Sandbox, existingHostNodeMap)
 	if err != nil {
 		return vdb, err
 	}
@@ -392,6 +415,7 @@ func (vcc VClusterCommands) produceAddNodeInstructions(vdb *VCoordinationDatabas
 		}
 		instructions = append(instructions, &httpsFindSubclusterOp)
 	}
+	sandboxHosts := options.getSandboxHosts(vdb)
 
 	// require to have the same vertica version
 	nmaVerticaVersionOp := makeNMAVerticaVersionOpWithVDB(true /*hosts need to have the same Vertica version*/, vdb)
@@ -415,26 +439,42 @@ func (vcc VClusterCommands) produceAddNodeInstructions(vdb *VCoordinationDatabas
 	if err != nil {
 		return instructions, err
 	}
-	httpsRestartUpCommandOp, err := makeHTTPSStartUpCommandOp(usePassword, username, password, vdb)
-	if err != nil {
-		return instructions, err
-	}
+
 	instructions = append(instructions,
 		&nmaPrepareDirectoriesOp,
 		&nmaNetworkProfileOp,
 		&httpsCreateNodeOp,
 		&httpsReloadSpreadOp,
-		&httpsRestartUpCommandOp,
 	)
 
+	if options.Sandbox != util.MainClusterSandbox {
+		httpsRestartUpCommandOp, err := makeHTTPSStartUpCommandWithSandboxOp(usePassword, username, password, vdb, options.Sandbox)
+		if err != nil {
+			return instructions, err
+		}
+
+		httpsSandboxSubclusterOp, err := makeHTTPSandboxingForAddScOp(initiatorHost, vcc.Log, options.SCName,
+			options.Sandbox, usePassword, username, password, options.SaveRp, options.Imeta, options.Sls, options.ForUpgrade,
+			&sandboxHosts)
+		if err != nil {
+			return instructions, err
+		}
+		instructions = append(instructions, &httpsRestartUpCommandOp, &httpsSandboxSubclusterOp)
+	} else {
+		httpsRestartUpCommandOp, err := makeHTTPSStartUpCommandOp(usePassword, username, password, vdb)
+		if err != nil {
+			return instructions, err
+		}
+		instructions = append(instructions, &httpsRestartUpCommandOp)
+	}
 	// we will remove the nil parameters in VER-88401 by adding them in execContext
 	produceTransferConfigOps(&instructions,
 		nil,
 		vdb.HostList,
 		vdb, /*db configurations retrieved from a running db*/
-		nil /*Sandbox name*/)
+		&options.Sandbox /*Sandbox name*/)
 
-	nmaStartNewNodesOp := makeNMAStartNodeOpWithVDB(newHosts, options.StartUpConf, vdb)
+	nmaStartNewNodesOp := makeNMAStartNodeWithSandboxOpWithVDB(newHosts, options.StartUpConf, options.Sandbox, vdb)
 	var pollNodeStateOp clusterOp
 	httpsPollNodeStateOp, err := makeHTTPSPollNodeStateOp(newHosts, usePassword, username, password, options.TimeOut)
 	if err != nil {
@@ -446,7 +486,6 @@ func (vcc VClusterCommands) produceAddNodeInstructions(vdb *VCoordinationDatabas
 		&nmaStartNewNodesOp,
 		pollNodeStateOp,
 	)
-
 	return vcc.prepareAdditionalEonInstructions(vdb, options, instructions,
 		username, usePassword, initiatorHost, newHosts)
 }
@@ -487,6 +526,16 @@ func (vcc VClusterCommands) prepareAdditionalEonInstructions(vdb *VCoordinationD
 	}
 
 	return instructions, nil
+}
+
+func (options *VAddNodeOptions) getSandboxHosts(vdb *VCoordinationDatabase) []string {
+	sandboxHosts := []string{}
+	for h, vnode := range vdb.HostNodeMap {
+		if vnode.Sandbox == options.Sandbox {
+			sandboxHosts = append(sandboxHosts, h)
+		}
+	}
+	return sandboxHosts
 }
 
 // setInitiator sets the initiator as the first primary up node
