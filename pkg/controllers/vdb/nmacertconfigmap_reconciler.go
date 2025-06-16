@@ -22,7 +22,6 @@ import (
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/builder"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
-	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -63,7 +62,7 @@ func (h *NMACertConfigMapReconciler) Reconcile(ctx context.Context, _ *ctrl.Requ
 		h.Log.Error(err, "failed to retrieve TLS cert secret configmap")
 		return ctrl.Result{}, err
 	}
-	if !vmeta.UseTLSAuth(h.Vdb.Annotations) {
+	if !h.Vdb.IsCertRotationEnabled() {
 		return ctrl.Result{}, nil
 	}
 	if configMap.Data[builder.NMASecretNameEnv] == h.Vdb.Spec.HTTPSNMATLSSecret &&

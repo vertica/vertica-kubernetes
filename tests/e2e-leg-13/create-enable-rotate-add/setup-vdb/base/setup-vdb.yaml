@@ -17,15 +17,12 @@ metadata:
   name: v-create-enable-rotate-add
   annotations:
     vertica.com/k-safety: "1"
-    vertica.com/enable-tls-auth: "false"
     vertica.com/include-uid-in-path: "false"
     vertica.com/ignore-cluster-lease: "true"
-    vertica.com/mount-nma-certs: "false"
     vertica.com/vcluster-ops: "true"
 spec:
   initPolicy: CreateSkipPackageInstall
   image: kustomize-vertica-image
-  communal: {}
   local:
     requestSize: 100Mi
     catalogPath: /catalog
@@ -35,9 +32,6 @@ spec:
   subclusters:
     - name: sc1
       size: 3
-  securityContext:
-    capabilities:
-      add: ["SYS_PTRACE"]
   certSecrets: []
   imagePullSecrets: []
   volumes: []

@@ -22,7 +22,7 @@ spec:
   image: kustomize-vertica-image
   local:
     requestSize: 100Mi
-  upgradePolicy: Online
+  upgradePolicy: Offline
   subclusters:
     - name: pri
       size: 1

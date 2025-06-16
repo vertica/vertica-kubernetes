@@ -19,8 +19,6 @@ metadata:
     vertica.com/k-safety: "1"
     vertica.com/include-uid-in-path: "false"
     vertica.com/ignore-cluster-lease: "true"
-    vertica.com/enable-tls-certs-rotation: "true"
-    vertica.com/mount-nma-certs: "false"
     vertica.com/vcluster-ops: "true"
 spec:
   initPolicy: Revive
@@ -38,10 +36,3 @@ spec:
   clientServerTLSMode: TRY_VERIFY
   httpsNMATLSSecret: custom-cert
   httpsTLSMode: VERIFY_CA
-  securityContext:
-    capabilities:
-      add: ["SYS_PTRACE"]
-  certSecrets: []
-  imagePullSecrets: []
-  volumes: []
-  volumeMounts: []
