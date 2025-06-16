@@ -30,7 +30,60 @@ import (
 var _ = Describe("altersubcluster_reconcile", func() {
 	ctx := context.Background()
 
-	It("should find subclusters to alter for upgrade", func() {
+	It("should find main subclusters to alter for upgrade", func() {
+		vdb := vapi.MakeVDB()
+		const sbName = "sand"
+
+		vdb.Spec.Subclusters = []vapi.Subcluster{
+			{
+				Name: "sc1",
+				Type: vapi.PrimarySubcluster,
+				Size: 3,
+			},
+			{
+				// sc2 is the 2nd primary subcluster in main
+				// its type in db is secondary so it will be promoted to primary
+				Name: "sc2",
+				Type: vapi.PrimarySubcluster,
+				Size: 3,
+			},
+		}
+
+		// pFacts.Collect requires UpNodeCount to be set
+		vdb.Status.Subclusters = []vapi.SubclusterStatus{
+			{Name: "sc1", Type: vapi.PrimarySubcluster, UpNodeCount: 3,
+				Detail: []vapi.VerticaDBPodStatus{{Installed: true, AddedToDB: true}}},
+			{Name: "sc2", Type: vapi.PrimarySubcluster, UpNodeCount: 3,
+				Detail: []vapi.VerticaDBPodStatus{{Installed: true, AddedToDB: true}}},
+		}
+
+		// findSandboxSubclustersToAlter relys on podfacts status
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsNotRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
+		fpr := &cmds.FakePodRunner{}
+		pFacts := podfacts.PodFacts{VRec: vdbRec, PRunner: fpr, NeedCollection: true, Detail: make(podfacts.PodFactDetail)}
+		Expect(pFacts.Collect(ctx, vdb)).Should(Succeed())
+
+		// set sc2 pods to be up
+		sc2 := &vdb.Spec.Subclusters[1]
+		nm := names.GenPodName(vdb, sc2, 0)
+		pFacts.Detail[nm].SetUpNode(true)
+		pFacts.Detail[nm].SetIsPrimary(false)
+
+		// find the subclusters to alter
+		pFacts.SandboxName = sbName
+		a := AlterSubclusterTypeReconciler{
+			PFacts: &pFacts,
+			Vdb:    vdb,
+			Log:    logger,
+		}
+		scs, err := a.findMainSubclustersToAlter()
+		Expect(err).Should(BeNil())
+		Expect(len(scs)).Should(Equal(1))
+		Expect(scs[0].Name).Should(Equal("sc2"))
+	})
+
+	It("should find sandbox subclusters to alter for upgrade", func() {
 		vdb := vapi.MakeVDB()
 		const sbName = "sand"
 

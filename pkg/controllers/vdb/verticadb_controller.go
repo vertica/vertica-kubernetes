@@ -196,6 +196,8 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		MakeShutdownSpecReconciler(r, vdb),
 		// Update the vertica image for unsandboxed subclusters
 		MakeUnsandboxImageVersionReconciler(r, vdb, log, pfacts),
+		// Update subcluster type in db according to its type in vdb spec
+		MakeAlterSubclusterTypeReconciler(r, log, vdb, pfacts, dispatcher, false /* isSandbox */),
 		// Always start with a status reconcile in case the prior reconcile failed.
 		MakeStatusReconciler(r.Client, r.Scheme, log, vdb, pfacts),
 		MakeMetricReconciler(r, log, vdb, prunner, pfacts),
@@ -271,6 +273,8 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		// Add additional buckets for data replication
 		MakeAddtionalBucketsReconciler(r, log, vdb, prunner, pfacts),
 		MakeMetricReconciler(r, log, vdb, prunner, pfacts),
+		// Update subcluster type in db according to its type in vdb spec
+		MakeAlterSubclusterTypeReconciler(r, log, vdb, pfacts, dispatcher, false /* isSandbox */),
 		// Create and revive are mutually exclusive exclusive, so this handles
 		// status updates after both of them.
 		MakeStatusReconciler(r.Client, r.Scheme, log, vdb, pfacts),
@@ -294,6 +298,8 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		MakeSandboxSubclusterReconciler(r, log, vdb, pfacts, dispatcher, r.Client, false),
 		// Handle calls to move subclusters from sandboxes to main cluster
 		MakeUnsandboxSubclusterReconciler(r, log, vdb, r.Client),
+		// Update subcluster type in db according to its type in vdb spec
+		MakeAlterSubclusterTypeReconciler(r, log, vdb, pfacts, dispatcher, false /* isSandbox */),
 		// Update the status subcluster types
 		MakeStatusReconciler(r.Client, r.Scheme, log, vdb, pfacts),
 		// Trigger sandbox upgrade when the image field for the sandbox
