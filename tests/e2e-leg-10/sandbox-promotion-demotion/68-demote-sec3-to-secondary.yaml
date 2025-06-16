@@ -26,9 +26,13 @@ spec:
   subclusters:
   - name: pri1
     type: primary
+    size: 3
   - name: sec1
     type: secondary
+    size: 1
   - name: sec2
     type: secondary
+    size: 3
   - name: sec3
     type: secondary
+    size: 1
