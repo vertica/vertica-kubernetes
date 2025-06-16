@@ -80,6 +80,8 @@ const (
 	RemoveSubcluserStart             = "RemoveSubcluserStart"
 	SubclusterRemoved                = "SubclusterRemoved"
 	RemoveSubclusterFailed           = "RemoveSubclusterFailed"
+	AlterSubclusterFailed            = "AlterSubclusterFailed"
+	AlterSubclusterSucceeded         = "AlterSubclusterSucceeded"
 	SuperuserPasswordSecretNotFound  = "SuperuserPasswordSecretNotFound"
 	UnsupportedVerticaVersion        = "UnsupportedVerticaVersion"
 	ATConfPartiallyCopied            = "ATConfPartiallyCopied"

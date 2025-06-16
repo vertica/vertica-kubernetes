@@ -22,10 +22,12 @@ import (
 	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
+	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/altersc"
 	config "github.com/vertica/vertica-kubernetes/pkg/vdbconfig"
+	corev1 "k8s.io/api/core/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
@@ -158,12 +160,14 @@ func (a *AlterSubclusterTypeReconciler) alterSubclusterType(ctx context.Context,
 		altersc.WithSandbox(a.PFacts.GetSandboxName()),
 	)
 	if err != nil {
-		a.Log.Error(err, "Failed to alter the type of subcluster", "subcluster", sc.Name, "to", newType)
+		a.VRec.Eventf(a.Vdb, corev1.EventTypeWarning, events.AlterSubclusterFailed,
+			"Failed to alter the type of subcluster %q to %q", sc.Name, newType)
 		return err
 	}
 
 	pf.SetIsPrimary(newType == vapi.PrimarySubcluster)
-	a.Log.Info("Successfully altered the type of subcluster", "subcluster", sc.Name, "to", newType)
+	a.VRec.Eventf(a.Vdb, corev1.EventTypeNormal, events.AlterSubclusterSucceeded,
+		"Successfully altered the type of subcluster %q to %q", sc.Name, newType)
 	return nil
 }
 
