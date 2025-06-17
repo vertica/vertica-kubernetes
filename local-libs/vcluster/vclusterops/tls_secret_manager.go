@@ -71,12 +71,16 @@ type TLSConfigType string
 const (
 	ServerTLSKeyPrefix TLSConfigType = "server"
 	HTTPSTLSKeyPrefix  TLSConfigType = "https"
+	HTTPSTLSConfigType TLSConfigType = "http"
 )
 
 type TLSConfig struct {
 	ConfigMap  map[string]string
 	ConfigType TLSConfigType
-	GrantAuth  bool
+	// how long cache entries should last for this certificate before they are considered expired.
+	// A value of 0 indicates a permanent cache
+	CacheDuration uint64
+	GrantAuth     bool
 }
 
 // getSecretManager given the secret manager type, returns
