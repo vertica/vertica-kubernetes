@@ -23,6 +23,7 @@ func TestNMASetTLSOp(t *testing.T) {
 		keyDataKey              = "test_key_data_key"
 		region                  = "us-east-1"
 		versionID               = "v1"
+		cacheDuration           = 60
 	)
 	hosts := []string{"host1"}
 	pwStr := "test_tls_pw_str"
@@ -47,7 +48,7 @@ func TestNMASetTLSOp(t *testing.T) {
 
 	runTLSOp := func(tlsConfig map[string]string, validate func(data nmaSetTLSRequestData)) {
 		baseOptions.ServerTLSConfiguration = tlsConfig
-		op, err := makeNMASetTLSOp(&baseOptions.DatabaseOptions, string(ServerTLSKeyPrefix), true, true, tlsConfig)
+		op, err := makeNMASetTLSOp(&baseOptions.DatabaseOptions, string(ServerTLSKeyPrefix), true, true, cacheDuration, tlsConfig)
 		assert.NoError(t, err)
 
 		op.skipExecute = true
@@ -83,6 +84,7 @@ func TestNMASetTLSOp(t *testing.T) {
 		assert.Equal(t, userName, data.DBUsername)
 		assert.Equal(t, pwStr, data.DBPassword)
 		assert.Equal(t, dbName, data.DBName)
+		assert.Equal(t, uint64(cacheDuration), data.TLSCacheDuration)
 	})
 
 	// AWS secret manager test
