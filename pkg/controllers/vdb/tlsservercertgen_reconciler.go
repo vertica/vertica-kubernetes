@@ -19,6 +19,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
@@ -60,12 +61,13 @@ func MakeTLSServerCertGenReconciler(vdbrecon *VerticaDBReconciler, log logr.Logg
 
 // Reconcile will create a TLS secret for the http server if one is missing
 func (h *TLSServerCertGenReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
-	nmaSecretStatus := h.Vdb.GetSecretStatus(httpsNMATLSSecret)
-	if nmaSecretStatus != nil && nmaSecretStatus.Name == h.Vdb.Spec.HTTPSNMATLSSecret {
-		return ctrl.Result{}, nil
-	}
+	httpsNMASecretStatus := h.Vdb.GetSecretStatus(httpsNMATLSSecret)
+	httpsNMASecretCreationNotNeeded := httpsNMASecretStatus != nil && httpsNMASecretStatus.Name == h.Vdb.Spec.HTTPSNMATLSSecret
+
 	clientSecretStatus := h.Vdb.GetSecretStatus(clientServerTLSSecret)
-	if clientSecretStatus != nil && clientSecretStatus.Name == h.Vdb.Spec.ClientServerTLSSecret {
+	clientSecretCreationNotNeeded := clientSecretStatus != nil && clientSecretStatus.Name == h.Vdb.Spec.ClientServerTLSSecret
+
+	if httpsNMASecretCreationNotNeeded && clientSecretCreationNotNeeded {
 		return ctrl.Result{}, nil
 	}
 	if h.Vdb.Spec.NMATLSSecret != "" && h.Vdb.Spec.HTTPSNMATLSSecret == "" {
@@ -234,7 +236,7 @@ func (h *TLSServerCertGenReconciler) ValidateSecretCertificate(ctx context.Conte
 	}
 
 	if expiringSoon {
-		h.Log.Info("certificate is nearing expiration, consider regenerating", "expiresAt", expireTime)
+		h.Log.Info("certificate is nearing expiration, consider regenerating", "expiresAt", expireTime.UTC().Format(time.RFC3339)+" UTC")
 	}
 
 	return nil

@@ -88,7 +88,7 @@ func ValidateCertificate(certPEM []byte) error {
 		return errors.New("certificate must include both clientAuth and serverAuth in Extended Key Usage")
 	}
 
-	now := time.Now()
+	now := time.Now().UTC()
 	if now.Before(cert.NotBefore) {
 		return fmt.Errorf("certificate is not valid yet: NotBefore = %v", cert.NotBefore)
 	}
@@ -108,6 +108,6 @@ func CheckCertificateExpiringSoon(certPEM []byte) (bool, time.Time, error) {
 		return false, time.Time{}, err
 	}
 
-	now := time.Now()
+	now := time.Now().UTC()
 	return cert.NotAfter.Before(now.Add(renewalThreshold)), cert.NotAfter, nil
 }
