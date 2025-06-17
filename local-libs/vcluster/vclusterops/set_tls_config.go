@@ -29,7 +29,7 @@ type VSetTLSConfigOptions struct {
 	HTTPSTLSConfig TLSConfig
 }
 
-const DefaultCacheDuration = 1 * 24 * 3600 // 1 day
+const DefaultCacheDuration = 0
 
 func VSetTLSConfigOptionsFactory() VSetTLSConfigOptions {
 	options := VSetTLSConfigOptions{}
