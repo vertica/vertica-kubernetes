@@ -896,8 +896,7 @@ func (v *VerticaDB) IsCertRotationEnabled() bool {
 
 // IsHTTPProbeSupported returns true if the version supports certs
 func (v *VerticaDB) IsHTTPProbeSupported() bool {
-	if v.IsStatusConditionTrue(OfflineUpgradeInProgress) || v.IsStatusConditionTrue(OnlineUpgradeInProgress) ||
-		v.IsStatusConditionTrue(ReadOnlyOnlineUpgradeInProgress) {
+	if v.IsUpgradeInProgress() {
 		return v.IsCertRotationEnabled()
 	}
 	vinf, hasVersion := v.MakeVersionInfo()
