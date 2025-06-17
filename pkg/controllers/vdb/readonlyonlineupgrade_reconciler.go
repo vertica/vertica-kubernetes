@@ -19,6 +19,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
@@ -454,17 +455,57 @@ func (o *ReadOnlyOnlineUpgradeReconciler) drainSubcluster(ctx context.Context, s
 		return ctrl.Result{}, err
 	}
 
-	if img != o.Vdb.Spec.Image {
-		scName := sts.Labels[vmeta.SubclusterNameLabel]
-		o.Log.Info("rerouting client traffic from subcluster", "name", scName)
-		if err := o.routeClientTraffic(ctx, scName, true); err != nil {
-			return ctrl.Result{}, err
-		}
-
-		o.Log.Info("starting check for active connections in subcluster", "name", scName)
-		return o.Manager.isSubclusterIdle(ctx, o.PFacts, scName)
+	if img == o.Vdb.Spec.Image {
+		return ctrl.Result{}, nil
 	}
-	return ctrl.Result{}, nil
+	scName := sts.Labels[vmeta.SubclusterNameLabel]
+	o.Log.Info("rerouting client traffic from subcluster", "name", scName)
+	if err := o.routeClientTraffic(ctx, scName, true); err != nil {
+		return ctrl.Result{}, nil
+	}
+
+	o.Log.Info("starting check for active connections in subcluster", "name", scName)
+	return o.runSubclusterDrain(ctx, scName)
+}
+
+func (o *ReadOnlyOnlineUpgradeReconciler) runSubclusterDrain(ctx context.Context, scName string) (ctrl.Result, error) {
+	drainSubclusterAnnotation := "vertica.com/drain-start-time-" + scName
+	pfs := o.PFacts.FindPodsBySubcluster(scName)
+
+	// If no active connections, return
+	if res, err := o.Manager.isSubclusterIdle(ctx, o.PFacts, scName); !verrors.IsReconcileAborted(res, err) {
+		return ctrl.Result{}, removeDrainStartAnnotation(ctx, o.Vdb, o.VRec, drainSubclusterAnnotation)
+	}
+
+	timeoutInt := o.Vdb.GetActiveConnectionsDrainSeconds()
+	// If timeout is zero, proceed
+	if timeoutInt == 0 {
+		return ctrl.Result{}, nil
+	}
+
+	drainStartTimeStr, found := o.Vdb.Annotations[drainSubclusterAnnotation]
+	// If drain start time annotation is not set, we set it and requeue after 1s
+	if !found {
+		o.Log.Info("Starting draining before upgrade")
+		return ctrl.Result{RequeueAfter: 1 * time.Second}, setDrainStartAnnotation(ctx, o.Vdb, o.VRec, drainSubclusterAnnotation)
+	}
+	var drainStartTime time.Time
+	drainStartTime, err := time.Parse(time.RFC3339, drainStartTimeStr)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	elapsed := time.Since(drainStartTime)
+	timeout := time.Duration(timeoutInt) * time.Second
+	// If timeout has expired, we move on to the next reconciler (DBRemoveNodeReconciler|DBRemoveSubclusterReconciler)
+	o.Log.Info("Draining in progress", "start", drainStartTime, "elapsed", elapsed, "timeout", timeout)
+	if elapsed >= timeout {
+		o.Log.Info("Draining timeout has expired")
+		killConnectionsToPendingDeletePods(ctx, o.VRec, o.PFacts.PRunner, pfs)
+		o.PFacts.Invalidate()
+		return ctrl.Result{}, removeDrainStartAnnotation(ctx, o.Vdb, o.VRec, drainSubclusterAnnotation)
+	}
+
+	return ctrl.Result{RequeueAfter: calculateRequeueDelay(elapsed, timeout)}, nil
 }
 
 // recreateSubclusterWithNewImage will recreate the subcluster so that it runs with the
