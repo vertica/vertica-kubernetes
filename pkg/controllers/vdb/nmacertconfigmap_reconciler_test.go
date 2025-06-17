@@ -90,8 +90,7 @@ var _ = Describe("nmacertconfigmap_reconcile", func() {
 
 	It("should update the ConfigMap if the secret name changes", func() {
 		vdb := vapi.MakeVDB()
-		vdb.Annotations[vmeta.MountNMACertsAnnotation] = falseStr
-		vdb.Annotations[vmeta.EnableTLSAuthAnnotation] = trueStr
+		vapi.SetVDBForTLS(vdb)
 		const initial = "initial-secret"
 		vdb.Spec.HTTPSNMATLSSecret = initial
 		test.CreateVDB(ctx, k8sClient, vdb)
