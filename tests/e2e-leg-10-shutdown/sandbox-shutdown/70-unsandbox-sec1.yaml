@@ -14,7 +14,7 @@
 apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
-  name: v-sandbox
+  name: v-sandbox-shutdown
 spec:
   sandboxes:
   - name: sandbox2
