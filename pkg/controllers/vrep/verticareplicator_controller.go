@@ -81,6 +81,12 @@ func (r *VerticaReplicatorReconciler) Reconcile(ctx context.Context, req ctrl.Re
 		return ctrl.Result{}, nil
 	}
 
+	isPresent := vrep.IsStatusConditionPresent(vapi.ReplicationComplete)
+	if isPresent {
+		log.Info("Replication has already been done. Aborting iteration", "result", vrep.Status.State)
+		return ctrl.Result{}, nil
+	}
+
 	// Iterate over each actor
 	actors := r.constructActors(vrep, log)
 	var res ctrl.Result
