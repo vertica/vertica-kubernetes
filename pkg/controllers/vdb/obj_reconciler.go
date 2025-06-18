@@ -644,7 +644,7 @@ func (o *ObjReconciler) reconcileSts(ctx context.Context, sc *vapi.Subcluster) (
 	// After DB is initialized and we have the sts, we can get vertica version from its pods
 	if o.Vdb.IsStatusConditionTrue(vapi.DBInitialized) && !curStsNotExist {
 		res, err2 := o.retriveVerticaVersion(ctx, sc, &version)
-		if verrors.IsReconcileAborted(res, err2) {
+		if err2 != nil {
 			return res, err2
 		}
 	}
