@@ -14,7 +14,5 @@
 apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 commands:
-  - command: kubectl wait --for=condition=UpgradeInProgress=False vdb/v-base-upgrade --timeout=600s
-    namespaced: true
-  - command: kubectl wait --for=condition=OfflineUpgradeInProgress=False vdb/v-base-upgrade --timeout=600s
-    namespaced: true
+  - script: kubectl apply --namespace $NAMESPACE -f ../../manifests/rbac/base/rbac.yaml
+    ignoreFailure: true

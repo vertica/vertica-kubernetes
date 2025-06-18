@@ -16,22 +16,18 @@ kind: VerticaDB
 metadata:
   name: v-base-upgrade
   annotations:
-    vertica.com/k-safety: "0"
+    vertica.com/k-safety: "1"
     vertica.com/include-uid-in-path: true
 spec:
   image: kustomize-vertica-image
   communal: {}
   local:
     requestSize: 100Mi
+  initPolicy: CreateSkipPackageInstall
   upgradePolicy: Online
   subclusters:
     - name: pri
-      size: 1
+      size: 3
       type: primary
-  temporarySubclusterRouting:
-    template:
-      name: transient
-      size: 1
-      type: secondary
   encryptSpreadComm: disabled
   certSecrets: []
