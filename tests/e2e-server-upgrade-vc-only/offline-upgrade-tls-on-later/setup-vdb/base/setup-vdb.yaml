@@ -20,6 +20,7 @@ metadata:
     vertica.com/include-uid-in-path: true
 spec:
   image: kustomize-vertica-image
+  communal: {}
   local:
     requestSize: 100Mi
   upgradePolicy: Offline
@@ -33,3 +34,4 @@ spec:
       size: 1
       type: secondary
   encryptSpreadComm: disabled
+  certSecrets: []
