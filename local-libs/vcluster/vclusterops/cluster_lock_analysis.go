@@ -111,15 +111,13 @@ func parseCustomDuration(timeStr string) (time.Duration, error) {
 }
 
 // getLockAttempts gets the lock attempts events from the database.
-//
-//nolint:dupl
 func (opt *VClusterHealthOptions) getLockAttempts(logger vlog.Printer, upHosts []string,
-	startTime, endTime string, thresHold string) (lockAttempts *[]dcLockAttempts, err error) {
+	startTime, endTime string) (lockAttempts *[]dcLockAttempts, err error) {
 	var instructions []clusterOp
 
 	nmaLockAttemptsOp, err := makeNMALockAttemptsOp(upHosts, opt.DatabaseOptions.UserName,
 		opt.DatabaseOptions.DBName, opt.DatabaseOptions.Password,
-		startTime, endTime, "" /*node name*/, thresHold, lockAttemptsLimit)
+		startTime, endTime, "" /*node name*/, opt.LockAttemptThresHold, lockAttemptsLimit)
 	if err != nil {
 		return nil, err
 	}
@@ -134,14 +132,12 @@ func (opt *VClusterHealthOptions) getLockAttempts(logger vlog.Printer, upHosts [
 }
 
 // getLockReleases gets the lock releases events from the database.
-//
-//nolint:dupl
 func (opt *VClusterHealthOptions) getLockReleases(logger vlog.Printer,
-	upHosts []string, startTime, endTime string, thresHold string) (lockReleases *[]dcLockReleases, err error) {
+	upHosts []string, startTime, endTime string) (lockReleases *[]dcLockReleases, err error) {
 	var instructions []clusterOp
 	nmaLockAttemptsOp, err := makeNMALockReleasesOp(upHosts, opt.DatabaseOptions.UserName,
 		opt.DatabaseOptions.DBName, opt.DatabaseOptions.Password,
-		startTime, endTime, "", lockReleasesLimit, thresHold)
+		startTime, endTime, "", lockReleasesLimit, opt.LockReleaseThresHold)
 	if err != nil {
 		return nil, err
 	}
@@ -362,7 +358,7 @@ func findLockHoldSeries(parsed *[]parsedEvent, seriesStart time.Time) ([]parsedE
 }
 
 func (opt *VClusterHealthOptions) buildLockCascadeGraph(logger vlog.Printer,
-	upHosts []string, attemptThresHold string, releaseThresHold string) error {
+	upHosts []string) error {
 	opt.LockEventCascade = make([]NodeLockEvents, 0)
 
 	lockStartTime, err := time.Parse(timeLayout, opt.StartTime)
@@ -371,7 +367,7 @@ func (opt *VClusterHealthOptions) buildLockCascadeGraph(logger vlog.Printer,
 	}
 	lockStartTime = lockStartTime.Add(lockEventsTraceBack) // find if there are any lock attempts in the previous 45 minutes
 	lockStartTimeStr := lockStartTime.Format(timeLayout)
-	lockAttempts, err := opt.getLockAttempts(logger, upHosts, lockStartTimeStr, opt.EndTime, attemptThresHold)
+	lockAttempts, err := opt.getLockAttempts(logger, upHosts, lockStartTimeStr, opt.EndTime)
 	if err != nil {
 		return err
 	}
@@ -380,7 +376,7 @@ func (opt *VClusterHealthOptions) buildLockCascadeGraph(logger vlog.Printer,
 		return err
 	}
 
-	lockReleases, err := opt.getLockReleases(logger, upHosts, lockStartTimeStr, opt.EndTime, releaseThresHold)
+	lockReleases, err := opt.getLockReleases(logger, upHosts, lockStartTimeStr, opt.EndTime)
 	if err != nil {
 		return err
 	}
