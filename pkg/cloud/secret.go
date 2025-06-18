@@ -82,6 +82,6 @@ func (v *SecretFetcher) handleFetchError(secretName types.NamespacedName, err er
 			"Could not find the secret '%s'", secretName.Name)
 		return nil, ctrl.Result{Requeue: true}, nil
 	}
-	v.Log.Error(err, fmt.Sprintf("secret not found, name - %s", secretName.Name))
+	v.Log.Error(err, fmt.Sprintf("secret %s cannot be fetched", secretName.Name))
 	return nil, ctrl.Result{}, err
 }
