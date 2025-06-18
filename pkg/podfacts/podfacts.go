@@ -543,8 +543,7 @@ func (p *PodFacts) genGatherScriptBase(vdb *vapi.VerticaDB, pf *PodFact) string 
 		echo -n 'vnodeName: '
 		cd %s/%s/v_%s_node????_catalog 2> /dev/null && basename $(pwd) | rev | cut -c9- | rev || echo ""
 		echo -n 'upNode: '
-		((%s 2> /dev/null | grep --quiet 200 2> /dev/null) || (%s 2> /dev/null | grep --quiet 200 2> /dev/null)) \
-		&& echo true || echo false
+		%s 2> /dev/null | grep --quiet 200 2> /dev/null && echo true || echo false
 		echo -n 'startupComplete: '
 		grep --quiet -e 'Startup Complete' -e 'Database Halted' %s 2> /dev/null && echo true || echo false
 		echo -n 'localDataSize: '
@@ -569,8 +568,7 @@ func (p *PodFacts) genGatherScriptBase(vdb *vapi.VerticaDB, pf *PodFact) string 
 		vdb.GenInstallerIndicatorFileName(),
 		vdb.GenInstallerIndicatorFileName(),
 		pf.catalogPath, vdb.Spec.DBName, strings.ToLower(vdb.Spec.DBName),
-		checkIfNodeUpCmd(pf.podIP, true),
-		checkIfNodeUpCmd(pf.podIP, false),
+		checkIfNodeUpCmd(vdb, pf.podIP),
 		fmt.Sprintf("%s/%s/*_catalog/startup.log", pf.catalogPath, vdb.Spec.DBName),
 		pf.catalogPath,
 		pf.catalogPath,
@@ -1547,11 +1545,11 @@ func (p *PodFacts) GetClusterExtendedName() string {
 
 // checkIfNodeUpCmd builds and returns the command to check
 // if a node is up using an HTTPS or HTTP endpoint
-func checkIfNodeUpCmd(podIP string, isHTTP bool) string {
+func checkIfNodeUpCmd(vdb *vapi.VerticaDB, podIP string) string {
 	if net.IsIPv6(podIP) {
 		podIP = "[" + podIP + "]"
 	}
-	if isHTTP {
+	if vdb.IsHTTPProbeSupported() {
 		url := fmt.Sprintf("http://%s:%d%s",
 			podIP, builder.VerticaNonTLSHTTPPort, builder.HTTPServerHealthPathV2)
 		curlCmd := "curl -k -s -o /dev/null -w '%{http_code}'"

@@ -41,18 +41,17 @@ import (
 // ReadOnlyOnlineUpgradeReconciler will handle the process when the vertica image
 // changes.  It does this while keeping the database online.
 type ReadOnlyOnlineUpgradeReconciler struct {
-	VRec           *VerticaDBReconciler
-	Log            logr.Logger
-	Vdb            *vapi.VerticaDB  // Vdb is the CRD we are acting on.
-	TransientSc    *vapi.Subcluster // Set to the transient subcluster if applicable
-	PRunner        cmds.PodRunner
-	PFacts         *podfacts.PodFacts
-	Finder         iter.SubclusterFinder
-	Manager        UpgradeManager
-	Dispatcher     vadmin.Dispatcher
-	StatusMsgs     []string // Precomputed status messages
-	MsgIndex       int      // Current index in StatusMsgs
-	VerticaVersion string
+	VRec        *VerticaDBReconciler
+	Log         logr.Logger
+	Vdb         *vapi.VerticaDB  // Vdb is the CRD we are acting on.
+	TransientSc *vapi.Subcluster // Set to the transient subcluster if applicable
+	PRunner     cmds.PodRunner
+	PFacts      *podfacts.PodFacts
+	Finder      iter.SubclusterFinder
+	Manager     UpgradeManager
+	Dispatcher  vadmin.Dispatcher
+	StatusMsgs  []string // Precomputed status messages
+	MsgIndex    int      // Current index in StatusMsgs
 }
 
 // MakeReadOnlyOnlineUpgradeReconciler will build an ReadOnlyOnlineUpgradeReconciler object
@@ -171,7 +170,6 @@ func (o *ReadOnlyOnlineUpgradeReconciler) precomputeStatusMsgs(ctx context.Conte
 		"Recreating pods for primary subclusters",
 		"Checking if new version is compatible",
 		"Checking if deployment type is changing",
-		"Updating health probe in primary subclusters",
 		"Adding annotations to pods",
 		"Running installer",
 		"Waiting for secondary nodes to become read-only",
@@ -184,7 +182,6 @@ func (o *ReadOnlyOnlineUpgradeReconciler) precomputeStatusMsgs(ctx context.Conte
 		o.StatusMsgs = append(o.StatusMsgs,
 			fmt.Sprintf("Draining secondary subcluster '%s'", scName),
 			fmt.Sprintf("Recreating pods for secondary subcluster '%s'", scName),
-			fmt.Sprintf("Updating health probe in secondary subcluster '%s'", scName),
 			fmt.Sprintf("Restarting vertica in secondary subcluster '%s'", scName),
 		)
 		return ctrl.Result{}, nil
@@ -382,7 +379,6 @@ func (o *ReadOnlyOnlineUpgradeReconciler) restartPrimaries(ctx context.Context) 
 		o.recreateSubclusterWithNewImage,
 		o.checkVersion,
 		o.handleDeploymentChange,
-		o.updateHealthProbe,
 		o.addPodAnnotations,
 		o.runInstaller,
 		o.waitForReadOnly,
@@ -422,8 +418,6 @@ func (o *ReadOnlyOnlineUpgradeReconciler) processSecondary(ctx context.Context, 
 		o.drainSubcluster,
 		o.postNextStatusMsgForSts,
 		o.recreateSubclusterWithNewImage,
-		o.postNextStatusMsgForSts,
-		o.updateHealthProbe,
 		o.postNextStatusMsgForSts,
 		o.addPodAnnotations,
 		o.runInstaller,
@@ -515,7 +509,7 @@ func (o *ReadOnlyOnlineUpgradeReconciler) checkVersion(ctx context.Context, sts 
 	}
 
 	const EnforceUpgradePath = true
-	a := MakeImageVersionReconciler(o.VRec, o.Log, o.Vdb, o.PRunner, o.PFacts, EnforceUpgradePath, &o.VerticaVersion)
+	a := MakeImageVersionReconciler(o.VRec, o.Log, o.Vdb, o.PRunner, o.PFacts, EnforceUpgradePath)
 
 	// We use a custom lookup function to only find pods for the subcluster we
 	// are working on.
@@ -530,19 +524,6 @@ func (o *ReadOnlyOnlineUpgradeReconciler) checkVersion(ctx context.Context, sts 
 		return &podfacts.PodFact{}, false
 	}
 	return vr.Reconcile(ctx, &ctrl.Request{})
-}
-
-func (o *ReadOnlyOnlineUpgradeReconciler) updateHealthProbe(ctx context.Context, sts *appsv1.StatefulSet) (ctrl.Result, error) {
-	transientName, hasTransient := o.Vdb.GetTransientSubclusterName()
-	isTransientSts := hasTransient && sts.Labels[vmeta.SubclusterNameLabel] == transientName
-	if vmeta.UseVClusterOps(o.Vdb.Annotations) && !isTransientSts {
-		upgradeNeeded, err := o.Manager.changeHealthProbeIfNeeded(ctx, sts, o.VerticaVersion)
-		if upgradeNeeded {
-			o.PFacts.Invalidate()
-		}
-		return ctrl.Result{}, err
-	}
-	return ctrl.Result{}, nil
 }
 
 func (o *ReadOnlyOnlineUpgradeReconciler) handleDeploymentChange(ctx context.Context, _ *appsv1.StatefulSet) (ctrl.Result, error) {

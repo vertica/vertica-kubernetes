@@ -726,11 +726,11 @@ func requiresSuperuserPasswordSecretMount(vdb *vapi.VerticaDB) bool {
 
 	// Construct each probe. If don't use the superuser password in them, then
 	// it is safe to not mount this in the downward API projection.
-	funcs := []func(*vapi.VerticaDB, string) *corev1.Probe{
+	funcs := []func(*vapi.VerticaDB) *corev1.Probe{
 		makeReadinessProbe, makeStartupProbe, makeLivenessProbe,
 	}
 	for _, f := range funcs {
-		if probeContainsSuperuserPassword(f(vdb, "")) {
+		if probeContainsSuperuserPassword(f(vdb)) {
 			return true
 		}
 	}
@@ -834,14 +834,14 @@ func buildStartupConfVolume() corev1.Volume {
 }
 
 // buildPodSpec creates a PodSpec for the statefulset
-func buildPodSpec(vdb *vapi.VerticaDB, sc *vapi.Subcluster, ver string) corev1.PodSpec {
+func buildPodSpec(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.PodSpec {
 	termGracePeriod := int64(vmeta.GetTerminationGracePeriodSeconds(vdb.Annotations))
 	return corev1.PodSpec{
 		NodeSelector:                  sc.NodeSelector,
 		Affinity:                      GetK8sAffinity(sc.Affinity),
 		Tolerations:                   sc.Tolerations,
 		ImagePullSecrets:              GetK8sLocalObjectReferenceArray(vdb.Spec.ImagePullSecrets),
-		Containers:                    makeContainers(vdb, sc, ver),
+		Containers:                    makeContainers(vdb, sc),
 		Volumes:                       buildVolumes(vdb),
 		TerminationGracePeriodSeconds: &termGracePeriod,
 		ServiceAccountName:            vdb.Spec.ServiceAccountName,
@@ -869,12 +869,12 @@ func buildScrutinizePodSpec(vscr *v1beta1.VerticaScrutinize, vdb *vapi.VerticaDB
 
 // makeVerticaContainers creates a list that contains the server container and
 // the nma container(if nma sidecar deployment is enabled)
-func makeVerticaContainers(vdb *vapi.VerticaDB, sc *vapi.Subcluster, ver string) []corev1.Container {
+func makeVerticaContainers(vdb *vapi.VerticaDB, sc *vapi.Subcluster) []corev1.Container {
 	cnts := []corev1.Container{}
 	if vdb.IsNMASideCarDeploymentEnabled() {
 		cnts = append(cnts, makeNMAContainer(vdb, sc))
 	}
-	cnts = append(cnts, makeServerContainer(vdb, sc, ver))
+	cnts = append(cnts, makeServerContainer(vdb, sc))
 	return cnts
 }
 
@@ -1267,7 +1267,7 @@ func makeVProxyContainer(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.Contai
 }
 
 // makeServerContainer builds the spec for the server container
-func makeServerContainer(vdb *vapi.VerticaDB, sc *vapi.Subcluster, ver string) corev1.Container {
+func makeServerContainer(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.Container {
 	envVars := translateAnnotationsToEnvVars(vdb)
 	envVars = append(envVars, buildCommonEnvVars(vdb)...)
 	envVars = append(envVars,
@@ -1287,9 +1287,9 @@ func makeServerContainer(vdb *vapi.VerticaDB, sc *vapi.Subcluster, ver string) c
 			{ContainerPort: InternalVerticaCommPort, Name: "vertica-int"},
 			{ContainerPort: SSHPort, Name: "ssh"},
 		},
-		ReadinessProbe:  makeReadinessProbe(vdb, ver),
-		LivenessProbe:   makeLivenessProbe(vdb, ver),
-		StartupProbe:    makeStartupProbe(vdb, ver),
+		ReadinessProbe:  makeReadinessProbe(vdb),
+		LivenessProbe:   makeLivenessProbe(vdb),
+		StartupProbe:    makeStartupProbe(vdb),
 		SecurityContext: makeServerSecurityContext(vdb),
 		Env:             envVars,
 		VolumeMounts:    buildServerVolumeMounts(vdb),
@@ -1429,9 +1429,9 @@ func makeCanaryQueryProbe(vdb *vapi.VerticaDB) *corev1.Probe {
 
 // getHTTPServerVersionEndpointProbe returns an HTTPGet probe if vclusterops
 // is enabled
-func getHTTPServerVersionEndpointProbe(vdb *vapi.VerticaDB, ver string) *corev1.Probe {
+func getHTTPServerVersionEndpointProbe(vdb *vapi.VerticaDB) *corev1.Probe {
 	if vmeta.UseVClusterOps(vdb.Annotations) {
-		if vdb.IsHTTPProbeSupported(ver) {
+		if vdb.IsHTTPProbeSupported() {
 			return makeHTTPVersionEndpointProbe()
 		} else {
 			return makeHTTPSVersionEndpointProbe()
@@ -1443,8 +1443,8 @@ func getHTTPServerVersionEndpointProbe(vdb *vapi.VerticaDB, ver string) *corev1.
 // makeDefaultReadinessOrStartupProbe will return the default probe to use for
 // the readiness or startup probes. Only returns the default timeouts for the
 // probe. Caller is responsible for adusting those.
-func makeDefaultReadinessOrStartupProbe(vdb *vapi.VerticaDB, ver string) *corev1.Probe {
-	if probe := getHTTPServerVersionEndpointProbe(vdb, ver); probe != nil {
+func makeDefaultReadinessOrStartupProbe(vdb *vapi.VerticaDB) *corev1.Probe {
+	if probe := getHTTPServerVersionEndpointProbe(vdb); probe != nil {
 		return probe
 	}
 	// If using GSM, then the superuser password is not a k8s secret. We cannot
@@ -1459,8 +1459,8 @@ func makeDefaultReadinessOrStartupProbe(vdb *vapi.VerticaDB, ver string) *corev1
 
 // makeDefaultLivenessProbe will return the default probe to use for
 // liveness probe
-func makeDefaultLivenessProbe(vdb *vapi.VerticaDB, ver string) *corev1.Probe {
-	if probe := getHTTPServerVersionEndpointProbe(vdb, ver); probe != nil {
+func makeDefaultLivenessProbe(vdb *vapi.VerticaDB) *corev1.Probe {
+	if probe := getHTTPServerVersionEndpointProbe(vdb); probe != nil {
 		return probe
 	}
 	// We check if the TCP client port is open. We used this approach,
@@ -1472,16 +1472,16 @@ func makeDefaultLivenessProbe(vdb *vapi.VerticaDB, ver string) *corev1.Probe {
 
 // makeReadinessProbe will build the readiness probe. It has a default probe
 // that can be overridden with the spec.readinessProbeOverride parameter.
-func makeReadinessProbe(vdb *vapi.VerticaDB, ver string) *corev1.Probe {
-	probe := makeDefaultReadinessOrStartupProbe(vdb, ver)
+func makeReadinessProbe(vdb *vapi.VerticaDB) *corev1.Probe {
+	probe := makeDefaultReadinessOrStartupProbe(vdb)
 	probe.SuccessThreshold = 1
 	overrideProbe(probe, vdb.Spec.ReadinessProbeOverride)
 	return probe
 }
 
 // makeStartupProbe will return the Probe object to use for the startup probe.
-func makeStartupProbe(vdb *vapi.VerticaDB, ver string) *corev1.Probe {
-	probe := makeDefaultReadinessOrStartupProbe(vdb, ver)
+func makeStartupProbe(vdb *vapi.VerticaDB) *corev1.Probe {
+	probe := makeDefaultReadinessOrStartupProbe(vdb)
 	// We want to wait about 20 minutes for the server to come up before the
 	// other probes come into affect. The total length of the probe is more or
 	// less: InitialDelaySeconds + PeriodSeconds * FailureThreshold.
@@ -1496,8 +1496,8 @@ func makeStartupProbe(vdb *vapi.VerticaDB, ver string) *corev1.Probe {
 }
 
 // makeLivenessProbe will return the Probe object to use for the liveness probe.
-func makeLivenessProbe(vdb *vapi.VerticaDB, ver string) *corev1.Probe {
-	probe := makeDefaultLivenessProbe(vdb, ver)
+func makeLivenessProbe(vdb *vapi.VerticaDB) *corev1.Probe {
+	probe := makeDefaultLivenessProbe(vdb)
 	// These values were picked so that we can estimate how long vertica
 	// needs to be unresponsive before it gets killed. We are targeting
 	// about 2.5 minutes after initial start and 1.5 minutes if the pod has
@@ -1642,8 +1642,8 @@ func makeServerSecurityContext(vdb *vapi.VerticaDB) *corev1.SecurityContext {
 }
 
 // makeContainers creates the list of containers to include in the pod spec.
-func makeContainers(vdb *vapi.VerticaDB, sc *vapi.Subcluster, ver string) []corev1.Container {
-	cnts := makeVerticaContainers(vdb, sc, ver)
+func makeContainers(vdb *vapi.VerticaDB, sc *vapi.Subcluster) []corev1.Container {
+	cnts := makeVerticaContainers(vdb, sc)
 	for i := range vdb.Spec.Sidecars {
 		c := vdb.Spec.Sidecars[i]
 		// Append the standard volume mounts to the container.  This is done
@@ -1706,7 +1706,7 @@ func getStorageClassName(vdb *vapi.VerticaDB) *string {
 }
 
 // BuildStsSpec builds manifest for a subclusters statefulset
-func BuildStsSpec(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi.Subcluster, ver string) *appsv1.StatefulSet {
+func BuildStsSpec(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi.Subcluster) *appsv1.StatefulSet {
 	scSize := sc.GetStsSize(vdb)
 	ownerRef := []metav1.OwnerReference{vdb.GenerateOwnerReference()}
 	// when preserveDBDirectory is enabled, we don't want PVCs to be owned by VerticaDB
@@ -1731,7 +1731,7 @@ func BuildStsSpec(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi.Subclus
 					Labels:      MakeLabelsForPodObject(vdb, sc),
 					Annotations: MakeAnnotationsForObject(vdb),
 				},
-				Spec: buildPodSpec(vdb, sc, ver),
+				Spec: buildPodSpec(vdb, sc),
 			},
 			UpdateStrategy:      makeUpdateStrategy(vdb),
 			PodManagementPolicy: appsv1.ParallelPodManagement,
@@ -1806,7 +1806,7 @@ func BuildPod(vdb *vapi.VerticaDB, sc *vapi.Subcluster, podIndex int32) *corev1.
 			Labels:      MakeLabelsForPodObject(vdb, sc),
 			Annotations: MakeAnnotationsForObject(vdb),
 		},
-		Spec: buildPodSpec(vdb, sc, ""),
+		Spec: buildPodSpec(vdb, sc),
 	}
 	// Setup default values for the DC table annotations.  These are normally
 	// added by the AnnotationAndLabelPodReconciler.  However, this function is for test
@@ -2235,9 +2235,4 @@ func BuildNMATLSConfigMap(nm types.NamespacedName, vdb *vapi.VerticaDB) *corev1.
 		Data: secretMap,
 	}
 	return tlsConfigMap
-}
-
-// BuildServerHealthProbes builds the liveness, readiness and startup probes
-func BuildServerHealthProbes(vdb *vapi.VerticaDB, ver string) (readnesProbe, livenessProbe, startupProbe *corev1.Probe) {
-	return makeReadinessProbe(vdb, ver), makeLivenessProbe(vdb, ver), makeStartupProbe(vdb, ver)
 }

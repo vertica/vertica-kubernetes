@@ -46,13 +46,12 @@ type ImageVersionReconciler struct {
 	PFacts             *podfacts.PodFacts
 	EnforceUpgradePath bool                             // Fail the reconcile if we find incompatible version
 	FindPodFunc        func() (*podfacts.PodFact, bool) // Function to call to find pod
-	VerticaVersion     *string
 }
 
 // MakeImageVersionReconciler will build a VersionReconciler object
 func MakeImageVersionReconciler(recon config.ReconcilerInterface, log logr.Logger,
 	vdb *vapi.VerticaDB, prunner cmds.PodRunner, pfacts *podfacts.PodFacts,
-	enforceUpgradePath bool, vver *string) controllers.ReconcileActor {
+	enforceUpgradePath bool) controllers.ReconcileActor {
 	return &ImageVersionReconciler{
 		Rec:                recon,
 		Log:                log.WithName("ImageVersionReconciler"),
@@ -61,7 +60,6 @@ func MakeImageVersionReconciler(recon config.ReconcilerInterface, log logr.Logge
 		PFacts:             pfacts,
 		EnforceUpgradePath: enforceUpgradePath,
 		FindPodFunc:        pfacts.FindRunningPod,
-		VerticaVersion:     vver,
 	}
 }
 
@@ -241,10 +239,6 @@ func (v *ImageVersionReconciler) updateVDBVersion(ctx context.Context, newVersio
 	// if we found vertica version is changed, we save previous vertica version to vdb
 	if versionAnnotations[vmeta.VersionAnnotation] != v.Vdb.ObjectMeta.Annotations[vmeta.VersionAnnotation] {
 		versionAnnotations[vmeta.PreviousVersionAnnotation] = v.Vdb.ObjectMeta.Annotations[vmeta.VersionAnnotation]
-	}
-	// pass the version to the caller
-	if v.VerticaVersion != nil {
-		*v.VerticaVersion = versionAnnotations[vmeta.VersionAnnotation]
 	}
 
 	if v.EnforceUpgradePath && !v.Vdb.GetIgnoreUpgradePath() {

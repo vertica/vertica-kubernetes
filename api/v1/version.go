@@ -119,14 +119,6 @@ func (v *VerticaDB) MakeVersionInfo() (*version.Info, bool) {
 	return version.MakeInfoFromStr(vdbVer)
 }
 
-// GetVersion will extract version for a given version string
-func (v *VerticaDB) GetVersion(ver string) (*version.Info, bool) {
-	if ver == "" {
-		return nil, false
-	}
-	return version.MakeInfoFromStr(ver)
-}
-
 // MakePerviousVersionInfo will construct an Info struct by extracting the previous version
 // from the given vdb. This returns false if it was unable to get the version from the vdb.
 func (v *VerticaDB) MakePreviousVersionInfo() (*version.Info, bool) {
