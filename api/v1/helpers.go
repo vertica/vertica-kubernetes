@@ -895,11 +895,11 @@ func (v *VerticaDB) IsCertRotationEnabled() bool {
 }
 
 // IsHTTPProbeSupported returns true if the version supports certs
-func (v *VerticaDB) IsHTTPProbeSupported() bool {
-	if v.IsUpgradeInProgress() {
-		return v.IsCertRotationEnabled()
-	}
+func (v *VerticaDB) IsHTTPProbeSupported(ver string) bool {
 	vinf, hasVersion := v.MakeVersionInfo()
+	if ver != "" {
+		vinf, hasVersion = v.GetVersion(ver)
+	}
 	// Assume we are running a version that does not support cert rotation
 	// if version is not present.
 	if !hasVersion {
