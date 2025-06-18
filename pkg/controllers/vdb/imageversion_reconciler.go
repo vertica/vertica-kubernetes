@@ -238,13 +238,14 @@ func (v *ImageVersionReconciler) getVersion(ctx context.Context, pod *podfacts.P
 // fail if it detects an invalid upgrade path.
 func (v *ImageVersionReconciler) updateVDBVersion(ctx context.Context, newVersion string) (ctrl.Result, error) {
 	versionAnnotations := vapi.ParseVersionOutput(newVersion)
-	// if we found vertica version is changed, we save previous vertica version to vdb
-	if versionAnnotations[vmeta.VersionAnnotation] != v.Vdb.ObjectMeta.Annotations[vmeta.VersionAnnotation] {
-		versionAnnotations[vmeta.PreviousVersionAnnotation] = v.Vdb.ObjectMeta.Annotations[vmeta.VersionAnnotation]
-	}
 	// pass the version to the caller
 	if v.VerticaVersion != nil {
 		*v.VerticaVersion = versionAnnotations[vmeta.VersionAnnotation]
+		return ctrl.Result{}, nil
+	}
+	// if we found vertica version is changed, we save previous vertica version to vdb
+	if versionAnnotations[vmeta.VersionAnnotation] != v.Vdb.ObjectMeta.Annotations[vmeta.VersionAnnotation] {
+		versionAnnotations[vmeta.PreviousVersionAnnotation] = v.Vdb.ObjectMeta.Annotations[vmeta.VersionAnnotation]
 	}
 
 	if v.EnforceUpgradePath && !v.Vdb.GetIgnoreUpgradePath() {

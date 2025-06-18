@@ -262,9 +262,9 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		// Set version info in the annotations and check that the deployment is
 		// compatible with the image.
 		MakeImageVersionReconciler(r, log, vdb, prunner, pfacts, false /* enforceUpgradePath */, nil),
-		// Creates or updates any k8s objects the CRD creates except for service objects.
-		MakeObjReconciler(r, log, vdb, pfacts,
-			ObjReconcileModePreserveScaling|ObjReconcileModePreserveUpdateStrategy),
+		// Creates or updates any k8s objects the CRD creates. This includes any
+		// statefulsets and service objects.
+		MakeObjReconciler(r, log, vdb, pfacts, ObjReconcileModeAll),
 		// Handle calls to add hosts to admintools.conf
 		MakeInstallReconciler(r, log, vdb, prunner, pfacts),
 		MakeStatusReconciler(r.Client, r.Scheme, log, vdb, pfacts),
