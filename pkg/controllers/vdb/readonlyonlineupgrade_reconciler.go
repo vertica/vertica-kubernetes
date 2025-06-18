@@ -27,6 +27,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
+	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/iter"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
@@ -34,6 +35,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	"github.com/vertica/vertica-kubernetes/pkg/vk8s"
 	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -499,6 +501,8 @@ func (o *ReadOnlyOnlineUpgradeReconciler) runSubclusterDrain(ctx context.Context
 	// If timeout has expired, we move on to the next reconciler (DBRemoveNodeReconciler|DBRemoveSubclusterReconciler)
 	o.Log.Info("Draining in progress", "start", drainStartTime, "elapsed", elapsed, "timeout", timeout)
 	if elapsed >= timeout {
+		o.VRec.Eventf(o.Vdb, corev1.EventTypeWarning, events.DrainSubclusterTimeout,
+			"Timed out while draining connections for subcluster '%s'; killing connections", scName)
 		o.Log.Info("Draining timeout has expired")
 		killConnectionsToPendingDeletePods(ctx, o.VRec, o.PFacts.PRunner, pfs)
 		o.PFacts.Invalidate()

@@ -11,9 +11,24 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1
-kind: VerticaDB
-metadata:
+apiVersion: v1
+kind: Event
+reason: DrainSubclusterRetry
+message: Subcluster 'sec1' has active connections preventing the drain from succeeding
+source:
+  component: verticadb-operator
+involvedObject:
+  apiVersion: vertica.com/v1
+  kind: VerticaDB
   name: v-base-upgrade
-status:
-  upgradeStatus: "Draining secondary subcluster 'sec1'"
+---
+apiVersion: v1
+kind: Event
+reason: DrainSubclusterTimeout
+source:
+  component: verticadb-operator
+involvedObject:
+  apiVersion: vertica.com/v1
+  kind: VerticaDB
+  name: v-base-upgrade
+message: Timed out while draining connections for subcluster 'sec1'; killing connections

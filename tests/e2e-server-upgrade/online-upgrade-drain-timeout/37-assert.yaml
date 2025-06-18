@@ -11,10 +11,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: kuttl.dev/v1beta1
-kind: TestStep
-commands:
-  - command: kubectl wait --for=condition=UpgradeInProgress=True vdb/v-base-upgrade --timeout=600s
-    namespaced: true
-  - command: kubectl wait --for=condition=ReadOnlyOnlineUpgradeInProgress=True vdb/v-base-upgrade --timeout=600s
-    namespaced: true
+apiVersion: vertica.com/v1
+kind: VerticaDB
+metadata:
+  name: v-base-upgrade
+status:
+  upgradeStatus: "Draining primary subclusters"
