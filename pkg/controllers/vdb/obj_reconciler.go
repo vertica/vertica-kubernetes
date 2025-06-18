@@ -68,6 +68,7 @@ type ObjReconciler struct {
 	Log           logr.Logger
 	Vdb           *vapi.VerticaDB // Vdb is the CRD we are acting on.
 	PFacts        *podfacts.PodFacts
+	SandPFactsMap map[string]podfacts.PodFacts
 	Mode          ObjReconcileModeType
 	SecretFetcher cloud.SecretFetcher
 }
@@ -261,6 +262,7 @@ func (o *ObjReconciler) checkForCreatedSubclusters(ctx context.Context) (ctrl.Re
 			}
 		}
 
+		o.SandPFactsMap = make(map[string]podfacts.PodFacts)
 		if res, err := o.reconcileSts(ctx, sc); verrors.IsReconcileAborted(res, err) {
 			return res, err
 		}
@@ -599,13 +601,55 @@ func (o *ObjReconciler) deleteVProxy(ctx context.Context, vpName string) error {
 	return o.deleteVProxyConfigMapIfExists(ctx, vpName)
 }
 
+// retrieveVerticaVersion will retrieve the subcluster's vertica version
+func (o *ObjReconciler) retriveVerticaVersion(ctx context.Context, sc *vapi.Subcluster, version *string) (ctrl.Result, error) {
+	scSandMap := o.Vdb.GenSubclusterSandboxStatusMap()
+	scPFacts := o.PFacts
+	sand, exist := scSandMap[sc.Name]
+	// For subcluster that is in a sandbox, we need to use a different PFacts
+	if exist && sand != vapi.MainCluster {
+		if sandPFacts, found := o.SandPFactsMap[sand]; found {
+			scPFacts = &sandPFacts
+		} else {
+			sandPFacts := o.PFacts.Copy(sand)
+			scPFacts = &sandPFacts
+			o.SandPFactsMap[sand] = sandPFacts
+		}
+	}
+	if err := scPFacts.Collect(ctx, o.Vdb); err != nil {
+		return ctrl.Result{}, err
+	}
+	// Use image version reconciler to get the subcluster's vertica version
+	i := MakeImageVersionReconciler(o.Rec, o.Log, o.Vdb, scPFacts.PRunner, scPFacts, false, version)
+	vr := i.(*ImageVersionReconciler)
+	vr.FindPodFunc = func() (*podfacts.PodFact, bool) {
+		for _, v := range scPFacts.Detail {
+			if v.GetIsPodRunning() && v.GetSubclusterName() == sc.Name {
+				return v, true
+			}
+		}
+		return &podfacts.PodFact{}, false
+	}
+	return vr.Reconcile(ctx, &ctrl.Request{})
+}
+
 // reconcileSts reconciles the statefulset for a particular subcluster.  Returns
 // true if any create/update was done.
 func (o *ObjReconciler) reconcileSts(ctx context.Context, sc *vapi.Subcluster) (ctrl.Result, error) {
-	// Create or update the statefulset
+	version := ""
 	nm := names.GenStsName(o.Vdb, sc)
 	curSts := &appsv1.StatefulSet{}
-	expSts := builder.BuildStsSpec(nm, o.Vdb, sc)
+	err := o.Rec.GetClient().Get(ctx, nm, curSts)
+	curStsNotExist := err != nil && kerrors.IsNotFound(err)
+	// After DB is initialized and we have the sts, we can get vertica version from its pods
+	if o.Vdb.IsStatusConditionTrue(vapi.DBInitialized) && !curStsNotExist {
+		res, err2 := o.retriveVerticaVersion(ctx, sc, &version)
+		if verrors.IsReconcileAborted(res, err2) {
+			return res, err2
+		}
+	}
+	// Create or update the statefulset
+	expSts := builder.BuildStsSpec(nm, o.Vdb, sc, version)
 	stsCreated, err := o.ensureStsExists(ctx, nm, curSts, expSts)
 	if err != nil {
 		return ctrl.Result{}, err
