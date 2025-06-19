@@ -237,7 +237,7 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		MakeSubclusterShutdownReconciler(r, log, vdb, dispatcher, pfacts),
 		// Check the version information ahead of restart. The version is needed
 		// to properly pick the correct NMA deployment (monolithic vs sidecar).
-		MakeImageVersionReconciler(r, log, vdb, prunner, pfacts, false /* enforceUpgradePath */, nil),
+		MakeImageVersionReconciler(r, log, vdb, prunner, pfacts, false /* enforceUpgradePath */, nil, false),
 		// Handles restart + re_ip of vertica
 		MakeRestartReconciler(r, log, vdb, prunner, pfacts, true, dispatcher),
 		MakeMetricReconciler(r, log, vdb, prunner, pfacts),
@@ -261,7 +261,7 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		MakeStatusReconciler(r.Client, r.Scheme, log, vdb, pfacts),
 		// Set version info in the annotations and check that the deployment is
 		// compatible with the image.
-		MakeImageVersionReconciler(r, log, vdb, prunner, pfacts, false /* enforceUpgradePath */, nil),
+		MakeImageVersionReconciler(r, log, vdb, prunner, pfacts, false /* enforceUpgradePath */, nil, false),
 		// Creates or updates any k8s objects the CRD creates. This includes any
 		// statefulsets and service objects.
 		MakeObjReconciler(r, log, vdb, pfacts, ObjReconcileModeAll),
