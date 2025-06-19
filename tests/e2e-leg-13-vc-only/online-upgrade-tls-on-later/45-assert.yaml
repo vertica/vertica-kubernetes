@@ -1,7 +1,0 @@
-apiVersion: vertica.com/v1
-kind: VerticaDB
-metadata:
-  name: v-base-upgrade
-status:
-  addedToDBCount: 2
-  upNodeCount: 2
