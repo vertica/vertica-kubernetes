@@ -641,12 +641,14 @@ func (o *ObjReconciler) reconcileSts(ctx context.Context, sc *vapi.Subcluster) (
 	curSts := &appsv1.StatefulSet{}
 	err := o.Rec.GetClient().Get(ctx, nm, curSts)
 	curStsNotExist := err != nil && kerrors.IsNotFound(err)
+	podsNotRunning := false
 	// After DB is initialized and we have the sts, we can get vertica version from its pods
 	if o.Vdb.IsStatusConditionTrue(vapi.DBInitialized) && !curStsNotExist {
 		res, err2 := o.retriveVerticaVersion(ctx, sc, &version)
 		if err2 != nil {
 			return res, err2
 		}
+		podsNotRunning = res.Requeue
 	}
 	// Create or update the statefulset
 	expSts := builder.BuildStsSpec(nm, o.Vdb, sc, version)
@@ -670,12 +672,12 @@ func (o *ObjReconciler) reconcileSts(ctx context.Context, sc *vapi.Subcluster) (
 		return ctrl.Result{}, nil
 	}
 
-	return o.handleStatefulSetUpdate(ctx, sc, curSts, expSts, curDep)
+	return o.handleStatefulSetUpdate(ctx, sc, curSts, expSts, curDep, podsNotRunning)
 }
 
 // handleStatefulSetUpdate handles the update of an existing StatefulSet.
 func (o *ObjReconciler) handleStatefulSetUpdate(ctx context.Context, sc *vapi.Subcluster,
-	curSts, expSts *appsv1.StatefulSet, curDep *appsv1.Deployment) (ctrl.Result, error) {
+	curSts, expSts *appsv1.StatefulSet, curDep *appsv1.Deployment, podsNotRunning bool) (ctrl.Result, error) {
 	// We can only remove pods if we have called remove node and done the
 	// uninstall.  If we haven't yet done that we will requeue the
 	// reconciliation.  This will cause us to go through the remove node and
@@ -721,6 +723,18 @@ func (o *ObjReconciler) handleStatefulSetUpdate(ctx context.Context, sc *vapi.Su
 	// separate reconciler.  Reset the volume claim spec so that we don't try to
 	// change it here.
 	expSts.Spec.VolumeClaimTemplates = curSts.Spec.VolumeClaimTemplates
+
+	// When pods are not running, we cannot get vertica version so we don't update
+	// health probes
+	if podsNotRunning {
+		curSvrCnt := vk8s.GetServerContainer(curSts.Spec.Template.Spec.Containers)
+		if curSvrCnt == nil {
+			return ctrl.Result{}, fmt.Errorf("could not find server container in sts %s", curSts.Name)
+		}
+		expSvrCnt.StartupProbe = curSvrCnt.StartupProbe
+		expSvrCnt.LivenessProbe = curSvrCnt.LivenessProbe
+		expSvrCnt.ReadinessProbe = curSvrCnt.ReadinessProbe
+	}
 
 	// If the NMA deployment type or health check setting is changing,
 	// we cannot do a rolling update for this change. All pods need to have the

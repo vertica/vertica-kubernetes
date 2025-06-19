@@ -78,9 +78,12 @@ func (v *ImageVersionReconciler) Reconcile(ctx context.Context, _ *ctrl.Request)
 		return ctrl.Result{Requeue: true}, nil
 	}
 
-	err = v.verifyDeploymentType(pod)
-	if err != nil {
-		return ctrl.Result{}, err
+	// when the caller's purpose is not to find the version, we will verify the deployment type
+	if v.VerticaVersion == nil {
+		err = v.verifyDeploymentType(pod)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
 	}
 
 	var res ctrl.Result
