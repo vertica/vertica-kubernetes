@@ -378,7 +378,7 @@ func (o *ReadOnlyOnlineUpgradeReconciler) restartPrimaries(ctx context.Context) 
 	o.Log.Info("Starting the handling of primaries")
 
 	funcs := []func(context.Context, *appsv1.StatefulSet) (ctrl.Result, error){
-		o.drainSubcluster,
+		o.rerouteAndDrainSubcluster,
 		o.recreateSubclusterWithNewImage,
 		o.checkVersion,
 		o.handleDeploymentChange,
@@ -392,7 +392,7 @@ func (o *ReadOnlyOnlineUpgradeReconciler) restartPrimaries(ctx context.Context) 
 			return res, err
 		}
 		if res, err := o.iterateSubclusterType(ctx, vapi.PrimarySubcluster, fn); verrors.IsReconcileAborted(res, err) {
-			o.Log.Info("Error iterating subclusters over function", "i", i)
+			o.Log.Info("Halting subcluster iteration due to requeue request", "i", i)
 			return res, err
 		}
 	}
@@ -418,7 +418,7 @@ func (o *ReadOnlyOnlineUpgradeReconciler) restartSecondaries(ctx context.Context
 func (o *ReadOnlyOnlineUpgradeReconciler) processSecondary(ctx context.Context, sts *appsv1.StatefulSet) (ctrl.Result, error) {
 	funcs := []func(context.Context, *appsv1.StatefulSet) (ctrl.Result, error){
 		o.postNextStatusMsgForSts,
-		o.drainSubcluster,
+		o.rerouteAndDrainSubcluster,
 		o.postNextStatusMsgForSts,
 		o.recreateSubclusterWithNewImage,
 		o.postNextStatusMsgForSts,
@@ -451,7 +451,7 @@ func (o *ReadOnlyOnlineUpgradeReconciler) isMatchingSubclusterType(sts *appsv1.S
 
 // drainSubcluster will reroute traffic away from a subcluster and wait for it to be idle.
 // This is a no-op if the image has already been updated for the subcluster.
-func (o *ReadOnlyOnlineUpgradeReconciler) drainSubcluster(ctx context.Context, sts *appsv1.StatefulSet) (ctrl.Result, error) {
+func (o *ReadOnlyOnlineUpgradeReconciler) rerouteAndDrainSubcluster(ctx context.Context, sts *appsv1.StatefulSet) (ctrl.Result, error) {
 	img, err := vk8s.GetServerImage(sts.Spec.Template.Spec.Containers)
 	if err != nil {
 		return ctrl.Result{}, err
@@ -470,17 +470,37 @@ func (o *ReadOnlyOnlineUpgradeReconciler) drainSubcluster(ctx context.Context, s
 	return o.runSubclusterDrain(ctx, scName)
 }
 
+// Execute the draining for a particular subcluster
+// It will timeout after value set in active-connections-drain-seconds annotation, killing connections
+// This will re-use some code from drainnode_reconciller
 func (o *ReadOnlyOnlineUpgradeReconciler) runSubclusterDrain(ctx context.Context, scName string) (ctrl.Result, error) {
-	drainSubclusterAnnotation := "vertica.com/drain-start-time-" + scName
-	pfs := o.PFacts.FindPodsBySubcluster(scName)
+	// The annotation we'll be using for this subcluster
+	drainSubclusterAnnotation := vmeta.GenSubclusterDrainStartAnnotationName(scName)
 
-	// If no active connections, return
-	if res, err := o.Manager.isSubclusterIdle(ctx, o.PFacts, scName); !verrors.IsReconcileAborted(res, err) {
+	// Check if any OTHER subcluster drain annotation is present
+	drainAnnotations, found := vmeta.FindDrainTimeoutSubclusterAnnotations(o.Vdb.Annotations)
+	if found {
+		for _, annotation := range drainAnnotations {
+			if annotation != drainSubclusterAnnotation {
+				// Another subcluster is draining, skip this one.
+				return ctrl.Result{}, nil
+			}
+		}
+	}
+
+	// Check for active connections
+	sessionIds, err := findSubclusterActiveSessions(ctx, o.Vdb, o.VRec, o.PFacts, scName)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	// If no active connections found, unset annotation and return
+	if len(sessionIds) == 0 {
 		return ctrl.Result{}, removeDrainStartAnnotation(ctx, o.Vdb, o.VRec, drainSubclusterAnnotation)
 	}
 
 	timeoutInt := o.Vdb.GetActiveConnectionsDrainSeconds()
-	// If timeout is zero, proceed
+	// If timeout is zero, return
 	if timeoutInt == 0 {
 		return ctrl.Result{}, nil
 	}
@@ -492,19 +512,25 @@ func (o *ReadOnlyOnlineUpgradeReconciler) runSubclusterDrain(ctx context.Context
 		return ctrl.Result{RequeueAfter: 1 * time.Second}, setDrainStartAnnotation(ctx, o.Vdb, o.VRec, drainSubclusterAnnotation)
 	}
 	var drainStartTime time.Time
-	drainStartTime, err := time.Parse(time.RFC3339, drainStartTimeStr)
+	drainStartTime, err = time.Parse(time.RFC3339, drainStartTimeStr)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 	elapsed := time.Since(drainStartTime)
 	timeout := time.Duration(timeoutInt) * time.Second
-	// If timeout has expired, we move on to the next reconciler (DBRemoveNodeReconciler|DBRemoveSubclusterReconciler)
+	// If timeout has expired, kill connections and unset annotation
 	o.Log.Info("Draining in progress", "start", drainStartTime, "elapsed", elapsed, "timeout", timeout)
 	if elapsed >= timeout {
 		o.VRec.Eventf(o.Vdb, corev1.EventTypeWarning, events.DrainSubclusterTimeout,
 			"Timed out while draining connections for subcluster '%s'; killing connections", scName)
-		o.Log.Info("Draining timeout has expired")
-		killConnectionsToPendingDeletePods(ctx, o.VRec, o.PFacts.PRunner, pfs)
+
+		pf, found := o.PFacts.FindFirstUpPod(true, scName)
+
+		// If we cannot find a pod to use for killing, just skip
+		if found {
+			killSessions(ctx, o.VRec, o.PFacts.PRunner, sessionIds, pf)
+		}
+
 		o.PFacts.Invalidate()
 		return ctrl.Result{}, removeDrainStartAnnotation(ctx, o.Vdb, o.VRec, drainSubclusterAnnotation)
 	}
@@ -880,4 +906,44 @@ func anyActiveConnections(stdout string) bool {
 	// As a convience for test, allow empty string to be treated as having no
 	// active connections.
 	return res != "" && res != "0"
+}
+
+// For a given subcluster, find all the active session IDs
+func findSubclusterActiveSessions(
+	ctx context.Context,
+	vdb *vapi.VerticaDB,
+	vrec *VerticaDBReconciler,
+	pfacts *podfacts.PodFacts,
+	scName string,
+) ([]string, error) {
+	sessionIds := []string{}
+	pf, ok := pfacts.FindFirstUpPod(true, scName)
+	if !ok {
+		vrec.Log.Info("No pod found to run vsql.  Skipping active connection check")
+		return sessionIds, nil
+	}
+
+	sql := fmt.Sprintf(
+		"select session_id"+
+			" from v_monitor.sessions join v_catalog.subclusters using (node_name)"+
+			" where session_id not in (select session_id from current_session)"+
+			"       and subcluster_name = '%s';", scName)
+
+	cmd := []string{"-tAc", sql}
+	stdout, _, err := pfacts.PRunner.ExecVSQL(ctx, pf.GetName(), names.ServerContainer, cmd...)
+	if err != nil {
+		return sessionIds, err
+	}
+
+	// Parse output; look for non-empty string lines
+	for _, line := range strings.Split(strings.TrimSuffix(stdout, "\n"), "\n") {
+		if line != "" {
+			sessionIds = append(sessionIds, line)
+		}
+	}
+	if len(sessionIds) > 0 {
+		vrec.Eventf(vdb, corev1.EventTypeWarning, events.DrainSubclusterRetry,
+			"Subcluster '%s' has active connections preventing the drain from succeeding", scName)
+	}
+	return sessionIds, nil
 }

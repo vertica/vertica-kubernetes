@@ -105,14 +105,19 @@ const (
 	CreateDBTimeoutAnnotation = "vertica.com/createdb-timeout"
 
 	// The time in seconds to wait for a subcluster or database users' disconnection, its default value is 60.
-	// This is a leagacy code as we used to use this to control draining timeout during stop db and stop subcmuster.
+	// This is a leagacy code as we used to use this to control draining timeout during stop db and stop subcluster.
 	// Now there is a single annotation "vertica.com/active-connections-drain-seconds" to drain users' connections.
 	ShutdownDrainSecondsAnnotation = "vertica.com/shutdown-drain-seconds"
 	ShutdownDefaultDrainSeconds    = 60
 
-	// The time at which draining pending delete pods has started. When greater than 'vertica.com/remove-drain-seconds'
+	// The time at which draining pending delete pods has started. When greater than'vertica.com/active-connection-drain-seconds'
 	// it means the timeout has expired and all active connections will be closed.
 	DrainStartAnnotation = "vertica.com/drain-start-time"
+
+	// When draining for read-only upgrade, we want to drain per subcluster. The time at which a particular subcluster
+	// started draining will be stored in a specific annotation, such as 'vertica.com/drain-start-time-sc1'. This is the
+	// prefix of that annotation. Functions similar to drain-start-time above
+	DrainStartSubclusterPrefixAnnotation = DrainStartAnnotation
 
 	// The time in seconds to wait for a subcluster or database users' disconnection, its default value is 60
 	ActiveConnectionsDrainSecondsAnnotation = "vertica.com/active-connections-drain-seconds"
@@ -874,4 +879,27 @@ func getResource(annotations map[string]string, annotationName, defValStr string
 
 func genAnnotationName(prefix, name string) string {
 	return fmt.Sprintf("%s-%s", prefix, name)
+}
+
+// Find all annotation keys containing a certain prefix.
+func findPrefixedAnnotations(annotations map[string]string, prefix string) ([]string, bool) {
+	var matching []string
+	for k := range annotations {
+		if strings.HasPrefix(k, prefix) {
+			matching = append(matching, k)
+		}
+	}
+	return matching, len(matching) > 0
+}
+
+// Generate annotation name for subcluster-specific drain start time
+// eg vertica.com/drain-start-time-sc1
+func GenSubclusterDrainStartAnnotationName(scName string) string {
+	return genAnnotationName(DrainStartSubclusterPrefixAnnotation, scName)
+}
+
+// Find any annotation names with the drain start prefix
+// e.g., "vertica.com/drain-start-time-sc1"
+func FindDrainTimeoutSubclusterAnnotations(annotations map[string]string) ([]string, bool) {
+	return findPrefixedAnnotations(annotations, DrainStartSubclusterPrefixAnnotation)
 }

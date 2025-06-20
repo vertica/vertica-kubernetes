@@ -1258,12 +1258,6 @@ func (p *PodFacts) FindPendingDeletePods() []*PodFact {
 	}))
 }
 
-func (p *PodFacts) FindPodsBySubcluster(scName string) []*PodFact {
-	return p.filterPods((func(v *PodFact) bool {
-		return v.subclusterName == scName && v.upNode
-	}))
-}
-
 // FindReIPPods returns a list of pod facts that may need their IPs to be refreshed with re-ip.
 // An empty list implies there are no pods that match the criteria.
 func (p *PodFacts) FindReIPPods(chk dBCheckType) []*PodFact {

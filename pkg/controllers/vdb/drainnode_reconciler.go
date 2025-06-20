@@ -95,7 +95,7 @@ func (s *DrainNodeReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (c
 	s.VRec.Log.Info("Draining in progress", "start", drainStartTime, "elapsed", elapsed, "timeout", timeout)
 	if elapsed >= timeout {
 		s.VRec.Log.Info("Draining timeout has expired")
-		killConnectionsToPendingDeletePods(ctx, s.VRec, s.PFacts.PRunner, pfs)
+		s.killConnectionsToPendingDeletePods(ctx, pfs)
 		s.PFacts.Invalidate()
 		return ctrl.Result{}, removeDrainStartAnnotation(ctx, s.Vdb, s.VRec, vmeta.DrainStartAnnotation)
 	}
@@ -168,7 +168,7 @@ func setDrainStartAnnotation(ctx context.Context, vdb *vapi.VerticaDB, vrec *Ver
 }
 
 // killConnections close active connections in the given pod
-func killConnections(ctx context.Context, vrec *VerticaDBReconciler, prunner cmds.PodRunner, pf *podfacts.PodFact) {
+func (s *DrainNodeReconciler) killConnections(ctx context.Context, pf *podfacts.PodFact) {
 	sessionIds := []string{}
 	sql := fmt.Sprintf(
 		"select session_id"+
@@ -177,25 +177,25 @@ func killConnections(ctx context.Context, vrec *VerticaDBReconciler, prunner cmd
 			" and session_id not in ("+
 			" select session_id from current_session"+
 			" )", pf.GetVnodeName())
-	stdout, stderr, err := prunner.ExecVSQL(ctx, pf.GetName(), names.ServerContainer, "-tAc", sql)
+	stdout, stderr, err := s.PFacts.PRunner.ExecVSQL(ctx, pf.GetName(), names.ServerContainer, "-tAc", sql)
 	if err != nil {
-		vrec.Log.Error(err, "failed to retrieve active sessions", "stderr", stderr)
+		s.VRec.Log.Error(err, "failed to retrieve active sessions", "stderr", stderr)
 		return
 	}
 	sessionIds = append(sessionIds, strings.Split(strings.TrimSuffix(stdout, "\n"), "\n")...)
-	killSessions(ctx, vrec, prunner, sessionIds, pf)
+	killSessions(ctx, s.VRec, s.PRunner, sessionIds, pf)
 }
 
 // killConnectionsToPendingDeletePods close active connections in pending delete pods. This is best-effort,
 // meaning even if it fails, we will continue as the next reconcilers will kill the connections by removing
 // the nodes/subclusters.
-func killConnectionsToPendingDeletePods(ctx context.Context, vrec *VerticaDBReconciler, prunner cmds.PodRunner, pfs []*podfacts.PodFact) {
+func (s *DrainNodeReconciler) killConnectionsToPendingDeletePods(ctx context.Context, pfs []*podfacts.PodFact) {
 	if len(pfs) == 0 {
 		return
 	}
 	for _, pod := range pfs {
-		vrec.Log.Info("Closing active sessions in pod", "pod", pod.GetName().Name)
-		killConnections(ctx, vrec, prunner, pod)
+		s.VRec.Log.Info("Closing active sessions in pod", "pod", pod.GetName().Name)
+		s.killConnections(ctx, pod)
 	}
 }
 
