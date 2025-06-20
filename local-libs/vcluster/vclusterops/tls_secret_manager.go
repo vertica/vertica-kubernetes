@@ -71,6 +71,7 @@ type TLSConfigType string
 const (
 	ServerTLSKeyPrefix TLSConfigType = "server"
 	HTTPSTLSKeyPrefix  TLSConfigType = "https"
+	HTTPSTLSConfigType TLSConfigType = "http"
 )
 
 type TLSConfig struct {

@@ -96,6 +96,5 @@ var _ = Describe("tlsservercertgen_reconcile", func() {
 		Expect(len(secret.Data[corev1.TLSPrivateKeyKey])).ShouldNot(Equal(0))
 		Expect(len(secret.Data[corev1.TLSCertKey])).ShouldNot(Equal(0))
 		Expect(len(secret.Data[paths.HTTPServerCACrtName])).ShouldNot(Equal(0))
-
 	})
 })

@@ -1,0 +1,7 @@
+apiVersion: vertica.com/v1
+kind: VerticaDB
+metadata:
+  name: v-base-upgrade
+spec:
+  httpsNMATLSSecret: custom-cert
+  httpsTLSMode: VERIFY_CA

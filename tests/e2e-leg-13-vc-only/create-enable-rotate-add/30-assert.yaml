@@ -1,0 +1,54 @@
+apiVersion: v1
+kind: Event
+reason: HTTPSCertRotationStarted
+source:
+  component: verticadb-operator
+involvedObject:
+  apiVersion: vertica.com/v1
+  kind: VerticaDB
+  name: v-create-enable-rotate-add
+---
+apiVersion: v1
+kind: Event
+reason: HTTPSCertRotationSucceeded
+source:
+  component: verticadb-operator
+involvedObject:
+  apiVersion: vertica.com/v1
+  kind: VerticaDB
+  name: v-create-enable-rotate-add
+---
+apiVersion: v1
+kind: Event
+reason: NMATLSCertRotationStarted
+source:
+  component: verticadb-operator
+involvedObject:
+  apiVersion: vertica.com/v1
+  kind: VerticaDB
+  name: v-create-enable-rotate-add
+---
+apiVersion: v1
+kind: Event
+reason: NMATLSCertRotationSucceeded
+source:
+  component: verticadb-operator
+involvedObject:
+  apiVersion: vertica.com/v1
+  kind: VerticaDB
+  name: v-create-enable-rotate-add
+---
+apiVersion: vertica.com/v1
+kind: VerticaDB
+metadata:
+  name: v-create-enable-rotate-add
+status:
+  secretRefs:
+    - name: custom-cert
+      type: HTTPSTLSSecretType
+    - type: ClientServerTLSSecretType
+  tlsModes:
+    - mode: VERIFY_CA
+      type: HTTPSTLSModeType
+    - mode: TRY_VERIFY
+      type: ClientServerTLSModeType

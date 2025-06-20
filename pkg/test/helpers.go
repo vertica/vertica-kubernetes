@@ -62,7 +62,7 @@ func CreateSts(ctx context.Context, c client.Client, vdb *vapi.VerticaDB, sc *va
 	scIndex int32, podRunningState PodRunningState) {
 	sts := &appsv1.StatefulSet{}
 	if err := c.Get(ctx, names.GenStsName(vdb, sc), sts); kerrors.IsNotFound(err) {
-		sts = builder.BuildStsSpec(names.GenStsName(vdb, sc), vdb, sc)
+		sts = builder.BuildStsSpec(names.GenStsName(vdb, sc), vdb, sc, "")
 		ExpectWithOffset(offset, c.Create(ctx, sts)).Should(Succeed())
 	}
 	for j := int32(0); j < sc.Size; j++ {
@@ -112,6 +112,33 @@ func CreateConfigMap(ctx context.Context, c client.Client, vdb *vapi.VerticaDB, 
 	}
 	Expect(c.Create(ctx, cm)).Should(Succeed())
 	Expect(cm.Annotations[ann]).Should(Equal(id))
+}
+
+func CreateTLSConfigMap(ctx context.Context, c client.Client, vdb *vapi.VerticaDB) error {
+	configMapName := names.GenNMACertConfigMap(vdb)
+	configMap := &corev1.ConfigMap{}
+	err := c.Get(ctx, configMapName, configMap)
+	if err != nil {
+		if kerrors.IsNotFound(err) {
+			configMap = builder.BuildNMATLSConfigMap(configMapName, vdb)
+			err = c.Create(ctx, configMap)
+			if err != nil {
+				return err
+			}
+			return nil
+		}
+		return err
+	}
+	return nil
+}
+
+func DeleteTLSConfigMap(ctx context.Context, c client.Client, vdb *vapi.VerticaDB) {
+	cm := &corev1.ConfigMap{}
+	configMapName := names.GenNMACertConfigMap(vdb)
+	err := c.Get(ctx, configMapName, cm)
+	if !kerrors.IsNotFound(err) {
+		Expect(c.Delete(ctx, cm)).Should(Succeed())
+	}
 }
 
 func ScaleInSubcluster(ctx context.Context, c client.Client, vdb *vapi.VerticaDB, sc *vapi.Subcluster, newSize int32) {

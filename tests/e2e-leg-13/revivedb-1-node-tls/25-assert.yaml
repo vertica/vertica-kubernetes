@@ -27,8 +27,3 @@ status:
   subclusters:
     - addedToDBCount: 1
       upNodeCount: 1
-  tlsModes:
-  - mode: VERIFY_CA
-    type: HTTPSTLSModeType
-  - mode: TRY_VERIFY
-    type: ClientServerTLSModeType
