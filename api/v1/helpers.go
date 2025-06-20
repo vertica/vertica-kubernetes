@@ -107,7 +107,7 @@ func (v *VerticaDB) FindTransientSubcluster() *Subcluster {
 
 func SetVDBForTLS(v *VerticaDB) {
 	v.Annotations[vmeta.EnableTLSAuthAnnotation] = trueString
-	v.Annotations[vmeta.VersionAnnotation] = TLSCertRotationMinVersion
+	v.Annotations[vmeta.VersionAnnotation] = TLSAuthMinVersion
 	v.Annotations[vmeta.VClusterOpsAnnotation] = trueString
 }
 
@@ -878,19 +878,19 @@ func (v *VerticaDB) GetActiveConnectionsDrainSeconds() int {
 	return vmeta.GetActiveConnectionsDrainSeconds(v.Annotations)
 }
 
-// IsCertRotationEnabled returns true if the version supports certs and
-// cert rotation is enabled.
-func (v *VerticaDB) IsCertRotationEnabled() bool {
+// IsTLSAUthEnabled returns true if the version supports TLS auth and
+// TLS auth is enabled.
+func (v *VerticaDB) IsTLSAuthEnabled() bool {
 	if !vmeta.UseVClusterOps(v.Annotations) {
 		return false
 	}
 	vinf, hasVersion := v.MakeVersionInfo()
-	// Assume we are running a version that does not support cert rotation
+	// Assume we are running a version that does not support TLS auth
 	// if version is not present.
 	if !hasVersion {
 		return false
 	}
-	return vinf.IsEqualOrNewer(TLSCertRotationMinVersion) &&
+	return vinf.IsEqualOrNewer(TLSAuthMinVersion) &&
 		vmeta.UseTLSAuth(v.Annotations)
 }
 

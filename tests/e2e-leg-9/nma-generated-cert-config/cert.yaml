@@ -20,6 +20,11 @@ metadata:
 spec:
   commonName: default
   isCA: true
+  usages:
+    - digital signature
+    - key encipherment
+    - server auth
+    - client auth
   issuerRef:
     kind: Issuer
     name: selfsigned-issuer

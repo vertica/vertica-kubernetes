@@ -168,7 +168,7 @@ func (r *ReviveDBReconciler) execCmd(ctx context.Context, initiatorPod types.Nam
 	if res, err := r.Dispatcher.ReviveDB(ctx, opts...); verrors.IsReconcileAborted(res, err) {
 		return res, err
 	}
-	if r.Vdb.IsCertRotationEnabled() {
+	if r.Vdb.IsTLSAuthEnabled() {
 		r.Log.Info("TLS Cert will be configured after revival")
 	}
 	r.VRec.Eventf(r.Vdb, corev1.EventTypeNormal, events.ReviveDBSucceeded,

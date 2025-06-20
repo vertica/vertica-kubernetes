@@ -28,6 +28,11 @@ spec:
   # For the certs to be used to authenticate, the commonName must have the username the cert is for
   commonName: 'dbadmin'
   isCA: true
+  usages:
+    - digital signature
+    - key encipherment
+    - server auth
+    - client auth
   issuerRef:
     kind: Issuer
     name: http-server-selfsigned-issuer

@@ -59,7 +59,7 @@ func (h *GetTLSModeAfterReviveReconciler) Reconcile(ctx context.Context, _ *ctrl
 		return ctrl.Result{}, nil
 	}
 
-	if !h.Vdb.IsCertRotationEnabled() {
+	if !h.Vdb.IsTLSAuthEnabled() {
 		return ctrl.Result{}, nil
 	}
 

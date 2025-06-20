@@ -98,7 +98,7 @@ func (g *GenericDatabaseInitializer) runInit(ctx context.Context) (ctrl.Result, 
 	if res, err := g.initializer.execCmd(ctx, initiatorPod, host, postNames); verrors.IsReconcileAborted(res, err) {
 		return res, err
 	}
-	if g.Vdb.IsCertRotationEnabled() {
+	if g.Vdb.IsTLSAuthEnabled() {
 		sec := vapi.MakeHTTPSTLSSecretRef(g.Vdb.Spec.HTTPSNMATLSSecret)
 		clientSec := vapi.MakeClientServerTLSSecretRef(g.Vdb.Spec.ClientServerTLSSecret)
 		sRefs := []*vapi.SecretRef{
