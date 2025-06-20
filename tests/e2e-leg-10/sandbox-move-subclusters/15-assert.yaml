@@ -23,21 +23,21 @@ kind: StatefulSet
 metadata:
   name: v-sandbox-sec1
 status:
-  currentReplicas: 1
+  currentReplicas: 3
 ---
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: v-sandbox-sec2
 status:
-  currentReplicas: 1
+  currentReplicas: 3
 ---
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: v-sandbox-sec3
 status:
-  currentReplicas: 2
+  currentReplicas: 1
 ---
 apiVersion: vertica.com/v1
 kind: VerticaDB
