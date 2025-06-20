@@ -11,7 +11,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1beta1
+apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
   name: v-vdb-gen
@@ -19,4 +19,3 @@ status:
   subclusterCount: 2
   upNodeCount: 3
   addedToDBCount: 3
-  installCount: 3

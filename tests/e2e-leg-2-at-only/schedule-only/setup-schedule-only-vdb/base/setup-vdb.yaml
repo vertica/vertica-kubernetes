@@ -11,10 +11,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1beta1
+apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
   name: v-schedule-only
+  annotations:
+    vertica.com/requeue-time: "4"
+    vertica.com/k-safety: "0"
 spec:
   autoRestartVertica: false
   initPolicy: ScheduleOnly
@@ -26,7 +29,6 @@ spec:
     - name: k8s
       size: 1
   certSecrets: []
-  requeueTime: 4
   imagePullSecrets: []
   volumes: []
   volumeMounts: []
