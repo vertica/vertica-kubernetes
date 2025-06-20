@@ -317,6 +317,9 @@ func (s *SandboxSubclusterReconciler) updateSandboxConfigMapFields(curCM, newCM 
 	shutdownTriggerID, hasShutdownTriggerID := curCM.Annotations[vmeta.SandboxControllerShutdownTriggerID]
 	delete(curCM.Annotations, vmeta.SandboxControllerShutdownTriggerID)
 	delete(newCM.Annotations, vmeta.SandboxControllerShutdownTriggerID)
+	alterSubclusterID, hasAlterSubclusterID := curCM.Annotations[vmeta.SandboxControllerAlterSubclusterTypeTriggerID]
+	delete(curCM.Annotations, vmeta.SandboxControllerAlterSubclusterTypeTriggerID)
+	delete(newCM.Annotations, vmeta.SandboxControllerAlterSubclusterTypeTriggerID)
 
 	// exclude version annotation because vdb controller can set a different
 	// vertica version annotation for a sandbox in current config map
@@ -340,6 +343,9 @@ func (s *SandboxSubclusterReconciler) updateSandboxConfigMapFields(curCM, newCM 
 	}
 	if hasShutdownTriggerID {
 		curCM.Annotations[vmeta.SandboxControllerShutdownTriggerID] = shutdownTriggerID
+	}
+	if hasAlterSubclusterID {
+		curCM.Annotations[vmeta.SandboxControllerAlterSubclusterTypeTriggerID] = alterSubclusterID
 	}
 	// add vertica version back to the annotations
 	if hasVersion {

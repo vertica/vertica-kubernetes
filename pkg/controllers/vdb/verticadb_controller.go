@@ -272,7 +272,7 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		MakeAddtionalBucketsReconciler(r, log, vdb, prunner, pfacts),
 		MakeMetricReconciler(r, log, vdb, prunner, pfacts),
 		// Update subcluster type in db according to its type in vdb spec
-		MakeAlterSubclusterTypeReconciler(r, log, vdb, pfacts, dispatcher, false /* isSandbox */),
+		MakeAlterSubclusterTypeReconciler(r, log, vdb, pfacts, dispatcher),
 		// Create and revive are mutually exclusive exclusive, so this handles
 		// status updates after both of them.
 		MakeStatusReconciler(r.Client, r.Scheme, log, vdb, pfacts),

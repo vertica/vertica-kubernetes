@@ -160,7 +160,7 @@ func (r *SandboxConfigMapReconciler) constructActors(vdb *v1.VerticaDB, log logr
 		// Move the subclusters from a sandbox to the main cluster
 		MakeUnsandboxSubclusterReconciler(r, vdb, log, r.Client, pfacts, dispatcher, configMap, prunner),
 		// Update subcluster type in db according to its type in sandbox
-		vdbcontroller.MakeAlterSubclusterTypeReconciler(r, log, vdb, pfacts, dispatcher, true /* isSandbox */),
+		vdbcontroller.MakeAlterSubclusterTypeReconciler(r, log, vdb, pfacts, dispatcher),
 		// Update the vdb status for the sandbox nodes/pods
 		vdbcontroller.MakeStatusReconciler(r.Client, r.Scheme, log, vdb, pfacts),
 		// Upgrade the sandbox using the offline method

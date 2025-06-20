@@ -20,6 +20,7 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
+	"github.com/google/uuid"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
@@ -38,19 +39,17 @@ type AlterSubclusterTypeReconciler struct {
 	Vdb        *vapi.VerticaDB // Vdb is the CRD we are acting on.
 	PFacts     *podfacts.PodFacts
 	Dispatcher vadmin.Dispatcher
-	IsSandbox  bool // IsSandbox is true if this is a sandbox subcluster
 }
 
 // MakeAlterSubclusterTypeReconciler will build a AlterSubclusterTypeReconciler object
 func MakeAlterSubclusterTypeReconciler(vdbrecon config.ReconcilerInterface, log logr.Logger,
-	vdb *vapi.VerticaDB, pfacts *podfacts.PodFacts, dispatcher vadmin.Dispatcher, isSandbox bool) controllers.ReconcileActor {
+	vdb *vapi.VerticaDB, pfacts *podfacts.PodFacts, dispatcher vadmin.Dispatcher) controllers.ReconcileActor {
 	return &AlterSubclusterTypeReconciler{
 		VRec:       vdbrecon,
 		Log:        log.WithName("AlterSubclusterTypeReconciler"),
 		Vdb:        vdb,
 		PFacts:     pfacts,
 		Dispatcher: dispatcher,
-		IsSandbox:  isSandbox,
 	}
 }
 
@@ -61,11 +60,13 @@ func (a *AlterSubclusterTypeReconciler) Reconcile(ctx context.Context, _ *ctrl.R
 
 	var scs []*vapi.Subcluster
 	var err error
-	if a.IsSandbox {
-		scs, err = a.findSandboxSubclustersToAlter()
-	} else {
+
+	if a.PFacts.SandboxName == vapi.MainCluster {
 		scs, err = a.findMainSubclustersToAlter()
+	} else {
+		scs, err = a.findSandboxSubclustersToAlter()
 	}
+
 	if err != nil || len(scs) == 0 {
 		return ctrl.Result{}, err
 	}
@@ -132,12 +133,32 @@ func (a *AlterSubclusterTypeReconciler) alterSubclusters(ctx context.Context, sc
 		if requeue {
 			return ctrl.Result{Requeue: requeue}, nil
 		}
+		_, ok := a.PFacts.FindFirstUpPod(false, sc.Name)
+		if !ok {
+			return ctrl.Result{Requeue: requeue}, nil
+		}
 		err := a.alterSubclusterType(ctx, sc, initiatorIP)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
 	}
-	return ctrl.Result{}, nil
+
+	if a.PFacts.SandboxName == vapi.MainCluster {
+		return ctrl.Result{}, nil
+	}
+
+	// Once we altered the subcluster type for the sandbox, we need to wake up
+	// the sandbox controller to drive it. We will use a SandboxConfigMapManager object
+	// that will update that sandbox's configmap watched by the sandbox controller
+	triggerUUID := uuid.NewString()
+	sbMan := MakeSandboxConfigMapManager(a.VRec, a.Vdb, a.PFacts.SandboxName, triggerUUID)
+	triggered, err := sbMan.triggerSandboxController(ctx, AlterSubclusterType)
+	if triggered {
+		a.Log.Info("Sandbox ConfigMap updated. The sandbox controller will drive the upgrade",
+			"trigger-uuid", triggerUUID, "Sandbox", a.PFacts.SandboxName)
+	}
+
+	return ctrl.Result{}, err
 }
 
 // alterSubclusterType changes the given subcluster's type

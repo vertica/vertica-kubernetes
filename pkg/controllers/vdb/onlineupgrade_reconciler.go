@@ -202,6 +202,9 @@ func (r *OnlineUpgradeReconciler) Reconcile(ctx context.Context, _ *ctrl.Request
 		// workaround: clear the value to force vertica.conf to be rewritten
 		r.postClearConfigParamDisableNonReplicatableQueriesMsg,
 		r.clearConfigParamDisableNonReplicatableQueries,
+		// Change replica b subcluster types to match the main cluster's
+		// This is handled by the sandbox controller
+		r.postPromoteSubclustersInSandboxMsg,
 		// Upgrade the version in the sandbox to the new version.
 		r.postUpgradeSandboxMsg,
 		r.upgradeSandbox,
@@ -591,6 +594,12 @@ func (r *OnlineUpgradeReconciler) sandboxReplicaGroupB(ctx context.Context) (ctr
 
 	r.Log.Info("subclusters in replica group B have been sandboxed", "sandboxName", r.sandboxName)
 	return ctrl.Result{}, r.updateOnlineUpgradeStepAnnotation(ctx, r.getNextStep())
+}
+
+// postPromoteSubclustersInSandboxMsg will update the status message to indicate that
+// we are going to prmote subclusters in sandbox.
+func (r *OnlineUpgradeReconciler) postPromoteSubclustersInSandboxMsg(ctx context.Context) (ctrl.Result, error) {
+	return r.postNextStatusMsg(ctx, promoteSubclustersInSandboxMsgInx)
 }
 
 // postUpgradeSandboxMsg will update the status message to indicate that
@@ -1332,9 +1341,10 @@ func (r *OnlineUpgradeReconciler) moveReplicaGroupBSubclusterToSandbox() (bool, 
 		// Later when promoting the sandbox to main, we can use this sandbox subcluster type to set the main subcluster type.
 		scType := vapi.PrimarySubcluster
 		sc := r.VDB.GetSubcluster(nm)
-		if sc != nil {
-			scType = sc.Annotations[vmeta.ParentSubclusterTypeAnnotation]
+		if sc == nil {
+			return false, fmt.Errorf("could not find subcluster %q in vdb", nm)
 		}
+		scType = sc.Annotations[vmeta.ParentSubclusterTypeAnnotation]
 		sandbox.Subclusters = append(sandbox.Subclusters, vapi.SandboxSubcluster{Name: nm, Type: scType})
 	}
 	r.VDB.Annotations[vmeta.OnlineUpgradeSandboxAnnotation] = sandboxName
