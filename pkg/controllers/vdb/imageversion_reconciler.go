@@ -249,8 +249,10 @@ func (v *ImageVersionReconciler) getVersion(ctx context.Context, pod *podfacts.P
 func (v *ImageVersionReconciler) updateVDBVersion(ctx context.Context, newVersion string) (ctrl.Result, error) {
 	versionAnnotations := vapi.ParseVersionOutput(newVersion)
 	// pass the version to the caller
-	if v.RetrieveVersionOnly {
+	if v.VerticaVersion != nil {
 		*v.VerticaVersion = versionAnnotations[vmeta.VersionAnnotation]
+	}
+	if v.RetrieveVersionOnly {
 		return ctrl.Result{}, nil
 	}
 	// if we found vertica version is changed, we save previous vertica version to vdb

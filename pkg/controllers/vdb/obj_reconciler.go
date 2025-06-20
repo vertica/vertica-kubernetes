@@ -739,7 +739,7 @@ func (o *ObjReconciler) handleStatefulSetUpdate(ctx context.Context, sc *vapi.Su
 	// If the NMA deployment type or health check setting is changing,
 	// we cannot do a rolling update for this change. All pods need to have the
 	// same NMA deployment type. So, we drop the old sts and create a fresh one.
-	if isNMADeploymentDifferent(curSts, expSts) || isHealthCheckDifferent(curSts, expSts) {
+	if isNMADeploymentDifferent(curSts, expSts) || (!podsNotRunning && isHealthCheckDifferent(curSts, expSts)) {
 		o.Log.Info("Dropping then recreating statefulset", "Name", expSts.Name)
 		// Invalidate the pod facts cache since we are recreating a new sts
 		o.PFacts.Invalidate()
