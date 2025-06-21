@@ -27,7 +27,7 @@ hadoop-conf.json
 tests/e2e-operator-upgrade-overlays/*/
 
 # Generated file copied from tests/e2e-leg-6/http-generated-certs/delete-cr-errors*.yaml
-tests/e2e-leg-6/http-generated-certs/95-errors.yaml
+tests/e2e-leg-6-vc-only/http-generated-certs/95-errors.yaml
 
 # Generated directory for some e2e tests that use custom ssh keys
 ssh-keys/

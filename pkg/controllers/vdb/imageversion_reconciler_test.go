@@ -60,7 +60,7 @@ vertica(v11.1.0) built by @re-docker2 from tag@releases/VER_10_1_RELEASE_BUILD_1
 				},
 			},
 		}
-		r := MakeImageVersionReconciler(vdbRec, logger, vdb, fpr, &pfacts, false)
+		r := MakeImageVersionReconciler(vdbRec, logger, vdb, fpr, &pfacts, false, nil)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: true}))
 
 		fetchVdb := &vapi.VerticaDB{}
@@ -103,7 +103,7 @@ vertica(v11.1.0) built by @re-docker2 from tag@releases/VER_10_1_RELEASE_BUILD_1
 		fpr.Results = cmds.CmdResults{
 			podName: []cmds.CmdResult{{Stdout: mockVerticaVersionOutput("v11.1.1-0")}},
 		}
-		r := MakeImageVersionReconciler(vdbRec, logger, vdb, fpr, &pfacts, false)
+		r := MakeImageVersionReconciler(vdbRec, logger, vdb, fpr, &pfacts, false, nil)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 
 		cm := &corev1.ConfigMap{}
@@ -132,7 +132,7 @@ vertica(v11.1.0) built by @re-docker2 from tag@releases/VER_10_1_RELEASE_BUILD_1
 		fpr.Results = cmds.CmdResults{
 			podName: []cmds.CmdResult{{Stdout: mockVerticaVersionOutput("v11.0.0-0")}},
 		}
-		r := MakeImageVersionReconciler(vdbRec, logger, vdb, fpr, &pfacts, true)
+		r := MakeImageVersionReconciler(vdbRec, logger, vdb, fpr, &pfacts, true, nil)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: true}))
 
 		// Ensure we didn't update the vdb
@@ -167,7 +167,7 @@ vertica(v11.1.0) built by @re-docker2 from tag@releases/VER_10_1_RELEASE_BUILD_1
 		fpr.Results = cmds.CmdResults{
 			podName: []cmds.CmdResult{{Stdout: mockVerticaVersionOutput(OrigVersion)}},
 		}
-		act := MakeImageVersionReconciler(vdbRec, logger, vdb, fpr, &pfacts, true)
+		act := MakeImageVersionReconciler(vdbRec, logger, vdb, fpr, &pfacts, true, nil)
 		r := act.(*ImageVersionReconciler)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: true}))
 
@@ -190,7 +190,7 @@ vertica(v11.1.0) built by @re-docker2 from tag@releases/VER_10_1_RELEASE_BUILD_1
 		pfacts := podfacts.MakePodFacts(vdbRec, fpr, logger, TestPassword)
 		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
 
-		r := MakeImageVersionReconciler(vdbRec, logger, vdb, fpr, &pfacts, true)
+		r := MakeImageVersionReconciler(vdbRec, logger, vdb, fpr, &pfacts, true, nil)
 		// both the vclusterops annotation and admintoolsExists are false
 		res, err := r.Reconcile(ctx, &ctrl.Request{})
 		Expect(res).Should(Equal(ctrl.Result{}))
@@ -263,7 +263,7 @@ func testNMATLSSecretWithVersion(ctx context.Context, secretName, oldVersion, ne
 	}
 	pfacts.Detail[podName].SetHasNMASidecar(hasNMASidecar)
 
-	r := MakeImageVersionReconciler(vdbRec, logger, vdb, fpr, &pfacts, true)
+	r := MakeImageVersionReconciler(vdbRec, logger, vdb, fpr, &pfacts, true, nil)
 	Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: true}))
 
 	fpr.Results = cmds.CmdResults{
@@ -291,7 +291,7 @@ func testNMARunningMode(ctx context.Context, badVersion,
 	fpr.Results = cmds.CmdResults{
 		podName: []cmds.CmdResult{{Stdout: mockVerticaVersionOutput(badVersion)}},
 	}
-	r := MakeImageVersionReconciler(vdbRec, logger, vdb, fpr, &pfacts, true)
+	r := MakeImageVersionReconciler(vdbRec, logger, vdb, fpr, &pfacts, true, nil)
 	res, err := r.Reconcile(ctx, &ctrl.Request{})
 	Expect(res).Should(Equal(ctrl.Result{Requeue: true}))
 	Expect(err).Should(Succeed())

@@ -25,6 +25,7 @@ import (
 
 	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
+	"github.com/vertica/vertica-kubernetes/pkg/builder"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/iter"
@@ -503,6 +504,29 @@ func (i *UpgradeManager) changeNMASidecarDeploymentIfNeeded(ctx context.Context,
 		return ctrl.Result{}, err
 	}
 	return ctrl.Result{Requeue: true}, nil
+}
+
+// changeHealthProbeIfNeeded will handle the case where we are upgrading across
+// versions such that we need to change the health probe.
+func (i *UpgradeManager) changeHealthProbeIfNeeded(ctx context.Context, sts *appsv1.StatefulSet, ver string) (bool, error) {
+	i.Log.Info("Checking if health probe is changing")
+
+	expSts := sts.DeepCopy()
+	expSvrCnt := vk8s.GetServerContainer(expSts.Spec.Template.Spec.Containers)
+	if expSvrCnt == nil {
+		return false, fmt.Errorf("could not find server container in sts %s", expSts.Name)
+	}
+	rProb, lProb, sProb := builder.BuildServerHealthProbes(i.Vdb, ver)
+	expSvrCnt.ReadinessProbe = rProb
+	expSvrCnt.LivenessProbe = lProb
+	expSvrCnt.StartupProbe = sProb
+	if isHealthCheckDifferent(sts, expSts) {
+		expSts.ResourceVersion = ""
+		i.Log.Info("Dropping then recreating statefulset", "Name", expSts.Name)
+		return true, recreateSts(ctx, i.Rec, sts, expSts, i.Vdb)
+	}
+
+	return false, nil
 }
 
 // postNextStatusMsg will set the next status message.  This will only
