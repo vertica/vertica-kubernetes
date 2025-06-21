@@ -1095,6 +1095,7 @@ jobs:
           helm-overrides: '--set webhook.certSource=cert-manager'
           e2e-retry-times: ${{ inputs.e2e_retry_times || 2 }}
           cert-suffix: cert
+          vertica-license: ${{ secrets.VERTICA_LICENSE }}
 
   e2e-leg-13-vcluster-cert:
     if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'vcluster leg 13' || inputs.e2e_test_suites == '')}}
