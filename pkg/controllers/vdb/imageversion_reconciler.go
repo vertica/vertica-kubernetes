@@ -39,29 +39,31 @@ import (
 
 // ImageVersionReconciler will verify type of image deployment and set the version as annotations in the vdb.
 type ImageVersionReconciler struct {
-	Rec                config.ReconcilerInterface
-	Log                logr.Logger
-	Vdb                *vapi.VerticaDB // Vdb is the CRD we are acting on.
-	PRunner            cmds.PodRunner
-	PFacts             *podfacts.PodFacts
-	EnforceUpgradePath bool                             // Fail the reconcile if we find incompatible version
-	FindPodFunc        func() (*podfacts.PodFact, bool) // Function to call to find pod
-	VerticaVersion     *string
+	Rec                 config.ReconcilerInterface
+	Log                 logr.Logger
+	Vdb                 *vapi.VerticaDB // Vdb is the CRD we are acting on.
+	PRunner             cmds.PodRunner
+	PFacts              *podfacts.PodFacts
+	EnforceUpgradePath  bool                             // Fail the reconcile if we find incompatible version
+	FindPodFunc         func() (*podfacts.PodFact, bool) // Function to call to find pod
+	VerticaVersion      *string
+	RetrieveVersionOnly bool
 }
 
 // MakeImageVersionReconciler will build a VersionReconciler object
 func MakeImageVersionReconciler(recon config.ReconcilerInterface, log logr.Logger,
 	vdb *vapi.VerticaDB, prunner cmds.PodRunner, pfacts *podfacts.PodFacts,
-	enforceUpgradePath bool, vver *string) controllers.ReconcileActor {
+	enforceUpgradePath bool, vver *string, retrieveVersionOnly bool) controllers.ReconcileActor {
 	return &ImageVersionReconciler{
-		Rec:                recon,
-		Log:                log.WithName("ImageVersionReconciler"),
-		Vdb:                vdb,
-		PRunner:            prunner,
-		PFacts:             pfacts,
-		EnforceUpgradePath: enforceUpgradePath,
-		FindPodFunc:        pfacts.FindRunningPod,
-		VerticaVersion:     vver,
+		Rec:                 recon,
+		Log:                 log.WithName("ImageVersionReconciler"),
+		Vdb:                 vdb,
+		PRunner:             prunner,
+		PFacts:              pfacts,
+		EnforceUpgradePath:  enforceUpgradePath,
+		FindPodFunc:         pfacts.FindRunningPod,
+		VerticaVersion:      vver,
+		RetrieveVersionOnly: retrieveVersionOnly,
 	}
 }
 
@@ -79,7 +81,7 @@ func (v *ImageVersionReconciler) Reconcile(ctx context.Context, _ *ctrl.Request)
 	}
 
 	// when the caller's purpose is not to find the version, we will verify the deployment type
-	if v.VerticaVersion == nil {
+	if !v.RetrieveVersionOnly {
 		err = v.verifyDeploymentType(pod)
 		if err != nil {
 			return ctrl.Result{}, err
@@ -90,6 +92,11 @@ func (v *ImageVersionReconciler) Reconcile(ctx context.Context, _ *ctrl.Request)
 	res, err = v.reconcileVersion(ctx, pod)
 	if verrors.IsReconcileAborted(res, err) {
 		return res, err
+	}
+
+	// when the caller's purpose is to find the version, we return earlier
+	if v.RetrieveVersionOnly {
+		return ctrl.Result{}, nil
 	}
 
 	var vinf *version.Info
@@ -244,6 +251,13 @@ func (v *ImageVersionReconciler) updateVDBVersion(ctx context.Context, newVersio
 	// pass the version to the caller
 	if v.VerticaVersion != nil {
 		*v.VerticaVersion = versionAnnotations[vmeta.VersionAnnotation]
+		return ctrl.Result{}, nil
+	}
+	// if we found vertica version is changed, we save previous vertica version to vdb
+	if versionAnnotations[vmeta.VersionAnnotation] != v.Vdb.ObjectMeta.Annotations[vmeta.VersionAnnotation] {
+		versionAnnotations[vmeta.PreviousVersionAnnotation] = v.Vdb.ObjectMeta.Annotations[vmeta.VersionAnnotation]
+	}
+	if v.RetrieveVersionOnly {
 		return ctrl.Result{}, nil
 	}
 	// if we found vertica version is changed, we save previous vertica version to vdb

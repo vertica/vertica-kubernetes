@@ -620,7 +620,7 @@ func (o *ObjReconciler) retriveVerticaVersion(ctx context.Context, sc *vapi.Subc
 		return ctrl.Result{}, err
 	}
 	// Use image version reconciler to get the subcluster's vertica version
-	i := MakeImageVersionReconciler(o.Rec, o.Log, o.Vdb, scPFacts.PRunner, scPFacts, false, version)
+	i := MakeImageVersionReconciler(o.Rec, o.Log, o.Vdb, scPFacts.PRunner, scPFacts, false, version, true)
 	vr := i.(*ImageVersionReconciler)
 	vr.FindPodFunc = func() (*podfacts.PodFact, bool) {
 		for _, v := range scPFacts.Detail {
@@ -739,7 +739,7 @@ func (o *ObjReconciler) handleStatefulSetUpdate(ctx context.Context, sc *vapi.Su
 	// If the NMA deployment type or health check setting is changing,
 	// we cannot do a rolling update for this change. All pods need to have the
 	// same NMA deployment type. So, we drop the old sts and create a fresh one.
-	if isNMADeploymentDifferent(curSts, expSts) || isHealthCheckDifferent(curSts, expSts) {
+	if isNMADeploymentDifferent(curSts, expSts) || (!podsNotRunning && isHealthCheckDifferent(curSts, expSts)) {
 		o.Log.Info("Dropping then recreating statefulset", "Name", expSts.Name)
 		// Invalidate the pod facts cache since we are recreating a new sts
 		o.PFacts.Invalidate()

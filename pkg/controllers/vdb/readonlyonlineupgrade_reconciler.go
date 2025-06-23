@@ -515,7 +515,7 @@ func (o *ReadOnlyOnlineUpgradeReconciler) checkVersion(ctx context.Context, sts 
 	}
 
 	const EnforceUpgradePath = true
-	a := MakeImageVersionReconciler(o.VRec, o.Log, o.Vdb, o.PRunner, o.PFacts, EnforceUpgradePath, &o.VerticaVersion)
+	a := MakeImageVersionReconciler(o.VRec, o.Log, o.Vdb, o.PRunner, o.PFacts, EnforceUpgradePath, &o.VerticaVersion, false)
 
 	// We use a custom lookup function to only find pods for the subcluster we
 	// are working on.
