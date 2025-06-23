@@ -29,7 +29,7 @@ type VSetTLSConfigOptions struct {
 	HTTPSTLSConfig TLSConfig
 }
 
-const DefaultCacheDuration = 0
+const DefaultCacheDuration = 1 * 24 * 3600 // 1 day
 
 func VSetTLSConfigOptionsFactory() VSetTLSConfigOptions {
 	options := VSetTLSConfigOptions{}
@@ -59,8 +59,8 @@ func (options *VSetTLSConfigOptions) validateTLSConfig(logger vlog.Printer) erro
 		return fmt.Errorf("missing TLS configuration: specify settings for at least one of server or HTTPS")
 	}
 
-	if options.ServerTLSConfig.GrantAuth == options.HTTPSTLSConfig.GrantAuth {
-		return fmt.Errorf("server and https TLS configurations cannot both set GrantAuth to true or both set to false")
+	if options.ServerTLSConfig.GrantAuth && options.HTTPSTLSConfig.GrantAuth {
+		return fmt.Errorf("server and https TLS configurations cannot both set GrantAuth to true")
 	}
 
 	err = options.ServerTLSConfig.validate(logger)

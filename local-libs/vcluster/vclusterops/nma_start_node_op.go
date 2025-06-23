@@ -19,11 +19,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-
-	"github.com/vertica/vcluster/vclusterops/util"
 )
-
-const SandboxTag = "--sandbox"
 
 type nmaStartNodeOp struct {
 	opBase
@@ -31,7 +27,6 @@ type nmaStartNodeOp struct {
 	hostRequestBodyMap map[string]string
 	vdb                *VCoordinationDatabase
 	sandbox            bool
-	sandboxName        string
 }
 
 type startNodeRequestData struct {
@@ -47,7 +42,6 @@ func makeNMAStartNodeOp(
 	op.hosts = hosts
 	op.startupConf = startupConf
 	op.sandbox = false
-	op.sandboxName = util.MainClusterSandbox
 	return op
 }
 
@@ -60,13 +54,6 @@ func makeNMAStartNodeOpAfterUnsandbox(startupConf string) nmaStartNodeOp {
 func makeNMAStartNodeOpWithVDB(hosts []string, startupConf string, vdb *VCoordinationDatabase) nmaStartNodeOp {
 	startNodeOp := makeNMAStartNodeOp(hosts, startupConf)
 	startNodeOp.vdb = vdb
-	return startNodeOp
-}
-
-func makeNMAStartNodeWithSandboxOpWithVDB(hosts []string, startupConf, sandboxName string, vdb *VCoordinationDatabase) nmaStartNodeOp {
-	startNodeOp := makeNMAStartNodeOp(hosts, startupConf)
-	startNodeOp.vdb = vdb
-	startNodeOp.sandboxName = sandboxName
 	return startNodeOp
 }
 
@@ -125,9 +112,6 @@ func (op *nmaStartNodeOp) updateRequestBody(execContext *opEngineExecContext) er
 }
 
 func (op *nmaStartNodeOp) updateHostRequestBodyMapFromNodeStartCommand(host string, hostStartCommand []string) error {
-	if op.sandboxName != util.MainClusterSandbox {
-		hostStartCommand = append(hostStartCommand, SandboxTag, op.sandboxName)
-	}
 	startNodeData := startNodeRequestData{
 		StartCommand: hostStartCommand,
 		StartupConf:  op.startupConf,

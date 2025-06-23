@@ -140,8 +140,7 @@ func (op *nmaTransactionStartsOp) processResult(execContext *opEngineExecContext
 			var transactionStartList []dcTransactionStarts
 			err := op.parseAndCheckResponse(host, result.content, &transactionStartList)
 			if err != nil {
-				allErrs = errors.Join(allErrs, err)
-				continue
+				return errors.Join(allErrs, err)
 			}
 			// we only need result from one host
 			execContext.dcTransactionStarts = &transactionStartList
