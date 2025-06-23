@@ -41,7 +41,7 @@ func makeNMASessionStartsOp(upHosts []string, userName string, dbName string, pa
 	op := nmaSessionStartsOp{}
 	op.name = "NMASessionStartsOp"
 	op.description = "Check Session Starts"
-	op.hosts = upHosts
+	op.hosts = upHosts[:1] // set up the request for one of the up hosts only
 	op.sessionID = sessionID
 	op.startTime = startTime
 	op.endTime = endTime

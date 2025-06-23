@@ -46,7 +46,7 @@ func makeNMASlowEventOp(upHosts []string, userName string,
 	op := nmaSlowEventsOp{}
 	op.name = "NMASlowEventOp"
 	op.description = "Check slow events"
-	op.hosts = upHosts // set up the request for one of the up hosts only
+	op.hosts = upHosts[:1] // set up the request for one of the up hosts only
 	op.startTime = startTime
 	op.endTime = endTime
 	op.transactionID = transactionID
