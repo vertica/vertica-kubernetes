@@ -154,7 +154,7 @@ func (a *AlterSubclusterTypeReconciler) alterSubclusters(ctx context.Context, sc
 	sbMan := MakeSandboxConfigMapManager(a.VRec, a.Vdb, a.PFacts.SandboxName, triggerUUID)
 	triggered, err := sbMan.triggerSandboxController(ctx, AlterSubclusterType)
 	if triggered {
-		a.Log.Info("Sandbox ConfigMap updated. The sandbox controller will drive the upgrade",
+		a.Log.Info("Sandbox ConfigMap updated. The sandbox controller will drive the alter subcluster type",
 			"trigger-uuid", triggerUUID, "Sandbox", a.PFacts.SandboxName)
 	}
 
