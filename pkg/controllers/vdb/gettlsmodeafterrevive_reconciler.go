@@ -73,29 +73,29 @@ func (h *GetTLSModeAfterReviveReconciler) Reconcile(ctx context.Context, _ *ctrl
 	}
 
 	configSet := []int{httpsTLSConfig, clientServerTLSConfig}
-	tlsModes := []*vapi.TLSMode{}
+	tlsConfigs := []*vapi.TLSConfig{}
 	for _, tlsConfig := range configSet {
-		tlsMode, res, err := h.getTLSModeAfterRevive(ctx, tlsConfig)
+		config, res, err := h.getTLSModeAfterRevive(ctx, tlsConfig)
 		if verrors.IsReconcileAborted(res, err) {
 			return res, err
 		}
-		if tlsMode == "" {
+		if config == "" {
 			// no tls config found
 			continue
 		}
 		if tlsConfig == httpsTLSConfig {
-			tlsModes = append(tlsModes, vapi.MakeHTTPSTLSMode(tlsMode))
+			tlsConfigs = append(tlsConfigs, vapi.MakeHTTPSNMATLSConfigFromSpec(config))
 		} else {
-			tlsModes = append(tlsModes, vapi.MakeClientServerTLSMode(tlsMode))
+			tlsConfigs = append(tlsConfigs, vapi.MakeClientServerTLSConfigFromSpec(config))
 		}
 	}
-	if len(tlsModes) > 0 {
-		err := vdbstatus.UpdateTLSModes(ctx, h.VRec.Client, h.Vdb, tlsModes)
+	if len(tlsConfigs) > 0 {
+		err := vdbstatus.UpdateTLSConfigs(ctx, h.VRec.Client, h.Vdb, tlsConfigs)
 		if err != nil {
-			h.Log.Error(err, "failed to update tls mode after reviving")
+			h.Log.Error(err, "failed to update tls configs after reviving")
 			return ctrl.Result{}, err
 		}
-		h.Log.Info("Successfully updated TLS modes in status after reviving", "tlsModes", tlsModes)
+		h.Log.Info("Successfully updated TLS Configs in status after reviving", "tlsConfigs", tlsConfigs)
 	}
 	return ctrl.Result{}, nil
 }

@@ -57,7 +57,7 @@ func MakeTLSServerCertGenReconciler(vdbrecon *VerticaDBReconciler, log logr.Logg
 
 // Reconcile will create a TLS secret for the http server if one is missing
 func (h *TLSServerCertGenReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
-	if h.Vdb.Spec.NMATLSSecret != "" && h.Vdb.Spec.HTTPSNMATLSSecret == "" {
+	if h.Vdb.Spec.NMATLSSecret != "" && h.Vdb.Spec.HTTPSNMATLS.Secret == "" {
 		h.Log.Info("httpsNMATLSSecret is initialized from nmaTLSSecret")
 		err := h.setSecretNameInVDB(ctx, httpsNMATLSSecret, h.Vdb.Spec.NMATLSSecret)
 		if err != nil {
@@ -66,8 +66,8 @@ func (h *TLSServerCertGenReconciler) Reconcile(ctx context.Context, _ *ctrl.Requ
 		}
 	}
 	secretFieldNameMap := map[string]string{
-		httpsNMATLSSecret:     h.Vdb.Spec.HTTPSNMATLSSecret,
-		clientServerTLSSecret: h.Vdb.Spec.ClientServerTLSSecret,
+		httpsNMATLSSecret:     h.Vdb.Spec.HTTPSNMATLS.Secret,
+		clientServerTLSSecret: h.Vdb.Spec.ClientServerTLS.Secret,
 	}
 	err := error(nil)
 	for secretFieldName, secretName := range secretFieldNameMap {
@@ -100,8 +100,8 @@ func (h *TLSServerCertGenReconciler) reconcileOneSecret(secretFieldName, secretN
 			if secretFieldName == clientServerTLSSecret {
 				sType = vapi.ClientServerTLSSecretType
 			}
-			secStatus := h.Vdb.GetSecretStatus(sType)
-			if secStatus != nil {
+			tlsStatus := h.Vdb.GetTLSConfigByName(sType)
+			if tlsStatus != nil {
 				// we do not recreate the secret as there is already
 				// a secret of this type in the status.
 				return nil
@@ -181,9 +181,9 @@ func (h *TLSServerCertGenReconciler) setSecretNameInVDB(ctx context.Context, sec
 			return err
 		}
 		if secretFieldName == clientServerTLSSecret {
-			h.Vdb.Spec.ClientServerTLSSecret = secretName
+			h.Vdb.Spec.ClientServerTLS.Secret = secretName
 		} else if secretFieldName == httpsNMATLSSecret {
-			h.Vdb.Spec.HTTPSNMATLSSecret = secretName
+			h.Vdb.Spec.HTTPSNMATLS.Secret = secretName
 		}
 		return h.VRec.Client.Update(ctx, h.Vdb)
 	})

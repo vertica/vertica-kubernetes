@@ -211,15 +211,18 @@ var _ = Describe("status", func() {
 		Expect(k8sClient.Create(ctx, vdb)).Should(Succeed())
 		defer func() { Expect(k8sClient.Delete(ctx, vdb)).Should(Succeed()) }()
 
-		sec := vapi.MakeSecretRef(vapi.HTTPSTLSSecretType, secretName)
-		Expect(UpdateSecretRef(ctx, k8sClient, vdb, sec)).Should(Succeed())
+		config := &vapi.TLSConfig{
+			Name:   vapi.HTTPSTLSSecretType,
+			Secret: secretName,
+		}
+		Expect(UpdateTLSConfigs(ctx, k8sClient, vdb, []*vapi.TLSConfig{config})).Should(Succeed())
 		fetchVdb := &vapi.VerticaDB{}
 		nm := types.NamespacedName{Namespace: vdb.Namespace, Name: vdb.Name}
 		Expect(k8sClient.Get(ctx, nm, fetchVdb)).Should(Succeed())
 		for _, v := range []*vapi.VerticaDB{vdb, fetchVdb} {
-			Expect(len(v.Status.SecretRefs)).Should(Equal(1))
-			Expect(v.Status.SecretRefs[0].Type).Should(Equal(vapi.HTTPSTLSSecretType))
-			Expect(v.Status.SecretRefs[0].Name).Should(Equal(secretName))
+			Expect(len(v.Status.TLSConfig)).Should(Equal(1))
+			Expect(v.Status.TLSConfig[0].Name).Should(Equal(vapi.HTTPSTLSSecretType))
+			Expect(v.Status.TLSConfig[0].Secret).Should(Equal(secretName))
 		}
 	})
 
@@ -229,20 +232,20 @@ var _ = Describe("status", func() {
 		Expect(k8sClient.Create(ctx, vdb)).Should(Succeed())
 		defer func() { Expect(k8sClient.Delete(ctx, vdb)).Should(Succeed()) }()
 
-		secs := []vapi.SecretRef{
-			{Type: vapi.HTTPSTLSSecretType, Name: sn},
-			{Type: vapi.HTTPSTLSSecretType, Name: secretName},
+		configs := []vapi.TLSConfig{
+			{Name: vapi.HTTPSTLSSecretType, Secret: sn},
+			{Name: vapi.HTTPSTLSSecretType, Secret: secretName},
 		}
 
-		for i := range secs {
-			Expect(UpdateSecretRef(ctx, k8sClient, vdb, &secs[i])).Should(Succeed())
+		for i := range configs {
+			Expect(UpdateTLSConfigs(ctx, k8sClient, vdb, []*vapi.TLSConfig{&configs[i]})).Should(Succeed())
 			fetchVdb := &vapi.VerticaDB{}
 			nm := types.NamespacedName{Namespace: vdb.Namespace, Name: vdb.Name}
 			Expect(k8sClient.Get(ctx, nm, fetchVdb)).Should(Succeed())
 			for _, v := range []*vapi.VerticaDB{vdb, fetchVdb} {
-				Expect(len(v.Status.SecretRefs)).Should(Equal(1))
-				Expect(v.Status.SecretRefs[0].Type).Should(Equal(secs[i].Type))
-				Expect(v.Status.SecretRefs[0].Name).Should(Equal(secs[i].Name))
+				Expect(len(v.Status.TLSConfig)).Should(Equal(1))
+				Expect(v.Status.TLSConfig[0].Name).Should(Equal(configs[i].Name))
+				Expect(v.Status.TLSConfig[0].Secret).Should(Equal(configs[i].Secret))
 			}
 		}
 	})
@@ -253,24 +256,24 @@ var _ = Describe("status", func() {
 		Expect(k8sClient.Create(ctx, vdb)).Should(Succeed())
 		defer func() { Expect(k8sClient.Delete(ctx, vdb)).Should(Succeed()) }()
 
-		secs := []vapi.SecretRef{
-			{Type: "type1", Name: "sec1"},
-			{Type: vapi.HTTPSTLSSecretType, Name: sn},
-			{Type: vapi.HTTPSTLSSecretType, Name: secretName},
+		configs := []vapi.TLSConfig{
+			{Name: "type1", Secret: "sec1"},
+			{Name: vapi.HTTPSTLSSecretType, Secret: sn},
+			{Name: vapi.HTTPSTLSSecretType, Secret: secretName},
 		}
 
-		for i := range secs {
-			Expect(UpdateSecretRef(ctx, k8sClient, vdb, &secs[i])).Should(Succeed())
+		for i := range configs {
+			Expect(UpdateTLSConfigs(ctx, k8sClient, vdb, []*vapi.TLSConfig{&configs[i]})).Should(Succeed())
 		}
 
 		fetchVdb := &vapi.VerticaDB{}
 		nm := types.NamespacedName{Namespace: vdb.Namespace, Name: vdb.Name}
 		Expect(k8sClient.Get(ctx, nm, fetchVdb)).Should(Succeed())
 		for _, v := range []*vapi.VerticaDB{vdb, fetchVdb} {
-			Expect(len(v.Status.SecretRefs)).Should(Equal(2))
-			Expect(v.Status.SecretRefs[0].Type).Should(Equal(secs[0].Type))
-			Expect(v.Status.SecretRefs[1].Type).Should(Equal(secs[2].Type))
-			Expect(v.Status.SecretRefs[1].Name).Should(Equal(secs[2].Name))
+			Expect(len(v.Status.TLSConfig)).Should(Equal(2))
+			Expect(v.Status.TLSConfig[0].Name).Should(Equal(configs[0].Name))
+			Expect(v.Status.TLSConfig[1].Name).Should(Equal(configs[2].Name))
+			Expect(v.Status.TLSConfig[1].Secret).Should(Equal(configs[2].Secret))
 		}
 	})
 })

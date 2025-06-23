@@ -67,7 +67,7 @@ func (h *NMACertRotationReconciler) Reconcile(ctx context.Context, _ *ctrl.Reque
 		return ctrl.Result{}, nil
 	}
 	currentSecretName := h.Vdb.GetHTTPSTLSSecretNameInUse()
-	newSecretName := h.Vdb.Spec.HTTPSNMATLSSecret
+	newSecretName := h.Vdb.Spec.HTTPSNMATLS.Secret
 
 	currentSecret, newSecret, res, err := readSecrets(h.Vdb, h.VRec, h.VRec.GetClient(), h.Log, ctx,
 		currentSecretName, newSecretName)
@@ -116,7 +116,7 @@ func (h *NMACertRotationReconciler) rotateNmaTLSCert(ctx context.Context, newSec
 		return ctrl.Result{Requeue: true}, nil
 	}
 	currentSecretName := h.Vdb.GetHTTPSTLSSecretNameInUse()
-	newSecretName := h.Vdb.Spec.HTTPSNMATLSSecret
+	newSecretName := h.Vdb.Spec.HTTPSNMATLS.Secret
 
 	newCert := string(newSecret[corev1.TLSCertKey])
 	currentCert := string(currentSecret[corev1.TLSCertKey])
@@ -155,8 +155,8 @@ func (h *NMACertRotationReconciler) rotateNmaTLSCert(ctx context.Context, newSec
 			return ctrl.Result{}, err
 		}
 	}
-	sec := vapi.MakeHTTPSTLSSecretRef(h.Vdb.Spec.HTTPSNMATLSSecret)
-	if updErr := vdbstatus.UpdateSecretRef(ctx, h.VRec.GetClient(), h.Vdb, sec); updErr != nil {
+	tls := vapi.MakeHTTPSNMATLSConfigFromSpec(h.Vdb.Spec.HTTPSNMATLS)
+	if updErr := vdbstatus.UpdateTLSConfigs(ctx, h.VRec.GetClient(), h.Vdb, []*vapi.TLSConfig{tls}); updErr != nil {
 		return ctrl.Result{}, err
 	}
 	h.Log.Info("saved new tls cert secret name in status", "secret", newSecretName)

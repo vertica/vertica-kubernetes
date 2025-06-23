@@ -71,13 +71,13 @@ func (h *TLSModeReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctr
 		!h.Vdb.IsStatusConditionTrue(vapi.DBInitialized) {
 		return ctrl.Result{}, nil
 	}
-	if h.Vdb.Spec.HTTPSTLSMode == h.Vdb.GetHTTPSTLSModeInUse() &&
-		h.Vdb.Spec.ClientServerTLSMode == h.Vdb.GetClientServerTLSModeInUse() {
+	if h.Vdb.Spec.HTTPSNMATLS.Mode == h.Vdb.GetHTTPSTLSModeInUse() &&
+		h.Vdb.Spec.ClientServerTLS.Mode == h.Vdb.GetClientServerTLSModeInUse() {
 		return ctrl.Result{}, nil
 	}
-	h.Log.Info(fmt.Sprintf("https: current tls mode - %s, spec tls mode - %s", h.Vdb.GetHTTPSTLSModeInUse(), h.Vdb.Spec.HTTPSTLSMode))
+	h.Log.Info(fmt.Sprintf("https: current tls mode - %s, spec tls mode - %s", h.Vdb.GetHTTPSTLSModeInUse(), h.Vdb.Spec.HTTPSNMATLS.Mode))
 	h.Log.Info(fmt.Sprintf("client: current tls mode - %s, spec tls mode - %s", h.Vdb.GetClientServerTLSModeInUse(),
-		h.Vdb.Spec.ClientServerTLSMode))
+		h.Vdb.Spec.ClientServerTLS.Mode))
 	h.VRec.Eventf(h.Vdb, corev1.EventTypeNormal, events.TLSModeUpdateStarted,
 		"Starting to update TLS Mode")
 	if h.Vdb.GetHTTPSTLSModeInUse() == "" || h.Vdb.GetClientServerTLSModeInUse() == "" {
@@ -85,8 +85,8 @@ func (h *TLSModeReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctr
 		if verrors.IsReconcileAborted(res, err) {
 			return res, err
 		}
-		if h.Vdb.Spec.HTTPSTLSMode == h.Vdb.GetHTTPSTLSModeInUse() &&
-			h.Vdb.Spec.ClientServerTLSMode == h.Vdb.GetClientServerTLSModeInUse() {
+		if h.Vdb.Spec.HTTPSNMATLS.Mode == h.Vdb.GetHTTPSTLSModeInUse() &&
+			h.Vdb.Spec.ClientServerTLS.Mode == h.Vdb.GetClientServerTLSModeInUse() {
 			return ctrl.Result{}, nil
 		}
 	}
@@ -124,9 +124,9 @@ func (h *TLSModeReconciler) rotateTLSMode(ctx context.Context) (ctrl.Result, err
 		Data: currentSecretData,
 	}
 	currentHTTPSTLSMode := h.Vdb.GetHTTPSTLSModeInUse()
-	newHTTPSTLSMode := h.Vdb.Spec.HTTPSTLSMode
+	newHTTPSTLSMode := h.Vdb.Spec.HTTPSNMATLS.Mode
 	currentClientTLSMode := h.Vdb.GetClientServerTLSModeInUse()
-	newClientTLSMode := h.Vdb.Spec.ClientServerTLSMode
+	newClientTLSMode := h.Vdb.Spec.ClientServerTLS.Mode
 
 	if currentHTTPSTLSMode != newHTTPSTLSMode {
 		h.Log.Info(fmt.Sprintf("ready to change HTTPS TLS mode from %s to %s", currentHTTPSTLSMode, newHTTPSTLSMode))
@@ -137,12 +137,12 @@ func (h *TLSModeReconciler) rotateTLSMode(ctx context.Context) (ctrl.Result, err
 
 	var keyConfig, certConfig, caCertConfig, secretName string
 	switch {
-	case secrets.IsAWSSecretsManagerSecret(h.Vdb.Spec.HTTPSNMATLSSecret):
+	case secrets.IsAWSSecretsManagerSecret(h.Vdb.Spec.HTTPSNMATLS.Secret):
 		keyConfig, certConfig, caCertConfig = GetAWSCertsConfig(h.Vdb)
-		secretName = secrets.RemovePathReference(h.Vdb.Spec.HTTPSNMATLSSecret)
+		secretName = secrets.RemovePathReference(h.Vdb.Spec.HTTPSNMATLS.Secret)
 	default:
 		keyConfig, certConfig, caCertConfig = GetK8sCertsConfig(h.Vdb)
-		secretName = h.Vdb.Spec.HTTPSNMATLSSecret
+		secretName = h.Vdb.Spec.HTTPSNMATLS.Secret
 	}
 
 	currentCert := string(currentSecret.Data[corev1.TLSCertKey])
@@ -157,15 +157,15 @@ func (h *TLSModeReconciler) rotateTLSMode(ctx context.Context) (ctrl.Result, err
 		rotatehttpscerts.WithTLSMode(newHTTPSTLSMode),
 		rotatehttpscerts.WithInitiator(initiatorPod.GetPodIP()),
 	}
-	h.Log.Info(fmt.Sprintf("call RotateHTTPSCerts for cert - %s , tls mode - %s", h.Vdb.Spec.HTTPSNMATLSSecret, newHTTPSTLSMode))
+	h.Log.Info(fmt.Sprintf("call RotateHTTPSCerts for cert - %s , tls mode - %s", h.Vdb.Spec.HTTPSNMATLS.Secret, newHTTPSTLSMode))
 	err = h.Dispatcher.RotateHTTPSCerts(ctx, opts...)
 	if err != nil {
 		h.Log.Error(err, "failed to rotate HTTPS/client TLS mode")
 		return ctrl.Result{}, err
 	}
-	httpsTLSMode := vapi.MakeHTTPSTLSMode(h.Vdb.Spec.HTTPSTLSMode)
-	clientTLSMode := vapi.MakeClientServerTLSMode(h.Vdb.Spec.ClientServerTLSMode)
-	err = vdbstatus.UpdateTLSModes(ctx, h.VRec.Client, h.Vdb, []*vapi.TLSMode{httpsTLSMode, clientTLSMode})
+	httpsTLSConfig := vapi.MakeHTTPSNMATLSConfigFromSpec(h.Vdb.Spec.HTTPSNMATLS)
+	clientTLSConfig := vapi.MakeClientServerTLSConfigFromSpec(h.Vdb.Spec.ClientServerTLS)
+	err = vdbstatus.UpdateTLSConfigs(ctx, h.VRec.Client, h.Vdb, []*vapi.TLSConfig{httpsTLSConfig, clientTLSConfig})
 	if err != nil {
 		h.Log.Error(err, "failed to update tls mode after rotating tls mode")
 		return ctrl.Result{}, err
@@ -192,17 +192,17 @@ func (h *TLSModeReconciler) reconcileAfterRevive(ctx context.Context) (ctrl.Resu
 		}
 	}
 	if requireUpdate {
-		httpsTLSMode := vapi.MakeHTTPSTLSMode(h.Vdb.Spec.HTTPSTLSMode)
-		clientTLSMode := vapi.MakeClientServerTLSMode(h.Vdb.Spec.ClientServerTLSMode)
-		err := vdbstatus.UpdateTLSModes(ctx, h.VRec.Client, h.Vdb, []*vapi.TLSMode{httpsTLSMode, clientTLSMode})
+		httpsTLSConfig := vapi.MakeHTTPSNMATLSConfigFromSpec(h.Vdb.Spec.HTTPSNMATLS)
+		clientTLSConfig := vapi.MakeClientServerTLSConfigFromSpec(h.Vdb.Spec.ClientServerTLS)
+		err := vdbstatus.UpdateTLSConfigs(ctx, h.VRec.Client, h.Vdb, []*vapi.TLSConfig{httpsTLSConfig, clientTLSConfig})
 		if err != nil {
 			h.Log.Error(err, "failed to update tls mode after reviving")
 			return ctrl.Result{}, err
 		}
 		h.Log.Info("tls modes retrieved from db are saved into vdb status")
 		h.VRec.Eventf(h.Vdb, corev1.EventTypeNormal, events.TLSModeUpdateSucceeded,
-			"Successfully updated TLS modes after reviving. https - %s, client - %s", h.Vdb.Spec.HTTPSTLSMode,
-			h.Vdb.Spec.ClientServerTLSMode)
+			"Successfully updated TLS modes after reviving. https - %s, client - %s", h.Vdb.Spec.HTTPSNMATLS.Mode,
+			h.Vdb.Spec.ClientServerTLS.Mode)
 	}
 	return ctrl.Result{}, nil
 }
@@ -253,9 +253,9 @@ func (h *TLSModeReconciler) getTLSConfig(tlsConfig int) (string, error) {
 func (h *TLSModeReconciler) getNewTLSMode(tlsConfig int) (string, error) {
 	switch tlsConfig {
 	case httpsTLSConfig:
-		return h.Vdb.Spec.HTTPSTLSMode, nil
+		return h.Vdb.Spec.HTTPSNMATLS.Mode, nil
 	case clientServerTLSConfig:
-		return h.Vdb.Spec.ClientServerTLSMode, nil
+		return h.Vdb.Spec.ClientServerTLS.Mode, nil
 	}
 	return "", fmt.Errorf("invalid tlsConfig %d", tlsConfig)
 }
@@ -273,10 +273,10 @@ func (h *TLSModeReconciler) getCurrentTLSMode(tlsConfig int) (string, error) {
 func (h *TLSModeReconciler) setNewTLSMode(tlsConfig int, currentTLSMode string) error {
 	switch tlsConfig {
 	case httpsTLSConfig:
-		h.Vdb.Spec.HTTPSTLSMode = currentTLSMode
+		h.Vdb.Spec.HTTPSNMATLS.Mode = currentTLSMode
 		return nil
 	case clientServerTLSConfig:
-		h.Vdb.Spec.ClientServerTLSMode = currentTLSMode
+		h.Vdb.Spec.ClientServerTLS.Mode = currentTLSMode
 		return nil
 	}
 	return fmt.Errorf("invalid tlsConfig %d", tlsConfig)

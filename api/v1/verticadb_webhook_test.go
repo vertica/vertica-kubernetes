@@ -495,8 +495,8 @@ var _ = Describe("verticadb_webhook", func() {
 	It("httpsNMATLSSecret cannot be changed when cert rotation is in progress", func() {
 		vdb := MakeVDBForCertRotationEnabled()
 		oldVdb := vdb.DeepCopy()
-		oldVdb.Spec.HTTPSNMATLSSecret = "oldSecret"
-		vdb.Spec.HTTPSNMATLSSecret = "newSecretValue"
+		oldVdb.Spec.HTTPSNMATLS.Secret = "oldSecret"
+		vdb.Spec.HTTPSNMATLS.Secret = "newSecretValue"
 		resetStatusConditionsForCertRotationInProgress(vdb)
 		allErrs := vdb.validateImmutableFields(oldVdb)
 		Expect(allErrs).ShouldNot(BeNil())
@@ -2120,23 +2120,23 @@ var _ = Describe("verticadb_webhook", func() {
 	It("should not accept invalid client server tls modes", func() {
 		newVdb := MakeVDB()
 		SetVDBForTLS(newVdb)
-		newVdb.Spec.ClientServerTLSMode = "TRY_VERIFY"
+		newVdb.Spec.ClientServerTLS.Mode = "TRY_VERIFY"
 		Ω(newVdb.validateVerticaDBSpec()).Should(HaveLen(0))
-		newVdb.Spec.ClientServerTLSMode = "try_verify"
+		newVdb.Spec.ClientServerTLS.Mode = "try_verify"
 		Ω(newVdb.validateVerticaDBSpec()).Should(HaveLen(0))
-		newVdb.Spec.ClientServerTLSMode = "try_VERIFY"
+		newVdb.Spec.ClientServerTLS.Mode = "try_VERIFY"
 		Ω(newVdb.validateVerticaDBSpec()).Should(HaveLen(0))
-		newVdb.Spec.ClientServerTLSMode = "disable"
+		newVdb.Spec.ClientServerTLS.Mode = "disable"
 		Ω(newVdb.validateVerticaDBSpec()).Should(HaveLen(0))
-		newVdb.Spec.ClientServerTLSMode = "Enable"
+		newVdb.Spec.ClientServerTLS.Mode = "Enable"
 		Ω(newVdb.validateVerticaDBSpec()).Should(HaveLen(0))
-		newVdb.Spec.ClientServerTLSMode = "VERIFY_CA"
+		newVdb.Spec.ClientServerTLS.Mode = "VERIFY_CA"
 		Ω(newVdb.validateVerticaDBSpec()).Should(HaveLen(0))
-		newVdb.Spec.ClientServerTLSMode = "VERIFY_FULL"
+		newVdb.Spec.ClientServerTLS.Mode = "VERIFY_FULL"
 		Ω(newVdb.validateVerticaDBSpec()).Should(HaveLen(0))
-		newVdb.Spec.ClientServerTLSMode = "VERIFYCA"
+		newVdb.Spec.ClientServerTLS.Mode = "VERIFYCA"
 		Ω(newVdb.validateVerticaDBSpec()).Should(HaveLen(1))
-		newVdb.Spec.ClientServerTLSMode = ""
+		newVdb.Spec.ClientServerTLS.Mode = ""
 		Ω(newVdb.validateVerticaDBSpec()).Should(HaveLen(0))
 	})
 

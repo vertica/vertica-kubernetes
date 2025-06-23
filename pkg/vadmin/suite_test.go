@@ -374,7 +374,7 @@ func (m *MockVClusterOps) VPollSubclusterState(_ *vops.VPollSubclusterStateOptio
 // purposes. This uses a standard function to setup the API.
 func mockVClusterOpsDispatcher() *VClusterOps {
 	vdb := vapi.MakeVDB()
-	vdb.Spec.HTTPSNMATLSSecret = TestNMATLSSecret
+	vdb.Spec.HTTPSNMATLS.Secret = TestNMATLSSecret
 	// We use a function to construct the VClusterProvider. This is called
 	// ahead of each API rather than once so that we can setup a custom
 	// logger for each API call.
@@ -395,9 +395,9 @@ func mockVClusterOpsDispatcherWithCustomSetup(vdb *vapi.VerticaDB,
 
 func mockVclusteropsDispatcherWithTarget() *VClusterOps {
 	vdb := vapi.MakeVDB()
-	vdb.Spec.HTTPSNMATLSSecret = TestNMATLSSecret
+	vdb.Spec.HTTPSNMATLS.Secret = TestNMATLSSecret
 	targetVDB := vapi.MakeVDB()
-	targetVDB.Spec.HTTPSNMATLSSecret = TestNMATLSSecret
+	targetVDB.Spec.HTTPSNMATLS.Secret = TestNMATLSSecret
 	// We use a function to construct the VClusterProvider. This is called
 	// ahead of each API rather than once so that we can setup a custom
 	// logger for each API call.

@@ -664,7 +664,7 @@ var _ = Describe("obj_reconcile", func() {
 
 		It("should requeue if vclusterops is enabled but HTTP secret isn't setup properly", func() {
 			vdb := vapi.MakeVDB()
-			vdb.Spec.HTTPSNMATLSSecret = ""
+			vdb.Spec.HTTPSNMATLS.Secret = ""
 			vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
 			createCrd(vdb, false)
 			defer deleteCrd(vdb)
@@ -672,7 +672,7 @@ var _ = Describe("obj_reconcile", func() {
 			runReconciler(vdb, ctrl.Result{Requeue: true}, ObjReconcileModeAll)
 
 			// Having a secret name, but not created should force a requeue too
-			vdb.Spec.HTTPSNMATLSSecret = "dummy1"
+			vdb.Spec.HTTPSNMATLS.Secret = "dummy1"
 			runReconciler(vdb, ctrl.Result{Requeue: true}, ObjReconcileModeAll)
 		})
 
@@ -814,9 +814,9 @@ var _ = Describe("obj_reconcile", func() {
 			vdb := vapi.MakeVDB()
 			vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
 			vdb.Annotations[vmeta.VersionAnnotation] = vapi.VcluseropsAsDefaultDeploymentMethodMinVersion
-			vdb.Spec.HTTPSNMATLSSecret = "tls-abcdef"
-			test.CreateFakeTLSSecret(ctx, vdb, k8sClient, vdb.Spec.HTTPSNMATLSSecret)
-			defer test.DeleteSecret(ctx, k8sClient, vdb.Spec.HTTPSNMATLSSecret)
+			vdb.Spec.HTTPSNMATLS.Secret = "tls-abcdef"
+			test.CreateFakeTLSSecret(ctx, vdb, k8sClient, vdb.Spec.HTTPSNMATLS.Secret)
+			defer test.DeleteSecret(ctx, k8sClient, vdb.Spec.HTTPSNMATLS.Secret)
 			createCrd(vdb, true)
 			defer deleteCrd(vdb)
 
@@ -1003,7 +1003,7 @@ var _ = Describe("obj_reconcile", func() {
 			vdb := vapi.MakeVDB()
 			vdb.Annotations[vmeta.EnableTLSAuthAnnotation] = trueStr
 			const existing = "existing-secret"
-			vdb.Spec.HTTPSNMATLSSecret = existing
+			vdb.Spec.HTTPSNMATLS.Secret = existing
 			test.CreateVDB(ctx, k8sClient, vdb)
 			defer test.DeleteVDB(ctx, k8sClient, vdb)
 
@@ -1023,14 +1023,14 @@ var _ = Describe("obj_reconcile", func() {
 			// Verify that the ConfigMap was created
 			err = k8sClient.Get(ctx, configMapName, configMap)
 			Expect(err).Should(Succeed())
-			Expect(configMap.Data[builder.NMASecretNameEnv]).Should(Equal(vdb.Spec.HTTPSNMATLSSecret))
+			Expect(configMap.Data[builder.NMASecretNameEnv]).Should(Equal(vdb.Spec.HTTPSNMATLS.Secret))
 		})
 
 		It("should update the ConfigMap if the secret name changes", func() {
 			vdb := vapi.MakeVDB()
 			vdb.Annotations[vmeta.EnableTLSAuthAnnotation] = trueStr
 			const initial = "initial-secret"
-			vdb.Spec.HTTPSNMATLSSecret = initial
+			vdb.Spec.HTTPSNMATLS.Secret = initial
 			test.CreateVDB(ctx, k8sClient, vdb)
 			defer test.DeleteVDB(ctx, k8sClient, vdb)
 
@@ -1039,7 +1039,7 @@ var _ = Describe("obj_reconcile", func() {
 			Expect(k8sClient.Create(ctx, configMap)).Should(Succeed())
 			defer deleteConfigMap(ctx, vdb, nm.Name)
 
-			vdb.Spec.HTTPSNMATLSSecret = "updated-secret"
+			vdb.Spec.HTTPSNMATLS.Secret = "updated-secret"
 			Expect(k8sClient.Update(ctx, vdb)).Should(Succeed())
 
 			pfacts := podfacts.MakePodFacts(vdbRec, &cmds.FakePodRunner{}, logger, TestPassword)
@@ -1056,27 +1056,27 @@ var _ = Describe("obj_reconcile", func() {
 
 		It("should remove ownerReference from tls secret", func() {
 			vdb := vapi.MakeVDB()
-			vdb.Spec.HTTPSNMATLSSecret = "test-secret"
+			vdb.Spec.HTTPSNMATLS.Secret = "test-secret"
 			vdb.Annotations[vmeta.EnableTLSAuthAnnotation] = trueStr
 			createCrd(vdb, false)
 			defer deleteCrd(vdb)
-			secret := test.BuildTLSSecret(vdb, vdb.Spec.HTTPSNMATLSSecret, test.TestKeyValue, test.TestCertValue, test.TestCaCertValue)
+			secret := test.BuildTLSSecret(vdb, vdb.Spec.HTTPSNMATLS.Secret, test.TestKeyValue, test.TestCertValue, test.TestCaCertValue)
 			secret.OwnerReferences = []metav1.OwnerReference{
 				{UID: vdb.GetUID(), Name: vdb.Name, Kind: vapi.VerticaDBKind, APIVersion: vapi.GroupVersion.String()},
 			}
 			Expect(k8sClient.Create(ctx, secret)).Should(Succeed())
-			defer test.DeleteSecret(ctx, k8sClient, vdb.Spec.HTTPSNMATLSSecret)
+			defer test.DeleteSecret(ctx, k8sClient, vdb.Spec.HTTPSNMATLS.Secret)
 
 			o := &ObjReconciler{
 				Rec: vdbRec,
 				Vdb: vdb,
 				Log: logger,
 			}
-			err := o.updateOwnerReferenceInTLSSecret(ctx, vdb.Spec.HTTPSNMATLSSecret)
+			err := o.updateOwnerReferenceInTLSSecret(ctx, vdb.Spec.HTTPSNMATLS.Secret)
 			Expect(err).Should(Succeed())
 
 			fetchedSecret := &corev1.Secret{}
-			secretName := names.GenNamespacedName(o.Vdb, vdb.Spec.HTTPSNMATLSSecret)
+			secretName := names.GenNamespacedName(o.Vdb, vdb.Spec.HTTPSNMATLS.Secret)
 			Expect(k8sClient.Get(ctx, secretName, fetchedSecret)).Should(Succeed())
 			Expect(len(fetchedSecret.OwnerReferences)).Should(Equal(0))
 		})

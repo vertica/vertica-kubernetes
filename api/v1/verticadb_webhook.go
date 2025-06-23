@@ -811,7 +811,7 @@ func (v *VerticaDB) hasDuplicateScName(allErrs field.ErrorList) field.ErrorList 
 }
 
 func (v *VerticaDB) hasValidClientServerTLSMode(allErrs field.ErrorList) field.ErrorList {
-	allErrs = v.hasValidTLSMode(v.Spec.ClientServerTLSMode, "clientServerTLSMode", allErrs)
+	allErrs = v.hasValidTLSMode(v.Spec.ClientServerTLS.Mode, "clientServerTLSMode", allErrs)
 	return allErrs
 }
 
@@ -2300,9 +2300,9 @@ func (v *VerticaDB) checkImmutableClientProxy(oldObj *VerticaDB, allErrs field.E
 // checkImmutableCertRotation will validate the httpsNMATLSSecret spec fields in vdb
 func (v *VerticaDB) checkImmutableCertRotation(oldObj *VerticaDB, allErrs field.ErrorList) field.ErrorList {
 	// If cert rotation is in progress, httpsNMATLSSecret can not be changed
-	if v.IsCertRotationEnabled() && v.IsCertRotationInProgress() && oldObj.Spec.HTTPSNMATLSSecret != v.Spec.HTTPSNMATLSSecret {
+	if v.IsCertRotationEnabled() && v.IsCertRotationInProgress() && oldObj.Spec.HTTPSNMATLS.Secret != v.Spec.HTTPSNMATLS.Secret {
 		err := field.Invalid(field.NewPath("spec").Child("httpsNMATLSSecret"),
-			v.Spec.HTTPSNMATLSSecret,
+			v.Spec.HTTPSNMATLS.Secret,
 			"httpsNMATLSSecret cannot be changed when cert rotation is in progress")
 		allErrs = append(allErrs, err)
 	}

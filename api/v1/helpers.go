@@ -176,7 +176,7 @@ func MakeVDB() *VerticaDB {
 func MakeVDBForHTTP(httpServerTLSSecretName string) *VerticaDB {
 	vdb := MakeVDB()
 	vdb.Annotations[vmeta.VersionAnnotation] = HTTPServerMinVersion
-	vdb.Spec.HTTPSNMATLSSecret = httpServerTLSSecretName
+	vdb.Spec.HTTPSNMATLS.Secret = httpServerTLSSecretName
 	return vdb
 }
 
@@ -369,34 +369,28 @@ func MakeCondition(ctype string, status metav1.ConditionStatus, reason string) *
 	}
 }
 
-func MakeSecretRef(stype, name string) *SecretRef {
-	return &SecretRef{
-		Name: name,
-		Type: stype,
+func MakeTLSConfig(name, secret, mode string) *TLSConfig {
+	return &TLSConfig{
+		Name:   name,
+		Secret: secret,
+		Mode:   mode,
 	}
 }
 
-func MakeClientServerTLSSecretRef(name string) *SecretRef {
-	return MakeSecretRef(ClientServerTLSSecretType, name)
+func MakeClientServerTLSConfig(secret, mode string) *TLSConfig {
+	return MakeTLSConfig(ClientServerTLSSecretType, secret, mode)
 }
 
-func MakeHTTPSTLSSecretRef(name string) *SecretRef {
-	return MakeSecretRef(HTTPSTLSSecretType, name)
+func MakeHTTPSNMATLSConfig(secret, mode string) *TLSConfig {
+	return MakeTLSConfig(HTTPSTLSSecretType, secret, mode)
 }
 
-func MakeTLSMode(stype, mode string) *TLSMode {
-	return &TLSMode{
-		Mode: mode,
-		Type: stype,
-	}
+func MakeClientServerTLSConfigFromSpec(config *ClientServerTLS) *TLSConfig {
+	return MakeTLSConfig(HTTPSTLSSecretType, config.Secret, config.Mode)
 }
 
-func MakeClientServerTLSMode(mode string) *TLSMode {
-	return MakeTLSMode(ClientServerTLSModeType, mode)
-}
-
-func MakeHTTPSTLSMode(mode string) *TLSMode {
-	return MakeTLSMode(HTTPSTLSModeType, mode)
+func MakeHTTPSNMATLSConfigFromSpec(config *HTTPSNMATLS) *TLSConfig {
+	return MakeTLSConfig(HTTPSTLSSecretType, config.Secret, config.Mode)
 }
 
 // HasReviveInstanceIDAnnotation is true when an annotation exists for the db's
@@ -1515,15 +1509,23 @@ func GetMetricTarget(metric *autoscalingv2.MetricSpec) *autoscalingv2.MetricTarg
 	return nil
 }
 
-func (v *VerticaDB) GetSecretStatus(sType string) *SecretRef {
-	return FindSecretRef(v.Status.SecretRefs, sType)
+func (v *VerticaDB) GetTLSConfigByName(name string) *TLSConfig {
+	return FindTLSConfig(v.Status.TLSConfig, "Name", name)
 }
 
-func (v *VerticaDB) GetSecretNameInUse(sType string) string {
-	if v.GetSecretStatus(sType) == nil {
+func (v *VerticaDB) GetTLSConfigBySecret(secret string) *TLSConfig {
+	return FindTLSConfig(v.Status.TLSConfig, "Secret", secret)
+}
+
+func (v *VerticaDB) GetTLSConfigByMode(mode string) *TLSConfig {
+	return FindTLSConfig(v.Status.TLSConfig, "Mode", mode)
+}
+
+func (v *VerticaDB) GetSecretNameInUse(name string) string {
+	if v.GetTLSConfigByName(name) == nil {
 		return ""
 	}
-	return v.GetSecretStatus(sType).Name
+	return v.GetTLSConfigByName(name).Secret
 }
 
 func (v *VerticaDB) GetHTTPSTLSSecretNameInUse() string {
@@ -1536,13 +1538,13 @@ func (v *VerticaDB) GetClientServerTLSSecretNameInUse() string {
 
 // IsCertNeededForClientServerAuth returns true if certificate is needed for client-server authentication
 func (v *VerticaDB) IsCertNeededForClientServerAuth() bool {
-	tlsMode := strings.ToLower(v.Spec.ClientServerTLSMode)
+	tlsMode := strings.ToLower(v.Spec.ClientServerTLS.Mode)
 	return tlsMode != tlsModeDisable && tlsMode != tlsModeEnable
 }
 
 // GetNMAClientServerTLSMode returns the tlsMode for NMA client-server communication
 func (v *VerticaDB) GetNMAClientServerTLSMode() string {
-	tlsMode := strings.ToLower(v.Spec.ClientServerTLSMode)
+	tlsMode := strings.ToLower(v.Spec.ClientServerTLS.Mode)
 	switch tlsMode {
 	case tlsModeDisable:
 		return nmaTLSModeDisable
@@ -1561,25 +1563,34 @@ func (v *VerticaDB) GetNMAClientServerTLSMode() string {
 	}
 }
 
-// FindSecretRef returns a pointer to the SecretRef with the given type, or nil if not found.
-func FindSecretRef(refs []SecretRef, typ string) *SecretRef {
-	for i := range refs {
-		if refs[i].Type == typ {
-			return &refs[i]
+// Searches for a TLSConfig where a specified field equals a specified value
+// For example, where Name=ClientServer
+// Returns a pointer to the TLSConfig, or nil if not found.
+func FindTLSConfig(configs []TLSConfig, field, value string) *TLSConfig {
+	for i := range configs {
+		switch field {
+		case "Name":
+			if configs[i].Name == value {
+				return &configs[i]
+			}
+		case "Secret":
+			if configs[i].Secret == value {
+				return &configs[i]
+			}
+		case "Mode":
+			if configs[i].Mode == value {
+				return &configs[i]
+			}
 		}
 	}
 	return nil
 }
 
-func (v *VerticaDB) GetTLSModeStatus(sType string) *TLSMode {
-	return FindTLSMode(v.Status.TLSModes, sType)
-}
-
-func (v *VerticaDB) GetTLSModeInUse(sType string) string {
-	if v.GetTLSModeStatus(sType) == nil {
+func (v *VerticaDB) GetTLSModeInUse(name string) string {
+	if v.GetTLSConfigByName(name) == nil {
 		return ""
 	}
-	return v.GetTLSModeStatus(sType).Mode
+	return v.GetTLSConfigByName(name).Mode
 }
 
 func (v *VerticaDB) GetHTTPSTLSModeInUse() string {
@@ -1590,19 +1601,9 @@ func (v *VerticaDB) GetClientServerTLSModeInUse() string {
 	return v.GetTLSModeInUse(ClientServerTLSModeType)
 }
 
-// FindTLSMode returns a pointer to the SecretRef with the given type, or nil if not found.
-func FindTLSMode(refs []TLSMode, typ string) *TLSMode {
-	for i := range refs {
-		if refs[i].Type == typ {
-			return &refs[i]
-		}
-	}
-	return nil
-}
-
-// SetSecretRef updates the slice with a new SecretRef by Type, and returns true if any changes occurred.
-func SetSecretRef(refs *[]SecretRef, newRef SecretRef) (changed bool) {
-	existing := FindSecretRef(*refs, newRef.Type)
+// SetTLSConfigs updates the slice with a new TLSConfig by Name, and returns true if any changes occurred.
+func SetTLSConfigs(refs *[]TLSConfig, newRef TLSConfig) (changed bool) {
+	existing := FindTLSConfig(*refs, "Name", newRef.Name)
 	if existing == nil {
 		*refs = append(*refs, newRef)
 		return true
@@ -1612,29 +1613,15 @@ func SetSecretRef(refs *[]SecretRef, newRef SecretRef) (changed bool) {
 		existing.Name = newRef.Name
 		changed = true
 	}
-	if existing.Type != newRef.Type {
-		existing.Type = newRef.Type
+	if existing.Secret != newRef.Secret {
+		existing.Secret = newRef.Secret
 		changed = true
-	}
-
-	return changed
-}
-
-// SetTLSMode updates the slice with a new TLSMode by Type, and returns true if any changes occurred.
-func SetTLSMode(refs *[]TLSMode, newRef TLSMode) (changed bool) {
-	existing := FindTLSMode(*refs, newRef.Type)
-	if existing == nil {
-		*refs = append(*refs, newRef)
-		return true
 	}
 	if existing.Mode != newRef.Mode {
 		existing.Mode = newRef.Mode
 		changed = true
 	}
-	if existing.Type != newRef.Type {
-		existing.Type = newRef.Type
-		changed = true
-	}
+
 	return changed
 }
 
