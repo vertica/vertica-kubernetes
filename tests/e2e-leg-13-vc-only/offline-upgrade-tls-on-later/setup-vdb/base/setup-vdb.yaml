@@ -28,10 +28,5 @@ spec:
     - name: pri
       size: 1
       type: primary
-  temporarySubclusterRouting:
-    template:
-      name: transient
-      size: 1
-      type: secondary
   encryptSpreadComm: disabled
   certSecrets: []
