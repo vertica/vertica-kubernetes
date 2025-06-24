@@ -168,7 +168,7 @@ func (opt *VRotateTLSCertsOptions) validateAnalyzeOptions(log vlog.Printer) erro
 }
 
 func (opt *VRotateTLSCertsOptions) isHTTPS() bool {
-	return strings.EqualFold(opt.NewSecretMetadata.TLSConfig, string(HTTPSTLSConfigType))
+	return strings.EqualFold(opt.NewSecretMetadata.TLSConfig, string(HTTPSTLSKeyPrefix))
 }
 
 func (opt *VRotateTLSCertsOptions) isDisabled() bool {
@@ -212,7 +212,7 @@ func (vcc VClusterCommands) VRotateTLSCerts(options *VRotateTLSCertsOptions) err
 
 	// produce rotation instructions
 	instructions, err := vcc.produceRotateTLSCertsInstructions(options, initiatorHosts, mainClusterHosts, hostsToSandboxes,
-		expectedTLSConfigInfo, options.isHTTPS())
+		expectedTLSConfigInfo)
 	if err != nil {
 		return fmt.Errorf("failed to produce rotate HTTPS certs instructions, %w", err)
 	}
@@ -238,12 +238,6 @@ func (vcc VClusterCommands) VRotateTLSCerts(options *VRotateTLSCertsOptions) err
 	if err != nil {
 		return fmt.Errorf("failed to produce poll HTTPS restart instructions, %w", err)
 	}
-
-	httpsSyncCatalogOp, err2 := makeHTTPSSyncCatalogOp(mainClusterHosts, true, options.UserName, options.Password, CreateDBSyncCat)
-	if err2 != nil {
-		return err2
-	}
-	instructions = append(instructions, &httpsSyncCatalogOp)
 
 	// create db options with only cert info changed
 	newCertsDatabaseOptions := options.DatabaseOptions
@@ -293,7 +287,7 @@ func (vcc VClusterCommands) produceRotateTLSCertsInstructions(
 	options *VRotateTLSCertsOptions,
 	initiatorHosts, mainClusterHosts []string,
 	hostsToSandboxes map[string]string,
-	expectedTLSConfigInfo *tlsConfigInfo, isHTTPS bool) ([]clusterOp, error) {
+	expectedTLSConfigInfo *tlsConfigInfo) ([]clusterOp, error) {
 	var instructions []clusterOp
 	nmaHealthOp := makeNMAHealthOp(initiatorHosts)
 	instructions = append(instructions, &nmaHealthOp)
@@ -305,13 +299,11 @@ func (vcc VClusterCommands) produceRotateTLSCertsInstructions(
 		return instructions, err
 	}
 	instructions = append(instructions, &nmaRotateTLSCertsOp)
-	if !isHTTPS {
-		httpsSyncCatalogOp, err := makeHTTPSSyncCatalogOp(mainClusterHosts, true, options.UserName, options.Password, CreateDBSyncCat)
-		if err != nil {
-			return instructions, err
-		}
-		instructions = append(instructions, &httpsSyncCatalogOp)
+	httpsSyncCatalogOp, err := makeHTTPSSyncCatalogOp(mainClusterHosts, true, options.UserName, options.Password, CreateDBSyncCat)
+	if err != nil {
+		return instructions, err
 	}
+	instructions = append(instructions, &httpsSyncCatalogOp)
 	return instructions, nil
 }
 
