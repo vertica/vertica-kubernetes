@@ -11,15 +11,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: apps/v1
-kind: StatefulSet
----
-apiVersion: v1
-kind: Service
-metadata:
-  labels:
-    app.kubernetes.io/managed-by: verticadb-operator
----
 apiVersion: v1
 kind: Secret
 metadata:
@@ -27,4 +18,4 @@ metadata:
     app.kubernetes.io/name: vertica
     app.kubernetes.io/component: database
     vertica.com/database: vertdb
-    app.kubernetes.io/instance: v-nma-https-cert-rotate
+    app.kubernetes.io/instance: v-nma-https-cert-rotate-pwd
