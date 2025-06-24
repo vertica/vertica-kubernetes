@@ -71,7 +71,7 @@ var _ = Describe("rotate_https_cert", func() {
 		dispatcher.VDB.Status.TLSConfig = []vapi.TLSConfig{
 			{
 				Secret: rotateHTTPSCertCurrentNMASecretName,
-				Name:   vapi.HTTPSTLSSecretType,
+				Name:   vapi.HTTPSNMATLSConfigName,
 			},
 		}
 		hosts := []string{TestInitiatorIP}

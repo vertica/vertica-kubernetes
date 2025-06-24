@@ -35,8 +35,10 @@ spec:
     - name: secondary
       isPrimary: false
       size: 1
-  httpServerTLSSecret: nma-cert
-  clientServerTLSSecret: client-cert
+  httpServerTLS:
+    secret: nma-cert
+  clientServerTLS:
+    secret: client-cert
   kSafety: "0"
   certSecrets: []
   imagePullSecrets: []

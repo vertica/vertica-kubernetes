@@ -30,7 +30,8 @@ spec:
     - name: sc1
       size: 1
   httpServerTLSSecret: nma-cert
-  clientServerTLSSecret: client-cert
+  clientServerTLS:
+    secret: client-cert
   kSafety: "0"
   requeueTime: 5
   certSecrets: []

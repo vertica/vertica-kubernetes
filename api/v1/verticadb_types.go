@@ -1038,10 +1038,8 @@ type VerticaDBStatus struct {
 }
 
 const (
-	HTTPSTLSSecretType        = "HTTPSTLSSecretType"        // #nosec G101
-	ClientServerTLSSecretType = "ClientServerTLSSecretType" // #nosec G101
-	HTTPSTLSModeType          = "HTTPSTLSModeType"
-	ClientServerTLSModeType   = "ClientServerTLSModeType"
+	HTTPSNMATLSConfigName     = "httpsNMA"     // #nosec G101
+	ClientServerTLSConfigName = "clientServer" // #nosec G101
 )
 
 type TLSConfig struct {

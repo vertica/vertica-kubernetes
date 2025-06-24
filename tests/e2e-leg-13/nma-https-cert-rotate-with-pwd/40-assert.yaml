@@ -48,7 +48,7 @@ kind: VerticaDB
 metadata:
   name: v-nma-https-cert-rotate-pwd
 status:
-  secretRefs:
-    - name: custom-cert
-      type: HTTPSTLSSecretType
-    - type: ClientServerTLSSecretType
+  tlsConfig:
+    - secret: custom-cert
+      name: httpsNMA
+    - name: clientServer

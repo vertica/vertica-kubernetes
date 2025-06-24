@@ -19,8 +19,10 @@ spec:
   image: kustomize-vertica-image
   communal:
     includeUIDInPath: false
-  httpServerTLSSecret: custom-cert
-  clientServerTLSSecret: client-cert
+  httpServerTLS:
+    secret: custom-cert
+  clientServerTLS:
+    secret: client-cert
   initPolicy: CreateSkipPackageInstall
   local:
     dataPath: /vertica/data

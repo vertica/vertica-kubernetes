@@ -167,6 +167,8 @@ func MakeVDB() *VerticaDB {
 			},
 			ServiceHTTPSPort:  DefaultServiceHTTPSPort,
 			ServiceClientPort: DefaultServiceClientPort,
+			HTTPSNMATLS:       &HTTPSNMATLS{},
+			ClientServerTLS:   &ClientServerTLS{},
 		},
 	}
 }
@@ -378,19 +380,19 @@ func MakeTLSConfig(name, secret, mode string) *TLSConfig {
 }
 
 func MakeClientServerTLSConfig(secret, mode string) *TLSConfig {
-	return MakeTLSConfig(ClientServerTLSSecretType, secret, mode)
+	return MakeTLSConfig(ClientServerTLSConfigName, secret, mode)
 }
 
 func MakeHTTPSNMATLSConfig(secret, mode string) *TLSConfig {
-	return MakeTLSConfig(HTTPSTLSSecretType, secret, mode)
+	return MakeTLSConfig(HTTPSNMATLSConfigName, secret, mode)
 }
 
 func MakeClientServerTLSConfigFromSpec(config *ClientServerTLS) *TLSConfig {
-	return MakeTLSConfig(HTTPSTLSSecretType, config.Secret, config.Mode)
+	return MakeTLSConfig(HTTPSNMATLSConfigName, config.Secret, config.Mode)
 }
 
 func MakeHTTPSNMATLSConfigFromSpec(config *HTTPSNMATLS) *TLSConfig {
-	return MakeTLSConfig(HTTPSTLSSecretType, config.Secret, config.Mode)
+	return MakeTLSConfig(HTTPSNMATLSConfigName, config.Secret, config.Mode)
 }
 
 // HasReviveInstanceIDAnnotation is true when an annotation exists for the db's
@@ -1529,11 +1531,11 @@ func (v *VerticaDB) GetSecretNameInUse(name string) string {
 }
 
 func (v *VerticaDB) GetHTTPSTLSSecretNameInUse() string {
-	return v.GetSecretNameInUse(HTTPSTLSSecretType)
+	return v.GetSecretNameInUse(HTTPSNMATLSConfigName)
 }
 
 func (v *VerticaDB) GetClientServerTLSSecretNameInUse() string {
-	return v.GetSecretNameInUse(ClientServerTLSSecretType)
+	return v.GetSecretNameInUse(ClientServerTLSConfigName)
 }
 
 // IsCertNeededForClientServerAuth returns true if certificate is needed for client-server authentication
@@ -1566,9 +1568,9 @@ func (v *VerticaDB) GetNMAClientServerTLSMode() string {
 // Searches for a TLSConfig where a specified field equals a specified value
 // For example, where Name=ClientServer
 // Returns a pointer to the TLSConfig, or nil if not found.
-func FindTLSConfig(configs []TLSConfig, field, value string) *TLSConfig {
+func FindTLSConfig(configs []TLSConfig, configField, value string) *TLSConfig {
 	for i := range configs {
-		switch field {
+		switch configField {
 		case "Name":
 			if configs[i].Name == value {
 				return &configs[i]
@@ -1594,11 +1596,11 @@ func (v *VerticaDB) GetTLSModeInUse(name string) string {
 }
 
 func (v *VerticaDB) GetHTTPSTLSModeInUse() string {
-	return v.GetTLSModeInUse(HTTPSTLSModeType)
+	return v.GetTLSModeInUse(HTTPSNMATLSConfigName)
 }
 
 func (v *VerticaDB) GetClientServerTLSModeInUse() string {
-	return v.GetTLSModeInUse(ClientServerTLSModeType)
+	return v.GetTLSModeInUse(ClientServerTLSConfigName)
 }
 
 // SetTLSConfigs updates the slice with a new TLSConfig by Name, and returns true if any changes occurred.

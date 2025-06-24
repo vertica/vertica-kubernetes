@@ -212,7 +212,7 @@ var _ = Describe("status", func() {
 		defer func() { Expect(k8sClient.Delete(ctx, vdb)).Should(Succeed()) }()
 
 		config := &vapi.TLSConfig{
-			Name:   vapi.HTTPSTLSSecretType,
+			Name:   vapi.HTTPSNMATLSConfigName,
 			Secret: secretName,
 		}
 		Expect(UpdateTLSConfigs(ctx, k8sClient, vdb, []*vapi.TLSConfig{config})).Should(Succeed())
@@ -221,7 +221,7 @@ var _ = Describe("status", func() {
 		Expect(k8sClient.Get(ctx, nm, fetchVdb)).Should(Succeed())
 		for _, v := range []*vapi.VerticaDB{vdb, fetchVdb} {
 			Expect(len(v.Status.TLSConfig)).Should(Equal(1))
-			Expect(v.Status.TLSConfig[0].Name).Should(Equal(vapi.HTTPSTLSSecretType))
+			Expect(v.Status.TLSConfig[0].Name).Should(Equal(vapi.HTTPSNMATLSConfigName))
 			Expect(v.Status.TLSConfig[0].Secret).Should(Equal(secretName))
 		}
 	})
@@ -233,8 +233,8 @@ var _ = Describe("status", func() {
 		defer func() { Expect(k8sClient.Delete(ctx, vdb)).Should(Succeed()) }()
 
 		configs := []vapi.TLSConfig{
-			{Name: vapi.HTTPSTLSSecretType, Secret: sn},
-			{Name: vapi.HTTPSTLSSecretType, Secret: secretName},
+			{Name: vapi.HTTPSNMATLSConfigName, Secret: sn},
+			{Name: vapi.HTTPSNMATLSConfigName, Secret: secretName},
 		}
 
 		for i := range configs {
@@ -258,8 +258,8 @@ var _ = Describe("status", func() {
 
 		configs := []vapi.TLSConfig{
 			{Name: "type1", Secret: "sec1"},
-			{Name: vapi.HTTPSTLSSecretType, Secret: sn},
-			{Name: vapi.HTTPSTLSSecretType, Secret: secretName},
+			{Name: vapi.HTTPSNMATLSConfigName, Secret: sn},
+			{Name: vapi.HTTPSNMATLSConfigName, Secret: secretName},
 		}
 
 		for i := range configs {

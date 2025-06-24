@@ -159,9 +159,6 @@ func convertToSpec(src *VerticaDBSpec) v1.VerticaDBSpec {
 		SecurityContext:        src.SecurityContext,
 		NMASecurityContext:     src.NMASecurityContext,
 		PodSecurityContext:     src.PodSecurityContext,
-		HTTPSNMATLSSecret:      src.HTTPServerTLSSecret,
-		ClientServerTLSSecret:  src.ClientServerTLSSecret,
-		ClientServerTLSMode:    src.ClientServerTLSMode,
 		ReadinessProbeOverride: src.ReadinessProbeOverride,
 		LivenessProbeOverride:  src.LivenessProbeOverride,
 		StartupProbeOverride:   src.StartupProbeOverride,
@@ -235,9 +232,6 @@ func convertFromSpec(src *v1.VerticaDB) VerticaDBSpec {
 		SecurityContext:         srcSpec.SecurityContext,
 		NMASecurityContext:      srcSpec.NMASecurityContext,
 		PodSecurityContext:      srcSpec.PodSecurityContext,
-		HTTPServerTLSSecret:     srcSpec.HTTPSNMATLS.Secret,
-		ClientServerTLSSecret:   srcSpec.ClientServerTLS.Secret,
-		ClientServerTLSMode:     srcSpec.ClientServerTLS.Mode,
 		ReadinessProbeOverride:  srcSpec.ReadinessProbeOverride,
 		LivenessProbeOverride:   srcSpec.LivenessProbeOverride,
 		StartupProbeOverride:    srcSpec.StartupProbeOverride,
@@ -285,8 +279,6 @@ func convertToStatus(src *VerticaDBStatus) v1.VerticaDBStatus {
 		Conditions:      make([]metav1.Condition, 0),
 		UpgradeStatus:   src.UpgradeStatus,
 		Sandboxes:       make([]v1.SandboxStatus, len(src.Sandboxes)),
-		SecretRefs:      make([]v1.SecretRef, len(src.SecretRefs)),
-		TLSModes:        make([]v1.TLSMode, len(src.TLSModes)),
 	}
 	if src.RestorePoint != nil {
 		dst.RestorePoint = &v1.RestorePointInfo{
@@ -304,18 +296,6 @@ func convertToStatus(src *VerticaDBStatus) v1.VerticaDBStatus {
 	for i := range src.Sandboxes {
 		dst.Sandboxes[i] = convertToSandboxStatus(src.Sandboxes[i])
 	}
-	for i := range src.SecretRefs {
-		dst.SecretRefs[i] = v1.SecretRef{
-			Name: src.SecretRefs[i].Name,
-			Type: src.SecretRefs[i].Type,
-		}
-	}
-	for i := range src.TLSModes {
-		dst.TLSModes[i] = v1.TLSMode{
-			Mode: src.TLSModes[i].Mode,
-			Type: src.TLSModes[i].Type,
-		}
-	}
 	return dst
 }
 
@@ -330,8 +310,6 @@ func convertFromStatus(src *v1.VerticaDBStatus) VerticaDBStatus {
 		Conditions:      make([]VerticaDBCondition, len(src.Conditions)),
 		UpgradeStatus:   src.UpgradeStatus,
 		Sandboxes:       make([]SandboxStatus, len(src.Sandboxes)),
-		SecretRefs:      make([]SecretRef, len(src.SecretRefs)),
-		TLSModes:        make([]TLSMode, len(src.TLSModes)),
 	}
 	if src.RestorePoint != nil {
 		dst.RestorePoint = &RestorePointInfo{
@@ -348,18 +326,6 @@ func convertFromStatus(src *v1.VerticaDBStatus) VerticaDBStatus {
 	}
 	for i := range src.Sandboxes {
 		dst.Sandboxes[i] = convertFromSandboxStatus(src.Sandboxes[i])
-	}
-	for i := range src.SecretRefs {
-		dst.SecretRefs[i] = SecretRef{
-			Name: src.SecretRefs[i].Name,
-			Type: src.SecretRefs[i].Type,
-		}
-	}
-	for i := range src.TLSModes {
-		dst.TLSModes[i] = TLSMode{
-			Mode: src.TLSModes[i].Mode,
-			Type: src.TLSModes[i].Type,
-		}
 	}
 	return dst
 }

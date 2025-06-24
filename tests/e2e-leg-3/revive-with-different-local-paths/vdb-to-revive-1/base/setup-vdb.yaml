@@ -21,7 +21,8 @@ spec:
   communal:
     includeUIDInPath: false
   httpServerTLSSecret: custom-cert
-  clientServerTLSSecret: client-cert
+  clientServerTLS:
+    secret: client-cert
   initPolicy: Revive
   local:
     # The operator will overwrite the paths with the correct ones. So put

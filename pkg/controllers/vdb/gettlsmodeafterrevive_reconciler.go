@@ -75,18 +75,18 @@ func (h *GetTLSModeAfterReviveReconciler) Reconcile(ctx context.Context, _ *ctrl
 	configSet := []int{httpsTLSConfig, clientServerTLSConfig}
 	tlsConfigs := []*vapi.TLSConfig{}
 	for _, tlsConfig := range configSet {
-		config, res, err := h.getTLSModeAfterRevive(ctx, tlsConfig)
+		mode, res, err := h.getTLSModeAfterRevive(ctx, tlsConfig)
 		if verrors.IsReconcileAborted(res, err) {
 			return res, err
 		}
-		if config == "" {
+		if mode == "" {
 			// no tls config found
 			continue
 		}
 		if tlsConfig == httpsTLSConfig {
-			tlsConfigs = append(tlsConfigs, vapi.MakeHTTPSNMATLSConfigFromSpec(config))
+			tlsConfigs = append(tlsConfigs, vapi.MakeHTTPSNMATLSConfig(h.Vdb.Spec.HTTPSNMATLS.Secret, mode))
 		} else {
-			tlsConfigs = append(tlsConfigs, vapi.MakeClientServerTLSConfigFromSpec(config))
+			tlsConfigs = append(tlsConfigs, vapi.MakeClientServerTLSConfig(h.Vdb.Spec.ClientServerTLS.Secret, mode))
 		}
 	}
 	if len(tlsConfigs) > 0 {

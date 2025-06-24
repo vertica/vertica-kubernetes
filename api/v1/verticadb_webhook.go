@@ -811,7 +811,9 @@ func (v *VerticaDB) hasDuplicateScName(allErrs field.ErrorList) field.ErrorList 
 }
 
 func (v *VerticaDB) hasValidClientServerTLSMode(allErrs field.ErrorList) field.ErrorList {
-	allErrs = v.hasValidTLSMode(v.Spec.ClientServerTLS.Mode, "clientServerTLSMode", allErrs)
+	if v.Spec.ClientServerTLS != nil {
+		allErrs = v.hasValidTLSMode(v.Spec.ClientServerTLS.Mode, "clientServerTLS.Mode", allErrs)
+	}
 	return allErrs
 }
 

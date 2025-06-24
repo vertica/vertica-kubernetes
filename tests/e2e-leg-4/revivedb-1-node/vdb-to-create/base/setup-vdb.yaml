@@ -31,7 +31,8 @@ spec:
   requeueTime: 5
   certSecrets: []
   httpServerTLSSecret: nma-cert
-  clientServerTLSSecret: client-cert 
+  clientServerTLS:
+    secret: client-cert 
   imagePullSecrets: []
   volumes: []
   volumeMounts: []

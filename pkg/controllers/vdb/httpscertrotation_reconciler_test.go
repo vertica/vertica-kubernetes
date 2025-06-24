@@ -57,7 +57,7 @@ var _ = Describe("httpscertrotation_reconciler", func() {
 		vdb.Status.TLSConfig = []vapi.TLSConfig{
 			{
 				Secret: rotateHTTPSCertCurrentNMASecretName,
-				Name:   vapi.HTTPSTLSSecretType,
+				Name:   vapi.HTTPSNMATLSConfigName,
 			},
 		}
 		Expect(k8sClient.Status().Update(ctx, vdb)).Should(Succeed())

@@ -3,8 +3,8 @@ kind: VerticaDB
 metadata:
   name: v-tls-certs
 status:
-  tlsModes:
+  tlsConfig:
   - mode: TRY_VERIFY
-    type: HTTPSTLSModeType
+    name: httpsNMA
   - mode: TRY_VERIFY
-    type: ClientServerTLSModeType
+    name: clientServer

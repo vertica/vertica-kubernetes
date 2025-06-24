@@ -31,10 +31,12 @@ spec:
   subclusters:
     - name: sc1
       size: 1
-  httpsNMATLSSecret: nma-cert
-  httpsTLSMode: VERIFY_CA
-  clientServerTLSSecret: client-cert
-  clientServerTLSMode: VERIFY_CA
+  httpsNMATLS:
+    secret: nma-cert
+    mode: VERIFY_CA
+  clientServerTLS:
+    secret: client-cert
+    mode: VERIFY_CA
   securityContext:
     capabilities:
       add: ["SYS_PTRACE"]
