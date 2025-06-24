@@ -641,7 +641,7 @@ vdb-gen: generate manifests ## Builds the vdb-gen tool
 
 .PHONY: cert-gen
 cert-gen: ## Builds the cert-gen tool
-	go build -o bin/$@ ./cmd/$@
+	CGO_ENABLED=0 go build -o bin/$@ ./cmd/$@
 
 ##@ Deployment
 
