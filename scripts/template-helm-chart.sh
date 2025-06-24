@@ -243,3 +243,5 @@ done
 
 # Conditionally add rules for keda objects
 perl -i -0777 -pe 's/(- apiGroups:\n\s+- keda\.sh.*?)\n(?=- apiGroups:|\Z)/{{- if .Values.keda.createRBACRules }}\n\1\n{{- end }}\n/sg' $TEMPLATE_DIR/verticadb-operator-manager-role-cr.yaml
+# Conditionally add a rule for namespaces if the controller scope is cluster
+perl -i -0777 -pe 's/(- apiGroups:\n\s+- ""\n\s+resources:\n\s+- namespaces\n\s+verbs:\n(?:\s+- \w+\n)+)/\{\{- if eq .Values.controllers.scope "cluster" \}\}\n\1\{\{- end \}\}\n/sg' $TEMPLATE_DIR/verticadb-operator-manager-role-cr.yaml
