@@ -284,15 +284,15 @@ func (v *VerticaDB) hasValidSubclusterTypes(allErrs field.ErrorList) field.Error
 	for i := range v.Spec.Subclusters {
 		sc := &v.Spec.Subclusters[i]
 		if sc.Type == PrimarySubcluster || sc.Type == SecondarySubcluster ||
-			sc.Type == TransientSubcluster {
+			sc.Type == TransientSubcluster || sc.Type == SandboxPrimarySubcluster {
 			continue
 		}
 		fieldPrefix := field.NewPath("spec").Child("subclusters").Index(i)
 		err := field.Invalid(fieldPrefix.Child("type"),
 			sc.Type,
 			fmt.Sprintf("subcluster type is invalid. A valid case-sensitive type a user can specify is %q or %q. "+
-				"(%q are valid types that should only be set by the operator)",
-				PrimarySubcluster, SecondarySubcluster, TransientSubcluster))
+				"(%q and %q are valid types that should only be set by the operator)",
+				PrimarySubcluster, SecondarySubcluster, SandboxPrimarySubcluster, TransientSubcluster))
 		allErrs = append(allErrs, err)
 	}
 	return allErrs

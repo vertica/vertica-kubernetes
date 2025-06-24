@@ -1,0 +1,84 @@
+/*
+ (c) Copyright [2021-2024] Open Text.
+ Licensed under the Apache License, Version 2.0 (the "License");
+ You may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+ http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+*/
+
+package vdb
+
+import (
+	"context"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	vapi "github.com/vertica/vertica-kubernetes/api/v1"
+	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
+	"github.com/vertica/vertica-kubernetes/pkg/test"
+)
+
+var _ = Describe("ValidateVDBReconciler", func() {
+	var reconciler *ValidateVDBReconciler
+	var pfacts *podfacts.PodFacts
+
+	ctx := context.Background()
+	vdb := vapi.MakeVDBForVclusterOps()
+
+	BeforeEach(func() {
+		vdb.Spec.Subclusters = []vapi.Subcluster{
+			{Name: "sc1", Type: vapi.PrimarySubcluster},
+			{Name: "sc2", Type: vapi.SandboxPrimarySubcluster},
+			{Name: "sc3", Type: vapi.SecondarySubcluster},
+		}
+		vdb.Spec.Sandboxes = []vapi.Sandbox{
+			{
+				Name: "sb1",
+				Subclusters: []vapi.SandboxSubcluster{
+					{Name: "sc2", Type: vapi.PrimarySubcluster},
+					{Name: "sc3", Type: vapi.PrimarySubcluster},
+				},
+			},
+		}
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
+
+		pfacts = &podfacts.PodFacts{SandboxName: "sb1"}
+		rec := MakeValidateVDBReconciler(vdbRec, logger, vdb, pfacts)
+		reconciler = rec.(*ValidateVDBReconciler)
+	})
+
+	It("should update subcluster types from sandboxprimary to secondary", func() {
+		err := reconciler.validateSubclusters()
+		Expect(err).ShouldNot(HaveOccurred())
+		Expect(vdb.Spec.Subclusters[1].Type).To(Equal(vapi.SecondarySubcluster))
+	})
+
+	It("should update sandbox subcluster types from primary to secondary", func() {
+		err := reconciler.validateSubclusters()
+		Expect(err).ShouldNot(HaveOccurred())
+		Expect(vdb.Spec.Sandboxes[0].Subclusters[1].Type).To(Equal(vapi.SecondarySubcluster))
+	})
+
+	It("should not update subcluster types if already valid", func() {
+		// Set all types to secondary
+		vdb.Spec.Subclusters[1].Type = vapi.SecondarySubcluster
+		err := reconciler.validateSubclusters()
+		Expect(err).ShouldNot(HaveOccurred())
+		Expect(vdb.Spec.Sandboxes[0].Subclusters[1].Type).To(Equal(vapi.PrimarySubcluster))
+	})
+
+	It("should return error if sandbox not found", func() {
+		pfacts.SandboxName = "doesnotexist"
+		err := reconciler.validateSubclusters()
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("could not find sandbox"))
+	})
+})

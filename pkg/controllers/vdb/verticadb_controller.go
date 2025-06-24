@@ -186,6 +186,8 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		// reconcile actor that depends on running pods should not be before
 		// this one.
 		MakeCrashLoopReconciler(r, log, vdb),
+		// Validate the vdb after operator upgraded
+		MakeValidateVDBReconciler(r, log, vdb, pfacts),
 		// Always generate cert first if nothing is provided
 		MakeTLSServerCertGenReconciler(r, log, vdb),
 		// Trigger sandbox upgrade when the image field for the sandbox
