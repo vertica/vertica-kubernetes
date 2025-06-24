@@ -113,7 +113,7 @@ func (h *HTTPSCertRotationReconciler) Reconcile(ctx context.Context, _ *ctrl.Req
 		return ctrl.Result{}, err2
 	}
 	currentTLSMode := h.Vdb.GetHTTPSTLSModeInUse()
-	if currentTLSMode != h.Vdb.GetClientServerTLSMode() {
+	if currentTLSMode != h.Vdb.GetHTTPSNMATLSMode() {
 		httpsTLSConfig := vapi.MakeHTTPSNMATLSConfigFromSpec(h.Vdb.Spec.HTTPSNMATLS)
 		err = vdbstatus.UpdateTLSConfigs(ctx, h.VRec.GetClient(), h.Vdb, []*vapi.TLSConfig{httpsTLSConfig})
 		if err != nil {
