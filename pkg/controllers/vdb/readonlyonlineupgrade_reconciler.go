@@ -366,7 +366,7 @@ func (o *ReadOnlyOnlineUpgradeReconciler) iterateSubclusterType(ctx context.Cont
 		}
 
 		if res, err := processFunc(ctx, sts); verrors.IsReconcileAborted(res, err) {
-			o.Log.Info("Error during subcluster iteration", "res", res, "err", err)
+			o.Log.Info("Halting subcluster iteration due to requeue request", "res", res, "err", err)
 			return res, err
 		}
 	}
@@ -392,7 +392,7 @@ func (o *ReadOnlyOnlineUpgradeReconciler) restartPrimaries(ctx context.Context) 
 			return res, err
 		}
 		if res, err := o.iterateSubclusterType(ctx, vapi.PrimarySubcluster, fn); verrors.IsReconcileAborted(res, err) {
-			o.Log.Info("Halting subcluster iteration due to requeue request", "i", i)
+			o.Log.Info("Halting restarting primary due to requeue request", "i", i)
 			return res, err
 		}
 	}
@@ -478,14 +478,8 @@ func (o *ReadOnlyOnlineUpgradeReconciler) runSubclusterDrain(ctx context.Context
 	drainSubclusterAnnotation := vmeta.GenSubclusterDrainStartAnnotationName(scName)
 
 	// Check if any OTHER subcluster drain annotation is present
-	drainAnnotations, found := vmeta.FindDrainTimeoutSubclusterAnnotations(o.Vdb.Annotations)
-	if found {
-		for _, annotation := range drainAnnotations {
-			if annotation != drainSubclusterAnnotation {
-				// Another subcluster is draining, skip this one.
-				return ctrl.Result{}, nil
-			}
-		}
+	if o.Vdb.IsOtherSubclusterDraining(scName) {
+		return ctrl.Result{}, nil
 	}
 
 	// Check for active connections

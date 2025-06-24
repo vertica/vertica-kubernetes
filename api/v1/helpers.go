@@ -1682,3 +1682,20 @@ func findInvalidChars(objName string, allowDash bool) string {
 	}
 	return foundChars
 }
+
+// IsOtherSubclusterDraining returns true if any subcluster drain annotation
+// exists that has a suffix different from the given scName.
+func (v *VerticaDB) IsOtherSubclusterDraining(scName string) bool {
+	drainAnnotations, found := vmeta.FindDrainTimeoutSubclusterAnnotations(v.Annotations)
+	if !found {
+		return false
+	}
+	for _, annotation := range drainAnnotations {
+		// If we have an annotation that is NOT for this scName,
+		// it means another subcluster is draining.
+		if annotation != vmeta.GenSubclusterDrainStartAnnotationName(scName) {
+			return true
+		}
+	}
+	return false
+}
