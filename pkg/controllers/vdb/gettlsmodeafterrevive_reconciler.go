@@ -84,9 +84,9 @@ func (h *GetTLSModeAfterReviveReconciler) Reconcile(ctx context.Context, _ *ctrl
 			continue
 		}
 		if tlsConfig == httpsTLSConfig {
-			tlsConfigs = append(tlsConfigs, vapi.MakeHTTPSNMATLSConfig(h.Vdb.Spec.HTTPSNMATLS.Secret, mode))
+			tlsConfigs = append(tlsConfigs, vapi.MakeHTTPSNMATLSConfig(h.Vdb.GetHTTPSNMATLSSecret(), mode))
 		} else {
-			tlsConfigs = append(tlsConfigs, vapi.MakeClientServerTLSConfig(h.Vdb.Spec.ClientServerTLS.Secret, mode))
+			tlsConfigs = append(tlsConfigs, vapi.MakeClientServerTLSConfig(h.Vdb.GetClientServerTLSSecret(), mode))
 		}
 	}
 	if len(tlsConfigs) > 0 {

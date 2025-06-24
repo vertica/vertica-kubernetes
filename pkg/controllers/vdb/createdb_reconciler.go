@@ -120,7 +120,7 @@ func (c *CreateDBReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ct
 // This handles logging of necessary events.
 func (c *CreateDBReconciler) execCmd(ctx context.Context, initiatorPod types.NamespacedName,
 	hostList []string, podNames []types.NamespacedName) (ctrl.Result, error) {
-	if c.Vdb.IsCertRotationEnabled() && secrets.IsGSMSecret(c.Vdb.Spec.HTTPSNMATLS.Secret) {
+	if c.Vdb.IsCertRotationEnabled() && secrets.IsGSMSecret(c.Vdb.GetHTTPSNMATLSSecret()) {
 		return ctrl.Result{}, fmt.Errorf("tls configuration setting with GSM not implemented")
 	}
 	opts, err := c.genOptions(ctx, initiatorPod, podNames, hostList)

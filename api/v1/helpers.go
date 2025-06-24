@@ -388,10 +388,16 @@ func MakeHTTPSNMATLSConfig(secret, mode string) *TLSConfig {
 }
 
 func MakeClientServerTLSConfigFromSpec(config *ClientServerTLS) *TLSConfig {
+	if config == nil {
+		return nil
+	}
 	return MakeTLSConfig(HTTPSNMATLSConfigName, config.Secret, config.Mode)
 }
 
 func MakeHTTPSNMATLSConfigFromSpec(config *HTTPSNMATLS) *TLSConfig {
+	if config == nil {
+		return nil
+	}
 	return MakeTLSConfig(HTTPSNMATLSConfigName, config.Secret, config.Mode)
 }
 
@@ -1540,13 +1546,13 @@ func (v *VerticaDB) GetClientServerTLSSecretNameInUse() string {
 
 // IsCertNeededForClientServerAuth returns true if certificate is needed for client-server authentication
 func (v *VerticaDB) IsCertNeededForClientServerAuth() bool {
-	tlsMode := strings.ToLower(v.Spec.ClientServerTLS.Mode)
+	tlsMode := strings.ToLower(v.GetClientServerTLSMode())
 	return tlsMode != tlsModeDisable && tlsMode != tlsModeEnable
 }
 
 // GetNMAClientServerTLSMode returns the tlsMode for NMA client-server communication
 func (v *VerticaDB) GetNMAClientServerTLSMode() string {
-	tlsMode := strings.ToLower(v.Spec.ClientServerTLS.Mode)
+	tlsMode := strings.ToLower(v.GetClientServerTLSMode())
 	switch tlsMode {
 	case tlsModeDisable:
 		return nmaTLSModeDisable
@@ -1670,4 +1676,36 @@ func findInvalidChars(objName string, allowDash bool) string {
 		}
 	}
 	return foundChars
+}
+
+// Get HTTPSNMATLS mode from spec or return "" if not found
+func (v *VerticaDB) GetHTTPSNMATLSMode() string {
+	if v.Spec.HTTPSNMATLS == nil {
+		return ""
+	}
+	return v.Spec.HTTPSNMATLS.Mode
+}
+
+// Get HTTPSNMATLS mode from spec or return "" if not found
+func (v *VerticaDB) GetHTTPSNMATLSSecret() string {
+	if v.Spec.HTTPSNMATLS == nil {
+		return ""
+	}
+	return v.Spec.HTTPSNMATLS.Secret
+}
+
+// Get HTTPSNMATLS mode from spec or return "" if not found
+func (v *VerticaDB) GetClientServerTLSMode() string {
+	if v.Spec.ClientServerTLS == nil {
+		return ""
+	}
+	return v.Spec.ClientServerTLS.Mode
+}
+
+// Get HTTPSNMATLS mode from spec or return "" if not found
+func (v *VerticaDB) GetClientServerTLSSecret() string {
+	if v.Spec.HTTPSNMATLS == nil {
+		return ""
+	}
+	return v.Spec.ClientServerTLS.Secret
 }

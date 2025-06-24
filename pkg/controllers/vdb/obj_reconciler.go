@@ -168,13 +168,13 @@ func (o *ObjReconciler) checkMountedObjs(ctx context.Context) (ctrl.Result, erro
 		// that has the certs to use for it.  There is a reconciler that is run
 		// before this that will create the secret.  We will requeue if we find
 		// the Vdb doesn't have the secret set.
-		if o.Vdb.Spec.HTTPSNMATLS.Secret == "" {
+		if o.Vdb.GetHTTPSNMATLSSecret() == "" {
 			o.Rec.Event(o.Vdb, corev1.EventTypeWarning, events.HTTPServerNotSetup,
-				"The httpsNMATLSSecret must be set when running with vclusterops deployment")
+				"The httpsNMATLS.secret must be set when running with vclusterops deployment")
 			return ctrl.Result{Requeue: true}, nil
 		}
 		_, res, err := o.SecretFetcher.FetchAllowRequeue(ctx,
-			names.GenNamespacedName(o.Vdb, o.Vdb.Spec.HTTPSNMATLS.Secret))
+			names.GenNamespacedName(o.Vdb, o.Vdb.GetHTTPSNMATLSSecret()))
 		if verrors.IsReconcileAborted(res, err) {
 			return res, err
 		}
@@ -200,8 +200,8 @@ func (o *ObjReconciler) checkMountedObjs(ctx context.Context) (ctrl.Result, erro
 
 func (o *ObjReconciler) checkTLSSecrets(ctx context.Context) (ctrl.Result, error) {
 	tlsSecrets := map[string]string{
-		"NMA TLS":           o.Vdb.Spec.HTTPSNMATLS.Secret,
-		"Client Server TLS": o.Vdb.Spec.ClientServerTLS.Secret,
+		"NMA TLS":           o.Vdb.GetHTTPSNMATLSSecret(),
+		"Client Server TLS": o.Vdb.GetClientServerTLSSecret(),
 	}
 	for k, tlsSecret := range tlsSecrets {
 		if tlsSecret != "" {
@@ -724,24 +724,24 @@ func (o *ObjReconciler) reconcileNMACertConfigMap(ctx context.Context) error {
 		o.Log.Error(err, "failed to retrieve TLS cert secret configmap")
 		return err
 	}
-	if configMap.Data[builder.NMASecretNameEnv] == o.Vdb.Spec.HTTPSNMATLS.Secret &&
-		configMap.Data[builder.NMAClientSecretNameEnv] == o.Vdb.Spec.ClientServerTLS.Secret &&
+	if configMap.Data[builder.NMASecretNameEnv] == o.Vdb.GetHTTPSNMATLSSecret() &&
+		configMap.Data[builder.NMAClientSecretNameEnv] == o.Vdb.GetClientServerTLSSecret() &&
 		configMap.Data[builder.NMASecretNamespaceEnv] == o.Vdb.ObjectMeta.Namespace &&
 		configMap.Data[builder.NMAClientSecretNamespaceEnv] == o.Vdb.ObjectMeta.Namespace &&
 		configMap.Data[builder.NMAClientSecretTLSModeEnv] == o.Vdb.GetNMAClientServerTLSMode() {
 		return nil
 	}
 
-	configMap.Data[builder.NMASecretNameEnv] = o.Vdb.Spec.HTTPSNMATLS.Secret
+	configMap.Data[builder.NMASecretNameEnv] = o.Vdb.GetHTTPSNMATLSSecret()
 	configMap.Data[builder.NMASecretNamespaceEnv] = o.Vdb.ObjectMeta.Namespace
-	configMap.Data[builder.NMAClientSecretNameEnv] = o.Vdb.Spec.ClientServerTLS.Secret
+	configMap.Data[builder.NMAClientSecretNameEnv] = o.Vdb.GetClientServerTLSSecret()
 	configMap.Data[builder.NMAClientSecretNamespaceEnv] = o.Vdb.ObjectMeta.Namespace
 	configMap.Data[builder.NMAClientSecretTLSModeEnv] = o.Vdb.GetNMAClientServerTLSMode()
 
 	err = o.Rec.GetClient().Update(ctx, configMap)
 	if err == nil {
-		o.Log.Info("updated tls cert secret configmap", "name", configMapName.Name, "nma-secret", o.Vdb.Spec.HTTPSNMATLS.Secret,
-			"clientserver-secret", o.Vdb.Spec.ClientServerTLS.Secret)
+		o.Log.Info("updated tls cert secret configmap", "name", configMapName.Name, "nma-secret", o.Vdb.GetHTTPSNMATLSSecret(),
+			"clientserver-secret", o.Vdb.GetClientServerTLSSecret())
 	}
 	return err
 }
@@ -753,8 +753,8 @@ func (o *ObjReconciler) reconcileTLSSecrets(ctx context.Context) error {
 	}
 
 	tlsSecrets := []string{
-		o.Vdb.Spec.HTTPSNMATLS.Secret,
-		o.Vdb.Spec.ClientServerTLS.Secret,
+		o.Vdb.GetHTTPSNMATLSSecret(),
+		o.Vdb.GetClientServerTLSSecret(),
 	}
 	for _, tlsSecret := range tlsSecrets {
 		// non-k8s secrets are ignored

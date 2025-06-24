@@ -72,15 +72,15 @@ func retrieveNMACerts(ctx context.Context, fetcher *cloud.SecretFetcher, vdb *va
 
 	tlsKey, ok := tlsCerts[corev1.TLSPrivateKeyKey]
 	if !ok {
-		return nil, fmt.Errorf("key %s is missing in the secret %s", corev1.TLSPrivateKeyKey, vdb.Spec.HTTPSNMATLS.Secret)
+		return nil, fmt.Errorf("key %s is missing in the secret %s", corev1.TLSPrivateKeyKey, vdb.GetHTTPSNMATLSSecret())
 	}
 	tlsCrt, ok := tlsCerts[corev1.TLSCertKey]
 	if !ok {
-		return nil, fmt.Errorf("cert %s is missing in the secret %s", corev1.TLSCertKey, vdb.Spec.HTTPSNMATLS.Secret)
+		return nil, fmt.Errorf("cert %s is missing in the secret %s", corev1.TLSCertKey, vdb.GetHTTPSNMATLSSecret())
 	}
 	tlsCaCrt, ok := tlsCerts[corev1.ServiceAccountRootCAKey]
 	if !ok {
-		return nil, fmt.Errorf("ca cert %s is missing in the secret %s", corev1.ServiceAccountRootCAKey, vdb.Spec.HTTPSNMATLS.Secret)
+		return nil, fmt.Errorf("ca cert %s is missing in the secret %s", corev1.ServiceAccountRootCAKey, vdb.GetHTTPSNMATLSSecret())
 	}
 	return &HTTPSCerts{
 		Key:    string(tlsKey),
@@ -153,7 +153,7 @@ func getHTTPSTLSSecretName(vdb *vapi.VerticaDB) (string, error) {
 	if vdb.IsCertRotationEnabled() && vdb.IsStatusConditionTrue(vapi.DBInitialized) {
 		secretName = vdb.GetHTTPSTLSSecretNameInUse()
 	} else {
-		secretName = vdb.Spec.HTTPSNMATLS.Secret
+		secretName = vdb.GetHTTPSNMATLSSecret()
 	}
 	if secretName == "" {
 		return "", fmt.Errorf("failed to retrieve nma secret name")

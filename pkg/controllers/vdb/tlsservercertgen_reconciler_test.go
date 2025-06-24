@@ -42,7 +42,7 @@ var _ = Describe("tlsservercertgen_reconcile", func() {
 
 		r := MakeTLSServerCertGenReconciler(vdbRec, logger, vdb)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
-		Expect(vdb.Spec.HTTPSNMATLS.Secret).ShouldNot(Equal(""))
+		Expect(vdb.GetHTTPSNMATLSSecret()).ShouldNot(Equal(""))
 	})
 
 	It("should be a no-op if not using vclusterops and secret name is set", func() {
@@ -55,7 +55,7 @@ var _ = Describe("tlsservercertgen_reconcile", func() {
 
 		r := MakeTLSServerCertGenReconciler(vdbRec, logger, vdb)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
-		Expect(vdb.Spec.HTTPSNMATLS.Secret).Should(Equal(DummySecretName))
+		Expect(vdb.GetHTTPSNMATLSSecret()).Should(Equal(DummySecretName))
 	})
 
 	It("should create a secret when http server is enabled and secret name is missing", func() {
@@ -67,8 +67,8 @@ var _ = Describe("tlsservercertgen_reconcile", func() {
 
 		r := MakeTLSServerCertGenReconciler(vdbRec, logger, vdb)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
-		Expect(vdb.Spec.HTTPSNMATLS.Secret).ShouldNot(Equal(""))
-		nm := types.NamespacedName{Namespace: vdb.Namespace, Name: vdb.Spec.HTTPSNMATLS.Secret}
+		Expect(vdb.GetHTTPSNMATLSSecret()).ShouldNot(Equal(""))
+		nm := types.NamespacedName{Namespace: vdb.Namespace, Name: vdb.GetHTTPSNMATLSSecret()}
 		secret := &corev1.Secret{}
 		Expect(k8sClient.Get(ctx, nm, secret)).Should(Succeed())
 		Expect(len(secret.Data[corev1.TLSPrivateKeyKey])).ShouldNot(Equal(0))
@@ -84,14 +84,14 @@ var _ = Describe("tlsservercertgen_reconcile", func() {
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
 
-		nm := types.NamespacedName{Namespace: vdb.Namespace, Name: vdb.Spec.HTTPSNMATLS.Secret}
+		nm := types.NamespacedName{Namespace: vdb.Namespace, Name: vdb.GetHTTPSNMATLSSecret()}
 		secret := &corev1.Secret{}
 		err := k8sClient.Get(ctx, nm, secret)
 		Expect(errors.IsNotFound(err)).Should(BeTrue())
 
 		r := MakeTLSServerCertGenReconciler(vdbRec, logger, vdb)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
-		Expect(vdb.Spec.HTTPSNMATLS.Secret).Should(Equal(TLSSecretName))
+		Expect(vdb.GetHTTPSNMATLSSecret()).Should(Equal(TLSSecretName))
 		Expect(k8sClient.Get(ctx, nm, secret)).Should(Succeed())
 		Expect(len(secret.Data[corev1.TLSPrivateKeyKey])).ShouldNot(Equal(0))
 		Expect(len(secret.Data[corev1.TLSCertKey])).ShouldNot(Equal(0))
