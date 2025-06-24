@@ -324,7 +324,7 @@ func (op *httpsGetUpNodesOp) validateHosts(nodesStates nodesStateInfo) error {
 // Check if host is eligible to add to the UP hostlist
 func (op *httpsGetUpNodesOp) checkUpHostEligible(node *nodeStateInfo) bool {
 	// Add subcluster needs to get an UP node from main cluster as initiator
-	if op.cmdType == AddSubclusterCmd && node.Sandbox != util.MainClusterSandbox {
+	if op.cmdType == AddSubclusterCmd && node.Sandbox != op.sandbox {
 		return false
 	}
 	return true

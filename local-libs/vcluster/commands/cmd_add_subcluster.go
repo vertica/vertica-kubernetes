@@ -16,6 +16,8 @@
 package commands
 
 import (
+	"fmt"
+
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/vertica/vcluster/vclusterops"
@@ -108,6 +110,36 @@ func (c *CmdAddSubcluster) setLocalFlags(cmd *cobra.Command) {
 		false,
 		"Whether the new subcluster should be a primary subcluster. If this option is omitted, new subclusters are secondary.",
 	)
+	cmd.Flags().StringVar(
+		&c.addSubclusterOptions.SandboxName,
+		sandboxFlag,
+		"",
+		"The name of the sandbox where the subcluster is to be added.",
+	)
+	cmd.Flags().BoolVar(
+		&c.addSubclusterOptions.SaveRp,
+		saveRpFlag,
+		false,
+		"Whether save a restore point when creating the sandbox?",
+	)
+	cmd.Flags().BoolVar(
+		&c.addSubclusterOptions.Imeta,
+		isolateMetadataFlag,
+		false,
+		"Whether isolate the metadata of the sandboxed subcluster?",
+	)
+	cmd.Flags().BoolVar(
+		&c.addSubclusterOptions.Sls,
+		createStorageLocationsFlag,
+		false,
+		"Whether the sandbox can create its own storage locations?",
+	)
+	cmd.Flags().BoolVar(
+		&c.addSubclusterOptions.ForUpgrade,
+		forUpgradeFlag,
+		false,
+		"Whether the sandbox is to be used for online upgrade?",
+	)
 	cmd.Flags().IntVar(
 		&c.addSubclusterOptions.ControlSetSize,
 		"control-set-size",
@@ -171,6 +203,21 @@ func (c *CmdAddSubcluster) Parse(inputArgv []string, logger vlog.Printer) error 
 	if !viper.IsSet(eonModeKey) {
 		c.addSubclusterOptions.IsEon = true
 	}
+
+	// Users are only allowed the sandbox related args if the subcluster is being added to a sandbox
+	// and new nodes are being added.
+	if (!c.parser.Changed(sandboxFlag) || !c.parser.Changed(addNodeFlag)) &&
+		(c.parser.Changed(saveRpFlag) ||
+			c.parser.Changed(isolateMetadataFlag) ||
+			c.parser.Changed(createStorageLocationsFlag) ||
+			c.parser.Changed(forUpgradeFlag)) {
+		e := fmt.Errorf("flags %s, %s, %s, or %s can only be used when both --%s and --%s are set",
+			saveRpFlag, isolateMetadataFlag, createStorageLocationsFlag, forUpgradeFlag,
+			sandboxFlag, addNodeFlag)
+		logger.Error(e, "fail to add subcluster")
+		return e
+	}
+
 	return c.validateParse(logger)
 }
 
@@ -212,7 +259,12 @@ func (c *CmdAddSubcluster) Run(vcc vclusterops.ClusterCommands) error {
 
 		options.VAddNodeOptions.DatabaseOptions = c.addSubclusterOptions.DatabaseOptions
 		options.VAddNodeOptions.SCName = c.addSubclusterOptions.SCName
+		options.VAddNodeOptions.Sandbox = c.addSubclusterOptions.SandboxName
 
+		options.VAddNodeOptions.Imeta = c.addSubclusterOptions.Imeta
+		options.VAddNodeOptions.Sls = c.addSubclusterOptions.Sls
+		options.VAddNodeOptions.SaveRp = c.addSubclusterOptions.SaveRp
+		options.VAddNodeOptions.ForUpgrade = c.addSubclusterOptions.ForUpgrade
 		vdb, err := vcc.VAddNode(&options.VAddNodeOptions)
 		if err != nil {
 			const msg = "Failed to add nodes to the new subcluster"
