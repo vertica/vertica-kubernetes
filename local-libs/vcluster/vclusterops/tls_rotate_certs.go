@@ -106,6 +106,10 @@ type RotateTLSCertsData struct {
 	TLSConfig string `json:"tls_config,omitempty"` // required
 }
 
+const (
+	HTTPSTLSConfigType TLSConfigType = "http" // warning - this const is only for local use
+)
+
 func VRotateTLSCertsOptionsFactory() VRotateTLSCertsOptions {
 	opt := VRotateTLSCertsOptions{}
 	// set default values to the params
@@ -212,7 +216,7 @@ func (vcc VClusterCommands) VRotateTLSCerts(options *VRotateTLSCertsOptions) err
 
 	// produce rotation instructions
 	instructions, err := vcc.produceRotateTLSCertsInstructions(options, initiatorHosts, mainClusterHosts, hostsToSandboxes,
-		expectedTLSConfigInfo, options.isHTTPS())
+		expectedTLSConfigInfo)
 	if err != nil {
 		return fmt.Errorf("failed to produce rotate HTTPS certs instructions, %w", err)
 	}
@@ -238,7 +242,6 @@ func (vcc VClusterCommands) VRotateTLSCerts(options *VRotateTLSCertsOptions) err
 	if err != nil {
 		return fmt.Errorf("failed to produce poll HTTPS restart instructions, %w", err)
 	}
-
 	httpsSyncCatalogOp, err2 := makeHTTPSSyncCatalogOp(mainClusterHosts, true, options.UserName, options.Password, CreateDBSyncCat)
 	if err2 != nil {
 		return err2
@@ -293,7 +296,7 @@ func (vcc VClusterCommands) produceRotateTLSCertsInstructions(
 	options *VRotateTLSCertsOptions,
 	initiatorHosts, mainClusterHosts []string,
 	hostsToSandboxes map[string]string,
-	expectedTLSConfigInfo *tlsConfigInfo, isHTTPS bool) ([]clusterOp, error) {
+	expectedTLSConfigInfo *tlsConfigInfo) ([]clusterOp, error) {
 	var instructions []clusterOp
 	nmaHealthOp := makeNMAHealthOp(initiatorHosts)
 	instructions = append(instructions, &nmaHealthOp)
@@ -305,7 +308,7 @@ func (vcc VClusterCommands) produceRotateTLSCertsInstructions(
 		return instructions, err
 	}
 	instructions = append(instructions, &nmaRotateTLSCertsOp)
-	if !isHTTPS {
+	if !options.isHTTPS() {
 		httpsSyncCatalogOp, err := makeHTTPSSyncCatalogOp(mainClusterHosts, true, options.UserName, options.Password, CreateDBSyncCat)
 		if err != nil {
 			return instructions, err
