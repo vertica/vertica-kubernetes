@@ -51,6 +51,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/sandboxsc"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/saverestorepoint"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/setconfigparameter"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/settlsconfig"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/showrestorepoints"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/startdb"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/stopdb"
@@ -162,6 +163,8 @@ type Dispatcher interface {
 	// RotateHTTPSCerts will rotate nma cert
 	RotateHTTPSCerts(ctx context.Context, opts ...rotatehttpscerts.Option) error
 
+	// SetTLSConfig will run DDL to configure TLS
+	SetTLSConfig(ctx context.Context, opts ...settlsconfig.Option) error
 	// DropDB will drop vertica.conf and catalog files before db revival
 	DropDB(ctx context.Context, opts ...dropdb.Option) error
 }
