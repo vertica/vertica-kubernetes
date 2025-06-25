@@ -31,6 +31,12 @@ jobs:
         make vdb-gen
         ls -lhrt bin/
 
+    - name: Build cert-gen
+      run: | 
+        mkdir -p bin
+        make cert-gen
+        ls -lhrt bin/
+
     - name: Build Release yaml
       run: |
         IMG_REPO=docker.io/opentext/ make config-transformer
@@ -56,6 +62,7 @@ jobs:
           /home/runner/work/vertica-kubernetes/vertica-kubernetes/config/release-manifests/*yaml
           /home/runner/work/vertica-kubernetes/vertica-kubernetes/helm-charts/*.tgz
           /home/runner/work/vertica-kubernetes/vertica-kubernetes/bin/vdb-gen
+          /home/runner/work/vertica-kubernetes/vertica-kubernetes/bin/cert-gen
 
     - name: Upload bundle
       uses: actions/upload-artifact@v4

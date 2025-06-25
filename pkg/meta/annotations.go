@@ -422,6 +422,9 @@ const (
 	// This annotation controls how long the TLS cache should be kept.
 	TLSCacheDurationAnnotation = "vertica.com/tls-cache-duration"
 	TLSCacheDefaultDuration    = 1 * 24 * 3600 // 1 day
+
+	// This annotation ensures the tls secrets are removed after the VDB is removed.
+	RemoveTLSSecretOnVDBDeleteAnnotation = "vertica.com/remove-tls-secret-on-vdb-delete" // #nosec G101
 )
 
 // IsPauseAnnotationSet will check the annotations for a special value that will
@@ -818,6 +821,11 @@ func GetPreserveDBDirectory(annotations map[string]string) bool {
 // GetTLSCacheDuration returns the duration (in seconds) to keep the TLS cache
 func GetTLSCacheDuration(annotations map[string]string) int {
 	return lookupIntAnnotation(annotations, TLSCacheDurationAnnotation, TLSCacheDefaultDuration)
+}
+
+// ShouldRemoveTLSSecret returns true if a tls secret must be removed on VDB delete
+func ShouldRemoveTLSSecret(annotations map[string]string) bool {
+	return lookupBoolAnnotation(annotations, RemoveTLSSecretOnVDBDeleteAnnotation, false)
 }
 
 // lookupBoolAnnotation is a helper function to lookup a specific annotation and

@@ -1157,6 +1157,10 @@ func (v *VerticaDB) GetTLSCacheDuration() uint64 {
 	return uint64(duration)
 }
 
+func (v *VerticaDB) ShouldRemoveTLSSecret() bool {
+	return vmeta.ShouldRemoveTLSSecret(v.Annotations)
+}
+
 // IsValidRestorePointPolicy returns true if the RestorePointPolicy is properly specified,
 // i.e., it has a non-empty archive, and either a valid index or a valid id (but not both).
 func (r *RestorePointPolicy) IsValidRestorePointPolicy() bool {
