@@ -59,7 +59,7 @@ func (options *VSetTLSConfigOptions) validateTLSConfig(logger vlog.Printer) erro
 		return fmt.Errorf("missing TLS configuration: specify settings for at least one of server or HTTPS")
 	}
 
-	if options.ServerTLSConfig.GrantAuth && options.ServerTLSConfig.GrantAuth == options.HTTPSTLSConfig.GrantAuth {
+	if options.ServerTLSConfig.GrantAuth && options.HTTPSTLSConfig.GrantAuth {
 		return fmt.Errorf("server and https TLS configurations cannot both set GrantAuth to true")
 	}
 

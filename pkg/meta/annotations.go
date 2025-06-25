@@ -421,6 +421,9 @@ const (
 	// allowing us to retain the DC tables.
 	// This is currently used internally for K8s stress test.
 	PreserveDBDirectoryAnnotation = "vertica.com/preserve-db-dir"
+
+	// This annotation ensures the tls secrets are removed after the VDB is removed.
+	RemoveTLSSecretOnVDBDeleteAnnotation = "vertica.com/remove-tls-secret-on-vdb-delete" // #nosec G101
 )
 
 // IsPauseAnnotationSet will check the annotations for a special value that will
@@ -812,6 +815,11 @@ func IsFetchNodeDetailsLogDisabled(annotations map[string]string) bool {
 // GetPreserveDBDirectory returns true if the operator must preserve the DB directory
 func GetPreserveDBDirectory(annotations map[string]string) bool {
 	return lookupBoolAnnotation(annotations, PreserveDBDirectoryAnnotation, false)
+}
+
+// ShouldRemoveTLSSecret returns true if a tls secret must be removed on VDB delete
+func ShouldRemoveTLSSecret(annotations map[string]string) bool {
+	return lookupBoolAnnotation(annotations, RemoveTLSSecretOnVDBDeleteAnnotation, false)
 }
 
 // lookupBoolAnnotation is a helper function to lookup a specific annotation and
