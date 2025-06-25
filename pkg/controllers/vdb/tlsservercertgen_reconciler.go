@@ -113,11 +113,8 @@ func (h *TLSServerCertGenReconciler) reconcileOneSecret(secretFieldName, secretN
 		nm := names.GenNamespacedName(h.Vdb, secretName)
 		secret := corev1.Secret{}
 		err := h.VRec.Client.Get(ctx, nm, &secret)
+		// Secret defined but not found
 		if kerrors.IsNotFound(err) {
-			sType := vapi.HTTPSTLSSecretType
-			if secretFieldName == clientServerTLSSecret {
-				sType = vapi.ClientServerTLSSecretType
-			}
 			secStatus := h.Vdb.GetSecretStatus(sType)
 			if secStatus != nil {
 				// we do not recreate the secret as there is already
