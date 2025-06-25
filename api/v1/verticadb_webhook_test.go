@@ -2218,6 +2218,17 @@ var _ = Describe("verticadb_webhook", func() {
 		Ω(newVdb.validateVerticaDBSpec()).Should(HaveLen(0))
 	})
 
+	It("should set tls secrets when reviving a db", func() {
+		newVdb := MakeVDB()
+		newVdb.Spec.InitPolicy = CommunalInitPolicyRevive
+		Ω(newVdb.validateVerticaDBSpec()).Should(HaveLen(0))
+		SetVDBForTLS(newVdb)
+		Ω(newVdb.validateVerticaDBSpec()).Should(HaveLen(2))
+		newVdb.Spec.HTTPSNMATLSSecret = "test-https-secret"
+		Ω(newVdb.validateVerticaDBSpec()).Should(HaveLen(1))
+		newVdb.Spec.ClientServerTLSSecret = "test-client-server-secret"
+		Ω(newVdb.validateVerticaDBSpec()).Should(HaveLen(0))
+	})
 })
 
 func createVDBHelper() *VerticaDB {

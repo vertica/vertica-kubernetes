@@ -41,7 +41,9 @@ const minimumVer = "v24.3.0"
 
 var _ = Describe("query_reconcile", func() {
 	ctx := context.Background()
-
+	const (
+		trueString = "true"
+	)
 	It("should update replication status conditions and states if the vclusterops API succeeded", func() {
 		sourceVdbName := vapi.MakeSourceVDBName()
 		sourceVdb := vapi.MakeVDB()
@@ -231,6 +233,68 @@ var _ = Describe("query_reconcile", func() {
 		Expect(username).Should(Equal(testCustomUserName))
 		Expect(password).Should(Equal(testPassword))
 
+	})
+
+	It("should not allow using empty password when tls is enabled", func() {
+		sourceVdbName := v1beta1.MakeSourceVDBName()
+		sourceVdb := vapi.MakeVDB()
+		sourceVdb.Annotations[vmeta.EnableTLSAuthAnnotation] = trueString
+		sourceVdb.Annotations[vmeta.VersionAnnotation] = vapi.TLSCertRotationMinVersion
+		sourceVdb.Annotations[vmeta.VClusterOpsAnnotation] = trueString
+		sourceVdb.Name = sourceVdbName.Name
+		sourceVdb.Namespace = sourceVdbName.Namespace
+
+		sourceVdb.Spec.HTTPSNMATLSSecret = testTLSSecretName
+		test.CreateVDB(ctx, k8sClient, sourceVdb)
+		defer test.DeleteVDB(ctx, k8sClient, sourceVdb)
+		test.CreatePods(ctx, k8sClient, sourceVdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, sourceVdb)
+
+		targetVdbName := v1beta1.MakeTargetVDBName()
+		targetVdb := vapi.MakeVDB()
+		targetVdb.Name = targetVdbName.Name
+		targetVdb.Namespace = targetVdbName.Namespace
+		targetVdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
+		targetVdb.Annotations[vmeta.VersionAnnotation] = vapi.TLSCertRotationMinVersion
+		targetVdb.Annotations[vmeta.EnableTLSAuthAnnotation] = trueString
+		targetVdb.UID = testTargetVdbUID
+		test.CreateVDB(ctx, k8sClient, targetVdb)
+		defer test.DeleteVDB(ctx, k8sClient, targetVdb)
+		test.CreatePods(ctx, k8sClient, targetVdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, targetVdb)
+
+		vrep := v1beta1.MakeVrep()
+		vrep.Spec.Mode = v1beta1.ReplicationModeSync
+		Expect(k8sClient.Create(ctx, vrep)).Should(Succeed())
+		defer func() { Expect(k8sClient.Delete(ctx, vrep)).Should(Succeed()) }()
+
+		// create custom superuser password secret for source vdb
+		test.CreateSuperuserPasswordSecret(ctx, sourceVdb, k8sClient, testCustomPasswordSecretName, "")
+		defer deleteSecret(ctx, sourceVdb, testCustomPasswordSecretName)
+
+		vrep.Spec.Source.VerticaReplicatorDatabaseInfo.PasswordSecret = testCustomPasswordSecretName
+		// no username provided
+		username, password, err := setUsernameAndPassword(ctx, k8sClient, logger, vrepRec, sourceVdb,
+			&vrep.Spec.Source.VerticaReplicatorDatabaseInfo)
+		Expect(err).ShouldNot(HaveOccurred())
+		Expect(username).Should(Equal(vapi.SuperUser))
+		Expect(password).Should(Equal(""))
+		// Expect(vrep.va
+		reconciler := &ReplicationReconciler{
+			Client: k8sClient,
+			VRec:   vrepRec,
+			Vrep:   vrep,
+			Log:    logger.WithName("ReplicationReconciler"),
+			SourceInfo: &ReplicationInfo{
+				Vdb: sourceVdb,
+			},
+			TargetInfo: &ReplicationInfo{
+				Vdb: targetVdb,
+			},
+		}
+		err = reconciler.validateAuthentication()
+		Expect(err).Should(HaveOccurred())
+		Expect(err.Error()).Should(Equal("cannot use empty password when tls is enabled for source vdb vertica-source-sample"))
 	})
 
 	It("should return a reasonable error message if the sandbox has no nodes", func() {

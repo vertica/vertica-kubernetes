@@ -235,6 +235,7 @@ func (v *VerticaDB) validateVerticaDBSpec() field.ErrorList {
 	allErrs = v.hasDuplicateScName(allErrs)
 	allErrs = v.hasValidVolumeName(allErrs)
 	allErrs = v.hasValidClientServerTLSMode(allErrs)
+	allErrs = v.hasTLSSecretsSetForRevive(allErrs)
 	allErrs = v.hasValidVolumeMountName(allErrs)
 	allErrs = v.hasValidKerberosSetup(allErrs)
 	allErrs = v.hasValidTemporarySubclusterRouting(allErrs)
@@ -814,6 +815,26 @@ func (v *VerticaDB) hasDuplicateScName(allErrs field.ErrorList) field.ErrorList 
 func (v *VerticaDB) hasValidClientServerTLSMode(allErrs field.ErrorList) field.ErrorList {
 	if v.Spec.ClientServerTLS != nil {
 		allErrs = v.hasValidTLSMode(v.GetClientServerTLSMode(), "clientServerTLS.Mode", allErrs)
+	}
+	return allErrs
+}
+
+// hasTLSSecretsSetForRevive checks whether the TLS secrets are set for the revive init policy
+// when TLS is enabled
+func (v *VerticaDB) hasTLSSecretsSetForRevive(allErrs field.ErrorList) field.ErrorList {
+	if v.IsCertRotationEnabled() && v.Spec.InitPolicy == CommunalInitPolicyRevive {
+		if v.Spec.HTTPSNMATLSSecret == "" {
+			err := field.Invalid(field.NewPath("spec").Child("httpsNMATLSSecret"),
+				v.Spec.HTTPSNMATLSSecret,
+				"httpsNMATLSSecret must be set for reviving db")
+			allErrs = append(allErrs, err)
+		}
+		if v.Spec.ClientServerTLSSecret == "" {
+			err := field.Invalid(field.NewPath("spec").Child("clientServerTLSSecret"),
+				v.Spec.ClientServerTLSSecret,
+				"clientServerTLSSecret must be set for reviving db")
+			allErrs = append(allErrs, err)
+		}
 	}
 	return allErrs
 }
