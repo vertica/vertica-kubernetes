@@ -106,6 +106,10 @@ type RotateTLSCertsData struct {
 	TLSConfig string `json:"tls_config,omitempty"` // required
 }
 
+const (
+	HTTPSTLSConfigType TLSConfigType = "http" // warning - this const is only for local use
+)
+
 func VRotateTLSCertsOptionsFactory() VRotateTLSCertsOptions {
 	opt := VRotateTLSCertsOptions{}
 	// set default values to the params
@@ -168,7 +172,7 @@ func (opt *VRotateTLSCertsOptions) validateAnalyzeOptions(log vlog.Printer) erro
 }
 
 func (opt *VRotateTLSCertsOptions) isHTTPS() bool {
-	return strings.EqualFold(opt.NewSecretMetadata.TLSConfig, string(HTTPSTLSKeyPrefix))
+	return strings.EqualFold(opt.NewSecretMetadata.TLSConfig, string(HTTPSTLSConfigType))
 }
 
 func (opt *VRotateTLSCertsOptions) isDisabled() bool {
@@ -200,7 +204,7 @@ func (vcc VClusterCommands) VRotateTLSCerts(options *VRotateTLSCertsOptions) err
 	// the rotation operations need one UP host from each sandbox + main cluster.  the
 	// polling operations should poll each previously UP host in the entire cluster
 	// for restart.
-	upHosts, initiatorHosts, hostsToSandboxes, err := options.getVDBInfo(&vdb)
+	upHosts, initiatorHosts, mainClusterHosts, hostsToSandboxes, err := options.getVDBInfo(&vdb)
 	if err != nil {
 		return err
 	}
@@ -211,7 +215,8 @@ func (vcc VClusterCommands) VRotateTLSCerts(options *VRotateTLSCertsOptions) err
 	expectedTLSConfigInfo := &tlsConfigInfo{}
 
 	// produce rotation instructions
-	instructions, err := vcc.produceRotateTLSCertsInstructions(options, initiatorHosts, hostsToSandboxes, expectedTLSConfigInfo)
+	instructions, err := vcc.produceRotateTLSCertsInstructions(options, initiatorHosts, mainClusterHosts, hostsToSandboxes,
+		expectedTLSConfigInfo)
 	if err != nil {
 		return fmt.Errorf("failed to produce rotate HTTPS certs instructions, %w", err)
 	}
@@ -237,6 +242,11 @@ func (vcc VClusterCommands) VRotateTLSCerts(options *VRotateTLSCertsOptions) err
 	if err != nil {
 		return fmt.Errorf("failed to produce poll HTTPS restart instructions, %w", err)
 	}
+	httpsSyncCatalogOp, err2 := makeHTTPSSyncCatalogOp(mainClusterHosts, true, options.UserName, options.Password, CreateDBSyncCat)
+	if err2 != nil {
+		return err2
+	}
+	instructions = append(instructions, &httpsSyncCatalogOp)
 
 	// create db options with only cert info changed
 	newCertsDatabaseOptions := options.DatabaseOptions
@@ -258,7 +268,7 @@ func (vcc VClusterCommands) VRotateTLSCerts(options *VRotateTLSCertsOptions) err
 }
 
 func (opt *VRotateTLSCertsOptions) getVDBInfo(
-	vdb *VCoordinationDatabase) (upHosts, initiatorHosts []string, hostsToSandboxes map[string]string, err error) {
+	vdb *VCoordinationDatabase) (upHosts, initiatorHosts, mainClusterHosts []string, hostsToSandboxes map[string]string, err error) {
 	upHosts = vdb.filterUpHostList(opt.Hosts)
 	hostsToSandboxes = vdb.getHostToSandboxMap()
 	// avoid mutating backing array of vdb.AllSandboxes
@@ -266,6 +276,14 @@ func (opt *VRotateTLSCertsOptions) getVDBInfo(
 	copy(sandboxes, vdb.AllSandboxes)
 	sandboxes = append(sandboxes, "") // add main cluster to sandbox list
 	initiatorHosts, err = getInitiatorsInAllDBGroups(upHosts, sandboxes, hostsToSandboxes)
+	if err != nil {
+		return
+	}
+	mainCluster := []string{""}
+	mainClusterHosts, err = getInitiatorsInAllDBGroups(upHosts, mainCluster, hostsToSandboxes)
+	if len(mainCluster) == 0 {
+		err = fmt.Errorf("failed to find an initiator host for main cluster")
+	}
 	return
 }
 
@@ -276,7 +294,7 @@ func (opt *VRotateTLSCertsOptions) getVDBInfo(
 //   - Rotate the certs (and optionally update TLS mode)
 func (vcc VClusterCommands) produceRotateTLSCertsInstructions(
 	options *VRotateTLSCertsOptions,
-	initiatorHosts []string,
+	initiatorHosts, mainClusterHosts []string,
 	hostsToSandboxes map[string]string,
 	expectedTLSConfigInfo *tlsConfigInfo) ([]clusterOp, error) {
 	var instructions []clusterOp
@@ -290,6 +308,13 @@ func (vcc VClusterCommands) produceRotateTLSCertsInstructions(
 		return instructions, err
 	}
 	instructions = append(instructions, &nmaRotateTLSCertsOp)
+	if !options.isHTTPS() {
+		httpsSyncCatalogOp, err := makeHTTPSSyncCatalogOp(mainClusterHosts, true, options.UserName, options.Password, CreateDBSyncCat)
+		if err != nil {
+			return instructions, err
+		}
+		instructions = append(instructions, &httpsSyncCatalogOp)
+	}
 	return instructions, nil
 }
 

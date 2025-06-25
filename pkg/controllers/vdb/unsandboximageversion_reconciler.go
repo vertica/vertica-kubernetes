@@ -91,7 +91,7 @@ func (r *UnsandboxImageVersion) reconcileVerticaImage(ctx context.Context) (ctrl
 		}
 		nm := names.GenStsName(r.Vdb, scInVdb)
 		curSts := &appsv1.StatefulSet{}
-		expSts := builder.BuildStsSpec(nm, r.Vdb, scInVdb)
+		expSts := builder.BuildStsSpec(nm, r.Vdb, scInVdb, "")
 		err := vk8s.SetVerticaImage(expSts.Spec.Template.Spec.Containers, priScImage, r.Vdb.IsNMASideCarDeploymentEnabled())
 		if err != nil {
 			return ctrl.Result{}, err

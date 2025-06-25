@@ -40,7 +40,7 @@ const (
 func makeNMATransactionStartsOp(upHosts []string, userName string, dbName string, password *string,
 	transactionID, startTime, endTime string) (nmaTransactionStartsOp, error) {
 	op := nmaTransactionStartsOp{}
-	op.hosts = upHosts
+	op.hosts = upHosts[:1]
 	op.transactionID = transactionID
 	op.startTime = startTime
 	op.endTime = endTime
@@ -140,7 +140,8 @@ func (op *nmaTransactionStartsOp) processResult(execContext *opEngineExecContext
 			var transactionStartList []dcTransactionStarts
 			err := op.parseAndCheckResponse(host, result.content, &transactionStartList)
 			if err != nil {
-				return errors.Join(allErrs, err)
+				allErrs = errors.Join(allErrs, err)
+				continue
 			}
 			// we only need result from one host
 			execContext.dcTransactionStarts = &transactionStartList

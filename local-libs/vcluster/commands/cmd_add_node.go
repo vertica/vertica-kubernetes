@@ -69,10 +69,43 @@ Examples:
 	// local flags
 	newCmd.setLocalFlags(cmd)
 
+	// hidden flags
+	newCmd.setHiddenFlags(cmd)
+
 	// require hosts to add
 	markFlagsRequired(cmd, addNodeFlag)
 
 	return cmd
+}
+
+// setHiddenFlags will set the hidden flags the command has.
+// These hidden flags will not be shown in help and usage of the command, and they will be used internally.
+func (c *CmdAddNode) setHiddenFlags(cmd *cobra.Command) {
+	cmd.Flags().BoolVar(
+		&c.addNodeOptions.SaveRp,
+		saveRpFlag,
+		false,
+		"",
+	)
+	cmd.Flags().BoolVar(
+		&c.addNodeOptions.Sls,
+		createStorageLocationsFlag,
+		false,
+		"",
+	)
+	cmd.Flags().BoolVar(
+		&c.addNodeOptions.Imeta,
+		isolateMetadataFlag,
+		false,
+		"",
+	)
+	cmd.Flags().BoolVar(
+		&c.addNodeOptions.ForUpgrade,
+		forUpgradeFlag,
+		false,
+		"",
+	)
+	hideLocalFlags(cmd, []string{saveRpFlag, createStorageLocationsFlag, isolateMetadataFlag, forUpgradeFlag})
 }
 
 // setLocalFlags will set the local flags the command has
@@ -82,6 +115,12 @@ func (c *CmdAddNode) setLocalFlags(cmd *cobra.Command) {
 		addNodeFlag,
 		[]string{},
 		"A comma-separated list of hosts to add to the database.",
+	)
+	cmd.Flags().StringVar(
+		&c.addNodeOptions.Sandbox,
+		sandboxFlag,
+		"",
+		"The name of the sandbox of the subcluster where the node is to be added.",
 	)
 	cmd.Flags().BoolVar(
 		&c.addNodeOptions.ForceRemoval,
@@ -146,6 +185,24 @@ func (c *CmdAddNode) Parse(inputArgv []string, logger vlog.Printer) error {
 	return c.validateParse(logger)
 }
 
+// Update sandbox info for the provided subcluster where the node is to be added
+func (c *CmdAddNode) updateSandboxInfo(dbConfig *DatabaseConfig) bool {
+	// Honor user input, if provided
+	if c.addNodeOptions.Sandbox != util.MainClusterSandbox {
+		return true
+	}
+	updatedSandboxInfo := false
+	for _, n := range dbConfig.Nodes {
+		if c.addNodeOptions.SCName == n.Subcluster {
+			updatedSandboxInfo = true
+			if n.Sandbox != util.MainClusterSandbox {
+				c.addNodeOptions.Sandbox = n.Sandbox
+			}
+		}
+	}
+	return updatedSandboxInfo
+}
+
 func (c *CmdAddNode) validateParse(logger vlog.Printer) error {
 	logger.Info("Called validateParse()")
 
@@ -206,6 +263,19 @@ func (c *CmdAddNode) Run(vcc vclusterops.ClusterCommands) error {
 
 	options := c.addNodeOptions
 
+	// Read sandbox information on config file
+	// Hint: This would only work when there is atleast one node in the target subcluster
+	dbConfig, configErr := readConfig()
+	if configErr != nil {
+		vcc.DisplayWarning("Failed to read the configuration file, skipping configuration file update", "error", configErr)
+	} else {
+		// update sandbox option as per the provided subcluster
+		updatedConfig := c.updateSandboxInfo(dbConfig)
+		if !updatedConfig {
+			vcc.DisplayWarning("Did not update sandbox info for the given subcluster " + options.SCName +
+				", In case of failure, try again with --sandbox, if the target subcluster is sandboxed ")
+		}
+	}
 	vdb, err := vcc.VAddNode(options)
 	if err != nil {
 		vcc.LogError(err, "failed to add node")
