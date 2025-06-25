@@ -31,6 +31,7 @@ type nmaSetTLSRequestData struct {
 	TLSNamespace         string `json:"k8s_tls_namespace"`
 	TLSSecretName        string `json:"tls_secret_name"`
 	TLSConfigName        string `json:"tls_config"`
+	TLSCacheDuration     uint64 `json:"cache_duration"`
 	TLSKeyDataKey        string `json:"tls_key_data_key"`
 	TLSCertDataKey       string `json:"tls_cert_data_key"`
 	TLSCADataKey         string `json:"tls_ca_data_key"`
@@ -43,14 +44,14 @@ type nmaSetTLSRequestData struct {
 }
 
 func makeNMASetTLSOp(options *DatabaseOptions, configName string,
-	grantAuth, syncCatalog bool, configMap map[string]string) (nmaSetTLSOp, error) {
+	grantAuth, syncCatalog bool, cacheDuration uint64, configMap map[string]string) (nmaSetTLSOp, error) {
 	op := nmaSetTLSOp{}
 	op.name = "nmaSetTLSOp"
 	op.description = "Set tls config"
 	op.hosts = options.Hosts
 
 	err := op.setupRequestBody(options.UserName, options.DBName, configName, options.Password,
-		options.usePassword, grantAuth, syncCatalog, configMap)
+		options.usePassword, grantAuth, syncCatalog, cacheDuration, configMap)
 	if err != nil {
 		return op, err
 	}
@@ -59,7 +60,8 @@ func makeNMASetTLSOp(options *DatabaseOptions, configName string,
 }
 
 func (op *nmaSetTLSOp) setupRequestBody(
-	username, dbName, configName string, password *string, useDBPassword, grantAuth, syncCatalog bool, configMap map[string]string) error {
+	username, dbName, configName string, password *string, useDBPassword, grantAuth, syncCatalog bool,
+	cacheDuration uint64, configMap map[string]string) error {
 	err := ValidateSQLEndpointData(op.name,
 		useDBPassword, username, password, dbName)
 	if err != nil {
@@ -79,6 +81,7 @@ func (op *nmaSetTLSOp) setupRequestBody(
 	setConfigData.AWSSecretVersionID = configMap[TLSSecretManagerKeyAWSSecretVersionID]
 	setConfigData.TLSConfigGrantAuth = grantAuth
 	setConfigData.TLSConfigSyncCatalog = syncCatalog
+	setConfigData.TLSCacheDuration = cacheDuration
 
 	dataBytes, err := json.Marshal(setConfigData)
 	if err != nil {

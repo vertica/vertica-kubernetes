@@ -31,7 +31,8 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/secrets"
 	"github.com/vertica/vertica-kubernetes/pkg/security"
 	corev1 "k8s.io/api/core/v1"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -87,7 +88,7 @@ func (h *TLSServerCertGenReconciler) Reconcile(ctx context.Context, _ *ctrl.Requ
 		err = h.reconcileOneSecret(secretFieldName, secretName, ctx)
 		if err != nil {
 			h.Log.Error(err, fmt.Sprintf("failed to reconcile secret for %s", secretFieldName))
-			break
+			return ctrl.Result{}, err
 		}
 	}
 	return ctrl.Result{}, err
@@ -110,10 +111,13 @@ func (h *TLSServerCertGenReconciler) reconcileOneSecret(secretFieldName, secretN
 			return nil
 		}
 		nm := names.GenNamespacedName(h.Vdb, secretName)
-		secret := &corev1.Secret{}
-		err := h.VRec.Client.Get(ctx, nm, secret)
-		// Secret defined but not found
-		if k8serrors.IsNotFound(err) {
+		secret := corev1.Secret{}
+		err := h.VRec.Client.Get(ctx, nm, &secret)
+		if kerrors.IsNotFound(err) {
+			sType := vapi.HTTPSTLSSecretType
+			if secretFieldName == clientServerTLSSecret {
+				sType = vapi.ClientServerTLSSecretType
+			}
 			secStatus := h.Vdb.GetSecretStatus(sType)
 			if secStatus != nil {
 				// we do not recreate the secret as there is already
@@ -128,7 +132,7 @@ func (h *TLSServerCertGenReconciler) reconcileOneSecret(secretFieldName, secretN
 			// Successfully read secret
 		} else {
 			// Validate secret certificate
-			err = h.ValidateSecretCertificate(ctx, secret, sType, secretName)
+			err = h.ValidateSecretCertificate(ctx, &secret, sType, secretName)
 			if err != nil {
 				return err
 			}

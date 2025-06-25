@@ -22,6 +22,7 @@ import (
 	"strings"
 	"time"
 
+	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
@@ -110,15 +111,13 @@ func parseCustomDuration(timeStr string) (time.Duration, error) {
 }
 
 // getLockAttempts gets the lock attempts events from the database.
-//
-//nolint:dupl
 func (opt *VClusterHealthOptions) getLockAttempts(logger vlog.Printer, upHosts []string,
-	startTime, endTime string, thresHold string) (lockAttempts *[]dcLockAttempts, err error) {
+	startTime, endTime string) (lockAttempts *[]dcLockAttempts, err error) {
 	var instructions []clusterOp
 
 	nmaLockAttemptsOp, err := makeNMALockAttemptsOp(upHosts, opt.DatabaseOptions.UserName,
 		opt.DatabaseOptions.DBName, opt.DatabaseOptions.Password,
-		startTime, endTime, "" /*node name*/, thresHold, lockAttemptsLimit)
+		startTime, endTime, "" /*node name*/, opt.LockAttemptThresHold, lockAttemptsLimit)
 	if err != nil {
 		return nil, err
 	}
@@ -133,14 +132,12 @@ func (opt *VClusterHealthOptions) getLockAttempts(logger vlog.Printer, upHosts [
 }
 
 // getLockReleases gets the lock releases events from the database.
-//
-//nolint:dupl
 func (opt *VClusterHealthOptions) getLockReleases(logger vlog.Printer,
-	upHosts []string, startTime, endTime string, thresHold string) (lockReleases *[]dcLockReleases, err error) {
+	upHosts []string, startTime, endTime string) (lockReleases *[]dcLockReleases, err error) {
 	var instructions []clusterOp
 	nmaLockAttemptsOp, err := makeNMALockReleasesOp(upHosts, opt.DatabaseOptions.UserName,
 		opt.DatabaseOptions.DBName, opt.DatabaseOptions.Password,
-		startTime, endTime, "", lockReleasesLimit, thresHold)
+		startTime, endTime, "", lockReleasesLimit, opt.LockReleaseThresHold)
 	if err != nil {
 		return nil, err
 	}
@@ -361,7 +358,7 @@ func findLockHoldSeries(parsed *[]parsedEvent, seriesStart time.Time) ([]parsedE
 }
 
 func (opt *VClusterHealthOptions) buildLockCascadeGraph(logger vlog.Printer,
-	upHosts []string, attemptThresHold string, releaseThresHold string) error {
+	upHosts []string) error {
 	opt.LockEventCascade = make([]NodeLockEvents, 0)
 
 	lockStartTime, err := time.Parse(timeLayout, opt.StartTime)
@@ -370,7 +367,7 @@ func (opt *VClusterHealthOptions) buildLockCascadeGraph(logger vlog.Printer,
 	}
 	lockStartTime = lockStartTime.Add(lockEventsTraceBack) // find if there are any lock attempts in the previous 45 minutes
 	lockStartTimeStr := lockStartTime.Format(timeLayout)
-	lockAttempts, err := opt.getLockAttempts(logger, upHosts, lockStartTimeStr, opt.EndTime, attemptThresHold)
+	lockAttempts, err := opt.getLockAttempts(logger, upHosts, lockStartTimeStr, opt.EndTime)
 	if err != nil {
 		return err
 	}
@@ -379,7 +376,7 @@ func (opt *VClusterHealthOptions) buildLockCascadeGraph(logger vlog.Printer,
 		return err
 	}
 
-	lockReleases, err := opt.getLockReleases(logger, upHosts, lockStartTimeStr, opt.EndTime, releaseThresHold)
+	lockReleases, err := opt.getLockReleases(logger, upHosts, lockStartTimeStr, opt.EndTime)
 	if err != nil {
 		return err
 	}
@@ -469,25 +466,25 @@ func extractLockHoldEvents(nodeLockHoldSeries []parsedEvent) []dcLockReleases {
 
 func (opt *VClusterHealthOptions) fillEventSessionAndTxnInfo(logger vlog.Printer, upHosts []string) {
 	events := opt.LockEventCascade
-	sessionMap := make(map[string]any)
-	txnMap := make(map[string]any)
+	sessionSet := mapset.NewSet[string]()
+	txnSet := mapset.NewSet[string]()
 	// get all session id and txn id from the lock events
 	for i := range events {
 		event := &events[i]
 		for j := range *event.LockWaitEvents {
 			waitEvent := &(*event.LockWaitEvents)[j]
-			sessionMap[waitEvent.SessionID] = dcSessionStarts{}
-			txnMap[waitEvent.TxnID] = dcTransactionStarts{}
+			sessionSet.Add(waitEvent.SessionID)
+			txnSet.Add(waitEvent.TxnID)
 		}
 		for j := range *event.LockHoldEvents {
 			holdEvent := &(*event.LockHoldEvents)[j]
-			sessionMap[holdEvent.SessionID] = dcSessionStarts{}
-			txnMap[holdEvent.TxnID] = dcTransactionStarts{}
+			sessionSet.Add(holdEvent.SessionID)
+			txnSet.Add(holdEvent.TxnID)
 		}
 	}
 
 	sessionInfo, txnInfo, err := opt.getSessionTxnInfo(
-		sessionMap, txnMap, logger, upHosts)
+		sessionSet, txnSet, logger, upHosts)
 	if err != nil {
 		logger.Error(err, "Failed to get session and transaction info for lock events")
 		return
@@ -517,7 +514,7 @@ func (opt *VClusterHealthOptions) fillEventSessionAndTxnInfo(logger vlog.Printer
 		}
 	}
 	logger.Info("Filling session and transaction info for lock events",
-		"session count", len(sessionMap), "txn count", len(txnMap))
+		"session count", sessionSet.Cardinality(), "txn count", txnSet.Cardinality())
 }
 
 // DisplayLockEventsCascade prints the lock events cascade for each node in a readable format.

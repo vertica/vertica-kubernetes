@@ -133,16 +133,6 @@ func (c *CreateDBReconciler) execCmd(ctx context.Context, initiatorPod types.Nam
 	if res, err2 := c.Dispatcher.CreateDB(ctx, opts...); verrors.IsReconcileAborted(res, err2) {
 		return res, err2
 	}
-	if c.Vdb.IsTLSAuthEnabled() {
-		httpsTLSMode := vapi.MakeHTTPSTLSMode(c.Vdb.Spec.HTTPSTLSMode)
-		clientTLSMode := vapi.MakeClientServerTLSMode(c.Vdb.Spec.ClientServerTLSMode)
-		err = vdbstatus.UpdateTLSModes(ctx, c.VRec.GetClient(), c.Vdb, []*vapi.TLSMode{httpsTLSMode, clientTLSMode})
-		if err != nil {
-			c.Log.Error(err, "failed to update tls mode after creating db")
-			return ctrl.Result{}, err
-		}
-		c.Log.Info("TLS DDLs executed and TLS Cert configured")
-	}
 	sc := c.getFirstPrimarySubcluster()
 	c.VRec.Eventf(c.Vdb, corev1.EventTypeNormal, events.CreateDBSucceeded,
 		"Successfully created database with subcluster '%s'. It took %s", sc.Name, time.Since(start).Truncate(time.Second))
