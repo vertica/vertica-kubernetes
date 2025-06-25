@@ -44,6 +44,7 @@ const (
 	S3BucketDoesNotExist             = "S3BucketDoesNotExist"
 	S3WrongRegion                    = "S3WrongRegion"
 	S3SseCustomerWrongKey            = "S3SseCustomerWrongKey"
+	AdditionalBucketsUpdated         = "AdditionalBucketsUpdated"
 	InvalidS3SseCustomerKey          = "InvalidS3SseCustomerKey"
 	InvalidConfigParm                = "InvalidConfigParm"
 	CommunalPathIsNotEmpty           = "CommunalPathIsNotEmpty"
@@ -128,6 +129,10 @@ const (
 	HTTPSCertRotationStarted         = "HTTPSCertRotationStarted"
 	HTTPSCertRotationSucceeded       = "HTTPSCertRotationSucceeded"
 	HTTPSCertRotationFailed          = "HTTPSCertRotationFailed"
+	NMATLSModeUpdateStarted          = "NMATLSModeUpdateStarted"
+	NMATLSModeUpdateSucceeded        = "NMATLSModeUpdateSucceeded"
+	TLSConfigurationStarted          = "TLSConfigurationStarted"
+	TLSConfigurationSucceeded        = "TLSConfigurationSucceeded"
 	TLSModeUpdateStarted             = "TLSModeUpdateStarted"
 	TLSModeUpdateSucceeded           = "TLSModeUpdateSucceeded"
 )

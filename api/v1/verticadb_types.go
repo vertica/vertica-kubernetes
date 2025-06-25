@@ -177,6 +177,11 @@ type VerticaDBSpec struct {
 	Communal CommunalStorage `json:"communal"`
 
 	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// Contains details about the additional buckets for data replication
+	AdditionalBuckets []CommunalStorage `json:"additionalBuckets,omitempty"`
+
+	// +kubebuilder:validation:Optional
 	// +kubebuilder:default={requestSize:"500Gi", dataPath:"/data", depotPath:"/depot"}
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// Contain details about the local storage
@@ -999,6 +1004,11 @@ type VerticaDBStatus struct {
 	// +optional
 	// The details about the last created restore point
 	RestorePoint *RestorePointInfo `json:"restorePoint"`
+
+	// +operator-sdk:csv:customresourcedefinitions:type=status
+	// +Optional
+	// The details of the current using additional buckets
+	AdditionalBuckets []CommunalStorage `json:"additionalBuckets,omitempty"`
 
 	// +operator-sdk:csv:customresourcedefinitions:type=status
 	// +optional

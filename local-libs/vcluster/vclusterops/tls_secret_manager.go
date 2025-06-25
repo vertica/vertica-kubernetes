@@ -63,6 +63,7 @@ var ValidTLSMode = []VerticaTLSModeType{tlsModeDisable, tlsModeEnable,
 const (
 	kubernetesSecretManagerName string = "KubernetesSecretManager"
 	awsSecretManagerName        string = "AWSSecretManager"
+	gcpSecretManagerName        string = "GCPSecretManager"
 )
 
 type TLSConfigType string
@@ -70,11 +71,27 @@ type TLSConfigType string
 const (
 	ServerTLSKeyPrefix TLSConfigType = "server"
 	HTTPSTLSKeyPrefix  TLSConfigType = "https"
+	HTTPSTLSConfigType TLSConfigType = "http"
 )
 
 type TLSConfig struct {
 	ConfigMap  map[string]string
 	ConfigType TLSConfigType
+	// how long cache entries should last for this certificate before they are considered expired.
+	// A value of 0 indicates a permanent cache
+	CacheDuration uint64
+	GrantAuth     bool
+}
+
+// getSecretManager given the secret manager type, returns
+// the secret manager name
+func getSecretManager(secretManagerType string) string {
+	secretManagerMap := map[string]string{
+		K8sSecretManagerType: kubernetesSecretManagerName,
+		AWSSecretManagerType: awsSecretManagerName,
+		GCPSecretManagerType: gcpSecretManagerName,
+	}
+	return secretManagerMap[secretManagerType]
 }
 
 // validateAllwaysRequiredKeys validates tls keys that must always be set in a

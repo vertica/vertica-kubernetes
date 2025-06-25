@@ -43,18 +43,14 @@ func makeNMALockAttemptsOp(upHosts []string, userName string,
 	startTime, endTime, nodeName string, duration string,
 	resultLimit int) (nmaLockAttemptsOp, error) {
 	op := nmaLockAttemptsOp{}
-	op.name = "NMALockAttemptsOp"
-	op.description = "Check lock waiting events"
 	op.hosts = upHosts[:1] // set up the request for one of the up hosts only
 	op.startTime = startTime
 	op.endTime = endTime
 	op.nodeName = nodeName
 	op.resultLimit = resultLimit
-	if duration == "" {
-		op.duration = lockAttemptThresHold
-	} else {
-		op.duration = duration
-	}
+	op.duration = duration
+	op.name = "NMALockAttemptsOp"
+	op.description = "Check lock waiting events"
 
 	// NMA endpoints don't need to differentiate between empty password and no password
 	useDBPassword := password != nil
@@ -132,29 +128,18 @@ func (op *nmaLockAttemptsOp) finalize(_ *opEngineExecContext) error {
 }
 
 type dcLockAttempts struct {
-	Description string `json:"description"`
-	Duration    string `json:"duration"`
-	Mode        string `json:"mode"`
-	NodeName    string `json:"node_name"`
-	Object      string `json:"object"`
-	ObjectName  string `json:"object_name"`
-	SessionID   string `json:"session_id"`
-	StartTime   string `json:"start_time"`
-	Time        string `json:"time"`
-	TxnID       string `json:"transaction_id"`
-	// TODO: as for now http client not support retrieving batch results for txn info and session info
-	// To improve the performance, we move the txn info and session info to the demond request by UI
-	// when we migrate to use nma client, we can retrieve the txn info and session info in batch request
-	// TxnInfo     dcTransactionStart `json:"transaction_info"`
-	// SessionInfo dcSessionStart     `json:"session_info"`
-}
-
-func (event *dcLockAttempts) getSessionID() string {
-	return event.SessionID
-}
-
-func (event *dcLockAttempts) getTxnID() string {
-	return event.TxnID
+	Description string               `json:"description"`
+	Duration    string               `json:"duration"`
+	Mode        string               `json:"mode"`
+	NodeName    string               `json:"node_name"`
+	Object      string               `json:"object"`
+	ObjectName  string               `json:"object_name"`
+	SessionID   string               `json:"session_id"`
+	StartTime   string               `json:"start_time"`
+	Time        string               `json:"time"`
+	TxnID       string               `json:"transaction_id"`
+	TxnInfo     *dcTransactionStarts `json:"transaction_info"`
+	SessionInfo *dcSessionStarts     `json:"session_info"`
 }
 
 func (op *nmaLockAttemptsOp) processResult(execContext *opEngineExecContext) error {

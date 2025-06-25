@@ -39,6 +39,7 @@ import (
 
 const (
 	DefaultS3Region       = "us-east-1"
+	DefaultS3Endpoint     = "https://s3.amazonaws.com"
 	DefaultGCloudRegion   = "US-EAST1"
 	DefaultGCloudEndpoint = "https://storage.googleapis.com"
 
@@ -893,6 +894,20 @@ func (v *VerticaDB) IsCertRotationEnabled() bool {
 		vmeta.UseTLSAuth(v.Annotations)
 }
 
+// IsHTTPProbeSupported returns true if the version supports certs
+func (v *VerticaDB) IsHTTPProbeSupported(ver string) bool {
+	vinf, hasVersion := v.MakeVersionInfo()
+	if ver != "" {
+		vinf, hasVersion = v.GetVersion(ver)
+	}
+	// Assume we are running a version that does not support cert rotation
+	// if version is not present.
+	if !hasVersion {
+		return false
+	}
+	return vinf.IsEqualOrNewer(TLSCertRotationMinVersion)
+}
+
 // IsNMASideCarDeploymentEnabled returns true if the conditions to run NMA
 // in a sidecar are met
 func (v *VerticaDB) IsNMASideCarDeploymentEnabled() bool {
@@ -963,14 +978,19 @@ func (v *VerticaDB) IncludeUIDInPath() bool {
 	return vmeta.IncludeUIDInPath(v.Annotations)
 }
 
-// IsHDFS returns true if the communal path is stored in an HDFS path
-func (v *VerticaDB) IsHDFS() bool {
+// IsPathHDFS returns true if the path is an HDFS path
+func (v *VerticaDB) IsPathHDFS(path string) bool {
 	for _, p := range hdfsPrefixes {
-		if strings.HasPrefix(v.Spec.Communal.Path, p) {
+		if strings.HasPrefix(path, p) {
 			return true
 		}
 	}
 	return false
+}
+
+// IsHDFS returns true if the communal path is stored in an HDFS path
+func (v *VerticaDB) IsHDFS() bool {
+	return v.IsPathHDFS(v.Spec.Communal.Path)
 }
 
 // IsS3 returns true if VerticaDB has a communal path for S3 compatible storage.
@@ -1034,6 +1054,28 @@ func (v *VerticaDB) GetKerberosRealm() string {
 
 func (v *VerticaDB) GetKerberosServiceName() string {
 	return v.Spec.Communal.AdditionalConfig[vmeta.KerberosServiceNameConfig]
+}
+
+// HasAdditionalBuckets returns true if additionalBuckets is configured for data replication
+func (v *VerticaDB) HasAdditionalBuckets() bool {
+	return len(v.Spec.AdditionalBuckets) != 0
+}
+
+// GetBucket returns the bucket name from the path URL
+func GetBucket(path string) string {
+	re := regexp.MustCompile(`([a-z]\d+)://(.*)`)
+	m := re.FindAllStringSubmatch(path, 1)
+
+	if len(m) == 0 || len(m[0]) < 3 {
+		return path
+	}
+
+	p := strings.Split(m[0][2], "/")
+	if len(p) == 0 || len(p[0]) < 3 {
+		return m[0][2]
+	}
+
+	return strings.TrimRight(p[0], "/")
 }
 
 func (s *Subcluster) IsPrimary() bool {

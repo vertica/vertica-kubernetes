@@ -48,6 +48,11 @@ func (op *nmaNetworkProfileOp) setupClusterHTTPRequest(hosts []string) error {
 }
 
 func (op *nmaNetworkProfileOp) prepare(execContext *opEngineExecContext) error {
+	if len(op.hosts) == 0 {
+		for h := range execContext.nmaVDatabase.HostNodeMap {
+			op.hosts = append(op.hosts, h)
+		}
+	}
 	execContext.dispatcher.setup(op.hosts)
 	return op.setupClusterHTTPRequest(op.hosts)
 }

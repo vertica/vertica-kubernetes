@@ -169,6 +169,59 @@ var _ = Describe("verticadb_webhook", func() {
 		vdb.Spec.Communal.Path = GCloudPrefix + "randompath"
 		validateSpecValuesHaveErr(vdb, false)
 	})
+	It("should allow valid additionalBuckets", func() {
+		vdb := createVDBHelper()
+		vdb.Spec.Communal.Path = AzurePrefix + "mainbucket"
+		vdb.Spec.AdditionalBuckets = []CommunalStorage{
+			{
+				Path:             S3Prefix + "extrabucket",
+				Endpoint:         "https://s3.example.com",
+				Region:           "us-east-1",
+				CredentialSecret: "extrasecret",
+			},
+		}
+		validateSpecValuesHaveErr(vdb, false)
+	})
+	It("should require additionalBuckets to use a different protocol than communal for gs and azb", func() {
+		vdb := createVDBHelper()
+		vdb.Spec.Communal.Path = GCloudPrefix + "mainbucket"
+		vdb.Spec.Communal.Endpoint = "https://gs.example.com"
+		vdb.Spec.Communal.CredentialSecret = "mainsecret"
+
+		// Valid: additional bucket uses s3, communal uses gs
+		vdb.Spec.AdditionalBuckets = []CommunalStorage{
+			{
+				Path:             S3Prefix + "extrabucket",
+				Endpoint:         "https://s3.example.com",
+				Region:           "us-east-1",
+				CredentialSecret: "extrasecret",
+			},
+		}
+		validateSpecValuesHaveErr(vdb, false)
+
+		// Invalid: additional bucket uses same protocol as communal
+		vdb.Spec.AdditionalBuckets[0].Path = GCloudPrefix + "extrabucket"
+		validateSpecValuesHaveErr(vdb, true)
+	})
+	It("should require all additionalBuckets fields and a valid protocol", func() {
+		vdb := createVDBHelper()
+		vdb.Spec.Communal.Path = GCloudPrefix + "mainbucket"
+		vdb.Spec.Communal.Endpoint = "https://gs.example.com"
+		vdb.Spec.Communal.CredentialSecret = "mainsecret"
+
+		// Invalid: missing required fields
+		vdb.Spec.AdditionalBuckets = []CommunalStorage{{}}
+		validateSpecValuesHaveErr(vdb, true)
+
+		// Invalid: invalid protocol
+		vdb.Spec.AdditionalBuckets[0] = CommunalStorage{
+			Path:             "ftp://bucket",
+			Endpoint:         "https://ftp.example.com",
+			Region:           "us-east-1",
+			CredentialSecret: "secret",
+		}
+		validateSpecValuesHaveErr(vdb, true)
+	})
 	It("should not have proxy replicas <= 0 if proxy is enabled", func() {
 		vdb := createVDBHelper()
 		vdb.Annotations[vmeta.UseVProxyAnnotation] = trueString
