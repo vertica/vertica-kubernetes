@@ -1149,6 +1149,14 @@ func (v *VerticaDB) IsFetchNodeDetailsLogDisabled() bool {
 	return vmeta.IsFetchNodeDetailsLogDisabled(v.Annotations)
 }
 
+func (v *VerticaDB) GetTLSCacheDuration() uint64 {
+	duration := vmeta.GetTLSCacheDuration(v.Annotations)
+	if duration < 0 {
+		return 0
+	}
+	return uint64(duration)
+}
+
 // IsValidRestorePointPolicy returns true if the RestorePointPolicy is properly specified,
 // i.e., it has a non-empty archive, and either a valid index or a valid id (but not both).
 func (r *RestorePointPolicy) IsValidRestorePointPolicy() bool {

@@ -418,6 +418,10 @@ const (
 	// allowing us to retain the DC tables.
 	// This is currently used internally for K8s stress test.
 	PreserveDBDirectoryAnnotation = "vertica.com/preserve-db-dir"
+
+	// This annotation controls how long the TLS cache should be kept.
+	TLSCacheDurationAnnotation = "vertica.com/tls-cache-duration"
+	TLSCacheDefaultDuration    = 1 * 24 * 3600 // 1 day
 )
 
 // IsPauseAnnotationSet will check the annotations for a special value that will
@@ -809,6 +813,11 @@ func IsFetchNodeDetailsLogDisabled(annotations map[string]string) bool {
 // GetPreserveDBDirectory returns true if the operator must preserve the DB directory
 func GetPreserveDBDirectory(annotations map[string]string) bool {
 	return lookupBoolAnnotation(annotations, PreserveDBDirectoryAnnotation, false)
+}
+
+// GetTLSCacheDuration returns the duration (in seconds) to keep the TLS cache
+func GetTLSCacheDuration(annotations map[string]string) int {
+	return lookupIntAnnotation(annotations, TLSCacheDurationAnnotation, TLSCacheDefaultDuration)
 }
 
 // lookupBoolAnnotation is a helper function to lookup a specific annotation and
