@@ -107,7 +107,7 @@ func (v *VerticaDB) FindTransientSubcluster() *Subcluster {
 
 func SetVDBForTLS(v *VerticaDB) {
 	v.Annotations[vmeta.EnableTLSAuthAnnotation] = trueString
-	v.Annotations[vmeta.VersionAnnotation] = TLSCertRotationMinVersion
+	v.Annotations[vmeta.VersionAnnotation] = TLSAuthMinVersion
 	v.Annotations[vmeta.VClusterOpsAnnotation] = trueString
 }
 
@@ -877,6 +877,22 @@ func (v *VerticaDB) GetActiveConnectionsDrainSeconds() int {
 	return vmeta.GetActiveConnectionsDrainSeconds(v.Annotations)
 }
 
+// IsTLSAUthEnabled returns true if the version supports TLS auth and
+// TLS auth is enabled.
+func (v *VerticaDB) IsTLSAuthEnabled() bool {
+	if !vmeta.UseVClusterOps(v.Annotations) {
+		return false
+	}
+	vinf, hasVersion := v.MakeVersionInfo()
+	// Assume we are running a version that does not support TLS auth
+	// if version is not present.
+	if !hasVersion {
+		return false
+	}
+	return vinf.IsEqualOrNewer(TLSAuthMinVersion) &&
+		vmeta.UseTLSAuth(v.Annotations)
+}
+
 // IsHTTPProbeSupported returns true if the version supports certs
 func (v *VerticaDB) IsHTTPProbeSupported(ver string) bool {
 	vinf, hasVersion := v.MakeVersionInfo()
@@ -888,7 +904,7 @@ func (v *VerticaDB) IsHTTPProbeSupported(ver string) bool {
 	if !hasVersion {
 		return false
 	}
-	return vinf.IsEqualOrNewer(TLSCertRotationMinVersion)
+	return vinf.IsEqualOrNewer(TLSAuthMinVersion)
 }
 
 // IsNMASideCarDeploymentEnabled returns true if the conditions to run NMA
@@ -1242,7 +1258,7 @@ func (v *VerticaDB) IsValidVersionForTLS() bool {
 		return false
 	}
 
-	return vinf.IsEqualOrNewer(TLSCertRotationMinVersion)
+	return vinf.IsEqualOrNewer(TLSAuthMinVersion)
 }
 
 // GenSubclusterStatusMap returns a map that has a subcluster name as key
@@ -1728,4 +1744,21 @@ func findInvalidChars(objName string, allowDash bool) string {
 		}
 	}
 	return foundChars
+}
+
+// IsOtherSubclusterDraining returns true if any subcluster drain annotation
+// exists that has a suffix different from the given scName.
+func (v *VerticaDB) IsOtherSubclusterDraining(scName string) bool {
+	drainAnnotations, found := vmeta.FindDrainTimeoutSubclusterAnnotations(v.Annotations)
+	if !found {
+		return false
+	}
+	for _, annotation := range drainAnnotations {
+		// If we have an annotation that is NOT for this scName,
+		// it means another subcluster is draining.
+		if annotation != vmeta.GenSubclusterDrainStartAnnotationName(scName) {
+			return true
+		}
+	}
+	return false
 }

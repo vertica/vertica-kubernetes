@@ -168,7 +168,6 @@ func (r *ReviveDBReconciler) execCmd(ctx context.Context, initiatorPod types.Nam
 	if res, err := r.Dispatcher.ReviveDB(ctx, opts...); verrors.IsReconcileAborted(res, err) {
 		return res, err
 	}
-
 	r.VRec.Eventf(r.Vdb, corev1.EventTypeNormal, events.ReviveDBSucceeded,
 		"Successfully revived database. It took %s", time.Since(start).Truncate(time.Second))
 

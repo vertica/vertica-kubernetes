@@ -104,6 +104,7 @@ const (
 	RebalanceShards                  = "RebalanceShards"
 	DrainNodeRetry                   = "DrainNodeRetry"
 	DrainSubclusterRetry             = "DrainSubclusterRetry"
+	DrainSubclusterTimeout           = "DrainSubclusterTimeout"
 	SuboptimalNodeCount              = "SuboptimalNodeCount"
 	StopDBStart                      = "StopDBStart"
 	StopDBSucceeded                  = "StopDBSucceeded"
@@ -140,6 +141,7 @@ const (
 	TLSConfigurationFailed           = "TLSConfigurationFailed"
 	TLSModeUpdateStarted             = "TLSModeUpdateStarted"
 	TLSModeUpdateSucceeded           = "TLSModeUpdateSucceeded"
+	TLSCertValidationFailed          = "TLSCertValidationFailed"
 )
 
 // Constants for VerticaAutoscaler reconciler
