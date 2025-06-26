@@ -696,7 +696,7 @@ func buildDownwardAPIProjection() *corev1.DownwardAPIProjection {
 			{
 				Path: "operator-version",
 				FieldRef: &corev1.ObjectFieldSelector{
-					FieldPath: fmt.Sprintf("metadata.annotations['%s']", "vertica.com/operator-version"),
+					FieldPath: fmt.Sprintf("metadata.labels['%s']", "app.kubernetes.io/version"),
 				},
 			},
 		},

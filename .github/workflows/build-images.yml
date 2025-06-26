@@ -289,7 +289,7 @@ jobs:
       uses: roypaulin/switch-case-action@v2
       id: minimal_vertica_image
       with:
-        default: docker.io/opentext/vertica-k8s-private:latest-minimal-master
+        default: docker.io/opentext/vertica-k8s-private:20250625-minimal
         conditionals-with-values: |
           ${{ inputs.minimal_vertica_image != '' }} => ${{ inputs.minimal_vertica_image }}
 

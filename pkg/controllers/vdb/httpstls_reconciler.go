@@ -43,7 +43,7 @@ func MakeHTTPSTLSReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger, vdb 
 	return &HTTPSTLSReconciler{
 		VRec:       vdbrecon,
 		Vdb:        vdb,
-		Log:        log.WithName("MakeHTTPSTLSeconciler"),
+		Log:        log.WithName("MakeHTTPSTLSReconciler"),
 		Dispatcher: dispatcher,
 		PRunner:    prunner,
 		Pfacts:     pfacts,
