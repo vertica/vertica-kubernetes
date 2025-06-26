@@ -34,7 +34,6 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
-	"github.com/vertica/vertica-kubernetes/pkg/secrets"
 	vtypes "github.com/vertica/vertica-kubernetes/pkg/types"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/createdb"
@@ -120,9 +119,6 @@ func (c *CreateDBReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ct
 // This handles logging of necessary events.
 func (c *CreateDBReconciler) execCmd(ctx context.Context, initiatorPod types.NamespacedName,
 	hostList []string, podNames []types.NamespacedName) (ctrl.Result, error) {
-	if c.Vdb.IsCertRotationEnabled() && secrets.IsGSMSecret(c.Vdb.Spec.HTTPSNMATLSSecret) {
-		return ctrl.Result{}, fmt.Errorf("tls configuration setting with GSM not implemented")
-	}
 	opts, err := c.genOptions(ctx, initiatorPod, podNames, hostList)
 	if err != nil {
 		return ctrl.Result{}, err

@@ -28,8 +28,8 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-// TLSConfigReconciler will turn on the tls config when users request it
-type HTTPSTLSReconciler struct {
+// TLSReconciler will turn on the tls config when users request it
+type TLSReconciler struct {
 	VRec       *VerticaDBReconciler
 	Vdb        *vapi.VerticaDB // Vdb is the CRD we are acting on.
 	Log        logr.Logger
@@ -38,12 +38,12 @@ type HTTPSTLSReconciler struct {
 	Pfacts     *podfacts.PodFacts
 }
 
-func MakeHTTPSTLSReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger, vdb *vapi.VerticaDB, prunner cmds.PodRunner,
+func MakeTLSReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger, vdb *vapi.VerticaDB, prunner cmds.PodRunner,
 	dispatcher vadmin.Dispatcher, pfacts *podfacts.PodFacts) controllers.ReconcileActor {
-	return &HTTPSTLSReconciler{
+	return &TLSReconciler{
 		VRec:       vdbrecon,
 		Vdb:        vdb,
-		Log:        log.WithName("MakeHTTPSTLSeconciler"),
+		Log:        log.WithName("TLSReconciler"),
 		Dispatcher: dispatcher,
 		PRunner:    prunner,
 		Pfacts:     pfacts,
@@ -51,26 +51,25 @@ func MakeHTTPSTLSReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger, vdb 
 }
 
 // Reconcile will create a TLS secret for the http server if one is missing
-func (h *HTTPSTLSReconciler) Reconcile(ctx context.Context, request *ctrl.Request) (ctrl.Result, error) {
-	actors := h.constructActors(h.Log, h.Vdb, h.PRunner, h.Pfacts, h.Dispatcher)
+func (h *TLSReconciler) Reconcile(ctx context.Context, request *ctrl.Request) (ctrl.Result, error) {
+	actors := h.constructActors(h.Log, h.Vdb, h.Pfacts, h.Dispatcher)
 	for _, actor := range actors {
 		res, err := actor.Reconcile(ctx, request)
 		if verrors.IsReconcileAborted(res, err) {
-			h.Log.Error(err, "failed to reconcile https tls configuration")
+			h.Log.Error(err, "failed to reconcile tls configuration")
 			return res, err
 		}
 	}
 	return ctrl.Result{}, nil
 }
 
-func (h *HTTPSTLSReconciler) constructActors(log logr.Logger, vdb *vapi.VerticaDB, prunner cmds.PodRunner, pfacts *podfacts.PodFacts,
+func (h *TLSReconciler) constructActors(log logr.Logger, vdb *vapi.VerticaDB, pfacts *podfacts.PodFacts,
 	dispatcher vadmin.Dispatcher) []controllers.ReconcileActor {
 	return []controllers.ReconcileActor{
-		// set up initial tls configuration for https service after db creation, reviving or upgrading
-		MakeTLSConfigReconciler(h.VRec, log, vdb, prunner, dispatcher, pfacts, vapi.HTTPSTLSSecretType),
-		MakeTLSConfigReconciler(h.VRec, log, vdb, prunner, dispatcher, pfacts, vapi.ClientServerTLSSecretType),
-		// rotate https tls cert when tls cert secret name is changed in vdb.spec
-		MakeHTTPSCertRotationReconciler(h.VRec, log, vdb, dispatcher, pfacts),
+		// update https tls by setting the tls config, rotating the cert and/or changing tls mode
+		MakeHTTPSTLSUpdateReconciler(h.VRec, log, vdb, dispatcher, pfacts),
+		// update client server tls by setting the tls config, rotating the cert and/or changing tls mode
+		MakeClientServerTLSUpdateReconciler(h.VRec, log, vdb, dispatcher, pfacts),
 		// rotate nma tls cert when tls cert secret name is changed in vdb.spec
 		MakeNMACertRotationReconciler(h.VRec, log, vdb, dispatcher, pfacts),
 	}

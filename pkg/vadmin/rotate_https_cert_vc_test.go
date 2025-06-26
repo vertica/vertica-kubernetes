@@ -24,7 +24,7 @@ import (
 	vops "github.com/vertica/vcluster/vclusterops"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/test"
-	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/rotatehttpscerts"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/rotatetlscerts"
 )
 
 const (
@@ -32,7 +32,7 @@ const (
 	rotateHTTPSCertCurrentNMASecretName = "rotate-https-current-cert-test-secret" //nolint:gosec
 )
 
-// mock version of VRotateTLSCerts() that is invoked inside VClusterOps.RotateHTTPSCerts()
+// mock version of VRotateTLSCerts() that is invoked inside VClusterOps.RotateTLSCerts()
 func (m *MockVClusterOps) VRotateTLSCerts(options *vops.VRotateTLSCertsOptions) error {
 	// verify common options
 	err := m.VerifyCommonOptions(&options.DatabaseOptions)
@@ -99,15 +99,15 @@ var _ = Describe("rotate_https_cert", func() {
 				Type: vapi.HTTPSTLSSecretType,
 			},
 		}
-		Ω(dispatcher.RotateHTTPSCerts(ctx,
-			rotatehttpscerts.WithInitiator(TestInitiatorIP),
-			rotatehttpscerts.WithPollingKey(TestPollingKey),
-			rotatehttpscerts.WithPollingCert(TestPollingCert),
-			rotatehttpscerts.WithPollingCaCert(TestPollingCaCert),
-			rotatehttpscerts.WithKey(dispatcher.VDB.Spec.HTTPSNMATLSSecret, TestKeyConfig),
-			rotatehttpscerts.WithCert(dispatcher.VDB.Spec.HTTPSNMATLSSecret, TestCertConfig),
-			rotatehttpscerts.WithCaCert(dispatcher.VDB.Spec.HTTPSNMATLSSecret, TestCaCertConfig),
-			rotatehttpscerts.WithTLSMode("TRY_VERIFY"),
+		Ω(dispatcher.RotateTLSCerts(ctx,
+			rotatetlscerts.WithInitiator(TestInitiatorIP),
+			rotatetlscerts.WithPollingKey(TestPollingKey),
+			rotatetlscerts.WithPollingCert(TestPollingCert),
+			rotatetlscerts.WithPollingCaCert(TestPollingCaCert),
+			rotatetlscerts.WithKey(dispatcher.VDB.Spec.HTTPSNMATLSSecret, TestKeyConfig),
+			rotatetlscerts.WithCert(dispatcher.VDB.Spec.HTTPSNMATLSSecret, TestCertConfig),
+			rotatetlscerts.WithCaCert(dispatcher.VDB.Spec.HTTPSNMATLSSecret, TestCaCertConfig),
+			rotatetlscerts.WithTLSMode("TRY_VERIFY"),
 		)).Should(Succeed())
 	})
 })

@@ -191,7 +191,7 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		// Set up configmap which stores env variables for NMA container
 		MakeNMACertConfigMapReconciler(r, log, vdb),
 		// Set up TLS config if users turn it on
-		MakeHTTPSTLSReconciler(r, log, vdb, prunner, dispatcher, pfacts),
+		MakeTLSReconciler(r, log, vdb, prunner, dispatcher, pfacts),
 		// Trigger sandbox upgrade when the image field for the sandbox
 		// is changed
 		MakeSandboxUpgradeReconciler(r, log, vdb, false),
@@ -272,7 +272,7 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		MakeCreateDBReconciler(r, log, vdb, prunner, pfacts, dispatcher),
 		// Handle calls to revive a database
 		MakeReviveDBReconciler(r, log, vdb, prunner, pfacts, dispatcher),
-		MakeHTTPSTLSReconciler(r, log, vdb, prunner, dispatcher, pfacts),
+		MakeTLSReconciler(r, log, vdb, prunner, dispatcher, pfacts),
 		// Add additional buckets for data replication
 		MakeAddtionalBucketsReconciler(r, log, vdb, prunner, pfacts),
 		MakeMetricReconciler(r, log, vdb, prunner, pfacts),

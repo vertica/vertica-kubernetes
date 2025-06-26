@@ -624,9 +624,8 @@ func (v *VerticaDB) IsUpgradeInProgress() bool {
 	return v.IsStatusConditionTrue(UpgradeInProgress)
 }
 
-// IsCertRotationInProgress returns true if an online upgrade is in progress
-func (v *VerticaDB) IsCertRotationInProgress() bool {
-	return v.IsStatusConditionTrue(TLSCertRotationInProgress)
+func (v *VerticaDB) IsTLSConfigUpdateInProgress() bool {
+	return v.IsStatusConditionTrue(TLSConfigUpdateInProgress)
 }
 
 // IsStatusConditionTrue returns true when the conditionType is present and set to
@@ -876,22 +875,6 @@ func (v *VerticaDB) GetCreateDBNodeStartTimeout() int {
 // GetActiveConnectionsDrainSeconds returns time in seconds to wait for a subcluster/database users' disconnection
 func (v *VerticaDB) GetActiveConnectionsDrainSeconds() int {
 	return vmeta.GetActiveConnectionsDrainSeconds(v.Annotations)
-}
-
-// IsCertRotationEnabled returns true if the version supports certs and
-// cert rotation is enabled.
-func (v *VerticaDB) IsCertRotationEnabled() bool {
-	if !vmeta.UseVClusterOps(v.Annotations) {
-		return false
-	}
-	vinf, hasVersion := v.MakeVersionInfo()
-	// Assume we are running a version that does not support cert rotation
-	// if version is not present.
-	if !hasVersion {
-		return false
-	}
-	return vinf.IsEqualOrNewer(TLSCertRotationMinVersion) &&
-		vmeta.UseTLSAuth(v.Annotations)
 }
 
 // IsHTTPProbeSupported returns true if the version supports certs
@@ -1214,6 +1197,52 @@ func (v *VerticaDB) IsHTTPSTLSConfGenerationEnabled() (bool, error) {
 		return false, err
 	}
 	return !inf.IsEqualOrNewer(AutoGenerateHTTPSCertsForNewDatabasesMinVersion), nil
+}
+
+// IsTLSConfigEnabled returns true if tls is enabled and https and client-server tls configs
+// exists in the db. It means the db ops can start using tls
+func (v *VerticaDB) IsTLSConfigEnabled() bool {
+	return v.IsSetForTLS() &&
+		v.GetHTTPSTLSSecretNameInUse() != "" &&
+		v.GetClientServerTLSSecretNameInUse() != ""
+}
+
+// IsHTTPSConfigEnabled returns true if tls is enabled and https tls config
+// exists in the db. It means the db ops can start using tls
+func (v *VerticaDB) IsHTTPSConfigEnabled() bool {
+	return v.IsSetForTLS() &&
+		v.GetHTTPSTLSSecretNameInUse() != ""
+}
+
+// IsClientServerConfigEnabled returns true if tls is enabled and client-server tls config
+// exists in the db
+func (v *VerticaDB) IsClientServerConfigEnabled() bool {
+	return v.IsSetForTLS() &&
+		v.GetClientServerTLSSecretNameInUse() != ""
+}
+
+// IsSetForTLS returns true if VerticaDB is set and ready for tls.
+// It does not mean vclusterops can now operate using tls, for
+// that we need to wait until tls configurations are created
+func (v *VerticaDB) IsSetForTLS() bool {
+	return v.IsValidVersionForTLS() &&
+		vmeta.UseTLSAuth(v.Annotations)
+}
+
+// IsValidVersionForTLS returns true if the server version
+// supports tls
+func (v *VerticaDB) IsValidVersionForTLS() bool {
+	if !vmeta.UseVClusterOps(v.Annotations) {
+		return false
+	}
+	vinf, hasVersion := v.MakeVersionInfo()
+	// Assume we are running a version that does not support cert rotation
+	// if version is not present.
+	if !hasVersion {
+		return false
+	}
+
+	return vinf.IsEqualOrNewer(TLSCertRotationMinVersion)
 }
 
 // GenSubclusterStatusMap returns a map that has a subcluster name as key
