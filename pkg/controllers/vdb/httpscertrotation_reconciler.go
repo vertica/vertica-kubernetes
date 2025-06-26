@@ -193,8 +193,9 @@ func (h *HTTPSCertRotationReconciler) rotateHTTPSTLSCert(ctx context.Context, tl
 	}
 	switch {
 	case secrets.IsAWSSecretsManagerSecret(h.Vdb.Spec.HTTPSNMATLSSecret):
-		keyConfig, certConfig, caCertConfig = GetAWSCertsConfig(h.Vdb, cacheDuration)
-		secretName = secrets.RemovePathReference(h.Vdb.Spec.HTTPSNMATLSSecret)
+		secretARN, versionID := secrets.GetAWSSecretARN(h.Vdb.Spec.HTTPSNMATLSSecret)
+		keyConfig, certConfig, caCertConfig = GetAWSCertsConfig(h.Vdb, versionID, cacheDuration)
+		secretName = secretARN
 	default:
 		keyConfig, certConfig, caCertConfig = GetK8sCertsConfig(h.Vdb, cacheDuration)
 		secretName = h.Vdb.Spec.HTTPSNMATLSSecret
@@ -265,18 +266,21 @@ func (h *HTTPSCertRotationReconciler) buildHTTPSTLSUpdateData(ctx context.Contex
 }
 
 func GetK8sCertsConfig(vdb *vapi.VerticaDB, cacheDuration string) (keyConfig, certConfig, caCertConfig string) {
-	keyConfig = fmt.Sprintf("{\"data-key\":%q, \"namespace\":%q%s}", corev1.TLSPrivateKeyKey, vdb.Namespace, cacheDuration)
-	certConfig = fmt.Sprintf("{\"data-key\":%q, \"namespace\":%q%s}", corev1.TLSCertKey, vdb.Namespace, cacheDuration)
-	caCertConfig = fmt.Sprintf("{\"data-key\":%q, \"namespace\":%q%s}", paths.HTTPServerCACrtName, vdb.Namespace, cacheDuration)
+	keyConfig = fmt.Sprintf("{\"data-key\":%q,\"namespace\":%q%s}", corev1.TLSPrivateKeyKey, vdb.Namespace, cacheDuration)
+	certConfig = fmt.Sprintf("{\"data-key\":%q,\"namespace\":%q%s}", corev1.TLSCertKey, vdb.Namespace, cacheDuration)
+	caCertConfig = fmt.Sprintf("{\"data-key\":%q,\"namespace\":%q%s}", paths.HTTPServerCACrtName, vdb.Namespace, cacheDuration)
 	return
 }
 
-func GetAWSCertsConfig(vdb *vapi.VerticaDB, cacheDuration string) (keyConfig, certConfig, caCertConfig string) {
+func GetAWSCertsConfig(vdb *vapi.VerticaDB, versionID, cacheDuration string) (keyConfig, certConfig, caCertConfig string) {
 	region, _ := secrets.GetAWSRegion(vdb.Spec.HTTPSNMATLSSecret)
 
-	keyConfig = fmt.Sprintf("{\"json-key\":%q, \"region\":%q%s}", corev1.TLSPrivateKeyKey, region, cacheDuration)
-	certConfig = fmt.Sprintf("{\"json-key\":%q, \"region\":%q%s}", corev1.TLSCertKey, region, cacheDuration)
-	caCertConfig = fmt.Sprintf("{\"json-key\":%q, \"region\":%q%s}", paths.HTTPServerCACrtName, region, cacheDuration)
+	keyConfig = fmt.Sprintf("{\"json-key\":%q,\"region\":%q,\"version-id\":%q%s}",
+		corev1.TLSPrivateKeyKey, region, versionID, cacheDuration)
+	certConfig = fmt.Sprintf("{\"json-key\":%q,\"region\":%q,\"version-id\":%q%s}",
+		corev1.TLSCertKey, region, versionID, cacheDuration)
+	caCertConfig = fmt.Sprintf("{\"json-key\":%q,\"region\":%q,\"version-id\":%q%s}",
+		paths.HTTPServerCACrtName, region, versionID, cacheDuration)
 	return
 }
 
