@@ -24,4 +24,4 @@ metadata:
   name: v-create-enable-rotate-add
 status:
   subclusters:
-    - installCount: 3
+    - upNodeCount: 3
