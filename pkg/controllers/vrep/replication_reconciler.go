@@ -319,7 +319,6 @@ func (r *ReplicationReconciler) validateAuthentication() error {
 	if r.TargetInfo.Vdb.IsCertRotationEnabled() && r.TargetInfo.Password == "" {
 		return fmt.Errorf("cannot use empty password when tls is enabled for target vdb %s",
 			r.TargetInfo.Vdb.Name)
-
 	}
 	return nil
 }
