@@ -169,6 +169,7 @@ func (v *VerticaDB) validateImmutableFields(old runtime.Object) field.ErrorList 
 	allErrs = v.checkSubclustersInShutdownSandbox(oldObj, allErrs)
 	allErrs = v.checkNewSBoxOrSClusterShutdownUnset(allErrs)
 	allErrs = v.checkSClusterToBeSandboxedShutdownUnset(allErrs)
+	allErrs = v.checkIfAnyOperationInProgressWhenTurnOnTLS(allErrs)
 	allErrs = v.checkShutdownForScaleOutOrIn(oldObj, allErrs)
 	return allErrs
 }
@@ -2500,6 +2501,65 @@ func (v *VerticaDB) setDefaultProxy() {
 		sc := &v.Spec.Subclusters[i]
 		sc.setDefaultProxySubcluster(useProxy)
 	}
+}
+
+func (v *VerticaDB) checkIfAnyOperationInProgressWhenTurnOnTLS(allErrs field.ErrorList) field.ErrorList {
+	if v.IsCertRotationEnabled() && v.IsStatusConditionTrue(DBInitialized) {
+		prefix := field.NewPath("metadata").Child("annotations")
+		annotationName := vmeta.EnableTLSAuthAnnotation
+		if v.checkIfUpgradeInProgress() {
+			err := field.Invalid(prefix.Key(annotationName),
+				v.Annotations[annotationName],
+				fmt.Sprintf("%s cannot be set to true while an upgrade is in progress", annotationName))
+			allErrs = append(allErrs, err)
+		}
+		errMsgs := v.compareSpecAndStatus()
+		if len(errMsgs) != 0 {
+			err := field.Invalid(prefix.Key(annotationName),
+				v.Annotations[annotationName],
+				fmt.Sprintf("%s cannot be set to true while the spec and status are not in sync: %s", annotationName, strings.Join(errMsgs, ", ")))
+			allErrs = append(allErrs, err)
+		}
+	}
+	return allErrs
+}
+
+func (v *VerticaDB) checkIfUpgradeInProgress() bool {
+	if v.IsStatusConditionTrue(UpgradeInProgress) || v.IsStatusConditionTrue(OnlineUpgradeInProgress) || v.IsStatusConditionTrue(OfflineUpgradeInProgress) ||
+		v.IsStatusConditionTrue(ReadOnlyOnlineUpgradeInProgress) {
+		return true
+	}
+	return false
+}
+
+func (v *VerticaDB) compareSpecAndStatus() []string {
+	errMsgs := []string{}
+	if len(v.Spec.Subclusters) != len(v.Status.Subclusters) {
+		errMsgs = append(errMsgs, fmt.Sprintf("spec.subclusters length %d does not match status.subclusters length %d", len(v.Spec.Subclusters), len(v.Status.Subclusters)))
+		return errMsgs
+	}
+	if len(v.Spec.Sandboxes) != 0 {
+		errMsgs = append(errMsgs, "cert rotation is not supported for sandboxes")
+		return errMsgs
+	}
+	for i, sc := range v.Spec.Subclusters {
+		if sc.Name != v.Status.Subclusters[i].Name {
+			errMsgs = append(errMsgs, fmt.Sprintf("spec.subclusters[%d].name %q does not match status.subclusters[%d].name %q", i, sc.Name, i, v.Status.Subclusters[i].Name))
+		}
+		if sc.Size != v.Status.Subclusters[i].AddedToDBCount {
+			errMsgs = append(errMsgs, fmt.Sprintf("spec.subclusters[%d].size %d does not match status.subclusters[%d].AddedToDBCount %d", i, sc.Size, i, v.Status.Subclusters[i].AddedToDBCount))
+		}
+		if sc.Size != v.Status.Subclusters[i].UpNodeCount {
+			errMsgs = append(errMsgs, fmt.Sprintf("spec.subclusters[%d].size %d does not match status.subclusters[%d].UpNodeCount %d", i, sc.Size, i, v.Status.Subclusters[i].UpNodeCount))
+		}
+		if sc.Type != v.Status.Subclusters[i].Type {
+			errMsgs = append(errMsgs, fmt.Sprintf("spec.subclusters[%d].type %q does not match status.subclusters[%d].type %q", i, sc.Type, i, v.Status.Subclusters[i].Type))
+		}
+		if sc.Shutdown != v.Status.Subclusters[i].Shutdown {
+			errMsgs = append(errMsgs, fmt.Sprintf("spec.subclusters[%d].Shutdown %t does not match status.subclusters[%d].Shutdown %t", i, sc.Shutdown, i, v.Status.Subclusters[i].Shutdown))
+		}
+	}
+	return []string{}
 }
 
 func (s *Subcluster) setDefaultProxySubcluster(useProxy bool) {
