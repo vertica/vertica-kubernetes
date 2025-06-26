@@ -2272,6 +2272,11 @@ var _ = Describe("verticadb_webhook", func() {
 		Ω(newVdb.validateVerticaDBSpec()).Should(HaveLen(1))
 		newVdb.Status.Subclusters[1].Name = "new-sc2"
 		Ω(newVdb.validateVerticaDBSpec()).Should(HaveLen(0))
+		newVdb.Status.Conditions = []metav1.Condition{
+			{Type: DBInitialized, Status: metav1.ConditionTrue, Reason: "Initialized"},
+			{Type: UpgradeInProgress, Status: metav1.ConditionTrue, Reason: "UpgradeStarted"},
+		}
+		Ω(newVdb.validateVerticaDBSpec()).Should(HaveLen(1))
 	})
 
 })

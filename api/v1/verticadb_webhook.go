@@ -2512,6 +2512,7 @@ func (v *VerticaDB) checkIfAnyOperationInProgressWhenTurnOnTLS(allErrs field.Err
 				v.Annotations[annotationName],
 				fmt.Sprintf("%s cannot be set to true while an upgrade is in progress", annotationName))
 			allErrs = append(allErrs, err)
+			return allErrs
 		}
 		errMsgs := v.compareSpecAndStatus()
 		if len(errMsgs) != 0 {
@@ -2542,7 +2543,8 @@ func (v *VerticaDB) compareSpecAndStatus() []string {
 		errMsgs = append(errMsgs, "cert rotation is not supported for sandboxes")
 		return errMsgs
 	}
-	for i, sc := range v.Spec.Subclusters {
+	for i := range v.Spec.Subclusters {
+		sc := v.Spec.Subclusters[i]
 		if sc.Name != v.Status.Subclusters[i].Name {
 			errMsgs = append(errMsgs, fmt.Sprintf("spec.subclusters[%d].name %q does not match status.subclusters[%d].name %q", i, sc.Name, i, v.Status.Subclusters[i].Name))
 		}
