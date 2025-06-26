@@ -30,6 +30,8 @@ status:
 apiVersion: vertica.com/v1beta1
 kind: VerticaDB
 metadata:
+  annotations: 
+    vertica.com/mount-nma-certs: "true"
   name: v-from-x
 status:
   subclusters:
