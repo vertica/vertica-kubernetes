@@ -877,22 +877,6 @@ func (v *VerticaDB) GetActiveConnectionsDrainSeconds() int {
 	return vmeta.GetActiveConnectionsDrainSeconds(v.Annotations)
 }
 
-// IsTLSAUthEnabled returns true if the version supports TLS auth and
-// TLS auth is enabled.
-func (v *VerticaDB) IsTLSAuthEnabled() bool {
-	if !vmeta.UseVClusterOps(v.Annotations) {
-		return false
-	}
-	vinf, hasVersion := v.MakeVersionInfo()
-	// Assume we are running a version that does not support TLS auth
-	// if version is not present.
-	if !hasVersion {
-		return false
-	}
-	return vinf.IsEqualOrNewer(TLSAuthMinVersion) &&
-		vmeta.UseTLSAuth(v.Annotations)
-}
-
 // IsHTTPProbeSupported returns true if the version supports certs
 func (v *VerticaDB) IsHTTPProbeSupported(ver string) bool {
 	vinf, hasVersion := v.MakeVersionInfo()
