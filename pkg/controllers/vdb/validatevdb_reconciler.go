@@ -37,21 +37,21 @@ type ValidateVDBReconciler struct {
 
 // MakeValidateVDBReconciler will build a ValidateVDBReconciler object
 func MakeValidateVDBReconciler(vdbrecon config.ReconcilerInterface, log logr.Logger,
-	vdb *vapi.VerticaDB, pfacts *podfacts.PodFacts) controllers.ReconcileActor {
+	vdb *vapi.VerticaDB) controllers.ReconcileActor {
 	return &ValidateVDBReconciler{
-		VRec:   vdbrecon,
-		Log:    log.WithName("ValidateVDBReconciler"),
-		Vdb:    vdb,
-		PFacts: pfacts,
+		VRec: vdbrecon,
+		Log:  log.WithName("ValidateVDBReconciler"),
+		Vdb:  vdb,
 	}
 }
 
-func (a *ValidateVDBReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
-	if err := a.PFacts.Collect(ctx, a.Vdb); err != nil {
-		return ctrl.Result{}, err
+func (r *ValidateVDBReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
+	// No-op if no sandbox exists
+	if r.Vdb.GenSandboxMap() == nil {
+		return ctrl.Result{}, nil
 	}
 
-	if err := a.validateSubclusters(); err != nil {
+	if err := r.validateSubclusters(); err != nil {
 		return ctrl.Result{}, err
 	}
 
@@ -59,45 +59,45 @@ func (a *ValidateVDBReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) 
 }
 
 // validateSubclusters updates the vdb/sandbox subcluster type if needed
-func (a *ValidateVDBReconciler) validateSubclusters() error {
+func (r *ValidateVDBReconciler) validateSubclusters() error {
 	scsMain := []*vapi.Subcluster{}
 	scsSandbox := []*vapi.SandboxSubcluster{}
 
-	sb := a.Vdb.GetSandbox(a.PFacts.SandboxName)
-	if sb == nil {
-		return fmt.Errorf("could not find sandbox %s", a.PFacts.SandboxName)
-	}
-	scMap := a.Vdb.GenSubclusterMap()
+	sbs := r.Vdb.GenSandboxMap()
+	for sbName := range sbs {
+		sb := sbs[sbName]
+		scMap := r.Vdb.GenSubclusterMap()
 
-	// round 1, to validate the vdb subcluster type
-	for i := range sb.Subclusters {
-		sc := scMap[sb.Subclusters[i].Name]
-		if sc == nil {
-			return fmt.Errorf("could not find subcluster %s", sb.Subclusters[i].Name)
-		}
+		// round 1, to validate the vdb subcluster type
+		for i := range sb.Subclusters {
+			sc := scMap[sb.Subclusters[i].Name]
+			if sc == nil {
+				return fmt.Errorf("could not find subcluster %s", sb.Subclusters[i].Name)
+			}
 
-		// the vdb subcluster type is not valid only when
-		// - sandbox subcluster type is not empty (25.3 or later) and
-		// - vdb subcluster type is "sandboxprimary" (25.2 or earlier)
-		if sb.Subclusters[i].Type != "" {
-			if sc.Type == vapi.SandboxPrimarySubcluster {
-				scsMain = append(scsMain, sc)
-			} else {
-				// the rest sandbox subclusters needs to be updated if not valid
-				scsSandbox = append(scsSandbox, &sb.Subclusters[i])
+			// the vdb subcluster type is not valid only when
+			// - sandbox subcluster type is not empty (25.3 or later) and
+			// - vdb subcluster type is "sandboxprimary" (25.2 or earlier)
+			if sb.Subclusters[i].Type != "" {
+				if sc.Type == vapi.SandboxPrimarySubcluster {
+					scsMain = append(scsMain, sc)
+				} else {
+					// the rest sandbox subclusters needs to be updated if not valid
+					scsSandbox = append(scsSandbox, &sb.Subclusters[i])
+				}
 			}
 		}
-	}
 
-	// round 2, to update the vdb/sandbox subcluster type if not valid
-	if len(scsMain) > 0 {
-		// if the vdb subcluster type is not valid, we need to change the subcluster type to "secondary"
-		for _, sc := range scsMain {
-			sc.Type = vapi.SecondarySubcluster
-		}
-		// all the reset sandbox subclusters type should be "secondary"
-		for _, sbSc := range scsSandbox {
-			sbSc.Type = vapi.SecondarySubcluster
+		// round 2, to update the vdb/sandbox subcluster type if not valid
+		if len(scsMain) > 0 {
+			// if the vdb subcluster type is not valid, we need to change the subcluster type to "secondary"
+			for _, sc := range scsMain {
+				sc.Type = vapi.SecondarySubcluster
+			}
+			// all the reset sandbox subclusters type should be "secondary"
+			for _, sbSc := range scsSandbox {
+				sbSc.Type = vapi.SecondarySubcluster
+			}
 		}
 	}
 

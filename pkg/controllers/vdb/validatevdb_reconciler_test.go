@@ -21,13 +21,11 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
-	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
 	"github.com/vertica/vertica-kubernetes/pkg/test"
 )
 
 var _ = Describe("ValidateVDBReconciler", func() {
 	var reconciler *ValidateVDBReconciler
-	var pfacts *podfacts.PodFacts
 
 	ctx := context.Background()
 	vdb := vapi.MakeVDBForVclusterOps()
@@ -50,8 +48,7 @@ var _ = Describe("ValidateVDBReconciler", func() {
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
-		pfacts = &podfacts.PodFacts{SandboxName: "sb1"}
-		rec := MakeValidateVDBReconciler(vdbRec, logger, vdb, pfacts)
+		rec := MakeValidateVDBReconciler(vdbRec, logger, vdb)
 		reconciler = rec.(*ValidateVDBReconciler)
 	})
 
@@ -73,12 +70,5 @@ var _ = Describe("ValidateVDBReconciler", func() {
 		err := reconciler.validateSubclusters()
 		Expect(err).ShouldNot(HaveOccurred())
 		Expect(vdb.Spec.Sandboxes[0].Subclusters[1].Type).To(Equal(vapi.PrimarySubcluster))
-	})
-
-	It("should return error if sandbox not found", func() {
-		pfacts.SandboxName = "doesnotexist"
-		err := reconciler.validateSubclusters()
-		Expect(err).To(HaveOccurred())
-		Expect(err.Error()).To(ContainSubstring("could not find sandbox"))
 	})
 })
