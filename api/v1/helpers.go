@@ -1722,7 +1722,7 @@ func (v *VerticaDB) GetClientServerTLSMode() string {
 
 // Get HTTPSNMATLS mode from spec or return "" if not found
 func (v *VerticaDB) GetClientServerTLSSecret() string {
-	if v.Spec.HTTPSNMATLS == nil {
+	if v.Spec.ClientServerTLS == nil {
 		return ""
 	}
 	return v.Spec.ClientServerTLS.Secret
