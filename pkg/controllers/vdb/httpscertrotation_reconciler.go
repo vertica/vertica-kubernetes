@@ -79,8 +79,8 @@ func MakeHTTPSCertRotationReconciler(vdbrecon *VerticaDBReconciler, log logr.Log
 // Reconcile will rotate TLS certificate.
 func (h *HTTPSCertRotationReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
 	// we should not rotate when tls is not enabled or is enabled but not ready yet
-	if !h.Vdb.IsCertRotationEnabled() ||
-		h.Vdb.IsCertRotationEnabled() && h.Vdb.GetHTTPSTLSSecretNameInUse() == "" ||
+	if !h.Vdb.IsTLSAuthEnabled() ||
+		h.Vdb.IsTLSAuthEnabled() && h.Vdb.GetHTTPSTLSSecretNameInUse() == "" ||
 		h.Vdb.IsStatusConditionTrue(vapi.HTTPSCertRotationFinished) &&
 			h.Vdb.IsStatusConditionTrue(vapi.TLSCertRotationInProgress) {
 		return ctrl.Result{}, nil

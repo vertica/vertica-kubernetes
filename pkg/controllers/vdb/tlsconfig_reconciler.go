@@ -61,13 +61,13 @@ func MakeTLSConfigReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger, vdb
 
 // Reconcile will create a TLS secret for the http server if one is missing
 func (h *TLSConfigReconciler) Reconcile(ctx context.Context, request *ctrl.Request) (ctrl.Result, error) {
-	if h.Vdb.IsCertRotationEnabled() && h.Vdb.GetSecretNameInUse(h.TLSSecretType) != "" ||
-		!h.Vdb.IsCertRotationEnabled() || !h.Vdb.IsStatusConditionTrue(vapi.DBInitialized) ||
+	if h.Vdb.IsTLSAuthEnabled() && h.Vdb.GetSecretNameInUse(h.TLSSecretType) != "" ||
+		!h.Vdb.IsTLSAuthEnabled() || !h.Vdb.IsStatusConditionTrue(vapi.DBInitialized) ||
 		h.Vdb.IsStatusConditionTrue(vapi.UpgradeInProgress) ||
 		h.Vdb.IsStatusConditionTrue(vapi.VerticaRestartNeeded) {
 		return ctrl.Result{}, nil
 	}
-	h.Log.Info("entry condition, cert rotate enabled ? " + strconv.FormatBool(h.Vdb.IsCertRotationEnabled()) +
+	h.Log.Info("entry condition, cert rotate enabled ? " + strconv.FormatBool(h.Vdb.IsTLSAuthEnabled()) +
 		", status secret name - " + h.Vdb.GetSecretNameInUse(h.TLSSecretType) + ", is db initialized ? " +
 		strconv.FormatBool(h.Vdb.IsStatusConditionTrue(vapi.DBInitialized)))
 	err := h.Pfacts.Collect(ctx, h.Vdb)

@@ -35,8 +35,7 @@ spec:
     - name: secondary
       isPrimary: false
       size: 1
-  httpServerTLS:
-    secret: nma-cert
+  httpServerTLSSecret: nma-cert
   clientServerTLS:
     secret: client-cert
   kSafety: "0"

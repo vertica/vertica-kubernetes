@@ -2302,7 +2302,7 @@ func (v *VerticaDB) checkImmutableClientProxy(oldObj *VerticaDB, allErrs field.E
 // checkImmutableCertRotation will validate the httpsNMATLSSecret spec fields in vdb
 func (v *VerticaDB) checkImmutableCertRotation(oldObj *VerticaDB, allErrs field.ErrorList) field.ErrorList {
 	// If cert rotation is in progress, httpsNMATLSSecret can not be changed
-	if v.IsCertRotationEnabled() && v.IsCertRotationInProgress() && oldObj.GetHTTPSNMATLSSecret() != v.GetHTTPSNMATLSSecret() {
+	if v.IsTLSAuthEnabled() && v.IsCertRotationInProgress() && oldObj.GetHTTPSNMATLSSecret() != v.GetHTTPSNMATLSSecret() {
 		err := field.Invalid(field.NewPath("spec").Child("httpsNMATLSSecret"),
 			v.GetHTTPSNMATLSSecret,
 			"httpsNMATLSSecret cannot be changed when cert rotation is in progress")
@@ -2313,7 +2313,7 @@ func (v *VerticaDB) checkImmutableCertRotation(oldObj *VerticaDB, allErrs field.
 
 // hasValidTLSMode checks if the tls mode is valid
 func (v *VerticaDB) hasValidTLSMode(tlsModeToValidate, fieldName string, allErrs field.ErrorList) field.ErrorList {
-	if !v.IsCertRotationEnabled() {
+	if !v.IsTLSAuthEnabled() {
 		return allErrs
 	}
 	tlsModes := []string{tlsModeDisable, tlsModeEnable, tlsModeTryVerify, tlsModeVerifyCA, tlsModeVerifyFull}
