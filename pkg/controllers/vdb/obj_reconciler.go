@@ -68,6 +68,7 @@ type ObjReconciler struct {
 	Log           logr.Logger
 	Vdb           *vapi.VerticaDB // Vdb is the CRD we are acting on.
 	PFacts        *podfacts.PodFacts
+	SandPFactsMap map[string]podfacts.PodFacts
 	Mode          ObjReconcileModeType
 	SecretFetcher cloud.SecretFetcher
 }
@@ -119,12 +120,6 @@ func (o *ObjReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Re
 	}
 
 	if err := o.reconcileTLSSecrets(ctx); err != nil {
-		return ctrl.Result{}, err
-	}
-
-	// We need to create/update the configmap that contains the tls secret name
-	err := o.reconcileNMACertConfigMap(ctx)
-	if err != nil {
 		return ctrl.Result{}, err
 	}
 
@@ -267,6 +262,7 @@ func (o *ObjReconciler) checkForCreatedSubclusters(ctx context.Context) (ctrl.Re
 			}
 		}
 
+		o.SandPFactsMap = make(map[string]podfacts.PodFacts)
 		if res, err := o.reconcileSts(ctx, sc); verrors.IsReconcileAborted(res, err) {
 			return res, err
 		}
@@ -605,13 +601,57 @@ func (o *ObjReconciler) deleteVProxy(ctx context.Context, vpName string) error {
 	return o.deleteVProxyConfigMapIfExists(ctx, vpName)
 }
 
+// retrieveVerticaVersion will retrieve the subcluster's vertica version
+func (o *ObjReconciler) retriveVerticaVersion(ctx context.Context, sc *vapi.Subcluster, version *string) (ctrl.Result, error) {
+	scSandMap := o.Vdb.GenSubclusterSandboxStatusMap()
+	scPFacts := o.PFacts
+	sand, exist := scSandMap[sc.Name]
+	// For subcluster that is in a sandbox, we need to use a different PFacts
+	if exist && sand != vapi.MainCluster {
+		if sandPFacts, found := o.SandPFactsMap[sand]; found {
+			scPFacts = &sandPFacts
+		} else {
+			sandPFacts := o.PFacts.Copy(sand)
+			scPFacts = &sandPFacts
+			o.SandPFactsMap[sand] = sandPFacts
+		}
+	}
+	if err := scPFacts.Collect(ctx, o.Vdb); err != nil {
+		return ctrl.Result{}, err
+	}
+	// Use image version reconciler to get the subcluster's vertica version
+	i := MakeImageVersionReconciler(o.Rec, o.Log, o.Vdb, scPFacts.PRunner, scPFacts, false, version, true)
+	vr := i.(*ImageVersionReconciler)
+	vr.FindPodFunc = func() (*podfacts.PodFact, bool) {
+		for _, v := range scPFacts.Detail {
+			if v.GetIsPodRunning() && v.GetSubclusterName() == sc.Name {
+				return v, true
+			}
+		}
+		return &podfacts.PodFact{}, false
+	}
+	return vr.Reconcile(ctx, &ctrl.Request{})
+}
+
 // reconcileSts reconciles the statefulset for a particular subcluster.  Returns
 // true if any create/update was done.
 func (o *ObjReconciler) reconcileSts(ctx context.Context, sc *vapi.Subcluster) (ctrl.Result, error) {
-	// Create or update the statefulset
+	version := ""
 	nm := names.GenStsName(o.Vdb, sc)
 	curSts := &appsv1.StatefulSet{}
-	expSts := builder.BuildStsSpec(nm, o.Vdb, sc)
+	err := o.Rec.GetClient().Get(ctx, nm, curSts)
+	curStsNotExist := err != nil && kerrors.IsNotFound(err)
+	podsNotRunning := false
+	// After DB is initialized and we have the sts, we can get vertica version from its pods
+	if o.Vdb.IsStatusConditionTrue(vapi.DBInitialized) && !curStsNotExist {
+		res, err2 := o.retriveVerticaVersion(ctx, sc, &version)
+		if err2 != nil {
+			return res, err2
+		}
+		podsNotRunning = res.Requeue
+	}
+	// Create or update the statefulset
+	expSts := builder.BuildStsSpec(nm, o.Vdb, sc, version)
 	stsCreated, err := o.ensureStsExists(ctx, nm, curSts, expSts)
 	if err != nil {
 		return ctrl.Result{}, err
@@ -632,12 +672,12 @@ func (o *ObjReconciler) reconcileSts(ctx context.Context, sc *vapi.Subcluster) (
 		return ctrl.Result{}, nil
 	}
 
-	return o.handleStatefulSetUpdate(ctx, sc, curSts, expSts, curDep)
+	return o.handleStatefulSetUpdate(ctx, sc, curSts, expSts, curDep, podsNotRunning)
 }
 
 // handleStatefulSetUpdate handles the update of an existing StatefulSet.
 func (o *ObjReconciler) handleStatefulSetUpdate(ctx context.Context, sc *vapi.Subcluster,
-	curSts, expSts *appsv1.StatefulSet, curDep *appsv1.Deployment) (ctrl.Result, error) {
+	curSts, expSts *appsv1.StatefulSet, curDep *appsv1.Deployment, podsNotRunning bool) (ctrl.Result, error) {
 	// We can only remove pods if we have called remove node and done the
 	// uninstall.  If we haven't yet done that we will requeue the
 	// reconciliation.  This will cause us to go through the remove node and
@@ -684,10 +724,22 @@ func (o *ObjReconciler) handleStatefulSetUpdate(ctx context.Context, sc *vapi.Su
 	// change it here.
 	expSts.Spec.VolumeClaimTemplates = curSts.Spec.VolumeClaimTemplates
 
+	// When pods are not running, we cannot get vertica version so we don't update
+	// health probes
+	if podsNotRunning {
+		curSvrCnt := vk8s.GetServerContainer(curSts.Spec.Template.Spec.Containers)
+		if curSvrCnt == nil {
+			return ctrl.Result{}, fmt.Errorf("could not find server container in sts %s", curSts.Name)
+		}
+		expSvrCnt.StartupProbe = curSvrCnt.StartupProbe
+		expSvrCnt.LivenessProbe = curSvrCnt.LivenessProbe
+		expSvrCnt.ReadinessProbe = curSvrCnt.ReadinessProbe
+	}
+
 	// If the NMA deployment type or health check setting is changing,
 	// we cannot do a rolling update for this change. All pods need to have the
 	// same NMA deployment type. So, we drop the old sts and create a fresh one.
-	if isNMADeploymentDifferent(curSts, expSts) || isHealthCheckDifferent(curSts, expSts) {
+	if isNMADeploymentDifferent(curSts, expSts) || (!podsNotRunning && isHealthCheckDifferent(curSts, expSts)) {
 		o.Log.Info("Dropping then recreating statefulset", "Name", expSts.Name)
 		// Invalidate the pod facts cache since we are recreating a new sts
 		o.PFacts.Invalidate()
@@ -702,53 +754,9 @@ func (o *ObjReconciler) handleStatefulSetUpdate(ctx context.Context, sc *vapi.Su
 	return ctrl.Result{}, o.updateVProxyDeployment(ctx, expSts, curDep, sc)
 }
 
-// reconcileNMACertConfigMap creates/updates the configmap that contains the tls
-// secret name
-func (o *ObjReconciler) reconcileNMACertConfigMap(ctx context.Context) error {
-	if !vmeta.UseTLSAuth(o.Vdb.Annotations) {
-		return nil
-	}
-	configMapName := names.GenNMACertConfigMap(o.Vdb)
-	configMap := &corev1.ConfigMap{}
-	err := o.Rec.GetClient().Get(ctx, configMapName, configMap)
-	if err != nil {
-		if kerrors.IsNotFound(err) {
-			configMap = builder.BuildNMATLSConfigMap(configMapName, o.Vdb)
-			err = o.Rec.GetClient().Create(ctx, configMap)
-			if err != nil {
-				return err
-			}
-			o.Log.Info("created TLS cert secret configmap", "nm", configMapName.Name)
-			return nil
-		}
-		o.Log.Error(err, "failed to retrieve TLS cert secret configmap")
-		return err
-	}
-	if configMap.Data[builder.NMASecretNameEnv] == o.Vdb.GetHTTPSNMATLSSecret() &&
-		configMap.Data[builder.NMAClientSecretNameEnv] == o.Vdb.GetClientServerTLSSecret() &&
-		configMap.Data[builder.NMASecretNamespaceEnv] == o.Vdb.ObjectMeta.Namespace &&
-		configMap.Data[builder.NMAClientSecretNamespaceEnv] == o.Vdb.ObjectMeta.Namespace &&
-		configMap.Data[builder.NMAClientSecretTLSModeEnv] == o.Vdb.GetNMAClientServerTLSMode() {
-		return nil
-	}
-
-	configMap.Data[builder.NMASecretNameEnv] = o.Vdb.GetHTTPSNMATLSSecret()
-	configMap.Data[builder.NMASecretNamespaceEnv] = o.Vdb.ObjectMeta.Namespace
-	configMap.Data[builder.NMAClientSecretNameEnv] = o.Vdb.GetClientServerTLSSecret()
-	configMap.Data[builder.NMAClientSecretNamespaceEnv] = o.Vdb.ObjectMeta.Namespace
-	configMap.Data[builder.NMAClientSecretTLSModeEnv] = o.Vdb.GetNMAClientServerTLSMode()
-
-	err = o.Rec.GetClient().Update(ctx, configMap)
-	if err == nil {
-		o.Log.Info("updated tls cert secret configmap", "name", configMapName.Name, "nma-secret", o.Vdb.GetHTTPSNMATLSSecret(),
-			"clientserver-secret", o.Vdb.GetClientServerTLSSecret())
-	}
-	return err
-}
-
 // reconcileTLSSecrets will update tls secrets
 func (o *ObjReconciler) reconcileTLSSecrets(ctx context.Context) error {
-	if !o.Vdb.IsCertRotationEnabled() {
+	if !o.Vdb.IsCertRotationEnabled() || o.Vdb.ShouldRemoveTLSSecret() {
 		return nil
 	}
 

@@ -1049,6 +1049,32 @@ jobs:
           # Include the vertica license so we can test multiple subclusters.
           vertica-license: ${{ secrets.VERTICA_LICENSE }}
 
+  e2e-leg-13-vcluster:
+    if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'vcluster leg 13' || inputs.e2e_test_suites == '')}}
+    needs: [build]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Test
+        uses: ./.github/actions/run-e2e-leg
+        with:
+          leg-identifier: 'leg-13-vc-only'
+          dockerhub-username: ${{ secrets.DOCKERHUB_USERNAME }}
+          dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}
+          vlogger-image: ${{ needs.build.outputs.vlogger-image }}
+          operator-image: ${{ needs.build.outputs.operator-image }}
+          vertica-image: ${{ needs.build.outputs.minimal-vertica-image }}
+          vertica-deployment-method: vclusterops
+          communal-storage-type: s3
+          vertica-superuser-name: dbadmin
+          # All helm deployments will use cert-manager to create the webhook cert
+          helm-overrides: '--set webhook.certSource=cert-manager'
+          e2e-retry-times: ${{ inputs.e2e_retry_times || 2 }}
+          cert-suffix: cert
+          vertica-license: ${{ secrets.VERTICA_LICENSE }}
+          need-base-vertica-image: 'true'
+
   e2e-leg-13-vcluster-cert:
     if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'vcluster leg 13' || inputs.e2e_test_suites == '')}}
     needs: [build]

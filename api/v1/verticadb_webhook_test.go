@@ -492,7 +492,7 @@ var _ = Describe("verticadb_webhook", func() {
 		resetStatusConditionsForDBInitialized(vdbUpdate)
 		validateImmutableFields(vdbUpdate, true)
 	})
-	It("httpsNMATLSSecret cannot be changed when cert rotation is in progress", func() {
+	It("httpsNMATLS.secret cannot be changed when cert rotation is in progress", func() {
 		vdb := MakeVDBForCertRotationEnabled()
 		oldVdb := vdb.DeepCopy()
 		oldVdb.Spec.HTTPSNMATLS.Secret = "oldSecret"

@@ -550,7 +550,7 @@ endif
 docker-push-extra-vertica: # Push a hard-coded image used in multi-online-upgrade test
 ifeq ($(LEG9), yes)
 ifeq ($(shell $(KIND_CHECK)), 1)
-	scripts/push-to-kind.sh -i opentext/vertica-k8s-private:20250515-minimal
+	scripts/push-to-kind.sh -i opentext/vertica-k8s-private:20250517-minimal
 endif
 endif
 
@@ -641,7 +641,7 @@ vdb-gen: generate manifests ## Builds the vdb-gen tool
 
 .PHONY: cert-gen
 cert-gen: ## Builds the cert-gen tool
-	go build -o bin/$@ ./cmd/$@
+	CGO_ENABLED=0 go build -o bin/$@ ./cmd/$@
 
 ##@ Deployment
 

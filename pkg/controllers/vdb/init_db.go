@@ -98,16 +98,6 @@ func (g *GenericDatabaseInitializer) runInit(ctx context.Context) (ctrl.Result, 
 	if res, err := g.initializer.execCmd(ctx, initiatorPod, host, postNames); verrors.IsReconcileAborted(res, err) {
 		return res, err
 	}
-	if g.Vdb.IsCertRotationEnabled() {
-		httpsConfig := vapi.MakeHTTPSNMATLSConfigFromSpec(g.Vdb.Spec.HTTPSNMATLS)
-		clientConfig := vapi.MakeClientServerTLSConfigFromSpec(g.Vdb.Spec.ClientServerTLS)
-		tlsRefs := []*vapi.TLSConfig{
-			httpsConfig, clientConfig,
-		}
-		if err := vdbstatus.UpdateTLSConfigs(ctx, g.VRec.GetClient(), g.Vdb, tlsRefs); err != nil {
-			return ctrl.Result{}, err
-		}
-	}
 
 	cond := vapi.MakeCondition(vapi.DBInitialized, metav1.ConditionTrue, "Initialized")
 	if err := vdbstatus.UpdateCondition(ctx, g.VRec.GetClient(), g.Vdb, cond); err != nil {

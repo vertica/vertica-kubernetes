@@ -27,8 +27,3 @@ status:
   subclusters:
     - addedToDBCount: 1
       upNodeCount: 1
-  tlsConfig:
-  - name: VERIFY_CA
-    type: httpsNMA
-  - mode: TRY_VERIFY
-    name: clientServer

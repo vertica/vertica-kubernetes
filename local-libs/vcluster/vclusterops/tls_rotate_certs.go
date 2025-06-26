@@ -106,6 +106,10 @@ type RotateTLSCertsData struct {
 	TLSConfig string `json:"tls_config,omitempty"` // required
 }
 
+const (
+	HTTPSTLSConfigType TLSConfigType = "http" // warning - this const is only for local use
+)
+
 func VRotateTLSCertsOptionsFactory() VRotateTLSCertsOptions {
 	opt := VRotateTLSCertsOptions{}
 	// set default values to the params
@@ -168,7 +172,7 @@ func (opt *VRotateTLSCertsOptions) validateAnalyzeOptions(log vlog.Printer) erro
 }
 
 func (opt *VRotateTLSCertsOptions) isHTTPS() bool {
-	return strings.EqualFold(opt.NewSecretMetadata.TLSConfig, string(HTTPSTLSKeyPrefix))
+	return strings.EqualFold(opt.NewSecretMetadata.TLSConfig, string(HTTPSTLSConfigType))
 }
 
 func (opt *VRotateTLSCertsOptions) isDisabled() bool {
@@ -238,6 +242,11 @@ func (vcc VClusterCommands) VRotateTLSCerts(options *VRotateTLSCertsOptions) err
 	if err != nil {
 		return fmt.Errorf("failed to produce poll HTTPS restart instructions, %w", err)
 	}
+	httpsSyncCatalogOp, err2 := makeHTTPSSyncCatalogOp(mainClusterHosts, true, options.UserName, options.Password, CreateDBSyncCat)
+	if err2 != nil {
+		return err2
+	}
+	instructions = append(instructions, &httpsSyncCatalogOp)
 
 	// create db options with only cert info changed
 	newCertsDatabaseOptions := options.DatabaseOptions
@@ -299,11 +308,13 @@ func (vcc VClusterCommands) produceRotateTLSCertsInstructions(
 		return instructions, err
 	}
 	instructions = append(instructions, &nmaRotateTLSCertsOp)
-	httpsSyncCatalogOp, err := makeHTTPSSyncCatalogOp(mainClusterHosts, true, options.UserName, options.Password, CreateDBSyncCat)
-	if err != nil {
-		return instructions, err
+	if !options.isHTTPS() {
+		httpsSyncCatalogOp, err := makeHTTPSSyncCatalogOp(mainClusterHosts, true, options.UserName, options.Password, CreateDBSyncCat)
+		if err != nil {
+			return instructions, err
+		}
+		instructions = append(instructions, &httpsSyncCatalogOp)
 	}
-	instructions = append(instructions, &httpsSyncCatalogOp)
 	return instructions, nil
 }
 

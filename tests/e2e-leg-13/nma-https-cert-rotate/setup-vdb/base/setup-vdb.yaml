@@ -18,6 +18,7 @@ metadata:
   annotations:
     vertica.com/k-safety: "1"
     vertica.com/include-uid-in-path: "true"
+    vertica.com/remove-tls-secret-on-vdb-delete: "true"
 spec:
   initPolicy: CreateSkipPackageInstall
   image: kustomize-vertica-image

@@ -40,7 +40,7 @@ const (
 func makeNMATransactionStartsOp(upHosts []string, userName string, dbName string, password *string,
 	transactionID, startTime, endTime string) (nmaTransactionStartsOp, error) {
 	op := nmaTransactionStartsOp{}
-	op.hosts = upHosts
+	op.hosts = upHosts[:1]
 	op.transactionID = transactionID
 	op.startTime = startTime
 	op.endTime = endTime
