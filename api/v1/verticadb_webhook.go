@@ -169,7 +169,6 @@ func (v *VerticaDB) validateImmutableFields(old runtime.Object) field.ErrorList 
 	allErrs = v.checkSubclustersInShutdownSandbox(oldObj, allErrs)
 	allErrs = v.checkNewSBoxOrSClusterShutdownUnset(allErrs)
 	allErrs = v.checkSClusterToBeSandboxedShutdownUnset(allErrs)
-	allErrs = v.checkIfAnyOperationInProgressWhenTurnOnTLS(allErrs)
 	allErrs = v.checkShutdownForScaleOutOrIn(oldObj, allErrs)
 	return allErrs
 }
@@ -237,6 +236,7 @@ func (v *VerticaDB) validateVerticaDBSpec() field.ErrorList {
 	allErrs = v.hasValidVolumeName(allErrs)
 	allErrs = v.hasValidClientServerTLSMode(allErrs)
 	allErrs = v.hasTLSSecretsSetForRevive(allErrs)
+	allErrs = v.checkIfAnyOperationInProgressWhenTurnOnTLS(allErrs)
 	allErrs = v.hasValidVolumeMountName(allErrs)
 	allErrs = v.hasValidKerberosSetup(allErrs)
 	allErrs = v.hasValidTemporarySubclusterRouting(allErrs)
@@ -2559,7 +2559,7 @@ func (v *VerticaDB) compareSpecAndStatus() []string {
 			errMsgs = append(errMsgs, fmt.Sprintf("spec.subclusters[%d].Shutdown %t does not match status.subclusters[%d].Shutdown %t", i, sc.Shutdown, i, v.Status.Subclusters[i].Shutdown))
 		}
 	}
-	return []string{}
+	return errMsgs
 }
 
 func (s *Subcluster) setDefaultProxySubcluster(useProxy bool) {
