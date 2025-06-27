@@ -56,7 +56,7 @@ var _ = Describe("httpstls_reconciler", func() {
 		Expect(vdb.IsStatusConditionTrue(vapi.DBInitialized)).Should(Equal(false))
 		r = MakeTLSConfigReconciler(vdbRec, logger, vdb, fpr, dispatcher, pfacts, vapi.HTTPSNMATLSConfigName)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
-		vdb.Status.TLSConfig = []vapi.TLSConfig{
+		vdb.Status.TLSConfig = []vapi.TLSConfigStatus{
 			{
 				Secret: rotateHTTPSCertCurrentNMASecretName,
 				Name:   vapi.HTTPSNMATLSConfigName,

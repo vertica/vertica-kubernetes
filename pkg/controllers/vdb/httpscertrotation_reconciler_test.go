@@ -55,7 +55,7 @@ var _ = Describe("httpscertrotation_reconciler", func() {
 		fpr := &cmds.FakePodRunner{}
 		pfacts := createPodFactsWithNoDB(ctx, vdb, fpr, 3)
 		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
-		vdb.Status.TLSConfig = []vapi.TLSConfig{
+		vdb.Status.TLSConfig = []vapi.TLSConfigStatus{
 			{
 				Secret: rotateHTTPSCertCurrentNMASecretName,
 				Name:   vapi.HTTPSNMATLSConfigName,

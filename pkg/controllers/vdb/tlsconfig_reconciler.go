@@ -43,11 +43,11 @@ type TLSConfigReconciler struct {
 	PRunner       cmds.PodRunner
 	Dispatcher    vadmin.Dispatcher
 	Pfacts        *podfacts.PodFacts
-	TLSSecretType string
+	TLSConfigName string
 }
 
 func MakeTLSConfigReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger, vdb *vapi.VerticaDB, prunner cmds.PodRunner,
-	dispatcher vadmin.Dispatcher, pfacts *podfacts.PodFacts, tlsSecretType string) controllers.ReconcileActor {
+	dispatcher vadmin.Dispatcher, pfacts *podfacts.PodFacts, tlsConfigName string) controllers.ReconcileActor {
 	return &TLSConfigReconciler{
 		VRec:          vdbrecon,
 		Vdb:           vdb,
@@ -55,20 +55,20 @@ func MakeTLSConfigReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger, vdb
 		Dispatcher:    dispatcher,
 		PRunner:       prunner,
 		Pfacts:        pfacts,
-		TLSSecretType: tlsSecretType,
+		TLSConfigName: tlsConfigName,
 	}
 }
 
 // Reconcile will create a TLS secret for the http server if one is missing
 func (h *TLSConfigReconciler) Reconcile(ctx context.Context, request *ctrl.Request) (ctrl.Result, error) {
-	if h.Vdb.IsTLSAuthEnabled() && h.Vdb.GetSecretNameInUse(h.TLSSecretType) != "" ||
+	if h.Vdb.IsTLSAuthEnabled() && h.Vdb.GetSecretInUse(h.TLSConfigName) != "" ||
 		!h.Vdb.IsTLSAuthEnabled() || !h.Vdb.IsStatusConditionTrue(vapi.DBInitialized) ||
 		h.Vdb.IsStatusConditionTrue(vapi.UpgradeInProgress) ||
 		h.Vdb.IsStatusConditionTrue(vapi.VerticaRestartNeeded) {
 		return ctrl.Result{}, nil
 	}
 	h.Log.Info("entry condition, cert rotate enabled ? " + strconv.FormatBool(h.Vdb.IsTLSAuthEnabled()) +
-		", status secret name - " + h.Vdb.GetSecretNameInUse(h.TLSSecretType) + ", is db initialized ? " +
+		", status secret name - " + h.Vdb.GetSecretInUse(h.TLSConfigName) + ", is db initialized ? " +
 		strconv.FormatBool(h.Vdb.IsStatusConditionTrue(vapi.DBInitialized)))
 	err := h.Pfacts.Collect(ctx, h.Vdb)
 	if err != nil {
@@ -83,7 +83,7 @@ func (h *TLSConfigReconciler) Reconcile(ctx context.Context, request *ctrl.Reque
 		return res, err2
 	}
 	h.VRec.Eventf(h.Vdb, corev1.EventTypeNormal, events.TLSConfigurationStarted,
-		"Starting to configure TLS for %s", h.TLSSecretType)
+		"Starting to configure TLS for %s", h.TLSConfigName)
 
 	configured, err := h.checkIfTLSConfiguredInDB(ctx, initiatorPod)
 	if err != nil {
@@ -111,13 +111,13 @@ func (h *TLSConfigReconciler) Reconcile(ctx context.Context, request *ctrl.Reque
 		h.Log.Error(err, "failed to save TLS secret and mode into status")
 		return ctrl.Result{}, err
 	}
-	h.VRec.Eventf(h.Vdb, corev1.EventTypeNormal, events.TLSConfigurationSucceeded, "Successfully configured TLS for %s", h.TLSSecretType)
+	h.VRec.Eventf(h.Vdb, corev1.EventTypeNormal, events.TLSConfigurationSucceeded, "Successfully configured TLS for %s", h.TLSConfigName)
 	return ctrl.Result{}, nil
 }
 
 func (h *TLSConfigReconciler) runDDLToConfigureTLS(ctx context.Context, initiatorPod *podfacts.PodFact, grantAuth bool) error {
 	var opts []settlsconfig.Option
-	if h.TLSSecretType == vapi.HTTPSNMATLSConfigName {
+	if h.TLSConfigName == vapi.HTTPSNMATLSConfigName {
 		opts = []settlsconfig.Option{
 			settlsconfig.WithHTTPSTLSMode(h.Vdb.GetHTTPSNMATLSMode()),
 			settlsconfig.WithHTTPSTLSSecretName(h.Vdb.GetHTTPSNMATLSSecret()),
@@ -152,13 +152,13 @@ func (h *TLSConfigReconciler) updateStatus(ctx context.Context, initiatorPod *po
 }
 
 func (h *TLSConfigReconciler) updateSecretsInStatus(ctx context.Context) error {
-	var tlsConfig *vapi.TLSConfig
-	if h.TLSSecretType == vapi.HTTPSNMATLSConfigName {
+	var tlsConfig *vapi.TLSConfigStatus
+	if h.TLSConfigName == vapi.HTTPSNMATLSConfigName {
 		tlsConfig = vapi.MakeHTTPSNMATLSConfigFromSpec(h.Vdb.Spec.HTTPSNMATLS)
 	} else {
 		tlsConfig = vapi.MakeClientServerTLSConfigFromSpec(h.Vdb.Spec.ClientServerTLS)
 	}
-	if err := vdbstatus.UpdateTLSConfigs(ctx, h.VRec.GetClient(), h.Vdb, []*vapi.TLSConfig{tlsConfig}); err != nil {
+	if err := vdbstatus.UpdateTLSConfigs(ctx, h.VRec.GetClient(), h.Vdb, []*vapi.TLSConfigStatus{tlsConfig}); err != nil {
 		return err
 	}
 	h.Log.Info(fmt.Sprintf("Save secret %s into status", tlsConfig.Secret))
@@ -174,31 +174,31 @@ func (h *TLSConfigReconciler) updateTLSModesInStatus(ctx context.Context, initia
 			return err
 		}
 	} else {
-		if h.TLSSecretType == vapi.HTTPSNMATLSConfigName {
+		if h.TLSConfigName == vapi.HTTPSNMATLSConfigName {
 			tlsModeStr = h.Vdb.GetHTTPSNMATLSMode()
 		} else {
 			tlsModeStr = h.Vdb.GetClientServerTLSMode()
 		}
 	}
-	var tlsConfig *vapi.TLSConfig
-	if h.TLSSecretType == vapi.HTTPSNMATLSConfigName {
+	var tlsConfig *vapi.TLSConfigStatus
+	if h.TLSConfigName == vapi.HTTPSNMATLSConfigName {
 		tlsConfig = vapi.MakeHTTPSNMATLSConfig(h.Vdb.GetHTTPSNMATLSSecret(), tlsModeStr)
 	} else {
 		tlsConfig = vapi.MakeClientServerTLSConfig(h.Vdb.GetClientServerTLSMode(), tlsModeStr)
 	}
-	tlsConfigs := []*vapi.TLSConfig{tlsConfig}
+	tlsConfigs := []*vapi.TLSConfigStatus{tlsConfig}
 	err = vdbstatus.UpdateTLSConfigs(ctx, h.VRec.GetClient(), h.Vdb, tlsConfigs)
 	if err != nil {
 		h.Log.Error(err, "failed to update tls mode when setting up TLS")
 		return err
 	}
-	h.Log.Info(fmt.Sprintf("tls mode %s has been saved into vdb status for secret type %s", tlsModeStr, h.TLSSecretType))
+	h.Log.Info(fmt.Sprintf("tls mode %s has been saved into vdb status for secret type %s", tlsModeStr, h.TLSConfigName))
 	return nil
 }
 
 func (h *TLSConfigReconciler) checkIfTLSConfiguredInDB(ctx context.Context, initiatorPod *podfacts.PodFact) (bool, error) {
 	var sql string
-	if h.TLSSecretType == vapi.HTTPSNMATLSConfigName {
+	if h.TLSConfigName == vapi.HTTPSNMATLSConfigName {
 		sql = "select certificate from tls_configurations where name='https';"
 	} else {
 		sql = "select certificate from tls_configurations where name='server';"
@@ -206,7 +206,7 @@ func (h *TLSConfigReconciler) checkIfTLSConfiguredInDB(ctx context.Context, init
 	cmd := []string{"-tAc", sql}
 	stdout, stderr, err := h.PRunner.ExecVSQL(ctx, initiatorPod.GetName(), names.ServerContainer, cmd...)
 	if err != nil || strings.Contains(stderr, "Error") {
-		h.Log.Error(err, fmt.Sprintf("failed to check if TLS is configured for %s, stderr - %s", h.TLSSecretType, stderr))
+		h.Log.Error(err, fmt.Sprintf("failed to check if TLS is configured for %s, stderr - %s", h.TLSConfigName, stderr))
 		return false, err
 	}
 	lines := strings.Split(stdout, "\n")
@@ -216,7 +216,7 @@ func (h *TLSConfigReconciler) checkIfTLSConfiguredInDB(ctx context.Context, init
 
 func (h *TLSConfigReconciler) loadTLSModeFromDB(ctx context.Context, initiatorPod *podfacts.PodFact) (string, error) {
 	var tlsConfigName string
-	if h.TLSSecretType == vapi.HTTPSNMATLSConfigName {
+	if h.TLSConfigName == vapi.HTTPSNMATLSConfigName {
 		tlsConfigName = "https"
 	} else {
 		tlsConfigName = "server"

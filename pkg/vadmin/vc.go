@@ -154,7 +154,7 @@ func (v *VClusterOps) setAuthentication(opts *vops.DatabaseOptions, username str
 func getHTTPSTLSSecretName(vdb *vapi.VerticaDB) (string, error) {
 	secretName := ""
 	if vdb.IsTLSAuthEnabled() {
-		secretName = vdb.GetHTTPSTLSSecretNameInUse()
+		secretName = vdb.GetHTTPSNMATLSSecretInUse()
 	}
 	if secretName == "" {
 		secretName = vdb.GetHTTPSNMATLSSecret()

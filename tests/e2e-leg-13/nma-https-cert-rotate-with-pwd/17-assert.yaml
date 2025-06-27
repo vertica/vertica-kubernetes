@@ -24,7 +24,7 @@ kind: VerticaDB
 metadata:
   name: v-nma-https-cert-rotate-pwd
 status:
-  tlsConfig:
+  tlsConfigs:
     - name: httpsNMA
     - name: clientServer
   subclusters:

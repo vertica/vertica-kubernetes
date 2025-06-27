@@ -52,7 +52,7 @@ var _ = Describe("nmacertrotation_reconciler", func() {
 		pfacts := createPodFactsWithNoDB(ctx, vdb, fpr, 3)
 		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
 		vapi.SetVDBForTLS(vdb)
-		vdb.Status.TLSConfig = []vapi.TLSConfig{
+		vdb.Status.TLSConfig = []vapi.TLSConfigStatus{
 			{
 				Secret: rotateHTTPSCertCurrentNMASecretName,
 				Name:   vapi.HTTPSNMATLSConfigName,

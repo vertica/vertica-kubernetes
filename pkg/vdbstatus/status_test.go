@@ -211,11 +211,11 @@ var _ = Describe("status", func() {
 		Expect(k8sClient.Create(ctx, vdb)).Should(Succeed())
 		defer func() { Expect(k8sClient.Delete(ctx, vdb)).Should(Succeed()) }()
 
-		config := &vapi.TLSConfig{
+		config := &vapi.TLSConfigStatus{
 			Name:   vapi.HTTPSNMATLSConfigName,
 			Secret: secretName,
 		}
-		Expect(UpdateTLSConfigs(ctx, k8sClient, vdb, []*vapi.TLSConfig{config})).Should(Succeed())
+		Expect(UpdateTLSConfigs(ctx, k8sClient, vdb, []*vapi.TLSConfigStatus{config})).Should(Succeed())
 		fetchVdb := &vapi.VerticaDB{}
 		nm := types.NamespacedName{Namespace: vdb.Namespace, Name: vdb.Name}
 		Expect(k8sClient.Get(ctx, nm, fetchVdb)).Should(Succeed())
@@ -232,13 +232,13 @@ var _ = Describe("status", func() {
 		Expect(k8sClient.Create(ctx, vdb)).Should(Succeed())
 		defer func() { Expect(k8sClient.Delete(ctx, vdb)).Should(Succeed()) }()
 
-		configs := []vapi.TLSConfig{
+		configs := []vapi.TLSConfigStatus{
 			{Name: vapi.HTTPSNMATLSConfigName, Secret: sn},
 			{Name: vapi.HTTPSNMATLSConfigName, Secret: secretName},
 		}
 
 		for i := range configs {
-			Expect(UpdateTLSConfigs(ctx, k8sClient, vdb, []*vapi.TLSConfig{&configs[i]})).Should(Succeed())
+			Expect(UpdateTLSConfigs(ctx, k8sClient, vdb, []*vapi.TLSConfigStatus{&configs[i]})).Should(Succeed())
 			fetchVdb := &vapi.VerticaDB{}
 			nm := types.NamespacedName{Namespace: vdb.Namespace, Name: vdb.Name}
 			Expect(k8sClient.Get(ctx, nm, fetchVdb)).Should(Succeed())
@@ -256,14 +256,14 @@ var _ = Describe("status", func() {
 		Expect(k8sClient.Create(ctx, vdb)).Should(Succeed())
 		defer func() { Expect(k8sClient.Delete(ctx, vdb)).Should(Succeed()) }()
 
-		configs := []vapi.TLSConfig{
+		configs := []vapi.TLSConfigStatus{
 			{Name: "type1", Secret: "sec1"},
 			{Name: vapi.HTTPSNMATLSConfigName, Secret: sn},
 			{Name: vapi.HTTPSNMATLSConfigName, Secret: secretName},
 		}
 
 		for i := range configs {
-			Expect(UpdateTLSConfigs(ctx, k8sClient, vdb, []*vapi.TLSConfig{&configs[i]})).Should(Succeed())
+			Expect(UpdateTLSConfigs(ctx, k8sClient, vdb, []*vapi.TLSConfigStatus{&configs[i]})).Should(Succeed())
 		}
 
 		fetchVdb := &vapi.VerticaDB{}
