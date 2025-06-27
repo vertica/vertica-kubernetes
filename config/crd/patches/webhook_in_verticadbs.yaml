@@ -5,13 +5,4 @@ metadata:
   name: verticadbs.vertica.com
 spec:
   conversion:
-    strategy: Webhook
-    webhook:
-      clientConfig:
-        service:
-          name: verticadb-operator-webhook-service
-          namespace: system
-          path: /convert
-          port: 443
-      conversionReviewVersions:
-      - v1beta1
+    strategy: None
