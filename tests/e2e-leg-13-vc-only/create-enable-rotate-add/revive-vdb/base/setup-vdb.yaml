@@ -33,10 +33,12 @@ spec:
   subclusters:
     - name: sc1
       size: 3
-  clientServerTLSSecret: custom-cert
-  clientServerTLSMode: TRY_VERIFY
-  httpsNMATLSSecret: custom-cert
-  httpsTLSMode: VERIFY_CA
+  clientServerTLS:
+    secret: custom-cert
+    mode: TRY_VERIFY
+  httpsNMATLS:
+    secret: custom-cert
+    mode: VERIFY_CA
   securityContext:
     capabilities:
       add: ["SYS_PTRACE"]

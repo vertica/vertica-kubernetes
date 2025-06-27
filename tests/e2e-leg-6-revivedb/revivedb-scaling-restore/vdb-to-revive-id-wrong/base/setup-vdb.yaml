@@ -40,5 +40,5 @@ spec:
     archive: "db"
     id: "wrong-id"
   nmaTLSSecret: custom-cert
-  clientServerTLS
+  clientServerTLS:
     secret: custom-cert
