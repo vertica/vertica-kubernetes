@@ -72,8 +72,8 @@ const (
 	// the minimum versions of the NMA that we support them.
 	NMATLSSecretInGSMMinVersion               = "v24.1.0"
 	NMATLSSecretInAWSSecretsManagerMinVersion = "v24.2.0"
-	// The NMA TLS certificate can be rotated
-	TLSCertRotationMinVersion = "v25.3.0"
+	// The NMA TLS Auth can be enabled
+	TLSAuthMinVersion = "v25.3.0"
 	// Starting in v24.2.0, NMA is deployed in a sidecar container
 	NMAInSideCarDeploymentMinVersion = "v24.2.0"
 	// Starting in v24.2.0, vcluster scrutinize command can read the
