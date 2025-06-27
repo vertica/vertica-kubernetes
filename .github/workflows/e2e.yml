@@ -711,6 +711,29 @@ jobs:
           minimum-vertica-image: '24.2.0'
           e2e-retry-times: ${{ inputs.e2e_retry_times || 2 }}
 
+  e2e-leg-8-admintools-online:
+    if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'leg 8' || inputs.e2e_test_suites == '')}}
+    needs: [build]
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Test
+        uses: ./.github/actions/run-e2e-leg
+        with:
+          leg-identifier: 'leg-8-online'
+          dockerhub-username: ${{ secrets.DOCKERHUB_USERNAME }}
+          dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}
+          vlogger-image: ${{ needs.build.outputs.vlogger-image }}
+          operator-image: ${{ needs.build.outputs.operator-image }}
+          vertica-image: ${{ needs.build.outputs.full-vertica-image }}
+          # The initial deployment method is admintools, and it eventually changes
+          # to vclusterops as the operator upgrades the server version
+          vertica-deployment-method: admintools
+          communal-storage-type: azb
+          minimum-vertica-image: '24.2.0'
+          e2e-retry-times: ${{ inputs.e2e_retry_times || 2 }}
+
   e2e-leg-8-vcluster-online:
     if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'leg 8' || inputs.e2e_test_suites == '')}}
     needs: [build]
@@ -1282,6 +1305,7 @@ jobs:
       e2e-leg-4-admintools-vdb-gen, 
       e2e-leg-5-admintools,
       e2e-leg-8-admintools-offline,
+      e2e-leg-8-admintools-online,
       e2e-server-upgrade-admintools, 
       e2e-udx-admintools
     ]
