@@ -203,8 +203,8 @@ func (r *OnlineUpgradeReconciler) Reconcile(ctx context.Context, _ *ctrl.Request
 		r.postClearConfigParamDisableNonReplicatableQueriesMsg,
 		r.clearConfigParamDisableNonReplicatableQueries,
 		// Change replica b subcluster types to match the main cluster's
+		// This is handled by the sandbox controller
 		r.postPromoteSubclustersInSandboxMsg,
-		r.promoteReplicaBSubclusters,
 		// Upgrade the version in the sandbox to the new version.
 		r.postUpgradeSandboxMsg,
 		r.upgradeSandbox,
@@ -602,25 +602,6 @@ func (r *OnlineUpgradeReconciler) postPromoteSubclustersInSandboxMsg(ctx context
 	return r.postNextStatusMsg(ctx, promoteSubclustersInSandboxMsgInx)
 }
 
-// promoteReplicaBSubclusters promotes all of the secondaries in replica group B whose
-// parent subcluster is primary
-func (r *OnlineUpgradeReconciler) promoteReplicaBSubclusters(ctx context.Context) (ctrl.Result, error) {
-	// If we have already promoted sandbox to main, we don't need to promote subclusters in sandbox
-	if vmeta.GetOnlineUpgradeStepInx(r.VDB.Annotations) > promoteSandboxInx {
-		return ctrl.Result{}, nil
-	}
-
-	// Get the sandbox podfacts only to invalidate the cache
-	sbPFacts, err := r.getSandboxPodFacts(ctx, false)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-	sbPFacts.Invalidate()
-	actor := MakeAlterSubclusterTypeReconciler(r.VRec, r.Log, r.VDB, sbPFacts, r.Dispatcher)
-	r.Manager.traceActorReconcile(actor)
-	return actor.Reconcile(ctx, &ctrl.Request{})
-}
-
 // postUpgradeSandboxMsg will update the status message to indicate that
 // we are going to upgrade the vertica version in the sandbox.
 func (r *OnlineUpgradeReconciler) postUpgradeSandboxMsg(ctx context.Context) (ctrl.Result, error) {
@@ -860,6 +841,7 @@ func (r *OnlineUpgradeReconciler) startReplicationToReplicaGroupB(ctx context.Co
 	if r.VDB.IsTLSAuthEnabled() {
 		tlsConfig = "server"
 	}
+
 	vrep := &v1beta1.VerticaReplicator{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: v1beta1.GroupVersion.String(),
@@ -1355,7 +1337,14 @@ func (r *OnlineUpgradeReconciler) moveReplicaGroupBSubclusterToSandbox() (bool, 
 		Image: oldImage,
 	}
 	for _, nm := range scNames {
-		sandbox.Subclusters = append(sandbox.Subclusters, vapi.SandboxSubcluster{Name: nm})
+		// When sandboxing, we fetch the type of the base subclsuter which this subcluster duplicated from.
+		// Later when promoting the sandbox to main, we can use this sandbox subcluster type to set the main subcluster type.
+		sc := r.VDB.GetSubcluster(nm)
+		if sc == nil {
+			return false, fmt.Errorf("could not find subcluster %q in vdb", nm)
+		}
+		scType := sc.Annotations[vmeta.ParentSubclusterTypeAnnotation]
+		sandbox.Subclusters = append(sandbox.Subclusters, vapi.SandboxSubcluster{Name: nm, Type: scType})
 	}
 	r.VDB.Annotations[vmeta.OnlineUpgradeSandboxAnnotation] = sandboxName
 	r.VDB.Spec.Sandboxes = append(r.VDB.Spec.Sandboxes, sandbox)

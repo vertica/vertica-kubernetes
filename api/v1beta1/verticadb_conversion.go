@@ -168,7 +168,7 @@ func convertToSpec(src *VerticaDBSpec) v1.VerticaDBSpec {
 		ServiceAccountName:     src.ServiceAccountName,
 		ServiceHTTPSPort:       src.ServiceHTTPSPort,
 		ServiceClientPort:      src.ServiceClientPort,
-		Sandboxes:              convertToSandboxSlice(src.Sandboxes),
+		Sandboxes:              convertToSandboxSlice(src),
 	}
 	if src.Proxy != nil {
 		dst.Proxy = &v1.Proxy{
@@ -265,6 +265,8 @@ func convertFromSpec(src *v1.VerticaDB) VerticaDBSpec {
 	}
 	for i := range srcSpec.Subclusters {
 		dst.Subclusters[i] = convertFromSubcluster(&srcSpec.Subclusters[i])
+		dst.Subclusters[i].IsPrimary = srcSpec.Subclusters[i].IsPrimary(src)
+		dst.Subclusters[i].IsSandboxPrimary = srcSpec.Subclusters[i].IsSandboxPrimary(src)
 	}
 	if srcSpec.TemporarySubclusterRouting != nil {
 		dst.TemporarySubclusterRouting = SubclusterSelection{
@@ -401,9 +403,7 @@ func convertFromSubcluster(src *v1.Subcluster) Subcluster {
 	dst := Subcluster{
 		Name:                src.Name,
 		Size:                src.Size,
-		IsPrimary:           src.IsPrimary(),
 		IsTransient:         src.IsTransient(),
-		IsSandboxPrimary:    src.IsSandboxPrimary(),
 		ImageOverride:       src.ImageOverride,
 		NodeSelector:        src.NodeSelector,
 		Affinity:            Affinity(src.Affinity),
@@ -516,13 +516,14 @@ func convertFromLocalReferenceSlice(src []v1.LocalObjectReference) []LocalObject
 
 // convertToSandboxSlice will convert a []Sandbox from v1beta1
 // to v1 versions
-func convertToSandboxSlice(src []Sandbox) []v1.Sandbox {
+func convertToSandboxSlice(vdbSpec *VerticaDBSpec) []v1.Sandbox {
+	src := vdbSpec.Sandboxes
 	dst := make([]v1.Sandbox, len(src))
 	for i := range src {
 		dst[i] = v1.Sandbox{
 			Name:        src[i].Name,
 			Image:       src[i].Image,
-			Subclusters: convertToSandboxSubclusterSlice(src[i].Subclusters),
+			Subclusters: convertToSandboxSubclusterSlice(src[i].Subclusters, vdbSpec),
 		}
 	}
 	return dst
@@ -544,12 +545,23 @@ func convertFromSandboxSlice(src []v1.Sandbox) []Sandbox {
 
 // convertToSandboxSubclusterSlice will convert a []SandboxSubcluster from v1beta1
 // to v1 versions
-func convertToSandboxSubclusterSlice(src []SandboxSubcluster) []v1.SandboxSubcluster {
+func convertToSandboxSubclusterSlice(src []SandboxSubcluster, vdbSpec *VerticaDBSpec) []v1.SandboxSubcluster {
 	dst := make([]v1.SandboxSubcluster, len(src))
 	for i := range src {
 		dst[i] = v1.SandboxSubcluster(src[i])
+		dst[i].Type = genSandboxSubclusterType(src[i], vdbSpec)
 	}
 	return dst
+}
+
+// genSandboxSubclusterType generates the v1 sandboxes subclusters type from
+// v1beta1 subcluster isSandboxPrimary value
+func genSandboxSubclusterType(sandboxSubcluster SandboxSubcluster, vdbSpec *VerticaDBSpec) string {
+	if vdbSpec.GetIsSandboxPrimary(sandboxSubcluster.Name) {
+		return v1.PrimarySubcluster
+	}
+
+	return v1.SecondarySubcluster
 }
 
 // convertFromSandboxSubclusterSlice will convert a []SandboxSubcluster from v1
@@ -649,12 +661,10 @@ func convertFromStatusCondition(src *metav1.Condition) VerticaDBCondition {
 	}
 }
 
-// convertToSubclusterType returns the v1 Subcluster type for a given v1beta1
-// Subcluster
+// convertToSubclusterType returns the v1 Subcluster type for a given v1beta1 Subcluster
+// sandboxprimary is removed from v1 Subcluster type
+// sandboxes subculsters type is set in convertToSandboxSubclusterSlice
 func convertToSubclusterType(src *Subcluster) string {
-	if src.IsSandboxPrimary {
-		return v1.SandboxPrimarySubcluster
-	}
 	if src.IsPrimary {
 		return v1.PrimarySubcluster
 	}
