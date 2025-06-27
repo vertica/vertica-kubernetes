@@ -823,7 +823,7 @@ func (v *VerticaDB) hasValidClientServerTLSMode(allErrs field.ErrorList) field.E
 // hasTLSSecretsSetForRevive checks whether the TLS secrets are set for the revive init policy
 // when TLS is enabled
 func (v *VerticaDB) hasTLSSecretsSetForRevive(allErrs field.ErrorList) field.ErrorList {
-	if v.IsCertRotationEnabled() && v.Spec.InitPolicy == CommunalInitPolicyRevive {
+	if v.IsTLSAuthEnabled() && v.Spec.InitPolicy == CommunalInitPolicyRevive {
 		if v.Spec.HTTPSNMATLSSecret == "" {
 			err := field.Invalid(field.NewPath("spec").Child("httpsNMATLSSecret"),
 				v.Spec.HTTPSNMATLSSecret,
@@ -2504,7 +2504,7 @@ func (v *VerticaDB) setDefaultProxy() {
 }
 
 func (v *VerticaDB) checkIfAnyOperationInProgressWhenTurnOnTLS(allErrs field.ErrorList) field.ErrorList {
-	if v.IsCertRotationEnabled() && v.IsStatusConditionTrue(DBInitialized) {
+	if v.IsTLSAuthEnabled() && v.IsStatusConditionTrue(DBInitialized) {
 		prefix := field.NewPath("metadata").Child("annotations")
 		annotationName := vmeta.EnableTLSAuthAnnotation
 		if v.checkIfUpgradeInProgress() {

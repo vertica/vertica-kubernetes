@@ -239,7 +239,7 @@ var _ = Describe("query_reconcile", func() {
 		sourceVdbName := v1beta1.MakeSourceVDBName()
 		sourceVdb := vapi.MakeVDB()
 		sourceVdb.Annotations[vmeta.EnableTLSAuthAnnotation] = trueString
-		sourceVdb.Annotations[vmeta.VersionAnnotation] = vapi.TLSCertRotationMinVersion
+		sourceVdb.Annotations[vmeta.VersionAnnotation] = vapi.TLSAuthMinVersion
 		sourceVdb.Annotations[vmeta.VClusterOpsAnnotation] = trueString
 		sourceVdb.Name = sourceVdbName.Name
 		sourceVdb.Namespace = sourceVdbName.Namespace
@@ -255,7 +255,7 @@ var _ = Describe("query_reconcile", func() {
 		targetVdb.Name = targetVdbName.Name
 		targetVdb.Namespace = targetVdbName.Namespace
 		targetVdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
-		targetVdb.Annotations[vmeta.VersionAnnotation] = vapi.TLSCertRotationMinVersion
+		targetVdb.Annotations[vmeta.VersionAnnotation] = vapi.TLSAuthMinVersion
 		targetVdb.Annotations[vmeta.EnableTLSAuthAnnotation] = trueString
 		targetVdb.UID = testTargetVdbUID
 		test.CreateVDB(ctx, k8sClient, targetVdb)
