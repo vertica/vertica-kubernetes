@@ -312,11 +312,11 @@ func (r *ReplicationReconciler) buildOpts() []replicationstart.Option {
 
 func (r *ReplicationReconciler) validateAuthentication() error {
 	// validate the options
-	if r.SourceInfo.Vdb.IsCertRotationEnabled() && r.SourceInfo.Password == "" {
+	if r.SourceInfo.Vdb.IsTLSAuthEnabled() && r.SourceInfo.Password == "" {
 		return fmt.Errorf("cannot use empty password when tls is enabled for source vdb %s",
 			r.SourceInfo.Vdb.Name)
 	}
-	if r.TargetInfo.Vdb.IsCertRotationEnabled() && r.TargetInfo.Password == "" {
+	if r.TargetInfo.Vdb.IsTLSAuthEnabled() && r.TargetInfo.Password == "" {
 		return fmt.Errorf("cannot use empty password when tls is enabled for target vdb %s",
 			r.TargetInfo.Vdb.Name)
 	}

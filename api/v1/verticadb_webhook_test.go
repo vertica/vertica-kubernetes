@@ -2154,7 +2154,7 @@ var _ = Describe("verticadb_webhook", func() {
 
 	It("should not allow tls to be enabled when an operation is in progress", func() {
 		newVdb := MakeVDB()
-		newVdb.Annotations[vmeta.VersionAnnotation] = TLSCertRotationMinVersion
+		newVdb.Annotations[vmeta.VersionAnnotation] = TLSAuthMinVersion
 		newVdb.Annotations[vmeta.VClusterOpsAnnotation] = trueString
 		Ω(newVdb.validateVerticaDBSpec()).Should(HaveLen(0))
 		newVdb.Annotations[vmeta.EnableTLSAuthAnnotation] = trueString
