@@ -108,11 +108,6 @@ func (r *ReplicationReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) 
 		return ctrl.Result{}, err
 	}
 
-	err = r.validateAuthentication()
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-
 	// collect pod facts for source and target sandboxes (or main clusters)
 	err = r.collectPodFacts(ctx)
 	if err != nil {
@@ -308,19 +303,6 @@ func (r *ReplicationReconciler) buildOpts() []replicationstart.Option {
 		replicationstart.WithTargetNamespace(r.Vrep.Spec.Target.Namespace),
 	}
 	return opts
-}
-
-func (r *ReplicationReconciler) validateAuthentication() error {
-	// validate the options
-	if r.SourceInfo.Vdb.IsTLSAuthEnabled() && r.SourceInfo.Password == "" {
-		return fmt.Errorf("cannot use empty password when tls is enabled for source vdb %s",
-			r.SourceInfo.Vdb.Name)
-	}
-	if r.TargetInfo.Vdb.IsTLSAuthEnabled() && r.TargetInfo.Password == "" {
-		return fmt.Errorf("cannot use empty password when tls is enabled for target vdb %s",
-			r.TargetInfo.Vdb.Name)
-	}
-	return nil
 }
 
 func (r *ReplicationReconciler) runReplicateDB(ctx context.Context, dispatcher vadmin.Dispatcher,
