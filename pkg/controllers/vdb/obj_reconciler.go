@@ -163,13 +163,13 @@ func (o *ObjReconciler) checkMountedObjs(ctx context.Context) (ctrl.Result, erro
 		// that has the certs to use for it.  There is a reconciler that is run
 		// before this that will create the secret.  We will requeue if we find
 		// the Vdb doesn't have the secret set.
-		if o.Vdb.Spec.HTTPSNMATLSSecret == "" {
+		if o.Vdb.GetHTTPSNMATLSSecret() == "" {
 			o.Rec.Event(o.Vdb, corev1.EventTypeWarning, events.HTTPServerNotSetup,
-				"The httpsNMATLSSecret must be set when running with vclusterops deployment")
+				"The httpsNMATLS.secret must be set when running with vclusterops deployment")
 			return ctrl.Result{Requeue: true}, nil
 		}
 		_, res, err := o.SecretFetcher.FetchAllowRequeue(ctx,
-			names.GenNamespacedName(o.Vdb, o.Vdb.Spec.HTTPSNMATLSSecret))
+			names.GenNamespacedName(o.Vdb, o.Vdb.GetHTTPSNMATLSSecret()))
 		if verrors.IsReconcileAborted(res, err) {
 			return res, err
 		}
@@ -195,8 +195,8 @@ func (o *ObjReconciler) checkMountedObjs(ctx context.Context) (ctrl.Result, erro
 
 func (o *ObjReconciler) checkTLSSecrets(ctx context.Context) (ctrl.Result, error) {
 	tlsSecrets := map[string]string{
-		"NMA TLS":           o.Vdb.Spec.HTTPSNMATLSSecret,
-		"Client Server TLS": o.Vdb.Spec.ClientServerTLSSecret,
+		"NMA TLS":           o.Vdb.GetHTTPSNMATLSSecret(),
+		"Client Server TLS": o.Vdb.GetClientServerTLSSecret(),
 	}
 	for k, tlsSecret := range tlsSecrets {
 		if tlsSecret != "" {
@@ -761,8 +761,8 @@ func (o *ObjReconciler) reconcileTLSSecrets(ctx context.Context) error {
 	}
 
 	tlsSecrets := []string{
-		o.Vdb.Spec.HTTPSNMATLSSecret,
-		o.Vdb.Spec.ClientServerTLSSecret,
+		o.Vdb.GetHTTPSNMATLSSecret(),
+		o.Vdb.GetClientServerTLSSecret(),
 	}
 	for _, tlsSecret := range tlsSecrets {
 		// non-k8s secrets are ignored

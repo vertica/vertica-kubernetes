@@ -34,9 +34,9 @@ var _ = Describe("httpstls_reconciler", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Spec.EncryptSpreadComm = vapi.EncryptSpreadCommDisabled
 		vdb.Spec.Subclusters[0].Size = 3
-		vdb.Spec.HTTPSNMATLSSecret = rotateHTTPSCertNewNMASecretName
-		test.CreateFakeTLSSecret(ctx, vdb, k8sClient, vdb.Spec.HTTPSNMATLSSecret)
-		defer test.DeleteSecret(ctx, k8sClient, vdb.Spec.HTTPSNMATLSSecret)
+		vdb.Spec.HTTPSNMATLS.Secret = rotateHTTPSCertNewNMASecretName
+		test.CreateFakeTLSSecret(ctx, vdb, k8sClient, vdb.GetHTTPSNMATLSSecret())
+		defer test.DeleteSecret(ctx, k8sClient, vdb.GetHTTPSNMATLSSecret())
 		test.CreateFakeTLSSecret(ctx, vdb, k8sClient, rotateHTTPSCertCurrentNMASecretName)
 		defer test.DeleteSecret(ctx, k8sClient, rotateHTTPSCertCurrentNMASecretName)
 		test.CreateVDB(ctx, k8sClient, vdb)
@@ -50,16 +50,16 @@ var _ = Describe("httpstls_reconciler", func() {
 		pfacts := createPodFactsWithNoDB(ctx, vdb, fpr, 3)
 		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
 
-		r := MakeTLSConfigReconciler(vdbRec, logger, vdb, fpr, dispatcher, pfacts, vapi.HTTPSTLSSecretType)
+		r := MakeTLSConfigReconciler(vdbRec, logger, vdb, fpr, dispatcher, pfacts, vapi.HTTPSNMATLSConfigName)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 		vapi.SetVDBForTLS(vdb)
 		Expect(vdb.IsStatusConditionTrue(vapi.DBInitialized)).Should(Equal(false))
-		r = MakeTLSConfigReconciler(vdbRec, logger, vdb, fpr, dispatcher, pfacts, vapi.HTTPSTLSSecretType)
+		r = MakeTLSConfigReconciler(vdbRec, logger, vdb, fpr, dispatcher, pfacts, vapi.HTTPSNMATLSConfigName)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
-		vdb.Status.SecretRefs = []vapi.SecretRef{
+		vdb.Status.TLSConfigs = []vapi.TLSConfigStatus{
 			{
-				Name: rotateHTTPSCertCurrentNMASecretName,
-				Type: vapi.HTTPSTLSSecretType,
+				Secret: rotateHTTPSCertCurrentNMASecretName,
+				Name:   vapi.HTTPSNMATLSConfigName,
 			},
 		}
 		Expect(k8sClient.Status().Update(ctx, vdb)).Should(Succeed())
@@ -70,8 +70,8 @@ var _ = Describe("httpstls_reconciler", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Spec.EncryptSpreadComm = vapi.EncryptSpreadCommDisabled
 		vdb.Spec.Subclusters[0].Size = 3
-		vdb.Spec.HTTPSNMATLSSecret = rotateHTTPSCertNewNMASecretName
-		test.CreateFakeTLSSecret(ctx, vdb, k8sClient, vdb.Spec.HTTPSNMATLSSecret)
+		vdb.Spec.HTTPSNMATLS.Secret = rotateHTTPSCertNewNMASecretName
+		test.CreateFakeTLSSecret(ctx, vdb, k8sClient, vdb.GetHTTPSNMATLSSecret())
 
 		// sc := &vdb.Spec.Subclusters[0]
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
@@ -81,7 +81,7 @@ var _ = Describe("httpstls_reconciler", func() {
 		pfacts := createPodFactsWithNoDB(ctx, vdb, fpr, 3)
 		dispatcher := mockVClusterOpsDispatcher(vdb)
 		vapi.SetVDBForTLS(vdb)
-		r := MakeTLSConfigReconciler(vdbRec, logger, vdb, fpr, dispatcher, pfacts, vapi.HTTPSTLSSecretType)
+		r := MakeTLSConfigReconciler(vdbRec, logger, vdb, fpr, dispatcher, pfacts, vapi.HTTPSNMATLSConfigName)
 
 		initiatorPod := &podfacts.PodFact{}
 		tlsConfigReconciler := r.(*TLSConfigReconciler)

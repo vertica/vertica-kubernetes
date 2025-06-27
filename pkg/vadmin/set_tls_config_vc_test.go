@@ -66,11 +66,11 @@ var _ = Describe("set_config_parameter_vc", func() {
 		dispatcher := mockVClusterOpsDispatcher()
 		dispatcher.VDB.Spec.DBName = TestDBName
 		dispatcher.VDB.Spec.NMATLSSecret = TestNMATLSSecret
-		dispatcher.VDB.Spec.ClientServerTLSSecret = TestClientServerSecret
+		dispatcher.VDB.Spec.ClientServerTLS.Secret = TestClientServerSecret
 		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.NMATLSSecret)
 		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.NMATLSSecret)
-		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.ClientServerTLSSecret)
-		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.ClientServerTLSSecret)
+		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.ClientServerTLS.Secret)
+		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.ClientServerTLS.Secret)
 
 		err1 := dispatcher.SetTLSConfig(ctx,
 			settlsconfig.WithInitiatorIP(TestSourceIP),
@@ -83,7 +83,7 @@ var _ = Describe("set_config_parameter_vc", func() {
 		err2 := dispatcher.SetTLSConfig(ctx,
 			settlsconfig.WithInitiatorIP(TestSourceIP),
 			settlsconfig.WithHTTPSTLSConfig(!TestIsHTTPSConfig),
-			settlsconfig.WithClientServerTLSSecretName(dispatcher.VDB.Spec.ClientServerTLSSecret),
+			settlsconfig.WithClientServerTLSSecretName(dispatcher.VDB.GetClientServerTLSSecret()),
 			settlsconfig.WithClientServerTLSMode(TestClientServerTLSMode),
 			settlsconfig.WithNamespace(TestNamespace),
 		)

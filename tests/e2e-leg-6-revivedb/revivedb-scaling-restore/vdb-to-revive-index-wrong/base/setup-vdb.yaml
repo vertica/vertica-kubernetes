@@ -40,4 +40,5 @@ spec:
     archive: "db"
     index: 100
   nmaTLSSecret: custom-cert
-  clientServerTLSSecret: custom-cert
+  clientServerTLS:
+    secret: custom-cert

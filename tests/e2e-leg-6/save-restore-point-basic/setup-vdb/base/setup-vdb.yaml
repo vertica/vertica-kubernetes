@@ -39,4 +39,5 @@ spec:
   imagePullSecrets: []
   volumes: []
   volumeMounts: []
-  clientServerTLSMode: disable
+  clientServerTLS:
+    mode: disable

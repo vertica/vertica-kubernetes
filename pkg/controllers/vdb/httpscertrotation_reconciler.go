@@ -80,7 +80,7 @@ func MakeHTTPSCertRotationReconciler(vdbrecon *VerticaDBReconciler, log logr.Log
 func (h *HTTPSCertRotationReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
 	// we should not rotate when tls is not enabled or is enabled but not ready yet
 	if !h.Vdb.IsTLSAuthEnabled() ||
-		h.Vdb.IsTLSAuthEnabled() && h.Vdb.GetHTTPSTLSSecretNameInUse() == "" ||
+		h.Vdb.IsTLSAuthEnabled() && h.Vdb.GetHTTPSNMATLSSecretInUse() == "" ||
 		h.Vdb.IsStatusConditionTrue(vapi.HTTPSCertRotationFinished) &&
 			h.Vdb.IsStatusConditionTrue(vapi.TLSCertRotationInProgress) {
 		return ctrl.Result{}, nil
@@ -91,7 +91,7 @@ func (h *HTTPSCertRotationReconciler) Reconcile(ctx context.Context, _ *ctrl.Req
 	if changeTLS == noTLSChange {
 		return ctrl.Result{}, nil
 	}
-	res, err := h.checkConfigMap(ctx, h.Vdb.Spec.HTTPSNMATLSSecret)
+	res, err := h.checkConfigMap(ctx, h.Vdb.GetHTTPSNMATLSSecret())
 	if verrors.IsReconcileAborted(res, err) {
 		return res, err
 	}
@@ -164,15 +164,15 @@ func (h *HTTPSCertRotationReconciler) handleConditions(ctx context.Context, chan
 
 func (h *HTTPSCertRotationReconciler) updateTLSMode(ctx context.Context) error {
 	currentTLSMode := h.Vdb.GetHTTPSTLSModeInUse()
-	if currentTLSMode != h.Vdb.Spec.HTTPSTLSMode {
-		httpsTLSMode := vapi.MakeHTTPSTLSMode(h.Vdb.Spec.HTTPSTLSMode)
-		err := vdbstatus.UpdateTLSModes(ctx, h.VRec.GetClient(), h.Vdb, []*vapi.TLSMode{httpsTLSMode})
+	if currentTLSMode != h.Vdb.GetHTTPSNMATLSMode() {
+		httpsTLSConfig := vapi.MakeHTTPSNMATLSConfig(h.Vdb.GetHTTPSNMATLSSecretInUse(), h.Vdb.GetHTTPSNMATLSMode())
+		err := vdbstatus.UpdateTLSConfigs(ctx, h.VRec.GetClient(), h.Vdb, []*vapi.TLSConfigStatus{httpsTLSConfig})
 		if err != nil {
 			h.Log.Error(err, "failed to update tls mode after https cert rotation")
 			return err
 		}
 	}
-	h.Log.Info(fmt.Sprintf("https tls mode is changed to %s after https cert rotation", h.Vdb.Spec.HTTPSTLSMode))
+	h.Log.Info(fmt.Sprintf("https tls mode is changed to %s after https cert rotation", h.Vdb.GetHTTPSNMATLSMode()))
 	return nil
 }
 
@@ -180,7 +180,7 @@ func (h *HTTPSCertRotationReconciler) updateTLSMode(ctx context.Context) error {
 func (h *HTTPSCertRotationReconciler) rotateHTTPSTLSCert(ctx context.Context, tlsData *httpsTLSUpdateData,
 	updateType int) error {
 	if updateType == tlsModeAndCertChange || updateType == httpsCertChangeOnly {
-		h.Log.Info("ready to rotate https cert from " + h.Vdb.GetHTTPSTLSSecretNameInUse() + " to " + h.Vdb.Spec.HTTPSNMATLSSecret)
+		h.Log.Info("ready to rotate https cert from " + h.Vdb.GetHTTPSNMATLSSecretInUse() + " to " + h.Vdb.GetHTTPSNMATLSSecret())
 	}
 	if updateType == tlsModeAndCertChange || updateType == tlsModeChangeOnly {
 		h.Log.Info(fmt.Sprintf("ready to change HTTPS TLS mode from %s to %s", h.Vdb.GetHTTPSTLSModeInUse(), tlsData.tlsMode))
@@ -188,12 +188,12 @@ func (h *HTTPSCertRotationReconciler) rotateHTTPSTLSCert(ctx context.Context, tl
 
 	var keyConfig, certConfig, caCertConfig, secretName string
 	switch {
-	case secrets.IsAWSSecretsManagerSecret(h.Vdb.Spec.HTTPSNMATLSSecret):
+	case secrets.IsAWSSecretsManagerSecret(h.Vdb.GetHTTPSNMATLSSecret()):
 		keyConfig, certConfig, caCertConfig = GetAWSCertsConfig(h.Vdb)
-		secretName = secrets.RemovePathReference(h.Vdb.Spec.HTTPSNMATLSSecret)
+		secretName = secrets.RemovePathReference(h.Vdb.GetHTTPSNMATLSSecret())
 	default:
 		keyConfig, certConfig, caCertConfig = GetK8sCertsConfig(h.Vdb)
-		secretName = h.Vdb.Spec.HTTPSNMATLSSecret
+		secretName = h.Vdb.GetHTTPSNMATLSSecret()
 	}
 	opts := []rotatehttpscerts.Option{
 		rotatehttpscerts.WithPollingKey(tlsData.key),
@@ -207,15 +207,15 @@ func (h *HTTPSCertRotationReconciler) rotateHTTPSTLSCert(ctx context.Context, tl
 	}
 	h.VRec.Eventf(h.Vdb, corev1.EventTypeNormal, events.HTTPSCertRotationStarted,
 		"Starting https cert rotation with secret name %s and mode %s",
-		h.Vdb.Spec.HTTPSNMATLSSecret, tlsData.tlsMode)
+		h.Vdb.GetHTTPSNMATLSSecret(), tlsData.tlsMode)
 	err := h.Dispatcher.RotateHTTPSCerts(ctx, opts...)
 	if err != nil {
 		h.VRec.Eventf(h.Vdb, corev1.EventTypeWarning, events.HTTPSCertRotationFailed,
-			"Failed to rotate https cert with secret name %s and mode %s", h.Vdb.Spec.HTTPSNMATLSSecret, tlsData.tlsMode)
+			"Failed to rotate https cert with secret name %s and mode %s", h.Vdb.GetHTTPSNMATLSSecret(), tlsData.tlsMode)
 		return err
 	}
 	h.VRec.Eventf(h.Vdb, corev1.EventTypeNormal, events.HTTPSCertRotationSucceeded,
-		"Successfully rotated https cert with secret name %s and mode %s", h.Vdb.Spec.HTTPSNMATLSSecret, tlsData.tlsMode)
+		"Successfully rotated https cert with secret name %s and mode %s", h.Vdb.GetHTTPSNMATLSSecret(), tlsData.tlsMode)
 
 	return err
 }
@@ -229,9 +229,9 @@ func (h *HTTPSCertRotationReconciler) buildHTTPSTLSUpdateData(ctx context.Contex
 	var err error
 	tlsData := &httpsTLSUpdateData{}
 
-	tlsData.tlsMode = h.Vdb.Spec.HTTPSTLSMode
-	currentSecretName := h.Vdb.GetHTTPSTLSSecretNameInUse()
-	newSecretName := h.Vdb.Spec.HTTPSNMATLSSecret
+	tlsData.tlsMode = h.Vdb.GetHTTPSNMATLSMode()
+	currentSecretName := h.Vdb.GetHTTPSNMATLSSecretInUse()
+	newSecretName := h.Vdb.GetHTTPSNMATLSSecret()
 	currentSecretData, res, err = readSecret(h.Vdb, h.VRec, h.VRec.GetClient(), h.Log, ctx, currentSecretName)
 	if verrors.IsReconcileAborted(res, err) {
 		return nil, res, err
@@ -268,7 +268,7 @@ func GetK8sCertsConfig(vdb *vapi.VerticaDB) (keyConfig, certConfig, caCertConfig
 }
 
 func GetAWSCertsConfig(vdb *vapi.VerticaDB) (keyConfig, certConfig, caCertConfig string) {
-	region, _ := secrets.GetAWSRegion(vdb.Spec.HTTPSNMATLSSecret)
+	region, _ := secrets.GetAWSRegion(vdb.GetHTTPSNMATLSSecret())
 
 	keyConfig = fmt.Sprintf("{\"json-key\":%q, \"region\":%q}", corev1.TLSPrivateKeyKey, region)
 	certConfig = fmt.Sprintf("{\"json-key\":%q, \"region\":%q}", corev1.TLSCertKey, region)
@@ -277,18 +277,18 @@ func GetAWSCertsConfig(vdb *vapi.VerticaDB) (keyConfig, certConfig, caCertConfig
 }
 
 func (h *HTTPSCertRotationReconciler) updateTLSConfig() int {
-	currentSecretName := h.Vdb.GetHTTPSTLSSecretNameInUse()
-	newSecretName := h.Vdb.Spec.HTTPSNMATLSSecret
+	currentSecretName := h.Vdb.GetHTTPSNMATLSSecretInUse()
+	newSecretName := h.Vdb.GetHTTPSNMATLSSecret()
 	h.Log.Info("Starting rotation reconcile",
 		"currentSecretName", currentSecretName,
 		"newSecretName", newSecretName,
 		"currentTLSMode", h.Vdb.GetHTTPSTLSModeInUse(),
-		"newTLSMode", h.Vdb.Spec.HTTPSTLSMode,
+		"newTLSMode", h.Vdb.GetHTTPSNMATLSMode(),
 	)
 	// this condition excludes bootstrap scenario
 	certChanged := currentSecretName != "" && newSecretName != currentSecretName
 
-	if h.Vdb.Spec.HTTPSTLSMode != h.Vdb.GetHTTPSTLSModeInUse() {
+	if h.Vdb.Spec.HTTPSNMATLS.Mode != h.Vdb.GetHTTPSTLSModeInUse() {
 		if certChanged {
 			return tlsModeAndCertChange
 		}

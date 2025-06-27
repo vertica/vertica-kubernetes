@@ -330,46 +330,15 @@ type VerticaDBSpec struct {
 	// deployment type now.
 	DeprecatedHTTPServerMode HTTPServerModeType `json:"httpServerMode,omitempty"`
 
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:Secret"
-	// +kubebuilder:default:=""
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:advanced"
 	// +kubebuilder:validation:Optional
-	// A secret that contains the TLS credentials to use for the node management
-	// agent. If this is empty, the operator will create a secret to use and
-	// add the name of the generate secret in this field.  When set, the secret
-	// must have the following keys defined:
-	// - tls.key: The private key to be used by the HTTP server
-	// - tls.crt: The signed certificate chain for the private key
-	// - ca.crt: The CA certificate
-	HTTPServerTLSSecret string `json:"httpServerTLSSecret,omitempty"`
+	// Identifies HTTPS NMA TLS configurations
+	HTTPSNMATLS *TLSConfigSpec `json:"httpsNMATLS,omitempty"`
 
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:io.kubernetes:Secret"
-	// "urn:alm:descriptor:com.tectonic.ui:advanced"
-	// +kubebuilder:default:=""
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:advanced"
 	// +kubebuilder:validation:Optional
-	// A secret that contains the TLS credentials to be used to authenticate Vertica clients' certificates.
-	// If this is empty, the operator will create a secret to use and add the name of the generate secret to this field.
-	// The private key, certificate, and CA certificate should be stored in the secret using the following keys: tls.key,
-	// tls.crt, and ca.crt, respectively. To store this secret outside of Kubernetes, you can
-	// use a secret path reference prefix, such as gsm://. Everything after the prefix is the name of the secret in the
-	// service you are storing.
-	ClientServerTLSSecret string `json:"clientServerTLSSecret,omitempty"`
-
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:advanced","urn:alm:descriptor:com.tectonic.ui:select:DISABLE","urn:alm:descriptor:com.tectonic.ui:select:ENABLE","urn:alm:descriptor:com.tectonic.ui:select:TRY_VERIFY","urn:alm:descriptor:com.tectonic.ui:select:VERIFY_CA","urn:alm:descriptor:com.tectonic.ui:select:VERIFY_FULL"}
-	// +kubebuilder:default:=TRY_VERIFY
-	// +kubebuilder:validation:Optional
-	// This field configures the Vertica's connection mode for client-server TLS.
-	// Choose one of the following TLSMODEs, listed in ascending security:
-	// - DISABLE: Disables TLS. All other options for this parameter enable TLS.
-	// - ENABLE: Enables TLS. Vertica does not verify client certificates.
-	// - TRY_VERIFY: Establishes a TLS connection if one of the following is true:
-	//   - The client presents a valid certificate.
-	//   - The client doesn't present a certificate
-	//   If the client presents an invalid certificate, the connection is rejected.
-	// - VERIFY_CA: Connection succeeds if Vertica verifies that the client certificate is from a trusted CA.
-	//   If the client does not present a client certificate, the connection is rejected.
-	// - VERIFY_FULL: Connection succeeds if Vertica verifies that the other host's certificate is from a trusted CA and
-	//   the certificate's cn (Common Name) or subjectAltName attribute matches the hostname or IP address of the other host.
-	ClientServerTLSMode string `json:"clientServerTLSMode,omitempty"`
+	// Identifies Client-Server TLS configuration
+	ClientServerTLS *TLSConfigSpec `json:"clientServerTLS,omitempty"`
 
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:hidden"
 	// +kubebuilder:validation:Optional
@@ -1021,6 +990,34 @@ type ProxySubclusterConfig struct {
 	Resources *corev1.ResourceRequirements `json:"resources,omitempty"`
 }
 
+// Used for storing TLS configuration for either httpsNMATLS or ClientServerTLS
+type TLSConfigSpec struct {
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:io.kubernetes:Secret","urn:alm:descriptor:com.tectonic.ui:advanced"}
+	// +kubebuilder:default:=""
+	// +kubebuilder:validation:Optional
+	// A secret that contains the TLS credentials; this can be used either by Vertica's
+	// embedded https service and node management agent (NMA) or to authenticate Vertica
+	// clients' certificates. If this is empty, the operator will create a secret to use
+	// and add the name of the generated secret in this field. When set, the secret must
+	// have the following keys defined: tls.key, tls.crt and ca.crt. To store this secret outside of
+	// Kubernetes, you can use a secret path reference prefix, such as gsm://.
+	// Everything after the prefix is the name of the secret in the service you
+	// are storing.
+	Secret string `json:"secret,omitempty"`
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:hidden"
+	// +kubebuilder:default:=TRY_VERIFY
+	// +kubebuilder:validation:Optional
+	// This field configures the Vertica's connection mode for HTTPS/NMA or client-server TLS.
+	// Choose one of the following TLSMODEs, listed in ascending security:
+	// - TRY_VERIFY: Establishes a TLS connection if one of the following is true:
+	//   - The client presents a valid certificate.
+	//   - The client doesn't present a certificate
+	//   If the client presents an invalid certificate, the connection is rejected.
+	// - VERIFY_CA: Connection succeeds if Vertica verifies that the client certificate is from a trusted CA.
+	//   If the client does not present a client certificate, the connection is rejected.
+	Mode string `json:"mode,omitempty"`
+}
+
 // VerticaDBStatus defines the observed state of VerticaDB
 type VerticaDBStatus struct {
 	// +operator-sdk:csv:customresourcedefinitions:type=status
@@ -1065,36 +1062,26 @@ type VerticaDBStatus struct {
 
 	// +operator-sdk:csv:customresourcedefinitions:type=status
 	// +optional
-	// The list of secrets currently in use
-	SecretRefs []SecretRef `json:"secretRefs,omitempty"`
-
-	// +operator-sdk:csv:customresourcedefinitions:type=status
-	// +optional
-	// The list of TLS modes currently in use
-	TLSModes []TLSMode `json:"tlsModes,omitempty"`
+	// The list of current TLS configurations for different components
+	TLSConfigs []TLSConfigStatus `json:"tlsConfigs,omitempty"`
 }
 
 const (
-	NMATLSSecretType = "NMATLSSecretType" // #nosec G101
+	HTTPSNMATLSConfigName     = "httpsNMA"     // #nosec G101
+	ClientServerTLSConfigName = "clientServer" // #nosec G101
 )
 
-type SecretRef struct {
+type TLSConfigStatus struct {
 	// +operator-sdk:csv:customresourcedefinitions:type=status
-	// Name of the secret
+	// Represents what this TLS config is used for
+	// For example, httpsNMA or clientServer
 	Name string `json:"name"`
 	// +operator-sdk:csv:customresourcedefinitions:type=status
-	// The type of the secret which represents what the secret
-	// is used for
-	Type string `json:"type"`
-}
-
-type TLSMode struct {
+	// Name of the secret
+	Secret string `json:"secret"`
 	// +operator-sdk:csv:customresourcedefinitions:type=status
-	// TLS mode
+	// The TLS mode being used
 	Mode string `json:"mode"`
-	// +operator-sdk:csv:customresourcedefinitions:type=status
-	// The type of the TLS mode
-	Type string `json:"type"`
 }
 
 type RestorePointInfo struct {

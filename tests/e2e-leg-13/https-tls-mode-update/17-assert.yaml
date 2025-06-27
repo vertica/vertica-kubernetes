@@ -24,7 +24,8 @@ kind: VerticaDB
 metadata:
   name: v-tls-certs
 spec:
-  httpsTLSMode: TRY_VERIFY
+  httpsNMATLS:
+    mode: TRY_VERIFY
 status:
   subclusters:
     - addedToDBCount: 3

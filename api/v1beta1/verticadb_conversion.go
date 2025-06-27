@@ -159,9 +159,6 @@ func convertToSpec(src *VerticaDBSpec) v1.VerticaDBSpec {
 		SecurityContext:        src.SecurityContext,
 		NMASecurityContext:     src.NMASecurityContext,
 		PodSecurityContext:     src.PodSecurityContext,
-		HTTPSNMATLSSecret:      src.HTTPServerTLSSecret,
-		ClientServerTLSSecret:  src.ClientServerTLSSecret,
-		ClientServerTLSMode:    src.ClientServerTLSMode,
 		ReadinessProbeOverride: src.ReadinessProbeOverride,
 		LivenessProbeOverride:  src.LivenessProbeOverride,
 		StartupProbeOverride:   src.StartupProbeOverride,
@@ -174,6 +171,18 @@ func convertToSpec(src *VerticaDBSpec) v1.VerticaDBSpec {
 		dst.Proxy = &v1.Proxy{
 			Image:     src.Proxy.Image,
 			TLSSecret: src.Proxy.TLSSecret,
+		}
+	}
+	if src.ClientServerTLS != nil {
+		dst.ClientServerTLS = &v1.TLSConfigSpec{
+			Secret: src.ClientServerTLS.Secret,
+			Mode:   src.ClientServerTLS.Mode,
+		}
+	}
+	if src.HTTPSNMATLS != nil {
+		dst.HTTPSNMATLS = &v1.TLSConfigSpec{
+			Secret: src.HTTPSNMATLS.Secret,
+			Mode:   src.HTTPSNMATLS.Mode,
 		}
 	}
 	if src.RestorePoint != nil {
@@ -235,9 +244,6 @@ func convertFromSpec(src *v1.VerticaDB) VerticaDBSpec {
 		SecurityContext:         srcSpec.SecurityContext,
 		NMASecurityContext:      srcSpec.NMASecurityContext,
 		PodSecurityContext:      srcSpec.PodSecurityContext,
-		HTTPServerTLSSecret:     srcSpec.HTTPSNMATLSSecret,
-		ClientServerTLSSecret:   srcSpec.ClientServerTLSSecret,
-		ClientServerTLSMode:     srcSpec.ClientServerTLSMode,
 		ReadinessProbeOverride:  srcSpec.ReadinessProbeOverride,
 		LivenessProbeOverride:   srcSpec.LivenessProbeOverride,
 		StartupProbeOverride:    srcSpec.StartupProbeOverride,
@@ -250,6 +256,18 @@ func convertFromSpec(src *v1.VerticaDB) VerticaDBSpec {
 		dst.Proxy = &Proxy{
 			Image:     srcSpec.Proxy.Image,
 			TLSSecret: srcSpec.Proxy.TLSSecret,
+		}
+	}
+	if srcSpec.ClientServerTLS != nil {
+		dst.ClientServerTLS = &TLSConfigSpec{
+			Secret: srcSpec.ClientServerTLS.Secret,
+			Mode:   srcSpec.ClientServerTLS.Mode,
+		}
+	}
+	if srcSpec.HTTPSNMATLS != nil {
+		dst.HTTPSNMATLS = &TLSConfigSpec{
+			Secret: srcSpec.HTTPSNMATLS.Secret,
+			Mode:   srcSpec.HTTPSNMATLS.Mode,
 		}
 	}
 	if srcSpec.RestorePoint != nil {
@@ -285,8 +303,6 @@ func convertToStatus(src *VerticaDBStatus) v1.VerticaDBStatus {
 		Conditions:      make([]metav1.Condition, 0),
 		UpgradeStatus:   src.UpgradeStatus,
 		Sandboxes:       make([]v1.SandboxStatus, len(src.Sandboxes)),
-		SecretRefs:      make([]v1.SecretRef, len(src.SecretRefs)),
-		TLSModes:        make([]v1.TLSMode, len(src.TLSModes)),
 	}
 	if src.RestorePoint != nil {
 		dst.RestorePoint = &v1.RestorePointInfo{
@@ -294,6 +310,9 @@ func convertToStatus(src *VerticaDBStatus) v1.VerticaDBStatus {
 			StartTimestamp: src.RestorePoint.StartTimestamp,
 			EndTimestamp:   src.RestorePoint.EndTimestamp,
 		}
+	}
+	for i := range src.TLSConfigs {
+		dst.TLSConfigs[i] = convertToTLSConfigStatus(src.TLSConfigs[i])
 	}
 	for i := range src.Subclusters {
 		dst.Subclusters[i] = convertToSubclusterStatus(&src.Subclusters[i])
@@ -303,18 +322,6 @@ func convertToStatus(src *VerticaDBStatus) v1.VerticaDBStatus {
 	}
 	for i := range src.Sandboxes {
 		dst.Sandboxes[i] = convertToSandboxStatus(src.Sandboxes[i])
-	}
-	for i := range src.SecretRefs {
-		dst.SecretRefs[i] = v1.SecretRef{
-			Name: src.SecretRefs[i].Name,
-			Type: src.SecretRefs[i].Type,
-		}
-	}
-	for i := range src.TLSModes {
-		dst.TLSModes[i] = v1.TLSMode{
-			Mode: src.TLSModes[i].Mode,
-			Type: src.TLSModes[i].Type,
-		}
 	}
 	return dst
 }
@@ -330,8 +337,6 @@ func convertFromStatus(src *v1.VerticaDBStatus) VerticaDBStatus {
 		Conditions:      make([]VerticaDBCondition, len(src.Conditions)),
 		UpgradeStatus:   src.UpgradeStatus,
 		Sandboxes:       make([]SandboxStatus, len(src.Sandboxes)),
-		SecretRefs:      make([]SecretRef, len(src.SecretRefs)),
-		TLSModes:        make([]TLSMode, len(src.TLSModes)),
 	}
 	if src.RestorePoint != nil {
 		dst.RestorePoint = &RestorePointInfo{
@@ -343,23 +348,14 @@ func convertFromStatus(src *v1.VerticaDBStatus) VerticaDBStatus {
 	for i := range src.Subclusters {
 		dst.Subclusters[i] = convertFromSubclusterStatus(&src.Subclusters[i])
 	}
+	for i := range src.TLSConfigs {
+		dst.TLSConfigs[i] = convertFromTLSConfigStatus(src.TLSConfigs[i])
+	}
 	for i := range src.Conditions {
 		dst.Conditions[i] = convertFromStatusCondition(&src.Conditions[i])
 	}
 	for i := range src.Sandboxes {
 		dst.Sandboxes[i] = convertFromSandboxStatus(src.Sandboxes[i])
-	}
-	for i := range src.SecretRefs {
-		dst.SecretRefs[i] = SecretRef{
-			Name: src.SecretRefs[i].Name,
-			Type: src.SecretRefs[i].Type,
-		}
-	}
-	for i := range src.TLSModes {
-		dst.TLSModes[i] = TLSMode{
-			Mode: src.TLSModes[i].Mode,
-			Type: src.TLSModes[i].Type,
-		}
 	}
 	return dst
 }
@@ -601,6 +597,24 @@ func convertFromSandboxStatus(src v1.SandboxStatus) SandboxStatus {
 		Name:         src.Name,
 		Subclusters:  src.Subclusters,
 		UpgradeState: SandboxUpgradeState(src.UpgradeState),
+	}
+}
+
+// convetFromSubcluterStatus will convert from a v1 TLSConfig to a v1beta1 version
+func convertFromTLSConfigStatus(src v1.TLSConfigStatus) TLSConfigStatus {
+	return TLSConfigStatus{
+		Name:   src.Name,
+		Secret: src.Secret,
+		Mode:   src.Mode,
+	}
+}
+
+// convertToSandboxStatus will convert to a v1 TLSConfig from a v1beta1 version
+func convertToTLSConfigStatus(src TLSConfigStatus) v1.TLSConfigStatus {
+	return v1.TLSConfigStatus{
+		Name:   src.Name,
+		Secret: src.Secret,
+		Mode:   src.Mode,
 	}
 }
 
