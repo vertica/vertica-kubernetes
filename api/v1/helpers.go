@@ -1709,6 +1709,8 @@ func MakeSourceVDBName() types.NamespacedName {
 // MakeTargetVDBName is a helper that creates a sample name for the target VerticaDB for test purposes
 func MakeTargetVDBName() types.NamespacedName {
 	return types.NamespacedName{Name: "vertica-target-sample", Namespace: "default"}
+}
+
 // IsOtherSubclusterDraining returns true if any subcluster drain annotation
 // exists that has a suffix different from the given scName.
 func (v *VerticaDB) IsOtherSubclusterDraining(scName string) bool {
