@@ -46,8 +46,8 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/replicationstatus"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/restartnode"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/revivedb"
-	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/rotatehttpscerts"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/rotatenmacerts"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/rotatetlscerts"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/sandboxsc"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/saverestorepoint"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/setconfigparameter"
@@ -160,8 +160,8 @@ type Dispatcher interface {
 	// RotateNMACerts will rotate nma cert
 	RotateNMACerts(ctx context.Context, opts ...rotatenmacerts.Option) error
 
-	// RotateHTTPSCerts will rotate nma cert
-	RotateHTTPSCerts(ctx context.Context, opts ...rotatehttpscerts.Option) error
+	// RotateTLSCerts will rotate nma cert
+	RotateTLSCerts(ctx context.Context, opts ...rotatetlscerts.Option) error
 
 	// SetTLSConfig will run DDL to configure TLS
 	SetTLSConfig(ctx context.Context, opts ...settlsconfig.Option) error

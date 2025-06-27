@@ -22,4 +22,5 @@ type Options struct {
 	CommonName  string
 	DNSNames    string
 	IPAddresses string
+	CertOnly    bool
 }

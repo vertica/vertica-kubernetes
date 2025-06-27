@@ -13,7 +13,7 @@
  limitations under the License.
 */
 
-package rotatehttpscerts
+package rotatetlscerts
 
 // Params holds all of the option for nma cert rotation.
 type Params struct {
@@ -38,6 +38,9 @@ type Params struct {
 	// TLS CA Certificate (PEM bytes)
 	NewCaCert   string
 	InitiatorIP string
+	// TLS config name. can be "HTTP" or "Server"
+	TLSConfig        string
+	NewSecretManager string
 }
 
 type Option func(*Params)
@@ -97,5 +100,17 @@ func WithPollingCaCert(newCaCert string) Option {
 func WithInitiator(ip string) Option {
 	return func(s *Params) {
 		s.InitiatorIP = ip
+	}
+}
+
+func WithTLSConfig(config string) Option {
+	return func(s *Params) {
+		s.TLSConfig = config
+	}
+}
+
+func WithNewSecretManager(secretManager string) Option {
+	return func(s *Params) {
+		s.NewSecretManager = secretManager
 	}
 }
