@@ -1725,3 +1725,11 @@ func (v *VerticaDB) IsOtherSubclusterDraining(scName string) bool {
 	}
 	return false
 }
+
+// MakeVersionStrForOpVersion can convert operator version to vertica version format
+func MakeVersionStrForOpVersion(v string) string {
+	if v == "" {
+		return ""
+	}
+	return "v" + v
+}

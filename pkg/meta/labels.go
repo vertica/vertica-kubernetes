@@ -45,11 +45,12 @@ const (
 	// the pod spec template. Rather it is set in the pod by a reconciler after
 	// the pod was created.
 	OperatorVersionLabel = "app.kubernetes.io/version"
-	CurOperatorVersion   = "25.2.0-0" // The version number of the operator
+	CurOperatorVersion   = "25.3.0-0" // The version number of the operator
 	// If any of the operator versions are used in the code, add a const here.
 	// But it isn't necessary to create a const for each version.
 	OperatorVersion100 = "1.0.0"
 	OperatorVersion220 = "2.2.0"
+	OperatorVersion253 = "25.3.0"
 
 	// Service objects
 	//

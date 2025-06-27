@@ -166,6 +166,14 @@ func MakeAnnotationsForObject(vdb *vapi.VerticaDB) map[string]string {
 	return annotations
 }
 
+// MakeAnnotationsForPod builds the list of annotations that will be used by pods.
+// This will exclude the operator version annotation.
+func MakeAnnotationsForPod(vdb *vapi.VerticaDB) map[string]string {
+	annotations := MakeAnnotationsForObject(vdb)
+	delete(annotations, vmeta.OperatorVersionAnnotation)
+	return annotations
+}
+
 // MakeAnnotationsForStsObject builds the list of annotations that are include
 // in the statefulset for a subcluster.
 func MakeAnnotationsForStsObject(vdb *vapi.VerticaDB, sc *vapi.Subcluster) map[string]string {

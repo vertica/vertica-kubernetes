@@ -696,7 +696,7 @@ func buildDownwardAPIProjection() *corev1.DownwardAPIProjection {
 			{
 				Path: "operator-version",
 				FieldRef: &corev1.ObjectFieldSelector{
-					FieldPath: fmt.Sprintf("metadata.annotations['%s']", "vertica.com/operator-version"),
+					FieldPath: fmt.Sprintf("metadata.labels['%s']", "app.kubernetes.io/version"),
 				},
 			},
 		},
@@ -1729,7 +1729,7 @@ func BuildStsSpec(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi.Subclus
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels:      MakeLabelsForPodObject(vdb, sc),
-					Annotations: MakeAnnotationsForObject(vdb),
+					Annotations: MakeAnnotationsForPod(vdb),
 				},
 				Spec: buildPodSpec(vdb, sc, ver),
 			},
@@ -2039,8 +2039,20 @@ func buildScrutinizeDBPasswordEnvVars(nm types.NamespacedName) []corev1.EnvVar {
 func buildNMATLSCertsEnvVars(vdb *vapi.VerticaDB) []corev1.EnvVar {
 	True := true
 	configMapName := fmt.Sprintf("%s-%s", vdb.Name, vapi.NMATLSConfigMapName)
-	return []corev1.EnvVar{
-		{Name: NMASecretNamespaceEnv,
+	envs := []corev1.EnvVar{}
+	useNmaCertsMount := vmeta.UseNMACertsMount(vdb.Annotations)
+	if useNmaCertsMount && secrets.IsK8sSecret(vdb.Spec.HTTPSNMATLSSecret) {
+		envs = append(envs,
+			// Provide the path to each of the certs that are mounted in the container.
+			corev1.EnvVar{Name: NMARootCAEnv, Value: fmt.Sprintf("%s/%s", paths.NMACertsRoot, paths.HTTPServerCACrtName)},
+			corev1.EnvVar{Name: NMACertEnv, Value: fmt.Sprintf("%s/%s", paths.NMACertsRoot, corev1.TLSCertKey)},
+			corev1.EnvVar{Name: NMAKeyEnv, Value: fmt.Sprintf("%s/%s", paths.NMACertsRoot, corev1.TLSPrivateKeyKey)},
+		)
+		return envs
+	}
+
+	envs = append(envs,
+		corev1.EnvVar{Name: NMASecretNamespaceEnv,
 			ValueFrom: &corev1.EnvVarSource{
 				ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
 					LocalObjectReference: corev1.LocalObjectReference{
@@ -2050,7 +2062,7 @@ func buildNMATLSCertsEnvVars(vdb *vapi.VerticaDB) []corev1.EnvVar {
 					Optional: &True,
 				},
 			}},
-		{Name: NMASecretNameEnv,
+		corev1.EnvVar{Name: NMASecretNameEnv,
 			ValueFrom: &corev1.EnvVarSource{
 				ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
 					LocalObjectReference: corev1.LocalObjectReference{
@@ -2060,7 +2072,7 @@ func buildNMATLSCertsEnvVars(vdb *vapi.VerticaDB) []corev1.EnvVar {
 					Optional: &True,
 				},
 			}},
-		{Name: NMAClientSecretNamespaceEnv,
+		corev1.EnvVar{Name: NMAClientSecretNamespaceEnv,
 			ValueFrom: &corev1.EnvVarSource{
 				ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
 					LocalObjectReference: corev1.LocalObjectReference{
@@ -2070,7 +2082,7 @@ func buildNMATLSCertsEnvVars(vdb *vapi.VerticaDB) []corev1.EnvVar {
 					Optional: &True,
 				},
 			}},
-		{Name: NMAClientSecretNameEnv,
+		corev1.EnvVar{Name: NMAClientSecretNameEnv,
 			ValueFrom: &corev1.EnvVarSource{
 				ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
 					LocalObjectReference: corev1.LocalObjectReference{
@@ -2080,37 +2092,7 @@ func buildNMATLSCertsEnvVars(vdb *vapi.VerticaDB) []corev1.EnvVar {
 					Optional: &True,
 				},
 			}},
-		{Name: NMARootCAEnv,
-			ValueFrom: &corev1.EnvVarSource{
-				ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: configMapName,
-					},
-					Key:      NMARootCAEnv,
-					Optional: &True,
-				},
-			}},
-		{Name: NMACertEnv,
-			ValueFrom: &corev1.EnvVarSource{
-				ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: configMapName,
-					},
-					Key:      NMACertEnv,
-					Optional: &True,
-				},
-			}},
-		{Name: NMAKeyEnv,
-			ValueFrom: &corev1.EnvVarSource{
-				ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: configMapName,
-					},
-					Key:      NMAKeyEnv,
-					Optional: &True,
-				},
-			}},
-		{Name: NMAClientSecretTLSModeEnv,
+		corev1.EnvVar{Name: NMAClientSecretTLSModeEnv,
 			ValueFrom: &corev1.EnvVarSource{
 				ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
 					LocalObjectReference: corev1.LocalObjectReference{
@@ -2120,7 +2102,8 @@ func buildNMATLSCertsEnvVars(vdb *vapi.VerticaDB) []corev1.EnvVar {
 					Optional: &True,
 				},
 			}},
-	}
+	)
+	return envs
 }
 
 // buildVProxyTLSCertsEnvVars returns environment variables about proxy certs
@@ -2213,9 +2196,6 @@ func GetTarballName(cmd []string) string {
 // The configmap will be mapped to two environmental variables in NMA pod
 func BuildNMATLSConfigMap(nm types.NamespacedName, vdb *vapi.VerticaDB) *corev1.ConfigMap {
 	secretMap := map[string]string{
-		NMARootCAEnv:                fmt.Sprintf("%s/%s", paths.NMACertsRoot, paths.HTTPServerCACrtName),
-		NMACertEnv:                  fmt.Sprintf("%s/%s", paths.NMACertsRoot, corev1.TLSCertKey),
-		NMAKeyEnv:                   fmt.Sprintf("%s/%s", paths.NMACertsRoot, corev1.TLSPrivateKeyKey),
 		NMASecretNamespaceEnv:       vdb.ObjectMeta.Namespace,
 		NMASecretNameEnv:            vdb.Spec.HTTPSNMATLSSecret,
 		NMAClientSecretNamespaceEnv: vdb.ObjectMeta.Namespace,
