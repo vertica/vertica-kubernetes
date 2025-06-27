@@ -19,7 +19,8 @@ spec:
   image: kustomize-vertica-image
   communal:
     includeUIDInPath: false
-  httpServerTLSSecret: custom-cert
+  httpsNMATLS:
+    secret: custom-cert
   clientServerTLS:
     secret: client-cert
   initPolicy: CreateSkipPackageInstall

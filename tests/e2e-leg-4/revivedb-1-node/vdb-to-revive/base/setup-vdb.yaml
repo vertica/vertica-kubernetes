@@ -29,7 +29,8 @@ spec:
   subclusters:
     - name: sc1
       size: 1
-  httpServerTLSSecret: nma-cert
+  httpsNMATLS:
+     secret: nma-cert
   clientServerTLS:
     secret: client-cert
   kSafety: "0"

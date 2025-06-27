@@ -30,7 +30,8 @@ spec:
     - name: main
       size: 1
   kSafety: "0"
-  httpServerTLSSecret: custom-cert
+  httpsNMATLS:
+    secret: custom-cert
   certSecrets: []
   imagePullSecrets: []
   volumes: []
