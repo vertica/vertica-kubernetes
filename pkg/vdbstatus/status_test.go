@@ -220,9 +220,9 @@ var _ = Describe("status", func() {
 		nm := types.NamespacedName{Namespace: vdb.Namespace, Name: vdb.Name}
 		Expect(k8sClient.Get(ctx, nm, fetchVdb)).Should(Succeed())
 		for _, v := range []*vapi.VerticaDB{vdb, fetchVdb} {
-			Expect(len(v.Status.TLSConfig)).Should(Equal(1))
-			Expect(v.Status.TLSConfig[0].Name).Should(Equal(vapi.HTTPSNMATLSConfigName))
-			Expect(v.Status.TLSConfig[0].Secret).Should(Equal(secretName))
+			Expect(len(v.Status.TLSConfigs)).Should(Equal(1))
+			Expect(v.Status.TLSConfigs[0].Name).Should(Equal(vapi.HTTPSNMATLSConfigName))
+			Expect(v.Status.TLSConfigs[0].Secret).Should(Equal(secretName))
 		}
 	})
 
@@ -243,9 +243,9 @@ var _ = Describe("status", func() {
 			nm := types.NamespacedName{Namespace: vdb.Namespace, Name: vdb.Name}
 			Expect(k8sClient.Get(ctx, nm, fetchVdb)).Should(Succeed())
 			for _, v := range []*vapi.VerticaDB{vdb, fetchVdb} {
-				Expect(len(v.Status.TLSConfig)).Should(Equal(1))
-				Expect(v.Status.TLSConfig[0].Name).Should(Equal(configs[i].Name))
-				Expect(v.Status.TLSConfig[0].Secret).Should(Equal(configs[i].Secret))
+				Expect(len(v.Status.TLSConfigs)).Should(Equal(1))
+				Expect(v.Status.TLSConfigs[0].Name).Should(Equal(configs[i].Name))
+				Expect(v.Status.TLSConfigs[0].Secret).Should(Equal(configs[i].Secret))
 			}
 		}
 	})
@@ -270,10 +270,10 @@ var _ = Describe("status", func() {
 		nm := types.NamespacedName{Namespace: vdb.Namespace, Name: vdb.Name}
 		Expect(k8sClient.Get(ctx, nm, fetchVdb)).Should(Succeed())
 		for _, v := range []*vapi.VerticaDB{vdb, fetchVdb} {
-			Expect(len(v.Status.TLSConfig)).Should(Equal(2))
-			Expect(v.Status.TLSConfig[0].Name).Should(Equal(configs[0].Name))
-			Expect(v.Status.TLSConfig[1].Name).Should(Equal(configs[2].Name))
-			Expect(v.Status.TLSConfig[1].Secret).Should(Equal(configs[2].Secret))
+			Expect(len(v.Status.TLSConfigs)).Should(Equal(2))
+			Expect(v.Status.TLSConfigs[0].Name).Should(Equal(configs[0].Name))
+			Expect(v.Status.TLSConfigs[1].Name).Should(Equal(configs[2].Name))
+			Expect(v.Status.TLSConfigs[1].Secret).Should(Equal(configs[2].Secret))
 		}
 	})
 })

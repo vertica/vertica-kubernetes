@@ -943,8 +943,8 @@ func (in *VerticaDBStatus) DeepCopyInto(out *VerticaDBStatus) {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
-	if in.TLSConfig != nil {
-		in, out := &in.TLSConfig, &out.TLSConfig
+	if in.TLSConfigs != nil {
+		in, out := &in.TLSConfigs, &out.TLSConfigs
 		*out = make([]TLSConfigStatus, len(*in))
 		copy(*out, *in)
 	}

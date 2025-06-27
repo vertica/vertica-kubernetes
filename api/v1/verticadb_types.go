@@ -1005,7 +1005,7 @@ type VerticaDBStatus struct {
 	// +operator-sdk:csv:customresourcedefinitions:type=status
 	// +optional
 	// The list of current TLS configurations for different components
-	TLSConfig []TLSConfigStatus `json:"tlsConfigs,omitempty"`
+	TLSConfigs []TLSConfigStatus `json:"tlsConfigs,omitempty"`
 }
 
 const (

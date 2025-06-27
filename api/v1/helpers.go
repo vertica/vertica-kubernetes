@@ -1536,15 +1536,15 @@ func GetMetricTarget(metric *autoscalingv2.MetricSpec) *autoscalingv2.MetricTarg
 }
 
 func (v *VerticaDB) GetTLSConfigByName(name string) *TLSConfigStatus {
-	return FindTLSConfig(v.Status.TLSConfig, "Name", name)
+	return FindTLSConfig(v.Status.TLSConfigs, "Name", name)
 }
 
 func (v *VerticaDB) GetTLSConfigBySecret(secret string) *TLSConfigStatus {
-	return FindTLSConfig(v.Status.TLSConfig, "Secret", secret)
+	return FindTLSConfig(v.Status.TLSConfigs, "Secret", secret)
 }
 
 func (v *VerticaDB) GetTLSConfigByMode(mode string) *TLSConfigStatus {
-	return FindTLSConfig(v.Status.TLSConfig, "Mode", mode)
+	return FindTLSConfig(v.Status.TLSConfigs, "Mode", mode)
 }
 
 func (v *VerticaDB) GetSecretInUse(name string) string {

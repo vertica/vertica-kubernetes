@@ -93,7 +93,7 @@ var _ = Describe("rotate_https_cert", func() {
 		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, rotateHTTPSCertCurrentNMASecretName)
 		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.HTTPSNMATLS.Secret)
 		dispatcher.VDB.Spec.DBName = TestDBName
-		dispatcher.VDB.Status.TLSConfig = []vapi.TLSConfigStatus{
+		dispatcher.VDB.Status.TLSConfigs = []vapi.TLSConfigStatus{
 			{
 				Secret: rotateHTTPSCertCurrentNMASecretName,
 				Name:   vapi.HTTPSNMATLSConfigName,

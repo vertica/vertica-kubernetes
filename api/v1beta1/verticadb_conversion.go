@@ -173,6 +173,18 @@ func convertToSpec(src *VerticaDBSpec) v1.VerticaDBSpec {
 			TLSSecret: src.Proxy.TLSSecret,
 		}
 	}
+	if src.ClientServerTLS != nil {
+		dst.ClientServerTLS = &v1.TLSConfigSpec{
+			Secret: src.ClientServerTLS.Secret,
+			Mode:   src.ClientServerTLS.Mode,
+		}
+	}
+	if src.HTTPSNMATLS != nil {
+		dst.HTTPSNMATLS = &v1.TLSConfigSpec{
+			Secret: src.HTTPSNMATLS.Secret,
+			Mode:   src.HTTPSNMATLS.Mode,
+		}
+	}
 	if src.RestorePoint != nil {
 		dst.RestorePoint = &v1.RestorePointPolicy{
 			Archive:          src.RestorePoint.Archive,
@@ -246,6 +258,18 @@ func convertFromSpec(src *v1.VerticaDB) VerticaDBSpec {
 			TLSSecret: srcSpec.Proxy.TLSSecret,
 		}
 	}
+	if srcSpec.ClientServerTLS != nil {
+		dst.ClientServerTLS = &TLSConfigSpec{
+			Secret: srcSpec.ClientServerTLS.Secret,
+			Mode:   srcSpec.ClientServerTLS.Mode,
+		}
+	}
+	if srcSpec.HTTPSNMATLS != nil {
+		dst.HTTPSNMATLS = &TLSConfigSpec{
+			Secret: srcSpec.HTTPSNMATLS.Secret,
+			Mode:   srcSpec.HTTPSNMATLS.Mode,
+		}
+	}
 	if srcSpec.RestorePoint != nil {
 		dst.RestorePoint = &RestorePointPolicy{
 			Archive:          srcSpec.RestorePoint.Archive,
@@ -287,6 +311,9 @@ func convertToStatus(src *VerticaDBStatus) v1.VerticaDBStatus {
 			EndTimestamp:   src.RestorePoint.EndTimestamp,
 		}
 	}
+	for i := range src.TLSConfigs {
+		dst.TLSConfigs[i] = convertToTLSConfigStatus(src.TLSConfigs[i])
+	}
 	for i := range src.Subclusters {
 		dst.Subclusters[i] = convertToSubclusterStatus(&src.Subclusters[i])
 	}
@@ -320,6 +347,9 @@ func convertFromStatus(src *v1.VerticaDBStatus) VerticaDBStatus {
 	}
 	for i := range src.Subclusters {
 		dst.Subclusters[i] = convertFromSubclusterStatus(&src.Subclusters[i])
+	}
+	for i := range src.TLSConfigs {
+		dst.TLSConfigs[i] = convertFromTLSConfigStatus(src.TLSConfigs[i])
 	}
 	for i := range src.Conditions {
 		dst.Conditions[i] = convertFromStatusCondition(&src.Conditions[i])
@@ -567,6 +597,24 @@ func convertFromSandboxStatus(src v1.SandboxStatus) SandboxStatus {
 		Name:         src.Name,
 		Subclusters:  src.Subclusters,
 		UpgradeState: SandboxUpgradeState(src.UpgradeState),
+	}
+}
+
+// convetFromSubcluterStatus will convert from a v1 TLSConfig to a v1beta1 version
+func convertFromTLSConfigStatus(src v1.TLSConfigStatus) TLSConfigStatus {
+	return TLSConfigStatus{
+		Name:   src.Name,
+		Secret: src.Secret,
+		Mode:   src.Mode,
+	}
+}
+
+// convertToSandboxStatus will convert to a v1 TLSConfig from a v1beta1 version
+func convertToTLSConfigStatus(src TLSConfigStatus) v1.TLSConfigStatus {
+	return v1.TLSConfigStatus{
+		Name:   src.Name,
+		Secret: src.Secret,
+		Mode:   src.Mode,
 	}
 }
 
