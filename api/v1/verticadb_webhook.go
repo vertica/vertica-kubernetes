@@ -2402,6 +2402,8 @@ func (v *VerticaDB) isOnlyCertRotationChange(oldVdb *VerticaDB) bool {
 	newCopy := newSpec
 	oldCopy.HTTPSNMATLSSecret = ""
 	newCopy.HTTPSNMATLSSecret = ""
+	oldCopy.HTTPSTLSMode = ""
+	newCopy.HTTPSTLSMode = ""
 	oldCopy.ClientServerTLSSecret = ""
 	newCopy.ClientServerTLSSecret = ""
 	oldCopy.ClientServerTLSMode = ""
