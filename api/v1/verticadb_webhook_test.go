@@ -2140,6 +2140,115 @@ var _ = Describe("verticadb_webhook", func() {
 		Ω(newVdb.validateVerticaDBSpec()).Should(HaveLen(0))
 	})
 
+	It("should set tls secrets when reviving a db", func() {
+		newVdb := MakeVDB()
+		newVdb.Spec.InitPolicy = CommunalInitPolicyRevive
+		Ω(newVdb.validateVerticaDBSpec()).Should(HaveLen(0))
+		SetVDBForTLS(newVdb)
+		Ω(newVdb.validateVerticaDBSpec()).Should(HaveLen(2))
+		newVdb.Spec.HTTPSNMATLSSecret = "test-https-secret"
+		Ω(newVdb.validateVerticaDBSpec()).Should(HaveLen(1))
+		newVdb.Spec.ClientServerTLSSecret = "test-client-server-secret"
+		Ω(newVdb.validateVerticaDBSpec()).Should(HaveLen(0))
+	})
+
+	It("should not allow tls to be enabled when an operation is in progress", func() {
+		newVdb := MakeVDB()
+		newVdb.Annotations[vmeta.VersionAnnotation] = TLSAuthMinVersion
+		newVdb.Annotations[vmeta.VClusterOpsAnnotation] = trueString
+		Ω(newVdb.validateVerticaDBSpec()).Should(HaveLen(0))
+		newVdb.Annotations[vmeta.EnableTLSAuthAnnotation] = trueString
+		Ω(newVdb.validateVerticaDBSpec()).Should(HaveLen(0))
+		newVdb.Spec.Subclusters = []Subcluster{
+			{Name: "sc1", Type: PrimarySubcluster, Size: 3, ServiceType: v1.ServiceTypeClusterIP},
+			{Name: "sc2", Type: SecondarySubcluster, Size: 3, ServiceType: v1.ServiceTypeClusterIP},
+		}
+		newVdb.Spec.Sandboxes = []Sandbox{
+			{Name: "sand1", Image: "vertica-k8s:latest", Shutdown: false, Subclusters: []SandboxSubcluster{{Name: "sc2"}}},
+		}
+		Ω(newVdb.validateVerticaDBSpec()).Should(HaveLen(0))
+		newVdb.Status.Conditions = []metav1.Condition{
+			{Type: DBInitialized, Status: metav1.ConditionTrue, Reason: "Initialized"},
+		}
+		Ω(newVdb.validateVerticaDBSpec()).Should(HaveLen(1))
+		newVdb.Spec.Sandboxes = []Sandbox{}
+		Ω(newVdb.validateVerticaDBSpec()).Should(HaveLen(1))
+
+		newVdb.Status.Subclusters = []SubclusterStatus{
+			{Name: "sc1", Shutdown: false, AddedToDBCount: 3, UpNodeCount: 3, Type: PrimarySubcluster},
+			{Name: "sc2", Shutdown: false, AddedToDBCount: 3, UpNodeCount: 3, Type: SecondarySubcluster},
+		}
+		Ω(newVdb.validateVerticaDBSpec()).Should(HaveLen(0))
+		newVdb.Spec.Subclusters[0].Size = 4
+		Ω(newVdb.validateVerticaDBSpec()).Should(HaveLen(1))
+		newVdb.Status.Subclusters[0].AddedToDBCount = 4
+		newVdb.Status.Subclusters[0].UpNodeCount = 4
+		Ω(newVdb.validateVerticaDBSpec()).Should(HaveLen(0))
+		newVdb.Spec.Subclusters[1].Shutdown = true
+		Ω(newVdb.validateVerticaDBSpec()).Should(HaveLen(1))
+		newVdb.Status.Subclusters[1].Shutdown = true
+		Ω(newVdb.validateVerticaDBSpec()).Should(HaveLen(0))
+		newVdb.Spec.Subclusters[1].Shutdown = false
+		newVdb.Status.Subclusters[1].Shutdown = false
+		newVdb.Spec.Subclusters[1].Name = "new-sc2"
+		Ω(newVdb.validateVerticaDBSpec()).Should(HaveLen(1))
+		newVdb.Status.Subclusters[1].Name = "new-sc2"
+		Ω(newVdb.validateVerticaDBSpec()).Should(HaveLen(0))
+		newVdb.Status.Conditions = []metav1.Condition{
+			{Type: DBInitialized, Status: metav1.ConditionTrue, Reason: "Initialized"},
+			{Type: UpgradeInProgress, Status: metav1.ConditionTrue, Reason: "UpgradeStarted"},
+		}
+		Ω(newVdb.validateVerticaDBSpec()).Should(HaveLen(1))
+	})
+
+	It("should not allow tls config to change when an operation is in progress", func() {
+		newVdb := MakeVDB()
+		const testHTTPSSecret = "test-https-secret" // #nosec G101
+		const testClientServerSecret = "test-client-server-secret"
+		const verifyCa = "VERIFY_CA"
+		const tryVerify = "TRY_VERIFY"
+		newVdb.Annotations[vmeta.VersionAnnotation] = TLSAuthMinVersion
+		newVdb.Annotations[vmeta.VClusterOpsAnnotation] = trueString
+		newVdb.Annotations[vmeta.EnableTLSAuthAnnotation] = trueString
+		newVdb.Spec.Subclusters = []Subcluster{
+			{Name: "sc1", Type: PrimarySubcluster, Size: 3, ServiceType: v1.ServiceTypeClusterIP},
+			{Name: "sc2", Type: SecondarySubcluster, Size: 3, ServiceType: v1.ServiceTypeClusterIP},
+		}
+		newVdb.Status.Conditions = []metav1.Condition{
+			{Type: DBInitialized, Status: metav1.ConditionTrue, Reason: "Initialized"},
+		}
+		newVdb.Status.Subclusters = []SubclusterStatus{
+			{Name: "sc1", Shutdown: false, AddedToDBCount: 3, UpNodeCount: 3, Type: PrimarySubcluster},
+			{Name: "sc2", Shutdown: false, AddedToDBCount: 3, UpNodeCount: 3, Type: SecondarySubcluster},
+		}
+		newVdb.Spec.HTTPSTLSMode = tryVerify
+		newVdb.Spec.ClientServerTLSMode = tryVerify
+		newVdb.Spec.HTTPSNMATLSSecret = testHTTPSSecret
+		newVdb.Spec.ClientServerTLSSecret = testClientServerSecret
+		oldVdb := newVdb.DeepCopy()
+		Ω(newVdb.validateImmutableFields(oldVdb)).Should(HaveLen(0))
+		newVdb.Status.Conditions = []metav1.Condition{
+			{Type: DBInitialized, Status: metav1.ConditionTrue, Reason: "Initialized"},
+			{Type: UpgradeInProgress, Status: metav1.ConditionTrue, Reason: "UpgradeStarted"},
+		}
+		newVdb.Spec.HTTPSTLSMode = verifyCa
+		Ω(newVdb.validateImmutableFields(oldVdb)).Should(HaveLen(1))
+		newVdb.Spec.HTTPSTLSMode = tryVerify
+		Ω(newVdb.validateImmutableFields(oldVdb)).Should(HaveLen(0))
+		newVdb.Spec.ClientServerTLSMode = verifyCa
+		Ω(newVdb.validateImmutableFields(oldVdb)).Should(HaveLen(1))
+		newVdb.Spec.ClientServerTLSMode = tryVerify
+		Ω(newVdb.validateImmutableFields(oldVdb)).Should(HaveLen(0))
+		newVdb.Spec.HTTPSNMATLSSecret = "test-https-secret-1"
+		Ω(newVdb.validateImmutableFields(oldVdb)).Should(HaveLen(1))
+		newVdb.Spec.HTTPSNMATLSSecret = testHTTPSSecret
+		Ω(newVdb.validateImmutableFields(oldVdb)).Should(HaveLen(0))
+		newVdb.Spec.ClientServerTLSSecret = "test-client-server-secret-1"
+		Ω(newVdb.validateImmutableFields(oldVdb)).Should(HaveLen(1))
+		newVdb.Spec.ClientServerTLSSecret = testClientServerSecret
+		Ω(newVdb.validateImmutableFields(oldVdb)).Should(HaveLen(0))
+	})
+
 })
 
 func createVDBHelper() *VerticaDB {
