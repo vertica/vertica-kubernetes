@@ -170,6 +170,7 @@ func (v *VerticaDB) validateImmutableFields(old runtime.Object) field.ErrorList 
 	allErrs = v.checkNewSBoxOrSClusterShutdownUnset(allErrs)
 	allErrs = v.checkSClusterToBeSandboxedShutdownUnset(allErrs)
 	allErrs = v.checkShutdownForScaleOutOrIn(oldObj, allErrs)
+	allErrs = v.checkIfAnyOpInProgressBeforeTLSChange(oldObj, allErrs)
 	return allErrs
 }
 
@@ -2503,6 +2504,27 @@ func (v *VerticaDB) setDefaultProxy() {
 	}
 }
 
+// checkIfAnyOpInProgressWhenRotatingCerts checks if any operation is in progress when rotating certificates
+func (v *VerticaDB) checkIfAnyOpInProgressBeforeTLSChange(oldObj *VerticaDB, allErrs field.ErrorList) field.ErrorList {
+	if v.IsTLSAuthEnabled() && oldObj.IsTLSAuthEnabled() {
+		errMsgs := v.findChangedTLSFields(oldObj)
+		if v.checkIfUpgradeInProgress() && len(errMsgs) != 0 {
+			allErrs = append(allErrs, field.Invalid(
+				field.NewPath("spec"), "", "while an upgrade is in progress, TLS fields cannot be changed "+
+					strings.Join(errMsgs, ", ")))
+			return allErrs
+		}
+		errMsgs = v.compareSpecAndStatus()
+		if len(errMsgs) != 0 {
+			allErrs = append(allErrs, field.Invalid(
+				field.NewPath("spec"), "", "while the spec and status are not in sync, TLS fields cannot be changed "+
+					strings.Join(errMsgs, ", ")))
+		}
+	}
+	return allErrs
+}
+
+// checkIfAnyOperationInProgressWhenTurnOnTLS checks if any operation is in progress when turning on TLS
 func (v *VerticaDB) checkIfAnyOperationInProgressWhenTurnOnTLS(allErrs field.ErrorList) field.ErrorList {
 	if v.IsTLSAuthEnabled() && v.IsStatusConditionTrue(DBInitialized) {
 		prefix := field.NewPath("metadata").Child("annotations")
@@ -2531,6 +2553,23 @@ func (v *VerticaDB) checkIfUpgradeInProgress() bool {
 		return true
 	}
 	return false
+}
+
+func (v *VerticaDB) findChangedTLSFields(oldObj *VerticaDB) []string {
+	errMsgs := []string{}
+	if v.Spec.HTTPSNMATLSSecret != oldObj.Spec.HTTPSNMATLSSecret {
+		errMsgs = append(errMsgs, fmt.Sprintf("spec.httpsNMATLSSecret %q does not match old spec.httpsNMATLSSecret %q", v.Spec.HTTPSNMATLSSecret, oldObj.Spec.HTTPSNMATLSSecret))
+	}
+	if v.Spec.ClientServerTLSSecret != oldObj.Spec.ClientServerTLSSecret {
+		errMsgs = append(errMsgs, fmt.Sprintf("spec.clientServerTLSSecret %q does not match old spec.clientServerTLSSecret %q", v.Spec.ClientServerTLSSecret, oldObj.Spec.ClientServerTLSSecret))
+	}
+	if v.Spec.HTTPSTLSMode != oldObj.Spec.HTTPSTLSMode {
+		errMsgs = append(errMsgs, fmt.Sprintf("spec.httpsTLSMode %q does not match old spec.httpsTLSMode %q", v.Spec.HTTPSTLSMode, oldObj.Spec.HTTPSTLSMode))
+	}
+	if v.Spec.ClientServerTLSMode != oldObj.Spec.ClientServerTLSMode {
+		errMsgs = append(errMsgs, fmt.Sprintf("spec.clientServerTLSMode %q does not match old spec.clientServerTLSMode %q", v.Spec.ClientServerTLSMode, oldObj.Spec.ClientServerTLSMode))
+	}
+	return errMsgs
 }
 
 func (v *VerticaDB) compareSpecAndStatus() []string {

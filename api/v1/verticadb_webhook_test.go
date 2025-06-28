@@ -2279,6 +2279,54 @@ var _ = Describe("verticadb_webhook", func() {
 		Ω(newVdb.validateVerticaDBSpec()).Should(HaveLen(1))
 	})
 
+	It("should not allow tls config to change when an operation is in progress", func() {
+		newVdb := MakeVDB()
+		const testHTTPSSecret = "test-https-secret" // #nosec G101
+		const testClientServerSecret = "test-client-server-secret"
+		const verifyCa = "VERIFY_CA"
+		const tryVerify = "TRY_VERIFY"
+		newVdb.Annotations[vmeta.VersionAnnotation] = TLSAuthMinVersion
+		newVdb.Annotations[vmeta.VClusterOpsAnnotation] = trueString
+		newVdb.Annotations[vmeta.EnableTLSAuthAnnotation] = trueString
+		newVdb.Spec.Subclusters = []Subcluster{
+			{Name: "sc1", Type: PrimarySubcluster, Size: 3, ServiceType: v1.ServiceTypeClusterIP},
+			{Name: "sc2", Type: SecondarySubcluster, Size: 3, ServiceType: v1.ServiceTypeClusterIP},
+		}
+		newVdb.Status.Conditions = []metav1.Condition{
+			{Type: DBInitialized, Status: metav1.ConditionTrue, Reason: "Initialized"},
+		}
+		newVdb.Status.Subclusters = []SubclusterStatus{
+			{Name: "sc1", Shutdown: false, AddedToDBCount: 3, UpNodeCount: 3, Type: PrimarySubcluster},
+			{Name: "sc2", Shutdown: false, AddedToDBCount: 3, UpNodeCount: 3, Type: SecondarySubcluster},
+		}
+		newVdb.Spec.HTTPSTLSMode = tryVerify
+		newVdb.Spec.ClientServerTLSMode = tryVerify
+		newVdb.Spec.HTTPSNMATLSSecret = testHTTPSSecret
+		newVdb.Spec.ClientServerTLSSecret = testClientServerSecret
+		oldVdb := newVdb.DeepCopy()
+		Ω(newVdb.validateImmutableFields(oldVdb)).Should(HaveLen(0))
+		newVdb.Status.Conditions = []metav1.Condition{
+			{Type: DBInitialized, Status: metav1.ConditionTrue, Reason: "Initialized"},
+			{Type: UpgradeInProgress, Status: metav1.ConditionTrue, Reason: "UpgradeStarted"},
+		}
+		newVdb.Spec.HTTPSTLSMode = verifyCa
+		Ω(newVdb.validateImmutableFields(oldVdb)).Should(HaveLen(1))
+		newVdb.Spec.HTTPSTLSMode = tryVerify
+		Ω(newVdb.validateImmutableFields(oldVdb)).Should(HaveLen(0))
+		newVdb.Spec.ClientServerTLSMode = verifyCa
+		Ω(newVdb.validateImmutableFields(oldVdb)).Should(HaveLen(1))
+		newVdb.Spec.ClientServerTLSMode = tryVerify
+		Ω(newVdb.validateImmutableFields(oldVdb)).Should(HaveLen(0))
+		newVdb.Spec.HTTPSNMATLSSecret = "test-https-secret-1"
+		Ω(newVdb.validateImmutableFields(oldVdb)).Should(HaveLen(1))
+		newVdb.Spec.HTTPSNMATLSSecret = testHTTPSSecret
+		Ω(newVdb.validateImmutableFields(oldVdb)).Should(HaveLen(0))
+		newVdb.Spec.ClientServerTLSSecret = "test-client-server-secret-1"
+		Ω(newVdb.validateImmutableFields(oldVdb)).Should(HaveLen(1))
+		newVdb.Spec.ClientServerTLSSecret = testClientServerSecret
+		Ω(newVdb.validateImmutableFields(oldVdb)).Should(HaveLen(0))
+	})
+
 })
 
 func createVDBHelper() *VerticaDB {
