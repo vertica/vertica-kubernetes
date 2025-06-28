@@ -2593,9 +2593,6 @@ func (v *VerticaDB) compareSpecAndStatus() []string {
 		if sc.Size != v.Status.Subclusters[i].UpNodeCount {
 			errMsgs = append(errMsgs, fmt.Sprintf("spec.subclusters[%d].size %d does not match status.subclusters[%d].UpNodeCount %d", i, sc.Size, i, v.Status.Subclusters[i].UpNodeCount))
 		}
-		if sc.Type != v.Status.Subclusters[i].Type {
-			errMsgs = append(errMsgs, fmt.Sprintf("spec.subclusters[%d].type %q does not match status.subclusters[%d].type %q", i, sc.Type, i, v.Status.Subclusters[i].Type))
-		}
 		if sc.Shutdown != v.Status.Subclusters[i].Shutdown {
 			errMsgs = append(errMsgs, fmt.Sprintf("spec.subclusters[%d].Shutdown %t does not match status.subclusters[%d].Shutdown %t", i, sc.Shutdown, i, v.Status.Subclusters[i].Shutdown))
 		}
