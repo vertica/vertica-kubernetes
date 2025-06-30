@@ -129,7 +129,7 @@ func (h *TLSConfigReconciler) runDDLToConfigureTLS(ctx context.Context, initiato
 	} else {
 		opts = []settlsconfig.Option{
 			settlsconfig.WithClientServerTLSMode(h.Vdb.GetClientServerTLSMode()),
-			settlsconfig.WithClientServerTLSSecretName(h.Vdb.GetClientServerTLSMode()),
+			settlsconfig.WithClientServerTLSSecretName(h.Vdb.GetClientServerTLSSecret()),
 			settlsconfig.WithInitiatorIP(initiatorPod.GetPodIP()),
 			settlsconfig.WithNamespace(h.Vdb.GetObjectMeta().GetNamespace()),
 			settlsconfig.WithHTTPSTLSConfig(false),
