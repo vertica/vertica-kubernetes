@@ -159,6 +159,7 @@ func (v *VerticaDB) validateImmutableFields(old runtime.Object) field.ErrorList 
 	allErrs = v.checkImmutableStsName(oldObj, allErrs)
 	allErrs = v.checkImmutableClientProxy(oldObj, allErrs)
 	allErrs = v.checkImmutableCertRotation(oldObj, allErrs)
+	allErrs = v.checkValidTLSConfigUpdate(oldObj, allErrs)
 	allErrs = v.checkValidSubclusterTypeTransition(oldObj, allErrs)
 	allErrs = v.checkSandboxesDuringUpgrade(oldObj, allErrs)
 	allErrs = v.checkShutdownSandboxImage(oldObj, allErrs)
@@ -2329,6 +2330,86 @@ func (v *VerticaDB) hasValidTLSMode(tlsModeToValidate, fieldName string, allErrs
 		}
 	}
 	return allErrs
+}
+
+// checkValidTLSConfigUpdate enforces:
+// 1. If tls config updateis in progress, all other operations are not allowed.
+// 2. Cannot disable mutual TLS after it's enabled.
+// 3. Prevent user from changing nmaTLSSecret.
+func (v *VerticaDB) checkValidTLSConfigUpdate(oldObj *VerticaDB, allErrs field.ErrorList) field.ErrorList {
+	// rule 1
+	if oldObj.IsTLSConfigUpdateInProgress() {
+		if !v.isOnlyTLSConfigUpdateChange(oldObj) {
+			err := field.Forbidden(field.NewPath("spec"),
+				"no changes allowed while tls config update is in progress")
+			allErrs = append(allErrs, err)
+			return allErrs
+		}
+	}
+
+	// rule 2
+	// - when the annotation is true, don't allow the user to change it to false.
+	// - when that annotation is false, don't allow the user to change HTTPSNMATLSSecret,
+	//   clientServerTLSSecret and tls modes.
+	if vmeta.UseTLSAuth(oldObj.Annotations) {
+		if !vmeta.UseTLSAuth(v.Annotations) {
+			err := field.Forbidden(field.NewPath("spec").Child("HTTPSNMATLSSecret"),
+				"cannot disable mutual TLS after it's enabled")
+			allErrs = append(allErrs, err)
+		}
+	} else {
+		if oldObj.Spec.HTTPSNMATLSSecret != "" && oldObj.Spec.HTTPSNMATLSSecret != v.Spec.HTTPSNMATLSSecret {
+			err := field.Forbidden(field.NewPath("spec").Child("HTTPSNMATLSSecret"),
+				"cannot change HTTPSNMATLSSecret when mutual TLS is disabled")
+			allErrs = append(allErrs, err)
+		}
+		if oldObj.Spec.HTTPSTLSMode != "" && oldObj.Spec.HTTPSTLSMode != v.Spec.HTTPSTLSMode {
+			err := field.Forbidden(field.NewPath("spec").Child("HTTPSTLSMode"),
+				"cannot change HTTPSTLSMode when mutual TLS is disabled")
+			allErrs = append(allErrs, err)
+		}
+		if oldObj.Spec.ClientServerTLSSecret != "" && oldObj.Spec.ClientServerTLSSecret != v.Spec.ClientServerTLSSecret {
+			err := field.Forbidden(field.NewPath("spec").Child("clientServerTLSSecret"),
+				"cannot change clientServerTLSSecret when mutual TLS is disabled")
+			allErrs = append(allErrs, err)
+		}
+		if oldObj.Spec.ClientServerTLSMode != "" && oldObj.Spec.ClientServerTLSMode != v.Spec.ClientServerTLSMode {
+			err := field.Forbidden(field.NewPath("spec").Child("clientServerTLSMode"),
+				"cannot change clientServerTLSMode when mutual TLS is disabled")
+			allErrs = append(allErrs, err)
+		}
+	}
+
+	// rule 3
+	if oldObj.Spec.NMATLSSecret != v.Spec.NMATLSSecret {
+		err := field.Forbidden(field.NewPath("spec").Child("nmaTLSSecret"),
+			"nmaTLSSecret cannot be changed")
+		allErrs = append(allErrs, err)
+	}
+
+	return allErrs
+}
+
+// isOnlyTLSConfigUpdateChange allows only tls config changes when tls config update is in progress
+func (v *VerticaDB) isOnlyTLSConfigUpdateChange(oldVdb *VerticaDB) bool {
+	// Only allow changes to cert rotation status/fields.
+	// If any other field in spec changes, return false.
+	oldSpec := oldVdb.Spec
+	newSpec := v.Spec
+
+	// Allow only httpsNMATLSSecret to change
+	oldCopy := oldSpec
+	newCopy := newSpec
+	oldCopy.HTTPSNMATLSSecret = ""
+	newCopy.HTTPSNMATLSSecret = ""
+	oldCopy.HTTPSTLSMode = ""
+	newCopy.HTTPSTLSMode = ""
+	oldCopy.ClientServerTLSSecret = ""
+	newCopy.ClientServerTLSSecret = ""
+	oldCopy.ClientServerTLSMode = ""
+	newCopy.ClientServerTLSMode = ""
+
+	return reflect.DeepEqual(oldCopy, newCopy)
 }
 
 // setDefaultAdditionalBuckets sets default additional buckets configurations

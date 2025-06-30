@@ -1118,8 +1118,7 @@ const (
 	HTTPSCertRotationFinished           = "HTTPSCertRotationFinished"
 	HTTPSTLSConfigUpdateFinished        = "HTTPSTLSConfigUpdateFinished"
 	ClientServerTLSConfigUpdateFinished = "ClientServerTLSConfigUpdateFinished"
-	// TLSCertRotationInProgress indicates the TLS cert rotation has started
-	TLSCertRotationInProgress = "TLSCertRotationInProgress"
+	// TLSConfigUpdateInProgress indicates the TLS config update has started
 	TLSConfigUpdateInProgress = "TLSConfigUpdateInProgress"
 )
 
