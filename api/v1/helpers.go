@@ -1149,6 +1149,14 @@ func (v *VerticaDB) IsFetchNodeDetailsLogDisabled() bool {
 	return vmeta.IsFetchNodeDetailsLogDisabled(v.Annotations)
 }
 
+func (v *VerticaDB) GetTLSCacheDuration() uint64 {
+	duration := vmeta.GetTLSCacheDuration(v.Annotations)
+	if duration < 0 {
+		return 0
+	}
+	return uint64(duration)
+}
+
 func (v *VerticaDB) ShouldRemoveTLSSecret() bool {
 	return vmeta.ShouldRemoveTLSSecret(v.Annotations)
 }
