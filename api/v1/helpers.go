@@ -1149,6 +1149,14 @@ func (v *VerticaDB) IsFetchNodeDetailsLogDisabled() bool {
 	return vmeta.IsFetchNodeDetailsLogDisabled(v.Annotations)
 }
 
+func (v *VerticaDB) GetTLSCacheDuration() uint64 {
+	duration := vmeta.GetTLSCacheDuration(v.Annotations)
+	if duration < 0 {
+		return 0
+	}
+	return uint64(duration)
+}
+
 func (v *VerticaDB) ShouldRemoveTLSSecret() bool {
 	return vmeta.ShouldRemoveTLSSecret(v.Annotations)
 }
@@ -1726,4 +1734,12 @@ func (v *VerticaDB) IsOtherSubclusterDraining(scName string) bool {
 		}
 	}
 	return false
+}
+
+// MakeVersionStrForOpVersion can convert operator version to vertica version format
+func MakeVersionStrForOpVersion(v string) string {
+	if v == "" {
+		return ""
+	}
+	return "v" + v
 }
