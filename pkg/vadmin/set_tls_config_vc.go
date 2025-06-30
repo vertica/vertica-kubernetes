@@ -71,9 +71,11 @@ func (v *VClusterOps) genSetTLSConfigOptions(s *settlsconfig.Parms,
 	if s.IsHTTPSTLSConfig {
 		opts.HTTPSTLSConfig.SetConfigMap(maps.Clone(configMap))
 		opts.HTTPSTLSConfig.GrantAuth = s.GrantAuth
+		opts.HTTPSTLSConfig.CacheDuration = v.VDB.GetTLSCacheDuration()
 	} else {
 		opts.ServerTLSConfig.SetConfigMap(maps.Clone(configMap))
 		opts.ServerTLSConfig.GrantAuth = s.GrantAuth
+		opts.ServerTLSConfig.CacheDuration = v.VDB.GetTLSCacheDuration()
 	}
 
 	return &opts

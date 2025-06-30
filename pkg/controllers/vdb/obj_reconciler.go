@@ -54,6 +54,8 @@ const (
 	ObjReconcileModePreserveScaling = 1 << iota
 	// Must maintain the same delete policy when reconciling statefulsets
 	ObjReconcileModePreserveUpdateStrategy
+	// Reconcile for annotation only
+	ObjReconcileModeAnnotation
 	// Reconcile to consider every change. Without this we will skip svc objects.
 	ObjReconcileModeAll
 )
@@ -98,6 +100,10 @@ func (o *ObjReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Re
 		return ctrl.Result{}, errors.New("no podfacts provided")
 	}
 
+	if err := o.recordAnnotations(ctx); err != nil || (o.Mode&ObjReconcileModeAnnotation != 0) {
+		return ctrl.Result{}, err
+	}
+
 	if vmeta.UseVProxy(o.Vdb.Annotations) {
 		if o.Vdb.Spec.Proxy == nil {
 			return ctrl.Result{}, errors.New("spec.proxy must be set when client proxy is enabled")
@@ -135,6 +141,50 @@ func (o *ObjReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Re
 	}
 
 	return ctrl.Result{}, nil
+}
+
+// recordAnnotations will record the annotations in the vdb so we can get the correct annotation
+// value after operator is updated and the default value of the annotation is changed
+func (o *ObjReconciler) recordAnnotations(ctx context.Context) error {
+	// When the annotation is already set, no need to record
+	if o.Vdb.Annotations[vmeta.MountNMACertsAnnotation] != "" {
+		return nil
+	}
+
+	svcName := names.GenHlSvcName(o.Vdb)
+	curSvc := &corev1.Service{}
+	err := o.Rec.GetClient().Get(ctx, svcName, curSvc)
+	svcNotExist := err != nil && kerrors.IsNotFound(err)
+	useNMAMount := false
+	if svcNotExist {
+		useNMAMount = vmeta.UseNMACertsMount(o.Vdb.Annotations)
+	} else if err != nil {
+		o.Log.Error(err, "failed to get headless service", "name", svcName)
+		return err
+	}
+
+	if !svcNotExist {
+		opVer, hasVersion := o.Vdb.GetVersion(vapi.MakeVersionStrForOpVersion(curSvc.Labels[vmeta.OperatorVersionLabel]))
+		if !hasVersion {
+			return errors.New("operator version not found or invalid in headless service")
+		}
+		useNMAMount = opVer.IsOlder(vapi.MakeVersionStrForOpVersion(vmeta.OperatorVersion253))
+	}
+
+	annotationUpdate := func() (bool, error) {
+		if o.Vdb.Annotations == nil {
+			o.Vdb.Annotations = make(map[string]string, 1)
+		}
+		if useNMAMount {
+			o.Vdb.Annotations[vmeta.MountNMACertsAnnotation] = vmeta.MountNMACertsAnnotationTrue
+		} else {
+			o.Vdb.Annotations[vmeta.MountNMACertsAnnotation] = vmeta.MountNMACertsAnnotationFalse
+		}
+		return true, nil
+	}
+	updated, err := vk8s.UpdateVDBWithRetry(ctx, o.Rec, o.Vdb, annotationUpdate)
+	o.Log.Info("record annotation in vdb", "recorded", updated, "annotation", vmeta.MountNMACertsAnnotation)
+	return err
 }
 
 // checkMountedObjs will check if the mounted secrets/configMap exist and have
