@@ -47,6 +47,7 @@ import (
 var _ = Describe("obj_reconcile", func() {
 	ctx := context.Background()
 	const trueStr = "true"
+	const falseStr = "false"
 
 	runReconciler := func(vdb *vapi.VerticaDB, expResult ctrl.Result, mode ObjReconcileModeType) {
 		// Create any dependent objects for the CRD.
@@ -1010,6 +1011,41 @@ var _ = Describe("obj_reconcile", func() {
 			secretName := names.GenNamespacedName(o.Vdb, vdb.GetHTTPSNMATLSSecret())
 			Expect(k8sClient.Get(ctx, secretName, fetchedSecret)).Should(Succeed())
 			Expect(len(fetchedSecret.OwnerReferences)).Should(Equal(0))
+		})
+
+		It("should add mount-nma-certs annotation correctly", func() {
+			vdb := vapi.MakeVDB()
+			createCrd(vdb, true)
+			defer deleteCrd(vdb)
+
+			o := &ObjReconciler{
+				Rec: vdbRec,
+				Vdb: vdb,
+				Log: logger,
+			}
+			hlNameLookup := names.GenHlSvcName(vdb)
+			hlSvc := &corev1.Service{}
+			Expect(k8sClient.Get(ctx, hlNameLookup, hlSvc)).Should(Succeed())
+
+			// current version is equal to 25.3.0, the value should be false
+			Expect(hlSvc.Labels[vmeta.OperatorVersionLabel]).Should(Equal(vmeta.CurOperatorVersion))
+			err := o.recordAnnotations(ctx)
+			Expect(err).Should(BeNil())
+			Expect(vdb.Annotations[vmeta.MountNMACertsAnnotation]).Should(Equal(falseStr))
+
+			// if the user manually change it, we shouldn't override it
+			vdb.Annotations[vmeta.MountNMACertsAnnotation] = trueStr
+			err = o.recordAnnotations(ctx)
+			Expect(err).Should(BeNil())
+			Expect(vdb.Annotations[vmeta.MountNMACertsAnnotation]).Should(Equal(trueStr))
+
+			// if the version is lower than 25.3, the value should be true
+			delete(vdb.Annotations, vmeta.MountNMACertsAnnotation)
+			hlSvc.Labels[vmeta.OperatorVersionLabel] = "25.2.0"
+			Expect(k8sClient.Update(ctx, hlSvc)).Should(Succeed())
+			err = o.recordAnnotations(ctx)
+			Expect(err).Should(BeNil())
+			Expect(vdb.Annotations[vmeta.MountNMACertsAnnotation]).Should(Equal(trueStr))
 		})
 	})
 })

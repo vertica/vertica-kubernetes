@@ -186,6 +186,9 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		// reconcile actor that depends on running pods should not be before
 		// this one.
 		MakeCrashLoopReconciler(r, log, vdb),
+		// Modify or record the annotations in the vdb so later reconcilers can
+		// get the correct information.
+		MakeObjReconciler(r, log, vdb, pfacts, ObjReconcileModeAnnotation),
 		// Always generate cert first if nothing is provided
 		MakeTLSServerCertGenReconciler(r, log, vdb),
 		// Set up configmap which stores env variables for NMA container
