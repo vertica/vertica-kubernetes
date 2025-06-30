@@ -24,12 +24,25 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/rotatetlscerts"
 )
 
+const tlsConfigServer = "Server"
+
 // RotateNMACerts will rotate nma cert
 func (v *VClusterOps) RotateTLSCerts(ctx context.Context, opts ...rotatetlscerts.Option) error {
 	v.setupForAPICall("RotateTLSCerts")
 	defer v.tearDownForAPICall()
 	v.Log.Info("Starting vcluster RotateTLSCerts")
+
+	s := rotatetlscerts.Params{}
+	s.Make(opts...)
+
 	secretName := v.VDB.GetHTTPSTLSSecretNameInUse()
+	if s.TLSConfig == tlsConfigServer && secretName != v.VDB.Spec.HTTPSNMATLSSecret {
+		// https cert rotation has already occured but the status is not up to date so
+		// the cert in use is the one in the spec
+		v.Log.Info("HTTPS cert rotation has occured but the status is not up to date yet. Using secret from spec")
+		secretName = v.VDB.Spec.HTTPSNMATLSSecret
+
+	}
 	// get the certs
 	fetcher := cloud.SecretFetcher{
 		Client:   v.Client,
@@ -41,9 +54,6 @@ func (v *VClusterOps) RotateTLSCerts(ctx context.Context, opts ...rotatetlscerts
 	if err != nil {
 		return err
 	}
-
-	s := rotatetlscerts.Params{}
-	s.Make(opts...)
 
 	// call vclusterOps library to rotate nma cert
 	vopts := v.genRotateTLSCertsOptions(&s, certs)

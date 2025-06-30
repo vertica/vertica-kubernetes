@@ -11,14 +11,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: apps/v1
-kind: StatefulSet
-metadata:
-  name: v-client-server-cert-rotate-sc1
-status:
-  replicas: 3
----
-apiVersion: vertica.com/v1
-kind: VerticaDB
-metadata:
-  name: v-client-server-cert-rotate
+apiVersion: kuttl.dev/v1beta2
+kind: TestStep
+commands:
+  # nma env variable should exist.
+  - command: kubectl exec -n $NAMESPACE v-server-tls-mode-sc1-0 -c nma -- bash -c "env | grep NMA_CLIENT_SECRET_NAME=v-server-tls-mode-clientserver-tls"
+  - command: kubectl exec -n $NAMESPACE v-server-tls-mode-sc1-0 -c nma -- bash -c "env | grep NMA_CLIENT_SECRET_NAMESPACE=$NAMESPACE"
+  - command: kubectl exec -n $NAMESPACE v-server-tls-mode-sc1-0 -c nma -- bash -c "env | grep NMA_CLIENT_TLS_MODE=enable"

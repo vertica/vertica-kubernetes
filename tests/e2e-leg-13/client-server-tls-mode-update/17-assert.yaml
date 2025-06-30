@@ -14,11 +14,18 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: v-client-server-cert-rotate-sc1
+  name: v-server-tls-mode-sc1
 status:
   replicas: 3
+  readyReplicas: 3
 ---
 apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
-  name: v-client-server-cert-rotate
+  name: v-server-tls-mode
+spec:
+  httpsTLSMode: TRY_VERIFY
+status:
+  subclusters:
+    - addedToDBCount: 3
+      upNodeCount: 3
