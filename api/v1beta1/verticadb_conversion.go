@@ -303,6 +303,7 @@ func convertToStatus(src *VerticaDBStatus) v1.VerticaDBStatus {
 		Conditions:      make([]metav1.Condition, 0),
 		UpgradeStatus:   src.UpgradeStatus,
 		Sandboxes:       make([]v1.SandboxStatus, len(src.Sandboxes)),
+		TLSConfigs:      make([]v1.TLSConfigStatus, len(src.TLSConfigs)),
 	}
 	if src.RestorePoint != nil {
 		dst.RestorePoint = &v1.RestorePointInfo{
@@ -337,6 +338,7 @@ func convertFromStatus(src *v1.VerticaDBStatus) VerticaDBStatus {
 		Conditions:      make([]VerticaDBCondition, len(src.Conditions)),
 		UpgradeStatus:   src.UpgradeStatus,
 		Sandboxes:       make([]SandboxStatus, len(src.Sandboxes)),
+		TLSConfigs:      make([]TLSConfigStatus, len(src.TLSConfigs)),
 	}
 	if src.RestorePoint != nil {
 		dst.RestorePoint = &RestorePointInfo{
