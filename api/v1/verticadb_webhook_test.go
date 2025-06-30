@@ -508,9 +508,9 @@ var _ = Describe("verticadb_webhook", func() {
 			Type:   TLSCertRotationInProgress,
 			Status: metav1.ConditionTrue,
 		})
-		oldVdb.Spec.HTTPSNMATLSSecret = "secret1"
-		oldVdb.Spec.ClientServerTLSSecret = "secret1"
-		oldVdb.Spec.ClientServerTLSMode = tlsModeVerifyCA
+		oldVdb.Spec.HTTPSNMATLS.Secret = "secret1"
+		oldVdb.Spec.ClientServerTLS.Secret = "secret1"
+		oldVdb.Spec.ClientServerTLS.Mode = tlsModeVerifyCA
 
 		oldVdb.Spec.Subclusters = []Subcluster{
 			{Name: "default", Size: 3, Type: PrimarySubcluster},
@@ -518,15 +518,15 @@ var _ = Describe("verticadb_webhook", func() {
 		}
 		// Only cert-rotation-related changes: allowed
 		newVdb := oldVdb.DeepCopy()
-		newVdb.Spec.HTTPSNMATLSSecret = "secret2"
+		newVdb.Spec.HTTPSNMATLS.Secret = "secret2"
 		allErrs := newVdb.checkValidTLSCertRotation(oldVdb, nil)
 		Ω(allErrs).Should(BeEmpty())
 
-		newVdb.Spec.ClientServerTLSSecret = "secret2"
+		newVdb.Spec.ClientServerTLS.Secret = "secret2"
 		allErrs = newVdb.checkValidTLSCertRotation(oldVdb, nil)
 		Ω(allErrs).Should(BeEmpty())
 
-		newVdb.Spec.ClientServerTLSMode = tlsModeTryVerify
+		newVdb.Spec.ClientServerTLS.Mode = tlsModeTryVerify
 		allErrs = newVdb.checkValidTLSCertRotation(oldVdb, nil)
 		Ω(allErrs).Should(BeEmpty())
 
@@ -539,9 +539,9 @@ var _ = Describe("verticadb_webhook", func() {
 
 	It("should not allow disabling mutual TLS after it's enabled", func() {
 		oldVdb := MakeVDB()
-		oldVdb.Spec.HTTPSNMATLSSecret = "enabled"
+		oldVdb.Spec.HTTPSNMATLS.Secret = "enabled"
 		newVdb := oldVdb.DeepCopy()
-		newVdb.Spec.HTTPSNMATLSSecret = ""
+		newVdb.Spec.HTTPSNMATLS.Secret = ""
 		allErrs := newVdb.checkValidTLSCertRotation(oldVdb, nil)
 		Ω(allErrs).ShouldNot(BeEmpty())
 	})
@@ -550,23 +550,23 @@ var _ = Describe("verticadb_webhook", func() {
 		oldVdb := MakeVDB()
 		Expect(vmeta.UseTLSAuth(oldVdb.Annotations)).Should(BeFalse())
 
-		oldVdb.Spec.HTTPSNMATLSSecret = "old-secret"
-		oldVdb.Spec.ClientServerTLSSecret = "old-secret"
-		oldVdb.Spec.ClientServerTLSMode = tlsModeVerifyCA
+		oldVdb.Spec.HTTPSNMATLS.Secret = "old-secret"
+		oldVdb.Spec.ClientServerTLS.Secret = "old-secret"
+		oldVdb.Spec.ClientServerTLS.Mode = tlsModeVerifyCA
 		oldVdb.Spec.Subclusters = []Subcluster{
 			{Name: "default", Size: 3, Type: PrimarySubcluster},
 		}
 		// No cert-rotation-related changes is allowed
 		newVdb := oldVdb.DeepCopy()
-		newVdb.Spec.HTTPSNMATLSSecret = "new-secret"
+		newVdb.Spec.HTTPSNMATLS.Secret = "new-secret"
 		allErrs := newVdb.checkValidTLSCertRotation(oldVdb, nil)
 		Ω(allErrs).ShouldNot(BeEmpty())
 
-		newVdb.Spec.ClientServerTLSSecret = "new-secret"
+		newVdb.Spec.ClientServerTLS.Secret = "new-secret"
 		allErrs = newVdb.checkValidTLSCertRotation(oldVdb, nil)
 		Ω(allErrs).ShouldNot(BeEmpty())
 
-		newVdb.Spec.ClientServerTLSMode = tlsModeTryVerify
+		newVdb.Spec.ClientServerTLS.Mode = tlsModeTryVerify
 		allErrs = newVdb.checkValidTLSCertRotation(oldVdb, nil)
 		Ω(allErrs).ShouldNot(BeEmpty())
 	})
