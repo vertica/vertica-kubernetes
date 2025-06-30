@@ -124,22 +124,33 @@ func (t *TLSConfigManager) setPollingCertMetadata(ctx context.Context) (ctrl.Res
 // updateTLSConfig calls the vclusterops api that will update the tls config by cert
 // rotation and/or tls mode update
 func (t *TLSConfigManager) updateTLSConfig(ctx context.Context, initiatorIP string) error {
-	if t.TLSUpdateType == tlsModeAndCertChange || t.TLSUpdateType == httpsCertChangeOnly {
-		t.Log.Info(fmt.Sprintf("ready to rotate %s cert from %s to %s", t.TLSConfig, t.CurrentSecret, t.NewSecret))
-	}
-	if t.TLSUpdateType == tlsModeAndCertChange || t.TLSUpdateType == tlsModeChangeOnly {
-		t.Log.Info(fmt.Sprintf("ready to change %s TLS mode from %s to %s", t.TLSConfig, t.CurrentTLSMode, t.NewTLSMode))
+	switch t.TLSUpdateType {
+	case tlsModeAndCertChange:
+		// This type implies both a cert change and a TLS mode change
+		t.Log.Info(fmt.Sprintf("Ready to rotate %s cert from %s to %s", t.TLSConfig, t.CurrentSecret, t.NewSecret))
+		t.Log.Info(fmt.Sprintf("Ready to change %s TLS mode from %s to %s", t.TLSConfig, t.CurrentTLSMode, t.NewTLSMode))
+	case httpsCertChangeOnly:
+		// Only a cert change
+		t.Log.Info(fmt.Sprintf("Ready to rotate %s cert from %s to %s", t.TLSConfig, t.CurrentSecret, t.NewSecret))
+	case tlsModeChangeOnly:
+		// Only a TLS mode change
+		t.Log.Info(fmt.Sprintf("Ready to change %s TLS mode from %s to %s", t.TLSConfig, t.CurrentTLSMode, t.NewTLSMode))
 	}
 
 	var keyConfig, certConfig, caCertConfig, secretName, secretManager string
+	var cacheDuration string
+	if t.Vdb.GetTLSCacheDuration() > 0 {
+		cacheDuration = fmt.Sprintf(",\"cache-duration\":%d", t.Vdb.GetTLSCacheDuration())
+	}
 
 	switch {
 	case secrets.IsAWSSecretsManagerSecret(t.NewSecret):
-		keyConfig, certConfig, caCertConfig = t.getAWSCertsConfig()
-		secretName = secrets.RemovePathReference(t.NewSecret)
+		secretARN, versionID := secrets.GetAWSSecretARN(t.NewSecret)
+		keyConfig, certConfig, caCertConfig = t.getAWSCertsConfig(versionID, cacheDuration)
+		secretName = secretARN
 		secretManager = vops.AWSSecretManagerType
 	default:
-		keyConfig, certConfig, caCertConfig = t.getK8sCertsConfig()
+		keyConfig, certConfig, caCertConfig = t.getK8sCertsConfig(cacheDuration)
 		secretName = t.NewSecret
 		secretManager = vops.K8sSecretManagerType
 	}
@@ -327,19 +338,22 @@ func (t *TLSConfigManager) needTLSConfigChange() bool {
 	return t.TLSUpdateType != noTLSChange
 }
 
-func (t *TLSConfigManager) getK8sCertsConfig() (keyConfig, certConfig, caCertConfig string) {
-	keyConfig = fmt.Sprintf("{\"data-key\":%q, \"namespace\":%q}", corev1.TLSPrivateKeyKey, t.Vdb.Namespace)
-	certConfig = fmt.Sprintf("{\"data-key\":%q, \"namespace\":%q}", corev1.TLSCertKey, t.Vdb.Namespace)
-	caCertConfig = fmt.Sprintf("{\"data-key\":%q, \"namespace\":%q}", paths.HTTPServerCACrtName, t.Vdb.Namespace)
+func (t *TLSConfigManager) getK8sCertsConfig(cacheDuration string) (keyConfig, certConfig, caCertConfig string) {
+	keyConfig = fmt.Sprintf("{\"data-key\":%q,\"namespace\":%q%s}", corev1.TLSPrivateKeyKey, t.Vdb.Namespace, cacheDuration)
+	certConfig = fmt.Sprintf("{\"data-key\":%q,\"namespace\":%q%s}", corev1.TLSCertKey, t.Vdb.Namespace, cacheDuration)
+	caCertConfig = fmt.Sprintf("{\"data-key\":%q,\"namespace\":%q%s}", paths.HTTPServerCACrtName, t.Vdb.Namespace, cacheDuration)
 	return
 }
 
-func (t *TLSConfigManager) getAWSCertsConfig() (keyConfig, certConfig, caCertConfig string) {
+func (t *TLSConfigManager) getAWSCertsConfig(versionID, cacheDuration string) (keyConfig, certConfig, caCertConfig string) {
 	region, _ := secrets.GetAWSRegion(t.NewSecret)
 
-	keyConfig = fmt.Sprintf("{\"json-key\":%q, \"region\":%q}", corev1.TLSPrivateKeyKey, region)
-	certConfig = fmt.Sprintf("{\"json-key\":%q, \"region\":%q}", corev1.TLSCertKey, region)
-	caCertConfig = fmt.Sprintf("{\"json-key\":%q, \"region\":%q}", paths.HTTPServerCACrtName, region)
+	keyConfig = fmt.Sprintf("{\"json-key\":%q,\"region\":%q,\"version-id\":%q%s}",
+		corev1.TLSPrivateKeyKey, region, versionID, cacheDuration)
+	certConfig = fmt.Sprintf("{\"json-key\":%q,\"region\":%q,\"version-id\":%q%s}",
+		corev1.TLSCertKey, region, versionID, cacheDuration)
+	caCertConfig = fmt.Sprintf("{\"json-key\":%q,\"region\":%q,\"version-id\":%q%s}",
+		paths.HTTPServerCACrtName, region, versionID, cacheDuration)
 	return
 }
 

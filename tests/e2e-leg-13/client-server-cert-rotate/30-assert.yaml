@@ -35,7 +35,7 @@ status:
     type: TLSConfigUpdateInProgress
   - reason: Completed
     status: "False"
-    type: ClientServerTLSUpdateFinished 
+    type: ClientServerTLSConfigUpdateFinished 
   subclusters:
     - addedToDBCount: 3
       upNodeCount: 3

@@ -71,6 +71,20 @@ func UpdateCondition(ctx context.Context, clnt client.Client, vdb *vapi.VerticaD
 	return Update(ctx, clnt, vdb, refreshConditionInPlace)
 }
 
+// UpdateConditions will update multiple condition statuses
+func UpdateConditions(ctx context.Context, clnt client.Client, vdb *vapi.VerticaDB, conditions []*metav1.Condition) error {
+	// refreshConditionInPlace will update the status conditions in vdb.  The update
+	// will be applied in-place.
+	refreshConditionInPlace := func(vdb *vapi.VerticaDB) error {
+		for _, condition := range conditions {
+			meta.SetStatusCondition(&vdb.Status.Conditions, *condition)
+		}
+		return nil
+	}
+
+	return Update(ctx, clnt, vdb, refreshConditionInPlace)
+}
+
 // UpdateSecretRef will update a secret status. There is no-op if the status secret is already set.
 func UpdateSecretRef(ctx context.Context, clnt client.Client, vdb *vapi.VerticaDB, sRef *vapi.SecretRef) error {
 	// refreshConditionInPlace will update the status secretRef in vdb.  The update

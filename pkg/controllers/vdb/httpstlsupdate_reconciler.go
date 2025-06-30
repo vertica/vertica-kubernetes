@@ -83,8 +83,7 @@ func (h *HTTPSTLSUpdateReconciler) Reconcile(ctx context.Context, req *ctrl.Requ
 	}
 
 	if !h.Vdb.IsHTTPSConfigEnabled() ||
-		(h.Vdb.IsStatusConditionTrue(vapi.HTTPSTLSConfigUpdateFinished) &&
-			h.Vdb.IsStatusConditionTrue(vapi.TLSConfigUpdateInProgress)) {
+		h.Vdb.IsStatusConditionTrue(vapi.HTTPSTLSConfigUpdateFinished) {
 		return ctrl.Result{}, nil
 	}
 

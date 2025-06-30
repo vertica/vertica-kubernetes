@@ -75,8 +75,7 @@ func (h *ClientServerTLSUpdateReconciler) Reconcile(ctx context.Context, req *ct
 	}
 
 	if !h.Vdb.IsClientServerConfigEnabled() ||
-		(h.Vdb.IsStatusConditionTrue(vapi.ClientServerTLSUpdateFinished) &&
-			h.Vdb.IsStatusConditionTrue(vapi.TLSConfigUpdateInProgress)) {
+		h.Vdb.IsStatusConditionTrue(vapi.ClientServerTLSConfigUpdateFinished) {
 		return ctrl.Result{}, nil
 	}
 
@@ -114,9 +113,9 @@ func (h *ClientServerTLSUpdateReconciler) Reconcile(ctx context.Context, req *ct
 		return ctrl.Result{}, err
 	}
 
-	cond = vapi.MakeCondition(vapi.ClientServerTLSUpdateFinished, metav1.ConditionTrue, "Completed")
+	cond = vapi.MakeCondition(vapi.ClientServerTLSConfigUpdateFinished, metav1.ConditionTrue, "Completed")
 	if err := vdbstatus.UpdateCondition(ctx, h.VRec.GetClient(), h.Vdb, cond); err != nil {
-		h.Log.Error(err, "failed to set condition "+vapi.ClientServerTLSUpdateFinished+" to true")
+		h.Log.Error(err, "failed to set condition "+vapi.ClientServerTLSConfigUpdateFinished+" to true")
 		return ctrl.Result{}, err
 	}
 

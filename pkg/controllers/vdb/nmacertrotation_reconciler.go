@@ -62,7 +62,7 @@ func (h *NMACertRotationReconciler) Reconcile(ctx context.Context, _ *ctrl.Reque
 	}
 	// no-op if tls update has not occurred
 	if (!h.Vdb.IsStatusConditionTrue(vapi.HTTPSTLSConfigUpdateFinished) &&
-		!h.Vdb.IsStatusConditionTrue(vapi.ClientServerTLSUpdateFinished)) ||
+		!h.Vdb.IsStatusConditionTrue(vapi.ClientServerTLSConfigUpdateFinished)) ||
 		!h.Vdb.IsStatusConditionTrue(vapi.TLSConfigUpdateInProgress) {
 		return ctrl.Result{}, nil
 	}
@@ -81,23 +81,20 @@ func (h *NMACertRotationReconciler) Reconcile(ctx context.Context, _ *ctrl.Reque
 		return res, err
 	}
 
-	updateCond := func(cond *metav1.Condition) error {
-		if err := vdbstatus.UpdateCondition(ctx, h.VRec.GetClient(), h.Vdb, cond); err != nil {
-			h.Log.Error(err, "Failed to update condition", "conditionType", cond.Type)
+	updateConds := func(conds []*metav1.Condition) error {
+		if err := vdbstatus.UpdateConditions(ctx, h.VRec.GetClient(), h.Vdb, conds); err != nil {
 			return err
 		}
 		return nil
 	}
 
-	// Clear TLSConfigUpdateInProgress condition
-	if err := updateCond(vapi.MakeCondition(vapi.TLSConfigUpdateInProgress, metav1.ConditionFalse, "Completed")); err != nil {
-		return ctrl.Result{}, err
+	conds := []*metav1.Condition{
+		// Clear TLSConfigUpdateInProgress condition
+		vapi.MakeCondition(vapi.TLSConfigUpdateInProgress, metav1.ConditionFalse, "Completed"),
 	}
 
 	if h.Vdb.IsStatusConditionTrue(vapi.HTTPSTLSConfigUpdateFinished) {
-		if err := updateCond(vapi.MakeCondition(vapi.HTTPSTLSConfigUpdateFinished, metav1.ConditionFalse, "Completed")); err != nil {
-			return ctrl.Result{}, err
-		}
+		conds = append(conds, vapi.MakeCondition(vapi.HTTPSTLSConfigUpdateFinished, metav1.ConditionFalse, "Completed"))
 	}
 
 	// client server does not need nma cert rotation but it needs nma restart
@@ -105,13 +102,11 @@ func (h *NMACertRotationReconciler) Reconcile(ctx context.Context, _ *ctrl.Reque
 	// improve this later so that client server does not need nma cert rotation
 	// by updating the mode only when client server tls config update
 	// was done successfully.
-	if h.Vdb.IsStatusConditionTrue(vapi.ClientServerTLSUpdateFinished) {
-		if err := updateCond(vapi.MakeCondition(vapi.ClientServerTLSUpdateFinished, metav1.ConditionFalse, "Completed")); err != nil {
-			return ctrl.Result{}, err
-		}
+	if h.Vdb.IsStatusConditionTrue(vapi.ClientServerTLSConfigUpdateFinished) {
+		conds = append(conds, vapi.MakeCondition(vapi.ClientServerTLSConfigUpdateFinished, metav1.ConditionFalse, "Completed"))
 	}
 
-	return ctrl.Result{}, nil
+	return ctrl.Result{}, updateConds(conds)
 }
 
 // rotateHTTPSTLSCert will rotate node management agent's tls cert from currentSecret to newSecret
@@ -156,7 +151,7 @@ func (h *NMACertRotationReconciler) rotateNmaTLSCert(ctx context.Context, newSec
 		}
 	}
 
-	if h.Vdb.IsStatusConditionTrue(vapi.ClientServerTLSUpdateFinished) {
+	if h.Vdb.IsStatusConditionTrue(vapi.ClientServerTLSConfigUpdateFinished) {
 		sec = vapi.MakeClientServerTLSSecretRef(h.Vdb.Spec.ClientServerTLSSecret)
 		if updErr := vdbstatus.UpdateSecretRef(ctx, h.VRec.GetClient(), h.Vdb, sec); updErr != nil {
 			return err

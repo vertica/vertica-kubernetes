@@ -17,6 +17,7 @@ package vdb
 
 import (
 	"context"
+	"fmt"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -91,10 +92,14 @@ var _ = Describe("tls_config", func() {
 		vdb := vapi.MakeVDB()
 		tlsMgr := MakeTLSConfigManager(vdbRec, logger, vdb, tlsConfigServer, nil)
 
-		keyConfig, certConfig, caCertConfig := tlsMgr.getK8sCertsConfig()
+		cacheDuration := fmt.Sprintf(",\"cache-duration\":%d", 10)
+		keyConfig, certConfig, caCertConfig := tlsMgr.getK8sCertsConfig(cacheDuration)
 		Expect(keyConfig).To(ContainSubstring("data-key"))
 		Expect(certConfig).To(ContainSubstring("data-key"))
 		Expect(caCertConfig).To(ContainSubstring("data-key"))
+		Expect(keyConfig).To(ContainSubstring("cache-duration"))
+		Expect(certConfig).To(ContainSubstring("cache-duration"))
+		Expect(caCertConfig).To(ContainSubstring("cache-duration"))
 	})
 
 	It("should parse TLS config from DB correctly", func() {

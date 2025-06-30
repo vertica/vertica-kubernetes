@@ -128,7 +128,7 @@ func (h *TLSConfigReconciler) Reconcile(ctx context.Context, request *ctrl.Reque
 	}
 
 	h.VRec.Eventf(h.Vdb, corev1.EventTypeNormal, events.TLSConfigurationSucceeded,
-		"Successfully set %s tls configwith secret name %s and mode %s", h.Manager.TLSConfig, h.Manager.NewSecret, tlsMode)
+		"Successfully set %s tls config", h.Manager.TLSConfig)
 
 	return ctrl.Result{}, nil
 }
