@@ -134,7 +134,7 @@ const (
 // +kubebuilder:printcolumn:name="State",type="string",JSONPath=".status.state"
 // +kubebuilder:printcolumn:name="Pod",type="string",JSONPath=".status.podName"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
-// +operator-sdk:csv:customresourcedefinitions:resources={{Pod,v1,""},{VerticaDB,vertica.com/v1beta1,""}}
+// +operator-sdk:csv:customresourcedefinitions:resources={{Pod,v1,""},{VerticaDB,vertica.com/v1,""}}
 
 // VerticaScrutinize is the schema for verticascrutinize API
 type VerticaScrutinize struct {
