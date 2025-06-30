@@ -30,6 +30,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/unsandboxsc"
 	"github.com/vertica/vertica-kubernetes/pkg/vdbstatus"
+	"github.com/vertica/vertica-kubernetes/pkg/vk8s"
 	corev1 "k8s.io/api/core/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -145,8 +146,11 @@ func (r *UnsandboxSubclusterReconciler) reconcileSandboxConfigMap(ctx context.Co
 		// if the subclusters in the sandbox does not need to be unsandboxed, we remove
 		// unsandbox trigger ID from the config map
 		if !found {
-			delete(r.ConfigMap.Annotations, vmeta.SandboxControllerUnsandboxTriggerID)
-			err := r.Client.Update(ctx, r.ConfigMap)
+			_, err := vk8s.UpdateConfigMapWithRetry(ctx, r.SRec, r.ConfigMap, func() (bool, error) {
+				delete(r.ConfigMap.Annotations, vmeta.SandboxControllerUnsandboxTriggerID)
+				return true, nil
+			})
+
 			if err != nil {
 				r.Log.Error(err, "failed to remove unsandbox trigger ID from sandbox config map", "configMapName", cmName)
 				return err, false
@@ -219,8 +223,14 @@ func (r *UnsandboxSubclusterReconciler) processConfigMap(ctx context.Context) er
 		r.Log.Info("Successfully deleted sandbox config map", "configMapName", cmName)
 		return nil
 	}
-	delete(r.ConfigMap.Annotations, vmeta.SandboxControllerUnsandboxTriggerID)
-	err := r.Client.Update(ctx, r.ConfigMap)
+	_, err := vk8s.UpdateConfigMapWithRetry(ctx, r.SRec, r.ConfigMap, func() (bool, error) {
+		delete(r.ConfigMap.Annotations, vmeta.SandboxControllerUnsandboxTriggerID)
+		if r.ConfigMap.Annotations[vmeta.SandboxControllerUnsandboxTriggerID] != "" {
+			return false, nil
+		}
+		return true, nil
+	})
+
 	if err != nil {
 		r.Log.Error(err, "failed to remove unsandbox trigger ID from sandbox config map", "configMapName", cmName)
 		return err
@@ -277,6 +287,7 @@ func (r *UnsandboxSubclusterReconciler) unsandboxSubcluster(ctx context.Context,
 // updateSandboxInfoInVdb will update the sandbox status in vdb
 func (r *UnsandboxSubclusterReconciler) updateSandboxInfoInVdb(ctx context.Context, sbName string, unsandboxedScNames []string) error {
 	updateStatus := func(vdbChg *vapi.VerticaDB) error {
+		r.Log.Info("Updating sandbox info in vdb", "sandboxName", sbName, "unsandboxedScNames", unsandboxedScNames)
 		// update the sandbox's subclusters in sandbox status
 		for i := len(vdbChg.Status.Sandboxes) - 1; i >= 0; i-- {
 			if vdbChg.Status.Sandboxes[i].Name != sbName {
