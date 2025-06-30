@@ -69,7 +69,7 @@ func (h *TLSServerCertGenReconciler) Reconcile(ctx context.Context, _ *ctrl.Requ
 	}
 
 	if h.Vdb.Spec.NMATLSSecret != "" && h.Vdb.GetHTTPSNMATLSSecret() == "" {
-		h.Log.Info("httpsNMATLS.Secret is initialized from nmaTLSSecret")
+		h.Log.Info("httpsNMATLS.secret is initialized from nmaTLSSecret")
 		err := h.setSecretNameInVDB(ctx, httpsNMATLSSecret, h.Vdb.Spec.NMATLSSecret)
 		if err != nil {
 			h.Log.Error(err, "failed to initialize httpsNMATLS.secret from nmaTLSSecret")
