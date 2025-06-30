@@ -37,11 +37,10 @@ func (v *VClusterOps) RotateTLSCerts(ctx context.Context, opts ...rotatetlscerts
 
 	secretName := v.VDB.GetHTTPSTLSSecretNameInUse()
 	if s.TLSConfig == tlsConfigServer && secretName != v.VDB.Spec.HTTPSNMATLSSecret {
-		// https cert rotation has already occured but the status is not up to date so
+		// https cert rotation has already occurred but the status is not up to date so
 		// the cert in use is the one in the spec
-		v.Log.Info("HTTPS cert rotation has occured but the status is not up to date yet. Using secret from spec")
+		v.Log.Info("HTTPS cert rotation has occurred but the status is not up to date yet. Using secret from spec")
 		secretName = v.VDB.Spec.HTTPSNMATLSSecret
-
 	}
 	// get the certs
 	fetcher := cloud.SecretFetcher{
