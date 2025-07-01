@@ -16,6 +16,7 @@
 package v1beta1
 
 import (
+	v1 "github.com/vertica/vertica-kubernetes/api/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -238,7 +239,7 @@ func makeSampleETName() types.NamespacedName {
 
 // MakeET will make an EventTrigger for test purposes
 func MakeET() *EventTrigger {
-	defVDBName := MakeVDBName()
+	defVDBName := v1.MakeVDBName()
 	nm := makeSampleETName()
 	return &EventTrigger{
 		TypeMeta: metav1.TypeMeta{
@@ -260,7 +261,7 @@ func MakeET() *EventTrigger {
 			},
 			Matches: []ETMatch{
 				{Condition: &ETCondition{
-					Type:   string(DBInitialized),
+					Type:   string(v1.DBInitialized),
 					Status: corev1.ConditionTrue,
 				}},
 			},
