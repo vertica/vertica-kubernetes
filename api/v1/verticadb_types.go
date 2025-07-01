@@ -1077,8 +1077,7 @@ const (
 	// operator create a restore point, using the spec.restorePoint.archive
 	// as the archive name to save to.
 	SaveRestorePointNeeded = "SaveRestorePointNeeded"
-	// HTTPSCertRotationFinished indicates the HTTPS TLS cert has been rotated
-	HTTPSCertRotationFinished           = "HTTPSCertRotationFinished"
+	// HTTPSTLSConfigUpdateFinished indicates the HTTPS TLS config update has finished
 	HTTPSTLSConfigUpdateFinished        = "HTTPSTLSConfigUpdateFinished"
 	ClientServerTLSConfigUpdateFinished = "ClientServerTLSConfigUpdateFinished"
 	// TLSConfigUpdateInProgress indicates the TLS config update has started

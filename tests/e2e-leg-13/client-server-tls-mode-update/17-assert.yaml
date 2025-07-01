@@ -24,7 +24,8 @@ kind: VerticaDB
 metadata:
   name: v-server-tls-mode
 spec:
-  httpsTLSMode: TRY_VERIFY
+  clientServerTLS:
+    mode: TRY_VERIFY
 status:
   subclusters:
     - addedToDBCount: 3

@@ -51,8 +51,7 @@ type TLSUpdateData struct {
 	CurrentTLSMode string
 	NewSecret      string
 	CurrentSecret  string
-	secretType     string
-	tlsModeType    string
+	tlsConfigName  string
 }
 
 // Struct that contains the cert metadata
@@ -97,8 +96,8 @@ func (t *TLSConfigManager) setPollingCertMetadata(ctx context.Context) (ctrl.Res
 
 	// The polling is done using an https endpoint, so we always need
 	// httpsNMATLSSecret
-	currentSecretName := t.Vdb.GetHTTPSTLSSecretNameInUse()
-	newSecretName := t.Vdb.Spec.HTTPSNMATLSSecret
+	currentSecretName := t.Vdb.GetHTTPSNMATLSSecretInUse()
+	newSecretName := t.Vdb.GetHTTPSNMATLSSecret()
 	currentSecretData, res, err = readSecret(t.Vdb, t.Rec, t.Rec.GetClient(), t.Log, ctx, currentSecretName)
 	if verrors.IsReconcileAborted(res, err) {
 		return res, err
@@ -188,8 +187,8 @@ func (t *TLSConfigManager) updateTLSConfig(ctx context.Context, initiatorIP stri
 func (t *TLSConfigManager) updateTLSModeInStatus(ctx context.Context) error {
 	if t.CurrentTLSMode != t.NewTLSMode {
 		t.Log.Info("Starting tls mode update in status", "old", t.CurrentTLSMode, "new", t.NewTLSMode)
-		mode := vapi.MakeTLSMode(t.tlsModeType, t.NewTLSMode)
-		err := vdbstatus.UpdateTLSModes(ctx, t.Rec.GetClient(), t.Vdb, []*vapi.TLSMode{mode})
+		httpsTLSConfig := vapi.MakeTLSConfig(t.tlsConfigName, t.Vdb.GetSecretInUse(t.tlsConfigName), t.NewTLSMode)
+		err := vdbstatus.UpdateTLSConfigs(ctx, t.Rec.GetClient(), t.Vdb, []*vapi.TLSConfigStatus{httpsTLSConfig})
 		if err != nil {
 			t.Log.Error(err, "failed to update tls mode in status after tls mode update in db")
 			return err
@@ -215,13 +214,11 @@ func (t *TLSConfigManager) setTLSConfigInDB(ctx context.Context, initiatorPod *p
 
 // setTLSConfigInStatus updates the status with the current tls config in the db
 func (t *TLSConfigManager) setTLSConfigInStatus(ctx context.Context, tlsMode string) error {
-	mode := vapi.MakeTLSMode(t.tlsModeType, tlsMode)
-	// TO DO: remove this once tls mode and secret are in the same struct
-	if err := vdbstatus.UpdateTLSModes(ctx, t.Rec.GetClient(), t.Vdb, []*vapi.TLSMode{mode}); err != nil {
-		return err
-	}
-	sRef := vapi.MakeSecretRef(t.secretType, t.NewSecret)
-	if err := vdbstatus.UpdateSecretRef(ctx, t.Rec.GetClient(), t.Vdb, sRef); err != nil {
+	tlsConfig := vapi.MakeTLSConfig(t.tlsConfigName, t.NewSecret, tlsMode)
+
+	t.Log.Info("Updating TLS config in status", "TLSConfig", tlsConfig)
+	if err := vdbstatus.UpdateTLSConfigs(ctx, t.Rec.GetClient(), t.Vdb, []*vapi.TLSConfigStatus{tlsConfig}); err != nil {
+		t.Log.Error(err, "failed to update TLS config in status")
 		return err
 	}
 
@@ -263,9 +260,9 @@ func (t *TLSConfigManager) checkNMATLSConfigMap(ctx context.Context) (ctrl.Resul
 
 	var isUpToDate bool
 	if t.isHTTPSTLSConfig() {
-		isUpToDate = configMap.Data[builder.NMASecretNameEnv] == t.Vdb.Spec.HTTPSNMATLSSecret
+		isUpToDate = configMap.Data[builder.NMASecretNameEnv] == t.Vdb.GetHTTPSNMATLSSecret()
 	} else {
-		isUpToDate = configMap.Data[builder.NMAClientSecretNameEnv] == t.Vdb.Spec.ClientServerTLSSecret &&
+		isUpToDate = configMap.Data[builder.NMAClientSecretNameEnv] == t.Vdb.GetClientServerTLSSecret() &&
 			configMap.Data[builder.NMAClientSecretTLSModeEnv] == t.Vdb.GetNMAClientServerTLSMode()
 	}
 
@@ -359,19 +356,17 @@ func (t *TLSConfigManager) getAWSCertsConfig(versionID, cacheDuration string) (k
 
 func (t *TLSConfigManager) setTLSUpdatedata() {
 	if t.TLSConfig == tlsConfigHTTPS {
-		t.CurrentSecret = t.Vdb.GetHTTPSTLSSecretNameInUse()
-		t.NewSecret = t.Vdb.Spec.HTTPSNMATLSSecret
+		t.CurrentSecret = t.Vdb.GetHTTPSNMATLSSecretInUse()
+		t.NewSecret = t.Vdb.GetHTTPSNMATLSSecret()
 		t.CurrentTLSMode = t.Vdb.GetHTTPSTLSModeInUse()
-		t.NewTLSMode = t.Vdb.Spec.HTTPSTLSMode
-		t.secretType = vapi.HTTPSTLSSecretType
-		t.tlsModeType = vapi.HTTPSTLSModeType
+		t.NewTLSMode = t.Vdb.GetHTTPSNMATLSMode()
+		t.tlsConfigName = vapi.HTTPSNMATLSConfigName
 	} else if t.TLSConfig == tlsConfigServer {
-		t.CurrentSecret = t.Vdb.GetClientServerTLSSecretNameInUse()
-		t.NewSecret = t.Vdb.Spec.ClientServerTLSSecret
+		t.CurrentSecret = t.Vdb.GetClientServerTLSSecretInUse()
+		t.NewSecret = t.Vdb.GetClientServerTLSSecret()
 		t.CurrentTLSMode = t.Vdb.GetClientServerTLSModeInUse()
-		t.NewTLSMode = t.Vdb.Spec.ClientServerTLSMode
-		t.secretType = vapi.ClientServerTLSSecretType
-		t.tlsModeType = vapi.ClientServerTLSModeType
+		t.NewTLSMode = t.Vdb.GetClientServerTLSMode()
+		t.tlsConfigName = vapi.ClientServerTLSConfigName
 	}
 }
 

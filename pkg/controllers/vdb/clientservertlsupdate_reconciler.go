@@ -69,8 +69,8 @@ func (h *ClientServerTLSUpdateReconciler) Reconcile(ctx context.Context, req *ct
 	h.Manager.setTLSUpdatedata()
 	h.Manager.setTLSUpdateType()
 
-	if h.Vdb.GetClientServerTLSSecretNameInUse() == "" {
-		rec := MakeTLSConfigReconciler(h.VRec, h.Log, h.Vdb, h.PFacts.PRunner, h.Dispatcher, h.PFacts, vapi.ClientServerTLSSecretType, h.Manager)
+	if h.Vdb.GetClientServerTLSSecretInUse() == "" {
+		rec := MakeTLSConfigReconciler(h.VRec, h.Log, h.Vdb, h.PFacts.PRunner, h.Dispatcher, h.PFacts, vapi.ClientServerTLSConfigName, h.Manager)
 		return rec.Reconcile(ctx, req)
 	}
 

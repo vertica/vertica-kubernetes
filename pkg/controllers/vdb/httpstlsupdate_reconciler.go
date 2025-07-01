@@ -77,8 +77,8 @@ func (h *HTTPSTLSUpdateReconciler) Reconcile(ctx context.Context, req *ctrl.Requ
 	h.Manager.setTLSUpdatedata()
 	h.Manager.setTLSUpdateType()
 
-	if h.Vdb.GetHTTPSTLSSecretNameInUse() == "" {
-		rec := MakeTLSConfigReconciler(h.VRec, h.Log, h.Vdb, h.PFacts.PRunner, h.Dispatcher, h.PFacts, vapi.HTTPSTLSSecretType, h.Manager)
+	if h.Vdb.GetHTTPSNMATLSSecretInUse() == "" {
+		rec := MakeTLSConfigReconciler(h.VRec, h.Log, h.Vdb, h.PFacts.PRunner, h.Dispatcher, h.PFacts, vapi.HTTPSNMATLSConfigName, h.Manager)
 		return rec.Reconcile(ctx, req)
 	}
 

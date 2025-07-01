@@ -77,7 +77,7 @@ var _ = Describe("get_config_parameter_vc", func() {
 		Ω(err).Should(Succeed())
 		Ω(value).Should(Equal(TestConfigParamValue))
 
-		vapi.SetVDBWithHTTPSTLSConfigSet(dispatcher.VDB, dispatcher.VDB.Spec.HTTPSNMATLSSecret)
+		vapi.SetVDBWithHTTPSTLSConfigSet(dispatcher.VDB, dispatcher.VDB.Spec.HTTPSNMATLS.Secret)
 		_, err = dispatcher.GetConfigurationParameter(ctx,
 			getconfigparameter.WithUserName(vapi.SuperUser),
 			getconfigparameter.WithInitiatorIP(TestSourceIP),

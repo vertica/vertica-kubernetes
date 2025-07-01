@@ -113,10 +113,11 @@ func SetVDBForTLS(v *VerticaDB) {
 
 func SetVDBWithHTTPSTLSConfigSet(v *VerticaDB, secretName string) {
 	SetVDBForTLS(v)
-	v.Status.SecretRefs = []SecretRef{
+	v.Status.TLSConfigs = []TLSConfigStatus{
 		{
-			Name: secretName,
-			Type: HTTPSTLSSecretType,
+			Name:   HTTPSNMATLSConfigName,
+			Secret: secretName,
+			Mode:   tlsModeTryVerify,
 		},
 	}
 }
@@ -1205,19 +1206,11 @@ func (v *VerticaDB) IsHTTPSTLSConfGenerationEnabled() (bool, error) {
 	return !inf.IsEqualOrNewer(AutoGenerateHTTPSCertsForNewDatabasesMinVersion), nil
 }
 
-// IsTLSConfigEnabled returns true if tls is enabled and https and client-server tls configs
-// exists in the db. It means the db ops can start using tls
-func (v *VerticaDB) IsTLSConfigEnabled() bool {
-	return v.IsSetForTLS() &&
-		v.GetHTTPSTLSSecretNameInUse() != "" &&
-		v.GetClientServerTLSSecretNameInUse() != ""
-}
-
 // IsHTTPSConfigEnabled returns true if tls is enabled and https tls config
 // exists in the db. It means the db ops can start using tls
 func (v *VerticaDB) IsHTTPSConfigEnabled() bool {
 	return v.IsSetForTLS() &&
-		v.GetHTTPSTLSSecretNameInUse() != ""
+		v.GetHTTPSNMATLSSecretInUse() != ""
 }
 
 // IsHTTPSConfigEnabledWithCreate returns true if tls is enabled and https tls config
@@ -1235,7 +1228,7 @@ func (v *VerticaDB) IsHTTPSConfigEnabledWithCreate() bool {
 // exists in the db
 func (v *VerticaDB) IsClientServerConfigEnabled() bool {
 	return v.IsSetForTLS() &&
-		v.GetClientServerTLSSecretNameInUse() != ""
+		v.GetClientServerTLSSecretInUse() != ""
 }
 
 // IsSetForTLS returns true if VerticaDB is set and ready for tls.

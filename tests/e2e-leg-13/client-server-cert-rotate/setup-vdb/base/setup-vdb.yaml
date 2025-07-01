@@ -28,7 +28,8 @@ spec:
     requestSize: 100Mi
     catalogPath: /catalog
   dbName: vertdb
-  clientServerTLSMode: TRY_VERIFY
+  clientServerTLS:
+    mode: TRY_VERIFY
   subclusters:
     - name: sc1
       size: 3

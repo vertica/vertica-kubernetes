@@ -24,9 +24,9 @@ kind: VerticaDB
 metadata:
   name: v-client-server-cert-rotate
 status:
-  secretRefs:
-    - type: HTTPSTLSSecretType
-    - type: ClientServerTLSSecretType
+  tlsConfigs:
+    - name: httpsNMA
+    - name: clientServer
   subclusters:
     - addedToDBCount: 3
       upNodeCount: 3

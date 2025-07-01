@@ -74,7 +74,7 @@ var _ = Describe("add_sc_vc", func() {
 			addsc.WithInitiator(dispatcher.VDB.ExtractNamespacedName(), TestInitiatorIP),
 			addsc.WithSubcluster(TestSCName),
 			addsc.WithIsPrimary(TestIsPrimary))).Should(Succeed())
-		vapi.SetVDBWithHTTPSTLSConfigSet(dispatcher.VDB, dispatcher.VDB.Spec.HTTPSNMATLSSecret)
+		vapi.SetVDBWithHTTPSTLSConfigSet(dispatcher.VDB, dispatcher.VDB.Spec.HTTPSNMATLS.Secret)
 		err := dispatcher.AddSubcluster(ctx,
 			addsc.WithInitiator(dispatcher.VDB.ExtractNamespacedName(), TestInitiatorIP),
 			addsc.WithSubcluster(TestSCName),

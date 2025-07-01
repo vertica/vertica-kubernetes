@@ -126,8 +126,8 @@ var _ = Describe("tls_config", func() {
 
 	It("should set tls update data correctly", func() {
 		vdb := vapi.MakeVDB()
-		vdb.Spec.HTTPSNMATLSSecret = newSecret
-		vdb.Spec.HTTPSTLSMode = tryVerify
+		vdb.Spec.HTTPSNMATLS.Secret = newSecret
+		vdb.Spec.HTTPSNMATLS.Mode = tryVerify
 
 		mgr := &TLSConfigManager{
 			TLSConfig: tlsConfigHTTPS,
@@ -140,19 +140,13 @@ var _ = Describe("tls_config", func() {
 		Expect(mgr.NewSecret).To(Equal(newSecret))
 		Expect(mgr.CurrentTLSMode).To(Equal(""))
 		Expect(mgr.NewTLSMode).To(Equal(tryVerify))
-		Expect(mgr.secretType).To(Equal(vapi.HTTPSTLSSecretType))
-		Expect(mgr.tlsModeType).To(Equal(vapi.HTTPSTLSModeType))
+		Expect(mgr.tlsConfigName).To(Equal(vapi.HTTPSNMATLSConfigName))
 
-		vdb.Status.SecretRefs = []vapi.SecretRef{
+		vdb.Status.TLSConfigs = []vapi.TLSConfigStatus{
 			{
-				Name: oldSecret,
-				Type: vapi.HTTPSTLSSecretType,
-			},
-		}
-		vdb.Status.TLSModes = []vapi.TLSMode{
-			{
-				Mode: tryVerify,
-				Type: vapi.HTTPSTLSModeType,
+				Name:   vapi.HTTPSNMATLSConfigName,
+				Secret: oldSecret,
+				Mode:   tryVerify,
 			},
 		}
 
@@ -162,8 +156,7 @@ var _ = Describe("tls_config", func() {
 		Expect(mgr.NewSecret).To(Equal(newSecret))
 		Expect(mgr.CurrentTLSMode).To(Equal(tryVerify))
 		Expect(mgr.NewTLSMode).To(Equal(tryVerify))
-		Expect(mgr.secretType).To(Equal(vapi.HTTPSTLSSecretType))
-		Expect(mgr.tlsModeType).To(Equal(vapi.HTTPSTLSModeType))
+		Expect(mgr.tlsConfigName).To(Equal(vapi.HTTPSNMATLSConfigName))
 	})
 
 })

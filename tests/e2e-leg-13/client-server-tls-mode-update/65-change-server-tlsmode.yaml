@@ -3,4 +3,5 @@ kind: VerticaDB
 metadata:
   name: v-server-tls-mode
 spec:
-  clientServerTLSMode: TRY_VERIFY
+  clientServerTLS:
+    mode: TRY_VERIFY
