@@ -1232,6 +1232,17 @@ func (v *VerticaDB) IsHTTPSConfigEnabled() bool {
 		v.GetHTTPSTLSSecretNameInUse() != ""
 }
 
+// IsHTTPSConfigEnabledWithCreate returns true if tls is enabled and https tls config
+// exists in the db. It means the db ops can start using tls. For revive, there is know way to know
+// the db had tls configs until after revive so can't make any assumptions
+func (v *VerticaDB) IsHTTPSConfigEnabledWithCreate() bool {
+	if v.Spec.InitPolicy == CommunalInitPolicyCreate {
+		return v.IsHTTPSConfigEnabled()
+	}
+
+	return v.IsSetForTLS()
+}
+
 // IsClientServerConfigEnabled returns true if tls is enabled and client-server tls config
 // exists in the db
 func (v *VerticaDB) IsClientServerConfigEnabled() bool {

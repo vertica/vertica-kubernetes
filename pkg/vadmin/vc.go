@@ -139,7 +139,7 @@ func (v *VClusterOps) setAuthentication(opts *vops.DatabaseOptions, username str
 	// When TLS auth is not enabled, we always use password authentication for both https and nma.
 	// When TLS auth is enabled and VCluster doesn't need cert for client server auth,
 	// we use password authentication for NMA.
-	if !v.VDB.IsHTTPSConfigEnabled() {
+	if !v.VDB.IsHTTPSConfigEnabledWithCreate() {
 		opts.Password = password
 	} else if !v.VDB.IsCertNeededForClientServerAuth() {
 		opts.Password = password
