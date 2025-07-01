@@ -471,7 +471,11 @@ func (vdb *VCoordinationDatabase) getHostToSandboxMap() (hostsToSandbox map[stri
 
 // hostIsUp returns true if the host is up
 func (vdb *VCoordinationDatabase) hostIsUp(hostName string) bool {
-	return vdb.HostNodeMap[hostName].State == util.NodeUpState
+	node, ok := vdb.HostNodeMap[hostName]
+	if !ok {
+		return false
+	}
+	return node.State == util.NodeUpState
 }
 
 // VCoordinationNode represents node information from the database catalog.
