@@ -282,10 +282,24 @@ func (c *CmdAddNode) Run(vcc vclusterops.ClusterCommands) error {
 		return err
 	}
 
+	mainCluster := false
+	if c.addNodeOptions.Sandbox == util.MainClusterSandbox {
+		mainCluster = true
+	}
 	// write db info to vcluster config file
-	err = writeConfig(&vdb, true /*forceOverwrite*/)
-	if err != nil {
-		vcc.DisplayWarning("Failed to write config file: %s", err)
+	if configErr == nil {
+		// update new node info in config
+		UpdateDBConfig(&vdb, dbConfig, c.addNodeOptions.Sandbox, mainCluster)
+		writeErr := dbConfig.Write(c.addNodeOptions.DatabaseOptions.ConfigPath, true /*forceOverwrite*/)
+		if writeErr != nil {
+			vcc.PrintWarning("Fail to update config file: %s", writeErr)
+			return nil
+		}
+	} else {
+		err = writeConfig(&vdb, true /*forceOverwrite*/)
+		if err != nil {
+			vcc.DisplayWarning("Failed to write config file: %s", err)
+		}
 	}
 
 	vcc.DisplayInfo("Successfully added nodes %v to database %s", c.addNodeOptions.NewHosts, options.DBName)
