@@ -89,7 +89,7 @@ var _ = Describe("webhook", func() {
 	})
 
 	It("should add annotations to the CRD", func() {
-		crdName := types.NamespacedName{Name: getVerticaDBCRDName()}
+		crdName := types.NamespacedName{Name: getVerticaAutoscalerCRDName()}
 		crd := extv1.CustomResourceDefinition{}
 		Expect(k8sClient.Get(ctx, crdName, &crd)).Should(Succeed())
 		Expect(crd.Annotations).ShouldNot(BeNil())
@@ -102,7 +102,7 @@ var _ = Describe("webhook", func() {
 	})
 
 	It("should be able to update the conversion webhook only", func() {
-		crdName := types.NamespacedName{Name: getVerticaDBCRDName()}
+		crdName := types.NamespacedName{Name: getVerticaAutoscalerCRDName()}
 		crd := extv1.CustomResourceDefinition{}
 		Expect(k8sClient.Get(ctx, crdName, &crd)).Should(Succeed())
 
@@ -216,7 +216,7 @@ func verifyCABundleEquals(ctx context.Context, caCrt []byte) {
 }
 
 func verifyCertForConversionEquals(ctx context.Context, caCrt []byte) {
-	crdName := types.NamespacedName{Name: getVerticaDBCRDName()}
+	crdName := types.NamespacedName{Name: getVerticaAutoscalerCRDName()}
 	crd := extv1.CustomResourceDefinition{}
 	Ω(k8sClient.Get(ctx, crdName, &crd)).Should(Succeed())
 	Ω(crd.Spec.Conversion.Strategy).Should(Equal(extv1.WebhookConverter))

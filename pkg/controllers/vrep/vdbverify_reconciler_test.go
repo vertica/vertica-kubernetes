@@ -31,7 +31,7 @@ import (
 func testIncompatibleDB(ctx context.Context, sourceVersion, targetVersion string,
 	sourceUsingVclusteropsDeployment bool, expectedReason string,
 	expectedStatusConditionValue bool, expectedState string) {
-	sourceVdbName := v1beta1.MakeSourceVDBName()
+	sourceVdbName := vapi.MakeSourceVDBName()
 	sourceVdb := vapi.MakeVDB()
 	sourceVdb.Name = sourceVdbName.Name
 	sourceVdb.Namespace = sourceVdbName.Namespace
@@ -42,7 +42,7 @@ func testIncompatibleDB(ctx context.Context, sourceVersion, targetVersion string
 	test.CreateVDB(ctx, k8sClient, sourceVdb)
 	defer test.DeleteVDB(ctx, k8sClient, sourceVdb)
 
-	targetVdbName := v1beta1.MakeTargetVDBName()
+	targetVdbName := vapi.MakeTargetVDBName()
 	targetVdb := vapi.MakeVDB()
 	targetVdb.Name = targetVdbName.Name
 	targetVdb.Namespace = targetVdbName.Namespace

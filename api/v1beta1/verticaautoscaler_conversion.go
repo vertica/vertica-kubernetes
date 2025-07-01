@@ -25,6 +25,9 @@ import (
 // log is for logging in this package.
 var verticaautoscalerlog = logf.Log.WithName("verticaautoscaler-resource")
 
+// log is for logging in this package.
+var verticadblog = logf.Log.WithName("verticadb-resource")
+
 // ConvertTo is a function to convert a v1beta1 CR to the v1 version of the CR.
 func (v *VerticaAutoscaler) ConvertTo(dstRaw conversion.Hub) error {
 	verticaautoscalerlog.Info("ConvertToVas", "GroupVersion", GroupVersion, "name", v.Name, "namespace", v.Namespace, "uid", v.UID)
@@ -256,4 +259,85 @@ func convertVasFromStatus(src *v1.VerticaAutoscalerStatus) VerticaAutoscalerStat
 		}
 	}
 	return dst
+}
+
+// convertToSubcluster will take a v1beta1 Subcluster and convert it to a v1 version
+func convertToSubcluster(src *Subcluster) v1.Subcluster {
+	dst := v1.Subcluster{
+		Name:                src.Name,
+		Size:                src.Size,
+		Type:                convertToSubclusterType(src),
+		ImageOverride:       src.ImageOverride,
+		NodeSelector:        src.NodeSelector,
+		Affinity:            v1.Affinity(src.Affinity),
+		PriorityClassName:   src.PriorityClassName,
+		Tolerations:         src.Tolerations,
+		Resources:           src.Resources,
+		ServiceType:         src.ServiceType,
+		ServiceName:         src.ServiceName,
+		ClientNodePort:      src.NodePort,
+		VerticaHTTPNodePort: src.VerticaHTTPNodePort,
+		ServiceHTTPSPort:    src.ServiceHTTPSPort,
+		ServiceClientPort:   src.ServiceClientPort,
+		ExternalIPs:         src.ExternalIPs,
+		LoadBalancerIP:      src.LoadBalancerIP,
+		ServiceAnnotations:  src.ServiceAnnotations,
+		Annotations:         src.Annotations,
+	}
+	if src.Proxy != nil {
+		dst.Proxy = &v1.ProxySubclusterConfig{
+			Replicas:  ptrOrNil(src.Proxy.Replicas),
+			Resources: ptrOrNil(src.Proxy.Resources),
+		}
+	}
+	return dst
+}
+
+// convertFromSubcluster will take a v1 Subcluster and convert it to a v1beta1 version
+func convertFromSubcluster(src *v1.Subcluster) Subcluster {
+	dst := Subcluster{
+		Name:                src.Name,
+		Size:                src.Size,
+		IsPrimary:           src.IsPrimary(),
+		IsTransient:         src.IsTransient(),
+		IsSandboxPrimary:    src.IsSandboxPrimary(),
+		ImageOverride:       src.ImageOverride,
+		NodeSelector:        src.NodeSelector,
+		Affinity:            Affinity(src.Affinity),
+		PriorityClassName:   src.PriorityClassName,
+		Tolerations:         src.Tolerations,
+		Resources:           src.Resources,
+		ServiceType:         src.ServiceType,
+		ServiceName:         src.ServiceName,
+		NodePort:            src.ClientNodePort,
+		VerticaHTTPNodePort: src.VerticaHTTPNodePort,
+		ServiceHTTPSPort:    src.ServiceHTTPSPort,
+		ServiceClientPort:   src.ServiceClientPort,
+		ExternalIPs:         src.ExternalIPs,
+		LoadBalancerIP:      src.LoadBalancerIP,
+		ServiceAnnotations:  src.ServiceAnnotations,
+		Annotations:         src.Annotations,
+	}
+	if src.Proxy != nil {
+		dst.Proxy = &ProxySubclusterConfig{
+			Replicas:  ptrOrNil(src.Proxy.Replicas),
+			Resources: ptrOrNil(src.Proxy.Resources),
+		}
+	}
+	return dst
+}
+
+// convertToSubclusterType returns the v1 Subcluster type for a given v1beta1
+// Subcluster
+func convertToSubclusterType(src *Subcluster) string {
+	if src.IsSandboxPrimary {
+		return v1.SandboxPrimarySubcluster
+	}
+	if src.IsPrimary {
+		return v1.PrimarySubcluster
+	}
+	if src.IsTransient {
+		return v1.TransientSubcluster
+	}
+	return v1.SecondarySubcluster
 }
