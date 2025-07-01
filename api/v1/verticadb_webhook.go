@@ -812,7 +812,9 @@ func (v *VerticaDB) hasDuplicateScName(allErrs field.ErrorList) field.ErrorList 
 }
 
 func (v *VerticaDB) hasValidClientServerTLSMode(allErrs field.ErrorList) field.ErrorList {
-	allErrs = v.hasValidTLSMode(v.Spec.ClientServerTLSMode, "clientServerTLSMode", allErrs)
+	if v.Spec.ClientServerTLS != nil {
+		allErrs = v.hasValidTLSMode(v.GetClientServerTLSMode(), "clientServerTLS.Mode", allErrs)
+	}
 	return allErrs
 }
 
@@ -2298,13 +2300,15 @@ func (v *VerticaDB) checkImmutableClientProxy(oldObj *VerticaDB, allErrs field.E
 	return allErrs
 }
 
-// checkImmutableCertRotation will validate the httpsNMATLSSecret spec fields in vdb
+// checkImmutableCertRotation will validate the httpsNMATLS spec field in vdb
 func (v *VerticaDB) checkImmutableCertRotation(oldObj *VerticaDB, allErrs field.ErrorList) field.ErrorList {
-	// If cert rotation is in progress, httpsNMATLSSecret can not be changed
-	if v.IsSetForTLS() && v.IsTLSConfigUpdateInProgress() && oldObj.Spec.HTTPSNMATLSSecret != v.Spec.HTTPSNMATLSSecret {
-		err := field.Invalid(field.NewPath("spec").Child("httpsNMATLSSecret"),
-			v.Spec.HTTPSNMATLSSecret,
-			"httpsNMATLSSecret cannot be changed when cert rotation is in progress")
+	// If cert rotation is in progress, httpsNMATLS can not be changed
+	if v.IsSetForTLS() && v.IsTLSConfigUpdateInProgress() &&
+		(oldObj.GetHTTPSNMATLSSecret() != v.GetHTTPSNMATLSSecret() ||
+			oldObj.GetHTTPSNMATLSMode() != v.GetHTTPSNMATLSMode()) {
+		err := field.Invalid(field.NewPath("spec").Child("httpsNMATLS"),
+			v.Spec.HTTPSNMATLS,
+			"httpsNMATLS cannot be changed when cert rotation is in progress")
 		allErrs = append(allErrs, err)
 	}
 	return allErrs
@@ -2353,29 +2357,29 @@ func (v *VerticaDB) checkValidTLSConfigUpdate(oldObj *VerticaDB, allErrs field.E
 	//   clientServerTLSSecret and tls modes.
 	if vmeta.UseTLSAuth(oldObj.Annotations) {
 		if !vmeta.UseTLSAuth(v.Annotations) {
-			err := field.Forbidden(field.NewPath("spec").Child("HTTPSNMATLSSecret"),
+			err := field.Forbidden(field.NewPath("spec").Child("httpsNMATLS"),
 				"cannot disable mutual TLS after it's enabled")
 			allErrs = append(allErrs, err)
 		}
 	} else {
-		if oldObj.Spec.HTTPSNMATLSSecret != "" && oldObj.Spec.HTTPSNMATLSSecret != v.Spec.HTTPSNMATLSSecret {
-			err := field.Forbidden(field.NewPath("spec").Child("HTTPSNMATLSSecret"),
-				"cannot change HTTPSNMATLSSecret when mutual TLS is disabled")
+		if oldObj.GetHTTPSNMATLSSecret() != "" && oldObj.GetHTTPSNMATLSSecret() != v.GetHTTPSNMATLSSecret() {
+			err := field.Forbidden(field.NewPath("spec").Child("httpsNMATLS").Child("secret"),
+				"cannot change httpsNMATLS.secret when mutual TLS is disabled")
 			allErrs = append(allErrs, err)
 		}
-		if oldObj.Spec.HTTPSTLSMode != "" && oldObj.Spec.HTTPSTLSMode != v.Spec.HTTPSTLSMode {
-			err := field.Forbidden(field.NewPath("spec").Child("HTTPSTLSMode"),
-				"cannot change HTTPSTLSMode when mutual TLS is disabled")
+		if oldObj.GetHTTPSNMATLSMode() != "" && oldObj.GetHTTPSNMATLSMode() != v.GetHTTPSNMATLSMode() {
+			err := field.Forbidden(field.NewPath("spec").Child("httpsNMATLS").Child("mode"),
+				"cannot change httpsNMATLS.mode when mutual TLS is disabled")
 			allErrs = append(allErrs, err)
 		}
-		if oldObj.Spec.ClientServerTLSSecret != "" && oldObj.Spec.ClientServerTLSSecret != v.Spec.ClientServerTLSSecret {
-			err := field.Forbidden(field.NewPath("spec").Child("clientServerTLSSecret"),
-				"cannot change clientServerTLSSecret when mutual TLS is disabled")
+		if oldObj.GetClientServerTLSSecret() != "" && oldObj.GetClientServerTLSSecret() != v.GetClientServerTLSSecret() {
+			err := field.Forbidden(field.NewPath("spec").Child("clientServerTLS").Child("secret"),
+				"cannot change clientServerTLS.secret when mutual TLS is disabled")
 			allErrs = append(allErrs, err)
 		}
-		if oldObj.Spec.ClientServerTLSMode != "" && oldObj.Spec.ClientServerTLSMode != v.Spec.ClientServerTLSMode {
-			err := field.Forbidden(field.NewPath("spec").Child("clientServerTLSMode"),
-				"cannot change clientServerTLSMode when mutual TLS is disabled")
+		if oldObj.GetClientServerTLSMode() != "" && oldObj.GetClientServerTLSMode() != v.GetClientServerTLSMode() {
+			err := field.Forbidden(field.NewPath("spec").Child("clientServerTLS").Child("mode"),
+				"cannot change clientServerTLS.mode when mutual TLS is disabled")
 			allErrs = append(allErrs, err)
 		}
 	}
@@ -2400,14 +2404,10 @@ func (v *VerticaDB) isOnlyTLSConfigUpdateChange(oldVdb *VerticaDB) bool {
 	// Allow only httpsNMATLSSecret to change
 	oldCopy := oldSpec
 	newCopy := newSpec
-	oldCopy.HTTPSNMATLSSecret = ""
-	newCopy.HTTPSNMATLSSecret = ""
-	oldCopy.HTTPSTLSMode = ""
-	newCopy.HTTPSTLSMode = ""
-	oldCopy.ClientServerTLSSecret = ""
-	newCopy.ClientServerTLSSecret = ""
-	oldCopy.ClientServerTLSMode = ""
-	newCopy.ClientServerTLSMode = ""
+	oldCopy.HTTPSNMATLS = nil
+	newCopy.HTTPSNMATLS = nil
+	oldCopy.ClientServerTLS = nil
+	newCopy.ClientServerTLS = nil
 
 	return reflect.DeepEqual(oldCopy, newCopy)
 }

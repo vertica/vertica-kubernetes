@@ -22,8 +22,10 @@ metadata:
 spec:
   image: kustomize-vertica-image
   communal: {}
-  nmaTLSSecret: custom-cert
-  clientServerTLSSecret: client-cert
+  httpsNMATLS:
+    secret: custom-cert
+  clientServerTLS:
+    secret: client-cert
   initPolicy: CreateSkipPackageInstall
   local:
     dataPath: /vertica/data

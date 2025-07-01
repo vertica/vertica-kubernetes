@@ -65,24 +65,24 @@ func (h *NMACertConfigMapReconciler) Reconcile(ctx context.Context, _ *ctrl.Requ
 	if !h.Vdb.IsSetForTLS() {
 		return ctrl.Result{}, nil
 	}
-	if configMap.Data[builder.NMASecretNameEnv] == h.Vdb.Spec.HTTPSNMATLSSecret &&
-		configMap.Data[builder.NMAClientSecretNameEnv] == h.Vdb.Spec.ClientServerTLSSecret &&
+	if configMap.Data[builder.NMASecretNameEnv] == h.Vdb.GetHTTPSNMATLSSecret() &&
+		configMap.Data[builder.NMAClientSecretNameEnv] == h.Vdb.GetClientServerTLSSecret() &&
 		configMap.Data[builder.NMASecretNamespaceEnv] == h.Vdb.ObjectMeta.Namespace &&
 		configMap.Data[builder.NMAClientSecretNamespaceEnv] == h.Vdb.ObjectMeta.Namespace &&
 		configMap.Data[builder.NMAClientSecretTLSModeEnv] == h.Vdb.GetNMAClientServerTLSMode() {
 		return ctrl.Result{}, nil
 	}
 
-	configMap.Data[builder.NMASecretNameEnv] = h.Vdb.Spec.HTTPSNMATLSSecret
+	configMap.Data[builder.NMASecretNameEnv] = h.Vdb.GetHTTPSNMATLSSecret()
 	configMap.Data[builder.NMASecretNamespaceEnv] = h.Vdb.ObjectMeta.Namespace
-	configMap.Data[builder.NMAClientSecretNameEnv] = h.Vdb.Spec.ClientServerTLSSecret
+	configMap.Data[builder.NMAClientSecretNameEnv] = h.Vdb.GetClientServerTLSSecret()
 	configMap.Data[builder.NMAClientSecretNamespaceEnv] = h.Vdb.ObjectMeta.Namespace
 	configMap.Data[builder.NMAClientSecretTLSModeEnv] = h.Vdb.GetNMAClientServerTLSMode()
 
 	err = h.VRec.GetClient().Update(ctx, configMap)
 	if err == nil {
-		h.Log.Info("updated tls cert secret configmap", "name", configMapName.Name, "nma-secret", h.Vdb.Spec.HTTPSNMATLSSecret,
-			"clientserver-secret", h.Vdb.Spec.ClientServerTLSSecret)
+		h.Log.Info("updated tls cert secret configmap", "name", configMapName.Name, "nma-secret", h.Vdb.GetHTTPSNMATLSSecret(),
+			"clientserver-secret", h.Vdb.GetClientServerTLSSecret())
 	}
 	return ctrl.Result{}, err
 }

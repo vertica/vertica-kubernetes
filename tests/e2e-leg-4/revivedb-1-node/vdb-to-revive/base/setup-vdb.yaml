@@ -32,8 +32,10 @@ spec:
   subclusters:
     - name: sc1
       size: 1
-  nmaTLSSecret: nma-cert
-  clientServerTLSSecret: client-cert
+  httpsNMATLS:
+     secret: nma-cert
+  clientServerTLS:
+    secret: client-cert
   certSecrets: []
   imagePullSecrets: []
   volumes: []

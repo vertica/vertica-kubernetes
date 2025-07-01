@@ -67,7 +67,7 @@ func (h *NMACertRotationReconciler) Reconcile(ctx context.Context, _ *ctrl.Reque
 		return ctrl.Result{}, nil
 	}
 	// nma secret
-	newSecretName := h.Vdb.Spec.HTTPSNMATLSSecret
+	newSecretName := h.Vdb.GetHTTPSNMATLSSecret()
 
 	newSecret, res, err := readSecret(h.Vdb, h.VRec, h.VRec.GetClient(), h.Log, ctx, newSecretName)
 	if verrors.IsReconcileAborted(res, err) {
@@ -117,9 +117,9 @@ func (h *NMACertRotationReconciler) rotateNmaTLSCert(ctx context.Context, newSec
 		return err
 	}
 
-	var sec *vapi.SecretRef
-	currentSecretName := h.Vdb.GetHTTPSTLSSecretNameInUse()
-	newSecretName := h.Vdb.Spec.HTTPSNMATLSSecret
+	var tls *vapi.TLSConfigStatus
+	currentSecretName := h.Vdb.GetHTTPSNMATLSSecretInUse()
+	newSecretName := h.Vdb.GetHTTPSNMATLSSecret()
 
 	h.VRec.Eventf(h.Vdb, corev1.EventTypeNormal, events.NMATLSCertRotationStarted,
 		"Start rotating nma cert from %s to %s", currentSecretName, newSecretName)
@@ -145,15 +145,15 @@ func (h *NMACertRotationReconciler) rotateNmaTLSCert(ctx context.Context, newSec
 	}
 
 	if h.Vdb.IsStatusConditionTrue(vapi.HTTPSTLSConfigUpdateFinished) {
-		sec = vapi.MakeHTTPSTLSSecretRef(h.Vdb.Spec.HTTPSNMATLSSecret)
-		if updErr := vdbstatus.UpdateSecretRef(ctx, h.VRec.GetClient(), h.Vdb, sec); updErr != nil {
+		tls = vapi.MakeHTTPSNMATLSConfig(h.Vdb.GetHTTPSNMATLSSecret(), h.Vdb.GetHTTPSNMATLSMode())
+		if updErr := vdbstatus.UpdateTLSConfigs(ctx, h.VRec.GetClient(), h.Vdb, []*vapi.TLSConfigStatus{tls}); updErr != nil {
 			return err
 		}
 	}
 
 	if h.Vdb.IsStatusConditionTrue(vapi.ClientServerTLSConfigUpdateFinished) {
-		sec = vapi.MakeClientServerTLSSecretRef(h.Vdb.Spec.ClientServerTLSSecret)
-		if updErr := vdbstatus.UpdateSecretRef(ctx, h.VRec.GetClient(), h.Vdb, sec); updErr != nil {
+		tls = vapi.MakeClientServerTLSConfig(h.Vdb.GetClientServerTLSSecret(), h.Vdb.GetClientServerTLSMode())
+		if updErr := vdbstatus.UpdateTLSConfigs(ctx, h.VRec.GetClient(), h.Vdb, []*vapi.TLSConfigStatus{tls}); updErr != nil {
 			return err
 		}
 	}

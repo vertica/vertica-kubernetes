@@ -88,15 +88,15 @@ var _ = Describe("rotate_https_cert", func() {
 
 	It("should call vcluster-ops library with rotate_https_cert task", func() {
 		dispatcher := mockVClusterOpsDispatcher()
-		dispatcher.VDB.Spec.HTTPSNMATLSSecret = rotateHTTPSCertNewNMASecretName
-		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.HTTPSNMATLSSecret)
+		dispatcher.VDB.Spec.HTTPSNMATLS.Secret = rotateHTTPSCertNewNMASecretName
+		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.HTTPSNMATLS.Secret)
 		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, rotateHTTPSCertCurrentNMASecretName)
-		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.HTTPSNMATLSSecret)
+		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.HTTPSNMATLS.Secret)
 		dispatcher.VDB.Spec.DBName = TestDBName
-		dispatcher.VDB.Status.SecretRefs = []vapi.SecretRef{
+		dispatcher.VDB.Status.TLSConfigs = []vapi.TLSConfigStatus{
 			{
-				Name: rotateHTTPSCertCurrentNMASecretName,
-				Type: vapi.HTTPSTLSSecretType,
+				Secret: rotateHTTPSCertCurrentNMASecretName,
+				Name:   vapi.HTTPSNMATLSConfigName,
 			},
 		}
 		Ω(dispatcher.RotateTLSCerts(ctx,
@@ -104,9 +104,9 @@ var _ = Describe("rotate_https_cert", func() {
 			rotatetlscerts.WithPollingKey(TestPollingKey),
 			rotatetlscerts.WithPollingCert(TestPollingCert),
 			rotatetlscerts.WithPollingCaCert(TestPollingCaCert),
-			rotatetlscerts.WithKey(dispatcher.VDB.Spec.HTTPSNMATLSSecret, TestKeyConfig),
-			rotatetlscerts.WithCert(dispatcher.VDB.Spec.HTTPSNMATLSSecret, TestCertConfig),
-			rotatetlscerts.WithCaCert(dispatcher.VDB.Spec.HTTPSNMATLSSecret, TestCaCertConfig),
+			rotatetlscerts.WithKey(dispatcher.VDB.Spec.HTTPSNMATLS.Secret, TestKeyConfig),
+			rotatetlscerts.WithCert(dispatcher.VDB.Spec.HTTPSNMATLS.Secret, TestCertConfig),
+			rotatetlscerts.WithCaCert(dispatcher.VDB.Spec.HTTPSNMATLS.Secret, TestCaCertConfig),
 			rotatetlscerts.WithTLSMode("TRY_VERIFY"),
 		)).Should(Succeed())
 	})

@@ -82,10 +82,10 @@ var _ = Describe("start_db_vc", func() {
 		dispatcher := mockVClusterOpsDispatcher()
 		dispatcher.VDB.Spec.DBName = TestDBName
 		dispatcher.VDB.Annotations[vmeta.RestartTimeoutAnnotation] = "10"
-		dispatcher.VDB.Spec.HTTPSNMATLSSecret = "start-db-test-secret"
+		dispatcher.VDB.Spec.HTTPSNMATLS.Secret = "start-db-test-secret"
 		dispatcher.VDB.Spec.InitPolicy = vapi.CommunalInitPolicyRevive
-		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.HTTPSNMATLSSecret)
-		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.HTTPSNMATLSSecret)
+		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.HTTPSNMATLS.Secret)
+		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.HTTPSNMATLS.Secret)
 
 		ctrlRes, err := dispatcher.StartDB(ctx,
 			startdb.WithInitiator(dispatcher.VDB.ExtractNamespacedName(), nodeIPs[0]),

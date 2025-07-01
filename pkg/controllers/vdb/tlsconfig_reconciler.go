@@ -41,12 +41,12 @@ type TLSConfigReconciler struct {
 	PRunner       cmds.PodRunner
 	Dispatcher    vadmin.Dispatcher
 	Pfacts        *podfacts.PodFacts
-	TLSSecretType string
+	TLSConfigName string
 	Manager       *TLSConfigManager
 }
 
 func MakeTLSConfigReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger, vdb *vapi.VerticaDB, prunner cmds.PodRunner,
-	dispatcher vadmin.Dispatcher, pfacts *podfacts.PodFacts, tlsSecretType string, manager *TLSConfigManager) controllers.ReconcileActor {
+	dispatcher vadmin.Dispatcher, pfacts *podfacts.PodFacts, tlsConfigName string, manager *TLSConfigManager) controllers.ReconcileActor {
 	return &TLSConfigReconciler{
 		VRec:          vdbrecon,
 		Vdb:           vdb,
@@ -54,14 +54,14 @@ func MakeTLSConfigReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger, vdb
 		Dispatcher:    dispatcher,
 		PRunner:       prunner,
 		Pfacts:        pfacts,
-		TLSSecretType: tlsSecretType,
+		TLSConfigName: tlsConfigName,
 		Manager:       manager,
 	}
 }
 
 // Reconcile will create a TLS secret for the http server if one is missing
 func (h *TLSConfigReconciler) Reconcile(ctx context.Context, request *ctrl.Request) (ctrl.Result, error) {
-	if h.Vdb.IsSetForTLS() && h.Vdb.GetSecretNameInUse(h.TLSSecretType) != "" ||
+	if h.Vdb.IsSetForTLS() && h.Vdb.GetSecretInUse(h.TLSConfigName) != "" ||
 		!h.Vdb.IsSetForTLS() || !h.Vdb.IsStatusConditionTrue(vapi.DBInitialized) ||
 		h.Vdb.IsStatusConditionTrue(vapi.UpgradeInProgress) ||
 		h.Vdb.IsStatusConditionTrue(vapi.VerticaRestartNeeded) {
@@ -70,7 +70,7 @@ func (h *TLSConfigReconciler) Reconcile(ctx context.Context, request *ctrl.Reque
 
 	h.Log.Info("Starting TLS reconciliation",
 		"certRotationEnabled", h.Vdb.IsSetForTLS(),
-		"secretName", h.Vdb.GetSecretNameInUse(h.TLSSecretType),
+		"secretName", h.Vdb.GetSecretInUse(h.TLSConfigName),
 		"dbInitialized", h.Vdb.IsStatusConditionTrue(vapi.DBInitialized),
 	)
 
@@ -94,7 +94,7 @@ func (h *TLSConfigReconciler) Reconcile(ctx context.Context, request *ctrl.Reque
 	}
 
 	h.VRec.Eventf(h.Vdb, corev1.EventTypeNormal, events.TLSConfigurationStarted,
-		"Starting to configure TLS for %s", h.TLSSecretType)
+		"Starting to configure TLS for %s", h.TLSConfigName)
 
 	configured, tlsMode, err := h.checkIfTLSConfiguredInDB(ctx, initiatorPod)
 	if err != nil {

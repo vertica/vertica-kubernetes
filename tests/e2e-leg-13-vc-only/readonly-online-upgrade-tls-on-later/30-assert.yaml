@@ -2,7 +2,7 @@
 apiVersion: v1
 kind: Event
 reason: TLSConfigurationStarted
-message: Starting to configure TLS for HTTPSTLSSecretType
+message: Starting to configure TLS for httpsNMA
 source:
   component: verticadb-operator
 involvedObject:
@@ -24,7 +24,7 @@ involvedObject:
 apiVersion: v1
 kind: Event
 reason: TLSConfigurationStarted
-message: Starting to configure TLS for ClientServerTLSSecretType
+message: Starting to configure TLS for clientServer
 source:
   component: verticadb-operator
 involvedObject:

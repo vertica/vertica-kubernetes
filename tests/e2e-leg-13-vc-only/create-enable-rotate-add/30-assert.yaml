@@ -43,12 +43,9 @@ kind: VerticaDB
 metadata:
   name: v-create-enable-rotate-add
 status:
-  secretRefs:
-    - name: custom-cert
-      type: HTTPSTLSSecretType
-    - type: ClientServerTLSSecretType
-  tlsModes:
-    - mode: VERIFY_CA
-      type: HTTPSTLSModeType
+  tlsConfigs:
+    - secret: custom-cert
+      name: httpsNMA
+      mode: VERIFY_CA
     - mode: TRY_VERIFY
-      type: ClientServerTLSModeType
+      name: clientServer
