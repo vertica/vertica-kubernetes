@@ -66,8 +66,8 @@ func (h *NMACertRotationReconciler) Reconcile(ctx context.Context, _ *ctrl.Reque
 	if !h.Vdb.IsStatusConditionTrue(vapi.HTTPSCertRotationFinished) || !h.Vdb.IsStatusConditionTrue(vapi.TLSCertRotationInProgress) {
 		return ctrl.Result{}, nil
 	}
-	currentSecretName := h.Vdb.GetHTTPSTLSSecretNameInUse()
-	newSecretName := h.Vdb.Spec.HTTPSNMATLSSecret
+	currentSecretName := h.Vdb.GetHTTPSNMATLSSecretInUse()
+	newSecretName := h.Vdb.GetHTTPSNMATLSSecret()
 
 	currentSecret, newSecret, res, err := readSecrets(h.Vdb, h.VRec, h.VRec.GetClient(), h.Log, ctx,
 		currentSecretName, newSecretName)
@@ -115,8 +115,8 @@ func (h *NMACertRotationReconciler) rotateNmaTLSCert(ctx context.Context, newSec
 		h.Log.Info("No pod found to run rotate nma cert. Requeue reconciliation.")
 		return ctrl.Result{Requeue: true}, nil
 	}
-	currentSecretName := h.Vdb.GetHTTPSTLSSecretNameInUse()
-	newSecretName := h.Vdb.Spec.HTTPSNMATLSSecret
+	currentSecretName := h.Vdb.GetHTTPSNMATLSSecretInUse()
+	newSecretName := h.Vdb.GetHTTPSNMATLSSecret()
 
 	newCert := string(newSecret[corev1.TLSCertKey])
 	currentCert := string(currentSecret[corev1.TLSCertKey])
@@ -155,8 +155,8 @@ func (h *NMACertRotationReconciler) rotateNmaTLSCert(ctx context.Context, newSec
 			return ctrl.Result{}, err
 		}
 	}
-	sec := vapi.MakeHTTPSTLSSecretRef(h.Vdb.Spec.HTTPSNMATLSSecret)
-	if updErr := vdbstatus.UpdateSecretRef(ctx, h.VRec.GetClient(), h.Vdb, sec); updErr != nil {
+	tls := vapi.MakeHTTPSNMATLSConfig(h.Vdb.GetHTTPSNMATLSSecret(), h.Vdb.GetHTTPSNMATLSMode())
+	if updErr := vdbstatus.UpdateTLSConfigs(ctx, h.VRec.GetClient(), h.Vdb, []*vapi.TLSConfigStatus{tls}); updErr != nil {
 		return ctrl.Result{}, err
 	}
 	h.Log.Info("saved new tls cert secret name in status", "secret", newSecretName)

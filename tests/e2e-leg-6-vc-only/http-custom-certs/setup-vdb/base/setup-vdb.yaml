@@ -24,7 +24,8 @@ spec:
   local:
     requestSize: 100Mi
   dbName: vertdb
-  nmaTLSSecret: custom-certs
+  httpsNMATLS:
+    secret: custom-certs
   subclusters:
     - name: main
       size: 1

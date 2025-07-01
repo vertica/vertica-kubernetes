@@ -767,7 +767,7 @@ var _ = Describe("builder", func() {
 		vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
 		vdb.Annotations[vmeta.VersionAnnotation] = vapi.NMAInSideCarDeploymentMinVersion
 		configMap := BuildNMATLSConfigMap(names.GenNamespacedName(vdb, "nma-configmap"), vdb)
-		Ω(configMap.Data[NMASecretNameEnv]).Should(Equal(vdb.Spec.HTTPSNMATLSSecret))
+		Ω(configMap.Data[NMASecretNameEnv]).Should(Equal(vdb.GetHTTPSNMATLSSecret()))
 		Ω(configMap.Data[NMASecretNamespaceEnv]).Should(Equal(vdb.Namespace))
 	})
 
@@ -868,7 +868,7 @@ func getVolume(vols []v1.Volume, mountName string) *v1.Volume {
 
 func NMACertsVolumeExists(vdb *vapi.VerticaDB, vols []v1.Volume) bool {
 	for i := range vols {
-		if vols[i].Name == vapi.NMACertsMountName && vols[i].Secret.SecretName == vdb.Spec.HTTPSNMATLSSecret {
+		if vols[i].Name == vapi.NMACertsMountName && vols[i].Secret.SecretName == vdb.GetHTTPSNMATLSSecret() {
 			return true
 		}
 	}

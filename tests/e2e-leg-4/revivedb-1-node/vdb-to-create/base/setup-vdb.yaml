@@ -31,8 +31,10 @@ spec:
     - name: sc1
       size: 1
   certSecrets: []
-  nmaTLSSecret: nma-cert
-  clientServerTLSSecret: client-cert 
+  httpsNMATLS:
+    secret: nma-cert
+  clientServerTLS:
+    secret: client-cert 
   imagePullSecrets: []
   volumes: []
   volumeMounts: []
