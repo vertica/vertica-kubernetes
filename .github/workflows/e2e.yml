@@ -735,7 +735,7 @@ jobs:
           # The initial deployment method is admintools, and it eventually changes
           # to vclusterops as the operator upgrades the server version
           vertica-deployment-method: admintools
-          communal-storage-type: azb
+          communal-storage-type: s3
           minimum-vertica-image: '24.2.0'
           e2e-retry-times: ${{ inputs.e2e_retry_times || 2 }}
 
