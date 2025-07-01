@@ -521,14 +521,6 @@ const (
 // SuperUser is an automatically-created user in database creation
 const SuperUser = "dbadmin"
 
-type HTTPServerModeType string
-
-const (
-	HTTPServerModeEnabled  HTTPServerModeType = "Enabled"
-	HTTPServerModeDisabled HTTPServerModeType = "Disabled"
-	HTTPServerModeAuto     HTTPServerModeType = "Auto"
-)
-
 type ServerSideEncryptionType string
 
 const (
