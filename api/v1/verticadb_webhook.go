@@ -2401,15 +2401,14 @@ func (v *VerticaDB) isOnlyCertRotationChange(oldVdb *VerticaDB) bool {
 	// If any other field in spec changes, return false.
 	oldSpec := oldVdb.Spec
 	newSpec := v.Spec
-	emptyTLSConfig := &TLSConfigSpec{Mode: "", Secret: ""}
 
 	// Allow only httpsNMATLSSecret to change
 	oldCopy := oldSpec
 	newCopy := newSpec
-	oldCopy.HTTPSNMATLS = emptyTLSConfig
-	newCopy.HTTPSNMATLS = emptyTLSConfig
-	oldCopy.ClientServerTLS = emptyTLSConfig
-	newCopy.ClientServerTLS = emptyTLSConfig
+	oldCopy.HTTPSNMATLS = nil
+	newCopy.HTTPSNMATLS = nil
+	oldCopy.ClientServerTLS = nil
+	newCopy.ClientServerTLS = nil
 
 	return reflect.DeepEqual(oldCopy, newCopy)
 }

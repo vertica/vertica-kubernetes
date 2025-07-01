@@ -387,20 +387,6 @@ func MakeHTTPSNMATLSConfig(secret, mode string) *TLSConfigStatus {
 	return MakeTLSConfig(HTTPSNMATLSConfigName, secret, mode)
 }
 
-func MakeClientServerTLSConfigFromSpec(config *TLSConfigSpec) *TLSConfigStatus {
-	if config == nil {
-		return nil
-	}
-	return MakeTLSConfig(ClientServerTLSConfigName, config.Secret, config.Mode)
-}
-
-func MakeHTTPSNMATLSConfigFromSpec(config *TLSConfigSpec) *TLSConfigStatus {
-	if config == nil {
-		return nil
-	}
-	return MakeTLSConfig(HTTPSNMATLSConfigName, config.Secret, config.Mode)
-}
-
 // HasReviveInstanceIDAnnotation is true when an annotation exists for the db's
 // revive_instance_id.
 func (v *VerticaDB) HasReviveInstanceIDAnnotation() bool {
