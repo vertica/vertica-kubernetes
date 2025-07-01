@@ -73,7 +73,7 @@ func UpdateCondition(ctx context.Context, clnt client.Client, vdb *vapi.VerticaD
 
 // UpdateTLSConfig will update multiple TLSConfigs in status. There is no-op if the status tlsConfig is already set.
 func UpdateTLSConfigs(ctx context.Context, clnt client.Client, vdb *vapi.VerticaDB, tlsRefs []*vapi.TLSConfigStatus) error {
-	// refreshConditionInPlace will update the status secretRef in vdb.  The update
+	// refreshConditionInPlace will update the tlsConfigs status in vdb.  The update
 	// will be applied in-place.
 	refreshConditionInPlace := func(vdb *vapi.VerticaDB) error {
 		for _, tlsRef := range tlsRefs {

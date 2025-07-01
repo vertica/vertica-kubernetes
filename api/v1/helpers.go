@@ -1643,10 +1643,6 @@ func SetTLSConfigs(refs *[]TLSConfigStatus, newRef TLSConfigStatus) (changed boo
 		return true
 	}
 
-	if existing.Name != newRef.Name {
-		existing.Name = newRef.Name
-		changed = true
-	}
 	if existing.Secret != newRef.Secret {
 		existing.Secret = newRef.Secret
 		changed = true
@@ -1712,7 +1708,7 @@ func (v *VerticaDB) GetHTTPSNMATLSMode() string {
 	return v.Spec.HTTPSNMATLS.Mode
 }
 
-// Get HTTPSNMATLS mode from spec or return "" if not found
+// Get HTTPSNMATLS secret from spec or return "" if not found
 func (v *VerticaDB) GetHTTPSNMATLSSecret() string {
 	if v.Spec.HTTPSNMATLS == nil {
 		return ""
@@ -1720,7 +1716,7 @@ func (v *VerticaDB) GetHTTPSNMATLSSecret() string {
 	return v.Spec.HTTPSNMATLS.Secret
 }
 
-// Get HTTPSNMATLS mode from spec or return "" if not found
+// Get ClientServerTLS mode from spec or return "" if not found
 func (v *VerticaDB) GetClientServerTLSMode() string {
 	if v.Spec.ClientServerTLS == nil {
 		return ""
@@ -1728,7 +1724,7 @@ func (v *VerticaDB) GetClientServerTLSMode() string {
 	return v.Spec.ClientServerTLS.Mode
 }
 
-// Get HTTPSNMATLS mode from spec or return "" if not found
+// Get ClientServerTLS secret from spec or return "" if not found
 func (v *VerticaDB) GetClientServerTLSSecret() string {
 	if v.Spec.ClientServerTLS == nil {
 		return ""

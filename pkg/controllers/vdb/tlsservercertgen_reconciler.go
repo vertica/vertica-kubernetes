@@ -220,6 +220,7 @@ func (h *TLSServerCertGenReconciler) ValidateSecretCertificate(
 	tlsConfigName string,
 	secretName string,
 ) error {
+	h.Log.Info("validating TLS certificate for existing secret", "secretName", secretName)
 	certPEM := secret.Data[TLSCertName]
 	if certPEM == nil {
 		return errors.New("failed to decode PEM block containing certificate")
