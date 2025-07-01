@@ -1081,6 +1081,15 @@ const (
 	HTTPSCertRotationFinished = "HTTPSCertRotationFinished"
 	// TLSCertRotationInProgress indicates the TLS cert rotation has started
 	TLSCertRotationInProgress = "TLSCertRotationInProgress"
+	// TLSCertRollbackNeeded indicates tls cert rotation failed and we need
+	// to rollback
+	TLSCertRollbackNeeded = "TLSCertRollbackNeeded"
+)
+
+const (
+	RollbackAfterHTTPSCertRotationReason = "HTTPSCertRotationFailed"
+	FailureBeforeCertHealthPollingReason = "HTTPSCertRotationFailedBeforeCertHealthPolling"
+	RollbackAfterNMACertRotationReason   = "NMACertRotationFailed"
 )
 
 const (

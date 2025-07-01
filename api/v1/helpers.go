@@ -617,6 +617,38 @@ func (v *VerticaDB) IsCertRotationInProgress() bool {
 	return v.IsStatusConditionTrue(TLSCertRotationInProgress)
 }
 
+func (v *VerticaDB) IsTLSCertRollbackNeeded() bool {
+	return v.IsStatusConditionTrue(TLSCertRollbackNeeded)
+}
+
+func (v *VerticaDB) FindTLSCertRollbackNeededCondition() *metav1.Condition {
+	return v.FindStatusCondition(TLSCertRollbackNeeded)
+}
+
+// GetTLSCertRollbackReason returns the reason or the point
+// which cert rotation failed in. This is used to know the ops
+// needed to rollback
+func (v *VerticaDB) GetTLSCertRollbackReason() string {
+	cond := v.FindTLSCertRollbackNeededCondition()
+	if cond == nil {
+		return ""
+	}
+
+	return cond.Reason
+}
+
+// IsRollbackFailureBeforeCertHealthPolling returns true if https cert rotation failed
+// without altering the current tls config
+func (v *VerticaDB) IsRollbackFailureBeforeCertHealthPolling() bool {
+	return v.GetTLSCertRollbackReason() == FailureBeforeCertHealthPollingReason
+}
+
+// IsRollbackAfterNMACertRotation returns true if https cert rotation failed
+// but tls config changed
+func (v *VerticaDB) IsRollbackAfterNMACertRotation() bool {
+	return v.GetTLSCertRollbackReason() == RollbackAfterNMACertRotationReason
+}
+
 // IsStatusConditionTrue returns true when the conditionType is present and set to
 // `metav1.ConditionTrue`
 func (v *VerticaDB) IsStatusConditionTrue(statusCondition string) bool {
@@ -1554,6 +1586,17 @@ func (v *VerticaDB) GetHTTPSNMATLSSecretInUse() string {
 
 func (v *VerticaDB) GetClientServerTLSSecretInUse() string {
 	return v.GetSecretInUse(ClientServerTLSConfigName)
+}
+
+// GetNMATLSSecretNameForConfigMap returns the secret name to set in the
+// nma configmap
+func (v *VerticaDB) GetHTTPSNMATLSSecretForConfigMap() string {
+	name := v.GetHTTPSNMATLSSecretInUse()
+	if name != "" &&
+		(!v.IsStatusConditionTrue(HTTPSCertRotationFinished) || v.IsTLSCertRollbackNeeded()) {
+		return name
+	}
+	return v.GetHTTPSNMATLSSecret()
 }
 
 // IsCertNeededForClientServerAuth returns true if certificate is needed for client-server authentication

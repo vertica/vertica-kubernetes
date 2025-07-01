@@ -63,7 +63,9 @@ func (h *NMACertRotationReconciler) Reconcile(ctx context.Context, _ *ctrl.Reque
 	if !h.Vdb.IsTLSAuthEnabled() {
 		return ctrl.Result{}, nil
 	}
-	if !h.Vdb.IsStatusConditionTrue(vapi.HTTPSCertRotationFinished) || !h.Vdb.IsStatusConditionTrue(vapi.TLSCertRotationInProgress) {
+	if !h.Vdb.IsStatusConditionTrue(vapi.HTTPSCertRotationFinished) ||
+		!h.Vdb.IsStatusConditionTrue(vapi.TLSCertRotationInProgress) ||
+		h.Vdb.IsTLSCertRollbackNeeded() {
 		return ctrl.Result{}, nil
 	}
 	currentSecretName := h.Vdb.GetHTTPSNMATLSSecretInUse()
@@ -76,9 +78,13 @@ func (h *NMACertRotationReconciler) Reconcile(ctx context.Context, _ *ctrl.Reque
 	}
 
 	h.Log.Info("Starting NMA TLS certificate rotation")
-	res, err = h.rotateNmaTLSCert(ctx, newSecret, currentSecret)
+	res, err, calledVclusterops := h.rotateNmaTLSCert(ctx, newSecret, currentSecret)
 	if verrors.IsReconcileAborted(res, err) {
 		h.Log.Error(err, "Failed to rotate NMA TLS certificate")
+		if calledVclusterops {
+			cond := vapi.MakeCondition(vapi.TLSCertRollbackNeeded, metav1.ConditionTrue, vapi.RollbackAfterNMACertRotationReason)
+			return res, vdbstatus.UpdateCondition(ctx, h.VRec.GetClient(), h.Vdb, cond)
+		}
 		return res, err
 	}
 
@@ -103,17 +109,18 @@ func (h *NMACertRotationReconciler) Reconcile(ctx context.Context, _ *ctrl.Reque
 	return ctrl.Result{}, nil
 }
 
-// rotateHTTPSTLSCert will rotate node management agent's tls cert from currentSecret to newSecret
-func (h *NMACertRotationReconciler) rotateNmaTLSCert(ctx context.Context, newSecret, currentSecret map[string][]byte) (ctrl.Result, error) {
+// rotateNmaTLSCert will rotate node management agent's tls cert from currentSecret to newSecret
+func (h *NMACertRotationReconciler) rotateNmaTLSCert(ctx context.Context, newSecret,
+	currentSecret map[string][]byte) (ctrl.Result, error, bool) {
 	err := h.Pfacts.Collect(ctx, h.Vdb)
 	if err != nil {
 		h.Log.Error(err, "nma cert rotation aborted. Failed to collect pod facts ")
-		return ctrl.Result{}, err
+		return ctrl.Result{}, err, false
 	}
 	initiatorPod, ok := h.Pfacts.FindFirstUpPod(false, "")
 	if !ok {
 		h.Log.Info("No pod found to run rotate nma cert. Requeue reconciliation.")
-		return ctrl.Result{Requeue: true}, nil
+		return ctrl.Result{Requeue: true}, nil, false
 	}
 	currentSecretName := h.Vdb.GetHTTPSNMATLSSecretInUse()
 	newSecretName := h.Vdb.GetHTTPSNMATLSSecret()
@@ -124,12 +131,12 @@ func (h *NMACertRotationReconciler) rotateNmaTLSCert(ctx context.Context, newSec
 	if err != nil {
 		h.Log.Error(err, "nma cert rotation aborted. Failed to verify new nma cert for "+
 			initiatorPod.GetPodIP())
-		return ctrl.Result{}, err
+		return ctrl.Result{}, err, false
 	}
 	if rotated == 2 {
 		h.Log.Info("nma cert rotation skipped. Neither new nor existing nma cert is in use on " +
 			initiatorPod.GetPodIP())
-		return ctrl.Result{Requeue: true}, nil
+		return ctrl.Result{Requeue: true}, nil, false
 	}
 	if rotated == 0 {
 		h.Log.Info("nma cert rotation skipped. new nma cert for " +
@@ -152,17 +159,17 @@ func (h *NMACertRotationReconciler) rotateNmaTLSCert(ctx context.Context, newSec
 		err = h.Dispatcher.RotateNMACerts(ctx, opts...)
 		if err != nil {
 			h.Log.Error(err, "failed to rotate nma cer to "+newSecretName)
-			return ctrl.Result{}, err
+			return ctrl.Result{}, err, true
 		}
 	}
 	tls := vapi.MakeHTTPSNMATLSConfig(h.Vdb.GetHTTPSNMATLSSecret(), h.Vdb.GetHTTPSNMATLSMode())
 	if updErr := vdbstatus.UpdateTLSConfigs(ctx, h.VRec.GetClient(), h.Vdb, []*vapi.TLSConfigStatus{tls}); updErr != nil {
-		return ctrl.Result{}, err
+		return ctrl.Result{}, err, true
 	}
 	h.Log.Info("saved new tls cert secret name in status", "secret", newSecretName)
 	// last thing is to update vdb condition
 	h.VRec.Eventf(h.Vdb, corev1.EventTypeNormal, events.NMATLSCertRotationSucceeded,
 		"Successfully rotated nma cert from %s to %s", currentSecretName, newSecretName)
 
-	return ctrl.Result{}, err
+	return ctrl.Result{}, err, true
 }

@@ -17,6 +17,7 @@ package vdb
 
 import (
 	"context"
+	"fmt"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -67,6 +68,30 @@ var _ = Describe("httpscertrotation_reconciler", func() {
 		defer test.DeleteTLSConfigMap(ctx, k8sClient, vdb)
 		r := MakeHTTPSCertRotationReconciler(vdbRec, logger, vdb, dispatcher, pfacts)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: true}))
+	})
+
+	It("should set rollback after cert rotation", func() {
+		vdb := vapi.MakeVDB()
+		test.CreateVDB(ctx, k8sClient, vdb)
+		defer test.DeleteVDB(ctx, k8sClient, vdb)
+
+		err := fmt.Errorf("random error")
+		fpr := &cmds.FakePodRunner{}
+		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
+		pfacts := createPodFactsWithNoDB(ctx, vdb, fpr, 3)
+		act := MakeHTTPSCertRotationReconciler(vdbRec, logger, vdb, dispatcher, pfacts)
+		r := act.(*HTTPSCertRotationReconciler)
+		err = r.triggerRollback(ctx, err)
+		Expect(err).Should(Succeed())
+		Expect(len(vdb.Status.Conditions)).Should(Equal(1))
+		Expect(vdb.IsTLSCertRollbackNeeded()).Should(BeTrue())
+		Expect(vdb.Status.Conditions[0].Reason).Should(Equal(vapi.FailureBeforeCertHealthPollingReason))
+		Expect(vdb.IsRollbackFailureBeforeCertHealthPolling()).Should(BeTrue())
+
+		err = fmt.Errorf("HTTPSPollCertificateHealthOp error during polling")
+		err = r.triggerRollback(ctx, err)
+		Expect(err).Should(Succeed())
+		Expect(r.Vdb.IsRollbackFailureBeforeCertHealthPolling()).Should(BeFalse())
 	})
 
 })

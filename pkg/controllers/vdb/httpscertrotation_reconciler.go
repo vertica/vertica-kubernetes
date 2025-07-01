@@ -18,6 +18,7 @@ package vdb
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
@@ -79,10 +80,7 @@ func MakeHTTPSCertRotationReconciler(vdbrecon *VerticaDBReconciler, log logr.Log
 // Reconcile will rotate TLS certificate.
 func (h *HTTPSCertRotationReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
 	// we should not rotate when tls is not enabled or is enabled but not ready yet
-	if !h.Vdb.IsTLSAuthEnabled() ||
-		h.Vdb.IsTLSAuthEnabled() && h.Vdb.GetHTTPSNMATLSSecretInUse() == "" ||
-		h.Vdb.IsStatusConditionTrue(vapi.HTTPSCertRotationFinished) &&
-			h.Vdb.IsStatusConditionTrue(vapi.TLSCertRotationInProgress) {
+	if h.skipHTTPSCertReconcile() {
 		return ctrl.Result{}, nil
 	}
 	changeTLS := h.updateTLSConfig()
@@ -112,19 +110,21 @@ func (h *HTTPSCertRotationReconciler) Reconcile(ctx context.Context, _ *ctrl.Req
 		return res, err
 	}
 
-	// Now https cert rotation will start
+	// Now, https cert rotation will start
+	// At this point, all errors should trigger rollback
 	err2 := h.rotateHTTPSTLSCert(ctx, tlsData, changeTLS)
+
 	if err2 != nil {
-		return ctrl.Result{}, err2
+		return ctrl.Result{}, h.triggerRollback(ctx, err2)
 	}
 	err2 = h.updateTLSMode(ctx)
 	if err2 != nil {
-		return ctrl.Result{}, err2
+		return ctrl.Result{}, h.triggerRollback(ctx, err2)
 	}
 
 	err2 = h.handleConditions(ctx, changeTLS)
 	if err2 != nil {
-		return ctrl.Result{}, err2
+		return ctrl.Result{}, h.triggerRollback(ctx, err2)
 	}
 	return ctrl.Result{}, nil
 }
@@ -265,6 +265,21 @@ func (h *HTTPSCertRotationReconciler) buildHTTPSTLSUpdateData(ctx context.Contex
 	return tlsData, res, err
 }
 
+// triggerRollback sets a condition that lets the operator know that https cert rotation
+// has failed and a rollback is needed
+func (h *HTTPSCertRotationReconciler) triggerRollback(ctx context.Context, err error) error {
+	if err == nil {
+		return nil
+	}
+	errMsg := err.Error()
+	reason := vapi.FailureBeforeCertHealthPollingReason
+	if strings.Contains(errMsg, "HTTPSPollCertificateHealthOp") {
+		reason = vapi.RollbackAfterHTTPSCertRotationReason
+	}
+	cond := vapi.MakeCondition(vapi.TLSCertRollbackNeeded, metav1.ConditionTrue, reason)
+	return vdbstatus.UpdateCondition(ctx, h.VRec.GetClient(), h.Vdb, cond)
+}
+
 func GetK8sCertsConfig(vdb *vapi.VerticaDB, cacheDuration string) (keyConfig, certConfig, caCertConfig string) {
 	keyConfig = fmt.Sprintf("{\"data-key\":%q,\"namespace\":%q%s}", corev1.TLSPrivateKeyKey, vdb.Namespace, cacheDuration)
 	certConfig = fmt.Sprintf("{\"data-key\":%q,\"namespace\":%q%s}", corev1.TLSCertKey, vdb.Namespace, cacheDuration)
@@ -306,4 +321,12 @@ func (h *HTTPSCertRotationReconciler) updateTLSConfig() int {
 	}
 
 	return noTLSChange
+}
+
+func (h *HTTPSCertRotationReconciler) skipHTTPSCertReconcile() bool {
+	return !h.Vdb.IsTLSAuthEnabled() ||
+		h.Vdb.IsTLSAuthEnabled() && h.Vdb.GetHTTPSNMATLSSecretInUse() == "" ||
+		h.Vdb.IsTLSCertRollbackNeeded() ||
+		h.Vdb.IsStatusConditionTrue(vapi.HTTPSCertRotationFinished) &&
+			h.Vdb.IsStatusConditionTrue(vapi.TLSCertRotationInProgress)
 }

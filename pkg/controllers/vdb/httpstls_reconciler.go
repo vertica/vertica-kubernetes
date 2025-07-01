@@ -71,7 +71,11 @@ func (h *HTTPSTLSReconciler) constructActors(log logr.Logger, vdb *vapi.VerticaD
 		MakeTLSConfigReconciler(h.VRec, log, vdb, prunner, dispatcher, pfacts, vapi.ClientServerTLSConfigName),
 		// rotate https tls cert when tls cert secret name is changed in vdb.spec
 		MakeHTTPSCertRotationReconciler(h.VRec, log, vdb, dispatcher, pfacts),
+		// updates nma config map with the name of the new secret
+		MakeObjReconciler(h.VRec, log, vdb, pfacts, ObjReconcileModeNMAConfigMap),
 		// rotate nma tls cert when tls cert secret name is changed in vdb.spec
 		MakeNMACertRotationReconciler(h.VRec, log, vdb, dispatcher, pfacts),
+		// rollback, in case of failure, any cert rotation op related to nmaTLSSecret
+		MakeRollbackAfterNMACertRotationReconciler(h.VRec, log, vdb, dispatcher, pfacts),
 	}
 }
