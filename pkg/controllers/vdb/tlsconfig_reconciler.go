@@ -184,9 +184,10 @@ func (h *TLSConfigReconciler) updateTLSModesInStatus(ctx context.Context, initia
 	if h.TLSConfigName == vapi.HTTPSNMATLSConfigName {
 		tlsConfig = vapi.MakeHTTPSNMATLSConfig(h.Vdb.GetHTTPSNMATLSSecret(), tlsModeStr)
 	} else {
-		tlsConfig = vapi.MakeClientServerTLSConfig(h.Vdb.GetClientServerTLSMode(), tlsModeStr)
+		tlsConfig = vapi.MakeClientServerTLSConfig(h.Vdb.GetClientServerTLSSecret(), tlsModeStr)
 	}
 	tlsConfigs := []*vapi.TLSConfigStatus{tlsConfig}
+	h.Log.Info("Updating TLS config", "TLSConfig", tlsConfig)
 	err = vdbstatus.UpdateTLSConfigs(ctx, h.VRec.GetClient(), h.Vdb, tlsConfigs)
 	if err != nil {
 		h.Log.Error(err, "failed to update tls mode when setting up TLS")

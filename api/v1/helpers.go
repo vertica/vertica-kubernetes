@@ -391,7 +391,7 @@ func MakeClientServerTLSConfigFromSpec(config *TLSConfigSpec) *TLSConfigStatus {
 	if config == nil {
 		return nil
 	}
-	return MakeTLSConfig(HTTPSNMATLSConfigName, config.Secret, config.Mode)
+	return MakeTLSConfig(ClientServerTLSConfigName, config.Secret, config.Mode)
 }
 
 func MakeHTTPSNMATLSConfigFromSpec(config *TLSConfigSpec) *TLSConfigStatus {
