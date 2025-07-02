@@ -75,16 +75,16 @@ var _ = Describe("set_config_parameter_vc", func() {
 		err1 := dispatcher.SetTLSConfig(ctx,
 			settlsconfig.WithInitiatorIP(TestSourceIP),
 			settlsconfig.WithHTTPSTLSConfig(TestIsHTTPSConfig),
-			settlsconfig.WithHTTPSTLSMode(TestHTTPSTLSMode),
-			settlsconfig.WithHTTPSTLSSecretName(dispatcher.VDB.Spec.NMATLSSecret),
+			settlsconfig.WithTLSMode(TestHTTPSTLSMode),
+			settlsconfig.WithTLSSecretName(dispatcher.VDB.Spec.NMATLSSecret),
 			settlsconfig.WithNamespace(TestNamespace),
 		)
 		Ω(err1).Should(Succeed())
 		err2 := dispatcher.SetTLSConfig(ctx,
 			settlsconfig.WithInitiatorIP(TestSourceIP),
 			settlsconfig.WithHTTPSTLSConfig(!TestIsHTTPSConfig),
-			settlsconfig.WithClientServerTLSSecretName(dispatcher.VDB.GetClientServerTLSSecret()),
-			settlsconfig.WithClientServerTLSMode(TestClientServerTLSMode),
+			settlsconfig.WithTLSSecretName(dispatcher.VDB.GetClientServerTLSSecret()),
+			settlsconfig.WithTLSMode(TestClientServerTLSMode),
 			settlsconfig.WithNamespace(TestNamespace),
 		)
 		Ω(err2).Should(Succeed())

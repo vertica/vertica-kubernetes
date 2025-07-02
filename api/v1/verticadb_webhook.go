@@ -159,7 +159,7 @@ func (v *VerticaDB) validateImmutableFields(old runtime.Object) field.ErrorList 
 	allErrs = v.checkImmutableStsName(oldObj, allErrs)
 	allErrs = v.checkImmutableClientProxy(oldObj, allErrs)
 	allErrs = v.checkImmutableCertRotation(oldObj, allErrs)
-	allErrs = v.checkValidTLSCertRotation(oldObj, allErrs)
+	allErrs = v.checkValidTLSConfigUpdate(oldObj, allErrs)
 	allErrs = v.checkValidSubclusterTypeTransition(oldObj, allErrs)
 	allErrs = v.checkSandboxesDuringUpgrade(oldObj, allErrs)
 	allErrs = v.checkShutdownSandboxImage(oldObj, allErrs)
@@ -2303,8 +2303,7 @@ func (v *VerticaDB) checkImmutableClientProxy(oldObj *VerticaDB, allErrs field.E
 // checkImmutableCertRotation will validate the httpsNMATLS spec field in vdb
 func (v *VerticaDB) checkImmutableCertRotation(oldObj *VerticaDB, allErrs field.ErrorList) field.ErrorList {
 	// If cert rotation is in progress, httpsNMATLS can not be changed
-	if v.IsTLSAuthEnabled() &&
-		v.IsCertRotationInProgress() &&
+	if v.IsSetForTLS() && v.IsTLSConfigUpdateInProgress() &&
 		(oldObj.GetHTTPSNMATLSSecret() != v.GetHTTPSNMATLSSecret() ||
 			oldObj.GetHTTPSNMATLSMode() != v.GetHTTPSNMATLSMode()) {
 		err := field.Invalid(field.NewPath("spec").Child("httpsNMATLS"),
@@ -2317,7 +2316,7 @@ func (v *VerticaDB) checkImmutableCertRotation(oldObj *VerticaDB, allErrs field.
 
 // hasValidTLSMode checks if the tls mode is valid
 func (v *VerticaDB) hasValidTLSMode(tlsModeToValidate, fieldName string, allErrs field.ErrorList) field.ErrorList {
-	if !v.IsTLSAuthEnabled() {
+	if !v.IsSetForTLS() {
 		return allErrs
 	}
 	tlsModes := []string{tlsModeDisable, tlsModeEnable, tlsModeTryVerify, tlsModeVerifyCA, tlsModeVerifyFull}
@@ -2337,16 +2336,16 @@ func (v *VerticaDB) hasValidTLSMode(tlsModeToValidate, fieldName string, allErrs
 	return allErrs
 }
 
-// checkValidTLSCertRotation enforces:
-// 1. If cert rotation is in progress, all other operations are not allowed.
+// checkValidTLSConfigUpdate enforces:
+// 1. If tls config updateis in progress, all other operations are not allowed.
 // 2. Cannot disable mutual TLS after it's enabled.
 // 3. Prevent user from changing nmaTLSSecret.
-func (v *VerticaDB) checkValidTLSCertRotation(oldObj *VerticaDB, allErrs field.ErrorList) field.ErrorList {
+func (v *VerticaDB) checkValidTLSConfigUpdate(oldObj *VerticaDB, allErrs field.ErrorList) field.ErrorList {
 	// rule 1
-	if oldObj.IsCertRotationInProgress() {
-		if !v.isOnlyCertRotationChange(oldObj) {
+	if oldObj.IsTLSConfigUpdateInProgress() {
+		if !v.isOnlyTLSConfigUpdateChange(oldObj) {
 			err := field.Forbidden(field.NewPath("spec"),
-				"no changes allowed while cert rotation is in progress")
+				"no changes allowed while tls config update is in progress")
 			allErrs = append(allErrs, err)
 			return allErrs
 		}
@@ -2395,8 +2394,8 @@ func (v *VerticaDB) checkValidTLSCertRotation(oldObj *VerticaDB, allErrs field.E
 	return allErrs
 }
 
-// isOnlyCertRotationChange allows only cert rotation related changes when cert rotation is in progress
-func (v *VerticaDB) isOnlyCertRotationChange(oldVdb *VerticaDB) bool {
+// isOnlyTLSConfigUpdateChange allows only tls config changes when tls config update is in progress
+func (v *VerticaDB) isOnlyTLSConfigUpdateChange(oldVdb *VerticaDB) bool {
 	// Only allow changes to cert rotation status/fields.
 	// If any other field in spec changes, return false.
 	oldSpec := oldVdb.Spec

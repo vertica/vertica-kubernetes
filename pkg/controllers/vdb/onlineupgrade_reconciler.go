@@ -857,7 +857,7 @@ func (r *OnlineUpgradeReconciler) startReplicationToReplicaGroupB(ctx context.Co
 	}
 
 	tlsConfig := ""
-	if r.VDB.IsTLSAuthEnabled() {
+	if r.VDB.IsSetForTLS() {
 		tlsConfig = "server"
 	}
 	vrep := &v1beta1.VerticaReplicator{

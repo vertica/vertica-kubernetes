@@ -13,7 +13,7 @@ involvedObject:
 apiVersion: v1
 kind: Event
 reason: TLSConfigurationSucceeded
-message: Successfully configured TLS for httpsNMA
+message: Successfully set HTTP tls config
 source:
   component: verticadb-operator
 involvedObject:
@@ -35,7 +35,7 @@ involvedObject:
 apiVersion: v1
 kind: Event
 reason: TLSConfigurationSucceeded
-message: Successfully configured TLS for clientServer
+message: Successfully set Server tls config
 source:
   component: verticadb-operator
 involvedObject:
