@@ -2525,7 +2525,7 @@ func (v *VerticaDB) checkIfAnyOpInProgressBeforeTLSChange(oldObj *VerticaDB, all
 	if len(errMsgs2) != 0 {
 		allErrs = append(allErrs, field.Invalid(
 			field.NewPath("spec"), "", "while some database operations are inprogress: "+strings.Join(errMsgs2, ", ")+
-				", TLS fields cannot be changed "+strings.Join(errMsgs, ", ")))
+				", TLS fields cannot be changed: "+strings.Join(errMsgs, ", ")))
 	}
 	return allErrs
 }
@@ -2542,19 +2542,19 @@ func (v *VerticaDB) findChangedTLSFields(oldObj *VerticaDB) []string {
 	errMsgs := []string{}
 	if vmeta.UseTLSAuth(v.Annotations) != vmeta.UseTLSAuth(oldObj.Annotations) {
 		errMsgs = append(errMsgs, fmt.Sprintf("annotation %q is changed from %q to %q",
-			vmeta.EnableTLSAuthAnnotation, v.Annotations[vmeta.EnableTLSAuthAnnotation], oldObj.Annotations[vmeta.EnableTLSAuthAnnotation]))
+			vmeta.EnableTLSAuthAnnotation, oldObj.Annotations[vmeta.EnableTLSAuthAnnotation], v.Annotations[vmeta.EnableTLSAuthAnnotation]))
 	}
-	if v.Spec.HTTPSNMATLS.Secret != oldObj.Spec.HTTPSNMATLS.Secret {
-		errMsgs = append(errMsgs, fmt.Sprintf("spec.httpsNMATLS.Secret is changed from %q to %q", v.Spec.HTTPSNMATLS.Secret, oldObj.Spec.HTTPSNMATLS.Secret))
+	if oldObj.GetHTTPSNMATLSSecret() != "" && v.GetHTTPSNMATLSSecret() != oldObj.GetHTTPSNMATLSSecret() {
+		errMsgs = append(errMsgs, fmt.Sprintf("spec.httpsNMATLS.Secret is changed from %q to %q", oldObj.GetHTTPSNMATLSSecret(), v.GetHTTPSNMATLSSecret()))
 	}
-	if v.Spec.HTTPSNMATLS.Mode != oldObj.Spec.HTTPSNMATLS.Mode {
-		errMsgs = append(errMsgs, fmt.Sprintf("spec.httpsTLS.Mode is changed from %q to %q", v.Spec.HTTPSNMATLS.Mode, oldObj.Spec.HTTPSNMATLS.Mode))
+	if oldObj.GetHTTPSNMATLSMode() != "" && v.GetHTTPSNMATLSMode() != oldObj.GetHTTPSNMATLSMode() {
+		errMsgs = append(errMsgs, fmt.Sprintf("spec.httpsTLS.Mode is changed from %q to %q", oldObj.GetHTTPSNMATLSMode(), v.GetHTTPSNMATLSMode()))
 	}
-	if v.Spec.ClientServerTLS.Secret != oldObj.Spec.ClientServerTLS.Secret {
-		errMsgs = append(errMsgs, fmt.Sprintf("spec.clientServerTLS.Secret is changed from %q to %q", v.Spec.ClientServerTLS.Secret, oldObj.Spec.ClientServerTLS.Secret))
+	if oldObj.GetClientServerTLSSecret() != "" && v.GetClientServerTLSSecret() != oldObj.GetClientServerTLSSecret() {
+		errMsgs = append(errMsgs, fmt.Sprintf("spec.clientServerTLS.Secret is changed from %q to %q", oldObj.GetClientServerTLSSecret(), v.GetClientServerTLSSecret()))
 	}
-	if v.Spec.ClientServerTLS.Mode != oldObj.Spec.ClientServerTLS.Mode {
-		errMsgs = append(errMsgs, fmt.Sprintf("spec.clientServerTLS.Mode is changed from %q to %q", v.Spec.ClientServerTLS.Mode, oldObj.Spec.ClientServerTLS.Mode))
+	if oldObj.GetClientServerTLSMode() != "" && v.GetClientServerTLSMode() != oldObj.GetClientServerTLSMode() {
+		errMsgs = append(errMsgs, fmt.Sprintf("spec.clientServerTLS.Mode is changed from %q to %q", oldObj.GetClientServerTLSMode(), v.GetClientServerTLSMode()))
 	}
 	return errMsgs
 }
