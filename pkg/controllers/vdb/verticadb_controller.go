@@ -191,8 +191,6 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		MakeObjReconciler(r, log, vdb, pfacts, ObjReconcileModeAnnotation),
 		// Always generate cert first if nothing is provided
 		MakeTLSServerCertGenReconciler(r, log, vdb),
-		// Set up configmap which stores env variables for NMA container
-		MakeNMACertConfigMapReconciler(r, log, vdb),
 		// Set up TLS config if users turn it on
 		MakeTLSReconciler(r, log, vdb, prunner, dispatcher, pfacts),
 		// Trigger sandbox upgrade when the image field for the sandbox
