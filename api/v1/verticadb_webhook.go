@@ -57,6 +57,7 @@ const (
 	GCloudPrefix          = "gs://"
 	AzurePrefix           = "azb://"
 	trueString            = "true"
+	falseString           = "false"
 	VProxyDefaultImage    = "opentext/client-proxy:latest"
 	VProxyDefaultReplicas = 1
 )
@@ -237,7 +238,6 @@ func (v *VerticaDB) validateVerticaDBSpec() field.ErrorList {
 	allErrs = v.hasValidVolumeName(allErrs)
 	allErrs = v.hasValidClientServerTLSMode(allErrs)
 	allErrs = v.hasTLSSecretsSetForRevive(allErrs)
-	allErrs = v.checkIfAnyOperationInProgressWhenTurnOnTLS(allErrs)
 	allErrs = v.hasValidVolumeMountName(allErrs)
 	allErrs = v.hasValidKerberosSetup(allErrs)
 	allErrs = v.hasValidTemporarySubclusterRouting(allErrs)
@@ -824,17 +824,17 @@ func (v *VerticaDB) hasValidClientServerTLSMode(allErrs field.ErrorList) field.E
 // hasTLSSecretsSetForRevive checks whether the TLS secrets are set for the revive init policy
 // when TLS is enabled
 func (v *VerticaDB) hasTLSSecretsSetForRevive(allErrs field.ErrorList) field.ErrorList {
-	if v.IsTLSAuthEnabled() && v.Spec.InitPolicy == CommunalInitPolicyRevive {
-		if v.Spec.HTTPSNMATLSSecret == "" {
-			err := field.Invalid(field.NewPath("spec").Child("httpsNMATLSSecret"),
-				v.Spec.HTTPSNMATLSSecret,
-				"httpsNMATLSSecret must be set for reviving db")
+	if vmeta.UseTLSAuth(v.Annotations) && v.Spec.InitPolicy == CommunalInitPolicyRevive {
+		if v.GetHTTPSNMATLSSecret() == "" {
+			err := field.Invalid(field.NewPath("spec").Child("httpsNMATLS"),
+				v.Spec.HTTPSNMATLS,
+				"httpsNMATLS.Secret must be set for reviving db")
 			allErrs = append(allErrs, err)
 		}
-		if v.Spec.ClientServerTLSSecret == "" {
-			err := field.Invalid(field.NewPath("spec").Child("clientServerTLSSecret"),
-				v.Spec.ClientServerTLSSecret,
-				"clientServerTLSSecret must be set for reviving db")
+		if v.GetClientServerTLSSecret() == "" {
+			err := field.Invalid(field.NewPath("spec").Child("clientServerTLS"),
+				v.Spec.ClientServerTLS,
+				"clientServerTLS.Secret must be set for reviving db")
 			allErrs = append(allErrs, err)
 		}
 	}
@@ -2504,45 +2504,28 @@ func (v *VerticaDB) setDefaultProxy() {
 	}
 }
 
-// checkIfAnyOpInProgressWhenRotatingCerts checks if any operation is in progress when rotating certificates
+// checkIfAnyOpInProgressWhenRotatingCerts checks if any operation is in progress when enabling tls auth
 func (v *VerticaDB) checkIfAnyOpInProgressBeforeTLSChange(oldObj *VerticaDB, allErrs field.ErrorList) field.ErrorList {
-	if v.IsTLSAuthEnabled() && oldObj.IsTLSAuthEnabled() {
-		errMsgs := v.findChangedTLSFields(oldObj)
-		if v.checkIfUpgradeInProgress() && len(errMsgs) != 0 {
-			allErrs = append(allErrs, field.Invalid(
-				field.NewPath("spec"), "", "while an upgrade is in progress, TLS fields cannot be changed "+
-					strings.Join(errMsgs, ", ")))
-			return allErrs
-		}
-		errMsgs = v.compareSpecAndStatus()
-		if len(errMsgs) != 0 {
-			allErrs = append(allErrs, field.Invalid(
-				field.NewPath("spec"), "", "while the spec and status are not in sync, TLS fields cannot be changed "+
-					strings.Join(errMsgs, ", ")))
-		}
+	errMsgs := v.findChangedTLSFields(oldObj)
+	// we don't need to check if the user doesn't change tls fields
+	if len(errMsgs) == 0 {
+		return allErrs
 	}
-	return allErrs
-}
 
-// checkIfAnyOperationInProgressWhenTurnOnTLS checks if any operation is in progress when turning on TLS
-func (v *VerticaDB) checkIfAnyOperationInProgressWhenTurnOnTLS(allErrs field.ErrorList) field.ErrorList {
-	if v.IsTLSAuthEnabled() && v.IsStatusConditionTrue(DBInitialized) {
-		prefix := field.NewPath("metadata").Child("annotations")
-		annotationName := vmeta.EnableTLSAuthAnnotation
-		if v.checkIfUpgradeInProgress() {
-			err := field.Invalid(prefix.Key(annotationName),
-				v.Annotations[annotationName],
-				fmt.Sprintf("%s cannot be set to true while an upgrade is in progress", annotationName))
-			allErrs = append(allErrs, err)
-			return allErrs
-		}
-		errMsgs := v.compareSpecAndStatus()
-		if len(errMsgs) != 0 {
-			err := field.Invalid(prefix.Key(annotationName),
-				v.Annotations[annotationName],
-				fmt.Sprintf("%s cannot be set to true while the spec and status are not in sync: %s", annotationName, strings.Join(errMsgs, ", ")))
-			allErrs = append(allErrs, err)
-		}
+	// forbid tls changes during upgrade
+	if v.checkIfUpgradeInProgress() {
+		allErrs = append(allErrs, field.Invalid(
+			field.NewPath("spec"), "", "while an upgrade is in progress, TLS fields cannot be changed "+
+				strings.Join(errMsgs, ", ")))
+		return allErrs
+	}
+
+	errMsgs2 := v.compareSpecAndStatus()
+	// forbid tls changes when the spec and status are not in sync
+	if len(errMsgs2) != 0 {
+		allErrs = append(allErrs, field.Invalid(
+			field.NewPath("spec"), "", "while some database operations are inprogress: "+strings.Join(errMsgs2, ", ")+
+				", TLS fields cannot be changed "+strings.Join(errMsgs, ", ")))
 	}
 	return allErrs
 }
@@ -2557,45 +2540,34 @@ func (v *VerticaDB) checkIfUpgradeInProgress() bool {
 
 func (v *VerticaDB) findChangedTLSFields(oldObj *VerticaDB) []string {
 	errMsgs := []string{}
-	if v.Spec.HTTPSNMATLSSecret != oldObj.Spec.HTTPSNMATLSSecret {
-		errMsgs = append(errMsgs, fmt.Sprintf("spec.httpsNMATLSSecret %q does not match old spec.httpsNMATLSSecret %q", v.Spec.HTTPSNMATLSSecret, oldObj.Spec.HTTPSNMATLSSecret))
+	if vmeta.UseTLSAuth(v.Annotations) != vmeta.UseTLSAuth(oldObj.Annotations) {
+		errMsgs = append(errMsgs, fmt.Sprintf("annotation %q is changed from %q to %q",
+			vmeta.EnableTLSAuthAnnotation, v.Annotations[vmeta.EnableTLSAuthAnnotation], oldObj.Annotations[vmeta.EnableTLSAuthAnnotation]))
 	}
-	if v.Spec.ClientServerTLSSecret != oldObj.Spec.ClientServerTLSSecret {
-		errMsgs = append(errMsgs, fmt.Sprintf("spec.clientServerTLSSecret %q does not match old spec.clientServerTLSSecret %q", v.Spec.ClientServerTLSSecret, oldObj.Spec.ClientServerTLSSecret))
+	if v.Spec.HTTPSNMATLS.Secret != oldObj.Spec.HTTPSNMATLS.Secret {
+		errMsgs = append(errMsgs, fmt.Sprintf("spec.httpsNMATLS.Secret is changed from %q to %q", v.Spec.HTTPSNMATLS.Secret, oldObj.Spec.HTTPSNMATLS.Secret))
 	}
-	if v.Spec.HTTPSTLSMode != oldObj.Spec.HTTPSTLSMode {
-		errMsgs = append(errMsgs, fmt.Sprintf("spec.httpsTLSMode %q does not match old spec.httpsTLSMode %q", v.Spec.HTTPSTLSMode, oldObj.Spec.HTTPSTLSMode))
+	if v.Spec.HTTPSNMATLS.Mode != oldObj.Spec.HTTPSNMATLS.Mode {
+		errMsgs = append(errMsgs, fmt.Sprintf("spec.httpsTLS.Mode is changed from %q to %q", v.Spec.HTTPSNMATLS.Mode, oldObj.Spec.HTTPSNMATLS.Mode))
 	}
-	if v.Spec.ClientServerTLSMode != oldObj.Spec.ClientServerTLSMode {
-		errMsgs = append(errMsgs, fmt.Sprintf("spec.clientServerTLSMode %q does not match old spec.clientServerTLSMode %q", v.Spec.ClientServerTLSMode, oldObj.Spec.ClientServerTLSMode))
+	if v.Spec.ClientServerTLS.Secret != oldObj.Spec.ClientServerTLS.Secret {
+		errMsgs = append(errMsgs, fmt.Sprintf("spec.clientServerTLS.Secret is changed from %q to %q", v.Spec.ClientServerTLS.Secret, oldObj.Spec.ClientServerTLS.Secret))
+	}
+	if v.Spec.ClientServerTLS.Mode != oldObj.Spec.ClientServerTLS.Mode {
+		errMsgs = append(errMsgs, fmt.Sprintf("spec.clientServerTLS.Mode is changed from %q to %q", v.Spec.ClientServerTLS.Mode, oldObj.Spec.ClientServerTLS.Mode))
 	}
 	return errMsgs
 }
 
 func (v *VerticaDB) compareSpecAndStatus() []string {
 	errMsgs := []string{}
-	if len(v.Spec.Subclusters) != len(v.Status.Subclusters) {
-		errMsgs = append(errMsgs, fmt.Sprintf("spec.subclusters length %d does not match status.subclusters length %d", len(v.Spec.Subclusters), len(v.Status.Subclusters)))
+	if v.IsSubclusterOpNeeded() {
+		errMsgs = append(errMsgs, "subluster operation is still in progress")
 		return errMsgs
 	}
-	if len(v.Spec.Sandboxes) != 0 {
-		errMsgs = append(errMsgs, "cert rotation is not supported for sandboxes")
+	if v.IsSandboxOpNeeded() {
+		errMsgs = append(errMsgs, "sandboxing/unsandboxing operation is still in progress")
 		return errMsgs
-	}
-	for i := range v.Spec.Subclusters {
-		sc := v.Spec.Subclusters[i]
-		if sc.Name != v.Status.Subclusters[i].Name {
-			errMsgs = append(errMsgs, fmt.Sprintf("spec.subclusters[%d].name %q does not match status.subclusters[%d].name %q", i, sc.Name, i, v.Status.Subclusters[i].Name))
-		}
-		if sc.Size != v.Status.Subclusters[i].AddedToDBCount {
-			errMsgs = append(errMsgs, fmt.Sprintf("spec.subclusters[%d].size %d does not match status.subclusters[%d].AddedToDBCount %d", i, sc.Size, i, v.Status.Subclusters[i].AddedToDBCount))
-		}
-		if sc.Size != v.Status.Subclusters[i].UpNodeCount {
-			errMsgs = append(errMsgs, fmt.Sprintf("spec.subclusters[%d].size %d does not match status.subclusters[%d].UpNodeCount %d", i, sc.Size, i, v.Status.Subclusters[i].UpNodeCount))
-		}
-		if sc.Shutdown != v.Status.Subclusters[i].Shutdown {
-			errMsgs = append(errMsgs, fmt.Sprintf("spec.subclusters[%d].Shutdown %t does not match status.subclusters[%d].Shutdown %t", i, sc.Shutdown, i, v.Status.Subclusters[i].Shutdown))
-		}
 	}
 	return errMsgs
 }

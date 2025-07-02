@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"reflect"
 	"regexp"
 	"strconv"
 	"strings"
@@ -476,6 +477,50 @@ func (s *SandboxStatus) IsSubclusterInSandbox(scName string) bool {
 		}
 	}
 	return false
+}
+
+// convertSubclusterType converts both sandbox and main-cluster subcluster types to
+// main-cluster cluster type
+func convertSubclusterType(ctype string) string {
+	if ctype == PrimarySubcluster {
+		return PrimarySubcluster
+	}
+	return SecondarySubcluster
+}
+
+// IsSubclusterOpNeeded returns true if all subclusters in spec.Subclusters are not the same
+// as subclusters in status.subclusters
+func (v *VerticaDB) IsSubclusterOpNeeded() bool {
+	type subcluster struct {
+		Size     int32
+		Type     string
+		Shutdown bool
+	}
+	specScs := make(map[string]subcluster)
+	for i := range v.Spec.Subclusters {
+		specScs[v.Spec.Subclusters[i].Name] = subcluster{
+			Size:     v.Spec.Subclusters[i].Size,
+			Type:     convertSubclusterType(v.Spec.Subclusters[i].Type),
+			Shutdown: v.Spec.Subclusters[i].Shutdown,
+		}
+	}
+	statusScs := make(map[string]subcluster)
+	for i := range v.Status.Subclusters {
+		statusScs[v.Status.Subclusters[i].Name] = subcluster{
+			Size:     v.Status.Subclusters[i].UpNodeCount,
+			Type:     convertSubclusterType(v.Status.Subclusters[i].Type),
+			Shutdown: v.Status.Subclusters[i].Shutdown,
+		}
+	}
+	return !reflect.DeepEqual(specScs, statusScs)
+}
+
+// IsSandboxOpNeeded returns true if all subclusters in spec.Sandbox are not the same
+// as subclusters in status.sandbox
+func (v *VerticaDB) IsSandboxOpNeeded() bool {
+	specScSbMap := v.GenSubclusterSandboxMap()
+	statusScSbMap := v.GenSubclusterSandboxStatusMap()
+	return !reflect.DeepEqual(specScSbMap, statusScSbMap)
 }
 
 // GenCompatibleFQDN returns a name of the subcluster that is

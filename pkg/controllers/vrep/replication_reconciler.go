@@ -183,6 +183,11 @@ func (r *ReplicationReconciler) determineUsernameAndPassword(ctx context.Context
 		return err
 	}
 
+	if r.TargetInfo.Vdb.IsSetForTLS() && r.TargetInfo.Password == "" && r.Vrep.Spec.TLSConfig == "" {
+		return fmt.Errorf("cannot use empty password when tls is enabled in target vdb %q",
+			r.TargetInfo.Vdb.Name)
+	}
+
 	return
 }
 
