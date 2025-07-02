@@ -1469,8 +1469,8 @@ func (v *VerticaDB) hasTLSSecretsWhenRevive(allErrs field.ErrorList) field.Error
 		return allErrs
 	}
 
-	if vmeta.UseTLSAuth(v.Annotations) {
-		if v.GetHTTPSNMATLSSecret() == "" {
+	if vmeta.UseTLSAuth(v.Annotations) && !vmeta.ShouldBypassSecretCheckOnRevive(v.Annotations) {
+		if v.GetHTTPSNMATLSSecret() == "" && v.Spec.NMATLSSecret == "" {
 			err := field.Invalid(field.NewPath("spec").Child("httpsNMATLS").Child("secret"),
 				v.GetHTTPSNMATLSSecret(),
 				"httpsNMATLS.Secret cannot be empty when initPolicy is set to 'revive' and TLS is enabled")

@@ -20,6 +20,7 @@ metadata:
     vertica.com/k-safety: "0"
     vertica.com/requeue-time: "4"
     vertica.com/ignore-cluster-lease: "true"
+    vertica.com/bypass-secret-check-on-revive: "true"
 spec:
   image: kustomize-vertica-image
   communal: {}

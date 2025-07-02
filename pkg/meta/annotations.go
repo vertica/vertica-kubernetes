@@ -430,6 +430,11 @@ const (
 
 	// This annotation ensures the tls secrets are removed after the VDB is removed.
 	RemoveTLSSecretOnVDBDeleteAnnotation = "vertica.com/remove-tls-secret-on-vdb-delete" // #nosec G101
+
+	// When reviving a database, if tls is enabled the tls secrets must be set. This allows to skip
+	// the check that ensures that the secrets are set before reviving a database.
+	// This is useful for testing purposes
+	ByPassSecretCheckOnReviveAnnotation = "vertica.com/bypass-secret-check-on-revive" // #nosec G101
 )
 
 // IsPauseAnnotationSet will check the annotations for a special value that will
@@ -831,6 +836,11 @@ func GetTLSCacheDuration(annotations map[string]string) int {
 // ShouldRemoveTLSSecret returns true if a tls secret must be removed on VDB delete
 func ShouldRemoveTLSSecret(annotations map[string]string) bool {
 	return lookupBoolAnnotation(annotations, RemoveTLSSecretOnVDBDeleteAnnotation, false)
+}
+
+// ShouldBypassSecretCheckOnRevive returns true if the operator should bypass the secret check on revive
+func ShouldBypassSecretCheckOnRevive(annotations map[string]string) bool {
+	return lookupBoolAnnotation(annotations, ByPassSecretCheckOnReviveAnnotation, false)
 }
 
 // lookupBoolAnnotation is a helper function to lookup a specific annotation and
