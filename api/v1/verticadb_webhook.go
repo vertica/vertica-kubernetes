@@ -825,16 +825,16 @@ func (v *VerticaDB) hasValidClientServerTLSMode(allErrs field.ErrorList) field.E
 // when TLS is enabled
 func (v *VerticaDB) hasTLSSecretsSetForRevive(allErrs field.ErrorList) field.ErrorList {
 	if vmeta.UseTLSAuth(v.Annotations) && v.Spec.InitPolicy == CommunalInitPolicyRevive {
-		if v.GetHTTPSNMATLSSecret() == "" {
-			err := field.Invalid(field.NewPath("spec").Child("httpsNMATLS"),
-				v.Spec.HTTPSNMATLS,
-				"httpsNMATLS.Secret must be set for reviving db")
+		if v.GetHTTPSNMATLSSecret() == "" && v.Spec.NMATLSSecret == "" {
+			err := field.Invalid(field.NewPath("spec").Child("httpsNMATLS").Child("secret"),
+				v.GetHTTPSNMATLSSecret(),
+				"httpsNMATLS.Secret cannot be empty when initPolicy is set to 'revive' and TLS is enabled")
 			allErrs = append(allErrs, err)
 		}
 		if v.GetClientServerTLSSecret() == "" {
-			err := field.Invalid(field.NewPath("spec").Child("clientServerTLS"),
-				v.Spec.ClientServerTLS,
-				"clientServerTLS.Secret must be set for reviving db")
+			err := field.Invalid(field.NewPath("spec").Child("clientServerTLS").Child("secret"),
+				v.GetHTTPSNMATLSSecret(),
+				"clientServerTLS.Secret cannot be empty when initPolicy is set to 'revive' and TLS is enabled")
 			allErrs = append(allErrs, err)
 		}
 	}
@@ -2509,6 +2509,15 @@ func (v *VerticaDB) checkIfAnyOpInProgressBeforeTLSChange(oldObj *VerticaDB, all
 	errMsgs := v.findChangedTLSFields(oldObj)
 	// we don't need to check if the user doesn't change tls fields
 	if len(errMsgs) == 0 {
+		return allErrs
+	}
+
+	// we cannot rotate certs when there are sandboxes
+	tlsConfigChanged := len(errMsgs) != 0 && vmeta.UseTLSAuth(v.Annotations) == vmeta.UseTLSAuth(oldObj.Annotations)
+	if tlsConfigChanged && len(v.Spec.Sandboxes) > 0 {
+		allErrs = append(allErrs, field.Invalid(
+			field.NewPath("spec").Child("sandboxes"), "", "while there are sandboxes, we cannot update TLS fields: "+
+				strings.Join(errMsgs, ", ")))
 		return allErrs
 	}
 
