@@ -19,7 +19,6 @@ metadata:
     vertica.com/include-uid-in-path: "false"
     vertica.com/k-safety: "0"
     vertica.com/requeue-time: "4" 
-    vertica.com/bypass-secret-check-on-revive: "true"
 spec:
   image: kustomize-vertica-image
   communal: {}

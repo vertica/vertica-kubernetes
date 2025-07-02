@@ -36,9 +36,39 @@ const falseString = "false"
 
 var _ = Describe("verticadb_webhook", func() {
 	const (
-		newSecret = "new-secret"
 		oldSecret = "old-secret"
+		newSecret = "new-secret"
+		oldMode   = "verify_ca"
+		newMode   = "verify_full"
 	)
+
+	var (
+		oldVdb1 *VerticaDB
+		newVdb1 *VerticaDB
+	)
+
+	BeforeEach(func() {
+		oldVdb1 = MakeVDB()
+		newVdb1 = oldVdb1.DeepCopy()
+		// Enable TLS
+		oldVdb1.Annotations[vmeta.EnableTLSAuthAnnotation] = trueString
+		newVdb1.Annotations[vmeta.EnableTLSAuthAnnotation] = trueString
+		// Set initial TLS secrets and modes
+		oldVdb1.Spec.HTTPSNMATLS = &TLSConfigSpec{Secret: oldSecret, Mode: oldMode}
+		oldVdb1.Spec.ClientServerTLS = &TLSConfigSpec{Secret: oldSecret, Mode: oldMode}
+		newVdb1.Spec.HTTPSNMATLS = &TLSConfigSpec{Secret: oldSecret, Mode: oldMode}
+		newVdb1.Spec.ClientServerTLS = &TLSConfigSpec{Secret: oldSecret, Mode: oldMode}
+		// Set status fields to match spec
+		oldVdb1.Status.TLSConfigs = []TLSConfigStatus{
+			{Name: HTTPSNMATLSConfigName, Secret: oldSecret, Mode: oldMode},
+			{Name: ClientServerTLSConfigName, Secret: oldSecret, Mode: oldMode},
+		}
+		newVdb1.Status.TLSConfigs = []TLSConfigStatus{
+			{Name: HTTPSNMATLSConfigName, Secret: oldSecret, Mode: oldMode},
+			{Name: ClientServerTLSConfigName, Secret: oldSecret, Mode: oldMode},
+		}
+	})
+
 	// validate VerticaDB spec values
 	It("should succeed with all valid fields", func() {
 		vdb := createVDBHelper()
@@ -2330,69 +2360,48 @@ var _ = Describe("verticadb_webhook", func() {
 		Expect(allErrs).Should(BeEmpty())
 	})
 
-	It("should return no error if initPolicy is not Revive", func() {
-		vdb := MakeVDB()
-		vdb.Spec.InitPolicy = CommunalInitPolicyCreate
-		vdb.Annotations[vmeta.EnableTLSAuthAnnotation] = trueString
-		vdb.Spec.HTTPSNMATLS.Secret = ""
-		vdb.Spec.ClientServerTLS.Secret = ""
-		allErrs := vdb.hasTLSSecretsWhenRevive(field.ErrorList{})
+	It("should return no error if nothing changes", func() {
+		allErrs := newVdb1.checkImmutableTLSConfig(oldVdb1, nil)
 		Expect(allErrs).Should(BeEmpty())
 	})
 
-	It("should return no error if TLS is not enabled", func() {
-		vdb := MakeVDB()
-		vdb.Spec.InitPolicy = CommunalInitPolicyRevive
-		delete(vdb.Annotations, vmeta.EnableTLSAuthAnnotation)
-		vdb.Spec.HTTPSNMATLS.Secret = ""
-		vdb.Spec.ClientServerTLS.Secret = ""
-		allErrs := vdb.hasTLSSecretsWhenRevive(field.ErrorList{})
+	It("should return error if both httpsNMATLS and clientServerTLS are changed at the same time", func() {
+		newVdb1.Spec.HTTPSNMATLS.Secret = newSecret
+		newVdb1.Spec.ClientServerTLS.Secret = newSecret
+		allErrs := newVdb1.checkImmutableTLSConfig(oldVdb1, nil)
+		Expect(allErrs).Should(HaveLen(1))
+		Expect(allErrs[0].Error()).To(ContainSubstring("cannot change both httpsNMATLS and clientServerTLS at the same time"))
+	})
+
+	It("should return error if httpsNMATLS is changed during TLS config update in progress and does not match status", func() {
+		newVdb1.Spec.HTTPSNMATLS.Secret = newSecret
+		newVdb1.Status.Conditions = append(newVdb1.Status.Conditions, *MakeCondition(TLSConfigUpdateInProgress, metav1.ConditionTrue, ""))
+		allErrs := newVdb1.checkImmutableTLSConfig(oldVdb1, nil)
+		Expect(allErrs).Should(HaveLen(1))
+		Expect(allErrs[0].Error()).To(ContainSubstring("httpsNMATLS cannot be changed when tls config update is in progress"))
+	})
+
+	It("should not return error if httpsNMATLS is changed during TLS config update in progress but matches status", func() {
+		newVdb1.Spec.HTTPSNMATLS.Secret = newSecret
+		newVdb1.Status.TLSConfigs[0].Secret = newSecret
+		newVdb1.Status.Conditions = append(newVdb1.Status.Conditions, *MakeCondition(TLSConfigUpdateInProgress, metav1.ConditionTrue, ""))
+		allErrs := newVdb1.checkImmutableTLSConfig(oldVdb1, nil)
 		Expect(allErrs).Should(BeEmpty())
 	})
 
-	It("should return error if HTTPSNMATLS.Secret is empty when TLS is enabled and initPolicy is Revive", func() {
-		vdb := MakeVDB()
-		vdb.Spec.InitPolicy = CommunalInitPolicyRevive
-		vdb.Annotations[vmeta.EnableTLSAuthAnnotation] = trueString
-		vdb.Spec.HTTPSNMATLS.Secret = ""
-		vdb.Spec.ClientServerTLS.Secret = "client-secret"
-		allErrs := vdb.hasTLSSecretsWhenRevive(field.ErrorList{})
+	It("should return error if clientServerTLS is changed during TLS config update in progress and does not match status", func() {
+		newVdb1.Spec.ClientServerTLS.Secret = newSecret
+		newVdb1.Status.Conditions = append(newVdb1.Status.Conditions, *MakeCondition(TLSConfigUpdateInProgress, metav1.ConditionTrue, ""))
+		allErrs := newVdb1.checkImmutableTLSConfig(oldVdb1, nil)
 		Expect(allErrs).Should(HaveLen(1))
-		Expect(allErrs[0].Field).To(ContainSubstring("spec.httpsNMATLS.secret"))
-		Expect(allErrs[0].Error()).To(ContainSubstring("httpsNMATLS.Secret cannot be empty"))
+		Expect(allErrs[0].Error()).To(ContainSubstring("clientServerTLS cannot be changed when tls config update is in progress"))
 	})
 
-	It("should return error if ClientServerTLS.Secret is empty when TLS is enabled and initPolicy is Revive", func() {
-		vdb := MakeVDB()
-		vdb.Spec.InitPolicy = CommunalInitPolicyRevive
-		vdb.Annotations[vmeta.EnableTLSAuthAnnotation] = trueString
-		vdb.Spec.HTTPSNMATLS.Secret = newSecret
-		vdb.Spec.ClientServerTLS.Secret = ""
-		allErrs := vdb.hasTLSSecretsWhenRevive(field.ErrorList{})
-		Expect(allErrs).Should(HaveLen(1))
-		Expect(allErrs[0].Field).To(ContainSubstring("spec.clientServerTLS.secret"))
-		Expect(allErrs[0].Error()).To(ContainSubstring("clientServerTLS.Secret cannot be empty"))
-	})
-
-	It("should return errors for both secrets if both are empty", func() {
-		vdb := MakeVDB()
-		vdb.Spec.InitPolicy = CommunalInitPolicyRevive
-		vdb.Annotations[vmeta.EnableTLSAuthAnnotation] = trueString
-		vdb.Spec.HTTPSNMATLS.Secret = ""
-		vdb.Spec.ClientServerTLS.Secret = ""
-		allErrs := vdb.hasTLSSecretsWhenRevive(field.ErrorList{})
-		Expect(allErrs).Should(HaveLen(2))
-		Expect(allErrs[0].Field).To(ContainSubstring("spec.httpsNMATLS.secret"))
-		Expect(allErrs[1].Field).To(ContainSubstring("spec.clientServerTLS.secret"))
-	})
-
-	It("should return no error if both secrets are set and TLS is enabled and initPolicy is Revive", func() {
-		vdb := MakeVDB()
-		vdb.Spec.InitPolicy = CommunalInitPolicyRevive
-		vdb.Annotations[vmeta.EnableTLSAuthAnnotation] = trueString
-		vdb.Spec.HTTPSNMATLS.Secret = newSecret
-		vdb.Spec.ClientServerTLS.Secret = newSecret
-		allErrs := vdb.hasTLSSecretsWhenRevive(field.ErrorList{})
+	It("should not return error if clientServerTLS is changed during TLS config update in progress but matches status", func() {
+		newVdb1.Spec.ClientServerTLS.Secret = newSecret
+		newVdb1.Status.TLSConfigs[1].Secret = newSecret
+		newVdb1.Status.Conditions = append(newVdb1.Status.Conditions, *MakeCondition(TLSConfigUpdateInProgress, metav1.ConditionTrue, ""))
+		allErrs := newVdb1.checkImmutableTLSConfig(oldVdb1, nil)
 		Expect(allErrs).Should(BeEmpty())
 	})
 
