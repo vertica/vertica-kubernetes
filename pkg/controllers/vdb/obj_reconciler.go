@@ -56,8 +56,6 @@ const (
 	ObjReconcileModePreserveUpdateStrategy
 	// Reconcile for annotation only
 	ObjReconcileModeAnnotation
-	// Must reconcile only nma config map
-	ObjReconcileModeNMAConfigMap
 	// Reconcile to consider every change. Without this we will skip svc objects.
 	ObjReconcileModeAll
 )
@@ -129,11 +127,6 @@ func (o *ObjReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Re
 
 	if err := o.reconcileTLSSecrets(ctx); err != nil {
 		return ctrl.Result{}, err
-	}
-
-	if o.Mode&ObjReconcileModeNMAConfigMap != 0 {
-		// return since we only want to reconcile the nma config map
-		return ctrl.Result{}, nil
 	}
 
 	// Check the objects for subclusters that should exist.  This will create

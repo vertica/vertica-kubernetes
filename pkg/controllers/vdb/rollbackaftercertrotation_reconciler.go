@@ -53,7 +53,7 @@ func (r *RollbackAfterCertRotationReconciler) Reconcile(ctx context.Context, _ *
 	}
 
 	funcs := []func(context.Context) (ctrl.Result, error){
-		r.runObjReconciler,
+		r.runNMACertConfigMapReconciler,
 		r.shutdownNMA,
 		r.waitForNMAUp,
 		r.pollNMACertHealth,
@@ -71,11 +71,11 @@ func (r *RollbackAfterCertRotationReconciler) Reconcile(ctx context.Context, _ *
 	return ctrl.Result{}, nil
 }
 
-func (r *RollbackAfterCertRotationReconciler) runObjReconciler(ctx context.Context) (ctrl.Result, error) {
+func (r *RollbackAfterCertRotationReconciler) runNMACertConfigMapReconciler(ctx context.Context) (ctrl.Result, error) {
 	if !r.Vdb.IsRollbackAfterNMACertRotation() {
 		return ctrl.Result{}, nil
 	}
-	rec := MakeObjReconciler(r.VRec, r.Log, r.Vdb, r.PFacts, ObjReconcileModeNMAConfigMap)
+	rec := MakeNMACertConfigMapReconciler(r.VRec, r.Log, r.Vdb)
 	traceActorReconcile(rec, r.Log, "tls cert rollback")
 	return rec.Reconcile(ctx, &ctrl.Request{})
 }
