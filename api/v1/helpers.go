@@ -111,6 +111,17 @@ func SetVDBForTLS(v *VerticaDB) {
 	v.Annotations[vmeta.VClusterOpsAnnotation] = trueString
 }
 
+func SetVDBWithHTTPSTLSConfigSet(v *VerticaDB, secretName string) {
+	SetVDBForTLS(v)
+	v.Status.TLSConfigs = []TLSConfigStatus{
+		{
+			Name:   HTTPSNMATLSConfigName,
+			Secret: secretName,
+			Mode:   tlsModeTryVerify,
+		},
+	}
+}
+
 // MakeVDB is a helper that constructs a fully formed VerticaDB struct using the sample name.
 // This is intended for test purposes.
 func MakeVDB() *VerticaDB {
@@ -612,9 +623,8 @@ func (v *VerticaDB) IsUpgradeInProgress() bool {
 	return v.IsStatusConditionTrue(UpgradeInProgress)
 }
 
-// IsCertRotationInProgress returns true if an online upgrade is in progress
-func (v *VerticaDB) IsCertRotationInProgress() bool {
-	return v.IsStatusConditionTrue(TLSCertRotationInProgress)
+func (v *VerticaDB) IsTLSConfigUpdateInProgress() bool {
+	return v.IsStatusConditionTrue(TLSConfigUpdateInProgress)
 }
 
 func (v *VerticaDB) IsTLSCertRollbackNeeded() bool {
@@ -896,22 +906,6 @@ func (v *VerticaDB) GetCreateDBNodeStartTimeout() int {
 // GetActiveConnectionsDrainSeconds returns time in seconds to wait for a subcluster/database users' disconnection
 func (v *VerticaDB) GetActiveConnectionsDrainSeconds() int {
 	return vmeta.GetActiveConnectionsDrainSeconds(v.Annotations)
-}
-
-// IsTLSAUthEnabled returns true if the version supports TLS auth and
-// TLS auth is enabled.
-func (v *VerticaDB) IsTLSAuthEnabled() bool {
-	if !vmeta.UseVClusterOps(v.Annotations) {
-		return false
-	}
-	vinf, hasVersion := v.MakeVersionInfo()
-	// Assume we are running a version that does not support TLS auth
-	// if version is not present.
-	if !hasVersion {
-		return false
-	}
-	return vinf.IsEqualOrNewer(TLSAuthMinVersion) &&
-		vmeta.UseTLSAuth(v.Annotations)
 }
 
 // IsHTTPProbeSupported returns true if the version supports certs
@@ -1242,6 +1236,55 @@ func (v *VerticaDB) IsHTTPSTLSConfGenerationEnabled() (bool, error) {
 		return false, err
 	}
 	return !inf.IsEqualOrNewer(AutoGenerateHTTPSCertsForNewDatabasesMinVersion), nil
+}
+
+// IsHTTPSConfigEnabled returns true if tls is enabled and https tls config
+// exists in the db. It means the db ops can start using tls
+func (v *VerticaDB) IsHTTPSConfigEnabled() bool {
+	return v.IsSetForTLS() &&
+		v.GetHTTPSNMATLSSecretInUse() != ""
+}
+
+// IsHTTPSConfigEnabledWithCreate returns true if tls is enabled and https tls config
+// exists in the db. It means the db ops can start using tls. For revive, there is know way to know
+// the db had tls configs until after revive so can't make any assumptions
+func (v *VerticaDB) IsHTTPSConfigEnabledWithCreate() bool {
+	if v.Spec.InitPolicy == CommunalInitPolicyCreate {
+		return v.IsHTTPSConfigEnabled()
+	}
+
+	return v.IsSetForTLS()
+}
+
+// IsClientServerConfigEnabled returns true if tls is enabled and client-server tls config
+// exists in the db
+func (v *VerticaDB) IsClientServerConfigEnabled() bool {
+	return v.IsSetForTLS() &&
+		v.GetClientServerTLSSecretInUse() != ""
+}
+
+// IsSetForTLS returns true if VerticaDB is set and ready for tls.
+// It does not mean vclusterops can now operate using tls, for
+// that we need to wait until tls configurations are created
+func (v *VerticaDB) IsSetForTLS() bool {
+	return v.IsValidVersionForTLS() &&
+		vmeta.UseTLSAuth(v.Annotations)
+}
+
+// IsValidVersionForTLS returns true if the server version
+// supports tls
+func (v *VerticaDB) IsValidVersionForTLS() bool {
+	if !vmeta.UseVClusterOps(v.Annotations) {
+		return false
+	}
+	vinf, hasVersion := v.MakeVersionInfo()
+	// Assume we are running a version that does not support cert rotation
+	// if version is not present.
+	if !hasVersion {
+		return false
+	}
+
+	return vinf.IsEqualOrNewer(TLSAuthMinVersion)
 }
 
 // GenSubclusterStatusMap returns a map that has a subcluster name as key
@@ -1593,7 +1636,7 @@ func (v *VerticaDB) GetClientServerTLSSecretInUse() string {
 func (v *VerticaDB) GetHTTPSNMATLSSecretForConfigMap() string {
 	name := v.GetHTTPSNMATLSSecretInUse()
 	if name != "" &&
-		(!v.IsStatusConditionTrue(HTTPSCertRotationFinished) || v.IsTLSCertRollbackNeeded()) {
+		(!v.IsStatusConditionTrue(HTTPSTLSConfigUpdateFinished) || v.IsTLSCertRollbackNeeded()) {
 		return name
 	}
 	return v.GetHTTPSNMATLSSecret()

@@ -50,11 +50,11 @@ var _ = Describe("httpstls_reconciler", func() {
 		pfacts := createPodFactsWithNoDB(ctx, vdb, fpr, 3)
 		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
 
-		r := MakeTLSConfigReconciler(vdbRec, logger, vdb, fpr, dispatcher, pfacts, vapi.HTTPSNMATLSConfigName)
+		r := MakeTLSConfigReconciler(vdbRec, logger, vdb, fpr, dispatcher, pfacts, vapi.HTTPSNMATLSConfigName, &TLSConfigManager{})
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 		vapi.SetVDBForTLS(vdb)
 		Expect(vdb.IsStatusConditionTrue(vapi.DBInitialized)).Should(Equal(false))
-		r = MakeTLSConfigReconciler(vdbRec, logger, vdb, fpr, dispatcher, pfacts, vapi.HTTPSNMATLSConfigName)
+		r = MakeTLSConfigReconciler(vdbRec, logger, vdb, fpr, dispatcher, pfacts, vapi.HTTPSNMATLSConfigName, &TLSConfigManager{})
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 		vdb.Status.TLSConfigs = []vapi.TLSConfigStatus{
 			{
@@ -81,7 +81,14 @@ var _ = Describe("httpstls_reconciler", func() {
 		pfacts := createPodFactsWithNoDB(ctx, vdb, fpr, 3)
 		dispatcher := mockVClusterOpsDispatcher(vdb)
 		vapi.SetVDBForTLS(vdb)
-		r := MakeTLSConfigReconciler(vdbRec, logger, vdb, fpr, dispatcher, pfacts, vapi.HTTPSNMATLSConfigName)
+		const tryVerify = "try_verify"
+		man := &TLSConfigManager{
+			Vdb:        vdb,
+			Dispatcher: dispatcher,
+		}
+		man.NewTLSMode = tryVerify
+		man.NewSecret = rotateHTTPSCertNewNMASecretName
+		r := MakeTLSConfigReconciler(vdbRec, logger, vdb, fpr, dispatcher, pfacts, vapi.HTTPSNMATLSConfigName, man)
 
 		initiatorPod := &podfacts.PodFact{}
 		tlsConfigReconciler := r.(*TLSConfigReconciler)

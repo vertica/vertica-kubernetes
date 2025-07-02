@@ -1077,19 +1077,23 @@ const (
 	// operator create a restore point, using the spec.restorePoint.archive
 	// as the archive name to save to.
 	SaveRestorePointNeeded = "SaveRestorePointNeeded"
-	// HTTPSCertRotationFinished indicates the HTTPS TLS cert has been rotated
-	HTTPSCertRotationFinished = "HTTPSCertRotationFinished"
-	// TLSCertRotationInProgress indicates the TLS cert rotation has started
-	TLSCertRotationInProgress = "TLSCertRotationInProgress"
+	// HTTPSTLSConfigUpdateFinished indicates the HTTPS TLS config update has finished
+	HTTPSTLSConfigUpdateFinished        = "HTTPSTLSConfigUpdateFinished"
+	ClientServerTLSConfigUpdateFinished = "ClientServerTLSConfigUpdateFinished"
+	// TLSConfigUpdateInProgress indicates the TLS config update has started
+	TLSConfigUpdateInProgress = "TLSConfigUpdateInProgress"
 	// TLSCertRollbackNeeded indicates tls cert rotation failed and we need
 	// to rollback
 	TLSCertRollbackNeeded = "TLSCertRollbackNeeded"
 )
 
 const (
-	RollbackAfterHTTPSCertRotationReason = "HTTPSCertRotationFailed"
-	FailureBeforeCertHealthPollingReason = "HTTPSCertRotationFailedBeforeCertHealthPolling"
-	RollbackAfterNMACertRotationReason   = "NMACertRotationFailed"
+	// RollbackAfterCertRotationReason indicates failure during TLS rotation after TLS cert has been updated
+	RollbackAfterCertRotationReason = "CertRotationFailed"
+	// FailureBeforeCertHealthPollingReason indicates failure during TLS rotation before TLS vert has been updated
+	FailureBeforeCertHealthPollingReason = "CertRotationFailedBeforeCertHealthPolling"
+	// RollbackAfterNMACertRotationReason indicates failure during NMA cert rotation
+	RollbackAfterNMACertRotationReason = "NMACertRotationFailed"
 )
 
 const (

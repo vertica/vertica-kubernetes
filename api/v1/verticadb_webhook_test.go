@@ -502,10 +502,10 @@ var _ = Describe("verticadb_webhook", func() {
 		Expect(allErrs).ShouldNot(BeNil())
 	})
 
-	It("should only allow cert-rotation-related changes when cert rotation is in progress", func() {
+	It("should only allow tls config related changes when tls config update is in progress", func() {
 		oldVdb := MakeVDBForCertRotationEnabled()
 		oldVdb.Status.Conditions = append(oldVdb.Status.Conditions, metav1.Condition{
-			Type:   TLSCertRotationInProgress,
+			Type:   TLSConfigUpdateInProgress,
 			Status: metav1.ConditionTrue,
 		})
 		oldVdb.Spec.HTTPSNMATLS.Secret = "secret1"
@@ -519,21 +519,21 @@ var _ = Describe("verticadb_webhook", func() {
 		// Only cert-rotation-related changes: allowed
 		newVdb := oldVdb.DeepCopy()
 		newVdb.Spec.HTTPSNMATLS.Secret = "secret2"
-		allErrs := newVdb.checkValidTLSCertRotation(oldVdb, nil)
+		allErrs := newVdb.checkValidTLSConfigUpdate(oldVdb, nil)
 		Ω(allErrs).Should(BeEmpty())
 
 		newVdb.Spec.ClientServerTLS.Secret = "secret2"
-		allErrs = newVdb.checkValidTLSCertRotation(oldVdb, nil)
+		allErrs = newVdb.checkValidTLSConfigUpdate(oldVdb, nil)
 		Ω(allErrs).Should(BeEmpty())
 
 		newVdb.Spec.ClientServerTLS.Mode = tlsModeTryVerify
-		allErrs = newVdb.checkValidTLSCertRotation(oldVdb, nil)
+		allErrs = newVdb.checkValidTLSConfigUpdate(oldVdb, nil)
 		Ω(allErrs).Should(BeEmpty())
 
 		// SomeOtherField changes: forbidden
 		newVdb = oldVdb.DeepCopy()
 		newVdb.Spec.Subclusters[1].Size = 3
-		allErrs = newVdb.checkValidTLSCertRotation(oldVdb, nil)
+		allErrs = newVdb.checkValidTLSConfigUpdate(oldVdb, nil)
 		Ω(allErrs).ShouldNot(BeEmpty())
 	})
 
@@ -542,7 +542,7 @@ var _ = Describe("verticadb_webhook", func() {
 		oldVdb.Spec.HTTPSNMATLS.Secret = "enabled"
 		newVdb := oldVdb.DeepCopy()
 		newVdb.Spec.HTTPSNMATLS.Secret = ""
-		allErrs := newVdb.checkValidTLSCertRotation(oldVdb, nil)
+		allErrs := newVdb.checkValidTLSConfigUpdate(oldVdb, nil)
 		Ω(allErrs).ShouldNot(BeEmpty())
 	})
 
@@ -559,15 +559,15 @@ var _ = Describe("verticadb_webhook", func() {
 		// No cert-rotation-related changes is allowed
 		newVdb := oldVdb.DeepCopy()
 		newVdb.Spec.HTTPSNMATLS.Secret = "new-secret"
-		allErrs := newVdb.checkValidTLSCertRotation(oldVdb, nil)
+		allErrs := newVdb.checkValidTLSConfigUpdate(oldVdb, nil)
 		Ω(allErrs).ShouldNot(BeEmpty())
 
 		newVdb.Spec.ClientServerTLS.Secret = "new-secret"
-		allErrs = newVdb.checkValidTLSCertRotation(oldVdb, nil)
+		allErrs = newVdb.checkValidTLSConfigUpdate(oldVdb, nil)
 		Ω(allErrs).ShouldNot(BeEmpty())
 
 		newVdb.Spec.ClientServerTLS.Mode = tlsModeTryVerify
-		allErrs = newVdb.checkValidTLSCertRotation(oldVdb, nil)
+		allErrs = newVdb.checkValidTLSConfigUpdate(oldVdb, nil)
 		Ω(allErrs).ShouldNot(BeEmpty())
 	})
 
@@ -576,7 +576,7 @@ var _ = Describe("verticadb_webhook", func() {
 		oldVdb.Spec.NMATLSSecret = "old-nma"
 		newVdb := oldVdb.DeepCopy()
 		newVdb.Spec.NMATLSSecret = "new-nma"
-		allErrs := newVdb.checkValidTLSCertRotation(oldVdb, nil)
+		allErrs := newVdb.checkValidTLSConfigUpdate(oldVdb, nil)
 		Ω(allErrs).ShouldNot(BeEmpty())
 	})
 
@@ -2268,7 +2268,7 @@ func resetStatusConditionsForDBInitialized(v *VerticaDB) {
 }
 
 func resetStatusConditionsForCertRotationInProgress(v *VerticaDB) {
-	resetStatusConditionsForCondition(v, TLSCertRotationInProgress, metav1.ConditionTrue)
+	resetStatusConditionsForCondition(v, TLSConfigUpdateInProgress, metav1.ConditionTrue)
 }
 
 func resetStatusConditionsForCondition(v *VerticaDB, conditionType string, status metav1.ConditionStatus) {

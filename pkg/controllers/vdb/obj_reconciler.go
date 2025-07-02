@@ -813,7 +813,7 @@ func (o *ObjReconciler) handleStatefulSetUpdate(ctx context.Context, sc *vapi.Su
 
 // reconcileTLSSecrets will update tls secrets
 func (o *ObjReconciler) reconcileTLSSecrets(ctx context.Context) error {
-	if !o.Vdb.IsTLSAuthEnabled() || o.Vdb.ShouldRemoveTLSSecret() {
+	if !o.Vdb.IsSetForTLS() || o.Vdb.ShouldRemoveTLSSecret() {
 		return nil
 	}
 
