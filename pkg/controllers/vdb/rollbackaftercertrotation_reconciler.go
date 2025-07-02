@@ -28,7 +28,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-type RollbackAfterNMACertRotationReconciler struct {
+type RollbackAfterCertRotationReconciler struct {
 	VRec       *VerticaDBReconciler
 	Vdb        *vapi.VerticaDB // Vdb is the CRD we are acting on.
 	Log        logr.Logger
@@ -36,18 +36,18 @@ type RollbackAfterNMACertRotationReconciler struct {
 	PFacts     *podfacts.PodFacts
 }
 
-func MakeRollbackAfterNMACertRotationReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger, vdb *vapi.VerticaDB,
+func MakeRollbackAfterCertRotationReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger, vdb *vapi.VerticaDB,
 	dispatcher vadmin.Dispatcher, pfacts *podfacts.PodFacts) controllers.ReconcileActor {
-	return &RollbackAfterNMACertRotationReconciler{
+	return &RollbackAfterCertRotationReconciler{
 		VRec:       vdbrecon,
 		Vdb:        vdb,
-		Log:        log.WithName("RollbackAfterNMACertRotationReconciler"),
+		Log:        log.WithName("RollbackAfterCertRotationReconciler"),
 		Dispatcher: dispatcher,
 		PFacts:     pfacts,
 	}
 }
 
-func (r *RollbackAfterNMACertRotationReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
+func (r *RollbackAfterCertRotationReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
 	if !r.Vdb.IsTLSCertRollbackNeeded() {
 		return ctrl.Result{}, nil
 	}
@@ -71,7 +71,7 @@ func (r *RollbackAfterNMACertRotationReconciler) Reconcile(ctx context.Context, 
 	return ctrl.Result{}, nil
 }
 
-func (r *RollbackAfterNMACertRotationReconciler) runObjReconciler(ctx context.Context) (ctrl.Result, error) {
+func (r *RollbackAfterCertRotationReconciler) runObjReconciler(ctx context.Context) (ctrl.Result, error) {
 	if !r.Vdb.IsRollbackAfterNMACertRotation() {
 		return ctrl.Result{}, nil
 	}
@@ -80,7 +80,7 @@ func (r *RollbackAfterNMACertRotationReconciler) runObjReconciler(ctx context.Co
 	return rec.Reconcile(ctx, &ctrl.Request{})
 }
 
-func (r *RollbackAfterNMACertRotationReconciler) shutdownNMA(ctx context.Context) (ctrl.Result, error) {
+func (r *RollbackAfterCertRotationReconciler) shutdownNMA(ctx context.Context) (ctrl.Result, error) {
 	if !r.Vdb.IsRollbackAfterNMACertRotation() {
 		return ctrl.Result{}, nil
 	}
@@ -91,7 +91,7 @@ func (r *RollbackAfterNMACertRotationReconciler) shutdownNMA(ctx context.Context
 	return ctrl.Result{}, nil
 }
 
-func (r *RollbackAfterNMACertRotationReconciler) waitForNMAUp(ctx context.Context) (ctrl.Result, error) {
+func (r *RollbackAfterCertRotationReconciler) waitForNMAUp(ctx context.Context) (ctrl.Result, error) {
 	if !r.Vdb.IsRollbackAfterNMACertRotation() {
 		return ctrl.Result{}, nil
 	}
@@ -100,7 +100,7 @@ func (r *RollbackAfterNMACertRotationReconciler) waitForNMAUp(ctx context.Contex
 	return ctrl.Result{}, nil
 }
 
-func (r *RollbackAfterNMACertRotationReconciler) pollNMACertHealth(ctx context.Context) (ctrl.Result, error) {
+func (r *RollbackAfterCertRotationReconciler) pollNMACertHealth(ctx context.Context) (ctrl.Result, error) {
 	if !r.Vdb.IsRollbackAfterNMACertRotation() {
 		return ctrl.Result{}, nil
 	}
@@ -110,7 +110,7 @@ func (r *RollbackAfterNMACertRotationReconciler) pollNMACertHealth(ctx context.C
 	return ctrl.Result{}, nil
 }
 
-func (r *RollbackAfterNMACertRotationReconciler) httpsCertRotation(ctx context.Context) (ctrl.Result, error) {
+func (r *RollbackAfterCertRotationReconciler) httpsCertRotation(ctx context.Context) (ctrl.Result, error) {
 	if r.Vdb.IsRollbackFailureBeforeCertHealthPolling() {
 		return ctrl.Result{}, nil
 	}
@@ -120,12 +120,12 @@ func (r *RollbackAfterNMACertRotationReconciler) httpsCertRotation(ctx context.C
 	return ctrl.Result{}, nil
 }
 
-func (r *RollbackAfterNMACertRotationReconciler) updateNMATLSSecretInVdb(ctx context.Context) (ctrl.Result, error) {
+func (r *RollbackAfterCertRotationReconciler) updateNMATLSSecretInVdb(ctx context.Context) (ctrl.Result, error) {
 	// TODO: change spec.NMATLSSecret to its original value before cert rotation
 	return ctrl.Result{}, nil
 }
 
-func (r *RollbackAfterNMACertRotationReconciler) cleanUpConditions(ctx context.Context) (ctrl.Result, error) {
+func (r *RollbackAfterCertRotationReconciler) cleanUpConditions(ctx context.Context) (ctrl.Result, error) {
 	// TODO: we can clean up all conditions set for cert rotation and rollback
 	return ctrl.Result{}, nil
 }

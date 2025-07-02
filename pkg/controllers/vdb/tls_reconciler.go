@@ -74,7 +74,7 @@ func (h *TLSReconciler) constructActors(log logr.Logger, vdb *vapi.VerticaDB, pf
 		MakeNMACertConfigMapReconciler(h.VRec, log, vdb),
 		// rotate nma tls cert when tls cert secret name is changed in vdb.spec
 		MakeNMACertRotationReconciler(h.VRec, log, vdb, dispatcher, pfacts),
-		// rollback, in case of failure, any cert rotation op related to nmaTLSSecret
-		MakeRollbackAfterNMACertRotationReconciler(h.VRec, log, vdb, dispatcher, pfacts),
+		// rollback, in case of failure, any cert rotation op related to https or client-server TLS
+		MakeRollbackAfterCertRotationReconciler(h.VRec, log, vdb, dispatcher, pfacts),
 	}
 }

@@ -1090,7 +1090,7 @@ const (
 const (
 	// RollbackAfterCertRotationReason indicates failure during TLS rotation after TLS cert has been updated
 	RollbackAfterCertRotationReason = "CertRotationFailed"
-	// FailureBeforeCertHealthPollingReason indicates failure during TLS rotation before TLS vert has been updated
+	// FailureBeforeCertHealthPollingReason indicates failure during TLS rotation before TLS cert has been updated
 	FailureBeforeCertHealthPollingReason = "CertRotationFailedBeforeCertHealthPolling"
 	// RollbackAfterNMACertRotationReason indicates failure during NMA cert rotation
 	RollbackAfterNMACertRotationReason = "NMACertRotationFailed"
