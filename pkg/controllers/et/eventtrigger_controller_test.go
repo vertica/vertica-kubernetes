@@ -21,6 +21,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	v1api "github.com/vertica/vertica-kubernetes/api/v1"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/meta"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -30,7 +31,7 @@ var _ = Describe("eventtrigger_controller", func() {
 	ctx := context.Background()
 
 	It("should reconcile an EventTrigger with no errors if reference object doesn't exist", func() {
-		vdb := vapi.MakeVDB() // Intentionally not creating it as we want the reconcile to be a no-op
+		vdb := v1api.MakeVDB() // Intentionally not creating it as we want the reconcile to be a no-op
 		et := vapi.MakeET()
 		et.Spec.References[0] = *makeETRefObjectOfVDB(vdb)
 		Expect(k8sClient.Create(ctx, et)).Should(Succeed())

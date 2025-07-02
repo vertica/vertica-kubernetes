@@ -107,8 +107,19 @@ func (v *VerticaDB) FindTransientSubcluster() *Subcluster {
 
 func SetVDBForTLS(v *VerticaDB) {
 	v.Annotations[vmeta.EnableTLSAuthAnnotation] = trueString
-	v.Annotations[vmeta.VersionAnnotation] = TLSCertRotationMinVersion
+	v.Annotations[vmeta.VersionAnnotation] = TLSAuthMinVersion
 	v.Annotations[vmeta.VClusterOpsAnnotation] = trueString
+}
+
+func SetVDBWithHTTPSTLSConfigSet(v *VerticaDB, secretName string) {
+	SetVDBForTLS(v)
+	v.Status.TLSConfigs = []TLSConfigStatus{
+		{
+			Name:   HTTPSNMATLSConfigName,
+			Secret: secretName,
+			Mode:   tlsModeTryVerify,
+		},
+	}
 }
 
 // MakeVDB is a helper that constructs a fully formed VerticaDB struct using the sample name.
@@ -167,6 +178,8 @@ func MakeVDB() *VerticaDB {
 			},
 			ServiceHTTPSPort:  DefaultServiceHTTPSPort,
 			ServiceClientPort: DefaultServiceClientPort,
+			HTTPSNMATLS:       &TLSConfigSpec{},
+			ClientServerTLS:   &TLSConfigSpec{},
 		},
 	}
 }
@@ -176,7 +189,7 @@ func MakeVDB() *VerticaDB {
 func MakeVDBForHTTP(httpServerTLSSecretName string) *VerticaDB {
 	vdb := MakeVDB()
 	vdb.Annotations[vmeta.VersionAnnotation] = HTTPServerMinVersion
-	vdb.Spec.HTTPSNMATLSSecret = httpServerTLSSecretName
+	vdb.Spec.HTTPSNMATLS.Secret = httpServerTLSSecretName
 	return vdb
 }
 
@@ -369,34 +382,20 @@ func MakeCondition(ctype string, status metav1.ConditionStatus, reason string) *
 	}
 }
 
-func MakeSecretRef(stype, name string) *SecretRef {
-	return &SecretRef{
-		Name: name,
-		Type: stype,
+func MakeTLSConfig(name, secret, mode string) *TLSConfigStatus {
+	return &TLSConfigStatus{
+		Name:   name,
+		Secret: secret,
+		Mode:   mode,
 	}
 }
 
-func MakeClientServerTLSSecretRef(name string) *SecretRef {
-	return MakeSecretRef(ClientServerTLSSecretType, name)
+func MakeClientServerTLSConfig(secret, mode string) *TLSConfigStatus {
+	return MakeTLSConfig(ClientServerTLSConfigName, secret, mode)
 }
 
-func MakeHTTPSTLSSecretRef(name string) *SecretRef {
-	return MakeSecretRef(HTTPSTLSSecretType, name)
-}
-
-func MakeTLSMode(stype, mode string) *TLSMode {
-	return &TLSMode{
-		Mode: mode,
-		Type: stype,
-	}
-}
-
-func MakeClientServerTLSMode(mode string) *TLSMode {
-	return MakeTLSMode(ClientServerTLSModeType, mode)
-}
-
-func MakeHTTPSTLSMode(mode string) *TLSMode {
-	return MakeTLSMode(HTTPSTLSModeType, mode)
+func MakeHTTPSNMATLSConfig(secret, mode string) *TLSConfigStatus {
+	return MakeTLSConfig(HTTPSNMATLSConfigName, secret, mode)
 }
 
 // HasReviveInstanceIDAnnotation is true when an annotation exists for the db's
@@ -624,9 +623,8 @@ func (v *VerticaDB) IsUpgradeInProgress() bool {
 	return v.IsStatusConditionTrue(UpgradeInProgress)
 }
 
-// IsCertRotationInProgress returns true if an online upgrade is in progress
-func (v *VerticaDB) IsCertRotationInProgress() bool {
-	return v.IsStatusConditionTrue(TLSCertRotationInProgress)
+func (v *VerticaDB) IsTLSConfigUpdateInProgress() bool {
+	return v.IsStatusConditionTrue(TLSConfigUpdateInProgress)
 }
 
 // IsStatusConditionTrue returns true when the conditionType is present and set to
@@ -878,22 +876,6 @@ func (v *VerticaDB) GetActiveConnectionsDrainSeconds() int {
 	return vmeta.GetActiveConnectionsDrainSeconds(v.Annotations)
 }
 
-// IsCertRotationEnabled returns true if the version supports certs and
-// cert rotation is enabled.
-func (v *VerticaDB) IsCertRotationEnabled() bool {
-	if !vmeta.UseVClusterOps(v.Annotations) {
-		return false
-	}
-	vinf, hasVersion := v.MakeVersionInfo()
-	// Assume we are running a version that does not support cert rotation
-	// if version is not present.
-	if !hasVersion {
-		return false
-	}
-	return vinf.IsEqualOrNewer(TLSCertRotationMinVersion) &&
-		vmeta.UseTLSAuth(v.Annotations)
-}
-
 // IsHTTPProbeSupported returns true if the version supports certs
 func (v *VerticaDB) IsHTTPProbeSupported(ver string) bool {
 	vinf, hasVersion := v.MakeVersionInfo()
@@ -905,7 +887,7 @@ func (v *VerticaDB) IsHTTPProbeSupported(ver string) bool {
 	if !hasVersion {
 		return false
 	}
-	return vinf.IsEqualOrNewer(TLSCertRotationMinVersion)
+	return vinf.IsEqualOrNewer(TLSAuthMinVersion)
 }
 
 // IsNMASideCarDeploymentEnabled returns true if the conditions to run NMA
@@ -1149,6 +1131,14 @@ func (v *VerticaDB) IsFetchNodeDetailsLogDisabled() bool {
 	return vmeta.IsFetchNodeDetailsLogDisabled(v.Annotations)
 }
 
+func (v *VerticaDB) GetTLSCacheDuration() uint64 {
+	duration := vmeta.GetTLSCacheDuration(v.Annotations)
+	if duration < 0 {
+		return 0
+	}
+	return uint64(duration)
+}
+
 func (v *VerticaDB) ShouldRemoveTLSSecret() bool {
 	return vmeta.ShouldRemoveTLSSecret(v.Annotations)
 }
@@ -1214,6 +1204,55 @@ func (v *VerticaDB) IsHTTPSTLSConfGenerationEnabled() (bool, error) {
 		return false, err
 	}
 	return !inf.IsEqualOrNewer(AutoGenerateHTTPSCertsForNewDatabasesMinVersion), nil
+}
+
+// IsHTTPSConfigEnabled returns true if tls is enabled and https tls config
+// exists in the db. It means the db ops can start using tls
+func (v *VerticaDB) IsHTTPSConfigEnabled() bool {
+	return v.IsSetForTLS() &&
+		v.GetHTTPSNMATLSSecretInUse() != ""
+}
+
+// IsHTTPSConfigEnabledWithCreate returns true if tls is enabled and https tls config
+// exists in the db. It means the db ops can start using tls. For revive, there is know way to know
+// the db had tls configs until after revive so can't make any assumptions
+func (v *VerticaDB) IsHTTPSConfigEnabledWithCreate() bool {
+	if v.Spec.InitPolicy == CommunalInitPolicyCreate {
+		return v.IsHTTPSConfigEnabled()
+	}
+
+	return v.IsSetForTLS()
+}
+
+// IsClientServerConfigEnabled returns true if tls is enabled and client-server tls config
+// exists in the db
+func (v *VerticaDB) IsClientServerConfigEnabled() bool {
+	return v.IsSetForTLS() &&
+		v.GetClientServerTLSSecretInUse() != ""
+}
+
+// IsSetForTLS returns true if VerticaDB is set and ready for tls.
+// It does not mean vclusterops can now operate using tls, for
+// that we need to wait until tls configurations are created
+func (v *VerticaDB) IsSetForTLS() bool {
+	return v.IsValidVersionForTLS() &&
+		vmeta.UseTLSAuth(v.Annotations)
+}
+
+// IsValidVersionForTLS returns true if the server version
+// supports tls
+func (v *VerticaDB) IsValidVersionForTLS() bool {
+	if !vmeta.UseVClusterOps(v.Annotations) {
+		return false
+	}
+	vinf, hasVersion := v.MakeVersionInfo()
+	// Assume we are running a version that does not support cert rotation
+	// if version is not present.
+	if !hasVersion {
+		return false
+	}
+
+	return vinf.IsEqualOrNewer(TLSAuthMinVersion)
 }
 
 // GenSubclusterStatusMap returns a map that has a subcluster name as key
@@ -1533,34 +1572,42 @@ func GetMetricTarget(metric *autoscalingv2.MetricSpec) *autoscalingv2.MetricTarg
 	return nil
 }
 
-func (v *VerticaDB) GetSecretStatus(sType string) *SecretRef {
-	return FindSecretRef(v.Status.SecretRefs, sType)
+func (v *VerticaDB) GetTLSConfigByName(name string) *TLSConfigStatus {
+	return FindTLSConfig(v.Status.TLSConfigs, "Name", name)
 }
 
-func (v *VerticaDB) GetSecretNameInUse(sType string) string {
-	if v.GetSecretStatus(sType) == nil {
+func (v *VerticaDB) GetTLSConfigBySecret(secret string) *TLSConfigStatus {
+	return FindTLSConfig(v.Status.TLSConfigs, "Secret", secret)
+}
+
+func (v *VerticaDB) GetTLSConfigByMode(mode string) *TLSConfigStatus {
+	return FindTLSConfig(v.Status.TLSConfigs, "Mode", mode)
+}
+
+func (v *VerticaDB) GetSecretInUse(name string) string {
+	if v.GetTLSConfigByName(name) == nil {
 		return ""
 	}
-	return v.GetSecretStatus(sType).Name
+	return v.GetTLSConfigByName(name).Secret
 }
 
-func (v *VerticaDB) GetHTTPSTLSSecretNameInUse() string {
-	return v.GetSecretNameInUse(HTTPSTLSSecretType)
+func (v *VerticaDB) GetHTTPSNMATLSSecretInUse() string {
+	return v.GetSecretInUse(HTTPSNMATLSConfigName)
 }
 
-func (v *VerticaDB) GetClientServerTLSSecretNameInUse() string {
-	return v.GetSecretNameInUse(ClientServerTLSSecretType)
+func (v *VerticaDB) GetClientServerTLSSecretInUse() string {
+	return v.GetSecretInUse(ClientServerTLSConfigName)
 }
 
 // IsCertNeededForClientServerAuth returns true if certificate is needed for client-server authentication
 func (v *VerticaDB) IsCertNeededForClientServerAuth() bool {
-	tlsMode := strings.ToLower(v.Spec.ClientServerTLSMode)
+	tlsMode := strings.ToLower(v.GetClientServerTLSMode())
 	return tlsMode != tlsModeDisable && tlsMode != tlsModeEnable
 }
 
 // GetNMAClientServerTLSMode returns the tlsMode for NMA client-server communication
 func (v *VerticaDB) GetNMAClientServerTLSMode() string {
-	tlsMode := strings.ToLower(v.Spec.ClientServerTLSMode)
+	tlsMode := strings.ToLower(v.GetClientServerTLSMode())
 	switch tlsMode {
 	case tlsModeDisable:
 		return nmaTLSModeDisable
@@ -1579,80 +1626,61 @@ func (v *VerticaDB) GetNMAClientServerTLSMode() string {
 	}
 }
 
-// FindSecretRef returns a pointer to the SecretRef with the given type, or nil if not found.
-func FindSecretRef(refs []SecretRef, typ string) *SecretRef {
-	for i := range refs {
-		if refs[i].Type == typ {
-			return &refs[i]
+// Searches for a TLSConfig where a specified field equals a specified value
+// For example, where Name=ClientServer
+// Returns a pointer to the TLSConfig, or nil if not found.
+func FindTLSConfig(configs []TLSConfigStatus, configField, value string) *TLSConfigStatus {
+	for i := range configs {
+		switch configField {
+		case "Name":
+			if configs[i].Name == value {
+				return &configs[i]
+			}
+		case "Secret":
+			if configs[i].Secret == value {
+				return &configs[i]
+			}
+		case "Mode":
+			if configs[i].Mode == value {
+				return &configs[i]
+			}
 		}
 	}
 	return nil
 }
 
-func (v *VerticaDB) GetTLSModeStatus(sType string) *TLSMode {
-	return FindTLSMode(v.Status.TLSModes, sType)
-}
-
-func (v *VerticaDB) GetTLSModeInUse(sType string) string {
-	if v.GetTLSModeStatus(sType) == nil {
+func (v *VerticaDB) GetTLSModeInUse(name string) string {
+	if v.GetTLSConfigByName(name) == nil {
 		return ""
 	}
-	return v.GetTLSModeStatus(sType).Mode
+	return v.GetTLSConfigByName(name).Mode
 }
 
 func (v *VerticaDB) GetHTTPSTLSModeInUse() string {
-	return v.GetTLSModeInUse(HTTPSTLSModeType)
+	return v.GetTLSModeInUse(HTTPSNMATLSConfigName)
 }
 
 func (v *VerticaDB) GetClientServerTLSModeInUse() string {
-	return v.GetTLSModeInUse(ClientServerTLSModeType)
+	return v.GetTLSModeInUse(ClientServerTLSConfigName)
 }
 
-// FindTLSMode returns a pointer to the SecretRef with the given type, or nil if not found.
-func FindTLSMode(refs []TLSMode, typ string) *TLSMode {
-	for i := range refs {
-		if refs[i].Type == typ {
-			return &refs[i]
-		}
-	}
-	return nil
-}
-
-// SetSecretRef updates the slice with a new SecretRef by Type, and returns true if any changes occurred.
-func SetSecretRef(refs *[]SecretRef, newRef SecretRef) (changed bool) {
-	existing := FindSecretRef(*refs, newRef.Type)
+// SetTLSConfigs updates the slice with a new TLSConfig by Name, and returns true if any changes occurred.
+func SetTLSConfigs(refs *[]TLSConfigStatus, newRef TLSConfigStatus) (changed bool) {
+	existing := FindTLSConfig(*refs, "Name", newRef.Name)
 	if existing == nil {
 		*refs = append(*refs, newRef)
 		return true
 	}
 
-	if existing.Name != newRef.Name {
-		existing.Name = newRef.Name
+	if existing.Secret != newRef.Secret {
+		existing.Secret = newRef.Secret
 		changed = true
-	}
-	if existing.Type != newRef.Type {
-		existing.Type = newRef.Type
-		changed = true
-	}
-
-	return changed
-}
-
-// SetTLSMode updates the slice with a new TLSMode by Type, and returns true if any changes occurred.
-func SetTLSMode(refs *[]TLSMode, newRef TLSMode) (changed bool) {
-	existing := FindTLSMode(*refs, newRef.Type)
-	if existing == nil {
-		*refs = append(*refs, newRef)
-		return true
 	}
 	if existing.Mode != newRef.Mode {
 		existing.Mode = newRef.Mode
 		changed = true
 	}
-	if existing.Type != newRef.Type {
-		existing.Type = newRef.Type
-		changed = true
-	}
+
 	return changed
 }
 
@@ -1699,4 +1727,71 @@ func findInvalidChars(objName string, allowDash bool) string {
 		}
 	}
 	return foundChars
+}
+
+// Get HTTPSNMATLS mode from spec or return "" if not found
+func (v *VerticaDB) GetHTTPSNMATLSMode() string {
+	if v.Spec.HTTPSNMATLS == nil {
+		return ""
+	}
+	return v.Spec.HTTPSNMATLS.Mode
+}
+
+// Get HTTPSNMATLS secret from spec or return "" if not found
+func (v *VerticaDB) GetHTTPSNMATLSSecret() string {
+	if v.Spec.HTTPSNMATLS == nil {
+		return ""
+	}
+	return v.Spec.HTTPSNMATLS.Secret
+}
+
+// Get ClientServerTLS mode from spec or return "" if not found
+func (v *VerticaDB) GetClientServerTLSMode() string {
+	if v.Spec.ClientServerTLS == nil {
+		return ""
+	}
+	return v.Spec.ClientServerTLS.Mode
+}
+
+// Get ClientServerTLS secret from spec or return "" if not found
+func (v *VerticaDB) GetClientServerTLSSecret() string {
+	if v.Spec.ClientServerTLS == nil {
+		return ""
+	}
+	return v.Spec.ClientServerTLS.Secret
+}
+
+// MakeSourceVDBName is a helper that creates a sample name for the source VerticaDB for test purposes
+func MakeSourceVDBName() types.NamespacedName {
+	return types.NamespacedName{Name: "vertica-source-sample", Namespace: "default"}
+}
+
+// MakeTargetVDBName is a helper that creates a sample name for the target VerticaDB for test purposes
+func MakeTargetVDBName() types.NamespacedName {
+	return types.NamespacedName{Name: "vertica-target-sample", Namespace: "default"}
+}
+
+// IsOtherSubclusterDraining returns true if any subcluster drain annotation
+// exists that has a suffix different from the given scName.
+func (v *VerticaDB) IsOtherSubclusterDraining(scName string) bool {
+	drainAnnotations, found := vmeta.FindDrainTimeoutSubclusterAnnotations(v.Annotations)
+	if !found {
+		return false
+	}
+	for _, annotation := range drainAnnotations {
+		// If we have an annotation that is NOT for this scName,
+		// it means another subcluster is draining.
+		if annotation != vmeta.GenSubclusterDrainStartAnnotationName(scName) {
+			return true
+		}
+	}
+	return false
+}
+
+// MakeVersionStrForOpVersion can convert operator version to vertica version format
+func MakeVersionStrForOpVersion(v string) string {
+	if v == "" {
+		return ""
+	}
+	return "v" + v
 }

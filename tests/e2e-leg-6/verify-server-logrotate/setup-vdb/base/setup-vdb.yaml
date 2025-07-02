@@ -11,26 +11,28 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1beta1
+apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
   name: v-verify-server-logrotate
+  annotations:
+    vertica.com/include-uid-in-path: "true"
+    vertica.com/k-safety: "0"
 spec:
   initPolicy: CreateSkipPackageInstall
   image: kustomize-vertica-image
   sidecars:
     - name: vlogger
       image: kustomize-vlogger-image
-  communal:
-    includeUIDInPath: true
+  communal: {}
   local:
     requestSize: 100Mi
   encryptSpreadComm: vertica
   subclusters:
     - name: main
       size: 1
-  kSafety: "0"
-  httpServerTLSSecret: custom-cert
+  httpsNMATLS:
+    secret: custom-cert
   certSecrets: []
   imagePullSecrets: []
   volumes: []

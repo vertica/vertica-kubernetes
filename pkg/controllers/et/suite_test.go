@@ -96,7 +96,7 @@ var _ = AfterSuite(func() {
 
 // makeETRefObjectOfVDB is a helper to generate an ETReference for a given
 // VerticaDB object.
-func makeETRefObjectOfVDB(vdb *vapi.VerticaDB) *vapi.ETReference {
+func makeETRefObjectOfVDB(vdb *v1vapi.VerticaDB) *vapi.ETReference {
 	return &vapi.ETReference{
 		Object: &vapi.ETRefObject{
 			APIVersion: vdb.APIVersion,

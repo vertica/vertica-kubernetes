@@ -22,4 +22,4 @@ spec:
     name: as
     size: 2
     serviceName: as
-    isPrimary: false
+    type: secondary

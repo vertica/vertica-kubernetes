@@ -173,7 +173,6 @@ runs:
           else
             export E2E_TEST_DIRS="tests/e2e-${{ inputs.leg-identifier }}"
             if [[ "${{ inputs.leg-identifier }}" == "leg-1" || \
-                  "${{ inputs.leg-identifier }}" == "leg-2" || \
                   "${{ inputs.leg-identifier }}" == "leg-3" || \
                   "${{ inputs.leg-identifier }}" == "leg-5" || \
                   "${{ inputs.leg-identifier }}" == "server-upgrade" ]]; then

@@ -17,12 +17,15 @@ package vdb
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"time"
 
 	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/builder"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
+	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	"github.com/vertica/vertica-kubernetes/pkg/secrets"
@@ -38,6 +41,7 @@ import (
 const (
 	httpsNMATLSSecret     = "HTTPSNMATLSSecret" //nolint:gosec
 	clientServerTLSSecret = "ClientServerTLSSecret"
+	TLSCertName           = "tls.crt"
 )
 
 // TLSServerCertGenReconciler will create a secret that has TLS credentials.  This
@@ -58,17 +62,23 @@ func MakeTLSServerCertGenReconciler(vdbrecon *VerticaDBReconciler, log logr.Logg
 
 // Reconcile will create a TLS secret for the http server if one is missing
 func (h *TLSServerCertGenReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
-	if h.Vdb.Spec.NMATLSSecret != "" && h.Vdb.Spec.HTTPSNMATLSSecret == "" {
-		h.Log.Info("httpsNMATLSSecret is initialized from nmaTLSSecret")
+	// Verify that at least one secret has changed
+	// If not, skip this reconciler
+	if !h.ShouldGenerateCert() {
+		return ctrl.Result{}, nil
+	}
+
+	if h.Vdb.Spec.NMATLSSecret != "" && h.Vdb.GetHTTPSNMATLSSecret() == "" {
+		h.Log.Info("httpsNMATLS.secret is initialized from nmaTLSSecret")
 		err := h.setSecretNameInVDB(ctx, httpsNMATLSSecret, h.Vdb.Spec.NMATLSSecret)
 		if err != nil {
-			h.Log.Error(err, "failed to initialize httpsNMATLSSecret from nmaTLSSecret")
+			h.Log.Error(err, "failed to initialize httpsNMATLS.secret from nmaTLSSecret")
 			return ctrl.Result{}, err
 		}
 	}
 	secretFieldNameMap := map[string]string{
-		httpsNMATLSSecret:     h.Vdb.Spec.HTTPSNMATLSSecret,
-		clientServerTLSSecret: h.Vdb.Spec.ClientServerTLSSecret,
+		httpsNMATLSSecret:     h.Vdb.GetHTTPSNMATLSSecret(),
+		clientServerTLSSecret: h.Vdb.GetClientServerTLSSecret(),
 	}
 	err := error(nil)
 	for secretFieldName, secretName := range secretFieldNameMap {
@@ -84,6 +94,10 @@ func (h *TLSServerCertGenReconciler) Reconcile(ctx context.Context, _ *ctrl.Requ
 // reconcileOneSecret will create a TLS secret for the http server if one is missing
 func (h *TLSServerCertGenReconciler) reconcileOneSecret(secretFieldName, secretName string,
 	ctx context.Context) error {
+	tlsConfigName := vapi.HTTPSNMATLSConfigName
+	if secretFieldName == clientServerTLSSecret {
+		tlsConfigName = vapi.ClientServerTLSConfigName
+	}
 	// If the secret name is set, check that it exists.
 	if secretName != "" {
 		// As a convenience we will regenerate the secret using the same name. But
@@ -96,23 +110,27 @@ func (h *TLSServerCertGenReconciler) reconcileOneSecret(secretFieldName, secretN
 		nm := names.GenNamespacedName(h.Vdb, secretName)
 		secret := corev1.Secret{}
 		err := h.VRec.Client.Get(ctx, nm, &secret)
+		// Secret defined but not found
 		if kerrors.IsNotFound(err) {
-			sType := vapi.HTTPSTLSSecretType
-			if secretFieldName == clientServerTLSSecret {
-				sType = vapi.ClientServerTLSSecretType
-			}
-			secStatus := h.Vdb.GetSecretStatus(sType)
-			if secStatus != nil {
+			tlsStatus := h.Vdb.GetTLSConfigByName(tlsConfigName)
+			if tlsStatus != nil {
 				// we do not recreate the secret as there is already
 				// a secret of this type in the status.
 				return nil
 			}
 			h.Log.Info(secretName+" is set but doesn't exist. Will recreate the secret.", "name", nm)
+			// Secret found but could not be read
 		} else if err != nil {
 			h.Log.Error(err, "failed to read tls secret", "secretName", secretName)
 			return err
+			// Successfully read secret
 		} else {
-			// Secret is filled in and exists. We can exit.
+			// Validate secret certificate
+			err = h.ValidateSecretCertificate(ctx, &secret, tlsConfigName, secretName)
+			if err != nil {
+				return err
+			}
+			// Secret is filled in, exists, and is valid. We can exit.
 			return err
 		}
 	}
@@ -128,6 +146,10 @@ func (h *TLSServerCertGenReconciler) reconcileOneSecret(secretFieldName, secretN
 	if err != nil {
 		return err
 	}
+	if err := h.ValidateSecretCertificate(ctx, secret, tlsConfigName, secretName); err != nil {
+		return err
+	}
+
 	h.Log.Info(fmt.Sprintf("created certificate and secret %s for %s", secret.Name, secretFieldName))
 	return h.setSecretNameInVDB(ctx, secretFieldName, secret.ObjectMeta.Name)
 }
@@ -182,10 +204,53 @@ func (h *TLSServerCertGenReconciler) setSecretNameInVDB(ctx context.Context, sec
 			return err
 		}
 		if secretFieldName == clientServerTLSSecret {
-			h.Vdb.Spec.ClientServerTLSSecret = secretName
+			h.Vdb.Spec.ClientServerTLS = &vapi.TLSConfigSpec{Secret: secretName, Mode: h.Vdb.GetClientServerTLSMode()}
 		} else if secretFieldName == httpsNMATLSSecret {
-			h.Vdb.Spec.HTTPSNMATLSSecret = secretName
+			h.Vdb.Spec.HTTPSNMATLS = &vapi.TLSConfigSpec{Secret: secretName, Mode: h.Vdb.GetHTTPSNMATLSMode()}
 		}
 		return h.VRec.Client.Update(ctx, h.Vdb)
 	})
+}
+
+// Validate that Secret contains a valid certificate
+// If certificate is expiring soon, alert user
+func (h *TLSServerCertGenReconciler) ValidateSecretCertificate(
+	ctx context.Context,
+	secret *corev1.Secret,
+	tlsConfigName string,
+	secretName string,
+) error {
+	h.Log.Info("validating TLS certificate for existing secret", "secretName", secretName)
+	certPEM := secret.Data[TLSCertName]
+	if certPEM == nil {
+		return errors.New("failed to decode PEM block containing certificate")
+	}
+
+	err := security.ValidateCertificate(certPEM)
+	if err != nil {
+		h.VRec.Eventf(h.Vdb, corev1.EventTypeWarning, events.TLSCertValidationFailed,
+			"Validation of TLS Certificate %q failed with secret %q", tlsConfigName, secretName)
+		return err
+	}
+
+	expiringSoon, expireTime, err := security.CheckCertificateExpiringSoon(certPEM)
+
+	if err != nil {
+		return err
+	}
+
+	if expiringSoon {
+		h.Log.Info("certificate is nearing expiration, consider regenerating", "expiresAt", expireTime.UTC().Format(time.RFC3339)+" UTC")
+	}
+
+	return nil
+}
+
+// ShouldGenerateCert determines whether TLS server certificates should be generated.
+// Returns true if either TLS config is missing in status or the expected secret differs from what's currently recorded.
+func (h *TLSServerCertGenReconciler) ShouldGenerateCert() bool {
+	return h.Vdb.GetTLSConfigByName(vapi.HTTPSNMATLSConfigName) == nil ||
+		h.Vdb.GetTLSConfigByName(vapi.ClientServerTLSConfigName) == nil ||
+		h.Vdb.GetHTTPSNMATLSSecretInUse() != h.Vdb.GetHTTPSNMATLSSecret() ||
+		h.Vdb.GetClientServerTLSSecretInUse() != h.Vdb.GetClientServerTLSSecret()
 }

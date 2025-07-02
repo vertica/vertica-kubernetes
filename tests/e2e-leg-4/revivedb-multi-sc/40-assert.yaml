@@ -25,11 +25,11 @@ metadata:
 status:
   replicas: 1
 ---
-apiVersion: vertica.com/v1beta1
+apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
   name: v-revive-multi-sc
 status:
   subclusters:
-    - installCount: 2
-    - installCount: 1
+    - addedToDBCount: 2
+    - addedToDBCount: 1

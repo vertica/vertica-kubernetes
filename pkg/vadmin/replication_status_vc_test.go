@@ -55,9 +55,9 @@ var _ = Describe("replication_status_vc", func() {
 	It("should call GetReplicationStatus in the vcluster-ops library", func() {
 		dispatcher := mockVclusteropsDispatcherWithTarget()
 		dispatcher.TargetVDB.Spec.DBName = TestDBName
-		dispatcher.TargetVDB.Spec.HTTPSNMATLSSecret = "replication-status-test-secret"
-		test.CreateFakeTLSSecret(ctx, dispatcher.TargetVDB, dispatcher.Client, dispatcher.TargetVDB.Spec.HTTPSNMATLSSecret)
-		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.HTTPSNMATLSSecret)
+		dispatcher.TargetVDB.Spec.HTTPSNMATLS.Secret = "replication-status-test-secret"
+		test.CreateFakeTLSSecret(ctx, dispatcher.TargetVDB, dispatcher.Client, dispatcher.TargetVDB.Spec.HTTPSNMATLS.Secret)
+		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.HTTPSNMATLS.Secret)
 
 		_, err := dispatcher.GetReplicationStatus(ctx,
 			replicationstatus.WithTargetIP(TestTargetIP),

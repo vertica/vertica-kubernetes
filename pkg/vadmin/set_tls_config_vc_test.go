@@ -66,25 +66,25 @@ var _ = Describe("set_config_parameter_vc", func() {
 		dispatcher := mockVClusterOpsDispatcher()
 		dispatcher.VDB.Spec.DBName = TestDBName
 		dispatcher.VDB.Spec.NMATLSSecret = TestNMATLSSecret
-		dispatcher.VDB.Spec.ClientServerTLSSecret = TestClientServerSecret
+		dispatcher.VDB.Spec.ClientServerTLS.Secret = TestClientServerSecret
 		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.NMATLSSecret)
 		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.NMATLSSecret)
-		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.ClientServerTLSSecret)
-		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.ClientServerTLSSecret)
+		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.ClientServerTLS.Secret)
+		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.ClientServerTLS.Secret)
 
 		err1 := dispatcher.SetTLSConfig(ctx,
 			settlsconfig.WithInitiatorIP(TestSourceIP),
 			settlsconfig.WithHTTPSTLSConfig(TestIsHTTPSConfig),
-			settlsconfig.WithHTTPSTLSMode(TestHTTPSTLSMode),
-			settlsconfig.WithHTTPSTLSSecretName(dispatcher.VDB.Spec.NMATLSSecret),
+			settlsconfig.WithTLSMode(TestHTTPSTLSMode),
+			settlsconfig.WithTLSSecretName(dispatcher.VDB.Spec.NMATLSSecret),
 			settlsconfig.WithNamespace(TestNamespace),
 		)
 		Ω(err1).Should(Succeed())
 		err2 := dispatcher.SetTLSConfig(ctx,
 			settlsconfig.WithInitiatorIP(TestSourceIP),
 			settlsconfig.WithHTTPSTLSConfig(!TestIsHTTPSConfig),
-			settlsconfig.WithClientServerTLSSecretName(dispatcher.VDB.Spec.ClientServerTLSSecret),
-			settlsconfig.WithClientServerTLSMode(TestClientServerTLSMode),
+			settlsconfig.WithTLSSecretName(dispatcher.VDB.GetClientServerTLSSecret()),
+			settlsconfig.WithTLSMode(TestClientServerTLSMode),
 			settlsconfig.WithNamespace(TestNamespace),
 		)
 		Ω(err2).Should(Succeed())

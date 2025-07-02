@@ -492,14 +492,92 @@ var _ = Describe("verticadb_webhook", func() {
 		resetStatusConditionsForDBInitialized(vdbUpdate)
 		validateImmutableFields(vdbUpdate, true)
 	})
-	It("httpsNMATLSSecret cannot be changed when cert rotation is in progress", func() {
+	It("httpsNMATLS.secret cannot be changed when cert rotation is in progress", func() {
 		vdb := MakeVDBForCertRotationEnabled()
 		oldVdb := vdb.DeepCopy()
-		oldVdb.Spec.HTTPSNMATLSSecret = "oldSecret"
-		vdb.Spec.HTTPSNMATLSSecret = "newSecretValue"
+		oldVdb.Spec.HTTPSNMATLS.Secret = "oldSecret"
+		vdb.Spec.HTTPSNMATLS.Secret = "newSecretValue"
 		resetStatusConditionsForCertRotationInProgress(vdb)
 		allErrs := vdb.validateImmutableFields(oldVdb)
 		Expect(allErrs).ShouldNot(BeNil())
+	})
+
+	It("should only allow tls config related changes when tls config update is in progress", func() {
+		oldVdb := MakeVDBForCertRotationEnabled()
+		oldVdb.Status.Conditions = append(oldVdb.Status.Conditions, metav1.Condition{
+			Type:   TLSConfigUpdateInProgress,
+			Status: metav1.ConditionTrue,
+		})
+		oldVdb.Spec.HTTPSNMATLS.Secret = "secret1"
+		oldVdb.Spec.ClientServerTLS.Secret = "secret1"
+		oldVdb.Spec.ClientServerTLS.Mode = tlsModeVerifyCA
+
+		oldVdb.Spec.Subclusters = []Subcluster{
+			{Name: "default", Size: 3, Type: PrimarySubcluster},
+			{Name: "sc1", Size: 1, Type: SecondarySubcluster},
+		}
+		// Only cert-rotation-related changes: allowed
+		newVdb := oldVdb.DeepCopy()
+		newVdb.Spec.HTTPSNMATLS.Secret = "secret2"
+		allErrs := newVdb.checkValidTLSConfigUpdate(oldVdb, nil)
+		Ω(allErrs).Should(BeEmpty())
+
+		newVdb.Spec.ClientServerTLS.Secret = "secret2"
+		allErrs = newVdb.checkValidTLSConfigUpdate(oldVdb, nil)
+		Ω(allErrs).Should(BeEmpty())
+
+		newVdb.Spec.ClientServerTLS.Mode = tlsModeTryVerify
+		allErrs = newVdb.checkValidTLSConfigUpdate(oldVdb, nil)
+		Ω(allErrs).Should(BeEmpty())
+
+		// SomeOtherField changes: forbidden
+		newVdb = oldVdb.DeepCopy()
+		newVdb.Spec.Subclusters[1].Size = 3
+		allErrs = newVdb.checkValidTLSConfigUpdate(oldVdb, nil)
+		Ω(allErrs).ShouldNot(BeEmpty())
+	})
+
+	It("should not allow disabling mutual TLS after it's enabled", func() {
+		oldVdb := MakeVDB()
+		oldVdb.Spec.HTTPSNMATLS.Secret = "enabled"
+		newVdb := oldVdb.DeepCopy()
+		newVdb.Spec.HTTPSNMATLS.Secret = ""
+		allErrs := newVdb.checkValidTLSConfigUpdate(oldVdb, nil)
+		Ω(allErrs).ShouldNot(BeEmpty())
+	})
+
+	It("should not allow cert-rotation-related changes when cert rotation is disabled", func() {
+		oldVdb := MakeVDB()
+		Expect(vmeta.UseTLSAuth(oldVdb.Annotations)).Should(BeFalse())
+
+		oldVdb.Spec.HTTPSNMATLS.Secret = "old-secret"
+		oldVdb.Spec.ClientServerTLS.Secret = "old-secret"
+		oldVdb.Spec.ClientServerTLS.Mode = tlsModeVerifyCA
+		oldVdb.Spec.Subclusters = []Subcluster{
+			{Name: "default", Size: 3, Type: PrimarySubcluster},
+		}
+		// No cert-rotation-related changes is allowed
+		newVdb := oldVdb.DeepCopy()
+		newVdb.Spec.HTTPSNMATLS.Secret = "new-secret"
+		allErrs := newVdb.checkValidTLSConfigUpdate(oldVdb, nil)
+		Ω(allErrs).ShouldNot(BeEmpty())
+
+		newVdb.Spec.ClientServerTLS.Secret = "new-secret"
+		allErrs = newVdb.checkValidTLSConfigUpdate(oldVdb, nil)
+		Ω(allErrs).ShouldNot(BeEmpty())
+
+		newVdb.Spec.ClientServerTLS.Mode = tlsModeTryVerify
+		allErrs = newVdb.checkValidTLSConfigUpdate(oldVdb, nil)
+		Ω(allErrs).ShouldNot(BeEmpty())
+	})
+
+	It("should not allow changing nmaTLSSecret", func() {
+		oldVdb := MakeVDB()
+		oldVdb.Spec.NMATLSSecret = "old-nma"
+		newVdb := oldVdb.DeepCopy()
+		newVdb.Spec.NMATLSSecret = "new-nma"
+		allErrs := newVdb.checkValidTLSConfigUpdate(oldVdb, nil)
+		Ω(allErrs).ShouldNot(BeEmpty())
 	})
 
 	It("should not have zero matched subcluster names to the old subcluster names", func() {
@@ -2120,23 +2198,23 @@ var _ = Describe("verticadb_webhook", func() {
 	It("should not accept invalid client server tls modes", func() {
 		newVdb := MakeVDB()
 		SetVDBForTLS(newVdb)
-		newVdb.Spec.ClientServerTLSMode = "TRY_VERIFY"
+		newVdb.Spec.ClientServerTLS.Mode = "TRY_VERIFY"
 		Ω(newVdb.validateVerticaDBSpec()).Should(HaveLen(0))
-		newVdb.Spec.ClientServerTLSMode = "try_verify"
+		newVdb.Spec.ClientServerTLS.Mode = "try_verify"
 		Ω(newVdb.validateVerticaDBSpec()).Should(HaveLen(0))
-		newVdb.Spec.ClientServerTLSMode = "try_VERIFY"
+		newVdb.Spec.ClientServerTLS.Mode = "try_VERIFY"
 		Ω(newVdb.validateVerticaDBSpec()).Should(HaveLen(0))
-		newVdb.Spec.ClientServerTLSMode = "disable"
+		newVdb.Spec.ClientServerTLS.Mode = "disable"
 		Ω(newVdb.validateVerticaDBSpec()).Should(HaveLen(0))
-		newVdb.Spec.ClientServerTLSMode = "Enable"
+		newVdb.Spec.ClientServerTLS.Mode = "Enable"
 		Ω(newVdb.validateVerticaDBSpec()).Should(HaveLen(0))
-		newVdb.Spec.ClientServerTLSMode = "VERIFY_CA"
+		newVdb.Spec.ClientServerTLS.Mode = "VERIFY_CA"
 		Ω(newVdb.validateVerticaDBSpec()).Should(HaveLen(0))
-		newVdb.Spec.ClientServerTLSMode = "VERIFY_FULL"
+		newVdb.Spec.ClientServerTLS.Mode = "VERIFY_FULL"
 		Ω(newVdb.validateVerticaDBSpec()).Should(HaveLen(0))
-		newVdb.Spec.ClientServerTLSMode = "VERIFYCA"
+		newVdb.Spec.ClientServerTLS.Mode = "VERIFYCA"
 		Ω(newVdb.validateVerticaDBSpec()).Should(HaveLen(1))
-		newVdb.Spec.ClientServerTLSMode = ""
+		newVdb.Spec.ClientServerTLS.Mode = ""
 		Ω(newVdb.validateVerticaDBSpec()).Should(HaveLen(0))
 	})
 
@@ -2190,7 +2268,7 @@ func resetStatusConditionsForDBInitialized(v *VerticaDB) {
 }
 
 func resetStatusConditionsForCertRotationInProgress(v *VerticaDB) {
-	resetStatusConditionsForCondition(v, TLSCertRotationInProgress, metav1.ConditionTrue)
+	resetStatusConditionsForCondition(v, TLSConfigUpdateInProgress, metav1.ConditionTrue)
 }
 
 func resetStatusConditionsForCondition(v *VerticaDB, conditionType string, status metav1.ConditionStatus) {

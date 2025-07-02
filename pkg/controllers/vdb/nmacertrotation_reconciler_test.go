@@ -27,8 +27,10 @@ import (
 )
 
 const (
-	rotateNMACertNewNMASecretName     = "rotate-nma-new-cert-test-secret"     //nolint:gosec
-	rotateNMACertCurrentNMASecretName = "rotate-nma-current-cert-test-secret" //nolint:gosec
+	rotateNMACertNewNMASecretName       = "rotate-nma-new-cert-test-secret"       //nolint:gosec
+	rotateNMACertCurrentNMASecretName   = "rotate-nma-current-cert-test-secret"   //nolint:gosec
+	rotateHTTPSCertNewNMASecretName     = "rotate-https-new-cert-test-secret"     //nolint:gosec
+	rotateHTTPSCertCurrentNMASecretName = "rotate-https-current-cert-test-secret" //nolint:gosec
 )
 
 var _ = Describe("nmacertrotation_reconciler", func() {
@@ -38,8 +40,8 @@ var _ = Describe("nmacertrotation_reconciler", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Spec.EncryptSpreadComm = vapi.EncryptSpreadCommDisabled
 		vdb.Spec.Subclusters[0].Size = 3
-		vdb.Spec.HTTPSNMATLSSecret = rotateNMACertNewNMASecretName
-		test.CreateFakeTLSSecret(ctx, vdb, k8sClient, vdb.Spec.HTTPSNMATLSSecret)
+		vdb.Spec.HTTPSNMATLS.Secret = rotateNMACertNewNMASecretName
+		test.CreateFakeTLSSecret(ctx, vdb, k8sClient, vdb.GetHTTPSNMATLSSecret())
 		test.CreateFakeTLSSecret(ctx, vdb, k8sClient, rotateNMACertCurrentNMASecretName)
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
@@ -52,10 +54,10 @@ var _ = Describe("nmacertrotation_reconciler", func() {
 		pfacts := createPodFactsWithNoDB(ctx, vdb, fpr, 3)
 		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
 		vapi.SetVDBForTLS(vdb)
-		vdb.Status.SecretRefs = []vapi.SecretRef{
+		vdb.Status.TLSConfigs = []vapi.TLSConfigStatus{
 			{
-				Name: rotateHTTPSCertCurrentNMASecretName,
-				Type: vapi.HTTPSTLSSecretType,
+				Secret: rotateHTTPSCertCurrentNMASecretName,
+				Name:   vapi.HTTPSNMATLSConfigName,
 			},
 		}
 		Expect(k8sClient.Status().Update(ctx, vdb)).Should(Succeed())

@@ -29,18 +29,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func CreatePods(ctx context.Context, c client.Client, vdb *vapi.VerticaDB, podRunningState test.PodRunningState) {
-	v1vdb := v1vapi.VerticaDB{}
-	err := vdb.ConvertTo(&v1vdb)
-	Expect(err).Should(Succeed())
-	test.CreatePods(ctx, c, &v1vdb, podRunningState)
+func CreatePods(ctx context.Context, c client.Client, vdb *v1vapi.VerticaDB, podRunningState test.PodRunningState) {
+	test.CreatePods(ctx, c, vdb, podRunningState)
 }
 
-func DeletePods(ctx context.Context, c client.Client, vdb *vapi.VerticaDB) {
-	v1vdb := v1vapi.VerticaDB{}
-	err := vdb.ConvertTo(&v1vdb)
-	Expect(err).Should(Succeed())
-	test.DeletePods(ctx, c, &v1vdb)
+func DeletePods(ctx context.Context, c client.Client, vdb *v1vapi.VerticaDB) {
+	test.DeletePods(ctx, c, vdb)
 }
 
 func CreateVAS(ctx context.Context, c client.Client, vas *v1vapi.VerticaAutoscaler) {
@@ -61,11 +55,11 @@ func DeleteScaledObject(ctx context.Context, c client.Client, vas *v1vapi.Vertic
 	ExpectWithOffset(1, c.Delete(ctx, so)).Should(Succeed())
 }
 
-func CreateVDB(ctx context.Context, c client.Client, vdb *vapi.VerticaDB) {
+func CreateVDB(ctx context.Context, c client.Client, vdb *v1vapi.VerticaDB) {
 	ExpectWithOffset(1, c.Create(ctx, vdb)).Should(Succeed())
 }
 
-func DeleteVDB(ctx context.Context, c client.Client, vdb *vapi.VerticaDB) {
+func DeleteVDB(ctx context.Context, c client.Client, vdb *v1vapi.VerticaDB) {
 	ExpectWithOffset(1, c.Delete(ctx, vdb)).Should(Succeed())
 }
 

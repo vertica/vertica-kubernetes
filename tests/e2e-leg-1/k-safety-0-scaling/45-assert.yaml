@@ -19,11 +19,10 @@ status:
   currentReplicas: 3
   readyReplicas: 3
 ---
-apiVersion: vertica.com/v1beta1
+apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
   name: v-k-safety-0-scaling
 status:
   subclusters:
-    - installCount: 3
-      addedToDBCount: 3
+    - addedToDBCount: 3

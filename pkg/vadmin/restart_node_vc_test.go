@@ -67,9 +67,9 @@ var _ = Describe("restart_node_vc", func() {
 		dispatcher := mockVClusterOpsDispatcher()
 		dispatcher.VDB.Spec.DBName = TestDBName
 		dispatcher.VDB.Annotations[vmeta.RestartTimeoutAnnotation] = "10"
-		dispatcher.VDB.Spec.HTTPSNMATLSSecret = "restart-node-test-secret"
-		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.HTTPSNMATLSSecret)
-		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.HTTPSNMATLSSecret)
+		dispatcher.VDB.Spec.HTTPSNMATLS.Secret = "restart-node-test-secret"
+		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.HTTPSNMATLS.Secret)
+		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.HTTPSNMATLS.Secret)
 
 		ctrlRes, err := callStartNodes(ctx, dispatcher, nodeIPs)
 		Ω(err).Should(Succeed())
@@ -79,14 +79,14 @@ var _ = Describe("restart_node_vc", func() {
 	It("should detect ReIPNoClusterQuorumError", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Spec.DBName = TestDBName
-		vdb.Spec.HTTPSNMATLSSecret = TestNMATLSSecret
+		vdb.Spec.HTTPSNMATLS.Secret = TestNMATLSSecret
 		vdb.Annotations[vmeta.RestartTimeoutAnnotation] = "10"
 		setupAPIFunc := func(logr.Logger, string) (VClusterProvider, logr.Logger) {
 			return &MockVClusterOps{ReturnReIPNoClusterQuorum: true}, logr.Logger{}
 		}
 		dispatcher := mockVClusterOpsDispatcherWithCustomSetup(vdb, setupAPIFunc)
-		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.HTTPSNMATLSSecret)
-		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.HTTPSNMATLSSecret)
+		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.HTTPSNMATLS.Secret)
+		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.HTTPSNMATLS.Secret)
 		ctrlRes, err := callStartNodes(ctx, dispatcher, nodeIPs)
 		Ω(err).Should(Succeed())
 		Ω(ctrlRes.Requeue).Should(BeTrue())

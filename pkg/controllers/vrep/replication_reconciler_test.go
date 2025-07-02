@@ -43,12 +43,12 @@ var _ = Describe("query_reconcile", func() {
 	ctx := context.Background()
 
 	It("should update replication status conditions and states if the vclusterops API succeeded", func() {
-		sourceVdbName := v1beta1.MakeSourceVDBName()
+		sourceVdbName := vapi.MakeSourceVDBName()
 		sourceVdb := vapi.MakeVDB()
 		sourceVdb.Name = sourceVdbName.Name
 		sourceVdb.Namespace = sourceVdbName.Namespace
 		sourceVdb.Annotations[vmeta.VersionAnnotation] = minimumVer
-		sourceVdb.Spec.HTTPSNMATLSSecret = testTLSSecretName
+		sourceVdb.Spec.HTTPSNMATLS.Secret = testTLSSecretName
 		setupAPIFunc := func(logr.Logger, string) (vadmin.VClusterProvider, logr.Logger) {
 			return &mockvops.MockVClusterOps{}, logr.Logger{}
 		}
@@ -60,7 +60,7 @@ var _ = Describe("query_reconcile", func() {
 		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, k8sClient, testTLSSecretName)
 		defer test.DeleteSecret(ctx, k8sClient, testTLSSecretName)
 
-		targetVdbName := v1beta1.MakeTargetVDBName()
+		targetVdbName := vapi.MakeTargetVDBName()
 		targetVdb := vapi.MakeVDB()
 		targetVdb.Name = targetVdbName.Name
 		targetVdb.Namespace = targetVdbName.Namespace
@@ -94,18 +94,18 @@ var _ = Describe("query_reconcile", func() {
 	})
 
 	It("should exit reconcile loop early if replication is complete or not ready", func() {
-		sourceVdbName := v1beta1.MakeSourceVDBName()
+		sourceVdbName := vapi.MakeSourceVDBName()
 		sourceVdb := vapi.MakeVDB()
 		sourceVdb.Name = sourceVdbName.Name
 		sourceVdb.Namespace = sourceVdbName.Namespace
 		sourceVdb.Annotations[vmeta.VersionAnnotation] = minimumVer
-		sourceVdb.Spec.HTTPSNMATLSSecret = testTLSSecretName
+		sourceVdb.Spec.HTTPSNMATLS.Secret = testTLSSecretName
 		test.CreateVDB(ctx, k8sClient, sourceVdb)
 		defer test.DeleteVDB(ctx, k8sClient, sourceVdb)
 		test.CreatePods(ctx, k8sClient, sourceVdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, sourceVdb)
 
-		targetVdbName := v1beta1.MakeTargetVDBName()
+		targetVdbName := vapi.MakeTargetVDBName()
 		targetVdb := vapi.MakeVDB()
 		targetVdb.Name = targetVdbName.Name
 		targetVdb.Namespace = targetVdbName.Namespace
@@ -172,18 +172,18 @@ var _ = Describe("query_reconcile", func() {
 	})
 
 	It("should set correct username and password", func() {
-		sourceVdbName := v1beta1.MakeSourceVDBName()
+		sourceVdbName := vapi.MakeSourceVDBName()
 		sourceVdb := vapi.MakeVDB()
 		sourceVdb.Name = sourceVdbName.Name
 		sourceVdb.Namespace = sourceVdbName.Namespace
 		sourceVdb.Annotations[vmeta.VersionAnnotation] = minimumVer
-		sourceVdb.Spec.HTTPSNMATLSSecret = testTLSSecretName
+		sourceVdb.Spec.HTTPSNMATLS.Secret = testTLSSecretName
 		test.CreateVDB(ctx, k8sClient, sourceVdb)
 		defer test.DeleteVDB(ctx, k8sClient, sourceVdb)
 		test.CreatePods(ctx, k8sClient, sourceVdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, sourceVdb)
 
-		targetVdbName := v1beta1.MakeTargetVDBName()
+		targetVdbName := vapi.MakeTargetVDBName()
 		targetVdb := vapi.MakeVDB()
 		targetVdb.Name = targetVdbName.Name
 		targetVdb.Namespace = targetVdbName.Namespace
@@ -257,24 +257,24 @@ var _ = Describe("query_reconcile", func() {
 	})
 
 	It("should update replication status conditions and states if the vclusterops API succeeded using async replication", func() {
-		sourceVdbName := v1beta1.MakeSourceVDBName()
+		sourceVdbName := vapi.MakeSourceVDBName()
 		sourceVdb := vapi.MakeVDB()
 		sourceVdb.Name = sourceVdbName.Name
 		sourceVdb.Namespace = sourceVdbName.Namespace
 		sourceVdb.Annotations[vmeta.VersionAnnotation] = minimumVer
-		sourceVdb.Spec.HTTPSNMATLSSecret = testTLSSecretName
+		sourceVdb.Spec.HTTPSNMATLS.Secret = testTLSSecretName
 		test.CreateVDB(ctx, k8sClient, sourceVdb)
 		defer test.DeleteVDB(ctx, k8sClient, sourceVdb)
 		test.CreatePods(ctx, k8sClient, sourceVdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, sourceVdb)
 
-		targetVdbName := v1beta1.MakeTargetVDBName()
+		targetVdbName := vapi.MakeTargetVDBName()
 		targetVdb := vapi.MakeVDB()
 		targetVdb.Name = targetVdbName.Name
 		targetVdb.Namespace = targetVdbName.Namespace
 		targetVdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
 		targetVdb.Annotations[vmeta.VersionAnnotation] = minimumVer
-		targetVdb.Spec.HTTPSNMATLSSecret = testTargetTLSSecretName
+		targetVdb.Spec.HTTPSNMATLS.Secret = testTargetTLSSecretName
 		targetVdb.UID = testTargetVdbUID
 		test.CreateVDB(ctx, k8sClient, targetVdb)
 		defer test.DeleteVDB(ctx, k8sClient, targetVdb)
@@ -315,18 +315,18 @@ var _ = Describe("query_reconcile", func() {
 	})
 
 	It("should exit reconcile loop early if async replication is complete, not ready, or in progress", func() {
-		sourceVdbName := v1beta1.MakeSourceVDBName()
+		sourceVdbName := vapi.MakeSourceVDBName()
 		sourceVdb := vapi.MakeVDB()
 		sourceVdb.Name = sourceVdbName.Name
 		sourceVdb.Namespace = sourceVdbName.Namespace
 		sourceVdb.Annotations[vmeta.VersionAnnotation] = minimumVer
-		sourceVdb.Spec.HTTPSNMATLSSecret = testTLSSecretName
+		sourceVdb.Spec.HTTPSNMATLS.Secret = testTLSSecretName
 		test.CreateVDB(ctx, k8sClient, sourceVdb)
 		defer test.DeleteVDB(ctx, k8sClient, sourceVdb)
 		test.CreatePods(ctx, k8sClient, sourceVdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, sourceVdb)
 
-		targetVdbName := v1beta1.MakeTargetVDBName()
+		targetVdbName := vapi.MakeTargetVDBName()
 		targetVdb := vapi.MakeVDB()
 		targetVdb.Name = targetVdbName.Name
 		targetVdb.Namespace = targetVdbName.Namespace
