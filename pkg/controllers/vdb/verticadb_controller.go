@@ -35,6 +35,7 @@ import (
 
 	"github.com/google/uuid"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
+	"github.com/vertica/vertica-kubernetes/pkg/cloud"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
@@ -145,6 +146,7 @@ func (r *VerticaDBReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	dispatcher := r.makeDispatcher(log, vdb, prunner, passwd)
 	var res ctrl.Result
 
+	r.InitCertCache(vdb)
 	// Iterate over each actor
 	actors := r.constructActors(log, vdb, prunner, &pfacts, dispatcher)
 	for _, act := range actors {
@@ -160,11 +162,12 @@ func (r *VerticaDBReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 				res.Requeue = false
 				res.RequeueAfter = time.Second * time.Duration(vdb.GetRequeueTime())
 			}
+			vadmin.DestroyCertCacheForVdb(vdb.Namespace, vdb.Name)
 			log.Info("aborting reconcile of VerticaDB", "result", res, "err", err)
 			return res, err
 		}
 	}
-
+	vadmin.DestroyCertCacheForVdb(vdb.Namespace, vdb.Name)
 	log.Info("ending reconcile of VerticaDB", "result", res, "err", err)
 	return res, err
 }
@@ -387,4 +390,15 @@ func (r *VerticaDBReconciler) GetEventRecorder() record.EventRecorder {
 // GetConfig gives access to *rest.Config
 func (r *VerticaDBReconciler) GetConfig() *rest.Config {
 	return r.Cfg
+}
+
+func (r *VerticaDBReconciler) InitCertCache(vdb *vapi.VerticaDB) {
+	fetcher := &cloud.SecretFetcher{
+		Client:   r.Client,
+		Log:      r.Log,
+		Obj:      vdb,
+		EVWriter: r.EVRec,
+	}
+	vadmin.InitCertCacheForVdb(vdb.Namespace, vdb.Name, fetcher)
+	return
 }

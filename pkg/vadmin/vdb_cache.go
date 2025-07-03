@@ -52,8 +52,8 @@ var guardAllLock = &sync.Mutex{} // guards allContextMap
 // map each vdb to a VdbContext
 var allCacheMap dbToCacheMap
 
-// GetCertCacheForVdb will return a CertCache from a vdb's name and namespace
-func GetCertCacheForVdb(namespace, name string, fetcher *cloud.SecretFetcher) CertCache {
+// InitCertCacheForVdb will return a CertCache from a vdb's name and namespace
+func InitCertCacheForVdb(namespace, name string, fetcher *cloud.SecretFetcher) {
 	guardAllLock.Lock()
 	defer guardAllLock.Unlock()
 	vdbName := types.NamespacedName{
@@ -68,6 +68,18 @@ func GetCertCacheForVdb(namespace, name string, fetcher *cloud.SecretFetcher) Ce
 		singleCertCache = makeVdbCertCache(vdbName.Namespace, fetcher)
 		allCacheMap[vdbName] = singleCertCache
 	}
+	return
+}
+
+// GetCertCacheForVdb will return a CertCache from a vdb's name and namespace
+func GetCertCacheForVdb(namespace, name string) CertCache {
+	guardAllLock.Lock()
+	defer guardAllLock.Unlock()
+	vdbName := types.NamespacedName{
+		Name:      name,
+		Namespace: namespace,
+	}
+	singleCertCache, _ := allCacheMap[vdbName]
 	return singleCertCache
 }
 
