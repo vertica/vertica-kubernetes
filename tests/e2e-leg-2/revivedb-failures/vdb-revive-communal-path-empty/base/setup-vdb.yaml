@@ -35,3 +35,7 @@ spec:
   imagePullSecrets: []
   volumes: []
   volumeMounts: []
+  httpsNMATLS:
+    secret: "test"
+  clientServerTLS:
+    secret: "test"

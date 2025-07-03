@@ -21,7 +21,7 @@ metadata:
     vertica.com/enable-tls-auth: "true"
 spec:
   httpsNMATLS:
-    secret: cert-no-client-auth
+    secret: cert-valid
   initPolicy: CreateSkipPackageInstall
   image: kustomize-vertica-image
   communal: {}
