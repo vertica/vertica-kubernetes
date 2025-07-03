@@ -57,6 +57,7 @@ const (
 	GCloudPrefix          = "gs://"
 	AzurePrefix           = "azb://"
 	trueString            = "true"
+	falseString           = "false"
 	VProxyDefaultImage    = "opentext/client-proxy:latest"
 	VProxyDefaultReplicas = 1
 )
@@ -170,6 +171,7 @@ func (v *VerticaDB) validateImmutableFields(old runtime.Object) field.ErrorList 
 	allErrs = v.checkNewSBoxOrSClusterShutdownUnset(allErrs)
 	allErrs = v.checkSClusterToBeSandboxedShutdownUnset(allErrs)
 	allErrs = v.checkShutdownForScaleOutOrIn(oldObj, allErrs)
+	allErrs = v.checkIfAnyOpInProgressBeforeTLSChange(oldObj, allErrs)
 	return allErrs
 }
 
@@ -235,6 +237,7 @@ func (v *VerticaDB) validateVerticaDBSpec() field.ErrorList {
 	allErrs = v.hasDuplicateScName(allErrs)
 	allErrs = v.hasValidVolumeName(allErrs)
 	allErrs = v.hasValidClientServerTLSMode(allErrs)
+	allErrs = v.hasTLSSecretsSetForRevive(allErrs)
 	allErrs = v.hasValidVolumeMountName(allErrs)
 	allErrs = v.hasValidKerberosSetup(allErrs)
 	allErrs = v.hasValidTemporarySubclusterRouting(allErrs)
@@ -814,6 +817,26 @@ func (v *VerticaDB) hasDuplicateScName(allErrs field.ErrorList) field.ErrorList 
 func (v *VerticaDB) hasValidClientServerTLSMode(allErrs field.ErrorList) field.ErrorList {
 	if v.Spec.ClientServerTLS != nil {
 		allErrs = v.hasValidTLSMode(v.GetClientServerTLSMode(), "clientServerTLS.Mode", allErrs)
+	}
+	return allErrs
+}
+
+// hasTLSSecretsSetForRevive checks whether the TLS secrets are set for the revive init policy
+// when TLS is enabled
+func (v *VerticaDB) hasTLSSecretsSetForRevive(allErrs field.ErrorList) field.ErrorList {
+	if vmeta.UseTLSAuth(v.Annotations) && v.Spec.InitPolicy == CommunalInitPolicyRevive {
+		if v.GetHTTPSNMATLSSecret() == "" && v.Spec.NMATLSSecret == "" {
+			err := field.Invalid(field.NewPath("spec").Child("httpsNMATLS").Child("secret"),
+				v.GetHTTPSNMATLSSecret(),
+				"httpsNMATLS.Secret cannot be empty when initPolicy is set to 'revive' and TLS is enabled")
+			allErrs = append(allErrs, err)
+		}
+		if v.GetClientServerTLSSecret() == "" {
+			err := field.Invalid(field.NewPath("spec").Child("clientServerTLS").Child("secret"),
+				v.GetHTTPSNMATLSSecret(),
+				"clientServerTLS.Secret cannot be empty when initPolicy is set to 'revive' and TLS is enabled")
+			allErrs = append(allErrs, err)
+		}
 	}
 	return allErrs
 }
@@ -2479,6 +2502,83 @@ func (v *VerticaDB) setDefaultProxy() {
 		sc := &v.Spec.Subclusters[i]
 		sc.setDefaultProxySubcluster(useProxy)
 	}
+}
+
+// checkIfAnyOpInProgressWhenRotatingCerts checks if any operation is in progress when enabling tls auth
+func (v *VerticaDB) checkIfAnyOpInProgressBeforeTLSChange(oldObj *VerticaDB, allErrs field.ErrorList) field.ErrorList {
+	errMsgs := v.findChangedTLSFields(oldObj)
+	// we don't need to check if the user doesn't change tls fields
+	if len(errMsgs) == 0 {
+		return allErrs
+	}
+
+	// we cannot rotate certs when there are sandboxes
+	tlsConfigChanged := len(errMsgs) != 0 && vmeta.UseTLSAuth(v.Annotations) == vmeta.UseTLSAuth(oldObj.Annotations)
+	if tlsConfigChanged && len(v.Spec.Sandboxes) > 0 {
+		allErrs = append(allErrs, field.Invalid(
+			field.NewPath("spec").Child("sandboxes"), "", "while there are sandboxes, we cannot update TLS fields: "+
+				strings.Join(errMsgs, ", ")))
+		return allErrs
+	}
+
+	// forbid tls changes during upgrade
+	if v.checkIfUpgradeInProgress() {
+		allErrs = append(allErrs, field.Invalid(
+			field.NewPath("spec"), "", "while an upgrade is in progress, TLS fields cannot be changed "+
+				strings.Join(errMsgs, ", ")))
+		return allErrs
+	}
+
+	errMsgs2 := v.compareSpecAndStatus()
+	// forbid tls changes when the spec and status are not in sync
+	if len(errMsgs2) != 0 {
+		allErrs = append(allErrs, field.Invalid(
+			field.NewPath("spec"), "", "while some database operations are inprogress: "+strings.Join(errMsgs2, ", ")+
+				", TLS fields cannot be changed: "+strings.Join(errMsgs, ", ")))
+	}
+	return allErrs
+}
+
+func (v *VerticaDB) checkIfUpgradeInProgress() bool {
+	if v.IsStatusConditionTrue(UpgradeInProgress) || v.IsStatusConditionTrue(OnlineUpgradeInProgress) || v.IsStatusConditionTrue(OfflineUpgradeInProgress) ||
+		v.IsStatusConditionTrue(ReadOnlyOnlineUpgradeInProgress) {
+		return true
+	}
+	return false
+}
+
+func (v *VerticaDB) findChangedTLSFields(oldObj *VerticaDB) []string {
+	errMsgs := []string{}
+	if vmeta.UseTLSAuth(v.Annotations) != vmeta.UseTLSAuth(oldObj.Annotations) {
+		errMsgs = append(errMsgs, fmt.Sprintf("annotation %q is changed from %q to %q",
+			vmeta.EnableTLSAuthAnnotation, oldObj.Annotations[vmeta.EnableTLSAuthAnnotation], v.Annotations[vmeta.EnableTLSAuthAnnotation]))
+	}
+	if oldObj.GetHTTPSNMATLSSecret() != "" && v.GetHTTPSNMATLSSecret() != oldObj.GetHTTPSNMATLSSecret() {
+		errMsgs = append(errMsgs, fmt.Sprintf("spec.httpsNMATLS.Secret is changed from %q to %q", oldObj.GetHTTPSNMATLSSecret(), v.GetHTTPSNMATLSSecret()))
+	}
+	if oldObj.GetHTTPSNMATLSMode() != "" && v.GetHTTPSNMATLSMode() != oldObj.GetHTTPSNMATLSMode() {
+		errMsgs = append(errMsgs, fmt.Sprintf("spec.httpsTLS.Mode is changed from %q to %q", oldObj.GetHTTPSNMATLSMode(), v.GetHTTPSNMATLSMode()))
+	}
+	if oldObj.GetClientServerTLSSecret() != "" && v.GetClientServerTLSSecret() != oldObj.GetClientServerTLSSecret() {
+		errMsgs = append(errMsgs, fmt.Sprintf("spec.clientServerTLS.Secret is changed from %q to %q", oldObj.GetClientServerTLSSecret(), v.GetClientServerTLSSecret()))
+	}
+	if oldObj.GetClientServerTLSMode() != "" && v.GetClientServerTLSMode() != oldObj.GetClientServerTLSMode() {
+		errMsgs = append(errMsgs, fmt.Sprintf("spec.clientServerTLS.Mode is changed from %q to %q", oldObj.GetClientServerTLSMode(), v.GetClientServerTLSMode()))
+	}
+	return errMsgs
+}
+
+func (v *VerticaDB) compareSpecAndStatus() []string {
+	errMsgs := []string{}
+	if v.IsSubclusterOpNeeded() {
+		errMsgs = append(errMsgs, "subluster operation is still in progress")
+		return errMsgs
+	}
+	if v.IsSandboxOpNeeded() {
+		errMsgs = append(errMsgs, "sandboxing/unsandboxing operation is still in progress")
+		return errMsgs
+	}
+	return errMsgs
 }
 
 func (s *Subcluster) setDefaultProxySubcluster(useProxy bool) {

@@ -33,6 +33,9 @@ import (
 )
 
 var _ = Describe("verticadb_webhook", func() {
+	const (
+		newSecret = "new-secret"
+	)
 	// validate VerticaDB spec values
 	It("should succeed with all valid fields", func() {
 		vdb := createVDBHelper()
@@ -2216,6 +2219,139 @@ var _ = Describe("verticadb_webhook", func() {
 		Ω(newVdb.validateVerticaDBSpec()).Should(HaveLen(1))
 		newVdb.Spec.ClientServerTLS.Mode = ""
 		Ω(newVdb.validateVerticaDBSpec()).Should(HaveLen(0))
+	})
+
+	It("should return no error if initPolicy is not Revive", func() {
+		vdb := MakeVDB()
+		vdb.Spec.InitPolicy = CommunalInitPolicyCreate
+		vdb.Annotations[vmeta.EnableTLSAuthAnnotation] = trueString
+		vdb.Spec.HTTPSNMATLS.Secret = ""
+		vdb.Spec.ClientServerTLS.Secret = ""
+		allErrs := vdb.hasTLSSecretsSetForRevive(field.ErrorList{})
+		Expect(allErrs).Should(BeEmpty())
+	})
+	It("should return no error if TLS is not enabled", func() {
+		vdb := MakeVDB()
+		vdb.Spec.InitPolicy = CommunalInitPolicyRevive
+		delete(vdb.Annotations, vmeta.EnableTLSAuthAnnotation)
+		vdb.Spec.HTTPSNMATLS.Secret = ""
+		vdb.Spec.ClientServerTLS.Secret = ""
+		allErrs := vdb.hasTLSSecretsSetForRevive(field.ErrorList{})
+		Expect(allErrs).Should(BeEmpty())
+	})
+	It("should return error if HTTPSNMATLS.Secret is empty when TLS is enabled and initPolicy is Revive", func() {
+		vdb := MakeVDB()
+		vdb.Spec.InitPolicy = CommunalInitPolicyRevive
+		vdb.Annotations[vmeta.EnableTLSAuthAnnotation] = trueString
+		vdb.Spec.HTTPSNMATLS.Secret = ""
+		vdb.Spec.ClientServerTLS.Secret = "client-secret"
+		allErrs := vdb.hasTLSSecretsSetForRevive(field.ErrorList{})
+		Expect(allErrs).Should(HaveLen(1))
+		Expect(allErrs[0].Field).To(ContainSubstring("spec.httpsNMATLS.secret"))
+		Expect(allErrs[0].Error()).To(ContainSubstring("httpsNMATLS.Secret cannot be empty"))
+	})
+	It("should return error if ClientServerTLS.Secret is empty when TLS is enabled and initPolicy is Revive", func() {
+		vdb := MakeVDB()
+		vdb.Spec.InitPolicy = CommunalInitPolicyRevive
+		vdb.Annotations[vmeta.EnableTLSAuthAnnotation] = trueString
+		vdb.Spec.HTTPSNMATLS.Secret = newSecret
+		vdb.Spec.ClientServerTLS.Secret = ""
+		allErrs := vdb.hasTLSSecretsSetForRevive(field.ErrorList{})
+		Expect(allErrs).Should(HaveLen(1))
+		Expect(allErrs[0].Field).To(ContainSubstring("spec.clientServerTLS.secret"))
+		Expect(allErrs[0].Error()).To(ContainSubstring("clientServerTLS.Secret cannot be empty"))
+	})
+	It("should return errors for both secrets if both are empty", func() {
+		vdb := MakeVDB()
+		vdb.Spec.InitPolicy = CommunalInitPolicyRevive
+		vdb.Annotations[vmeta.EnableTLSAuthAnnotation] = trueString
+		vdb.Spec.HTTPSNMATLS.Secret = ""
+		vdb.Spec.ClientServerTLS.Secret = ""
+		allErrs := vdb.hasTLSSecretsSetForRevive(field.ErrorList{})
+		Expect(allErrs).Should(HaveLen(2))
+		Expect(allErrs[0].Field).To(ContainSubstring("spec.httpsNMATLS.secret"))
+		Expect(allErrs[1].Field).To(ContainSubstring("spec.clientServerTLS.secret"))
+	})
+	It("should return no error if both secrets are set and TLS is enabled and initPolicy is Revive", func() {
+		vdb := MakeVDB()
+		vdb.Spec.InitPolicy = CommunalInitPolicyRevive
+		vdb.Annotations[vmeta.EnableTLSAuthAnnotation] = trueString
+		vdb.Spec.HTTPSNMATLS.Secret = newSecret
+		vdb.Spec.ClientServerTLS.Secret = newSecret
+		allErrs := vdb.hasTLSSecretsSetForRevive(field.ErrorList{})
+		Expect(allErrs).Should(BeEmpty())
+	})
+	It("should not allow tls config to change when an operation is in progress", func() {
+		newVdb := MakeVDB()
+		const testHTTPSSecret = "test-https-secret" // #nosec G101
+		const testClientServerSecret = "test-client-server-secret"
+		const verifyCa = "VERIFY_CA"
+		const tryVerify = "TRY_VERIFY"
+		newVdb.Annotations[vmeta.VersionAnnotation] = TLSAuthMinVersion
+		newVdb.Annotations[vmeta.VClusterOpsAnnotation] = trueString
+		newVdb.Annotations[vmeta.EnableTLSAuthAnnotation] = trueString
+		newVdb.Spec.Subclusters = []Subcluster{
+			{Name: "sc1", Type: PrimarySubcluster, Size: 3, ServiceType: v1.ServiceTypeClusterIP},
+			{Name: "sc2", Type: SecondarySubcluster, Size: 3, ServiceType: v1.ServiceTypeClusterIP},
+		}
+		newVdb.Status.Subclusters = []SubclusterStatus{
+			{Name: "sc1", Shutdown: false, AddedToDBCount: 3, UpNodeCount: 3, Type: PrimarySubcluster},
+			{Name: "sc2", Shutdown: false, AddedToDBCount: 3, UpNodeCount: 3, Type: SecondarySubcluster},
+		}
+		newVdb.Spec.HTTPSNMATLS.Mode = tryVerify
+		newVdb.Spec.ClientServerTLS.Mode = tryVerify
+		newVdb.Spec.HTTPSNMATLS.Secret = testHTTPSSecret
+		newVdb.Spec.ClientServerTLS.Secret = testClientServerSecret
+		oldVdb := newVdb.DeepCopy()
+		Ω(newVdb.validateImmutableFields(oldVdb)).Should(HaveLen(0))
+
+		// when upgrade is in progress, we cannot modify the tls config
+		newVdb.Status.Conditions = []metav1.Condition{
+			{Type: UpgradeInProgress, Status: metav1.ConditionTrue, Reason: "UpgradeStarted"},
+		}
+		newVdb.Spec.HTTPSNMATLS.Mode = verifyCa
+		Ω(newVdb.validateImmutableFields(oldVdb)).Should(HaveLen(1))
+		newVdb.Status.Conditions = []metav1.Condition{
+			{Type: UpgradeInProgress, Status: metav1.ConditionFalse, Reason: "UpgradeStarted"},
+		}
+		Ω(newVdb.validateImmutableFields(oldVdb)).Should(HaveLen(0))
+		newVdb.Spec.HTTPSNMATLS.Mode = tryVerify
+		Ω(newVdb.validateImmutableFields(oldVdb)).Should(HaveLen(0))
+
+		// when subcluster shutdown is in progress, we cannot modify the tls config
+		newVdb.Spec.Subclusters[0].Shutdown = true
+		newVdb.Spec.HTTPSNMATLS.Secret = "test-https-secret-1"
+		Ω(newVdb.validateImmutableFields(oldVdb)).Should(HaveLen(1))
+		newVdb.Spec.HTTPSNMATLS.Secret = testHTTPSSecret
+		Ω(newVdb.validateImmutableFields(oldVdb)).Should(HaveLen(0))
+		newVdb.Spec.Subclusters[0].Shutdown = false
+		Ω(newVdb.validateImmutableFields(oldVdb)).Should(HaveLen(0))
+
+		// when subcluster size is changed, we cannot modify the tls config
+		newVdb.Spec.Subclusters[0].Size = 4
+		newVdb.Spec.ClientServerTLS.Secret = "test-client-server-secret-1"
+		Ω(newVdb.validateImmutableFields(oldVdb)).Should(HaveLen(1))
+		newVdb.Spec.ClientServerTLS.Secret = testClientServerSecret
+		Ω(newVdb.validateImmutableFields(oldVdb)).Should(HaveLen(0))
+		newVdb.Spec.Subclusters[0].Size = 3
+		Ω(newVdb.validateImmutableFields(oldVdb)).Should(HaveLen(0))
+
+		// we cannot rotate certs when there are sandboxes
+		newVdb.Spec.Sandboxes = []Sandbox{
+			{Name: "sand", Subclusters: []SandboxSubcluster{{Name: newVdb.Spec.Subclusters[1].Name}}},
+		}
+		newVdb.Spec.ClientServerTLS.Mode = verifyCa
+		Ω(newVdb.validateImmutableFields(oldVdb)).Should(HaveLen(1))
+		newVdb.Spec.Sandboxes = []Sandbox{}
+		Ω(newVdb.validateImmutableFields(oldVdb)).Should(HaveLen(0))
+		newVdb.Spec.ClientServerTLS.Mode = tryVerify
+		Ω(newVdb.validateImmutableFields(oldVdb)).Should(HaveLen(0))
+
+		// tls auth cannot be disabled
+		newVdb.Annotations[vmeta.EnableTLSAuthAnnotation] = falseString
+		Ω(newVdb.validateImmutableFields(oldVdb)).Should(HaveLen(1))
+		newVdb.Annotations[vmeta.EnableTLSAuthAnnotation] = trueString
+		Ω(newVdb.validateImmutableFields(oldVdb)).Should(HaveLen(0))
 	})
 
 })
