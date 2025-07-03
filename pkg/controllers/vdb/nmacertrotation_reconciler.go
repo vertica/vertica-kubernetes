@@ -42,6 +42,7 @@ type NMACertRotationReconciler struct {
 	Log        logr.Logger
 	Dispatcher vadmin.Dispatcher
 	Pfacts     *podfacts.PodFacts
+	Manager    *TLSConfigManager
 }
 
 func MakeNMACertRotationReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger, vdb *vapi.VerticaDB, dispatcher vadmin.Dispatcher,
@@ -52,6 +53,7 @@ func MakeNMACertRotationReconciler(vdbrecon *VerticaDBReconciler, log logr.Logge
 		Log:        log.WithName("NMACertRotationReconciler"),
 		Dispatcher: dispatcher,
 		Pfacts:     pfacts,
+		Manager:    MakeTLSConfigManager(vdbrecon, log, vdb, tlsConfigHTTPS, dispatcher),
 	}
 }
 
@@ -67,6 +69,12 @@ func (h *NMACertRotationReconciler) Reconcile(ctx context.Context, _ *ctrl.Reque
 		h.Vdb.IsTLSCertRollbackNeeded() {
 		return ctrl.Result{}, nil
 	}
+
+	// we want to be sure nma tls configmap exists and has the freshest values
+	if res, errCheck := h.Manager.checkNMATLSConfigMap(ctx); verrors.IsReconcileAborted(res, errCheck) {
+		return res, errCheck
+	}
+
 	// nma secret
 	newSecretName := h.Vdb.GetHTTPSNMATLSSecret()
 
