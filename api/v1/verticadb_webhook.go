@@ -2601,6 +2601,10 @@ func (v *VerticaDB) setDefaultProxy() {
 
 // checkIfAnyOpInProgressWhenRotatingCerts checks if any operation is in progress when enabling tls auth
 func (v *VerticaDB) checkIfAnyOpInProgressBeforeTLSChange(oldObj *VerticaDB, allErrs field.ErrorList) field.ErrorList {
+	if !v.isDBInitialized() {
+		// if the db is not initialized, we don't need to check if any operation is in progress
+		return allErrs
+	}
 	errMsgs := v.findChangedTLSFields(oldObj)
 	// we don't need to check if the user doesn't change tls fields
 	if len(errMsgs) == 0 {

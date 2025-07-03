@@ -2530,6 +2530,9 @@ var _ = Describe("verticadb_webhook", func() {
 
 	It("should not allow tls config to change when an operation is in progress", func() {
 		newVdb := MakeVDB()
+		dbInitCond := metav1.Condition{
+			Type: DBInitialized, Status: metav1.ConditionTrue, Reason: "DBInitialized",
+		}
 		const testHTTPSSecret = "test-https-secret" // #nosec G101
 		const testClientServerSecret = "test-client-server-secret"
 		const verifyCa = "VERIFY_CA"
@@ -2554,11 +2557,13 @@ var _ = Describe("verticadb_webhook", func() {
 
 		// when upgrade is in progress, we cannot modify the tls config
 		newVdb.Status.Conditions = []metav1.Condition{
+			dbInitCond,
 			{Type: UpgradeInProgress, Status: metav1.ConditionTrue, Reason: "UpgradeStarted"},
 		}
 		newVdb.Spec.HTTPSNMATLS.Mode = verifyCa
 		Ω(newVdb.validateImmutableFields(oldVdb)).Should(HaveLen(1))
 		newVdb.Status.Conditions = []metav1.Condition{
+			dbInitCond,
 			{Type: UpgradeInProgress, Status: metav1.ConditionFalse, Reason: "UpgradeStarted"},
 		}
 		Ω(newVdb.validateImmutableFields(oldVdb)).Should(HaveLen(0))

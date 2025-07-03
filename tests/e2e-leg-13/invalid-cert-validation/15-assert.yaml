@@ -11,8 +11,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: kuttl.dev/v1beta1
-kind: TestStep
-commands:
-  - command: >
-      sh -c "kubectl patch verticadb v-tls-certs -n $NAMESPACE --type merge -p '{\"spec\": {\"clientServerTLS\": {\"secret\": \"cert-no-client-auth\"}}}'"
+apiVersion: v1
+kind: Event
+reason: TLSCertValidationFailed
+source:
+  component: verticadb-operator
+involvedObject:
+  apiVersion: vertica.com/v1
+  kind: VerticaDB
+  name: v-tls-certs
+message: Validation of TLS Certificate "httpsNMA" failed with secret "cert-no-client-auth"
