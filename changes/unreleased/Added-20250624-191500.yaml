@@ -1,5 +1,0 @@
-kind: Added
-body: Add cert-gen tool to generate a tls secret
-time: 2025-06-24T19:15:00.329685486+02:00
-custom:
-    Issue: "1278"
