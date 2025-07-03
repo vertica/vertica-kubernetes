@@ -14,57 +14,50 @@ var _ = Describe("vdb_context", func() {
 	var ctx = context.Background()
 	It("should return same strings used to create secret", func() {
 
-		vdbContext := GetContextForVdb("default", "test-vdb")
-		Expect(vdbContext).ShouldNot(Equal(nil))
-		vdbContextOne := GetContextForVdb("default", "test-vdb")
-		vdbContextTwo := GetContextForVdb("default", "test-vdb")
-		Expect(vdbContextTwo).Should(Equal(vdbContextOne))
-
 		dispatcher := mockVClusterOpsDispatcher()
 		dispatcher.VDB.Spec.DBName = TestDBName
-		dispatcher.VDB.Spec.HTTPSNMATLSSecret = TestNMATLSSecret
+		dispatcher.VDB.Spec.HTTPSNMATLS.Secret = TestNMATLSSecret
 		secret := test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, TestNMATLSSecret)
-		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.HTTPSNMATLSSecret)
-		fetcher := cloud.SecretFetcher{
+		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.HTTPSNMATLS.Secret)
+		fetcher := &cloud.SecretFetcher{
 			Client:   dispatcher.Client,
 			Log:      dispatcher.Log,
 			Obj:      dispatcher.VDB,
 			EVWriter: dispatcher.EVWriter,
 		}
+		vdbCertCache := GetCertCacheForVdb("default", "test-vdb", fetcher)
+		Expect(vdbCertCache).ShouldNot(Equal(nil))
+		vdbCertCacheOne := GetCertCacheForVdb("default", "test-vdb", fetcher)
+		vdbCertCacheTwo := GetCertCacheForVdb("default", "test-vdb", fetcher)
+		Expect(vdbCertCacheTwo).Should(Equal(vdbCertCacheOne))
 
-		cert, err := vdbContextOne.LoadCertBySecretName(ctx, TestNMATLSSecret, fetcher)
+		cert, err := vdbCertCacheOne.ReadCertFromSecret(ctx, TestNMATLSSecret)
 		Ω(err).Should(BeNil())
 		Ω(cert.Key).Should(Equal(test.TestKeyValue))
 		Ω(cert.Cert).Should(Equal(test.TestCertValue))
 		Ω(cert.CaCert).Should(Equal(test.TestCaCertValue))
-		Ω(reflect.DeepEqual(vdbContextOne, vdbContextTwo)).Should(Equal(true))
-		cert, err = vdbContextOne.LoadCertFromCache(TestNMATLSSecret)
+		Ω(reflect.DeepEqual(vdbCertCacheOne, vdbCertCacheTwo)).Should(Equal(true))
+		cert, err = vdbCertCacheOne.ReadCertFromSecret(ctx, TestNMATLSSecret)
 		Ω(cert.Key).Should(Equal(test.TestKeyValue))
 		Ω(cert.Cert).Should(Equal(test.TestCertValue))
 		Ω(cert.CaCert).Should(Equal(test.TestCaCertValue))
-		err = vdbContextTwo.BackupCertCache(TestNMATLSSecret, TestClientServerSecret)
-		Ω(err).Should(BeNil())
-		vdbContextTwo.ClearCertCache(TestNMATLSSecret)
-		cert, err = vdbContextOne.LoadCertFromCache(TestNMATLSSecret)
+		vdbCertCacheTwo.ClearCacheBySecretName(TestNMATLSSecret)
+		cert, err = vdbCertCacheOne.ReadCertFromSecret(ctx, TestNMATLSSecret)
 		Ω(err).ShouldNot(BeNil())
-		cert, err = vdbContextOne.LoadCertFromCache(TestClientServerSecret)
+		cert, err = vdbCertCacheOne.ReadCertFromSecret(ctx, TestClientServerSecret)
 		Ω(err).Should(BeNil())
 		Ω(cert.Key).Should(Equal(test.TestKeyValue))
 		Ω(cert.Cert).Should(Equal(test.TestCertValue))
 		Ω(cert.CaCert).Should(Equal(test.TestCaCertValue))
-		vdbContextTwo.ClearCertCache(TestClientServerSecret)
-		cert, err = vdbContextOne.LoadCertFromCache(TestClientServerSecret)
+		vdbCertCacheTwo.ClearCacheBySecretName(TestClientServerSecret)
+		cert, err = vdbCertCacheOne.ReadCertFromSecret(ctx, TestClientServerSecret)
 		Ω(err).ShouldNot(BeNil())
-		vdbContextTwo.SaveCertIntoCache(TestClientServerSecret, secret.Data)
-		cert, err = vdbContextOne.LoadCertFromCache(TestClientServerSecret)
+		vdbCertCacheTwo.SaveCertIntoCache(TestClientServerSecret, secret.Data)
+		cert, err = vdbCertCacheOne.ReadCertFromSecret(ctx, TestClientServerSecret)
 		Ω(err).Should(BeNil())
 		Ω(cert.Key).Should(Equal(test.TestKeyValue))
 		Ω(cert.Cert).Should(Equal(test.TestCertValue))
 		Ω(cert.CaCert).Should(Equal(test.TestCaCertValue))
-
-		/* Expect(vdbContextTwo.GetBoolValue(UseTLSCert)).Should(Equal(true))
-		vdbContextOne.SetBoolValue(UseTLSCert, false)
-		Expect(vdbContextTwo.GetBoolValue(UseTLSCert)).Should(Equal(false)) */
 
 	})
 
