@@ -319,7 +319,8 @@ func (o *OfflineUpgradeReconciler) checkForNewPods(ctx context.Context) (ctrl.Re
 // version.  This depends on the pod to be running with the new version.
 func (o *OfflineUpgradeReconciler) checkVersion(ctx context.Context) (ctrl.Result, error) {
 	if o.Vdb.GetIgnoreUpgradePath() {
-		return ctrl.Result{}, nil
+		vr := MakeImageVersionReconciler(o.Rec, o.Log, o.Vdb, o.PRunner, o.PFacts, false, &o.VerticaVersion, true)
+		return vr.Reconcile(ctx, &ctrl.Request{})
 	}
 
 	const EnforceUpgradePath = true
