@@ -2344,22 +2344,54 @@ func (v *VerticaDB) checkImmutableTLSConfig(oldObj *VerticaDB, allErrs field.Err
 				"clientServerTLS cannot be changed when tls config update is in progress")
 			allErrs = append(allErrs, err)
 		}
-	} else if httpsTLSConfigChanged && clientTLSConfigChanged {
-		// There is currently a limitation that we cannot change both httpsNMATLS and clientServerTLS at the same time.
-		// This is because of the current implementation of the TLS config update. Once the implementation is improved,
-		// we can remove this limitation.
-		err := field.Invalid(field.NewPath("spec").Child("httpsNMATLS"),
-			v.Spec.HTTPSNMATLS,
-			"cannot change both httpsNMATLS and clientServerTLS at the same time")
-		allErrs = append(allErrs, err)
 	}
 
 	return allErrs
 }
 
+// checkTLSFieldsWhenTLSUpdateNotInProgress checks that the TLS fields are valid when the TLS config update is not in progress.
+func (v *VerticaDB) checkTLSFieldsWhenTLSUpdateNotInProgress(oldObj *VerticaDB) field.ErrorList {
+	var errs field.ErrorList
+	if !vmeta.UseTLSAuth(v.Annotations) || v.IsTLSConfigUpdateInProgress() {
+		return errs
+	}
+
+	specFld := field.NewPath("spec")
+
+	httpsTLSSecretChanged := oldObj.GetHTTPSNMATLSSecret() != "" &&
+		oldObj.GetHTTPSNMATLSSecret() != v.GetHTTPSNMATLSSecret()
+	clientTLSSecretChanged := oldObj.GetClientServerTLSSecret() != "" &&
+		oldObj.GetClientServerTLSSecret() != v.GetClientServerTLSSecret()
+
+	if httpsTLSSecretChanged && v.GetHTTPSNMATLSSecret() == "" {
+		errs = append(errs, field.Forbidden(specFld.Child("httpsNMATLS").Child("secret"),
+			"cannot change httpsNMATLS.secret to empty value"))
+	}
+
+	if clientTLSSecretChanged && v.GetClientServerTLSSecret() == "" {
+		errs = append(errs, field.Forbidden(specFld.Child("clientServerTLS").Child("secret"),
+			"cannot change clientServerTLS.secret to empty value"))
+	}
+
+	httpsTLSConfigChanged := httpsTLSSecretChanged || oldObj.GetHTTPSNMATLSMode() != v.GetHTTPSNMATLSMode()
+	clientTLSConfigChanged := clientTLSSecretChanged || oldObj.GetClientServerTLSMode() != v.GetClientServerTLSMode()
+
+	// There is currently a limitation that we cannot change both httpsNMATLS and clientServerTLS at the same time.
+	// This is because of the current implementation of the TLS config update. Once the implementation is improved,
+	// we can remove this limitation.
+	tlsConfigsExistInStatus := v.GetTLSConfigByName(HTTPSNMATLSConfigName) != nil &&
+		v.GetTLSConfigByName(ClientServerTLSConfigName) != nil
+	if tlsConfigsExistInStatus && httpsTLSConfigChanged && clientTLSConfigChanged {
+		errs = append(errs, field.Forbidden(specFld,
+			"cannot change both httpsNMATLS and clientServerTLS at the same time"))
+	}
+
+	return errs
+}
+
 // hasValidTLSMode checks if the tls mode is valid
 func (v *VerticaDB) hasValidTLSMode(tlsModeToValidate, fieldName string, allErrs field.ErrorList) field.ErrorList {
-	if !v.IsSetForTLS() {
+	if !vmeta.UseTLSAuth(v.Annotations) {
 		return allErrs
 	}
 	tlsModes := []string{tlsModeDisable, tlsModeEnable, tlsModeTryVerify, tlsModeVerifyCA, tlsModeVerifyFull}
@@ -2382,7 +2414,9 @@ func (v *VerticaDB) hasValidTLSMode(tlsModeToValidate, fieldName string, allErrs
 // checkValidTLSConfigUpdate enforces:
 // 1. If tls config update is in progress, all other operations are not allowed.
 // 2. Cannot disable mutual TLS after it's enabled.
-// 3. Prevent user from changing nmaTLSSecret.
+// 3. Cannot change both httpsNMATLS and clientServerTLS at the same time.
+// 4. Cannot change a secret to empty string.
+// 5. Prevent user from changing nmaTLSSecret.
 func (v *VerticaDB) checkValidTLSConfigUpdate(oldObj *VerticaDB, allErrs field.ErrorList) field.ErrorList {
 	specFld := field.NewPath("spec")
 
@@ -2413,7 +2447,11 @@ func (v *VerticaDB) checkValidTLSConfigUpdate(oldObj *VerticaDB, allErrs field.E
 		}
 	}
 
-	// Rule 3: nmaTLSSecret is immutable
+	// Rule 3 & 4: cannot change both tls configs at the same time.
+	// Cannot change a secret to empty string
+	allErrs = append(allErrs, v.checkTLSFieldsWhenTLSUpdateNotInProgress(oldObj)...)
+
+	// Rule 5: nmaTLSSecret is immutable
 	if oldObj.Spec.NMATLSSecret != v.Spec.NMATLSSecret {
 		allErrs = append(allErrs, field.Forbidden(specFld.Child("nmaTLSSecret"),
 			"nmaTLSSecret cannot be changed"))
