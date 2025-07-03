@@ -747,14 +747,14 @@ undeploy-prometheus-adapter:  ## Remove prometheus adapter
 	helm uninstall $(PROMETHEUS_ADAPTER_NAME) -n $(PROMETHEUS_ADAPTER_NAMESPACE)
 
 .PHONY: deploy-loki
-deploy-loki: deploy-grafana deploy-alloy
+deploy-loki: deploy-grafana deploy-k8s-monitoring
 	helm repo add grafana https://grafana.github.io/helm-charts
 	helm repo update
 	helm install loki grafana/loki --namespace loki --create-namespace --values grafana/loki-values.yaml
 
 .PHONY: undeploy-loki
-undeploy-loki: undeploy-grafana undeploy-alloy
-	helm uninstall loki -n loki
+undeploy-loki: undeploy-grafana undeploy-k8s-monitoring
+	helm uninstall loki --namespace loki
 
 .PHONY: deploy-grafana
 deploy-grafana:
@@ -764,25 +764,21 @@ deploy-grafana:
 
 .PHONY: undeploy-grafana
 undeploy-grafana:
-	helm uninstall grafana -n grafana
+	helm uninstall grafana --namespace grafana
 
-.PHONY: deploy-alloy
-deploy-alloy:
+.PHONY: deploy-k8s-monitoring
+deploy-k8s-monitoring:
 	helm repo add grafana https://grafana.github.io/helm-charts
 	helm repo update
-	helm install alloy grafana/alloy --namespace alloy --create-namespace --values grafana/alloy-values.yaml
+	helm install k8s-monitoring grafana/k8s-monitoring --namespace k8s-monitoring --create-namespace --values grafana/k8s-monitoring-values.yaml
 
-.PHONY: undeploy-alloy
-undeploy-alloy:
-	helm uninstall alloy -n alloy
+.PHONY: undeploy-k8s-monitoring
+undeploy-k8s-monitoring:
+	helm uninstall k8s-monitoring --namespace k8s-monitoring
 
 .PHONY: port-forward-grafana
 port-forward-grafana:  ## Expose the grafana endpoint so that you can connect to it through http://localhost:3000
 	kubectl port-forward --namespace grafana --address $(LOCALHOST) $(shell kubectl get pods --namespace grafana -l "app.kubernetes.io/name=grafana,app.kubernetes.io/instance=grafana" -o jsonpath="{.items[0].metadata.name}") 3000
-
-.PHONY: port-forward-alloy
-port-forward-alloy:  ## Expose the alloy endpoint so that you can connect to it through http://localhost:12345
-	kubectl port-forward --namespace alloy --address $(LOCALHOST) $(shell kubectl get pods --namespace alloy -l "app.kubernetes.io/name=alloy-logs,app.kubernetes.io/instance=k8s" -o jsonpath="{.items[0].metadata.name}") 12345
 
 .PHONY: deploy-keda
 deploy-keda: ## Deploy keda operator for autoscaling
