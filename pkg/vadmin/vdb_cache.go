@@ -21,14 +21,6 @@ import (
 
 */
 
-const (
-	// bool names
-	UseTLSCert = "UseTlsCert"
-
-	// secret names
-	NMATLSSecret = "NMATLSSecret"
-)
-
 // These are the functions that can set/read a bool/secert
 type CertCache interface {
 	ReadCertFromSecret(context.Context, string) (*HTTPSCerts, error)

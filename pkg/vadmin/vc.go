@@ -22,8 +22,6 @@ import (
 
 	vops "github.com/vertica/vcluster/vclusterops"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
-	"github.com/vertica/vertica-kubernetes/pkg/cloud"
-	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/secrets"
 	corev1 "k8s.io/api/core/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -51,42 +49,14 @@ func (v *VClusterOps) retrieveHTTPSCertsWithTarget(ctx context.Context, forTarge
 		v.Log.Error(err, "failed to get nma secret name")
 		return nil, err
 	}
-
-	v.Log.Info("HTTPS NMA secret name used", "secretName", secretName)
-
-	fetcher := cloud.SecretFetcher{
-		Client:   v.Client,
-		Log:      v.Log,
-		Obj:      vdb,
-		EVWriter: v.EVWriter,
-	}
-
-	return retrieveNMACerts(ctx, &fetcher, vdb, secretName)
+	v.Log.Info("nma secret name used - " + secretName)
+	certCache := GetCertCacheForVdb(vdb.Namespace, vdb.Name)
+	return certCache.ReadCertFromSecret(ctx, secretName)
 }
 
-func retrieveNMACerts(ctx context.Context, fetcher *cloud.SecretFetcher, vdb *vapi.VerticaDB, secretName string) (*HTTPSCerts, error) {
-	tlsCerts, err := fetcher.Fetch(ctx, names.GenNamespacedName(vdb, secretName))
-	if err != nil {
-		return nil, fmt.Errorf("fetching NMA certs: %w", err)
-	}
-
-	tlsKey, ok := tlsCerts[corev1.TLSPrivateKeyKey]
-	if !ok {
-		return nil, fmt.Errorf("key %s is missing in the secret %s", corev1.TLSPrivateKeyKey, vdb.GetHTTPSNMATLSSecret())
-	}
-	tlsCrt, ok := tlsCerts[corev1.TLSCertKey]
-	if !ok {
-		return nil, fmt.Errorf("cert %s is missing in the secret %s", corev1.TLSCertKey, vdb.GetHTTPSNMATLSSecret())
-	}
-	tlsCaCrt, ok := tlsCerts[corev1.ServiceAccountRootCAKey]
-	if !ok {
-		return nil, fmt.Errorf("ca cert %s is missing in the secret %s", corev1.ServiceAccountRootCAKey, vdb.GetHTTPSNMATLSSecret())
-	}
-	return &HTTPSCerts{
-		Key:    string(tlsKey),
-		Cert:   string(tlsCrt),
-		CaCert: string(tlsCaCrt),
-	}, nil
+func retrieveNMACerts(ctx context.Context, vdb *vapi.VerticaDB, secretName string) (*HTTPSCerts, error) {
+	certCache := GetCertCacheForVdb(vdb.Namespace, vdb.Name)
+	return certCache.ReadCertFromSecret(ctx, secretName)
 }
 
 func genTLSConfigurationMap(tlsMode, secretNameInVdb, secretNamespace string) map[string]string {
