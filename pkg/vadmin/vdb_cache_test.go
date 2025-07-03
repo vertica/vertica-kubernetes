@@ -25,10 +25,11 @@ var _ = Describe("vdb_context", func() {
 			Obj:      dispatcher.VDB,
 			EVWriter: dispatcher.EVWriter,
 		}
-		vdbCertCache := GetCertCacheForVdb("default", "test-vdb", fetcher)
+		InitCertCacheForVdb("default", "test-vdb", fetcher)
+		vdbCertCache := GetCertCacheForVdb("default", "test-vdb")
 		Expect(vdbCertCache).ShouldNot(Equal(nil))
-		vdbCertCacheOne := GetCertCacheForVdb("default", "test-vdb", fetcher)
-		vdbCertCacheTwo := GetCertCacheForVdb("default", "test-vdb", fetcher)
+		vdbCertCacheOne := GetCertCacheForVdb("default", "test-vdb")
+		vdbCertCacheTwo := GetCertCacheForVdb("default", "test-vdb")
 		Expect(vdbCertCacheTwo).Should(Equal(vdbCertCacheOne))
 
 		cert, err := vdbCertCacheOne.ReadCertFromSecret(ctx, TestNMATLSSecret)
