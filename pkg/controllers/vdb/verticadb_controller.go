@@ -399,5 +399,4 @@ func (r *VerticaDBReconciler) InitCertCacheForVdb(vdb *vapi.VerticaDB) {
 		EVWriter: r.EVRec,
 	}
 	vadmin.InitCertCacheForVdb(vdb.Namespace, vdb.Name, fetcher)
-	return
 }
