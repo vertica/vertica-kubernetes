@@ -23,6 +23,7 @@ podLogs:
   collector: alloy-logs
   labelsToKeep: ["app_kubernetes_io_name","container","instance","job","level","namespace","service_name","service_namespace","deployment_environment","deployment_environment_name"]
   structuredMetadata:
+    k8s.pod.name: k8s.pod.name
     pod: pod  # Set structured metadata "pod" from label "pod"
   namespaces:
     - vertica
@@ -42,35 +43,6 @@ alloy-logs:
       dockercontainers: false
     clustering:
       enabled: true
-    configMap:
-      # -- Create a new ConfigMap for the config file.
-      create: true
-      # -- Content to assign to the new ConfigMap.  This is passed into `tpl` allowing for templating from values.
-      content: |-
-        // Write your Alloy config here:
-        logging {
-          level = "info"
-          format = "json"
-          write_to = [loki.write.default.receiver]
-        }
-
-        loki.write "default" {
-          endpoint {
-            url = "http://loki-gateway.loki.svc.cluster.local/loki/api/v1/push"
-          }
-        }
-
-        local.file_match "logs" {
-          path_targets = [
-            {__path__ = "/data/*/v_*_catalog/vertica.log"},
-          ]
-          sync_period = "5s" // Check for new files every 5 seconds
-        }
-
-        loki.source.file "vertica-log" {
-          targets = local.file_match.logs.targets
-          forward_to = [loki.write.default.receiver]
-        }
 
 alloy-profiles:
   enabled: false
