@@ -146,7 +146,8 @@ func (r *VerticaDBReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	dispatcher := r.makeDispatcher(log, vdb, prunner, passwd)
 	var res ctrl.Result
 
-	r.InitCertCache(vdb)
+	r.InitCertCacheForVdb(vdb)
+	defer vadmin.DestroyCertCacheForVdb(vdb.Namespace, vdb.Name)
 	// Iterate over each actor
 	actors := r.constructActors(log, vdb, prunner, &pfacts, dispatcher)
 	for _, act := range actors {
@@ -162,12 +163,10 @@ func (r *VerticaDBReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 				res.Requeue = false
 				res.RequeueAfter = time.Second * time.Duration(vdb.GetRequeueTime())
 			}
-			vadmin.DestroyCertCacheForVdb(vdb.Namespace, vdb.Name)
 			log.Info("aborting reconcile of VerticaDB", "result", res, "err", err)
 			return res, err
 		}
 	}
-	vadmin.DestroyCertCacheForVdb(vdb.Namespace, vdb.Name)
 	log.Info("ending reconcile of VerticaDB", "result", res, "err", err)
 	return res, err
 }
@@ -392,7 +391,7 @@ func (r *VerticaDBReconciler) GetConfig() *rest.Config {
 	return r.Cfg
 }
 
-func (r *VerticaDBReconciler) InitCertCache(vdb *vapi.VerticaDB) {
+func (r *VerticaDBReconciler) InitCertCacheForVdb(vdb *vapi.VerticaDB) {
 	fetcher := &cloud.SecretFetcher{
 		Client:   r.Client,
 		Log:      r.Log,
