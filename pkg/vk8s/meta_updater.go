@@ -50,22 +50,27 @@ func MetaUpdate(ctx context.Context, cl client.Client, nm types.NamespacedName, 
 			return err
 		}
 
-		objAnnotations, annotationsChanged := deleteFromMap(obj.GetAnnotations(), chgs.AnnotationsToRemove)
-		if annotationsChanged {
+		var annotationsChanged, labelsChanged bool
+		objAnnotations, changed1 := deleteFromMap(obj.GetAnnotations(), chgs.AnnotationsToRemove)
+		if changed1 {
+			annotationsChanged = true
 			obj.SetAnnotations(objAnnotations)
 		}
-		objAnnotations, annotationsChanged = addOrReplaceMap(objAnnotations, chgs.NewAnnotations)
-		if annotationsChanged {
+		objAnnotations, changed1 = addOrReplaceMap(objAnnotations, chgs.NewAnnotations)
+		if changed1 {
+			annotationsChanged = true
 			obj.SetAnnotations(objAnnotations)
 		}
 
-		objLabels, labelsChanged := deleteFromMap(obj.GetLabels(), chgs.LabelsToRemove)
-		if labelsChanged {
+		objLabels, changed2 := deleteFromMap(obj.GetLabels(), chgs.LabelsToRemove)
+		if changed2 {
+			labelsChanged = true
 			obj.SetLabels(objLabels)
 		}
 
-		objLabels, labelsChanged = addOrReplaceMap(objLabels, chgs.NewLabels)
-		if labelsChanged {
+		objLabels, changed2 = addOrReplaceMap(objLabels, chgs.NewLabels)
+		if changed2 {
+			labelsChanged = true
 			obj.SetLabels(objLabels)
 		}
 
