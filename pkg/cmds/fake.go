@@ -39,6 +39,7 @@ type FakePodRunner struct {
 	VerticaSUName string
 	// fake password
 	VerticaSUPassword string
+	IsTLSEnabled      bool
 }
 
 // CmdResults stores the command result.  The key is the pod name.
@@ -85,7 +86,7 @@ func (f *FakePodRunner) ExecAdmintools(ctx context.Context, podName types.Namesp
 // ExecVSQL calls ExecInPod
 func (f *FakePodRunner) ExecVSQL(ctx context.Context, podName types.NamespacedName,
 	contName string, command ...string) (stdout, stderr string, err error) {
-	command = UpdateVsqlCmd(f.VerticaSUName, f.VerticaSUPassword, command...)
+	command = UpdateVsqlCmd(f.VerticaSUName, f.VerticaSUPassword, f.IsTLSEnabled, command...)
 	return f.ExecInPod(ctx, podName, contName, command...)
 }
 
