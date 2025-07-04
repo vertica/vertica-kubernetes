@@ -19,7 +19,6 @@ import (
 	"context"
 
 	vops "github.com/vertica/vcluster/vclusterops"
-	"github.com/vertica/vertica-kubernetes/pkg/cloud"
 	"github.com/vertica/vertica-kubernetes/pkg/net"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/rotatetlscerts"
 )
@@ -42,14 +41,7 @@ func (v *VClusterOps) RotateTLSCerts(ctx context.Context, opts ...rotatetlscerts
 		v.Log.Info("HTTPS cert rotation has occurred but the status is not up to date yet. Using secret from spec")
 		secretName = v.VDB.GetHTTPSNMATLSSecret()
 	}
-	// get the certs
-	fetcher := cloud.SecretFetcher{
-		Client:   v.Client,
-		Log:      v.Log,
-		Obj:      v.VDB,
-		EVWriter: v.EVWriter,
-	}
-	certs, err := retrieveNMACerts(ctx, &fetcher, v.VDB, secretName)
+	certs, err := retrieveNMACerts(ctx, v.VDB, secretName)
 	if err != nil {
 		return err
 	}
