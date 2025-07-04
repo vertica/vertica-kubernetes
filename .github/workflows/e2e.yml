@@ -62,6 +62,8 @@ on:
         - vcluster leg 9
         - vcluster leg 10
         - vcluster leg 10 cert
+        - vcluster leg 10 sandbox basic
+        - vcluster leg 10 sandbox basic cert
         - vcluster leg 10 sandbox upgrade
         - vcluster leg 10 sandbox upgrade cert
         - vcluster leg 10 shutdown
