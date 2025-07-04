@@ -63,7 +63,9 @@ func (r *UnsandboxSubclusterReconciler) Reconcile(ctx context.Context, _ *ctrl.R
 
 // updateSandboxConfigMaps will add a trigger ID to sandbox config maps for triggering sandbox controller
 func (r *UnsandboxSubclusterReconciler) updateSandboxConfigMaps(ctx context.Context) error {
+	r.Log.Info("sandbox details F", "spec", r.Vdb.Spec.Sandboxes, "status", r.Vdb.Status.Sandboxes)
 	unsandboxSbScMap := r.Vdb.GenSandboxSubclusterMapForUnsandbox()
+	r.Log.Info("subclusters to unsandbox", "subclusters", unsandboxSbScMap)
 	for sb := range unsandboxSbScMap {
 		triggerUUID := uuid.NewString()
 		sbMan := MakeSandboxConfigMapManager(r.VRec, r.Vdb, sb, triggerUUID)

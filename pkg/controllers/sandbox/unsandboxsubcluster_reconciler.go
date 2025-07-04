@@ -104,8 +104,11 @@ func (r *UnsandboxSubclusterReconciler) Reconcile(ctx context.Context, _ *ctrl.R
 
 // reconcileSandboxStatus will update vdb for the subclusters that are already unsandboxed
 func (r *UnsandboxSubclusterReconciler) reconcileSandboxInfoInVdb(ctx context.Context) error {
+	r.Log.Info("sandbox details E", "spec", r.Vdb.Spec.Sandboxes, "status", r.Vdb.Status.Sandboxes)
 	scSbInStatus := r.Vdb.GenSubclusterSandboxStatusMap()
+	r.Log.Info("subclusters in sandbox status", "subclusters", scSbInStatus)
 	sbScMap := r.PFacts.FindUnsandboxedSubclustersStillInSandboxStatus(scSbInStatus)
+	r.Log.Info("subclusters in sandbox spec", "subclusters", sbScMap)
 	for sb, scs := range sbScMap {
 		if sb == r.ConfigMap.Data[vapi.SandboxNameKey] {
 			err := r.updateSandboxInfoInVdb(ctx, sb, scs)
@@ -172,6 +175,7 @@ func (r *UnsandboxSubclusterReconciler) unsandboxSubclusters(ctx context.Context
 
 	err := r.executeUnsandboxCommand(ctx)
 	if err != nil {
+		r.Log.Info("sandbox details C", "spec", r.Vdb.Spec.Sandboxes, "status", r.Vdb.Status.Sandboxes)
 		return ctrl.Result{}, err
 	}
 	r.OriginalPFacts.Invalidate()
@@ -182,9 +186,11 @@ func (r *UnsandboxSubclusterReconciler) unsandboxSubclusters(ctx context.Context
 // executeUnsandboxCommand will move subclusters from a sandbox to main cluster, update sandbox
 // status, and delete the config map
 func (r *UnsandboxSubclusterReconciler) executeUnsandboxCommand(ctx context.Context) error {
+	r.Log.Info("sandbox details B", "spec", r.Vdb.Spec.Sandboxes, "status", r.Vdb.Status.Sandboxes)
 	unsandboxSbScMap := r.Vdb.GenSandboxSubclusterMapForUnsandbox()
 	sbName := r.ConfigMap.Data[vapi.SandboxNameKey]
 	scs, found := unsandboxSbScMap[sbName]
+	r.Log.Info("subclusters to unsandbox", "subclusters", scs, "sandbox", sbName)
 	if !found {
 		r.Log.Info("Ignore the config map because the sandbox inside it does not need to be unsandboxed")
 		return nil
@@ -203,6 +209,7 @@ func (r *UnsandboxSubclusterReconciler) executeUnsandboxCommand(ctx context.Cont
 		// when failed to update sandbox status, we will still try to process the sandbox config map
 		return errors.Join(err, r.processConfigMap(ctx))
 	}
+	r.Log.Info("sandbox details A", "spec", r.Vdb.Spec.Sandboxes, "status", r.Vdb.Status.Sandboxes)
 	return r.processConfigMap(ctx)
 }
 
@@ -295,10 +302,14 @@ func (r *UnsandboxSubclusterReconciler) updateSandboxInfoInVdb(ctx context.Conte
 			if vdbChg.Status.Sandboxes[i].Name != sbName {
 				continue
 			}
+			r.Log.Info("Updating sandbox status in vdb", "sandboxName", sbName,
+				"unsandboxedSubclusters", unsandboxedScNames, "subclusters", vdbChg.Status.Sandboxes[i].Subclusters)
 			vdbChg.Status.Sandboxes[i].Subclusters = vutil.SliceDiff(vdbChg.Status.Sandboxes[i].Subclusters, unsandboxedScNames)
 			if len(vdbChg.Status.Sandboxes[i].Subclusters) == 0 {
 				vdbChg.Status.Sandboxes = append(vdbChg.Status.Sandboxes[:i], vdbChg.Status.Sandboxes[i+1:]...)
 			}
+			r.Log.Info("Updated sandbox status in vdb", "sandboxName", sbName, "sandboxes", vdbChg.Status.Sandboxes)
+			// if the sandbox has
 			break
 		}
 
