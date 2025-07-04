@@ -56,13 +56,12 @@ func InitCertCacheForVdb(namespace, name string, fetcher *cloud.SecretFetcher) {
 	if allCacheMap == nil {
 		allCacheMap = make(dbToCacheMap)
 	}
-	singleCertCache, ok := allCacheMap[vdbName]
+	_, ok := allCacheMap[vdbName]
 	if !ok {
-		singleCertCache = makeVdbCertCache(vdbName.Namespace, fetcher)
+		singleCertCache := makeVdbCertCache(vdbName.Namespace, fetcher)
 		allCacheMap[vdbName] = singleCertCache
 		vcLog.Info(fmt.Sprintf("initialized cert cache for vdb %s/%s", vdbName.Namespace, vdbName.Name))
 	}
-	return
 }
 
 // GetCertCacheForVdb will return a CertCache from a vdb's name and namespace
@@ -73,7 +72,7 @@ func GetCertCacheForVdb(namespace, name string) CertCache {
 		Name:      name,
 		Namespace: namespace,
 	}
-	singleCertCache, _ := allCacheMap[vdbName]
+	singleCertCache := allCacheMap[vdbName]
 	return singleCertCache
 }
 
@@ -136,7 +135,6 @@ func (c *VdbCacheStruct) ClearCacheBySecretName(name string) {
 		return
 	}
 	delete(c.secretMap, name)
-	return
 }
 
 func (c *VdbCacheStruct) SaveCertIntoCache(name string, certData map[string][]byte) {
