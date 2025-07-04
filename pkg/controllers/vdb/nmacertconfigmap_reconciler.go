@@ -46,6 +46,11 @@ func MakeNMACertConfigMapReconciler(vdbrecon *VerticaDBReconciler, log logr.Logg
 
 // Reconcile() will create a configmap whose values are mapped to environmental variables in NMA container
 func (h *NMACertConfigMapReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
+	// Do not update NMA config map when a rollback is required
+	if h.Vdb.IsTLSCertRollbackNeeded() {
+		return ctrl.Result{}, nil
+	}
+
 	configMapName := names.GenNMACertConfigMap(h.Vdb)
 	configMap := &corev1.ConfigMap{}
 	err := h.VRec.GetClient().Get(ctx, configMapName, configMap)

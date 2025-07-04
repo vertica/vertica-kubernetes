@@ -68,6 +68,10 @@ func (h *HTTPSTLSUpdateReconciler) Reconcile(ctx context.Context, req *ctrl.Requ
 		return ctrl.Result{}, nil
 	}
 
+	if h.Vdb.IsTLSCertRollbackNeeded() {
+		return ctrl.Result{}, nil
+	}
+
 	err := h.PFacts.Collect(ctx, h.Vdb)
 	if err != nil {
 		return ctrl.Result{}, err
@@ -91,11 +95,6 @@ func (h *HTTPSTLSUpdateReconciler) Reconcile(ctx context.Context, req *ctrl.Requ
 	// changed
 	if !h.Manager.needTLSConfigChange() {
 		return ctrl.Result{}, nil
-	}
-
-	// we want to be sure nma tls configmap exists and has the freshest values
-	if res, errCheck := h.Manager.checkNMATLSConfigMap(ctx); verrors.IsReconcileAborted(res, errCheck) {
-		return res, errCheck
 	}
 
 	h.Log.Info("start https tls config update")
