@@ -31,6 +31,10 @@ type MetaChanges struct {
 	NewLabels map[string]string
 	// New annotations that you want to set or overwrite
 	NewAnnotations map[string]string
+	// AnnotationsToRemove are the annotations that you want to remove
+	AnnotationsToRemove []string
+	// LabelsToRemove are the labels that you want to remove
+	LabelsToRemove []string
 }
 
 // MetaUpdate is a general purpose function to add changes to the metadata of a
@@ -46,12 +50,21 @@ func MetaUpdate(ctx context.Context, cl client.Client, nm types.NamespacedName, 
 			return err
 		}
 
-		objAnnotations, annotationsChanged := addOrReplaceMap(obj.GetAnnotations(), chgs.NewAnnotations)
+		objAnnotations, annotationsChanged := deleteFromMap(obj.GetAnnotations(), chgs.AnnotationsToRemove)
+		if annotationsChanged {
+			obj.SetAnnotations(objAnnotations)
+		}
+		objAnnotations, annotationsChanged = addOrReplaceMap(objAnnotations, chgs.NewAnnotations)
 		if annotationsChanged {
 			obj.SetAnnotations(objAnnotations)
 		}
 
-		objLabels, labelsChanged := addOrReplaceMap(obj.GetLabels(), chgs.NewLabels)
+		objLabels, labelsChanged := deleteFromMap(obj.GetLabels(), chgs.LabelsToRemove)
+		if labelsChanged {
+			obj.SetLabels(objLabels)
+		}
+
+		objLabels, labelsChanged = addOrReplaceMap(objLabels, chgs.NewLabels)
 		if labelsChanged {
 			obj.SetLabels(objLabels)
 		}
@@ -92,6 +105,17 @@ func addOrReplaceMap(oldMap, newMap map[string]string) (map[string]string, bool)
 				oldMap = map[string]string{}
 			}
 			oldMap[k] = v
+			mapChanged = true
+		}
+	}
+	return oldMap, mapChanged
+}
+
+func deleteFromMap(oldMap map[string]string, keysToDelete []string) (map[string]string, bool) {
+	mapChanged := false
+	for _, k := range keysToDelete {
+		if _, exists := oldMap[k]; exists {
+			delete(oldMap, k)
 			mapChanged = true
 		}
 	}
