@@ -1478,7 +1478,7 @@ func (v *VerticaDB) validateSubclustersInSandboxes(allErrs field.ErrorList) fiel
 func (v *VerticaDB) hasNoConflictbetweenTLSAndCertMount(allErrs field.ErrorList) field.ErrorList {
 	if vmeta.UseTLSAuth(v.Annotations) && vmeta.UseNMACertsMount(v.Annotations) {
 		err := field.Forbidden(field.NewPath("metadata").Child("annotations"),
-			"cannot use both TLS and NMA certs mount at the same time")
+			"cannot set enable-tls-auth and mount-nma-certs to true at the same time")
 		allErrs = append(allErrs, err)
 	}
 

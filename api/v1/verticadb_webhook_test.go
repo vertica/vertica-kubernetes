@@ -2398,7 +2398,7 @@ var _ = Describe("verticadb_webhook", func() {
 		vdb.Annotations[vmeta.MountNMACertsAnnotation] = trueString
 		allErrs := vdb.hasNoConflictbetweenTLSAndCertMount(field.ErrorList{})
 		Expect(allErrs).ShouldNot(BeEmpty())
-		Expect(allErrs[0].Error()).To(ContainSubstring("cannot use both TLS and NMA certs mount at the same time"))
+		Expect(allErrs[0].Error()).To(ContainSubstring("cannot set enable-tls-auth and mount-nma-certs to true at the same time"))
 	})
 
 	It("should not return error if only TLS is enabled", func() {
