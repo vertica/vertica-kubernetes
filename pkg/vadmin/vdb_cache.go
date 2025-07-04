@@ -2,6 +2,7 @@ package vadmin
 
 import (
 	"context"
+	"fmt"
 	"sync"
 
 	"github.com/vertica/vertica-kubernetes/pkg/cloud"
@@ -59,6 +60,7 @@ func InitCertCacheForVdb(namespace, name string, fetcher *cloud.SecretFetcher) {
 	if !ok {
 		singleCertCache = makeVdbCertCache(vdbName.Namespace, fetcher)
 		allCacheMap[vdbName] = singleCertCache
+		vcLog.Info(fmt.Sprintf("initialized cert cache for vdb %s/%s", vdbName.Namespace, vdbName.Name))
 	}
 	return
 }
@@ -86,6 +88,7 @@ func DestroyCertCacheForVdb(namespace, name string) {
 	}
 	if allCacheMap != nil {
 		delete(allCacheMap, vdbName)
+		vcLog.Info(fmt.Sprintf("destroyed cert cache for vdb %s/%s", vdbName.Namespace, vdbName.Name))
 	}
 }
 
@@ -115,6 +118,7 @@ func (c *VdbCacheStruct) ReadCertFromSecret(ctx context.Context, secretName stri
 			return nil, err // failed to load secret
 		}
 		c.secretMap[secretName] = secretMap // add secret content to cache
+		vcLog.Info(fmt.Sprintf("loaded tls secret %s and cached it", secretName))
 	}
 	return &HTTPSCerts{
 		Key:    string(secretMap[corev1.TLSPrivateKeyKey]),
