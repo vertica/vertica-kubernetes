@@ -56,7 +56,7 @@ func MakeClientServerTLSUpdateReconciler(vdbrecon *VerticaDBReconciler, log logr
 
 // Reconcile will rotate TLS certificate.
 func (h *ClientServerTLSUpdateReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (ctrl.Result, error) {
-	if !h.Vdb.IsSetForTLS() {
+	if !h.Vdb.IsSetForTLS() || !h.Vdb.IsDBInitialized() {
 		return ctrl.Result{}, nil
 	}
 

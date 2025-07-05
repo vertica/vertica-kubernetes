@@ -312,7 +312,7 @@ func (v *VerticaDB) hasValidInitPolicy(allErrs field.ErrorList) field.ErrorList 
 }
 
 func (v *VerticaDB) hasValidRestorePolicy(allErrs field.ErrorList) field.ErrorList {
-	if !v.isDBInitialized() && v.IsRestoreDuringReviveEnabled() && !v.Spec.RestorePoint.IsValidRestorePointPolicy() {
+	if !v.IsDBInitialized() && v.IsRestoreDuringReviveEnabled() && !v.Spec.RestorePoint.IsValidRestorePointPolicy() {
 		if v.Spec.RestorePoint.Archive == "" {
 			err := field.Invalid(field.NewPath("spec").Child("restorePoint"),
 				v.Spec.RestorePoint,
@@ -1478,7 +1478,7 @@ func (v *VerticaDB) validateSubclustersInSandboxes(allErrs field.ErrorList) fiel
 func (v *VerticaDB) hasNoConflictbetweenTLSAndCertMount(allErrs field.ErrorList) field.ErrorList {
 	if vmeta.UseTLSAuth(v.Annotations) && vmeta.UseNMACertsMount(v.Annotations) {
 		err := field.Forbidden(field.NewPath("metadata").Child("annotations"),
-			"cannot use both TLS and NMA certs mount at the same time")
+			"cannot set enable-tls-auth and mount-nma-certs to true at the same time")
 		allErrs = append(allErrs, err)
 	}
 
@@ -1493,7 +1493,7 @@ func (v *VerticaDB) isOnlineUpgradeInProgress() bool {
 	return v.IsStatusConditionTrue(OnlineUpgradeInProgress)
 }
 
-func (v *VerticaDB) isDBInitialized() bool {
+func (v *VerticaDB) IsDBInitialized() bool {
 	return v.IsStatusConditionTrue(DBInitialized)
 }
 
@@ -1659,7 +1659,7 @@ func (v *VerticaDB) checkImmutableEncryptSpreadComm(oldObj *VerticaDB, allErrs f
 // after the database has been initialized.
 func (v *VerticaDB) checkImmutableLocalPathChange(oldObj *VerticaDB, allErrs field.ErrorList) field.ErrorList {
 	// We allow the paths to change as long as the DB isn't yet initialized.
-	if !v.isDBInitialized() {
+	if !v.IsDBInitialized() {
 		return allErrs
 	}
 
@@ -1688,7 +1688,7 @@ func (v *VerticaDB) checkImmutableLocalPathChange(oldObj *VerticaDB, allErrs fie
 // checkImmutableShardCount will make sure the shard count doesn't change after
 // the db has been initialized.
 func (v *VerticaDB) checkImmutableShardCount(oldObj *VerticaDB, allErrs field.ErrorList) field.ErrorList {
-	if !v.isDBInitialized() {
+	if !v.IsDBInitialized() {
 		return allErrs
 	}
 	if v.Spec.ShardCount != oldObj.Spec.ShardCount {
@@ -1715,7 +1715,7 @@ func (v *VerticaDB) checkImmutableS3ServerSideEncryption(oldObj *VerticaDB, allE
 // checkImmutableDepotVolume will make sure local.depotVolume
 // does not change after the db has been initialized.
 func (v *VerticaDB) checkImmutableDepotVolume(oldObj *VerticaDB, allErrs field.ErrorList) field.ErrorList {
-	if !v.isDBInitialized() {
+	if !v.IsDBInitialized() {
 		return allErrs
 	}
 	if v.Spec.Local.DepotVolume != oldObj.Spec.Local.DepotVolume {
@@ -1729,7 +1729,7 @@ func (v *VerticaDB) checkImmutableDepotVolume(oldObj *VerticaDB, allErrs field.E
 
 func (v *VerticaDB) checkImmutablePodSecurityContext(oldObj *VerticaDB, allErrs field.ErrorList) field.ErrorList {
 	// PodSecurityContext can change if we haven't yet created/revived the database
-	if !v.isDBInitialized() {
+	if !v.IsDBInitialized() {
 		return allErrs
 	}
 
@@ -2601,7 +2601,7 @@ func (v *VerticaDB) setDefaultProxy() {
 
 // checkIfAnyOpInProgressWhenRotatingCerts checks if any operation is in progress when enabling tls auth
 func (v *VerticaDB) checkIfAnyOpInProgressBeforeTLSChange(oldObj *VerticaDB, allErrs field.ErrorList) field.ErrorList {
-	if !v.isDBInitialized() {
+	if !v.IsDBInitialized() {
 		// if the db is not initialized, we don't need to check if any operation is in progress
 		return allErrs
 	}
