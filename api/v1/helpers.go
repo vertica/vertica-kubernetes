@@ -680,6 +680,10 @@ func (v *VerticaDB) FindTLSCertRollbackNeededCondition() *metav1.Condition {
 	return v.FindStatusCondition(TLSCertRollbackNeeded)
 }
 
+func (v *VerticaDB) IsTLSCertRollbackDisabled() bool {
+       return vmeta.IsDisableTLSRollbackAnnotationSet(v.Annotations)
+}
+
 // GetTLSCertRollbackReason returns the reason or the point
 // which cert rotation failed in. This is used to know the ops
 // needed to rollback
@@ -1674,17 +1678,6 @@ func (v *VerticaDB) GetHTTPSNMATLSSecretInUse() string {
 
 func (v *VerticaDB) GetClientServerTLSSecretInUse() string {
 	return v.GetSecretInUse(ClientServerTLSConfigName)
-}
-
-// GetNMATLSSecretNameForConfigMap returns the secret name to set in the
-// nma configmap
-func (v *VerticaDB) GetHTTPSNMATLSSecretForConfigMap() string {
-	name := v.GetHTTPSNMATLSSecretInUse()
-	if name != "" &&
-		(!v.IsStatusConditionTrue(HTTPSTLSConfigUpdateFinished) || v.IsTLSCertRollbackNeeded()) {
-		return name
-	}
-	return v.GetHTTPSNMATLSSecret()
 }
 
 // IsCertNeededForClientServerAuth returns true if certificate is needed for client-server authentication

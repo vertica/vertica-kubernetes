@@ -24,6 +24,7 @@ import (
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
+	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/test"
 )
 
@@ -161,6 +162,7 @@ var _ = Describe("tls_config", func() {
 
 	It("should set rollback after cert rotation", func() {
 		vdb := vapi.MakeVDB()
+		vdb.Annotations[vmeta.DisableTLSRotationFailureRollbackAnnotation] = vmeta.DisableTLSRotationFailureRollbackAnnotationFalse
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
 		fpr := &cmds.FakePodRunner{}

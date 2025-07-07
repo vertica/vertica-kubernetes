@@ -2200,12 +2200,7 @@ func GetTarballName(cmd []string) string {
 func BuildNMATLSConfigMap(nm types.NamespacedName, vdb *vapi.VerticaDB) *corev1.ConfigMap {
 	secretMap := map[string]string{
 		NMASecretNamespaceEnv: vdb.ObjectMeta.Namespace,
-		// https/clientserver rotation come before nma's. So, we don't want to
-		// (don't have to) change the secret name in the config map up until
-		// https cert rotation completes successfully. This makes nma rollback
-		// as if https cert rotation fails, we don't have to do anything to
-		// nma containers.
-		NMASecretNameEnv:            vdb.GetHTTPSNMATLSSecretForConfigMap(),
+		NMASecretNameEnv:            vdb.GetHTTPSNMATLSSecret(),
 		NMAClientSecretNamespaceEnv: vdb.ObjectMeta.Namespace,
 		NMAClientSecretNameEnv:      vdb.GetClientServerTLSSecret(),
 		NMAClientSecretTLSModeEnv:   vdb.GetNMAClientServerTLSMode(),
