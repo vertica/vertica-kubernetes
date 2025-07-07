@@ -11,7 +11,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1beta1
+apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
   name: v-scale-in-drain
@@ -19,7 +19,7 @@ spec:
   subclusters:
     - name: pri1
       size: 1
-      isPrimary: true
+      type: primary
     - name: sec1
       size: 0
-      isPrimary: false
+      type: secondary

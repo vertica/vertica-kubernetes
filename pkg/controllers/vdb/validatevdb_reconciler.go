@@ -75,9 +75,9 @@ func (r *ValidateVDBReconciler) validateSubclusters() error {
 				return fmt.Errorf("could not find subcluster %s", sb.Subclusters[i].Name)
 			}
 
-			// the vdb subcluster type is not valid only when
-			// - sandbox subcluster type is not empty (25.3 or later) and
+			// the vdb subcluster type is not valid only when operator upgraded from 25.2 to 25.3:
 			// - vdb subcluster type is "sandboxprimary" (25.2 or earlier)
+			// - sandbox subcluster type is not empty (25.3 or later) and
 			if sb.Subclusters[i].Type != "" {
 				if sc.Type == vapi.SandboxPrimarySubcluster {
 					scsMain = append(scsMain, sc)

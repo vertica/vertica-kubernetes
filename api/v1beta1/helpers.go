@@ -23,6 +23,8 @@ import (
 	"strconv"
 	"time"
 
+	v1 "github.com/vertica/vertica-kubernetes/api/v1"
+
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -80,7 +82,7 @@ func MakeSampleVscrName() types.NamespacedName {
 
 // MakeVscr will make an VerticaScrutinize for test purposes
 func MakeVscr() *VerticaScrutinize {
-	VDBNm := MakeVDBName()
+	VDBNm := v1.MakeVDBName()
 	nm := MakeSampleVscrName()
 	return &VerticaScrutinize{
 		TypeMeta: metav1.TypeMeta{
@@ -355,7 +357,7 @@ func MakeSampleVrpqName() types.NamespacedName {
 
 // MakeVrpq will make an VerticaRestorePointsQuery for test purposes
 func MakeVrpq() *VerticaRestorePointsQuery {
-	VDBNm := MakeVDBName()
+	VDBNm := v1.MakeVDBName()
 	nm := MakeSampleVrpqName()
 	vrpq := &VerticaRestorePointsQuery{
 		TypeMeta: metav1.TypeMeta{
@@ -383,8 +385,8 @@ func MakeSampleVrepName() types.NamespacedName {
 
 // MakeVrep will make a VerticaReplicator for test purposes
 func MakeVrep() *VerticaReplicator {
-	sourceVDBNm := MakeSourceVDBName()
-	targetVDBNm := MakeTargetVDBName()
+	sourceVDBNm := v1.MakeSourceVDBName()
+	targetVDBNm := v1.MakeTargetVDBName()
 	nm := MakeSampleVrepName()
 	vrep := &VerticaReplicator{
 		TypeMeta: metav1.TypeMeta{

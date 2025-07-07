@@ -3,5 +3,6 @@ kind: VerticaDB
 metadata:
   name: v-create-enable-rotate-add
 spec:
-  httpsNMATLSSecret: custom-cert
-  httpsTLSMode: VERIFY_CA
+  httpsNMATLS:
+    secret: custom-cert
+    mode: VERIFY_CA

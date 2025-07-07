@@ -54,6 +54,8 @@ const (
 	ObjReconcileModePreserveScaling = 1 << iota
 	// Must maintain the same delete policy when reconciling statefulsets
 	ObjReconcileModePreserveUpdateStrategy
+	// Reconcile for annotation only
+	ObjReconcileModeAnnotation
 	// Reconcile to consider every change. Without this we will skip svc objects.
 	ObjReconcileModeAll
 )
@@ -98,6 +100,10 @@ func (o *ObjReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Re
 		return ctrl.Result{}, errors.New("no podfacts provided")
 	}
 
+	if err := o.recordAnnotations(ctx); err != nil || (o.Mode&ObjReconcileModeAnnotation != 0) {
+		return ctrl.Result{}, err
+	}
+
 	if vmeta.UseVProxy(o.Vdb.Annotations) {
 		if o.Vdb.Spec.Proxy == nil {
 			return ctrl.Result{}, errors.New("spec.proxy must be set when client proxy is enabled")
@@ -137,6 +143,50 @@ func (o *ObjReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Re
 	return ctrl.Result{}, nil
 }
 
+// recordAnnotations will record the annotations in the vdb so we can get the correct annotation
+// value after operator is updated and the default value of the annotation is changed
+func (o *ObjReconciler) recordAnnotations(ctx context.Context) error {
+	// When the annotation is already set, no need to record
+	if o.Vdb.Annotations[vmeta.MountNMACertsAnnotation] != "" {
+		return nil
+	}
+
+	svcName := names.GenHlSvcName(o.Vdb)
+	curSvc := &corev1.Service{}
+	err := o.Rec.GetClient().Get(ctx, svcName, curSvc)
+	svcNotExist := err != nil && kerrors.IsNotFound(err)
+	useNMAMount := false
+	if svcNotExist {
+		useNMAMount = vmeta.UseNMACertsMount(o.Vdb.Annotations)
+	} else if err != nil {
+		o.Log.Error(err, "failed to get headless service", "name", svcName)
+		return err
+	}
+
+	if !svcNotExist {
+		opVer, hasVersion := o.Vdb.GetVersion(vapi.MakeVersionStrForOpVersion(curSvc.Labels[vmeta.OperatorVersionLabel]))
+		if !hasVersion {
+			return errors.New("operator version not found or invalid in headless service")
+		}
+		useNMAMount = opVer.IsOlder(vapi.MakeVersionStrForOpVersion(vmeta.OperatorVersion253))
+	}
+
+	annotationUpdate := func() (bool, error) {
+		if o.Vdb.Annotations == nil {
+			o.Vdb.Annotations = make(map[string]string, 1)
+		}
+		if useNMAMount {
+			o.Vdb.Annotations[vmeta.MountNMACertsAnnotation] = vmeta.MountNMACertsAnnotationTrue
+		} else {
+			o.Vdb.Annotations[vmeta.MountNMACertsAnnotation] = vmeta.MountNMACertsAnnotationFalse
+		}
+		return true, nil
+	}
+	updated, err := vk8s.UpdateVDBWithRetry(ctx, o.Rec, o.Vdb, annotationUpdate)
+	o.Log.Info("record annotation in vdb", "recorded", updated, "annotation", vmeta.MountNMACertsAnnotation)
+	return err
+}
+
 // checkMountedObjs will check if the mounted secrets/configMap exist and have
 // the correct keys in them.
 func (o *ObjReconciler) checkMountedObjs(ctx context.Context) (ctrl.Result, error) {
@@ -163,13 +213,13 @@ func (o *ObjReconciler) checkMountedObjs(ctx context.Context) (ctrl.Result, erro
 		// that has the certs to use for it.  There is a reconciler that is run
 		// before this that will create the secret.  We will requeue if we find
 		// the Vdb doesn't have the secret set.
-		if o.Vdb.Spec.HTTPSNMATLSSecret == "" {
+		if o.Vdb.GetHTTPSNMATLSSecret() == "" {
 			o.Rec.Event(o.Vdb, corev1.EventTypeWarning, events.HTTPServerNotSetup,
-				"The httpsNMATLSSecret must be set when running with vclusterops deployment")
+				"The httpsNMATLS.secret must be set when running with vclusterops deployment")
 			return ctrl.Result{Requeue: true}, nil
 		}
 		_, res, err := o.SecretFetcher.FetchAllowRequeue(ctx,
-			names.GenNamespacedName(o.Vdb, o.Vdb.Spec.HTTPSNMATLSSecret))
+			names.GenNamespacedName(o.Vdb, o.Vdb.GetHTTPSNMATLSSecret()))
 		if verrors.IsReconcileAborted(res, err) {
 			return res, err
 		}
@@ -195,8 +245,8 @@ func (o *ObjReconciler) checkMountedObjs(ctx context.Context) (ctrl.Result, erro
 
 func (o *ObjReconciler) checkTLSSecrets(ctx context.Context) (ctrl.Result, error) {
 	tlsSecrets := map[string]string{
-		"NMA TLS":           o.Vdb.Spec.HTTPSNMATLSSecret,
-		"Client Server TLS": o.Vdb.Spec.ClientServerTLSSecret,
+		"NMA TLS":           o.Vdb.GetHTTPSNMATLSSecret(),
+		"Client Server TLS": o.Vdb.GetClientServerTLSSecret(),
 	}
 	for k, tlsSecret := range tlsSecrets {
 		if tlsSecret != "" {
@@ -756,13 +806,13 @@ func (o *ObjReconciler) handleStatefulSetUpdate(ctx context.Context, sc *vapi.Su
 
 // reconcileTLSSecrets will update tls secrets
 func (o *ObjReconciler) reconcileTLSSecrets(ctx context.Context) error {
-	if !o.Vdb.IsTLSAuthEnabled() || o.Vdb.ShouldRemoveTLSSecret() {
+	if !o.Vdb.IsSetForTLS() || o.Vdb.ShouldRemoveTLSSecret() {
 		return nil
 	}
 
 	tlsSecrets := []string{
-		o.Vdb.Spec.HTTPSNMATLSSecret,
-		o.Vdb.Spec.ClientServerTLSSecret,
+		o.Vdb.GetHTTPSNMATLSSecret(),
+		o.Vdb.GetClientServerTLSSecret(),
 	}
 	for _, tlsSecret := range tlsSecrets {
 		// non-k8s secrets are ignored

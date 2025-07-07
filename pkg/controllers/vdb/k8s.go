@@ -104,43 +104,6 @@ func createDep(ctx context.Context, vrec config.ReconcilerInterface, vpDep *apps
 	return vrec.GetClient().Create(ctx, vpDep)
 }
 
-// readSecrets will read current/new secrets
-func readSecrets(vdb *vapi.VerticaDB, vrec config.ReconcilerInterface, k8sClient client.Client,
-	log logr.Logger, ctx context.Context, currentSecretName,
-	newSecretName string) (currentSecret, newSecret map[string][]byte, res ctrl.Result, err error) {
-	nmCurrentSecretName := types.NamespacedName{
-		Name:      currentSecretName,
-		Namespace: vdb.GetNamespace(),
-	}
-
-	nmNewSecretName := types.NamespacedName{
-		Name:      newSecretName,
-		Namespace: vdb.GetNamespace(),
-	}
-	evWriter := events.Writer{
-		Log:   log,
-		EVRec: vrec.GetEventRecorder(),
-	}
-	secretFetcher := &cloud.SecretFetcher{
-		Client:   k8sClient,
-		Log:      log,
-		EVWriter: evWriter,
-		Obj:      vdb,
-	}
-
-	currentSecretData, res, err := secretFetcher.FetchAllowRequeue(ctx, nmCurrentSecretName)
-	if verrors.IsReconcileAborted(res, err) {
-		return nil, nil, res, err
-	}
-
-	newSecretData, res, err := secretFetcher.FetchAllowRequeue(ctx, nmNewSecretName)
-	if verrors.IsReconcileAborted(res, err) {
-		return nil, nil, res, err
-	}
-
-	return currentSecretData, newSecretData, res, err
-}
-
 // readSecret will read a single secret
 func readSecret(vdb *vapi.VerticaDB, vrec config.ReconcilerInterface, k8sClient client.Client,
 	log logr.Logger, ctx context.Context, secretName string) (secret map[string][]byte, res ctrl.Result, err error) {

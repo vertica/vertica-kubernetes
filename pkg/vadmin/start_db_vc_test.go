@@ -22,7 +22,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	vops "github.com/vertica/vcluster/vclusterops"
-	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/test"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/startdb"
@@ -82,10 +82,10 @@ var _ = Describe("start_db_vc", func() {
 		dispatcher := mockVClusterOpsDispatcher()
 		dispatcher.VDB.Spec.DBName = TestDBName
 		dispatcher.VDB.Annotations[vmeta.RestartTimeoutAnnotation] = "10"
-		dispatcher.VDB.Spec.HTTPSNMATLSSecret = "start-db-test-secret"
+		dispatcher.VDB.Spec.HTTPSNMATLS.Secret = "start-db-test-secret"
 		dispatcher.VDB.Spec.InitPolicy = vapi.CommunalInitPolicyRevive
-		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.HTTPSNMATLSSecret)
-		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.HTTPSNMATLSSecret)
+		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.HTTPSNMATLS.Secret)
+		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.HTTPSNMATLS.Secret)
 
 		ctrlRes, err := dispatcher.StartDB(ctx,
 			startdb.WithInitiator(dispatcher.VDB.ExtractNamespacedName(), nodeIPs[0]),

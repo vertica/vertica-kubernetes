@@ -26,6 +26,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
+	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/unsandboxsc"
@@ -146,11 +147,11 @@ func (r *UnsandboxSubclusterReconciler) reconcileSandboxConfigMap(ctx context.Co
 		// if the subclusters in the sandbox does not need to be unsandboxed, we remove
 		// unsandbox trigger ID from the config map
 		if !found {
-			_, err := vk8s.UpdateConfigMapWithRetry(ctx, r.SRec, r.ConfigMap, func() (bool, error) {
-				delete(r.ConfigMap.Annotations, vmeta.SandboxControllerUnsandboxTriggerID)
-				return true, nil
-			})
-
+			chgs := vk8s.MetaChanges{
+				AnnotationsToRemove: []string{vmeta.SandboxControllerUnsandboxTriggerID},
+			}
+			nm := names.GenNamespacedName(r.ConfigMap, cmName)
+			_, err := vk8s.MetaUpdate(ctx, r.SRec.GetClient(), nm, r.ConfigMap, chgs)
 			if err != nil {
 				r.Log.Error(err, "failed to remove unsandbox trigger ID from sandbox config map", "configMapName", cmName)
 				return err, false
@@ -223,14 +224,12 @@ func (r *UnsandboxSubclusterReconciler) processConfigMap(ctx context.Context) er
 		r.Log.Info("Successfully deleted sandbox config map", "configMapName", cmName)
 		return nil
 	}
-	_, err := vk8s.UpdateConfigMapWithRetry(ctx, r.SRec, r.ConfigMap, func() (bool, error) {
-		delete(r.ConfigMap.Annotations, vmeta.SandboxControllerUnsandboxTriggerID)
-		if r.ConfigMap.Annotations[vmeta.SandboxControllerUnsandboxTriggerID] != "" {
-			return false, nil
-		}
-		return true, nil
-	})
 
+	chgs := vk8s.MetaChanges{
+		AnnotationsToRemove: []string{vmeta.SandboxControllerUnsandboxTriggerID},
+	}
+	nm := names.GenNamespacedName(r.ConfigMap, cmName)
+	_, err := vk8s.MetaUpdate(ctx, r.SRec.GetClient(), nm, r.ConfigMap, chgs)
 	if err != nil {
 		r.Log.Error(err, "failed to remove unsandbox trigger ID from sandbox config map", "configMapName", cmName)
 		return err

@@ -20,7 +20,8 @@ metadata:
     vertica.com/include-uid-in-path: "true"
     vertica.com/enable-tls-auth: "true"
 spec:
-  httpsNMATLSSecret: cert-no-client-auth
+  httpsNMATLS:
+    secret: cert-no-client-auth
   initPolicy: CreateSkipPackageInstall
   image: kustomize-vertica-image
   communal: {}

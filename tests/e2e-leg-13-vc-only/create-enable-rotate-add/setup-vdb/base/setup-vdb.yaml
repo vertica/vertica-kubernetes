@@ -29,7 +29,8 @@ spec:
     catalogPath: /catalog
   dbName: vertdb
   encryptSpreadComm: vertica
-  clientServerTLSSecret: custom-cert
+  clientServerTLS:
+    secret: custom-cert
   subclusters:
     - name: sc1
       size: 3

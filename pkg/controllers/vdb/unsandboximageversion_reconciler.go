@@ -57,6 +57,9 @@ func (r *UnsandboxImageVersion) Reconcile(ctx context.Context, _ *ctrl.Request) 
 		return ctrl.Result{}, nil
 	}
 
+	if !r.Vdb.IsDBInitialized() {
+		return ctrl.Result{}, nil
+	}
 	// we do not want to recreate statefulSets during an upgrade
 	if r.Vdb.IsUpgradeInProgress() {
 		return ctrl.Result{}, nil

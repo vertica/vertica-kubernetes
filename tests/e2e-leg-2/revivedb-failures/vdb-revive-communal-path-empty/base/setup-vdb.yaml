@@ -11,14 +11,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1beta1
+apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
   name: v-revive-failures-communal-path-empty
+  annotations:
+    vertica.com/include-uid-in-path: "false"
+    vertica.com/k-safety: "0"
+    vertica.com/requeue-time: "4" 
 spec:
   image: kustomize-vertica-image
-  communal:
-    includeUIDInPath: false
+  communal: {}
   initPolicy: Revive
   local:
     dataPath: "/data"
@@ -28,9 +31,11 @@ spec:
   subclusters:
     - name: main
       size: 2
-  kSafety: "0"
-  requeueTime: 4
   certSecrets: []
   imagePullSecrets: []
   volumes: []
   volumeMounts: []
+  httpsNMATLS:
+    secret: "test"
+  clientServerTLS:
+    secret: "test"

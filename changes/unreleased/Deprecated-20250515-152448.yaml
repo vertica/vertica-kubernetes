@@ -1,5 +1,0 @@
-kind: Deprecated
-body: NMATLSSecret has been depreciated. It is replaced by newly added HTTPSNMATLSSecret.
-time: 2025-05-15T15:24:48.946065979-04:00
-custom:
-    Issue: "1198"

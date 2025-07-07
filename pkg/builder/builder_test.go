@@ -767,7 +767,7 @@ var _ = Describe("builder", func() {
 		vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
 		vdb.Annotations[vmeta.VersionAnnotation] = vapi.NMAInSideCarDeploymentMinVersion
 		configMap := BuildNMATLSConfigMap(names.GenNamespacedName(vdb, "nma-configmap"), vdb)
-		Ω(configMap.Data[NMASecretNameEnv]).Should(Equal(vdb.Spec.HTTPSNMATLSSecret))
+		Ω(configMap.Data[NMASecretNameEnv]).Should(Equal(vdb.GetHTTPSNMATLSSecret()))
 		Ω(configMap.Data[NMASecretNamespaceEnv]).Should(Equal(vdb.Namespace))
 	})
 
@@ -801,16 +801,16 @@ var _ = Describe("builder", func() {
 		vdb := vapi.MakeVDB()
 		envVars := buildNMATLSCertsEnvVars(vdb)
 		configMapName := fmt.Sprintf("%s-%s", vdb.Name, vapi.NMATLSConfigMapName)
-		Ω(len(envVars)).Should(Equal(8))
+		Ω(len(envVars)).Should(Equal(5))
 		Ω(envVars[1].Name).Should(Equal(NMASecretNameEnv))
 		Ω(envVars[1].ValueFrom.ConfigMapKeyRef.LocalObjectReference.Name).Should(Equal(configMapName))
 		Ω(envVars[1].ValueFrom.ConfigMapKeyRef.Key).Should(Equal(NMASecretNameEnv))
 		Ω(envVars[3].Name).Should(Equal(NMAClientSecretNameEnv))
 		Ω(envVars[3].ValueFrom.ConfigMapKeyRef.LocalObjectReference.Name).Should(Equal(configMapName))
 		Ω(envVars[3].ValueFrom.ConfigMapKeyRef.Key).Should(Equal(NMAClientSecretNameEnv))
-		Ω(envVars[7].Name).Should(Equal(NMAClientSecretTLSModeEnv))
-		Ω(envVars[7].ValueFrom.ConfigMapKeyRef.LocalObjectReference.Name).Should(Equal(configMapName))
-		Ω(envVars[7].ValueFrom.ConfigMapKeyRef.Key).Should(Equal(NMAClientSecretTLSModeEnv))
+		Ω(envVars[4].Name).Should(Equal(NMAClientSecretTLSModeEnv))
+		Ω(envVars[4].ValueFrom.ConfigMapKeyRef.LocalObjectReference.Name).Should(Equal(configMapName))
+		Ω(envVars[4].ValueFrom.ConfigMapKeyRef.Key).Should(Equal(NMAClientSecretTLSModeEnv))
 	})
 })
 
@@ -868,7 +868,7 @@ func getVolume(vols []v1.Volume, mountName string) *v1.Volume {
 
 func NMACertsVolumeExists(vdb *vapi.VerticaDB, vols []v1.Volume) bool {
 	for i := range vols {
-		if vols[i].Name == vapi.NMACertsMountName && vols[i].Secret.SecretName == vdb.Spec.HTTPSNMATLSSecret {
+		if vols[i].Name == vapi.NMACertsMountName && vols[i].Secret.SecretName == vdb.GetHTTPSNMATLSSecret() {
 			return true
 		}
 	}

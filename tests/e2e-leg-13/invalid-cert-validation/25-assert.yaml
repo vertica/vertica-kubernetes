@@ -20,4 +20,4 @@ involvedObject:
   apiVersion: vertica.com/v1
   kind: VerticaDB
   name: v-tls-certs
-message: Validation of TLS Certificate "ClientServerTLSSecretType" failed with secret "expired-cert"
+message: Validation of TLS Certificate "clientServer" failed with secret "expired-cert"

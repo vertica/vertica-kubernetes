@@ -137,7 +137,7 @@ func (r *VerticaDBReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	prunner := cmds.MakeClusterPodRunner(log, r.Cfg, vdb.GetVerticaUser(), passwd)
+	prunner := cmds.MakeClusterPodRunner(log, r.Cfg, vdb.GetVerticaUser(), passwd, vmeta.UseTLSAuth(vdb.Annotations))
 	// We use the same pod facts for all reconcilers. This allows to reuse as
 	// much as we can. Some reconcilers will purposely invalidate the facts if
 	// it is known they did something to make them stale.
@@ -186,14 +186,13 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		// reconcile actor that depends on running pods should not be before
 		// this one.
 		MakeCrashLoopReconciler(r, log, vdb),
-		// Validate the vdb after operator upgraded
-		MakeValidateVDBReconciler(r, log, vdb),
+		// Modify or record the annotations in the vdb so later reconcilers can
+		// get the correct information.
+		MakeObjReconciler(r, log, vdb, pfacts, ObjReconcileModeAnnotation),
 		// Always generate cert first if nothing is provided
 		MakeTLSServerCertGenReconciler(r, log, vdb),
 		// Set up configmap which stores env variables for NMA container
 		MakeNMACertConfigMapReconciler(r, log, vdb),
-		// Set up TLS config if users turn it on
-		MakeHTTPSTLSReconciler(r, log, vdb, prunner, dispatcher, pfacts),
 		// Trigger sandbox upgrade when the image field for the sandbox
 		// is changed
 		MakeSandboxUpgradeReconciler(r, log, vdb, false),
@@ -224,6 +223,8 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		// preserving other things.
 		MakeObjReconciler(r, log, vdb, pfacts,
 			ObjReconcileModePreserveScaling|ObjReconcileModePreserveUpdateStrategy),
+		// Set up TLS config if users turn it on
+		MakeTLSReconciler(r, log, vdb, prunner, dispatcher, pfacts),
 		// Add annotations/labels to each pod about the host running them
 		MakeAnnotateAndLabelPodReconciler(r, log, vdb, pfacts),
 		// Trigger sandbox shutdown when the shutdown field of the sandbox
@@ -274,12 +275,10 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		MakeCreateDBReconciler(r, log, vdb, prunner, pfacts, dispatcher),
 		// Handle calls to revive a database
 		MakeReviveDBReconciler(r, log, vdb, prunner, pfacts, dispatcher),
-		MakeHTTPSTLSReconciler(r, log, vdb, prunner, dispatcher, pfacts),
+		MakeTLSReconciler(r, log, vdb, prunner, dispatcher, pfacts),
 		// Add additional buckets for data replication
 		MakeAddtionalBucketsReconciler(r, log, vdb, prunner, pfacts),
 		MakeMetricReconciler(r, log, vdb, prunner, pfacts),
-		// Update subcluster type in db according to its type in vdb spec
-		MakeAlterSubclusterTypeReconciler(r, log, vdb, pfacts, dispatcher),
 		// Create and revive are mutually exclusive exclusive, so this handles
 		// status updates after both of them.
 		MakeStatusReconciler(r.Client, r.Scheme, log, vdb, pfacts),
@@ -306,6 +305,10 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		// Trigger sandbox upgrade when the image field for the sandbox
 		// is changed
 		MakeSandboxUpgradeReconciler(r, log, vdb, true),
+		// Update subcluster type in db according to its type in vdb spec
+		MakeAlterSubclusterTypeReconciler(r, log, vdb, pfacts, dispatcher),
+		// Validate the vdb after operator upgraded
+		MakeValidateVDBReconciler(r, log, vdb),
 		// Update the sandbox/subclusters' shutdown field to match the value of
 		// the spec.
 		MakeShutdownSpecReconciler(r, vdb),

@@ -75,15 +75,15 @@ func retrieveNMACerts(ctx context.Context, fetcher *cloud.SecretFetcher, vdb *va
 
 	tlsKey, ok := tlsCerts[corev1.TLSPrivateKeyKey]
 	if !ok {
-		return nil, fmt.Errorf("key %s is missing in the secret %s", corev1.TLSPrivateKeyKey, vdb.Spec.HTTPSNMATLSSecret)
+		return nil, fmt.Errorf("key %s is missing in the secret %s", corev1.TLSPrivateKeyKey, vdb.GetHTTPSNMATLSSecret())
 	}
 	tlsCrt, ok := tlsCerts[corev1.TLSCertKey]
 	if !ok {
-		return nil, fmt.Errorf("cert %s is missing in the secret %s", corev1.TLSCertKey, vdb.Spec.HTTPSNMATLSSecret)
+		return nil, fmt.Errorf("cert %s is missing in the secret %s", corev1.TLSCertKey, vdb.GetHTTPSNMATLSSecret())
 	}
 	tlsCaCrt, ok := tlsCerts[corev1.ServiceAccountRootCAKey]
 	if !ok {
-		return nil, fmt.Errorf("ca cert %s is missing in the secret %s", corev1.ServiceAccountRootCAKey, vdb.Spec.HTTPSNMATLSSecret)
+		return nil, fmt.Errorf("ca cert %s is missing in the secret %s", corev1.ServiceAccountRootCAKey, vdb.GetHTTPSNMATLSSecret())
 	}
 	return &HTTPSCerts{
 		Key:    string(tlsKey),
@@ -139,7 +139,7 @@ func (v *VClusterOps) setAuthentication(opts *vops.DatabaseOptions, username str
 	// When TLS auth is not enabled, we always use password authentication for both https and nma.
 	// When TLS auth is enabled and VCluster doesn't need cert for client server auth,
 	// we use password authentication for NMA.
-	if !v.VDB.IsTLSAuthEnabled() {
+	if !v.VDB.IsHTTPSConfigEnabledWithCreate() {
 		opts.Password = password
 	} else if !v.VDB.IsCertNeededForClientServerAuth() {
 		opts.Password = password
@@ -148,16 +148,16 @@ func (v *VClusterOps) setAuthentication(opts *vops.DatabaseOptions, username str
 }
 
 // getHTTPSTLSSecretName returns the name of the secret that stores TLS cert
-// when tls cert is NOT used, it returns vdb.Spec.HTTPSNMATLSSecret. This includes
+// when tls cert is NOT used, it returns vdb.Spec.HTTPSNMATLS.Secret. This includes
 // the time before a vdb is created
 // when tls cert is used, it returns secert name saved in annotation
 func getHTTPSTLSSecretName(vdb *vapi.VerticaDB) (string, error) {
 	secretName := ""
-	if vdb.IsTLSAuthEnabled() {
-		secretName = vdb.GetHTTPSTLSSecretNameInUse()
+	if vdb.IsSetForTLS() {
+		secretName = vdb.GetHTTPSNMATLSSecretInUse()
 	}
 	if secretName == "" {
-		secretName = vdb.Spec.HTTPSNMATLSSecret
+		secretName = vdb.GetHTTPSNMATLSSecret()
 		vcLog.Info("retrieved https tls secret from vdb spec instead of status")
 	}
 	if secretName == "" {
