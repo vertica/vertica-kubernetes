@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"reflect"
 	"regexp"
 	"strconv"
 	"strings"
@@ -476,6 +477,50 @@ func (s *SandboxStatus) IsSubclusterInSandbox(scName string) bool {
 		}
 	}
 	return false
+}
+
+// convertSubclusterType converts both sandbox and main-cluster subcluster types to
+// main-cluster cluster type
+func convertSubclusterType(ctype string) string {
+	if ctype == PrimarySubcluster {
+		return PrimarySubcluster
+	}
+	return SecondarySubcluster
+}
+
+// IsSubclusterOpNeeded returns true if all subclusters in spec.Subclusters are not the same
+// as subclusters in status.subclusters
+func (v *VerticaDB) IsSubclusterOpNeeded() bool {
+	type subcluster struct {
+		Size     int32
+		Type     string
+		Shutdown bool
+	}
+	specScs := make(map[string]subcluster)
+	for i := range v.Spec.Subclusters {
+		specScs[v.Spec.Subclusters[i].Name] = subcluster{
+			Size:     v.Spec.Subclusters[i].Size,
+			Type:     convertSubclusterType(v.Spec.Subclusters[i].Type),
+			Shutdown: v.Spec.Subclusters[i].Shutdown,
+		}
+	}
+	statusScs := make(map[string]subcluster)
+	for i := range v.Status.Subclusters {
+		statusScs[v.Status.Subclusters[i].Name] = subcluster{
+			Size:     v.Status.Subclusters[i].UpNodeCount,
+			Type:     convertSubclusterType(v.Status.Subclusters[i].Type),
+			Shutdown: v.Status.Subclusters[i].Shutdown,
+		}
+	}
+	return !reflect.DeepEqual(specScs, statusScs)
+}
+
+// IsSandboxOpNeeded returns true if all subclusters in spec.Sandbox are not the same
+// as subclusters in status.sandbox
+func (v *VerticaDB) IsSandboxOpNeeded() bool {
+	specScSbMap := v.GenSubclusterSandboxMap()
+	statusScSbMap := v.GenSubclusterSandboxStatusMap()
+	return !reflect.DeepEqual(specScSbMap, statusScSbMap)
 }
 
 // GenCompatibleFQDN returns a name of the subcluster that is
@@ -1660,7 +1705,7 @@ func (v *VerticaDB) GetNMAClientServerTLSMode() string {
 		// There is still a flaw in vclusterOps: create_db set_tls will fail
 		// since nma cannot verify server certificate. After we extract set_tls
 		// from create_db, we can remove the db init check.
-		if !v.isDBInitialized() {
+		if !v.IsDBInitialized() {
 			return nmaTLSModeEnable
 		}
 		return nmaTLSModeVerifyCA
@@ -1802,6 +1847,14 @@ func (v *VerticaDB) GetClientServerTLSSecret() string {
 		return ""
 	}
 	return v.Spec.ClientServerTLS.Secret
+}
+
+// Check if TLS not enabled, DB not initialized, or rotate has failed
+// In these cases, we skip TLS Update
+func (v *VerticaDB) ShouldSkipTLSUpdateReconcile() bool {
+	return !v.IsSetForTLS() ||
+		!v.IsDBInitialized() ||
+		v.IsTLSCertRollbackNeeded()
 }
 
 // MakeSourceVDBName is a helper that creates a sample name for the source VerticaDB for test purposes

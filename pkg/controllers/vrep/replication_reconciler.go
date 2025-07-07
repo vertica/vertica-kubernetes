@@ -183,6 +183,11 @@ func (r *ReplicationReconciler) determineUsernameAndPassword(ctx context.Context
 		return err
 	}
 
+	if r.TargetInfo.Vdb.IsSetForTLS() && r.TargetInfo.Password == "" && r.Vrep.Spec.TLSConfig == "" {
+		return fmt.Errorf("cannot use empty password when tls is enabled in target vdb %q",
+			r.TargetInfo.Vdb.Name)
+	}
+
 	return
 }
 
@@ -273,6 +278,8 @@ func (r *ReplicationReconciler) determineSourceAndTargetHosts() (err error) {
 }
 
 // make podfacts for a cluster (either main or a sandbox) of a vdb
+//
+//nolint:dupl
 func (r *ReplicationReconciler) makePodFacts(ctx context.Context, vdb *vapi.VerticaDB,
 	sandboxName string) (*podfacts.PodFacts, error) {
 	username := vdb.GetVerticaUser()
@@ -280,7 +287,7 @@ func (r *ReplicationReconciler) makePodFacts(ctx context.Context, vdb *vapi.Vert
 	if err != nil {
 		return nil, err
 	}
-	prunner := cmds.MakeClusterPodRunner(r.Log, r.VRec.Cfg, username, password)
+	prunner := cmds.MakeClusterPodRunner(r.Log, r.VRec.Cfg, username, password, vmeta.UseTLSAuth(vdb.Annotations))
 	pFacts := podfacts.MakePodFactsForSandbox(r.VRec, prunner, r.Log, password, sandboxName)
 	return &pFacts, nil
 }

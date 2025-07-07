@@ -1261,37 +1261,35 @@ spec:
         path: certSecrets[0].name
         x-descriptors:
         - urn:alm:descriptor:io.kubernetes:Secret
+      - description: Identifies Client-Server TLS configuration
+        displayName: Client Server TLS
+        path: clientServerTLS
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
       - description: |-
-          This field configures the Vertica's connection mode for client-server TLS.
+          This field configures the Vertica's connection mode for HTTPS/NMA or client-server TLS.
           Choose one of the following TLSMODEs, listed in ascending security:
-          - DISABLE: Disables TLS. All other options for this parameter enable TLS.
-          - ENABLE: Enables TLS. Vertica does not verify client certificates.
           - TRY_VERIFY: Establishes a TLS connection if one of the following is true:
             - The client presents a valid certificate.
             - The client doesn't present a certificate
             If the client presents an invalid certificate, the connection is rejected.
           - VERIFY_CA: Connection succeeds if Vertica verifies that the client certificate is from a trusted CA.
             If the client does not present a client certificate, the connection is rejected.
-          - VERIFY_FULL: Connection succeeds if Vertica verifies that the other host's certificate is from a trusted CA and
-            the certificate's cn (Common Name) or subjectAltName attribute matches the hostname or IP address of the other host.
-        displayName: Client Server TLSMode
-        path: clientServerTLSMode
+        displayName: Mode
+        path: clientServerTLS.mode
         x-descriptors:
-        - urn:alm:descriptor:com.tectonic.ui:advanced
-        - urn:alm:descriptor:com.tectonic.ui:select:DISABLE
-        - urn:alm:descriptor:com.tectonic.ui:select:ENABLE
-        - urn:alm:descriptor:com.tectonic.ui:select:TRY_VERIFY
-        - urn:alm:descriptor:com.tectonic.ui:select:VERIFY_CA
-        - urn:alm:descriptor:com.tectonic.ui:select:VERIFY_FULL
+        - urn:alm:descriptor:com.tectonic.ui:hidden
       - description: |-
-          A secret that contains the TLS credentials to be used to authenticate Vertica clients' certificates.
-          If this is empty, the operator will create a secret to use and add the name of the generate secret to this field.
-          The private key, certificate, and CA certificate should be stored in the secret using the following keys: tls.key,
-          tls.crt, and ca.crt, respectively. To store this secret outside of Kubernetes, you can
-          use a secret path reference prefix, such as gsm://. Everything after the prefix is the name of the secret in the
-          service you are storing.
-        displayName: Client Server TLSSecret
-        path: clientServerTLSSecret
+          A secret that contains the TLS credentials; this can be used either by Vertica's
+          embedded https service and node management agent (NMA) or to authenticate Vertica
+          clients' certificates. If this is empty, the operator will create a secret to use
+          and add the name of the generated secret in this field. When set, the secret must
+          have the following keys defined: tls.key, tls.crt and ca.crt. To store this secret outside of
+          Kubernetes, you can use a secret path reference prefix, such as gsm://.
+          Everything after the prefix is the name of the secret in the service you
+          are storing.
+        displayName: Secret
+        path: clientServerTLS.secret
         x-descriptors:
         - urn:alm:descriptor:io.kubernetes:Secret
         - urn:alm:descriptor:com.tectonic.ui:advanced
@@ -1401,22 +1399,13 @@ spec:
         x-descriptors:
         - urn:alm:descriptor:io.kubernetes:ConfigMap
         - urn:alm:descriptor:com.tectonic.ui:advanced
-      - description: |-
-          A secret that contains the TLS credentials to be used  by Vertica's
-          embedded https service and node management agent (NMA). If this is empty,
-          the operator will create a secret to use and add the name of the generate
-          secret in this field. When set, the secret must have the following keys
-          defined: tls.key, tls.crt and ca.crt. To store this secret outside of
-          Kubernetes, you can use a secret path reference prefix, such as gsm://.
-          Everything after the prefix is the name of the secret in the service you
-          are storing.
-        displayName: HTTPSNMATLSSecret
-        path: httpsNMATLSSecret
+      - description: Identifies HTTPS NMA TLS configurations
+        displayName: HTTPSNMATLS
+        path: httpsNMATLS
         x-descriptors:
-        - urn:alm:descriptor:io.kubernetes:Secret
         - urn:alm:descriptor:com.tectonic.ui:advanced
       - description: |-
-          This field configures the Vertica's connection mode for client-server TLS.
+          This field configures the Vertica's connection mode for HTTPS/NMA or client-server TLS.
           Choose one of the following TLSMODEs, listed in ascending security:
           - TRY_VERIFY: Establishes a TLS connection if one of the following is true:
             - The client presents a valid certificate.
@@ -1424,10 +1413,24 @@ spec:
             If the client presents an invalid certificate, the connection is rejected.
           - VERIFY_CA: Connection succeeds if Vertica verifies that the client certificate is from a trusted CA.
             If the client does not present a client certificate, the connection is rejected.
-        displayName: HTTPSTLSMode
-        path: httpsTLSMode
+        displayName: Mode
+        path: httpsNMATLS.mode
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:hidden
+      - description: |-
+          A secret that contains the TLS credentials; this can be used either by Vertica's
+          embedded https service and node management agent (NMA) or to authenticate Vertica
+          clients' certificates. If this is empty, the operator will create a secret to use
+          and add the name of the generated secret in this field. When set, the secret must
+          have the following keys defined: tls.key, tls.crt and ca.crt. To store this secret outside of
+          Kubernetes, you can use a secret path reference prefix, such as gsm://.
+          Everything after the prefix is the name of the secret in the service you
+          are storing.
+        displayName: Secret
+        path: httpsNMATLS.secret
+        x-descriptors:
+        - urn:alm:descriptor:io.kubernetes:Secret
+        - urn:alm:descriptor:com.tectonic.ui:advanced
       - description: |-
           The docker image name that contains the Vertica server.  Whenever this
           changes, the operator treats this as an upgrade.  The upgrade can be done
@@ -2322,17 +2325,6 @@ spec:
           is occurring, this message remains blank.
         displayName: Upgrade Status
         path: sandboxes[0].upgradeState.upgradeStatus
-      - description: The list of secrets currently in use
-        displayName: Secret Refs
-        path: secretRefs
-      - description: Name of the secret
-        displayName: Name
-        path: secretRefs[0].name
-      - description: |-
-          The type of the secret which represents what the secret
-          is used for
-        displayName: Type
-        path: secretRefs[0].type
       - description: The number of subclusters in the database
         displayName: Subcluster Count
         path: subclusterCount
@@ -2381,15 +2373,20 @@ spec:
           in this subcluster.
         displayName: Up Node Count
         path: subclusters[0].upNodeCount
-      - description: The list of TLS modes currently in use
-        displayName: TLSModes
-        path: tlsModes
-      - description: TLS mode
+      - description: The list of current TLS configurations for different components
+        displayName: TLSConfigs
+        path: tlsConfigs
+      - description: The TLS mode being used
         displayName: Mode
-        path: tlsModes[0].mode
-      - description: The type of the TLS mode
-        displayName: Type
-        path: tlsModes[0].type
+        path: tlsConfigs[0].mode
+      - description: |-
+          Represents what this TLS config is used for
+          For example, httpsNMA or clientServer
+        displayName: Name
+        path: tlsConfigs[0].name
+      - description: Name of the secret
+        displayName: Secret
+        path: tlsConfigs[0].secret
       - description: A count of the number of pods that have a running vertica process.
         displayName: Up Node Count
         path: upNodeCount

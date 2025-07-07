@@ -1997,6 +1997,9 @@ func buildCanaryQuerySQL(vdb *vapi.VerticaDB) string {
 		passwd = fmt.Sprintf("-w $(cat %s/%s)", paths.PodInfoPath, SuperuserPasswordPath)
 	}
 
+	if vmeta.UseTLSAuth(vdb.Annotations) {
+		return fmt.Sprintf("vsql %s -m allow -c 'select 1'", passwd)
+	}
 	return fmt.Sprintf("vsql %s -c 'select 1'", passwd)
 }
 

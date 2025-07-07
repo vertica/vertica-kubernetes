@@ -1,5 +1,0 @@
-kind: Added
-body: Added timeout when draining connections during read-only online upgrade
-time: 2025-06-25T09:29:36.665018788-04:00
-custom:
-    Issue: "1318"

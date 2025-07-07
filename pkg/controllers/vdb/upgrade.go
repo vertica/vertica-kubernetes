@@ -509,6 +509,10 @@ func (i *UpgradeManager) changeNMASidecarDeploymentIfNeeded(ctx context.Context,
 // changeHealthProbeIfNeeded will handle the case where we are upgrading across
 // versions such that we need to change the health probe.
 func (i *UpgradeManager) changeHealthProbeIfNeeded(ctx context.Context, sts *appsv1.StatefulSet, ver string) (bool, error) {
+	if ver == "" {
+		i.Log.Info("Skipping health probe change because version is empty")
+		return false, nil
+	}
 	i.Log.Info("Checking if health probe is changing")
 
 	expSts := sts.DeepCopy()

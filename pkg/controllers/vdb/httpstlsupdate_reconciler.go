@@ -64,11 +64,8 @@ func MakeHTTPSTLSUpdateReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger
 
 // Reconcile will rotate TLS certificate.
 func (h *HTTPSTLSUpdateReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (ctrl.Result, error) {
-	if !h.Vdb.IsSetForTLS() {
-		return ctrl.Result{}, nil
-	}
-
-	if h.Vdb.IsTLSCertRollbackNeeded() {
+	// Skip if TLS not enabled, DB not initialized, or rotate has failed
+	if h.Vdb.ShouldSkipTLSUpdateReconcile() {
 		return ctrl.Result{}, nil
 	}
 
@@ -111,8 +108,10 @@ func (h *HTTPSTLSUpdateReconciler) Reconcile(ctx context.Context, req *ctrl.Requ
 
 	initiatorPod, ok := h.PFacts.FindFirstUpPod(false, "")
 	if !ok {
-		h.Log.Info("No up pod found to update tls config. Requeue reconciliation.")
-		return ctrl.Result{Requeue: true}, nil
+		h.Log.Info("No up pod found to update tls config. Restarting.")
+		restartReconciler := MakeRestartReconciler(h.VRec, h.Log, h.Vdb, h.PFacts.PRunner, h.PFacts, true, h.Dispatcher)
+		res, err2 := restartReconciler.Reconcile(ctx, req)
+		return res, err2
 	}
 
 	err = h.Manager.updateTLSConfig(ctx, initiatorPod.GetPodIP())

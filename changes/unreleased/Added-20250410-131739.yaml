@@ -1,5 +1,0 @@
-kind: Added
-body: Added annotation to disable extra local paths mount
-time: 2025-04-10T13:17:39.662003632+02:00
-custom:
-    Issue: "1178"

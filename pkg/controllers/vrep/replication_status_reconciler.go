@@ -206,6 +206,8 @@ func (r *ReplicationStatusReconciler) determineTargetHosts() (err error) {
 }
 
 // make podfacts for a cluster (either main or a sandbox) of a vdb
+//
+//nolint:dupl
 func (r *ReplicationStatusReconciler) makePodFacts(ctx context.Context, vdb *vapi.VerticaDB,
 	sandboxName string) (*podfacts.PodFacts, error) {
 	username := vdb.GetVerticaUser()
@@ -213,7 +215,7 @@ func (r *ReplicationStatusReconciler) makePodFacts(ctx context.Context, vdb *vap
 	if err != nil {
 		return nil, err
 	}
-	prunner := cmds.MakeClusterPodRunner(r.Log, r.VRec.Cfg, username, password)
+	prunner := cmds.MakeClusterPodRunner(r.Log, r.VRec.Cfg, username, password, vmeta.UseTLSAuth(vdb.Annotations))
 	pFacts := podfacts.MakePodFactsForSandbox(r.VRec, prunner, r.Log, password, sandboxName)
 	return &pFacts, nil
 }

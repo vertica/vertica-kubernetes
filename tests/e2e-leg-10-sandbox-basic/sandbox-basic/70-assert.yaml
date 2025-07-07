@@ -13,7 +13,7 @@
 
 apiVersion: kuttl.dev/v1beta1
 kind: TestAssert
-timeout: 900
+timeout: 1200
 ---
 apiVersion: v1
 kind: Event
@@ -44,16 +44,13 @@ spec:
     - name: pri1
       type: primary
     - name: sec1
-      type: sandboxprimary
+      type: secondary
     - name: sec2
       type: sandboxprimary
     - name: sec3
       type: secondary
 status:
   sandboxes:
-    - name: sandbox1
-      subclusters:
-        - sec1
     - name: sandbox2
       subclusters:
         - sec2
