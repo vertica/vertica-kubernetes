@@ -1849,6 +1849,14 @@ func (v *VerticaDB) GetClientServerTLSSecret() string {
 	return v.Spec.ClientServerTLS.Secret
 }
 
+// Check if TLS not enabled, DB not initialized, or rotate has failed
+// In these cases, we skip TLS Update
+func (v *VerticaDB) ShouldSkipTLSUpdateReconcile() bool {
+	return !v.IsSetForTLS() ||
+		!v.IsDBInitialized() ||
+		v.IsTLSCertRollbackNeeded()
+}
+
 // MakeSourceVDBName is a helper that creates a sample name for the source VerticaDB for test purposes
 func MakeSourceVDBName() types.NamespacedName {
 	return types.NamespacedName{Name: "vertica-source-sample", Namespace: "default"}
