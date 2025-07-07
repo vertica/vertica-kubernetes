@@ -48,7 +48,7 @@ func MakeRollbackAfterCertRotationReconciler(vdbrecon *VerticaDBReconciler, log 
 }
 
 func (r *RollbackAfterCertRotationReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
-	if !r.Vdb.IsTLSCertRollbackNeeded() {
+	if !r.Vdb.IsTLSCertRollbackNeeded() || r.Vdb.IsTLSCertRollbackDisabled() {
 		return ctrl.Result{}, nil
 	}
 
