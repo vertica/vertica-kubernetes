@@ -89,11 +89,6 @@ func (h *ClientServerTLSUpdateReconciler) Reconcile(ctx context.Context, req *ct
 		return ctrl.Result{}, nil
 	}
 
-	// we want to be sure nma tls configmap exists and has the freshest values
-	if res, errCheck := h.Manager.checkNMATLSConfigMap(ctx); verrors.IsReconcileAborted(res, errCheck) {
-		return res, errCheck
-	}
-
 	h.Log.Info("start client server tls config update")
 	cond := vapi.MakeCondition(vapi.TLSConfigUpdateInProgress, metav1.ConditionTrue, "InProgress")
 	if err2 := vdbstatus.UpdateCondition(ctx, h.VRec.GetClient(), h.Vdb, cond); err2 != nil {
