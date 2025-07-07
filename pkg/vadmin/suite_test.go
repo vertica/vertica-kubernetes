@@ -27,6 +27,7 @@ import (
 	vops "github.com/vertica/vcluster/vclusterops"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/aterrors"
+	"github.com/vertica/vertica-kubernetes/pkg/cloud"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	"github.com/vertica/vertica-kubernetes/pkg/test"
@@ -382,7 +383,15 @@ func mockVClusterOpsDispatcher() *VClusterOps {
 	setupAPIFunc := func(log logr.Logger, apiName string) (VClusterProvider, logr.Logger) {
 		return &MockVClusterOps{}, logr.Logger{}
 	}
-	return mockVClusterOpsDispatcherWithCustomSetup(vdb, setupAPIFunc)
+	dispatcher := mockVClusterOpsDispatcherWithCustomSetup(vdb, setupAPIFunc)
+	fetcher := &cloud.SecretFetcher{
+		Client:   dispatcher.Client,
+		Log:      dispatcher.Log,
+		Obj:      dispatcher.VDB,
+		EVWriter: dispatcher.EVWriter,
+	}
+	InitCertCacheForVdb(vdb.Namespace, vdb.Name, fetcher)
+	return dispatcher
 }
 
 // mockVClusterOpsDispatchWithCustomSetup is like mockVClusterOpsDispatcher,
