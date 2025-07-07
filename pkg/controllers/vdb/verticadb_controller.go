@@ -273,6 +273,8 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		MakeCreateDBReconciler(r, log, vdb, prunner, pfacts, dispatcher),
 		// Handle calls to revive a database
 		MakeReviveDBReconciler(r, log, vdb, prunner, pfacts, dispatcher),
+		// Set up configmap which stores env variables for NMA container
+		MakeNMACertConfigMapReconciler(r, log, vdb),
 		MakeTLSReconciler(r, log, vdb, prunner, dispatcher, pfacts),
 		// Add additional buckets for data replication
 		MakeAddtionalBucketsReconciler(r, log, vdb, prunner, pfacts),
