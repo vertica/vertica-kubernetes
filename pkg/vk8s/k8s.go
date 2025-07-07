@@ -66,39 +66,3 @@ func UpdateVDBWithRetry(ctx context.Context, vrec config.ReconcilerInterface, vd
 	})
 	return
 }
-
-// UpdateConfigMapWithRetry will update the ConfigMap by way of a callback. This is done in a retry
-// loop in case there is a write conflict.
-func UpdateConfigMapWithRetry(ctx context.Context, vrec config.ReconcilerInterface, cm *corev1.ConfigMap,
-	callbackFn func() (bool, error)) (updated bool, err error) {
-	err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-		err := vrec.GetClient().Get(ctx, extractConfigMapNamespacedName(cm), cm)
-		if err != nil {
-			return err
-		}
-
-		needToUpdate, err := callbackFn()
-		if err != nil {
-			return err
-		}
-
-		if !needToUpdate {
-			return nil
-		}
-		err = vrec.GetClient().Update(ctx, cm)
-		vrec.Event(cm, corev1.EventTypeNormal, events.AdditionalBucketsUpdated, "UpdateConfigMapWithRetry ConfigMap")
-		if err == nil {
-			updated = true
-		}
-		return err
-	})
-	return
-}
-
-// extractConfigMapNamespacedName gets the ConfigMap name and returns it as a NamespacedName
-func extractConfigMapNamespacedName(cm *corev1.ConfigMap) types.NamespacedName {
-	return types.NamespacedName{
-		Name:      cm.ObjectMeta.Name,
-		Namespace: cm.ObjectMeta.Namespace,
-	}
-}

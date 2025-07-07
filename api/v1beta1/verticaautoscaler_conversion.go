@@ -298,9 +298,8 @@ func convertFromSubcluster(src *v1.Subcluster) Subcluster {
 	dst := Subcluster{
 		Name:                src.Name,
 		Size:                src.Size,
-		IsPrimary:           src.IsPrimary(),
+		IsPrimary:           src.IsMainPrimary(),
 		IsTransient:         src.IsTransient(),
-		IsSandboxPrimary:    src.IsSandboxPrimary(),
 		ImageOverride:       src.ImageOverride,
 		NodeSelector:        src.NodeSelector,
 		Affinity:            Affinity(src.Affinity),

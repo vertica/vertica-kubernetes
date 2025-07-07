@@ -286,7 +286,6 @@ func (r *UnsandboxSubclusterReconciler) unsandboxSubcluster(ctx context.Context,
 // updateSandboxInfoInVdb will update the sandbox status in vdb
 func (r *UnsandboxSubclusterReconciler) updateSandboxInfoInVdb(ctx context.Context, sbName string, unsandboxedScNames []string) error {
 	updateStatus := func(vdbChg *vapi.VerticaDB) error {
-		r.Log.Info("Updating sandbox info in vdb", "sandboxName", sbName, "unsandboxedScNames", unsandboxedScNames)
 		// update the sandbox's subclusters in sandbox status
 		for i := len(vdbChg.Status.Sandboxes) - 1; i >= 0; i-- {
 			if vdbChg.Status.Sandboxes[i].Name != sbName {
