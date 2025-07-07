@@ -49,11 +49,12 @@ type ClusterPodRunner struct {
 	Cfg               *rest.Config
 	VerticaSUName     string // vertica superuser generated in database creation
 	VerticaSUPassword string
+	IsTLSEnabled      bool // if we enabled tls in the database
 }
 
 // MakeClusterPodRunnerr will build a ClusterPodRunner object
-func MakeClusterPodRunner(log logr.Logger, cfg *rest.Config, verticaSUName, passwd string) *ClusterPodRunner {
-	return &ClusterPodRunner{Log: log, Cfg: cfg, VerticaSUName: verticaSUName, VerticaSUPassword: passwd}
+func MakeClusterPodRunner(log logr.Logger, cfg *rest.Config, verticaSUName, passwd string, isTLSEnabled bool) *ClusterPodRunner {
+	return &ClusterPodRunner{Log: log, Cfg: cfg, VerticaSUName: verticaSUName, VerticaSUPassword: passwd, IsTLSEnabled: isTLSEnabled}
 }
 
 // logInfoCmd calls log function for the given command
@@ -141,7 +142,7 @@ func (c *ClusterPodRunner) CopyToPod(ctx context.Context, podName types.Namespac
 // ExecVSQL appends options to the vsql command and calls ExecInPod
 func (c *ClusterPodRunner) ExecVSQL(ctx context.Context, podName types.NamespacedName,
 	contName string, command ...string) (stdout, stderr string, err error) {
-	command = UpdateVsqlCmd(c.VerticaSUName, c.VerticaSUPassword, command...)
+	command = UpdateVsqlCmd(c.VerticaSUName, c.VerticaSUPassword, c.IsTLSEnabled, command...)
 	return c.ExecInPod(ctx, podName, contName, command...)
 }
 
@@ -165,13 +166,16 @@ func (c *ClusterPodRunner) DumpAdmintoolsConf(ctx context.Context, podName types
 }
 
 // UpdateVsqlCmd generates a vsql command appending the options we need
-func UpdateVsqlCmd(suName, passwd string, cmd ...string) []string {
+func UpdateVsqlCmd(suName, passwd string, isTLSEnabled bool, cmd ...string) []string {
 	prefix := []string{"vsql"}
 	if suName != "" {
 		prefix = append(prefix, "-U", suName)
 	}
 	if passwd != "" {
 		prefix = append(prefix, "--password", passwd)
+	}
+	if isTLSEnabled {
+		prefix = append(prefix, "-m", "allow")
 	}
 	cmd = append(prefix, cmd...)
 	return cmd

@@ -11,6 +11,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+apiVersion: kuttl.dev/v1beta1
+kind: TestAssert
+timeout: 1200
+---
 apiVersion: v1
 kind: Event
 reason: UnsandboxSubclusterSucceeded
@@ -40,13 +44,16 @@ spec:
     - name: pri1
       type: primary
     - name: sec1
-      type: secondary
+      type: sandboxprimary
     - name: sec2
       type: sandboxprimary
     - name: sec3
       type: secondary
 status:
   sandboxes:
+    - name: sandbox1
+      subclusters:
+        - sec1
     - name: sandbox2
       subclusters:
         - sec2
