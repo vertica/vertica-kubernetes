@@ -90,7 +90,7 @@ func (h *HTTPSTLSUpdateReconciler) Reconcile(ctx context.Context, req *ctrl.Requ
 
 	// no-op if neither https secret nor tls mode
 	// changed
-	if !h.Manager.needTLSConfigChange() && !h.Vdb.IsTLSCertRollbackInProgress() {
+	if !h.Manager.needTLSConfigChange() {
 		return ctrl.Result{}, nil
 	}
 
