@@ -2199,7 +2199,7 @@ func GetTarballName(cmd []string) string {
 // The configmap will be mapped to two environmental variables in NMA pod
 func BuildNMATLSConfigMap(nm types.NamespacedName, vdb *vapi.VerticaDB) *corev1.ConfigMap {
 	secretMap := map[string]string{
-		NMASecretNamespaceEnv: vdb.ObjectMeta.Namespace,
+		NMASecretNamespaceEnv:       vdb.ObjectMeta.Namespace,
 		NMASecretNameEnv:            vdb.GetHTTPSNMATLSSecret(),
 		NMAClientSecretNamespaceEnv: vdb.ObjectMeta.Namespace,
 		NMAClientSecretNameEnv:      vdb.GetClientServerTLSSecret(),
