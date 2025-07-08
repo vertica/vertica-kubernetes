@@ -1082,6 +1082,18 @@ const (
 	ClientServerTLSConfigUpdateFinished = "ClientServerTLSConfigUpdateFinished"
 	// TLSConfigUpdateInProgress indicates the TLS config update has started
 	TLSConfigUpdateInProgress = "TLSConfigUpdateInProgress"
+	// TLSCertRollbackNeeded indicates tls cert rotation failed and we need
+	// to rollback
+	TLSCertRollbackNeeded = "TLSCertRollbackNeeded"
+)
+
+const (
+	// RollbackAfterCertRotationReason indicates failure during TLS rotation after TLS cert has been updated
+	RollbackAfterCertRotationReason = "CertRotationFailed"
+	// FailureBeforeCertHealthPollingReason indicates failure during TLS rotation before TLS cert has been updated
+	FailureBeforeCertHealthPollingReason = "CertRotationFailedBeforeCertHealthPolling"
+	// RollbackAfterNMACertRotationReason indicates failure during NMA cert rotation
+	RollbackAfterNMACertRotationReason = "NMACertRotationFailed"
 )
 
 const (

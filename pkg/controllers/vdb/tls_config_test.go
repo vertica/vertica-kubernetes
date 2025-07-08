@@ -24,6 +24,7 @@ import (
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
+	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/test"
 )
 
@@ -157,6 +158,29 @@ var _ = Describe("tls_config", func() {
 		Expect(mgr.CurrentTLSMode).To(Equal(tryVerify))
 		Expect(mgr.NewTLSMode).To(Equal(tryVerify))
 		Expect(mgr.tlsConfigName).To(Equal(vapi.HTTPSNMATLSConfigName))
+	})
+
+	It("should set rollback after cert rotation", func() {
+		vdb := vapi.MakeVDB()
+		vdb.Annotations[vmeta.DisableTLSRotationFailureRollbackAnnotation] = vmeta.DisableTLSRotationFailureRollbackAnnotationFalse
+		test.CreateVDB(ctx, k8sClient, vdb)
+		defer test.DeleteVDB(ctx, k8sClient, vdb)
+		fpr := &cmds.FakePodRunner{}
+		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
+		manager := MakeTLSConfigManager(vdbRec, logger, vdb, tlsConfigHTTPS, dispatcher)
+
+		err := fmt.Errorf("random error")
+		err = manager.triggerRollback(ctx, err)
+		Expect(err).Should(Succeed())
+		Expect(len(vdb.Status.Conditions)).Should(Equal(1))
+		Expect(vdb.IsTLSCertRollbackNeeded()).Should(BeTrue())
+		Expect(vdb.Status.Conditions[0].Reason).Should(Equal(vapi.FailureBeforeCertHealthPollingReason))
+		Expect(vdb.IsRollbackFailureBeforeCertHealthPolling()).Should(BeTrue())
+
+		err = fmt.Errorf("HTTPSPollCertificateHealthOp error during polling")
+		err = manager.triggerRollback(ctx, err)
+		Expect(err).Should(Succeed())
+		Expect(manager.Vdb.IsRollbackFailureBeforeCertHealthPolling()).Should(BeFalse())
 	})
 
 })
