@@ -140,7 +140,7 @@ func (r *RollbackAfterCertRotationReconciler) pollNMACertHealth(ctx context.Cont
 func (r *RollbackAfterCertRotationReconciler) runHTTPSCertRotation(ctx context.Context) (ctrl.Result, error) {
 	if r.Vdb.IsHTTPSRollbackFailureAfterCertHealthPolling() {
 		r.Log.Info("Reverting to previous HTTPS secret")
-		//TODO: Run HTTPS TLS rollback
+		// TODO: Run HTTPS TLS rollback
 	}
 
 	return ctrl.Result{}, nil
