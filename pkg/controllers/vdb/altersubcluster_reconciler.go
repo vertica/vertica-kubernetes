@@ -60,7 +60,6 @@ func (a *AlterSubclusterTypeReconciler) Reconcile(ctx context.Context, _ *ctrl.R
 
 	var scs []*vapi.Subcluster
 	var err error
-
 	if a.PFacts.SandboxName == vapi.MainCluster {
 		scs, err = a.findMainSubclustersToAlter()
 	} else {

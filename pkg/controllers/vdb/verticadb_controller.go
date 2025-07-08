@@ -296,6 +296,8 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		// Update the label in pods so that Service routing uses them if they
 		// have finished being rebalanced.
 		MakeClientRoutingLabelReconciler(r, log, vdb, pfacts, AddNodeApplyMethod, ""),
+		// Validate the vdb after operator upgraded
+		MakeValidateVDBReconciler(r, log, vdb),
 		// Handle calls to add subclusters to sandboxes
 		MakeSandboxSubclusterReconciler(r, log, vdb, pfacts, dispatcher, r.Client, false),
 		// Handle calls to move subclusters from sandboxes to main cluster
@@ -307,8 +309,6 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		MakeSandboxUpgradeReconciler(r, log, vdb, true),
 		// Update subcluster type in db according to its type in vdb spec
 		MakeAlterSubclusterTypeReconciler(r, log, vdb, pfacts, dispatcher),
-		// Validate the vdb after operator upgraded
-		MakeValidateVDBReconciler(r, log, vdb),
 		// Update the sandbox/subclusters' shutdown field to match the value of
 		// the spec.
 		MakeShutdownSpecReconciler(r, vdb),
