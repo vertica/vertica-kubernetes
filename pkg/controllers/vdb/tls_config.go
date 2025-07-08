@@ -387,7 +387,7 @@ func (t *TLSConfigManager) getCertificatePrefix() string {
 // has failed and a rollback is needed
 func (t *TLSConfigManager) triggerRollback(ctx context.Context, err error) error {
 	if err == nil || t.Vdb.IsTLSCertRollbackDisabled() {
-		return nil
+		return err
 	}
 	errMsg := err.Error()
 	reason := vapi.FailureBeforeCertHealthPollingReason

@@ -681,7 +681,7 @@ func (v *VerticaDB) FindTLSCertRollbackNeededCondition() *metav1.Condition {
 }
 
 func (v *VerticaDB) IsTLSCertRollbackDisabled() bool {
-       return vmeta.IsDisableTLSRollbackAnnotationSet(v.Annotations)
+	return vmeta.IsDisableTLSRollbackAnnotationSet(v.Annotations)
 }
 
 // GetTLSCertRollbackReason returns the reason or the point
