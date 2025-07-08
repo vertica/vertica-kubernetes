@@ -227,6 +227,12 @@ const (
 	HTTPSTLSConfGenerationAnnotationFalse = "false"
 	HTTPSTLSConfGenerationDefaultValue    = true
 
+	// This annotation controls
+	DisableTLSRotationFailureRollbackAnnotation      = "vertica.com/disable-tls-rotation-failure-rollback"
+	DisableTLSRotationFailureRollbackAnnotationTrue  = "true"
+	DisableTLSRotationFailureRollbackAnnotationFalse = "false"
+	DisableTLSRotationFailureRollbackDefaultValue    = true
+
 	// We have a deployment check that ensures that if running vcluster ops the
 	// image is built for that (and vice-versa). This annotation allows you to
 	// skip that check.
@@ -586,6 +592,13 @@ func IsHTTPSTLSConfGenerationAnnotationSet(annotations map[string]string) bool {
 // depends on TLS auth config in the catalog.
 func IsHTTPSTLSConfGenerationEnabled(annotations map[string]string) bool {
 	return lookupBoolAnnotation(annotations, HTTPSTLSConfGenerationAnnotation, HTTPSTLSConfGenerationDefaultValue)
+}
+
+// IsDisableTLSRollbackAnnotationSet returns true if DisableTLSFailureRollbackAnnotation is set,
+// disabling TLS cert rollback after failed rotation
+func IsDisableTLSRollbackAnnotationSet(annotations map[string]string) bool {
+	return lookupBoolAnnotation(annotations, DisableTLSRotationFailureRollbackAnnotation,
+		DisableTLSRotationFailureRollbackDefaultValue)
 }
 
 // GetSkipDeploymentCheck will return true if we are to skip the check that

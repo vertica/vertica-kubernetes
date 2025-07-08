@@ -655,7 +655,7 @@ func (i *UpgradeManager) isPrimary(l map[string]string) bool {
 }
 
 func (i *UpgradeManager) traceActorReconcile(actor controllers.ReconcileActor) {
-	i.Log.Info("starting actor for upgrade", "name", fmt.Sprintf("%T", actor))
+	traceActorReconcile(actor, i.Log, "upgrade")
 }
 
 // isSubclusterIdle will run a query to see the number of connections

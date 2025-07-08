@@ -685,6 +685,42 @@ func (v *VerticaDB) IsTLSConfigUpdateInProgress() bool {
 	return v.IsStatusConditionTrue(TLSConfigUpdateInProgress)
 }
 
+func (v *VerticaDB) IsTLSCertRollbackNeeded() bool {
+	return v.IsStatusConditionTrue(TLSCertRollbackNeeded)
+}
+
+func (v *VerticaDB) FindTLSCertRollbackNeededCondition() *metav1.Condition {
+	return v.FindStatusCondition(TLSCertRollbackNeeded)
+}
+
+func (v *VerticaDB) IsTLSCertRollbackDisabled() bool {
+	return vmeta.IsDisableTLSRollbackAnnotationSet(v.Annotations)
+}
+
+// GetTLSCertRollbackReason returns the reason or the point
+// which cert rotation failed in. This is used to know the ops
+// needed to rollback
+func (v *VerticaDB) GetTLSCertRollbackReason() string {
+	cond := v.FindTLSCertRollbackNeededCondition()
+	if cond == nil {
+		return ""
+	}
+
+	return cond.Reason
+}
+
+// IsRollbackFailureBeforeCertHealthPolling returns true if https cert rotation failed
+// without altering the current tls config
+func (v *VerticaDB) IsRollbackFailureBeforeCertHealthPolling() bool {
+	return v.GetTLSCertRollbackReason() == FailureBeforeCertHealthPollingReason
+}
+
+// IsRollbackAfterNMACertRotation returns true if https cert rotation failed
+// but tls config changed
+func (v *VerticaDB) IsRollbackAfterNMACertRotation() bool {
+	return v.GetTLSCertRollbackReason() == RollbackAfterNMACertRotationReason
+}
+
 // IsStatusConditionTrue returns true when the conditionType is present and set to
 // `metav1.ConditionTrue`
 func (v *VerticaDB) IsStatusConditionTrue(statusCondition string) bool {
@@ -1920,6 +1956,14 @@ func (v *VerticaDB) GetClientServerTLSSecret() string {
 		return ""
 	}
 	return v.Spec.ClientServerTLS.Secret
+}
+
+// Check if TLS not enabled, DB not initialized, or rotate has failed
+// In these cases, we skip TLS Update
+func (v *VerticaDB) ShouldSkipTLSUpdateReconcile() bool {
+	return !v.IsSetForTLS() ||
+		!v.IsDBInitialized() ||
+		v.IsTLSCertRollbackNeeded()
 }
 
 // MakeSourceVDBName is a helper that creates a sample name for the source VerticaDB for test purposes
