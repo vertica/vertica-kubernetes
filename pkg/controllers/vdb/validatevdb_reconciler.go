@@ -61,10 +61,7 @@ func (r *ValidateVDBReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) 
 }
 
 // validateSubclusters updates the vdb/sandbox subcluster type if needed
-func (r *ValidateVDBReconciler) validateSubclusters() ([]string, []string, error) {
-	scsMain := []string{}
-	scsSandbox := []string{}
-
+func (r *ValidateVDBReconciler) validateSubclusters() (scsMain, scsSandbox []string, err error) {
 	sbs := r.Vdb.GenSandboxMap()
 	for sbName := range sbs {
 		sb := sbs[sbName]
@@ -95,7 +92,7 @@ func (r *ValidateVDBReconciler) validateSubclusters() ([]string, []string, error
 }
 
 // validateSubclusters updates the vdb/sandbox subcluster type if needed
-func (r *ValidateVDBReconciler) updateSubclusters(ctx context.Context, scsMain []string, scsSandbox []string) (ctrl.Result, error) {
+func (r *ValidateVDBReconciler) updateSubclusters(ctx context.Context, scsMain, scsSandbox []string) (ctrl.Result, error) {
 	// to update the vdb/sandbox subcluster type if not valid
 	for _, scName := range scsMain {
 		// if the vdb subcluster type is not valid, we need to change the subcluster type to "secondary"

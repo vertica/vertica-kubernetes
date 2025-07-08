@@ -26,11 +26,12 @@ import (
 
 var _ = Describe("ValidateVDBReconciler", func() {
 	var reconciler *ValidateVDBReconciler
+	var vdb *vapi.VerticaDB
 
 	ctx := context.Background()
-	vdb := vapi.MakeVDBForVclusterOps()
 
 	BeforeEach(func() {
+		vdb = vapi.MakeVDBForVclusterOps()
 		vdb.Spec.Subclusters = []vapi.Subcluster{
 			{Name: "sc1", Type: vapi.PrimarySubcluster},
 			{Name: "sc2", Type: vapi.SandboxPrimarySubcluster},
@@ -45,24 +46,32 @@ var _ = Describe("ValidateVDBReconciler", func() {
 				},
 			},
 		}
+		test.CreateVDB(ctx, k8sClient, vdb)
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
-		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		rec := MakeValidateVDBReconciler(vdbRec, logger, vdb)
 		reconciler = rec.(*ValidateVDBReconciler)
 	})
 
+	AfterEach(func() {
+		test.DeleteVDB(ctx, k8sClient, vdb)
+		test.DeletePods(ctx, k8sClient, vdb)
+	})
+
 	It("should update subcluster types from sandboxprimary to secondary", func() {
+
 		scsMain, scsSandbox, err := reconciler.validateSubclusters()
 		Expect(err).ShouldNot(HaveOccurred())
-		reconciler.updateSubclusters(ctx, scsMain, scsSandbox)
+		_, err = reconciler.updateSubclusters(ctx, scsMain, scsSandbox)
+		Expect(err).To(Succeed())
 		Expect(vdb.Spec.Subclusters[1].Type).To(Equal(vapi.SecondarySubcluster))
 	})
 
 	It("should update sandbox subcluster types from primary to secondary", func() {
 		scsMain, scsSandbox, err := reconciler.validateSubclusters()
 		Expect(err).ShouldNot(HaveOccurred())
-		reconciler.updateSubclusters(ctx, scsMain, scsSandbox)
+		_, err = reconciler.updateSubclusters(ctx, scsMain, scsSandbox)
+		Expect(err).To(Succeed())
 		Expect(vdb.Spec.Sandboxes[0].Subclusters[1].Type).To(Equal(vapi.SecondarySubcluster))
 	})
 
@@ -71,7 +80,8 @@ var _ = Describe("ValidateVDBReconciler", func() {
 		vdb.Spec.Subclusters[1].Type = vapi.SecondarySubcluster
 		scsMain, scsSandbox, err := reconciler.validateSubclusters()
 		Expect(err).ShouldNot(HaveOccurred())
-		reconciler.updateSubclusters(ctx, scsMain, scsSandbox)
-		Expect(vdb.Spec.Sandboxes[0].Subclusters[1].Type).To(Equal(vapi.PrimarySubcluster))
+		_, err = reconciler.updateSubclusters(ctx, scsMain, scsSandbox)
+		Expect(err).To(Succeed())
+		Expect(vdb.Spec.Sandboxes[0].Subclusters[1].Type).To(Equal(vapi.SecondarySubcluster))
 	})
 })
