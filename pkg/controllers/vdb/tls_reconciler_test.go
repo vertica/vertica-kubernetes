@@ -58,7 +58,7 @@ var _ = Describe("tls_reconciler", func() {
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 
 		// set rollback condition and update secret
-		cond := vapi.MakeCondition(vapi.TLSCertRollbackNeeded, metav1.ConditionTrue, vapi.RollbackAfterCertRotationReason)
+		cond := vapi.MakeCondition(vapi.TLSCertRollbackNeeded, metav1.ConditionTrue, vapi.RollbackAfterHTTPSCertRotationReason)
 		Expect(vdbstatus.UpdateCondition(ctx, vdbRec.GetClient(), vdb, cond)).Error().Should(BeNil())
 		vdb.Spec.HTTPSNMATLS.Secret = "new-secret"
 

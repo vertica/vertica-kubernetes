@@ -82,7 +82,7 @@ func (h *ClientServerTLSUpdateReconciler) Reconcile(ctx context.Context, req *ct
 
 	// no-op if neither client server secret nor tls mode
 	// changed
-	if !h.Manager.needTLSConfigChange() {
+	if !h.Manager.needTLSConfigChange() && !h.Vdb.IsTLSCertRollbackInProgress() {
 		return ctrl.Result{}, nil
 	}
 

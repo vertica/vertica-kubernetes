@@ -174,13 +174,13 @@ var _ = Describe("tls_config", func() {
 		Expect(err).Should(Succeed())
 		Expect(len(vdb.Status.Conditions)).Should(Equal(1))
 		Expect(vdb.IsTLSCertRollbackNeeded()).Should(BeTrue())
-		Expect(vdb.Status.Conditions[0].Reason).Should(Equal(vapi.FailureBeforeCertHealthPollingReason))
-		Expect(vdb.IsRollbackFailureBeforeCertHealthPolling()).Should(BeTrue())
+		Expect(vdb.Status.Conditions[0].Reason).Should(Equal(vapi.FailureBeforeHTTPSCertHealthPollingReason))
+		Expect(vdb.IsHTTPSRollbackFailureBeforeCertHealthPolling()).Should(BeTrue())
 
 		err = fmt.Errorf("HTTPSPollCertificateHealthOp error during polling")
 		err = manager.triggerRollback(ctx, err)
 		Expect(err).Should(Succeed())
-		Expect(manager.Vdb.IsRollbackFailureBeforeCertHealthPolling()).Should(BeFalse())
+		Expect(manager.Vdb.IsHTTPSRollbackFailureAfterCertHealthPolling()).Should(BeFalse())
 	})
 
 })

@@ -676,6 +676,10 @@ func (v *VerticaDB) IsTLSCertRollbackNeeded() bool {
 	return v.IsStatusConditionTrue(TLSCertRollbackNeeded)
 }
 
+func (v *VerticaDB) IsTLSCertRollbackInProgress() bool {
+	return v.IsStatusConditionTrue(TLSCertRollbackInProgress)
+}
+
 func (v *VerticaDB) FindTLSCertRollbackNeededCondition() *metav1.Condition {
 	return v.FindStatusCondition(TLSCertRollbackNeeded)
 }
@@ -696,13 +700,25 @@ func (v *VerticaDB) GetTLSCertRollbackReason() string {
 	return cond.Reason
 }
 
-// IsRollbackFailureBeforeCertHealthPolling returns true if https cert rotation failed
+// IsHTTPSRollbackFailureBeforeCertHealthPolling returns true if https cert rotation failed
 // without altering the current tls config
-func (v *VerticaDB) IsRollbackFailureBeforeCertHealthPolling() bool {
-	return v.GetTLSCertRollbackReason() == FailureBeforeCertHealthPollingReason
+func (v *VerticaDB) IsHTTPSRollbackFailureBeforeCertHealthPolling() bool {
+	return v.GetTLSCertRollbackReason() == FailureBeforeHTTPSCertHealthPollingReason
 }
 
-// IsRollbackAfterNMACertRotation returns true if https cert rotation failed
+// IsHTTPSRollbackFailureAfterCertHealthPolling returns true if https cert rotation failed
+// after altering the current tls config
+func (v *VerticaDB) IsHTTPSRollbackFailureAfterCertHealthPolling() bool {
+	return v.GetTLSCertRollbackReason() == RollbackAfterHTTPSCertRotationReason
+}
+
+// IsRollbackAfterServerCertRotation returns true if client-server cert rotation failed
+// (but tls config will not be changed)
+func (v *VerticaDB) IsRollbackAfterServerCertRotation() bool {
+	return v.GetTLSCertRollbackReason() == RollbackAfterServerCertRotationReason
+}
+
+// IsRollbackAfterNMACertRotation returns true if NMA cert rotation failed
 // but tls config changed
 func (v *VerticaDB) IsRollbackAfterNMACertRotation() bool {
 	return v.GetTLSCertRollbackReason() == RollbackAfterNMACertRotationReason
@@ -1680,6 +1696,17 @@ func (v *VerticaDB) GetClientServerTLSSecretInUse() string {
 	return v.GetSecretInUse(ClientServerTLSConfigName)
 }
 
+// GetNMATLSSecretNameForConfigMap returns the secret name to set in the
+// nma configmap
+func (v *VerticaDB) GetHTTPSNMATLSSecretForConfigMap() string {
+	name := v.GetHTTPSNMATLSSecretInUse()
+	if name != "" &&
+		(!v.IsStatusConditionTrue(HTTPSTLSConfigUpdateFinished) || v.IsTLSCertRollbackNeeded()) {
+		return name
+	}
+	return v.GetHTTPSNMATLSSecret()
+}
+
 // IsCertNeededForClientServerAuth returns true if certificate is needed for client-server authentication
 func (v *VerticaDB) IsCertNeededForClientServerAuth() bool {
 	tlsMode := strings.ToLower(v.GetClientServerTLSMode())
@@ -1847,7 +1874,7 @@ func (v *VerticaDB) GetClientServerTLSSecret() string {
 func (v *VerticaDB) ShouldSkipTLSUpdateReconcile() bool {
 	return !v.IsSetForTLS() ||
 		!v.IsDBInitialized() ||
-		v.IsTLSCertRollbackNeeded()
+		(v.IsTLSCertRollbackNeeded() && !v.IsTLSCertRollbackInProgress())
 }
 
 // MakeSourceVDBName is a helper that creates a sample name for the source VerticaDB for test purposes

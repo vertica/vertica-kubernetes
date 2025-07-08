@@ -386,14 +386,27 @@ func (t *TLSConfigManager) getCertificatePrefix() string {
 // triggerRollback sets a condition that lets the operator know that cert rotation
 // has failed and a rollback is needed
 func (t *TLSConfigManager) triggerRollback(ctx context.Context, err error) error {
-	if err == nil || t.Vdb.IsTLSCertRollbackDisabled() {
+	if err == nil || t.Vdb.IsTLSCertRollbackDisabled() || t.Vdb.IsTLSCertRollbackInProgress() {
 		return err
 	}
-	errMsg := err.Error()
-	reason := vapi.FailureBeforeCertHealthPollingReason
-	if strings.Contains(errMsg, "HTTPSPollCertificateHealthOp") {
-		reason = vapi.RollbackAfterCertRotationReason
-	}
+	reason := t.getRollbackReason(err)
 	cond := vapi.MakeCondition(vapi.TLSCertRollbackNeeded, metav1.ConditionTrue, reason)
-	return vdbstatus.UpdateCondition(ctx, t.Rec.GetClient(), t.Vdb, cond)
+	err1 := vdbstatus.UpdateCondition(ctx, t.Rec.GetClient(), t.Vdb, cond)
+
+	if err1 != nil {
+		return err1
+	}
+
+	return err
+}
+
+func (t *TLSConfigManager) getRollbackReason(err error) string {
+	errMsg := err.Error()
+	if t.isClientServerTLSConfig() {
+		return vapi.RollbackAfterServerCertRotationReason
+	}
+	if strings.Contains(errMsg, "HTTPSPollCertificateHealthOp") {
+		return vapi.RollbackAfterHTTPSCertRotationReason
+	}
+	return vapi.FailureBeforeHTTPSCertHealthPollingReason
 }
