@@ -37,6 +37,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/vdbstatus"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
@@ -173,7 +174,7 @@ func (t *TLSConfigManager) updateTLSConfig(ctx context.Context, initiatorIP stri
 	if err != nil {
 		t.Rec.Eventf(t.Vdb, corev1.EventTypeWarning, failed,
 			"Failed to rotate %s tls cert with secret name %s and mode %s", t.TLSConfig, t.NewSecret, t.NewTLSMode)
-		return err
+		return t.triggerRollback(ctx, err)
 	}
 	t.Rec.Eventf(t.Vdb, corev1.EventTypeNormal, succeeded,
 		"Successfully rotated %s tls cert with secret name %s and mode %s", t.TLSConfig, t.NewSecret, t.NewTLSMode)
@@ -380,4 +381,19 @@ func (t *TLSConfigManager) getTLSConfigName() string {
 
 func (t *TLSConfigManager) getCertificatePrefix() string {
 	return fmt.Sprintf("%s_cert_", t.getTLSConfigName())
+}
+
+// triggerRollback sets a condition that lets the operator know that cert rotation
+// has failed and a rollback is needed
+func (t *TLSConfigManager) triggerRollback(ctx context.Context, err error) error {
+	if err == nil || t.Vdb.IsTLSCertRollbackDisabled() {
+		return err
+	}
+	errMsg := err.Error()
+	reason := vapi.FailureBeforeCertHealthPollingReason
+	if strings.Contains(errMsg, "HTTPSPollCertificateHealthOp") {
+		reason = vapi.RollbackAfterCertRotationReason
+	}
+	cond := vapi.MakeCondition(vapi.TLSCertRollbackNeeded, metav1.ConditionTrue, reason)
+	return vdbstatus.UpdateCondition(ctx, t.Rec.GetClient(), t.Vdb, cond)
 }

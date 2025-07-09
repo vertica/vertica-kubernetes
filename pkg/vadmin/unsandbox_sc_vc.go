@@ -17,6 +17,7 @@ package vadmin
 
 import (
 	"context"
+	"errors"
 
 	vops "github.com/vertica/vcluster/vclusterops"
 	"github.com/vertica/vertica-kubernetes/pkg/net"
@@ -43,6 +44,12 @@ func (v *VClusterOps) UnsandboxSubcluster(ctx context.Context, opts ...unsandbox
 	vopts := v.genUnsandboxSubclusterOptions(&s, certs)
 	err = v.VUnsandbox(&vopts)
 	if err != nil {
+		scNotSandboxedError := &vops.SubclusterNotSandboxedError{}
+		if ok := errors.As(err, &scNotSandboxedError); ok {
+			v.Log.Info("Subcluster has already been unsandboxed, no need to unsandbox it again",
+				"subcluster", vopts.SCName)
+			return nil
+		}
 		v.Log.Error(err, "failed to unsandbox a subcluster", "subcluster", vopts.SCName)
 		return err
 	}
