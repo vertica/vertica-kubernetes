@@ -25,7 +25,7 @@ import (
 
 // GetConfigurationParameter returns the value of a config parameter from the given sandbox
 func (v *VCluster) GetConfigurationParameter(param, level, sandbox string, ctx context.Context) (value string, err error) {
-	vclusterOps := vadmin.MakeVClusterOps(v.Log, v.VDB, v.Client, v.Password, v.EVRec, vadmin.SetupVClusterOps)
+	vclusterOps := vadmin.MakeVClusterOps(v.Log, v.VDB, v.Client, v.Password, v.EVRec, vadmin.SetupVClusterOps, v.CacheManager)
 	opts := []getconfigparameter.Option{
 		getconfigparameter.WithUserName(v.VDB.GetVerticaUser()),
 		getconfigparameter.WithInitiatorIP(v.PodIP),
@@ -38,7 +38,7 @@ func (v *VCluster) GetConfigurationParameter(param, level, sandbox string, ctx c
 
 // SetConfigurationParameter sets the value of a configuration parameter in the given san
 func (v *VCluster) SetConfigurationParameter(param, value, level, sandbox string, ctx context.Context) error {
-	vclusterOps := vadmin.MakeVClusterOps(v.Log, v.VDB, v.Client, v.Password, v.EVRec, vadmin.SetupVClusterOps)
+	vclusterOps := vadmin.MakeVClusterOps(v.Log, v.VDB, v.Client, v.Password, v.EVRec, vadmin.SetupVClusterOps, v.CacheManager)
 	opts := []setconfigparameter.Option{
 		setconfigparameter.WithUserName(v.VDB.GetVerticaUser()),
 		setconfigparameter.WithInitiatorIP(v.PodIP),

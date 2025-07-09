@@ -161,10 +161,10 @@ func (r *ReplicationReconciler) makeDispatcher() error {
 
 	if r.Vrep.IsUsingAsyncReplication() {
 		r.dispatcher = vadmin.MakeVClusterOpsWithTarget(r.Log, r.SourceInfo.Vdb, r.TargetInfo.Vdb,
-			r.VRec.GetClient(), r.SourceInfo.Password, r.VRec, vadmin.SetupVClusterOps)
+			r.VRec.GetClient(), r.SourceInfo.Password, r.VRec, vadmin.SetupVClusterOps, r.VRec.CacheManager)
 	} else {
 		r.dispatcher = vadmin.MakeVClusterOps(r.Log, r.SourceInfo.Vdb,
-			r.VRec.GetClient(), r.SourceInfo.Password, r.VRec, vadmin.SetupVClusterOps)
+			r.VRec.GetClient(), r.SourceInfo.Password, r.VRec, vadmin.SetupVClusterOps, r.VRec.CacheManager)
 	}
 	return nil
 }

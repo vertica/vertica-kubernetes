@@ -21,6 +21,7 @@ import (
 	"github.com/vertica/vcluster/vclusterops"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/aterrors"
+	"github.com/vertica/vertica-kubernetes/pkg/cloud"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -138,6 +139,15 @@ func MakeMockVClusterOpsDispatcher(vdb *vapi.VerticaDB, logger logr.Logger, cl c
 	setupAPIFunc func(logr.Logger, string) (vadmin.VClusterProvider, logr.Logger)) *vadmin.VClusterOps {
 	evWriter := aterrors.TestEVWriter{}
 	const testPassword = "secret"
-	dispatcher := vadmin.MakeVClusterOps(logger, vdb, cl, testPassword, &evWriter, setupAPIFunc)
-	return dispatcher.(*vadmin.VClusterOps)
+	cacheManager := vadmin.MakeCacheManager()
+	dispatcher := vadmin.MakeVClusterOps(logger, vdb, cl, testPassword, &evWriter, setupAPIFunc, cacheManager)
+	vclusterOps := dispatcher.(*vadmin.VClusterOps)
+	fetcher := &cloud.SecretFetcher{
+		Client:   vclusterOps.Client,
+		Log:      vclusterOps.Log,
+		Obj:      vclusterOps.VDB,
+		EVWriter: vclusterOps.EVWriter,
+	}
+	cacheManager.InitCertCacheForVdb(vdb.Namespace, vdb.Name, fetcher)
+	return vclusterOps
 }
