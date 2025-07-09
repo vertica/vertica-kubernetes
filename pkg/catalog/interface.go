@@ -21,6 +21,7 @@ import (
 	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -67,18 +68,20 @@ type VCluster struct {
 	PodIP    string
 	Log      logr.Logger
 	client.Client
-	EVRec record.EventRecorder
+	EVRec        record.EventRecorder
+	CacheManager vadmin.CacheManager
 }
 
 // MakeVCluster will create a Fetcher that uses vclusterops API to get a node's details
 func MakeVCluster(vdb *vapi.VerticaDB, password, podIP string, log logr.Logger,
-	cli client.Client, evRec record.EventRecorder) *VCluster {
+	cli client.Client, evRec record.EventRecorder, cacheManager vadmin.CacheManager) *VCluster {
 	return &VCluster{
-		VDB:      vdb,
-		Password: password,
-		PodIP:    podIP,
-		Log:      log,
-		Client:   cli,
-		EVRec:    evRec,
+		VDB:          vdb,
+		Password:     password,
+		PodIP:        podIP,
+		Log:          log,
+		Client:       cli,
+		EVRec:        evRec,
+		CacheManager: cacheManager,
 	}
 }

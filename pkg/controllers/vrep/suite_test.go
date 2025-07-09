@@ -27,6 +27,7 @@ import (
 
 	"github.com/vertica/vcluster/vclusterops"
 	"github.com/vertica/vertica-kubernetes/pkg/aterrors"
+	"github.com/vertica/vertica-kubernetes/pkg/cloud"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/mockvops"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
@@ -129,15 +130,34 @@ func deleteSecret(ctx context.Context, vdb *v1.VerticaDB, secretName string) {
 func mockVClusterOpsDispatcherWithCustomSetup(vdb *v1.VerticaDB,
 	setupAPIFunc func(logr.Logger, string) (vadmin.VClusterProvider, logr.Logger)) *vadmin.VClusterOps {
 	evWriter := aterrors.TestEVWriter{}
-	dispatcher := vadmin.MakeVClusterOps(logger, vdb, k8sClient, "pwd", &evWriter, setupAPIFunc)
-	return dispatcher.(*vadmin.VClusterOps)
+	cacheManager := vadmin.MakeCacheManager()
+	dispatcher := vadmin.MakeVClusterOps(logger, vdb, k8sClient, "pwd", &evWriter, setupAPIFunc, cacheManager)
+	vclusterOps := dispatcher.(*vadmin.VClusterOps)
+	fetcher := &cloud.SecretFetcher{
+		Client:   vclusterOps.Client,
+		Log:      vclusterOps.Log,
+		Obj:      vdb,
+		EVWriter: vclusterOps.EVWriter,
+	}
+	cacheManager.InitCertCacheForVdb(vdb.Namespace, vdb.Name, fetcher)
+	return vclusterOps
 }
 
 func mockVClusterOpsDispatcherWithCustomSetupAndTarget(vdb *v1.VerticaDB, targetVDB *v1.VerticaDB,
 	setupAPIFunc func(logr.Logger, string) (vadmin.VClusterProvider, logr.Logger)) *vadmin.VClusterOps {
 	evWriter := aterrors.TestEVWriter{}
-	dispatcher := vadmin.MakeVClusterOpsWithTarget(logger, vdb, targetVDB, k8sClient, "pwd", &evWriter, setupAPIFunc)
-	return dispatcher.(*vadmin.VClusterOps)
+	cacheManager := vadmin.MakeCacheManager()
+	dispatcher := vadmin.MakeVClusterOpsWithTarget(logger, vdb, targetVDB, k8sClient, "pwd", &evWriter, setupAPIFunc, cacheManager)
+	vclusterOps := dispatcher.(*vadmin.VClusterOps)
+	fetcher := &cloud.SecretFetcher{
+		Client:   vclusterOps.Client,
+		Log:      vclusterOps.Log,
+		Obj:      vdb,
+		EVWriter: vclusterOps.EVWriter,
+	}
+	cacheManager.InitCertCacheForVdb(vdb.Namespace, vdb.Name, fetcher)
+	cacheManager.InitCertCacheForVdb(targetVDB.Namespace, targetVDB.Name, fetcher)
+	return vclusterOps
 }
 
 // MockVClusterOps with successful return values for VReplicateDatabase and VReplicationStatus
