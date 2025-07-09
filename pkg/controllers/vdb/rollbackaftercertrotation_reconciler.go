@@ -17,12 +17,12 @@ package vdb
 
 import (
 	"context"
-	"time"
 
 	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/util/retry"
 
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
@@ -60,11 +60,6 @@ func (r *RollbackAfterCertRotationReconciler) Reconcile(ctx context.Context, _ *
 
 	// If user has not triggered rollback
 	if !r.Vdb.IsTLSCertRollbackInProgress() {
-		// If secret has not been reverted, alert user and exit
-		if r.rollbackRequired() {
-			return ctrl.Result{RequeueAfter: 60 * time.Second}, nil
-		}
-
 		// If secret has been reverted, set TLSCertRollbackInProgress and rollback
 		cond := vapi.MakeCondition(vapi.TLSCertRollbackInProgress, metav1.ConditionTrue, "InProgress")
 		err := vdbstatus.UpdateCondition(ctx, r.VRec.GetClient(), r.Vdb, cond)
@@ -83,7 +78,9 @@ func (r *RollbackAfterCertRotationReconciler) Reconcile(ctx context.Context, _ *
 		r.waitForNMAUp,
 		r.pollNMACertHealth,
 		r.runHTTPSCertRotation,
-		r.cleanUpConditions,
+		r.resetTLSUpdateCondition,
+		r.updateTLSConfigInVdb,
+		r.cleanUpRollbackConditions,
 	}
 
 	for _, fn := range funcs {
@@ -146,12 +143,11 @@ func (r *RollbackAfterCertRotationReconciler) runHTTPSCertRotation(ctx context.C
 	return ctrl.Result{}, nil
 }
 
-// cleanUpConditions clears all TLS-related status conditions that signal rotation or rollback.
+// cleanUpRollbackConditions clears all TLS-related status conditions that signal rollback.
 // This includes:
-// - TLSConfigUpdateInProgress: cert rotation has completed
 // - TLSCertRollbackNeeded: rollback is no longer required
 // - TLSCertRollbackInProgress: rollback has completed
-func (r *RollbackAfterCertRotationReconciler) cleanUpConditions(ctx context.Context) (ctrl.Result, error) {
+func (r *RollbackAfterCertRotationReconciler) cleanUpRollbackConditions(ctx context.Context) (ctrl.Result, error) {
 	conds := []metav1.Condition{
 		{Type: vapi.TLSConfigUpdateInProgress, Status: metav1.ConditionFalse, Reason: "Completed"},
 		{Type: vapi.TLSCertRollbackInProgress, Status: metav1.ConditionFalse, Reason: "Completed"},
@@ -169,21 +165,42 @@ func (r *RollbackAfterCertRotationReconciler) cleanUpConditions(ctx context.Cont
 	return ctrl.Result{}, nil
 }
 
-func (r *RollbackAfterCertRotationReconciler) rollbackRequired() bool {
-	currentSecret := r.Vdb.GetHTTPSNMATLSSecret()
-	oldSecret := r.Vdb.GetHTTPSNMATLSSecretInUse()
-	configName := vapi.HTTPSNMATLSConfigName
-	if r.Vdb.GetTLSCertRollbackReason() == vapi.RollbackAfterServerCertRotationReason {
-		currentSecret = r.Vdb.GetClientServerTLSSecret()
-		oldSecret = r.Vdb.GetClientServerTLSSecretInUse()
-		configName = vapi.ClientServerTLSConfigName
+// resetTLSUpdateCondition will reset the TLSConfigUpdateInProgress condition
+// This needs to be done before updating the VDB, since VDB cannot be changed
+// when TLSConfigUpdateInProgress is true
+func (r *RollbackAfterCertRotationReconciler) resetTLSUpdateCondition(ctx context.Context) (ctrl.Result, error) {
+	cond := metav1.Condition{Type: vapi.TLSConfigUpdateInProgress, Status: metav1.ConditionFalse, Reason: "Completed"}
+
+	r.Log.Info("Clearing condition", "type", cond.Type)
+	if err := vdbstatus.UpdateCondition(ctx, r.VRec.GetClient(), r.Vdb, &cond); err != nil {
+		r.Log.Error(err, "Failed to clear condition", "type", cond.Type)
+		return ctrl.Result{}, err
 	}
 
-	// Check secret has been reverted
-	if currentSecret != oldSecret {
-		r.VRec.Eventf(r.Vdb, corev1.EventTypeNormal, events.TLSCertRollbackNeeded,
-			"TLS Rollback is required; please set %sTLS.secret to %s", configName, oldSecret)
-		return true
-	}
-	return false
+	return ctrl.Result{}, nil
+}
+
+// updateTLSConfigInVdb will revert the secret/mode in the spec to the previous good values,
+// which are retrieved from the status
+func (r *RollbackAfterCertRotationReconciler) updateTLSConfigInVdb(ctx context.Context) (ctrl.Result, error) {
+	r.Log.Info("Reverting TLS Config in VDB spec")
+	nm := r.Vdb.ExtractNamespacedName()
+	return ctrl.Result{}, retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		// Always fetch the latest in case we are in the retry loop
+		if err := r.VRec.Client.Get(ctx, nm, r.Vdb); err != nil {
+			return err
+		}
+		if r.Vdb.GetTLSCertRollbackReason() == vapi.RollbackAfterServerCertRotationReason {
+			r.Vdb.Spec.ClientServerTLS = &vapi.TLSConfigSpec{
+				Secret: r.Vdb.GetClientServerTLSSecretInUse(),
+				Mode:   r.Vdb.GetClientServerTLSModeInUse(),
+			}
+		} else {
+			r.Vdb.Spec.HTTPSNMATLS = &vapi.TLSConfigSpec{
+				Secret: r.Vdb.GetHTTPSNMATLSSecretInUse(),
+				Mode:   r.Vdb.GetHTTPSTLSModeInUse(),
+			}
+		}
+		return r.VRec.Client.Update(ctx, r.Vdb)
+	})
 }

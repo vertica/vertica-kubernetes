@@ -1696,14 +1696,22 @@ func (v *VerticaDB) GetClientServerTLSSecretInUse() string {
 	return v.GetSecretInUse(ClientServerTLSConfigName)
 }
 
-// GetNMATLSSecretNameForConfigMap returns the secret name to set in the
-// nma configmap
+// GetHTTPSNMATLSSecretForConfigMap returns the correct TLS secret name
+// to include in the NMA configmap. It prioritizes the currently in-use
+// secret if an update is still in progress or a rollback is needed.
 func (v *VerticaDB) GetHTTPSNMATLSSecretForConfigMap() string {
-	name := v.GetHTTPSNMATLSSecretInUse()
-	if name != "" &&
-		(!v.IsStatusConditionTrue(HTTPSTLSConfigUpdateFinished) || v.IsTLSCertRollbackNeeded()) {
-		return name
+	// Use the in-use secret if:
+	// - It is set (non-empty), and
+	// - Either the config update hasn't finished OR a rollback is needed.
+	inUseSecret := v.GetHTTPSNMATLSSecretInUse()
+	updateNotFinished := !v.IsStatusConditionTrue(HTTPSTLSConfigUpdateFinished)
+	rollbackInProgress := v.IsTLSCertRollbackNeeded()
+
+	if inUseSecret != "" && (updateNotFinished || rollbackInProgress) {
+		return inUseSecret
 	}
+
+	// Otherwise, default to the desired secret from spec.
 	return v.GetHTTPSNMATLSSecret()
 }
 
