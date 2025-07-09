@@ -383,24 +383,27 @@ func mockVClusterOpsDispatcher() *VClusterOps {
 	setupAPIFunc := func(log logr.Logger, apiName string) (VClusterProvider, logr.Logger) {
 		return &MockVClusterOps{}, logr.Logger{}
 	}
-	dispatcher := mockVClusterOpsDispatcherWithCustomSetup(vdb, setupAPIFunc)
-	fetcher := &cloud.SecretFetcher{
-		Client:   dispatcher.Client,
-		Log:      dispatcher.Log,
-		Obj:      dispatcher.VDB,
-		EVWriter: dispatcher.EVWriter,
-	}
-	InitCertCacheForVdb(vdb.Namespace, vdb.Name, fetcher)
+	cacheManager := MakeCacheManager()
+	dispatcher := mockVClusterOpsDispatcherWithCustomSetup(vdb, setupAPIFunc, cacheManager)
 	return dispatcher
 }
 
 // mockVClusterOpsDispatchWithCustomSetup is like mockVClusterOpsDispatcher,
 // except you provide your own setup API function.
 func mockVClusterOpsDispatcherWithCustomSetup(vdb *vapi.VerticaDB,
-	setupAPIFunc func(logr.Logger, string) (VClusterProvider, logr.Logger)) *VClusterOps {
+	setupAPIFunc func(logr.Logger, string) (VClusterProvider, logr.Logger), cacheManager CacheManager) *VClusterOps {
 	evWriter := aterrors.TestEVWriter{}
-	dispatcher := MakeVClusterOps(logger, vdb, k8sClient, TestPassword, &evWriter, setupAPIFunc)
-	return dispatcher.(*VClusterOps)
+
+	dispatcher := MakeVClusterOps(logger, vdb, k8sClient, TestPassword, &evWriter, setupAPIFunc, cacheManager)
+	vClusterOps := dispatcher.(*VClusterOps)
+	fetcher := &cloud.SecretFetcher{
+		Client:   vClusterOps.Client,
+		Log:      vClusterOps.Log,
+		Obj:      vClusterOps.VDB,
+		EVWriter: vClusterOps.EVWriter,
+	}
+	cacheManager.InitCertCacheForVdb(vdb.Namespace, vdb.Name, fetcher)
+	return vClusterOps
 }
 
 func mockVclusteropsDispatcherWithTarget() *VClusterOps {
@@ -422,7 +425,16 @@ func mockVclusteropsDispatcherWithTarget() *VClusterOps {
 func mockVClusterOpsDispatcherWithCustomSetupAndTarget(vdb *vapi.VerticaDB, targetVDB *vapi.VerticaDB,
 	setupAPIFunc func(logr.Logger, string) (VClusterProvider, logr.Logger)) *VClusterOps {
 	evWriter := aterrors.TestEVWriter{}
-	dispatcher := MakeVClusterOpsWithTarget(logger, vdb, targetVDB, k8sClient, TestPassword, &evWriter, setupAPIFunc)
+	cacheManager := MakeCacheManager()
+	dispatcher := MakeVClusterOpsWithTarget(logger, vdb, targetVDB, k8sClient, TestPassword, &evWriter, setupAPIFunc, cacheManager)
+	vClusterOps := dispatcher.(*VClusterOps)
+	fetcher := &cloud.SecretFetcher{
+		Client:   vClusterOps.Client,
+		Log:      vClusterOps.Log,
+		Obj:      vClusterOps.VDB,
+		EVWriter: vClusterOps.EVWriter,
+	}
+	cacheManager.InitCertCacheForVdb(vdb.Namespace, vdb.Name, fetcher)
 	return dispatcher.(*VClusterOps)
 }
 

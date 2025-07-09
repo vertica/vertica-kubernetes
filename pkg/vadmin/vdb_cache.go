@@ -22,6 +22,19 @@ import (
 
 */
 
+type dbToCacheMap map[types.NamespacedName]*VdbCacheStruct
+
+type CacheManangerStruct struct {
+	allCacheMap  dbToCacheMap // map each vdb to a VdbContext
+	guardAllLock *sync.Mutex  // guards allContextMap
+}
+
+type CacheManager interface {
+	InitCertCacheForVdb(string, string, *cloud.SecretFetcher)
+	GetCertCacheForVdb(string, string) CertCache
+	DestroyCertCacheForVdb(string, string)
+}
+
 // These are the functions that can set/read a bool/secert
 type CertCache interface {
 	ReadCertFromSecret(context.Context, string) (*HTTPSCerts, error)
@@ -38,55 +51,56 @@ type VdbCacheStruct struct {
 	retrieveSecret func(context.Context, string, string, *cloud.SecretFetcher) (map[string][]byte, error)
 }
 
-type dbToCacheMap map[types.NamespacedName]*VdbCacheStruct
-
-var guardAllLock = &sync.Mutex{} // guards allContextMap
-
-// map each vdb to a VdbContext
-var allCacheMap dbToCacheMap
+func MakeCacheManager() CacheManager {
+	c := &CacheManangerStruct{}
+	c.guardAllLock = &sync.Mutex{}
+	c.allCacheMap = make(dbToCacheMap)
+	vcLog.Info("initialized cache manager")
+	return c
+}
 
 // InitCertCacheForVdb will return a CertCache from a vdb's name and namespace
-func InitCertCacheForVdb(namespace, name string, fetcher *cloud.SecretFetcher) {
-	guardAllLock.Lock()
-	defer guardAllLock.Unlock()
+func (c *CacheManangerStruct) InitCertCacheForVdb(namespace, name string, fetcher *cloud.SecretFetcher) {
+	c.guardAllLock.Lock()
+	defer c.guardAllLock.Unlock()
 	vdbName := types.NamespacedName{
 		Name:      name,
 		Namespace: namespace,
 	}
-	if allCacheMap == nil {
-		allCacheMap = make(dbToCacheMap)
+	if c.allCacheMap == nil {
+		c.allCacheMap = make(dbToCacheMap)
 	}
-	_, ok := allCacheMap[vdbName]
+	_, ok := c.allCacheMap[vdbName]
 	if !ok {
 		singleCertCache := makeVdbCertCache(vdbName.Namespace, fetcher)
-		allCacheMap[vdbName] = singleCertCache
+		c.allCacheMap[vdbName] = singleCertCache
 		vcLog.Info(fmt.Sprintf("initialized cert cache for vdb %s/%s", vdbName.Namespace, vdbName.Name))
 	}
 }
 
 // GetCertCacheForVdb will return a CertCache from a vdb's name and namespace
-func GetCertCacheForVdb(namespace, name string) CertCache {
-	guardAllLock.Lock()
-	defer guardAllLock.Unlock()
+func (c *CacheManangerStruct) GetCertCacheForVdb(namespace, name string) CertCache {
+	c.guardAllLock.Lock()
+	defer c.guardAllLock.Unlock()
 	vdbName := types.NamespacedName{
 		Name:      name,
 		Namespace: namespace,
 	}
-	singleCertCache := allCacheMap[vdbName]
+	singleCertCache := c.allCacheMap[vdbName]
 	return singleCertCache
 }
 
 // DestroyCertCacheForVdb will remove the cache for a vdb
 // This is used when the vdb is deleted and we want to free up memory
-func DestroyCertCacheForVdb(namespace, name string) {
-	guardAllLock.Lock()
-	defer guardAllLock.Unlock()
+func (c *CacheManangerStruct) DestroyCertCacheForVdb(namespace, name string) {
+	c.guardAllLock.Lock()
+	defer c.guardAllLock.Unlock()
 	vdbName := types.NamespacedName{
 		Name:      name,
 		Namespace: namespace,
 	}
-	if allCacheMap != nil {
-		delete(allCacheMap, vdbName)
+	if c.allCacheMap != nil {
+		delete(c.allCacheMap, vdbName)
 		vcLog.Info(fmt.Sprintf("destroyed cert cache for vdb %s/%s", vdbName.Namespace, vdbName.Name))
 	}
 }

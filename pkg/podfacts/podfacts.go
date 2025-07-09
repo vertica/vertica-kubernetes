@@ -36,6 +36,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/net"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	config "github.com/vertica/vertica-kubernetes/pkg/vdbconfig"
 	"github.com/vertica/vertica-kubernetes/pkg/vk8s"
 	appsv1 "k8s.io/api/apps/v1"
@@ -203,6 +204,7 @@ type PodFacts struct {
 	SandboxName        string
 	OverrideFunc       CheckerFunc // Set this if you want to be able to control the PodFact
 	VerticaSUPassword  string
+	CacheManager       vadmin.CacheManager // Cache manager to use for fetching node details
 }
 
 // GatherState is the data exchanged with the gather pod facts script. We
@@ -235,6 +237,13 @@ const (
 )
 
 // MakePodFacts will create a PodFacts object and return it
+func MakePodFactsWithCacheManager(vrec config.ReconcilerInterface, prunner cmds.PodRunner, log logr.Logger, password string,
+	cacheManager vadmin.CacheManager) PodFacts {
+	return PodFacts{VRec: vrec, PRunner: prunner, Log: log, NeedCollection: true, Detail: make(PodFactDetail),
+		VerticaSUPassword: password, SandboxName: vapi.MainCluster, CacheManager: cacheManager}
+}
+
+// MakePodFacts will create a PodFacts object and return it. This is mainly for test cases.
 func MakePodFacts(vrec config.ReconcilerInterface, prunner cmds.PodRunner, log logr.Logger, password string) PodFacts {
 	return PodFacts{VRec: vrec, PRunner: prunner, Log: log, NeedCollection: true, Detail: make(PodFactDetail),
 		VerticaSUPassword: password, SandboxName: vapi.MainCluster}
@@ -1088,7 +1097,10 @@ func (p *PodFacts) makeNodeInfoFetcher(vdb *vapi.VerticaDB, pf *PodFact) catalog
 	verInfo, ok := vdb.MakeVersionInfoDuringROUpgrade()
 	if verInfo != nil && ok {
 		if !verInfo.IsOlder(vapi.FetchNodeDetailsWithVclusterOpsMinVersion) && vmeta.UseVClusterOps(vdb.Annotations) {
-			return catalog.MakeVCluster(vdb, p.VerticaSUPassword, pf.podIP, p.Log, p.VRec.GetClient(), p.VRec.GetEventRecorder())
+			if !ok {
+				return nil // Handle the case where the type assertion fails
+			}
+			return catalog.MakeVCluster(vdb, p.VerticaSUPassword, pf.podIP, p.Log, p.VRec.GetClient(), p.VRec.GetEventRecorder(), p.CacheManager)
 		}
 	} else {
 		p.Log.Info("Cannot get a correct vertica version from the annotations",

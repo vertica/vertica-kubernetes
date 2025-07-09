@@ -25,11 +25,13 @@ var _ = Describe("vdb_context", func() {
 			Obj:      dispatcher.VDB,
 			EVWriter: dispatcher.EVWriter,
 		}
-		InitCertCacheForVdb("default", "test-vdb", fetcher)
-		vdbCertCache := GetCertCacheForVdb("default", "test-vdb")
+		dispatcher.CacheManager.InitCertCacheForVdb("default", "test-vdb", fetcher)
+		defer dispatcher.CacheManager.DestroyCertCacheForVdb("default", "test-vdb")
+
+		vdbCertCache := dispatcher.CacheManager.GetCertCacheForVdb("default", "test-vdb")
 		Expect(vdbCertCache).ShouldNot(Equal(nil))
-		vdbCertCacheOne := GetCertCacheForVdb("default", "test-vdb")
-		vdbCertCacheTwo := GetCertCacheForVdb("default", "test-vdb")
+		vdbCertCacheOne := dispatcher.CacheManager.GetCertCacheForVdb("default", "test-vdb")
+		vdbCertCacheTwo := dispatcher.CacheManager.GetCertCacheForVdb("default", "test-vdb")
 		Expect(vdbCertCacheTwo).Should(Equal(vdbCertCacheOne))
 
 		cert, err := vdbCertCacheOne.ReadCertFromSecret(ctx, TestNMATLSSecret)
@@ -46,7 +48,7 @@ var _ = Describe("vdb_context", func() {
 		_, err = vdbCertCacheTwo.ReadCertFromSecret(ctx, TestNMATLSSecret)
 		Ω(err).Should(BeNil())
 
-		cert, err = vdbCertCacheOne.ReadCertFromSecret(ctx, TestClientServerSecret)
+		_, err = vdbCertCacheOne.ReadCertFromSecret(ctx, TestClientServerSecret)
 		Ω(err).ShouldNot(BeNil())
 		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, TestClientServerSecret)
 		defer test.DeleteSecret(ctx, dispatcher.Client, TestClientServerSecret)

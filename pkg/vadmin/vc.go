@@ -50,12 +50,7 @@ func (v *VClusterOps) retrieveHTTPSCertsWithTarget(ctx context.Context, forTarge
 		return nil, err
 	}
 	v.Log.Info("nma secret name used - " + secretName)
-	certCache := GetCertCacheForVdb(vdb.Namespace, vdb.Name)
-	return certCache.ReadCertFromSecret(ctx, secretName)
-}
-
-func retrieveNMACerts(ctx context.Context, vdb *vapi.VerticaDB, secretName string) (*HTTPSCerts, error) {
-	certCache := GetCertCacheForVdb(vdb.Namespace, vdb.Name)
+	certCache := v.CacheManager.GetCertCacheForVdb(vdb.Namespace, vdb.Name)
 	return certCache.ReadCertFromSecret(ctx, secretName)
 }
 

@@ -53,11 +53,12 @@ import (
 // SandboxConfigMapReconciler reconciles a ConfigMap for sandboxing
 type SandboxConfigMapReconciler struct {
 	client.Client
-	Log         logr.Logger
-	Scheme      *runtime.Scheme
-	Cfg         *rest.Config
-	EVRec       record.EventRecorder
-	Concurrency int
+	Log          logr.Logger
+	Scheme       *runtime.Scheme
+	Cfg          *rest.Config
+	EVRec        record.EventRecorder
+	Concurrency  int
+	CacheManager vadmin.CacheManager
 }
 
 // +kubebuilder:rbac:groups="",resources=configmaps,verbs=get;list;watch
@@ -131,7 +132,7 @@ func (r *SandboxConfigMapReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	}
 	prunner := cmds.MakeClusterPodRunner(log, r.Cfg, vdb.GetVerticaUser(), passwd, vmeta.UseTLSAuth(vdb.Annotations))
 	pfacts := podfacts.MakePodFactsForSandbox(r, prunner, log, passwd, sandboxName)
-	dispatcher := vadmin.MakeVClusterOps(log, vdb, r.Client, passwd, r.EVRec, vadmin.SetupVClusterOps)
+	dispatcher := vadmin.MakeVClusterOps(log, vdb, r.Client, passwd, r.EVRec, vadmin.SetupVClusterOps, r.CacheManager)
 
 	// Iterate over each actor
 	actors := r.constructActors(vdb, log, prunner, &pfacts, dispatcher, configMap)

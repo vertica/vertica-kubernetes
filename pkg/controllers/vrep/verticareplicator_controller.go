@@ -34,16 +34,18 @@ import (
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/meta"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 )
 
 // VerticaReplicatorReconciler reconciles a VerticaReplicator object
 type VerticaReplicatorReconciler struct {
 	client.Client
-	Scheme      *runtime.Scheme
-	Log         logr.Logger
-	Cfg         *rest.Config
-	EVRec       record.EventRecorder
-	Concurrency int
+	Scheme       *runtime.Scheme
+	Log          logr.Logger
+	Cfg          *rest.Config
+	EVRec        record.EventRecorder
+	Concurrency  int
+	CacheManager vadmin.CacheManager
 }
 
 // +kubebuilder:rbac:groups=vertica.com,resources=verticareplicators,verbs=get;list;watch;create;update;patch;delete

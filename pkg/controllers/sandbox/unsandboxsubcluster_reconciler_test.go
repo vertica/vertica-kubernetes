@@ -55,7 +55,8 @@ var _ = Describe("unsandboxsubcluster_reconcile", func() {
 
 		fpr := &cmds.FakePodRunner{}
 		pfacts := podfacts.MakePodFacts(sbRec, fpr, logger, TestPassword)
-		dispatcher := vadmin.MakeVClusterOps(logger, vdb, k8sClient, TestPassword, sbRec.EVRec, vadmin.SetupVClusterOps)
+		cacheManager := vadmin.MakeCacheManager()
+		dispatcher := vadmin.MakeVClusterOps(logger, vdb, k8sClient, TestPassword, sbRec.EVRec, vadmin.SetupVClusterOps, cacheManager)
 		r := MakeUnsandboxSubclusterReconciler(sbRec, vdb, logger, k8sClient, &pfacts, dispatcher, nil, fpr)
 		Expect(vdb.IsEON()).Should(BeFalse())
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
@@ -76,7 +77,8 @@ var _ = Describe("unsandboxsubcluster_reconcile", func() {
 
 		fpr := &cmds.FakePodRunner{}
 		pfacts := podfacts.MakePodFacts(sbRec, fpr, logger, TestPassword)
-		dispatcher := vadmin.MakeVClusterOps(logger, vdb, k8sClient, TestPassword, sbRec.EVRec, vadmin.SetupVClusterOps)
+		cacheManager := vadmin.MakeCacheManager()
+		dispatcher := vadmin.MakeVClusterOps(logger, vdb, k8sClient, TestPassword, sbRec.EVRec, vadmin.SetupVClusterOps, cacheManager)
 		r := MakeUnsandboxSubclusterReconciler(sbRec, vdb, logger, k8sClient, &pfacts, dispatcher, nil, fpr)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 	})
@@ -98,7 +100,8 @@ var _ = Describe("unsandboxsubcluster_reconcile", func() {
 
 		fpr := &cmds.FakePodRunner{}
 		pfacts := podfacts.MakePodFacts(sbRec, fpr, logger, TestPassword)
-		dispatcher := vadmin.MakeVClusterOps(logger, vdb, k8sClient, TestPassword, sbRec.EVRec, vadmin.SetupVClusterOps)
+		cacheManager := vadmin.MakeCacheManager()
+		dispatcher := vadmin.MakeVClusterOps(logger, vdb, k8sClient, TestPassword, sbRec.EVRec, vadmin.SetupVClusterOps, cacheManager)
 		rec := MakeUnsandboxSubclusterReconciler(sbRec, vdb, logger, k8sClient, &pfacts, dispatcher, cm, fpr)
 		r := rec.(*UnsandboxSubclusterReconciler)
 		Expect(r.PFacts.Collect(ctx, vdb)).Should(Succeed())
@@ -138,7 +141,8 @@ var _ = Describe("unsandboxsubcluster_reconcile", func() {
 
 		fpr := &cmds.FakePodRunner{}
 		pfacts := podfacts.MakePodFacts(sbRec, fpr, logger, TestPassword)
-		dispatcher := vadmin.MakeVClusterOps(logger, vdb, k8sClient, TestPassword, sbRec.EVRec, vadmin.SetupVClusterOps)
+		cacheManager := vadmin.MakeCacheManager()
+		dispatcher := vadmin.MakeVClusterOps(logger, vdb, k8sClient, TestPassword, sbRec.EVRec, vadmin.SetupVClusterOps, cacheManager)
 		rec := MakeUnsandboxSubclusterReconciler(sbRec, vdb, logger, k8sClient, &pfacts, dispatcher, cm, fpr)
 		r := rec.(*UnsandboxSubclusterReconciler)
 		// subcluster1 doesn't need to be unsandboxed so we should remove the unsandbox trigger ID
@@ -178,7 +182,8 @@ var _ = Describe("unsandboxsubcluster_reconcile", func() {
 
 		fpr := &cmds.FakePodRunner{}
 		pfacts := podfacts.MakePodFacts(sbRec, fpr, logger, TestPassword)
-		dispatcher := vadmin.MakeVClusterOps(logger, vdb, k8sClient, TestPassword, sbRec.EVRec, vadmin.SetupVClusterOps)
+		cacheManager := vadmin.MakeCacheManager()
+		dispatcher := vadmin.MakeVClusterOps(logger, vdb, k8sClient, TestPassword, sbRec.EVRec, vadmin.SetupVClusterOps, cacheManager)
 		rec := MakeUnsandboxSubclusterReconciler(sbRec, vdb, logger, k8sClient, &pfacts, dispatcher, nil, fpr)
 		r := rec.(*UnsandboxSubclusterReconciler)
 		// after we removed subcluster1 from sandbox1, we will update sandbox status
@@ -212,7 +217,8 @@ var _ = Describe("unsandboxsubcluster_reconcile", func() {
 
 		fpr := &cmds.FakePodRunner{}
 		pfacts := podfacts.MakePodFacts(sbRec, fpr, logger, TestPassword)
-		dispatcher := vadmin.MakeVClusterOps(logger, vdb, k8sClient, TestPassword, sbRec.EVRec, vadmin.SetupVClusterOps)
+		cacheManager := vadmin.MakeCacheManager()
+		dispatcher := vadmin.MakeVClusterOps(logger, vdb, k8sClient, TestPassword, sbRec.EVRec, vadmin.SetupVClusterOps, cacheManager)
 		rec := MakeUnsandboxSubclusterReconciler(sbRec, vdb, logger, k8sClient, &pfacts, dispatcher, cm, fpr)
 		r := rec.(*UnsandboxSubclusterReconciler)
 		// sandbox1 is not empty so we should remove the unsandbox trigger ID

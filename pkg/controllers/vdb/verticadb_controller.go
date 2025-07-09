@@ -60,6 +60,7 @@ type VerticaDBReconciler struct {
 	EVRec              record.EventRecorder
 	Namespace          string
 	MaxBackOffDuration int
+	CacheManager       vadmin.CacheManager
 }
 
 // +kubebuilder:rbac:groups=vertica.com,resources=verticadbs,verbs=get;list;watch;create;update;patch;delete
@@ -160,12 +161,12 @@ func (r *VerticaDBReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	// We use the same pod facts for all reconcilers. This allows to reuse as
 	// much as we can. Some reconcilers will purposely invalidate the facts if
 	// it is known they did something to make them stale.
-	pfacts := podfacts.MakePodFacts(r, prunner, log, passwd)
+	pfacts := podfacts.MakePodFactsWithCacheManager(r, prunner, log, passwd, r.CacheManager)
 	dispatcher := r.makeDispatcher(log, vdb, prunner, passwd)
 	var res ctrl.Result
 
 	r.InitCertCacheForVdb(vdb)
-	defer vadmin.DestroyCertCacheForVdb(vdb.Namespace, vdb.Name)
+	defer r.CacheManager.DestroyCertCacheForVdb(vdb.Namespace, vdb.Name)
 	// Iterate over each actor
 	actors := r.constructActors(log, vdb, prunner, &pfacts, dispatcher)
 	for _, act := range actors {
@@ -377,7 +378,7 @@ func (r *VerticaDBReconciler) checkShardToNodeRatio(vdb *vapi.VerticaDB, sc *vap
 func (r *VerticaDBReconciler) makeDispatcher(log logr.Logger, vdb *vapi.VerticaDB, prunner cmds.PodRunner,
 	passwd string) vadmin.Dispatcher {
 	if vmeta.UseVClusterOps(vdb.Annotations) {
-		return vadmin.MakeVClusterOps(log, vdb, r.Client, passwd, r.EVRec, vadmin.SetupVClusterOps)
+		return vadmin.MakeVClusterOps(log, vdb, r.Client, passwd, r.EVRec, vadmin.SetupVClusterOps, r.CacheManager)
 	}
 	return vadmin.MakeAdmintools(log, vdb, prunner, r.EVRec)
 }
@@ -422,5 +423,5 @@ func (r *VerticaDBReconciler) InitCertCacheForVdb(vdb *vapi.VerticaDB) {
 		Obj:      vdb,
 		EVWriter: r.EVRec,
 	}
-	vadmin.InitCertCacheForVdb(vdb.Namespace, vdb.Name, fetcher)
+	r.CacheManager.InitCertCacheForVdb(vdb.Namespace, vdb.Name, fetcher)
 }
