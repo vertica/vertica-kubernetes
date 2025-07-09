@@ -101,7 +101,6 @@ func (c *CacheManangerStruct) DestroyCertCacheForVdb(namespace, name string) {
 	}
 	if c.allCacheMap != nil {
 		delete(c.allCacheMap, vdbName)
-		vcLog.Info(fmt.Sprintf("destroyed cert cache for vdb %s/%s", vdbName.Namespace, vdbName.Name))
 	}
 }
 
