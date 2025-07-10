@@ -185,6 +185,13 @@ func MakeVDB() *VerticaDB {
 	}
 }
 
+// MakeVDBForTLS is a helper that constructs a VerticaDB struct with TLS enabled.
+func MakeVDBForTLS() *VerticaDB {
+	vdb := MakeVDB()
+	SetVDBForTLS(vdb)
+	return vdb
+}
+
 // MakeVDBForHTTP is a helper that constructs a VerticaDB struct with http enabled.
 // This is intended for test purposes.
 func MakeVDBForHTTP(httpServerTLSSecretName string) *VerticaDB {
@@ -1682,13 +1689,13 @@ func (v *VerticaDB) GetClientServerTLSSecretInUse() string {
 
 // IsCertNeededForClientServerAuth returns true if certificate is needed for client-server authentication
 func (v *VerticaDB) IsCertNeededForClientServerAuth() bool {
-	tlsMode := strings.ToLower(v.GetClientServerTLSMode())
+	tlsMode := v.GetClientServerTLSMode()
 	return tlsMode != tlsModeDisable && tlsMode != tlsModeEnable
 }
 
 // GetNMAClientServerTLSMode returns the tlsMode for NMA client-server communication
 func (v *VerticaDB) GetNMAClientServerTLSMode() string {
-	tlsMode := strings.ToLower(v.GetClientServerTLSMode())
+	tlsMode := v.GetClientServerTLSMode()
 	switch tlsMode {
 	case tlsModeDisable:
 		return nmaTLSModeDisable
@@ -1815,7 +1822,7 @@ func (v *VerticaDB) GetHTTPSNMATLSMode() string {
 	if v.Spec.HTTPSNMATLS == nil {
 		return ""
 	}
-	return v.Spec.HTTPSNMATLS.Mode
+	return strings.ToLower(v.Spec.HTTPSNMATLS.Mode)
 }
 
 // Get HTTPSNMATLS secret from spec or return "" if not found
@@ -1831,7 +1838,7 @@ func (v *VerticaDB) GetClientServerTLSMode() string {
 	if v.Spec.ClientServerTLS == nil {
 		return ""
 	}
-	return v.Spec.ClientServerTLS.Mode
+	return strings.ToLower(v.Spec.ClientServerTLS.Mode)
 }
 
 // Get ClientServerTLS secret from spec or return "" if not found

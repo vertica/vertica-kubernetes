@@ -2606,6 +2606,54 @@ var _ = Describe("verticadb_webhook", func() {
 		Ω(newVdb.validateImmutableFields(oldVdb)).Should(HaveLen(0))
 	})
 
+	It("should return no errors when both TLS configs are nil", func() {
+		vdb := MakeVDBForTLS()
+		vdb.Spec.HTTPSNMATLS = nil
+		vdb.Spec.ClientServerTLS = nil
+		allErrs := vdb.hasValidTLSModes(field.ErrorList{})
+		Expect(allErrs).To(BeEmpty())
+	})
+
+	It("should return no errors for valid HTTPSNMATLS mode", func() {
+		vdb := MakeVDBForTLS()
+		vdb.Spec.HTTPSNMATLS = &TLSConfigSpec{Mode: "verify_ca"}
+		vdb.Spec.ClientServerTLS = nil
+		allErrs := vdb.hasValidTLSModes(field.ErrorList{})
+		Expect(allErrs).To(BeEmpty())
+	})
+
+	It("should return no errors for valid ClientServerTLS mode", func() {
+		vdb := MakeVDBForTLS()
+		vdb.Spec.HTTPSNMATLS = nil
+		vdb.Spec.ClientServerTLS = &TLSConfigSpec{Mode: "verify_full"}
+		allErrs := vdb.hasValidTLSModes(field.ErrorList{})
+		Expect(allErrs).To(BeEmpty())
+	})
+
+	It("should return errors for invalid HTTPSNMATLS mode", func() {
+		vdb := MakeVDBForTLS()
+		vdb.Spec.HTTPSNMATLS = &TLSConfigSpec{Mode: "invalid_mode"}
+		vdb.Spec.ClientServerTLS = nil
+		allErrs := vdb.hasValidTLSModes(field.ErrorList{})
+		Expect(allErrs).ToNot(BeEmpty())
+	})
+
+	It("should return errors for invalid ClientServerTLS mode", func() {
+		vdb := MakeVDBForTLS()
+		vdb.Spec.HTTPSNMATLS = nil
+		vdb.Spec.ClientServerTLS = &TLSConfigSpec{Mode: "bad_mode"}
+		allErrs := vdb.hasValidTLSModes(field.ErrorList{})
+		Expect(allErrs).ToNot(BeEmpty())
+	})
+
+	It("should return errors for both invalid modes", func() {
+		vdb := MakeVDBForTLS()
+		vdb.Spec.HTTPSNMATLS = &TLSConfigSpec{Mode: "foo"}
+		vdb.Spec.ClientServerTLS = &TLSConfigSpec{Mode: "bar"}
+		allErrs := vdb.hasValidTLSModes(field.ErrorList{})
+		Expect(allErrs).To(HaveLen(2))
+	})
+
 })
 
 func createVDBHelper() *VerticaDB {

@@ -237,7 +237,7 @@ func (v *VerticaDB) validateVerticaDBSpec() field.ErrorList {
 	allErrs = v.isServiceTypeValid(allErrs)
 	allErrs = v.hasDuplicateScName(allErrs)
 	allErrs = v.hasValidVolumeName(allErrs)
-	allErrs = v.hasValidClientServerTLSMode(allErrs)
+	allErrs = v.hasValidTLSModes(allErrs)
 	allErrs = v.hasTLSSecretsSetForRevive(allErrs)
 	allErrs = v.hasValidVolumeMountName(allErrs)
 	allErrs = v.hasValidKerberosSetup(allErrs)
@@ -815,10 +815,15 @@ func (v *VerticaDB) hasDuplicateScName(allErrs field.ErrorList) field.ErrorList 
 	return allErrs
 }
 
-func (v *VerticaDB) hasValidClientServerTLSMode(allErrs field.ErrorList) field.ErrorList {
-	if v.Spec.ClientServerTLS != nil {
-		allErrs = v.hasValidTLSMode(v.GetClientServerTLSMode(), "clientServerTLS.Mode", allErrs)
+// hasValidTLSModes checks whether the TLS modes are valid
+func (v *VerticaDB) hasValidTLSModes(allErrs field.ErrorList) field.ErrorList {
+	if v.Spec.HTTPSNMATLS != nil {
+		allErrs = v.hasValidTLSMode(v.GetHTTPSNMATLSMode(), "httpsNMATLS", allErrs)
 	}
+	if v.Spec.ClientServerTLS != nil {
+		allErrs = v.hasValidTLSMode(v.GetClientServerTLSMode(), "clientServerTLS", allErrs)
+	}
+
 	return allErrs
 }
 
@@ -2427,7 +2432,7 @@ func (v *VerticaDB) hasValidTLSMode(tlsModeToValidate, fieldName string, allErrs
 			}
 		}
 		if !validMode {
-			err := field.Invalid(field.NewPath("spec").Child(fieldName), tlsModeToValidate, "invalid tls mode")
+			err := field.Invalid(field.NewPath("spec").Child(fieldName).Child("mode"), tlsModeToValidate, "invalid tls mode")
 			allErrs = append(allErrs, err)
 		}
 	}
