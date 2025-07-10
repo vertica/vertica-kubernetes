@@ -99,7 +99,6 @@ func (q *QueryReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.
 		EVWriter: q.VRec.EVRec,
 	}
 	q.VRec.CacheManager.InitCertCacheForVdb(q.Vdb.Namespace, q.Vdb.Name, fetcher)
-	defer q.VRec.CacheManager.DestroyCertCacheForVdb(q.Vdb.Namespace, q.Vdb.Name)
 
 	finder := iter.MakeSubclusterFinder(q.VRec.Client, q.Vdb)
 	pods, err := finder.FindPods(ctx, iter.FindExisting, vapi.MainCluster)

@@ -166,7 +166,6 @@ func (r *VerticaDBReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	var res ctrl.Result
 
 	r.InitCertCacheForVdb(vdb)
-	defer r.CacheManager.DestroyCertCacheForVdb(vdb.Namespace, vdb.Name)
 	// Iterate over each actor
 	actors := r.constructActors(log, vdb, prunner, &pfacts, dispatcher)
 	for _, act := range actors {
