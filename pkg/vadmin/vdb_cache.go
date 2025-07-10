@@ -2,13 +2,13 @@ package vadmin
 
 import (
 	"context"
-	"fmt"
 	"sync"
 
 	"github.com/vertica/vertica-kubernetes/pkg/cloud"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
+	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 /*
@@ -51,11 +51,13 @@ type VdbCacheStruct struct {
 	retrieveSecret func(context.Context, string, string, *cloud.SecretFetcher) (map[string][]byte, error)
 }
 
+var log = ctrl.Log.WithName("vdb_cache")
+
 func MakeCacheManager() CacheManager {
 	c := &CacheManangerStruct{}
 	c.guardAllLock = &sync.Mutex{}
 	c.allCacheMap = make(dbToCacheMap)
-	vcLog.Info("initialized cache manager")
+	log.Info("initialized cache manager")
 	return c
 }
 
@@ -71,7 +73,7 @@ func (c *CacheManangerStruct) InitCertCacheForVdb(namespace, name string, fetche
 	if !ok {
 		singleCertCache := makeVdbCertCache(vdbName.Namespace, fetcher)
 		c.allCacheMap[vdbName] = singleCertCache
-		vcLog.Info(fmt.Sprintf("initialized cert cache for vdb %s/%s", vdbName.Namespace, vdbName.Name))
+		log.Info("initialized cert cache for vdb", "vdbname", vdbName.Namespace, "vdbnamespace", vdbName.Name)
 	}
 }
 
@@ -127,7 +129,7 @@ func (c *VdbCacheStruct) ReadCertFromSecret(ctx context.Context, secretName stri
 			return nil, err // failed to load secret
 		}
 		c.secretMap[secretName] = secretMap // add secret content to cache
-		vcLog.Info(fmt.Sprintf("loaded tls secret %s and cached it", secretName))
+		log.Info("loaded tls secret and cached it", "secretName", secretName)
 	}
 	return &HTTPSCerts{
 		Key:    string(secretMap[corev1.TLSPrivateKeyKey]),
