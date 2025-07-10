@@ -110,7 +110,7 @@ func (s *SubclusterScaleReconciler) considerRemovingSubclusters(podsToRemove int
 				break
 			}
 			if sc.Size <= podsToRemove {
-				if sc.IsPrimary() {
+				if sc.IsPrimary(s.Vdb) {
 					primaryCount := s.Vdb.GetPrimaryCount()
 					primaryCountAfterScaling := primaryCount - int(sc.Size)
 					// We will prevent removing a primary if it will lead to a kasafety
