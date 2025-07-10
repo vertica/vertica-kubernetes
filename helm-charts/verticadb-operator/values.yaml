@@ -206,3 +206,394 @@ containerSecurityContext:
 keda:
   # This controls the creation of ClusterRole rules for KEDA objects.
   createRBACRules: true
+
+## Using default values from https://github.com/grafana/helm-charts/blob/main/charts/grafana/values.yaml
+##
+grafana:
+  enabled: true
+  namespaceOverride: ""
+
+  ## ForceDeployDatasources Create datasource configmap even if grafana deployment has been disabled
+  ##
+  forceDeployDatasources: false
+
+  ## ForceDeployDashboard Create dashboard configmap even if grafana deployment has been disabled
+  ##
+  forceDeployDashboards: false
+
+  ## Deploy default dashboards
+  ##
+  defaultDashboardsEnabled: true
+
+  ## Deploy GrafanaDashboard CRDs that reference dashboards from ConfigMaps when grafana-operator is used
+  ## These settings control how dashboards are integrated with the Grafana Operator
+  ## Note: End user still need to create is own kind: GrafanaDataSource for Prometheus
+  ## eg:
+  ## apiVersion: grafana.integreatly.org/v1beta1
+  ## kind: GrafanaDatasource
+  ## metadata:
+  ##   name: prometheus
+  ##   annotations: {}
+  ## spec:
+  ##   allowCrossNamespaceImport: true
+  ##   instanceSelector:
+  ##     matchLabels:
+  ##       app: grafana
+  ##   datasource:
+  ##     name: prometheus
+  ##     type: prometheus
+  ##     access: proxy
+  ##     url: http://prometheus-operated.prometheus-stack.svc.cluster.local:9090
+  ##     isDefault: true
+  ##     jsonData:
+  ##       "tlsSkipVerify": true
+  ##       "timeInterval": "5s"
+  ##
+  operator:
+    ## Enable references to ConfigMaps containing dashboards in GrafanaDashboard CRs
+    ## Set to true to allow dashboards to be loaded from ConfigMap references
+    dashboardsConfigMapRefEnabled: false
+
+    ## Annotations for GrafanaDashboard Cr
+    ##
+    annotations: {}
+    ## Labels that should be matched kind: Grafana instance
+    ## Example: { app: grafana, category: dashboard }
+    ##
+    matchLabels: {}
+
+    ## How frequently the operator should resync resources (in duration format)
+    ## Controls how often dashboards are reconciled by the operator
+    ##
+    resyncPeriod: 10m
+
+    ## Which folder all ddashboard in Grafana General means on Root level
+    ##
+    folder: General
+
+  ## Timezone for the default dashboards
+  ## Other options are: browser or a specific timezone, i.e. Europe/Luxembourg
+  ##
+  defaultDashboardsTimezone: utc
+
+  ## Editable flag for the default dashboards
+  ##
+  defaultDashboardsEditable: true
+
+  ## Default interval for Grafana dashboards
+  ##
+  defaultDashboardsInterval: 1m
+
+  adminUser: admin
+  adminPassword: prom-operator
+
+  rbac:
+    ## If true, Grafana PSPs will be created
+    ##
+    pspEnabled: false
+
+  ingress:
+    ## If true, Grafana Ingress will be created
+    ##
+    enabled: false
+
+    ## IngressClassName for Grafana Ingress.
+    ## Should be provided if Ingress is enable.
+    ##
+    # ingressClassName: nginx
+
+    ## Annotations for Grafana Ingress
+    ##
+    annotations: {}
+      # kubernetes.io/ingress.class: nginx
+      # kubernetes.io/tls-acme: "true"
+
+    ## Labels to be added to the Ingress
+    ##
+    labels: {}
+
+    ## Hostnames.
+    ## Must be provided if Ingress is enable.
+    ##
+    # hosts:
+    #   - grafana.domain.com
+    hosts: []
+
+    ## Path for grafana ingress
+    path: /
+
+    ## TLS configuration for grafana Ingress
+    ## Secret must be manually created in the namespace
+    ##
+    tls: []
+    # - secretName: grafana-general-tls
+    #   hosts:
+    #   - grafana.example.com
+
+  # # To make Grafana persistent (Using Statefulset)
+  # #
+  # persistence:
+  #   enabled: true
+  #   type: sts
+  #   storageClassName: "storageClassName"
+  #   accessModes:
+  #     - ReadWriteOnce
+  #   size: 20Gi
+  #   finalizers:
+  #     - kubernetes.io/pvc-protection
+
+  serviceAccount:
+    create: true
+    autoMount: true
+
+  sidecar:
+    dashboards:
+      enabled: true
+      label: grafana_dashboard
+      labelValue: "1"
+      # Allow discovery in all namespaces for dashboards
+      searchNamespace: ALL
+
+      # Support for new table panels, when enabled grafana auto migrates the old table panels to newer table panels
+      enableNewTablePanelSyntax: false
+
+      ## Annotations for Grafana dashboard configmaps
+      ##
+      annotations: {}
+      multicluster:
+        global:
+          enabled: false
+        etcd:
+          enabled: false
+      provider:
+        allowUiUpdates: false
+    datasources:
+      enabled: true
+      defaultDatasourceEnabled: true
+      isDefaultDatasource: true
+
+      name: Prometheus
+      uid: prometheus
+
+      ## URL of prometheus datasource
+      ##
+      # url: http://prometheus-stack-prometheus:9090/
+
+      ## Prometheus request timeout in seconds
+      # timeout: 30
+
+      # If not defined, will use prometheus.prometheusSpec.scrapeInterval or its default
+      # defaultDatasourceScrapeInterval: 15s
+
+      ## Annotations for Grafana datasource configmaps
+      ##
+      annotations: {}
+
+      ## Set method for HTTP to send query to datasource
+      httpMethod: POST
+
+      ## Create datasource for each Pod of Prometheus StatefulSet;
+      ## this uses by default the headless service `prometheus-operated` which is
+      ## created by Prometheus Operator. In case you deployed your own Service for your
+      ## Prometheus instance, you can specifiy it with the field `prometheusServiceName`
+      ## ref: https://github.com/prometheus-operator/prometheus-operator/blob/0fee93e12dc7c2ea1218f19ae25ec6b893460590/pkg/prometheus/statefulset.go#L255-L286
+      createPrometheusReplicasDatasources: false
+      prometheusServiceName: prometheus-operated
+      label: grafana_datasource
+      labelValue: "1"
+
+      ## Field with internal link pointing to existing data source in Grafana.
+      ## Can be provisioned via additionalDataSources
+      exemplarTraceIdDestinations: {}
+        # datasourceUid: Jaeger
+        # traceIdLabelName: trace_id
+        # urlDisplayLabel: View traces
+      alertmanager:
+        enabled: true
+        name: Alertmanager
+        uid: alertmanager
+        handleGrafanaManagedAlerts: false
+        implementation: prometheus
+
+  extraConfigmapMounts: []
+  # - name: certs-configmap
+  #   mountPath: /etc/grafana/ssl/
+  #   configMap: certs-configmap
+  #   readOnly: true
+
+  deleteDatasources: []
+  # - name: example-datasource
+  #   orgId: 1
+
+  ## Configure additional grafana datasources (passed through tpl)
+  ## ref: https://grafana.com/docs/grafana/latest/administration/provisioning/#datasources
+  additionalDataSources: []
+  # - name: prometheus-sample
+  #   access: proxy
+  #   basicAuth: true
+  #   secureJsonData:
+  #       basicAuthPassword: pass
+  #   basicAuthUser: daco
+  #   editable: false
+  #   jsonData:
+  #       tlsSkipVerify: true
+  #   orgId: 1
+  #   type: prometheus
+  #   url: https://{{ printf "%s-prometheus.svc" .Release.Name }}:9090
+  #   version: 1
+
+  # Flag to mark provisioned data sources for deletion if they are no longer configured.
+  # It takes no effect if data sources are already listed in the deleteDatasources section.
+  # ref: https://grafana.com/docs/grafana/latest/administration/provisioning/#example-data-source-configuration-file
+  prune: false
+
+  ## Passed to grafana subchart and used by servicemonitor below
+  ##
+  service:
+    portName: http-web
+    ipFamilies: []
+    ipFamilyPolicy: ""
+
+  serviceMonitor:
+    # If true, a ServiceMonitor CRD is created for a prometheus operator
+    # https://github.com/prometheus-operator/prometheus-operator
+    #
+    enabled: false
+
+    # Path to use for scraping metrics. Might be different if server.root_url is set
+    # in grafana.ini
+    #path: "/metrics"
+
+    #  namespace: monitoring  (defaults to use the namespace this chart is deployed to)
+
+    # labels for the ServiceMonitor
+    #labels: {}
+
+    # Scrape interval. If not set, the Prometheus default scrape interval is used.
+    #
+    #interval: ""
+    #scheme: http
+    #tlsConfig: {}
+    #scrapeTimeout: 30s
+
+    ## RelabelConfigs to apply to samples before scraping
+    ## ref: https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api-reference/api.md#relabelconfig
+    ##
+    #relabelings: []
+    # - sourceLabels: [__meta_kubernetes_pod_node_name]
+    #   separator: ;
+    #   regex: ^(.*)$
+    #   targetLabel: nodename
+    #   replacement: $1
+    #   action: replace
+  dashboardProviders:
+    dashboardproviders.yaml:
+      apiVersion: 1
+      providers:
+      - name: 'vertica'
+        orgId: 1
+        folder: 'Vertica'
+        type: file
+        disableDeletion: false
+        editable: true
+        options:
+          path: /var/lib/grafana/dashboards/vertica
+  dashboards:
+    vertica:
+      # Example 1: Node Exporter Full Dashboard (ID 1860)
+      # This dashboard is typically for Prometheus data source.
+      vertica-overview-prometheus:
+        gnetId: 19917
+        # revision: 1 # Optional: Pin to a specific revision if needed
+        datasource: Prometheus
+  datasources:
+    datasources.yaml:
+      apiVersion: 1
+      datasources:
+        - name: Prometheus
+          type: prometheus
+          url: http://{{ .Release.Name }}-prometheus-server-prometheus.{{ .Release.Namespace }}.svc.cluster.local:9090
+          access: proxy
+          isDefault: true
+
+prometheus-server:
+  enabled: true
+  # === Global Namespace Configuration ===
+  # By default, kube-prometheus-stack installs into .Release.Namespace
+  # You can override it here if you want it in a different namespace:
+  # namespaceOverride: "my-monitoring-ns" # Ensure this namespace exists or create it
+
+  # === Control Component Installation (to achieve "only Prometheus") ===
+  # Disable components you don't want.
+  # KEEP `prometheusOperator` ENABLED as it's required for Prometheus itself.
+  alertmanager:
+    enabled: false
+  grafana:
+    enabled: false # If you have Grafana as a separate sub-chart or elsewhere
+  kubeControllerManager:
+    enabled: false
+  kubeEtcd:
+    enabled: false
+  kubeScheduler:
+    enabled: false
+  kubeProxy:
+    enabled: false
+  kubeStateMetrics:
+    enabled: false
+  nodeExporter:
+    enabled: false
+  prometheus-node-exporter: # Some older versions might use this instead of nodeExporter
+    enabled: false
+  windowsExporter:
+    enabled: false
+
+  # === Prometheus Specific Configuration ===
+  prometheus:
+    # Service name customization for the main Prometheus service
+    # The actual service name will be something like `my-custom-prometheus-service-name`
+    # and not just `prometheus` by itself from the sub-chart's values.yaml.
+    service:
+      name: "prometheus" # Custom service name for Prometheus
+      # You can also change the type if needed, e.g., ClusterIP, NodePort, LoadBalancer
+      type: ClusterIP
+      # NodePort or LoadBalancer can be used if you need external access to Prometheus
+      # for instance, for remote scraping or a UI access
+      # nodePort: 30090
+    
+    # Storage for Prometheus (highly recommended for production)
+    prometheusSpec:
+      retention: "15d" # How long to keep data
+      storageSpec:
+        volumeClaimTemplate:
+          spec:
+            storageClassName: standard # Or your preferred storage class
+            resources:
+              requests:
+                storage: 50Gi # Adjust storage size as needed
+
+    # Optionally disable the default `kube-prometheus-stack` scrape configs if you're
+    # defining your own ServiceMonitors/PodMonitors for your operator.
+    # If you want Prometheus to scrape your K8s cluster, keep some of these enabled.
+    # scrapeConfig:
+    #   enabled: false # This might disable all default scrape configs
+
+  # === ServiceMonitor for your Operator's Metrics (Example) ===
+  # If your operator exposes Prometheus metrics, you can define a ServiceMonitor
+  # directly in your main chart's templates or here if you want to conditionally
+  # deploy it with Prometheus.
+  # This example assumes your operator has a service named `my-operator-service`
+  # in the same namespace that exposes metrics on port `metrics-port`.
+  # For more advanced ServiceMonitor creation, it's often better to create a
+  # separate template in your main chart that consumes your operator's service details.
+  # This section is just illustrative of where you might define it.
+  #
+  # serviceMonitor:
+  #   # This would typically be a template in your main chart, but showing how you'd
+  #   # enable the Prometheus Operator to find your operator's metrics.
+  #   name: my-operator-service-monitor
+  #   selector:
+  #     matchLabels:
+  #       app.kubernetes.io/name: my-operator
+  #   endpoints:
+  #     - port: metrics-port # The name of the port in your operator's Service
+  #       path: /metrics
