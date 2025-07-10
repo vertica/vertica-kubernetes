@@ -1726,14 +1726,14 @@ func (v *VerticaDB) GetHTTPSNMATLSSecretForConfigMap() string {
 	return v.GetValueForTLSConfigMap(v.GetHTTPSNMATLSSecret(), v.GetHTTPSNMATLSSecretInUse(), HTTPSNMATLSConfigName)
 }
 
-// GetClientServerModeForConfigMap returns the correct TLS mode
+// GetClientServerTLSModeForConfigMap returns the correct TLS mode
 // to include in the NMA configmap. It prioritizes the currently in-use
 // mode if an update is still in progress or a rollback is needed.
 func (v *VerticaDB) GetClientServerTLSModeForConfigMap() string {
 	return v.GetValueForTLSConfigMap(v.GetClientServerTLSMode(), v.GetClientServerTLSModeInUse(), ClientServerTLSConfigName)
 }
 
-// GetClientServerSecretForConfigMap returns the correct TLS secret name
+// GetClientServerTLSSecretForConfigMap returns the correct TLS secret name
 // to include in the NMA configmap. It prioritizes the currently in-use
 // secret if an update is still in progress or a rollback is needed.
 func (v *VerticaDB) GetClientServerTLSSecretForConfigMap() string {
