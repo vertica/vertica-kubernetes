@@ -121,7 +121,7 @@ func (h *TLSConfigReconciler) Reconcile(ctx context.Context, request *ctrl.Reque
 	}
 
 	h.Log.Info("Saving TLS secret and mode into status")
-	err = h.Manager.setTLSConfigInStatus(ctx, tlsMode)
+	err = h.Manager.setTLSConfigInStatus(ctx, strings.ToLower(tlsMode))
 	if err != nil {
 		h.Log.Error(err, "failed to save TLS secret and mode into status")
 		return ctrl.Result{}, err

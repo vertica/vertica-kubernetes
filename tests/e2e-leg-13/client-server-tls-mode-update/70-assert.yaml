@@ -4,7 +4,7 @@ metadata:
   name: v-server-tls-mode
 status:
   tlsConfigs:
-  - mode: TRY_VERIFY
+  - mode: try_verify
     name: httpsNMA
-  - mode: TRY_VERIFY
+  - mode: try_verify
     name: clientServer

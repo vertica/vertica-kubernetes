@@ -46,6 +46,6 @@ status:
   tlsConfigs:
     - secret: custom-cert
       name: httpsNMA
-      mode: VERIFY_CA
-    - mode: TRY_VERIFY
+      mode: verify_ca
+    - mode: try_verify
       name: clientServer
