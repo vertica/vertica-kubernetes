@@ -24,6 +24,7 @@ import (
 	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	v1beta1 "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	"github.com/vertica/vertica-kubernetes/pkg/cloud"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
@@ -91,6 +92,14 @@ func (q *QueryReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.
 	if err != nil {
 		return ctrl.Result{}, err
 	}
+	fetcher := &cloud.SecretFetcher{
+		Client:   q.VRec.Client,
+		Log:      q.Log,
+		Obj:      q.Vdb,
+		EVWriter: q.VRec.EVRec,
+	}
+	q.VRec.CacheManager.InitCertCacheForVdb(q.Vdb.Namespace, q.Vdb.Name, fetcher)
+	defer q.VRec.CacheManager.DestroyCertCacheForVdb(q.Vdb.Namespace, q.Vdb.Name)
 
 	finder := iter.MakeSubclusterFinder(q.VRec.Client, q.Vdb)
 	pods, err := finder.FindPods(ctx, iter.FindExisting, vapi.MainCluster)
