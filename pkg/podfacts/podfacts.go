@@ -250,8 +250,9 @@ func MakePodFacts(vrec config.ReconcilerInterface, prunner cmds.PodRunner, log l
 }
 
 // MakePodFactsForSandbox will create a PodFacts object for a sandbox
-func MakePodFactsForSandbox(vrec config.ReconcilerInterface, prunner cmds.PodRunner, log logr.Logger, password, sandbox string) PodFacts {
-	pf := MakePodFacts(vrec, prunner, log, password)
+func MakePodFactsForSandboxWithCacheManager(vrec config.ReconcilerInterface, prunner cmds.PodRunner, log logr.Logger,
+	password, sandbox string, cacheManager vadmin.CacheManager) PodFacts {
+	pf := MakePodFactsWithCacheManager(vrec, prunner, log, password, cacheManager)
 	pf.SandboxName = sandbox
 	return pf
 }

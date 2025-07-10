@@ -34,6 +34,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
@@ -87,13 +88,14 @@ var _ = BeforeSuite(func() {
 		Metrics: metricsServerOptions,
 	})
 	Expect(err).NotTo(HaveOccurred())
-
+	cacheManager := vadmin.MakeCacheManager()
 	vdbRec = &VerticaDBReconciler{
-		Client: k8sClient,
-		Log:    logger,
-		Scheme: scheme.Scheme,
-		Cfg:    restCfg,
-		EVRec:  mgr.GetEventRecorderFor(vmeta.OperatorName),
+		Client:       k8sClient,
+		Log:          logger,
+		Scheme:       scheme.Scheme,
+		Cfg:          restCfg,
+		EVRec:        mgr.GetEventRecorderFor(vmeta.OperatorName),
+		CacheManager: cacheManager,
 	}
 })
 
