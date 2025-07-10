@@ -1745,11 +1745,11 @@ func (v *VerticaDB) GetTLSModeInUse(name string) string {
 }
 
 func (v *VerticaDB) GetHTTPSTLSModeInUse() string {
-	return v.GetTLSModeInUse(HTTPSNMATLSConfigName)
+	return strings.ToLower(v.GetTLSModeInUse(HTTPSNMATLSConfigName))
 }
 
 func (v *VerticaDB) GetClientServerTLSModeInUse() string {
-	return v.GetTLSModeInUse(ClientServerTLSConfigName)
+	return strings.ToLower(v.GetTLSModeInUse(ClientServerTLSConfigName))
 }
 
 // SetTLSConfigs updates the slice with a new TLSConfig by Name, and returns true if any changes occurred.

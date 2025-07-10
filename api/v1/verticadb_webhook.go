@@ -161,6 +161,7 @@ func (v *VerticaDB) validateImmutableFields(old runtime.Object) field.ErrorList 
 	allErrs = v.checkImmutableClientProxy(oldObj, allErrs)
 	allErrs = v.checkImmutableTLSConfig(oldObj, allErrs)
 	allErrs = v.checkValidTLSConfigUpdate(oldObj, allErrs)
+	allErrs = v.checkTLSModeCaseInsensitiveChange(oldObj, allErrs)
 	allErrs = v.checkValidSubclusterTypeTransition(oldObj, allErrs)
 	allErrs = v.checkSandboxesDuringUpgrade(oldObj, allErrs)
 	allErrs = v.checkShutdownSandboxImage(oldObj, allErrs)
@@ -2483,6 +2484,27 @@ func (v *VerticaDB) checkValidTLSConfigUpdate(oldObj *VerticaDB, allErrs field.E
 	if oldObj.Spec.NMATLSSecret != v.Spec.NMATLSSecret {
 		allErrs = append(allErrs, field.Forbidden(specFld.Child("nmaTLSSecret"),
 			"nmaTLSSecret cannot be changed"))
+	}
+
+	return allErrs
+}
+
+// checkTLSModeCaseInsensitiveChange checks if the user is trying to change the TLS mode in a case-insensitive manner.
+func (v *VerticaDB) checkTLSModeCaseInsensitiveChange(oldObj *VerticaDB, allErrs field.ErrorList) field.ErrorList {
+	if oldObj.Spec.HTTPSNMATLS.Mode != v.Spec.HTTPSNMATLS.Mode &&
+		oldObj.GetHTTPSNMATLSMode() == v.GetHTTPSNMATLSMode() {
+		fieldPath := field.NewPath("spec").Child("httpsNMATLS").Child("mode")
+		err := field.Invalid(fieldPath, v.Spec.HTTPSNMATLS.Mode,
+			"case insensitive mode change is not allowed for httpsNMATLS")
+		allErrs = append(allErrs, err)
+	}
+
+	if oldObj.Spec.ClientServerTLS.Mode != v.Spec.ClientServerTLS.Mode &&
+		oldObj.GetClientServerTLSMode() == v.GetClientServerTLSMode() {
+		fieldPath := field.NewPath("spec").Child("clientServerTLS").Child("mode")
+		err := field.Invalid(fieldPath, v.Spec.ClientServerTLS.Mode,
+			"case insensitive mode change is not allowed for clientServerTLS")
+		allErrs = append(allErrs, err)
 	}
 
 	return allErrs
