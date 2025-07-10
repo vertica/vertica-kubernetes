@@ -27,10 +27,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/secrets"
 	corev1 "k8s.io/api/core/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
-
-var vcLog = logf.Log.WithName("vadmin")
 
 // retrieveHTTPSCerts will retrieve the certs from HTTPSNMATLSSecret for calling NMA endpoints
 func (v *VClusterOps) retrieveHTTPSCerts(ctx context.Context) (*HTTPSCerts, error) {
@@ -55,7 +52,7 @@ func (v *VClusterOps) retrieveHTTPSCertsWithTarget(ctx context.Context, forTarge
 		return nil, err
 	}
 
-	v.Log.Info("nma secret name used - " + secretName)
+	v.Log.Info("HTTPS NMA secret name used", "secretName", secretName)
 
 	fetcher := cloud.SecretFetcher{
 		Client:   v.Client,
@@ -158,7 +155,6 @@ func getHTTPSTLSSecretName(vdb *vapi.VerticaDB) (string, error) {
 	}
 	if secretName == "" {
 		secretName = vdb.GetHTTPSNMATLSSecret()
-		vcLog.Info("retrieved https tls secret from vdb spec instead of status")
 	}
 	if secretName == "" {
 		return "", fmt.Errorf("failed to retrieve nma secret name")
