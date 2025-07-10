@@ -2202,7 +2202,7 @@ func BuildNMATLSConfigMap(nm types.NamespacedName, vdb *vapi.VerticaDB) *corev1.
 		NMASecretNamespaceEnv:       vdb.ObjectMeta.Namespace,
 		NMASecretNameEnv:            vdb.GetHTTPSNMATLSSecretForConfigMap(),
 		NMAClientSecretNamespaceEnv: vdb.ObjectMeta.Namespace,
-		NMAClientSecretNameEnv:      vdb.GetClientServerTLSSecret(),
+		NMAClientSecretNameEnv:      vdb.GetClientServerTLSSecretForConfigMap(),
 		NMAClientSecretTLSModeEnv:   vdb.GetNMAClientServerTLSMode(),
 	}
 	tlsConfigMap := &corev1.ConfigMap{

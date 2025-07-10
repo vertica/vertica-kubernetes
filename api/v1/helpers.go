@@ -1696,23 +1696,48 @@ func (v *VerticaDB) GetClientServerTLSSecretInUse() string {
 	return v.GetSecretInUse(ClientServerTLSConfigName)
 }
 
+// GetValueForTLSConfigMap will return what value should be written to the TLS Config Map for
+// NMA: spec or status. In order to handle rollback after failed cert rotation, we should only
+// update from spec if a cert rotation has completed and not triggered a rollback. We should also
+// use spec if this status value is empty (for example, during create db). All other cases should
+// use status value.
+func (v *VerticaDB) GetValueForTLSConfigMap(specValue, statusValue, tlsConfigName string) string {
+	// Use the status value if:
+	// - It is set (non-empty), and
+	// - Either the config update hasn't finished OR a rollback is needed.
+	rollbackInProgress := v.IsTLSCertRollbackNeeded()
+	updateNotFinished := !v.IsStatusConditionTrue(HTTPSTLSConfigUpdateFinished)
+	if tlsConfigName == ClientServerTLSConfigName {
+		updateNotFinished = !v.IsStatusConditionTrue(ClientServerTLSConfigUpdateFinished)
+	}
+
+	if statusValue != "" && (updateNotFinished || rollbackInProgress) {
+		return statusValue
+	}
+
+	// Otherwise, default to the spec value.
+	return specValue
+}
+
 // GetHTTPSNMATLSSecretForConfigMap returns the correct TLS secret name
 // to include in the NMA configmap. It prioritizes the currently in-use
 // secret if an update is still in progress or a rollback is needed.
 func (v *VerticaDB) GetHTTPSNMATLSSecretForConfigMap() string {
-	// Use the in-use secret if:
-	// - It is set (non-empty), and
-	// - Either the config update hasn't finished OR a rollback is needed.
-	inUseSecret := v.GetHTTPSNMATLSSecretInUse()
-	updateNotFinished := !v.IsStatusConditionTrue(HTTPSTLSConfigUpdateFinished)
-	rollbackInProgress := v.IsTLSCertRollbackNeeded()
+	return v.GetValueForTLSConfigMap(v.GetHTTPSNMATLSSecret(), v.GetHTTPSNMATLSSecretInUse(), HTTPSNMATLSConfigName)
+}
 
-	if inUseSecret != "" && (updateNotFinished || rollbackInProgress) {
-		return inUseSecret
-	}
+// GetClientServerModeForConfigMap returns the correct TLS mode
+// to include in the NMA configmap. It prioritizes the currently in-use
+// mode if an update is still in progress or a rollback is needed.
+func (v *VerticaDB) GetClientServerTLSModeForConfigMap() string {
+	return v.GetValueForTLSConfigMap(v.GetClientServerTLSMode(), v.GetClientServerTLSModeInUse(), ClientServerTLSConfigName)
+}
 
-	// Otherwise, default to the desired secret from spec.
-	return v.GetHTTPSNMATLSSecret()
+// GetClientServerSecretForConfigMap returns the correct TLS secret name
+// to include in the NMA configmap. It prioritizes the currently in-use
+// secret if an update is still in progress or a rollback is needed.
+func (v *VerticaDB) GetClientServerTLSSecretForConfigMap() string {
+	return v.GetValueForTLSConfigMap(v.GetClientServerTLSSecret(), v.GetClientServerTLSSecretInUse(), ClientServerTLSConfigName)
 }
 
 // IsCertNeededForClientServerAuth returns true if certificate is needed for client-server authentication
@@ -1723,7 +1748,7 @@ func (v *VerticaDB) IsCertNeededForClientServerAuth() bool {
 
 // GetNMAClientServerTLSMode returns the tlsMode for NMA client-server communication
 func (v *VerticaDB) GetNMAClientServerTLSMode() string {
-	tlsMode := strings.ToLower(v.GetClientServerTLSMode())
+	tlsMode := strings.ToLower(v.GetClientServerTLSModeForConfigMap())
 	switch tlsMode {
 	case tlsModeDisable:
 		return nmaTLSModeDisable

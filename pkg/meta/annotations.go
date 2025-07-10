@@ -227,7 +227,9 @@ const (
 	HTTPSTLSConfGenerationAnnotationFalse = "false"
 	HTTPSTLSConfGenerationDefaultValue    = true
 
-	// This annotation controls
+	// This annotation disables TLS rollback functionality. Setting this ensures
+	// backwards compatibility with functionality for versions <25.4.0. Default is
+	// currently false (disabling this feature).
 	DisableTLSRotationFailureRollbackAnnotation      = "vertica.com/disable-tls-rotation-failure-rollback"
 	DisableTLSRotationFailureRollbackAnnotationTrue  = "true"
 	DisableTLSRotationFailureRollbackAnnotationFalse = "false"
