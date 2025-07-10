@@ -170,8 +170,25 @@ func (vcc *VClusterCommands) produceSandboxSubclusterInstructions(options *VSand
 	return instructions, nil
 }
 
+//nolint:dupl
 func (vcc VClusterCommands) VSandbox(options *VSandboxOptions) error {
+	const (
+		mask = "******"
+	)
+	passwordBackup := options.DatabaseOptions.Password
+	keyBackup := options.DatabaseOptions.Key
+	certBackup := options.DatabaseOptions.Cert
+	caCertBackup := options.DatabaseOptions.CaCert
+	maskPassword := mask
+	options.DatabaseOptions.Password = &maskPassword
+	options.DatabaseOptions.Key = mask
+	options.DatabaseOptions.Cert = mask
+	options.DatabaseOptions.CaCert = mask
 	vcc.Log.V(0).Info("VSandbox method called", "options", options)
+	options.DatabaseOptions.Password = passwordBackup
+	options.DatabaseOptions.Key = keyBackup
+	options.DatabaseOptions.Cert = certBackup
+	options.DatabaseOptions.CaCert = caCertBackup
 	return runSandboxCmd(vcc, options)
 }
 

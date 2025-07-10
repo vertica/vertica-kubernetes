@@ -73,7 +73,7 @@ func (options *VPollSubclusterStateOptions) validateAnalyzeOptions(logger vlog.P
 	return options.analyzeOptions()
 }
 
-// VPollSubclusterState waits for the given nodes to be up or down
+// VPollSubclusterState waits for the given nodes to be up or dow
 func (vcc VClusterCommands) VPollSubclusterState(options *VPollSubclusterStateOptions) error {
 	/*
 	 *   - Validate Options
@@ -82,7 +82,26 @@ func (vcc VClusterCommands) VPollSubclusterState(options *VPollSubclusterStateOp
 	 *   - Give the instructions to the VClusterOpEngine to run
 	 */
 
+	// mask sensitive fields before logging
+	const (
+		mask = "******"
+	)
+
+	passwordBackup := options.DatabaseOptions.Password
+	keyBackup := options.DatabaseOptions.Key
+	certBackup := options.DatabaseOptions.Cert
+	caCertBackup := options.DatabaseOptions.CaCert
+	maskPassword := mask
+	options.DatabaseOptions.Password = &maskPassword
+	options.DatabaseOptions.Key = mask
+	options.DatabaseOptions.Cert = mask
+	options.DatabaseOptions.CaCert = mask
 	vcc.Log.V(0).Info("VPollSubclusterState method called", "options", options)
+	options.DatabaseOptions.Password = passwordBackup
+	options.DatabaseOptions.Key = keyBackup
+	options.DatabaseOptions.Cert = certBackup
+	options.DatabaseOptions.CaCert = caCertBackup
+
 	err := options.validateAnalyzeOptions(vcc.Log)
 	if err != nil {
 		return err
