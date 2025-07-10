@@ -2491,6 +2491,11 @@ func (v *VerticaDB) checkValidTLSConfigUpdate(oldObj *VerticaDB, allErrs field.E
 
 // checkTLSModeCaseInsensitiveChange checks if the user is trying to change the TLS mode in a case-insensitive manner.
 func (v *VerticaDB) checkTLSModeCaseInsensitiveChange(oldObj *VerticaDB, allErrs field.ErrorList) field.ErrorList {
+	if oldObj.Spec.HTTPSNMATLS == nil || v.Spec.HTTPSNMATLS == nil ||
+		oldObj.Spec.ClientServerTLS == nil || v.Spec.ClientServerTLS == nil {
+		return allErrs
+	}
+
 	if oldObj.Spec.HTTPSNMATLS.Mode != v.Spec.HTTPSNMATLS.Mode &&
 		oldObj.GetHTTPSNMATLSMode() == v.GetHTTPSNMATLSMode() {
 		fieldPath := field.NewPath("spec").Child("httpsNMATLS").Child("mode")
