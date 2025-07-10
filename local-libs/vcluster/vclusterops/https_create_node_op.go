@@ -30,13 +30,14 @@ type httpsCreateNodeOp struct {
 
 // some reused parameters
 const (
-	createNodeSCNameParam = "subcluster"
-	createNodeCGNameParam = "compute-group"
+	createNodeSCNameParam   = "subcluster"
+	createNodeCGNameParam   = "compute-group"
+	createNodeSandNameParam = "sandbox-name"
 )
 
 func makeHTTPSCreateNodeOp(newNodeHosts []string, bootstrapHost []string,
 	useHTTPPassword bool, userName string, httpsPassword *string,
-	vdb *VCoordinationDatabase, scName, computeGroupName string) (httpsCreateNodeOp, error) {
+	vdb *VCoordinationDatabase, scName, computeGroupName, sandboxName string) (httpsCreateNodeOp, error) {
 	op := httpsCreateNodeOp{}
 	op.name = "HTTPSCreateNodeOp"
 	op.description = "Create node in catalog"
@@ -51,6 +52,9 @@ func makeHTTPSCreateNodeOp(newNodeHosts []string, bootstrapHost []string,
 	}
 	if computeGroupName != "" {
 		op.RequestParams[createNodeCGNameParam] = computeGroupName
+	}
+	if sandboxName != "" {
+		op.RequestParams[createNodeSandNameParam] = sandboxName
 	}
 	err := op.validateAndSetUsernameAndPassword(op.name,
 		useHTTPPassword, userName, httpsPassword)

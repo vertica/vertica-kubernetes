@@ -431,7 +431,7 @@ func (vcc VClusterCommands) produceAddNodeInstructions(vdb *VCoordinationDatabas
 	}
 	nmaNetworkProfileOp := makeNMANetworkProfileOp(vdb.HostList)
 	httpsCreateNodeOp, err := makeHTTPSCreateNodeOp(newHosts, initiatorHost,
-		usePassword, username, password, vdb, options.SCName, options.ComputeGroup)
+		usePassword, username, password, vdb, options.SCName, options.ComputeGroup, options.Sandbox)
 	if err != nil {
 		return instructions, err
 	}
