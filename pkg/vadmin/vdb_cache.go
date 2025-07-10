@@ -67,9 +67,6 @@ func (c *CacheManangerStruct) InitCertCacheForVdb(namespace, name string, fetche
 		Name:      name,
 		Namespace: namespace,
 	}
-	if c.allCacheMap == nil {
-		c.allCacheMap = make(dbToCacheMap)
-	}
 	_, ok := c.allCacheMap[vdbName]
 	if !ok {
 		singleCertCache := makeVdbCertCache(vdbName.Namespace, fetcher)

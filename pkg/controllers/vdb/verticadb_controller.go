@@ -137,6 +137,7 @@ func (r *VerticaDBReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		if errors.IsNotFound(err) {
 			// Remove any metrics for the vdb that we found to be deleted
 			metrics.HandleVDBDelete(req.NamespacedName.Namespace, req.NamespacedName.Name, log)
+			r.CacheManager.DestroyCertCacheForVdb(req.NamespacedName.Namespace, req.NamespacedName.Name)
 			// Request object not found, cound have been deleted after reconcile request.
 			log.Info("VerticaDB resource not found.  Ignoring since object must be deleted")
 			return ctrl.Result{}, nil
