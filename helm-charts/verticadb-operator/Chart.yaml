@@ -16,3 +16,22 @@ description: An operator that can deploy and manage Vertica clusters
 type: application
 # Versions follow Semantic Versioning (https://semver.org/)
 version: 25.3.0-0
+dependencies:
+  - name: grafana
+    version: "9.2.10"
+    repository: https://grafana.github.io/helm-charts
+    condition: grafana.enabled
+  - name: kube-prometheus-stack
+    version: "75.9.0"
+    repository: https://prometheus-community.github.io/helm-charts
+    condition: prometheus-server.enabled
+    alias: prometheus-server
+  - name: loki
+    version: "6.31.0"
+    repository: https://grafana.github.io/helm-charts
+    condition: grafana.enabled
+  #- name: prometheus
+  #  version: "27.23.0"
+  #  repository: https://prometheus-community.github.io/helm-charts
+  #  condition: prometheusServer.enabled
+  #  alias: prometheus-server
