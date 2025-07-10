@@ -22,6 +22,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/google/uuid"
 	v1 "github.com/vertica/vertica-kubernetes/api/v1"
+	"github.com/vertica/vertica-kubernetes/pkg/cloud"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	vdbcontroller "github.com/vertica/vertica-kubernetes/pkg/controllers/vdb"
@@ -133,7 +134,13 @@ func (r *SandboxConfigMapReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	prunner := cmds.MakeClusterPodRunner(log, r.Cfg, vdb.GetVerticaUser(), passwd, vmeta.UseTLSAuth(vdb.Annotations))
 	pfacts := podfacts.MakePodFactsForSandboxWithCacheManager(r, prunner, log, passwd, sandboxName, r.CacheManager)
 	dispatcher := vadmin.MakeVClusterOps(log, vdb, r.Client, passwd, r.EVRec, vadmin.SetupVClusterOps, r.CacheManager)
-
+	fetcher := &cloud.SecretFetcher{
+		Client:   r.Client,
+		Log:      r.Log,
+		Obj:      vdb,
+		EVWriter: r.EVRec,
+	}
+	r.CacheManager.InitCertCacheForVdb(vdb.Namespace, vdb.Name, fetcher)
 	// Iterate over each actor
 	actors := r.constructActors(vdb, log, prunner, &pfacts, dispatcher, configMap)
 	for _, act := range actors {
