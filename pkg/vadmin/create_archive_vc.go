@@ -19,6 +19,7 @@ import (
 	"context"
 
 	vops "github.com/vertica/vcluster/vclusterops"
+	"github.com/vertica/vertica-kubernetes/pkg/interfaces"
 	"github.com/vertica/vertica-kubernetes/pkg/net"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/createarchive"
 )
@@ -50,7 +51,7 @@ func (v *VClusterOps) CreateArchive(ctx context.Context, opts ...createarchive.O
 	return nil
 }
 
-func (v *VClusterOps) genCreateArchiveOptions(s *createarchive.Params, certs *HTTPSCerts) vops.VCreateArchiveOptions {
+func (v *VClusterOps) genCreateArchiveOptions(s *createarchive.Params, certs *interfaces.HTTPSCerts) vops.VCreateArchiveOptions {
 	opts := vops.VCreateArchiveFactory()
 
 	opts.DBName = v.VDB.Spec.DBName

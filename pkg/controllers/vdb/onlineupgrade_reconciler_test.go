@@ -25,6 +25,7 @@ import (
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/aterrors"
+	"github.com/vertica/vertica-kubernetes/pkg/cache"
 	"github.com/vertica/vertica-kubernetes/pkg/cloud"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
@@ -599,11 +600,17 @@ func createOnlineUpgradeReconciler(ctx context.Context, vdb *vapi.VerticaDB) *On
 	fpr := &cmds.FakePodRunner{Results: cmds.CmdResults{}}
 	pfacts := createPodFactsDefault(fpr)
 	dispatcher := mockVClusterOpsDispatcher(vdb)
-
+	vClusterOps := dispatcher.(*vadmin.VClusterOps)
+	fetcher := &cloud.SecretFetcher{
+		Client:   vClusterOps.Client,
+		Log:      vClusterOps.Log,
+		Obj:      vClusterOps.VDB,
+		EVWriter: vClusterOps.EVWriter,
+	}
+	vdbRec.CacheManager.InitCertCacheForVdb(vdb.Namespace, vdb.Name, fetcher)
 	// Add client-routing labels to all pods that exist
 	cr := MakeClientRoutingLabelReconciler(vdbRec, logger, vdb, pfacts, AddNodeApplyMethod, "")
 	Ω(cr.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
-
 	actor := MakeOnlineUpgradeReconciler(vdbRec, logger, vdb, pfacts, dispatcher)
 	r := actor.(*OnlineUpgradeReconciler)
 	Ω(r.loadUpgradeState(ctx)).Should(Equal(ctrl.Result{}))
@@ -658,7 +665,7 @@ func mockVClusterOpsDispatcher(vdb *vapi.VerticaDB) vadmin.Dispatcher {
 		return &mockvops.MockVClusterOps{}, logr.Logger{}
 	}
 	evWriter := aterrors.TestEVWriter{}
-	cacheManager := vadmin.MakeCacheManager()
+	cacheManager := cache.MakeCacheManager()
 	dispatcher := vadmin.MakeVClusterOps(logger, vdb, k8sClient, "pwd", &evWriter, setupAPIFunc, cacheManager)
 	vclusterops := dispatcher.(*vadmin.VClusterOps)
 	fetcher := &cloud.SecretFetcher{

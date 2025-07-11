@@ -1,3 +1,18 @@
+/*
+ (c) Copyright [2021-2024] Open Text.
+ Licensed under the Apache License, Version 2.0 (the "License");
+ You may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+ http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+*/
+
 package vadmin
 
 import (
@@ -66,7 +81,11 @@ var _ = Describe("vdb_context", func() {
 		Ω(cert.Key).Should(Equal(test.TestKeyValue))
 		Ω(cert.Cert).Should(Equal(test.TestCertValue))
 		Ω(cert.CaCert).Should(Equal(test.TestCaCertValue))
-
+		inCache := vdbCertCacheTwo.IsCertInCache(TestClientServerSecret)
+		Ω(inCache).Should(Equal(true))
+		vdbCertCacheTwo.ClearCacheBySecretName(TestClientServerSecret)
+		inCache = vdbCertCacheTwo.IsCertInCache(TestClientServerSecret)
+		Ω(inCache).Should(Equal(false))
 	})
 
 	var _ = Describe("test vdb_context secret function", func() {

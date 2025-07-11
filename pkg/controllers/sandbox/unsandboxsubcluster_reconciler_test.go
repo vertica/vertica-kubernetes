@@ -22,6 +22,7 @@ import (
 	. "github.com/onsi/gomega"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/builder"
+	"github.com/vertica/vertica-kubernetes/pkg/cache"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
@@ -55,7 +56,7 @@ var _ = Describe("unsandboxsubcluster_reconcile", func() {
 
 		fpr := &cmds.FakePodRunner{}
 		pfacts := podfacts.MakePodFacts(sbRec, fpr, logger, TestPassword)
-		cacheManager := vadmin.MakeCacheManager()
+		cacheManager := cache.MakeCacheManager()
 		dispatcher := vadmin.MakeVClusterOps(logger, vdb, k8sClient, TestPassword, sbRec.EVRec, vadmin.SetupVClusterOps, cacheManager)
 		r := MakeUnsandboxSubclusterReconciler(sbRec, vdb, logger, k8sClient, &pfacts, dispatcher, nil, fpr)
 		Expect(vdb.IsEON()).Should(BeFalse())
@@ -77,7 +78,7 @@ var _ = Describe("unsandboxsubcluster_reconcile", func() {
 
 		fpr := &cmds.FakePodRunner{}
 		pfacts := podfacts.MakePodFacts(sbRec, fpr, logger, TestPassword)
-		cacheManager := vadmin.MakeCacheManager()
+		cacheManager := cache.MakeCacheManager()
 		dispatcher := vadmin.MakeVClusterOps(logger, vdb, k8sClient, TestPassword, sbRec.EVRec, vadmin.SetupVClusterOps, cacheManager)
 		r := MakeUnsandboxSubclusterReconciler(sbRec, vdb, logger, k8sClient, &pfacts, dispatcher, nil, fpr)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
@@ -100,7 +101,7 @@ var _ = Describe("unsandboxsubcluster_reconcile", func() {
 
 		fpr := &cmds.FakePodRunner{}
 		pfacts := podfacts.MakePodFacts(sbRec, fpr, logger, TestPassword)
-		cacheManager := vadmin.MakeCacheManager()
+		cacheManager := cache.MakeCacheManager()
 		dispatcher := vadmin.MakeVClusterOps(logger, vdb, k8sClient, TestPassword, sbRec.EVRec, vadmin.SetupVClusterOps, cacheManager)
 		rec := MakeUnsandboxSubclusterReconciler(sbRec, vdb, logger, k8sClient, &pfacts, dispatcher, cm, fpr)
 		r := rec.(*UnsandboxSubclusterReconciler)
@@ -141,7 +142,7 @@ var _ = Describe("unsandboxsubcluster_reconcile", func() {
 
 		fpr := &cmds.FakePodRunner{}
 		pfacts := podfacts.MakePodFacts(sbRec, fpr, logger, TestPassword)
-		cacheManager := vadmin.MakeCacheManager()
+		cacheManager := cache.MakeCacheManager()
 		dispatcher := vadmin.MakeVClusterOps(logger, vdb, k8sClient, TestPassword, sbRec.EVRec, vadmin.SetupVClusterOps, cacheManager)
 		rec := MakeUnsandboxSubclusterReconciler(sbRec, vdb, logger, k8sClient, &pfacts, dispatcher, cm, fpr)
 		r := rec.(*UnsandboxSubclusterReconciler)
@@ -182,7 +183,7 @@ var _ = Describe("unsandboxsubcluster_reconcile", func() {
 
 		fpr := &cmds.FakePodRunner{}
 		pfacts := podfacts.MakePodFacts(sbRec, fpr, logger, TestPassword)
-		cacheManager := vadmin.MakeCacheManager()
+		cacheManager := cache.MakeCacheManager()
 		dispatcher := vadmin.MakeVClusterOps(logger, vdb, k8sClient, TestPassword, sbRec.EVRec, vadmin.SetupVClusterOps, cacheManager)
 		rec := MakeUnsandboxSubclusterReconciler(sbRec, vdb, logger, k8sClient, &pfacts, dispatcher, nil, fpr)
 		r := rec.(*UnsandboxSubclusterReconciler)
@@ -217,7 +218,7 @@ var _ = Describe("unsandboxsubcluster_reconcile", func() {
 
 		fpr := &cmds.FakePodRunner{}
 		pfacts := podfacts.MakePodFacts(sbRec, fpr, logger, TestPassword)
-		cacheManager := vadmin.MakeCacheManager()
+		cacheManager := cache.MakeCacheManager()
 		dispatcher := vadmin.MakeVClusterOps(logger, vdb, k8sClient, TestPassword, sbRec.EVRec, vadmin.SetupVClusterOps, cacheManager)
 		rec := MakeUnsandboxSubclusterReconciler(sbRec, vdb, logger, k8sClient, &pfacts, dispatcher, cm, fpr)
 		r := rec.(*UnsandboxSubclusterReconciler)

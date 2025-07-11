@@ -82,7 +82,7 @@ func (h *NMACertRotationReconciler) Reconcile(ctx context.Context, _ *ctrl.Reque
 	if verrors.IsReconcileAborted(res, err) {
 		return res, err
 	}
-
+	currentSecretName := h.Vdb.GetHTTPSNMATLSSecretInUse()
 	h.Log.Info("Starting NMA TLS certificate rotation")
 	err, calledVclusterops := h.rotateNmaTLSCert(ctx, newSecret)
 	if err != nil {
@@ -118,7 +118,8 @@ func (h *NMACertRotationReconciler) Reconcile(ctx context.Context, _ *ctrl.Reque
 	if h.Vdb.IsStatusConditionTrue(vapi.ClientServerTLSConfigUpdateFinished) {
 		conds = append(conds, vapi.MakeCondition(vapi.ClientServerTLSConfigUpdateFinished, metav1.ConditionFalse, "Completed"))
 	}
-
+	certCache := h.VRec.CacheManager.GetCertCacheForVdb(h.Vdb.Namespace, h.Vdb.Name)
+	certCache.ClearCacheBySecretName(currentSecretName)
 	return ctrl.Result{}, updateConds(conds)
 }
 

@@ -27,6 +27,7 @@ import (
 
 	"github.com/vertica/vertica-kubernetes/pkg/aterrors"
 	"github.com/vertica/vertica-kubernetes/pkg/builder"
+	"github.com/vertica/vertica-kubernetes/pkg/cache"
 	"github.com/vertica/vertica-kubernetes/pkg/cloud"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
@@ -149,7 +150,7 @@ func deleteSecret(ctx context.Context, vdb *v1.VerticaDB, secretName string) {
 func mockVClusterOpsDispatcherWithCustomSetup(vdb *v1.VerticaDB,
 	setupAPIFunc func(logr.Logger, string) (vadmin.VClusterProvider, logr.Logger)) *vadmin.VClusterOps {
 	evWriter := aterrors.TestEVWriter{}
-	cacheManager := vadmin.MakeCacheManager()
+	cacheManager := cache.MakeCacheManager()
 	dispatcher := vadmin.MakeVClusterOps(logger, vdb, k8sClient, "pwd", &evWriter, setupAPIFunc, cacheManager)
 	vclusterops := dispatcher.(*vadmin.VClusterOps)
 	fetcher := &cloud.SecretFetcher{

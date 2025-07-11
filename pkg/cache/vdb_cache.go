@@ -1,10 +1,26 @@
-package vadmin
+/*
+ (c) Copyright [2021-2024] Open Text.
+ Licensed under the Apache License, Version 2.0 (the "License");
+ You may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+ http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+*/
+
+package cache
 
 import (
 	"context"
 	"sync"
 
 	"github.com/vertica/vertica-kubernetes/pkg/cloud"
+	"github.com/vertica/vertica-kubernetes/pkg/interfaces"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -15,10 +31,10 @@ import (
     As operator code runs in multiple threads, it is not
 	thread safe to a define a variable at package level and
 	share it. This file offers thread safe sharing/caching of
-	predefined variables.
+	certificate.
 
     Here is an example about how to get a reference to the cache
- 	vdbContext := vadmin.GetContextForVdb(c.Vdb.Namespace, c.Vdb.Name)
+ 	certCache := cache.GetCertCacheForVdb(vdb.Namespace, vdb.Name)
 
 */
 
@@ -37,9 +53,10 @@ type CacheManager interface {
 
 // These are the functions that can set/read a bool/secert
 type CertCache interface {
-	ReadCertFromSecret(context.Context, string) (*HTTPSCerts, error)
+	ReadCertFromSecret(context.Context, string) (*interfaces.HTTPSCerts, error)
 	ClearCacheBySecretName(string)
 	SaveCertIntoCache(string, map[string][]byte)
+	IsCertInCache(string) bool
 }
 
 type VdbCacheStruct struct {
@@ -118,7 +135,7 @@ func makeVdbCertCache(namespace string, fetcher *cloud.SecretFetcher) *VdbCacheS
 // ReadCertFromSecret will first try to load certs from its cache by secretName.
 // If the secret is not found in cache, it will be loaded from k8s and be cached.
 // the cache key will be the secretName
-func (c *VdbCacheStruct) ReadCertFromSecret(ctx context.Context, secretName string) (*HTTPSCerts, error) {
+func (c *VdbCacheStruct) ReadCertFromSecret(ctx context.Context, secretName string) (*interfaces.HTTPSCerts, error) {
 	c.lockForSecret.Lock()
 	defer c.lockForSecret.Unlock()
 	secretMap, ok := c.secretMap[secretName]
@@ -131,7 +148,7 @@ func (c *VdbCacheStruct) ReadCertFromSecret(ctx context.Context, secretName stri
 		c.secretMap[secretName] = secretMap // add secret content to cache
 		log.Info("loaded tls secret and cached it", "secretName", secretName)
 	}
-	return &HTTPSCerts{
+	return &interfaces.HTTPSCerts{
 		Key:    string(secretMap[corev1.TLSPrivateKeyKey]),
 		Cert:   string(secretMap[corev1.TLSCertKey]),
 		CaCert: string(secretMap[paths.HTTPServerCACrtName]),
@@ -149,10 +166,17 @@ func (c *VdbCacheStruct) ClearCacheBySecretName(name string) {
 	delete(c.secretMap, name)
 }
 
-func (c *VdbCacheStruct) SaveCertIntoCache(name string, certData map[string][]byte) {
+func (c *VdbCacheStruct) SaveCertIntoCache(secretName string, certData map[string][]byte) {
 	c.lockForSecret.Lock()
 	defer c.lockForSecret.Unlock()
-	c.secretMap[name] = certData
+	c.secretMap[secretName] = certData
+}
+
+func (c *VdbCacheStruct) IsCertInCache(secretName string) bool {
+	c.lockForSecret.Lock()
+	defer c.lockForSecret.Unlock()
+	_, ok := c.secretMap[secretName]
+	return ok
 }
 
 // retrieveSecretByName read secret by secret name

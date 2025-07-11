@@ -19,6 +19,7 @@ import (
 	"context"
 
 	vops "github.com/vertica/vcluster/vclusterops"
+	"github.com/vertica/vertica-kubernetes/pkg/interfaces"
 	"github.com/vertica/vertica-kubernetes/pkg/net"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/addsc"
 )
@@ -51,7 +52,7 @@ func (v *VClusterOps) AddSubcluster(ctx context.Context, opts ...addsc.Option) e
 	return nil
 }
 
-func (v *VClusterOps) genAddSubclusterOptions(s *addsc.Parms, certs *HTTPSCerts) vops.VAddSubclusterOptions {
+func (v *VClusterOps) genAddSubclusterOptions(s *addsc.Parms, certs *interfaces.HTTPSCerts) vops.VAddSubclusterOptions {
 	opts := vops.VAddSubclusterOptionsFactory()
 
 	opts.RawHosts = append(opts.RawHosts, s.InitiatorIP)

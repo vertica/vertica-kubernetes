@@ -22,22 +22,23 @@ import (
 
 	vops "github.com/vertica/vcluster/vclusterops"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
+	"github.com/vertica/vertica-kubernetes/pkg/interfaces"
 	"github.com/vertica/vertica-kubernetes/pkg/secrets"
 	corev1 "k8s.io/api/core/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 // retrieveHTTPSCerts will retrieve the certs from HTTPSNMATLSSecret for calling NMA endpoints
-func (v *VClusterOps) retrieveHTTPSCerts(ctx context.Context) (*HTTPSCerts, error) {
+func (v *VClusterOps) retrieveHTTPSCerts(ctx context.Context) (*interfaces.HTTPSCerts, error) {
 	return v.retrieveHTTPSCertsWithTarget(ctx, false)
 }
 
 // retrieveTargetHTTPSCerts will retrieve the certs from HTTPSNMATLSSecret for calling target NMA endpoints
-func (v *VClusterOps) retrieveTargetHTTPSCerts(ctx context.Context) (*HTTPSCerts, error) {
+func (v *VClusterOps) retrieveTargetHTTPSCerts(ctx context.Context) (*interfaces.HTTPSCerts, error) {
 	return v.retrieveHTTPSCertsWithTarget(ctx, true)
 }
 
-func (v *VClusterOps) retrieveHTTPSCertsWithTarget(ctx context.Context, forTarget bool) (*HTTPSCerts, error) {
+func (v *VClusterOps) retrieveHTTPSCertsWithTarget(ctx context.Context, forTarget bool) (*interfaces.HTTPSCerts, error) {
 	vdb := v.VDB
 	if forTarget {
 		vdb = v.TargetVDB
@@ -93,7 +94,7 @@ func (v *VClusterOps) logFailure(cmd, genericFailureReason string, err error) (c
 	return evLogr.LogFailure(cmd, err)
 }
 
-func (v *VClusterOps) setAuthentication(opts *vops.DatabaseOptions, username string, password *string, certs *HTTPSCerts) {
+func (v *VClusterOps) setAuthentication(opts *vops.DatabaseOptions, username string, password *string, certs *interfaces.HTTPSCerts) {
 	opts.Key = certs.Key
 	opts.Cert = certs.Cert
 	opts.CaCert = certs.CaCert

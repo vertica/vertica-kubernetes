@@ -22,6 +22,7 @@ import (
 	vops "github.com/vertica/vcluster/vclusterops"
 	"github.com/vertica/vcluster/vclusterops/vlog"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
+	"github.com/vertica/vertica-kubernetes/pkg/cache"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/addnode"
@@ -208,7 +209,7 @@ type VClusterOps struct {
 	Client       client.Client
 	Password     string
 	EVWriter     events.EVWriter
-	CacheManager CacheManager
+	CacheManager cache.CacheManager
 	VClusterProvider
 	// Setup function for VClusterProvider and Log in this struct
 	APISetupFunc func(log logr.Logger, apiName string) (VClusterProvider, logr.Logger)
@@ -217,7 +218,7 @@ type VClusterOps struct {
 // MakeVClusterOps will create a dispatcher that uses the vclusterops library for admin commands.
 func MakeVClusterOps(log logr.Logger, vdb *vapi.VerticaDB, cli client.Client,
 	passwd string, evWriter events.EVWriter,
-	apiSetupFunc func(logr.Logger, string) (VClusterProvider, logr.Logger), cacheManager CacheManager) Dispatcher {
+	apiSetupFunc func(logr.Logger, string) (VClusterProvider, logr.Logger), cacheManager cache.CacheManager) Dispatcher {
 	return &VClusterOps{
 		BaseLog:          log,
 		VDB:              vdb,
@@ -233,7 +234,7 @@ func MakeVClusterOps(log logr.Logger, vdb *vapi.VerticaDB, cli client.Client,
 // MakeVClusterOps will create a dispatcher that uses the vclusterops library for admin commands.
 func MakeVClusterOpsWithTarget(log logr.Logger, vdb *vapi.VerticaDB, targetVDB *vapi.VerticaDB, cli client.Client,
 	passwd string, evWriter events.EVWriter,
-	apiSetupFunc func(logr.Logger, string) (VClusterProvider, logr.Logger), cacheManager CacheManager) Dispatcher {
+	apiSetupFunc func(logr.Logger, string) (VClusterProvider, logr.Logger), cacheManager cache.CacheManager) Dispatcher {
 	return &VClusterOps{
 		BaseLog:          log,
 		VDB:              vdb,
@@ -291,12 +292,6 @@ func (v *VClusterOps) setupForAPICall(apiName string) {
 // should be called with defer immediately after calling setupForAPICall.
 func (v *VClusterOps) tearDownForAPICall() {
 	v.VClusterProvider = nil
-}
-
-type HTTPSCerts struct {
-	Key    string
-	Cert   string
-	CaCert string
 }
 
 // VClusterProvider is for mocking test
