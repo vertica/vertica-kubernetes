@@ -69,8 +69,13 @@ func (r *RollbackAfterCertRotationReconciler) Reconcile(ctx context.Context, _ *
 		}
 	}
 
+	tlsConfigName := tlsConfigHTTPS
+	if r.Vdb.GetTLSCertRollbackReason() == vapi.RollbackAfterServerCertRotationReason {
+		tlsConfigName = tlsConfigServer
+	}
+
 	r.VRec.Eventf(r.Vdb, corev1.EventTypeNormal, events.TLSCertRollbackStarted,
-		"Starting TLS cert rollback after failed update")
+		"Starting %s TLS cert rollback after failed update", tlsConfigName)
 
 	funcs := []func(context.Context) (ctrl.Result, error){
 		r.runNMACertConfigMapReconciler,
@@ -90,7 +95,7 @@ func (r *RollbackAfterCertRotationReconciler) Reconcile(ctx context.Context, _ *
 	}
 
 	r.VRec.Eventf(r.Vdb, corev1.EventTypeNormal, events.TLSCertRollbackSucceeded,
-		"TLS cert rollback completed successfully")
+		"%s TLS cert rollback completed successfully", tlsConfigName)
 
 	return ctrl.Result{}, nil
 }
