@@ -19,6 +19,7 @@ import (
 	"context"
 
 	vops "github.com/vertica/vcluster/vclusterops"
+	"github.com/vertica/vertica-kubernetes/pkg/interfaces"
 	"github.com/vertica/vertica-kubernetes/pkg/net"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/removenode"
 )
@@ -44,7 +45,7 @@ func (v *VClusterOps) RemoveNode(ctx context.Context, opts ...removenode.Option)
 	return err
 }
 
-func (v *VClusterOps) genRemoveNodeOptions(s *removenode.Parms, certs *HTTPSCerts) vops.VRemoveNodeOptions {
+func (v *VClusterOps) genRemoveNodeOptions(s *removenode.Parms, certs *interfaces.HTTPSCerts) vops.VRemoveNodeOptions {
 	opts := vops.VRemoveNodeOptionsFactory()
 
 	// required options

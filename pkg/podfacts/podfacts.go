@@ -29,6 +29,7 @@ import (
 	"github.com/pkg/errors"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/builder"
+	"github.com/vertica/vertica-kubernetes/pkg/cache"
 	"github.com/vertica/vertica-kubernetes/pkg/catalog"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/iter"
@@ -36,7 +37,6 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/net"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
-	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	config "github.com/vertica/vertica-kubernetes/pkg/vdbconfig"
 	"github.com/vertica/vertica-kubernetes/pkg/vk8s"
 	appsv1 "k8s.io/api/apps/v1"
@@ -204,7 +204,7 @@ type PodFacts struct {
 	SandboxName        string
 	OverrideFunc       CheckerFunc // Set this if you want to be able to control the PodFact
 	VerticaSUPassword  string
-	CacheManager       vadmin.CacheManager // Cache manager to use for fetching node details
+	CacheManager       cache.CacheManager // Cache manager to use for fetching node details
 }
 
 // GatherState is the data exchanged with the gather pod facts script. We
@@ -238,7 +238,7 @@ const (
 
 // MakePodFacts will create a PodFacts object and return it
 func MakePodFactsWithCacheManager(vrec config.ReconcilerInterface, prunner cmds.PodRunner, log logr.Logger, password string,
-	cacheManager vadmin.CacheManager) PodFacts {
+	cacheManager cache.CacheManager) PodFacts {
 	return PodFacts{VRec: vrec, PRunner: prunner, Log: log, NeedCollection: true, Detail: make(PodFactDetail),
 		VerticaSUPassword: password, SandboxName: vapi.MainCluster, CacheManager: cacheManager}
 }
@@ -251,7 +251,7 @@ func MakePodFacts(vrec config.ReconcilerInterface, prunner cmds.PodRunner, log l
 
 // MakePodFactsForSandbox will create a PodFacts object for a sandbox
 func MakePodFactsForSandboxWithCacheManager(vrec config.ReconcilerInterface, prunner cmds.PodRunner, log logr.Logger,
-	password, sandbox string, cacheManager vadmin.CacheManager) PodFacts {
+	password, sandbox string, cacheManager cache.CacheManager) PodFacts {
 	pf := MakePodFactsWithCacheManager(vrec, prunner, log, password, cacheManager)
 	pf.SandboxName = sandbox
 	return pf
@@ -1098,9 +1098,6 @@ func (p *PodFacts) makeNodeInfoFetcher(vdb *vapi.VerticaDB, pf *PodFact) catalog
 	verInfo, ok := vdb.MakeVersionInfoDuringROUpgrade()
 	if verInfo != nil && ok {
 		if !verInfo.IsOlder(vapi.FetchNodeDetailsWithVclusterOpsMinVersion) && vmeta.UseVClusterOps(vdb.Annotations) {
-			if !ok {
-				return nil // Handle the case where the type assertion fails
-			}
 			return catalog.MakeVCluster(vdb, p.VerticaSUPassword, pf.podIP, p.Log, p.VRec.GetClient(), p.VRec.GetEventRecorder(), p.CacheManager)
 		}
 	} else {

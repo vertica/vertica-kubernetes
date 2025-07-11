@@ -25,6 +25,7 @@ import (
 	. "github.com/onsi/gomega"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/builder"
+	"github.com/vertica/vertica-kubernetes/pkg/cloud"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
@@ -51,7 +52,16 @@ var _ = Describe("obj_reconcile", func() {
 
 	runReconciler := func(vdb *vapi.VerticaDB, expResult ctrl.Result, mode ObjReconcileModeType) {
 		// Create any dependent objects for the CRD.
-		pfacts := podfacts.MakePodFacts(vdbRec, &cmds.FakePodRunner{}, logger, TestPassword)
+		pfacts := podfacts.MakePodFactsWithCacheManager(vdbRec, &cmds.FakePodRunner{}, logger, TestPassword, vdbRec.CacheManager)
+
+		fetcher := &cloud.SecretFetcher{
+			Client:   vdbRec.Client,
+			Log:      vdbRec.Log,
+			Obj:      vdb,
+			EVWriter: vdbRec.EVRec,
+			// &aterrors.TestEVWriter{},
+		}
+		vdbRec.CacheManager.InitCertCacheForVdb(vdb.Namespace, vdb.Name, fetcher)
 		objr := MakeObjReconciler(vdbRec, logger, vdb, &pfacts, mode)
 		Expect(objr.Reconcile(ctx, &ctrl.Request{})).Should(Equal(expResult))
 	}

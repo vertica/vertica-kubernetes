@@ -22,6 +22,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/google/uuid"
 	v1 "github.com/vertica/vertica-kubernetes/api/v1"
+	"github.com/vertica/vertica-kubernetes/pkg/cache"
 	"github.com/vertica/vertica-kubernetes/pkg/cloud"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
@@ -59,7 +60,7 @@ type SandboxConfigMapReconciler struct {
 	Cfg          *rest.Config
 	EVRec        record.EventRecorder
 	Concurrency  int
-	CacheManager vadmin.CacheManager
+	CacheManager cache.CacheManager
 }
 
 // +kubebuilder:rbac:groups="",resources=configmaps,verbs=get;list;watch
