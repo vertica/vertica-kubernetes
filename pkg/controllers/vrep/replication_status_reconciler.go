@@ -108,14 +108,6 @@ func (r *ReplicationStatusReconciler) Reconcile(ctx context.Context, _ *ctrl.Req
 		return res, fetchErr
 	}
 
-	vclusterops := r.dispatcher.(*vadmin.VClusterOps)
-	fetcher := &cloud.SecretFetcher{
-		Client:   vclusterops.Client,
-		Log:      vclusterops.Log,
-		Obj:      r.TargetInfo.Vdb,
-		EVWriter: vclusterops.EVWriter,
-	}
-	r.VRec.CacheManager.InitCertCacheForVdb(r.TargetInfo.Vdb.Namespace, r.TargetInfo.Vdb.Name, fetcher)
 	// determine usernames and passwords
 	err := r.determineUsernameAndPassword(ctx)
 	if err != nil {
@@ -147,7 +139,14 @@ func (r *ReplicationStatusReconciler) Reconcile(ctx context.Context, _ *ctrl.Req
 		r.Log.Error(err, "Failed to make dispatcher")
 		return ctrl.Result{}, err
 	}
-
+	vclusterops := r.dispatcher.(*vadmin.VClusterOps)
+	fetcher := &cloud.SecretFetcher{
+		Client:   vclusterops.Client,
+		Log:      vclusterops.Log,
+		Obj:      r.TargetInfo.Vdb,
+		EVWriter: vclusterops.EVWriter,
+	}
+	r.VRec.CacheManager.InitCertCacheForVdb(r.TargetInfo.Vdb.Namespace, r.TargetInfo.Vdb.Name, fetcher)
 	err = r.runReplicationStatus(ctx, r.dispatcher, opts)
 
 	return ctrl.Result{}, err
