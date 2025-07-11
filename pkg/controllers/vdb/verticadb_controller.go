@@ -35,6 +35,8 @@ import (
 
 	"github.com/google/uuid"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
+	"github.com/vertica/vertica-kubernetes/pkg/cache"
+	"github.com/vertica/vertica-kubernetes/pkg/cloud"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
@@ -56,6 +58,7 @@ type VerticaDBReconciler struct {
 	EVRec              record.EventRecorder
 	Namespace          string
 	MaxBackOffDuration int
+	CacheManager       cache.CacheManager
 }
 
 // +kubebuilder:rbac:groups=vertica.com,resources=verticadbs,verbs=get;list;watch;create;update;patch;delete
@@ -117,6 +120,7 @@ func (r *VerticaDBReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		if errors.IsNotFound(err) {
 			// Remove any metrics for the vdb that we found to be deleted
 			metrics.HandleVDBDelete(req.NamespacedName.Namespace, req.NamespacedName.Name, log)
+			r.CacheManager.DestroyCertCacheForVdb(req.NamespacedName.Namespace, req.NamespacedName.Name)
 			// Request object not found, cound have been deleted after reconcile request.
 			log.Info("VerticaDB resource not found.  Ignoring since object must be deleted")
 			return ctrl.Result{}, nil
@@ -141,10 +145,11 @@ func (r *VerticaDBReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	// We use the same pod facts for all reconcilers. This allows to reuse as
 	// much as we can. Some reconcilers will purposely invalidate the facts if
 	// it is known they did something to make them stale.
-	pfacts := podfacts.MakePodFacts(r, prunner, log, passwd)
+	pfacts := podfacts.MakePodFactsWithCacheManager(r, prunner, log, passwd, r.CacheManager)
 	dispatcher := r.makeDispatcher(log, vdb, prunner, passwd)
 	var res ctrl.Result
 
+	r.InitCertCacheForVdb(vdb)
 	// Iterate over each actor
 	actors := r.constructActors(log, vdb, prunner, &pfacts, dispatcher)
 	for _, act := range actors {
@@ -164,7 +169,6 @@ func (r *VerticaDBReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 			return res, err
 		}
 	}
-
 	log.Info("ending reconcile of VerticaDB", "result", res, "err", err)
 	return res, err
 }
@@ -351,7 +355,7 @@ func (r *VerticaDBReconciler) checkShardToNodeRatio(vdb *vapi.VerticaDB, sc *vap
 func (r *VerticaDBReconciler) makeDispatcher(log logr.Logger, vdb *vapi.VerticaDB, prunner cmds.PodRunner,
 	passwd string) vadmin.Dispatcher {
 	if vmeta.UseVClusterOps(vdb.Annotations) {
-		return vadmin.MakeVClusterOps(log, vdb, r.Client, passwd, r.EVRec, vadmin.SetupVClusterOps)
+		return vadmin.MakeVClusterOps(log, vdb, r.Client, passwd, r.EVRec, vadmin.SetupVClusterOps, r.CacheManager)
 	}
 	return vadmin.MakeAdmintools(log, vdb, prunner, r.EVRec)
 }
@@ -387,4 +391,14 @@ func (r *VerticaDBReconciler) GetEventRecorder() record.EventRecorder {
 // GetConfig gives access to *rest.Config
 func (r *VerticaDBReconciler) GetConfig() *rest.Config {
 	return r.Cfg
+}
+
+func (r *VerticaDBReconciler) InitCertCacheForVdb(vdb *vapi.VerticaDB) {
+	fetcher := &cloud.SecretFetcher{
+		Client:   r.Client,
+		Log:      r.Log,
+		Obj:      vdb,
+		EVWriter: r.EVRec,
+	}
+	r.CacheManager.InitCertCacheForVdb(vdb.Namespace, vdb.Name, fetcher)
 }

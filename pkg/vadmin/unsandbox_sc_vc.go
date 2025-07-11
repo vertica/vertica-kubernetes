@@ -20,6 +20,7 @@ import (
 	"errors"
 
 	vops "github.com/vertica/vcluster/vclusterops"
+	"github.com/vertica/vertica-kubernetes/pkg/interfaces"
 	"github.com/vertica/vertica-kubernetes/pkg/net"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/unsandboxsc"
 )
@@ -58,7 +59,7 @@ func (v *VClusterOps) UnsandboxSubcluster(ctx context.Context, opts ...unsandbox
 	return nil
 }
 
-func (v *VClusterOps) genUnsandboxSubclusterOptions(s *unsandboxsc.Params, certs *HTTPSCerts) vops.VUnsandboxOptions {
+func (v *VClusterOps) genUnsandboxSubclusterOptions(s *unsandboxsc.Params, certs *interfaces.HTTPSCerts) vops.VUnsandboxOptions {
 	opts := vops.VUnsandboxOptionsFactory()
 
 	opts.DBName = v.VDB.Spec.DBName

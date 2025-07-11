@@ -20,6 +20,7 @@ import (
 	"fmt"
 
 	vops "github.com/vertica/vcluster/vclusterops"
+	"github.com/vertica/vertica-kubernetes/pkg/interfaces"
 	"github.com/vertica/vertica-kubernetes/pkg/net"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/getconfigparameter"
 )
@@ -48,7 +49,7 @@ func (v *VClusterOps) GetConfigurationParameter(ctx context.Context, opts ...get
 }
 
 func (v *VClusterOps) genGetConfigurationParameterOptions(s *getconfigparameter.Params,
-	certs *HTTPSCerts) *vops.VGetConfigurationParameterOptions {
+	certs *interfaces.HTTPSCerts) *vops.VGetConfigurationParameterOptions {
 	opts := vops.VGetConfigurationParameterOptionsFactory()
 
 	opts.RawHosts = append(opts.RawHosts, s.InitiatorIP)
