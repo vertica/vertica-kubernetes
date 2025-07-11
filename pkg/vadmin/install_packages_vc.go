@@ -20,6 +20,7 @@ import (
 
 	vops "github.com/vertica/vcluster/vclusterops"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
+	"github.com/vertica/vertica-kubernetes/pkg/interfaces"
 	"github.com/vertica/vertica-kubernetes/pkg/net"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/installpackages"
 )
@@ -56,7 +57,7 @@ func (v *VClusterOps) InstallPackages(ctx context.Context, opts ...installpackag
 	return status, nil
 }
 
-func (v *VClusterOps) genInstallPackagesOptions(i *installpackages.Parms, certs *HTTPSCerts) vops.VInstallPackagesOptions {
+func (v *VClusterOps) genInstallPackagesOptions(i *installpackages.Parms, certs *interfaces.HTTPSCerts) vops.VInstallPackagesOptions {
 	opts := vops.VInstallPackagesOptionsFactory()
 
 	opts.RawHosts = append(opts.RawHosts, i.InitiatorIP)

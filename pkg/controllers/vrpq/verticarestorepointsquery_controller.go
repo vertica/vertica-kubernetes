@@ -30,11 +30,11 @@ import (
 	"github.com/go-logr/logr"
 	v1vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	"github.com/vertica/vertica-kubernetes/pkg/cache"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/meta"
-	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 )
 
 // VerticaRestorePointsQueryReconciler reconciles a VerticaRestorePointsQuery object
@@ -44,7 +44,7 @@ type VerticaRestorePointsQueryReconciler struct {
 	Log          logr.Logger
 	Cfg          *rest.Config
 	EVRec        record.EventRecorder
-	CacheManager vadmin.CacheManager
+	CacheManager cache.CacheManager
 }
 
 // +kubebuilder:rbac:groups=vertica.com,resources=verticarestorepointsqueries,verbs=get;list;watch;create;update;patch;delete

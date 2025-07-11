@@ -90,7 +90,7 @@ func (h *ClientServerTLSUpdateReconciler) Reconcile(ctx context.Context, req *ct
 	if res, errCheck := h.Manager.checkNMATLSConfigMap(ctx); verrors.IsReconcileAborted(res, errCheck) {
 		return res, errCheck
 	}
-
+	currentSecretName := h.Vdb.GetClientServerTLSSecretInUse()
 	h.Log.Info("start client server tls config update")
 	cond := vapi.MakeCondition(vapi.TLSConfigUpdateInProgress, metav1.ConditionTrue, "InProgress")
 	if err2 := vdbstatus.UpdateCondition(ctx, h.VRec.GetClient(), h.Vdb, cond); err2 != nil {
@@ -121,6 +121,7 @@ func (h *ClientServerTLSUpdateReconciler) Reconcile(ctx context.Context, req *ct
 		h.Log.Error(err, "failed to set condition "+vapi.ClientServerTLSConfigUpdateFinished+" to true")
 		return ctrl.Result{}, err
 	}
-
+	certCache := h.VRec.CacheManager.GetCertCacheForVdb(h.Vdb.Namespace, h.Vdb.Name)
+	certCache.ClearCacheBySecretName(currentSecretName)
 	return ctrl.Result{}, nil
 }

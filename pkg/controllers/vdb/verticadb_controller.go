@@ -35,6 +35,7 @@ import (
 
 	"github.com/google/uuid"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
+	"github.com/vertica/vertica-kubernetes/pkg/cache"
 	"github.com/vertica/vertica-kubernetes/pkg/cloud"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
@@ -57,7 +58,7 @@ type VerticaDBReconciler struct {
 	EVRec              record.EventRecorder
 	Namespace          string
 	MaxBackOffDuration int
-	CacheManager       vadmin.CacheManager
+	CacheManager       cache.CacheManager
 }
 
 // +kubebuilder:rbac:groups=vertica.com,resources=verticadbs,verbs=get;list;watch;create;update;patch;delete
