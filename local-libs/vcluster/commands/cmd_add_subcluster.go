@@ -273,9 +273,21 @@ func (c *CmdAddSubcluster) Run(vcc vclusterops.ClusterCommands) error {
 			return err
 		}
 		// update db info in the config file
-		err = writeConfig(&vdb, true /*forceOverwrite*/)
-		if err != nil {
-			vcc.DisplayWarning("Failed to write config file, details: %s", err)
+		mainCluster := false
+		if c.addSubclusterOptions.SandboxName == util.MainClusterSandbox {
+			mainCluster = true
+		}
+		dbConfig, configErr := readConfig()
+		if configErr != nil {
+			vcc.DisplayWarning("Failed to read the configuration file, skipping configuration file update", "error", configErr)
+		} else {
+			// update new node info in config
+			UpdateDBConfig(&vdb, dbConfig, c.addSubclusterOptions.SandboxName, mainCluster)
+			writeErr := dbConfig.Write(c.addSubclusterOptions.DatabaseOptions.ConfigPath, true /*forceOverwrite*/)
+			if writeErr != nil {
+				vcc.PrintWarning("Fail to update config file: %s", writeErr)
+				return nil
+			}
 		}
 	}
 

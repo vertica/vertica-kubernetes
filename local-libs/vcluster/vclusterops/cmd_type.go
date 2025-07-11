@@ -48,6 +48,7 @@ const (
 	WorkloadReplayCmd
 	WorkloadCaptureCmd
 	WorkloadCancelCmd
+	HealthWatchdogGetCmd
 	RotateNMACertsCmd
 	RotateVerticaCertsCmd
 	SetTLSConfigCmd
@@ -96,6 +97,7 @@ var cmdStringMap = map[CmdType]string{
 	ClusterHealthCmd:             "cluster_health",
 	WorkloadReplayCmd:            "workload_replay",
 	WorkloadCaptureCmd:           "workload_capture",
+	HealthWatchdogGetCmd:         "health_watchdog_get",
 	RotateNMACertsCmd:            "rotate_nma_certs",
 	RotateVerticaCertsCmd:        "rotate_vertica_certs",
 	SetTLSConfigCmd:              "set_tls_config",
