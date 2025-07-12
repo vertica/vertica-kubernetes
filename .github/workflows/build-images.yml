@@ -289,7 +289,7 @@ jobs:
       uses: roypaulin/switch-case-action@v2
       id: minimal_vertica_image
       with:
-        default: cchen8562/custom-vertica:20250709-minimal
+        default: cchen8562/custom-vertica:20250711-minimal
         conditionals-with-values: |
           ${{ inputs.minimal_vertica_image != '' }} => ${{ inputs.minimal_vertica_image }}
 
