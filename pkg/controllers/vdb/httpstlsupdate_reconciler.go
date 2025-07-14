@@ -119,19 +119,6 @@ func (h *HTTPSTLSUpdateReconciler) Reconcile(ctx context.Context, req *ctrl.Requ
 		return ctrl.Result{}, err
 	}
 
-	// Clear TLSConfigUpdateInProgress condition if only tls mode changed.
-	// This way, we will skip nma cert rotation
-	if h.Manager.TLSUpdateType == tlsModeChangeOnly {
-		cond = vapi.MakeCondition(vapi.TLSConfigUpdateInProgress, metav1.ConditionFalse, "Completed")
-		return ctrl.Result{}, vdbstatus.UpdateCondition(ctx, h.VRec.GetClient(), h.Vdb, cond)
-	}
-
-	cond = vapi.MakeCondition(vapi.HTTPSTLSConfigUpdateFinished, metav1.ConditionTrue, "Completed")
-	if err := vdbstatus.UpdateCondition(ctx, h.VRec.GetClient(), h.Vdb, cond); err != nil {
-		h.Log.Error(err, "failed to set condition "+vapi.HTTPSTLSConfigUpdateFinished+" to true")
-		return ctrl.Result{}, err
-	}
-
 	return ctrl.Result{}, h.handleConditions(ctx)
 }
 
