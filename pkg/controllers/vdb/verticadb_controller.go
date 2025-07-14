@@ -308,7 +308,7 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		// is changed
 		MakeSandboxUpgradeReconciler(r, log, vdb, true),
 		// Update subcluster type in db according to its type in vdb spec
-		MakeAlterSubclusterTypeReconciler(r, log, vdb, pfacts, dispatcher),
+		MakeAlterSubclusterTypeReconciler(r, log, vdb, pfacts, dispatcher, nil),
 		// Update the sandbox/subclusters' shutdown field to match the value of
 		// the spec.
 		MakeShutdownSpecReconciler(r, vdb),
