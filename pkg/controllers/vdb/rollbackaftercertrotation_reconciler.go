@@ -154,7 +154,6 @@ func (r *RollbackAfterCertRotationReconciler) runHTTPSCertRotation(ctx context.C
 // - TLSCertRollbackInProgress: rollback has completed
 func (r *RollbackAfterCertRotationReconciler) cleanUpRollbackConditions(ctx context.Context) (ctrl.Result, error) {
 	conds := []metav1.Condition{
-		{Type: vapi.TLSConfigUpdateInProgress, Status: metav1.ConditionFalse, Reason: "Completed"},
 		{Type: vapi.TLSCertRollbackInProgress, Status: metav1.ConditionFalse, Reason: "Completed"},
 		{Type: vapi.TLSCertRollbackNeeded, Status: metav1.ConditionFalse, Reason: "Completed"},
 	}
