@@ -288,13 +288,13 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		MakeClientRoutingLabelReconciler(r, log, vdb, pfacts, PodRescheduleApplyMethod, ""),
 		// Handle calls to add new subcluster to the catalog
 		MakeDBAddSubclusterReconciler(r, log, vdb, prunner, pfacts, dispatcher),
-		// Update subcluster type in db according to its type in vdb spec
-		MakeAlterSubclusterTypeReconciler(r, log, vdb, pfacts, dispatcher, nil /* configMap */),
 		MakeMetricReconciler(r, log, vdb, prunner, pfacts),
 		MakeStatusReconciler(r.Client, r.Scheme, log, vdb, pfacts),
 		// Handle calls to add a new database node to the cluster
 		MakeDBAddNodeReconciler(r, log, vdb, prunner, pfacts, dispatcher),
 		MakeStatusReconciler(r.Client, r.Scheme, log, vdb, pfacts),
+		// Update subcluster type in db according to its type in vdb spec
+		MakeAlterSubclusterTypeReconciler(r, log, vdb, pfacts, dispatcher, nil /* configMap */),
 		// Handle calls to rebalance_shards
 		MakeRebalanceShardsReconciler(r, log, vdb, prunner, pfacts, "" /* all subclusters */),
 		// Update the label in pods so that Service routing uses them if they
