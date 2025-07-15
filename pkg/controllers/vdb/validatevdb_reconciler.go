@@ -18,6 +18,7 @@ package vdb
 import (
 	"context"
 	"fmt"
+	"slices"
 
 	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
@@ -62,11 +63,10 @@ func (r *ValidateVDBReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) 
 
 // validateSubclusters updates the vdb/sandbox subcluster type if needed
 func (r *ValidateVDBReconciler) validateSubclusters() (scsMain, scsSandbox []string, err error) {
-	sbs := r.Vdb.GenSandboxMap()
-	for sbName := range sbs {
-		sb := sbs[sbName]
-		scMap := r.Vdb.GenSubclusterMap()
-
+	sbMap := r.Vdb.GenSandboxMap()
+	scMap := r.Vdb.GenSubclusterMap()
+	for sbName := range sbMap {
+		sb := sbMap[sbName]
 		// to find the subcluster that needs to be updated
 		for i := range sb.Subclusters {
 			sc := scMap[sb.Subclusters[i].Name]
@@ -74,14 +74,14 @@ func (r *ValidateVDBReconciler) validateSubclusters() (scsMain, scsSandbox []str
 				return scsMain, scsSandbox, fmt.Errorf("could not find subcluster %s", sb.Subclusters[i].Name)
 			}
 
-			// the vdb subcluster type is not valid only when operator upgraded from 25.2 to 25.3:
-			// - vdb subcluster type is "sandboxprimary" (25.2 or earlier)
-			// - sandbox subcluster type is not empty (25.3 or later) and
+			// the vdb subcluster type is not valid only when upgrade happens:
+			// - vdb subcluster type is "sandboxprimary"
+			// - sandbox subcluster type is not empty
 			if sb.Subclusters[i].Type != "" {
 				if sc.Type == vapi.SandboxPrimarySubcluster {
 					scsMain = append(scsMain, sc.Name)
 				} else {
-					// the rest sandbox subclusters needs to be updated if not valid
+					// the rest sandbox subclusters needs to be updated to "secondary" if not valid
 					scsSandbox = append(scsSandbox, sb.Subclusters[i].Name)
 				}
 			}
@@ -93,6 +93,11 @@ func (r *ValidateVDBReconciler) validateSubclusters() (scsMain, scsSandbox []str
 
 // validateSubclusters updates the vdb/sandbox subcluster type if needed
 func (r *ValidateVDBReconciler) updateSubclusters(ctx context.Context, scsMain, scsSandbox []string) (ctrl.Result, error) {
+	// update the sandbox subcluster type only if sandboxprimary found in scsMain
+	if len(scsMain) == 0 {
+		return ctrl.Result{}, nil
+	}
+
 	// to update the vdb/sandbox subcluster type if not valid
 	for _, scName := range scsMain {
 		// if the vdb subcluster type is not valid, we need to change the subcluster type to "secondary"
@@ -110,27 +115,26 @@ func (r *ValidateVDBReconciler) updateSubclusters(ctx context.Context, scsMain, 
 		}
 	}
 
-	if len(scsSandbox) == 0 {
-		return ctrl.Result{}, nil
-	}
-
-	// all the reset sandbox subclusters type should be "secondary"
-	for _, sbScName := range scsSandbox {
-		// if the vdb subcluster type is not valid, we need to change the subcluster type to "secondary"
-		_, err := vk8s.UpdateVDBWithRetry(ctx, r.VRec, r.Vdb, func() (bool, error) {
-			for j := range r.Vdb.Spec.Sandboxes {
-				for k := range r.Vdb.Spec.Sandboxes[j].Subclusters {
-					if r.Vdb.Spec.Sandboxes[j].Subclusters[k].Name == sbScName &&
-						r.Vdb.Spec.Sandboxes[j].Subclusters[k].Type != vapi.SecondarySubcluster {
-						r.Vdb.Spec.Sandboxes[j].Subclusters[k].Type = vapi.SecondarySubcluster
-					}
+	// if the vdb subcluster type is not valid, we need to change the subcluster type to "secondary"
+	_, err := vk8s.UpdateVDBWithRetry(ctx, r.VRec, r.Vdb, func() (bool, error) {
+		for j := range r.Vdb.Spec.Sandboxes {
+			for k := range r.Vdb.Spec.Sandboxes[j].Subclusters {
+				// make sure the primary subcluster type is "primary"
+				if slices.Contains(scsMain, r.Vdb.Spec.Sandboxes[j].Subclusters[k].Name) &&
+					r.Vdb.Spec.Sandboxes[j].Subclusters[k].Type != vapi.PrimarySubcluster {
+					r.Vdb.Spec.Sandboxes[j].Subclusters[k].Type = vapi.PrimarySubcluster
+				}
+				// make sure the secondary subcluster type is "secondary"
+				if slices.Contains(scsSandbox, r.Vdb.Spec.Sandboxes[j].Subclusters[k].Name) &&
+					r.Vdb.Spec.Sandboxes[j].Subclusters[k].Type != vapi.SecondarySubcluster {
+					r.Vdb.Spec.Sandboxes[j].Subclusters[k].Type = vapi.SecondarySubcluster
 				}
 			}
-			return true, nil
-		})
-		if err != nil {
-			return ctrl.Result{}, err
 		}
+		return true, nil
+	})
+	if err != nil {
+		return ctrl.Result{}, err
 	}
 
 	return ctrl.Result{}, nil

@@ -59,7 +59,6 @@ var _ = Describe("ValidateVDBReconciler", func() {
 	})
 
 	It("should update subcluster types from sandboxprimary to secondary", func() {
-
 		scsMain, scsSandbox, err := reconciler.validateSubclusters()
 		Expect(err).ShouldNot(HaveOccurred())
 		_, err = reconciler.updateSubclusters(ctx, scsMain, scsSandbox)
@@ -76,12 +75,12 @@ var _ = Describe("ValidateVDBReconciler", func() {
 	})
 
 	It("should not update subcluster types if already valid", func() {
-		// Set all types to secondary
+		// set valid subcluster types
 		vdb.Spec.Subclusters[1].Type = vapi.SecondarySubcluster
 		scsMain, scsSandbox, err := reconciler.validateSubclusters()
 		Expect(err).ShouldNot(HaveOccurred())
 		_, err = reconciler.updateSubclusters(ctx, scsMain, scsSandbox)
 		Expect(err).To(Succeed())
-		Expect(vdb.Spec.Sandboxes[0].Subclusters[1].Type).To(Equal(vapi.SecondarySubcluster))
+		Expect(vdb.Spec.Sandboxes[0].Subclusters[1].Type).To(Equal(vapi.PrimarySubcluster))
 	})
 })

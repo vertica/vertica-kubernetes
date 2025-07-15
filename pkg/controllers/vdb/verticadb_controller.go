@@ -189,12 +189,12 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		// Modify or record the annotations in the vdb so later reconcilers can
 		// get the correct information.
 		MakeObjReconciler(r, log, vdb, pfacts, ObjReconcileModeAnnotation),
+		// Validate the vdb after operator upgraded
+		MakeValidateVDBReconciler(r, log, vdb),
 		// Always generate cert first if nothing is provided
 		MakeTLSServerCertGenReconciler(r, log, vdb),
 		// Set up configmap which stores env variables for NMA container
 		MakeNMACertConfigMapReconciler(r, log, vdb),
-		// Validate the vdb after operator upgraded
-		MakeValidateVDBReconciler(r, log, vdb),
 		// Trigger sandbox upgrade when the image field for the sandbox
 		// is changed
 		MakeSandboxUpgradeReconciler(r, log, vdb, false),
@@ -302,6 +302,8 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		MakeClientRoutingLabelReconciler(r, log, vdb, pfacts, AddNodeApplyMethod, ""),
 		// Handle calls to add subclusters to sandboxes
 		MakeSandboxSubclusterReconciler(r, log, vdb, pfacts, dispatcher, r.Client, false),
+		// Update sandbox subcluster type in db according to its type in vdb spec
+		MakeAlterSandboxTypeReconciler(r, log, vdb, pfacts, true),
 		// Handle calls to move subclusters from sandboxes to main cluster
 		MakeUnsandboxSubclusterReconciler(r, log, vdb, r.Client),
 		// Update the status subcluster types
@@ -309,8 +311,6 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		// Trigger sandbox upgrade when the image field for the sandbox
 		// is changed
 		MakeSandboxUpgradeReconciler(r, log, vdb, true),
-		// Update sandbox subcluster type in db according to its type in vdb spec
-		MakeAlterSandboxTypeReconciler(r, log, vdb, pfacts, true),
 		// Update the sandbox/subclusters' shutdown field to match the value of
 		// the spec.
 		MakeShutdownSpecReconciler(r, vdb),
