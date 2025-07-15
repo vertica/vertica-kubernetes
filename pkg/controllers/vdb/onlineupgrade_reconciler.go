@@ -599,6 +599,32 @@ func (r *OnlineUpgradeReconciler) sandboxReplicaGroupB(ctx context.Context) (ctr
 // postPromoteSubclustersInSandboxMsg will update the status message to indicate that
 // we are going to prmote subclusters in sandbox.
 func (r *OnlineUpgradeReconciler) postPromoteSubclustersInSandboxMsg(ctx context.Context) (ctrl.Result, error) {
+	// requeue if any of the subclusters in the sandbox doensn't match the pod fact (db)
+	sbMap := r.VDB.GenSandboxMap()
+	if len(sbMap) == 0 {
+		r.Log.Info("No sandboxes found in the database")
+		return ctrl.Result{}, nil
+	}
+	for sbName := range sbMap {
+		sb := sbMap[sbName]
+		if sb == nil {
+			return ctrl.Result{}, fmt.Errorf("could not find sandbox %s", sbName)
+		}
+		for _, sbsc := range sb.Subclusters {
+			pf, ok := r.PFacts[sbName].FindFirstUpPod(false, sbsc.Name)
+			if !ok {
+				return ctrl.Result{Requeue: true},
+					fmt.Errorf("could not find pod for sandbox subcluster %s", sbsc.Name)
+			}
+			if sbsc.Type == vapi.PrimarySubcluster && !pf.GetIsPrimary() ||
+				sbsc.Type == vapi.SecondarySubcluster && pf.GetIsPrimary() {
+				return ctrl.Result{Requeue: true},
+					fmt.Errorf("sandbox subcluster %s type %s does not match pod fact %s is_primary value %t",
+						sbsc.Name, sbsc.Type, pf.GetName().Name, pf.GetIsPrimary())
+			}
+		}
+	}
+
 	return r.postNextStatusMsg(ctx, promoteSubclustersInSandboxMsgInx)
 }
 
