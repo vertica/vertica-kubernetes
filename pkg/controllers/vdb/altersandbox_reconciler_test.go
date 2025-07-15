@@ -36,23 +36,26 @@ var _ = Describe("altersandbox_reconciler", func() {
 	It("should trigger configmap to alster sandbox subcluster type", func() {
 		vdb := vapi.MakeVDBForVclusterOps()
 		const sandbox1 = "sand"
+		const subcluster1 = "sc1"
+		const subcluster2 = "sc2"
+		const subcluster3 = "sc3"
 		const tID = "12345"
 
 		vdb.Spec.Subclusters = []vapi.Subcluster{
-			{Name: "sc1", Type: vapi.PrimarySubcluster, Size: 3},
-			{Name: "sc2", Type: vapi.SecondarySubcluster, Size: 3},
-			{Name: "sc3", Type: vapi.SecondarySubcluster, Size: 3},
+			{Name: subcluster1, Type: vapi.PrimarySubcluster, Size: 3},
+			{Name: subcluster2, Type: vapi.SecondarySubcluster, Size: 3},
+			{Name: subcluster3, Type: vapi.SecondarySubcluster, Size: 3},
 		}
 		vdb.Spec.Sandboxes = []vapi.Sandbox{
 			{Name: sandbox1, Subclusters: []vapi.SandboxSubcluster{
-				{Name: "sc2", Type: vapi.PrimarySubcluster},
+				{Name: subcluster2, Type: vapi.PrimarySubcluster},
 				// sc3 is the 2nd primary subcluster in sandbox
 				// its type in db is secondary so it will be promoted to primary
-				{Name: "sc3", Type: vapi.PrimarySubcluster},
+				{Name: subcluster3, Type: vapi.PrimarySubcluster},
 			}},
 		}
 		vdb.Status.Sandboxes = []vapi.SandboxStatus{
-			{Name: sandbox1, Subclusters: []string{"sc2", "sc3"}},
+			{Name: sandbox1, Subclusters: []string{subcluster2, subcluster3}},
 		}
 
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
@@ -67,12 +70,12 @@ var _ = Describe("altersandbox_reconciler", func() {
 			pFacts.Detail[nm] = &podfacts.PodFact{}
 			pFacts.Detail[nm].SetUpNode(true)
 			pFacts.Detail[nm].SetSubclusterName(sc.Name)
-			if sc.Name == "sc3" {
+			if sc.Name == subcluster3 {
 				pFacts.Detail[nm].SetIsPrimary(false) // set sc3 to secondary which is different to sandbox type
 			} else {
 				pFacts.Detail[nm].SetIsPrimary(true)
 			}
-			if sc.Name != "sc1" {
+			if sc.Name != subcluster1 {
 				pFacts.Detail[nm].SetSandbox(sandbox1) // set sc2, sc3 to sandbox
 			}
 		}

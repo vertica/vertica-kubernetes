@@ -163,6 +163,7 @@ func (v *VerticaDB) validateImmutableFields(old runtime.Object) field.ErrorList 
 	allErrs = v.checkValidTLSConfigUpdate(oldObj, allErrs)
 	allErrs = v.checkValidSubclusterTypeTransition(oldObj, allErrs)
 	allErrs = v.checkSandboxesDuringUpgrade(oldObj, allErrs)
+	allErrs = v.checkSubclusterTypeOnUpgrade(oldObj, allErrs)
 	allErrs = v.checkShutdownSandboxImage(oldObj, allErrs)
 	allErrs = v.checkShutdownForSandboxesToBeRemoved(oldObj, allErrs)
 	allErrs = v.checkShutdownForSubclustersToBeRemoved(oldObj, allErrs)
@@ -266,6 +267,7 @@ func (v *VerticaDB) validateVerticaDBSpec() field.ErrorList {
 	allErrs = v.hasValidReplicaGroups(allErrs)
 	allErrs = v.validateVersionAnnotation(allErrs)
 	allErrs = v.validateSandboxes(allErrs)
+	allErrs = v.hasNoSandboxTypeOnCreate(allErrs)
 	allErrs = v.checkNewSBoxOrSClusterShutdownUnset(allErrs)
 	allErrs = v.validateProxyConfig(allErrs)
 	if len(allErrs) == 0 {
@@ -299,6 +301,28 @@ func (v *VerticaDB) hasValidSubclusterTypes(allErrs field.ErrorList) field.Error
 				"(%q and %q are valid types that should only be set by the operator)",
 				PrimarySubcluster, SecondarySubcluster, SandboxPrimarySubcluster, TransientSubcluster))
 		allErrs = append(allErrs, err)
+	}
+	return allErrs
+}
+
+func (v *VerticaDB) hasNoSandboxTypeOnCreate(allErrs field.ErrorList) field.ErrorList {
+	for i, sc := range v.Spec.Subclusters {
+		if sc.Type == SandboxPrimarySubcluster || sc.Type == SandboxSecondarySubcluster {
+			fieldPath := field.NewPath("spec").Child("subclusters").Index(i).Child("type")
+			err := field.Invalid(fieldPath, sc.Type,
+				fmt.Sprintf("cannot set subcluster type to %q", sc.Type))
+			allErrs = append(allErrs, err)
+		}
+	}
+	for i, sb := range v.Spec.Sandboxes {
+		for j, ssc := range sb.Subclusters {
+			if ssc.Type == SandboxPrimarySubcluster || ssc.Type == SandboxSecondarySubcluster {
+				fieldPath := field.NewPath("spec").Child("sandboxes").Index(i).Child("subclusters").Index(j).Child("type")
+				err := field.Invalid(fieldPath, ssc.Type,
+					fmt.Sprintf("cannot set sandbox subcluster type to %q", ssc.Type))
+				allErrs = append(allErrs, err)
+			}
+		}
 	}
 	return allErrs
 }
@@ -1639,6 +1663,26 @@ func (v *VerticaDB) checkSandboxesDuringUpgrade(oldObj *VerticaDB, allErrs field
 		v.Spec.Sandboxes,
 		"cannot add or remove sandboxes during an upgrade")
 	return append(allErrs, err)
+}
+
+// checkSubclusterTypeOnUpgrade will check if subcluster type is changing to sandboxprimary, sandboxsecondary
+func (v *VerticaDB) checkSubclusterTypeOnUpgrade(oldObj *VerticaDB, allErrs field.ErrorList) field.ErrorList {
+	// No error if upgrade is not in progress
+	if !oldObj.isUpgradeInProgress() {
+		return allErrs
+	}
+
+	for i, sc := range v.Spec.Subclusters {
+		if sc.Type == SandboxPrimarySubcluster || sc.Type == SandboxSecondarySubcluster {
+			if oldObj.Spec.Subclusters[i].Type != sc.Type {
+				err := field.Invalid(field.NewPath("spec").Child("subclusters").Index(i).Child("type"),
+					sc.Type,
+					fmt.Sprintf("cannot change subcluster %s type to %s", sc.Name, sc.Type))
+				allErrs = append(allErrs, err)
+			}
+		}
+	}
+	return allErrs
 }
 
 // checkImmutableTemporarySubclusterRouting will check if

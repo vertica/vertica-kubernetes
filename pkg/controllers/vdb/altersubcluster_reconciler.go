@@ -88,7 +88,7 @@ func (a *AlterSubclusterTypeReconciler) findSubclustersToAlter() (ctrl.Result, [
 
 		// check if the subcluster is in sandbox
 		if pf.GetSandbox() != vapi.MainCluster {
-			sbscs, err := a.findSandboxSubclustersToAlter(pf.GetSandbox(), &seen)
+			sbscs, err := a.findSandboxSubclustersToAlter(pf.GetSandbox(), seen)
 			if err != nil {
 				return ctrl.Result{}, scs, err
 			}
@@ -107,14 +107,14 @@ func (a *AlterSubclusterTypeReconciler) findSubclustersToAlter() (ctrl.Result, [
 }
 
 // findSandboxSubclustersToAlter finds the sandbox subclusters that need to be altered
-func (a *AlterSubclusterTypeReconciler) findSandboxSubclustersToAlter(sbName string, seen *map[string]bool) ([]string, error) {
+func (a *AlterSubclusterTypeReconciler) findSandboxSubclustersToAlter(sbName string, seen map[string]bool) ([]string, error) {
 	sbscs := []string{}
 	sb := a.Vdb.GetSandbox(sbName)
 	if sb == nil {
 		return sbscs, fmt.Errorf("could not find sandbox %s", sbName)
 	}
 	for _, sbsc := range sb.Subclusters {
-		if (*seen)[sbsc.Name] {
+		if seen[sbsc.Name] {
 			continue
 		}
 		pf, ok := a.PFacts.FindFirstUpPod(false, sbsc.Name)
@@ -125,7 +125,7 @@ func (a *AlterSubclusterTypeReconciler) findSandboxSubclustersToAlter(sbName str
 			sbsc.Type == vapi.SecondarySubcluster && pf.GetIsPrimary() {
 			sbscs = append(sbscs, sbsc.Name)
 		}
-		(*seen)[sbsc.Name] = true
+		seen[sbsc.Name] = true
 	}
 	return sbscs, nil
 }

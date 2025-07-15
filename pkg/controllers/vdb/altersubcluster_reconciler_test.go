@@ -33,19 +33,21 @@ var _ = Describe("altersubcluster_reconcile", func() {
 	It("should find main subclusters to alter for upgrade", func() {
 		vdb := vapi.MakeVDB()
 		const sbName = "sand"
+		const subcluster1 = "sc1"
+		const subcluster2 = "sc2"
 
 		vdb.Spec.Subclusters = []vapi.Subcluster{
-			{Name: "sc1", Type: vapi.PrimarySubcluster, Size: 3},
+			{Name: subcluster1, Type: vapi.PrimarySubcluster, Size: 3},
 			// sc2 is the 2nd primary subcluster in main
 			// its type in db is secondary so it will be promoted to primary
-			{Name: "sc2", Type: vapi.PrimarySubcluster, Size: 3},
+			{Name: subcluster2, Type: vapi.PrimarySubcluster, Size: 3},
 		}
 
 		// pFacts.Collect requires UpNodeCount to be set
 		vdb.Status.Subclusters = []vapi.SubclusterStatus{
-			{Name: "sc1", Type: vapi.PrimarySubcluster, UpNodeCount: 3,
+			{Name: subcluster1, Type: vapi.PrimarySubcluster, UpNodeCount: 3,
 				Detail: []vapi.VerticaDBPodStatus{{Installed: true, AddedToDB: true}}},
-			{Name: "sc2", Type: vapi.PrimarySubcluster, UpNodeCount: 3,
+			{Name: subcluster2, Type: vapi.PrimarySubcluster, UpNodeCount: 3,
 				Detail: []vapi.VerticaDBPodStatus{{Installed: true, AddedToDB: true}}},
 		}
 
@@ -78,32 +80,36 @@ var _ = Describe("altersubcluster_reconcile", func() {
 		_, scs, err := a.findSubclustersToAlter()
 		Expect(err).Should(BeNil())
 		Expect(len(scs)).Should(Equal(1))
-		Expect(scs[0]).Should(Equal("sc2"))
+		Expect(scs[0]).Should(Equal(subcluster2))
 	})
 
 	It("should find sandbox subclusters to alter for upgrade", func() {
 		vdb := vapi.MakeVDB()
 		const sbName = "sand"
+		const subcluster1 = "sc1"
+		const subcluster2 = "sc2"
+		const subcluster3 = "sc3"
+		const subcluster4 = "sc4"
 
 		vdb.Spec.Subclusters = []vapi.Subcluster{
-			{Name: "sc1", Type: vapi.PrimarySubcluster, Size: 3},
-			{Name: "sc2", Type: vapi.SecondarySubcluster, Size: 3},
-			{Name: "sc3", Type: vapi.SecondarySubcluster, Size: 3},
-			{Name: "sc4", Type: vapi.SecondarySubcluster, Size: 3},
+			{Name: subcluster1, Type: vapi.PrimarySubcluster, Size: 3},
+			{Name: subcluster2, Type: vapi.SecondarySubcluster, Size: 3},
+			{Name: subcluster3, Type: vapi.SecondarySubcluster, Size: 3},
+			{Name: subcluster4, Type: vapi.SecondarySubcluster, Size: 3},
 		}
 		vdb.Spec.Sandboxes = []vapi.Sandbox{
 			{Name: sbName, Subclusters: []vapi.SandboxSubcluster{
-				{Name: "sc2", Type: vapi.PrimarySubcluster},
+				{Name: subcluster2, Type: vapi.PrimarySubcluster},
 				// sc3 is the 2nd primary subcluster in sandbox
 				// its type in db is secondary so it will be promoted to primary
-				{Name: "sc3", Type: vapi.PrimarySubcluster},
+				{Name: subcluster3, Type: vapi.PrimarySubcluster},
 				// sc4 is the secondary subcluster in sandbox
 				// but its type in db is primary so it will be demoted to secondary
-				{Name: "sc4", Type: vapi.SecondarySubcluster},
+				{Name: subcluster4, Type: vapi.SecondarySubcluster},
 			}},
 		}
 		vdb.Status.Sandboxes = []vapi.SandboxStatus{
-			{Name: sbName, Subclusters: []string{"sc2", "sc3", "sc4"}},
+			{Name: sbName, Subclusters: []string{subcluster2, subcluster3, subcluster4}},
 		}
 
 		fpr := &cmds.FakePodRunner{}
@@ -116,12 +122,12 @@ var _ = Describe("altersubcluster_reconcile", func() {
 			pFacts.Detail[nm] = &podfacts.PodFact{}
 			pFacts.Detail[nm].SetUpNode(true)
 			pFacts.Detail[nm].SetSubclusterName(sc.Name)
-			if sc.Name == "sc3" {
+			if sc.Name == subcluster3 {
 				pFacts.Detail[nm].SetIsPrimary(false) // set sc3 to secondary which is different to sandbox type
 			} else {
 				pFacts.Detail[nm].SetIsPrimary(true) // set sc4 to primary which is different to sandbox type
 			}
-			if sc.Name != "sc1" {
+			if sc.Name != subcluster1 {
 				pFacts.Detail[nm].SetSandbox(sbName) // set sc2, sc3, sc4 to sandbox
 			}
 		}
@@ -136,7 +142,7 @@ var _ = Describe("altersubcluster_reconcile", func() {
 		_, scs, err := a.findSubclustersToAlter()
 		Expect(err).Should(BeNil())
 		Expect(len(scs)).Should(Equal(2))
-		Expect(scs[0]).Should(Equal("sc3"))
-		Expect(scs[1]).Should(Equal("sc4"))
+		Expect(scs[0]).Should(Equal(subcluster3))
+		Expect(scs[1]).Should(Equal(subcluster4))
 	})
 })
