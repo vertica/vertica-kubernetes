@@ -30,8 +30,8 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-// AlterSandboxReconciler will change a sandbox subcluster type in db
-type AlterSandboxReconciler struct {
+// AlterSandboxTypeReconciler will change a sandbox subcluster type in db
+type AlterSandboxTypeReconciler struct {
 	VRec    config.ReconcilerInterface
 	Log     logr.Logger
 	Vdb     *vapi.VerticaDB // Vdb is the CRD we are acting on.
@@ -39,19 +39,19 @@ type AlterSandboxReconciler struct {
 	Requeue bool
 }
 
-// MakeAlterSandboxReconciler will build a AlterSandboxReconciler object
-func MakeAlterSandboxReconciler(vdbrecon config.ReconcilerInterface, log logr.Logger,
+// MakeAlterSandboxTypeReconciler will build a AlterSandboxTypeReconciler object
+func MakeAlterSandboxTypeReconciler(vdbrecon config.ReconcilerInterface, log logr.Logger,
 	vdb *vapi.VerticaDB, pfacts *podfacts.PodFacts, requeue bool) controllers.ReconcileActor {
-	return &AlterSandboxReconciler{
+	return &AlterSandboxTypeReconciler{
 		VRec:    vdbrecon,
-		Log:     log.WithName("AlterSandboxReconciler"),
+		Log:     log.WithName("AlterSandboxTypeReconciler"),
 		Vdb:     vdb,
 		PFacts:  pfacts,
 		Requeue: requeue,
 	}
 }
 
-func (a *AlterSandboxReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
+func (a *AlterSandboxTypeReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
 	// no-op as there is no sandbox
 	if len(a.Vdb.Spec.Sandboxes) == 0 {
 		return ctrl.Result{}, nil
@@ -67,7 +67,7 @@ func (a *AlterSandboxReconciler) Reconcile(ctx context.Context, _ *ctrl.Request)
 }
 
 // reconcileAlterSandbox will handle sandbox configmap update based on the sandbox image change
-func (a *AlterSandboxReconciler) reconcileAlterSandbox(ctx context.Context, sbName string) (ctrl.Result, error) {
+func (a *AlterSandboxTypeReconciler) reconcileAlterSandbox(ctx context.Context, sbName string) (ctrl.Result, error) {
 	if a.Vdb.GetSandboxStatus(sbName) == nil {
 		if a.Requeue {
 			a.Log.Info("Requeue because the sandbox does not exist yet", "sandbox", sbName)
@@ -93,7 +93,7 @@ func (a *AlterSandboxReconciler) reconcileAlterSandbox(ctx context.Context, sbNa
 }
 
 // isAlterSandboxNeeded checks whether an alter sandbox is needed
-func (a *AlterSandboxReconciler) isAlterSandboxNeeded(sbName string) (ctrl.Result, bool, error) {
+func (a *AlterSandboxTypeReconciler) isAlterSandboxNeeded(sbName string) (ctrl.Result, bool, error) {
 	sb := a.Vdb.GetSandbox(sbName)
 	if sb == nil {
 		return ctrl.Result{}, false, fmt.Errorf("could not find sandbox %s", sbName)

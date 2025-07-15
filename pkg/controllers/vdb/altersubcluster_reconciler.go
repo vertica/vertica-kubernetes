@@ -145,25 +145,30 @@ func (a *AlterSubclusterTypeReconciler) alterSubclusters(ctx context.Context, sc
 			return ctrl.Result{}, fmt.Errorf("could not find subcluster %s", scName)
 		}
 		a.Log.Info("Altering subcluster type", "subcluster", sc.Name, "initiatorIP", initiatorIP)
-		err := a.alterSubclusterType(ctx, sc, initiatorIP)
+		ctrlResult, err := a.alterSubclusterType(ctx, sc, initiatorIP)
 		if err != nil {
-			return ctrl.Result{}, err
+			return ctrlResult, err
 		}
 		a.Log.Info("Alter subcluster type completed", "subcluster", sc.Name)
 	}
 
+	a.PFacts.Invalidate()
 	return a.removeTriggerIDFromConfigMap(ctx)
 }
 
 // alterSubclusterType changes the given subcluster's type
 func (a *AlterSubclusterTypeReconciler) alterSubclusterType(ctx context.Context, sc *vapi.Subcluster,
-	initiatorIP string) error {
+	initiatorIP string) (ctrl.Result, error) {
 	scType := vapi.SecondarySubcluster
 	newType := vapi.PrimarySubcluster
 
-	// check db is_primary
 	pf, ok := a.PFacts.FindFirstUpPod(false, sc.Name)
-	if ok && pf.GetIsPrimary() {
+	if !ok {
+		return ctrl.Result{Requeue: true}, fmt.Errorf("could not find pod for subcluster %s", sc.Name)
+	}
+
+	// check db is_primary
+	if pf.GetIsPrimary() {
 		scType = vapi.PrimarySubcluster
 		newType = vapi.SecondarySubcluster
 	}
@@ -177,13 +182,12 @@ func (a *AlterSubclusterTypeReconciler) alterSubclusterType(ctx context.Context,
 	if err != nil {
 		a.VRec.Eventf(a.Vdb, corev1.EventTypeWarning, events.AlterSubclusterFailed,
 			"Failed to alter the type of subcluster %q to %q", sc.Name, newType)
-		return err
+		return ctrl.Result{}, err
 	}
 
-	pf.SetIsPrimary(newType == vapi.PrimarySubcluster)
 	a.VRec.Eventf(a.Vdb, corev1.EventTypeNormal, events.AlterSubclusterSucceeded,
 		"Successfully altered the type of subcluster %q to %q", sc.Name, newType)
-	return nil
+	return ctrl.Result{}, nil
 }
 
 // removeTriggerIDFromConfigMap will remove alter sandbox type trigger ID in that config map

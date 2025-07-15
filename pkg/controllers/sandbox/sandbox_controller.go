@@ -159,8 +159,6 @@ func (r *SandboxConfigMapReconciler) constructActors(vdb *v1.VerticaDB, log logr
 		MakeVerifyDeploymentReconciler(r, vdb, log),
 		// Move the subclusters from a sandbox to the main cluster
 		MakeUnsandboxSubclusterReconciler(r, vdb, log, r.Client, pfacts, dispatcher, configMap, prunner),
-		// Update subcluster type in db according to its type in sandbox
-		vdbcontroller.MakeAlterSubclusterTypeReconciler(r, log, vdb, pfacts, dispatcher, configMap),
 		// Update the vdb status for the sandbox nodes/pods
 		vdbcontroller.MakeStatusReconciler(r.Client, r.Scheme, log, vdb, pfacts),
 		// Upgrade the sandbox using the offline method
@@ -173,6 +171,8 @@ func (r *SandboxConfigMapReconciler) constructActors(vdb *v1.VerticaDB, log logr
 		vdbcontroller.MakeSubclusterShutdownReconciler(r, log, vdb, dispatcher, pfacts),
 		// Restart any down pods
 		vdbcontroller.MakeRestartReconciler(r, log, vdb, prunner, pfacts, true, dispatcher),
+		// Update subcluster type in db according to its type in sandbox
+		vdbcontroller.MakeAlterSubclusterTypeReconciler(r, log, vdb, pfacts, dispatcher, configMap),
 		// Update the vdb status including subclusters[].shutdown, after a stop_db, stop_sc
 		// or a restart
 		vdbcontroller.MakeStatusReconcilerWithShutdown(r.Client, r.Scheme, log, vdb, pfacts),

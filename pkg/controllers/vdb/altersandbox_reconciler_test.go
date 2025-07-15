@@ -102,7 +102,7 @@ var _ = Describe("altersandbox_reconciler", func() {
 })
 
 func validateAlterSandboxReconcile(ctx context.Context, vdb *vapi.VerticaDB, pfacts *podfacts.PodFacts, requeue bool) {
-	r := MakeAlterSandboxReconciler(vdbRec, logger, vdb, pfacts, requeue)
+	r := MakeAlterSandboxTypeReconciler(vdbRec, logger, vdb, pfacts, requeue)
 	res, err := r.Reconcile(ctx, &ctrl.Request{})
 	Expect(err).Should(Succeed())
 	Expect(res).Should(Equal(ctrl.Result{Requeue: requeue}))
