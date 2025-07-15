@@ -704,11 +704,14 @@ func ParamNotSetErrorMsg(param string) error {
 
 // GenVNodeName generates a vnode and returns it after checking it is not already
 // taken by an existing node.
-func GenVNodeName(vnodes map[string]string, dbName string, hostCount int) (string, bool) {
+func GenVNodeName(vnodes map[string]string, dbName string, hostCount int, sandbox string) (string, bool) {
 	dbNameInNode := strings.ToLower(dbName)
 	for i := 0; i < hostCount; i++ {
 		nodeNameSuffix := i + 1
 		vname := fmt.Sprintf("v_%s_node%04d", dbNameInNode, nodeNameSuffix)
+		if sandbox != MainClusterSandbox {
+			vname = fmt.Sprintf("v_%s_%s_node%04d", dbNameInNode, sandbox, nodeNameSuffix)
+		}
 		if _, ok := vnodes[vname]; !ok {
 			// we have found an available vnode name
 			return vname, true
