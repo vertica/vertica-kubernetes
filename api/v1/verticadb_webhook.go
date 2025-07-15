@@ -306,7 +306,8 @@ func (v *VerticaDB) hasValidSubclusterTypes(allErrs field.ErrorList) field.Error
 }
 
 func (v *VerticaDB) hasNoSandboxTypeOnCreate(allErrs field.ErrorList) field.ErrorList {
-	for i, sc := range v.Spec.Subclusters {
+	for i := range v.Spec.Subclusters {
+		sc := &v.Spec.Subclusters[i]
 		if sc.Type == SandboxPrimarySubcluster || sc.Type == SandboxSecondarySubcluster {
 			fieldPath := field.NewPath("spec").Child("subclusters").Index(i).Child("type")
 			err := field.Invalid(fieldPath, sc.Type,
@@ -1672,7 +1673,8 @@ func (v *VerticaDB) checkSubclusterTypeOnUpgrade(oldObj *VerticaDB, allErrs fiel
 		return allErrs
 	}
 
-	for i, sc := range v.Spec.Subclusters {
+	for i := range v.Spec.Subclusters {
+		sc := &v.Spec.Subclusters[i]
 		if sc.Type == SandboxPrimarySubcluster || sc.Type == SandboxSecondarySubcluster {
 			if oldObj.Spec.Subclusters[i].Type != sc.Type {
 				err := field.Invalid(field.NewPath("spec").Child("subclusters").Index(i).Child("type"),
