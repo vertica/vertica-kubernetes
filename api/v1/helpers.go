@@ -1817,6 +1817,13 @@ func findInvalidChars(objName string, allowDash bool) string {
 	return foundChars
 }
 
+func (v *VerticaDB) GetSpecHTTPSNMATLSMode() string {
+	if v.Spec.HTTPSNMATLS == nil {
+		return ""
+	}
+	return v.Spec.HTTPSNMATLS.Mode
+}
+
 // Get HTTPSNMATLS mode from spec or return "" if not found
 func (v *VerticaDB) GetHTTPSNMATLSMode() string {
 	if v.Spec.HTTPSNMATLS == nil {
@@ -1831,6 +1838,13 @@ func (v *VerticaDB) GetHTTPSNMATLSSecret() string {
 		return ""
 	}
 	return v.Spec.HTTPSNMATLS.Secret
+}
+
+func (v *VerticaDB) GetSpecClientServerTLSMode() string {
+	if v.Spec.ClientServerTLS == nil {
+		return ""
+	}
+	return v.Spec.ClientServerTLS.Mode
 }
 
 // Get ClientServerTLS mode from spec or return "" if not found

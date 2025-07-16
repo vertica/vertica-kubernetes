@@ -2491,12 +2491,10 @@ func (v *VerticaDB) checkValidTLSConfigUpdate(oldObj *VerticaDB, allErrs field.E
 
 // checkTLSModeCaseInsensitiveChange checks if the user is trying to change the TLS mode in a case-insensitive manner.
 func (v *VerticaDB) checkTLSModeCaseInsensitiveChange(oldObj *VerticaDB, allErrs field.ErrorList) field.ErrorList {
-	if oldObj.Spec.HTTPSNMATLS == nil || v.Spec.HTTPSNMATLS == nil ||
-		oldObj.Spec.ClientServerTLS == nil || v.Spec.ClientServerTLS == nil {
-		return allErrs
-	}
+	isHTTPSNMANil := oldObj.Spec.HTTPSNMATLS == nil || v.Spec.HTTPSNMATLS == nil
+	isClientServerTLSNil := oldObj.Spec.ClientServerTLS == nil || v.Spec.ClientServerTLS == nil
 
-	if oldObj.Spec.HTTPSNMATLS.Mode != v.Spec.HTTPSNMATLS.Mode &&
+	if !isHTTPSNMANil && oldObj.Spec.HTTPSNMATLS.Mode != v.Spec.HTTPSNMATLS.Mode &&
 		oldObj.GetHTTPSNMATLSMode() == v.GetHTTPSNMATLSMode() {
 		fieldPath := field.NewPath("spec").Child("httpsNMATLS").Child("mode")
 		err := field.Invalid(fieldPath, v.Spec.HTTPSNMATLS.Mode,
@@ -2504,7 +2502,7 @@ func (v *VerticaDB) checkTLSModeCaseInsensitiveChange(oldObj *VerticaDB, allErrs
 		allErrs = append(allErrs, err)
 	}
 
-	if oldObj.Spec.ClientServerTLS.Mode != v.Spec.ClientServerTLS.Mode &&
+	if !isClientServerTLSNil && oldObj.Spec.ClientServerTLS.Mode != v.Spec.ClientServerTLS.Mode &&
 		oldObj.GetClientServerTLSMode() == v.GetClientServerTLSMode() {
 		fieldPath := field.NewPath("spec").Child("clientServerTLS").Child("mode")
 		err := field.Invalid(fieldPath, v.Spec.ClientServerTLS.Mode,
