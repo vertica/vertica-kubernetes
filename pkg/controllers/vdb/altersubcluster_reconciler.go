@@ -61,12 +61,13 @@ func (a *AlterSubclusterTypeReconciler) Reconcile(ctx context.Context, _ *ctrl.R
 	if err := a.PFacts.Collect(ctx, a.Vdb); err != nil {
 		return ctrl.Result{}, err
 	}
+	a.Log.Info("No sandbox found in the database, looking for main subclusters to alter", "a.PFacts.GetSandboxName()", a.PFacts.GetSandboxName())
 
 	var ctrlResult ctrl.Result
 	var err error
 	var scs []string
 	// find sandbox subclusters to alter
-	if a.ConfigMap != nil {
+	if a.ConfigMap != nil || a.PFacts.GetSandboxName() != vapi.MainCluster {
 		// only execute unsandbox op when alter sandbox trigger id and sandbox name are set
 		if a.ConfigMap.Annotations[vmeta.SandboxControllerAlterSubclusterTypeTriggerID] == "" ||
 			a.ConfigMap.Data[vapi.SandboxNameKey] == "" {
@@ -87,11 +88,17 @@ func (a *AlterSubclusterTypeReconciler) Reconcile(ctx context.Context, _ *ctrl.R
 func (a *AlterSubclusterTypeReconciler) findMainSubclustersToAlter() (ctrl.Result, []string, error) {
 	scs := []string{}
 	scMap := a.Vdb.GenSubclusterMap()
+	scSbMap := a.Vdb.GenSubclusterSandboxStatusMap()
 	for scName, sc := range scMap {
+		if sb, ok := scSbMap[scName]; ok && sb != vapi.MainCluster {
+			// skip sandbox subclusters
+			continue
+		}
 		// find the subcluster whose type is different to podfacts (which reads the database)
 		pf, ok := a.PFacts.FindFirstUpPod(false, scName)
 		if !ok {
-			return ctrl.Result{Requeue: true}, scs, fmt.Errorf("could not find pod for subcluster %s", scName)
+			a.Log.Info("Requeue find main subclusters to alter: could not find pod for subcluster", "subcluster", scName)
+			return ctrl.Result{Requeue: true}, scs, nil
 		}
 
 		// check if the subcluster is in sandbox
@@ -124,8 +131,8 @@ func (a *AlterSubclusterTypeReconciler) findSandboxSubclustersToAlter() (ctrl.Re
 		for _, sbsc := range sb.Subclusters {
 			pf, ok := a.PFacts.FindFirstUpPod(false, sbsc.Name)
 			if !ok {
-				return ctrl.Result{Requeue: true}, sbscs,
-					fmt.Errorf("could not find pod for sandbox subcluster %s", sbsc.Name)
+				a.Log.Info("Requeue find sandbox subclusters to alter: could not find pod for sandbox subcluster", "subcluster", sbsc.Name)
+				return ctrl.Result{Requeue: true}, sbscs, nil
 			}
 			if sbsc.Type == vapi.PrimarySubcluster && !pf.GetIsPrimary() ||
 				sbsc.Type == vapi.SecondarySubcluster && pf.GetIsPrimary() {
@@ -140,10 +147,12 @@ func (a *AlterSubclusterTypeReconciler) alterSubclusters(ctx context.Context, sc
 	for _, scName := range scs {
 		initiatorIP, requeue := a.getInitiatorIP()
 		if requeue {
+			a.Log.Info("Requeue alter subclusters: could not find initiatorIP")
 			return ctrl.Result{Requeue: requeue}, nil
 		}
 		_, ok := a.PFacts.FindFirstUpPod(false, scName)
 		if !ok {
+			a.Log.Info("Requeue alter subclusters: could not find pod for sandbox subcluster", "subcluster", scName)
 			return ctrl.Result{Requeue: requeue}, nil
 		}
 		sc := a.Vdb.GenSubclusterMap()[scName]
@@ -170,7 +179,8 @@ func (a *AlterSubclusterTypeReconciler) alterSubclusterType(ctx context.Context,
 
 	pf, ok := a.PFacts.FindFirstUpPod(false, sc.Name)
 	if !ok {
-		return ctrl.Result{Requeue: true}, fmt.Errorf("could not find pod for subcluster %s", sc.Name)
+		a.Log.Info("Requeue alter subcluster type: could not find pod for subcluster", "subcluster", sc.Name)
+		return ctrl.Result{Requeue: true}, nil
 	}
 
 	// check db is_primary

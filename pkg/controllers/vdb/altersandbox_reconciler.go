@@ -32,22 +32,20 @@ import (
 
 // AlterSandboxTypeReconciler will change a sandbox subcluster type in db
 type AlterSandboxTypeReconciler struct {
-	VRec    config.ReconcilerInterface
-	Log     logr.Logger
-	Vdb     *vapi.VerticaDB // Vdb is the CRD we are acting on.
-	PFacts  *podfacts.PodFacts
-	Requeue bool
+	VRec   config.ReconcilerInterface
+	Log    logr.Logger
+	Vdb    *vapi.VerticaDB // Vdb is the CRD we are acting on.
+	PFacts *podfacts.PodFacts
 }
 
 // MakeAlterSandboxTypeReconciler will build a AlterSandboxTypeReconciler object
 func MakeAlterSandboxTypeReconciler(vdbrecon config.ReconcilerInterface, log logr.Logger,
-	vdb *vapi.VerticaDB, pfacts *podfacts.PodFacts, requeue bool) controllers.ReconcileActor {
+	vdb *vapi.VerticaDB, pfacts *podfacts.PodFacts) controllers.ReconcileActor {
 	return &AlterSandboxTypeReconciler{
-		VRec:    vdbrecon,
-		Log:     log.WithName("AlterSandboxTypeReconciler"),
-		Vdb:     vdb,
-		PFacts:  pfacts,
-		Requeue: requeue,
+		VRec:   vdbrecon,
+		Log:    log.WithName("AlterSandboxTypeReconciler"),
+		Vdb:    vdb,
+		PFacts: pfacts,
 	}
 }
 
@@ -69,12 +67,7 @@ func (a *AlterSandboxTypeReconciler) Reconcile(ctx context.Context, _ *ctrl.Requ
 // reconcileAlterSandbox will handle sandbox configmap update based on the sandbox image change
 func (a *AlterSandboxTypeReconciler) reconcileAlterSandbox(ctx context.Context, sbName string) (ctrl.Result, error) {
 	if a.Vdb.GetSandboxStatus(sbName) == nil {
-		if a.Requeue {
-			a.Log.Info("Requeue because the sandbox does not exist yet", "sandbox", sbName)
-		} else {
-			a.Log.Info("sandbox does not exist in the database yet", "sandbox", sbName)
-		}
-		return ctrl.Result{Requeue: a.Requeue}, nil
+		return ctrl.Result{Requeue: true}, nil
 	}
 	if _, ok, err := a.isAlterSandboxNeeded(sbName); !ok || err != nil {
 		return ctrl.Result{}, err
@@ -101,7 +94,8 @@ func (a *AlterSandboxTypeReconciler) isAlterSandboxNeeded(sbName string) (ctrl.R
 	for _, sc := range sb.Subclusters {
 		pf, ok := a.PFacts.FindFirstUpPod(false, sc.Name)
 		if !ok {
-			return ctrl.Result{Requeue: a.Requeue}, false, nil
+			a.Log.Info("Requeue is alter sandbox needed: could not find pod for sandbox subcluster", "subcluster", sc.Name)
+			return ctrl.Result{Requeue: true}, false, nil
 		}
 		// Need alter only when sandbox subcluster type don't match podfacts (which reads the database)
 		if sc.Type == vapi.PrimarySubcluster && !pf.GetIsPrimary() ||

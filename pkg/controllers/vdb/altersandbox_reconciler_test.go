@@ -83,7 +83,7 @@ var _ = Describe("altersandbox_reconciler", func() {
 		defer test.DeleteConfigMap(ctx, k8sClient, vdb, sandbox1)
 
 		// a new ID generated for alter sandbox type
-		validateAlterSandboxReconcile(ctx, vdb, &pFacts, false)
+		validateAlterSandboxReconcile(ctx, vdb, &pFacts)
 		cm := &corev1.ConfigMap{}
 		cmNm := names.GenSandboxConfigMapName(vdb, sandbox1)
 		Expect(k8sClient.Get(ctx, cmNm, cm)).Should(Succeed())
@@ -95,15 +95,15 @@ var _ = Describe("altersandbox_reconciler", func() {
 		// reset sc3 to secondary which is the same to podfacts
 		// should not trigger a configmap update
 		vdb.Spec.Sandboxes[0].Subclusters[1].Type = vapi.SecondarySubcluster
-		validateAlterSandboxReconcile(ctx, vdb, &pFacts, false)
+		validateAlterSandboxReconcile(ctx, vdb, &pFacts)
 		Expect(k8sClient.Get(ctx, cmNm, cm)).Should(Succeed())
 		Expect(cm.Annotations[vmeta.SandboxControllerAlterSubclusterTypeTriggerID]).Should(Equal(id))
 	})
 })
 
-func validateAlterSandboxReconcile(ctx context.Context, vdb *vapi.VerticaDB, pfacts *podfacts.PodFacts, requeue bool) {
-	r := MakeAlterSandboxTypeReconciler(vdbRec, logger, vdb, pfacts, requeue)
+func validateAlterSandboxReconcile(ctx context.Context, vdb *vapi.VerticaDB, pfacts *podfacts.PodFacts) {
+	r := MakeAlterSandboxTypeReconciler(vdbRec, logger, vdb, pfacts)
 	res, err := r.Reconcile(ctx, &ctrl.Request{})
 	Expect(err).Should(Succeed())
-	Expect(res).Should(Equal(ctrl.Result{Requeue: requeue}))
+	Expect(res).Should(Equal(ctrl.Result{Requeue: false}))
 }

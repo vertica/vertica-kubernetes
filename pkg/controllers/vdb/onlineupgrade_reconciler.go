@@ -114,6 +114,7 @@ const (
 	setConfigParamInx
 	sandboxInx
 	clearConfigParamInx
+	waitForPromoteSandboxInx
 	waitForSandboxUpgradeInx
 	waitForConnectionsPauseInx
 	backupBeforeReplicationInx
@@ -205,6 +206,7 @@ func (r *OnlineUpgradeReconciler) Reconcile(ctx context.Context, _ *ctrl.Request
 		// Change replica b subcluster types to match the main cluster's
 		// This is handled by the sandbox controller
 		r.postPromoteSubclustersInSandboxMsg,
+		r.waitForPromoteSubclustersInSandbox,
 		// Upgrade the version in the sandbox to the new version.
 		r.postUpgradeSandboxMsg,
 		r.upgradeSandbox,
@@ -599,11 +601,25 @@ func (r *OnlineUpgradeReconciler) sandboxReplicaGroupB(ctx context.Context) (ctr
 // postPromoteSubclustersInSandboxMsg will update the status message to indicate that
 // we are going to prmote subclusters in sandbox.
 func (r *OnlineUpgradeReconciler) postPromoteSubclustersInSandboxMsg(ctx context.Context) (ctrl.Result, error) {
-	// requeue if any of the subclusters in the sandbox doensn't match the pod fact (db)
+	return r.postNextStatusMsg(ctx, promoteSubclustersInSandboxMsgInx)
+}
+
+// waitForPromoteSubclustersInSandbox will requeue if the sandbox subclusters type do not match the pod facts
+func (r *OnlineUpgradeReconciler) waitForPromoteSubclustersInSandbox(ctx context.Context) (ctrl.Result, error) {
+	// Skip this step if upgrade has already started
+	if vmeta.GetOnlineUpgradeStepInx(r.VDB.Annotations) > waitForPromoteSandboxInx {
+		return ctrl.Result{}, nil
+	}
+
+	// requeue to wait for alter sandbox type to finish
 	sbMap := r.VDB.GenSandboxMap()
 	if len(sbMap) == 0 {
 		r.Log.Info("No sandboxes found in the database")
 		return ctrl.Result{}, nil
+	}
+	sbPFacts, err := r.getSandboxPodFacts(ctx, true)
+	if err != nil {
+		return ctrl.Result{}, err
 	}
 	for sbName := range sbMap {
 		sb := sbMap[sbName]
@@ -611,21 +627,21 @@ func (r *OnlineUpgradeReconciler) postPromoteSubclustersInSandboxMsg(ctx context
 			return ctrl.Result{}, fmt.Errorf("could not find sandbox %s", sbName)
 		}
 		for _, sbsc := range sb.Subclusters {
-			pf, ok := r.PFacts[sbName].FindFirstUpPod(false, sbsc.Name)
+			pf, ok := sbPFacts.FindFirstUpPod(false, sbsc.Name)
 			if !ok {
-				return ctrl.Result{Requeue: true},
-					fmt.Errorf("could not find pod for sandbox subcluster %s", sbsc.Name)
+				r.Log.Info("Requeue wait for promote subclusters in sandbox: could not find pod for sandbox subcluster %s", sbsc.Name)
+				return ctrl.Result{Requeue: true}, nil
 			}
 			if sbsc.Type == vapi.PrimarySubcluster && !pf.GetIsPrimary() ||
 				sbsc.Type == vapi.SecondarySubcluster && pf.GetIsPrimary() {
-				return ctrl.Result{Requeue: true},
-					fmt.Errorf("sandbox subcluster %s type %s does not match pod fact %s is_primary value %t",
-						sbsc.Name, sbsc.Type, pf.GetName().Name, pf.GetIsPrimary())
+				r.Log.Info("Requeue wait for promote subclusters in sandbox: sandbox subcluster %s type %s does not match pod fact %s is_primary value %t",
+					sbsc.Name, sbsc.Type, pf.GetName().Name, pf.GetIsPrimary())
+				return ctrl.Result{Requeue: true}, nil
 			}
 		}
 	}
 
-	return r.postNextStatusMsg(ctx, promoteSubclustersInSandboxMsgInx)
+	return ctrl.Result{}, r.updateOnlineUpgradeStepAnnotation(ctx, r.getNextStep())
 }
 
 // postUpgradeSandboxMsg will update the status message to indicate that

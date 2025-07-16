@@ -303,7 +303,7 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		// Handle calls to add subclusters to sandboxes
 		MakeSandboxSubclusterReconciler(r, log, vdb, pfacts, dispatcher, r.Client, false),
 		// Update sandbox subcluster type in db according to its type in vdb spec
-		MakeAlterSandboxTypeReconciler(r, log, vdb, pfacts, true),
+		MakeAlterSandboxTypeReconciler(r, log, vdb, pfacts),
 		// Handle calls to move subclusters from sandboxes to main cluster
 		MakeUnsandboxSubclusterReconciler(r, log, vdb, r.Client),
 		// Update the status subcluster types

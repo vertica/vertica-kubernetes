@@ -21,6 +21,7 @@ import (
 	"sort"
 
 	"github.com/go-logr/logr"
+	"github.com/google/uuid"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/builder"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
@@ -163,6 +164,7 @@ func (s *SandboxSubclusterReconciler) sandboxSubclusters(ctx context.Context) (c
 // and update sandbox status in vdb
 func (s *SandboxSubclusterReconciler) executeSandboxCommand(ctx context.Context, scSbMap map[string]string) (ctrl.Result, error) {
 	seenSandboxes := make(map[string]any)
+	needAlterSandboxType := make(map[string]bool)
 
 	// We can simply loop over the scSbMap and sandbox each subcluster. However,
 	// we want to sandbox in a deterministic order because the first subcluster
@@ -179,6 +181,7 @@ func (s *SandboxSubclusterReconciler) executeSandboxCommand(ctx context.Context,
 			return vdbSb.Subclusters[i].Type < vdbSb.Subclusters[j].Type
 		})
 
+		primaryCount := 0
 		for j := range vdbSb.Subclusters {
 			sc := vdbSb.Subclusters[j].Name
 			sb, found := scSbMap[sc]
@@ -200,6 +203,14 @@ func (s *SandboxSubclusterReconciler) executeSandboxCommand(ctx context.Context,
 			// Set sandbox subcluster type default to primary if it is empty
 			if vdbSb.Subclusters[j].Type == "" {
 				vdbSb.Subclusters[j].Type = vapi.PrimarySubcluster
+			}
+
+			// Check if we need to alter the sandbox type
+			if vdbSb.Subclusters[j].Type == vapi.PrimarySubcluster {
+				primaryCount++
+				if primaryCount > 1 {
+					needAlterSandboxType[sb] = true
+				}
 			}
 
 			// Call vclusterOps to add the subcluster to the sandbox
@@ -241,6 +252,20 @@ func (s *SandboxSubclusterReconciler) executeSandboxCommand(ctx context.Context,
 		if err != nil {
 			// when creating/updating sandbox config map failed, update sandbox status and return error
 			return ctrl.Result{}, err
+		}
+
+		// trigger sandbox configmap watched by the sandbox controller if multiple primary subclusters found
+		if needAlterSandboxType[sb] {
+			triggerUUID := uuid.NewString()
+			sbMan := MakeSandboxConfigMapManager(s.VRec, s.Vdb, sb, triggerUUID)
+			triggered, err := sbMan.triggerSandboxController(ctx, AlterSubclusterType)
+			if err != nil {
+				return ctrl.Result{}, err
+			}
+			if triggered {
+				s.Log.Info("Sandbox ConfigMap updated. The sandbox controller will drive the alter sandbox subcluster type",
+					"trigger-uuid", triggerUUID, "Sandbox", sb)
+			}
 		}
 	}
 
