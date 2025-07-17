@@ -629,12 +629,12 @@ func (r *OnlineUpgradeReconciler) waitForPromoteSubclustersInSandbox(ctx context
 		for _, sbsc := range sb.Subclusters {
 			pf, ok := sbPFacts.FindFirstUpPod(false, sbsc.Name)
 			if !ok {
-				r.Log.Info("Requeue wait for promote subclusters in sandbox: could not find pod for sandbox subcluster %s", sbsc.Name)
+				r.Log.Info("Requeue waitForPromoteSubclustersInSandbox: could not find pod for sandbox subcluster %s", sbsc.Name)
 				return ctrl.Result{Requeue: true}, nil
 			}
 			if sbsc.Type == vapi.PrimarySubcluster && !pf.GetIsPrimary() ||
 				sbsc.Type == vapi.SecondarySubcluster && pf.GetIsPrimary() {
-				r.Log.Info("Requeue wait for promote subclusters in sandbox: sandbox subcluster %s type %s does not match pod fact %s is_primary value %t",
+				r.Log.Info("Requeue waitForPromoteSubclustersInSandbox: sandbox subcluster %s type %s does not match pod fact %s is_primary value %t",
 					sbsc.Name, sbsc.Type, pf.GetName().Name, pf.GetIsPrimary())
 				return ctrl.Result{Requeue: true}, nil
 			}
