@@ -245,7 +245,7 @@ func (vdb *VCoordinationDatabase) addHosts(hosts []string, scName, sandbox strin
 
 	for _, host := range hosts {
 		vNode := makeVCoordinationNode()
-		name, ok := util.GenVNodeName(nodeNameToHost, vdb.Name, totalHostCount)
+		name, ok := util.GenVNodeName(nodeNameToHost, vdb.Name, totalHostCount, sandbox)
 		if !ok {
 			return fmt.Errorf("could not generate a vnode name for %s", host)
 		}
