@@ -34,30 +34,33 @@ import (
 // status. If different, it will try to rotate the
 // cert currently used with the one saved the client server tls secret, and/or will update tls mode
 type ClientServerTLSUpdateReconciler struct {
-	VRec       *VerticaDBReconciler
-	Vdb        *vapi.VerticaDB // Vdb is the CRD we are acting on.
-	Log        logr.Logger
-	Dispatcher vadmin.Dispatcher
-	PFacts     *podfacts.PodFacts
-	Manager    *TLSConfigManager
+	VRec         *VerticaDBReconciler
+	Vdb          *vapi.VerticaDB // Vdb is the CRD we are acting on.
+	Log          logr.Logger
+	Dispatcher   vadmin.Dispatcher
+	PFacts       *podfacts.PodFacts
+	Manager      *TLSConfigManager
+	FromRollback bool // Whether or not this has been called from the rollback reconciler
 }
 
 func MakeClientServerTLSUpdateReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger, vdb *vapi.VerticaDB, dispatcher vadmin.Dispatcher,
-	pfacts *podfacts.PodFacts) controllers.ReconcileActor {
+	pfacts *podfacts.PodFacts, fromRollback bool) controllers.ReconcileActor {
 	return &ClientServerTLSUpdateReconciler{
-		VRec:       vdbrecon,
-		Vdb:        vdb,
-		Log:        log.WithName("ClientServerTLSUpdateReconciler"),
-		Dispatcher: dispatcher,
-		PFacts:     pfacts,
-		Manager:    MakeTLSConfigManager(vdbrecon, log, vdb, tlsConfigServer, dispatcher),
+		VRec:         vdbrecon,
+		Vdb:          vdb,
+		Log:          log.WithName("ClientServerTLSUpdateReconciler"),
+		Dispatcher:   dispatcher,
+		PFacts:       pfacts,
+		Manager:      MakeTLSConfigManager(vdbrecon, log, vdb, tlsConfigServer, dispatcher),
+		FromRollback: fromRollback,
 	}
 }
 
 // Reconcile will rotate TLS certificate.
 func (h *ClientServerTLSUpdateReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (ctrl.Result, error) {
-	// Skip if TLS not enabled, DB not initialized, or rotate has failed
-	if h.Vdb.ShouldSkipTLSUpdateReconcile() {
+	// Skip if TLS not enabled, DB not initialized, or rotate has failed.
+	// However, if called from rollback reconciler, always run.
+	if h.Vdb.ShouldSkipTLSUpdateReconcile() && !h.FromRollback {
 		return ctrl.Result{}, nil
 	}
 
@@ -86,11 +89,6 @@ func (h *ClientServerTLSUpdateReconciler) Reconcile(ctx context.Context, req *ct
 		return ctrl.Result{}, nil
 	}
 
-	// we want to be sure nma tls configmap exists and has the freshest values
-	if res, errCheck := h.Manager.checkNMATLSConfigMap(ctx); verrors.IsReconcileAborted(res, errCheck) {
-		return res, errCheck
-	}
-
 	h.Log.Info("start client server tls config update")
 	cond := vapi.MakeCondition(vapi.TLSConfigUpdateInProgress, metav1.ConditionTrue, "InProgress")
 	if err2 := vdbstatus.UpdateCondition(ctx, h.VRec.GetClient(), h.Vdb, cond); err2 != nil {
@@ -112,7 +110,7 @@ func (h *ClientServerTLSUpdateReconciler) Reconcile(ctx context.Context, req *ct
 	}
 
 	err = h.Manager.updateTLSConfig(ctx, initiatorPod.GetPodIP())
-	if err != nil {
+	if err != nil || h.Vdb.IsTLSCertRollbackNeeded() {
 		return ctrl.Result{}, err
 	}
 
