@@ -116,7 +116,7 @@ func (s *SandboxSubclusterReconciler) reconcileSandboxStatus(ctx context.Context
 // reconcileSandboxConfigMaps will create/update sandbox config maps for the existing sandboxes
 func (s *SandboxSubclusterReconciler) reconcileSandboxConfigMaps(ctx context.Context) error {
 	for _, sb := range s.Vdb.Status.Sandboxes {
-		err := s.checkSandboxConfigMap(ctx, sb.Name)
+		err := s.checkSandboxConfigMap(ctx, sb.Name, false /* needAlterSandboxType */)
 		if err != nil {
 			return err
 		}
@@ -163,8 +163,7 @@ func (s *SandboxSubclusterReconciler) sandboxSubclusters(ctx context.Context) (c
 // executeSandboxCommand will call sandbox API in vclusterOps, create/update sandbox config maps,
 // and update sandbox status in vdb
 func (s *SandboxSubclusterReconciler) executeSandboxCommand(ctx context.Context, scSbMap map[string]string) (ctrl.Result, error) {
-	seenSandboxes := make(map[string]any)
-	needAlterSandboxType := make(map[string]bool)
+	seenSandboxes := make(map[string]bool)
 
 	// We can simply loop over the scSbMap and sandbox each subcluster. However,
 	// we want to sandbox in a deterministic order because the first subcluster
@@ -200,16 +199,12 @@ func (s *SandboxSubclusterReconciler) executeSandboxCommand(ctx context.Context,
 			sbName = sb
 			sbScs = append(sbScs, sc)
 
-			// Set sandbox subcluster type default to primary if it is empty
-			if vdbSb.Subclusters[j].Type == "" {
-				vdbSb.Subclusters[j].Type = vapi.PrimarySubcluster
-			}
-
 			// Check if we need to alter the sandbox type
+			needAlterSandboxType := false
 			if vdbSb.Subclusters[j].Type == vapi.PrimarySubcluster {
 				primaryCount++
 				if primaryCount > 1 {
-					needAlterSandboxType[sb] = true
+					needAlterSandboxType = true
 				}
 			}
 
@@ -219,7 +214,7 @@ func (s *SandboxSubclusterReconciler) executeSandboxCommand(ctx context.Context,
 				return res, err
 			}
 
-			seenSandboxes[sb] = struct{}{}
+			seenSandboxes[sb] = needAlterSandboxType
 
 			// Always update status as we go. When sandboxing two subclusters in
 			// the same sandbox, the second subcluster depends on the status
@@ -248,24 +243,10 @@ func (s *SandboxSubclusterReconciler) executeSandboxCommand(ctx context.Context,
 
 	// create/update a sandbox config map and update subcluster type in database
 	for sb := range seenSandboxes {
-		err := s.checkSandboxConfigMap(ctx, sb)
+		err := s.checkSandboxConfigMap(ctx, sb, seenSandboxes[sb])
 		if err != nil {
 			// when creating/updating sandbox config map failed, update sandbox status and return error
 			return ctrl.Result{}, err
-		}
-
-		// trigger sandbox configmap watched by the sandbox controller if multiple primary subclusters found
-		if needAlterSandboxType[sb] {
-			triggerUUID := uuid.NewString()
-			sbMan := MakeSandboxConfigMapManager(s.VRec, s.Vdb, sb, triggerUUID)
-			triggered, err := sbMan.triggerSandboxController(ctx, AlterSubclusterType)
-			if err != nil {
-				return ctrl.Result{}, err
-			}
-			if triggered {
-				s.Log.Info("Sandbox ConfigMap updated. The sandbox controller will drive the alter sandbox subcluster type",
-					"trigger-uuid", triggerUUID, "Sandbox", sb)
-			}
 		}
 	}
 
@@ -307,12 +288,18 @@ func (s *SandboxSubclusterReconciler) findInitiatorIPs(ctx context.Context, sand
 }
 
 // checkSandboxConfigMap will create or update a sandbox config map if needed
-func (s *SandboxSubclusterReconciler) checkSandboxConfigMap(ctx context.Context, sandbox string) error {
+func (s *SandboxSubclusterReconciler) checkSandboxConfigMap(ctx context.Context, sandbox string, needAlterSandboxType bool) error {
 	nm := names.GenSandboxConfigMapName(s.Vdb, sandbox)
 	curCM := &corev1.ConfigMap{}
 	// if proxy is enabled, we do not need to disable routing to the sandbox pods.
 	disableRouting := !vmeta.UseVProxy(s.Vdb.Annotations) && s.ForUpgrade
 	newCM := builder.BuildSandboxConfigMap(nm, s.Vdb, sandbox, disableRouting)
+	// set the trigger ID for alter sandbox type if needed
+	if needAlterSandboxType {
+		s.Log.Info("Sandbox ConfigMap updated. The sandbox controller will drive the alter sandbox subcluster type",
+			"Sandbox", sandbox)
+		newCM.Annotations[vmeta.SandboxControllerAlterSubclusterTypeTriggerID] = uuid.NewString()
+	}
 	err := s.Client.Get(ctx, nm, curCM)
 	if err != nil && kerrors.IsNotFound(err) {
 		s.Log.Info("Creating sandbox config map", "Name", nm)
@@ -323,6 +310,7 @@ func (s *SandboxSubclusterReconciler) checkSandboxConfigMap(ctx context.Context,
 		return s.Client.Update(ctx, newCM)
 	}
 	s.Log.Info("Found an existing sandbox config map with correct content, skip updating it", "Name", nm)
+
 	return nil
 }
 
