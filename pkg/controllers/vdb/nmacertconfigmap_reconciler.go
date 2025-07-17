@@ -70,17 +70,17 @@ func (h *NMACertConfigMapReconciler) Reconcile(ctx context.Context, _ *ctrl.Requ
 	if !h.Vdb.IsSetForTLS() {
 		return ctrl.Result{}, nil
 	}
-	if configMap.Data[builder.NMASecretNameEnv] == h.Vdb.GetHTTPSNMATLSSecret() &&
-		configMap.Data[builder.NMAClientSecretNameEnv] == h.Vdb.GetClientServerTLSSecret() &&
+	if configMap.Data[builder.NMASecretNameEnv] == h.Vdb.GetHTTPSNMATLSSecretForConfigMap() &&
+		configMap.Data[builder.NMAClientSecretNameEnv] == h.Vdb.GetClientServerTLSSecretForConfigMap() &&
 		configMap.Data[builder.NMASecretNamespaceEnv] == h.Vdb.ObjectMeta.Namespace &&
 		configMap.Data[builder.NMAClientSecretNamespaceEnv] == h.Vdb.ObjectMeta.Namespace &&
 		configMap.Data[builder.NMAClientSecretTLSModeEnv] == h.Vdb.GetNMAClientServerTLSMode() {
 		return ctrl.Result{}, nil
 	}
 
-	configMap.Data[builder.NMASecretNameEnv] = h.Vdb.GetHTTPSNMATLSSecret()
+	configMap.Data[builder.NMASecretNameEnv] = h.Vdb.GetHTTPSNMATLSSecretForConfigMap()
 	configMap.Data[builder.NMASecretNamespaceEnv] = h.Vdb.ObjectMeta.Namespace
-	configMap.Data[builder.NMAClientSecretNameEnv] = h.Vdb.GetClientServerTLSSecret()
+	configMap.Data[builder.NMAClientSecretNameEnv] = h.Vdb.GetClientServerTLSSecretForConfigMap()
 	configMap.Data[builder.NMAClientSecretNamespaceEnv] = h.Vdb.ObjectMeta.Namespace
 	configMap.Data[builder.NMAClientSecretTLSModeEnv] = h.Vdb.GetNMAClientServerTLSMode()
 
