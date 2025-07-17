@@ -2349,7 +2349,7 @@ func (v *VerticaDB) checkImmutableTLSConfig(oldObj *VerticaDB, allErrs field.Err
 	clientTLSConfigChanged := oldObj.GetClientServerTLSSecret() != v.GetClientServerTLSSecret() ||
 		oldObj.GetClientServerTLSMode() != v.GetClientServerTLSMode()
 	httpsTLSMatchesStatus := v.GetHTTPSNMATLSSecret() == v.GetHTTPSNMATLSSecretInUse() &&
-		v.GetHTTPSNMATLSMode() == v.GetHTTPSTLSModeInUse()
+		v.GetHTTPSNMATLSMode() == v.GetHTTPSNMATLSModeInUse()
 	clientTLSMatchesStatus := v.GetClientServerTLSSecret() == v.GetClientServerTLSSecretInUse() &&
 		v.GetClientServerTLSMode() == v.GetClientServerTLSModeInUse()
 	if v.IsTLSConfigUpdateInProgress() {

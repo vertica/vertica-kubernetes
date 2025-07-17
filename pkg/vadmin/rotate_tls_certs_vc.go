@@ -71,9 +71,12 @@ func (v *VClusterOps) RotateTLSCerts(ctx context.Context, opts ...rotatetlscerts
 	}
 
 	// In order to test TLS rollback after failed rotate, this is a backdoor set via
-	// annotation to force a failure AFTER the TLS cert has been updated in the DB
-	if vmeta.GetTriggerTLSUpdateFailureAnnotation(v.VDB.Annotations) == vmeta.TriggerTLSUpdateFailureAfterTLSUpdate {
-		return fmt.Errorf("forced error in TLS cert rotation after updating TLS config")
+	// annotation to force a failure AFTER the TLS cert has been updated in the DB.
+	// This failure is only relevant for HTTPS cert rotation, since Client-Server does
+	// not use polling (thus it will either update TLS successfully or error)
+	if s.TLSConfig != tlsConfigServer &&
+		vmeta.GetTriggerTLSUpdateFailureAnnotation(v.VDB.Annotations) == vmeta.TriggerTLSUpdateFailureAfterTLSUpdate {
+		return fmt.Errorf("forced error in TLS cert rotation during HTTPSPollCertificateHealthOp after updating TLS config")
 	}
 
 	v.Log.Info("Successfully rotate tls cert")

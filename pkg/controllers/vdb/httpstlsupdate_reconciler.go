@@ -118,7 +118,7 @@ func (h *HTTPSTLSUpdateReconciler) Reconcile(ctx context.Context, req *ctrl.Requ
 	}
 
 	err = h.Manager.updateTLSConfig(ctx, initiatorPod.GetPodIP())
-	if err != nil {
+	if err != nil || h.Vdb.IsTLSCertRollbackNeeded() {
 		return ctrl.Result{}, err
 	}
 

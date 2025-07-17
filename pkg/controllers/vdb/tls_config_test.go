@@ -171,7 +171,7 @@ var _ = Describe("tls_config", func() {
 
 		err := fmt.Errorf("random error")
 		err1 := manager.triggerRollback(ctx, err)
-		Expect(err1).Should(Equal(err))
+		Expect(err1).Should(BeNil())
 		Expect(len(vdb.Status.Conditions)).Should(Equal(1))
 		Expect(vdb.IsTLSCertRollbackNeeded()).Should(BeTrue())
 		Expect(vdb.Status.Conditions[0].Reason).Should(Equal(vapi.FailureBeforeHTTPSCertHealthPollingReason))
@@ -179,14 +179,14 @@ var _ = Describe("tls_config", func() {
 
 		err = fmt.Errorf("HTTPSPollCertificateHealthOp error during polling")
 		err1 = manager.triggerRollback(ctx, err)
-		Expect(err1).Should(Equal(err))
+		Expect(err1).Should(BeNil())
 		Expect(manager.Vdb.IsHTTPSRollbackFailureAfterCertHealthPolling()).Should(BeTrue())
 
 		manager = MakeTLSConfigManager(vdbRec, logger, vdb, tlsConfigServer, dispatcher)
 		err = fmt.Errorf("random error")
 		err1 = manager.triggerRollback(ctx, err)
-		Expect(err1).Should(Equal(err))
-		Expect(manager.Vdb.IsRollbackAfterServerCertRotation()).Should(BeTrue())
+		Expect(err1).Should(BeNil())
+		Expect(manager.Vdb.IsRollbackDuringServerCertRotation()).Should(BeTrue())
 	})
 
 })

@@ -62,11 +62,20 @@ func (h *NMACertRotationReconciler) Reconcile(ctx context.Context, _ *ctrl.Reque
 	if !h.Vdb.IsSetForTLS() {
 		return ctrl.Result{}, nil
 	}
-	// no-op if tls update has not occurred
-	if (!h.Vdb.IsStatusConditionTrue(vapi.HTTPSTLSConfigUpdateFinished) &&
-		!h.Vdb.IsStatusConditionTrue(vapi.ClientServerTLSConfigUpdateFinished)) ||
-		!h.Vdb.IsStatusConditionTrue(vapi.TLSConfigUpdateInProgress) ||
-		h.Vdb.IsTLSCertRollbackNeeded() {
+
+	// If HTTPS cert rotate failed after updating DB, we still want to run NMA rotate, to get HTTPS and NMA
+	// to use same cert. Then, rollback will revert both HTTPS and NMA to use the previous cert. However, if
+	// it is a mode-only change, don't restart NMA.
+	doesRollbackRequireNMARestart := h.Vdb.IsHTTPSRollbackFailureAfterCertHealthPolling() &&
+		!h.Vdb.IsHTTPSTLSUpdateModeOnlyChange()
+
+	// Check if TLS has been updated
+	hasTLSUpdateOccurred := (h.Vdb.IsStatusConditionTrue(vapi.HTTPSTLSConfigUpdateFinished) ||
+		h.Vdb.IsStatusConditionTrue(vapi.ClientServerTLSConfigUpdateFinished)) &&
+		h.Vdb.IsStatusConditionTrue(vapi.TLSConfigUpdateInProgress)
+
+	// If rollback needed (except case above) or TLS has not been updated, no-op
+	if !doesRollbackRequireNMARestart && (h.Vdb.IsTLSCertRollbackNeeded() || !hasTLSUpdateOccurred) {
 		return ctrl.Result{}, nil
 	}
 

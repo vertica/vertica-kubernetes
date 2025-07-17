@@ -171,7 +171,7 @@ func (t *TLSConfigManager) updateTLSConfig(ctx context.Context, initiatorIP stri
 	started, failed, succeeded := t.getEvents()
 	t.Rec.Eventf(t.Vdb, corev1.EventTypeNormal, started,
 		"Starting tls cert rotation for %s with secret name %s and mode %s",
-		t.TLSConfig, t.NewSecret, t.CurrentTLSMode)
+		t.TLSConfig, t.NewSecret, t.NewTLSMode)
 	err := t.Dispatcher.RotateTLSCerts(ctx, opts...)
 	if err != nil {
 		t.Rec.Eventf(t.Vdb, corev1.EventTypeWarning, failed,
@@ -361,7 +361,7 @@ func (t *TLSConfigManager) setTLSUpdatedata() {
 	if t.TLSConfig == tlsConfigHTTPS {
 		t.CurrentSecret = t.Vdb.GetHTTPSNMATLSSecretInUse()
 		t.NewSecret = t.Vdb.GetHTTPSNMATLSSecret()
-		t.CurrentTLSMode = t.Vdb.GetHTTPSTLSModeInUse()
+		t.CurrentTLSMode = t.Vdb.GetHTTPSNMATLSModeInUse()
 		t.NewTLSMode = t.Vdb.GetHTTPSNMATLSMode()
 		t.tlsConfigName = vapi.HTTPSNMATLSConfigName
 	} else if t.TLSConfig == tlsConfigServer {
@@ -408,13 +408,13 @@ func (t *TLSConfigManager) triggerRollback(ctx context.Context, err error) error
 		return err1
 	}
 
-	return err
+	return nil
 }
 
 func (t *TLSConfigManager) getRollbackReason(err error) string {
 	errMsg := err.Error()
 	if t.isClientServerTLSConfig() {
-		return vapi.RollbackAfterServerCertRotationReason
+		return vapi.RollbackDuringServerCertRotationReason
 	}
 	if strings.Contains(errMsg, "HTTPSPollCertificateHealthOp") {
 		return vapi.RollbackAfterHTTPSCertRotationReason

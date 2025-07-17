@@ -1096,7 +1096,7 @@ const (
 	FailureBeforeHTTPSCertHealthPollingReason = "HTTPSCertRotationFailedBeforeCertHealthPolling"
 	// RollbackAfterServerCertRotationReason indicates failure during Client-Server TLS rotation
 	// This can only be before TLS cert has been updated
-	RollbackAfterServerCertRotationReason = "ServerCertRotationFailed"
+	RollbackDuringServerCertRotationReason = "ServerCertRotationFailed"
 	// RollbackAfterNMACertRotationReason indicates failure during NMA cert rotation
 	RollbackAfterNMACertRotationReason = "NMACertRotationFailed"
 )
