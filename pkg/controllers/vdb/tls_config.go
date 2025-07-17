@@ -126,15 +126,6 @@ func (t *TLSConfigManager) setPollingCertMetadata(ctx context.Context) (ctrl.Res
 // updateTLSConfig calls the vclusterops api that will update the tls config by cert
 // rotation and/or tls mode update
 func (t *TLSConfigManager) updateTLSConfig(ctx context.Context, initiatorIP string) error {
-	// In order to test TLS rollback after failed rotate, this is a backdoor set via
-	// annotation to force a failure. This will check to see if the annotation
-	// is set to a value that will trigger a failure at this stage
-	forceFailure, err := t.GetForceTLSUpdateFailure(ctx)
-
-	if err != nil {
-		return err
-	}
-
 	switch t.TLSUpdateType {
 	case tlsModeAndCertChange:
 		// This type implies both a cert change and a TLS mode change
@@ -176,13 +167,12 @@ func (t *TLSConfigManager) updateTLSConfig(ctx context.Context, initiatorIP stri
 		rotatetlscerts.WithInitiator(initiatorIP),
 		rotatetlscerts.WithTLSConfig(t.TLSConfig),
 		rotatetlscerts.WithNewSecretManager(secretManager),
-		rotatetlscerts.WithForceFailure(forceFailure),
 	}
 	started, failed, succeeded := t.getEvents()
 	t.Rec.Eventf(t.Vdb, corev1.EventTypeNormal, started,
 		"Starting tls cert rotation for %s with secret name %s and mode %s",
 		t.TLSConfig, t.NewSecret, t.CurrentTLSMode)
-	err = t.Dispatcher.RotateTLSCerts(ctx, opts...)
+	err := t.Dispatcher.RotateTLSCerts(ctx, opts...)
 	if err != nil {
 		t.Rec.Eventf(t.Vdb, corev1.EventTypeWarning, failed,
 			"Failed to rotate %s tls cert with secret name %s and mode %s", t.TLSConfig, t.NewSecret, t.NewTLSMode)
@@ -401,9 +391,18 @@ func (t *TLSConfigManager) triggerRollback(ctx context.Context, err error) error
 	if err == nil || t.Vdb.IsTLSCertRollbackDisabled() || t.Vdb.IsTLSCertRollbackInProgress() {
 		return err
 	}
+
+	// Unset the force failure annotation (used for testing) if it has been set. This needs to be
+	// done so that subsequent rotations, like rollback rotation, will work.
+	err1 := t.unsetForceTLSUpdateFailure(ctx)
+
+	if err1 != nil {
+		return err1
+	}
+
 	reason := t.getRollbackReason(err)
 	cond := vapi.MakeCondition(vapi.TLSCertRollbackNeeded, metav1.ConditionTrue, reason)
-	err1 := vdbstatus.UpdateCondition(ctx, t.Rec.GetClient(), t.Vdb, cond)
+	err1 = vdbstatus.UpdateCondition(ctx, t.Rec.GetClient(), t.Vdb, cond)
 
 	if err1 != nil {
 		return err1
@@ -423,9 +422,8 @@ func (t *TLSConfigManager) getRollbackReason(err error) string {
 	return vapi.FailureBeforeHTTPSCertHealthPollingReason
 }
 
-func (t *TLSConfigManager) GetForceTLSUpdateFailure(ctx context.Context) (string, error) {
-	if t.Vdb.ShouldTriggerTLSUpdateFailureInCertRotate() {
-		failAnnotation := t.Vdb.GetTriggerTLSUpdateFailure()
+func (t *TLSConfigManager) unsetForceTLSUpdateFailure(ctx context.Context) error {
+	if vmeta.GetTriggerTLSUpdateFailureAnnotation(t.Vdb.Annotations) != "" {
 		clearTLSFailAnnotation := func() (updated bool, err error) {
 			if _, found := t.Vdb.Annotations[vmeta.TriggerTLSUpdateFailureAnnotation]; found {
 				delete(t.Vdb.Annotations, vmeta.TriggerTLSUpdateFailureAnnotation)
@@ -434,7 +432,7 @@ func (t *TLSConfigManager) GetForceTLSUpdateFailure(ctx context.Context) (string
 			return
 		}
 		_, err := vk8s.UpdateVDBWithRetry(ctx, t.Rec, t.Vdb, clearTLSFailAnnotation)
-		return failAnnotation, err
+		return err
 	}
-	return "", nil
+	return nil
 }

@@ -241,9 +241,9 @@ const (
 	//   "after_tls_update": fail before the secret has been updated in the DB
 	// This annotation is internal only and should only be used for testing the
 	// rollback after failed cert rotation functionality
-	TriggerTLSUpdateFailureAnnotation                = "vertica.com/trigger-tls-update-failure"
-	TriggerTLSUpdateFailureAnnotationBeforeTLSUpdate = "before_tls_update"
-	TriggerTLSUpdateFailureAnnotationAfterTLSUpdate  = "after_tls_update"
+	TriggerTLSUpdateFailureAnnotation      = "vertica.com/trigger-tls-update-failure"
+	TriggerTLSUpdateFailureBeforeTLSUpdate = "before_tls_update"
+	TriggerTLSUpdateFailureAfterTLSUpdate  = "after_tls_update"
 
 	// We have a deployment check that ensures that if running vcluster ops the
 	// image is built for that (and vice-versa). This annotation allows you to

@@ -58,9 +58,8 @@ func (r *RollbackAfterCertRotationReconciler) Reconcile(ctx context.Context, _ *
 		return ctrl.Result{}, nil
 	}
 
-	// If user has not triggered rollback
 	if !r.Vdb.IsTLSCertRollbackInProgress() {
-		// If secret has been reverted, set TLSCertRollbackInProgress and rollback
+		// Set TLSCertRollbackInProgress and rollback
 		cond := vapi.MakeCondition(vapi.TLSCertRollbackInProgress, metav1.ConditionTrue, "InProgress")
 		err := vdbstatus.UpdateCondition(ctx, r.VRec.GetClient(), r.Vdb, cond)
 

@@ -42,30 +42,33 @@ const (
 )
 
 type HTTPSTLSUpdateReconciler struct {
-	VRec       *VerticaDBReconciler
-	Vdb        *vapi.VerticaDB // Vdb is the CRD we are acting on.
-	Log        logr.Logger
-	Dispatcher vadmin.Dispatcher
-	PFacts     *podfacts.PodFacts
-	Manager    *TLSConfigManager
+	VRec         *VerticaDBReconciler
+	Vdb          *vapi.VerticaDB // Vdb is the CRD we are acting on.
+	Log          logr.Logger
+	Dispatcher   vadmin.Dispatcher
+	PFacts       *podfacts.PodFacts
+	Manager      *TLSConfigManager
+	FromRollback bool // Whether or not this has been called from the rollback reconciler
 }
 
 func MakeHTTPSTLSUpdateReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger, vdb *vapi.VerticaDB, dispatcher vadmin.Dispatcher,
-	pfacts *podfacts.PodFacts) controllers.ReconcileActor {
+	pfacts *podfacts.PodFacts, fromRollback bool) controllers.ReconcileActor {
 	return &HTTPSTLSUpdateReconciler{
-		VRec:       vdbrecon,
-		Vdb:        vdb,
-		Log:        log.WithName("HTTPSTLSUpdateReconciler"),
-		Dispatcher: dispatcher,
-		PFacts:     pfacts,
-		Manager:    MakeTLSConfigManager(vdbrecon, log, vdb, tlsConfigHTTPS, dispatcher),
+		VRec:         vdbrecon,
+		Vdb:          vdb,
+		Log:          log.WithName("HTTPSTLSUpdateReconciler"),
+		Dispatcher:   dispatcher,
+		PFacts:       pfacts,
+		Manager:      MakeTLSConfigManager(vdbrecon, log, vdb, tlsConfigHTTPS, dispatcher),
+		FromRollback: fromRollback,
 	}
 }
 
 // Reconcile will rotate TLS certificate.
 func (h *HTTPSTLSUpdateReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (ctrl.Result, error) {
-	// Skip if TLS not enabled, DB not initialized, or rotate has failed
-	if h.Vdb.ShouldSkipTLSUpdateReconcile() {
+	// Skip if TLS not enabled, DB not initialized, or rotate has failed.
+	// However, if called from rollback reconciler, always run.
+	if h.Vdb.ShouldSkipTLSUpdateReconcile() && !h.FromRollback {
 		return ctrl.Result{}, nil
 	}
 

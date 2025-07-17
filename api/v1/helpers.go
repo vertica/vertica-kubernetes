@@ -724,21 +724,6 @@ func (v *VerticaDB) IsRollbackAfterNMACertRotation() bool {
 	return v.GetTLSCertRollbackReason() == RollbackAfterNMACertRotationReason
 }
 
-// GetTriggerTLSUpdateFailure gets the annotation used for forcing a failure
-// of the TLS Update, for testing of rollback
-func (v *VerticaDB) GetTriggerTLSUpdateFailure() string {
-	return vmeta.GetTriggerTLSUpdateFailureAnnotation(v.Annotations)
-}
-
-// ShouldTriggerTLSUpdateFailureInCertRotate returns true of the annotation used for
-// forcing a failure of TLS update (for rollback testing) is set to "before_tls_update"
-// or "after_tls_update", forcing a failure during TLS cert rotate
-func (v *VerticaDB) ShouldTriggerTLSUpdateFailureInCertRotate() bool {
-	tlsFailAnnotation := v.GetTriggerTLSUpdateFailure()
-	return tlsFailAnnotation != "" && (tlsFailAnnotation == vmeta.TriggerTLSUpdateFailureAnnotationBeforeTLSUpdate ||
-		tlsFailAnnotation == vmeta.TriggerTLSUpdateFailureAnnotationAfterTLSUpdate)
-}
-
 // IsStatusConditionTrue returns true when the conditionType is present and set to
 // `metav1.ConditionTrue`
 func (v *VerticaDB) IsStatusConditionTrue(statusCondition string) bool {
@@ -1922,7 +1907,7 @@ func (v *VerticaDB) GetClientServerTLSSecret() string {
 func (v *VerticaDB) ShouldSkipTLSUpdateReconcile() bool {
 	return !v.IsSetForTLS() ||
 		!v.IsDBInitialized() ||
-		(v.IsTLSCertRollbackNeeded() && !v.IsTLSCertRollbackInProgress())
+		v.IsTLSCertRollbackNeeded()
 }
 
 // MakeSourceVDBName is a helper that creates a sample name for the source VerticaDB for test purposes
