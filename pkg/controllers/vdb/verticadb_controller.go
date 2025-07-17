@@ -294,7 +294,7 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		MakeDBAddNodeReconciler(r, log, vdb, prunner, pfacts, dispatcher),
 		MakeStatusReconciler(r.Client, r.Scheme, log, vdb, pfacts),
 		// Update subcluster type in db according to its type in vdb spec
-		MakeAlterSubclusterTypeReconciler(r, log, vdb, pfacts, dispatcher, nil /* configMap */),
+		MakeAlterSubclusterTypeReconciler(r, log, vdb, pfacts, nil /* TestPFacts */, dispatcher, nil /* configMap */),
 		// Handle calls to rebalance_shards
 		MakeRebalanceShardsReconciler(r, log, vdb, prunner, pfacts, "" /* all subclusters */),
 		// Update the label in pods so that Service routing uses them if they

@@ -40,18 +40,21 @@ type AlterSubclusterTypeReconciler struct {
 	Log        logr.Logger
 	Vdb        *vapi.VerticaDB // Vdb is the CRD we are acting on.
 	PFacts     *podfacts.PodFacts
+	TestPFacts *podfacts.PodFacts // sandbox podfacts for unit test
 	Dispatcher vadmin.Dispatcher
 	ConfigMap  *corev1.ConfigMap
 }
 
 // MakeAlterSubclusterTypeReconciler will build a AlterSubclusterTypeReconciler object
 func MakeAlterSubclusterTypeReconciler(vdbrecon config.ReconcilerInterface, log logr.Logger,
-	vdb *vapi.VerticaDB, pfacts *podfacts.PodFacts, dispatcher vadmin.Dispatcher, configMap *corev1.ConfigMap) controllers.ReconcileActor {
+	vdb *vapi.VerticaDB, pfacts *podfacts.PodFacts, testpfacts *podfacts.PodFacts,
+	dispatcher vadmin.Dispatcher, configMap *corev1.ConfigMap) controllers.ReconcileActor {
 	return &AlterSubclusterTypeReconciler{
 		VRec:       vdbrecon,
 		Log:        log.WithName("AlterSubclusterTypeReconciler"),
 		Vdb:        vdb,
 		PFacts:     pfacts,
+		TestPFacts: testpfacts,
 		Dispatcher: dispatcher,
 		ConfigMap:  configMap,
 	}
@@ -73,7 +76,7 @@ func (a *AlterSubclusterTypeReconciler) Reconcile(ctx context.Context, _ *ctrl.R
 		if a.ConfigMap.Annotations[vmeta.SandboxControllerAlterSubclusterTypeTriggerID] == "" {
 			return ctrl.Result{}, nil
 		}
-		ctrlResult, scs, err = a.findSandboxSubclustersToAlter()
+		ctrlResult, scs, err = a.findSandboxSubclustersToAlter(ctx)
 	} else {
 		ctrlResult, scs, err = a.findMainSubclustersToAlter()
 	}
@@ -115,7 +118,8 @@ func (a *AlterSubclusterTypeReconciler) findMainSubclustersToAlter() (ctrl.Resul
 }
 
 // findSandboxSubclustersToAlter finds the sandbox subclusters that need to be altered
-func (a *AlterSubclusterTypeReconciler) findSandboxSubclustersToAlter() (ctrl.Result, []string, error) {
+// sbpfacts is for unit test purposes
+func (a *AlterSubclusterTypeReconciler) findSandboxSubclustersToAlter(ctx context.Context) (ctrl.Result, []string, error) {
 	sbscs := []string{}
 	sbMap := a.Vdb.GenSandboxMap()
 	if len(sbMap) == 0 {
@@ -126,8 +130,17 @@ func (a *AlterSubclusterTypeReconciler) findSandboxSubclustersToAlter() (ctrl.Re
 		if sb == nil {
 			return ctrl.Result{}, sbscs, fmt.Errorf("could not find sandbox %s", sbName)
 		}
+		// get sandbox pod facts
+		sbpfacts := a.PFacts.Copy(sbName)
+		if err := sbpfacts.Collect(ctx, a.Vdb); err != nil {
+			return ctrl.Result{}, sbscs, fmt.Errorf("failed to collect pod facts for sandbox %s: %w", sbName, err)
+		}
+		// use sandbox pod facts if provided
+		if a.TestPFacts != nil {
+			sbpfacts = *a.TestPFacts
+		}
 		for _, sbsc := range sb.Subclusters {
-			pf, ok := a.PFacts.FindFirstUpPod(false, sbsc.Name)
+			pf, ok := sbpfacts.FindFirstUpPod(false, sbsc.Name)
 			if !ok {
 				a.Log.Info("Requeue findSandboxSubclustersToAlter: could not find pod for sandbox subcluster", "subcluster", sbsc.Name)
 				return ctrl.Result{Requeue: true}, sbscs, nil

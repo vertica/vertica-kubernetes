@@ -139,7 +139,8 @@ var _ = Describe("altersubcluster_reconcile", func() {
 			Vdb:    vdb,
 			Log:    logger,
 		}
-		_, scs, err := a.findSandboxSubclustersToAlter()
+		a.TestPFacts = &pFacts
+		_, scs, err := a.findSandboxSubclustersToAlter(ctx)
 		Expect(err).Should(BeNil())
 		Expect(len(scs)).Should(Equal(2))
 		Expect(scs[0]).Should(Equal(subcluster3))
