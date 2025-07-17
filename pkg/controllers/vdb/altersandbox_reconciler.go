@@ -35,20 +35,22 @@ import (
 
 // AlterSandboxTypeReconciler will change a sandbox subcluster type in db
 type AlterSandboxTypeReconciler struct {
-	VRec   config.ReconcilerInterface
-	Log    logr.Logger
-	Vdb    *vapi.VerticaDB // Vdb is the CRD we are acting on.
-	PFacts *podfacts.PodFacts
+	VRec     config.ReconcilerInterface
+	Log      logr.Logger
+	Vdb      *vapi.VerticaDB // Vdb is the CRD we are acting on.
+	PFacts   *podfacts.PodFacts
+	sbPFacts *podfacts.PodFacts // for unit test only
 }
 
 // MakeAlterSandboxTypeReconciler will build a AlterSandboxTypeReconciler object
 func MakeAlterSandboxTypeReconciler(vdbrecon config.ReconcilerInterface, log logr.Logger,
-	vdb *vapi.VerticaDB, pfacts *podfacts.PodFacts) controllers.ReconcileActor {
+	vdb *vapi.VerticaDB, pfacts *podfacts.PodFacts, sbPFact *podfacts.PodFacts) controllers.ReconcileActor {
 	return &AlterSandboxTypeReconciler{
-		VRec:   vdbrecon,
-		Log:    log.WithName("AlterSandboxTypeReconciler"),
-		Vdb:    vdb,
-		PFacts: pfacts,
+		VRec:     vdbrecon,
+		Log:      log.WithName("AlterSandboxTypeReconciler"),
+		Vdb:      vdb,
+		PFacts:   pfacts,
+		sbPFacts: sbPFact,
 	}
 }
 
@@ -101,18 +103,22 @@ func (a *AlterSandboxTypeReconciler) reconcileAlterSandbox(ctx context.Context, 
 }
 
 // isAlterSandboxNeeded checks whether an alter sandbox is needed
+// isUnitTest is used for unit testing only
 func (a *AlterSandboxTypeReconciler) isAlterSandboxNeeded(ctx context.Context, sbName string) (bool, error) {
-	sbPFacts := a.PFacts.Copy(sbName)
-	if err := sbPFacts.Collect(ctx, a.Vdb); err != nil {
+	// get sandbox pod facts
+	if a.sbPFacts == nil {
+		sbPFacts := a.PFacts.Copy(sbName)
+		a.sbPFacts = &sbPFacts
+	}
+	if err := a.sbPFacts.Collect(ctx, a.Vdb); err != nil {
 		return false, fmt.Errorf("failed to collect pod facts for sandbox %s: %w", sbName, err)
 	}
-
 	sb := a.Vdb.GetSandbox(sbName)
 	if sb == nil {
 		return false, fmt.Errorf("could not find sandbox %s", sbName)
 	}
 	for _, sc := range sb.Subclusters {
-		pf, ok := sbPFacts.FindFirstUpPod(true, sc.Name)
+		pf, ok := a.sbPFacts.FindFirstUpPod(true, sc.Name)
 		if !ok {
 			// We only need go through all sandboxes subclusters to determine if an alter is needed.
 			// So we can skip if some of the pods may not be up yet, or some of the sandbox are not running

@@ -33,7 +33,7 @@ import (
 var _ = Describe("altersandbox_reconciler", func() {
 	ctx := context.Background()
 
-	It("should trigger configmap to alster sandbox subcluster type", func() {
+	It("should trigger configmap to alter sandbox subcluster type", func() {
 		vdb := vapi.MakeVDBForVclusterOps()
 		const sandbox1 = "sand"
 		const subcluster1 = "sc1"
@@ -79,7 +79,7 @@ var _ = Describe("altersandbox_reconciler", func() {
 				pFacts.Detail[nm].SetSandbox(sandbox1) // set sc2, sc3 to sandbox
 			}
 		}
-		test.CreateConfigMap(ctx, k8sClient, vdb, vmeta.SandboxControllerAlterSubclusterTypeTriggerID, tID, sandbox1)
+		test.CreateConfigMap(ctx, k8sClient, vdb, "vmeta.SandboxControllerAlterSubclusterTypeTriggerID", tID, sandbox1)
 		defer test.DeleteConfigMap(ctx, k8sClient, vdb, sandbox1)
 
 		// a new ID generated for alter sandbox type
@@ -102,7 +102,8 @@ var _ = Describe("altersandbox_reconciler", func() {
 })
 
 func validateAlterSandboxReconcile(ctx context.Context, vdb *vapi.VerticaDB, pfacts *podfacts.PodFacts) {
-	r := MakeAlterSandboxTypeReconciler(vdbRec, logger, vdb, pfacts)
+	// pass pfacts as the sandbox pod facts
+	r := MakeAlterSandboxTypeReconciler(vdbRec, logger, vdb, pfacts, pfacts)
 	res, err := r.Reconcile(ctx, &ctrl.Request{})
 	Expect(err).Should(Succeed())
 	Expect(res).Should(Equal(ctrl.Result{Requeue: false}))
