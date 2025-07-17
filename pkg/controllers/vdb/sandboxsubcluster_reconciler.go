@@ -163,7 +163,8 @@ func (s *SandboxSubclusterReconciler) sandboxSubclusters(ctx context.Context) (c
 // executeSandboxCommand will call sandbox API in vclusterOps, create/update sandbox config maps,
 // and update sandbox status in vdb
 func (s *SandboxSubclusterReconciler) executeSandboxCommand(ctx context.Context, scSbMap map[string]string) (ctrl.Result, error) {
-	seenSandboxes := make(map[string]bool)
+	seenSandboxes := make(map[string]any)
+	needAlterSandbox := make(map[string]bool)
 
 	// We can simply loop over the scSbMap and sandbox each subcluster. However,
 	// we want to sandbox in a deterministic order because the first subcluster
@@ -200,12 +201,8 @@ func (s *SandboxSubclusterReconciler) executeSandboxCommand(ctx context.Context,
 			sbScs = append(sbScs, sc)
 
 			// Check if we need to alter the sandbox type
-			needAlterSandboxType := false
 			if vdbSb.Subclusters[j].Type == vapi.PrimarySubcluster {
 				primaryCount++
-				if primaryCount > 1 {
-					needAlterSandboxType = true
-				}
 			}
 
 			// Call vclusterOps to add the subcluster to the sandbox
@@ -214,7 +211,7 @@ func (s *SandboxSubclusterReconciler) executeSandboxCommand(ctx context.Context,
 				return res, err
 			}
 
-			seenSandboxes[sb] = needAlterSandboxType
+			seenSandboxes[sb] = struct{}{}
 
 			// Always update status as we go. When sandboxing two subclusters in
 			// the same sandbox, the second subcluster depends on the status
@@ -235,6 +232,11 @@ func (s *SandboxSubclusterReconciler) executeSandboxCommand(ctx context.Context,
 			}
 		}
 
+		if primaryCount > 1 {
+			s.Log.Info("need to alter sandbox type", "sandbox", sbName, "primaryCount", primaryCount)
+			needAlterSandbox[sbName] = true
+		}
+
 		if err := s.waitForSandboxScUp(ctx, sbName, sbScs); err != nil {
 			s.Log.Error(err, "failed waiting for newly sandboxed subclusters to be up", "sandbox", sbName, "subclusters", sbScs)
 			return ctrl.Result{Requeue: true}, nil
@@ -243,7 +245,7 @@ func (s *SandboxSubclusterReconciler) executeSandboxCommand(ctx context.Context,
 
 	// create/update a sandbox config map and update subcluster type in database
 	for sb := range seenSandboxes {
-		err := s.checkSandboxConfigMap(ctx, sb, seenSandboxes[sb])
+		err := s.checkSandboxConfigMap(ctx, sb, needAlterSandbox[sb])
 		if err != nil {
 			// when creating/updating sandbox config map failed, update sandbox status and return error
 			return ctrl.Result{}, err

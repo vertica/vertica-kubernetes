@@ -103,7 +103,6 @@ func (a *AlterSandboxTypeReconciler) reconcileAlterSandbox(ctx context.Context, 
 }
 
 // isAlterSandboxNeeded checks whether an alter sandbox is needed
-// isUnitTest is used for unit testing only
 func (a *AlterSandboxTypeReconciler) isAlterSandboxNeeded(ctx context.Context, sbName string) (bool, error) {
 	// get sandbox pod facts
 	sbpfacts := a.PFacts.Copy(sbName)
@@ -119,15 +118,9 @@ func (a *AlterSandboxTypeReconciler) isAlterSandboxNeeded(ctx context.Context, s
 	}
 	for _, sc := range sb.Subclusters {
 		pf, ok := sbpfacts.FindFirstUpPod(true, sc.Name)
-		if pf == nil {
-			a.Log.Info("DEBUG isAlterSandboxNeeded: could not find pod for sandbox subcluster %s", sc.Name)
-			return false, nil
-		}
-		a.Log.Info("isAlterSandboxNeeded: sandbox subcluster", "subcluster", sc.Name,
-			"type", sc.Type, "podfacts is primary", pf.GetIsPrimary(), "%v", pf)
 		if !ok {
-			// We only need go through all sandboxes subclusters to determine if an alter is needed.
-			// So we can skip if some of the pods may not be up yet, or some of the sandbox are not running
+			// We need go through all sandboxes subclusters to determine if an alter is needed.
+			// So we can skip if some of the pods may not be up yet, or some of the sandboxes are not running
 			continue
 		}
 		// Need alter only when sandbox subcluster type don't match podfacts (which reads the database)
