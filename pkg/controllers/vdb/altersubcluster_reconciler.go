@@ -139,6 +139,7 @@ func (a *AlterSubclusterTypeReconciler) findSandboxSubclustersToAlter(ctx contex
 		if a.TestPFacts != nil {
 			sbpfacts = *a.TestPFacts
 		}
+		foundSbsc := false
 		for _, sbsc := range sb.Subclusters {
 			pf, ok := sbpfacts.FindFirstUpPod(false, sbsc.Name)
 			if !ok {
@@ -151,7 +152,12 @@ func (a *AlterSubclusterTypeReconciler) findSandboxSubclustersToAlter(ctx contex
 				a.Log.Info("Found sandbox subcluster to alter", "subcluster", sbsc.Name,
 					"sandbox subcluster type", sbsc.Type, "podfacts is primary", pf.GetIsPrimary())
 				sbscs = append(sbscs, sbsc.Name)
+				foundSbsc = true
 			}
+		}
+		if foundSbsc {
+			// force a refresh of the facts as it will be updated
+			sbpfacts.Invalidate()
 		}
 	}
 	return ctrl.Result{}, sbscs, nil

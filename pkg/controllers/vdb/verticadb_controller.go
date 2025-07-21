@@ -302,8 +302,6 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		MakeClientRoutingLabelReconciler(r, log, vdb, pfacts, AddNodeApplyMethod, ""),
 		// Handle calls to add subclusters to sandboxes
 		MakeSandboxSubclusterReconciler(r, log, vdb, pfacts, dispatcher, r.Client, false),
-		// Update sandbox subcluster type in db according to its type in vdb spec
-		MakeAlterSandboxTypeReconciler(r, log, vdb, pfacts, nil /* sbPFacts */),
 		// Handle calls to move subclusters from sandboxes to main cluster
 		MakeUnsandboxSubclusterReconciler(r, log, vdb, r.Client),
 		// Update the status subcluster types
@@ -319,6 +317,8 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		MakeSandboxShutdownReconciler(r, log, vdb, false),
 		// Add the label after update the sandbox subcluster status field
 		MakeObjReconciler(r, log, vdb, pfacts, ObjReconcileModeAll),
+		// Update sandbox subcluster type in db according to its type in vdb spec
+		MakeAlterSandboxTypeReconciler(r, log, vdb, pfacts, nil /* sbPFacts */),
 		// Handle calls to create a restore point
 		MakeSaveRestorePointReconciler(r, vdb, log, pfacts, dispatcher, r.Client),
 		// Resize any PVs if the local data size changed in the vdb
