@@ -373,7 +373,7 @@ helm-ut: ## Run the helm unittest
 	docker run -i $(shell [ -t 0 ] && echo '-t') --rm -v $(OPERATOR_CHART):/apps quintush/helm-unittest:$(HELM_UNITTEST_VERSION) -3 .
 
 .PHONY: lint
-lint: helm-dependency-update config-transformer golangci-lint ## Lint the helm charts and the Go operator
+lint: config-transformer golangci-lint ## Lint the helm charts and the Go operator
 	$(GOLANGCI_LINT) run
 	helm lint $(OPERATOR_CHART)
 	scripts/dockerfile-lint
@@ -665,7 +665,7 @@ uninstall-cert-manager: ## Uninstall the cert-manager
 	kubectl delete -f https://github.com/jetstack/cert-manager/releases/download/v$(CERT_MANAGER_VER)/cert-manager.yaml
 
 .PHONY: config-transformer
-config-transformer: manifests kustomize kubernetes-split-yaml ## Generate release artifacts and helm charts from config/
+config-transformer: manifests kustomize kubernetes-split-yaml helm-dependency-update ## Generate release artifacts and helm charts from config/
 	scripts/config-transformer.sh
 
 .PHONY: install
