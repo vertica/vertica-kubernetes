@@ -201,7 +201,7 @@ func (s *SandboxSubclusterReconciler) executeSandboxCommand(ctx context.Context,
 			sbScs = append(sbScs, sc)
 
 			// Check if we need to alter the sandbox type
-			if vdbSb.Subclusters[j].Type == vapi.PrimarySubcluster || vdbSb.Subclusters[j].Type == "" {
+			if vdbSb.Subclusters[j].Type == vapi.PrimarySubcluster {
 				s.Log.Info("DEBUG executeSandboxCommand: sandbox subcluster is primary", "sandbox", sb, "subcluster", sc, "primaryCount", primaryCount)
 				primaryCount++
 			}
