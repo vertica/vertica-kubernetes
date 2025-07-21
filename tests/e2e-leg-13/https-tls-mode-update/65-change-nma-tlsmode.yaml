@@ -4,4 +4,4 @@ metadata:
   name: v-tls-certs
 spec:
   httpsNMATLS:
-    mode: TRY_VERIFY
+    mode: try_verify

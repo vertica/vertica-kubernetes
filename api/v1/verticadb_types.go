@@ -937,7 +937,7 @@ type TLSConfigSpec struct {
 	// Everything after the prefix is the name of the secret in the service you
 	// are storing.
 	Secret string `json:"secret,omitempty"`
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:hidden"
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:select:disable","urn:alm:descriptor:com.tectonic.ui:select:enable","urn:alm:descriptor:com.tectonic.ui:select:TRY_VERIFY","urn:alm:descriptor:com.tectonic.ui:select:VERIFY_CA","urn:alm:descriptor:com.tectonic.ui:select:VERIFY_FULL"}
 	// +kubebuilder:default:=TRY_VERIFY
 	// +kubebuilder:validation:Optional
 	// This field configures the Vertica's connection mode for HTTPS/NMA or client-server TLS.
@@ -1082,6 +1082,18 @@ const (
 	ClientServerTLSConfigUpdateFinished = "ClientServerTLSConfigUpdateFinished"
 	// TLSConfigUpdateInProgress indicates the TLS config update has started
 	TLSConfigUpdateInProgress = "TLSConfigUpdateInProgress"
+	// TLSCertRollbackNeeded indicates tls cert rotation failed and we need
+	// to rollback
+	TLSCertRollbackNeeded = "TLSCertRollbackNeeded"
+)
+
+const (
+	// RollbackAfterCertRotationReason indicates failure during TLS rotation after TLS cert has been updated
+	RollbackAfterCertRotationReason = "CertRotationFailed"
+	// FailureBeforeCertHealthPollingReason indicates failure during TLS rotation before TLS cert has been updated
+	FailureBeforeCertHealthPollingReason = "CertRotationFailedBeforeCertHealthPolling"
+	// RollbackAfterNMACertRotationReason indicates failure during NMA cert rotation
+	RollbackAfterNMACertRotationReason = "NMACertRotationFailed"
 )
 
 const (

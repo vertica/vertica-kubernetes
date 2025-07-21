@@ -185,6 +185,13 @@ func MakeVDB() *VerticaDB {
 	}
 }
 
+// MakeVDBForTLS is a helper that constructs a VerticaDB struct with TLS enabled.
+func MakeVDBForTLS() *VerticaDB {
+	vdb := MakeVDB()
+	SetVDBForTLS(vdb)
+	return vdb
+}
+
 // MakeVDBForHTTP is a helper that constructs a VerticaDB struct with http enabled.
 // This is intended for test purposes.
 func MakeVDBForHTTP(httpServerTLSSecretName string) *VerticaDB {
@@ -670,6 +677,42 @@ func (v *VerticaDB) IsUpgradeInProgress() bool {
 
 func (v *VerticaDB) IsTLSConfigUpdateInProgress() bool {
 	return v.IsStatusConditionTrue(TLSConfigUpdateInProgress)
+}
+
+func (v *VerticaDB) IsTLSCertRollbackNeeded() bool {
+	return v.IsStatusConditionTrue(TLSCertRollbackNeeded)
+}
+
+func (v *VerticaDB) FindTLSCertRollbackNeededCondition() *metav1.Condition {
+	return v.FindStatusCondition(TLSCertRollbackNeeded)
+}
+
+func (v *VerticaDB) IsTLSCertRollbackDisabled() bool {
+	return vmeta.IsDisableTLSRollbackAnnotationSet(v.Annotations)
+}
+
+// GetTLSCertRollbackReason returns the reason or the point
+// which cert rotation failed in. This is used to know the ops
+// needed to rollback
+func (v *VerticaDB) GetTLSCertRollbackReason() string {
+	cond := v.FindTLSCertRollbackNeededCondition()
+	if cond == nil {
+		return ""
+	}
+
+	return cond.Reason
+}
+
+// IsRollbackFailureBeforeCertHealthPolling returns true if https cert rotation failed
+// without altering the current tls config
+func (v *VerticaDB) IsRollbackFailureBeforeCertHealthPolling() bool {
+	return v.GetTLSCertRollbackReason() == FailureBeforeCertHealthPollingReason
+}
+
+// IsRollbackAfterNMACertRotation returns true if https cert rotation failed
+// but tls config changed
+func (v *VerticaDB) IsRollbackAfterNMACertRotation() bool {
+	return v.GetTLSCertRollbackReason() == RollbackAfterNMACertRotationReason
 }
 
 // IsStatusConditionTrue returns true when the conditionType is present and set to
@@ -1646,13 +1689,13 @@ func (v *VerticaDB) GetClientServerTLSSecretInUse() string {
 
 // IsCertNeededForClientServerAuth returns true if certificate is needed for client-server authentication
 func (v *VerticaDB) IsCertNeededForClientServerAuth() bool {
-	tlsMode := strings.ToLower(v.GetClientServerTLSMode())
+	tlsMode := v.GetClientServerTLSMode()
 	return tlsMode != tlsModeDisable && tlsMode != tlsModeEnable
 }
 
 // GetNMAClientServerTLSMode returns the tlsMode for NMA client-server communication
 func (v *VerticaDB) GetNMAClientServerTLSMode() string {
-	tlsMode := strings.ToLower(v.GetClientServerTLSMode())
+	tlsMode := v.GetClientServerTLSMode()
 	switch tlsMode {
 	case tlsModeDisable:
 		return nmaTLSModeDisable
@@ -1702,11 +1745,11 @@ func (v *VerticaDB) GetTLSModeInUse(name string) string {
 }
 
 func (v *VerticaDB) GetHTTPSTLSModeInUse() string {
-	return v.GetTLSModeInUse(HTTPSNMATLSConfigName)
+	return strings.ToLower(v.GetTLSModeInUse(HTTPSNMATLSConfigName))
 }
 
 func (v *VerticaDB) GetClientServerTLSModeInUse() string {
-	return v.GetTLSModeInUse(ClientServerTLSConfigName)
+	return strings.ToLower(v.GetTLSModeInUse(ClientServerTLSConfigName))
 }
 
 // SetTLSConfigs updates the slice with a new TLSConfig by Name, and returns true if any changes occurred.
@@ -1774,12 +1817,19 @@ func findInvalidChars(objName string, allowDash bool) string {
 	return foundChars
 }
 
+func (v *VerticaDB) GetSpecHTTPSNMATLSMode() string {
+	if v.Spec.HTTPSNMATLS == nil {
+		return ""
+	}
+	return v.Spec.HTTPSNMATLS.Mode
+}
+
 // Get HTTPSNMATLS mode from spec or return "" if not found
 func (v *VerticaDB) GetHTTPSNMATLSMode() string {
 	if v.Spec.HTTPSNMATLS == nil {
 		return ""
 	}
-	return v.Spec.HTTPSNMATLS.Mode
+	return strings.ToLower(v.Spec.HTTPSNMATLS.Mode)
 }
 
 // Get HTTPSNMATLS secret from spec or return "" if not found
@@ -1790,12 +1840,19 @@ func (v *VerticaDB) GetHTTPSNMATLSSecret() string {
 	return v.Spec.HTTPSNMATLS.Secret
 }
 
+func (v *VerticaDB) GetSpecClientServerTLSMode() string {
+	if v.Spec.ClientServerTLS == nil {
+		return ""
+	}
+	return v.Spec.ClientServerTLS.Mode
+}
+
 // Get ClientServerTLS mode from spec or return "" if not found
 func (v *VerticaDB) GetClientServerTLSMode() string {
 	if v.Spec.ClientServerTLS == nil {
 		return ""
 	}
-	return v.Spec.ClientServerTLS.Mode
+	return strings.ToLower(v.Spec.ClientServerTLS.Mode)
 }
 
 // Get ClientServerTLS secret from spec or return "" if not found
@@ -1804,6 +1861,14 @@ func (v *VerticaDB) GetClientServerTLSSecret() string {
 		return ""
 	}
 	return v.Spec.ClientServerTLS.Secret
+}
+
+// Check if TLS not enabled, DB not initialized, or rotate has failed
+// In these cases, we skip TLS Update
+func (v *VerticaDB) ShouldSkipTLSUpdateReconcile() bool {
+	return !v.IsSetForTLS() ||
+		!v.IsDBInitialized() ||
+		v.IsTLSCertRollbackNeeded()
 }
 
 // MakeSourceVDBName is a helper that creates a sample name for the source VerticaDB for test purposes
