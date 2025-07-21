@@ -70,7 +70,6 @@ var _ = Describe("altersubcluster_reconcile", func() {
 		pFacts.Detail[nmSc2].SetUpNode(true)
 		pFacts.Detail[nmSc2].SetIsPrimary(false)
 
-		// find the subclusters to alter
 		pFacts.SandboxName = sbName
 		a := AlterSubclusterTypeReconciler{
 			PFacts: &pFacts,
@@ -139,7 +138,6 @@ var _ = Describe("altersubcluster_reconcile", func() {
 			Vdb:    vdb,
 			Log:    logger,
 		}
-		a.TestPFacts = &pFacts
 		_, scs, err := a.findSandboxSubclustersToAlter(ctx)
 		Expect(err).Should(BeNil())
 		Expect(len(scs)).Should(Equal(2))

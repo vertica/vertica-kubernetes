@@ -63,6 +63,7 @@ var _ = Describe("altersandbox_reconciler", func() {
 
 		fpr := &cmds.FakePodRunner{}
 		pFacts := podfacts.MakePodFacts(vdbRec, fpr, logger, TestPassword)
+		pFacts.SandboxName = sandbox1
 		Expect(pFacts.Collect(ctx, vdb)).Should(Succeed())
 		for _, sc := range vdb.Spec.Subclusters {
 			// set sc pods to be up
@@ -103,7 +104,7 @@ var _ = Describe("altersandbox_reconciler", func() {
 
 func validateAlterSandboxReconcile(ctx context.Context, vdb *vapi.VerticaDB, pfacts *podfacts.PodFacts) {
 	// pass pfacts as the sandbox pod facts
-	r := MakeAlterSandboxTypeReconciler(vdbRec, logger, vdb, pfacts, pfacts)
+	r := MakeAlterSandboxTypeReconciler(vdbRec, logger, vdb, pfacts)
 	res, err := r.Reconcile(ctx, &ctrl.Request{})
 	Expect(err).Should(Succeed())
 	Expect(res).Should(Equal(ctrl.Result{Requeue: false}))

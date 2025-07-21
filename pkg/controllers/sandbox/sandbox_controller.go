@@ -159,8 +159,6 @@ func (r *SandboxConfigMapReconciler) constructActors(vdb *v1.VerticaDB, log logr
 		MakeVerifyDeploymentReconciler(r, vdb, log),
 		// Move the subclusters from a sandbox to the main cluster
 		MakeUnsandboxSubclusterReconciler(r, vdb, log, r.Client, pfacts, dispatcher, configMap, prunner),
-		// Update subcluster type in db according to its type in sandbox
-		vdbcontroller.MakeAlterSubclusterTypeReconciler(r, log, vdb, pfacts, nil /* TestPFacts */, dispatcher, configMap),
 		// Update the vdb status for the sandbox nodes/pods
 		vdbcontroller.MakeStatusReconciler(r.Client, r.Scheme, log, vdb, pfacts),
 		// Upgrade the sandbox using the offline method
@@ -179,6 +177,8 @@ func (r *SandboxConfigMapReconciler) constructActors(vdb *v1.VerticaDB, log logr
 		// Ensure we add labels to any pod rescheduled so that Service objects route traffic to it.
 		vdbcontroller.MakeClientRoutingLabelReconcilerWithDisableRouting(r, log, vdb, pfacts, vdbcontroller.PodRescheduleApplyMethod, "",
 			vmeta.GetDisableRouting(configMap.Annotations)),
+		// Update subcluster type in db according to its type in sandbox
+		vdbcontroller.MakeAlterSubclusterTypeReconciler(r, log, vdb, pfacts, dispatcher, configMap),
 		// Scale in the subclusters' statefulsets to zero after the subclusters are shut down
 		MakeScaleStafulsetReconciler(r, vdb, pfacts),
 	}
