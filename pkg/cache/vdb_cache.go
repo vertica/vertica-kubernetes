@@ -47,6 +47,7 @@ type dbToCacheMap map[types.NamespacedName]*VdbCacheStruct
 type CacheManangerStruct struct {
 	allCacheMap  dbToCacheMap // map each vdb to a VdbContext
 	guardAllLock *sync.Mutex  // guards allContextMap
+	enabled      bool
 }
 
 type CacheManager interface {
@@ -71,14 +72,16 @@ type VdbCacheStruct struct {
 	creationTimeMap map[string]time.Time
 	fetcher         *cloud.SecretFetcher
 	cacheDuration   time.Duration
+	enabled         bool
 }
 
 var log = ctrl.Log.WithName("vdb_cache")
 
-func MakeCacheManager() CacheManager {
+func MakeCacheManager(enabled bool) CacheManager {
 	c := &CacheManangerStruct{}
 	c.guardAllLock = &sync.Mutex{}
 	c.allCacheMap = make(dbToCacheMap)
+	c.enabled = enabled
 	log.Info("initialized cache manager")
 	return c
 }
@@ -94,7 +97,7 @@ func (c *CacheManangerStruct) InitCertCacheForVdb(vdb *v1.VerticaDB, fetcher *cl
 	singleCertCache, ok := c.allCacheMap[vdbName]
 	tlsCacheDuration := meta.GetTLSCacheDuration(vdb.Annotations)
 	if !ok {
-		singleCertCache = makeVdbCertCache(vdbName.Namespace, tlsCacheDuration, fetcher)
+		singleCertCache = makeVdbCertCache(vdbName.Namespace, tlsCacheDuration, fetcher, c.enabled)
 		c.allCacheMap[vdbName] = singleCertCache
 		log.Info("initialized cert cache for vdb", "vdbname", vdbName.Namespace, "vdbnamespace", vdbName.Name)
 	} else if singleCertCache.cacheDuration != time.Duration(tlsCacheDuration)*time.Second {
@@ -131,7 +134,7 @@ func (c *CacheManangerStruct) DestroyCertCacheForVdb(namespace, name string) {
 
 // makeVdbCertCache instantiates a VdbCacheStruct and saves
 // vdb's namespace in it for convenience
-func makeVdbCertCache(namespace string, ttl int, fetcher *cloud.SecretFetcher) *VdbCacheStruct {
+func makeVdbCertCache(namespace string, ttl int, fetcher *cloud.SecretFetcher, enabled bool) *VdbCacheStruct {
 	singleContext := &VdbCacheStruct{}
 	singleContext.namespace = namespace
 	singleContext.lockForSecret = &sync.Mutex{}
@@ -139,6 +142,7 @@ func makeVdbCertCache(namespace string, ttl int, fetcher *cloud.SecretFetcher) *
 	singleContext.creationTimeMap = make(map[string]time.Time)
 	singleContext.fetcher = fetcher
 	singleContext.cacheDuration = time.Duration(ttl) * time.Second
+	singleContext.enabled = enabled
 	return singleContext
 }
 
@@ -146,31 +150,40 @@ func makeVdbCertCache(namespace string, ttl int, fetcher *cloud.SecretFetcher) *
 // If the secret is not found in cache, it will be loaded from k8s and be cached.
 // the cache key will be the secretName
 func (c *VdbCacheStruct) ReadCertFromSecret(ctx context.Context, secretName string) (*interfaces.HTTPSCerts, error) {
-	c.lockForSecret.Lock()
-	defer c.lockForSecret.Unlock()
-	secretMap, ok := c.secretMap[secretName]
-	if ok {
-		creationTime, foundCreationTime := c.creationTimeMap[secretName]
-		if !foundCreationTime {
-			log.Info("failed to find creation time for secret in cache. Will reload", "secret name", secretName)
-			ok = false
-		} else {
-			expiryTime := creationTime.Add(c.cacheDuration)
-			if time.Now().After(expiryTime) {
-				log.Info("cache for secret expired", "secretName", secretName)
-				ok = false
+	readRequired := true
+	var secretMap map[string][]byte
+	if c.enabled {
+		c.lockForSecret.Lock()
+		defer c.lockForSecret.Unlock()
+		ok := false
+		secretMap, ok = c.secretMap[secretName]
+		if ok {
+			creationTime, foundCreationTime := c.creationTimeMap[secretName]
+			if !foundCreationTime {
+				log.Info("failed to find creation time for secret in cache. Will reload", "secret name", secretName)
+			} else {
+				expiryTime := creationTime.Add(c.cacheDuration)
+				if time.Now().After(expiryTime) {
+					log.Info("cache for secret expired", "secretName", secretName)
+				} else {
+					readRequired = false
+				}
 			}
 		}
 	}
-	if !ok {
+	if readRequired {
 		err := error(nil)
 		secretMap, err = retrieveSecretByName(ctx, c.namespace, secretName, c.fetcher)
 		if err != nil {
 			return nil, err // failed to load secret
 		}
-		c.secretMap[secretName] = secretMap // add secret content to cache
-		c.creationTimeMap[secretName] = time.Now()
-		log.Info("loaded tls secret and cached it", "secretName", secretName)
+		if c.enabled {
+			c.secretMap[secretName] = secretMap // add secret content to cache
+			c.creationTimeMap[secretName] = time.Now()
+			log.Info("loaded tls secret and cached it", "secretName", secretName)
+		} else {
+			log.Info("loaded tls secret", "secretName", secretName)
+		}
 	}
 	return &interfaces.HTTPSCerts{
 		Key:    string(secretMap[corev1.TLSPrivateKeyKey]),
@@ -192,6 +205,9 @@ func (c *VdbCacheStruct) ClearCacheBySecretName(name string) {
 }
 
 func (c *VdbCacheStruct) SaveCertIntoCache(secretName string, certData map[string][]byte) {
+	if !c.enabled {
+		return
+	}
 	c.lockForSecret.Lock()
 	defer c.lockForSecret.Unlock()
 	c.secretMap[secretName] = certData
