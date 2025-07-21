@@ -101,7 +101,7 @@ func addReconcilersToManager(mgr manager.Manager, restCfg *rest.Config) {
 		return
 	}
 
-	cacheManager := vcache.MakeCacheManager()
+	cacheManager := vcache.MakeCacheManager(opcfg.GetIsCacheEnabled())
 	// Create a custom option with our own rate limiter
 	rateLimiter := workqueue.NewItemExponentialFailureRateLimiter(1*time.Millisecond,
 		time.Duration(opcfg.GetVdbMaxBackoffDuration())*time.Millisecond)
@@ -275,6 +275,7 @@ func main() {
 		"version", opcfg.GetVersion(),
 		"watchNamespace", opcfg.GetWatchNamespace(),
 		"webhooksEnabled", opcfg.GetIsWebhookEnabled(),
+		"cacheEnabled", opcfg.GetIsCacheEnabled(),
 		"controllersEnabled", opcfg.GetIsControllersEnabled(),
 		"broadcasterBurstSize", burstSize,
 	)

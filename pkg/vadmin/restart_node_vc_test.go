@@ -85,7 +85,7 @@ var _ = Describe("restart_node_vc", func() {
 		setupAPIFunc := func(logr.Logger, string) (VClusterProvider, logr.Logger) {
 			return &MockVClusterOps{ReturnReIPNoClusterQuorum: true}, logr.Logger{}
 		}
-		cacheManager := cache.MakeCacheManager()
+		cacheManager := cache.MakeCacheManager(true)
 		dispatcher := mockVClusterOpsDispatcherWithCustomSetup(vdb, setupAPIFunc, cacheManager)
 		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.HTTPSNMATLS.Secret)
 		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.HTTPSNMATLS.Secret)

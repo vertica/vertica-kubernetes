@@ -83,7 +83,7 @@ var _ = BeforeSuite(func() {
 		Metrics: metricsServerOptions,
 	})
 	Expect(err).NotTo(HaveOccurred())
-	cacheManager := cache.MakeCacheManager()
+	cacheManager := cache.MakeCacheManager(true)
 	vdbRec = &VerticaDBReconciler{
 		Client:       k8sClient,
 		Log:          logger,

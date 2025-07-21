@@ -665,7 +665,7 @@ func mockVClusterOpsDispatcher(vdb *vapi.VerticaDB) vadmin.Dispatcher {
 		return &mockvops.MockVClusterOps{}, logr.Logger{}
 	}
 	evWriter := aterrors.TestEVWriter{}
-	cacheManager := cache.MakeCacheManager()
+	cacheManager := cache.MakeCacheManager(true)
 	dispatcher := vadmin.MakeVClusterOps(logger, vdb, k8sClient, "pwd", &evWriter, setupAPIFunc, cacheManager)
 	vclusterops := dispatcher.(*vadmin.VClusterOps)
 	fetcher := &cloud.SecretFetcher{

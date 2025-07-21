@@ -88,33 +88,77 @@ var _ = Describe("vdb_context", func() {
 		Ω(inCache).Should(Equal(false))
 	})
 
-	var _ = Describe("test vdb_context secret function", func() {
-		// ctx := context.Background()
+	var _ = Describe("test enable functionality", func() {
+		ctx := context.Background()
 
-		It("should use VdbContext to get secret", func() {
-			/* dispatcher := mockMTLSVClusterOpsDispatcher()
-			dispatcher.VDB.Spec.NMATLSSecret = "vdbcontext-get-secret"
-			secret := test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.NMATLSSecret)
-			defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.NMATLSSecret)
+		//nolint:dupl
+		It("should get latest secret when cache is not enabled", func() {
+			dispatcher := mockVClusterOpsDispatcherWithCacheFlag(false)
 			dispatcher.VDB.Spec.DBName = TestDBName
-			vdbContext := GetContextForVdb(dispatcher.VDB.Namespace, dispatcher.VDB.Name)
-			vdbContextStruct := vdbContext.(*VdbContextStruct) // get actual underlying data type
-			// use closure to mock secret retrieval
-			vdbContextStruct.retrieveSecret = func(s1, s2 string, fetcher cloud.SecretFetcher) (map[string][]byte, error) {
-				return secret.Data, nil
-			}
-			fetcher := cloud.SecretFetcher{
+			dispatcher.VDB.Spec.HTTPSNMATLS.Secret = TestNMATLSSecret
+
+			secret := test.BuildTLSSecret(dispatcher.VDB, TestNMATLSSecret, test.TestKeyValue, test.TestCertValue, test.TestCaCertValue)
+			Expect(dispatcher.Client.Create(ctx, secret)).Should(Succeed())
+			fetcher := &cloud.SecretFetcher{
 				Client:   dispatcher.Client,
 				Log:      dispatcher.Log,
 				Obj:      dispatcher.VDB,
 				EVWriter: dispatcher.EVWriter,
 			}
-			cert, err := vdbContext.GetCertFromSecret(dispatcher.VDB.Spec.NMATLSSecret, fetcher)
+			dispatcher.CacheManager.InitCertCacheForVdb(dispatcher.VDB, fetcher)
+			defer dispatcher.CacheManager.DestroyCertCacheForVdb(dispatcher.VDB.Namespace, dispatcher.VDB.Name)
+
+			vdbCertCache := dispatcher.CacheManager.GetCertCacheForVdb(dispatcher.VDB.Namespace, dispatcher.VDB.Name)
+			Expect(vdbCertCache).ShouldNot(Equal(nil))
+			cert, err := vdbCertCache.ReadCertFromSecret(ctx, TestNMATLSSecret)
 			Ω(err).Should(BeNil())
-			Ω(cert.Key).Should(Equal(string(secret.Data[corev1.TLSPrivateKeyKey])))
-			Ω(cert.Cert).Should(Equal(string(secret.Data[corev1.TLSCertKey])))
-			Ω(cert.CaCert).Should(Equal(string(secret.Data[paths.HTTPServerCACrtName])))
-			Ω(vdbContextStruct.secretMap[dispatcher.VDB.Spec.NMATLSSecret]).Should(Equal(secret.Data)) */
+			Ω(cert.Key).Should(Equal(test.TestKeyValue))
+			Ω(cert.Cert).Should(Equal(test.TestCertValue))
+			Ω(cert.CaCert).Should(Equal(test.TestCaCertValue))
+			test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.HTTPSNMATLS.Secret)
+			secret = test.BuildTLSSecret(dispatcher.VDB, TestNMATLSSecret, test.TestKeyValueTwo, test.TestCertValueTwo, test.TestCaCertValueTwo)
+			Expect(dispatcher.Client.Create(ctx, secret)).Should(Succeed())
+			cert, err = vdbCertCache.ReadCertFromSecret(ctx, TestNMATLSSecret)
+			Ω(err).Should(BeNil())
+			Ω(cert.Key).Should(Equal(test.TestKeyValueTwo))
+			Ω(cert.Cert).Should(Equal(test.TestCertValueTwo))
+			Ω(cert.CaCert).Should(Equal(test.TestCaCertValueTwo))
+			test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.HTTPSNMATLS.Secret)
+		})
+
+		//nolint:dupl
+		It("should get old secret when cache is enabled", func() {
+			dispatcher := mockVClusterOpsDispatcherWithCacheFlag(true)
+			dispatcher.VDB.Spec.DBName = TestDBName
+			dispatcher.VDB.Spec.HTTPSNMATLS.Secret = TestNMATLSSecret
+
+			secret := test.BuildTLSSecret(dispatcher.VDB, TestNMATLSSecret, test.TestKeyValue, test.TestCertValue, test.TestCaCertValue)
+			Expect(dispatcher.Client.Create(ctx, secret)).Should(Succeed())
+			fetcher := &cloud.SecretFetcher{
+				Client:   dispatcher.Client,
+				Log:      dispatcher.Log,
+				Obj:      dispatcher.VDB,
+				EVWriter: dispatcher.EVWriter,
+			}
+			dispatcher.CacheManager.InitCertCacheForVdb(dispatcher.VDB, fetcher)
+			defer dispatcher.CacheManager.DestroyCertCacheForVdb(dispatcher.VDB.Namespace, dispatcher.VDB.Name)
+
+			vdbCertCache := dispatcher.CacheManager.GetCertCacheForVdb(dispatcher.VDB.Namespace, dispatcher.VDB.Name)
+			Expect(vdbCertCache).ShouldNot(Equal(nil))
+			cert, err := vdbCertCache.ReadCertFromSecret(ctx, TestNMATLSSecret)
+			Ω(err).Should(BeNil())
+			Ω(cert.Key).Should(Equal(test.TestKeyValue))
+			Ω(cert.Cert).Should(Equal(test.TestCertValue))
+			Ω(cert.CaCert).Should(Equal(test.TestCaCertValue))
+			test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.HTTPSNMATLS.Secret)
+			secret = test.BuildTLSSecret(dispatcher.VDB, TestNMATLSSecret, test.TestKeyValueTwo, test.TestCertValueTwo, test.TestCaCertValueTwo)
+			Expect(dispatcher.Client.Create(ctx, secret)).Should(Succeed())
+			cert, err = vdbCertCache.ReadCertFromSecret(ctx, TestNMATLSSecret)
+			Ω(err).Should(BeNil())
+			Ω(cert.Key).Should(Equal(test.TestKeyValue))
+			Ω(cert.Cert).Should(Equal(test.TestCertValue))
+			Ω(cert.CaCert).Should(Equal(test.TestCaCertValue))
+			test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.HTTPSNMATLS.Secret)
 		})
 
 	})

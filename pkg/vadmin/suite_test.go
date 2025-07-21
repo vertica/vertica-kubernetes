@@ -376,6 +376,10 @@ func (m *MockVClusterOps) VPollSubclusterState(_ *vops.VPollSubclusterStateOptio
 // mockVClusterOpsDispatcher will create an vcluster-ops dispatcher for test
 // purposes. This uses a standard function to setup the API.
 func mockVClusterOpsDispatcher() *VClusterOps {
+	return mockVClusterOpsDispatcherWithCacheFlag(true)
+}
+
+func mockVClusterOpsDispatcherWithCacheFlag(cacheEnabled bool) *VClusterOps {
 	vdb := vapi.MakeVDB()
 	vdb.Spec.HTTPSNMATLS.Secret = TestNMATLSSecret
 	// We use a function to construct the VClusterProvider. This is called
@@ -384,7 +388,7 @@ func mockVClusterOpsDispatcher() *VClusterOps {
 	setupAPIFunc := func(log logr.Logger, apiName string) (VClusterProvider, logr.Logger) {
 		return &MockVClusterOps{}, logr.Logger{}
 	}
-	cacheManager := cache.MakeCacheManager()
+	cacheManager := cache.MakeCacheManager(cacheEnabled)
 	dispatcher := mockVClusterOpsDispatcherWithCustomSetup(vdb, setupAPIFunc, cacheManager)
 	return dispatcher
 }
@@ -426,7 +430,7 @@ func mockVclusteropsDispatcherWithTarget() *VClusterOps {
 func mockVClusterOpsDispatcherWithCustomSetupAndTarget(vdb *vapi.VerticaDB, targetVDB *vapi.VerticaDB,
 	setupAPIFunc func(logr.Logger, string) (VClusterProvider, logr.Logger)) *VClusterOps {
 	evWriter := aterrors.TestEVWriter{}
-	cacheManager := cache.MakeCacheManager()
+	cacheManager := cache.MakeCacheManager(true)
 	dispatcher := MakeVClusterOpsWithTarget(logger, vdb, targetVDB, k8sClient, TestPassword, &evWriter, setupAPIFunc, cacheManager)
 	vClusterOps := dispatcher.(*VClusterOps)
 	fetcher := &cloud.SecretFetcher{

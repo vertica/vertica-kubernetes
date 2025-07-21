@@ -37,6 +37,11 @@ func GetIsWebhookEnabled() bool {
 	return lookupBoolEnvVar("WEBHOOKS_ENABLED", envMustExist)
 }
 
+// GetIsCacheEnabled returns true if the cache is enabled.
+func GetIsCacheEnabled() bool {
+	return lookupBoolEnvVar("CACHE_ENABLED", envMustExist)
+}
+
 // GetBroadcasterBurstSize returns the customizable burst size for broadcaster.
 func GetBroadcasterBurstSize() int {
 	envName := "BROADCASTER_BURST_SIZE"
