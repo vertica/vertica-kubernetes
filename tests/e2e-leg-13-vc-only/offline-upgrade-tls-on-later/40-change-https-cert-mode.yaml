@@ -5,4 +5,4 @@ metadata:
 spec:
   httpsNMATLS:
     secret: custom-cert
-    mode: VERIFY_CA
+    mode: verify_ca
