@@ -149,6 +149,6 @@ func MakeMockVClusterOpsDispatcher(vdb *vapi.VerticaDB, logger logr.Logger, cl c
 		Obj:      vclusterOps.VDB,
 		EVWriter: vclusterOps.EVWriter,
 	}
-	cacheManager.InitCertCacheForVdb(vdb.Namespace, vdb.Name, fetcher)
+	cacheManager.InitCertCacheForVdb(vdb, fetcher)
 	return vclusterOps
 }

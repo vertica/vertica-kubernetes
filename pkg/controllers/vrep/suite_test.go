@@ -140,7 +140,7 @@ func mockVClusterOpsDispatcherWithCustomSetup(vdb *v1.VerticaDB,
 		Obj:      vdb,
 		EVWriter: vclusterOps.EVWriter,
 	}
-	cacheManager.InitCertCacheForVdb(vdb.Namespace, vdb.Name, fetcher)
+	cacheManager.InitCertCacheForVdb(vdb, fetcher)
 	return vclusterOps
 }
 
@@ -156,8 +156,8 @@ func mockVClusterOpsDispatcherWithCustomSetupAndTarget(vdb *v1.VerticaDB, target
 		Obj:      vdb,
 		EVWriter: vclusterOps.EVWriter,
 	}
-	cacheManager.InitCertCacheForVdb(vdb.Namespace, vdb.Name, fetcher)
-	cacheManager.InitCertCacheForVdb(targetVDB.Namespace, targetVDB.Name, fetcher)
+	cacheManager.InitCertCacheForVdb(vdb, fetcher)
+	cacheManager.InitCertCacheForVdb(targetVDB, fetcher)
 	return vclusterOps
 }
 

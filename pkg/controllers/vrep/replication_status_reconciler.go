@@ -146,7 +146,7 @@ func (r *ReplicationStatusReconciler) Reconcile(ctx context.Context, _ *ctrl.Req
 		Obj:      r.TargetInfo.Vdb,
 		EVWriter: vclusterops.EVWriter,
 	}
-	r.VRec.CacheManager.InitCertCacheForVdb(r.TargetInfo.Vdb.Namespace, r.TargetInfo.Vdb.Name, fetcher)
+	r.VRec.CacheManager.InitCertCacheForVdb(r.TargetInfo.Vdb, fetcher)
 	err = r.runReplicationStatus(ctx, r.dispatcher, opts)
 
 	return ctrl.Result{}, err
