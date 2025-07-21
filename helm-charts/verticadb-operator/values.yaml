@@ -210,14 +210,14 @@ keda:
 ## Using default values from https://github.com/grafana/helm-charts/blob/main/charts/grafana/values.yaml
 ##
 grafana:
-  enabled: true
+  enabled: false # Set to true if you want to deploy Grafana
 
   ## Override the deployment namespace
   ##
   namespaceOverride: ""
 
   adminUser: admin
-  adminPassword: prom-operator
+  adminPassword: admin
 
   replicas: 1
 
@@ -290,7 +290,7 @@ grafana:
           isDefault: true
 
 prometheus-server:
-  enabled: true
+  enabled: false # Set to true if you want to deploy Prometheus server
   # === Global Namespace Configuration ===
   # By default, kube-prometheus-stack installs into .Release.Namespace
   # You can override it here if you want it in a different namespace:
@@ -309,16 +309,45 @@ prometheus-server:
     enabled: false
   kubeScheduler:
     enabled: false
+  kubelet:
+    enabled: false
+  kubeApiServer:
+    enabled: false
   kubeProxy:
     enabled: false
   kubeStateMetrics:
     enabled: false
   nodeExporter:
     enabled: false
+  coreDns:
+    enabled: false
   prometheus-node-exporter: # Some older versions might use this instead of nodeExporter
     enabled: false
-  windowsExporter:
-    enabled: false
+
+  prometheus-windows-exporter:
+    ## Enable ServiceMonitor and set Kubernetes label to use as a job label
+    ##
+    prometheus:
+      monitor:
+        enabled: false
+  
+  # Prometheus Operator - keep minimal
+  prometheusOperator:
+    enabled: true
+    # Minimal resources
+    resources:
+      limits:
+        cpu: 200m
+        memory: 200Mi
+      requests:
+        cpu: 100m
+        memory: 100Mi
+    # Reduce admission webhook complexity
+    admissionWebhooks:
+      enabled: false
+    # Disable TLS for simplicity
+    tls:
+      enabled: false
 
   # === Prometheus Specific Configuration ===
   prometheus:
@@ -332,14 +361,26 @@ prometheus-server:
     # Storage for Prometheus (highly recommended for production)
     prometheusSpec:
       replicas: 1
-      retention: "15d" # How long to keep data
+      retention: "7d" # How long to keep data
+      # Minimal resource allocation
+      resources:
+        requests:
+          memory: "512Mi"
+          cpu: "200m"
+        limits:
+          memory: "1Gi"
+          cpu: "500m"
+      
+      # Reduce retention and storage
+      retention: "7d"
+      retentionSize: "2GB"
       storageSpec:
         volumeClaimTemplate:
           spec:
             storageClassName: standard # Or your preferred storage class
             resources:
               requests:
-                storage: 50Gi # Adjust storage size as needed
+                storage: 5Gi # Adjust storage size as needed
 
     # Optionally disable the default `kube-prometheus-stack` scrape configs if you're
     # defining your own ServiceMonitors/PodMonitors for your operator.
@@ -367,3 +408,32 @@ prometheus-server:
   #   endpoints:
   #     - port: metrics-port # The name of the port in your operator's Service
   #       path: /metrics
+  # Disable all default scraping rules
+  defaultRules:
+    create: false
+    rules:
+      alertmanager: false
+      etcd: false
+      configReloaders: false
+      general: false
+      k8s: false
+      kubeApiserverAvailability: false
+      kubeApiserverBurnrate: false
+      kubeApiserverHistogram: false
+      kubeApiserverSlos: false
+      kubelet: false
+      kubeProxy: false
+      kubePrometheusGeneral: false
+      kubePrometheusNodeRecording: false
+      kubernetesApps: false
+      kubernetesResources: false
+      kubernetesStorage: false
+      kubernetesSystem: false
+      kubeScheduler: false
+      kubeStateMetrics: false
+      network: false
+      node: false
+      nodeExporterAlerting: false
+      nodeExporterRecording: false
+      prometheus: false
+      prometheusOperator: false
