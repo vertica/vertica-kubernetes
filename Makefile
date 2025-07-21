@@ -373,7 +373,7 @@ helm-ut: ## Run the helm unittest
 	docker run -i $(shell [ -t 0 ] && echo '-t') --rm -v $(OPERATOR_CHART):/apps quintush/helm-unittest:$(HELM_UNITTEST_VERSION) -3 .
 
 .PHONY: lint
-lint: config-transformer golangci-lint ## Lint the helm charts and the Go operator
+lint: helm-dependency-update config-transformer golangci-lint ## Lint the helm charts and the Go operator
 	$(GOLANGCI_LINT) run
 	helm lint $(OPERATOR_CHART)
 	scripts/dockerfile-lint
