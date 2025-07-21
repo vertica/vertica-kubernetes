@@ -141,7 +141,7 @@ func (r *SandboxConfigMapReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		Obj:      vdb,
 		EVWriter: r.EVRec,
 	}
-	r.CacheManager.InitCertCacheForVdb(vdb.Namespace, vdb.Name, fetcher)
+	r.CacheManager.InitCertCacheForVdb(vdb, fetcher)
 	// Iterate over each actor
 	actors := r.constructActors(vdb, log, prunner, &pfacts, dispatcher, configMap)
 	for _, act := range actors {

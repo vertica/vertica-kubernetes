@@ -141,14 +141,14 @@ func (r *ReplicationReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) 
 		Obj:      r.SourceInfo.Vdb,
 		EVWriter: r.VRec,
 	}
-	r.VRec.CacheManager.InitCertCacheForVdb(r.SourceInfo.Vdb.Namespace, r.SourceInfo.Vdb.Name, sourceFetcher)
+	r.VRec.CacheManager.InitCertCacheForVdb(r.SourceInfo.Vdb, sourceFetcher)
 	targetFetcher := &cloud.SecretFetcher{
 		Client:   r.Client,
 		Log:      r.Log,
 		Obj:      r.TargetInfo.Vdb,
 		EVWriter: r.VRec,
 	}
-	r.VRec.CacheManager.InitCertCacheForVdb(r.TargetInfo.Vdb.Namespace, r.TargetInfo.Vdb.Name, targetFetcher)
+	r.VRec.CacheManager.InitCertCacheForVdb(r.TargetInfo.Vdb, targetFetcher)
 	err = r.runReplicateDB(ctx, r.dispatcher, opts)
 
 	return ctrl.Result{}, err

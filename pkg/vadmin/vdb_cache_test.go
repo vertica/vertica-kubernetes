@@ -40,13 +40,13 @@ var _ = Describe("vdb_context", func() {
 			Obj:      dispatcher.VDB,
 			EVWriter: dispatcher.EVWriter,
 		}
-		dispatcher.CacheManager.InitCertCacheForVdb("default", "test-vdb", fetcher)
-		defer dispatcher.CacheManager.DestroyCertCacheForVdb("default", "test-vdb")
+		dispatcher.CacheManager.InitCertCacheForVdb(dispatcher.VDB, fetcher)
+		defer dispatcher.CacheManager.DestroyCertCacheForVdb(dispatcher.VDB.Namespace, dispatcher.VDB.Name)
 
-		vdbCertCache := dispatcher.CacheManager.GetCertCacheForVdb("default", "test-vdb")
+		vdbCertCache := dispatcher.CacheManager.GetCertCacheForVdb(dispatcher.VDB.Namespace, dispatcher.VDB.Name)
 		Expect(vdbCertCache).ShouldNot(Equal(nil))
-		vdbCertCacheOne := dispatcher.CacheManager.GetCertCacheForVdb("default", "test-vdb")
-		vdbCertCacheTwo := dispatcher.CacheManager.GetCertCacheForVdb("default", "test-vdb")
+		vdbCertCacheOne := dispatcher.CacheManager.GetCertCacheForVdb(dispatcher.VDB.Namespace, dispatcher.VDB.Name)
+		vdbCertCacheTwo := dispatcher.CacheManager.GetCertCacheForVdb(dispatcher.VDB.Namespace, dispatcher.VDB.Name)
 		Expect(vdbCertCacheTwo).Should(Equal(vdbCertCacheOne))
 
 		cert, err := vdbCertCacheOne.ReadCertFromSecret(ctx, TestNMATLSSecret)

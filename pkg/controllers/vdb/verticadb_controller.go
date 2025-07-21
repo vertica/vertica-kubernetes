@@ -187,6 +187,7 @@ func (r *VerticaDBReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 			return res, err
 		}
 	}
+	r.CleanCacheForVdb(vdb)
 	log.Info("ending reconcile of VerticaDB", "result", res, "err", err)
 	return res, err
 }
@@ -424,5 +425,19 @@ func (r *VerticaDBReconciler) InitCertCacheForVdb(vdb *vapi.VerticaDB) {
 		Obj:      vdb,
 		EVWriter: r.EVRec,
 	}
-	r.CacheManager.InitCertCacheForVdb(vdb.Namespace, vdb.Name, fetcher)
+	r.CacheManager.InitCertCacheForVdb(vdb, fetcher)
+}
+
+func (r *VerticaDBReconciler) CleanCacheForVdb(vdb *vapi.VerticaDB) {
+	certCache := r.CacheManager.GetCertCacheForVdb(vdb.Namespace, vdb.Name)
+	certsInUse := []string{
+		vdb.Spec.HTTPSNMATLS.Secret,
+	}
+	if vdb.Spec.ClientServerTLS.Secret != "" {
+		certsInUse = append(certsInUse, vdb.Spec.ClientServerTLS.Secret)
+	}
+	for _, tlsConfig := range vdb.Status.TLSConfigs {
+		certsInUse = append(certsInUse, tlsConfig.Secret)
+	}
+	certCache.CleanCacheForVdb(certsInUse)
 }
