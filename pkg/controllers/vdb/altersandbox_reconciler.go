@@ -101,11 +101,11 @@ func (a *AlterSandboxTypeReconciler) reconcileAlterSandbox(ctx context.Context, 
 
 // isAlterSandboxNeeded checks whether an alter sandbox is needed
 func (a *AlterSandboxTypeReconciler) isAlterSandboxNeeded(ctx context.Context, sbName string) (bool, error) {
-	// get sandbox pod facts
-	sbpfacts := podfacts.PodFacts{}
-	if a.PFacts.SandboxName != sbName {
-		sbpfacts = a.PFacts.Copy(sbName)
-	} else {
+	// We need to copy the pod facts for the sandbox as this reconciler is called by verticadb_controller only
+	// While, the PFacts.Copy function cleared all the details and it could not detect any running pods in the unit test.
+	// A PFacts with sandboxName set is expected in the unit test.
+	sbpfacts := a.PFacts.Copy(sbName)
+	if a.PFacts.SandboxName == sbName {
 		sbpfacts = *a.PFacts
 	}
 

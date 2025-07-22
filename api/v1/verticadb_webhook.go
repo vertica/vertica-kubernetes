@@ -116,9 +116,12 @@ func (v *VerticaDB) ValidateCreate() (admission.Warnings, error) {
 	verticadblog.Info("validate create", "name", v.Name, "GroupVersion", GroupVersion)
 
 	allErrs := v.validateVerticaDBSpec()
+	// Validate the sandbox type on create
+	allErrs = v.hasNoSandboxTypeOnCreate(allErrs)
 	if len(allErrs) == 0 {
 		return nil, nil
 	}
+
 	return nil, apierrors.NewInvalid(schema.GroupKind{Group: Group, Kind: VerticaDBKind}, v.Name, allErrs)
 }
 
@@ -164,7 +167,6 @@ func (v *VerticaDB) validateImmutableFields(old runtime.Object) field.ErrorList 
 	allErrs = v.checkTLSModeCaseInsensitiveChange(oldObj, allErrs)
 	allErrs = v.checkValidSubclusterTypeTransition(oldObj, allErrs)
 	allErrs = v.checkSandboxesDuringUpgrade(oldObj, allErrs)
-	allErrs = v.checkSubclusterTypeOnUpdate(oldObj, allErrs)
 	allErrs = v.checkShutdownSandboxImage(oldObj, allErrs)
 	allErrs = v.checkShutdownForSandboxesToBeRemoved(oldObj, allErrs)
 	allErrs = v.checkShutdownForSubclustersToBeRemoved(oldObj, allErrs)
@@ -268,7 +270,6 @@ func (v *VerticaDB) validateVerticaDBSpec() field.ErrorList {
 	allErrs = v.hasValidReplicaGroups(allErrs)
 	allErrs = v.validateVersionAnnotation(allErrs)
 	allErrs = v.validateSandboxes(allErrs)
-	allErrs = v.hasNoSandboxTypeOnCreate(allErrs)
 	allErrs = v.checkNewSBoxOrSClusterShutdownUnset(allErrs)
 	allErrs = v.validateProxyConfig(allErrs)
 	if len(allErrs) == 0 {
@@ -1662,38 +1663,6 @@ func (v *VerticaDB) checkSandboxesDuringUpgrade(oldObj *VerticaDB, allErrs field
 		v.Spec.Sandboxes,
 		"cannot add or remove sandboxes during an upgrade")
 	return append(allErrs, err)
-}
-
-// checkSubclusterTypeOnUpdate will check if subcluster type or sandbox subcluster tyep is changing
-// to sandboxprimary or sandboxsecondary
-func (v *VerticaDB) checkSubclusterTypeOnUpdate(oldObj *VerticaDB, allErrs field.ErrorList) field.ErrorList {
-	for i := range v.Spec.Subclusters {
-		sc := &v.Spec.Subclusters[i]
-		if sc.Type == SandboxPrimarySubcluster || sc.Type == SandboxSecondarySubcluster {
-			if oldObj.Spec.Subclusters[i].Type != sc.Type {
-				err := field.Invalid(field.NewPath("spec").Child("subclusters").Index(i).Child("type"),
-					sc.Type,
-					fmt.Sprintf("cannot change subcluster %s type to %s", sc.Name, sc.Type))
-				allErrs = append(allErrs, err)
-			}
-		}
-	}
-
-	for i := range v.Spec.Sandboxes {
-		sb := &v.Spec.Sandboxes[i]
-		for j := range sb.Subclusters {
-			ssc := &sb.Subclusters[j]
-			if ssc.Type == SandboxPrimarySubcluster || ssc.Type == SandboxSecondarySubcluster {
-				if oldObj.Spec.Sandboxes[i].Subclusters[j].Type != ssc.Type {
-					fieldPath := field.NewPath("spec").Child("sandboxes").Index(i).Child("subclusters").Index(j).Child("type")
-					err := field.Invalid(fieldPath, ssc.Type,
-						fmt.Sprintf("cannot change sandbox subcluster type to %q", ssc.Type))
-					allErrs = append(allErrs, err)
-				}
-			}
-		}
-	}
-	return allErrs
 }
 
 // checkImmutableTemporarySubclusterRouting will check if
