@@ -101,8 +101,8 @@ func (a *AlterSubclusterTypeReconciler) findMainSubclustersToAlter() (ctrl.Resul
 		// find the subcluster whose type is different to podfacts (which reads the database)
 		pf, ok := a.PFacts.FindFirstUpPod(false, scName)
 		if !ok {
-			a.Log.Info("Requeue findMainSubclustersToAlter: could not find pod for subcluster", "subcluster", scName)
-			return ctrl.Result{Requeue: true}, scs, nil
+			a.Log.Info("skipping subcluster, no pods are up", "subcluster", scName)
+			continue
 		}
 		// check if the subcluster type is different to podfacts
 		if sc.Type == vapi.PrimarySubcluster && !pf.GetIsPrimary() ||
@@ -143,8 +143,8 @@ func (a *AlterSubclusterTypeReconciler) findSandboxSubclustersToAlter(ctx contex
 		for _, sbsc := range sb.Subclusters {
 			pf, ok := sbpfacts.FindFirstUpPod(false, sbsc.Name)
 			if !ok {
-				a.Log.Info("Requeue findSandboxSubclustersToAlter: could not find pod for sandbox subcluster", "subcluster", sbsc.Name)
-				return ctrl.Result{Requeue: true}, sbscs, nil
+				a.Log.Info("skipping sandbox subcluster, no pods are up", "subcluster", sbsc.Name)
+				continue
 			}
 			// check if the sandbox subcluster type is different to podfacts
 			if sbsc.Type == vapi.PrimarySubcluster && !pf.GetIsPrimary() ||
