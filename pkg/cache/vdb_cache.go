@@ -99,7 +99,7 @@ func (c *CacheManangerStruct) InitCertCacheForVdb(vdb *v1.VerticaDB, fetcher *cl
 	if !ok {
 		singleCertCache = makeVdbCertCache(vdbName.Namespace, tlsCacheDuration, fetcher, c.enabled)
 		c.allCacheMap[vdbName] = singleCertCache
-		log.Info("initialized cert cache for vdb", "vdbname", vdbName.Namespace, "vdbnamespace", vdbName.Name)
+		log.Info("initialized cert cache for vdb", "vdbname", vdbName.Namespace, "vdbnamespace", vdbName.Name, "enabled", c.enabled)
 	} else if singleCertCache.cacheDuration != time.Duration(tlsCacheDuration)*time.Second {
 		singleCertCache.cacheDuration = time.Duration(tlsCacheDuration) * time.Second
 		log.Info("cache expire duration has been updated", "new duration", vdb.GetTLSCacheDuration())
