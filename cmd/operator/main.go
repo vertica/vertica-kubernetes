@@ -104,6 +104,9 @@ func addReconcilersToManager(mgr manager.Manager, restCfg *rest.Config) {
 	}
 
 	cacheManager := vcache.MakeCacheManager(opcfg.GetIsCacheEnabled())
+	if !opcfg.GetIsCacheEnabled() {
+		setupLog.Info("cache is disabled")
+	}
 	// Create a custom option with our own rate limiter
 	rateLimiter := workqueue.NewItemExponentialFailureRateLimiter(1*time.Millisecond,
 		time.Duration(opcfg.GetVdbMaxBackoffDuration())*time.Millisecond)
