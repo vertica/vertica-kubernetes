@@ -1,0 +1,5 @@
+kind: Added
+body: 'A new environmental variable CACHE_ENABLED has been added. By default it is set to true, which enables cache in Vertica Operator. '
+time: 2025-07-22T09:31:47.811440156-04:00
+custom:
+    Issue: "1343"
