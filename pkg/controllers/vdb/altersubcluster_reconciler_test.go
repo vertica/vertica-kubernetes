@@ -76,7 +76,7 @@ var _ = Describe("altersubcluster_reconcile", func() {
 			Vdb:    vdb,
 			Log:    logger,
 		}
-		_, scs, err := a.findMainSubclustersToAlter()
+		scs, err := a.findMainSubclustersToAlter()
 		Expect(err).Should(BeNil())
 		Expect(len(scs)).Should(Equal(1))
 		Expect(scs[0]).Should(Equal(subcluster2))
@@ -138,7 +138,7 @@ var _ = Describe("altersubcluster_reconcile", func() {
 			Vdb:    vdb,
 			Log:    logger,
 		}
-		_, scs, err := a.findSandboxSubclustersToAlter(ctx)
+		scs, err := a.findSandboxSubclustersToAlter(ctx)
 		Expect(err).Should(BeNil())
 		Expect(len(scs)).Should(Equal(2))
 		Expect(scs[0]).Should(Equal(subcluster3))

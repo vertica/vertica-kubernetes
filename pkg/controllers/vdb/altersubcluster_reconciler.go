@@ -65,7 +65,6 @@ func (a *AlterSubclusterTypeReconciler) Reconcile(ctx context.Context, _ *ctrl.R
 		return ctrl.Result{}, err
 	}
 
-	var ctrlResult ctrl.Result
 	var err error
 	var scs []string
 	// find sandbox subclusters to alter
@@ -74,25 +73,25 @@ func (a *AlterSubclusterTypeReconciler) Reconcile(ctx context.Context, _ *ctrl.R
 		if a.ConfigMap.Annotations[vmeta.SandboxControllerAlterSubclusterTypeTriggerID] == "" {
 			return ctrl.Result{}, nil
 		}
-		ctrlResult, scs, err = a.findSandboxSubclustersToAlter(ctx)
+		scs, err = a.findSandboxSubclustersToAlter(ctx)
 	} else {
-		ctrlResult, scs, err = a.findMainSubclustersToAlter()
+		scs, err = a.findMainSubclustersToAlter()
 	}
 	if err != nil || len(scs) == 0 {
-		return ctrlResult, err
+		return ctrl.Result{}, err
 	}
 
 	return a.alterSubclusters(ctx, scs)
 }
 
 // findMainSubclustersToAlter returns a list of main subclusters whose type needs to be changed
-func (a *AlterSubclusterTypeReconciler) findMainSubclustersToAlter() (ctrl.Result, []string, error) {
+func (a *AlterSubclusterTypeReconciler) findMainSubclustersToAlter() ([]string, error) {
 	scs := []string{}
 	scMap := a.Vdb.GenSubclusterMap()
 	scSbMap := a.Vdb.GenSubclusterSandboxStatusMap()
 	for scName, sc := range scMap {
 		if sc == nil {
-			return ctrl.Result{}, nil, fmt.Errorf("could not find subcluster %s", scName)
+			return nil, fmt.Errorf("could not find subcluster %s", scName)
 		}
 		if sb, ok := scSbMap[scName]; ok && sb != vapi.MainCluster {
 			// skip sandbox subclusters
@@ -113,21 +112,21 @@ func (a *AlterSubclusterTypeReconciler) findMainSubclustersToAlter() (ctrl.Resul
 		}
 	}
 
-	return ctrl.Result{}, scs, nil
+	return scs, nil
 }
 
 // findSandboxSubclustersToAlter finds the sandbox subclusters that need to be altered
 // sbpfacts is for unit test purposes
-func (a *AlterSubclusterTypeReconciler) findSandboxSubclustersToAlter(ctx context.Context) (ctrl.Result, []string, error) {
+func (a *AlterSubclusterTypeReconciler) findSandboxSubclustersToAlter(ctx context.Context) ([]string, error) {
 	sbscs := []string{}
 	sbMap := a.Vdb.GenSandboxMap()
 	if len(sbMap) == 0 {
-		return ctrl.Result{}, sbscs, fmt.Errorf("no sandboxes found in the database")
+		return sbscs, fmt.Errorf("no sandboxes found in the database")
 	}
 	for sbName := range sbMap {
 		sb := sbMap[sbName]
 		if sb == nil {
-			return ctrl.Result{}, sbscs, fmt.Errorf("could not find sandbox %s", sbName)
+			return sbscs, fmt.Errorf("could not find sandbox %s", sbName)
 		}
 
 		// get sandbox pod facts
@@ -138,7 +137,7 @@ func (a *AlterSubclusterTypeReconciler) findSandboxSubclustersToAlter(ctx contex
 			sbpfacts = *a.PFacts
 		}
 		if err := sbpfacts.Collect(ctx, a.Vdb); err != nil {
-			return ctrl.Result{}, sbscs, fmt.Errorf("failed to collect pod facts for sandbox %s: %w", sbName, err)
+			return sbscs, fmt.Errorf("failed to collect pod facts for sandbox %s: %w", sbName, err)
 		}
 		for _, sbsc := range sb.Subclusters {
 			pf, ok := sbpfacts.FindFirstUpPod(false, sbsc.Name)
@@ -155,7 +154,7 @@ func (a *AlterSubclusterTypeReconciler) findSandboxSubclustersToAlter(ctx contex
 			}
 		}
 	}
-	return ctrl.Result{}, sbscs, nil
+	return sbscs, nil
 }
 
 func (a *AlterSubclusterTypeReconciler) alterSubclusters(ctx context.Context, scs []string) (ctrl.Result, error) {
