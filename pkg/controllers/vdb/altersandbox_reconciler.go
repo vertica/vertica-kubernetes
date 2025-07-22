@@ -22,12 +22,10 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/google/uuid"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
-	corev1 "k8s.io/api/core/v1"
 
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
-	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
 	config "github.com/vertica/vertica-kubernetes/pkg/vdbconfig"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -63,14 +61,6 @@ func (a *AlterSandboxTypeReconciler) Reconcile(ctx context.Context, _ *ctrl.Requ
 			a.Log.Info("skip reconcile Alter Sandbox as sandbox does not exist in the database yet", "sandbox", sb.Name)
 			continue
 		}
-		configMap, err := a.fetchConfigMap(ctx, sb.Name)
-		if err != nil {
-			return ctrl.Result{}, fmt.Errorf("failed to fetch sandbox configmap for %s: %w", sb.Name, err)
-		}
-		// skip reconcile Alter Sandbox if alter sandbox trigger id is already set
-		if configMap.Annotations[vmeta.SandboxControllerAlterSubclusterTypeTriggerID] != "" {
-			return ctrl.Result{}, nil
-		}
 		res, err := a.reconcileAlterSandbox(ctx, sb.Name)
 		if verrors.IsReconcileAborted(res, err) {
 			return res, err
@@ -84,14 +74,23 @@ func (a *AlterSandboxTypeReconciler) reconcileAlterSandbox(ctx context.Context, 
 	if a.Vdb.GetSandboxStatus(sbName) == nil {
 		return ctrl.Result{Requeue: true}, nil
 	}
-	if ok, err := a.isAlterSandboxNeeded(ctx, sbName); !ok || err != nil {
-		return ctrl.Result{}, err
+	triggerUUID := uuid.NewString()
+	sbMan := MakeSandboxConfigMapManager(a.VRec, a.Vdb, sbName, triggerUUID)
+	err := sbMan.fetchConfigMap(ctx)
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to fetch sandbox configmap for %s: %w", sbName, err)
+	}
+	// skip reconcile Alter Sandbox if alter sandbox trigger id is already set
+	if sbMan.configMap.Annotations[vmeta.SandboxControllerAlterSubclusterTypeTriggerID] != "" {
+		return ctrl.Result{}, nil
+	}
+
+	if ok, needErr := a.isAlterSandboxNeeded(ctx, sbName); !ok || needErr != nil {
+		return ctrl.Result{}, needErr
 	}
 	// Once we find out that a sandbox upgrade is needed, we need to wake up
 	// the sandbox controller to drive it. We will use a SandboxConfigMapManager object
 	// that will update that sandbox's configmap watched by the sandbox controller
-	triggerUUID := uuid.NewString()
-	sbMan := MakeSandboxConfigMapManager(a.VRec, a.Vdb, sbName, triggerUUID)
 	triggered, err := sbMan.triggerSandboxController(ctx, AlterSubclusterType)
 	if triggered {
 		a.Log.Info("Sandbox ConfigMap updated. The sandbox controller will drive the alter sandbox subcluster type",
@@ -133,19 +132,4 @@ func (a *AlterSandboxTypeReconciler) isAlterSandboxNeeded(ctx context.Context, s
 		}
 	}
 	return false, nil
-}
-
-// fetchConfigMap will fetch the sandbox configmap
-func (a *AlterSandboxTypeReconciler) fetchConfigMap(ctx context.Context, sbName string) (corev1.ConfigMap, error) {
-	configMap := corev1.ConfigMap{}
-	nm := names.GenSandboxConfigMapName(a.Vdb, sbName)
-	err := a.VRec.GetClient().Get(ctx, nm, &configMap)
-	if err != nil {
-		return configMap, err
-	}
-	if configMap.Data[vapi.VerticaDBNameKey] != a.Vdb.Name ||
-		configMap.Data[vapi.SandboxNameKey] != sbName {
-		return configMap, fmt.Errorf("invalid configMap %s for sandbox %s", nm.Name, sbName)
-	}
-	return configMap, nil
 }

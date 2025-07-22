@@ -129,18 +129,11 @@ func (a *AlterSubclusterTypeReconciler) findSandboxSubclustersToAlter(ctx contex
 			return sbscs, fmt.Errorf("could not find sandbox %s", sbName)
 		}
 
-		// get sandbox pod facts
-		sbpfacts := podfacts.PodFacts{}
-		if a.PFacts.SandboxName != sbName {
-			sbpfacts = a.PFacts.Copy(sbName)
-		} else {
-			sbpfacts = *a.PFacts
-		}
-		if err := sbpfacts.Collect(ctx, a.Vdb); err != nil {
+		if err := a.PFacts.Collect(ctx, a.Vdb); err != nil {
 			return sbscs, fmt.Errorf("failed to collect pod facts for sandbox %s: %w", sbName, err)
 		}
 		for _, sbsc := range sb.Subclusters {
-			pf, ok := sbpfacts.FindFirstUpPod(false, sbsc.Name)
+			pf, ok := a.PFacts.FindFirstUpPod(false, sbsc.Name)
 			if !ok {
 				a.Log.Info("skipping sandbox subcluster, no pods are up", "subcluster", sbsc.Name)
 				continue
