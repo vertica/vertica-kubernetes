@@ -161,6 +161,7 @@ func (v *VerticaDB) validateImmutableFields(old runtime.Object) field.ErrorList 
 	allErrs = v.checkImmutableClientProxy(oldObj, allErrs)
 	allErrs = v.checkImmutableTLSConfig(oldObj, allErrs)
 	allErrs = v.checkValidTLSConfigUpdate(oldObj, allErrs)
+	allErrs = v.checkTLSModeCaseInsensitiveChange(oldObj, allErrs)
 	allErrs = v.checkValidSubclusterTypeTransition(oldObj, allErrs)
 	allErrs = v.checkSandboxesDuringUpgrade(oldObj, allErrs)
 	allErrs = v.checkSubclusterTypeOnUpdate(oldObj, allErrs)
@@ -247,7 +248,7 @@ func (v *VerticaDB) validateVerticaDBSpec() field.ErrorList {
 	allErrs = v.isServiceTypeValid(allErrs)
 	allErrs = v.hasDuplicateScName(allErrs)
 	allErrs = v.hasValidVolumeName(allErrs)
-	allErrs = v.hasValidClientServerTLSMode(allErrs)
+	allErrs = v.hasValidTLSModes(allErrs)
 	allErrs = v.hasTLSSecretsSetForRevive(allErrs)
 	allErrs = v.hasValidVolumeMountName(allErrs)
 	allErrs = v.hasValidKerberosSetup(allErrs)
@@ -841,10 +842,15 @@ func (v *VerticaDB) hasDuplicateScName(allErrs field.ErrorList) field.ErrorList 
 	return allErrs
 }
 
-func (v *VerticaDB) hasValidClientServerTLSMode(allErrs field.ErrorList) field.ErrorList {
-	if v.Spec.ClientServerTLS != nil {
-		allErrs = v.hasValidTLSMode(v.GetClientServerTLSMode(), "clientServerTLS.Mode", allErrs)
+// hasValidTLSModes checks whether the TLS modes are valid
+func (v *VerticaDB) hasValidTLSModes(allErrs field.ErrorList) field.ErrorList {
+	if v.Spec.HTTPSNMATLS != nil {
+		allErrs = v.hasValidTLSMode(v.GetHTTPSNMATLSMode(), "httpsNMATLS", allErrs)
 	}
+	if v.Spec.ClientServerTLS != nil {
+		allErrs = v.hasValidTLSMode(v.GetClientServerTLSMode(), "clientServerTLS", allErrs)
+	}
+
 	return allErrs
 }
 
@@ -2521,7 +2527,7 @@ func (v *VerticaDB) hasValidTLSMode(tlsModeToValidate, fieldName string, allErrs
 			}
 		}
 		if !validMode {
-			err := field.Invalid(field.NewPath("spec").Child(fieldName), tlsModeToValidate, "invalid tls mode")
+			err := field.Invalid(field.NewPath("spec").Child(fieldName).Child("mode"), tlsModeToValidate, "invalid tls mode")
 			allErrs = append(allErrs, err)
 		}
 	}
@@ -2572,6 +2578,30 @@ func (v *VerticaDB) checkValidTLSConfigUpdate(oldObj *VerticaDB, allErrs field.E
 	if oldObj.Spec.NMATLSSecret != v.Spec.NMATLSSecret {
 		allErrs = append(allErrs, field.Forbidden(specFld.Child("nmaTLSSecret"),
 			"nmaTLSSecret cannot be changed"))
+	}
+
+	return allErrs
+}
+
+// checkTLSModeCaseInsensitiveChange checks if the user is trying to change the TLS mode in a case-insensitive manner.
+func (v *VerticaDB) checkTLSModeCaseInsensitiveChange(oldObj *VerticaDB, allErrs field.ErrorList) field.ErrorList {
+	isHTTPSNMANil := oldObj.Spec.HTTPSNMATLS == nil || v.Spec.HTTPSNMATLS == nil
+	isClientServerTLSNil := oldObj.Spec.ClientServerTLS == nil || v.Spec.ClientServerTLS == nil
+
+	if !isHTTPSNMANil && oldObj.Spec.HTTPSNMATLS.Mode != v.Spec.HTTPSNMATLS.Mode &&
+		oldObj.GetHTTPSNMATLSMode() == v.GetHTTPSNMATLSMode() {
+		fieldPath := field.NewPath("spec").Child("httpsNMATLS").Child("mode")
+		err := field.Invalid(fieldPath, v.Spec.HTTPSNMATLS.Mode,
+			"case insensitive mode change is not allowed for httpsNMATLS")
+		allErrs = append(allErrs, err)
+	}
+
+	if !isClientServerTLSNil && oldObj.Spec.ClientServerTLS.Mode != v.Spec.ClientServerTLS.Mode &&
+		oldObj.GetClientServerTLSMode() == v.GetClientServerTLSMode() {
+		fieldPath := field.NewPath("spec").Child("clientServerTLS").Child("mode")
+		err := field.Invalid(fieldPath, v.Spec.ClientServerTLS.Mode,
+			"case insensitive mode change is not allowed for clientServerTLS")
+		allErrs = append(allErrs, err)
 	}
 
 	return allErrs

@@ -2610,6 +2610,116 @@ var _ = Describe("verticadb_webhook", func() {
 		Ω(newVdb.validateImmutableFields(oldVdb)).Should(HaveLen(0))
 	})
 
+	It("should return no errors when both TLS configs are nil", func() {
+		vdb := MakeVDBForTLS()
+		vdb.Spec.HTTPSNMATLS = nil
+		vdb.Spec.ClientServerTLS = nil
+		allErrs := vdb.hasValidTLSModes(field.ErrorList{})
+		Expect(allErrs).To(BeEmpty())
+	})
+
+	It("should return no errors for valid HTTPSNMATLS mode", func() {
+		vdb := MakeVDBForTLS()
+		vdb.Spec.HTTPSNMATLS = &TLSConfigSpec{Mode: "verify_ca"}
+		vdb.Spec.ClientServerTLS = nil
+		allErrs := vdb.hasValidTLSModes(field.ErrorList{})
+		Expect(allErrs).To(BeEmpty())
+	})
+
+	It("should return no errors for valid ClientServerTLS mode", func() {
+		vdb := MakeVDBForTLS()
+		vdb.Spec.HTTPSNMATLS = nil
+		vdb.Spec.ClientServerTLS = &TLSConfigSpec{Mode: "verify_full"}
+		allErrs := vdb.hasValidTLSModes(field.ErrorList{})
+		Expect(allErrs).To(BeEmpty())
+	})
+
+	It("should return errors for invalid HTTPSNMATLS mode", func() {
+		vdb := MakeVDBForTLS()
+		vdb.Spec.HTTPSNMATLS = &TLSConfigSpec{Mode: "invalid_mode"}
+		vdb.Spec.ClientServerTLS = nil
+		allErrs := vdb.hasValidTLSModes(field.ErrorList{})
+		Expect(allErrs).ToNot(BeEmpty())
+	})
+
+	It("should return errors for invalid ClientServerTLS mode", func() {
+		vdb := MakeVDBForTLS()
+		vdb.Spec.HTTPSNMATLS = nil
+		vdb.Spec.ClientServerTLS = &TLSConfigSpec{Mode: "bad_mode"}
+		allErrs := vdb.hasValidTLSModes(field.ErrorList{})
+		Expect(allErrs).ToNot(BeEmpty())
+	})
+
+	It("should return errors for both invalid modes", func() {
+		vdb := MakeVDBForTLS()
+		vdb.Spec.HTTPSNMATLS = &TLSConfigSpec{Mode: "foo"}
+		vdb.Spec.ClientServerTLS = &TLSConfigSpec{Mode: "bar"}
+		allErrs := vdb.hasValidTLSModes(field.ErrorList{})
+		Expect(allErrs).To(HaveLen(2))
+	})
+
+	It("should return error if httpsNMATLS mode changes only in case", func() {
+		oldVdb := MakeVDBForTLS()
+		newVdb := oldVdb.DeepCopy()
+		oldVdb.Spec.HTTPSNMATLS = &TLSConfigSpec{Mode: "verify_ca"}
+		newVdb.Spec.HTTPSNMATLS = &TLSConfigSpec{Mode: "VERIFY_CA"}
+		// Modes differ in case, but normalized value is the same
+		allErrs := newVdb.checkTLSModeCaseInsensitiveChange(oldVdb, field.ErrorList{})
+		Expect(allErrs).To(HaveLen(1))
+		Expect(allErrs[0].Error()).To(ContainSubstring("case insensitive mode change is not allowed for httpsNMATLS"))
+	})
+
+	It("should return error if clientServerTLS mode changes only in case", func() {
+		oldVdb := MakeVDBForTLS()
+		newVdb := oldVdb.DeepCopy()
+		oldVdb.Spec.ClientServerTLS = &TLSConfigSpec{Mode: "verify_full"}
+		newVdb.Spec.ClientServerTLS = &TLSConfigSpec{Mode: "VERIFY_FULL"}
+		allErrs := newVdb.checkTLSModeCaseInsensitiveChange(oldVdb, field.ErrorList{})
+		Expect(allErrs).To(HaveLen(1))
+		Expect(allErrs[0].Error()).To(ContainSubstring("case insensitive mode change is not allowed for clientServerTLS"))
+	})
+
+	It("should return errors for both httpsNMATLS and clientServerTLS if both change only in case", func() {
+		oldVdb := MakeVDBForTLS()
+		newVdb := oldVdb.DeepCopy()
+		oldVdb.Spec.HTTPSNMATLS = &TLSConfigSpec{Mode: "try_verify"}
+		newVdb.Spec.HTTPSNMATLS = &TLSConfigSpec{Mode: "TRY_VERIFY"}
+		oldVdb.Spec.ClientServerTLS = &TLSConfigSpec{Mode: "enable"}
+		newVdb.Spec.ClientServerTLS = &TLSConfigSpec{Mode: "ENABLE"}
+		allErrs := newVdb.checkTLSModeCaseInsensitiveChange(oldVdb, field.ErrorList{})
+		Expect(allErrs).To(HaveLen(2))
+		Expect(allErrs[0].Error()).To(ContainSubstring("case insensitive mode change is not allowed for httpsNMATLS"))
+		Expect(allErrs[1].Error()).To(ContainSubstring("case insensitive mode change is not allowed for clientServerTLS"))
+	})
+
+	It("should not return error if httpsNMATLS mode changes to a different value", func() {
+		oldVdb := MakeVDBForTLS()
+		newVdb := oldVdb.DeepCopy()
+		oldVdb.Spec.HTTPSNMATLS = &TLSConfigSpec{Mode: "verify_ca"}
+		newVdb.Spec.HTTPSNMATLS = &TLSConfigSpec{Mode: "verify_full"}
+		allErrs := newVdb.checkTLSModeCaseInsensitiveChange(oldVdb, field.ErrorList{})
+		Expect(allErrs).To(BeEmpty())
+	})
+
+	It("should not return error if clientServerTLS mode changes to a different value", func() {
+		oldVdb := MakeVDBForTLS()
+		newVdb := oldVdb.DeepCopy()
+		oldVdb.Spec.ClientServerTLS = &TLSConfigSpec{Mode: "try_verify"}
+		newVdb.Spec.ClientServerTLS = &TLSConfigSpec{Mode: "verify_ca"}
+		allErrs := newVdb.checkTLSModeCaseInsensitiveChange(oldVdb, field.ErrorList{})
+		Expect(allErrs).To(BeEmpty())
+	})
+
+	It("should not return error if modes are unchanged", func() {
+		oldVdb := MakeVDBForTLS()
+		newVdb := oldVdb.DeepCopy()
+		oldVdb.Spec.HTTPSNMATLS = &TLSConfigSpec{Mode: "verify_ca"}
+		newVdb.Spec.HTTPSNMATLS = &TLSConfigSpec{Mode: "verify_ca"}
+		oldVdb.Spec.ClientServerTLS = &TLSConfigSpec{Mode: "enable"}
+		newVdb.Spec.ClientServerTLS = &TLSConfigSpec{Mode: "enable"}
+		allErrs := newVdb.checkTLSModeCaseInsensitiveChange(oldVdb, field.ErrorList{})
+		Expect(allErrs).To(BeEmpty())
+	})
 })
 
 func createVDBHelper() *VerticaDB {
