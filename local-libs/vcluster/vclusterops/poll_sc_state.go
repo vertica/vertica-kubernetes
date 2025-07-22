@@ -30,6 +30,10 @@ type VPollSubclusterStateOptions struct {
 	Timeout               int // timeout for polling, 0 means default
 }
 
+const (
+	Mask = "******"
+)
+
 func VPollSubclusterStateOptionsFactory() VPollSubclusterStateOptions {
 	options := VPollSubclusterStateOptions{}
 	// set default values to the params
@@ -82,7 +86,11 @@ func (vcc VClusterCommands) VPollSubclusterState(options *VPollSubclusterStateOp
 	 *   - Give the instructions to the VClusterOpEngine to run
 	 */
 
+	// mask sensitive fields before logging
+	sensitiveFieldBackup := maskDatabaseOptions(&options.DatabaseOptions)
 	vcc.Log.V(0).Info("VPollSubclusterState method called", "options", options)
+	unmaskDatabaseOptions(&options.DatabaseOptions, sensitiveFieldBackup)
+
 	err := options.validateAnalyzeOptions(vcc.Log)
 	if err != nil {
 		return err
