@@ -20,8 +20,8 @@ import (
 	"fmt"
 
 	vops "github.com/vertica/vcluster/vclusterops"
-	"github.com/vertica/vertica-kubernetes/pkg/interfaces"
 	"github.com/vertica/vertica-kubernetes/pkg/net"
+	"github.com/vertica/vertica-kubernetes/pkg/tls"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/altersc"
 )
 
@@ -65,7 +65,7 @@ func (v *VClusterOps) AlterSubclusterType(ctx context.Context, opts ...altersc.O
 	return nil
 }
 
-func (v *VClusterOps) genAlterSubclusterTypeOptions(s *altersc.Parms, certs *interfaces.HTTPSCerts) vops.VAlterSubclusterTypeOptions {
+func (v *VClusterOps) genAlterSubclusterTypeOptions(s *altersc.Parms, certs *tls.HTTPSCerts) vops.VAlterSubclusterTypeOptions {
 	opts := vops.VPromoteDemoteFactory()
 
 	opts.RawHosts = append(opts.RawHosts, s.InitiatorIP)

@@ -20,8 +20,8 @@ import (
 	"fmt"
 
 	vops "github.com/vertica/vcluster/vclusterops"
-	"github.com/vertica/vertica-kubernetes/pkg/interfaces"
 	"github.com/vertica/vertica-kubernetes/pkg/net"
+	"github.com/vertica/vertica-kubernetes/pkg/tls"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/promotesandboxtomain"
 )
 
@@ -53,7 +53,7 @@ func (v *VClusterOps) PromoteSandboxToMain(ctx context.Context, opts ...promotes
 }
 
 func (v *VClusterOps) genPromoteSandboxToMainOptions(s *promotesandboxtomain.Params,
-	certs *interfaces.HTTPSCerts) *vops.VPromoteSandboxToMainOptions {
+	certs *tls.HTTPSCerts) *vops.VPromoteSandboxToMainOptions {
 	opts := vops.VPromoteSandboxToMainFactory()
 
 	// required options

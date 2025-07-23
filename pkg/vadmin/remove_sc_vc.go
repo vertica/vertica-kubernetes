@@ -21,8 +21,8 @@ import (
 
 	"github.com/vertica/vcluster/rfc7807"
 	vops "github.com/vertica/vcluster/vclusterops"
-	"github.com/vertica/vertica-kubernetes/pkg/interfaces"
 	"github.com/vertica/vertica-kubernetes/pkg/net"
+	"github.com/vertica/vertica-kubernetes/pkg/tls"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/removesc"
 )
 
@@ -58,7 +58,7 @@ func (v *VClusterOps) RemoveSubcluster(ctx context.Context, opts ...removesc.Opt
 	return err
 }
 
-func (v *VClusterOps) genRemoveSubclusterOptions(s *removesc.Parms, certs *interfaces.HTTPSCerts) vops.VRemoveScOptions {
+func (v *VClusterOps) genRemoveSubclusterOptions(s *removesc.Parms, certs *tls.HTTPSCerts) vops.VRemoveScOptions {
 	opts := vops.VRemoveScOptionsFactory()
 
 	// required options

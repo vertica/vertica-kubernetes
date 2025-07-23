@@ -20,9 +20,9 @@ import (
 	"path/filepath"
 
 	vops "github.com/vertica/vcluster/vclusterops"
-	"github.com/vertica/vertica-kubernetes/pkg/interfaces"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/net"
+	"github.com/vertica/vertica-kubernetes/pkg/tls"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/dropdb"
 )
 
@@ -50,7 +50,7 @@ func (v *VClusterOps) DropDB(ctx context.Context, opts ...dropdb.Option) error {
 	return nil
 }
 
-func (v *VClusterOps) genDropDBOptions(s *dropdb.Parms, certs *interfaces.HTTPSCerts) *vops.VDropDatabaseOptions {
+func (v *VClusterOps) genDropDBOptions(s *dropdb.Parms, certs *tls.HTTPSCerts) *vops.VDropDatabaseOptions {
 	opts := vops.VDropDatabaseOptionsFactory()
 
 	opts.DBName = s.DBName

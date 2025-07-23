@@ -96,7 +96,7 @@ webhook:
 cache:
   # If set to true, the operator will use cache to store tls certificates.
   # Setting this to false will disable cache in the operator
-  enable: true
+  enable: false
 
 logging:
   # level is the minimum logging level. Valid values are: debug, info, warn, and error

@@ -19,8 +19,8 @@ import (
 	"context"
 
 	vops "github.com/vertica/vcluster/vclusterops"
-	"github.com/vertica/vertica-kubernetes/pkg/interfaces"
 	"github.com/vertica/vertica-kubernetes/pkg/net"
+	"github.com/vertica/vertica-kubernetes/pkg/tls"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/sandboxsc"
 )
 
@@ -54,7 +54,7 @@ func (v *VClusterOps) SandboxSubcluster(ctx context.Context, opts ...sandboxsc.O
 	return nil
 }
 
-func (v *VClusterOps) genSandboxSubclusterOptions(s *sandboxsc.Params, certs *interfaces.HTTPSCerts) vops.VSandboxOptions {
+func (v *VClusterOps) genSandboxSubclusterOptions(s *sandboxsc.Params, certs *tls.HTTPSCerts) vops.VSandboxOptions {
 	opts := vops.VSandboxOptionsFactory()
 
 	opts.DBName = v.VDB.Spec.DBName

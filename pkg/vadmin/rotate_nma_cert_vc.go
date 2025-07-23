@@ -19,8 +19,8 @@ import (
 	"context"
 
 	vops "github.com/vertica/vcluster/vclusterops"
-	"github.com/vertica/vertica-kubernetes/pkg/interfaces"
 	"github.com/vertica/vertica-kubernetes/pkg/net"
+	"github.com/vertica/vertica-kubernetes/pkg/tls"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/rotatenmacerts"
 )
 
@@ -50,7 +50,7 @@ func (v *VClusterOps) RotateNMACerts(ctx context.Context, opts ...rotatenmacerts
 	return nil
 }
 
-func (v *VClusterOps) genRotateNMACertsOptions(s *rotatenmacerts.Params, certs *interfaces.HTTPSCerts) vops.VRotateNMACertsOptions {
+func (v *VClusterOps) genRotateNMACertsOptions(s *rotatenmacerts.Params, certs *tls.HTTPSCerts) vops.VRotateNMACertsOptions {
 	opts := vops.VRotateNMACertsOptionsFactory()
 
 	opts.DBName = v.VDB.Spec.DBName
