@@ -20,8 +20,8 @@ import (
 	"fmt"
 
 	vops "github.com/vertica/vcluster/vclusterops"
-	"github.com/vertica/vertica-kubernetes/pkg/interfaces"
 	"github.com/vertica/vertica-kubernetes/pkg/net"
+	"github.com/vertica/vertica-kubernetes/pkg/tls"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/replicationstatus"
 )
 
@@ -56,7 +56,7 @@ func (v *VClusterOps) GetReplicationStatus(ctx context.Context, opts ...replicat
 }
 
 func (v *VClusterOps) genReplicationStatusOptions(s *replicationstatus.Parms,
-	targetCerts *interfaces.HTTPSCerts) *vops.VReplicationStatusDatabaseOptions {
+	targetCerts *tls.HTTPSCerts) *vops.VReplicationStatusDatabaseOptions {
 	opts := vops.VReplicationStatusFactory()
 	opts.TargetDB.DBName = s.TargetDBName
 	opts.TargetDB.UserName = s.TargetUserName

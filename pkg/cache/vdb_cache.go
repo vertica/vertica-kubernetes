@@ -23,9 +23,9 @@ import (
 
 	v1 "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/cloud"
-	"github.com/vertica/vertica-kubernetes/pkg/interfaces"
 	"github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
+	"github.com/vertica/vertica-kubernetes/pkg/tls"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -58,7 +58,7 @@ type CacheManager interface {
 
 // These are the functions that can set/read a bool/secert
 type CertCache interface {
-	ReadCertFromSecret(context.Context, string) (*interfaces.HTTPSCerts, error)
+	ReadCertFromSecret(context.Context, string) (*tls.HTTPSCerts, error)
 	ClearCacheBySecretName(string)
 	SaveCertIntoCache(string, map[string][]byte)
 	IsCertInCache(string) bool
@@ -149,7 +149,7 @@ func makeVdbCertCache(namespace string, ttl int, fetcher *cloud.SecretFetcher, e
 // ReadCertFromSecret will first try to load certs from its cache by secretName.
 // If the secret is not found in cache, it will be loaded from k8s and be cached.
 // the cache key will be the secretName
-func (c *VdbCacheStruct) ReadCertFromSecret(ctx context.Context, secretName string) (*interfaces.HTTPSCerts, error) {
+func (c *VdbCacheStruct) ReadCertFromSecret(ctx context.Context, secretName string) (*tls.HTTPSCerts, error) {
 	readRequired := true
 	var secretMap map[string][]byte
 	if c.enabled {
@@ -185,7 +185,7 @@ func (c *VdbCacheStruct) ReadCertFromSecret(ctx context.Context, secretName stri
 			log.Info("loaded tls secret", "secretName", secretName)
 		}
 	}
-	return &interfaces.HTTPSCerts{
+	return &tls.HTTPSCerts{
 		Key:    string(secretMap[corev1.TLSPrivateKeyKey]),
 		Cert:   string(secretMap[corev1.TLSCertKey]),
 		CaCert: string(secretMap[paths.HTTPServerCACrtName]),

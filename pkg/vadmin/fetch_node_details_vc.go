@@ -20,8 +20,8 @@ import (
 	"fmt"
 
 	vops "github.com/vertica/vcluster/vclusterops"
-	"github.com/vertica/vertica-kubernetes/pkg/interfaces"
 	"github.com/vertica/vertica-kubernetes/pkg/net"
+	"github.com/vertica/vertica-kubernetes/pkg/tls"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/fetchnodedetails"
 )
 
@@ -59,7 +59,7 @@ func (v *VClusterOps) FetchNodeDetails(ctx context.Context, opts ...fetchnodedet
 	return nodesDetails[0], nil
 }
 
-func (v *VClusterOps) genFetchNodeDetailsOptions(s *fetchnodedetails.Parms, certs *interfaces.HTTPSCerts) vops.VFetchNodesDetailsOptions {
+func (v *VClusterOps) genFetchNodeDetailsOptions(s *fetchnodedetails.Parms, certs *tls.HTTPSCerts) vops.VFetchNodesDetailsOptions {
 	opts := vops.VFetchNodesDetailsOptionsFactory()
 
 	opts.DBName = v.VDB.Spec.DBName

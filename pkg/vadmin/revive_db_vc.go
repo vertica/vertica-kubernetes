@@ -20,9 +20,9 @@ import (
 
 	vops "github.com/vertica/vcluster/vclusterops"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
-	"github.com/vertica/vertica-kubernetes/pkg/interfaces"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/net"
+	"github.com/vertica/vertica-kubernetes/pkg/tls"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/revivedb"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -51,7 +51,7 @@ func (v *VClusterOps) ReviveDB(ctx context.Context, opts ...revivedb.Option) (ct
 	return ctrl.Result{}, nil
 }
 
-func (v *VClusterOps) genReviveDBOptions(s *revivedb.Parms, certs *interfaces.HTTPSCerts) *vops.VReviveDatabaseOptions {
+func (v *VClusterOps) genReviveDBOptions(s *revivedb.Parms, certs *tls.HTTPSCerts) *vops.VReviveDatabaseOptions {
 	opts := vops.VReviveDBOptionsFactory()
 
 	opts.DBName = v.VDB.Spec.DBName

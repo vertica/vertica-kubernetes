@@ -13,7 +13,7 @@
  limitations under the License.
 */
 
-package interfaces
+package tls
 
 type HTTPSCerts struct {
 	Key    string

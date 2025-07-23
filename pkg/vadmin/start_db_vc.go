@@ -22,9 +22,9 @@ import (
 
 	vops "github.com/vertica/vcluster/vclusterops"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
-	"github.com/vertica/vertica-kubernetes/pkg/interfaces"
 	"github.com/vertica/vertica-kubernetes/pkg/net"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
+	"github.com/vertica/vertica-kubernetes/pkg/tls"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/startdb"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -62,7 +62,7 @@ func (v *VClusterOps) StartDB(ctx context.Context, opts ...startdb.Option) (ctrl
 	return ctrl.Result{}, nil
 }
 
-func (v *VClusterOps) genStartDBOptions(s *startdb.Parms, certs *interfaces.HTTPSCerts) (vops.VStartDatabaseOptions, error) {
+func (v *VClusterOps) genStartDBOptions(s *startdb.Parms, certs *tls.HTTPSCerts) (vops.VStartDatabaseOptions, error) {
 	opts := vops.VStartDatabaseOptionsFactory()
 	opts.RawHosts = s.Hosts
 	v.Log.Info("Setup start db options", "hosts", strings.Join(s.Hosts, ","))

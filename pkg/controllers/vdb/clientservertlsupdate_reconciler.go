@@ -119,7 +119,5 @@ func (h *ClientServerTLSUpdateReconciler) Reconcile(ctx context.Context, req *ct
 		h.Log.Error(err, "failed to set condition "+vapi.ClientServerTLSConfigUpdateFinished+" to true")
 		return ctrl.Result{}, err
 	}
-	certCache := h.VRec.CacheManager.GetCertCacheForVdb(h.Vdb.Namespace, h.Vdb.Name)
-	certCache.ClearCacheBySecretName(currentSecretName)
 	return ctrl.Result{}, nil
 }

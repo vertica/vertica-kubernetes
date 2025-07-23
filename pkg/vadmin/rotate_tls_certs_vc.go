@@ -22,8 +22,8 @@ import (
 	vops "github.com/vertica/vcluster/vclusterops"
 	"github.com/vertica/vertica-kubernetes/pkg/cloud"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
-	"github.com/vertica/vertica-kubernetes/pkg/interfaces"
 	"github.com/vertica/vertica-kubernetes/pkg/net"
+	"github.com/vertica/vertica-kubernetes/pkg/tls"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/rotatetlscerts"
 )
 
@@ -75,7 +75,7 @@ func (v *VClusterOps) RotateTLSCerts(ctx context.Context, opts ...rotatetlscerts
 	return nil
 }
 
-func (v *VClusterOps) genRotateTLSCertsOptions(s *rotatetlscerts.Params, certs *interfaces.HTTPSCerts) vops.VRotateTLSCertsOptions {
+func (v *VClusterOps) genRotateTLSCertsOptions(s *rotatetlscerts.Params, certs *tls.HTTPSCerts) vops.VRotateTLSCertsOptions {
 	opts := vops.VRotateTLSCertsOptionsFactory()
 
 	opts.DBName = v.VDB.Spec.DBName
