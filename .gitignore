@@ -66,6 +66,8 @@ api/v1beta1/zz_generated.deepcopy.go
 # Omit generated files for helm verticadb-operator
 helm-charts/verticadb-operator/templates/*.yaml
 helm-charts/verticadb-operator/crds/*yaml
+helm-charts/verticadb-operator/charts/
+helm-charts/verticadb-operator/Chart.lock
 helm-charts/verticadb-webhook/templates/*.yaml
 helm-charts/verticadb-webhook/crds/*
 
