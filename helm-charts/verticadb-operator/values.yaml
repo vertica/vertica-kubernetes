@@ -219,6 +219,12 @@ grafana:
   adminUser: admin
   adminPassword: admin
 
+  admin:
+    ## Name of the secret. Can be templated.
+    existingSecret: ""
+    userKey: admin-user
+    passwordKey: admin-password
+
   replicas: 1
 
   rbac:
@@ -351,6 +357,13 @@ prometheus-server:
 
   # === Prometheus Specific Configuration ===
   prometheus:
+    # Service account for Prometheuses to use. 
+    serviceAccount:
+      create: true
+      name: ""
+      annotations: {}
+      automountServiceAccountToken: true
+
     service:
       # You can also change the type if needed, e.g., ClusterIP, NodePort, LoadBalancer
       type: ClusterIP
