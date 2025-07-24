@@ -778,7 +778,7 @@ var _ = Describe("builder", func() {
 		vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
 		vdb.Annotations[vmeta.VersionAnnotation] = vapi.NMAInSideCarDeploymentMinVersion
 		configMap := BuildNMATLSConfigMap(names.GenNamespacedName(vdb, "nma-configmap"), vdb)
-		Ω(configMap.Data[NMASecretNameEnv]).Should(Equal(vdb.GetHTTPSNMATLSSecret()))
+		Ω(configMap.Data[NMASecretNameEnv]).Should(Equal(vdb.GetNMATLSSecret()))
 		Ω(configMap.Data[NMASecretNamespaceEnv]).Should(Equal(vdb.Namespace))
 	})
 

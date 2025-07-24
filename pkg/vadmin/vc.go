@@ -120,7 +120,7 @@ func getHTTPSTLSSecretName(vdb *vapi.VerticaDB) (string, error) {
 		secretName = vdb.GetHTTPSNMATLSSecretInUse()
 	}
 	if secretName == "" {
-		secretName = vdb.GetHTTPSNMATLSSecret()
+		secretName = vdb.GetNMATLSSecret()
 	}
 	if secretName == "" {
 		return "", fmt.Errorf("failed to retrieve nma secret name")

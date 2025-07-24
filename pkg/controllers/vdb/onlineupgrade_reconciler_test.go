@@ -187,13 +187,13 @@ var _ = Describe("onlineupgrade_reconciler", func() {
 		vdb.Spec.Sandboxes = []vapi.Sandbox{
 			{Name: preferredSandboxName, Subclusters: []vapi.SandboxSubcluster{{Name: "sec1"}}},
 		}
-		vdb.Spec.HTTPSNMATLS.Secret = "test-tls"
+		vdb.Spec.NMATLSSecret = "test-tls"
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
-		test.CreateFakeTLSSecret(ctx, vdb, k8sClient, vdb.GetHTTPSNMATLSSecret())
-		defer test.DeleteSecret(ctx, k8sClient, vdb.GetHTTPSNMATLSSecret())
+		test.CreateFakeTLSSecret(ctx, vdb, k8sClient, vdb.GetNMATLSSecret())
+		defer test.DeleteSecret(ctx, k8sClient, vdb.GetNMATLSSecret())
 		vdb.Spec.Image = NewImageName // Trigger an upgrade
 		Ω(k8sClient.Update(ctx, vdb)).Should(Succeed())
 
@@ -370,13 +370,13 @@ var _ = Describe("onlineupgrade_reconciler", func() {
 			{Name: "sec3", Type: vapi.SecondarySubcluster, Size: 2},
 			{Name: "sec4", Type: vapi.SecondarySubcluster, Size: 2},
 		}
-		vdb.Spec.HTTPSNMATLS.Secret = "tls-abcdef"
+		vdb.Spec.NMATLSSecret = "tls-abcdef"
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
-		test.CreateFakeTLSSecret(ctx, vdb, k8sClient, vdb.GetHTTPSNMATLSSecret())
-		defer test.DeleteSecret(ctx, k8sClient, vdb.GetHTTPSNMATLSSecret())
+		test.CreateFakeTLSSecret(ctx, vdb, k8sClient, vdb.GetNMATLSSecret())
+		defer test.DeleteSecret(ctx, k8sClient, vdb.GetNMATLSSecret())
 		vdb.Spec.Image = NewImageName // Trigger an upgrade
 		Ω(k8sClient.Update(ctx, vdb)).Should(Succeed())
 

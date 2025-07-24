@@ -15,3 +15,4 @@ apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 commands:
   - script: cd ../../.. && make create-tls-secret SECRET_NAME=custom-cert SECRET_NAMESPACE=$NAMESPACE DB_USER=$VERTICA_SUPERUSER_NAME
+  - script: cd ../../.. && make create-tls-secret SECRET_NAME=nma-cert SECRET_NAMESPACE=$NAMESPACE DB_USER=$VERTICA_SUPERUSER_NAME

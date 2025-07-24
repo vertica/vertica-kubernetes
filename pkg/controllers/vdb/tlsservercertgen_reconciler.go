@@ -26,6 +26,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/builder"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
+	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	"github.com/vertica/vertica-kubernetes/pkg/secrets"
@@ -39,6 +40,7 @@ import (
 )
 
 const (
+	nmaTLSSecret          = "NMATLSSecret"
 	httpsNMATLSSecret     = "HTTPSNMATLSSecret" //nolint:gosec
 	clientServerTLSSecret = "ClientServerTLSSecret"
 	TLSCertName           = "tls.crt"
@@ -63,13 +65,14 @@ func MakeTLSServerCertGenReconciler(vdbrecon *VerticaDBReconciler, log logr.Logg
 
 // Reconcile will create a TLS secret for the http server if one is missing
 func (h *TLSServerCertGenReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
+	nmaCertNeeded := !vmeta.UseTLSAuth(h.Vdb.Annotations) && h.Vdb.Spec.NMATLSSecret == ""
 	// Verify that at least one secret has changed
 	// If not, skip this reconciler
-	if !h.ShouldGenerateCert() {
+	if !h.ShouldGenerateCert() && !nmaCertNeeded {
 		return ctrl.Result{}, nil
 	}
 
-	if h.Vdb.Spec.NMATLSSecret != "" && h.Vdb.GetHTTPSNMATLSSecret() == "" {
+	if h.Vdb.Spec.NMATLSSecret != "" && (vmeta.UseTLSAuth(h.Vdb.Annotations) && h.Vdb.GetHTTPSNMATLSSecret() == "") {
 		h.Log.Info("httpsNMATLS.secret is initialized from nmaTLSSecret")
 		err := h.setSecretNameInVDB(ctx, httpsNMATLSSecret, h.Vdb.Spec.NMATLSSecret)
 		if err != nil {
@@ -78,6 +81,7 @@ func (h *TLSServerCertGenReconciler) Reconcile(ctx context.Context, _ *ctrl.Requ
 		}
 	}
 	secretFieldNameMap := map[string]string{
+		nmaTLSSecret:          h.Vdb.Spec.NMATLSSecret,
 		httpsNMATLSSecret:     h.Vdb.GetHTTPSNMATLSSecret(),
 		clientServerTLSSecret: h.Vdb.GetClientServerTLSSecret(),
 	}
@@ -113,46 +117,66 @@ func (h *TLSServerCertGenReconciler) reconcileOneSecret(secretFieldName, secretN
 		err := h.VRec.Client.Get(ctx, nm, &secret)
 		// Secret defined but not found
 		if kerrors.IsNotFound(err) {
-			tlsStatus := h.Vdb.GetTLSConfigByName(tlsConfigName)
-			if tlsStatus != nil {
-				// we do not recreate the secret as there is already
-				// a secret of this type in the status.
-				return nil
+			if secretFieldName != nmaTLSSecret {
+				tlsStatus := h.Vdb.GetTLSConfigByName(tlsConfigName)
+				if tlsStatus != nil {
+					// we do not recreate the secret as there is already
+					// a secret of this type in the status.
+					return nil
+				}
 			}
-			h.Log.Info(secretName+" is set but doesn't exist. Will recreate the secret.", "name", nm)
+			h.Log.Error(err, secretName+" does not exist", "name", nm)
+			return err
 			// Secret found but could not be read
 		} else if err != nil {
 			h.Log.Error(err, "failed to read tls secret", "secretName", secretName)
 			return err
 			// Successfully read secret
 		} else {
-			// Validate secret certificate
-			err = h.ValidateSecretCertificate(ctx, &secret, tlsConfigName, secretName)
-			if err != nil {
-				return err
+			// we do not need to verify nma tls secret
+			if secretFieldName != nmaTLSSecret {
+				// Validate secret certificate
+				err = h.ValidateSecretCertificate(ctx, &secret, tlsConfigName, secretName)
+				if err != nil {
+					return err
+				}
 			}
 			// Secret is filled in, exists, and is valid. We can exit.
 			return err
 		}
 	}
-	caCert, err := security.NewSelfSignedCACertificate()
+	if !vmeta.UseTLSAuth(h.Vdb.Annotations) && secretFieldName != nmaTLSSecret {
+		h.Log.Info("TLS auth is not enabled. Skipping certificate generation")
+		return nil
+	}
+	secret, err := h.createNewSecret(ctx, secretFieldName, secretName)
 	if err != nil {
 		return err
 	}
-	cert, err := security.NewCertificate(caCert, h.Vdb.GetVerticaUser(), h.getDNSNames())
-	if err != nil {
-		return err
-	}
-	secret, err := h.createSecret(secretFieldName, secretName, ctx, cert, caCert)
-	if err != nil {
-		return err
-	}
-	if err := h.ValidateSecretCertificate(ctx, secret, tlsConfigName, secretName); err != nil {
-		return err
+	if secretFieldName != nmaTLSSecret {
+		if err := h.ValidateSecretCertificate(ctx, secret, tlsConfigName, secretName); err != nil {
+			return err
+		}
 	}
 
 	h.Log.Info(fmt.Sprintf("created certificate and secret %s for %s", secret.Name, secretFieldName))
 	return h.setSecretNameInVDB(ctx, secretFieldName, secret.ObjectMeta.Name)
+}
+
+func (h *TLSServerCertGenReconciler) createNewSecret(ctx context.Context, secretFieldName, secretName string) (*corev1.Secret, error) {
+	caCert, err := security.NewSelfSignedCACertificate()
+	if err != nil {
+		return nil, err
+	}
+	cert, err := security.NewCertificate(caCert, h.Vdb.GetVerticaUser(), h.getDNSNames())
+	if err != nil {
+		return nil, err
+	}
+	secret, err := h.createSecret(secretFieldName, secretName, ctx, cert, caCert)
+	if err != nil {
+		return nil, err
+	}
+	return secret, nil
 }
 
 // getDNSNames returns the DNS names to include in the certificate that we generate
@@ -188,6 +212,8 @@ func (h *TLSServerCertGenReconciler) createSecret(secretFieldName, secretName st
 			secret.GenerateName = fmt.Sprintf("%s-https-tls-", h.Vdb.Name)
 		} else if secretFieldName == clientServerTLSSecret {
 			secret.GenerateName = fmt.Sprintf("%s-clientserver-tls-", h.Vdb.Name)
+		} else if secretFieldName == nmaTLSSecret {
+			secret.GenerateName = fmt.Sprintf("%s-nma-tls-", h.Vdb.Name)
 		}
 	} else {
 		secret.Name = secretName
@@ -208,6 +234,8 @@ func (h *TLSServerCertGenReconciler) setSecretNameInVDB(ctx context.Context, sec
 			h.Vdb.Spec.ClientServerTLS = &vapi.TLSConfigSpec{Secret: secretName, Mode: h.Vdb.GetSpecClientServerTLSMode()}
 		} else if secretFieldName == httpsNMATLSSecret {
 			h.Vdb.Spec.HTTPSNMATLS = &vapi.TLSConfigSpec{Secret: secretName, Mode: h.Vdb.GetSpecHTTPSNMATLSMode()}
+		} else if secretFieldName == nmaTLSSecret {
+			h.Vdb.Spec.NMATLSSecret = secretName
 		}
 		return h.VRec.Client.Update(ctx, h.Vdb)
 	})

@@ -58,7 +58,7 @@ var _ = Describe("nmacertconfigmap_reconcile", func() {
 		// Verify that the ConfigMap was created
 		err = k8sClient.Get(ctx, configMapName, configMap)
 		Expect(err).Should(Succeed())
-		Expect(configMap.Data[builder.NMASecretNameEnv]).Should(Equal(vdb.GetHTTPSNMATLSSecret()))
+		Expect(configMap.Data[builder.NMASecretNameEnv]).Should(Equal(vdb.GetNMATLSSecret()))
 	})
 
 	It("should create the ConfigMap if it does not exist", func() {
