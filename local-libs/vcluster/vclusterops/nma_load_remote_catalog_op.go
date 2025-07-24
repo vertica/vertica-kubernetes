@@ -117,7 +117,7 @@ func (op *nmaLoadRemoteCatalogOp) setupRequestBody(execContext *opEngineExecCont
 	}
 
 	op.hostRequestBodyMap = make(map[string]string)
-	for index, host := range op.hosts {
+	for _, host := range op.hosts {
 		requestData := loadRemoteCatalogRequestData{}
 		requestData.DBName = op.vdb.Name
 		requestData.CommunalLocation = op.vdb.CommunalStorageLocation
@@ -125,11 +125,7 @@ func (op *nmaLoadRemoteCatalogOp) setupRequestBody(execContext *opEngineExecCont
 		requestData.NodeName = vNode.Name
 		requestData.CatalogPath = vNode.CatalogPath
 		requestData.StorageLocations = vNode.StorageLocations
-		if len(op.oldHosts) == 0 || len(op.oldHosts) <= index {
-			requestData.Host = host
-		} else {
-			requestData.Host = op.oldHosts[index]
-		}
+		requestData.Host = host
 		requestData.NodeAddresses = nodeAddresses
 		requestData.Parameters = op.configurationParameters
 		if op.restorePoint != nil {

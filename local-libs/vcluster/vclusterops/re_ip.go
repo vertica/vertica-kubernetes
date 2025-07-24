@@ -310,13 +310,17 @@ func (vcc VClusterCommands) produceReIPInstructions(options *VReIPOptions, vdb *
 }
 
 func (options *VReIPOptions) updateNewAddress(vdb *VCoordinationDatabase, logger vlog.Printer) {
+	nodeHostMap := make(map[string]*VCoordinationNode)
+	for _, vnode := range vdb.HostNodeMap {
+		nodeHostMap[vnode.Name] = vnode
+	}
 	for _, info := range options.ReIPList {
 		// update old IPs to new IPs
-		if node, ok := vdb.HostNodeMap[info.NodeAddress]; ok {
+		if node, ok := nodeHostMap[info.NodeName]; ok {
 			node.Address = info.TargetAddress
 			vdb.HostNodeMap[info.TargetAddress] = node
 		} else {
-			logger.PrintWarning("old host IP %s not found in vdb, ignoring this host for further processing", info.NodeAddress)
+			logger.PrintWarning("Node name %s not found in vdb, ignoring this host for further processing", info.NodeName)
 		}
 	}
 }
