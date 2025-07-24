@@ -2044,7 +2044,7 @@ func buildNMATLSCertsEnvVars(vdb *vapi.VerticaDB) []corev1.EnvVar {
 	configMapName := fmt.Sprintf("%s-%s", vdb.Name, vapi.NMATLSConfigMapName)
 	envs := []corev1.EnvVar{}
 	useNmaCertsMount := vmeta.UseNMACertsMount(vdb.Annotations)
-	if useNmaCertsMount && secrets.IsK8sSecret(vdb.GetHTTPSNMATLSSecret()) {
+	if useNmaCertsMount && secrets.IsK8sSecret(vdb.GetNMATLSSecret()) {
 		envs = append(envs,
 			// Provide the path to each of the certs that are mounted in the container.
 			corev1.EnvVar{Name: NMARootCAEnv, Value: fmt.Sprintf("%s/%s", paths.NMACertsRoot, paths.HTTPServerCACrtName)},
@@ -2198,12 +2198,20 @@ func GetTarballName(cmd []string) string {
 // BuildNMATLSConfigMap builds a configmap with tls secret name in it.
 // The configmap will be mapped to two environmental variables in NMA pod
 func BuildNMATLSConfigMap(nm types.NamespacedName, vdb *vapi.VerticaDB) *corev1.ConfigMap {
+	clientSecretName := vdb.GetClientServerTLSSecret()
+	clientSecretNamespace := vdb.ObjectMeta.Namespace
+	clientSecretTLSMode := vdb.GetNMAClientServerTLSMode()
+	if !vmeta.UseTLSAuth(vdb.Annotations) {
+		clientSecretName = ""
+		clientSecretNamespace = ""
+		clientSecretTLSMode = "disable"
+	}
 	secretMap := map[string]string{
 		NMASecretNamespaceEnv:       vdb.ObjectMeta.Namespace,
-		NMASecretNameEnv:            vdb.GetHTTPSNMATLSSecret(),
-		NMAClientSecretNamespaceEnv: vdb.ObjectMeta.Namespace,
-		NMAClientSecretNameEnv:      vdb.GetClientServerTLSSecret(),
-		NMAClientSecretTLSModeEnv:   vdb.GetNMAClientServerTLSMode(),
+		NMASecretNameEnv:            vdb.GetNMATLSSecret(),
+		NMAClientSecretNamespaceEnv: clientSecretNamespace,
+		NMAClientSecretNameEnv:      clientSecretName,
+		NMAClientSecretTLSModeEnv:   clientSecretTLSMode,
 	}
 	tlsConfigMap := &corev1.ConfigMap{
 		TypeMeta: metav1.TypeMeta{

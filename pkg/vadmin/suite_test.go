@@ -28,6 +28,7 @@ import (
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/aterrors"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
+	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	"github.com/vertica/vertica-kubernetes/pkg/test"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -375,6 +376,7 @@ func (m *MockVClusterOps) VPollSubclusterState(_ *vops.VPollSubclusterStateOptio
 // purposes. This uses a standard function to setup the API.
 func mockVClusterOpsDispatcher() *VClusterOps {
 	vdb := vapi.MakeVDB()
+	vdb.Annotations[vmeta.EnableTLSAuthAnnotation] = vmeta.AnnotationTrue
 	vdb.Spec.HTTPSNMATLS.Secret = TestNMATLSSecret
 	// We use a function to construct the VClusterProvider. This is called
 	// ahead of each API rather than once so that we can setup a custom
@@ -396,8 +398,10 @@ func mockVClusterOpsDispatcherWithCustomSetup(vdb *vapi.VerticaDB,
 
 func mockVclusteropsDispatcherWithTarget() *VClusterOps {
 	vdb := vapi.MakeVDB()
+	vdb.Annotations[vmeta.EnableTLSAuthAnnotation] = vmeta.AnnotationTrue
 	vdb.Spec.HTTPSNMATLS.Secret = TestNMATLSSecret
 	targetVDB := vapi.MakeVDB()
+	targetVDB.Annotations[vmeta.EnableTLSAuthAnnotation] = vmeta.AnnotationTrue
 	targetVDB.Spec.HTTPSNMATLS.Secret = TestNMATLSSecret
 	// We use a function to construct the VClusterProvider. This is called
 	// ahead of each API rather than once so that we can setup a custom

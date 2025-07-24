@@ -1840,6 +1840,14 @@ func (v *VerticaDB) GetHTTPSNMATLSSecret() string {
 	return v.Spec.HTTPSNMATLS.Secret
 }
 
+// GetNMATLSSecret returns the NMATLS secret based on enable-tls annotation
+func (v *VerticaDB) GetNMATLSSecret() string {
+	if !vmeta.UseTLSAuth(v.Annotations) {
+		return v.Spec.NMATLSSecret
+	}
+	return v.GetHTTPSNMATLSSecret()
+}
+
 func (v *VerticaDB) GetSpecClientServerTLSMode() string {
 	if v.Spec.ClientServerTLS == nil {
 		return ""

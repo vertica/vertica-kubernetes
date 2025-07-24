@@ -83,7 +83,7 @@ func (r *ShutdownSpecReconciler) updateSubclustersShutdownStateCallback() (bool,
 					// by the sandbox as opposed to the subcluster. It helps
 					// differentiate this case from when the user is explicitly
 					// changing the subcluster's shutdown field.
-					sc.Annotations[vmeta.ShutdownDrivenBySandbox] = "true"
+					sc.Annotations[vmeta.ShutdownDrivenBySandbox] = vmeta.AnnotationTrue
 					needUpdate = true
 				}
 			} else {
