@@ -759,7 +759,7 @@ func (o *ObjReconciler) handleStatefulSetUpdate(ctx context.Context, sc *vapi.Su
 
 	// Preserve scaling if told to do so. This is used when doing early
 	// reconciliation so that we have any necessary pods started.
-	if o.Mode&ObjReconcileModePreserveScaling != 0 {
+	if o.Mode&ObjReconcileModePreserveScaling != 0 && o.shouldPreserveStsSize(curSts, expSts) {
 		expSts.Spec.Replicas = curSts.Spec.Replicas
 	}
 	// Preserve the delete policy as they may be changed temporarily by upgrade,
@@ -802,6 +802,17 @@ func (o *ObjReconciler) handleStatefulSetUpdate(ctx context.Context, sc *vapi.Su
 	}
 
 	return ctrl.Result{}, o.updateVProxyDeployment(ctx, expSts, curDep, sc)
+}
+
+// shouldPreserveStsSize returns true if the current sts size should be preserved.
+// However, if the current sts size is 0 and different from the expected sts size,
+// we should not preserve it as we are restarting a sts that was in shutdown state
+func (o *ObjReconciler) shouldPreserveStsSize(curSts, expSts *appsv1.StatefulSet) bool {
+	if *expSts.Spec.Replicas != *curSts.Spec.Replicas && *curSts.Spec.Replicas == 0 {
+		return false
+	}
+
+	return true
 }
 
 // reconcileTLSSecrets will update tls secrets
