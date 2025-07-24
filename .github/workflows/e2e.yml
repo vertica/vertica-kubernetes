@@ -872,6 +872,7 @@ jobs:
           operator-image: ${{ needs.build.outputs.operator-image }}
           vertica-image: ${{ needs.build.outputs.minimal-vertica-image }}
           vertica-deployment-method: vclusterops
+          use-cache: true
           communal-storage-type: s3
           minimum-vertica-image: '24.3.0'
           # Include the vertica license so we can test scaling past 3 nodes.
@@ -899,6 +900,7 @@ jobs:
           minimum-vertica-image: '24.3.0'
           use-cert: true
           cert-suffix: cert
+          use-cache: true
           # Include the vertica license so we can test scaling past 3 nodes.
           vertica-license: ${{ secrets.VERTICA_LICENSE }}
           e2e-retry-times: ${{ inputs.e2e_retry_times || 3 }}
@@ -922,6 +924,7 @@ jobs:
           vertica-deployment-method: vclusterops
           communal-storage-type: s3
           minimum-vertica-image: '24.3.0'
+          use-cache: true
           # Include the vertica license so we can test scaling past 3 nodes.
           vertica-license: ${{ secrets.VERTICA_LICENSE }}
           e2e-retry-times: ${{ inputs.e2e_retry_times || 3 }}
@@ -947,6 +950,7 @@ jobs:
           minimum-vertica-image: '24.3.0'
           use-cert: true
           cert-suffix: cert
+          use-cache: true
           # Include the vertica license so we can test scaling past 3 nodes.
           vertica-license: ${{ secrets.VERTICA_LICENSE }}
           e2e-retry-times: ${{ inputs.e2e_retry_times || 3 }}
@@ -968,6 +972,7 @@ jobs:
           operator-image: ${{ needs.build.outputs.operator-image }}
           vertica-image: ${{ needs.build.outputs.minimal-vertica-image }}
           vertica-deployment-method: vclusterops
+          use-cert: true
           communal-storage-type: s3
           minimum-vertica-image: '24.3.0'
           # Include the vertica license so we can test scaling past 3 nodes.
@@ -995,6 +1000,7 @@ jobs:
           minimum-vertica-image: '24.3.0'
           use-cert: true
           cert-suffix: cert
+          use-cache: true
           # Include the vertica license so we can test scaling past 3 nodes.
           vertica-license: ${{ secrets.VERTICA_LICENSE }}
           e2e-retry-times: ${{ inputs.e2e_retry_times || 3 }}
@@ -1017,6 +1023,7 @@ jobs:
           vertica-image: ${{ needs.build.outputs.minimal-vertica-image }}
           vertica-deployment-method: vclusterops
           communal-storage-type: s3
+          use-cache: true
           minimum-vertica-image: '24.3.0'
           # Include the vertica license so we can test scaling past 3 nodes.
           vertica-license: ${{ secrets.VERTICA_LICENSE }}
@@ -1042,8 +1049,9 @@ jobs:
           vertica-deployment-method: vclusterops
           communal-storage-type: s3
           minimum-vertica-image: '24.3.0'
-          use-cert: true
+          use-cache: true
           cert-suffix: cert
+          use-cert: true
           # Include the vertica license so we can test scaling past 3 nodes.
           vertica-license: ${{ secrets.VERTICA_LICENSE }}
           need-base-vertica-image: 'true'
@@ -1065,6 +1073,7 @@ jobs:
           vlogger-image: ${{ needs.build.outputs.vlogger-image }}
           operator-image: ${{ needs.build.outputs.operator-image }}
           vertica-image: ${{ needs.build.outputs.minimal-vertica-image }}
+          use-cache: true
           vertica-deployment-method: vclusterops
           communal-storage-type: s3
           minimum-vertica-image: '24.3.0'
@@ -1094,6 +1103,7 @@ jobs:
           minimum-vertica-image: '24.3.0'
           use-cert: true
           cert-suffix: cert
+          use-cache: true
           e2e-parallelism: 1
           # Include the vertica license so we can test scaling past 3 nodes.
           vertica-license: ${{ secrets.VERTICA_LICENSE }}
@@ -1115,6 +1125,7 @@ jobs:
           vlogger-image: ${{ needs.build.outputs.vlogger-image }}
           operator-image: ${{ needs.build.outputs.operator-image }}
           vertica-image: ${{ needs.build.outputs.minimal-vertica-image }}
+          use-cache: true
           vertica-deployment-method: vclusterops
           communal-storage-type: s3
           minimum-vertica-image: '24.3.0'
@@ -1141,6 +1152,7 @@ jobs:
           vertica-image: ${{ needs.build.outputs.minimal-vertica-image }}
           vertica-deployment-method: vclusterops
           communal-storage-type: s3
+          use-cache: true
           minimum-vertica-image: '25.1.0'
           # Include the vertica license so we can test multiple subclusters.
           vertica-license: ${{ secrets.VERTICA_LICENSE }}
@@ -1164,6 +1176,7 @@ jobs:
           operator-image: ${{ needs.build.outputs.operator-image }}
           vertica-image: ${{ needs.build.outputs.full-vertica-image }}
           vertica-deployment-method: vclusterops
+          use-cache: true
           communal-storage-type: s3
           # Include the vertica license so we can test multiple subclusters.
           vertica-license: ${{ secrets.VERTICA_LICENSE }}
@@ -1188,6 +1201,7 @@ jobs:
           communal-storage-type: s3
           use-cert: true
           cert-suffix: cert
+          use-cache: true
           # Include the vertica license so we can test multiple subclusters.
           vertica-license: ${{ secrets.VERTICA_LICENSE }}
 
@@ -1214,6 +1228,7 @@ jobs:
           helm-overrides: '--set webhook.certSource=cert-manager'
           e2e-retry-times: ${{ inputs.e2e_retry_times || 2 }}
           cert-suffix: cert
+          use-cache: true
           vertica-license: ${{ secrets.VERTICA_LICENSE }}
           need-base-vertica-image: 'true'
 
@@ -1240,6 +1255,7 @@ jobs:
           helm-overrides: '--set webhook.certSource=cert-manager'
           e2e-retry-times: ${{ inputs.e2e_retry_times || 2 }}
           use-cert: true
+          use-cache: true
           cert-suffix: cert
 
   e2e-leg-14-vcluster:
@@ -1300,6 +1316,7 @@ jobs:
           vlogger-image: ${{ needs.build.outputs.vlogger-image }}
           operator-image: ${{ needs.build.outputs.operator-image }}
           vertica-image: ${{ needs.build.outputs.full-vertica-image }}
+          use-cache: true
           vertica-deployment-method: vclusterops
           communal-storage-type: s3
           need-base-vertica-image: 'true'
@@ -1325,6 +1342,7 @@ jobs:
           communal-storage-type: s3
           use-cert: true
           cert-suffix: cert
+          use-cache: true
           need-base-vertica-image: 'true'
           e2e-retry-times: ${{ inputs.e2e_retry_times || 2 }}
 
