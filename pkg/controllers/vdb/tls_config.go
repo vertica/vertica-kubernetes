@@ -18,6 +18,7 @@ package vdb
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/go-logr/logr"
@@ -247,6 +248,20 @@ func (t *TLSConfigManager) getTLSConfigFromDB(ctx context.Context, pfacts *podfa
 	return
 }
 
+func (t *TLSConfigManager) getTLSVersionFromDB(ctx context.Context, pfacts *podfacts.PodFacts,
+	initiatorPod *podfacts.PodFact) (int, error) {
+	sql := "SELECT tls_version FROM sessions WHERE session_id = current_session();"
+	cmd := []string{"-tAc", sql}
+	t.Log.Info("Getting tls version from db", "tlsConfig", t.TLSConfig)
+	stdout, stderr, errVsql := pfacts.PRunner.ExecVSQL(ctx, initiatorPod.GetName(), names.ServerContainer, cmd...)
+	if errVsql != nil || strings.Contains(stderr, "Error") {
+		t.Log.Error(errVsql, fmt.Sprintf("failed to retrieve TLS version from db, stderr - %s", stderr))
+		return 0, errVsql
+	}
+	version, err := t.parseTLSVersion(stdout)
+	return version, err
+}
+
 // checkNMATLSConfigMap checks if nma tls config map exists and has the
 // latest values
 func (t *TLSConfigManager) checkNMATLSConfigMap(ctx context.Context) (ctrl.Result, error) {
@@ -299,6 +314,12 @@ func (t *TLSConfigManager) parseConfig(stdout string) (certificate, mode string,
 	certificate = cols[0]
 	mode = cols[1]
 	return
+}
+
+func (t *TLSConfigManager) parseTLSVersion(stdout string) (int, error) {
+	lines := strings.Split(stdout, "\n")
+	res := strings.Trim(lines[0], " ")
+	return strconv.Atoi(res)
 }
 
 // getEvents returns the correct set of events based on the tls config
