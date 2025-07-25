@@ -1002,12 +1002,12 @@ var _ = Describe("obj_reconcile", func() {
 			vdb.Annotations[vmeta.EnableTLSAuthAnnotation] = trueStr
 			createCrd(vdb, false)
 			defer deleteCrd(vdb)
-			secret := test.BuildTLSSecret(vdb, vdb.GetHTTPSNMATLSSecret(), test.TestKeyValue, test.TestCertValue, test.TestCaCertValue)
+			secret := test.BuildTLSSecret(vdb, vdb.GetNMATLSSecret(), test.TestKeyValue, test.TestCertValue, test.TestCaCertValue)
 			secret.OwnerReferences = []metav1.OwnerReference{
 				{UID: vdb.GetUID(), Name: vdb.Name, Kind: vapi.VerticaDBKind, APIVersion: vapi.GroupVersion.String()},
 			}
 			Expect(k8sClient.Create(ctx, secret)).Should(Succeed())
-			defer test.DeleteSecret(ctx, k8sClient, vdb.GetHTTPSNMATLSSecret())
+			defer test.DeleteSecret(ctx, k8sClient, vdb.GetNMATLSSecret())
 
 			o := &ObjReconciler{
 				Rec: vdbRec,

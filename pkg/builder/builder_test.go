@@ -955,7 +955,7 @@ func getVolume(vols []v1.Volume, mountName string) *v1.Volume {
 
 func NMACertsVolumeExists(vdb *vapi.VerticaDB, vols []v1.Volume) bool {
 	for i := range vols {
-		if vols[i].Name == vapi.NMACertsMountName && vols[i].Secret.SecretName == vdb.GetHTTPSNMATLSSecret() {
+		if vols[i].Name == vapi.NMACertsMountName && vols[i].Secret.SecretName == vdb.GetNMATLSSecret() {
 			return true
 		}
 	}

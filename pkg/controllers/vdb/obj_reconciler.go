@@ -249,7 +249,7 @@ func (o *ObjReconciler) checkMountedObjs(ctx context.Context) (ctrl.Result, erro
 
 func (o *ObjReconciler) checkTLSSecrets(ctx context.Context) (ctrl.Result, error) {
 	tlsSecrets := map[string]string{
-		"NMA TLS":           o.Vdb.GetHTTPSNMATLSSecret(),
+		"NMA TLS":           o.Vdb.GetNMATLSSecret(),
 		"Client Server TLS": o.Vdb.GetClientServerTLSSecret(),
 	}
 	for k, tlsSecret := range tlsSecrets {
@@ -828,7 +828,7 @@ func (o *ObjReconciler) reconcileTLSSecrets(ctx context.Context) error {
 	}
 
 	tlsSecrets := []string{
-		o.Vdb.GetHTTPSNMATLSSecret(),
+		o.Vdb.GetNMATLSSecret(),
 		o.Vdb.GetClientServerTLSSecret(),
 	}
 	for _, tlsSecret := range tlsSecrets {
