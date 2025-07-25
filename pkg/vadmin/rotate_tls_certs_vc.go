@@ -19,8 +19,8 @@ import (
 	"context"
 
 	vops "github.com/vertica/vcluster/vclusterops"
-	"github.com/vertica/vertica-kubernetes/pkg/cloud"
 	"github.com/vertica/vertica-kubernetes/pkg/net"
+	"github.com/vertica/vertica-kubernetes/pkg/tls"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/rotatetlscerts"
 )
 
@@ -42,14 +42,8 @@ func (v *VClusterOps) RotateTLSCerts(ctx context.Context, opts ...rotatetlscerts
 		v.Log.Info("HTTPS cert rotation has occurred but the status is not up to date yet. Using secret from spec")
 		secretName = v.VDB.GetHTTPSNMATLSSecret()
 	}
-	// get the certs
-	fetcher := cloud.SecretFetcher{
-		Client:   v.Client,
-		Log:      v.Log,
-		Obj:      v.VDB,
-		EVWriter: v.EVWriter,
-	}
-	certs, err := retrieveNMACerts(ctx, &fetcher, v.VDB, secretName)
+	certCache := v.CacheManager.GetCertCacheForVdb(v.VDB.Namespace, v.VDB.Name)
+	certs, err := certCache.ReadCertFromSecret(ctx, secretName)
 	if err != nil {
 		return err
 	}
@@ -65,7 +59,7 @@ func (v *VClusterOps) RotateTLSCerts(ctx context.Context, opts ...rotatetlscerts
 	return nil
 }
 
-func (v *VClusterOps) genRotateTLSCertsOptions(s *rotatetlscerts.Params, certs *HTTPSCerts) vops.VRotateTLSCertsOptions {
+func (v *VClusterOps) genRotateTLSCertsOptions(s *rotatetlscerts.Params, certs *tls.HTTPSCerts) vops.VRotateTLSCertsOptions {
 	opts := vops.VRotateTLSCertsOptionsFactory()
 
 	opts.DBName = v.VDB.Spec.DBName

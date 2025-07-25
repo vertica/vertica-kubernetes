@@ -97,7 +97,8 @@ vertica(v11.1.0) built by @re-docker2 from tag@releases/VER_10_1_RELEASE_BUILD_1
 		defer test.DeleteConfigMap(ctx, k8sClient, vdb, sbName)
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := podfacts.MakePodFactsForSandbox(vdbRec, fpr, logger, TestPassword, sbName)
+
+		pfacts := podfacts.MakePodFactsForSandboxWithCacheManager(vdbRec, fpr, logger, TestPassword, sbName, vdbRec.CacheManager)
 		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
 		podName := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)
 		fpr.Results = cmds.CmdResults{

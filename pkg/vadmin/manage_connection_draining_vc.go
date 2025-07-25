@@ -21,6 +21,7 @@ import (
 
 	vops "github.com/vertica/vcluster/vclusterops"
 	"github.com/vertica/vertica-kubernetes/pkg/net"
+	"github.com/vertica/vertica-kubernetes/pkg/tls"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/manageconnectiondraining"
 )
 
@@ -50,7 +51,7 @@ func (v *VClusterOps) ManageConnectionDraining(ctx context.Context, opts ...mana
 }
 
 func (v *VClusterOps) genManageConnectionDrainingOptions(s *manageconnectiondraining.Params,
-	certs *HTTPSCerts) *vops.VManageConnectionDrainingOptions {
+	certs *tls.HTTPSCerts) *vops.VManageConnectionDrainingOptions {
 	opts := vops.VManageConnectionDrainingOptionsFactory()
 
 	opts.RawHosts = append(opts.RawHosts, s.InitiatorIP)

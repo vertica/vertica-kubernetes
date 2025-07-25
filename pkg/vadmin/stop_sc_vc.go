@@ -20,6 +20,7 @@ import (
 
 	vops "github.com/vertica/vcluster/vclusterops"
 	"github.com/vertica/vertica-kubernetes/pkg/net"
+	"github.com/vertica/vertica-kubernetes/pkg/tls"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/stopsubcluster"
 )
 
@@ -53,7 +54,7 @@ func (v *VClusterOps) StopSubcluster(ctx context.Context, opts ...stopsubcluster
 	return nil
 }
 
-func (v *VClusterOps) genStopSubclusterOptions(s *stopsubcluster.Parms, certs *HTTPSCerts) vops.VStopSubclusterOptions {
+func (v *VClusterOps) genStopSubclusterOptions(s *stopsubcluster.Parms, certs *tls.HTTPSCerts) vops.VStopSubclusterOptions {
 	opts := vops.VStopSubclusterOptionsFactory()
 
 	opts.RawHosts = append(opts.RawHosts, s.InitiatorIP)

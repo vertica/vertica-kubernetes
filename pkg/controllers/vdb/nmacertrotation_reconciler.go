@@ -77,7 +77,6 @@ func (h *NMACertRotationReconciler) Reconcile(ctx context.Context, _ *ctrl.Reque
 	if verrors.IsReconcileAborted(res, err) {
 		return res, err
 	}
-
 	h.Log.Info("Starting NMA TLS certificate rotation")
 	err, calledVclusterops := h.rotateNmaTLSCert(ctx, newSecret)
 	if err != nil {
@@ -113,7 +112,6 @@ func (h *NMACertRotationReconciler) Reconcile(ctx context.Context, _ *ctrl.Reque
 	if h.Vdb.IsStatusConditionTrue(vapi.ClientServerTLSConfigUpdateFinished) {
 		conds = append(conds, vapi.MakeCondition(vapi.ClientServerTLSConfigUpdateFinished, metav1.ConditionFalse, "Completed"))
 	}
-
 	return ctrl.Result{}, updateConds(conds)
 }
 

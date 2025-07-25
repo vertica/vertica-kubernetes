@@ -23,6 +23,7 @@ import (
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/net"
+	"github.com/vertica/vertica-kubernetes/pkg/tls"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/reip"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -56,7 +57,7 @@ func (v *VClusterOps) ReIP(ctx context.Context, opts ...reip.Option) (ctrl.Resul
 	return ctrl.Result{}, nil
 }
 
-func (v *VClusterOps) genReIPOptions(s *reip.Parms, certs *HTTPSCerts) vops.VReIPOptions {
+func (v *VClusterOps) genReIPOptions(s *reip.Parms, certs *tls.HTTPSCerts) vops.VReIPOptions {
 	opts := vops.VReIPFactory()
 
 	// hosts
