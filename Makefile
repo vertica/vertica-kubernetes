@@ -53,6 +53,7 @@ endif
 BUNDLE_METADATA_OPTS ?= $(BUNDLE_CHANNELS) $(BUNDLE_DEFAULT_CHANNEL)
 BUNDLE_DOCKERFILE=docker-bundle/Dockerfile
 
+LOCALHOST?=$(shell hostname -i)
 LOGDIR?=$(shell pwd)
 
 # Command we run to see if we are running in a kind environment
@@ -757,6 +758,40 @@ deploy-prometheus-adapter-tls: ## Setup prometheus adapter for VerticaAutoscaler
 .PHONY: undeploy-prometheus-adapter
 undeploy-prometheus-adapter:  ## Remove prometheus adapter
 	helm uninstall $(PROMETHEUS_ADAPTER_NAME) -n $(PROMETHEUS_ADAPTER_NAMESPACE)
+
+.PHONY: deploy-loki
+deploy-loki: deploy-grafana deploy-k8s-monitoring
+	helm repo add grafana https://grafana.github.io/helm-charts
+	helm repo update
+	helm install loki grafana/loki --namespace loki --create-namespace --values grafana/loki-values.yaml
+
+.PHONY: undeploy-loki
+undeploy-loki: undeploy-grafana undeploy-k8s-monitoring
+	helm uninstall loki --namespace loki
+
+.PHONY: deploy-grafana
+deploy-grafana:
+	helm repo add grafana https://grafana.github.io/helm-charts
+	helm repo update
+	helm install grafana grafana/grafana --namespace grafana --create-namespace --values grafana/grafana-values.yaml
+
+.PHONY: undeploy-grafana
+undeploy-grafana:
+	helm uninstall grafana --namespace grafana
+
+.PHONY: deploy-k8s-monitoring
+deploy-k8s-monitoring:
+	helm repo add grafana https://grafana.github.io/helm-charts
+	helm repo update
+	helm install k8s-monitoring grafana/k8s-monitoring --namespace k8s-monitoring --create-namespace --values grafana/k8s-monitoring-values.yaml
+
+.PHONY: undeploy-k8s-monitoring
+undeploy-k8s-monitoring:
+	helm uninstall k8s-monitoring --namespace k8s-monitoring
+
+.PHONY: port-forward-grafana
+port-forward-grafana:  ## Expose the grafana endpoint so that you can connect to it through http://localhost:3000
+	kubectl port-forward --namespace grafana --address $(LOCALHOST) $(shell kubectl get pods --namespace grafana -l "app.kubernetes.io/name=grafana,app.kubernetes.io/instance=grafana" -o jsonpath="{.items[0].metadata.name}") 3000
 
 .PHONY: deploy-keda
 deploy-keda: ## Deploy keda operator for autoscaling
