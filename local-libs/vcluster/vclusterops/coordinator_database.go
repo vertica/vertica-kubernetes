@@ -245,7 +245,7 @@ func (vdb *VCoordinationDatabase) addHosts(hosts []string, scName, sandbox strin
 
 	for _, host := range hosts {
 		vNode := makeVCoordinationNode()
-		name, ok := util.GenVNodeName(nodeNameToHost, vdb.Name, totalHostCount)
+		name, ok := util.GenVNodeName(nodeNameToHost, vdb.Name, totalHostCount, sandbox)
 		if !ok {
 			return fmt.Errorf("could not generate a vnode name for %s", host)
 		}
@@ -418,6 +418,19 @@ func (vdb *VCoordinationDatabase) filterSandboxNodes(sandbox string) {
 	}
 	vdb.HostNodeMap = sandHostNodeMap
 
+	vdb.HostList = maps.Keys(vdb.HostNodeMap)
+}
+
+// filterMainClusterNodes will remove sandbox nodes from vdb
+func (vdb *VCoordinationDatabase) filterMainClusterNodes() {
+	mainHostNodeMap := makeVHostNodeMap()
+
+	for h, vnode := range vdb.HostNodeMap {
+		if vnode.Sandbox == util.MainClusterSandbox {
+			mainHostNodeMap[h] = vnode
+		}
+	}
+	vdb.HostNodeMap = mainHostNodeMap
 	vdb.HostList = maps.Keys(vdb.HostNodeMap)
 }
 

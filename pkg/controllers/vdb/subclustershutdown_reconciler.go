@@ -24,6 +24,7 @@ import (
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
+
 	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/stopsubcluster"
@@ -101,11 +102,16 @@ func (s *SubclusterShutdownReconciler) getSubclustersToShutdown() (map[string]st
 				"subcluster", sc.Name, "sandbox", s.PFacts.GetSandboxName())
 			continue
 		}
+		scStatus := scStatusMap[sc.Name]
+		if scStatus == nil {
+			return subclusters, fmt.Errorf("subcluster %q not found in status", sc.Name)
+		}
 		// no-op if the subcluster is not marked for
-		// shutdown
-		if !sc.Shutdown {
+		// shutdown or already shutdown
+		if !sc.Shutdown || scStatus.Shutdown {
 			continue
 		}
+
 		if sandbox != vapi.MainCluster {
 			sb := sbMap[sandbox]
 			// no-op if the subcluster shutdown is driven
@@ -119,10 +125,6 @@ func (s *SubclusterShutdownReconciler) getSubclustersToShutdown() (map[string]st
 		}
 		hostIP, ok := s.PFacts.FindFirstUpPodIP(false, sc.Name)
 		if !ok {
-			scStatus := scStatusMap[sc.Name]
-			if scStatus == nil {
-				return subclusters, fmt.Errorf("subcluster %q not found in status", sc.Name)
-			}
 			if !scStatus.Shutdown {
 				s.Log.Info("Subcluster nodes are already all down, and were not shutdown gracefully.", "subcluster", sc.Name)
 			}

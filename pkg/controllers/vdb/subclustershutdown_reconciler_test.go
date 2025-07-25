@@ -41,6 +41,13 @@ var _ = Describe("subclustershutdown_reconciler", func() {
 			{Name: subcluster3, Size: 3, Type: vapi.SecondarySubcluster},
 			{Name: subcluster4, Size: 3, Type: vapi.SecondarySubcluster},
 		}
+		vdb.Status.Subclusters = []vapi.SubclusterStatus{
+			{Name: maincluster},
+			{Name: subcluster1},
+			{Name: subcluster2},
+			{Name: subcluster3},
+			{Name: subcluster4},
+		}
 		// All subclusters are in main cluster.
 		// Shutting down secondaries
 		vdb.Spec.Subclusters[1].Shutdown = true
