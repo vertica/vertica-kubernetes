@@ -206,3 +206,247 @@ containerSecurityContext:
 keda:
   # This controls the creation of ClusterRole rules for KEDA objects.
   createRBACRules: true
+
+## Using default values from https://github.com/grafana/helm-charts/blob/main/charts/grafana/values.yaml
+##
+grafana:
+  enabled: false # Set to true if you want to deploy Grafana
+
+  ## Override the deployment namespace
+  ##
+  namespaceOverride: ""
+
+  adminUser: admin
+  adminPassword: admin
+
+  admin:
+    ## Name of the secret. Can be templated.
+    existingSecret: ""
+    userKey: admin-user
+    passwordKey: admin-password
+
+  replicas: 1
+
+  rbac:
+    ## If true, Grafana PSPs will be created
+    ##
+    pspEnabled: false
+
+  ingress:
+    ## If true, Grafana Ingress will be created
+    ##
+    enabled: false
+
+  serviceAccount:
+    create: true
+    serviceAccount.automountServiceAccountToken: true
+
+  # Flag to mark provisioned data sources for deletion if they are no longer configured.
+  # It takes no effect if data sources are already listed in the deleteDatasources section.
+  # ref: https://grafana.com/docs/grafana/latest/administration/provisioning/#example-data-source-configuration-file
+  prune: false
+
+  ## Passed to grafana subchart and used by servicemonitor below
+  ##
+  service:
+    portName: http-web
+    ipFamilies: []
+    ipFamilyPolicy: ""
+
+  dashboardProviders:
+    dashboardproviders.yaml:
+      apiVersion: 1
+      providers:
+      - name: 'vertica'
+        orgId: 1
+        folder: 'Vertica'
+        type: file
+        disableDeletion: false
+        editable: true
+        options:
+          path: /var/lib/grafana/dashboards/vertica
+  dashboards:
+    vertica:
+      # Example 1: Node Exporter Full Dashboard (ID 1860)
+      # This dashboard is typically for Prometheus data source.
+      vertica-overview-prometheus:
+        gnetId: 19917
+        # revision: 1 # Optional: Pin to a specific revision if needed
+        datasource: Prometheus
+      vertica-queries-prometheus:
+        gnetId: 19915
+        # revision: 1 # Optional: Pin to a specific revision if needed
+        datasource: Prometheus
+      vertica-resource-management-prometheus:
+        gnetId: 19916
+        # revision: 1 # Optional: Pin to a specific revision if needed
+        datasource: Prometheus
+      vertica-depot-prometheus:
+        gnetId: 19914
+        # revision: 1 # Optional: Pin to a specific revision if needed
+        datasource: Prometheus
+  datasources:
+    datasources.yaml:
+      apiVersion: 1
+      datasources:
+        - name: Prometheus
+          type: prometheus
+          url: http://{{ .Release.Name }}-prometheus-server-prometheus.{{ .Release.Namespace }}.svc.cluster.local:9090
+          access: proxy
+          isDefault: true
+
+prometheus-server:
+  enabled: false # Set to true if you want to deploy Prometheus server
+  # === Global Namespace Configuration ===
+  # By default, kube-prometheus-stack installs into .Release.Namespace
+  # You can override it here if you want it in a different namespace:
+  # namespaceOverride: "my-monitoring-ns" # Ensure this namespace exists or create it
+
+  # === Control Component Installation (to achieve "only Prometheus") ===
+  # Disable components you don't want.
+  # KEEP `prometheusOperator` ENABLED as it's required for Prometheus itself.
+  alertmanager:
+    enabled: false
+  grafana:
+    enabled: false # If you have Grafana as a separate sub-chart or elsewhere
+  kubeControllerManager:
+    enabled: false
+  kubeEtcd:
+    enabled: false
+  kubeScheduler:
+    enabled: false
+  kubelet:
+    enabled: false
+  kubeApiServer:
+    enabled: false
+  kubeProxy:
+    enabled: false
+  kubeStateMetrics:
+    enabled: false
+  nodeExporter:
+    enabled: false
+  coreDns:
+    enabled: false
+  prometheus-node-exporter: # Some older versions might use this instead of nodeExporter
+    enabled: false
+
+  prometheus-windows-exporter:
+    ## Enable ServiceMonitor and set Kubernetes label to use as a job label
+    ##
+    prometheus:
+      monitor:
+        enabled: false
+  
+  # Prometheus Operator - keep minimal
+  prometheusOperator:
+    enabled: true
+    # Minimal resources
+    resources:
+      limits:
+        cpu: 200m
+        memory: 200Mi
+      requests:
+        cpu: 100m
+        memory: 100Mi
+    # Reduce admission webhook complexity
+    admissionWebhooks:
+      enabled: false
+    # Disable TLS for simplicity
+    tls:
+      enabled: false
+
+  # === Prometheus Specific Configuration ===
+  prometheus:
+    # Service account for Prometheuses to use. 
+    serviceAccount:
+      create: true
+      name: ""
+      annotations: {}
+      automountServiceAccountToken: true
+
+    service:
+      # You can also change the type if needed, e.g., ClusterIP, NodePort, LoadBalancer
+      type: ClusterIP
+      # NodePort or LoadBalancer can be used if you need external access to Prometheus
+      # for instance, for remote scraping or a UI access
+      # nodePort: 30090
+    
+    # Storage for Prometheus (highly recommended for production)
+    prometheusSpec:
+      replicas: 1
+      retention: "7d" # How long to keep data
+      # Minimal resource allocation
+      resources:
+        requests:
+          memory: "512Mi"
+          cpu: "200m"
+        limits:
+          memory: "1Gi"
+          cpu: "500m"
+      
+      # Reduce retention and storage
+      retention: "7d"
+      retentionSize: "2GB"
+      storageSpec:
+        volumeClaimTemplate:
+          spec:
+            storageClassName: standard # Or your preferred storage class
+            resources:
+              requests:
+                storage: 5Gi # Adjust storage size as needed
+
+    # Optionally disable the default `kube-prometheus-stack` scrape configs if you're
+    # defining your own ServiceMonitors/PodMonitors for your operator.
+    # If you want Prometheus to scrape your K8s cluster, keep some of these enabled.
+    # scrapeConfig:
+    #   enabled: false # This might disable all default scrape configs
+
+  # === ServiceMonitor for your Operator's Metrics (Example) ===
+  # If your operator exposes Prometheus metrics, you can define a ServiceMonitor
+  # directly in your main chart's templates or here if you want to conditionally
+  # deploy it with Prometheus.
+  # This example assumes your operator has a service named `my-operator-service`
+  # in the same namespace that exposes metrics on port `metrics-port`.
+  # For more advanced ServiceMonitor creation, it's often better to create a
+  # separate template in your main chart that consumes your operator's service details.
+  # This section is just illustrative of where you might define it.
+  #
+  # serviceMonitor:
+  #   # This would typically be a template in your main chart, but showing how you'd
+  #   # enable the Prometheus Operator to find your operator's metrics.
+  #   name: my-operator-service-monitor
+  #   selector:
+  #     matchLabels:
+  #       app.kubernetes.io/name: my-operator
+  #   endpoints:
+  #     - port: metrics-port # The name of the port in your operator's Service
+  #       path: /metrics
+  # Disable all default scraping rules
+  defaultRules:
+    create: false
+    rules:
+      alertmanager: false
+      etcd: false
+      configReloaders: false
+      general: false
+      k8s: false
+      kubeApiserverAvailability: false
+      kubeApiserverBurnrate: false
+      kubeApiserverHistogram: false
+      kubeApiserverSlos: false
+      kubelet: false
+      kubeProxy: false
+      kubePrometheusGeneral: false
+      kubePrometheusNodeRecording: false
+      kubernetesApps: false
+      kubernetesResources: false
+      kubernetesStorage: false
+      kubernetesSystem: false
+      kubeScheduler: false
+      kubeStateMetrics: false
+      network: false
+      node: false
+      nodeExporterAlerting: false
+      nodeExporterRecording: false
+      prometheus: false
+      prometheusOperator: false

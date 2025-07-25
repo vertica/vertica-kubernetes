@@ -171,6 +171,10 @@ HELM_RELEASE_NAME?=vdb-op
 HELM_OVERRIDES ?=
 PROMETHEUS_HELM_OVERRIDES ?=
 PROMETHEUS_ADAPTER_HELM_OVERRIDES ?=
+# Set this to true if you want to install grafana with the operator.
+GRAFANA_ENABLED ?= false
+# Set this to true if you want to install prometheus with the operator.
+PROMETHEUS_ENABLED ?= false
 # Maximum number of tests to run at once. (default 2)
 # Set it to any value not greater than 8 to override the default one
 E2E_PARALLELISM?=2
@@ -662,7 +666,7 @@ uninstall-cert-manager: ## Uninstall the cert-manager
 	kubectl delete -f https://github.com/jetstack/cert-manager/releases/download/v$(CERT_MANAGER_VER)/cert-manager.yaml
 
 .PHONY: config-transformer
-config-transformer: manifests kustomize kubernetes-split-yaml ## Generate release artifacts and helm charts from config/
+config-transformer: manifests kustomize kubernetes-split-yaml helm-dependency-update ## Generate release artifacts and helm charts from config/
 	scripts/config-transformer.sh
 
 .PHONY: install
@@ -679,7 +683,8 @@ uninstall: manifests kustomize ## Uninstall CRDs from the K8s cluster specified 
 # If this secret does not exist then it is simply ignored.
 deploy-operator: manifests kustomize ## Using helm or olm, deploy the operator in the K8s cluster
 ifeq ($(DEPLOY_WITH), helm)
-	helm install $(DEPLOY_WAIT) -n $(NAMESPACE) --create-namespace $(HELM_RELEASE_NAME) $(OPERATOR_CHART) --set image.repo=null --set image.name=${OPERATOR_IMG} --set image.pullPolicy=$(HELM_IMAGE_PULL_POLICY) --set imagePullSecrets[0].name=priv-reg-cred --set controllers.scope=$(CONTROLLERS_SCOPE) --set controllers.vdbMaxBackoffDuration=$(VDB_MAX_BACKOFF_DURATION) --set controllers.sandboxMaxBackoffDuration=$(SANDBOX_MAX_BACKOFF_DURATION) $(HELM_OVERRIDES)
+	$(MAKE) helm-dependency-update
+	helm install $(DEPLOY_WAIT) -n $(NAMESPACE) --create-namespace $(HELM_RELEASE_NAME) $(OPERATOR_CHART) --set image.repo=null --set image.name=${OPERATOR_IMG} --set image.pullPolicy=$(HELM_IMAGE_PULL_POLICY) --set imagePullSecrets[0].name=priv-reg-cred --set controllers.scope=$(CONTROLLERS_SCOPE) --set controllers.vdbMaxBackoffDuration=$(VDB_MAX_BACKOFF_DURATION) --set controllers.sandboxMaxBackoffDuration=$(SANDBOX_MAX_BACKOFF_DURATION) --set grafana.enabled=${GRAFANA_ENABLED} --set prometheus-server.enabled=${PROMETHEUS_ENABLED}  $(HELM_OVERRIDES)
 	scripts/wait-for-webhook.sh -n $(NAMESPACE) -t 60
 else ifeq ($(DEPLOY_WITH), olm)
 	scripts/deploy-olm.sh -n $(NAMESPACE) $(OLM_TEST_CATALOG_SOURCE)
@@ -717,6 +722,14 @@ undeploy-prometheus: undeploy-prometheus-service-monitor-by-release
 .PHONY: port-forward-prometheus
 port-forward-prometheus:  ## Expose the prometheus endpoint so that you can connect to it through http://localhost:9090
 	kubectl port-forward -n $(PROMETHEUS_NAMESPACE) svc/$(PROMETHEUS_HELM_NAME)-kube-prometheus-prometheus 9090
+
+.PHONY: port-forward-prometheus-server
+port-forward-prometheus-server:  ## Expose the prometheus endpoint so that you can connect to it through http://localhost:9090
+	kubectl port-forward -n $(NAMESPACE) svc/$(HELM_RELEASE_NAME)-prometheus-server-prometheus 9090
+
+.PHONY: port-forward-grafana
+port-forward-grafana:  ## Expose the grafana endpoint so that you can connect to it through http://localhost:3000
+	kubectl port-forward -n $(NAMESPACE) svc/$(HELM_RELEASE_NAME)-grafana 3000:80
 
 .PHONY: deploy-prometheus-service-monitor
 deploy-prometheus-service-monitor:
@@ -892,6 +905,10 @@ istioctl: $(ISTIOCTL)  ## Download istioctl locally if necessary
 $(ISTIOCTL):
 	curl --silent --show-error --retry 10 --retry-max-time 1800 --location --fail "https://github.com/istio/istio/releases/download/$(ISTIOCTL_VERSION)/istio-$(ISTIOCTL_VERSION)-$(GOOS)-$(GOARCH).tar.gz" | tar xvfz - istio-$(ISTIOCTL_VERSION)/bin/istioctl -O > $(ISTIOCTL)
 	chmod +x $(ISTIOCTL)
+
+.PHONY: helm-dependency-update
+helm-dependency-update: ## Update helm chart dependencies
+	helm dependency update $(OPERATOR_CHART)
 
 
 ##@ Release

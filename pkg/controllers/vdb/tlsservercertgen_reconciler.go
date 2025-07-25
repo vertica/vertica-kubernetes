@@ -204,9 +204,9 @@ func (h *TLSServerCertGenReconciler) setSecretNameInVDB(ctx context.Context, sec
 			return err
 		}
 		if secretFieldName == clientServerTLSSecret {
-			h.Vdb.Spec.ClientServerTLS = &vapi.TLSConfigSpec{Secret: secretName, Mode: h.Vdb.GetClientServerTLSMode()}
+			h.Vdb.Spec.ClientServerTLS = &vapi.TLSConfigSpec{Secret: secretName, Mode: h.Vdb.GetSpecClientServerTLSMode()}
 		} else if secretFieldName == httpsNMATLSSecret {
-			h.Vdb.Spec.HTTPSNMATLS = &vapi.TLSConfigSpec{Secret: secretName, Mode: h.Vdb.GetHTTPSNMATLSMode()}
+			h.Vdb.Spec.HTTPSNMATLS = &vapi.TLSConfigSpec{Secret: secretName, Mode: h.Vdb.GetSpecHTTPSNMATLSMode()}
 		}
 		return h.VRec.Client.Update(ctx, h.Vdb)
 	})
