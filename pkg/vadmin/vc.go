@@ -29,27 +29,36 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
+// retrieveNMACerts will retrieve the certs from NMA secret for calling NMA endpoints
+func (v *VClusterOps) retrieveNMACerts(ctx context.Context) (*HTTPSCerts, error) {
+	return v.retrieveHTTPSCertsWithTarget(ctx, false /* forTargetDB */, false /* useHTTPSSecret */)
+}
+
 // retrieveHTTPSCerts will retrieve the certs from HTTPSNMATLSSecret for calling NMA endpoints
 func (v *VClusterOps) retrieveHTTPSCerts(ctx context.Context) (*HTTPSCerts, error) {
-	return v.retrieveHTTPSCertsWithTarget(ctx, false)
+	return v.retrieveHTTPSCertsWithTarget(ctx, false /* forTargetDB */, true /* useHTTPSSecret */)
 }
 
 // retrieveTargetHTTPSCerts will retrieve the certs from HTTPSNMATLSSecret for calling target NMA endpoints
 func (v *VClusterOps) retrieveTargetHTTPSCerts(ctx context.Context) (*HTTPSCerts, error) {
-	return v.retrieveHTTPSCertsWithTarget(ctx, true)
+	return v.retrieveHTTPSCertsWithTarget(ctx, true /* forTargetDB */, true /* useHTTPSSecret */)
 }
 
-func (v *VClusterOps) retrieveHTTPSCertsWithTarget(ctx context.Context, forTarget bool) (*HTTPSCerts, error) {
+func (v *VClusterOps) retrieveHTTPSCertsWithTarget(ctx context.Context, forTarget, useHTTPSSecret bool) (*HTTPSCerts, error) {
 	vdb := v.VDB
 	if forTarget {
 		vdb = v.TargetVDB
 	}
 
 	// Determine the secret name
-	secretName, err := getHTTPSTLSSecretName(vdb)
-	if err != nil {
-		v.Log.Error(err, "failed to get nma secret name")
-		return nil, err
+	secretName := vdb.Spec.NMATLSSecret
+	if useHTTPSSecret {
+		var err error
+		secretName, err = getHTTPSTLSSecretName(vdb)
+		if err != nil {
+			v.Log.Error(err, "failed to get https secret name")
+			return nil, err
+		}
 	}
 
 	v.Log.Info("HTTPS NMA secret name used", "secretName", secretName)
@@ -72,15 +81,15 @@ func retrieveNMACerts(ctx context.Context, fetcher *cloud.SecretFetcher, vdb *va
 
 	tlsKey, ok := tlsCerts[corev1.TLSPrivateKeyKey]
 	if !ok {
-		return nil, fmt.Errorf("key %s is missing in the secret %s", corev1.TLSPrivateKeyKey, vdb.GetHTTPSNMATLSSecret())
+		return nil, fmt.Errorf("key %s is missing in the secret %s", corev1.TLSPrivateKeyKey, vdb.GetNMATLSSecret())
 	}
 	tlsCrt, ok := tlsCerts[corev1.TLSCertKey]
 	if !ok {
-		return nil, fmt.Errorf("cert %s is missing in the secret %s", corev1.TLSCertKey, vdb.GetHTTPSNMATLSSecret())
+		return nil, fmt.Errorf("cert %s is missing in the secret %s", corev1.TLSCertKey, vdb.GetNMATLSSecret())
 	}
 	tlsCaCrt, ok := tlsCerts[corev1.ServiceAccountRootCAKey]
 	if !ok {
-		return nil, fmt.Errorf("ca cert %s is missing in the secret %s", corev1.ServiceAccountRootCAKey, vdb.GetHTTPSNMATLSSecret())
+		return nil, fmt.Errorf("ca cert %s is missing in the secret %s", corev1.ServiceAccountRootCAKey, vdb.GetNMATLSSecret())
 	}
 	return &HTTPSCerts{
 		Key:    string(tlsKey),
@@ -154,7 +163,7 @@ func getHTTPSTLSSecretName(vdb *vapi.VerticaDB) (string, error) {
 		secretName = vdb.GetHTTPSNMATLSSecretInUse()
 	}
 	if secretName == "" {
-		secretName = vdb.GetHTTPSNMATLSSecret()
+		secretName = vdb.GetNMATLSSecret()
 	}
 	if secretName == "" {
 		return "", fmt.Errorf("failed to retrieve nma secret name")

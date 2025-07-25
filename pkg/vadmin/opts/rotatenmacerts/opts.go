@@ -24,6 +24,8 @@ type Params struct {
 	// TLS CA Certificate (PEM bytes)
 	NewCaCert string
 	Hosts     []string
+	// If the cert is from spec.NMATLSSecret
+	FromNMA bool
 }
 
 type Option func(*Params)
@@ -56,5 +58,11 @@ func WithCaCert(newCaCert string) Option {
 func WithHosts(hosts []string) Option {
 	return func(s *Params) {
 		s.Hosts = hosts
+	}
+}
+
+func WithFromNMA(fromNMA bool) Option {
+	return func(s *Params) {
+		s.FromNMA = fromNMA
 	}
 }

@@ -61,7 +61,7 @@ var _ = Describe("query_reconcile", func() {
 	It("should update query conditions and state if the vclusterops API succeeded", func() {
 		vdb := vapi.MakeVDB()
 		secretName := "tls-1"
-		vdb.Spec.HTTPSNMATLS.Secret = secretName
+		vdb.Spec.NMATLSSecret = secretName
 		setupAPIFunc := func(logr.Logger, string) (vadmin.VClusterProvider, logr.Logger) {
 			return &mockvops.MockVClusterOps{}, logr.Logger{}
 		}
