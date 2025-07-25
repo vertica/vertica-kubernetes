@@ -79,6 +79,8 @@ func (r *ValidateVDBReconciler) validateSubclusters() (scsMain, scsSandbox []str
 			// - sandbox subcluster type is not empty
 			if sb.Subclusters[i].Type != "" {
 				if sc.Type == vapi.SandboxPrimarySubcluster {
+					r.Log.Info("found subcluster to be updated", "subcluster", sc.Name,
+						"subcluster type", sc.Type, "sandbox subcluster type", sb.Subclusters[i].Type)
 					scsMain = append(scsMain, sc.Name)
 				} else {
 					// the rest sandbox subclusters needs to be updated to "secondary" if not valid
@@ -98,13 +100,15 @@ func (r *ValidateVDBReconciler) updateSubclusters(ctx context.Context, scsMain, 
 		return ctrl.Result{}, nil
 	}
 
-	// to update the vdb/sandbox subcluster type if not valid
+	// to update the vdb/sandbox subcluster type if not valid:
+	// 1. if the vdb subcluster type is not valid, we need to change the subcluster type to "secondary"
 	for _, scName := range scsMain {
-		// if the vdb subcluster type is not valid, we need to change the subcluster type to "secondary"
 		_, err := vk8s.UpdateVDBWithRetry(ctx, r.VRec, r.Vdb, func() (bool, error) {
 			for j := range r.Vdb.Spec.Subclusters {
 				if r.Vdb.Spec.Subclusters[j].Name == scName &&
 					r.Vdb.Spec.Subclusters[j].Type == vapi.SandboxPrimarySubcluster {
+					r.Log.Info("update subcluster type", "subcluster", scName,
+						"old type", vapi.SandboxPrimarySubcluster, "new type", vapi.SecondarySubcluster)
 					r.Vdb.Spec.Subclusters[j].Type = vapi.SecondarySubcluster
 				}
 			}
@@ -115,19 +119,25 @@ func (r *ValidateVDBReconciler) updateSubclusters(ctx context.Context, scsMain, 
 		}
 	}
 
-	// if the vdb subcluster type is not valid, we need to change the subcluster type to "secondary"
+	// 2. if the vdb subcluster type is not valid, we need to change the sandbox subcluster type accordingly
 	_, err := vk8s.UpdateVDBWithRetry(ctx, r.VRec, r.Vdb, func() (bool, error) {
 		for j := range r.Vdb.Spec.Sandboxes {
-			for k := range r.Vdb.Spec.Sandboxes[j].Subclusters {
+			sandbox := &r.Vdb.Spec.Sandboxes[j]
+			for k := range sandbox.Subclusters {
+				subcluster := &sandbox.Subclusters[k]
 				// make sure the primary subcluster type is "primary"
-				if slices.Contains(scsMain, r.Vdb.Spec.Sandboxes[j].Subclusters[k].Name) &&
-					r.Vdb.Spec.Sandboxes[j].Subclusters[k].Type != vapi.PrimarySubcluster {
-					r.Vdb.Spec.Sandboxes[j].Subclusters[k].Type = vapi.PrimarySubcluster
+				if slices.Contains(scsMain, subcluster.Name) &&
+					subcluster.Type != vapi.PrimarySubcluster {
+					r.Log.Info("update sandbox subcluster type to primary", "sandbox", sandbox.Name,
+						"subcluster", subcluster.Name, "old type", subcluster.Type, "new type", vapi.PrimarySubcluster)
+					subcluster.Type = vapi.PrimarySubcluster
 				}
 				// make sure the secondary subcluster type is "secondary"
-				if slices.Contains(scsSandbox, r.Vdb.Spec.Sandboxes[j].Subclusters[k].Name) &&
-					r.Vdb.Spec.Sandboxes[j].Subclusters[k].Type != vapi.SecondarySubcluster {
-					r.Vdb.Spec.Sandboxes[j].Subclusters[k].Type = vapi.SecondarySubcluster
+				if slices.Contains(scsSandbox, subcluster.Name) &&
+					subcluster.Type != vapi.SecondarySubcluster {
+					r.Log.Info("update sandbox subcluster type to secondary", "sandbox", sandbox.Name,
+						"subcluster", subcluster.Name, "old type", subcluster.Type, "new type", vapi.SecondarySubcluster)
+					subcluster.Type = vapi.SecondarySubcluster
 				}
 			}
 		}

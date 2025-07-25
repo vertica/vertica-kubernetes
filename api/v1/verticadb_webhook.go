@@ -114,7 +114,9 @@ var _ webhook.Validator = &VerticaDB{}
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
 func (v *VerticaDB) ValidateCreate() (admission.Warnings, error) {
 	verticadblog.Info("validate create", "name", v.Name, "GroupVersion", GroupVersion)
-
+	if v.existingObject() {
+		return nil, nil
+	}
 	allErrs := v.validateVerticaDBSpec()
 	// Validate the sandbox type on create
 	allErrs = v.hasNoSandboxTypeOnCreate(allErrs)
@@ -123,6 +125,13 @@ func (v *VerticaDB) ValidateCreate() (admission.Warnings, error) {
 	}
 
 	return nil, apierrors.NewInvalid(schema.GroupKind{Group: Group, Kind: VerticaDBKind}, v.Name, allErrs)
+}
+
+func (v *VerticaDB) existingObject() bool {
+	if v.UID != "" && !v.CreationTimestamp.IsZero() {
+		return true
+	}
+	return false
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
@@ -308,7 +317,7 @@ func (v *VerticaDB) hasValidSubclusterTypes(allErrs field.ErrorList) field.Error
 }
 
 // hasNoSandboxTypeOnCreate ensures that the subcluster type is not set to
-// SandboxPrimarySubcluster or	SandboxSecondarySubcluster
+// SandboxPrimarySubcluster or SandboxSecondarySubcluster wehn creating vdb
 func (v *VerticaDB) hasNoSandboxTypeOnCreate(allErrs field.ErrorList) field.ErrorList {
 	for i := range v.Spec.Subclusters {
 		sc := &v.Spec.Subclusters[i]
