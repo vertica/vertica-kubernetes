@@ -11,9 +11,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: kuttl.dev/v1beta2
-kind: TestStep
-commands:
-  # nma env variable should exist.
-  - command: kubectl exec -n $NAMESPACE v-nma-https-cert-rotate-pwd-sc1-0 -c nma -- bash -c "env | grep NMA_SECRET_NAME=nma-cert"
-  - command: kubectl exec -n $NAMESPACE v-nma-https-cert-rotate-pwd-sc1-0 -c nma -- bash -c "env | grep NMA_SECRET_NAMESPACE=$NAMESPACE"
+apiVersion: apps/v1
+kind: StatefulSet
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: verticadb-operator
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  labels:
+    app.kubernetes.io/name: vertica
+    app.kubernetes.io/component: database
+    vertica.com/database: vertdb
+    app.kubernetes.io/instance: v-different-nma-https-secrets

@@ -11,9 +11,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: kuttl.dev/v1beta2
-kind: TestStep
-commands:
-  # nma env variable should exist.
-  - command: kubectl exec -n $NAMESPACE v-nma-https-cert-rotate-pwd-sc1-0 -c nma -- bash -c "env | grep NMA_SECRET_NAME=nma-cert"
-  - command: kubectl exec -n $NAMESPACE v-nma-https-cert-rotate-pwd-sc1-0 -c nma -- bash -c "env | grep NMA_SECRET_NAMESPACE=$NAMESPACE"
+apiVersion: v1
+kind: Secret
+metadata:
+  name: custom-cert

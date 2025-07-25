@@ -29,27 +29,36 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
+// retrieveNMACerts will retrieve the certs from NMA secret for calling NMA endpoints
+func (v *VClusterOps) retrieveNMACerts(ctx context.Context) (*HTTPSCerts, error) {
+	return v.retrieveHTTPSCertsWithTarget(ctx, false /* forTargetDB */, false /* useHTTPSSecret */)
+}
+
 // retrieveHTTPSCerts will retrieve the certs from HTTPSNMATLSSecret for calling NMA endpoints
 func (v *VClusterOps) retrieveHTTPSCerts(ctx context.Context) (*HTTPSCerts, error) {
-	return v.retrieveHTTPSCertsWithTarget(ctx, false)
+	return v.retrieveHTTPSCertsWithTarget(ctx, false /* forTargetDB */, true /* useHTTPSSecret */)
 }
 
 // retrieveTargetHTTPSCerts will retrieve the certs from HTTPSNMATLSSecret for calling target NMA endpoints
 func (v *VClusterOps) retrieveTargetHTTPSCerts(ctx context.Context) (*HTTPSCerts, error) {
-	return v.retrieveHTTPSCertsWithTarget(ctx, true)
+	return v.retrieveHTTPSCertsWithTarget(ctx, true /* forTargetDB */, true /* useHTTPSSecret */)
 }
 
-func (v *VClusterOps) retrieveHTTPSCertsWithTarget(ctx context.Context, forTarget bool) (*HTTPSCerts, error) {
+func (v *VClusterOps) retrieveHTTPSCertsWithTarget(ctx context.Context, forTarget, useHTTPSSecret bool) (*HTTPSCerts, error) {
 	vdb := v.VDB
 	if forTarget {
 		vdb = v.TargetVDB
 	}
 
 	// Determine the secret name
-	secretName, err := getHTTPSTLSSecretName(vdb)
-	if err != nil {
-		v.Log.Error(err, "failed to get nma secret name")
-		return nil, err
+	secretName := vdb.Spec.NMATLSSecret
+	if useHTTPSSecret {
+		var err error
+		secretName, err = getHTTPSTLSSecretName(vdb)
+		if err != nil {
+			v.Log.Error(err, "failed to get https secret name")
+			return nil, err
+		}
 	}
 
 	v.Log.Info("HTTPS NMA secret name used", "secretName", secretName)
