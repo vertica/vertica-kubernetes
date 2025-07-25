@@ -11,9 +11,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: kuttl.dev/v1beta2
+apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 commands:
-  # nma env variable should exist.
-  - command: kubectl exec -n $NAMESPACE v-nma-https-cert-rotate-pwd-sc1-0 -c nma -- bash -c "env | grep NMA_SECRET_NAME=nma-cert"
-  - command: kubectl exec -n $NAMESPACE v-nma-https-cert-rotate-pwd-sc1-0 -c nma -- bash -c "env | grep NMA_SECRET_NAMESPACE=$NAMESPACE"
+  - script: cd ../../.. && make create-tls-secret SECRET_NAME=custom-cert SECRET_NAMESPACE=$NAMESPACE DB_USER=$VERTICA_SUPERUSER_NAME
+  - script: cd ../../.. && make create-tls-secret SECRET_NAME=https-cert SECRET_NAMESPACE=$NAMESPACE DB_USER=$VERTICA_SUPERUSER_NAME
+  - script: cd ../../.. && make create-tls-secret SECRET_NAME=nma-cert SECRET_NAMESPACE=$NAMESPACE DB_USER=$VERTICA_SUPERUSER_NAME

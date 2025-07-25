@@ -11,9 +11,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: kuttl.dev/v1beta2
-kind: TestStep
-commands:
-  # nma env variable should exist.
-  - command: kubectl exec -n $NAMESPACE v-nma-https-cert-rotate-pwd-sc1-0 -c nma -- bash -c "env | grep NMA_SECRET_NAME=nma-cert"
-  - command: kubectl exec -n $NAMESPACE v-nma-https-cert-rotate-pwd-sc1-0 -c nma -- bash -c "env | grep NMA_SECRET_NAMESPACE=$NAMESPACE"
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: v-different-nma-https-secrets-sc1
+status:
+  replicas: 3
+  readyReplicas: 3
+---
+apiVersion: vertica.com/v1
+kind: VerticaDB
+metadata:
+  name: v-different-nma-https-secrets
+spec:
+  nmaTLSSecret: nma-cert
+status:
+  subclusters:
+    - addedToDBCount: 3
+      upNodeCount: 3

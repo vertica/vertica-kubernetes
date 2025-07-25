@@ -137,6 +137,9 @@ func (h *NMACertRotationReconciler) rotateNmaTLSCert(ctx context.Context, newSec
 
 	var tls *vapi.TLSConfigStatus
 	currentSecretName := h.Vdb.GetHTTPSNMATLSSecretInUse()
+	if h.RestartOnly {
+		currentSecretName = h.Vdb.Spec.NMATLSSecret
+	}
 	newSecretName := h.Vdb.GetHTTPSNMATLSSecret()
 
 	h.VRec.Eventf(h.Vdb, corev1.EventTypeNormal, events.NMATLSCertRotationStarted,
@@ -155,6 +158,7 @@ func (h *NMACertRotationReconciler) rotateNmaTLSCert(ctx context.Context, newSec
 		rotatenmacerts.WithCert(string(newSecret[corev1.TLSCertKey])),
 		rotatenmacerts.WithCaCert(string(newSecret[corev1.ServiceAccountRootCAKey])),
 		rotatenmacerts.WithHosts(hosts),
+		rotatenmacerts.WithFromNMA(h.RestartOnly),
 	}
 	err = h.Dispatcher.RotateNMACerts(ctx, opts...)
 	if err != nil {
@@ -162,25 +166,23 @@ func (h *NMACertRotationReconciler) rotateNmaTLSCert(ctx context.Context, newSec
 		return err, true
 	}
 
-	if h.RestartOnly {
-		return nil, true
-	}
-
-	if h.Vdb.IsStatusConditionTrue(vapi.HTTPSTLSConfigUpdateFinished) {
-		tls = vapi.MakeHTTPSNMATLSConfig(h.Vdb.GetHTTPSNMATLSSecret(), h.Vdb.GetHTTPSNMATLSMode())
-		if updErr := vdbstatus.UpdateTLSConfigs(ctx, h.VRec.GetClient(), h.Vdb, []*vapi.TLSConfigStatus{tls}); updErr != nil {
-			return err, true
+	if !h.RestartOnly {
+		if h.Vdb.IsStatusConditionTrue(vapi.HTTPSTLSConfigUpdateFinished) {
+			tls = vapi.MakeHTTPSNMATLSConfig(h.Vdb.GetHTTPSNMATLSSecret(), h.Vdb.GetHTTPSNMATLSMode())
+			if updErr := vdbstatus.UpdateTLSConfigs(ctx, h.VRec.GetClient(), h.Vdb, []*vapi.TLSConfigStatus{tls}); updErr != nil {
+				return err, true
+			}
 		}
-	}
 
-	if h.Vdb.IsStatusConditionTrue(vapi.ClientServerTLSConfigUpdateFinished) {
-		tls = vapi.MakeClientServerTLSConfig(h.Vdb.GetClientServerTLSSecret(), h.Vdb.GetClientServerTLSMode())
-		if updErr := vdbstatus.UpdateTLSConfigs(ctx, h.VRec.GetClient(), h.Vdb, []*vapi.TLSConfigStatus{tls}); updErr != nil {
-			return err, true
+		if h.Vdb.IsStatusConditionTrue(vapi.ClientServerTLSConfigUpdateFinished) {
+			tls = vapi.MakeClientServerTLSConfig(h.Vdb.GetClientServerTLSSecret(), h.Vdb.GetClientServerTLSMode())
+			if updErr := vdbstatus.UpdateTLSConfigs(ctx, h.VRec.GetClient(), h.Vdb, []*vapi.TLSConfigStatus{tls}); updErr != nil {
+				return err, true
+			}
 		}
-	}
 
-	h.Log.Info("saved new tls cert secret name in status", "secret", newSecretName)
+		h.Log.Info("saved new tls cert secret name in status", "secret", newSecretName)
+	}
 	// last thing is to update vdb condition
 	h.VRec.Eventf(h.Vdb, corev1.EventTypeNormal, events.NMATLSCertRotationSucceeded,
 		"Successfully rotated nma cert from %s to %s", currentSecretName, newSecretName)
