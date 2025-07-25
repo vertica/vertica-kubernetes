@@ -72,15 +72,15 @@ func retrieveNMACerts(ctx context.Context, fetcher *cloud.SecretFetcher, vdb *va
 
 	tlsKey, ok := tlsCerts[corev1.TLSPrivateKeyKey]
 	if !ok {
-		return nil, fmt.Errorf("key %s is missing in the secret %s", corev1.TLSPrivateKeyKey, vdb.GetHTTPSNMATLSSecret())
+		return nil, fmt.Errorf("key %s is missing in the secret %s", corev1.TLSPrivateKeyKey, vdb.GetNMATLSSecret())
 	}
 	tlsCrt, ok := tlsCerts[corev1.TLSCertKey]
 	if !ok {
-		return nil, fmt.Errorf("cert %s is missing in the secret %s", corev1.TLSCertKey, vdb.GetHTTPSNMATLSSecret())
+		return nil, fmt.Errorf("cert %s is missing in the secret %s", corev1.TLSCertKey, vdb.GetNMATLSSecret())
 	}
 	tlsCaCrt, ok := tlsCerts[corev1.ServiceAccountRootCAKey]
 	if !ok {
-		return nil, fmt.Errorf("ca cert %s is missing in the secret %s", corev1.ServiceAccountRootCAKey, vdb.GetHTTPSNMATLSSecret())
+		return nil, fmt.Errorf("ca cert %s is missing in the secret %s", corev1.ServiceAccountRootCAKey, vdb.GetNMATLSSecret())
 	}
 	return &HTTPSCerts{
 		Key:    string(tlsKey),

@@ -77,7 +77,7 @@ func (s *ServiceAccountReconciler) Reconcile(ctx context.Context, _ *ctrl.Reques
 	//	- NMA reads certs from mounted volume or non-k8s secret store
 	if vmeta.UseVClusterOps(s.Vdb.Annotations) &&
 		(vmeta.UseNMACertsMount(s.Vdb.Annotations) ||
-			(!secrets.IsK8sSecret(s.Vdb.GetHTTPSNMATLSSecret()) && !secrets.IsK8sSecret(s.Vdb.GetClientServerTLSSecret()))) {
+			(!secrets.IsK8sSecret(s.Vdb.GetNMATLSSecret()) && !secrets.IsK8sSecret(s.Vdb.GetClientServerTLSSecret()))) {
 		return ctrl.Result{}, s.saveServiceAccountNameInVDB(ctx, sa.Name)
 	}
 

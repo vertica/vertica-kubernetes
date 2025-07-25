@@ -202,19 +202,19 @@ func (v *ImageVersionReconciler) logWarningIfVersionDoesNotSupportsCGroupV2(ctx 
 // checkNMACertCompatibility will check the NMA version if it is to read the cert from an external secret store.
 func (v *ImageVersionReconciler) checkNMACertCompatability(vinf *version.Info) ctrl.Result {
 	// NMA is only useful for vclusterops and when the cert is set.
-	if !vmeta.UseVClusterOps(v.Vdb.Annotations) || v.Vdb.GetHTTPSNMATLSSecret() == "" {
+	if !vmeta.UseVClusterOps(v.Vdb.Annotations) || v.Vdb.GetNMATLSSecret() == "" {
 		return ctrl.Result{}
 	}
 
-	if secrets.IsK8sSecret(v.Vdb.GetHTTPSNMATLSSecret()) {
+	if secrets.IsK8sSecret(v.Vdb.GetNMATLSSecret()) {
 		return ctrl.Result{}
-	} else if secrets.IsGSMSecret(v.Vdb.GetHTTPSNMATLSSecret()) {
+	} else if secrets.IsGSMSecret(v.Vdb.GetNMATLSSecret()) {
 		if !vinf.IsEqualOrNewer(vapi.NMATLSSecretInGSMMinVersion) {
 			v.Rec.Event(v.Vdb, corev1.EventTypeWarning, events.UnsupportedVerticaVersion,
 				"The NMA version does not support reading its cert from Google Secret Manager")
 			return ctrl.Result{Requeue: true}
 		}
-	} else if secrets.IsAWSSecretsManagerSecret(v.Vdb.GetHTTPSNMATLSSecret()) {
+	} else if secrets.IsAWSSecretsManagerSecret(v.Vdb.GetNMATLSSecret()) {
 		if !vinf.IsEqualOrNewer(vapi.NMATLSSecretInAWSSecretsManagerMinVersion) {
 			v.Rec.Event(v.Vdb, corev1.EventTypeWarning, events.UnsupportedVerticaVersion,
 				"The NMA version does not support reading its cert from AWS Secrets Manager")
