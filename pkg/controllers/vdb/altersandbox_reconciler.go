@@ -61,32 +61,29 @@ func (a *AlterSandboxTypeReconciler) Reconcile(ctx context.Context, _ *ctrl.Requ
 			a.Log.Info("skip reconcile Alter Sandbox as sandbox does not exist in the database yet", "sandbox", sb.Name)
 			continue
 		}
-		res, err := a.reconcileAlterSandbox(ctx, sb.Name)
-		if verrors.IsReconcileAborted(res, err) {
-			return res, err
+		err := a.reconcileAlterSandbox(ctx, sb.Name)
+		if verrors.IsReconcileAborted(ctrl.Result{}, err) {
+			return ctrl.Result{}, err
 		}
 	}
 	return ctrl.Result{}, nil
 }
 
 // reconcileAlterSandbox will handle sandbox configmap update based on the sandbox image change
-func (a *AlterSandboxTypeReconciler) reconcileAlterSandbox(ctx context.Context, sbName string) (ctrl.Result, error) {
-	if a.Vdb.GetSandboxStatus(sbName) == nil {
-		return ctrl.Result{Requeue: true}, nil
-	}
+func (a *AlterSandboxTypeReconciler) reconcileAlterSandbox(ctx context.Context, sbName string) error {
 	triggerUUID := uuid.NewString()
 	sbMan := MakeSandboxConfigMapManager(a.VRec, a.Vdb, sbName, triggerUUID)
 	err := sbMan.fetchConfigMap(ctx)
 	if err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to fetch sandbox configmap for %s: %w", sbName, err)
+		return fmt.Errorf("failed to fetch sandbox configmap for %s: %w", sbName, err)
 	}
 	// skip reconcile Alter Sandbox if alter sandbox trigger id is already set
 	if sbMan.configMap.Annotations[vmeta.SandboxControllerAlterSubclusterTypeTriggerID] != "" {
-		return ctrl.Result{}, nil
+		return nil
 	}
 
 	if ok, needErr := a.isAlterSandboxNeeded(ctx, sbName); !ok || needErr != nil {
-		return ctrl.Result{}, needErr
+		return needErr
 	}
 	// Once we find out that a sandbox upgrade is needed, we need to wake up
 	// the sandbox controller to drive it. We will use a SandboxConfigMapManager object
@@ -96,7 +93,7 @@ func (a *AlterSandboxTypeReconciler) reconcileAlterSandbox(ctx context.Context, 
 		a.Log.Info("Sandbox ConfigMap updated. The sandbox controller will drive the alter sandbox subcluster type",
 			"trigger-uuid", triggerUUID, "Sandbox", sbName)
 	}
-	return ctrl.Result{}, err
+	return err
 }
 
 // isAlterSandboxNeeded checks whether an alter sandbox is needed

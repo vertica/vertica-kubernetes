@@ -60,7 +60,6 @@ func MakeAlterSubclusterTypeReconciler(vdbrecon config.ReconcilerInterface, log 
 
 func (a *AlterSubclusterTypeReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
 	// Force a refresh of the facts
-	a.PFacts.Invalidate()
 	if err := a.PFacts.Collect(ctx, a.Vdb); err != nil {
 		return ctrl.Result{}, err
 	}
@@ -68,7 +67,7 @@ func (a *AlterSubclusterTypeReconciler) Reconcile(ctx context.Context, _ *ctrl.R
 	var err error
 	var scs []string
 	// find sandbox subclusters to alter
-	if a.ConfigMap != nil || a.PFacts.GetSandboxName() != vapi.MainCluster {
+	if a.ConfigMap != nil {
 		// only execute alter subcluster type op when alter sandbox trigger id is set
 		if a.ConfigMap.Annotations[vmeta.SandboxControllerAlterSubclusterTypeTriggerID] == "" {
 			return ctrl.Result{}, nil
@@ -76,6 +75,10 @@ func (a *AlterSubclusterTypeReconciler) Reconcile(ctx context.Context, _ *ctrl.R
 		scs, err = a.findSandboxSubclustersToAlter(ctx)
 	} else {
 		scs, err = a.findMainSubclustersToAlter()
+	}
+	if err == nil && len(scs) == 0 && a.ConfigMap != nil &&
+		a.ConfigMap.Annotations[vmeta.SandboxControllerAlterSubclusterTypeTriggerID] != "" {
+		return ctrl.Result{}, a.removeTriggerIDFromConfigMap(ctx)
 	}
 	if err != nil || len(scs) == 0 {
 		return ctrl.Result{}, err
@@ -118,35 +121,31 @@ func (a *AlterSubclusterTypeReconciler) findMainSubclustersToAlter() ([]string, 
 // findSandboxSubclustersToAlter finds the sandbox subclusters that need to be altered
 // sbpfacts is for unit test purposes
 func (a *AlterSubclusterTypeReconciler) findSandboxSubclustersToAlter(ctx context.Context) ([]string, error) {
+	sbName := a.PFacts.SandboxName
 	sbscs := []string{}
-	sbMap := a.Vdb.GenSandboxMap()
-	if len(sbMap) == 0 {
-		return sbscs, fmt.Errorf("no sandboxes found in the database")
+	sb := a.Vdb.GetSandbox(sbName)
+	if sb == nil {
+		return sbscs, fmt.Errorf("could not find sandbox %s", sbName)
 	}
-	for sbName := range sbMap {
-		sb := sbMap[sbName]
-		if sb == nil {
-			return sbscs, fmt.Errorf("could not find sandbox %s", sbName)
-		}
 
-		if err := a.PFacts.Collect(ctx, a.Vdb); err != nil {
-			return sbscs, fmt.Errorf("failed to collect pod facts for sandbox %s: %w", sbName, err)
+	if err := a.PFacts.Collect(ctx, a.Vdb); err != nil {
+		return sbscs, fmt.Errorf("failed to collect pod facts for sandbox %s: %w", sbName, err)
+	}
+	for _, sbsc := range sb.Subclusters {
+		pf, ok := a.PFacts.FindFirstUpPod(false, sbsc.Name)
+		if !ok {
+			a.Log.Info("skipping sandbox subcluster, no pods are up", "subcluster", sbsc.Name)
+			continue
 		}
-		for _, sbsc := range sb.Subclusters {
-			pf, ok := a.PFacts.FindFirstUpPod(false, sbsc.Name)
-			if !ok {
-				a.Log.Info("skipping sandbox subcluster, no pods are up", "subcluster", sbsc.Name)
-				continue
-			}
-			// check if the sandbox subcluster type is different to podfacts
-			if sbsc.Type == vapi.PrimarySubcluster && !pf.GetIsPrimary() ||
-				sbsc.Type == vapi.SecondarySubcluster && pf.GetIsPrimary() {
-				a.Log.Info("Found sandbox subcluster to alter", "subcluster", sbsc.Name,
-					"sandbox subcluster type", sbsc.Type, "podfacts is primary", pf.GetIsPrimary())
-				sbscs = append(sbscs, sbsc.Name)
-			}
+		// check if the sandbox subcluster type is different to podfacts
+		if sbsc.Type == vapi.PrimarySubcluster && !pf.GetIsPrimary() ||
+			sbsc.Type == vapi.SecondarySubcluster && pf.GetIsPrimary() {
+			a.Log.Info("Found sandbox subcluster to alter", "subcluster", sbsc.Name,
+				"sandbox subcluster type", sbsc.Type, "podfacts is primary", pf.GetIsPrimary())
+			sbscs = append(sbscs, sbsc.Name)
 		}
 	}
+
 	return sbscs, nil
 }
 
@@ -168,7 +167,6 @@ func (a *AlterSubclusterTypeReconciler) alterSubclusters(ctx context.Context, sc
 		}
 		a.Log.Info("Alter subcluster type completed", "subcluster", sc.Name)
 	}
-	a.PFacts.Invalidate()
 	return ctrl.Result{}, a.removeTriggerIDFromConfigMap(ctx)
 }
 
@@ -202,6 +200,7 @@ func (a *AlterSubclusterTypeReconciler) alterSubclusterType(ctx context.Context,
 		return ctrl.Result{}, err
 	}
 
+	a.PFacts.Invalidate()
 	a.VRec.Eventf(a.Vdb, corev1.EventTypeNormal, events.AlterSubclusterSucceeded,
 		"Successfully altered the type of subcluster %q to %q", sc.Name, newType)
 	return ctrl.Result{}, nil

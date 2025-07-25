@@ -263,7 +263,7 @@ var _ = Describe("sandboxsubcluster_reconcile", func() {
 		rec := MakeSandboxSubclusterReconciler(vdbRec, logger, vdb, &pfacts, dispatcher, k8sClient, false)
 		r := rec.(*SandboxSubclusterReconciler)
 		// should create config map for sandbox1
-		err := r.checkSandboxConfigMap(ctx, sandbox1, false /* needAlterSandboxType */)
+		err := r.checkSandboxConfigMap(ctx, sandbox1)
 		Expect(err).Should(BeNil())
 		nm := names.GenSandboxConfigMapName(r.Vdb, sandbox1)
 		defer deleteConfigMap(ctx, r.Vdb, nm.Name)
@@ -280,7 +280,7 @@ var _ = Describe("sandboxsubcluster_reconcile", func() {
 		r.Vdb.Spec.Annotations = make(map[string]string)
 		r.Vdb.Spec.Annotations[testAnnotation] = testValue
 		// should update config map for sandbox1
-		err = r.checkSandboxConfigMap(ctx, sandbox1, true /* needAlterSandboxType */)
+		err = r.checkSandboxConfigMap(ctx, sandbox1)
 		Expect(err).Should(BeNil())
 
 		// verify the content of the config map
