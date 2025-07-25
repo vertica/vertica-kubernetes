@@ -27,17 +27,19 @@ type nmaHealthWatchdogGetOp struct {
 	opBase
 	nmaHealthWatchdogGetData
 	hosts                      []string
+	hostNodeMap                vHostNodeMap
 	hostRequestBodyMap         map[string]string
 	healthWatchdogValuesByHost *[]HealthWatchdogHostValues
 }
 
 func makeHealthWatchdogGetOp(hosts []string, usePassword bool,
 	healthWatchdogGetData *nmaHealthWatchdogGetData,
-	retrievedValues *[]HealthWatchdogHostValues) (nmaHealthWatchdogGetOp, error) {
+	retrievedValues *[]HealthWatchdogHostValues, hostNodeMap vHostNodeMap) (nmaHealthWatchdogGetOp, error) {
 	op := nmaHealthWatchdogGetOp{}
 	op.name = "NMAHealthWatchdogGetOp"
 	op.description = "Get health watchdog value"
 	op.hosts = hosts
+	op.hostNodeMap = hostNodeMap
 	op.nmaHealthWatchdogGetData = *healthWatchdogGetData
 	op.healthWatchdogValuesByHost = retrievedValues
 
@@ -60,6 +62,7 @@ type nmaHealthWatchdogGetData struct {
 	Password      *string `json:"password"`
 	ParameterName string  `json:"parameter_name"`
 	Action        string  `json:"action"`
+	NodeName      string  `json:"node_name"`
 }
 
 // Create request body JSON string
@@ -67,6 +70,7 @@ func (op *nmaHealthWatchdogGetOp) updateRequestBody(hosts []string) error {
 	op.hostRequestBodyMap = make(map[string]string)
 
 	for _, host := range hosts {
+		op.nmaHealthWatchdogGetData.NodeName = op.hostNodeMap[host].Name
 		dataBytes, err := json.Marshal(op.nmaHealthWatchdogGetData)
 		if err != nil {
 			return fmt.Errorf("[%s] fail to marshal request data to JSON string, detail %w", op.name, err)
