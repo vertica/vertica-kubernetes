@@ -56,7 +56,7 @@ var _ = Describe("subclustershutdown_reconciler", func() {
 		fpr := &cmds.FakePodRunner{}
 		pfacts := podfacts.MakePodFacts(vdbRec, fpr, logger, TestPassword)
 		upNodes := []uint{4, 3, 3, 3, 3}
-		pfacts.ConstructsDetail(vdb.Spec.Subclusters, upNodes)
+		pfacts.ConstructsDetail(vdb, upNodes)
 		Expect(len(pfacts.Detail)).Should(Equal(16))
 		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
 
@@ -75,7 +75,7 @@ var _ = Describe("subclustershutdown_reconciler", func() {
 		// will be up
 		vdb.Spec.Subclusters[2].Shutdown = true
 		upNodes = []uint{4, 3, 3, 3, 3}
-		pfacts.ConstructsDetail(vdb.Spec.Subclusters, upNodes)
+		pfacts.ConstructsDetail(vdb, upNodes)
 		act = MakeSubclusterShutdownReconciler(vdbRec, logger, vdb, dispatcher, &pfacts)
 		r = act.(*SubclusterShutdownReconciler)
 		scMap, err = r.getSubclustersToShutdown()
@@ -90,7 +90,7 @@ var _ = Describe("subclustershutdown_reconciler", func() {
 		// Let's try again but this time 3 out of 7 primaries
 		// will be up so we should return an error
 		upNodes = []uint{3, 3, 3, 3, 3}
-		pfacts.ConstructsDetail(vdb.Spec.Subclusters, upNodes)
+		pfacts.ConstructsDetail(vdb, upNodes)
 		act = MakeSubclusterShutdownReconciler(vdbRec, logger, vdb, dispatcher, &pfacts)
 		r = act.(*SubclusterShutdownReconciler)
 		_, err = r.getSubclustersToShutdown()
@@ -102,7 +102,7 @@ var _ = Describe("subclustershutdown_reconciler", func() {
 				{Name: subcluster1}, {Name: subcluster3, Type: vapi.SecondarySubcluster}}},
 		}
 		upNodes = []uint{4, 3, 3, 3, 3}
-		pfacts.ConstructsDetail(vdb.Spec.Subclusters, upNodes)
+		pfacts.ConstructsDetail(vdb, upNodes)
 		act = MakeSubclusterShutdownReconciler(vdbRec, logger, vdb, dispatcher, &pfacts)
 		r = act.(*SubclusterShutdownReconciler)
 		scMap, err = r.getSubclustersToShutdown()

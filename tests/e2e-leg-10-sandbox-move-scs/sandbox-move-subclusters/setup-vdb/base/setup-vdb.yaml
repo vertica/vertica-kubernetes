@@ -29,13 +29,13 @@ spec:
       size: 3
       type: primary
     - name: sec1
-      size: 1
+      size: 3
       type: secondary
     - name: sec2
-      size: 1
+      size: 3
       type: secondary
     - name: sec3
-      size: 2
+      size: 1
       type: secondary
   certSecrets: []
   imagePullSecrets: []
