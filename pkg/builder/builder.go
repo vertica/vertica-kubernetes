@@ -2334,9 +2334,8 @@ func BuildNMATLSConfigMap(nm types.NamespacedName, vdb *vapi.VerticaDB) *corev1.
 	clientSecretNamespace := vdb.ObjectMeta.Namespace
 	clientSecretTLSMode := vdb.GetNMAClientServerTLSMode()
 	if !vmeta.UseTLSAuth(vdb.Annotations) {
-		clientSecretName = ""
-		clientSecretNamespace = ""
-		clientSecretTLSMode = "disable"
+		clientSecretName = vdb.GetNMATLSSecret()
+		clientSecretTLSMode = "enable"
 	}
 	secretMap := map[string]string{
 		NMASecretNamespaceEnv:       vdb.ObjectMeta.Namespace,

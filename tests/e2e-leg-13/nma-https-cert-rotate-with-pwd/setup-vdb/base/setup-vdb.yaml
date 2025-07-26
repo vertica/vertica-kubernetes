@@ -40,4 +40,3 @@ spec:
   imagePullSecrets: []
   volumes: []
   volumeMounts: []
-  nmaTLSSecret: nma-cert
