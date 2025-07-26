@@ -128,10 +128,9 @@ func (v *VerticaDB) ValidateCreate() (admission.Warnings, error) {
 }
 
 func (v *VerticaDB) existingObject() bool {
-	if v.UID != "" && !v.CreationTimestamp.IsZero() {
-		return true
-	}
-	return false
+	// The metadata.generation field is a sequence number that the Kubernetes API server increments
+	// automatically whenever the spec (desired state) of an object is modified.
+	return v.Generation > 1
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
@@ -317,7 +316,7 @@ func (v *VerticaDB) hasValidSubclusterTypes(allErrs field.ErrorList) field.Error
 }
 
 // hasNoSandboxTypeOnCreate ensures that the subcluster type is not set to
-// SandboxPrimarySubcluster or SandboxSecondarySubcluster wehn creating vdb
+// SandboxPrimarySubcluster or SandboxSecondarySubcluster when creating vdb
 func (v *VerticaDB) hasNoSandboxTypeOnCreate(allErrs field.ErrorList) field.ErrorList {
 	for i := range v.Spec.Subclusters {
 		sc := &v.Spec.Subclusters[i]
