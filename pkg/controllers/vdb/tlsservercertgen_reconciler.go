@@ -87,6 +87,14 @@ func (h *TLSServerCertGenReconciler) Reconcile(ctx context.Context, _ *ctrl.Requ
 	}
 	err := error(nil)
 	for secretFieldName, secretName := range secretFieldNameMap {
+		if !vmeta.UseTLSAuth(h.Vdb.Annotations) && secretFieldName != nmaTLSSecret {
+			h.Log.Info("TLS auth is not enabled. Skipping TLS secret validation and generation")
+			continue
+		}
+		if vmeta.UseTLSAuth(h.Vdb.Annotations) && secretFieldName == nmaTLSSecret {
+			h.Log.Info("TLS auth is enabled. Skipping NMA secret validation and generation")
+			continue
+		}
 		err = h.reconcileOneSecret(secretFieldName, secretName, ctx)
 		if err != nil {
 			h.Log.Error(err, fmt.Sprintf("failed to reconcile secret for %s", secretFieldName))
@@ -97,8 +105,6 @@ func (h *TLSServerCertGenReconciler) Reconcile(ctx context.Context, _ *ctrl.Requ
 }
 
 // reconcileOneSecret will create a TLS secret for the http server if one is missing
-//
-//nolint:gocyclo
 func (h *TLSServerCertGenReconciler) reconcileOneSecret(secretFieldName, secretName string,
 	ctx context.Context) error {
 	tlsConfigName := vapi.HTTPSNMATLSConfigName
@@ -146,14 +152,6 @@ func (h *TLSServerCertGenReconciler) reconcileOneSecret(secretFieldName, secretN
 			// Secret is filled in, exists, and is valid. We can exit.
 			return err
 		}
-	}
-	if !vmeta.UseTLSAuth(h.Vdb.Annotations) && secretFieldName != nmaTLSSecret {
-		h.Log.Info("TLS auth is not enabled. Skipping TLS secret generation")
-		return nil
-	}
-	if vmeta.UseTLSAuth(h.Vdb.Annotations) && secretFieldName == nmaTLSSecret {
-		h.Log.Info("TLS auth is enabled. Skipping NMA secret generation")
-		return nil
 	}
 	secret, err := h.createNewSecret(ctx, secretFieldName, secretName)
 	if err != nil {

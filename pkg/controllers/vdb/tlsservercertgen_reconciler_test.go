@@ -89,9 +89,10 @@ var _ = Describe("tlsservercertgen_reconcile", func() {
 		Expect(len(secret.Data[paths.HTTPServerCACrtName])).ShouldNot(Equal(0))
 	})
 
-	It("should recreate the secret if the name is set but it doesn't exist", func() {
+	It("should error out if the name is set but it doesn't exist", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
+		vdb.Annotations[vmeta.EnableTLSAuthAnnotation] = vmeta.AnnotationTrue
 		const TLSSecretName = "recreate-secret-name"
 		vdb.Spec.HTTPSNMATLS.Secret = TLSSecretName
 		test.CreateVDB(ctx, k8sClient, vdb)

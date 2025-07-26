@@ -249,8 +249,10 @@ func (o *ObjReconciler) checkMountedObjs(ctx context.Context) (ctrl.Result, erro
 
 func (o *ObjReconciler) checkTLSSecrets(ctx context.Context) (ctrl.Result, error) {
 	tlsSecrets := map[string]string{
-		"NMA TLS":           o.Vdb.GetNMATLSSecret(),
-		"Client Server TLS": o.Vdb.GetClientServerTLSSecret(),
+		"NMA TLS": o.Vdb.GetNMATLSSecret(),
+	}
+	if vmeta.UseTLSAuth(o.Vdb.Annotations) {
+		tlsSecrets["Client Server TLS"] = o.Vdb.GetClientServerTLSSecret()
 	}
 	for k, tlsSecret := range tlsSecrets {
 		if tlsSecret != "" {
