@@ -97,6 +97,8 @@ func (h *TLSServerCertGenReconciler) Reconcile(ctx context.Context, _ *ctrl.Requ
 }
 
 // reconcileOneSecret will create a TLS secret for the http server if one is missing
+//
+//nolint:gocyclo
 func (h *TLSServerCertGenReconciler) reconcileOneSecret(secretFieldName, secretName string,
 	ctx context.Context) error {
 	tlsConfigName := vapi.HTTPSNMATLSConfigName
@@ -146,7 +148,11 @@ func (h *TLSServerCertGenReconciler) reconcileOneSecret(secretFieldName, secretN
 		}
 	}
 	if !vmeta.UseTLSAuth(h.Vdb.Annotations) && secretFieldName != nmaTLSSecret {
-		h.Log.Info("TLS auth is not enabled. Skipping certificate generation")
+		h.Log.Info("TLS auth is not enabled. Skipping TLS secret generation")
+		return nil
+	}
+	if vmeta.UseTLSAuth(h.Vdb.Annotations) && secretFieldName == nmaTLSSecret {
+		h.Log.Info("TLS auth is enabled. Skipping NMA secret generation")
 		return nil
 	}
 	secret, err := h.createNewSecret(ctx, secretFieldName, secretName)

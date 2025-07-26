@@ -678,7 +678,19 @@ var _ = Describe("verticadb_webhook", func() {
 		newVdb := oldVdb.DeepCopy()
 		newVdb.Spec.NMATLSSecret = "new-nma"
 		allErrs := newVdb.checkValidTLSConfigUpdate(oldVdb, nil)
-		Ω(allErrs).ShouldNot(BeEmpty())
+		Ω(allErrs).Should(HaveLen(1))
+		oldVdb.Spec.NMATLSSecret = ""
+		allErrs = newVdb.checkValidTLSConfigUpdate(oldVdb, nil)
+		Ω(allErrs).Should(HaveLen(0))
+		newVdb.Annotations[vmeta.EnableTLSAuthAnnotation] = vmeta.AnnotationTrue
+		allErrs = newVdb.checkValidTLSConfigUpdate(oldVdb, nil)
+		Ω(allErrs).Should(HaveLen(1))
+
+		allErrs = newVdb.validateNMASecret(nil)
+		Ω(allErrs).Should(HaveLen(1))
+		delete(newVdb.Annotations, vmeta.EnableTLSAuthAnnotation)
+		allErrs = newVdb.validateNMASecret(nil)
+		Ω(allErrs).Should(HaveLen(0))
 	})
 
 	It("should not have zero matched subcluster names to the old subcluster names", func() {

@@ -14,14 +14,4 @@
 apiVersion: v1
 kind: Secret
 metadata:
-  name: custom-cert
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: https-cert
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: nma-cert
+  name: test

@@ -280,6 +280,7 @@ func (v *VerticaDB) validateVerticaDBSpec() field.ErrorList {
 	allErrs = v.validateSandboxes(allErrs)
 	allErrs = v.checkNewSBoxOrSClusterShutdownUnset(allErrs)
 	allErrs = v.validateProxyConfig(allErrs)
+	allErrs = v.validateNMASecret(allErrs)
 	if len(allErrs) == 0 {
 		return nil
 	}
@@ -1408,6 +1409,16 @@ func (v *VerticaDB) validateProxyConfig(allErrs field.ErrorList) field.ErrorList
 	allErrs = v.validateSpecProxy(allErrs)
 	allErrs = v.validateSubclusterProxy(allErrs)
 	return v.validateProxyLogLevel(allErrs)
+}
+
+func (v *VerticaDB) validateNMASecret(allErrs field.ErrorList) field.ErrorList {
+	// when creating db, we should not allow setting nmaTLSSecret when tls is enabled
+	if v.Spec.NMATLSSecret != "" && !v.IsDBInitialized() && vmeta.UseTLSAuth(v.Annotations) {
+		specFld := field.NewPath("spec")
+		allErrs = append(allErrs, field.Forbidden(specFld.Child("nmaTLSSecret"),
+			"nmaTLSSecret cannot be set when TLS is enabled, please use httpsNMATLS.secret instead"))
+	}
+	return allErrs
 }
 
 // validateSpecProxy checks if proxy set and image must be non-empty
@@ -2555,6 +2566,11 @@ func (v *VerticaDB) checkValidTLSConfigUpdate(oldObj *VerticaDB, allErrs field.E
 	if oldObj.Spec.NMATLSSecret != "" && oldObj.Spec.NMATLSSecret != v.Spec.NMATLSSecret {
 		allErrs = append(allErrs, field.Forbidden(specFld.Child("nmaTLSSecret"),
 			"nmaTLSSecret cannot be changed"))
+	}
+	if vmeta.UseTLSAuth(v.Annotations) &&
+		(oldObj.Spec.NMATLSSecret == "" && v.Spec.NMATLSSecret != "") {
+		allErrs = append(allErrs, field.Forbidden(specFld.Child("nmaTLSSecret"),
+			"nmaTLSSecret cannot be set when TLS is enabled, please use httpsNMATLS.secret instead"))
 	}
 
 	return allErrs
