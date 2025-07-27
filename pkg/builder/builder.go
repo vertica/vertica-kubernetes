@@ -389,8 +389,8 @@ func buildScrutinizeVolumeMounts(vscr *v1beta1.VerticaScrutinize, vdb *vapi.Vert
 		buildScrutinizeSharedVolumeMount(vscr),
 	}
 	if vmeta.UseNMACertsMount(vdb.Annotations) &&
-		vdb.GetHTTPSNMATLSSecret() != "" &&
-		secrets.IsK8sSecret(vdb.GetHTTPSNMATLSSecret()) {
+		vdb.GetNMATLSSecret() != "" &&
+		secrets.IsK8sSecret(vdb.GetNMATLSSecret()) {
 		volMnts = append(volMnts, buildNMACertsVolumeMount()...)
 	}
 	return volMnts
@@ -454,8 +454,8 @@ func buildSSHVolumeMounts() []corev1.VolumeMount {
 func buildCommonNMAVolumeMounts(vdb *vapi.VerticaDB) []corev1.VolumeMount {
 	volMnts := buildScrutinizeVolumeMountForVerticaPod(vdb)
 	if vmeta.UseNMACertsMount(vdb.Annotations) &&
-		vdb.GetHTTPSNMATLSSecret() != "" &&
-		secrets.IsK8sSecret(vdb.GetHTTPSNMATLSSecret()) {
+		vdb.GetNMATLSSecret() != "" &&
+		secrets.IsK8sSecret(vdb.GetNMATLSSecret()) {
 		volMnts = append(volMnts, buildNMACertsVolumeMount()...)
 	}
 	return volMnts
@@ -518,8 +518,8 @@ func buildVolumes(vdb *vapi.VerticaDB) []corev1.Volume {
 
 	if vmeta.UseVClusterOps(vdb.Annotations) &&
 		vmeta.UseNMACertsMount(vdb.Annotations) &&
-		vdb.GetHTTPSNMATLSSecret() != "" &&
-		secrets.IsK8sSecret(vdb.GetHTTPSNMATLSSecret()) {
+		vdb.GetNMATLSSecret() != "" &&
+		secrets.IsK8sSecret(vdb.GetNMATLSSecret()) {
 		vols = append(vols, buildNMACertsSecretVolume(vdb))
 	}
 	if vdb.IsDepotVolumeEmptyDir() && vdb.IsDepotVolumeManaged() {
@@ -538,8 +538,8 @@ func buildScrutinizeVolumes(vscr *v1beta1.VerticaScrutinize, vdb *vapi.VerticaDB
 	vols := []corev1.Volume{}
 	if vmeta.UseVClusterOps(vdb.Annotations) &&
 		vmeta.UseNMACertsMount(vdb.Annotations) &&
-		vdb.GetHTTPSNMATLSSecret() != "" &&
-		secrets.IsK8sSecret(vdb.GetHTTPSNMATLSSecret()) {
+		vdb.GetNMATLSSecret() != "" &&
+		secrets.IsK8sSecret(vdb.GetNMATLSSecret()) {
 		vols = append(vols, buildNMACertsSecretVolume(vdb))
 	}
 	// we add a volume for the password when the password secret
@@ -808,7 +808,7 @@ func buildNMACertsSecretVolume(vdb *vapi.VerticaDB) corev1.Volume {
 		Name: vapi.NMACertsMountName,
 		VolumeSource: corev1.VolumeSource{
 			Secret: &corev1.SecretVolumeSource{
-				SecretName: vdb.GetHTTPSNMATLSSecret(),
+				SecretName: vdb.GetNMATLSSecret(),
 			},
 		},
 	}
@@ -2044,7 +2044,7 @@ func buildNMATLSCertsEnvVars(vdb *vapi.VerticaDB) []corev1.EnvVar {
 	configMapName := fmt.Sprintf("%s-%s", vdb.Name, vapi.NMATLSConfigMapName)
 	envs := []corev1.EnvVar{}
 	useNmaCertsMount := vmeta.UseNMACertsMount(vdb.Annotations)
-	if useNmaCertsMount && secrets.IsK8sSecret(vdb.GetHTTPSNMATLSSecret()) {
+	if useNmaCertsMount && secrets.IsK8sSecret(vdb.GetNMATLSSecret()) {
 		envs = append(envs,
 			// Provide the path to each of the certs that are mounted in the container.
 			corev1.EnvVar{Name: NMARootCAEnv, Value: fmt.Sprintf("%s/%s", paths.NMACertsRoot, paths.HTTPServerCACrtName)},
@@ -2198,12 +2198,20 @@ func GetTarballName(cmd []string) string {
 // BuildNMATLSConfigMap builds a configmap with tls secret name in it.
 // The configmap will be mapped to two environmental variables in NMA pod
 func BuildNMATLSConfigMap(nm types.NamespacedName, vdb *vapi.VerticaDB) *corev1.ConfigMap {
+	clientSecretName := vdb.GetClientServerTLSSecret()
+	clientSecretNamespace := vdb.ObjectMeta.Namespace
+	clientSecretTLSMode := vdb.GetNMAClientServerTLSMode()
+	// for backward compatibility, we cannot leave NMAClient* env var empty even when tls is disabled
+	if !vmeta.UseTLSAuth(vdb.Annotations) {
+		clientSecretName = vdb.GetNMATLSSecret()
+		clientSecretTLSMode = "enable"
+	}
 	secretMap := map[string]string{
 		NMASecretNamespaceEnv:       vdb.ObjectMeta.Namespace,
-		NMASecretNameEnv:            vdb.GetHTTPSNMATLSSecret(),
-		NMAClientSecretNamespaceEnv: vdb.ObjectMeta.Namespace,
-		NMAClientSecretNameEnv:      vdb.GetClientServerTLSSecret(),
-		NMAClientSecretTLSModeEnv:   vdb.GetNMAClientServerTLSMode(),
+		NMASecretNameEnv:            vdb.GetNMATLSSecret(),
+		NMAClientSecretNamespaceEnv: clientSecretNamespace,
+		NMAClientSecretNameEnv:      clientSecretName,
+		NMAClientSecretTLSModeEnv:   clientSecretTLSMode,
 	}
 	tlsConfigMap := &corev1.ConfigMap{
 		TypeMeta: metav1.TypeMeta{

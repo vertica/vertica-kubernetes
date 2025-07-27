@@ -62,7 +62,7 @@ var _ = Describe("nmacertrotation_reconciler", func() {
 		}
 		Expect(k8sClient.Status().Update(ctx, vdb)).Should(Succeed())
 
-		r := MakeNMACertRotationReconciler(vdbRec, logger, vdb, dispatcher, pfacts)
+		r := MakeNMACertRotationReconciler(vdbRec, logger, vdb, dispatcher, pfacts, false)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 	})
 

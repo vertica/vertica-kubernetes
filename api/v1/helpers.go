@@ -197,6 +197,7 @@ func MakeVDBForTLS() *VerticaDB {
 func MakeVDBForHTTP(httpServerTLSSecretName string) *VerticaDB {
 	vdb := MakeVDB()
 	vdb.Annotations[vmeta.VersionAnnotation] = HTTPServerMinVersion
+	vdb.Annotations[vmeta.EnableTLSAuthAnnotation] = vmeta.AnnotationTrue
 	vdb.Spec.HTTPSNMATLS.Secret = httpServerTLSSecretName
 	return vdb
 }
@@ -1838,6 +1839,14 @@ func (v *VerticaDB) GetHTTPSNMATLSSecret() string {
 		return ""
 	}
 	return v.Spec.HTTPSNMATLS.Secret
+}
+
+// GetNMATLSSecret returns the NMATLS secret based on enable-tls annotation
+func (v *VerticaDB) GetNMATLSSecret() string {
+	if !vmeta.UseTLSAuth(v.Annotations) {
+		return v.Spec.NMATLSSecret
+	}
+	return v.GetHTTPSNMATLSSecret()
 }
 
 func (v *VerticaDB) GetSpecClientServerTLSMode() string {

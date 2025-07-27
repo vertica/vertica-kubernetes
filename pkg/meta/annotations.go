@@ -25,6 +25,8 @@ import (
 )
 
 const (
+	AnnotationTrue = "true"
+
 	// Annotations that we set in each of the pod.  These are set by the
 	// AnnotateAndLabelPodReconciler.  They are available in the pod with the
 	// downwardAPI so they can be picked up by the Vertica data collector (DC).

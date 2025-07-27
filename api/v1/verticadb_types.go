@@ -1001,6 +1001,7 @@ type VerticaDBStatus struct {
 }
 
 const (
+	NMATLSConfigName          = "nma"          // #nosec G101
 	HTTPSNMATLSConfigName     = "httpsNMA"     // #nosec G101
 	ClientServerTLSConfigName = "clientServer" // #nosec G101
 )
