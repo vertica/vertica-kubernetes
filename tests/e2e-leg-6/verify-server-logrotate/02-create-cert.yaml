@@ -14,5 +14,4 @@
 apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 commands:
-  - command: bash -c "kubectl get vdb -n $NAMESPACE v-http-generated-certs -o json | jq -r '.spec.nmaTLSSecret' | tee /tmp/generated-secret-name.txt"
-  - command: bash -c "export SN=$(cat /tmp/generated-secret-name.txt); kubectl get -n $NAMESPACE secret $$SN -o yaml | sed \"s/$$SN/http-server-tls-copy/\" | kubectl apply -n $NAMESPACE -f -"
+  - script: cd ../../.. && make create-tls-secret SECRET_NAME=custom-cert SECRET_NAMESPACE=$NAMESPACE DB_USER=$VERTICA_SUPERUSER_NAME
