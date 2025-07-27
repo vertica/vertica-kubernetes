@@ -95,15 +95,14 @@ func (h *TLSServerCertGenReconciler) Reconcile(ctx context.Context, _ *ctrl.Requ
 			secret := corev1.Secret{}
 			err = h.VRec.Client.Get(ctx, nm, &secret)
 			// Validate if nma secret can be used as TLS secret first
-			if err != nil || h.ValidateSecretCertificate(ctx, &secret, vapi.NMATLSConfigName, h.Vdb.Spec.NMATLSSecret) != nil {
-				h.Log.Error(err, "failed to get or validate NMA secret", "secretName", h.Vdb.Spec.NMATLSSecret)
-				return ctrl.Result{}, err
-			}
-			h.Log.Info("TLS secret is initialized from nmaTLSSecret", "TLS secret", secretFieldName)
-			err = h.setSecretNameInVDB(ctx, secretFieldName, h.Vdb.Spec.NMATLSSecret)
-			if err != nil {
-				h.Log.Error(err, "failed to initialize TLS secret from nmaTLSSecret", "TLS secret", secretFieldName)
-				return ctrl.Result{}, err
+			if err == nil && h.ValidateSecretCertificate(ctx, &secret, vapi.NMATLSConfigName, h.Vdb.Spec.NMATLSSecret) == nil {
+				h.Log.Info("TLS secret is initialized from nmaTLSSecret", "TLS secret", secretFieldName)
+				err = h.setSecretNameInVDB(ctx, secretFieldName, h.Vdb.Spec.NMATLSSecret)
+				if err != nil {
+					h.Log.Error(err, "failed to initialize TLS secret from nmaTLSSecret", "TLS secret", secretFieldName)
+					return ctrl.Result{}, err
+				}
+				continue
 			}
 		}
 		err = h.reconcileOneSecret(secretFieldName, secretName, ctx)
