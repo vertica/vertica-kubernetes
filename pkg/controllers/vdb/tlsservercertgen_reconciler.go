@@ -64,6 +64,8 @@ func MakeTLSServerCertGenReconciler(vdbrecon *VerticaDBReconciler, log logr.Logg
 }
 
 // Reconcile will create a TLS secret for the http server if one is missing
+//
+//nolint:gocyclo
 func (h *TLSServerCertGenReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
 	nmaCertNeeded := !vmeta.UseTLSAuth(h.Vdb.Annotations) && h.Vdb.Spec.NMATLSSecret == ""
 	// Verify that at least one secret has changed
@@ -72,14 +74,6 @@ func (h *TLSServerCertGenReconciler) Reconcile(ctx context.Context, _ *ctrl.Requ
 		return ctrl.Result{}, nil
 	}
 
-	if h.Vdb.Spec.NMATLSSecret != "" && (vmeta.UseTLSAuth(h.Vdb.Annotations) && h.Vdb.GetHTTPSNMATLSSecret() == "") {
-		h.Log.Info("httpsNMATLS.secret is initialized from nmaTLSSecret")
-		err := h.setSecretNameInVDB(ctx, httpsNMATLSSecret, h.Vdb.Spec.NMATLSSecret)
-		if err != nil {
-			h.Log.Error(err, "failed to initialize httpsNMATLS.secret from nmaTLSSecret")
-			return ctrl.Result{}, err
-		}
-	}
 	secretFieldNameMap := map[string]string{
 		nmaTLSSecret:          h.Vdb.Spec.NMATLSSecret,
 		httpsNMATLSSecret:     h.Vdb.GetHTTPSNMATLSSecret(),
@@ -94,6 +88,23 @@ func (h *TLSServerCertGenReconciler) Reconcile(ctx context.Context, _ *ctrl.Requ
 		if vmeta.UseTLSAuth(h.Vdb.Annotations) && secretFieldName == nmaTLSSecret {
 			h.Log.Info("TLS auth is enabled. Skipping NMA secret validation and generation")
 			continue
+		}
+		// when nma secret is not empty, we can assign it to https and client TLS
+		if h.Vdb.Spec.NMATLSSecret != "" && (secretFieldName != nmaTLSSecret && secretName == "") {
+			nm := names.GenNamespacedName(h.Vdb, h.Vdb.Spec.NMATLSSecret)
+			secret := corev1.Secret{}
+			err = h.VRec.Client.Get(ctx, nm, &secret)
+			// Validate if nma secret can be used as TLS secret first
+			if err != nil || h.ValidateSecretCertificate(ctx, &secret, vapi.NMATLSConfigName, h.Vdb.Spec.NMATLSSecret) != nil {
+				h.Log.Error(err, "failed to get or validate NMA secret", "secretName", h.Vdb.Spec.NMATLSSecret)
+				return ctrl.Result{}, err
+			}
+			h.Log.Info("TLS secret is initialized from nmaTLSSecret", "TLS secret", secretFieldName)
+			err = h.setSecretNameInVDB(ctx, secretFieldName, h.Vdb.Spec.NMATLSSecret)
+			if err != nil {
+				h.Log.Error(err, "failed to initialize TLS secret from nmaTLSSecret", "TLS secret", secretFieldName)
+				return ctrl.Result{}, err
+			}
 		}
 		err = h.reconcileOneSecret(secretFieldName, secretName, ctx)
 		if err != nil {

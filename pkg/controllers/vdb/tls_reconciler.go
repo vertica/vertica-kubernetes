@@ -62,7 +62,8 @@ func (h *TLSReconciler) Reconcile(ctx context.Context, request *ctrl.Request) (c
 	if h.Vdb.IsDBInitialized() &&
 		h.Vdb.GetTLSConfigByName(vapi.HTTPSNMATLSConfigName) == nil &&
 		h.Vdb.GetTLSConfigByName(vapi.ClientServerTLSConfigName) == nil &&
-		h.Vdb.Spec.NMATLSSecret != "" && h.Vdb.Spec.NMATLSSecret != h.Vdb.GetHTTPSNMATLSSecret() {
+		h.Vdb.Spec.NMATLSSecret != "" &&
+		(h.Vdb.Spec.NMATLSSecret != h.Vdb.GetHTTPSNMATLSSecret() || h.Vdb.Spec.NMATLSSecret != h.Vdb.GetClientServerTLSSecret()) {
 		actors = append(actors, MakeNMACertRotationReconciler(h.VRec, h.Log, h.Vdb, h.Dispatcher, h.Pfacts, true))
 	}
 	actors = append(actors, h.constructActors(h.Log, h.Vdb, h.Pfacts, h.Dispatcher)...)

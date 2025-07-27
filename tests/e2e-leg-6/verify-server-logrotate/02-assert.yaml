@@ -11,18 +11,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: apps/v1
-kind: StatefulSet
+apiVersion: v1
+kind: Secret
 metadata:
-  name: v-verify-server-logrotate-main
-status:
-  currentReplicas: 1
-  readyReplicas: 1
----
-apiVersion: vertica.com/v1
-kind: VerticaDB
-metadata:
-  name: v-verify-server-logrotate
-status:
-  subclusters:
-    - addedToDBCount: 1
+  name: custom-cert
