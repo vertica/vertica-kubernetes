@@ -294,6 +294,11 @@ grafana:
           url: http://{{ .Release.Name }}-prometheus-server-prometheus.{{ .Release.Namespace }}.svc.cluster.local:9090
           access: proxy
           isDefault: true
+        - name: Loki
+          type: loki
+          url: http://loki-gateway.loki.svc.cluster.local:80
+          access: proxy
+          isDefault: false
 
 prometheus-server:
   enabled: false # Set to true if you want to deploy Prometheus server
@@ -450,3 +455,130 @@ prometheus-server:
       nodeExporterRecording: false
       prometheus: false
       prometheusOperator: false
+
+loki:
+  enabled: false # Set to true if you want to deploy Grafana
+
+  loki:
+    auth_enabled: false
+    commonConfig:
+      replication_factor: 1
+    schemaConfig:
+      configs:
+        - from: 2024-04-01
+          store: tsdb
+          object_store: s3
+          schema: v13
+          index:
+            prefix: loki_index_
+            period: 24h
+    ingester:
+      chunk_encoding: snappy
+    tracing:
+      enabled: true
+    pattern_ingester:
+      enabled: true
+    limits_config:
+      allow_structured_metadata: true
+      volume_enabled: true
+    ruler:
+      enable_api: true
+    querier:
+      # Default is 4, if you have enough memory and CPU you can increase, reduce if OOMing
+      max_concurrent: 4
+  
+  minio:
+    enabled: true
+  lokiCanary:
+    enabled: false
+  test:
+    enabled: false
+
+  deploymentMode: SingleBinary
+  singleBinary:
+    replicas: 1
+  
+  chunksCache:
+    # default is 500MB, with limited memory keep this smaller
+    writebackSizeLimit: 10MB
+  
+  # Zero out replica counts of other deployment modes
+  backend:
+    replicas: 0
+  read:
+    replicas: 0
+  write:
+    replicas: 0
+  
+  ingester:
+    replicas: 0
+  querier:
+    replicas: 0
+  queryFrontend:
+    replicas: 0
+  queryScheduler:
+    replicas: 0
+  distributor:
+    replicas: 0
+  compactor:
+    replicas: 0
+  indexGateway:
+    replicas: 0
+  bloomCompactor:
+    replicas: 0
+  bloomGateway:
+    replicas: 0
+
+k8s-monitoring:
+  enabled: false # Set to true if you want to deploy Grafana
+
+  cluster:
+    name: vertica
+  
+  destinations:
+    - name: loki
+      type: loki
+      url: http://loki-gateway.loki.svc.cluster.local/loki/api/v1/push
+  
+  clusterEvents:
+    enabled: true
+    collector: alloy-logs
+    namespaces:
+      - vertica
+  
+  nodeLogs:
+    enabled: false
+  
+  podLogs:
+    enabled: true
+    gatherMethod: kubernetesApi
+    collector: alloy-logs
+    labelsToKeep: ["app_kubernetes_io_name","container","instance","job","level","namespace","service_name","service_namespace","deployment_environment","deployment_environment_name"]
+    structuredMetadata:
+      k8s.pod.name: k8s.pod.name
+      pod: pod  # Set structured metadata "pod" from label "pod"
+    namespaces:
+      - vertica
+  
+  # Collectors
+  alloy-singleton:
+    enabled: false
+  
+  alloy-metrics:
+    enabled: false
+  
+  alloy-logs:
+    enabled: true
+    alloy:
+      mounts:
+        varlog: false
+        dockercontainers: false
+      clustering:
+        enabled: true
+  
+  alloy-profiles:
+    enabled: false
+  
+  alloy-receiver:
+    enabled: false
+
