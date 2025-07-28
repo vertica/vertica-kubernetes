@@ -683,12 +683,22 @@ func (v *VerticaDB) IsTLSCertRollbackNeeded() bool {
 	return v.IsStatusConditionTrue(TLSCertRollbackNeeded)
 }
 
+func (v *VerticaDB) IsTLSCertRollbackInProgress() bool {
+	return v.IsStatusConditionTrue(TLSCertRollbackInProgress)
+}
+
 func (v *VerticaDB) FindTLSCertRollbackNeededCondition() *metav1.Condition {
 	return v.FindStatusCondition(TLSCertRollbackNeeded)
 }
 
 func (v *VerticaDB) IsTLSCertRollbackDisabled() bool {
 	return vmeta.IsDisableTLSRollbackAnnotationSet(v.Annotations)
+}
+
+// IsHTTPSTLSUpdateModeOnlyChange returns true if only the HTTPS TLS Mode was changed but
+// not the TLS secret
+func (v *VerticaDB) IsHTTPSTLSUpdateModeOnlyChange() bool {
+	return v.GetHTTPSNMATLSMode() != v.GetHTTPSNMATLSModeInUse() && v.GetHTTPSNMATLSSecret() == v.GetHTTPSNMATLSSecretInUse()
 }
 
 // GetTLSCertRollbackReason returns the reason or the point
@@ -703,13 +713,25 @@ func (v *VerticaDB) GetTLSCertRollbackReason() string {
 	return cond.Reason
 }
 
-// IsRollbackFailureBeforeCertHealthPolling returns true if https cert rotation failed
+// IsHTTPSRollbackFailureBeforeCertHealthPolling returns true if https cert rotation failed
 // without altering the current tls config
-func (v *VerticaDB) IsRollbackFailureBeforeCertHealthPolling() bool {
-	return v.GetTLSCertRollbackReason() == FailureBeforeCertHealthPollingReason
+func (v *VerticaDB) IsHTTPSRollbackFailureBeforeCertHealthPolling() bool {
+	return v.GetTLSCertRollbackReason() == FailureBeforeHTTPSCertHealthPollingReason
 }
 
-// IsRollbackAfterNMACertRotation returns true if https cert rotation failed
+// IsHTTPSRollbackFailureAfterCertHealthPolling returns true if https cert rotation failed
+// after altering the current tls config
+func (v *VerticaDB) IsHTTPSRollbackFailureAfterCertHealthPolling() bool {
+	return v.GetTLSCertRollbackReason() == RollbackAfterHTTPSCertRotationReason
+}
+
+// IsRollbackDuringServerCertRotation returns true if client-server cert rotation failed
+// (but tls config will not be changed)
+func (v *VerticaDB) IsRollbackDuringServerCertRotation() bool {
+	return v.GetTLSCertRollbackReason() == RollbackDuringServerCertRotationReason
+}
+
+// IsRollbackAfterNMACertRotation returns true if NMA cert rotation failed
 // but tls config changed
 func (v *VerticaDB) IsRollbackAfterNMACertRotation() bool {
 	return v.GetTLSCertRollbackReason() == RollbackAfterNMACertRotationReason
@@ -1672,6 +1694,7 @@ func (v *VerticaDB) GetTLSConfigByMode(mode string) *TLSConfigStatus {
 	return FindTLSConfig(v.Status.TLSConfigs, "Mode", mode)
 }
 
+// GetSecretInUse gets TLS Secret from status, by looking up config name in TLSConfigs
 func (v *VerticaDB) GetSecretInUse(name string) string {
 	if v.GetTLSConfigByName(name) == nil {
 		return ""
@@ -1679,11 +1702,25 @@ func (v *VerticaDB) GetSecretInUse(name string) string {
 	return v.GetTLSConfigByName(name).Secret
 }
 
+// GetHTTPSNMATLSSecretInUse gets HTTPS/NMA TLS secret currently being used by DB;
+// this will be the status value, unless cert rotate rollback is currently running,
+// in which case it will be spec value
 func (v *VerticaDB) GetHTTPSNMATLSSecretInUse() string {
+	if v.IsTLSCertRollbackInProgress() {
+		return v.Spec.HTTPSNMATLS.Secret
+	}
+
 	return v.GetSecretInUse(HTTPSNMATLSConfigName)
 }
 
+// GetClientServerTLSSecretInUse gets Client-Server TLS secret currently being used by DB;
+// this will be the status value, unless cert rotate rollback is currently running,
+// in which case it will be spec value
 func (v *VerticaDB) GetClientServerTLSSecretInUse() string {
+	if v.IsTLSCertRollbackInProgress() {
+		return v.Spec.ClientServerTLS.Secret
+	}
+
 	return v.GetSecretInUse(ClientServerTLSConfigName)
 }
 
@@ -1737,6 +1774,7 @@ func FindTLSConfig(configs []TLSConfigStatus, configField, value string) *TLSCon
 	return nil
 }
 
+// GetTLSModeInUse gets TLS Mode from status, by looking up config name in TLSConfigs
 func (v *VerticaDB) GetTLSModeInUse(name string) string {
 	if v.GetTLSConfigByName(name) == nil {
 		return ""
@@ -1744,11 +1782,23 @@ func (v *VerticaDB) GetTLSModeInUse(name string) string {
 	return v.GetTLSConfigByName(name).Mode
 }
 
-func (v *VerticaDB) GetHTTPSTLSModeInUse() string {
+// GetHTTPSNMATLSModeInUse gets HTTPS/NMA TLS mode currently being used by DB;
+// this will be the status value, unless cert rotate rollback is currently running,
+// in which case it will be spec value
+func (v *VerticaDB) GetHTTPSNMATLSModeInUse() string {
+	if v.IsTLSCertRollbackInProgress() {
+		return strings.ToLower(v.Spec.HTTPSNMATLS.Mode)
+	}
 	return strings.ToLower(v.GetTLSModeInUse(HTTPSNMATLSConfigName))
 }
 
+// GetClientServerTLSModeInUse gets Client-Server TLS mode currently being used by DB;
+// this will be the status value, unless cert rotate rollback is currently running,
+// in which case it will be spec value
 func (v *VerticaDB) GetClientServerTLSModeInUse() string {
+	if v.IsTLSCertRollbackInProgress() {
+		return strings.ToLower(v.Spec.ClientServerTLS.Mode)
+	}
 	return strings.ToLower(v.GetTLSModeInUse(ClientServerTLSConfigName))
 }
 
@@ -1824,16 +1874,21 @@ func (v *VerticaDB) GetSpecHTTPSNMATLSMode() string {
 	return v.Spec.HTTPSNMATLS.Mode
 }
 
-// Get HTTPSNMATLS mode from spec or return "" if not found
+// GetHTTPSNMATLSMode gets HTTPSNMATLS mode from spec or return "" if not found.
+// If cert rotation rollback is in progress, get value from status instead, in order to revert
 func (v *VerticaDB) GetHTTPSNMATLSMode() string {
-	if v.Spec.HTTPSNMATLS == nil {
-		return ""
+	if v.IsTLSCertRollbackInProgress() {
+		return v.GetTLSModeInUse(HTTPSNMATLSConfigName)
 	}
-	return strings.ToLower(v.Spec.HTTPSNMATLS.Mode)
+	return strings.ToLower(v.GetSpecHTTPSNMATLSMode())
 }
 
-// Get HTTPSNMATLS secret from spec or return "" if not found
+// GetHTTPSNMATLSSecret get HTTPSNMATLS secret from spec or return "" if not found.
+// If cert rotation rollback is in progress, get value from status instead, in order to revert
 func (v *VerticaDB) GetHTTPSNMATLSSecret() string {
+	if v.IsTLSCertRollbackInProgress() {
+		return v.GetSecretInUse(HTTPSNMATLSConfigName)
+	}
 	if v.Spec.HTTPSNMATLS == nil {
 		return ""
 	}
@@ -1847,16 +1902,21 @@ func (v *VerticaDB) GetSpecClientServerTLSMode() string {
 	return v.Spec.ClientServerTLS.Mode
 }
 
-// Get ClientServerTLS mode from spec or return "" if not found
+// GetClientServerTLSMode gets ClientServerTLS mode from spec or return "" if not found.
+// If cert rotation rollback is in progress, get value from status instead, in order to revert>>>>>>> main
 func (v *VerticaDB) GetClientServerTLSMode() string {
-	if v.Spec.ClientServerTLS == nil {
-		return ""
+	if v.IsTLSCertRollbackInProgress() {
+		return v.GetTLSModeInUse(ClientServerTLSConfigName)
 	}
-	return strings.ToLower(v.Spec.ClientServerTLS.Mode)
+	return strings.ToLower(v.GetSpecClientServerTLSMode())
 }
 
-// Get ClientServerTLS secret from spec or return "" if not found
+// GetClientServerTLSSecret gets ClientServerTLS secret from spec or return "" if not found.
+// If cert rotation rollback is in progress, get value from status instead, in order to revert
 func (v *VerticaDB) GetClientServerTLSSecret() string {
+	if v.IsTLSCertRollbackInProgress() {
+		return v.GetSecretInUse(ClientServerTLSConfigName)
+	}
 	if v.Spec.ClientServerTLS == nil {
 		return ""
 	}

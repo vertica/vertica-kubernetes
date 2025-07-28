@@ -24,7 +24,6 @@ import (
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
-	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
@@ -73,11 +72,6 @@ func (h *TLSConfigReconciler) Reconcile(ctx context.Context, request *ctrl.Reque
 		"secretName", h.Vdb.GetSecretInUse(h.TLSConfigName),
 		"dbInitialized", h.Vdb.IsStatusConditionTrue(vapi.DBInitialized),
 	)
-
-	// we want to be sure nma tls configmap exists and has the freshest values
-	if res, errCheck := h.Manager.checkNMATLSConfigMap(ctx); verrors.IsReconcileAborted(res, errCheck) {
-		return res, errCheck
-	}
 
 	err := h.Pfacts.Collect(ctx, h.Vdb)
 	if err != nil {

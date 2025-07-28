@@ -46,8 +46,10 @@ func MakeNMACertConfigMapReconciler(vdbrecon *VerticaDBReconciler, log logr.Logg
 
 // Reconcile() will create a configmap whose values are mapped to environmental variables in NMA container
 func (h *NMACertConfigMapReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
-	// Do not update NMA config map when a rollback is required
-	if h.Vdb.IsTLSCertRollbackNeeded() {
+	// Do not update NMA config map when a rollback is required. However, if HTTPS is already
+	// updated in DB, we need NMA and HTTPS to be same secret, in order to run rollback cert
+	// rotation. So we will allow NMA to be updated, and then we will revert it during rollback.
+	if h.Vdb.IsTLSCertRollbackNeeded() && !h.Vdb.IsHTTPSRollbackFailureAfterCertHealthPolling() {
 		return ctrl.Result{}, nil
 	}
 

@@ -19,6 +19,7 @@ metadata:
     vertica.com/k-safety: "1"
     vertica.com/include-uid-in-path: "true"
     vertica.com/remove-tls-secret-on-vdb-delete: "true"
+    vertica.com/disable-tls-rotation-failure-rollback: "false"
 spec:
   initPolicy: CreateSkipPackageInstall
   image: kustomize-vertica-image

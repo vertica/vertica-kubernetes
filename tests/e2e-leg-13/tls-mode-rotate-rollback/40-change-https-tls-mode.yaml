@@ -1,0 +1,7 @@
+apiVersion: vertica.com/v1
+kind: VerticaDB
+metadata:
+  name: v-tls-mode-rotate-rollback
+spec:
+  httpsNMATLS:
+    mode: TRY_VERIFY
