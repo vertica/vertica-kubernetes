@@ -17,6 +17,7 @@ package vdb
 
 import (
 	"context"
+	"strings"
 
 	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
@@ -193,15 +194,24 @@ func (r *RollbackAfterCertRotationReconciler) updateTLSConfigInVdb(ctx context.C
 		if err := r.VRec.Client.Get(ctx, nm, r.Vdb); err != nil {
 			return err
 		}
+		mode := ""
 		if r.Vdb.GetTLSCertRollbackReason() == vapi.RollbackAfterServerCertRotationReason {
+			mode = r.Vdb.GetClientServerTLSModeInUse()
+			if strings.EqualFold(r.Vdb.GetClientServerTLSMode(), mode) {
+				mode = r.Vdb.GetSpecClientServerTLSMode()
+			}
 			r.Vdb.Spec.ClientServerTLS = &vapi.TLSConfigSpec{
 				Secret: r.Vdb.GetClientServerTLSSecretInUse(),
-				Mode:   r.Vdb.GetClientServerTLSModeInUse(),
+				Mode:   mode,
 			}
 		} else {
+			mode = r.Vdb.GetHTTPSTLSModeInUse()
+			if strings.EqualFold(r.Vdb.GetHTTPSNMATLSMode(), mode) {
+				mode = r.Vdb.GetSpecHTTPSNMATLSMode()
+			}
 			r.Vdb.Spec.HTTPSNMATLS = &vapi.TLSConfigSpec{
 				Secret: r.Vdb.GetHTTPSNMATLSSecretInUse(),
-				Mode:   r.Vdb.GetHTTPSTLSModeInUse(),
+				Mode:   mode,
 			}
 		}
 		return r.VRec.Client.Update(ctx, r.Vdb)
