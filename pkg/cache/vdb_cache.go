@@ -33,7 +33,7 @@ import (
 
 /*
     As operator code runs in multiple threads, it is not
-	thread safe to a define a variable at package level and
+	thread safe to define a variable at package level and
 	share it. This file offers thread safe sharing/caching of
 	certificate.
 
@@ -60,7 +60,6 @@ type CacheManager interface {
 type CertCache interface {
 	ReadCertFromSecret(context.Context, string) (*tls.HTTPSCerts, error)
 	ClearCacheBySecretName(string)
-	SaveCertIntoCache(string, map[string][]byte)
 	IsCertInCache(string) bool
 	CleanCacheForVdb([]string)
 }
@@ -160,7 +159,9 @@ func (c *VdbCacheStruct) ReadCertFromSecret(ctx context.Context, secretName stri
 		if ok {
 			creationTime, foundCreationTime := c.creationTimeMap[secretName]
 			if !foundCreationTime {
-				log.Info("failed to find creation time for secret in cache. Will reload", "secret name", secretName)
+				log.Info("failed to find creation time for secret in cache. Will set creation time to now", "secret name", secretName)
+				c.creationTimeMap[secretName] = time.Now()
+				readRequired = false
 			} else {
 				expiryTime := creationTime.Add(c.cacheDuration)
 				if time.Now().After(expiryTime) {

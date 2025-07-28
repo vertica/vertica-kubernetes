@@ -252,10 +252,8 @@ func (o *ObjReconciler) checkTLSSecrets(ctx context.Context) (ctrl.Result, error
 		"NMA TLS":           o.Vdb.GetHTTPSNMATLSSecret(),
 		"Client Server TLS": o.Vdb.GetClientServerTLSSecret(),
 	}
-	dbReconciler := o.Rec.(*VerticaDBReconciler)
-	certCache := dbReconciler.CacheManager.GetCertCacheForVdb(o.Vdb.Namespace, o.Vdb.Name)
 	for k, tlsSecret := range tlsSecrets {
-		if tlsSecret != "" && !certCache.IsCertInCache(tlsSecret) {
+		if tlsSecret != "" {
 			keyNames := []string{corev1.TLSPrivateKeyKey, corev1.TLSCertKey, paths.HTTPServerCACrtName}
 			if res, err := o.checkSecretHasKeys(ctx, k, tlsSecret, keyNames); verrors.IsReconcileAborted(res, err) {
 				return res, err

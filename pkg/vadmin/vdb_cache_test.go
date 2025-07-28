@@ -21,6 +21,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/vertica/vertica-kubernetes/pkg/cache"
 	"github.com/vertica/vertica-kubernetes/pkg/cloud"
 	"github.com/vertica/vertica-kubernetes/pkg/test"
 )
@@ -75,7 +76,9 @@ var _ = Describe("vdb_context", func() {
 		vdbCertCacheTwo.ClearCacheBySecretName(TestClientServerSecret)
 		_, err = vdbCertCacheTwo.ReadCertFromSecret(ctx, TestClientServerSecret)
 		Ω(err).Should(BeNil())
-		vdbCertCacheTwo.SaveCertIntoCache(TestClientServerSecret, secret.Data)
+
+		vdbCacheStruct := vdbCertCacheTwo.(*cache.VdbCacheStruct)
+		vdbCacheStruct.SaveCertIntoCache(TestClientServerSecret, secret.Data)
 		cert, err = vdbCertCacheOne.ReadCertFromSecret(ctx, TestClientServerSecret)
 		Ω(err).Should(BeNil())
 		Ω(cert.Key).Should(Equal(test.TestKeyValue))

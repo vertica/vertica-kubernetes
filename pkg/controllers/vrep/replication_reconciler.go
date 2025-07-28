@@ -24,7 +24,6 @@ import (
 	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	v1beta1 "github.com/vertica/vertica-kubernetes/api/v1beta1"
-	"github.com/vertica/vertica-kubernetes/pkg/cloud"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
@@ -135,20 +134,6 @@ func (r *ReplicationReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) 
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	sourceFetcher := &cloud.SecretFetcher{
-		Client:   r.Client,
-		Log:      r.Log,
-		Obj:      r.SourceInfo.Vdb,
-		EVWriter: r.VRec,
-	}
-	r.VRec.CacheManager.InitCertCacheForVdb(r.SourceInfo.Vdb, sourceFetcher)
-	targetFetcher := &cloud.SecretFetcher{
-		Client:   r.Client,
-		Log:      r.Log,
-		Obj:      r.TargetInfo.Vdb,
-		EVWriter: r.VRec,
-	}
-	r.VRec.CacheManager.InitCertCacheForVdb(r.TargetInfo.Vdb, targetFetcher)
 	err = r.runReplicateDB(ctx, r.dispatcher, opts)
 
 	return ctrl.Result{}, err
