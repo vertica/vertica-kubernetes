@@ -216,6 +216,8 @@ func (vcc VClusterCommands) VAddNode(options *VAddNodeOptions) (VCoordinationDat
 	// Filter out non sandbox hosts from vdb
 	if options.Sandbox != util.MainClusterSandbox {
 		vdb.filterSandboxNodes(options.Sandbox)
+	} else {
+		vdb.filterMainClusterNodes()
 	}
 	err = vdb.addHosts(options.NewHosts, options.SCName, options.Sandbox, existingHostNodeMap)
 	if err != nil {
@@ -416,11 +418,9 @@ func (vcc VClusterCommands) produceAddNodeInstructions(vdb *VCoordinationDatabas
 		instructions = append(instructions, &httpsFindSubclusterOp)
 	}
 	sandboxHosts := options.getSandboxHosts(vdb)
-
 	// require to have the same vertica version
 	nmaVerticaVersionOp := makeNMAVerticaVersionOpWithVDB(true /*hosts need to have the same Vertica version*/, vdb)
 	instructions = append(instructions, &nmaVerticaVersionOp)
-
 	// this is a copy of the original HostNodeMap that only
 	// contains the hosts to add.
 	newHostNodeMap := vdb.copyHostNodeMap(options.NewHosts)
@@ -430,8 +430,18 @@ func (vcc VClusterCommands) produceAddNodeInstructions(vdb *VCoordinationDatabas
 		return instructions, err
 	}
 	nmaNetworkProfileOp := makeNMANetworkProfileOp(vdb.HostList)
-	httpsCreateNodeOp, err := makeHTTPSCreateNodeOp(newHosts, initiatorHost,
-		usePassword, username, password, vdb, options.SCName, options.ComputeGroup)
+	createNodeConfig := HTTPSCreateNodeOpConfig{
+		NewNodeHosts:     newHosts,
+		BootstrapHosts:   initiatorHost,
+		UseHTTPPassword:  usePassword,
+		UserName:         username,
+		HTTPSPassword:    password,
+		VDB:              vdb,
+		SCName:           options.SCName,
+		ComputeGroupName: options.ComputeGroup,
+		SandboxName:      options.Sandbox,
+	}
+	httpsCreateNodeOp, err := makeHTTPSCreateNodeOp(&createNodeConfig)
 	if err != nil {
 		return instructions, err
 	}
@@ -439,14 +449,12 @@ func (vcc VClusterCommands) produceAddNodeInstructions(vdb *VCoordinationDatabas
 	if err != nil {
 		return instructions, err
 	}
-
 	instructions = append(instructions,
 		&nmaPrepareDirectoriesOp,
 		&nmaNetworkProfileOp,
 		&httpsCreateNodeOp,
 		&httpsReloadSpreadOp,
 	)
-
 	if options.Sandbox != util.MainClusterSandbox {
 		httpsRestartUpCommandOp, err := makeHTTPSStartUpCommandWithSandboxOp(usePassword, username, password, vdb, options.Sandbox)
 		if err != nil {

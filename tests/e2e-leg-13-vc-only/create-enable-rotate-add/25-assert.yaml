@@ -49,7 +49,7 @@ metadata:
   name: v-create-enable-rotate-add
 status:
   tlsConfigs:
-    - mode: TRY_VERIFY
+    - mode: try_verify
       name: httpsNMA
-    - mode: TRY_VERIFY
+    - mode: try_verify
       name: clientServer
