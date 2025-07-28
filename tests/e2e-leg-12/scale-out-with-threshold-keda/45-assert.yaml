@@ -30,7 +30,7 @@ kind: ScaledObject
 metadata:
   name: v-scale-out-keda-vas-keda
 spec:
-  maxReplicaCount: 5
+  maxReplicaCount: 4
   minReplicaCount: 3
   scaleTargetRef:
     apiVersion: vertica.com/v1
