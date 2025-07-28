@@ -211,6 +211,17 @@ func GetPrefixName() string {
 	return lookupStringEnvVar("PREFIX_NAME", envMustExist)
 }
 
+// GetReleaseName returns the name of the operator release.
+func GetReleaseName() string {
+	return lookupStringEnvVar("RELEASE_NAME", envCanNotExist)
+}
+
+// IsPrometheusEnabled returns true if prometheus
+// is enabled in the operator
+func IsPrometheusEnabled() bool {
+	return lookupBoolEnvVar("PROMETHEUS_ENABLED", envCanNotExist)
+}
+
 // GetIsOLMDeployment returns true if operator lifecylce manager (OLM) was used
 // to deploy the operator.
 func GetIsOLMDeployment() bool {

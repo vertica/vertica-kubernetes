@@ -142,6 +142,10 @@ const (
 	IsSandboxLabel = "vertica.com/is-sandbox"
 	IsSandboxFalse = "false"
 	IsSandboxTrue  = "true"
+
+	// Indicates the service monitor will be selected
+	// by prometheus
+	SvcMonitorLabel = "release"
 )
 
 // ProtectedLabels lists all of the internally used label.

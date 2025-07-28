@@ -353,7 +353,7 @@ type VerticaDBSpec struct {
 	Sandboxes []Sandbox `json:"sandboxes,omitempty"`
 
 	// +kubebuilder:validation:Optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:advanced"
 	// Create client proxy pods for the subcluster if defined
 	// All incoming connections to the subclusters will be routed through the proxy pods
 	Proxy *Proxy `json:"proxy,omitempty"`

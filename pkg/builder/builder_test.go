@@ -31,6 +31,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
@@ -812,6 +813,80 @@ var _ = Describe("builder", func() {
 		Ω(envVars[4].ValueFrom.ConfigMapKeyRef.LocalObjectReference.Name).Should(Equal(configMapName))
 		Ω(envVars[4].ValueFrom.ConfigMapKeyRef.Key).Should(Equal(NMAClientSecretTLSModeEnv))
 	})
+
+	It("should build a ServiceMonitor with correct metadata and spec", func() {
+		vdb := vapi.MakeVDB()
+		nm := types.NamespacedName{
+			Namespace: "test-namespace",
+			Name:      "test-servicemonitor",
+		}
+		basicAuthSecret := "my-basic-auth-secret" // #nosec G101
+		sm := BuildServiceMonitor(nm, vdb, basicAuthSecret)
+
+		Ω(sm).ShouldNot(BeNil())
+		Ω(sm.ObjectMeta.Name).Should(Equal(nm.Name))
+		Ω(sm.ObjectMeta.Namespace).Should(Equal(nm.Namespace))
+		Ω(sm.ObjectMeta.Labels).Should(Equal(MakeLabelsForServiceMonitor(vdb)))
+		Ω(sm.ObjectMeta.OwnerReferences).Should(HaveLen(1))
+		Ω(sm.ObjectMeta.OwnerReferences[0]).Should(Equal(vdb.GenerateOwnerReference()))
+
+		Ω(sm.Spec.Endpoints).Should(HaveLen(1))
+		endpoint := sm.Spec.Endpoints[0]
+		Ω(endpoint.Port).Should(Equal(verticaServicePortName))
+		Ω(endpoint.Path).Should(Equal(httpsMetricsPath))
+		Ω(endpoint.Scheme).Should(Equal("https"))
+		Ω(endpoint.BasicAuth).ShouldNot(BeNil())
+		Ω(endpoint.TLSConfig).ShouldNot(BeNil())
+		Ω(string(endpoint.Interval)).Should(Equal(vdb.GetPrometheusScrapeDuration()))
+
+		Ω(sm.Spec.Selector.MatchLabels).Should(HaveKeyWithValue(vmeta.VDBInstanceLabel, vdb.Name))
+		Ω(sm.Spec.NamespaceSelector.MatchNames).Should(ContainElement(nm.Namespace))
+	})
+
+	It("should set BasicAuth secret keys correctly in ServiceMonitor", func() {
+		vdb := vapi.MakeVDB()
+		nm := types.NamespacedName{
+			Namespace: "ns",
+			Name:      "sm",
+		}
+		basicAuthSecret := "auth-secret"
+		sm := BuildServiceMonitor(nm, vdb, basicAuthSecret)
+		endpoint := sm.Spec.Endpoints[0]
+		Ω(endpoint.BasicAuth.Username.Name).Should(Equal(basicAuthSecret))
+		Ω(endpoint.BasicAuth.Username.Key).Should(Equal(names.SuperUserKey))
+		Ω(endpoint.BasicAuth.Password.Name).Should(Equal(basicAuthSecret))
+		Ω(endpoint.BasicAuth.Password.Key).Should(Equal(names.SuperuserPasswordKey))
+	})
+
+	It("should set TLSConfig fields correctly in ServiceMonitor", func() {
+		vdb := vapi.MakeVDBForTLS()
+		vdb.Spec.HTTPSNMATLS.Secret = "tls-secret"
+		nm := types.NamespacedName{
+			Namespace: "ns",
+			Name:      "sm",
+		}
+		sm := BuildServiceMonitor(nm, vdb, "auth-secret")
+		endpoint := sm.Spec.Endpoints[0]
+		Ω(endpoint.TLSConfig).ShouldNot(BeNil())
+		Ω(endpoint.TLSConfig.InsecureSkipVerify).ShouldNot(BeNil())
+		Ω(*endpoint.TLSConfig.InsecureSkipVerify).Should(BeFalse())
+		Ω(endpoint.TLSConfig.KeySecret).ShouldNot(BeNil())
+		Ω(endpoint.TLSConfig.Cert.Secret).ShouldNot(BeNil())
+		Ω(endpoint.TLSConfig.CA.Secret).ShouldNot(BeNil())
+	})
+
+	It("should set the scrape interval from vdb annotation", func() {
+		vdb := vapi.MakeVDB()
+		vdb.Annotations[vmeta.PrometheusScrapeIntervalAnnotation] = "45"
+		nm := types.NamespacedName{
+			Namespace: "ns",
+			Name:      "sm",
+		}
+		sm := BuildServiceMonitor(nm, vdb, "auth-secret")
+		endpoint := sm.Spec.Endpoints[0]
+		Ω(string(endpoint.Interval)).Should(Equal("45s"))
+	})
+
 })
 
 func getFirstSSHSecretVolumeMountIndex(c *v1.Container) (int, bool) {
