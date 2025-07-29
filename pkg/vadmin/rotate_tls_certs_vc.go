@@ -17,9 +17,11 @@ package vadmin
 
 import (
 	"context"
+	"fmt"
 
 	vops "github.com/vertica/vcluster/vclusterops"
 	"github.com/vertica/vertica-kubernetes/pkg/cloud"
+	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/net"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/rotatetlscerts"
 )
@@ -54,6 +56,12 @@ func (v *VClusterOps) RotateTLSCerts(ctx context.Context, opts ...rotatetlscerts
 		return err
 	}
 
+	// In order to test TLS rollback after failed rotate, this is a backdoor set via
+	// annotation to force a failure BEFORE the TLS cert has been updated in the DB
+	if vmeta.GetTriggerTLSUpdateFailureAnnotation(v.VDB.Annotations) == vmeta.TriggerTLSUpdateFailureBeforeTLSUpdate {
+		return fmt.Errorf("forced error in TLS cert rotation before updating TLS config")
+	}
+
 	// call vclusterOps library to rotate nma cert
 	vopts := v.genRotateTLSCertsOptions(&s, certs)
 	err = v.VRotateTLSCerts(&vopts)
@@ -61,6 +69,13 @@ func (v *VClusterOps) RotateTLSCerts(ctx context.Context, opts ...rotatetlscerts
 		v.Log.Error(err, "failed to rotate tls cert")
 		return err
 	}
+
+	// In order to test TLS rollback after failed rotate, this is a backdoor set via
+	// annotation to force a failure AFTER the TLS cert has been updated in the DB
+	if vmeta.GetTriggerTLSUpdateFailureAnnotation(v.VDB.Annotations) == vmeta.TriggerTLSUpdateFailureAfterTLSUpdate {
+		return fmt.Errorf("forced error in TLS cert rotation after updating TLS config")
+	}
+
 	v.Log.Info("Successfully rotate tls cert")
 	return nil
 }

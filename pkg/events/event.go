@@ -138,6 +138,9 @@ const (
 	TLSModeUpdateStarted             = "TLSModeUpdateStarted"
 	TLSModeUpdateSucceeded           = "TLSModeUpdateSucceeded"
 	TLSCertValidationFailed          = "TLSCertValidationFailed"
+	TLSCertRollbackNeeded            = "TLSCertRollbackNeeded"
+	TLSCertRollbackStarted           = "TLSCertRollbackStarted"
+	TLSCertRollbackSucceeded         = "TLSCertRollbackSucceeded"
 )
 
 // Constants for VerticaAutoscaler reconciler

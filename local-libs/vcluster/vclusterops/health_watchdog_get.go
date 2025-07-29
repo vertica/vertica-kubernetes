@@ -155,7 +155,7 @@ func (vcc VClusterCommands) produceHealthWatchdogGetInstructions(options *VHealt
 	nmaHealthWatchdogGetData.Action = options.Action
 
 	nmaHealthWatchdogGetOp, err := makeHealthWatchdogGetOp(hosts, options.usePassword,
-		&nmaHealthWatchdogGetData, healthWatchdogValues)
+		&nmaHealthWatchdogGetData, healthWatchdogValues, vdb.HostNodeMap)
 	if err != nil {
 		return instructions, err
 	}

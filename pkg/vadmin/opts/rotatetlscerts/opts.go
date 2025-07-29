@@ -41,6 +41,9 @@ type Params struct {
 	// TLS config name. can be "HTTP" or "Server"
 	TLSConfig        string
 	NewSecretManager string
+	// This backdoor allows us to force a failure of cert rotation; this is used
+	// for testing purposes only. Can be set to "before_tls_update" or "after_tls_update"
+	NewForceFailure string
 }
 
 type Option func(*Params)
@@ -112,5 +115,11 @@ func WithTLSConfig(config string) Option {
 func WithNewSecretManager(secretManager string) Option {
 	return func(s *Params) {
 		s.NewSecretManager = secretManager
+	}
+}
+
+func WithForceFailure(forceFailure string) Option {
+	return func(s *Params) {
+		s.NewForceFailure = forceFailure
 	}
 }
