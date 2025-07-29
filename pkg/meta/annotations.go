@@ -227,11 +227,23 @@ const (
 	HTTPSTLSConfGenerationAnnotationFalse = "false"
 	HTTPSTLSConfGenerationDefaultValue    = true
 
-	// This annotation controls
+	// This annotation disables TLS rollback functionality. Setting this ensures
+	// backwards compatibility with functionality for versions <25.4.0. Default is
+	// currently false (disabling this feature).
 	DisableTLSRotationFailureRollbackAnnotation      = "vertica.com/disable-tls-rotation-failure-rollback"
 	DisableTLSRotationFailureRollbackAnnotationTrue  = "true"
 	DisableTLSRotationFailureRollbackAnnotationFalse = "false"
 	DisableTLSRotationFailureRollbackDefaultValue    = true
+
+	// This annotation forces a failure of the next TLS update cert rotation. There
+	// are two places where this can be forced:
+	//   "before_tls_update": fail before the secret has been updated in the DB
+	//   "after_tls_update": fail before the secret has been updated in the DB
+	// This annotation is internal only and should only be used for testing the
+	// rollback after failed cert rotation functionality
+	TriggerTLSUpdateFailureAnnotation      = "vertica.com/trigger-tls-update-failure"
+	TriggerTLSUpdateFailureBeforeTLSUpdate = "before_tls_update"
+	TriggerTLSUpdateFailureAfterTLSUpdate  = "after_tls_update"
 
 	// We have a deployment check that ensures that if running vcluster ops the
 	// image is built for that (and vice-versa). This annotation allows you to
@@ -596,6 +608,12 @@ func IsHTTPSTLSConfGenerationEnabled(annotations map[string]string) bool {
 func IsDisableTLSRollbackAnnotationSet(annotations map[string]string) bool {
 	return lookupBoolAnnotation(annotations, DisableTLSRotationFailureRollbackAnnotation,
 		DisableTLSRotationFailureRollbackDefaultValue)
+}
+
+// GetTriggerTLSUpdateFailureAnnotation returns the string value of the annotation TriggerTLSUpdateFailureAnnotation,
+// which is used as a backdoor to trigger cert rotation failures, in order to test rollback
+func GetTriggerTLSUpdateFailureAnnotation(annotations map[string]string) string {
+	return lookupStringAnnotation(annotations, TriggerTLSUpdateFailureAnnotation, "")
 }
 
 // GetSkipDeploymentCheck will return true if we are to skip the check that

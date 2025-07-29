@@ -1085,13 +1085,18 @@ const (
 	// TLSCertRollbackNeeded indicates tls cert rotation failed and we need
 	// to rollback
 	TLSCertRollbackNeeded = "TLSCertRollbackNeeded"
+	// TLSCertRollbackInProgress indicates that user has triggered TLS rollback
+	TLSCertRollbackInProgress = "TLSCertRollbackInProgress"
 )
 
 const (
-	// RollbackAfterCertRotationReason indicates failure during TLS rotation after TLS cert has been updated
-	RollbackAfterCertRotationReason = "CertRotationFailed"
-	// FailureBeforeCertHealthPollingReason indicates failure during TLS rotation before TLS cert has been updated
-	FailureBeforeCertHealthPollingReason = "CertRotationFailedBeforeCertHealthPolling"
+	// RollbackAfterHTTPSCertRotationReason indicates failure during HTTPS TLS rotation after TLS cert has been updated
+	RollbackAfterHTTPSCertRotationReason = "HTTPSCertRotationFailed"
+	// FailureBeforeHTTPSCertHealthPollingReason indicates failure during HTTPS TLS rotation before TLS cert has been updated
+	FailureBeforeHTTPSCertHealthPollingReason = "HTTPSCertRotationFailedBeforeCertHealthPolling"
+	// RollbackAfterServerCertRotationReason indicates failure during Client-Server TLS rotation
+	// This can only be before TLS cert has been updated
+	RollbackAfterServerCertRotationReason = "ServerCertRotationFailed"
 	// RollbackAfterNMACertRotationReason indicates failure during NMA cert rotation
 	RollbackAfterNMACertRotationReason = "NMACertRotationFailed"
 )

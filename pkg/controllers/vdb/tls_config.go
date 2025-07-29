@@ -26,6 +26,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/builder"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
+	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
@@ -35,6 +36,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/settlsconfig"
 	config "github.com/vertica/vertica-kubernetes/pkg/vdbconfig"
 	"github.com/vertica/vertica-kubernetes/pkg/vdbstatus"
+	"github.com/vertica/vertica-kubernetes/pkg/vk8s"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -386,14 +388,51 @@ func (t *TLSConfigManager) getCertificatePrefix() string {
 // triggerRollback sets a condition that lets the operator know that cert rotation
 // has failed and a rollback is needed
 func (t *TLSConfigManager) triggerRollback(ctx context.Context, err error) error {
-	if err == nil || t.Vdb.IsTLSCertRollbackDisabled() {
+	if err == nil || t.Vdb.IsTLSCertRollbackDisabled() || t.Vdb.IsTLSCertRollbackInProgress() {
 		return err
 	}
-	errMsg := err.Error()
-	reason := vapi.FailureBeforeCertHealthPollingReason
-	if strings.Contains(errMsg, "HTTPSPollCertificateHealthOp") {
-		reason = vapi.RollbackAfterCertRotationReason
+
+	// Unset the force failure annotation (used for testing) if it has been set. This needs to be
+	// done so that subsequent rotations, like rollback rotation, will work.
+	err1 := t.unsetForceTLSUpdateFailure(ctx)
+
+	if err1 != nil {
+		return err1
 	}
+
+	reason := t.getRollbackReason(err)
 	cond := vapi.MakeCondition(vapi.TLSCertRollbackNeeded, metav1.ConditionTrue, reason)
-	return vdbstatus.UpdateCondition(ctx, t.Rec.GetClient(), t.Vdb, cond)
+	err1 = vdbstatus.UpdateCondition(ctx, t.Rec.GetClient(), t.Vdb, cond)
+
+	if err1 != nil {
+		return err1
+	}
+
+	return err
+}
+
+func (t *TLSConfigManager) getRollbackReason(err error) string {
+	errMsg := err.Error()
+	if t.isClientServerTLSConfig() {
+		return vapi.RollbackAfterServerCertRotationReason
+	}
+	if strings.Contains(errMsg, "HTTPSPollCertificateHealthOp") {
+		return vapi.RollbackAfterHTTPSCertRotationReason
+	}
+	return vapi.FailureBeforeHTTPSCertHealthPollingReason
+}
+
+func (t *TLSConfigManager) unsetForceTLSUpdateFailure(ctx context.Context) error {
+	if vmeta.GetTriggerTLSUpdateFailureAnnotation(t.Vdb.Annotations) != "" {
+		clearTLSFailAnnotation := func() (updated bool, err error) {
+			if _, found := t.Vdb.Annotations[vmeta.TriggerTLSUpdateFailureAnnotation]; found {
+				delete(t.Vdb.Annotations, vmeta.TriggerTLSUpdateFailureAnnotation)
+				updated = true
+			}
+			return
+		}
+		_, err := vk8s.UpdateVDBWithRetry(ctx, t.Rec, t.Vdb, clearTLSFailAnnotation)
+		return err
+	}
+	return nil
 }
