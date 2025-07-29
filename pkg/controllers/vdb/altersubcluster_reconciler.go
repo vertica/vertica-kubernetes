@@ -59,7 +59,6 @@ func MakeAlterSubclusterTypeReconciler(vdbrecon config.ReconcilerInterface, log 
 }
 
 func (a *AlterSubclusterTypeReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
-	// Force a refresh of the facts
 	if err := a.PFacts.Collect(ctx, a.Vdb); err != nil {
 		return ctrl.Result{}, err
 	}
@@ -84,7 +83,13 @@ func (a *AlterSubclusterTypeReconciler) Reconcile(ctx context.Context, _ *ctrl.R
 		return ctrl.Result{}, err
 	}
 
-	return a.alterSubclusters(ctx, scs)
+	initiatorIP, requeue := a.getInitiatorIP()
+	if requeue {
+		a.Log.Info("Requeue alterSubclusters: could not find initiatorIP")
+		return ctrl.Result{Requeue: requeue}, nil
+	}
+
+	return a.alterSubclusters(ctx, scs, initiatorIP)
 }
 
 // findMainSubclustersToAlter returns a list of main subclusters whose type needs to be changed
@@ -149,13 +154,8 @@ func (a *AlterSubclusterTypeReconciler) findSandboxSubclustersToAlter(ctx contex
 	return sbscs, nil
 }
 
-func (a *AlterSubclusterTypeReconciler) alterSubclusters(ctx context.Context, scs []string) (ctrl.Result, error) {
+func (a *AlterSubclusterTypeReconciler) alterSubclusters(ctx context.Context, scs []string, initiatorIP string) (ctrl.Result, error) {
 	for _, scName := range scs {
-		initiatorIP, requeue := a.getInitiatorIP()
-		if requeue {
-			a.Log.Info("Requeue alterSubclusters: could not find initiatorIP")
-			return ctrl.Result{Requeue: requeue}, nil
-		}
 		sc := a.Vdb.GenSubclusterMap()[scName]
 		if sc == nil {
 			return ctrl.Result{}, fmt.Errorf("could not find subcluster %s", scName)
