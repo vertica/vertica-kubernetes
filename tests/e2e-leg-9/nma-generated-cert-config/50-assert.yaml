@@ -4,3 +4,33 @@ metadata:
   name: v-tls-certs-nma-tls-config
 data:
   NMA_SECRET_NAME: custom-cert
+---
+apiVersion: v1
+kind: Event
+reason: NMATLSCertRotationStarted
+source:
+  component: verticadb-operator
+involvedObject:
+  apiVersion: vertica.com/v1
+  kind: VerticaDB
+  name: v-tls-certs
+---
+apiVersion: v1
+kind: Event
+reason: NMATLSCertRotationSucceeded
+source:
+  component: verticadb-operator
+involvedObject:
+  apiVersion: vertica.com/v1
+  kind: VerticaDB
+  name: v-tls-certs
+---
+apiVersion: vertica.com/v1
+kind: VerticaDB
+metadata:
+  name: v-tls-certs
+status:
+  tlsConfigs:
+  - name: httpsNMA
+    secret: custom-cert
+  - name: clientServer
