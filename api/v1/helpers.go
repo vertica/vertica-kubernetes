@@ -1757,7 +1757,7 @@ func (v *VerticaDB) IsCertNeededForClientServerAuth() bool {
 // For httpsNMATLS, this is the DB admin. For clientServerTLS, it will also default to
 // DB admin, but it can be overridden using clientServerTLS.commonName.
 func (v *VerticaDB) GetExpectedCertCommonName(configName string) string {
-	if configName == ClientServerTLSConfigName && v.Spec.ClientServerTLS.CommonName != "" {
+	if configName == ClientServerTLSConfigName && v.Spec.ClientServerTLS != nil && v.Spec.ClientServerTLS.CommonName != "" {
 		return v.Spec.ClientServerTLS.CommonName
 	}
 	return v.GetVerticaUser()
