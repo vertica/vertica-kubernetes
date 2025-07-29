@@ -1693,6 +1693,16 @@ func (v *VerticaDB) IsCertNeededForClientServerAuth() bool {
 	return tlsMode != tlsModeDisable && tlsMode != tlsModeEnable
 }
 
+// GetExpectedCertCommonName returns the expected common name for the TLS certificate.
+// For httpsNMATLS, this is the DB admin. For clientServerTLS, it will also default to
+// DB admin, but it can be overridden using clientServerTLS.commonName.
+func (v *VerticaDB) GetExpectedCertCommonName(configName string) string {
+	if configName == ClientServerTLSConfigName && v.Spec.ClientServerTLS.CommonName != "" {
+		return v.Spec.ClientServerTLS.CommonName
+	}
+	return v.GetVerticaUser()
+}
+
 // GetNMAClientServerTLSMode returns the tlsMode for NMA client-server communication
 func (v *VerticaDB) GetNMAClientServerTLSMode() string {
 	tlsMode := v.GetClientServerTLSMode()
