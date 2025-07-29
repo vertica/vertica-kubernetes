@@ -42,30 +42,33 @@ const (
 )
 
 type HTTPSTLSUpdateReconciler struct {
-	VRec       *VerticaDBReconciler
-	Vdb        *vapi.VerticaDB // Vdb is the CRD we are acting on.
-	Log        logr.Logger
-	Dispatcher vadmin.Dispatcher
-	PFacts     *podfacts.PodFacts
-	Manager    *TLSConfigManager
+	VRec         *VerticaDBReconciler
+	Vdb          *vapi.VerticaDB // Vdb is the CRD we are acting on.
+	Log          logr.Logger
+	Dispatcher   vadmin.Dispatcher
+	PFacts       *podfacts.PodFacts
+	Manager      *TLSConfigManager
+	FromRollback bool // Whether or not this has been called from the rollback reconciler
 }
 
 func MakeHTTPSTLSUpdateReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger, vdb *vapi.VerticaDB, dispatcher vadmin.Dispatcher,
-	pfacts *podfacts.PodFacts) controllers.ReconcileActor {
+	pfacts *podfacts.PodFacts, fromRollback bool) controllers.ReconcileActor {
 	return &HTTPSTLSUpdateReconciler{
-		VRec:       vdbrecon,
-		Vdb:        vdb,
-		Log:        log.WithName("HTTPSTLSUpdateReconciler"),
-		Dispatcher: dispatcher,
-		PFacts:     pfacts,
-		Manager:    MakeTLSConfigManager(vdbrecon, log, vdb, tlsConfigHTTPS, dispatcher),
+		VRec:         vdbrecon,
+		Vdb:          vdb,
+		Log:          log.WithName("HTTPSTLSUpdateReconciler"),
+		Dispatcher:   dispatcher,
+		PFacts:       pfacts,
+		Manager:      MakeTLSConfigManager(vdbrecon, log, vdb, tlsConfigHTTPS, dispatcher),
+		FromRollback: fromRollback,
 	}
 }
 
 // Reconcile will rotate TLS certificate.
 func (h *HTTPSTLSUpdateReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (ctrl.Result, error) {
-	// Skip if TLS not enabled, DB not initialized, or rotate has failed
-	if h.Vdb.ShouldSkipTLSUpdateReconcile() {
+	// Skip if TLS not enabled, DB not initialized, or rotate has failed.
+	// However, if called from rollback reconciler, always run.
+	if h.Vdb.ShouldSkipTLSUpdateReconcile() && !h.FromRollback {
 		return ctrl.Result{}, nil
 	}
 
@@ -94,11 +97,6 @@ func (h *HTTPSTLSUpdateReconciler) Reconcile(ctx context.Context, req *ctrl.Requ
 		return ctrl.Result{}, nil
 	}
 
-	// we want to be sure nma tls configmap exists and has the freshest values
-	if res, errCheck := h.Manager.checkNMATLSConfigMap(ctx); verrors.IsReconcileAborted(res, errCheck) {
-		return res, errCheck
-	}
-
 	h.Log.Info("start https tls config update")
 	cond := vapi.MakeCondition(vapi.TLSConfigUpdateInProgress, metav1.ConditionTrue, "InProgress")
 	if err2 := vdbstatus.UpdateCondition(ctx, h.VRec.GetClient(), h.Vdb, cond); err2 != nil {
@@ -121,19 +119,6 @@ func (h *HTTPSTLSUpdateReconciler) Reconcile(ctx context.Context, req *ctrl.Requ
 
 	err = h.Manager.updateTLSConfig(ctx, initiatorPod.GetPodIP())
 	if err != nil {
-		return ctrl.Result{}, err
-	}
-
-	// Clear TLSConfigUpdateInProgress condition if only tls mode changed.
-	// This way, we will skip nma cert rotation
-	if h.Manager.TLSUpdateType == tlsModeChangeOnly {
-		cond = vapi.MakeCondition(vapi.TLSConfigUpdateInProgress, metav1.ConditionFalse, "Completed")
-		return ctrl.Result{}, vdbstatus.UpdateCondition(ctx, h.VRec.GetClient(), h.Vdb, cond)
-	}
-
-	cond = vapi.MakeCondition(vapi.HTTPSTLSConfigUpdateFinished, metav1.ConditionTrue, "Completed")
-	if err := vdbstatus.UpdateCondition(ctx, h.VRec.GetClient(), h.Vdb, cond); err != nil {
-		h.Log.Error(err, "failed to set condition "+vapi.HTTPSTLSConfigUpdateFinished+" to true")
 		return ctrl.Result{}, err
 	}
 

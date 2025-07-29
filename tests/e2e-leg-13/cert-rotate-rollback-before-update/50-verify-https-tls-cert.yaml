@@ -11,7 +11,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: kuttl.dev/v1beta1
+apiVersion: kuttl.dev/v1beta2
 kind: TestStep
 commands:
-  - script: cd ../../.. && make create-tls-secret SECRET_NAME=custom-cert SECRET_NAMESPACE=$NAMESPACE DB_USER=$VERTICA_SUPERUSER_NAME
+  - command: kubectl exec -n $NAMESPACE v-cert-rotate-rollback-before-update-sc1-0 -c server -- bash -c "openssl s_client -showcerts -connect localhost:8443 </dev/null > /tmp/tls_from_https.crt; exit 0"
+  - command: kubectl cp -n $NAMESPACE -c server v-cert-rotate-rollback-before-update-sc1-0:tmp/tls_from_https.crt /tmp/tls_from_https.crt
+  - command: bash ./compare_cert.sh $NAMESPACE /tmp/tls_from_https.crt

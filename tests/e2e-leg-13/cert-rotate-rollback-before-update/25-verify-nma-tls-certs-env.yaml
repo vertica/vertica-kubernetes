@@ -11,7 +11,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: kuttl.dev/v1beta1
+apiVersion: kuttl.dev/v1beta2
 kind: TestStep
 commands:
-  - script: cd ../../.. && make create-tls-secret SECRET_NAME=custom-cert SECRET_NAMESPACE=$NAMESPACE DB_USER=$VERTICA_SUPERUSER_NAME
+  # nma env variable should exist.
+  - command: kubectl exec -n $NAMESPACE v-cert-rotate-rollback-before-update-sc1-0 -c nma -- bash -c "env | grep NMA_SECRET_NAME=v-cert-rotate-rollback-before-update-https-tls"
+  - command: kubectl exec -n $NAMESPACE v-cert-rotate-rollback-before-update-sc1-0 -c nma -- bash -c "env | grep NMA_SECRET_NAMESPACE=$NAMESPACE"
