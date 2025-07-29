@@ -281,6 +281,12 @@ type VerticaDBSpec struct {
 	// the default context is used.
 	PodSecurityContext *corev1.PodSecurityContext `json:"podSecurityContext,omitempty"`
 
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:advanced"
+	// Allow users to specify TLS version and cipher suites. Version 2 (TLS1.2) and 3 (TLS1.3) are supported.
+	// The cipher suites must match the TLS version.
+	DBTLSConfig *DBTLSConfig `json:"dbTlsConfig,omitempty"`
+
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:io.kubernetes:Secret","urn:alm:descriptor:com.tectonic.ui:advanced"}
 	// +kubebuilder:default:=""
 	// +kubebuilder:validation:Optional
@@ -936,13 +942,14 @@ type Affinity struct {
 	PodAntiAffinity *corev1.PodAntiAffinity `json:"podAntiAffinity,omitempty" protobuf:"bytes,3,opt,name=podAntiAffinity"`
 }
 
-type DbTLSConfig struct {
+type DBTLSConfig struct {
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:default:=2
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// TLSVersion can be 2 or 3. By default, version 2 is used.
 	TLSVersion int `json:"tlsVersion,omitempty"`
 	// +kubebuilder:validation:Optional
+	// +kubebuilder:default:="ALL"
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// CipherSuites is a comma-separated list of cipher suites. TLS 1.2 and 1.3 use different cipher suites. The value for
 	// this field must match that of TLSVersion.
@@ -1056,13 +1063,16 @@ type VerticaDBStatus struct {
 	// The list of current TLS configurations for different components
 	TLSConfigs []TLSConfigStatus `json:"tlsConfigs,omitempty"`
 
-	// +operator-sdk:csv:customresourcedefinitions:type=status
-	// +optional
 	// Deployment method used to operate the database.
 	// Determined by the "vertica.com/vcluster-ops" annotation:
 	//   - "true" → use "vclusterops"
 	//   - any other value → use "admintools".
 	DeploymentMethod string `json:"deploymentMethod,omitempty"`
+
+	// +operator-sdk:csv:customresourcedefinitions:type=status
+	// +optional
+	// The DB level TLS config
+	DBTLSConfig *DBTLSConfig `json:"dbTlsConfig,omitempty"`
 }
 
 const (
