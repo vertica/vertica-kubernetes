@@ -529,53 +529,156 @@ loki:
   bloomGateway:
     replicas: 0
 
-k8s-monitoring:
-  enabled: false # Set to true if you want to deploy k8s-monitoring
+alloy:
+  enabled: false
 
-  cluster:
-    name: vertica
+  # General application settings
+  # -----------------------------
+  # Define the number of replicas for the deployment.
+  # Can be overridden for different environments.
+  replicaCount: 1
   
-  destinations:
-    - name: loki
-      type: loki
-      #url: http://{{ .Release.Name }}-loki-gateway.{{ .Release.Namespace }}.svc.cluster.local/loki/api/v1/push
-      url: http://vdb-op-loki-gateway.verticadb-operator.svc.cluster.local/loki/api/v1/push
+  # Resource limits and requests
+  # Defines CPU and memory requests and limits for the application's containers.
+  resources:
+    limits:
+      cpu: 100m
+      memory: 128Mi
+    requests:
+      cpu: 50m
+      memory: 64Mi
   
-  clusterEvents:
-    enabled: true
-    collector: alloy-logs
-  
-  nodeLogs:
-    enabled: false
-  
-  podLogs:
-    enabled: true
-    gatherMethod: kubernetesApi
-    collector: alloy-logs
-    labelsToKeep: ["container","instance","level","namespace","service_name"]
-    structuredMetadata:
-      k8s.pod.name: k8s.pod.name
-      pod: pod  # Set structured metadata "pod" from label "pod"
-  
-  # Collectors
-  alloy-singleton:
-    enabled: false
-  
-  alloy-metrics:
-    enabled: false
-  
-  alloy-logs:
-    enabled: true
-    alloy:
-      mounts:
-        varlog: false
-        dockercontainers: false
-      clustering:
-        enabled: true
-  
-  alloy-profiles:
-    enabled: false
-  
-  alloy-receiver:
-    enabled: false
+  # Grafana Alloy specific configuration (example)
+  alloy:
+    configMap:
+      content: |-
+        loki.write "default" {
+          endpoint {
+            url = "http://{{ .Release.Name }}-loki-gateway.{{ .Release.Namespace }}.svc.cluster.local/loki/api/v1/push"
+          }
+        }
 
+        // local.file_match discovers files on the local filesystem
+        local.file_match "vertica_logs" {
+          path_targets = [{ "__path__" = "/*/*/v_*_node*_catalog/vertica.log" }]
+          sync_period = "5s" // Sync the filesystem every 5 seconds to detect changes
+        }
+
+        // loki.source.file reads log entries from files and forwards them to other loki.* components.
+        loki.source.file "vertica_logs" {
+          targets    = local.file_match.vertica_logs.targets
+          forward_to = [loki.write.default.receiver]
+          tail_from_end = true // Start reading from the end of the file if no position is stored
+        }
+
+        // Add labels
+        loki.process "add_labels" {
+          stage.labels {
+            values = {
+              "app" = "vertica-logs", // Add a label "app" with the value "my_application"
+            }
+          }
+          forward_to = [loki.write.default.receiver] // Forward processed logs to Loki
+        }
+
+        // discovery.kubernetes allows you to find scrape targets from Kubernetes resources.
+        // It watches cluster state and ensures targets are continually synced with what is currently running in your cluster.
+        discovery.kubernetes "pod" {
+          role = "pod"
+        }
+
+        // discovery.relabel rewrites the label set of the input targets by applying one or more relabeling rules.
+        // If no rules are defined, then the input targets are exported as-is.
+        discovery.relabel "pod_logs" {
+          targets = discovery.kubernetes.pod.targets
+
+          // Label creation - "namespace" field from "__meta_kubernetes_namespace"
+          rule {
+            source_labels = ["__meta_kubernetes_namespace"]
+            action = "replace"
+            target_label = "namespace"
+          }
+
+          // Label creation - "namespace_pod" field from "__meta_kubernetes_namespace" and "__meta_kubernetes_pod_name"
+          rule {
+            source_labels = ["__meta_kubernetes_namespace", "__meta_kubernetes_pod_name"]
+            action = "replace"
+            target_label = "pod"
+            separator = "/"
+            replacement = "$1"
+          }
+
+          // Label creation -  "namespace_container" field from "__meta_kubernetes_namespace" and "__meta_kubernetes_pod_container_name"
+          // Concatenate values __meta_kubernetes_namespace/__meta_kubernetes_pod_container_name
+          rule {
+            source_labels = ["__meta_kubernetes_namespace", "__meta_kubernetes_pod_container_name"]
+            action = "replace"
+            target_label = "job"
+            separator = "/"
+            replacement = "$1"
+          }
+
+          // Label creation - "uid_container" field from "__meta_kubernetes_pod_uid" and "__meta_kubernetes_pod_container_name"
+          // Concatenate values __meta_kubernetes_pod_uid/__meta_kubernetes_pod_container_name.log
+          rule {
+            source_labels = ["__meta_kubernetes_pod_uid", "__meta_kubernetes_pod_container_name"]
+            action = "replace"
+            target_label = "__path__"
+            separator = "/"
+            replacement = "/var/log/pods/*$1/*.log"
+          }
+
+          // Label creation - "namespace_vertica_log" field from "__meta_kubernetes_pod_uid" and "__meta_kubernetes_pod_container_name"
+          // Concatenate values __meta_kubernetes_pod_uid/__meta_kubernetes_pod_container_name.log
+          rule {
+            source_labels = ["__meta_kubernetes_namespace", "__meta_kubernetes_pod_name"]
+            action = "replace"
+            target_label = "__path__"
+            separator = "/"
+            replacement = "/*/*/v_*_node*_catalog/vertica.log"
+          }
+        }
+
+        // loki.source.kubernetes tails logs from Kubernetes containers using the Kubernetes API.
+        loki.source.kubernetes "pod_logs" {
+          targets    = discovery.relabel.pod_logs.output
+          forward_to = [loki.process.pod_logs.receiver]
+        }
+
+        loki.process "pod_logs" {
+          stage.static_labels {
+              values = {
+                cluster = "vertica",
+              }
+          }
+
+          forward_to = [loki.write.default.receiver]
+        }
+
+        // loki.source.kubernetes_events tails events from the Kubernetes API and converts them
+        // into log lines to forward to other Loki components.
+        loki.source.kubernetes_events "cluster_events" {
+          job_name   = "integrations/kubernetes/eventhandler"
+          log_format = "logfmt"
+          forward_to = [
+            loki.process.cluster_events.receiver,
+          ]
+        }
+
+        // loki.process receives log entries from other loki components, applies one or more processing stages,
+        // and forwards the results to the list of receivers in the component's arguments.
+        loki.process "cluster_events" {
+          forward_to = [loki.write.default.receiver]
+
+          stage.static_labels {
+            values = {
+              cluster = "vertica",
+            }
+          }
+
+          stage.labels {
+            values = {
+              kubernetes_cluster_events = "job",
+            }
+          }
+        }

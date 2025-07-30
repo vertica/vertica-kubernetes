@@ -213,7 +213,7 @@ runs:
             export GRAFANA_ENABLED=true
             export PROMETHEUS_ENABLED=true
             export LOKI_ENABLED=true
-            export K8S_MONITORING_ENABLED=true
+            export ALLOY_ENABLED=true
           fi
 
           # Set BASE_VERTICA_IMG based on $VERTICA_IMG

@@ -177,8 +177,8 @@ GRAFANA_ENABLED ?= false
 PROMETHEUS_ENABLED ?= false
 # Set this to true if you want to install loki with the operator.
 LOKI_ENABLED ?= false
-# K8S_MONITORING deployed as the agent for loki
-K8S_MONITORING_ENABLED ?= false
+# ALLOY deployed as the agent for loki
+ALLOY_ENABLED ?= false
 # Maximum number of tests to run at once. (default 2)
 # Set it to any value not greater than 8 to override the default one
 E2E_PARALLELISM?=2
@@ -709,7 +709,7 @@ uninstall: manifests kustomize ## Uninstall CRDs from the K8s cluster specified 
 deploy-operator: manifests kustomize ## Using helm or olm, deploy the operator in the K8s cluster
 ifeq ($(DEPLOY_WITH), helm)
 	$(MAKE) helm-dependency-update
-	helm install $(DEPLOY_WAIT) -n $(NAMESPACE) --create-namespace $(HELM_RELEASE_NAME) $(OPERATOR_CHART) --set image.repo=null --set image.name=${OPERATOR_IMG} --set image.pullPolicy=$(HELM_IMAGE_PULL_POLICY) --set imagePullSecrets[0].name=priv-reg-cred --set controllers.scope=$(CONTROLLERS_SCOPE) --set controllers.vdbMaxBackoffDuration=$(VDB_MAX_BACKOFF_DURATION) --set controllers.sandboxMaxBackoffDuration=$(SANDBOX_MAX_BACKOFF_DURATION) --set grafana.enabled=${GRAFANA_ENABLED} --set prometheus-server.enabled=${PROMETHEUS_ENABLED} --set loki.enabled=${LOKI_ENABLED} --set k8s-monitoring.enabled=${K8S_MONITORING_ENABLED} $(HELM_OVERRIDES)
+	helm install $(DEPLOY_WAIT) -n $(NAMESPACE) --create-namespace $(HELM_RELEASE_NAME) $(OPERATOR_CHART) --set image.repo=null --set image.name=${OPERATOR_IMG} --set image.pullPolicy=$(HELM_IMAGE_PULL_POLICY) --set imagePullSecrets[0].name=priv-reg-cred --set controllers.scope=$(CONTROLLERS_SCOPE) --set controllers.vdbMaxBackoffDuration=$(VDB_MAX_BACKOFF_DURATION) --set controllers.sandboxMaxBackoffDuration=$(SANDBOX_MAX_BACKOFF_DURATION) --set grafana.enabled=${GRAFANA_ENABLED} --set prometheus-server.enabled=${PROMETHEUS_ENABLED} --set loki.enabled=${LOKI_ENABLED} --set alloy.enabled=${ALLOY_ENABLED} $(HELM_OVERRIDES)
 	scripts/wait-for-webhook.sh -n $(NAMESPACE) -t 60
 else ifeq ($(DEPLOY_WITH), olm)
 	scripts/deploy-olm.sh -n $(NAMESPACE) $(OLM_TEST_CATALOG_SOURCE)
