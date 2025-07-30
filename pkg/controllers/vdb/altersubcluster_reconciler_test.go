@@ -80,6 +80,9 @@ var _ = Describe("altersubcluster_reconcile", func() {
 		Expect(err).Should(BeNil())
 		Expect(len(scs)).Should(Equal(1))
 		Expect(scs[0]).Should(Equal(subcluster2))
+
+		initiatorIP, _ := a.getInitiatorIP(scs)
+		Ω(initiatorIP).Should(Equal(pFacts.Detail[nmSc1].GetPodIP()))
 	})
 
 	It("should find sandbox subclusters to alter for upgrade", func() {
@@ -143,5 +146,10 @@ var _ = Describe("altersubcluster_reconcile", func() {
 		Expect(len(scs)).Should(Equal(2))
 		Expect(scs[0]).Should(Equal(subcluster3))
 		Expect(scs[1]).Should(Equal(subcluster4))
+
+		sc1 := &vdb.Spec.Subclusters[0]
+		nmSc1 := names.GenPodName(vdb, sc1, 0)
+		initiatorIP, _ := a.getInitiatorIP(scs)
+		Ω(initiatorIP).Should(Equal(pFacts.Detail[nmSc1].GetPodIP()))
 	})
 })

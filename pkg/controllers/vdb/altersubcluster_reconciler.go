@@ -18,6 +18,7 @@ package vdb
 import (
 	"context"
 	"fmt"
+	"slices"
 
 	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
@@ -83,7 +84,7 @@ func (a *AlterSubclusterTypeReconciler) Reconcile(ctx context.Context, _ *ctrl.R
 		return ctrl.Result{}, err
 	}
 
-	initiatorIP, requeue := a.getInitiatorIP()
+	initiatorIP, requeue := a.getInitiatorIP(scs)
 	if requeue {
 		a.Log.Info("Requeue alterSubclusters: could not find initiatorIP")
 		return ctrl.Result{Requeue: requeue}, nil
@@ -230,15 +231,17 @@ func (a *AlterSubclusterTypeReconciler) removeTriggerIDFromConfigMap(ctx context
 	return nil
 }
 
-// getInitiatorIP returns the initiator ip that will be used for
+// getInitiatorIP returns the initiator ip in the main cluster and will not be demoted that will be used for
 // alterSubclusterType
-func (a *AlterSubclusterTypeReconciler) getInitiatorIP() (string, bool) {
+func (a *AlterSubclusterTypeReconciler) getInitiatorIP(scs []string) (string, bool) {
 	initiator, ok := a.PFacts.FindFirstPodSorted(func(v *podfacts.PodFact) bool {
-		return v.GetIsPrimary() && v.GetUpNode()
+		return v.GetSandbox() == vapi.MainCluster && !slices.Contains(scs, v.GetSubclusterName()) &&
+			v.GetIsPrimary() && v.GetUpNode()
 	})
 	if !ok {
 		a.Log.Info("No Up nodes found. Requeue reconciliation.")
 		return "", true
 	}
+	a.Log.Info("DEBUG:Initiator ip found", "initiatorIP", initiator.GetPodIP())
 	return initiator.GetPodIP(), false
 }
