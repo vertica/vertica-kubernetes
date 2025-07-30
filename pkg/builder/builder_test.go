@@ -257,6 +257,16 @@ var _ = Describe("builder", func() {
 		verifyNoResourcesSet(&cnt)
 	})
 
+	It("should set imagePullSecrets from vdb", func() {
+		vscr := v1beta1.MakeVscr()
+		vdb := vapi.MakeVDB()
+		const secretName = "test"
+		vdb.Spec.ImagePullSecrets = []vapi.LocalObjectReference{{Name: secretName}}
+		pod := BuildScrutinizePod(vscr, vdb, []string{})
+		Ω(len(pod.Spec.ImagePullSecrets)).Should(Equal(1))
+		Ω(pod.Spec.ImagePullSecrets[0].Name).Should(Equal(secretName))
+	})
+
 	It("should set scrutinize main container resources if set in the init container", func() {
 		vscr := v1beta1.MakeVscr()
 		vdb := vapi.MakeVDB()
