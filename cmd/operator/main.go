@@ -48,6 +48,7 @@ import (
 	vapiV1 "github.com/vertica/vertica-kubernetes/api/v1"
 	vapiB1 "github.com/vertica/vertica-kubernetes/api/v1beta1"
 
+	promv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers/et"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers/sandbox"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers/vas"
@@ -89,6 +90,7 @@ func init() {
 	utilruntime.Must(vapiB1.AddToScheme(scheme))
 	utilruntime.Must(vapiV1.AddToScheme(scheme))
 	utilruntime.Must(kedav1alpha1.AddToScheme(scheme))
+	utilruntime.Must(promv1.AddToScheme(scheme))
 	// +kubebuilder:scaffold:scheme
 }
 
@@ -271,6 +273,7 @@ func main() {
 		"webhooksEnabled", opcfg.GetIsWebhookEnabled(),
 		"controllersEnabled", opcfg.GetIsControllersEnabled(),
 		"broadcasterBurstSize", burstSize,
+		"monitoringEnabled", opcfg.IsPrometheusEnabled(),
 	)
 
 	var webhookTLSOpts []func(*tls.Config)

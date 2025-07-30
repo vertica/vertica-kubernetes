@@ -1699,6 +1699,16 @@ func (v *VerticaDB) GetHTTPSNMATLSSecretInUse() string {
 	return v.GetSecretInUse(HTTPSNMATLSConfigName)
 }
 
+// GetNonEmptyHTTPSNMATLSSecret returns the httpsNMA secret
+// from the status if non empty or from the spec
+func (v *VerticaDB) GetNonEmptyHTTPSNMATLSSecret() string {
+	if v.GetHTTPSNMATLSSecretInUse() != "" {
+		return v.GetHTTPSNMATLSSecretInUse()
+	}
+
+	return v.GetHTTPSNMATLSSecret()
+}
+
 func (v *VerticaDB) GetClientServerTLSSecretInUse() string {
 	return v.GetSecretInUse(ClientServerTLSConfigName)
 }
@@ -1948,6 +1958,15 @@ func (v *VerticaDB) IsOtherSubclusterDraining(scName string) bool {
 		}
 	}
 	return false
+}
+
+// GetPrometheusScrapeDuration returns the Prometheus scrape duration as a string
+func (v *VerticaDB) GetPrometheusScrapeDuration() string {
+	if vmeta.GetPrometheusScrapeInterval(v.Annotations) == 0 {
+		return ""
+	}
+
+	return fmt.Sprintf("%ds", vmeta.GetPrometheusScrapeInterval(v.Annotations))
 }
 
 // MakeVersionStrForOpVersion can convert operator version to vertica version format

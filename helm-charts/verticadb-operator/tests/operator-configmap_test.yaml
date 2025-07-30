@@ -1,4 +1,4 @@
-suite: Metrics configmap tests
+suite: Operator configmap tests
 templates:
   - verticadb-operator-manager-config-cm.yaml
 tests:
@@ -18,3 +18,11 @@ tests:
       - equal:
           path: data.METRICS_ADDR
           value: 0.0.0.0:8443
+  - it: should set prometheus_enabled
+    set:
+      prometheus-server:
+        enabled: true
+    asserts:
+      - equal:
+          path: data.PROMETHEUS_ENABLED
+          value: "true"
