@@ -21,11 +21,14 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -76,12 +79,13 @@ type VerticaDBReconciler struct {
 // +kubebuilder:rbac:groups="",resources=configmaps,verbs=get;list;watch;update;delete;create
 // +kubebuilder:rbac:groups="",resources=persistentvolumeclaims,verbs=get;list;watch;update
 // +kubebuilder:rbac:groups="",resources=events,verbs=create;patch
+// +kubebuilder:rbac:groups="monitoring.coreos.com",resources=servicemonitors,verbs=get;list;watch;create;update
 
 // SetupWithManager sets up the controller with the Manager.
 //
 //nolint:gocritic
 func (r *VerticaDBReconciler) SetupWithManager(mgr ctrl.Manager, options controller.Options) error {
-	return ctrl.NewControllerManagedBy(mgr).
+	ctrlManager := ctrl.NewControllerManagedBy(mgr).
 		WithOptions(options).
 		For(&vapi.VerticaDB{}).
 		Owns(&corev1.ServiceAccount{}).
@@ -89,14 +93,28 @@ func (r *VerticaDBReconciler) SetupWithManager(mgr ctrl.Manager, options control
 		Owns(&rbacv1.RoleBinding{}).
 		Owns(&corev1.Service{}).
 		Owns(&appsv1.StatefulSet{}).
-		Owns(&appsv1.Deployment{}).
-		WithEventFilter(predicate.NewPredicateFuncs(func(obj client.Object) bool {
-			if r.Namespace == "" {
-				return true
-			}
-			return obj.GetNamespace() == r.Namespace
-		})).
-		Complete(r)
+		Owns(&appsv1.Deployment{})
+
+	discoveryClient := discovery.NewDiscoveryClientForConfigOrDie(mgr.GetConfig())
+	if isServiceMonitorObjectInstalled(discoveryClient) {
+		ctrlManager.Owns(&monitoringv1.ServiceMonitor{})
+	}
+
+	ctrlManager.WithEventFilter(predicate.NewPredicateFuncs(func(obj client.Object) bool {
+		if r.Namespace == "" {
+			return true
+		}
+		return obj.GetNamespace() == r.Namespace
+	}))
+
+	return ctrlManager.Complete(r)
+}
+
+// Function to check if servicemonitor CRD exists
+func isServiceMonitorObjectInstalled(discoveryClient discovery.DiscoveryInterface) bool {
+	gvr := schema.GroupVersionResource{Group: "monitoring.coreos.com", Version: "v1", Resource: "servicemonitors"}
+	_, err := discoveryClient.ServerResourcesForGroupVersion(gvr.GroupVersion().String())
+	return err == nil
 }
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
@@ -225,6 +243,9 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 			ObjReconcileModePreserveScaling|ObjReconcileModePreserveUpdateStrategy),
 		// Set up TLS config if users turn it on
 		MakeTLSReconciler(r, log, vdb, prunner, dispatcher, pfacts),
+		// Update the service monitor that will allow prometheus to scrape the
+		// metrics from the vertica pods.
+		MakeServiceMonitorReconciler(vdb, r, log),
 		// Add annotations/labels to each pod about the host running them
 		MakeAnnotateAndLabelPodReconciler(r, log, vdb, pfacts),
 		// Trigger sandbox shutdown when the shutdown field of the sandbox
@@ -276,6 +297,9 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		// Handle calls to revive a database
 		MakeReviveDBReconciler(r, log, vdb, prunner, pfacts, dispatcher),
 		MakeTLSReconciler(r, log, vdb, prunner, dispatcher, pfacts),
+		// Update the service monitor that will allow prometheus to scrape the
+		// metrics from the vertica pods.
+		MakeServiceMonitorReconciler(vdb, r, log),
 		// Add additional buckets for data replication
 		MakeAddtionalBucketsReconciler(r, log, vdb, prunner, pfacts),
 		MakeMetricReconciler(r, log, vdb, prunner, pfacts),

@@ -31,7 +31,6 @@ tests:
               - scaledobjects
             verbs:
               - create
-              - delete
               - get
               - list
               - patch
@@ -46,9 +45,37 @@ tests:
               - triggerauthentications
             verbs:
               - create
-              - delete
               - get
               - list
               - patch
+              - update
+              - watch
+  - it: should not include servicemonitors when prometheus is disabled
+    set:
+      prometheus-server:
+        enabled: false
+    asserts:
+      - notContains:
+          path: rules
+          any: true
+          content:
+            apiGroups:
+              - monitoring.coreos.com
+  - it: should include servicemonitors when prometheus is enabled
+    set:
+      prometheus-server:
+        enabled: true
+    asserts:
+      - contains:
+          path: rules
+          content:
+            apiGroups:
+              - monitoring.coreos.com
+            resources:
+              - servicemonitors
+            verbs:
+              - create
+              - get
+              - list
               - update
               - watch
