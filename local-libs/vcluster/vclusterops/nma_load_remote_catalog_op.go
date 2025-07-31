@@ -82,8 +82,9 @@ func makeNMALoadRemoteCatalogWithSandboxOp(oldHosts []string, configurationParam
 	return op
 }
 
-func makeNMALoadRemoteCatalogForInPlaceRevive(oldHosts []string, configurationParameters map[string]string,
+func makeNMALoadRemoteCatalogForInPlaceRevive(configurationParameters map[string]string,
 	vdb *VCoordinationDatabase, sandbox string) nmaLoadRemoteCatalogOp {
+	oldHosts := []string{}
 	op := makeNMALoadRemoteCatalogOp(oldHosts, configurationParameters, vdb, 0, nil)
 	op.Sandbox = sandbox
 	op.forInPlaceRevive = true
@@ -125,11 +126,12 @@ func (op *nmaLoadRemoteCatalogOp) setupRequestBody(execContext *opEngineExecCont
 		requestData.NodeName = vNode.Name
 		requestData.CatalogPath = vNode.CatalogPath
 		requestData.StorageLocations = vNode.StorageLocations
-		if len(op.oldHosts) == 0 || len(op.oldHosts) <= index {
+		if len(op.oldHosts) == 0 {
 			requestData.Host = host
 		} else {
 			requestData.Host = op.oldHosts[index]
 		}
+
 		requestData.NodeAddresses = nodeAddresses
 		requestData.Parameters = op.configurationParameters
 		if op.restorePoint != nil {
