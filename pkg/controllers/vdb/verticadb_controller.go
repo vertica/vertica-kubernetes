@@ -42,6 +42,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
+	"github.com/vertica/vertica-kubernetes/pkg/opcfg"
 
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/metrics"
@@ -96,7 +97,7 @@ func (r *VerticaDBReconciler) SetupWithManager(mgr ctrl.Manager, options control
 		Owns(&appsv1.Deployment{})
 
 	discoveryClient := discovery.NewDiscoveryClientForConfigOrDie(mgr.GetConfig())
-	if isServiceMonitorObjectInstalled(discoveryClient) {
+	if opcfg.IsPrometheusEnabled() && isServiceMonitorObjectInstalled(discoveryClient) {
 		ctrlManager.Owns(&monitoringv1.ServiceMonitor{})
 	}
 

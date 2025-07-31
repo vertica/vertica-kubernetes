@@ -870,6 +870,8 @@ var _ = Describe("builder", func() {
 		Ω(endpoint.TLSConfig).ShouldNot(BeNil())
 		Ω(endpoint.TLSConfig.InsecureSkipVerify).ShouldNot(BeNil())
 		Ω(*endpoint.TLSConfig.InsecureSkipVerify).Should(BeFalse())
+		Ω(endpoint.TLSConfig.ServerName).ShouldNot(BeNil())
+		Ω(*endpoint.TLSConfig.ServerName).Should(Equal(fmt.Sprintf("*.%s.svc.cluster.local", vdb.Namespace)))
 		Ω(endpoint.TLSConfig.KeySecret).ShouldNot(BeNil())
 		Ω(endpoint.TLSConfig.Cert.Secret).ShouldNot(BeNil())
 		Ω(endpoint.TLSConfig.CA.Secret).ShouldNot(BeNil())
