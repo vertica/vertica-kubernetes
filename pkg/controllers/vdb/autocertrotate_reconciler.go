@@ -82,8 +82,16 @@ func (r *AutoCertRotateReconciler) autoRotateByTLSConfig(ctx context.Context, tl
 	// If next update is not set, no auto-rotate is scheduled. This is likely right after auto-rotate has been
 	// first set up. So, set first secret and configure status.
 	nextUpdate := r.Vdb.GetTLSNextUpdate(tlsConfig)
-	if nextUpdate.IsZero() || len(r.Vdb.GetAutoRotateSecrets(tlsConfig)) == 0 {
+	if nextUpdate == nil || len(r.Vdb.GetAutoRotateSecrets(tlsConfig)) == 0 {
 		r.Log.Info("Initializing TLS auto-rotation", "tlsConfig", tlsConfig)
+		return r.initializeAutoRotate(ctx, tlsConfig)
+	}
+
+	// If spec secret list does not match status secret list, user must have updated the spec.
+	// For now, assume that any change means that user wants to restart auto-rotation from scratch.
+	if !r.Vdb.EqualStringSlices(r.Vdb.GetTLSConfigAutoRotate(tlsConfig).Secrets,
+		r.Vdb.GetTLSConfigByName(tlsConfig).AutoRotateSecrets) {
+		r.Log.Info("Secret list changed; reinitializing auto-rotate", "tlsConfig", tlsConfig)
 		return r.initializeAutoRotate(ctx, tlsConfig)
 	}
 
@@ -161,9 +169,6 @@ func (r *AutoCertRotateReconciler) rotateToSecret(
 	ctx context.Context, tlsConfig string, secrets []string, secretToRotateTo string,
 ) (ctrl.Result, error) {
 	now := time.Now()
-	interval := r.Vdb.GetTLSConfigAutoRotate(tlsConfig).Interval
-	nextUpdate := now.Add(time.Duration(interval) * 24 * time.Hour)
-
 	patch := r.Vdb.DeepCopy()
 
 	// Update spec to trigger cert rotation
@@ -181,7 +186,6 @@ func (r *AutoCertRotateReconciler) rotateToSecret(
 	status := patch.GetTLSConfigByName(tlsConfig)
 	status.AutoRotateSecrets = secrets
 	status.LastUpdate = v1.NewTime(now)
-	status.NextUpdate = v1.NewTime(nextUpdate)
 
 	if err := r.VRec.Client.Update(ctx, patch); err != nil {
 		r.Log.Error(err, "Failed to patch VerticaDB spec during rotate", "tlsConfig", tlsConfig)
