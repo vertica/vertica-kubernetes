@@ -586,7 +586,6 @@ func (in *TLSConfigSpec) DeepCopy() *TLSConfigSpec {
 func (in *TLSConfigStatus) DeepCopyInto(out *TLSConfigStatus) {
 	*out = *in
 	in.LastUpdate.DeepCopyInto(&out.LastUpdate)
-	in.NextUpdate.DeepCopyInto(&out.NextUpdate)
 	if in.AutoRotateSecrets != nil {
 		in, out := &in.AutoRotateSecrets, &out.AutoRotateSecrets
 		*out = make([]string, len(*in))

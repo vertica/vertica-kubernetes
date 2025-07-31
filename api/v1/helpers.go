@@ -784,13 +784,17 @@ func (v *VerticaDB) GetTLSLastUpdate(tlsConfig string) metav1.Time {
 }
 
 // GetTLSLastUpdate gets the last update time from the status
-// for a certain tlsconfig (clientServer or httpsNMA)
-func (v *VerticaDB) GetTLSNextUpdate(tlsConfig string) metav1.Time {
-	config := v.GetTLSConfigByName(tlsConfig)
-	if config == nil {
-		return metav1.Time{}
+// for a certain tlsconfig (clientServer or httpsNMA). It does so
+// using LastUpdate from status and autoRotate.interval from spec.
+func (v *VerticaDB) GetTLSNextUpdate(tlsConfig string) *metav1.Time {
+	status := v.GetTLSConfigByName(tlsConfig)
+	if status == nil || status.LastUpdate.IsZero() {
+		return nil
 	}
-	return config.NextUpdate
+
+	interval := v.GetTLSConfigAutoRotate(tlsConfig).Interval
+	next := status.LastUpdate.Time.Add(time.Duration(interval) * 24 * time.Hour)
+	return &metav1.Time{Time: next}
 }
 
 // GetTLSConfigAutoRotate gets the TLSAutoRotate from spec
@@ -2030,10 +2034,6 @@ func SetTLSConfigs(refs *[]TLSConfigStatus, newRef *TLSConfigStatus) (changed bo
 		existing.LastUpdate = newRef.LastUpdate
 		changed = true
 	}
-	if !newRef.NextUpdate.IsZero() && existing.NextUpdate != newRef.NextUpdate {
-		existing.NextUpdate = newRef.NextUpdate
-		changed = true
-	}
 	if newRef.AutoRotateSecrets != nil {
 		existing.AutoRotateSecrets = newRef.AutoRotateSecrets
 		changed = true
@@ -2183,4 +2183,17 @@ func MakeVersionStrForOpVersion(v string) string {
 		return ""
 	}
 	return "v" + v
+}
+
+// equalStringSlices compares two string arrays, slice by slice
+func (v *VerticaDB) EqualStringSlices(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
 }

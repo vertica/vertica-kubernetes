@@ -1054,10 +1054,6 @@ type TLSConfigStatus struct {
 	LastUpdate metav1.Time `json:"lastUpdate,omitempty"`
 	// +operator-sdk:csv:customresourcedefinitions:type=status
 	// +optional
-	// Timestamp of next scheduled cert rotation
-	NextUpdate metav1.Time `json:"nextUpdate,omitempty"`
-	// +operator-sdk:csv:customresourcedefinitions:type=status
-	// +optional
 	// List of secrets to be used for auto-rotate
 	AutoRotateSecrets []string `json:"autoRotateSecrets,omitempty"`
 }
