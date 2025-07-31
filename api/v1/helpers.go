@@ -783,7 +783,7 @@ func (v *VerticaDB) GetTLSLastUpdate(tlsConfig string) metav1.Time {
 	return config.LastUpdate
 }
 
-// GetTLSLastUpdate gets the next update time from the status
+// GetTLSNextUpdate gets the next update time from the status
 // for a certain tlsconfig (clientServer or httpsNMA). It does so
 // using LastUpdate from status and autoRotate.interval from spec.
 func (v *VerticaDB) GetTLSNextUpdate(tlsConfig string) *metav1.Time {
