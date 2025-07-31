@@ -88,11 +88,19 @@ func (r *AutoCertRotateReconciler) autoRotateByTLSConfig(ctx context.Context, tl
 	}
 
 	// If spec secret list does not match status secret list, user must have updated the spec.
-	// For now, assume that any change means that user wants to restart auto-rotation from scratch.
-	if !r.Vdb.EqualStringSlices(r.Vdb.GetTLSConfigAutoRotate(tlsConfig).Secrets,
-		r.Vdb.GetTLSConfigByName(tlsConfig).AutoRotateSecrets) {
-		r.Log.Info("Secret list changed; reinitializing auto-rotate", "tlsConfig", tlsConfig)
-		return r.initializeAutoRotate(ctx, tlsConfig)
+	// There are two scenarios here:
+	//   1) If current secret is still in list, just continue rotating from its new position
+	//   2) If current secret is not in list, restart auto-rotate from scratch
+	specSecrets := r.Vdb.GetTLSConfigAutoRotate(tlsConfig).Secrets
+	if !r.Vdb.EqualStringSlices(specSecrets, r.Vdb.GetTLSConfigByName(tlsConfig).AutoRotateSecrets) {
+		current := r.Vdb.GetSecretInUse(tlsConfig)
+		if r.findSecretInList(current, specSecrets) == -1 {
+			r.Log.Info("Spec secret list changed and current secret is missing. Restarting auto-rotate.")
+			return r.initializeAutoRotate(ctx, tlsConfig)
+		} else {
+			r.Log.Info("Spec secret list changed, preserving current rotation position", "currentSecret", current)
+			return r.patchAutoRotateSecretsInStatus(ctx, tlsConfig)
+		}
 	}
 
 	// Check if we are after nextUpdate.
@@ -129,17 +137,11 @@ func (r *AutoCertRotateReconciler) rotateToNextTLSSecret(ctx context.Context, tl
 	}
 
 	// Find current secret in status secret list
-	idx := -1
-	for i, s := range secrets {
-		if s == current {
-			idx = i
-			break
-		}
-	}
+	secretIndex := r.findSecretInList(current, secrets)
 
 	// If current secret is not in list, the secret was somehow changed outside the auto-rotation.
 	// This should never happen but, if it does, produce an error.
-	if idx == -1 {
+	if secretIndex == -1 {
 		r.VRec.Eventf(r.Vdb, corev1.EventTypeNormal, events.TLSAutoRotateFailed,
 			"Current secret %s not found in auto-rotation secrets for TLS Config %s", current, tlsConfig)
 		return ctrl.Result{}, nil
@@ -147,7 +149,7 @@ func (r *AutoCertRotateReconciler) rotateToNextTLSSecret(ctx context.Context, tl
 
 	// If current secret is last and restartAtEnd is true, begin at the start again;
 	// if it is false, error.
-	if idx+1 >= len(secrets) {
+	if secretIndex+1 >= len(secrets) {
 		if r.Vdb.GetTLSConfigAutoRotate(tlsConfig).RestartAtEnd {
 			r.Log.Info("Restarting TLS auto-rotation", "tlsConfig", tlsConfig)
 			return r.rotateToSecret(ctx, tlsConfig, secrets, secrets[0])
@@ -160,7 +162,7 @@ func (r *AutoCertRotateReconciler) rotateToNextTLSSecret(ctx context.Context, tl
 
 	// Rotate to next secret in list
 	r.Log.Info("Auto-rotating to next TLS secret", "tlsConfig", tlsConfig)
-	return r.rotateToSecret(ctx, tlsConfig, secrets, secrets[idx+1])
+	return r.rotateToSecret(ctx, tlsConfig, secrets, secrets[secretIndex+1])
 }
 
 // rotateToSecret will update the secret in the VDB spec, to trigger a rotation on the next iteration.
@@ -233,4 +235,32 @@ func (r *AutoCertRotateReconciler) mergeResults(res1, res2 ctrl.Result) ctrl.Res
 		// Neither has requeue nor RequeueAfter
 		return ctrl.Result{}
 	}
+}
+
+// findSecretInList searches for current secret in status secret list; returns -1 if not found
+func (r *AutoCertRotateReconciler) findSecretInList(current string, secrets []string) int {
+	idx := -1
+	for i, s := range secrets {
+		if s == current {
+			idx = i
+			break
+		}
+	}
+	return idx
+}
+
+// updateAutoRotateSecrets will update just the autoRotateSecrets in the status
+func (r *AutoCertRotateReconciler) patchAutoRotateSecretsInStatus(ctx context.Context, tlsConfig string) (ctrl.Result, error) {
+	// Prepare patch
+	patch := r.Vdb.DeepCopy()
+	patchStatus := patch.GetTLSConfigByName(tlsConfig)
+	patchStatus.AutoRotateSecrets = r.Vdb.GetTLSConfigAutoRotate(tlsConfig).Secrets
+
+	// Patch status explicitly
+	if err := vdbstatus.UpdateTLSConfigs(ctx, r.VRec.Client, patch, []*vapi.TLSConfigStatus{patchStatus}); err != nil {
+		r.Log.Error(err, "Failed to patch TLSConfigStatus with updated secrets", "tlsConfig", tlsConfig)
+		return ctrl.Result{}, err
+	}
+
+	return ctrl.Result{}, nil
 }
