@@ -151,6 +151,14 @@ func MakeLabelsForSandboxConfigMap(vdb *vapi.VerticaDB) map[string]string {
 	return labels
 }
 
+// MakeLabelsForServiceMonitor constructs the labels of the service monitor
+func MakeLabelsForServiceMonitor(vdb *vapi.VerticaDB) map[string]string {
+	labels := MakeOperatorLabels(vdb)
+	labels[vmeta.SvcMonitorLabel] = opcfg.GetReleaseName()
+
+	return labels
+}
+
 // MakeAnnotationsForObjects builds the list of annotations that are to be
 // included on new objects.
 func MakeAnnotationsForObject(vdb *vapi.VerticaDB) map[string]string {

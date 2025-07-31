@@ -451,6 +451,10 @@ const (
 
 	// This annotation ensures the tls secrets are removed after the VDB is removed.
 	RemoveTLSSecretOnVDBDeleteAnnotation = "vertica.com/remove-tls-secret-on-vdb-delete" // #nosec G101
+
+	// Interval (in seconds) at which Prometheus scrapes the metrics from the target.
+	// If empty, Prometheus uses the global scrape interval.
+	PrometheusScrapeIntervalAnnotation = "vertica.com/prometheus-scrape-interval"
 )
 
 // IsPauseAnnotationSet will check the annotations for a special value that will
@@ -865,6 +869,10 @@ func GetTLSCacheDuration(annotations map[string]string) int {
 // ShouldRemoveTLSSecret returns true if a tls secret must be removed on VDB delete
 func ShouldRemoveTLSSecret(annotations map[string]string) bool {
 	return lookupBoolAnnotation(annotations, RemoveTLSSecretOnVDBDeleteAnnotation, false)
+}
+
+func GetPrometheusScrapeInterval(annotations map[string]string) int {
+	return lookupIntAnnotation(annotations, PrometheusScrapeIntervalAnnotation, 0)
 }
 
 // lookupBoolAnnotation is a helper function to lookup a specific annotation and
