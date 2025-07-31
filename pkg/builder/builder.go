@@ -870,6 +870,7 @@ func buildScrutinizePodSpec(vscr *v1beta1.VerticaScrutinize, vdb *vapi.VerticaDB
 		RestartPolicy:                 corev1.RestartPolicy(vmeta.GetScrutinizePodRestartPolicy(vscr.Annotations)),
 		SecurityContext:               vdb.Spec.PodSecurityContext,
 		ServiceAccountName:            vdb.Spec.ServiceAccountName,
+		ImagePullSecrets:              GetK8sLocalObjectReferenceArray(vdb.Spec.ImagePullSecrets),
 	}
 }
 
