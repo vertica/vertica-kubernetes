@@ -231,12 +231,11 @@ func (a *AlterSubclusterTypeReconciler) removeTriggerIDFromConfigMap(ctx context
 	return nil
 }
 
-// getInitiatorIP returns the initiator ip in the main cluster and will not be demoted that will be used for
+// getInitiatorIP returns the initiator ip not to be demoted that will be used for
 // alterSubclusterType
 func (a *AlterSubclusterTypeReconciler) getInitiatorIP(scs []string) (string, bool) {
 	initiator, ok := a.PFacts.FindFirstPodSorted(func(v *podfacts.PodFact) bool {
-		return v.GetSandbox() == vapi.MainCluster && !slices.Contains(scs, v.GetSubclusterName()) &&
-			v.GetIsPrimary() && v.GetUpNode()
+		return !slices.Contains(scs, v.GetSubclusterName()) && v.GetIsPrimary() && v.GetUpNode()
 	})
 	if !ok {
 		a.Log.Info("No Up nodes found. Requeue reconciliation.")
