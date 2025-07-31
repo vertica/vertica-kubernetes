@@ -247,6 +247,10 @@ const (
 	TriggerTLSUpdateFailureBeforeTLSUpdate = "before_tls_update"
 	TriggerTLSUpdateFailureAfterTLSUpdate  = "after_tls_update"
 
+	// This annotation forces the automatic cert rotation to trigger now, instead of on
+	// a timer. It is internal and should be used only for testing.
+	TriggerAutoTLSRotateAnnotation = "vertica.com/trigger-auto-tls-rotate"
+
 	// We have a deployment check that ensures that if running vcluster ops the
 	// image is built for that (and vice-versa). This annotation allows you to
 	// skip that check.

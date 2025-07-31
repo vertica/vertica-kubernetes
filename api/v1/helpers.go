@@ -745,6 +745,64 @@ func (v *VerticaDB) IsRollbackAfterNMACertRotation() bool {
 	return v.GetTLSCertRollbackReason() == RollbackAfterNMACertRotationReason
 }
 
+// GetTLSConfigSpecByName returns the TLSConfigSpec object for a certain tlsconfig (clientServer or httpsNMA)
+func (v *VerticaDB) GetTLSConfigSpecByName(tlsConfig string) *TLSConfigSpec {
+	if tlsConfig == ClientServerTLSConfigName {
+		return v.Spec.ClientServerTLS
+	}
+	return v.Spec.HTTPSNMATLS
+}
+
+// IsAutoCertRotationEnabled checks if automatic cert rotation is enabled for
+// for a certain tlsconfig (clientServer or httpsNMA)
+func (v *VerticaDB) IsAutoCertRotationEnabled(tlsConfig string) bool {
+	if !v.IsSetForTLS() {
+		return false
+	}
+	config := v.GetTLSConfigSpecByName(tlsConfig)
+	return config != nil && config.AutoRotate != nil && len(config.AutoRotate.Secrets) > 0
+}
+
+// GetAutoRotateSecrets gets the list of auto-rotate secrets from status
+// for a certain tlsconfig (clientServer or httpsNMA)
+func (v *VerticaDB) GetAutoRotateSecrets(tlsConfig string) []string {
+	config := v.GetTLSConfigByName(tlsConfig)
+	if config == nil {
+		return []string{}
+	}
+	return config.AutoRotateSecrets
+}
+
+// GetTLSLastUpdate gets the last update time from the status
+// for a certain tlsconfig (clientServer or httpsNMA)
+func (v *VerticaDB) GetTLSLastUpdate(tlsConfig string) metav1.Time {
+	config := v.GetTLSConfigByName(tlsConfig)
+	if config == nil {
+		return metav1.Time{}
+	}
+	return config.LastUpdate
+}
+
+// GetTLSLastUpdate gets the last update time from the status
+// for a certain tlsconfig (clientServer or httpsNMA)
+func (v *VerticaDB) GetTLSNextUpdate(tlsConfig string) metav1.Time {
+	config := v.GetTLSConfigByName(tlsConfig)
+	if config == nil {
+		return metav1.Time{}
+	}
+	return config.NextUpdate
+}
+
+// GetTLSConfigAutoRotate gets the TLSAutoRotate from spec
+// for a certain tlsconfig (clientServer or httpsNMA)
+func (v *VerticaDB) GetTLSConfigAutoRotate(tlsConfig string) *TLSAutoRotate {
+	config := v.GetTLSConfigSpecByName(tlsConfig)
+	if config == nil {
+		return nil
+	}
+	return config.AutoRotate
+}
+
 // IsStatusConditionTrue returns true when the conditionType is present and set to
 // `metav1.ConditionTrue`
 func (v *VerticaDB) IsStatusConditionTrue(statusCondition string) bool {
@@ -1953,10 +2011,10 @@ func (v *VerticaDB) GetClientServerTLSModeInUse() string {
 }
 
 // SetTLSConfigs updates the slice with a new TLSConfig by Name, and returns true if any changes occurred.
-func SetTLSConfigs(refs *[]TLSConfigStatus, newRef TLSConfigStatus) (changed bool) {
+func SetTLSConfigs(refs *[]TLSConfigStatus, newRef *TLSConfigStatus) (changed bool) {
 	existing := FindTLSConfig(*refs, "Name", newRef.Name)
 	if existing == nil {
-		*refs = append(*refs, newRef)
+		*refs = append(*refs, *newRef)
 		return true
 	}
 
@@ -1966,6 +2024,18 @@ func SetTLSConfigs(refs *[]TLSConfigStatus, newRef TLSConfigStatus) (changed boo
 	}
 	if existing.Mode != newRef.Mode {
 		existing.Mode = newRef.Mode
+		changed = true
+	}
+	if !newRef.LastUpdate.IsZero() && existing.LastUpdate != newRef.LastUpdate {
+		existing.LastUpdate = newRef.LastUpdate
+		changed = true
+	}
+	if !newRef.NextUpdate.IsZero() && existing.NextUpdate != newRef.NextUpdate {
+		existing.NextUpdate = newRef.NextUpdate
+		changed = true
+	}
+	if newRef.AutoRotateSecrets != nil {
+		existing.AutoRotateSecrets = newRef.AutoRotateSecrets
 		changed = true
 	}
 

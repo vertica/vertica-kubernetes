@@ -359,6 +359,10 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		// objects that the operator creates exist. This is needed encase they
 		// are removed in the middle of a reconcile iteration.
 		MakeDepObjCheckReconciler(r, log, vdb),
+		// Trigger automatic rotation of certificates on a certain interval.
+		// This must be done dead-last, because it will requeue until the next
+		// automatic rotation is due.
+		MakeAutoCertRotateReconciler(r, log, vdb),
 	}
 }
 
