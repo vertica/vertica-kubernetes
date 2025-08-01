@@ -11,27 +11,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# This is applied through envsubst so that the $NAMESPACE gets filled in
-
-apiVersion: cert-manager.io/v1
-kind: Certificate
-metadata:
-  name: serving-cert
-spec:
-  commonName: dbadmin
-  isCA: true
-  usages:
-    - digital signature
-    - key encipherment
-    - server auth
-  issuerRef:
-    kind: Issuer
-    name: selfsigned-issuer
-  secretName: cert-no-client-auth
----
-apiVersion: cert-manager.io/v1
-kind: Issuer
-metadata:
-  name: selfsigned-issuer
-spec:
-  selfSigned: {}
+apiVersion: v1
+kind: Event
+reason: TLSCertValidationFailed
+source:
+  component: verticadb-operator
+involvedObject:
+  apiVersion: vertica.com/v1
+  kind: VerticaDB
+  name: v-tls-certs
+message: Validation of TLS Certificate "clientServer" failed with secret "mismatched-cert"

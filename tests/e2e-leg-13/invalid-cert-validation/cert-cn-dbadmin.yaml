@@ -24,10 +24,11 @@ spec:
     - digital signature
     - key encipherment
     - server auth
+    - client auth
   issuerRef:
     kind: Issuer
     name: selfsigned-issuer
-  secretName: cert-no-client-auth
+  secretName: cert-cn-dbadmin
 ---
 apiVersion: cert-manager.io/v1
 kind: Issuer
