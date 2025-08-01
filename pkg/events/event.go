@@ -141,6 +141,8 @@ const (
 	TLSCertRollbackNeeded            = "TLSCertRollbackNeeded"
 	TLSCertRollbackStarted           = "TLSCertRollbackStarted"
 	TLSCertRollbackSucceeded         = "TLSCertRollbackSucceeded"
+	TLSAutoRotateSucceeded           = "TLSAutoRotateSucceeded"
+	TLSAutoRotateFailed              = "TLSAutoRotateFailed"
 )
 
 // Constants for VerticaAutoscaler reconciler
