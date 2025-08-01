@@ -666,6 +666,8 @@ func (o *ObjReconciler) retriveVerticaVersion(ctx context.Context, sc *vapi.Subc
 			o.SandPFactsMap[sand] = sandPFacts
 		}
 	}
+	// make sure we have the latest pod facts in case the subcluster was restarted
+	scPFacts.Invalidate()
 	if err := scPFacts.Collect(ctx, o.Vdb); err != nil {
 		return ctrl.Result{}, err
 	}

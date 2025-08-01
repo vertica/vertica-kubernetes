@@ -16,5 +16,4 @@ kind: StatefulSet
 metadata:
   name: v-client-proxy-upgrade-sec1-sb
 status:
-  currentReplicas: 3
   readyReplicas: 2

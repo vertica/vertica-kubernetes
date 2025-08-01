@@ -30,7 +30,7 @@ spec:
   - name: pri1
     type: primary
   - name: sec1
-    type: sandboxprimary
+    type: secondary
 status:
   sandboxes:
     - name: sandbox1
@@ -41,3 +41,4 @@ status:
       name: pri1
     - addedToDBCount: 1
       name: sec1
+      type: sandboxprimary

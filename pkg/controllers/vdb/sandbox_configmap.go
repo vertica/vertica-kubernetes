@@ -57,6 +57,7 @@ const (
 	SandboxUpgrade = iota
 	Unsandbox
 	Shutdown
+	AlterSubclusterType
 )
 
 // triggerSandboxController will wake up the sandbox controller by setting
@@ -77,6 +78,8 @@ func (s *SandboxConfigMapManager) triggerSandboxController(ctx context.Context, 
 		anns[vmeta.SandboxControllerUnsandboxTriggerID] = triggerID
 	case Shutdown:
 		anns[vmeta.SandboxControllerShutdownTriggerID] = triggerID
+	case AlterSubclusterType:
+		anns[vmeta.SandboxControllerAlterSubclusterTypeTriggerID] = triggerID
 	}
 	chgs := vk8s.MetaChanges{
 		NewAnnotations: anns,

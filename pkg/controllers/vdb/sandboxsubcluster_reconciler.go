@@ -17,8 +17,8 @@ package vdb
 
 import (
 	"context"
-	"fmt"
 	"reflect"
+	"sort"
 
 	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
@@ -33,7 +33,6 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/pollscstate"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/sandboxsc"
 	"github.com/vertica/vertica-kubernetes/pkg/vdbstatus"
-	"github.com/vertica/vertica-kubernetes/pkg/vk8s"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -154,6 +153,7 @@ func (s *SandboxSubclusterReconciler) sandboxSubclusters(ctx context.Context) (c
 	if verrors.IsReconcileAborted(res, err) {
 		return res, err
 	}
+
 	s.PFacts.Invalidate()
 
 	return ctrl.Result{}, nil
@@ -161,8 +161,6 @@ func (s *SandboxSubclusterReconciler) sandboxSubclusters(ctx context.Context) (c
 
 // executeSandboxCommand will call sandbox API in vclusterOps, create/update sandbox config maps,
 // and update sandbox status in vdb
-//
-//nolint:gocyclo
 func (s *SandboxSubclusterReconciler) executeSandboxCommand(ctx context.Context, scSbMap map[string]string) (ctrl.Result, error) {
 	seenSandboxes := make(map[string]any)
 
@@ -170,9 +168,17 @@ func (s *SandboxSubclusterReconciler) executeSandboxCommand(ctx context.Context,
 	// we want to sandbox in a deterministic order because the first subcluster
 	// in a sandbox is the primary.
 	for i := range s.Vdb.Spec.Sandboxes {
-		vdbSb := &s.Vdb.Spec.Sandboxes[i]
+		sbs := &s.Vdb.Spec.Sandboxes[i]
 		var sbName string
 		sbScs := []string{}
+
+		// sort sandbox subclusters according to the order of sandbox subclusters type (primary, secondary)
+		// to make sure the first subcluster is always sandbox primary
+		vdbSb := sbs.DeepCopy()
+		sort.Slice(vdbSb.Subclusters, func(i, j int) bool {
+			return vdbSb.Subclusters[i].Type < vdbSb.Subclusters[j].Type
+		})
+
 		for j := range vdbSb.Subclusters {
 			sc := vdbSb.Subclusters[j].Name
 			sb, found := scSbMap[sc]
@@ -191,28 +197,13 @@ func (s *SandboxSubclusterReconciler) executeSandboxCommand(ctx context.Context,
 			sbName = sb
 			sbScs = append(sbScs, sc)
 
+			// Call vclusterOps to add the subcluster to the sandbox
 			res, err := s.sandboxSubcluster(ctx, sc, sb)
 			if verrors.IsReconcileAborted(res, err) {
 				return res, err
 			}
-			seenSandboxes[sb] = struct{}{}
 
-			// The first subcluster in a sandbox turns into a primary. Set
-			// state in the vdb to indicate that.
-			if j == 0 {
-				_, err = vk8s.UpdateVDBWithRetry(ctx, s.VRec, s.Vdb, func() (bool, error) {
-					scMap := s.Vdb.GenSubclusterMap()
-					vdbSc, found := scMap[sc]
-					if !found {
-						return false, fmt.Errorf("subcluster %q missing in vdb %q", sc, s.Vdb.Name)
-					}
-					vdbSc.Type = vapi.SandboxPrimarySubcluster
-					return true, nil
-				})
-				if err != nil {
-					return ctrl.Result{}, err
-				}
-			}
+			seenSandboxes[sb] = struct{}{}
 
 			// Always update status as we go. When sandboxing two subclusters in
 			// the same sandbox, the second subcluster depends on the status
@@ -239,7 +230,7 @@ func (s *SandboxSubclusterReconciler) executeSandboxCommand(ctx context.Context,
 		}
 	}
 
-	// create/update a sandbox config map
+	// create/update a sandbox config map and update subcluster type in database
 	for sb := range seenSandboxes {
 		err := s.checkSandboxConfigMap(ctx, sb)
 		if err != nil {
@@ -302,6 +293,7 @@ func (s *SandboxSubclusterReconciler) checkSandboxConfigMap(ctx context.Context,
 		return s.Client.Update(ctx, newCM)
 	}
 	s.Log.Info("Found an existing sandbox config map with correct content, skip updating it", "Name", nm)
+
 	return nil
 }
 
@@ -321,6 +313,9 @@ func (s *SandboxSubclusterReconciler) updateSandboxConfigMapFields(curCM, newCM 
 	shutdownTriggerID, hasShutdownTriggerID := curCM.Annotations[vmeta.SandboxControllerShutdownTriggerID]
 	delete(curCM.Annotations, vmeta.SandboxControllerShutdownTriggerID)
 	delete(newCM.Annotations, vmeta.SandboxControllerShutdownTriggerID)
+	alterSubclusterID, hasAlterSubclusterID := curCM.Annotations[vmeta.SandboxControllerAlterSubclusterTypeTriggerID]
+	delete(curCM.Annotations, vmeta.SandboxControllerAlterSubclusterTypeTriggerID)
+	delete(newCM.Annotations, vmeta.SandboxControllerAlterSubclusterTypeTriggerID)
 
 	// exclude version annotation because vdb controller can set a different
 	// vertica version annotation for a sandbox in current config map
@@ -344,6 +339,9 @@ func (s *SandboxSubclusterReconciler) updateSandboxConfigMapFields(curCM, newCM 
 	}
 	if hasShutdownTriggerID {
 		curCM.Annotations[vmeta.SandboxControllerShutdownTriggerID] = shutdownTriggerID
+	}
+	if hasAlterSubclusterID {
+		curCM.Annotations[vmeta.SandboxControllerAlterSubclusterTypeTriggerID] = alterSubclusterID
 	}
 	// add vertica version back to the annotations
 	if hasVersion {
