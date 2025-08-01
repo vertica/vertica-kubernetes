@@ -22,6 +22,7 @@ import (
 	vops "github.com/vertica/vcluster/vclusterops"
 	"github.com/vertica/vcluster/vclusterops/vlog"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
+	"github.com/vertica/vertica-kubernetes/pkg/cache"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/addnode"
@@ -201,13 +202,14 @@ func MakeAdmintools(log logr.Logger, vdb *vapi.VerticaDB, prunner cmds.PodRunner
 // vclusterops library to perform all of the admin operations via RESTful
 // interfaces.
 type VClusterOps struct {
-	BaseLog   logr.Logger // The base logger that all log objects are derived from
-	Log       logr.Logger // A copy of the current log that is currently in use in the vclusterops package
-	VDB       *vapi.VerticaDB
-	TargetVDB *vapi.VerticaDB
-	Client    client.Client
-	Password  string
-	EVWriter  events.EVWriter
+	BaseLog      logr.Logger // The base logger that all log objects are derived from
+	Log          logr.Logger // A copy of the current log that is currently in use in the vclusterops package
+	VDB          *vapi.VerticaDB
+	TargetVDB    *vapi.VerticaDB
+	Client       client.Client
+	Password     string
+	EVWriter     events.EVWriter
+	CacheManager cache.CacheManager
 	VClusterProvider
 	// Setup function for VClusterProvider and Log in this struct
 	APISetupFunc func(log logr.Logger, apiName string) (VClusterProvider, logr.Logger)
@@ -216,7 +218,7 @@ type VClusterOps struct {
 // MakeVClusterOps will create a dispatcher that uses the vclusterops library for admin commands.
 func MakeVClusterOps(log logr.Logger, vdb *vapi.VerticaDB, cli client.Client,
 	passwd string, evWriter events.EVWriter,
-	apiSetupFunc func(logr.Logger, string) (VClusterProvider, logr.Logger)) Dispatcher {
+	apiSetupFunc func(logr.Logger, string) (VClusterProvider, logr.Logger), cacheManager cache.CacheManager) Dispatcher {
 	return &VClusterOps{
 		BaseLog:          log,
 		VDB:              vdb,
@@ -224,6 +226,7 @@ func MakeVClusterOps(log logr.Logger, vdb *vapi.VerticaDB, cli client.Client,
 		Password:         passwd,
 		EVWriter:         evWriter,
 		APISetupFunc:     apiSetupFunc,
+		CacheManager:     cacheManager,
 		VClusterProvider: nil, // Setup via the APISetupFunc before each API call
 	}
 }
@@ -231,7 +234,7 @@ func MakeVClusterOps(log logr.Logger, vdb *vapi.VerticaDB, cli client.Client,
 // MakeVClusterOps will create a dispatcher that uses the vclusterops library for admin commands.
 func MakeVClusterOpsWithTarget(log logr.Logger, vdb *vapi.VerticaDB, targetVDB *vapi.VerticaDB, cli client.Client,
 	passwd string, evWriter events.EVWriter,
-	apiSetupFunc func(logr.Logger, string) (VClusterProvider, logr.Logger)) Dispatcher {
+	apiSetupFunc func(logr.Logger, string) (VClusterProvider, logr.Logger), cacheManager cache.CacheManager) Dispatcher {
 	return &VClusterOps{
 		BaseLog:          log,
 		VDB:              vdb,
@@ -240,6 +243,7 @@ func MakeVClusterOpsWithTarget(log logr.Logger, vdb *vapi.VerticaDB, targetVDB *
 		Password:         passwd,
 		EVWriter:         evWriter,
 		APISetupFunc:     apiSetupFunc,
+		CacheManager:     cacheManager,
 		VClusterProvider: nil, // Setup via the APISetupFunc before each API call
 	}
 }
@@ -288,12 +292,6 @@ func (v *VClusterOps) setupForAPICall(apiName string) {
 // should be called with defer immediately after calling setupForAPICall.
 func (v *VClusterOps) tearDownForAPICall() {
 	v.VClusterProvider = nil
-}
-
-type HTTPSCerts struct {
-	Key    string
-	Cert   string
-	CaCert string
 }
 
 // VClusterProvider is for mocking test

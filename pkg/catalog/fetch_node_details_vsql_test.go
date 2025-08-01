@@ -23,26 +23,28 @@ import (
 var _ = Describe("nodedetailsvsql", func() {
 	It("should parse read-only and sandbox states from node query", func() {
 		nodeDetails := &NodeDetails{}
-		Expect(nodeDetails.parseNodeState("v_db_node0001|UP|123456|t|sb1\n")).Should(Succeed())
+		Expect(nodeDetails.parseNodeState("v_db_node0001|UP|t|123456|t|sb1\n")).Should(Succeed())
+		Expect(nodeDetails.IsPrimary).Should(BeTrue())
 		Expect(nodeDetails.ReadOnly).Should(BeTrue())
 		Expect(nodeDetails.SubclusterOid).Should(Equal("123456"))
 		Expect(nodeDetails.SandboxName).Should(Equal("sb1"))
 
 		nodeDetails = &NodeDetails{}
-		Expect(nodeDetails.parseNodeState("v_db_node0001|UP|7890123|f|sb2\n")).Should(Succeed())
+		Expect(nodeDetails.parseNodeState("v_db_node0001|UP|f|7890123|f|sb2\n")).Should(Succeed())
+		Expect(nodeDetails.IsPrimary).Should(BeFalse())
 		Expect(nodeDetails.ReadOnly).Should(BeFalse())
 		Expect(nodeDetails.SubclusterOid).Should(Equal("7890123"))
 		Expect(nodeDetails.SandboxName).Should(Equal("sb2"))
 
 		nodeDetails = &NodeDetails{}
-		Expect(nodeDetails.parseNodeState("v_db_node0001|UP|456789\n")).Should(Succeed())
+		Expect(nodeDetails.parseNodeState("v_db_node0001|UP|t|456789\n")).Should(Succeed())
+		Expect(nodeDetails.IsPrimary).Should(BeTrue())
 		Expect(nodeDetails.ReadOnly).Should(BeFalse())
 		Expect(nodeDetails.SubclusterOid).Should(Equal("456789"))
 		Expect(nodeDetails.SandboxName).Should(Equal(""))
 
 		Expect(nodeDetails.parseNodeState("")).Should(Succeed())
-
-		Expect(nodeDetails.parseNodeState("v_db_node0001|UP|123|t|garbage")).Should(Succeed())
+		Expect(nodeDetails.parseNodeState("v_db_node0001|UP|t|123|garbage")).Should(Succeed())
 	})
 
 	It("should parse query output of shard subscriptions correctly", func() {

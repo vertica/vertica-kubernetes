@@ -949,6 +949,12 @@ type TLSConfigSpec struct {
 	// - VERIFY_CA: Connection succeeds if Vertica verifies that the client certificate is from a trusted CA.
 	//   If the client does not present a client certificate, the connection is rejected.
 	Mode string `json:"mode,omitempty"`
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:text","urn:alm:descriptor:com.tectonic.ui:advanced"}
+	// +kubebuilder:validation:Optional
+	// This field defines the common-name that should be required for the TLS certificate of this TLS secret.
+	// The operator will validate that your certificate contains this value in the common-name field.
+	// If not specified, it will use the Vertica DB admin username, defined by annotation vertica.com/superuser-name.
+	CommonName string `json:"commonName,omitempty"`
 }
 
 // VerticaDBStatus defines the observed state of VerticaDB

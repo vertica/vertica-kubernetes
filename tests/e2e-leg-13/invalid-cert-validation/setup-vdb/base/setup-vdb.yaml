@@ -20,6 +20,8 @@ metadata:
     vertica.com/include-uid-in-path: "true"
     vertica.com/enable-tls-auth: "true"
 spec:
+  clientServerTLS:
+    commonName: test
   httpsNMATLS:
     secret: cert-no-client-auth
   initPolicy: CreateSkipPackageInstall

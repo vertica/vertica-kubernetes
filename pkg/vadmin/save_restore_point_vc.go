@@ -20,6 +20,7 @@ import (
 
 	vops "github.com/vertica/vcluster/vclusterops"
 	"github.com/vertica/vertica-kubernetes/pkg/net"
+	"github.com/vertica/vertica-kubernetes/pkg/tls"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/saverestorepoint"
 )
 
@@ -54,7 +55,7 @@ func (v *VClusterOps) SaveRestorePoint(ctx context.Context, opts ...saverestorep
 	return nil
 }
 
-func (v *VClusterOps) genSaveRestorePointOptions(s *saverestorepoint.Params, certs *HTTPSCerts) vops.VSaveRestorePointOptions {
+func (v *VClusterOps) genSaveRestorePointOptions(s *saverestorepoint.Params, certs *tls.HTTPSCerts) vops.VSaveRestorePointOptions {
 	opts := vops.VSaveRestorePointFactory()
 
 	opts.DBName = v.VDB.Spec.DBName

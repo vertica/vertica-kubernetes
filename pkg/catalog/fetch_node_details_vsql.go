@@ -66,7 +66,7 @@ func (v *VSQL) FetchNodeDetails(ctx context.Context) (nodeDetails *NodeDetails, 
 // buildFetchNodeStateQuery constructs a sql query to get the node state
 func (v *VSQL) buildFetchNodeStateQuery() string {
 	// The first two columns are just for informational purposes.
-	cols := "n.node_name, node_state"
+	cols := "n.node_name, node_state, n.is_primary"
 	if v.VDB.IsEON() {
 		cols = fmt.Sprintf("%s, subcluster_oid", cols)
 	} else {
@@ -130,9 +130,11 @@ func (nodeDetails *NodeDetails) parseNodeState(stdout string) error {
 		return nil
 	}
 	// The stdout comes in the form like this:
-	// v_vertdb_node0001|UP|41231232423|t|sandbox1
-	// This means upNode is true, subcluster oid is 41231232423 readOnly is
-	// true and the node is part of sandbox1. The node name is included in the output for debug purposes, but
+	// node_name|node_state|is_primary|subcluster_oid|is_readonly|sandbox
+	// v_vertdb_node0001|UP|t|41231232423|t|sandbox1
+	// This means upNode is true, is_primary is true, subcluster oid is 41231232423
+	// readOnly is true, the node is part of sandbox1. The node
+	// name is included in the output for debug purposes, but
 	// otherwise not used.
 	//
 	// The 2nd column for node state is ignored in here. It is just for
@@ -141,19 +143,20 @@ func (nodeDetails *NodeDetails) parseNodeState(stdout string) error {
 	lines := strings.Split(stdout, "\n")
 	cols := strings.Split(lines[0], "|")
 	var err error
-	const MinExpectedCols = 3
+	const MinExpectedCols = 4
 	if len(cols) < MinExpectedCols {
 		err = fmt.Errorf("expected at least %d columns from node query but only got %d", MinExpectedCols, len(cols))
 		return err
 	}
-	nodeDetails.SubclusterOid = cols[2]
+	nodeDetails.IsPrimary = cols[2] == "t"
+	nodeDetails.SubclusterOid = cols[3]
 	// Read-only can be missing on versions that don't support that state.
 	// Return false in those cases.
 	if len(cols) > MinExpectedCols {
-		nodeDetails.ReadOnly = cols[3] == "t"
+		nodeDetails.ReadOnly = cols[4] == "t"
 		// sandbox can be missing on versions that don't support that state
 		if len(cols) > MinExpectedCols+1 {
-			nodeDetails.SandboxName = cols[4]
+			nodeDetails.SandboxName = cols[5]
 		}
 	} else {
 		nodeDetails.ReadOnly = false

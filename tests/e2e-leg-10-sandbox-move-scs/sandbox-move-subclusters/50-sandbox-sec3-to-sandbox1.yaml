@@ -21,6 +21,7 @@ spec:
     subclusters:
       - name: sec1
       - name: sec3
+        type: secondary
   - name: sandbox2
     subclusters:
       - name: sec2
@@ -32,8 +33,8 @@ metadata:
   labels:
     vertica.com/sandbox: sandbox1
 status:
-  readyReplicas: 1
-  replicas: 1
+  readyReplicas: 3
+  replicas: 3
 ---
 apiVersion: apps/v1
 kind: StatefulSet
@@ -42,8 +43,8 @@ metadata:
   labels:
     vertica.com/sandbox: sandbox2
 status:
-  readyReplicas: 1
-  replicas: 1
+  readyReplicas: 3
+  replicas: 3
 ---
 apiVersion: apps/v1
 kind: StatefulSet
@@ -52,5 +53,5 @@ metadata:
   labels:
     vertica.com/sandbox: sandbox1
 status:
-  readyReplicas: 2
-  replicas: 2
+  readyReplicas: 1
+  replicas: 1

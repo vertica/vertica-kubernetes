@@ -218,10 +218,14 @@ func (o *ObjReconciler) checkMountedObjs(ctx context.Context) (ctrl.Result, erro
 				"The httpsNMATLS.secret must be set when running with vclusterops deployment")
 			return ctrl.Result{Requeue: true}, nil
 		}
-		_, res, err := o.SecretFetcher.FetchAllowRequeue(ctx,
-			names.GenNamespacedName(o.Vdb, o.Vdb.GetHTTPSNMATLSSecret()))
-		if verrors.IsReconcileAborted(res, err) {
-			return res, err
+		dbReconciler := o.Rec.(*VerticaDBReconciler)
+		certCache := dbReconciler.CacheManager.GetCertCacheForVdb(o.Vdb.Namespace, o.Vdb.Name)
+		if !certCache.IsCertInCache(o.Vdb.GetHTTPSNMATLSSecret()) {
+			_, res, err := o.SecretFetcher.FetchAllowRequeue(ctx,
+				names.GenNamespacedName(o.Vdb, o.Vdb.GetHTTPSNMATLSSecret()))
+			if verrors.IsReconcileAborted(res, err) {
+				return res, err
+			}
 		}
 	}
 
@@ -666,6 +670,8 @@ func (o *ObjReconciler) retriveVerticaVersion(ctx context.Context, sc *vapi.Subc
 			o.SandPFactsMap[sand] = sandPFacts
 		}
 	}
+	// make sure we have the latest pod facts in case the subcluster was restarted
+	scPFacts.Invalidate()
 	if err := scPFacts.Collect(ctx, o.Vdb); err != nil {
 		return ctrl.Result{}, err
 	}

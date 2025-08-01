@@ -14,6 +14,8 @@
 apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 commands:
-  - command: sh -c "envsubst < cert-valid.yaml | kubectl apply -n $NAMESPACE -f -"
+  - command: sh -c "envsubst < cert-cn-dbadmin.yaml | kubectl apply -n $NAMESPACE -f -"
   - command: sh -c "envsubst < cert-no-client-auth.yaml | kubectl apply -n $NAMESPACE -f -"
   - command: sh -c "./gen-expired-cert.sh | kubectl apply -n $NAMESPACE -f -"
+  - command: sh -c "./gen-mismatched-cert.sh | kubectl apply -n $NAMESPACE -f -"
+  - command: sh -c "envsubst < cert-cn-test.yaml | kubectl apply -n $NAMESPACE -f -"
