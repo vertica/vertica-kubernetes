@@ -2732,6 +2732,46 @@ var _ = Describe("verticadb_webhook", func() {
 		allErrs := newVdb.checkTLSModeCaseInsensitiveChange(oldVdb, field.ErrorList{})
 		Expect(allErrs).To(BeEmpty())
 	})
+
+	It("should fail if secrets list is empty", func() {
+		vdb := MakeVDBForTLS()
+		vdb.Spec.ClientServerTLS = MakeTLSWithAutoRotate([]string{}, 7, "")
+		allErrs := vdb.validateAutoRotateConfig(field.ErrorList{})
+		Expect(allErrs).To(HaveLen(1))
+		Expect(allErrs[0].Error()).To(ContainSubstring("must contain at least two secrets"))
+	})
+
+	It("should fail if secrets list has only one element", func() {
+		vdb := MakeVDBForTLS()
+		vdb.Spec.ClientServerTLS = MakeTLSWithAutoRotate([]string{"secret1"}, 7, "")
+		allErrs := vdb.validateAutoRotateConfig(field.ErrorList{})
+		Expect(allErrs).To(HaveLen(1))
+		Expect(allErrs[0].Error()).To(ContainSubstring("must contain at least two secrets"))
+	})
+
+	It("should fail if interval is zero", func() {
+		vdb := MakeVDBForTLS()
+		vdb.Spec.ClientServerTLS = MakeTLSWithAutoRotate([]string{"secret1", "secret2"}, 0, "")
+		allErrs := vdb.validateAutoRotateConfig(field.ErrorList{})
+		Expect(allErrs).To(HaveLen(1))
+		Expect(allErrs[0].Error()).To(ContainSubstring("must be greater than 0"))
+	})
+
+	It("should fail if secrets list has duplicates", func() {
+		vdb := MakeVDBForTLS()
+		vdb.Spec.ClientServerTLS = MakeTLSWithAutoRotate([]string{"secret1", "secret1"}, 7, "")
+		allErrs := vdb.validateAutoRotateConfig(field.ErrorList{})
+		Expect(allErrs).To(HaveLen(1))
+		Expect(allErrs[0].Error()).To(ContainSubstring("Duplicate value"))
+	})
+
+	It("should validate successfully if configuration is valid", func() {
+		vdb := MakeVDBForTLS()
+		vdb.Spec.ClientServerTLS = MakeTLSWithAutoRotate([]string{"secret1", "secret2"}, 7, "")
+		allErrs := vdb.validateAutoRotateConfig(field.ErrorList{})
+		Expect(allErrs).To(HaveLen(0))
+		Expect(allErrs).To(BeEmpty())
+	})
 })
 
 func createVDBHelper() *VerticaDB {

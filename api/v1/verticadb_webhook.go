@@ -281,6 +281,7 @@ func (v *VerticaDB) validateVerticaDBSpec() field.ErrorList {
 	allErrs = v.checkNewSBoxOrSClusterShutdownUnset(allErrs)
 	allErrs = v.validateProxyConfig(allErrs)
 	allErrs = v.validateNMASecret(allErrs)
+	allErrs = v.validateAutoRotateConfig(allErrs)
 	if len(allErrs) == 0 {
 		return nil
 	}
@@ -2826,4 +2827,55 @@ func (s *Subcluster) setDefaultProxySubcluster(useProxy bool) {
 			s.Proxy.Resources = nil
 		}
 	}
+}
+
+func (v *VerticaDB) validateAutoRotateConfig(allErrs field.ErrorList) field.ErrorList {
+	// Validate both TLS configs: clientServer and httpsNMA
+	allErrs = append(allErrs, v.validateOneTLSAutoRotateConfig(ClientServerTLSConfigName)...)
+	allErrs = append(allErrs, v.validateOneTLSAutoRotateConfig(HTTPSNMATLSConfigName)...)
+	return allErrs
+}
+
+func (v *VerticaDB) validateOneTLSAutoRotateConfig(configName string) field.ErrorList {
+	var allErrs field.ErrorList
+	fieldName := configName + "TLS"
+	tls := v.GetTLSConfigSpecByName(configName)
+
+	if tls == nil || tls.AutoRotate == nil {
+		return allErrs // Nothing to validate
+	}
+
+	fldPath := field.NewPath("spec").Child(fieldName).Child("autoRotate")
+
+	secrets := tls.AutoRotate.Secrets
+	interval := tls.AutoRotate.Interval
+
+	// Rule 1: Must have at least two secrets
+	if len(secrets) < 2 {
+		allErrs = append(allErrs,
+			field.Invalid(fldPath.Child("secrets"), secrets,
+				"must contain at least two secrets for auto-rotation"),
+		)
+	}
+
+	// Rule 2: Interval must be >= 1
+	if interval <= 0 {
+		allErrs = append(allErrs,
+			field.Invalid(fldPath.Child("interval"), interval,
+				"must be greater than 0"),
+		)
+	}
+
+	// Rule 3: No duplicate secrets
+	seen := make(map[string]struct{})
+	for i, s := range secrets {
+		if _, ok := seen[s]; ok {
+			allErrs = append(allErrs,
+				field.Duplicate(fldPath.Child("secrets").Index(i), s),
+			)
+		}
+		seen[s] = struct{}{}
+	}
+
+	return allErrs
 }

@@ -227,6 +227,16 @@ func MakeVDBForCertRotationEnabled() *VerticaDB {
 	return vdb
 }
 
+func MakeTLSWithAutoRotate(secrets []string, interval int, secret string) *TLSConfigSpec {
+	return &TLSConfigSpec{
+		Secret: secret,
+		AutoRotate: &TLSAutoRotate{
+			Secrets:  secrets,
+			Interval: interval,
+		},
+	}
+}
+
 // GenSubclusterMap will organize all of the subclusters into a map for quicker lookup.
 // The key is the subcluster name and the value is a pointer to its Subcluster struct.
 func (v *VerticaDB) GenSubclusterMap() map[string]*Subcluster {
