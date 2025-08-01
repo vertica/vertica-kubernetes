@@ -217,7 +217,7 @@ func (t *DBTLSConfigReconciler) compareTLSConfig(dbTLSConfigInSpec, dbTLSConfigI
 
 func (t *DBTLSConfigReconciler) setCipherSuites(ctx context.Context, initiatorPod *podfacts.PodFact,
 	tlsVersion int, cipherSuites string) error {
-	paramName := ""
+	paramName := "enabledciphersuites"
 	if tlsVersion == 3 {
 		paramName = "tlsciphersuites"
 	}
