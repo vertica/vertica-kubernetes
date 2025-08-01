@@ -985,12 +985,14 @@ func makeTLSConfigForServiceMonitor(vdb *vapi.VerticaDB) *monitoringv1.TLSConfig
 	}
 
 	key, cert, ca := genTLSKeys(vdb)
+	serverName := fmt.Sprintf("*.%s.svc.cluster.local", vdb.Namespace)
 	return &monitoringv1.TLSConfig{
 		SafeTLSConfig: monitoringv1.SafeTLSConfig{
 			InsecureSkipVerify: &insecureSkipVerify,
 			KeySecret:          key,
 			Cert:               cert,
 			CA:                 ca,
+			ServerName:         &serverName,
 		},
 	}
 }
