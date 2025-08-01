@@ -26,7 +26,7 @@ import (
 
 // FetchNodeDetails returns details for a node, including its state, shard subscriptions, and depot details
 func (v *VCluster) FetchNodeDetails(ctx context.Context) (nodeDetails *NodeDetails, err error) {
-	vclusterOps := vadmin.MakeVClusterOps(v.Log, v.VDB, v.Client, v.Password, v.EVRec, vadmin.SetupVClusterOps)
+	vclusterOps := vadmin.MakeVClusterOps(v.Log, v.VDB, v.Client, v.Password, v.EVRec, vadmin.SetupVClusterOps, v.CacheManager)
 	opts := []fetchnodedetails.Option{
 		fetchnodedetails.WithInitiator(v.PodIP),
 	}

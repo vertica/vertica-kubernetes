@@ -22,6 +22,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/net"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
+	"github.com/vertica/vertica-kubernetes/pkg/tls"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/restartnode"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -50,7 +51,7 @@ func (v *VClusterOps) RestartNode(ctx context.Context, opts ...restartnode.Optio
 	return ctrl.Result{}, nil
 }
 
-func (v *VClusterOps) genStartNodeOptions(s *restartnode.Parms, certs *HTTPSCerts) *vops.VStartNodesOptions {
+func (v *VClusterOps) genStartNodeOptions(s *restartnode.Parms, certs *tls.HTTPSCerts) *vops.VStartNodesOptions {
 	opts := vops.VStartNodesOptionsFactory()
 	opts.DBName = v.VDB.Spec.DBName
 	opts.RawHosts = []string{s.InitiatorIP}

@@ -29,6 +29,7 @@ import (
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/builder"
+	"github.com/vertica/vertica-kubernetes/pkg/cache"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
@@ -87,13 +88,14 @@ var _ = BeforeSuite(func() {
 		Metrics: metricsServerOptions,
 	})
 	Expect(err).NotTo(HaveOccurred())
-
+	cacheManager := cache.MakeCacheManager(true)
 	vdbRec = &VerticaDBReconciler{
-		Client: k8sClient,
-		Log:    logger,
-		Scheme: scheme.Scheme,
-		Cfg:    restCfg,
-		EVRec:  mgr.GetEventRecorderFor(vmeta.OperatorName),
+		Client:       k8sClient,
+		Log:          logger,
+		Scheme:       scheme.Scheme,
+		Cfg:          restCfg,
+		EVRec:        mgr.GetEventRecorderFor(vmeta.OperatorName),
+		CacheManager: cacheManager,
 	}
 })
 

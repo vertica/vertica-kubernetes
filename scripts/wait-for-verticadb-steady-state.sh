@@ -16,7 +16,7 @@
 # Wait for the verticadb-operator to get to a steady state. Since the operator
 # is cluster scoped you need to provide the namespace of the operator and the
 # namespace of the vdb you want to check.
-
+set -x
 TIMEOUT=30  # Default, can be overridden
 CONTROL_PLANE_LABEL=verticadb-operator
 
