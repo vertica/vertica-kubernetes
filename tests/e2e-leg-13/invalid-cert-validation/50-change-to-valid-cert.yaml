@@ -15,4 +15,4 @@ apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 commands:
   - command: >
-      sh -c "kubectl patch verticadb v-tls-certs -n $NAMESPACE --type merge -p '{\"spec\": {\"clientServerTLS\": {\"secret\": \"cert-valid\"}}}'"
+      sh -c "kubectl patch verticadb v-tls-certs -n $NAMESPACE --type merge -p '{\"spec\": {\"clientServerTLS\": {\"secret\": \"cert-cn-test\"}}}'"

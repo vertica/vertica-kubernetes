@@ -25,6 +25,7 @@ import (
 	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/api/v1beta1"
+	"github.com/vertica/vertica-kubernetes/pkg/cloud"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
@@ -138,7 +139,14 @@ func (r *ReplicationStatusReconciler) Reconcile(ctx context.Context, _ *ctrl.Req
 		r.Log.Error(err, "Failed to make dispatcher")
 		return ctrl.Result{}, err
 	}
-
+	vclusterops := r.dispatcher.(*vadmin.VClusterOps)
+	fetcher := &cloud.SecretFetcher{
+		Client:   vclusterops.Client,
+		Log:      vclusterops.Log,
+		Obj:      r.TargetInfo.Vdb,
+		EVWriter: vclusterops.EVWriter,
+	}
+	r.VRec.CacheManager.InitCertCacheForVdb(r.TargetInfo.Vdb, fetcher)
 	err = r.runReplicationStatus(ctx, r.dispatcher, opts)
 
 	return ctrl.Result{}, err
@@ -161,7 +169,7 @@ func (r *ReplicationStatusReconciler) fetchTargetVdb(ctx context.Context) (res c
 func (r *ReplicationStatusReconciler) makeDispatcher() error {
 	if vmeta.UseVClusterOps(r.TargetInfo.Vdb.Annotations) {
 		r.dispatcher = vadmin.MakeVClusterOpsWithTarget(r.Log, nil, r.TargetInfo.Vdb,
-			r.VRec.GetClient(), r.TargetInfo.Password, r.VRec, vadmin.SetupVClusterOps)
+			r.VRec.GetClient(), r.TargetInfo.Password, r.VRec, vadmin.SetupVClusterOps, r.VRec.CacheManager)
 		return nil
 	}
 	return fmt.Errorf("replication is not supported when the target uses admintools deployments")
@@ -216,7 +224,7 @@ func (r *ReplicationStatusReconciler) makePodFacts(ctx context.Context, vdb *vap
 		return nil, err
 	}
 	prunner := cmds.MakeClusterPodRunner(r.Log, r.VRec.Cfg, username, password, vmeta.UseTLSAuth(vdb.Annotations))
-	pFacts := podfacts.MakePodFactsForSandbox(r.VRec, prunner, r.Log, password, sandboxName)
+	pFacts := podfacts.MakePodFactsForSandboxWithCacheManager(r.VRec, prunner, r.Log, password, sandboxName, r.VRec.CacheManager)
 	return &pFacts, nil
 }
 

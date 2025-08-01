@@ -26,7 +26,7 @@ import (
 
 // FetchNodeDetails returns details for a node, including its state, shard subscriptions, and depot details
 func (v *VCluster) FetchNodeDetails(ctx context.Context) (nodeDetails *NodeDetails, err error) {
-	vclusterOps := vadmin.MakeVClusterOps(v.Log, v.VDB, v.Client, v.Password, v.EVRec, vadmin.SetupVClusterOps)
+	vclusterOps := vadmin.MakeVClusterOps(v.Log, v.VDB, v.Client, v.Password, v.EVRec, vadmin.SetupVClusterOps, v.CacheManager)
 	opts := []fetchnodedetails.Option{
 		fetchnodedetails.WithInitiator(v.PodIP),
 	}
@@ -46,6 +46,7 @@ func (nodeDetails *NodeDetails) parseVNodeDetails(vnodeDetails *vclusterops.Node
 	nodeDetails.SubclusterOid = strconv.FormatUint(vnodeDetails.SubclusterID, 10)
 	nodeDetails.ReadOnly = vnodeDetails.IsReadOnly
 	nodeDetails.SandboxName = vnodeDetails.SandboxName
+	nodeDetails.IsPrimary = vnodeDetails.IsPrimary
 	nodeDetails.ShardSubscriptions = int(vnodeDetails.NumberShardSubscriptions) //nolint:gosec
 	// The shard subscriptions we get from vcluster includes the replica shard.
 	// We decrement that by one to account for that. We want to know when there

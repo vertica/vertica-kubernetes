@@ -114,6 +114,7 @@ const (
 	setConfigParamInx
 	sandboxInx
 	clearConfigParamInx
+	waitForPromoteSandboxInx
 	waitForSandboxUpgradeInx
 	waitForConnectionsPauseInx
 	backupBeforeReplicationInx
@@ -203,8 +204,9 @@ func (r *OnlineUpgradeReconciler) Reconcile(ctx context.Context, _ *ctrl.Request
 		r.postClearConfigParamDisableNonReplicatableQueriesMsg,
 		r.clearConfigParamDisableNonReplicatableQueries,
 		// Change replica b subcluster types to match the main cluster's
+		// This is handled by the sandbox controller
 		r.postPromoteSubclustersInSandboxMsg,
-		r.promoteReplicaBSubclusters,
+		r.waitForPromoteSubclustersInSandbox,
 		// Upgrade the version in the sandbox to the new version.
 		r.postUpgradeSandboxMsg,
 		r.upgradeSandbox,
@@ -468,7 +470,7 @@ func (r *OnlineUpgradeReconciler) queryOriginalConfigParamDisableNonReplicatable
 		r.Log.Info("No Up nodes found. Requeue reconciliation.")
 		return ctrl.Result{Requeue: true}, nil
 	}
-	vc := catalog.MakeVCluster(r.VDB, pf.VerticaSUPassword, initiator.GetPodIP(), r.Log, r.VRec.Client, r.VRec.EVRec)
+	vc := catalog.MakeVCluster(r.VDB, pf.VerticaSUPassword, initiator.GetPodIP(), r.Log, r.VRec.Client, r.VRec.EVRec, r.VRec.CacheManager)
 	r.originalConfigParamDisableNonReplicatableQueriesValue, err = vc.GetConfigurationParameter(ConfigParamDisableNonReplicatableQueries,
 		ConfigParamLevelDatabase, vapi.MainCluster, ctx)
 	return ctrl.Result{}, err
@@ -531,7 +533,7 @@ func (r *OnlineUpgradeReconciler) setConfigParamDisableNonReplicatableQueriesImp
 		r.Log.Info("No Up nodes found. Requeue reconciliation.")
 		return ctrl.Result{Requeue: true}, nil
 	}
-	vc := catalog.MakeVCluster(r.VDB, pf.VerticaSUPassword, initiator.GetPodIP(), r.Log, r.VRec.Client, r.VRec.EVRec)
+	vc := catalog.MakeVCluster(r.VDB, pf.VerticaSUPassword, initiator.GetPodIP(), r.Log, r.VRec.Client, r.VRec.EVRec, r.VRec.CacheManager)
 	err := vc.SetConfigurationParameter(ConfigParamDisableNonReplicatableQueries, value, ConfigParamLevelDatabase, clusterName, ctx)
 	return ctrl.Result{}, err
 }
@@ -602,23 +604,44 @@ func (r *OnlineUpgradeReconciler) postPromoteSubclustersInSandboxMsg(ctx context
 	return r.postNextStatusMsg(ctx, promoteSubclustersInSandboxMsgInx)
 }
 
-// promoteReplicaBSubclusters promotes all of the secondaries in replica group B whose
-// parent subcluster is primary
-func (r *OnlineUpgradeReconciler) promoteReplicaBSubclusters(ctx context.Context) (ctrl.Result, error) {
-	// If we have already promoted sandbox to main, we don't need to promote subclusters in sandbox
-	if vmeta.GetOnlineUpgradeStepInx(r.VDB.Annotations) > promoteSandboxInx {
+// waitForPromoteSubclustersInSandbox will requeue if the sandbox subclusters type do not match the pod facts
+func (r *OnlineUpgradeReconciler) waitForPromoteSubclustersInSandbox(ctx context.Context) (ctrl.Result, error) {
+	// Skip this step if upgrade has already started
+	if vmeta.GetOnlineUpgradeStepInx(r.VDB.Annotations) > waitForPromoteSandboxInx {
 		return ctrl.Result{}, nil
 	}
 
-	// Get the sandbox podfacts only to invalidate the cache
-	sbPFacts, err := r.getSandboxPodFacts(ctx, false)
+	// requeue to wait for alter sandbox type to finish
+	sbMap := r.VDB.GenSandboxMap()
+	if len(sbMap) == 0 {
+		r.Log.Info("No sandboxes found in the database")
+		return ctrl.Result{}, nil
+	}
+	sbPFacts, err := r.getSandboxPodFacts(ctx, true)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	sbPFacts.Invalidate()
-	actor := MakeAlterSubclusterTypeReconciler(r.VRec, r.Log, r.VDB, sbPFacts, r.Dispatcher)
-	r.Manager.traceActorReconcile(actor)
-	return actor.Reconcile(ctx, &ctrl.Request{})
+	for sbName := range sbMap {
+		sb := sbMap[sbName]
+		if sb == nil {
+			return ctrl.Result{}, fmt.Errorf("could not find sandbox %s", sbName)
+		}
+		for _, sbsc := range sb.Subclusters {
+			pf, ok := sbPFacts.FindFirstUpPod(false, sbsc.Name)
+			if !ok {
+				r.Log.Info("Requeue waitForPromoteSubclustersInSandbox: could not find pod for sandbox subcluster %s", sbsc.Name)
+				return ctrl.Result{Requeue: true}, nil
+			}
+			if sbsc.Type == vapi.PrimarySubcluster && !pf.GetIsPrimary() ||
+				sbsc.Type == vapi.SecondarySubcluster && pf.GetIsPrimary() {
+				r.Log.Info("Requeue waitForPromoteSubclustersInSandbox: sandbox subcluster %s type %s does not match pod fact %s is_primary value %t",
+					sbsc.Name, sbsc.Type, pf.GetName().Name, pf.GetIsPrimary())
+				return ctrl.Result{Requeue: true}, nil
+			}
+		}
+	}
+
+	return ctrl.Result{}, r.updateOnlineUpgradeStepAnnotation(ctx, r.getNextStep())
 }
 
 // postUpgradeSandboxMsg will update the status message to indicate that
@@ -860,6 +883,7 @@ func (r *OnlineUpgradeReconciler) startReplicationToReplicaGroupB(ctx context.Co
 	if r.VDB.IsSetForTLS() {
 		tlsConfig = "server"
 	}
+
 	vrep := &v1beta1.VerticaReplicator{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: v1beta1.GroupVersion.String(),
@@ -1355,7 +1379,14 @@ func (r *OnlineUpgradeReconciler) moveReplicaGroupBSubclusterToSandbox() (bool, 
 		Image: oldImage,
 	}
 	for _, nm := range scNames {
-		sandbox.Subclusters = append(sandbox.Subclusters, vapi.SandboxSubcluster{Name: nm})
+		// When sandboxing, we fetch the type of the base subclsuter which this subcluster duplicated from.
+		// Later when promoting the sandbox to main, we can use this sandbox subcluster type to set the main subcluster type.
+		sc := r.VDB.GetSubcluster(nm)
+		if sc == nil {
+			return false, fmt.Errorf("could not find subcluster %q in vdb", nm)
+		}
+		scType := sc.Annotations[vmeta.ParentSubclusterTypeAnnotation]
+		sandbox.Subclusters = append(sandbox.Subclusters, vapi.SandboxSubcluster{Name: nm, Type: scType})
 	}
 	r.VDB.Annotations[vmeta.OnlineUpgradeSandboxAnnotation] = sandboxName
 	r.VDB.Spec.Sandboxes = append(r.VDB.Spec.Sandboxes, sandbox)

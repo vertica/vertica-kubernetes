@@ -22,6 +22,8 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/google/uuid"
 	v1 "github.com/vertica/vertica-kubernetes/api/v1"
+	"github.com/vertica/vertica-kubernetes/pkg/cache"
+	"github.com/vertica/vertica-kubernetes/pkg/cloud"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	vdbcontroller "github.com/vertica/vertica-kubernetes/pkg/controllers/vdb"
@@ -53,11 +55,12 @@ import (
 // SandboxConfigMapReconciler reconciles a ConfigMap for sandboxing
 type SandboxConfigMapReconciler struct {
 	client.Client
-	Log         logr.Logger
-	Scheme      *runtime.Scheme
-	Cfg         *rest.Config
-	EVRec       record.EventRecorder
-	Concurrency int
+	Log          logr.Logger
+	Scheme       *runtime.Scheme
+	Cfg          *rest.Config
+	EVRec        record.EventRecorder
+	Concurrency  int
+	CacheManager cache.CacheManager
 }
 
 // +kubebuilder:rbac:groups="",resources=configmaps,verbs=get;list;watch
@@ -130,9 +133,15 @@ func (r *SandboxConfigMapReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return ctrl.Result{}, err
 	}
 	prunner := cmds.MakeClusterPodRunner(log, r.Cfg, vdb.GetVerticaUser(), passwd, vmeta.UseTLSAuth(vdb.Annotations))
-	pfacts := podfacts.MakePodFactsForSandbox(r, prunner, log, passwd, sandboxName)
-	dispatcher := vadmin.MakeVClusterOps(log, vdb, r.Client, passwd, r.EVRec, vadmin.SetupVClusterOps)
-
+	pfacts := podfacts.MakePodFactsForSandboxWithCacheManager(r, prunner, log, passwd, sandboxName, r.CacheManager)
+	dispatcher := vadmin.MakeVClusterOps(log, vdb, r.Client, passwd, r.EVRec, vadmin.SetupVClusterOps, r.CacheManager)
+	fetcher := &cloud.SecretFetcher{
+		Client:   r.Client,
+		Log:      r.Log,
+		Obj:      vdb,
+		EVWriter: r.EVRec,
+	}
+	r.CacheManager.InitCertCacheForVdb(vdb, fetcher)
 	// Iterate over each actor
 	actors := r.constructActors(vdb, log, prunner, &pfacts, dispatcher, configMap)
 	for _, act := range actors {
@@ -171,6 +180,8 @@ func (r *SandboxConfigMapReconciler) constructActors(vdb *v1.VerticaDB, log logr
 		vdbcontroller.MakeSubclusterShutdownReconciler(r, log, vdb, dispatcher, pfacts),
 		// Restart any down pods
 		vdbcontroller.MakeRestartReconciler(r, log, vdb, prunner, pfacts, true, dispatcher),
+		// Update subcluster type in db according to its type in sandbox
+		vdbcontroller.MakeAlterSubclusterTypeReconciler(r, log, vdb, pfacts, dispatcher, configMap),
 		// Update the vdb status including subclusters[].shutdown, after a stop_db, stop_sc
 		// or a restart
 		vdbcontroller.MakeStatusReconcilerWithShutdown(r.Client, r.Scheme, log, vdb, pfacts),

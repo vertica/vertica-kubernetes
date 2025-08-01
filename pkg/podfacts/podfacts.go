@@ -29,6 +29,7 @@ import (
 	"github.com/pkg/errors"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/builder"
+	"github.com/vertica/vertica-kubernetes/pkg/cache"
 	"github.com/vertica/vertica-kubernetes/pkg/catalog"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/iter"
@@ -203,6 +204,7 @@ type PodFacts struct {
 	SandboxName        string
 	OverrideFunc       CheckerFunc // Set this if you want to be able to control the PodFact
 	VerticaSUPassword  string
+	CacheManager       cache.CacheManager // Cache manager to use for fetching node details
 }
 
 // GatherState is the data exchanged with the gather pod facts script. We
@@ -235,20 +237,29 @@ const (
 )
 
 // MakePodFacts will create a PodFacts object and return it
+func MakePodFactsWithCacheManager(vrec config.ReconcilerInterface, prunner cmds.PodRunner, log logr.Logger, password string,
+	cacheManager cache.CacheManager) PodFacts {
+	return PodFacts{VRec: vrec, PRunner: prunner, Log: log, NeedCollection: true, Detail: make(PodFactDetail),
+		VerticaSUPassword: password, SandboxName: vapi.MainCluster, CacheManager: cacheManager}
+}
+
+// MakePodFacts will create a PodFacts object and return it. This is mainly for test cases.
 func MakePodFacts(vrec config.ReconcilerInterface, prunner cmds.PodRunner, log logr.Logger, password string) PodFacts {
 	return PodFacts{VRec: vrec, PRunner: prunner, Log: log, NeedCollection: true, Detail: make(PodFactDetail),
 		VerticaSUPassword: password, SandboxName: vapi.MainCluster}
 }
 
 // MakePodFactsForSandbox will create a PodFacts object for a sandbox
-func MakePodFactsForSandbox(vrec config.ReconcilerInterface, prunner cmds.PodRunner, log logr.Logger, password, sandbox string) PodFacts {
-	pf := MakePodFacts(vrec, prunner, log, password)
+func MakePodFactsForSandboxWithCacheManager(vrec config.ReconcilerInterface, prunner cmds.PodRunner, log logr.Logger,
+	password, sandbox string, cacheManager cache.CacheManager) PodFacts {
+	pf := MakePodFactsWithCacheManager(vrec, prunner, log, password, cacheManager)
 	pf.SandboxName = sandbox
 	return pf
 }
 
 // ConstructsDetail sets the Detail field in PodFacts, for test purposes
-func (p *PodFacts) ConstructsDetail(subclusters []vapi.Subcluster, upNodes []uint) {
+func (p *PodFacts) ConstructsDetail(vdb *vapi.VerticaDB, upNodes []uint) {
+	subclusters := vdb.Spec.Subclusters
 	p.Detail = make(PodFactDetail)
 	if len(subclusters) != len(upNodes) {
 		return
@@ -261,7 +272,7 @@ func (p *PodFacts) ConstructsDetail(subclusters []vapi.Subcluster, upNodes []uin
 			pf := PodFact{
 				name:           types.NamespacedName{Name: fmt.Sprintf("%s-%d", sc.Name, j)},
 				subclusterName: sc.Name,
-				isPrimary:      sc.IsPrimary(),
+				isPrimary:      sc.IsPrimary(vdb), // get from vdb for test only
 				shutdown:       sc.Shutdown,
 				upNode:         isUp,
 				podIP:          "10.10.10.10",
@@ -379,7 +390,7 @@ func (p *PodFacts) collectPodByStsIndex(ctx context.Context, vdb *vapi.VerticaDB
 	pf := PodFact{
 		name:              names.GenPodName(vdb, sc, podIndex),
 		subclusterName:    sc.Name,
-		isPrimary:         sc.IsPrimary(),
+		isPrimary:         sc.IsPrimary(vdb), // isPrimary will be overridden by checkNodeDetails
 		podIndex:          podIndex,
 		execContainerName: getExecContainerName(sts),
 		shutdown:          sc.Shutdown,
@@ -720,22 +731,6 @@ func (p *PodFact) GetSubclusterOid() string {
 	return p.subclusterOid
 }
 
-// GetSubclusterStatusType returns the subcluster status type depends on its type in subclusters and sandboxes
-func (p *PodFact) GetSubclusterStatusType() string {
-	if !p.dbExists {
-		// return empty if it's not in a subcluster yet
-		return ""
-	}
-	if p.isPrimary {
-		if p.sandbox != vapi.MainCluster {
-			return vapi.SandboxPrimarySubcluster
-		}
-		return vapi.PrimarySubcluster
-	}
-	// TODO: return SandboxSecondarySubcluster if pod is in sandbox with type secondary
-	return vapi.SecondarySubcluster
-}
-
 // GetAdmintoolsExists returns the bool value of admintoolsExists in PodFact
 func (p *PodFact) GetAdmintoolsExists() bool {
 	return p.admintoolsExists
@@ -931,6 +926,11 @@ func (p *PodFact) SetIsPrimary(isPrimary bool) {
 	p.isPrimary = isPrimary
 }
 
+// SetSandbox set the string value of sandbox in PodFact
+func (p *PodFact) SetSandbox(sbName string) {
+	p.sandbox = sbName
+}
+
 // SetHasNMASidecar set the bool value of hasNMASidecar in PodFact
 func (p *PodFact) SetHasNMASidecar(hasNMASidecar bool) {
 	p.hasNMASidecar = hasNMASidecar
@@ -1088,7 +1088,7 @@ func (p *PodFacts) makeNodeInfoFetcher(vdb *vapi.VerticaDB, pf *PodFact) catalog
 	verInfo, ok := vdb.MakeVersionInfoDuringROUpgrade()
 	if verInfo != nil && ok {
 		if !verInfo.IsOlder(vapi.FetchNodeDetailsWithVclusterOpsMinVersion) && vmeta.UseVClusterOps(vdb.Annotations) {
-			return catalog.MakeVCluster(vdb, p.VerticaSUPassword, pf.podIP, p.Log, p.VRec.GetClient(), p.VRec.GetEventRecorder())
+			return catalog.MakeVCluster(vdb, p.VerticaSUPassword, pf.podIP, p.Log, p.VRec.GetClient(), p.VRec.GetEventRecorder(), p.CacheManager)
 		}
 	} else {
 		p.Log.Info("Cannot get a correct vertica version from the annotations",
@@ -1116,6 +1116,7 @@ func (p *PodFacts) checkNodeDetails(ctx context.Context, vdb *vapi.VerticaDB, pf
 		pf.readOnly = nodeDetails.ReadOnly
 		pf.subclusterOid = nodeDetails.SubclusterOid
 		pf.sandbox = nodeDetails.SandboxName
+		pf.isPrimary = nodeDetails.IsPrimary
 		pf.shardSubscriptions = nodeDetails.ShardSubscriptions
 		pf.maxDepotSize = nodeDetails.MaxDepotSize
 		pf.depotDiskPercentSize = nodeDetails.DepotDiskPercentSize

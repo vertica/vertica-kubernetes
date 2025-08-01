@@ -25,6 +25,7 @@ import (
 	. "github.com/onsi/gomega"
 	vops "github.com/vertica/vcluster/vclusterops"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
+	"github.com/vertica/vertica-kubernetes/pkg/cache"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/test"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/createdb"
@@ -142,7 +143,8 @@ var _ = Describe("create_db_vc", func() {
 		setupAPIFunc := func(logr.Logger, string) (VClusterProvider, logr.Logger) {
 			return &MockVClusterOps{ReturnDBIsRunning: true}, logr.Logger{}
 		}
-		dispatcher := mockVClusterOpsDispatcherWithCustomSetup(vdb, setupAPIFunc)
+		cacheManager := cache.MakeCacheManager(true)
+		dispatcher := mockVClusterOpsDispatcherWithCustomSetup(vdb, setupAPIFunc, cacheManager)
 		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.HTTPSNMATLS.Secret)
 		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.HTTPSNMATLS.Secret)
 		_, err := callCreateDB(ctx, dispatcher)
@@ -163,7 +165,8 @@ var _ = Describe("create_db_vc", func() {
 		setupAPIFunc := func(logr.Logger, string) (VClusterProvider, logr.Logger) {
 			return &MockVClusterOps{VerifyTimeoutNodeStartupSeconds: true}, logr.Logger{}
 		}
-		dispatcher := mockVClusterOpsDispatcherWithCustomSetup(vdb, setupAPIFunc)
+		cacheManager := cache.MakeCacheManager(true)
+		dispatcher := mockVClusterOpsDispatcherWithCustomSetup(vdb, setupAPIFunc, cacheManager)
 		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.HTTPSNMATLS.Secret)
 		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.HTTPSNMATLS.Secret)
 		Ω(callCreateDB(ctx, dispatcher)).Should(Equal(ctrl.Result{}))

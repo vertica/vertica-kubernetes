@@ -119,6 +119,5 @@ func (h *ClientServerTLSUpdateReconciler) Reconcile(ctx context.Context, req *ct
 		h.Log.Error(err, "failed to set condition "+vapi.ClientServerTLSConfigUpdateFinished+" to true")
 		return ctrl.Result{}, err
 	}
-
 	return ctrl.Result{}, nil
 }

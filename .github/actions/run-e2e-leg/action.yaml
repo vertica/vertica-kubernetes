@@ -79,6 +79,10 @@ inputs:
     description: 'If the test will have cert rotation enabled'
     required: false
     default: 'false'
+  use-cache:
+    description: 'If the test will have cert cache enabled'
+    required: false
+    default: 'false'
   skip-download-test-packages:
     description: 'If skip downloading test packages inside vertica image'
     required: false
@@ -192,6 +196,7 @@ runs:
 
           # Run test with cert rotation enabled
           export USE_CERT="${{ inputs.use-cert }}"
+          export CACHE_ENABLED="${{ inputs.use-cache }}"
 
           if [[ "${{ inputs.leg-identifier }}" == "leg-4" || \
                 "${{ inputs.leg-identifier }}" == "leg-9" || \

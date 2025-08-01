@@ -80,7 +80,6 @@ const (
 	RemoveSubcluserStart             = "RemoveSubcluserStart"
 	SubclusterRemoved                = "SubclusterRemoved"
 	RemoveSubclusterFailed           = "RemoveSubclusterFailed"
-	AlterSubclusterStart             = "AlterSubclusterStart"
 	AlterSubclusterFailed            = "AlterSubclusterFailed"
 	AlterSubclusterSucceeded         = "AlterSubclusterSucceeded"
 	SuperuserPasswordSecretNotFound  = "SuperuserPasswordSecretNotFound"

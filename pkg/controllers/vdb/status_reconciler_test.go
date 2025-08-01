@@ -111,7 +111,64 @@ var _ = Describe("status_reconcile", func() {
 		Expect(fetchVdb.Status.Subclusters[1].InstallCount()).Should(Equal(int32(2)))
 		Expect(fetchVdb.Status.Subclusters[1].AddedToDBCount).Should(Equal(int32(2)))
 		Expect(fetchVdb.Status.Subclusters[1].UpNodeCount).Should(Equal(int32(2)))
+	})
 
+	It("should allow promoting and demoting sandbox subcluster", func() {
+		vdb := vapi.MakeVDB()
+		scNames := []string{"sc1", "sc2", "sc3"}
+		scSizes := []int32{3, 3, 1}
+		const sbName = "sand1"
+
+		vdb.Spec.Subclusters = []vapi.Subcluster{
+			{Name: scNames[0], Type: vapi.PrimarySubcluster, Size: scSizes[0]},
+			{Name: scNames[1], Type: vapi.SecondarySubcluster, Size: scSizes[1]},
+			{Name: scNames[2], Type: vapi.SecondarySubcluster, Size: scSizes[2]},
+		}
+		vdb.Spec.Sandboxes = []vapi.Sandbox{
+			{Name: sbName, Subclusters: []vapi.SandboxSubcluster{
+				{Name: scNames[1], Type: vapi.PrimarySubcluster},
+				{Name: scNames[2], Type: vapi.SecondarySubcluster}}},
+		}
+
+		test.CreateVDB(ctx, k8sClient, vdb)
+		defer test.DeleteVDB(ctx, k8sClient, vdb)
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
+
+		fpr := &cmds.FakePodRunner{}
+		pfacts := createPodFactsDefault(fpr)
+		Ω(pfacts.Collect(ctx, vdb)).Should(Succeed())
+		pnSc2 := names.GenPodName(vdb, &vdb.Spec.Subclusters[1], 0)
+		pfacts.Detail[pnSc2].SetSandbox(sbName)
+		pnSc3 := names.GenPodName(vdb, &vdb.Spec.Subclusters[2], 0)
+		pfacts.Detail[pnSc3].SetSandbox(sbName)
+
+		rec := MakeStatusReconciler(k8sClient, scheme.Scheme, logger, vdb, pfacts)
+		Expect(rec.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
+
+		fetchVdb := &vapi.VerticaDB{}
+		Expect(k8sClient.Get(ctx, vapi.MakeVDBName(), fetchVdb)).Should(Succeed())
+		Expect(fetchVdb.Status.Subclusters[2].Type).Should(Equal(vapi.SandboxSecondarySubcluster))
+
+		// promote secondary subcluster to primary in a sandbox
+		vdb.Spec.Sandboxes[0].Subclusters = []vapi.SandboxSubcluster{
+			{Name: scNames[1], Type: vapi.PrimarySubcluster},
+			{Name: scNames[2], Type: vapi.PrimarySubcluster},
+		}
+		pfacts.Detail[pnSc3].SetIsPrimary(true)
+		Expect(rec.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
+		Expect(k8sClient.Get(ctx, vapi.MakeVDBName(), fetchVdb)).Should(Succeed())
+		Expect(fetchVdb.Status.Subclusters[2].Type).Should(Equal(vapi.SandboxPrimarySubcluster))
+
+		// demote one primary subcluster to secondary in a sandbox
+		vdb.Spec.Sandboxes[0].Subclusters = []vapi.SandboxSubcluster{
+			{Name: scNames[1], Type: vapi.SecondarySubcluster},
+			{Name: scNames[2], Type: vapi.PrimarySubcluster},
+		}
+		pfacts.Detail[pnSc2].SetIsPrimary(false)
+		Expect(rec.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
+		Expect(k8sClient.Get(ctx, vapi.MakeVDBName(), fetchVdb)).Should(Succeed())
+		Expect(fetchVdb.Status.Subclusters[1].Type).Should(Equal(vapi.SandboxSecondarySubcluster))
 	})
 
 	It("should handle multiple subclusters", func() {

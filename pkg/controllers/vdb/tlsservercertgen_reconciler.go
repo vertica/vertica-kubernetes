@@ -42,6 +42,7 @@ const (
 	httpsNMATLSSecret     = "HTTPSNMATLSSecret" //nolint:gosec
 	clientServerTLSSecret = "ClientServerTLSSecret"
 	TLSCertName           = "tls.crt"
+	TLSKeyName            = "tls.key"
 )
 
 // TLSServerCertGenReconciler will create a secret that has TLS credentials.  This
@@ -225,11 +226,22 @@ func (h *TLSServerCertGenReconciler) ValidateSecretCertificate(
 	if certPEM == nil {
 		return errors.New("failed to decode PEM block containing certificate")
 	}
+	keyPEM := secret.Data[TLSKeyName]
+	if keyPEM == nil {
+		return errors.New("failed to decode PEM block containing key")
+	}
 
-	err := security.ValidateCertificate(certPEM)
+	err := security.ValidateTLSSecret(certPEM, keyPEM)
 	if err != nil {
 		h.VRec.Eventf(h.Vdb, corev1.EventTypeWarning, events.TLSCertValidationFailed,
 			"Validation of TLS Certificate %q failed with secret %q", tlsConfigName, secretName)
+		return err
+	}
+
+	err = security.ValidateCertificateCommonName(certPEM, h.Vdb.GetExpectedCertCommonName(tlsConfigName))
+	if err != nil {
+		h.VRec.Eventf(h.Vdb, corev1.EventTypeWarning, events.TLSCertValidationFailed,
+			"Validation of common name for TLS Certificate %q failed with secret %q", tlsConfigName, secretName)
 		return err
 	}
 

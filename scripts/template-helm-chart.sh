@@ -231,6 +231,7 @@ done
 for fn in $TEMPLATE_DIR/verticadb-operator-manager-config-cm.yaml
 do
   perl -i -0777 -pe 's/(WEBHOOKS_ENABLED:).*/$1 {{ quote .Values.webhook.enable }}/g' $fn
+  perl -i -0777 -pe 's/(CACHE_ENABLED:).*/$1 {{ quote .Values.cache.enable }}/g' $fn
   perl -i -0777 -pe 's/(BROADCASTER_BURST_SIZE:).*/$1 {{ quote .Values.controllers.burstSize }}/g' $fn
   perl -i -0777 -pe 's/(CONTROLLERS_ENABLED:).*/$1 {{ quote .Values.controllers.enable }}/g' $fn
   perl -i -0777 -pe 's/(PROMETHEUS_ENABLED:).*/$1 {{ quote (index .Values "prometheus-server" "enabled") }}/g' $fn

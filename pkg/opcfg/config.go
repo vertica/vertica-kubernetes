@@ -37,6 +37,11 @@ func GetIsWebhookEnabled() bool {
 	return lookupBoolEnvVar("WEBHOOKS_ENABLED", envMustExist)
 }
 
+// GetIsCacheEnabled returns true if the cache is enabled.
+func GetIsCacheEnabled() bool {
+	return lookupBoolEnvVarWithDefaultValue("CACHE_ENABLED", envCanNotExist, true)
+}
+
 // GetBroadcasterBurstSize returns the customizable burst size for broadcaster.
 func GetBroadcasterBurstSize() int {
 	envName := "BROADCASTER_BURST_SIZE"
@@ -287,20 +292,27 @@ const (
 // as if it's a boolean. If mustExist is true and the variable isn't found, the
 // manager is stopped.
 func lookupBoolEnvVar(envName string, mustExist bool) bool {
+	return lookupBoolEnvVarWithDefaultValue(envName, mustExist, false)
+}
+
+// lookupBoolEnvVarWithDefaultValue will look for an environment variable and return its value
+// as if it's a boolean. If mustExist is true and the variable isn't found, the
+// manager is stopped. If it is not found or not set properly, a default value is returned.
+func lookupBoolEnvVarWithDefaultValue(envName string, mustExist, defaultValue bool) bool {
 	valStr, found := os.LookupEnv(envName)
 	if !found {
 		if mustExist {
 			dieIfNotFound(envName)
 		}
-		return false
+		return defaultValue
 	}
 	if valStr == "" {
-		return false
+		return defaultValue
 	}
 	valBool, err := strconv.ParseBool(valStr)
 	if err != nil {
 		dieIfNotValid(envName)
-		return false
+		return defaultValue
 	}
 	return valBool
 }

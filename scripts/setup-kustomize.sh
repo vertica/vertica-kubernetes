@@ -148,6 +148,7 @@ echo "Sandbox Maximum Backoff Duration: $SANDBOX_MAX_BACKOFF_DURATION"
 echo "Cert rotation enabled: $USE_CERT"
 echo "Prometheus enabled: $PROMETHEUS_ENABLED"
 echo "Grafana enabled: $GRAFANA_ENABLED"
+echo "Cache enabled: $CACHE_ENABLED"
 
 function create_vdb_kustomization {
     BASE_DIR=$1

@@ -20,6 +20,7 @@ import (
 
 	vops "github.com/vertica/vcluster/vclusterops"
 	"github.com/vertica/vertica-kubernetes/pkg/net"
+	"github.com/vertica/vertica-kubernetes/pkg/tls"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/renamesc"
 )
 
@@ -51,7 +52,7 @@ func (v *VClusterOps) RenameSubcluster(ctx context.Context, opts ...renamesc.Opt
 	return nil
 }
 
-func (v *VClusterOps) genRenameSubclusterOptions(s *renamesc.Params, certs *HTTPSCerts) vops.VRenameSubclusterOptions {
+func (v *VClusterOps) genRenameSubclusterOptions(s *renamesc.Params, certs *tls.HTTPSCerts) vops.VRenameSubclusterOptions {
 	opts := vops.VRenameSubclusterFactory()
 
 	opts.DBName = v.VDB.Spec.DBName

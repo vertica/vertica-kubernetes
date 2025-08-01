@@ -30,6 +30,7 @@ import (
 
 	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	"github.com/vertica/vertica-kubernetes/pkg/cache"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
@@ -39,11 +40,12 @@ import (
 // VerticaReplicatorReconciler reconciles a VerticaReplicator object
 type VerticaReplicatorReconciler struct {
 	client.Client
-	Scheme      *runtime.Scheme
-	Log         logr.Logger
-	Cfg         *rest.Config
-	EVRec       record.EventRecorder
-	Concurrency int
+	Scheme       *runtime.Scheme
+	Log          logr.Logger
+	Cfg          *rest.Config
+	EVRec        record.EventRecorder
+	Concurrency  int
+	CacheManager cache.CacheManager
 }
 
 // +kubebuilder:rbac:groups=vertica.com,resources=verticareplicators,verbs=get;list;watch;create;update;patch;delete

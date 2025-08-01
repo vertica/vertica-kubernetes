@@ -38,11 +38,14 @@ import (
 type PodRunningState bool
 
 const (
-	AllPodsRunning    PodRunningState = true
-	AllPodsNotRunning PodRunningState = false
-	TestKeyValue                      = "test-key"
-	TestCertValue                     = "test-cert"
-	TestCaCertValue                   = "test-ca-cert"
+	AllPodsRunning     PodRunningState = true
+	AllPodsNotRunning  PodRunningState = false
+	TestKeyValue                       = "test-key"
+	TestCertValue                      = "test-cert"
+	TestCaCertValue                    = "test-ca-cert"
+	TestKeyValueTwo                    = "test-key-two"
+	TestCertValueTwo                   = "test-cert-two"
+	TestCaCertValueTwo                 = "test-ca-cert-two"
 )
 
 func CreatePods(ctx context.Context, c client.Client, vdb *vapi.VerticaDB, podRunningState PodRunningState) {
