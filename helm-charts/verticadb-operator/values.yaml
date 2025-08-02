@@ -460,18 +460,35 @@ loki:
   enabled: false # Set to true if you want to deploy loki
 
   loki:
+    compactor:
+      retention_enabled: true
+      working_directory: /var/loki/compactor # Specify a working directory for the compactor
+      compaction_interval: 10m # The compactor runs every 10 minutes
+      retention_delete_delay: 2h # Deletion of chunks is delayed by 2 hours after the retention period expires
+      delete_request_store: filesystem # Store delete requests locally on disk
+
+    limits_config:
+      retention_period: 720h # 30 days
+
     auth_enabled: false
     commonConfig:
       replication_factor: 1
+
     schemaConfig:
       configs:
         - from: 2024-04-01
           store: tsdb
-          object_store: s3
+          object_store: filesystem
           schema: v13
           index:
             prefix: loki_index_
             period: 24h
+
+    storage:
+      type: filesystem
+      filesystem:
+        chunks_directory: "/var/loki/chunks" # Directory for storing log data chunks
+
     ingester:
       chunk_encoding: snappy
     pattern_ingester:
@@ -485,8 +502,9 @@ loki:
       # Default is 4, if you have enough memory and CPU you can increase, reduce if OOMing
       max_concurrent: 4
   
+  # use filesystem
   minio:
-    enabled: true
+    enabled: false
   # disable canary to skip health check
   lokiCanary:
     enabled: false
@@ -562,25 +580,17 @@ alloy:
         // It watches cluster state and ensures targets are continually synced with what is currently running in your cluster.
         discovery.kubernetes "vertica_pods" {
           role = "pod"
-            selectors {
-              label_selector= "app.kubernetes.io/name=vertica"
-            }
-        }
-
-        discovery.kubernetes "operator_pod" {
-          role = "pod"
-            selectors {
-              label_selector= "app.kubernetes.io/name=vertica"
-            }
+          selectors {
+            role = "pod"
+            // field = "metadata.namespace=default"
+            label = "app.kubernetes.io/name in (vertica, verticadb-operator)"
+          }
         }
 
         // discovery.relabel rewrites the label set of the input targets by applying one or more relabeling rules.
         // If no rules are defined, then the input targets are exported as-is.
         discovery.relabel "pod_logs" {
-          targets = [
-            discovery.kubernetes.veritca_pods.targets
-            discovery.kubernetes.operator_pod.targets
-          ]
+          targets = discovery.kubernetes.vertica_pods.targets
 
           // Label creation - "namespace" field from "__meta_kubernetes_namespace"
           rule {
