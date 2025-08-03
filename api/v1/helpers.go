@@ -1858,7 +1858,7 @@ func (v *VerticaDB) GetValueForTLSConfigMap(specValue, statusValue, tlsConfigNam
 // secret if an update is still in progress or a rollback is needed.
 func (v *VerticaDB) GetHTTPSNMATLSSecretForConfigMap() string {
 	if !vmeta.UseTLSAuth(v.Annotations) {
-		return v.GetNMATLSSecret()	
+		return v.GetNMATLSSecret()
 	}
 	return v.GetValueForTLSConfigMap(v.GetHTTPSNMATLSSecret(), v.GetHTTPSNMATLSSecretInUse(), HTTPSNMATLSConfigName)
 }

@@ -61,15 +61,7 @@ func MakeNMACertRotationReconciler(vdbrecon *VerticaDBReconciler, log logr.Logge
 
 // Reconcile will rotate TLS certificate.
 func (h *NMACertRotationReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
-	if !h.Vdb.IsSetForTLS() {
-		return ctrl.Result{}, nil
-	}
-	// no-op if tls update has not occurred
-	if !h.RestartOnly &&
-		((!h.Vdb.IsStatusConditionTrue(vapi.HTTPSTLSConfigUpdateFinished) &&
-			!h.Vdb.IsStatusConditionTrue(vapi.ClientServerTLSConfigUpdateFinished)) ||
-			!h.Vdb.IsStatusConditionTrue(vapi.TLSConfigUpdateInProgress) ||
-			h.Vdb.IsTLSCertRollbackNeeded()) {
+	if !h.nmaCertRotationNeeded() {
 		return ctrl.Result{}, nil
 	}
 
@@ -125,6 +117,22 @@ func (h *NMACertRotationReconciler) Reconcile(ctx context.Context, _ *ctrl.Reque
 		conds = append(conds, vapi.MakeCondition(vapi.ClientServerTLSConfigUpdateFinished, metav1.ConditionFalse, "Completed"))
 	}
 	return ctrl.Result{}, updateConds(conds)
+}
+
+// nmaCertRotationNeeded returns true if nma cert rotation is needed
+func (h *NMACertRotationReconciler) nmaCertRotationNeeded() bool {
+	if !h.Vdb.IsSetForTLS() {
+		return false
+	}
+	// no-op if tls update has not occurred
+	if !h.RestartOnly &&
+		((!h.Vdb.IsStatusConditionTrue(vapi.HTTPSTLSConfigUpdateFinished) &&
+			!h.Vdb.IsStatusConditionTrue(vapi.ClientServerTLSConfigUpdateFinished)) ||
+			!h.Vdb.IsStatusConditionTrue(vapi.TLSConfigUpdateInProgress) ||
+			h.Vdb.IsTLSCertRollbackNeeded()) {
+		return false
+	}
+	return true
 }
 
 // rotateHTTPSTLSCert will rotate node management agent's tls cert from currentSecret to newSecret

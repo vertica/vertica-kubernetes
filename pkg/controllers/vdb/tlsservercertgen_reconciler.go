@@ -64,8 +64,6 @@ func MakeTLSServerCertGenReconciler(vdbrecon *VerticaDBReconciler, log logr.Logg
 }
 
 // Reconcile will create a TLS secret for the http server if one is missing
-//
-//nolint:gocyclo
 func (h *TLSServerCertGenReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
 	nmaCertNeeded := !vmeta.UseTLSAuth(h.Vdb.Annotations) && h.Vdb.Spec.NMATLSSecret == ""
 	// Verify that at least one secret has changed
@@ -74,6 +72,11 @@ func (h *TLSServerCertGenReconciler) Reconcile(ctx context.Context, _ *ctrl.Requ
 		return ctrl.Result{}, nil
 	}
 
+	return ctrl.Result{}, h.reconcileSecrets(ctx)
+}
+
+// reconcileSecrets will check three secrets: NMA secret, https secret, and client server secret
+func (h *TLSServerCertGenReconciler) reconcileSecrets(ctx context.Context) error {
 	secretFieldNameMap := map[string]string{
 		nmaTLSSecret:          h.Vdb.Spec.NMATLSSecret,
 		httpsNMATLSSecret:     h.Vdb.GetHTTPSNMATLSSecret(),
@@ -100,7 +103,7 @@ func (h *TLSServerCertGenReconciler) Reconcile(ctx context.Context, _ *ctrl.Requ
 				err = h.setSecretNameInVDB(ctx, secretFieldName, h.Vdb.Spec.NMATLSSecret)
 				if err != nil {
 					h.Log.Error(err, "failed to initialize TLS secret from nmaTLSSecret", "TLS secret", secretFieldName)
-					return ctrl.Result{}, err
+					return err
 				}
 				continue
 			}
@@ -108,10 +111,10 @@ func (h *TLSServerCertGenReconciler) Reconcile(ctx context.Context, _ *ctrl.Requ
 		err = h.reconcileOneSecret(secretFieldName, secretName, ctx)
 		if err != nil {
 			h.Log.Error(err, fmt.Sprintf("failed to reconcile secret for %s", secretFieldName))
-			return ctrl.Result{}, err
+			return err
 		}
 	}
-	return ctrl.Result{}, err
+	return nil
 }
 
 // reconcileOneSecret will create a TLS secret for the http server if one is missing

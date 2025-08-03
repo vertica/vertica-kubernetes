@@ -440,7 +440,7 @@ func (r *VerticaDBReconciler) InitCertCacheForVdb(vdb *vapi.VerticaDB) {
 func (r *VerticaDBReconciler) CleanCacheForVdb(vdb *vapi.VerticaDB) {
 	certCache := r.CacheManager.GetCertCacheForVdb(vdb.Namespace, vdb.Name)
 	certsInUse := []string{
-		vdb.Spec.HTTPSNMATLS.Secret,
+		vdb.GetNMATLSSecret(),
 	}
 	if vdb.Spec.ClientServerTLS.Secret != "" {
 		certsInUse = append(certsInUse, vdb.Spec.ClientServerTLS.Secret)

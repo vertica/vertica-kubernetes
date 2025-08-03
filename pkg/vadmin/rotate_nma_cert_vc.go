@@ -34,7 +34,7 @@ func (v *VClusterOps) RotateNMACerts(ctx context.Context, opts ...rotatenmacerts
 	s.Make(opts...)
 
 	// get the certs
-	var certs *HTTPSCerts
+	var certs *tls.HTTPSCerts
 	var err error
 	if s.FromNMA {
 		certs, err = v.retrieveNMACerts(ctx)
