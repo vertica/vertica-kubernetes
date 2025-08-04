@@ -179,6 +179,9 @@ PROMETHEUS_ENABLED ?= false
 LOKI_ENABLED ?= false
 # ALLOY deployed as the agent for loki
 ALLOY_ENABLED ?= false
+ifeq ($(LOKI_ENABLED), true)
+ALLOY_ENABLED ?= true
+endif
 # Maximum number of tests to run at once. (default 2)
 # Set it to any value not greater than 8 to override the default one
 E2E_PARALLELISM?=2
