@@ -134,7 +134,6 @@ func (r *ReplicationReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) 
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-
 	err = r.runReplicateDB(ctx, r.dispatcher, opts)
 
 	return ctrl.Result{}, err
@@ -161,10 +160,10 @@ func (r *ReplicationReconciler) makeDispatcher() error {
 
 	if r.Vrep.IsUsingAsyncReplication() {
 		r.dispatcher = vadmin.MakeVClusterOpsWithTarget(r.Log, r.SourceInfo.Vdb, r.TargetInfo.Vdb,
-			r.VRec.GetClient(), r.SourceInfo.Password, r.VRec, vadmin.SetupVClusterOps)
+			r.VRec.GetClient(), r.SourceInfo.Password, r.VRec, vadmin.SetupVClusterOps, r.VRec.CacheManager)
 	} else {
 		r.dispatcher = vadmin.MakeVClusterOps(r.Log, r.SourceInfo.Vdb,
-			r.VRec.GetClient(), r.SourceInfo.Password, r.VRec, vadmin.SetupVClusterOps)
+			r.VRec.GetClient(), r.SourceInfo.Password, r.VRec, vadmin.SetupVClusterOps, r.VRec.CacheManager)
 	}
 	return nil
 }
@@ -288,7 +287,7 @@ func (r *ReplicationReconciler) makePodFacts(ctx context.Context, vdb *vapi.Vert
 		return nil, err
 	}
 	prunner := cmds.MakeClusterPodRunner(r.Log, r.VRec.Cfg, username, password, vmeta.UseTLSAuth(vdb.Annotations))
-	pFacts := podfacts.MakePodFactsForSandbox(r.VRec, prunner, r.Log, password, sandboxName)
+	pFacts := podfacts.MakePodFactsForSandboxWithCacheManager(r.VRec, prunner, r.Log, password, sandboxName, r.VRec.CacheManager)
 	return &pFacts, nil
 }
 

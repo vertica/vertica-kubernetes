@@ -353,7 +353,7 @@ type VerticaDBSpec struct {
 	Sandboxes []Sandbox `json:"sandboxes,omitempty"`
 
 	// +kubebuilder:validation:Optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:advanced"
 	// Create client proxy pods for the subcluster if defined
 	// All incoming connections to the subclusters will be routed through the proxy pods
 	Proxy *Proxy `json:"proxy,omitempty"`
@@ -949,6 +949,12 @@ type TLSConfigSpec struct {
 	// - VERIFY_CA: Connection succeeds if Vertica verifies that the client certificate is from a trusted CA.
 	//   If the client does not present a client certificate, the connection is rejected.
 	Mode string `json:"mode,omitempty"`
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:text","urn:alm:descriptor:com.tectonic.ui:advanced"}
+	// +kubebuilder:validation:Optional
+	// This field defines the common-name that should be required for the TLS certificate of this TLS secret.
+	// The operator will validate that your certificate contains this value in the common-name field.
+	// If not specified, it will use the Vertica DB admin username, defined by annotation vertica.com/superuser-name.
+	CommonName string `json:"commonName,omitempty"`
 }
 
 // VerticaDBStatus defines the observed state of VerticaDB
@@ -1085,13 +1091,18 @@ const (
 	// TLSCertRollbackNeeded indicates tls cert rotation failed and we need
 	// to rollback
 	TLSCertRollbackNeeded = "TLSCertRollbackNeeded"
+	// TLSCertRollbackInProgress indicates that user has triggered TLS rollback
+	TLSCertRollbackInProgress = "TLSCertRollbackInProgress"
 )
 
 const (
-	// RollbackAfterCertRotationReason indicates failure during TLS rotation after TLS cert has been updated
-	RollbackAfterCertRotationReason = "CertRotationFailed"
-	// FailureBeforeCertHealthPollingReason indicates failure during TLS rotation before TLS cert has been updated
-	FailureBeforeCertHealthPollingReason = "CertRotationFailedBeforeCertHealthPolling"
+	// RollbackAfterHTTPSCertRotationReason indicates failure during HTTPS TLS rotation after TLS cert has been updated
+	RollbackAfterHTTPSCertRotationReason = "HTTPSCertRotationFailed"
+	// FailureBeforeHTTPSCertHealthPollingReason indicates failure during HTTPS TLS rotation before TLS cert has been updated
+	FailureBeforeHTTPSCertHealthPollingReason = "HTTPSCertRotationFailedBeforeCertHealthPolling"
+	// RollbackAfterServerCertRotationReason indicates failure during Client-Server TLS rotation
+	// This can only be before TLS cert has been updated
+	RollbackAfterServerCertRotationReason = "ServerCertRotationFailed"
 	// RollbackAfterNMACertRotationReason indicates failure during NMA cert rotation
 	RollbackAfterNMACertRotationReason = "NMACertRotationFailed"
 )

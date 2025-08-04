@@ -21,6 +21,7 @@ import (
 	vops "github.com/vertica/vcluster/vclusterops"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/net"
+	"github.com/vertica/vertica-kubernetes/pkg/tls"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/stopdb"
 )
 
@@ -54,7 +55,7 @@ func (v *VClusterOps) StopDB(ctx context.Context, opts ...stopdb.Option) error {
 	return nil
 }
 
-func (v *VClusterOps) genStopDBOptions(s *stopdb.Parms, certs *HTTPSCerts) vops.VStopDatabaseOptions {
+func (v *VClusterOps) genStopDBOptions(s *stopdb.Parms, certs *tls.HTTPSCerts) vops.VStopDatabaseOptions {
 	opts := vops.VStopDatabaseOptionsFactory()
 
 	opts.RawHosts = append(opts.RawHosts, s.InitiatorIP)

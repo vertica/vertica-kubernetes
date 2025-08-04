@@ -20,6 +20,7 @@ import (
 
 	vops "github.com/vertica/vcluster/vclusterops"
 	"github.com/vertica/vertica-kubernetes/pkg/net"
+	"github.com/vertica/vertica-kubernetes/pkg/tls"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/fetchnodestate"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -59,7 +60,7 @@ func (v *VClusterOps) FetchNodeState(ctx context.Context, opts ...fetchnodestate
 	return stateMap, ctrl.Result{}, nil
 }
 
-func (v *VClusterOps) genFetchNodeStateOptions(s *fetchnodestate.Parms, certs *HTTPSCerts) vops.VFetchNodeStateOptions {
+func (v *VClusterOps) genFetchNodeStateOptions(s *fetchnodestate.Parms, certs *tls.HTTPSCerts) vops.VFetchNodeStateOptions {
 	opts := vops.VFetchNodeStateOptionsFactory()
 
 	opts.DBName = v.VDB.Spec.DBName

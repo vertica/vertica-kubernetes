@@ -21,8 +21,8 @@ import (
 	"maps"
 
 	vops "github.com/vertica/vcluster/vclusterops"
-
 	"github.com/vertica/vertica-kubernetes/pkg/net"
+	"github.com/vertica/vertica-kubernetes/pkg/tls"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/settlsconfig"
 )
 
@@ -53,7 +53,7 @@ func (v *VClusterOps) SetTLSConfig(ctx context.Context, opts ...settlsconfig.Opt
 }
 
 func (v *VClusterOps) genSetTLSConfigOptions(s *settlsconfig.Parms,
-	certs *HTTPSCerts) *vops.VSetTLSConfigOptions {
+	certs *tls.HTTPSCerts) *vops.VSetTLSConfigOptions {
 	opts := vops.VSetTLSConfigOptionsFactory()
 
 	opts.RawHosts = append(opts.RawHosts, s.InitiatorIP)

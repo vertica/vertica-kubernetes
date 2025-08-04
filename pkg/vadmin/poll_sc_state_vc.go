@@ -21,6 +21,7 @@ import (
 
 	vops "github.com/vertica/vcluster/vclusterops"
 	"github.com/vertica/vertica-kubernetes/pkg/net"
+	"github.com/vertica/vertica-kubernetes/pkg/tls"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/pollscstate"
 )
 
@@ -47,7 +48,7 @@ func (v *VClusterOps) PollSubclusterState(ctx context.Context, opts ...pollscsta
 	return
 }
 
-func (v *VClusterOps) genPollSubclusterStateOptions(s *pollscstate.Params, certs *HTTPSCerts) *vops.VPollSubclusterStateOptions {
+func (v *VClusterOps) genPollSubclusterStateOptions(s *pollscstate.Params, certs *tls.HTTPSCerts) *vops.VPollSubclusterStateOptions {
 	opts := vops.VPollSubclusterStateOptionsFactory()
 
 	// required options

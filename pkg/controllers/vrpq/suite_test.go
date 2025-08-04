@@ -27,6 +27,8 @@ import (
 
 	"github.com/vertica/vertica-kubernetes/pkg/aterrors"
 	"github.com/vertica/vertica-kubernetes/pkg/builder"
+	"github.com/vertica/vertica-kubernetes/pkg/cache"
+	"github.com/vertica/vertica-kubernetes/pkg/cloud"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
@@ -148,6 +150,15 @@ func deleteSecret(ctx context.Context, vdb *v1.VerticaDB, secretName string) {
 func mockVClusterOpsDispatcherWithCustomSetup(vdb *v1.VerticaDB,
 	setupAPIFunc func(logr.Logger, string) (vadmin.VClusterProvider, logr.Logger)) *vadmin.VClusterOps {
 	evWriter := aterrors.TestEVWriter{}
-	dispatcher := vadmin.MakeVClusterOps(logger, vdb, k8sClient, "pwd", &evWriter, setupAPIFunc)
-	return dispatcher.(*vadmin.VClusterOps)
+	cacheManager := cache.MakeCacheManager(true)
+	dispatcher := vadmin.MakeVClusterOps(logger, vdb, k8sClient, "pwd", &evWriter, setupAPIFunc, cacheManager)
+	vclusterops := dispatcher.(*vadmin.VClusterOps)
+	fetcher := &cloud.SecretFetcher{
+		Client:   vclusterops.Client,
+		Log:      vclusterops.Log,
+		Obj:      vclusterops.VDB,
+		EVWriter: vclusterops.EVWriter,
+	}
+	cacheManager.InitCertCacheForVdb(vdb, fetcher)
+	return vclusterops
 }

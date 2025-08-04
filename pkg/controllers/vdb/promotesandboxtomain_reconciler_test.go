@@ -69,11 +69,11 @@ var _ = Describe("promotesandboxtomain_reconcile", func() {
 		vdb := vapi.MakeVDBForVclusterOps()
 		vdb.Spec.ShardCount = 4
 		vdb.Spec.Sandboxes = []vapi.Sandbox{
-			{Name: sandbox1, Subclusters: []vapi.SandboxSubcluster{{Name: subcluster1}}},
+			{Name: sandbox1, Subclusters: []vapi.SandboxSubcluster{{Name: subcluster1, Type: vapi.PrimarySubcluster}}},
 		}
 		vdb.Spec.Subclusters = []vapi.Subcluster{
 			{Name: maincluster, Size: 3, Type: vapi.PrimarySubcluster},
-			{Name: subcluster1, Size: 1, Type: vapi.SandboxPrimarySubcluster},
+			{Name: subcluster1, Size: 1, Type: vapi.SecondarySubcluster},
 		}
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)

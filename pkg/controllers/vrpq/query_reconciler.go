@@ -24,6 +24,7 @@ import (
 	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	v1beta1 "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	"github.com/vertica/vertica-kubernetes/pkg/cloud"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
@@ -91,6 +92,13 @@ func (q *QueryReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.
 	if err != nil {
 		return ctrl.Result{}, err
 	}
+	fetcher := &cloud.SecretFetcher{
+		Client:   q.VRec.Client,
+		Log:      q.Log,
+		Obj:      q.Vdb,
+		EVWriter: q.VRec.EVRec,
+	}
+	q.VRec.CacheManager.InitCertCacheForVdb(q.Vdb, fetcher)
 
 	finder := iter.MakeSubclusterFinder(q.VRec.Client, q.Vdb)
 	pods, err := finder.FindPods(ctx, iter.FindExisting, vapi.MainCluster)
@@ -196,7 +204,7 @@ func (q *QueryReconciler) makeDispatcher(log logr.Logger, vdb *vapi.VerticaDB,
 	_ *string) (vadmin.Dispatcher, error) {
 	if vmeta.UseVClusterOps(vdb.Annotations) {
 		// The password isn't needed since our API is going to strictly communicate with the NMA
-		return vadmin.MakeVClusterOps(log, vdb, q.VRec.GetClient(), "", q.VRec, vadmin.SetupVClusterOps), nil
+		return vadmin.MakeVClusterOps(log, vdb, q.VRec.GetClient(), "", q.VRec, vadmin.SetupVClusterOps, q.VRec.CacheManager), nil
 	}
 	return nil, fmt.Errorf("ShowRestorePoints is not supported for admintools deployments")
 }

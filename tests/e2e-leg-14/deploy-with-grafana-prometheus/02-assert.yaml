@@ -11,28 +11,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# This is applied through envsubst so that the $NAMESPACE gets filled in
-
-apiVersion: cert-manager.io/v1
-kind: Certificate
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
 metadata:
-  name: serving-cert
-spec:
-  commonName: default
-  isCA: true
-  usages:
-    - digital signature
-    - key encipherment
-    - server auth
-    - client auth
-  issuerRef:
-    kind: Issuer
-    name: selfsigned-issuer
-  secretName: custom-cert
+  name: integration-test-role
 ---
-apiVersion: cert-manager.io/v1
-kind: Issuer
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
 metadata:
-  name: selfsigned-issuer
-spec:
-  selfSigned: {}
+  name: integration-test-rb
