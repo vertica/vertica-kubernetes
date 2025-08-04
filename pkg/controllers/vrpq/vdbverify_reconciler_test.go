@@ -62,7 +62,7 @@ var _ = Describe("vdbverify_reconcile", func() {
 	It("should update the queryReady condition and state to false for incompatible databases", func() {
 		vdb := vapi.MakeVDB()
 		secretName := "tls-2"
-		vdb.Spec.HTTPSNMATLS.Secret = secretName
+		vdb.Spec.NMATLSSecret = secretName
 		vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)

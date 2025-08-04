@@ -299,13 +299,13 @@ var _ = Describe("sandboxsubcluster_reconcile", func() {
 			{Name: subcluster1, Size: 1, Type: vapi.SecondarySubcluster},
 			{Name: subcluster2, Size: 1, Type: vapi.SecondarySubcluster},
 		}
-		vdb.Spec.HTTPSNMATLS.Secret = "test-tls"
+		vdb.Spec.NMATLSSecret = "test-tls"
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
-		test.CreateFakeTLSSecret(ctx, vdb, k8sClient, vdb.GetHTTPSNMATLSSecret())
-		defer test.DeleteSecret(ctx, k8sClient, vdb.GetHTTPSNMATLSSecret())
+		test.CreateFakeTLSSecret(ctx, vdb, k8sClient, vdb.GetNMATLSSecret())
+		defer test.DeleteSecret(ctx, k8sClient, vdb.GetNMATLSSecret())
 
 		fpr := &cmds.FakePodRunner{}
 		pfacts := createPodFactsDefault(fpr)
