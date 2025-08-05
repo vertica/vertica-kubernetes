@@ -171,7 +171,7 @@ func (h *TLSServerCertGenReconciler) reconcileOneSecret(secretFieldName, secretN
 		return err
 	}
 	if secretFieldName != nmaTLSSecret {
-		if err := h.ValidateSecretCertificate(ctx, secret, tlsConfigName, secretName); err != nil {
+		if err := h.ValidateSecretCertificate(ctx, secret, tlsConfigName, secret.Name); err != nil {
 			return err
 		}
 	}

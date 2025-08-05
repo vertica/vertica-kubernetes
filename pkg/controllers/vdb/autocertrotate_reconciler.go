@@ -177,19 +177,19 @@ func (r *AutoCertRotateReconciler) rotateToSecret(
 	ctx context.Context, tlsConfig string, secrets []string, secretToRotateTo string,
 ) (ctrl.Result, error) {
 	now := time.Now()
-	patch := r.Vdb.DeepCopy()
 
 	// Update spec to trigger cert rotation
 	switch tlsConfig {
 	case vapi.ClientServerTLSConfigName:
-		patch.Spec.ClientServerTLS.Secret = secretToRotateTo
+		r.Vdb.Spec.ClientServerTLS.Secret = secretToRotateTo
 	case vapi.HTTPSNMATLSConfigName:
-		patch.Spec.HTTPSNMATLS.Secret = secretToRotateTo
+		r.Vdb.Spec.HTTPSNMATLS.Secret = secretToRotateTo
 	default:
 		r.Log.Info("Unknown TLS config name", "tlsConfig", tlsConfig)
 		return ctrl.Result{}, nil
 	}
 
+	patch := r.Vdb.DeepCopy()
 	// Update status
 	if patch.GetTLSConfigByName(tlsConfig) == nil {
 		patch.Status.TLSConfigs = append(patch.Status.TLSConfigs,
