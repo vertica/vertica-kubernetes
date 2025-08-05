@@ -462,6 +462,10 @@ const (
 	// Interval (in seconds) at which Prometheus scrapes the metrics from the target.
 	// If empty, Prometheus uses the global scrape interval.
 	PrometheusScrapeIntervalAnnotation = "vertica.com/prometheus-scrape-interval"
+
+	// This annotation disables the webhook check performed by hasValidTLSWithKnob().
+	// It is intended for internal testing purposes only.
+	SkipTLSWebhookCheck = "vertica.com/skip-tls-webhook-check"
 )
 
 // IsPauseAnnotationSet will check the annotations for a special value that will
@@ -880,6 +884,10 @@ func ShouldRemoveTLSSecret(annotations map[string]string) bool {
 
 func GetPrometheusScrapeInterval(annotations map[string]string) int {
 	return lookupIntAnnotation(annotations, PrometheusScrapeIntervalAnnotation, 0)
+}
+
+func ShouldSkipTLSWebhookCheck(annotations map[string]string) bool {
+	return lookupBoolAnnotation(annotations, SkipTLSWebhookCheck, false)
 }
 
 // lookupBoolAnnotation is a helper function to lookup a specific annotation and

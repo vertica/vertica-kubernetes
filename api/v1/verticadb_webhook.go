@@ -1568,6 +1568,9 @@ func (v *VerticaDB) hasNoConflictbetweenTLSAndCertMount(allErrs field.ErrorList)
 
 // hasValidTLSWithKnob checks if https and client-server TLS are used when TLS auth is disabled
 func (v *VerticaDB) hasValidTLSWithKnob(allErrs field.ErrorList) field.ErrorList {
+	if vmeta.ShouldSkipTLSWebhookCheck(v.Annotations) {
+		return allErrs
+	}
 	if !vmeta.UseTLSAuth(v.Annotations) && v.Spec.HTTPSNMATLS != nil {
 		err := field.Forbidden(field.NewPath("spec").Child("httpsNMATLS"),
 			fmt.Sprintf("cannot set httpsNMATLS when %s is set to false", vmeta.EnableTLSAuthAnnotation))
