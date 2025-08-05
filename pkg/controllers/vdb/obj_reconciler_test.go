@@ -676,6 +676,7 @@ var _ = Describe("obj_reconcile", func() {
 			vdb := vapi.MakeVDB()
 			vdb.Spec.NMATLSSecret = ""
 			vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
+			vdb.Annotations[vmeta.EnableTLSAuthAnnotation] = vmeta.AnnotationFalse
 			createCrd(vdb, false)
 			defer deleteCrd(vdb)
 
@@ -824,6 +825,7 @@ var _ = Describe("obj_reconcile", func() {
 			vdb := vapi.MakeVDB()
 			vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
 			vdb.Annotations[vmeta.VersionAnnotation] = vapi.VcluseropsAsDefaultDeploymentMethodMinVersion
+			vdb.Annotations[vmeta.EnableTLSAuthAnnotation] = vmeta.AnnotationFalse
 			vdb.Spec.NMATLSSecret = "tls-abcdef"
 			test.CreateFakeTLSSecret(ctx, vdb, k8sClient, vdb.GetNMATLSSecret())
 			defer test.DeleteSecret(ctx, k8sClient, vdb.GetNMATLSSecret())

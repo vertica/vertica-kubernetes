@@ -233,10 +233,12 @@ func (v *VerticaDB) checkValidSubclusterTypeTransition(oldObj *VerticaDB, allErr
 	return allErrs
 }
 
+//nolint:funlen
 func (v *VerticaDB) validateVerticaDBSpec() field.ErrorList {
 	allErrs := v.hasAtLeastOneSC(field.ErrorList{})
 	allErrs = v.hasValidSubclusterTypes(allErrs)
 	allErrs = v.hasNoConflictbetweenTLSAndCertMount(allErrs)
+	allErrs = v.hasValidTLSWithKnob(allErrs)
 	allErrs = v.hasValidInitPolicy(allErrs)
 	allErrs = v.hasValidRestorePolicy(allErrs)
 	allErrs = v.hasValidSaveRestorePointConfig(allErrs)
@@ -1558,6 +1560,22 @@ func (v *VerticaDB) hasNoConflictbetweenTLSAndCertMount(allErrs field.ErrorList)
 	if vmeta.UseTLSAuth(v.Annotations) && vmeta.UseNMACertsMount(v.Annotations) {
 		err := field.Forbidden(field.NewPath("metadata").Child("annotations"),
 			"cannot set enable-tls-auth and mount-nma-certs to true at the same time")
+		allErrs = append(allErrs, err)
+	}
+
+	return allErrs
+}
+
+// hasValidTLSWithKnob checks if https and client-server TLS are used when TLS auth is disabled
+func (v *VerticaDB) hasValidTLSWithKnob(allErrs field.ErrorList) field.ErrorList {
+	if !vmeta.UseTLSAuth(v.Annotations) && v.Spec.HTTPSNMATLS != nil {
+		err := field.Forbidden(field.NewPath("spec").Child("httpsNMATLS"),
+			fmt.Sprintf("cannot set httpsNMATLS when %s is set to false", vmeta.EnableTLSAuthAnnotation))
+		allErrs = append(allErrs, err)
+	}
+	if !vmeta.UseTLSAuth(v.Annotations) && v.Spec.ClientServerTLS != nil {
+		err := field.Forbidden(field.NewPath("spec").Child("clientServerTLS"),
+			fmt.Sprintf("cannot set clientServerTLS when %s is set to false", vmeta.EnableTLSAuthAnnotation))
 		allErrs = append(allErrs, err)
 	}
 

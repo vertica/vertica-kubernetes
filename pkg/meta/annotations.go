@@ -25,7 +25,8 @@ import (
 )
 
 const (
-	AnnotationTrue = "true"
+	AnnotationTrue  = "true"
+	AnnotationFalse = "false"
 
 	// Annotations that we set in each of the pod.  These are set by the
 	// AnnotateAndLabelPodReconciler.  They are available in the pod with the

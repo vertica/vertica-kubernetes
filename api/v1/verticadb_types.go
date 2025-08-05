@@ -971,8 +971,8 @@ type TLSAutoRotate struct {
 	Secrets []string `json:"secrets,omitempty"`
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:number","urn:alm:descriptor:com.tectonic.ui:advanced"}
 	// +kubebuilder:validation:Optional
-	// +kubebuilder:default:=30
-	// This will determine on what interval (in days) to auto-rotate to the next secret in the list. Default is 30 days.
+	// +kubebuilder:default:=43200
+	// This will determine on what interval (in minutes) to auto-rotate to the next secret in the list. Default is 30 days.
 	Interval int `json:"interval,omitempty"`
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:booleanSwitch","urn:alm:descriptor:com.tectonic.ui:advanced"}
 	// +kubebuilder:validation:Optional

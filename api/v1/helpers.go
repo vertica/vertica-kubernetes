@@ -138,8 +138,9 @@ func MakeVDB() *VerticaDB {
 			Namespace: nm.Namespace,
 			UID:       "abcdef-ghi",
 			Annotations: map[string]string{
-				vmeta.VClusterOpsAnnotation: vmeta.VClusterOpsAnnotationFalse,
-				vmeta.VersionAnnotation:     "v23.4.0",
+				vmeta.VClusterOpsAnnotation:   vmeta.VClusterOpsAnnotationFalse,
+				vmeta.VersionAnnotation:       "v23.4.0",
+				vmeta.EnableTLSAuthAnnotation: trueString,
 			},
 		},
 		Spec: VerticaDBSpec{
@@ -766,7 +767,7 @@ func (v *VerticaDB) GetTLSConfigSpecByName(tlsConfig string) *TLSConfigSpec {
 // IsAutoCertRotationEnabled checks if automatic cert rotation is enabled for
 // for a certain tlsconfig (clientServer or httpsNMA)
 func (v *VerticaDB) IsAutoCertRotationEnabled(tlsConfig string) bool {
-	if !v.IsSetForTLS() {
+	if !vmeta.UseTLSAuth(v.Annotations) {
 		return false
 	}
 	config := v.GetTLSConfigSpecByName(tlsConfig)
@@ -803,7 +804,7 @@ func (v *VerticaDB) GetTLSNextUpdate(tlsConfig string) *metav1.Time {
 	}
 
 	interval := v.GetTLSConfigAutoRotate(tlsConfig).Interval
-	next := status.LastUpdate.Time.Add(time.Duration(interval) * 24 * time.Hour)
+	next := status.LastUpdate.Time.Add(time.Duration(interval) * time.Minute)
 	return &metav1.Time{Time: next}
 }
 

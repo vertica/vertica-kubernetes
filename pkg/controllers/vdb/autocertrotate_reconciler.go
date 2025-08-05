@@ -35,13 +35,16 @@ type AutoCertRotateReconciler struct {
 	VRec *VerticaDBReconciler
 	Vdb  *vapi.VerticaDB // Vdb is the CRD we are acting on.
 	Log  logr.Logger
+	Init bool
 }
 
-func MakeAutoCertRotateReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger, vdb *vapi.VerticaDB) controllers.ReconcileActor {
+func MakeAutoCertRotateReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
+	vdb *vapi.VerticaDB, init bool) controllers.ReconcileActor {
 	return &AutoCertRotateReconciler{
 		VRec: vdbrecon,
 		Vdb:  vdb,
 		Log:  log.WithName("AutoCertRotateReconciler"),
+		Init: init,
 	}
 }
 
@@ -53,14 +56,12 @@ func (r *AutoCertRotateReconciler) Reconcile(ctx context.Context, _ *ctrl.Reques
 
 	// Check HTTPS/NMA auto-rotate
 	httpsRes, err := r.autoRotateByTLSConfig(ctx, vapi.HTTPSNMATLSConfigName)
-
 	if err != nil {
 		return httpsRes, err
 	}
 
 	// Check Client-Server auto-rotate
 	clientServerRes, err := r.autoRotateByTLSConfig(ctx, vapi.ClientServerTLSConfigName)
-
 	if err != nil {
 		return clientServerRes, err
 	}
@@ -85,6 +86,11 @@ func (r *AutoCertRotateReconciler) autoRotateByTLSConfig(ctx context.Context, tl
 	if nextUpdate == nil || len(r.Vdb.GetAutoRotateSecrets(tlsConfig)) == 0 {
 		r.Log.Info("Initializing TLS auto-rotation", "tlsConfig", tlsConfig)
 		return r.initializeAutoRotate(ctx, tlsConfig)
+	}
+
+	// exit if we are here for initialization
+	if r.Init {
+		return ctrl.Result{}, nil
 	}
 
 	// If spec secret list does not match status secret list, user must have updated the spec.
@@ -185,6 +191,12 @@ func (r *AutoCertRotateReconciler) rotateToSecret(
 	}
 
 	// Update status
+	if patch.GetTLSConfigByName(tlsConfig) == nil {
+		patch.Status.TLSConfigs = append(patch.Status.TLSConfigs,
+			vapi.TLSConfigStatus{
+				Name: tlsConfig,
+			})
+	}
 	status := patch.GetTLSConfigByName(tlsConfig)
 	status.AutoRotateSecrets = secrets
 	status.LastUpdate = v1.NewTime(now)
@@ -207,8 +219,8 @@ func (r *AutoCertRotateReconciler) rotateToSecret(
 
 // mergeResults will merge two results:
 //  1. if both are requeueAfter, pick the soonest one
-//  2. if either is requeueAfter, pick that
-//  3. if either is requeue, pick that
+//  2. if either is requeueAfter, pick not-requeue one
+//  3. if either is requeue, pick one
 //  4. otherwise, ctrl.Result{}
 func (r *AutoCertRotateReconciler) mergeResults(res1, res2 ctrl.Result) ctrl.Result {
 	switch {
@@ -220,10 +232,10 @@ func (r *AutoCertRotateReconciler) mergeResults(res1, res2 ctrl.Result) ctrl.Res
 		return res2
 
 	case res1.RequeueAfter > 0:
-		return res1
+		return res2
 
 	case res2.RequeueAfter > 0:
-		return res2
+		return res1
 
 	case res1.Requeue:
 		return res1

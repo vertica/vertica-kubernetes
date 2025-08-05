@@ -306,8 +306,9 @@ func (h *TLSServerCertGenReconciler) ValidateSecretCertificate(
 // ShouldGenerateCert determines whether TLS server certificates should be generated.
 // Returns true if either TLS config is missing in status or the expected secret differs from what's currently recorded.
 func (h *TLSServerCertGenReconciler) ShouldGenerateCert() bool {
-	return h.Vdb.GetTLSConfigByName(vapi.HTTPSNMATLSConfigName) == nil ||
-		h.Vdb.GetTLSConfigByName(vapi.ClientServerTLSConfigName) == nil ||
-		h.Vdb.GetHTTPSNMATLSSecretInUse() != h.Vdb.GetHTTPSNMATLSSecret() ||
-		h.Vdb.GetClientServerTLSSecretInUse() != h.Vdb.GetClientServerTLSSecret()
+	return vmeta.UseTLSAuth(h.Vdb.Annotations) &&
+		(h.Vdb.GetHTTPSNMATLSSecretInUse() == "" ||
+			h.Vdb.GetClientServerTLSSecretInUse() == "" ||
+			h.Vdb.GetHTTPSNMATLSSecretInUse() != h.Vdb.GetHTTPSNMATLSSecret() ||
+			h.Vdb.GetClientServerTLSSecretInUse() != h.Vdb.GetClientServerTLSSecret())
 }
