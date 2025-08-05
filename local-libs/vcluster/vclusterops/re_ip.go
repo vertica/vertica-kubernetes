@@ -293,13 +293,14 @@ func (vcc VClusterCommands) produceReIPInstructions(options *VReIPOptions, vdb *
 	instructions = append(instructions, &nmaReIPOP)
 	// Load Catalog from communal location on primary nodes in case we lose quorum during reip
 	if options.IsEon {
-		options.updateNewAddress(vdb, vcc.Log)
-		hostList := getAllHostsFromVdb(vdb)
-		vdb.HostList = hostList
-		nmaNetworkProfilePostReip := makeNMANetworkProfileOp(hostList)
-		nmaLoadRemoteCatalogOp := makeNMALoadRemoteCatalogForInPlaceRevive(hostList, options.ConfigurationParameters,
-			vdb, options.SandboxName)
-		nmaReadCatEdOp, err := makeNMAReadCatalogEditorOpForInPlaceRevive(vdb, options.SandboxName, newAddresses)
+		oldHosts, newVdb := options.genNewVdb(vdb, vcc.Log)
+		if len(oldHosts) != len(newVdb.HostList) {
+			return instructions, fmt.Errorf("the number of new hosts does not match the number of nodes in original database")
+		}
+		nmaNetworkProfilePostReip := makeNMANetworkProfileOp(newVdb.HostList)
+		nmaLoadRemoteCatalogOp := makeNMALoadRemoteCatalogForInPlaceRevive(oldHosts, options.ConfigurationParameters,
+			newVdb, options.SandboxName)
+		nmaReadCatEdOp, err := makeNMAReadCatalogEditorOpForInPlaceRevive(newVdb, options.SandboxName, newAddresses)
 		if err != nil {
 			return instructions, err
 		}
@@ -309,24 +310,35 @@ func (vcc VClusterCommands) produceReIPInstructions(options *VReIPOptions, vdb *
 	return instructions, nil
 }
 
-func (options *VReIPOptions) updateNewAddress(vdb *VCoordinationDatabase, logger vlog.Printer) {
+func (options *VReIPOptions) genNewVdb(vdb *VCoordinationDatabase, logger vlog.Printer) ([]string, *VCoordinationDatabase) {
+	nodeHostMap := make(map[string]*VCoordinationNode)
+	// Create a node-name to vnode map
+	for _, vnode := range vdb.HostNodeMap {
+		nodeHostMap[vnode.Name] = vnode
+	}
+	newVdb := new(VCoordinationDatabase)
+	newVdb.HostNodeMap = makeVHostNodeMap()
+	newVdb.Name = vdb.Name
+	newVdb.CommunalStorageLocation = vdb.CommunalStorageLocation
+	var oldHosts []string
 	for _, info := range options.ReIPList {
 		// update old IPs to new IPs
-		if node, ok := vdb.HostNodeMap[info.NodeAddress]; ok {
+		if node, ok := nodeHostMap[info.NodeName]; ok {
+			oldHosts = append(oldHosts, node.Address)
 			node.Address = info.TargetAddress
-			vdb.HostNodeMap[info.TargetAddress] = node
+			newVdb.HostNodeMap[info.TargetAddress] = node
+			newVdb.HostList = append(newVdb.HostList, info.TargetAddress)
+		} else if node, ok := vdb.HostNodeMap[info.NodeAddress]; ok {
+			oldHosts = append(oldHosts, node.Address)
+			node.Address = info.TargetAddress
+			newVdb.HostNodeMap[info.TargetAddress] = node
+			newVdb.HostList = append(newVdb.HostList, info.TargetAddress)
 		} else {
-			logger.PrintWarning("old host IP %s not found in vdb, ignoring this host for further processing", info.NodeAddress)
+			logger.PrintWarning("Node name %q or address %q not found in vdb, ignoring this host for further processing",
+				info.NodeName, info.NodeAddress)
 		}
 	}
-}
-
-func getAllHostsFromVdb(vdb *VCoordinationDatabase) []string {
-	var allHosts []string
-	for h := range vdb.HostNodeMap {
-		allHosts = append(allHosts, h)
-	}
-	return allHosts
+	return oldHosts, newVdb
 }
 
 type reIPRow struct {
