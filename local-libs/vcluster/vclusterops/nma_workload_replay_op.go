@@ -86,12 +86,7 @@ func (op *nmaWorkloadReplayOp) updateRequestBody(hosts []string, query VWorkload
 		op.nmaWorkloadReplayRequestData.StmtType = query.VStmtType
 		op.nmaWorkloadReplayRequestData.FileName = query.VFileName
 		op.nmaWorkloadReplayRequestData.JobID = op.JobID
-
-		if query.VFileDir != "" {
-			op.nmaWorkloadReplayRequestData.FileDir = op.hostNodeMap[host].CatalogPath
-		} else {
-			op.nmaWorkloadReplayRequestData.FileDir = query.VFileDir
-		}
+		op.nmaWorkloadReplayRequestData.FileDir = query.VFileDir
 
 		dataBytes, err := json.Marshal(op.nmaWorkloadReplayRequestData)
 		if err != nil {
@@ -247,7 +242,7 @@ func (op *nmaWorkloadReplayOp) executeWorkloadReplay(execContext *opEngineExecCo
 				bodyParams: VWorkloadPreprocessParams{
 					VRequest:     workloadQuery.Request,
 					VCatalogPath: "/"}}
-			err = w.PreprocessQuery()
+			err = w.PreprocessQuery(op.logger.Log)
 			if err != nil {
 				op.appendReplayErrorRow(err)
 				continue
