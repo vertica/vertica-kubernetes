@@ -219,8 +219,8 @@ func (r *AutoCertRotateReconciler) rotateToSecret(
 
 // mergeResults will merge two results:
 //  1. if both are requeueAfter, pick the soonest one
-//  2. if either is requeueAfter, pick not-requeue one
-//  3. if either is requeue, pick one
+//  2. if one is requeueAfter and the other is no-requeue, pick requeueAfter one
+//  3. if either is requeue, pick that
 //  4. otherwise, ctrl.Result{}
 func (r *AutoCertRotateReconciler) mergeResults(res1, res2 ctrl.Result) ctrl.Result {
 	switch {
@@ -231,11 +231,11 @@ func (r *AutoCertRotateReconciler) mergeResults(res1, res2 ctrl.Result) ctrl.Res
 		}
 		return res2
 
-	case res1.RequeueAfter > 0:
-		return res2
-
-	case res2.RequeueAfter > 0:
+	case res1.RequeueAfter > 0 && !res2.Requeue:
 		return res1
+
+	case res2.RequeueAfter > 0 && !res1.Requeue:
+		return res2
 
 	case res1.Requeue:
 		return res1
