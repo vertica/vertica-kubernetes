@@ -233,10 +233,12 @@ func (v *VerticaDB) checkValidSubclusterTypeTransition(oldObj *VerticaDB, allErr
 	return allErrs
 }
 
+//nolint:funlen
 func (v *VerticaDB) validateVerticaDBSpec() field.ErrorList {
 	allErrs := v.hasAtLeastOneSC(field.ErrorList{})
 	allErrs = v.hasValidSubclusterTypes(allErrs)
 	allErrs = v.hasNoConflictbetweenTLSAndCertMount(allErrs)
+	allErrs = v.hasValidTLSWithKnob(allErrs)
 	allErrs = v.hasValidInitPolicy(allErrs)
 	allErrs = v.hasValidRestorePolicy(allErrs)
 	allErrs = v.hasValidSaveRestorePointConfig(allErrs)
@@ -281,6 +283,7 @@ func (v *VerticaDB) validateVerticaDBSpec() field.ErrorList {
 	allErrs = v.checkNewSBoxOrSClusterShutdownUnset(allErrs)
 	allErrs = v.validateProxyConfig(allErrs)
 	allErrs = v.validateNMASecret(allErrs)
+	allErrs = v.validateAutoRotateConfig(allErrs)
 	if len(allErrs) == 0 {
 		return nil
 	}
@@ -1563,6 +1566,25 @@ func (v *VerticaDB) hasNoConflictbetweenTLSAndCertMount(allErrs field.ErrorList)
 	return allErrs
 }
 
+// hasValidTLSWithKnob checks if https and client-server TLS are used when TLS auth is disabled
+func (v *VerticaDB) hasValidTLSWithKnob(allErrs field.ErrorList) field.ErrorList {
+	if vmeta.ShouldSkipTLSWebhookCheck(v.Annotations) {
+		return allErrs
+	}
+	if !vmeta.UseTLSAuth(v.Annotations) && v.Spec.HTTPSNMATLS != nil {
+		err := field.Forbidden(field.NewPath("spec").Child("httpsNMATLS"),
+			fmt.Sprintf("cannot set httpsNMATLS when %s is set to false", vmeta.EnableTLSAuthAnnotation))
+		allErrs = append(allErrs, err)
+	}
+	if !vmeta.UseTLSAuth(v.Annotations) && v.Spec.ClientServerTLS != nil {
+		err := field.Forbidden(field.NewPath("spec").Child("clientServerTLS"),
+			fmt.Sprintf("cannot set clientServerTLS when %s is set to false", vmeta.EnableTLSAuthAnnotation))
+		allErrs = append(allErrs, err)
+	}
+
+	return allErrs
+}
+
 func (v *VerticaDB) isUpgradeInProgress() bool {
 	return v.IsStatusConditionTrue(UpgradeInProgress)
 }
@@ -2826,4 +2848,55 @@ func (s *Subcluster) setDefaultProxySubcluster(useProxy bool) {
 			s.Proxy.Resources = nil
 		}
 	}
+}
+
+func (v *VerticaDB) validateAutoRotateConfig(allErrs field.ErrorList) field.ErrorList {
+	// Validate both TLS configs: clientServer and httpsNMA
+	allErrs = append(allErrs, v.validateOneTLSAutoRotateConfig(ClientServerTLSConfigName)...)
+	allErrs = append(allErrs, v.validateOneTLSAutoRotateConfig(HTTPSNMATLSConfigName)...)
+	return allErrs
+}
+
+func (v *VerticaDB) validateOneTLSAutoRotateConfig(configName string) field.ErrorList {
+	var allErrs field.ErrorList
+	fieldName := configName + "TLS"
+	tls := v.GetTLSConfigSpecByName(configName)
+
+	if tls == nil || tls.AutoRotate == nil {
+		return allErrs // Nothing to validate
+	}
+
+	fldPath := field.NewPath("spec").Child(fieldName).Child("autoRotate")
+
+	secrets := tls.AutoRotate.Secrets
+	interval := tls.AutoRotate.Interval
+
+	// Rule 1: Must have at least two secrets
+	if len(secrets) < 2 {
+		allErrs = append(allErrs,
+			field.Invalid(fldPath.Child("secrets"), secrets,
+				"must contain at least two secrets for auto-rotation"),
+		)
+	}
+
+	// Rule 2: Interval must be >= 1
+	if interval <= 0 {
+		allErrs = append(allErrs,
+			field.Invalid(fldPath.Child("interval"), interval,
+				"must be greater than 0"),
+		)
+	}
+
+	// Rule 3: No duplicate secrets
+	seen := make(map[string]struct{})
+	for i, s := range secrets {
+		if _, ok := seen[s]; ok {
+			allErrs = append(allErrs,
+				field.Duplicate(fldPath.Child("secrets").Index(i), s),
+			)
+		}
+		seen[s] = struct{}{}
+	}
+
+	return allErrs
 }

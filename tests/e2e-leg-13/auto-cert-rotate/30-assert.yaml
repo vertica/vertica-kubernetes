@@ -1,0 +1,79 @@
+apiVersion: v1
+kind: Event
+reason: TLSAutoRotateSucceeded
+source:
+  component: verticadb-operator
+involvedObject:
+  apiVersion: vertica.com/v1
+  kind: VerticaDB
+  name: v-auto-cert-rotate
+message: Auto-rotate triggered for TLS config httpsNMA with secret cert3
+---
+apiVersion: v1
+kind: Event
+reason: HTTPSTLSUpdateStarted
+source:
+  component: verticadb-operator
+involvedObject:
+  apiVersion: vertica.com/v1
+  kind: VerticaDB
+  name: v-auto-cert-rotate
+message: Starting tls cert rotation for HTTP with secret name cert3 and mode verify_ca
+---
+apiVersion: v1
+kind: Event
+reason: HTTPSTLSUpdateSucceeded
+source:
+  component: verticadb-operator
+involvedObject:
+  apiVersion: vertica.com/v1
+  kind: VerticaDB
+  name: v-auto-cert-rotate
+message: Successfully rotated HTTP tls cert with secret name cert3 and mode verify_ca
+---
+apiVersion: v1
+kind: Event
+reason: NMATLSCertRotationStarted
+source:
+  component: verticadb-operator
+involvedObject:
+  apiVersion: vertica.com/v1
+  kind: VerticaDB
+  name: v-auto-cert-rotate
+message: Start rotating nma cert from cert2 to cert3
+---
+apiVersion: v1
+kind: Event
+reason: NMATLSCertRotationSucceeded
+source:
+  component: verticadb-operator
+involvedObject:
+  apiVersion: vertica.com/v1
+  kind: VerticaDB
+  name: v-auto-cert-rotate
+message: Successfully rotated nma cert from cert2 to cert3
+---
+apiVersion: vertica.com/v1
+kind: VerticaDB
+metadata:
+  name: v-auto-cert-rotate
+status:
+  tlsConfigs:
+  - name: httpsNMA
+    secret: cert3
+    autoRotateSecrets:
+    - cert1
+    - cert2
+    - cert3
+  - name: clientServer
+---
+apiVersion: v1
+kind: Event
+reason: TLSAutoRotateFailed
+source:
+  component: verticadb-operator
+involvedObject:
+  apiVersion: vertica.com/v1
+  kind: VerticaDB
+  name: v-auto-cert-rotate
+message: No remaining auto-rotation secrets for TLS Config httpsNMA

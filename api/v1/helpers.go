@@ -138,8 +138,9 @@ func MakeVDB() *VerticaDB {
 			Namespace: nm.Namespace,
 			UID:       "abcdef-ghi",
 			Annotations: map[string]string{
-				vmeta.VClusterOpsAnnotation: vmeta.VClusterOpsAnnotationFalse,
-				vmeta.VersionAnnotation:     "v23.4.0",
+				vmeta.VClusterOpsAnnotation:   vmeta.VClusterOpsAnnotationFalse,
+				vmeta.VersionAnnotation:       "v23.4.0",
+				vmeta.EnableTLSAuthAnnotation: trueString,
 			},
 		},
 		Spec: VerticaDBSpec{
@@ -225,6 +226,16 @@ func MakeVDBForCertRotationEnabled() *VerticaDB {
 	vdb := MakeVDB()
 	SetVDBForTLS(vdb)
 	return vdb
+}
+
+func MakeTLSWithAutoRotate(secrets []string, interval int, secret string) *TLSConfigSpec {
+	return &TLSConfigSpec{
+		Secret: secret,
+		AutoRotate: &TLSAutoRotate{
+			Secrets:  secrets,
+			Interval: interval,
+		},
+	}
 }
 
 // GenSubclusterMap will organize all of the subclusters into a map for quicker lookup.
@@ -743,6 +754,68 @@ func (v *VerticaDB) IsRollbackAfterServerCertRotation() bool {
 // but tls config changed
 func (v *VerticaDB) IsRollbackAfterNMACertRotation() bool {
 	return v.GetTLSCertRollbackReason() == RollbackAfterNMACertRotationReason
+}
+
+// GetTLSConfigSpecByName returns the TLSConfigSpec object for a certain tlsconfig (clientServer or httpsNMA)
+func (v *VerticaDB) GetTLSConfigSpecByName(tlsConfig string) *TLSConfigSpec {
+	if tlsConfig == ClientServerTLSConfigName {
+		return v.Spec.ClientServerTLS
+	}
+	return v.Spec.HTTPSNMATLS
+}
+
+// IsAutoCertRotationEnabled checks if automatic cert rotation is enabled for
+// for a certain tlsconfig (clientServer or httpsNMA)
+func (v *VerticaDB) IsAutoCertRotationEnabled(tlsConfig string) bool {
+	if !vmeta.UseTLSAuth(v.Annotations) {
+		return false
+	}
+	config := v.GetTLSConfigSpecByName(tlsConfig)
+	return config != nil && config.AutoRotate != nil && len(config.AutoRotate.Secrets) > 0
+}
+
+// GetAutoRotateSecrets gets the list of auto-rotate secrets from status
+// for a certain tlsconfig (clientServer or httpsNMA)
+func (v *VerticaDB) GetAutoRotateSecrets(tlsConfig string) []string {
+	config := v.GetTLSConfigByName(tlsConfig)
+	if config == nil {
+		return []string{}
+	}
+	return config.AutoRotateSecrets
+}
+
+// GetTLSLastUpdate gets the last update time from the status
+// for a certain tlsconfig (clientServer or httpsNMA)
+func (v *VerticaDB) GetTLSLastUpdate(tlsConfig string) metav1.Time {
+	config := v.GetTLSConfigByName(tlsConfig)
+	if config == nil {
+		return metav1.Time{}
+	}
+	return config.LastUpdate
+}
+
+// GetTLSNextUpdate gets the next update time from the status
+// for a certain tlsconfig (clientServer or httpsNMA). It does so
+// using LastUpdate from status and autoRotate.interval from spec.
+func (v *VerticaDB) GetTLSNextUpdate(tlsConfig string) *metav1.Time {
+	status := v.GetTLSConfigByName(tlsConfig)
+	if status == nil || status.LastUpdate.IsZero() {
+		return nil
+	}
+
+	interval := v.GetTLSConfigAutoRotate(tlsConfig).Interval
+	next := status.LastUpdate.Time.Add(time.Duration(interval) * time.Minute)
+	return &metav1.Time{Time: next}
+}
+
+// GetTLSConfigAutoRotate gets the TLSAutoRotate from spec
+// for a certain tlsconfig (clientServer or httpsNMA)
+func (v *VerticaDB) GetTLSConfigAutoRotate(tlsConfig string) *TLSAutoRotate {
+	config := v.GetTLSConfigSpecByName(tlsConfig)
+	if config == nil {
+		return nil
+	}
+	return config.AutoRotate
 }
 
 // IsStatusConditionTrue returns true when the conditionType is present and set to
@@ -1953,10 +2026,10 @@ func (v *VerticaDB) GetClientServerTLSModeInUse() string {
 }
 
 // SetTLSConfigs updates the slice with a new TLSConfig by Name, and returns true if any changes occurred.
-func SetTLSConfigs(refs *[]TLSConfigStatus, newRef TLSConfigStatus) (changed bool) {
+func SetTLSConfigs(refs *[]TLSConfigStatus, newRef *TLSConfigStatus) (changed bool) {
 	existing := FindTLSConfig(*refs, "Name", newRef.Name)
 	if existing == nil {
-		*refs = append(*refs, newRef)
+		*refs = append(*refs, *newRef)
 		return true
 	}
 
@@ -1966,6 +2039,14 @@ func SetTLSConfigs(refs *[]TLSConfigStatus, newRef TLSConfigStatus) (changed boo
 	}
 	if existing.Mode != newRef.Mode {
 		existing.Mode = newRef.Mode
+		changed = true
+	}
+	if !newRef.LastUpdate.IsZero() && existing.LastUpdate != newRef.LastUpdate {
+		existing.LastUpdate = newRef.LastUpdate
+		changed = true
+	}
+	if newRef.AutoRotateSecrets != nil {
+		existing.AutoRotateSecrets = newRef.AutoRotateSecrets
 		changed = true
 	}
 
@@ -2113,4 +2194,17 @@ func MakeVersionStrForOpVersion(v string) string {
 		return ""
 	}
 	return "v" + v
+}
+
+// equalStringSlices compares two string arrays, slice by slice
+func (v *VerticaDB) EqualStringSlices(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
 }

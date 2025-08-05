@@ -299,7 +299,7 @@ var _ = Describe("sandboxsubcluster_reconcile", func() {
 			{Name: subcluster1, Size: 1, Type: vapi.SecondarySubcluster},
 			{Name: subcluster2, Size: 1, Type: vapi.SecondarySubcluster},
 		}
-		vdb.Spec.NMATLSSecret = "test-tls"
+		vdb.Spec.HTTPSNMATLS.Secret = "test-tls"
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)

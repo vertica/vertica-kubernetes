@@ -211,6 +211,12 @@ EOF
       path: /metadata/annotations/vertica.com~1enable-tls-auth
       value: "true"
 EOF
+        else
+            cat <<EOF >> kustomization.yaml
+    - op: add
+      path: /metadata/annotations/vertica.com~1skip-tls-webhook-check
+      value: "true"
+EOF
         fi
 
         if [ "$VERTICA_DEPLOYMENT_METHOD" == "vclusterops" ]

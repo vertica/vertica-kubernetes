@@ -215,6 +215,8 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		MakeObjReconciler(r, log, vdb, pfacts, ObjReconcileModeAnnotation),
 		// Validate the vdb after operator upgraded
 		MakeValidateVDBReconciler(r, log, vdb),
+		// Initialize TLS secret if autoRotation is set
+		MakeAutoCertRotateReconciler(r, log, vdb, true /* init */),
 		// Always generate cert first if nothing is provided
 		MakeTLSServerCertGenReconciler(r, log, vdb),
 		// Set up configmap which stores env variables for NMA container
@@ -359,6 +361,10 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		// objects that the operator creates exist. This is needed encase they
 		// are removed in the middle of a reconcile iteration.
 		MakeDepObjCheckReconciler(r, log, vdb),
+		// Trigger automatic rotation of certificates on a certain interval.
+		// This must be done dead-last, because it will requeue until the next
+		// automatic rotation is due.
+		MakeAutoCertRotateReconciler(r, log, vdb, false /* init */),
 	}
 }
 

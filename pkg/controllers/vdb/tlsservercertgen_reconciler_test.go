@@ -73,7 +73,6 @@ var _ = Describe("tlsservercertgen_reconcile", func() {
 	It("should create a secret when http server is enabled and secret name is missing", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
-		vdb.Annotations[vmeta.EnableTLSAuthAnnotation] = vmeta.AnnotationTrue
 		vdb.Spec.HTTPSNMATLS.Secret = ""
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
@@ -92,7 +91,6 @@ var _ = Describe("tlsservercertgen_reconcile", func() {
 	It("should error out if the name is set but it doesn't exist", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
-		vdb.Annotations[vmeta.EnableTLSAuthAnnotation] = vmeta.AnnotationTrue
 		const TLSSecretName = "recreate-secret-name"
 		vdb.Spec.HTTPSNMATLS.Secret = TLSSecretName
 		test.CreateVDB(ctx, k8sClient, vdb)
@@ -112,6 +110,7 @@ var _ = Describe("tlsservercertgen_reconcile", func() {
 	It("should keep empty when enable-tls annotation is not set", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
+		vdb.Annotations[vmeta.EnableTLSAuthAnnotation] = vmeta.AnnotationFalse
 		vdb.Spec.HTTPSNMATLS.Secret = ""
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)

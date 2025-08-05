@@ -608,7 +608,7 @@ var _ = Describe("verticadb_webhook", func() {
 
 	It("should not allow cert-rotation-related changes when cert rotation is disabled", func() {
 		oldVdb := MakeVDB()
-		Expect(vmeta.UseTLSAuth(oldVdb.Annotations)).Should(BeFalse())
+		oldVdb.Annotations[vmeta.EnableTLSAuthAnnotation] = vmeta.AnnotationFalse
 
 		oldVdb.Spec.HTTPSNMATLS.Secret = "old-secret"
 		oldVdb.Spec.ClientServerTLS.Secret = "old-secret"
@@ -674,6 +674,7 @@ var _ = Describe("verticadb_webhook", func() {
 
 	It("should not allow changing nmaTLSSecret", func() {
 		oldVdb := MakeVDB()
+		oldVdb.Annotations[vmeta.EnableTLSAuthAnnotation] = vmeta.AnnotationFalse
 		oldVdb.Spec.NMATLSSecret = "old-nma"
 		newVdb := oldVdb.DeepCopy()
 		newVdb.Spec.NMATLSSecret = "new-nma"
@@ -731,6 +732,8 @@ var _ = Describe("verticadb_webhook", func() {
 
 	It("should validate restorePoint when initPolicy is \"Revive\" and a restore is intended", func() {
 		vdb := createVDBHelper()
+		vdb.Spec.HTTPSNMATLS.Secret = newSecret
+		vdb.Spec.ClientServerTLS.Secret = newSecret
 		vdb.Spec.InitPolicy = "Revive"
 		vdb.Spec.RestorePoint = &RestorePointPolicy{}
 		// archive is not provided
@@ -769,6 +772,8 @@ var _ = Describe("verticadb_webhook", func() {
 		validateSpecValuesHaveErr(vdb, false)
 		// when db is already initialized, we shouldn't report an error about missing archive or restore point
 		vdb2 := createVDBHelper()
+		vdb2.Spec.HTTPSNMATLS.Secret = newSecret
+		vdb2.Spec.ClientServerTLS.Secret = newSecret
 		vdb2.Spec.InitPolicy = "Revive"
 		vdb2.Spec.RestorePoint = &RestorePointPolicy{}
 		resetStatusConditionsForDBInitialized(vdb2)
@@ -2441,6 +2446,21 @@ var _ = Describe("verticadb_webhook", func() {
 		Expect(allErrs).Should(BeEmpty())
 	})
 
+	It("should return error if TLS is not empty but TLS Auth is disabled", func() {
+		vdb := MakeVDB()
+		delete(vdb.Annotations, vmeta.EnableTLSAuthAnnotation)
+		vdb.Spec.HTTPSNMATLS.Secret = "secret"
+		allErrs := vdb.hasValidTLSWithKnob(field.ErrorList{})
+		Expect(allErrs).ShouldNot(BeEmpty())
+		Expect(allErrs[0].Error()).To(ContainSubstring("cannot set httpsNMATLS when %s is set to false", vmeta.EnableTLSAuthAnnotation))
+
+		vdb.Spec.HTTPSNMATLS = nil
+		vdb.Spec.ClientServerTLS.Mode = "verify_ca"
+		allErrs = vdb.hasValidTLSWithKnob(field.ErrorList{})
+		Expect(allErrs).ShouldNot(BeEmpty())
+		Expect(allErrs[0].Error()).To(ContainSubstring("cannot set clientServerTLS when %s is set to false", vmeta.EnableTLSAuthAnnotation))
+	})
+
 	It("should return no error if nothing changes", func() {
 		allErrs := newVdb1.checkImmutableTLSConfig(oldVdb1, nil)
 		Expect(allErrs).Should(BeEmpty())
@@ -2730,6 +2750,46 @@ var _ = Describe("verticadb_webhook", func() {
 		oldVdb.Spec.ClientServerTLS = &TLSConfigSpec{Mode: "enable"}
 		newVdb.Spec.ClientServerTLS = &TLSConfigSpec{Mode: "enable"}
 		allErrs := newVdb.checkTLSModeCaseInsensitiveChange(oldVdb, field.ErrorList{})
+		Expect(allErrs).To(BeEmpty())
+	})
+
+	It("should fail if secrets list is empty", func() {
+		vdb := MakeVDBForTLS()
+		vdb.Spec.ClientServerTLS = MakeTLSWithAutoRotate([]string{}, 7, "")
+		allErrs := vdb.validateAutoRotateConfig(field.ErrorList{})
+		Expect(allErrs).To(HaveLen(1))
+		Expect(allErrs[0].Error()).To(ContainSubstring("must contain at least two secrets"))
+	})
+
+	It("should fail if secrets list has only one element", func() {
+		vdb := MakeVDBForTLS()
+		vdb.Spec.ClientServerTLS = MakeTLSWithAutoRotate([]string{"secret1"}, 7, "")
+		allErrs := vdb.validateAutoRotateConfig(field.ErrorList{})
+		Expect(allErrs).To(HaveLen(1))
+		Expect(allErrs[0].Error()).To(ContainSubstring("must contain at least two secrets"))
+	})
+
+	It("should fail if interval is zero", func() {
+		vdb := MakeVDBForTLS()
+		vdb.Spec.ClientServerTLS = MakeTLSWithAutoRotate([]string{"secret1", "secret2"}, 0, "")
+		allErrs := vdb.validateAutoRotateConfig(field.ErrorList{})
+		Expect(allErrs).To(HaveLen(1))
+		Expect(allErrs[0].Error()).To(ContainSubstring("must be greater than 0"))
+	})
+
+	It("should fail if secrets list has duplicates", func() {
+		vdb := MakeVDBForTLS()
+		vdb.Spec.ClientServerTLS = MakeTLSWithAutoRotate([]string{"secret1", "secret1"}, 7, "")
+		allErrs := vdb.validateAutoRotateConfig(field.ErrorList{})
+		Expect(allErrs).To(HaveLen(1))
+		Expect(allErrs[0].Error()).To(ContainSubstring("Duplicate value"))
+	})
+
+	It("should validate successfully if configuration is valid", func() {
+		vdb := MakeVDBForTLS()
+		vdb.Spec.ClientServerTLS = MakeTLSWithAutoRotate([]string{"secret1", "secret2"}, 7, "")
+		allErrs := vdb.validateAutoRotateConfig(field.ErrorList{})
+		Expect(allErrs).To(HaveLen(0))
 		Expect(allErrs).To(BeEmpty())
 	})
 })
