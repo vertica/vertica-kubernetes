@@ -556,7 +556,7 @@ ifeq ($(shell $(KIND_CHECK)), 1)
 ifeq ($(LEG), leg-9)
 	scripts/push-to-kind.sh -i opentext/vertica-k8s-private:20250517-minimal 
 endif
-ifeq ($(LEG), leg-8)
+ifneq (,$(filter $(LEG),leg-8-offline leg-8-online))
 	scripts/push-to-kind.sh -i opentext/vertica-k8s:12.0.4-0-minimal
 	scripts/push-to-kind.sh -i opentext/vertica-k8s:23.4.0-0-minimal
 	scripts/push-to-kind.sh -i opentext/vertica-k8s:24.1.0-0-minimal
