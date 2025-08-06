@@ -1216,7 +1216,10 @@ func (o *ObjReconciler) hashSecret(ctx context.Context, namespace, name, key str
 }
 
 func (o *ObjReconciler) setConfigHashLabel(ctx context.Context, expSts, curSts *appsv1.StatefulSet) error {
-	if (o.Mode&ObjReconcileModeAll == 0 || o.Vdb.HasNoExtraEnv()) && curSts.ResourceVersion != "" {
+	if o.Vdb.HasNoExtraEnv() {
+		return nil
+	}
+	if o.Mode&ObjReconcileModeAll == 0 && curSts.ResourceVersion != "" {
 		// If we are not in full reconcile mode, we just copy the current config hash
 		// annotation to the expected statefulset. This is useful when we are not
 		// changing the config hash, but we still want to update the statefulset.
@@ -1240,9 +1243,5 @@ func (o *ObjReconciler) checkConfigChanges(expSts, curSts *appsv1.StatefulSet) {
 
 	if currentHash != newHash {
 		o.Log.Info("Config hash changed", "currentHash", currentHash, "newHash", newHash)
-		o.Log.Info("cur env", "cur", curSts.Spec.Template.Spec.Containers[1].Env)
-		o.Log.Info("exp env", "exp", expSts.Spec.Template.Spec.Containers[1].Env)
-		o.Log.Info("cur", "cur", curSts.Spec.Template.Spec.Containers[1].EnvFrom)
-		o.Log.Info("exp", "exp", expSts.Spec.Template.Spec.Containers[1].EnvFrom)
 	}
 }
