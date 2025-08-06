@@ -403,15 +403,9 @@ prometheusServer:
               requests:
                 storage: 5Gi # Adjust storage size as needed
 
+      ## WebTLSConfig defines the TLS parameters for HTTPS
+      ## ref: https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api-reference/api.md#webtlsconfig
       web: {}
-      #  tlsConfig:
-      #    keySecret:
-      #      key: tls.key
-      #      name: prometheus-tls
-      #    cert:
-      #      secret:
-      #        key: tls.crt
-      #        name: prometheus-tls
 
     # Optionally disable the default `kube-prometheus-stack` scrape configs if you're
     # defining your own ServiceMonitors/PodMonitors for your operator.
