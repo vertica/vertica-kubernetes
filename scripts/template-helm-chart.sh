@@ -258,6 +258,6 @@ for f in $TEMPLATE_DIR/verticadb-operator-prometheus-sa-sa.yaml \
   $TEMPLATE_DIR/verticadb-operator-prometheus-role-binding-crb.yaml \
   $TEMPLATE_DIR/verticadb-operator-prometheus-role-cr.yaml
 do
-  perl -i -pe 's/^/{{- if and (not .Values.prometheusServer.prometheus.serviceAccount.create) (eq .Values.prometheusServer.prometheus.serviceAccount.name "prometheus-vertica-sa") -}}\n/ if 1 .. 1' $f
+  perl -i -pe 's/^/{{- if and .Values.prometheusServer.enabled (not .Values.prometheusServer.prometheus.serviceAccount.create) (eq .Values.prometheusServer.prometheus.serviceAccount.name "prometheus-vertica-sa") -}}\n/ if 1 .. 1' $f
   echo "{{- end }}" >> $f
 done
