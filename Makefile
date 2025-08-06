@@ -565,11 +565,13 @@ endif
 ifeq ($(LEG), server-upgrade)
 	scripts/push-to-kind.sh -i opentext/vertica-k8s:11.1.1-0-minimal
 	scripts/push-to-kind.sh -i opentext/vertica-k8s:12.0.2-0-minimal
+endif
 ifeq ($(LEG), operator-upgrade)
 	scripts/push-to-kind.sh -i opentext/verticadb-operator:2.1.0
 	scripts/push-to-kind.sh -i opentext/verticadb-operator:2.2.0
 	scripts/push-to-kind.sh -i opentext/verticadb-operator:24.4.0-0
 	scripts/push-to-kind.sh -i opentext/verticadb-operator:25.1.0-0
+endif
 endif
 
 # PLATFORMS defines the target platforms that the image will be used for. Use
