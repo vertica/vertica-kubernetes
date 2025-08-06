@@ -1,0 +1,13 @@
+prometheusServer:
+  enabled: true
+  prometheus:
+    prometheusSpec:
+      web:
+        tlsConfig:
+          keySecret:
+            key: tls.key
+            name: prometheus-tls
+          cert:
+            secret:
+              key: tls.crt
+              name: prometheus-tls

@@ -174,6 +174,8 @@ PROMETHEUS_ADAPTER_HELM_OVERRIDES ?=
 GRAFANA_ENABLED ?= false
 # Set this to true if you want to install prometheus with the operator.
 PROMETHEUS_ENABLED ?= false
+# Set this to true if you want to cache tls secrets in the operator.
+CACHE_ENABLED ?= false
 # Maximum number of tests to run at once. (default 2)
 # Set it to any value not greater than 8 to override the default one
 E2E_PARALLELISM?=2
@@ -683,7 +685,7 @@ uninstall: manifests kustomize ## Uninstall CRDs from the K8s cluster specified 
 deploy-operator: manifests kustomize ## Using helm or olm, deploy the operator in the K8s cluster
 ifeq ($(DEPLOY_WITH), helm)
 	$(MAKE) helm-dependency-update
-	helm install $(DEPLOY_WAIT) -n $(NAMESPACE) --create-namespace $(HELM_RELEASE_NAME) $(OPERATOR_CHART) --set image.repo=null --set image.name=${OPERATOR_IMG} --set image.pullPolicy=$(HELM_IMAGE_PULL_POLICY) --set imagePullSecrets[0].name=priv-reg-cred --set controllers.scope=$(CONTROLLERS_SCOPE) --set controllers.vdbMaxBackoffDuration=$(VDB_MAX_BACKOFF_DURATION) --set controllers.sandboxMaxBackoffDuration=$(SANDBOX_MAX_BACKOFF_DURATION) --set grafana.enabled=${GRAFANA_ENABLED} --set prometheus-server.enabled=${PROMETHEUS_ENABLED}  $(HELM_OVERRIDES) --set cache.enable=$(CACHE_ENABLED)
+	helm install $(DEPLOY_WAIT) -n $(NAMESPACE) --create-namespace $(HELM_RELEASE_NAME) $(OPERATOR_CHART) --set image.repo=null --set image.name=${OPERATOR_IMG} --set image.pullPolicy=$(HELM_IMAGE_PULL_POLICY) --set imagePullSecrets[0].name=priv-reg-cred --set controllers.scope=$(CONTROLLERS_SCOPE) --set controllers.vdbMaxBackoffDuration=$(VDB_MAX_BACKOFF_DURATION) --set controllers.sandboxMaxBackoffDuration=$(SANDBOX_MAX_BACKOFF_DURATION) --set grafana.enabled=${GRAFANA_ENABLED} --set prometheusServer.enabled=${PROMETHEUS_ENABLED}  $(HELM_OVERRIDES) --set cache.enable=$(CACHE_ENABLED)
 	scripts/wait-for-webhook.sh -n $(NAMESPACE) -t 60
 else ifeq ($(DEPLOY_WITH), olm)
 	scripts/deploy-olm.sh -n $(NAMESPACE) $(OLM_TEST_CATALOG_SOURCE)
@@ -691,6 +693,9 @@ else ifeq ($(DEPLOY_WITH), olm)
 else
 	$(error Unknown deployment method: $(DEPLOY_WITH))
 endif
+
+upgrade-operator:
+	helm upgrade $(DEPLOY_WAIT) -n $(NAMESPACE) $(HELM_RELEASE_NAME) $(OPERATOR_CHART) --values $(VALUES_FILE) --set image.name=${OPERATOR_IMG}
 
 deploy-webhook: manifests kustomize ## Using helm, deploy just the webhook in the k8s cluster
 ifeq ($(DEPLOY_WITH), helm)

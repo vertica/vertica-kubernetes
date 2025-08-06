@@ -299,8 +299,10 @@ grafana:
           url: http://{{ .Release.Name }}-prometheus-server-prometheus.{{ .Release.Namespace }}.svc.cluster.local:9090
           access: proxy
           isDefault: true
+          jsonData:
+            tlsSkipVerify: true 
 
-prometheus-server:
+prometheusServer:
   enabled: false # Set to true if you want to deploy Prometheus server
   # === Global Namespace Configuration ===
   # By default, kube-prometheus-stack installs into .Release.Namespace
@@ -341,6 +343,8 @@ prometheus-server:
     prometheus:
       monitor:
         enabled: false
+
+  nameOverride: prometheus-server
   
   # Prometheus Operator - keep minimal
   prometheusOperator:
@@ -349,7 +353,7 @@ prometheus-server:
     resources:
       limits:
         cpu: 200m
-        memory: 200Mi
+        memory: 750Mi
       requests:
         cpu: 100m
         memory: 100Mi
@@ -364,8 +368,8 @@ prometheus-server:
   prometheus:
     # Service account for Prometheuses to use. 
     serviceAccount:
-      create: true
-      name: ""
+      create: false
+      name: prometheus-vertica-sa
       annotations: {}
       automountServiceAccountToken: true
 
@@ -395,10 +399,19 @@ prometheus-server:
       storageSpec:
         volumeClaimTemplate:
           spec:
-            storageClassName: standard # Or your preferred storage class
             resources:
               requests:
                 storage: 5Gi # Adjust storage size as needed
+
+      web: {}
+      #  tlsConfig:
+      #    keySecret:
+      #      key: tls.key
+      #      name: prometheus-tls
+      #    cert:
+      #      secret:
+      #        key: tls.crt
+      #        name: prometheus-tls
 
     # Optionally disable the default `kube-prometheus-stack` scrape configs if you're
     # defining your own ServiceMonitors/PodMonitors for your operator.
