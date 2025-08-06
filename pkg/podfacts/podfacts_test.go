@@ -168,7 +168,8 @@ var _ = Describe("podfacts", func() {
 		fpr := &cmds.FakePodRunner{
 			Results: cmds.CmdResults{
 				pn: []cmds.CmdResult{
-					{Stdout: "v_db_node0001|UP|123456|t"},
+					// node_name|node_state|is_primary|subcluster_oid|is_readonly
+					{Stdout: "v_db_node0001|UP|t|123456|t"},
 				},
 			},
 		}
@@ -177,6 +178,7 @@ var _ = Describe("podfacts", func() {
 		gs := &GatherState{VerticaPIDRunning: true}
 		Expect(pfs.checkForSimpleGatherStateMapping(ctx, vdb, pf, gs)).Should(Succeed())
 		Expect(pfs.checkNodeDetails(ctx, vdb, pf, gs)).Should(Succeed())
+		Expect(pf.isPrimary).Should(BeTrue())
 		Expect(pf.upNode).Should(BeTrue())
 		Expect(pf.readOnly).Should(BeTrue())
 	})
@@ -215,7 +217,7 @@ var _ = Describe("podfacts", func() {
 		fpr := &cmds.FakePodRunner{
 			Results: cmds.CmdResults{
 				pn: []cmds.CmdResult{
-					{Stdout: "v_db_node0001|UP||f"},
+					{Stdout: "v_db_node0001|UP|t||f"},
 				},
 			},
 		}
@@ -224,6 +226,7 @@ var _ = Describe("podfacts", func() {
 		pf := &PodFact{name: pn, isPodRunning: true, dbExists: true}
 		Expect(pfs.checkForSimpleGatherStateMapping(ctx, vdb, pf, gs)).Should(Succeed())
 		Expect(pfs.checkNodeDetails(ctx, vdb, pf, gs)).Should(Succeed())
+		Expect(pf.isPrimary).Should(BeTrue())
 		Expect(pf.upNode).Should(BeTrue())
 		Expect(pf.readOnly).Should(BeFalse())
 		Expect(pf.subclusterOid).Should(Equal(""))

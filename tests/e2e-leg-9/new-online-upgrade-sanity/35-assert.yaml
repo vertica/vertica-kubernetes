@@ -20,7 +20,6 @@ metadata:
   labels:
     vertica.com/sandbox: replica-group-b
 status:
-  currentReplicas: 2
   readyReplicas: 2
 ---
 apiVersion: apps/v1
@@ -32,7 +31,6 @@ metadata:
   labels:
     vertica.com/sandbox: replica-group-b
 status:
-  currentReplicas: 1
   readyReplicas: 1
 ---
 apiVersion: apps/v1
@@ -44,7 +42,6 @@ metadata:
   labels:
     vertica.com/sandbox: replica-group-b
 status:
-  currentReplicas: 3
   readyReplicas: 3
 ---
 apiVersion: v1
@@ -66,10 +63,10 @@ spec:
   - name: pri1
   - name: pri_2
   - name: pri1-sb
-    type: sandboxprimary
+    type: secondary
     size: 2
   - name: pri_2-sb
-    type: sandboxprimary
+    type: secondary
     size: 1
   - name: sec1-sb
     type: secondary
@@ -81,3 +78,22 @@ status:
         - pri1-sb
         - pri_2-sb
         - sec1-sb
+  subclusters:
+    - addedToDBCount: 3
+      name: sec1
+      type: secondary
+    - addedToDBCount: 2
+      name: pri1
+      type: primary
+    - addedToDBCount: 1
+      name: pri_2
+      type: primary
+    - addedToDBCount: 2
+      name: pri1-sb
+      type: sandboxprimary
+    - addedToDBCount: 1
+      name: pri_2-sb
+      type: sandboxprimary
+    - addedToDBCount: 3
+      name: sec1-sb
+      type: sandboxsecondary

@@ -1,0 +1,67 @@
+apiVersion: v1
+kind: Event
+reason: HTTPSTLSUpdateStarted
+source:
+  component: verticadb-operator
+involvedObject:
+  apiVersion: vertica.com/v1
+  kind: VerticaDB
+  name: v-cert-rotate-rollback-before-update
+---
+apiVersion: v1
+kind: Event
+reason: HTTPSTLSUpdateFailed
+source:
+  component: verticadb-operator
+involvedObject:
+  apiVersion: vertica.com/v1
+  kind: VerticaDB
+  name: v-cert-rotate-rollback-before-update
+---
+apiVersion: v1
+kind: Event
+reason: TLSCertRollbackStarted
+source:
+  component: verticadb-operator
+involvedObject:
+  apiVersion: vertica.com/v1
+  kind: VerticaDB
+  name: v-cert-rotate-rollback-before-update
+message: Starting HTTP TLS cert rollback after failed update
+---
+apiVersion: v1
+kind: Event
+reason: TLSCertRollbackSucceeded
+source:
+  component: verticadb-operator
+involvedObject:
+  apiVersion: vertica.com/v1
+  kind: VerticaDB
+  name: v-cert-rotate-rollback-before-update
+message: HTTP TLS cert rollback completed successfully
+---
+apiVersion: vertica.com/v1
+kind: VerticaDB
+metadata:
+  name: v-cert-rotate-rollback-before-update
+status:
+  conditions:
+  - reason: Detected
+    status: "True"
+    type: AutoRestartVertica
+  - reason: Initialized
+    status: "True"
+    type: DBInitialized
+  - reason: Completed
+    status: "False"
+    type: TLSConfigUpdateInProgress  
+  - reason: Completed
+    status: "False"
+    type: TLSCertRollbackNeeded
+  - reason: Completed
+    status: "False"
+    type: TLSCertRollbackInProgress
+  subclusters:
+    - addedToDBCount: 3
+      upNodeCount: 3
+  

@@ -27,10 +27,10 @@ const (
 )
 
 // MakeSubclusterLabels returns the labels added for the subcluster
-func MakeSubclusterLabels(sc *vapi.Subcluster) map[string]string {
+func MakeSubclusterLabels(sc *vapi.Subcluster, vdb *vapi.VerticaDB) map[string]string {
 	m := map[string]string{
 		vmeta.SubclusterNameLabel: sc.Name,
-		vmeta.SubclusterTypeLabel: sc.GetType(),
+		vmeta.SubclusterTypeLabel: sc.GetSubclusterType(vdb),
 	}
 	return m
 }
@@ -80,7 +80,7 @@ func MakeCommonLabels(vdb *vapi.VerticaDB, sc *vapi.Subcluster, forPod, forProxy
 		return labels
 	}
 
-	for k, v := range MakeSubclusterLabels(sc) {
+	for k, v := range MakeSubclusterLabels(sc, vdb) {
 		labels[k] = v
 	}
 
@@ -148,6 +148,14 @@ func MakeLabelsForVProxyObject(vdb *vapi.VerticaDB, sc *vapi.Subcluster, forProx
 func MakeLabelsForSandboxConfigMap(vdb *vapi.VerticaDB) map[string]string {
 	labels := makeLabelsForObject(vdb, nil, false, false)
 	labels[vmeta.WatchedBySandboxLabel] = vmeta.WatchedBySandboxTrue
+	return labels
+}
+
+// MakeLabelsForServiceMonitor constructs the labels of the service monitor
+func MakeLabelsForServiceMonitor(vdb *vapi.VerticaDB) map[string]string {
+	labels := MakeOperatorLabels(vdb)
+	labels[vmeta.SvcMonitorLabel] = opcfg.GetReleaseName()
+
 	return labels
 }
 

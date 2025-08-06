@@ -283,20 +283,8 @@ func (r *UnsandboxSubclusterReconciler) unsandboxSubcluster(ctx context.Context,
 	return nil
 }
 
-// updateSandboxInfoInVdb will update subcluster type and sandbox status in vdb
+// updateSandboxInfoInVdb will update the sandbox status in vdb
 func (r *UnsandboxSubclusterReconciler) updateSandboxInfoInVdb(ctx context.Context, sbName string, unsandboxedScNames []string) error {
-	// update the subcluster type in the spec
-	_, err := vk8s.UpdateVDBWithRetry(ctx, r.SRec, r.Vdb, func() (bool, error) {
-		for _, unsandboxSc := range unsandboxedScNames {
-			for i := range r.Vdb.Spec.Subclusters {
-				if unsandboxSc == r.Vdb.Spec.Subclusters[i].Name && r.Vdb.Spec.Subclusters[i].IsSandboxPrimary() {
-					r.Vdb.Spec.Subclusters[i].Type = vapi.SecondarySubcluster
-				}
-			}
-		}
-		return true, nil
-	})
-
 	updateStatus := func(vdbChg *vapi.VerticaDB) error {
 		// update the sandbox's subclusters in sandbox status
 		for i := len(vdbChg.Status.Sandboxes) - 1; i >= 0; i-- {
@@ -313,5 +301,5 @@ func (r *UnsandboxSubclusterReconciler) updateSandboxInfoInVdb(ctx context.Conte
 		return nil
 	}
 
-	return errors.Join(err, vdbstatus.Update(ctx, r.Client, r.Vdb, updateStatus))
+	return vdbstatus.Update(ctx, r.Client, r.Vdb, updateStatus)
 }

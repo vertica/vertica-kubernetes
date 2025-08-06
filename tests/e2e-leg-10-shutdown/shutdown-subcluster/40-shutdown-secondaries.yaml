@@ -25,7 +25,7 @@ spec:
     type: primary
   - name: sec1
     size: 3
-    type: sandboxprimary
+    type: secondary
   - name: sec2
     size: 1
     shutdown: true

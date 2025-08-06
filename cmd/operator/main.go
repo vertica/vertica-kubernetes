@@ -48,6 +48,8 @@ import (
 	vapiV1 "github.com/vertica/vertica-kubernetes/api/v1"
 	vapiB1 "github.com/vertica/vertica-kubernetes/api/v1beta1"
 
+	promv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
+	vcache "github.com/vertica/vertica-kubernetes/pkg/cache"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers/et"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers/sandbox"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers/vas"
@@ -89,6 +91,7 @@ func init() {
 	utilruntime.Must(vapiB1.AddToScheme(scheme))
 	utilruntime.Must(vapiV1.AddToScheme(scheme))
 	utilruntime.Must(kedav1alpha1.AddToScheme(scheme))
+	utilruntime.Must(promv1.AddToScheme(scheme))
 	// +kubebuilder:scaffold:scheme
 }
 
@@ -100,6 +103,7 @@ func addReconcilersToManager(mgr manager.Manager, restCfg *rest.Config) {
 		return
 	}
 
+	cacheManager := vcache.MakeCacheManager(opcfg.GetIsCacheEnabled())
 	// Create a custom option with our own rate limiter
 	rateLimiter := workqueue.NewItemExponentialFailureRateLimiter(1*time.Millisecond,
 		time.Duration(opcfg.GetVdbMaxBackoffDuration())*time.Millisecond)
@@ -107,11 +111,12 @@ func addReconcilersToManager(mgr manager.Manager, restCfg *rest.Config) {
 		RateLimiter: rateLimiter,
 	}
 	if err := (&vdb.VerticaDBReconciler{
-		Client: mgr.GetClient(),
-		Log:    ctrl.Log.WithName("controllers").WithName("VerticaDB"),
-		Scheme: mgr.GetScheme(),
-		Cfg:    restCfg,
-		EVRec:  mgr.GetEventRecorderFor(vmeta.OperatorName),
+		Client:       mgr.GetClient(),
+		Log:          ctrl.Log.WithName("controllers").WithName("VerticaDB"),
+		Scheme:       mgr.GetScheme(),
+		Cfg:          restCfg,
+		EVRec:        mgr.GetEventRecorderFor(vmeta.OperatorName),
+		CacheManager: cacheManager,
 	}).SetupWithManager(mgr, options); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "VerticaDB")
 		os.Exit(1)
@@ -135,10 +140,11 @@ func addReconcilersToManager(mgr manager.Manager, restCfg *rest.Config) {
 		os.Exit(1)
 	}
 	if err := (&vrpq.VerticaRestorePointsQueryReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-		EVRec:  mgr.GetEventRecorderFor(vmeta.OperatorName),
-		Log:    ctrl.Log.WithName("controllers").WithName("VerticaRestorePointsQuery"),
+		Client:       mgr.GetClient(),
+		Scheme:       mgr.GetScheme(),
+		EVRec:        mgr.GetEventRecorderFor(vmeta.OperatorName),
+		Log:          ctrl.Log.WithName("controllers").WithName("VerticaRestorePointsQuery"),
+		CacheManager: cacheManager,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "VerticaRestorePointsQuery")
 		os.Exit(1)
@@ -159,23 +165,25 @@ func addReconcilersToManager(mgr manager.Manager, restCfg *rest.Config) {
 		RateLimiter: sbRateLimiter,
 	}
 	if err := (&sandbox.SandboxConfigMapReconciler{
-		Client:      mgr.GetClient(),
-		Scheme:      mgr.GetScheme(),
-		Cfg:         restCfg,
-		EVRec:       mgr.GetEventRecorderFor(vmeta.OperatorName),
-		Log:         ctrl.Log.WithName("controllers").WithName("sandbox"),
-		Concurrency: opcfg.GetSandboxConfigMapConcurrency(),
+		Client:       mgr.GetClient(),
+		Scheme:       mgr.GetScheme(),
+		Cfg:          restCfg,
+		EVRec:        mgr.GetEventRecorderFor(vmeta.OperatorName),
+		Log:          ctrl.Log.WithName("controllers").WithName("sandbox"),
+		Concurrency:  opcfg.GetSandboxConfigMapConcurrency(),
+		CacheManager: cacheManager,
 	}).SetupWithManager(mgr, &sbOptions); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "sandbox")
 		os.Exit(1)
 	}
 	if err := (&vrep.VerticaReplicatorReconciler{
-		Client:      mgr.GetClient(),
-		Scheme:      mgr.GetScheme(),
-		Cfg:         restCfg,
-		EVRec:       mgr.GetEventRecorderFor(vmeta.OperatorName),
-		Log:         ctrl.Log.WithName("controllers").WithName("VerticaReplicator"),
-		Concurrency: opcfg.GetVerticaReplicatorConcurrency(),
+		Client:       mgr.GetClient(),
+		Scheme:       mgr.GetScheme(),
+		Cfg:          restCfg,
+		EVRec:        mgr.GetEventRecorderFor(vmeta.OperatorName),
+		Log:          ctrl.Log.WithName("controllers").WithName("VerticaReplicator"),
+		Concurrency:  opcfg.GetVerticaReplicatorConcurrency(),
+		CacheManager: cacheManager,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "VerticaReplicator")
 		os.Exit(1)
@@ -269,8 +277,10 @@ func main() {
 		"version", opcfg.GetVersion(),
 		"watchNamespace", opcfg.GetWatchNamespace(),
 		"webhooksEnabled", opcfg.GetIsWebhookEnabled(),
+		"cacheEnabled", opcfg.GetIsCacheEnabled(),
 		"controllersEnabled", opcfg.GetIsControllersEnabled(),
 		"broadcasterBurstSize", burstSize,
+		"monitoringEnabled", opcfg.IsPrometheusEnabled(),
 	)
 
 	var webhookTLSOpts []func(*tls.Config)

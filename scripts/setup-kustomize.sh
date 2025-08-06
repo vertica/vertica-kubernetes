@@ -146,6 +146,9 @@ echo "Broadcaster burst size: $BROADCASTER_BURST_SIZE"
 echo "VDB Maximum Backoff Duration: $VDB_MAX_BACKOFF_DURATION"
 echo "Sandbox Maximum Backoff Duration: $SANDBOX_MAX_BACKOFF_DURATION"
 echo "Cert rotation enabled: $USE_CERT"
+echo "Prometheus enabled: $PROMETHEUS_ENABLED"
+echo "Grafana enabled: $GRAFANA_ENABLED"
+echo "Cache enabled: $CACHE_ENABLED"
 
 function create_vdb_kustomization {
     BASE_DIR=$1
@@ -206,6 +209,12 @@ EOF
             cat <<EOF >> kustomization.yaml
     - op: add
       path: /metadata/annotations/vertica.com~1enable-tls-auth
+      value: "true"
+EOF
+        else
+            cat <<EOF >> kustomization.yaml
+    - op: add
+      path: /metadata/annotations/vertica.com~1skip-tls-webhook-check
       value: "true"
 EOF
         fi

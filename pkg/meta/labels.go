@@ -157,6 +157,9 @@ const (
 	// in spec.envFrom and spec.extraEnv
 	WatchedByVDBLabel = "vertica.com/watched-by-vdb-controller"
 	WatchedByVDBFalse = false
+	// Indicates the service monitor will be selected
+	// by prometheus
+	SvcMonitorLabel = "release"
 )
 
 // ProtectedLabels lists all of the internally used label.

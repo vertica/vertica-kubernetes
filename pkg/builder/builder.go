@@ -24,6 +24,7 @@ import (
 	"strings"
 
 	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
+	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	v1beta1 "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/cloud"
@@ -59,6 +60,8 @@ const (
 	// vdb.spec.ServiceHTTPSPort and vdb.spec.ServiceClientPort
 	VerticaClientPort = 5433
 	VerticaHTTPPort   = 8443
+
+	verticaServicePortName = "vertica-http"
 
 	// Standard environment variables that are set in each pod
 	PodIPEnv                   = "POD_IP"
@@ -99,6 +102,9 @@ const (
 
 	// Endpoint in the NMA to check its health and readiness
 	NMAHealthPath = "/v1/health"
+
+	// HTTPS endpoint used for metrics
+	httpsMetricsPath = "/v1/metrics"
 
 	// Name of the volume shared by nma and vertica containers
 	startupConfMountName = "startup-conf"
@@ -389,8 +395,8 @@ func buildScrutinizeVolumeMounts(vscr *v1beta1.VerticaScrutinize, vdb *vapi.Vert
 		buildScrutinizeSharedVolumeMount(vscr),
 	}
 	if vmeta.UseNMACertsMount(vdb.Annotations) &&
-		vdb.GetHTTPSNMATLSSecret() != "" &&
-		secrets.IsK8sSecret(vdb.GetHTTPSNMATLSSecret()) {
+		vdb.GetNMATLSSecret() != "" &&
+		secrets.IsK8sSecret(vdb.GetNMATLSSecret()) {
 		volMnts = append(volMnts, buildNMACertsVolumeMount()...)
 	}
 	return volMnts
@@ -454,8 +460,8 @@ func buildSSHVolumeMounts() []corev1.VolumeMount {
 func buildCommonNMAVolumeMounts(vdb *vapi.VerticaDB) []corev1.VolumeMount {
 	volMnts := buildScrutinizeVolumeMountForVerticaPod(vdb)
 	if vmeta.UseNMACertsMount(vdb.Annotations) &&
-		vdb.GetHTTPSNMATLSSecret() != "" &&
-		secrets.IsK8sSecret(vdb.GetHTTPSNMATLSSecret()) {
+		vdb.GetNMATLSSecret() != "" &&
+		secrets.IsK8sSecret(vdb.GetNMATLSSecret()) {
 		volMnts = append(volMnts, buildNMACertsVolumeMount()...)
 	}
 	return volMnts
@@ -518,8 +524,8 @@ func buildVolumes(vdb *vapi.VerticaDB) []corev1.Volume {
 
 	if vmeta.UseVClusterOps(vdb.Annotations) &&
 		vmeta.UseNMACertsMount(vdb.Annotations) &&
-		vdb.GetHTTPSNMATLSSecret() != "" &&
-		secrets.IsK8sSecret(vdb.GetHTTPSNMATLSSecret()) {
+		vdb.GetNMATLSSecret() != "" &&
+		secrets.IsK8sSecret(vdb.GetNMATLSSecret()) {
 		vols = append(vols, buildNMACertsSecretVolume(vdb))
 	}
 	if vdb.IsDepotVolumeEmptyDir() && vdb.IsDepotVolumeManaged() {
@@ -538,8 +544,8 @@ func buildScrutinizeVolumes(vscr *v1beta1.VerticaScrutinize, vdb *vapi.VerticaDB
 	vols := []corev1.Volume{}
 	if vmeta.UseVClusterOps(vdb.Annotations) &&
 		vmeta.UseNMACertsMount(vdb.Annotations) &&
-		vdb.GetHTTPSNMATLSSecret() != "" &&
-		secrets.IsK8sSecret(vdb.GetHTTPSNMATLSSecret()) {
+		vdb.GetNMATLSSecret() != "" &&
+		secrets.IsK8sSecret(vdb.GetNMATLSSecret()) {
 		vols = append(vols, buildNMACertsSecretVolume(vdb))
 	}
 	// we add a volume for the password when the password secret
@@ -808,7 +814,7 @@ func buildNMACertsSecretVolume(vdb *vapi.VerticaDB) corev1.Volume {
 		Name: vapi.NMACertsMountName,
 		VolumeSource: corev1.VolumeSource{
 			Secret: &corev1.SecretVolumeSource{
-				SecretName: vdb.GetHTTPSNMATLSSecret(),
+				SecretName: vdb.GetNMATLSSecret(),
 			},
 		},
 	}
@@ -864,6 +870,7 @@ func buildScrutinizePodSpec(vscr *v1beta1.VerticaScrutinize, vdb *vapi.VerticaDB
 		RestartPolicy:                 corev1.RestartPolicy(vmeta.GetScrutinizePodRestartPolicy(vscr.Annotations)),
 		SecurityContext:               vdb.Spec.PodSecurityContext,
 		ServiceAccountName:            vdb.Spec.ServiceAccountName,
+		ImagePullSecrets:              GetK8sLocalObjectReferenceArray(vdb.Spec.ImagePullSecrets),
 	}
 }
 
@@ -891,6 +898,131 @@ func makeScrutinizeInitContainers(vscr *v1beta1.VerticaScrutinize, vdb *vapi.Ver
 		cnts = append(cnts, c)
 	}
 	return cnts
+}
+
+// BuildServiceMonitor builds a service monitor for the vertica instance
+func BuildServiceMonitor(nm types.NamespacedName, vdb *vapi.VerticaDB,
+	basicAuthSecret string) *monitoringv1.ServiceMonitor {
+	return &monitoringv1.ServiceMonitor{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace:       nm.Namespace,
+			Name:            nm.Name,
+			Labels:          MakeLabelsForServiceMonitor(vdb),
+			OwnerReferences: []metav1.OwnerReference{vdb.GenerateOwnerReference()},
+		},
+		Spec: monitoringv1.ServiceMonitorSpec{
+			Endpoints: []monitoringv1.Endpoint{
+				{
+					Port:      verticaServicePortName,
+					Path:      httpsMetricsPath,
+					Scheme:    "https",
+					BasicAuth: makeBasicAuthForServiceMonitor(vdb, basicAuthSecret),
+					TLSConfig: makeTLSConfigForServiceMonitor(vdb),
+					Interval:  monitoringv1.Duration(vdb.GetPrometheusScrapeDuration()),
+				},
+			},
+			Selector: metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					vmeta.VDBInstanceLabel: vdb.Name,
+				},
+			},
+			NamespaceSelector: monitoringv1.NamespaceSelector{
+				MatchNames: []string{nm.Namespace},
+			},
+		},
+	}
+}
+
+// BuildBasicAuthSecret constructs the secret that will be used by prometheus to authenticate
+// to the vertica db
+func BuildBasicAuthSecret(vdb *vapi.VerticaDB, name, username, password string) *corev1.Secret {
+	return &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace:       vdb.Namespace,
+			Name:            name,
+			Annotations:     MakeAnnotationsForObject(vdb),
+			Labels:          MakeCommonLabels(vdb, nil, false, false),
+			OwnerReferences: []metav1.OwnerReference{vdb.GenerateOwnerReference()},
+		},
+		Type: corev1.SecretTypeBasicAuth,
+		Data: map[string][]byte{
+			names.SuperuserPasswordKey: []byte(password),
+			names.SuperUserKey:         []byte(username),
+		},
+	}
+}
+
+func makeBasicAuthForServiceMonitor(vdb *vapi.VerticaDB, secret string) *monitoringv1.BasicAuth {
+	if vdb.IsSetForTLS() {
+		return nil
+	}
+
+	return &monitoringv1.BasicAuth{
+		Username: corev1.SecretKeySelector{
+			Key: names.SuperUserKey,
+			LocalObjectReference: corev1.LocalObjectReference{
+				Name: secret,
+			},
+		},
+		Password: corev1.SecretKeySelector{
+			Key: names.SuperuserPasswordKey,
+			LocalObjectReference: corev1.LocalObjectReference{
+				Name: secret,
+			},
+		},
+	}
+}
+
+func makeTLSConfigForServiceMonitor(vdb *vapi.VerticaDB) *monitoringv1.TLSConfig {
+	insecureSkipVerify := false
+	if !vdb.IsSetForTLS() {
+		insecureSkipVerify = true
+		return &monitoringv1.TLSConfig{
+			SafeTLSConfig: monitoringv1.SafeTLSConfig{
+				InsecureSkipVerify: &insecureSkipVerify,
+			},
+		}
+	}
+
+	key, cert, ca := genTLSKeys(vdb)
+	serverName := fmt.Sprintf("*.%s.svc.cluster.local", vdb.Namespace)
+	return &monitoringv1.TLSConfig{
+		SafeTLSConfig: monitoringv1.SafeTLSConfig{
+			InsecureSkipVerify: &insecureSkipVerify,
+			KeySecret:          key,
+			Cert:               cert,
+			CA:                 ca,
+			ServerName:         &serverName,
+		},
+	}
+}
+
+func genTLSKeys(vdb *vapi.VerticaDB) (key *corev1.SecretKeySelector,
+	cert monitoringv1.SecretOrConfigMap, ca monitoringv1.SecretOrConfigMap) {
+	key = &corev1.SecretKeySelector{
+		Key: corev1.TLSPrivateKeyKey,
+		LocalObjectReference: corev1.LocalObjectReference{
+			Name: vdb.GetNonEmptyHTTPSNMATLSSecret(),
+		},
+	}
+	cert = monitoringv1.SecretOrConfigMap{
+		Secret: &corev1.SecretKeySelector{
+			Key: corev1.TLSCertKey,
+			LocalObjectReference: corev1.LocalObjectReference{
+				Name: vdb.GetNonEmptyHTTPSNMATLSSecret(),
+			},
+		},
+	}
+	ca = monitoringv1.SecretOrConfigMap{
+		Secret: &corev1.SecretKeySelector{
+			Key: paths.HTTPServerCACrtName,
+			LocalObjectReference: corev1.LocalObjectReference{
+				Name: vdb.GetNonEmptyHTTPSNMATLSSecret(),
+			},
+		},
+	}
+
+	return
 }
 
 // BuildHorizontalPodAutoscaler builds a manifest for the horizontal pod autoscaler.
@@ -2077,7 +2209,7 @@ func buildNMATLSCertsEnvVars(vdb *vapi.VerticaDB) []corev1.EnvVar {
 	configMapName := fmt.Sprintf("%s-%s", vdb.Name, vapi.NMATLSConfigMapName)
 	envs := []corev1.EnvVar{}
 	useNmaCertsMount := vmeta.UseNMACertsMount(vdb.Annotations)
-	if useNmaCertsMount && secrets.IsK8sSecret(vdb.GetHTTPSNMATLSSecret()) {
+	if useNmaCertsMount && secrets.IsK8sSecret(vdb.GetNMATLSSecret()) {
 		envs = append(envs,
 			// Provide the path to each of the certs that are mounted in the container.
 			corev1.EnvVar{Name: NMARootCAEnv, Value: fmt.Sprintf("%s/%s", paths.NMACertsRoot, paths.HTTPServerCACrtName)},
@@ -2231,12 +2363,20 @@ func GetTarballName(cmd []string) string {
 // BuildNMATLSConfigMap builds a configmap with tls secret name in it.
 // The configmap will be mapped to two environmental variables in NMA pod
 func BuildNMATLSConfigMap(nm types.NamespacedName, vdb *vapi.VerticaDB) *corev1.ConfigMap {
+	clientSecretName := vdb.GetClientServerTLSSecretForConfigMap()
+	clientSecretNamespace := vdb.ObjectMeta.Namespace
+	clientSecretTLSMode := vdb.GetNMAClientServerTLSMode()
+	// for backward compatibility, we cannot leave NMAClient* env var empty even when tls is disabled
+	if !vmeta.UseTLSAuth(vdb.Annotations) {
+		clientSecretName = vdb.GetNMATLSSecret()
+		clientSecretTLSMode = "enable"
+	}
 	secretMap := map[string]string{
 		NMASecretNamespaceEnv:       vdb.ObjectMeta.Namespace,
-		NMASecretNameEnv:            vdb.GetHTTPSNMATLSSecret(),
-		NMAClientSecretNamespaceEnv: vdb.ObjectMeta.Namespace,
-		NMAClientSecretNameEnv:      vdb.GetClientServerTLSSecret(),
-		NMAClientSecretTLSModeEnv:   vdb.GetNMAClientServerTLSMode(),
+		NMASecretNameEnv:            vdb.GetHTTPSNMATLSSecretForConfigMap(),
+		NMAClientSecretNamespaceEnv: clientSecretNamespace,
+		NMAClientSecretNameEnv:      clientSecretName,
+		NMAClientSecretTLSModeEnv:   clientSecretTLSMode,
 	}
 	tlsConfigMap := &corev1.ConfigMap{
 		TypeMeta: metav1.TypeMeta{

@@ -128,4 +128,39 @@ var _ = Describe("certificate validation", func() {
 		Expect(err).ShouldNot(HaveOccurred())
 		Expect(expiringSoon).Should(BeTrue())
 	})
+
+	It("should pass validation if CN matches expected value", func() {
+		cert, err := NewCertificate(caCert, "dbadmin", []string{"dbadmin.example.com"})
+		Expect(err).Should(Succeed())
+
+		Expect(ValidateCertificateCommonName(cert.TLSCrt(), "dbadmin")).Should(Succeed())
+	})
+
+	It("should fail validation if CN does not match expected value", func() {
+		cert, err := NewCertificate(caCert, "wronguser", []string{"wronguser.example.com"})
+		Expect(err).Should(Succeed())
+
+		Expect(ValidateCertificateCommonName(cert.TLSCrt(), "dbadmin")).
+			Should(MatchError(ContainSubstring("does not match expected common name")))
+	})
+
+	It("should pass validation when cert and key match", func() {
+		cert, err := NewCertificate(caCert, "dbadmin", []string{"dbadmin.example.com"})
+		Expect(err).Should(Succeed())
+
+		Expect(ValidateCertificateAndKeyMatch(cert.TLSCrt(), cert.TLSKey())).Should(Succeed())
+	})
+
+	It("should fail validation when cert and key do not match", func() {
+		cert1, err := NewCertificate(caCert, "user1", []string{"user1.example.com"})
+		Expect(err).Should(Succeed())
+
+		cert2, err := NewCertificate(caCert, "user2", []string{"user2.example.com"})
+		Expect(err).Should(Succeed())
+
+		// Use cert from cert1, key from cert2
+		Expect(ValidateCertificateAndKeyMatch(cert1.TLSCrt(), cert2.TLSKey())).
+			Should(MatchError(ContainSubstring("does not match certificate public key")))
+	})
+
 })

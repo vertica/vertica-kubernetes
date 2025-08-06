@@ -24,6 +24,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/net"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
+	"github.com/vertica/vertica-kubernetes/pkg/tls"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/addnode"
 )
 
@@ -53,7 +54,7 @@ func (v *VClusterOps) AddNode(ctx context.Context, opts ...addnode.Option) error
 	return nil
 }
 
-func (v *VClusterOps) genAddNodeOptions(s *addnode.Parms, certs *HTTPSCerts) vops.VAddNodeOptions {
+func (v *VClusterOps) genAddNodeOptions(s *addnode.Parms, certs *tls.HTTPSCerts) vops.VAddNodeOptions {
 	opts := vops.VAddNodeOptionsFactory()
 
 	// required options

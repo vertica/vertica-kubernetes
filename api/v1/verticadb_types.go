@@ -353,7 +353,7 @@ type VerticaDBSpec struct {
 	Sandboxes []Sandbox `json:"sandboxes,omitempty"`
 
 	// +kubebuilder:validation:Optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:advanced"
 	// Create client proxy pods for the subcluster if defined
 	// All incoming connections to the subclusters will be routed through the proxy pods
 	Proxy *Proxy `json:"proxy,omitempty"`
@@ -961,6 +961,37 @@ type TLSConfigSpec struct {
 	// - VERIFY_CA: Connection succeeds if Vertica verifies that the client certificate is from a trusted CA.
 	//   If the client does not present a client certificate, the connection is rejected.
 	Mode string `json:"mode,omitempty"`
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:text","urn:alm:descriptor:com.tectonic.ui:advanced"}
+	// +kubebuilder:validation:Optional
+	// This field defines the common-name that should be required for the TLS certificate of this TLS secret.
+	// The operator will validate that your certificate contains this value in the common-name field.
+	// If not specified, it will use the Vertica DB admin username, defined by annotation vertica.com/superuser-name.
+	CommonName string `json:"commonName,omitempty"`
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:advanced"
+	// +kubebuilder:validation:Optional
+	// Allow auto-rotation of a list of secrets, using a certain interval
+	AutoRotate *TLSAutoRotate `json:"autoRotate,omitempty"`
+}
+
+type TLSAutoRotate struct {
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:arrayField"}
+	// +kubebuilder:validation:Optional
+	// This will trigger operator to automatically rotate between a list of pre-defined secrets. When set, the
+	// first secret will be applied. After a set rotation interval (defined by "autoRotate.interval"; default 30 days),
+	// it will automatically rotate to next secret in the list, until the list has been exhausted. If "autoRotate.restart"
+	// is true, it will resume back at the first secret; otherwise, it will emit a warning and remain on the last secret.
+	Secrets []string `json:"secrets,omitempty"`
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:number","urn:alm:descriptor:com.tectonic.ui:advanced"}
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:default:=43200
+	// This will determine on what interval (in minutes) to auto-rotate to the next secret in the list. Default is 30 days.
+	Interval int `json:"interval,omitempty"`
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:booleanSwitch","urn:alm:descriptor:com.tectonic.ui:advanced"}
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:default:=false
+	// When we reach the end of the list, this will determine whether to loop back to the first element of the list
+	// or to finish (giving a warning). Default is false, meaning finish auto-rotate.
+	RestartAtEnd bool `json:"restartAtEnd,omitempty"`
 }
 
 // VerticaDBStatus defines the observed state of VerticaDB
@@ -1013,6 +1044,7 @@ type VerticaDBStatus struct {
 }
 
 const (
+	NMATLSConfigName          = "nma"          // #nosec G101
 	HTTPSNMATLSConfigName     = "httpsNMA"     // #nosec G101
 	ClientServerTLSConfigName = "clientServer" // #nosec G101
 )
@@ -1028,6 +1060,14 @@ type TLSConfigStatus struct {
 	// +operator-sdk:csv:customresourcedefinitions:type=status
 	// The TLS mode being used
 	Mode string `json:"mode"`
+	// +operator-sdk:csv:customresourcedefinitions:type=status
+	// +optional
+	// Timestamp of last successful cert rotation
+	LastUpdate metav1.Time `json:"lastUpdate,omitempty"`
+	// +operator-sdk:csv:customresourcedefinitions:type=status
+	// +optional
+	// List of secrets to be used for auto-rotate
+	AutoRotateSecrets []string `json:"autoRotateSecrets,omitempty"`
 }
 
 type RestorePointInfo struct {
@@ -1097,13 +1137,18 @@ const (
 	// TLSCertRollbackNeeded indicates tls cert rotation failed and we need
 	// to rollback
 	TLSCertRollbackNeeded = "TLSCertRollbackNeeded"
+	// TLSCertRollbackInProgress indicates that user has triggered TLS rollback
+	TLSCertRollbackInProgress = "TLSCertRollbackInProgress"
 )
 
 const (
-	// RollbackAfterCertRotationReason indicates failure during TLS rotation after TLS cert has been updated
-	RollbackAfterCertRotationReason = "CertRotationFailed"
-	// FailureBeforeCertHealthPollingReason indicates failure during TLS rotation before TLS cert has been updated
-	FailureBeforeCertHealthPollingReason = "CertRotationFailedBeforeCertHealthPolling"
+	// RollbackAfterHTTPSCertRotationReason indicates failure during HTTPS TLS rotation after TLS cert has been updated
+	RollbackAfterHTTPSCertRotationReason = "HTTPSCertRotationFailed"
+	// FailureBeforeHTTPSCertHealthPollingReason indicates failure during HTTPS TLS rotation before TLS cert has been updated
+	FailureBeforeHTTPSCertHealthPollingReason = "HTTPSCertRotationFailedBeforeCertHealthPolling"
+	// RollbackAfterServerCertRotationReason indicates failure during Client-Server TLS rotation
+	// This can only be before TLS cert has been updated
+	RollbackAfterServerCertRotationReason = "ServerCertRotationFailed"
 	// RollbackAfterNMACertRotationReason indicates failure during NMA cert rotation
 	RollbackAfterNMACertRotationReason = "NMACertRotationFailed"
 )

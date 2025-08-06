@@ -25,6 +25,7 @@ import (
 	. "github.com/onsi/gomega"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/builder"
+	"github.com/vertica/vertica-kubernetes/pkg/cloud"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
@@ -53,7 +54,16 @@ var _ = Describe("obj_reconcile", func() {
 
 	runReconciler := func(vdb *vapi.VerticaDB, expResult ctrl.Result, mode ObjReconcileModeType) {
 		// Create any dependent objects for the CRD.
-		pfacts := podfacts.MakePodFacts(vdbRec, &cmds.FakePodRunner{}, logger, TestPassword)
+		pfacts := podfacts.MakePodFactsWithCacheManager(vdbRec, &cmds.FakePodRunner{}, logger, TestPassword, vdbRec.CacheManager)
+
+		fetcher := &cloud.SecretFetcher{
+			Client:   vdbRec.Client,
+			Log:      vdbRec.Log,
+			Obj:      vdb,
+			EVWriter: vdbRec.EVRec,
+			// &aterrors.TestEVWriter{},
+		}
+		vdbRec.CacheManager.InitCertCacheForVdb(vdb, fetcher)
 		objr := MakeObjReconciler(vdbRec, logger, vdb, &pfacts, mode)
 		Expect(objr.Reconcile(ctx, &ctrl.Request{})).Should(Equal(expResult))
 	}
@@ -666,15 +676,16 @@ var _ = Describe("obj_reconcile", func() {
 
 		It("should requeue if vclusterops is enabled but HTTP secret isn't setup properly", func() {
 			vdb := vapi.MakeVDB()
-			vdb.Spec.HTTPSNMATLS.Secret = ""
+			vdb.Spec.NMATLSSecret = ""
 			vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
+			vdb.Annotations[vmeta.EnableTLSAuthAnnotation] = vmeta.AnnotationFalse
 			createCrd(vdb, false)
 			defer deleteCrd(vdb)
 
 			runReconciler(vdb, ctrl.Result{Requeue: true}, ObjReconcileModeAll)
 
 			// Having a secret name, but not created should force a requeue too
-			vdb.Spec.HTTPSNMATLS.Secret = "dummy1"
+			vdb.Spec.NMATLSSecret = "dummy1"
 			runReconciler(vdb, ctrl.Result{Requeue: true}, ObjReconcileModeAll)
 		})
 
@@ -816,9 +827,10 @@ var _ = Describe("obj_reconcile", func() {
 			vdb := vapi.MakeVDB()
 			vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
 			vdb.Annotations[vmeta.VersionAnnotation] = vapi.VcluseropsAsDefaultDeploymentMethodMinVersion
-			vdb.Spec.HTTPSNMATLS.Secret = "tls-abcdef"
-			test.CreateFakeTLSSecret(ctx, vdb, k8sClient, vdb.GetHTTPSNMATLSSecret())
-			defer test.DeleteSecret(ctx, k8sClient, vdb.GetHTTPSNMATLSSecret())
+			vdb.Annotations[vmeta.EnableTLSAuthAnnotation] = vmeta.AnnotationFalse
+			vdb.Spec.NMATLSSecret = "tls-abcdef"
+			test.CreateFakeTLSSecret(ctx, vdb, k8sClient, vdb.GetNMATLSSecret())
+			defer test.DeleteSecret(ctx, k8sClient, vdb.GetNMATLSSecret())
 			createCrd(vdb, true)
 			defer deleteCrd(vdb)
 
@@ -994,23 +1006,23 @@ var _ = Describe("obj_reconcile", func() {
 			vdb.Annotations[vmeta.EnableTLSAuthAnnotation] = trueStr
 			createCrd(vdb, false)
 			defer deleteCrd(vdb)
-			secret := test.BuildTLSSecret(vdb, vdb.GetHTTPSNMATLSSecret(), test.TestKeyValue, test.TestCertValue, test.TestCaCertValue)
+			secret := test.BuildTLSSecret(vdb, vdb.GetNMATLSSecret(), test.TestKeyValue, test.TestCertValue, test.TestCaCertValue)
 			secret.OwnerReferences = []metav1.OwnerReference{
 				{UID: vdb.GetUID(), Name: vdb.Name, Kind: vapi.VerticaDBKind, APIVersion: vapi.GroupVersion.String()},
 			}
 			Expect(k8sClient.Create(ctx, secret)).Should(Succeed())
-			defer test.DeleteSecret(ctx, k8sClient, vdb.GetHTTPSNMATLSSecret())
+			defer test.DeleteSecret(ctx, k8sClient, vdb.GetNMATLSSecret())
 
 			o := &ObjReconciler{
 				Rec: vdbRec,
 				Vdb: vdb,
 				Log: logger,
 			}
-			err := o.updateOwnerReferenceInTLSSecret(ctx, vdb.GetHTTPSNMATLSSecret())
+			err := o.updateOwnerReferenceInTLSSecret(ctx, vdb.GetNMATLSSecret())
 			Expect(err).Should(Succeed())
 
 			fetchedSecret := &corev1.Secret{}
-			secretName := names.GenNamespacedName(o.Vdb, vdb.GetHTTPSNMATLSSecret())
+			secretName := names.GenNamespacedName(o.Vdb, vdb.GetNMATLSSecret())
 			Expect(k8sClient.Get(ctx, secretName, fetchedSecret)).Should(Succeed())
 			Expect(len(fetchedSecret.OwnerReferences)).Should(Equal(0))
 		})

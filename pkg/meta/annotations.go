@@ -25,6 +25,9 @@ import (
 )
 
 const (
+	AnnotationTrue  = "true"
+	AnnotationFalse = "false"
+
 	// Annotations that we set in each of the pod.  These are set by the
 	// AnnotateAndLabelPodReconciler.  They are available in the pod with the
 	// downwardAPI so they can be picked up by the Vertica data collector (DC).
@@ -227,11 +230,27 @@ const (
 	HTTPSTLSConfGenerationAnnotationFalse = "false"
 	HTTPSTLSConfGenerationDefaultValue    = true
 
-	// This annotation controls
+	// This annotation disables TLS rollback functionality. Setting this ensures
+	// backwards compatibility with functionality for versions <25.4.0. Default is
+	// currently false (disabling this feature).
 	DisableTLSRotationFailureRollbackAnnotation      = "vertica.com/disable-tls-rotation-failure-rollback"
 	DisableTLSRotationFailureRollbackAnnotationTrue  = "true"
 	DisableTLSRotationFailureRollbackAnnotationFalse = "false"
 	DisableTLSRotationFailureRollbackDefaultValue    = true
+
+	// This annotation forces a failure of the next TLS update cert rotation. There
+	// are two places where this can be forced:
+	//   "before_tls_update": fail before the secret has been updated in the DB
+	//   "after_tls_update": fail before the secret has been updated in the DB
+	// This annotation is internal only and should only be used for testing the
+	// rollback after failed cert rotation functionality
+	TriggerTLSUpdateFailureAnnotation      = "vertica.com/trigger-tls-update-failure"
+	TriggerTLSUpdateFailureBeforeTLSUpdate = "before_tls_update"
+	TriggerTLSUpdateFailureAfterTLSUpdate  = "after_tls_update"
+
+	// This annotation forces the automatic cert rotation to trigger now, instead of on
+	// a timer. It is internal and should be used only for testing.
+	TriggerAutoTLSRotateAnnotation = "vertica.com/trigger-auto-tls-rotate"
 
 	// We have a deployment check that ensures that if running vcluster ops the
 	// image is built for that (and vice-versa). This annotation allows you to
@@ -375,6 +394,9 @@ const (
 	// This will  be set in a sandbox configMap by the vdb controller to wake up the sandbox
 	// controller for stopping/starting a sandbox
 	SandboxControllerShutdownTriggerID = "vertica.com/sandbox-controller-shutdown-trigger-id"
+	// This will  be set in a sandbox configMap by the vdb controller to wake up the sandbox
+	// controller for alter subcluster type in a sandbox
+	SandboxControllerAlterSubclusterTypeTriggerID = "vertica.com/sandbox-controller-alter-subcluster-type-trigger-id"
 
 	// Use this to override the name of the statefulset and its pods. This needs
 	// to be set in the spec.subclusters[].annotations field to take effect. If
@@ -441,6 +463,13 @@ const (
 	// used to determine if the config has changed and if the operator should
 	// reconfigure the database.
 	ConfigHashAnnotation = "vertica.com/config-hash"
+	// Interval (in seconds) at which Prometheus scrapes the metrics from the target.
+	// If empty, Prometheus uses the global scrape interval.
+	PrometheusScrapeIntervalAnnotation = "vertica.com/prometheus-scrape-interval"
+
+	// This annotation disables the webhook check performed by hasValidTLSWithKnob().
+	// It is intended for internal testing purposes only.
+	SkipTLSWebhookCheck = "vertica.com/skip-tls-webhook-check"
 )
 
 // IsPauseAnnotationSet will check the annotations for a special value that will
@@ -601,6 +630,12 @@ func IsHTTPSTLSConfGenerationEnabled(annotations map[string]string) bool {
 func IsDisableTLSRollbackAnnotationSet(annotations map[string]string) bool {
 	return lookupBoolAnnotation(annotations, DisableTLSRotationFailureRollbackAnnotation,
 		DisableTLSRotationFailureRollbackDefaultValue)
+}
+
+// GetTriggerTLSUpdateFailureAnnotation returns the string value of the annotation TriggerTLSUpdateFailureAnnotation,
+// which is used as a backdoor to trigger cert rotation failures, in order to test rollback
+func GetTriggerTLSUpdateFailureAnnotation(annotations map[string]string) string {
+	return lookupStringAnnotation(annotations, TriggerTLSUpdateFailureAnnotation, "")
 }
 
 // GetSkipDeploymentCheck will return true if we are to skip the check that
@@ -849,6 +884,14 @@ func GetTLSCacheDuration(annotations map[string]string) int {
 // ShouldRemoveTLSSecret returns true if a tls secret must be removed on VDB delete
 func ShouldRemoveTLSSecret(annotations map[string]string) bool {
 	return lookupBoolAnnotation(annotations, RemoveTLSSecretOnVDBDeleteAnnotation, false)
+}
+
+func GetPrometheusScrapeInterval(annotations map[string]string) int {
+	return lookupIntAnnotation(annotations, PrometheusScrapeIntervalAnnotation, 0)
+}
+
+func ShouldSkipTLSWebhookCheck(annotations map[string]string) bool {
+	return lookupBoolAnnotation(annotations, SkipTLSWebhookCheck, false)
 }
 
 // lookupBoolAnnotation is a helper function to lookup a specific annotation and

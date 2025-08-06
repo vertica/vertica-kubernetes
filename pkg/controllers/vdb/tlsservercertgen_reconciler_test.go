@@ -23,6 +23,7 @@ import (
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
+	"github.com/vertica/vertica-kubernetes/pkg/security"
 	"github.com/vertica/vertica-kubernetes/pkg/test"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -54,6 +55,17 @@ var _ = Describe("tlsservercertgen_reconcile", func() {
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
 
 		r := MakeTLSServerCertGenReconciler(vdbRec, logger, vdb)
+		// create the secret
+		h := r.(*TLSServerCertGenReconciler)
+		caCert, err := security.NewSelfSignedCACertificate()
+		Expect(err).Should(BeNil())
+		cert, err := security.NewCertificate(caCert, h.Vdb.GetVerticaUser(), h.getDNSNames())
+		Expect(err).Should(BeNil())
+		secret, err := h.createSecret(httpsNMATLSSecret, DummySecretName, ctx, cert, caCert)
+		Expect(err).Should(BeNil())
+		defer func() { Expect(k8sClient.Delete(ctx, secret)).Should(Succeed()) }()
+
+		// no-op
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 		Expect(vdb.GetHTTPSNMATLSSecret()).Should(Equal(DummySecretName))
 	})
@@ -76,7 +88,7 @@ var _ = Describe("tlsservercertgen_reconcile", func() {
 		Expect(len(secret.Data[paths.HTTPServerCACrtName])).ShouldNot(Equal(0))
 	})
 
-	It("should recreate the secret if the name is set but it doesn't exist", func() {
+	It("should error out if the name is set but it doesn't exist", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
 		const TLSSecretName = "recreate-secret-name"
@@ -90,11 +102,22 @@ var _ = Describe("tlsservercertgen_reconcile", func() {
 		Expect(errors.IsNotFound(err)).Should(BeTrue())
 
 		r := MakeTLSServerCertGenReconciler(vdbRec, logger, vdb)
-		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
+		_, err = r.Reconcile(ctx, &ctrl.Request{})
+		Expect(err).ShouldNot(BeNil())
 		Expect(vdb.GetHTTPSNMATLSSecret()).Should(Equal(TLSSecretName))
-		Expect(k8sClient.Get(ctx, nm, secret)).Should(Succeed())
-		Expect(len(secret.Data[corev1.TLSPrivateKeyKey])).ShouldNot(Equal(0))
-		Expect(len(secret.Data[corev1.TLSCertKey])).ShouldNot(Equal(0))
-		Expect(len(secret.Data[paths.HTTPServerCACrtName])).ShouldNot(Equal(0))
+	})
+
+	It("should keep empty when enable-tls annotation is not set", func() {
+		vdb := vapi.MakeVDB()
+		vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
+		vdb.Annotations[vmeta.EnableTLSAuthAnnotation] = vmeta.AnnotationFalse
+		vdb.Spec.HTTPSNMATLS.Secret = ""
+		test.CreateVDB(ctx, k8sClient, vdb)
+		defer test.DeleteVDB(ctx, k8sClient, vdb)
+
+		r := MakeTLSServerCertGenReconciler(vdbRec, logger, vdb)
+		_, err := r.Reconcile(ctx, &ctrl.Request{})
+		Expect(err).Should(BeNil())
+		Expect(vdb.GetHTTPSNMATLSSecret()).Should(Equal(""))
 	})
 })

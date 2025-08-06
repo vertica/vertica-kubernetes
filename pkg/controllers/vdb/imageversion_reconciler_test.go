@@ -97,7 +97,8 @@ vertica(v11.1.0) built by @re-docker2 from tag@releases/VER_10_1_RELEASE_BUILD_1
 		defer test.DeleteConfigMap(ctx, k8sClient, vdb, sbName)
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := podfacts.MakePodFactsForSandbox(vdbRec, fpr, logger, TestPassword, sbName)
+
+		pfacts := podfacts.MakePodFactsForSandboxWithCacheManager(vdbRec, fpr, logger, TestPassword, sbName, vdbRec.CacheManager)
 		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
 		podName := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)
 		fpr.Results = cmds.CmdResults{
@@ -246,9 +247,10 @@ func testNMATLSSecretWithVersion(ctx context.Context, secretName, oldVersion, ne
 	vdb := vapi.MakeVDB()
 	vdb.Spec.Subclusters[0].Size = 1
 	vdb.ObjectMeta.Annotations = map[string]string{
-		vmeta.VClusterOpsAnnotation: vmeta.VClusterOpsAnnotationTrue,
+		vmeta.VClusterOpsAnnotation:   vmeta.VClusterOpsAnnotationTrue,
+		vmeta.EnableTLSAuthAnnotation: vmeta.AnnotationFalse,
 	}
-	vdb.Spec.HTTPSNMATLS.Secret = secretName
+	vdb.Spec.NMATLSSecret = secretName
 	test.CreateVDB(ctx, k8sClient, vdb)
 	defer test.DeleteVDB(ctx, k8sClient, vdb)
 	test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)

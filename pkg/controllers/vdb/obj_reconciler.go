@@ -217,15 +217,19 @@ func (o *ObjReconciler) checkMountedObjs(ctx context.Context) (ctrl.Result, erro
 		// that has the certs to use for it.  There is a reconciler that is run
 		// before this that will create the secret.  We will requeue if we find
 		// the Vdb doesn't have the secret set.
-		if o.Vdb.GetHTTPSNMATLSSecret() == "" {
+		if o.Vdb.GetNMATLSSecret() == "" {
 			o.Rec.Event(o.Vdb, corev1.EventTypeWarning, events.HTTPServerNotSetup,
-				"The httpsNMATLS.secret must be set when running with vclusterops deployment")
+				"NMA TLS secret must be set when running with vclusterops deployment")
 			return ctrl.Result{Requeue: true}, nil
 		}
-		_, res, err := o.SecretFetcher.FetchAllowRequeue(ctx,
-			names.GenNamespacedName(o.Vdb, o.Vdb.GetHTTPSNMATLSSecret()))
-		if verrors.IsReconcileAborted(res, err) {
-			return res, err
+		dbReconciler := o.Rec.(*VerticaDBReconciler)
+		certCache := dbReconciler.CacheManager.GetCertCacheForVdb(o.Vdb.Namespace, o.Vdb.Name)
+		if !certCache.IsCertInCache(o.Vdb.GetNMATLSSecret()) {
+			_, res, err := o.SecretFetcher.FetchAllowRequeue(ctx,
+				names.GenNamespacedName(o.Vdb, o.Vdb.GetNMATLSSecret()))
+			if verrors.IsReconcileAborted(res, err) {
+				return res, err
+			}
 		}
 	}
 
@@ -249,8 +253,10 @@ func (o *ObjReconciler) checkMountedObjs(ctx context.Context) (ctrl.Result, erro
 
 func (o *ObjReconciler) checkTLSSecrets(ctx context.Context) (ctrl.Result, error) {
 	tlsSecrets := map[string]string{
-		"NMA TLS":           o.Vdb.GetHTTPSNMATLSSecret(),
-		"Client Server TLS": o.Vdb.GetClientServerTLSSecret(),
+		"NMA TLS": o.Vdb.GetNMATLSSecret(),
+	}
+	if vmeta.UseTLSAuth(o.Vdb.Annotations) {
+		tlsSecrets["Client Server TLS"] = o.Vdb.GetClientServerTLSSecret()
 	}
 	for k, tlsSecret := range tlsSecrets {
 		if tlsSecret != "" {
@@ -656,6 +662,8 @@ func (o *ObjReconciler) retriveVerticaVersion(ctx context.Context, sc *vapi.Subc
 			o.SandPFactsMap[sand] = sandPFacts
 		}
 	}
+	// make sure we have the latest pod facts in case the subcluster was restarted
+	scPFacts.Invalidate()
 	if err := scPFacts.Collect(ctx, o.Vdb); err != nil {
 		return ctrl.Result{}, err
 	}
@@ -841,7 +849,7 @@ func (o *ObjReconciler) reconcileTLSSecrets(ctx context.Context) error {
 	}
 
 	tlsSecrets := []string{
-		o.Vdb.GetHTTPSNMATLSSecret(),
+		o.Vdb.GetNMATLSSecret(),
 		o.Vdb.GetClientServerTLSSecret(),
 	}
 	for _, tlsSecret := range tlsSecrets {

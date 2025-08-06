@@ -20,6 +20,7 @@ import (
 
 	vops "github.com/vertica/vcluster/vclusterops"
 	"github.com/vertica/vertica-kubernetes/pkg/net"
+	"github.com/vertica/vertica-kubernetes/pkg/tls"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/replicationstart"
 )
 
@@ -40,7 +41,7 @@ func (v *VClusterOps) ReplicateDB(ctx context.Context, opts ...replicationstart.
 	r.Make(opts...)
 
 	// Get target certs
-	targetCerts := &HTTPSCerts{}
+	targetCerts := &tls.HTTPSCerts{}
 	if r.Async {
 		targetCerts, err = v.retrieveTargetHTTPSCerts(ctx)
 		if err != nil {
@@ -68,7 +69,7 @@ func (v *VClusterOps) ReplicateDB(ctx context.Context, opts ...replicationstart.
 }
 
 func (v *VClusterOps) genReplicateDBOptions(s *replicationstart.Parms,
-	certs *HTTPSCerts, targetCerts *HTTPSCerts) *vops.VReplicationDatabaseOptions {
+	certs *tls.HTTPSCerts, targetCerts *tls.HTTPSCerts) *vops.VReplicationDatabaseOptions {
 	opts := vops.VReplicationDatabaseFactory()
 	opts.RawHosts = append(opts.RawHosts, s.SourceIP)
 	opts.DBName = v.VDB.Spec.DBName

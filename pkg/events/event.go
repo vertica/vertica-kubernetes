@@ -80,7 +80,6 @@ const (
 	RemoveSubcluserStart             = "RemoveSubcluserStart"
 	SubclusterRemoved                = "SubclusterRemoved"
 	RemoveSubclusterFailed           = "RemoveSubclusterFailed"
-	AlterSubclusterStart             = "AlterSubclusterStart"
 	AlterSubclusterFailed            = "AlterSubclusterFailed"
 	AlterSubclusterSucceeded         = "AlterSubclusterSucceeded"
 	SuperuserPasswordSecretNotFound  = "SuperuserPasswordSecretNotFound"
@@ -139,6 +138,11 @@ const (
 	TLSModeUpdateStarted             = "TLSModeUpdateStarted"
 	TLSModeUpdateSucceeded           = "TLSModeUpdateSucceeded"
 	TLSCertValidationFailed          = "TLSCertValidationFailed"
+	TLSCertRollbackNeeded            = "TLSCertRollbackNeeded"
+	TLSCertRollbackStarted           = "TLSCertRollbackStarted"
+	TLSCertRollbackSucceeded         = "TLSCertRollbackSucceeded"
+	TLSAutoRotateSucceeded           = "TLSAutoRotateSucceeded"
+	TLSAutoRotateFailed              = "TLSAutoRotateFailed"
 )
 
 // Constants for VerticaAutoscaler reconciler
