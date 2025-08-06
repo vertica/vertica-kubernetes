@@ -41,6 +41,7 @@ type VRemoveNodeOptions struct {
 	// join the new main cluster so we should only check the node subscription state on the nodes
 	// that are promoted from a sandbox.
 	NodesToPullSubs []string
+	Initiators      []string // list of primary up hosts from each db group that will be used to execute remove_node operations
 }
 
 func VRemoveNodeOptionsFactory() VRemoveNodeOptions {
@@ -126,7 +127,7 @@ func (vcc VClusterCommands) VRemoveNode(options *VRemoveNodeOptions) (VCoordinat
 		return vdb, err
 	}
 
-	err = vcc.getVDBFromRunningDB(&vdb, &options.DatabaseOptions)
+	err = vcc.getDeepVDBFromRunningDB(&vdb, &options.DatabaseOptions)
 	if err != nil {
 		return vdb, err
 	}
@@ -195,7 +196,12 @@ func (vcc VClusterCommands) removeUnboundNodesInCatalog(options *VRemoveNodeOpti
 	usePassword := options.usePassword
 	userName := options.UserName
 	password := options.Password
-	initiatorHost = append(initiatorHost, options.Initiator)
+	// If list of initiators is set by remove_subcluster(options.Initiators), use them
+	if len(options.Initiators) > 0 {
+		initiatorHost = options.Initiators
+	} else {
+		initiatorHost = append(initiatorHost, options.Initiator)
+	}
 
 	unboundNodesInCatalog := mapset.NewSet[string]()
 	for _, vnode := range vdb.UnboundNodes {
@@ -232,11 +238,18 @@ func (vcc VClusterCommands) removeNodesInCatalog(options *VRemoveNodeOptions, vd
 
 	vlog.DisplayColorInfo("Removing bound nodes from catalog")
 
-	err := options.setInitiator(vdb.PrimaryUpNodes)
-	if err != nil {
-		return *vdb, err
+	// options.Initiator is set by remove_subcluster. When we remove a subcluster, we have initiators passed
+	// down by the remove_subcluster command.
+	// This initiator is chosen from the db group from which the nodes/subcluster are/is to be removed.
+	// When options.Initiator is not set(for eg: when using remove_node op) and when we:
+	//		1. remove a sandbox node: options.Initiator is alread set in checkRemoveNodeRequirements
+	//      2. remove a main cluster node: the initiator is set using primary up nodes in the vdb
+	if options.Initiator == "" {
+		err := options.setInitiator(vdb.PrimaryUpNodes)
+		if err != nil {
+			return *vdb, err
+		}
 	}
-
 	instructions, err := vcc.produceRemoveNodeInstructions(vdb, options)
 	if err != nil {
 		return *vdb, fmt.Errorf("fail to produce remove node instructions, %w", err)
@@ -318,17 +331,24 @@ func checkRemoveNodeRequirements(vdb *VCoordinationDatabase, options *VRemoveNod
 			return errors.New("all nodes must be up or standby")
 		}
 	}
-	// cannot remove sandboxed nodes
-	var sandboxedHosts []string
+	var sandbox string
 	for _, host := range options.HostsToRemove {
 		vnode, ok := vdb.HostNodeMap[host]
-		if ok && vnode.Sandbox != "" {
-			sandboxedHosts = append(sandboxedHosts, fmt.Sprintf("%s (%s)", vnode.Name, vnode.Address))
+		if ok && vnode.Sandbox != "" && len(options.NodesToPullSubs) == 0 {
+			sandbox = vnode.Sandbox
 		}
 	}
-	if len(sandboxedHosts) > 0 {
-		return fmt.Errorf("hosts %v are sandboxed and cannot be removed", sandboxedHosts)
+	if sandbox != util.MainClusterSandbox {
+		for host, vnode := range vdb.HostNodeMap {
+			if vnode.Sandbox == sandbox {
+				if vnode.State == util.NodeUpState && vnode.IsPrimary {
+					options.Initiator = host
+				}
+				options.NodesToPullSubs = append(options.NodesToPullSubs, host)
+			}
+		}
 	}
+
 	return nil
 }
 
@@ -410,7 +430,13 @@ func (vcc VClusterCommands) produceRemoveNodeInstructions(vdb *VCoordinationData
 	var instructions []clusterOp
 
 	var initiatorHost []string
-	initiatorHost = append(initiatorHost, options.Initiator)
+
+	// If list of initiators is set by remove_subcluster(options.Initiators), use them
+	if len(options.Initiators) > 0 {
+		initiatorHost = options.Initiators
+	} else {
+		initiatorHost = append(initiatorHost, options.Initiator)
+	}
 
 	username := options.UserName
 	usePassword := options.usePassword

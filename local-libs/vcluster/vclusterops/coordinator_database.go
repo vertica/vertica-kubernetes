@@ -315,6 +315,25 @@ func genNodeNameToHostMap(existingHostNodeMap vHostNodeMap) map[string]string {
 	return vnodes
 }
 
+// Given a subcluster and a sandbox name, return true if the subcluster is sandboxed
+func (vdb *VCoordinationDatabase) isSubclusterSandboxed(scName, sandbox string) bool {
+	for _, vnode := range vdb.HostNodeMap {
+		if vnode.Subcluster == scName && vnode.Sandbox == sandbox {
+			return true
+		}
+	}
+	return false
+}
+
+func (vdb *VCoordinationDatabase) getSandboxInitiator(sandbox string) string {
+	for host, vnode := range vdb.HostNodeMap {
+		if vnode.Sandbox == sandbox && vnode.State == util.NodeUpState && vnode.IsPrimary {
+			return host
+		}
+	}
+	return ""
+}
+
 // getSCNames returns a slice of subcluster names which the nodes
 // in the current VCoordinationDatabase instance belong to.
 func (vdb *VCoordinationDatabase) getSCNames() []string {
