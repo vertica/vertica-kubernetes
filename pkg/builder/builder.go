@@ -1268,7 +1268,7 @@ func makeVProxyContainer(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.Contai
 
 // makeServerContainer builds the spec for the server container
 func makeServerContainer(vdb *vapi.VerticaDB, sc *vapi.Subcluster, ver string) corev1.Container {
-	envVars := translateAnnotationsToEnvVars(vdb)
+	envVars := getExtraEnv(vdb)
 	envVars = append(envVars, buildCommonEnvVars(vdb)...)
 	envVars = append(envVars,
 		corev1.EnvVar{Name: VerticaStartupLogDuplicate, Value: StdOut},
@@ -1292,6 +1292,7 @@ func makeServerContainer(vdb *vapi.VerticaDB, sc *vapi.Subcluster, ver string) c
 		StartupProbe:    makeStartupProbe(vdb, ver),
 		SecurityContext: makeServerSecurityContext(vdb),
 		Env:             envVars,
+		EnvFrom:         vdb.Spec.EnvFrom,
 		VolumeMounts:    buildServerVolumeMounts(vdb),
 	}
 	if vdb.IsNMASideCarDeploymentEnabled() {
@@ -1307,12 +1308,13 @@ func makeNMAContainer(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.Container
 	envVars = append(envVars,
 		corev1.EnvVar{Name: NMALogPath, Value: StdOut},
 	)
-	envVars = append(envVars, translateAnnotationsToEnvVars(vdb)...)
+	envVars = append(envVars, getExtraEnv(vdb)...)
 	cnt := corev1.Container{
 		Image:           pickImage(vdb, sc),
 		ImagePullPolicy: vdb.Spec.ImagePullPolicy,
 		Name:            names.NMAContainer,
 		Env:             envVars,
+		EnvFrom:         vdb.Spec.EnvFrom,
 		Resources:       buildNMAResources(vdb, sc),
 		Command:         buildNMACommand(),
 		VolumeMounts:    buildNMAVolumeMounts(vdb),
@@ -1651,12 +1653,43 @@ func makeContainers(vdb *vapi.VerticaDB, sc *vapi.Subcluster, ver string) []core
 		// prior to the creation of the VerticaDB.
 		c.VolumeMounts = append(c.VolumeMounts, buildVolumeMounts(vdb)...)
 		// Append additional environment variables passed through annotations.
-		c.Env = append(c.Env, translateAnnotationsToEnvVars(vdb)...)
+		c.Env = append(c.Env, getExtraEnv(vdb)...)
 		// As a convenience, add the catalog path as an environment variable.
 		c.Env = append(c.Env, corev1.EnvVar{Name: "DBPATH", Value: vdb.GetDBCatalogPath()})
+		c.EnvFrom = append(c.EnvFrom, vdb.Spec.EnvFrom...)
 		cnts = append(cnts, c)
 	}
 	return cnts
+}
+
+// getExtraEnv returns a list of environment variables to set in each container
+// in a vertica pod
+func getExtraEnv(vdb *vapi.VerticaDB) []corev1.EnvVar {
+	// Start with annotation-derived env vars
+	envVars := translateAnnotationsToEnvVars(vdb)
+
+	// Build a map for quick lookup and override
+	envMap := make(map[string]corev1.EnvVar)
+	for _, e := range envVars {
+		envMap[e.Name] = e
+	}
+
+	// Add/override with ExtraEnv
+	for _, e := range vdb.Spec.ExtraEnv {
+		envMap[e.Name] = e
+	}
+
+	// Convert map back to slice
+	finalEnvVars := make([]corev1.EnvVar, 0, len(envMap))
+	for _, v := range envMap {
+		finalEnvVars = append(finalEnvVars, v)
+	}
+
+	sort.Slice(finalEnvVars, func(i, j int) bool {
+		return finalEnvVars[i].Name < finalEnvVars[j].Name
+	})
+
+	return finalEnvVars
 }
 
 // translateAnnotationsToEnvVars returns a list of EnvVars from the annotations

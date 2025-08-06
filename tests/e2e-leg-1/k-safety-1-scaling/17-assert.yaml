@@ -11,13 +11,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1
-kind: VerticaDB
+apiVersion: apps/v1
+kind: StatefulSet
 metadata:
-  name: v-scale-out-and-in
-  labels:
-    vertica.com/configmap-selector-name: "db-config"
-    vertica.com/secret-selector-name: "db-secret"
+  name: v-scale-out-and-in-main
 status:
-  subclusters:
-    - addedToDBCount: 3
+  readyReplicas: 2

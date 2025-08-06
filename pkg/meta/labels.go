@@ -142,6 +142,21 @@ const (
 	IsSandboxLabel = "vertica.com/is-sandbox"
 	IsSandboxFalse = "false"
 	IsSandboxTrue  = "true"
+
+	// Used by the vdb to keep track of all configmaps referenced by the vdb
+	// in spec.envFrom and spec.extraEnv
+	ConfigMapSelectorLabel = "vertica.com/configmap-selector-name"
+
+	// Used by the vdb to keep track of all secrets referenced by the vdb
+	// in spec.envFrom and spec.extraEnv
+	SecretSelectorLabel = "vertica.com/secret-selector-name" // #nosec G101
+
+	IsControlledByVDB = "vertica.com/is-controlled-by-vdb"
+
+	// Used by the vdb to keep track of all configmaps referenced by the vdb
+	// in spec.envFrom and spec.extraEnv
+	WatchedByVDBLabel = "vertica.com/watched-by-vdb-controller"
+	WatchedByVDBFalse = false
 )
 
 // ProtectedLabels lists all of the internally used label.
@@ -166,4 +181,8 @@ var SandboxConfigMapLabels = []string{
 	DataBaseLabel,
 	NameLabel,
 	WatchedBySandboxLabel,
+}
+
+func IsWatchedByVDB(labels map[string]string) bool {
+	return lookupBoolAnnotation(labels, WatchedByVDBLabel, WatchedByVDBFalse)
 }

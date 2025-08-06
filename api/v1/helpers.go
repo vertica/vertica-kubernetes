@@ -1871,6 +1871,12 @@ func (v *VerticaDB) ShouldSkipTLSUpdateReconcile() bool {
 		v.IsTLSCertRollbackNeeded()
 }
 
+// HasNoExtraEnv returns true if there are no extra environment variables
+// or envFrom specified in the VerticaDB spec.
+func (v *VerticaDB) HasNoExtraEnv() bool {
+	return len(v.Spec.ExtraEnv) == 0 && len(v.Spec.EnvFrom) == 0
+}
+
 // MakeSourceVDBName is a helper that creates a sample name for the source VerticaDB for test purposes
 func MakeSourceVDBName() types.NamespacedName {
 	return types.NamespacedName{Name: "vertica-source-sample", Namespace: "default"}

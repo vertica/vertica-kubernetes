@@ -436,6 +436,11 @@ const (
 
 	// This annotation ensures the tls secrets are removed after the VDB is removed.
 	RemoveTLSSecretOnVDBDeleteAnnotation = "vertica.com/remove-tls-secret-on-vdb-delete" // #nosec G101
+
+	// This annotation is used to store the hash of the VerticaDB config. It is
+	// used to determine if the config has changed and if the operator should
+	// reconfigure the database.
+	ConfigHashAnnotation = "vertica.com/config-hash"
 )
 
 // IsPauseAnnotationSet will check the annotations for a special value that will
