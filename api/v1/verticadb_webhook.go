@@ -2879,11 +2879,11 @@ func (v *VerticaDB) validateOneTLSAutoRotateConfig(configName string) field.Erro
 		)
 	}
 
-	// Rule 2: Interval must be >= 1
-	if interval <= 0 {
+	// Rule 2: Interval must be >= 10
+	if interval < 10 {
 		allErrs = append(allErrs,
 			field.Invalid(fldPath.Child("interval"), interval,
-				"must be greater than 0"),
+				"must be greater or equal than 10"),
 		)
 	}
 
