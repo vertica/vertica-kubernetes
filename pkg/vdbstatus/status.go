@@ -91,7 +91,7 @@ func UpdateTLSConfigs(ctx context.Context, clnt client.Client, vdb *vapi.Vertica
 	// will be applied in-place.
 	refreshConditionInPlace := func(vdb *vapi.VerticaDB) error {
 		for _, tlsRef := range tlsRefs {
-			vapi.SetTLSConfigs(&vdb.Status.TLSConfigs, *tlsRef)
+			vapi.SetTLSConfigs(&vdb.Status.TLSConfigs, tlsRef)
 		}
 		return nil
 	}
