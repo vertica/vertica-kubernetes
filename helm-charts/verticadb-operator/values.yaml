@@ -615,7 +615,7 @@ alloy:
 
           stage.labels {
             values = {
-              kubernetes_cluster_events = "job",
+              kubernetes_cluster_events = "events",
             }
           }
         }
