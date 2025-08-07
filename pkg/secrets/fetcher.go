@@ -90,7 +90,7 @@ func (m *MultiSourceSecretFetcher) readFromK8s(ctx context.Context, secretName t
 	if m.K8sClient == nil {
 		m.K8sClient = &StandardK8sClient{}
 	}
-	tlsCerts, err := m.K8sClient.GetSecret(ctx, secretName)
+	secret, err := m.K8sClient.GetSecret(ctx, secretName)
 	if err != nil {
 		if kerrors.IsNotFound(err) {
 			errs := errors.Join(err, &NotFoundError{
@@ -100,7 +100,7 @@ func (m *MultiSourceSecretFetcher) readFromK8s(ctx context.Context, secretName t
 		}
 		return nil, fmt.Errorf("could not fetch k8s secret named %s: %w", secretName, err)
 	}
-	return tlsCerts.Data, nil
+	return secret.Data, nil
 }
 
 // readFromGSM will fetch a secret from Google Secret Manager (GSM)

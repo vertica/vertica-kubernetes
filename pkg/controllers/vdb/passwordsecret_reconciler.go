@@ -30,6 +30,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
 	"github.com/vertica/vertica-kubernetes/pkg/vdbstatus"
+	"github.com/vertica/vertica-kubernetes/pkg/vk8s"
 	corev1 "k8s.io/api/core/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -93,14 +94,18 @@ func (a *PasswordSecretReconciler) updatePasswordSecret(ctx context.Context) (ct
 		return ctrl.Result{Requeue: true}, nil
 	}
 
-	sb := strings.Builder{}
-
 	dbUser := "dbadmin"
 	if a.Vdb.Annotations[vmeta.SuperuserNameAnnotation] != "" {
 		dbUser = a.Vdb.Annotations[vmeta.SuperuserNameAnnotation]
 	}
-	sb.WriteString(fmt.Sprintf(
-		`ALTER USER %s IDENTIFIED BY '%s';`, dbUser, a.Vdb.Spec.PasswordSecret))
+
+	passwd, err := vk8s.GetSuperuserPassword(ctx, a.VRec.Client, a.Log, a.VRec, a.Vdb)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	sb := strings.Builder{}
+	sb.WriteString(fmt.Sprintf(`ALTER USER %s IDENTIFIED BY '%s';`, dbUser, passwd))
 
 	cmd := []string{"-tAc", sb.String()}
 	stdout, stderr, err := a.PRunner.ExecVSQL(ctx, pf.GetName(), names.ServerContainer, cmd...)
