@@ -25,29 +25,22 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/pollhttps"
 )
 
-// SetTLSConfig given an https and client server secret, will set tls configuration
-// in the database.
-//
 //nolint:dupl
 func (v *VClusterOps) PollHTTPS(ctx context.Context, opts ...pollhttps.Option) error {
 	v.setupForAPICall("PollHttps")
 	defer v.tearDownForAPICall()
 	v.Log.Info("Starting vcluster PollHTTPS")
-
 	certs, err := v.retrieveHTTPSCerts(ctx)
 	if err != nil {
 		return err
 	}
-
 	s := pollhttps.Parms{}
 	s.Make(opts...)
-
 	vcOpts := v.genPollHTTPSOptions(&s, certs)
 	err = v.VPollHTTPS(vcOpts)
 	if err != nil {
 		return fmt.Errorf("failed to poll https: %w", err)
 	}
-
 	return nil
 }
 
@@ -66,7 +59,5 @@ func (v *VClusterOps) genPollHTTPSOptions(s *pollhttps.Parms,
 		opts.Password = &v.Password
 	}
 	opts.MainClusterHosts = s.MainClusterHosts
-	opts.TLSConfigDigest = s.TLSConfigDigest
-	opts.TLSVersion = s.TLSVersion
 	return &opts
 }

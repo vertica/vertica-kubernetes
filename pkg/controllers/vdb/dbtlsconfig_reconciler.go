@@ -118,15 +118,8 @@ func (t *DBTLSConfigReconciler) updateTLSVersion(ctx context.Context, initiatorP
 	newTLSVersion := t.Vdb.Spec.DBTLSConfig.TLSVersion
 	t.VRec.Eventf(t.Vdb, corev1.EventTypeNormal, events.HTTPSTLSUpdateStarted,
 		"Started to update tls version to %d", newTLSVersion)
-	digest, err := t.getTLSConfigDigestFromDB(ctx, initiatorPod)
-	if err != nil {
-		t.Log.Info("failed to get tls config digrest")
-		t.VRec.Eventf(t.Vdb, corev1.EventTypeWarning, events.HTTPSTLSUpdateFailed,
-			"Failed to update tls version to %d", newTLSVersion)
-		return err
-	}
 	// update TLS version
-	err = t.setConfigParameter(ctx, initiatorPod, tlsVersionParam, strconv.FormatInt(int64(newTLSVersion), 10))
+	err := t.setConfigParameter(ctx, initiatorPod, tlsVersionParam, strconv.FormatInt(int64(newTLSVersion), 10))
 	if err != nil {
 		t.Log.Info("failed to set TLS version", "newTLSVersion", newTLSVersion)
 		t.VRec.Eventf(t.Vdb, corev1.EventTypeWarning, events.HTTPSTLSUpdateFailed,
@@ -135,7 +128,7 @@ func (t *DBTLSConfigReconciler) updateTLSVersion(ctx context.Context, initiatorP
 	}
 	hosts, mainClusterHosts := t.getHostGroups()
 	t.Log.Info("libo: b4 poll https for tls version")
-	err = t.pollHTTPS(ctx, hosts, mainClusterHosts, digest, newTLSVersion)
+	err = t.pollHTTPS(ctx, hosts, mainClusterHosts)
 	if err != nil {
 		t.VRec.Eventf(t.Vdb, corev1.EventTypeWarning, events.HTTPSTLSUpdateFailed,
 			"Failed to update tls version to %d", newTLSVersion)
@@ -164,14 +157,7 @@ func (t *DBTLSConfigReconciler) updateCipherSuites(ctx context.Context, initiato
 	newCipherSuites := t.Vdb.Spec.DBTLSConfig.CipherSuites
 	t.VRec.Eventf(t.Vdb, corev1.EventTypeNormal, events.HTTPSTLSUpdateStarted,
 		"Started to update tls cipher suites to %s", newCipherSuites)
-	digest, err := t.getTLSConfigDigestFromDB(ctx, initiatorPod)
-	if err != nil {
-		t.Log.Info("failed to get tls config digrest")
-		t.VRec.Eventf(t.Vdb, corev1.EventTypeNormal, events.HTTPSTLSUpdateFailed,
-			"failed to update tls cipher suites to %s", newCipherSuites)
-		return err
-	}
-	err = t.setCipherSuites(ctx, initiatorPod, t.Vdb.Spec.DBTLSConfig.TLSVersion, t.Vdb.Spec.DBTLSConfig.CipherSuites)
+	err := t.setCipherSuites(ctx, initiatorPod, t.Vdb.Spec.DBTLSConfig.TLSVersion, t.Vdb.Spec.DBTLSConfig.CipherSuites)
 	if err != nil {
 		t.Log.Info("failed to update cipher suites", "TLSVersion", t.Vdb.Spec.DBTLSConfig.TLSVersion, "cipherSuites",
 			t.Vdb.Spec.DBTLSConfig.CipherSuites)
@@ -181,7 +167,7 @@ func (t *DBTLSConfigReconciler) updateCipherSuites(ctx context.Context, initiato
 	}
 	hosts, mainClusterHosts := t.getHostGroups()
 	t.Log.Info("libo: b4 poll https for tls cipher suites")
-	err = t.pollHTTPS(ctx, hosts, mainClusterHosts, digest, t.Vdb.Spec.DBTLSConfig.TLSVersion)
+	err = t.pollHTTPS(ctx, hosts, mainClusterHosts)
 	if err != nil {
 		t.VRec.Eventf(t.Vdb, corev1.EventTypeWarning, events.HTTPSTLSUpdateFailed,
 			"Failed to update tls cipher suites to %s", newCipherSuites)
@@ -194,12 +180,10 @@ func (t *DBTLSConfigReconciler) updateCipherSuites(ctx context.Context, initiato
 	return nil
 }
 
-func (t *DBTLSConfigReconciler) pollHTTPS(ctx context.Context, upHosts, mainClusterHosts []string, digest string, tlsVersion int) error {
+func (t *DBTLSConfigReconciler) pollHTTPS(ctx context.Context, upHosts, mainClusterHosts []string) error {
 	opts := []pollhttps.Option{
 		pollhttps.WithInitiators(upHosts),
 		pollhttps.WithMainClusterHosts(mainClusterHosts),
-		pollhttps.WithTLSConfigDigest(digest),
-		pollhttps.WithTLSVersion(tlsVersion),
 	}
 	return t.Dispatcher.PollHTTPS(ctx, opts...)
 }

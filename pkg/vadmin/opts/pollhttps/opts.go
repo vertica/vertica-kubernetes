@@ -17,8 +17,6 @@ package pollhttps
 
 type Parms struct {
 	InitiatorIPs     []string
-	TLSVersion       int
-	TLSConfigDigest  string
 	MainClusterHosts []string
 }
 
@@ -41,19 +39,5 @@ func WithMainClusterHosts(podIPs []string) Option {
 func WithInitiators(podIPs []string) Option {
 	return func(p *Parms) {
 		p.InitiatorIPs = podIPs
-	}
-}
-
-// WithTLSVersion sets the TLSVersion field of the Parms struct.
-func WithTLSVersion(tlsVersion int) Option {
-	return func(p *Parms) {
-		p.TLSVersion = tlsVersion
-	}
-}
-
-// WithTLSConfigDigest sets the TLSConfigDigest field of the Parms struct.
-func WithTLSConfigDigest(digest string) Option {
-	return func(p *Parms) {
-		p.TLSConfigDigest = digest
 	}
 }

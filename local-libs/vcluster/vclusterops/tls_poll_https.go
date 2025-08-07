@@ -23,16 +23,7 @@ import (
 )
 
 type VPollHTTPSOptions struct {
-	/*
-	 * Part 1: basic DB info
-	 * Note that unlike every other vclusterops command out there,
-	 * specifying the password will only use it for NMA SQL operations,
-	 * not HTTPS service operations, unless AllowPasswordAuthForHTTPSOps
-	 * is also set to true.
-	 */
 	DatabaseOptions
-	TLSVersion       int
-	TLSConfigDigest  string
 	MainClusterHosts []string
 }
 
@@ -60,15 +51,6 @@ func (opt *VPollHTTPSOptions) validateAnalyzeOptions(log vlog.Printer) error {
 	if err := opt.analyzeOptions(); err != nil {
 		return err
 	}
-	if opt.TLSVersion != 2 && opt.TLSVersion != 3 {
-		return fmt.Errorf("invalid tls version - %d", opt.TLSVersion)
-	}
-	if opt.TLSConfigDigest == "" {
-		return fmt.Errorf("tls config digest cannot be empty")
-	}
-	// NMA -> Vertica cert auth is finicky.  If it isn't set up right, we still need
-	// username/pw for the NMA to authenticate to Vertica, even if cert auth works
-	// for the HTTPS service.
 	if err := opt.setUsePasswordAndValidateUsernameIfNeeded(log); err != nil {
 		return err
 	}
@@ -83,32 +65,12 @@ func (vcc VClusterCommands) VPollHTTPS(options *VPollHTTPSOptions) error {
 	if optError != nil {
 		return optError
 	}
-
-	/* vdb := makeVCoordinationDatabase()
-	err := vcc.getDeepVDBFromRunningDB(&vdb, &options.DatabaseOptions)
-	if err != nil {
-		return err
-	}
-
-	// the rotation operations need one UP host from each sandbox + main cluster.  the
-	// polling operations should poll each previously UP host in the entire cluster
-	// for restart.
-	upHosts, mainClusterHosts, err := options.getHostInfo(&vdb)
-	if err != nil {
-		return err
-	} */
-
 	mainClusterHosts := options.MainClusterHosts
 	upHosts := options.Hosts
-
-	// If we're rotating the https service config, cache the fingerprint of the updated
-	// tls config so we can poll for restart.
-	// Polling for other tls config updates is NYI, but error scenarios are much less likely.
 	expectedTLSConfigInfo := &tlsConfigInfo{
 		Digest:      "",
 		IsBootstrap: false,
 	}
-
 	nmaGetTLSConfigDigestOp, err := makeNMAGetTLSConfigDigestOp(mainClusterHosts,
 		options.UserName, options.DBName, "https", options.Password, options.usePassword, expectedTLSConfigInfo, vcc.Log)
 
@@ -141,7 +103,7 @@ func (vcc VClusterCommands) VPollHTTPS(options *VPollHTTPSOptions) error {
 	if runError != nil {
 		return fmt.Errorf("failed to restart HTTPS service with new tls version or cipher suites: %w", runError)
 	}
-	vcc.Log.Info("libo: new digest - " + expectedTLSConfigInfo.Digest + ", old digest - " + options.TLSConfigDigest)
+	vcc.Log.Info("Polling for HTTPS serve succeeded.", "new digest", expectedTLSConfigInfo.Digest)
 
 	return nil
 }
