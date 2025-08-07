@@ -11,10 +11,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1
-kind: VerticaDB
+apiVersion: v1
+kind: Pod
 metadata:
-  name: v-scale-out-and-in
+  namespace: verticadb-operator
+  labels:
+    control-plane: verticadb-operator
 status:
-  subclusters:
-    - addedToDBCount: 3
+  phase: Running

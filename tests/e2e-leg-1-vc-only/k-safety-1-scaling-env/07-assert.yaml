@@ -15,6 +15,9 @@ apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
   name: v-scale-out-and-in
+  labels:
+    vertica.com/configmap-selector-name: "db-config"
+    vertica.com/secret-selector-name: "db-secret"
 status:
   subclusters:
     - addedToDBCount: 3

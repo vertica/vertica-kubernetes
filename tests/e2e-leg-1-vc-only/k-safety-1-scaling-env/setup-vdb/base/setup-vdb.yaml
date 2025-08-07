@@ -15,6 +15,34 @@ apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
   name: v-scale-out-and-in
-status:
+  annotations:
+    vertica.com/include-uid-in-path: "true"
+    vertica.com/k-safety: "1"
+    vertica.com/ssh-secret: "ssh-keys"
+spec:
+  initPolicy: CreateSkipPackageInstall
+  image: kustomize-vertica-image
+  sidecars:
+    - name: vlogger
+      image: kustomize-vlogger-image
+  communal: {}
+  local:
+    requestSize: 100Mi
+  encryptSpreadComm: vertica
+  extraEnv:
+    - name: ENV1
+      value: val1
+    - name: ENV2
+      value: val2
+  envFrom:
+    - configMapRef:
+        name: db-config
+    - secretRef:
+        name: db-secret
   subclusters:
-    - addedToDBCount: 3
+    - name: main
+      size: 3
+  certSecrets: []
+  imagePullSecrets: []
+  volumes: []
+  volumeMounts: []
