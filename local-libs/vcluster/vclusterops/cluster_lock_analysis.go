@@ -23,7 +23,7 @@ import (
 	"time"
 
 	mapset "github.com/deckarep/golang-set/v2"
-	"github.com/vertica/vcluster/vclusterops/vlog"
+	vlog "github.com/vertica/vcluster/vclusterops/vlog"
 )
 
 type NodeLockEvents struct {
@@ -117,7 +117,7 @@ func (opt *VClusterHealthOptions) getLockAttempts(logger vlog.Printer, upHosts [
 
 	nmaLockAttemptsOp, err := makeNMALockAttemptsOp(upHosts, opt.DatabaseOptions.UserName,
 		opt.DatabaseOptions.DBName, opt.DatabaseOptions.Password,
-		startTime, endTime, "" /*node name*/, opt.LockAttemptThresHold, lockAttemptsLimit)
+		startTime, endTime, "" /*node name*/, opt.LockAttemptThresHold, lockAttemptsLimit, opt.IsDebug)
 	if err != nil {
 		return nil, err
 	}
@@ -137,7 +137,7 @@ func (opt *VClusterHealthOptions) getLockReleases(logger vlog.Printer,
 	var instructions []clusterOp
 	nmaLockAttemptsOp, err := makeNMALockReleasesOp(upHosts, opt.DatabaseOptions.UserName,
 		opt.DatabaseOptions.DBName, opt.DatabaseOptions.Password,
-		startTime, endTime, "", lockReleasesLimit, opt.LockReleaseThresHold)
+		startTime, endTime, "", lockReleasesLimit, opt.LockReleaseThresHold, opt.IsDebug)
 	if err != nil {
 		return nil, err
 	}
@@ -161,6 +161,10 @@ func parseAttemptsEvents(events *[]dcLockAttempts) (map[string][]parsedEvent, er
 
 	for i := range *events {
 		e := &(*events)[i]
+		if e.StartTime == "" || e.Duration == "" {
+			// if startTime or duration is not provided, skip this event
+			continue
+		}
 		start, err := time.Parse(timeLayout, e.StartTime)
 		if err != nil {
 			return nil, fmt.Errorf("invalid StartTime: %v", err)
@@ -194,9 +198,13 @@ func parseReleasesEvents(events *[]dcLockReleases) (map[string][]parsedEvent, er
 	var parsed []parsedEvent
 	for i := range *events {
 		e := &(*events)[i]
+		if e.GrantTime == "" || e.Duration == "" || e.Time == "" {
+			// if GrantTime or Duration or Time is not provided, skip this event
+			continue
+		}
 		start, err := time.Parse(timeLayout, e.GrantTime)
 		if err != nil {
-			return nil, fmt.Errorf("invalid StartTime: %v", err)
+			return nil, fmt.Errorf("invalid GrantTime: %v", err)
 		}
 		dur, err := parseCustomDuration(e.Duration)
 		if err != nil {

@@ -74,6 +74,9 @@ type opEngineExecContext struct {
 
 	// lockReleases list
 	dcLockReleasesList *[]dcLockReleases
+
+	// missing releases list
+	dcMissingReleasesList *[]dcLockAttempts
 }
 
 func makeOpEngineExecContext(logger vlog.Printer) opEngineExecContext {
