@@ -164,17 +164,17 @@ func (t *DBTLSConfigReconciler) updateCipherSuites(ctx context.Context, initiato
 	newCipherSuites := t.Vdb.Spec.DBTLSConfig.CipherSuites
 	t.VRec.Eventf(t.Vdb, corev1.EventTypeNormal, events.HTTPSTLSUpdateStarted,
 		"Started to update tls cipher suites to %s", newCipherSuites)
-	err := t.setCipherSuites(ctx, initiatorPod, t.Vdb.Spec.DBTLSConfig.TLSVersion, t.Vdb.Spec.DBTLSConfig.CipherSuites)
+	digest, err := t.getTLSConfigDigestFromDB(ctx, initiatorPod)
 	if err != nil {
-		t.Log.Info("failed to update cipher suites", "TLSVersion", t.Vdb.Spec.DBTLSConfig.TLSVersion, "cipherSuites",
-			t.Vdb.Spec.DBTLSConfig.CipherSuites)
+		t.Log.Info("failed to get tls config digrest")
 		t.VRec.Eventf(t.Vdb, corev1.EventTypeNormal, events.HTTPSTLSUpdateFailed,
 			"failed to update tls cipher suites to %s", newCipherSuites)
 		return err
 	}
-	digest, err := t.getTLSConfigDigestFromDB(ctx, initiatorPod)
+	err = t.setCipherSuites(ctx, initiatorPod, t.Vdb.Spec.DBTLSConfig.TLSVersion, t.Vdb.Spec.DBTLSConfig.CipherSuites)
 	if err != nil {
-		t.Log.Info("failed to get tls config digrest")
+		t.Log.Info("failed to update cipher suites", "TLSVersion", t.Vdb.Spec.DBTLSConfig.TLSVersion, "cipherSuites",
+			t.Vdb.Spec.DBTLSConfig.CipherSuites)
 		t.VRec.Eventf(t.Vdb, corev1.EventTypeNormal, events.HTTPSTLSUpdateFailed,
 			"failed to update tls cipher suites to %s", newCipherSuites)
 		return err
