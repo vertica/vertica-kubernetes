@@ -2774,7 +2774,7 @@ var _ = Describe("verticadb_webhook", func() {
 		vdb.Spec.ClientServerTLS = MakeTLSWithAutoRotate([]string{"secret1", "secret2"}, 0, "")
 		allErrs := vdb.validateAutoRotateConfig(field.ErrorList{})
 		Expect(allErrs).To(HaveLen(1))
-		Expect(allErrs[0].Error()).To(ContainSubstring("must be greater or equal than 10"))
+		Expect(allErrs[0].Error()).To(ContainSubstring("must be greater than or equal to 10 minutes"))
 	})
 
 	It("should fail if secrets list has duplicates", func() {

@@ -2883,7 +2883,7 @@ func (v *VerticaDB) validateOneTLSAutoRotateConfig(configName string) field.Erro
 	if interval < 10 {
 		allErrs = append(allErrs,
 			field.Invalid(fldPath.Child("interval"), interval,
-				"must be greater or equal than 10"),
+				"must be greater than or equal to 10 minutes"),
 		)
 	}
 
