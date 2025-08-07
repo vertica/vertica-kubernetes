@@ -233,10 +233,12 @@ func (v *VerticaDB) checkValidSubclusterTypeTransition(oldObj *VerticaDB, allErr
 	return allErrs
 }
 
+//nolint:funlen
 func (v *VerticaDB) validateVerticaDBSpec() field.ErrorList {
 	allErrs := v.hasAtLeastOneSC(field.ErrorList{})
 	allErrs = v.hasValidSubclusterTypes(allErrs)
 	allErrs = v.hasNoConflictbetweenTLSAndCertMount(allErrs)
+	allErrs = v.hasValidTLSWithKnob(allErrs)
 	allErrs = v.hasValidInitPolicy(allErrs)
 	allErrs = v.hasValidRestorePolicy(allErrs)
 	allErrs = v.hasValidSaveRestorePointConfig(allErrs)
@@ -280,6 +282,8 @@ func (v *VerticaDB) validateVerticaDBSpec() field.ErrorList {
 	allErrs = v.validateSandboxes(allErrs)
 	allErrs = v.checkNewSBoxOrSClusterShutdownUnset(allErrs)
 	allErrs = v.validateProxyConfig(allErrs)
+	allErrs = v.validateNMASecret(allErrs)
+	allErrs = v.validateAutoRotateConfig(allErrs)
 	if len(allErrs) == 0 {
 		return nil
 	}
@@ -867,7 +871,7 @@ func (v *VerticaDB) hasValidTLSModes(allErrs field.ErrorList) field.ErrorList {
 // when TLS is enabled
 func (v *VerticaDB) hasTLSSecretsSetForRevive(allErrs field.ErrorList) field.ErrorList {
 	if vmeta.UseTLSAuth(v.Annotations) && v.Spec.InitPolicy == CommunalInitPolicyRevive {
-		if v.GetHTTPSNMATLSSecret() == "" && v.Spec.NMATLSSecret == "" {
+		if v.GetHTTPSNMATLSSecret() == "" {
 			err := field.Invalid(field.NewPath("spec").Child("httpsNMATLS").Child("secret"),
 				v.GetHTTPSNMATLSSecret(),
 				"httpsNMATLS.Secret cannot be empty when initPolicy is set to 'revive' and TLS is enabled")
@@ -1410,6 +1414,16 @@ func (v *VerticaDB) validateProxyConfig(allErrs field.ErrorList) field.ErrorList
 	return v.validateProxyLogLevel(allErrs)
 }
 
+func (v *VerticaDB) validateNMASecret(allErrs field.ErrorList) field.ErrorList {
+	// when creating db, we should not allow setting nmaTLSSecret when tls is enabled
+	if v.Spec.NMATLSSecret != "" && !v.IsDBInitialized() && vmeta.UseTLSAuth(v.Annotations) {
+		specFld := field.NewPath("spec")
+		allErrs = append(allErrs, field.Forbidden(specFld.Child("nmaTLSSecret"),
+			"nmaTLSSecret cannot be set when TLS is enabled, please use httpsNMATLS.secret instead"))
+	}
+	return allErrs
+}
+
 // validateSpecProxy checks if proxy set and image must be non-empty
 func (v *VerticaDB) validateSpecProxy(allErrs field.ErrorList) field.ErrorList {
 	if v.Spec.Proxy == nil {
@@ -1546,6 +1560,25 @@ func (v *VerticaDB) hasNoConflictbetweenTLSAndCertMount(allErrs field.ErrorList)
 	if vmeta.UseTLSAuth(v.Annotations) && vmeta.UseNMACertsMount(v.Annotations) {
 		err := field.Forbidden(field.NewPath("metadata").Child("annotations"),
 			"cannot set enable-tls-auth and mount-nma-certs to true at the same time")
+		allErrs = append(allErrs, err)
+	}
+
+	return allErrs
+}
+
+// hasValidTLSWithKnob checks if https and client-server TLS are used when TLS auth is disabled
+func (v *VerticaDB) hasValidTLSWithKnob(allErrs field.ErrorList) field.ErrorList {
+	if vmeta.ShouldSkipTLSWebhookCheck(v.Annotations) {
+		return allErrs
+	}
+	if !vmeta.UseTLSAuth(v.Annotations) && v.Spec.HTTPSNMATLS != nil {
+		err := field.Forbidden(field.NewPath("spec").Child("httpsNMATLS"),
+			fmt.Sprintf("cannot set httpsNMATLS when %s is set to false", vmeta.EnableTLSAuthAnnotation))
+		allErrs = append(allErrs, err)
+	}
+	if !vmeta.UseTLSAuth(v.Annotations) && v.Spec.ClientServerTLS != nil {
+		err := field.Forbidden(field.NewPath("spec").Child("clientServerTLS"),
+			fmt.Sprintf("cannot set clientServerTLS when %s is set to false", vmeta.EnableTLSAuthAnnotation))
 		allErrs = append(allErrs, err)
 	}
 
@@ -2552,9 +2585,14 @@ func (v *VerticaDB) checkValidTLSConfigUpdate(oldObj *VerticaDB, allErrs field.E
 	allErrs = append(allErrs, v.checkTLSFieldsWhenTLSUpdateNotInProgress(oldObj)...)
 
 	// Rule 5: nmaTLSSecret is immutable
-	if oldObj.Spec.NMATLSSecret != v.Spec.NMATLSSecret {
+	if oldObj.Spec.NMATLSSecret != "" && oldObj.Spec.NMATLSSecret != v.Spec.NMATLSSecret {
 		allErrs = append(allErrs, field.Forbidden(specFld.Child("nmaTLSSecret"),
 			"nmaTLSSecret cannot be changed"))
+	}
+	if vmeta.UseTLSAuth(v.Annotations) &&
+		(oldObj.Spec.NMATLSSecret == "" && v.Spec.NMATLSSecret != "") {
+		allErrs = append(allErrs, field.Forbidden(specFld.Child("nmaTLSSecret"),
+			"nmaTLSSecret cannot be set when TLS is enabled, please use httpsNMATLS.secret instead"))
 	}
 
 	return allErrs
@@ -2810,4 +2848,55 @@ func (s *Subcluster) setDefaultProxySubcluster(useProxy bool) {
 			s.Proxy.Resources = nil
 		}
 	}
+}
+
+func (v *VerticaDB) validateAutoRotateConfig(allErrs field.ErrorList) field.ErrorList {
+	// Validate both TLS configs: clientServer and httpsNMA
+	allErrs = append(allErrs, v.validateOneTLSAutoRotateConfig(ClientServerTLSConfigName)...)
+	allErrs = append(allErrs, v.validateOneTLSAutoRotateConfig(HTTPSNMATLSConfigName)...)
+	return allErrs
+}
+
+func (v *VerticaDB) validateOneTLSAutoRotateConfig(configName string) field.ErrorList {
+	var allErrs field.ErrorList
+	fieldName := configName + "TLS"
+	tls := v.GetTLSConfigSpecByName(configName)
+
+	if tls == nil || tls.AutoRotate == nil {
+		return allErrs // Nothing to validate
+	}
+
+	fldPath := field.NewPath("spec").Child(fieldName).Child("autoRotate")
+
+	secrets := tls.AutoRotate.Secrets
+	interval := tls.AutoRotate.Interval
+
+	// Rule 1: Must have at least two secrets
+	if len(secrets) < 2 {
+		allErrs = append(allErrs,
+			field.Invalid(fldPath.Child("secrets"), secrets,
+				"must contain at least two secrets for auto-rotation"),
+		)
+	}
+
+	// Rule 2: Interval must be >= 1
+	if interval <= 0 {
+		allErrs = append(allErrs,
+			field.Invalid(fldPath.Child("interval"), interval,
+				"must be greater than 0"),
+		)
+	}
+
+	// Rule 3: No duplicate secrets
+	seen := make(map[string]struct{})
+	for i, s := range secrets {
+		if _, ok := seen[s]; ok {
+			allErrs = append(allErrs,
+				field.Duplicate(fldPath.Child("secrets").Index(i), s),
+			)
+		}
+		seen[s] = struct{}{}
+	}
+
+	return allErrs
 }

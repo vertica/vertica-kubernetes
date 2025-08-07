@@ -31,9 +31,9 @@ spec:
     - name: main
       size: 3
   httpsNMATLS:
-    secret: nma-cert
+    secret: custom-cert
   clientServerTLS:
-    secret: client-cert 
+    secret: custom-cert 
   certSecrets: []
   imagePullSecrets: []
   volumes: []

@@ -192,8 +192,8 @@ var _ = Describe("onlineupgrade_reconciler", func() {
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
-		test.CreateFakeTLSSecret(ctx, vdb, k8sClient, vdb.GetHTTPSNMATLSSecret())
-		defer test.DeleteSecret(ctx, k8sClient, vdb.GetHTTPSNMATLSSecret())
+		test.CreateFakeTLSSecret(ctx, vdb, k8sClient, vdb.GetNMATLSSecret())
+		defer test.DeleteSecret(ctx, k8sClient, vdb.GetNMATLSSecret())
 		vdb.Spec.Image = NewImageName // Trigger an upgrade
 		Ω(k8sClient.Update(ctx, vdb)).Should(Succeed())
 
@@ -375,8 +375,8 @@ var _ = Describe("onlineupgrade_reconciler", func() {
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
-		test.CreateFakeTLSSecret(ctx, vdb, k8sClient, vdb.GetHTTPSNMATLSSecret())
-		defer test.DeleteSecret(ctx, k8sClient, vdb.GetHTTPSNMATLSSecret())
+		test.CreateFakeTLSSecret(ctx, vdb, k8sClient, vdb.GetNMATLSSecret())
+		defer test.DeleteSecret(ctx, k8sClient, vdb.GetNMATLSSecret())
 		vdb.Spec.Image = NewImageName // Trigger an upgrade
 		Ω(k8sClient.Update(ctx, vdb)).Should(Succeed())
 

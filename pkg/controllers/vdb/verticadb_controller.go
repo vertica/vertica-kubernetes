@@ -44,6 +44,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
+	"github.com/vertica/vertica-kubernetes/pkg/opcfg"
 
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/metrics"
@@ -99,7 +100,7 @@ func (r *VerticaDBReconciler) SetupWithManager(mgr ctrl.Manager, options control
 		Owns(&appsv1.Deployment{})
 
 	discoveryClient := discovery.NewDiscoveryClientForConfigOrDie(mgr.GetConfig())
-	if isServiceMonitorObjectInstalled(discoveryClient) {
+	if opcfg.IsPrometheusEnabled() && isServiceMonitorObjectInstalled(discoveryClient) {
 		ctrlManager.Owns(&monitoringv1.ServiceMonitor{})
 	}
 
@@ -214,6 +215,8 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		MakeObjReconciler(r, log, vdb, pfacts, ObjReconcileModeAnnotation),
 		// Validate the vdb after operator upgraded
 		MakeValidateVDBReconciler(r, log, vdb),
+		// Initialize TLS secret if autoRotation is set
+		MakeAutoCertRotateReconciler(r, log, vdb, true /* init */),
 		// Always generate cert first if nothing is provided
 		MakeTLSServerCertGenReconciler(r, log, vdb),
 		// Set up configmap which stores env variables for NMA container
@@ -358,6 +361,10 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		// objects that the operator creates exist. This is needed encase they
 		// are removed in the middle of a reconcile iteration.
 		MakeDepObjCheckReconciler(r, log, vdb),
+		// Trigger automatic rotation of certificates on a certain interval.
+		// This must be done dead-last, because it will requeue until the next
+		// automatic rotation is due.
+		MakeAutoCertRotateReconciler(r, log, vdb, false /* init */),
 	}
 }
 
@@ -439,10 +446,10 @@ func (r *VerticaDBReconciler) InitCertCacheForVdb(vdb *vapi.VerticaDB) {
 func (r *VerticaDBReconciler) CleanCacheForVdb(vdb *vapi.VerticaDB) {
 	certCache := r.CacheManager.GetCertCacheForVdb(vdb.Namespace, vdb.Name)
 	certsInUse := []string{
-		vdb.Spec.HTTPSNMATLS.Secret,
+		vdb.GetNMATLSSecret(),
 	}
-	if vdb.Spec.ClientServerTLS.Secret != "" {
-		certsInUse = append(certsInUse, vdb.Spec.ClientServerTLS.Secret)
+	if vdb.GetClientServerTLSSecret() != "" {
+		certsInUse = append(certsInUse, vdb.GetClientServerTLSSecret())
 	}
 	for _, tlsConfig := range vdb.Status.TLSConfigs {
 		certsInUse = append(certsInUse, tlsConfig.Secret)

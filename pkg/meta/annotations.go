@@ -25,6 +25,9 @@ import (
 )
 
 const (
+	AnnotationTrue  = "true"
+	AnnotationFalse = "false"
+
 	// Annotations that we set in each of the pod.  These are set by the
 	// AnnotateAndLabelPodReconciler.  They are available in the pod with the
 	// downwardAPI so they can be picked up by the Vertica data collector (DC).
@@ -245,6 +248,10 @@ const (
 	TriggerTLSUpdateFailureBeforeTLSUpdate = "before_tls_update"
 	TriggerTLSUpdateFailureAfterTLSUpdate  = "after_tls_update"
 
+	// This annotation forces the automatic cert rotation to trigger now, instead of on
+	// a timer. It is internal and should be used only for testing.
+	TriggerAutoTLSRotateAnnotation = "vertica.com/trigger-auto-tls-rotate"
+
 	// We have a deployment check that ensures that if running vcluster ops the
 	// image is built for that (and vice-versa). This annotation allows you to
 	// skip that check.
@@ -455,6 +462,10 @@ const (
 	// Interval (in seconds) at which Prometheus scrapes the metrics from the target.
 	// If empty, Prometheus uses the global scrape interval.
 	PrometheusScrapeIntervalAnnotation = "vertica.com/prometheus-scrape-interval"
+
+	// This annotation disables the webhook check performed by hasValidTLSWithKnob().
+	// It is intended for internal testing purposes only.
+	SkipTLSWebhookCheck = "vertica.com/skip-tls-webhook-check"
 )
 
 // IsPauseAnnotationSet will check the annotations for a special value that will
@@ -873,6 +884,10 @@ func ShouldRemoveTLSSecret(annotations map[string]string) bool {
 
 func GetPrometheusScrapeInterval(annotations map[string]string) int {
 	return lookupIntAnnotation(annotations, PrometheusScrapeIntervalAnnotation, 0)
+}
+
+func ShouldSkipTLSWebhookCheck(annotations map[string]string) bool {
+	return lookupBoolAnnotation(annotations, SkipTLSWebhookCheck, false)
 }
 
 // lookupBoolAnnotation is a helper function to lookup a specific annotation and

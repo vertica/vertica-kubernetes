@@ -778,7 +778,7 @@ var _ = Describe("builder", func() {
 		vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
 		vdb.Annotations[vmeta.VersionAnnotation] = vapi.NMAInSideCarDeploymentMinVersion
 		configMap := BuildNMATLSConfigMap(names.GenNamespacedName(vdb, "nma-configmap"), vdb)
-		Ω(configMap.Data[NMASecretNameEnv]).Should(Equal(vdb.GetHTTPSNMATLSSecret()))
+		Ω(configMap.Data[NMASecretNameEnv]).Should(Equal(vdb.GetNMATLSSecret()))
 		Ω(configMap.Data[NMASecretNamespaceEnv]).Should(Equal(vdb.Namespace))
 	})
 
@@ -880,6 +880,8 @@ var _ = Describe("builder", func() {
 		Ω(endpoint.TLSConfig).ShouldNot(BeNil())
 		Ω(endpoint.TLSConfig.InsecureSkipVerify).ShouldNot(BeNil())
 		Ω(*endpoint.TLSConfig.InsecureSkipVerify).Should(BeFalse())
+		Ω(endpoint.TLSConfig.ServerName).ShouldNot(BeNil())
+		Ω(*endpoint.TLSConfig.ServerName).Should(Equal(fmt.Sprintf("*.%s.svc.cluster.local", vdb.Namespace)))
 		Ω(endpoint.TLSConfig.KeySecret).ShouldNot(BeNil())
 		Ω(endpoint.TLSConfig.Cert.Secret).ShouldNot(BeNil())
 		Ω(endpoint.TLSConfig.CA.Secret).ShouldNot(BeNil())
@@ -953,7 +955,7 @@ func getVolume(vols []v1.Volume, mountName string) *v1.Volume {
 
 func NMACertsVolumeExists(vdb *vapi.VerticaDB, vols []v1.Volume) bool {
 	for i := range vols {
-		if vols[i].Name == vapi.NMACertsMountName && vols[i].Secret.SecretName == vdb.GetHTTPSNMATLSSecret() {
+		if vols[i].Name == vapi.NMACertsMountName && vols[i].Secret.SecretName == vdb.GetNMATLSSecret() {
 			return true
 		}
 	}
