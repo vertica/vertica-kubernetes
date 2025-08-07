@@ -105,17 +105,20 @@ func (vcc VClusterCommands) VPollHTTPS(options *VPollHTTPSOptions) error {
 	// tls config so we can poll for restart.
 	// Polling for other tls config updates is NYI, but error scenarios are much less likely.
 	expectedTLSConfigInfo := &tlsConfigInfo{
-		Digest:      options.TLSConfigDigest,
+		Digest:      "",
 		IsBootstrap: false,
 	}
 
-	// produce rotation instructions
+	nmaGetTLSConfigDigestOp, err := makeNMAGetTLSConfigDigestOp(mainClusterHosts,
+		options.UserName, options.DBName, "https", options.Password, options.usePassword, expectedTLSConfigInfo, vcc.Log)
+
 	httpsPollCertHealthOp, err := makeHTTPSPollCertificateHealthOp(upHosts,
 		expectedTLSConfigInfo, options.usePassword, options.UserName, options.Password)
 	if err != nil {
 		return err
 	}
 	var instructions []clusterOp
+	instructions = append(instructions, &nmaGetTLSConfigDigestOp)
 	instructions = append(instructions, &httpsPollCertHealthOp)
 	httpsSyncCatalogOp, err2 := makeHTTPSSyncCatalogOp(mainClusterHosts, true, options.UserName, options.Password, CreateDBSyncCat)
 	if err2 != nil {
@@ -138,6 +141,7 @@ func (vcc VClusterCommands) VPollHTTPS(options *VPollHTTPSOptions) error {
 	if runError != nil {
 		return fmt.Errorf("failed to restart HTTPS service with new tls version or cipher suites: %w", runError)
 	}
+	vcc.Log.Info("libo: new digest - " + expectedTLSConfigInfo.Digest + ", old digest - " + options.TLSConfigDigest)
 
 	return nil
 }
