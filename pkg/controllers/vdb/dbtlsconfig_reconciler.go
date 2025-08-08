@@ -2,7 +2,6 @@ package vdb
 
 import (
 	"context"
-	"maps"
 	"slices"
 	"strconv"
 	"strings"
@@ -224,9 +223,6 @@ func (t *DBTLSConfigReconciler) setCipherSuites(ctx context.Context, initiatorPo
 	if tlsVersion == 3 {
 		paramName = "tlsciphersuites"
 	}
-	if cipherSuites == "" {
-		cipherSuites = t.getAllCipherSuites(tlsVersion)
-	}
 	return t.setConfigParameter(ctx, initiatorPod, paramName, cipherSuites)
 }
 
@@ -235,17 +231,6 @@ func (t *DBTLSConfigReconciler) placeholderForAll(cipherSuites string) string {
 		return "all supported cipher suites"
 	}
 	return cipherSuites
-}
-
-// getAllCipherSuites return a string which concatenates all supported cipher suites
-// for tls1.2, the cipher suites are concatenated with ","
-// for tls1.3, the cipher suites are concatenated with ":"
-func (t *DBTLSConfigReconciler) getAllCipherSuites(tlsVersion int) string {
-	if tlsVersion == 2 {
-		return strings.Join(slices.Collect(maps.Keys(vapi.TLS2CipherSuites)), ",")
-	} else {
-		return strings.Join(slices.Collect(maps.Keys(vapi.TLS3CipherSuites)), ":")
-	}
 }
 
 func (t *DBTLSConfigReconciler) getConfigParameter(ctx context.Context, initiatorPod *podfacts.PodFact,
