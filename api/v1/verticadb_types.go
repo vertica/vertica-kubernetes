@@ -1029,6 +1029,12 @@ type VerticaDBStatus struct {
 	// +optional
 	// The list of current TLS configurations for different components
 	TLSConfigs []TLSConfigStatus `json:"tlsConfigs,omitempty"`
+
+	// +operator-sdk:csv:customresourcedefinitions:type=status
+	// +optional
+	// The secret name that contains the current password for the
+	// database's superuser
+	PasswordSecret string `json:"passwordSecret,omitempty"`
 }
 
 const (
