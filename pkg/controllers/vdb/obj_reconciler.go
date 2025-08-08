@@ -59,6 +59,10 @@ const (
 	ObjReconcileModePreserveUpdateStrategy
 	// Reconcile for annotation only
 	ObjReconcileModeAnnotation
+	// Reconcile all objects except config changes. This is used for
+	// when we do not want to check for changes in configMaps and secrets
+	// used to inject env vars into the pods, but still want to reconcile
+	// all other objects.
 	ObjReconcileModeAllButConfigChange
 	// Reconcile to consider every change. Without this we will skip svc objects.
 	ObjReconcileModeAll

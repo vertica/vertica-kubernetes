@@ -151,8 +151,6 @@ const (
 	// in spec.envFrom and spec.extraEnv
 	SecretSelectorLabel = "vertica.com/secret-selector-name" // #nosec G101
 
-	IsControlledByVDB = "vertica.com/is-controlled-by-vdb"
-
 	// Used by the vdb to keep track of all configmaps referenced by the vdb
 	// in spec.envFrom and spec.extraEnv
 	WatchedByVDBLabel = "vertica.com/watched-by-vdb-controller"
