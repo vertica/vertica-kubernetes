@@ -71,6 +71,20 @@ var validProxyLogLevel = []string{"TRACE", "DEBUG", "INFO", "WARN", "FATAL", "NO
 // log is for logging in this package.
 var verticadblog = logf.Log.WithName("verticadb-resource")
 
+var TLS2CipherSuites = map[string]struct{}{
+	"ECDHE-RSA-AES256-GCM-SHA384": {},
+	"ECDHE-RSA-CHACHA20-POLY1305": {},
+	"ECDHE-RSA-AES128-GCM-SHA256": {},
+	"ECDHE-RSA-AES256-SHA":        {},
+	"ECDHE-RSA-AES128-SHA":        {},
+}
+
+var TLS3CipherSuites = map[string]struct{}{
+	"TLS_AES_256_GCM_SHA384":       {},
+	"TLS_CHACHA20_POLY1305_SHA256": {},
+	"TLS_AES_128_GCM_SHA256":       {},
+}
+
 func (v *VerticaDB) SetupWebhookWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr).
 		For(v).
@@ -260,6 +274,7 @@ func (v *VerticaDB) validateVerticaDBSpec() field.ErrorList {
 	allErrs = v.hasDuplicateScName(allErrs)
 	allErrs = v.hasValidVolumeName(allErrs)
 	allErrs = v.hasValidTLSModes(allErrs)
+	allErrs = v.hasValidTLSVersionAndCipherSuites(allErrs)
 	allErrs = v.hasTLSSecretsSetForRevive(allErrs)
 	allErrs = v.hasValidVolumeMountName(allErrs)
 	allErrs = v.hasValidKerberosSetup(allErrs)
@@ -864,6 +879,48 @@ func (v *VerticaDB) hasValidTLSModes(allErrs field.ErrorList) field.ErrorList {
 	}
 
 	return allErrs
+}
+
+// hasValidTLSModes checks whether the TLS version and cipher suites are valid
+func (v *VerticaDB) hasValidTLSVersionAndCipherSuites(allErrs field.ErrorList) field.ErrorList {
+	if !vmeta.UseTLSAuth(v.Annotations) {
+		return allErrs
+	}
+	if v.Spec.DBTLSConfig.TLSVersion != 2 && v.Spec.DBTLSConfig.TLSVersion != 3 {
+		err := field.Invalid(field.NewPath("spec").Child("dbTlsConfig").Child("tlsVersion"), v.Spec.DBTLSConfig.TLSVersion,
+			"TLS version must be 2 (TLS1.2) or 3 (TLS1.3)")
+		allErrs = append(allErrs, err)
+		return allErrs
+	}
+	separator := ","
+	validCipherSuites := TLS2CipherSuites
+	if v.Spec.DBTLSConfig.TLSVersion == 3 {
+		validCipherSuites = TLS3CipherSuites
+		separator = ":"
+	}
+	invalidCipherSuites := v.validateCipherSuites(validCipherSuites, v.Spec.DBTLSConfig.CipherSuites, separator)
+	if len(invalidCipherSuites) != 0 {
+		err := field.Invalid(field.NewPath("spec").Child("dbTlsConfig").Child("cipherSuites"), v.Spec.DBTLSConfig.TLSVersion,
+			fmt.Sprintf("invalid cipher suites for TLS version %d : %s", v.Spec.DBTLSConfig.TLSVersion, strings.Join(invalidCipherSuites, ",")))
+		allErrs = append(allErrs, err)
+	}
+	return allErrs
+}
+
+// validateCipherSuites will validate if the cipherSuites is valid for the TLSVersion
+func (v *VerticaDB) validateCipherSuites(validCipherSuites map[string]struct{}, cipherSuites, separator string) []string {
+	invalidSuites := []string{}
+	if cipherSuites == "" {
+		return invalidSuites
+	}
+	parsedSuites := strings.Split(cipherSuites, separator)
+	for _, suite := range parsedSuites {
+		_, ok := validCipherSuites[suite]
+		if !ok {
+			invalidSuites = append(invalidSuites, suite)
+		}
+	}
+	return invalidSuites
 }
 
 // hasTLSSecretsSetForRevive checks whether the TLS secrets are set for the revive init policy
