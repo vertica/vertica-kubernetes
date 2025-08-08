@@ -2,6 +2,7 @@ package vdb
 
 import (
 	"context"
+	"maps"
 	"slices"
 	"strconv"
 	"strings"
@@ -95,6 +96,9 @@ func (t *DBTLSConfigReconciler) Reconcile(ctx context.Context, request *ctrl.Req
 			return ctrl.Result{}, err
 		}
 	}
+	if updateTLSVersion {
+		_, updateCipherSuites = t.compareTLSConfig(t.Vdb.Spec.DBTLSConfig, t.Vdb.Status.DBTLSConfig)
+	}
 	if updateCipherSuites {
 		err := t.updateCipherSuites(ctx, initiatorPod)
 		if err != nil {
@@ -123,7 +127,13 @@ func (t *DBTLSConfigReconciler) updateTLSVersion(ctx context.Context, initiatorP
 			"Failed to update tls version to %d", newTLSVersion)
 		return err
 	}
-	err = t.saveTLSConfigInStatus(ctx, "", newTLSVersion)
+	newCipherSuites, err := t.getCipherSuitesFromDB(ctx, initiatorPod, newTLSVersion)
+	if err != nil {
+		t.VRec.Eventf(t.Vdb, corev1.EventTypeWarning, events.HTTPSTLSUpdateFailed,
+			"Failed to update tls version to %d", newTLSVersion)
+		return err
+	}
+	err = t.saveTLSConfigInStatus(ctx, newCipherSuites, newTLSVersion)
 	if err != nil {
 		t.VRec.Eventf(t.Vdb, corev1.EventTypeWarning, events.HTTPSTLSUpdateFailed,
 			"Failed to update tls version to %d", newTLSVersion)
@@ -148,30 +158,30 @@ func (t *DBTLSConfigReconciler) getHostGroups() (upHosts,
 func (t *DBTLSConfigReconciler) updateCipherSuites(ctx context.Context, initiatorPod *podfacts.PodFact) error {
 	newCipherSuites := t.Vdb.Spec.DBTLSConfig.CipherSuites
 	t.VRec.Eventf(t.Vdb, corev1.EventTypeNormal, events.HTTPSTLSUpdateStarted,
-		"Started to update tls cipher suites to %s", newCipherSuites)
+		"Started to update tls cipher suites to %s", t.placeholderForAll(newCipherSuites))
 	err := t.setCipherSuites(ctx, initiatorPod, t.Vdb.Spec.DBTLSConfig.TLSVersion, t.Vdb.Spec.DBTLSConfig.CipherSuites)
 	if err != nil {
 		t.Log.Info("failed to update cipher suites", "TLSVersion", t.Vdb.Spec.DBTLSConfig.TLSVersion, "cipherSuites",
-			t.Vdb.Spec.DBTLSConfig.CipherSuites)
+			newCipherSuites)
 		t.VRec.Eventf(t.Vdb, corev1.EventTypeNormal, events.HTTPSTLSUpdateFailed,
-			"failed to update tls cipher suites to %s", newCipherSuites)
+			"failed to update tls cipher suites to %s", t.placeholderForAll(newCipherSuites))
 		return err
 	}
 	hosts, mainClusterHosts := t.getHostGroups()
 	err = t.pollHTTPS(ctx, hosts, mainClusterHosts)
 	if err != nil {
 		t.VRec.Eventf(t.Vdb, corev1.EventTypeWarning, events.HTTPSTLSUpdateFailed,
-			"Failed to update tls cipher suites to %s", newCipherSuites)
+			"Failed to update tls cipher suites to %s", t.placeholderForAll(newCipherSuites))
 		return err
 	}
 	err = t.saveCipherSuitesInStatus(ctx, newCipherSuites)
 	if err != nil {
 		t.VRec.Eventf(t.Vdb, corev1.EventTypeWarning, events.HTTPSTLSUpdateFailed,
-			"Failed to update tls cipher suites to %s", newCipherSuites)
+			"Failed to update tls cipher suites to %s", t.placeholderForAll(newCipherSuites))
 		return err
 	}
 	t.VRec.Eventf(t.Vdb, corev1.EventTypeNormal, events.HTTPSTLSUpdateSucceeded,
-		"Successfully updated tls cipher suites to %s", newCipherSuites)
+		"Successfully updated tls cipher suites to %s", t.placeholderForAll(newCipherSuites))
 	return nil
 }
 
@@ -214,7 +224,28 @@ func (t *DBTLSConfigReconciler) setCipherSuites(ctx context.Context, initiatorPo
 	if tlsVersion == 3 {
 		paramName = "tlsciphersuites"
 	}
+	if cipherSuites == "" {
+		cipherSuites = t.getAllCipherSuites(tlsVersion)
+	}
 	return t.setConfigParameter(ctx, initiatorPod, paramName, cipherSuites)
+}
+
+func (t *DBTLSConfigReconciler) placeholderForAll(cipherSuites string) string {
+	if cipherSuites == "" {
+		return "all supported cipher suites"
+	}
+	return cipherSuites
+}
+
+// getAllCipherSuites return a string which concatenates all supported cipher suites
+// for tls1.2, the cipher suites are concatenated with ","
+// for tls1.3, the cipher suites are concatenated with ":"
+func (t *DBTLSConfigReconciler) getAllCipherSuites(tlsVersion int) string {
+	if tlsVersion == 2 {
+		return strings.Join(slices.Collect(maps.Keys(vapi.TLS2CipherSuites)), ",")
+	} else {
+		return strings.Join(slices.Collect(maps.Keys(vapi.TLS3CipherSuites)), ":")
+	}
 }
 
 func (t *DBTLSConfigReconciler) getConfigParameter(ctx context.Context, initiatorPod *podfacts.PodFact,
