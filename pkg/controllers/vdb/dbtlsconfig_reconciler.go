@@ -2,7 +2,6 @@ package vdb
 
 import (
 	"context"
-	"fmt"
 	"slices"
 	"strconv"
 	"strings"
@@ -12,7 +11,6 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
-	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/getconfigparameter"
@@ -57,12 +55,9 @@ func (t *DBTLSConfigReconciler) shouldSkipReconcile() bool {
 
 // Reconcile will create a TLS secret for the http server if one is missing
 func (t *DBTLSConfigReconciler) Reconcile(ctx context.Context, request *ctrl.Request) (ctrl.Result, error) {
-	t.Log.Info("libo: 0")
 	if t.shouldSkipReconcile() {
 		return ctrl.Result{}, nil
 	}
-
-	t.Log.Info("libo: 1")
 	var updateTLSVersion, updateCipherSuites bool
 	if t.Vdb.Status.DBTLSConfig != nil {
 		updateTLSVersion, updateCipherSuites = t.compareTLSConfig(t.Vdb.Spec.DBTLSConfig, t.Vdb.Status.DBTLSConfig)
@@ -70,21 +65,19 @@ func (t *DBTLSConfigReconciler) Reconcile(ctx context.Context, request *ctrl.Req
 			return ctrl.Result{}, nil
 		}
 	}
-	t.Log.Info("libo: 2")
 	err := t.Pfacts.Collect(ctx, t.Vdb)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	initiatorPod, ok := t.Pfacts.FindRunningPod() // FindFirstUpPod(false, "")
+	initiatorPod, ok := t.Pfacts.FindRunningPod()
 	if !ok {
 		t.Log.Info("No pod found to update tls config. restart next.")
 		restartReconciler := MakeRestartReconciler(t.VRec, t.Log, t.Vdb, t.PRunner, t.Pfacts, true, t.Dispatcher)
-		res, err := restartReconciler.Reconcile(ctx, request)
-		return res, err
+		res, err2 := restartReconciler.Reconcile(ctx, request)
+		return res, err2
 	}
 	if t.Vdb.Status.DBTLSConfig == nil {
-		t.Log.Info("libo db tls config is empty")
-		err = t.updateDbTLSConfigInStatus(ctx, initiatorPod)
+		err = t.updateDBTLSConfigInStatus(ctx, initiatorPod)
 		if err != nil {
 			t.Log.Error(err, "failed to update db tls config. skip current loop")
 			return ctrl.Result{}, nil
@@ -94,11 +87,8 @@ func (t *DBTLSConfigReconciler) Reconcile(ctx context.Context, request *ctrl.Req
 			return ctrl.Result{}, nil
 		}
 	}
-	t.Log.Info("libo: tls config update required, " + strconv.FormatBool(updateTLSVersion) + ", " + strconv.FormatBool(updateCipherSuites))
-	if err != nil {
-		t.Log.Error(err, "failed to collect pfacts to set up tls. skip current loop")
-		return ctrl.Result{}, nil
-	}
+	t.Log.Info("tls config update required, ", "updateVersion", strconv.FormatBool(updateTLSVersion), "updateCipherSuites",
+		strconv.FormatBool(updateCipherSuites))
 	if updateTLSVersion {
 		err := t.updateTLSVersion(ctx, initiatorPod)
 		if err != nil {
@@ -135,7 +125,12 @@ func (t *DBTLSConfigReconciler) updateTLSVersion(ctx context.Context, initiatorP
 		return err
 	}
 	t.Log.Info("libo: polling https for tls version is done")
-	t.saveTLSVersionInStatus(ctx, newTLSVersion)
+	err = t.saveTLSVersionInStatus(ctx, newTLSVersion)
+	if err != nil {
+		t.VRec.Eventf(t.Vdb, corev1.EventTypeWarning, events.HTTPSTLSUpdateFailed,
+			"Failed to update tls version to %d", newTLSVersion)
+		return err
+	}
 	t.VRec.Eventf(t.Vdb, corev1.EventTypeNormal, events.HTTPSTLSUpdateSucceeded,
 		"Successfully updated tls version to %d", newTLSVersion)
 	return nil
@@ -174,7 +169,12 @@ func (t *DBTLSConfigReconciler) updateCipherSuites(ctx context.Context, initiato
 		return err
 	}
 	t.Log.Info("libo: after poll https for tls cipher suites")
-	t.saveCipherSuitesInStatus(ctx, newCipherSuites)
+	err = t.saveCipherSuitesInStatus(ctx, newCipherSuites)
+	if err != nil {
+		t.VRec.Eventf(t.Vdb, corev1.EventTypeWarning, events.HTTPSTLSUpdateFailed,
+			"Failed to update tls cipher suites to %s", newCipherSuites)
+		return err
+	}
 	t.VRec.Eventf(t.Vdb, corev1.EventTypeNormal, events.HTTPSTLSUpdateFailed,
 		"Successfully updated tls cipher suites to %s", newCipherSuites)
 	return nil
@@ -231,19 +231,6 @@ func (t *DBTLSConfigReconciler) equal(cipherSuitesInUse, cipherSuitesInSpec stri
 	return slices.Equal(listOfCipherSuitesInUse, listOfCipherSuitesInSpec)
 }
 
-func (t *DBTLSConfigReconciler) getTLSConfigDigestFromDB(ctx context.Context, initiatorPod *podfacts.PodFact) (string, error) {
-	sql := "select get_tls_config_digest('https');"
-	cmd := []string{"-tAc", sql}
-	stdout, stderr, err := t.PRunner.ExecVSQL(ctx, initiatorPod.GetName(), names.ServerContainer, cmd...)
-	if err != nil || strings.Contains(stderr, "Error") {
-		t.Log.Error(err, fmt.Sprintf("failed to get https tls config digrest, stderr - %s", stderr))
-		return "", err
-	}
-	lines := strings.Split(stdout, "\n")
-	res := strings.Trim(lines[0], " ")
-	return res, nil
-}
-
 func (t *DBTLSConfigReconciler) getConfigParameter(ctx context.Context, initiatorPod *podfacts.PodFact,
 	paramName string) (string, error) {
 	opts := []getconfigparameter.Option{
@@ -273,7 +260,7 @@ func (t *DBTLSConfigReconciler) getTLSVersionFromDB(ctx context.Context, initiat
 	return strconv.Atoi(strValue)
 }
 
-func (t *DBTLSConfigReconciler) updateDbTLSConfigInStatus(ctx context.Context, initiatorPod *podfacts.PodFact) error {
+func (t *DBTLSConfigReconciler) updateDBTLSConfigInStatus(ctx context.Context, initiatorPod *podfacts.PodFact) error {
 	tlsVersion, err := t.getTLSVersionFromDB(ctx, initiatorPod)
 	if err != nil {
 		t.Log.Error(err, "failed to get tls version from db")
@@ -291,25 +278,25 @@ func (t *DBTLSConfigReconciler) updateDbTLSConfigInStatus(ctx context.Context, i
 	return t.saveTLSConfigInStatus(ctx, cipherSuites, tlsVersion)
 }
 
-func (s *DBTLSConfigReconciler) saveTLSVersionInStatus(ctx context.Context, tlsVersion int) error {
+func (t *DBTLSConfigReconciler) saveTLSVersionInStatus(ctx context.Context, tlsVersion int) error {
 	refreshStatusInPlace := func(vdb *vapi.VerticaDB) error {
 		vdb.Status.DBTLSConfig.TLSVersion = tlsVersion
 		return nil
 	}
 	// Clear the condition and add a status after restore point creation.
-	return vdbstatus.Update(ctx, s.VRec.Client, s.Vdb, refreshStatusInPlace)
+	return vdbstatus.Update(ctx, t.VRec.Client, t.Vdb, refreshStatusInPlace)
 }
 
-func (s *DBTLSConfigReconciler) saveCipherSuitesInStatus(ctx context.Context, cipherSuites string) error {
+func (t *DBTLSConfigReconciler) saveCipherSuitesInStatus(ctx context.Context, cipherSuites string) error {
 	refreshStatusInPlace := func(vdb *vapi.VerticaDB) error {
 		vdb.Status.DBTLSConfig.CipherSuites = cipherSuites
 		return nil
 	}
 	// Clear the condition and add a status after restore point creation.
-	return vdbstatus.Update(ctx, s.VRec.Client, s.Vdb, refreshStatusInPlace)
+	return vdbstatus.Update(ctx, t.VRec.Client, t.Vdb, refreshStatusInPlace)
 }
 
-func (s *DBTLSConfigReconciler) saveTLSConfigInStatus(ctx context.Context, cipherSuites string, tlsVersion int) error {
+func (t *DBTLSConfigReconciler) saveTLSConfigInStatus(ctx context.Context, cipherSuites string, tlsVersion int) error {
 	refreshStatusInPlace := func(vdb *vapi.VerticaDB) error {
 		if vdb.Status.DBTLSConfig == nil {
 			vdb.Status.DBTLSConfig = &vapi.DBTLSConfig{}
@@ -319,5 +306,5 @@ func (s *DBTLSConfigReconciler) saveTLSConfigInStatus(ctx context.Context, ciphe
 		return nil
 	}
 	// Clear the condition and add a status after restore point creation.
-	return vdbstatus.Update(ctx, s.VRec.Client, s.Vdb, refreshStatusInPlace)
+	return vdbstatus.Update(ctx, t.VRec.Client, t.Vdb, refreshStatusInPlace)
 }
