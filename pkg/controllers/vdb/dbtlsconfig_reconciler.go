@@ -117,15 +117,13 @@ func (t *DBTLSConfigReconciler) updateTLSVersion(ctx context.Context, initiatorP
 		return err
 	}
 	hosts, mainClusterHosts := t.getHostGroups()
-	t.Log.Info("libo: b4 poll https for tls version")
 	err = t.pollHTTPS(ctx, hosts, mainClusterHosts)
 	if err != nil {
 		t.VRec.Eventf(t.Vdb, corev1.EventTypeWarning, events.HTTPSTLSUpdateFailed,
 			"Failed to update tls version to %d", newTLSVersion)
 		return err
 	}
-	t.Log.Info("libo: polling https for tls version is done")
-	err = t.saveTLSVersionInStatus(ctx, newTLSVersion)
+	err = t.saveTLSConfigInStatus(ctx, "", newTLSVersion)
 	if err != nil {
 		t.VRec.Eventf(t.Vdb, corev1.EventTypeWarning, events.HTTPSTLSUpdateFailed,
 			"Failed to update tls version to %d", newTLSVersion)
@@ -141,7 +139,6 @@ func (t *DBTLSConfigReconciler) getHostGroups() (upHosts,
 	for _, detail := range t.Pfacts.Detail {
 		upHosts = append(upHosts, detail.GetPodIP())
 		if detail.GetSandbox() == "" {
-			t.Log.Info("libo: selected host ip - " + detail.GetPodIP())
 			mainClusterHosts = append(mainClusterHosts, detail.GetPodIP())
 		}
 	}
@@ -161,14 +158,12 @@ func (t *DBTLSConfigReconciler) updateCipherSuites(ctx context.Context, initiato
 		return err
 	}
 	hosts, mainClusterHosts := t.getHostGroups()
-	t.Log.Info("libo: b4 poll https for tls cipher suites")
 	err = t.pollHTTPS(ctx, hosts, mainClusterHosts)
 	if err != nil {
 		t.VRec.Eventf(t.Vdb, corev1.EventTypeWarning, events.HTTPSTLSUpdateFailed,
 			"Failed to update tls cipher suites to %s", newCipherSuites)
 		return err
 	}
-	t.Log.Info("libo: after poll https for tls cipher suites")
 	err = t.saveCipherSuitesInStatus(ctx, newCipherSuites)
 	if err != nil {
 		t.VRec.Eventf(t.Vdb, corev1.EventTypeWarning, events.HTTPSTLSUpdateFailed,
@@ -203,6 +198,16 @@ func (t *DBTLSConfigReconciler) compareTLSConfig(dbTLSConfigInSpec, dbTLSConfigI
 	return updateVersion, updateCipherSuites
 }
 
+func (t *DBTLSConfigReconciler) getCipherSuitesFromDB(ctx context.Context, initiatorPod *podfacts.PodFact,
+	tlsVersion int) (string, error) {
+	paramName := "enabledciphersuites"
+	if tlsVersion == 3 {
+		paramName = "tlsciphersuites"
+	}
+	t.Log.Info("Getting tls ciphers from db", "TLSVersion", tlsVersion)
+	return t.getConfigParameter(ctx, initiatorPod, paramName)
+}
+
 func (t *DBTLSConfigReconciler) setCipherSuites(ctx context.Context, initiatorPod *podfacts.PodFact,
 	tlsVersion int, cipherSuites string) error {
 	paramName := "enabledciphersuites"
@@ -210,6 +215,16 @@ func (t *DBTLSConfigReconciler) setCipherSuites(ctx context.Context, initiatorPo
 		paramName = "tlsciphersuites"
 	}
 	return t.setConfigParameter(ctx, initiatorPod, paramName, cipherSuites)
+}
+
+func (t *DBTLSConfigReconciler) getConfigParameter(ctx context.Context, initiatorPod *podfacts.PodFact,
+	paramName string) (string, error) {
+	opts := []getconfigparameter.Option{
+		getconfigparameter.WithUserName(t.Vdb.GetVerticaUser()),
+		getconfigparameter.WithInitiatorIP(initiatorPod.GetPodIP()),
+		getconfigparameter.WithConfigParameter(paramName),
+	}
+	return t.Dispatcher.GetConfigurationParameter(ctx, opts...)
 }
 
 func (t *DBTLSConfigReconciler) setConfigParameter(ctx context.Context, initiatorPod *podfacts.PodFact,
@@ -229,26 +244,6 @@ func (t *DBTLSConfigReconciler) equal(cipherSuitesInUse, cipherSuitesInSpec stri
 	slices.Sort(listOfCipherSuitesInUse)
 	slices.Sort(listOfCipherSuitesInSpec)
 	return slices.Equal(listOfCipherSuitesInUse, listOfCipherSuitesInSpec)
-}
-
-func (t *DBTLSConfigReconciler) getConfigParameter(ctx context.Context, initiatorPod *podfacts.PodFact,
-	paramName string) (string, error) {
-	opts := []getconfigparameter.Option{
-		getconfigparameter.WithUserName(t.Vdb.GetVerticaUser()),
-		getconfigparameter.WithInitiatorIP(initiatorPod.GetPodIP()),
-		getconfigparameter.WithConfigParameter(paramName),
-	}
-	return t.Dispatcher.GetConfigurationParameter(ctx, opts...)
-}
-
-func (t *DBTLSConfigReconciler) getCipherSuitesFromDB(ctx context.Context, initiatorPod *podfacts.PodFact,
-	tlsVersion int) (string, error) {
-	paramName := "enabledciphersuites"
-	if tlsVersion == 3 {
-		paramName = "tlsciphersuites"
-	}
-	t.Log.Info("Getting tls ciphers from db", "TLSVersion", tlsVersion)
-	return t.getConfigParameter(ctx, initiatorPod, paramName)
 }
 
 func (t *DBTLSConfigReconciler) getTLSVersionFromDB(ctx context.Context, initiatorPod *podfacts.PodFact) (int, error) {
@@ -276,15 +271,6 @@ func (t *DBTLSConfigReconciler) updateDBTLSConfigInStatus(ctx context.Context, i
 		CipherSuites: cipherSuites,
 	}
 	return t.saveTLSConfigInStatus(ctx, cipherSuites, tlsVersion)
-}
-
-func (t *DBTLSConfigReconciler) saveTLSVersionInStatus(ctx context.Context, tlsVersion int) error {
-	refreshStatusInPlace := func(vdb *vapi.VerticaDB) error {
-		vdb.Status.DBTLSConfig.TLSVersion = tlsVersion
-		return nil
-	}
-	// Clear the condition and add a status after restore point creation.
-	return vdbstatus.Update(ctx, t.VRec.Client, t.Vdb, refreshStatusInPlace)
 }
 
 func (t *DBTLSConfigReconciler) saveCipherSuitesInStatus(ctx context.Context, cipherSuites string) error {
