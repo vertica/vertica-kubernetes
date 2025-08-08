@@ -559,7 +559,6 @@ endif
 ifneq (,$(filter $(LEG),leg-8-offline leg-8-online))
 	scripts/push-to-kind.sh -i opentext/vertica-k8s:12.0.4-0-minimal
 	scripts/push-to-kind.sh -i opentext/vertica-k8s:23.4.0-0-minimal
-	scripts/push-to-kind.sh -i opentext/vertica-k8s:24.1.0-0-minimal
 	scripts/push-to-kind.sh -i opentext/vertica-k8s:24.1.0-8-minimal
 endif
 ifeq ($(LEG), server-upgrade)
