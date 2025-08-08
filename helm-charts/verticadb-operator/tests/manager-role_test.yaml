@@ -52,7 +52,7 @@ tests:
               - watch
   - it: should not include servicemonitors when prometheus is disabled
     set:
-      prometheus-server:
+      prometheusServer:
         enabled: false
     asserts:
       - notContains:
@@ -63,7 +63,7 @@ tests:
               - monitoring.coreos.com
   - it: should include servicemonitors when prometheus is enabled
     set:
-      prometheus-server:
+      prometheusServer:
         enabled: true
     asserts:
       - contains:

@@ -22,3 +22,7 @@ resources:
 # The next setup the RBAC rules for the webhook.
 - webhook_config_clusterrole.yaml
 - webhook_config_clusterrolebinding.yaml
+# The following RBAC configurations are used for prometheus
+- prometheus_role.yaml
+- prometheus_role_binding.yaml
+- prometheus_sa.yaml
