@@ -26,7 +26,6 @@ import (
 type nmaGetTLSConfigDigestOp struct {
 	opBase
 	hostRequestBody   string
-	sandbox           string
 	initiator         string
 	expectedTLSConfig *tlsConfigInfo
 	logger            vlog.Printer
@@ -34,7 +33,7 @@ type nmaGetTLSConfigDigestOp struct {
 
 type getTLSConfigDigestData struct {
 	sqlEndpointData
-	Params map[string]interface{} `json:"params"`
+	Params map[string]any `json:"params"`
 }
 
 type TLSConfigDigest struct {
@@ -44,30 +43,28 @@ type TLSConfigDigest struct {
 type TLSConfigDigestResponse []TLSConfigDigest
 
 func makeNMAGetTLSConfigDigestOp(hosts []string,
-	username, dbName, TLSConfigName string, /* out parameter */
-	password *string, useHTTPPassword bool, TLSConfigHolder *tlsConfigInfo, logger vlog.Printer) (nmaGetTLSConfigDigestOp, error) {
+	username, dbName, tlsConfigName string, /* out parameter */
+	password *string, useHTTPPassword bool, tlsConfigHolder *tlsConfigInfo, logger vlog.Printer) (nmaGetTLSConfigDigestOp, error) {
 	op := nmaGetTLSConfigDigestOp{}
 	op.name = "NMAGetTLSConfigDigestOp"
 	op.description = "Get TLS config digest"
 	op.hosts = hosts
 	op.logger = logger
-	op.logger.Info("libo: to prepare tls config digest request body")
-	err := op.setupRequestBody(username, dbName, TLSConfigName, password, useHTTPPassword)
+	err := op.setupRequestBody(username, dbName, tlsConfigName, password, useHTTPPassword)
 	if err != nil {
 		return op, err
 	}
-	op.logger.Info("libo: get tls config digest request body prepared")
-	if TLSConfigHolder == nil {
+	if tlsConfigHolder == nil {
 		// really an assertion - this should never fail
 		return op, errors.New("cannot hold tls config info")
 	}
-	op.expectedTLSConfig = TLSConfigHolder
+	op.expectedTLSConfig = tlsConfigHolder
 
 	return op, nil
 }
 
 func (op *nmaGetTLSConfigDigestOp) setupRequestBody(
-	username, dbName, TLSConfigName string, password *string,
+	username, dbName, tlsConfigName string, password *string,
 	useDBPassword bool) error {
 	err := ValidateSQLEndpointData(op.name,
 		useDBPassword, username, password, dbName)
@@ -76,9 +73,8 @@ func (op *nmaGetTLSConfigDigestOp) setupRequestBody(
 	}
 	getTLSConfigDigestData := &getTLSConfigDigestData{}
 	getTLSConfigDigestData.sqlEndpointData = createSQLEndpointData(username, dbName, useDBPassword, password)
-	getTLSConfigDigestData.Params = make(map[string]interface{})
-	getTLSConfigDigestData.Params["tls-config-name"] = TLSConfigName
-	op.logger.Info("libo: request data ", "tls-config-name", getTLSConfigDigestData.Params["tls-config-name"])
+	getTLSConfigDigestData.Params = make(map[string]any)
+	getTLSConfigDigestData.Params["tls-config-name"] = tlsConfigName
 	dataBytes, err := json.Marshal(getTLSConfigDigestData)
 	if err != nil {
 		return fmt.Errorf("[%s] fail to marshal request data to JSON string, detail %w", op.name, err)
@@ -130,12 +126,11 @@ func (op *nmaGetTLSConfigDigestOp) processResult(_ *opEngineExecContext) error {
 		if result.isPassing() {
 			var digestResponse TLSConfigDigestResponse
 			err := json.Unmarshal([]byte(result.content), &digestResponse)
-			// op.parseAndCheckGenericJSONResponse(host, result.content)
 			if err != nil {
 				allErrs = errors.Join(allErrs, err)
 			}
 			if len(digestResponse) == 0 {
-				allErrs = errors.Join(allErrs, errors.New("digest is missing from reponse"))
+				allErrs = errors.Join(allErrs, errors.New("digest is missing from response"))
 			}
 			op.expectedTLSConfig.Digest = digestResponse[0].Digest
 		} else {

@@ -35,7 +35,6 @@ func VPollHTTPSOptionsFactory() VPollHTTPSOptions {
 }
 
 func (opt *VPollHTTPSOptions) analyzeOptions() (err error) {
-	// we analyze host names when it is set in user input, otherwise we use hosts in yaml config
 	if len(opt.RawHosts) > 0 {
 		// resolve RawHosts to be IP addresses
 		opt.Hosts, err = util.ResolveRawHostsToAddresses(opt.RawHosts, opt.IPv6)
@@ -73,53 +72,31 @@ func (vcc VClusterCommands) VPollHTTPS(options *VPollHTTPSOptions) error {
 	}
 	nmaGetTLSConfigDigestOp, err := makeNMAGetTLSConfigDigestOp(mainClusterHosts,
 		options.UserName, options.DBName, "https", options.Password, options.usePassword, expectedTLSConfigInfo, vcc.Log)
-
+	if err != nil {
+		return err
+	}
 	httpsPollCertHealthOp, err := makeHTTPSPollCertificateHealthOp(upHosts,
 		expectedTLSConfigInfo, options.usePassword, options.UserName, options.Password)
 	if err != nil {
 		return err
 	}
 	var instructions []clusterOp
-	instructions = append(instructions, &nmaGetTLSConfigDigestOp)
-	instructions = append(instructions, &httpsPollCertHealthOp)
+	instructions = append(instructions, &nmaGetTLSConfigDigestOp, &httpsPollCertHealthOp)
 	httpsSyncCatalogOp, err2 := makeHTTPSSyncCatalogOp(mainClusterHosts, true, options.UserName, options.Password, CreateDBSyncCat)
 	if err2 != nil {
 		return err2
 	}
 	instructions = append(instructions, &httpsSyncCatalogOp)
-
-	// create db options with only cert info changed
 	newCertsDatabaseOptions := options.DatabaseOptions
 	newCertsDatabaseOptions.Key = options.Key
 	newCertsDatabaseOptions.Cert = options.Cert
 	newCertsDatabaseOptions.CaCert = options.CaCert
-
-	// Create a VClusterOpEngine with the new certs
 	clusterOpEngine := makeClusterOpEngine(instructions, &newCertsDatabaseOptions)
-
-	// Give the instructions to the VClusterOpEngine to run
 	vcc.Log.Info("Polling for HTTPS service restart with updated config on all UP hosts", "hosts", options.Hosts)
 	runError := clusterOpEngine.run(vcc.Log)
 	if runError != nil {
 		return fmt.Errorf("failed to restart HTTPS service with new tls version or cipher suites: %w", runError)
 	}
 	vcc.Log.Info("Polling for HTTPS serve succeeded.", "new digest", expectedTLSConfigInfo.Digest)
-
 	return nil
-}
-
-func (opt *VPollHTTPSOptions) getHostInfo(
-	vdb *VCoordinationDatabase) (upHosts, mainClusterHosts []string, err error) {
-	upHosts = vdb.filterUpHostList(opt.Hosts)
-	// avoid mutating backing array of vdb.AllSandboxes
-	sandboxes := make([]string, len(vdb.AllSandboxes), len(vdb.AllSandboxes)+1)
-	copy(sandboxes, vdb.AllSandboxes)
-	sandboxes = append(sandboxes, "") // add main cluster to sandbox list
-	mainCluster := []string{""}
-	hostsToSandboxes := vdb.getHostToSandboxMap()
-	mainClusterHosts, err = getInitiatorsInAllDBGroups(upHosts, mainCluster, hostsToSandboxes)
-	if len(mainCluster) == 0 {
-		err = fmt.Errorf("failed to find an initiator host for main cluster")
-	}
-	return
 }
