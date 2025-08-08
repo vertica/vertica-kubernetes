@@ -14,4 +14,4 @@
 apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 commands:
-  - script: cd ../../.. && make upgrade-operator NAMESPACE="verticadb-operator" VALUES_FILE="./tests/e2e-leg-14/prometheus-with-tls/values.yaml"
+  - script: cd ../../.. && make upgrade-operator NAMESPACE="verticadb-operator" VALUES_FILE="./tests/e2e-leg-14-tls/prometheus-with-tls/values.yaml"
