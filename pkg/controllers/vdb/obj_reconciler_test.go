@@ -49,6 +49,8 @@ var _ = Describe("obj_reconcile", func() {
 	ctx := context.Background()
 	const trueStr = "true"
 	const falseStr = "false"
+	const envName = "EXTRA_ENV"
+	const extraKey = "extra_key"
 
 	runReconciler := func(vdb *vapi.VerticaDB, expResult ctrl.Result, mode ObjReconcileModeType) {
 		// Create any dependent objects for the CRD.
@@ -1058,6 +1060,143 @@ var _ = Describe("obj_reconcile", func() {
 			err = o.recordAnnotations(ctx)
 			Expect(err).Should(BeNil())
 			Expect(vdb.Annotations[vmeta.MountNMACertsAnnotation]).Should(Equal(trueStr))
+		})
+
+		It("should set config hash label and create configmap if referenced in ExtraEnv", func() {
+			vdb := vapi.MakeVDB()
+			sc := &vdb.Spec.Subclusters[0]
+			cmName := types.NamespacedName{Name: "extra-config", Namespace: vdb.Namespace}
+			// Add an extra env var referencing a configmap that does not exist yet
+			vdb.Spec.ExtraEnv = append(vdb.Spec.ExtraEnv, corev1.EnvVar{
+				Name: envName,
+				ValueFrom: &corev1.EnvVarSource{
+					ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
+						Key: extraKey,
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: cmName.Name,
+						},
+					},
+				},
+			})
+			// Ensure configmap does not exist
+			cm := &corev1.ConfigMap{}
+			Expect(errors.IsNotFound(k8sClient.Get(ctx, cmName, cm))).Should(BeTrue())
+
+			// Create the configmap with the required key
+			cm.Data = map[string]string{extraKey: "value"}
+			cm.Name = cmName.Name
+			cm.Namespace = cmName.Namespace
+			cm.Labels = map[string]string{
+				vmeta.WatchedByVDBLabel: trueStr,
+			}
+			Expect(k8sClient.Create(ctx, cm)).Should(Succeed())
+			defer func() { Expect(k8sClient.Delete(ctx, cm)).Should(Succeed()) }()
+
+			pfacts := podfacts.MakePodFacts(vdbRec, &cmds.FakePodRunner{}, logger, TestPassword)
+			objr := MakeObjReconciler(vdbRec, logger, vdb, &pfacts, ObjReconcileModeAll).(*ObjReconciler)
+
+			nm := names.GenStsName(vdb, sc)
+			expSts := builder.BuildStsSpec(nm, vdb, sc, "")
+			expSts.Spec.Template.Annotations = map[string]string{}
+
+			err := objr.setConfigHashLabel(ctx, expSts, nil)
+			Expect(err).Should(BeNil())
+			hash, ok := expSts.Spec.Template.Annotations[vmeta.ConfigHashAnnotation]
+			Expect(ok).Should(BeTrue())
+			Expect(hash).ShouldNot(BeEmpty())
+		})
+
+		It("should set config hash label and create secret if referenced in EnvFrom", func() {
+			vdb := vapi.MakeVDB()
+			sc := &vdb.Spec.Subclusters[0]
+			secretName := "extra-secret"
+			// Add an extra env var referencing a secret that does not exist yet
+			vdb.Spec.EnvFrom = append(vdb.Spec.EnvFrom, corev1.EnvFromSource{
+				SecretRef: &corev1.SecretEnvSource{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: secretName,
+					},
+				},
+			})
+			// Ensure secret does not exist
+			secret := &corev1.Secret{}
+			secretNm := types.NamespacedName{Name: secretName, Namespace: vdb.Namespace}
+			Expect(errors.IsNotFound(k8sClient.Get(ctx, secretNm, secret))).Should(BeTrue())
+
+			// Create the secret with the required key
+			secret.Name = secretName
+			secret.Namespace = vdb.Namespace
+			secret.Data = map[string][]byte{extraKey: []byte("value")}
+			secret.Labels = map[string]string{
+				vmeta.WatchedByVDBLabel: trueStr,
+			}
+			Expect(k8sClient.Create(ctx, secret)).Should(Succeed())
+			defer func() { Expect(k8sClient.Delete(ctx, secret)).Should(Succeed()) }()
+
+			pfacts := podfacts.MakePodFacts(vdbRec, &cmds.FakePodRunner{}, logger, TestPassword)
+			objr := MakeObjReconciler(vdbRec, logger, vdb, &pfacts, ObjReconcileModeAll).(*ObjReconciler)
+
+			nm := names.GenStsName(vdb, sc)
+			expSts := builder.BuildStsSpec(nm, vdb, sc, "")
+			expSts.Spec.Template.Annotations = map[string]string{}
+
+			err := objr.setConfigHashLabel(ctx, expSts, nil)
+			Expect(err).Should(BeNil())
+			hash, ok := expSts.Spec.Template.Annotations[vmeta.ConfigHashAnnotation]
+			Expect(ok).Should(BeTrue())
+			Expect(hash).ShouldNot(BeEmpty())
+		})
+
+		It("should return error if referenced configmap in EnvFrom does not exist", func() {
+			vdb := vapi.MakeVDB()
+			sc := &vdb.Spec.Subclusters[0]
+			cmName := "missing-config"
+			// Add an extra env var referencing a configmap that does not exist
+			vdb.Spec.EnvFrom = append(vdb.Spec.EnvFrom, corev1.EnvFromSource{
+				ConfigMapRef: &corev1.ConfigMapEnvSource{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: cmName,
+					},
+				},
+			})
+
+			pfacts := podfacts.MakePodFacts(vdbRec, &cmds.FakePodRunner{}, logger, TestPassword)
+			objr := MakeObjReconciler(vdbRec, logger, vdb, &pfacts, ObjReconcileModeAll).(*ObjReconciler)
+
+			nm := names.GenStsName(vdb, sc)
+			expSts := builder.BuildStsSpec(nm, vdb, sc, "")
+			expSts.Spec.Template.Annotations = map[string]string{}
+
+			err := objr.setConfigHashLabel(ctx, expSts, nil)
+			Expect(err).ShouldNot(BeNil())
+		})
+
+		It("should return error if referenced secret in ExtraEnv does not exist", func() {
+			vdb := vapi.MakeVDB()
+			sc := &vdb.Spec.Subclusters[0]
+			secretName := "missing-secret"
+			// Add an extra env var referencing a secret that does not exist
+			vdb.Spec.ExtraEnv = append(vdb.Spec.ExtraEnv, corev1.EnvVar{
+				Name: envName,
+				ValueFrom: &corev1.EnvVarSource{
+					SecretKeyRef: &corev1.SecretKeySelector{
+						Key: extraKey,
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: secretName,
+						},
+					},
+				},
+			})
+
+			pfacts := podfacts.MakePodFacts(vdbRec, &cmds.FakePodRunner{}, logger, TestPassword)
+			objr := MakeObjReconciler(vdbRec, logger, vdb, &pfacts, ObjReconcileModeAll).(*ObjReconciler)
+
+			nm := names.GenStsName(vdb, sc)
+			expSts := builder.BuildStsSpec(nm, vdb, sc, "")
+			expSts.Spec.Template.Annotations = map[string]string{}
+
+			err := objr.setConfigHashLabel(ctx, expSts, nil)
+			Expect(err).ShouldNot(BeNil())
 		})
 	})
 })

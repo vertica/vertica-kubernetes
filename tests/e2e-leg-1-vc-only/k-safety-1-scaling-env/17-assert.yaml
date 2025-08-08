@@ -16,13 +16,4 @@ kind: StatefulSet
 metadata:
   name: v-scale-out-and-in-main
 status:
-  currentReplicas: 5
-  readyReplicas: 3
----
-apiVersion: vertica.com/v1
-kind: VerticaDB
-metadata:
-  name: v-scale-out-and-in
-status:
-  subclusters:
-    - addedToDBCount: 3
+  readyReplicas: 2
