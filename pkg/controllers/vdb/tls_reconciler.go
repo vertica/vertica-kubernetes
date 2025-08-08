@@ -60,8 +60,8 @@ func (h *TLSReconciler) Reconcile(ctx context.Context, request *ctrl.Request) (c
 	// when we first set tls config and nma tls secret is different than https tls secret,
 	// we need to restart nma
 	if h.Vdb.IsDBInitialized() &&
-		h.Vdb.GetTLSConfigByName(vapi.HTTPSNMATLSConfigName) == nil &&
-		h.Vdb.GetTLSConfigByName(vapi.ClientServerTLSConfigName) == nil &&
+		h.Vdb.GetHTTPSNMATLSSecretInUse() == "" &&
+		h.Vdb.GetClientServerTLSSecretInUse() == "" &&
 		h.Vdb.Spec.NMATLSSecret != "" &&
 		(h.Vdb.Spec.NMATLSSecret != h.Vdb.GetHTTPSNMATLSSecret() || h.Vdb.Spec.NMATLSSecret != h.Vdb.GetClientServerTLSSecret()) {
 		actors = append(actors, MakeNMACertRotationReconciler(h.VRec, h.Log, h.Vdb, h.Dispatcher, h.Pfacts, true))
