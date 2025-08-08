@@ -11,3 +11,8 @@ prometheusServer:
             secret:
               key: tls.crt
               name: prometheus-tls
+          client_ca:
+            secret:
+              key: ca.crt
+              name: prometheus-tls
+          clientAuthType: RequestClientCert # Enforce client cert verification

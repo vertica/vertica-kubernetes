@@ -360,6 +360,8 @@ prometheusServer:
     # Reduce admission webhook complexity
     admissionWebhooks:
       enabled: false
+    serviceMonitor:
+      selfMonitor: false # Disable self-monitoring ServiceMonitor
     # Disable TLS for simplicity
     tls:
       enabled: false
@@ -379,6 +381,9 @@ prometheusServer:
       # NodePort or LoadBalancer can be used if you need external access to Prometheus
       # for instance, for remote scraping or a UI access
       # nodePort: 30090
+
+    serviceMonitor:
+      selfMonitor: false
     
     # Storage for Prometheus (highly recommended for production)
     prometheusSpec:

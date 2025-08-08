@@ -20,14 +20,31 @@ data:
     #!/bin/bash
     set -o errexit
     set -o xtrace
+
+    kubectl get secret prometheus-tls -o jsonpath='{.data.tls\.crt}' | base64 -d > /tmp/tls.crt
+    kubectl get secret prometheus-tls -o jsonpath='{.data.tls\.key}' | base64 -d > /tmp/tls.key
+    kubectl get secret prometheus-tls -o jsonpath='{.data.ca\.crt}' | base64 -d > /tmp/ca.crt
+
     
     # Setup start and end time for query, e.g: 2024-09-14
     START_TIME=$(date +%Y-%m-%d) 
     END_TIME=$(date +%Y-%m-%d --date "$curr +1 day")
-    NAMESPACE=$(kubectl get pod v-with-prom-tls-pri1-0 -o=jsonpath='{.metadata.namespace}')
-    CMD="kubectl exec v-with-prom-tls-pri1-0 -it -c server -n $NAMESPACE -- curl -kg https://vdb-op-prometheus-server-prometheus.verticadb-operator.svc.cluster.local:9090/api/v1/query?query=vertica_build_info&start=${START_TIME}&end=${END_TIME}"
+    CMD="curl -g --cert /tmp/tls.crt --key /tmp/tls.key https://vdb-op-prometheus-server-prometheus.verticadb-operator.svc.cluster.local:9090/api/v1/query?query=vertica_build_info&start=${START_TIME}&end=${END_TIME}"
     RESULT=$(eval $CMD)
-    METRICS=$(echo $RESULT | jq -r '.data.result') 
+    METRICS=$(echo $RESULT) 
+    
+    # verify the metrics result
+    if [[ "$METRICS" == "" ]]; then
+      echo "empty metrics result: curl command failure expected"
+    else
+      echo "Curl command should have failed without CA cert"
+      exit 1
+    fi
+
+    CMD="curl -g --cert /tmp/tls.crt --key /tmp/tls.key --cacert /tmp/ca.crt https://vdb-op-prometheus-server-prometheus.verticadb-operator.svc.cluster.local:9090/api/v1/query?query=vertica_build_info&start=${START_TIME}&end=${END_TIME}"
+    echo $?
+    RESULT=$(eval $CMD)
+    METRICS=$(echo $RESULT | jq -r '.data.result')
     
     # verify the metrics result
     if [[ "$METRICS" == "" || "$METRICS" == "\[\]" ]]; then
