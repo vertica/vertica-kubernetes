@@ -170,7 +170,7 @@ func (t *DBTLSConfigReconciler) updateCipherSuites(ctx context.Context, initiato
 			"Failed to update tls cipher suites to %s", newCipherSuites)
 		return err
 	}
-	t.VRec.Eventf(t.Vdb, corev1.EventTypeNormal, events.HTTPSTLSUpdateFailed,
+	t.VRec.Eventf(t.Vdb, corev1.EventTypeNormal, events.HTTPSTLSUpdateSucceeded,
 		"Successfully updated tls cipher suites to %s", newCipherSuites)
 	return nil
 }
