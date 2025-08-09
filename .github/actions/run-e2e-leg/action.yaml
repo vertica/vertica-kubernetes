@@ -219,6 +219,11 @@ runs:
             export PROMETHEUS_ENABLED=true
           fi
 
+          if [[ "${{ inputs.leg-identifier }}" == "leg-14-loki" ]]; then
+            export GRAFANA_ENABLED=true
+            export LOKI_ENABLED=true
+          fi
+
           # Set BASE_VERTICA_IMG based on $VERTICA_IMG
           # Some tests in some suites do an upgrade, so set the base image to upgrade from
           if [[ "${{ inputs.need-base-vertica-image }}" == "true" ]]; then
