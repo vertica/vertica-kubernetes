@@ -2755,7 +2755,7 @@ var _ = Describe("verticadb_webhook", func() {
 
 	It("should fail if secrets list is empty", func() {
 		vdb := MakeVDBForTLS()
-		vdb.Spec.ClientServerTLS = MakeTLSWithAutoRotate([]string{}, 7, "")
+		vdb.Spec.ClientServerTLS = MakeTLSWithAutoRotate([]string{}, 10, "")
 		allErrs := vdb.validateAutoRotateConfig(field.ErrorList{})
 		Expect(allErrs).To(HaveLen(1))
 		Expect(allErrs[0].Error()).To(ContainSubstring("must contain at least two secrets"))
@@ -2763,7 +2763,7 @@ var _ = Describe("verticadb_webhook", func() {
 
 	It("should fail if secrets list has only one element", func() {
 		vdb := MakeVDBForTLS()
-		vdb.Spec.ClientServerTLS = MakeTLSWithAutoRotate([]string{"secret1"}, 7, "")
+		vdb.Spec.ClientServerTLS = MakeTLSWithAutoRotate([]string{"secret1"}, 10, "")
 		allErrs := vdb.validateAutoRotateConfig(field.ErrorList{})
 		Expect(allErrs).To(HaveLen(1))
 		Expect(allErrs[0].Error()).To(ContainSubstring("must contain at least two secrets"))
@@ -2774,12 +2774,12 @@ var _ = Describe("verticadb_webhook", func() {
 		vdb.Spec.ClientServerTLS = MakeTLSWithAutoRotate([]string{"secret1", "secret2"}, 0, "")
 		allErrs := vdb.validateAutoRotateConfig(field.ErrorList{})
 		Expect(allErrs).To(HaveLen(1))
-		Expect(allErrs[0].Error()).To(ContainSubstring("must be greater than 0"))
+		Expect(allErrs[0].Error()).To(ContainSubstring("must be greater than or equal to 10 minutes"))
 	})
 
 	It("should fail if secrets list has duplicates", func() {
 		vdb := MakeVDBForTLS()
-		vdb.Spec.ClientServerTLS = MakeTLSWithAutoRotate([]string{"secret1", "secret1"}, 7, "")
+		vdb.Spec.ClientServerTLS = MakeTLSWithAutoRotate([]string{"secret1", "secret1"}, 10, "")
 		allErrs := vdb.validateAutoRotateConfig(field.ErrorList{})
 		Expect(allErrs).To(HaveLen(1))
 		Expect(allErrs[0].Error()).To(ContainSubstring("Duplicate value"))
@@ -2787,7 +2787,7 @@ var _ = Describe("verticadb_webhook", func() {
 
 	It("should validate successfully if configuration is valid", func() {
 		vdb := MakeVDBForTLS()
-		vdb.Spec.ClientServerTLS = MakeTLSWithAutoRotate([]string{"secret1", "secret2"}, 7, "")
+		vdb.Spec.ClientServerTLS = MakeTLSWithAutoRotate([]string{"secret1", "secret2"}, 10, "")
 		allErrs := vdb.validateAutoRotateConfig(field.ErrorList{})
 		Expect(allErrs).To(HaveLen(0))
 		Expect(allErrs).To(BeEmpty())

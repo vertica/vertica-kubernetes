@@ -101,8 +101,8 @@ export BASE_VERTICA_IMG
 VLOGGER_IMG ?= $(IMG_REPO)vertica-logger:$(VLOGGER_VERSION)
 export VLOGGER_IMG
 # If the current leg in the CI tests is leg-9
-LEG9 ?= no
-export LEG9
+LEG ?= ""
+export LEG
 # What alpine image does the vlogger image use
 VLOGGER_BASE_IMG?=alpine
 # What version of alpine does the vlogger image use
@@ -581,9 +581,24 @@ endif
 
 .PHONY: docker-push-extra-vertica
 docker-push-extra-vertica: # Push a hard-coded image used in multi-online-upgrade test
-ifeq ($(LEG9), yes)
 ifeq ($(shell $(KIND_CHECK)), 1)
-	scripts/push-to-kind.sh -i opentext/vertica-k8s-private:20250517-minimal
+ifeq ($(LEG), leg-9)
+	scripts/push-to-kind.sh -i opentext/vertica-k8s-private:20250517-minimal 
+endif
+ifneq (,$(filter $(LEG),leg-8-offline leg-8-online))
+	scripts/push-to-kind.sh -i opentext/vertica-k8s:12.0.4-0-minimal
+	scripts/push-to-kind.sh -i opentext/vertica-k8s:23.4.0-0-minimal
+	scripts/push-to-kind.sh -i opentext/vertica-k8s:24.1.0-8-minimal
+endif
+ifeq ($(LEG), server-upgrade)
+	scripts/push-to-kind.sh -i opentext/vertica-k8s:11.1.1-0-minimal
+	scripts/push-to-kind.sh -i opentext/vertica-k8s:12.0.2-0-minimal
+endif
+ifeq ($(LEG), operator-upgrade)
+	scripts/push-to-kind.sh -i opentext/verticadb-operator:2.1.0
+	scripts/push-to-kind.sh -i opentext/verticadb-operator:2.2.0
+	scripts/push-to-kind.sh -i opentext/verticadb-operator:24.4.0-0
+	scripts/push-to-kind.sh -i opentext/verticadb-operator:25.1.0-0
 endif
 endif
 

@@ -13,21 +13,18 @@
 
 apiVersion: apps/v1
 kind: StatefulSet
-metadata:
-  name: v-upgrade-vertica-defsc
-spec:
-  template:
-    spec:
-      containers:
-      - name: server
-        image: opentext/vertica-k8s:24.1.0-8-minimal
-status:
-  replicas: 3
-  readyReplicas: 3
 ---
-apiVersion: vertica.com/v1
-kind: VerticaDB
+apiVersion: v1
+kind: Service
 metadata:
-  name: v-upgrade-vertica
-spec:
-  image: opentext/vertica-k8s:24.1.0-8-minimal
+  labels:
+    app.kubernetes.io/managed-by: verticadb-operator
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  labels:
+    app.kubernetes.io/name: vertica
+    app.kubernetes.io/component: database
+    vertica.com/database: vertdb
+    app.kubernetes.io/instance: v-auto-cert-rotate

@@ -165,7 +165,7 @@ jobs:
           dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}
           vlogger-image: ${{ needs.build.outputs.vlogger-image }}
           operator-image: ${{ needs.build.outputs.operator-image }}
-          vertica-image: "opentext/vertica-k8s:23.4.0-0-minimal"
+          vertica-image: "docker.io/opentext/vertica-k8s:23.4.0-0-minimal"
           artifact-suffix: "-23.4.0-release"
           vertica-deployment-method: admintools
           communal-storage-type: azb
@@ -254,7 +254,7 @@ jobs:
           dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}
           vlogger-image: ${{ needs.build.outputs.vlogger-image }}
           operator-image: ${{ needs.build.outputs.operator-image }}
-          vertica-image: "opentext/vertica-k8s:12.0.4-0-minimal"
+          vertica-image: "docker.io/opentext/vertica-k8s:12.0.4-0-minimal"
           artifact-suffix: "-12.0.4-release"
           vertica-deployment-method: admintools
           communal-storage-type: hostpath
@@ -276,7 +276,7 @@ jobs:
           dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}
           vlogger-image: ${{ needs.build.outputs.vlogger-image }}
           operator-image: ${{ needs.build.outputs.operator-image }}
-          vertica-image: "opentext/vertica-k8s:12.0.4-0-minimal"
+          vertica-image: "docker.io/opentext/vertica-k8s:12.0.4-0-minimal"
           artifact-suffix: "-12.0.4-release"
           vertica-deployment-method: admintools
           communal-storage-type: hostpath
@@ -363,7 +363,7 @@ jobs:
           dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}
           vlogger-image: ${{ needs.build.outputs.vlogger-image }}
           operator-image: ${{ needs.build.outputs.operator-image }}
-          vertica-image: "opentext/vertica-k8s:24.1.0-0-minimal"
+          vertica-image: "docker.io/opentext/vertica-k8s:24.1.0-0-minimal"
           artifact-suffix: "-24.1.0-release"
           vertica-deployment-method: vclusterops
           communal-storage-type: hostpath
