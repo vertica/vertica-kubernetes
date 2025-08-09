@@ -61,14 +61,3 @@ metadata:
     meta.helm.sh/release-namespace: verticadb-operator
 status:
   readyReplicas: 1
----
-apiVersion: apps/v1
-kind: DaemonSet
-metadata:
-  name: vdb-op-alloy
-  namespace: verticadb-operator
-  annotations:
-    meta.helm.sh/release-name: vdb-op
-    meta.helm.sh/release-namespace: verticadb-operator
-status:
-  readyReplicas: 1
