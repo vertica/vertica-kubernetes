@@ -28,21 +28,17 @@ type nmaHealthWatchdogCancelQueryOp struct {
 	nmaHealthWatchdogCancelQueryData
 	hosts              []string
 	hostRequestBodyMap map[string]string
-	SessionID          string
-	StatementID        int64
-	cancelQuery        *HealthWatchdogCancelQueryResponse
+	cancelQuery        *[]HealthWatchdogCancelQueryResponse
 }
 
 func makeHealthWatchdogCancelQueryOp(hosts []string, usePassword bool,
 	healthWatchdogCancelQueryData *nmaHealthWatchdogCancelQueryData,
-	healthWatchdogCancelQueryResp *HealthWatchdogCancelQueryResponse) (nmaHealthWatchdogCancelQueryOp, error) {
+	healthWatchdogCancelQueryResp *[]HealthWatchdogCancelQueryResponse) (nmaHealthWatchdogCancelQueryOp, error) {
 	op := nmaHealthWatchdogCancelQueryOp{}
 	op.name = "NMAHealthWatchdogCancelQueryOp"
 	op.description = "CancelQuery health watchdog"
 	op.hosts = hosts
 	op.nmaHealthWatchdogCancelQueryData = *healthWatchdogCancelQueryData
-	op.SessionID = healthWatchdogCancelQueryData.SessionID
-	op.StatementID = healthWatchdogCancelQueryData.StatementID
 	op.cancelQuery = healthWatchdogCancelQueryResp
 
 	if usePassword {
@@ -59,26 +55,24 @@ func makeHealthWatchdogCancelQueryOp(hosts []string, usePassword bool,
 
 // Request data to be sent to NMA health watchdog cancel-query endpoint
 type nmaHealthWatchdogCancelQueryData struct {
-	DBName      string  `json:"dbname"`
-	UserName    string  `json:"username"`
-	Password    *string `json:"password"`
-	SessionID   string  `json:"session_id"`
-	StatementID int64   `json:"statement_id,omitempty"`
+	DBName   string                             `json:"dbname"`
+	UserName string                             `json:"username"`
+	Password *string                            `json:"password"`
+	Sessions []HealthWatchdogCancelQueryOptions `json:"sessions"`
 }
 
 // Create request body JSON string
 func (op *nmaHealthWatchdogCancelQueryOp) updateRequestBody(hosts []string) error {
+	// create json payload.
+	dataBytes, err := json.Marshal(op.nmaHealthWatchdogCancelQueryData)
+	if err != nil {
+		return fmt.Errorf("fail to marshal request data: %w", err)
+	}
+	requestBody := string(dataBytes)
 	op.hostRequestBodyMap = make(map[string]string)
 
 	for _, host := range hosts {
-		op.nmaHealthWatchdogCancelQueryData.SessionID = op.SessionID
-		op.nmaHealthWatchdogCancelQueryData.StatementID = op.StatementID
-		dataBytes, err := json.Marshal(op.nmaHealthWatchdogCancelQueryData)
-		if err != nil {
-			return fmt.Errorf("[%s] fail to marshal request data to JSON string, detail %w", op.name, err)
-		}
-
-		op.hostRequestBodyMap[host] = string(dataBytes)
+		op.hostRequestBodyMap[host] = requestBody
 	}
 
 	return nil
@@ -120,6 +114,10 @@ func (op *nmaHealthWatchdogCancelQueryOp) finalize(_ *opEngineExecContext) error
 	return nil
 }
 
+// processResult processes the results from all hosts for the cluster-wide cancel query operation.
+// It assumes the cancellation is successful for the entire cluster and returns immediately
+// upon receiving the first valid success response from any single host. If all hosts
+// fail, it returns an aggregated error.
 func (op *nmaHealthWatchdogCancelQueryOp) processResult(_ *opEngineExecContext) error {
 	var allErrs error
 
@@ -131,12 +129,15 @@ func (op *nmaHealthWatchdogCancelQueryOp) processResult(_ *opEngineExecContext) 
 				op.name, host)
 		}
 
+		// Collect errors from failed nodes and continue with next host.
 		if !result.isPassing() {
 			allErrs = errors.Join(allErrs, result.err)
 			continue
 		}
 
-		healthWatchdogResponse := HealthWatchdogCancelQueryResponse{}
+		// parse the successful response from the host.
+		// If parsing fails and continue with next host.
+		var healthWatchdogResponse []HealthWatchdogCancelQueryResponse
 		err := op.parseAndCheckResponse(host, result.content, &healthWatchdogResponse)
 		if err != nil {
 			allErrs = errors.Join(allErrs, err)
@@ -144,6 +145,8 @@ func (op *nmaHealthWatchdogCancelQueryOp) processResult(_ *opEngineExecContext) 
 		}
 
 		// "return" cancel-query via pointer
+		// A valid response was received from one host.
+		// Because cancellation is a cluster-wide action, return immediately.
 		if op.cancelQuery != nil {
 			*op.cancelQuery = healthWatchdogResponse
 		}
