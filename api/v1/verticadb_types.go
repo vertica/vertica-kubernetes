@@ -282,6 +282,7 @@ type VerticaDBSpec struct {
 	PodSecurityContext *corev1.PodSecurityContext `json:"podSecurityContext,omitempty"`
 
 	// +kubebuilder:validation:Optional
+	// +kubebuilder:default:={}
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:advanced"
 	// Allow users to specify TLS version and cipher suites. Version 2 (TLS1.2) and 3 (TLS1.3) are supported.
 	// The cipher suites must match the TLS version.
