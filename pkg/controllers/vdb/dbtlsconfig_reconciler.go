@@ -187,7 +187,7 @@ func (t *DBTLSConfigReconciler) updateCipherSuites(ctx context.Context, initiato
 func (t *DBTLSConfigReconciler) pollHTTPS(ctx context.Context, upHosts, mainClusterHosts []string) error {
 	opts := []pollhttps.Option{
 		pollhttps.WithInitiators(upHosts),
-		pollhttps.WithMainClusterHosts(mainClusterHosts),
+		pollhttps.WithMainClusterHosts(strings.Join(mainClusterHosts, ",")),
 	}
 	return t.Dispatcher.PollHTTPS(ctx, opts...)
 }

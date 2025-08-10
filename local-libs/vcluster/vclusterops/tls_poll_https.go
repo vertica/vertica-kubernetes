@@ -17,6 +17,7 @@ package vclusterops
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/vertica/vcluster/vclusterops/util"
 	"github.com/vertica/vcluster/vclusterops/vlog"
@@ -24,7 +25,8 @@ import (
 
 type VPollHTTPSOptions struct {
 	DatabaseOptions
-	MainClusterHosts []string
+	MainClusterInitiator string
+	SyncCatalogRequired  bool
 }
 
 func VPollHTTPSOptionsFactory() VPollHTTPSOptions {
@@ -53,7 +55,6 @@ func (opt *VPollHTTPSOptions) validateAnalyzeOptions(log vlog.Printer) error {
 	if err := opt.setUsePasswordAndValidateUsernameIfNeeded(log); err != nil {
 		return err
 	}
-	opt.usePassword = false
 	log.Info("Certificate authentication for HTTPS ops", "isEnabled", !opt.usePassword)
 	return nil
 }
@@ -64,7 +65,7 @@ func (vcc VClusterCommands) VPollHTTPS(options *VPollHTTPSOptions) error {
 	if optError != nil {
 		return optError
 	}
-	mainClusterHosts := options.MainClusterHosts
+	mainClusterHosts := strings.Split(options.MainClusterInitiator, ",")
 	upHosts := options.Hosts
 	expectedTLSConfigInfo := &tlsConfigInfo{
 		Digest:      "",
@@ -82,11 +83,13 @@ func (vcc VClusterCommands) VPollHTTPS(options *VPollHTTPSOptions) error {
 	}
 	var instructions []clusterOp
 	instructions = append(instructions, &nmaGetTLSConfigDigestOp, &httpsPollCertHealthOp)
-	httpsSyncCatalogOp, err2 := makeHTTPSSyncCatalogOp(mainClusterHosts, true, options.UserName, options.Password, CreateDBSyncCat)
-	if err2 != nil {
-		return err2
+	if options.SyncCatalogRequired {
+		httpsSyncCatalogOp, err2 := makeHTTPSSyncCatalogOp(mainClusterHosts, true, options.UserName, options.Password, CreateDBSyncCat)
+		if err2 != nil {
+			return err2
+		}
+		instructions = append(instructions, &httpsSyncCatalogOp)
 	}
-	instructions = append(instructions, &httpsSyncCatalogOp)
 	newCertsDatabaseOptions := options.DatabaseOptions
 	newCertsDatabaseOptions.Key = options.Key
 	newCertsDatabaseOptions.Cert = options.Cert
@@ -97,6 +100,6 @@ func (vcc VClusterCommands) VPollHTTPS(options *VPollHTTPSOptions) error {
 	if runError != nil {
 		return fmt.Errorf("failed to restart HTTPS service with new tls version or cipher suites: %w", runError)
 	}
-	vcc.Log.Info("Polling for HTTPS serve succeeded.", "new digest", expectedTLSConfigInfo.Digest)
+	vcc.Log.Info("Polling for HTTPS service succeeded.", "new digest", expectedTLSConfigInfo.Digest)
 	return nil
 }
