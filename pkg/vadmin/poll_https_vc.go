@@ -58,6 +58,6 @@ func (v *VClusterOps) genPollHTTPSOptions(s *pollhttps.Parms,
 	if v.Password != "" {
 		opts.Password = &v.Password
 	}
-	opts.MainClusterHosts = s.MainClusterHosts
+	opts.MainClusterInitiator = s.MainClusterHosts
 	return &opts
 }
