@@ -16,8 +16,9 @@
 package pollhttps
 
 type Parms struct {
-	InitiatorIPs     []string
-	MainClusterHosts []string
+	InitiatorIPs       []string
+	MainClusterHosts   string
+	SyncCatalogRequire bool
 }
 
 // Option is a function that configures a Parms instance.
@@ -30,7 +31,7 @@ func (p *Parms) Make(opts ...Option) {
 	}
 }
 
-func WithMainClusterHosts(podIPs []string) Option {
+func WithMainClusterHosts(podIPs string) Option {
 	return func(p *Parms) {
 		p.MainClusterHosts = podIPs
 	}
@@ -39,5 +40,11 @@ func WithMainClusterHosts(podIPs []string) Option {
 func WithInitiators(podIPs []string) Option {
 	return func(p *Parms) {
 		p.InitiatorIPs = podIPs
+	}
+}
+
+func WithSyncCatalogRequired(syncCatalogRequired bool) Option {
+	return func(p *Parms) {
+		p.SyncCatalogRequire = syncCatalogRequired
 	}
 }
