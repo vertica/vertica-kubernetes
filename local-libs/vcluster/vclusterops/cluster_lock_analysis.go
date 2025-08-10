@@ -23,7 +23,7 @@ import (
 	"time"
 
 	mapset "github.com/deckarep/golang-set/v2"
-	"github.com/vertica/vcluster/vclusterops/vlog"
+	vlog "github.com/vertica/vcluster/vclusterops/vlog"
 )
 
 type NodeLockEvents struct {
@@ -32,8 +32,8 @@ type NodeLockEvents struct {
 	WaitStartTime   string            `json:"wait_start_time"`
 	WaitEndTime     string            `json:"wait_end_time"`
 	TotalWaitEvents int               `json:"total_wait_events"`
-	LockWaitEvents  *[]dcLockAttempts `json:"wait_locks"`
-	LockHoldEvents  *[]dcLockReleases `json:"hold_locks"` // hold locks related to earliest wait locks
+	LockWaitEvents  *[]DcLockAttempts `json:"wait_locks"`
+	LockHoldEvents  *[]DcLockReleases `json:"hold_locks"` // hold locks related to earliest wait locks
 }
 
 type parsedEvent struct {
@@ -112,12 +112,12 @@ func parseCustomDuration(timeStr string) (time.Duration, error) {
 
 // getLockAttempts gets the lock attempts events from the database.
 func (opt *VClusterHealthOptions) getLockAttempts(logger vlog.Printer, upHosts []string,
-	startTime, endTime string) (lockAttempts *[]dcLockAttempts, err error) {
+	startTime, endTime string) (lockAttempts *[]DcLockAttempts, err error) {
 	var instructions []clusterOp
 
 	nmaLockAttemptsOp, err := makeNMALockAttemptsOp(upHosts, opt.DatabaseOptions.UserName,
 		opt.DatabaseOptions.DBName, opt.DatabaseOptions.Password,
-		startTime, endTime, "" /*node name*/, opt.LockAttemptThresHold, lockAttemptsLimit)
+		startTime, endTime, "" /*node name*/, opt.LockAttemptThresHold, lockAttemptsLimit, opt.IsDebug)
 	if err != nil {
 		return nil, err
 	}
@@ -133,11 +133,11 @@ func (opt *VClusterHealthOptions) getLockAttempts(logger vlog.Printer, upHosts [
 
 // getLockReleases gets the lock releases events from the database.
 func (opt *VClusterHealthOptions) getLockReleases(logger vlog.Printer,
-	upHosts []string, startTime, endTime string) (lockReleases *[]dcLockReleases, err error) {
+	upHosts []string, startTime, endTime string) (lockReleases *[]DcLockReleases, err error) {
 	var instructions []clusterOp
 	nmaLockAttemptsOp, err := makeNMALockReleasesOp(upHosts, opt.DatabaseOptions.UserName,
 		opt.DatabaseOptions.DBName, opt.DatabaseOptions.Password,
-		startTime, endTime, "", lockReleasesLimit, opt.LockReleaseThresHold)
+		startTime, endTime, "", lockReleasesLimit, opt.LockReleaseThresHold, opt.IsDebug)
 	if err != nil {
 		return nil, err
 	}
@@ -152,7 +152,7 @@ func (opt *VClusterHealthOptions) getLockReleases(logger vlog.Printer,
 }
 
 // parseAttemptsEvents parses the lock attempts events and groups them by node name.
-func parseAttemptsEvents(events *[]dcLockAttempts) (map[string][]parsedEvent, error) {
+func parseAttemptsEvents(events *[]DcLockAttempts) (map[string][]parsedEvent, error) {
 	if events == nil || len(*events) == 0 {
 		return nil, nil
 	}
@@ -161,6 +161,10 @@ func parseAttemptsEvents(events *[]dcLockAttempts) (map[string][]parsedEvent, er
 
 	for i := range *events {
 		e := &(*events)[i]
+		if e.StartTime == "" || e.Duration == "" {
+			// if startTime or duration is not provided, skip this event
+			continue
+		}
 		start, err := time.Parse(timeLayout, e.StartTime)
 		if err != nil {
 			return nil, fmt.Errorf("invalid StartTime: %v", err)
@@ -187,16 +191,20 @@ func parseAttemptsEvents(events *[]dcLockAttempts) (map[string][]parsedEvent, er
 }
 
 // parseReleasesEvents parses the lock releases events and groups them by node name.
-func parseReleasesEvents(events *[]dcLockReleases) (map[string][]parsedEvent, error) {
+func parseReleasesEvents(events *[]DcLockReleases) (map[string][]parsedEvent, error) {
 	if events == nil || len(*events) == 0 {
 		return nil, nil
 	}
 	var parsed []parsedEvent
 	for i := range *events {
 		e := &(*events)[i]
+		if e.GrantTime == "" || e.Duration == "" || e.Time == "" {
+			// if GrantTime or Duration or Time is not provided, skip this event
+			continue
+		}
 		start, err := time.Parse(timeLayout, e.GrantTime)
 		if err != nil {
-			return nil, fmt.Errorf("invalid StartTime: %v", err)
+			return nil, fmt.Errorf("invalid GrantTime: %v", err)
 		}
 		dur, err := parseCustomDuration(e.Duration)
 		if err != nil {
@@ -436,10 +444,10 @@ func (opt *VClusterHealthOptions) processNodeEvents(logger vlog.Printer, nodeNam
 	logger.Info(logMessage)
 }
 
-func extractLockWaitEvents(nodeLockWaitSeries []parsedEvent) []dcLockAttempts {
-	lockWaitEvents := make([]dcLockAttempts, 0)
+func extractLockWaitEvents(nodeLockWaitSeries []parsedEvent) []DcLockAttempts {
+	lockWaitEvents := make([]DcLockAttempts, 0)
 	for _, event := range nodeLockWaitSeries {
-		if originalEvent, ok := event.Original.(dcLockAttempts); ok {
+		if originalEvent, ok := event.Original.(DcLockAttempts); ok {
 			lockWaitEvents = append(lockWaitEvents, originalEvent)
 		}
 	}
@@ -450,10 +458,10 @@ func extractLockWaitEvents(nodeLockWaitSeries []parsedEvent) []dcLockAttempts {
 	return lockWaitEvents
 }
 
-func extractLockHoldEvents(nodeLockHoldSeries []parsedEvent) []dcLockReleases {
-	lockHoldEvents := make([]dcLockReleases, 0)
+func extractLockHoldEvents(nodeLockHoldSeries []parsedEvent) []DcLockReleases {
+	lockHoldEvents := make([]DcLockReleases, 0)
 	for _, event := range nodeLockHoldSeries {
-		if originalEvent, ok := event.Original.(dcLockReleases); ok {
+		if originalEvent, ok := event.Original.(DcLockReleases); ok {
 			lockHoldEvents = append(lockHoldEvents, originalEvent)
 		}
 	}
