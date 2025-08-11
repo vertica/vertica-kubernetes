@@ -206,6 +206,7 @@ func (vcc VClusterCommands) VRotateTLSCerts(options *VRotateTLSCertsOptions) err
 			upHosts = append(upHosts, host)
 			if _, exists := seenSandboxes[sandbox]; !exists {
 				initiatorHosts = append(initiatorHosts, host)
+				seenSandboxes[sandbox] = struct{}{}
 			}
 			if len(mainClusterHosts) == 0 && sandbox == util.MainClusterSandbox {
 				mainClusterHosts = append(mainClusterHosts, host)
