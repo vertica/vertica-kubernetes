@@ -45,6 +45,7 @@ on:
         - admintools udx
         - vcluster leg 1
         - vcluster leg 2
+        - vcluster leg 2 cert
         - vcluster leg 3
         - vcluster leg 3 cert
         - vcluster leg 4
