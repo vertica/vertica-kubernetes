@@ -113,8 +113,8 @@ func (v *VClusterOps) genCreateDBOptions(s *createdb.Parms, certs *tls.HTTPSCert
 	opts.Cert = certs.Cert
 	opts.CaCert = certs.CaCert
 	opts.UserName = v.VDB.GetVerticaUser()
-	if v.Password != "" {
-		opts.Password = &v.Password
+	if v.Password != nil {
+		opts.Password = v.Password
 	}
 
 	// Timeout

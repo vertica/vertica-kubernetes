@@ -62,7 +62,7 @@ var _ = Describe("altersandbox_reconciler", func() {
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		fpr := &cmds.FakePodRunner{}
-		pFacts := podfacts.MakePodFacts(vdbRec, fpr, logger, TestPassword)
+		pFacts := podfacts.MakePodFacts(vdbRec, fpr, logger, &testPassword)
 		pFacts.SandboxName = sandbox1
 		Expect(pFacts.Collect(ctx, vdb)).Should(Succeed())
 		for _, sc := range vdb.Spec.Subclusters {

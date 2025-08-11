@@ -72,7 +72,7 @@ func (s *ServiceMonitorReconciler) reconcileBasicAuth(ctx context.Context) error
 
 	err := s.VRec.GetClient().Get(ctx, nm, curSec)
 	if err != nil && kerrors.IsNotFound(err) {
-		password := ""
+		var password *string
 		if s.Vdb.Spec.PasswordSecret != "" {
 			password, err = vk8s.GetSuperuserPassword(ctx, s.VRec.Client, s.Log, s.VRec, s.Vdb)
 			if err != nil {

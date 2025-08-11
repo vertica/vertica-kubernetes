@@ -45,6 +45,8 @@ var testEnv *envtest.Environment
 
 const TestPassword = "test-pw"
 
+var testPassword = TestPassword
+
 func TestAPIs(t *testing.T) {
 	RegisterFailHandler(Fail)
 

@@ -204,6 +204,8 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 	// Note, we run the StatusReconciler multiple times. This allows us to
 	// refresh the status of the vdb as we do operations that affect it.
 	return []controllers.ReconcileActor{
+		// Check password secret and update status if needed
+		MakePasswordSecretReconciler(r, log, vdb, prunner, pfacts),
 		// Log an event if we are in a crash loop due to a bad deployment type
 		// chosen. This should be at or near the top as it will help with error
 		// detection when we can't even run anything in the pod. So any
@@ -276,6 +278,7 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		MakeImageVersionReconciler(r, log, vdb, prunner, pfacts, false /* enforceUpgradePath */, nil, false),
 		// Handles restart + re_ip of vertica
 		MakeRestartReconciler(r, log, vdb, prunner, pfacts, true, dispatcher),
+		// Check the password secret and update it if needed
 		MakeMetricReconciler(r, log, vdb, prunner, pfacts),
 		MakeStatusReconcilerWithShutdown(r.Client, r.Scheme, log, vdb, pfacts),
 		// Ensure we add labels to any pod rescheduled so that Service objects route traffic to it.
@@ -369,7 +372,7 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 }
 
 // GetSuperuserPassword returns the superuser password if it has been provided
-func (r *VerticaDBReconciler) GetSuperuserPassword(ctx context.Context, log logr.Logger, vdb *vapi.VerticaDB) (string, error) {
+func (r *VerticaDBReconciler) GetSuperuserPassword(ctx context.Context, log logr.Logger, vdb *vapi.VerticaDB) (*string, error) {
 	return vk8s.GetSuperuserPassword(ctx, r.Client, log, r, vdb)
 }
 
@@ -393,7 +396,7 @@ func (r *VerticaDBReconciler) checkShardToNodeRatio(vdb *vapi.VerticaDB, sc *vap
 
 // makeDispatcher will create a Dispatcher object based on the feature flags set.
 func (r *VerticaDBReconciler) makeDispatcher(log logr.Logger, vdb *vapi.VerticaDB, prunner cmds.PodRunner,
-	passwd string) vadmin.Dispatcher {
+	passwd *string) vadmin.Dispatcher {
 	if vmeta.UseVClusterOps(vdb.Annotations) {
 		return vadmin.MakeVClusterOps(log, vdb, r.Client, passwd, r.EVRec, vadmin.SetupVClusterOps, r.CacheManager)
 	}

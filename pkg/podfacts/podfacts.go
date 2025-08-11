@@ -203,7 +203,7 @@ type PodFacts struct {
 	NeedCollection     bool
 	SandboxName        string
 	OverrideFunc       CheckerFunc // Set this if you want to be able to control the PodFact
-	VerticaSUPassword  string
+	VerticaSUPassword  *string
 	CacheManager       cache.CacheManager // Cache manager to use for fetching node details
 }
 
@@ -237,21 +237,21 @@ const (
 )
 
 // MakePodFacts will create a PodFacts object and return it
-func MakePodFactsWithCacheManager(vrec config.ReconcilerInterface, prunner cmds.PodRunner, log logr.Logger, password string,
+func MakePodFactsWithCacheManager(vrec config.ReconcilerInterface, prunner cmds.PodRunner, log logr.Logger, password *string,
 	cacheManager cache.CacheManager) PodFacts {
 	return PodFacts{VRec: vrec, PRunner: prunner, Log: log, NeedCollection: true, Detail: make(PodFactDetail),
 		VerticaSUPassword: password, SandboxName: vapi.MainCluster, CacheManager: cacheManager}
 }
 
 // MakePodFacts will create a PodFacts object and return it. This is mainly for test cases.
-func MakePodFacts(vrec config.ReconcilerInterface, prunner cmds.PodRunner, log logr.Logger, password string) PodFacts {
+func MakePodFacts(vrec config.ReconcilerInterface, prunner cmds.PodRunner, log logr.Logger, password *string) PodFacts {
 	return PodFacts{VRec: vrec, PRunner: prunner, Log: log, NeedCollection: true, Detail: make(PodFactDetail),
 		VerticaSUPassword: password, SandboxName: vapi.MainCluster}
 }
 
 // MakePodFactsForSandbox will create a PodFacts object for a sandbox
 func MakePodFactsForSandboxWithCacheManager(vrec config.ReconcilerInterface, prunner cmds.PodRunner, log logr.Logger,
-	password, sandbox string, cacheManager cache.CacheManager) PodFacts {
+	password *string, sandbox string, cacheManager cache.CacheManager) PodFacts {
 	pf := MakePodFactsWithCacheManager(vrec, prunner, log, password, cacheManager)
 	pf.SandboxName = sandbox
 	return pf

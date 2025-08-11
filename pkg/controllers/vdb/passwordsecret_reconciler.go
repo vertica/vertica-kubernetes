@@ -105,7 +105,7 @@ func (a *PasswordSecretReconciler) updatePasswordSecret(ctx context.Context) (ct
 	}
 
 	sb := strings.Builder{}
-	sb.WriteString(fmt.Sprintf(`ALTER USER %s IDENTIFIED BY '%s';`, dbUser, passwd))
+	sb.WriteString(fmt.Sprintf(`ALTER USER %s IDENTIFIED BY '%s';`, dbUser, *passwd))
 
 	cmd := []string{"-tAc", sb.String()}
 	stdout, stderr, err := a.PRunner.ExecVSQL(ctx, pf.GetName(), names.ServerContainer, cmd...)

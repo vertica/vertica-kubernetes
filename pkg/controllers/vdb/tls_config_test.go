@@ -44,7 +44,7 @@ var _ = Describe("tls_config", func() {
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
 
 		fpr := &cmds.FakePodRunner{}
-		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
+		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, &testPassword)
 		recon := MakeTLSConfigManager(vdbRec, logger, vdb, "HTTP", dispatcher)
 
 		recon.CurrentSecret = "secret1"
@@ -61,7 +61,7 @@ var _ = Describe("tls_config", func() {
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
 		fpr := &cmds.FakePodRunner{}
-		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
+		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, &testPassword)
 		manager := MakeTLSConfigManager(vdbRec, logger, vdb, tlsConfigHTTPS, dispatcher)
 
 		manager.CurrentSecret = oldSecret
@@ -76,7 +76,7 @@ var _ = Describe("tls_config", func() {
 	It("should detect TLS mode change", func() {
 		vdb := vapi.MakeVDB()
 		fpr := &cmds.FakePodRunner{}
-		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
+		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, &testPassword)
 		manager := MakeTLSConfigManager(vdbRec, logger, vdb, tlsConfigHTTPS, dispatcher)
 
 		manager.CurrentSecret = newSecret
@@ -166,7 +166,7 @@ var _ = Describe("tls_config", func() {
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
 		fpr := &cmds.FakePodRunner{}
-		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
+		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, &testPassword)
 		manager := MakeTLSConfigManager(vdbRec, logger, vdb, tlsConfigHTTPS, dispatcher)
 
 		err := fmt.Errorf("random error")

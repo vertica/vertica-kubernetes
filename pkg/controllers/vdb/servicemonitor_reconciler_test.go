@@ -175,7 +175,7 @@ var _ = Describe("servicemonitor_reconciler", func() {
 			Log:  logger,
 		}
 		secName := names.GenBasicauthSecretName(vdb)
-		sec := builder.BuildBasicAuthSecret(vdb, secName.Name, vdb.GetVerticaUser(), "")
+		sec := builder.BuildBasicAuthSecret(vdb, secName.Name, vdb.GetVerticaUser(), &testPassword)
 		Expect(k8sClient.Create(ctx, sec)).Should(Succeed())
 		defer func() { _ = k8sClient.Delete(ctx, sec) }()
 

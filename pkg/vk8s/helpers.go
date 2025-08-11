@@ -28,19 +28,21 @@ import (
 )
 
 // getPasswordFromSecret retrieves the password from the secret using the provided key
-func getPasswordFromSecret(secret map[string][]byte, key string) (string, error) {
+func getPasswordFromSecret(secret map[string][]byte, key string) (*string, error) {
+	var passwd string
 	pwd, ok := secret[key]
+	passwd = string(pwd)
 	if !ok {
-		return "", fmt.Errorf("password not found, secret must have a key with name %q", key)
+		return nil, fmt.Errorf("password not found, secret must have a key with name %q", key)
 	}
-	return string(pwd), nil
+	return &passwd, nil
 }
 
 // GetSuperuserPassword returns the superuser password if it has been provided
 func GetSuperuserPassword(ctx context.Context, cl client.Client, log logr.Logger,
-	e events.EVWriter, vdb *vapi.VerticaDB) (string, error) {
+	e events.EVWriter, vdb *vapi.VerticaDB) (*string, error) {
 	if vdb.Spec.PasswordSecret == "" {
-		return "", nil
+		return nil, nil
 	}
 
 	fetcher := cloud.SecretFetcher{
@@ -51,7 +53,7 @@ func GetSuperuserPassword(ctx context.Context, cl client.Client, log logr.Logger
 	}
 	secret, err := fetcher.Fetch(ctx, names.GenSUPasswdSecretName(vdb))
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	return getPasswordFromSecret(secret, names.SuperuserPasswordKey)
@@ -61,7 +63,7 @@ func GetSuperuserPassword(ctx context.Context, cl client.Client, log logr.Logger
 func GetCustomSuperuserPassword(ctx context.Context, cl client.Client, log logr.Logger,
 	e events.EVWriter, vdb *vapi.VerticaDB,
 	customPasswordSecret,
-	customPasswordSecretKey string) (string, error) {
+	customPasswordSecretKey string) (*string, error) {
 	fetcher := cloud.SecretFetcher{
 		Client:   cl,
 		Log:      log,
@@ -71,7 +73,7 @@ func GetCustomSuperuserPassword(ctx context.Context, cl client.Client, log logr.
 	secret, err := fetcher.Fetch(ctx,
 		names.GenNamespacedName(vdb, customPasswordSecret))
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	return getPasswordFromSecret(secret, customPasswordSecretKey)
 }

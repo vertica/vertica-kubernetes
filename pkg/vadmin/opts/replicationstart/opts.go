@@ -22,7 +22,7 @@ type Parms struct {
 	TargetIP          string
 	TargetDBName      string
 	TargetUserName    string
-	TargetPassword    string
+	TargetPassword    *string
 	SourceTLSConfig   string
 	SourceSandboxName string
 	Async             bool
@@ -71,7 +71,7 @@ func WithTargetUserName(targetUserName string) Option {
 	}
 }
 
-func WithTargetPassword(targetPassword string) Option {
+func WithTargetPassword(targetPassword *string) Option {
 	return func(s *Parms) {
 		s.TargetPassword = targetPassword
 	}

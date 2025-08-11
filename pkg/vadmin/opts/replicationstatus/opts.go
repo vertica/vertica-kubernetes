@@ -20,7 +20,7 @@ type Parms struct {
 	TargetIP       string
 	TargetDBName   string
 	TargetUserName string
-	TargetPassword string
+	TargetPassword *string
 	TransactionID  int64
 }
 
@@ -51,7 +51,7 @@ func WithTargetUserName(targetUserName string) Option {
 	}
 }
 
-func WithTargetPassword(targetPassword string) Option {
+func WithTargetPassword(targetPassword *string) Option {
 	return func(s *Parms) {
 		s.TargetPassword = targetPassword
 	}
