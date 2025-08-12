@@ -222,7 +222,7 @@ grafana:
   namespaceOverride: ""
 
   adminUser: admin
-  adminPassword: admin
+  adminPassword: adminadminadmin
 
   admin:
     ## Name of the secret. Can be templated.
@@ -301,6 +301,11 @@ grafana:
           isDefault: true
           jsonData:
             tlsSkipVerify: true 
+        - name: Loki
+          type: loki
+          url: http://{{ .Release.Name }}-loki-gateway.{{ .Release.Namespace }}.svc.cluster.local:80
+          access: proxy
+          isDefault: false
 
 prometheusServer:
   enabled: false # Set to true if you want to deploy Prometheus server
@@ -467,3 +472,170 @@ prometheusServer:
       nodeExporterRecording: false
       prometheus: false
       prometheusOperator: false
+
+loki:
+  enabled: false # Set to true if you want to deploy loki
+
+  loki:
+    compactor:
+      retention_enabled: true
+      working_directory: /var/loki/compactor # Specify a working directory for the compactor
+      compaction_interval: 10m # The compactor runs every 10 minutes
+      retention_delete_delay: 2h # Deletion of chunks is delayed by 2 hours after the retention period expires
+      delete_request_store: filesystem # Store delete requests locally on disk
+
+    limits_config:
+      retention_period: 720h # 30 days
+
+    auth_enabled: false
+    commonConfig:
+      replication_factor: 1
+
+    schemaConfig:
+      configs:
+        - from: 2024-04-01
+          store: tsdb
+          object_store: filesystem
+          schema: v13
+          index:
+            prefix: loki_index_
+            period: 24h
+
+    storage:
+      type: filesystem
+      filesystem:
+        chunks_directory: "/var/loki/chunks" # Directory for storing log data chunks
+
+    limits_config:
+      allow_structured_metadata: true
+      volume_enabled: true
+  
+  # disable cache
+  memcached:
+    enabled: false
+  chunksCache:
+    enabled: false
+  resultsCache:
+    enabled: false
+
+  # use filesystem
+  minio:
+    enabled: false
+  # disable canary to skip health check
+  lokiCanary:
+    enabled: false
+  # disable test or you can not disable canary
+  test:
+    enabled: false
+
+  deploymentMode: SingleBinary
+  singleBinary:
+    replicas: 1
+  
+  # Zero out replica counts of other deployment modes
+  backend:
+    replicas: 0
+  read:
+    replicas: 0
+  write:
+    replicas: 0
+  
+  ingester:
+    replicas: 0
+  querier:
+    replicas: 0
+  queryFrontend:
+    replicas: 0
+  queryScheduler:
+    replicas: 0
+  distributor:
+    replicas: 0
+  compactor:
+    replicas: 0
+  indexGateway:
+    replicas: 0
+  bloomCompactor:
+    replicas: 0
+  bloomGateway:
+    replicas: 0
+
+alloy:
+  enabled: false
+
+  # Define the number of replicas for the deployment.
+  replicaCount: 1
+  
+  # Grafana Alloy specific configuration
+  alloy:
+    configMap:
+      content: |-
+        loki.write "default" {
+          endpoint {
+            url = "http://{{ .Release.Name }}-loki-gateway.{{ .Release.Namespace }}.svc.cluster.local/loki/api/v1/push"
+          }
+        }
+
+        // discovery.kubernetes allows you to find scrape targets from Kubernetes resources.
+        discovery.kubernetes "vertica_pods" {
+          role = "pod"
+          selectors {
+            role = "pod"
+            label = "app.kubernetes.io/name in (vertica, verticadb-operator)"
+          }
+        }
+
+        // discovery.relabel rewrites the label set of the input targets by applying one or more relabeling rules.
+        discovery.relabel "pod_logs" {
+          targets = discovery.kubernetes.vertica_pods.targets
+
+          // Label creation - "namespace" field from "__meta_kubernetes_namespace"
+          rule {
+            source_labels = ["__meta_kubernetes_namespace"]
+            action = "replace"
+            target_label = "namespace"
+          }
+        }
+
+        // loki.source.kubernetes tails logs from Kubernetes containers using the Kubernetes API.
+        loki.source.kubernetes "pod_logs" {
+          targets    = discovery.relabel.pod_logs.output
+          forward_to = [loki.process.pod_logs.receiver]
+        }
+
+        loki.process "pod_logs" {
+          stage.static_labels {
+              values = {
+                cluster = "vertica",
+              }
+          }
+
+          forward_to = [loki.write.default.receiver]
+        }
+
+        // loki.source.kubernetes_events tails events from the Kubernetes API and converts them
+        // into log lines to forward to other Loki components.
+        loki.source.kubernetes_events "cluster_events" {
+          job_name   = "integrations/kubernetes/eventhandler"
+          log_format = "logfmt"
+          forward_to = [
+            loki.process.cluster_events.receiver,
+          ]
+        }
+
+        // loki.process receives log entries from other loki components, applies one or more processing stages,
+        // and forwards the results to the list of receivers in the component's arguments.
+        loki.process "cluster_events" {
+          forward_to = [loki.write.default.receiver]
+
+          stage.static_labels {
+            values = {
+              cluster = "vertica",
+            }
+          }
+
+          stage.labels {
+            values = {
+              kubernetes_cluster_events = "events",
+            }
+          }
+        }

@@ -11,39 +11,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: v1
-kind: Pod
-metadata:
-  namespace: verticadb-operator
-  labels:
-    control-plane: verticadb-operator
-status:
-  phase: Running
+apiVersion: apps/v1
+kind: StatefulSet
 ---
 apiVersion: v1
-kind: ConfigMap
+kind: Service
 metadata:
-  namespace: verticadb-operator
   labels:
-    control-plane: verticadb-operator
-data:
-  CONTROLLERS_ENABLED: "false"
-  WEBHOOKS_ENABLED: "true"
+    app.kubernetes.io/managed-by: verticadb-operator
 ---
 apiVersion: v1
-kind: Pod
+kind: Secret
 metadata:
   labels:
-    control-plane: verticadb-operator
-status:
-  phase: Running
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  labels:
-    control-plane: verticadb-operator
-data:
-  WEBHOOKS_ENABLED: "false"
-  CONTROLLERS_ENABLED: "true"
-  CONTROLLERS_SCOPE: "namespace"
+    app.kubernetes.io/name: vertica
+    app.kubernetes.io/component: database
+    vertica.com/database: vertdb
+    app.kubernetes.io/instance: v-auto-cert-rotate
