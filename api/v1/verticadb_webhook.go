@@ -174,6 +174,11 @@ func (v *VerticaDB) validateImmutableFields(old runtime.Object) field.ErrorList 
 	allErrs = v.checkValidTLSConfigUpdate(oldObj, allErrs)
 	allErrs = v.checkTLSModeCaseInsensitiveChange(oldObj, allErrs)
 	allErrs = v.checkValidSubclusterTypeTransition(oldObj, allErrs)
+	allErrs = v.checkSubclusterTypeChangeInShutdownSandbox(oldObj, allErrs)
+	allErrs = v.checkTypeChangeWithShutdownSubclusters(oldObj, allErrs)
+	allErrs = v.checkInvalidSubclusterTypeChange(oldObj, allErrs)
+	allErrs = v.checkSubclusterTypeChangeInSandbox(oldObj, allErrs)
+	allErrs = v.checkAtLeastOnePrimaryUnchanged(oldObj, allErrs)
 	allErrs = v.checkSandboxesDuringUpgrade(oldObj, allErrs)
 	allErrs = v.checkShutdownSandboxImage(oldObj, allErrs)
 	allErrs = v.checkShutdownForSandboxesToBeRemoved(oldObj, allErrs)
@@ -187,6 +192,228 @@ func (v *VerticaDB) validateImmutableFields(old runtime.Object) field.ErrorList 
 	return allErrs
 }
 
+// checkTypeChangeWithShutdownSubclusters checks for type changes when any subcluster is shutdown
+func (v *VerticaDB) checkTypeChangeWithShutdownSubclusters(oldObj *VerticaDB, allErrs field.ErrorList) field.ErrorList {
+	// Check if main cluster has any shutdown subcluster
+	hasShutdownSubcluster := false
+	for _, sc := range oldObj.Spec.Subclusters {
+		if sc.Shutdown {
+			hasShutdownSubcluster = true
+			break
+		}
+	}
+
+	// Check if any sandbox has a shutdown subcluster
+	for _, sandbox := range oldObj.Spec.Sandboxes {
+		if sandbox.Shutdown {
+			hasShutdownSubcluster = true
+			break
+		}
+
+		if hasShutdownSubcluster {
+			break
+		}
+	}
+
+	// If any subcluster is shutdown, prevent all type changes
+	if hasShutdownSubcluster {
+		nameToTypeMap := map[string]string{}
+		for i := range oldObj.Spec.Subclusters {
+			sc := oldObj.Spec.Subclusters[i]
+			nameToTypeMap[sc.Name] = sc.Type
+		}
+		for i, sc := range v.Spec.Subclusters {
+			oldType, ok := nameToTypeMap[sc.Name]
+			if !ok {
+				continue
+			}
+			if oldType != sc.Type {
+				err := field.Invalid(field.NewPath("spec").Child("subclusters").Index(i).Child("type"),
+					sc.Type,
+					"Cannot change type of any subcluster when main or sandbox has a subcluster in shutdown state")
+				allErrs = append(allErrs, err)
+			}
+		}
+	}
+	return allErrs
+}
+
+// checkInvalidSubclusterTypeChange prevents changing subcluster types to to sandboxprimary/secondary when updating a vdb
+func (v *VerticaDB) checkInvalidSubclusterTypeChange(oldObj *VerticaDB, allErrs field.ErrorList) field.ErrorList {
+	if oldObj == nil || !oldObj.existingObject() {
+		return allErrs
+	}
+
+	for i := range v.Spec.Subclusters {
+		sc := &v.Spec.Subclusters[i]
+		if sc.Type == SandboxPrimarySubcluster || sc.Type == SandboxSecondarySubcluster {
+			err := field.Invalid(field.NewPath("spec").Child("subclusters").Index(i).Child("type"),
+				sc.Type,
+				"Cannot change subcluster type to sandboxprimary or sandboxsecondary on update")
+			allErrs = append(allErrs, err)
+		}
+	}
+	return allErrs
+}
+
+// checkSubclusterTypeChangeInShutdownSandbox checks if subcluster types are being changed in shutdown sandboxes
+func (v *VerticaDB) checkSubclusterTypeChangeInShutdownSandbox(oldObj *VerticaDB, allErrs field.ErrorList) field.ErrorList {
+	nameToTypeMap := map[string]string{}
+	for i := range oldObj.Spec.Subclusters {
+		sc := oldObj.Spec.Subclusters[i]
+		nameToTypeMap[sc.Name] = sc.Type
+	}
+
+	// Check each subcluster in new spec against old type
+	for i := range v.Spec.Subclusters {
+		sc := v.Spec.Subclusters[i]
+		oldType, ok := nameToTypeMap[sc.Name]
+		if !ok {
+			continue // Skip new subclusters
+		}
+
+		// Check if subcluster is in a shutdown sandbox
+		for _, sandbox := range oldObj.Spec.Sandboxes {
+			if !sandbox.Shutdown {
+				continue
+			}
+			for _, sandboxSc := range sandbox.Subclusters {
+				if sandboxSc.Name == sc.Name && oldType != sc.Type {
+					err := field.Invalid(field.NewPath("spec").Child("subclusters").Index(i).Child("type"),
+						sc.Type,
+						fmt.Sprintf("Cannot change type of subcluster %q while it is in shutdown sandbox %q",
+							sc.Name, sandbox.Name))
+					allErrs = append(allErrs, err)
+					break // Break inner loop since we found the matching subcluster
+				}
+			}
+		}
+	}
+	return allErrs
+}
+
+// checkSubclusterTypeChangeInSandbox prevents changing type of any subcluster that is in a sandbox
+func (v *VerticaDB) checkSubclusterTypeChangeInSandbox(oldObj *VerticaDB, allErrs field.ErrorList) field.ErrorList {
+	if oldObj == nil || !oldObj.existingObject() {
+		return allErrs
+	}
+
+	// Create a map of old subcluster names to their types
+	nameToTypeMap := map[string]string{}
+	for i := range oldObj.Spec.Subclusters {
+		sc := oldObj.Spec.Subclusters[i]
+		nameToTypeMap[sc.Name] = sc.Type
+	}
+
+	// Check for type changes in sandboxed subclusters
+	for i := range v.Spec.Subclusters {
+		sc := &v.Spec.Subclusters[i]
+		oldType, exists := nameToTypeMap[sc.Name]
+		if !exists {
+			continue // Skip new subclusters
+		}
+
+		// Check if subcluster is in any sandbox
+		for _, sandbox := range v.Spec.Sandboxes {
+			for _, sandboxSc := range sandbox.Subclusters {
+				if sandboxSc.Name == sc.Name && oldType != sc.Type {
+					err := field.Invalid(field.NewPath("spec").Child("subclusters").Index(i).Child("type"),
+						sc.Type,
+						fmt.Sprintf("Cannot change type of subcluster %q while it is in sandbox %q",
+							sc.Name, sandbox.Name))
+					allErrs = append(allErrs, err)
+					break // Break inner loop since we found the matching subcluster
+				}
+			}
+		}
+	}
+	return allErrs
+}
+
+// checkAtLeastOnePrimaryUnchanged ensures at least one primary subcluster type remains unchanged
+// in both the main cluster and any sandbox clusters
+func (v *VerticaDB) checkAtLeastOnePrimaryUnchanged(oldObj *VerticaDB, allErrs field.ErrorList) field.ErrorList {
+	if oldObj == nil || !oldObj.existingObject() {
+		return allErrs
+	}
+
+	// Helper function to check if a subcluster type has changed
+	hasTypeChange := func(oldSc, newSc *Subcluster) bool {
+		return oldSc.Type != newSc.Type
+	}
+
+	// Helper function to check if a sandbox subcluster type has changed
+	hasSandboxTypeChange := func(oldSc, newSc *SandboxSubcluster) bool {
+		return oldSc.Type != newSc.Type
+	}
+
+	// Check main cluster
+	mainClusterHasUnchangedPrimary := false
+	for i := range v.Spec.Subclusters {
+		sc := &v.Spec.Subclusters[i]
+		if sc.Type != PrimarySubcluster {
+			continue
+		}
+		// Find corresponding old subcluster
+		for j := range oldObj.Spec.Subclusters {
+			oldSc := &oldObj.Spec.Subclusters[j]
+			if oldSc.Name == sc.Name && oldSc.Type == PrimarySubcluster && !hasTypeChange(oldSc, sc) {
+				mainClusterHasUnchangedPrimary = true
+				break
+			}
+		}
+	}
+
+	if !mainClusterHasUnchangedPrimary {
+		err := field.Invalid(field.NewPath("spec").Child("subclusters"),
+			"subclusters",
+			"At least one primary subcluster in the main cluster must remain as primary type during update")
+		allErrs = append(allErrs, err)
+	}
+
+	// Check each sandbox
+	for sandboxIdx := range v.Spec.Sandboxes {
+		sandbox := &v.Spec.Sandboxes[sandboxIdx]
+		// Find corresponding old sandbox
+		var oldSandbox *Sandbox
+		for oldSandboxIdx := range oldObj.Spec.Sandboxes {
+			if oldObj.Spec.Sandboxes[oldSandboxIdx].Name == sandbox.Name {
+				oldSandbox = &oldObj.Spec.Sandboxes[oldSandboxIdx]
+				break
+			}
+		}
+		if oldSandbox == nil {
+			continue // Skip new sandboxes
+		}
+
+		sandboxHasUnchangedPrimary := false
+		for i := range sandbox.Subclusters {
+			sc := &sandbox.Subclusters[i]
+			if sc.Type != "primary" {
+				continue
+			}
+			// Find corresponding old subcluster in sandbox
+			for j := range oldSandbox.Subclusters {
+				oldSc := &oldSandbox.Subclusters[j]
+				if oldSc.Name == sc.Name && oldSc.Type == "primary" && !hasSandboxTypeChange(oldSc, sc) {
+					sandboxHasUnchangedPrimary = true
+					break
+				}
+			}
+		}
+
+		if !sandboxHasUnchangedPrimary {
+			err := field.Invalid(field.NewPath("spec").Child("sandboxes").Index(sandboxIdx),
+				sandbox.Name,
+				fmt.Sprintf("At least one primary subcluster in sandbox %q must remain as primary type during update", sandbox.Name))
+			allErrs = append(allErrs, err)
+		}
+	}
+
+	return allErrs
+}
+
+// checkValidSubclusterTypeTransition checks that the subcluster types are valid during a transition.
 func (v *VerticaDB) checkValidSubclusterTypeTransition(oldObj *VerticaDB, allErrs field.ErrorList) field.ErrorList {
 	// Create a map of subclusterName -> type using the old object.
 	nameToTypeMap := map[string]string{}
@@ -230,6 +457,7 @@ func (v *VerticaDB) checkValidSubclusterTypeTransition(oldObj *VerticaDB, allErr
 			}
 		}
 	}
+
 	return allErrs
 }
 
