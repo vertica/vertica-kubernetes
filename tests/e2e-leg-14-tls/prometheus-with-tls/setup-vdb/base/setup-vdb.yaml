@@ -11,8 +11,26 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: kuttl.dev/v1beta1
-kind: TestStep
-commands:
-  - command: |
-      kubectl patch -n $NAMESPACE vdb v-base-upgrade --type=json --patch='[{"op": "replace", "path": "/spec/volumes/0/configMap/name", "value": "vdb-state-new-name"}, {"op": "replace", "path": "/spec/image", "value": "'$VERTICA_IMG'"}]'
+apiVersion: vertica.com/v1
+kind: VerticaDB
+metadata:
+  name: v-with-prom-tls
+  annotations:
+    vertica.com/include-uid-in-path: true
+    vertica.com/vcluster-ops: true
+    vertica.com/prometheus-scrape-interval: "5"
+spec:
+  image: kustomize-vertica-image
+  communal: {}
+  local:
+    requestSize: 250Mi
+  imagePullPolicy: IfNotPresent
+  passwordSecret: su-passwd
+  subclusters:
+    - name: pri1
+      size: 3
+      type: primary
+  certSecrets: []
+  imagePullSecrets: []
+  volumes: []
+  volumeMounts: []

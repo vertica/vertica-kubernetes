@@ -11,39 +11,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+
 apiVersion: v1
-kind: Pod
+kind: Secret
 metadata:
-  namespace: verticadb-operator
-  labels:
-    control-plane: verticadb-operator
-status:
-  phase: Running
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  namespace: verticadb-operator
-  labels:
-    control-plane: verticadb-operator
+  name: su-passwd
+type: Opaque
 data:
-  CONTROLLERS_ENABLED: "false"
-  WEBHOOKS_ENABLED: "true"
----
-apiVersion: v1
-kind: Pod
-metadata:
-  labels:
-    control-plane: verticadb-operator
-status:
-  phase: Running
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  labels:
-    control-plane: verticadb-operator
-data:
-  WEBHOOKS_ENABLED: "false"
-  CONTROLLERS_ENABLED: "true"
-  CONTROLLERS_SCOPE: "namespace"
+  username: ZGJhZG1pbg==
+  password: dG9wc2VjcmV0

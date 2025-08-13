@@ -11,8 +11,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: kuttl.dev/v1beta1
-kind: TestStep
-commands:
-  - command: |
-      kubectl patch -n $NAMESPACE vdb v-base-upgrade --type=json --patch='[{"op": "replace", "path": "/spec/volumes/0/configMap/name", "value": "vdb-state-new-name"}, {"op": "replace", "path": "/spec/image", "value": "'$VERTICA_IMG'"}]'
+apiVersion: v1
+kind: Pod
+metadata:
+  namespace: verticadb-operator
+  labels:
+    control-plane: verticadb-operator
+status:
+  phase: Running
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: verticadb-operator
+  annotations:
+    meta.helm.sh/release-name: vdb-op
+    meta.helm.sh/release-namespace: verticadb-operator
+status:
+  readyReplicas: 1

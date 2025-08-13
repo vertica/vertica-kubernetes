@@ -214,9 +214,15 @@ runs:
             export CONCURRENCY_SANDBOXCONFIGMAP=2
           fi
 
-          if [[ "${{ inputs.leg-identifier }}" == "leg-14" ]]; then
+           if [[ "${{ inputs.leg-identifier }}" == "leg-14" || \
+                "${{ inputs.leg-identifier }}" == "leg-14-tls" ]]; then
             export GRAFANA_ENABLED=true
             export PROMETHEUS_ENABLED=true
+          fi
+
+          if [[ "${{ inputs.leg-identifier }}" == "leg-14-loki" ]]; then
+            export GRAFANA_ENABLED=true
+            export LOKI_ENABLED=true
           fi
 
           # Set BASE_VERTICA_IMG based on $VERTICA_IMG

@@ -11,8 +11,5 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: kuttl.dev/v1beta1
-kind: TestStep
-commands:
-  - command: |
-      kubectl patch -n $NAMESPACE vdb v-base-upgrade --type=json --patch='[{"op": "replace", "path": "/spec/volumes/0/configMap/name", "value": "vdb-state-new-name"}, {"op": "replace", "path": "/spec/image", "value": "'$VERTICA_IMG'"}]'
+resources:
+  - setup-vdb.yaml
