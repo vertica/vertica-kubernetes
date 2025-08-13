@@ -886,9 +886,16 @@ $(ISTIOCTL):
 	curl --silent --show-error --retry 10 --retry-max-time 1800 --location --fail "https://github.com/istio/istio/releases/download/$(ISTIOCTL_VERSION)/istio-$(ISTIOCTL_VERSION)-$(GOOS)-$(GOARCH).tar.gz" | tar xvfz - istio-$(ISTIOCTL_VERSION)/bin/istioctl -O > $(ISTIOCTL)
 	chmod +x $(ISTIOCTL)
 
+CHARTS_DIR = $(OPERATOR_CHART)/charts
+
 .PHONY: helm-dependency-update
 helm-dependency-update: ## Update helm chart dependencies
-	helm dependency update $(OPERATOR_CHART)
+	@if [ -d "$(CHARTS_DIR)" ] && ls $(CHARTS_DIR)/*.tgz >/dev/null 2>&1; then \
+		echo "Helm dependencies already present in $(CHARTS_DIR), skipping update."; \
+	else \
+		echo "Helm dependencies missing, running helm dependency update..."; \
+		helm dependency update $(OPERATOR_CHART); \
+	fi
 
 
 ##@ Release
