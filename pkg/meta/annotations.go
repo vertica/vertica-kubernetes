@@ -240,13 +240,15 @@ const (
 
 	// This annotation forces a failure of the next TLS update cert rotation. There
 	// are two places where this can be forced:
-	//   "before_tls_update": fail before the secret has been updated in the DB
-	//   "after_tls_update": fail before the secret has been updated in the DB
+	//   "https_before_tls_update": fail before HTTPS secret has been updated in the DB
+	//   "https_after_tls_update": fail after HTTPS secret has been updated in the DB
+	//   "client_server": fail during client-server cert (which is always before secret has been updated in the DB)
 	// This annotation is internal only and should only be used for testing the
 	// rollback after failed cert rotation functionality
-	TriggerTLSUpdateFailureAnnotation      = "vertica.com/trigger-tls-update-failure"
-	TriggerTLSUpdateFailureBeforeTLSUpdate = "before_tls_update"
-	TriggerTLSUpdateFailureAfterTLSUpdate  = "after_tls_update"
+	TriggerTLSUpdateFailureAnnotation                  = "vertica.com/trigger-tls-update-failure"
+	TriggerTLSUpdateFailureBeforeHTTPSTLSUpdate        = "https_before_tls_update"
+	TriggerTLSUpdateFailureAfterHTTPSTLSUpdate         = "https_after_tls_update"
+	TriggerTLSUpdateFailureDuringClientServerTLSUpdate = "client_server"
 
 	// This annotation forces the automatic cert rotation to trigger now, instead of on
 	// a timer. It is internal and should be used only for testing.
