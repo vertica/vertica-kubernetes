@@ -81,7 +81,8 @@ func (v *VClusterOps) genRotateTLSCertsOptions(s *rotatetlscerts.Params, certs *
 	opts.IsEon = v.VDB.IsEON()
 
 	opts.RawHosts = append(opts.RawHosts, s.InitiatorIP)
-	v.Log.Info("Setup rotate tls cert options", "hosts", opts.RawHosts[0])
+	opts.UpHostToSandbox = s.UpHostToSandbox
+	v.Log.Info("Setup rotate tls cert options", "UpHostToSandbox", opts.UpHostToSandbox)
 	opts.IPv6 = net.IsIPv6(s.InitiatorIP)
 
 	opts.NewClientTLSConfig = vops.NewClientTLSConfig{

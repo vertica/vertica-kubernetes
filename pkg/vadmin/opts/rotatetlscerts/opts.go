@@ -44,6 +44,7 @@ type Params struct {
 	// This backdoor allows us to force a failure of cert rotation; this is used
 	// for testing purposes only. Can be set to "before_tls_update" or "after_tls_update"
 	NewForceFailure string
+	UpHostToSandbox map[string]string
 }
 
 type Option func(*Params)
@@ -121,5 +122,11 @@ func WithNewSecretManager(secretManager string) Option {
 func WithForceFailure(forceFailure string) Option {
 	return func(s *Params) {
 		s.NewForceFailure = forceFailure
+	}
+}
+
+func WithUpHostToSandbox(upHostToSandbox map[string]string) Option {
+	return func(s *Params) {
+		s.UpHostToSandbox = upHostToSandbox
 	}
 }

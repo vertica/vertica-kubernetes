@@ -125,7 +125,7 @@ func (t *TLSConfigManager) setPollingCertMetadata(ctx context.Context) (ctrl.Res
 
 // updateTLSConfig calls the vclusterops api that will update the tls config by cert
 // rotation and/or tls mode update
-func (t *TLSConfigManager) updateTLSConfig(ctx context.Context, initiatorIP string) error {
+func (t *TLSConfigManager) updateTLSConfig(ctx context.Context, initiator string, upHostToSandbox map[string]string) error {
 	switch t.TLSUpdateType {
 	case tlsModeAndCertChange:
 		// This type implies both a cert change and a TLS mode change
@@ -164,9 +164,10 @@ func (t *TLSConfigManager) updateTLSConfig(ctx context.Context, initiatorIP stri
 		rotatetlscerts.WithCert(secretName, certConfig),
 		rotatetlscerts.WithCaCert(secretName, caCertConfig),
 		rotatetlscerts.WithTLSMode(t.NewTLSMode),
-		rotatetlscerts.WithInitiator(initiatorIP),
+		rotatetlscerts.WithInitiator(initiator),
 		rotatetlscerts.WithTLSConfig(t.TLSConfig),
 		rotatetlscerts.WithNewSecretManager(secretManager),
+		rotatetlscerts.WithUpHostToSandbox(upHostToSandbox),
 	}
 	started, failed, succeeded := t.getEvents()
 	t.Rec.Eventf(t.Vdb, corev1.EventTypeNormal, started,
