@@ -124,9 +124,10 @@ var _ = Describe("servicemonitor_reconciler", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Spec.PasswordSecret = "pass"
 		test.CreateVDB(ctx, k8sClient, vdb)
-		test.CreateSuperuserPasswordSecret(ctx, vdb, k8sClient, vdb.Spec.PasswordSecret, "xxxx")
+		vdb.Status.PasswordSecret = vdb.Spec.PasswordSecret
+		test.CreateSuperuserPasswordSecret(ctx, vdb, k8sClient, vdb.Status.PasswordSecret, "xxxx")
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
-		defer test.DeleteSecret(ctx, k8sClient, vdb.Spec.PasswordSecret)
+		defer test.DeleteSecret(ctx, k8sClient, vdb.Status.PasswordSecret)
 		rec := &ServiceMonitorReconciler{
 			VRec: vdbRec,
 			Vdb:  vdb,
@@ -146,6 +147,7 @@ var _ = Describe("servicemonitor_reconciler", func() {
 		vdb.Spec.PasswordSecret = "nonexistent-secret"
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
+		vdb.Status.PasswordSecret = vdb.Spec.PasswordSecret
 		rec := &ServiceMonitorReconciler{
 			VRec: vdbRec,
 			Vdb:  vdb,

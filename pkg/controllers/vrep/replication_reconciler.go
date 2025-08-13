@@ -182,7 +182,7 @@ func (r *ReplicationReconciler) determineUsernameAndPassword(ctx context.Context
 		return err
 	}
 
-	if r.TargetInfo.Vdb.IsSetForTLS() && r.TargetInfo.Password == nil && r.Vrep.Spec.TLSConfig == "" {
+	if r.TargetInfo.Vdb.IsSetForTLS() && r.TargetInfo.Password == &vapi.EmptyPassword && r.Vrep.Spec.TLSConfig == "" {
 		return fmt.Errorf("cannot use empty password when tls is enabled in target vdb %q",
 			r.TargetInfo.Vdb.Name)
 	}
@@ -199,7 +199,7 @@ func setUsernameAndPassword(ctx context.Context, cli client.Client, log logr.Log
 		username := vdb.GetVerticaUser()
 		password, err := vk8s.GetSuperuserPassword(ctx, cli, log, vRec, vdb)
 		if err != nil {
-			return "", nil, err
+			return "", &vapi.EmptyPassword, err
 		}
 		return username, password, nil
 	} else {
@@ -207,14 +207,14 @@ func setUsernameAndPassword(ctx context.Context, cli client.Client, log logr.Log
 		username := dbInfo.UserName
 		if dbInfo.PasswordSecret == "" {
 			// empty password is assumed
-			return username, nil, nil
+			return username, &vapi.EmptyPassword, nil
 		} else {
 			// fetch custom password
 			// assuming the password secret key is default
 			password, err := vk8s.GetCustomSuperuserPassword(ctx, cli, log,
 				vRec, vdb, dbInfo.PasswordSecret, names.SuperuserPasswordKey)
 			if err != nil {
-				return "", nil, err
+				return "", &vapi.EmptyPassword, err
 			}
 			return username, password, nil
 		}

@@ -209,7 +209,7 @@ var _ = Describe("query_reconcile", func() {
 			&vrep.Spec.Source.VerticaReplicatorDatabaseInfo)
 		Expect(err).ShouldNot(HaveOccurred())
 		Expect(username).Should(Equal(vapi.SuperUser))
-		Expect(password).Should(BeNil())
+		Expect(password).Should(Equal(&vapi.EmptyPassword))
 
 		vrep.Spec.Source.UserName = testCustomUserName
 		Expect(k8sClient.Update(ctx, vrep)).Should(Succeed())
@@ -219,7 +219,7 @@ var _ = Describe("query_reconcile", func() {
 			&vrep.Spec.Source.VerticaReplicatorDatabaseInfo)
 		Expect(err).ShouldNot(HaveOccurred())
 		Expect(username).Should(Equal(testCustomUserName))
-		Expect(password).Should(BeNil())
+		Expect(password).Should(Equal(&vapi.EmptyPassword))
 
 		vrep.Spec.Source.PasswordSecret = testCustomPasswordSecretName
 		Expect(k8sClient.Update(ctx, vrep)).Should(Succeed())
