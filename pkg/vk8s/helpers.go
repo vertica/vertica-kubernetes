@@ -41,8 +41,18 @@ func getPasswordFromSecret(secret map[string][]byte, key string) (*string, error
 // GetSuperuserPassword returns the superuser password if it has been provided
 func GetSuperuserPassword(ctx context.Context, cl client.Client, log logr.Logger,
 	e events.EVWriter, vdb *vapi.VerticaDB) (*string, error) {
-	if vdb.Spec.PasswordSecret == "" {
-		return nil, nil
+	return GetSuperuserPasswordForUpdate(ctx, cl, log, e, vdb, false)
+}
+
+// GetSuperuserPassword returns the superuser password if it has been provided
+func GetSuperuserPasswordForUpdate(ctx context.Context, cl client.Client, log logr.Logger,
+	e events.EVWriter, vdb *vapi.VerticaDB, forUpdate bool) (*string, error) {
+	if forUpdate && vdb.Spec.PasswordSecret == "" {
+		return &vapi.EmptyPassword, nil
+	}
+
+	if vdb.Status.PasswordSecret == "" {
+		return &vapi.EmptyPassword, nil
 	}
 
 	fetcher := cloud.SecretFetcher{
@@ -51,9 +61,9 @@ func GetSuperuserPassword(ctx context.Context, cl client.Client, log logr.Logger
 		Obj:      vdb,
 		EVWriter: e,
 	}
-	secret, err := fetcher.Fetch(ctx, names.GenSUPasswdSecretName(vdb))
+	secret, err := fetcher.Fetch(ctx, names.GenSUPasswdSecretName(vdb, forUpdate))
 	if err != nil {
-		return nil, err
+		return &vapi.EmptyPassword, err
 	}
 
 	return getPasswordFromSecret(secret, names.SuperuserPasswordKey)

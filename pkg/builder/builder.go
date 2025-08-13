@@ -550,8 +550,8 @@ func buildScrutinizeVolumes(vscr *v1beta1.VerticaScrutinize, vdb *vapi.VerticaDB
 	}
 	// we add a volume for the password when the password secret
 	// is on k8s
-	if getPasswordSecret(vdb) != "" &&
-		secrets.IsK8sSecret(getPasswordSecret(vdb)) {
+	if GetPasswordSecret(vdb) != "" &&
+		secrets.IsK8sSecret(GetPasswordSecret(vdb)) {
 		vols = append(vols, buildPasswordVolume(vdb))
 	}
 	if vscr.Spec.Volume == nil {
@@ -568,7 +568,7 @@ func buildDefaultScrutinizeVolume() corev1.Volume {
 
 // buildPasswordVolume constructs a volume that has the password
 func buildPasswordVolume(vdb *vapi.VerticaDB) corev1.Volume {
-	return buildVolumeFromSecret(passwordMountName, getPasswordSecret(vdb))
+	return buildVolumeFromSecret(passwordMountName, GetPasswordSecret(vdb))
 }
 
 // buildVolumeFromSecret constructs a volume from a secret
@@ -726,7 +726,7 @@ func probeContainsSuperuserPassword(probe *corev1.Probe) bool {
 // requiresSuperuserPasswordSecretMount returns true if the superuser password
 // needs to be mounted in the pod.
 func requiresSuperuserPasswordSecretMount(vdb *vapi.VerticaDB) bool {
-	if getPasswordSecret(vdb) == "" {
+	if GetPasswordSecret(vdb) == "" {
 		return false
 	}
 
@@ -755,7 +755,7 @@ func buildPasswordProjectionForVerticaPod(vdb *vapi.VerticaDB) *corev1.SecretPro
 // buildPasswordProjection creates a projection from the password secret
 func buildPasswordProjection(vdb *vapi.VerticaDB) *corev1.SecretProjection {
 	return &corev1.SecretProjection{
-		LocalObjectReference: corev1.LocalObjectReference{Name: getPasswordSecret(vdb)},
+		LocalObjectReference: corev1.LocalObjectReference{Name: GetPasswordSecret(vdb)},
 		Items: []corev1.KeyToPath{
 			{Key: names.SuperuserPasswordKey, Path: SuperuserPasswordPath},
 		},
@@ -936,7 +936,7 @@ func BuildServiceMonitor(nm types.NamespacedName, vdb *vapi.VerticaDB,
 // BuildBasicAuthSecret constructs the secret that will be used by prometheus to authenticate
 // to the vertica db
 func BuildBasicAuthSecret(vdb *vapi.VerticaDB, name, username string, password *string) *corev1.Secret {
-	passwd := ""
+	passwd := vapi.EmptyPassword
 	if password != nil {
 		passwd = *password
 	}
@@ -1474,8 +1474,8 @@ func makeScrutinizeInitContainer(vscr *v1beta1.VerticaScrutinize, vdb *vapi.Vert
 		Resources:    vscr.Spec.Resources,
 		Env:          buildCommonEnvVars(vdb),
 	}
-	if getPasswordSecret(vdb) != "" {
-		if secrets.IsK8sSecret(getPasswordSecret(vdb)) {
+	if GetPasswordSecret(vdb) != "" {
+		if secrets.IsK8sSecret(GetPasswordSecret(vdb)) {
 			// we mount the password into the scrutinize init container
 			// only when the password secret in on k8s
 			cnt.VolumeMounts = append(cnt.VolumeMounts, corev1.VolumeMount{
@@ -1487,7 +1487,7 @@ func makeScrutinizeInitContainer(vscr *v1beta1.VerticaScrutinize, vdb *vapi.Vert
 			// must be retrieved from secret stores like AWS Secrets
 			// Manager or GSM
 			cnt.Env = append(cnt.Env, buildScrutinizeDBPasswordEnvVars(
-				names.GenNamespacedName(vscr, getPasswordSecret(vdb)))...)
+				names.GenNamespacedName(vscr, GetPasswordSecret(vdb)))...)
 		}
 	}
 	cnt.Env = append(cnt.Env, append(buildNMATLSCertsEnvVars(vdb),
@@ -1587,7 +1587,7 @@ func makeDefaultReadinessOrStartupProbe(vdb *vapi.VerticaDB, ver string) *corev1
 	// use the canary query then because that depends on having the password
 	// mounted in the file system. Default to just checking if the client port
 	// is being listened on.
-	if secrets.IsGSMSecret(getPasswordSecret(vdb)) {
+	if secrets.IsGSMSecret(GetPasswordSecret(vdb)) {
 		return makeVerticaClientPortProbe()
 	}
 	return makeCanaryQueryProbe(vdb)
@@ -2129,7 +2129,7 @@ func makeUpdateStrategy(vdb *vapi.VerticaDB) appsv1.StatefulSetUpdateStrategy {
 // process is up and accepting connections.
 func buildCanaryQuerySQL(vdb *vapi.VerticaDB) string {
 	passwd := ""
-	if getPasswordSecret(vdb) != "" {
+	if GetPasswordSecret(vdb) != "" {
 		passwd = fmt.Sprintf("-w $(cat %s/%s)", paths.PodInfoPath, SuperuserPasswordPath)
 	}
 
@@ -2331,12 +2331,13 @@ func GetTarballName(cmd []string) string {
 	return ""
 }
 
-// getPasswordSecret returns the password secret
-func getPasswordSecret(vdb *vapi.VerticaDB) string {
-	if vdb.Status.PasswordSecret != "" {
-		return vdb.Status.PasswordSecret
+// GetPasswordSecret returns the password secret
+func GetPasswordSecret(vdb *vapi.VerticaDB) string {
+	if vdb.Spec.PasswordSecret == vdb.Status.PasswordSecret {
+		return vdb.Spec.PasswordSecret
 	}
-	return vdb.Spec.PasswordSecret
+	// status holds the current password
+	return vdb.Status.PasswordSecret
 }
 
 // BuildNMATLSConfigMap builds a configmap with tls secret name in it.

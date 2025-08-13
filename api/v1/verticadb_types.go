@@ -1033,7 +1033,10 @@ type VerticaDBStatus struct {
 	// +operator-sdk:csv:customresourcedefinitions:type=status
 	// +optional
 	// The secret name that contains the current password for the
-	// database's superuser
+	// database's superuser. The secret must have a key named password. To
+	// store this secret outside of Kubernetes, you can use a secret path
+	// reference prefix, such as gsm://. Everything after the prefix is the name
+	// of the secret in the service you are storing.
 	PasswordSecret string `json:"passwordSecret,omitempty"`
 }
 

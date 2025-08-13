@@ -69,6 +69,8 @@ const (
 	DefaultServiceClientPort = 5433
 )
 
+var EmptyPassword = ""
+
 // ExtractNamespacedName gets the name and returns it as a NamespacedName
 func (v *VerticaDB) ExtractNamespacedName() types.NamespacedName {
 	return types.NamespacedName{

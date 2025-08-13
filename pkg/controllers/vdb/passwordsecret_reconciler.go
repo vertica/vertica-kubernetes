@@ -57,6 +57,10 @@ func MakePasswordSecretReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger
 }
 
 func (a *PasswordSecretReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
+	if err := a.PFacts.Collect(ctx, a.Vdb); err != nil {
+		return ctrl.Result{}, err
+	}
+
 	// We put the current using password secret in the status
 	// No actions needed if status content is the same to spec
 	if a.statusMatchesSpec() {
@@ -89,7 +93,7 @@ func (a *PasswordSecretReconciler) updatePasswordSecretStatus(ctx context.Contex
 
 // updatePasswordSecret will update the password secret in the database
 func (a *PasswordSecretReconciler) updatePasswordSecret(ctx context.Context) (ctrl.Result, error) {
-	pf, found := a.PFacts.FindFirstUpPod(true, a.Vdb.GetFirstPrimarySubcluster().Name)
+	pf, found := a.PFacts.FindFirstUpPod(false, a.Vdb.GetFirstPrimarySubcluster().Name)
 	if !found {
 		return ctrl.Result{Requeue: true}, nil
 	}
@@ -99,13 +103,24 @@ func (a *PasswordSecretReconciler) updatePasswordSecret(ctx context.Context) (ct
 		dbUser = a.Vdb.Annotations[vmeta.SuperuserNameAnnotation]
 	}
 
-	passwd, err := vk8s.GetSuperuserPassword(ctx, a.VRec.Client, a.Log, a.VRec, a.Vdb)
+	currentPassword, err := vk8s.GetSuperuserPassword(ctx, a.VRec.Client, a.Log, a.VRec, a.Vdb)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 
+	newPasswd, err := vk8s.GetSuperuserPasswordForUpdate(ctx, a.VRec.Client, a.Log, a.VRec, a.Vdb, true /* forUpdate */)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	if *currentPassword == *newPasswd {
+		a.Log.Info("WARNING: password in secret is the same as current password", "current password secret",
+			a.Vdb.Status.PasswordSecret, "new password secret", a.Vdb.Spec.PasswordSecret)
+		return ctrl.Result{}, nil
+	}
+
 	sb := strings.Builder{}
-	sb.WriteString(fmt.Sprintf(`ALTER USER %s IDENTIFIED BY '%s';`, dbUser, *passwd))
+	sb.WriteString(fmt.Sprintf(`ALTER USER %s IDENTIFIED BY '%s';`, dbUser, *newPasswd))
 
 	cmd := []string{"-tAc", sb.String()}
 	stdout, stderr, err := a.PRunner.ExecVSQL(ctx, pf.GetName(), names.ServerContainer, cmd...)
@@ -115,8 +130,8 @@ func (a *PasswordSecretReconciler) updatePasswordSecret(ctx context.Context) (ct
 	}
 
 	a.VRec.Eventf(a.Vdb, corev1.EventTypeNormal, events.SuperuserPasswordSecretUpdated,
-		"password secret updated")
-	a.VRec.Log.Info("Updating password secret", "stdout", stdout)
+		"Superuser password updated")
+	a.VRec.Log.Info("Updating password secret", "stdout", stdout, "new secret", a.Vdb.Spec.PasswordSecret)
 
 	return ctrl.Result{}, nil
 }
