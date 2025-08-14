@@ -222,7 +222,7 @@ grafana:
   namespaceOverride: ""
 
   adminUser: admin
-  adminPassword: adminadminadmin
+  adminPassword: admin
 
   admin:
     ## Name of the secret. Can be templated.
