@@ -73,7 +73,7 @@ func MakeReviveDBReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
 		PFacts:  pfacts,
 		Planr: reviveplanner.MakePlanner(
 			log,
-			reviveplanner.ClusterConfigParserFactory(vmeta.UseVClusterOps(vdb.Annotations), log),
+			reviveplanner.ClusterConfigParserFactory(vdb.UseVClusterOpsDeployment(), log),
 		),
 		Dispatcher:          dispatcher,
 		ConfigurationParams: vtypes.MakeCiMap(),
@@ -115,7 +115,7 @@ func (r *ReviveDBReconciler) hasCompatibleVersionForRestore() error {
 	if err != nil {
 		return err
 	}
-	if !vmeta.UseVClusterOps(r.Vdb.Annotations) || !vinf.IsEqualOrNewer(vapi.RestoreSupportedMinVersion) {
+	if !r.Vdb.UseVClusterOpsDeployment() || !vinf.IsEqualOrNewer(vapi.RestoreSupportedMinVersion) {
 		errMsg := fmt.Sprintf("restoring from a restore point is unsupported in ReviveDB "+
 			"given the current server version and deployment method, "+
 			"make sure that a server version equal to or above %s is used and deployment method is set to vcluster-ops",
@@ -137,7 +137,7 @@ func (r *ReviveDBReconciler) execCmd(ctx context.Context, initiatorPod types.Nam
 	r.VRec.Event(r.Vdb, corev1.EventTypeNormal, events.ReviveDBStart, "Starting revive database")
 	start := time.Now()
 	// when preserving DB directory, we need to delete vertica.conf and catalog files using drop_db
-	if vmeta.UseVClusterOps(r.Vdb.Annotations) && vmeta.GetPreserveDBDirectory(r.Vdb.Annotations) {
+	if r.Vdb.UseVClusterOpsDeployment() && vmeta.GetPreserveDBDirectory(r.Vdb.Annotations) {
 		opts := []dropdb.Option{
 			dropdb.WithDBName(r.Vdb.Spec.DBName),
 		}

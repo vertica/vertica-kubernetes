@@ -24,5 +24,6 @@ kind: VerticaDB
 metadata:
   name: v-upgrade-vertica
 status:
+  deploymentMethod: "vclusterops"
   subclusters:
     - upNodeCount: 3

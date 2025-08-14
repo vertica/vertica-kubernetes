@@ -622,6 +622,7 @@ CREATE CERTIFICATE httpServerCert
    KEY k_server;
 ALTER TLS CONFIGURATION %s
 CERTIFICATE httpServerCert ADD CA CERTIFICATES httpServerRootca TLSMODE 'TRY_VERIFY';
+SELECT SYNC_CATALOG();
 `, tlsName)
 
 	cmd := []string{"-c", sql}
