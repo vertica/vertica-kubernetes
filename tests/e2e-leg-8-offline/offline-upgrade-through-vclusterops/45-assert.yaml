@@ -31,3 +31,15 @@ metadata:
   name: v-upgrade-vertica
 spec:
   image: opentext/vertica-k8s:24.1.0-8-minimal
+---
+apiVersion: v1
+kind: Event
+reason: UpgradeSucceeded
+source:
+  component: verticadb-operator
+involvedObject:
+  apiVersion: vertica.com/v1
+  kind: VerticaDB
+  name: v-upgrade-vertica
+message: Vertica server upgrade has completed successfully.  New image is 'opentext/vertica-k8s:24.1.0-8-minimal'
+

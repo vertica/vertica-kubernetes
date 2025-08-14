@@ -67,6 +67,10 @@ const (
 	nmaTLSModeVerifyCA       = "verify-ca"
 	DefaultServiceHTTPSPort  = 8443
 	DefaultServiceClientPort = 5433
+
+	// Deployment methods
+	DeploymentMethodAT = "admintools"
+	DeploymentMethodVC = "vclusterops"
 )
 
 // ExtractNamespacedName gets the name and returns it as a NamespacedName
@@ -1143,6 +1147,21 @@ func (v *VerticaDB) IsMonolithicDeploymentEnabled() bool {
 	}
 	return !v.IsNMASideCarDeploymentEnabled()
 }
+
+// // ShouldEnableHTTPS returns true if the deployment method is vclusterOps
+// // and the version supports it.
+// func (v *VerticaDB) ShouldEnableHTTPS() bool {
+// 	if !vmeta.UseVClusterOps(v.Annotations) {
+// 		return false
+// 	}
+// 	vinf, hasVersion := v.MakeVersionInfo()
+// 	// When version isn't present but vclusterOps annotation is set to true,
+// 	// we assume the version supports vcusterOps.
+// 	if !hasVersion {
+// 		return true
+// 	}
+// 	return vinf.IsEqualOrNewer(VcluseropsAsDefaultDeploymentMethodMinVersion)
+// }
 
 // IsKSafety0 returns true if k-safety of 0 is set.
 func (v *VerticaDB) IsKSafety0() bool {
