@@ -22,18 +22,9 @@ import (
 	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
-// healthWatchdogCancelQueryOptions represents a single session or statement to be canceled.
-type HealthWatchdogCancelQueryOptions struct {
-	SessionID   string `json:"session_id"`
-	StatementID int64  `json:"statement_id,omitempty"`
-}
-
-// HealthWatchdogCancelQueryResponse represents a single session or statement canceled response.
-type HealthWatchdogCancelQueryResponse struct {
-	Status      string `json:"status"`
-	Message     string `json:"message"`
-	SessionID   string `json:"session_id"`
-	StatementID int64  `json:"statement_id,omitempty"`
+type healthWatchdogCancelQueryOptions struct {
+	SessionID   string
+	StatementID int64
 }
 
 type VHealthWatchdogCancelQueryOptions struct {
@@ -41,7 +32,14 @@ type VHealthWatchdogCancelQueryOptions struct {
 	DatabaseOptions
 
 	// Part 2: health watchdog cancel-query options
-	Sessions []HealthWatchdogCancelQueryOptions
+	healthWatchdogCancelQueryOptions
+}
+
+type HealthWatchdogCancelQueryResponse struct {
+	Status      string `json:"status"`
+	Message     string `json:"message"`
+	SessionID   string `json:"session_id"`
+	StatementID int64  `json:"statement_id,omitempty"`
 }
 
 func VHealthWatchdogCancelQueryOptionsFactory() VHealthWatchdogCancelQueryOptions {
@@ -58,16 +56,9 @@ func (options *VHealthWatchdogCancelQueryOptions) validateRequiredOptions(logger
 		return err
 	}
 
-	// Check for an empty list.
-	if len(options.Sessions) == 0 {
-		return fmt.Errorf("no sessions provided for cancellation")
-	}
-
 	// validate SessionID
-	for _, session := range options.Sessions {
-		if session.SessionID == "" {
-			return fmt.Errorf("session_id is required to cancel a query")
-		}
+	if options.SessionID == "" {
+		return fmt.Errorf("session_id is required to cancel a query")
 	}
 
 	return nil
@@ -105,14 +96,14 @@ func (options *VHealthWatchdogCancelQueryOptions) validateAnalyzeOptions(logger 
 
 // VHealthWatchdogCancelQuery cancels health watchdog query
 func (vcc VClusterCommands) VHealthWatchdogCancelQuery(options *VHealthWatchdogCancelQueryOptions) (
-	[]HealthWatchdogCancelQueryResponse, error) {
+	*HealthWatchdogCancelQueryResponse, error) {
 	/*
 	 *   - Produce Instructions
 	 *   - Create a VClusterOpEngine
 	 *   - Give the instructions to the VClusterOpEngine to run
 	 */
 
-	var result []HealthWatchdogCancelQueryResponse
+	result := HealthWatchdogCancelQueryResponse{}
 
 	// validate and analyze options
 	err := options.validateAnalyzeOptions(vcc.Log)
@@ -134,14 +125,14 @@ func (vcc VClusterCommands) VHealthWatchdogCancelQuery(options *VHealthWatchdogC
 	if runError != nil {
 		return nil, fmt.Errorf("fail to cancel health watchdog query: %w", runError)
 	}
-	return result, runError
+	return &result, runError
 }
 
 // The generated instructions will later perform the following operations necessary for health watchdog cancel-query
 //   - Check NMA connectivity
 //   - Make request to NMA to cancel health watchdog query
 func (vcc VClusterCommands) produceHealthWatchdogCancelQueryInstructions(options *VHealthWatchdogCancelQueryOptions,
-	healthWatchdogCancelQueryResp *[]HealthWatchdogCancelQueryResponse) ([]clusterOp, error) {
+	healthWatchdogCancelQueryResp *HealthWatchdogCancelQueryResponse) ([]clusterOp, error) {
 	var instructions []clusterOp
 	vdb := makeVCoordinationDatabase()
 
@@ -170,15 +161,8 @@ func (vcc VClusterCommands) produceHealthWatchdogCancelQueryInstructions(options
 	nmaHealthWatchdogCancelQueryData.DBName = options.DBName
 	nmaHealthWatchdogCancelQueryData.UserName = options.UserName
 	nmaHealthWatchdogCancelQueryData.Password = options.Password
-
-	var cancellationQueries []HealthWatchdogCancelQueryOptions
-	for _, task := range options.Sessions {
-		cancellationQueries = append(cancellationQueries, HealthWatchdogCancelQueryOptions{
-			SessionID:   task.SessionID,
-			StatementID: task.StatementID,
-		})
-	}
-	nmaHealthWatchdogCancelQueryData.Sessions = cancellationQueries
+	nmaHealthWatchdogCancelQueryData.SessionID = options.SessionID
+	nmaHealthWatchdogCancelQueryData.StatementID = options.StatementID
 
 	nmaHealthWatchdogCancelQueryOp, err := makeHealthWatchdogCancelQueryOp(hosts, options.usePassword,
 		&nmaHealthWatchdogCancelQueryData, healthWatchdogCancelQueryResp)
