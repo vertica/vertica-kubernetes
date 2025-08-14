@@ -19,6 +19,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+
+	"github.com/vertica/vcluster/vclusterops/util"
 )
 
 type nmaSlowEventsOp struct {
@@ -32,6 +34,7 @@ type nmaSlowEventsOp struct {
 	nodeName           string
 	eventDesc          string
 	durationUs         string
+	isDebug            bool
 }
 
 type slowEventRequestData struct {
@@ -42,7 +45,7 @@ type slowEventRequestData struct {
 func makeNMASlowEventOp(upHosts []string, userName string,
 	dbName string, password *string,
 	startTime, endTime, threadID, phaseDuration string,
-	transactionID, nodeName, eventDesc, durationUs string) (nmaSlowEventsOp, error) {
+	transactionID, nodeName, eventDesc, durationUs string, isDebug bool) (nmaSlowEventsOp, error) {
 	op := nmaSlowEventsOp{}
 	op.name = "NMASlowEventOp"
 	op.description = "Check slow events"
@@ -55,6 +58,7 @@ func makeNMASlowEventOp(upHosts []string, userName string,
 	op.phasesDuration = phaseDuration
 	op.eventDesc = eventDesc
 	op.durationUs = durationUs
+	op.isDebug = isDebug
 
 	// NMA endpoints don't need to differentiate between empty password and no password
 	useDBPassword := password != nil
@@ -82,6 +86,11 @@ func (op *nmaSlowEventsOp) setupRequestBody(username, dbName string, useDBPasswo
 		}
 		if op.endTime != "" {
 			requestData.Params["end-time"] = op.endTime
+		}
+		if op.isDebug {
+			requestData.Params["is-debug"] = util.TrueStr
+		} else {
+			requestData.Params["is-debug"] = util.FalseStr
 		}
 		if op.transactionID != "" {
 			requestData.Params["txn-id"] = op.transactionID

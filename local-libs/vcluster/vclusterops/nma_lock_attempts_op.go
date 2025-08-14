@@ -19,6 +19,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+
+	"github.com/vertica/vcluster/vclusterops/util"
 )
 
 type nmaLockAttemptsOp struct {
@@ -29,6 +31,7 @@ type nmaLockAttemptsOp struct {
 	nodeName           string
 	duration           string
 	resultLimit        int
+	isDebug            bool
 }
 
 type lockAttemptsRequestData struct {
@@ -41,7 +44,7 @@ const lockObjectName = "Global Catalog"
 func makeNMALockAttemptsOp(upHosts []string, userName string,
 	dbName string, password *string,
 	startTime, endTime, nodeName string, duration string,
-	resultLimit int) (nmaLockAttemptsOp, error) {
+	resultLimit int, isDebug bool) (nmaLockAttemptsOp, error) {
 	op := nmaLockAttemptsOp{}
 	op.hosts = upHosts[:1] // set up the request for one of the up hosts only
 	op.startTime = startTime
@@ -51,6 +54,7 @@ func makeNMALockAttemptsOp(upHosts []string, userName string,
 	op.duration = duration
 	op.name = "NMALockAttemptsOp"
 	op.description = "Check lock waiting events"
+	op.isDebug = isDebug
 
 	// NMA endpoints don't need to differentiate between empty password and no password
 	useDBPassword := password != nil
@@ -81,6 +85,11 @@ func (op *nmaLockAttemptsOp) setupRequestBody(username, dbName string, useDBPass
 		requestData.Params["mode"] = "X"
 		requestData.Params["duration"] = op.duration
 		requestData.Params["limit"] = op.resultLimit
+		if op.isDebug {
+			requestData.Params["is-debug"] = util.TrueStr
+		} else {
+			requestData.Params["is-debug"] = util.FalseStr
+		}
 
 		dataBytes, err := json.Marshal(requestData)
 		if err != nil {
@@ -127,7 +136,7 @@ func (op *nmaLockAttemptsOp) finalize(_ *opEngineExecContext) error {
 	return nil
 }
 
-type dcLockAttempts struct {
+type DcLockAttempts struct {
 	Description string               `json:"description"`
 	Duration    string               `json:"duration"`
 	Mode        string               `json:"mode"`
@@ -147,7 +156,7 @@ func (op *nmaLockAttemptsOp) processResult(execContext *opEngineExecContext) err
 	for host, result := range op.clusterHTTPRequest.ResultCollection {
 		// for any passing result, directly return
 		if result.isPassing() {
-			var lockAttemptsList []dcLockAttempts
+			var lockAttemptsList []DcLockAttempts
 			err := op.parseAndCheckResponse(host, result.content, &lockAttemptsList)
 			if err != nil {
 				return errors.Join(allErrs, err)

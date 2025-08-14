@@ -19,6 +19,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+
+	"github.com/vertica/vcluster/vclusterops/util"
 )
 
 type nmaTransactionStartsOp struct {
@@ -27,6 +29,7 @@ type nmaTransactionStartsOp struct {
 	transactionID      string
 	startTime          string
 	endTime            string
+	isDebug            bool
 }
 type transactionStartsRequestData struct {
 	sqlEndpointData
@@ -38,7 +41,7 @@ const (
 )
 
 func makeNMATransactionStartsOp(upHosts []string, userName string, dbName string, password *string,
-	transactionID, startTime, endTime string) (nmaTransactionStartsOp, error) {
+	transactionID, startTime, endTime string, isDebug bool) (nmaTransactionStartsOp, error) {
 	op := nmaTransactionStartsOp{}
 	op.hosts = upHosts[:1]
 	op.transactionID = transactionID
@@ -46,6 +49,7 @@ func makeNMATransactionStartsOp(upHosts []string, userName string, dbName string
 	op.endTime = endTime
 	op.name = "NMATransactionStartsOp"
 	op.description = "Check transaction starts"
+	op.isDebug = isDebug
 
 	// NMA endpoints don't need to differentiate between empty password and no password
 	useDBPassword := password != nil
@@ -74,6 +78,11 @@ func (op *nmaTransactionStartsOp) setupRequestBody(username, dbName string, useD
 		}
 		if op.endTime != "" {
 			requestData.Params["end-time"] = op.endTime
+		}
+		if op.isDebug {
+			requestData.Params["is-debug"] = util.TrueStr
+		} else {
+			requestData.Params["is-debug"] = util.FalseStr
 		}
 		requestData.sqlEndpointData = createSQLEndpointData(username, dbName, useDBPassword, password)
 
