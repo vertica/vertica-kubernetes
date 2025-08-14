@@ -1630,7 +1630,10 @@ var _ = Describe("verticadb_webhook", func() {
 		Ω(newVdb.validateImmutableFields(oldVdb)).Should(HaveLen(0))
 		// remove all of the primary subclusters
 		newVdb.Spec.Sandboxes[0].Subclusters = []SandboxSubcluster{{Name: "sc4", Type: SecondarySubcluster}}
-		Ω(newVdb.validateImmutableFields(oldVdb)).Should(HaveLen(1))
+		// two checks here:
+		// 1. the sandbox "sand1" does not have enough primary nodes after removing "sc2"
+		// 2. At least one primary subcluster in sandbox "sand1" must remain as primary type
+		Ω(newVdb.validateImmutableFields(oldVdb)).Should(HaveLen(2))
 		newVdb.Spec.Sandboxes = nil
 		Ω(newVdb.validateImmutableFields(oldVdb)).Should(HaveLen(0))
 	})
@@ -2320,13 +2323,13 @@ var _ = Describe("verticadb_webhook", func() {
 	It("should prevent type changes in shutdown sandbox", func() {
 		oldVdb := MakeVDB()
 		oldVdb.Spec.Subclusters = []Subcluster{
-			{Name: "primary-sc", Type: PrimarySubcluster, Size: 3},
-			{Name: "secondary-sc", Type: SecondarySubcluster, Size: 3},
+			{Name: "sc1", Type: PrimarySubcluster, Size: 3},
+			{Name: "sc2", Type: SecondarySubcluster, Size: 3},
 		}
 		oldVdb.Spec.Sandboxes = []Sandbox{
 			{Name: "test-sandbox", Shutdown: true, Subclusters: []SandboxSubcluster{
-				{Name: "primary-sc", Type: PrimarySubcluster},
-				{Name: "secondary-sc", Type: SecondarySubcluster},
+				{Name: "sc1", Type: PrimarySubcluster},
+				{Name: "sc2", Type: SecondarySubcluster},
 			}},
 		}
 		newVdb := oldVdb.DeepCopy()
@@ -2343,10 +2346,10 @@ var _ = Describe("verticadb_webhook", func() {
 		oldVdb := MakeVDB()
 		// Setup main cluster with multiple subclusters, one shutdown
 		oldVdb.Spec.Subclusters = []Subcluster{
-			{Name: "primary-sc1", Type: PrimarySubcluster, Size: 3},
-			{Name: "primary-sc2", Type: PrimarySubcluster, Size: 3},
-			{Name: "secondary-sc1", Type: SecondarySubcluster, Size: 3, Shutdown: true}, // Shutdown subcluster
-			{Name: "secondary-sc2", Type: SecondarySubcluster, Size: 3},
+			{Name: "sc1", Type: PrimarySubcluster, Size: 3},
+			{Name: "sc2", Type: PrimarySubcluster, Size: 3},
+			{Name: "sc3", Type: SecondarySubcluster, Size: 3, Shutdown: true}, // Shutdown subcluster
+			{Name: "sc4", Type: SecondarySubcluster, Size: 3},
 		}
 		newVdb := oldVdb.DeepCopy()
 
@@ -2355,209 +2358,136 @@ var _ = Describe("verticadb_webhook", func() {
 
 		allErrs := newVdb.checkTypeChangeWithShutdownSubclusters(oldVdb, field.ErrorList{})
 		Expect(allErrs).To(HaveLen(1))
-		Expect(allErrs[0].Error()).To(ContainSubstring("Cannot change type of any subcluster"))
+		Expect(allErrs[0].Error()).To(ContainSubstring("Cannot change type of subcluster"))
 
 		// Try to change type of another non-shutdown subcluster
 		newVdb = oldVdb.DeepCopy()
 		newVdb.Spec.Subclusters[1].Type = SecondarySubcluster
 		allErrs = newVdb.checkTypeChangeWithShutdownSubclusters(oldVdb, field.ErrorList{})
 		Expect(allErrs).To(HaveLen(1))
-		Expect(allErrs[0].Error()).To(ContainSubstring("Cannot change type of any subcluster"))
+		Expect(allErrs[0].Error()).To(ContainSubstring("Cannot change type of subcluster"))
 	})
 
 	It("should prevent type changes in sandbox when sandbox cluster has shutdown subclusters", func() {
 		oldVdb := MakeVDB()
-		// Setup main cluster and a sandbox
 		oldVdb.Spec.Subclusters = []Subcluster{
-			{Name: "main-primary", Type: PrimarySubcluster, Size: 3},
-			{Name: "main-secondary", Type: SecondarySubcluster, Size: 3},
+			{Name: "sc1", Type: PrimarySubcluster, Size: 3},
+			{Name: "sc2", Type: SecondarySubcluster, Size: 3},
+			{Name: "sc3", Type: SecondarySubcluster, Size: 3},
+			{Name: "sc4", Type: SecondarySubcluster, Size: 3},
 		}
-		// Add a sandbox with one shutdown subcluster (using sandbox-level shutdown)
-		sandbox := &Sandbox{
-			Name:     "test-sandbox",
-			Shutdown: true, // Sandbox-level shutdown affects all its subclusters
-			Subclusters: []SandboxSubcluster{
-				{Name: "sandbox-primary1", Type: PrimarySubcluster},
-				{Name: "sandbox-primary2", Type: PrimarySubcluster},
-				{Name: "sandbox-secondary", Type: SecondarySubcluster},
-			},
+		oldVdb.Spec.Sandboxes = []Sandbox{
+			{Name: "sandbox1", Subclusters: []SandboxSubcluster{
+				{Name: "sc2", Type: PrimarySubcluster},
+				{Name: "sc3", Type: SecondarySubcluster},
+			}},
 		}
-		oldVdb.Spec.Sandboxes = []Sandbox{*sandbox}
 		newVdb := oldVdb.DeepCopy()
 
-		// Try to change type of a subcluster in the sandbox when sandbox has shutdown subclusters
-		newVdb.Spec.Sandboxes[0].Subclusters[0].Type = SecondarySubcluster
+		// Set shutdown=true for one of the subclusters in the sandbox
+		newVdb.Spec.Subclusters[1].Shutdown = true // sc2 is shutdown
 
-		allErrs := newVdb.checkTypeChangeWithShutdownSubclusters(oldVdb, field.ErrorList{})
-		Expect(allErrs).To(HaveLen(1))
-		Expect(allErrs[0].Error()).To(ContainSubstring("Cannot change type of any subcluster"))
+		// Try to change type of another subcluster in the same sandbox
+		newVdb.Spec.Sandboxes[0].Subclusters[1].Type = PrimarySubcluster // Attempt to change sc3's type
 
-		// Try to change type of another subcluster in the sandbox
+		allErrs := newVdb.checkSandboxTypeChangeWithShutdownSubclusters(oldVdb, field.ErrorList{})
+		Ω(allErrs).Should(HaveLen(1))
+		Ω(allErrs[0].Error()).Should(ContainSubstring("Cannot change type of subcluster"))
+		Ω(allErrs[0].Error()).Should(ContainSubstring("when any subcluster in the sandbox has shutdown=true"))
+
+		// Verify we can change type when no subcluster is shutdown
+		newVdb.Spec.Subclusters[1].Shutdown = false
+		allErrs = newVdb.checkSandboxTypeChangeWithShutdownSubclusters(oldVdb, field.ErrorList{})
+		Ω(allErrs).Should(BeEmpty())
+
+		// Verify we can change type of subclusters in other sandboxes
+		oldVdb.Spec.Sandboxes = append(oldVdb.Spec.Sandboxes, Sandbox{
+			Name: "sandbox2",
+			Subclusters: []SandboxSubcluster{
+				{Name: "sc4", Type: SecondarySubcluster},
+			},
+		})
 		newVdb = oldVdb.DeepCopy()
-		newVdb.Spec.Sandboxes[0].Subclusters[1].Type = SecondarySubcluster
-		allErrs = newVdb.checkTypeChangeWithShutdownSubclusters(oldVdb, field.ErrorList{})
-		Expect(allErrs).To(HaveLen(1))
-		Expect(allErrs[0].Error()).To(ContainSubstring("Cannot change type of any subcluster"))
+		newVdb.Spec.Subclusters[1].Shutdown = true                       // sc2 is shutdown in sandbox1
+		newVdb.Spec.Sandboxes[1].Subclusters[0].Type = PrimarySubcluster // Change type in sandbox2
+		allErrs = newVdb.checkSandboxTypeChangeWithShutdownSubclusters(oldVdb, field.ErrorList{})
+		Ω(allErrs).Should(BeEmpty())
 	})
 
 	It("should prevent changing type to sandboxprimary or sandboxsecondary", func() {
 		oldVdb := MakeVDB()
 		oldVdb.Spec.Subclusters = []Subcluster{
-			{Name: "primary-sc", Type: PrimarySubcluster, Size: 3},
-			{Name: "secondary-sc", Type: SecondarySubcluster, Size: 3},
+			{Name: "sc1", Type: PrimarySubcluster, Size: 3},
+			{Name: "sc2", Type: PrimarySubcluster, Size: 3},
+			{Name: "sc3", Type: SecondarySubcluster, Size: 3},
 		}
 		newVdb := oldVdb.DeepCopy()
 
 		// Try to change type to sandboxprimary
 		newVdb.Spec.Subclusters[0].Type = SandboxPrimarySubcluster
-		allErrs := newVdb.checkInvalidSubclusterTypeChange(oldVdb, field.ErrorList{})
+		allErrs := newVdb.checkInvalidSubclusterTypeChange(field.ErrorList{})
 		Expect(allErrs).To(HaveLen(1))
-		Expect(allErrs[0].Error()).To(ContainSubstring("Cannot change subcluster type to sandboxprimary"))
+		Expect(allErrs[0].Error()).To(ContainSubstring("Cannot change subcluster type to sandboxprimary or sandboxsecondary"))
 
 		// Try to change type to sandboxsecondary
 		newVdb = oldVdb.DeepCopy()
 		newVdb.Spec.Subclusters[0].Type = SandboxSecondarySubcluster
-		allErrs = newVdb.checkInvalidSubclusterTypeChange(oldVdb, field.ErrorList{})
+		allErrs = newVdb.checkInvalidSubclusterTypeChange(field.ErrorList{})
 		Expect(allErrs).To(HaveLen(1))
-		Expect(allErrs[0].Error()).To(ContainSubstring("Cannot change subcluster type to sandboxsecondary"))
-	})
-
-	It("should prevent type changes of subclusters that are in any sandbox", func() {
-		oldVdb := MakeVDB()
-		// Setup main cluster with multiple subclusters
-		oldVdb.Spec.Subclusters = []Subcluster{
-			{Name: "primary-sc1", Type: PrimarySubcluster, Size: 3},
-			{Name: "primary-sc2", Type: PrimarySubcluster, Size: 3},
-			{Name: "secondary-sc1", Type: SecondarySubcluster, Size: 3},
-		}
-		// Add multiple sandboxes containing some of these subclusters
-		sandbox1 := &Sandbox{
-			Name: "sandbox1",
-			Subclusters: []SandboxSubcluster{
-				{Name: "primary-sc1", Type: PrimarySubcluster},
-			},
-		}
-		sandbox2 := &Sandbox{
-			Name: "sandbox2",
-			Subclusters: []SandboxSubcluster{
-				{Name: "secondary-sc1", Type: SecondarySubcluster},
-			},
-		}
-		oldVdb.Spec.Sandboxes = []Sandbox{*sandbox1, *sandbox2}
-		newVdb := oldVdb.DeepCopy()
-
-		// Try to change type of a subcluster that's in sandbox1
-		newVdb.Spec.Subclusters[0].Type = SecondarySubcluster
-		allErrs := newVdb.checkSubclusterTypeChangeInSandbox(oldVdb, field.ErrorList{})
-		Expect(allErrs).To(HaveLen(1))
-		Expect(allErrs[0].Error()).To(ContainSubstring("Cannot change type of subcluster"))
-		Expect(allErrs[0].Error()).To(ContainSubstring("while it is in sandbox"))
-
-		// Try to change type of a subcluster that's in sandbox2
-		newVdb = oldVdb.DeepCopy()
-		newVdb.Spec.Subclusters[2].Type = PrimarySubcluster
-		allErrs = newVdb.checkSubclusterTypeChangeInSandbox(oldVdb, field.ErrorList{})
-		Expect(allErrs).To(HaveLen(1))
-		Expect(allErrs[0].Error()).To(ContainSubstring("Cannot change type of subcluster"))
-		Expect(allErrs[0].Error()).To(ContainSubstring("while it is in sandbox"))
-
-		// Verify we can change type of a subcluster that's not in any sandbox
-		newVdb = oldVdb.DeepCopy()
-		newVdb.Spec.Subclusters[1].Type = SecondarySubcluster
-		allErrs = newVdb.checkSubclusterTypeChangeInSandbox(oldVdb, field.ErrorList{})
-		Expect(allErrs).To(BeEmpty())
+		Expect(allErrs[0].Error()).To(ContainSubstring("Cannot change subcluster type to sandboxprimary or sandboxsecondary"))
 	})
 
 	It("should ensure at least one primary subcluster remains unchanged in main cluster", func() {
 		oldVdb := MakeVDB()
 		// Setup main cluster with multiple subclusters
 		oldVdb.Spec.Subclusters = []Subcluster{
-			{Name: "primary-sc1", Type: PrimarySubcluster, Size: 3},
-			{Name: "primary-sc2", Type: PrimarySubcluster, Size: 3},
-			{Name: "secondary-sc1", Type: SecondarySubcluster, Size: 3},
+			{Name: "sc1", Type: PrimarySubcluster, Size: 3},
+			{Name: "sc2", Type: PrimarySubcluster, Size: 3},
+			{Name: "sc3", Type: SecondarySubcluster, Size: 3},
 		}
 		newVdb := oldVdb.DeepCopy()
 
+		// Verify it's okay to change type of one primary as long as another remains primary
+		newVdb.Spec.Subclusters[0].Type = SecondarySubcluster // Change first primary to secondary
+		allErrs := newVdb.checkAtLeastOneMainPrimaryTypeUnchanged(oldVdb, field.ErrorList{})
+		Expect(allErrs).To(BeEmpty())
+
 		// Try to change type of both primaries in main cluster
-		newVdb.Spec.Subclusters[0].Type = SecondarySubcluster
 		newVdb.Spec.Subclusters[1].Type = SecondarySubcluster
-		allErrs := newVdb.checkAtLeastOneMainPrimaryUnchanged(oldVdb, field.ErrorList{})
+		allErrs = newVdb.checkAtLeastOneMainPrimaryTypeUnchanged(oldVdb, field.ErrorList{})
 		Expect(allErrs).To(HaveLen(1))
 		Expect(allErrs[0].Error()).To(ContainSubstring("At least one primary subcluster in the main cluster must remain as primary type"))
-
-		// Verify it's okay to change other fields of a primary without changing type
-		newVdb = oldVdb.DeepCopy()
-		newVdb.Spec.Subclusters[0].Size = 4 // Change size but keep type primary
-		newVdb.Spec.Subclusters[1].Size = 5 // Change size of both primaries
-		allErrs = newVdb.checkAtLeastOneMainPrimaryUnchanged(oldVdb, field.ErrorList{})
-		Expect(allErrs).To(BeEmpty())
-
-		// Verify it's okay to change type of one primary as long as another remains primary
-		newVdb = oldVdb.DeepCopy()
-		newVdb.Spec.Subclusters[0].Type = SecondarySubcluster // Change first primary to secondary
-		allErrs = newVdb.checkAtLeastOneMainPrimaryUnchanged(oldVdb, field.ErrorList{})
-		Expect(allErrs).To(BeEmpty())
 	})
 
 	It("should ensure at least one primary subcluster remains unchanged in sandboxes", func() {
 		oldVdb := MakeVDB()
 		// Setup main cluster and add sandbox with primary subclusters
 		oldVdb.Spec.Subclusters = []Subcluster{
-			{Name: "primary-sc1", Type: PrimarySubcluster, Size: 3},
+			{Name: "sc1", Type: PrimarySubcluster, Size: 3},
+			{Name: "sc2", Type: SecondarySubcluster, Size: 3},
+			{Name: "sc3", Type: SecondarySubcluster, Size: 3},
 		}
 		sandbox := &Sandbox{
 			Name: "sandbox1",
 			Subclusters: []SandboxSubcluster{
-				{Name: "sandbox-primary1", Type: PrimarySubcluster},
-				{Name: "sandbox-primary2", Type: PrimarySubcluster},
+				{Name: "sc2", Type: PrimarySubcluster},
+				{Name: "sc3", Type: PrimarySubcluster},
 			},
 		}
 		oldVdb.Spec.Sandboxes = []Sandbox{*sandbox}
 		newVdb := oldVdb.DeepCopy()
 
-		// Try to change type of both primaries in sandbox
-		newVdb.Spec.Sandboxes[0].Subclusters[0].Type = SecondarySubcluster
-		newVdb.Spec.Sandboxes[0].Subclusters[1].Type = SecondarySubcluster
-		allErrs := newVdb.checkAtLeastOneSandboxPrimaryUnchanged(oldVdb, field.ErrorList{})
-		Expect(allErrs).To(HaveLen(1))
-		Expect(allErrs[0].Error()).To(ContainSubstring("At least one primary subcluster in sandbox must remain as primary type"))
-
-		// Verify it's okay to change other fields of sandbox primaries without changing type
-		newVdb = oldVdb.DeepCopy()
-		newVdb.Spec.Sandboxes[0].Subclusters[0].Name = "new-name1" // Change names but keep type primary
-		newVdb.Spec.Sandboxes[0].Subclusters[1].Name = "new-name2"
-		allErrs = newVdb.checkAtLeastOneSandboxPrimaryUnchanged(oldVdb, field.ErrorList{})
-		Expect(allErrs).To(BeEmpty())
-
 		// Verify it's okay to change one sandbox primary type as long as another remains primary
-		newVdb = oldVdb.DeepCopy()
-		newVdb.Spec.Sandboxes[0].Subclusters[0].Type = SecondarySubcluster // Change first sandbox primary to secondary
-		allErrs = newVdb.checkAtLeastOneSandboxPrimaryUnchanged(oldVdb, field.ErrorList{})
+		newVdb.Spec.Sandboxes[0].Subclusters[0].Type = SecondarySubcluster
+		allErrs := newVdb.checkAtLeastOneSandboxPrimaryTypeUnchanged(oldVdb, field.ErrorList{})
 		Expect(allErrs).To(BeEmpty())
-	})
 
-	It("should prevent changing type to sandboxprimary or sandboxsecondary", func() {
-		oldVdb := MakeVDB()
-		oldVdb.Spec.Subclusters = []Subcluster{
-			{Name: "primary-sc", Type: PrimarySubcluster, Size: 3},
-			{Name: "secondary-sc", Type: SecondarySubcluster, Size: 3},
-		}
-		newVdb := oldVdb.DeepCopy()
-
-		// Try to change type to sandboxprimary
-		newVdb.Spec.Subclusters[0].Type = SandboxPrimarySubcluster
-		allErrs := newVdb.checkInvalidSubclusterTypeChange(oldVdb, field.ErrorList{})
+		// Try to change type of both primaries in sandbox
+		newVdb.Spec.Sandboxes[0].Subclusters[1].Type = SecondarySubcluster
+		allErrs = newVdb.checkAtLeastOneSandboxPrimaryTypeUnchanged(oldVdb, field.ErrorList{})
 		Expect(allErrs).To(HaveLen(1))
-		Expect(allErrs[0].Error()).To(ContainSubstring("Cannot change type of subcluster"))
-		Expect(allErrs[0].Error()).To(ContainSubstring("to sandboxprimary"))
-
-		// Try to change type to sandboxsecondary
-		newVdb = oldVdb.DeepCopy()
-		newVdb.Spec.Subclusters[1].Type = SandboxSecondarySubcluster
-		allErrs = newVdb.checkInvalidSubclusterTypeChange(oldVdb, field.ErrorList{})
-		Expect(allErrs).To(HaveLen(1))
-		Expect(allErrs[0].Error()).To(ContainSubstring("Cannot change type of subcluster"))
-		Expect(allErrs[0].Error()).To(ContainSubstring("to sandboxsecondary"))
+		Expect(allErrs[0].Error()).To(ContainSubstring("At least one primary subcluster in sandbox"))
+		Expect(allErrs[0].Error()).To(ContainSubstring("must remain as primary type"))
 	})
 
 	It("should not accept invalid client server tls modes", func() {
