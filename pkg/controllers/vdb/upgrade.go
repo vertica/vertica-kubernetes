@@ -44,6 +44,14 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
+type tlsName string
+
+const (
+	tlsNameNone   tlsName = "none"
+	tlsNameHTTPS  tlsName = "https"
+	tlsNameServer tlsName = "server"
+)
+
 const (
 	statusConditionEmpty = ""
 )
@@ -195,9 +203,13 @@ func (i *UpgradeManager) finishUpgrade(ctx context.Context, sbName string) (ctrl
 		return ctrl.Result{}, err
 	}
 
-	// We need to clear some annotations after online upgrade.
+	// We need to clear some annotations after the upgrade.
 	if i.StatusCondition == vapi.OnlineUpgradeInProgress {
 		if err := i.clearOnlineUpgradeAnnotations(ctx); err != nil {
+			return ctrl.Result{}, err
+		}
+	} else if i.StatusCondition == vapi.OfflineUpgradeInProgress {
+		if err := i.clearOfflineUpgradeAnnotations(ctx); err != nil {
 			return ctrl.Result{}, err
 		}
 	}
@@ -267,6 +279,19 @@ func (i *UpgradeManager) setUpgradeStatus(ctx context.Context, msg, sbName strin
 	state := sb.UpgradeState.DeepCopy()
 	state.UpgradeStatus = msg
 	return vdbstatus.SetSandboxUpgradeState(ctx, i.Rec.GetClient(), i.Vdb, sbName, state)
+}
+
+// clearOfflineUpgradeAnnotations will clear the annotation we set for offline upgrade
+func (i *UpgradeManager) clearOfflineUpgradeAnnotations(ctx context.Context) error {
+	clearFc := func() (updated bool, err error) {
+		if _, annotationFound := i.Vdb.Annotations[vmeta.OfflineUpgradeHTTPSSetAnnotation]; annotationFound {
+			delete(i.Vdb.Annotations, vmeta.OfflineUpgradeHTTPSSetAnnotation)
+			updated = true
+		}
+		return
+	}
+	_, err := vk8s.UpdateVDBWithRetry(ctx, i.Rec, i.Vdb, clearFc)
+	return err
 }
 
 // clearOnlineUpgradeAnnotations will clear the annotation we set for online upgrade
@@ -504,6 +529,110 @@ func (i *UpgradeManager) changeNMASidecarDeploymentIfNeeded(ctx context.Context,
 		return ctrl.Result{}, err
 	}
 	return ctrl.Result{Requeue: true}, nil
+}
+
+func (i *UpgradeManager) enableHTTPSTLSIfNeeded(ctx context.Context, pfacts *podfacts.PodFacts) (ctrl.Result, error) {
+	i.Log.Info("Checking if HTTPS TLS is enabled")
+	pf, ok := pfacts.FindFirstUpPod(true, "")
+	if !ok {
+		i.Log.Info("No up pod found to run vsql. Requeueing for enabling HTTPS TLS")
+		return ctrl.Result{Requeue: true}, nil
+	}
+
+	tls, enabled, err := i.isHTTPSTLSEnabled(ctx, pfacts, pf)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	if !enabled {
+		return ctrl.Result{}, i.enableHTTPSTLS(ctx, pfacts, pf, tls)
+	}
+
+	i.Log.Info("HTTPS TLS is already enabled", "tlsName", tls)
+	return ctrl.Result{}, nil
+}
+
+func (i *UpgradeManager) isHTTPSTLSEnabled(ctx context.Context, pfacts *podfacts.PodFacts, pf *podfacts.PodFact) (tlsName, bool, error) {
+	// Compose the SQL to check if HTTPS TLS is enabled
+	sql := `
+SELECT name AS tls_name,
+       CASE WHEN mode <> 'DISABLE' THEN TRUE ELSE FALSE END AS enabled
+FROM tls_configurations
+WHERE name IN ('https', 'server')
+ORDER BY CASE name
+    WHEN 'https' THEN 1
+    WHEN 'server' THEN 2
+END
+LIMIT 1;
+`
+
+	cmd := []string{"-tAc", sql}
+	stdout, _, err := pfacts.PRunner.ExecVSQL(ctx, pf.GetName(), names.ServerContainer, cmd...)
+	if err != nil {
+		return tlsNameNone, false, fmt.Errorf("failed to execute HTTPS TLS check query: %w", err)
+	}
+
+	// Expect output like: "https|t" or "server|f"
+	output := strings.TrimSpace(stdout)
+	if output == "" {
+		i.Log.Info("No HTTPS TLS configuration found")
+		return tlsNameNone, false, nil
+	}
+
+	parts := strings.Split(output, "|")
+	if len(parts) != 2 {
+		return tlsNameNone, false, fmt.Errorf("unexpected query output format: %q", output)
+	}
+	tlsStr := parts[0]
+	enabledStr := parts[1]
+
+	var tls tlsName
+	switch tlsStr {
+	case string(tlsNameHTTPS):
+		tls = tlsNameHTTPS
+		i.Log.Info("HTTPS TLS is in use")
+	case string(tlsNameServer):
+		tls = tlsNameServer
+		i.Log.Info("Server TLS is in use")
+	default:
+		return tlsNameNone, false, fmt.Errorf("unknown TLS name: %s", tlsStr)
+	}
+
+	return tls, enabledStr == "t", nil
+}
+
+func (i *UpgradeManager) enableHTTPSTLS(ctx context.Context, pfacts *podfacts.PodFacts, pf *podfacts.PodFact, tlsName tlsName) error {
+	if tlsName != tlsNameHTTPS && tlsName != tlsNameServer {
+		i.Log.Info("HTTPS TLS name is incorrect. Skip enabling it", "tlsName", tlsName)
+		return nil
+	}
+
+	// Compose the SQL to create keys, certs, and alter HTTPS TLS config
+	sql := fmt.Sprintf(`
+CREATE KEY k_ca TYPE 'RSA' LENGTH 4096;
+CREATE KEY k_server TYPE 'RSA' LENGTH 2048;
+CREATE CA CERTIFICATE httpServerRootca
+   SUBJECT '/C=US/ST=Massachusetts/L=Cambridge/O=Micro Focus/OU=Vertica/CN=Vertica Root CA'
+   VALID FOR 3650
+   EXTENSIONS 'nsComment' = 'Vertica generated root CA cert'
+   KEY k_ca;
+CREATE CERTIFICATE httpServerCert
+   SUBJECT '/C=US/ST=Massachusetts/L=Cambridge/O=Micro Focus/OU=Vertica/CN=Eng Vertica Cluster/emailAddress=Vertica-IT@microfocus.com'
+   SIGNED BY httpServerRootca
+   KEY k_server;
+ALTER TLS CONFIGURATION %s
+CERTIFICATE httpServerCert ADD CA CERTIFICATES httpServerRootca TLSMODE 'TRY_VERIFY';
+`, tlsName)
+
+	cmd := []string{"-c", sql}
+
+	stdout, stderr, err := pfacts.PRunner.ExecVSQL(ctx, pf.GetName(), names.ServerContainer, cmd...)
+	if err != nil {
+		return fmt.Errorf("failed to execute HTTPS TLS setup SQL: %w. stdout: %s, stderr: %s", err, stdout, stderr)
+	}
+
+	i.Log.Info("HTTPS TLS has been enabled successfully")
+	return nil
 }
 
 // changeHealthProbeIfNeeded will handle the case where we are upgrading across
