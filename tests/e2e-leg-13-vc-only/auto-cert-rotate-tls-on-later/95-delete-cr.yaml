@@ -11,23 +11,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: apps/v1
-kind: StatefulSet
-metadata:
-  name: v-upgrade-vertica-defsc
-spec:
-  template:
-    spec:
-      containers:
-      - name: server
-        image: opentext/vertica-k8s:24.1.0-8-minimal
-status:
-  replicas: 3
-  readyReplicas: 3
----
-apiVersion: vertica.com/v1
-kind: VerticaDB
-metadata:
-  name: v-upgrade-vertica
-spec:
-  image: opentext/vertica-k8s:24.1.0-8-minimal
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+delete:
+  - apiVersion: vertica.com/v1
+    kind: VerticaDB

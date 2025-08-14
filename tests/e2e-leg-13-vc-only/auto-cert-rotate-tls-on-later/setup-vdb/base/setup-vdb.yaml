@@ -14,8 +14,30 @@
 apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
-  name: v-upgrade-vertica
+  name: v-auto-cert-rotate
   annotations:
-    vertica.com/vcluster-ops: "true"
+    vertica.com/k-safety: "1"
+    vertica.com/include-uid-in-path: "true"
+    vertica.com/remove-tls-secret-on-vdb-delete: "true"
+    vertica.com/disable-tls-rotation-failure-rollback: "false"
 spec:
-  image: opentext/vertica-k8s:24.1.0-8-minimal
+  initPolicy: CreateSkipPackageInstall
+  image: kustomize-vertica-image
+  communal: {}
+  local:
+    requestSize: 100Mi
+    catalogPath: /catalog
+  dbName: vertdb
+  encryptSpreadComm: vertica
+  httpsNMATLS:
+    mode: VERIFY_CA
+  subclusters:
+    - name: sc1
+      size: 3
+  securityContext:
+    capabilities:
+      add: ["SYS_PTRACE"]
+  certSecrets: []
+  imagePullSecrets: []
+  volumes: []
+  volumeMounts: []

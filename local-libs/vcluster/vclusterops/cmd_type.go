@@ -50,6 +50,7 @@ const (
 	WorkloadCancelCmd
 	HealthWatchdogGetCmd
 	HealthWatchdogSetCmd
+	HealthWatchdogCancelQueryCmd
 	RotateNMACertsCmd
 	RotateVerticaCertsCmd
 	SetTLSConfigCmd

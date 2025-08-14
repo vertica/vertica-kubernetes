@@ -220,6 +220,11 @@ runs:
             export PROMETHEUS_ENABLED=true
           fi
 
+          if [[ "${{ inputs.leg-identifier }}" == "leg-14-loki" ]]; then
+            export GRAFANA_ENABLED=true
+            export LOKI_ENABLED=true
+          fi
+
           # Set BASE_VERTICA_IMG based on $VERTICA_IMG
           # Some tests in some suites do an upgrade, so set the base image to upgrade from
           if [[ "${{ inputs.need-base-vertica-image }}" == "true" ]]; then
@@ -239,9 +244,7 @@ runs:
 
           # Set an env var that will later be checked to pull an extra
           # vertica image used for multi-online-upgrade test
-          if [[ "${{ inputs.leg-identifier }}" == "leg-9" ]]; then
-            export LEG9=yes
-          fi
+          export LEG=${{ inputs.leg-identifier }}
 
           # Special setup for e2e-udx
           if [[ "${{ inputs.leg-identifier }}" == "udx" ]]; then
