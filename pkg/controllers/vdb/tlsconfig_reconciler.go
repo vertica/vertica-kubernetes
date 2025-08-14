@@ -138,7 +138,6 @@ func (h *TLSConfigReconciler) checkIfTLSConfiguredInDB(ctx context.Context,
 	if err != nil {
 		return
 	}
-
 	configured = strings.Contains(certificate, h.Manager.getCertificatePrefix())
 	return
 }
