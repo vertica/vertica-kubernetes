@@ -459,6 +459,10 @@ const (
 	// This annotation ensures the tls secrets are removed after the VDB is removed.
 	RemoveTLSSecretOnVDBDeleteAnnotation = "vertica.com/remove-tls-secret-on-vdb-delete" // #nosec G101
 
+	// This annotation is used to store the hash of the VerticaDB config. It is
+	// used to determine if the config has changed and if the operator should
+	// reconfigure the database.
+	ConfigHashAnnotation = "vertica.com/config-hash"
 	// Interval (in seconds) at which Prometheus scrapes the metrics from the target.
 	// If empty, Prometheus uses the global scrape interval.
 	PrometheusScrapeIntervalAnnotation = "vertica.com/prometheus-scrape-interval"
