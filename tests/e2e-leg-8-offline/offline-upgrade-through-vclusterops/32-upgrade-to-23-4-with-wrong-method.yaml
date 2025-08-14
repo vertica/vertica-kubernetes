@@ -11,25 +11,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: apps/v1
-kind: StatefulSet
-metadata:
-  name: v-upgrade-vertica-defsc
-spec:
-  template:
-    spec:
-      containers:
-      - name: server
-        image: opentext/vertica-k8s:23.4.0-0-minimal
-status:
-  replicas: 3
-  readyReplicas: 3
----
 apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
   name: v-upgrade-vertica
+  annotations:
+    vertica.com/vcluster-ops: "true"
 spec:
   image: opentext/vertica-k8s:23.4.0-0-minimal
-status:
-  deploymentMethod: "admintools"

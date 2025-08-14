@@ -1678,7 +1678,7 @@ func (v *VerticaDB) checkImmutableDeploymentMethod(oldObj *VerticaDB, allErrs fi
 	}
 	willUpgrade := oldObj.Spec.Image != v.Spec.Image
 	// When the upgrade is not required, we disallow the user to change the deployment type
-	if !willUpgrade {
+	if !willUpgrade && !v.isUpgradeInProgress() {
 		if vmeta.UseVClusterOps(oldObj.Annotations) != vmeta.UseVClusterOps(v.Annotations) {
 			prefix := field.NewPath("metadata").Child("annotations")
 			err := field.Invalid(prefix.Key(vmeta.VClusterOpsAnnotation),
@@ -1686,16 +1686,16 @@ func (v *VerticaDB) checkImmutableDeploymentMethod(oldObj *VerticaDB, allErrs fi
 				"deployment type cannot change for a running database")
 			allErrs = append(allErrs, err)
 		}
-		// when disallow the user to change the deployment type from vclusterOps to admintools in
-		// database upgrade since admintools is deprecated. However, if upgrade has been triggered
-		// and the target database doesn't support vclusterops, we allow the user to change it back.
-	} else if !v.isUpgradeInProgress() && vmeta.UseVClusterOps(oldObj.Annotations) && !vmeta.UseVClusterOps(v.Annotations) {
-		// change from vclusterops deployment to admintools deployment
-		prefix := field.NewPath("metadata").Child("annotations")
-		err := field.Invalid(prefix.Key(vmeta.VClusterOpsAnnotation),
-			v.Annotations[vmeta.VClusterOpsAnnotation],
-			"deployment type cannot change from vclusterops to admintools during upgrade")
-		allErrs = append(allErrs, err)
+		// when upgrade is triggered, we disallow the user to change the deployment type to admintools
+	} else if willUpgrade {
+		if vmeta.UseVClusterOps(oldObj.Annotations) && !vmeta.UseVClusterOps(v.Annotations) {
+			// change from vclusterops deployment to admintools deployment
+			prefix := field.NewPath("metadata").Child("annotations")
+			err := field.Invalid(prefix.Key(vmeta.VClusterOpsAnnotation),
+				v.Annotations[vmeta.VClusterOpsAnnotation],
+				"deployment type cannot change from vclusterops to admintools in an upgrade")
+			allErrs = append(allErrs, err)
+		}
 	}
 	return allErrs
 }

@@ -45,6 +45,8 @@ metadata:
   name: v-upgrade-vertica
 spec:
   image: opentext/vertica-k8s:24.1.0-8-minimal
+status:
+  deploymentMethod: "vclusterops"
 ---
 apiVersion: v1
 kind: Event

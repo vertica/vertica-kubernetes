@@ -112,8 +112,6 @@ func (o *OfflineUpgradeReconciler) Reconcile(ctx context.Context, _ *ctrl.Reques
 		// Initiate an upgrade by setting condition and event recording
 		o.startUpgrade,
 		o.logEventIfThisUpgradeWasNotChosen,
-		// When deployment method is switching to vcluster, we need to set HTTPS TLS
-		o.checkHTTPSTLS,
 		// Do a clean shutdown of the cluster
 		o.postStoppingClusterMsg,
 		o.stopCluster,
@@ -171,33 +169,6 @@ func (o *OfflineUpgradeReconciler) finishUpgrade(ctx context.Context) (ctrl.Resu
 func (o *OfflineUpgradeReconciler) logEventIfThisUpgradeWasNotChosen(_ context.Context) (ctrl.Result, error) {
 	if o.PFacts.GetSandboxName() == vapi.MainCluster {
 		o.Manager.logEventIfRequestedUpgradeIsDifferent(vapi.OfflineUpgrade)
-	}
-	return ctrl.Result{}, nil
-}
-
-// checkHTTPSTLS will check to see if the HTTPS TLS needs to be enabled
-func (o *OfflineUpgradeReconciler) checkHTTPSTLS(ctx context.Context) (ctrl.Result, error) {
-	// if this step has been done, we don't need to do it again
-	if vmeta.IsHTTPSTLSSetInOfflineUpgrade(o.Vdb.Annotations) {
-		return ctrl.Result{}, nil
-	}
-
-	// admintools deployment doesn't need to enable HTTPS TLS
-	if !vmeta.UseVClusterOps(o.Vdb.Annotations) {
-		return ctrl.Result{}, nil
-	}
-
-	res, err := o.Manager.enableHTTPSTLSIfNeeded(ctx, o.PFacts)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-	// when no up pod found, restart the database
-	if res.Requeue {
-		actor := MakeRestartReconciler(o.Rec, o.Log, o.Vdb, o.PRunner, o.PFacts, false, o.Dispatcher)
-		o.Manager.traceActorReconcile(actor)
-		_, err := actor.Reconcile(ctx, &ctrl.Request{})
-		// after database is restarted, requeue it to check HTTPS TLS again
-		return ctrl.Result{Requeue: true}, err
 	}
 	return ctrl.Result{}, nil
 }
@@ -359,7 +330,7 @@ func (o *OfflineUpgradeReconciler) checkVersion(ctx context.Context) (ctrl.Resul
 
 // checkHealthProbe will check to see if the health probe needs to be updated
 func (o *OfflineUpgradeReconciler) checkHealthProbe(ctx context.Context) (ctrl.Result, error) {
-	if !vmeta.UseVClusterOps(o.Vdb.Annotations) {
+	if !o.Vdb.UseVClusterOpsDeployment() {
 		return ctrl.Result{}, nil
 	}
 

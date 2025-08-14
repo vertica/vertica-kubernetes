@@ -216,7 +216,7 @@ func (o *ObjReconciler) checkMountedObjs(ctx context.Context) (ctrl.Result, erro
 		}
 	}
 
-	if vmeta.UseVClusterOps(o.Vdb.Annotations) {
+	if o.Vdb.UseVClusterOpsDeployment() {
 		// When running the NMA, needed for vclusterops, a secret must exist
 		// that has the certs to use for it.  There is a reconciler that is run
 		// before this that will create the secret.  We will requeue if we find
@@ -1005,10 +1005,10 @@ func (o *ObjReconciler) checkIfReadyForStsUpdate(newStsSize int32, sts *appsv1.S
 			return ctrl.Result{}, fmt.Errorf("could not find pod facts for pod '%s'", pn)
 		}
 		// For vclusterOps, there is no uninstall step so we skip the isInstalled state.
-		if (!vmeta.UseVClusterOps(o.Vdb.Annotations) && pf.GetIsInstalled()) || pf.GetDBExists() {
+		if (!o.Vdb.UseVClusterOpsDeployment() && pf.GetIsInstalled()) || pf.GetDBExists() {
 			o.Log.Info("Requeue since some pods still need db_remove_node and/or uninstall done.",
 				"name", pn, "isInstalled", pf.GetIsInstalled(), "dbExists", pf.GetDBExists(),
-				"vclusterOps", vmeta.UseVClusterOps(o.Vdb.Annotations))
+				"vclusterOps", o.Vdb.UseVClusterOpsDeployment())
 			return ctrl.Result{Requeue: true}, nil
 		}
 	}
