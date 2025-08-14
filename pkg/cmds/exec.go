@@ -231,6 +231,13 @@ func getSupportingPasswdSlice() []string {
 // postExec makes the actual POST call to the REST endpoint to do the exec
 func (c *ClusterPodRunner) postExec(ctx context.Context, podName types.NamespacedName, contName string, command []string,
 	execOut, execErr *bytes.Buffer, execIn io.Reader) error {
+	// to mask the password when updating superuser secret
+	re := regexp.MustCompile(`IDENTIFIED BY '(.*?)'`)
+	for i, cmd := range command {
+		if re.MatchString(cmd) {
+			command[i] = re.ReplaceAllString(cmd, "IDENTIFIED BY 'xxxxxxxx'")
+		}
+	}
 	c.logInfoCmd(podName, command...)
 
 	cli, err := kubernetes.NewForConfig(c.Cfg)

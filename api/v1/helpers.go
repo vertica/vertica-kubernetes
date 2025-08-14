@@ -69,8 +69,6 @@ const (
 	DefaultServiceClientPort = 5433
 )
 
-var EmptyPassword = ""
-
 // ExtractNamespacedName gets the name and returns it as a NamespacedName
 func (v *VerticaDB) ExtractNamespacedName() types.NamespacedName {
 	return types.NamespacedName{
@@ -1392,6 +1390,12 @@ func (s *SubclusterStatus) InstallCount() int32 {
 // GetVerticaUser returns the name of Vertica superuser generated in database creation.
 func (v *VerticaDB) GetVerticaUser() string {
 	return vmeta.GetSuperuserName(v.Annotations)
+}
+
+// GetPasswordSecret returns the password secret
+func (v *VerticaDB) GetPasswordSecret() string {
+	// status holds the current password
+	return v.Status.PasswordSecret
 }
 
 // GetEncryptSpreadComm will return "vertica" if encryptSpreadComm is set to

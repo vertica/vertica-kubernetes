@@ -103,12 +103,15 @@ func (a *PasswordSecretReconciler) updatePasswordSecret(ctx context.Context) (ct
 		dbUser = a.Vdb.Annotations[vmeta.SuperuserNameAnnotation]
 	}
 
+	// currently using password
 	currentPassword, err := vk8s.GetSuperuserPassword(ctx, a.VRec.Client, a.Log, a.VRec, a.Vdb)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 
-	newPasswd, err := vk8s.GetSuperuserPasswordForUpdate(ctx, a.VRec.Client, a.Log, a.VRec, a.Vdb, true /* forUpdate */)
+	// The password to be updated to
+	newPasswd, err := vk8s.GetCustomSuperuserPassword(ctx, a.VRec.Client, a.Log, a.VRec, a.Vdb,
+		a.Vdb.Spec.PasswordSecret, names.SuperuserPasswordKey)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -125,7 +128,7 @@ func (a *PasswordSecretReconciler) updatePasswordSecret(ctx context.Context) (ct
 	cmd := []string{"-tAc", sb.String()}
 	stdout, stderr, err := a.PRunner.ExecVSQL(ctx, pf.GetName(), names.ServerContainer, cmd...)
 	if err != nil {
-		a.VRec.Log.Error(err, "failed to retrieve active sessions", "stderr", stderr)
+		a.VRec.Log.Error(err, "failed to update the password", "stderr", stderr)
 		return ctrl.Result{}, err
 	}
 
