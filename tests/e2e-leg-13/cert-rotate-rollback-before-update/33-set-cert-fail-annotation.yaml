@@ -3,4 +3,4 @@ kind: VerticaDB
 metadata:
   name: v-cert-rotate-rollback-before-update
   annotations:
-    vertica.com/trigger-tls-update-failure: "before_tls_update"
+    vertica.com/trigger-tls-update-failure: "https_before_tls_update"
