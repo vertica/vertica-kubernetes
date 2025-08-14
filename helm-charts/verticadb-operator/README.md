@@ -51,6 +51,6 @@ This table below describes monitoring configuration parameters including Grafana
 | Parameter Name | Description | Default Value |
 |----------------|-------------|---------------|
 | grafana.enabled | Set to true if you want to deploy Grafana with the operator | false |
-| prometheus-server.enabled | Set to true if you want to deploy Prometheus server. | false |
+| prometheusServer.enabled | Set to true if you want to deploy Prometheus server. | false |
 | loki.enabled | Set to true if you want to deploy loki and alloy. | false |
 

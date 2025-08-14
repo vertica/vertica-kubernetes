@@ -68,6 +68,7 @@ helm-charts/verticadb-operator/templates/*.yaml
 helm-charts/verticadb-operator/crds/*yaml
 helm-charts/verticadb-operator/charts/
 helm-charts/verticadb-operator/Chart.lock
+helm-charts/verticadb-operator/tmpcharts-*/
 helm-charts/verticadb-webhook/templates/*.yaml
 helm-charts/verticadb-webhook/crds/*
 

@@ -14,5 +14,4 @@
 apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 commands:
-  - command: |
-      kubectl patch -n $NAMESPACE vdb v-base-upgrade --type=json --patch='[{"op": "replace", "path": "/spec/volumes/0/configMap/name", "value": "vdb-state-new-name"}, {"op": "replace", "path": "/spec/image", "value": "'$VERTICA_IMG'"}]'
+  - command: bash -c "kustomize build clean-communal/overlay | kubectl -n $NAMESPACE apply -f - "

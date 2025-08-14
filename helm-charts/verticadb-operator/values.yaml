@@ -222,7 +222,7 @@ grafana:
   namespaceOverride: ""
 
   adminUser: admin
-  adminPassword: adminadminadmin
+  adminPassword: admin
 
   admin:
     ## Name of the secret. Can be templated.
@@ -299,13 +299,15 @@ grafana:
           url: http://{{ .Release.Name }}-prometheus-server-prometheus.{{ .Release.Namespace }}.svc.cluster.local:9090
           access: proxy
           isDefault: true
+          jsonData:
+            tlsSkipVerify: true 
         - name: Loki
           type: loki
           url: http://{{ .Release.Name }}-loki-gateway.{{ .Release.Namespace }}.svc.cluster.local:80
           access: proxy
           isDefault: false
 
-prometheus-server:
+prometheusServer:
   enabled: false # Set to true if you want to deploy Prometheus server
   # === Global Namespace Configuration ===
   # By default, kube-prometheus-stack installs into .Release.Namespace
@@ -346,6 +348,8 @@ prometheus-server:
     prometheus:
       monitor:
         enabled: false
+
+  nameOverride: prometheus-server
   
   # Prometheus Operator - keep minimal
   prometheusOperator:
@@ -354,13 +358,15 @@ prometheus-server:
     resources:
       limits:
         cpu: 200m
-        memory: 200Mi
+        memory: 750Mi
       requests:
         cpu: 100m
         memory: 100Mi
     # Reduce admission webhook complexity
     admissionWebhooks:
       enabled: false
+    serviceMonitor:
+      selfMonitor: false # Disable self-monitoring ServiceMonitor
     # Disable TLS for simplicity
     tls:
       enabled: false
@@ -369,8 +375,8 @@ prometheus-server:
   prometheus:
     # Service account for Prometheuses to use. 
     serviceAccount:
-      create: true
-      name: ""
+      create: false
+      name: prometheus-vertica-sa
       annotations: {}
       automountServiceAccountToken: true
 
@@ -380,6 +386,9 @@ prometheus-server:
       # NodePort or LoadBalancer can be used if you need external access to Prometheus
       # for instance, for remote scraping or a UI access
       # nodePort: 30090
+
+    serviceMonitor:
+      selfMonitor: false
     
     # Storage for Prometheus (highly recommended for production)
     prometheusSpec:
@@ -400,10 +409,13 @@ prometheus-server:
       storageSpec:
         volumeClaimTemplate:
           spec:
-            storageClassName: standard # Or your preferred storage class
             resources:
               requests:
                 storage: 5Gi # Adjust storage size as needed
+
+      ## WebTLSConfig defines the TLS parameters for HTTPS
+      ## ref: https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api-reference/api.md#webtlsconfig
+      web: {}
 
     # Optionally disable the default `kube-prometheus-stack` scrape configs if you're
     # defining your own ServiceMonitors/PodMonitors for your operator.

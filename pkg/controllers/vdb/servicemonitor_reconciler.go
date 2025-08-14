@@ -43,13 +43,14 @@ func MakeServiceMonitorReconciler(vdb *vapi.VerticaDB, vrec *VerticaDBReconciler
 	return &ServiceMonitorReconciler{
 		VRec: vrec,
 		Vdb:  vdb,
-		Log:  log,
+		Log:  log.WithName("ServiceMonitorReconciler"),
 	}
 }
 
 func (s *ServiceMonitorReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
 	// no-op if Prometheus is not enabled or the DB is not initialized.
 	if !opcfg.IsPrometheusEnabled() || !s.Vdb.IsDBInitialized() {
+		s.Log.Info("Prometheus is not enabled or DB is not initialized, skipping ServiceMonitor reconciliation")
 		return ctrl.Result{}, nil
 	}
 

@@ -215,9 +215,14 @@ runs:
             export CONCURRENCY_SANDBOXCONFIGMAP=2
           fi
 
-          if [[ "${{ inputs.leg-identifier }}" == "leg-14" ]]; then
+          if [[ "${{ inputs.leg-identifier }}" == "leg-14" || \
+                "${{ inputs.leg-identifier }}" == "leg-14-tls" ]]; then
             export GRAFANA_ENABLED=true
             export PROMETHEUS_ENABLED=true
+          fi
+
+          if [[ "${{ inputs.leg-identifier }}" == "leg-14-tls" ]]; then
+            export HELM_OVERRIDES="${HELM_OVERRIDES} -f tests/e2e-leg-14-tls/prometheus-with-tls/values.yaml"
           fi
 
           if [[ "${{ inputs.leg-identifier }}" == "leg-14-loki" ]]; then
