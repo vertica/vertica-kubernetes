@@ -11,29 +11,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1
-kind: VerticaDB
+apiVersion: v1
+kind: Pod
 metadata:
-  name: v-managed
+  namespace: verticadb-operator
+  labels:
+    control-plane: verticadb-operator
+status:
+  phase: Running
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: verticadb-operator
   annotations:
-    vertica.com/include-uid-in-path: "true"
-    vertica.com/k-safety: "0"
-    vertica.com/requeue-time: "4"
-spec:
-  initPolicy: CreateSkipPackageInstall
-  image: kustomize-vertica-image
-  sidecars:
-    - name: vlogger
-      image: kustomize-vlogger-image
-  communal: {}
-  local:
-    requestSize: 100Mi
-  dbName: vertdb
-  subclusters:
-    - name: sc1
-      size: 1
-  certSecrets: []
-  imagePullSecrets: []
-  volumes: []
-  volumeMounts: []
-  encryptSpreadComm: disabled
+    meta.helm.sh/release-name: vdb-op
+    meta.helm.sh/release-namespace: verticadb-operator
+status:
+  readyReplicas: 1

@@ -1,0 +1,62 @@
+suite: skip-prometheus-rbac tests
+templates:
+  - verticadb-operator-prometheus-sa-sa.yaml
+  - verticadb-operator-prometheus-role-binding-crb.yaml
+  - verticadb-operator-prometheus-role-cr.yaml
+tests:
+  - it: rbac objects should be created
+    set:
+      prometheusServer:
+        enabled: true
+        prometheus:
+          serviceAccount:
+            create: false
+            name: prometheus-vertica-sa
+    asserts:
+      - hasDocuments:
+          count: 1
+  - it: rbac objects should not be created if prometheusServer is disabled
+    set:
+      prometheusServer:
+        enabled: false
+        prometheus:
+          serviceAccount:
+            create: false
+            name: prometheus-vertica-sa
+    asserts:
+      - hasDocuments:
+          count: 0
+  - it: rbac objects should not be created if serviceAccount.create is true
+    set:
+      prometheusServer:
+        enabled: true
+        prometheus:
+          serviceAccount:
+            create: true
+            name: prometheus-vertica-sa
+    asserts:
+      - hasDocuments:
+          count: 0
+  - it: rbac objects should not be created if there is a custom serviceAccount.name 
+    set:
+      prometheusServer:
+        enabled: true
+        prometheus:
+          serviceAccount:
+            create: false
+            name: new-sa
+    asserts:
+      - hasDocuments:
+          count: 0
+  - it: rbac objects should not be created if serviceAccount.create is true and a custom name is provided
+    set:
+      prometheusServer:
+        enabled: true
+        prometheus:
+          serviceAccount:
+            create: true
+            name: new-sa
+    asserts:
+      - hasDocuments:
+          count: 0
+

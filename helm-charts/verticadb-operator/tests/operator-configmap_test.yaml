@@ -20,7 +20,7 @@ tests:
           value: 0.0.0.0:8443
   - it: should set prometheus_enabled
     set:
-      prometheus-server:
+      prometheusServer:
         enabled: true
     asserts:
       - equal:
