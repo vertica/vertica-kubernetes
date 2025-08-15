@@ -12,8 +12,10 @@
 # limitations under the License.
 
 apiVersion: v1
-kind: Secret
+kind: Pod
 metadata:
-  name: cert1
-  name: cert2
-  name: cert3
+  namespace: verticadb-operator
+  labels:
+    control-plane: verticadb-operator
+status:
+  phase: Running

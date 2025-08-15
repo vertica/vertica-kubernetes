@@ -76,4 +76,4 @@ involvedObject:
   apiVersion: vertica.com/v1
   kind: VerticaDB
   name: v-auto-cert-rotate
-message: No remaining auto-rotation secrets for TLS Config httpsNMA
+message: Completed all secrets for TLS Config httpsNMA. Auto-rotation is stopped; update the secrets list to resume.

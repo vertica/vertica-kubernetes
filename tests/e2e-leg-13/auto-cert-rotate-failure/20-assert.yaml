@@ -31,17 +31,6 @@ involvedObject:
   name: v-auto-cert-rotate
 message: Successfully rotated Server tls cert with secret name cert1 and mode try_verify
 ---
-apiVersion: v1
-kind: Event
-reason: TLSAutoRotateFailed
-source:
-  component: verticadb-operator
-involvedObject:
-  apiVersion: vertica.com/v1
-  kind: VerticaDB
-  name: v-auto-cert-rotate
-message: Completed all secrets for TLS Config clientServer. Auto-rotation is stopped; update the secrets list to resume.
----
 apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
@@ -52,6 +41,7 @@ status:
   - name: clientServer
     secret: cert1
     autoRotateSecrets:
+    - cert1
     - cert2
     - cert3
-    - cert1
+    - cert4
