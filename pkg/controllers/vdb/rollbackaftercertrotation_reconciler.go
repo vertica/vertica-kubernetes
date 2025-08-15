@@ -227,7 +227,7 @@ func (r *RollbackAfterCertRotationReconciler) updateTLSConfigInVdb(ctx context.C
 	})
 }
 
-// setAutoRotateStatus will set the AutoRotateFailed status to true
+// setAutoRotateStatus will set the AutoRotateFailedSecret in status with the failing secret.
 // This is used to indicate that the auto-rotation of TLS secrets has failed
 // and the operator should auto-rotate to the next secret.
 func (r *RollbackAfterCertRotationReconciler) setAutoRotateStatus(ctx context.Context) (ctrl.Result, error) {
@@ -242,7 +242,7 @@ func (r *RollbackAfterCertRotationReconciler) setAutoRotateStatus(ctx context.Co
 		return ctrl.Result{}, nil
 	}
 
-	r.Log.Info("Setting AutoRotateFailedSecret for TLSConfigStatus", "tlsConfigName", tlsConfigName)
+	r.Log.Info("Setting AutoRotateFailedSecret for TLSConfigStatus", "tlsConfigName", tlsConfigName, "failedSecret", failedSecret)
 
 	// Prepare patch
 	patch := r.Vdb.DeepCopy()
