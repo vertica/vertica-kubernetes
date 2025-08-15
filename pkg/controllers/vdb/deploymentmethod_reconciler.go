@@ -44,8 +44,8 @@ type DeploymentMethodReconciler struct {
 }
 
 // MakeDeploymentMethodReconciler will build a DeploymentMethodReconciler object
-func MakeDeploymentMethodReconciler(vdbrecon config.ReconcilerInterface, log logr.Logger,
-	vdb *vapi.VerticaDB, pfacts *podfacts.PodFacts, dispatcher vadmin.Dispatcher) controllers.ReconcileActor {
+func MakeDeploymentMethodReconciler(vdbrecon config.ReconcilerInterface, log logr.Logger, vdb *vapi.VerticaDB, prunner cmds.PodRunner,
+	pfacts *podfacts.PodFacts, dispatcher vadmin.Dispatcher) controllers.ReconcileActor {
 	return &DeploymentMethodReconciler{
 		VRec:       vdbrecon,
 		Log:        log.WithName("DeploymentMethodReconciler"),
@@ -53,6 +53,7 @@ func MakeDeploymentMethodReconciler(vdbrecon config.ReconcilerInterface, log log
 		PFacts:     pfacts,
 		Manager:    *MakeUpgradeManager(vdbrecon, log, vdb, "", nil),
 		Dispatcher: dispatcher,
+		PRunner:    prunner,
 	}
 }
 
