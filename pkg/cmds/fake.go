@@ -38,7 +38,7 @@ type FakePodRunner struct {
 	// fake username
 	VerticaSUName string
 	// fake password
-	VerticaSUPassword string
+	VerticaSUPassword *string
 	IsTLSEnabled      bool
 }
 
@@ -104,6 +104,17 @@ func (f *FakePodRunner) CopyToPod(ctx context.Context, podName types.NamespacedN
 // DumpAdmintoolsConf will log relenvant portions of the admintools.conf for debug purposes.
 func (f *FakePodRunner) DumpAdmintoolsConf(_ context.Context, _ types.NamespacedName) {
 	// no-op
+}
+
+func (c *FakePodRunner) SetSUPassword(newPasswd *string) error {
+	if newPasswd == nil {
+		emptyPassword := ""
+		c.VerticaSUPassword = &emptyPassword
+	} else {
+		c.VerticaSUPassword = newPasswd
+	}
+
+	return nil
 }
 
 // FindCommands will search through the command history for any command that
