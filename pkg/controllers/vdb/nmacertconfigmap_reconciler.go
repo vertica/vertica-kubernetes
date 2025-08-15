@@ -86,8 +86,8 @@ func (h *NMACertConfigMapReconciler) Reconcile(ctx context.Context, _ *ctrl.Requ
 
 	err = h.VRec.GetClient().Update(ctx, configMap)
 	if err == nil {
-		h.Log.Info("updated tls cert secret configmap", "name", configMapName.Name, "nma-secret", h.Vdb.GetHTTPSNMATLSSecret(),
-			"clientserver-secret", h.Vdb.GetClientServerTLSSecret())
+		h.Log.Info("updated tls cert secret configmap", "name", configMapName.Name, "nma-secret", h.Vdb.GetHTTPSNMATLSSecretForConfigMap(),
+			"clientserver-secret", h.Vdb.GetClientServerTLSSecretForConfigMap())
 	}
 	return ctrl.Result{}, err
 }

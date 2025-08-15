@@ -52,8 +52,13 @@ func (v *VClusterOps) RotateTLSCerts(ctx context.Context, opts ...rotatetlscerts
 
 	// In order to test TLS rollback after failed rotate, this is a backdoor set via
 	// annotation to force a failure BEFORE the TLS cert has been updated in the DB
-	if vmeta.GetTriggerTLSUpdateFailureAnnotation(v.VDB.Annotations) == vmeta.TriggerTLSUpdateFailureBeforeTLSUpdate {
-		return fmt.Errorf("forced error in TLS cert rotation before updating TLS config")
+	if s.TLSConfig != tlsConfigServer &&
+		vmeta.GetTriggerTLSUpdateFailureAnnotation(v.VDB.Annotations) == vmeta.TriggerTLSUpdateFailureBeforeHTTPSTLSUpdate {
+		return fmt.Errorf("forced error in HTTPS TLS cert rotation before updating TLS config")
+	}
+	if s.TLSConfig == tlsConfigServer &&
+		vmeta.GetTriggerTLSUpdateFailureAnnotation(v.VDB.Annotations) == vmeta.TriggerTLSUpdateFailureDuringClientServerTLSUpdate {
+		return fmt.Errorf("forced error in Server TLS cert rotation before updating TLS config")
 	}
 
 	// call vclusterOps library to rotate nma cert
@@ -66,7 +71,7 @@ func (v *VClusterOps) RotateTLSCerts(ctx context.Context, opts ...rotatetlscerts
 
 	// In order to test TLS rollback after failed rotate, this is a backdoor set via
 	// annotation to force a failure AFTER the TLS cert has been updated in the DB
-	if vmeta.GetTriggerTLSUpdateFailureAnnotation(v.VDB.Annotations) == vmeta.TriggerTLSUpdateFailureAfterTLSUpdate {
+	if vmeta.GetTriggerTLSUpdateFailureAnnotation(v.VDB.Annotations) == vmeta.TriggerTLSUpdateFailureAfterHTTPSTLSUpdate {
 		return fmt.Errorf("forced error in TLS cert rotation after updating TLS config")
 	}
 

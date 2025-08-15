@@ -631,7 +631,7 @@ var _ = Describe("verticadb_webhook", func() {
 		Ω(allErrs).ShouldNot(BeEmpty())
 	})
 
-	It("should return error if both httpsNMATLS and clientServerTLS are changed at the same time", func() {
+	It("should allow changing both httpsNMATLS and clientServerTLS at the same time", func() {
 		oldVdb := MakeVDBForCertRotationEnabled()
 		oldVdb.Spec.HTTPSNMATLS.Secret = oldSecret
 		oldVdb.Spec.ClientServerTLS.Secret = oldSecret
@@ -647,8 +647,7 @@ var _ = Describe("verticadb_webhook", func() {
 			{Name: ClientServerTLSConfigName, Secret: oldSecret, Mode: oldMode},
 		}
 		allErrs = newVdb.checkValidTLSConfigUpdate(oldVdb, nil)
-		Expect(allErrs).Should(HaveLen(1))
-		Expect(allErrs[0].Error()).To(ContainSubstring("cannot change both httpsNMATLS and clientServerTLS at the same time"))
+		Ω(allErrs).Should(BeEmpty())
 	})
 
 	It("should not change a tls secret to empty string", func() {
