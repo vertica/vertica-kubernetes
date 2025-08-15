@@ -2049,8 +2049,8 @@ func SetTLSConfigs(refs *[]TLSConfigStatus, newRef *TLSConfigStatus) (changed bo
 		existing.AutoRotateSecrets = newRef.AutoRotateSecrets
 		changed = true
 	}
-	if existing.AutoRotateFailed != newRef.AutoRotateFailed {
-		existing.AutoRotateFailed = newRef.AutoRotateFailed
+	if existing.AutoRotateFailedSecret != newRef.AutoRotateFailedSecret {
+		existing.AutoRotateFailedSecret = newRef.AutoRotateFailedSecret
 		changed = true
 	}
 

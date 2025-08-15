@@ -93,13 +93,21 @@ func (r *AutoCertRotateReconciler) autoRotateByTLSConfig(ctx context.Context, tl
 		return ctrl.Result{}, nil
 	}
 
+	// If previous auto-rotate failed, continue after the failed secret.
+	current := r.Vdb.GetSecretInUse(tlsConfig)
+	failedSecret := r.Vdb.GetTLSConfigByName(tlsConfig).AutoRotateFailedSecret
+	if failedSecret != "" {
+		current = failedSecret
+		r.Log.Info("Previous auto-rotate failed; skipping to next secret",
+			"tlsConfig", tlsConfig, "failedSecret", current)
+	}
+
 	// If spec secret list does not match status secret list, user must have updated the spec.
 	// There are two scenarios here:
 	//   1) If current secret is still in list, just continue rotating from its new position
 	//   2) If current secret is not in list, restart auto-rotate from scratch
 	specSecrets := r.Vdb.GetTLSConfigAutoRotate(tlsConfig).Secrets
 	if !r.Vdb.EqualStringSlices(specSecrets, r.Vdb.GetTLSConfigByName(tlsConfig).AutoRotateSecrets) {
-		current := r.Vdb.GetSecretInUse(tlsConfig)
 		if r.findSecretInList(current, specSecrets) == -1 {
 			r.Log.Info("Spec secret list changed and current secret is missing. Restarting auto-rotate.")
 			return r.initializeAutoRotate(ctx, tlsConfig)
@@ -112,11 +120,9 @@ func (r *AutoCertRotateReconciler) autoRotateByTLSConfig(ctx context.Context, tl
 	// Check if we are after nextUpdate or if previous auto-rotate failed.
 	// Since this can take a long time, for testing purposes, we have added an annotation to
 	// automatically trigger the auto-rotation now.
-	autoFailed := r.Vdb.GetTLSConfigByName(tlsConfig).AutoRotateFailed
-
-	if autoFailed || r.Vdb.Annotations[vmeta.TriggerAutoTLSRotateAnnotation] != "" || time.Until(nextUpdate.Time) <= 0 {
+	if failedSecret != "" || r.Vdb.Annotations[vmeta.TriggerAutoTLSRotateAnnotation] != "" || time.Until(nextUpdate.Time) <= 0 {
 		r.Log.Info("Next update time for auto cert rotation has passed; triggering auto-rotation", "tlsConfig", tlsConfig)
-		return r.rotateToNextTLSSecret(ctx, tlsConfig)
+		return r.rotateToNextTLSSecret(ctx, tlsConfig, current)
 	}
 
 	// Otherwise, requeue to next update
@@ -135,9 +141,8 @@ func (r *AutoCertRotateReconciler) initializeAutoRotate(ctx context.Context, tls
 // It will find the current secret in the list then rotate the secret after it.
 // If the current secret is last, we will produce an error, unless restartAtEnd is true.
 // If the previous auto-rotate failed, we will rotate to the next secret in the list.
-func (r *AutoCertRotateReconciler) rotateToNextTLSSecret(ctx context.Context, tlsConfig string) (ctrl.Result, error) {
+func (r *AutoCertRotateReconciler) rotateToNextTLSSecret(ctx context.Context, tlsConfig, current string) (ctrl.Result, error) {
 	secrets := r.Vdb.GetTLSConfigByName(tlsConfig).AutoRotateSecrets
-	current := r.Vdb.GetSecretInUse(tlsConfig)
 
 	// Status list should never be empty here; if it is, something went wrong.
 	if len(secrets) == 0 {
@@ -157,15 +162,7 @@ func (r *AutoCertRotateReconciler) rotateToNextTLSSecret(ctx context.Context, tl
 		return ctrl.Result{}, nil
 	}
 
-	// Decide how far to advance
-	step := 1
-	if r.Vdb.GetTLSConfigByName(tlsConfig).AutoRotateFailed {
-		step = 2 // skip the failed secret and go to the next one
-		r.Log.Info("Previous auto-rotate failed; skipping to next secret",
-			"tlsConfig", tlsConfig, "failedSecret", current)
-	}
-
-	targetIndex := secretIndex + step
+	targetIndex := secretIndex + 1
 
 	// If current secret is last and restartAtEnd is true, begin at the start again;
 	// if it is false, error.
@@ -179,7 +176,7 @@ func (r *AutoCertRotateReconciler) rotateToNextTLSSecret(ctx context.Context, tl
 		return ctrl.Result{}, nil
 	}
 
-	// Rotate to target secret
+	// Rotate to next secret
 	r.Log.Info("Auto-rotating to next TLS secret",
 		"tlsConfig", tlsConfig, "nextSecret", secrets[targetIndex])
 	return r.rotateToSecret(ctx, tlsConfig, secrets, secrets[targetIndex])
@@ -214,7 +211,7 @@ func (r *AutoCertRotateReconciler) rotateToSecret(
 	status := patch.GetTLSConfigByName(tlsConfig)
 	status.AutoRotateSecrets = secrets
 	status.LastUpdate = v1.NewTime(now)
-	status.AutoRotateFailed = false
+	status.AutoRotateFailedSecret = ""
 
 	if err := r.VRec.Client.Update(ctx, patch); err != nil {
 		r.Log.Error(err, "Failed to patch VerticaDB spec during rotate", "tlsConfig", tlsConfig)

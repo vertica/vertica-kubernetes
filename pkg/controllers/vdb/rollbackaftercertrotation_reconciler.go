@@ -84,8 +84,8 @@ func (r *RollbackAfterCertRotationReconciler) Reconcile(ctx context.Context, _ *
 		r.pollNMACertHealth,
 		r.runHTTPSCertRotation,
 		r.resetTLSUpdateCondition,
-		r.updateTLSConfigInVdb,
 		r.setAutoRotateStatus,
+		r.updateTLSConfigInVdb,
 		r.cleanUpRollbackConditions,
 	}
 
@@ -232,20 +232,22 @@ func (r *RollbackAfterCertRotationReconciler) updateTLSConfigInVdb(ctx context.C
 // and the operator should auto-rotate to the next secret.
 func (r *RollbackAfterCertRotationReconciler) setAutoRotateStatus(ctx context.Context) (ctrl.Result, error) {
 	tlsConfigName := vapi.HTTPSNMATLSConfigName
+	failedSecret := r.Vdb.GetHTTPSNMATLSSecret()
 	if r.Vdb.GetTLSCertRollbackReason() == vapi.RollbackAfterServerCertRotationReason {
 		tlsConfigName = vapi.ClientServerTLSConfigName
+		failedSecret = r.Vdb.GetClientServerTLSSecret()
 	}
 
 	if len(r.Vdb.GetAutoRotateSecrets(tlsConfigName)) == 0 {
 		return ctrl.Result{}, nil
 	}
 
-	r.Log.Info("Setting AutoRotateFailed to true for TLSConfigStatus", "tlsConfigName", tlsConfigName)
+	r.Log.Info("Setting AutoRotateFailedSecret for TLSConfigStatus", "tlsConfigName", tlsConfigName)
 
 	// Prepare patch
 	patch := r.Vdb.DeepCopy()
 	patchStatus := patch.GetTLSConfigByName(tlsConfigName)
-	patchStatus.AutoRotateFailed = true
+	patchStatus.AutoRotateFailedSecret = failedSecret
 
 	// Patch status explicitly
 	if err := vdbstatus.UpdateTLSConfigs(ctx, r.VRec.Client, patch, []*vapi.TLSConfigStatus{patchStatus}); err != nil {
