@@ -1056,6 +1056,10 @@ type TLSConfigStatus struct {
 	// +optional
 	// List of secrets to be used for auto-rotate
 	AutoRotateSecrets []string `json:"autoRotateSecrets,omitempty"`
+	// +operator-sdk:csv:customresourcedefinitions:type=status
+	// +optional
+	// Indicates when an auto-rotate has failed
+	AutoRotateFailed bool `json:"autoRotateFailed,omitempty"`
 }
 
 type RestorePointInfo struct {
