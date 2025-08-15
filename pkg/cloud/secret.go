@@ -21,6 +21,7 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
+	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/secrets"
 	corev1 "k8s.io/api/core/v1"
@@ -71,6 +72,25 @@ func (v *SecretFetcher) GetSecret(ctx context.Context, name types.NamespacedName
 	secret := corev1.Secret{}
 	err := v.Client.Get(ctx, name, &secret)
 	return &secret, err
+}
+
+// CheckSecretHasKeys will check if the secret has the required keys. If not, it will
+// log an event and return a ctrl.Result that will requeue the reconcile iteration.
+func (v *SecretFetcher) CheckSecretHasKeys(ctx context.Context, secretType string, secretName types.NamespacedName,
+	keyNames []string) (ctrl.Result, error) {
+	secretData, res, err := v.FetchAllowRequeue(ctx, secretName)
+	if verrors.IsReconcileAborted(res, err) {
+		return res, err
+	}
+
+	for _, key := range keyNames {
+		if _, ok := secretData[key]; !ok {
+			v.EVWriter.Eventf(v.Obj, corev1.EventTypeWarning, events.MissingSecretKeys,
+				"%s secret '%s' has missing key '%s'", secretType, secretName, key)
+			return ctrl.Result{Requeue: true}, nil
+		}
+	}
+	return ctrl.Result{}, nil
 }
 
 // handleFetchError is called when there is an error fetching the secret. It

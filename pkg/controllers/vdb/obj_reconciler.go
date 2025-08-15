@@ -241,13 +241,15 @@ func (o *ObjReconciler) checkMountedObjs(ctx context.Context) (ctrl.Result, erro
 
 	if o.Vdb.Spec.KerberosSecret != "" {
 		keyNames := []string{filepath.Base(paths.Krb5Conf), filepath.Base(paths.Krb5Keytab)}
-		if res, err := o.checkSecretHasKeys(ctx, "Kerberos", o.Vdb.Spec.KerberosSecret, keyNames); verrors.IsReconcileAborted(res, err) {
+		if res, err := o.SecretFetcher.CheckSecretHasKeys(ctx, "Kerberos", names.GenNamespacedName(o.Vdb, o.Vdb.Spec.KerberosSecret),
+			keyNames); verrors.IsReconcileAborted(res, err) {
 			return res, err
 		}
 	}
 
 	if o.Vdb.GetSSHSecretName() != "" {
-		if res, err := o.checkSecretHasKeys(ctx, "SSH", o.Vdb.GetSSHSecretName(), paths.SSHKeyPaths); verrors.IsReconcileAborted(res, err) {
+		if res, err := o.SecretFetcher.CheckSecretHasKeys(ctx, "SSH", names.GenNamespacedName(o.Vdb, o.Vdb.GetSSHSecretName()),
+			paths.SSHKeyPaths); verrors.IsReconcileAborted(res, err) {
 			return res, err
 		}
 	}
@@ -262,32 +264,18 @@ func (o *ObjReconciler) checkTLSSecrets(ctx context.Context) (ctrl.Result, error
 	if vmeta.UseTLSAuth(o.Vdb.Annotations) {
 		tlsSecrets["Client Server TLS"] = o.Vdb.GetClientServerTLSSecret()
 	}
+	dbReconciler := o.Rec.(*VerticaDBReconciler)
+	certCache := dbReconciler.CacheManager.GetCertCacheForVdb(o.Vdb.Namespace, o.Vdb.Name)
 	for k, tlsSecret := range tlsSecrets {
-		if tlsSecret != "" {
+		if tlsSecret != "" && !certCache.IsCertInCache(tlsSecret) {
 			keyNames := []string{corev1.TLSPrivateKeyKey, corev1.TLSCertKey, paths.HTTPServerCACrtName}
-			if res, err := o.checkSecretHasKeys(ctx, k, tlsSecret, keyNames); verrors.IsReconcileAborted(res, err) {
+			if res, err := o.SecretFetcher.CheckSecretHasKeys(ctx, k,
+				names.GenNamespacedName(o.Vdb, tlsSecret), keyNames); verrors.IsReconcileAborted(res, err) {
 				return res, err
 			}
 		}
 	}
 
-	return ctrl.Result{}, nil
-}
-
-// checkSecretHasKeys is a helper to check that a secret has a set of keys in it
-func (o *ObjReconciler) checkSecretHasKeys(ctx context.Context, secretType, secretName string, keyNames []string) (ctrl.Result, error) {
-	secretData, res, err := o.SecretFetcher.FetchAllowRequeue(ctx, names.GenNamespacedName(o.Vdb, secretName))
-	if verrors.IsReconcileAborted(res, err) {
-		return res, err
-	}
-
-	for _, key := range keyNames {
-		if _, ok := secretData[key]; !ok {
-			o.Rec.Eventf(o.Vdb, corev1.EventTypeWarning, events.MissingSecretKeys,
-				"%s secret '%s' has missing key '%s'", secretType, secretName, key)
-			return ctrl.Result{Requeue: true}, nil
-		}
-	}
 	return ctrl.Result{}, nil
 }
 
