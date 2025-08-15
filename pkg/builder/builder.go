@@ -196,7 +196,7 @@ func BuildHlSvc(nm types.NamespacedName, vdb *vapi.VerticaDB) *corev1.Service {
 			},
 		},
 	}
-	if vmeta.UseVClusterOps(vdb.Annotations) {
+	if vdb.UseVClusterOpsDeployment() {
 		svc.Spec.Ports = append(svc.Spec.Ports,
 			corev1.ServicePort{Port: vdb.Spec.ServiceHTTPSPort, Name: "tcp-httpservice", TargetPort: intstr.FromInt(VerticaHTTPPort)},
 			corev1.ServicePort{Port: NMAPort, Name: "tcp-nma"},
@@ -522,7 +522,7 @@ func buildVolumes(vdb *vapi.VerticaDB) []corev1.Volume {
 		vols = append(vols, buildSSHVolume(vdb))
 	}
 
-	if vmeta.UseVClusterOps(vdb.Annotations) &&
+	if vdb.UseVClusterOpsDeployment() &&
 		vmeta.UseNMACertsMount(vdb.Annotations) &&
 		vdb.GetNMATLSSecret() != "" &&
 		secrets.IsK8sSecret(vdb.GetNMATLSSecret()) {
@@ -542,7 +542,7 @@ func buildVolumes(vdb *vapi.VerticaDB) []corev1.Volume {
 // buildScrutinizeVolumes returns volumes that will be used by the scrutinize pod
 func buildScrutinizeVolumes(vscr *v1beta1.VerticaScrutinize, vdb *vapi.VerticaDB) []corev1.Volume {
 	vols := []corev1.Volume{}
-	if vmeta.UseVClusterOps(vdb.Annotations) &&
+	if vdb.UseVClusterOpsDeployment() &&
 		vmeta.UseNMACertsMount(vdb.Annotations) &&
 		vdb.GetNMATLSSecret() != "" &&
 		secrets.IsK8sSecret(vdb.GetNMATLSSecret()) {
@@ -1564,7 +1564,7 @@ func makeCanaryQueryProbe(vdb *vapi.VerticaDB) *corev1.Probe {
 // getHTTPServerVersionEndpointProbe returns an HTTPGet probe if vclusterops
 // is enabled
 func getHTTPServerVersionEndpointProbe(vdb *vapi.VerticaDB, ver string) *corev1.Probe {
-	if vmeta.UseVClusterOps(vdb.Annotations) {
+	if vdb.UseVClusterOpsDeployment() {
 		if vdb.IsHTTPProbeSupported(ver) {
 			return makeHTTPVersionEndpointProbe()
 		} else {
@@ -1740,7 +1740,7 @@ func makeServerSecurityContext(vdb *vapi.VerticaDB) *corev1.SecurityContext {
 
 	// In vclusterops mode, we don't need SYS_CHROOT
 	// and AUDIT_WRITE to run on OpenShift
-	if vmeta.UseVClusterOps(vdb.Annotations) {
+	if vdb.UseVClusterOpsDeployment() {
 		return sc
 	}
 

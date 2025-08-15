@@ -167,7 +167,7 @@ func (r *ReplicationStatusReconciler) fetchTargetVdb(ctx context.Context) (res c
 
 // makeDispatcher will create a Dispatcher object based on the feature flags set.
 func (r *ReplicationStatusReconciler) makeDispatcher() error {
-	if vmeta.UseVClusterOps(r.TargetInfo.Vdb.Annotations) {
+	if r.TargetInfo.Vdb.UseVClusterOpsDeployment() {
 		r.dispatcher = vadmin.MakeVClusterOpsWithTarget(r.Log, nil, r.TargetInfo.Vdb,
 			r.VRec.GetClient(), r.TargetInfo.Password, r.VRec, vadmin.SetupVClusterOps, r.VRec.CacheManager)
 		return nil

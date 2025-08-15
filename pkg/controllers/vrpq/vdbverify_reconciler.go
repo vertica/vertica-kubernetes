@@ -24,7 +24,6 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
-	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/vk8s"
 	vrpqstatus "github.com/vertica/vertica-kubernetes/pkg/vrpqstatus"
@@ -83,7 +82,7 @@ func (q *VdbVerifyReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (c
 	}
 
 	// Should be deployed with vclusterops, not supported for admintools deployments
-	if !vmeta.UseVClusterOps(vdb.Annotations) {
+	if !vdb.UseVClusterOpsDeployment() {
 		q.VRec.Event(q.Vrpq, corev1.EventTypeWarning, events.VrpqAdmintoolsNotSupported,
 			"ShowRestorePoints is not supported for admintools deployments")
 		err = vrpqstatus.Update(ctx, q.VRec.Client, q.VRec.Log, q.Vrpq,

@@ -27,7 +27,6 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/iter"
-	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -79,7 +78,7 @@ func (s *UninstallReconciler) CollectPFacts(ctx context.Context) error {
 // expected subcluster size with the current.
 func (s *UninstallReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
 	// no-op for vclusterops deployments
-	if vmeta.UseVClusterOps(s.Vdb.Annotations) {
+	if s.Vdb.UseVClusterOpsDeployment() {
 		return ctrl.Result{}, nil
 	}
 

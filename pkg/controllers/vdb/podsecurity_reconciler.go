@@ -24,7 +24,6 @@ import (
 	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
-	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/opcfg"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -125,7 +124,7 @@ func (p *PodSecurityReconciler) loadInitValues(ctx context.Context) error {
 	p.InitFSGroupID = DefaultFSGroupID
 	p.InitRunAsUser = DefaultRunAsUser
 
-	if !vmeta.UseVClusterOps(p.Vdb.Annotations) {
+	if !p.Vdb.UseVClusterOpsDeployment() {
 		return nil
 	}
 

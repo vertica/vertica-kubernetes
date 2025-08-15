@@ -155,7 +155,7 @@ func (v *ImageVersionReconciler) makeSandboxVersionInfo(ctx context.Context) (*v
 // Verify whether the NMA is configured to run as a sidecar container
 func (v *ImageVersionReconciler) verifyNMADeployment(vinf *version.Info, pf *podfacts.PodFact) (ctrl.Result, error) {
 	// The NMA only applies to vclusterOps deployments.
-	if !vmeta.UseVClusterOps(v.Vdb.Annotations) {
+	if !v.Vdb.UseVClusterOpsDeployment() {
 		return ctrl.Result{}, nil
 	}
 
@@ -202,7 +202,7 @@ func (v *ImageVersionReconciler) logWarningIfVersionDoesNotSupportsCGroupV2(ctx 
 // checkNMACertCompatibility will check the NMA version if it is to read the cert from an external secret store.
 func (v *ImageVersionReconciler) checkNMACertCompatability(vinf *version.Info) ctrl.Result {
 	// NMA is only useful for vclusterops and when the cert is set.
-	if !vmeta.UseVClusterOps(v.Vdb.Annotations) || v.Vdb.GetNMATLSSecret() == "" {
+	if !v.Vdb.UseVClusterOpsDeployment() || v.Vdb.GetNMATLSSecret() == "" {
 		return ctrl.Result{}
 	}
 
@@ -341,7 +341,7 @@ func (v *ImageVersionReconciler) verifyDeploymentType(pod *podfacts.PodFact) err
 		return nil
 	}
 
-	if vmeta.UseVClusterOps(v.Vdb.Annotations) {
+	if v.Vdb.UseVClusterOpsDeployment() {
 		if pod.GetAdmintoolsExists() {
 			v.Rec.Eventf(v.Vdb, corev1.EventTypeWarning, events.WrongImage,
 				"Image cannot be used for vclusterops deployments. Change the deployment by changing the %s annotation",

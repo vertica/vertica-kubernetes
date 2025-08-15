@@ -330,7 +330,7 @@ func (o *OfflineUpgradeReconciler) checkVersion(ctx context.Context) (ctrl.Resul
 
 // checkHealthProbe will check to see if the health probe needs to be updated
 func (o *OfflineUpgradeReconciler) checkHealthProbe(ctx context.Context) (ctrl.Result, error) {
-	if !vmeta.UseVClusterOps(o.Vdb.Annotations) {
+	if !o.Vdb.UseVClusterOpsDeployment() {
 		return ctrl.Result{}, nil
 	}
 

@@ -28,7 +28,6 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	"github.com/vertica/vertica-kubernetes/pkg/httpconf"
-	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/opcfg"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
@@ -81,7 +80,7 @@ func (d *InstallReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctr
 // facts and determine the course of action
 func (d *InstallReconciler) doInstall(ctx context.Context) (ctrl.Result, error) {
 	fns := []func(context.Context) error{}
-	if !vmeta.UseVClusterOps(d.Vdb.Annotations) {
+	if !d.Vdb.UseVClusterOpsDeployment() {
 		fns = append(fns,
 			d.acceptEulaIfMissing,
 			d.createConfigDirsIfNecessary,
@@ -333,7 +332,7 @@ func (d *InstallReconciler) genCreateConfigDirsScript(p *podfacts.PodFact) (stri
 		numCmds++
 	}
 
-	if !vmeta.UseVClusterOps(d.Vdb.Annotations) {
+	if !d.Vdb.UseVClusterOpsDeployment() {
 		if !p.GetDirExists()[paths.ConfigSharePath] {
 			sb.WriteString(fmt.Sprintf("mkdir %s\n", paths.ConfigSharePath))
 			numCmds++

@@ -24,7 +24,6 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
-	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	vrepstatus "github.com/vertica/vertica-kubernetes/pkg/vrepstatus"
 	corev1 "k8s.io/api/core/v1"
 
@@ -99,7 +98,7 @@ func (r *VdbVerifyReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (c
 	}
 
 	// source vdb should be deployed with vclusterops, not supported for admintools deployments
-	if !vmeta.UseVClusterOps(vdbSource.Annotations) {
+	if !vdbSource.UseVClusterOpsDeployment() {
 		r.VRec.Event(r.Vrep, corev1.EventTypeWarning, events.VrepAdmintoolsNotSupported,
 			"replication is not supported when the source uses admintools deployments")
 		err = vrepstatus.Update(ctx, r.VRec.Client, r.VRec.Log, r.Vrep,

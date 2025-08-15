@@ -1041,6 +1041,14 @@ type VerticaDBStatus struct {
 	// +optional
 	// The list of current TLS configurations for different components
 	TLSConfigs []TLSConfigStatus `json:"tlsConfigs,omitempty"`
+
+	// +operator-sdk:csv:customresourcedefinitions:type=status
+	// +optional
+	// Deployment method used to operate the database.
+	// Determined by the "vertica.com/vcluster-ops" annotation:
+	//   - "true" → use "vclusterops"
+	//   - any other value → use "admintools".
+	DeploymentMethod string `json:"deploymentMethod,omitempty"`
 }
 
 const (
