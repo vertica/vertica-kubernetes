@@ -205,7 +205,7 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 	// refresh the status of the vdb as we do operations that affect it.
 	return []controllers.ReconcileActor{
 		// Check password secret and update status if needed
-		MakePasswordSecretReconciler(r, log, vdb, prunner, pfacts),
+		MakePasswordSecretReconciler(r, log, vdb, prunner, pfacts, dispatcher),
 		// Log an event if we are in a crash loop due to a bad deployment type
 		// chosen. This should be at or near the top as it will help with error
 		// detection when we can't even run anything in the pod. So any

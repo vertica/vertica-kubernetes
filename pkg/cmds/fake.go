@@ -106,15 +106,9 @@ func (f *FakePodRunner) DumpAdmintoolsConf(_ context.Context, _ types.Namespaced
 	// no-op
 }
 
-func (c *FakePodRunner) SetSUPassword(newPasswd *string) error {
-	if newPasswd == nil {
-		emptyPassword := ""
-		c.VerticaSUPassword = &emptyPassword
-	} else {
-		c.VerticaSUPassword = newPasswd
-	}
-
-	return nil
+// SetSUPassword sets the superuser password for the fake pod runner.
+func (f *FakePodRunner) SetSUPassword(newPasswd *string) {
+	f.VerticaSUPassword = newPasswd
 }
 
 // FindCommands will search through the command history for any command that

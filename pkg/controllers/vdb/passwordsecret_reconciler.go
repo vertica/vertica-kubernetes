@@ -29,6 +29,7 @@ import (
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	"github.com/vertica/vertica-kubernetes/pkg/vdbstatus"
 	"github.com/vertica/vertica-kubernetes/pkg/vk8s"
 	corev1 "k8s.io/api/core/v1"
@@ -37,22 +38,24 @@ import (
 
 // PasswordSecretReconciler will update admin password in the database
 type PasswordSecretReconciler struct {
-	VRec    *VerticaDBReconciler
-	Log     logr.Logger
-	Vdb     *vapi.VerticaDB // Vdb is the CRD we are acting on.
-	PFacts  *podfacts.PodFacts
-	PRunner cmds.PodRunner
+	VRec       *VerticaDBReconciler
+	Log        logr.Logger
+	Vdb        *vapi.VerticaDB // Vdb is the CRD we are acting on.
+	PFacts     *podfacts.PodFacts
+	PRunner    cmds.PodRunner
+	Dispatcher vadmin.Dispatcher
 }
 
 // MakePasswordSecretReconciler will build an PasswordSecretReconciler object
 func MakePasswordSecretReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
-	vdb *vapi.VerticaDB, prunner cmds.PodRunner, pfacts *podfacts.PodFacts) controllers.ReconcileActor {
+	vdb *vapi.VerticaDB, prunner cmds.PodRunner, pfacts *podfacts.PodFacts, dispatcher vadmin.Dispatcher) controllers.ReconcileActor {
 	return &PasswordSecretReconciler{
-		VRec:    vdbrecon,
-		Log:     log.WithName("PasswordSecretReconciler"),
-		Vdb:     vdb,
-		PFacts:  pfacts,
-		PRunner: prunner,
+		VRec:       vdbrecon,
+		Log:        log.WithName("PasswordSecretReconciler"),
+		Vdb:        vdb,
+		PFacts:     pfacts,
+		PRunner:    prunner,
+		Dispatcher: dispatcher,
 	}
 }
 
@@ -78,17 +81,6 @@ func (a *PasswordSecretReconciler) Reconcile(ctx context.Context, _ *ctrl.Reques
 // statusMatchesSpec checks if the password secret status is the same to spec or not
 func (a *PasswordSecretReconciler) statusMatchesSpec() bool {
 	return a.Vdb.Spec.PasswordSecret == a.Vdb.Status.PasswordSecret
-}
-
-// updatePasswordSecretStatus will update password secret status in vdb
-func (a *PasswordSecretReconciler) updatePasswordSecretStatus(ctx context.Context) error {
-	updateStatus := func(vdbChg *vapi.VerticaDB) error {
-		// simply make a copy of the password secret in the status
-		vdbChg.Status.PasswordSecret = a.Vdb.Spec.PasswordSecret
-		return nil
-	}
-
-	return vdbstatus.Update(ctx, a.VRec.GetClient(), a.Vdb, updateStatus)
 }
 
 // updatePasswordSecret will update the password secret in the database
@@ -136,5 +128,32 @@ func (a *PasswordSecretReconciler) updatePasswordSecret(ctx context.Context) (ct
 		"Superuser password updated")
 	a.VRec.Log.Info("Updating password secret", "stdout", stdout, "new secret", a.Vdb.Spec.PasswordSecret)
 
-	return ctrl.Result{}, nil
+	return ctrl.Result{}, a.resetVDBPassword(newPasswd)
+}
+
+// updatePasswordSecretStatus will update password secret status in vdb
+func (a *PasswordSecretReconciler) updatePasswordSecretStatus(ctx context.Context) error {
+	updateStatus := func(vdbChg *vapi.VerticaDB) error {
+		// simply make a copy of the password secret in the status
+		vdbChg.Status.PasswordSecret = a.Vdb.Spec.PasswordSecret
+		return nil
+	}
+
+	return vdbstatus.Update(ctx, a.VRec.GetClient(), a.Vdb, updateStatus)
+}
+
+// resetVDBPassword will reset the password used in prunner, pfacts, and dispatcher
+func (a *PasswordSecretReconciler) resetVDBPassword(newPasswd *string) error {
+	a.PRunner.SetSUPassword(newPasswd)
+	a.PFacts.SetSUPassword(newPasswd)
+
+	if vmeta.UseVClusterOps(a.Vdb.Annotations) {
+		vclusterOps, ok := a.Dispatcher.(*vadmin.VClusterOps)
+		if !ok {
+			return fmt.Errorf("failed to convert dispatcher to VClusterOps")
+		}
+		vclusterOps.SetSUPassword(newPasswd)
+	}
+
+	return nil
 }

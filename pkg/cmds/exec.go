@@ -42,6 +42,7 @@ type PodRunner interface {
 	CopyToPod(ctx context.Context, podName types.NamespacedName, contName string, sourceFile string,
 		destFile string, executeCmd ...string) (stdout, stderr string, err error)
 	DumpAdmintoolsConf(ctx context.Context, podName types.NamespacedName)
+	SetSUPassword(newPasswd *string)
 }
 
 type ClusterPodRunner struct {
@@ -66,13 +67,20 @@ func (c *ClusterPodRunner) logInfoCmd(podName types.NamespacedName, command ...s
 // will obfuscate any sensitive information like passwords or credentials.
 func generateLogOutput(cmd ...string) string {
 	var sb strings.Builder
+	// to mask the password when updating superuser secret
+	re := regexp.MustCompile(`IDENTIFIED BY '(.*?)'`)
+
+	// iterate through the command and mask sensitive information
 	for i := 0; i < len(cmd); i++ {
-		switch cmd[i] {
-		case "--password":
+		switch {
+		case cmd[i] == "--password":
 			sb.WriteString(cmd[i])
 			sb.WriteString(" ")
 			sb.WriteString("*******")
 			i++
+		case re.MatchString(cmd[i]):
+			maskedCmd := re.ReplaceAllString(cmd[i], "IDENTIFIED BY '********'")
+			sb.WriteString(maskedCmd)
 		default:
 			sb.WriteString(obfuscateForLog(cmd[i]))
 		}
@@ -142,14 +150,14 @@ func (c *ClusterPodRunner) CopyToPod(ctx context.Context, podName types.Namespac
 // ExecVSQL appends options to the vsql command and calls ExecInPod
 func (c *ClusterPodRunner) ExecVSQL(ctx context.Context, podName types.NamespacedName,
 	contName string, command ...string) (stdout, stderr string, err error) {
-	command = UpdateVsqlCmd(c.VerticaSUName, *c.VerticaSUPassword, c.IsTLSEnabled, command...)
+	command = UpdateVsqlCmd(c.VerticaSUName, c.VerticaSUPassword, c.IsTLSEnabled, command...)
 	return c.ExecInPod(ctx, podName, contName, command...)
 }
 
 // ExecAdmintools appends options to the admintools command and calls ExecInPod
 func (c *ClusterPodRunner) ExecAdmintools(ctx context.Context, podName types.NamespacedName,
 	contName string, command ...string) (stdout, stderr string, err error) {
-	command = UpdateAdmintoolsCmd(c.VerticaSUName, *c.VerticaSUPassword, command...)
+	command = UpdateAdmintoolsCmd(c.VerticaSUName, c.VerticaSUPassword, command...)
 	return c.ExecInPod(ctx, podName, contName, command...)
 }
 
@@ -165,14 +173,21 @@ func (c *ClusterPodRunner) DumpAdmintoolsConf(ctx context.Context, podName types
 	c.ExecInPod(ctx, podName, names.ServerContainer, cmd...) //nolint:errcheck
 }
 
+// SetSUPassword sets the superuser password for the pod runner.
+func (c *ClusterPodRunner) SetSUPassword(newPasswd *string) {
+	c.VerticaSUPassword = newPasswd
+}
+
 // UpdateVsqlCmd generates a vsql command appending the options we need
-func UpdateVsqlCmd(suName, passwd string, isTLSEnabled bool, cmd ...string) []string {
+func UpdateVsqlCmd(suName string, passwd *string, isTLSEnabled bool, cmd ...string) []string {
 	prefix := []string{"vsql"}
 	if suName != "" {
 		prefix = append(prefix, "-U", suName)
 	}
-	if passwd != "" {
-		prefix = append(prefix, "--password", passwd)
+	if passwd != nil {
+		if *passwd != "" {
+			prefix = append(prefix, "--password", *passwd)
+		}
 	}
 	if isTLSEnabled {
 		prefix = append(prefix, "-m", "allow")
@@ -182,7 +197,7 @@ func UpdateVsqlCmd(suName, passwd string, isTLSEnabled bool, cmd ...string) []st
 }
 
 // UpdateAdmintoolsCmd generates an admintools command appending the options we need
-func UpdateAdmintoolsCmd(suname, passwd string, cmd ...string) []string {
+func UpdateAdmintoolsCmd(suname string, passwd *string, cmd ...string) []string {
 	// We are running as the superuser, but we need to do this 'sudo su `suname` --'
 	// stuff so that we have the proper ulimits set.  When you exec into a pod,
 	// the ulimits you use are for the container runtime.  This can differ from
@@ -194,14 +209,14 @@ func UpdateAdmintoolsCmd(suname, passwd string, cmd ...string) []string {
 	// through to the vertica process.
 	prefix := []string{"sudo", "--preserve-env", "su", suname, "--", "/opt/vertica/bin/admintools"}
 	cmd = append(prefix, cmd...)
-	if passwd == "" {
+	if passwd == nil {
 		return cmd
 	}
 	supportingPasswdSlice := getSupportingPasswdSlice()
 	for _, e := range supportingPasswdSlice {
 		_, isPresent := Find(cmd, e)
 		if isPresent {
-			cmd = append(cmd, "--password", passwd)
+			cmd = append(cmd, "--password", *passwd)
 			break
 		}
 	}
@@ -231,13 +246,6 @@ func getSupportingPasswdSlice() []string {
 // postExec makes the actual POST call to the REST endpoint to do the exec
 func (c *ClusterPodRunner) postExec(ctx context.Context, podName types.NamespacedName, contName string, command []string,
 	execOut, execErr *bytes.Buffer, execIn io.Reader) error {
-	// to mask the password when updating superuser secret
-	re := regexp.MustCompile(`IDENTIFIED BY '(.*?)'`)
-	for i, cmd := range command {
-		if re.MatchString(cmd) {
-			command[i] = re.ReplaceAllString(cmd, "IDENTIFIED BY 'xxxxxxxx'")
-		}
-	}
 	c.logInfoCmd(podName, command...)
 
 	cli, err := kubernetes.NewForConfig(c.Cfg)

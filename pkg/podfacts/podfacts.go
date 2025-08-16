@@ -1005,6 +1005,11 @@ func (p *PodFact) setNodeState(gs *GatherState, useVclusterOps bool) {
 	p.upNode = p.dbExists && gs.VerticaPIDRunning
 }
 
+// SetSUPassword sets the superuser password in the PodFacts
+func (p *PodFacts) SetSUPassword(password *string) {
+	p.VerticaSUPassword = password
+}
+
 // checkDCTableAnnotations will check if the pod has the necessary annotations
 // to populate the DC tables that we log at vertica start.
 func (p *PodFacts) checkDCTableAnnotations(pod *corev1.Pod) bool {
