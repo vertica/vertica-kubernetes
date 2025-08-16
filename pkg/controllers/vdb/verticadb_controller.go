@@ -18,6 +18,7 @@ package vdb
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -28,13 +29,18 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/google/uuid"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
@@ -97,7 +103,23 @@ func (r *VerticaDBReconciler) SetupWithManager(mgr ctrl.Manager, options control
 		Owns(&rbacv1.RoleBinding{}).
 		Owns(&corev1.Service{}).
 		Owns(&appsv1.StatefulSet{}).
-		Owns(&appsv1.Deployment{})
+		Owns(&appsv1.Deployment{}).
+		Watches(
+			&corev1.ConfigMap{},
+			handler.EnqueueRequestsFromMapFunc(r.findObjectsForSecretOrConfigMap),
+			builder.WithPredicates(r.predicateFuncs(), predicate.ResourceVersionChangedPredicate{}),
+		).
+		Watches(
+			&corev1.Secret{},
+			handler.EnqueueRequestsFromMapFunc(r.findObjectsForSecretOrConfigMap),
+			builder.WithPredicates(r.predicateFuncs(), predicate.ResourceVersionChangedPredicate{}),
+		).
+		WithEventFilter(predicate.NewPredicateFuncs(func(obj client.Object) bool {
+			if r.Namespace == "" {
+				return true
+			}
+			return obj.GetNamespace() == r.Namespace
+		}))
 
 	discoveryClient := discovery.NewDiscoveryClientForConfigOrDie(mgr.GetConfig())
 	if opcfg.IsPrometheusEnabled() && isServiceMonitorObjectInstalled(discoveryClient) {
@@ -255,6 +277,9 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		// preserving other things.
 		MakeObjReconciler(r, log, vdb, pfacts,
 			ObjReconcileModePreserveScaling|ObjReconcileModePreserveUpdateStrategy),
+		// Save referenced configmaps/secrets in labels in vdb. Those labels will then be
+		// used to reconcile vdb when a config changes
+		MakeLabelsForReferencedObjsReconciler(r, log, vdb),
 		// Set up TLS config if users turn it on
 		MakeTLSReconciler(r, log, vdb, prunner, dispatcher, pfacts),
 		// Update the service monitor that will allow prometheus to scrape the
@@ -353,7 +378,7 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		// is changed
 		MakeSandboxShutdownReconciler(r, log, vdb, false),
 		// Add the label after update the sandbox subcluster status field
-		MakeObjReconciler(r, log, vdb, pfacts, ObjReconcileModeAll),
+		MakeObjReconciler(r, log, vdb, pfacts, ObjReconcileModeAllButConfigChange),
 		// Update sandbox subcluster type in db according to its type in vdb spec
 		MakeAlterSandboxTypeReconciler(r, log, vdb, pfacts),
 		// Handle calls to create a restore point
@@ -369,6 +394,61 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		// automatic rotation is due.
 		MakeAutoCertRotateReconciler(r, log, vdb, false /* init */),
 	}
+}
+
+// findObjectsForSecretOrConfigMap returns the list of VerticaDBs that are dependent on the given secret or configmap
+func (r *VerticaDBReconciler) findObjectsForSecretOrConfigMap(_ context.Context, obj client.Object) []reconcile.Request {
+	verticadbs := &vapi.VerticaDBList{}
+	listOps := &client.ListOptions{
+		Namespace: obj.GetNamespace(),
+	}
+	err := r.List(context.Background(), verticadbs, listOps)
+	if err != nil {
+		return []reconcile.Request{}
+	}
+
+	labelSelector := vmeta.ConfigMapSelectorLabel
+	if _, ok := obj.(*corev1.Secret); ok {
+		labelSelector = vmeta.SecretSelectorLabel
+	}
+	requests := []reconcile.Request{}
+	for i := range verticadbs.Items {
+		vdb := &verticadbs.Items[i]
+		cmNames := strings.Split(vdb.Labels[labelSelector], ",")
+		for _, name := range cmNames {
+			if strings.TrimSpace(name) == obj.GetName() {
+				requests = append(requests, reconcile.Request{
+					NamespacedName: types.NamespacedName{
+						Namespace: vdb.Namespace,
+						Name:      vdb.Name,
+					},
+				})
+				break
+			}
+		}
+	}
+	return requests
+}
+
+func (r *VerticaDBReconciler) predicateFuncs() predicate.Funcs {
+	return predicate.Funcs{
+		CreateFunc: func(e event.CreateEvent) bool {
+			// filter based on label
+			return r.containsWatchedByLabel(e.Object.GetLabels())
+		},
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			// filter based on label
+			return r.containsWatchedByLabel(e.ObjectNew.GetLabels())
+		},
+		DeleteFunc: func(e event.DeleteEvent) bool {
+			// filter based on label
+			return r.containsWatchedByLabel(e.Object.GetLabels())
+		},
+	}
+}
+
+func (r *VerticaDBReconciler) containsWatchedByLabel(labs map[string]string) bool {
+	return vmeta.IsWatchedByVDB(labs)
 }
 
 // GetSuperuserPassword returns the superuser password if it has been provided

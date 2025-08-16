@@ -78,7 +78,6 @@ func (v *VerticaDB) SetupWebhookWithManager(mgr ctrl.Manager) error {
 }
 
 // +kubebuilder:webhook:path=/mutate-vertica-com-v1-verticadb,mutating=true,failurePolicy=fail,sideEffects=None,groups=vertica.com,resources=verticadbs,verbs=create;update,versions=v1,name=mverticadb.kb.io,admissionReviewVersions=v1
-
 var _ webhook.Defaulter = &VerticaDB{}
 
 // Default implements webhook.Defaulter so a webhook will be registered for the type
@@ -2879,11 +2878,11 @@ func (v *VerticaDB) validateOneTLSAutoRotateConfig(configName string) field.Erro
 		)
 	}
 
-	// Rule 2: Interval must be >= 1
-	if interval <= 0 {
+	// Rule 2: Interval must be >= 10
+	if interval < 10 {
 		allErrs = append(allErrs,
 			field.Invalid(fldPath.Child("interval"), interval,
-				"must be greater than 0"),
+				"must be greater than or equal to 10 minutes"),
 		)
 	}
 

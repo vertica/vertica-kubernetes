@@ -109,15 +109,20 @@ func (h *HTTPSTLSUpdateReconciler) Reconcile(ctx context.Context, req *ctrl.Requ
 		return res, err
 	}
 
-	initiatorPod, ok := h.PFacts.FindFirstUpPod(false, "")
-	if !ok {
+	upPods := h.PFacts.FindUpPods("")
+	if len(upPods) == 0 {
 		h.Log.Info("No up pod found to update tls config. Restarting.")
 		restartReconciler := MakeRestartReconciler(h.VRec, h.Log, h.Vdb, h.PFacts.PRunner, h.PFacts, true, h.Dispatcher)
 		res, err2 := restartReconciler.Reconcile(ctx, req)
 		return res, err2
 	}
 
-	err = h.Manager.updateTLSConfig(ctx, initiatorPod.GetPodIP())
+	upHostToSandbox := make(map[string]string)
+	initiator := upPods[0].GetPodIP()
+	for _, p := range upPods {
+		upHostToSandbox[p.GetPodIP()] = p.GetSandbox()
+	}
+	err = h.Manager.updateTLSConfig(ctx, initiator, upHostToSandbox)
 	if err != nil {
 		return ctrl.Result{}, err
 	}

@@ -15,4 +15,4 @@ apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 commands:
   - command: curl --fail --retry 10 --retry-max-time 1800 -LO https://github.com/vertica/vertica-kubernetes/releases/download/v25.1.0-0/verticadb-operator-25.1.0-0.tgz
-  - command: helm install --wait -n $NAMESPACE vdb-op verticadb-operator-25.1.0-0.tgz
+  - command: helm install --wait -n $NAMESPACE vdb-op verticadb-operator-25.1.0-0.tgz --set image.pullPolicy=IfNotPresent

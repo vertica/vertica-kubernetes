@@ -187,6 +187,7 @@ runs:
             fi
             # These legs have some tests that only run with vclusterops deployment
             if [[ "${{ inputs.leg-identifier }}" == "leg-2" || \
+                  "${{ inputs.leg-identifier }}" == "leg-1" || \
                   ( "${{ inputs.leg-identifier }}" == "leg-6" && "${{ inputs.use-cert }}" != "true" ) ]]; then            
               if [[ "${VERTICA_DEPLOYMENT_METHOD}" == "vclusterops" ]]; then
                 E2E_TEST_DIRS+=" tests/e2e-${{ inputs.leg-identifier }}-vc-only";
@@ -214,9 +215,19 @@ runs:
             export CONCURRENCY_SANDBOXCONFIGMAP=2
           fi
 
-          if [[ "${{ inputs.leg-identifier }}" == "leg-14" ]]; then
+          if [[ "${{ inputs.leg-identifier }}" == "leg-14" || \
+                "${{ inputs.leg-identifier }}" == "leg-14-tls" ]]; then
             export GRAFANA_ENABLED=true
             export PROMETHEUS_ENABLED=true
+          fi
+
+          if [[ "${{ inputs.leg-identifier }}" == "leg-14-tls" ]]; then
+            export HELM_OVERRIDES="${HELM_OVERRIDES} -f tests/e2e-leg-14-tls/prometheus-with-tls/values.yaml"
+          fi
+
+          if [[ "${{ inputs.leg-identifier }}" == "leg-14-loki" ]]; then
+            export GRAFANA_ENABLED=true
+            export LOKI_ENABLED=true
           fi
 
           # Set BASE_VERTICA_IMG based on $VERTICA_IMG
@@ -238,9 +249,7 @@ runs:
 
           # Set an env var that will later be checked to pull an extra
           # vertica image used for multi-online-upgrade test
-          if [[ "${{ inputs.leg-identifier }}" == "leg-9" ]]; then
-            export LEG9=yes
-          fi
+          export LEG=${{ inputs.leg-identifier }}
 
           # Special setup for e2e-udx
           if [[ "${{ inputs.leg-identifier }}" == "udx" ]]; then

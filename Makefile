@@ -53,6 +53,7 @@ endif
 BUNDLE_METADATA_OPTS ?= $(BUNDLE_CHANNELS) $(BUNDLE_DEFAULT_CHANNEL)
 BUNDLE_DOCKERFILE=docker-bundle/Dockerfile
 
+LOCALHOST?=$(shell hostname -i)
 LOGDIR?=$(shell pwd)
 
 # Command we run to see if we are running in a kind environment
@@ -100,8 +101,8 @@ export BASE_VERTICA_IMG
 VLOGGER_IMG ?= $(IMG_REPO)vertica-logger:$(VLOGGER_VERSION)
 export VLOGGER_IMG
 # If the current leg in the CI tests is leg-9
-LEG9 ?= no
-export LEG9
+LEG ?= ""
+export LEG
 # What alpine image does the vlogger image use
 VLOGGER_BASE_IMG?=alpine
 # What version of alpine does the vlogger image use
@@ -174,6 +175,15 @@ PROMETHEUS_ADAPTER_HELM_OVERRIDES ?=
 GRAFANA_ENABLED ?= false
 # Set this to true if you want to install prometheus with the operator.
 PROMETHEUS_ENABLED ?= false
+# Set this to true if you want to cache tls secrets in the operator.
+CACHE_ENABLED ?= false
+# Set this to true if you want to install loki with the operator.
+LOKI_ENABLED ?= false
+# ALLOY deployed as the agent for loki
+ALLOY_ENABLED ?= false
+ifeq ($(LOKI_ENABLED), true)
+ALLOY_ENABLED ?= true
+endif
 # Maximum number of tests to run at once. (default 2)
 # Set it to any value not greater than 8 to override the default one
 E2E_PARALLELISM?=2
@@ -552,9 +562,24 @@ endif
 
 .PHONY: docker-push-extra-vertica
 docker-push-extra-vertica: # Push a hard-coded image used in multi-online-upgrade test
-ifeq ($(LEG9), yes)
 ifeq ($(shell $(KIND_CHECK)), 1)
-	scripts/push-to-kind.sh -i opentext/vertica-k8s-private:20250517-minimal
+ifeq ($(LEG), leg-9)
+	scripts/push-to-kind.sh -i opentext/vertica-k8s-private:20250517-minimal 
+endif
+ifneq (,$(filter $(LEG),leg-8-offline leg-8-online))
+	scripts/push-to-kind.sh -i opentext/vertica-k8s:12.0.4-0-minimal
+	scripts/push-to-kind.sh -i opentext/vertica-k8s:23.4.0-0-minimal
+	scripts/push-to-kind.sh -i opentext/vertica-k8s:24.1.0-8-minimal
+endif
+ifeq ($(LEG), server-upgrade)
+	scripts/push-to-kind.sh -i opentext/vertica-k8s:11.1.1-0-minimal
+	scripts/push-to-kind.sh -i opentext/vertica-k8s:12.0.2-0-minimal
+endif
+ifeq ($(LEG), operator-upgrade)
+	scripts/push-to-kind.sh -i opentext/verticadb-operator:2.1.0
+	scripts/push-to-kind.sh -i opentext/verticadb-operator:2.2.0
+	scripts/push-to-kind.sh -i opentext/verticadb-operator:24.4.0-0
+	scripts/push-to-kind.sh -i opentext/verticadb-operator:25.1.0-0
 endif
 endif
 
@@ -683,7 +708,7 @@ uninstall: manifests kustomize ## Uninstall CRDs from the K8s cluster specified 
 deploy-operator: manifests kustomize ## Using helm or olm, deploy the operator in the K8s cluster
 ifeq ($(DEPLOY_WITH), helm)
 	$(MAKE) helm-dependency-update
-	helm install $(DEPLOY_WAIT) -n $(NAMESPACE) --create-namespace $(HELM_RELEASE_NAME) $(OPERATOR_CHART) --set image.repo=null --set image.name=${OPERATOR_IMG} --set image.pullPolicy=$(HELM_IMAGE_PULL_POLICY) --set imagePullSecrets[0].name=priv-reg-cred --set controllers.scope=$(CONTROLLERS_SCOPE) --set controllers.vdbMaxBackoffDuration=$(VDB_MAX_BACKOFF_DURATION) --set controllers.sandboxMaxBackoffDuration=$(SANDBOX_MAX_BACKOFF_DURATION) --set grafana.enabled=${GRAFANA_ENABLED} --set prometheus-server.enabled=${PROMETHEUS_ENABLED}  $(HELM_OVERRIDES) --set cache.enable=$(CACHE_ENABLED)
+	helm install $(DEPLOY_WAIT) -n $(NAMESPACE) --create-namespace $(HELM_RELEASE_NAME) $(OPERATOR_CHART) --set image.repo=null --set image.name=${OPERATOR_IMG} --set image.pullPolicy=$(HELM_IMAGE_PULL_POLICY) --set imagePullSecrets[0].name=priv-reg-cred --set controllers.scope=$(CONTROLLERS_SCOPE) --set controllers.vdbMaxBackoffDuration=$(VDB_MAX_BACKOFF_DURATION) --set controllers.sandboxMaxBackoffDuration=$(SANDBOX_MAX_BACKOFF_DURATION) --set grafana.enabled=${GRAFANA_ENABLED} --set prometheusServer.enabled=${PROMETHEUS_ENABLED} --set loki.enabled=${LOKI_ENABLED} --set alloy.enabled=${ALLOY_ENABLED} --set cache.enable=$(CACHE_ENABLED) $(HELM_OVERRIDES)
 	scripts/wait-for-webhook.sh -n $(NAMESPACE) -t 60
 else ifeq ($(DEPLOY_WITH), olm)
 	scripts/deploy-olm.sh -n $(NAMESPACE) $(OLM_TEST_CATALOG_SOURCE)
@@ -728,7 +753,7 @@ port-forward-prometheus-server:  ## Expose the prometheus endpoint so that you c
 
 .PHONY: port-forward-grafana
 port-forward-grafana:  ## Expose the grafana endpoint so that you can connect to it through http://localhost:3000
-	kubectl port-forward -n $(NAMESPACE) svc/$(HELM_RELEASE_NAME)-grafana 3000:80
+	kubectl port-forward -n $(NAMESPACE) svc/$(HELM_RELEASE_NAME)-grafana --address $(LOCALHOST) 3000:80
 
 .PHONY: deploy-prometheus-service-monitor
 deploy-prometheus-service-monitor:
@@ -871,9 +896,16 @@ $(ISTIOCTL):
 	curl --silent --show-error --retry 10 --retry-max-time 1800 --location --fail "https://github.com/istio/istio/releases/download/$(ISTIOCTL_VERSION)/istio-$(ISTIOCTL_VERSION)-$(GOOS)-$(GOARCH).tar.gz" | tar xvfz - istio-$(ISTIOCTL_VERSION)/bin/istioctl -O > $(ISTIOCTL)
 	chmod +x $(ISTIOCTL)
 
+CHARTS_DIR = $(OPERATOR_CHART)/charts
+
 .PHONY: helm-dependency-update
 helm-dependency-update: ## Update helm chart dependencies
-	helm dependency update $(OPERATOR_CHART)
+	@if [ -d "$(CHARTS_DIR)" ] && ls $(CHARTS_DIR)/*.tgz >/dev/null 2>&1; then \
+		echo "Helm dependencies already present in $(CHARTS_DIR), skipping update."; \
+	else \
+		echo "Helm dependencies missing, running helm dependency update..."; \
+		helm dependency update $(OPERATOR_CHART); \
+	fi
 
 
 ##@ Release

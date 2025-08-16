@@ -1176,6 +1176,13 @@ func (p *PodFacts) FindFirstUpPodIP(allowReadOnly bool, scName string) (string, 
 	return "", false
 }
 
+// FindUpPods returns all pods that have an up vertica node in the given subcluster
+func (p *PodFacts) FindUpPods(scName string) []*PodFact {
+	return p.filterPods((func(v *PodFact) bool {
+		return (scName == "" || v.subclusterName == scName) && v.upNode
+	}))
+}
+
 // FindPodToRunAdminCmdAny returns the name of the pod we will exec into into
 // order to run admintools.
 // Will return false for second parameter if no pod could be found.
