@@ -62,7 +62,7 @@ func (v *VClusterOps) genCreateArchiveOptions(s *createarchive.Params, certs *tl
 	opts.Sandbox = s.Sandbox
 	opts.NumRestorePoint = s.NumRestorePoints
 
-	v.setAuthentication(&opts.DatabaseOptions, v.VDB.GetVerticaUser(), &v.Password, certs)
+	v.setAuthentication(&opts.DatabaseOptions, v.VDB.GetVerticaUser(), v.Password, certs)
 
 	return opts
 }

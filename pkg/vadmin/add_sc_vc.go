@@ -64,7 +64,7 @@ func (v *VClusterOps) genAddSubclusterOptions(s *addsc.Parms, certs *tls.HTTPSCe
 	opts.IsEon = v.VDB.IsEON()
 	opts.IsPrimary = s.IsPrimary
 
-	v.setAuthentication(&opts.DatabaseOptions, v.VDB.GetVerticaUser(), &v.Password, certs)
+	v.setAuthentication(&opts.DatabaseOptions, v.VDB.GetVerticaUser(), v.Password, certs)
 
 	return opts
 }

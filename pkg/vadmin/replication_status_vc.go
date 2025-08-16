@@ -60,7 +60,7 @@ func (v *VClusterOps) genReplicationStatusOptions(s *replicationstatus.Parms,
 	opts := vops.VReplicationStatusFactory()
 	opts.TargetDB.DBName = s.TargetDBName
 	opts.TargetDB.UserName = s.TargetUserName
-	opts.TargetDB.Password = &s.TargetPassword
+	opts.TargetDB.Password = s.TargetPassword
 	opts.TargetDB.Hosts = append(opts.TargetDB.Hosts, s.TargetIP)
 	opts.TargetDB.IPv6 = net.IsIPv6(s.TargetIP)
 	opts.TransactionID = s.TransactionID

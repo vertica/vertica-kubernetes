@@ -52,7 +52,7 @@ var _ = Describe("nmacertrotation_reconciler", func() {
 
 		fpr := &cmds.FakePodRunner{}
 		pfacts := createPodFactsWithNoDB(ctx, vdb, fpr, 3)
-		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
+		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, &testPassword)
 		vapi.SetVDBForTLS(vdb)
 		vdb.Status.TLSConfigs = []vapi.TLSConfigStatus{
 			{

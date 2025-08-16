@@ -80,7 +80,7 @@ func (v *VClusterOps) genReplicateDBOptions(s *replicationstart.Parms,
 	if s.SourceTLSConfig != "" {
 		opts.TargetDB.Password = nil
 	} else {
-		opts.TargetDB.Password = &s.TargetPassword
+		opts.TargetDB.Password = s.TargetPassword
 	}
 	opts.TargetDB.Hosts = append(opts.TargetDB.Hosts, s.TargetIP)
 	opts.SourceTLSConfig = s.SourceTLSConfig
@@ -89,7 +89,7 @@ func (v *VClusterOps) genReplicateDBOptions(s *replicationstart.Parms,
 	opts.IPv6 = net.IsIPv6(s.SourceIP)
 	opts.TargetDB.IPv6 = net.IsIPv6(s.TargetIP)
 
-	v.setAuthentication(&opts.DatabaseOptions, s.SourceUserName, &v.Password, certs)
+	v.setAuthentication(&opts.DatabaseOptions, s.SourceUserName, v.Password, certs)
 
 	// Target auth options
 	opts.TargetDB.Key = targetCerts.Key

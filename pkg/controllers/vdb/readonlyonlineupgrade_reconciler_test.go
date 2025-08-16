@@ -541,8 +541,8 @@ var _ = Describe("readonlyonlineupgrade_reconcile", func() {
 // createReadOnlyOnlineUpgradeReconciler is a helper to run the ReadOnlyOnlineUpgradeReconciler.
 func createReadOnlyOnlineUpgradeReconciler(ctx context.Context, vdb *vapi.VerticaDB) *ReadOnlyOnlineUpgradeReconciler {
 	fpr := &cmds.FakePodRunner{Results: cmds.CmdResults{}}
-	pfacts := podfacts.MakePodFacts(vdbRec, fpr, logger, TestPassword)
-	dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
+	pfacts := podfacts.MakePodFacts(vdbRec, fpr, logger, &testPassword)
+	dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, &testPassword)
 	actor := MakeReadOnlyOnlineUpgradeReconciler(vdbRec, logger, vdb, fpr, &pfacts, dispatcher)
 	r := actor.(*ReadOnlyOnlineUpgradeReconciler)
 

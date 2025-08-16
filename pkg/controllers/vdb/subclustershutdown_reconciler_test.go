@@ -54,11 +54,11 @@ var _ = Describe("subclustershutdown_reconciler", func() {
 		vdb.Spec.Subclusters[3].Shutdown = true
 		vdb.Spec.Subclusters[4].Shutdown = true
 		fpr := &cmds.FakePodRunner{}
-		pfacts := podfacts.MakePodFacts(vdbRec, fpr, logger, TestPassword)
+		pfacts := podfacts.MakePodFacts(vdbRec, fpr, logger, &testPassword)
 		upNodes := []uint{4, 3, 3, 3, 3}
 		pfacts.ConstructsDetail(vdb, upNodes)
 		Expect(len(pfacts.Detail)).Should(Equal(16))
-		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
+		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, &testPassword)
 
 		act := MakeSubclusterShutdownReconciler(vdbRec, logger, vdb, dispatcher, &pfacts)
 		r := act.(*SubclusterShutdownReconciler)

@@ -51,7 +51,7 @@ var _ = Describe("tls_reconciler", func() {
 
 		fpr := &cmds.FakePodRunner{}
 		pfacts := createPodFactsWithNoDB(ctx, vdb, fpr, 3)
-		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
+		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, &testPassword)
 
 		// trigger reconcile to set config map
 		r := MakeTLSReconciler(vdbRec, logger, vdb, fpr, dispatcher, pfacts)

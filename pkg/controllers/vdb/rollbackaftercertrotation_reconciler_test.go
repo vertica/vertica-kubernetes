@@ -44,8 +44,8 @@ var _ = Describe("rollbackaftercertrotation_reconciler", func() {
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
 
 		fpr := &cmds.FakePodRunner{}
-		dispatcher := vdbRec.makeDispatcher(logger, vdb, &cmds.FakePodRunner{}, TestPassword)
-		pfacts := podfacts.MakePodFacts(vdbRec, fpr, logger, TestPassword)
+		dispatcher := vdbRec.makeDispatcher(logger, vdb, &cmds.FakePodRunner{}, &testPassword)
+		pfacts := podfacts.MakePodFacts(vdbRec, fpr, logger, &testPassword)
 
 		recon := MakeRollbackAfterCertRotationReconciler(vdbRec, logger, vdb, dispatcher, &pfacts)
 		res, err := recon.Reconcile(ctx, nil)
@@ -69,8 +69,8 @@ var _ = Describe("rollbackaftercertrotation_reconciler", func() {
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
 
 		fpr := &cmds.FakePodRunner{}
-		dispatcher := vdbRec.makeDispatcher(logger, vdb, &cmds.FakePodRunner{}, TestPassword)
-		pfacts := podfacts.MakePodFacts(vdbRec, fpr, logger, TestPassword)
+		dispatcher := vdbRec.makeDispatcher(logger, vdb, &cmds.FakePodRunner{}, &testPassword)
+		pfacts := podfacts.MakePodFacts(vdbRec, fpr, logger, &testPassword)
 
 		recon := MakeRollbackAfterCertRotationReconciler(vdbRec, logger, vdb, dispatcher, &pfacts)
 		res, err := recon.Reconcile(ctx, nil)

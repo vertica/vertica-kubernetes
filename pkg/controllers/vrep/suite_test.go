@@ -113,11 +113,12 @@ var _ = AfterSuite(func() {
 
 const testTargetVdbUID = "jklmno-pqr"
 const testCustomPasswordSecretName = "custom-su-pwd" // #nosec G101 -- This is a false positive for hardcoded credentials in test file
-const testPassword = "topsecret"
 const testCustomUserName = "custom-username"
 const testTLSSecretName = "tls-1"
 const testTargetTLSSecretName = "tls-2"
 const testTransactionID = int64(123456789012345678)
+
+var testPassword = "topsecret"
 
 func deleteSecret(ctx context.Context, vdb *v1.VerticaDB, secretName string) {
 	nm := names.GenNamespacedName(vdb, secretName)
@@ -132,7 +133,7 @@ func mockVClusterOpsDispatcherWithCustomSetup(vdb *v1.VerticaDB,
 	setupAPIFunc func(logr.Logger, string) (vadmin.VClusterProvider, logr.Logger)) *vadmin.VClusterOps {
 	evWriter := aterrors.TestEVWriter{}
 	cacheManager := cache.MakeCacheManager(true)
-	dispatcher := vadmin.MakeVClusterOps(logger, vdb, k8sClient, "pwd", &evWriter, setupAPIFunc, cacheManager)
+	dispatcher := vadmin.MakeVClusterOps(logger, vdb, k8sClient, &testPassword, &evWriter, setupAPIFunc, cacheManager)
 	vclusterOps := dispatcher.(*vadmin.VClusterOps)
 	fetcher := &cloud.SecretFetcher{
 		Client:   vclusterOps.Client,
@@ -148,7 +149,7 @@ func mockVClusterOpsDispatcherWithCustomSetupAndTarget(vdb *v1.VerticaDB, target
 	setupAPIFunc func(logr.Logger, string) (vadmin.VClusterProvider, logr.Logger)) *vadmin.VClusterOps {
 	evWriter := aterrors.TestEVWriter{}
 	cacheManager := cache.MakeCacheManager(true)
-	dispatcher := vadmin.MakeVClusterOpsWithTarget(logger, vdb, targetVDB, k8sClient, "pwd", &evWriter, setupAPIFunc, cacheManager)
+	dispatcher := vadmin.MakeVClusterOpsWithTarget(logger, vdb, targetVDB, k8sClient, &testPassword, &evWriter, setupAPIFunc, cacheManager)
 	vclusterOps := dispatcher.(*vadmin.VClusterOps)
 	fetcher := &cloud.SecretFetcher{
 		Client:   vclusterOps.Client,

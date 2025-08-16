@@ -1392,6 +1392,12 @@ func (v *VerticaDB) GetVerticaUser() string {
 	return vmeta.GetSuperuserName(v.Annotations)
 }
 
+// GetPasswordSecret returns the password secret
+func (v *VerticaDB) GetPasswordSecret() string {
+	// status holds the current password
+	return v.Status.PasswordSecret
+}
+
 // GetEncryptSpreadComm will return "vertica" if encryptSpreadComm is set to
 // an empty string, otherwise return the value of encryptSpreadComm
 func (v *VerticaDB) GetEncryptSpreadComm() string {
