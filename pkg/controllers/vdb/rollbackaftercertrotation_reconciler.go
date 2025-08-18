@@ -117,6 +117,7 @@ func (r *RollbackAfterCertRotationReconciler) cleanUpRollbackConditions(ctx cont
 	conds := []metav1.Condition{
 		{Type: vapi.TLSCertRollbackInProgress, Status: metav1.ConditionFalse, Reason: "Completed"},
 		{Type: vapi.TLSCertRollbackNeeded, Status: metav1.ConditionFalse, Reason: "Completed"},
+		{Type: vapi.HTTPSTLSConfigUpdateFinished, Status: metav1.ConditionFalse, Reason: "Completed"},
 	}
 
 	for _, cond := range conds {
