@@ -184,10 +184,8 @@ func UpdateVsqlCmd(suName string, passwd *string, isTLSEnabled bool, cmd ...stri
 	if suName != "" {
 		prefix = append(prefix, "-U", suName)
 	}
-	if passwd != nil {
-		if *passwd != "" {
-			prefix = append(prefix, "--password", *passwd)
-		}
+	if passwd != nil && *passwd != "" {
+		prefix = append(prefix, "--password", *passwd)
 	}
 	if isTLSEnabled {
 		prefix = append(prefix, "-m", "allow")
@@ -209,14 +207,15 @@ func UpdateAdmintoolsCmd(suname string, passwd *string, cmd ...string) []string 
 	// through to the vertica process.
 	prefix := []string{"sudo", "--preserve-env", "su", suname, "--", "/opt/vertica/bin/admintools"}
 	cmd = append(prefix, cmd...)
-	if passwd == nil {
+	if passwd == nil || *passwd != "" {
 		return cmd
 	}
+
 	supportingPasswdSlice := getSupportingPasswdSlice()
 	for _, e := range supportingPasswdSlice {
 		_, isPresent := Find(cmd, e)
 		if isPresent {
-			cmd = append(cmd, "--password", *passwd)
+			cmd = append(prefix, "--password", *passwd)
 			break
 		}
 	}
