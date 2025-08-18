@@ -207,7 +207,7 @@ func UpdateAdmintoolsCmd(suname string, passwd *string, cmd ...string) []string 
 	// through to the vertica process.
 	prefix := []string{"sudo", "--preserve-env", "su", suname, "--", "/opt/vertica/bin/admintools"}
 	cmd = append(prefix, cmd...)
-	if passwd == nil || *passwd != "" {
+	if passwd == nil || *passwd == "" {
 		return cmd
 	}
 
@@ -215,7 +215,7 @@ func UpdateAdmintoolsCmd(suname string, passwd *string, cmd ...string) []string 
 	for _, e := range supportingPasswdSlice {
 		_, isPresent := Find(cmd, e)
 		if isPresent {
-			cmd = append(prefix, "--password", *passwd)
+			cmd = append(cmd, "--password", *passwd)
 			break
 		}
 	}
