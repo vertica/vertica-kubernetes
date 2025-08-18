@@ -900,7 +900,7 @@ func (v *VerticaDB) hasValidTLSVersionAndCipherSuites(allErrs field.ErrorList) f
 	}
 	invalidCipherSuites := v.validateCipherSuites(validCipherSuites, v.Spec.DBTLSConfig.CipherSuites, separator)
 	if len(invalidCipherSuites) != 0 {
-		err := field.Invalid(field.NewPath("spec").Child("dbTlsConfig").Child("cipherSuites"), v.Spec.DBTLSConfig.TLSVersion,
+		err := field.Invalid(field.NewPath("spec").Child("dbTlsConfig").Child("cipherSuites"), v.Spec.DBTLSConfig.CipherSuites,
 			fmt.Sprintf("invalid cipher suites for TLS version %d : %s", v.Spec.DBTLSConfig.TLSVersion, strings.Join(invalidCipherSuites, ",")))
 		allErrs = append(allErrs, err)
 	}
