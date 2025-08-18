@@ -717,9 +717,6 @@ else
 	$(error Unknown deployment method: $(DEPLOY_WITH))
 endif
 
-upgrade-operator:
-	helm upgrade $(DEPLOY_WAIT) -n $(NAMESPACE) $(HELM_RELEASE_NAME) $(OPERATOR_CHART) --values $(VALUES_FILE) --set image.name=${OPERATOR_IMG}
-
 deploy-webhook: manifests kustomize ## Using helm, deploy just the webhook in the k8s cluster
 ifeq ($(DEPLOY_WITH), helm)
 	helm install $(DEPLOY_WAIT) -n $(NAMESPACE) --create-namespace $(HELM_RELEASE_NAME) $(OPERATOR_CHART) --set image.repo=null --set image.name=${OPERATOR_IMG} --set image.pullPolicy=$(HELM_IMAGE_PULL_POLICY) --set imagePullSecrets[0].name=priv-reg-cred --set webhook.enable=true,controllers.enable=false $(HELM_OVERRIDES)
@@ -899,9 +896,16 @@ $(ISTIOCTL):
 	curl --silent --show-error --retry 10 --retry-max-time 1800 --location --fail "https://github.com/istio/istio/releases/download/$(ISTIOCTL_VERSION)/istio-$(ISTIOCTL_VERSION)-$(GOOS)-$(GOARCH).tar.gz" | tar xvfz - istio-$(ISTIOCTL_VERSION)/bin/istioctl -O > $(ISTIOCTL)
 	chmod +x $(ISTIOCTL)
 
+CHARTS_DIR = $(OPERATOR_CHART)/charts
+
 .PHONY: helm-dependency-update
 helm-dependency-update: ## Update helm chart dependencies
-	helm dependency update $(OPERATOR_CHART)
+	@if [ -d "$(CHARTS_DIR)" ] && ls $(CHARTS_DIR)/*.tgz >/dev/null 2>&1; then \
+		echo "Helm dependencies already present in $(CHARTS_DIR), skipping update."; \
+	else \
+		echo "Helm dependencies missing, running helm dependency update..."; \
+		helm dependency update $(OPERATOR_CHART); \
+	fi
 
 
 ##@ Release
