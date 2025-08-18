@@ -1179,6 +1179,7 @@ func (v *VerticaDB) hasValidTLSVersionAndCipherSuites(allErrs field.ErrorList) f
 		allErrs = append(allErrs, err)
 		return allErrs
 	}
+	// TLS1.2 uses comma while TLS1.3 uses colon
 	separator := ","
 	validCipherSuites := TLS2CipherSuites
 	if v.Spec.DBTLSConfig.TLSVersion == 3 {
