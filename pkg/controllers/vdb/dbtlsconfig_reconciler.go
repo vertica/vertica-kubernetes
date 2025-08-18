@@ -53,7 +53,8 @@ func (t *DBTLSConfigReconciler) shouldSkipReconcile() bool {
 		t.Vdb.IsStatusConditionTrue(vapi.UpgradeInProgress)
 }
 
-// Reconcile will create a TLS secret for the http server if one is missing
+// Reconcile will compare TLS version and cipher suites in Spec with those in Status.
+// If they are different, it will call vcluster API to update them.
 func (t *DBTLSConfigReconciler) Reconcile(ctx context.Context, request *ctrl.Request) (ctrl.Result, error) {
 	if t.shouldSkipReconcile() {
 		return ctrl.Result{}, nil
