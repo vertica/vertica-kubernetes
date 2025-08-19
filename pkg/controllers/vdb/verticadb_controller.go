@@ -278,13 +278,13 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		// Save referenced configmaps/secrets in labels in vdb. Those labels will then be
 		// used to reconcile vdb when a config changes
 		MakeLabelsForReferencedObjsReconciler(r, log, vdb),
+		// Add annotations/labels to each pod about the host running them
+		MakeAnnotateAndLabelPodReconciler(r, log, vdb, pfacts),
 		// Set up TLS config if users turn it on
 		MakeTLSReconciler(r, log, vdb, prunner, dispatcher, pfacts),
 		// Update the service monitor that will allow prometheus to scrape the
 		// metrics from the vertica pods.
 		MakeServiceMonitorReconciler(vdb, r, log),
-		// Add annotations/labels to each pod about the host running them
-		MakeAnnotateAndLabelPodReconciler(r, log, vdb, pfacts),
 		// Trigger sandbox shutdown when the shutdown field of the sandbox
 		// is changed
 		MakeSandboxShutdownReconciler(r, log, vdb, true),
