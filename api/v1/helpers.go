@@ -1688,18 +1688,6 @@ func (v *VerticaDB) UseVClusterOpsDeployment() bool {
 	return vmeta.UseVClusterOps(v.Annotations)
 }
 
-func (v *VerticaDB) IsVClusterSupported(ver string) bool {
-	vinf, hasVersion := v.MakeVersionInfo()
-	if ver != "" {
-		vinf, hasVersion = v.GetVersion(ver)
-	}
-	// Assume the user sets vclusterOps annotation based on image version
-	if !hasVersion {
-		return vmeta.UseVClusterOps(v.Annotations)
-	}
-	return vinf.IsEqualOrNewer(VcluseropsAsDefaultDeploymentMethodMinVersion)
-}
-
 // GetHPAMetrics extract an return hpa metrics from MetricDefinition struct.
 func (v *VerticaAutoscaler) GetHPAMetrics() []autoscalingv2.MetricSpec {
 	metrics := make([]autoscalingv2.MetricSpec, len(v.Spec.CustomAutoscaler.Hpa.Metrics))

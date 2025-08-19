@@ -290,8 +290,9 @@ type VerticaDBSpec struct {
 	// When set, the secret must have the following keys defined: tls.key,
 	// tls.crt and ca.crt.  To store this secret outside of Kubernetes, you can
 	// use a secret path reference prefix, such as gsm://. Everything after the
-	// prefix is the name of the secret in the service you are storing.
-	// This field has been deprecated. HTTPSNMATLSSecret field is the replacement.
+	// prefix is the name of the secret in the service you are storing. Once
+	// TLS authentication is enabled, this secret will be ignored; HTTPSNMATLS.secret
+	// will be used instead.
 	NMATLSSecret string `json:"nmaTLSSecret,omitempty"`
 
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:advanced"

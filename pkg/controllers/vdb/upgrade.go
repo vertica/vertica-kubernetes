@@ -531,12 +531,16 @@ func (i *UpgradeManager) changeNMASidecarDeploymentIfNeeded(ctx context.Context,
 	return ctrl.Result{Requeue: true}, nil
 }
 
-func (i *UpgradeManager) enableHTTPSTLSIfNeeded(ctx context.Context, pfacts *podfacts.PodFacts) (ctrl.Result, error) {
+// enableHTTPSTLSIfNeeded will read HTTPS TLS and enable it if it's disabled.
+func (i *UpgradeManager) enableHTTPSTLSIfNeeded(ctx context.Context, pfacts *podfacts.PodFacts, pf *podfacts.PodFact) (ctrl.Result, error) {
 	i.Log.Info("Checking if HTTPS TLS is enabled")
-	pf, ok := pfacts.FindFirstUpPod(true, "")
-	if !ok {
-		i.Log.Info("No up pod found to run vsql. Requeueing for enabling HTTPS TLS")
-		return ctrl.Result{Requeue: true}, nil
+	if pf == nil {
+		var ok bool
+		pf, ok = pfacts.FindFirstUpPod(true, "")
+		if !ok {
+			i.Log.Info("No up pod found to run vsql. Requeueing for enabling HTTPS TLS")
+			return ctrl.Result{Requeue: true}, nil
+		}
 	}
 
 	tls, enabled, err := i.isHTTPSTLSEnabled(ctx, pfacts, pf)
