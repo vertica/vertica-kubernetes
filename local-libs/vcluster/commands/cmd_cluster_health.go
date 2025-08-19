@@ -155,6 +155,12 @@ func (c *CmdClusterHealth) setLocalFlags(cmd *cobra.Command) {
 		vclusterops.DefaultLockReleaseThresHold,
 		"The threshold of slow lock release duration in seconds (default: 5 seconds).",
 	)
+	cmd.Flags().BoolVar(
+		&c.clusterHealthOptions.IsDebug,
+		"debug",
+		false,
+		"Whether to enable debug mode. for debug mode will read from dc_XXX_debug tables, otherwise will read from normal tables.",
+	)
 }
 
 func (c *CmdClusterHealth) Parse(inputArgv []string, logger vlog.Printer) error {
@@ -185,6 +191,15 @@ func (c *CmdClusterHealth) validateParse(logger vlog.Printer) error {
 	return c.setDBPassword(&c.clusterHealthOptions.DatabaseOptions)
 }
 
+const (
+	getSlowEvents      = "get_slow_events"
+	getSessionStarts   = "get_session_starts"
+	getTxnStarts       = "get_transaction_starts"
+	slowEventCascade   = "slow_event_cascade"
+	lockCascade        = "lock_cascade"
+	getMissingReleases = "get_missing_releases"
+)
+
 func (c *CmdClusterHealth) Run(vcc vclusterops.ClusterCommands) error {
 	vcc.LogInfo("Called method Run()")
 
@@ -197,14 +212,6 @@ func (c *CmdClusterHealth) Run(vcc vclusterops.ClusterCommands) error {
 		return err
 	}
 
-	const (
-		getSlowEvents    = "get_slow_events"
-		getSessionStarts = "get_session_starts"
-		getTxnStarts     = "get_transaction_starts"
-		slowEventCascade = "slow_event_cascade"
-		lockCascade      = "lock_cascade"
-	)
-
 	var bytes []byte
 	switch c.clusterHealthOptions.Operation {
 	case getSlowEvents:
@@ -213,6 +220,8 @@ func (c *CmdClusterHealth) Run(vcc vclusterops.ClusterCommands) error {
 		bytes, err = json.MarshalIndent(options.SessionStartsResult, "" /*prefix*/, " " /* indent for one space*/)
 	case getTxnStarts:
 		bytes, err = json.MarshalIndent(options.TransactionStartsResult, "" /*prefix*/, " " /* indent for one space*/)
+	case getMissingReleases:
+		bytes, err = json.MarshalIndent(options.MissingReleasesResult, "", "")
 	case slowEventCascade:
 		bytes, err = json.MarshalIndent(options.SlowEventCascade, "", " ")
 	case lockCascade:
@@ -225,11 +234,7 @@ func (c *CmdClusterHealth) Run(vcc vclusterops.ClusterCommands) error {
 		return fmt.Errorf("failed to marshal the traceback result, details: %w", err)
 	}
 
-	if options.Operation == "" || options.Operation == slowEventCascade {
-		vcc.DisplayInfo("Successfully build the cascade graph for the slow events")
-	} else if options.Operation == lockCascade {
-		vcc.DisplayInfo("Successfully build the cascade graph for the lock events")
-	}
+	vcc.DisplayInfo("Successfully checked the cluster health.")
 
 	// output the result to console or file
 	c.writeCmdOutputToFile(globals.file, bytes, vcc.GetLog())
