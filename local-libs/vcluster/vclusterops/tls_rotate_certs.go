@@ -85,11 +85,6 @@ type VRotateTLSCertsOptions struct {
 
 	// internal use: controls NMA SQL op pw auth
 	usePasswordForNMA bool
-
-	// K8s-only: In K8s environments, the operator already knows "up hosts".
-	// Supplying them directly in the endpoint avoids fetching the VDB over HTTPS,
-	// reducing overhead and eliminating the need for certificate handling.
-	UpHostToSandbox map[string]string
 }
 
 type RotateTLSCertsData struct {
@@ -117,7 +112,6 @@ const (
 
 func VRotateTLSCertsOptionsFactory() VRotateTLSCertsOptions {
 	opt := VRotateTLSCertsOptions{}
-	opt.UpHostToSandbox = make(map[string]string)
 	// set default values to the params
 	opt.setDefaultValues()
 
@@ -197,41 +191,22 @@ func (vcc VClusterCommands) VRotateTLSCerts(options *VRotateTLSCertsOptions) err
 		return optError
 	}
 
-	var upHosts, initiatorHosts, mainClusterHosts []string
-	hostsToSandboxes := make(map[string]string)
-	// when in k8s, we expect the user to include host info in options.UpHostToSandbox
-	if len(options.UpHostToSandbox) > 0 {
-		seenSandboxes := make(map[string]struct{})
-		for host, sandbox := range options.UpHostToSandbox {
-			upHosts = append(upHosts, host)
-			if _, exists := seenSandboxes[sandbox]; !exists {
-				initiatorHosts = append(initiatorHosts, host)
-				seenSandboxes[sandbox] = struct{}{}
-			}
-			if len(mainClusterHosts) == 0 && sandbox == util.MainClusterSandbox {
-				mainClusterHosts = append(mainClusterHosts, host)
-			}
-			hostsToSandboxes[host] = sandbox
-		}
-		// when not in k8s, we need to retrieve host info by calling https endpoints
-	} else {
-		// Construct a full vdb by enumerating main cluster node info and the sandbox list
-		// from the main cluster, then updating sandbox node status from sandbox nodes.
-		// Certs must be rotated across all sandboxes, so this operation will both retrieve
-		// the necessary node status and sandbox information, and enforce that every sandbox
-		vdb := makeVCoordinationDatabase()
-		err := vcc.getDeepVDBFromRunningDB(&vdb, &options.DatabaseOptions)
-		if err != nil {
-			return err
-		}
+	// Construct a full vdb by enumerating main cluster node info and the sandbox list
+	// from the main cluster, then updating sandbox node status from sandbox nodes.
+	// Certs must be rotated across all sandboxes, so this operation will both retrieve
+	// the necessary node status and sandbox information, and enforce that every sandbox
+	vdb := makeVCoordinationDatabase()
+	err := vcc.getDeepVDBFromRunningDB(&vdb, &options.DatabaseOptions)
+	if err != nil {
+		return err
+	}
 
-		// the rotation operations need one UP host from each sandbox + main cluster.  the
-		// polling operations should poll each previously UP host in the entire cluster
-		// for restart.
-		upHosts, initiatorHosts, mainClusterHosts, hostsToSandboxes, err = options.getVDBInfo(&vdb)
-		if err != nil {
-			return err
-		}
+	// the rotation operations need one UP host from each sandbox + main cluster.  the
+	// polling operations should poll each previously UP host in the entire cluster
+	// for restart.
+	upHosts, initiatorHosts, mainClusterHosts, hostsToSandboxes, err := options.getVDBInfo(&vdb)
+	if err != nil {
+		return err
 	}
 
 	// If we're rotating the https service config, cache the fingerprint of the updated
