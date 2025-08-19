@@ -138,9 +138,13 @@ func (op *httpsSandboxingOp) execute(execContext *opEngineExecContext) error {
 	return op.processResult(execContext)
 }
 
-func (op *httpsSandboxingOp) processResult(_ *opEngineExecContext) error {
+func (op *httpsSandboxingOp) processResult(execContext *opEngineExecContext) error {
 	var allErrs error
-
+	if execContext.isScSandboxed {
+		// Find subcluster op has recognized this subcluster to be sandboxed already
+		op.logger.PrintInfo("The subcluster %s is already sandboxed, skipping operation", op.scName)
+		return nil
+	}
 	for host, result := range op.clusterHTTPRequest.ResultCollection {
 		op.logResponse(host, result)
 
