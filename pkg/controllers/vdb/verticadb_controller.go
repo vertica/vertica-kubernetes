@@ -226,8 +226,6 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 	// Note, we run the StatusReconciler multiple times. This allows us to
 	// refresh the status of the vdb as we do operations that affect it.
 	return []controllers.ReconcileActor{
-		// Check the password secret and update it if needed
-		MakePasswordSecretReconciler(r, log, vdb, prunner, pfacts, dispatcher),
 		// Log an event if we are in a crash loop due to a bad deployment type
 		// chosen. This should be at or near the top as it will help with error
 		// detection when we can't even run anything in the pod. So any
@@ -303,6 +301,8 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		MakeImageVersionReconciler(r, log, vdb, prunner, pfacts, false /* enforceUpgradePath */, nil, false),
 		// Handles restart + re_ip of vertica
 		MakeRestartReconciler(r, log, vdb, prunner, pfacts, true, dispatcher),
+		// Check the password secret and update it if needed
+		MakePasswordSecretReconciler(r, log, vdb, prunner, pfacts, dispatcher),
 		MakeMetricReconciler(r, log, vdb, prunner, pfacts),
 		MakeStatusReconcilerWithShutdown(r.Client, r.Scheme, log, vdb, pfacts),
 		// Ensure we add labels to any pod rescheduled so that Service objects route traffic to it.

@@ -60,7 +60,7 @@ func MakePasswordSecretReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger
 
 func (a *PasswordSecretReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
 	// No-op if no up nodes found
-	if a.PFacts.GetUpNodeCount() == 0 {
+	if a.Vdb.Status.UpNodeCount == 0 {
 		return ctrl.Result{}, nil
 	}
 
@@ -85,6 +85,10 @@ func (a *PasswordSecretReconciler) statusMatchesSpec() bool {
 
 // updatePasswordSecret will update the password secret in the database
 func (a *PasswordSecretReconciler) updatePasswordSecret(ctx context.Context) (ctrl.Result, error) {
+	if err := a.PFacts.Collect(ctx, a.Vdb); err != nil {
+		return ctrl.Result{}, err
+	}
+
 	pf, found := a.PFacts.FindFirstUpPod(false, a.Vdb.GetFirstPrimarySubcluster().Name)
 	if !found {
 		return ctrl.Result{Requeue: true}, nil
