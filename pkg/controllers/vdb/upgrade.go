@@ -536,7 +536,7 @@ func (i *UpgradeManager) enableHTTPSTLSIfNeeded(ctx context.Context, pfacts *pod
 	i.Log.Info("Checking if HTTPS TLS is enabled")
 	if pf == nil {
 		var ok bool
-		pf, ok = pfacts.FindFirstUpPod(true, "")
+		pf, ok = pfacts.FindFirstUpPod(false, "")
 		if !ok {
 			i.Log.Info("No up pod found to run vsql. Requeueing for enabling HTTPS TLS")
 			return ctrl.Result{Requeue: true}, nil

@@ -87,7 +87,7 @@ func (d *DeploymentMethodReconciler) Reconcile(ctx context.Context, _ *ctrl.Requ
 
 // reconcileHTTPSTLS will enable HTTPS TLS if it's not enabled
 func (d *DeploymentMethodReconciler) reconcileHTTPSTLS(ctx context.Context) (ctrl.Result, error) {
-	pf, ok := d.PFacts.FindFirstUpPod(true, "")
+	pf, ok := d.PFacts.FindFirstUpPod(false, "")
 	if !ok {
 		d.Log.Info("No up pod found to check https tls, restarting the database")
 		actor := MakeRestartReconciler(d.VRec, d.Log, d.Vdb, d.PRunner, d.PFacts, false, d.Dispatcher)
@@ -96,7 +96,6 @@ func (d *DeploymentMethodReconciler) reconcileHTTPSTLS(ctx context.Context) (ctr
 		if verrors.IsReconcileAborted(res, err) {
 			return res, err
 		}
-		return d.Manager.enableHTTPSTLSIfNeeded(ctx, d.PFacts, nil)
 	}
 
 	return d.Manager.enableHTTPSTLSIfNeeded(ctx, d.PFacts, pf)
