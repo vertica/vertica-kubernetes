@@ -244,13 +244,11 @@ func (r *RollbackAfterCertRotationReconciler) setAutoRotateStatus(ctx context.Co
 
 	r.Log.Info("Setting AutoRotateFailedSecret for TLSConfigStatus", "tlsConfigName", tlsConfigName, "failedSecret", failedSecret)
 
-	// Prepare patch
-	patch := r.Vdb.DeepCopy()
-	patchStatus := patch.GetTLSConfigByName(tlsConfigName)
+	patchStatus := r.Vdb.GetTLSConfigByName(tlsConfigName)
 	patchStatus.AutoRotateFailedSecret = failedSecret
 
 	// Patch status explicitly
-	if err := vdbstatus.UpdateTLSConfigs(ctx, r.VRec.Client, patch, []*vapi.TLSConfigStatus{patchStatus}); err != nil {
+	if err := vdbstatus.UpdateTLSConfigs(ctx, r.VRec.Client, r.Vdb, []*vapi.TLSConfigStatus{patchStatus}); err != nil {
 		r.Log.Error(err, "Failed to patch TLSConfigStatus with AutoRotateFailed", "tlsConfigName", tlsConfigName)
 		return ctrl.Result{}, err
 	}

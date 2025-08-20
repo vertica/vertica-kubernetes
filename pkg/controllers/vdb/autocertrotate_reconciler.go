@@ -117,10 +117,16 @@ func (r *AutoCertRotateReconciler) autoRotateByTLSConfig(ctx context.Context, tl
 		}
 	}
 
-	// Check if we are after nextUpdate or if previous auto-rotate failed.
+	// If last auto-rotate failed, we will immediately rotate to the next secret in the list.
+	if failedSecret != "" {
+		r.Log.Info("Previous TLS rotation with secret failed; triggering retry with next secret", "failedSecret", failedSecret, "tlsConfig", tlsConfig)
+		return r.rotateToNextTLSSecret(ctx, tlsConfig, current)
+	}
+
+	// Check if we are after nextUpdate.
 	// Since this can take a long time, for testing purposes, we have added an annotation to
 	// automatically trigger the auto-rotation now.
-	if failedSecret != "" || r.Vdb.Annotations[vmeta.TriggerAutoTLSRotateAnnotation] != "" || time.Until(nextUpdate.Time) <= 0 {
+	if r.Vdb.Annotations[vmeta.TriggerAutoTLSRotateAnnotation] != "" || time.Until(nextUpdate.Time) <= 0 {
 		r.Log.Info("Next update time for auto cert rotation has passed; triggering auto-rotation", "tlsConfig", tlsConfig)
 		return r.rotateToNextTLSSecret(ctx, tlsConfig, current)
 	}
