@@ -181,16 +181,10 @@ func (p *Printer) println(label, msg string) {
 	fmt.Printf("%s%s\n", label, msg)
 }
 
-// log functions for specific cases.
-func (p *Printer) LogArgParse(inputArgv *[]string) {
-	fmsg := fmt.Sprintf("Called method Parse with args: %q.", *inputArgv)
-	p.Log.Info(fmsg)
-}
-
 // log functions with masked params
 func (p *Printer) LogMaskedArgParse(inputArgv []string) {
 	maskedPairs := logMaskedArgParseHelper(inputArgv)
-	fmsg := fmt.Sprintf("Called method Parse with args: %q.", maskedPairs)
+	fmsg := fmt.Sprintf("Called method Parse with Masked args: %q.", maskedPairs)
 	p.Log.Info(fmsg)
 }
 
@@ -213,6 +207,7 @@ func logMaskedArgParseHelper(inputArgv []string) (maskedPairs []string) {
 	// some params have simple value format v
 	targetMaskedSimpleArg := map[string]bool{
 		"--password": true,
+		"-p":         true,
 	}
 
 	for i := 0; i < len(inputArgv); i++ {
@@ -230,7 +225,7 @@ func logMaskedArgParseHelper(inputArgv []string) (maskedPairs []string) {
 					maskedPairs = append(maskedPairs, inputArgv[i], key+"="+value)
 				} else {
 					// Handle invalid  format
-					maskedPairs = append(maskedPairs, pair)
+					maskedPairs = append(maskedPairs, inputArgv[i], pair)
 				}
 			}
 			i++ // Skip the next arg since it has been masked

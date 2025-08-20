@@ -98,7 +98,7 @@ func (c *CmdReIP) setLocalFlags(cmd *cobra.Command) {
 
 func (c *CmdReIP) Parse(inputArgv []string, logger vlog.Printer) error {
 	c.argv = inputArgv
-	logger.LogArgParse(&c.argv)
+	logger.LogMaskedArgParse(c.argv)
 	// Set CheckDBRunning to true so that CLI can check running db for Re_IP
 	// Re-IP should only be used for down DB, checking if db is running
 	c.reIPOptions.CheckDBRunning = true

@@ -107,7 +107,7 @@ func (c *CmdStopSubcluster) setLocalFlags(cmd *cobra.Command) {
 
 func (c *CmdStopSubcluster) Parse(inputArgv []string, logger vlog.Printer) error {
 	c.argv = inputArgv
-	logger.LogArgParse(&c.argv)
+	logger.LogMaskedArgParse(c.argv)
 
 	// reset some options that are not included in user input
 	c.ResetUserInputOptions(&c.stopSCOptions.DatabaseOptions)

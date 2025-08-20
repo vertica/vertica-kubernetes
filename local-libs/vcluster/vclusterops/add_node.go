@@ -56,6 +56,9 @@ type VAddNodeOptions struct {
 	// timeout for polling nodes in seconds when we add Nodes
 	TimeOut int
 
+	// Is the target subcluster already sandboxed?
+	AlreadySandboxed bool
+
 	// Sandbox related args
 	// indicate whether a restore point is created when create the sandbox
 	SaveRp bool
@@ -219,6 +222,10 @@ func (vcc VClusterCommands) VAddNode(options *VAddNodeOptions) (VCoordinationDat
 	} else {
 		vdb.filterMainClusterNodes()
 	}
+	// Check if the subcluster to which the nodes are to be added is already sandboxed,
+	// in that case we don't need to sandbox it again
+	options.AlreadySandboxed = vdb.isSubclusterSandboxed(options.SCName, options.Sandbox)
+
 	err = vdb.addHosts(options.NewHosts, options.SCName, options.Sandbox, existingHostNodeMap)
 	if err != nil {
 		return vdb, err
@@ -418,6 +425,7 @@ func (vcc VClusterCommands) produceAddNodeInstructions(vdb *VCoordinationDatabas
 		instructions = append(instructions, &httpsFindSubclusterOp)
 	}
 	sandboxHosts := options.getSandboxHosts(vdb)
+
 	// require to have the same vertica version
 	nmaVerticaVersionOp := makeNMAVerticaVersionOpWithVDB(true /*hosts need to have the same Vertica version*/, vdb)
 	instructions = append(instructions, &nmaVerticaVersionOp)
@@ -460,14 +468,16 @@ func (vcc VClusterCommands) produceAddNodeInstructions(vdb *VCoordinationDatabas
 		if err != nil {
 			return instructions, err
 		}
-
-		httpsSandboxSubclusterOp, err := makeHTTPSandboxingForAddScOp(initiatorHost, vcc.Log, options.SCName,
-			options.Sandbox, usePassword, username, password, options.SaveRp, options.Imeta, options.Sls, options.ForUpgrade,
-			&sandboxHosts)
-		if err != nil {
-			return instructions, err
+		instructions = append(instructions, &httpsRestartUpCommandOp)
+		if !options.AlreadySandboxed {
+			httpsSandboxSubclusterOp, err := makeHTTPSandboxingForAddScOp(initiatorHost, vcc.Log, options.SCName,
+				options.Sandbox, usePassword, username, password, options.SaveRp, options.Imeta, options.Sls, options.ForUpgrade,
+				&sandboxHosts)
+			if err != nil {
+				return instructions, err
+			}
+			instructions = append(instructions, &httpsSandboxSubclusterOp)
 		}
-		instructions = append(instructions, &httpsRestartUpCommandOp, &httpsSandboxSubclusterOp)
 	} else {
 		httpsRestartUpCommandOp, err := makeHTTPSStartUpCommandOp(usePassword, username, password, vdb)
 		if err != nil {
@@ -476,10 +486,7 @@ func (vcc VClusterCommands) produceAddNodeInstructions(vdb *VCoordinationDatabas
 		instructions = append(instructions, &httpsRestartUpCommandOp)
 	}
 	// we will remove the nil parameters in VER-88401 by adding them in execContext
-	produceTransferConfigOps(&instructions,
-		nil,
-		vdb.HostList,
-		vdb, /*db configurations retrieved from a running db*/
+	produceTransferConfigOps(&instructions, nil, vdb.HostList, vdb, /*db configurations retrieved from a running db*/
 		&options.Sandbox /*Sandbox name*/)
 
 	nmaStartNewNodesOp := makeNMAStartNodeWithSandboxOpWithVDB(newHosts, options.StartUpConf, options.Sandbox, vdb)
