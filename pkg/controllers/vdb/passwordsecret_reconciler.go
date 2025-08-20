@@ -63,7 +63,6 @@ func (a *PasswordSecretReconciler) Reconcile(ctx context.Context, _ *ctrl.Reques
 	if a.Vdb.Status.UpNodeCount == 0 {
 		return ctrl.Result{}, nil
 	}
-
 	// We put the current using password secret in the status
 	// No actions needed if status content is the same to spec
 	if a.statusMatchesSpec() {
@@ -85,15 +84,6 @@ func (a *PasswordSecretReconciler) statusMatchesSpec() bool {
 
 // updatePasswordSecret will update the password secret in the database
 func (a *PasswordSecretReconciler) updatePasswordSecret(ctx context.Context) (ctrl.Result, error) {
-	if err := a.PFacts.Collect(ctx, a.Vdb); err != nil {
-		return ctrl.Result{}, err
-	}
-
-	pf, found := a.PFacts.FindFirstUpPod(false, a.Vdb.GetFirstPrimarySubcluster().Name)
-	if !found {
-		return ctrl.Result{Requeue: true}, nil
-	}
-
 	// The password to be updated to
 	newPasswd, err := vk8s.GetCustomSuperuserPassword(ctx, a.VRec.Client, a.Log, a.VRec, a.Vdb,
 		a.Vdb.Spec.PasswordSecret, names.SuperuserPasswordKey)
@@ -103,9 +93,22 @@ func (a *PasswordSecretReconciler) updatePasswordSecret(ctx context.Context) (ct
 
 	// No-op if password is the same
 	if *a.PFacts.VerticaSUPassword == *newPasswd {
+		// update status only
+		if a.Vdb.Status.PasswordSecret == "" {
+			a.Log.Info("Add passwordSecret to status", "status.passwordSecret:", a.Vdb.Spec.PasswordSecret)
+			return ctrl.Result{}, a.updatePasswordSecretStatus(ctx)
+		}
 		a.Log.Info("WARNING: password in secret is the same as current password", "current password secret",
 			a.Vdb.Status.PasswordSecret, "new password secret", a.Vdb.Spec.PasswordSecret)
 		return ctrl.Result{}, nil
+	}
+
+	if pErr := a.PFacts.Collect(ctx, a.Vdb); pErr != nil {
+		return ctrl.Result{}, pErr
+	}
+	pf, found := a.PFacts.FindFirstUpPod(false, a.Vdb.GetFirstPrimarySubcluster().Name)
+	if !found {
+		return ctrl.Result{Requeue: true}, nil
 	}
 
 	sb := strings.Builder{}

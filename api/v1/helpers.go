@@ -1394,9 +1394,8 @@ func (v *VerticaDB) GetVerticaUser() string {
 
 // GetPasswordSecret returns the password secret
 func (v *VerticaDB) GetPasswordSecret() string {
-	// Get current password if Status field is not empty
-	if v.Status.SubclusterCount > 0 {
-		// status holds the current password
+	// status holds the current password
+	if v.Status.PasswordSecret != "" {
 		return v.Status.PasswordSecret
 	}
 	// Spec holds the desired password
