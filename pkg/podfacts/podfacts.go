@@ -1006,8 +1006,8 @@ func (p *PodFact) setNodeState(gs *GatherState, useVclusterOps bool) {
 }
 
 // SetSUPassword sets the superuser password in the PodFacts
-func (p *PodFacts) SetSUPassword(password *string) {
-	p.VerticaSUPassword = password
+func (p *PodFacts) SetSUPassword(password string) {
+	*p.VerticaSUPassword = password
 }
 
 // checkDCTableAnnotations will check if the pod has the necessary annotations

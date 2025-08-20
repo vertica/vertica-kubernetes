@@ -215,11 +215,6 @@ type VClusterOps struct {
 	APISetupFunc func(log logr.Logger, apiName string) (VClusterProvider, logr.Logger)
 }
 
-// SetSUPassword sets the superuser password used for database operations
-func (v *VClusterOps) SetSUPassword(passwd *string) {
-	v.Password = passwd
-}
-
 // MakeVClusterOps will create a dispatcher that uses the vclusterops library for admin commands.
 func MakeVClusterOps(log logr.Logger, vdb *vapi.VerticaDB, cli client.Client,
 	passwd *string, evWriter events.EVWriter,

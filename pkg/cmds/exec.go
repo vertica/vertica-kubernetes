@@ -42,7 +42,6 @@ type PodRunner interface {
 	CopyToPod(ctx context.Context, podName types.NamespacedName, contName string, sourceFile string,
 		destFile string, executeCmd ...string) (stdout, stderr string, err error)
 	DumpAdmintoolsConf(ctx context.Context, podName types.NamespacedName)
-	SetSUPassword(newPasswd *string)
 }
 
 type ClusterPodRunner struct {
@@ -171,11 +170,6 @@ func (c *ClusterPodRunner) DumpAdmintoolsConf(ctx context.Context, podName types
 	}
 	// Since this is for debugging purposes all errors are ignored
 	c.ExecInPod(ctx, podName, names.ServerContainer, cmd...) //nolint:errcheck
-}
-
-// SetSUPassword sets the superuser password for the pod runner.
-func (c *ClusterPodRunner) SetSUPassword(newPasswd *string) {
-	c.VerticaSUPassword = newPasswd
 }
 
 // UpdateVsqlCmd generates a vsql command appending the options we need

@@ -26,7 +26,6 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
-	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
@@ -118,7 +117,9 @@ func (a *PasswordSecretReconciler) updatePasswordSecret(ctx context.Context) (ct
 		"Superuser password updated")
 	a.VRec.Log.Info("Updating password secret", "stdout", stdout, "new secret", a.Vdb.Spec.PasswordSecret)
 
-	return ctrl.Result{}, a.resetVDBPassword(newPasswd)
+	// reset password used in vdb
+	a.resetVDBPassword(*newPasswd)
+	return ctrl.Result{}, nil
 }
 
 // updatePasswordSecretStatus will update password secret status in vdb
@@ -133,17 +134,8 @@ func (a *PasswordSecretReconciler) updatePasswordSecretStatus(ctx context.Contex
 }
 
 // resetVDBPassword will reset the password used in prunner, pfacts, and dispatcher
-func (a *PasswordSecretReconciler) resetVDBPassword(newPasswd *string) error {
-	a.PRunner.SetSUPassword(newPasswd)
+func (a *PasswordSecretReconciler) resetVDBPassword(newPasswd string) {
+	// prunner, podfacts and dispatcher share the pointer
+	// reset one of them will also reset the password in the others
 	a.PFacts.SetSUPassword(newPasswd)
-
-	if vmeta.UseVClusterOps(a.Vdb.Annotations) {
-		vclusterOps, ok := a.Dispatcher.(*vadmin.VClusterOps)
-		if !ok {
-			return fmt.Errorf("failed to convert dispatcher to VClusterOps")
-		}
-		vclusterOps.SetSUPassword(newPasswd)
-	}
-
-	return nil
 }

@@ -106,11 +106,6 @@ func (f *FakePodRunner) DumpAdmintoolsConf(_ context.Context, _ types.Namespaced
 	// no-op
 }
 
-// SetSUPassword sets the superuser password for the fake pod runner.
-func (f *FakePodRunner) SetSUPassword(newPasswd *string) {
-	f.VerticaSUPassword = newPasswd
-}
-
 // FindCommands will search through the command history for any command that
 // contains the given partial command.
 func (f *FakePodRunner) FindCommands(partialCmd ...string) []CmdHistory {
