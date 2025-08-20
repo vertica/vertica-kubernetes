@@ -999,7 +999,7 @@ func isPasswdIncludedInPodInfo(vdb *vapi.VerticaDB, podSpec *v1.PodSpec) bool {
 	v := getPodInfoVolume(podSpec.Volumes)
 	for i := range v.Projected.Sources {
 		if v.Projected.Sources[i].Secret != nil {
-			if v.Projected.Sources[i].Secret.LocalObjectReference.Name == GetPasswordSecret(vdb) {
+			if v.Projected.Sources[i].Secret.LocalObjectReference.Name == vdb.GetPasswordSecret() {
 				return true
 			}
 		}

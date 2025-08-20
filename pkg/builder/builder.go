@@ -935,11 +935,7 @@ func BuildServiceMonitor(nm types.NamespacedName, vdb *vapi.VerticaDB,
 
 // BuildBasicAuthSecret constructs the secret that will be used by prometheus to authenticate
 // to the vertica db
-func BuildBasicAuthSecret(vdb *vapi.VerticaDB, name, username string, password *string) *corev1.Secret {
-	passwd := ""
-	if password != nil {
-		passwd = *password
-	}
+func BuildBasicAuthSecret(vdb *vapi.VerticaDB, name, username, password string) *corev1.Secret {
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace:       vdb.Namespace,
@@ -950,7 +946,7 @@ func BuildBasicAuthSecret(vdb *vapi.VerticaDB, name, username string, password *
 		},
 		Type: corev1.SecretTypeBasicAuth,
 		Data: map[string][]byte{
-			names.SuperuserPasswordKey: []byte(passwd),
+			names.SuperuserPasswordKey: []byte(password),
 			names.SuperUserKey:         []byte(username),
 		},
 	}
@@ -2362,15 +2358,6 @@ func GetTarballName(cmd []string) string {
 		}
 	}
 	return ""
-}
-
-// GetPasswordSecret returns the password secret
-func GetPasswordSecret(vdb *vapi.VerticaDB) string {
-	if vdb.Spec.PasswordSecret == vdb.Status.PasswordSecret {
-		return vdb.Spec.PasswordSecret
-	}
-	// status holds the current password
-	return vdb.Status.PasswordSecret
 }
 
 // BuildNMATLSConfigMap builds a configmap with tls secret name in it.

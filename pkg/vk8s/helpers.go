@@ -42,7 +42,7 @@ func getPasswordFromSecret(secret map[string][]byte, key string) (*string, error
 func GetSuperuserPassword(ctx context.Context, cl client.Client, log logr.Logger,
 	e events.EVWriter, vdb *vapi.VerticaDB) (*string, error) {
 	return GetCustomSuperuserPassword(ctx, cl, log, e, vdb,
-		vdb.Status.PasswordSecret, names.SuperuserPasswordKey)
+		vdb.GetPasswordSecret(), names.SuperuserPasswordKey)
 }
 
 // GetCustomSuperuserPassword returns the superuser password stored in a custom secret

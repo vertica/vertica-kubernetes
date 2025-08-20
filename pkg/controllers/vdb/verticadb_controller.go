@@ -226,7 +226,7 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 	// Note, we run the StatusReconciler multiple times. This allows us to
 	// refresh the status of the vdb as we do operations that affect it.
 	return []controllers.ReconcileActor{
-		// Check password secret and update status if needed
+		// Check the password secret and update it if needed
 		MakePasswordSecretReconciler(r, log, vdb, prunner, pfacts, dispatcher),
 		// Log an event if we are in a crash loop due to a bad deployment type
 		// chosen. This should be at or near the top as it will help with error
@@ -284,7 +284,7 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		MakeTLSReconciler(r, log, vdb, prunner, dispatcher, pfacts),
 		// Update the service monitor that will allow prometheus to scrape the
 		// metrics from the vertica pods.
-		MakeServiceMonitorReconciler(vdb, r, log),
+		MakeServiceMonitorReconciler(vdb, r, log, pfacts),
 		// Add annotations/labels to each pod about the host running them
 		MakeAnnotateAndLabelPodReconciler(r, log, vdb, pfacts),
 		// Trigger sandbox shutdown when the shutdown field of the sandbox
@@ -303,7 +303,6 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		MakeImageVersionReconciler(r, log, vdb, prunner, pfacts, false /* enforceUpgradePath */, nil, false),
 		// Handles restart + re_ip of vertica
 		MakeRestartReconciler(r, log, vdb, prunner, pfacts, true, dispatcher),
-		// Check the password secret and update it if needed
 		MakeMetricReconciler(r, log, vdb, prunner, pfacts),
 		MakeStatusReconcilerWithShutdown(r.Client, r.Scheme, log, vdb, pfacts),
 		// Ensure we add labels to any pod rescheduled so that Service objects route traffic to it.
@@ -339,7 +338,7 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		MakeTLSReconciler(r, log, vdb, prunner, dispatcher, pfacts),
 		// Update the service monitor that will allow prometheus to scrape the
 		// metrics from the vertica pods.
-		MakeServiceMonitorReconciler(vdb, r, log),
+		MakeServiceMonitorReconciler(vdb, r, log, pfacts),
 		// Add additional buckets for data replication
 		MakeAddtionalBucketsReconciler(r, log, vdb, prunner, pfacts),
 		MakeMetricReconciler(r, log, vdb, prunner, pfacts),

@@ -60,8 +60,9 @@ func MakePasswordSecretReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger
 }
 
 func (a *PasswordSecretReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
-	if err := a.PFacts.Collect(ctx, a.Vdb); err != nil {
-		return ctrl.Result{}, err
+	// No-op if no up nodes found
+	if a.PFacts.GetUpNodeCount() == 0 {
+		return ctrl.Result{}, nil
 	}
 
 	// We put the current using password secret in the status
@@ -90,17 +91,6 @@ func (a *PasswordSecretReconciler) updatePasswordSecret(ctx context.Context) (ct
 		return ctrl.Result{Requeue: true}, nil
 	}
 
-	dbUser := "dbadmin"
-	if a.Vdb.Annotations[vmeta.SuperuserNameAnnotation] != "" {
-		dbUser = a.Vdb.Annotations[vmeta.SuperuserNameAnnotation]
-	}
-
-	// currently using password
-	currentPassword, err := vk8s.GetSuperuserPassword(ctx, a.VRec.Client, a.Log, a.VRec, a.Vdb)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-
 	// The password to be updated to
 	newPasswd, err := vk8s.GetCustomSuperuserPassword(ctx, a.VRec.Client, a.Log, a.VRec, a.Vdb,
 		a.Vdb.Spec.PasswordSecret, names.SuperuserPasswordKey)
@@ -108,15 +98,15 @@ func (a *PasswordSecretReconciler) updatePasswordSecret(ctx context.Context) (ct
 		return ctrl.Result{}, err
 	}
 
-	if *currentPassword == *newPasswd {
+	// No-op if password is the same
+	if *a.PFacts.VerticaSUPassword == *newPasswd {
 		a.Log.Info("WARNING: password in secret is the same as current password", "current password secret",
 			a.Vdb.Status.PasswordSecret, "new password secret", a.Vdb.Spec.PasswordSecret)
 		return ctrl.Result{}, nil
 	}
 
 	sb := strings.Builder{}
-	sb.WriteString(fmt.Sprintf(`ALTER USER %s IDENTIFIED BY '%s';`, dbUser, *newPasswd))
-
+	sb.WriteString(fmt.Sprintf(`ALTER USER %s IDENTIFIED BY '%s';`, a.Vdb.GetVerticaUser(), *newPasswd))
 	cmd := []string{"-tAc", sb.String()}
 	stdout, stderr, err := a.PRunner.ExecVSQL(ctx, pf.GetName(), names.ServerContainer, cmd...)
 	if err != nil {
