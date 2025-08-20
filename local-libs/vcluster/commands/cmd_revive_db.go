@@ -159,7 +159,7 @@ func (c *CmdReviveDB) setHiddenFlags(cmd *cobra.Command) {
 
 func (c *CmdReviveDB) Parse(inputArgv []string, logger vlog.Printer) error {
 	c.argv = inputArgv
-	logger.LogArgParse(&c.argv)
+	logger.LogMaskedArgParse(c.argv)
 
 	return c.validateParse(logger)
 }

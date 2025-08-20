@@ -78,7 +78,6 @@ func (v *VerticaDB) SetupWebhookWithManager(mgr ctrl.Manager) error {
 }
 
 // +kubebuilder:webhook:path=/mutate-vertica-com-v1-verticadb,mutating=true,failurePolicy=fail,sideEffects=None,groups=vertica.com,resources=verticadbs,verbs=create;update,versions=v1,name=mverticadb.kb.io,admissionReviewVersions=v1
-
 var _ webhook.Defaulter = &VerticaDB{}
 
 // Default implements webhook.Defaulter so a webhook will be registered for the type
@@ -2506,19 +2505,6 @@ func (v *VerticaDB) checkTLSFieldsWhenTLSUpdateNotInProgress(oldObj *VerticaDB) 
 			"cannot change clientServerTLS.secret to empty value"))
 	}
 
-	httpsTLSConfigChanged := httpsTLSSecretChanged || oldObj.GetHTTPSNMATLSMode() != v.GetHTTPSNMATLSMode()
-	clientTLSConfigChanged := clientTLSSecretChanged || oldObj.GetClientServerTLSMode() != v.GetClientServerTLSMode()
-
-	// There is currently a limitation that we cannot change both httpsNMATLS and clientServerTLS at the same time.
-	// This is because of the current implementation of the TLS config update. Once the implementation is improved,
-	// we can remove this limitation.
-	tlsConfigsExistInStatus := v.GetTLSConfigByName(HTTPSNMATLSConfigName) != nil &&
-		v.GetTLSConfigByName(ClientServerTLSConfigName) != nil
-	if tlsConfigsExistInStatus && httpsTLSConfigChanged && clientTLSConfigChanged {
-		errs = append(errs, field.Forbidden(specFld,
-			"cannot change both httpsNMATLS and clientServerTLS at the same time"))
-	}
-
 	return errs
 }
 
@@ -2547,9 +2533,8 @@ func (v *VerticaDB) hasValidTLSMode(tlsModeToValidate, fieldName string, allErrs
 // checkValidTLSConfigUpdate enforces:
 // 1. If tls config update is in progress, all other operations are not allowed.
 // 2. Cannot disable mutual TLS after it's enabled.
-// 3. Cannot change both httpsNMATLS and clientServerTLS at the same time.
-// 4. Cannot change a secret to empty string.
-// 5. Prevent user from changing nmaTLSSecret.
+// 3. Cannot change a secret to empty string.
+// 4. Prevent user from changing nmaTLSSecret.
 func (v *VerticaDB) checkValidTLSConfigUpdate(oldObj *VerticaDB, allErrs field.ErrorList) field.ErrorList {
 	specFld := field.NewPath("spec")
 
@@ -2580,11 +2565,10 @@ func (v *VerticaDB) checkValidTLSConfigUpdate(oldObj *VerticaDB, allErrs field.E
 		}
 	}
 
-	// Rule 3 & 4: cannot change both tls configs at the same time.
-	// Cannot change a secret to empty string
+	// Rule 3: cannot change a secret to empty string
 	allErrs = append(allErrs, v.checkTLSFieldsWhenTLSUpdateNotInProgress(oldObj)...)
 
-	// Rule 5: nmaTLSSecret is immutable
+	// Rule 4: nmaTLSSecret is immutable
 	if oldObj.Spec.NMATLSSecret != "" && oldObj.Spec.NMATLSSecret != v.Spec.NMATLSSecret {
 		allErrs = append(allErrs, field.Forbidden(specFld.Child("nmaTLSSecret"),
 			"nmaTLSSecret cannot be changed"))
