@@ -25,9 +25,9 @@ import (
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/util/retry"
 
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
-	"github.com/vertica/vertica-kubernetes/pkg/vdbstatus"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
@@ -93,14 +93,9 @@ func (r *AutoCertRotateReconciler) autoRotateByTLSConfig(ctx context.Context, tl
 		return ctrl.Result{}, nil
 	}
 
-	// If previous auto-rotate failed, continue after the failed secret.
+	// Get current secret in use and the failed secret (if any)
 	current := r.Vdb.GetSecretInUse(tlsConfig)
 	failedSecret := r.Vdb.GetTLSConfigByName(tlsConfig).AutoRotateFailedSecret
-	if failedSecret != "" {
-		current = failedSecret
-		r.Log.Info("Previous auto-rotate failed; skipping to next secret",
-			"tlsConfig", tlsConfig, "failedSecret", current)
-	}
 
 	// If spec secret list does not match status secret list, user must have updated the spec.
 	// There are two scenarios here:
@@ -113,14 +108,17 @@ func (r *AutoCertRotateReconciler) autoRotateByTLSConfig(ctx context.Context, tl
 			return r.initializeAutoRotate(ctx, tlsConfig)
 		} else {
 			r.Log.Info("Spec secret list changed, preserving current rotation position", "currentSecret", current)
-			return r.patchAutoRotateSecretsInStatus(ctx, tlsConfig)
+			return ctrl.Result{}, r.updateTLSStatus(ctx, tlsConfig, func(status *vapi.TLSConfigStatus) {
+				status.AutoRotateSecrets = r.Vdb.GetTLSConfigAutoRotate(tlsConfig).Secrets
+			})
 		}
 	}
 
 	// If last auto-rotate failed, we will immediately rotate to the next secret in the list.
 	if failedSecret != "" {
-		r.Log.Info("Previous TLS rotation with secret failed; triggering retry with next secret", "failedSecret", failedSecret, "tlsConfig", tlsConfig)
-		return r.rotateToNextTLSSecret(ctx, tlsConfig, current)
+		r.Log.Info("Previous TLS rotation with secret failed; triggering retry with next secret",
+			"failedSecret", failedSecret, "tlsConfig", tlsConfig)
+		return r.rotateToNextTLSSecret(ctx, tlsConfig, failedSecret)
 	}
 
 	// Check if we are after nextUpdate.
@@ -196,36 +194,17 @@ func (r *AutoCertRotateReconciler) rotateToSecret(
 	now := time.Now()
 
 	// Update spec to trigger cert rotation
-	switch tlsConfig {
-	case vapi.ClientServerTLSConfigName:
-		r.Vdb.Spec.ClientServerTLS.Secret = secretToRotateTo
-	case vapi.HTTPSNMATLSConfigName:
-		r.Vdb.Spec.HTTPSNMATLS.Secret = secretToRotateTo
-	default:
-		r.Log.Info("Unknown TLS config name", "tlsConfig", tlsConfig)
-		return ctrl.Result{}, nil
-	}
-
-	patch := r.Vdb.DeepCopy()
-	// Update status
-	if patch.GetTLSConfigByName(tlsConfig) == nil {
-		patch.Status.TLSConfigs = append(patch.Status.TLSConfigs,
-			vapi.TLSConfigStatus{
-				Name: tlsConfig,
-			})
-	}
-	status := patch.GetTLSConfigByName(tlsConfig)
-	status.AutoRotateSecrets = secrets
-	status.LastUpdate = v1.NewTime(now)
-	status.AutoRotateFailedSecret = ""
-
-	if err := r.VRec.Client.Update(ctx, patch); err != nil {
-		r.Log.Error(err, "Failed to patch VerticaDB spec during rotate", "tlsConfig", tlsConfig)
+	if err := r.updateTLSSecretSpec(ctx, tlsConfig, secretToRotateTo); err != nil {
+		r.Log.Error(err, "Failed to update VerticaDB spec during rotate", "tlsConfig", tlsConfig)
 		return ctrl.Result{}, err
 	}
 
-	if err := vdbstatus.UpdateTLSConfigs(ctx, r.VRec.Client, patch, []*vapi.TLSConfigStatus{status}); err != nil {
-		r.Log.Error(err, "Failed to patch TLSConfigStatus during rotate", "tlsConfig", tlsConfig)
+	// Update status
+	if err := r.updateTLSStatus(ctx, tlsConfig, func(status *vapi.TLSConfigStatus) {
+		status.AutoRotateSecrets = secrets
+		status.LastUpdate = v1.NewTime(now)
+	}); err != nil {
+		r.Log.Error(err, "Failed to update VerticaDB status during rotate", "tlsConfig", tlsConfig)
 		return ctrl.Result{}, err
 	}
 
@@ -279,18 +258,51 @@ func (r *AutoCertRotateReconciler) findSecretInList(current string, secrets []st
 	return idx
 }
 
-// updateAutoRotateSecrets will update just the autoRotateSecrets in the status
-func (r *AutoCertRotateReconciler) patchAutoRotateSecretsInStatus(ctx context.Context, tlsConfig string) (ctrl.Result, error) {
-	// Prepare patch
-	patch := r.Vdb.DeepCopy()
-	patchStatus := patch.GetTLSConfigByName(tlsConfig)
-	patchStatus.AutoRotateSecrets = r.Vdb.GetTLSConfigAutoRotate(tlsConfig).Secrets
+func (r *AutoCertRotateReconciler) updateTLSSecretSpec(
+	ctx context.Context, tlsConfig, secretToRotateTo string,
+) error {
+	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		latest := &vapi.VerticaDB{}
+		if err := r.VRec.Client.Get(ctx, r.Vdb.ExtractNamespacedName(), latest); err != nil {
+			return err
+		}
 
-	// Patch status explicitly
-	if err := vdbstatus.UpdateTLSConfigs(ctx, r.VRec.Client, patch, []*vapi.TLSConfigStatus{patchStatus}); err != nil {
-		r.Log.Error(err, "Failed to patch TLSConfigStatus with updated secrets", "tlsConfig", tlsConfig)
-		return ctrl.Result{}, err
-	}
+		switch tlsConfig {
+		case vapi.ClientServerTLSConfigName:
+			latest.Spec.ClientServerTLS.Secret = secretToRotateTo
+		case vapi.HTTPSNMATLSConfigName:
+			latest.Spec.HTTPSNMATLS.Secret = secretToRotateTo
+		default:
+			r.Log.Info("Unknown TLS config name", "tlsConfig", tlsConfig)
+			return nil
+		}
 
-	return ctrl.Result{}, nil
+		return r.VRec.Client.Update(ctx, latest)
+	})
+}
+
+// updateTLSStatus updates the TLSConfigStatus for the given tlsConfig.
+// The updateFn callback is applied to the status object before persisting.
+func (r *AutoCertRotateReconciler) updateTLSStatus(
+	ctx context.Context, tlsConfig string, updateFn func(status *vapi.TLSConfigStatus),
+) error {
+	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		latest := &vapi.VerticaDB{}
+		if err := r.VRec.Client.Get(ctx, r.Vdb.ExtractNamespacedName(), latest); err != nil {
+			return err
+		}
+
+		if latest.GetTLSConfigByName(tlsConfig) == nil {
+			latest.Status.TLSConfigs = append(latest.Status.TLSConfigs,
+				vapi.TLSConfigStatus{Name: tlsConfig})
+		}
+
+		status := latest.GetTLSConfigByName(tlsConfig)
+		updateFn(status)
+
+		// Always clear failures if status is updated
+		status.AutoRotateFailedSecret = ""
+
+		return r.VRec.Client.Status().Update(ctx, latest)
+	})
 }

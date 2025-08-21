@@ -4,4 +4,4 @@ metadata:
   name: v-auto-cert-rotate
   annotations:
     vertica.com/trigger-auto-tls-rotate: "true"
-    vertica.com/trigger-tls-update-failure: "before_tls_update"
+    vertica.com/trigger-tls-update-failure: "https_before_tls_update"
