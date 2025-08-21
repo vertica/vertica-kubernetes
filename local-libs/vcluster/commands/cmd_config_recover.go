@@ -92,7 +92,7 @@ func (c *CmdConfigRecover) setLocalFlags(cmd *cobra.Command) {
 
 func (c *CmdConfigRecover) Parse(inputArgv []string, logger vlog.Printer) error {
 	c.argv = inputArgv
-	logger.LogArgParse(&c.argv)
+	logger.LogMaskedArgParse(c.argv)
 
 	return c.validateParse(logger)
 }
