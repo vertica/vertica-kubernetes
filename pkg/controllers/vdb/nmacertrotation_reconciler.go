@@ -71,7 +71,7 @@ func (h *NMACertRotationReconciler) Reconcile(ctx context.Context, _ *ctrl.Reque
 	}
 
 	// nma secret
-	newSecretName := h.Vdb.GetHTTPSNMATLSSecret()
+	newSecretName := h.Vdb.GetHTTPSNMATLSSecretForConfigMap()
 
 	newSecret, res, err := readSecret(h.Vdb, h.VRec, h.VRec.GetClient(), h.Log, ctx, newSecretName)
 	if verrors.IsReconcileAborted(res, err) {
@@ -99,9 +99,13 @@ func (h *NMACertRotationReconciler) Reconcile(ctx context.Context, _ *ctrl.Reque
 		return nil
 	}
 
-	conds := []*metav1.Condition{
-		// Clear TLSConfigUpdateInProgress condition
-		vapi.MakeCondition(vapi.TLSConfigUpdateInProgress, metav1.ConditionFalse, "Completed"),
+	// Build the list of conditions to update
+	conds := []*metav1.Condition{}
+
+	// Clear TLSConfigUpdateInProgress only when the ClientServer rotation is finished
+	// or when no ClientServer rotation is required at all.
+	if h.Vdb.IsStatusConditionTrue(vapi.ClientServerTLSConfigUpdateFinished) || h.Vdb.NoClientServerRotationNeeded() {
+		conds = append(conds, vapi.MakeCondition(vapi.TLSConfigUpdateInProgress, metav1.ConditionFalse, "Completed"))
 	}
 
 	if h.Vdb.IsStatusConditionTrue(vapi.HTTPSTLSConfigUpdateFinished) {
