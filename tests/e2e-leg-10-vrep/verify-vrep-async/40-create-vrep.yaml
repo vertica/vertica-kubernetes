@@ -20,7 +20,8 @@ spec:
     verticaDB: "v-source"
   target:
     verticaDB: "v-target"
-    userName: "custom_user"
+    userName: "custom_user_with_password"
+    passwordSecret: "su-passwd-custom"
     sandboxName: "sandbox2"
 ---
 apiVersion: vertica.com/v1beta1
