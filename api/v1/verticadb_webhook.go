@@ -371,11 +371,13 @@ func (v *VerticaDB) checkAtLeastOneMainPrimaryTypeUnchanged(oldObj *VerticaDB, a
 	}
 
 	// Check if at least one of the old primary subclusters remains as primary
+	oldScFound := false
 	hasUnchangedPrimary := false
 	for i := range v.Spec.Subclusters {
 		sc := &v.Spec.Subclusters[i]
 		// Check if this was a primary subcluster in the old spec
 		if _, wasPrimary := oldPrimaryScMap[sc.Name]; wasPrimary {
+			oldScFound = true
 			// If it's still primary, we found our unchanged primary
 			if sc.Type == PrimarySubcluster {
 				hasUnchangedPrimary = true
@@ -384,7 +386,10 @@ func (v *VerticaDB) checkAtLeastOneMainPrimaryTypeUnchanged(oldObj *VerticaDB, a
 		}
 	}
 
-	if !hasUnchangedPrimary && len(oldPrimaryScMap) > 0 {
+	// Only check if old subclusters exist in new VDB.
+	// We need to skip if subcluster name changed
+	// for online upgrade sandbox cluster promotion scenarios
+	if oldScFound && !hasUnchangedPrimary {
 		err := field.Invalid(field.NewPath("spec").Child("subclusters"),
 			"subclusters",
 			"At least one primary subcluster in the main cluster must remain as primary type")
