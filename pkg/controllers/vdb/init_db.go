@@ -21,7 +21,6 @@ import (
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
-	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
 	config "github.com/vertica/vertica-kubernetes/pkg/vdbconfig"
 	"github.com/vertica/vertica-kubernetes/pkg/vdbstatus"
@@ -128,7 +127,7 @@ func (g *GenericDatabaseInitializer) checkPodList(podList []*podfacts.PodFact) b
 		}
 		// Skip the next check since there is no install state
 		// for vclusterops
-		if vmeta.UseVClusterOps(g.Vdb.Annotations) {
+		if g.Vdb.UseVClusterOpsDeployment() {
 			continue
 		}
 		if !pod.GetIsInstalled() {

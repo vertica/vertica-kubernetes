@@ -11,25 +11,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: apps/v1
-kind: StatefulSet
-metadata:
-  name: v-upgrade-vertica-defsc
-spec:
-  template:
-    spec:
-      containers:
-      - name: server
-        image: opentext/vertica-k8s:23.4.0-0-minimal
-status:
-  replicas: 3
-  readyReplicas: 3
----
-apiVersion: vertica.com/v1
-kind: VerticaDB
-metadata:
+apiVersion: v1
+kind: Event
+reason: WrongImage
+source:
+  component: verticadb-operator
+involvedObject:
+  apiVersion: vertica.com/v1
+  kind: VerticaDB
   name: v-upgrade-vertica
-spec:
-  image: opentext/vertica-k8s:23.4.0-0-minimal
-status:
-  deploymentMethod: "admintools"
+message: Image cannot be used for vclusterops deployments. Change the deployment by changing the vertica.com/vcluster-ops annotation
