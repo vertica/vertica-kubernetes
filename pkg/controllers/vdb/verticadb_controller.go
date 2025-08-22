@@ -170,7 +170,7 @@ func (r *VerticaDBReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		return ctrl.Result{}, err
 	}
 	log.Info("VerticaDB details", "uid", vdb.UID, "resourceVersion", vdb.ResourceVersion,
-		"vclusterOps", vmeta.UseVClusterOps(vdb.Annotations), "user", vdb.GetVerticaUser(),
+		"vclusterOps", vdb.UseVClusterOpsDeployment(), "user", vdb.GetVerticaUser(),
 		"tls cert rotate enabled", vmeta.UseTLSAuth(vdb.Annotations))
 	if vmeta.IsPauseAnnotationSet(vdb.Annotations) {
 		log.Info(fmt.Sprintf("The pause annotation %s is set. Suspending the iteration", vmeta.PauseOperatorAnnotation),
@@ -278,16 +278,18 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		// Save referenced configmaps/secrets in labels in vdb. Those labels will then be
 		// used to reconcile vdb when a config changes
 		MakeLabelsForReferencedObjsReconciler(r, log, vdb),
+		// Add annotations/labels to each pod about the host running them
+		MakeAnnotateAndLabelPodReconciler(r, log, vdb, pfacts),
 		// Set up TLS config if users turn it on
 		MakeTLSReconciler(r, log, vdb, prunner, dispatcher, pfacts),
 		// Update the service monitor that will allow prometheus to scrape the
 		// metrics from the vertica pods.
 		MakeServiceMonitorReconciler(vdb, r, log),
-		// Add annotations/labels to each pod about the host running them
-		MakeAnnotateAndLabelPodReconciler(r, log, vdb, pfacts),
 		// Trigger sandbox shutdown when the shutdown field of the sandbox
 		// is changed
 		MakeSandboxShutdownReconciler(r, log, vdb, true),
+		// Update deployment method and enable HTTPS TLS
+		MakeDeploymentMethodReconciler(r, log, vdb, prunner, pfacts, dispatcher),
 		// Handles vertica server upgrade (i.e., when spec.image changes)
 		MakeOfflineUpgradeReconciler(r, log, vdb, prunner, pfacts, dispatcher),
 		MakeReadOnlyOnlineUpgradeReconciler(r, log, vdb, prunner, pfacts, dispatcher),
@@ -333,6 +335,8 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		MakeCreateDBReconciler(r, log, vdb, prunner, pfacts, dispatcher),
 		// Handle calls to revive a database
 		MakeReviveDBReconciler(r, log, vdb, prunner, pfacts, dispatcher),
+		// Update deployment method and enable HTTPS TLS
+		MakeDeploymentMethodReconciler(r, log, vdb, prunner, pfacts, dispatcher),
 		MakeTLSReconciler(r, log, vdb, prunner, dispatcher, pfacts),
 		// Update the service monitor that will allow prometheus to scrape the
 		// metrics from the vertica pods.
@@ -474,7 +478,7 @@ func (r *VerticaDBReconciler) checkShardToNodeRatio(vdb *vapi.VerticaDB, sc *vap
 // makeDispatcher will create a Dispatcher object based on the feature flags set.
 func (r *VerticaDBReconciler) makeDispatcher(log logr.Logger, vdb *vapi.VerticaDB, prunner cmds.PodRunner,
 	passwd string) vadmin.Dispatcher {
-	if vmeta.UseVClusterOps(vdb.Annotations) {
+	if vdb.UseVClusterOpsDeployment() {
 		return vadmin.MakeVClusterOps(log, vdb, r.Client, passwd, r.EVRec, vadmin.SetupVClusterOps, r.CacheManager)
 	}
 	return vadmin.MakeAdmintools(log, vdb, prunner, r.EVRec)
