@@ -637,7 +637,7 @@ func (p *PodFacts) checkIsInstalled(_ context.Context, vdb *vapi.VerticaDB, pf *
 
 	// VClusterOps don't have an installed state, so we can handle that without
 	// checking if the pod is running.
-	if vmeta.UseVClusterOps(vdb.Annotations) {
+	if vdb.UseVClusterOpsDeployment() {
 		return p.checkIsInstalledForVClusterOps(pf)
 	}
 
@@ -664,7 +664,7 @@ func (p *PodFacts) checkIsInstalled(_ context.Context, vdb *vapi.VerticaDB, pf *
 }
 
 func (p *PodFacts) checkIsInstalledScheduleOnly(vdb *vapi.VerticaDB, pf *PodFact, gs *GatherState) error {
-	if vmeta.UseVClusterOps(vdb.Annotations) {
+	if vdb.UseVClusterOpsDeployment() {
 		return errors.New("schedule only does not support vdb when running with vclusterOps")
 	}
 
@@ -712,7 +712,7 @@ func (p *PodFacts) checkForSimpleGatherStateMapping(_ context.Context, vdb *vapi
 	pf.localDataSize = gs.LocalDataSize
 	pf.localDataAvail = gs.LocalDataAvail
 	pf.admintoolsExists = gs.AdmintoolsExists
-	pf.setNodeState(gs, vmeta.UseVClusterOps(vdb.Annotations))
+	pf.setNodeState(gs, vdb.UseVClusterOpsDeployment())
 	return nil
 }
 
@@ -1087,7 +1087,7 @@ func (p *PodFacts) makeNodeInfoFetcher(vdb *vapi.VerticaDB, pf *PodFact) catalog
 	// Apart from the upgrade, we should check current version to make the decision.
 	verInfo, ok := vdb.MakeVersionInfoDuringROUpgrade()
 	if verInfo != nil && ok {
-		if !verInfo.IsOlder(vapi.FetchNodeDetailsWithVclusterOpsMinVersion) && vmeta.UseVClusterOps(vdb.Annotations) {
+		if !verInfo.IsOlder(vapi.FetchNodeDetailsWithVclusterOpsMinVersion) && vdb.UseVClusterOpsDeployment() {
 			return catalog.MakeVCluster(vdb, p.VerticaSUPassword, pf.podIP, p.Log, p.VRec.GetClient(), p.VRec.GetEventRecorder(), p.CacheManager)
 		}
 	} else {
