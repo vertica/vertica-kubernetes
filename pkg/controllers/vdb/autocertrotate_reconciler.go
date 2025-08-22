@@ -262,22 +262,17 @@ func (r *AutoCertRotateReconciler) updateTLSSecretSpec(
 	ctx context.Context, tlsConfig, secretToRotateTo string,
 ) error {
 	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-		latest := &vapi.VerticaDB{}
-		if err := r.VRec.Client.Get(ctx, r.Vdb.ExtractNamespacedName(), latest); err != nil {
-			return err
-		}
-
 		switch tlsConfig {
 		case vapi.ClientServerTLSConfigName:
-			latest.Spec.ClientServerTLS.Secret = secretToRotateTo
+			r.Vdb.Spec.ClientServerTLS.Secret = secretToRotateTo
 		case vapi.HTTPSNMATLSConfigName:
-			latest.Spec.HTTPSNMATLS.Secret = secretToRotateTo
+			r.Vdb.Spec.HTTPSNMATLS.Secret = secretToRotateTo
 		default:
 			r.Log.Info("Unknown TLS config name", "tlsConfig", tlsConfig)
 			return nil
 		}
 
-		return r.VRec.Client.Update(ctx, latest)
+		return r.VRec.Client.Update(ctx, r.Vdb)
 	})
 }
 
@@ -287,22 +282,17 @@ func (r *AutoCertRotateReconciler) updateTLSStatus(
 	ctx context.Context, tlsConfig string, updateFn func(status *vapi.TLSConfigStatus),
 ) error {
 	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-		latest := &vapi.VerticaDB{}
-		if err := r.VRec.Client.Get(ctx, r.Vdb.ExtractNamespacedName(), latest); err != nil {
-			return err
-		}
-
-		if latest.GetTLSConfigByName(tlsConfig) == nil {
-			latest.Status.TLSConfigs = append(latest.Status.TLSConfigs,
+		if r.Vdb.GetTLSConfigByName(tlsConfig) == nil {
+			r.Vdb.Status.TLSConfigs = append(r.Vdb.Status.TLSConfigs,
 				vapi.TLSConfigStatus{Name: tlsConfig})
 		}
 
-		status := latest.GetTLSConfigByName(tlsConfig)
+		status := r.Vdb.GetTLSConfigByName(tlsConfig)
 		updateFn(status)
 
 		// Always clear failures if status is updated
 		status.AutoRotateFailedSecret = ""
 
-		return r.VRec.Client.Status().Update(ctx, latest)
+		return r.VRec.Client.Status().Update(ctx, r.Vdb)
 	})
 }
