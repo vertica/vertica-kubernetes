@@ -19,6 +19,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+
+	"github.com/vertica/vcluster/vclusterops/util"
 )
 
 type nmaSessionStartsOp struct {
@@ -27,6 +29,7 @@ type nmaSessionStartsOp struct {
 	sessionID          string
 	startTime          string
 	endTime            string
+	isDebug            bool
 }
 
 type sessionStartsRequestData struct {
@@ -37,7 +40,7 @@ type sessionStartsRequestData struct {
 const sessionStartsURL = "dc/session-starts"
 
 func makeNMASessionStartsOp(upHosts []string, userName string, dbName string, password *string,
-	sessionID, startTime, endTime string) (nmaSessionStartsOp, error) {
+	sessionID, startTime, endTime string, isDebug bool) (nmaSessionStartsOp, error) {
 	op := nmaSessionStartsOp{}
 	op.name = "NMASessionStartsOp"
 	op.description = "Check Session Starts"
@@ -45,6 +48,7 @@ func makeNMASessionStartsOp(upHosts []string, userName string, dbName string, pa
 	op.sessionID = sessionID
 	op.startTime = startTime
 	op.endTime = endTime
+	op.isDebug = isDebug
 
 	// NMA endpoints don't need to differentiate between empty password and no password
 	useDBPassword := password != nil
@@ -74,6 +78,11 @@ func (op *nmaSessionStartsOp) setupRequestBody(username, dbName string, useDBPas
 		}
 		if op.sessionID != "" {
 			requestData.Params["session-id"] = op.sessionID
+		}
+		if op.isDebug {
+			requestData.Params["debug"] = util.TrueStr
+		} else {
+			requestData.Params["debug"] = util.FalseStr
 		}
 
 		dataBytes, err := json.Marshal(requestData)
