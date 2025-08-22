@@ -14,4 +14,4 @@
 apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 commands:
-  - script: kubectl exec -t v-with-prom-pri1-0 -n $NAMESPACE -- curl -f -s -u admin:topsecret http://vdb-op-grafana.verticadb-operator.svc:80/api/admin/stats
+  - script: kubectl exec -t v-with-prom-pri1-0 -n $NAMESPACE -- curl -s -S -o /dev/null -u admin:topsecret http://vdb-op-grafana.verticadb-operator.svc:80/api/admin/stats
