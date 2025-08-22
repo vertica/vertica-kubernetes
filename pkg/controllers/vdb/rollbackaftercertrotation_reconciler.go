@@ -55,7 +55,7 @@ func MakeRollbackAfterCertRotationReconciler(vdbrecon *VerticaDBReconciler, log 
 
 func (r *RollbackAfterCertRotationReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
 	// If rollback is not necessary, skip
-	if !r.Vdb.IsTLSCertRollbackNeeded() || r.Vdb.IsTLSCertRollbackDisabled() {
+	if !r.Vdb.IsTLSCertRollbackNeeded() || !r.Vdb.IsTLSCertRollbackEnabled() {
 		return ctrl.Result{}, nil
 	}
 
