@@ -67,6 +67,10 @@ const (
 	nmaTLSModeVerifyCA       = "verify-ca"
 	DefaultServiceHTTPSPort  = 8443
 	DefaultServiceClientPort = 5433
+
+	// Deployment methods
+	DeploymentMethodAT = "admintools"
+	DeploymentMethodVC = "vclusterops"
 )
 
 // ExtractNamespacedName gets the name and returns it as a NamespacedName
@@ -716,8 +720,8 @@ func (v *VerticaDB) FindTLSCertRollbackNeededCondition() *metav1.Condition {
 	return v.FindStatusCondition(TLSCertRollbackNeeded)
 }
 
-func (v *VerticaDB) IsTLSCertRollbackDisabled() bool {
-	return vmeta.IsDisableTLSRollbackAnnotationSet(v.Annotations)
+func (v *VerticaDB) IsTLSCertRollbackEnabled() bool {
+	return vmeta.IsEnableTLSRollbackAnnotationSet(v.Annotations)
 }
 
 // GetTLSCertRollbackReason returns the reason or the point
@@ -1122,7 +1126,7 @@ func (v *VerticaDB) IsHTTPProbeSupported(ver string) bool {
 // IsNMASideCarDeploymentEnabled returns true if the conditions to run NMA
 // in a sidecar are met
 func (v *VerticaDB) IsNMASideCarDeploymentEnabled() bool {
-	if !vmeta.UseVClusterOps(v.Annotations) {
+	if !v.UseVClusterOpsDeployment() {
 		return false
 	}
 	vinf, hasVersion := v.MakeVersionInfo()
@@ -1138,10 +1142,25 @@ func (v *VerticaDB) IsNMASideCarDeploymentEnabled() bool {
 // IsMonolithicDeploymentEnabled returns true if NMA must run in the
 // same container as vertica
 func (v *VerticaDB) IsMonolithicDeploymentEnabled() bool {
-	if !vmeta.UseVClusterOps(v.Annotations) {
+	if !v.UseVClusterOpsDeployment() {
 		return false
 	}
 	return !v.IsNMASideCarDeploymentEnabled()
+}
+
+// ShouldEnableHTTPS returns true if the deployment method is vclusterOps
+// and the version supports it.
+func (v *VerticaDB) ShouldEnableHTTPS() bool {
+	if !v.UseVClusterOpsDeployment() {
+		return false
+	}
+	vinf, hasVersion := v.MakeVersionInfo()
+	// When version isn't present but vclusterOps annotation is set to true,
+	// we assume the version supports vcusterOps.
+	if !hasVersion {
+		return true
+	}
+	return vinf.IsEqualOrNewer(VcluseropsAsDefaultDeploymentMethodMinVersion)
 }
 
 // IsKSafety0 returns true if k-safety of 0 is set.
@@ -1520,7 +1539,7 @@ func (v *VerticaDB) IsSetForTLS() bool {
 // IsValidVersionForTLS returns true if the server version
 // supports tls
 func (v *VerticaDB) IsValidVersionForTLS() bool {
-	if !vmeta.UseVClusterOps(v.Annotations) {
+	if !v.UseVClusterOpsDeployment() {
 		return false
 	}
 	vinf, hasVersion := v.MakeVersionInfo()
@@ -1655,6 +1674,18 @@ func (v *VerticaDB) GetSubclustersInSandbox(sbName string) []string {
 		scNames = append(scNames, sb.Subclusters[i].Name)
 	}
 	return scNames
+}
+
+// UseVClusterDeployment returns true if the deployment method is vclusterOps
+func (v *VerticaDB) UseVClusterOpsDeployment() bool {
+	if v.Status.DeploymentMethod == DeploymentMethodVC {
+		return true
+	} else if v.Status.DeploymentMethod == DeploymentMethodAT {
+		return false
+	}
+
+	// when deploymentMethod is empty in status, check annotation
+	return vmeta.UseVClusterOps(v.Annotations)
 }
 
 // GetHPAMetrics extract an return hpa metrics from MetricDefinition struct.

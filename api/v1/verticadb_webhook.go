@@ -1672,13 +1672,30 @@ func (v *VerticaDB) checkImmutableUpgradePolicy(oldObj *VerticaDB, allErrs field
 // checkImmutableDeploymentMethod will check if the deployment type is changing from
 // vclusterops to admintools, which isn't allowed.
 func (v *VerticaDB) checkImmutableDeploymentMethod(oldObj *VerticaDB, allErrs field.ErrorList) field.ErrorList {
-	if vmeta.UseVClusterOps(oldObj.Annotations) && !vmeta.UseVClusterOps(v.Annotations) {
-		// change from vclusterops deployment to admintools deployment
-		prefix := field.NewPath("metadata").Child("annotations")
-		err := field.Invalid(prefix.Key(vmeta.VClusterOpsAnnotation),
-			v.Annotations[vmeta.VClusterOpsAnnotation],
-			"deployment type cannot change from vclusterops to admintools")
-		allErrs = append(allErrs, err)
+	// When the database is not initialized, we allow the user to change the deployment type
+	if !v.IsDBInitialized() {
+		return allErrs
+	}
+	willUpgrade := oldObj.Spec.Image != v.Spec.Image
+	// When the upgrade is not required, we disallow the user to change the deployment type
+	if !willUpgrade && !v.isUpgradeInProgress() {
+		if vmeta.UseVClusterOps(oldObj.Annotations) != vmeta.UseVClusterOps(v.Annotations) {
+			prefix := field.NewPath("metadata").Child("annotations")
+			err := field.Invalid(prefix.Key(vmeta.VClusterOpsAnnotation),
+				v.Annotations[vmeta.VClusterOpsAnnotation],
+				"deployment type cannot change for a running database")
+			allErrs = append(allErrs, err)
+		}
+		// when upgrade is triggered, we disallow the user to change the deployment type to admintools
+	} else if willUpgrade {
+		if vmeta.UseVClusterOps(oldObj.Annotations) && !vmeta.UseVClusterOps(v.Annotations) {
+			// change from vclusterops deployment to admintools deployment
+			prefix := field.NewPath("metadata").Child("annotations")
+			err := field.Invalid(prefix.Key(vmeta.VClusterOpsAnnotation),
+				v.Annotations[vmeta.VClusterOpsAnnotation],
+				"deployment type cannot change from vclusterops to admintools in an upgrade")
+			allErrs = append(allErrs, err)
+		}
 	}
 	return allErrs
 }

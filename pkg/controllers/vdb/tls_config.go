@@ -403,7 +403,7 @@ func (t *TLSConfigManager) getCertificatePrefix() string {
 // triggerRollback sets a condition that lets the operator know that cert rotation
 // has failed and a rollback is needed
 func (t *TLSConfigManager) triggerRollback(ctx context.Context, err error) error {
-	if err == nil || t.Vdb.IsTLSCertRollbackDisabled() || t.Vdb.IsTLSCertRollbackInProgress() {
+	if err == nil || !t.Vdb.IsTLSCertRollbackEnabled() || t.Vdb.IsTLSCertRollbackInProgress() {
 		return err
 	}
 

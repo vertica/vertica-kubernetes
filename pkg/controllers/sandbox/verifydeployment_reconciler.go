@@ -22,7 +22,6 @@ import (
 	v1 "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
-	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	corev1 "k8s.io/api/core/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -52,7 +51,7 @@ func (s *VerifyDeploymentReconciler) Reconcile(ctx context.Context, _ *ctrl.Requ
 
 // checkDeployment checks if version supports sandboxing with vclusterops
 func (s *VerifyDeploymentReconciler) checkDeployment() (ctrl.Result, error) {
-	if !vmeta.UseVClusterOps(s.Vdb.Annotations) {
+	if !s.Vdb.UseVClusterOpsDeployment() {
 		s.SRec.Eventf(s.Vdb, corev1.EventTypeWarning, events.VclusterOpsDisabled,
 			"The VerticaDB named '%s' has vclusterops disabled", s.Vdb.Name)
 		return ctrl.Result{Requeue: true}, nil
