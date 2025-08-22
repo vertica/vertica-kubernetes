@@ -82,7 +82,7 @@ func (c *CmdStopNode) setLocalFlags(cmd *cobra.Command) {
 
 func (c *CmdStopNode) Parse(inputArgv []string, logger vlog.Printer) error {
 	c.argv = inputArgv
-	logger.LogMaskedArgParse(c.argv)
+	logger.LogArgParse(&c.argv)
 
 	// reset some options that are not included in user input
 	c.ResetUserInputOptions(&c.stopNodeOptions.DatabaseOptions)

@@ -62,7 +62,7 @@ Examples:
 
 func (c *CmdConfigShow) Parse(inputArgv []string, logger vlog.Printer) error {
 	c.argv = inputArgv
-	logger.LogMaskedArgParse(c.argv)
+	logger.LogArgParse(&c.argv)
 
 	return nil
 }

@@ -92,7 +92,7 @@ func (c *CmdSaveRestorePoint) setLocalFlags(cmd *cobra.Command) {
 
 func (c *CmdSaveRestorePoint) Parse(inputArgv []string, logger vlog.Printer) error {
 	c.argv = inputArgv
-	logger.LogMaskedArgParse(c.argv)
+	logger.LogArgParse(&c.argv)
 
 	// for some options, we do not want to use their default values,
 	// if they are not provided in cli,

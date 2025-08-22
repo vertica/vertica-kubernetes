@@ -79,7 +79,7 @@ Examples:
 
 func (c *CmdDropDB) Parse(inputArgv []string, logger vlog.Printer) error {
 	c.argv = inputArgv
-	logger.LogMaskedArgParse(c.argv)
+	logger.LogArgParse(&c.argv)
 
 	return c.validateParse(logger)
 }

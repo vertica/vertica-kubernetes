@@ -80,7 +80,7 @@ func (c *cmdPromoteSandbox) setLocalFlags(cmd *cobra.Command) {
 
 func (c *cmdPromoteSandbox) Parse(inputArgv []string, logger vlog.Printer) error {
 	c.argv = inputArgv
-	logger.LogMaskedArgParse(c.argv)
+	logger.LogArgParse(&c.argv)
 
 	// reset some options that are not included in user input
 	c.ResetUserInputOptions(&c.promoteSandboxOpts.DatabaseOptions)

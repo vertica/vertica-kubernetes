@@ -67,8 +67,6 @@ type VStartNodesInfo struct {
 	SerialReIP bool
 	// Number of up hosts
 	upHostCount int
-	// Sandbox Up Hosts
-	upPrimarySandboxHosts []string
 }
 
 func VStartNodesOptionsFactory() VStartNodesOptions {
@@ -358,7 +356,6 @@ func (options *VStartNodesOptions) checkQuorum(vdb *VCoordinationDatabase, resta
 				len(sandboxPrimaryUpNodes), lenOfPrimaryReIPLIst),
 		}
 	}
-	restartNodeInfo.upPrimarySandboxHosts = sandboxPrimaryUpNodes
 	return nil
 }
 
@@ -410,10 +407,7 @@ func (vcc VClusterCommands) produceStartNodesInstructions(startNodeInfo *VStartN
 	} else {
 		sandboxName = &startNodeInfo.Sandbox
 	}
-	var sourceHosts []string
-	if startNodeInfo.Sandbox != util.MainClusterSandbox {
-		sourceHosts = startNodeInfo.upPrimarySandboxHosts
-	}
+
 	// require to have the same vertica version
 	nmaVerticaVersionOp := makeNMAVerticaVersionOpBeforeStartNode(vdb, startNodeInfo.unreachableHosts,
 		startNodeInfo.HostsToStart, startNodeInfo.isStartSc)
@@ -424,7 +418,7 @@ func (vcc VClusterCommands) produceStartNodesInstructions(startNodeInfo *VStartN
 	// we use information from v1/nodes endpoint to get all node information to update the sourceConfHost value
 	// after we find any UP primary nodes as source host for syncing spread.conf and vertica.conf
 	// we will remove the nil parameters in VER-88401 by adding them in execContext
-	produceTransferConfigOps(&instructions, sourceHosts /*source hosts for transferring configuration files*/, startNodeInfo.HostsToStart,
+	produceTransferConfigOps(&instructions, nil /*source hosts for transferring configuration files*/, startNodeInfo.HostsToStart,
 		vdb, sandboxName)
 	httpsRestartUpCommandOp, err := makeHTTPSStartUpCommandWithSandboxOp(options.usePassword, options.UserName, options.Password,
 		vdb, startNodeInfo.Sandbox)
