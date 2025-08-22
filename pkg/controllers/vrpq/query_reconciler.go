@@ -29,7 +29,6 @@ import (
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/iter"
-	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/showrestorepoints"
@@ -202,7 +201,7 @@ func (q *QueryReconciler) findRunningPodWithNMAContainer(pods *corev1.PodList) (
 // makeDispatcher will create a Dispatcher object based on the feature flags set.
 func (q *QueryReconciler) makeDispatcher(log logr.Logger, vdb *vapi.VerticaDB,
 	_ *string) (vadmin.Dispatcher, error) {
-	if vmeta.UseVClusterOps(vdb.Annotations) {
+	if vdb.UseVClusterOpsDeployment() {
 		emptyPassword := ""
 		// The password isn't needed since our API is going to strictly communicate with the NMA
 		return vadmin.MakeVClusterOps(log, vdb, q.VRec.GetClient(), &emptyPassword,

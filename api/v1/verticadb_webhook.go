@@ -1672,13 +1672,30 @@ func (v *VerticaDB) checkImmutableUpgradePolicy(oldObj *VerticaDB, allErrs field
 // checkImmutableDeploymentMethod will check if the deployment type is changing from
 // vclusterops to admintools, which isn't allowed.
 func (v *VerticaDB) checkImmutableDeploymentMethod(oldObj *VerticaDB, allErrs field.ErrorList) field.ErrorList {
-	if vmeta.UseVClusterOps(oldObj.Annotations) && !vmeta.UseVClusterOps(v.Annotations) {
-		// change from vclusterops deployment to admintools deployment
-		prefix := field.NewPath("metadata").Child("annotations")
-		err := field.Invalid(prefix.Key(vmeta.VClusterOpsAnnotation),
-			v.Annotations[vmeta.VClusterOpsAnnotation],
-			"deployment type cannot change from vclusterops to admintools")
-		allErrs = append(allErrs, err)
+	// When the database is not initialized, we allow the user to change the deployment type
+	if !v.IsDBInitialized() {
+		return allErrs
+	}
+	willUpgrade := oldObj.Spec.Image != v.Spec.Image
+	// When the upgrade is not required, we disallow the user to change the deployment type
+	if !willUpgrade && !v.isUpgradeInProgress() {
+		if vmeta.UseVClusterOps(oldObj.Annotations) != vmeta.UseVClusterOps(v.Annotations) {
+			prefix := field.NewPath("metadata").Child("annotations")
+			err := field.Invalid(prefix.Key(vmeta.VClusterOpsAnnotation),
+				v.Annotations[vmeta.VClusterOpsAnnotation],
+				"deployment type cannot change for a running database")
+			allErrs = append(allErrs, err)
+		}
+		// when upgrade is triggered, we disallow the user to change the deployment type to admintools
+	} else if willUpgrade {
+		if vmeta.UseVClusterOps(oldObj.Annotations) && !vmeta.UseVClusterOps(v.Annotations) {
+			// change from vclusterops deployment to admintools deployment
+			prefix := field.NewPath("metadata").Child("annotations")
+			err := field.Invalid(prefix.Key(vmeta.VClusterOpsAnnotation),
+				v.Annotations[vmeta.VClusterOpsAnnotation],
+				"deployment type cannot change from vclusterops to admintools in an upgrade")
+			allErrs = append(allErrs, err)
+		}
 	}
 	return allErrs
 }
@@ -2505,19 +2522,6 @@ func (v *VerticaDB) checkTLSFieldsWhenTLSUpdateNotInProgress(oldObj *VerticaDB) 
 			"cannot change clientServerTLS.secret to empty value"))
 	}
 
-	httpsTLSConfigChanged := httpsTLSSecretChanged || oldObj.GetHTTPSNMATLSMode() != v.GetHTTPSNMATLSMode()
-	clientTLSConfigChanged := clientTLSSecretChanged || oldObj.GetClientServerTLSMode() != v.GetClientServerTLSMode()
-
-	// There is currently a limitation that we cannot change both httpsNMATLS and clientServerTLS at the same time.
-	// This is because of the current implementation of the TLS config update. Once the implementation is improved,
-	// we can remove this limitation.
-	tlsConfigsExistInStatus := v.GetTLSConfigByName(HTTPSNMATLSConfigName) != nil &&
-		v.GetTLSConfigByName(ClientServerTLSConfigName) != nil
-	if tlsConfigsExistInStatus && httpsTLSConfigChanged && clientTLSConfigChanged {
-		errs = append(errs, field.Forbidden(specFld,
-			"cannot change both httpsNMATLS and clientServerTLS at the same time"))
-	}
-
 	return errs
 }
 
@@ -2546,9 +2550,8 @@ func (v *VerticaDB) hasValidTLSMode(tlsModeToValidate, fieldName string, allErrs
 // checkValidTLSConfigUpdate enforces:
 // 1. If tls config update is in progress, all other operations are not allowed.
 // 2. Cannot disable mutual TLS after it's enabled.
-// 3. Cannot change both httpsNMATLS and clientServerTLS at the same time.
-// 4. Cannot change a secret to empty string.
-// 5. Prevent user from changing nmaTLSSecret.
+// 3. Cannot change a secret to empty string.
+// 4. Prevent user from changing nmaTLSSecret.
 func (v *VerticaDB) checkValidTLSConfigUpdate(oldObj *VerticaDB, allErrs field.ErrorList) field.ErrorList {
 	specFld := field.NewPath("spec")
 
@@ -2579,11 +2582,10 @@ func (v *VerticaDB) checkValidTLSConfigUpdate(oldObj *VerticaDB, allErrs field.E
 		}
 	}
 
-	// Rule 3 & 4: cannot change both tls configs at the same time.
-	// Cannot change a secret to empty string
+	// Rule 3: cannot change a secret to empty string
 	allErrs = append(allErrs, v.checkTLSFieldsWhenTLSUpdateNotInProgress(oldObj)...)
 
-	// Rule 5: nmaTLSSecret is immutable
+	// Rule 4: nmaTLSSecret is immutable
 	if oldObj.Spec.NMATLSSecret != "" && oldObj.Spec.NMATLSSecret != v.Spec.NMATLSSecret {
 		allErrs = append(allErrs, field.Forbidden(specFld.Child("nmaTLSSecret"),
 			"nmaTLSSecret cannot be changed"))

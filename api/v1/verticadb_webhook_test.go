@@ -498,9 +498,24 @@ var _ = Describe("verticadb_webhook", func() {
 		vdbOrig := createVDBHelper()
 		vdbOrig.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
 		vdbUpdate := createVDBHelper()
+		// when db is not initialized, we can change deployment type
+		checkErrorsForImmutableFields(vdbOrig, vdbUpdate, false)
+		checkErrorsForImmutableFields(vdbUpdate, vdbOrig, false)
+		resetStatusConditionsForDBInitialized(vdbOrig)
+		resetStatusConditionsForDBInitialized(vdbUpdate)
 		// cannot change from vclusterops to admintools
 		checkErrorsForImmutableFields(vdbOrig, vdbUpdate, true)
-		// can change from admintools to vclusterops
+		// cannot change from admintools to vclusterops
+		checkErrorsForImmutableFields(vdbUpdate, vdbOrig, true)
+		// when db is required to upgrade, we can change admintools to vclusterOps,
+		// but we cannot change vclusterOps to admintools
+		vdbUpdate.Spec.Image = "newimage"
+		checkErrorsForImmutableFields(vdbUpdate, vdbOrig, false)
+		checkErrorsForImmutableFields(vdbOrig, vdbUpdate, true)
+		// when upgrade is in progress, we can change deployment type
+		resetStatusConditionsForUpgradeInProgress(vdbOrig)
+		resetStatusConditionsForUpgradeInProgress(vdbUpdate)
+		checkErrorsForImmutableFields(vdbOrig, vdbUpdate, false)
 		checkErrorsForImmutableFields(vdbUpdate, vdbOrig, false)
 	})
 	It("should allow image change if autoRestartVertica is disabled", func() {
@@ -631,7 +646,7 @@ var _ = Describe("verticadb_webhook", func() {
 		Ω(allErrs).ShouldNot(BeEmpty())
 	})
 
-	It("should return error if both httpsNMATLS and clientServerTLS are changed at the same time", func() {
+	It("should allow changing both httpsNMATLS and clientServerTLS at the same time", func() {
 		oldVdb := MakeVDBForCertRotationEnabled()
 		oldVdb.Spec.HTTPSNMATLS.Secret = oldSecret
 		oldVdb.Spec.ClientServerTLS.Secret = oldSecret
@@ -647,8 +662,7 @@ var _ = Describe("verticadb_webhook", func() {
 			{Name: ClientServerTLSConfigName, Secret: oldSecret, Mode: oldMode},
 		}
 		allErrs = newVdb.checkValidTLSConfigUpdate(oldVdb, nil)
-		Expect(allErrs).Should(HaveLen(1))
-		Expect(allErrs[0].Error()).To(ContainSubstring("cannot change both httpsNMATLS and clientServerTLS at the same time"))
+		Ω(allErrs).Should(BeEmpty())
 	})
 
 	It("should not change a tls secret to empty string", func() {

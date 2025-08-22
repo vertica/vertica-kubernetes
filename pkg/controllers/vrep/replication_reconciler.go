@@ -154,7 +154,7 @@ func (r *ReplicationReconciler) fetchVdbs(ctx context.Context) (res ctrl.Result,
 
 // makeDispatcher will create a Dispatcher object based on the feature flags set.
 func (r *ReplicationReconciler) makeDispatcher() error {
-	if !vmeta.UseVClusterOps(r.SourceInfo.Vdb.Annotations) {
+	if !r.SourceInfo.Vdb.UseVClusterOpsDeployment() {
 		return fmt.Errorf("replication is not supported when the source uses admintools deployments")
 	}
 
