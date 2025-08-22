@@ -18,7 +18,6 @@ package vdb
 import (
 	"context"
 	"strings"
-	"time"
 
 	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
@@ -68,9 +67,6 @@ func (r *RollbackAfterCertRotationReconciler) Reconcile(ctx context.Context, _ *
 		if err != nil {
 			return ctrl.Result{}, err
 		}
-
-		// Avoid race condition where HTTPSTLSUpdateReconciler runs but does not see the rollback in progress condition
-		return ctrl.Result{RequeueAfter: 200 * time.Millisecond}, nil
 	}
 
 	tlsConfigName := tlsConfigHTTPS
@@ -104,15 +100,8 @@ func (r *RollbackAfterCertRotationReconciler) Reconcile(ctx context.Context, _ *
 // this is needed when there is a failure in HTTPS rotate after DB has been updated
 func (r *RollbackAfterCertRotationReconciler) runHTTPSCertRotation(ctx context.Context) (ctrl.Result, error) {
 	if r.Vdb.IsHTTPSRollbackFailureAfterCertHealthPolling() {
-		// Get a fresh copy of the VDB to ensure we have the latest status (particularly
-		// the IsTLSRollbackInProgress field)
-		fresh := &vapi.VerticaDB{}
-		if err := r.VRec.Client.Get(ctx, r.Vdb.ExtractNamespacedName(), fresh); err != nil {
-			return ctrl.Result{}, err
-		}
-
-		r.Log.Info("Reverting to previous HTTPS secret", "secretName", fresh.GetHTTPSNMATLSSecretInUse())
-		rec := MakeHTTPSTLSUpdateReconciler(r.VRec, r.Log, fresh, r.Dispatcher, r.PFacts, true)
+		r.Log.Info("Reverting to previous HTTPS secret", "secretName", r.Vdb.GetHTTPSNMATLSSecretInUse())
+		rec := MakeHTTPSTLSUpdateReconciler(r.VRec, r.Log, r.Vdb, r.Dispatcher, r.PFacts, true)
 		traceActorReconcile(rec, r.Log, "tls cert rollback")
 		return rec.Reconcile(ctx, &ctrl.Request{})
 	}

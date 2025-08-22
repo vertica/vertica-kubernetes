@@ -98,10 +98,12 @@ func (h *HTTPSTLSUpdateReconciler) Reconcile(ctx context.Context, req *ctrl.Requ
 	}
 
 	h.Log.Info("start https tls config update")
-	cond := vapi.MakeCondition(vapi.TLSConfigUpdateInProgress, metav1.ConditionTrue, "InProgress")
-	if err2 := vdbstatus.UpdateCondition(ctx, h.VRec.GetClient(), h.Vdb, cond); err2 != nil {
-		h.Log.Error(err2, "Failed to set condition to true", "conditionType", vapi.TLSConfigUpdateInProgress)
-		return ctrl.Result{}, err2
+	if !h.Vdb.IsTLSConfigUpdateInProgress() {
+		cond := vapi.MakeCondition(vapi.TLSConfigUpdateInProgress, metav1.ConditionTrue, "InProgress")
+		if err2 := vdbstatus.UpdateCondition(ctx, h.VRec.GetClient(), h.Vdb, cond); err2 != nil {
+			h.Log.Error(err2, "Failed to set condition to true", "conditionType", vapi.TLSConfigUpdateInProgress)
+			return ctrl.Result{}, err2
+		}
 	}
 
 	res, err := h.Manager.setPollingCertMetadata(ctx)
