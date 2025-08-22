@@ -67,6 +67,10 @@ const (
 	nmaTLSModeVerifyCA       = "verify-ca"
 	DefaultServiceHTTPSPort  = 8443
 	DefaultServiceClientPort = 5433
+
+	// Deployment methods
+	DeploymentMethodAT = "admintools"
+	DeploymentMethodVC = "vclusterops"
 )
 
 // ExtractNamespacedName gets the name and returns it as a NamespacedName
@@ -1122,7 +1126,7 @@ func (v *VerticaDB) IsHTTPProbeSupported(ver string) bool {
 // IsNMASideCarDeploymentEnabled returns true if the conditions to run NMA
 // in a sidecar are met
 func (v *VerticaDB) IsNMASideCarDeploymentEnabled() bool {
-	if !vmeta.UseVClusterOps(v.Annotations) {
+	if !v.UseVClusterOpsDeployment() {
 		return false
 	}
 	vinf, hasVersion := v.MakeVersionInfo()
@@ -1138,10 +1142,25 @@ func (v *VerticaDB) IsNMASideCarDeploymentEnabled() bool {
 // IsMonolithicDeploymentEnabled returns true if NMA must run in the
 // same container as vertica
 func (v *VerticaDB) IsMonolithicDeploymentEnabled() bool {
-	if !vmeta.UseVClusterOps(v.Annotations) {
+	if !v.UseVClusterOpsDeployment() {
 		return false
 	}
 	return !v.IsNMASideCarDeploymentEnabled()
+}
+
+// ShouldEnableHTTPS returns true if the deployment method is vclusterOps
+// and the version supports it.
+func (v *VerticaDB) ShouldEnableHTTPS() bool {
+	if !v.UseVClusterOpsDeployment() {
+		return false
+	}
+	vinf, hasVersion := v.MakeVersionInfo()
+	// When version isn't present but vclusterOps annotation is set to true,
+	// we assume the version supports vcusterOps.
+	if !hasVersion {
+		return true
+	}
+	return vinf.IsEqualOrNewer(VcluseropsAsDefaultDeploymentMethodMinVersion)
 }
 
 // IsKSafety0 returns true if k-safety of 0 is set.
@@ -1520,7 +1539,7 @@ func (v *VerticaDB) IsSetForTLS() bool {
 // IsValidVersionForTLS returns true if the server version
 // supports tls
 func (v *VerticaDB) IsValidVersionForTLS() bool {
-	if !vmeta.UseVClusterOps(v.Annotations) {
+	if !v.UseVClusterOpsDeployment() {
 		return false
 	}
 	vinf, hasVersion := v.MakeVersionInfo()
@@ -1655,6 +1674,18 @@ func (v *VerticaDB) GetSubclustersInSandbox(sbName string) []string {
 		scNames = append(scNames, sb.Subclusters[i].Name)
 	}
 	return scNames
+}
+
+// UseVClusterDeployment returns true if the deployment method is vclusterOps
+func (v *VerticaDB) UseVClusterOpsDeployment() bool {
+	if v.Status.DeploymentMethod == DeploymentMethodVC {
+		return true
+	} else if v.Status.DeploymentMethod == DeploymentMethodAT {
+		return false
+	}
+
+	// when deploymentMethod is empty in status, check annotation
+	return vmeta.UseVClusterOps(v.Annotations)
 }
 
 // GetHPAMetrics extract an return hpa metrics from MetricDefinition struct.
@@ -1903,27 +1934,49 @@ func (v *VerticaDB) GetClientServerTLSSecretInUse() string {
 	return v.GetSecretInUse(ClientServerTLSConfigName)
 }
 
-// GetValueForTLSConfigMap will return what value should be written to the TLS Config Map for
-// NMA: spec or status. In order to handle rollback after failed cert rotation, we should only
-// update from spec if a cert rotation has completed and not triggered a rollback. We should also
-// use spec if this status value is empty (for example, during create db). All other cases should
-// use status value.
+// GetValueForTLSConfigMap determines which value (spec or status) should be written to the NMA TLS ConfigMap.
+// The decision is made per certificate type (https or clientServer) to avoid prematurely updating NMA
+// with a new cert that hasn’t been rotated yet.
+//
+// Rules:
+//  1. If statusValue is empty (e.g., during initial create), use specValue.
+//  2. If a rollback is in progress, use statusValue to keep NMA pointing at the last known good cert.
+//  3. If this cert’s rotation is in progress (started but not yet marked finished), use specValue
+//     so NMA can start using the new cert.
+//  4. Otherwise, default to statusValue so we don’t break NMA communication by using an unready cert.
+//
+// This ensures that when rotating multiple certs in the same iteration, each configmap update
+// only changes the fields for the cert currently being rotated.
 func (v *VerticaDB) GetValueForTLSConfigMap(specValue, statusValue, tlsConfigName string) string {
-	// Use the status value if:
-	// - It is set (non-empty), and
-	// - Either the config update hasn't finished OR a rollback is needed.
-	rollbackInProgress := v.IsTLSCertRollbackNeeded()
-	updateNotFinished := !v.IsStatusConditionTrue(HTTPSTLSConfigUpdateFinished)
-	if tlsConfigName == ClientServerTLSConfigName {
-		updateNotFinished = !v.IsStatusConditionTrue(ClientServerTLSConfigUpdateFinished)
+	if statusValue == "" {
+		return specValue
 	}
 
-	if statusValue != "" && (updateNotFinished || rollbackInProgress) {
+	if v.IsTLSCertRollbackNeeded() {
 		return statusValue
 	}
 
-	// Otherwise, default to the spec value.
-	return specValue
+	// Only switch to spec if this cert’s rotation is in progress
+	updateNotFinished := v.IsStatusConditionTrue(HTTPSTLSConfigUpdateFinished)
+	if tlsConfigName == ClientServerTLSConfigName {
+		updateNotFinished = v.IsStatusConditionTrue(ClientServerTLSConfigUpdateFinished)
+	}
+
+	if updateNotFinished {
+		return specValue // rotation started, not done → point to new secret
+	}
+
+	return statusValue // rotation not started → keep old in-use secret
+}
+
+// NoClientServerRotationNeeded returns true if the ClientServer TLS configuration
+// does not require any further rotation, meaning both the desired TLS mode
+// and secret match the currently in-use values.
+func (v *VerticaDB) NoClientServerRotationNeeded() bool {
+	modeUpToDate := v.GetClientServerTLSMode() == v.GetClientServerTLSModeInUse()
+	secretUnchanged := v.GetClientServerTLSSecret() == v.GetClientServerTLSSecretInUse()
+
+	return modeUpToDate && secretUnchanged
 }
 
 // GetHTTPSNMATLSSecretForConfigMap returns the correct TLS secret name
