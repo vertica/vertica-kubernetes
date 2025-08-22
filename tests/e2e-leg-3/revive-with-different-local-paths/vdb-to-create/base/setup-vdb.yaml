@@ -11,16 +11,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1beta1
+apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
   name: v-create
+  annotations:
+    vertica.com/include-uid-in-path: "false"
+    vertica.com/k-safety: "0"
+    vertica.com/requeue-time: "5"
 spec:
   image: kustomize-vertica-image
-  communal:
-    includeUIDInPath: false
-  httpServerTLSSecret: custom-cert
-  clientServerTLSSecret: client-cert
+  communal: {}
+  httpsNMATLS:
+    secret: custom-cert
+  clientServerTLS:
+    secret: client-cert
   initPolicy: CreateSkipPackageInstall
   local:
     dataPath: /vertica/data
@@ -28,9 +33,7 @@ spec:
     catalogPath: /vertica/catalog
     requestSize: 100Mi
   dbName: entdb
-  kSafety: "0"
   shardCount: 32
-  requeueTime: 5
   subclusters:
     - name: main
       size: 2

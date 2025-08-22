@@ -22,10 +22,12 @@ import (
 	"github.com/vertica/vcluster/vclusterops/util"
 )
 
-// httpsPollCertificateHealthOp polls the https service health endpoint, which unlike
-// the NMA, requires authentication.  This op can be used with or without client
+// httpsPollCertificateHealthOp polls the HTTPS service TLS config info endpoint,
+// which requires authentication.  This op can be used with or without client
 // certificates.  For example, server cert validation may be on despite using pw auth,
 // and so changing the https service certificate may change connection behavior.
+// It succeeds when all hosts report an altered, non-bootstrap TLS config in use
+// by the HTTPS service.
 type httpsPollCertificateHealthOp struct {
 	opBase
 	opHTTPSBase
@@ -33,9 +35,16 @@ type httpsPollCertificateHealthOp struct {
 	timeout int
 	// while processing results, store responsive hosts for later reporting
 	okHosts []string
+	// cached info of the expected config
+	expectedTLSConfigInfo *tlsConfigInfo
 }
 
-func makeHTTPSPollCertificateHealthOp(hosts []string,
+type tlsConfigInfo struct {
+	Digest      string           `json:"tls_config_digest"`
+	IsBootstrap util.BoolFromStr `json:"is_bootstrap_config"`
+}
+
+func makeHTTPSPollCertificateHealthOp(hosts []string, expectedTLSConfigInfo *tlsConfigInfo,
 	useHTTPPassword bool, userName string, httpsPassword *string) (httpsPollCertificateHealthOp, error) {
 	op := httpsPollCertificateHealthOp{}
 	op.name = "HTTPSPollCertificateHealthOp"
@@ -49,6 +58,11 @@ func makeHTTPSPollCertificateHealthOp(hosts []string,
 	op.userName = userName
 	op.httpsPassword = httpsPassword
 	op.timeout = util.GetEnvInt("NODE_STATE_POLLING_TIMEOUT", StartupPollingTimeout)
+	if expectedTLSConfigInfo == nil {
+		// really an assertion - this should never fail
+		return op, errors.New("missing expected tls config info")
+	}
+	op.expectedTLSConfigInfo = expectedTLSConfigInfo
 	return op, nil
 }
 
@@ -61,7 +75,7 @@ func (op *httpsPollCertificateHealthOp) setupClusterHTTPRequest(hosts []string) 
 		httpRequest := hostHTTPRequest{}
 		httpRequest.Method = GetMethod
 		httpRequest.Timeout = defaultHTTPSRequestTimeoutSeconds // 30s instead of 300s
-		httpRequest.buildHTTPSEndpoint("health")
+		httpRequest.buildHTTPSEndpoint(util.TLSInfoEndpoint)
 		if op.useHTTPPassword {
 			httpRequest.Password = op.httpsPassword
 			httpRequest.Username = op.userName
@@ -144,8 +158,25 @@ func (op *httpsPollCertificateHealthOp) shouldStopPolling() (bool, error) {
 			continue
 		}
 
-		// the https service health endpoint has an empty body, so no need to check further
-		op.okHosts = append(op.okHosts, host)
+		// check if active tls config info is what we expect
+		var newConfigInfo tlsConfigInfo
+		err := op.parseAndCheckResponse(host, result.content, &newConfigInfo)
+		if err != nil {
+			err = fmt.Errorf(`[%s] fail to parse result on host %s, details: %w`, op.name, host, err)
+			allErrs = errors.Join(allErrs, err)
+			continue
+		}
+
+		if newConfigInfo.IsBootstrap {
+			op.logger.Info("Bootstrap config still in use", "host", host)
+		}
+
+		// Note that in the edge case where the rotation command is a no-op, it's
+		// impossible to tell which side of the https service restart we are on.
+		// In all other cases, this indicates the https service is in its final state.
+		if newConfigInfo == *op.expectedTLSConfigInfo {
+			op.okHosts = append(op.okHosts, host)
+		}
 	}
 
 	// return immediately if there are unexpected failures

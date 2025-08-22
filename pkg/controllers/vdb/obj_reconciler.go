@@ -18,9 +18,12 @@ package vdb
 
 import (
 	"context"
+	"crypto/sha256"
 	"fmt"
+	"hash"
 	"path/filepath"
 	"reflect"
+	"sort"
 
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
@@ -35,6 +38,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
+	"github.com/vertica/vertica-kubernetes/pkg/secrets"
 	config "github.com/vertica/vertica-kubernetes/pkg/vdbconfig"
 	"github.com/vertica/vertica-kubernetes/pkg/vk8s"
 	appsv1 "k8s.io/api/apps/v1"
@@ -53,6 +57,13 @@ const (
 	ObjReconcileModePreserveScaling = 1 << iota
 	// Must maintain the same delete policy when reconciling statefulsets
 	ObjReconcileModePreserveUpdateStrategy
+	// Reconcile for annotation only
+	ObjReconcileModeAnnotation
+	// Reconcile all objects except config changes. This is used for
+	// when we do not want to check for changes in configMaps and secrets
+	// used to inject env vars into the pods, but still want to reconcile
+	// all other objects.
+	ObjReconcileModeAllButConfigChange
 	// Reconcile to consider every change. Without this we will skip svc objects.
 	ObjReconcileModeAll
 )
@@ -67,6 +78,7 @@ type ObjReconciler struct {
 	Log           logr.Logger
 	Vdb           *vapi.VerticaDB // Vdb is the CRD we are acting on.
 	PFacts        *podfacts.PodFacts
+	SandPFactsMap map[string]podfacts.PodFacts
 	Mode          ObjReconcileModeType
 	SecretFetcher cloud.SecretFetcher
 }
@@ -96,6 +108,10 @@ func (o *ObjReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Re
 		return ctrl.Result{}, errors.New("no podfacts provided")
 	}
 
+	if err := o.recordAnnotations(ctx); err != nil || (o.Mode&ObjReconcileModeAnnotation != 0) {
+		return ctrl.Result{}, err
+	}
+
 	if vmeta.UseVProxy(o.Vdb.Annotations) {
 		if o.Vdb.Spec.Proxy == nil {
 			return ctrl.Result{}, errors.New("spec.proxy must be set when client proxy is enabled")
@@ -121,12 +137,6 @@ func (o *ObjReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Re
 		return ctrl.Result{}, err
 	}
 
-	// We need to create/update the configmap that contains the tls secret name
-	err := o.reconcileNMACertConfigMap(ctx)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-
 	// Check the objects for subclusters that should exist.  This will create
 	// missing objects and update existing objects to match the vdb.
 	if res, err := o.checkForCreatedSubclusters(ctx); verrors.IsReconcileAborted(res, err) {
@@ -139,6 +149,50 @@ func (o *ObjReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Re
 	}
 
 	return ctrl.Result{}, nil
+}
+
+// recordAnnotations will record the annotations in the vdb so we can get the correct annotation
+// value after operator is updated and the default value of the annotation is changed
+func (o *ObjReconciler) recordAnnotations(ctx context.Context) error {
+	// When the annotation is already set, no need to record
+	if o.Vdb.Annotations[vmeta.MountNMACertsAnnotation] != "" {
+		return nil
+	}
+
+	svcName := names.GenHlSvcName(o.Vdb)
+	curSvc := &corev1.Service{}
+	err := o.Rec.GetClient().Get(ctx, svcName, curSvc)
+	svcNotExist := err != nil && kerrors.IsNotFound(err)
+	useNMAMount := false
+	if svcNotExist {
+		useNMAMount = vmeta.UseNMACertsMount(o.Vdb.Annotations)
+	} else if err != nil {
+		o.Log.Error(err, "failed to get headless service", "name", svcName)
+		return err
+	}
+
+	if !svcNotExist {
+		opVer, hasVersion := o.Vdb.GetVersion(vapi.MakeVersionStrForOpVersion(curSvc.Labels[vmeta.OperatorVersionLabel]))
+		if !hasVersion {
+			return errors.New("operator version not found or invalid in headless service")
+		}
+		useNMAMount = opVer.IsOlder(vapi.MakeVersionStrForOpVersion(vmeta.OperatorVersion253))
+	}
+
+	annotationUpdate := func() (bool, error) {
+		if o.Vdb.Annotations == nil {
+			o.Vdb.Annotations = make(map[string]string, 1)
+		}
+		if useNMAMount {
+			o.Vdb.Annotations[vmeta.MountNMACertsAnnotation] = vmeta.MountNMACertsAnnotationTrue
+		} else {
+			o.Vdb.Annotations[vmeta.MountNMACertsAnnotation] = vmeta.MountNMACertsAnnotationFalse
+		}
+		return true, nil
+	}
+	updated, err := vk8s.UpdateVDBWithRetry(ctx, o.Rec, o.Vdb, annotationUpdate)
+	o.Log.Info("record annotation in vdb", "recorded", updated, "annotation", vmeta.MountNMACertsAnnotation)
+	return err
 }
 
 // checkMountedObjs will check if the mounted secrets/configMap exist and have
@@ -162,20 +216,24 @@ func (o *ObjReconciler) checkMountedObjs(ctx context.Context) (ctrl.Result, erro
 		}
 	}
 
-	if vmeta.UseVClusterOps(o.Vdb.Annotations) {
+	if o.Vdb.UseVClusterOpsDeployment() {
 		// When running the NMA, needed for vclusterops, a secret must exist
 		// that has the certs to use for it.  There is a reconciler that is run
 		// before this that will create the secret.  We will requeue if we find
 		// the Vdb doesn't have the secret set.
-		if o.Vdb.Spec.HTTPSNMATLSSecret == "" {
+		if o.Vdb.GetNMATLSSecret() == "" {
 			o.Rec.Event(o.Vdb, corev1.EventTypeWarning, events.HTTPServerNotSetup,
-				"The httpsNMATLSSecret must be set when running with vclusterops deployment")
+				"NMA TLS secret must be set when running with vclusterops deployment")
 			return ctrl.Result{Requeue: true}, nil
 		}
-		_, res, err := o.SecretFetcher.FetchAllowRequeue(ctx,
-			names.GenNamespacedName(o.Vdb, o.Vdb.Spec.HTTPSNMATLSSecret))
-		if verrors.IsReconcileAborted(res, err) {
-			return res, err
+		dbReconciler := o.Rec.(*VerticaDBReconciler)
+		certCache := dbReconciler.CacheManager.GetCertCacheForVdb(o.Vdb.Namespace, o.Vdb.Name)
+		if !certCache.IsCertInCache(o.Vdb.GetNMATLSSecret()) {
+			_, res, err := o.SecretFetcher.FetchAllowRequeue(ctx,
+				names.GenNamespacedName(o.Vdb, o.Vdb.GetNMATLSSecret()))
+			if verrors.IsReconcileAborted(res, err) {
+				return res, err
+			}
 		}
 	}
 
@@ -183,13 +241,15 @@ func (o *ObjReconciler) checkMountedObjs(ctx context.Context) (ctrl.Result, erro
 
 	if o.Vdb.Spec.KerberosSecret != "" {
 		keyNames := []string{filepath.Base(paths.Krb5Conf), filepath.Base(paths.Krb5Keytab)}
-		if res, err := o.checkSecretHasKeys(ctx, "Kerberos", o.Vdb.Spec.KerberosSecret, keyNames); verrors.IsReconcileAborted(res, err) {
+		if res, err := o.SecretFetcher.CheckSecretHasKeys(ctx, "Kerberos", names.GenNamespacedName(o.Vdb, o.Vdb.Spec.KerberosSecret),
+			keyNames); verrors.IsReconcileAborted(res, err) {
 			return res, err
 		}
 	}
 
 	if o.Vdb.GetSSHSecretName() != "" {
-		if res, err := o.checkSecretHasKeys(ctx, "SSH", o.Vdb.GetSSHSecretName(), paths.SSHKeyPaths); verrors.IsReconcileAborted(res, err) {
+		if res, err := o.SecretFetcher.CheckSecretHasKeys(ctx, "SSH", names.GenNamespacedName(o.Vdb, o.Vdb.GetSSHSecretName()),
+			paths.SSHKeyPaths); verrors.IsReconcileAborted(res, err) {
 			return res, err
 		}
 	}
@@ -199,35 +259,23 @@ func (o *ObjReconciler) checkMountedObjs(ctx context.Context) (ctrl.Result, erro
 
 func (o *ObjReconciler) checkTLSSecrets(ctx context.Context) (ctrl.Result, error) {
 	tlsSecrets := map[string]string{
-		"NMA TLS":           o.Vdb.Spec.HTTPSNMATLSSecret,
-		"Client Server TLS": o.Vdb.Spec.ClientServerTLSSecret,
+		"NMA TLS": o.Vdb.GetNMATLSSecret(),
 	}
+	if vmeta.UseTLSAuth(o.Vdb.Annotations) {
+		tlsSecrets["Client Server TLS"] = o.Vdb.GetClientServerTLSSecret()
+	}
+	dbReconciler := o.Rec.(*VerticaDBReconciler)
+	certCache := dbReconciler.CacheManager.GetCertCacheForVdb(o.Vdb.Namespace, o.Vdb.Name)
 	for k, tlsSecret := range tlsSecrets {
-		if tlsSecret != "" {
+		if tlsSecret != "" && !certCache.IsCertInCache(tlsSecret) {
 			keyNames := []string{corev1.TLSPrivateKeyKey, corev1.TLSCertKey, paths.HTTPServerCACrtName}
-			if res, err := o.checkSecretHasKeys(ctx, k, tlsSecret, keyNames); verrors.IsReconcileAborted(res, err) {
+			if res, err := o.SecretFetcher.CheckSecretHasKeys(ctx, k,
+				names.GenNamespacedName(o.Vdb, tlsSecret), keyNames); verrors.IsReconcileAborted(res, err) {
 				return res, err
 			}
 		}
 	}
 
-	return ctrl.Result{}, nil
-}
-
-// checkSecretHasKeys is a helper to check that a secret has a set of keys in it
-func (o *ObjReconciler) checkSecretHasKeys(ctx context.Context, secretType, secretName string, keyNames []string) (ctrl.Result, error) {
-	secretData, res, err := o.SecretFetcher.FetchAllowRequeue(ctx, names.GenNamespacedName(o.Vdb, secretName))
-	if verrors.IsReconcileAborted(res, err) {
-		return res, err
-	}
-
-	for _, key := range keyNames {
-		if _, ok := secretData[key]; !ok {
-			o.Rec.Eventf(o.Vdb, corev1.EventTypeWarning, events.MissingSecretKeys,
-				"%s secret '%s' has missing key '%s'", secretType, secretName, key)
-			return ctrl.Result{Requeue: true}, nil
-		}
-	}
 	return ctrl.Result{}, nil
 }
 
@@ -266,6 +314,7 @@ func (o *ObjReconciler) checkForCreatedSubclusters(ctx context.Context) (ctrl.Re
 			}
 		}
 
+		o.SandPFactsMap = make(map[string]podfacts.PodFacts)
 		if res, err := o.reconcileSts(ctx, sc); verrors.IsReconcileAborted(res, err) {
 			return res, err
 		}
@@ -349,7 +398,7 @@ func (o *ObjReconciler) reconcileHlSvc(ctx context.Context) error {
 // reconcileSvc verifies the service object exists and creates it if necessary.
 func (o *ObjReconciler) reconcileSvc(ctx context.Context, expSvc *corev1.Service, svcName types.NamespacedName,
 	sc *vapi.Subcluster, reconcileFieldsFunc func(*corev1.Service, *corev1.Service, *vapi.Subcluster) *corev1.Service) error {
-	if o.Mode&ObjReconcileModeAll == 0 {
+	if o.Mode&ObjReconcileModeAll == 0 && o.Mode&ObjReconcileModeAllButConfigChange == 0 {
 		// Bypass this check since we are doing changes to statefulsets only
 		return nil
 	}
@@ -572,20 +621,6 @@ func (o *ObjReconciler) updateVProxyDeployment(ctx context.Context, sts *appsv1.
 	return o.updateDep(ctx, curDep, expDep)
 }
 
-// ensureStsExists checks if the sts exists and will create it if it does not.
-func (o *ObjReconciler) ensureStsExists(ctx context.Context, nm types.NamespacedName, curSts, expSts *appsv1.StatefulSet) (bool, error) {
-	err := o.Rec.GetClient().Get(ctx, nm, curSts)
-	if err != nil && kerrors.IsNotFound(err) {
-		o.Log.Info("Creating statefulset", "Name", nm, "Size", expSts.Spec.Replicas, "Image", expSts.Spec.Template.Spec.Containers[0].Image)
-		o.PFacts.Invalidate()
-		if stsErr := createSts(ctx, o.Rec, expSts, o.Vdb); stsErr != nil {
-			return false, stsErr
-		}
-		return true, nil
-	}
-	return false, nil
-}
-
 // reconcileVproxy will check if the deployment and its configmap exist and create
 // them.
 func (o *ObjReconciler) reconcileVProxy(ctx context.Context, sc *vapi.Subcluster) (*appsv1.Deployment, error) {
@@ -604,16 +639,70 @@ func (o *ObjReconciler) deleteVProxy(ctx context.Context, vpName string) error {
 	return o.deleteVProxyConfigMapIfExists(ctx, vpName)
 }
 
+// retrieveVerticaVersion will retrieve the subcluster's vertica version
+func (o *ObjReconciler) retriveVerticaVersion(ctx context.Context, sc *vapi.Subcluster, version *string) (ctrl.Result, error) {
+	scSandMap := o.Vdb.GenSubclusterSandboxStatusMap()
+	scPFacts := o.PFacts
+	sand, exist := scSandMap[sc.Name]
+	// For subcluster that is in a sandbox, we need to use a different PFacts
+	if exist && sand != vapi.MainCluster {
+		if sandPFacts, found := o.SandPFactsMap[sand]; found {
+			scPFacts = &sandPFacts
+		} else {
+			sandPFacts := o.PFacts.Copy(sand)
+			scPFacts = &sandPFacts
+			o.SandPFactsMap[sand] = sandPFacts
+		}
+	}
+	// make sure we have the latest pod facts in case the subcluster was restarted
+	scPFacts.Invalidate()
+	if err := scPFacts.Collect(ctx, o.Vdb); err != nil {
+		return ctrl.Result{}, err
+	}
+	// Use image version reconciler to get the subcluster's vertica version
+	i := MakeImageVersionReconciler(o.Rec, o.Log, o.Vdb, scPFacts.PRunner, scPFacts, false, version, true)
+	vr := i.(*ImageVersionReconciler)
+	vr.FindPodFunc = func() (*podfacts.PodFact, bool) {
+		for _, v := range scPFacts.Detail {
+			if v.GetIsPodRunning() && v.GetSubclusterName() == sc.Name {
+				return v, true
+			}
+		}
+		return &podfacts.PodFact{}, false
+	}
+	return vr.Reconcile(ctx, &ctrl.Request{})
+}
+
 // reconcileSts reconciles the statefulset for a particular subcluster.  Returns
 // true if any create/update was done.
 func (o *ObjReconciler) reconcileSts(ctx context.Context, sc *vapi.Subcluster) (ctrl.Result, error) {
-	// Create or update the statefulset
+	version := ""
 	nm := names.GenStsName(o.Vdb, sc)
 	curSts := &appsv1.StatefulSet{}
-	expSts := builder.BuildStsSpec(nm, o.Vdb, sc)
-	stsCreated, err := o.ensureStsExists(ctx, nm, curSts, expSts)
+	err := o.Rec.GetClient().Get(ctx, nm, curSts)
+	curStsNotExist := err != nil && kerrors.IsNotFound(err)
+	create := curStsNotExist
+	podsNotRunning := false
+	// After DB is initialized and we have the sts, we can get vertica version from its pods
+	if o.Vdb.IsStatusConditionTrue(vapi.DBInitialized) && !curStsNotExist {
+		res, err2 := o.retriveVerticaVersion(ctx, sc, &version)
+		if err2 != nil {
+			return res, err2
+		}
+		podsNotRunning = res.Requeue
+	}
+	// Create or update the statefulset
+	expSts := builder.BuildStsSpec(nm, o.Vdb, sc, version)
+	err = o.setConfigHashLabel(ctx, expSts, curSts)
 	if err != nil {
 		return ctrl.Result{}, err
+	}
+	if curStsNotExist {
+		o.Log.Info("Creating statefulset", "Name", nm, "Size", expSts.Spec.Replicas, "Image", expSts.Spec.Template.Spec.Containers[0].Image)
+		o.PFacts.Invalidate()
+		if stsErr := createSts(ctx, o.Rec, expSts, o.Vdb); stsErr != nil {
+			return ctrl.Result{}, stsErr
+		}
 	}
 
 	var curDep *appsv1.Deployment
@@ -627,16 +716,16 @@ func (o *ObjReconciler) reconcileSts(ctx context.Context, sc *vapi.Subcluster) (
 	}
 
 	// we can return here in case of create
-	if stsCreated {
+	if create {
 		return ctrl.Result{}, nil
 	}
 
-	return o.handleStatefulSetUpdate(ctx, sc, curSts, expSts, curDep)
+	return o.handleStatefulSetUpdate(ctx, sc, curSts, expSts, curDep, podsNotRunning)
 }
 
 // handleStatefulSetUpdate handles the update of an existing StatefulSet.
 func (o *ObjReconciler) handleStatefulSetUpdate(ctx context.Context, sc *vapi.Subcluster,
-	curSts, expSts *appsv1.StatefulSet, curDep *appsv1.Deployment) (ctrl.Result, error) {
+	curSts, expSts *appsv1.StatefulSet, curDep *appsv1.Deployment, podsNotRunning bool) (ctrl.Result, error) {
 	// We can only remove pods if we have called remove node and done the
 	// uninstall.  If we haven't yet done that we will requeue the
 	// reconciliation.  This will cause us to go through the remove node and
@@ -653,22 +742,13 @@ func (o *ObjReconciler) handleStatefulSetUpdate(ctx context.Context, sc *vapi.Su
 	//
 	// Both the NMA and server container have the same image, but the server
 	// container is guaranteed to be their for all deployments.
-	curImage, err := vk8s.GetServerImage(curSts.Spec.Template.Spec.Containers)
-	if err != nil {
+	if err := o.syncImage(curSts, expSts); err != nil {
 		return ctrl.Result{}, err
-	}
-	expSvrCnt := vk8s.GetServerContainer(expSts.Spec.Template.Spec.Containers)
-	if expSvrCnt == nil {
-		return ctrl.Result{}, fmt.Errorf("could not find server container in sts %s", expSts.Name)
-	}
-	expSvrCnt.Image = curImage
-	if expNMACnt := vk8s.GetNMAContainer(expSts.Spec.Template.Spec.Containers); expNMACnt != nil {
-		expNMACnt.Image = curImage
 	}
 
 	// Preserve scaling if told to do so. This is used when doing early
 	// reconciliation so that we have any necessary pods started.
-	if o.Mode&ObjReconcileModePreserveScaling != 0 {
+	if o.Mode&ObjReconcileModePreserveScaling != 0 && o.shouldPreserveStsSize(curSts, expSts) {
 		expSts.Spec.Replicas = curSts.Spec.Replicas
 	}
 	// Preserve the delete policy as they may be changed temporarily by upgrade,
@@ -683,17 +763,27 @@ func (o *ObjReconciler) handleStatefulSetUpdate(ctx context.Context, sc *vapi.Su
 	// change it here.
 	expSts.Spec.VolumeClaimTemplates = curSts.Spec.VolumeClaimTemplates
 
+	// When pods are not running, we cannot get vertica version so we don't update
+	// health probes
+	if podsNotRunning {
+		if err := o.copyHealthProbes(curSts, expSts); err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+
 	// If the NMA deployment type or health check setting is changing,
 	// we cannot do a rolling update for this change. All pods need to have the
 	// same NMA deployment type. So, we drop the old sts and create a fresh one.
-	if isNMADeploymentDifferent(curSts, expSts) || isHealthCheckDifferent(curSts, expSts) {
+	if isNMADeploymentDifferent(curSts, expSts) || (!podsNotRunning && isHealthCheckDifferent(curSts, expSts)) {
 		o.Log.Info("Dropping then recreating statefulset", "Name", expSts.Name)
 		// Invalidate the pod facts cache since we are recreating a new sts
 		o.PFacts.Invalidate()
 		return ctrl.Result{}, recreateSts(ctx, o.Rec, curSts, expSts, o.Vdb)
 	}
 
-	err = o.updateSts(ctx, curSts, expSts)
+	o.checkConfigChanges(expSts, curSts)
+
+	err := o.updateSts(ctx, curSts, expSts)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -701,61 +791,64 @@ func (o *ObjReconciler) handleStatefulSetUpdate(ctx context.Context, sc *vapi.Su
 	return ctrl.Result{}, o.updateVProxyDeployment(ctx, expSts, curDep, sc)
 }
 
-// reconcileNMACertConfigMap creates/updates the configmap that contains the tls
-// secret name
-func (o *ObjReconciler) reconcileNMACertConfigMap(ctx context.Context) error {
-	if !vmeta.UseTLSAuth(o.Vdb.Annotations) {
-		return nil
-	}
-	configMapName := names.GenNMACertConfigMap(o.Vdb)
-	configMap := &corev1.ConfigMap{}
-	err := o.Rec.GetClient().Get(ctx, configMapName, configMap)
+func (o *ObjReconciler) syncImage(curSts, expSts *appsv1.StatefulSet) error {
+	curImage, err := vk8s.GetServerImage(curSts.Spec.Template.Spec.Containers)
 	if err != nil {
-		if kerrors.IsNotFound(err) {
-			configMap = builder.BuildNMATLSConfigMap(configMapName, o.Vdb)
-			err = o.Rec.GetClient().Create(ctx, configMap)
-			if err != nil {
-				return err
-			}
-			o.Log.Info("created TLS cert secret configmap", "nm", configMapName.Name)
-			return nil
-		}
-		o.Log.Error(err, "failed to retrieve TLS cert secret configmap")
 		return err
 	}
-	if configMap.Data[builder.NMASecretNameEnv] == o.Vdb.Spec.HTTPSNMATLSSecret &&
-		configMap.Data[builder.NMAClientSecretNameEnv] == o.Vdb.Spec.ClientServerTLSSecret &&
-		configMap.Data[builder.NMASecretNamespaceEnv] == o.Vdb.ObjectMeta.Namespace &&
-		configMap.Data[builder.NMAClientSecretNamespaceEnv] == o.Vdb.ObjectMeta.Namespace &&
-		configMap.Data[builder.NMAClientSecretTLSModeEnv] == o.Vdb.GetNMAClientServerTLSMode() {
-		return nil
+	expSvrCnt := vk8s.GetServerContainer(expSts.Spec.Template.Spec.Containers)
+	if expSvrCnt == nil {
+		return fmt.Errorf("could not find server container in sts %s", expSts.Name)
+	}
+	expSvrCnt.Image = curImage
+
+	if expNMACnt := vk8s.GetNMAContainer(expSts.Spec.Template.Spec.Containers); expNMACnt != nil {
+		expNMACnt.Image = curImage
+	}
+	return nil
+}
+
+func (o *ObjReconciler) copyHealthProbes(curSts, expSts *appsv1.StatefulSet) error {
+	curSvrCnt := vk8s.GetServerContainer(curSts.Spec.Template.Spec.Containers)
+	if curSvrCnt == nil {
+		return fmt.Errorf("could not find server container in sts %s", curSts.Name)
+	}
+	expSvrCnt := vk8s.GetServerContainer(expSts.Spec.Template.Spec.Containers)
+	if expSvrCnt == nil {
+		return fmt.Errorf("could not find server container in expected sts %s", expSts.Name)
+	}
+	expSvrCnt.StartupProbe = curSvrCnt.StartupProbe
+	expSvrCnt.LivenessProbe = curSvrCnt.LivenessProbe
+	expSvrCnt.ReadinessProbe = curSvrCnt.ReadinessProbe
+	return nil
+}
+
+// shouldPreserveStsSize returns true if the current sts size should be preserved.
+// However, if the current sts size is 0 and different from the expected sts size,
+// we should not preserve it as we are restarting a sts that was in shutdown state
+func (o *ObjReconciler) shouldPreserveStsSize(curSts, expSts *appsv1.StatefulSet) bool {
+	if *expSts.Spec.Replicas != *curSts.Spec.Replicas && *curSts.Spec.Replicas == 0 {
+		return false
 	}
 
-	configMap.Data[builder.NMASecretNameEnv] = o.Vdb.Spec.HTTPSNMATLSSecret
-	configMap.Data[builder.NMASecretNamespaceEnv] = o.Vdb.ObjectMeta.Namespace
-	configMap.Data[builder.NMAClientSecretNameEnv] = o.Vdb.Spec.ClientServerTLSSecret
-	configMap.Data[builder.NMAClientSecretNamespaceEnv] = o.Vdb.ObjectMeta.Namespace
-	configMap.Data[builder.NMAClientSecretTLSModeEnv] = o.Vdb.GetNMAClientServerTLSMode()
-
-	err = o.Rec.GetClient().Update(ctx, configMap)
-	if err == nil {
-		o.Log.Info("updated tls cert secret configmap", "name", configMapName.Name, "nma-secret", o.Vdb.Spec.HTTPSNMATLSSecret,
-			"clientserver-secret", o.Vdb.Spec.ClientServerTLSSecret)
-	}
-	return err
+	return true
 }
 
 // reconcileTLSSecrets will update tls secrets
 func (o *ObjReconciler) reconcileTLSSecrets(ctx context.Context) error {
-	if !o.Vdb.IsCertRotationEnabled() {
+	if !o.Vdb.IsSetForTLS() || o.Vdb.ShouldRemoveTLSSecret() {
 		return nil
 	}
 
 	tlsSecrets := []string{
-		o.Vdb.Spec.HTTPSNMATLSSecret,
-		o.Vdb.Spec.ClientServerTLSSecret,
+		o.Vdb.GetNMATLSSecret(),
+		o.Vdb.GetClientServerTLSSecret(),
 	}
 	for _, tlsSecret := range tlsSecrets {
+		// non-k8s secrets are ignored
+		if !secrets.IsK8sSecret(tlsSecret) {
+			continue
+		}
 		err := o.updateOwnerReferenceInTLSSecret(ctx, tlsSecret)
 		if err != nil {
 			return err
@@ -912,10 +1005,10 @@ func (o *ObjReconciler) checkIfReadyForStsUpdate(newStsSize int32, sts *appsv1.S
 			return ctrl.Result{}, fmt.Errorf("could not find pod facts for pod '%s'", pn)
 		}
 		// For vclusterOps, there is no uninstall step so we skip the isInstalled state.
-		if (!vmeta.UseVClusterOps(o.Vdb.Annotations) && pf.GetIsInstalled()) || pf.GetDBExists() {
+		if (!o.Vdb.UseVClusterOpsDeployment() && pf.GetIsInstalled()) || pf.GetDBExists() {
 			o.Log.Info("Requeue since some pods still need db_remove_node and/or uninstall done.",
 				"name", pn, "isInstalled", pf.GetIsInstalled(), "dbExists", pf.GetDBExists(),
-				"vclusterOps", vmeta.UseVClusterOps(o.Vdb.Annotations))
+				"vclusterOps", o.Vdb.UseVClusterOpsDeployment())
 			return ctrl.Result{Requeue: true}, nil
 		}
 	}
@@ -958,4 +1051,189 @@ func (o *ObjReconciler) removeOwnerReference(secret *corev1.Secret) bool {
 	}
 
 	return changed
+}
+
+func (o *ObjReconciler) calculateConfigHash(ctx context.Context, sts *appsv1.StatefulSet) (string, error) {
+	hasher := sha256.New()
+	atLeastOne := false
+
+	svrCnt := vk8s.GetServerContainer(sts.Spec.Template.Spec.Containers)
+	if svrCnt == nil {
+		return "", fmt.Errorf("could not find server container for sts %s", sts.Name)
+	}
+
+	// Hash all EnvFrom refs
+	if hashed, err := o.hashEnvFromSources(ctx, sts.Namespace, svrCnt.EnvFrom, hasher); err != nil {
+		return "", err
+	} else {
+		atLeastOne = atLeastOne || hashed
+	}
+
+	// Hash individual Env var refs
+	if hashed, err := o.hashEnvVarSources(ctx, sts.Namespace, svrCnt.Env, hasher); err != nil {
+		return "", err
+	} else {
+		atLeastOne = atLeastOne || hashed
+	}
+
+	if !atLeastOne {
+		return "", nil
+	}
+
+	// Return first 16 hex characters of hash
+	return fmt.Sprintf("%x", hasher.Sum(nil))[:16], nil
+}
+
+func (o *ObjReconciler) hashEnvFromSources(ctx context.Context, ns string, envFrom []corev1.EnvFromSource, hasher hash.Hash) (bool, error) {
+	atLeastOne := false
+	for _, from := range envFrom {
+		if from.ConfigMapRef != nil {
+			hashed, err := o.hashConfigMap(ctx, ns, from.ConfigMapRef.Name, "", hasher)
+			if err != nil {
+				return false, err
+			}
+			atLeastOne = atLeastOne || hashed
+		}
+		if from.SecretRef != nil {
+			hashed, err := o.hashSecret(ctx, ns, from.SecretRef.Name, "", hasher)
+			if err != nil {
+				return false, err
+			}
+			atLeastOne = atLeastOne || hashed
+		}
+	}
+	return atLeastOne, nil
+}
+
+func (o *ObjReconciler) hashEnvVarSources(ctx context.Context, ns string, envVars []corev1.EnvVar, hasher hash.Hash) (bool, error) {
+	atLeastOne := false
+	for _, env := range envVars {
+		if env.ValueFrom == nil {
+			continue
+		}
+		if ref := env.ValueFrom.ConfigMapKeyRef; ref != nil {
+			hashed, err := o.hashConfigMap(ctx, ns, ref.Name, ref.Key, hasher)
+			if err != nil {
+				return false, err
+			}
+			atLeastOne = atLeastOne || hashed
+		}
+		if ref := env.ValueFrom.SecretKeyRef; ref != nil {
+			hashed, err := o.hashSecret(ctx, ns, ref.Name, ref.Key, hasher)
+			if err != nil {
+				return false, err
+			}
+			atLeastOne = atLeastOne || hashed
+		}
+	}
+	return atLeastOne, nil
+}
+
+func (o *ObjReconciler) hashConfigMap(ctx context.Context, namespace, name, key string, hasher hash.Hash) (bool, error) {
+	hashed := false
+	var cm corev1.ConfigMap
+	if err := o.Rec.GetClient().Get(ctx, types.NamespacedName{Name: name, Namespace: namespace}, &cm); err != nil {
+		return false, err
+	}
+	if !vmeta.IsWatchedByVDB(cm.Labels) {
+		// If the configmap is not watched by the vdb, we don't hash it.
+		o.Log.Info("Skipping hashing configmap", "Name", name, "Namespace", namespace)
+		return false, nil
+	}
+
+	if key != "" {
+		value, found := cm.Data[key]
+		if found {
+			hashed = true
+			hasher.Write([]byte(key + "=" + value))
+		}
+
+		return hashed, nil
+	}
+
+	keys := make([]string, 0, len(cm.Data))
+	for k := range cm.Data {
+		keys = append(keys, k)
+	}
+
+	// Sort keys
+	sort.Strings(keys)
+
+	// Hash the data
+	for _, k := range keys {
+		hashed = true
+		hasher.Write([]byte(k + "=" + cm.Data[k]))
+	}
+
+	return hashed, nil
+}
+
+func (o *ObjReconciler) hashSecret(ctx context.Context, namespace, name, key string, hasher hash.Hash) (bool, error) {
+	hashed := false
+	var secret corev1.Secret
+	if err := o.Rec.GetClient().Get(ctx, types.NamespacedName{Name: name, Namespace: namespace}, &secret); err != nil {
+		return false, err
+	}
+	if !vmeta.IsWatchedByVDB(secret.Labels) {
+		// If the secret is not watched by the vdb, we don't hash it.
+		o.Log.Info("Skipping hashing secret", "Name", name, "Namespace", namespace)
+		return false, nil
+	}
+
+	if key != "" {
+		value, found := secret.Data[key]
+		if found {
+			hashed = true
+			hasher.Write([]byte(key + "="))
+			hasher.Write(value)
+		}
+		return hashed, nil
+	}
+	keys := make([]string, 0, len(secret.Data))
+	for k := range secret.Data {
+		keys = append(keys, k)
+	}
+
+	// Sort keys
+	sort.Strings(keys)
+
+	// Hash the data
+	for _, k := range keys {
+		hashed = true
+		hasher.Write([]byte(k + "="))
+		hasher.Write(secret.Data[k])
+	}
+
+	return hashed, nil
+}
+
+func (o *ObjReconciler) setConfigHashLabel(ctx context.Context, expSts, curSts *appsv1.StatefulSet) error {
+	if o.Vdb.HasNoExtraEnv() {
+		return nil
+	}
+	if o.Mode&ObjReconcileModeAll == 0 && curSts.ResourceVersion != "" {
+		// If we are not in full reconcile mode, we just copy the current config hash
+		// annotation to the expected statefulset. This is useful when we are not
+		// changing the config hash, but we still want to update the statefulset.
+		expSts.Spec.Template.Annotations[vmeta.ConfigHashAnnotation] = curSts.Spec.Template.Annotations[vmeta.ConfigHashAnnotation]
+		return nil
+	}
+
+	newHash, err := o.calculateConfigHash(ctx, expSts)
+	if err != nil || newHash == "" {
+		return err
+	}
+
+	expSts.Spec.Template.Annotations[vmeta.ConfigHashAnnotation] = newHash
+
+	return nil
+}
+
+func (o *ObjReconciler) checkConfigChanges(expSts, curSts *appsv1.StatefulSet) {
+	currentHash := curSts.Spec.Template.Annotations[vmeta.ConfigHashAnnotation]
+	newHash := expSts.Spec.Template.Annotations[vmeta.ConfigHashAnnotation]
+
+	if currentHash != newHash {
+		o.Log.Info("Config hash changed", "currentHash", currentHash, "newHash", newHash)
+	}
 }

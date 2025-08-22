@@ -46,6 +46,7 @@ const (
 	SuppressHelp                     = "SUPPRESS_HELP"
 	MainClusterSandbox               = ""
 	VerticaConf                      = "vertica.conf"
+	EmptyStringName                  = "" // represents a generic empty string
 )
 
 // TLS authentication related consts

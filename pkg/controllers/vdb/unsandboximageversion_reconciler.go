@@ -57,6 +57,9 @@ func (r *UnsandboxImageVersion) Reconcile(ctx context.Context, _ *ctrl.Request) 
 		return ctrl.Result{}, nil
 	}
 
+	if !r.Vdb.IsDBInitialized() {
+		return ctrl.Result{}, nil
+	}
 	// we do not want to recreate statefulSets during an upgrade
 	if r.Vdb.IsUpgradeInProgress() {
 		return ctrl.Result{}, nil
@@ -91,7 +94,7 @@ func (r *UnsandboxImageVersion) reconcileVerticaImage(ctx context.Context) (ctrl
 		}
 		nm := names.GenStsName(r.Vdb, scInVdb)
 		curSts := &appsv1.StatefulSet{}
-		expSts := builder.BuildStsSpec(nm, r.Vdb, scInVdb)
+		expSts := builder.BuildStsSpec(nm, r.Vdb, scInVdb, "")
 		err := vk8s.SetVerticaImage(expSts.Spec.Template.Spec.Containers, priScImage, r.Vdb.IsNMASideCarDeploymentEnabled())
 		if err != nil {
 			return ctrl.Result{}, err

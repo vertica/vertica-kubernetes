@@ -39,25 +39,25 @@ type VClusterHealthOptions struct {
 	Display            bool
 	Timezone           string
 	NeedSessionTnxInfo bool
+	// duration threshold for slow events
+	MinMutexDuration string
+	// duration threshold for lock attempt
+	LockAttemptThresHold string
+	// duration threshold for lock release
+	LockReleaseThresHold string
 
 	// hidden option
 	SlowEventCascade        []SlowEventNode
-	SessionStartsResult     *dcSessionStarts
-	TransactionStartsResult *dcTransactionStarts
+	SessionStartsResult     *[]dcSessionStarts
+	TransactionStartsResult *[]dcTransactionStarts
 	SlowEventsResult        *[]dcSlowEvent
 	LockEventCascade        []NodeLockEvents
 }
 
-//nolint:unused
-type dcEvent interface {
-	getSessionID() string
-	getTxnID() string
-}
-
-var (
-	lockAttemptThresHold = "00:00:05" // 5 second
-	lockReleaseThresHold = "00:00:05" // 5 second
-	minSlowDuration      = "1000000"  // 1 second
+const (
+	DefaultLockAttemptThresHold = "00:00:05" // 5 second
+	DefaultLockReleaseThresHold = "00:00:05" // 5 second
+	DefaultMinMutexDuration     = "1000000"  // 1 second
 )
 
 const (
@@ -67,29 +67,28 @@ const (
 	getTxnStarts     = "get_transaction_starts"
 	getSessionStarts = "get_session_starts"
 	getSlowEvents    = "get_slow_events"
-	// SlowDurationEnv is the environment variable for configuring slow duration threshold
-	SlowDurationEnv = "VCLUSTER_GCLX_SLOW_DURATION"
-
-	// LockAttemptDurationEnv is the environment variable for configuring lock attempt duration
-	LockAttemptDurationEnv = "VCLUSTER_GCLX_LOCK_DURATION"
-	// LockReleaseDurationEnv is the environment variable for configuring lock release duration
-	LockReleaseDurationEnv = "VCLUSTER_GCLX_LOCK_RELEASE_DURATION"
 )
 
+// VClusterHealthFactory creates and returns a VClusterHealthOptions instance with default values set.
 func VClusterHealthFactory() VClusterHealthOptions {
 	options := VClusterHealthOptions{}
 	// set default values to the params
 	options.setDefaultValues()
-
-	minSlowDuration = util.GetEnv(SlowDurationEnv, minSlowDuration)
-	lockAttemptThresHold = util.GetEnv(LockAttemptDurationEnv, lockAttemptThresHold)
-	lockReleaseThresHold = util.GetEnv(LockReleaseDurationEnv, lockReleaseThresHold)
 
 	return options
 }
 
 func (opt *VClusterHealthOptions) setDefaultValues() {
 	opt.DatabaseOptions.setDefaultValues()
+	if opt.MinMutexDuration == "" {
+		opt.MinMutexDuration = DefaultMinMutexDuration
+	}
+	if opt.LockAttemptThresHold == "" {
+		opt.LockAttemptThresHold = DefaultLockAttemptThresHold
+	}
+	if opt.LockReleaseThresHold == "" {
+		opt.LockReleaseThresHold = DefaultLockReleaseThresHold
+	}
 }
 
 func (opt *VClusterHealthOptions) validateRequiredOptions(logger vlog.Printer) error {
@@ -195,9 +194,10 @@ func (vcc VClusterCommands) VClusterHealth(options *VClusterHealthOptions) error
 	case getTxnStarts:
 		options.TransactionStartsResult, runError = options.getTransactionStarts(vcc.Log, vdb.PrimaryUpNodes, options.TxnID)
 	case slowEventCascade:
+		options.NeedSessionTnxInfo = true
 		runError = options.buildCascadeGraph(vcc.Log, vdb.PrimaryUpNodes)
 	case lockCascade:
-		runError = options.buildLockCascadeGraph(vcc.Log, vdb.PrimaryUpNodes, lockAttemptThresHold, lockReleaseThresHold)
+		runError = options.buildLockCascadeGraph(vcc.Log, vdb.PrimaryUpNodes)
 	default: // by default, we will build a cascade graph
 		runError = options.buildCascadeGraph(vcc.Log, vdb.PrimaryUpNodes)
 	}
@@ -223,7 +223,7 @@ func (opt *VClusterHealthOptions) getSlowEvents(logger vlog.Printer, upHosts []s
 	nmaSlowEventOp, err := makeNMASlowEventOp(upHosts, opt.DatabaseOptions.UserName,
 		opt.DatabaseOptions.DBName, opt.DatabaseOptions.Password,
 		startTime, endTime, threadID, opt.PhaseDurationDesc,
-		opt.TxnID, opt.EventDesc, opt.NodeName, minSlowDuration)
+		opt.TxnID, opt.EventDesc, opt.NodeName, opt.MinMutexDuration)
 	if err != nil {
 		return nil, err
 	}
@@ -238,29 +238,36 @@ func (opt *VClusterHealthOptions) getSlowEvents(logger vlog.Printer, upHosts []s
 }
 
 func (opt *VClusterHealthOptions) getSessionStarts(logger vlog.Printer, upHosts []string,
-	sessionID string) (sessionStarts *dcSessionStarts, err error) {
+	sessionID string) (sessionStartList *[]dcSessionStarts, err error) {
 	var instructions []clusterOp
 
-	httpsSessionStartsOp := makeHTTPSSessionStartsOp(upHosts, sessionID,
+	nmaSessionStartsOp, err := makeNMASessionStartsOp(upHosts, opt.DatabaseOptions.UserName,
+		opt.DatabaseOptions.DBName, opt.DatabaseOptions.Password, sessionID,
 		opt.StartTime, opt.EndTime)
-	instructions = append(instructions, &httpsSessionStartsOp)
+	if err != nil {
+		return nil, err
+	}
+	instructions = append(instructions, &nmaSessionStartsOp)
 
 	clusterOpEngine := makeClusterOpEngine(instructions, &opt.DatabaseOptions)
 	err = clusterOpEngine.run(logger)
 	if err != nil {
-		return sessionStarts, fmt.Errorf("fail to get session starts, %w", err)
+		return sessionStartList, fmt.Errorf("fail to get session Starts, %w", err)
 	}
-
 	return clusterOpEngine.execContext.dcSessionStarts, nil
 }
 
 func (opt *VClusterHealthOptions) getTransactionStarts(logger vlog.Printer, upHosts []string,
-	txnID string) (transactionInfo *dcTransactionStarts, err error) {
+	txnID string) (transactionInfo *[]dcTransactionStarts, err error) {
 	var instructions []clusterOp
 
-	httpsTransactionStartsOp := makeHTTPSTransactionStartsOp(upHosts, txnID,
+	nmaTransactionStartsOp, err := makeNMATransactionStartsOp(upHosts, opt.DatabaseOptions.UserName,
+		opt.DatabaseOptions.DBName, opt.DatabaseOptions.Password, txnID,
 		opt.StartTime, opt.EndTime)
-	instructions = append(instructions, &httpsTransactionStartsOp)
+	if err != nil {
+		return nil, fmt.Errorf("fail to construct transaction starts op, %w", err)
+	}
+	instructions = append(instructions, &nmaTransactionStartsOp)
 
 	clusterOpEngine := makeClusterOpEngine(instructions, &opt.DatabaseOptions)
 	err = clusterOpEngine.run(logger)
@@ -269,64 +276,4 @@ func (opt *VClusterHealthOptions) getTransactionStarts(logger vlog.Printer, upHo
 	}
 
 	return clusterOpEngine.execContext.dcTransactionStarts, nil
-}
-
-// getEventSessionAndTxnInfo retrieves session and transaction info
-// from an object that implements the dcEvent interface
-// temperary disabled and will be restored after migrating to use nma api for session and transaction info
-//
-//nolint:unused
-func (opt *VClusterHealthOptions) getEventSessionAndTxnInfo(logger vlog.Printer, upHosts []string,
-	event dcEvent) (sessionInfo *dcSessionStart, transactionInfo *dcTransactionStart, err error) {
-	sessionInfo, err = opt.getEventSessionInfo(logger, upHosts, event)
-	if err != nil {
-		return sessionInfo, transactionInfo, err
-	}
-
-	transactionInfo, err = opt.getEventTransactionInfo(logger, upHosts, event)
-	if err != nil {
-		return sessionInfo, transactionInfo, err
-	}
-
-	return sessionInfo, transactionInfo, err
-}
-
-// getEventTransactionInfo retrieves transaction info
-// from an object that implements the dcEvent interface
-//
-//nolint:unused
-func (opt *VClusterHealthOptions) getEventTransactionInfo(logger vlog.Printer, upHosts []string,
-	event dcEvent) (transactionInfo *dcTransactionStart, err error) {
-	transactionInfo = new(dcTransactionStart)
-	if event.getTxnID() != "" {
-		transactions, err := opt.getTransactionStarts(logger, upHosts, event.getTxnID())
-		if err != nil {
-			return transactionInfo, err
-		}
-		if transactions != nil && len(transactions.TransactionStartsList) > 0 {
-			transactionInfo = &transactions.TransactionStartsList[0]
-		}
-	}
-
-	return transactionInfo, nil
-}
-
-// getEventSessionInfo retrieves session info
-// from an object that implements the dcEvent interface
-//
-//nolint:unused
-func (opt *VClusterHealthOptions) getEventSessionInfo(logger vlog.Printer, upHosts []string,
-	event dcEvent) (sessionInfo *dcSessionStart, err error) {
-	sessionInfo = new(dcSessionStart)
-	if event.getSessionID() != "" {
-		sessions, err := opt.getSessionStarts(logger, upHosts, event.getSessionID())
-		if err != nil {
-			return sessionInfo, err
-		}
-		if sessions != nil && len(sessions.SessionStartsList) > 0 {
-			sessionInfo = &sessions.SessionStartsList[0]
-		}
-	}
-
-	return sessionInfo, nil
 }

@@ -665,7 +665,7 @@ spec:
    ...
    sidecars:
    - name: vlogger
-   image: vertica/vertica-logger:latest
+   image: opentext/vertica-logger:latest
 ```
 
 The `sidecars[i].image` shown here is a container that Vertica publishes on its docker repository. After the sidecar container is running, inspect the logs with the following command:

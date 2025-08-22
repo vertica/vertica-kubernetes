@@ -23,6 +23,8 @@ import (
 	"github.com/vertica/vcluster/rfc7807"
 	"github.com/vertica/vcluster/vclusterops/util"
 	"golang.org/x/exp/maps"
+
+	mapset "github.com/deckarep/golang-set/v2"
 )
 
 type nmaReadCatalogEditorOp struct {
@@ -40,6 +42,8 @@ type nmaReadCatalogEditorOp struct {
 	latestNmaVDB           nmaVDatabase
 	bestHost               string
 	sandbox                string
+	forInPlaceRevive       bool
+	newHosts               []string
 }
 
 // makeNMAReadCatalogEditorOpWithInitiator creates an op to read catalog editor info.
@@ -53,6 +57,8 @@ func makeNMAReadCatalogEditorOpWithInitiator(
 	op.description = "Read catalog"
 	op.initiator = initiator
 	op.vdb = vdb
+	op.forInPlaceRevive = false
+	op.newHosts = []string{}
 	return op, nil
 }
 
@@ -67,6 +73,15 @@ func makeNMAReadCatalogEditorOpWithSandbox(vdb *VCoordinationDatabase, sandbox s
 // makeNMAReadCatalogEditorOp creates an op to read catalog editor info.
 func makeNMAReadCatalogEditorOp(vdb *VCoordinationDatabase) (nmaReadCatalogEditorOp, error) {
 	return makeNMAReadCatalogEditorOpWithInitiator([]string{}, vdb)
+}
+
+func makeNMAReadCatalogEditorOpForInPlaceRevive(vdb *VCoordinationDatabase,
+	sandbox string, newHosts []string) (nmaReadCatalogEditorOp, error) {
+	op, err := makeNMAReadCatalogEditorOpWithInitiator([]string{}, vdb)
+	op.forInPlaceRevive = true
+	op.newHosts = newHosts
+	op.sandbox = sandbox
+	return op, err
 }
 
 func makeNMAReadCatalogEditorOpForStartDB(
@@ -202,7 +217,10 @@ type nmaVDatabase struct {
 	PrimaryNodeCount uint `json:",omitempty"`
 }
 
-func (op *nmaReadCatalogEditorOp) processResult(_ *opEngineExecContext) error {
+func (op *nmaReadCatalogEditorOp) processResult(e *opEngineExecContext) error {
+	if !e.hasNoQuorum && op.forInPlaceRevive {
+		return nil
+	}
 	var maxGlobalVersion int64
 	for host, result := range op.clusterHTTPRequest.ResultCollection {
 		op.logResponse(host, result)
@@ -261,21 +279,29 @@ func (op *nmaReadCatalogEditorOp) processResult(_ *opEngineExecContext) error {
 			// we ignore the error if the catalog directory is empty, because
 			// - we may send request to a secondary node right after revive
 			// - users may delete the catalog files
-			if !op.firstStartAfterRevive {
-				rfcError := &rfc7807.VProblem{}
-				if ok := errors.As(result.err, &rfcError); ok &&
-					(rfcError.ProblemID == rfc7807.CECatalogContentDirEmptyError ||
-						rfcError.ProblemID == rfc7807.CECatalogContentDirNotExistError) {
-					continue
-				}
+			// Handle failing results
+			if err := op.handleFailingResult(result); err != nil {
+				op.allErrs = errors.Join(op.allErrs, err)
 			}
-
-			op.allErrs = errors.Join(op.allErrs, result.err)
 		}
 	}
 
 	// let finalize() handle error conditions, in case this function is skipped
 	return nil
+}
+
+func (op *nmaReadCatalogEditorOp) handleFailingResult(result hostHTTPResult) error {
+	if op.firstStartAfterRevive {
+		return result.err
+	}
+	rfcError := &rfc7807.VProblem{}
+	if errors.As(result.err, &rfcError) {
+		if rfcError.ProblemID == rfc7807.CECatalogContentDirEmptyError ||
+			rfcError.ProblemID == rfc7807.CECatalogContentDirNotExistError {
+			return nil // ignore these cases
+		}
+	}
+	return result.err
 }
 
 // isCurrentNodeSecondary returns true if the current node is a secondary node
@@ -303,10 +329,27 @@ func (op *nmaReadCatalogEditorOp) isCurrentNodeSecondary(host string, nmaVDB *nm
 // the errors whether or not execute was called.
 func (op *nmaReadCatalogEditorOp) finalize(execContext *opEngineExecContext) error {
 	// save hostsWithLatestCatalog to execContext
+	if !execContext.hasNoQuorum && op.forInPlaceRevive {
+		return nil
+	}
 	if len(op.hostsWithLatestCatalog) == 0 {
 		err := fmt.Errorf("[%s] cannot find any host with the latest catalog", op.name)
 		op.allErrs = errors.Join(op.allErrs, err)
 		return op.allErrs
+	}
+
+	if op.forInPlaceRevive && execContext.hasNoQuorum {
+		latestHostSet := mapset.NewSet[string]()
+		for _, h := range op.hostsWithLatestCatalog {
+			latestHostSet.Add(h)
+		}
+		for _, host := range op.newHosts {
+			if !latestHostSet.Contains(host) {
+				err := fmt.Errorf("[%s] new host %s does not have the latest catalog", op.name, host)
+				op.allErrs = errors.Join(op.allErrs, err)
+				return op.allErrs
+			}
+		}
 	}
 
 	execContext.hostsWithLatestCatalog = op.hostsWithLatestCatalog

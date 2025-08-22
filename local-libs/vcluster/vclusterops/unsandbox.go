@@ -514,7 +514,9 @@ func buildRestartScInstructions(instructions []clusterOp,
 }
 
 func (vcc VClusterCommands) VUnsandbox(options *VUnsandboxOptions) error {
+	sensitiveFieldBackup := maskDatabaseOptions(&options.DatabaseOptions)
 	vcc.Log.V(0).Info("VUnsandbox method called", "options", options)
+	unmaskDatabaseOptions(&options.DatabaseOptions, sensitiveFieldBackup)
 	return runSandboxCmd(vcc, options)
 }
 

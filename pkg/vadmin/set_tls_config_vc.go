@@ -21,8 +21,8 @@ import (
 	"maps"
 
 	vops "github.com/vertica/vcluster/vclusterops"
-
 	"github.com/vertica/vertica-kubernetes/pkg/net"
+	"github.com/vertica/vertica-kubernetes/pkg/tls"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/settlsconfig"
 )
 
@@ -53,7 +53,7 @@ func (v *VClusterOps) SetTLSConfig(ctx context.Context, opts ...settlsconfig.Opt
 }
 
 func (v *VClusterOps) genSetTLSConfigOptions(s *settlsconfig.Parms,
-	certs *HTTPSCerts) *vops.VSetTLSConfigOptions {
+	certs *tls.HTTPSCerts) *vops.VSetTLSConfigOptions {
 	opts := vops.VSetTLSConfigOptionsFactory()
 
 	opts.RawHosts = append(opts.RawHosts, s.InitiatorIP)
@@ -67,10 +67,16 @@ func (v *VClusterOps) genSetTLSConfigOptions(s *settlsconfig.Parms,
 		opts.Password = &v.Password
 	}
 
-	configMap := genTLSConfigurationMap(s.HTTPSTLSMode, s.HTTPSTLSSecretName, s.Namespace)
-	opts.HTTPSTLSConfig.SetConfigMap(maps.Clone(configMap))
-	configMap = genTLSConfigurationMap(s.ClientServerTLSMode, s.ClientServerTLSSecretName, s.Namespace)
-	opts.ServerTLSConfig.SetConfigMap(maps.Clone(configMap))
+	configMap := genTLSConfigurationMap(s.TLSMode, s.TLSSecretName, s.Namespace)
+	if s.IsHTTPSTLSConfig {
+		opts.HTTPSTLSConfig.SetConfigMap(maps.Clone(configMap))
+		opts.HTTPSTLSConfig.GrantAuth = s.GrantAuth
+		opts.HTTPSTLSConfig.CacheDuration = v.VDB.GetTLSCacheDuration()
+	} else {
+		opts.ServerTLSConfig.SetConfigMap(maps.Clone(configMap))
+		opts.ServerTLSConfig.GrantAuth = s.GrantAuth
+		opts.ServerTLSConfig.CacheDuration = v.VDB.GetTLSCacheDuration()
+	}
 
 	return &opts
 }

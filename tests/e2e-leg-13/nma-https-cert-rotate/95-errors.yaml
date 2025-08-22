@@ -19,3 +19,12 @@ kind: Service
 metadata:
   labels:
     app.kubernetes.io/managed-by: verticadb-operator
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  labels:
+    app.kubernetes.io/name: vertica
+    app.kubernetes.io/component: database
+    vertica.com/database: vertdb
+    app.kubernetes.io/instance: v-nma-https-cert-rotate

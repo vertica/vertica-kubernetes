@@ -41,14 +41,15 @@ import (
 // OfflineUpgradeReconciler will handle the process of doing an offline upgrade
 // of the Vertica server.
 type OfflineUpgradeReconciler struct {
-	Rec        config.ReconcilerInterface
-	Log        logr.Logger
-	Vdb        *vapi.VerticaDB // Vdb is the CRD we are acting on.
-	PRunner    cmds.PodRunner
-	PFacts     *podfacts.PodFacts
-	Finder     iter.SubclusterFinder
-	Manager    UpgradeManager
-	Dispatcher vadmin.Dispatcher
+	Rec            config.ReconcilerInterface
+	Log            logr.Logger
+	Vdb            *vapi.VerticaDB // Vdb is the CRD we are acting on.
+	PRunner        cmds.PodRunner
+	PFacts         *podfacts.PodFacts
+	Finder         iter.SubclusterFinder
+	Manager        UpgradeManager
+	Dispatcher     vadmin.Dispatcher
+	VerticaVersion string
 }
 
 const (
@@ -125,6 +126,8 @@ func (o *OfflineUpgradeReconciler) Reconcile(ctx context.Context, _ *ctrl.Reques
 		o.checkForNewPods,
 		// Check that the version is compatible
 		o.checkVersion,
+		// Moving from 25.2.0 to 25.3.0 requires a change in Health Probe. Check for that.
+		o.checkHealthProbe,
 		// Start up vertica in each pod.
 		o.postRestartingClusterMsg,
 		o.addPodAnnotations,
@@ -316,12 +319,38 @@ func (o *OfflineUpgradeReconciler) checkForNewPods(ctx context.Context) (ctrl.Re
 // version.  This depends on the pod to be running with the new version.
 func (o *OfflineUpgradeReconciler) checkVersion(ctx context.Context) (ctrl.Result, error) {
 	if o.Vdb.GetIgnoreUpgradePath() {
-		return ctrl.Result{}, nil
+		vr := MakeImageVersionReconciler(o.Rec, o.Log, o.Vdb, o.PRunner, o.PFacts, false, &o.VerticaVersion, true)
+		return vr.Reconcile(ctx, &ctrl.Request{})
 	}
 
 	const EnforceUpgradePath = true
-	vr := MakeImageVersionReconciler(o.Rec, o.Log, o.Vdb, o.PRunner, o.PFacts, EnforceUpgradePath)
+	vr := MakeImageVersionReconciler(o.Rec, o.Log, o.Vdb, o.PRunner, o.PFacts, EnforceUpgradePath, &o.VerticaVersion, false)
 	return vr.Reconcile(ctx, &ctrl.Request{})
+}
+
+// checkHealthProbe will check to see if the health probe needs to be updated
+func (o *OfflineUpgradeReconciler) checkHealthProbe(ctx context.Context) (ctrl.Result, error) {
+	if !o.Vdb.UseVClusterOpsDeployment() {
+		return ctrl.Result{}, nil
+	}
+
+	sandbox := o.PFacts.GetSandboxName()
+	stss, err := o.Finder.FindStatefulSets(ctx, iter.FindExisting, sandbox)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	for inx := range stss.Items {
+		sts := &stss.Items[inx]
+
+		upgradeNeeded, err := o.Manager.changeHealthProbeIfNeeded(ctx, sts, o.VerticaVersion)
+		if upgradeNeeded {
+			o.PFacts.Invalidate()
+		}
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+	return ctrl.Result{}, nil
 }
 
 // postRestartingClusterMsg will update the status message to indicate the

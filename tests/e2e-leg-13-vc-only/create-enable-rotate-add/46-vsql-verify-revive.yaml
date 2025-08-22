@@ -1,0 +1,4 @@
+apiVersion: kuttl.dev/v1beta2
+kind: TestStep
+commands:
+  - command: bash ./vsql_verify_revive.sh

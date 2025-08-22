@@ -46,7 +46,7 @@ func makeNMASlowEventOp(upHosts []string, userName string,
 	op := nmaSlowEventsOp{}
 	op.name = "NMASlowEventOp"
 	op.description = "Check slow events"
-	op.hosts = upHosts // set up the request for one of the up hosts only
+	op.hosts = upHosts[:1] // set up the request for one of the up hosts only
 	op.startTime = startTime
 	op.endTime = endTime
 	op.transactionID = transactionID
@@ -149,20 +149,22 @@ func (op *nmaSlowEventsOp) finalize(_ *opEngineExecContext) error {
 
 type dcSlowEvent struct {
 	// TODO: all the IDs should be casted into string
-	Time             string `json:"time"`
-	NodeName         string `json:"node_name"`
-	SessionID        string `json:"session_id"`
-	UserID           string `json:"user_id"`
-	UserName         string `json:"user_name"`
-	TxnID            string `json:"transaction_id"`
-	StatementID      string `json:"statement_id"`
-	RequestID        string `json:"request_id"`
-	EventDescription string `json:"event_description"`
-	ThresholdUs      string `json:"threshold_us"`
-	DurationUs       string `json:"duration_us"`
-	PhasesDurationUs string `json:"phases_duration_us"`
-	ThreadID         string `json:"thread_id"`
-	Val3             string `json:"val3"`
+	Time             string               `json:"time"`
+	NodeName         string               `json:"node_name"`
+	SessionID        string               `json:"session_id"`
+	UserID           string               `json:"user_id"`
+	UserName         string               `json:"user_name"`
+	TxnID            string               `json:"transaction_id"`
+	StatementID      string               `json:"statement_id"`
+	RequestID        string               `json:"request_id"`
+	EventDescription string               `json:"event_description"`
+	ThresholdUs      string               `json:"threshold_us"`
+	DurationUs       string               `json:"duration_us"`
+	PhasesDurationUs string               `json:"phases_duration_us"`
+	ThreadID         string               `json:"thread_id"`
+	Val3             string               `json:"val3"`
+	SessionInfo      *dcSessionStarts     `json:"session_info"`
+	TxnInfo          *dcTransactionStarts `json:"transaction_info"`
 }
 
 func (event *dcSlowEvent) getSessionID() string {

@@ -48,9 +48,9 @@ var _ = Describe("create_archive_vc", func() {
 	It("should call vclusterOps library with create_archive task", func() {
 		dispatcher := mockVClusterOpsDispatcher()
 		dispatcher.VDB.Spec.DBName = TestDBName
-		dispatcher.VDB.Spec.HTTPSNMATLSSecret = "create-archieve-vc-secret"
-		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.HTTPSNMATLSSecret)
-		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.HTTPSNMATLSSecret)
+		dispatcher.VDB.Spec.HTTPSNMATLS.Secret = "create-archieve-vc-secret"
+		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.HTTPSNMATLS.Secret)
+		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.HTTPSNMATLS.Secret)
 		Ω(dispatcher.CreateArchive(ctx,
 			createarchive.WithInitiator(TestInitiatorIP),
 			createarchive.WithArchiveName(TestArchiveName))).Should(Succeed())

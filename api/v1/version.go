@@ -40,8 +40,6 @@ const (
 	CGroupV2UnsupportedVersion = "v12.0.0"
 	// The minimum version that can start Vertica's http server
 	HTTPServerMinVersion = "v12.0.3"
-	// When httpServerMode is Auto, this is the minimum server version that will start Vertica's http server
-	HTTPServerAutoMinVersion = "v12.0.4"
 	// The minimum version that we can use the option with create DB to skip the
 	// package install.
 	CreateDBSkipPackageInstallVersion = "v12.0.1"
@@ -74,8 +72,8 @@ const (
 	// the minimum versions of the NMA that we support them.
 	NMATLSSecretInGSMMinVersion               = "v24.1.0"
 	NMATLSSecretInAWSSecretsManagerMinVersion = "v24.2.0"
-	// The NMA TLS certificate can be rotated
-	TLSCertRotationMinVersion = "v25.3.0"
+	// The NMA TLS Auth can be enabled
+	TLSAuthMinVersion = "v25.3.0"
 	// Starting in v24.2.0, NMA is deployed in a sidecar container
 	NMAInSideCarDeploymentMinVersion = "v24.2.0"
 	// Starting in v24.2.0, vcluster scrutinize command can read the
@@ -117,6 +115,14 @@ func (v *VerticaDB) MakeVersionInfo() (*version.Info, bool) {
 		return nil, false
 	}
 	return version.MakeInfoFromStr(vdbVer)
+}
+
+// GetVersion will extract version for a given version string
+func (v *VerticaDB) GetVersion(ver string) (*version.Info, bool) {
+	if ver == "" {
+		return nil, false
+	}
+	return version.MakeInfoFromStr(ver)
 }
 
 // MakePerviousVersionInfo will construct an Info struct by extracting the previous version

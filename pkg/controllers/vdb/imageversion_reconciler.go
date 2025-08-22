@@ -39,27 +39,31 @@ import (
 
 // ImageVersionReconciler will verify type of image deployment and set the version as annotations in the vdb.
 type ImageVersionReconciler struct {
-	Rec                config.ReconcilerInterface
-	Log                logr.Logger
-	Vdb                *vapi.VerticaDB // Vdb is the CRD we are acting on.
-	PRunner            cmds.PodRunner
-	PFacts             *podfacts.PodFacts
-	EnforceUpgradePath bool                             // Fail the reconcile if we find incompatible version
-	FindPodFunc        func() (*podfacts.PodFact, bool) // Function to call to find pod
+	Rec                 config.ReconcilerInterface
+	Log                 logr.Logger
+	Vdb                 *vapi.VerticaDB // Vdb is the CRD we are acting on.
+	PRunner             cmds.PodRunner
+	PFacts              *podfacts.PodFacts
+	EnforceUpgradePath  bool                             // Fail the reconcile if we find incompatible version
+	FindPodFunc         func() (*podfacts.PodFact, bool) // Function to call to find pod
+	VerticaVersion      *string
+	RetrieveVersionOnly bool
 }
 
 // MakeImageVersionReconciler will build a VersionReconciler object
 func MakeImageVersionReconciler(recon config.ReconcilerInterface, log logr.Logger,
 	vdb *vapi.VerticaDB, prunner cmds.PodRunner, pfacts *podfacts.PodFacts,
-	enforceUpgradePath bool) controllers.ReconcileActor {
+	enforceUpgradePath bool, vver *string, retrieveVersionOnly bool) controllers.ReconcileActor {
 	return &ImageVersionReconciler{
-		Rec:                recon,
-		Log:                log.WithName("ImageVersionReconciler"),
-		Vdb:                vdb,
-		PRunner:            prunner,
-		PFacts:             pfacts,
-		EnforceUpgradePath: enforceUpgradePath,
-		FindPodFunc:        pfacts.FindRunningPod,
+		Rec:                 recon,
+		Log:                 log.WithName("ImageVersionReconciler"),
+		Vdb:                 vdb,
+		PRunner:             prunner,
+		PFacts:              pfacts,
+		EnforceUpgradePath:  enforceUpgradePath,
+		FindPodFunc:         pfacts.FindRunningPod,
+		VerticaVersion:      vver,
+		RetrieveVersionOnly: retrieveVersionOnly,
 	}
 }
 
@@ -76,15 +80,23 @@ func (v *ImageVersionReconciler) Reconcile(ctx context.Context, _ *ctrl.Request)
 		return ctrl.Result{Requeue: true}, nil
 	}
 
-	err = v.verifyDeploymentType(pod)
-	if err != nil {
-		return ctrl.Result{}, err
+	// when the caller's purpose is not to find the version, we will verify the deployment type
+	if !v.RetrieveVersionOnly {
+		err = v.verifyDeploymentType(pod)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
 	}
 
 	var res ctrl.Result
 	res, err = v.reconcileVersion(ctx, pod)
 	if verrors.IsReconcileAborted(res, err) {
 		return res, err
+	}
+
+	// when the caller's purpose is to find the version, we return earlier
+	if v.RetrieveVersionOnly {
+		return ctrl.Result{}, nil
 	}
 
 	var vinf *version.Info
@@ -143,7 +155,7 @@ func (v *ImageVersionReconciler) makeSandboxVersionInfo(ctx context.Context) (*v
 // Verify whether the NMA is configured to run as a sidecar container
 func (v *ImageVersionReconciler) verifyNMADeployment(vinf *version.Info, pf *podfacts.PodFact) (ctrl.Result, error) {
 	// The NMA only applies to vclusterOps deployments.
-	if !vmeta.UseVClusterOps(v.Vdb.Annotations) {
+	if !v.Vdb.UseVClusterOpsDeployment() {
 		return ctrl.Result{}, nil
 	}
 
@@ -190,19 +202,19 @@ func (v *ImageVersionReconciler) logWarningIfVersionDoesNotSupportsCGroupV2(ctx 
 // checkNMACertCompatibility will check the NMA version if it is to read the cert from an external secret store.
 func (v *ImageVersionReconciler) checkNMACertCompatability(vinf *version.Info) ctrl.Result {
 	// NMA is only useful for vclusterops and when the cert is set.
-	if !vmeta.UseVClusterOps(v.Vdb.Annotations) || v.Vdb.Spec.HTTPSNMATLSSecret == "" {
+	if !v.Vdb.UseVClusterOpsDeployment() || v.Vdb.GetNMATLSSecret() == "" {
 		return ctrl.Result{}
 	}
 
-	if secrets.IsK8sSecret(v.Vdb.Spec.HTTPSNMATLSSecret) {
+	if secrets.IsK8sSecret(v.Vdb.GetNMATLSSecret()) {
 		return ctrl.Result{}
-	} else if secrets.IsGSMSecret(v.Vdb.Spec.HTTPSNMATLSSecret) {
+	} else if secrets.IsGSMSecret(v.Vdb.GetNMATLSSecret()) {
 		if !vinf.IsEqualOrNewer(vapi.NMATLSSecretInGSMMinVersion) {
 			v.Rec.Event(v.Vdb, corev1.EventTypeWarning, events.UnsupportedVerticaVersion,
 				"The NMA version does not support reading its cert from Google Secret Manager")
 			return ctrl.Result{Requeue: true}
 		}
-	} else if secrets.IsAWSSecretsManagerSecret(v.Vdb.Spec.HTTPSNMATLSSecret) {
+	} else if secrets.IsAWSSecretsManagerSecret(v.Vdb.GetNMATLSSecret()) {
 		if !vinf.IsEqualOrNewer(vapi.NMATLSSecretInAWSSecretsManagerMinVersion) {
 			v.Rec.Event(v.Vdb, corev1.EventTypeWarning, events.UnsupportedVerticaVersion,
 				"The NMA version does not support reading its cert from AWS Secrets Manager")
@@ -236,6 +248,13 @@ func (v *ImageVersionReconciler) getVersion(ctx context.Context, pod *podfacts.P
 // fail if it detects an invalid upgrade path.
 func (v *ImageVersionReconciler) updateVDBVersion(ctx context.Context, newVersion string) (ctrl.Result, error) {
 	versionAnnotations := vapi.ParseVersionOutput(newVersion)
+	// pass the version to the caller
+	if v.VerticaVersion != nil {
+		*v.VerticaVersion = versionAnnotations[vmeta.VersionAnnotation]
+	}
+	if v.RetrieveVersionOnly {
+		return ctrl.Result{}, nil
+	}
 	// if we found vertica version is changed, we save previous vertica version to vdb
 	if versionAnnotations[vmeta.VersionAnnotation] != v.Vdb.ObjectMeta.Annotations[vmeta.VersionAnnotation] {
 		versionAnnotations[vmeta.PreviousVersionAnnotation] = v.Vdb.ObjectMeta.Annotations[vmeta.VersionAnnotation]
@@ -322,7 +341,7 @@ func (v *ImageVersionReconciler) verifyDeploymentType(pod *podfacts.PodFact) err
 		return nil
 	}
 
-	if vmeta.UseVClusterOps(v.Vdb.Annotations) {
+	if v.Vdb.UseVClusterOpsDeployment() {
 		if pod.GetAdmintoolsExists() {
 			v.Rec.Eventf(v.Vdb, corev1.EventTypeWarning, events.WrongImage,
 				"Image cannot be used for vclusterops deployments. Change the deployment by changing the %s annotation",

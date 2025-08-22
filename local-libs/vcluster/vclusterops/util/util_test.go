@@ -429,19 +429,36 @@ func TestSetEonFlagHelpMsg(t *testing.T) {
 
 func TestGenVNodeName(t *testing.T) {
 	dbName := "test_db"
+	node1 := "vnode1"
+	node2 := "vnode2"
 	// returns vnode
 	vnodes := make(map[string]string)
-	vnodes["v_test_db_node0002"] = "vnode1"
+	vnodes["v_test_db_node0002"] = node1
 	totalCount := 2
-	vnode, ok := GenVNodeName(vnodes, dbName, totalCount)
+	vnode, ok := GenVNodeName(vnodes, dbName, totalCount, "")
 	assert.Equal(t, true, ok)
 	assert.Equal(t, "v_test_db_node0001", vnode)
 
 	// returns empty string
-	vnodes[vnode] = "vnode2"
-	vnode, ok = GenVNodeName(vnodes, dbName, totalCount)
+	vnodes[vnode] = node2
+	vnode, ok = GenVNodeName(vnodes, dbName, totalCount, "")
 	assert.Equal(t, false, ok)
 	assert.Equal(t, "", vnode)
+
+	// case: sandbox == db name
+	vnodes = map[string]string{"v_test_db_test_db_node0001": node2}
+	vnode, ok = GenVNodeName(vnodes, dbName, 3, dbName)
+	assert.True(t, true, ok)
+	assert.Equal(t, "v_test_db_test_db_node0002", vnode)
+
+	// case: sandbox name same as node suffix
+	vnodes = map[string]string{
+		"v_test_db_node0001": node1,
+		"v_test_db_node0002": node2,
+	}
+	vnode, ok = GenVNodeName(vnodes, dbName, 3, "node0001")
+	assert.True(t, true, ok)
+	assert.Equal(t, "v_test_db_node0001_node0001", vnode)
 }
 
 func TestCopySlice(t *testing.T) {

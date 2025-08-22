@@ -134,7 +134,6 @@ func (r *ReplicationReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) 
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-
 	err = r.runReplicateDB(ctx, r.dispatcher, opts)
 
 	return ctrl.Result{}, err
@@ -155,16 +154,16 @@ func (r *ReplicationReconciler) fetchVdbs(ctx context.Context) (res ctrl.Result,
 
 // makeDispatcher will create a Dispatcher object based on the feature flags set.
 func (r *ReplicationReconciler) makeDispatcher() error {
-	if !vmeta.UseVClusterOps(r.SourceInfo.Vdb.Annotations) {
+	if !r.SourceInfo.Vdb.UseVClusterOpsDeployment() {
 		return fmt.Errorf("replication is not supported when the source uses admintools deployments")
 	}
 
 	if r.Vrep.IsUsingAsyncReplication() {
 		r.dispatcher = vadmin.MakeVClusterOpsWithTarget(r.Log, r.SourceInfo.Vdb, r.TargetInfo.Vdb,
-			r.VRec.GetClient(), r.SourceInfo.Password, r.VRec, vadmin.SetupVClusterOps)
+			r.VRec.GetClient(), r.SourceInfo.Password, r.VRec, vadmin.SetupVClusterOps, r.VRec.CacheManager)
 	} else {
 		r.dispatcher = vadmin.MakeVClusterOps(r.Log, r.SourceInfo.Vdb,
-			r.VRec.GetClient(), r.SourceInfo.Password, r.VRec, vadmin.SetupVClusterOps)
+			r.VRec.GetClient(), r.SourceInfo.Password, r.VRec, vadmin.SetupVClusterOps, r.VRec.CacheManager)
 	}
 	return nil
 }
@@ -181,6 +180,11 @@ func (r *ReplicationReconciler) determineUsernameAndPassword(ctx context.Context
 		r.Client, r.Log, r.VRec, r.TargetInfo.Vdb, &r.Vrep.Spec.Target.VerticaReplicatorDatabaseInfo)
 	if err != nil {
 		return err
+	}
+
+	if r.TargetInfo.Vdb.IsSetForTLS() && r.TargetInfo.Password == "" && r.Vrep.Spec.TLSConfig == "" {
+		return fmt.Errorf("cannot use empty password when tls is enabled in target vdb %q",
+			r.TargetInfo.Vdb.Name)
 	}
 
 	return
@@ -273,6 +277,8 @@ func (r *ReplicationReconciler) determineSourceAndTargetHosts() (err error) {
 }
 
 // make podfacts for a cluster (either main or a sandbox) of a vdb
+//
+//nolint:dupl
 func (r *ReplicationReconciler) makePodFacts(ctx context.Context, vdb *vapi.VerticaDB,
 	sandboxName string) (*podfacts.PodFacts, error) {
 	username := vdb.GetVerticaUser()
@@ -280,8 +286,8 @@ func (r *ReplicationReconciler) makePodFacts(ctx context.Context, vdb *vapi.Vert
 	if err != nil {
 		return nil, err
 	}
-	prunner := cmds.MakeClusterPodRunner(r.Log, r.VRec.Cfg, username, password)
-	pFacts := podfacts.MakePodFactsForSandbox(r.VRec, prunner, r.Log, password, sandboxName)
+	prunner := cmds.MakeClusterPodRunner(r.Log, r.VRec.Cfg, username, password, vmeta.UseTLSAuth(vdb.Annotations))
+	pFacts := podfacts.MakePodFactsForSandboxWithCacheManager(r.VRec, prunner, r.Log, password, sandboxName, r.VRec.CacheManager)
 	return &pFacts, nil
 }
 

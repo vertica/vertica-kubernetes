@@ -44,6 +44,12 @@ type VRemoveScOptions struct {
 	// join the new main cluster so we should only check the node subscription state on the nodes
 	// that are promoted from a sandbox.
 	NodesToPullSubs []string
+	// Stores the sandbox name if the subcluster to be removed is sandboxed
+	Sandbox string
+	// Stores main cluster primary UP hosts
+	MainClusterUpPrimHosts []string
+	// Whether we need to ignore main cluster while removing a sc from sandbox?
+	IgnoreMainCluster bool
 }
 
 func VRemoveScOptionsFactory() VRemoveScOptions {
@@ -201,8 +207,17 @@ func (vcc VClusterCommands) VRemoveSubcluster(removeScOpt *VRemoveScOptions) (VC
 		removeNodeOpt.IsSubcluster = true
 		removeNodeOpt.NodesToPullSubs = removeScOpt.NodesToPullSubs
 
-		vcc.Log.PrintInfo("Removing nodes %q from subcluster %s",
-			hostsToRemove, removeScOpt.SCName)
+		// Get a set of initiators for removing nodes
+		// The initiators are selected strictly from a sandbox if we are removing the sc from a sandbox
+		// else it is a set of primary up nodes from the main cluster.
+		initiators, err := removeScOpt.getAllInitiatorsOfTheOperatingDBGroup(&vdb, hostsToRemove)
+		if err != nil {
+			return vdb, err
+		}
+		removeNodeOpt.Initiators = initiators
+
+		vcc.Log.PrintInfo("Removing nodes %q from subcluster %s using initiators %v",
+			hostsToRemove, removeScOpt.SCName, removeNodeOpt.Initiators)
 		if len(unboundNodesToRemove) > 0 {
 			vcc.Log.PrintInfo("Removing unbound nodes %q from subcluster %s",
 				unboundNodesToRemove, removeScOpt.SCName)
@@ -222,6 +237,29 @@ func (vcc VClusterCommands) VRemoveSubcluster(removeScOpt *VRemoveScOptions) (VC
 	}
 
 	return vdb, nil
+}
+
+func (options *VRemoveScOptions) getAllInitiatorsOfTheOperatingDBGroup(vdb *VCoordinationDatabase, skipHosts []string) ([]string, error) {
+	var initiator string
+	var err error
+	if options.Sandbox != util.MainClusterSandbox {
+		initiator = vdb.getSandboxInitiator(options.Sandbox, skipHosts)
+	} else {
+		initiator, err = getInitiatorHost(vdb.PrimaryUpNodes, skipHosts)
+		if err != nil {
+			return []string{}, err
+		}
+	}
+
+	initiators := []string{}
+	if initiator != util.EmptyStringName {
+		initiators = append(initiators, initiator)
+	}
+
+	if !options.IgnoreMainCluster && options.Sandbox != util.MainClusterSandbox {
+		initiators = append(initiators, options.MainClusterUpPrimHosts[0])
+	}
+	return initiators, nil
 }
 
 type removeDefaultSubclusterError struct {
@@ -245,7 +283,7 @@ func (vcc VClusterCommands) removeScPreCheck(
 	const preCheckErrMsg = "while performing remove_subcluster pre-checks"
 
 	// get cluster and nodes info
-	err = vcc.getVDBFromRunningDB(vdb, &options.DatabaseOptions)
+	err = vcc.getDeepVDBFromRunningDB(vdb, &options.DatabaseOptions)
 	if err != nil {
 		return hostsToRemove, unboundNodesToRemove, err
 	}
@@ -262,21 +300,41 @@ func (vcc VClusterCommands) removeScPreCheck(
 		return hostsToRemove, unboundNodesToRemove, err
 	}
 
-	// get default subcluster
-	// cannot remove sandbox subcluster
-	httpsFindSubclusterOp, err := makeHTTPSFindSubclusterOp(options.Hosts,
+	options.filterHostsForSandbox(vdb)
+
+	var instructions []clusterOp
+	var ignoreNotFoundScErrs bool
+	// Check if main cluster is aware of the sc to be removed
+	// There could be a scenario where the target sc was added to a sandbox and the main cluster is unaware
+	if options.Sandbox != util.MainClusterSandbox {
+		ignoreNotFoundScErrs = true
+	}
+	httpsFindSubclusterInMainOp, err := makeHTTPSFindSubclusterOp(options.MainClusterUpPrimHosts,
 		options.usePassword, options.UserName, options.Password,
 		options.SCName,
-		false /*do not ignore not found*/, RemoveSubclusterCmd)
+		ignoreNotFoundScErrs /*ignore not found*/, RemoveSubclusterCmd)
 	if err != nil {
+		// The main cluster is unaware of the subcluster
 		return hostsToRemove, unboundNodesToRemove, fmt.Errorf("fail to get default subcluster %s, details: %w",
 			preCheckErrMsg, err)
 	}
-
-	var instructions []clusterOp
 	instructions = append(instructions,
-		&httpsFindSubclusterOp,
+		&httpsFindSubclusterInMainOp,
 	)
+	if options.Sandbox != util.MainClusterSandbox {
+		// Find default subcluster on sandbox hosts
+		httpsFindSubclusterOp, err := makeHTTPSFindSubclusterOp(options.Hosts,
+			options.usePassword, options.UserName, options.Password,
+			options.SCName,
+			!ignoreNotFoundScErrs /*do not ignore not found*/, RemoveSubclusterCmd)
+		if err != nil {
+			return hostsToRemove, unboundNodesToRemove, fmt.Errorf("fail to get default subcluster %s, details: %w",
+				preCheckErrMsg, err)
+		}
+		instructions = append(instructions,
+			&httpsFindSubclusterOp,
+		)
+	}
 
 	clusterOpEngine := makeClusterOpEngine(instructions, options)
 	err = clusterOpEngine.run(vcc.Log)
@@ -295,9 +353,11 @@ func (vcc VClusterCommands) removeScPreCheck(
 		return hostsToRemove, unboundNodesToRemove, &removeDefaultSubclusterError{Name: options.SCName}
 	}
 
+	options.IgnoreMainCluster = clusterOpEngine.execContext.ignoreMainCluster
+
 	// get nodes of the to-be-removed subcluster
 	for h, vnode := range vdb.HostNodeMap {
-		if vnode.Subcluster == options.SCName {
+		if vnode.Subcluster == options.SCName && options.Sandbox == vnode.Sandbox {
 			hostsToRemove = append(hostsToRemove, h)
 		}
 	}
@@ -307,6 +367,27 @@ func (vcc VClusterCommands) removeScPreCheck(
 	}
 
 	return hostsToRemove, unboundNodesToRemove, nil
+}
+
+func (options *VRemoveScOptions) filterHostsForSandbox(vdb *VCoordinationDatabase) {
+	var sandHosts []string
+	for host, vnode := range vdb.HostNodeMap {
+		// Always populate main cluster primaries
+		if vnode.Sandbox == util.MainClusterSandbox && vnode.State == util.NodeUpState && vnode.IsPrimary {
+			options.MainClusterUpPrimHosts = append(options.MainClusterUpPrimHosts, host)
+		}
+		// Skip if subcluster doesn't match
+		if vnode.Subcluster != options.SCName {
+			continue
+		}
+		// CASE 1: If --sandbox is provided, filter only from that sandbox
+		if options.Sandbox != util.MainClusterSandbox && vnode.Sandbox == options.Sandbox {
+			sandHosts = append(sandHosts, host)
+		}
+	}
+	if len(sandHosts) > 0 {
+		options.Hosts = sandHosts
+	}
 }
 
 // completeVDBSetting sets some VCoordinationDatabase fields we cannot get yet
@@ -328,16 +409,15 @@ func (options *VRemoveScOptions) completeVDBSetting(vdb *VCoordinationDatabase) 
 
 func (vcc VClusterCommands) dropSubcluster(vdb *VCoordinationDatabase, options *VRemoveScOptions) error {
 	dropScErrMsg := fmt.Sprintf("fail to drop subcluster %s", options.SCName)
-
-	// the initiator is a list of one primary up host
+	// the initiator is a list of one primary up host per db group
 	// that will call the https /v1/subclusters/{scName}/drop endpoint
-	// as the endpoint will drop a subcluster, we only need one host to do so
-	initiator, err := getInitiatorHost(vdb.PrimaryUpNodes, []string{})
+	// as the endpoint will drop a subcluster, we only need one host per db group to do so
+	initiators, err := options.getAllInitiatorsOfTheOperatingDBGroup(vdb, []string{})
 	if err != nil {
 		return err
 	}
 
-	httpsDropScOp, err := makeHTTPSDropSubclusterOp([]string{initiator},
+	httpsDropScOp, err := makeHTTPSDropSubclusterOp(initiators,
 		options.SCName,
 		options.usePassword, options.UserName, options.Password)
 	if err != nil {

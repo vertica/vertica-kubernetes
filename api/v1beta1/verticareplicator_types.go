@@ -159,7 +159,7 @@ const (
 // +kubebuilder:printcolumn:name="TargetVerticaDB",type="string",JSONPath=".spec.target.verticaDB"
 // +kubebuilder:printcolumn:name="State",type="string",JSONPath=".status.state"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
-// +operator-sdk:csv:customresourcedefinitions:resources={{VerticaDB,vertica.com/v1beta1,""}}
+// +operator-sdk:csv:customresourcedefinitions:resources={{VerticaDB,vertica.com/v1,""}}
 
 // VerticaReplicator is the Schema for the verticareplicators API
 type VerticaReplicator struct {

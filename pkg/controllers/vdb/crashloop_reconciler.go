@@ -104,7 +104,7 @@ func (c *CrashLoopReconciler) checkForNMAStartError(pod *corev1.Pod) (eventLogge
 	// This check is intended to find cases where the image does not have
 	// the nma, causing the pod to get into a CrashLoop backoff. So, if not
 	// deployed with vclusterOps we can skip this entirely.
-	if !vmeta.UseVClusterOps(c.VDB.Annotations) {
+	if !c.VDB.UseVClusterOpsDeployment() {
 		return false
 	}
 
@@ -139,7 +139,7 @@ func (c *CrashLoopReconciler) checkForWrongDeploymentType(pod *corev1.Pod) (even
 	// about no command specified, chances are the image was built for
 	// vclusterOps but we are trying to run it as an admintools deployment.
 	serverContainer := vk8s.FindServerContainerStatus(pod)
-	if !vmeta.UseVClusterOps(c.VDB.Annotations) &&
+	if !c.VDB.UseVClusterOpsDeployment() &&
 		serverContainer != nil &&
 		vk8s.HasCreateContainerError(serverContainer) {
 		c.VRec.Eventf(c.VDB, corev1.EventTypeWarning, events.WrongImage,

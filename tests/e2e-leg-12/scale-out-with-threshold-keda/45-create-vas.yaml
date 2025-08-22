@@ -23,7 +23,7 @@ spec:
     type: ScaledObject
     scaledObject:
       minReplicas: 3
-      maxReplicas: 5
+      maxReplicas: 4
       metrics:
       - name: vertica_sessions_running_total
         metricType: AverageValue

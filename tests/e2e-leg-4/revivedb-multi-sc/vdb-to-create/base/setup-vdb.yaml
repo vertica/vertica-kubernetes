@@ -11,17 +11,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1beta1
+apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
   name: v-create-multi-sc
+  annotations:
+    vertica.com/include-uid-in-path: "false"
+    vertica.com/k-safety: "0"
 spec:
   image: kustomize-vertica-image
   sidecars:
     - name: vlogger
       image: kustomize-vlogger-image
-  communal:
-    includeUIDInPath: false
+  communal: {}
   initPolicy: CreateSkipPackageInstall
   local:
     dataPath: /data
@@ -30,14 +32,15 @@ spec:
   dbName: vert_db
   subclusters:
     - name: main
-      isPrimary: true
+      type: primary
       size: 1
     - name: secondary
-      isPrimary: false
+      type: secondary
       size: 1
-  httpServerTLSSecret: nma-cert
-  clientServerTLSSecret: client-cert
-  kSafety: "0"
+  httpsNMATLS:
+    secret: nma-cert
+  clientServerTLS:
+    secret: client-cert
   certSecrets: []
   imagePullSecrets: []
   volumes: []

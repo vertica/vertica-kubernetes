@@ -30,30 +30,46 @@ type httpsCreateNodeOp struct {
 
 // some reused parameters
 const (
-	createNodeSCNameParam = "subcluster"
-	createNodeCGNameParam = "compute-group"
+	createNodeSCNameParam   = "subcluster"
+	createNodeCGNameParam   = "compute-group"
+	createNodeSandNameParam = "sandbox-name"
 )
 
-func makeHTTPSCreateNodeOp(newNodeHosts []string, bootstrapHost []string,
-	useHTTPPassword bool, userName string, httpsPassword *string,
-	vdb *VCoordinationDatabase, scName, computeGroupName string) (httpsCreateNodeOp, error) {
+type HTTPSCreateNodeOpConfig struct {
+	NewNodeHosts     []string
+	BootstrapHosts   []string
+	UseHTTPPassword  bool
+	UserName         string
+	HTTPSPassword    *string
+	VDB              *VCoordinationDatabase
+	SCName           string
+	ComputeGroupName string
+	SandboxName      string
+}
+
+func makeHTTPSCreateNodeOp(cfg *HTTPSCreateNodeOpConfig) (httpsCreateNodeOp, error) {
 	op := httpsCreateNodeOp{}
 	op.name = "HTTPSCreateNodeOp"
 	op.description = "Create node in catalog"
-	op.hosts = bootstrapHost
+	op.hosts = cfg.BootstrapHosts
 	op.RequestParams = make(map[string]string)
 	// HTTPS create node endpoint requires passing everything before node name
-	op.RequestParams["catalog-prefix"] = vdb.CatalogPrefix + "/" + vdb.Name
-	op.RequestParams["data-prefix"] = vdb.DataPrefix + "/" + vdb.Name
-	op.RequestParams["hosts"] = util.ArrayToString(newNodeHosts, ",")
-	if scName != "" {
-		op.RequestParams[createNodeSCNameParam] = scName
+	op.RequestParams["catalog-prefix"] = cfg.VDB.CatalogPrefix + "/" + cfg.VDB.Name
+	op.RequestParams["data-prefix"] = cfg.VDB.DataPrefix + "/" + cfg.VDB.Name
+	op.RequestParams["hosts"] = util.ArrayToString(cfg.NewNodeHosts, ",")
+
+	if cfg.SCName != "" {
+		op.RequestParams[createNodeSCNameParam] = cfg.SCName
 	}
-	if computeGroupName != "" {
-		op.RequestParams[createNodeCGNameParam] = computeGroupName
+	if cfg.ComputeGroupName != "" {
+		op.RequestParams[createNodeCGNameParam] = cfg.ComputeGroupName
 	}
+	if cfg.SandboxName != "" {
+		op.RequestParams[createNodeSandNameParam] = cfg.SandboxName
+	}
+
 	err := op.validateAndSetUsernameAndPassword(op.name,
-		useHTTPPassword, userName, httpsPassword)
+		cfg.UseHTTPPassword, cfg.UserName, cfg.HTTPSPassword)
 
 	return op, err
 }

@@ -57,6 +57,7 @@ const (
 	GCloudPrefix          = "gs://"
 	AzurePrefix           = "azb://"
 	trueString            = "true"
+	falseString           = "false"
 	VProxyDefaultImage    = "opentext/client-proxy:latest"
 	VProxyDefaultReplicas = 1
 )
@@ -77,7 +78,6 @@ func (v *VerticaDB) SetupWebhookWithManager(mgr ctrl.Manager) error {
 }
 
 // +kubebuilder:webhook:path=/mutate-vertica-com-v1-verticadb,mutating=true,failurePolicy=fail,sideEffects=None,groups=vertica.com,resources=verticadbs,verbs=create;update,versions=v1,name=mverticadb.kb.io,admissionReviewVersions=v1
-
 var _ webhook.Defaulter = &VerticaDB{}
 
 // Default implements webhook.Defaulter so a webhook will be registered for the type
@@ -102,6 +102,7 @@ func (v *VerticaDB) Default() {
 	if v.Spec.TemporarySubclusterRouting != nil {
 		v.Spec.TemporarySubclusterRouting.Template.Type = SecondarySubcluster
 	}
+	v.setDefaultAdditionalBuckets()
 	v.setDefaultServiceName()
 	v.setDefaultSandboxImages()
 	v.setDefaultProxy()
@@ -112,12 +113,23 @@ var _ webhook.Validator = &VerticaDB{}
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
 func (v *VerticaDB) ValidateCreate() (admission.Warnings, error) {
 	verticadblog.Info("validate create", "name", v.Name, "GroupVersion", GroupVersion)
-
+	if v.existingObject() {
+		return nil, nil
+	}
 	allErrs := v.validateVerticaDBSpec()
+	// Validate the sandbox type on create
+	allErrs = v.hasNoSandboxTypeOnCreate(allErrs)
 	if len(allErrs) == 0 {
 		return nil, nil
 	}
+
 	return nil, apierrors.NewInvalid(schema.GroupKind{Group: Group, Kind: VerticaDBKind}, v.Name, allErrs)
+}
+
+func (v *VerticaDB) existingObject() bool {
+	// The metadata.generation field is a sequence number that the Kubernetes API server increments
+	// automatically whenever the spec (desired state) of an object is modified.
+	return v.Generation > 1
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
@@ -157,7 +169,9 @@ func (v *VerticaDB) validateImmutableFields(old runtime.Object) field.ErrorList 
 	allErrs = v.checkImmutableSubclusterInSandbox(oldObj, allErrs)
 	allErrs = v.checkImmutableStsName(oldObj, allErrs)
 	allErrs = v.checkImmutableClientProxy(oldObj, allErrs)
-	allErrs = v.checkImmutableCertRotation(oldObj, allErrs)
+	allErrs = v.checkImmutableTLSConfig(oldObj, allErrs)
+	allErrs = v.checkValidTLSConfigUpdate(oldObj, allErrs)
+	allErrs = v.checkTLSModeCaseInsensitiveChange(oldObj, allErrs)
 	allErrs = v.checkValidSubclusterTypeTransition(oldObj, allErrs)
 	allErrs = v.checkSandboxesDuringUpgrade(oldObj, allErrs)
 	allErrs = v.checkShutdownSandboxImage(oldObj, allErrs)
@@ -168,6 +182,7 @@ func (v *VerticaDB) validateImmutableFields(old runtime.Object) field.ErrorList 
 	allErrs = v.checkNewSBoxOrSClusterShutdownUnset(allErrs)
 	allErrs = v.checkSClusterToBeSandboxedShutdownUnset(allErrs)
 	allErrs = v.checkShutdownForScaleOutOrIn(oldObj, allErrs)
+	allErrs = v.checkIfAnyOpInProgressBeforeTLSChange(oldObj, allErrs)
 	return allErrs
 }
 
@@ -178,15 +193,6 @@ func (v *VerticaDB) checkValidSubclusterTypeTransition(oldObj *VerticaDB, allErr
 		sc := oldObj.Spec.Subclusters[i]
 		nameToTypeMap[sc.Name] = sc.Type
 	}
-	scToSbMap := v.GenSubclusterSandboxMap()
-	// Helper function to log an error
-	invalidStateTransitionErr := func(inx int) {
-		path := field.NewPath("spec").Child("subclusters").Index(inx).Child("type")
-		err := field.Invalid(path,
-			v.Spec.Subclusters[inx].Type,
-			fmt.Sprintf("subcluster %s has invalid type change", v.Spec.Subclusters[inx].Name))
-		allErrs = append(allErrs, err)
-	}
 	// Go through new object to see that existing subclusters have a valid type change.
 	for i := range v.Spec.Subclusters {
 		sc := v.Spec.Subclusters[i]
@@ -195,22 +201,43 @@ func (v *VerticaDB) checkValidSubclusterTypeTransition(oldObj *VerticaDB, allErr
 		if !ok {
 			continue
 		}
-		if (oldType == PrimarySubcluster || oldType == TransientSubcluster) && oldType != sc.Type {
-			invalidStateTransitionErr(i)
+		if (oldType == TransientSubcluster) && oldType != sc.Type {
+			err := field.Invalid(field.NewPath("spec").Child("subclusters").Index(i).Child("type"),
+				v.Spec.Subclusters[i].Type,
+				fmt.Sprintf("Subcluster %q with type %q can only be changed by the operator",
+					v.Spec.Subclusters[i].Name, TransientSubcluster))
+			allErrs = append(allErrs, err)
+		} else if oldType == PrimarySubcluster && sc.Type != PrimarySubcluster {
+			// main cluster should maintain k-safety after primary subcluster demotion
+			if !oldObj.HasKSafetyAfterRemoval(MainCluster, int(sc.Size)) {
+				err := field.Invalid(field.NewPath("spec").Child("subclusters").Index(i).Child("type"),
+					v.Spec.Subclusters[i].Type,
+					fmt.Sprintf("Main cluster lost k-safety after removing primary subcluster %q",
+						v.Spec.Subclusters[i].Name))
+				allErrs = append(allErrs, err)
+			}
 		} else if oldType == SecondarySubcluster && sc.Type != SecondarySubcluster {
+			scToSbMap := oldObj.GenSubclusterSandboxMap()
 			_, found := scToSbMap[sc.Name]
-			// You can only transition out of a secondary subcluster if its during sandboxing.
-			if sc.Type != SandboxPrimarySubcluster || !found {
-				invalidStateTransitionErr(i)
+			// subclusters type are not allowed to be updated if it's in a sandbox
+			if found {
+				err := field.Invalid(field.NewPath("spec").Child("subclusters").Index(i).Child("type"),
+					v.Spec.Subclusters[i].Type,
+					fmt.Sprintf("Subcluster %q in sandbox cannot change its type in the main cluster",
+						v.Spec.Subclusters[i].Name))
+				allErrs = append(allErrs, err)
 			}
 		}
 	}
 	return allErrs
 }
 
+//nolint:funlen
 func (v *VerticaDB) validateVerticaDBSpec() field.ErrorList {
 	allErrs := v.hasAtLeastOneSC(field.ErrorList{})
 	allErrs = v.hasValidSubclusterTypes(allErrs)
+	allErrs = v.hasNoConflictbetweenTLSAndCertMount(allErrs)
+	allErrs = v.hasValidTLSWithKnob(allErrs)
 	allErrs = v.hasValidInitPolicy(allErrs)
 	allErrs = v.hasValidRestorePolicy(allErrs)
 	allErrs = v.hasValidSaveRestorePointConfig(allErrs)
@@ -218,6 +245,8 @@ func (v *VerticaDB) validateVerticaDBSpec() field.ErrorList {
 	allErrs = v.hasPrimarySubcluster(allErrs)
 	allErrs = v.validateKsafety(allErrs)
 	allErrs = v.validateCommunalPath(allErrs)
+	allErrs = v.validateAdditionalBuckets(allErrs)
+	allErrs = v.validateAdditionalBucketsTypes(allErrs)
 	allErrs = v.validateS3ServerSideEncryption(allErrs)
 	allErrs = v.validateAdditionalConfigParms(allErrs)
 	allErrs = v.validateCustomLabels(allErrs)
@@ -230,7 +259,8 @@ func (v *VerticaDB) validateVerticaDBSpec() field.ErrorList {
 	allErrs = v.isServiceTypeValid(allErrs)
 	allErrs = v.hasDuplicateScName(allErrs)
 	allErrs = v.hasValidVolumeName(allErrs)
-	allErrs = v.hasValidClientServerTLSMode(allErrs)
+	allErrs = v.hasValidTLSModes(allErrs)
+	allErrs = v.hasTLSSecretsSetForRevive(allErrs)
 	allErrs = v.hasValidVolumeMountName(allErrs)
 	allErrs = v.hasValidKerberosSetup(allErrs)
 	allErrs = v.hasValidTemporarySubclusterRouting(allErrs)
@@ -251,6 +281,8 @@ func (v *VerticaDB) validateVerticaDBSpec() field.ErrorList {
 	allErrs = v.validateSandboxes(allErrs)
 	allErrs = v.checkNewSBoxOrSClusterShutdownUnset(allErrs)
 	allErrs = v.validateProxyConfig(allErrs)
+	allErrs = v.validateNMASecret(allErrs)
+	allErrs = v.validateAutoRotateConfig(allErrs)
 	if len(allErrs) == 0 {
 		return nil
 	}
@@ -286,6 +318,21 @@ func (v *VerticaDB) hasValidSubclusterTypes(allErrs field.ErrorList) field.Error
 	return allErrs
 }
 
+// hasNoSandboxTypeOnCreate ensures that the subcluster type is not set to
+// SandboxPrimarySubcluster or SandboxSecondarySubcluster when creating vdb
+func (v *VerticaDB) hasNoSandboxTypeOnCreate(allErrs field.ErrorList) field.ErrorList {
+	for i := range v.Spec.Subclusters {
+		sc := &v.Spec.Subclusters[i]
+		if sc.Type == SandboxPrimarySubcluster || sc.Type == SandboxSecondarySubcluster {
+			fieldPath := field.NewPath("spec").Child("subclusters").Index(i).Child("type")
+			err := field.Invalid(fieldPath, sc.Type,
+				fmt.Sprintf("cannot set subcluster type to %q", sc.Type))
+			allErrs = append(allErrs, err)
+		}
+	}
+	return allErrs
+}
+
 func (v *VerticaDB) hasValidInitPolicy(allErrs field.ErrorList) field.ErrorList {
 	switch v.Spec.InitPolicy {
 	case CommunalInitPolicyCreate:
@@ -304,7 +351,7 @@ func (v *VerticaDB) hasValidInitPolicy(allErrs field.ErrorList) field.ErrorList 
 }
 
 func (v *VerticaDB) hasValidRestorePolicy(allErrs field.ErrorList) field.ErrorList {
-	if !v.isDBInitialized() && v.IsRestoreDuringReviveEnabled() && !v.Spec.RestorePoint.IsValidRestorePointPolicy() {
+	if !v.IsDBInitialized() && v.IsRestoreDuringReviveEnabled() && !v.Spec.RestorePoint.IsValidRestorePointPolicy() {
 		if v.Spec.RestorePoint.Archive == "" {
 			err := field.Invalid(field.NewPath("spec").Child("restorePoint"),
 				v.Spec.RestorePoint,
@@ -367,6 +414,96 @@ func (v *VerticaDB) validateCommunalPath(allErrs field.ErrorList) field.ErrorLis
 		v.Spec.Communal.Path,
 		"communal.path cannot be empty")
 	return append(allErrs, err)
+}
+
+// validateAdditionalBuckets checks the basic requirements
+func (v *VerticaDB) validateAdditionalBuckets(allErrs field.ErrorList) field.ErrorList {
+	if v.Spec.InitPolicy == CommunalInitPolicyScheduleOnly {
+		return allErrs
+	}
+
+	// Use a composite key of bucket, region, and endpoint to check for duplicates
+	pathsSeen := map[string]struct{}{}
+	for i, bucket := range v.Spec.AdditionalBuckets {
+		fieldPrefix := field.NewPath("spec").Child("additionalBuckets").Index(i)
+		// CredentialSecret must not be empty
+		if bucket.CredentialSecret == "" {
+			err := field.Invalid(fieldPrefix.Child("credentialSecret"), bucket.CredentialSecret,
+				"credentialSecret cannot be empty")
+			allErrs = append(allErrs, err)
+		}
+		// Path must not be empty
+		if bucket.Path == "" {
+			err := field.Invalid(fieldPrefix.Child("path"), bucket.Path, "path cannot be empty")
+			allErrs = append(allErrs, err)
+		}
+		// Check for duplicate buckets based on bucket, region, and endpoint
+		dupKey := fmt.Sprintf("%s|%s|%s", GetBucket(bucket.Path), bucket.Region, bucket.Endpoint)
+		if _, exists := pathsSeen[dupKey]; exists {
+			err := field.Invalid(fieldPrefix, bucket,
+				"duplicate additionalBucket (path, region, endpoint) in additionalBuckets")
+			allErrs = append(allErrs, err)
+		}
+		pathsSeen[dupKey] = struct{}{}
+	}
+	return allErrs
+}
+
+// validateAdditionalBucketsTypes checks different storage types (s3, gs, azb)
+func (v *VerticaDB) validateAdditionalBucketsTypes(allErrs field.ErrorList) field.ErrorList {
+	// Allow only one gs or azb to be defined as they share the same parameters in db
+	gsFound := false
+	azbFound := false
+	communalPrefix := ""
+	switch {
+	case strings.HasPrefix(v.Spec.Communal.Path, S3Prefix):
+		communalPrefix = S3Prefix
+	case strings.HasPrefix(v.Spec.Communal.Path, GCloudPrefix):
+		communalPrefix = GCloudPrefix
+	case strings.HasPrefix(v.Spec.Communal.Path, AzurePrefix):
+		communalPrefix = AzurePrefix
+	}
+
+	for i, bucket := range v.Spec.AdditionalBuckets {
+		fieldPrefix := field.NewPath("spec").Child("additionalBuckets").Index(i)
+
+		// Path must have a valid prefix
+		var bucketPrefix string
+		switch {
+		case strings.HasPrefix(bucket.Path, S3Prefix):
+			bucketPrefix = S3Prefix
+		case strings.HasPrefix(bucket.Path, GCloudPrefix):
+			bucketPrefix = GCloudPrefix
+			// Make sure only one gs defined
+			if gsFound {
+				err := field.Invalid(fieldPrefix.Child("path"), bucket.Path,
+					"only one gs additional storage can be defined")
+				allErrs = append(allErrs, err)
+			}
+			gsFound = true
+		case strings.HasPrefix(bucket.Path, AzurePrefix):
+			bucketPrefix = AzurePrefix
+			// Make sure only one azb defined
+			if azbFound {
+				err := field.Invalid(fieldPrefix.Child("path"), bucket.Path,
+					"only one azb additional storage can be defined")
+				allErrs = append(allErrs, err)
+			}
+			azbFound = true
+		default:
+			err := field.Invalid(fieldPrefix.Child("path"), bucket.Path,
+				"path must start with s3://, gs://, or azb://")
+			allErrs = append(allErrs, err)
+		}
+		// Protocol must be different from communal path if additional bucket is gs or azb
+		if (bucketPrefix == GCloudPrefix || bucketPrefix == AzurePrefix) && bucketPrefix == communalPrefix {
+			err := field.Invalid(fieldPrefix.Child("path"), bucket.Path,
+				fmt.Sprintf("additional bucket %q cannot use the same protocol as communal.path %q",
+					bucket.Path, communalPrefix))
+			allErrs = append(allErrs, err)
+		}
+	}
+	return allErrs
 }
 
 func (v *VerticaDB) validateS3ServerSideEncryption(allErrs field.ErrorList) field.ErrorList {
@@ -492,7 +629,7 @@ func (v *VerticaDB) hasValidDBName(allErrs field.ErrorList) field.ErrorList {
 func (v *VerticaDB) hasPrimarySubcluster(allErrs field.ErrorList) field.ErrorList {
 	for i := range v.Spec.Subclusters {
 		sc := &v.Spec.Subclusters[i]
-		if sc.IsPrimary() {
+		if sc.IsPrimary(v) {
 			return allErrs
 		}
 	}
@@ -535,7 +672,7 @@ func (v *VerticaDB) getClusterSize() int {
 		// we calculate the cluster size on the primary nodes only
 		for i := range v.Spec.Subclusters {
 			sc := &v.Spec.Subclusters[i]
-			if sc.IsPrimary() && !sc.IsSandboxPrimary() {
+			if sc.IsPrimary(v) && !sc.IsSandboxPrimary(v) {
 				sizeSum += int(sc.Size)
 			}
 		}
@@ -717,8 +854,35 @@ func (v *VerticaDB) hasDuplicateScName(allErrs field.ErrorList) field.ErrorList 
 	return allErrs
 }
 
-func (v *VerticaDB) hasValidClientServerTLSMode(allErrs field.ErrorList) field.ErrorList {
-	allErrs = v.hasValidTLSMode(v.Spec.ClientServerTLSMode, "clientServerTLSMode", allErrs)
+// hasValidTLSModes checks whether the TLS modes are valid
+func (v *VerticaDB) hasValidTLSModes(allErrs field.ErrorList) field.ErrorList {
+	if v.Spec.HTTPSNMATLS != nil {
+		allErrs = v.hasValidTLSMode(v.GetHTTPSNMATLSMode(), "httpsNMATLS", allErrs)
+	}
+	if v.Spec.ClientServerTLS != nil {
+		allErrs = v.hasValidTLSMode(v.GetClientServerTLSMode(), "clientServerTLS", allErrs)
+	}
+
+	return allErrs
+}
+
+// hasTLSSecretsSetForRevive checks whether the TLS secrets are set for the revive init policy
+// when TLS is enabled
+func (v *VerticaDB) hasTLSSecretsSetForRevive(allErrs field.ErrorList) field.ErrorList {
+	if vmeta.UseTLSAuth(v.Annotations) && v.Spec.InitPolicy == CommunalInitPolicyRevive {
+		if v.GetHTTPSNMATLSSecret() == "" {
+			err := field.Invalid(field.NewPath("spec").Child("httpsNMATLS").Child("secret"),
+				v.GetHTTPSNMATLSSecret(),
+				"httpsNMATLS.Secret cannot be empty when initPolicy is set to 'revive' and TLS is enabled")
+			allErrs = append(allErrs, err)
+		}
+		if v.GetClientServerTLSSecret() == "" {
+			err := field.Invalid(field.NewPath("spec").Child("clientServerTLS").Child("secret"),
+				v.GetHTTPSNMATLSSecret(),
+				"clientServerTLS.Secret cannot be empty when initPolicy is set to 'revive' and TLS is enabled")
+			allErrs = append(allErrs, err)
+		}
+	}
 	return allErrs
 }
 
@@ -1249,6 +1413,16 @@ func (v *VerticaDB) validateProxyConfig(allErrs field.ErrorList) field.ErrorList
 	return v.validateProxyLogLevel(allErrs)
 }
 
+func (v *VerticaDB) validateNMASecret(allErrs field.ErrorList) field.ErrorList {
+	// when creating db, we should not allow setting nmaTLSSecret when tls is enabled
+	if v.Spec.NMATLSSecret != "" && !v.IsDBInitialized() && vmeta.UseTLSAuth(v.Annotations) {
+		specFld := field.NewPath("spec")
+		allErrs = append(allErrs, field.Forbidden(specFld.Child("nmaTLSSecret"),
+			"nmaTLSSecret cannot be set when TLS is enabled, please use httpsNMATLS.secret instead"))
+	}
+	return allErrs
+}
+
 // validateSpecProxy checks if proxy set and image must be non-empty
 func (v *VerticaDB) validateSpecProxy(allErrs field.ErrorList) field.ErrorList {
 	if v.Spec.Proxy == nil {
@@ -1298,6 +1472,29 @@ func (v *VerticaDB) validateProxyLogLevel(allErrs field.ErrorList) field.ErrorLi
 	return allErrs
 }
 
+// hasPrimarySubcluster checks if a sandbox has a primary subcluster
+func (sand *Sandbox) hasPrimarySubcluster() bool {
+	for i := range sand.Subclusters {
+		sc := &sand.Subclusters[i]
+		if sc.Type == PrimarySubcluster {
+			return true
+		}
+	}
+	return false
+}
+
+// validateSandboxPrimarySubcluster validates if a sandbox has a primary subcluster
+func (v *VerticaDB) validateSandboxPrimarySubcluster(allErrs field.ErrorList, sbIndex int) field.ErrorList {
+	sb := &v.Spec.Sandboxes[sbIndex]
+	if !sb.hasPrimarySubcluster() {
+		err := field.Invalid(field.NewPath("spec").Child("sandboxes").Index(sbIndex),
+			sb.Subclusters,
+			fmt.Sprintf("there must be at least one primary subcluster in the sandbox %s", sb.Name))
+		allErrs = append(allErrs, err)
+	}
+	return allErrs
+}
+
 // validateSandboxes validates if subclusters in sandboxes is correct
 func (v *VerticaDB) validateSubclustersInSandboxes(allErrs field.ErrorList) field.ErrorList {
 	sandboxes := v.Spec.Sandboxes
@@ -1333,6 +1530,9 @@ func (v *VerticaDB) validateSubclustersInSandboxes(allErrs field.ErrorList) fiel
 		for sc, index := range scInSandbox {
 			seenScWithSbIndex[sc] = index
 		}
+
+		// sandboxHasPrimarySubcluster checks if there is a primary subcluster in the sandboxe
+		allErrs = v.validateSandboxPrimarySubcluster(allErrs, i)
 	}
 
 	// check if a non-existing subcluster is defined in a sandbox
@@ -1354,6 +1554,36 @@ func (v *VerticaDB) validateSubclustersInSandboxes(allErrs field.ErrorList) fiel
 	return allErrs
 }
 
+// hasNoConflictbetweenTLSAndCertMount checks if both TLS and NMA certs mount are used at the same time
+func (v *VerticaDB) hasNoConflictbetweenTLSAndCertMount(allErrs field.ErrorList) field.ErrorList {
+	if vmeta.UseTLSAuth(v.Annotations) && vmeta.UseNMACertsMount(v.Annotations) {
+		err := field.Forbidden(field.NewPath("metadata").Child("annotations"),
+			"cannot set enable-tls-auth and mount-nma-certs to true at the same time")
+		allErrs = append(allErrs, err)
+	}
+
+	return allErrs
+}
+
+// hasValidTLSWithKnob checks if https and client-server TLS are used when TLS auth is disabled
+func (v *VerticaDB) hasValidTLSWithKnob(allErrs field.ErrorList) field.ErrorList {
+	if vmeta.ShouldSkipTLSWebhookCheck(v.Annotations) {
+		return allErrs
+	}
+	if !vmeta.UseTLSAuth(v.Annotations) && v.Spec.HTTPSNMATLS != nil {
+		err := field.Forbidden(field.NewPath("spec").Child("httpsNMATLS"),
+			fmt.Sprintf("cannot set httpsNMATLS when %s is set to false", vmeta.EnableTLSAuthAnnotation))
+		allErrs = append(allErrs, err)
+	}
+	if !vmeta.UseTLSAuth(v.Annotations) && v.Spec.ClientServerTLS != nil {
+		err := field.Forbidden(field.NewPath("spec").Child("clientServerTLS"),
+			fmt.Sprintf("cannot set clientServerTLS when %s is set to false", vmeta.EnableTLSAuthAnnotation))
+		allErrs = append(allErrs, err)
+	}
+
+	return allErrs
+}
+
 func (v *VerticaDB) isUpgradeInProgress() bool {
 	return v.IsStatusConditionTrue(UpgradeInProgress)
 }
@@ -1362,7 +1592,7 @@ func (v *VerticaDB) isOnlineUpgradeInProgress() bool {
 	return v.IsStatusConditionTrue(OnlineUpgradeInProgress)
 }
 
-func (v *VerticaDB) isDBInitialized() bool {
+func (v *VerticaDB) IsDBInitialized() bool {
 	return v.IsStatusConditionTrue(DBInitialized)
 }
 
@@ -1442,13 +1672,30 @@ func (v *VerticaDB) checkImmutableUpgradePolicy(oldObj *VerticaDB, allErrs field
 // checkImmutableDeploymentMethod will check if the deployment type is changing from
 // vclusterops to admintools, which isn't allowed.
 func (v *VerticaDB) checkImmutableDeploymentMethod(oldObj *VerticaDB, allErrs field.ErrorList) field.ErrorList {
-	if vmeta.UseVClusterOps(oldObj.Annotations) && !vmeta.UseVClusterOps(v.Annotations) {
-		// change from vclusterops deployment to admintools deployment
-		prefix := field.NewPath("metadata").Child("annotations")
-		err := field.Invalid(prefix.Key(vmeta.VClusterOpsAnnotation),
-			v.Annotations[vmeta.VClusterOpsAnnotation],
-			"deployment type cannot change from vclusterops to admintools")
-		allErrs = append(allErrs, err)
+	// When the database is not initialized, we allow the user to change the deployment type
+	if !v.IsDBInitialized() {
+		return allErrs
+	}
+	willUpgrade := oldObj.Spec.Image != v.Spec.Image
+	// When the upgrade is not required, we disallow the user to change the deployment type
+	if !willUpgrade && !v.isUpgradeInProgress() {
+		if vmeta.UseVClusterOps(oldObj.Annotations) != vmeta.UseVClusterOps(v.Annotations) {
+			prefix := field.NewPath("metadata").Child("annotations")
+			err := field.Invalid(prefix.Key(vmeta.VClusterOpsAnnotation),
+				v.Annotations[vmeta.VClusterOpsAnnotation],
+				"deployment type cannot change for a running database")
+			allErrs = append(allErrs, err)
+		}
+		// when upgrade is triggered, we disallow the user to change the deployment type to admintools
+	} else if willUpgrade {
+		if vmeta.UseVClusterOps(oldObj.Annotations) && !vmeta.UseVClusterOps(v.Annotations) {
+			// change from vclusterops deployment to admintools deployment
+			prefix := field.NewPath("metadata").Child("annotations")
+			err := field.Invalid(prefix.Key(vmeta.VClusterOpsAnnotation),
+				v.Annotations[vmeta.VClusterOpsAnnotation],
+				"deployment type cannot change from vclusterops to admintools in an upgrade")
+			allErrs = append(allErrs, err)
+		}
 	}
 	return allErrs
 }
@@ -1528,7 +1775,7 @@ func (v *VerticaDB) checkImmutableEncryptSpreadComm(oldObj *VerticaDB, allErrs f
 // after the database has been initialized.
 func (v *VerticaDB) checkImmutableLocalPathChange(oldObj *VerticaDB, allErrs field.ErrorList) field.ErrorList {
 	// We allow the paths to change as long as the DB isn't yet initialized.
-	if !v.isDBInitialized() {
+	if !v.IsDBInitialized() {
 		return allErrs
 	}
 
@@ -1557,7 +1804,7 @@ func (v *VerticaDB) checkImmutableLocalPathChange(oldObj *VerticaDB, allErrs fie
 // checkImmutableShardCount will make sure the shard count doesn't change after
 // the db has been initialized.
 func (v *VerticaDB) checkImmutableShardCount(oldObj *VerticaDB, allErrs field.ErrorList) field.ErrorList {
-	if !v.isDBInitialized() {
+	if !v.IsDBInitialized() {
 		return allErrs
 	}
 	if v.Spec.ShardCount != oldObj.Spec.ShardCount {
@@ -1584,7 +1831,7 @@ func (v *VerticaDB) checkImmutableS3ServerSideEncryption(oldObj *VerticaDB, allE
 // checkImmutableDepotVolume will make sure local.depotVolume
 // does not change after the db has been initialized.
 func (v *VerticaDB) checkImmutableDepotVolume(oldObj *VerticaDB, allErrs field.ErrorList) field.ErrorList {
-	if !v.isDBInitialized() {
+	if !v.IsDBInitialized() {
 		return allErrs
 	}
 	if v.Spec.Local.DepotVolume != oldObj.Spec.Local.DepotVolume {
@@ -1598,7 +1845,7 @@ func (v *VerticaDB) checkImmutableDepotVolume(oldObj *VerticaDB, allErrs field.E
 
 func (v *VerticaDB) checkImmutablePodSecurityContext(oldObj *VerticaDB, allErrs field.ErrorList) field.ErrorList {
 	// PodSecurityContext can change if we haven't yet created/revived the database
-	if !v.isDBInitialized() {
+	if !v.IsDBInitialized() {
 		return allErrs
 	}
 
@@ -1816,12 +2063,7 @@ func (v *VerticaDB) checkSandboxSubclustersRemoved(allErrs field.ErrorList, oldO
 	return allErrs
 }
 
-// checkSandboxPrimary ensures a couple of things:
-//   - a sandbox primary subcluster cannot be moved to another sandbox
-//   - cannot remove the sandbox primary subcluster from a sandbox
-//
-// The sandbox primary subcluster must stay constant until the sandbox is
-// removed entirely.
+// checkSandboxPrimary ensures number of the primary subclusters in the sandbox meets the k-safety requirement
 func (v *VerticaDB) checkSandboxPrimary(allErrs field.ErrorList, oldObj *VerticaDB, oldScIndexMap map[string]int,
 	oldScMap map[string]*Subcluster, path *field.Path) field.ErrorList {
 	oldScInSandbox := oldObj.GenSubclusterSandboxMap()
@@ -1829,6 +2071,8 @@ func (v *VerticaDB) checkSandboxPrimary(allErrs field.ErrorList, oldObj *Vertica
 	oldSbIndexMap := oldObj.GenSandboxIndexMap()
 	oldSbMap := oldObj.GenSandboxMap()
 	newSbMap := v.GenSandboxMap()
+
+	offsetMap := make(map[string]int)
 	for oldScName, oldSbName := range oldScInSandbox {
 		sc := oldScMap[oldScName]
 
@@ -1838,31 +2082,44 @@ func (v *VerticaDB) checkSandboxPrimary(allErrs field.ErrorList, oldObj *Vertica
 		}
 
 		newSbName, newFound := newScInSandbox[oldScName]
-		// old sandbox still exits
-		if !newFound && sc.Type == SandboxPrimarySubcluster {
-			i := oldScIndexMap[oldScName]
-			err := field.Invalid(path.Index(i),
-				oldObj.Spec.Subclusters[i],
-				fmt.Sprintf("Cannot remove primary subcluster %q from the sandbox", oldScName))
-			allErrs = append(allErrs, err)
+		// old sandbox still exists, and subcluster is removed out
+		if !newFound && sc.IsSandboxPrimary(oldObj) {
+			// calculate the number of primary subcluster nodes to be removed from the old sandbox
+			offsetMap[oldSbName] += int(sc.Size)
+			// check if the old sandbox has enough primary subcluster nodes after old subcluster removed
+			if !oldObj.HasKSafetyAfterRemoval(oldSbName, offsetMap[oldSbName]) {
+				i := oldScIndexMap[oldScName]
+				err := field.Invalid(path.Index(i),
+					oldObj.Spec.Subclusters[i],
+					fmt.Sprintf("the sandbox %q does not have enough primary nodes after removing %q",
+						oldSbName, oldScName))
+				allErrs = append(allErrs, err)
+			}
+
 			continue
 		}
-		// old sandbox exists and subcluster either exists (primary or nonprimary) or removed (nonprimary)
-		// Remaining check is concerned with subclusters moving between sandboxes.
+		// old sandbox exists and subcluster exists
 		if oldSbName == newSbName {
 			continue
 		}
-		// old sandbox name does not match new sandbox name
-		if sc.Type == SandboxPrimarySubcluster {
-			i := oldSbIndexMap[oldSbName]
-			p := field.NewPath("spec").Child("sandboxes")
-			err := field.Invalid(p.Index(i),
-				oldSbMap[oldSbName],
-				fmt.Sprintf("cannot remove the primary subcluster from sandbox %q unless you are removing the sandbox",
-					oldScName))
-			allErrs = append(allErrs, err)
+		// old sandbox name does not match new sandbox name, the sc will be moved to a new sandbox
+		if sc.IsSandboxPrimary(oldObj) {
+			// calculate the number of primary subcluster nodes to be moved out from the old sandbox
+			offsetMap[oldSbName] += int(sc.Size)
+
+			// check if the old sandbox has primary subcluster after old subcluster moved out
+			if !oldObj.HasKSafetyAfterRemoval(oldSbName, offsetMap[oldSbName]) {
+				i := oldSbIndexMap[oldSbName]
+				p := field.NewPath("spec").Child("sandboxes")
+				err := field.Invalid(p.Index(i),
+					oldSbMap[oldSbName],
+					fmt.Sprintf("the sandbox %q does not have enough primary nodes after moving %q to %q",
+						oldSbName, oldScName, newSbName))
+				allErrs = append(allErrs, err)
+			}
 		}
 	}
+
 	return allErrs
 }
 
@@ -2204,21 +2461,73 @@ func (v *VerticaDB) checkImmutableClientProxy(oldObj *VerticaDB, allErrs field.E
 	return allErrs
 }
 
-// checkImmutableCertRotation will validate the httpsNMATLSSecret spec fields in vdb
-func (v *VerticaDB) checkImmutableCertRotation(oldObj *VerticaDB, allErrs field.ErrorList) field.ErrorList {
-	// If cert rotation is in progress, httpsNMATLSSecret can not be changed
-	if v.IsCertRotationEnabled() && v.IsCertRotationInProgress() && oldObj.Spec.HTTPSNMATLSSecret != v.Spec.HTTPSNMATLSSecret {
-		err := field.Invalid(field.NewPath("spec").Child("httpsNMATLSSecret"),
-			v.Spec.HTTPSNMATLSSecret,
-			"httpsNMATLSSecret cannot be changed when cert rotation is in progress")
-		allErrs = append(allErrs, err)
+// checkImmutableTLSConfig validates the TLS config fields in vdb
+// It checks if the TLS config is being changed while the TLS config update is in progress.
+// It also checks if user is trying to change both httpsNMATLS and clientServerTLS at the same time.
+func (v *VerticaDB) checkImmutableTLSConfig(oldObj *VerticaDB, allErrs field.ErrorList) field.ErrorList {
+	// If the vdb is not set for TLS, we don't need to check anything.
+	if !vmeta.UseTLSAuth(v.Annotations) {
+		return allErrs
 	}
+
+	httpsTLSConfigChanged := oldObj.GetHTTPSNMATLSSecret() != v.GetHTTPSNMATLSSecret() ||
+		oldObj.GetHTTPSNMATLSMode() != v.GetHTTPSNMATLSMode()
+	clientTLSConfigChanged := oldObj.GetClientServerTLSSecret() != v.GetClientServerTLSSecret() ||
+		oldObj.GetClientServerTLSMode() != v.GetClientServerTLSMode()
+	httpsTLSMatchesStatus := v.GetHTTPSNMATLSSecret() == v.GetHTTPSNMATLSSecretInUse() &&
+		v.GetHTTPSNMATLSMode() == v.GetHTTPSTLSModeInUse()
+	clientTLSMatchesStatus := v.GetClientServerTLSSecret() == v.GetClientServerTLSSecretInUse() &&
+		v.GetClientServerTLSMode() == v.GetClientServerTLSModeInUse()
+	if v.IsTLSConfigUpdateInProgress() {
+		// If httpsNMATLS or clientServerTLS is changed while the TLS config update is in progress,
+		// we error out unless the change matches the status(i.e. the change is to revert the TLS config update).
+		if httpsTLSConfigChanged && !httpsTLSMatchesStatus {
+			err := field.Invalid(field.NewPath("spec").Child("httpsNMATLS"),
+				v.Spec.HTTPSNMATLS,
+				"httpsNMATLS cannot be changed when tls config update is in progress")
+			allErrs = append(allErrs, err)
+		}
+		if clientTLSConfigChanged && !clientTLSMatchesStatus {
+			err := field.Invalid(field.NewPath("spec").Child("clientServerTLS"),
+				v.Spec.ClientServerTLS,
+				"clientServerTLS cannot be changed when tls config update is in progress")
+			allErrs = append(allErrs, err)
+		}
+	}
+
 	return allErrs
+}
+
+// checkTLSFieldsWhenTLSUpdateNotInProgress checks that the TLS fields are valid when the TLS config update is not in progress.
+func (v *VerticaDB) checkTLSFieldsWhenTLSUpdateNotInProgress(oldObj *VerticaDB) field.ErrorList {
+	var errs field.ErrorList
+	if !vmeta.UseTLSAuth(v.Annotations) || v.IsTLSConfigUpdateInProgress() {
+		return errs
+	}
+
+	specFld := field.NewPath("spec")
+
+	httpsTLSSecretChanged := oldObj.GetHTTPSNMATLSSecret() != "" &&
+		oldObj.GetHTTPSNMATLSSecret() != v.GetHTTPSNMATLSSecret()
+	clientTLSSecretChanged := oldObj.GetClientServerTLSSecret() != "" &&
+		oldObj.GetClientServerTLSSecret() != v.GetClientServerTLSSecret()
+
+	if httpsTLSSecretChanged && v.GetHTTPSNMATLSSecret() == "" {
+		errs = append(errs, field.Forbidden(specFld.Child("httpsNMATLS").Child("secret"),
+			"cannot change httpsNMATLS.secret to empty value"))
+	}
+
+	if clientTLSSecretChanged && v.GetClientServerTLSSecret() == "" {
+		errs = append(errs, field.Forbidden(specFld.Child("clientServerTLS").Child("secret"),
+			"cannot change clientServerTLS.secret to empty value"))
+	}
+
+	return errs
 }
 
 // hasValidTLSMode checks if the tls mode is valid
 func (v *VerticaDB) hasValidTLSMode(tlsModeToValidate, fieldName string, allErrs field.ErrorList) field.ErrorList {
-	if !v.IsCertRotationEnabled() {
+	if !vmeta.UseTLSAuth(v.Annotations) {
 		return allErrs
 	}
 	tlsModes := []string{tlsModeDisable, tlsModeEnable, tlsModeTryVerify, tlsModeVerifyCA, tlsModeVerifyFull}
@@ -2231,11 +2540,160 @@ func (v *VerticaDB) hasValidTLSMode(tlsModeToValidate, fieldName string, allErrs
 			}
 		}
 		if !validMode {
-			err := field.Invalid(field.NewPath("spec").Child(fieldName), tlsModeToValidate, "invalid tls mode")
+			err := field.Invalid(field.NewPath("spec").Child(fieldName).Child("mode"), tlsModeToValidate, "invalid tls mode")
 			allErrs = append(allErrs, err)
 		}
 	}
 	return allErrs
+}
+
+// checkValidTLSConfigUpdate enforces:
+// 1. If tls config update is in progress, all other operations are not allowed.
+// 2. Cannot disable mutual TLS after it's enabled.
+// 3. Cannot change a secret to empty string.
+// 4. Prevent user from changing nmaTLSSecret.
+func (v *VerticaDB) checkValidTLSConfigUpdate(oldObj *VerticaDB, allErrs field.ErrorList) field.ErrorList {
+	specFld := field.NewPath("spec")
+
+	// Rule 1: Disallow any changes while a TLS config update is in progress, except for TLS config updates themselves.
+	if oldObj.IsTLSConfigUpdateInProgress() && !v.isOnlyTLSConfigUpdateChange(oldObj) {
+		return append(allErrs, field.Forbidden(specFld, "no changes allowed while TLS config update is in progress"))
+	}
+
+	// Rule 2: TLS Auth transition restrictions
+	if vmeta.UseTLSAuth(oldObj.Annotations) {
+		if !vmeta.UseTLSAuth(v.Annotations) {
+			prefix := field.NewPath("metadata").Child("annotations")
+			allErrs = append(allErrs, field.Invalid(prefix.Key(vmeta.EnableTLSAuthAnnotation),
+				v.Annotations[vmeta.EnableTLSAuthAnnotation],
+				"cannot disable mutual TLS after it's enabled"))
+		}
+	} else {
+		if vmeta.UseTLSAuth(v.Annotations) {
+			if oldObj.GetHTTPSNMATLSSecret() != "" && oldObj.GetHTTPSNMATLSSecret() != v.GetHTTPSNMATLSSecret() {
+				// Before the user enables mutual TLS, nma is already using the secret at httpsNMATLS.secret.
+				// If the user wants to change the secret, they have to do it after set tls config through
+				// cert rotation
+				allErrs = append(allErrs, field.Forbidden(specFld.Child("httpsNMATLS").Child("secret"),
+					"cannot change httpsNMATLS.secret and enable mutual TLS at the same time"))
+			}
+		} else {
+			allErrs = append(allErrs, v.checkDisallowedMutualTLSChanges(oldObj)...)
+		}
+	}
+
+	// Rule 3: cannot change a secret to empty string
+	allErrs = append(allErrs, v.checkTLSFieldsWhenTLSUpdateNotInProgress(oldObj)...)
+
+	// Rule 4: nmaTLSSecret is immutable
+	if oldObj.Spec.NMATLSSecret != "" && oldObj.Spec.NMATLSSecret != v.Spec.NMATLSSecret {
+		allErrs = append(allErrs, field.Forbidden(specFld.Child("nmaTLSSecret"),
+			"nmaTLSSecret cannot be changed"))
+	}
+	if vmeta.UseTLSAuth(v.Annotations) &&
+		(oldObj.Spec.NMATLSSecret == "" && v.Spec.NMATLSSecret != "") {
+		allErrs = append(allErrs, field.Forbidden(specFld.Child("nmaTLSSecret"),
+			"nmaTLSSecret cannot be set when TLS is enabled, please use httpsNMATLS.secret instead"))
+	}
+
+	return allErrs
+}
+
+// checkTLSModeCaseInsensitiveChange checks if the user is trying to change the TLS mode in a case-insensitive manner.
+func (v *VerticaDB) checkTLSModeCaseInsensitiveChange(oldObj *VerticaDB, allErrs field.ErrorList) field.ErrorList {
+	isHTTPSNMANil := oldObj.Spec.HTTPSNMATLS == nil || v.Spec.HTTPSNMATLS == nil
+	isClientServerTLSNil := oldObj.Spec.ClientServerTLS == nil || v.Spec.ClientServerTLS == nil
+
+	if !isHTTPSNMANil && oldObj.Spec.HTTPSNMATLS.Mode != v.Spec.HTTPSNMATLS.Mode &&
+		oldObj.GetHTTPSNMATLSMode() == v.GetHTTPSNMATLSMode() {
+		fieldPath := field.NewPath("spec").Child("httpsNMATLS").Child("mode")
+		err := field.Invalid(fieldPath, v.Spec.HTTPSNMATLS.Mode,
+			"case insensitive mode change is not allowed for httpsNMATLS")
+		allErrs = append(allErrs, err)
+	}
+
+	if !isClientServerTLSNil && oldObj.Spec.ClientServerTLS.Mode != v.Spec.ClientServerTLS.Mode &&
+		oldObj.GetClientServerTLSMode() == v.GetClientServerTLSMode() {
+		fieldPath := field.NewPath("spec").Child("clientServerTLS").Child("mode")
+		err := field.Invalid(fieldPath, v.Spec.ClientServerTLS.Mode,
+			"case insensitive mode change is not allowed for clientServerTLS")
+		allErrs = append(allErrs, err)
+	}
+
+	return allErrs
+}
+
+// checkDisallowedMutualTLSChanges checks if the user is trying to change mutual TLS related fields
+func (v *VerticaDB) checkDisallowedMutualTLSChanges(oldObj *VerticaDB) field.ErrorList {
+	var errs field.ErrorList
+
+	check := func(path *field.Path, oldVal, newVal string, message string) {
+		if oldVal != "" && oldVal != newVal {
+			errs = append(errs, field.Forbidden(path, message))
+		}
+	}
+
+	check(field.NewPath("spec").Child("httpsNMATLS").Child("secret"),
+		oldObj.GetHTTPSNMATLSSecret(), v.GetHTTPSNMATLSSecret(),
+		"cannot change httpsNMATLS.secret when mutual TLS is disabled")
+
+	check(field.NewPath("spec").Child("httpsNMATLS").Child("mode"),
+		oldObj.GetHTTPSNMATLSMode(), v.GetHTTPSNMATLSMode(),
+		"cannot change httpsNMATLS.mode when mutual TLS is disabled")
+
+	check(field.NewPath("spec").Child("clientServerTLS").Child("secret"),
+		oldObj.GetClientServerTLSSecret(), v.GetClientServerTLSSecret(),
+		"cannot change clientServerTLS.secret when mutual TLS is disabled")
+
+	check(field.NewPath("spec").Child("clientServerTLS").Child("mode"),
+		oldObj.GetClientServerTLSMode(), v.GetClientServerTLSMode(),
+		"cannot change clientServerTLS.mode when mutual TLS is disabled")
+
+	return errs
+}
+
+// isOnlyTLSConfigUpdateChange allows only tls config changes when tls config update is in progress
+func (v *VerticaDB) isOnlyTLSConfigUpdateChange(oldVdb *VerticaDB) bool {
+	// Only allow changes to cert rotation status/fields.
+	// If any other field in spec changes, return false.
+	oldSpec := oldVdb.Spec
+	newSpec := v.Spec
+
+	// Allow only httpsNMATLSSecret to change
+	oldCopy := oldSpec
+	newCopy := newSpec
+	oldCopy.HTTPSNMATLS = nil
+	newCopy.HTTPSNMATLS = nil
+	oldCopy.ClientServerTLS = nil
+	newCopy.ClientServerTLS = nil
+
+	return reflect.DeepEqual(oldCopy, newCopy)
+}
+
+// setDefaultAdditionalBuckets sets default additional buckets configurations
+func (v *VerticaDB) setDefaultAdditionalBuckets() {
+	if !v.HasAdditionalBuckets() {
+		return
+	}
+	for i := range v.Spec.AdditionalBuckets {
+		bucket := v.Spec.AdditionalBuckets[i]
+		if strings.HasPrefix(bucket.Path, S3Prefix) {
+			if bucket.Region == "" {
+				v.Spec.AdditionalBuckets[i].Region = DefaultS3Region
+			}
+			if bucket.Endpoint == "" {
+				v.Spec.AdditionalBuckets[i].Endpoint = DefaultS3Endpoint
+			}
+		}
+		if strings.HasPrefix(bucket.Path, GCloudPrefix) {
+			if bucket.Region == "" {
+				v.Spec.AdditionalBuckets[i].Region = DefaultGCloudRegion
+			}
+			if bucket.Endpoint == "" {
+				v.Spec.AdditionalBuckets[i].Endpoint = DefaultGCloudEndpoint
+			}
+		}
+	}
 }
 
 // setDefaultServiceName will explicitly set the serviceName in any subcluster
@@ -2281,6 +2739,87 @@ func (v *VerticaDB) setDefaultProxy() {
 	}
 }
 
+// checkIfAnyOpInProgressWhenRotatingCerts checks if any operation is in progress when enabling tls auth
+func (v *VerticaDB) checkIfAnyOpInProgressBeforeTLSChange(oldObj *VerticaDB, allErrs field.ErrorList) field.ErrorList {
+	if !v.IsDBInitialized() {
+		// if the db is not initialized, we don't need to check if any operation is in progress
+		return allErrs
+	}
+	errMsgs := v.findChangedTLSFields(oldObj)
+	// we don't need to check if the user doesn't change tls fields
+	if len(errMsgs) == 0 {
+		return allErrs
+	}
+
+	// we cannot rotate certs when there are sandboxes
+	tlsConfigChanged := len(errMsgs) != 0 && vmeta.UseTLSAuth(v.Annotations) == vmeta.UseTLSAuth(oldObj.Annotations)
+	if tlsConfigChanged && len(v.Spec.Sandboxes) > 0 {
+		allErrs = append(allErrs, field.Invalid(
+			field.NewPath("spec").Child("sandboxes"), "", "while there are sandboxes, we cannot update TLS fields: "+
+				strings.Join(errMsgs, ", ")))
+		return allErrs
+	}
+
+	// forbid tls changes during upgrade
+	if v.checkIfUpgradeInProgress() {
+		allErrs = append(allErrs, field.Invalid(
+			field.NewPath("spec"), "", "while an upgrade is in progress, TLS fields cannot be changed "+
+				strings.Join(errMsgs, ", ")))
+		return allErrs
+	}
+
+	errMsgs2 := v.compareSpecAndStatus()
+	// forbid tls changes when the spec and status are not in sync
+	if len(errMsgs2) != 0 {
+		allErrs = append(allErrs, field.Invalid(
+			field.NewPath("spec"), "", "while some database operations are inprogress: "+strings.Join(errMsgs2, ", ")+
+				", TLS fields cannot be changed: "+strings.Join(errMsgs, ", ")))
+	}
+	return allErrs
+}
+
+func (v *VerticaDB) checkIfUpgradeInProgress() bool {
+	if v.IsStatusConditionTrue(UpgradeInProgress) || v.IsStatusConditionTrue(OnlineUpgradeInProgress) || v.IsStatusConditionTrue(OfflineUpgradeInProgress) ||
+		v.IsStatusConditionTrue(ReadOnlyOnlineUpgradeInProgress) {
+		return true
+	}
+	return false
+}
+
+func (v *VerticaDB) findChangedTLSFields(oldObj *VerticaDB) []string {
+	errMsgs := []string{}
+	if vmeta.UseTLSAuth(v.Annotations) != vmeta.UseTLSAuth(oldObj.Annotations) {
+		errMsgs = append(errMsgs, fmt.Sprintf("annotation %q is changed from %q to %q",
+			vmeta.EnableTLSAuthAnnotation, oldObj.Annotations[vmeta.EnableTLSAuthAnnotation], v.Annotations[vmeta.EnableTLSAuthAnnotation]))
+	}
+	if oldObj.GetHTTPSNMATLSSecret() != "" && v.GetHTTPSNMATLSSecret() != oldObj.GetHTTPSNMATLSSecret() {
+		errMsgs = append(errMsgs, fmt.Sprintf("spec.httpsNMATLS.Secret is changed from %q to %q", oldObj.GetHTTPSNMATLSSecret(), v.GetHTTPSNMATLSSecret()))
+	}
+	if oldObj.GetHTTPSNMATLSMode() != "" && v.GetHTTPSNMATLSMode() != oldObj.GetHTTPSNMATLSMode() {
+		errMsgs = append(errMsgs, fmt.Sprintf("spec.httpsTLS.Mode is changed from %q to %q", oldObj.GetHTTPSNMATLSMode(), v.GetHTTPSNMATLSMode()))
+	}
+	if oldObj.GetClientServerTLSSecret() != "" && v.GetClientServerTLSSecret() != oldObj.GetClientServerTLSSecret() {
+		errMsgs = append(errMsgs, fmt.Sprintf("spec.clientServerTLS.Secret is changed from %q to %q", oldObj.GetClientServerTLSSecret(), v.GetClientServerTLSSecret()))
+	}
+	if oldObj.GetClientServerTLSMode() != "" && v.GetClientServerTLSMode() != oldObj.GetClientServerTLSMode() {
+		errMsgs = append(errMsgs, fmt.Sprintf("spec.clientServerTLS.Mode is changed from %q to %q", oldObj.GetClientServerTLSMode(), v.GetClientServerTLSMode()))
+	}
+	return errMsgs
+}
+
+func (v *VerticaDB) compareSpecAndStatus() []string {
+	errMsgs := []string{}
+	if v.IsSubclusterOpNeeded() {
+		errMsgs = append(errMsgs, "subluster operation is still in progress")
+		return errMsgs
+	}
+	if v.IsSandboxOpNeeded() {
+		errMsgs = append(errMsgs, "sandboxing/unsandboxing operation is still in progress")
+		return errMsgs
+	}
+	return errMsgs
+}
+
 func (s *Subcluster) setDefaultProxySubcluster(useProxy bool) {
 	if useProxy {
 		if s.Proxy == nil {
@@ -2310,4 +2849,55 @@ func (s *Subcluster) setDefaultProxySubcluster(useProxy bool) {
 			s.Proxy.Resources = nil
 		}
 	}
+}
+
+func (v *VerticaDB) validateAutoRotateConfig(allErrs field.ErrorList) field.ErrorList {
+	// Validate both TLS configs: clientServer and httpsNMA
+	allErrs = append(allErrs, v.validateOneTLSAutoRotateConfig(ClientServerTLSConfigName)...)
+	allErrs = append(allErrs, v.validateOneTLSAutoRotateConfig(HTTPSNMATLSConfigName)...)
+	return allErrs
+}
+
+func (v *VerticaDB) validateOneTLSAutoRotateConfig(configName string) field.ErrorList {
+	var allErrs field.ErrorList
+	fieldName := configName + "TLS"
+	tls := v.GetTLSConfigSpecByName(configName)
+
+	if tls == nil || tls.AutoRotate == nil {
+		return allErrs // Nothing to validate
+	}
+
+	fldPath := field.NewPath("spec").Child(fieldName).Child("autoRotate")
+
+	secrets := tls.AutoRotate.Secrets
+	interval := tls.AutoRotate.Interval
+
+	// Rule 1: Must have at least two secrets
+	if len(secrets) < 2 {
+		allErrs = append(allErrs,
+			field.Invalid(fldPath.Child("secrets"), secrets,
+				"must contain at least two secrets for auto-rotation"),
+		)
+	}
+
+	// Rule 2: Interval must be >= 10
+	if interval < 10 {
+		allErrs = append(allErrs,
+			field.Invalid(fldPath.Child("interval"), interval,
+				"must be greater than or equal to 10 minutes"),
+		)
+	}
+
+	// Rule 3: No duplicate secrets
+	seen := make(map[string]struct{})
+	for i, s := range secrets {
+		if _, ok := seen[s]; ok {
+			allErrs = append(allErrs,
+				field.Duplicate(fldPath.Child("secrets").Index(i), s),
+			)
+		}
+		seen[s] = struct{}{}
+	}
+
+	return allErrs
 }

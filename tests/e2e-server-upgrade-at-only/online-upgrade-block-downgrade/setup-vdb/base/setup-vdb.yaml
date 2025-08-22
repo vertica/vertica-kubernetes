@@ -11,27 +11,30 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1beta1
+apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
   name: v-base-upgrade
+  annotations:
+    vertica.com/include-uid-in-path: "true"
+    vertica.com/k-safety: "0"
 spec:
   image: kustomize-vertica-image
-  communal:
-    includeUIDInPath: true
+  communal: {}
   local:
     requestSize: 100Mi
-  kSafety: "0"
   upgradePolicy: ReadOnlyOnline
   subclusters:
     - name: sc1
       size: 1
-      isPrimary: true
+      type: primary
   temporarySubclusterRouting:
     template:
       name: "temp"
       size: 2
+      type: secondary
   certSecrets: []
   imagePullSecrets: []
   volumes: []
   volumeMounts: []
+  encryptSpreadComm: disabled

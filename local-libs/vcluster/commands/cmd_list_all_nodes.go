@@ -31,7 +31,7 @@ import (
  */
 type CmdListAllNodes struct {
 	fetchNodeStateOptions *vclusterops.VFetchNodeStateOptions
-
+	skipVersion           bool
 	CmdBase
 }
 
@@ -66,12 +66,19 @@ Examples:
 		[]string{dbNameFlag, hostsFlag, passwordFlag, ipv6Flag, catalogPathFlag, configFlag, outputFileFlag},
 	)
 
+	cmd.Flags().BoolVar(
+		&newCmd.skipVersion,
+		"skip-version",
+		false,
+		"Whether skip fetching the version information",
+	)
+
 	return cmd
 }
 
 func (c *CmdListAllNodes) Parse(inputArgv []string, logger vlog.Printer) error {
 	c.argv = inputArgv
-	logger.LogArgParse(&c.argv)
+	logger.LogMaskedArgParse(c.argv)
 
 	// for some options, we do not want to use their default values,
 	// if they are not provided in cli,
@@ -97,6 +104,10 @@ func (c *CmdListAllNodes) validateParse(logger vlog.Printer) error {
 	if err != nil {
 		return err
 	}
+
+	// set whether skip the version info
+	c.fetchNodeStateOptions.GetVersion = !c.skipVersion
+
 	return c.setDBPassword(&c.fetchNodeStateOptions.DatabaseOptions)
 }
 

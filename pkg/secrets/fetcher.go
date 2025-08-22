@@ -135,7 +135,7 @@ func (m *MultiSourceSecretFetcher) readFromGSM(ctx context.Context, secName stri
 }
 
 // readFromAWS will fetch a secret from AWS Secrets Manager. The secretName
-// should be of the format awssm://<secret-arn>.
+// should be of the format awssm://<secret-arn> or awssm://<secret-arn>@<version-id>.
 func (m *MultiSourceSecretFetcher) readFromAWS(secretName string) (map[string][]byte, error) {
 	secretARNWithVersionID := RemovePathReference(secretName)
 	secretARN, versionID := getAWSSecretVersionID(secretARNWithVersionID)
@@ -149,7 +149,7 @@ func (m *MultiSourceSecretFetcher) readFromAWS(secretName string) (map[string][]
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse ARN for AWS secret fetch: %w", err)
 	}
-	m.Log.Info("Reading secret from AWS", "secretARN", secretARN, "region", arnComp.Region)
+	m.Log.Info("Reading secret from AWS", "secretARN", secretARN, "region", arnComp.Region, "versionID", versionID)
 
 	awsSession, err := session.NewSession(&aws.Config{
 		Region: aws.String(arnComp.Region),

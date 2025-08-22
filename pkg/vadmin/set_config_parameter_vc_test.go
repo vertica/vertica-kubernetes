@@ -59,9 +59,9 @@ var _ = Describe("set_config_parameter_vc", func() {
 	It("should call VSetConfigurationParameters in the vcluster-ops library", func() {
 		dispatcher := mockVClusterOpsDispatcher()
 		dispatcher.VDB.Spec.DBName = TestDBName
-		dispatcher.VDB.Spec.HTTPSNMATLSSecret = "set-config-parameter-test-secret"
-		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.HTTPSNMATLSSecret)
-		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.HTTPSNMATLSSecret)
+		dispatcher.VDB.Spec.HTTPSNMATLS.Secret = "set-config-parameter-test-secret"
+		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.HTTPSNMATLS.Secret)
+		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.HTTPSNMATLS.Secret)
 
 		err := dispatcher.SetConfigurationParameter(ctx,
 			setconfigparameter.WithUserName(vapi.SuperUser),

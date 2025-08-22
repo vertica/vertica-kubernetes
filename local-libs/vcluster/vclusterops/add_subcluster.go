@@ -36,6 +36,7 @@ type VAddSubclusterOptions struct {
 	IsPrimary      bool
 	ControlSetSize int
 	CloneSC        string
+	SandboxName    string
 	// part 3: add node info
 	VAddNodeOptions
 }
@@ -216,8 +217,12 @@ func (vcc *VClusterCommands) produceAddSubclusterInstructions(options *VAddSubcl
 	}
 
 	username := options.UserName
-	httpsGetUpNodesOp, err := makeHTTPSGetUpNodesOp(options.DBName, options.Hosts,
-		options.usePassword, username, options.Password, AddSubclusterCmd)
+	mainCluster := false
+	if options.SandboxName == util.MainClusterSandbox {
+		mainCluster = true
+	}
+	httpsGetUpNodesOp, err := makeHTTPSGetUpNodesWithSandboxOp(options.DBName, options.Hosts,
+		options.usePassword, username, options.Password, AddSubclusterCmd, options.SandboxName, mainCluster)
 	if err != nil {
 		return instructions, err
 	}

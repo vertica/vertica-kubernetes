@@ -16,12 +16,12 @@
 package settlsconfig
 
 type Parms struct {
-	InitiatorIP               string
-	ClientServerTLSMode       string
-	HTTPSTLSMode              string
-	ClientServerTLSSecretName string
-	HTTPSTLSSecretName        string
-	Namespace                 string
+	InitiatorIP      string
+	TLSMode          string
+	TLSSecretName    string
+	Namespace        string
+	IsHTTPSTLSConfig bool
+	GrantAuth        bool
 }
 
 // Option is a function that configures a Parms instance.
@@ -34,31 +34,17 @@ func (p *Parms) Make(opts ...Option) {
 	}
 }
 
-// WithClientServerTLSSecretName sets the ClientServerTLSSecretName field of the Parms struct.
-func WithClientServerTLSSecretName(secret string) Option {
+// WithTLSMode sets the TLSMode field of the Parms struct.
+func WithTLSMode(tlsMode string) Option {
 	return func(p *Parms) {
-		p.ClientServerTLSSecretName = secret
+		p.TLSMode = tlsMode
 	}
 }
 
-// WithHTTPSTLSMode sets the HTTPSTLSMode field of the Parms struct.
-func WithHTTPSTLSMode(tlsMode string) Option {
+// WithTLSSecretName sets the TLSSecretName field of the Parms struct.
+func WithTLSSecretName(secret string) Option {
 	return func(p *Parms) {
-		p.HTTPSTLSMode = tlsMode
-	}
-}
-
-// WithHTTPSTLSSecretName sets the HTTPSTLSSecretName field of the Parms struct.
-func WithHTTPSTLSSecretName(secret string) Option {
-	return func(p *Parms) {
-		p.HTTPSTLSSecretName = secret
-	}
-}
-
-// WithClientServerTLSMode sets the ClientServerTLSMode field of the Parms struct.
-func WithClientServerTLSMode(tlsMode string) Option {
-	return func(p *Parms) {
-		p.ClientServerTLSMode = tlsMode
+		p.TLSSecretName = secret
 	}
 }
 
@@ -73,5 +59,20 @@ func WithNamespace(namespace string) Option {
 func WithInitiatorIP(initiatorIP string) Option {
 	return func(p *Parms) {
 		p.InitiatorIP = initiatorIP
+	}
+}
+
+// WithHTTPSTLSConfig specifies whether the current API call is for https
+// or client server. Trues means the call is for https.
+func WithHTTPSTLSConfig(isHTTPSTLSConfig bool) Option {
+	return func(p *Parms) {
+		p.IsHTTPSTLSConfig = isHTTPSTLSConfig
+	}
+}
+
+// WithGrantAuth specify if the set_tls_config should create tls authencations
+func WithGrantAuth(grantAuth bool) Option {
+	return func(p *Parms) {
+		p.GrantAuth = grantAuth
 	}
 }

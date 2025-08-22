@@ -50,9 +50,9 @@ type VerticaAutoscalerReconciler struct {
 // +kubebuilder:rbac:groups=vertica.com,resources=verticaautoscalers/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=vertica.com,resources=verticaautoscalers/finalizers,verbs=update
 // +kubebuilder:rbac:groups=vertica.com,resources=verticadbs,verbs=get;list;create;update;patch;delete
-// +kubebuilder:rbac:groups=autoscaling,resources=horizontalpodautoscalers,verbs=get;list;watch;create;update;delete;patch
-// +kubebuilder:rbac:groups=keda.sh,resources=scaledobjects,verbs=get;list;watch;create;update;delete;patch
-// +kubebuilder:rbac:groups=keda.sh,resources=triggerauthentications,verbs=get;list;watch;create;update;delete;patch
+// +kubebuilder:rbac:groups=autoscaling,resources=horizontalpodautoscalers,verbs=get;list;watch;create;update;patch
+// +kubebuilder:rbac:groups=keda.sh,resources=scaledobjects,verbs=get;list;watch;create;update;patch
+// +kubebuilder:rbac:groups=keda.sh,resources=triggerauthentications,verbs=get;list;watch;create;update;patch
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.

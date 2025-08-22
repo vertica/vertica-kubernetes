@@ -63,9 +63,9 @@ var _ = Describe("get_config_parameter_vc", func() {
 	It("should call VGetConfigurationParameters in the vcluster-ops library", func() {
 		dispatcher := mockVClusterOpsDispatcher()
 		dispatcher.VDB.Spec.DBName = TestDBName
-		dispatcher.VDB.Spec.HTTPSNMATLSSecret = "get-config-parameter-test-secret"
-		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.HTTPSNMATLSSecret)
-		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.HTTPSNMATLSSecret)
+		dispatcher.VDB.Spec.HTTPSNMATLS.Secret = "get-config-parameter-test-secret"
+		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.HTTPSNMATLS.Secret)
+		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.HTTPSNMATLS.Secret)
 
 		value, err := dispatcher.GetConfigurationParameter(ctx,
 			getconfigparameter.WithUserName(vapi.SuperUser),
@@ -77,7 +77,7 @@ var _ = Describe("get_config_parameter_vc", func() {
 		Ω(err).Should(Succeed())
 		Ω(value).Should(Equal(TestConfigParamValue))
 
-		vapi.SetVDBForTLS(dispatcher.VDB)
+		vapi.SetVDBWithHTTPSTLSConfigSet(dispatcher.VDB, dispatcher.VDB.Spec.HTTPSNMATLS.Secret)
 		_, err = dispatcher.GetConfigurationParameter(ctx,
 			getconfigparameter.WithUserName(vapi.SuperUser),
 			getconfigparameter.WithInitiatorIP(TestSourceIP),

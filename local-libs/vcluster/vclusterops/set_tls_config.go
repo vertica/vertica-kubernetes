@@ -29,16 +29,22 @@ type VSetTLSConfigOptions struct {
 	HTTPSTLSConfig TLSConfig
 }
 
+const DefaultCacheDuration = 0
+
 func VSetTLSConfigOptionsFactory() VSetTLSConfigOptions {
 	options := VSetTLSConfigOptions{}
 	options.setDefaultValues()
 	options.ServerTLSConfig = TLSConfig{
-		ConfigMap:  make(map[string]string),
-		ConfigType: ServerTLSKeyPrefix,
+		ConfigMap:     make(map[string]string),
+		ConfigType:    ServerTLSKeyPrefix,
+		GrantAuth:     false,
+		CacheDuration: uint64(DefaultCacheDuration),
 	}
 	options.HTTPSTLSConfig = TLSConfig{
-		ConfigMap:  make(map[string]string),
-		ConfigType: HTTPSTLSKeyPrefix,
+		ConfigMap:     make(map[string]string),
+		ConfigType:    HTTPSTLSKeyPrefix,
+		GrantAuth:     true,
+		CacheDuration: uint64(DefaultCacheDuration),
 	}
 
 	return options
@@ -51,6 +57,10 @@ func (options *VSetTLSConfigOptions) validateTLSConfig(logger vlog.Printer) erro
 
 	if !options.ServerTLSConfig.hasConfigParam() && !options.HTTPSTLSConfig.hasConfigParam() {
 		return fmt.Errorf("missing TLS configuration: specify settings for at least one of server or HTTPS")
+	}
+
+	if options.ServerTLSConfig.GrantAuth && options.HTTPSTLSConfig.GrantAuth {
+		return fmt.Errorf("server and https TLS configurations cannot both set GrantAuth to true")
 	}
 
 	err = options.ServerTLSConfig.validate(logger)
@@ -120,8 +130,9 @@ func (vcc VClusterCommands) produceSetTLSConfigInstructions(options *VSetTLSConf
 	instructions = append(instructions, &nmaHealthOp)
 	if options.ServerTLSConfig.hasConfigParam() {
 		nmaSetServerTLSOp, err := makeNMASetTLSOp(&options.DatabaseOptions, string(options.ServerTLSConfig.ConfigType),
-			false, // grantAuth
-			false, // syncCatalog
+			options.ServerTLSConfig.GrantAuth,
+			true, // syncCatalog
+			options.ServerTLSConfig.CacheDuration,
 			options.ServerTLSConfig.ConfigMap)
 		if err != nil {
 			return instructions, err
@@ -131,8 +142,9 @@ func (vcc VClusterCommands) produceSetTLSConfigInstructions(options *VSetTLSConf
 
 	if options.HTTPSTLSConfig.hasConfigParam() {
 		nmaSetHTTPSTLSOp, err := makeNMASetTLSOp(&options.DatabaseOptions, string(options.HTTPSTLSConfig.ConfigType),
-			true, // grantAuth
+			options.HTTPSTLSConfig.GrantAuth,
 			true, // syncCatalog
+			options.HTTPSTLSConfig.CacheDuration,
 			options.HTTPSTLSConfig.ConfigMap)
 		if err != nil {
 			return instructions, err

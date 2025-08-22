@@ -18,7 +18,6 @@ package vadmin
 import (
 	"context"
 	"errors"
-	"maps"
 	"strings"
 
 	vops "github.com/vertica/vcluster/vclusterops"
@@ -26,6 +25,7 @@ import (
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/net"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
+	"github.com/vertica/vertica-kubernetes/pkg/tls"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/createdb"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -72,7 +72,7 @@ func (v *VClusterOps) CreateDB(ctx context.Context, opts ...createdb.Option) (ct
 	return ctrl.Result{}, nil
 }
 
-func (v *VClusterOps) genCreateDBOptions(s *createdb.Parms, certs *HTTPSCerts) vops.VCreateDatabaseOptions {
+func (v *VClusterOps) genCreateDBOptions(s *createdb.Parms, certs *tls.HTTPSCerts) vops.VCreateDatabaseOptions {
 	opts := vops.VCreateDatabaseOptionsFactory()
 
 	opts.RawHosts = s.Hosts
@@ -122,11 +122,5 @@ func (v *VClusterOps) genCreateDBOptions(s *createdb.Parms, certs *HTTPSCerts) v
 		opts.TimeoutNodeStartupSeconds = timeout
 	}
 
-	if v.VDB.IsCertRotationEnabled() {
-		configMap := genTLSConfigurationMap(v.VDB.Spec.HTTPSTLSMode, v.VDB.Spec.HTTPSNMATLSSecret, v.VDB.Namespace)
-		opts.HTTPSTLSConfiguration = maps.Clone(configMap)
-		configMap = genTLSConfigurationMap(v.VDB.Spec.ClientServerTLSMode, v.VDB.Spec.ClientServerTLSSecret, v.VDB.Namespace)
-		opts.ServerTLSConfiguration = maps.Clone(configMap)
-	}
 	return opts
 }

@@ -1,5 +1,0 @@
-kind: Fixed
-body: Added back the feature gate flag to disable the RBAC creation for metrics
-time: 2025-04-14T17:47:31.706120445+02:00
-custom:
-    Issue: "1190"

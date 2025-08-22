@@ -25,6 +25,7 @@ import (
 	. "github.com/onsi/gomega"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/builder"
+	"github.com/vertica/vertica-kubernetes/pkg/cloud"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
@@ -48,10 +49,21 @@ var _ = Describe("obj_reconcile", func() {
 	ctx := context.Background()
 	const trueStr = "true"
 	const falseStr = "false"
+	const envName = "EXTRA_ENV"
+	const extraKey = "extra_key"
 
 	runReconciler := func(vdb *vapi.VerticaDB, expResult ctrl.Result, mode ObjReconcileModeType) {
 		// Create any dependent objects for the CRD.
-		pfacts := podfacts.MakePodFacts(vdbRec, &cmds.FakePodRunner{}, logger, TestPassword)
+		pfacts := podfacts.MakePodFactsWithCacheManager(vdbRec, &cmds.FakePodRunner{}, logger, TestPassword, vdbRec.CacheManager)
+
+		fetcher := &cloud.SecretFetcher{
+			Client:   vdbRec.Client,
+			Log:      vdbRec.Log,
+			Obj:      vdb,
+			EVWriter: vdbRec.EVRec,
+			// &aterrors.TestEVWriter{},
+		}
+		vdbRec.CacheManager.InitCertCacheForVdb(vdb, fetcher)
 		objr := MakeObjReconciler(vdbRec, logger, vdb, &pfacts, mode)
 		Expect(objr.Reconcile(ctx, &ctrl.Request{})).Should(Equal(expResult))
 	}
@@ -664,15 +676,16 @@ var _ = Describe("obj_reconcile", func() {
 
 		It("should requeue if vclusterops is enabled but HTTP secret isn't setup properly", func() {
 			vdb := vapi.MakeVDB()
-			vdb.Spec.HTTPSNMATLSSecret = ""
+			vdb.Spec.NMATLSSecret = ""
 			vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
+			vdb.Annotations[vmeta.EnableTLSAuthAnnotation] = vmeta.AnnotationFalse
 			createCrd(vdb, false)
 			defer deleteCrd(vdb)
 
 			runReconciler(vdb, ctrl.Result{Requeue: true}, ObjReconcileModeAll)
 
 			// Having a secret name, but not created should force a requeue too
-			vdb.Spec.HTTPSNMATLSSecret = "dummy1"
+			vdb.Spec.NMATLSSecret = "dummy1"
 			runReconciler(vdb, ctrl.Result{Requeue: true}, ObjReconcileModeAll)
 		})
 
@@ -814,9 +827,10 @@ var _ = Describe("obj_reconcile", func() {
 			vdb := vapi.MakeVDB()
 			vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
 			vdb.Annotations[vmeta.VersionAnnotation] = vapi.VcluseropsAsDefaultDeploymentMethodMinVersion
-			vdb.Spec.HTTPSNMATLSSecret = "tls-abcdef"
-			test.CreateFakeTLSSecret(ctx, vdb, k8sClient, vdb.Spec.HTTPSNMATLSSecret)
-			defer test.DeleteSecret(ctx, k8sClient, vdb.Spec.HTTPSNMATLSSecret)
+			vdb.Annotations[vmeta.EnableTLSAuthAnnotation] = vmeta.AnnotationFalse
+			vdb.Spec.NMATLSSecret = "tls-abcdef"
+			test.CreateFakeTLSSecret(ctx, vdb, k8sClient, vdb.GetNMATLSSecret())
+			defer test.DeleteSecret(ctx, k8sClient, vdb.GetNMATLSSecret())
 			createCrd(vdb, true)
 			defer deleteCrd(vdb)
 
@@ -986,99 +1000,203 @@ var _ = Describe("obj_reconcile", func() {
 			deleteProxy(ctx, vdb, vpName, cmName)
 		})
 
-		It("should be a no-op if EnableTLSAuthAnnotation is disabled", func() {
-			vdb := vapi.MakeVDB()
-			vdb.Annotations[vmeta.EnableTLSAuthAnnotation] = falseStr
-			test.CreateVDB(ctx, k8sClient, vdb)
-			defer test.DeleteVDB(ctx, k8sClient, vdb)
-
-			pfacts := podfacts.MakePodFacts(vdbRec, &cmds.FakePodRunner{}, logger, TestPassword)
-			objr := MakeObjReconciler(vdbRec, logger, vdb, &pfacts, ObjReconcileModeAll)
-			r := objr.(*ObjReconciler)
-			err := r.reconcileNMACertConfigMap(ctx)
-			Expect(err).Should(Succeed())
-		})
-
-		It("should create the ConfigMap if it does not exist", func() {
-			vdb := vapi.MakeVDB()
-			vdb.Annotations[vmeta.EnableTLSAuthAnnotation] = trueStr
-			const existing = "existing-secret"
-			vdb.Spec.HTTPSNMATLSSecret = existing
-			test.CreateVDB(ctx, k8sClient, vdb)
-			defer test.DeleteVDB(ctx, k8sClient, vdb)
-
-			// Ensure the ConfigMap doesn't exist
-			configMapName := names.GenNMACertConfigMap(vdb)
-			configMap := &corev1.ConfigMap{}
-			err := k8sClient.Get(ctx, configMapName, configMap)
-			Expect(errors.IsNotFound(err)).Should(BeTrue())
-
-			pfacts := podfacts.MakePodFacts(vdbRec, &cmds.FakePodRunner{}, logger, TestPassword)
-			objr := MakeObjReconciler(vdbRec, logger, vdb, &pfacts, ObjReconcileModeAll)
-			r := objr.(*ObjReconciler)
-			err = r.reconcileNMACertConfigMap(ctx)
-			defer deleteConfigMap(ctx, vdb, configMapName.Name)
-			Expect(err).Should(Succeed())
-
-			// Verify that the ConfigMap was created
-			err = k8sClient.Get(ctx, configMapName, configMap)
-			Expect(err).Should(Succeed())
-			Expect(configMap.Data[builder.NMASecretNameEnv]).Should(Equal(vdb.Spec.HTTPSNMATLSSecret))
-		})
-
-		It("should update the ConfigMap if the secret name changes", func() {
-			vdb := vapi.MakeVDB()
-			vdb.Annotations[vmeta.EnableTLSAuthAnnotation] = trueStr
-			const initial = "initial-secret"
-			vdb.Spec.HTTPSNMATLSSecret = initial
-			test.CreateVDB(ctx, k8sClient, vdb)
-			defer test.DeleteVDB(ctx, k8sClient, vdb)
-
-			nm := names.GenNMACertConfigMap(vdb)
-			configMap := builder.BuildNMATLSConfigMap(nm, vdb)
-			Expect(k8sClient.Create(ctx, configMap)).Should(Succeed())
-			defer deleteConfigMap(ctx, vdb, nm.Name)
-
-			vdb.Spec.HTTPSNMATLSSecret = "updated-secret"
-			Expect(k8sClient.Update(ctx, vdb)).Should(Succeed())
-
-			pfacts := podfacts.MakePodFacts(vdbRec, &cmds.FakePodRunner{}, logger, TestPassword)
-			objr := MakeObjReconciler(vdbRec, logger, vdb, &pfacts, ObjReconcileModeAll)
-			r := objr.(*ObjReconciler)
-			err := r.reconcileNMACertConfigMap(ctx)
-			Expect(err).Should(Succeed())
-
-			// Verify that the ConfigMap was updated
-			err = k8sClient.Get(ctx, nm, configMap)
-			Expect(err).Should(Succeed())
-			Expect(configMap.Data[builder.NMASecretNameEnv]).Should(Equal("updated-secret"))
-		})
-
 		It("should remove ownerReference from tls secret", func() {
 			vdb := vapi.MakeVDB()
-			vdb.Spec.HTTPSNMATLSSecret = "test-secret"
+			vdb.Spec.HTTPSNMATLS.Secret = "test-secret"
 			vdb.Annotations[vmeta.EnableTLSAuthAnnotation] = trueStr
 			createCrd(vdb, false)
 			defer deleteCrd(vdb)
-			secret := test.BuildTLSSecret(vdb, vdb.Spec.HTTPSNMATLSSecret, test.TestKeyValue, test.TestCertValue, test.TestCaCertValue)
+			secret := test.BuildTLSSecret(vdb, vdb.GetNMATLSSecret(), test.TestKeyValue, test.TestCertValue, test.TestCaCertValue)
 			secret.OwnerReferences = []metav1.OwnerReference{
 				{UID: vdb.GetUID(), Name: vdb.Name, Kind: vapi.VerticaDBKind, APIVersion: vapi.GroupVersion.String()},
 			}
 			Expect(k8sClient.Create(ctx, secret)).Should(Succeed())
-			defer test.DeleteSecret(ctx, k8sClient, vdb.Spec.HTTPSNMATLSSecret)
+			defer test.DeleteSecret(ctx, k8sClient, vdb.GetNMATLSSecret())
 
 			o := &ObjReconciler{
 				Rec: vdbRec,
 				Vdb: vdb,
 				Log: logger,
 			}
-			err := o.updateOwnerReferenceInTLSSecret(ctx, vdb.Spec.HTTPSNMATLSSecret)
+			err := o.updateOwnerReferenceInTLSSecret(ctx, vdb.GetNMATLSSecret())
 			Expect(err).Should(Succeed())
 
 			fetchedSecret := &corev1.Secret{}
-			secretName := names.GenNamespacedName(o.Vdb, vdb.Spec.HTTPSNMATLSSecret)
+			secretName := names.GenNamespacedName(o.Vdb, vdb.GetNMATLSSecret())
 			Expect(k8sClient.Get(ctx, secretName, fetchedSecret)).Should(Succeed())
 			Expect(len(fetchedSecret.OwnerReferences)).Should(Equal(0))
+		})
+
+		It("should add mount-nma-certs annotation correctly", func() {
+			vdb := vapi.MakeVDB()
+			createCrd(vdb, true)
+			defer deleteCrd(vdb)
+
+			o := &ObjReconciler{
+				Rec: vdbRec,
+				Vdb: vdb,
+				Log: logger,
+			}
+			hlNameLookup := names.GenHlSvcName(vdb)
+			hlSvc := &corev1.Service{}
+			Expect(k8sClient.Get(ctx, hlNameLookup, hlSvc)).Should(Succeed())
+
+			// current version is equal to 25.3.0, the value should be false
+			Expect(hlSvc.Labels[vmeta.OperatorVersionLabel]).Should(Equal(vmeta.CurOperatorVersion))
+			err := o.recordAnnotations(ctx)
+			Expect(err).Should(BeNil())
+			Expect(vdb.Annotations[vmeta.MountNMACertsAnnotation]).Should(Equal(falseStr))
+
+			// if the user manually change it, we shouldn't override it
+			vdb.Annotations[vmeta.MountNMACertsAnnotation] = trueStr
+			err = o.recordAnnotations(ctx)
+			Expect(err).Should(BeNil())
+			Expect(vdb.Annotations[vmeta.MountNMACertsAnnotation]).Should(Equal(trueStr))
+
+			// if the version is lower than 25.3, the value should be true
+			delete(vdb.Annotations, vmeta.MountNMACertsAnnotation)
+			hlSvc.Labels[vmeta.OperatorVersionLabel] = "25.2.0"
+			Expect(k8sClient.Update(ctx, hlSvc)).Should(Succeed())
+			err = o.recordAnnotations(ctx)
+			Expect(err).Should(BeNil())
+			Expect(vdb.Annotations[vmeta.MountNMACertsAnnotation]).Should(Equal(trueStr))
+		})
+
+		It("should set config hash label and create configmap if referenced in ExtraEnv", func() {
+			vdb := vapi.MakeVDB()
+			sc := &vdb.Spec.Subclusters[0]
+			cmName := types.NamespacedName{Name: "extra-config", Namespace: vdb.Namespace}
+			// Add an extra env var referencing a configmap that does not exist yet
+			vdb.Spec.ExtraEnv = append(vdb.Spec.ExtraEnv, corev1.EnvVar{
+				Name: envName,
+				ValueFrom: &corev1.EnvVarSource{
+					ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
+						Key: extraKey,
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: cmName.Name,
+						},
+					},
+				},
+			})
+			// Ensure configmap does not exist
+			cm := &corev1.ConfigMap{}
+			Expect(errors.IsNotFound(k8sClient.Get(ctx, cmName, cm))).Should(BeTrue())
+
+			// Create the configmap with the required key
+			cm.Data = map[string]string{extraKey: "value"}
+			cm.Name = cmName.Name
+			cm.Namespace = cmName.Namespace
+			cm.Labels = map[string]string{
+				vmeta.WatchedByVDBLabel: trueStr,
+			}
+			Expect(k8sClient.Create(ctx, cm)).Should(Succeed())
+			defer func() { Expect(k8sClient.Delete(ctx, cm)).Should(Succeed()) }()
+
+			pfacts := podfacts.MakePodFacts(vdbRec, &cmds.FakePodRunner{}, logger, TestPassword)
+			objr := MakeObjReconciler(vdbRec, logger, vdb, &pfacts, ObjReconcileModeAll).(*ObjReconciler)
+
+			nm := names.GenStsName(vdb, sc)
+			expSts := builder.BuildStsSpec(nm, vdb, sc, "")
+			expSts.Spec.Template.Annotations = map[string]string{}
+
+			err := objr.setConfigHashLabel(ctx, expSts, nil)
+			Expect(err).Should(BeNil())
+			hash, ok := expSts.Spec.Template.Annotations[vmeta.ConfigHashAnnotation]
+			Expect(ok).Should(BeTrue())
+			Expect(hash).ShouldNot(BeEmpty())
+		})
+
+		It("should set config hash label and create secret if referenced in EnvFrom", func() {
+			vdb := vapi.MakeVDB()
+			sc := &vdb.Spec.Subclusters[0]
+			secretName := "extra-secret"
+			// Add an extra env var referencing a secret that does not exist yet
+			vdb.Spec.EnvFrom = append(vdb.Spec.EnvFrom, corev1.EnvFromSource{
+				SecretRef: &corev1.SecretEnvSource{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: secretName,
+					},
+				},
+			})
+			// Ensure secret does not exist
+			secret := &corev1.Secret{}
+			secretNm := types.NamespacedName{Name: secretName, Namespace: vdb.Namespace}
+			Expect(errors.IsNotFound(k8sClient.Get(ctx, secretNm, secret))).Should(BeTrue())
+
+			// Create the secret with the required key
+			secret.Name = secretName
+			secret.Namespace = vdb.Namespace
+			secret.Data = map[string][]byte{extraKey: []byte("value")}
+			secret.Labels = map[string]string{
+				vmeta.WatchedByVDBLabel: trueStr,
+			}
+			Expect(k8sClient.Create(ctx, secret)).Should(Succeed())
+			defer func() { Expect(k8sClient.Delete(ctx, secret)).Should(Succeed()) }()
+
+			pfacts := podfacts.MakePodFacts(vdbRec, &cmds.FakePodRunner{}, logger, TestPassword)
+			objr := MakeObjReconciler(vdbRec, logger, vdb, &pfacts, ObjReconcileModeAll).(*ObjReconciler)
+
+			nm := names.GenStsName(vdb, sc)
+			expSts := builder.BuildStsSpec(nm, vdb, sc, "")
+			expSts.Spec.Template.Annotations = map[string]string{}
+
+			err := objr.setConfigHashLabel(ctx, expSts, nil)
+			Expect(err).Should(BeNil())
+			hash, ok := expSts.Spec.Template.Annotations[vmeta.ConfigHashAnnotation]
+			Expect(ok).Should(BeTrue())
+			Expect(hash).ShouldNot(BeEmpty())
+		})
+
+		It("should return error if referenced configmap in EnvFrom does not exist", func() {
+			vdb := vapi.MakeVDB()
+			sc := &vdb.Spec.Subclusters[0]
+			cmName := "missing-config"
+			// Add an extra env var referencing a configmap that does not exist
+			vdb.Spec.EnvFrom = append(vdb.Spec.EnvFrom, corev1.EnvFromSource{
+				ConfigMapRef: &corev1.ConfigMapEnvSource{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: cmName,
+					},
+				},
+			})
+
+			pfacts := podfacts.MakePodFacts(vdbRec, &cmds.FakePodRunner{}, logger, TestPassword)
+			objr := MakeObjReconciler(vdbRec, logger, vdb, &pfacts, ObjReconcileModeAll).(*ObjReconciler)
+
+			nm := names.GenStsName(vdb, sc)
+			expSts := builder.BuildStsSpec(nm, vdb, sc, "")
+			expSts.Spec.Template.Annotations = map[string]string{}
+
+			err := objr.setConfigHashLabel(ctx, expSts, nil)
+			Expect(err).ShouldNot(BeNil())
+		})
+
+		It("should return error if referenced secret in ExtraEnv does not exist", func() {
+			vdb := vapi.MakeVDB()
+			sc := &vdb.Spec.Subclusters[0]
+			secretName := "missing-secret"
+			// Add an extra env var referencing a secret that does not exist
+			vdb.Spec.ExtraEnv = append(vdb.Spec.ExtraEnv, corev1.EnvVar{
+				Name: envName,
+				ValueFrom: &corev1.EnvVarSource{
+					SecretKeyRef: &corev1.SecretKeySelector{
+						Key: extraKey,
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: secretName,
+						},
+					},
+				},
+			})
+
+			pfacts := podfacts.MakePodFacts(vdbRec, &cmds.FakePodRunner{}, logger, TestPassword)
+			objr := MakeObjReconciler(vdbRec, logger, vdb, &pfacts, ObjReconcileModeAll).(*ObjReconciler)
+
+			nm := names.GenStsName(vdb, sc)
+			expSts := builder.BuildStsSpec(nm, vdb, sc, "")
+			expSts.Spec.Template.Annotations = map[string]string{}
+
+			err := objr.setConfigHashLabel(ctx, expSts, nil)
+			Expect(err).ShouldNot(BeNil())
 		})
 	})
 })

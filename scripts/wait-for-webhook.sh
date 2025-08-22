@@ -89,7 +89,7 @@ SELECTOR=$SELECTOR_KEY=$SELECTOR_VAL
 MANIFEST=$(mktemp)
 
 cat <<EOF > $MANIFEST
-apiVersion: vertica.com/v1beta1
+apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
   generateName: wait-for-webhook-

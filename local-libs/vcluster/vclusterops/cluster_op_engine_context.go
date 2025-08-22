@@ -38,9 +38,12 @@ type opEngineExecContext struct {
 	hostsWithLatestCatalog        []string
 	primaryHostsWithLatestCatalog []string
 	startupCommandMap             map[string][]string // store start up command map to start nodes
+	hasNoQuorum                   bool                // do we have Quorum
 	dbInfo                        string              // store the db info that retrieved from communal storage
 	restorePoints                 []RestorePoint      // store list existing restore points that queried from an archive
 	systemTableList               systemTableListInfo // used for staging system tables
+	ignoreMainCluster             bool                // used in remove_subcluster to avoid operations on main cluster
+	isScSandboxed                 bool                // used by sandbox_subcluster and set in makeHTTPSFindSubclusterOp
 	// hosts on which the wrong authentication occurred
 	hostsWithWrongAuth []string
 
@@ -62,10 +65,10 @@ type opEngineExecContext struct {
 	dcSlowEventList *[]dcSlowEvent
 
 	// transaction starts
-	dcTransactionStarts *dcTransactionStarts
+	dcTransactionStarts *[]dcTransactionStarts
 
 	// session starts
-	dcSessionStarts *dcSessionStarts
+	dcSessionStarts *[]dcSessionStarts
 
 	workloadReplyCtx context.Context
 	// lockAttempts list

@@ -24,8 +24,10 @@ kind: VerticaDB
 metadata:
   name: v-tls-certs
 spec:
-  httpsNMATLSSecret: nma-cert
-  clientServerTLSSecret: client-cert
+  httpsNMATLS:
+    secret: nma-cert
+  clientServerTLS:
+    secret: client-cert
 status:
   subclusters:
     - addedToDBCount: 1

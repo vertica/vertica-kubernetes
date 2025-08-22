@@ -98,7 +98,7 @@ const (
 // +kubebuilder:printcolumn:name="VerticaDB",type="string",JSONPath=".spec.verticaDBName"
 // +kubebuilder:printcolumn:name="State",type="string",JSONPath=".status.state"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
-// +operator-sdk:csv:customresourcedefinitions:resources={{VerticaDB,vertica.com/v1beta1,""}}
+// +operator-sdk:csv:customresourcedefinitions:resources={{VerticaDB,vertica.com/v1,""}}
 
 // VerticaRestorePointsQuery is the Schema for the verticarestorepointsqueries API
 type VerticaRestorePointsQuery struct {

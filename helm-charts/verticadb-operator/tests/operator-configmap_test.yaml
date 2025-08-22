@@ -1,0 +1,28 @@
+suite: Operator configmap tests
+templates:
+  - verticadb-operator-manager-config-cm.yaml
+tests:
+  - it: should not contain ip if expose is without auth
+    set:
+      prometheus:
+        expose: EnableWithoutAuth
+    asserts:
+      - equal:
+          path: data.METRICS_ADDR
+          value: :8443
+  - it: should contain ip if expose is with auth
+    set:
+      prometheus:
+        expose: EnableWithAuth
+    asserts:
+      - equal:
+          path: data.METRICS_ADDR
+          value: 0.0.0.0:8443
+  - it: should set prometheus_enabled
+    set:
+      prometheusServer:
+        enabled: true
+    asserts:
+      - equal:
+          path: data.PROMETHEUS_ENABLED
+          value: "true"

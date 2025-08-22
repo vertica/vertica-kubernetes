@@ -45,11 +45,12 @@ const (
 	// the pod spec template. Rather it is set in the pod by a reconciler after
 	// the pod was created.
 	OperatorVersionLabel = "app.kubernetes.io/version"
-	CurOperatorVersion   = "25.2.0-0" // The version number of the operator
+	CurOperatorVersion   = "25.3.0-0" // The version number of the operator
 	// If any of the operator versions are used in the code, add a const here.
 	// But it isn't necessary to create a const for each version.
 	OperatorVersion100 = "1.0.0"
 	OperatorVersion220 = "2.2.0"
+	OperatorVersion253 = "25.3.0"
 
 	// Service objects
 	//
@@ -141,6 +142,22 @@ const (
 	IsSandboxLabel = "vertica.com/is-sandbox"
 	IsSandboxFalse = "false"
 	IsSandboxTrue  = "true"
+
+	// Used by the vdb to keep track of all configmaps referenced by the vdb
+	// in spec.envFrom and spec.extraEnv
+	ConfigMapSelectorLabel = "vertica.com/configmap-selector-name"
+
+	// Used by the vdb to keep track of all secrets referenced by the vdb
+	// in spec.envFrom and spec.extraEnv
+	SecretSelectorLabel = "vertica.com/secret-selector-name" // #nosec G101
+
+	// Used by the vdb to keep track of all configmaps referenced by the vdb
+	// in spec.envFrom and spec.extraEnv
+	WatchedByVDBLabel = "vertica.com/watched-by-vdb-controller"
+	WatchedByVDBFalse = false
+	// Indicates the service monitor will be selected
+	// by prometheus
+	SvcMonitorLabel = "release"
 )
 
 // ProtectedLabels lists all of the internally used label.
@@ -165,4 +182,8 @@ var SandboxConfigMapLabels = []string{
 	DataBaseLabel,
 	NameLabel,
 	WatchedBySandboxLabel,
+}
+
+func IsWatchedByVDB(labels map[string]string) bool {
+	return lookupBoolAnnotation(labels, WatchedByVDBLabel, WatchedByVDBFalse)
 }

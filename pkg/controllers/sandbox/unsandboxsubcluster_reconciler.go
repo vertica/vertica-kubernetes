@@ -26,6 +26,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
+	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/unsandboxsc"
@@ -146,8 +147,11 @@ func (r *UnsandboxSubclusterReconciler) reconcileSandboxConfigMap(ctx context.Co
 		// if the subclusters in the sandbox does not need to be unsandboxed, we remove
 		// unsandbox trigger ID from the config map
 		if !found {
-			delete(r.ConfigMap.Annotations, vmeta.SandboxControllerUnsandboxTriggerID)
-			err := r.Client.Update(ctx, r.ConfigMap)
+			chgs := vk8s.MetaChanges{
+				AnnotationsToRemove: []string{vmeta.SandboxControllerUnsandboxTriggerID},
+			}
+			nm := names.GenNamespacedName(r.ConfigMap, cmName)
+			_, err := vk8s.MetaUpdate(ctx, r.SRec.GetClient(), nm, r.ConfigMap, chgs)
 			if err != nil {
 				r.Log.Error(err, "failed to remove unsandbox trigger ID from sandbox config map", "configMapName", cmName)
 				return err, false
@@ -220,8 +224,12 @@ func (r *UnsandboxSubclusterReconciler) processConfigMap(ctx context.Context) er
 		r.Log.Info("Successfully deleted sandbox config map", "configMapName", cmName)
 		return nil
 	}
-	delete(r.ConfigMap.Annotations, vmeta.SandboxControllerUnsandboxTriggerID)
-	err := r.Client.Update(ctx, r.ConfigMap)
+
+	chgs := vk8s.MetaChanges{
+		AnnotationsToRemove: []string{vmeta.SandboxControllerUnsandboxTriggerID},
+	}
+	nm := names.GenNamespacedName(r.ConfigMap, cmName)
+	_, err := vk8s.MetaUpdate(ctx, r.SRec.GetClient(), nm, r.ConfigMap, chgs)
 	if err != nil {
 		r.Log.Error(err, "failed to remove unsandbox trigger ID from sandbox config map", "configMapName", cmName)
 		return err
@@ -275,20 +283,8 @@ func (r *UnsandboxSubclusterReconciler) unsandboxSubcluster(ctx context.Context,
 	return nil
 }
 
-// updateSandboxInfoInVdb will update subcluster type and sandbox status in vdb
+// updateSandboxInfoInVdb will update the sandbox status in vdb
 func (r *UnsandboxSubclusterReconciler) updateSandboxInfoInVdb(ctx context.Context, sbName string, unsandboxedScNames []string) error {
-	// update the subcluster type in the spec
-	_, err := vk8s.UpdateVDBWithRetry(ctx, r.SRec, r.Vdb, func() (bool, error) {
-		for _, unsandboxSc := range unsandboxedScNames {
-			for i := range r.Vdb.Spec.Subclusters {
-				if unsandboxSc == r.Vdb.Spec.Subclusters[i].Name && r.Vdb.Spec.Subclusters[i].IsSandboxPrimary() {
-					r.Vdb.Spec.Subclusters[i].Type = vapi.SecondarySubcluster
-				}
-			}
-		}
-		return true, nil
-	})
-
 	updateStatus := func(vdbChg *vapi.VerticaDB) error {
 		// update the sandbox's subclusters in sandbox status
 		for i := len(vdbChg.Status.Sandboxes) - 1; i >= 0; i-- {
@@ -305,5 +301,5 @@ func (r *UnsandboxSubclusterReconciler) updateSandboxInfoInVdb(ctx context.Conte
 		return nil
 	}
 
-	return errors.Join(err, vdbstatus.Update(ctx, r.Client, r.Vdb, updateStatus))
+	return vdbstatus.Update(ctx, r.Client, r.Vdb, updateStatus)
 }

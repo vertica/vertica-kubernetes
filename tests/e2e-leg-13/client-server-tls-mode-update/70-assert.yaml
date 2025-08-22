@@ -1,0 +1,10 @@
+apiVersion: vertica.com/v1
+kind: VerticaDB
+metadata:
+  name: v-server-tls-mode
+status:
+  tlsConfigs:
+  - mode: try_verify
+    name: httpsNMA
+  - mode: try_verify
+    name: clientServer

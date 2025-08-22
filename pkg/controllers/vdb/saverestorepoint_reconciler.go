@@ -25,7 +25,6 @@ import (
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
-	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/createarchive"
@@ -70,7 +69,7 @@ func (s *SaveRestorePointReconciler) Reconcile(ctx context.Context, _ *ctrl.Requ
 		return ctrl.Result{}, nil
 	}
 	// Check if deployment is using vclusterops
-	if !vmeta.UseVClusterOps(s.Vdb.Annotations) {
+	if !s.Vdb.UseVClusterOpsDeployment() {
 		s.VRec.Event(s.Vdb, corev1.EventTypeWarning, events.InDBSaveRestorePointNotSupported,
 			"SaveRestorePoint is not supported for admintools deployments")
 		err := vdbstatus.UpdateCondition(ctx, s.VRec.Client, s.Vdb,

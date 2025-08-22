@@ -21,6 +21,7 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
+	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/secrets"
 	corev1 "k8s.io/api/core/v1"
@@ -44,7 +45,7 @@ type SecretFetcher struct {
 func (v *SecretFetcher) Fetch(ctx context.Context, secretName types.NamespacedName) (map[string][]byte, error) {
 	secretData, res, err := v.FetchAllowRequeue(ctx, secretName)
 	if res.Requeue && err == nil {
-		return secretData, fmt.Errorf("secret fetch ended with requeue but is not allowed in code path")
+		return secretData, fmt.Errorf("secret fetch ended with requeue but is not allowed in code path, secret name - %s", secretName.Name)
 	}
 	return secretData, err
 }
@@ -73,6 +74,25 @@ func (v *SecretFetcher) GetSecret(ctx context.Context, name types.NamespacedName
 	return &secret, err
 }
 
+// CheckSecretHasKeys will check if the secret has the required keys. If not, it will
+// log an event and return a ctrl.Result that will requeue the reconcile iteration.
+func (v *SecretFetcher) CheckSecretHasKeys(ctx context.Context, secretType string, secretName types.NamespacedName,
+	keyNames []string) (ctrl.Result, error) {
+	secretData, res, err := v.FetchAllowRequeue(ctx, secretName)
+	if verrors.IsReconcileAborted(res, err) {
+		return res, err
+	}
+
+	for _, key := range keyNames {
+		if _, ok := secretData[key]; !ok {
+			v.EVWriter.Eventf(v.Obj, corev1.EventTypeWarning, events.MissingSecretKeys,
+				"%s secret '%s' has missing key '%s'", secretType, secretName, key)
+			return ctrl.Result{Requeue: true}, nil
+		}
+	}
+	return ctrl.Result{}, nil
+}
+
 // handleFetchError is called when there is an error fetching the secret. It
 // will handle things like event logging and setting up the ctrl.Result.
 func (v *SecretFetcher) handleFetchError(secretName types.NamespacedName, err error) (map[string][]byte, ctrl.Result, error) {
@@ -82,5 +102,6 @@ func (v *SecretFetcher) handleFetchError(secretName types.NamespacedName, err er
 			"Could not find the secret '%s'", secretName.Name)
 		return nil, ctrl.Result{Requeue: true}, nil
 	}
+	v.Log.Error(err, fmt.Sprintf("secret %s cannot be fetched", secretName.Name))
 	return nil, ctrl.Result{}, err
 }

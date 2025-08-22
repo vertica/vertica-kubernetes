@@ -18,6 +18,8 @@ metadata:
   annotations:
     vertica.com/k-safety: "1"
     vertica.com/include-uid-in-path: "true"
+    vertica.com/remove-tls-secret-on-vdb-delete: "true"
+    vertica.com/disable-tls-rotation-failure-rollback: "false"
 spec:
   initPolicy: CreateSkipPackageInstall
   image: kustomize-vertica-image
@@ -27,7 +29,8 @@ spec:
     catalogPath: /catalog
   dbName: vertdb
   encryptSpreadComm: vertica
-  httpsTLSMode: VERIFY_CA
+  httpsNMATLS:
+    mode: VERIFY_CA
   subclusters:
     - name: sc1
       size: 3

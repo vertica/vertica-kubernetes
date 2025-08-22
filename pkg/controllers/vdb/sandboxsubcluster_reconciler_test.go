@@ -299,13 +299,13 @@ var _ = Describe("sandboxsubcluster_reconcile", func() {
 			{Name: subcluster1, Size: 1, Type: vapi.SecondarySubcluster},
 			{Name: subcluster2, Size: 1, Type: vapi.SecondarySubcluster},
 		}
-		vdb.Spec.HTTPSNMATLSSecret = "test-tls"
+		vdb.Spec.HTTPSNMATLS.Secret = "test-tls"
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
-		test.CreateFakeTLSSecret(ctx, vdb, k8sClient, vdb.Spec.HTTPSNMATLSSecret)
-		defer test.DeleteSecret(ctx, k8sClient, vdb.Spec.HTTPSNMATLSSecret)
+		test.CreateFakeTLSSecret(ctx, vdb, k8sClient, vdb.GetNMATLSSecret())
+		defer test.DeleteSecret(ctx, k8sClient, vdb.GetNMATLSSecret())
 
 		fpr := &cmds.FakePodRunner{}
 		pfacts := createPodFactsDefault(fpr)
@@ -320,7 +320,7 @@ var _ = Describe("sandboxsubcluster_reconcile", func() {
 		// Sandbox the first subcluster. Only use IP from a host in the main cluster.
 		Ω(k8sClient.Get(ctx, vdb.ExtractNamespacedName(), vdb)).Should(Succeed())
 		vdb.Spec.Sandboxes = []vapi.Sandbox{
-			{Name: sandbox1, Subclusters: []vapi.SandboxSubcluster{{Name: subcluster1}}},
+			{Name: sandbox1, Subclusters: []vapi.SandboxSubcluster{{Name: subcluster1, Type: vapi.PrimarySubcluster}}},
 		}
 		Ω(k8sClient.Update(ctx, vdb)).Should(Succeed())
 
@@ -343,7 +343,7 @@ var _ = Describe("sandboxsubcluster_reconcile", func() {
 		// existing sandbox.
 		Ω(k8sClient.Get(ctx, vdb.ExtractNamespacedName(), vdb)).Should(Succeed())
 		vdb.Spec.Sandboxes[0].Subclusters = append(vdb.Spec.Sandboxes[0].Subclusters,
-			vapi.SandboxSubcluster{Name: subcluster2})
+			vapi.SandboxSubcluster{Name: subcluster2, Type: vapi.SecondarySubcluster})
 		Ω(k8sClient.Update(ctx, vdb)).Should(Succeed())
 
 		Ω(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))

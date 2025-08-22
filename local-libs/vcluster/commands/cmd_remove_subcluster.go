@@ -42,7 +42,7 @@ func makeCmdRemoveSubcluster() *cobra.Command {
 		newCmd,
 		removeSCSubCmd,
 		"Removes a subcluster.",
-		`Removes a non-sandboxed subcluster and its nodes from an Eon Mode database.
+		`Removes a subcluster and its nodes from an Eon Mode database.
 
 Examples:
   # Remove a subcluster with config file
@@ -78,6 +78,12 @@ func (c *CmdRemoveSubcluster) setLocalFlags(cmd *cobra.Command) {
 		subclusterFlag,
 		"",
 		"Name of subcluster to remove.",
+	)
+	cmd.Flags().StringVar(
+		&c.removeScOptions.Sandbox,
+		sandboxFlag,
+		"",
+		"The name of the sandbox where the subcluster is to be removed.",
 	)
 }
 

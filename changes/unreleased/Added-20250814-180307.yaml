@@ -1,0 +1,5 @@
+kind: Added
+body: 'Injecting Environment Variables via extraEnv and envFrom (from ConfigMaps/Secrets)'
+time: 2025-08-14T18:03:07.42401575+02:00
+custom:
+    Issue: "1370"

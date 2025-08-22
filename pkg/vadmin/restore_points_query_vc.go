@@ -21,6 +21,7 @@ import (
 
 	vops "github.com/vertica/vcluster/vclusterops"
 	"github.com/vertica/vertica-kubernetes/pkg/net"
+	"github.com/vertica/vertica-kubernetes/pkg/tls"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/showrestorepoints"
 )
 
@@ -49,7 +50,7 @@ func (v *VClusterOps) ShowRestorePoints(ctx context.Context, opts ...showrestore
 	return showRestorePoints, nil
 }
 
-func (v *VClusterOps) genRestorePointsOptions(s *showrestorepoints.Parms, certs *HTTPSCerts) *vops.VShowRestorePointsOptions {
+func (v *VClusterOps) genRestorePointsOptions(s *showrestorepoints.Parms, certs *tls.HTTPSCerts) *vops.VShowRestorePointsOptions {
 	opts := vops.VShowRestorePointsFactory()
 
 	// required options

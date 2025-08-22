@@ -25,6 +25,8 @@ import (
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/aterrors"
+	"github.com/vertica/vertica-kubernetes/pkg/cache"
+	"github.com/vertica/vertica-kubernetes/pkg/cloud"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/mockvops"
@@ -185,13 +187,13 @@ var _ = Describe("onlineupgrade_reconciler", func() {
 		vdb.Spec.Sandboxes = []vapi.Sandbox{
 			{Name: preferredSandboxName, Subclusters: []vapi.SandboxSubcluster{{Name: "sec1"}}},
 		}
-		vdb.Spec.HTTPSNMATLSSecret = "test-tls"
+		vdb.Spec.HTTPSNMATLS.Secret = "test-tls"
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
-		test.CreateFakeTLSSecret(ctx, vdb, k8sClient, vdb.Spec.HTTPSNMATLSSecret)
-		defer test.DeleteSecret(ctx, k8sClient, vdb.Spec.HTTPSNMATLSSecret)
+		test.CreateFakeTLSSecret(ctx, vdb, k8sClient, vdb.GetNMATLSSecret())
+		defer test.DeleteSecret(ctx, k8sClient, vdb.GetNMATLSSecret())
 		vdb.Spec.Image = NewImageName // Trigger an upgrade
 		Ω(k8sClient.Update(ctx, vdb)).Should(Succeed())
 
@@ -368,13 +370,13 @@ var _ = Describe("onlineupgrade_reconciler", func() {
 			{Name: "sec3", Type: vapi.SecondarySubcluster, Size: 2},
 			{Name: "sec4", Type: vapi.SecondarySubcluster, Size: 2},
 		}
-		vdb.Spec.HTTPSNMATLSSecret = "tls-abcdef"
+		vdb.Spec.HTTPSNMATLS.Secret = "tls-abcdef"
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
-		test.CreateFakeTLSSecret(ctx, vdb, k8sClient, vdb.Spec.HTTPSNMATLSSecret)
-		defer test.DeleteSecret(ctx, k8sClient, vdb.Spec.HTTPSNMATLSSecret)
+		test.CreateFakeTLSSecret(ctx, vdb, k8sClient, vdb.GetNMATLSSecret())
+		defer test.DeleteSecret(ctx, k8sClient, vdb.GetNMATLSSecret())
 		vdb.Spec.Image = NewImageName // Trigger an upgrade
 		Ω(k8sClient.Update(ctx, vdb)).Should(Succeed())
 
@@ -598,11 +600,17 @@ func createOnlineUpgradeReconciler(ctx context.Context, vdb *vapi.VerticaDB) *On
 	fpr := &cmds.FakePodRunner{Results: cmds.CmdResults{}}
 	pfacts := createPodFactsDefault(fpr)
 	dispatcher := mockVClusterOpsDispatcher(vdb)
-
+	vClusterOps := dispatcher.(*vadmin.VClusterOps)
+	fetcher := &cloud.SecretFetcher{
+		Client:   vClusterOps.Client,
+		Log:      vClusterOps.Log,
+		Obj:      vClusterOps.VDB,
+		EVWriter: vClusterOps.EVWriter,
+	}
+	vdbRec.CacheManager.InitCertCacheForVdb(vdb, fetcher)
 	// Add client-routing labels to all pods that exist
 	cr := MakeClientRoutingLabelReconciler(vdbRec, logger, vdb, pfacts, AddNodeApplyMethod, "")
 	Ω(cr.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
-
 	actor := MakeOnlineUpgradeReconciler(vdbRec, logger, vdb, pfacts, dispatcher)
 	r := actor.(*OnlineUpgradeReconciler)
 	Ω(r.loadUpgradeState(ctx)).Should(Equal(ctrl.Result{}))
@@ -657,5 +665,15 @@ func mockVClusterOpsDispatcher(vdb *vapi.VerticaDB) vadmin.Dispatcher {
 		return &mockvops.MockVClusterOps{}, logr.Logger{}
 	}
 	evWriter := aterrors.TestEVWriter{}
-	return vadmin.MakeVClusterOps(logger, vdb, k8sClient, "pwd", &evWriter, setupAPIFunc)
+	cacheManager := cache.MakeCacheManager(true)
+	dispatcher := vadmin.MakeVClusterOps(logger, vdb, k8sClient, "pwd", &evWriter, setupAPIFunc, cacheManager)
+	vclusterops := dispatcher.(*vadmin.VClusterOps)
+	fetcher := &cloud.SecretFetcher{
+		Client:   vclusterops.Client,
+		Log:      vclusterops.Log,
+		Obj:      vclusterops.VDB,
+		EVWriter: vclusterops.EVWriter,
+	}
+	cacheManager.InitCertCacheForVdb(vdb, fetcher)
+	return dispatcher
 }

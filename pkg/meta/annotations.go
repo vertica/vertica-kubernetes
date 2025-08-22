@@ -25,6 +25,9 @@ import (
 )
 
 const (
+	AnnotationTrue  = "true"
+	AnnotationFalse = "false"
+
 	// Annotations that we set in each of the pod.  These are set by the
 	// AnnotateAndLabelPodReconciler.  They are available in the pod with the
 	// downwardAPI so they can be picked up by the Vertica data collector (DC).
@@ -105,14 +108,19 @@ const (
 	CreateDBTimeoutAnnotation = "vertica.com/createdb-timeout"
 
 	// The time in seconds to wait for a subcluster or database users' disconnection, its default value is 60.
-	// This is a leagacy code as we used to use this to control draining timeout during stop db and stop subcmuster.
+	// This is a leagacy code as we used to use this to control draining timeout during stop db and stop subcluster.
 	// Now there is a single annotation "vertica.com/active-connections-drain-seconds" to drain users' connections.
 	ShutdownDrainSecondsAnnotation = "vertica.com/shutdown-drain-seconds"
 	ShutdownDefaultDrainSeconds    = 60
 
-	// The time at which draining pending delete pods has started. When greater than 'vertica.com/remove-drain-seconds'
+	// The time at which draining pending delete pods has started. When greater than'vertica.com/active-connection-drain-seconds'
 	// it means the timeout has expired and all active connections will be closed.
 	DrainStartAnnotation = "vertica.com/drain-start-time"
+
+	// When draining for read-only upgrade, we want to drain per subcluster. The time at which a particular subcluster
+	// started draining will be stored in a specific annotation, such as 'vertica.com/drain-start-time-sc1'. This is the
+	// prefix of that annotation. Functions similar to drain-start-time above
+	DrainStartSubclusterPrefixAnnotation = DrainStartAnnotation
 
 	// The time in seconds to wait for a subcluster or database users' disconnection, its default value is 60
 	ActiveConnectionsDrainSecondsAnnotation = "vertica.com/active-connections-drain-seconds"
@@ -221,6 +229,30 @@ const (
 	HTTPSTLSConfGenerationAnnotationTrue  = "true"
 	HTTPSTLSConfGenerationAnnotationFalse = "false"
 	HTTPSTLSConfGenerationDefaultValue    = true
+
+	// This annotation disables TLS rollback functionality. Setting this ensures
+	// backwards compatibility with functionality for versions <25.4.0. Default is
+	// currently false (disabling this feature).
+	DisableTLSRotationFailureRollbackAnnotation      = "vertica.com/disable-tls-rotation-failure-rollback"
+	DisableTLSRotationFailureRollbackAnnotationTrue  = "true"
+	DisableTLSRotationFailureRollbackAnnotationFalse = "false"
+	DisableTLSRotationFailureRollbackDefaultValue    = true
+
+	// This annotation forces a failure of the next TLS update cert rotation. There
+	// are two places where this can be forced:
+	//   "https_before_tls_update": fail before HTTPS secret has been updated in the DB
+	//   "https_after_tls_update": fail after HTTPS secret has been updated in the DB
+	//   "client_server": fail during client-server cert (which is always before secret has been updated in the DB)
+	// This annotation is internal only and should only be used for testing the
+	// rollback after failed cert rotation functionality
+	TriggerTLSUpdateFailureAnnotation                  = "vertica.com/trigger-tls-update-failure"
+	TriggerTLSUpdateFailureBeforeHTTPSTLSUpdate        = "https_before_tls_update"
+	TriggerTLSUpdateFailureAfterHTTPSTLSUpdate         = "https_after_tls_update"
+	TriggerTLSUpdateFailureDuringClientServerTLSUpdate = "client_server"
+
+	// This annotation forces the automatic cert rotation to trigger now, instead of on
+	// a timer. It is internal and should be used only for testing.
+	TriggerAutoTLSRotateAnnotation = "vertica.com/trigger-auto-tls-rotate"
 
 	// We have a deployment check that ensures that if running vcluster ops the
 	// image is built for that (and vice-versa). This annotation allows you to
@@ -364,6 +396,9 @@ const (
 	// This will  be set in a sandbox configMap by the vdb controller to wake up the sandbox
 	// controller for stopping/starting a sandbox
 	SandboxControllerShutdownTriggerID = "vertica.com/sandbox-controller-shutdown-trigger-id"
+	// This will  be set in a sandbox configMap by the vdb controller to wake up the sandbox
+	// controller for alter subcluster type in a sandbox
+	SandboxControllerAlterSubclusterTypeTriggerID = "vertica.com/sandbox-controller-alter-subcluster-type-trigger-id"
 
 	// Use this to override the name of the statefulset and its pods. This needs
 	// to be set in the spec.subclusters[].annotations field to take effect. If
@@ -418,6 +453,28 @@ const (
 	// allowing us to retain the DC tables.
 	// This is currently used internally for K8s stress test.
 	PreserveDBDirectoryAnnotation = "vertica.com/preserve-db-dir"
+
+	// This annotation controls how long the TLS cache should be kept.
+	TLSCacheDurationAnnotation = "vertica.com/tls-cache-duration"
+	TLSCacheDefaultDuration    = 1 * 24 * 3600 // 1 day
+
+	// This annotation ensures the tls secrets are removed after the VDB is removed.
+	RemoveTLSSecretOnVDBDeleteAnnotation = "vertica.com/remove-tls-secret-on-vdb-delete" // #nosec G101
+
+	// This annotation is used to store the hash of the VerticaDB config. It is
+	// used to determine if the config has changed and if the operator should
+	// reconfigure the database.
+	ConfigHashAnnotation = "vertica.com/config-hash"
+	// Interval (in seconds) at which Prometheus scrapes the metrics from the target.
+	// If empty, Prometheus uses the global scrape interval.
+	PrometheusScrapeIntervalAnnotation = "vertica.com/prometheus-scrape-interval"
+
+	// This annotation disables the webhook check performed by hasValidTLSWithKnob().
+	// It is intended for internal testing purposes only.
+	SkipTLSWebhookCheck = "vertica.com/skip-tls-webhook-check"
+
+	// This is an internal annotation. It is used to indicate we've set HTTPS TLS in offline upgrade.
+	OfflineUpgradeHTTPSSetAnnotation = "vertica.com/offline-https-set"
 )
 
 // IsPauseAnnotationSet will check the annotations for a special value that will
@@ -571,6 +628,19 @@ func IsHTTPSTLSConfGenerationAnnotationSet(annotations map[string]string) bool {
 // depends on TLS auth config in the catalog.
 func IsHTTPSTLSConfGenerationEnabled(annotations map[string]string) bool {
 	return lookupBoolAnnotation(annotations, HTTPSTLSConfGenerationAnnotation, HTTPSTLSConfGenerationDefaultValue)
+}
+
+// IsDisableTLSRollbackAnnotationSet returns true if DisableTLSFailureRollbackAnnotation is set,
+// disabling TLS cert rollback after failed rotation
+func IsDisableTLSRollbackAnnotationSet(annotations map[string]string) bool {
+	return lookupBoolAnnotation(annotations, DisableTLSRotationFailureRollbackAnnotation,
+		DisableTLSRotationFailureRollbackDefaultValue)
+}
+
+// GetTriggerTLSUpdateFailureAnnotation returns the string value of the annotation TriggerTLSUpdateFailureAnnotation,
+// which is used as a backdoor to trigger cert rotation failures, in order to test rollback
+func GetTriggerTLSUpdateFailureAnnotation(annotations map[string]string) string {
+	return lookupStringAnnotation(annotations, TriggerTLSUpdateFailureAnnotation, "")
 }
 
 // GetSkipDeploymentCheck will return true if we are to skip the check that
@@ -811,6 +881,28 @@ func GetPreserveDBDirectory(annotations map[string]string) bool {
 	return lookupBoolAnnotation(annotations, PreserveDBDirectoryAnnotation, false)
 }
 
+// GetTLSCacheDuration returns the duration (in seconds) to keep the TLS cache
+func GetTLSCacheDuration(annotations map[string]string) int {
+	return lookupIntAnnotation(annotations, TLSCacheDurationAnnotation, TLSCacheDefaultDuration)
+}
+
+// ShouldRemoveTLSSecret returns true if a tls secret must be removed on VDB delete
+func ShouldRemoveTLSSecret(annotations map[string]string) bool {
+	return lookupBoolAnnotation(annotations, RemoveTLSSecretOnVDBDeleteAnnotation, false)
+}
+
+func GetPrometheusScrapeInterval(annotations map[string]string) int {
+	return lookupIntAnnotation(annotations, PrometheusScrapeIntervalAnnotation, 0)
+}
+
+func ShouldSkipTLSWebhookCheck(annotations map[string]string) bool {
+	return lookupBoolAnnotation(annotations, SkipTLSWebhookCheck, false)
+}
+
+func IsHTTPSTLSSetInOfflineUpgrade(annotations map[string]string) bool {
+	return lookupBoolAnnotation(annotations, OfflineUpgradeHTTPSSetAnnotation, false)
+}
+
 // lookupBoolAnnotation is a helper function to lookup a specific annotation and
 // treat it as if it were a boolean.
 func lookupBoolAnnotation(annotations map[string]string, annotation string, defaultValue bool) bool {
@@ -874,4 +966,27 @@ func getResource(annotations map[string]string, annotationName, defValStr string
 
 func genAnnotationName(prefix, name string) string {
 	return fmt.Sprintf("%s-%s", prefix, name)
+}
+
+// Find all annotation keys containing a certain prefix.
+func findPrefixedAnnotations(annotations map[string]string, prefix string) ([]string, bool) {
+	var matching []string
+	for k := range annotations {
+		if strings.HasPrefix(k, prefix) {
+			matching = append(matching, k)
+		}
+	}
+	return matching, len(matching) > 0
+}
+
+// Generate annotation name for subcluster-specific drain start time
+// eg vertica.com/drain-start-time-sc1
+func GenSubclusterDrainStartAnnotationName(scName string) string {
+	return genAnnotationName(DrainStartSubclusterPrefixAnnotation, scName)
+}
+
+// Find any annotation names with the drain start prefix
+// e.g., "vertica.com/drain-start-time-sc1"
+func FindDrainTimeoutSubclusterAnnotations(annotations map[string]string) ([]string, bool) {
+	return findPrefixedAnnotations(annotations, DrainStartSubclusterPrefixAnnotation)
 }

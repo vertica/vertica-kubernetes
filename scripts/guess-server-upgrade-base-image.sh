@@ -75,7 +75,7 @@ then
         if [ "$USE_CERT" == "true" ]
         then
             # For all newer versions, we pick a random 25.3.0 image.
-            print_vertica_k8s_img_with_tag $PRIVATE_REPO $PRIVATE_IMAGE "20250514-minimal"
+            print_vertica_k8s_img_with_tag $PRIVATE_REPO $PRIVATE_IMAGE "20250516-minimal"
         else
             # For all newer versions, we pick a random 24.4.0 image.
             print_vertica_k8s_img_with_tag $PRIVATE_REPO $PRIVATE_IMAGE "20240928-minimal"

@@ -36,7 +36,7 @@ var _ = Describe("verticadb_types", func() {
 	It("should not include UID in path if IncludeUIDInPath is not set", func() {
 		vdb := MakeVDB()
 		vdb.ObjectMeta.UID = FakeUID
-		vdb.Annotations[vmeta.IncludeUIDInPathAnnotation] = "false"
+		vdb.Annotations[vmeta.IncludeUIDInPathAnnotation] = falseString
 		Expect(vdb.GetCommunalPath()).ShouldNot(ContainSubstring(string(vdb.ObjectMeta.UID)))
 	})
 

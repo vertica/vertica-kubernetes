@@ -44,6 +44,13 @@ type VSandboxOptions struct {
 	SandboxPrimaryUpHost string
 }
 
+type sensitiveInfo struct {
+	password *string
+	key      string
+	cert     string
+	caCert   string
+}
+
 func VSandboxOptionsFactory() VSandboxOptions {
 	options := VSandboxOptions{}
 	options.setDefaultValues()
@@ -170,8 +177,34 @@ func (vcc *VClusterCommands) produceSandboxSubclusterInstructions(options *VSand
 	return instructions, nil
 }
 
+func maskDatabaseOptions(options *DatabaseOptions) *sensitiveInfo {
+	const (
+		mask = "******"
+	)
+	sensitiveFieldBackup := &sensitiveInfo{}
+	sensitiveFieldBackup.password = options.Password
+	sensitiveFieldBackup.key = options.Key
+	sensitiveFieldBackup.cert = options.Cert
+	sensitiveFieldBackup.caCert = options.CaCert
+	maskPassword := mask
+	options.Password = &maskPassword
+	options.Key = mask
+	options.Cert = mask
+	options.CaCert = mask
+	return sensitiveFieldBackup
+}
+
+func unmaskDatabaseOptions(options *DatabaseOptions, sensitiveFieldBackup *sensitiveInfo) {
+	options.Password = sensitiveFieldBackup.password
+	options.Key = sensitiveFieldBackup.key
+	options.Cert = sensitiveFieldBackup.cert
+	options.CaCert = sensitiveFieldBackup.caCert
+}
+
 func (vcc VClusterCommands) VSandbox(options *VSandboxOptions) error {
+	sensitiveFieldBackup := maskDatabaseOptions(&options.DatabaseOptions)
 	vcc.Log.V(0).Info("VSandbox method called", "options", options)
+	unmaskDatabaseOptions(&options.DatabaseOptions, sensitiveFieldBackup)
 	return runSandboxCmd(vcc, options)
 }
 

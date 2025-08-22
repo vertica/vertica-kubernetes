@@ -35,6 +35,7 @@ const (
 const (
 	// The name of the key in the superuser password secret that holds the password
 	SuperuserPasswordKey = "password"
+	SuperUserKey         = "username"
 )
 
 // GenNamespacedName will take any name and make it a namespace name that uses
@@ -148,4 +149,12 @@ func GenTriggerAuthenticationtName(vas *vapi.VerticaAutoscaler, secretName strin
 
 func GenNMACertConfigMap(vdb *vapi.VerticaDB) types.NamespacedName {
 	return GenNamespacedName(vdb, fmt.Sprintf("%s-%s", vdb.Name, vapi.NMATLSConfigMapName))
+}
+
+func GenBasicauthSecretName(vdb *vapi.VerticaDB) types.NamespacedName {
+	return GenNamespacedName(vdb, fmt.Sprintf("%s-basic-auth", vdb.Name))
+}
+
+func GenSvcMonitorName(vdb *vapi.VerticaDB) types.NamespacedName {
+	return GenNamespacedName(vdb, fmt.Sprintf("%s-svc-monitor", vdb.Name))
 }

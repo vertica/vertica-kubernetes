@@ -22,71 +22,46 @@ import (
 
 	vops "github.com/vertica/vcluster/vclusterops"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
-	"github.com/vertica/vertica-kubernetes/pkg/cloud"
-	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/secrets"
+	"github.com/vertica/vertica-kubernetes/pkg/tls"
 	corev1 "k8s.io/api/core/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
+// retrieveNMACerts will retrieve the certs from NMA secret for calling NMA endpoints
+func (v *VClusterOps) retrieveNMACerts(ctx context.Context) (*tls.HTTPSCerts, error) {
+	return v.retrieveHTTPSCertsWithTarget(ctx, false /* forTargetDB */, false /* useHTTPSSecret */)
+}
+
 // retrieveHTTPSCerts will retrieve the certs from HTTPSNMATLSSecret for calling NMA endpoints
-func (v *VClusterOps) retrieveHTTPSCerts(ctx context.Context) (*HTTPSCerts, error) {
-	return v.retrieveHTTPSCertsWithTarget(ctx, false)
+func (v *VClusterOps) retrieveHTTPSCerts(ctx context.Context) (*tls.HTTPSCerts, error) {
+	return v.retrieveHTTPSCertsWithTarget(ctx, false /* forTargetDB */, true /* useHTTPSSecret */)
 }
 
 // retrieveTargetHTTPSCerts will retrieve the certs from HTTPSNMATLSSecret for calling target NMA endpoints
-func (v *VClusterOps) retrieveTargetHTTPSCerts(ctx context.Context) (*HTTPSCerts, error) {
-	return v.retrieveHTTPSCertsWithTarget(ctx, true)
+func (v *VClusterOps) retrieveTargetHTTPSCerts(ctx context.Context) (*tls.HTTPSCerts, error) {
+	return v.retrieveHTTPSCertsWithTarget(ctx, true /* forTargetDB */, true /* useHTTPSSecret */)
 }
 
-func (v *VClusterOps) retrieveHTTPSCertsWithTarget(ctx context.Context, forTarget bool) (*HTTPSCerts, error) {
+func (v *VClusterOps) retrieveHTTPSCertsWithTarget(ctx context.Context, forTarget, useHTTPSSecret bool) (*tls.HTTPSCerts, error) {
 	vdb := v.VDB
 	if forTarget {
 		vdb = v.TargetVDB
 	}
 
 	// Determine the secret name
-	secretName, err := getHTTPSTLSSecretName(vdb)
-	if err != nil {
-		v.Log.Error(err, "failed to get nma secret name")
-		return nil, err
+	secretName := vdb.Spec.NMATLSSecret
+	if useHTTPSSecret {
+		var err error
+		secretName, err = getHTTPSTLSSecretName(vdb)
+		if err != nil {
+			v.Log.Error(err, "failed to get https secret name")
+			return nil, err
+		}
 	}
-
 	v.Log.Info("nma secret name used - " + secretName)
-
-	fetcher := cloud.SecretFetcher{
-		Client:   v.Client,
-		Log:      v.Log,
-		Obj:      vdb,
-		EVWriter: v.EVWriter,
-	}
-
-	return retrieveNMACerts(ctx, &fetcher, vdb, secretName)
-}
-
-func retrieveNMACerts(ctx context.Context, fetcher *cloud.SecretFetcher, vdb *vapi.VerticaDB, secretName string) (*HTTPSCerts, error) {
-	tlsCerts, err := fetcher.Fetch(ctx, names.GenNamespacedName(vdb, secretName))
-	if err != nil {
-		return nil, fmt.Errorf("fetching NMA certs: %w", err)
-	}
-
-	tlsKey, ok := tlsCerts[corev1.TLSPrivateKeyKey]
-	if !ok {
-		return nil, fmt.Errorf("key %s is missing in the secret %s", corev1.TLSPrivateKeyKey, vdb.Spec.HTTPSNMATLSSecret)
-	}
-	tlsCrt, ok := tlsCerts[corev1.TLSCertKey]
-	if !ok {
-		return nil, fmt.Errorf("cert %s is missing in the secret %s", corev1.TLSCertKey, vdb.Spec.HTTPSNMATLSSecret)
-	}
-	tlsCaCrt, ok := tlsCerts[corev1.ServiceAccountRootCAKey]
-	if !ok {
-		return nil, fmt.Errorf("ca cert %s is missing in the secret %s", corev1.ServiceAccountRootCAKey, vdb.Spec.HTTPSNMATLSSecret)
-	}
-	return &HTTPSCerts{
-		Key:    string(tlsKey),
-		Cert:   string(tlsCrt),
-		CaCert: string(tlsCaCrt),
-	}, nil
+	certCache := v.CacheManager.GetCertCacheForVdb(vdb.Namespace, vdb.Name)
+	return certCache.ReadCertFromSecret(ctx, secretName)
 }
 
 func genTLSConfigurationMap(tlsMode, secretNameInVdb, secretNamespace string) map[string]string {
@@ -128,15 +103,15 @@ func (v *VClusterOps) logFailure(cmd, genericFailureReason string, err error) (c
 	return evLogr.LogFailure(cmd, err)
 }
 
-func (v *VClusterOps) setAuthentication(opts *vops.DatabaseOptions, username string, password *string, certs *HTTPSCerts) {
+func (v *VClusterOps) setAuthentication(opts *vops.DatabaseOptions, username string, password *string, certs *tls.HTTPSCerts) {
 	opts.Key = certs.Key
 	opts.Cert = certs.Cert
 	opts.CaCert = certs.CaCert
 	opts.UserName = username
-	// When cert rotation is not enabled, we always use password authentication for both https and nma.
-	// When cert rotation is enabled and VCluster doesn't need cert for client server auth,
+	// When TLS auth is not enabled, we always use password authentication for both https and nma.
+	// When TLS auth is enabled and VCluster doesn't need cert for client server auth,
 	// we use password authentication for NMA.
-	if !v.VDB.IsCertRotationEnabled() {
+	if !v.VDB.IsHTTPSConfigEnabledWithCreate() {
 		opts.Password = password
 	} else if !v.VDB.IsCertNeededForClientServerAuth() {
 		opts.Password = password
@@ -145,15 +120,16 @@ func (v *VClusterOps) setAuthentication(opts *vops.DatabaseOptions, username str
 }
 
 // getHTTPSTLSSecretName returns the name of the secret that stores TLS cert
-// when tls cert is NOT used, it returns vdb.Spec.HTTPSNMATLSSecret. This includes
+// when tls cert is NOT used, it returns vdb.Spec.HTTPSNMATLS.Secret. This includes
 // the time before a vdb is created
 // when tls cert is used, it returns secert name saved in annotation
 func getHTTPSTLSSecretName(vdb *vapi.VerticaDB) (string, error) {
 	secretName := ""
-	if vdb.IsCertRotationEnabled() && vdb.IsStatusConditionTrue(vapi.DBInitialized) {
-		secretName = vdb.GetHTTPSTLSSecretNameInUse()
-	} else {
-		secretName = vdb.Spec.HTTPSNMATLSSecret
+	if vdb.IsSetForTLS() {
+		secretName = vdb.GetHTTPSNMATLSSecretInUse()
+	}
+	if secretName == "" {
+		secretName = vdb.GetNMATLSSecret()
 	}
 	if secretName == "" {
 		return "", fmt.Errorf("failed to retrieve nma secret name")

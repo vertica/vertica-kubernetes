@@ -1,0 +1,45 @@
+apiVersion: v1
+kind: Event
+reason: TLSAutoRotateSucceeded
+source:
+  component: verticadb-operator
+involvedObject:
+  apiVersion: vertica.com/v1
+  kind: VerticaDB
+  name: v-auto-cert-rotate
+message: Auto-rotate triggered for TLS config clientServer with secret cert2
+---
+apiVersion: v1
+kind: Event
+reason: ClientServerTLSUpdateStarted
+source:
+  component: verticadb-operator
+involvedObject:
+  apiVersion: vertica.com/v1
+  kind: VerticaDB
+  name: v-auto-cert-rotate
+message: Starting tls cert rotation for Server with secret name cert2 and mode try_verify
+---
+apiVersion: v1
+kind: Event
+reason: ClientServerTLSUpdateSucceeded
+source:
+  component: verticadb-operator
+involvedObject:
+  apiVersion: vertica.com/v1
+  kind: VerticaDB
+  name: v-auto-cert-rotate
+message: Successfully rotated Server tls cert with secret name cert2 and mode try_verify
+---
+apiVersion: vertica.com/v1
+kind: VerticaDB
+metadata:
+  name: v-auto-cert-rotate
+status:
+  tlsConfigs:
+  - name: httpsNMA
+  - name: clientServer
+    secret: cert2
+    autoRotateSecrets:
+    - cert1
+    - cert2

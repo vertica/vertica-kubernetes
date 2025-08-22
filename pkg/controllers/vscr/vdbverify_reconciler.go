@@ -85,7 +85,7 @@ func (s *VDBVerifyReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (c
 // checkVersion verifies that vclusterops is enabled and the server version supports
 // vclusterops deployment
 func (s *VDBVerifyReconciler) checkVersionAndDeploymentType(ctx context.Context) error {
-	if !vmeta.UseVClusterOps(s.Vdb.Annotations) {
+	if !s.Vdb.UseVClusterOpsDeployment() {
 		s.VRec.Eventf(s.Vscr, corev1.EventTypeWarning, events.VclusterOpsDisabled,
 			"The VerticaDB named '%s' has vclusterops disabled", s.Vdb.Name)
 		return s.updateStateAndScrutinizeReadyCondition(ctx, metav1.ConditionFalse, events.VclusterOpsDisabled,

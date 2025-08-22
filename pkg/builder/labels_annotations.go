@@ -27,10 +27,10 @@ const (
 )
 
 // MakeSubclusterLabels returns the labels added for the subcluster
-func MakeSubclusterLabels(sc *vapi.Subcluster) map[string]string {
+func MakeSubclusterLabels(sc *vapi.Subcluster, vdb *vapi.VerticaDB) map[string]string {
 	m := map[string]string{
 		vmeta.SubclusterNameLabel: sc.Name,
-		vmeta.SubclusterTypeLabel: sc.GetType(),
+		vmeta.SubclusterTypeLabel: sc.GetSubclusterType(vdb),
 	}
 	return m
 }
@@ -80,7 +80,7 @@ func MakeCommonLabels(vdb *vapi.VerticaDB, sc *vapi.Subcluster, forPod, forProxy
 		return labels
 	}
 
-	for k, v := range MakeSubclusterLabels(sc) {
+	for k, v := range MakeSubclusterLabels(sc, vdb) {
 		labels[k] = v
 	}
 
@@ -151,6 +151,14 @@ func MakeLabelsForSandboxConfigMap(vdb *vapi.VerticaDB) map[string]string {
 	return labels
 }
 
+// MakeLabelsForServiceMonitor constructs the labels of the service monitor
+func MakeLabelsForServiceMonitor(vdb *vapi.VerticaDB) map[string]string {
+	labels := MakeOperatorLabels(vdb)
+	labels[vmeta.SvcMonitorLabel] = opcfg.GetReleaseName()
+
+	return labels
+}
+
 // MakeAnnotationsForObjects builds the list of annotations that are to be
 // included on new objects.
 func MakeAnnotationsForObject(vdb *vapi.VerticaDB) map[string]string {
@@ -163,6 +171,14 @@ func MakeAnnotationsForObject(vdb *vapi.VerticaDB) map[string]string {
 	for k, v := range vdb.Spec.Annotations {
 		annotations[k] = v
 	}
+	return annotations
+}
+
+// MakeAnnotationsForPod builds the list of annotations that will be used by pods.
+// This will exclude the operator version annotation.
+func MakeAnnotationsForPod(vdb *vapi.VerticaDB) map[string]string {
+	annotations := MakeAnnotationsForObject(vdb)
+	delete(annotations, vmeta.OperatorVersionAnnotation)
 	return annotations
 }
 

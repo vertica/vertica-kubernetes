@@ -52,3 +52,53 @@ func TestPasswordRedaction(t *testing.T) {
 	assert.Len(t, unmaskedArgs, 2)
 	assert.Equal(t, pw, unmaskedArgs[1])
 }
+func TestLogMaskedArgParseHelper(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    []string
+		expected []string
+	}{
+		{
+			name:     "Mask password argument",
+			input:    []string{"--password", "mypassword"},
+			expected: []string{"--password", "******"},
+		},
+		{
+			name:     "Mask short password argument",
+			input:    []string{"-p", "mypassword"},
+			expected: []string{"-p", "******"},
+		},
+		{
+			name:     "Mask config-param with sensitive keys",
+			input:    []string{"--config-param", "awsauth=key1,gcsauth=key2"},
+			expected: []string{"--config-param", "awsauth=******", "--config-param", "gcsauth=******"},
+		},
+		{
+			name:     "Handle non-sensitive config-param keys",
+			input:    []string{"--config-param", "nonsensitive=value"},
+			expected: []string{"--config-param", "nonsensitive=value"},
+		},
+		{
+			name:     "Handle invalid config-param format",
+			input:    []string{"--config-param", "invalidformat"},
+			expected: []string{"--config-param", "invalidformat"},
+		},
+		{
+			name:     "Non-sensitive argument remains unmasked",
+			input:    []string{"--nothing-secret", "value"},
+			expected: []string{"--nothing-secret", "value"},
+		},
+		{
+			name:     "Mixed arguments with masking",
+			input:    []string{"--password", "mypassword", "--config-param", "awsauth=key1,nonsensitive=value"},
+			expected: []string{"--password", "******", "--config-param", "awsauth=******", "--config-param", "nonsensitive=value"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := logMaskedArgParseHelper(tt.input)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}

@@ -22,6 +22,7 @@ metadata:
     vertica.com/requeue-time: "5"
 spec:
   image: kustomize-vertica-image
+  passwordSecret: su-passwd
   communal: {}
   local:
     requestSize: 100Mi
@@ -31,9 +32,11 @@ spec:
     - name: sc1
       size: 1
   certSecrets: []
-  clientServerTLSSecret: custom-cert
-  httpsNMATLSSecret: custom-cert
-  httpsTLSMode: VERIFY_CA
+  clientServerTLS:
+    secret: custom-cert
+  httpsNMATLS:
+    secret: custom-cert
+    mode: VERIFY_CA
   imagePullSecrets: []
   volumes: []
   volumeMounts: []

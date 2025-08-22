@@ -18,7 +18,6 @@ package commands
 import (
 	"encoding/json"
 	"fmt"
-	"strconv"
 
 	"github.com/spf13/cobra"
 	"github.com/vertica/vcluster/vclusterops"
@@ -138,6 +137,24 @@ func (c *CmdClusterHealth) setLocalFlags(cmd *cobra.Command) {
 		"",
 		"The timezone of the start and end time (e.g., -0500 or +0100). If not given, UTC will be used by default.",
 	)
+	cmd.Flags().StringVar(
+		&c.clusterHealthOptions.MinMutexDuration,
+		"min-mutex-duration",
+		vclusterops.DefaultMinMutexDuration,
+		"The minimum duration of slow events in microseconds (default: 1000000, which is 1 second).",
+	)
+	cmd.Flags().StringVar(
+		&c.clusterHealthOptions.LockAttemptThresHold,
+		"lock-attempt-threshold",
+		vclusterops.DefaultLockAttemptThresHold,
+		"The threshold of slow lock attempt duration in seconds (default: 5 seconds).",
+	)
+	cmd.Flags().StringVar(
+		&c.clusterHealthOptions.LockReleaseThresHold,
+		"lock-release-threshold",
+		vclusterops.DefaultLockReleaseThresHold,
+		"The threshold of slow lock release duration in seconds (default: 5 seconds).",
+	)
 }
 
 func (c *CmdClusterHealth) Parse(inputArgv []string, logger vlog.Printer) error {
@@ -161,13 +178,6 @@ func (c *CmdClusterHealth) validateParse(logger vlog.Printer) error {
 		}
 	}
 
-	// validate txn id is integer
-	if c.clusterHealthOptions.TxnID != "" {
-		_, err := c.validateInt(c.clusterHealthOptions.TxnID, "txn-id")
-		if err != nil {
-			return err
-		}
-	}
 	err := c.ValidateParseBaseOptions(&c.clusterHealthOptions.DatabaseOptions)
 	if err != nil {
 		return err
@@ -175,20 +185,11 @@ func (c *CmdClusterHealth) validateParse(logger vlog.Printer) error {
 	return c.setDBPassword(&c.clusterHealthOptions.DatabaseOptions)
 }
 
-// validateInt checks if the given string is a valid integer
-func (c *CmdClusterHealth) validateInt(value, fieldName string) (int, error) {
-	intValue, err := strconv.Atoi(value)
-	if err != nil {
-		return 0, fmt.Errorf("%s must be an integer", fieldName)
-	}
-	return intValue, nil
-}
-
 func (c *CmdClusterHealth) Run(vcc vclusterops.ClusterCommands) error {
 	vcc.LogInfo("Called method Run()")
 
 	options := c.clusterHealthOptions
-	options.NeedSessionTnxInfo = false
+	options.NeedSessionTnxInfo = true
 
 	err := vcc.VClusterHealth(options)
 	if err != nil {
@@ -236,7 +237,7 @@ func (c *CmdClusterHealth) Run(vcc vclusterops.ClusterCommands) error {
 
 	if options.Display {
 		if options.Operation == "" || options.Operation == slowEventCascade {
-			options.DisplaySlowEventsCascade()
+			options.DisplayMutexEventsCascade()
 		} else if options.Operation == lockCascade {
 			options.DisplayLockEventsCascade()
 		}

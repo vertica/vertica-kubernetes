@@ -25,6 +25,7 @@ import (
 	. "github.com/onsi/gomega"
 	vops "github.com/vertica/vcluster/vclusterops"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
+	"github.com/vertica/vertica-kubernetes/pkg/cache"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/test"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/createdb"
@@ -125,10 +126,10 @@ var _ = Describe("create_db_vc", func() {
 
 	It("should call vcluster-ops library with create_db task", func() {
 		dispatcher := mockVClusterOpsDispatcher()
-		dispatcher.VDB.Spec.HTTPSNMATLSSecret = TestNMATLSSecret
-		dispatcher.VDB.Spec.HTTPSTLSMode = TestTLSMode
-		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.HTTPSNMATLSSecret)
-		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.HTTPSNMATLSSecret)
+		dispatcher.VDB.Spec.HTTPSNMATLS.Secret = TestNMATLSSecret
+		dispatcher.VDB.Spec.HTTPSNMATLS.Mode = TestTLSMode
+		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.HTTPSNMATLS.Secret)
+		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.HTTPSNMATLS.Secret)
 		Ω(callCreateDB(ctx, dispatcher)).Should(Equal(ctrl.Result{}))
 
 		vapi.SetVDBForTLS(dispatcher.VDB)
@@ -137,14 +138,15 @@ var _ = Describe("create_db_vc", func() {
 
 	It("should detect DBIsRunningError", func() {
 		vdb := vapi.MakeVDB()
-		vdb.Spec.HTTPSNMATLSSecret = TestNMATLSSecret
+		vdb.Spec.HTTPSNMATLS.Secret = TestNMATLSSecret
 		vdb.Annotations[vmeta.FailCreateDBIfVerticaIsRunningAnnotation] = vmeta.FailCreateDBIfVerticaIsRunningAnnotationTrue
 		setupAPIFunc := func(logr.Logger, string) (VClusterProvider, logr.Logger) {
 			return &MockVClusterOps{ReturnDBIsRunning: true}, logr.Logger{}
 		}
-		dispatcher := mockVClusterOpsDispatcherWithCustomSetup(vdb, setupAPIFunc)
-		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.HTTPSNMATLSSecret)
-		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.HTTPSNMATLSSecret)
+		cacheManager := cache.MakeCacheManager(true)
+		dispatcher := mockVClusterOpsDispatcherWithCustomSetup(vdb, setupAPIFunc, cacheManager)
+		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.HTTPSNMATLS.Secret)
+		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.HTTPSNMATLS.Secret)
 		_, err := callCreateDB(ctx, dispatcher)
 		Ω(err).ShouldNot(Succeed())
 		dbIsRunningError := &vops.DBIsRunningError{}
@@ -157,15 +159,16 @@ var _ = Describe("create_db_vc", func() {
 
 	It("should detect TimeoutNodeStartupSeconds", func() {
 		vdb := vapi.MakeVDB()
-		vdb.Spec.HTTPSNMATLSSecret = TestNMATLSSecret
+		vdb.Spec.HTTPSNMATLS.Secret = TestNMATLSSecret
 		vdb.Annotations[vmeta.CreateDBTimeoutAnnotation] = fmt.Sprint(TestTimeoutNodeStartupSeconds)
 		Ω(vdb.GetCreateDBNodeStartTimeout()).Should(Equal(TestTimeoutNodeStartupSeconds))
 		setupAPIFunc := func(logr.Logger, string) (VClusterProvider, logr.Logger) {
 			return &MockVClusterOps{VerifyTimeoutNodeStartupSeconds: true}, logr.Logger{}
 		}
-		dispatcher := mockVClusterOpsDispatcherWithCustomSetup(vdb, setupAPIFunc)
-		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.HTTPSNMATLSSecret)
-		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.HTTPSNMATLSSecret)
+		cacheManager := cache.MakeCacheManager(true)
+		dispatcher := mockVClusterOpsDispatcherWithCustomSetup(vdb, setupAPIFunc, cacheManager)
+		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.HTTPSNMATLS.Secret)
+		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.HTTPSNMATLS.Secret)
 		Ω(callCreateDB(ctx, dispatcher)).Should(Equal(ctrl.Result{}))
 	})
 })

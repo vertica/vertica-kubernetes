@@ -18,27 +18,39 @@ package vdb
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
+	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/google/uuid"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
+	"github.com/vertica/vertica-kubernetes/pkg/cache"
+	"github.com/vertica/vertica-kubernetes/pkg/cloud"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
+	"github.com/vertica/vertica-kubernetes/pkg/opcfg"
 
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/metrics"
@@ -56,6 +68,7 @@ type VerticaDBReconciler struct {
 	EVRec              record.EventRecorder
 	Namespace          string
 	MaxBackOffDuration int
+	CacheManager       cache.CacheManager
 }
 
 // +kubebuilder:rbac:groups=vertica.com,resources=verticadbs,verbs=get;list;watch;create;update;patch;delete
@@ -76,12 +89,13 @@ type VerticaDBReconciler struct {
 // +kubebuilder:rbac:groups="",resources=configmaps,verbs=get;list;watch;update;delete;create
 // +kubebuilder:rbac:groups="",resources=persistentvolumeclaims,verbs=get;list;watch;update
 // +kubebuilder:rbac:groups="",resources=events,verbs=create;patch
+// +kubebuilder:rbac:groups="monitoring.coreos.com",resources=servicemonitors,verbs=get;list;watch;create;update
 
 // SetupWithManager sets up the controller with the Manager.
 //
 //nolint:gocritic
 func (r *VerticaDBReconciler) SetupWithManager(mgr ctrl.Manager, options controller.Options) error {
-	return ctrl.NewControllerManagedBy(mgr).
+	ctrlManager := ctrl.NewControllerManagedBy(mgr).
 		WithOptions(options).
 		For(&vapi.VerticaDB{}).
 		Owns(&corev1.ServiceAccount{}).
@@ -90,13 +104,43 @@ func (r *VerticaDBReconciler) SetupWithManager(mgr ctrl.Manager, options control
 		Owns(&corev1.Service{}).
 		Owns(&appsv1.StatefulSet{}).
 		Owns(&appsv1.Deployment{}).
+		Watches(
+			&corev1.ConfigMap{},
+			handler.EnqueueRequestsFromMapFunc(r.findObjectsForSecretOrConfigMap),
+			builder.WithPredicates(r.predicateFuncs(), predicate.ResourceVersionChangedPredicate{}),
+		).
+		Watches(
+			&corev1.Secret{},
+			handler.EnqueueRequestsFromMapFunc(r.findObjectsForSecretOrConfigMap),
+			builder.WithPredicates(r.predicateFuncs(), predicate.ResourceVersionChangedPredicate{}),
+		).
 		WithEventFilter(predicate.NewPredicateFuncs(func(obj client.Object) bool {
 			if r.Namespace == "" {
 				return true
 			}
 			return obj.GetNamespace() == r.Namespace
-		})).
-		Complete(r)
+		}))
+
+	discoveryClient := discovery.NewDiscoveryClientForConfigOrDie(mgr.GetConfig())
+	if opcfg.IsPrometheusEnabled() && isServiceMonitorObjectInstalled(discoveryClient) {
+		ctrlManager.Owns(&monitoringv1.ServiceMonitor{})
+	}
+
+	ctrlManager.WithEventFilter(predicate.NewPredicateFuncs(func(obj client.Object) bool {
+		if r.Namespace == "" {
+			return true
+		}
+		return obj.GetNamespace() == r.Namespace
+	}))
+
+	return ctrlManager.Complete(r)
+}
+
+// Function to check if servicemonitor CRD exists
+func isServiceMonitorObjectInstalled(discoveryClient discovery.DiscoveryInterface) bool {
+	gvr := schema.GroupVersionResource{Group: "monitoring.coreos.com", Version: "v1", Resource: "servicemonitors"}
+	_, err := discoveryClient.ServerResourcesForGroupVersion(gvr.GroupVersion().String())
+	return err == nil
 }
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
@@ -117,6 +161,7 @@ func (r *VerticaDBReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		if errors.IsNotFound(err) {
 			// Remove any metrics for the vdb that we found to be deleted
 			metrics.HandleVDBDelete(req.NamespacedName.Namespace, req.NamespacedName.Name, log)
+			r.CacheManager.DestroyCertCacheForVdb(req.NamespacedName.Namespace, req.NamespacedName.Name)
 			// Request object not found, cound have been deleted after reconcile request.
 			log.Info("VerticaDB resource not found.  Ignoring since object must be deleted")
 			return ctrl.Result{}, nil
@@ -125,7 +170,7 @@ func (r *VerticaDBReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		return ctrl.Result{}, err
 	}
 	log.Info("VerticaDB details", "uid", vdb.UID, "resourceVersion", vdb.ResourceVersion,
-		"vclusterOps", vmeta.UseVClusterOps(vdb.Annotations), "user", vdb.GetVerticaUser(),
+		"vclusterOps", vdb.UseVClusterOpsDeployment(), "user", vdb.GetVerticaUser(),
 		"tls cert rotate enabled", vmeta.UseTLSAuth(vdb.Annotations))
 	if vmeta.IsPauseAnnotationSet(vdb.Annotations) {
 		log.Info(fmt.Sprintf("The pause annotation %s is set. Suspending the iteration", vmeta.PauseOperatorAnnotation),
@@ -137,14 +182,15 @@ func (r *VerticaDBReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	prunner := cmds.MakeClusterPodRunner(log, r.Cfg, vdb.GetVerticaUser(), passwd)
+	prunner := cmds.MakeClusterPodRunner(log, r.Cfg, vdb.GetVerticaUser(), passwd, vmeta.UseTLSAuth(vdb.Annotations))
 	// We use the same pod facts for all reconcilers. This allows to reuse as
 	// much as we can. Some reconcilers will purposely invalidate the facts if
 	// it is known they did something to make them stale.
-	pfacts := podfacts.MakePodFacts(r, prunner, log, passwd)
+	pfacts := podfacts.MakePodFactsWithCacheManager(r, prunner, log, passwd, r.CacheManager)
 	dispatcher := r.makeDispatcher(log, vdb, prunner, passwd)
 	var res ctrl.Result
 
+	r.InitCertCacheForVdb(vdb)
 	// Iterate over each actor
 	actors := r.constructActors(log, vdb, prunner, &pfacts, dispatcher)
 	for _, act := range actors {
@@ -164,7 +210,7 @@ func (r *VerticaDBReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 			return res, err
 		}
 	}
-
+	r.CleanCacheForVdb(vdb)
 	log.Info("ending reconcile of VerticaDB", "result", res, "err", err)
 	return res, err
 }
@@ -186,14 +232,25 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		// reconcile actor that depends on running pods should not be before
 		// this one.
 		MakeCrashLoopReconciler(r, log, vdb),
+		// Modify or record the annotations in the vdb so later reconcilers can
+		// get the correct information.
+		MakeObjReconciler(r, log, vdb, pfacts, ObjReconcileModeAnnotation),
+		// Validate the vdb after operator upgraded
+		MakeValidateVDBReconciler(r, log, vdb),
+		// Initialize TLS secret if autoRotation is set
+		MakeAutoCertRotateReconciler(r, log, vdb, true /* init */),
 		// Always generate cert first if nothing is provided
 		MakeTLSServerCertGenReconciler(r, log, vdb),
+		// Set up configmap which stores env variables for NMA container
+		MakeNMACertConfigMapReconciler(r, log, vdb),
 		// Trigger sandbox upgrade when the image field for the sandbox
 		// is changed
 		MakeSandboxUpgradeReconciler(r, log, vdb, false),
 		// Update the sandbox/subclusters' shutdown field to match the value of
 		// the spec.
 		MakeShutdownSpecReconciler(r, vdb),
+		// Update sandbox subcluster type in db according to its type in vdb spec
+		MakeAlterSandboxTypeReconciler(r, log, vdb, pfacts),
 		// Update the vertica image for unsandboxed subclusters
 		MakeUnsandboxImageVersionReconciler(r, vdb, log, pfacts),
 		// Always start with a status reconcile in case the prior reconcile failed.
@@ -218,11 +275,21 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		// preserving other things.
 		MakeObjReconciler(r, log, vdb, pfacts,
 			ObjReconcileModePreserveScaling|ObjReconcileModePreserveUpdateStrategy),
+		// Save referenced configmaps/secrets in labels in vdb. Those labels will then be
+		// used to reconcile vdb when a config changes
+		MakeLabelsForReferencedObjsReconciler(r, log, vdb),
 		// Add annotations/labels to each pod about the host running them
 		MakeAnnotateAndLabelPodReconciler(r, log, vdb, pfacts),
+		// Set up TLS config if users turn it on
+		MakeTLSReconciler(r, log, vdb, prunner, dispatcher, pfacts),
+		// Update the service monitor that will allow prometheus to scrape the
+		// metrics from the vertica pods.
+		MakeServiceMonitorReconciler(vdb, r, log),
 		// Trigger sandbox shutdown when the shutdown field of the sandbox
 		// is changed
 		MakeSandboxShutdownReconciler(r, log, vdb, true),
+		// Update deployment method and enable HTTPS TLS
+		MakeDeploymentMethodReconciler(r, log, vdb, prunner, pfacts, dispatcher),
 		// Handles vertica server upgrade (i.e., when spec.image changes)
 		MakeOfflineUpgradeReconciler(r, log, vdb, prunner, pfacts, dispatcher),
 		MakeReadOnlyOnlineUpgradeReconciler(r, log, vdb, prunner, pfacts, dispatcher),
@@ -233,7 +300,7 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		MakeSubclusterShutdownReconciler(r, log, vdb, dispatcher, pfacts),
 		// Check the version information ahead of restart. The version is needed
 		// to properly pick the correct NMA deployment (monolithic vs sidecar).
-		MakeImageVersionReconciler(r, log, vdb, prunner, pfacts, false /* enforceUpgradePath */),
+		MakeImageVersionReconciler(r, log, vdb, prunner, pfacts, false /* enforceUpgradePath */, nil, false),
 		// Handles restart + re_ip of vertica
 		MakeRestartReconciler(r, log, vdb, prunner, pfacts, true, dispatcher),
 		MakeMetricReconciler(r, log, vdb, prunner, pfacts),
@@ -255,12 +322,12 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		// Handle calls to remove hosts from admintools.conf
 		MakeUninstallReconciler(r, log, vdb, prunner, pfacts),
 		MakeStatusReconciler(r.Client, r.Scheme, log, vdb, pfacts),
+		// Set version info in the annotations and check that the deployment is
+		// compatible with the image.
+		MakeImageVersionReconciler(r, log, vdb, prunner, pfacts, false /* enforceUpgradePath */, nil, false),
 		// Creates or updates any k8s objects the CRD creates. This includes any
 		// statefulsets and service objects.
 		MakeObjReconciler(r, log, vdb, pfacts, ObjReconcileModeAll),
-		// Set version info in the annotations and check that the deployment is
-		// compatible with the image.
-		MakeImageVersionReconciler(r, log, vdb, prunner, pfacts, false /* enforceUpgradePath */),
 		// Handle calls to add hosts to admintools.conf
 		MakeInstallReconciler(r, log, vdb, prunner, pfacts),
 		MakeStatusReconciler(r.Client, r.Scheme, log, vdb, pfacts),
@@ -268,12 +335,18 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		MakeCreateDBReconciler(r, log, vdb, prunner, pfacts, dispatcher),
 		// Handle calls to revive a database
 		MakeReviveDBReconciler(r, log, vdb, prunner, pfacts, dispatcher),
+		// Update deployment method and enable HTTPS TLS
+		MakeDeploymentMethodReconciler(r, log, vdb, prunner, pfacts, dispatcher),
+		MakeTLSReconciler(r, log, vdb, prunner, dispatcher, pfacts),
+		// Update the service monitor that will allow prometheus to scrape the
+		// metrics from the vertica pods.
+		MakeServiceMonitorReconciler(vdb, r, log),
+		// Add additional buckets for data replication
+		MakeAddtionalBucketsReconciler(r, log, vdb, prunner, pfacts),
 		MakeMetricReconciler(r, log, vdb, prunner, pfacts),
 		// Create and revive are mutually exclusive exclusive, so this handles
 		// status updates after both of them.
 		MakeStatusReconciler(r.Client, r.Scheme, log, vdb, pfacts),
-		// Get the tls mode from the db after revive_db
-		MakeGetTLSModeAfterReviveReconciler(r, log, vdb, prunner, pfacts),
 		// Update the labels in pods so that Services route to nodes to them.
 		MakeClientRoutingLabelReconciler(r, log, vdb, pfacts, PodRescheduleApplyMethod, ""),
 		// Handle calls to add new subcluster to the catalog
@@ -288,6 +361,8 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		// Update the label in pods so that Service routing uses them if they
 		// have finished being rebalanced.
 		MakeClientRoutingLabelReconciler(r, log, vdb, pfacts, AddNodeApplyMethod, ""),
+		// Update subcluster type in db according to its type in vdb spec
+		MakeAlterSubclusterTypeReconciler(r, log, vdb, pfacts, dispatcher, nil /* configMap */),
 		// Handle calls to add subclusters to sandboxes
 		MakeSandboxSubclusterReconciler(r, log, vdb, pfacts, dispatcher, r.Client, false),
 		// Handle calls to move subclusters from sandboxes to main cluster
@@ -304,20 +379,77 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		// is changed
 		MakeSandboxShutdownReconciler(r, log, vdb, false),
 		// Add the label after update the sandbox subcluster status field
-		MakeObjReconciler(r, log, vdb, pfacts, ObjReconcileModeAll),
+		MakeObjReconciler(r, log, vdb, pfacts, ObjReconcileModeAllButConfigChange),
+		// Update sandbox subcluster type in db according to its type in vdb spec
+		MakeAlterSandboxTypeReconciler(r, log, vdb, pfacts),
 		// Handle calls to create a restore point
 		MakeSaveRestorePointReconciler(r, vdb, log, pfacts, dispatcher, r.Client),
-		// rotate https tls cert when tls cert secret name is changed in vdb.spec
-		MakeHTTPSCertRotationReconciler(r, log, vdb, dispatcher, pfacts),
-		// rotate nma tls cert when tls cert secret name is changed in vdb.spec
-		MakeNMACertRotationReconciler(r, log, vdb, dispatcher, pfacts),
 		// Resize any PVs if the local data size changed in the vdb
 		MakeResizePVReconciler(r, log, vdb, prunner, pfacts),
 		// This must be the last reconciler. It makes sure that all dependent
 		// objects that the operator creates exist. This is needed encase they
 		// are removed in the middle of a reconcile iteration.
 		MakeDepObjCheckReconciler(r, log, vdb),
+		// Trigger automatic rotation of certificates on a certain interval.
+		// This must be done dead-last, because it will requeue until the next
+		// automatic rotation is due.
+		MakeAutoCertRotateReconciler(r, log, vdb, false /* init */),
 	}
+}
+
+// findObjectsForSecretOrConfigMap returns the list of VerticaDBs that are dependent on the given secret or configmap
+func (r *VerticaDBReconciler) findObjectsForSecretOrConfigMap(_ context.Context, obj client.Object) []reconcile.Request {
+	verticadbs := &vapi.VerticaDBList{}
+	listOps := &client.ListOptions{
+		Namespace: obj.GetNamespace(),
+	}
+	err := r.List(context.Background(), verticadbs, listOps)
+	if err != nil {
+		return []reconcile.Request{}
+	}
+
+	labelSelector := vmeta.ConfigMapSelectorLabel
+	if _, ok := obj.(*corev1.Secret); ok {
+		labelSelector = vmeta.SecretSelectorLabel
+	}
+	requests := []reconcile.Request{}
+	for i := range verticadbs.Items {
+		vdb := &verticadbs.Items[i]
+		cmNames := strings.Split(vdb.Labels[labelSelector], ",")
+		for _, name := range cmNames {
+			if strings.TrimSpace(name) == obj.GetName() {
+				requests = append(requests, reconcile.Request{
+					NamespacedName: types.NamespacedName{
+						Namespace: vdb.Namespace,
+						Name:      vdb.Name,
+					},
+				})
+				break
+			}
+		}
+	}
+	return requests
+}
+
+func (r *VerticaDBReconciler) predicateFuncs() predicate.Funcs {
+	return predicate.Funcs{
+		CreateFunc: func(e event.CreateEvent) bool {
+			// filter based on label
+			return r.containsWatchedByLabel(e.Object.GetLabels())
+		},
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			// filter based on label
+			return r.containsWatchedByLabel(e.ObjectNew.GetLabels())
+		},
+		DeleteFunc: func(e event.DeleteEvent) bool {
+			// filter based on label
+			return r.containsWatchedByLabel(e.Object.GetLabels())
+		},
+	}
+}
+
+func (r *VerticaDBReconciler) containsWatchedByLabel(labs map[string]string) bool {
+	return vmeta.IsWatchedByVDB(labs)
 }
 
 // GetSuperuserPassword returns the superuser password if it has been provided
@@ -346,8 +478,8 @@ func (r *VerticaDBReconciler) checkShardToNodeRatio(vdb *vapi.VerticaDB, sc *vap
 // makeDispatcher will create a Dispatcher object based on the feature flags set.
 func (r *VerticaDBReconciler) makeDispatcher(log logr.Logger, vdb *vapi.VerticaDB, prunner cmds.PodRunner,
 	passwd string) vadmin.Dispatcher {
-	if vmeta.UseVClusterOps(vdb.Annotations) {
-		return vadmin.MakeVClusterOps(log, vdb, r.Client, passwd, r.EVRec, vadmin.SetupVClusterOps)
+	if vdb.UseVClusterOpsDeployment() {
+		return vadmin.MakeVClusterOps(log, vdb, r.Client, passwd, r.EVRec, vadmin.SetupVClusterOps, r.CacheManager)
 	}
 	return vadmin.MakeAdmintools(log, vdb, prunner, r.EVRec)
 }
@@ -383,4 +515,28 @@ func (r *VerticaDBReconciler) GetEventRecorder() record.EventRecorder {
 // GetConfig gives access to *rest.Config
 func (r *VerticaDBReconciler) GetConfig() *rest.Config {
 	return r.Cfg
+}
+
+func (r *VerticaDBReconciler) InitCertCacheForVdb(vdb *vapi.VerticaDB) {
+	fetcher := &cloud.SecretFetcher{
+		Client:   r.Client,
+		Log:      r.Log,
+		Obj:      vdb,
+		EVWriter: r.EVRec,
+	}
+	r.CacheManager.InitCertCacheForVdb(vdb, fetcher)
+}
+
+func (r *VerticaDBReconciler) CleanCacheForVdb(vdb *vapi.VerticaDB) {
+	certCache := r.CacheManager.GetCertCacheForVdb(vdb.Namespace, vdb.Name)
+	certsInUse := []string{
+		vdb.GetNMATLSSecret(),
+	}
+	if vdb.GetClientServerTLSSecret() != "" {
+		certsInUse = append(certsInUse, vdb.GetClientServerTLSSecret())
+	}
+	for _, tlsConfig := range vdb.Status.TLSConfigs {
+		certsInUse = append(certsInUse, tlsConfig.Secret)
+	}
+	certCache.CleanCacheForVdb(certsInUse)
 }

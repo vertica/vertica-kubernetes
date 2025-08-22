@@ -18,6 +18,8 @@ package vclusterops
 import (
 	"errors"
 	"fmt"
+
+	"github.com/vertica/vcluster/vclusterops/util"
 )
 
 type httpsFindSubclusterOp struct {
@@ -143,6 +145,7 @@ func (op *httpsFindSubclusterOp) processResult(execContext *opEngineExecContext)
 		}
 
 		// good response from one node is enough for us
+
 		return nil
 	}
 	return allErrs
@@ -154,13 +157,15 @@ func (op *httpsFindSubclusterOp) processSubclusters(subclusterResp scResp, execC
 	// 2. look for the default subcluster, error out if not found
 	foundNamedSc := false
 	foundDefaultSc := false
-	isSandboxed := false
 
 	for _, scInfo := range subclusterResp.SCInfoList {
 		if scInfo.SCName == op.scName {
 			foundNamedSc = true
-			if scInfo.Sandbox != "" {
-				isSandboxed = true
+			if scInfo.Sandbox != util.MainClusterSandbox {
+				// This is useful when we try to add a node to an empty subcluster that is sandboxed.
+				// The vdb doesn't have the sandbox info(as no nodes exist in the subcluster yet)
+				// This flag will be used to decide whether we need to run sandboxing on the added node or not
+				execContext.isScSandboxed = true
 			}
 			op.logger.Info(`subcluster exists in the database`, "subcluster", scInfo.SCName, "dbName", op.name, "sandbox", scInfo.Sandbox)
 		}
@@ -168,6 +173,7 @@ func (op *httpsFindSubclusterOp) processSubclusters(subclusterResp scResp, execC
 		if scInfo.IsDefault {
 			// Store the default sc name into execContext
 			foundDefaultSc = true
+
 			execContext.defaultSCName = scInfo.SCName
 			op.logger.Info(`found default subcluster in the database`, "subcluster", scInfo.SCName, "dbName", op.name)
 		}
@@ -177,23 +183,21 @@ func (op *httpsFindSubclusterOp) processSubclusters(subclusterResp scResp, execC
 		}
 	}
 
-	if op.scName != "" && !op.ignoreNotFound {
-		if !foundNamedSc {
+	if op.scName != "" && !foundNamedSc {
+		// This means we did not find the given subcluster in the current db group(given set of `hosts`)
+		// This flag is used by remove_subcluster by calling this op using different db groups:
+		// 1. makeHTTPSFindSubclusterOp() with main cluster hosts only
+		//    We set this flag to true if we don't find the subcluster on main cluster
+		// 2. makeHTTPSFindSubclusterOp() with sandbox hosts and ignoreNotFound set to False
+		//    If we don't find the sc on sandbox too, we error out.
+		execContext.ignoreMainCluster = true
+		if !op.ignoreNotFound {
 			return fmt.Errorf(`[%s] subcluster '%s' does not exist in the database`, op.name, op.scName)
 		}
 	}
 
 	if !foundDefaultSc {
 		return fmt.Errorf(`[%s] cannot find a default subcluster in the database`, op.name)
-	}
-
-	if isSandboxed {
-		if op.cmdType == AddNodeCmd {
-			return fmt.Errorf(`[%s] cannot add node into a sandboxed subcluster`, op.name)
-		} else if op.cmdType == RemoveSubclusterCmd {
-			return fmt.Errorf(`[%s] cannot remove a sandboxed subcluster, must unsandbox the subcluster first`, op.name)
-		}
-		return fmt.Errorf(`[%s] sandbox handling in the operation is not implemented`, op.name)
 	}
 
 	return nil

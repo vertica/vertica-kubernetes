@@ -54,9 +54,9 @@ var _ = Describe("stop_subcluster_vc", func() {
 	It("should call vcluster-ops library with stop_subcluster task", func() {
 		dispatcher := mockVClusterOpsDispatcher()
 		dispatcher.VDB.Spec.DBName = TestDBName
-		dispatcher.VDB.Spec.HTTPSNMATLSSecret = "stop-subcluster-vc-secret"
-		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.HTTPSNMATLSSecret)
-		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.HTTPSNMATLSSecret)
+		dispatcher.VDB.Spec.HTTPSNMATLS.Secret = "stop-subcluster-vc-secret"
+		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.HTTPSNMATLS.Secret)
+		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.HTTPSNMATLS.Secret)
 		opts := []stopsubcluster.Option{
 			stopsubcluster.WithInitiator(TestInitiatorIP),
 			stopsubcluster.WithSCName(scName),

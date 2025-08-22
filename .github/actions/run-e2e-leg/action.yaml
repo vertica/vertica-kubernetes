@@ -79,6 +79,10 @@ inputs:
     description: 'If the test will have cert rotation enabled'
     required: false
     default: 'false'
+  use-cache:
+    description: 'If the test will have cert cache enabled'
+    required: false
+    default: 'false'
   skip-download-test-packages:
     description: 'If skip downloading test packages inside vertica image'
     required: false
@@ -173,7 +177,6 @@ runs:
           else
             export E2E_TEST_DIRS="tests/e2e-${{ inputs.leg-identifier }}"
             if [[ "${{ inputs.leg-identifier }}" == "leg-1" || \
-                  "${{ inputs.leg-identifier }}" == "leg-2" || \
                   "${{ inputs.leg-identifier }}" == "leg-3" || \
                   "${{ inputs.leg-identifier }}" == "leg-5" || \
                   "${{ inputs.leg-identifier }}" == "server-upgrade" ]]; then
@@ -184,6 +187,7 @@ runs:
             fi
             # These legs have some tests that only run with vclusterops deployment
             if [[ "${{ inputs.leg-identifier }}" == "leg-2" || \
+                  "${{ inputs.leg-identifier }}" == "leg-1" || \
                   ( "${{ inputs.leg-identifier }}" == "leg-6" && "${{ inputs.use-cert }}" != "true" ) ]]; then            
               if [[ "${VERTICA_DEPLOYMENT_METHOD}" == "vclusterops" ]]; then
                 E2E_TEST_DIRS+=" tests/e2e-${{ inputs.leg-identifier }}-vc-only";
@@ -193,10 +197,13 @@ runs:
 
           # Run test with cert rotation enabled
           export USE_CERT="${{ inputs.use-cert }}"
+          export CACHE_ENABLED="${{ inputs.use-cache }}"
 
           if [[ "${{ inputs.leg-identifier }}" == "leg-4" || \
                 "${{ inputs.leg-identifier }}" == "leg-9" || \
                 "${{ inputs.leg-identifier }}" == "leg-10-sandbox-upgrade" || \
+                "${{ inputs.leg-identifier }}" == "leg-10-sandbox-basic" || \
+                "${{ inputs.leg-identifier }}" == "leg-10-sandbox-move-scs" || \
                 "${{ inputs.leg-identifier }}" == "leg-10-vrep" || \
                 "${{ inputs.leg-identifier }}" == "leg-10" ]]; then
             export CONCURRENCY_VERTICADB=10
@@ -206,6 +213,21 @@ runs:
           if [[ "${{ inputs.leg-identifier }}" == "leg-10-shutdown" ]]; then
             export CONCURRENCY_VERTICADB=1
             export CONCURRENCY_SANDBOXCONFIGMAP=2
+          fi
+
+          if [[ "${{ inputs.leg-identifier }}" == "leg-14" || \
+                "${{ inputs.leg-identifier }}" == "leg-14-tls" ]]; then
+            export GRAFANA_ENABLED=true
+            export PROMETHEUS_ENABLED=true
+          fi
+
+          if [[ "${{ inputs.leg-identifier }}" == "leg-14-tls" ]]; then
+            export HELM_OVERRIDES="${HELM_OVERRIDES} -f tests/e2e-leg-14-tls/prometheus-with-tls/values.yaml"
+          fi
+
+          if [[ "${{ inputs.leg-identifier }}" == "leg-14-loki" ]]; then
+            export GRAFANA_ENABLED=true
+            export LOKI_ENABLED=true
           fi
 
           # Set BASE_VERTICA_IMG based on $VERTICA_IMG
@@ -227,9 +249,7 @@ runs:
 
           # Set an env var that will later be checked to pull an extra
           # vertica image used for multi-online-upgrade test
-          if [[ "${{ inputs.leg-identifier }}" == "leg-9" ]]; then
-            export LEG9=yes
-          fi
+          export LEG=${{ inputs.leg-identifier }}
 
           # Special setup for e2e-udx
           if [[ "${{ inputs.leg-identifier }}" == "udx" ]]; then

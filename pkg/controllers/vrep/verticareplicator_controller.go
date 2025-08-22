@@ -30,6 +30,7 @@ import (
 
 	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	"github.com/vertica/vertica-kubernetes/pkg/cache"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
@@ -39,11 +40,12 @@ import (
 // VerticaReplicatorReconciler reconciles a VerticaReplicator object
 type VerticaReplicatorReconciler struct {
 	client.Client
-	Scheme      *runtime.Scheme
-	Log         logr.Logger
-	Cfg         *rest.Config
-	EVRec       record.EventRecorder
-	Concurrency int
+	Scheme       *runtime.Scheme
+	Log          logr.Logger
+	Cfg          *rest.Config
+	EVRec        record.EventRecorder
+	Concurrency  int
+	CacheManager cache.CacheManager
 }
 
 // +kubebuilder:rbac:groups=vertica.com,resources=verticareplicators,verbs=get;list;watch;create;update;patch;delete
@@ -78,6 +80,12 @@ func (r *VerticaReplicatorReconciler) Reconcile(ctx context.Context, req ctrl.Re
 	if meta.IsPauseAnnotationSet(vrep.Annotations) {
 		log.Info(fmt.Sprintf("The pause annotation %s is set. Suspending the iteration", meta.PauseOperatorAnnotation),
 			"result", ctrl.Result{}, "err", nil)
+		return ctrl.Result{}, nil
+	}
+
+	isPresent := vrep.IsStatusConditionPresent(vapi.ReplicationComplete)
+	if isPresent {
+		log.Info("Replication has already been done. Aborting iteration", "result", vrep.Status.State)
 		return ctrl.Result{}, nil
 	}
 

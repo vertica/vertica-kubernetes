@@ -207,7 +207,7 @@ func (op *httpsPollNodeStateOp) shouldStopPolling() (bool, error) {
 
 	if upNodeCount < len(op.hosts) {
 		op.logger.PrintInfo("[%s] %d host(s) up", op.name, upNodeCount)
-		op.updateSpinnerMessage("%d host(s) up, expecting %d up host(s)", upNodeCount, len(op.hosts))
+		op.updateSpinnerMessage("%d node(s) up, expecting %d up node(s)", upNodeCount, len(op.hosts))
 		return false, nil
 	}
 
@@ -256,7 +256,7 @@ func (op *httpsPollNodeStateOp) shouldStopPollingForDown() (bool, error) {
 
 	if upNodeCount != 0 {
 		op.logger.PrintInfo("[%s] %d host(s) up", op.name, upNodeCount)
-		op.updateSpinnerMessage("%d host(s) up, expecting %d host(s) to be down", upNodeCount, len(op.hosts))
+		op.updateSpinnerMessage("%d node(s) up, expecting %d node(s) to be down", upNodeCount, len(op.hosts))
 		return false, nil
 	}
 	op.logger.PrintInfo("[%s] All nodes are down", op.name)

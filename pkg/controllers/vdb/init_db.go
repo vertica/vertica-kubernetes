@@ -21,7 +21,6 @@ import (
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
-	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
 	config "github.com/vertica/vertica-kubernetes/pkg/vdbconfig"
 	"github.com/vertica/vertica-kubernetes/pkg/vdbstatus"
@@ -98,16 +97,6 @@ func (g *GenericDatabaseInitializer) runInit(ctx context.Context) (ctrl.Result, 
 	if res, err := g.initializer.execCmd(ctx, initiatorPod, host, postNames); verrors.IsReconcileAborted(res, err) {
 		return res, err
 	}
-	if g.Vdb.IsCertRotationEnabled() {
-		sec := vapi.MakeHTTPSTLSSecretRef(g.Vdb.Spec.HTTPSNMATLSSecret)
-		clientSec := vapi.MakeClientServerTLSSecretRef(g.Vdb.Spec.ClientServerTLSSecret)
-		sRefs := []*vapi.SecretRef{
-			sec, clientSec,
-		}
-		if err := vdbstatus.UpdateSecretRefs(ctx, g.VRec.GetClient(), g.Vdb, sRefs); err != nil {
-			return ctrl.Result{}, err
-		}
-	}
 
 	cond := vapi.MakeCondition(vapi.DBInitialized, metav1.ConditionTrue, "Initialized")
 	if err := vdbstatus.UpdateCondition(ctx, g.VRec.GetClient(), g.Vdb, cond); err != nil {
@@ -138,7 +127,7 @@ func (g *GenericDatabaseInitializer) checkPodList(podList []*podfacts.PodFact) b
 		}
 		// Skip the next check since there is no install state
 		// for vclusterops
-		if vmeta.UseVClusterOps(g.Vdb.Annotations) {
+		if g.Vdb.UseVClusterOpsDeployment() {
 			continue
 		}
 		if !pod.GetIsInstalled() {

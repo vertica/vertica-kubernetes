@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"reflect"
 	"regexp"
 	"strconv"
 	"strings"
@@ -39,6 +40,7 @@ import (
 
 const (
 	DefaultS3Region       = "us-east-1"
+	DefaultS3Endpoint     = "https://s3.amazonaws.com"
 	DefaultGCloudRegion   = "US-EAST1"
 	DefaultGCloudEndpoint = "https://storage.googleapis.com"
 
@@ -65,6 +67,10 @@ const (
 	nmaTLSModeVerifyCA       = "verify-ca"
 	DefaultServiceHTTPSPort  = 8443
 	DefaultServiceClientPort = 5433
+
+	// Deployment methods
+	DeploymentMethodAT = "admintools"
+	DeploymentMethodVC = "vclusterops"
 )
 
 // ExtractNamespacedName gets the name and returns it as a NamespacedName
@@ -106,8 +112,19 @@ func (v *VerticaDB) FindTransientSubcluster() *Subcluster {
 
 func SetVDBForTLS(v *VerticaDB) {
 	v.Annotations[vmeta.EnableTLSAuthAnnotation] = trueString
-	v.Annotations[vmeta.VersionAnnotation] = TLSCertRotationMinVersion
+	v.Annotations[vmeta.VersionAnnotation] = TLSAuthMinVersion
 	v.Annotations[vmeta.VClusterOpsAnnotation] = trueString
+}
+
+func SetVDBWithHTTPSTLSConfigSet(v *VerticaDB, secretName string) {
+	SetVDBForTLS(v)
+	v.Status.TLSConfigs = []TLSConfigStatus{
+		{
+			Name:   HTTPSNMATLSConfigName,
+			Secret: secretName,
+			Mode:   tlsModeTryVerify,
+		},
+	}
 }
 
 // MakeVDB is a helper that constructs a fully formed VerticaDB struct using the sample name.
@@ -125,8 +142,9 @@ func MakeVDB() *VerticaDB {
 			Namespace: nm.Namespace,
 			UID:       "abcdef-ghi",
 			Annotations: map[string]string{
-				vmeta.VClusterOpsAnnotation: vmeta.VClusterOpsAnnotationFalse,
-				vmeta.VersionAnnotation:     "v23.4.0",
+				vmeta.VClusterOpsAnnotation:   vmeta.VClusterOpsAnnotationFalse,
+				vmeta.VersionAnnotation:       "v23.4.0",
+				vmeta.EnableTLSAuthAnnotation: trueString,
 			},
 		},
 		Spec: VerticaDBSpec{
@@ -166,8 +184,17 @@ func MakeVDB() *VerticaDB {
 			},
 			ServiceHTTPSPort:  DefaultServiceHTTPSPort,
 			ServiceClientPort: DefaultServiceClientPort,
+			HTTPSNMATLS:       &TLSConfigSpec{},
+			ClientServerTLS:   &TLSConfigSpec{},
 		},
 	}
+}
+
+// MakeVDBForTLS is a helper that constructs a VerticaDB struct with TLS enabled.
+func MakeVDBForTLS() *VerticaDB {
+	vdb := MakeVDB()
+	SetVDBForTLS(vdb)
+	return vdb
 }
 
 // MakeVDBForHTTP is a helper that constructs a VerticaDB struct with http enabled.
@@ -175,7 +202,8 @@ func MakeVDB() *VerticaDB {
 func MakeVDBForHTTP(httpServerTLSSecretName string) *VerticaDB {
 	vdb := MakeVDB()
 	vdb.Annotations[vmeta.VersionAnnotation] = HTTPServerMinVersion
-	vdb.Spec.HTTPSNMATLSSecret = httpServerTLSSecretName
+	vdb.Annotations[vmeta.EnableTLSAuthAnnotation] = vmeta.AnnotationTrue
+	vdb.Spec.HTTPSNMATLS.Secret = httpServerTLSSecretName
 	return vdb
 }
 
@@ -202,6 +230,16 @@ func MakeVDBForCertRotationEnabled() *VerticaDB {
 	vdb := MakeVDB()
 	SetVDBForTLS(vdb)
 	return vdb
+}
+
+func MakeTLSWithAutoRotate(secrets []string, interval int, secret string) *TLSConfigSpec {
+	return &TLSConfigSpec{
+		Secret: secret,
+		AutoRotate: &TLSAutoRotate{
+			Secrets:  secrets,
+			Interval: interval,
+		},
+	}
 }
 
 // GenSubclusterMap will organize all of the subclusters into a map for quicker lookup.
@@ -244,6 +282,19 @@ func (v *VerticaDB) GenSubclusterSandboxMap() map[string]string {
 		sb := &v.Spec.Sandboxes[i]
 		for _, sc := range sb.Subclusters {
 			scSbMap[sc.Name] = sb.Name
+		}
+	}
+	return scSbMap
+}
+
+// GenSandboxSubclusterTypeMap will scan all sandboxes and return a map
+// with subcluster name as the key and sandbox subcluster type as the value
+func (v *VerticaDB) GenSandboxSubclusterTypeMap() map[string]string {
+	scSbMap := make(map[string]string)
+	for i := range v.Spec.Sandboxes {
+		sb := &v.Spec.Sandboxes[i]
+		for _, sc := range sb.Subclusters {
+			scSbMap[sc.Name] = sc.Type
 		}
 	}
 	return scSbMap
@@ -368,34 +419,20 @@ func MakeCondition(ctype string, status metav1.ConditionStatus, reason string) *
 	}
 }
 
-func MakeSecretRef(stype, name string) *SecretRef {
-	return &SecretRef{
-		Name: name,
-		Type: stype,
+func MakeTLSConfig(name, secret, mode string) *TLSConfigStatus {
+	return &TLSConfigStatus{
+		Name:   name,
+		Secret: secret,
+		Mode:   mode,
 	}
 }
 
-func MakeClientServerTLSSecretRef(name string) *SecretRef {
-	return MakeSecretRef(ClientServerTLSSecretType, name)
+func MakeClientServerTLSConfig(secret, mode string) *TLSConfigStatus {
+	return MakeTLSConfig(ClientServerTLSConfigName, secret, mode)
 }
 
-func MakeHTTPSTLSSecretRef(name string) *SecretRef {
-	return MakeSecretRef(HTTPSTLSSecretType, name)
-}
-
-func MakeTLSMode(stype, mode string) *TLSMode {
-	return &TLSMode{
-		Mode: mode,
-		Type: stype,
-	}
-}
-
-func MakeClientServerTLSMode(mode string) *TLSMode {
-	return MakeTLSMode(ClientServerTLSModeType, mode)
-}
-
-func MakeHTTPSTLSMode(mode string) *TLSMode {
-	return MakeTLSMode(HTTPSTLSModeType, mode)
+func MakeHTTPSNMATLSConfig(secret, mode string) *TLSConfigStatus {
+	return MakeTLSConfig(HTTPSNMATLSConfigName, secret, mode)
 }
 
 // HasReviveInstanceIDAnnotation is true when an annotation exists for the db's
@@ -476,6 +513,50 @@ func (s *SandboxStatus) IsSubclusterInSandbox(scName string) bool {
 		}
 	}
 	return false
+}
+
+// convertSubclusterType converts both sandbox and main-cluster subcluster types to
+// main-cluster cluster type
+func convertSubclusterType(ctype string) string {
+	if ctype == PrimarySubcluster {
+		return PrimarySubcluster
+	}
+	return SecondarySubcluster
+}
+
+// IsSubclusterOpNeeded returns true if all subclusters in spec.Subclusters are not the same
+// as subclusters in status.subclusters
+func (v *VerticaDB) IsSubclusterOpNeeded() bool {
+	type subcluster struct {
+		Size     int32
+		Type     string
+		Shutdown bool
+	}
+	specScs := make(map[string]subcluster)
+	for i := range v.Spec.Subclusters {
+		specScs[v.Spec.Subclusters[i].Name] = subcluster{
+			Size:     v.Spec.Subclusters[i].Size,
+			Type:     convertSubclusterType(v.Spec.Subclusters[i].Type),
+			Shutdown: v.Spec.Subclusters[i].Shutdown,
+		}
+	}
+	statusScs := make(map[string]subcluster)
+	for i := range v.Status.Subclusters {
+		statusScs[v.Status.Subclusters[i].Name] = subcluster{
+			Size:     v.Status.Subclusters[i].UpNodeCount,
+			Type:     convertSubclusterType(v.Status.Subclusters[i].Type),
+			Shutdown: v.Status.Subclusters[i].Shutdown,
+		}
+	}
+	return !reflect.DeepEqual(specScs, statusScs)
+}
+
+// IsSandboxOpNeeded returns true if all subclusters in spec.Sandbox are not the same
+// as subclusters in status.sandbox
+func (v *VerticaDB) IsSandboxOpNeeded() bool {
+	specScSbMap := v.GenSubclusterSandboxMap()
+	statusScSbMap := v.GenSubclusterSandboxStatusMap()
+	return !reflect.DeepEqual(specScSbMap, statusScSbMap)
 }
 
 // GenCompatibleFQDN returns a name of the subcluster that is
@@ -623,9 +704,122 @@ func (v *VerticaDB) IsUpgradeInProgress() bool {
 	return v.IsStatusConditionTrue(UpgradeInProgress)
 }
 
-// IsCertRotationInProgress returns true if an online upgrade is in progress
-func (v *VerticaDB) IsCertRotationInProgress() bool {
-	return v.IsStatusConditionTrue(TLSCertRotationInProgress)
+func (v *VerticaDB) IsTLSConfigUpdateInProgress() bool {
+	return v.IsStatusConditionTrue(TLSConfigUpdateInProgress)
+}
+
+func (v *VerticaDB) IsTLSCertRollbackNeeded() bool {
+	return v.IsStatusConditionTrue(TLSCertRollbackNeeded)
+}
+
+func (v *VerticaDB) IsTLSCertRollbackInProgress() bool {
+	return v.IsStatusConditionTrue(TLSCertRollbackInProgress)
+}
+
+func (v *VerticaDB) FindTLSCertRollbackNeededCondition() *metav1.Condition {
+	return v.FindStatusCondition(TLSCertRollbackNeeded)
+}
+
+func (v *VerticaDB) IsTLSCertRollbackDisabled() bool {
+	return vmeta.IsDisableTLSRollbackAnnotationSet(v.Annotations)
+}
+
+// GetTLSCertRollbackReason returns the reason or the point
+// which cert rotation failed in. This is used to know the ops
+// needed to rollback
+func (v *VerticaDB) GetTLSCertRollbackReason() string {
+	cond := v.FindTLSCertRollbackNeededCondition()
+	if cond == nil {
+		return ""
+	}
+
+	return cond.Reason
+}
+
+// IsHTTPSRollbackFailureBeforeCertHealthPolling returns true if https cert rotation failed
+// without altering the current tls config
+func (v *VerticaDB) IsHTTPSRollbackFailureBeforeCertHealthPolling() bool {
+	return v.GetTLSCertRollbackReason() == FailureBeforeHTTPSCertHealthPollingReason
+}
+
+// IsHTTPSRollbackFailureAfterCertHealthPolling returns true if https cert rotation failed
+// after altering the current tls config
+func (v *VerticaDB) IsHTTPSRollbackFailureAfterCertHealthPolling() bool {
+	return v.GetTLSCertRollbackReason() == RollbackAfterHTTPSCertRotationReason
+}
+
+// IsRollbackAfterServerCertRotation returns true if client-server cert rotation failed
+// (but tls config will not be changed)
+func (v *VerticaDB) IsRollbackAfterServerCertRotation() bool {
+	return v.GetTLSCertRollbackReason() == RollbackAfterServerCertRotationReason
+}
+
+// IsRollbackAfterNMACertRotation returns true if NMA cert rotation failed
+// but tls config changed
+func (v *VerticaDB) IsRollbackAfterNMACertRotation() bool {
+	return v.GetTLSCertRollbackReason() == RollbackAfterNMACertRotationReason
+}
+
+// GetTLSConfigSpecByName returns the TLSConfigSpec object for a certain tlsconfig (clientServer or httpsNMA)
+func (v *VerticaDB) GetTLSConfigSpecByName(tlsConfig string) *TLSConfigSpec {
+	if tlsConfig == ClientServerTLSConfigName {
+		return v.Spec.ClientServerTLS
+	}
+	return v.Spec.HTTPSNMATLS
+}
+
+// IsAutoCertRotationEnabled checks if automatic cert rotation is enabled for
+// for a certain tlsconfig (clientServer or httpsNMA)
+func (v *VerticaDB) IsAutoCertRotationEnabled(tlsConfig string) bool {
+	if !vmeta.UseTLSAuth(v.Annotations) {
+		return false
+	}
+	config := v.GetTLSConfigSpecByName(tlsConfig)
+	return config != nil && config.AutoRotate != nil && len(config.AutoRotate.Secrets) > 0
+}
+
+// GetAutoRotateSecrets gets the list of auto-rotate secrets from status
+// for a certain tlsconfig (clientServer or httpsNMA)
+func (v *VerticaDB) GetAutoRotateSecrets(tlsConfig string) []string {
+	config := v.GetTLSConfigByName(tlsConfig)
+	if config == nil {
+		return []string{}
+	}
+	return config.AutoRotateSecrets
+}
+
+// GetTLSLastUpdate gets the last update time from the status
+// for a certain tlsconfig (clientServer or httpsNMA)
+func (v *VerticaDB) GetTLSLastUpdate(tlsConfig string) metav1.Time {
+	config := v.GetTLSConfigByName(tlsConfig)
+	if config == nil {
+		return metav1.Time{}
+	}
+	return config.LastUpdate
+}
+
+// GetTLSNextUpdate gets the next update time from the status
+// for a certain tlsconfig (clientServer or httpsNMA). It does so
+// using LastUpdate from status and autoRotate.interval from spec.
+func (v *VerticaDB) GetTLSNextUpdate(tlsConfig string) *metav1.Time {
+	status := v.GetTLSConfigByName(tlsConfig)
+	if status == nil || status.LastUpdate.IsZero() {
+		return nil
+	}
+
+	interval := v.GetTLSConfigAutoRotate(tlsConfig).Interval
+	next := status.LastUpdate.Time.Add(time.Duration(interval) * time.Minute)
+	return &metav1.Time{Time: next}
+}
+
+// GetTLSConfigAutoRotate gets the TLSAutoRotate from spec
+// for a certain tlsconfig (clientServer or httpsNMA)
+func (v *VerticaDB) GetTLSConfigAutoRotate(tlsConfig string) *TLSAutoRotate {
+	config := v.GetTLSConfigSpecByName(tlsConfig)
+	if config == nil {
+		return nil
+	}
+	return config.AutoRotate
 }
 
 // IsStatusConditionTrue returns true when the conditionType is present and set to
@@ -739,7 +933,7 @@ func (v *VerticaDB) IsDepotVolumeManaged() bool {
 func (v *VerticaDB) GetFirstPrimarySubcluster() *Subcluster {
 	for i := range v.Spec.Subclusters {
 		sc := &v.Spec.Subclusters[i]
-		if sc.IsPrimary() {
+		if sc.IsPrimary(v) {
 			return sc
 		}
 	}
@@ -752,8 +946,46 @@ func (v *VerticaDB) GetPrimaryCount() int {
 	sizeSum := 0
 	for i := range v.Spec.Subclusters {
 		sc := &v.Spec.Subclusters[i]
-		if sc.IsPrimary() && !sc.IsSandboxPrimary() {
+		if sc.IsPrimary(v) && !sc.IsSandboxPrimary(v) {
 			sizeSum += int(sc.Size)
+		}
+	}
+	return sizeSum
+}
+
+// GetMainPrimaryUpCount returns the number of primary nodes in the main subcluster in up state.
+func (v *VerticaDB) GetMainPrimaryUpCount() int {
+	sizeSum := 0
+	for i := range v.Spec.Subclusters {
+		sc := &v.Spec.Subclusters[i]
+		if sc.IsPrimary(v) && !sc.IsSandboxPrimary(v) {
+			ss, ok := v.FindSubclusterStatus(sc.Name)
+			if ok {
+				sizeSum += int(ss.UpNodeCount)
+			}
+		}
+	}
+	return sizeSum
+}
+
+// GetSandboxPrimaryUpCount returns the number of primary nodes in a sandbox in up state.
+func (v *VerticaDB) GetSandboxPrimaryUpCount(sbName string) int {
+	if sbName == MainCluster {
+		return v.GetMainPrimaryUpCount()
+	}
+
+	sbMap := v.GenSandboxMap()
+	sb, ok := sbMap[sbName]
+	if !ok {
+		return 0
+	}
+
+	sizeSum := 0
+	for i := range sb.Subclusters {
+		sbSc := sb.Subclusters[i]
+		ss, ok := v.FindSubclusterStatus(sbSc.Name)
+		if ok && ss.Type == SandboxPrimarySubcluster {
+			sizeSum += int(ss.UpNodeCount)
 		}
 	}
 	return sizeSum
@@ -877,26 +1109,24 @@ func (v *VerticaDB) GetActiveConnectionsDrainSeconds() int {
 	return vmeta.GetActiveConnectionsDrainSeconds(v.Annotations)
 }
 
-// IsCertRotationEnabled returns true if the version supports certs and
-// cert rotation is enabled.
-func (v *VerticaDB) IsCertRotationEnabled() bool {
-	if !vmeta.UseVClusterOps(v.Annotations) {
-		return false
-	}
+// IsHTTPProbeSupported returns true if the version supports certs
+func (v *VerticaDB) IsHTTPProbeSupported(ver string) bool {
 	vinf, hasVersion := v.MakeVersionInfo()
+	if ver != "" {
+		vinf, hasVersion = v.GetVersion(ver)
+	}
 	// Assume we are running a version that does not support cert rotation
 	// if version is not present.
 	if !hasVersion {
 		return false
 	}
-	return vinf.IsEqualOrNewer(TLSCertRotationMinVersion) &&
-		vmeta.UseTLSAuth(v.Annotations)
+	return vinf.IsEqualOrNewer(TLSAuthMinVersion)
 }
 
 // IsNMASideCarDeploymentEnabled returns true if the conditions to run NMA
 // in a sidecar are met
 func (v *VerticaDB) IsNMASideCarDeploymentEnabled() bool {
-	if !vmeta.UseVClusterOps(v.Annotations) {
+	if !v.UseVClusterOpsDeployment() {
 		return false
 	}
 	vinf, hasVersion := v.MakeVersionInfo()
@@ -912,10 +1142,25 @@ func (v *VerticaDB) IsNMASideCarDeploymentEnabled() bool {
 // IsMonolithicDeploymentEnabled returns true if NMA must run in the
 // same container as vertica
 func (v *VerticaDB) IsMonolithicDeploymentEnabled() bool {
-	if !vmeta.UseVClusterOps(v.Annotations) {
+	if !v.UseVClusterOpsDeployment() {
 		return false
 	}
 	return !v.IsNMASideCarDeploymentEnabled()
+}
+
+// ShouldEnableHTTPS returns true if the deployment method is vclusterOps
+// and the version supports it.
+func (v *VerticaDB) ShouldEnableHTTPS() bool {
+	if !v.UseVClusterOpsDeployment() {
+		return false
+	}
+	vinf, hasVersion := v.MakeVersionInfo()
+	// When version isn't present but vclusterOps annotation is set to true,
+	// we assume the version supports vcusterOps.
+	if !hasVersion {
+		return true
+	}
+	return vinf.IsEqualOrNewer(VcluseropsAsDefaultDeploymentMethodMinVersion)
 }
 
 // IsKSafety0 returns true if k-safety of 0 is set.
@@ -931,7 +1176,25 @@ func (v *VerticaDB) GetKSafety() string {
 	return "1"
 }
 
-// GetRequeueTime returns the time in seconds to wait for the next reconiliation iteration.
+// HasKSafetyAfterRemoval checks whether a main cluster or sandbox is k-safety
+// after some primary nodes removed
+func (v *VerticaDB) HasKSafetyAfterRemoval(sbName string, offset int) bool {
+	minHosts := KSafety0MinHosts
+	if !v.IsKSafety0() {
+		minHosts = KSafety1MinHosts
+	}
+
+	primaryCount := 0
+	if sbName == MainCluster {
+		primaryCount = v.GetMainPrimaryUpCount()
+	} else {
+		primaryCount = v.GetSandboxPrimaryUpCount(sbName)
+	}
+
+	return primaryCount-offset >= minHosts
+}
+
+// GetRequeueTime returns the time in seconds to wait for the next reconciliation iteration.
 func (v *VerticaDB) GetRequeueTime() int {
 	return vmeta.GetRequeueTime(v.Annotations)
 }
@@ -963,14 +1226,19 @@ func (v *VerticaDB) IncludeUIDInPath() bool {
 	return vmeta.IncludeUIDInPath(v.Annotations)
 }
 
-// IsHDFS returns true if the communal path is stored in an HDFS path
-func (v *VerticaDB) IsHDFS() bool {
+// IsPathHDFS returns true if the path is an HDFS path
+func (v *VerticaDB) IsPathHDFS(path string) bool {
 	for _, p := range hdfsPrefixes {
-		if strings.HasPrefix(v.Spec.Communal.Path, p) {
+		if strings.HasPrefix(path, p) {
 			return true
 		}
 	}
 	return false
+}
+
+// IsHDFS returns true if the communal path is stored in an HDFS path
+func (v *VerticaDB) IsHDFS() bool {
+	return v.IsPathHDFS(v.Spec.Communal.Path)
 }
 
 // IsS3 returns true if VerticaDB has a communal path for S3 compatible storage.
@@ -1036,16 +1304,38 @@ func (v *VerticaDB) GetKerberosServiceName() string {
 	return v.Spec.Communal.AdditionalConfig[vmeta.KerberosServiceNameConfig]
 }
 
-func (s *Subcluster) IsPrimary() bool {
-	return s.Type == PrimarySubcluster || s.Type == SandboxPrimarySubcluster
+func (s *Subcluster) IsPrimary(v *VerticaDB) bool {
+	return s.Type == PrimarySubcluster || s.IsSandboxPrimary(v)
+}
+
+// HasAdditionalBuckets returns true if additionalBuckets is configured for data replication
+func (v *VerticaDB) HasAdditionalBuckets() bool {
+	return len(v.Spec.AdditionalBuckets) != 0
+}
+
+// GetBucket returns the bucket name from the path URL
+func GetBucket(path string) string {
+	re := regexp.MustCompile(`([a-z]\d+)://(.*)`)
+	m := re.FindAllStringSubmatch(path, 1)
+
+	if len(m) == 0 || len(m[0]) < 3 {
+		return path
+	}
+
+	p := strings.Split(m[0][2], "/")
+	if len(p) == 0 || len(p[0]) < 3 {
+		return m[0][2]
+	}
+
+	return strings.TrimRight(p[0], "/")
 }
 
 func (s *Subcluster) IsMainPrimary() bool {
 	return s.Type == PrimarySubcluster
 }
 
-func (s *Subcluster) IsSandboxPrimary() bool {
-	return s.Type == SandboxPrimarySubcluster
+func (s *Subcluster) IsSandboxPrimary(v *VerticaDB) bool {
+	return v.GetSandboxSubclusterType(s.Name) == PrimarySubcluster
 }
 
 func (s *Subcluster) IsSecondary() bool {
@@ -1064,7 +1354,38 @@ func (s *Subcluster) GetType() string {
 	if s.IsTransient() || s.Type == "" {
 		return SecondarySubcluster
 	}
+
 	return s.Type
+}
+
+// GetSubcluster returns the subcluster based on the subcluster name
+func (v *VerticaDB) GetSubcluster(scName string) *Subcluster {
+	scMap := v.GenSubclusterMap()
+	if sc, ok := scMap[scName]; ok {
+		return sc
+	}
+	return nil
+}
+
+// GetSubclusterType calls GetType but returns the type based on its sandbox type
+func (s *Subcluster) GetSubclusterType(v *VerticaDB) string {
+	if s.IsSandboxPrimary(v) {
+		return SandboxPrimarySubcluster
+	}
+
+	return s.GetType()
+}
+
+// GetTypeByName returns the type of the subcluster by its name
+func (spec *VerticaDBSpec) GetTypeByName(scName string) string {
+	for i := range spec.Subclusters {
+		if spec.Subclusters[i].Name == scName {
+			return spec.Subclusters[i].Type
+		}
+	}
+
+	// return empty if sc does not exist
+	return ""
 }
 
 func (v *VerticaDBStatus) InstallCount() int32 {
@@ -1105,6 +1426,18 @@ func (v *VerticaDB) IsKSafetyCheckStrict() bool {
 
 func (v *VerticaDB) IsFetchNodeDetailsLogDisabled() bool {
 	return vmeta.IsFetchNodeDetailsLogDisabled(v.Annotations)
+}
+
+func (v *VerticaDB) GetTLSCacheDuration() uint64 {
+	duration := vmeta.GetTLSCacheDuration(v.Annotations)
+	if duration < 0 {
+		return 0
+	}
+	return uint64(duration)
+}
+
+func (v *VerticaDB) ShouldRemoveTLSSecret() bool {
+	return vmeta.ShouldRemoveTLSSecret(v.Annotations)
 }
 
 // IsValidRestorePointPolicy returns true if the RestorePointPolicy is properly specified,
@@ -1170,6 +1503,55 @@ func (v *VerticaDB) IsHTTPSTLSConfGenerationEnabled() (bool, error) {
 	return !inf.IsEqualOrNewer(AutoGenerateHTTPSCertsForNewDatabasesMinVersion), nil
 }
 
+// IsHTTPSConfigEnabled returns true if tls is enabled and https tls config
+// exists in the db. It means the db ops can start using tls
+func (v *VerticaDB) IsHTTPSConfigEnabled() bool {
+	return v.IsSetForTLS() &&
+		v.GetHTTPSNMATLSSecretInUse() != ""
+}
+
+// IsHTTPSConfigEnabledWithCreate returns true if tls is enabled and https tls config
+// exists in the db. It means the db ops can start using tls. For revive, there is know way to know
+// the db had tls configs until after revive so can't make any assumptions
+func (v *VerticaDB) IsHTTPSConfigEnabledWithCreate() bool {
+	if v.Spec.InitPolicy == CommunalInitPolicyCreate {
+		return v.IsHTTPSConfigEnabled()
+	}
+
+	return v.IsSetForTLS()
+}
+
+// IsClientServerConfigEnabled returns true if tls is enabled and client-server tls config
+// exists in the db
+func (v *VerticaDB) IsClientServerConfigEnabled() bool {
+	return v.IsSetForTLS() &&
+		v.GetClientServerTLSSecretInUse() != ""
+}
+
+// IsSetForTLS returns true if VerticaDB is set and ready for tls.
+// It does not mean vclusterops can now operate using tls, for
+// that we need to wait until tls configurations are created
+func (v *VerticaDB) IsSetForTLS() bool {
+	return v.IsValidVersionForTLS() &&
+		vmeta.UseTLSAuth(v.Annotations)
+}
+
+// IsValidVersionForTLS returns true if the server version
+// supports tls
+func (v *VerticaDB) IsValidVersionForTLS() bool {
+	if !v.UseVClusterOpsDeployment() {
+		return false
+	}
+	vinf, hasVersion := v.MakeVersionInfo()
+	// Assume we are running a version that does not support cert rotation
+	// if version is not present.
+	if !hasVersion {
+		return false
+	}
+
+	return vinf.IsEqualOrNewer(TLSAuthMinVersion)
+}
+
 // GenSubclusterStatusMap returns a map that has a subcluster name as key
 // and its status as value
 func (v *VerticaDB) GenSubclusterStatusMap() map[string]*SubclusterStatus {
@@ -1190,6 +1572,12 @@ func (v *VerticaDB) GetSubclusterSandboxName(scName string) string {
 		}
 	}
 	return MainCluster
+}
+
+// GetSandboxSubclusterType returns the subcluster type in a sandbox
+func (v *VerticaDB) GetSandboxSubclusterType(scName string) string {
+	typeScSbMap := v.GenSandboxSubclusterTypeMap()
+	return typeScSbMap[scName]
 }
 
 // getNumberOfNodes returns the number of nodes defined in the database, as per the CR.
@@ -1221,6 +1609,16 @@ func (v *VerticaDB) GetSandboxStatus(sbName string) *SandboxStatus {
 		}
 	}
 	return nil
+}
+
+// GetSubclusterStatusType returns the subcluster status type
+func (v *VerticaDB) GetSubclusterStatusType(scName string) string {
+	scStatus, ok := v.FindSubclusterStatus(scName)
+	if ok {
+		return scStatus.Type
+	}
+
+	return ""
 }
 
 // GetSandboxStatusCheck is like GetSandboxStatus but returns an error if the sandbox
@@ -1276,6 +1674,18 @@ func (v *VerticaDB) GetSubclustersInSandbox(sbName string) []string {
 		scNames = append(scNames, sb.Subclusters[i].Name)
 	}
 	return scNames
+}
+
+// UseVClusterDeployment returns true if the deployment method is vclusterOps
+func (v *VerticaDB) UseVClusterOpsDeployment() bool {
+	if v.Status.DeploymentMethod == DeploymentMethodVC {
+		return true
+	} else if v.Status.DeploymentMethod == DeploymentMethodAT {
+		return false
+	}
+
+	// when deploymentMethod is empty in status, check annotation
+	return vmeta.UseVClusterOps(v.Annotations)
 }
 
 // GetHPAMetrics extract an return hpa metrics from MetricDefinition struct.
@@ -1487,34 +1897,131 @@ func GetMetricTarget(metric *autoscalingv2.MetricSpec) *autoscalingv2.MetricTarg
 	return nil
 }
 
-func (v *VerticaDB) GetSecretStatus(sType string) *SecretRef {
-	return FindSecretRef(v.Status.SecretRefs, sType)
+func (v *VerticaDB) GetTLSConfigByName(name string) *TLSConfigStatus {
+	return FindTLSConfig(v.Status.TLSConfigs, "Name", name)
 }
 
-func (v *VerticaDB) GetSecretNameInUse(sType string) string {
-	if v.GetSecretStatus(sType) == nil {
+func (v *VerticaDB) GetTLSConfigBySecret(secret string) *TLSConfigStatus {
+	return FindTLSConfig(v.Status.TLSConfigs, "Secret", secret)
+}
+
+func (v *VerticaDB) GetTLSConfigByMode(mode string) *TLSConfigStatus {
+	return FindTLSConfig(v.Status.TLSConfigs, "Mode", mode)
+}
+
+func (v *VerticaDB) GetSecretInUse(name string) string {
+	if v.GetTLSConfigByName(name) == nil {
 		return ""
 	}
-	return v.GetSecretStatus(sType).Name
+	return v.GetTLSConfigByName(name).Secret
 }
 
-func (v *VerticaDB) GetHTTPSTLSSecretNameInUse() string {
-	return v.GetSecretNameInUse(HTTPSTLSSecretType)
+func (v *VerticaDB) GetHTTPSNMATLSSecretInUse() string {
+	return v.GetSecretInUse(HTTPSNMATLSConfigName)
 }
 
-func (v *VerticaDB) GetClientServerTLSSecretNameInUse() string {
-	return v.GetSecretNameInUse(ClientServerTLSSecretType)
+// GetNonEmptyHTTPSNMATLSSecret returns the httpsNMA secret
+// from the status if non empty or from the spec
+func (v *VerticaDB) GetNonEmptyHTTPSNMATLSSecret() string {
+	if v.GetHTTPSNMATLSSecretInUse() != "" {
+		return v.GetHTTPSNMATLSSecretInUse()
+	}
+
+	return v.GetHTTPSNMATLSSecret()
+}
+
+func (v *VerticaDB) GetClientServerTLSSecretInUse() string {
+	return v.GetSecretInUse(ClientServerTLSConfigName)
+}
+
+// GetValueForTLSConfigMap determines which value (spec or status) should be written to the NMA TLS ConfigMap.
+// The decision is made per certificate type (https or clientServer) to avoid prematurely updating NMA
+// with a new cert that hasn’t been rotated yet.
+//
+// Rules:
+//  1. If statusValue is empty (e.g., during initial create), use specValue.
+//  2. If a rollback is in progress, use statusValue to keep NMA pointing at the last known good cert.
+//  3. If this cert’s rotation is in progress (started but not yet marked finished), use specValue
+//     so NMA can start using the new cert.
+//  4. Otherwise, default to statusValue so we don’t break NMA communication by using an unready cert.
+//
+// This ensures that when rotating multiple certs in the same iteration, each configmap update
+// only changes the fields for the cert currently being rotated.
+func (v *VerticaDB) GetValueForTLSConfigMap(specValue, statusValue, tlsConfigName string) string {
+	if statusValue == "" {
+		return specValue
+	}
+
+	if v.IsTLSCertRollbackNeeded() {
+		return statusValue
+	}
+
+	// Only switch to spec if this cert’s rotation is in progress
+	updateNotFinished := v.IsStatusConditionTrue(HTTPSTLSConfigUpdateFinished)
+	if tlsConfigName == ClientServerTLSConfigName {
+		updateNotFinished = v.IsStatusConditionTrue(ClientServerTLSConfigUpdateFinished)
+	}
+
+	if updateNotFinished {
+		return specValue // rotation started, not done → point to new secret
+	}
+
+	return statusValue // rotation not started → keep old in-use secret
+}
+
+// NoClientServerRotationNeeded returns true if the ClientServer TLS configuration
+// does not require any further rotation, meaning both the desired TLS mode
+// and secret match the currently in-use values.
+func (v *VerticaDB) NoClientServerRotationNeeded() bool {
+	modeUpToDate := v.GetClientServerTLSMode() == v.GetClientServerTLSModeInUse()
+	secretUnchanged := v.GetClientServerTLSSecret() == v.GetClientServerTLSSecretInUse()
+
+	return modeUpToDate && secretUnchanged
+}
+
+// GetHTTPSNMATLSSecretForConfigMap returns the correct TLS secret name
+// to include in the NMA configmap. It prioritizes the currently in-use
+// secret if an update is still in progress or a rollback is needed.
+func (v *VerticaDB) GetHTTPSNMATLSSecretForConfigMap() string {
+	if !vmeta.UseTLSAuth(v.Annotations) {
+		return v.GetNMATLSSecret()
+	}
+	return v.GetValueForTLSConfigMap(v.GetHTTPSNMATLSSecret(), v.GetHTTPSNMATLSSecretInUse(), HTTPSNMATLSConfigName)
+}
+
+// GetClientServerTLSModeForConfigMap returns the correct TLS mode
+// to include in the NMA configmap. It prioritizes the currently in-use
+// mode if an update is still in progress or a rollback is needed.
+func (v *VerticaDB) GetClientServerTLSModeForConfigMap() string {
+	return v.GetValueForTLSConfigMap(v.GetClientServerTLSMode(), v.GetClientServerTLSModeInUse(), ClientServerTLSConfigName)
+}
+
+// GetClientServerTLSSecretForConfigMap returns the correct TLS secret name
+// to include in the NMA configmap. It prioritizes the currently in-use
+// secret if an update is still in progress or a rollback is needed.
+func (v *VerticaDB) GetClientServerTLSSecretForConfigMap() string {
+	return v.GetValueForTLSConfigMap(v.GetClientServerTLSSecret(), v.GetClientServerTLSSecretInUse(), ClientServerTLSConfigName)
 }
 
 // IsCertNeededForClientServerAuth returns true if certificate is needed for client-server authentication
 func (v *VerticaDB) IsCertNeededForClientServerAuth() bool {
-	tlsMode := strings.ToLower(v.Spec.ClientServerTLSMode)
+	tlsMode := v.GetClientServerTLSMode()
 	return tlsMode != tlsModeDisable && tlsMode != tlsModeEnable
+}
+
+// GetExpectedCertCommonName returns the expected common name for the TLS certificate.
+// For httpsNMATLS, this is the DB admin. For clientServerTLS, it will also default to
+// DB admin, but it can be overridden using clientServerTLS.commonName.
+func (v *VerticaDB) GetExpectedCertCommonName(configName string) string {
+	if configName == ClientServerTLSConfigName && v.Spec.ClientServerTLS != nil && v.Spec.ClientServerTLS.CommonName != "" {
+		return v.Spec.ClientServerTLS.CommonName
+	}
+	return v.GetVerticaUser()
 }
 
 // GetNMAClientServerTLSMode returns the tlsMode for NMA client-server communication
 func (v *VerticaDB) GetNMAClientServerTLSMode() string {
-	tlsMode := strings.ToLower(v.Spec.ClientServerTLSMode)
+	tlsMode := v.GetClientServerTLSModeForConfigMap()
 	switch tlsMode {
 	case tlsModeDisable:
 		return nmaTLSModeDisable
@@ -1524,7 +2031,7 @@ func (v *VerticaDB) GetNMAClientServerTLSMode() string {
 		// There is still a flaw in vclusterOps: create_db set_tls will fail
 		// since nma cannot verify server certificate. After we extract set_tls
 		// from create_db, we can remove the db init check.
-		if !v.isDBInitialized() {
+		if !v.IsDBInitialized() {
 			return nmaTLSModeEnable
 		}
 		return nmaTLSModeVerifyCA
@@ -1533,80 +2040,69 @@ func (v *VerticaDB) GetNMAClientServerTLSMode() string {
 	}
 }
 
-// FindSecretRef returns a pointer to the SecretRef with the given type, or nil if not found.
-func FindSecretRef(refs []SecretRef, typ string) *SecretRef {
-	for i := range refs {
-		if refs[i].Type == typ {
-			return &refs[i]
+// Searches for a TLSConfig where a specified field equals a specified value
+// For example, where Name=ClientServer
+// Returns a pointer to the TLSConfig, or nil if not found.
+func FindTLSConfig(configs []TLSConfigStatus, configField, value string) *TLSConfigStatus {
+	for i := range configs {
+		switch configField {
+		case "Name":
+			if configs[i].Name == value {
+				return &configs[i]
+			}
+		case "Secret":
+			if configs[i].Secret == value {
+				return &configs[i]
+			}
+		case "Mode":
+			if configs[i].Mode == value {
+				return &configs[i]
+			}
 		}
 	}
 	return nil
 }
 
-func (v *VerticaDB) GetTLSModeStatus(sType string) *TLSMode {
-	return FindTLSMode(v.Status.TLSModes, sType)
-}
-
-func (v *VerticaDB) GetTLSModeInUse(sType string) string {
-	if v.GetTLSModeStatus(sType) == nil {
+func (v *VerticaDB) GetTLSModeInUse(name string) string {
+	if v.GetTLSConfigByName(name) == nil {
 		return ""
 	}
-	return v.GetTLSModeStatus(sType).Mode
+	return v.GetTLSConfigByName(name).Mode
 }
 
 func (v *VerticaDB) GetHTTPSTLSModeInUse() string {
-	return v.GetTLSModeInUse(HTTPSTLSModeType)
+	return strings.ToLower(v.GetTLSModeInUse(HTTPSNMATLSConfigName))
 }
 
 func (v *VerticaDB) GetClientServerTLSModeInUse() string {
-	return v.GetTLSModeInUse(ClientServerTLSModeType)
+	return strings.ToLower(v.GetTLSModeInUse(ClientServerTLSConfigName))
 }
 
-// FindTLSMode returns a pointer to the SecretRef with the given type, or nil if not found.
-func FindTLSMode(refs []TLSMode, typ string) *TLSMode {
-	for i := range refs {
-		if refs[i].Type == typ {
-			return &refs[i]
-		}
-	}
-	return nil
-}
-
-// SetSecretRef updates the slice with a new SecretRef by Type, and returns true if any changes occurred.
-func SetSecretRef(refs *[]SecretRef, newRef SecretRef) (changed bool) {
-	existing := FindSecretRef(*refs, newRef.Type)
+// SetTLSConfigs updates the slice with a new TLSConfig by Name, and returns true if any changes occurred.
+func SetTLSConfigs(refs *[]TLSConfigStatus, newRef *TLSConfigStatus) (changed bool) {
+	existing := FindTLSConfig(*refs, "Name", newRef.Name)
 	if existing == nil {
-		*refs = append(*refs, newRef)
+		*refs = append(*refs, *newRef)
 		return true
 	}
 
-	if existing.Name != newRef.Name {
-		existing.Name = newRef.Name
+	if existing.Secret != newRef.Secret {
+		existing.Secret = newRef.Secret
 		changed = true
-	}
-	if existing.Type != newRef.Type {
-		existing.Type = newRef.Type
-		changed = true
-	}
-
-	return changed
-}
-
-// SetTLSMode updates the slice with a new TLSMode by Type, and returns true if any changes occurred.
-func SetTLSMode(refs *[]TLSMode, newRef TLSMode) (changed bool) {
-	existing := FindTLSMode(*refs, newRef.Type)
-	if existing == nil {
-		*refs = append(*refs, newRef)
-		return true
 	}
 	if existing.Mode != newRef.Mode {
 		existing.Mode = newRef.Mode
 		changed = true
 	}
-	if existing.Type != newRef.Type {
-		existing.Type = newRef.Type
+	if !newRef.LastUpdate.IsZero() && existing.LastUpdate != newRef.LastUpdate {
+		existing.LastUpdate = newRef.LastUpdate
 		changed = true
 	}
+	if newRef.AutoRotateSecrets != nil {
+		existing.AutoRotateSecrets = newRef.AutoRotateSecrets
+		changed = true
+	}
+
 	return changed
 }
 
@@ -1653,4 +2149,121 @@ func findInvalidChars(objName string, allowDash bool) string {
 		}
 	}
 	return foundChars
+}
+
+func (v *VerticaDB) GetSpecHTTPSNMATLSMode() string {
+	if v.Spec.HTTPSNMATLS == nil {
+		return ""
+	}
+	return v.Spec.HTTPSNMATLS.Mode
+}
+
+func (v *VerticaDB) GetHTTPSNMATLSMode() string {
+	return strings.ToLower(v.GetSpecHTTPSNMATLSMode())
+}
+
+// Get HTTPSNMATLS secret from spec or return "" if not found
+func (v *VerticaDB) GetHTTPSNMATLSSecret() string {
+	if v.Spec.HTTPSNMATLS == nil {
+		return ""
+	}
+	return v.Spec.HTTPSNMATLS.Secret
+}
+
+// GetNMATLSSecret returns the NMATLS secret based on enable-tls annotation
+func (v *VerticaDB) GetNMATLSSecret() string {
+	if !vmeta.UseTLSAuth(v.Annotations) {
+		return v.Spec.NMATLSSecret
+	}
+	return v.GetHTTPSNMATLSSecret()
+}
+
+func (v *VerticaDB) GetSpecClientServerTLSMode() string {
+	if v.Spec.ClientServerTLS == nil {
+		return ""
+	}
+	return v.Spec.ClientServerTLS.Mode
+}
+
+func (v *VerticaDB) GetClientServerTLSMode() string {
+	return strings.ToLower(v.GetSpecClientServerTLSMode())
+}
+
+// Get ClientServerTLS secret from spec or return "" if not found
+func (v *VerticaDB) GetClientServerTLSSecret() string {
+	if v.Spec.ClientServerTLS == nil {
+		return ""
+	}
+	return v.Spec.ClientServerTLS.Secret
+}
+
+// Check if TLS not enabled, DB not initialized, or rotate has failed
+// In these cases, we skip TLS Update
+func (v *VerticaDB) ShouldSkipTLSUpdateReconcile() bool {
+	return !v.IsSetForTLS() ||
+		!v.IsDBInitialized() ||
+		v.IsTLSCertRollbackNeeded()
+}
+
+// HasNoExtraEnv returns true if there are no extra environment variables
+// or envFrom specified in the VerticaDB spec.
+func (v *VerticaDB) HasNoExtraEnv() bool {
+	return len(v.Spec.ExtraEnv) == 0 && len(v.Spec.EnvFrom) == 0
+}
+
+// MakeSourceVDBName is a helper that creates a sample name for the source VerticaDB for test purposes
+func MakeSourceVDBName() types.NamespacedName {
+	return types.NamespacedName{Name: "vertica-source-sample", Namespace: "default"}
+}
+
+// MakeTargetVDBName is a helper that creates a sample name for the target VerticaDB for test purposes
+func MakeTargetVDBName() types.NamespacedName {
+	return types.NamespacedName{Name: "vertica-target-sample", Namespace: "default"}
+}
+
+// IsOtherSubclusterDraining returns true if any subcluster drain annotation
+// exists that has a suffix different from the given scName.
+func (v *VerticaDB) IsOtherSubclusterDraining(scName string) bool {
+	drainAnnotations, found := vmeta.FindDrainTimeoutSubclusterAnnotations(v.Annotations)
+	if !found {
+		return false
+	}
+	for _, annotation := range drainAnnotations {
+		// If we have an annotation that is NOT for this scName,
+		// it means another subcluster is draining.
+		if annotation != vmeta.GenSubclusterDrainStartAnnotationName(scName) {
+			return true
+		}
+	}
+	return false
+}
+
+// GetPrometheusScrapeDuration returns the Prometheus scrape duration as a string
+func (v *VerticaDB) GetPrometheusScrapeDuration() string {
+	if vmeta.GetPrometheusScrapeInterval(v.Annotations) == 0 {
+		return ""
+	}
+
+	return fmt.Sprintf("%ds", vmeta.GetPrometheusScrapeInterval(v.Annotations))
+}
+
+// MakeVersionStrForOpVersion can convert operator version to vertica version format
+func MakeVersionStrForOpVersion(v string) string {
+	if v == "" {
+		return ""
+	}
+	return "v" + v
+}
+
+// equalStringSlices compares two string arrays, slice by slice
+func (v *VerticaDB) EqualStringSlices(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
 }

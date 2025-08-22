@@ -1,5 +1,0 @@
-kind: Fixed
-body: Users cannot create restore points when initPolicy is set to Revive
-time: 2025-04-17T18:37:09.755433245Z
-custom:
-  Issue: "1212"

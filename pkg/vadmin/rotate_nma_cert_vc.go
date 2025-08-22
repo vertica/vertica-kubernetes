@@ -20,6 +20,7 @@ import (
 
 	vops "github.com/vertica/vcluster/vclusterops"
 	"github.com/vertica/vertica-kubernetes/pkg/net"
+	"github.com/vertica/vertica-kubernetes/pkg/tls"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/rotatenmacerts"
 )
 
@@ -29,14 +30,23 @@ func (v *VClusterOps) RotateNMACerts(ctx context.Context, opts ...rotatenmacerts
 	defer v.tearDownForAPICall()
 	v.Log.Info("Starting vcluster RotateNMACerts")
 
-	// get the certs
-	certs, err := v.retrieveHTTPSCerts(ctx)
-	if err != nil {
-		return err
-	}
-
 	s := rotatenmacerts.Params{}
 	s.Make(opts...)
+
+	// get the certs
+	var certs *tls.HTTPSCerts
+	var err error
+	if s.FromNMA {
+		certs, err = v.retrieveNMACerts(ctx)
+		if err != nil {
+			return err
+		}
+	} else {
+		certs, err = v.retrieveHTTPSCerts(ctx)
+		if err != nil {
+			return err
+		}
+	}
 
 	// call vclusterOps library to rotate nma cert
 	vopts := v.genRotateNMACertsOptions(&s, certs)
@@ -49,7 +59,7 @@ func (v *VClusterOps) RotateNMACerts(ctx context.Context, opts ...rotatenmacerts
 	return nil
 }
 
-func (v *VClusterOps) genRotateNMACertsOptions(s *rotatenmacerts.Params, certs *HTTPSCerts) vops.VRotateNMACertsOptions {
+func (v *VClusterOps) genRotateNMACertsOptions(s *rotatenmacerts.Params, certs *tls.HTTPSCerts) vops.VRotateNMACertsOptions {
 	opts := vops.VRotateNMACertsOptionsFactory()
 
 	opts.DBName = v.VDB.Spec.DBName

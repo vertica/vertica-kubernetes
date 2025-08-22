@@ -231,7 +231,7 @@ func (vdb *VCoordinationDatabase) addNode(vnode *VCoordinationNode) error {
 // addHosts adds a given list of hosts to the VDB's HostList
 // and HostNodeMap. existingHostNodeMap contains entries for nodes
 // in all clusters (main and sandboxes)
-func (vdb *VCoordinationDatabase) addHosts(hosts []string, scName string,
+func (vdb *VCoordinationDatabase) addHosts(hosts []string, scName, sandbox string,
 	existingHostNodeMap vHostNodeMap) error {
 	totalHostCount := len(hosts) + len(existingHostNodeMap) + len(vdb.UnboundNodes)
 	nodeNameToHost := genNodeNameToHostMap(existingHostNodeMap)
@@ -245,12 +245,12 @@ func (vdb *VCoordinationDatabase) addHosts(hosts []string, scName string,
 
 	for _, host := range hosts {
 		vNode := makeVCoordinationNode()
-		name, ok := util.GenVNodeName(nodeNameToHost, vdb.Name, totalHostCount)
+		name, ok := util.GenVNodeName(nodeNameToHost, vdb.Name, totalHostCount, sandbox)
 		if !ok {
 			return fmt.Errorf("could not generate a vnode name for %s", host)
 		}
 		nodeNameToHost[name] = host
-		vNode.setNode(vdb, host, name, scName)
+		vNode.setNode(vdb, host, name, scName, sandbox)
 		err := vdb.addNode(&vNode)
 		if err != nil {
 			return err
@@ -313,6 +313,29 @@ func genNodeNameToHostMap(existingHostNodeMap vHostNodeMap) map[string]string {
 		vnodes[vnode.Name] = h
 	}
 	return vnodes
+}
+
+// Given a subcluster and a sandbox name, return true if the subcluster is sandboxed
+func (vdb *VCoordinationDatabase) isSubclusterSandboxed(scName, sandbox string) bool {
+	for _, vnode := range vdb.HostNodeMap {
+		if vnode.Subcluster == scName && vnode.Sandbox == sandbox {
+			return true
+		}
+	}
+	return false
+}
+
+func (vdb *VCoordinationDatabase) getSandboxInitiator(sandbox string, skipHosts []string) string {
+	skipHostSet := mapset.NewSet(skipHosts...)
+	for host, vnode := range vdb.HostNodeMap {
+		if exists := skipHostSet.Contains(host); exists {
+			continue
+		}
+		if vnode.Sandbox == sandbox && vnode.State == util.NodeUpState && vnode.IsPrimary {
+			return host
+		}
+	}
+	return ""
 }
 
 // getSCNames returns a slice of subcluster names which the nodes
@@ -404,6 +427,33 @@ func (vdb *VCoordinationDatabase) filterPrimaryNodes() {
 	}
 	vdb.HostNodeMap = primaryHostNodeMap
 
+	vdb.HostList = maps.Keys(vdb.HostNodeMap)
+}
+
+// filterSandboxNodes will remove main cluster nodes and other sandbox nodes from vdb
+func (vdb *VCoordinationDatabase) filterSandboxNodes(sandbox string) {
+	sandHostNodeMap := makeVHostNodeMap()
+
+	for h, vnode := range vdb.HostNodeMap {
+		if vnode.Sandbox == sandbox {
+			sandHostNodeMap[h] = vnode
+		}
+	}
+	vdb.HostNodeMap = sandHostNodeMap
+
+	vdb.HostList = maps.Keys(vdb.HostNodeMap)
+}
+
+// filterMainClusterNodes will remove sandbox nodes from vdb
+func (vdb *VCoordinationDatabase) filterMainClusterNodes() {
+	mainHostNodeMap := makeVHostNodeMap()
+
+	for h, vnode := range vdb.HostNodeMap {
+		if vnode.Sandbox == util.MainClusterSandbox {
+			mainHostNodeMap[h] = vnode
+		}
+	}
+	vdb.HostNodeMap = mainHostNodeMap
 	vdb.HostList = maps.Keys(vdb.HostNodeMap)
 }
 
@@ -552,12 +602,13 @@ func (vnode *VCoordinationNode) setFromBasicDBOptions(
 	return fmt.Errorf("fail to set up vnode from options: host %s does not exist in options", host)
 }
 
-func (vnode *VCoordinationNode) setNode(vdb *VCoordinationDatabase, address, name, scName string) {
+func (vnode *VCoordinationNode) setNode(vdb *VCoordinationDatabase, address, name, scName, sandbox string) {
 	// we trust the information in the config file
 	// so we do not perform validation here
 	vnode.Address = address
 	vnode.Name = name
 	vnode.Subcluster = scName
+	vnode.Sandbox = sandbox
 	vnode.CatalogPath = vdb.GenCatalogPath(vnode.Name)
 	dataPath := vdb.GenDataPath(vnode.Name)
 	vnode.StorageLocations = append(vnode.StorageLocations, dataPath)

@@ -15,7 +15,7 @@
 
 # Image utilities to be sourced into various bash scripts
 
-PUBLIC_REPO=vertica
+PUBLIC_REPO=opentext
 PRIVATE_REPO=opentext
 PRIVATE_IMAGE=vertica-k8s-private
 PUBLIC_IMAGE=vertica-k8s

@@ -13,6 +13,7 @@ import (
 //
 // See crypto/x509/verify.go for hostname validation behavior and crypto/tls/handshake_client.go for
 // the reference implementation of this function.
+// crypto indirectly use x/sys
 func GenerateTLSVerifyFunc(rootCAs *x509.CertPool) func([][]byte, [][]*x509.Certificate) error {
 	return func(certificates [][]byte, _ [][]*x509.Certificate) error {
 		// Reparse certs.  The crypto/tls package version does some extra checks, but they're already
