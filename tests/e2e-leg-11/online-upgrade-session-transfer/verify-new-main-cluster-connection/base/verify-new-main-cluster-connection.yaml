@@ -21,7 +21,7 @@ data:
     set -o errexit
     set -o xtrace
     # Access to subclusters through secondary service should route to the new main cluster.
-    CONNECTION_NODE=$(vsql -U dbadmin -h v-client-proxy-upgrade-sec1 -tAc "select node_name from current_session")
+    CONNECTION_NODE=$(vsql -U dbadmin -w topsecret -h v-client-proxy-upgrade-sec1 -tAc "select node_name from current_session")
     echo $CONNECTION_NODE
     if [[ $CONNECTION_NODE == "v_repup_node0010" ]] || \
        [[ $CONNECTION_NODE == "v_repup_node0011" ]] || \
