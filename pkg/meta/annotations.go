@@ -472,6 +472,9 @@ const (
 	// This annotation disables the webhook check performed by hasValidTLSWithKnob().
 	// It is intended for internal testing purposes only.
 	SkipTLSWebhookCheck = "vertica.com/skip-tls-webhook-check"
+
+	// This is an internal annotation. It is used to indicate we've set HTTPS TLS in offline upgrade.
+	OfflineUpgradeHTTPSSetAnnotation = "vertica.com/offline-https-set"
 )
 
 // IsPauseAnnotationSet will check the annotations for a special value that will
@@ -894,6 +897,10 @@ func GetPrometheusScrapeInterval(annotations map[string]string) int {
 
 func ShouldSkipTLSWebhookCheck(annotations map[string]string) bool {
 	return lookupBoolAnnotation(annotations, SkipTLSWebhookCheck, false)
+}
+
+func IsHTTPSTLSSetInOfflineUpgrade(annotations map[string]string) bool {
+	return lookupBoolAnnotation(annotations, OfflineUpgradeHTTPSSetAnnotation, false)
 }
 
 // lookupBoolAnnotation is a helper function to lookup a specific annotation and
