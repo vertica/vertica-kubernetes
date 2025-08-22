@@ -20,3 +20,5 @@ spec:
     verticaDB: "v-source"
   target:
     verticaDB: "v-target"
+    userName: "dbadmin"
+    passwordSecret: "su-passwd"

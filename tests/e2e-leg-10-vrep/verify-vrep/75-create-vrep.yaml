@@ -20,6 +20,8 @@ spec:
   source:
     verticaDB: "v-target"
     sandboxName: "sandbox2"
+    passwordSecret: "su-passwd-custom"
   target:
     verticaDB: "v-target"
     sandboxName: "sandbox3"
+    passwordSecret: "su-passwd-custom"

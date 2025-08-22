@@ -19,33 +19,6 @@ source:
 involvedObject:
   apiVersion: vertica.com/v1beta1
   kind: VerticaReplicator
-  name: vrep-test-sandbox-custom-user
----
-apiVersion: v1
-kind: Event
-reason: ReplicationSucceeded
-source:
-  component: verticadb-operator
-involvedObject:
-  apiVersion: vertica.com/v1beta1
-  kind: VerticaReplicator
-  name: vrep-test-sandbox-custom-user
----
-apiVersion: vertica.com/v1beta1
-kind: VerticaReplicator
-metadata:
-  name: vrep-test-sandbox-custom-user
-status:
-  state: "Replication successful"
----
-apiVersion: v1
-kind: Event
-reason: ReplicationStarted
-source:
-  component: verticadb-operator
-involvedObject:
-  apiVersion: vertica.com/v1beta1
-  kind: VerticaReplicator
   name: vrep-test-sandbox-custom-user-with-password
 ---
 apiVersion: v1

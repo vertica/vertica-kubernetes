@@ -23,3 +23,5 @@ spec:
   target:
     verticaDB: "v-target"
     sandboxName: "sandbox2"
+    userName: "dbadmin"
+    passwordSecret: "su-passwd"    
