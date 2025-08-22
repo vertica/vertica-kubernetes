@@ -35,8 +35,9 @@ type nmaStartNodeOp struct {
 }
 
 type startNodeRequestData struct {
-	StartCommand []string `json:"start_command"`
-	StartupConf  string   `json:"startup_conf"`
+	StartCommand []string          `json:"start_command"`
+	StartupConf  string            `json:"startup_conf"`
+	Environment  map[string]string `json:"special_environment,omitempty"`
 }
 
 func makeNMAStartNodeOp(
@@ -131,6 +132,7 @@ func (op *nmaStartNodeOp) updateHostRequestBodyMapFromNodeStartCommand(host stri
 	startNodeData := startNodeRequestData{
 		StartCommand: hostStartCommand,
 		StartupConf:  op.startupConf,
+		Environment:  util.GetVerticaPassthroughEnv(),
 	}
 
 	dataBytes, err := json.Marshal(startNodeData)

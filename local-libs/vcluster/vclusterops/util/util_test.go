@@ -566,3 +566,71 @@ func TestGetClusterName(t *testing.T) {
 	cluster = GetClusterName("sand1")
 	assert.Equal(t, "sandbox sand1", cluster)
 }
+
+func TestGetTransPassEnv(t *testing.T) {
+	// Save the original environment variable and restore it after the test
+	originalEnv := os.Getenv("VERTICA_VCLUSTER_PASSTHROUGH")
+	defer os.Setenv("VERTICA_VCLUSTER_PASSTHROUGH", originalEnv)
+
+	tests := []struct {
+		name        string
+		envValue    string
+		expectedEnv map[string]string
+	}{
+		{
+			name:        "Empty passthrough",
+			envValue:    "",
+			expectedEnv: map[string]string{},
+		},
+		{
+			name:        "Single key-value pair",
+			envValue:    "key1=value1",
+			expectedEnv: map[string]string{"key1": "value1"},
+		},
+		{
+			name:        "Multiple key-value pairs",
+			envValue:    "key1=value1;key2=value2",
+			expectedEnv: map[string]string{"key1": "value1", "key2": "value2"},
+		},
+		{
+			name:        "Key with empty value",
+			envValue:    "key1=",
+			expectedEnv: map[string]string{"key1": ""},
+		},
+		{
+			name:        "Trailing semicolon",
+			envValue:    "key1=value1;",
+			expectedEnv: map[string]string{"key1": "value1"},
+		},
+		{
+			name:        "Empty key-value pair",
+			envValue:    "key1=value1;;key2=value2",
+			expectedEnv: map[string]string{"key1": "value1", "key2": "value2"},
+		},
+		{
+			name:        "Invalid format",
+			envValue:    "key1=value1;=value2",
+			expectedEnv: map[string]string{"key1": "value1"},
+		},
+		{
+			name:        "Whitespace around key-value pairs",
+			envValue:    " key1 = value1 ; key2 = value2 ",
+			expectedEnv: map[string]string{"key1": "value1", "key2": "value2"},
+		},
+		{
+			name:        "Value with equals sign",
+			envValue:    "key1=value=with=equals;key2=value2",
+			expectedEnv: map[string]string{"key1": "value=with=equals", "key2": "value2"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			os.Setenv("VERTICA_VCLUSTER_PASSTHROUGH", tt.envValue)
+
+			result := GetVerticaPassthroughEnv()
+
+			assert.Equal(t, tt.expectedEnv, result)
+		})
+	}
+}
