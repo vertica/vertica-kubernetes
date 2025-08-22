@@ -52,7 +52,8 @@ import re
 import sys
 import subprocess
 
-progname = sys.argv[0]
+# Hardcoded base path for Vertica packages
+VERTICA_PACKAGES_PATH = "/opt/vertica/packages"
 
 def parse_conf(dir):
     """
@@ -152,17 +153,40 @@ def process_dir(dir):
         # with standard package mechanism.
         print(f'skipping directory {dir} with no checksum in package.conf file')
 
-def main(argv):
+def get_package_directories():
     """
-    Iterate over the list of files passed as arguments
+    Get all package directories from the hardcoded Vertica packages path
+    Returns:
+     List of directory paths under /opt/vertica/packages
     """
-    if len(argv) < 2:
-        print(f'Usage: {progname} packagedir1 [packagedir2...]', file=sys.stderr)
+    if not os.path.isdir(VERTICA_PACKAGES_PATH):
+        print(f'Error: Vertica packages directory {VERTICA_PACKAGES_PATH} not found', file=sys.stderr)
+        return []
+    
+    # Get all subdirectories in the packages path
+    package_dirs = []
+    for item in os.listdir(VERTICA_PACKAGES_PATH):
+        full_path = os.path.join(VERTICA_PACKAGES_PATH, item)
+        if os.path.isdir(full_path):
+            package_dirs.append(full_path)
+    
+    return package_dirs
+
+def main():
+    """
+    Process all package directories found in /opt/vertica/packages
+    """
+    package_dirs = get_package_directories()
+    
+    if not package_dirs:
+        print('No package directories found to process', file=sys.stderr)
         sys.exit(1)
-    # argv[0] is the command name
-    for dir in argv[1:]:
+    
+    print(f'Found {len(package_dirs)} package directories to process')
+    
+    for dir in package_dirs:
         process_dir(dir)
 
 if __name__ == '__main__':
-    main(sys.argv)
+    main()
     sys.exit(0)

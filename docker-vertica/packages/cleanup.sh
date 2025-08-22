@@ -60,7 +60,7 @@ strip /opt/vertica/oss/python*/lib/python*/lib-dynload/*.so*
 strip /opt/vertica/packages/*/lib/*.so* 2> /dev/null
 # it changes the checksums used to verify the libraries when loaded
 /opt/vertica/oss/python*/bin/python[0-9] \
-    /tmp/package-checksum-patcher.py /opt/vertica/packages/*
+    /tmp/package-checksum-patcher.py
 
 # (optional) minimal images remove packages that aren't auto installed as well as the sdk folder
 if [[ ${MINIMAL^^} = "YES" ]]
