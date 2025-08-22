@@ -44,6 +44,10 @@ apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
   name: v-cert-rotate-rollback-after-update
+spec:
+  httpsNMATLS:
+    mode: VERIFY_CA
+    secret: start-cert
 status:
   conditions:
   - reason: Detected
@@ -61,9 +65,11 @@ status:
   - reason: Completed
     status: "False"
     type: TLSCertRollbackInProgress
-  - reason: Completed
-    status: "False"
-    type: HTTPSTLSConfigUpdateFinished
   subclusters:
     - addedToDBCount: 3
       upNodeCount: 3
+  tlsConfigs:
+  - mode: verify_ca
+    name: httpsNMA
+    secret: start-cert
+  - name: clientServer

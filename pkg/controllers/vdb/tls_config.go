@@ -104,7 +104,6 @@ func (t *TLSConfigManager) setPollingCertMetadata(ctx context.Context) (ctrl.Res
 
 	// If rollback, use status as current secret and spec as new secret
 	if t.Vdb.IsTLSCertRollbackInProgress() {
-		currentSecretName = t.Vdb.GetHTTPSNMATLSSecret()
 		newSecretName = t.Vdb.GetHTTPSNMATLSSecretInUse()
 	}
 

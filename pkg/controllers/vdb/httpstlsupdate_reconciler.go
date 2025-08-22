@@ -123,7 +123,7 @@ func (h *HTTPSTLSUpdateReconciler) Reconcile(ctx context.Context, req *ctrl.Requ
 		upHostToSandbox[p.GetPodIP()] = p.GetSandbox()
 	}
 	err = h.Manager.updateTLSConfig(ctx, initiator, upHostToSandbox)
-	if err != nil {
+	if err != nil || h.Vdb.IsTLSCertRollbackNeeded() {
 		return ctrl.Result{}, err
 	}
 

@@ -2171,7 +2171,7 @@ func (v *VerticaDB) GetClientServerTLSSecret() string {
 func (v *VerticaDB) ShouldSkipTLSUpdateReconcile() bool {
 	return !v.IsSetForTLS() ||
 		!v.IsDBInitialized() ||
-		(v.IsTLSCertRollbackNeeded() && !v.IsTLSCertRollbackInProgress())
+		v.IsTLSCertRollbackNeeded()
 }
 
 // HasNoExtraEnv returns true if there are no extra environment variables
