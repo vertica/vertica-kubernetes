@@ -141,15 +141,15 @@ func CheckNotEmpty(a string) bool {
 }
 
 const (
-	trueStr  = "true"
-	falseStr = "false"
+	TrueStr  = "true"
+	FalseStr = "false"
 )
 
 func BoolToStr(b bool) string {
 	if b {
-		return trueStr
+		return TrueStr
 	}
-	return falseStr
+	return FalseStr
 }
 
 type BoolFromStr bool
@@ -166,9 +166,9 @@ func (b *BoolFromStr) UnmarshalJSON(data []byte) error {
 	}
 
 	switch strings.ToLower(s) {
-	case trueStr:
+	case TrueStr:
 		*b = true
-	case falseStr:
+	case FalseStr:
 		*b = false
 	default:
 		return fmt.Errorf("unmarshaling into BoolFromStr: invalid value %q", s)
