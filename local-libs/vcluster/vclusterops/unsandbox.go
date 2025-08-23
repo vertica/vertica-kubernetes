@@ -136,6 +136,7 @@ type ProcessedVDBInfo struct {
 	upSCHosts                   []string          // subcluster hosts that are UP
 	hasUpNodeInSC               bool              // if any node in the target subcluster is up. This is for internal use only.
 	hasOtherScInSandbox         bool              // If the sandbox has other subclusters (except for the one to be unsandboxed)
+	isTargetScPrimary           bool              // Is the target subcluster to be unsandboxed a primary sc in the sandbox
 
 }
 
@@ -183,6 +184,11 @@ func (vcc *VClusterCommands) unsandboxPreCheck(vdb *VCoordinationDatabase,
 		vcc.updateSandboxDetailsFromMainCluster(vdb, options, vdbInfo)
 	}
 
+	if vdbInfo.isTargetScPrimary && vdbInfo.hasOtherScInSandbox {
+		msg := fmt.Sprintf("subcluster %q is primary with dependent objects and cannot be unsandboxed", options.SCName)
+		vcc.Log.PrintError("%s", msg)
+		return fmt.Errorf("%s", msg)
+	}
 	// run re-ip on both of main cluster and the sandbox.
 	err = vcc.reIPNodes(options, vdbInfo.UpSandboxHost, vdbInfo.MainPrimaryUpHost,
 		vdbInfo.SandboxedNodeNameAddressMap, vdbInfo.mainClusterNodeNameAddressMap)
@@ -241,6 +247,9 @@ func (vcc *VClusterCommands) updateSandboxDetails(
 			}
 		}
 		if vnode.Subcluster == options.SCName {
+			if vnode.IsPrimary {
+				info.isTargetScPrimary = true
+			}
 			info.SandboxedSubclusterHosts = append(info.SandboxedSubclusterHosts, vnode.Address)
 			info.SandboxedNodeNameAddressMap[vnode.Name] = vnode.Address
 		}
