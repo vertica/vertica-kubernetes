@@ -186,6 +186,10 @@ func MakeVDB() *VerticaDB {
 			ServiceClientPort: DefaultServiceClientPort,
 			HTTPSNMATLS:       &TLSConfigSpec{},
 			ClientServerTLS:   &TLSConfigSpec{},
+			DBTLSConfig: &DBTLSConfig{
+				TLSVersion:   2,
+				CipherSuites: "",
+			},
 		},
 	}
 }
