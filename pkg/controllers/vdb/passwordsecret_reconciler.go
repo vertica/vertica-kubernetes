@@ -46,8 +46,8 @@ type PasswordSecretReconciler struct {
 }
 
 // MakePasswordSecretReconciler will build an PasswordSecretReconciler object
-func MakePasswordSecretReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
-	vdb *vapi.VerticaDB, prunner cmds.PodRunner, pfacts *podfacts.PodFacts, dispatcher vadmin.Dispatcher) controllers.ReconcileActor {
+func MakePasswordSecretReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger, vdb *vapi.VerticaDB,
+	prunner cmds.PodRunner, pfacts *podfacts.PodFacts, dispatcher vadmin.Dispatcher) controllers.ReconcileActor {
 	return &PasswordSecretReconciler{
 		VRec:       vdbrecon,
 		Log:        log.WithName("PasswordSecretReconciler"),
@@ -59,10 +59,15 @@ func MakePasswordSecretReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger
 }
 
 func (a *PasswordSecretReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
-	// No-op if no up nodes found
-	if a.Vdb.Status.UpNodeCount == 0 {
+	if !a.Vdb.IsDBInitialized() {
 		return ctrl.Result{}, nil
 	}
+
+	// set status when db is initialized
+	if a.Vdb.Status.PasswordSecret == nil {
+		return ctrl.Result{}, a.updatePasswordSecretStatus(ctx)
+	}
+
 	// We put the current using password secret in the status
 	// No actions needed if status content is the same to spec
 	if a.statusMatchesSpec() {
@@ -79,7 +84,7 @@ func (a *PasswordSecretReconciler) Reconcile(ctx context.Context, _ *ctrl.Reques
 
 // statusMatchesSpec checks if the password secret status is the same to spec or not
 func (a *PasswordSecretReconciler) statusMatchesSpec() bool {
-	return a.Vdb.Spec.PasswordSecret == a.Vdb.Status.PasswordSecret
+	return a.Vdb.Spec.PasswordSecret == *a.Vdb.Status.PasswordSecret
 }
 
 // updatePasswordSecret will update the password secret in the database
@@ -93,8 +98,8 @@ func (a *PasswordSecretReconciler) updatePasswordSecret(ctx context.Context) (ct
 
 	// No-op if password is the same
 	if *a.PFacts.VerticaSUPassword == *newPasswd {
-		// update status only
-		if a.Vdb.Status.PasswordSecret == "" {
+		// update status only if db previously using empty password
+		if a.Vdb.Status.PasswordSecret == nil {
 			a.Log.Info("Add passwordSecret to status", "status.passwordSecret:", a.Vdb.Spec.PasswordSecret)
 			return ctrl.Result{}, a.updatePasswordSecretStatus(ctx)
 		}
@@ -132,8 +137,9 @@ func (a *PasswordSecretReconciler) updatePasswordSecret(ctx context.Context) (ct
 // updatePasswordSecretStatus will update password secret status in vdb
 func (a *PasswordSecretReconciler) updatePasswordSecretStatus(ctx context.Context) error {
 	updateStatus := func(vdbChg *vapi.VerticaDB) error {
-		// simply make a copy of the password secret in the status
-		vdbChg.Status.PasswordSecret = a.Vdb.Spec.PasswordSecret
+		// make a copy of the password secret in the status
+		statusSecret := a.Vdb.Spec.PasswordSecret
+		vdbChg.Status.PasswordSecret = &statusSecret
 		return nil
 	}
 

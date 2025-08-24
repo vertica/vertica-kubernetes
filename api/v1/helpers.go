@@ -1414,8 +1414,8 @@ func (v *VerticaDB) GetVerticaUser() string {
 // GetPasswordSecret returns the password secret
 func (v *VerticaDB) GetPasswordSecret() string {
 	// status holds the current password
-	if v.Status.PasswordSecret != "" {
-		return v.Status.PasswordSecret
+	if v.IsDBInitialized() && v.Status.PasswordSecret != nil {
+		return *v.Status.PasswordSecret
 	}
 	// Spec holds the desired password
 	return v.Spec.PasswordSecret

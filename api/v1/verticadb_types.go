@@ -1046,8 +1046,8 @@ type VerticaDBStatus struct {
 	// +operator-sdk:csv:customresourcedefinitions:type=status
 	// +optional
 	// The secret name that contains the current password for the
-	// database's superuser.
-	PasswordSecret string `json:"passwordSecret,omitempty"`
+	// database's superuser
+	PasswordSecret *string `json:"passwordSecret,omitempty"`
 
 	// Deployment method used to operate the database.
 	// Determined by the "vertica.com/vcluster-ops" annotation:

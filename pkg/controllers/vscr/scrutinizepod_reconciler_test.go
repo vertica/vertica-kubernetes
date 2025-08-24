@@ -116,7 +116,7 @@ var _ = Describe("scrutinizepod_reconciler", func() {
 
 		// should not contain any password flag if the secret is not on k8s
 		vdb.Spec.PasswordSecret = "gsm://secret"
-		vdb.Status.PasswordSecret = "gsm://secret"
+		vdb.Status.PasswordSecret = &vdb.Spec.PasswordSecret
 		args = s.buildScrutinizeCmdArgs(vdb)
 		Expect(len(args)).Should(Equal(8))
 		Expect(args).ShouldNot(ContainElement(ContainSubstring("--password=")))
@@ -124,7 +124,7 @@ var _ = Describe("scrutinizepod_reconciler", func() {
 
 		// should contain the password flag if secret is on k8s
 		vdb.Spec.PasswordSecret = "test-secret"
-		vdb.Status.PasswordSecret = "test-secret"
+		vdb.Status.PasswordSecret = &vdb.Spec.PasswordSecret
 		args = s.buildScrutinizeCmdArgs(vdb)
 		Expect(len(args)).Should(Equal(10))
 		Expect(args).ShouldNot(ContainElement(ContainSubstring("--password=")))

@@ -316,7 +316,7 @@ var _ = Describe("builder", func() {
 		Ω(actual).Should(Equal(defVal))
 	})
 
-	It("should add passwd env var if vdb.Status.PasswordSecret is non-empty", func() {
+	It("should add passwd env var if v.GetPasswordSecret() is non-empty", func() {
 		// should not set password env vars when password
 		// is empty
 		verifyScrutinizePasswordEnvVars("", 0, false)
@@ -474,7 +474,7 @@ var _ = Describe("builder", func() {
 	It("should not mount superuser password", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Spec.PasswordSecret = "some-secret"
-		vdb.Status.PasswordSecret = "some-secret"
+		vdb.Status.PasswordSecret = &vdb.Spec.PasswordSecret
 
 		// case 1:  if probe's overridden
 		vdb.Spec.ReadinessProbeOverride = &v1.Probe{
@@ -635,7 +635,7 @@ var _ = Describe("builder", func() {
 	It("should not use canary query probe if using GSM", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Spec.PasswordSecret = "gsm://project/team/dbadmin/secret/1"
-		vdb.Status.PasswordSecret = vdb.Spec.PasswordSecret
+		vdb.Status.PasswordSecret = &vdb.Spec.PasswordSecret
 		vdb.Spec.Communal.Path = "gs://vertica-fleeting/mydb"
 		c := buildPodSpec(vdb, &vdb.Spec.Subclusters[0], "")
 		Ω(isPasswdIncludedInPodInfo(vdb, &c)).Should(BeFalse())
@@ -1035,7 +1035,7 @@ func verifyScrutinizePasswordMount(secret string, should bool) {
 	vscr := v1beta1.MakeVscr()
 	vdb := vapi.MakeVDB()
 	vdb.Spec.PasswordSecret = secret
-	vdb.Status.PasswordSecret = secret
+	vdb.Status.PasswordSecret = &vdb.Spec.PasswordSecret
 	pod := BuildScrutinizePod(vscr, vdb, []string{})
 	cnt := pod.Spec.InitContainers[0]
 	matcher := ContainElement(WithTransform(func(vm v1.VolumeMount) string {
@@ -1052,7 +1052,7 @@ func verifyScrutinizePasswordEnvVars(secret string, offset int, should bool) {
 	vscr := v1beta1.MakeVscr()
 	vdb := vapi.MakeVDB()
 	vdb.Spec.PasswordSecret = secret
-	vdb.Status.PasswordSecret = secret
+	vdb.Status.PasswordSecret = &vdb.Spec.PasswordSecret
 	pod := BuildScrutinizePod(vscr, vdb, []string{})
 	cnt := pod.Spec.InitContainers[0]
 	l := len(buildNMATLSCertsEnvVars(vdb)) + len(buildCommonEnvVars(vdb))
