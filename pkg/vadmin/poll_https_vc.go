@@ -22,6 +22,7 @@ import (
 	vops "github.com/vertica/vcluster/vclusterops"
 
 	"github.com/vertica/vertica-kubernetes/pkg/net"
+	"github.com/vertica/vertica-kubernetes/pkg/tls"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/pollhttps"
 )
 
@@ -45,7 +46,7 @@ func (v *VClusterOps) PollHTTPS(ctx context.Context, opts ...pollhttps.Option) e
 }
 
 func (v *VClusterOps) genPollHTTPSOptions(s *pollhttps.Parms,
-	certs *HTTPSCerts) *vops.VPollHTTPSOptions {
+	certs *tls.HTTPSCerts) *vops.VPollHTTPSOptions {
 	opts := vops.VPollHTTPSOptionsFactory()
 
 	opts.Hosts = append(opts.Hosts, s.InitiatorIPs...)

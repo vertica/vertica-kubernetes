@@ -95,8 +95,6 @@ func (t *DBTLSConfigReconciler) Reconcile(ctx context.Context, request *ctrl.Req
 		if err != nil {
 			return ctrl.Result{}, err
 		}
-	}
-	if updateTLSVersion {
 		_, updateCipherSuites = t.compareTLSConfig(t.Vdb.Spec.DBTLSConfig, t.Vdb.Status.DBTLSConfig)
 	}
 	if updateCipherSuites {
