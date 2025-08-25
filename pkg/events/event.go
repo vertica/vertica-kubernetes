@@ -150,6 +150,8 @@ const (
 	DBTLSUpdateSucceeded                   = "DBTLSUpdateSucceeded"
 	DBTLSUpdateFailed                      = "DBTLSUpdateFailed"
 	DeploymentMethodMismatch               = "DeploymentMethodMismatch"
+	LicenseValidationFail                  = "LicenseValidationFail"
+	LicenseValidationSucceeded             = "LicenseValidationSucceeded"
 )
 
 // Constants for VerticaAutoscaler reconciler
