@@ -1,0 +1,26 @@
+apiVersion: v1
+kind: Event
+reason: HTTPSTLSUpdateFailed
+source:
+  component: verticadb-operator
+involvedObject:
+  apiVersion: vertica.com/v1
+  kind: VerticaDB
+  name: v-auto-cert-rotate
+message:  Failed to rotate HTTP tls cert with secret name cert3 and mode verify_ca
+---
+apiVersion: vertica.com/v1
+kind: VerticaDB
+metadata:
+  name: v-auto-cert-rotate
+status:
+  tlsConfigs:
+  - name: httpsNMA
+    secret: cert1
+    autoRotateSecrets:
+    - cert1
+    - cert2
+    - cert3
+    - cert4
+    autoRotateFailedSecret: cert3
+  - name: clientServer

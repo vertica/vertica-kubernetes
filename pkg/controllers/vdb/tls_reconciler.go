@@ -64,6 +64,7 @@ func (h *TLSReconciler) Reconcile(ctx context.Context, request *ctrl.Request) (c
 		h.Vdb.GetClientServerTLSSecretInUse() == "" &&
 		h.Vdb.Spec.NMATLSSecret != "" &&
 		(h.Vdb.Spec.NMATLSSecret != h.Vdb.GetHTTPSNMATLSSecret() || h.Vdb.Spec.NMATLSSecret != h.Vdb.GetClientServerTLSSecret()) {
+		h.Log.Info("Adding nma cert rotation reconciler to restart nma for new tls secret")
 		actors = append(actors, MakeNMACertRotationReconciler(h.VRec, h.Log, h.Vdb, h.Dispatcher, h.Pfacts, true))
 	}
 	actors = append(actors, h.constructActors(h.Log, h.Vdb, h.Pfacts, h.Dispatcher)...)

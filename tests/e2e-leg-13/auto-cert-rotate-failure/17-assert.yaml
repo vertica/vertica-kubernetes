@@ -11,9 +11,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: v1
-kind: Secret
+apiVersion: apps/v1
+kind: StatefulSet
 metadata:
-  name: cert1
-  name: cert2
-  name: cert3
+  name: v-auto-cert-rotate-sc1
+status:
+  replicas: 3
+  readyReplicas: 3
+---
+apiVersion: vertica.com/v1
+kind: VerticaDB
+metadata:
+  name: v-auto-cert-rotate
+status:
+  tlsConfigs:
+    - name: httpsNMA
+    - name: clientServer
+  subclusters:
+    - addedToDBCount: 3
+      upNodeCount: 3
