@@ -1,0 +1,27 @@
+apiVersion: v1
+kind: Event
+reason: HTTPSTLSUpdateSucceeded
+source:
+  component: verticadb-operator
+involvedObject:
+  apiVersion: vertica.com/v1
+  kind: VerticaDB
+  name: v-tls-ver-cipersuites
+---
+apiVersion: vertica.com/v1
+kind: VerticaDB
+metadata:
+  name: v-tls-ver-cipersuites
+spec:
+  httpsNMATLS:
+    mode: TRY_VERIFY
+  dbTlsConfig:
+    tlsVersion: 2
+    cipherSuites: "ECDHE-RSA-AES256-GCM-SHA384,ECDHE-RSA-AES128-SHA"
+status:
+  subclusters:
+    - addedToDBCount: 3
+      upNodeCount: 3
+  dbTlsConfig:
+    tlsVersion: 2
+    cipherSuites: "ECDHE-RSA-AES256-GCM-SHA384,ECDHE-RSA-AES128-SHA"
