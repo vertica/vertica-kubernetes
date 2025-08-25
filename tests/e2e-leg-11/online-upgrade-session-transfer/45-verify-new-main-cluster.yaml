@@ -24,13 +24,13 @@ data:
     POD_NAMES=("v-client-proxy-upgrade-pri1-sb-0" "v-client-proxy-upgrade-pri-2-sb-0" "v-client-proxy-upgrade-sec1-sb-0")
 
     for POD_NAME in "${POD_NAMES[@]}"; do
-      result=$(kubectl exec $POD_NAME -i -c server -- bash -c "vsql -U dbadmin -tAc \"SELECT COUNT(*) FROM nodes WHERE node_state = 'UP' and subcluster_name not like '%sb' and sandbox = '';\"")
+      result=$(kubectl exec $POD_NAME -i -c server -- bash -c "vsql -U dbadmin -w topsecret -tAc \"SELECT COUNT(*) FROM nodes WHERE node_state = 'UP' and subcluster_name not like '%sb' and sandbox = '';\"")
       echo "$result" | grep -Pzo "^6\n$" > /dev/null
       if [ $? -ne 0 ]; then
         echo "Assertion failed: expected 6, got $result"
         exit 1
       fi
-      result=$(kubectl exec $POD_NAME -i -c server -- bash -c "vsql -U dbadmin -tAc \"SELECT COUNT(*) FROM nodes;\"")
+      result=$(kubectl exec $POD_NAME -i -c server -- bash -c "vsql -U dbadmin -w topsecret -tAc \"SELECT COUNT(*) FROM nodes;\"")
       echo "$result" | grep -Pzo "^6\n$" > /dev/null
       if [ $? -ne 0 ]; then
         echo "Assertion failed: expected 6, got $result"
