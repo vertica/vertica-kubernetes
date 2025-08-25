@@ -62,7 +62,7 @@ func (v *VClusterOps) genRemoveNodeOptions(s *removenode.Parms, certs *tls.HTTPS
 	}
 
 	opts.IfSyncCatalog = true
-	v.setAuthentication(&opts.DatabaseOptions, v.VDB.GetVerticaUser(), &v.Password, certs)
+	v.setAuthentication(&opts.DatabaseOptions, v.VDB.GetVerticaUser(), v.Password, certs)
 
 	return opts
 }

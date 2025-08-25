@@ -39,7 +39,7 @@ var _ = Describe("stopdb_reconcile", func() {
 
 		fpr := &cmds.FakePodRunner{}
 		pfacts := createPodFactsWithNoDB(ctx, vdb, fpr, int(vdb.Spec.Subclusters[0].Size))
-		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
+		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, &testPassword)
 		recon := MakeStopDBReconciler(vdbRec, vdb, fpr, pfacts, dispatcher)
 		Expect(recon.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 		Expect(len(fpr.Histories)).Should(Equal(0))
@@ -53,8 +53,8 @@ var _ = Describe("stopdb_reconcile", func() {
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := podfacts.MakePodFacts(vdbRec, fpr, logger, TestPassword)
-		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
+		pfacts := podfacts.MakePodFacts(vdbRec, fpr, logger, &testPassword)
+		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, &testPassword)
 		recon := MakeStopDBReconciler(vdbRec, vdb, fpr, &pfacts, dispatcher)
 		Expect(recon.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 		hist := fpr.FindCommands("stop_db")
@@ -75,7 +75,7 @@ var _ = Describe("stopdb_reconcile", func() {
 
 		fpr := &cmds.FakePodRunner{}
 		pfacts := createPodFactsDefault(fpr)
-		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
+		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, &testPassword)
 		recon := MakeStopDBReconciler(vdbRec, vdb, fpr, pfacts, dispatcher)
 		Expect(recon.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 		hist := fpr.FindCommands("stop_db")

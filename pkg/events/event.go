@@ -83,6 +83,7 @@ const (
 	AlterSubclusterFailed            = "AlterSubclusterFailed"
 	AlterSubclusterSucceeded         = "AlterSubclusterSucceeded"
 	SuperuserPasswordSecretNotFound  = "SuperuserPasswordSecretNotFound"
+	SuperuserPasswordSecretUpdated   = "SuperuserPasswordSecretUpdated"
 	UnsupportedVerticaVersion        = "UnsupportedVerticaVersion"
 	ATConfPartiallyCopied            = "ATConfPartiallyCopied"
 	AuthParmsCopyFailed              = "AuthParmsCopyFailed"

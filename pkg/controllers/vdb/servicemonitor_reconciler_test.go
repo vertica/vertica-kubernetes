@@ -124,9 +124,10 @@ var _ = Describe("servicemonitor_reconciler", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Spec.PasswordSecret = "pass"
 		test.CreateVDB(ctx, k8sClient, vdb)
-		test.CreateSuperuserPasswordSecret(ctx, vdb, k8sClient, vdb.Spec.PasswordSecret, "xxxx")
+		vdb.Status.PasswordSecret = &vdb.Spec.PasswordSecret
+		test.CreateSuperuserPasswordSecret(ctx, vdb, k8sClient, *vdb.Status.PasswordSecret, "xxxx")
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
-		defer test.DeleteSecret(ctx, k8sClient, vdb.Spec.PasswordSecret)
+		defer test.DeleteSecret(ctx, k8sClient, *vdb.Status.PasswordSecret)
 		rec := &ServiceMonitorReconciler{
 			VRec: vdbRec,
 			Vdb:  vdb,
@@ -139,19 +140,6 @@ var _ = Describe("servicemonitor_reconciler", func() {
 		Expect(rec.reconcileBasicAuth(ctx)).Should(Succeed())
 		Expect(k8sClient.Get(ctx, secName, sec)).Should(Succeed())
 		_ = k8sClient.Delete(ctx, sec)
-	})
-
-	It("should return error if GetSuperuserPassword fails", func() {
-		vdb := vapi.MakeVDB()
-		vdb.Spec.PasswordSecret = "nonexistent-secret"
-		test.CreateVDB(ctx, k8sClient, vdb)
-		defer test.DeleteVDB(ctx, k8sClient, vdb)
-		rec := &ServiceMonitorReconciler{
-			VRec: vdbRec,
-			Vdb:  vdb,
-			Log:  logger,
-		}
-		Expect(rec.reconcileBasicAuth(ctx)).ShouldNot(Succeed())
 	})
 
 	It("should return error if Secret Create fails", func() {
@@ -175,7 +163,7 @@ var _ = Describe("servicemonitor_reconciler", func() {
 			Log:  logger,
 		}
 		secName := names.GenBasicauthSecretName(vdb)
-		sec := builder.BuildBasicAuthSecret(vdb, secName.Name, vdb.GetVerticaUser(), "")
+		sec := builder.BuildBasicAuthSecret(vdb, secName.Name, vdb.GetVerticaUser(), testPassword)
 		Expect(k8sClient.Create(ctx, sec)).Should(Succeed())
 		defer func() { _ = k8sClient.Delete(ctx, sec) }()
 

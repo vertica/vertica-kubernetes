@@ -57,7 +57,7 @@ func (v *VClusterOps) genStartNodeOptions(s *restartnode.Parms, certs *tls.HTTPS
 	opts.RawHosts = []string{s.InitiatorIP}
 	opts.IPv6 = net.IsIPv6(s.InitiatorIP)
 
-	v.setAuthentication(&opts.DatabaseOptions, v.VDB.GetVerticaUser(), &v.Password, certs)
+	v.setAuthentication(&opts.DatabaseOptions, v.VDB.GetVerticaUser(), v.Password, certs)
 
 	opts.Nodes = s.RestartHosts
 	vdbTimeout := v.VDB.GetRestartTimeout()

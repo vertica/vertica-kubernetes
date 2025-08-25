@@ -54,7 +54,7 @@ var _ = Describe("obj_reconcile", func() {
 
 	runReconciler := func(vdb *vapi.VerticaDB, expResult ctrl.Result, mode ObjReconcileModeType) {
 		// Create any dependent objects for the CRD.
-		pfacts := podfacts.MakePodFactsWithCacheManager(vdbRec, &cmds.FakePodRunner{}, logger, TestPassword, vdbRec.CacheManager)
+		pfacts := podfacts.MakePodFactsWithCacheManager(vdbRec, &cmds.FakePodRunner{}, logger, &testPassword, vdbRec.CacheManager)
 
 		fetcher := &cloud.SecretFetcher{
 			Client:   vdbRec.Client,
@@ -188,7 +188,7 @@ var _ = Describe("obj_reconcile", func() {
 			Expect(k8sClient.Update(ctx, vdb)).Should(Succeed())
 
 			// Refresh any dependent objects
-			pfacts := podfacts.MakePodFacts(vdbRec, &cmds.FakePodRunner{}, logger, TestPassword)
+			pfacts := podfacts.MakePodFacts(vdbRec, &cmds.FakePodRunner{}, logger, &testPassword)
 			objr := MakeObjReconciler(vdbRec, logger, vdb, &pfacts, ObjReconcileModeAll)
 			_, err := objr.Reconcile(ctx, &ctrl.Request{})
 			Expect(err).Should(Succeed())
@@ -245,7 +245,7 @@ var _ = Describe("obj_reconcile", func() {
 			svc.Labels[vmeta.OperatorVersionLabel] = vmeta.OperatorVersion100
 			Expect(k8sClient.Update(ctx, svc)).Should(Succeed())
 
-			pfacts := podfacts.MakePodFacts(vdbRec, &cmds.FakePodRunner{}, logger, TestPassword)
+			pfacts := podfacts.MakePodFacts(vdbRec, &cmds.FakePodRunner{}, logger, &testPassword)
 			objr := MakeObjReconciler(vdbRec, logger, vdb, &pfacts, ObjReconcileModeAll)
 			Expect(objr.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 
@@ -433,7 +433,7 @@ var _ = Describe("obj_reconcile", func() {
 			Expect(k8sClient.Update(ctx, vdb)).Should(Succeed())
 
 			// Refresh any dependent objects
-			pfacts := podfacts.MakePodFacts(vdbRec, &cmds.FakePodRunner{}, logger, TestPassword)
+			pfacts := podfacts.MakePodFacts(vdbRec, &cmds.FakePodRunner{}, logger, &testPassword)
 			objr := MakeObjReconciler(vdbRec, logger, vdb, &pfacts, ObjReconcileModeAll)
 			_, err := objr.Reconcile(ctx, &ctrl.Request{})
 			Expect(err).Should(Succeed())
@@ -510,7 +510,7 @@ var _ = Describe("obj_reconcile", func() {
 			createCrd(vdb, false)
 			defer deleteCrd(vdb)
 
-			pfacts := podfacts.MakePodFacts(vdbRec, &cmds.FakePodRunner{}, logger, TestPassword)
+			pfacts := podfacts.MakePodFacts(vdbRec, &cmds.FakePodRunner{}, logger, &testPassword)
 			objr := MakeObjReconciler(vdbRec, logger, vdb, &pfacts, ObjReconcileModeAll)
 			Expect(objr.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: true}))
 		})
@@ -521,7 +521,7 @@ var _ = Describe("obj_reconcile", func() {
 			createCrd(vdb, false)
 			defer deleteCrd(vdb)
 
-			pfacts := podfacts.MakePodFacts(vdbRec, &cmds.FakePodRunner{}, logger, TestPassword)
+			pfacts := podfacts.MakePodFacts(vdbRec, &cmds.FakePodRunner{}, logger, &testPassword)
 			objr := MakeObjReconciler(vdbRec, logger, vdb, &pfacts, ObjReconcileModeAll)
 			Expect(objr.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: true}))
 		})
@@ -532,7 +532,7 @@ var _ = Describe("obj_reconcile", func() {
 			createCrd(vdb, false)
 			defer deleteCrd(vdb)
 
-			pfacts := podfacts.MakePodFacts(vdbRec, &cmds.FakePodRunner{}, logger, TestPassword)
+			pfacts := podfacts.MakePodFacts(vdbRec, &cmds.FakePodRunner{}, logger, &testPassword)
 			objr := MakeObjReconciler(vdbRec, logger, vdb, &pfacts, ObjReconcileModeAll)
 			Expect(objr.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: true}))
 		})
@@ -595,7 +595,7 @@ var _ = Describe("obj_reconcile", func() {
 			Expect(k8sClient.Get(ctx, nm, sts)).Should(Succeed())
 
 			pn := names.GenPodNameFromSts(vdb, sts, origSize-1)
-			pfacts := podfacts.MakePodFacts(vdbRec, &cmds.FakePodRunner{}, logger, TestPassword)
+			pfacts := podfacts.MakePodFacts(vdbRec, &cmds.FakePodRunner{}, logger, &testPassword)
 			Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
 			objr := MakeObjReconciler(vdbRec, logger, vdb, &pfacts, ObjReconcileModeAll)
 
@@ -632,7 +632,7 @@ var _ = Describe("obj_reconcile", func() {
 			Expect(k8sClient.Get(ctx, nm, svc1)).Should(Succeed())
 
 			standby := vdb.BuildTransientSubcluster("")
-			pfacts := podfacts.MakePodFacts(vdbRec, &cmds.FakePodRunner{}, logger, TestPassword)
+			pfacts := podfacts.MakePodFacts(vdbRec, &cmds.FakePodRunner{}, logger, &testPassword)
 			actor := MakeObjReconciler(vdbRec, logger, vdb, &pfacts, ObjReconcileModeAll)
 			objr := actor.(*ObjReconciler)
 			// Force a label change to reconcile with the transient subcluster
@@ -920,7 +920,7 @@ var _ = Describe("obj_reconcile", func() {
 
 			// update subcluster size so that client proxy nodes list in the configmap will be updated
 			vdb.Spec.Subclusters[0].Size = 5
-			pfacts := podfacts.MakePodFacts(vdbRec, &cmds.FakePodRunner{}, logger, TestPassword)
+			pfacts := podfacts.MakePodFacts(vdbRec, &cmds.FakePodRunner{}, logger, &testPassword)
 			objr := MakeObjReconciler(vdbRec, logger, vdb, &pfacts, ObjReconcileModeAll)
 			r := objr.(*ObjReconciler)
 			err := r.checkVProxyConfigMap(ctx, sc)
@@ -950,7 +950,7 @@ var _ = Describe("obj_reconcile", func() {
 
 			// update cluster size to 0
 			vdb.Spec.Subclusters[0].Size = 0
-			pfacts := podfacts.MakePodFacts(vdbRec, &cmds.FakePodRunner{}, logger, TestPassword)
+			pfacts := podfacts.MakePodFacts(vdbRec, &cmds.FakePodRunner{}, logger, &testPassword)
 			objr := MakeObjReconciler(vdbRec, logger, vdb, &pfacts, ObjReconcileModeAll)
 			r := objr.(*ObjReconciler)
 			err := r.checkVProxyConfigMap(ctx, sc)
@@ -1092,7 +1092,7 @@ var _ = Describe("obj_reconcile", func() {
 			Expect(k8sClient.Create(ctx, cm)).Should(Succeed())
 			defer func() { Expect(k8sClient.Delete(ctx, cm)).Should(Succeed()) }()
 
-			pfacts := podfacts.MakePodFacts(vdbRec, &cmds.FakePodRunner{}, logger, TestPassword)
+			pfacts := podfacts.MakePodFacts(vdbRec, &cmds.FakePodRunner{}, logger, &testPassword)
 			objr := MakeObjReconciler(vdbRec, logger, vdb, &pfacts, ObjReconcileModeAll).(*ObjReconciler)
 
 			nm := names.GenStsName(vdb, sc)
@@ -1133,7 +1133,7 @@ var _ = Describe("obj_reconcile", func() {
 			Expect(k8sClient.Create(ctx, secret)).Should(Succeed())
 			defer func() { Expect(k8sClient.Delete(ctx, secret)).Should(Succeed()) }()
 
-			pfacts := podfacts.MakePodFacts(vdbRec, &cmds.FakePodRunner{}, logger, TestPassword)
+			pfacts := podfacts.MakePodFacts(vdbRec, &cmds.FakePodRunner{}, logger, &testPassword)
 			objr := MakeObjReconciler(vdbRec, logger, vdb, &pfacts, ObjReconcileModeAll).(*ObjReconciler)
 
 			nm := names.GenStsName(vdb, sc)
@@ -1160,7 +1160,7 @@ var _ = Describe("obj_reconcile", func() {
 				},
 			})
 
-			pfacts := podfacts.MakePodFacts(vdbRec, &cmds.FakePodRunner{}, logger, TestPassword)
+			pfacts := podfacts.MakePodFacts(vdbRec, &cmds.FakePodRunner{}, logger, &testPassword)
 			objr := MakeObjReconciler(vdbRec, logger, vdb, &pfacts, ObjReconcileModeAll).(*ObjReconciler)
 
 			nm := names.GenStsName(vdb, sc)
@@ -1188,7 +1188,7 @@ var _ = Describe("obj_reconcile", func() {
 				},
 			})
 
-			pfacts := podfacts.MakePodFacts(vdbRec, &cmds.FakePodRunner{}, logger, TestPassword)
+			pfacts := podfacts.MakePodFacts(vdbRec, &cmds.FakePodRunner{}, logger, &testPassword)
 			objr := MakeObjReconciler(vdbRec, logger, vdb, &pfacts, ObjReconcileModeAll).(*ObjReconciler)
 
 			nm := names.GenStsName(vdb, sc)
@@ -1209,7 +1209,7 @@ func updateStrategyHelper(ctx context.Context, vdb *vapi.VerticaDB, expectedUpda
 }
 
 func deleteProxy(ctx context.Context, vdb *vapi.VerticaDB, vpName, cmName types.NamespacedName) {
-	pfacts := podfacts.MakePodFacts(vdbRec, &cmds.FakePodRunner{}, logger, TestPassword)
+	pfacts := podfacts.MakePodFacts(vdbRec, &cmds.FakePodRunner{}, logger, &testPassword)
 	objr := MakeObjReconciler(vdbRec, logger, vdb, &pfacts, ObjReconcileModeAll)
 	r := objr.(*ObjReconciler)
 	Expect(r.deleteVProxy(ctx, vpName.Name)).Should(Succeed())

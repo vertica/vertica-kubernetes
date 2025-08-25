@@ -56,7 +56,7 @@ var _ = Describe("scalestatefulset_reconciler", func() {
 
 		vdb.Spec.Subclusters[0].Shutdown = true
 		fpr := &cmds.FakePodRunner{}
-		pfacts := podfacts.MakePodFacts(sbRec, fpr, logger, TestPassword)
+		pfacts := podfacts.MakePodFacts(sbRec, fpr, logger, &testPassword)
 		pfacts.SandboxName = sc1
 		r := MakeScaleStafulsetReconciler(sbRec, vdb, &pfacts)
 		res, err := r.Reconcile(ctx, &ctrl.Request{})

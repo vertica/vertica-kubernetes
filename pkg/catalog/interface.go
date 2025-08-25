@@ -65,7 +65,7 @@ func MakeVSQL(vdb *vapi.VerticaDB, prunner cmds.PodRunner, pn types.NamespacedNa
 
 type VCluster struct {
 	VDB      *vapi.VerticaDB
-	Password string
+	Password *string
 	PodIP    string
 	Log      logr.Logger
 	client.Client
@@ -74,7 +74,7 @@ type VCluster struct {
 }
 
 // MakeVCluster will create a Fetcher that uses vclusterops API to get a node's details
-func MakeVCluster(vdb *vapi.VerticaDB, password, podIP string, log logr.Logger,
+func MakeVCluster(vdb *vapi.VerticaDB, password *string, podIP string, log logr.Logger,
 	cli client.Client, evRec record.EventRecorder, cacheManager cache.CacheManager) *VCluster {
 	return &VCluster{
 		VDB:          vdb,

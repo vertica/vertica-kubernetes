@@ -45,4 +45,14 @@ GCSEndpoint = google`)
 azurestoragecredentials = {"elem1": "a", "elem2": "b"}`)
 		Expect(s).Should(Equal("cat > auth_parms.conf<<< '\nazurestoragecredentials = **** "))
 	})
+
+	It("should mask password to be altered in SQL IDENTIFIED BY clauses", func() {
+		s := generateLogOutput("ALTER USER dbadmin IDENTIFIED BY 'secret123'")
+		Expect(s).To(ContainSubstring("ALTER USER dbadmin IDENTIFIED BY '********'"))
+	})
+
+	It("should mask password to be created in SQL IDENTIFIED BY clauses", func() {
+		s := generateLogOutput("CREATE USER jane IDENTIFIED BY 'password456' SALT 'salt'")
+		Expect(s).To(ContainSubstring("CREATE USER jane IDENTIFIED BY '********' SALT 'salt'"))
+	})
 })

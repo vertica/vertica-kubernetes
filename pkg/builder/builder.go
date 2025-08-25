@@ -550,8 +550,8 @@ func buildScrutinizeVolumes(vscr *v1beta1.VerticaScrutinize, vdb *vapi.VerticaDB
 	}
 	// we add a volume for the password when the password secret
 	// is on k8s
-	if vdb.Spec.PasswordSecret != "" &&
-		secrets.IsK8sSecret(vdb.Spec.PasswordSecret) {
+	if vdb.GetPasswordSecret() != "" &&
+		secrets.IsK8sSecret(vdb.GetPasswordSecret()) {
 		vols = append(vols, buildPasswordVolume(vdb))
 	}
 	if vscr.Spec.Volume == nil {
@@ -568,7 +568,7 @@ func buildDefaultScrutinizeVolume() corev1.Volume {
 
 // buildPasswordVolume constructs a volume that has the password
 func buildPasswordVolume(vdb *vapi.VerticaDB) corev1.Volume {
-	return buildVolumeFromSecret(passwordMountName, vdb.Spec.PasswordSecret)
+	return buildVolumeFromSecret(passwordMountName, vdb.GetPasswordSecret())
 }
 
 // buildVolumeFromSecret constructs a volume from a secret
@@ -726,7 +726,7 @@ func probeContainsSuperuserPassword(probe *corev1.Probe) bool {
 // requiresSuperuserPasswordSecretMount returns true if the superuser password
 // needs to be mounted in the pod.
 func requiresSuperuserPasswordSecretMount(vdb *vapi.VerticaDB) bool {
-	if vdb.Spec.PasswordSecret == "" {
+	if vdb.GetPasswordSecret() == "" {
 		return false
 	}
 
@@ -755,7 +755,7 @@ func buildPasswordProjectionForVerticaPod(vdb *vapi.VerticaDB) *corev1.SecretPro
 // buildPasswordProjection creates a projection from the password secret
 func buildPasswordProjection(vdb *vapi.VerticaDB) *corev1.SecretProjection {
 	return &corev1.SecretProjection{
-		LocalObjectReference: corev1.LocalObjectReference{Name: vdb.Spec.PasswordSecret},
+		LocalObjectReference: corev1.LocalObjectReference{Name: vdb.GetPasswordSecret()},
 		Items: []corev1.KeyToPath{
 			{Key: names.SuperuserPasswordKey, Path: SuperuserPasswordPath},
 		},
@@ -1472,8 +1472,8 @@ func makeScrutinizeInitContainer(vscr *v1beta1.VerticaScrutinize, vdb *vapi.Vert
 		Resources:    vscr.Spec.Resources,
 		Env:          buildCommonEnvVars(vdb),
 	}
-	if vdb.Spec.PasswordSecret != "" {
-		if secrets.IsK8sSecret(vdb.Spec.PasswordSecret) {
+	if vdb.GetPasswordSecret() != "" {
+		if secrets.IsK8sSecret(vdb.GetPasswordSecret()) {
 			// we mount the password into the scrutinize init container
 			// only when the password secret in on k8s
 			cnt.VolumeMounts = append(cnt.VolumeMounts, corev1.VolumeMount{
@@ -1485,7 +1485,7 @@ func makeScrutinizeInitContainer(vscr *v1beta1.VerticaScrutinize, vdb *vapi.Vert
 			// must be retrieved from secret stores like AWS Secrets
 			// Manager or GSM
 			cnt.Env = append(cnt.Env, buildScrutinizeDBPasswordEnvVars(
-				names.GenNamespacedName(vscr, vdb.Spec.PasswordSecret))...)
+				names.GenNamespacedName(vscr, vdb.GetPasswordSecret()))...)
 		}
 	}
 	cnt.Env = append(cnt.Env, append(buildNMATLSCertsEnvVars(vdb),
@@ -1585,7 +1585,7 @@ func makeDefaultReadinessOrStartupProbe(vdb *vapi.VerticaDB, ver string) *corev1
 	// use the canary query then because that depends on having the password
 	// mounted in the file system. Default to just checking if the client port
 	// is being listened on.
-	if secrets.IsGSMSecret(vdb.Spec.PasswordSecret) {
+	if secrets.IsGSMSecret(vdb.GetPasswordSecret()) {
 		return makeVerticaClientPortProbe()
 	}
 	return makeCanaryQueryProbe(vdb)
@@ -2158,7 +2158,7 @@ func makeUpdateStrategy(vdb *vapi.VerticaDB) appsv1.StatefulSetUpdateStrategy {
 // process is up and accepting connections.
 func buildCanaryQuerySQL(vdb *vapi.VerticaDB) string {
 	passwd := ""
-	if vdb.Spec.PasswordSecret != "" {
+	if vdb.GetPasswordSecret() != "" {
 		passwd = fmt.Sprintf("-w $(cat %s/%s)", paths.PodInfoPath, SuperuserPasswordPath)
 	}
 

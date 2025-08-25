@@ -26,7 +26,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/opcfg"
-	"github.com/vertica/vertica-kubernetes/pkg/vk8s"
+	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -34,16 +34,19 @@ import (
 
 // ServiceMonitorReconciler reconciles the ServiceMonitor for a VerticaDB.
 type ServiceMonitorReconciler struct {
-	VRec *VerticaDBReconciler
-	Vdb  *vapi.VerticaDB // Vdb is the CRD we are acting on.
-	Log  logr.Logger
+	VRec   *VerticaDBReconciler
+	Vdb    *vapi.VerticaDB // Vdb is the CRD we are acting on.
+	Log    logr.Logger
+	PFacts *podfacts.PodFacts
 }
 
-func MakeServiceMonitorReconciler(vdb *vapi.VerticaDB, vrec *VerticaDBReconciler, log logr.Logger) controllers.ReconcileActor {
+func MakeServiceMonitorReconciler(vdb *vapi.VerticaDB, vrec *VerticaDBReconciler,
+	log logr.Logger, pfacts *podfacts.PodFacts) controllers.ReconcileActor {
 	return &ServiceMonitorReconciler{
-		VRec: vrec,
-		Vdb:  vdb,
-		Log:  log.WithName("ServiceMonitorReconciler"),
+		VRec:   vrec,
+		Vdb:    vdb,
+		Log:    log.WithName("ServiceMonitorReconciler"),
+		PFacts: pfacts,
 	}
 }
 
@@ -74,11 +77,8 @@ func (s *ServiceMonitorReconciler) reconcileBasicAuth(ctx context.Context) error
 	err := s.VRec.GetClient().Get(ctx, nm, curSec)
 	if err != nil && kerrors.IsNotFound(err) {
 		password := ""
-		if s.Vdb.Spec.PasswordSecret != "" {
-			password, err = vk8s.GetSuperuserPassword(ctx, s.VRec.Client, s.Log, s.VRec, s.Vdb)
-			if err != nil {
-				return err
-			}
+		if s.PFacts != nil && s.PFacts.VerticaSUPassword != nil {
+			password = *s.PFacts.VerticaSUPassword
 		}
 		expSec := builder.BuildBasicAuthSecret(s.Vdb, nm.Name, s.Vdb.GetVerticaUser(), password)
 		return s.VRec.GetClient().Create(ctx, expSec)

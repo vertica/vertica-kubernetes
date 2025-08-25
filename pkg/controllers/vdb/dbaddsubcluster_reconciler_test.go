@@ -38,8 +38,8 @@ var _ = Describe("dbaddsubcluster_reconcile", func() {
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := podfacts.MakePodFacts(vdbRec, fpr, logger, TestPassword)
-		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
+		pfacts := podfacts.MakePodFacts(vdbRec, fpr, logger, &testPassword)
+		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, &testPassword)
 		a := MakeDBAddSubclusterReconciler(vdbRec, logger, vdb, fpr, &pfacts, dispatcher)
 		r := a.(*DBAddSubclusterReconciler)
 		subclusters := r.parseFetchSubclusterVsql(
@@ -79,7 +79,7 @@ var _ = Describe("dbaddsubcluster_reconcile", func() {
 				{Stdout: " sc1\n"},
 			},
 		}
-		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
+		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, &testPassword)
 		r := MakeDBAddSubclusterReconciler(vdbRec, logger, vdb, fpr, pfacts, dispatcher)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 		// Last command should be AT -t db_add_subcluster
@@ -95,8 +95,8 @@ var _ = Describe("dbaddsubcluster_reconcile", func() {
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := podfacts.MakePodFacts(vdbRec, fpr, logger, TestPassword)
-		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
+		pfacts := podfacts.MakePodFacts(vdbRec, fpr, logger, &testPassword)
+		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, &testPassword)
 		act := MakeDBAddSubclusterReconciler(vdbRec, logger, vdb, fpr, &pfacts, dispatcher)
 		r := act.(*DBAddSubclusterReconciler)
 		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
@@ -124,8 +124,8 @@ var _ = Describe("dbaddsubcluster_reconcile", func() {
 
 		Expect(vdb.IsEON()).Should(BeFalse())
 		fpr := &cmds.FakePodRunner{}
-		pfacts := podfacts.MakePodFacts(vdbRec, fpr, logger, TestPassword)
-		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
+		pfacts := podfacts.MakePodFacts(vdbRec, fpr, logger, &testPassword)
+		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, &testPassword)
 		r := MakeDBAddSubclusterReconciler(vdbRec, logger, vdb, fpr, &pfacts, dispatcher)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 	})

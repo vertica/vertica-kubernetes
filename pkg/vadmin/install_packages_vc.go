@@ -67,7 +67,7 @@ func (v *VClusterOps) genInstallPackagesOptions(i *installpackages.Parms, certs 
 	opts.DBName = v.VDB.Spec.DBName
 	opts.IsEon = v.VDB.IsEON()
 
-	v.setAuthentication(&opts.DatabaseOptions, v.VDB.GetVerticaUser(), &v.Password, certs)
+	v.setAuthentication(&opts.DatabaseOptions, v.VDB.GetVerticaUser(), v.Password, certs)
 
 	// force reinstall option
 	opts.ForceReinstall = i.ForceReinstall

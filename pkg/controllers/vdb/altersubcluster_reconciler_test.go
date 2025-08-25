@@ -115,7 +115,7 @@ var _ = Describe("altersubcluster_reconcile", func() {
 		}
 
 		fpr := &cmds.FakePodRunner{}
-		pFacts := podfacts.MakePodFacts(vdbRec, fpr, logger, TestPassword)
+		pFacts := podfacts.MakePodFacts(vdbRec, fpr, logger, &testPassword)
 		Expect(pFacts.Collect(ctx, vdb)).Should(Succeed())
 
 		for _, sc := range vdb.Spec.Subclusters {

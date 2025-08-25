@@ -31,7 +31,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-const TestPassword = "test-pw"
+var testPassword = "test-pw"
 
 var _ = Describe("createdb_reconciler", func() {
 	ctx := context.Background()
@@ -49,7 +49,7 @@ var _ = Describe("createdb_reconciler", func() {
 
 		fpr := &cmds.FakePodRunner{}
 		pfacts := createPodFactsWithNoDB(ctx, vdb, fpr, 3)
-		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
+		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, &testPassword)
 		r := MakeCreateDBReconciler(vdbRec, logger, vdb, fpr, pfacts, dispatcher)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 		hist := fpr.FindCommands("/opt/vertica/bin/admintools -t create_db")
@@ -67,7 +67,7 @@ var _ = Describe("createdb_reconciler", func() {
 
 		fpr := &cmds.FakePodRunner{}
 		pfacts := createPodFactsWithNoDB(ctx, vdb, fpr, 1)
-		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
+		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, &testPassword)
 		act := MakeCreateDBReconciler(vdbRec, logger, vdb, fpr, pfacts, dispatcher)
 		r := act.(*CreateDBReconciler)
 		hostList, ok := r.getPodList()
@@ -94,8 +94,8 @@ var _ = Describe("createdb_reconciler", func() {
 		vdb.Spec.InitPolicy = vapi.CommunalInitPolicyRevive
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := podfacts.MakePodFacts(vdbRec, fpr, logger, TestPassword)
-		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
+		pfacts := podfacts.MakePodFacts(vdbRec, fpr, logger, &testPassword)
+		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, &testPassword)
 		r := MakeCreateDBReconciler(vdbRec, logger, vdb, fpr, &pfacts, dispatcher)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 		Expect(len(fpr.Histories)).Should(Equal(0))
@@ -114,7 +114,7 @@ var _ = Describe("createdb_reconciler", func() {
 
 		fpr := &cmds.FakePodRunner{}
 		pfacts := createPodFactsWithNoDB(ctx, vdb, fpr, int(vdb.Spec.Subclusters[0].Size))
-		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
+		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, &testPassword)
 		r := MakeCreateDBReconciler(vdbRec, logger, vdb, fpr, pfacts, dispatcher)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: true}))
 		// No config setting can be set since we are on a version that needs to
@@ -144,7 +144,7 @@ var _ = Describe("createdb_reconciler", func() {
 
 		fpr := &cmds.FakePodRunner{}
 		pfacts := createPodFactsWithNoDB(ctx, vdb, fpr, int(vdb.Spec.Subclusters[0].Size+vdb.Spec.Subclusters[1].Size))
-		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
+		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, &testPassword)
 		r := MakeCreateDBReconciler(vdbRec, logger, vdb, fpr, pfacts, dispatcher)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 		Expect(len(fpr.Histories)).Should(BeNumerically(">", 0))
@@ -167,7 +167,7 @@ var _ = Describe("createdb_reconciler", func() {
 
 		fpr := &cmds.FakePodRunner{}
 		pfacts := createPodFactsWithNoDB(ctx, vdb, fpr, int(vdb.Spec.Subclusters[0].Size))
-		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
+		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, &testPassword)
 		r := MakeCreateDBReconciler(vdbRec, logger, vdb, fpr, pfacts, dispatcher)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 		Expect(len(fpr.Histories)).Should(BeNumerically(">", 0))
@@ -188,7 +188,7 @@ var _ = Describe("createdb_reconciler", func() {
 
 		fpr := &cmds.FakePodRunner{}
 		pfacts := createPodFactsWithNoDB(ctx, vdb, fpr, int(vdb.Spec.Subclusters[0].Size))
-		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
+		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, &testPassword)
 		r := MakeCreateDBReconciler(vdbRec, logger, vdb, fpr, pfacts, dispatcher)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 		Expect(len(fpr.Histories)).Should(BeNumerically(">", 0))
@@ -208,7 +208,7 @@ func createMultiPodSubclusterForKsafe(ctx context.Context, ksafe string, firstSc
 
 	fpr := &cmds.FakePodRunner{}
 	pfacts := createPodFactsWithNoDB(ctx, vdb, fpr, 1)
-	dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
+	dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, &testPassword)
 	act := MakeCreateDBReconciler(vdbRec, logger, vdb, fpr, pfacts, dispatcher)
 	r := act.(*CreateDBReconciler)
 	hostList, ok := r.getPodList()

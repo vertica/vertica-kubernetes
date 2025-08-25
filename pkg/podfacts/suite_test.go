@@ -52,7 +52,7 @@ type VerticaDBReconciler struct {
 }
 
 // GetSuperuserPassword returns the superuser password if it has been provided
-func (r *VerticaDBReconciler) GetSuperuserPassword(ctx context.Context, log logr.Logger, vdb *vapi.VerticaDB) (string, error) {
+func (r *VerticaDBReconciler) GetSuperuserPassword(ctx context.Context, log logr.Logger, vdb *vapi.VerticaDB) (*string, error) {
 	return vk8s.GetSuperuserPassword(ctx, r.Client, log, r, vdb)
 }
 
