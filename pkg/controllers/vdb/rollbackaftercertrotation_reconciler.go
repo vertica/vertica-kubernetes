@@ -84,6 +84,7 @@ func (r *RollbackAfterCertRotationReconciler) Reconcile(ctx context.Context, _ *
 		r.pollNMACertHealth,
 		r.runHTTPSCertRotation,
 		r.resetTLSUpdateCondition,
+		r.setAutoRotateStatus,
 		r.updateTLSConfigInVdb,
 		r.cleanUpRollbackConditions,
 	}
@@ -200,20 +201,57 @@ func (r *RollbackAfterCertRotationReconciler) updateTLSConfigInVdb(ctx context.C
 			if strings.EqualFold(r.Vdb.GetClientServerTLSMode(), mode) {
 				mode = r.Vdb.GetSpecClientServerTLSMode()
 			}
-			r.Vdb.Spec.ClientServerTLS = &vapi.TLSConfigSpec{
-				Secret: r.Vdb.GetClientServerTLSSecretInUse(),
-				Mode:   mode,
+			// Preserve all existing fields
+			spec := r.Vdb.Spec.ClientServerTLS.DeepCopy()
+			if spec == nil {
+				spec = &vapi.TLSConfigSpec{}
 			}
+			spec.Secret = r.Vdb.GetClientServerTLSSecretInUse()
+			spec.Mode = mode
+			r.Vdb.Spec.ClientServerTLS = spec
 		} else {
 			mode = r.Vdb.GetHTTPSTLSModeInUse()
 			if strings.EqualFold(r.Vdb.GetHTTPSNMATLSMode(), mode) {
 				mode = r.Vdb.GetSpecHTTPSNMATLSMode()
 			}
-			r.Vdb.Spec.HTTPSNMATLS = &vapi.TLSConfigSpec{
-				Secret: r.Vdb.GetHTTPSNMATLSSecretInUse(),
-				Mode:   mode,
+			// Preserve all existing fields
+			spec := r.Vdb.Spec.HTTPSNMATLS.DeepCopy()
+			if spec == nil {
+				spec = &vapi.TLSConfigSpec{}
 			}
+			spec.Secret = r.Vdb.GetHTTPSNMATLSSecretInUse()
+			spec.Mode = mode
+			r.Vdb.Spec.HTTPSNMATLS = spec
 		}
 		return r.VRec.Client.Update(ctx, r.Vdb)
 	})
+}
+
+// setAutoRotateStatus will set the AutoRotateFailedSecret in status with the failing secret.
+// This is used to indicate that the auto-rotation of TLS secrets has failed
+// and the operator should auto-rotate to the next secret.
+func (r *RollbackAfterCertRotationReconciler) setAutoRotateStatus(ctx context.Context) (ctrl.Result, error) {
+	tlsConfigName := vapi.HTTPSNMATLSConfigName
+	failedSecret := r.Vdb.GetHTTPSNMATLSSecret()
+	if r.Vdb.GetTLSCertRollbackReason() == vapi.RollbackAfterServerCertRotationReason {
+		tlsConfigName = vapi.ClientServerTLSConfigName
+		failedSecret = r.Vdb.GetClientServerTLSSecret()
+	}
+
+	if len(r.Vdb.GetAutoRotateSecrets(tlsConfigName)) == 0 {
+		return ctrl.Result{}, nil
+	}
+
+	r.Log.Info("Setting AutoRotateFailedSecret for TLSConfigStatus", "tlsConfigName", tlsConfigName, "failedSecret", failedSecret)
+
+	patchStatus := r.Vdb.GetTLSConfigByName(tlsConfigName)
+	patchStatus.AutoRotateFailedSecret = failedSecret
+
+	// Patch status explicitly
+	if err := vdbstatus.UpdateTLSConfigs(ctx, r.VRec.Client, r.Vdb, []*vapi.TLSConfigStatus{patchStatus}); err != nil {
+		r.Log.Error(err, "Failed to patch TLSConfigStatus with AutoRotateFailed", "tlsConfigName", tlsConfigName)
+		return ctrl.Result{}, err
+	}
+
+	return ctrl.Result{}, nil
 }
