@@ -91,6 +91,8 @@ func (c *CreateDBReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ct
 
 	if c.Vdb.IsMainClusterStopped() {
 		return ctrl.Result{}, fmt.Errorf("cannot create database with spec.shutdown set to true")
+	if c.Vdb.Spec.LicenseSecret == "" {
+		return ctrl.Result{}, fmt.Errorf("failed to create database because of empty licenseSecret")
 	}
 
 	var err error

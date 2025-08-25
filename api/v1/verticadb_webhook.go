@@ -575,6 +575,7 @@ func (v *VerticaDB) validateVerticaDBSpec() field.ErrorList {
 	allErrs = v.hasValidInitPolicy(allErrs)
 	allErrs = v.hasValidRestorePolicy(allErrs)
 	allErrs = v.hasValidSaveRestorePointConfig(allErrs)
+	allErrs = v.hasNonEmptyLicenseSecret(allErrs)
 	allErrs = v.hasValidDBName(allErrs)
 	allErrs = v.hasPrimarySubcluster(allErrs)
 	allErrs = v.validateKsafety(allErrs)
@@ -733,6 +734,18 @@ func (v *VerticaDB) hasValidSaveRestorePointConfig(allErrs field.ErrorList) fiel
 			err := field.Invalid(field.NewPath("spec").Child("restorePoint").Child("numRestorePoints"),
 				v.Spec.RestorePoint.NumRestorePoints,
 				"numRestorePoints must be set to 0 or greater")
+			allErrs = append(allErrs, err)
+		}
+	}
+	return allErrs
+}
+
+func (v *VerticaDB) hasNonEmptyLicenseSecret(allErrs field.ErrorList) field.ErrorList {
+	if v.Spec.InitPolicy == CommunalInitPolicyCreate {
+		if v.Spec.LicenseSecret == "" {
+			err := field.Invalid(field.NewPath("spec").Child("licenseSecret"),
+				v.Spec.LicenseSecret,
+				"licenseSecret cannot be empty")
 			allErrs = append(allErrs, err)
 		}
 	}

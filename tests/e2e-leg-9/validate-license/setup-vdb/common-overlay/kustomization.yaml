@@ -1,0 +1,205 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+- ../base
+- ../../../../kustomize-base
+
+patches:
+- patch: |-
+    - op: replace
+      path: /spec/communal/path
+      value: s3://nimbusdb/validate-license
+    - op: replace
+      path: /spec/communal/endpoint
+      value: https://minio.kuttl-e2e-s3
+    - op: replace
+      path: /spec/communal/credentialSecret
+      value: communal-creds
+    - op: replace
+      path: /spec/communal/region
+      value: us-east-1
+    - op: add
+      path: /metadata/annotations/vertica.com~1enable-tls-auth
+      value: "true"
+    - op: add
+      path: /metadata/annotations/vertica.com~1vcluster-ops
+      value: "true"
+  target:
+    kind: VerticaDB
+- path: communal-ep-cert-secret-patch.yaml
+  target:
+    kind: VerticaDB
+replacements:
+- source:
+    fieldPath: data.verticaImage
+    kind: ConfigMap
+    name: e2e
+  targets:
+  - fieldPaths:
+    - spec.image
+    reject:
+    - name: v-upgrade-vertica
+    - name: v-base-upgrade
+    - name: v-upgrade-bad-image
+    - name: v-fallback
+    select:
+      kind: VerticaDB
+- source:
+    fieldPath: data.baseVerticaImage
+    kind: ConfigMap
+    name: e2e
+  targets:
+  - fieldPaths:
+    - spec.image
+    select:
+      kind: VerticaDB
+      name: v-base-upgrade
+  - fieldPaths:
+    - spec.image
+    select:
+      kind: VerticaDB
+      name: v-upgrade-bad-image
+  - fieldPaths:
+    - spec.image
+    select:
+      kind: VerticaDB
+      name: v-fallback
+  - fieldPaths:
+    - spec.image
+    select:
+      kind: VerticaDB
+      name: v-online-upgrade
+  - fieldPaths:
+    - spec.image
+    select:
+      kind: VerticaDB
+      name: v-client-proxy-upgrade
+- source:
+    fieldPath: data.verticaImage
+    kind: ConfigMap
+    name: e2e
+  targets:
+  - fieldPaths:
+    - spec.containers.0.image
+    select:
+      kind: Pod
+- source:
+    fieldPath: data.verticaImage
+    kind: ConfigMap
+    name: e2e
+  targets:
+  - fieldPaths:
+    - spec.template.spec.containers.0.image
+    select:
+      kind: Job
+- source:
+    fieldPath: data.vproxyImage
+    kind: ConfigMap
+    name: e2e
+  targets:
+  - fieldPaths:
+    - spec.proxy.image
+    select:
+      kind: VerticaDB
+      name: v-client-proxy
+  - fieldPaths:
+    - spec.proxy.image
+    select:
+      kind: VerticaDB
+      name: v-client-proxy-upgrade
+- source:
+    fieldPath: data.vloggerImage
+    kind: ConfigMap
+    name: e2e
+  targets:
+  - fieldPaths:
+    - spec.sidecars.[name=vlogger].image
+    select:
+      kind: VerticaDB
+      name: verticadb-sample
+  - fieldPaths:
+    - spec.sidecars.[name=vlogger].image
+    select:
+      kind: VerticaDB
+      name: v-k-safety-0-scaling
+  - fieldPaths:
+    - spec.sidecars.[name=vlogger].image
+    select:
+      kind: VerticaDB
+      name: v-scale-out-and-in
+  - fieldPaths:
+    - spec.sidecars.[name=vlogger].image
+    select:
+      kind: VerticaDB
+      name: v-kill
+  - fieldPaths:
+    - spec.sidecars.[name=vlogger].image
+    select:
+      kind: VerticaDB
+      name: v-auto-restart-vertica
+  - fieldPaths:
+    - spec.sidecars.[name=vlogger].image
+    select:
+      kind: VerticaDB
+      name: v-client-proxy-upgrade
+  - fieldPaths:
+    - spec.sidecars.[name=vlogger].image
+    select:
+      kind: VerticaDB
+      name: v-mc-restart
+  - fieldPaths:
+    - spec.sidecars.[name=vlogger].image
+    select:
+      kind: VerticaDB
+      name: v-webhook
+  - fieldPaths:
+    - spec.sidecars.[name=vlogger].image
+    select:
+      kind: VerticaDB
+      name: v-managed
+  - fieldPaths:
+    - spec.sidecars.[name=vlogger].image
+    select:
+      kind: VerticaDB
+      name: v-pvc-expansion
+  - fieldPaths:
+    - spec.sidecars.[name=vlogger].image
+    select:
+      kind: VerticaDB
+      name: v-create-multi-sc
+  - fieldPaths:
+    - spec.sidecars.[name=vlogger].image
+    select:
+      kind: VerticaDB
+      name: v-revive-multi-sc
+  - fieldPaths:
+    - spec.sidecars.[name=vlogger].image
+    select:
+      kind: VerticaDB
+      name: v-verify-server-logrotate
+  - fieldPaths:
+    - spec.sidecars.[name=vlogger].image
+    select:
+      kind: VerticaDB
+      name: v-pending-pod
+  - fieldPaths:
+    - spec.sidecars.[name=vlogger].image
+    select:
+      kind: VerticaDB
+      name: v-restart-with-sidecars
+  - fieldPaths:
+    - spec.sidecars.[name=vlogger].image
+    select:
+      kind: VerticaDB
+      name: v-online-upgrade
+- source:
+    fieldPath: data.caFile
+    kind: ConfigMap
+    name: e2e
+  targets:
+  - fieldPaths:
+    - spec.communal.caFile
+    options:
+      create: true
+    select:
+      kind: VerticaDB

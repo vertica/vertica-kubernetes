@@ -279,6 +279,8 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		// preserving other things.
 		MakeObjReconciler(r, log, vdb, pfacts,
 			ObjReconcileModePreserveScaling|ObjReconcileModePreserveUpdateStrategy),
+		// Validate Vertica license and reject Commnity Edition license
+		MakeLicenseValidationReconciler(r, log, vdb, dispatcher, pfacts),
 		// Save referenced configmaps/secrets in status.
 		MakeObservedConfigObjsReconciler(r, log, vdb),
 		// Add annotations/labels to each pod about the host running them

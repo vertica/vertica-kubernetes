@@ -787,7 +787,8 @@ func (o *ObjReconciler) handleStatefulSetUpdate(ctx context.Context, sc *vapi.Su
 	// If the NMA deployment type or health check setting is changing,
 	// we cannot do a rolling update for this change. All pods need to have the
 	// same NMA deployment type. So, we drop the old sts and create a fresh one.
-	if isNMADeploymentDifferent(curSts, expSts) || (!podsNotRunning && isHealthCheckDifferent(curSts, expSts)) {
+	if isNMADeploymentDifferent(curSts, expSts) || (!podsNotRunning && isHealthCheckDifferent(curSts, expSts)) ||
+		isLicSecretUpdatedBeforeDBCreation(curSts, expSts, o.Vdb) {
 		o.Log.Info("Dropping then recreating statefulset", "Name", expSts.Name)
 		// Invalidate the pod facts cache since we are recreating a new sts
 		o.PFacts.Invalidate()
@@ -974,6 +975,30 @@ func mergeAnnotations(existing, expected map[string]string) map[string]string {
 // NMA sidecar deployment and the other one doesn't.
 func isNMADeploymentDifferent(sts1, sts2 *appsv1.StatefulSet) bool {
 	return vk8s.HasNMAContainer(&sts1.Spec.Template.Spec) != vk8s.HasNMAContainer(&sts2.Spec.Template.Spec)
+}
+
+func isLicSecretUpdatedBeforeDBCreation(sts1, sts2 *appsv1.StatefulSet, vdb *vapi.VerticaDB) bool {
+	// if !vdb.IsDBInitialized() && sts2.p
+	spec1 := sts1.Spec.Template.Spec
+	spec2 := sts2.Spec.Template.Spec
+	var licenseSecretName1, licenseSecretName2 string
+	for i := 0; i < len(spec1.Volumes); i++ {
+		if spec1.Volumes[i].Name == "licensing" {
+			if spec1.Volumes[i].VolumeSource.Secret != nil {
+				licenseSecretName1 = spec1.Volumes[i].VolumeSource.Secret.SecretName
+				break
+			}
+		}
+	}
+	for i := 0; i < len(spec2.Volumes); i++ {
+		if spec2.Volumes[i].Name == "licensing" {
+			if spec2.Volumes[i].VolumeSource.Secret != nil {
+				licenseSecretName2 = spec2.Volumes[i].VolumeSource.Secret.SecretName
+				break
+			}
+		}
+	}
+	return !vdb.IsDBInitialized() && licenseSecretName1 != "" && licenseSecretName2 != licenseSecretName1
 }
 
 // isHealthCheckDifferent will return true if the two stateful sets use different health checks
