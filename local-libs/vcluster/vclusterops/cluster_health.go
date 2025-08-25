@@ -25,19 +25,21 @@ import (
 // VClusterHealthOptions represents the available options to check the cluster health
 type VClusterHealthOptions struct {
 	DatabaseOptions
-	Operation          string
-	TxnID              string
-	NodeName           string
-	StartTime          string
-	EndTime            string
-	SessionID          string
-	Threadhold         string
-	ThreadID           string
-	PhaseDurationDesc  string
-	EventDesc          string
-	UserName           string
-	Display            bool
-	Timezone           string
+	Operation         string
+	TxnID             string
+	NodeName          string
+	StartTime         string
+	EndTime           string
+	SessionID         string
+	Threadhold        string
+	ThreadID          string
+	PhaseDurationDesc string
+	EventDesc         string
+	UserName          string
+	Display           bool
+	Timezone          string
+	IsDebug           bool // the flag to indicate if the debug mode is enabled, normally read from dc tables,
+	// if set to true, it will use the dc_XXX_debug tables
 	NeedSessionTnxInfo bool
 	// duration threshold for slow events
 	MinMutexDuration string
@@ -52,6 +54,7 @@ type VClusterHealthOptions struct {
 	TransactionStartsResult *[]dcTransactionStarts
 	SlowEventsResult        *[]dcSlowEvent
 	LockEventCascade        []NodeLockEvents
+	MissingReleasesResult   *[]DcLockAttempts
 }
 
 const (
@@ -61,12 +64,13 @@ const (
 )
 
 const (
-	timeLayout       = "2006-01-02 15:04:05.999999"
-	lockCascade      = "lock_cascade"
-	slowEventCascade = "slow_event_cascade"
-	getTxnStarts     = "get_transaction_starts"
-	getSessionStarts = "get_session_starts"
-	getSlowEvents    = "get_slow_events"
+	timeLayout         = "2006-01-02 15:04:05.999999"
+	lockCascade        = "lock_cascade"
+	slowEventCascade   = "slow_event_cascade"
+	getTxnStarts       = "get_transaction_starts"
+	getSessionStarts   = "get_session_starts"
+	getSlowEvents      = "get_slow_events"
+	getMissingReleases = "get_missing_releases"
 )
 
 // VClusterHealthFactory creates and returns a VClusterHealthOptions instance with default values set.
@@ -198,6 +202,8 @@ func (vcc VClusterCommands) VClusterHealth(options *VClusterHealthOptions) error
 		runError = options.buildCascadeGraph(vcc.Log, vdb.PrimaryUpNodes)
 	case lockCascade:
 		runError = options.buildLockCascadeGraph(vcc.Log, vdb.PrimaryUpNodes)
+	case getMissingReleases:
+		runError = options.getMissingReleases(vcc.Log, vdb.PrimaryUpNodes, options.StartTime, options.EndTime)
 	default: // by default, we will build a cascade graph
 		runError = options.buildCascadeGraph(vcc.Log, vdb.PrimaryUpNodes)
 	}
@@ -223,7 +229,7 @@ func (opt *VClusterHealthOptions) getSlowEvents(logger vlog.Printer, upHosts []s
 	nmaSlowEventOp, err := makeNMASlowEventOp(upHosts, opt.DatabaseOptions.UserName,
 		opt.DatabaseOptions.DBName, opt.DatabaseOptions.Password,
 		startTime, endTime, threadID, opt.PhaseDurationDesc,
-		opt.TxnID, opt.EventDesc, opt.NodeName, opt.MinMutexDuration)
+		opt.TxnID, opt.EventDesc, opt.NodeName, opt.MinMutexDuration, opt.IsDebug)
 	if err != nil {
 		return nil, err
 	}
@@ -243,7 +249,7 @@ func (opt *VClusterHealthOptions) getSessionStarts(logger vlog.Printer, upHosts 
 
 	nmaSessionStartsOp, err := makeNMASessionStartsOp(upHosts, opt.DatabaseOptions.UserName,
 		opt.DatabaseOptions.DBName, opt.DatabaseOptions.Password, sessionID,
-		opt.StartTime, opt.EndTime)
+		opt.StartTime, opt.EndTime, opt.IsDebug)
 	if err != nil {
 		return nil, err
 	}
@@ -263,7 +269,7 @@ func (opt *VClusterHealthOptions) getTransactionStarts(logger vlog.Printer, upHo
 
 	nmaTransactionStartsOp, err := makeNMATransactionStartsOp(upHosts, opt.DatabaseOptions.UserName,
 		opt.DatabaseOptions.DBName, opt.DatabaseOptions.Password, txnID,
-		opt.StartTime, opt.EndTime)
+		opt.StartTime, opt.EndTime, opt.IsDebug)
 	if err != nil {
 		return nil, fmt.Errorf("fail to construct transaction starts op, %w", err)
 	}
@@ -276,4 +282,26 @@ func (opt *VClusterHealthOptions) getTransactionStarts(logger vlog.Printer, upHo
 	}
 
 	return clusterOpEngine.execContext.dcTransactionStarts, nil
+}
+
+func (opt *VClusterHealthOptions) getMissingReleases(logger vlog.Printer, upHosts []string,
+	startTime, endTime string) (err error) {
+	var instructions []clusterOp
+
+	nmaMissingReleasesOp, err := makeNMAMissingReleasesOp(upHosts, opt.DatabaseOptions.UserName,
+		opt.DatabaseOptions.DBName, opt.DatabaseOptions.Password,
+		startTime, endTime, opt.IsDebug)
+	if err != nil {
+		return fmt.Errorf("fail to construct missing releases op, %w", err)
+	}
+	instructions = append(instructions, &nmaMissingReleasesOp)
+
+	clusterOpEngine := makeClusterOpEngine(instructions, &opt.DatabaseOptions)
+	err = clusterOpEngine.run(logger)
+	if err != nil {
+		return fmt.Errorf("fail to get missing releases, %w", err)
+	}
+
+	opt.MissingReleasesResult = clusterOpEngine.execContext.dcMissingReleasesList
+	return nil
 }
