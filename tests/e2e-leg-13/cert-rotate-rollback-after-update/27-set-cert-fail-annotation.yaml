@@ -1,0 +1,6 @@
+apiVersion: vertica.com/v1
+kind: VerticaDB
+metadata:
+  name: v-cert-rotate-rollback-after-update
+  annotations:
+    vertica.com/trigger-tls-update-failure: "https_after_tls_update"

@@ -116,7 +116,7 @@ func (h *ClientServerTLSUpdateReconciler) Reconcile(ctx context.Context, req *ct
 	}
 
 	err = h.Manager.updateTLSConfig(ctx, initiator, upHostToSandbox)
-	if err != nil {
+	if err != nil || h.Vdb.IsTLSCertRollbackNeeded() {
 		return ctrl.Result{}, err
 	}
 
