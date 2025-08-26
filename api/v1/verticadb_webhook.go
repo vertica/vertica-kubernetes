@@ -1202,7 +1202,7 @@ func (v *VerticaDB) validateCipherSuites(validCipherSuites map[string]struct{}, 
 	if cipherSuites == "" {
 		return invalidSuites
 	}
-	parsedSuites := strings.Split(cipherSuites, separator)
+	parsedSuites := strings.Split(strings.ToUpper(cipherSuites), separator)
 	for _, suite := range parsedSuites {
 		_, ok := validCipherSuites[suite]
 		if !ok {
