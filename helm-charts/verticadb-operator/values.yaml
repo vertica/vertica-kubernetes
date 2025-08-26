@@ -510,10 +510,6 @@ loki:
       allow_structured_metadata: true
       volume_enabled: true
 
-    # disable alert rules
-    rulerConfig:
-      enabled: false
-  
   # disable caching in test
   memcached:
     enabled: false
@@ -524,9 +520,6 @@ loki:
 
   # use filesystem
   minio:
-    enabled: false
-  # disable alerts
-  ruler:
     enabled: false
   # disable canary to skip health check
   lokiCanary:
