@@ -213,14 +213,22 @@ func (t *DBTLSConfigReconciler) getCipherSuitesFromDB(ctx context.Context, initi
 		paramName = "tlsciphersuites"
 	}
 	t.Log.Info("Getting tls ciphers from db", "TLSVersion", tlsVersion)
-	return t.getConfigParameter(ctx, initiatorPod, paramName)
+	cipherSuites, err := t.getConfigParameter(ctx, initiatorPod, paramName)
+	if err != nil {
+		return cipherSuites, err
+	}
+	if tlsVersion == 2 {
+		cipherSuites = strings.ReplaceAll(cipherSuites, ",", ":")
+	}
+	return cipherSuites, err
 }
 
 func (t *DBTLSConfigReconciler) setCipherSuites(ctx context.Context, initiatorPod *podfacts.PodFact,
 	tlsVersion int, cipherSuites string) error {
-	paramName := "enabledciphersuites"
-	if tlsVersion == 3 {
-		paramName = "tlsciphersuites"
+	paramName := "tlsciphersuites"
+	if tlsVersion == 2 {
+		paramName = "enabledciphersuites"
+		cipherSuites = strings.ReplaceAll(cipherSuites, ":", ",")
 	}
 	return t.setConfigParameter(ctx, initiatorPod, paramName, cipherSuites)
 }
