@@ -179,6 +179,7 @@ func (v *VerticaDB) validateImmutableFields(old runtime.Object) field.ErrorList 
 	allErrs = v.checkInvalidSubclusterTypeChange(allErrs)
 	allErrs = v.checkAtLeastOneMainPrimaryTypeUnchanged(oldObj, allErrs)
 	allErrs = v.checkAtLeastOneSandboxPrimaryTypeUnchanged(oldObj, allErrs)
+	allErrs = v.checkPasswordSecretUpdateInShutdownSandbox(oldObj, allErrs)
 	allErrs = v.checkSandboxesDuringUpgrade(oldObj, allErrs)
 	allErrs = v.checkShutdownSandboxImage(oldObj, allErrs)
 	allErrs = v.checkShutdownForSandboxesToBeRemoved(oldObj, allErrs)
@@ -498,6 +499,24 @@ func (v *VerticaDB) checkValidSubclusterTypeTransition(oldObj *VerticaDB, allErr
 		}
 	}
 
+	return allErrs
+}
+
+// checkPasswordSecretUpdateInShutdownSandbox checks if password secrets are being updated in shutdown sandboxes
+func (v *VerticaDB) checkPasswordSecretUpdateInShutdownSandbox(oldObj *VerticaDB, allErrs field.ErrorList) field.ErrorList {
+	for _, sandbox := range oldObj.Spec.Sandboxes {
+		if !sandbox.Shutdown {
+			continue
+		}
+
+		if oldObj.Spec.PasswordSecret != v.Spec.PasswordSecret {
+			err := field.Invalid(field.NewPath("spec").Child("passwordSecret"),
+				v.Spec.PasswordSecret,
+				fmt.Sprintf("Cannot change passwordSecret as sandbox %q is shutdown", sandbox.Name))
+			allErrs = append(allErrs, err)
+			break // Break inner loop since we found the matching sandbox
+		}
+	}
 	return allErrs
 }
 
