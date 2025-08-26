@@ -48,7 +48,7 @@ func MakeDBTLSConfigReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger, v
 }
 
 func (t *DBTLSConfigReconciler) shouldSkipReconcile() bool {
-	return t.Vdb.IsStatusConditionTrue(vapi.TLSConfigUpdateInProgress) ||
+	return !t.Vdb.IsHTTPSConfigEnabled() || t.Vdb.IsStatusConditionTrue(vapi.TLSConfigUpdateInProgress) ||
 		t.Vdb.IsTLSCertRollbackNeeded() || !t.Vdb.IsStatusConditionTrue(vapi.DBInitialized) ||
 		t.Vdb.IsStatusConditionTrue(vapi.UpgradeInProgress)
 }
