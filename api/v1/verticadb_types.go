@@ -281,9 +281,9 @@ type VerticaDBSpec struct {
 	// the default context is used.
 	PodSecurityContext *corev1.PodSecurityContext `json:"podSecurityContext,omitempty"`
 
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:advanced"
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:default:={}
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:advanced"
 	// Allow users to specify TLS version and cipher suites. Version 2 (TLS1.2) and 3 (TLS1.3) are supported.
 	// The cipher suites must match the TLS version.
 	DBTLSConfig *DBTLSConfig `json:"dbTlsConfig,omitempty"`
@@ -944,14 +944,14 @@ type Affinity struct {
 }
 
 type DBTLSConfig struct {
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:select:2","urn:alm:descriptor:com.tectonic.ui:select:3"}
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:default:=2
-	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// TLSVersion can be 2 or 3. By default, version 2 is used.
 	TLSVersion int `json:"tlsVersion,omitempty"`
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:default:=""
-	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// CipherSuites is a comma-separated list of cipher suites. TLS 1.2 and 1.3 use different cipher suites. The value for
 	// this field must match that of TLSVersion.
 	CipherSuites string `json:"cipherSuites,omitempty"`

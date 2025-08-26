@@ -230,7 +230,7 @@ func (t *DBTLSConfigReconciler) setCipherSuites(ctx context.Context, initiatorPo
 		paramName = "enabledciphersuites"
 		cipherSuites = strings.ReplaceAll(cipherSuites, ":", ",")
 	}
-	return t.setConfigParameter(ctx, initiatorPod, paramName, cipherSuites)
+	return t.setConfigParameter(ctx, initiatorPod, paramName, strings.ToUpper(cipherSuites))
 }
 
 func (t *DBTLSConfigReconciler) placeholderForAll(cipherSuites string) string {
@@ -262,8 +262,8 @@ func (t *DBTLSConfigReconciler) setConfigParameter(ctx context.Context, initiato
 }
 
 func (t *DBTLSConfigReconciler) equal(cipherSuitesInUse, cipherSuitesInSpec string) bool {
-	listOfCipherSuitesInUse := strings.Split(cipherSuitesInUse, ",")
-	listOfCipherSuitesInSpec := strings.Split(strings.ToUpper(cipherSuitesInSpec), ",")
+	listOfCipherSuitesInUse := strings.Split(strings.ToUpper(cipherSuitesInUse), ":")
+	listOfCipherSuitesInSpec := strings.Split(strings.ToUpper(cipherSuitesInSpec), ":")
 	slices.Sort(listOfCipherSuitesInUse)
 	slices.Sort(listOfCipherSuitesInSpec)
 	return slices.Equal(listOfCipherSuitesInUse, listOfCipherSuitesInSpec)

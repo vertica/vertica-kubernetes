@@ -241,7 +241,6 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		MakeAutoCertRotateReconciler(r, log, vdb, true /* init */),
 		// Always generate cert first if nothing is provided
 		MakeTLSServerCertGenReconciler(r, log, vdb),
-		MakeDBTLSConfigReconciler(r, log, vdb, prunner, dispatcher, pfacts),
 		// Set up configmap which stores env variables for NMA container
 		MakeNMACertConfigMapReconciler(r, log, vdb),
 		// Trigger sandbox upgrade when the image field for the sandbox
@@ -291,6 +290,8 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		MakeSandboxShutdownReconciler(r, log, vdb, true),
 		// Update deployment method and enable HTTPS TLS
 		MakeDeploymentMethodReconciler(r, log, vdb, prunner, pfacts, dispatcher),
+		// reconcile tls version and cipher suite
+		MakeDBTLSConfigReconciler(r, log, vdb, prunner, dispatcher, pfacts),
 		// Handles vertica server upgrade (i.e., when spec.image changes)
 		MakeOfflineUpgradeReconciler(r, log, vdb, prunner, pfacts, dispatcher),
 		MakeReadOnlyOnlineUpgradeReconciler(r, log, vdb, prunner, pfacts, dispatcher),
