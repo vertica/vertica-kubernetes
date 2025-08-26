@@ -18,6 +18,7 @@ package v1
 
 import (
 	"fmt"
+	"maps"
 	"reflect"
 	"slices"
 	"strings"
@@ -1180,16 +1181,16 @@ func (v *VerticaDB) hasValidTLSVersionAndCipherSuites(allErrs field.ErrorList) f
 		return allErrs
 	}
 	// TLS1.2 uses comma while TLS1.3 uses colon
-	separator := ","
+	separator := ":"
 	validCipherSuites := TLS2CipherSuites
 	if v.Spec.DBTLSConfig.TLSVersion == 3 {
 		validCipherSuites = TLS3CipherSuites
-		separator = ":"
 	}
 	invalidCipherSuites := v.validateCipherSuites(validCipherSuites, v.Spec.DBTLSConfig.CipherSuites, separator)
 	if len(invalidCipherSuites) != 0 {
 		err := field.Invalid(field.NewPath("spec").Child("dbTlsConfig").Child("cipherSuites"), v.Spec.DBTLSConfig.CipherSuites,
-			fmt.Sprintf("invalid cipher suites for TLS version %d : %s", v.Spec.DBTLSConfig.TLSVersion, strings.Join(invalidCipherSuites, ",")))
+			fmt.Sprintf("invalid cipher suites for TLS version %d : %s. Supported cipher suites are %s.", v.Spec.DBTLSConfig.TLSVersion,
+				strings.Join(invalidCipherSuites, ":"), strings.Join(slices.Collect(maps.Keys(validCipherSuites)), ":")))
 		allErrs = append(allErrs, err)
 	}
 	return allErrs
