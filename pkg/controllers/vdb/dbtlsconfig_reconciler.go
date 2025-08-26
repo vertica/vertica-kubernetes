@@ -190,9 +190,19 @@ func (t *DBTLSConfigReconciler) updateCipherSuites(ctx context.Context, initiato
 }
 
 func (t *DBTLSConfigReconciler) pollHTTPS(ctx context.Context, upHosts, mainClusterHosts []string) error {
+	certCache := t.VRec.CacheManager.GetCertCacheForVdb(t.Vdb.Namespace, t.Vdb.Name)
+
+	httpsCert, err := certCache.ReadCertFromSecret(ctx, t.Vdb.GetHTTPSNMATLSSecretInUse())
+	t.Log.Info("libo: https cert name " + t.Vdb.GetHTTPSNMATLSSecretInUse())
+	t.Log.Info("libo: https cert, key - " + httpsCert.Key + ", cert - " + httpsCert.Cert + ", cacert - " + httpsCert.CaCert)
+	if err != nil {
+		return err
+	}
 	opts := []pollhttps.Option{
 		pollhttps.WithInitiators(upHosts),
 		pollhttps.WithMainClusterHosts(strings.Join(mainClusterHosts, ",")),
+		pollhttps.WithSyncCatalogRequired(true),
+		pollhttps.WithNewHTTPSCerts(httpsCert),
 	}
 	return t.Dispatcher.PollHTTPS(ctx, opts...)
 }

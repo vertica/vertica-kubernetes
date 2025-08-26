@@ -15,10 +15,15 @@
 
 package pollhttps
 
+import "github.com/vertica/vertica-kubernetes/pkg/tls"
+
 type Parms struct {
 	InitiatorIPs       []string
 	MainClusterHosts   string
 	SyncCatalogRequire bool
+	NewKey             string
+	NewCert            string
+	NewCaCert          string
 }
 
 // Option is a function that configures a Parms instance.
@@ -46,5 +51,13 @@ func WithInitiators(podIPs []string) Option {
 func WithSyncCatalogRequired(syncCatalogRequired bool) Option {
 	return func(p *Parms) {
 		p.SyncCatalogRequire = syncCatalogRequired
+	}
+}
+
+func WithNewHTTPSCerts(cert *tls.HTTPSCerts) Option {
+	return func(p *Parms) {
+		p.NewKey = cert.Key
+		p.NewCert = cert.Cert
+		p.NewCaCert = cert.CaCert
 	}
 }
