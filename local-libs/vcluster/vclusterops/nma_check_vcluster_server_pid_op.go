@@ -17,8 +17,6 @@ package vclusterops
 
 import (
 	"errors"
-
-	"github.com/vertica/vcluster/vclusterops/util"
 )
 
 // we limit the check timeout to 30 seconds
@@ -84,7 +82,7 @@ func (op *nmaCheckVClusterServerPidOp) processResult(execContext *opEngineExecCo
 				e := errors.New(`the key "vcluster_server_pid_file_exists" does not exist in the response`)
 				allErrs = errors.Join(allErrs, e)
 			}
-			if exist == util.TrueStr {
+			if exist == "true" {
 				execContext.HostsWithVclusterServerPid = append(execContext.HostsWithVclusterServerPid, host)
 			}
 		}

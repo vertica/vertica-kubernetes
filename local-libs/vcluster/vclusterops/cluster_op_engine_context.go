@@ -72,13 +72,10 @@ type opEngineExecContext struct {
 
 	workloadReplyCtx context.Context
 	// lockAttempts list
-	dcLockAttemptsList *[]DcLockAttempts
+	dcLockAttemptsList *[]dcLockAttempts
 
 	// lockReleases list
-	dcLockReleasesList *[]DcLockReleases
-
-	// missing releases list
-	dcMissingReleasesList *[]DcLockAttempts
+	dcLockReleasesList *[]dcLockReleases
 }
 
 func makeOpEngineExecContext(logger vlog.Printer) opEngineExecContext {
