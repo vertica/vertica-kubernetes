@@ -60,5 +60,9 @@ func (v *VClusterOps) genPollHTTPSOptions(s *pollhttps.Parms,
 		opts.Password = &v.Password
 	}
 	opts.MainClusterInitiator = s.MainClusterHosts
+	opts.NewKey = s.NewKey
+	opts.NewCert = s.NewCert
+	opts.NewCaCert = s.NewCaCert
+	opts.SyncCatalogRequired = s.SyncCatalogRequire
 	return &opts
 }
