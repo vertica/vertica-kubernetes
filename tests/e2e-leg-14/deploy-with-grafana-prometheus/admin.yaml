@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: grafana-admin-credentials
+type: Opaque
+stringData:
+  admin-user: admin        # your chosen username
+  admin-password: topsecret  # your chosen password

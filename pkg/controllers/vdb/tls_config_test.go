@@ -162,7 +162,7 @@ var _ = Describe("tls_config", func() {
 
 	It("should set rollback after cert rotation", func() {
 		vdb := vapi.MakeVDB()
-		vdb.Annotations[vmeta.DisableTLSRotationFailureRollbackAnnotation] = vmeta.DisableTLSRotationFailureRollbackAnnotationFalse
+		vdb.Annotations[vmeta.EnableTLSRotationFailureRollbackAnnotation] = vmeta.EnableTLSRotationFailureRollbackAnnotationTrue
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
 		fpr := &cmds.FakePodRunner{}

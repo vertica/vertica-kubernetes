@@ -1,0 +1,17 @@
+apiVersion: vertica.com/v1
+kind: VerticaDB
+metadata:
+  name: v-auto-cert-rotate
+spec:
+  httpsNMATLS:
+    secret: cert3
+status:
+  tlsConfigs:
+  - name: httpsNMA
+    secret: cert1
+    autoRotateSecrets:
+    - cert1
+    - cert2
+    - cert3
+    - cert4
+  - name: clientServer

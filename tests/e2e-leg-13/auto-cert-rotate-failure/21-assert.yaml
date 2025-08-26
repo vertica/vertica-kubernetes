@@ -1,0 +1,59 @@
+apiVersion: v1
+kind: Event
+reason: TLSAutoRotateSucceeded
+source:
+  component: verticadb-operator
+involvedObject:
+  apiVersion: vertica.com/v1
+  kind: VerticaDB
+  name: v-auto-cert-rotate
+message: Auto-rotate triggered for TLS config clientServer with secret cert2
+---
+apiVersion: v1
+kind: Event
+reason: ClientServerTLSUpdateFailed
+source:
+  component: verticadb-operator
+involvedObject:
+  apiVersion: vertica.com/v1
+  kind: VerticaDB
+  name: v-auto-cert-rotate
+message: Failed to rotate Server tls cert with secret name cert2 and mode try_verify
+---
+apiVersion: v1
+kind: Event
+reason: TLSCertRollbackStarted
+source:
+  component: verticadb-operator
+involvedObject:
+  apiVersion: vertica.com/v1
+  kind: VerticaDB
+  name: v-auto-cert-rotate
+message: Starting Server TLS cert rollback after failed update
+---
+apiVersion: v1
+kind: Event
+reason: TLSCertRollbackSucceeded
+source:
+  component: verticadb-operator
+involvedObject:
+  apiVersion: vertica.com/v1
+  kind: VerticaDB
+  name: v-auto-cert-rotate
+message: Server TLS cert rollback completed successfully
+---
+apiVersion: vertica.com/v1
+kind: VerticaDB
+metadata:
+  name: v-auto-cert-rotate
+status:
+  tlsConfigs:
+  - name: httpsNMA
+  - name: clientServer
+    secret: cert1
+    autoRotateSecrets:
+    - cert1
+    - cert2
+    - cert3
+    - cert4
+    autoRotateFailedSecret: cert2
