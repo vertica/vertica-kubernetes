@@ -1577,17 +1577,28 @@ func checkIfNodeUpCmd(podIP string, isHTTP bool) string {
 	}
 }
 
-// FindFirstPrimaryUpPodIP returns the ip of first pod that
+// FindFirstPrimaryUpPod returns the first pod that
 // has a primary up Vertica node, and a boolean that indicates
 // if we found such a pod
-func (p *PodFacts) FindFirstPrimaryUpPodIP() (string, bool) {
+func (p *PodFacts) FindFirstPrimaryUpPod() (*PodFact, bool) {
 	initiator, ok := p.FindFirstPodSorted(func(v *PodFact) bool {
 		return v.sandbox == vapi.MainCluster && v.isPrimary && v.upNode
 	})
 	if initiator == nil {
+		return nil, false
+	}
+	return initiator, ok
+}
+
+// FindFirstPrimaryUpPodIP returns the ip of first pod that
+// has a primary up Vertica node, and a boolean that indicates
+// if we found such a pod
+func (p *PodFacts) FindFirstPrimaryUpPodIP() (string, bool) {
+	pod, ok := p.FindFirstPrimaryUpPod()
+	if !ok {
 		return "", false
 	}
-	return initiator.podIP, ok
+	return pod.podIP, true
 }
 
 // FindUnsandboxedSubclustersStillInSandboxStatus returns a sandbox-subclusters map

@@ -63,12 +63,11 @@ func (a *PasswordSecretReconciler) Reconcile(ctx context.Context, _ *ctrl.Reques
 		return ctrl.Result{}, nil
 	}
 
-	// set status when db is initialized
+	// set status to the current using secret when db is initialized
 	if a.Vdb.Status.PasswordSecret == nil {
 		return ctrl.Result{}, a.updatePasswordSecretStatus(ctx)
 	}
 
-	// We put the current using password secret in the status
 	// No actions needed if status content is the same to spec
 	if a.statusMatchesSpec() {
 		return ctrl.Result{}, nil
@@ -98,11 +97,6 @@ func (a *PasswordSecretReconciler) updatePasswordSecret(ctx context.Context) (ct
 
 	// No-op if password is the same
 	if *a.PFacts.VerticaSUPassword == *newPasswd {
-		// update status only if db previously using empty password
-		if a.Vdb.Status.PasswordSecret == nil {
-			a.Log.Info("Add passwordSecret to status", "status.passwordSecret:", a.Vdb.Spec.PasswordSecret)
-			return ctrl.Result{}, a.updatePasswordSecretStatus(ctx)
-		}
 		a.Log.Info("WARNING: password in secret is the same as current password", "current password secret",
 			a.Vdb.Status.PasswordSecret, "new password secret", a.Vdb.Spec.PasswordSecret)
 		return ctrl.Result{}, nil
@@ -111,8 +105,9 @@ func (a *PasswordSecretReconciler) updatePasswordSecret(ctx context.Context) (ct
 	if pErr := a.PFacts.Collect(ctx, a.Vdb); pErr != nil {
 		return ctrl.Result{}, pErr
 	}
-	pf, found := a.PFacts.FindFirstUpPod(false, a.Vdb.GetFirstPrimarySubcluster().Name)
+	pf, found := a.PFacts.FindFirstPrimaryUpPod()
 	if !found {
+		a.Log.Info("No Up nodes found. Requeue dbadmin password secret reconciliation.")
 		return ctrl.Result{Requeue: true}, nil
 	}
 
@@ -121,13 +116,15 @@ func (a *PasswordSecretReconciler) updatePasswordSecret(ctx context.Context) (ct
 	cmd := []string{"-tAc", sb.String()}
 	stdout, stderr, err := a.PRunner.ExecVSQL(ctx, pf.GetName(), names.ServerContainer, cmd...)
 	if err != nil {
-		a.VRec.Log.Error(err, "failed to update the password", "stderr", stderr)
+		a.VRec.Eventf(a.Vdb, corev1.EventTypeNormal, events.SuperuserPasswordSecretUpdateFailed,
+			"Superuser password update failed")
+		a.VRec.Log.Error(err, "failed to update superuser password secret", "stderr", stderr)
 		return ctrl.Result{}, err
 	}
 
-	a.VRec.Eventf(a.Vdb, corev1.EventTypeNormal, events.SuperuserPasswordSecretUpdated,
-		"Superuser password updated")
-	a.VRec.Log.Info("Updating password secret", "stdout", stdout, "new secret", a.Vdb.Spec.PasswordSecret)
+	a.VRec.Eventf(a.Vdb, corev1.EventTypeNormal, events.SuperuserPasswordSecretUpdateSucceeded,
+		"Superuser password update succeeded")
+	a.VRec.Log.Info("Successfully updated superuser password secret", "stdout", stdout, "new secret", a.Vdb.Spec.PasswordSecret)
 
 	// reset password used in vdb
 	a.resetVDBPassword(*newPasswd)

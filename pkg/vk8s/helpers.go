@@ -31,10 +31,10 @@ import (
 func getPasswordFromSecret(secret map[string][]byte, key string) (*string, error) {
 	var passwd string
 	pwd, ok := secret[key]
-	passwd = string(pwd)
 	if !ok {
 		return nil, fmt.Errorf("password not found, secret must have a key with name %q", key)
 	}
+	passwd = string(pwd)
 	return &passwd, nil
 }
 
