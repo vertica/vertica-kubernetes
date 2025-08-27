@@ -38,7 +38,7 @@ var _ = Describe("k8s/uninstall_reconcile", func() {
 		vdb := vapi.MakeVDB()
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := podfacts.MakePodFacts(vdbRec, fpr, logger, TestPassword)
+		pfacts := podfacts.MakePodFacts(vdbRec, fpr, logger, &testPassword)
 		recon := MakeUninstallReconciler(vdbRec, logger, vdb, fpr, &pfacts)
 		Expect(recon.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 	})
@@ -78,7 +78,7 @@ var _ = Describe("k8s/uninstall_reconcile", func() {
 		sc.Size = 1 // Set to 1 to mimic a pending uninstall
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := podfacts.MakePodFacts(vdbRec, fpr, logger, TestPassword)
+		pfacts := podfacts.MakePodFacts(vdbRec, fpr, logger, &testPassword)
 		updatePodFactsForUninstall(ctx, &pfacts, vdb, sc, 1, 1)
 		r := MakeUninstallReconciler(vdbRec, logger, vdb, fpr, &pfacts)
 		res, err := r.Reconcile(ctx, &ctrl.Request{})

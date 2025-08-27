@@ -41,7 +41,7 @@ var _ = Describe("rebalanceshards_reconcile", func() {
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := podfacts.MakePodFacts(vdbRec, fpr, logger, TestPassword)
+		pfacts := podfacts.MakePodFacts(vdbRec, fpr, logger, &testPassword)
 		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
 		pfn := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)
 		pfacts.Detail[pfn].SetUpNode(true)
@@ -67,7 +67,7 @@ var _ = Describe("rebalanceshards_reconcile", func() {
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := podfacts.MakePodFacts(vdbRec, fpr, logger, TestPassword)
+		pfacts := podfacts.MakePodFacts(vdbRec, fpr, logger, &testPassword)
 		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
 		for i := range vdb.Spec.Subclusters {
 			pn := names.GenPodName(vdb, &vdb.Spec.Subclusters[i], 0)

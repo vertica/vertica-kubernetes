@@ -28,40 +28,35 @@ import (
 )
 
 // getPasswordFromSecret retrieves the password from the secret using the provided key
-func getPasswordFromSecret(secret map[string][]byte, key string) (string, error) {
+func getPasswordFromSecret(secret map[string][]byte, key string) (*string, error) {
+	var passwd string
 	pwd, ok := secret[key]
 	if !ok {
-		return "", fmt.Errorf("password not found, secret must have a key with name %q", key)
+		return nil, fmt.Errorf("password not found, secret must have a key with name %q", key)
 	}
-	return string(pwd), nil
+	passwd = string(pwd)
+	return &passwd, nil
 }
 
 // GetSuperuserPassword returns the superuser password if it has been provided
 func GetSuperuserPassword(ctx context.Context, cl client.Client, log logr.Logger,
-	e events.EVWriter, vdb *vapi.VerticaDB) (string, error) {
-	if vdb.Spec.PasswordSecret == "" {
-		return "", nil
-	}
-
-	fetcher := cloud.SecretFetcher{
-		Client:   cl,
-		Log:      log,
-		Obj:      vdb,
-		EVWriter: e,
-	}
-	secret, err := fetcher.Fetch(ctx, names.GenSUPasswdSecretName(vdb))
-	if err != nil {
-		return "", err
-	}
-
-	return getPasswordFromSecret(secret, names.SuperuserPasswordKey)
+	e events.EVWriter, vdb *vapi.VerticaDB) (*string, error) {
+	return GetCustomSuperuserPassword(ctx, cl, log, e, vdb,
+		vdb.GetPasswordSecret(), names.SuperuserPasswordKey)
 }
 
 // GetCustomSuperuserPassword returns the superuser password stored in a custom secret
 func GetCustomSuperuserPassword(ctx context.Context, cl client.Client, log logr.Logger,
 	e events.EVWriter, vdb *vapi.VerticaDB,
 	customPasswordSecret,
-	customPasswordSecretKey string) (string, error) {
+	customPasswordSecretKey string) (*string, error) {
+	// in case no secret defined
+	emptyPassword := ""
+	if customPasswordSecret == "" {
+		return &emptyPassword, nil
+	}
+
+	// fetch the secret
 	fetcher := cloud.SecretFetcher{
 		Client:   cl,
 		Log:      log,
@@ -71,7 +66,8 @@ func GetCustomSuperuserPassword(ctx context.Context, cl client.Client, log logr.
 	secret, err := fetcher.Fetch(ctx,
 		names.GenNamespacedName(vdb, customPasswordSecret))
 	if err != nil {
-		return "", err
+		return nil, err
 	}
+
 	return getPasswordFromSecret(secret, customPasswordSecretKey)
 }

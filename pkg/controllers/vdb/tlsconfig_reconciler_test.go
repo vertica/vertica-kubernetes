@@ -48,7 +48,7 @@ var _ = Describe("httpstls_reconciler", func() {
 
 		fpr := &cmds.FakePodRunner{}
 		pfacts := createPodFactsWithNoDB(ctx, vdb, fpr, 3)
-		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
+		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, &testPassword)
 
 		r := MakeTLSConfigReconciler(vdbRec, logger, vdb, fpr, dispatcher, pfacts, vapi.HTTPSNMATLSConfigName, &TLSConfigManager{})
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))

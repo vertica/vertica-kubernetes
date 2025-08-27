@@ -207,7 +207,7 @@ type VClusterOps struct {
 	VDB          *vapi.VerticaDB
 	TargetVDB    *vapi.VerticaDB
 	Client       client.Client
-	Password     string
+	Password     *string
 	EVWriter     events.EVWriter
 	CacheManager cache.CacheManager
 	VClusterProvider
@@ -217,7 +217,7 @@ type VClusterOps struct {
 
 // MakeVClusterOps will create a dispatcher that uses the vclusterops library for admin commands.
 func MakeVClusterOps(log logr.Logger, vdb *vapi.VerticaDB, cli client.Client,
-	passwd string, evWriter events.EVWriter,
+	passwd *string, evWriter events.EVWriter,
 	apiSetupFunc func(logr.Logger, string) (VClusterProvider, logr.Logger), cacheManager cache.CacheManager) Dispatcher {
 	return &VClusterOps{
 		BaseLog:          log,
@@ -233,7 +233,7 @@ func MakeVClusterOps(log logr.Logger, vdb *vapi.VerticaDB, cli client.Client,
 
 // MakeVClusterOps will create a dispatcher that uses the vclusterops library for admin commands.
 func MakeVClusterOpsWithTarget(log logr.Logger, vdb *vapi.VerticaDB, targetVDB *vapi.VerticaDB, cli client.Client,
-	passwd string, evWriter events.EVWriter,
+	passwd *string, evWriter events.EVWriter,
 	apiSetupFunc func(logr.Logger, string) (VClusterProvider, logr.Logger), cacheManager cache.CacheManager) Dispatcher {
 	return &VClusterOps{
 		BaseLog:          log,

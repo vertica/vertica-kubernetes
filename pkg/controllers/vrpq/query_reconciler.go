@@ -202,8 +202,10 @@ func (q *QueryReconciler) findRunningPodWithNMAContainer(pods *corev1.PodList) (
 func (q *QueryReconciler) makeDispatcher(log logr.Logger, vdb *vapi.VerticaDB,
 	_ *string) (vadmin.Dispatcher, error) {
 	if vdb.UseVClusterOpsDeployment() {
+		emptyPassword := ""
 		// The password isn't needed since our API is going to strictly communicate with the NMA
-		return vadmin.MakeVClusterOps(log, vdb, q.VRec.GetClient(), "", q.VRec, vadmin.SetupVClusterOps, q.VRec.CacheManager), nil
+		return vadmin.MakeVClusterOps(log, vdb, q.VRec.GetClient(), &emptyPassword,
+			q.VRec, vadmin.SetupVClusterOps, q.VRec.CacheManager), nil
 	}
 	return nil, fmt.Errorf("ShowRestorePoints is not supported for admintools deployments")
 }

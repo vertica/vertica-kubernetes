@@ -143,6 +143,8 @@ const (
 
 var TestCommunalStorageParams = map[string]string{"awsauth": "test-auth", "awsconnecttimeout": "10"}
 var TestNodeNameAddressMap = map[string]string{"v_sandbox_db_node0010": "10.244.0.134"}
+var testPassword = TestPassword
+var testTargetPassword = TestTargetPassword
 
 // VerifyDBNameAndIPv6 is used in vcluster-ops unit test for verifying db name and ipv6
 func (m *MockVClusterOps) VerifyDBNameAndIPv6(options *vops.DatabaseOptions) error {
@@ -399,7 +401,7 @@ func mockVClusterOpsDispatcherWithCustomSetup(vdb *vapi.VerticaDB,
 	setupAPIFunc func(logr.Logger, string) (VClusterProvider, logr.Logger), cacheManager cache.CacheManager) *VClusterOps {
 	evWriter := aterrors.TestEVWriter{}
 
-	dispatcher := MakeVClusterOps(logger, vdb, k8sClient, TestPassword, &evWriter, setupAPIFunc, cacheManager)
+	dispatcher := MakeVClusterOps(logger, vdb, k8sClient, &testPassword, &evWriter, setupAPIFunc, cacheManager)
 	vClusterOps := dispatcher.(*VClusterOps)
 	fetcher := &cloud.SecretFetcher{
 		Client:   vClusterOps.Client,
@@ -431,7 +433,7 @@ func mockVClusterOpsDispatcherWithCustomSetupAndTarget(vdb *vapi.VerticaDB, targ
 	setupAPIFunc func(logr.Logger, string) (VClusterProvider, logr.Logger)) *VClusterOps {
 	evWriter := aterrors.TestEVWriter{}
 	cacheManager := cache.MakeCacheManager(true)
-	dispatcher := MakeVClusterOpsWithTarget(logger, vdb, targetVDB, k8sClient, TestPassword, &evWriter, setupAPIFunc, cacheManager)
+	dispatcher := MakeVClusterOpsWithTarget(logger, vdb, targetVDB, k8sClient, &testPassword, &evWriter, setupAPIFunc, cacheManager)
 	vClusterOps := dispatcher.(*VClusterOps)
 	fetcher := &cloud.SecretFetcher{
 		Client:   vClusterOps.Client,
