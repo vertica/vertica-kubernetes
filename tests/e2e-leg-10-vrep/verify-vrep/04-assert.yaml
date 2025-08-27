@@ -47,14 +47,6 @@ status:
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: v-target-sc3
-status:
-  replicas: 1
-  readyReplicas: 1
----
-apiVersion: apps/v1
-kind: StatefulSet
-metadata:
   name: v-target-sc4
 status:
   replicas: 1
@@ -74,8 +66,6 @@ metadata:
   name: v-target
 status:
   subclusters:
-    - addedToDBCount: 1
-      upNodeCount: 1
     - addedToDBCount: 1
       upNodeCount: 1
     - addedToDBCount: 1
