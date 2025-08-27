@@ -2,6 +2,7 @@ package vdb
 
 import (
 	"context"
+	"fmt"
 	"slices"
 	"strconv"
 	"strings"
@@ -10,6 +11,7 @@ import (
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
+	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
@@ -18,6 +20,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/setconfigparameter"
 	"github.com/vertica/vertica-kubernetes/pkg/vdbstatus"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
@@ -60,8 +63,8 @@ func (t *DBTLSConfigReconciler) Reconcile(ctx context.Context, request *ctrl.Req
 		return ctrl.Result{}, nil
 	}
 	var updateTLSVersion, updateCipherSuites bool
-	if t.Vdb.Status.DBTLSConfig != nil {
-		updateTLSVersion, updateCipherSuites = t.compareTLSConfig(t.Vdb.Spec.DBTLSConfig, t.Vdb.Status.DBTLSConfig)
+	if t.Vdb.Spec.DBTLSConfig != nil && t.Vdb.Status.DBTLSConfig != nil {
+		updateTLSVersion, updateCipherSuites, _ = t.compareTLSConfig(t.Vdb.Spec.DBTLSConfig, t.Vdb.Status.DBTLSConfig)
 		if !updateTLSVersion && !updateCipherSuites {
 			return ctrl.Result{}, nil
 		}
@@ -70,35 +73,38 @@ func (t *DBTLSConfigReconciler) Reconcile(ctx context.Context, request *ctrl.Req
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	initiatorPod, ok := t.Pfacts.FindRunningPod()
+	initiatorPodIP, ok := t.Pfacts.FindFirstPrimaryUpPodIP()
 	if !ok {
 		t.Log.Info("No pod found to update tls config. restart next.")
 		restartReconciler := MakeRestartReconciler(t.VRec, t.Log, t.Vdb, t.PRunner, t.Pfacts, true, t.Dispatcher)
 		res, err2 := restartReconciler.Reconcile(ctx, request)
-		return res, err2
+		if verrors.IsReconcileAborted(res, err2) {
+			return res, err2
+		}
 	}
-	if t.Vdb.Status.DBTLSConfig == nil {
-		err = t.updateDBTLSConfigInStatus(ctx, initiatorPod)
+	if t.Vdb.Spec.DBTLSConfig == nil || t.Vdb.Status.DBTLSConfig == nil {
+		err = t.updateDBTLSConfigInSpecAndStatus(ctx, initiatorPodIP)
 		if err != nil {
-			t.Log.Error(err, "failed to update db tls config. skip current loop")
-			return ctrl.Result{}, nil
+			t.Log.Error(err, "failed to update db tls config in spec and status. skip current loop")
+			return ctrl.Result{}, err
 		}
-		updateTLSVersion, updateCipherSuites = t.compareTLSConfig(t.Vdb.Spec.DBTLSConfig, t.Vdb.Status.DBTLSConfig)
-		if !updateTLSVersion && !updateCipherSuites {
-			return ctrl.Result{}, nil
-		}
+		return ctrl.Result{}, err
+	}
+	// this should not happen at here. In case it happens, return an error to avoid panic
+	if t.Vdb.Status.DBTLSConfig == nil {
+		return ctrl.Result{}, fmt.Errorf("status DBTLSConfig is unexpectedly nil")
 	}
 	t.Log.Info("tls config update required, ", "updateVersion", strconv.FormatBool(updateTLSVersion), "updateCipherSuites",
 		strconv.FormatBool(updateCipherSuites))
 	if updateTLSVersion {
-		err := t.updateTLSVersion(ctx, initiatorPod)
+		err := t.updateTLSVersion(ctx, initiatorPodIP)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
-		_, updateCipherSuites = t.compareTLSConfig(t.Vdb.Spec.DBTLSConfig, t.Vdb.Status.DBTLSConfig)
+		_, updateCipherSuites, _ = t.compareTLSConfig(t.Vdb.Spec.DBTLSConfig, t.Vdb.Status.DBTLSConfig)
 	}
 	if updateCipherSuites {
-		err := t.updateCipherSuites(ctx, initiatorPod)
+		err := t.updateCipherSuites(ctx, initiatorPodIP)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
@@ -106,12 +112,12 @@ func (t *DBTLSConfigReconciler) Reconcile(ctx context.Context, request *ctrl.Req
 	return ctrl.Result{}, nil
 }
 
-func (t *DBTLSConfigReconciler) updateTLSVersion(ctx context.Context, initiatorPod *podfacts.PodFact) error {
+func (t *DBTLSConfigReconciler) updateTLSVersion(ctx context.Context, initiatorPodIP string) error {
 	newTLSVersion := t.Vdb.Spec.DBTLSConfig.TLSVersion
 	t.VRec.Eventf(t.Vdb, corev1.EventTypeNormal, events.HTTPSTLSUpdateStarted,
 		"Started to update tls version to %d", newTLSVersion)
 	// update TLS version
-	err := t.setConfigParameter(ctx, initiatorPod, tlsVersionParam, strconv.FormatInt(int64(newTLSVersion), 10))
+	err := t.setConfigParameter(ctx, initiatorPodIP, tlsVersionParam, strconv.FormatInt(int64(newTLSVersion), 10))
 	if err != nil {
 		t.Log.Info("failed to set TLS version", "newTLSVersion", newTLSVersion)
 		t.VRec.Eventf(t.Vdb, corev1.EventTypeWarning, events.HTTPSTLSUpdateFailed,
@@ -125,7 +131,7 @@ func (t *DBTLSConfigReconciler) updateTLSVersion(ctx context.Context, initiatorP
 			"Failed to update tls version to %d", newTLSVersion)
 		return err
 	}
-	newCipherSuites, err := t.getCipherSuitesFromDB(ctx, initiatorPod, newTLSVersion)
+	newCipherSuites, err := t.getCipherSuitesFromDB(ctx, initiatorPodIP, newTLSVersion)
 	if err != nil {
 		t.VRec.Eventf(t.Vdb, corev1.EventTypeWarning, events.HTTPSTLSUpdateFailed,
 			"Failed to update tls version to %d", newTLSVersion)
@@ -153,11 +159,11 @@ func (t *DBTLSConfigReconciler) getHostGroups() (upHosts,
 	return upHosts, mainClusterHosts
 }
 
-func (t *DBTLSConfigReconciler) updateCipherSuites(ctx context.Context, initiatorPod *podfacts.PodFact) error {
+func (t *DBTLSConfigReconciler) updateCipherSuites(ctx context.Context, initiatorPodIP string) error {
 	newCipherSuites := t.Vdb.Spec.DBTLSConfig.CipherSuites
 	t.VRec.Eventf(t.Vdb, corev1.EventTypeNormal, events.HTTPSTLSUpdateStarted,
 		"Started to update tls cipher suites to %s", t.placeholderForAll(newCipherSuites))
-	err := t.setCipherSuites(ctx, initiatorPod, t.Vdb.Spec.DBTLSConfig.TLSVersion, t.Vdb.Spec.DBTLSConfig.CipherSuites)
+	err := t.setCipherSuites(ctx, initiatorPodIP, t.Vdb.Spec.DBTLSConfig.TLSVersion, t.Vdb.Spec.DBTLSConfig.CipherSuites)
 	if err != nil {
 		t.Log.Info("failed to update cipher suites", "TLSVersion", t.Vdb.Spec.DBTLSConfig.TLSVersion, "cipherSuites",
 			newCipherSuites)
@@ -192,9 +198,13 @@ func (t *DBTLSConfigReconciler) pollHTTPS(ctx context.Context, upHosts, mainClus
 }
 
 func (t *DBTLSConfigReconciler) compareTLSConfig(dbTLSConfigInSpec, dbTLSConfigInStatus *vapi.DBTLSConfig) (updateVersion,
-	updateCipherSuites bool) {
+	updateCipherSuites bool, err error) {
+	if dbTLSConfigInSpec == nil || dbTLSConfigInStatus == nil {
+		return updateVersion, updateCipherSuites, fmt.Errorf("tlsConfig is nil in spec or status")
+	}
+
 	if *dbTLSConfigInSpec == *dbTLSConfigInStatus {
-		return updateVersion, updateCipherSuites
+		return updateVersion, updateCipherSuites, nil
 	}
 	if dbTLSConfigInSpec.TLSVersion != dbTLSConfigInStatus.TLSVersion {
 		updateVersion = true
@@ -203,17 +213,17 @@ func (t *DBTLSConfigReconciler) compareTLSConfig(dbTLSConfigInSpec, dbTLSConfigI
 		updateCipherSuites = true
 	}
 
-	return updateVersion, updateCipherSuites
+	return updateVersion, updateCipherSuites, nil
 }
 
-func (t *DBTLSConfigReconciler) getCipherSuitesFromDB(ctx context.Context, initiatorPod *podfacts.PodFact,
+func (t *DBTLSConfigReconciler) getCipherSuitesFromDB(ctx context.Context, initiatorPodIp string,
 	tlsVersion int) (string, error) {
 	paramName := "enabledciphersuites"
 	if tlsVersion == 3 {
 		paramName = "tlsciphersuites"
 	}
 	t.Log.Info("Getting tls ciphers from db", "TLSVersion", tlsVersion)
-	cipherSuites, err := t.getConfigParameter(ctx, initiatorPod, paramName)
+	cipherSuites, err := t.getConfigParameter(ctx, initiatorPodIp, paramName)
 	if err != nil {
 		return cipherSuites, err
 	}
@@ -223,14 +233,14 @@ func (t *DBTLSConfigReconciler) getCipherSuitesFromDB(ctx context.Context, initi
 	return cipherSuites, err
 }
 
-func (t *DBTLSConfigReconciler) setCipherSuites(ctx context.Context, initiatorPod *podfacts.PodFact,
+func (t *DBTLSConfigReconciler) setCipherSuites(ctx context.Context, initiatorPodIP string,
 	tlsVersion int, cipherSuites string) error {
 	paramName := "tlsciphersuites"
 	if tlsVersion == 2 {
 		paramName = "enabledciphersuites"
 		cipherSuites = strings.ReplaceAll(cipherSuites, ":", ",")
 	}
-	return t.setConfigParameter(ctx, initiatorPod, paramName, strings.ToUpper(cipherSuites))
+	return t.setConfigParameter(ctx, initiatorPodIP, paramName, strings.ToUpper(cipherSuites))
 }
 
 func (t *DBTLSConfigReconciler) placeholderForAll(cipherSuites string) string {
@@ -240,21 +250,21 @@ func (t *DBTLSConfigReconciler) placeholderForAll(cipherSuites string) string {
 	return cipherSuites
 }
 
-func (t *DBTLSConfigReconciler) getConfigParameter(ctx context.Context, initiatorPod *podfacts.PodFact,
+func (t *DBTLSConfigReconciler) getConfigParameter(ctx context.Context, initiatorPodIp string,
 	paramName string) (string, error) {
 	opts := []getconfigparameter.Option{
 		getconfigparameter.WithUserName(t.Vdb.GetVerticaUser()),
-		getconfigparameter.WithInitiatorIP(initiatorPod.GetPodIP()),
+		getconfigparameter.WithInitiatorIP(initiatorPodIp),
 		getconfigparameter.WithConfigParameter(paramName),
 	}
 	return t.Dispatcher.GetConfigurationParameter(ctx, opts...)
 }
 
-func (t *DBTLSConfigReconciler) setConfigParameter(ctx context.Context, initiatorPod *podfacts.PodFact,
+func (t *DBTLSConfigReconciler) setConfigParameter(ctx context.Context, initiatorPodIP string,
 	paramName, value string) error {
 	opts := []setconfigparameter.Option{
 		setconfigparameter.WithUserName(t.Vdb.GetVerticaUser()),
-		setconfigparameter.WithInitiatorIP(initiatorPod.GetPodIP()),
+		setconfigparameter.WithInitiatorIP(initiatorPodIP),
 		setconfigparameter.WithConfigParameter(paramName),
 		setconfigparameter.WithValue(value),
 	}
@@ -269,8 +279,8 @@ func (t *DBTLSConfigReconciler) equal(cipherSuitesInUse, cipherSuitesInSpec stri
 	return slices.Equal(listOfCipherSuitesInUse, listOfCipherSuitesInSpec)
 }
 
-func (t *DBTLSConfigReconciler) getTLSVersionFromDB(ctx context.Context, initiatorPod *podfacts.PodFact) (int, error) {
-	strValue, err := t.getConfigParameter(ctx, initiatorPod, tlsVersionParam)
+func (t *DBTLSConfigReconciler) getTLSVersionFromDB(ctx context.Context, initiatorPodIp string) (int, error) {
+	strValue, err := t.getConfigParameter(ctx, initiatorPodIp, tlsVersionParam)
 	if err != nil {
 		t.Log.Error(err, "failed to retrieve TLS version from db")
 		return 0, err
@@ -278,13 +288,13 @@ func (t *DBTLSConfigReconciler) getTLSVersionFromDB(ctx context.Context, initiat
 	return strconv.Atoi(strValue)
 }
 
-func (t *DBTLSConfigReconciler) updateDBTLSConfigInStatus(ctx context.Context, initiatorPod *podfacts.PodFact) error {
-	tlsVersion, err := t.getTLSVersionFromDB(ctx, initiatorPod)
+func (t *DBTLSConfigReconciler) updateDBTLSConfigInSpecAndStatus(ctx context.Context, initiatorPodIp string) error {
+	tlsVersion, err := t.getTLSVersionFromDB(ctx, initiatorPodIp)
 	if err != nil {
 		t.Log.Error(err, "failed to get tls version from db")
 		return err
 	}
-	cipherSuites, err := t.getCipherSuitesFromDB(ctx, initiatorPod, tlsVersion)
+	cipherSuites, err := t.getCipherSuitesFromDB(ctx, initiatorPodIp, tlsVersion)
 	if err != nil {
 		t.Log.Error(err, "failed to get tls cipher suites from db")
 		return err
@@ -293,7 +303,12 @@ func (t *DBTLSConfigReconciler) updateDBTLSConfigInStatus(ctx context.Context, i
 		TLSVersion:   tlsVersion,
 		CipherSuites: cipherSuites,
 	}
-	return t.saveTLSConfigInStatus(ctx, cipherSuites, tlsVersion)
+	t.Vdb.Spec.DBTLSConfig = &vapi.DBTLSConfig{
+		TLSVersion:   tlsVersion,
+		CipherSuites: cipherSuites,
+	}
+	t.Log.Info("intialize DBTLSConfig in spec and status", "tls version", tlsVersion, "cipher suites", cipherSuites)
+	return t.saveTLSConfigInSpecAndStatus(ctx, cipherSuites, tlsVersion)
 }
 
 func (t *DBTLSConfigReconciler) saveCipherSuitesInStatus(ctx context.Context, cipherSuites string) error {
@@ -303,6 +318,25 @@ func (t *DBTLSConfigReconciler) saveCipherSuitesInStatus(ctx context.Context, ci
 	}
 	// Clear the condition and add a status after restore point creation.
 	return vdbstatus.Update(ctx, t.VRec.Client, t.Vdb, refreshStatusInPlace)
+}
+
+func (t *DBTLSConfigReconciler) saveTLSConfigInSpecAndStatus(ctx context.Context, cipherSuites string, tlsVersion int) error {
+	nm := t.Vdb.ExtractNamespacedName()
+	err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		if err := t.VRec.Client.Get(ctx, nm, t.Vdb); err != nil {
+			return err
+		}
+		if t.Vdb.Spec.DBTLSConfig == nil {
+			t.Vdb.Spec.DBTLSConfig = &vapi.DBTLSConfig{}
+		}
+		t.Vdb.Spec.DBTLSConfig.CipherSuites = cipherSuites
+		t.Vdb.Spec.DBTLSConfig.TLSVersion = tlsVersion
+		return t.VRec.Client.Update(ctx, t.Vdb)
+	})
+	if err != nil {
+		return err
+	}
+	return t.saveTLSConfigInStatus(ctx, cipherSuites, tlsVersion)
 }
 
 func (t *DBTLSConfigReconciler) saveTLSConfigInStatus(ctx context.Context, cipherSuites string, tlsVersion int) error {
