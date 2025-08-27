@@ -283,9 +283,8 @@ type VerticaDBSpec struct {
 
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:advanced"
 	// +kubebuilder:validation:Optional
-	// +kubebuilder:default:={}
 	// Allow users to specify TLS version and cipher suites. Version 2 (TLS1.2) and 3 (TLS1.3) are supported.
-	// The cipher suites must match the TLS version.
+	// The cipher suites must match the TLS version. This field will be empty when tls is not enabled and configured
 	DBTLSConfig *DBTLSConfig `json:"dbTlsConfig,omitempty"`
 
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:io.kubernetes:Secret","urn:alm:descriptor:com.tectonic.ui:advanced"}
