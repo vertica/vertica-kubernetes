@@ -1015,15 +1015,14 @@ func (in *VerticaDBStatus) DeepCopyInto(out *VerticaDBStatus) {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
-<<<<<<< HEAD
 	if in.PasswordSecret != nil {
 		in, out := &in.PasswordSecret, &out.PasswordSecret
 		*out = new(string)
-=======
+		**out = **in
+	}
 	if in.DBTLSConfig != nil {
 		in, out := &in.DBTLSConfig, &out.DBTLSConfig
 		*out = new(DBTLSConfig)
->>>>>>> 8ef7a7be (update ready)
 		**out = **in
 	}
 }

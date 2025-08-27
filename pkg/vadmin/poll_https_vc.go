@@ -55,10 +55,7 @@ func (v *VClusterOps) genPollHTTPSOptions(s *pollhttps.Parms,
 	opts.IsEon = v.VDB.IsEON()
 	opts.IPv6 = net.IsIPv6(s.InitiatorIPs[0])
 
-	v.setAuthentication(&opts.DatabaseOptions, v.VDB.GetVerticaUser(), &v.Password, certs)
-	if v.Password != "" {
-		opts.Password = &v.Password
-	}
+	v.setAuthentication(&opts.DatabaseOptions, v.VDB.GetVerticaUser(), v.Password, certs)
 	opts.MainClusterInitiator = s.MainClusterHosts
 	opts.NewKey = s.NewKey
 	opts.NewCert = s.NewCert
