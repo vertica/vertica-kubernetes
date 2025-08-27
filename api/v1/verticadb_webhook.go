@@ -1171,7 +1171,7 @@ func (v *VerticaDB) hasValidTLSModes(allErrs field.ErrorList) field.ErrorList {
 
 // hasValidTLSModes checks whether the TLS version and cipher suites are valid
 func (v *VerticaDB) hasValidTLSVersionAndCipherSuites(allErrs field.ErrorList) field.ErrorList {
-	if !vmeta.UseTLSAuth(v.Annotations) {
+	if !v.IsHTTPSConfigEnabled() || v.Spec.DBTLSConfig == nil {
 		return allErrs
 	}
 	if v.Spec.DBTLSConfig.TLSVersion != 2 && v.Spec.DBTLSConfig.TLSVersion != 3 {
