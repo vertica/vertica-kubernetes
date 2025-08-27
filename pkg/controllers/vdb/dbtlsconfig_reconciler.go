@@ -164,7 +164,7 @@ func (t *DBTLSConfigReconciler) updateCipherSuites(ctx context.Context, initiato
 	newCipherSuites := t.Vdb.Spec.DBTLSConfig.CipherSuites
 	t.VRec.Eventf(t.Vdb, corev1.EventTypeNormal, events.HTTPSTLSUpdateStarted,
 		"Started to update tls cipher suites to %s", t.placeholderForAll(newCipherSuites))
-	err := t.setCipherSuites(ctx, initiatorPodIP, t.Vdb.Spec.DBTLSConfig.TLSVersion, t.Vdb.Spec.DBTLSConfig.CipherSuites)
+	err := t.setCipherSuites(ctx, initiatorPodIP, t.Vdb.Spec.DBTLSConfig.TLSVersion, strings.ToUpper(t.Vdb.Spec.DBTLSConfig.CipherSuites))
 	if err != nil {
 		t.Log.Info("failed to update cipher suites", "TLSVersion", t.Vdb.Spec.DBTLSConfig.TLSVersion, "cipherSuites",
 			newCipherSuites)
