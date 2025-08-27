@@ -36,20 +36,6 @@ metadata:
     kind: VerticaDB
     name: v-with-loki
 spec:
-  endpoints:
-  - basicAuth:
-      password:
-        key: password
-        name: v-with-loki-basic-auth
-      username:
-        key: username
-        name: v-with-loki-basic-auth
-    path: /v1/metrics
-    port: vertica-http
-    scheme: https
-    interval: "5s"
-    tlsConfig:
-      insecureSkipVerify: true
   selector:
     matchLabels:
       app.kubernetes.io/instance: v-with-loki

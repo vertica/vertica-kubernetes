@@ -14,7 +14,7 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: script-verity-loki-metrics
+  name: script-verity-loki-logs
 data:
   entrypoint.sh: |-
     #!/bin/bash
@@ -23,10 +23,7 @@ data:
     
     # Setup start and end time for query, e.g: 2024-09-14
     NAMESPACE=$(kubectl get pod v-with-loki-pri1-0 -o=jsonpath='{.metadata.namespace}')
-    JOB="loki.source.kubernetes.pod_logs"
-    INSTANCE="$NAMESPACE/v-with-loki-pri1-0:vlogger"
-    CMD="kubectl exec v-with-loki-pri1-0 -it -c server -n $NAMESPACE -- curl -G -s 'http://vdb-op-loki.verticadb-operator.svc.cluster.local:3100/loki/api/v1/query_range' --data-urlencode 'query={job=$JOB, instance=$INSTANCE}' --data-urlencode 'since=12h'"
-    RESULT=$(eval $CMD)
+    RESULT=$(kubectl exec v-with-loki-pri1-0 -it -c server -n kuttl-test-meet-chow -- curl -G -s http://vdb-op-loki.verticadb-operator.svc.cluster.local:3100/loki/api/v1/query_range --data-urlencode 'query={job="loki.source.kubernetes.pod_logs", instance="kuttl-test-meet-chow/v-with-loki-pri1-0:vlogger"}' --data-urlencode since=12h)
     LOGS=$(echo $RESULT | jq -r '| jq .data.result[0].values')
     # verify the loki log result
     if echo "$LOGS" | grep -Pzo 'Successfully wrote' > /dev/null; then
@@ -37,7 +34,7 @@ data:
 apiVersion: v1
 kind: Pod
 metadata:
-  name: script-verity-loki-metrics
+  name: script-verity-loki-logs
   labels:
     stern: include
 spec:
@@ -55,4 +52,4 @@ spec:
     - name: entrypoint-volume
       configMap:
         defaultMode: 0777
-        name: script-verity-loki-metrics
+        name: script-verity-loki-logs
