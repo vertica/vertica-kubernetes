@@ -32,7 +32,7 @@ data:
       fi
     done
 
-    POD_NAMES=("v-target-sc4-0" "v-target-sc3-0" "v-target-sc2-0" "v-target-sc1-0" "v-source-sc1-0")
+    POD_NAMES=("v-target-sc4-0" "v-target-sc2-0" "v-target-sc1-0" "v-source-sc1-0")
 
     for POD_NAME in "${POD_NAMES[@]}"; do
         result=$(kubectl exec $POD_NAME -i -c server -- bash -c "vsql -U dbadmin -w superuser -tAc \"SELECT * FROM public.test_table ORDER BY val;\"")

@@ -20,7 +20,7 @@ data:
     #!/bin/bash
     set -o errexit
     set -o xtrace
-    POD_NAME=v-target-sc3-0
+    POD_NAME=v-target-sc5-0
     kubectl exec $POD_NAME -i -c server -- bash -c "vsql -U dbadmin -w superuser -tAc \"INSERT INTO public.test_table VALUES (100); COMMIT;\""
     result=$(kubectl exec $POD_NAME -i -c server -- bash -c "vsql -U dbadmin -w superuser -tAc \"SELECT * FROM public.test_table ORDER BY val;\"")
     echo "$result" | grep -Pzo "^99\n100\n$" > /dev/null

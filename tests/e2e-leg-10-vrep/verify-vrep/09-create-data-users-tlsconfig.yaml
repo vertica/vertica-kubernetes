@@ -68,7 +68,7 @@ data:
       exit 1
     fi
 
-    POD_NAMES=("v-target-sc5-0" "v-target-sc4-0" "v-target-sc3-0" "v-target-sc2-0" "v-target-sc1-0")
+    POD_NAMES=("v-target-sc5-0" "v-target-sc4-0" "v-target-sc2-0" "v-target-sc1-0")
 
     for POD_NAME in "${POD_NAMES[@]}"; do
       kubectl exec $POD_NAME -i -c server -- bash -c "vsql -U dbadmin -w superuser -tAc \"CREATE USER custom_user_with_password IDENTIFIED BY 'topsecret'; GRANT PSEUDOSUPERUSER TO custom_user_with_password; ALTER USER custom_user_with_password DEFAULT ROLE PSEUDOSUPERUSER;\""
