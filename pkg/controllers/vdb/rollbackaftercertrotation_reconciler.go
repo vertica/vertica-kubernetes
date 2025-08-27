@@ -78,10 +78,6 @@ func (r *RollbackAfterCertRotationReconciler) Reconcile(ctx context.Context, _ *
 		"Starting %s TLS cert rollback after failed update", tlsConfigName)
 
 	funcs := []func(context.Context) (ctrl.Result, error){
-		r.runNMACertConfigMapReconciler,
-		r.shutdownNMA,
-		r.waitForNMAUp,
-		r.pollNMACertHealth,
 		r.runHTTPSCertRotation,
 		r.resetTLSUpdateCondition,
 		r.setAutoRotateStatus,
@@ -101,49 +97,14 @@ func (r *RollbackAfterCertRotationReconciler) Reconcile(ctx context.Context, _ *
 	return ctrl.Result{}, nil
 }
 
-func (r *RollbackAfterCertRotationReconciler) runNMACertConfigMapReconciler(ctx context.Context) (ctrl.Result, error) {
-	if !r.Vdb.IsRollbackAfterNMACertRotation() {
-		return ctrl.Result{}, nil
-	}
-	rec := MakeNMACertConfigMapReconciler(r.VRec, r.Log, r.Vdb)
-	traceActorReconcile(rec, r.Log, "tls cert rollback")
-	return rec.Reconcile(ctx, &ctrl.Request{})
-}
-
-func (r *RollbackAfterCertRotationReconciler) shutdownNMA(ctx context.Context) (ctrl.Result, error) {
-	if !r.Vdb.IsRollbackAfterNMACertRotation() {
-		return ctrl.Result{}, nil
-	}
-
-	// TODO: restart all nma containers so they can read the old cert.
-	// We want to do it once, so we need to add something (e.g: a status condition)
-	// that will set once we restart nma
-	return ctrl.Result{}, nil
-}
-
-func (r *RollbackAfterCertRotationReconciler) waitForNMAUp(ctx context.Context) (ctrl.Result, error) {
-	if !r.Vdb.IsRollbackAfterNMACertRotation() {
-		return ctrl.Result{}, nil
-	}
-
-	// TODO: find all pods and wait for each pod's nma container to be ready
-	return ctrl.Result{}, nil
-}
-
-func (r *RollbackAfterCertRotationReconciler) pollNMACertHealth(ctx context.Context) (ctrl.Result, error) {
-	if !r.Vdb.IsRollbackAfterNMACertRotation() {
-		return ctrl.Result{}, nil
-	}
-
-	// TODO: call rotate_nma_certs vclusterops API. We only want to poll the cert health
-	// so we will skip kill NMA
-	return ctrl.Result{}, nil
-}
-
+// runHTTPSCertRotation will re-run HTTPS cert rotate to restore the last good secret and mode;
+// this is needed when there is a failure in HTTPS rotate after DB has been updated
 func (r *RollbackAfterCertRotationReconciler) runHTTPSCertRotation(ctx context.Context) (ctrl.Result, error) {
 	if r.Vdb.IsHTTPSRollbackFailureAfterCertHealthPolling() {
-		r.Log.Info("Reverting to previous HTTPS secret")
-		// TODO: Run HTTPS TLS rollback
+		r.Log.Info("Reverting to previous HTTPS secret", "secretName", r.Vdb.GetHTTPSNMATLSSecretInUse())
+		rec := MakeHTTPSTLSUpdateReconciler(r.VRec, r.Log, r.Vdb, r.Dispatcher, r.PFacts, true)
+		traceActorReconcile(rec, r.Log, "tls cert rollback")
+		return rec.Reconcile(ctx, &ctrl.Request{})
 	}
 
 	return ctrl.Result{}, nil

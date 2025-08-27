@@ -2211,7 +2211,7 @@ func (v *VerticaDB) GetClientServerTLSSecret() string {
 	return v.Spec.ClientServerTLS.Secret
 }
 
-// Check if TLS not enabled, DB not initialized, or rotate has failed
+// Check if TLS not enabled, DB not initialized, or rotate has failed (and rollback is not in progress).
 // In these cases, we skip TLS Update
 func (v *VerticaDB) ShouldSkipTLSUpdateReconcile() bool {
 	return !v.IsSetForTLS() ||

@@ -154,8 +154,14 @@ func (h *NMACertRotationReconciler) rotateNmaTLSCert(ctx context.Context, newSec
 	}
 	newSecretName := h.Vdb.GetHTTPSNMATLSSecret()
 
-	h.VRec.Eventf(h.Vdb, corev1.EventTypeNormal, events.NMATLSCertRotationStarted,
-		"Start rotating nma cert from %s to %s", currentSecretName, newSecretName)
+	if currentSecretName == newSecretName {
+		// If the current and new secrets are the same, then we are just restarting
+		h.VRec.Eventf(h.Vdb, corev1.EventTypeNormal, events.NMATLSCertRotationStarted,
+			"Start restarting nma with cert %s", currentSecretName)
+	} else {
+		h.VRec.Eventf(h.Vdb, corev1.EventTypeNormal, events.NMATLSCertRotationStarted,
+			"Start rotating nma cert from %s to %s", currentSecretName, newSecretName)
+	}
 	h.Log.Info("Rotating NMA certificate", "from", currentSecretName, "to", newSecretName,
 		"tlsEnabled", h.Vdb.IsSetForTLS(),
 	)
@@ -195,9 +201,14 @@ func (h *NMACertRotationReconciler) rotateNmaTLSCert(ctx context.Context, newSec
 
 		h.Log.Info("saved new tls cert secret name in status", "secret", newSecretName)
 	}
-	// last thing is to update vdb condition
-	h.VRec.Eventf(h.Vdb, corev1.EventTypeNormal, events.NMATLSCertRotationSucceeded,
-		"Successfully rotated nma cert from %s to %s", currentSecretName, newSecretName)
+
+	if currentSecretName == newSecretName {
+		h.VRec.Eventf(h.Vdb, corev1.EventTypeNormal, events.NMATLSCertRotationSucceeded,
+			"Successfully restarted nma with cert %s", currentSecretName)
+	} else {
+		h.VRec.Eventf(h.Vdb, corev1.EventTypeNormal, events.NMATLSCertRotationSucceeded,
+			"Successfully rotated nma cert from %s to %s", currentSecretName, newSecretName)
+	}
 
 	return err, true
 }
