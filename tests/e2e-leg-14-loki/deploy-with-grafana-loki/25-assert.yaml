@@ -14,7 +14,7 @@
 apiVersion: v1
 kind: Pod
 metadata:
-  name: script-verity-prometheus-metrics
+  name: script-verity-loki-metrics
 status:
   containerStatuses:
     - name: test

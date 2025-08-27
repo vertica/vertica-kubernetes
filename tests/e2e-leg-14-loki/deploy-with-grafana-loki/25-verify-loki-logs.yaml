@@ -14,7 +14,7 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: script-verity-prometheus-metrics
+  name: script-verity-loki-metrics
 data:
   entrypoint.sh: |-
     #!/bin/bash
@@ -22,23 +22,22 @@ data:
     set -o xtrace
     
     # Setup start and end time for query, e.g: 2024-09-14
-    START_TIME=$(date +%Y-%m-%d) 
-    END_TIME=$(date +%Y-%m-%d --date "$curr +1 day")
     NAMESPACE=$(kubectl get pod v-with-loki-pri1-0 -o=jsonpath='{.metadata.namespace}')
-    CMD="kubectl exec v-with-loki-pri1-0 -it -c server -n $NAMESPACE -- curl -g http://vdb-op-prometheus-server-prometheus.verticadb-operator.svc.cluster.local:9090/api/v1/query?query=vertica_build_info&start=${START_TIME}&end=${END_TIME}"
+    JOB="loki.source.kubernetes.pod_logs"
+    INSTANCE="$NAMESPACE/v-with-loki-pri1-0:vlogger"
+    CMD="kubectl exec v-with-loki-pri1-0 -it -c server -n $NAMESPACE -- curl -G -s 'http://vdb-op-loki.verticadb-operator.svc.cluster.local:3100/loki/api/v1/query_range' --data-urlencode 'query={job=$JOB, instance=$INSTANCE}' --data-urlencode 'since=12h'"
     RESULT=$(eval $CMD)
-    METRICS=$(echo $RESULT | jq -r '.data.result') 
-    
-    # verify the metrics result
-    if [[ "$METRICS" == "" || "$METRICS" == "\[\]" ]]; then
-      echo "empty metrics result: $RESULT found."
+    LOGS=$(echo $RESULT | jq -r '| jq .data.result[0].values')
+    # verify the loki log result
+    if echo "$LOGS" | grep -Pzo 'Successfully wrote' > /dev/null; then
+      echo "Assertion failed: expected 'Successfully wrote', got $LOGS"
       exit 1
     fi
 ---
 apiVersion: v1
 kind: Pod
 metadata:
-  name: script-verity-prometheus-metrics
+  name: script-verity-loki-metrics
   labels:
     stern: include
 spec:
@@ -56,4 +55,4 @@ spec:
     - name: entrypoint-volume
       configMap:
         defaultMode: 0777
-        name: script-verity-prometheus-metrics
+        name: script-verity-loki-metrics

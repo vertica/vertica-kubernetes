@@ -18,7 +18,6 @@ metadata:
   annotations:
     vertica.com/include-uid-in-path: true
     vertica.com/vcluster-ops: true
-    vertica.com/prometheus-scrape-interval: "5"
 spec:
   image: kustomize-vertica-image
   communal: {}
