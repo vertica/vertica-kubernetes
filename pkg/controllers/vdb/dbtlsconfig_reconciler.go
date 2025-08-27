@@ -85,12 +85,13 @@ func (t *DBTLSConfigReconciler) Reconcile(ctx context.Context, request *ctrl.Req
 	if t.Vdb.Spec.DBTLSConfig == nil || t.Vdb.Status.DBTLSConfig == nil {
 		err = t.updateDBTLSConfigInSpecAndStatus(ctx, initiatorPodIP)
 		if err != nil {
-			t.Log.Error(err, "failed to update db tls config in spec and status. skip current loop")
+			t.Log.Error(err, "failed to initialize db tls config in spec and status. skip current loop")
 			return ctrl.Result{}, err
 		}
+		t.Log.Info("initialize db tls config in spec and status")
 		return ctrl.Result{}, err
 	}
-	// this should not happen at here. In case it happens, return an error to avoid panic
+	// this should not happen. In case it does occur, return an error to avoid panic
 	if t.Vdb.Status.DBTLSConfig == nil {
 		return ctrl.Result{}, fmt.Errorf("status DBTLSConfig is unexpectedly nil")
 	}
@@ -191,10 +192,7 @@ func (t *DBTLSConfigReconciler) updateCipherSuites(ctx context.Context, initiato
 
 func (t *DBTLSConfigReconciler) pollHTTPS(ctx context.Context, upHosts, mainClusterHosts []string) error {
 	certCache := t.VRec.CacheManager.GetCertCacheForVdb(t.Vdb.Namespace, t.Vdb.Name)
-
 	httpsCert, err := certCache.ReadCertFromSecret(ctx, t.Vdb.GetHTTPSNMATLSSecretInUse())
-	t.Log.Info("libo: https cert name " + t.Vdb.GetHTTPSNMATLSSecretInUse())
-	t.Log.Info("libo: https cert, key - " + httpsCert.Key + ", cert - " + httpsCert.Cert + ", cacert - " + httpsCert.CaCert)
 	if err != nil {
 		return err
 	}
