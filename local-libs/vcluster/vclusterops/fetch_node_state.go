@@ -75,12 +75,7 @@ func (vcc VClusterCommands) VFetchNodeState(options *VFetchNodeStateOptions) ([]
 
 	// this vdb is used to fetch node version
 	var vdb VCoordinationDatabase
-
-	if options.SandboxedNodesOnly || util.IsK8sEnvironment() {
-		err = vcc.getVDBFromRunningDBIncludeSandbox(&vdb, &options.DatabaseOptions, util.MainClusterSandbox)
-	} else {
-		err = vcc.getVDBFromMainRunningDBContainsSandbox(&vdb, &options.DatabaseOptions)
-	}
+	err = vcc.getDeepVDBFromRunningDB(&vdb, &options.DatabaseOptions)
 	if err != nil {
 		vcc.Log.PrintInfo("Error from vdb build: %s", err.Error())
 

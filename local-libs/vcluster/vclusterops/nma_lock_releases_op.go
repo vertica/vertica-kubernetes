@@ -19,6 +19,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+
+	"github.com/vertica/vcluster/vclusterops/util"
 )
 
 type nmaLockReleasesOp struct {
@@ -29,6 +31,7 @@ type nmaLockReleasesOp struct {
 	nodeName           string
 	resultLimit        int
 	duration           string
+	isDebug            bool
 }
 
 type lockReleasesRequestData struct {
@@ -39,7 +42,7 @@ type lockReleasesRequestData struct {
 func makeNMALockReleasesOp(upHosts []string, userName string,
 	dbName string, password *string,
 	startTime, endTime, nodeName string,
-	resultLimit int, duration string) (nmaLockReleasesOp, error) {
+	resultLimit int, duration string, isDebug bool) (nmaLockReleasesOp, error) {
 	op := nmaLockReleasesOp{}
 	op.name = "NMALockReleasesOp"
 	op.description = "Check lock holding events"
@@ -49,6 +52,7 @@ func makeNMALockReleasesOp(upHosts []string, userName string,
 	op.endTime = endTime
 	op.nodeName = nodeName
 	op.resultLimit = resultLimit
+	op.isDebug = isDebug
 
 	// NMA endpoints don't need to differentiate between empty password and no password
 	useDBPassword := password != nil
@@ -80,6 +84,11 @@ func (op *nmaLockReleasesOp) setupRequestBody(username, dbName string, useDBPass
 		requestData.Params["duration"] = op.duration
 		requestData.Params["limit"] = op.resultLimit
 		requestData.Params["orderby"] = "duration DESC"
+		if op.isDebug {
+			requestData.Params["debug"] = util.TrueStr
+		} else {
+			requestData.Params["debug"] = util.FalseStr
+		}
 
 		dataBytes, err := json.Marshal(requestData)
 		if err != nil {
@@ -126,7 +135,7 @@ func (op *nmaLockReleasesOp) finalize(_ *opEngineExecContext) error {
 	return nil
 }
 
-type dcLockReleases struct {
+type DcLockReleases struct {
 	Duration    string               `json:"duration"`
 	NodeName    string               `json:"node_name"`
 	Object      string               `json:"object"`
@@ -146,7 +155,7 @@ func (op *nmaLockReleasesOp) processResult(execContext *opEngineExecContext) err
 	for host, result := range op.clusterHTTPRequest.ResultCollection {
 		// for any passing result, directly return
 		if result.isPassing() {
-			var lockReleasesList []dcLockReleases
+			var lockReleasesList []DcLockReleases
 			err := op.parseAndCheckResponse(host, result.content, &lockReleasesList)
 			if err != nil {
 				return errors.Join(allErrs, err)
