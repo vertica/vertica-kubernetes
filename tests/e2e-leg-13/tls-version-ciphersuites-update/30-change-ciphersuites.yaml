@@ -5,4 +5,4 @@ metadata:
 spec:
   dbTlsConfig:
     tlsVersion: 2
-    cipherSuites: "ECDHE-RSA-AES256-GCM-SHA384,ECDHE-RSA-AES128-SHA"
+    cipherSuites: "ECDHE-RSA-AES256-GCM-SHA384:ECDHE-RSA-AES128-SHA"
