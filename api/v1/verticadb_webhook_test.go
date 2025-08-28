@@ -708,6 +708,65 @@ var _ = Describe("verticadb_webhook", func() {
 		Ω(allErrs).Should(HaveLen(0))
 	})
 
+	It("should not set dbTlsConfig when tls is not enabled or configured", func() {
+		vdb := MakeVDBForTLS()
+		vdb.Annotations[vmeta.EnableTLSAuthAnnotation] = vmeta.AnnotationFalse
+		vdb.Spec.HTTPSNMATLS = nil
+		vdb.Spec.ClientServerTLS = nil
+		vdb.Spec.DBTLSConfig = &DBTLSConfig{}
+		allErrs := vdb.validateVerticaDBSpec()
+		Ω(allErrs).Should(HaveLen(1))
+		vdb.Spec.DBTLSConfig = nil
+		allErrs = vdb.validateVerticaDBSpec()
+		Ω(allErrs).Should(HaveLen(0))
+
+		vdb.Annotations[vmeta.EnableTLSAuthAnnotation] = vmeta.AnnotationTrue
+		vdb.Status.TLSConfigs = []TLSConfigStatus{
+			{Name: HTTPSNMATLSConfigName, Secret: oldSecret, Mode: oldMode},
+			{Name: ClientServerTLSConfigName, Secret: oldSecret, Mode: oldMode},
+		}
+		allErrs = vdb.validateVerticaDBSpec()
+		Ω(allErrs).Should(HaveLen(1))
+	})
+	It("should have valid tls version and cipher suites combination", func() {
+		vdb := MakeVDBForTLS()
+		vdb.Annotations[vmeta.EnableTLSAuthAnnotation] = vmeta.AnnotationTrue
+		vdb.Status.TLSConfigs = []TLSConfigStatus{
+			{Name: HTTPSNMATLSConfigName, Secret: oldSecret, Mode: oldMode},
+			{Name: ClientServerTLSConfigName, Secret: oldSecret, Mode: oldMode},
+		}
+		vdb.Spec.DBTLSConfig = &DBTLSConfig{
+			TLSVersion:   2,
+			CipherSuites: "",
+		}
+		allErrs := vdb.validateVerticaDBSpec()
+		Ω(allErrs).Should(HaveLen(0))
+		vdb.Spec.DBTLSConfig = &DBTLSConfig{
+			TLSVersion:   2,
+			CipherSuites: "TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256",
+		}
+		allErrs = vdb.validateVerticaDBSpec()
+		Ω(allErrs).Should(HaveLen(1))
+		vdb.Spec.DBTLSConfig = &DBTLSConfig{
+			TLSVersion:   1,
+			CipherSuites: "",
+		}
+		allErrs = vdb.validateVerticaDBSpec()
+		Ω(allErrs).Should(HaveLen(1))
+		vdb.Spec.DBTLSConfig = &DBTLSConfig{
+			TLSVersion:   3,
+			CipherSuites: "tls_aes_256_gcm_sha384:TLS_CHACHA20_POLY1305_SHA256",
+		}
+		allErrs = vdb.validateVerticaDBSpec()
+		Ω(allErrs).Should(HaveLen(0))
+		vdb.Spec.DBTLSConfig = &DBTLSConfig{
+			TLSVersion:   2,
+			CipherSuites: "ECDHE-RSA-AES256-GCM-SHA384:ECDHE-RSA-AES128-SHA:ECDHE-RSA-AES128-GCM-SHA256",
+		}
+		allErrs = vdb.validateVerticaDBSpec()
+		Ω(allErrs).Should(HaveLen(0))
+	})
+
 	It("should not have zero matched subcluster names to the old subcluster names", func() {
 		vdb := createVDBHelper()
 		vdb.Spec.Subclusters = append(vdb.Spec.Subclusters, Subcluster{
