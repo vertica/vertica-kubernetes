@@ -509,8 +509,8 @@ loki:
     limits_config:
       allow_structured_metadata: true
       volume_enabled: true
-  
-  # disable cache
+
+  # disable caching in test
   memcached:
     enabled: false
   chunksCache:
