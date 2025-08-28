@@ -1171,7 +1171,7 @@ func (v *VerticaDB) hasValidTLSModes(allErrs field.ErrorList) field.ErrorList {
 
 // hasValidTLSModes checks whether the TLS version and cipher suites are valid
 func (v *VerticaDB) hasValidDBTLSConfig(allErrs field.ErrorList) field.ErrorList {
-	if !v.UseVClusterOpsDeployment() && v.Spec.DBTLSConfig != nil {
+	if  !vmeta.UseTLSAuth(v.Annotations) && v.Spec.DBTLSConfig != nil {
 		err := field.Invalid(field.NewPath("spec").Child("dbTlsConfig"), *v.Spec.DBTLSConfig, "cannot configure dbTlsConfig when tls is not enabled and configured")
 		allErrs = append(allErrs, err)
 		return allErrs
