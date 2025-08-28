@@ -145,6 +145,9 @@ const (
 	TLSCertRollbackSucceeded               = "TLSCertRollbackSucceeded"
 	TLSAutoRotateSucceeded                 = "TLSAutoRotateSucceeded"
 	TLSAutoRotateFailed                    = "TLSAutoRotateFailed"
+	DBTLSUpdateStarted                     = "DBTLSUpdateStarted"
+	DBTLSUpdateSucceeded                   = "DBTLSUpdateSucceeded"
+	DBTLSUpdateFailed                      = "DBTLSUpdateFailed"
 	DeploymentMethodMismatch               = "DeploymentMethodMismatch"
 )
 
