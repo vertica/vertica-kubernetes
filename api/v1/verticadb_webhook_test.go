@@ -708,33 +708,29 @@ var _ = Describe("verticadb_webhook", func() {
 		Ω(allErrs).Should(HaveLen(0))
 	})
 
-	It("should not set dbTlsConfig when tls is not enabled or configured", func() {
+	It("should not set dbTlsConfig when the deployment method is not vcluster-ops", func() {
 		vdb := MakeVDBForTLS()
-		vdb.Annotations[vmeta.EnableTLSAuthAnnotation] = vmeta.AnnotationFalse
+		vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.AnnotationFalse
 		vdb.Spec.HTTPSNMATLS = nil
 		vdb.Spec.ClientServerTLS = nil
-		vdb.Spec.DBTLSConfig = &DBTLSConfig{}
+		vdb.Spec.DBTLSConfig = &DBTLSConfig{
+			TLSVersion:   2,
+			CipherSuites: "",
+		}
 		allErrs := vdb.validateVerticaDBSpec()
 		Ω(allErrs).Should(HaveLen(1))
-		vdb.Spec.DBTLSConfig = nil
+		vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.AnnotationTrue
 		allErrs = vdb.validateVerticaDBSpec()
 		Ω(allErrs).Should(HaveLen(0))
 
-		vdb.Annotations[vmeta.EnableTLSAuthAnnotation] = vmeta.AnnotationTrue
-		vdb.Status.TLSConfigs = []TLSConfigStatus{
-			{Name: HTTPSNMATLSConfigName, Secret: oldSecret, Mode: oldMode},
-			{Name: ClientServerTLSConfigName, Secret: oldSecret, Mode: oldMode},
-		}
+		vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.AnnotationFalse
+		vdb.Spec.DBTLSConfig = nil
 		allErrs = vdb.validateVerticaDBSpec()
-		Ω(allErrs).Should(HaveLen(1))
+		Ω(allErrs).Should(HaveLen(0))
 	})
+
 	It("should have valid tls version and cipher suites combination", func() {
 		vdb := MakeVDBForTLS()
-		vdb.Annotations[vmeta.EnableTLSAuthAnnotation] = vmeta.AnnotationTrue
-		vdb.Status.TLSConfigs = []TLSConfigStatus{
-			{Name: HTTPSNMATLSConfigName, Secret: oldSecret, Mode: oldMode},
-			{Name: ClientServerTLSConfigName, Secret: oldSecret, Mode: oldMode},
-		}
 		vdb.Spec.DBTLSConfig = &DBTLSConfig{
 			TLSVersion:   2,
 			CipherSuites: "",
