@@ -31,7 +31,9 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
 	"github.com/vertica/vertica-kubernetes/pkg/secrets"
+	"github.com/vertica/vertica-kubernetes/pkg/tls"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/pollhttps"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/rotatetlscerts"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/settlsconfig"
 	config "github.com/vertica/vertica-kubernetes/pkg/vdbconfig"
@@ -73,19 +75,21 @@ type TLSConfigManager struct {
 	Log        logr.Logger
 	TLSConfig  string
 	Dispatcher vadmin.Dispatcher
+	PFacts     *podfacts.PodFacts
 	TLSUpdateData
 	TLSUpdateType int
 	TLSPollingCertMetadata
 }
 
 func MakeTLSConfigManager(recon config.ReconcilerInterface, log logr.Logger, vdb *vapi.VerticaDB,
-	tlsConfig string, dispatcher vadmin.Dispatcher) *TLSConfigManager {
+	tlsConfig string, dispatcher vadmin.Dispatcher, pfacts *podfacts.PodFacts) *TLSConfigManager {
 	t := &TLSConfigManager{
 		Rec:        recon,
 		Vdb:        vdb,
 		Log:        log,
 		TLSConfig:  tlsConfig,
 		Dispatcher: dispatcher,
+		PFacts:     pfacts,
 	}
 	return t
 }
@@ -102,7 +106,7 @@ func (t *TLSConfigManager) setPollingCertMetadata(ctx context.Context) (ctrl.Res
 	currentSecretName := t.Vdb.GetHTTPSNMATLSSecretInUse()
 	newSecretName := t.Vdb.GetHTTPSNMATLSSecret()
 
-	// If rollback, use status as current secret and spec as new secret
+	// If rollback, use status as new secret
 	if t.Vdb.IsTLSCertRollbackInProgress() {
 		newSecretName = t.Vdb.GetHTTPSNMATLSSecretInUse()
 	}
@@ -181,6 +185,20 @@ func (t *TLSConfigManager) updateTLSConfig(ctx context.Context, initiator string
 		t.TLSConfig, t.NewSecret, t.NewTLSMode)
 	err := t.Dispatcher.RotateTLSCerts(ctx, opts...)
 	if err != nil {
+		// If HTTPS rotation failed during polling, try limited retries
+		if t.tlsConfigName == vapi.HTTPSNMATLSConfigName &&
+			t.Vdb.IsHTTPPollingError(err) && t.Vdb.GetCertRotateRetries() > 0 {
+			if retryErr := t.retryHTTPSPollingIfNeeded(ctx, err); retryErr == nil {
+				t.Rec.Eventf(t.Vdb, corev1.EventTypeNormal, succeeded,
+					"Successfully rotated %s tls cert with secret name %s and mode %s (after retries)",
+					t.TLSConfig, t.NewSecret, t.NewTLSMode)
+				return t.updateTLSModeInStatus(ctx)
+			} else {
+				err = retryErr
+			}
+		}
+
+		// Either retries not applicable or exhausted → mark failure and trigger rollback
 		t.Rec.Eventf(t.Vdb, corev1.EventTypeWarning, failed,
 			"Failed to rotate %s tls cert with secret name %s and mode %s", t.TLSConfig, t.NewSecret, t.NewTLSMode)
 		return t.triggerRollback(ctx, err)
@@ -309,11 +327,12 @@ func (t *TLSConfigManager) parseConfig(stdout string) (certificate, mode string,
 
 // getEvents returns the correct set of events based on the tls config
 func (t *TLSConfigManager) getEvents() (started, failed, succeeded string) {
-	if t.TLSConfig == tlsConfigHTTPS {
+	switch t.TLSConfig {
+	case tlsConfigHTTPS:
 		started = events.HTTPSTLSUpdateStarted
 		failed = events.HTTPSTLSUpdateFailed
 		succeeded = events.HTTPSTLSUpdateSucceeded
-	} else if t.TLSConfig == tlsConfigServer {
+	case tlsConfigServer:
 		started = events.ClientServerTLSUpdateStarted
 		failed = events.ClientServerTLSUpdateFailed
 		succeeded = events.ClientServerTLSUpdateSucceeded
@@ -365,8 +384,9 @@ func (t *TLSConfigManager) getAWSCertsConfig(versionID, cacheDuration string) (k
 }
 
 func (t *TLSConfigManager) setTLSUpdatedata() {
-	if t.TLSConfig == tlsConfigHTTPS {
-		// If rollback, go from status to spec; otherwise, go from spec to status
+	switch t.TLSConfig {
+	case tlsConfigHTTPS:
+		// If rollback, go from spec to status; otherwise, go from status to spec
 		if t.Vdb.IsTLSCertRollbackInProgress() {
 			t.CurrentSecret = t.Vdb.GetHTTPSNMATLSSecret()
 			t.NewSecret = t.Vdb.GetHTTPSNMATLSSecretInUse()
@@ -379,7 +399,7 @@ func (t *TLSConfigManager) setTLSUpdatedata() {
 			t.NewTLSMode = t.Vdb.GetHTTPSNMATLSMode()
 		}
 		t.tlsConfigName = vapi.HTTPSNMATLSConfigName
-	} else if t.TLSConfig == tlsConfigServer {
+	case tlsConfigServer:
 		t.CurrentSecret = t.Vdb.GetClientServerTLSSecretInUse()
 		t.NewSecret = t.Vdb.GetClientServerTLSSecret()
 		t.CurrentTLSMode = t.Vdb.GetClientServerTLSModeInUse()
@@ -427,18 +447,24 @@ func (t *TLSConfigManager) triggerRollback(ctx context.Context, err error) error
 }
 
 func (t *TLSConfigManager) getRollbackReason(err error) string {
-	errMsg := err.Error()
 	if t.isClientServerTLSConfig() {
 		return vapi.RollbackAfterServerCertRotationReason
 	}
-	if strings.Contains(errMsg, "HTTPSPollCertificateHealthOp") {
+	if t.Vdb.IsHTTPPollingError(err) {
 		return vapi.RollbackAfterHTTPSCertRotationReason
 	}
 	return vapi.FailureBeforeHTTPSCertHealthPollingReason
 }
 
 func (t *TLSConfigManager) unsetForceTLSUpdateFailure(ctx context.Context) error {
-	if vmeta.GetTriggerTLSUpdateFailureAnnotation(t.Vdb.Annotations) != "" {
+	val := vmeta.GetTriggerTLSUpdateFailureAnnotation(t.Vdb.Annotations)
+	if val == "" {
+		return nil
+	}
+
+	failpoints := strings.Split(val, ",")
+	if len(failpoints) <= 1 {
+		// remove annotation entirely
 		clearTLSFailAnnotation := func() (updated bool, err error) {
 			if _, found := t.Vdb.Annotations[vmeta.TriggerTLSUpdateFailureAnnotation]; found {
 				delete(t.Vdb.Annotations, vmeta.TriggerTLSUpdateFailureAnnotation)
@@ -449,5 +475,71 @@ func (t *TLSConfigManager) unsetForceTLSUpdateFailure(ctx context.Context) error
 		_, err := vk8s.UpdateVDBWithRetry(ctx, t.Rec, t.Vdb, clearTLSFailAnnotation)
 		return err
 	}
-	return nil
+
+	// shift the list
+	newVal := strings.Join(failpoints[1:], ",")
+	updateTLSFailAnnotation := func() (updated bool, err error) {
+		t.Vdb.Annotations[vmeta.TriggerTLSUpdateFailureAnnotation] = newVal
+		updated = true
+		return
+	}
+	_, err := vk8s.UpdateVDBWithRetry(ctx, t.Rec, t.Vdb, updateTLSFailAnnotation)
+	return err
+}
+
+// retryHTTPSPollingIfNeeded retries only the HTTPS polling portion of cert rotation.
+// It assumes RotateTLSCerts has already updated the DB and secret references.
+// If retries succeed, nil is returned. If retries fail, the last polling error
+// is returned so rollback can be triggered by the caller.
+func (t *TLSConfigManager) retryHTTPSPollingIfNeeded(ctx context.Context, originalError error) error {
+	maxRetries := t.Vdb.GetCertRotateRetries()
+	if maxRetries <= 0 {
+		return fmt.Errorf("no retries configured for HTTPS polling")
+	}
+
+	upPods := t.PFacts.FindUpPods("")
+	if len(upPods) == 0 {
+		return fmt.Errorf("no up pods available for HTTPS polling retry")
+	}
+
+	var upPodIPs []string
+	for _, pod := range upPods {
+		upPodIPs = append(upPodIPs, pod.GetPodIP())
+	}
+	opts := []pollhttps.Option{
+		pollhttps.WithMainClusterHosts(strings.Join(upPodIPs, ",")),
+		pollhttps.WithInitiators([]string{upPods[0].GetPodIP()}),
+		pollhttps.WithSyncCatalogRequired(false),
+		pollhttps.WithNewHTTPSCerts(&tls.HTTPSCerts{
+			Key:    t.Key,
+			Cert:   t.Cert,
+			CaCert: t.CACert,
+		}),
+	}
+
+	lastErr := originalError
+	for attempt := 1; attempt <= maxRetries; attempt++ {
+		// Unset the force failure annotation (used for testing) if it has been set.
+		if err := t.unsetForceTLSUpdateFailure(ctx); err != nil {
+			return err
+		}
+
+		t.Log.Info("HTTPS polling failed; attempting retry", "error", lastErr)
+		t.Rec.Eventf(t.Vdb, corev1.EventTypeNormal, events.HTTPSTLSUpdateRetry,
+			"Retrying HTTPS polling after failure, attempt %d of %d for secret %s", attempt, maxRetries, t.NewSecret)
+
+		if pollErr := t.Dispatcher.PollHTTPS(ctx, opts...); pollErr == nil {
+			t.Log.Info("HTTPS polling succeeded after retry", "attempt", attempt)
+			return nil
+		} else {
+			lastErr = pollErr
+			if !t.Vdb.IsHTTPPollingError(pollErr) {
+				// Unexpected error → stop retries and propagate immediately
+				return pollErr
+			}
+		}
+	}
+
+	t.Log.Info("Exhausted HTTPS polling retries; initiating rollback", "maxRetries", maxRetries)
+	return lastErr
 }

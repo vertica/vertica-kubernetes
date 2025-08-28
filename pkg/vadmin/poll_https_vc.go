@@ -18,15 +18,16 @@ package vadmin
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	vops "github.com/vertica/vcluster/vclusterops"
 
+	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/net"
 	"github.com/vertica/vertica-kubernetes/pkg/tls"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/pollhttps"
 )
 
-//nolint:dupl
 func (v *VClusterOps) PollHTTPS(ctx context.Context, opts ...pollhttps.Option) error {
 	v.setupForAPICall("PollHttps")
 	defer v.tearDownForAPICall()
@@ -39,6 +40,13 @@ func (v *VClusterOps) PollHTTPS(ctx context.Context, opts ...pollhttps.Option) e
 	s.Make(opts...)
 	vcOpts := v.genPollHTTPSOptions(&s, certs)
 	err = v.VPollHTTPS(vcOpts)
+
+	// This annotation is only for testing purposes to simulate a failure
+	triggeredFailure := strings.Split(vmeta.GetTriggerTLSUpdateFailureAnnotation(v.VDB.Annotations), ",")[0]
+	if err == nil && triggeredFailure == vmeta.TriggerTLSUpdateFailureAfterHTTPSTLSUpdate {
+		err = fmt.Errorf("injected failure during HTTPS polling")
+	}
+
 	if err != nil {
 		return fmt.Errorf("failed to poll https: %w", err)
 	}
