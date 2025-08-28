@@ -562,7 +562,7 @@ func (v *VerticaDB) validateVerticaDBSpec() field.ErrorList {
 	allErrs = v.hasDuplicateScName(allErrs)
 	allErrs = v.hasValidVolumeName(allErrs)
 	allErrs = v.hasValidTLSModes(allErrs)
-	allErrs = v.hasValidTLSVersionAndCipherSuites(allErrs)
+	allErrs = v.hasValidDbTLSConfig(allErrs)
 	allErrs = v.hasTLSSecretsSetForRevive(allErrs)
 	allErrs = v.hasValidVolumeMountName(allErrs)
 	allErrs = v.hasValidKerberosSetup(allErrs)
@@ -1170,8 +1170,18 @@ func (v *VerticaDB) hasValidTLSModes(allErrs field.ErrorList) field.ErrorList {
 }
 
 // hasValidTLSModes checks whether the TLS version and cipher suites are valid
-func (v *VerticaDB) hasValidTLSVersionAndCipherSuites(allErrs field.ErrorList) field.ErrorList {
-	if !v.IsHTTPSConfigEnabled() || v.Spec.DBTLSConfig == nil {
+func (v *VerticaDB) hasValidDbTLSConfig(allErrs field.ErrorList) field.ErrorList {
+	if !v.IsHTTPSConfigEnabled() && v.Spec.DBTLSConfig != nil {
+		err := field.Invalid(field.NewPath("spec").Child("dbTlsConfig"), *v.Spec.DBTLSConfig, "cannot configure dbTlsConfig when tls is not enabled and configured")
+		allErrs = append(allErrs, err)
+		return allErrs
+	}
+	if !v.IsHTTPSConfigEnabled() {
+		return allErrs
+	}
+	if v.Spec.DBTLSConfig == nil {
+		err := field.Invalid(field.NewPath("spec").Child("dbTlsConfig"), "", "dbTlsConfig cannot be empty when tls is not enabled and configured")
+		allErrs = append(allErrs, err)
 		return allErrs
 	}
 	if v.Spec.DBTLSConfig.TLSVersion != 2 && v.Spec.DBTLSConfig.TLSVersion != 3 {
