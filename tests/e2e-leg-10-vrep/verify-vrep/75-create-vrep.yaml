@@ -19,7 +19,8 @@ spec:
   mode: sync
   source:
     verticaDB: "v-target"
-    sandboxName: "sandbox2"
+    sandboxName: "sandbox4"
   target:
     verticaDB: "v-target"
     sandboxName: "sandbox3"
+    passwordSecret: "su-passwd-custom"

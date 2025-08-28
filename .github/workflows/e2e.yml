@@ -68,6 +68,7 @@ on:
         - vcluster leg 10 shutdown
         - vcluster leg 10 shutdown cert
         - vcluster leg 10 vrep
+        - vcluster leg 10 vrep cert
         - vcluster leg 11
         - vcluster leg 11 cert
         - vcluster leg 13
@@ -1142,6 +1143,31 @@ jobs:
           vertica-license: ${{ secrets.VERTICA_LICENSE }}
           e2e-retry-times: ${{ inputs.e2e_retry_times || 3 }}
 
+  e2e-leg-10-vrep-vcluster-cert:
+    if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'vcluster leg 10 vrep cert' || inputs.e2e_test_suites == '')}}
+    needs: [build]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Test
+        uses: ./.github/actions/run-e2e-leg
+        with:
+          leg-identifier: 'leg-10-vrep'
+          dockerhub-username: ${{ secrets.DOCKERHUB_USERNAME }}
+          dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}
+          vlogger-image: ${{ needs.build.outputs.vlogger-image }}
+          operator-image: ${{ needs.build.outputs.operator-image }}
+          vertica-image: ${{ needs.build.outputs.minimal-vertica-image }}
+          vertica-deployment-method: vclusterops
+          communal-storage-type: s3
+          minimum-vertica-image: '24.3.0'
+          use-cert: true
+          cert-suffix: cert
+          # Include the vertica license so we can test scaling past 3 nodes.
+          vertica-license: ${{ secrets.VERTICA_LICENSE }}
+          e2e-retry-times: ${{ inputs.e2e_retry_times || 3 }}
+
   e2e-leg-11-vcluster:
     if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'vcluster leg 11' || inputs.e2e_test_suites == '')}}
     needs: [build]
@@ -1525,6 +1551,7 @@ jobs:
       e2e-leg-10-shutdown-vcluster,
       e2e-leg-10-shutdown-vcluster-cert,
       e2e-leg-10-vrep-vcluster,
+      e2e-leg-10-vrep-vcluster-cert,
       e2e-leg-11-vcluster,
       e2e-leg-12-vcluster,
       e2e-leg-12-vcluster-cert,
@@ -1599,6 +1626,7 @@ jobs:
       e2e-leg-10-shutdown-vcluster,
       e2e-leg-10-shutdown-vcluster-cert,
       e2e-leg-10-vrep-vcluster,
+      e2e-leg-10-vrep-vcluster-cert,
       e2e-leg-11-vcluster,
       e2e-leg-11-vcluster-cert,
       e2e-leg-12-vcluster,

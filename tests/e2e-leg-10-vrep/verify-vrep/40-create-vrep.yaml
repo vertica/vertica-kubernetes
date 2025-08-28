@@ -14,19 +14,6 @@
 apiVersion: vertica.com/v1beta1
 kind: VerticaReplicator
 metadata:
-  name: vrep-test-sandbox-custom-user
-spec:
-  mode: sync
-  source:
-    verticaDB: "v-source"
-  target:
-    verticaDB: "v-target"
-    userName: "custom_user"
-    sandboxName: "sandbox2"
----
-apiVersion: vertica.com/v1beta1
-kind: VerticaReplicator
-metadata:
   name: vrep-test-sandbox-custom-user-with-password
 spec:
   mode: sync
