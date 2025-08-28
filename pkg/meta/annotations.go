@@ -239,10 +239,11 @@ const (
 	EnableTLSRotationFailureRollbackDefaultValue    = true
 
 	// This annotation forces a failure of the next TLS update cert rotation. There
-	// are two places where this can be forced:
+	// are three places where this can be forced:
 	//   "https_before_tls_update": fail before HTTPS secret has been updated in the DB
 	//   "https_after_tls_update": fail after HTTPS secret has been updated in the DB
 	//   "client_server": fail during client-server cert (which is always before secret has been updated in the DB)
+	// This can contain one or more of these values, separated by commas.
 	// This annotation is internal only and should only be used for testing the
 	// rollback after failed cert rotation functionality
 	TriggerTLSUpdateFailureAnnotation                  = "vertica.com/trigger-tls-update-failure"
@@ -253,6 +254,11 @@ const (
 	// This annotation forces the automatic cert rotation to trigger now, instead of on
 	// a timer. It is internal and should be used only for testing.
 	TriggerAutoTLSRotateAnnotation = "vertica.com/trigger-auto-tls-rotate"
+
+	// When cert rotation fails, how many times should the operator retry before giving up or
+	// triggering rollback. This only applies to failures that are potentially recoverable, such
+	// as HTTPS polling errors.
+	CertRotationNumberRetriesAnnotation = "vertica.com/cert-rotation-number-of-retries"
 
 	// We have a deployment check that ensures that if running vcluster ops the
 	// image is built for that (and vice-versa). This annotation allows you to
@@ -901,6 +907,11 @@ func ShouldSkipTLSWebhookCheck(annotations map[string]string) bool {
 
 func IsHTTPSTLSSetInOfflineUpgrade(annotations map[string]string) bool {
 	return lookupBoolAnnotation(annotations, OfflineUpgradeHTTPSSetAnnotation, false)
+}
+
+// GetCertRotateNumRetries returns the number of retries to use for cert rotation (default 0).
+func GetCertRotateNumRetries(annotations map[string]string) int {
+	return lookupIntAnnotation(annotations, CertRotationNumberRetriesAnnotation, 0)
 }
 
 // lookupBoolAnnotation is a helper function to lookup a specific annotation and
