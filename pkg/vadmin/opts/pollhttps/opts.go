@@ -18,12 +18,12 @@ package pollhttps
 import "github.com/vertica/vertica-kubernetes/pkg/tls"
 
 type Parms struct {
-	InitiatorIPs       []string
-	MainClusterHosts   string
-	SyncCatalogRequire bool
-	NewKey             string
-	NewCert            string
-	NewCaCert          string
+	InitiatorIPs         []string
+	MainClusterInitiator string
+	SyncCatalogRequire   bool
+	NewKey               string
+	NewCert              string
+	NewCaCert            string
 }
 
 // Option is a function that configures a Parms instance.
@@ -36,9 +36,9 @@ func (p *Parms) Make(opts ...Option) {
 	}
 }
 
-func WithMainClusterHosts(podIPs string) Option {
+func WithMainClusterHosts(podIP string) Option {
 	return func(p *Parms) {
-		p.MainClusterHosts = podIPs
+		p.MainClusterInitiator = podIP
 	}
 }
 
