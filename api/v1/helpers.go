@@ -1450,6 +1450,11 @@ func (v *VerticaDB) ShouldRemoveTLSSecret() bool {
 	return vmeta.ShouldRemoveTLSSecret(v.Annotations)
 }
 
+// GetCertRotateRetries returns the number of retries for cert rotation
+func (v *VerticaDB) GetCertRotateRetries() int {
+	return vmeta.GetCertRotateNumRetries(v.Annotations)
+}
+
 // IsValidRestorePointPolicy returns true if the RestorePointPolicy is properly specified,
 // i.e., it has a non-empty archive, and either a valid index or a valid id (but not both).
 func (r *RestorePointPolicy) IsValidRestorePointPolicy() bool {
@@ -2280,4 +2285,19 @@ func (v *VerticaDB) EqualStringSlices(a, b []string) bool {
 		}
 	}
 	return true
+}
+
+// IsHTTPPollingError checks if the error is related to HTTPS polling
+func (v *VerticaDB) IsHTTPPollingError(err error) bool {
+	errMsg := err.Error()
+
+	if strings.Contains(errMsg, "HTTPSPollCertificateHealthOp") {
+		return true
+	}
+
+	if strings.Contains(errMsg, "failed to poll https") {
+		return true
+	}
+
+	return false
 }

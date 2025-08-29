@@ -131,6 +131,7 @@ const (
 	HTTPSTLSUpdateStarted                  = "HTTPSTLSUpdateStarted"
 	HTTPSTLSUpdateSucceeded                = "HTTPSTLSUpdateSucceeded"
 	HTTPSTLSUpdateFailed                   = "HTTPSTLSUpdateFailed"
+	HTTPSTLSUpdateRetry                    = "HTTPSTLSUpdateRetry"
 	ClientServerTLSUpdateStarted           = "ClientServerTLSUpdateStarted"
 	ClientServerTLSUpdateSucceeded         = "ClientServerTLSUpdateSucceeded"
 	ClientServerTLSUpdateFailed            = "ClientServerTLSUpdateFailed"

@@ -51,7 +51,7 @@ func MakeClientServerTLSUpdateReconciler(vdbrecon *VerticaDBReconciler, log logr
 		Log:          log.WithName("ClientServerTLSUpdateReconciler"),
 		Dispatcher:   dispatcher,
 		PFacts:       pfacts,
-		Manager:      MakeTLSConfigManager(vdbrecon, log, vdb, tlsConfigServer, dispatcher),
+		Manager:      MakeTLSConfigManager(vdbrecon, log, vdb, tlsConfigServer, dispatcher, pfacts),
 		FromRollback: fromRollback,
 	}
 }
