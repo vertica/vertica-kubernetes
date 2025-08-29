@@ -153,6 +153,7 @@ func MakeVDB() *VerticaDB {
 			Annotations:        make(map[string]string),
 			Image:              "vertica-k8s:latest",
 			InitPolicy:         CommunalInitPolicyCreate,
+			LicenseSecret:      "test-license-secret",
 			Communal: CommunalStorage{
 				Path:             "s3://nimbusdb/cchen",
 				Endpoint:         "http://minio",

@@ -1327,6 +1327,15 @@ var _ = Describe("verticadb_webhook", func() {
 		Ω(vdb.validateVerticaDBSpec()).Should(HaveLen(0))
 	})
 
+	It("should report an error when licenseSecret is empty", func() {
+		vdb := MakeVDB()
+		vdb.Spec.InitPolicy = CommunalInitPolicyCreate
+		vdb.Spec.LicenseSecret = ""
+		Ω(vdb.validateVerticaDBSpec()).Should(HaveLen(1))
+		vdb.Spec.LicenseSecret = "test-license-secret"
+		Ω(vdb.validateVerticaDBSpec()).Should(HaveLen(0))
+	})
+
 	It("should check the validity of the replicaGroups", func() {
 		vdb := MakeVDB()
 		vdb.Spec.Subclusters[0].Annotations = map[string]string{
