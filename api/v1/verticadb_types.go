@@ -944,6 +944,7 @@ type Affinity struct {
 
 type DBTLSConfig struct {
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:select:2","urn:alm:descriptor:com.tectonic.ui:select:3"}
+	// +kubebuilder:default:=2
 	// +kubebuilder:validation:Optional
 	// TLSVersion can be 2 or 3. By default, version 2 is used.
 	TLSVersion int `json:"tlsVersion,omitempty"`

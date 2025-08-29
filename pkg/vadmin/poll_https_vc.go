@@ -56,7 +56,7 @@ func (v *VClusterOps) genPollHTTPSOptions(s *pollhttps.Parms,
 	opts.IPv6 = net.IsIPv6(s.InitiatorIPs[0])
 
 	v.setAuthentication(&opts.DatabaseOptions, v.VDB.GetVerticaUser(), v.Password, certs)
-	opts.MainClusterInitiator = s.MainClusterHosts
+	opts.MainClusterInitiator = s.MainClusterInitiator
 	opts.NewKey = s.NewKey
 	opts.NewCert = s.NewCert
 	opts.NewCaCert = s.NewCaCert

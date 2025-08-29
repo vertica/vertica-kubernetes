@@ -2689,6 +2689,15 @@ var _ = Describe("verticadb_webhook", func() {
 		Expect(allErrs[0].Error()).To(ContainSubstring("cannot set enable-tls-auth and mount-nma-certs to true at the same time"))
 	})
 
+	It("should return error if TLS is enabled and vcluster-ops is disabled", func() {
+		vdb := MakeVDB()
+		vdb.Annotations[vmeta.EnableTLSAuthAnnotation] = trueString
+		vdb.Annotations[vmeta.VClusterOpsAnnotation] = falseString
+		allErrs := vdb.hasNoConflictbetweenTLSAndAdmintool(field.ErrorList{})
+		Expect(allErrs).ShouldNot(BeEmpty())
+		Expect(allErrs[0].Error()).To(ContainSubstring("cannot set enable-tls-auth to true and vcluster-ops to false at the same time"))
+	})
+
 	It("should not return error if only TLS is enabled", func() {
 		vdb := MakeVDB()
 		vdb.Annotations[vmeta.EnableTLSAuthAnnotation] = trueString

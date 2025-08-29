@@ -539,6 +539,7 @@ func (v *VerticaDB) validateVerticaDBSpec() field.ErrorList {
 	allErrs := v.hasAtLeastOneSC(field.ErrorList{})
 	allErrs = v.hasValidSubclusterTypes(allErrs)
 	allErrs = v.hasNoConflictbetweenTLSAndCertMount(allErrs)
+	allErrs = v.hasNoConflictbetweenTLSAndAdmintool(allErrs)
 	allErrs = v.hasValidTLSWithKnob(allErrs)
 	allErrs = v.hasValidInitPolicy(allErrs)
 	allErrs = v.hasValidRestorePolicy(allErrs)
@@ -1171,12 +1172,12 @@ func (v *VerticaDB) hasValidTLSModes(allErrs field.ErrorList) field.ErrorList {
 
 // hasValidTLSModes checks whether the TLS version and cipher suites are valid
 func (v *VerticaDB) hasValidDBTLSConfig(allErrs field.ErrorList) field.ErrorList {
-	if  !vmeta.UseTLSAuth(v.Annotations) && v.Spec.DBTLSConfig != nil {
-		err := field.Invalid(field.NewPath("spec").Child("dbTlsConfig"), *v.Spec.DBTLSConfig, "cannot configure dbTlsConfig when tls is not enabled and configured")
+	if !vmeta.UseTLSAuth(v.Annotations) && v.Spec.DBTLSConfig != nil {
+		err := field.Invalid(field.NewPath("spec").Child("dbTlsConfig"), *v.Spec.DBTLSConfig, "cannot configure dbTlsConfig when tls is not enabled")
 		allErrs = append(allErrs, err)
 		return allErrs
 	}
-	if !v.UseVClusterOpsDeployment() {
+	if !vmeta.UseTLSAuth(v.Annotations) {
 		return allErrs
 	}
 	if v.Spec.DBTLSConfig == nil {
@@ -1916,6 +1917,16 @@ func (v *VerticaDB) hasNoConflictbetweenTLSAndCertMount(allErrs field.ErrorList)
 		allErrs = append(allErrs, err)
 	}
 
+	return allErrs
+}
+
+// hasNoConflictbetweenTLSAndAdmintool checks if both TLS and Admintool are used at the same time
+func (v *VerticaDB) hasNoConflictbetweenTLSAndAdmintool(allErrs field.ErrorList) field.ErrorList {
+	if vmeta.UseTLSAuth(v.Annotations) && !vmeta.UseVClusterOps(v.Annotations) {
+		err := field.Forbidden(field.NewPath("metadata").Child("annotations"),
+			"cannot set enable-tls-auth to true and vcluster-ops to false at the same time")
+		allErrs = append(allErrs, err)
+	}
 	return allErrs
 }
 
