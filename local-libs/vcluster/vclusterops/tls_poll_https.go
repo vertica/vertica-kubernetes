@@ -27,6 +27,11 @@ type VPollHTTPSOptions struct {
 	DatabaseOptions
 	MainClusterInitiator string
 	SyncCatalogRequired  bool
+	// If provided, these cert fields will be used for polling and the cert feilds in DatabaseOptions will be used
+	// for reading tls digest. That is mainly for cert rotation. For other scenarios, the same cert can be used for all steps.
+	NewKey    string
+	NewCert   string
+	NewCaCert string
 }
 
 func VPollHTTPSOptionsFactory() VPollHTTPSOptions {
@@ -45,7 +50,7 @@ func (opt *VPollHTTPSOptions) analyzeOptions() (err error) {
 		}
 		opt.normalizePaths()
 	}
-	return nil
+	return err
 }
 
 func (opt *VPollHTTPSOptions) validateAnalyzeOptions(log vlog.Printer) error {
@@ -81,24 +86,40 @@ func (vcc VClusterCommands) VPollHTTPS(options *VPollHTTPSOptions) error {
 	if err != nil {
 		return err
 	}
-	var instructions []clusterOp
-	instructions = append(instructions, &nmaGetTLSConfigDigestOp, &httpsPollCertHealthOp)
+	var instructionForReadingDigest []clusterOp
+	instructionForReadingDigest = append(instructionForReadingDigest, &nmaGetTLSConfigDigestOp)
+	databaseOptionsForReadingDigest := options.DatabaseOptions
+	databaseOptionsForReadingDigest.Key = options.Key
+	databaseOptionsForReadingDigest.Cert = options.Cert
+	databaseOptionsForReadingDigest.CaCert = options.CaCert
+	clusterOpEngineForReadingDigest := makeClusterOpEngine(instructionForReadingDigest, &databaseOptionsForReadingDigest)
+	vcc.Log.Info("Retrieving updated TLS configuration digest")
+	runErrorFromReadingDigest := clusterOpEngineForReadingDigest.run(vcc.Log)
+	if runErrorFromReadingDigest != nil {
+		return fmt.Errorf("failed to retrieve updated TLS configuration digest: %w", runErrorFromReadingDigest)
+	}
+	var instructionForPollAndSync []clusterOp
+	instructionForPollAndSync = append(instructionForPollAndSync, &httpsPollCertHealthOp)
 	if options.SyncCatalogRequired {
 		httpsSyncCatalogOp, err2 := makeHTTPSSyncCatalogOp(mainClusterHosts, true, options.UserName, options.Password, CreateDBSyncCat)
 		if err2 != nil {
 			return err2
 		}
-		instructions = append(instructions, &httpsSyncCatalogOp)
+		instructionForPollAndSync = append(instructionForPollAndSync, &httpsSyncCatalogOp)
 	}
-	newCertsDatabaseOptions := options.DatabaseOptions
-	newCertsDatabaseOptions.Key = options.Key
-	newCertsDatabaseOptions.Cert = options.Cert
-	newCertsDatabaseOptions.CaCert = options.CaCert
-	clusterOpEngine := makeClusterOpEngine(instructions, &newCertsDatabaseOptions)
-	vcc.Log.Info("Polling for HTTPS service restart with updated config on all UP hosts", "hosts", options.Hosts)
-	runError := clusterOpEngine.run(vcc.Log)
-	if runError != nil {
-		return fmt.Errorf("failed to restart HTTPS service with new tls version or cipher suites: %w", runError)
+	databaseOptionsForPollAndSync := options.DatabaseOptions
+	databaseOptionsForPollAndSync.Key = options.NewKey
+	databaseOptionsForPollAndSync.Cert = options.NewCert
+	databaseOptionsForPollAndSync.CaCert = options.NewCaCert
+	clusterOpEngineForPollAndSync := makeClusterOpEngine(instructionForPollAndSync, &databaseOptionsForPollAndSync)
+	if options.SyncCatalogRequired {
+		vcc.Log.Info("Polling for HTTPS service restart on all UP hosts with updated catalog", "hosts", options.Hosts)
+	} else {
+		vcc.Log.Info("Polling for HTTPS service restart on all UP hosts", "hosts", options.Hosts)
+	}
+	runErrorFromPollAndSync := clusterOpEngineForPollAndSync.run(vcc.Log)
+	if runErrorFromPollAndSync != nil {
+		return fmt.Errorf("failed to restart HTTPS service with new tls version or cipher suites: %w", runErrorFromPollAndSync)
 	}
 	vcc.Log.Info("Polling for HTTPS service succeeded.", "new digest", expectedTLSConfigInfo.Digest)
 	return nil

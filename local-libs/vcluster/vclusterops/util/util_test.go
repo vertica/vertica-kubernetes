@@ -566,3 +566,58 @@ func TestGetClusterName(t *testing.T) {
 	cluster = GetClusterName("sand1")
 	assert.Equal(t, "sandbox sand1", cluster)
 }
+func TestSplitEnvVar(t *testing.T) {
+	tests := []struct {
+		name        string
+		passthrough string
+		expected    map[string]string
+	}{
+		{
+			name:        "Valid key-value pairs",
+			passthrough: "key1=value1;key2=value2",
+			expected:    map[string]string{"key1": "value1", "key2": "value2"},
+		},
+		{
+			name:        "Empty passthrough string",
+			passthrough: "",
+			expected:    map[string]string{},
+		},
+		{
+			name:        "Key with empty value",
+			passthrough: "key1=;key2=value2",
+			expected:    map[string]string{"key1": "", "key2": "value2"},
+		},
+		{
+			name:        "Trailing semicolon",
+			passthrough: "key1=value1;key2=value2;",
+			expected:    map[string]string{"key1": "value1", "key2": "value2"},
+		},
+		{
+			name:        "Spaces around keys and values",
+			passthrough: " key1 = value1 ; key2=value2 ",
+			expected:    map[string]string{"key1": "value1", "key2": "value2"},
+		},
+		{
+			name:        "Empty key-value pair",
+			passthrough: "key1=value1;;key2=value2",
+			expected:    map[string]string{"key1": "value1", "key2": "value2"},
+		},
+		{
+			name:        "Invalid format with missing key",
+			passthrough: "=value1;key2=value2",
+			expected:    map[string]string{"key2": "value2"},
+		},
+		{
+			name:        "Key without value",
+			passthrough: "key1;key2=value2",
+			expected:    map[string]string{"key1": "", "key2": "value2"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := SplitEnvVar(tt.passthrough)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
