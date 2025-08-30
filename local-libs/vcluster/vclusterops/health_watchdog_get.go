@@ -16,7 +16,6 @@
 package vclusterops
 
 import (
-	"errors"
 	"fmt"
 
 	"github.com/vertica/vcluster/vclusterops/util"
@@ -120,16 +119,6 @@ func (vcc VClusterCommands) VHealthWatchdogGet(options *VHealthWatchdogGetOption
 
 	// give the instructions to the VClusterOpEngine to run
 	runError := clusterOpEngine.run(vcc.Log)
-
-	// Check if the engine returned back-off error.
-	var tlsErr *util.ErrTLSBackedOff
-
-	// Checks if runError is of type ErrTLSBackedOff.
-	if errors.As(runError, &tlsErr) {
-		return nil, tlsErr
-	}
-
-	// For any other error.
 	if runError != nil {
 		return nil, fmt.Errorf("fail to get health watchdog values: %w", runError)
 	}
@@ -166,7 +155,7 @@ func (vcc VClusterCommands) produceHealthWatchdogGetInstructions(options *VHealt
 	nmaHealthWatchdogGetData.Action = options.Action
 
 	nmaHealthWatchdogGetOp, err := makeHealthWatchdogGetOp(hosts, options.usePassword,
-		&nmaHealthWatchdogGetData, healthWatchdogValues, vdb.HostNodeMap, vcc.Log)
+		&nmaHealthWatchdogGetData, healthWatchdogValues, vdb.HostNodeMap)
 	if err != nil {
 		return instructions, err
 	}

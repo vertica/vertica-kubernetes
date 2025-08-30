@@ -21,7 +21,6 @@ import (
 	"fmt"
 
 	"github.com/vertica/vcluster/vclusterops/util"
-	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
 type nmaHealthWatchdogGetOp struct {
@@ -31,12 +30,11 @@ type nmaHealthWatchdogGetOp struct {
 	hostNodeMap                vHostNodeMap
 	hostRequestBodyMap         map[string]string
 	healthWatchdogValuesByHost *[]HealthWatchdogHostValues
-	*util.BackoffController
 }
 
 func makeHealthWatchdogGetOp(hosts []string, usePassword bool,
 	healthWatchdogGetData *nmaHealthWatchdogGetData,
-	retrievedValues *[]HealthWatchdogHostValues, hostNodeMap vHostNodeMap, logger vlog.Printer) (nmaHealthWatchdogGetOp, error) {
+	retrievedValues *[]HealthWatchdogHostValues, hostNodeMap vHostNodeMap) (nmaHealthWatchdogGetOp, error) {
 	op := nmaHealthWatchdogGetOp{}
 	op.name = "NMAHealthWatchdogGetOp"
 	op.description = "Get health watchdog value"
@@ -44,7 +42,6 @@ func makeHealthWatchdogGetOp(hosts []string, usePassword bool,
 	op.hostNodeMap = hostNodeMap
 	op.nmaHealthWatchdogGetData = *healthWatchdogGetData
 	op.healthWatchdogValuesByHost = retrievedValues
-	op.BackoffController = util.GetBackoffController(logger, "[Vops NMA HealthWatchdog Get]")
 
 	if usePassword {
 		err := util.ValidateUsernameAndPassword(op.name, usePassword, healthWatchdogGetData.UserName)
@@ -110,33 +107,11 @@ func (op *nmaHealthWatchdogGetOp) prepare(execContext *opEngineExecContext) erro
 }
 
 func (op *nmaHealthWatchdogGetOp) execute(execContext *opEngineExecContext) error {
-	err := op.runExecute(execContext)
-	if err != nil {
-		op.UpdateState(err)
-		if op.IsBackedOff() {
-			return &util.ErrTLSBackedOff{
-				RetryAfter: op.GetInterval(),
-			}
-		}
+	if err := op.runExecute(execContext); err != nil {
 		return err
 	}
 
-	// processResult inspects the responses and finds the actual SSL/TLS error.
-	processErr := op.processResult(execContext)
-
-	// Update the backoff state with the result from processResult.
-	// - If processErr is a SSL/TLS error, backoff starts or continues.
-	// - If processErr is nil (meaning SSL/TLS is now enabled and working), recovery is triggered.
-	op.UpdateState(processErr)
-
-	// Suppress the noise and Return the quiet error to avoid log spam.
-	if op.IsBackedOff() {
-		return &util.ErrTLSBackedOff{
-			RetryAfter: op.GetInterval(),
-		}
-	}
-
-	return processErr
+	return op.processResult(execContext)
 }
 
 func (op *nmaHealthWatchdogGetOp) finalize(_ *opEngineExecContext) error {
@@ -148,6 +123,8 @@ func (op *nmaHealthWatchdogGetOp) processResult(_ *opEngineExecContext) error {
 
 	results := []HealthWatchdogHostValues{}
 	for host, result := range op.clusterHTTPRequest.ResultCollection {
+		op.logResponse(host, result)
+
 		if result.isUnauthorizedRequest() {
 			return fmt.Errorf("[%s] wrong certificate for NMA service on host %s",
 				op.name, host)
