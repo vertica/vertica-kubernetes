@@ -93,6 +93,12 @@ func (c *CmdUnsandboxSubcluster) setLocalFlags(cmd *cobra.Command) {
 		"",
 		"The name of the subcluster to be unsandboxed.",
 	)
+	cmd.Flags().BoolVar(
+		&c.usOptions.ForceDemote,
+		"force-demote",
+		false,
+		"If the subcluster to be unsandboxed is primary, demote it before unsandboxing",
+	)
 }
 
 func (c *CmdUnsandboxSubcluster) Parse(inputArgv []string, logger vlog.Printer) error {
