@@ -148,6 +148,22 @@ func (c *CmdScrutinize) setLocalFlags(cmd *cobra.Command) {
 	)
 	cmd.MarkFlagsMutuallyExclusive("log-age-hours", "log-age-oldest-time")
 	cmd.MarkFlagsMutuallyExclusive("log-age-hours", "log-age-newest-time")
+	cmd.Flags().IntVar(
+		&c.sOptions.LogFileSizeLimit,
+		"log-file-size-limit",
+		vclusterops.ScrutinizeLogLimitGB,
+		"The maximum size, in GB, of Vertica log files to collect."+
+			util.Default+fmt.Sprint(vclusterops.ScrutinizeLogLimitGB),
+	)
+
+	cmd.Flags().IntVar(
+		&c.sOptions.MiscFileSizeLimit,
+		"misc-file-size-limit",
+		vclusterops.ScrutinizeMiscFileLimitGB,
+		"The maximum size, in GB, of non-log files to collect."+
+			util.Default+fmt.Sprint(vclusterops.ScrutinizeMiscFileLimitGB),
+	)
+
 	cmd.Flags().BoolVar(
 		&c.sOptions.ExcludeContainers,
 		"exclude-containers",
@@ -224,6 +240,10 @@ func (c *CmdScrutinize) validateParse(logger vlog.Printer) error {
 	if err != nil {
 		return err
 	}
+	if (c.sOptions.LogFileSizeLimit < 0) || (c.sOptions.MiscFileSizeLimit < 0) {
+		return fmt.Errorf("both log-file-size-limit and misc-file-size-limit should be greater than 0 or 0 for unlimited size")
+	}
+
 	return c.setDBPassword(&c.sOptions.DatabaseOptions)
 }
 
