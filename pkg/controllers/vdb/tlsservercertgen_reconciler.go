@@ -31,6 +31,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	"github.com/vertica/vertica-kubernetes/pkg/secrets"
 	"github.com/vertica/vertica-kubernetes/pkg/security"
+	"github.com/vertica/vertica-kubernetes/pkg/vdbstatus"
 	corev1 "k8s.io/api/core/v1"
 
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -278,16 +279,18 @@ func (h *TLSServerCertGenReconciler) ValidateSecretCertificate(
 
 	err := security.ValidateTLSSecret(certPEM, keyPEM)
 	if err != nil {
-		h.VRec.Eventf(h.Vdb, corev1.EventTypeWarning, events.TLSCertValidationFailed,
-			"Validation of TLS Certificate %q failed with secret %q", tlsConfigName, secretName)
-		return err
+		err1 := h.InvalidCertRollback(ctx, "Validation of TLS Certificate %q failed with secret %q", tlsConfigName, secretName)
+		if err1 != nil || h.Vdb.IsTLSCertRollbackNeeded() {
+			return err1
+		}
 	}
 
 	err = security.ValidateCertificateCommonName(certPEM, h.Vdb.GetExpectedCertCommonName(tlsConfigName))
 	if err != nil {
-		h.VRec.Eventf(h.Vdb, corev1.EventTypeWarning, events.TLSCertValidationFailed,
-			"Validation of common name for TLS Certificate %q failed with secret %q", tlsConfigName, secretName)
-		return err
+		err1 := h.InvalidCertRollback(ctx, "Validation of common name for TLS Certificate %q failed with secret %q", tlsConfigName, secretName)
+		if err1 != nil || h.Vdb.IsTLSCertRollbackNeeded() {
+			return err1
+		}
 	}
 
 	expiringSoon, expireTime, err := security.CheckCertificateExpiringSoon(certPEM)
@@ -306,9 +309,27 @@ func (h *TLSServerCertGenReconciler) ValidateSecretCertificate(
 // ShouldGenerateCert determines whether TLS server certificates should be generated.
 // Returns true if either TLS config is missing in status or the expected secret differs from what's currently recorded.
 func (h *TLSServerCertGenReconciler) ShouldGenerateCert() bool {
+	if h.Vdb.IsTLSCertRollbackNeeded() {
+		return false
+	}
+
 	return vmeta.UseTLSAuth(h.Vdb.Annotations) &&
 		(h.Vdb.GetHTTPSNMATLSSecretInUse() == "" ||
 			h.Vdb.GetClientServerTLSSecretInUse() == "" ||
 			h.Vdb.GetHTTPSNMATLSSecretInUse() != h.Vdb.GetHTTPSNMATLSSecret() ||
 			h.Vdb.GetClientServerTLSSecretInUse() != h.Vdb.GetClientServerTLSSecret())
+}
+
+// InvalidCertRollback handles failures in cert validation, by producing an event and (if relevant) trigerring rollback
+func (h *TLSServerCertGenReconciler) InvalidCertRollback(ctx context.Context, message, tlsConfigName, secretName string) error {
+	h.VRec.Eventf(h.Vdb, corev1.EventTypeWarning, events.TLSCertValidationFailed, message, tlsConfigName, secretName)
+	if h.Vdb.IsTLSCertRollbackEnabled() && h.Vdb.GetSecretInUse(tlsConfigName) != "" {
+		reason := vapi.FailureBeforeHTTPSCertHealthPollingReason
+		if tlsConfigName == vapi.ClientServerTLSConfigName {
+			reason = vapi.RollbackAfterServerCertRotationReason
+		}
+		cond := vapi.MakeCondition(vapi.TLSCertRollbackNeeded, metav1.ConditionTrue, reason)
+		return vdbstatus.UpdateCondition(ctx, h.VRec.GetClient(), h.Vdb, cond)
+	}
+	return nil
 }

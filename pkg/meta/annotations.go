@@ -258,7 +258,7 @@ const (
 	// When cert rotation fails, how many times should the operator retry before giving up or
 	// triggering rollback. This only applies to failures that are potentially recoverable, such
 	// as HTTPS polling errors.
-	CertRotationNumberRetriesAnnotation = "vertica.com/cert-rotation-number-of-retries"
+	CertRotationNumberRetriesAnnotation = "vertica.com/https-polling-number-of-retries"
 
 	// We have a deployment check that ensures that if running vcluster ops the
 	// image is built for that (and vice-versa). This annotation allows you to
