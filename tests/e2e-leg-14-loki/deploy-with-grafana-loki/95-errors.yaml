@@ -19,12 +19,3 @@ kind: Service
 metadata:
   labels:
     app.kubernetes.io/managed-by: verticadb-operator
----
-apiVersion: monitoring.coreos.com/v1
-kind: ServiceMonitor
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: v-with-loki-basic-auth
-

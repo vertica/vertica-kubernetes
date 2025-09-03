@@ -23,11 +23,13 @@ data:
     
     # Setup start and end time for query, e.g: 2024-09-14
     NAMESPACE=$(kubectl get pod v-with-loki-pri1-0 -o=jsonpath='{.metadata.namespace}')
-    RESULT=$(kubectl exec v-with-loki-pri1-0 -it -c server -n kuttl-test-meet-chow -- curl -G -s http://vdb-op-loki.verticadb-operator.svc.cluster.local:3100/loki/api/v1/query_range --data-urlencode 'query={job="loki.source.kubernetes.pod_logs", instance="kuttl-test-meet-chow/v-with-loki-pri1-0:vlogger"}' --data-urlencode since=12h)
-    LOGS=$(echo $RESULT | jq -r '| jq .data.result[0].values')
+    DATA_URLENCODE="query={job=\"loki.source.kubernetes.pod_logs\", instance=\"$NAMESPACE/v-with-loki-pri1-0:vlogger\"}"
+    RESULT=$(kubectl exec v-with-loki-pri1-0 -it -c server -n $NAMESPACE -- curl -G -s http://vdb-op-loki.verticadb-operator.svc.cluster.local:3100/loki/api/v1/query_range --data-urlencode "$DATA_URLENCODE" --data-urlencode since=12h)
+    LOGS=$(echo $RESULT | jq '.data.result[0].values')
     # verify the loki log result
-    if echo "$LOGS" | grep -Pzo 'Successfully wrote' > /dev/null; then
-      echo "Assertion failed: expected 'Successfully wrote', got $LOGS"
+    TEST_DATA_LOG=$(echo "$LOGS" | grep -Po 'Writing test data to file: /data/vertdb/v_vertdb_node0001_data/Temp_Buffer_testLocation.txt')
+    if [ "$TEST_DATA_LOG" == "" ]; then
+      echo "Assertion failed: expected $TEST_DATA_LOG, got $LOGS"
       exit 1
     fi
 ---

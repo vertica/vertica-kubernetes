@@ -19,27 +19,6 @@ status:
   currentReplicas: 3
   readyReplicas: 3
 ---
-apiVersion: monitoring.coreos.com/v1
-kind: ServiceMonitor
-metadata:
-  labels:
-    app.kubernetes.io/component: database
-    app.kubernetes.io/instance: v-with-loki
-    app.kubernetes.io/managed-by: verticadb-operator
-    release: vdb-op
-    vertica.com/database: vertdb
-  name: v-with-loki-svc-monitor
-  ownerReferences:
-  - apiVersion: vertica.com/v1
-    blockOwnerDeletion: false
-    controller: true
-    kind: VerticaDB
-    name: v-with-loki
-spec:
-  selector:
-    matchLabels:
-      app.kubernetes.io/instance: v-with-loki
----
 apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:

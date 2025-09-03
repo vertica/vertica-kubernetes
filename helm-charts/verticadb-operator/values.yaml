@@ -476,47 +476,48 @@ prometheusServer:
 loki:
   enabled: false # Set to true if you want to deploy loki
 
+  # == Configuration for running Loki
   loki:
+    # The Compactor is responsible for compaction of index files and applying log retention.
     compactor:
-      retention_enabled: true
+      retention_enabled: true  # default is not enabled
       working_directory: /var/loki/compactor # Specify a working directory for the compactor
       compaction_interval: 10m # The compactor runs every 10 minutes
       retention_delete_delay: 2h # Deletion of chunks is delayed by 2 hours after the retention period expires
       delete_request_store: filesystem # Store delete requests locally on disk
 
+    # Sets the global retention period to 30 days. Logs older than 30 days will be marked for deletion by the compactor.
     limits_config:
       retention_period: 720h # 30 days
 
+    # Should authentication be enabled
     auth_enabled: false
-    commonConfig:
-      replication_factor: 1
 
+    # Set parameters shared across multiple Loki components or modules
+    commonConfig:
+      # Loki stores multiple copies of logs in the ingester component, based on a configurable 
+      # replication factor, generally 3.
+      replication_factor: 1  # set to 1 for testing purpose
+
+    # How Loki stores and indexes log data over time
     schemaConfig:
       configs:
-        - from: 2024-04-01
-          store: tsdb
-          object_store: filesystem
-          schema: v13
+        - from: 2024-04-01 # Start date for this schema configuration
+          store: tsdb      # Time Series Database. Index store type (e.g., tsdb, boltdb)
+          object_store: filesystem # Type of object storage (e.g., s3, gcs, filesystem)
+          schema: v13      # Schema version
           index:
-            prefix: loki_index_
-            period: 24h
+            prefix: loki_index_  # Prefix for index entries
+            period: 24h          # Period for index rotation
 
+    # Loki receives logs in separate streams, where each stream is uniquely identified by its 
+    # tenant ID and its set of labels. As log entries from a stream arrive, they are compressed 
+    # as chunks and saved in the chunks store.
+    # The index stores each stream’s label set and links them to the individual chunks.
     storage:
-      type: filesystem
+      type: filesystem  # not typically recommended for production use
       filesystem:
         chunks_directory: "/var/loki/chunks" # Directory for storing log data chunks
-
-    limits_config:
-      allow_structured_metadata: true
-      volume_enabled: true
-
-  # disable caching in test
-  memcached:
-    enabled: false
-  chunksCache:
-    enabled: false
-  resultsCache:
-    enabled: false
 
   # use filesystem
   minio:
@@ -528,9 +529,14 @@ loki:
   test:
     enabled: false
 
-  deploymentMode: SingleBinary
+  # Loki offers Monolithic, Simple Scalable Deployment (SSD), and Microservices (Distributed) 
+  # modes for running its components. Monolithic is best for testing and small loads, while 
+  # Microservices is for massive scale and high availability by running each component independently. 
+  # SSD is the recommended default, providing a balance by grouping components into read, write, 
+  # and backend targets for independent scaling and managing moderate to large log volumes. 
+  deploymentMode: SingleBinary  # monolithic mode
   singleBinary:
-    replicas: 1
+    replicas: 1   # You must specify commonConfig.replication_factor: 1 if you are only using 1 replica, otherwise requests will fail.
   
   # Zero out replica counts of other deployment modes
   backend:
