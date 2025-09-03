@@ -20,7 +20,6 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/setconfigparameter"
 	"github.com/vertica/vertica-kubernetes/pkg/vdbstatus"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
@@ -58,7 +57,7 @@ func (t *DBTLSConfigReconciler) shouldSkipReconcile() bool {
 // Reconcile will compare TLS version and cipher suites in Spec with those in Status.
 // If they are different, it will call vcluster API to update them.
 func (t *DBTLSConfigReconciler) Reconcile(ctx context.Context, request *ctrl.Request) (ctrl.Result, error) {
-	if t.shouldSkipReconcile() {
+	if t.shouldSkipReconcile() || t.Vdb.Spec.DBTLSConfig == nil {
 		return ctrl.Result{}, nil
 	}
 	var updateTLSVersion, updateCipherSuites bool
@@ -72,10 +71,10 @@ func (t *DBTLSConfigReconciler) Reconcile(ctx context.Context, request *ctrl.Req
 	if initiatorPodIP == "" {
 		return res, err
 	}
-	if t.Vdb.Spec.DBTLSConfig == nil || t.Vdb.Status.DBTLSConfig == nil {
-		err = t.initializeDBTLSConfigInSpecAndStatus(ctx, initiatorPodIP)
+	if t.Vdb.Status.DBTLSConfig == nil {
+		err = t.initializeDBTLSConfigInStatus(ctx, initiatorPodIP)
 		if err != nil {
-			t.Log.Error(err, "failed to initialize db tls config in spec and status. skip current loop")
+			t.Log.Error(err, "failed to initialize db tls config in status. skip current loop")
 			return ctrl.Result{}, err
 		}
 		updateTLSVersion, updateCipherSuites = t.compareTLSConfig(t.Vdb.Spec.DBTLSConfig, t.Vdb.Status.DBTLSConfig)
@@ -315,7 +314,7 @@ func (t *DBTLSConfigReconciler) getTLSVersionFromDB(ctx context.Context, initiat
 	return strconv.Atoi(strValue)
 }
 
-func (t *DBTLSConfigReconciler) initializeDBTLSConfigInSpecAndStatus(ctx context.Context, initiatorPodIP string) error {
+func (t *DBTLSConfigReconciler) initializeDBTLSConfigInStatus(ctx context.Context, initiatorPodIP string) error {
 	tlsVersion, err := t.getTLSVersionFromDB(ctx, initiatorPodIP)
 	if err != nil {
 		t.Log.Error(err, "failed to get tls version from db")
@@ -326,21 +325,12 @@ func (t *DBTLSConfigReconciler) initializeDBTLSConfigInSpecAndStatus(ctx context
 		t.Log.Error(err, "failed to get tls cipher suites from db")
 		return err
 	}
-	var skipSpec bool
-	if t.Vdb.Spec.DBTLSConfig == nil {
-		t.Vdb.Spec.DBTLSConfig = &vapi.DBTLSConfig{
-			TLSVersion:   tlsVersion,
-			CipherSuites: cipherSuites,
-		}
-	} else {
-		skipSpec = true
-	}
 	t.Vdb.Status.DBTLSConfig = &vapi.DBTLSConfig{
 		TLSVersion:   tlsVersion,
 		CipherSuites: cipherSuites,
 	}
-	t.Log.Info("initialize DBTLSConfig", "skipSpec", skipSpec, "tls version", tlsVersion, "cipher suites", cipherSuites)
-	return t.saveTLSConfigInSpecAndStatus(ctx, cipherSuites, tlsVersion, skipSpec)
+	t.Log.Info("initialize DBTLSConfig in status", "tls version", tlsVersion, "cipher suites", cipherSuites)
+	return t.saveTLSConfigInStatus(ctx, cipherSuites, tlsVersion)
 }
 
 func (t *DBTLSConfigReconciler) saveCipherSuitesInStatus(ctx context.Context, cipherSuites string) error {
@@ -350,28 +340,6 @@ func (t *DBTLSConfigReconciler) saveCipherSuitesInStatus(ctx context.Context, ci
 	}
 	// Clear the condition and add a status after restore point creation.
 	return vdbstatus.Update(ctx, t.VRec.Client, t.Vdb, refreshStatusInPlace)
-}
-
-func (t *DBTLSConfigReconciler) saveTLSConfigInSpecAndStatus(ctx context.Context, cipherSuites string,
-	tlsVersion int, skipSpec bool) error {
-	if !skipSpec {
-		nm := t.Vdb.ExtractNamespacedName()
-		err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-			if err := t.VRec.Client.Get(ctx, nm, t.Vdb); err != nil {
-				return err
-			}
-			if t.Vdb.Spec.DBTLSConfig == nil {
-				t.Vdb.Spec.DBTLSConfig = &vapi.DBTLSConfig{}
-			}
-			t.Vdb.Spec.DBTLSConfig.CipherSuites = cipherSuites
-			t.Vdb.Spec.DBTLSConfig.TLSVersion = tlsVersion
-			return t.VRec.Client.Update(ctx, t.Vdb)
-		})
-		if err != nil {
-			return err
-		}
-	}
-	return t.saveTLSConfigInStatus(ctx, cipherSuites, tlsVersion)
 }
 
 func (t *DBTLSConfigReconciler) saveTLSConfigInStatus(ctx context.Context, cipherSuites string, tlsVersion int) error {

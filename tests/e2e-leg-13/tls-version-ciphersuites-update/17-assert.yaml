@@ -26,13 +26,7 @@ metadata:
 spec:
   httpsNMATLS:
     mode: TRY_VERIFY
-  dbTlsConfig:
-    tlsVersion: 2
-    cipherSuites: ""
 status:
   subclusters:
     - addedToDBCount: 3
       upNodeCount: 3
-  dbTlsConfig:
-    tlsVersion: 2
-    cipherSuites: ""
