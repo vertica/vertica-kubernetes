@@ -94,7 +94,7 @@ var _ = Describe("k8s/install_reconcile_test", func() {
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		fpr := &cmds.FakePodRunner{Results: cmds.CmdResults{}}
-		pfact := podfacts.MakePodFacts(vdbRec, fpr, logger, TestPassword)
+		pfact := podfacts.MakePodFacts(vdbRec, fpr, logger, &testPassword)
 		actor := MakeInstallReconciler(vdbRec, logger, vdb, fpr, &pfact)
 		drecon := actor.(*InstallReconciler)
 		drecon.ATWriter = &atconf.FakeWriter{}
@@ -119,7 +119,7 @@ var _ = Describe("k8s/install_reconcile_test", func() {
 		test.SetPodStatus(ctx, k8sClient, 1 /* funcOffset */, names.GenPodName(vdb, sc, 1), ScIndex, PodIndex, test.AllPodsRunning)
 
 		fpr := &cmds.FakePodRunner{}
-		pfact := podfacts.MakePodFacts(vdbRec, fpr, logger, TestPassword)
+		pfact := podfacts.MakePodFacts(vdbRec, fpr, logger, &testPassword)
 		actor := MakeInstallReconciler(vdbRec, logger, vdb, fpr, &pfact)
 		drecon := actor.(*InstallReconciler)
 		res, err := drecon.Reconcile(ctx, &ctrl.Request{})

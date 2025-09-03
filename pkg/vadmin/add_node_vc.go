@@ -77,6 +77,6 @@ func (v *VClusterOps) genAddNodeOptions(s *addnode.Parms, certs *tls.HTTPSCerts)
 		opts.DepotPrefix = v.VDB.Spec.Local.DepotPath
 	}
 	opts.IfSyncCatalog = true
-	v.setAuthentication(&opts.DatabaseOptions, v.VDB.GetVerticaUser(), &v.Password, certs)
+	v.setAuthentication(&opts.DatabaseOptions, v.VDB.GetVerticaUser(), v.Password, certs)
 	return opts
 }

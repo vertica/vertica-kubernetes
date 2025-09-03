@@ -1411,6 +1411,16 @@ func (v *VerticaDB) GetVerticaUser() string {
 	return vmeta.GetSuperuserName(v.Annotations)
 }
 
+// GetPasswordSecret returns the password secret
+func (v *VerticaDB) GetPasswordSecret() string {
+	// status holds the current password
+	if v.Status.PasswordSecret != nil {
+		return *v.Status.PasswordSecret
+	}
+	// Spec holds the desired password
+	return v.Spec.PasswordSecret
+}
+
 // GetEncryptSpreadComm will return "vertica" if encryptSpreadComm is set to
 // an empty string, otherwise return the value of encryptSpreadComm
 func (v *VerticaDB) GetEncryptSpreadComm() string {
@@ -2201,7 +2211,7 @@ func (v *VerticaDB) GetClientServerTLSSecret() string {
 	return v.Spec.ClientServerTLS.Secret
 }
 
-// Check if TLS not enabled, DB not initialized, or rotate has failed
+// Check if TLS not enabled, DB not initialized, or rotate has failed (and rollback is not in progress).
 // In these cases, we skip TLS Update
 func (v *VerticaDB) ShouldSkipTLSUpdateReconcile() bool {
 	return !v.IsSetForTLS() ||

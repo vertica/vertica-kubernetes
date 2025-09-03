@@ -93,7 +93,7 @@ var _ = Describe("replication_start_vc", func() {
 			replicationstart.WithSourceUsername(vapi.SuperUser),
 			replicationstart.WithTargetDBName(TestTargetDBName),
 			replicationstart.WithTargetUserName(TestTargetUserName),
-			replicationstart.WithTargetPassword(TestTargetPassword),
+			replicationstart.WithTargetPassword(&testTargetPassword),
 			replicationstart.WithSourceTLSConfig(TestSourceTLSConfig),
 			replicationstart.WithAsync(true),
 			replicationstart.WithObjectName(TestTableOrSchemaName),

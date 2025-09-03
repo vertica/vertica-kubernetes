@@ -25,16 +25,6 @@ status:
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: v-target-sc3
-  labels:
-    vertica.com/sandbox: sandbox2
-status:
-  replicas: 1
-  readyReplicas: 1
----
-apiVersion: apps/v1
-kind: StatefulSet
-metadata:
   name: v-target-sc4
   labels:
     vertica.com/sandbox: sandbox3

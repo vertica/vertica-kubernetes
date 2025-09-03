@@ -21,6 +21,7 @@ metadata:
 spec:
   image: kustomize-vertica-image
   dbName: targetdb
+  passwordSecret: su-passwd
   initPolicy: CreateSkipPackageInstall
   communal: {}
   local:
@@ -30,9 +31,6 @@ spec:
       size: 1
       type: primary
     - name: sc2
-      size: 1
-      type: secondary
-    - name: sc3
       size: 1
       type: secondary
     - name: sc4

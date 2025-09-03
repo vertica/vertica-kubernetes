@@ -40,9 +40,9 @@ var _ = Describe("dbremovenode_reconcile", func() {
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := podfacts.MakePodFacts(vdbRec, fpr, logger, TestPassword)
+		pfacts := podfacts.MakePodFacts(vdbRec, fpr, logger, &testPassword)
 		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
-		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
+		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, &testPassword)
 		recon := MakeDBRemoveNodeReconciler(vdbRec, logger, vdb, fpr, &pfacts, dispatcher)
 		Expect(recon.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 	})
@@ -60,7 +60,7 @@ var _ = Describe("dbremovenode_reconcile", func() {
 
 		fpr := &cmds.FakePodRunner{}
 		pfacts := createPodFactsDefault(fpr)
-		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
+		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, &testPassword)
 		actor := MakeDBRemoveNodeReconciler(vdbRec, logger, vdb, fpr, pfacts, dispatcher)
 		recon := actor.(*DBRemoveNodeReconciler)
 		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
@@ -108,7 +108,7 @@ var _ = Describe("dbremovenode_reconcile", func() {
 		fpr := &cmds.FakePodRunner{}
 		pfacts := createPodFactsDefault(fpr)
 		Expect(pfacts.Collect(ctx, fetchedVdb)).Should(Succeed())
-		dispatcher := vdbRec.makeDispatcher(logger, fetchedVdb, fpr, TestPassword)
+		dispatcher := vdbRec.makeDispatcher(logger, fetchedVdb, fpr, &testPassword)
 		r := MakeDBRemoveNodeReconciler(vdbRec, logger, fetchedVdb, fpr, pfacts, dispatcher)
 		res, err := r.Reconcile(ctx, &ctrl.Request{})
 		Expect(err).Should(Succeed())
@@ -142,8 +142,8 @@ var _ = Describe("dbremovenode_reconcile", func() {
 		sc.Size-- // mimic a pending db_remove_node
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := podfacts.MakePodFacts(vdbRec, fpr, logger, TestPassword)
-		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
+		pfacts := podfacts.MakePodFacts(vdbRec, fpr, logger, &testPassword)
+		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, &testPassword)
 		r := MakeDBRemoveNodeReconciler(vdbRec, logger, vdb, fpr, &pfacts, dispatcher)
 		res, err := r.Reconcile(ctx, &ctrl.Request{})
 		Expect(err).Should(Succeed())
@@ -163,11 +163,11 @@ var _ = Describe("dbremovenode_reconcile", func() {
 		sc.Size = 2 // Set to 2 to mimic a pending uninstall of the last pod
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := podfacts.MakePodFacts(vdbRec, fpr, logger, TestPassword)
+		pfacts := podfacts.MakePodFacts(vdbRec, fpr, logger, &testPassword)
 		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
 		removePod := names.GenPodName(vdb, sc, 2)
 		pfacts.Detail[removePod].SetDBExists(false)
-		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
+		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, &testPassword)
 		r := MakeDBRemoveNodeReconciler(vdbRec, logger, vdb, fpr, &pfacts, dispatcher)
 		res, err := r.Reconcile(ctx, &ctrl.Request{})
 		Expect(err).Should(Succeed())

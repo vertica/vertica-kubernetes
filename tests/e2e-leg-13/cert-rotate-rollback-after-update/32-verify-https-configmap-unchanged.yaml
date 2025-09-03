@@ -1,0 +1,11 @@
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - script: |
+      echo "Verifying that ConfigMap has not yet been updated..."
+      ACTUAL=$(kubectl get configmap -n $NAMESPACE v-cert-rotate-rollback-after-update-nma-tls-config -o jsonpath='{.data.NMA_SECRET_NAME}')
+      if [ "$ACTUAL" = "bad-cert" ]; then
+        echo "FAIL: ConfigMap was updated prematurely with bad-cert"
+        exit 1
+      fi
+      echo "PASS: ConfigMap still contains: $ACTUAL"

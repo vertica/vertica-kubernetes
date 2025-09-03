@@ -203,7 +203,7 @@ type PodFacts struct {
 	NeedCollection     bool
 	SandboxName        string
 	OverrideFunc       CheckerFunc // Set this if you want to be able to control the PodFact
-	VerticaSUPassword  string
+	VerticaSUPassword  *string
 	CacheManager       cache.CacheManager // Cache manager to use for fetching node details
 }
 
@@ -237,21 +237,21 @@ const (
 )
 
 // MakePodFacts will create a PodFacts object and return it
-func MakePodFactsWithCacheManager(vrec config.ReconcilerInterface, prunner cmds.PodRunner, log logr.Logger, password string,
+func MakePodFactsWithCacheManager(vrec config.ReconcilerInterface, prunner cmds.PodRunner, log logr.Logger, password *string,
 	cacheManager cache.CacheManager) PodFacts {
 	return PodFacts{VRec: vrec, PRunner: prunner, Log: log, NeedCollection: true, Detail: make(PodFactDetail),
 		VerticaSUPassword: password, SandboxName: vapi.MainCluster, CacheManager: cacheManager}
 }
 
 // MakePodFacts will create a PodFacts object and return it. This is mainly for test cases.
-func MakePodFacts(vrec config.ReconcilerInterface, prunner cmds.PodRunner, log logr.Logger, password string) PodFacts {
+func MakePodFacts(vrec config.ReconcilerInterface, prunner cmds.PodRunner, log logr.Logger, password *string) PodFacts {
 	return PodFacts{VRec: vrec, PRunner: prunner, Log: log, NeedCollection: true, Detail: make(PodFactDetail),
 		VerticaSUPassword: password, SandboxName: vapi.MainCluster}
 }
 
 // MakePodFactsForSandbox will create a PodFacts object for a sandbox
 func MakePodFactsForSandboxWithCacheManager(vrec config.ReconcilerInterface, prunner cmds.PodRunner, log logr.Logger,
-	password, sandbox string, cacheManager cache.CacheManager) PodFacts {
+	password *string, sandbox string, cacheManager cache.CacheManager) PodFacts {
 	pf := MakePodFactsWithCacheManager(vrec, prunner, log, password, cacheManager)
 	pf.SandboxName = sandbox
 	return pf
@@ -1005,6 +1005,11 @@ func (p *PodFact) setNodeState(gs *GatherState, useVclusterOps bool) {
 	p.upNode = p.dbExists && gs.VerticaPIDRunning
 }
 
+// SetSUPassword sets the superuser password in the PodFacts
+func (p *PodFacts) SetSUPassword(password string) {
+	*p.VerticaSUPassword = password
+}
+
 // checkDCTableAnnotations will check if the pod has the necessary annotations
 // to populate the DC tables that we log at vertica start.
 func (p *PodFacts) checkDCTableAnnotations(pod *corev1.Pod) bool {
@@ -1572,17 +1577,28 @@ func checkIfNodeUpCmd(podIP string, isHTTP bool) string {
 	}
 }
 
-// FindFirstPrimaryUpPodIP returns the ip of first pod that
+// FindFirstPrimaryUpPod returns the first pod that
 // has a primary up Vertica node, and a boolean that indicates
 // if we found such a pod
-func (p *PodFacts) FindFirstPrimaryUpPodIP() (string, bool) {
+func (p *PodFacts) FindFirstPrimaryUpPod() (*PodFact, bool) {
 	initiator, ok := p.FindFirstPodSorted(func(v *PodFact) bool {
 		return v.sandbox == vapi.MainCluster && v.isPrimary && v.upNode
 	})
 	if initiator == nil {
+		return nil, false
+	}
+	return initiator, ok
+}
+
+// FindFirstPrimaryUpPodIP returns the ip of first pod that
+// has a primary up Vertica node, and a boolean that indicates
+// if we found such a pod
+func (p *PodFacts) FindFirstPrimaryUpPodIP() (string, bool) {
+	pod, ok := p.FindFirstPrimaryUpPod()
+	if !ok {
 		return "", false
 	}
-	return initiator.podIP, ok
+	return pod.podIP, true
 }
 
 // FindUnsandboxedSubclustersStillInSandboxStatus returns a sandbox-subclusters map

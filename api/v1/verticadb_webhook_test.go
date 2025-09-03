@@ -2504,6 +2504,31 @@ var _ = Describe("verticadb_webhook", func() {
 		Expect(allErrs[0].Error()).To(ContainSubstring("must remain as primary type"))
 	})
 
+	It("should not change password secret if vdb has sandbox", func() {
+		oldVdb := MakeVDB()
+		// Setup main cluster and add sandbox with primary subclusters
+		oldVdb.Spec.Subclusters = []Subcluster{
+			{Name: "sc1", Type: PrimarySubcluster, Size: 3},
+			{Name: "sc2", Type: SecondarySubcluster, Size: 3},
+		}
+		sandbox := &Sandbox{
+			Name: "sandbox1",
+			Subclusters: []SandboxSubcluster{
+				{Name: "sc2", Type: PrimarySubcluster},
+			},
+		}
+		oldVdb.Spec.PasswordSecret = "password-secret"
+		oldVdb.Spec.Sandboxes = []Sandbox{*sandbox}
+		newVdb := oldVdb.DeepCopy()
+
+		// Try to change type of both primaries in sandbox
+		newVdb.Spec.PasswordSecret = "new-password-secret"
+		allErrs := newVdb.checkPasswordSecretUpdateWithSandbox(oldVdb, field.ErrorList{})
+		Expect(allErrs).To(HaveLen(1))
+		Expect(allErrs[0].Error()).To(ContainSubstring("Cannot change passwordSecret"))
+		Expect(allErrs[0].Error()).To(ContainSubstring("as the vdb has sandbox"))
+	})
+
 	It("should not accept invalid client server tls modes", func() {
 		newVdb := MakeVDB()
 		SetVDBForTLS(newVdb)

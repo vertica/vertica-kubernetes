@@ -64,7 +64,7 @@ var _ = Describe("shutdownspec_reconciler", func() {
 		Ω(k8sClient.Status().Update(ctx, vdb)).Should(Succeed())
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := podfacts.MakePodFacts(vdbRec, fpr, logger, TestPassword)
+		pfacts := podfacts.MakePodFacts(vdbRec, fpr, logger, &testPassword)
 		pfacts.SandboxName = sandbox1
 
 		r := MakeShutdownSpecReconciler(vdbRec, vdb)

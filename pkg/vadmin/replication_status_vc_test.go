@@ -63,7 +63,7 @@ var _ = Describe("replication_status_vc", func() {
 			replicationstatus.WithTargetIP(TestTargetIP),
 			replicationstatus.WithTargetDBName(TestTargetDBName),
 			replicationstatus.WithTargetUserName(TestTargetUserName),
-			replicationstatus.WithTargetPassword(TestTargetPassword),
+			replicationstatus.WithTargetPassword(&testTargetPassword),
 			replicationstatus.WithTransactionID(TestTransactionID),
 		)
 		Ω(err).Should(Succeed())

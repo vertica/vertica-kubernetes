@@ -19,11 +19,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 
 	"github.com/vertica/vcluster/vclusterops/util"
 )
 
 const SandboxTag = "--sandbox"
+
+const envName = "VERTICA_VCLUSTER_PASSTHROUGH"
 
 type nmaStartNodeOp struct {
 	opBase
@@ -35,8 +38,9 @@ type nmaStartNodeOp struct {
 }
 
 type startNodeRequestData struct {
-	StartCommand []string `json:"start_command"`
-	StartupConf  string   `json:"startup_conf"`
+	StartCommand []string          `json:"start_command"`
+	StartupConf  string            `json:"startup_conf"`
+	Environment  map[string]string `json:"special_environment,omitempty"`
 }
 
 func makeNMAStartNodeOp(
@@ -128,11 +132,17 @@ func (op *nmaStartNodeOp) updateHostRequestBodyMapFromNodeStartCommand(host stri
 	if op.sandboxName != util.MainClusterSandbox {
 		hostStartCommand = append(hostStartCommand, SandboxTag, op.sandboxName)
 	}
+	envPassThrough := os.Getenv(envName)
+	op.logger.Info("Capture environment variable:", envName, envPassThrough)
 	startNodeData := startNodeRequestData{
 		StartCommand: hostStartCommand,
 		StartupConf:  op.startupConf,
+		Environment:  util.SplitEnvVar(envPassThrough),
 	}
 
+	for key, value := range startNodeData.Environment {
+		op.logger.Info("Passing environment variable: ", key, value)
+	}
 	dataBytes, err := json.Marshal(startNodeData)
 	if err != nil {
 		return fmt.Errorf("[%s] fail to marshal request data to JSON string %w", op.name, err)

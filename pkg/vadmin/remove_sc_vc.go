@@ -79,7 +79,7 @@ func (v *VClusterOps) genRemoveSubclusterOptions(s *removesc.Parms, certs *tls.H
 		opts.DepotPrefix = v.VDB.Spec.Local.DepotPath
 	}
 
-	v.setAuthentication(&opts.DatabaseOptions, v.VDB.GetVerticaUser(), &v.Password, certs)
+	v.setAuthentication(&opts.DatabaseOptions, v.VDB.GetVerticaUser(), v.Password, certs)
 
 	return opts
 }
