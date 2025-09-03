@@ -771,7 +771,7 @@ func (v *VerticaDB) GetTLSConfigSpecByName(tlsConfig string) *TLSConfigSpec {
 // IsAutoCertRotationEnabled checks if automatic cert rotation is enabled for
 // for a certain tlsconfig (clientServer or httpsNMA)
 func (v *VerticaDB) IsAutoCertRotationEnabled(tlsConfig string) bool {
-	if !vmeta.UseTLSAuth(v.Annotations) {
+	if !vmeta.UseTLSAuth(v.Annotations) || v.IsTLSAuthDisabledForTLSConfig(tlsConfig) {
 		return false
 	}
 	config := v.GetTLSConfigSpecByName(tlsConfig)
@@ -1516,7 +1516,7 @@ func (v *VerticaDB) IsHTTPSTLSConfGenerationEnabled() (bool, error) {
 // IsHTTPSConfigEnabled returns true if tls is enabled and https tls config
 // exists in the db. It means the db ops can start using tls
 func (v *VerticaDB) IsHTTPSConfigEnabled() bool {
-	return v.IsSetForTLS() &&
+	return v.IsSetForTLS() && !v.IsHTTPSTLSAuthDisabled() &&
 		v.GetHTTPSNMATLSSecretInUse() != ""
 }
 
@@ -1528,7 +1528,7 @@ func (v *VerticaDB) IsHTTPSConfigEnabledWithCreate() bool {
 		return v.IsHTTPSConfigEnabled()
 	}
 
-	return v.IsSetForTLS()
+	return v.IsSetForTLS() && !v.IsHTTPSTLSAuthDisabled()
 }
 
 // IsClientServerConfigEnabled returns true if tls is enabled and client-server tls config
@@ -1544,6 +1544,29 @@ func (v *VerticaDB) IsClientServerConfigEnabled() bool {
 func (v *VerticaDB) IsSetForTLS() bool {
 	return v.IsValidVersionForTLS() &&
 		vmeta.UseTLSAuth(v.Annotations)
+}
+
+// IsTLSAuthDisabledForTLSConfig returns true if tls auth is explicitly disabled for the given TLS config.
+// It does not check if tls auth is enabled/disabled for the db.
+func (v *VerticaDB) IsTLSAuthDisabledForTLSConfig(tlsConfigName string) bool {
+	disabledConfig := strings.ToLower(strings.TrimSpace(vmeta.DisableTLSAuthForConfig(v.Annotations)))
+
+	switch tlsConfigName {
+	case ClientServerTLSConfigName:
+		return disabledConfig == vmeta.DisableTLSAuthForConfigServer
+	case HTTPSNMATLSConfigName:
+		return disabledConfig == vmeta.DisableTLSAuthForConfigHTTPS
+	default:
+		return false
+	}
+}
+
+func (v *VerticaDB) IsClientServerTLSAuthDisabled() bool {
+	return v.IsTLSAuthDisabledForTLSConfig(ClientServerTLSConfigName)
+}
+
+func (v *VerticaDB) IsHTTPSTLSAuthDisabled() bool {
+	return v.IsTLSAuthDisabledForTLSConfig(HTTPSNMATLSConfigName)
 }
 
 // IsValidVersionForTLS returns true if the server version
@@ -1993,7 +2016,7 @@ func (v *VerticaDB) NoClientServerRotationNeeded() bool {
 // to include in the NMA configmap. It prioritizes the currently in-use
 // secret if an update is still in progress or a rollback is needed.
 func (v *VerticaDB) GetHTTPSNMATLSSecretForConfigMap() string {
-	if !vmeta.UseTLSAuth(v.Annotations) {
+	if !vmeta.UseTLSAuth(v.Annotations) || v.IsHTTPSTLSAuthDisabled() {
 		return v.GetNMATLSSecret()
 	}
 	return v.GetValueForTLSConfigMap(v.GetHTTPSNMATLSSecret(), v.GetHTTPSNMATLSSecretInUse(), HTTPSNMATLSConfigName)
@@ -2019,6 +2042,17 @@ func (v *VerticaDB) IsCertNeededForClientServerAuth() bool {
 	return tlsMode != tlsModeDisable && tlsMode != tlsModeEnable
 }
 
+// ShouldGenCertForTLSConfig returns true if a specific TLS config is enabled and has changed.
+func (v *VerticaDB) ShouldGenCertForTLSConfig(tlsConfigName string) bool {
+	secret := v.GetHTTPSNMATLSSecret()
+	if tlsConfigName == ClientServerTLSConfigName {
+		secret = v.GetClientServerTLSSecret()
+	}
+	return vmeta.UseTLSAuth(v.Annotations) &&
+		!v.IsTLSAuthDisabledForTLSConfig(tlsConfigName) &&
+		(secret == "" || secret != v.GetSecretInUse(tlsConfigName))
+}
+
 // GetExpectedCertCommonName returns the expected common name for the TLS certificate.
 // For httpsNMATLS, this is the DB admin. For clientServerTLS, it will also default to
 // DB admin, but it can be overridden using clientServerTLS.commonName.
@@ -2031,6 +2065,9 @@ func (v *VerticaDB) GetExpectedCertCommonName(configName string) string {
 
 // GetNMAClientServerTLSMode returns the tlsMode for NMA client-server communication
 func (v *VerticaDB) GetNMAClientServerTLSMode() string {
+	if v.IsClientServerTLSAuthDisabled() {
+		return tlsModeDisable
+	}
 	tlsMode := v.GetClientServerTLSModeForConfigMap()
 	switch tlsMode {
 	case tlsModeDisable:
@@ -2186,7 +2223,7 @@ func (v *VerticaDB) GetHTTPSNMATLSSecret() string {
 
 // GetNMATLSSecret returns the NMATLS secret based on enable-tls annotation
 func (v *VerticaDB) GetNMATLSSecret() string {
-	if !vmeta.UseTLSAuth(v.Annotations) {
+	if !vmeta.UseTLSAuth(v.Annotations) || v.IsHTTPSTLSAuthDisabled() {
 		return v.Spec.NMATLSSecret
 	}
 	return v.GetHTTPSNMATLSSecret()
@@ -2211,12 +2248,22 @@ func (v *VerticaDB) GetClientServerTLSSecret() string {
 	return v.Spec.ClientServerTLS.Secret
 }
 
-// Check if TLS not enabled, DB not initialized, or rotate has failed (and rollback is not in progress).
-// In these cases, we skip TLS Update
-func (v *VerticaDB) ShouldSkipTLSUpdateReconcile() bool {
-	return !v.IsSetForTLS() ||
+// ShouldSkipTLSUpdateReconcile will check if TLS Update can be skipped for this config.
+// Possible reasons are:
+// 1) If TLS not enabled
+// 2) DB not initialized
+// 3) Rotate has failed (and rollback is not in progress)
+// 4) TLS auth is disabled for this config
+func (v *VerticaDB) ShouldSkipTLSUpdateReconcile(tlsConfigName string, isRollback bool) bool {
+	cond := ClientServerTLSConfigUpdateFinished
+	if tlsConfigName == HTTPSNMATLSConfigName {
+		cond = HTTPSTLSConfigUpdateFinished
+	}
+	return !isRollback && (!v.IsSetForTLS() ||
 		!v.IsDBInitialized() ||
-		v.IsTLSCertRollbackNeeded()
+		v.IsTLSCertRollbackNeeded() ||
+		v.IsTLSAuthDisabledForTLSConfig(tlsConfigName) ||
+		v.IsStatusConditionTrue(cond))
 }
 
 // HasNoExtraEnv returns true if there are no extra environment variables

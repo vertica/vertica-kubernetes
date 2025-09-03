@@ -60,7 +60,7 @@ func MakeClientServerTLSUpdateReconciler(vdbrecon *VerticaDBReconciler, log logr
 func (h *ClientServerTLSUpdateReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (ctrl.Result, error) {
 	// Skip if TLS not enabled, DB not initialized, or rotate has failed.
 	// However, if called from rollback reconciler, always run.
-	if h.Vdb.ShouldSkipTLSUpdateReconcile() && !h.FromRollback {
+	if h.Vdb.ShouldSkipTLSUpdateReconcile(vapi.ClientServerTLSConfigName, h.FromRollback) {
 		return ctrl.Result{}, nil
 	}
 
@@ -78,8 +78,7 @@ func (h *ClientServerTLSUpdateReconciler) Reconcile(ctx context.Context, req *ct
 		return rec.Reconcile(ctx, req)
 	}
 
-	if !h.Vdb.IsClientServerConfigEnabled() ||
-		h.Vdb.IsStatusConditionTrue(vapi.ClientServerTLSConfigUpdateFinished) {
+	if !h.Vdb.IsClientServerConfigEnabled() {
 		return ctrl.Result{}, nil
 	}
 
@@ -96,9 +95,11 @@ func (h *ClientServerTLSUpdateReconciler) Reconcile(ctx context.Context, req *ct
 		return ctrl.Result{}, err2
 	}
 
-	res, err := h.Manager.setPollingCertMetadata(ctx)
-	if verrors.IsReconcileAborted(res, err) {
-		return res, err
+	if !h.Vdb.IsHTTPSTLSAuthDisabled() {
+		res, err1 := h.Manager.setPollingCertMetadata(ctx)
+		if verrors.IsReconcileAborted(res, err1) {
+			return res, err1
+		}
 	}
 
 	upPods := h.PFacts.FindUpPods("")

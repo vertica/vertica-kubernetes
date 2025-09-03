@@ -2361,7 +2361,7 @@ func GetTarballName(cmd []string) string {
 }
 
 // BuildNMATLSConfigMap builds a configmap with tls secret name in it.
-// The configmap will be mapped to two environmental variables in NMA pod
+// The configmap will be mapped to environmental variables in NMA pod
 func BuildNMATLSConfigMap(nm types.NamespacedName, vdb *vapi.VerticaDB) *corev1.ConfigMap {
 	clientSecretName := vdb.GetClientServerTLSSecretForConfigMap()
 	clientSecretNamespace := vdb.ObjectMeta.Namespace
@@ -2370,6 +2370,8 @@ func BuildNMATLSConfigMap(nm types.NamespacedName, vdb *vapi.VerticaDB) *corev1.
 	if !vmeta.UseTLSAuth(vdb.Annotations) {
 		clientSecretName = vdb.GetNMATLSSecret()
 		clientSecretTLSMode = "enable"
+	} else if vdb.IsClientServerTLSAuthDisabled() {
+		clientSecretTLSMode = "disable"
 	}
 	secretMap := map[string]string{
 		NMASecretNamespaceEnv:       vdb.ObjectMeta.Namespace,

@@ -154,6 +154,12 @@ func (h *NMACertRotationReconciler) rotateNmaTLSCert(ctx context.Context, newSec
 	}
 	newSecretName := h.Vdb.GetHTTPSNMATLSSecret()
 
+	// If HTTPS is disabled, we are just doing a restart for Client-Server cert rotate
+	if h.Vdb.IsHTTPSTLSAuthDisabled() {
+		currentSecretName = h.Vdb.GetNMATLSSecret()
+		newSecretName = currentSecretName
+	}
+
 	if currentSecretName == newSecretName {
 		// If the current and new secrets are the same, then we are just restarting
 		h.VRec.Eventf(h.Vdb, corev1.EventTypeNormal, events.NMATLSCertRotationStarted,

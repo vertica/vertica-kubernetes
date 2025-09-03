@@ -261,7 +261,7 @@ func (o *ObjReconciler) checkTLSSecrets(ctx context.Context) (ctrl.Result, error
 	tlsSecrets := map[string]string{
 		"NMA TLS": o.Vdb.GetNMATLSSecret(),
 	}
-	if vmeta.UseTLSAuth(o.Vdb.Annotations) {
+	if vmeta.UseTLSAuth(o.Vdb.Annotations) && !o.Vdb.IsClientServerTLSAuthDisabled() {
 		tlsSecrets["Client Server TLS"] = o.Vdb.GetClientServerTLSSecret()
 	}
 	dbReconciler := o.Rec.(*VerticaDBReconciler)
@@ -836,7 +836,7 @@ func (o *ObjReconciler) shouldPreserveStsSize(curSts, expSts *appsv1.StatefulSet
 
 // reconcileTLSSecrets will update tls secrets
 func (o *ObjReconciler) reconcileTLSSecrets(ctx context.Context) error {
-	if !o.Vdb.IsSetForTLS() || o.Vdb.ShouldRemoveTLSSecret() {
+	if !o.Vdb.IsSetForTLS() || o.Vdb.IsClientServerTLSAuthDisabled() || o.Vdb.ShouldRemoveTLSSecret() {
 		return nil
 	}
 

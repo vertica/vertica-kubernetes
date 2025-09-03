@@ -1143,10 +1143,10 @@ func (v *VerticaDB) hasDuplicateScName(allErrs field.ErrorList) field.ErrorList 
 
 // hasValidTLSModes checks whether the TLS modes are valid
 func (v *VerticaDB) hasValidTLSModes(allErrs field.ErrorList) field.ErrorList {
-	if v.Spec.HTTPSNMATLS != nil {
+	if v.Spec.HTTPSNMATLS != nil && !v.IsHTTPSTLSAuthDisabled() {
 		allErrs = v.hasValidTLSMode(v.GetHTTPSNMATLSMode(), "httpsNMATLS", allErrs)
 	}
-	if v.Spec.ClientServerTLS != nil {
+	if v.Spec.ClientServerTLS != nil && !v.IsClientServerTLSAuthDisabled() {
 		allErrs = v.hasValidTLSMode(v.GetClientServerTLSMode(), "clientServerTLS", allErrs)
 	}
 
@@ -1157,13 +1157,13 @@ func (v *VerticaDB) hasValidTLSModes(allErrs field.ErrorList) field.ErrorList {
 // when TLS is enabled
 func (v *VerticaDB) hasTLSSecretsSetForRevive(allErrs field.ErrorList) field.ErrorList {
 	if vmeta.UseTLSAuth(v.Annotations) && v.Spec.InitPolicy == CommunalInitPolicyRevive {
-		if v.GetHTTPSNMATLSSecret() == "" {
+		if v.GetHTTPSNMATLSSecret() == "" && !v.IsHTTPSTLSAuthDisabled() {
 			err := field.Invalid(field.NewPath("spec").Child("httpsNMATLS").Child("secret"),
 				v.GetHTTPSNMATLSSecret(),
 				"httpsNMATLS.Secret cannot be empty when initPolicy is set to 'revive' and TLS is enabled")
 			allErrs = append(allErrs, err)
 		}
-		if v.GetClientServerTLSSecret() == "" {
+		if v.GetClientServerTLSSecret() == "" && !v.IsClientServerTLSAuthDisabled() {
 			err := field.Invalid(field.NewPath("spec").Child("clientServerTLS").Child("secret"),
 				v.GetHTTPSNMATLSSecret(),
 				"clientServerTLS.Secret cannot be empty when initPolicy is set to 'revive' and TLS is enabled")
@@ -1702,7 +1702,7 @@ func (v *VerticaDB) validateProxyConfig(allErrs field.ErrorList) field.ErrorList
 
 func (v *VerticaDB) validateNMASecret(allErrs field.ErrorList) field.ErrorList {
 	// when creating db, we should not allow setting nmaTLSSecret when tls is enabled
-	if v.Spec.NMATLSSecret != "" && !v.IsDBInitialized() && vmeta.UseTLSAuth(v.Annotations) {
+	if v.Spec.NMATLSSecret != "" && !v.IsDBInitialized() && vmeta.UseTLSAuth(v.Annotations) && !v.IsHTTPSTLSAuthDisabled() {
 		specFld := field.NewPath("spec")
 		allErrs = append(allErrs, field.Forbidden(specFld.Child("nmaTLSSecret"),
 			"nmaTLSSecret cannot be set when TLS is enabled, please use httpsNMATLS.secret instead"))
@@ -1865,6 +1865,18 @@ func (v *VerticaDB) hasValidTLSWithKnob(allErrs field.ErrorList) field.ErrorList
 	if !vmeta.UseTLSAuth(v.Annotations) && v.Spec.ClientServerTLS != nil {
 		err := field.Forbidden(field.NewPath("spec").Child("clientServerTLS"),
 			fmt.Sprintf("cannot set clientServerTLS when %s is set to false", vmeta.EnableTLSAuthAnnotation))
+		allErrs = append(allErrs, err)
+	}
+	if v.IsHTTPSTLSAuthDisabled() && v.Spec.HTTPSNMATLS != nil {
+		err := field.Forbidden(field.NewPath("spec").Child("httpsNMATLS"),
+			fmt.Sprintf("cannot set httpsNMATLS when %s is set to %s",
+				vmeta.DisableTLSAuthForConfigAnnotation, vmeta.DisableTLSAuthForConfigHTTPS))
+		allErrs = append(allErrs, err)
+	}
+	if v.IsClientServerTLSAuthDisabled() && v.Spec.ClientServerTLS != nil {
+		err := field.Forbidden(field.NewPath("spec").Child("clientServerTLS"),
+			fmt.Sprintf("cannot set clientServerTLS when %s is set to %s",
+				vmeta.DisableTLSAuthForConfigAnnotation, vmeta.DisableTLSAuthForConfigServer))
 		allErrs = append(allErrs, err)
 	}
 
@@ -2794,19 +2806,22 @@ func (v *VerticaDB) checkTLSFieldsWhenTLSUpdateNotInProgress(oldObj *VerticaDB) 
 
 	specFld := field.NewPath("spec")
 
-	httpsTLSSecretChanged := oldObj.GetHTTPSNMATLSSecret() != "" &&
-		oldObj.GetHTTPSNMATLSSecret() != v.GetHTTPSNMATLSSecret()
-	clientTLSSecretChanged := oldObj.GetClientServerTLSSecret() != "" &&
-		oldObj.GetClientServerTLSSecret() != v.GetClientServerTLSSecret()
-
-	if httpsTLSSecretChanged && v.GetHTTPSNMATLSSecret() == "" {
-		errs = append(errs, field.Forbidden(specFld.Child("httpsNMATLS").Child("secret"),
-			"cannot change httpsNMATLS.secret to empty value"))
+	if !v.IsHTTPSTLSAuthDisabled() {
+		httpsTLSSecretChanged := oldObj.GetHTTPSNMATLSSecret() != "" &&
+			oldObj.GetHTTPSNMATLSSecret() != v.GetHTTPSNMATLSSecret()
+		if httpsTLSSecretChanged && v.GetHTTPSNMATLSSecret() == "" {
+			errs = append(errs, field.Forbidden(specFld.Child("httpsNMATLS").Child("secret"),
+				"cannot change httpsNMATLS.secret to empty value"))
+		}
 	}
 
-	if clientTLSSecretChanged && v.GetClientServerTLSSecret() == "" {
-		errs = append(errs, field.Forbidden(specFld.Child("clientServerTLS").Child("secret"),
-			"cannot change clientServerTLS.secret to empty value"))
+	if !v.IsClientServerTLSAuthDisabled() {
+		clientTLSSecretChanged := oldObj.GetClientServerTLSSecret() != "" &&
+			oldObj.GetClientServerTLSSecret() != v.GetClientServerTLSSecret()
+		if clientTLSSecretChanged && v.GetClientServerTLSSecret() == "" {
+			errs = append(errs, field.Forbidden(specFld.Child("clientServerTLS").Child("secret"),
+				"cannot change clientServerTLS.secret to empty value"))
+		}
 	}
 
 	return errs
@@ -2877,7 +2892,7 @@ func (v *VerticaDB) checkValidTLSConfigUpdate(oldObj *VerticaDB, allErrs field.E
 		allErrs = append(allErrs, field.Forbidden(specFld.Child("nmaTLSSecret"),
 			"nmaTLSSecret cannot be changed"))
 	}
-	if vmeta.UseTLSAuth(v.Annotations) &&
+	if vmeta.UseTLSAuth(v.Annotations) && !v.IsHTTPSTLSAuthDisabled() &&
 		(oldObj.Spec.NMATLSSecret == "" && v.Spec.NMATLSSecret != "") {
 		allErrs = append(allErrs, field.Forbidden(specFld.Child("nmaTLSSecret"),
 			"nmaTLSSecret cannot be set when TLS is enabled, please use httpsNMATLS.secret instead"))
