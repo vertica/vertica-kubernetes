@@ -1528,6 +1528,20 @@ func GetHostAndPodNameList(podList []*PodFact) ([]string, []types.NamespacedName
 	return hostList, podNames
 }
 
+// get all running pods and main cluster running pod
+func GetHostGroups(pfacts *PodFacts) (upHosts []string,
+	mainClusterHost string) {
+	for _, detail := range pfacts.Detail {
+		if detail.GetUpNode() {
+			upHosts = append(upHosts, detail.GetPodIP())
+			if detail.GetSandbox() == "" && mainClusterHost == "" {
+				mainClusterHost = detail.GetPodIP()
+			}
+		}
+	}
+	return upHosts, mainClusterHost
+}
+
 // findExpectedNodeNames will return a list of pods that should have been in the database
 // before running db_add_node (which are also called expected nodes)
 func (p *PodFacts) FindExpectedNodeNames() []string {

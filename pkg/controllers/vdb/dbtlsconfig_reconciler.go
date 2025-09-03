@@ -51,7 +51,7 @@ func MakeDBTLSConfigReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger, v
 }
 
 func (t *DBTLSConfigReconciler) shouldSkipReconcile() bool {
-	return !t.Vdb.IsSetForTLS() || t.Vdb.IsStatusConditionTrue(vapi.TLSConfigUpdateInProgress) ||
+	return !t.Vdb.IsSetForTLSVersionAndCipher() || t.Vdb.IsStatusConditionTrue(vapi.TLSConfigUpdateInProgress) ||
 		t.Vdb.IsTLSCertRollbackNeeded() || !t.Vdb.IsStatusConditionTrue(vapi.DBInitialized)
 }
 
@@ -159,7 +159,7 @@ func (t *DBTLSConfigReconciler) updateTLSVersionAndReadCipherSuites(ctx context.
 			"Failed to update tls version to %d", newTLSVersion)
 		return err
 	}
-	hosts, mainClusterHosts := t.getHostGroups()
+	hosts, mainClusterHosts := podfacts.GetHostGroups(t.Pfacts)
 	err = t.pollHTTPS(ctx, hosts, mainClusterHosts)
 	if err != nil {
 		t.VRec.Eventf(t.Vdb, corev1.EventTypeWarning, events.DBTLSUpdateFailed,
@@ -183,20 +183,6 @@ func (t *DBTLSConfigReconciler) updateTLSVersionAndReadCipherSuites(ctx context.
 	return nil
 }
 
-// get all running pods and main cluster running pod
-func (t *DBTLSConfigReconciler) getHostGroups() (upHosts []string,
-	mainClusterHost string) {
-	for _, detail := range t.Pfacts.Detail {
-		if detail.GetUpNode() {
-			upHosts = append(upHosts, detail.GetPodIP())
-			if detail.GetSandbox() == "" && mainClusterHost == "" {
-				mainClusterHost = detail.GetPodIP()
-			}
-		}
-	}
-	return upHosts, mainClusterHost
-}
-
 func (t *DBTLSConfigReconciler) updateCipherSuites(ctx context.Context, initiatorPodIP string) error {
 	newCipherSuites := t.Vdb.Spec.DBTLSConfig.CipherSuites
 	t.VRec.Eventf(t.Vdb, corev1.EventTypeNormal, events.DBTLSUpdateStarted,
@@ -209,7 +195,7 @@ func (t *DBTLSConfigReconciler) updateCipherSuites(ctx context.Context, initiato
 			"failed to update tls cipher suites to %s", t.placeholderForAll(newCipherSuites))
 		return err
 	}
-	hosts, mainClusterHost := t.getHostGroups()
+	hosts, mainClusterHost := podfacts.GetHostGroups(t.Pfacts)
 	err = t.pollHTTPS(ctx, hosts, mainClusterHost)
 	if err != nil {
 		t.VRec.Eventf(t.Vdb, corev1.EventTypeWarning, events.DBTLSUpdateFailed,
