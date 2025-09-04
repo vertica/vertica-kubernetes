@@ -1542,13 +1542,18 @@ func (v *VerticaDB) IsClientServerConfigEnabled() bool {
 // It does not mean vclusterops can now operate using tls, for
 // that we need to wait until tls configurations are created
 func (v *VerticaDB) IsSetForTLS() bool {
-	return v.IsValidVersionForTLS() &&
+	return v.IsValidVersionForTLS(TLSAuthMinVersion) &&
+		vmeta.UseTLSAuth(v.Annotations)
+}
+
+func (v *VerticaDB) IsSetForTLSVersionAndCipher() bool {
+	return v.IsValidVersionForTLS(TLSVersionCipherMinVersion) &&
 		vmeta.UseTLSAuth(v.Annotations)
 }
 
 // IsValidVersionForTLS returns true if the server version
 // supports tls
-func (v *VerticaDB) IsValidVersionForTLS() bool {
+func (v *VerticaDB) IsValidVersionForTLS(minVersion string) bool {
 	if !v.UseVClusterOpsDeployment() {
 		return false
 	}
@@ -1559,7 +1564,7 @@ func (v *VerticaDB) IsValidVersionForTLS() bool {
 		return false
 	}
 
-	return vinf.IsEqualOrNewer(TLSAuthMinVersion)
+	return vinf.IsEqualOrNewer(minVersion)
 }
 
 // GenSubclusterStatusMap returns a map that has a subcluster name as key

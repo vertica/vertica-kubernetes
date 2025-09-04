@@ -339,6 +339,8 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		MakeReviveDBReconciler(r, log, vdb, prunner, pfacts, dispatcher),
 		// Update deployment method and enable HTTPS TLS
 		MakeDeploymentMethodReconciler(r, log, vdb, prunner, pfacts, dispatcher),
+		// reconcile tls version and cipher suite
+		MakeDBTLSConfigReconciler(r, log, vdb, prunner, dispatcher, pfacts),
 		MakeTLSReconciler(r, log, vdb, prunner, dispatcher, pfacts),
 		// Update the service monitor that will allow prometheus to scrape the
 		// metrics from the vertica pods.
