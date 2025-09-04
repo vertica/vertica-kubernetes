@@ -1529,9 +1529,9 @@ func GetHostAndPodNameList(podList []*PodFact) ([]string, []types.NamespacedName
 }
 
 // get all running pods and main cluster running pod
-func GetHostGroups(pfacts *PodFacts) (upHosts []string,
+func (p *PodFacts) GetHostGroups() (upHosts []string,
 	mainClusterHost string) {
-	for _, detail := range pfacts.Detail {
+	for _, detail := range p.Detail {
 		if detail.GetUpNode() {
 			upHosts = append(upHosts, detail.GetPodIP())
 			if detail.GetSandbox() == "" && mainClusterHost == "" {

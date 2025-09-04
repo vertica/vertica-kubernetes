@@ -61,7 +61,7 @@ func (t *DBTLSConfigReconciler) Reconcile(ctx context.Context, request *ctrl.Req
 		return ctrl.Result{}, nil
 	}
 	var updateTLSVersion, updateCipherSuites bool
-	if t.Vdb.Spec.DBTLSConfig != nil && t.Vdb.Status.DBTLSConfig != nil {
+	if t.Vdb.Status.DBTLSConfig != nil {
 		updateTLSVersion, updateCipherSuites = t.compareTLSConfig(t.Vdb.Spec.DBTLSConfig, t.Vdb.Status.DBTLSConfig)
 		if !updateTLSVersion && !updateCipherSuites {
 			return ctrl.Result{}, nil
@@ -158,7 +158,7 @@ func (t *DBTLSConfigReconciler) updateTLSVersionAndReadCipherSuites(ctx context.
 			"Failed to update tls version to %d", newTLSVersion)
 		return err
 	}
-	hosts, mainClusterHosts := podfacts.GetHostGroups(t.Pfacts)
+	hosts, mainClusterHosts := t.Pfacts.GetHostGroups()
 	err = t.pollHTTPS(ctx, hosts, mainClusterHosts)
 	if err != nil {
 		t.VRec.Eventf(t.Vdb, corev1.EventTypeWarning, events.DBTLSUpdateFailed,
@@ -194,7 +194,7 @@ func (t *DBTLSConfigReconciler) updateCipherSuites(ctx context.Context, initiato
 			"failed to update tls cipher suites to %s", t.placeholderForAll(newCipherSuites))
 		return err
 	}
-	hosts, mainClusterHost := podfacts.GetHostGroups(t.Pfacts)
+	hosts, mainClusterHost := t.Pfacts.GetHostGroups()
 	err = t.pollHTTPS(ctx, hosts, mainClusterHost)
 	if err != nil {
 		t.VRec.Eventf(t.Vdb, corev1.EventTypeWarning, events.DBTLSUpdateFailed,
