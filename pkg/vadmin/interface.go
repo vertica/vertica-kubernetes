@@ -28,6 +28,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/addnode"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/addsc"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/altersc"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/checklicense"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/createarchive"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/createdb"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/describedb"
@@ -166,6 +167,10 @@ type Dispatcher interface {
 
 	// SetTLSConfig will run DDL to configure TLS
 	SetTLSConfig(ctx context.Context, opts ...settlsconfig.Option) error
+
+	// CheckLicense will check Vertica license
+	CheckLicense(ctx context.Context, opts ...checklicense.Option) (vops.CheckLicenseResponse, error)
+
 	// DropDB will drop vertica.conf and catalog files before db revival
 	DropDB(ctx context.Context, opts ...dropdb.Option) error
 }
@@ -330,5 +335,6 @@ type VClusterProvider interface {
 	VRotateNMACerts(options *vops.VRotateNMACertsOptions) error
 	VRotateTLSCerts(options *vops.VRotateTLSCertsOptions) error
 	VSetTLSConfig(options *vops.VSetTLSConfigOptions) error
+	VCheckLicense(options *vops.VCheckLicenseOptions) (vops.CheckLicenseResponse, error)
 	VDropDatabase(options *vops.VDropDatabaseOptions) error
 }
