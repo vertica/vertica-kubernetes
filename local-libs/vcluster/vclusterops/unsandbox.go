@@ -26,9 +26,10 @@ import (
 
 type VUnsandboxOptions struct {
 	DatabaseOptions
-	SCName     string
-	SCHosts    []string
-	SCRawHosts []string
+	SCName      string
+	ForceDemote bool
+	SCHosts     []string
+	SCRawHosts  []string
 	// if restart the subcluster after unsandboxing it, the default value of it is true
 	RestartSC bool
 	// The expected node names with their IPs in the subcluster, the user of vclusterOps need
@@ -37,7 +38,8 @@ type VUnsandboxOptions struct {
 	NodeNameAddressMap map[string]string
 	// A primary up host in the main cluster. This option will be used to do re-ip in
 	// the main cluster.
-	PrimaryUpHost string
+	PrimaryUpHost    string
+	DemotionRequired bool
 }
 
 func VUnsandboxOptionsFactory() VUnsandboxOptions {
@@ -136,6 +138,8 @@ type ProcessedVDBInfo struct {
 	upSCHosts                   []string          // subcluster hosts that are UP
 	hasUpNodeInSC               bool              // if any node in the target subcluster is up. This is for internal use only.
 	hasOtherScInSandbox         bool              // If the sandbox has other subclusters (except for the one to be unsandboxed)
+	isTargetScPrimary           bool              // Is the target subcluster to be unsandboxed a primary sc in the sandbox
+	upSandboxCousins            []string          // up hosts in the target sandbox that are not a part of the subcluster to be unsandboxed
 
 }
 
@@ -183,6 +187,15 @@ func (vcc *VClusterCommands) unsandboxPreCheck(vdb *VCoordinationDatabase,
 		vcc.updateSandboxDetailsFromMainCluster(vdb, options, vdbInfo)
 	}
 
+	if vdbInfo.isTargetScPrimary && vdbInfo.hasOtherScInSandbox {
+		if !options.ForceDemote || len(vdbInfo.upSandboxCousins) == 0 {
+			msg := fmt.Sprintf("subcluster %q is primary with dependent objects and cannot be unsandboxed.\n"+
+				"Consider using --force-demote option to unsandbox a primary subcluster.", options.SCName)
+			vcc.Log.PrintError("%s", msg)
+			return fmt.Errorf("%s", msg)
+		}
+		options.DemotionRequired = true
+	}
 	// run re-ip on both of main cluster and the sandbox.
 	err = vcc.reIPNodes(options, vdbInfo.UpSandboxHost, vdbInfo.MainPrimaryUpHost,
 		vdbInfo.SandboxedNodeNameAddressMap, vdbInfo.mainClusterNodeNameAddressMap)
@@ -239,8 +252,14 @@ func (vcc *VClusterCommands) updateSandboxDetails(
 			if vnode.IsPrimary {
 				info.UpSandboxHost = vnode.Address
 			}
+			if vnode.Sandbox == info.SandboxName && vnode.Subcluster != options.SCName {
+				info.upSandboxCousins = append(info.upSandboxCousins, vnode.Address)
+			}
 		}
 		if vnode.Subcluster == options.SCName {
+			if vnode.IsPrimary {
+				info.isTargetScPrimary = true
+			}
 			info.SandboxedSubclusterHosts = append(info.SandboxedSubclusterHosts, vnode.Address)
 			info.SandboxedNodeNameAddressMap[vnode.Name] = vnode.Address
 		}
@@ -386,13 +405,9 @@ func (vcc *VClusterCommands) produceUnsandboxSCInstructions(options *VUnsandboxO
 	vdb *VCoordinationDatabase) ([]clusterOp, error) {
 	var instructions []clusterOp
 	// when password is specified, we will use username/password to call https endpoints
-	usePassword := false
-	if options.Password != nil {
-		usePassword = true
-		err := options.validateUserName(vcc.Log)
-		if err != nil {
-			return instructions, err
-		}
+	usePassword, err := vcc.shouldUsePassword(options)
+	if err != nil {
+		return instructions, err
 	}
 	username := options.UserName
 	// Check NMA health on sandbox hosts
@@ -412,6 +427,12 @@ func (vcc *VClusterCommands) produceUnsandboxSCInstructions(options *VUnsandboxO
 	for nodeName, host := range options.NodeNameAddressMap {
 		scHosts = append(scHosts, host)
 		scNodeNames = append(scNodeNames, nodeName)
+	}
+	if options.DemotionRequired {
+		err = buildDemoteScInstructions(&instructions, vdb, info.upSandboxCousins, info.SandboxName, options)
+		if err != nil {
+			return instructions, err
+		}
 	}
 	if info.hasUpNodeInSC {
 		instructions, err = buildStopNodeInstructions(instructions, scHosts, scNodeNames, usePassword, username, options)
@@ -455,6 +476,14 @@ func (vcc *VClusterCommands) produceUnsandboxSCInstructions(options *VUnsandboxO
 	return instructions, nil
 }
 
+func (vcc *VClusterCommands) shouldUsePassword(options *VUnsandboxOptions) (bool, error) {
+	if options.Password == nil {
+		return false, nil
+	}
+	err := options.validateUserName(vcc.Log)
+	return err == nil, err
+}
+
 func buildStopNodeInstructions(instructions []clusterOp,
 	scHosts, scNodeNames []string,
 	usePassword bool, username string,
@@ -473,6 +502,34 @@ func buildStopNodeInstructions(instructions []clusterOp,
 		&httpsPollScDown,
 	)
 	return instructions, nil
+}
+func buildDemoteScInstructions(instructions *[]clusterOp,
+	vdb *VCoordinationDatabase,
+	sandboxCousins []string,
+	sandbox string,
+	options *VUnsandboxOptions) error {
+	var noHosts = []string{}
+	sandboxInitiator := []string{sandboxCousins[0]}
+	// run demote subcluster on sandbox
+	httpsDemoteScOp, err := makeHTTPSDemoteSubclusterOp(sandboxInitiator, options.usePassword,
+		options.UserName, options.Password, options.SCName, sandbox, vdb)
+	if err != nil {
+		return err
+	}
+	// run rebalance shards on the sandbox
+	rebalanceOp, err := makeHTTPSRebalanceSubclusterShardsOp(
+		sandboxInitiator, options.usePassword, options.UserName, options.Password, options.SCName)
+	if err != nil {
+		return err
+	}
+	// Poll for active subscriptions for other sandbox up primary nodes
+	httpsPollSubscriptionStateOp, e := makeHTTPSPollSubscriptionStateOp(sandboxInitiator,
+		options.usePassword, options.UserName, options.Password, &sandboxCousins, &noHosts)
+	if e != nil {
+		return e
+	}
+	*instructions = append(*instructions, &httpsDemoteScOp, &rebalanceOp, &httpsPollSubscriptionStateOp)
+	return nil
 }
 
 func buildRestartScInstructions(instructions []clusterOp,
