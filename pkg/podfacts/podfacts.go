@@ -1465,6 +1465,23 @@ func (p *PodFacts) GetShutdownCount() int {
 	})
 }
 
+// HasShutdownQuorum returns true if more than half of primray nodes are shutdown
+func (p *PodFacts) HasShutdownQuorum() bool {
+	primaryNodeCount := p.countPods(func(v *PodFact) int {
+		if v.isPrimary {
+			return 1
+		}
+		return 0
+	})
+	shutdownPrimaryNodeCount := p.countPods(func(v *PodFact) int {
+		if v.isPrimary && v.shutdown {
+			return 1
+		}
+		return 0
+	})
+	return shutdownPrimaryNodeCount > primaryNodeCount/2
+}
+
 // GenPodNames will generate a string of pods names given a list of pods
 func GenPodNames(pods []*PodFact) string {
 	podNames := make([]string, 0, len(pods))
