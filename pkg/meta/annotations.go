@@ -255,10 +255,9 @@ const (
 	// a timer. It is internal and should be used only for testing.
 	TriggerAutoTLSRotateAnnotation = "vertica.com/trigger-auto-tls-rotate"
 
-	// When cert rotation fails, how many times should the operator retry before giving up or
-	// triggering rollback. This only applies to failures that are potentially recoverable, such
-	// as HTTPS polling errors.
-	CertRotationNumberRetriesAnnotation = "vertica.com/cert-rotation-number-of-retries"
+	// When cert rotation fails during HTTPS polling, how many times should the operator retry before giving up or
+	// triggering rollback.
+	HTTPSPollingNumberRetriesAnnotation = "vertica.com/https-polling-number-of-retries"
 
 	// We have a deployment check that ensures that if running vcluster ops the
 	// image is built for that (and vice-versa). This annotation allows you to
@@ -909,9 +908,9 @@ func IsHTTPSTLSSetInOfflineUpgrade(annotations map[string]string) bool {
 	return lookupBoolAnnotation(annotations, OfflineUpgradeHTTPSSetAnnotation, false)
 }
 
-// GetCertRotateNumRetries returns the number of retries to use for cert rotation (default 0).
-func GetCertRotateNumRetries(annotations map[string]string) int {
-	return lookupIntAnnotation(annotations, CertRotationNumberRetriesAnnotation, 0)
+// GetHTTPSPollingNumRetries returns the number of retries to use for cert rotation (default 0).
+func GetHTTPSPollingNumRetries(annotations map[string]string) int {
+	return lookupIntAnnotation(annotations, HTTPSPollingNumberRetriesAnnotation, 0)
 }
 
 // lookupBoolAnnotation is a helper function to lookup a specific annotation and

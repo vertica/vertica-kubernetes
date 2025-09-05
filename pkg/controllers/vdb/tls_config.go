@@ -187,7 +187,7 @@ func (t *TLSConfigManager) updateTLSConfig(ctx context.Context, initiator string
 	if err != nil {
 		// If HTTPS rotation failed during polling, try limited retries
 		if t.tlsConfigName == vapi.HTTPSNMATLSConfigName &&
-			t.Vdb.IsHTTPPollingError(err) && t.Vdb.GetCertRotateRetries() > 0 {
+			t.Vdb.IsHTTPPollingError(err) && t.Vdb.GetHTTPSPollingRetries() > 0 {
 			if retryErr := t.retryHTTPSPollingIfNeeded(ctx, err); retryErr == nil {
 				t.Rec.Eventf(t.Vdb, corev1.EventTypeNormal, succeeded,
 					"Successfully rotated %s tls cert with secret name %s and mode %s (after retries)",
@@ -492,33 +492,18 @@ func (t *TLSConfigManager) unsetForceTLSUpdateFailure(ctx context.Context) error
 // If retries succeed, nil is returned. If retries fail, the last polling error
 // is returned so rollback can be triggered by the caller.
 func (t *TLSConfigManager) retryHTTPSPollingIfNeeded(ctx context.Context, originalError error) error {
-	maxRetries := t.Vdb.GetCertRotateRetries()
+	maxRetries := t.Vdb.GetHTTPSPollingRetries()
 	if maxRetries <= 0 {
 		return fmt.Errorf("no retries configured for HTTPS polling")
 	}
 
-	upPods := t.PFacts.FindUpPods("")
-	if len(upPods) == 0 {
-		return fmt.Errorf("no up pods available for HTTPS polling retry")
-	}
-
-	var upPodIPs []string
-	for _, pod := range upPods {
-		upPodIPs = append(upPodIPs, pod.GetPodIP())
-	}
-	opts := []pollhttps.Option{
-		pollhttps.WithMainClusterHosts(strings.Join(upPodIPs, ",")),
-		pollhttps.WithInitiators([]string{upPods[0].GetPodIP()}),
-		pollhttps.WithSyncCatalogRequired(false),
-		pollhttps.WithNewHTTPSCerts(&tls.HTTPSCerts{
-			Key:    t.Key,
-			Cert:   t.Cert,
-			CaCert: t.CACert,
-		}),
-	}
-
 	lastErr := originalError
 	for attempt := 1; attempt <= maxRetries; attempt++ {
+		opts, err := t.getHTTPSPollingOpts(ctx)
+		if err != nil {
+			return err
+		}
+
 		// Unset the force failure annotation (used for testing) if it has been set.
 		if err := t.unsetForceTLSUpdateFailure(ctx); err != nil {
 			return err
@@ -542,4 +527,47 @@ func (t *TLSConfigManager) retryHTTPSPollingIfNeeded(ctx context.Context, origin
 
 	t.Log.Info("Exhausted HTTPS polling retries; initiating rollback", "maxRetries", maxRetries)
 	return lastErr
+}
+
+func (t *TLSConfigManager) getHTTPSPollingOpts(ctx context.Context) ([]pollhttps.Option, error) {
+	// Refresh podfacts each attempt
+	if err := t.PFacts.Collect(ctx, t.Vdb); err != nil {
+		return nil, err
+	}
+
+	upPods := t.PFacts.FindUpPods("")
+	if len(upPods) == 0 {
+		// No pods → restart cluster
+		restartReconciler := MakeRestartReconciler(t.Rec, t.Log, t.Vdb, t.PFacts.PRunner, t.PFacts, true, t.Dispatcher)
+		if _, err := restartReconciler.Reconcile(ctx, &ctrl.Request{}); err != nil {
+			return nil, fmt.Errorf("restart failed during HTTPS polling retry: %w", err)
+		}
+		// collect again after restart
+		if err := t.PFacts.Collect(ctx, t.Vdb); err != nil {
+			return nil, err
+		}
+		upPods = t.PFacts.FindUpPods("")
+		if len(upPods) == 0 {
+			return nil, fmt.Errorf("no up pods even after restart")
+		}
+	}
+
+	// Choose one primary host for mainClusterHosts
+	mainHost, ok := t.PFacts.FindFirstPrimaryUpPodIP()
+	if !ok {
+		return nil, fmt.Errorf("no primary pod found for HTTPS polling")
+	}
+
+	opts := []pollhttps.Option{
+		pollhttps.WithMainClusterHosts(mainHost),
+		pollhttps.WithInitiators([]string{mainHost}),
+		pollhttps.WithSyncCatalogRequired(true),
+		pollhttps.WithNewHTTPSCerts(&tls.HTTPSCerts{
+			Key:    t.Key,
+			Cert:   t.Cert,
+			CaCert: t.CACert,
+		}),
+	}
+
+	return opts, nil
 }

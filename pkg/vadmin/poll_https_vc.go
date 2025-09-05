@@ -28,7 +28,6 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/pollhttps"
 )
 
-//nolint:dupl
 func (v *VClusterOps) PollHTTPS(ctx context.Context, opts ...pollhttps.Option) error {
 	v.setupForAPICall("PollHttps")
 	defer v.tearDownForAPICall()
