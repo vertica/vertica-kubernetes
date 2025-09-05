@@ -59,7 +59,7 @@ func MakeHTTPSTLSUpdateReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger
 		Log:          log.WithName("HTTPSTLSUpdateReconciler"),
 		Dispatcher:   dispatcher,
 		PFacts:       pfacts,
-		Manager:      MakeTLSConfigManager(vdbrecon, log, vdb, tlsConfigHTTPS, dispatcher),
+		Manager:      MakeTLSConfigManager(vdbrecon, log, vdb, tlsConfigHTTPS, dispatcher, pfacts),
 		FromRollback: fromRollback,
 	}
 }

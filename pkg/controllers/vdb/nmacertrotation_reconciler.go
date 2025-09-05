@@ -54,7 +54,7 @@ func MakeNMACertRotationReconciler(vdbrecon *VerticaDBReconciler, log logr.Logge
 		Log:         log.WithName("NMACertRotationReconciler"),
 		Dispatcher:  dispatcher,
 		Pfacts:      pfacts,
-		Manager:     MakeTLSConfigManager(vdbrecon, log, vdb, tlsConfigHTTPS, dispatcher),
+		Manager:     MakeTLSConfigManager(vdbrecon, log, vdb, tlsConfigHTTPS, dispatcher, pfacts),
 		RestartOnly: restartOnly,
 	}
 }
