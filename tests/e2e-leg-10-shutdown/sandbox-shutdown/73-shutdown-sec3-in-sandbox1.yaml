@@ -11,12 +11,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1
-kind: VerticaDB
-metadata:
-  name: v-sandbox-shutdown
-spec:
-  subclusters:
-    - name: sec3
-      type: secondary
-      shutdown: true
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - command: |
+      kubectl patch -n $NAMESPACE vdb v-sandbox-shutdown --type='json' -p='[{"op":"add","path":"/spec/subclusters/3/shutdown","value":true}]'

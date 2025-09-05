@@ -136,6 +136,10 @@ func (r *RestartReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctr
 	// ScheduleOnly.
 	if r.PFacts.GetUpNodeAndNotReadOnlyCount() == 0 &&
 		r.Vdb.Spec.InitPolicy != vapi.CommunalInitPolicyScheduleOnly {
+		// We cannot restart the cluster if half or more of the nodes are shutdown
+		if r.PFacts.HasShutdownQuorum() {
+			return ctrl.Result{}, nil
+		}
 		return r.reconcileCluster(ctx)
 	}
 	return r.reconcileNodes(ctx)
