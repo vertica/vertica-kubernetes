@@ -65,10 +65,9 @@ func MakeTLSServerCertGenReconciler(vdbrecon *VerticaDBReconciler, log logr.Logg
 
 // Reconcile will create a TLS secret for the http server if one is missing
 func (h *TLSServerCertGenReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
-	nmaCertNeeded := !vmeta.UseTLSAuth(h.Vdb.Annotations) && h.Vdb.Spec.NMATLSSecret == ""
-	// Verify that at least one secret has changed
+	// Verify that at least one secret need generation
 	// If not, skip this reconciler
-	if !h.ShouldGenerateCert() && !nmaCertNeeded {
+	if !h.ShouldGenerateCert() {
 		return ctrl.Result{}, nil
 	}
 
@@ -84,16 +83,11 @@ func (h *TLSServerCertGenReconciler) reconcileSecrets(ctx context.Context) error
 	}
 	err := error(nil)
 	for secretFieldName, secretName := range secretFieldNameMap {
-		if !vmeta.UseTLSAuth(h.Vdb.Annotations) && secretFieldName != nmaTLSSecret {
-			h.Log.Info("TLS auth is not enabled. Skipping TLS secret validation and generation")
-			continue
-		}
-		if vmeta.UseTLSAuth(h.Vdb.Annotations) && secretFieldName == nmaTLSSecret {
-			h.Log.Info("TLS auth is enabled. Skipping NMA secret validation and generation")
+		if h.ShouldSkipThisConfig(secretFieldName) {
 			continue
 		}
 		// when nma secret is not empty, we can assign it to https and client TLS
-		if h.Vdb.Spec.NMATLSSecret != "" && (secretFieldName != nmaTLSSecret && secretName == "") {
+		if h.Vdb.Spec.NMATLSSecret != "" && !vmeta.UseTLSAuth(h.Vdb.Annotations) && (secretFieldName != nmaTLSSecret && secretName == "") {
 			nm := names.GenNamespacedName(h.Vdb, h.Vdb.Spec.NMATLSSecret)
 			secret := corev1.Secret{}
 			err = h.VRec.Client.Get(ctx, nm, &secret)
@@ -303,12 +297,28 @@ func (h *TLSServerCertGenReconciler) ValidateSecretCertificate(
 	return nil
 }
 
-// ShouldGenerateCert determines whether TLS server certificates should be generated.
-// Returns true if either TLS config is missing in status or the expected secret differs from what's currently recorded.
+// ShouldGenerateCert determines whether generating TLS server certificates should run at all.
+// Returns true if any secret (NMA, HTTPS, or Server) needs to be generated.
 func (h *TLSServerCertGenReconciler) ShouldGenerateCert() bool {
-	return vmeta.UseTLSAuth(h.Vdb.Annotations) &&
-		(h.Vdb.GetHTTPSNMATLSSecretInUse() == "" ||
-			h.Vdb.GetClientServerTLSSecretInUse() == "" ||
-			h.Vdb.GetHTTPSNMATLSSecretInUse() != h.Vdb.GetHTTPSNMATLSSecret() ||
-			h.Vdb.GetClientServerTLSSecretInUse() != h.Vdb.GetClientServerTLSSecret())
+	httpsNMACertNeeded := h.Vdb.ShouldGenCertForTLSConfig(vapi.HTTPSNMATLSConfigName)
+	clientServerCertNeeded := h.Vdb.ShouldGenCertForTLSConfig(vapi.ClientServerTLSConfigName)
+	nmaCertNeeded := !vmeta.UseTLSAuth(h.Vdb.Annotations) && h.Vdb.Spec.NMATLSSecret == ""
+	return httpsNMACertNeeded || clientServerCertNeeded || nmaCertNeeded
+}
+
+// ShouldSkipThisConfig determines whether an individual config (NMA, HTTPS, or Server) should skipped.
+func (h *TLSServerCertGenReconciler) ShouldSkipThisConfig(secretFieldName string) bool {
+	if secretFieldName == nmaTLSSecret && (vmeta.UseTLSAuth(h.Vdb.Annotations) && !h.Vdb.IsHTTPSTLSAuthDisabled()) {
+		h.Log.Info("TLS auth is enabled. Skipping NMA secret validation and generation")
+		return true
+	}
+	if secretFieldName == httpsNMATLSSecret && (!vmeta.UseTLSAuth(h.Vdb.Annotations) || h.Vdb.IsHTTPSTLSAuthDisabled()) {
+		h.Log.Info("HTTPS TLS config disabled. Skipping secret validation and generation")
+		return true
+	}
+	if secretFieldName == clientServerTLSSecret && (!vmeta.UseTLSAuth(h.Vdb.Annotations) || h.Vdb.IsClientServerTLSAuthDisabled()) {
+		h.Log.Info("Client-server TLS config disabled. Skipping secret validation and generation")
+		return true
+	}
+	return false
 }
