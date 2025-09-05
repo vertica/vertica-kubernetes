@@ -27,7 +27,7 @@ spec:
   issuerRef:
     kind: Issuer
     name: selfsigned-issuer
-  secretName: cert-no-client-auth
+  secretName: $CERT_NAME
 ---
 apiVersion: cert-manager.io/v1
 kind: Issuer

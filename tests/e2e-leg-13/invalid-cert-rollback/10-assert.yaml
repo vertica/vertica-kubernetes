@@ -14,7 +14,9 @@
 apiVersion: v1
 kind: Secret
 metadata:
-  name: cert-no-client-auth
+  name: cert-no-client-auth1
+  name: cert-no-client-auth2
+  name: cert-no-client-auth3
   name: custom-cert1
   name: custom-cert2
   name: custom-cert3

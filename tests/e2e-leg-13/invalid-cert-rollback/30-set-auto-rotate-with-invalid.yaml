@@ -22,5 +22,5 @@ spec:
     autoRotate:
       secrets:
       - custom-cert2
-      - cert-no-client-auth
+      - cert-no-client-auth2
       - custom-cert3

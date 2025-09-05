@@ -17,6 +17,4 @@ metadata:
   name: v-tls-certs
 spec:
   httpsNMATLS:
-    secret: cert-no-client-auth1
-  clientServerTLS:
-    secret: custom-cert3
+    autoRotate: null
