@@ -144,7 +144,8 @@ func (h *TLSServerCertGenReconciler) reconcileOneSecret(secretFieldName, secretN
 				if tlsStatus != nil {
 					// we do not recreate the secret as there is already
 					// a secret of this type in the status.
-					return nil
+					return h.InvalidCertRollback(ctx, "Validation of TLS Certificate %q failed; secret %q does not exist",
+						tlsConfigName, secretName)
 				}
 			}
 			h.Log.Error(err, secretName+" does not exist", "name", nm)
@@ -270,6 +271,18 @@ func (h *TLSServerCertGenReconciler) ValidateSecretCertificate(
 	secretName string,
 ) error {
 	h.Log.Info("validating TLS certificate for existing secret", "secretName", secretName)
+
+	// Check if secret exists
+	nm := names.GenNamespacedName(h.Vdb, secretName)
+	err := h.VRec.Client.Get(ctx, nm, secret)
+	if kerrors.IsNotFound(err) {
+		err1 := h.InvalidCertRollback(ctx, "Validation of TLS Certificate %q failed; secret %q does not exist", tlsConfigName, secretName)
+		if err1 != nil || h.Vdb.IsTLSCertRollbackNeeded() {
+			return err1
+		}
+		return err
+	}
+
 	certPEM := secret.Data[TLSCertName]
 	if certPEM == nil {
 		return errors.New("failed to decode PEM block containing certificate")
@@ -279,7 +292,7 @@ func (h *TLSServerCertGenReconciler) ValidateSecretCertificate(
 		return errors.New("failed to decode PEM block containing key")
 	}
 
-	err := security.ValidateTLSSecret(certPEM, keyPEM)
+	err = security.ValidateTLSSecret(certPEM, keyPEM)
 	if err != nil {
 		err1 := h.InvalidCertRollback(ctx, "Validation of TLS Certificate %q failed with secret %q", tlsConfigName, secretName)
 		if err1 != nil || h.Vdb.IsTLSCertRollbackNeeded() {
@@ -307,6 +320,7 @@ func (h *TLSServerCertGenReconciler) ValidateSecretCertificate(
 		h.Log.Info("certificate is nearing expiration, consider regenerating", "expiresAt", expireTime.UTC().Format(time.RFC3339)+" UTC")
 	}
 
+	h.Log.Info("successfully completed validating TLS certificate for existing secret", "secretName", secretName)
 	return nil
 }
 
