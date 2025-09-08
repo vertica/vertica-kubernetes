@@ -1465,6 +1465,23 @@ func (p *PodFacts) GetShutdownCount() int {
 	})
 }
 
+// HasShutdownQuorum returns true if more than half of primray nodes are shutdown
+func (p *PodFacts) HasShutdownQuorum() bool {
+	primaryNodeCount := p.countPods(func(v *PodFact) int {
+		if v.isPrimary {
+			return 1
+		}
+		return 0
+	})
+	shutdownPrimaryNodeCount := p.countPods(func(v *PodFact) int {
+		if v.isPrimary && v.shutdown {
+			return 1
+		}
+		return 0
+	})
+	return shutdownPrimaryNodeCount > primaryNodeCount/2
+}
+
 // GenPodNames will generate a string of pods names given a list of pods
 func GenPodNames(pods []*PodFact) string {
 	podNames := make([]string, 0, len(pods))
@@ -1526,6 +1543,20 @@ func GetHostAndPodNameList(podList []*PodFact) ([]string, []types.NamespacedName
 		podNames = append(podNames, pod.name)
 	}
 	return hostList, podNames
+}
+
+// get all running pods and main cluster running pod
+func (p *PodFacts) GetHostGroups() (upHosts []string,
+	mainClusterHost string) {
+	for _, detail := range p.Detail {
+		if detail.GetUpNode() {
+			upHosts = append(upHosts, detail.GetPodIP())
+			if detail.GetSandbox() == "" && mainClusterHost == "" {
+				mainClusterHost = detail.GetPodIP()
+			}
+		}
+	}
+	return upHosts, mainClusterHost
 }
 
 // findExpectedNodeNames will return a list of pods that should have been in the database

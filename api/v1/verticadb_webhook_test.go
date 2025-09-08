@@ -436,7 +436,7 @@ var _ = Describe("verticadb_webhook", func() {
 	})
 
 	It("should not include UID in path if revive_db", func() {
-		vdb := MakeVDB()
+		vdb := MakeVDBForVclusterOps()
 		annotationName := vmeta.IncludeUIDInPathAnnotation
 		vdb.Annotations[annotationName] = trueString
 		validateSpecValuesHaveErr(vdb, false)
@@ -498,6 +498,7 @@ var _ = Describe("verticadb_webhook", func() {
 		vdbOrig := createVDBHelper()
 		vdbOrig.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
 		vdbUpdate := createVDBHelper()
+		vdbUpdate.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationFalse
 		// when db is not initialized, we can change deployment type
 		checkErrorsForImmutableFields(vdbOrig, vdbUpdate, false)
 		checkErrorsForImmutableFields(vdbUpdate, vdbOrig, false)
@@ -705,6 +706,64 @@ var _ = Describe("verticadb_webhook", func() {
 		Ω(allErrs).Should(HaveLen(1))
 		delete(newVdb.Annotations, vmeta.EnableTLSAuthAnnotation)
 		allErrs = newVdb.validateNMASecret(nil)
+		Ω(allErrs).Should(HaveLen(0))
+	})
+
+	It("should not set dbTlsConfig when the deployment method is not vcluster-ops", func() {
+		vdb := MakeVDBForTLS()
+		vdb.Annotations[vmeta.EnableTLSAuthAnnotation] = falseString
+		vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.AnnotationFalse
+		vdb.Spec.HTTPSNMATLS = nil
+		vdb.Spec.ClientServerTLS = nil
+		vdb.Spec.DBTLSConfig = &DBTLSConfig{
+			TLSVersion:   2,
+			CipherSuites: "",
+		}
+		allErrs := vdb.validateVerticaDBSpec()
+		Ω(allErrs).Should(HaveLen(1))
+		vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.AnnotationTrue
+		vdb.Annotations[vmeta.EnableTLSAuthAnnotation] = trueString
+		allErrs = vdb.validateVerticaDBSpec()
+		Ω(allErrs).Should(HaveLen(0))
+
+		vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.AnnotationFalse
+		vdb.Annotations[vmeta.EnableTLSAuthAnnotation] = falseString
+		vdb.Spec.DBTLSConfig = nil
+		allErrs = vdb.validateVerticaDBSpec()
+		Ω(allErrs).Should(HaveLen(0))
+	})
+
+	It("should have valid tls version and cipher suites combination", func() {
+		vdb := MakeVDBForTLS()
+		vdb.Spec.DBTLSConfig = &DBTLSConfig{
+			TLSVersion:   2,
+			CipherSuites: "",
+		}
+		allErrs := vdb.validateVerticaDBSpec()
+		Ω(allErrs).Should(HaveLen(0))
+		vdb.Spec.DBTLSConfig = &DBTLSConfig{
+			TLSVersion:   2,
+			CipherSuites: "TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256",
+		}
+		allErrs = vdb.validateVerticaDBSpec()
+		Ω(allErrs).Should(HaveLen(1))
+		vdb.Spec.DBTLSConfig = &DBTLSConfig{
+			TLSVersion:   1,
+			CipherSuites: "",
+		}
+		allErrs = vdb.validateVerticaDBSpec()
+		Ω(allErrs).Should(HaveLen(1))
+		vdb.Spec.DBTLSConfig = &DBTLSConfig{
+			TLSVersion:   3,
+			CipherSuites: "tls_aes_256_gcm_sha384:TLS_CHACHA20_POLY1305_SHA256",
+		}
+		allErrs = vdb.validateVerticaDBSpec()
+		Ω(allErrs).Should(HaveLen(0))
+		vdb.Spec.DBTLSConfig = &DBTLSConfig{
+			TLSVersion:   2,
+			CipherSuites: "ECDHE-RSA-AES256-GCM-SHA384:ECDHE-RSA-AES128-SHA:ECDHE-RSA-AES128-GCM-SHA256",
+		}
+		allErrs = vdb.validateVerticaDBSpec()
 		Ω(allErrs).Should(HaveLen(0))
 	})
 
@@ -1099,7 +1158,7 @@ var _ = Describe("verticadb_webhook", func() {
 	})
 
 	It("should prevent negative values for requeueTime", func() {
-		vdb := MakeVDB()
+		vdb := MakeVDBForVclusterOps()
 		vdb.Annotations[vmeta.RequeueTimeAnnotation] = "-30"
 		validateSpecValuesHaveErr(vdb, true)
 		vdb.Annotations[vmeta.RequeueTimeAnnotation] = "0"
@@ -1123,7 +1182,7 @@ var _ = Describe("verticadb_webhook", func() {
 	})
 
 	It("should validate the value of encryptSpreadComm", func() {
-		vdb := MakeVDB()
+		vdb := MakeVDBForVclusterOps()
 		vdb.Spec.EncryptSpreadComm = "blah"
 		validateSpecValuesHaveErr(vdb, true)
 		vdb.Spec.EncryptSpreadComm = ""
@@ -1135,7 +1194,7 @@ var _ = Describe("verticadb_webhook", func() {
 	})
 
 	It("should validate we cannot have invalid paths for depot, data and catalog", func() {
-		vdb := MakeVDB()
+		vdb := MakeVDBForVclusterOps()
 		vdb.Spec.Local.DataPath = "/home/dbadmin"
 		validateSpecValuesHaveErr(vdb, true)
 		vdb.Spec.Local.DataPath = "/data"
@@ -1148,7 +1207,7 @@ var _ = Describe("verticadb_webhook", func() {
 	})
 
 	It("should not have invalid depotVolume type", func() {
-		vdb := MakeVDB()
+		vdb := MakeVDBForVclusterOps()
 		vdb.Spec.Local.DepotVolume = ""
 		validateSpecValuesHaveErr(vdb, false)
 		vdb.Spec.Local.DepotVolume = EmptyDir
@@ -1169,7 +1228,7 @@ var _ = Describe("verticadb_webhook", func() {
 	})
 
 	It("should prevent internally generated labels to be overridden", func() {
-		vdb := MakeVDB()
+		vdb := MakeVDBForVclusterOps()
 		vdb.Spec.Labels = map[string]string{
 			vmeta.SubclusterNameLabel: "sc-name",
 		}
@@ -1189,7 +1248,7 @@ var _ = Describe("verticadb_webhook", func() {
 	})
 
 	It("should verify range for verticaHTTPNodePort", func() {
-		vdb := MakeVDB()
+		vdb := MakeVDBForVclusterOps()
 		vdb.Spec.Subclusters[0].ServiceType = v1.ServiceTypeNodePort
 		vdb.Spec.Subclusters[0].VerticaHTTPNodePort = 8443 // Too low
 		validateSpecValuesHaveErr(vdb, true)
@@ -1198,7 +1257,7 @@ var _ = Describe("verticadb_webhook", func() {
 	})
 
 	It("should only allow a single handler to be overidden", func() {
-		vdb := MakeVDB()
+		vdb := MakeVDBForVclusterOps()
 		vdb.Spec.ReadinessProbeOverride = &v1.Probe{
 			ProbeHandler: v1.ProbeHandler{
 				Exec: &v1.ExecAction{
@@ -1225,7 +1284,7 @@ var _ = Describe("verticadb_webhook", func() {
 	})
 
 	It("should verify the shard count", func() {
-		vdb := MakeVDB()
+		vdb := MakeVDBForVclusterOps()
 		vdb.Spec.ShardCount = 0
 		validateSpecValuesHaveErr(vdb, true)
 		vdb.Spec.ShardCount = -1
@@ -1235,7 +1294,7 @@ var _ = Describe("verticadb_webhook", func() {
 	})
 
 	It("should not tolerate case sensitivity for subcluster type", func() {
-		vdb := MakeVDB()
+		vdb := MakeVDBForVclusterOps()
 		ucPrimary := strings.ToUpper(PrimarySubcluster)
 		ucSecondary := strings.ToUpper(SecondarySubcluster)
 		Ω(ucPrimary).ShouldNot(Equal(PrimarySubcluster))
@@ -1294,7 +1353,7 @@ var _ = Describe("verticadb_webhook", func() {
 	})
 
 	It("should not allow setting of runAsUser as root", func() {
-		oldVdb := MakeVDB()
+		oldVdb := MakeVDBForVclusterOps()
 		runAsUser := int64(0)
 		oldVdb.Spec.PodSecurityContext = &v1.PodSecurityContext{
 			RunAsUser: &runAsUser,
@@ -1308,7 +1367,7 @@ var _ = Describe("verticadb_webhook", func() {
 	})
 
 	It("should prevent setting the memory limit for the NMA to be less than 1Gi", func() {
-		vdb := MakeVDB()
+		vdb := MakeVDBForVclusterOps()
 		annotationName := vmeta.GenNMAResourcesAnnotationName(v1.ResourceLimitsMemory)
 		vdb.Annotations[annotationName] = "500Mi"
 		allErrs := vdb.validateVerticaDBSpec()
@@ -1320,7 +1379,7 @@ var _ = Describe("verticadb_webhook", func() {
 	})
 
 	It("should check for upgradePolicy", func() {
-		vdb := MakeVDB()
+		vdb := MakeVDBForVclusterOps()
 		vdb.Spec.UpgradePolicy = "NotValid"
 		Ω(vdb.validateVerticaDBSpec()).Should(HaveLen(1))
 		vdb.Spec.UpgradePolicy = OnlineUpgrade
@@ -1328,7 +1387,7 @@ var _ = Describe("verticadb_webhook", func() {
 	})
 
 	It("should check the validity of the replicaGroups", func() {
-		vdb := MakeVDB()
+		vdb := MakeVDBForVclusterOps()
 		vdb.Spec.Subclusters[0].Annotations = map[string]string{
 			vmeta.ReplicaGroupAnnotation: "invalid-value",
 		}
@@ -1341,7 +1400,7 @@ var _ = Describe("verticadb_webhook", func() {
 	})
 
 	It("should check subcluster immutability during upgrade", func() {
-		newVdb := MakeVDB()
+		newVdb := MakeVDBForVclusterOps()
 		newVdb.Spec.Subclusters = []Subcluster{
 			{Name: "a", Size: 3, Type: PrimarySubcluster, ServiceType: v1.ServiceTypeClusterIP},
 			{Name: "b", Size: 3, Type: PrimarySubcluster, ServiceType: v1.ServiceTypeClusterIP},
@@ -1373,7 +1432,7 @@ var _ = Describe("verticadb_webhook", func() {
 	})
 
 	It("should not allow malformed vertica version", func() {
-		vdb := MakeVDB()
+		vdb := MakeVDBForVclusterOps()
 		vdb.Annotations[vmeta.VersionAnnotation] = "24.3.0"
 		validateSpecValuesHaveErr(vdb, true)
 		vdb.Annotations[vmeta.VersionAnnotation] = "v24.X.X"
@@ -1537,7 +1596,7 @@ var _ = Describe("verticadb_webhook", func() {
 
 		// cannot use admintools deployments
 		vdb.ObjectMeta.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationFalse
-		Ω(vdb.validateVerticaDBSpec()).Should(HaveLen(1))
+		Ω(vdb.validateVerticaDBSpec()).Should(HaveLen(2))
 		vdb.ObjectMeta.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
 
 		// Two errors:
@@ -2634,6 +2693,15 @@ var _ = Describe("verticadb_webhook", func() {
 		Expect(allErrs[0].Error()).To(ContainSubstring("cannot set enable-tls-auth and mount-nma-certs to true at the same time"))
 	})
 
+	It("should return error if TLS is enabled and vcluster-ops is disabled", func() {
+		vdb := MakeVDB()
+		vdb.Annotations[vmeta.EnableTLSAuthAnnotation] = trueString
+		vdb.Annotations[vmeta.VClusterOpsAnnotation] = falseString
+		allErrs := vdb.hasNoConflictbetweenTLSAndAdmintool(field.ErrorList{})
+		Expect(allErrs).ShouldNot(BeEmpty())
+		Expect(allErrs[0].Error()).To(ContainSubstring("cannot set enable-tls-auth to true and vcluster-ops to false at the same time"))
+	})
+
 	It("should not return error if only TLS is enabled", func() {
 		vdb := MakeVDB()
 		vdb.Annotations[vmeta.EnableTLSAuthAnnotation] = trueString
@@ -3007,7 +3075,7 @@ var _ = Describe("verticadb_webhook", func() {
 })
 
 func createVDBHelper() *VerticaDB {
-	vdb := MakeVDB()
+	vdb := MakeVDBForVclusterOps()
 	// check other field values in the MakeVDB function
 	sc := &vdb.Spec.Subclusters[0]
 	sc.Type = PrimarySubcluster
