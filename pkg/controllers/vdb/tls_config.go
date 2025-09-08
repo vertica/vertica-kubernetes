@@ -535,32 +535,26 @@ func (t *TLSConfigManager) getHTTPSPollingOpts(ctx context.Context) ([]pollhttps
 		return nil, err
 	}
 
-	upPods := t.PFacts.FindUpPods("")
+	upPods, mainHost := t.PFacts.GetHostGroups()
 	if len(upPods) == 0 {
 		// No pods → restart cluster
 		restartReconciler := MakeRestartReconciler(t.Rec, t.Log, t.Vdb, t.PFacts.PRunner, t.PFacts, true, t.Dispatcher)
-		if _, err := restartReconciler.Reconcile(ctx, &ctrl.Request{}); err != nil {
+		if res, err := restartReconciler.Reconcile(ctx, &ctrl.Request{}); verrors.IsReconcileAborted(res, err) {
 			return nil, fmt.Errorf("restart failed during HTTPS polling retry: %w", err)
 		}
 		// collect again after restart
 		if err := t.PFacts.Collect(ctx, t.Vdb); err != nil {
 			return nil, err
 		}
-		upPods = t.PFacts.FindUpPods("")
+		upPods, mainHost = t.PFacts.GetHostGroups()
 		if len(upPods) == 0 {
 			return nil, fmt.Errorf("no up pods even after restart")
 		}
 	}
 
-	// Choose one primary host for mainClusterHosts
-	mainHost, ok := t.PFacts.FindFirstPrimaryUpPodIP()
-	if !ok {
-		return nil, fmt.Errorf("no primary pod found for HTTPS polling")
-	}
-
 	opts := []pollhttps.Option{
 		pollhttps.WithMainClusterHosts(mainHost),
-		pollhttps.WithInitiators([]string{mainHost}),
+		pollhttps.WithInitiators(upPods),
 		pollhttps.WithSyncCatalogRequired(true),
 		pollhttps.WithNewHTTPSCerts(&tls.HTTPSCerts{
 			Key:    t.Key,
