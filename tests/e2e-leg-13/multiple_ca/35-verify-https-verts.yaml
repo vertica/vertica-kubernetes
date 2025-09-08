@@ -1,0 +1,82 @@
+# (c) Copyright [2021-2024] Open Text.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# You may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: script-verify-multiple-ca
+data:
+  entrypoint.sh: |-
+    #!/bin/bash
+    set -o errexit
+    set -o xtrace
+    set -x 
+
+    for cert in cert1 cert2 cert3 
+    do
+      # kubectl get secret $cert -o jsonpath='{.data.tls\.crt}' | base64 -d > /tmp/${cert}.crt
+      # kubectl get secret $cert -o jsonpath='{.data.tls\.key}' | base64 -d > /tmp/${cert}.key
+      # kubectl get secret $ceer -o jsonpath='{.data.ca\.crt}' | base64 -d > /tmp/${cert}_ca.crt
+      line=$(kubectl get pod -o wide | grep v-multiple-ca-sc1-0)
+      array=($line)
+      curl -k --cert /etc/${cert}/tls.crt --key /etc/${cert}/tls.key --cacert /etc/${cert}/ca.crt https://${array[5]}:8443/api/v1/nodes
+      res=$?
+      if [ $res -ne 0 ]
+      then 
+        exit 1
+      fi
+    done
+    exit 0
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: script-verify-multiple-ca
+  labels:
+    stern: include
+spec:
+  restartPolicy: Never
+  containers:
+    - name: test
+      image: bitnami/kubectl:1.20.4
+      command: ["/bin/entrypoint.sh"]
+      volumeMounts:
+        - name: entrypoint-volume
+          mountPath: /bin/entrypoint.sh
+          readOnly: true
+          subPath: entrypoint.sh
+        - name: cert1
+          readOnly: true
+          mountPath: "/etc/cert1"          
+        - name: cert2
+          readOnly: true
+          mountPath: "/etc/cert2"
+        - name: cert3
+          readOnly: true
+          mountPath: "/etc/cert3"                    
+  volumes:
+    - name: entrypoint-volume
+      configMap:
+        defaultMode: 0777
+        name: script-verify-multiple-ca
+    - name: cert1
+      secret:
+        secretName: cert1
+    - name: cert2
+      secret:
+        secretName: cert2
+    - name: cert3
+      secret:
+        secretName: cert3
+
+
