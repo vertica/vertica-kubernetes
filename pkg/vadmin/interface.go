@@ -37,6 +37,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/getconfigparameter"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/installpackages"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/manageconnectiondraining"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/pollhttps"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/pollscstate"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/promotesandboxtomain"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/reip"
@@ -168,6 +169,8 @@ type Dispatcher interface {
 	SetTLSConfig(ctx context.Context, opts ...settlsconfig.Option) error
 	// DropDB will drop vertica.conf and catalog files before db revival
 	DropDB(ctx context.Context, opts ...dropdb.Option) error
+	// PollHttps will poll https service
+	PollHTTPS(ctx context.Context, opts ...pollhttps.Option) error
 }
 
 const (
@@ -207,7 +210,7 @@ type VClusterOps struct {
 	VDB          *vapi.VerticaDB
 	TargetVDB    *vapi.VerticaDB
 	Client       client.Client
-	Password     string
+	Password     *string
 	EVWriter     events.EVWriter
 	CacheManager cache.CacheManager
 	VClusterProvider
@@ -217,7 +220,7 @@ type VClusterOps struct {
 
 // MakeVClusterOps will create a dispatcher that uses the vclusterops library for admin commands.
 func MakeVClusterOps(log logr.Logger, vdb *vapi.VerticaDB, cli client.Client,
-	passwd string, evWriter events.EVWriter,
+	passwd *string, evWriter events.EVWriter,
 	apiSetupFunc func(logr.Logger, string) (VClusterProvider, logr.Logger), cacheManager cache.CacheManager) Dispatcher {
 	return &VClusterOps{
 		BaseLog:          log,
@@ -233,7 +236,7 @@ func MakeVClusterOps(log logr.Logger, vdb *vapi.VerticaDB, cli client.Client,
 
 // MakeVClusterOps will create a dispatcher that uses the vclusterops library for admin commands.
 func MakeVClusterOpsWithTarget(log logr.Logger, vdb *vapi.VerticaDB, targetVDB *vapi.VerticaDB, cli client.Client,
-	passwd string, evWriter events.EVWriter,
+	passwd *string, evWriter events.EVWriter,
 	apiSetupFunc func(logr.Logger, string) (VClusterProvider, logr.Logger), cacheManager cache.CacheManager) Dispatcher {
 	return &VClusterOps{
 		BaseLog:          log,
@@ -331,4 +334,5 @@ type VClusterProvider interface {
 	VRotateTLSCerts(options *vops.VRotateTLSCertsOptions) error
 	VSetTLSConfig(options *vops.VSetTLSConfigOptions) error
 	VDropDatabase(options *vops.VDropDatabaseOptions) error
+	VPollHTTPS(options *vops.VPollHTTPSOptions) error
 }

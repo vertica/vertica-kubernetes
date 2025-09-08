@@ -71,7 +71,7 @@ func (v *VClusterOps) genSandboxSubclusterOptions(s *sandboxsc.Params, certs *tl
 		opts.NodeNameAddressMap = s.NodeNameAddressMap
 	}
 
-	v.setAuthentication(&opts.DatabaseOptions, v.VDB.GetVerticaUser(), &v.Password, certs)
+	v.setAuthentication(&opts.DatabaseOptions, v.VDB.GetVerticaUser(), v.Password, certs)
 
 	return opts
 }

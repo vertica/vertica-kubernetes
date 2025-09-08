@@ -600,7 +600,7 @@ func (o *ReadOnlyOnlineUpgradeReconciler) checkVersion(ctx context.Context, sts 
 func (o *ReadOnlyOnlineUpgradeReconciler) updateHealthProbe(ctx context.Context, sts *appsv1.StatefulSet) (ctrl.Result, error) {
 	transientName, hasTransient := o.Vdb.GetTransientSubclusterName()
 	isTransientSts := hasTransient && sts.Labels[vmeta.SubclusterNameLabel] == transientName
-	if vmeta.UseVClusterOps(o.Vdb.Annotations) && !isTransientSts {
+	if o.Vdb.UseVClusterOpsDeployment() && !isTransientSts {
 		upgradeNeeded, err := o.Manager.changeHealthProbeIfNeeded(ctx, sts, o.VerticaVersion)
 		if upgradeNeeded {
 			o.PFacts.Invalidate()

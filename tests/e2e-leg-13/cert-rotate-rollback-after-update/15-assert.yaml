@@ -11,12 +11,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: v-cert-rotate-rollback-after-update-sc1
+status:
+  replicas: 3
+---
 apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
-  name: v-sandbox-shutdown
-spec:
-  sandboxes:
-  - name: sandbox2
-    subclusters:
-      - name: sec2
+  name: v-cert-rotate-rollback-after-update
+status:
+  subclusters:
+    - addedToDBCount: 3

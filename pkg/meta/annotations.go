@@ -230,13 +230,13 @@ const (
 	HTTPSTLSConfGenerationAnnotationFalse = "false"
 	HTTPSTLSConfGenerationDefaultValue    = true
 
-	// This annotation disables TLS rollback functionality. Setting this ensures
+	// This annotation enables TLS rollback functionality. Setting this false ensures
 	// backwards compatibility with functionality for versions <25.4.0. Default is
-	// currently false (disabling this feature).
-	DisableTLSRotationFailureRollbackAnnotation      = "vertica.com/disable-tls-rotation-failure-rollback"
-	DisableTLSRotationFailureRollbackAnnotationTrue  = "true"
-	DisableTLSRotationFailureRollbackAnnotationFalse = "false"
-	DisableTLSRotationFailureRollbackDefaultValue    = true
+	// currently true (enabling this feature).
+	EnableTLSRotationFailureRollbackAnnotation      = "vertica.com/enable-tls-rotation-failure-rollback"
+	EnableTLSRotationFailureRollbackAnnotationTrue  = "true"
+	EnableTLSRotationFailureRollbackAnnotationFalse = "false"
+	EnableTLSRotationFailureRollbackDefaultValue    = true
 
 	// This annotation forces a failure of the next TLS update cert rotation. There
 	// are two places where this can be forced:
@@ -472,6 +472,9 @@ const (
 	// This annotation disables the webhook check performed by hasValidTLSWithKnob().
 	// It is intended for internal testing purposes only.
 	SkipTLSWebhookCheck = "vertica.com/skip-tls-webhook-check"
+
+	// This is an internal annotation. It is used to indicate we've set HTTPS TLS in offline upgrade.
+	OfflineUpgradeHTTPSSetAnnotation = "vertica.com/offline-https-set"
 )
 
 // IsPauseAnnotationSet will check the annotations for a special value that will
@@ -627,11 +630,11 @@ func IsHTTPSTLSConfGenerationEnabled(annotations map[string]string) bool {
 	return lookupBoolAnnotation(annotations, HTTPSTLSConfGenerationAnnotation, HTTPSTLSConfGenerationDefaultValue)
 }
 
-// IsDisableTLSRollbackAnnotationSet returns true if DisableTLSFailureRollbackAnnotation is set,
-// disabling TLS cert rollback after failed rotation
-func IsDisableTLSRollbackAnnotationSet(annotations map[string]string) bool {
-	return lookupBoolAnnotation(annotations, DisableTLSRotationFailureRollbackAnnotation,
-		DisableTLSRotationFailureRollbackDefaultValue)
+// IsEnableTLSRollbackAnnotationSet returns true if EnableTLSFailureRollbackAnnotation is set,
+// enabling TLS cert rollback after failed rotation
+func IsEnableTLSRollbackAnnotationSet(annotations map[string]string) bool {
+	return lookupBoolAnnotation(annotations, EnableTLSRotationFailureRollbackAnnotation,
+		EnableTLSRotationFailureRollbackDefaultValue)
 }
 
 // GetTriggerTLSUpdateFailureAnnotation returns the string value of the annotation TriggerTLSUpdateFailureAnnotation,
@@ -894,6 +897,10 @@ func GetPrometheusScrapeInterval(annotations map[string]string) int {
 
 func ShouldSkipTLSWebhookCheck(annotations map[string]string) bool {
 	return lookupBoolAnnotation(annotations, SkipTLSWebhookCheck, false)
+}
+
+func IsHTTPSTLSSetInOfflineUpgrade(annotations map[string]string) bool {
+	return lookupBoolAnnotation(annotations, OfflineUpgradeHTTPSSetAnnotation, false)
 }
 
 // lookupBoolAnnotation is a helper function to lookup a specific annotation and

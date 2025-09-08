@@ -203,7 +203,7 @@ type PodFacts struct {
 	NeedCollection     bool
 	SandboxName        string
 	OverrideFunc       CheckerFunc // Set this if you want to be able to control the PodFact
-	VerticaSUPassword  string
+	VerticaSUPassword  *string
 	CacheManager       cache.CacheManager // Cache manager to use for fetching node details
 }
 
@@ -237,21 +237,21 @@ const (
 )
 
 // MakePodFacts will create a PodFacts object and return it
-func MakePodFactsWithCacheManager(vrec config.ReconcilerInterface, prunner cmds.PodRunner, log logr.Logger, password string,
+func MakePodFactsWithCacheManager(vrec config.ReconcilerInterface, prunner cmds.PodRunner, log logr.Logger, password *string,
 	cacheManager cache.CacheManager) PodFacts {
 	return PodFacts{VRec: vrec, PRunner: prunner, Log: log, NeedCollection: true, Detail: make(PodFactDetail),
 		VerticaSUPassword: password, SandboxName: vapi.MainCluster, CacheManager: cacheManager}
 }
 
 // MakePodFacts will create a PodFacts object and return it. This is mainly for test cases.
-func MakePodFacts(vrec config.ReconcilerInterface, prunner cmds.PodRunner, log logr.Logger, password string) PodFacts {
+func MakePodFacts(vrec config.ReconcilerInterface, prunner cmds.PodRunner, log logr.Logger, password *string) PodFacts {
 	return PodFacts{VRec: vrec, PRunner: prunner, Log: log, NeedCollection: true, Detail: make(PodFactDetail),
 		VerticaSUPassword: password, SandboxName: vapi.MainCluster}
 }
 
 // MakePodFactsForSandbox will create a PodFacts object for a sandbox
 func MakePodFactsForSandboxWithCacheManager(vrec config.ReconcilerInterface, prunner cmds.PodRunner, log logr.Logger,
-	password, sandbox string, cacheManager cache.CacheManager) PodFacts {
+	password *string, sandbox string, cacheManager cache.CacheManager) PodFacts {
 	pf := MakePodFactsWithCacheManager(vrec, prunner, log, password, cacheManager)
 	pf.SandboxName = sandbox
 	return pf
@@ -637,7 +637,7 @@ func (p *PodFacts) checkIsInstalled(_ context.Context, vdb *vapi.VerticaDB, pf *
 
 	// VClusterOps don't have an installed state, so we can handle that without
 	// checking if the pod is running.
-	if vmeta.UseVClusterOps(vdb.Annotations) {
+	if vdb.UseVClusterOpsDeployment() {
 		return p.checkIsInstalledForVClusterOps(pf)
 	}
 
@@ -664,7 +664,7 @@ func (p *PodFacts) checkIsInstalled(_ context.Context, vdb *vapi.VerticaDB, pf *
 }
 
 func (p *PodFacts) checkIsInstalledScheduleOnly(vdb *vapi.VerticaDB, pf *PodFact, gs *GatherState) error {
-	if vmeta.UseVClusterOps(vdb.Annotations) {
+	if vdb.UseVClusterOpsDeployment() {
 		return errors.New("schedule only does not support vdb when running with vclusterOps")
 	}
 
@@ -712,7 +712,7 @@ func (p *PodFacts) checkForSimpleGatherStateMapping(_ context.Context, vdb *vapi
 	pf.localDataSize = gs.LocalDataSize
 	pf.localDataAvail = gs.LocalDataAvail
 	pf.admintoolsExists = gs.AdmintoolsExists
-	pf.setNodeState(gs, vmeta.UseVClusterOps(vdb.Annotations))
+	pf.setNodeState(gs, vdb.UseVClusterOpsDeployment())
 	return nil
 }
 
@@ -1005,6 +1005,11 @@ func (p *PodFact) setNodeState(gs *GatherState, useVclusterOps bool) {
 	p.upNode = p.dbExists && gs.VerticaPIDRunning
 }
 
+// SetSUPassword sets the superuser password in the PodFacts
+func (p *PodFacts) SetSUPassword(password string) {
+	*p.VerticaSUPassword = password
+}
+
 // checkDCTableAnnotations will check if the pod has the necessary annotations
 // to populate the DC tables that we log at vertica start.
 func (p *PodFacts) checkDCTableAnnotations(pod *corev1.Pod) bool {
@@ -1087,7 +1092,7 @@ func (p *PodFacts) makeNodeInfoFetcher(vdb *vapi.VerticaDB, pf *PodFact) catalog
 	// Apart from the upgrade, we should check current version to make the decision.
 	verInfo, ok := vdb.MakeVersionInfoDuringROUpgrade()
 	if verInfo != nil && ok {
-		if !verInfo.IsOlder(vapi.FetchNodeDetailsWithVclusterOpsMinVersion) && vmeta.UseVClusterOps(vdb.Annotations) {
+		if !verInfo.IsOlder(vapi.FetchNodeDetailsWithVclusterOpsMinVersion) && vdb.UseVClusterOpsDeployment() {
 			return catalog.MakeVCluster(vdb, p.VerticaSUPassword, pf.podIP, p.Log, p.VRec.GetClient(), p.VRec.GetEventRecorder(), p.CacheManager)
 		}
 	} else {
@@ -1460,6 +1465,23 @@ func (p *PodFacts) GetShutdownCount() int {
 	})
 }
 
+// HasShutdownQuorum returns true if more than half of primray nodes are shutdown
+func (p *PodFacts) HasShutdownQuorum() bool {
+	primaryNodeCount := p.countPods(func(v *PodFact) int {
+		if v.isPrimary {
+			return 1
+		}
+		return 0
+	})
+	shutdownPrimaryNodeCount := p.countPods(func(v *PodFact) int {
+		if v.isPrimary && v.shutdown {
+			return 1
+		}
+		return 0
+	})
+	return shutdownPrimaryNodeCount > primaryNodeCount/2
+}
+
 // GenPodNames will generate a string of pods names given a list of pods
 func GenPodNames(pods []*PodFact) string {
 	podNames := make([]string, 0, len(pods))
@@ -1523,6 +1545,20 @@ func GetHostAndPodNameList(podList []*PodFact) ([]string, []types.NamespacedName
 	return hostList, podNames
 }
 
+// get all running pods and main cluster running pod
+func (p *PodFacts) GetHostGroups() (upHosts []string,
+	mainClusterHost string) {
+	for _, detail := range p.Detail {
+		if detail.GetUpNode() {
+			upHosts = append(upHosts, detail.GetPodIP())
+			if detail.GetSandbox() == "" && mainClusterHost == "" {
+				mainClusterHost = detail.GetPodIP()
+			}
+		}
+	}
+	return upHosts, mainClusterHost
+}
+
 // findExpectedNodeNames will return a list of pods that should have been in the database
 // before running db_add_node (which are also called expected nodes)
 func (p *PodFacts) FindExpectedNodeNames() []string {
@@ -1572,17 +1608,28 @@ func checkIfNodeUpCmd(podIP string, isHTTP bool) string {
 	}
 }
 
-// FindFirstPrimaryUpPodIP returns the ip of first pod that
+// FindFirstPrimaryUpPod returns the first pod that
 // has a primary up Vertica node, and a boolean that indicates
 // if we found such a pod
-func (p *PodFacts) FindFirstPrimaryUpPodIP() (string, bool) {
+func (p *PodFacts) FindFirstPrimaryUpPod() (*PodFact, bool) {
 	initiator, ok := p.FindFirstPodSorted(func(v *PodFact) bool {
 		return v.sandbox == vapi.MainCluster && v.isPrimary && v.upNode
 	})
 	if initiator == nil {
+		return nil, false
+	}
+	return initiator, ok
+}
+
+// FindFirstPrimaryUpPodIP returns the ip of first pod that
+// has a primary up Vertica node, and a boolean that indicates
+// if we found such a pod
+func (p *PodFacts) FindFirstPrimaryUpPodIP() (string, bool) {
+	pod, ok := p.FindFirstPrimaryUpPod()
+	if !ok {
 		return "", false
 	}
-	return initiator.podIP, ok
+	return pod.podIP, true
 }
 
 // FindUnsandboxedSubclustersStillInSandboxStatus returns a sandbox-subclusters map

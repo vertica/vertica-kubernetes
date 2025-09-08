@@ -41,7 +41,7 @@ var _ = Describe("saverestorepoint_reconciler", func() {
 			*vapi.MakeCondition(vapi.SaveRestorePointNeeded, metav1.ConditionTrue, "Done"))
 		Expect(k8sClient.Status().Update(ctx, vdb)).Should(Succeed())
 		fpr := &cmds.FakePodRunner{}
-		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
+		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, &testPassword)
 		r := MakeSaveRestorePointReconciler(vdbRec, vdb, logger, &podfacts.PodFacts{}, dispatcher, k8sClient)
 		res, err := r.Reconcile(ctx, &ctrl.Request{})
 		Expect(err).Should(Succeed())

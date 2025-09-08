@@ -18,6 +18,7 @@ package v1
 
 import (
 	"fmt"
+	"maps"
 	"reflect"
 	"slices"
 	"strings"
@@ -70,6 +71,20 @@ var validProxyLogLevel = []string{"TRACE", "DEBUG", "INFO", "WARN", "FATAL", "NO
 
 // log is for logging in this package.
 var verticadblog = logf.Log.WithName("verticadb-resource")
+
+var TLS2CipherSuites = map[string]struct{}{
+	"ECDHE-RSA-AES256-GCM-SHA384": {},
+	"ECDHE-RSA-CHACHA20-POLY1305": {},
+	"ECDHE-RSA-AES128-GCM-SHA256": {},
+	"ECDHE-RSA-AES256-SHA":        {},
+	"ECDHE-RSA-AES128-SHA":        {},
+}
+
+var TLS3CipherSuites = map[string]struct{}{
+	"TLS_AES_256_GCM_SHA384":       {},
+	"TLS_CHACHA20_POLY1305_SHA256": {},
+	"TLS_AES_128_GCM_SHA256":       {},
+}
 
 func (v *VerticaDB) SetupWebhookWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr).
@@ -173,6 +188,13 @@ func (v *VerticaDB) validateImmutableFields(old runtime.Object) field.ErrorList 
 	allErrs = v.checkValidTLSConfigUpdate(oldObj, allErrs)
 	allErrs = v.checkTLSModeCaseInsensitiveChange(oldObj, allErrs)
 	allErrs = v.checkValidSubclusterTypeTransition(oldObj, allErrs)
+	allErrs = v.checkSubclusterTypeChangeInShutdownSandbox(oldObj, allErrs)
+	allErrs = v.checkTypeChangeWithShutdownSubclusters(oldObj, allErrs)
+	allErrs = v.checkSandboxTypeChangeWithShutdownSubclusters(oldObj, allErrs)
+	allErrs = v.checkInvalidSubclusterTypeChange(allErrs)
+	allErrs = v.checkAtLeastOneMainPrimaryTypeUnchanged(oldObj, allErrs)
+	allErrs = v.checkAtLeastOneSandboxPrimaryTypeUnchanged(oldObj, allErrs)
+	allErrs = v.checkPasswordSecretUpdateWithSandbox(oldObj, allErrs)
 	allErrs = v.checkSandboxesDuringUpgrade(oldObj, allErrs)
 	allErrs = v.checkShutdownSandboxImage(oldObj, allErrs)
 	allErrs = v.checkShutdownForSandboxesToBeRemoved(oldObj, allErrs)
@@ -186,6 +208,268 @@ func (v *VerticaDB) validateImmutableFields(old runtime.Object) field.ErrorList 
 	return allErrs
 }
 
+// checkTypeChangeWithShutdownSubclusters checks for type changes when any subcluster is shutdown
+func (v *VerticaDB) checkTypeChangeWithShutdownSubclusters(oldObj *VerticaDB, allErrs field.ErrorList) field.ErrorList {
+	// Check if main cluster has any shutdown subcluster
+	hasShutdownSubcluster := false
+	for i := range v.Spec.Subclusters {
+		sc := &v.Spec.Subclusters[i]
+		if sc.Shutdown {
+			hasShutdownSubcluster = true
+			break
+		}
+	}
+
+	// If any subcluster is shutdown, prevent all type changes in main cluster
+	if hasShutdownSubcluster {
+		// Create a map of old subcluster names to their types
+		nameToTypeMap := make(map[string]string)
+		for i := range oldObj.Spec.Subclusters {
+			sc := &oldObj.Spec.Subclusters[i]
+			nameToTypeMap[sc.Name] = sc.Type
+		}
+
+		// Create a map of subclusters that are in sandboxes
+		scInSandbox := v.GenSubclusterSandboxMap()
+
+		// Check for type changes in any main cluster subcluster
+		for i := range v.Spec.Subclusters {
+			sc := &v.Spec.Subclusters[i]
+			// Skip subclusters that are in sandboxes
+			if _, inSandbox := scInSandbox[sc.Name]; inSandbox {
+				continue
+			}
+			oldType, exists := nameToTypeMap[sc.Name]
+			if !exists {
+				continue // Skip new subclusters
+			}
+			if oldType != sc.Type {
+				err := field.Invalid(
+					field.NewPath("spec").Child("subclusters").Index(i).Child("type"),
+					sc.Type,
+					fmt.Sprintf("Cannot change type of subcluster %q when any subcluster in the main cluster has shutdown=true",
+						sc.Name))
+				allErrs = append(allErrs, err)
+			}
+		}
+	}
+
+	return allErrs
+}
+
+// checkSandboxTypeChangeWithShutdownSubclusters checks for type changes when any subcluster is shutdown
+func (v *VerticaDB) checkSandboxTypeChangeWithShutdownSubclusters(oldObj *VerticaDB, allErrs field.ErrorList) field.ErrorList {
+	// Map to track which sandboxes have a shutdown subcluster
+	sandboxesWithShutdown := make(map[string]bool)
+
+	// First pass: identify sandboxes that have any shutdown subclusters
+	subclusterMap := v.GenSubclusterMap()
+	for _, sandbox := range v.Spec.Sandboxes {
+		for _, sc := range sandbox.Subclusters {
+			if subcluster, exists := subclusterMap[sc.Name]; exists && subcluster.Shutdown {
+				sandboxesWithShutdown[sandbox.Name] = true
+				break
+			}
+		}
+	}
+
+	// Second pass: check for type changes in sandboxes that have shutdown subclusters
+	oldSandboxMap := oldObj.GenSandboxMap()
+	for sandboxName, hasShutdown := range sandboxesWithShutdown {
+		if !hasShutdown {
+			continue
+		}
+
+		// Get the old sandbox to compare types
+		oldSandbox, exists := oldSandboxMap[sandboxName]
+		if !exists {
+			continue
+		}
+
+		// Find the corresponding new sandbox
+		var newSandbox *Sandbox
+		for i := range v.Spec.Sandboxes {
+			if v.Spec.Sandboxes[i].Name == sandboxName {
+				newSandbox = &v.Spec.Sandboxes[i]
+				break
+			}
+		}
+		if newSandbox == nil {
+			continue
+		}
+
+		// Create maps of subcluster types for comparison
+		oldTypes := make(map[string]string)
+		for _, sc := range oldSandbox.Subclusters {
+			oldTypes[sc.Name] = sc.Type
+		}
+
+		// Check for type changes in any subcluster in this sandbox
+		for i, sc := range newSandbox.Subclusters {
+			oldType, exists := oldTypes[sc.Name]
+			if !exists {
+				continue
+			}
+			if oldType != sc.Type {
+				err := field.Invalid(
+					field.NewPath("spec").Child("sandboxes").Index(i).Child("subclusters").Index(i).Child("type"),
+					sc.Type,
+					fmt.Sprintf("Cannot change type of subcluster %q in sandbox %q when any subcluster in the sandbox has shutdown=true",
+						sc.Name, sandboxName))
+				allErrs = append(allErrs, err)
+			}
+		}
+	}
+
+	return allErrs
+}
+
+// checkInvalidSubclusterTypeChange prevents changing subcluster types to to sandboxprimary/secondary when updating a vdb
+func (v *VerticaDB) checkInvalidSubclusterTypeChange(allErrs field.ErrorList) field.ErrorList {
+	for i := range v.Spec.Subclusters {
+		sc := &v.Spec.Subclusters[i]
+		if sc.Type == SandboxPrimarySubcluster || sc.Type == SandboxSecondarySubcluster {
+			err := field.Invalid(field.NewPath("spec").Child("subclusters").Index(i).Child("type"),
+				sc.Type,
+				"Cannot change subcluster type to sandboxprimary or sandboxsecondary")
+			allErrs = append(allErrs, err)
+		}
+	}
+	return allErrs
+}
+
+// checkSubclusterTypeChangeInShutdownSandbox checks if subcluster types are being changed in shutdown sandboxes
+func (v *VerticaDB) checkSubclusterTypeChangeInShutdownSandbox(oldObj *VerticaDB, allErrs field.ErrorList) field.ErrorList {
+	nameToTypeMap := map[string]string{}
+	for i := range oldObj.Spec.Subclusters {
+		sc := oldObj.Spec.Subclusters[i]
+		nameToTypeMap[sc.Name] = sc.Type
+	}
+
+	// Check each subcluster in new spec against old type
+	for i := range v.Spec.Subclusters {
+		sc := v.Spec.Subclusters[i]
+		oldType, ok := nameToTypeMap[sc.Name]
+		if !ok {
+			continue // Skip new subclusters
+		}
+
+		// Check if subcluster is in a shutdown sandbox
+		for _, sandbox := range oldObj.Spec.Sandboxes {
+			if !sandbox.Shutdown {
+				continue
+			}
+			for _, sandboxSc := range sandbox.Subclusters {
+				if sandboxSc.Name == sc.Name && oldType != sc.Type {
+					err := field.Invalid(field.NewPath("spec").Child("subclusters").Index(i).Child("type"),
+						sc.Type,
+						fmt.Sprintf("Cannot change type of subcluster %q while it is in shutdown sandbox %q",
+							sc.Name, sandbox.Name))
+					allErrs = append(allErrs, err)
+					break // Break inner loop since we found the matching subcluster
+				}
+			}
+		}
+	}
+	return allErrs
+}
+
+// checkAtLeastOneMainPrimaryTypeUnchanged ensures at least one primary subcluster type remains unchanged
+// in the main cluster
+func (v *VerticaDB) checkAtLeastOneMainPrimaryTypeUnchanged(oldObj *VerticaDB, allErrs field.ErrorList) field.ErrorList {
+	// We need to skip if subcluster name changed
+	// for online upgrade sandbox cluster promotion scenarios
+	if v.isOnlineUpgradeInProgress() {
+		return allErrs
+	}
+
+	// Map of old primary subclusters in main cluster
+	oldPrimaryScMap := make(map[string]bool)
+	for i := range oldObj.Spec.Subclusters {
+		oldSc := &oldObj.Spec.Subclusters[i]
+		if oldSc.Type == PrimarySubcluster {
+			oldPrimaryScMap[oldSc.Name] = true
+		}
+	}
+
+	// Check if at least one of the old primary subclusters remains as primary
+	hasUnchangedPrimary := false
+	for i := range v.Spec.Subclusters {
+		sc := &v.Spec.Subclusters[i]
+		// Check if this was a primary subcluster in the old spec
+		if _, wasPrimary := oldPrimaryScMap[sc.Name]; wasPrimary {
+			// If it's still primary, we found our unchanged primary
+			if sc.Type == PrimarySubcluster {
+				hasUnchangedPrimary = true
+				break
+			}
+		}
+	}
+
+	if !hasUnchangedPrimary {
+		err := field.Invalid(field.NewPath("spec").Child("subclusters"),
+			"subclusters",
+			"At least one primary subcluster in the main cluster must remain as primary type")
+		allErrs = append(allErrs, err)
+	}
+
+	return allErrs
+}
+
+// checkAtLeastOneSandboxPrimaryTypeUnchanged ensures at least one primary subcluster type remains unchanged
+// in each sandbox cluster
+func (v *VerticaDB) checkAtLeastOneSandboxPrimaryTypeUnchanged(oldObj *VerticaDB, allErrs field.ErrorList) field.ErrorList {
+	// Check each sandbox
+	for sandboxIdx := range v.Spec.Sandboxes {
+		sandbox := &v.Spec.Sandboxes[sandboxIdx]
+
+		// Find corresponding old sandbox
+		var oldSandbox *Sandbox
+		for i := range oldObj.Spec.Sandboxes {
+			if oldObj.Spec.Sandboxes[i].Name == sandbox.Name {
+				oldSandbox = &oldObj.Spec.Sandboxes[i]
+				break
+			}
+		}
+		if oldSandbox == nil {
+			continue // Skip new sandboxes
+		}
+
+		// Map old primary subclusters in this sandbox
+		oldPrimaryMap := make(map[string]bool)
+		for _, sc := range oldSandbox.Subclusters {
+			if sc.Type == PrimarySubcluster {
+				oldPrimaryMap[sc.Name] = true
+			}
+		}
+
+		// Check if at least one old primary remains as primary
+		hasUnchangedPrimary := false
+		for _, sc := range sandbox.Subclusters {
+			// Check if this was a primary subcluster in the old spec
+			if _, wasPrimary := oldPrimaryMap[sc.Name]; wasPrimary {
+				// If it's still primary, we found our unchanged primary
+				if sc.Type == PrimarySubcluster {
+					hasUnchangedPrimary = true
+					break
+				}
+			}
+		}
+
+		// Generate error if no primary remained unchanged and there were primaries before
+		if !hasUnchangedPrimary && len(oldPrimaryMap) > 0 {
+			err := field.Invalid(
+				field.NewPath("spec").Child("sandboxes").Index(sandboxIdx),
+				sandbox.Name,
+				fmt.Sprintf("At least one primary subcluster in sandbox %q must remain as primary type", sandbox.Name))
+			allErrs = append(allErrs, err)
+		}
+	}
+
+	return allErrs
+}
+
+// checkValidSubclusterTypeTransition checks that the subcluster types are valid during a transition.
 func (v *VerticaDB) checkValidSubclusterTypeTransition(oldObj *VerticaDB, allErrs field.ErrorList) field.ErrorList {
 	// Create a map of subclusterName -> type using the old object.
 	nameToTypeMap := map[string]string{}
@@ -229,6 +513,24 @@ func (v *VerticaDB) checkValidSubclusterTypeTransition(oldObj *VerticaDB, allErr
 			}
 		}
 	}
+
+	return allErrs
+}
+
+// checkPasswordSecretUpdateInShutdownSandbox checks if password secrets are being updated in shutdown sandboxes
+func (v *VerticaDB) checkPasswordSecretUpdateWithSandbox(oldObj *VerticaDB, allErrs field.ErrorList) field.ErrorList {
+	// if vdb does not have any sandboxes, skip this check
+	if len(v.Spec.Sandboxes) == 0 {
+		return allErrs
+	}
+
+	if oldObj.Spec.PasswordSecret != v.Spec.PasswordSecret {
+		err := field.Invalid(field.NewPath("spec").Child("passwordSecret"),
+			v.Spec.PasswordSecret,
+			fmt.Sprintf("Cannot change passwordSecret from %q to %q as the vdb has sandbox",
+				oldObj.Spec.PasswordSecret, v.Spec.PasswordSecret))
+		allErrs = append(allErrs, err)
+	}
 	return allErrs
 }
 
@@ -237,6 +539,7 @@ func (v *VerticaDB) validateVerticaDBSpec() field.ErrorList {
 	allErrs := v.hasAtLeastOneSC(field.ErrorList{})
 	allErrs = v.hasValidSubclusterTypes(allErrs)
 	allErrs = v.hasNoConflictbetweenTLSAndCertMount(allErrs)
+	allErrs = v.hasNoConflictbetweenTLSAndAdmintool(allErrs)
 	allErrs = v.hasValidTLSWithKnob(allErrs)
 	allErrs = v.hasValidInitPolicy(allErrs)
 	allErrs = v.hasValidRestorePolicy(allErrs)
@@ -260,6 +563,7 @@ func (v *VerticaDB) validateVerticaDBSpec() field.ErrorList {
 	allErrs = v.hasDuplicateScName(allErrs)
 	allErrs = v.hasValidVolumeName(allErrs)
 	allErrs = v.hasValidTLSModes(allErrs)
+	allErrs = v.hasValidDBTLSConfig(allErrs)
 	allErrs = v.hasTLSSecretsSetForRevive(allErrs)
 	allErrs = v.hasValidVolumeMountName(allErrs)
 	allErrs = v.hasValidKerberosSetup(allErrs)
@@ -864,6 +1168,57 @@ func (v *VerticaDB) hasValidTLSModes(allErrs field.ErrorList) field.ErrorList {
 	}
 
 	return allErrs
+}
+
+// hasValidTLSModes checks whether the TLS version and cipher suites are valid
+func (v *VerticaDB) hasValidDBTLSConfig(allErrs field.ErrorList) field.ErrorList {
+	if !v.IsSetForTLS() && v.Spec.DBTLSConfig != nil {
+		err := field.Invalid(field.NewPath("spec").Child("dbTlsConfig"), *v.Spec.DBTLSConfig, "cannot configure dbTlsConfig when enable-tls-auth is not enabled")
+		allErrs = append(allErrs, err)
+		return allErrs
+	}
+	if !v.IsSetForTLS() {
+		return allErrs
+	}
+	if v.Spec.DBTLSConfig == nil {
+		return allErrs
+	}
+	if v.Spec.DBTLSConfig.TLSVersion != 2 && v.Spec.DBTLSConfig.TLSVersion != 3 {
+		err := field.Invalid(field.NewPath("spec").Child("dbTlsConfig").Child("tlsVersion"), v.Spec.DBTLSConfig.TLSVersion,
+			"TLS version must be 2 (TLS1.2) or 3 (TLS1.3)")
+		allErrs = append(allErrs, err)
+		return allErrs
+	}
+	// TLS1.2 uses comma while TLS1.3 uses colon
+	separator := ":"
+	validCipherSuites := TLS2CipherSuites
+	if v.Spec.DBTLSConfig.TLSVersion == 3 {
+		validCipherSuites = TLS3CipherSuites
+	}
+	invalidCipherSuites := v.validateCipherSuites(validCipherSuites, v.Spec.DBTLSConfig.CipherSuites, separator)
+	if len(invalidCipherSuites) != 0 {
+		err := field.Invalid(field.NewPath("spec").Child("dbTlsConfig").Child("cipherSuites"), v.Spec.DBTLSConfig.CipherSuites,
+			fmt.Sprintf("invalid cipher suites for TLS version %d : %s. Supported cipher suites are %s.", v.Spec.DBTLSConfig.TLSVersion,
+				strings.Join(invalidCipherSuites, ":"), strings.Join(slices.Collect(maps.Keys(validCipherSuites)), ":")))
+		allErrs = append(allErrs, err)
+	}
+	return allErrs
+}
+
+// validateCipherSuites will validate if the cipherSuites is valid for the TLSVersion
+func (v *VerticaDB) validateCipherSuites(validCipherSuites map[string]struct{}, cipherSuites, separator string) []string {
+	invalidSuites := []string{}
+	if cipherSuites == "" {
+		return invalidSuites
+	}
+	parsedSuites := strings.Split(strings.ToUpper(cipherSuites), separator)
+	for _, suite := range parsedSuites {
+		_, ok := validCipherSuites[suite]
+		if !ok {
+			invalidSuites = append(invalidSuites, suite)
+		}
+	}
+	return invalidSuites
 }
 
 // hasTLSSecretsSetForRevive checks whether the TLS secrets are set for the revive init policy
@@ -1565,6 +1920,16 @@ func (v *VerticaDB) hasNoConflictbetweenTLSAndCertMount(allErrs field.ErrorList)
 	return allErrs
 }
 
+// hasNoConflictbetweenTLSAndAdmintool checks if both TLS and Admintool are used at the same time
+func (v *VerticaDB) hasNoConflictbetweenTLSAndAdmintool(allErrs field.ErrorList) field.ErrorList {
+	if vmeta.UseTLSAuth(v.Annotations) && !vmeta.UseVClusterOps(v.Annotations) {
+		err := field.Forbidden(field.NewPath("metadata").Child("annotations"),
+			"cannot set enable-tls-auth to true and vcluster-ops to false at the same time")
+		allErrs = append(allErrs, err)
+	}
+	return allErrs
+}
+
 // hasValidTLSWithKnob checks if https and client-server TLS are used when TLS auth is disabled
 func (v *VerticaDB) hasValidTLSWithKnob(allErrs field.ErrorList) field.ErrorList {
 	if vmeta.ShouldSkipTLSWebhookCheck(v.Annotations) {
@@ -1672,13 +2037,30 @@ func (v *VerticaDB) checkImmutableUpgradePolicy(oldObj *VerticaDB, allErrs field
 // checkImmutableDeploymentMethod will check if the deployment type is changing from
 // vclusterops to admintools, which isn't allowed.
 func (v *VerticaDB) checkImmutableDeploymentMethod(oldObj *VerticaDB, allErrs field.ErrorList) field.ErrorList {
-	if vmeta.UseVClusterOps(oldObj.Annotations) && !vmeta.UseVClusterOps(v.Annotations) {
-		// change from vclusterops deployment to admintools deployment
-		prefix := field.NewPath("metadata").Child("annotations")
-		err := field.Invalid(prefix.Key(vmeta.VClusterOpsAnnotation),
-			v.Annotations[vmeta.VClusterOpsAnnotation],
-			"deployment type cannot change from vclusterops to admintools")
-		allErrs = append(allErrs, err)
+	// When the database is not initialized, we allow the user to change the deployment type
+	if !v.IsDBInitialized() {
+		return allErrs
+	}
+	willUpgrade := oldObj.Spec.Image != v.Spec.Image
+	// When the upgrade is not required, we disallow the user to change the deployment type
+	if !willUpgrade && !v.isUpgradeInProgress() {
+		if vmeta.UseVClusterOps(oldObj.Annotations) != vmeta.UseVClusterOps(v.Annotations) {
+			prefix := field.NewPath("metadata").Child("annotations")
+			err := field.Invalid(prefix.Key(vmeta.VClusterOpsAnnotation),
+				v.Annotations[vmeta.VClusterOpsAnnotation],
+				"deployment type cannot change for a running database")
+			allErrs = append(allErrs, err)
+		}
+		// when upgrade is triggered, we disallow the user to change the deployment type to admintools
+	} else if willUpgrade {
+		if vmeta.UseVClusterOps(oldObj.Annotations) && !vmeta.UseVClusterOps(v.Annotations) {
+			// change from vclusterops deployment to admintools deployment
+			prefix := field.NewPath("metadata").Child("annotations")
+			err := field.Invalid(prefix.Key(vmeta.VClusterOpsAnnotation),
+				v.Annotations[vmeta.VClusterOpsAnnotation],
+				"deployment type cannot change from vclusterops to admintools in an upgrade")
+			allErrs = append(allErrs, err)
+		}
 	}
 	return allErrs
 }

@@ -51,7 +51,7 @@ type ReplicationInfo struct {
 	Vdb      *vapi.VerticaDB
 	IP       string
 	Username string
-	Password string
+	Password *string
 }
 
 type ReplicationReconciler struct {
@@ -154,7 +154,7 @@ func (r *ReplicationReconciler) fetchVdbs(ctx context.Context) (res ctrl.Result,
 
 // makeDispatcher will create a Dispatcher object based on the feature flags set.
 func (r *ReplicationReconciler) makeDispatcher() error {
-	if !vmeta.UseVClusterOps(r.SourceInfo.Vdb.Annotations) {
+	if !r.SourceInfo.Vdb.UseVClusterOpsDeployment() {
 		return fmt.Errorf("replication is not supported when the source uses admintools deployments")
 	}
 
@@ -182,7 +182,7 @@ func (r *ReplicationReconciler) determineUsernameAndPassword(ctx context.Context
 		return err
 	}
 
-	if r.TargetInfo.Vdb.IsSetForTLS() && r.TargetInfo.Password == "" && r.Vrep.Spec.TLSConfig == "" {
+	if r.TargetInfo.Vdb.IsSetForTLS() && *r.TargetInfo.Password == "" && r.Vrep.Spec.TLSConfig == "" {
 		return fmt.Errorf("cannot use empty password when tls is enabled in target vdb %q",
 			r.TargetInfo.Vdb.Name)
 	}
@@ -193,13 +193,14 @@ func (r *ReplicationReconciler) determineUsernameAndPassword(ctx context.Context
 // determine username and password to use for a vdb depending on certain fields of vrep spec
 func setUsernameAndPassword(ctx context.Context, cli client.Client, log logr.Logger,
 	vRec *VerticaReplicatorReconciler, vdb *vapi.VerticaDB,
-	dbInfo *v1beta1.VerticaReplicatorDatabaseInfo) (username, password string, err error) {
+	dbInfo *v1beta1.VerticaReplicatorDatabaseInfo) (username string, password *string, err error) {
+	emptyPassword := ""
 	if dbInfo.UserName == "" {
 		// database superuser is assumed
 		username := vdb.GetVerticaUser()
 		password, err := vk8s.GetSuperuserPassword(ctx, cli, log, vRec, vdb)
 		if err != nil {
-			return "", "", err
+			return "", &emptyPassword, err
 		}
 		return username, password, nil
 	} else {
@@ -207,14 +208,14 @@ func setUsernameAndPassword(ctx context.Context, cli client.Client, log logr.Log
 		username := dbInfo.UserName
 		if dbInfo.PasswordSecret == "" {
 			// empty password is assumed
-			return username, "", nil
+			return username, &emptyPassword, nil
 		} else {
 			// fetch custom password
 			// assuming the password secret key is default
 			password, err := vk8s.GetCustomSuperuserPassword(ctx, cli, log,
 				vRec, vdb, dbInfo.PasswordSecret, names.SuperuserPasswordKey)
 			if err != nil {
-				return "", "", err
+				return "", &emptyPassword, err
 			}
 			return username, password, nil
 		}

@@ -95,7 +95,7 @@ func (v *VClusterOps) genReIPOptions(s *reip.Parms, certs *tls.HTTPSCerts) vops.
 		opts.ConfigurationParameters = s.ConfigurationParams
 	}
 
-	v.setAuthentication(&opts.DatabaseOptions, v.VDB.GetVerticaUser(), &v.Password, certs)
+	v.setAuthentication(&opts.DatabaseOptions, v.VDB.GetVerticaUser(), v.Password, certs)
 
 	// other options
 	opts.TrimReIPList = true

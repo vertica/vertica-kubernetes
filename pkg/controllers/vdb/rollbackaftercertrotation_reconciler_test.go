@@ -36,7 +36,7 @@ var _ = Describe("rollbackaftercertrotation_reconciler", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Annotations = map[string]string{}
 
-		vdb.Annotations[vmeta.DisableTLSRotationFailureRollbackAnnotation] = vmeta.DisableTLSRotationFailureRollbackAnnotationTrue
+		vdb.Annotations[vmeta.EnableTLSRotationFailureRollbackAnnotation] = vmeta.EnableTLSRotationFailureRollbackAnnotationFalse
 		cond := vapi.MakeCondition(vapi.TLSCertRollbackNeeded, metav1.ConditionTrue, vapi.RollbackAfterHTTPSCertRotationReason)
 		meta.SetStatusCondition(&vdb.Status.Conditions, *cond)
 
@@ -44,8 +44,8 @@ var _ = Describe("rollbackaftercertrotation_reconciler", func() {
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
 
 		fpr := &cmds.FakePodRunner{}
-		dispatcher := vdbRec.makeDispatcher(logger, vdb, &cmds.FakePodRunner{}, TestPassword)
-		pfacts := podfacts.MakePodFacts(vdbRec, fpr, logger, TestPassword)
+		dispatcher := vdbRec.makeDispatcher(logger, vdb, &cmds.FakePodRunner{}, &testPassword)
+		pfacts := podfacts.MakePodFacts(vdbRec, fpr, logger, &testPassword)
 
 		recon := MakeRollbackAfterCertRotationReconciler(vdbRec, logger, vdb, dispatcher, &pfacts)
 		res, err := recon.Reconcile(ctx, nil)
@@ -61,7 +61,7 @@ var _ = Describe("rollbackaftercertrotation_reconciler", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Annotations = map[string]string{}
 
-		vdb.Annotations[vmeta.DisableTLSRotationFailureRollbackAnnotation] = vmeta.DisableTLSRotationFailureRollbackAnnotationFalse
+		vdb.Annotations[vmeta.EnableTLSRotationFailureRollbackAnnotation] = vmeta.EnableTLSRotationFailureRollbackAnnotationTrue
 		cond := vapi.MakeCondition(vapi.TLSCertRollbackNeeded, metav1.ConditionFalse, "")
 		meta.SetStatusCondition(&vdb.Status.Conditions, *cond)
 
@@ -69,8 +69,8 @@ var _ = Describe("rollbackaftercertrotation_reconciler", func() {
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
 
 		fpr := &cmds.FakePodRunner{}
-		dispatcher := vdbRec.makeDispatcher(logger, vdb, &cmds.FakePodRunner{}, TestPassword)
-		pfacts := podfacts.MakePodFacts(vdbRec, fpr, logger, TestPassword)
+		dispatcher := vdbRec.makeDispatcher(logger, vdb, &cmds.FakePodRunner{}, &testPassword)
+		pfacts := podfacts.MakePodFacts(vdbRec, fpr, logger, &testPassword)
 
 		recon := MakeRollbackAfterCertRotationReconciler(vdbRec, logger, vdb, dispatcher, &pfacts)
 		res, err := recon.Reconcile(ctx, nil)

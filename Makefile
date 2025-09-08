@@ -753,7 +753,7 @@ port-forward-prometheus-server:  ## Expose the prometheus endpoint so that you c
 
 .PHONY: port-forward-grafana
 port-forward-grafana:  ## Expose the grafana endpoint so that you can connect to it through http://localhost:3000
-	kubectl port-forward -n $(NAMESPACE) svc/$(HELM_RELEASE_NAME)-grafana --address $(LOCALHOST) 3000:80
+	kubectl port-forward -n $(NAMESPACE) svc/$(HELM_RELEASE_NAME)-grafana 3000:80
 
 .PHONY: deploy-prometheus-service-monitor
 deploy-prometheus-service-monitor:

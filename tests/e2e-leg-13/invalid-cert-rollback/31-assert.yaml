@@ -1,0 +1,45 @@
+apiVersion: v1
+kind: Event
+reason: TLSAutoRotateSucceeded
+source:
+  component: verticadb-operator
+involvedObject:
+  apiVersion: vertica.com/v1
+  kind: VerticaDB
+  name: v-tls-certs
+message: Auto-rotate triggered for TLS config httpsNMA with secret custom-cert3
+---
+apiVersion: v1
+kind: Event
+reason: HTTPSTLSUpdateStarted
+source:
+  component: verticadb-operator
+involvedObject:
+  apiVersion: vertica.com/v1
+  kind: VerticaDB
+  name: v-tls-certs
+message: Starting tls cert rotation for HTTP with secret name custom-cert3 and mode verify_ca
+---
+apiVersion: v1
+kind: Event
+reason: HTTPSTLSUpdateSucceeded
+source:
+  component: verticadb-operator
+involvedObject:
+  apiVersion: vertica.com/v1
+  kind: VerticaDB
+  name: v-tls-certs
+message: Successfully rotated HTTP tls cert with secret name custom-cert3 and mode verify_ca
+---
+apiVersion: vertica.com/v1
+kind: VerticaDB
+metadata:
+  name: v-tls-certs
+spec:
+  httpsNMATLS:
+    secret: custom-cert3
+status:
+  tlsConfigs:
+  - name: httpsNMA
+    secret: custom-cert3
+  - name: clientServer

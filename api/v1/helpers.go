@@ -67,6 +67,10 @@ const (
 	nmaTLSModeVerifyCA       = "verify-ca"
 	DefaultServiceHTTPSPort  = 8443
 	DefaultServiceClientPort = 5433
+
+	// Deployment methods
+	DeploymentMethodAT = "admintools"
+	DeploymentMethodVC = "vclusterops"
 )
 
 // ExtractNamespacedName gets the name and returns it as a NamespacedName
@@ -716,8 +720,8 @@ func (v *VerticaDB) FindTLSCertRollbackNeededCondition() *metav1.Condition {
 	return v.FindStatusCondition(TLSCertRollbackNeeded)
 }
 
-func (v *VerticaDB) IsTLSCertRollbackDisabled() bool {
-	return vmeta.IsDisableTLSRollbackAnnotationSet(v.Annotations)
+func (v *VerticaDB) IsTLSCertRollbackEnabled() bool {
+	return vmeta.IsEnableTLSRollbackAnnotationSet(v.Annotations)
 }
 
 // GetTLSCertRollbackReason returns the reason or the point
@@ -765,13 +769,16 @@ func (v *VerticaDB) GetTLSConfigSpecByName(tlsConfig string) *TLSConfigSpec {
 }
 
 // IsAutoCertRotationEnabled checks if automatic cert rotation is enabled for
-// for a certain tlsconfig (clientServer or httpsNMA)
+// for a certain tlsconfig (clientServer or httpsNMA). This could mean set in
+// the spec or spec has been unset but the status is still set.
 func (v *VerticaDB) IsAutoCertRotationEnabled(tlsConfig string) bool {
 	if !vmeta.UseTLSAuth(v.Annotations) {
 		return false
 	}
 	config := v.GetTLSConfigSpecByName(tlsConfig)
-	return config != nil && config.AutoRotate != nil && len(config.AutoRotate.Secrets) > 0
+	specSet := config != nil && config.AutoRotate != nil && len(config.AutoRotate.Secrets) > 0
+	statusSet := len(v.GetAutoRotateSecrets(tlsConfig)) > 0
+	return specSet || statusSet
 }
 
 // GetAutoRotateSecrets gets the list of auto-rotate secrets from status
@@ -1122,7 +1129,7 @@ func (v *VerticaDB) IsHTTPProbeSupported(ver string) bool {
 // IsNMASideCarDeploymentEnabled returns true if the conditions to run NMA
 // in a sidecar are met
 func (v *VerticaDB) IsNMASideCarDeploymentEnabled() bool {
-	if !vmeta.UseVClusterOps(v.Annotations) {
+	if !v.UseVClusterOpsDeployment() {
 		return false
 	}
 	vinf, hasVersion := v.MakeVersionInfo()
@@ -1138,10 +1145,25 @@ func (v *VerticaDB) IsNMASideCarDeploymentEnabled() bool {
 // IsMonolithicDeploymentEnabled returns true if NMA must run in the
 // same container as vertica
 func (v *VerticaDB) IsMonolithicDeploymentEnabled() bool {
-	if !vmeta.UseVClusterOps(v.Annotations) {
+	if !v.UseVClusterOpsDeployment() {
 		return false
 	}
 	return !v.IsNMASideCarDeploymentEnabled()
+}
+
+// ShouldEnableHTTPS returns true if the deployment method is vclusterOps
+// and the version supports it.
+func (v *VerticaDB) ShouldEnableHTTPS() bool {
+	if !v.UseVClusterOpsDeployment() {
+		return false
+	}
+	vinf, hasVersion := v.MakeVersionInfo()
+	// When version isn't present but vclusterOps annotation is set to true,
+	// we assume the version supports vcusterOps.
+	if !hasVersion {
+		return true
+	}
+	return vinf.IsEqualOrNewer(VcluseropsAsDefaultDeploymentMethodMinVersion)
 }
 
 // IsKSafety0 returns true if k-safety of 0 is set.
@@ -1392,6 +1414,16 @@ func (v *VerticaDB) GetVerticaUser() string {
 	return vmeta.GetSuperuserName(v.Annotations)
 }
 
+// GetPasswordSecret returns the password secret
+func (v *VerticaDB) GetPasswordSecret() string {
+	// status holds the current password
+	if v.Status.PasswordSecret != nil {
+		return *v.Status.PasswordSecret
+	}
+	// Spec holds the desired password
+	return v.Spec.PasswordSecret
+}
+
 // GetEncryptSpreadComm will return "vertica" if encryptSpreadComm is set to
 // an empty string, otherwise return the value of encryptSpreadComm
 func (v *VerticaDB) GetEncryptSpreadComm() string {
@@ -1513,14 +1545,19 @@ func (v *VerticaDB) IsClientServerConfigEnabled() bool {
 // It does not mean vclusterops can now operate using tls, for
 // that we need to wait until tls configurations are created
 func (v *VerticaDB) IsSetForTLS() bool {
-	return v.IsValidVersionForTLS() &&
+	return v.IsValidVersionForTLS(TLSAuthMinVersion) &&
+		vmeta.UseTLSAuth(v.Annotations)
+}
+
+func (v *VerticaDB) IsSetForTLSVersionAndCipher() bool {
+	return v.IsValidVersionForTLS(TLSVersionCipherMinVersion) &&
 		vmeta.UseTLSAuth(v.Annotations)
 }
 
 // IsValidVersionForTLS returns true if the server version
 // supports tls
-func (v *VerticaDB) IsValidVersionForTLS() bool {
-	if !vmeta.UseVClusterOps(v.Annotations) {
+func (v *VerticaDB) IsValidVersionForTLS(minVersion string) bool {
+	if !v.UseVClusterOpsDeployment() {
 		return false
 	}
 	vinf, hasVersion := v.MakeVersionInfo()
@@ -1530,7 +1567,7 @@ func (v *VerticaDB) IsValidVersionForTLS() bool {
 		return false
 	}
 
-	return vinf.IsEqualOrNewer(TLSAuthMinVersion)
+	return vinf.IsEqualOrNewer(minVersion)
 }
 
 // GenSubclusterStatusMap returns a map that has a subcluster name as key
@@ -1655,6 +1692,18 @@ func (v *VerticaDB) GetSubclustersInSandbox(sbName string) []string {
 		scNames = append(scNames, sb.Subclusters[i].Name)
 	}
 	return scNames
+}
+
+// UseVClusterDeployment returns true if the deployment method is vclusterOps
+func (v *VerticaDB) UseVClusterOpsDeployment() bool {
+	if v.Status.DeploymentMethod == DeploymentMethodVC {
+		return true
+	} else if v.Status.DeploymentMethod == DeploymentMethodAT {
+		return false
+	}
+
+	// when deploymentMethod is empty in status, check annotation
+	return vmeta.UseVClusterOps(v.Annotations)
 }
 
 // GetHPAMetrics extract an return hpa metrics from MetricDefinition struct.
@@ -2071,6 +2120,10 @@ func SetTLSConfigs(refs *[]TLSConfigStatus, newRef *TLSConfigStatus) (changed bo
 		existing.AutoRotateSecrets = newRef.AutoRotateSecrets
 		changed = true
 	}
+	if existing.AutoRotateFailedSecret != newRef.AutoRotateFailedSecret {
+		existing.AutoRotateFailedSecret = newRef.AutoRotateFailedSecret
+		changed = true
+	}
 
 	return changed
 }
@@ -2166,7 +2219,7 @@ func (v *VerticaDB) GetClientServerTLSSecret() string {
 	return v.Spec.ClientServerTLS.Secret
 }
 
-// Check if TLS not enabled, DB not initialized, or rotate has failed
+// Check if TLS not enabled, DB not initialized, or rotate has failed (and rollback is not in progress).
 // In these cases, we skip TLS Update
 func (v *VerticaDB) ShouldSkipTLSUpdateReconcile() bool {
 	return !v.IsSetForTLS() ||

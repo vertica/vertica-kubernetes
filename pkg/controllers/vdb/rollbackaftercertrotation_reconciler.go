@@ -55,7 +55,7 @@ func MakeRollbackAfterCertRotationReconciler(vdbrecon *VerticaDBReconciler, log 
 
 func (r *RollbackAfterCertRotationReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
 	// If rollback is not necessary, skip
-	if !r.Vdb.IsTLSCertRollbackNeeded() || r.Vdb.IsTLSCertRollbackDisabled() {
+	if !r.Vdb.IsTLSCertRollbackNeeded() || !r.Vdb.IsTLSCertRollbackEnabled() {
 		return ctrl.Result{}, nil
 	}
 
@@ -78,12 +78,9 @@ func (r *RollbackAfterCertRotationReconciler) Reconcile(ctx context.Context, _ *
 		"Starting %s TLS cert rollback after failed update", tlsConfigName)
 
 	funcs := []func(context.Context) (ctrl.Result, error){
-		r.runNMACertConfigMapReconciler,
-		r.shutdownNMA,
-		r.waitForNMAUp,
-		r.pollNMACertHealth,
 		r.runHTTPSCertRotation,
 		r.resetTLSUpdateCondition,
+		r.setAutoRotateStatus,
 		r.updateTLSConfigInVdb,
 		r.cleanUpRollbackConditions,
 	}
@@ -100,49 +97,14 @@ func (r *RollbackAfterCertRotationReconciler) Reconcile(ctx context.Context, _ *
 	return ctrl.Result{}, nil
 }
 
-func (r *RollbackAfterCertRotationReconciler) runNMACertConfigMapReconciler(ctx context.Context) (ctrl.Result, error) {
-	if !r.Vdb.IsRollbackAfterNMACertRotation() {
-		return ctrl.Result{}, nil
-	}
-	rec := MakeNMACertConfigMapReconciler(r.VRec, r.Log, r.Vdb)
-	traceActorReconcile(rec, r.Log, "tls cert rollback")
-	return rec.Reconcile(ctx, &ctrl.Request{})
-}
-
-func (r *RollbackAfterCertRotationReconciler) shutdownNMA(ctx context.Context) (ctrl.Result, error) {
-	if !r.Vdb.IsRollbackAfterNMACertRotation() {
-		return ctrl.Result{}, nil
-	}
-
-	// TODO: restart all nma containers so they can read the old cert.
-	// We want to do it once, so we need to add something (e.g: a status condition)
-	// that will set once we restart nma
-	return ctrl.Result{}, nil
-}
-
-func (r *RollbackAfterCertRotationReconciler) waitForNMAUp(ctx context.Context) (ctrl.Result, error) {
-	if !r.Vdb.IsRollbackAfterNMACertRotation() {
-		return ctrl.Result{}, nil
-	}
-
-	// TODO: find all pods and wait for each pod's nma container to be ready
-	return ctrl.Result{}, nil
-}
-
-func (r *RollbackAfterCertRotationReconciler) pollNMACertHealth(ctx context.Context) (ctrl.Result, error) {
-	if !r.Vdb.IsRollbackAfterNMACertRotation() {
-		return ctrl.Result{}, nil
-	}
-
-	// TODO: call rotate_nma_certs vclusterops API. We only want to poll the cert health
-	// so we will skip kill NMA
-	return ctrl.Result{}, nil
-}
-
+// runHTTPSCertRotation will re-run HTTPS cert rotate to restore the last good secret and mode;
+// this is needed when there is a failure in HTTPS rotate after DB has been updated
 func (r *RollbackAfterCertRotationReconciler) runHTTPSCertRotation(ctx context.Context) (ctrl.Result, error) {
 	if r.Vdb.IsHTTPSRollbackFailureAfterCertHealthPolling() {
-		r.Log.Info("Reverting to previous HTTPS secret")
-		// TODO: Run HTTPS TLS rollback
+		r.Log.Info("Reverting to previous HTTPS secret", "secretName", r.Vdb.GetHTTPSNMATLSSecretInUse())
+		rec := MakeHTTPSTLSUpdateReconciler(r.VRec, r.Log, r.Vdb, r.Dispatcher, r.PFacts, true)
+		traceActorReconcile(rec, r.Log, "tls cert rollback")
+		return rec.Reconcile(ctx, &ctrl.Request{})
 	}
 
 	return ctrl.Result{}, nil
@@ -200,20 +162,57 @@ func (r *RollbackAfterCertRotationReconciler) updateTLSConfigInVdb(ctx context.C
 			if strings.EqualFold(r.Vdb.GetClientServerTLSMode(), mode) {
 				mode = r.Vdb.GetSpecClientServerTLSMode()
 			}
-			r.Vdb.Spec.ClientServerTLS = &vapi.TLSConfigSpec{
-				Secret: r.Vdb.GetClientServerTLSSecretInUse(),
-				Mode:   mode,
+			// Preserve all existing fields
+			spec := r.Vdb.Spec.ClientServerTLS.DeepCopy()
+			if spec == nil {
+				spec = &vapi.TLSConfigSpec{}
 			}
+			spec.Secret = r.Vdb.GetClientServerTLSSecretInUse()
+			spec.Mode = mode
+			r.Vdb.Spec.ClientServerTLS = spec
 		} else {
 			mode = r.Vdb.GetHTTPSTLSModeInUse()
 			if strings.EqualFold(r.Vdb.GetHTTPSNMATLSMode(), mode) {
 				mode = r.Vdb.GetSpecHTTPSNMATLSMode()
 			}
-			r.Vdb.Spec.HTTPSNMATLS = &vapi.TLSConfigSpec{
-				Secret: r.Vdb.GetHTTPSNMATLSSecretInUse(),
-				Mode:   mode,
+			// Preserve all existing fields
+			spec := r.Vdb.Spec.HTTPSNMATLS.DeepCopy()
+			if spec == nil {
+				spec = &vapi.TLSConfigSpec{}
 			}
+			spec.Secret = r.Vdb.GetHTTPSNMATLSSecretInUse()
+			spec.Mode = mode
+			r.Vdb.Spec.HTTPSNMATLS = spec
 		}
 		return r.VRec.Client.Update(ctx, r.Vdb)
 	})
+}
+
+// setAutoRotateStatus will set the AutoRotateFailedSecret in status with the failing secret.
+// This is used to indicate that the auto-rotation of TLS secrets has failed
+// and the operator should auto-rotate to the next secret.
+func (r *RollbackAfterCertRotationReconciler) setAutoRotateStatus(ctx context.Context) (ctrl.Result, error) {
+	tlsConfigName := vapi.HTTPSNMATLSConfigName
+	failedSecret := r.Vdb.GetHTTPSNMATLSSecret()
+	if r.Vdb.GetTLSCertRollbackReason() == vapi.RollbackAfterServerCertRotationReason {
+		tlsConfigName = vapi.ClientServerTLSConfigName
+		failedSecret = r.Vdb.GetClientServerTLSSecret()
+	}
+
+	if len(r.Vdb.GetAutoRotateSecrets(tlsConfigName)) == 0 {
+		return ctrl.Result{}, nil
+	}
+
+	r.Log.Info("Setting AutoRotateFailedSecret for TLSConfigStatus", "tlsConfigName", tlsConfigName, "failedSecret", failedSecret)
+
+	patchStatus := r.Vdb.GetTLSConfigByName(tlsConfigName)
+	patchStatus.AutoRotateFailedSecret = failedSecret
+
+	// Patch status explicitly
+	if err := vdbstatus.UpdateTLSConfigs(ctx, r.VRec.Client, r.Vdb, []*vapi.TLSConfigStatus{patchStatus}); err != nil {
+		r.Log.Error(err, "Failed to patch TLSConfigStatus with AutoRotateFailed", "tlsConfigName", tlsConfigName)
+		return ctrl.Result{}, err
+	}
+
+	return ctrl.Result{}, nil
 }

@@ -141,15 +141,15 @@ func CheckNotEmpty(a string) bool {
 }
 
 const (
-	trueStr  = "true"
-	falseStr = "false"
+	TrueStr  = "true"
+	FalseStr = "false"
 )
 
 func BoolToStr(b bool) string {
 	if b {
-		return trueStr
+		return TrueStr
 	}
-	return falseStr
+	return FalseStr
 }
 
 type BoolFromStr bool
@@ -166,9 +166,9 @@ func (b *BoolFromStr) UnmarshalJSON(data []byte) error {
 	}
 
 	switch strings.ToLower(s) {
-	case trueStr:
+	case TrueStr:
 		*b = true
-	case falseStr:
+	case FalseStr:
 		*b = false
 	default:
 		return fmt.Errorf("unmarshaling into BoolFromStr: invalid value %q", s)
@@ -867,4 +867,36 @@ func JoinMapSetKeys(m mapset.Set[string], delimiter string) string {
 		keys = append(keys, k)
 	}
 	return strings.Join(keys, delimiter)
+}
+
+// SplitEnvVar splits the passthrough environment variable into a map of key-value pairs.
+func SplitEnvVar(passthrough string) map[string]string {
+	env := make(map[string]string)
+	const maxSplit = 2
+	if passthrough != "" {
+		// parse the passthrough environment variable, which is a semicolon-separated list of key-value pairs
+		// e.g., "key1=value1;key2=value2"
+		// and convert it to a map[string]string
+		// e.g., {"key1": "value1", "key2": "value2"}
+		// Note: the value can be empty, e.g., "key1
+		// validate the format of the passthrough variable
+		// trim all spaces from the key and value, and remove any leading or trailing spaces
+		pairs := strings.Split(passthrough, ";")
+		for _, pair := range pairs {
+			if pair == "" {
+				continue
+			}
+			kv := strings.SplitN(pair, "=", maxSplit)
+			if len(kv) == 0 || kv[0] == "" {
+				continue // Invalid format: key is missing
+			}
+			key := strings.TrimSpace(kv[0])
+			value := ""
+			if len(kv) > 1 {
+				value = strings.TrimSpace(kv[1])
+			}
+			env[key] = value
+		}
+	}
+	return env
 }

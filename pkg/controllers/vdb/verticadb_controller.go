@@ -170,7 +170,7 @@ func (r *VerticaDBReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		return ctrl.Result{}, err
 	}
 	log.Info("VerticaDB details", "uid", vdb.UID, "resourceVersion", vdb.ResourceVersion,
-		"vclusterOps", vmeta.UseVClusterOps(vdb.Annotations), "user", vdb.GetVerticaUser(),
+		"vclusterOps", vdb.UseVClusterOpsDeployment(), "user", vdb.GetVerticaUser(),
 		"tls cert rotate enabled", vmeta.UseTLSAuth(vdb.Annotations))
 	if vmeta.IsPauseAnnotationSet(vdb.Annotations) {
 		log.Info(fmt.Sprintf("The pause annotation %s is set. Suspending the iteration", vmeta.PauseOperatorAnnotation),
@@ -278,16 +278,18 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		// Save referenced configmaps/secrets in labels in vdb. Those labels will then be
 		// used to reconcile vdb when a config changes
 		MakeLabelsForReferencedObjsReconciler(r, log, vdb),
+		// Add annotations/labels to each pod about the host running them
+		MakeAnnotateAndLabelPodReconciler(r, log, vdb, pfacts),
 		// Set up TLS config if users turn it on
 		MakeTLSReconciler(r, log, vdb, prunner, dispatcher, pfacts),
 		// Update the service monitor that will allow prometheus to scrape the
 		// metrics from the vertica pods.
-		MakeServiceMonitorReconciler(vdb, r, log),
-		// Add annotations/labels to each pod about the host running them
-		MakeAnnotateAndLabelPodReconciler(r, log, vdb, pfacts),
+		MakeServiceMonitorReconciler(vdb, r, log, pfacts),
 		// Trigger sandbox shutdown when the shutdown field of the sandbox
 		// is changed
 		MakeSandboxShutdownReconciler(r, log, vdb, true),
+		// Update deployment method and enable HTTPS TLS
+		MakeDeploymentMethodReconciler(r, log, vdb, prunner, pfacts, dispatcher),
 		// Handles vertica server upgrade (i.e., when spec.image changes)
 		MakeOfflineUpgradeReconciler(r, log, vdb, prunner, pfacts, dispatcher),
 		MakeReadOnlyOnlineUpgradeReconciler(r, log, vdb, prunner, pfacts, dispatcher),
@@ -301,6 +303,8 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		MakeImageVersionReconciler(r, log, vdb, prunner, pfacts, false /* enforceUpgradePath */, nil, false),
 		// Handles restart + re_ip of vertica
 		MakeRestartReconciler(r, log, vdb, prunner, pfacts, true, dispatcher),
+		// Check the password secret and update it if needed
+		MakePasswordSecretReconciler(r, log, vdb, prunner, pfacts, dispatcher),
 		MakeMetricReconciler(r, log, vdb, prunner, pfacts),
 		MakeStatusReconcilerWithShutdown(r.Client, r.Scheme, log, vdb, pfacts),
 		// Ensure we add labels to any pod rescheduled so that Service objects route traffic to it.
@@ -333,10 +337,14 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		MakeCreateDBReconciler(r, log, vdb, prunner, pfacts, dispatcher),
 		// Handle calls to revive a database
 		MakeReviveDBReconciler(r, log, vdb, prunner, pfacts, dispatcher),
+		// Update deployment method and enable HTTPS TLS
+		MakeDeploymentMethodReconciler(r, log, vdb, prunner, pfacts, dispatcher),
+		// reconcile tls version and cipher suite
+		MakeDBTLSConfigReconciler(r, log, vdb, prunner, dispatcher, pfacts),
 		MakeTLSReconciler(r, log, vdb, prunner, dispatcher, pfacts),
 		// Update the service monitor that will allow prometheus to scrape the
 		// metrics from the vertica pods.
-		MakeServiceMonitorReconciler(vdb, r, log),
+		MakeServiceMonitorReconciler(vdb, r, log, pfacts),
 		// Add additional buckets for data replication
 		MakeAddtionalBucketsReconciler(r, log, vdb, prunner, pfacts),
 		MakeMetricReconciler(r, log, vdb, prunner, pfacts),
@@ -449,7 +457,7 @@ func (r *VerticaDBReconciler) containsWatchedByLabel(labs map[string]string) boo
 }
 
 // GetSuperuserPassword returns the superuser password if it has been provided
-func (r *VerticaDBReconciler) GetSuperuserPassword(ctx context.Context, log logr.Logger, vdb *vapi.VerticaDB) (string, error) {
+func (r *VerticaDBReconciler) GetSuperuserPassword(ctx context.Context, log logr.Logger, vdb *vapi.VerticaDB) (*string, error) {
 	return vk8s.GetSuperuserPassword(ctx, r.Client, log, r, vdb)
 }
 
@@ -473,8 +481,8 @@ func (r *VerticaDBReconciler) checkShardToNodeRatio(vdb *vapi.VerticaDB, sc *vap
 
 // makeDispatcher will create a Dispatcher object based on the feature flags set.
 func (r *VerticaDBReconciler) makeDispatcher(log logr.Logger, vdb *vapi.VerticaDB, prunner cmds.PodRunner,
-	passwd string) vadmin.Dispatcher {
-	if vmeta.UseVClusterOps(vdb.Annotations) {
+	passwd *string) vadmin.Dispatcher {
+	if vdb.UseVClusterOpsDeployment() {
 		return vadmin.MakeVClusterOps(log, vdb, r.Client, passwd, r.EVRec, vadmin.SetupVClusterOps, r.CacheManager)
 	}
 	return vadmin.MakeAdmintools(log, vdb, prunner, r.EVRec)

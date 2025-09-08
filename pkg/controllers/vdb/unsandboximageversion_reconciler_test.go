@@ -48,7 +48,7 @@ var _ = Describe("verticaimage_reconciler", func() {
 		Expect(k8sClient.Status().Update(ctx, vdb)).Should(Succeed())
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := podfacts.MakePodFacts(vdbRec, fpr, logger, TestPassword)
+		pfacts := podfacts.MakePodFacts(vdbRec, fpr, logger, &testPassword)
 		rec := MakeUnsandboxImageVersionReconciler(vdbRec, vdb, logger, &pfacts)
 		r := rec.(*UnsandboxImageVersion)
 		Expect(r.PFacts.Collect(ctx, vdb)).Should(Succeed())

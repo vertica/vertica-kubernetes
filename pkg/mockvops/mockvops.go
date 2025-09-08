@@ -135,13 +135,17 @@ func (*MockVClusterOps) VDropDatabase(_ *vclusterops.VDropDatabaseOptions) error
 	return nil
 }
 
+func (*MockVClusterOps) VPollHTTPS(_ *vclusterops.VPollHTTPSOptions) error {
+	return nil
+}
+
 // MakeMockVClusterOpsDispatch will create a mock vcluster dispatcher
 func MakeMockVClusterOpsDispatcher(vdb *vapi.VerticaDB, logger logr.Logger, cl client.Client,
 	setupAPIFunc func(logr.Logger, string) (vadmin.VClusterProvider, logr.Logger)) *vadmin.VClusterOps {
 	evWriter := aterrors.TestEVWriter{}
-	const testPassword = "secret"
+	testPassword := "secret"
 	cacheManager := cache.MakeCacheManager(true)
-	dispatcher := vadmin.MakeVClusterOps(logger, vdb, cl, testPassword, &evWriter, setupAPIFunc, cacheManager)
+	dispatcher := vadmin.MakeVClusterOps(logger, vdb, cl, &testPassword, &evWriter, setupAPIFunc, cacheManager)
 	vclusterOps := dispatcher.(*vadmin.VClusterOps)
 	fetcher := &cloud.SecretFetcher{
 		Client:   vclusterOps.Client,

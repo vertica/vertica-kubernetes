@@ -101,6 +101,12 @@ func (t *TLSConfigManager) setPollingCertMetadata(ctx context.Context) (ctrl.Res
 	// httpsNMATLSSecret
 	currentSecretName := t.Vdb.GetHTTPSNMATLSSecretInUse()
 	newSecretName := t.Vdb.GetHTTPSNMATLSSecret()
+
+	// If rollback, use status as current secret and spec as new secret
+	if t.Vdb.IsTLSCertRollbackInProgress() {
+		newSecretName = t.Vdb.GetHTTPSNMATLSSecretInUse()
+	}
+
 	currentSecretData, res, err = readSecret(t.Vdb, t.Rec, t.Rec.GetClient(), t.Log, ctx, currentSecretName)
 	if verrors.IsReconcileAborted(res, err) {
 		return res, err
@@ -172,7 +178,7 @@ func (t *TLSConfigManager) updateTLSConfig(ctx context.Context, initiator string
 	started, failed, succeeded := t.getEvents()
 	t.Rec.Eventf(t.Vdb, corev1.EventTypeNormal, started,
 		"Starting tls cert rotation for %s with secret name %s and mode %s",
-		t.TLSConfig, t.NewSecret, t.CurrentTLSMode)
+		t.TLSConfig, t.NewSecret, t.NewTLSMode)
 	err := t.Dispatcher.RotateTLSCerts(ctx, opts...)
 	if err != nil {
 		t.Rec.Eventf(t.Vdb, corev1.EventTypeWarning, failed,
@@ -264,9 +270,9 @@ func (t *TLSConfigManager) checkNMATLSConfigMap(ctx context.Context) (ctrl.Resul
 
 	var isUpToDate bool
 	if t.isHTTPSTLSConfig() {
-		isUpToDate = configMap.Data[builder.NMASecretNameEnv] == t.Vdb.GetHTTPSNMATLSSecret()
+		isUpToDate = configMap.Data[builder.NMASecretNameEnv] == t.Vdb.GetHTTPSNMATLSSecretForConfigMap()
 	} else {
-		isUpToDate = configMap.Data[builder.NMAClientSecretNameEnv] == t.Vdb.GetClientServerTLSSecret() &&
+		isUpToDate = configMap.Data[builder.NMAClientSecretNameEnv] == t.Vdb.GetClientServerTLSSecretForConfigMap() &&
 			configMap.Data[builder.NMAClientSecretTLSModeEnv] == t.Vdb.GetNMAClientServerTLSMode()
 	}
 
@@ -360,10 +366,18 @@ func (t *TLSConfigManager) getAWSCertsConfig(versionID, cacheDuration string) (k
 
 func (t *TLSConfigManager) setTLSUpdatedata() {
 	if t.TLSConfig == tlsConfigHTTPS {
-		t.CurrentSecret = t.Vdb.GetHTTPSNMATLSSecretInUse()
-		t.NewSecret = t.Vdb.GetHTTPSNMATLSSecret()
-		t.CurrentTLSMode = t.Vdb.GetHTTPSTLSModeInUse()
-		t.NewTLSMode = t.Vdb.GetHTTPSNMATLSMode()
+		// If rollback, go from status to spec; otherwise, go from spec to status
+		if t.Vdb.IsTLSCertRollbackInProgress() {
+			t.CurrentSecret = t.Vdb.GetHTTPSNMATLSSecret()
+			t.NewSecret = t.Vdb.GetHTTPSNMATLSSecretInUse()
+			t.CurrentTLSMode = t.Vdb.GetHTTPSNMATLSMode()
+			t.NewTLSMode = t.Vdb.GetHTTPSTLSModeInUse()
+		} else {
+			t.CurrentSecret = t.Vdb.GetHTTPSNMATLSSecretInUse()
+			t.NewSecret = t.Vdb.GetHTTPSNMATLSSecret()
+			t.CurrentTLSMode = t.Vdb.GetHTTPSTLSModeInUse()
+			t.NewTLSMode = t.Vdb.GetHTTPSNMATLSMode()
+		}
 		t.tlsConfigName = vapi.HTTPSNMATLSConfigName
 	} else if t.TLSConfig == tlsConfigServer {
 		t.CurrentSecret = t.Vdb.GetClientServerTLSSecretInUse()
@@ -389,7 +403,7 @@ func (t *TLSConfigManager) getCertificatePrefix() string {
 // triggerRollback sets a condition that lets the operator know that cert rotation
 // has failed and a rollback is needed
 func (t *TLSConfigManager) triggerRollback(ctx context.Context, err error) error {
-	if err == nil || t.Vdb.IsTLSCertRollbackDisabled() || t.Vdb.IsTLSCertRollbackInProgress() {
+	if err == nil || !t.Vdb.IsTLSCertRollbackEnabled() || t.Vdb.IsTLSCertRollbackInProgress() {
 		return err
 	}
 

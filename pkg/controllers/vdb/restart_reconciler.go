@@ -28,7 +28,6 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
-	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/metrics"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
@@ -111,7 +110,7 @@ func (r *RestartReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctr
 	// If the create/revive database process fails, we skip restarting the cluster to redo the create/revive process.
 	// restart reconciler is only skipped for VClusterOps.
 	// In Admintools, the IP is cached in admintool.conf and needs to be updated.
-	if vmeta.UseVClusterOps(r.Vdb.Annotations) {
+	if r.Vdb.UseVClusterOpsDeployment() {
 		isSet := r.Vdb.IsStatusConditionTrue(vapi.DBInitialized)
 		if !isSet {
 			r.Log.Info("Skipping restart reconciler since create_db or revive_db failed")
@@ -137,12 +136,11 @@ func (r *RestartReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctr
 	// ScheduleOnly.
 	if r.PFacts.GetUpNodeAndNotReadOnlyCount() == 0 &&
 		r.Vdb.Spec.InitPolicy != vapi.CommunalInitPolicyScheduleOnly {
-		// Abort cluster restart if at least one pod must not be
-		// restarted.
-		if r.PFacts.GetShutdownCount() == 0 {
-			return r.reconcileCluster(ctx)
+		// We cannot restart the cluster if half or more of the nodes are shutdown
+		if r.PFacts.HasShutdownQuorum() {
+			return ctrl.Result{}, nil
 		}
-		return ctrl.Result{}, nil
+		return r.reconcileCluster(ctx)
 	}
 	return r.reconcileNodes(ctx)
 }
@@ -157,14 +155,14 @@ func (r *RestartReconciler) reconcileClusterPreCheck() ctrl.Result {
 		return ctrl.Result{Requeue: true}
 	}
 	// When using vclusterOps, we need to wait for enough primary nodes to be running so that we have quorum to do re-ip
-	if vmeta.UseVClusterOps(r.Vdb.Annotations) && !r.PFacts.QuorumCheckForRestartCluster(r.RestartReadOnly) {
+	if r.Vdb.UseVClusterOpsDeployment() && !r.PFacts.QuorumCheckForRestartCluster(r.RestartReadOnly) {
 		r.Log.Info("Waiting for enough pods that contain a primary node to come online before a cluster restart")
 		return ctrl.Result{Requeue: true}
 	}
 	// Check if cluster start needs to include all of the pods.
 	scStatus := r.Vdb.GenStatusSubclusterMap()
 	if r.Vdb.IsKSafety0() &&
-		r.PFacts.CountNotRestartablePods(vmeta.UseVClusterOps(r.Vdb.Annotations), scStatus) > 0 {
+		r.PFacts.CountNotRestartablePods(r.Vdb.UseVClusterOpsDeployment(), scStatus) > 0 {
 		// For k-safety 0, we need all of the pods because the absence of one
 		// will cause us not to have enough pods for cluster quorum.
 		r.Log.Info("Waiting for all installed pods to be running before attempt a cluster restart")
@@ -203,7 +201,7 @@ func (r *RestartReconciler) reconcileCluster(ctx context.Context) (ctrl.Result, 
 	// IPs easily from admintools.conf. As a result, we exclude transient pods from the pods
 	// to restart for vclusterops.
 	downPods := r.PFacts.FindRestartablePods(r.RestartReadOnly,
-		!vmeta.UseVClusterOps(r.Vdb.Annotations), /* restartTransient */
+		!r.Vdb.UseVClusterOpsDeployment(), /* restartTransient */
 		true /* restartPendingDelete */)
 
 	// Kill any read-only vertica process that may still be running and any vertica process
@@ -251,7 +249,7 @@ func (r *RestartReconciler) reconcileCluster(ctx context.Context) (ctrl.Result, 
 	// the IP of nodes that have been installed but not yet added to the db.
 	reIPPods := r.getReIPPods(false)
 	canReIPAllDownPods := containPods(reIPPods, downPods)
-	if vmeta.UseVClusterOps(r.Vdb.Annotations) && !canReIPAllDownPods {
+	if r.Vdb.UseVClusterOpsDeployment() && !canReIPAllDownPods {
 		r.Log.Info("Not all restartable pods are qualified to re-ip. Need to requeue restart reconciler")
 		return ctrl.Result{Requeue: true}, nil
 	}
@@ -752,7 +750,7 @@ func (r *RestartReconciler) setInitiatorPod(findFunc func() (*podfacts.PodFact, 
 // running.
 func (r *RestartReconciler) shouldRequeueIfPodsNotRunning() bool {
 	scStatus := r.Vdb.GenStatusSubclusterMap()
-	if r.PFacts.CountNotRestartablePods(vmeta.UseVClusterOps(r.Vdb.Annotations), scStatus) > 0 {
+	if r.PFacts.CountNotRestartablePods(r.Vdb.UseVClusterOpsDeployment(), scStatus) > 0 {
 		r.Log.Info("Requeue since some pods needed by restart are not yet running.")
 		return true
 	}
@@ -764,7 +762,7 @@ func (r *RestartReconciler) shouldRequeueIfPodsNotRunning() bool {
 func (r *RestartReconciler) acceptEulaIfMissing(ctx context.Context) error {
 	// The EULA is specific to admintools based deployments. Skipping for
 	// vcluster.
-	if vmeta.UseVClusterOps(r.Vdb.Annotations) {
+	if r.Vdb.UseVClusterOpsDeployment() {
 		return nil
 	}
 	return acceptEulaIfMissing(ctx, r.PFacts, r.PRunner)
@@ -778,7 +776,7 @@ func (r *RestartReconciler) getReIPPods(isRestartNode bool) []*podfacts.PodFact 
 	// necessary to keep installed-only nodes up to date in admintools.conf. For
 	// this reason, we can skip if using vclusterOps.
 	if isRestartNode {
-		if vmeta.UseVClusterOps(r.Vdb.Annotations) {
+		if r.Vdb.UseVClusterOpsDeployment() {
 			return nil
 		}
 		return r.PFacts.FindReIPPods(podfacts.DBCheckOnlyWithoutDBs)
@@ -786,7 +784,7 @@ func (r *RestartReconciler) getReIPPods(isRestartNode bool) []*podfacts.PodFact 
 	// For cluster restart, we re-ip all nodes that have been added to the DB.
 	// And if using admintools, we also need to re-ip installed pods that
 	// haven't been added to the db to keep admintools.conf in-sync.
-	if vmeta.UseVClusterOps(r.Vdb.Annotations) {
+	if r.Vdb.UseVClusterOpsDeployment() {
 		return r.PFacts.FindReIPPods(podfacts.DBCheckOnlyWithDBs)
 	}
 	return r.PFacts.FindReIPPods(podfacts.DBCheckAny)

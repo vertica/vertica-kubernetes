@@ -26,6 +26,7 @@ spec:
   local:
     requestSize: 250Mi
   imagePullPolicy: IfNotPresent
+  passwordSecret: su-passwd
   proxy:
     image: kustomize-vproxy-image
   # We pick a cluster size that is too big for the CE license. This relies on

@@ -38,7 +38,7 @@ type FakePodRunner struct {
 	// fake username
 	VerticaSUName string
 	// fake password
-	VerticaSUPassword string
+	VerticaSUPassword *string
 	IsTLSEnabled      bool
 }
 
