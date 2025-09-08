@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"strings"
 
+	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/vertica/vcluster/rfc7807"
 	"github.com/vertica/vcluster/vclusterops/util"
 	"github.com/vertica/vcluster/vclusterops/vlog"
@@ -206,7 +207,6 @@ func (vcc VClusterCommands) VRemoveSubcluster(removeScOpt *VRemoveScOptions) (VC
 		removeNodeOpt.ForceDelete = removeScOpt.ForceDelete
 		removeNodeOpt.IsSubcluster = true
 		removeNodeOpt.NodesToPullSubs = removeScOpt.NodesToPullSubs
-
 		// Get a set of initiators for removing nodes
 		// The initiators are selected strictly from a sandbox if we are removing the sc from a sandbox
 		// else it is a set of primary up nodes from the main cluster.
@@ -239,13 +239,13 @@ func (vcc VClusterCommands) VRemoveSubcluster(removeScOpt *VRemoveScOptions) (VC
 	return vdb, nil
 }
 
-func (options *VRemoveScOptions) getAllInitiatorsOfTheOperatingDBGroup(vdb *VCoordinationDatabase, skipHosts []string) ([]string, error) {
+func (options *VRemoveScOptions) getAllInitiatorsOfTheOperatingDBGroup(vdb *VCoordinationDatabase, removeHosts []string) ([]string, error) {
 	var initiator string
 	var err error
 	if options.Sandbox != util.MainClusterSandbox {
-		initiator = vdb.getSandboxInitiator(options.Sandbox, skipHosts)
+		initiator = vdb.getSandboxInitiator(options.Sandbox, removeHosts)
 	} else {
-		initiator, err = getInitiatorHost(vdb.PrimaryUpNodes, skipHosts)
+		initiator, err = getInitiatorHost(vdb.PrimaryUpNodes, removeHosts)
 		if err != nil {
 			return []string{}, err
 		}
@@ -256,6 +256,17 @@ func (options *VRemoveScOptions) getAllInitiatorsOfTheOperatingDBGroup(vdb *VCoo
 		initiators = append(initiators, initiator)
 	}
 
+	// This check ensures that the subcluster to be removed, does not exist on main cluster
+	// If there are duplicate subcluster names existing on sandbox and main cluster(with different set of nodes),
+	//  we should not incorrectly flag the sandbox subcluster to be known by the main cluster.
+	removeHostsSet := mapset.NewSet[string](removeHosts...)
+	for _, vnode := range vdb.HostNodeMap {
+		if vnode.Subcluster == options.SCName &&
+			vnode.Sandbox == util.MainClusterSandbox &&
+			!removeHostsSet.Contains(vnode.Address) {
+			options.IgnoreMainCluster = true
+		}
+	}
 	if !options.IgnoreMainCluster && options.Sandbox != util.MainClusterSandbox {
 		initiators = append(initiators, options.MainClusterUpPrimHosts[0])
 	}
