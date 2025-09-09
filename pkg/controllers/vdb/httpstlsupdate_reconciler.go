@@ -68,7 +68,7 @@ func MakeHTTPSTLSUpdateReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger
 func (h *HTTPSTLSUpdateReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (ctrl.Result, error) {
 	// Skip if TLS not enabled, DB not initialized, or rotate has failed.
 	// However, if called from rollback reconciler, always run.
-	if h.Vdb.ShouldSkipTLSUpdateReconcile(vapi.HTTPSNMATLSConfigName, h.FromRollback) {
+	if h.Vdb.ShouldSkipHTTPSTLSUpdateReconcile(h.FromRollback) {
 		return ctrl.Result{}, nil
 	}
 

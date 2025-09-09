@@ -518,7 +518,7 @@ func UseTLSAuth(annotations map[string]string) bool {
 }
 
 func DisableTLSAuthForConfig(annotations map[string]string) string {
-	return lookupStringAnnotation(annotations, DisableTLSAuthForConfigAnnotation, "")
+	return strings.ToLower(strings.TrimSpace(lookupStringAnnotation(annotations, DisableTLSAuthForConfigAnnotation, "")))
 }
 
 // IgnoreClusterLease returns true if revive/start should ignore the cluster lease

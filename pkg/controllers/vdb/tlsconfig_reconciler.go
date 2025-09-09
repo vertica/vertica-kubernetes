@@ -165,6 +165,10 @@ func (h *TLSConfigReconciler) checkIfTLSAuthenticationCreatedInDB(ctx context.Co
 	return res == "True", nil
 }
 
+// shouldSkipTLSConfigReconcile will determine when we should skip this reconciler. Rules are:
+//  1. If TLS auth is disabled
+//  2. If TLS is enabled but secret is not set in status yet
+//  3. If DB is not ready (not initialized, upgrading, or restarting)
 func (h *TLSConfigReconciler) shouldSkipTLSConfigReconcile() bool {
 	return (h.Vdb.IsSetForTLS() && h.Vdb.GetSecretInUse(h.TLSConfigName) != "") ||
 		!h.Vdb.IsSetForTLS() || !h.Vdb.IsStatusConditionTrue(vapi.DBInitialized) ||

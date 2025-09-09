@@ -1549,7 +1549,7 @@ func (v *VerticaDB) IsSetForTLS() bool {
 // IsTLSAuthDisabledForTLSConfig returns true if tls auth is explicitly disabled for the given TLS config.
 // It does not check if tls auth is enabled/disabled for the db.
 func (v *VerticaDB) IsTLSAuthDisabledForTLSConfig(tlsConfigName string) bool {
-	disabledConfig := strings.ToLower(strings.TrimSpace(vmeta.DisableTLSAuthForConfig(v.Annotations)))
+	disabledConfig := vmeta.DisableTLSAuthForConfig(v.Annotations)
 
 	switch tlsConfigName {
 	case ClientServerTLSConfigName:
@@ -2248,22 +2248,41 @@ func (v *VerticaDB) GetClientServerTLSSecret() string {
 	return v.Spec.ClientServerTLS.Secret
 }
 
-// ShouldSkipTLSUpdateReconcile will check if TLS Update can be skipped for this config.
+// ShouldSkipHTTPSTLSUpdateReconcile will check if TLS Update can be skipped for ClientServer.
+func (v *VerticaDB) ShouldSkipClientServerTLSUpdateReconcile(isRollback bool) bool {
+	return v.ShouldSkipTLSUpdateReconcile(
+		isRollback,
+		v.IsTLSAuthDisabledForTLSConfig(ClientServerTLSConfigName),
+		v.IsStatusConditionTrue(ClientServerTLSConfigUpdateFinished),
+	)
+}
+
+// ShouldSkipHTTPSTLSUpdateReconcile will check if TLS Update can be skipped for HTTPS.
+func (v *VerticaDB) ShouldSkipHTTPSTLSUpdateReconcile(isRollback bool) bool {
+	return v.ShouldSkipTLSUpdateReconcile(
+		isRollback,
+		v.IsTLSAuthDisabledForTLSConfig(HTTPSNMATLSConfigName),
+		v.IsStatusConditionTrue(HTTPSTLSConfigUpdateFinished),
+	)
+}
+
+// ShouldSkipTLSUpdateReconcile will check if TLS Update can be skipped for a specific TLS config.
 // Possible reasons are:
 // 1) If TLS not enabled
 // 2) DB not initialized
 // 3) Rotate has failed (and rollback is not in progress)
 // 4) TLS auth is disabled for this config
-func (v *VerticaDB) ShouldSkipTLSUpdateReconcile(tlsConfigName string, isRollback bool) bool {
-	cond := ClientServerTLSConfigUpdateFinished
-	if tlsConfigName == HTTPSNMATLSConfigName {
-		cond = HTTPSTLSConfigUpdateFinished
-	}
+// 5) If update is in progress for this config
+func (v *VerticaDB) ShouldSkipTLSUpdateReconcile(
+	isRollback bool,
+	tlsAuthDisabled bool,
+	condFinished bool,
+) bool {
 	return !isRollback && (!v.IsSetForTLS() ||
 		!v.IsDBInitialized() ||
 		v.IsTLSCertRollbackNeeded() ||
-		v.IsTLSAuthDisabledForTLSConfig(tlsConfigName) ||
-		v.IsStatusConditionTrue(cond))
+		tlsAuthDisabled ||
+		condFinished)
 }
 
 // HasNoExtraEnv returns true if there are no extra environment variables
