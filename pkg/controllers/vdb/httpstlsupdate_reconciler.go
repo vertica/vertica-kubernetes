@@ -127,7 +127,7 @@ func (h *HTTPSTLSUpdateReconciler) Reconcile(ctx context.Context, req *ctrl.Requ
 
 	// If HTTPS polling failed on previous rotate, retry
 	if retries := h.Vdb.GetHTTPSPollingCurrentRetries(); retries > 0 {
-		res, err := h.Manager.retryHTTPSPolling(ctx, retries)
+		res, err = h.Manager.retryHTTPSPolling(ctx, retries)
 		if verrors.IsReconcileAborted(res, err) || h.Vdb.IsTLSCertRollbackNeeded() {
 			return res, err
 		}

@@ -31,6 +31,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	"github.com/vertica/vertica-kubernetes/pkg/secrets"
 	"github.com/vertica/vertica-kubernetes/pkg/security"
+	"github.com/vertica/vertica-kubernetes/pkg/vdbstatus"
 	corev1 "k8s.io/api/core/v1"
 
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -225,11 +226,12 @@ func (h *TLSServerCertGenReconciler) createSecret(secretFieldName, secretName st
 	// the name already present is the case where the name was filled in but the
 	// secret didn't exist.
 	if secretName == "" {
-		if secretFieldName == httpsNMATLSSecret {
+		switch secretFieldName {
+		case httpsNMATLSSecret:
 			secret.GenerateName = fmt.Sprintf("%s-https-tls-", h.Vdb.Name)
-		} else if secretFieldName == clientServerTLSSecret {
+		case clientServerTLSSecret:
 			secret.GenerateName = fmt.Sprintf("%s-clientserver-tls-", h.Vdb.Name)
-		} else if secretFieldName == nmaTLSSecret {
+		case nmaTLSSecret:
 			secret.GenerateName = fmt.Sprintf("%s-nma-tls-", h.Vdb.Name)
 		}
 	} else {
@@ -247,11 +249,12 @@ func (h *TLSServerCertGenReconciler) setSecretNameInVDB(ctx context.Context, sec
 		if err := h.VRec.Client.Get(ctx, nm, h.Vdb); err != nil {
 			return err
 		}
-		if secretFieldName == clientServerTLSSecret {
+		switch secretFieldName {
+		case clientServerTLSSecret:
 			h.Vdb.Spec.ClientServerTLS = &vapi.TLSConfigSpec{Secret: secretName, Mode: h.Vdb.GetSpecClientServerTLSMode()}
-		} else if secretFieldName == httpsNMATLSSecret {
+		case httpsNMATLSSecret:
 			h.Vdb.Spec.HTTPSNMATLS = &vapi.TLSConfigSpec{Secret: secretName, Mode: h.Vdb.GetSpecHTTPSNMATLSMode()}
-		} else if secretFieldName == nmaTLSSecret {
+		case nmaTLSSecret:
 			h.Vdb.Spec.NMATLSSecret = secretName
 		}
 		return h.VRec.Client.Update(ctx, h.Vdb)
@@ -278,15 +281,19 @@ func (h *TLSServerCertGenReconciler) ValidateSecretCertificate(
 
 	err := security.ValidateTLSSecret(certPEM, keyPEM)
 	if err != nil {
-		h.VRec.Eventf(h.Vdb, corev1.EventTypeWarning, events.TLSCertValidationFailed,
-			"Validation of TLS Certificate %q failed with secret %q", tlsConfigName, secretName)
+		err1 := h.InvalidCertRollback(ctx, "Validation of TLS Certificate %q failed with secret %q", tlsConfigName, secretName)
+		if err1 != nil || h.Vdb.IsTLSCertRollbackNeeded() {
+			return err1
+		}
 		return err
 	}
 
 	err = security.ValidateCertificateCommonName(certPEM, h.Vdb.GetExpectedCertCommonName(tlsConfigName))
 	if err != nil {
-		h.VRec.Eventf(h.Vdb, corev1.EventTypeWarning, events.TLSCertValidationFailed,
-			"Validation of common name for TLS Certificate %q failed with secret %q", tlsConfigName, secretName)
+		err1 := h.InvalidCertRollback(ctx, "Validation of common name for TLS Certificate %q failed with secret %q", tlsConfigName, secretName)
+		if err1 != nil || h.Vdb.IsTLSCertRollbackNeeded() {
+			return err1
+		}
 		return err
 	}
 
@@ -306,9 +313,28 @@ func (h *TLSServerCertGenReconciler) ValidateSecretCertificate(
 // ShouldGenerateCert determines whether TLS server certificates should be generated.
 // Returns true if either TLS config is missing in status or the expected secret differs from what's currently recorded.
 func (h *TLSServerCertGenReconciler) ShouldGenerateCert() bool {
-	return vmeta.UseTLSAuth(h.Vdb.Annotations) && h.Vdb.GetHTTPSPollingCurrentRetries() == 0 &&
+	if h.Vdb.IsTLSCertRollbackNeeded() {
+		return false
+	}
+
+	return vmeta.UseTLSAuth(h.Vdb.Annotations) &&
+		h.Vdb.GetHTTPSPollingCurrentRetries() == 0 &&
 		(h.Vdb.GetHTTPSNMATLSSecretInUse() == "" ||
 			h.Vdb.GetClientServerTLSSecretInUse() == "" ||
 			h.Vdb.GetHTTPSNMATLSSecretInUse() != h.Vdb.GetHTTPSNMATLSSecret() ||
 			h.Vdb.GetClientServerTLSSecretInUse() != h.Vdb.GetClientServerTLSSecret())
+}
+
+// InvalidCertRollback handles failures in cert validation, by producing an event and (if relevant) trigerring rollback
+func (h *TLSServerCertGenReconciler) InvalidCertRollback(ctx context.Context, message, tlsConfigName, secretName string) error {
+	h.VRec.Eventf(h.Vdb, corev1.EventTypeWarning, events.TLSCertValidationFailed, message, tlsConfigName, secretName)
+	if h.Vdb.IsTLSCertRollbackEnabled() && h.Vdb.GetSecretInUse(tlsConfigName) != "" {
+		reason := vapi.FailureBeforeHTTPSCertHealthPollingReason
+		if tlsConfigName == vapi.ClientServerTLSConfigName {
+			reason = vapi.RollbackAfterServerCertRotationReason
+		}
+		cond := vapi.MakeCondition(vapi.TLSCertRollbackNeeded, metav1.ConditionTrue, reason)
+		return vdbstatus.UpdateCondition(ctx, h.VRec.GetClient(), h.Vdb, cond)
+	}
+	return nil
 }
