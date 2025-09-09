@@ -226,8 +226,13 @@ func (c *CmdClusterHealth) Run(vcc vclusterops.ClusterCommands) error {
 		bytes, err = json.MarshalIndent(options.SlowEventCascade, "", " ")
 	case lockCascade:
 		bytes, err = json.MarshalIndent(options.LockEventCascade, "", " ")
-	default: // by default, we will build a cascade graph
-		bytes, err = json.MarshalIndent(options.SlowEventCascade, "", " ")
+	default: // by default, we will build a super result which contains all three analysis results
+		resultSet := struct {
+			SlowEventCascade any `json:"slow_event_cascade"`
+			LockEventCascade any `json:"lock_event_cascade"`
+			MissingReleases  any `json:"missing_releases"`
+		}{options.SlowEventCascade, options.LockEventCascade, options.MissingReleasesResult}
+		bytes, err = json.MarshalIndent(resultSet, "", " ")
 	}
 
 	if err != nil {
