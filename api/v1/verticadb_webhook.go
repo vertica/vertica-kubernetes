@@ -541,6 +541,7 @@ func (v *VerticaDB) validateVerticaDBSpec() field.ErrorList {
 	allErrs = v.hasNoConflictbetweenTLSAndCertMount(allErrs)
 	allErrs = v.hasNoConflictbetweenTLSAndAdmintool(allErrs)
 	allErrs = v.hasValidTLSWithKnob(allErrs)
+	allErrs = v.hasValidDisabledTLS(allErrs)
 	allErrs = v.hasValidInitPolicy(allErrs)
 	allErrs = v.hasValidRestorePolicy(allErrs)
 	allErrs = v.hasValidSaveRestorePointConfig(allErrs)
@@ -1947,14 +1948,43 @@ func (v *VerticaDB) hasValidTLSWithKnob(allErrs field.ErrorList) field.ErrorList
 	}
 	if v.IsHTTPSTLSAuthDisabled() && v.Spec.HTTPSNMATLS != nil {
 		err := field.Forbidden(field.NewPath("spec").Child("httpsNMATLS"),
-			fmt.Sprintf("cannot set httpsNMATLS when %s is set to %s",
-				vmeta.DisableTLSAuthForConfigAnnotation, vmeta.DisableTLSAuthForConfigHTTPS))
+			fmt.Sprintf("cannot set httpsNMATLS when %s is set to true",
+				vmeta.DisableTLSAuthForHTTPSAnnotation))
 		allErrs = append(allErrs, err)
 	}
 	if v.IsClientServerTLSAuthDisabled() && v.Spec.ClientServerTLS != nil {
 		err := field.Forbidden(field.NewPath("spec").Child("clientServerTLS"),
-			fmt.Sprintf("cannot set clientServerTLS when %s is set to %s",
-				vmeta.DisableTLSAuthForConfigAnnotation, vmeta.DisableTLSAuthForConfigServer))
+			fmt.Sprintf("cannot set clientServerTLS when %s is set to true",
+				vmeta.DisableTLSAuthForClientServerAnnotation))
+		allErrs = append(allErrs, err)
+	}
+
+	return allErrs
+}
+
+// hasValidDisabledTLS checks if user tried to set disabled TLS auth when TLS auth is not enabled.
+// It also checks if both TLS configs are enabled.
+func (v *VerticaDB) hasValidDisabledTLS(allErrs field.ErrorList) field.ErrorList {
+	prefix := field.NewPath("metadata").Child("annotations")
+	if !vmeta.UseTLSAuth(v.Annotations) && v.IsClientServerTLSAuthDisabled() {
+		err := field.Invalid(prefix.Key(vmeta.DisableTLSAuthForClientServerAnnotation),
+			v.Annotations[vmeta.DisableTLSAuthForClientServerAnnotation],
+			fmt.Sprintf("cannot set %s to true when %s is false",
+				vmeta.DisableTLSAuthForClientServerAnnotation, vmeta.EnableTLSAuthAnnotation))
+		allErrs = append(allErrs, err)
+	}
+	if !vmeta.UseTLSAuth(v.Annotations) && v.IsHTTPSTLSAuthDisabled() {
+		err := field.Invalid(prefix.Key(vmeta.DisableTLSAuthForHTTPSAnnotation),
+			v.Annotations[vmeta.DisableTLSAuthForHTTPSAnnotation],
+			fmt.Sprintf("cannot set %s to true when %s is false",
+				vmeta.DisableTLSAuthForHTTPSAnnotation, vmeta.EnableTLSAuthAnnotation))
+		allErrs = append(allErrs, err)
+	}
+	if v.IsClientServerTLSAuthDisabled() && v.IsHTTPSTLSAuthDisabled() {
+		err := field.Invalid(prefix.Key(vmeta.DisableTLSAuthForHTTPSAnnotation),
+			v.Annotations[vmeta.DisableTLSAuthForHTTPSAnnotation],
+			fmt.Sprintf("cannot set both %s and %s to true",
+				vmeta.DisableTLSAuthForHTTPSAnnotation, vmeta.DisableTLSAuthForClientServerAnnotation))
 		allErrs = append(allErrs, err)
 	}
 

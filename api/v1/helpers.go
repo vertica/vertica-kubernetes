@@ -1557,13 +1557,11 @@ func (v *VerticaDB) IsSetForTLSVersionAndCipher() bool {
 // IsTLSAuthDisabledForTLSConfig returns true if tls auth is explicitly disabled for the given TLS config.
 // It does not check if tls auth is enabled/disabled for the db.
 func (v *VerticaDB) IsTLSAuthDisabledForTLSConfig(tlsConfigName string) bool {
-	disabledConfig := vmeta.DisableTLSAuthForConfig(v.Annotations)
-
 	switch tlsConfigName {
 	case ClientServerTLSConfigName:
-		return disabledConfig == vmeta.DisableTLSAuthForConfigServer
+		return vmeta.DisableTLSAuthForClientServer(v.Annotations)
 	case HTTPSNMATLSConfigName:
-		return disabledConfig == vmeta.DisableTLSAuthForConfigHTTPS
+		return vmeta.DisableTLSAuthForHTTPS(v.Annotations)
 	default:
 		return false
 	}

@@ -19,7 +19,7 @@ metadata:
     vertica.com/k-safety: "1"
     vertica.com/include-uid-in-path: "true"
     vertica.com/enable-tls-auth: "true"
-    vertica.com/disable-tls-auth-for-config: "https"
+    vertica.com/disable-https-tls-auth: "true"
 spec:
   initPolicy: CreateSkipPackageInstall
   image: kustomize-vertica-image
