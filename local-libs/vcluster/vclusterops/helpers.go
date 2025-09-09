@@ -279,11 +279,14 @@ func (vcc VClusterCommands) getDeepVDBFromRunningDB(vdb *VCoordinationDatabase, 
 	vdb.setMainCluster(&mainVdb)
 	// If we reach here, the main cluster is UP and we can fetch accurate vdb info from each sandbox separately
 	for _, sandbox := range vdb.AllSandboxes {
+		vcc.Log.Info("Fetching vdb from sandbox", "sandbox", sandbox)
 		sandVdb := makeVCoordinationDatabase()
 		sandErr := vcc.getVDBFromRunningDBImpl(&sandVdb, options, true /*allow use http result from sandbox nodes*/, sandbox,
 			false /*update node state by sending http request to each node*/)
 		if sandErr != nil {
 			vcc.Log.Info("failed to get vdb info from sandbox", "sandbox", sandbox)
+			// if sandbox is down, rely on main cluster to get the sandbox details.
+			vdb.updateSandboxNodeInfo(&mainVdb, sandbox)
 		} else {
 			// update vdb with sandbox info
 			vdb.updateSandboxNodeInfo(&sandVdb, sandbox)
