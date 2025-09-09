@@ -115,8 +115,8 @@ func (h *HTTPSTLSUpdateReconciler) Reconcile(ctx context.Context, req *ctrl.Requ
 	if len(upPods) == 0 {
 		h.Log.Info("No up pod found to update tls config. Restarting.")
 		restartReconciler := MakeRestartReconciler(h.VRec, h.Log, h.Vdb, h.PFacts.PRunner, h.PFacts, true, h.Dispatcher)
-		res, err2 := restartReconciler.Reconcile(ctx, req)
-		return res, err2
+		res, err = restartReconciler.Reconcile(ctx, req)
+		return res, err
 	}
 
 	upHostToSandbox := make(map[string]string)
@@ -124,9 +124,20 @@ func (h *HTTPSTLSUpdateReconciler) Reconcile(ctx context.Context, req *ctrl.Requ
 	for _, p := range upPods {
 		upHostToSandbox[p.GetPodIP()] = p.GetSandbox()
 	}
-	err = h.Manager.updateTLSConfig(ctx, initiator, upHostToSandbox)
-	if err != nil || h.Vdb.IsTLSCertRollbackNeeded() {
-		return ctrl.Result{}, err
+
+	// If HTTPS polling failed on previous rotate, retry
+	if retries := h.Vdb.GetHTTPSPollingCurrentRetries(); retries > 0 {
+		res, err := h.Manager.retryHTTPSPolling(ctx, retries)
+		if verrors.IsReconcileAborted(res, err) || h.Vdb.IsTLSCertRollbackNeeded() {
+			return res, err
+		}
+		return ctrl.Result{}, h.handleConditions(ctx)
+	}
+
+	// Update TLS Config
+	res, err = h.Manager.updateTLSConfig(ctx, initiator, upHostToSandbox)
+	if verrors.IsReconcileAborted(res, err) || h.Vdb.IsTLSCertRollbackNeeded() {
+		return res, err
 	}
 
 	return ctrl.Result{}, h.handleConditions(ctx)

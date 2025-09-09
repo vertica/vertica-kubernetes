@@ -42,6 +42,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
@@ -135,7 +136,7 @@ func (t *TLSConfigManager) setPollingCertMetadata(ctx context.Context) (ctrl.Res
 
 // updateTLSConfig calls the vclusterops api that will update the tls config by cert
 // rotation and/or tls mode update
-func (t *TLSConfigManager) updateTLSConfig(ctx context.Context, initiator string, upHostToSandbox map[string]string) error {
+func (t *TLSConfigManager) updateTLSConfig(ctx context.Context, initiator string, upHostToSandbox map[string]string) (ctrl.Result, error) {
 	switch t.TLSUpdateType {
 	case tlsModeAndCertChange:
 		// This type implies both a cert change and a TLS mode change
@@ -186,28 +187,19 @@ func (t *TLSConfigManager) updateTLSConfig(ctx context.Context, initiator string
 	err := t.Dispatcher.RotateTLSCerts(ctx, opts...)
 	if err != nil {
 		// If HTTPS rotation failed during polling, try limited retries
-		if t.tlsConfigName == vapi.HTTPSNMATLSConfigName &&
-			t.Vdb.IsHTTPPollingError(err) && t.Vdb.GetHTTPSPollingRetries() > 0 {
-			if retryErr := t.retryHTTPSPollingIfNeeded(ctx, err); retryErr == nil {
-				t.Rec.Eventf(t.Vdb, corev1.EventTypeNormal, succeeded,
-					"Successfully rotated %s tls cert with secret name %s and mode %s (after retries)",
-					t.TLSConfig, t.NewSecret, t.NewTLSMode)
-				return t.updateTLSModeInStatus(ctx)
-			} else {
-				err = retryErr
-			}
+		if t.tlsConfigName == vapi.HTTPSNMATLSConfigName && t.Vdb.IsHTTPPollingError(err) && t.Vdb.GetHTTPSPollingMaxRetries() > 0 {
+			t.Log.Info("HTTPS cert rotation failed during polling; attempting retries", "error", err)
+			return ctrl.Result{Requeue: true}, t.setRetryStatus(ctx, 1)
 		}
-
-		// Either retries not applicable or exhausted → mark failure and trigger rollback
 		t.Rec.Eventf(t.Vdb, corev1.EventTypeWarning, failed,
 			"Failed to rotate %s tls cert with secret name %s and mode %s", t.TLSConfig, t.NewSecret, t.NewTLSMode)
-		return t.triggerRollback(ctx, err)
+		return ctrl.Result{}, t.triggerRollback(ctx, err)
 	}
 	t.Rec.Eventf(t.Vdb, corev1.EventTypeNormal, succeeded,
 		"Successfully rotated %s tls cert with secret name %s and mode %s", t.TLSConfig, t.NewSecret, t.NewTLSMode)
 
 	// update the tls mode in the status
-	return t.updateTLSModeInStatus(ctx)
+	return ctrl.Result{}, t.updateTLSModeInStatus(ctx)
 }
 
 // updateTLSModeInStatus updates the tls mode in the status after it was updated
@@ -487,46 +479,71 @@ func (t *TLSConfigManager) unsetForceTLSUpdateFailure(ctx context.Context) error
 	return err
 }
 
-// retryHTTPSPollingIfNeeded retries only the HTTPS polling portion of cert rotation.
-// It assumes RotateTLSCerts has already updated the DB and secret references.
-// If retries succeed, nil is returned. If retries fail, the last polling error
-// is returned so rollback can be triggered by the caller.
-func (t *TLSConfigManager) retryHTTPSPollingIfNeeded(ctx context.Context, originalError error) error {
-	maxRetries := t.Vdb.GetHTTPSPollingRetries()
+// retryHTTPSPolling retries only the HTTPS polling portion of cert rotation.
+// This is triggered after a failed HTTPS cert rotation, if the failure is related to HTTPS
+// polling and max-retries annotation is set. If re-polling fails, it will requeue, unless
+// current-retries equals max-retries, in which case it will trigger failure/rollback.
+func (t *TLSConfigManager) retryHTTPSPolling(ctx context.Context, currentRetries int) (ctrl.Result, error) {
+	maxRetries := t.Vdb.GetHTTPSPollingMaxRetries()
 	if maxRetries <= 0 {
-		return fmt.Errorf("no retries configured for HTTPS polling")
+		return ctrl.Result{}, fmt.Errorf("no retries configured for HTTPS polling")
 	}
 
-	lastErr := originalError
-	for attempt := 1; attempt <= maxRetries; attempt++ {
-		opts, err := t.getHTTPSPollingOpts(ctx)
-		if err != nil {
-			return err
-		}
-
-		// Unset the force failure annotation (used for testing) if it has been set.
-		if err := t.unsetForceTLSUpdateFailure(ctx); err != nil {
-			return err
-		}
-
-		t.Log.Info("HTTPS polling failed; attempting retry", "error", lastErr)
-		t.Rec.Eventf(t.Vdb, corev1.EventTypeNormal, events.HTTPSTLSUpdateRetry,
-			"Retrying HTTPS polling after failure, attempt %d of %d for secret %s", attempt, maxRetries, t.NewSecret)
-
-		if pollErr := t.Dispatcher.PollHTTPS(ctx, opts...); pollErr == nil {
-			t.Log.Info("HTTPS polling succeeded after retry", "attempt", attempt)
-			return nil
-		} else {
-			lastErr = pollErr
-			if !t.Vdb.IsHTTPPollingError(pollErr) {
-				// Unexpected error → stop retries and propagate immediately
-				return pollErr
-			}
-		}
+	opts, err := t.getHTTPSPollingOpts(ctx)
+	if err != nil {
+		return ctrl.Result{}, err
 	}
 
-	t.Log.Info("Exhausted HTTPS polling retries; initiating rollback", "maxRetries", maxRetries)
-	return lastErr
+	// Unset the force failure annotation (used for testing) if it has been set.
+	if err := t.unsetForceTLSUpdateFailure(ctx); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	// Run Poll HTTPS API
+	t.Rec.Eventf(t.Vdb, corev1.EventTypeNormal, events.HTTPSTLSUpdateRetry,
+		"Retrying HTTPS polling after failure, attempt %d of %d for secret %s", currentRetries, maxRetries, t.NewSecret)
+	pollErr := t.Dispatcher.PollHTTPS(ctx, opts...)
+
+	// Retry succeeded; unset current retries annotation and update VDB
+	if pollErr == nil {
+		t.Log.Info("HTTPS polling succeeded after retry", "attempt", currentRetries)
+		t.Rec.Eventf(t.Vdb, corev1.EventTypeNormal, events.HTTPSTLSUpdateSucceeded,
+			"Successfully rotated %s tls cert with secret name %s and mode %s (after retries)",
+			t.TLSConfig, t.NewSecret, t.NewTLSMode)
+		if err := t.setRetryStatus(ctx, 0); err != nil {
+			return ctrl.Result{}, err
+		}
+		return ctrl.Result{}, t.updateTLSModeInStatus(ctx)
+	}
+
+	// Failed with no retries left; unset current retries annotation and proceed with failure/rollback
+	if currentRetries >= maxRetries {
+		t.Log.Info("Exhausted HTTPS polling retries; initiating rollback", "maxRetries", maxRetries)
+		t.Rec.Eventf(t.Vdb, corev1.EventTypeWarning, events.HTTPSTLSUpdateFailed,
+			"Failed to rotate %s tls cert with secret name %s and mode %s", t.TLSConfig, t.NewSecret, t.NewTLSMode)
+		if err := t.setRetryStatus(ctx, 0); err != nil {
+			return ctrl.Result{}, err
+		}
+		return ctrl.Result{}, t.triggerRollback(ctx, pollErr)
+	}
+
+	// Failed with more retries left; increment current retry annotation and requeue
+	t.Log.Info("HTTPS polling failed; attempting retry", "error", pollErr)
+	if err := t.setRetryStatus(ctx, currentRetries+1); err != nil {
+		return ctrl.Result{}, err
+	}
+	return ctrl.Result{Requeue: true}, pollErr
+}
+
+// setRetryStatus sets the HTTPSPollingCurrentRetry field in status to newval.
+func (t *TLSConfigManager) setRetryStatus(ctx context.Context, newval int) error {
+	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		if t.Vdb.Status.HTTPSPollingCurrentRetry != newval {
+			t.Vdb.Status.HTTPSPollingCurrentRetry = newval
+			return t.Rec.GetClient().Status().Update(ctx, t.Vdb)
+		}
+		return nil
+	})
 }
 
 func (t *TLSConfigManager) getHTTPSPollingOpts(ctx context.Context) ([]pollhttps.Option, error) {

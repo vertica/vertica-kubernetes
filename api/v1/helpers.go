@@ -1450,9 +1450,14 @@ func (v *VerticaDB) ShouldRemoveTLSSecret() bool {
 	return vmeta.ShouldRemoveTLSSecret(v.Annotations)
 }
 
-// GetHTTPSPollingRetries returns the number of retries for HTTPS polling during cert rotation
-func (v *VerticaDB) GetHTTPSPollingRetries() int {
-	return vmeta.GetHTTPSPollingNumRetries(v.Annotations)
+// GetHTTPSPollingMaxRetries returns the max number of retries for HTTPS polling during cert rotation.
+func (v *VerticaDB) GetHTTPSPollingMaxRetries() int {
+	return vmeta.GetHTTPSPollingMaxRetries(v.Annotations)
+}
+
+// GetHTTPSPollingCurrentRetries returns current retry for HTTPS polling or 0 if not set.
+func (v *VerticaDB) GetHTTPSPollingCurrentRetries() int {
+	return v.Status.HTTPSPollingCurrentRetry
 }
 
 // IsValidRestorePointPolicy returns true if the RestorePointPolicy is properly specified,

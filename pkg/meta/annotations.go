@@ -257,7 +257,7 @@ const (
 
 	// When cert rotation fails during HTTPS polling, how many times should the operator retry before giving up or
 	// triggering rollback.
-	HTTPSPollingNumberRetriesAnnotation = "vertica.com/https-polling-number-of-retries"
+	HTTPSPollingMaxRetriesAnnotation = "vertica.com/https-polling-max-retries"
 
 	// We have a deployment check that ensures that if running vcluster ops the
 	// image is built for that (and vice-versa). This annotation allows you to
@@ -908,9 +908,9 @@ func IsHTTPSTLSSetInOfflineUpgrade(annotations map[string]string) bool {
 	return lookupBoolAnnotation(annotations, OfflineUpgradeHTTPSSetAnnotation, false)
 }
 
-// GetHTTPSPollingNumRetries returns the number of retries to use for cert rotation (default 0).
-func GetHTTPSPollingNumRetries(annotations map[string]string) int {
-	return lookupIntAnnotation(annotations, HTTPSPollingNumberRetriesAnnotation, 0)
+// GetHTTPSPollingMaxRetries returns the max number of retries to use for HTTPS polling during HTTPS cert rotation (default 0).
+func GetHTTPSPollingMaxRetries(annotations map[string]string) int {
+	return lookupIntAnnotation(annotations, HTTPSPollingMaxRetriesAnnotation, 0)
 }
 
 // lookupBoolAnnotation is a helper function to lookup a specific annotation and
