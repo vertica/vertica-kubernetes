@@ -61,11 +61,8 @@ This table below describes monitoring configuration parameters including Grafana
 | grafana.persistence | Control persistent storage for Grafana: ref: https://kubernetes.io/docs/concepts/storage/persistent-volumes/ |  |
 | grafana.grafana.ini | Grafana's primary configuration. ref: http://docs.grafana.org/installation/configuration/ | |
 | grafana.service | Expose the grafana service to be accessed from outside the cluster (LoadBalancer service). or access it from within the cluster (ClusterIP service). Set the service type and the port to serve it. | <pre>service:<br>  enabled: true<br>  type: ClusterIP<br>  ipFamilyPolicy: ""<br>  ipFamilies: []<br>  loadBalancerIP: ""<br>  loadBalancerClass: ""<br>  port: 80<br>  targetPort: 3000<br>  annotations: {}<br>  labels: {}<br>  portName: http-web<br>  appProtocol: ""<br>  sessionAffinity: ""</pre> |
-| grafana.dashboardProviders.dashboardproviders.yaml.providers[0].folder | Folder name for Grafana dashboards | Vertica |
-| grafana.datasources.datasources.yaml.datasources[0].url | URL for Prometheus datasource in Grafana | `http://{{ .Release.Name }}-prometheus-server-prometheus.{{ .Release.Namespace }}.svc.cluster.local:9090` |
-| grafana.datasources.datasources.yaml.datasources[1].url | URL for Loki datasource in Grafana | `http://{{ .Release.Name }}-loki-gateway.{{ .Release.Namespace }}.svc.cluster.local:80` |
 | prometheusServer.enabled | Deploy Prometheus server as part of the chart | false |
-| prometheusServer.prometheus.serviceAccount.create | Control whether a serviceaccount must be created with the requires permissions | false |
+| prometheusServer.prometheus.serviceAccount.create | Control whether a serviceaccount must be created with the required permissions | false |
 | prometheusServer.prometheus.serviceAccount.name | Name of the serviceAccount | prometheus-vertica-sa (this is the static name of the service account the operator will generate from a template, if "create" is false) |
 | prometheusServer.prometheus.serviceAccount.annotations | Annotations to add to the serviceAccount | {} |
 | prometheusServer.prometheus.serviceAccount.automountServiceAccountToken | Control whether the service account’s token is automatically mounted into the pod | true |
@@ -73,8 +70,8 @@ This table below describes monitoring configuration parameters including Grafana
 | prometheusServer.prometheus.prometheusSpec.replicas | Number of Prometheus replicas | 1 |
 | prometheusServer.prometheus.prometheusSpec.retention | How long Prometheus should retain data | 7d |
 | prometheusServer.prometheus.prometheusSpec.retentionSize | Max storage size before Prometheus starts deleting old data | 2GB |
-| prometheusServer.prometheus.web | WebTLSConfig defines the TLS parameters for HTTPS. ref: https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api-reference/api.md#webtlsconfig | 2GB |
 | prometheusServer.prometheus.prometheusSpec.storageSpec.volumeClaimTemplate.spec.resources.requests.storage | Size of Prometheus persistent volume | 5Gi |
+| prometheusServer.prometheus.web | WebTLSConfig defines the TLS parameters for HTTPS. ref: https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api-reference/api.md#webtlsconfig | {} |
 | prometheusServer.prometheusOperator.enabled | Enable Prometheus Operator (required for Prometheus) | true |
 | prometheusServer.prometheusOperator.admissionWebhooks.enabled | Enable admission webhooks for Prometheus Operator | false |
 | prometheusServer.defaultRules.create | Create default recording/alerting rules | false |
