@@ -1,0 +1,8 @@
+apiVersion: vertica.com/v1
+kind: VerticaDB
+metadata:
+  name: v-tls-ver-cipersuites
+spec:
+  dbTlsConfig:
+    tlsVersion: 2
+    cipherSuites: "ECDHE-RSA-AES256-GCM-SHA384:ECDHE-RSA-AES128-SHA"

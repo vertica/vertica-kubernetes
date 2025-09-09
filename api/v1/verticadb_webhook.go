@@ -18,6 +18,7 @@ package v1
 
 import (
 	"fmt"
+	"maps"
 	"reflect"
 	"slices"
 	"strings"
@@ -70,6 +71,20 @@ var validProxyLogLevel = []string{"TRACE", "DEBUG", "INFO", "WARN", "FATAL", "NO
 
 // log is for logging in this package.
 var verticadblog = logf.Log.WithName("verticadb-resource")
+
+var TLS2CipherSuites = map[string]struct{}{
+	"ECDHE-RSA-AES256-GCM-SHA384": {},
+	"ECDHE-RSA-CHACHA20-POLY1305": {},
+	"ECDHE-RSA-AES128-GCM-SHA256": {},
+	"ECDHE-RSA-AES256-SHA":        {},
+	"ECDHE-RSA-AES128-SHA":        {},
+}
+
+var TLS3CipherSuites = map[string]struct{}{
+	"TLS_AES_256_GCM_SHA384":       {},
+	"TLS_CHACHA20_POLY1305_SHA256": {},
+	"TLS_AES_128_GCM_SHA256":       {},
+}
 
 func (v *VerticaDB) SetupWebhookWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr).
@@ -524,6 +539,7 @@ func (v *VerticaDB) validateVerticaDBSpec() field.ErrorList {
 	allErrs := v.hasAtLeastOneSC(field.ErrorList{})
 	allErrs = v.hasValidSubclusterTypes(allErrs)
 	allErrs = v.hasNoConflictbetweenTLSAndCertMount(allErrs)
+	allErrs = v.hasNoConflictbetweenTLSAndAdmintool(allErrs)
 	allErrs = v.hasValidTLSWithKnob(allErrs)
 	allErrs = v.hasValidInitPolicy(allErrs)
 	allErrs = v.hasValidRestorePolicy(allErrs)
@@ -547,6 +563,7 @@ func (v *VerticaDB) validateVerticaDBSpec() field.ErrorList {
 	allErrs = v.hasDuplicateScName(allErrs)
 	allErrs = v.hasValidVolumeName(allErrs)
 	allErrs = v.hasValidTLSModes(allErrs)
+	allErrs = v.hasValidDBTLSConfig(allErrs)
 	allErrs = v.hasTLSSecretsSetForRevive(allErrs)
 	allErrs = v.hasValidVolumeMountName(allErrs)
 	allErrs = v.hasValidKerberosSetup(allErrs)
@@ -1151,6 +1168,57 @@ func (v *VerticaDB) hasValidTLSModes(allErrs field.ErrorList) field.ErrorList {
 	}
 
 	return allErrs
+}
+
+// hasValidTLSModes checks whether the TLS version and cipher suites are valid
+func (v *VerticaDB) hasValidDBTLSConfig(allErrs field.ErrorList) field.ErrorList {
+	if !v.IsSetForTLS() && v.Spec.DBTLSConfig != nil {
+		err := field.Invalid(field.NewPath("spec").Child("dbTlsConfig"), *v.Spec.DBTLSConfig, "cannot configure dbTlsConfig when enable-tls-auth is not enabled")
+		allErrs = append(allErrs, err)
+		return allErrs
+	}
+	if !v.IsSetForTLS() {
+		return allErrs
+	}
+	if v.Spec.DBTLSConfig == nil {
+		return allErrs
+	}
+	if v.Spec.DBTLSConfig.TLSVersion != 2 && v.Spec.DBTLSConfig.TLSVersion != 3 {
+		err := field.Invalid(field.NewPath("spec").Child("dbTlsConfig").Child("tlsVersion"), v.Spec.DBTLSConfig.TLSVersion,
+			"TLS version must be 2 (TLS1.2) or 3 (TLS1.3)")
+		allErrs = append(allErrs, err)
+		return allErrs
+	}
+	// TLS1.2 uses comma while TLS1.3 uses colon
+	separator := ":"
+	validCipherSuites := TLS2CipherSuites
+	if v.Spec.DBTLSConfig.TLSVersion == 3 {
+		validCipherSuites = TLS3CipherSuites
+	}
+	invalidCipherSuites := v.validateCipherSuites(validCipherSuites, v.Spec.DBTLSConfig.CipherSuites, separator)
+	if len(invalidCipherSuites) != 0 {
+		err := field.Invalid(field.NewPath("spec").Child("dbTlsConfig").Child("cipherSuites"), v.Spec.DBTLSConfig.CipherSuites,
+			fmt.Sprintf("invalid cipher suites for TLS version %d : %s. Supported cipher suites are %s.", v.Spec.DBTLSConfig.TLSVersion,
+				strings.Join(invalidCipherSuites, ":"), strings.Join(slices.Collect(maps.Keys(validCipherSuites)), ":")))
+		allErrs = append(allErrs, err)
+	}
+	return allErrs
+}
+
+// validateCipherSuites will validate if the cipherSuites is valid for the TLSVersion
+func (v *VerticaDB) validateCipherSuites(validCipherSuites map[string]struct{}, cipherSuites, separator string) []string {
+	invalidSuites := []string{}
+	if cipherSuites == "" {
+		return invalidSuites
+	}
+	parsedSuites := strings.Split(strings.ToUpper(cipherSuites), separator)
+	for _, suite := range parsedSuites {
+		_, ok := validCipherSuites[suite]
+		if !ok {
+			invalidSuites = append(invalidSuites, suite)
+		}
+	}
+	return invalidSuites
 }
 
 // hasTLSSecretsSetForRevive checks whether the TLS secrets are set for the revive init policy
@@ -1849,6 +1917,16 @@ func (v *VerticaDB) hasNoConflictbetweenTLSAndCertMount(allErrs field.ErrorList)
 		allErrs = append(allErrs, err)
 	}
 
+	return allErrs
+}
+
+// hasNoConflictbetweenTLSAndAdmintool checks if both TLS and Admintool are used at the same time
+func (v *VerticaDB) hasNoConflictbetweenTLSAndAdmintool(allErrs field.ErrorList) field.ErrorList {
+	if vmeta.UseTLSAuth(v.Annotations) && !vmeta.UseVClusterOps(v.Annotations) {
+		err := field.Forbidden(field.NewPath("metadata").Child("annotations"),
+			"cannot set enable-tls-auth to true and vcluster-ops to false at the same time")
+		allErrs = append(allErrs, err)
+	}
 	return allErrs
 }
 

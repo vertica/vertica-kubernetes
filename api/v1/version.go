@@ -74,6 +74,8 @@ const (
 	NMATLSSecretInAWSSecretsManagerMinVersion = "v24.2.0"
 	// The NMA TLS Auth can be enabled
 	TLSAuthMinVersion = "v25.3.0"
+	// The TLS version and cipher suites are changeable
+	TLSVersionCipherMinVersion = "v25.4.0"
 	// Starting in v24.2.0, NMA is deployed in a sidecar container
 	NMAInSideCarDeploymentMinVersion = "v24.2.0"
 	// Starting in v24.2.0, vcluster scrutinize command can read the
