@@ -104,6 +104,7 @@ func addReconcilersToManager(mgr manager.Manager, restCfg *rest.Config) {
 	}
 
 	cacheManager := vcache.MakeCacheManager(opcfg.GetIsCacheEnabled())
+	passwordManager := security.NewPasswordManager()
 	// Create a custom option with our own rate limiter
 	rateLimiter := workqueue.NewItemExponentialFailureRateLimiter(1*time.Millisecond,
 		time.Duration(opcfg.GetVdbMaxBackoffDuration())*time.Millisecond)
@@ -111,12 +112,13 @@ func addReconcilersToManager(mgr manager.Manager, restCfg *rest.Config) {
 		RateLimiter: rateLimiter,
 	}
 	if err := (&vdb.VerticaDBReconciler{
-		Client:       mgr.GetClient(),
-		Log:          ctrl.Log.WithName("controllers").WithName("VerticaDB"),
-		Scheme:       mgr.GetScheme(),
-		Cfg:          restCfg,
-		EVRec:        mgr.GetEventRecorderFor(vmeta.OperatorName),
-		CacheManager: cacheManager,
+		Client:          mgr.GetClient(),
+		Log:             ctrl.Log.WithName("controllers").WithName("VerticaDB"),
+		Scheme:          mgr.GetScheme(),
+		Cfg:             restCfg,
+		EVRec:           mgr.GetEventRecorderFor(vmeta.OperatorName),
+		CacheManager:    cacheManager,
+		PasswordManager: passwordManager,
 	}).SetupWithManager(mgr, options); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "VerticaDB")
 		os.Exit(1)
