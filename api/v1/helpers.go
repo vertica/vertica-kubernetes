@@ -769,13 +769,16 @@ func (v *VerticaDB) GetTLSConfigSpecByName(tlsConfig string) *TLSConfigSpec {
 }
 
 // IsAutoCertRotationEnabled checks if automatic cert rotation is enabled for
-// for a certain tlsconfig (clientServer or httpsNMA)
+// for a certain tlsconfig (clientServer or httpsNMA). This could mean set in
+// the spec or spec has been unset but the status is still set.
 func (v *VerticaDB) IsAutoCertRotationEnabled(tlsConfig string) bool {
 	if !vmeta.UseTLSAuth(v.Annotations) {
 		return false
 	}
 	config := v.GetTLSConfigSpecByName(tlsConfig)
-	return config != nil && config.AutoRotate != nil && len(config.AutoRotate.Secrets) > 0
+	specSet := config != nil && config.AutoRotate != nil && len(config.AutoRotate.Secrets) > 0
+	statusSet := len(v.GetAutoRotateSecrets(tlsConfig)) > 0
+	return specSet || statusSet
 }
 
 // GetAutoRotateSecrets gets the list of auto-rotate secrets from status
@@ -1542,13 +1545,18 @@ func (v *VerticaDB) IsClientServerConfigEnabled() bool {
 // It does not mean vclusterops can now operate using tls, for
 // that we need to wait until tls configurations are created
 func (v *VerticaDB) IsSetForTLS() bool {
-	return v.IsValidVersionForTLS() &&
+	return v.IsValidVersionForTLS(TLSAuthMinVersion) &&
+		vmeta.UseTLSAuth(v.Annotations)
+}
+
+func (v *VerticaDB) IsSetForTLSVersionAndCipher() bool {
+	return v.IsValidVersionForTLS(TLSVersionCipherMinVersion) &&
 		vmeta.UseTLSAuth(v.Annotations)
 }
 
 // IsValidVersionForTLS returns true if the server version
 // supports tls
-func (v *VerticaDB) IsValidVersionForTLS() bool {
+func (v *VerticaDB) IsValidVersionForTLS(minVersion string) bool {
 	if !v.UseVClusterOpsDeployment() {
 		return false
 	}
@@ -1559,7 +1567,7 @@ func (v *VerticaDB) IsValidVersionForTLS() bool {
 		return false
 	}
 
-	return vinf.IsEqualOrNewer(TLSAuthMinVersion)
+	return vinf.IsEqualOrNewer(minVersion)
 }
 
 // GenSubclusterStatusMap returns a map that has a subcluster name as key

@@ -50,7 +50,41 @@ This table below describes monitoring configuration parameters including Grafana
 
 | Parameter Name | Description | Default Value |
 |----------------|-------------|---------------|
-| grafana.enabled | Set to true if you want to deploy Grafana with the operator | false |
-| prometheusServer.enabled | Set to true if you want to deploy Prometheus server. | false |
-| loki.enabled | Set to true if you want to deploy Loki and Alloy. | false |
-
+| grafana.enabled | Deploy Grafana as part of the chart | false |
+| grafana.namespaceOverride | Override the namespace where Grafana is deployed | "" |
+| grafana.replicas | Number of grafana pods | 1 |
+| grafana.adminUser | Username for Grafana admin user | admin |
+| grafana.adminPassword | Password for Grafana admin user | admin |
+| grafana.admin.existingSecret | Name of the secret. Can be templated. | "" |
+| grafana.admin.userKey | The name of the field that contains the username in the secret | admin-user |
+| grafana.admin.passwordKey | The name of the field that contains the password in the secret | admin-password |
+| grafana.persistence | Control persistent storage for Grafana: ref: https://kubernetes.io/docs/concepts/storage/persistent-volumes/ |  |
+| grafana.grafana.ini | Grafana's primary configuration. ref: http://docs.grafana.org/installation/configuration/ | |
+| grafana.service | Expose the grafana service to be accessed from outside the cluster (LoadBalancer service). or access it from within the cluster (ClusterIP service). Set the service type and the port to serve it. | <pre>service:<br>  enabled: true<br>  type: ClusterIP<br>  ipFamilyPolicy: ""<br>  ipFamilies: []<br>  loadBalancerIP: ""<br>  loadBalancerClass: ""<br>  port: 80<br>  targetPort: 3000<br>  annotations: {}<br>  labels: {}<br>  portName: http-web<br>  appProtocol: ""<br>  sessionAffinity: ""</pre> |
+| prometheusServer.enabled | Deploy Prometheus server as part of the chart | false |
+| prometheusServer.prometheus.serviceAccount.create | Control whether a serviceaccount must be created with the required permissions | false |
+| prometheusServer.prometheus.serviceAccount.name | Name of the serviceAccount | prometheus-vertica-sa (this is the static name of the service account the operator will generate from a template, if "create" is false) |
+| prometheusServer.prometheus.serviceAccount.annotations | Annotations to add to the serviceAccount | {} |
+| prometheusServer.prometheus.serviceAccount.automountServiceAccountToken | Control whether the service account’s token is automatically mounted into the pod | true |
+| prometheusServer.prometheus.service | Configuration for Prometheus service0 ref: https://artifacthub.io/packages/helm/prometheus-community/kube-prometheus-stack?modal=values&path=prometheus.service | |
+| prometheusServer.prometheus.prometheusSpec.replicas | Number of Prometheus replicas | 1 |
+| prometheusServer.prometheus.prometheusSpec.retention | How long Prometheus should retain data | 7d |
+| prometheusServer.prometheus.prometheusSpec.retentionSize | Max storage size before Prometheus starts deleting old data | 2GB |
+| prometheusServer.prometheus.prometheusSpec.storageSpec.volumeClaimTemplate.spec.resources.requests.storage | Size of Prometheus persistent volume | 5Gi |
+| prometheusServer.prometheus.web | WebTLSConfig defines the TLS parameters for HTTPS. ref: https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api-reference/api.md#webtlsconfig | {} |
+| prometheusServer.prometheusOperator.enabled | Enable Prometheus Operator (required for Prometheus) | true |
+| prometheusServer.prometheusOperator.admissionWebhooks.enabled | Enable admission webhooks for Prometheus Operator | false |
+| prometheusServer.defaultRules.create | Create default recording/alerting rules | false |
+| loki.enabled | Deploy Loki as part of the chart | false |
+| loki.loki.compactor.retention_enabled | Enable log retention | false |
+| loki.loki.compactor.working_directory | Specify a working directory for the compactor | |
+| loki.loki.compactor.compaction_interval | How frequently the compactor performs compaction and retention tasks | 20m |
+| loki.loki.compactor.retention_delete_delay | A delay between the time a log block is marked for deletion by the retention policy and when it is actually removed from storage. | 2h |
+| loki.loki.limits_config.retention_period | Set the global retention period | 720h |
+| loki.loki.commonConfig.replication_factor | Stores multiple copies of logs in the ingester component | 3 |
+| loki.loki.schemaConfig.configs | How Loki stores and indexes log data over time. ref: https://grafana.com/docs/loki/latest/configuration/#schema_config | {} |
+| loki.loki.storage.type | Storage for Loki chunks. | s3 |
+| loki.lokiCanary.enabled | The Loki canary pushes logs to and queries from this loki installation to test that it's working correctly | true |
+| loki.test.enabled | To test if a Loki data source is enabled and working | true |
+| alloy.enabled | Deploy Alloy as part of the chart | false |
+| alloy.replicaCount | Define the number of replicas for the Alloy deployment | 3 |
