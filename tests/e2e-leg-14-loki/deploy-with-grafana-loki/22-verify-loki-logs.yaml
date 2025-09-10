@@ -18,13 +18,9 @@ commands:
       set -x
       set -o xtrace
       NAMESPACE=$(kubectl get sts -l app.kubernetes.io/name=vertica -A -o=jsonpath='{.items[0].metadata.namespace}')
-      echo $NAMESPACE
       DATA_URLENCODE="query={job=\"loki.source.kubernetes.pod_logs\", instance=\"$NAMESPACE/v-with-loki-pri1-0:vlogger\"}"
-      echo $DATA_URLENCODE
       RESULT=$(kubectl exec v-with-loki-pri1-0 -i -c server -n $NAMESPACE -- curl -G -s http://vdb-op-loki.verticadb-operator.svc.cluster.local:3100/loki/api/v1/query_range --data-urlencode "$DATA_URLENCODE" --data-urlencode since=12h)
-      echo $RESULT
       LOGS=$(echo $RESULT | jq '.data.result[0].values')
-      echo $LOGS
       # verify the loki log result
       V_LOG=$(echo "$LOGS" | grep -Po 'v_vertdb_node0001')
       if [ "$V_LOG" == "" ]; then

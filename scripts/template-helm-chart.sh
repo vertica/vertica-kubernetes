@@ -261,3 +261,8 @@ do
   perl -i -pe 's/^/{{- if and .Values.prometheusServer.enabled (not .Values.prometheusServer.prometheus.serviceAccount.create) (eq .Values.prometheusServer.prometheus.serviceAccount.name "prometheus-vertica-sa") -}}\n/ if 1 .. 1' $f
   echo "{{- end }}" >> $f
 done
+
+# 27. Conditionally create alloy configmap
+perl -i -0777 -pe 's/^/{{- if and .Values.alloy.enabled (not .Values.alloy.alloy.configMap.create) -}}\n/ if 1 .. 1' $TEMPLATE_DIR/verticadb-operator-alloy-cm.yaml
+perl -i -0777 -pe 's/name: \{\{ include "vdb-op.name" \. \}\}-alloy/name: vdb-op-alloy/' $TEMPLATE_DIR/verticadb-operator-alloy-cm.yaml
+echo "{{- end }}" >> $TEMPLATE_DIR/verticadb-operator-alloy-cm.yaml
