@@ -17,7 +17,6 @@ package vdb
 
 import (
 	"context"
-	"encoding/base64"
 	"fmt"
 	"sort"
 	"strings"
@@ -26,7 +25,6 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
-	"github.com/vertica/vertica-kubernetes/pkg/cloud"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
@@ -38,7 +36,6 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
 	vtypes "github.com/vertica/vertica-kubernetes/pkg/types"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
-	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/checklicense"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/createdb"
 	config "github.com/vertica/vertica-kubernetes/pkg/vdbconfig"
 	"github.com/vertica/vertica-kubernetes/pkg/vdbstatus"
@@ -95,13 +92,6 @@ func (c *CreateDBReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ct
 	if c.Vdb.Spec.LicenseSecret == "" {
 		return ctrl.Result{}, fmt.Errorf("failed to create database because of empty licenseSecret")
 	}
-	licenseVerified, res, err2 := c.verifyLicense(ctx)
-	if verrors.IsReconcileAborted(res, err2) {
-		return res, err2
-	}
-	if !licenseVerified {
-		return ctrl.Result{}, fmt.Errorf("invalid Vertica license")
-	}
 
 	var err error
 	c.VInf, err = c.Vdb.MakeVersionInfoCheck()
@@ -127,44 +117,6 @@ func (c *CreateDBReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ct
 		},
 	}
 	return g.checkAndRunInit(ctx)
-}
-
-func (c *CreateDBReconciler) verifyLicense(ctx context.Context) (bool, ctrl.Result, error) {
-	secretFetcher := cloud.SecretFetcher{
-		Client:   c.VRec.GetClient(),
-		Log:      c.Log.WithName("CreateDBReconciler"),
-		Obj:      c.Vdb,
-		EVWriter: c.VRec.EVRec,
-	}
-	licenseData, res, err := secretFetcher.FetchAllowRequeue(ctx,
-		names.GenNamespacedName(c.Vdb, c.Vdb.Spec.LicenseSecret))
-	if verrors.IsReconcileAborted(res, err) {
-		return false, res, err
-	}
-	licenseFile := licenseData["license.dat"]
-	err = c.PFacts.Collect(ctx, c.Vdb)
-	if err != nil {
-		return false, ctrl.Result{}, err
-	}
-	initiatorPod, ok := c.PFacts.FindRunningPod()
-
-	if !ok {
-		return false, ctrl.Result{}, fmt.Errorf("failed to find an installed pod to verify license")
-	}
-	initiatorPodIP := initiatorPod.GetPodIP()
-
-	opts := []checklicense.Option{
-		checklicense.WithInitiators([]string{initiatorPodIP}),
-		checklicense.WithLicenseFile(base64.StdEncoding.EncodeToString(licenseFile)),
-	}
-	c.Log.Info("libo: to check license in " + c.Vdb.Spec.LicenseSecret)
-	resp, err := c.Dispatcher.CheckLicense(ctx, opts...)
-	if err != nil {
-		c.Log.Error(err, "libo: error from CheckLicense() for "+c.Vdb.Spec.LicenseSecret)
-		return false, ctrl.Result{}, err
-	}
-	c.Log.Info("libo: resp - " + fmt.Sprintf("%v", resp))
-	return false, ctrl.Result{}, err
 }
 
 // execCmd will do the actual execution of creating a database.

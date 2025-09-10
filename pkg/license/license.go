@@ -31,7 +31,7 @@ import (
 // user provided a custom license secret.
 func GetPath(ctx context.Context, clnt client.Client, vdb *vapi.VerticaDB) (string, error) {
 	if vdb.Spec.LicenseSecret == "" {
-		return paths.CELicensePath, nil
+		return "", fmt.Errorf("license error. Field Spec.LicenseSecret is not set")
 	}
 
 	secret := &corev1.Secret{}
@@ -44,7 +44,7 @@ func GetPath(ctx context.Context, clnt client.Client, vdb *vapi.VerticaDB) (stri
 	}
 
 	if len(secret.Data) == 0 {
-		return paths.CELicensePath, nil
+		return "", fmt.Errorf("license error. Secret %s has no license data in it", vdb.Spec.LicenseSecret)
 	}
 
 	// This function only returns a single license -- to be used with
