@@ -194,7 +194,7 @@ func (v *VerticaDB) validateImmutableFields(old runtime.Object) field.ErrorList 
 	allErrs = v.checkInvalidSubclusterTypeChange(allErrs)
 	allErrs = v.checkAtLeastOneMainPrimaryTypeUnchanged(oldObj, allErrs)
 	allErrs = v.checkAtLeastOneSandboxPrimaryTypeUnchanged(oldObj, allErrs)
-	allErrs = v.checkPasswordSecretUpdateWithSandbox(oldObj, allErrs)
+	allErrs = v.checkPasswordSecretUpdateWithShutdownSandbox(oldObj, allErrs)
 	allErrs = v.checkSandboxesDuringUpgrade(oldObj, allErrs)
 	allErrs = v.checkShutdownSandboxImage(oldObj, allErrs)
 	allErrs = v.checkShutdownForSandboxesToBeRemoved(oldObj, allErrs)
@@ -517,18 +517,26 @@ func (v *VerticaDB) checkValidSubclusterTypeTransition(oldObj *VerticaDB, allErr
 	return allErrs
 }
 
-// checkPasswordSecretUpdateInShutdownSandbox checks if password secrets are being updated in shutdown sandboxes
-func (v *VerticaDB) checkPasswordSecretUpdateWithSandbox(oldObj *VerticaDB, allErrs field.ErrorList) field.ErrorList {
+// checkPasswordSecretUpdateWithShutdownSandbox checks if password secrets are being updated in shutdown sandboxes
+func (v *VerticaDB) checkPasswordSecretUpdateWithShutdownSandbox(oldObj *VerticaDB, allErrs field.ErrorList) field.ErrorList {
 	// if vdb does not have any sandboxes, skip this check
 	if len(v.Spec.Sandboxes) == 0 {
 		return allErrs
 	}
 
-	if oldObj.Spec.PasswordSecret != v.Spec.PasswordSecret {
+	shutdownSandbox := ""
+	for _, sandbox := range v.Spec.Sandboxes {
+		if sandbox.Shutdown {
+			shutdownSandbox = sandbox.Name
+			break
+		}
+	}
+
+	if shutdownSandbox != "" && oldObj.Spec.PasswordSecret != v.Spec.PasswordSecret {
 		err := field.Invalid(field.NewPath("spec").Child("passwordSecret"),
 			v.Spec.PasswordSecret,
-			fmt.Sprintf("Cannot change passwordSecret from %q to %q as the vdb has sandbox",
-				oldObj.Spec.PasswordSecret, v.Spec.PasswordSecret))
+			fmt.Sprintf("Cannot change passwordSecret from %q to %q as the vdb has shutdown sandbox %q",
+				oldObj.Spec.PasswordSecret, v.Spec.PasswordSecret, shutdownSandbox))
 		allErrs = append(allErrs, err)
 	}
 	return allErrs

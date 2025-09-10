@@ -51,6 +51,7 @@ import (
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/opcfg"
+	"github.com/vertica/vertica-kubernetes/pkg/security"
 
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/metrics"
@@ -69,6 +70,7 @@ type VerticaDBReconciler struct {
 	Namespace          string
 	MaxBackOffDuration int
 	CacheManager       cache.CacheManager
+	PasswordManager    security.PasswordManager
 }
 
 // +kubebuilder:rbac:groups=vertica.com,resources=verticadbs,verbs=get;list;watch;create;update;patch;delete
