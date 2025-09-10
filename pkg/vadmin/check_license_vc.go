@@ -26,7 +26,6 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/checklicense"
 )
 
-//nolint:dupl
 func (v *VClusterOps) CheckLicense(ctx context.Context, opts ...checklicense.Option) (vops.CheckLicenseResponse, error) {
 	v.setupForAPICall("CheckLicense")
 	defer v.tearDownForAPICall()

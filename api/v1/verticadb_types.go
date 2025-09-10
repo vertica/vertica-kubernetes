@@ -1054,6 +1054,10 @@ type VerticaDBStatus struct {
 	//   - "true" → use "vclusterops"
 	//   - any other value → use "admintools".
 	DeploymentMethod string `json:"deploymentMethod,omitempty"`
+	// +operator-sdk:csv:customresourcedefinitions:type=status
+	// +optional
+	// Timestamp of last successful license validation
+	LastLicenseValidation metav1.Time `json:"lastLicenseValidation,omitempty"`
 }
 
 const (
