@@ -24,6 +24,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
+	"github.com/vertica/vertica-kubernetes/pkg/security"
 	"github.com/vertica/vertica-kubernetes/pkg/test"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -75,7 +76,8 @@ var _ = Describe("passwordsecret_reconcile", func() {
 		pFacts := podfacts.MakePodFacts(vdbRec, fpr, logger, &secret1.Name)
 		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, &secret1.Name)
 		prunner := &cmds.FakePodRunner{}
-		rec := MakePasswordSecretReconciler(vdbRec, logger, vdb, prunner, &pFacts, dispatcher)
+		passwordManager := security.NewPasswordManager()
+		rec := MakePasswordSecretReconciler(vdbRec, logger, vdb, prunner, &pFacts, dispatcher, passwordManager)
 		r := rec.(*PasswordSecretReconciler)
 		Expect(r.updatePasswordSecretStatus(ctx)).Should(BeNil())
 

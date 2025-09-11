@@ -31,6 +31,7 @@ import (
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
+	"github.com/vertica/vertica-kubernetes/pkg/security"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/replicationstart"
 	"github.com/vertica/vertica-kubernetes/pkg/vk8s"
@@ -56,25 +57,27 @@ type ReplicationInfo struct {
 
 type ReplicationReconciler struct {
 	client.Client
-	VRec         *VerticaReplicatorReconciler
-	Vrep         *v1beta1.VerticaReplicator
-	dispatcher   vadmin.Dispatcher
-	SourcePFacts *podfacts.PodFacts
-	TargetPFacts *podfacts.PodFacts
-	Log          logr.Logger
-	SourceInfo   *ReplicationInfo
-	TargetInfo   *ReplicationInfo
+	VRec            *VerticaReplicatorReconciler
+	Vrep            *v1beta1.VerticaReplicator
+	dispatcher      vadmin.Dispatcher
+	SourcePFacts    *podfacts.PodFacts
+	TargetPFacts    *podfacts.PodFacts
+	Log             logr.Logger
+	SourceInfo      *ReplicationInfo
+	TargetInfo      *ReplicationInfo
+	PasswordManager security.PasswordManager
 }
 
 func MakeReplicationReconciler(cli client.Client, r *VerticaReplicatorReconciler, vrep *v1beta1.VerticaReplicator,
-	log logr.Logger) controllers.ReconcileActor {
+	log logr.Logger, passwordManager security.PasswordManager) controllers.ReconcileActor {
 	return &ReplicationReconciler{
-		Client:     cli,
-		VRec:       r,
-		Vrep:       vrep,
-		Log:        log.WithName("ReplicationReconciler"),
-		SourceInfo: &ReplicationInfo{},
-		TargetInfo: &ReplicationInfo{},
+		Client:          cli,
+		VRec:            r,
+		Vrep:            vrep,
+		Log:             log.WithName("ReplicationReconciler"),
+		SourceInfo:      &ReplicationInfo{},
+		TargetInfo:      &ReplicationInfo{},
+		PasswordManager: passwordManager,
 	}
 }
 
@@ -171,13 +174,13 @@ func (r *ReplicationReconciler) makeDispatcher() error {
 // determine usernames and passwords for both source and target VerticaDBs
 func (r *ReplicationReconciler) determineUsernameAndPassword(ctx context.Context) (err error) {
 	r.SourceInfo.Username, r.SourceInfo.Password, err = setUsernameAndPassword(ctx,
-		r.Client, r.Log, r.VRec, r.SourceInfo.Vdb, &r.Vrep.Spec.Source.VerticaReplicatorDatabaseInfo)
+		r.Client, r.Log, r.VRec, r.SourceInfo.Vdb, &r.Vrep.Spec.Source.VerticaReplicatorDatabaseInfo, r.PasswordManager)
 	if err != nil {
 		return err
 	}
 
 	r.TargetInfo.Username, r.TargetInfo.Password, err = setUsernameAndPassword(ctx,
-		r.Client, r.Log, r.VRec, r.TargetInfo.Vdb, &r.Vrep.Spec.Target.VerticaReplicatorDatabaseInfo)
+		r.Client, r.Log, r.VRec, r.TargetInfo.Vdb, &r.Vrep.Spec.Target.VerticaReplicatorDatabaseInfo, r.PasswordManager)
 	if err != nil {
 		return err
 	}
@@ -193,12 +196,13 @@ func (r *ReplicationReconciler) determineUsernameAndPassword(ctx context.Context
 // determine username and password to use for a vdb depending on certain fields of vrep spec
 func setUsernameAndPassword(ctx context.Context, cli client.Client, log logr.Logger,
 	vRec *VerticaReplicatorReconciler, vdb *vapi.VerticaDB,
-	dbInfo *v1beta1.VerticaReplicatorDatabaseInfo) (username string, password *string, err error) {
+	dbInfo *v1beta1.VerticaReplicatorDatabaseInfo,
+	pm security.PasswordManager) (username string, password *string, err error) {
 	emptyPassword := ""
 	if dbInfo.UserName == "" {
 		// database superuser is assumed
 		username := vdb.GetVerticaUser()
-		password, err := vk8s.GetSuperuserPassword(ctx, cli, log, vRec, vdb)
+		password, err := vk8s.GetSuperuserPassword(ctx, cli, log, vRec, vdb, pm)
 		if err != nil {
 			return "", &emptyPassword, err
 		}
@@ -213,7 +217,7 @@ func setUsernameAndPassword(ctx context.Context, cli client.Client, log logr.Log
 			// fetch custom password
 			// assuming the password secret key is default
 			password, err := vk8s.GetCustomSuperuserPassword(ctx, cli, log,
-				vRec, vdb, dbInfo.PasswordSecret, names.SuperuserPasswordKey)
+				vRec, vdb, dbInfo.PasswordSecret, names.SuperuserPasswordKey, pm, false)
 			if err != nil {
 				return "", &emptyPassword, err
 			}
@@ -225,7 +229,7 @@ func setUsernameAndPassword(ctx context.Context, cli client.Client, log logr.Log
 // collect pod facts for source and target sandboxes (or main clusters)
 func (r *ReplicationReconciler) collectPodFacts(ctx context.Context) (err error) {
 	r.SourcePFacts, err = r.makePodFacts(ctx, r.SourceInfo.Vdb,
-		r.Vrep.Spec.Source.SandboxName)
+		r.Vrep.Spec.Source.SandboxName, r.PasswordManager)
 	if err != nil {
 		return
 	}
@@ -234,7 +238,7 @@ func (r *ReplicationReconciler) collectPodFacts(ctx context.Context) (err error)
 	}
 
 	r.TargetPFacts, err = r.makePodFacts(ctx, r.TargetInfo.Vdb,
-		r.Vrep.Spec.Target.SandboxName)
+		r.Vrep.Spec.Target.SandboxName, r.PasswordManager)
 	if err != nil {
 		return
 	}
@@ -278,12 +282,10 @@ func (r *ReplicationReconciler) determineSourceAndTargetHosts() (err error) {
 }
 
 // make podfacts for a cluster (either main or a sandbox) of a vdb
-//
-//nolint:dupl
 func (r *ReplicationReconciler) makePodFacts(ctx context.Context, vdb *vapi.VerticaDB,
-	sandboxName string) (*podfacts.PodFacts, error) {
+	sandboxName string, pm security.PasswordManager) (*podfacts.PodFacts, error) {
 	username := vdb.GetVerticaUser()
-	password, err := vk8s.GetSuperuserPassword(ctx, r.Client, r.Log, r.VRec, vdb)
+	password, err := vk8s.GetSuperuserPassword(ctx, r.Client, r.Log, r.VRec, vdb, pm)
 	if err != nil {
 		return nil, err
 	}

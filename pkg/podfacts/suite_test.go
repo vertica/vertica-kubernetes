@@ -24,6 +24,7 @@ import (
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
+	"github.com/vertica/vertica-kubernetes/pkg/security"
 	"github.com/vertica/vertica-kubernetes/pkg/vk8s"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -49,11 +50,12 @@ type VerticaDBReconciler struct {
 	Scheme *runtime.Scheme
 	Cfg    *rest.Config
 	EVRec  record.EventRecorder
+	PM     security.PasswordManager
 }
 
 // GetSuperuserPassword returns the superuser password if it has been provided
 func (r *VerticaDBReconciler) GetSuperuserPassword(ctx context.Context, log logr.Logger, vdb *vapi.VerticaDB) (*string, error) {
-	return vk8s.GetSuperuserPassword(ctx, r.Client, log, r, vdb)
+	return vk8s.GetSuperuserPassword(ctx, r.Client, log, r, vdb, r.PM)
 }
 
 // Event a wrapper for Event() that also writes a log entry
