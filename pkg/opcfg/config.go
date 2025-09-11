@@ -221,9 +221,29 @@ func GetReleaseName() string {
 	return lookupStringEnvVar("RELEASE_NAME", envCanNotExist)
 }
 
-// IsPrometheusEnabled returns true if prometheus
-// is enabled in the operator
+// GetClusterScopeReleaseName returns the name of the cluster level operator release.
+// When the operator is deployed in namespace scope and you want to enable prometheus, you would
+// first deploy the operator in cluster scope with controllers disabled, then deploy the operator
+// in namespace scope with controllers enabled. The cluster scope deployment would have a release
+// name that can be different from the namespace scope deployment. This allows prometheus
+// to be created in the cluster scope deployment and have it monitor the operator namespace scope
+// deployments. If this is not set, then we assume the operator is deployed in cluster scope and
+// return an empty string.
+func GetClusterScopeReleaseName() string {
+	return lookupStringEnvVar("CLUSTER_SCOPE_RELEASE_NAME", envCanNotExist)
+}
+
+// IsPrometheusEnabled returns true if prometheus is enabled in the operator
+// or if the operator is deployed in namespace scope and the cluster scope
+// deployment has prometheus enabled.
 func IsPrometheusEnabled() bool {
+	return IsPrometheusEnvVarTrue() ||
+		(GetClusterScopeReleaseName() != "" && AreControllersNamespaceScoped())
+}
+
+// IsPrometheusEnvVarTrue returns true if prometheus
+// is enabled in the operator
+func IsPrometheusEnvVarTrue() bool {
 	return lookupBoolEnvVar("PROMETHEUS_ENABLED", envCanNotExist)
 }
 
