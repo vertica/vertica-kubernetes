@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<LicenseList>
+<HPLicense>
+    <licenseVersion>1.0</licenseVersion>
+    <licenseID>ad441c5b-c4b9-404f-8912-1a8d1cbc1890</licenseID>
+    <keyID>b75f4b8650d2fb951dbcdf815ea8083787d1eaff~f211abdfd4a9ef7f3e3143fe540cff378d8fd116</keyID>
+    <productInfo>alfMMv126Z1zE3Gk6SWkF9vrqexinh9ATEQOJj2oSJs=</productInfo>
+    <ltu>1</ltu>
+    <creation>31/08/2017T22:33:31+0530</creation>
+    <activation>31/08/2017T05:30:00+0530</activation>
+    <expiration type="com.hp.license.expirationValueType.date">29/12/2017T23:59:59+0000</expiration>
+    <capacity>2</capacity>
+    <validity>permanent</validity>
+    <origin>
+        <system>APSC</system>
+        <user>yuanzhe.bei@hpe.com</user>
+        <purpose>Testing - HP Internal</purpose>
+    </origin>
+    <constraints>
+        <lockList>
+            <lock type="com.hp.license.lockType.deviceID">1</lock>
+        </lockList>
+    </constraints>
+    <signature>dHYlw8bZhGOlsh5W5GLEcLOzR4P9RKm5cvU9QUeGUzzlp3j4ueBvt4TLQcSqykY+Z9/L2y4YM7X7nhZ89Q1Ynv62htm6Xuz0zPg7SjWQbQBfTtZQ9+uylnFpxtqp9Zza9aEt7hZ2S3V1vBLed2wBK0FZO4eoqBqhtiJR5KZjYupFnoBJ7C8y4N1WdJuFiB3bG0g/v2MsvuDJ3xKxb1o0fwI46M98EcaxV1SEPeO26vyDrVxzPX4T5yoAGXy7G7dV90enyJDBtKpiTASJetEBuw255/NVMrKGNC8nDJ+RnHjhRQfXfMouZBdnAfWJKaGejkUpXoid934UMuF8DsLW4g==</signature>
+</HPLicense>
+</LicenseList>

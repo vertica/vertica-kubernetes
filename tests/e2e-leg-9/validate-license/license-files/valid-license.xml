@@ -1,0 +1,26 @@
+<LicenseList><HPLicense>
+    <licenseVersion>1.0</licenseVersion>
+    <licenseID>d0d16675-202b-4680-8823-6560544bcf16</licenseID>
+    <keyID>26e54ea1e6a5e48f3b83a9ca2531fc62fe8a4d61~f211abdfd4a9ef7f3e3143fe540cff378d8fd116</keyID>
+    <productInfo>DUzqUnP4U4apcpfzIqxM51pNl6CeTSAGXPi2icdWLgQ=</productInfo>
+    <ltu>1</ltu>
+    <creation>27/07/2017T12:33:36+0000</creation>
+    <activation>27/07/2017T12:33:36+0000</activation>
+    <expiration type="com.hp.license.expirationValueType.date">FOREVER</expiration>
+    <capacity uom="License">1</capacity>
+    <validity>permanent</validity>
+    <origin>
+        <system>LEM</system>
+        <user>joseph.cr@hpe.com</user>
+        <orderID>TEST_Vertica_900</orderID>
+    </origin>
+    <constraints>
+        <lockList>
+            <lock type="com.hp.license.lockType.ipAddress">*.*.*.*</lock>
+            <lock type="com.hp.license.lockType.deviceID">Default Client</lock>
+        </lockList>
+    </constraints>
+    <description>Vertica Express Edition per TB</description>
+    <signature>TaFFm1QaXF09ne2CqbHbJV6RRpQ2wYYEDqeAWzSVB7pb8At6XDWSV+m0Ff2QB8QenBMnvUdfysgtv23WgOcFGIjSU1QkH34YINnTN1RmooD+9uMZIPqQE9y1xRVYZY4nRiLLqWkx2r6J5nvnId+jyf3Vv4QFV0fZfdbR8LHpB7PnrA4RqMuFnaBN/HgViiwgMSxbQcNOTw1uUqCEx+p0VaH/UyL9dm+OsSj26xdPH2hqCEVKYAATI1OudK3jSuYObrfACy9OQ/D8TSuytAB437NEZRJAK/TGalXiTjGyr5QPGD57dXf7JqZVvNxAf4tfNPZjMDzZZHLCp5Op7QqfxQ==</signature>
+</HPLicense>
+</LicenseList>
