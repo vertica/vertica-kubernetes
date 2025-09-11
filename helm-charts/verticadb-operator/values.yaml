@@ -237,6 +237,35 @@ grafana:
     ##
     pspEnabled: false
 
+  ## Enable persistence using Persistent Volume Claims for Grafana data storage
+  ## This stores Grafana's database (users, dashboards, and preferences), plugins, and other persistent files
+  ## so they survive pod restarts or upgrades.
+  ## ref: https://kubernetes.io/docs/concepts/storage/persistent-volumes/
+  ##
+  persistence:
+    type: pvc
+    enabled: false
+    # storageClassName: default
+    ## (Optional) Use this to bind the claim to an existing PersistentVolume (PV) by name.
+    volumeName: ""
+    accessModes:
+      - ReadWriteOnce
+    size: 10Gi
+    # annotations: {}
+    finalizers:
+      - kubernetes.io/pvc-protection
+
+  ## Grafana's primary configuration
+  ## NOTE: values in map will be converted to ini format
+  ## ref: http://docs.grafana.org/installation/configuration/
+  ##
+  grafana.ini:
+    paths:
+      data: /var/lib/grafana/
+      logs: /var/log/grafana
+      plugins: /var/lib/grafana/plugins
+      provisioning: /etc/grafana/provisioning
+
   ingress:
     ## If true, Grafana Ingress will be created
     ##
