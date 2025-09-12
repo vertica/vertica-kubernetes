@@ -22,20 +22,20 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
-var _ = Describe("LabelsForReferencedObjsReconciler", func() {
+var _ = Describe("ObservedConfigObjsReconciler", func() {
 	var vdb *vapi.VerticaDB
-	var reconciler *LabelsForReferencedObjsReconciler
+	var reconciler *ObservedConfigObjsReconciler
 
 	BeforeEach(func() {
 		vdb = vapi.MakeVDB()
-		reconciler = &LabelsForReferencedObjsReconciler{
+		reconciler = &ObservedConfigObjsReconciler{
 			Vdb: vdb,
 		}
 	})
 
 	It("should return empty slice if no resources are referenced", func() {
-		Expect(reconciler.getreferencedResources(true)).To(BeEmpty())
-		Expect(reconciler.getreferencedResources(false)).To(BeEmpty())
+		Expect(reconciler.getReferencedResources(true)).To(BeEmpty())
+		Expect(reconciler.getReferencedResources(false)).To(BeEmpty())
 	})
 
 	It("should return secret names from ExtraEnv with SecretKeyRef when isSecret is true", func() {
@@ -50,7 +50,7 @@ var _ = Describe("LabelsForReferencedObjsReconciler", func() {
 				},
 			},
 		}
-		Expect(reconciler.getreferencedResources(true)).To(ConsistOf("my-secret"))
+		Expect(reconciler.getReferencedResources(true)).To(ConsistOf("my-secret"))
 	})
 
 	It("should return configmap names from ExtraEnv with ConfigMapKeyRef when isSecret is false", func() {
@@ -65,7 +65,7 @@ var _ = Describe("LabelsForReferencedObjsReconciler", func() {
 				},
 			},
 		}
-		Expect(reconciler.getreferencedResources(false)).To(ConsistOf("my-cm"))
+		Expect(reconciler.getReferencedResources(false)).To(ConsistOf("my-cm"))
 	})
 
 	It("should return secret names from EnvFrom with SecretRef when isSecret is true", func() {
@@ -76,7 +76,7 @@ var _ = Describe("LabelsForReferencedObjsReconciler", func() {
 				},
 			},
 		}
-		Expect(reconciler.getreferencedResources(true)).To(ConsistOf("envfrom-secret"))
+		Expect(reconciler.getReferencedResources(true)).To(ConsistOf("envfrom-secret"))
 	})
 
 	It("should return configmap names from EnvFrom with ConfigMapRef when isSecret is false", func() {
@@ -87,7 +87,7 @@ var _ = Describe("LabelsForReferencedObjsReconciler", func() {
 				},
 			},
 		}
-		Expect(reconciler.getreferencedResources(false)).To(ConsistOf("envfrom-cm"))
+		Expect(reconciler.getReferencedResources(false)).To(ConsistOf("envfrom-cm"))
 	})
 
 	It("should return unique resource names from both ExtraEnv and EnvFrom", func() {
@@ -123,7 +123,7 @@ var _ = Describe("LabelsForReferencedObjsReconciler", func() {
 				},
 			},
 		}
-		Expect(reconciler.getreferencedResources(true)).To(ConsistOf("secret1", "secret2", "secret3"))
+		Expect(reconciler.getReferencedResources(true)).To(ConsistOf("secret1", "secret2", "secret3"))
 	})
 
 	It("should ignore configmap references when isSecret is true", func() {
@@ -145,7 +145,7 @@ var _ = Describe("LabelsForReferencedObjsReconciler", func() {
 				},
 			},
 		}
-		Expect(reconciler.getreferencedResources(true)).To(BeEmpty())
+		Expect(reconciler.getReferencedResources(true)).To(BeEmpty())
 	})
 
 	It("should ignore secret references when isSecret is false", func() {
@@ -167,7 +167,7 @@ var _ = Describe("LabelsForReferencedObjsReconciler", func() {
 				},
 			},
 		}
-		Expect(reconciler.getreferencedResources(false)).To(BeEmpty())
+		Expect(reconciler.getReferencedResources(false)).To(BeEmpty())
 	})
 
 	It("should handle mixed ExtraEnv and EnvFrom with both secret and configmap references", func() {
@@ -176,8 +176,8 @@ var _ = Describe("LabelsForReferencedObjsReconciler", func() {
 				Name: "SECRET_ENV",
 				ValueFrom: &corev1.EnvVarSource{
 					SecretKeyRef: &corev1.SecretKeySelector{
-						LocalObjectReference: corev1.LocalObjectReference{Name: "secret1"},
-						Key:                  "key1",
+						LocalObjectReference: corev1.LocalObjectReference{Name: "secret2"},
+						Key:                  "key2",
 					},
 				},
 			},
@@ -185,7 +185,7 @@ var _ = Describe("LabelsForReferencedObjsReconciler", func() {
 				Name: "CM_ENV",
 				ValueFrom: &corev1.EnvVarSource{
 					ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
-						LocalObjectReference: corev1.LocalObjectReference{Name: "cm1"},
+						LocalObjectReference: corev1.LocalObjectReference{Name: "cm2"},
 						Key:                  "cmkey",
 					},
 				},
@@ -194,16 +194,44 @@ var _ = Describe("LabelsForReferencedObjsReconciler", func() {
 		vdb.Spec.EnvFrom = []corev1.EnvFromSource{
 			{
 				SecretRef: &corev1.SecretEnvSource{
-					LocalObjectReference: corev1.LocalObjectReference{Name: "secret2"},
+					LocalObjectReference: corev1.LocalObjectReference{Name: "secret1"},
 				},
 			},
 			{
 				ConfigMapRef: &corev1.ConfigMapEnvSource{
-					LocalObjectReference: corev1.LocalObjectReference{Name: "cm2"},
+					LocalObjectReference: corev1.LocalObjectReference{Name: "cm1"},
 				},
 			},
 		}
-		Expect(reconciler.getreferencedResources(true)).To(ConsistOf("secret1", "secret2"))
-		Expect(reconciler.getreferencedResources(false)).To(ConsistOf("cm1", "cm2"))
+		Expect(reconciler.getReferencedResources(true)).To(ConsistOf("secret1", "secret2"))
+		Expect(reconciler.getReferencedResources(false)).To(ConsistOf("cm1", "cm2"))
+	})
+
+	It("equalSets should return true for two empty slices", func() {
+		Expect(equalSets(nil, []string{})).To(BeTrue())
+	})
+
+	It("equalSets should return true for slices with same elements in same order", func() {
+		Expect(equalSets([]string{"a", "b", "c"}, []string{"a", "b", "c"})).To(BeTrue())
+	})
+
+	It("equalSets should return true for slices with same elements in different order", func() {
+		Expect(equalSets([]string{"a", "b", "c"}, []string{"c", "a", "b"})).To(BeTrue())
+	})
+
+	It("equalSets should return false for slices with different lengths", func() {
+		Expect(equalSets([]string{"a", "b"}, []string{"a", "b", "c"})).To(BeFalse())
+	})
+
+	It("equalSets should return false for slices with different elements", func() {
+		Expect(equalSets([]string{"a", "b", "c"}, []string{"a", "b", "d"})).To(BeFalse())
+	})
+
+	It("equalSets should return false if one slice has duplicates and the other does not", func() {
+		Expect(equalSets([]string{"a", "b", "b"}, []string{"a", "b"})).To(BeFalse())
+	})
+
+	It("equalSets should return true for slices with same elements and duplicates in both", func() {
+		Expect(equalSets([]string{"a", "b", "b"}, []string{"b", "a", "b"})).To(BeTrue())
 	})
 })
