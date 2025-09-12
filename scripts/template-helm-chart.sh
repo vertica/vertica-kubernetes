@@ -262,9 +262,13 @@ do
   echo "{{- end }}" >> $f
 done
 
-# 27. Conditionally create alloy rbac resources
-for f in \
-  $TEMPLATE_DIR/verticadb-operator-alloy-sa.yaml \
+# 27. Conditionally create alloy configmap
+perl -i -0777 -pe 's/^/{{- if and .Values.alloy.enabled (not .Values.alloy.alloy.configMap.create) -}}\n/ if 1 .. 1' $TEMPLATE_DIR/verticadb-operator-alloy-cm.yaml
+perl -i -0777 -pe 's/name: \{\{ include "vdb-op.name" \. \}\}-alloy/name: vdb-op-alloy/' $TEMPLATE_DIR/verticadb-operator-alloy-cm.yaml
+echo "{{- end }}" >> $TEMPLATE_DIR/verticadb-operator-alloy-cm.yaml
+
+# 28. Conditionally create alloy rbac resources
+for f in $TEMPLATE_DIR/verticadb-operator-alloy-sa.yaml \
   $TEMPLATE_DIR/verticadb-operator-alloy-cr.yaml \
   $TEMPLATE_DIR/verticadb-operator-alloy-crb.yaml
 do

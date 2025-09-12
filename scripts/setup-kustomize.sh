@@ -408,6 +408,11 @@ replacements:
           name: v-online-upgrade
         fieldPaths:
           - spec.sidecars.[name=vlogger].image
+      - select:
+          kind: VerticaDB
+          name: v-with-loki
+        fieldPaths:
+          - spec.sidecars.[name=vlogger].image
 EOF
 
     if [ -n "$COMMUNAL_EP_CERT_SECRET" ]
