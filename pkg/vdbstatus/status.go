@@ -119,3 +119,14 @@ func SetSandboxUpgradeState(ctx context.Context, clnt client.Client, vdb *vapi.V
 		return nil
 	})
 }
+
+// SetHTTPSPollingCurrentRetry will set the HTTPSPollingCurrentRetry field in status
+// and update the input vdb.
+func SetHTTPSPollingCurrentRetry(ctx context.Context, clnt client.Client, vdb *vapi.VerticaDB, newval int) error {
+	return Update(ctx, clnt, vdb, func(vdb *vapi.VerticaDB) error {
+		if vdb.Status.HTTPSPollingCurrentRetry != newval {
+			vdb.Status.HTTPSPollingCurrentRetry = newval
+		}
+		return nil
+	})
+}

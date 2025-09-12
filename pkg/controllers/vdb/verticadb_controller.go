@@ -290,8 +290,6 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		MakeSandboxShutdownReconciler(r, log, vdb, true),
 		// Update deployment method and enable HTTPS TLS
 		MakeDeploymentMethodReconciler(r, log, vdb, prunner, pfacts, dispatcher),
-		// reconcile tls version and cipher suite
-		MakeDBTLSConfigReconciler(r, log, vdb, prunner, dispatcher, pfacts),
 		// Handles vertica server upgrade (i.e., when spec.image changes)
 		MakeOfflineUpgradeReconciler(r, log, vdb, prunner, pfacts, dispatcher),
 		MakeReadOnlyOnlineUpgradeReconciler(r, log, vdb, prunner, pfacts, dispatcher),
