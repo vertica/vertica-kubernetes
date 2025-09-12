@@ -153,7 +153,7 @@ func (vcc VClusterCommands) produceRecoverConfigInstructions(
 	var instructions []clusterOp
 
 	// Try fetching nodes info from a running db, if possible.
-	err := vcc.getVDBFromRunningDBIncludeSandbox(vdb, &options.DatabaseOptions, AnySandbox)
+	err := vcc.getDeepVDBFromRunningDB(vdb, &options.DatabaseOptions)
 	if err != nil {
 		vcc.PrintWarning("No running database found. For Eon database, restart the database to recover accurate sandbox information")
 

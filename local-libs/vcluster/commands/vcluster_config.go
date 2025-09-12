@@ -230,6 +230,7 @@ func removeConfig() error {
 // readVDBToDBConfig converts vdb to DatabaseConfig
 func readVDBToDBConfig(vdb *vclusterops.VCoordinationDatabase) (DatabaseConfig, error) {
 	dbConfig := MakeDatabaseConfig()
+	sort.Strings(vdb.HostList)
 	// loop over HostList is needed as we want to preserve the order
 	for _, host := range vdb.HostList {
 		vnode, ok := vdb.HostNodeMap[host]

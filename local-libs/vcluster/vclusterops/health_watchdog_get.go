@@ -149,11 +149,20 @@ func (vcc VClusterCommands) produceHealthWatchdogGetInstructions(options *VHealt
 		return instructions, err
 	}
 
-	// Get up hosts - health watchdog get request will be sent to all up hosts
+	// Get up hosts
 	hosts := options.Hosts
 	hosts = vdb.filterUpHostListBySandbox(hosts, util.MainClusterSandbox)
 	if len(hosts) == 0 {
 		return instructions, fmt.Errorf("found no UP nodes for health watchdog get")
+	}
+
+	// When checking cluster health, the request only needs to be sent to one initiator host
+	if options.Action == "check_cluster_health" {
+		initiator, err := getInitiatorHost(vdb.PrimaryUpNodes, []string{} /* skip hosts */)
+		if err != nil {
+			return instructions, err
+		}
+		hosts = []string{initiator}
 	}
 
 	nmaHealthOp := makeNMAHealthOp(hosts)
