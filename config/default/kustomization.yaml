@@ -24,6 +24,7 @@ resources:
 - ../webhook
 - ../clusterpermissions
 - ../certmanager
+- ../monitoring
 # - ../prometheus
 - metrics_service.yaml
 

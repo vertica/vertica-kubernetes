@@ -75,3 +75,16 @@ This table below describes monitoring configuration parameters including Grafana
 | prometheusServer.prometheusOperator.enabled | Enable Prometheus Operator (required for Prometheus) | true |
 | prometheusServer.prometheusOperator.admissionWebhooks.enabled | Enable admission webhooks for Prometheus Operator | false |
 | prometheusServer.defaultRules.create | Create default recording/alerting rules | false |
+| loki.enabled | Deploy Loki as part of the chart | false |
+| loki.loki.compactor.retention_enabled | Enable log retention | false |
+| loki.loki.compactor.working_directory | Specify a working directory for the compactor | |
+| loki.loki.compactor.compaction_interval | How frequently the compactor performs compaction and retention tasks | 20m |
+| loki.loki.compactor.retention_delete_delay | A delay between the time a log block is marked for deletion by the retention policy and when it is actually removed from storage. | 2h |
+| loki.loki.limits_config.retention_period | Set the global retention period | 720h |
+| loki.loki.commonConfig.replication_factor | Stores multiple copies of logs in the ingester component | 3 |
+| loki.loki.schemaConfig.configs | How Loki stores and indexes log data over time. ref: https://grafana.com/docs/loki/latest/configuration/#schema_config | {} |
+| loki.loki.storage.type | Storage for Loki chunks. | s3 |
+| loki.lokiCanary.enabled | The Loki canary pushes logs to and queries from this loki installation to test that it's working correctly | true |
+| loki.test.enabled | To test if a Loki data source is enabled and working | true |
+| alloy.enabled | Deploy Alloy as part of the chart | false |
+| alloy.replicaCount | Define the number of replicas for the Alloy deployment | 3 |
