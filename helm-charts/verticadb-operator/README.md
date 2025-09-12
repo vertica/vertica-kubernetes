@@ -42,6 +42,7 @@ This helm chart will install the operator and an admission controller webhook.  
 | securityContext | Holds pod-level security attributes and common container settings. | <pre>fsGroup: 65532 <br>runAsGroup: 65532<br>runAsNonRoot: true <br>runAsUser: 65532 <br>seccompProfile:<br>  type: RuntimeDefault</pre> |
 | containerSecurityContext | Defines the security options the manager container should be run with. | <pre>allowPrivilegeEscalation: false <br>readOnlyRootFilesystem: true <br>capabilities:<br>  drop: <br>  - ALL</pre> |
 | keda.createRBACRules | Controls the creation of ClusterRole rules for KEDA objects. | true |
+| clusterScopeReleaseName | If the operator is deployed in namespace scope, and you want prometheus to monitor databases in the namespace, then you must set this to the release name of the cluster scope operator that has prometheus enabled. | "" |
 
 &nbsp;  
 &nbsp; 
