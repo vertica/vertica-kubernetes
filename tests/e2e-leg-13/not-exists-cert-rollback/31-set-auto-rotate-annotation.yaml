@@ -1,0 +1,6 @@
+apiVersion: vertica.com/v1
+kind: VerticaDB
+metadata:
+  name: v-not-exists-cert-rollback
+  annotations:
+    vertica.com/trigger-auto-tls-rotate: "true"
