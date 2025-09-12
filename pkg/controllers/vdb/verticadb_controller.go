@@ -51,6 +51,7 @@ import (
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/opcfg"
+	"github.com/vertica/vertica-kubernetes/pkg/security"
 
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/metrics"
@@ -69,6 +70,7 @@ type VerticaDBReconciler struct {
 	Namespace          string
 	MaxBackOffDuration int
 	CacheManager       cache.CacheManager
+	PasswordManager    security.PasswordManager
 }
 
 // +kubebuilder:rbac:groups=vertica.com,resources=verticadbs,verbs=get;list;watch;create;update;patch;delete
@@ -304,7 +306,7 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		// Handles restart + re_ip of vertica
 		MakeRestartReconciler(r, log, vdb, prunner, pfacts, true, dispatcher),
 		// Check the password secret and update it if needed
-		MakePasswordSecretReconciler(r, log, vdb, prunner, pfacts, dispatcher),
+		MakePasswordSecretReconciler(r, log, vdb, prunner, pfacts, dispatcher, r.PasswordManager),
 		MakeMetricReconciler(r, log, vdb, prunner, pfacts),
 		MakeStatusReconcilerWithShutdown(r.Client, r.Scheme, log, vdb, pfacts),
 		// Ensure we add labels to any pod rescheduled so that Service objects route traffic to it.
@@ -458,7 +460,7 @@ func (r *VerticaDBReconciler) containsWatchedByLabel(labs map[string]string) boo
 
 // GetSuperuserPassword returns the superuser password if it has been provided
 func (r *VerticaDBReconciler) GetSuperuserPassword(ctx context.Context, log logr.Logger, vdb *vapi.VerticaDB) (*string, error) {
-	return vk8s.GetSuperuserPassword(ctx, r.Client, log, r, vdb)
+	return vk8s.GetSuperuserPassword(ctx, r.Client, log, r, vdb, r.PasswordManager)
 }
 
 // checkShardToNodeRatio will check the subclusters ratio of shards to node.  If

@@ -1812,13 +1812,22 @@ func (p *PodFacts) FindSecondarySubclustersWithDifferentImage(vdb *vapi.VerticaD
 	return scs, priScImage
 }
 
-// GetInitiatorIPInSB returns the first primary up pod IP in the given sandbox but not in the given subcluster
-func (p *PodFacts) GetInitiatorIPInSB(sbName, excludeSCName string) (string, bool) {
+// FindInitiatorInSB returns the first primary up pod in the given sandbox,
+// excluding a specific subcluster if excludeSCName is non-empty.
+func (p *PodFacts) FindInitiatorInSB(sbName, excludeSCName string) (*PodFact, bool) {
 	initiator, ok := p.FindFirstPodSorted(func(v *PodFact) bool {
-		return v.isPrimary && v.upNode && v.sandbox == sbName && v.subclusterName != excludeSCName
+		return v.isPrimary && v.upNode && v.sandbox == sbName &&
+			(excludeSCName == "" || v.subclusterName != excludeSCName)
 	})
-	if initiator == nil {
+	return initiator, ok
+}
+
+// GetInitiatorIPInSB returns the IP of the first primary up pod in the given sandbox,
+// excluding a specific subcluster if excludeSCName is non-empty.
+func (p *PodFacts) GetInitiatorIPInSB(sbName, excludeSCName string) (string, bool) {
+	initiator, ok := p.FindInitiatorInSB(sbName, excludeSCName)
+	if !ok || initiator == nil {
 		return "", false
 	}
-	return initiator.podIP, ok
+	return initiator.podIP, true
 }

@@ -28,33 +28,37 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
+	"github.com/vertica/vertica-kubernetes/pkg/security"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	"github.com/vertica/vertica-kubernetes/pkg/vdbstatus"
 	"github.com/vertica/vertica-kubernetes/pkg/vk8s"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 // PasswordSecretReconciler will update admin password in the database
 type PasswordSecretReconciler struct {
-	VRec       *VerticaDBReconciler
-	Log        logr.Logger
-	Vdb        *vapi.VerticaDB // Vdb is the CRD we are acting on.
-	PFacts     *podfacts.PodFacts
-	PRunner    cmds.PodRunner
-	Dispatcher vadmin.Dispatcher
+	VRec            *VerticaDBReconciler
+	Log             logr.Logger
+	Vdb             *vapi.VerticaDB // Vdb is the CRD we are acting on.
+	PFacts          *podfacts.PodFacts
+	PRunner         cmds.PodRunner
+	Dispatcher      vadmin.Dispatcher
+	PasswordManager security.PasswordManager
 }
 
 // MakePasswordSecretReconciler will build an PasswordSecretReconciler object
-func MakePasswordSecretReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger, vdb *vapi.VerticaDB,
-	prunner cmds.PodRunner, pfacts *podfacts.PodFacts, dispatcher vadmin.Dispatcher) controllers.ReconcileActor {
+func MakePasswordSecretReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger, vdb *vapi.VerticaDB, prunner cmds.PodRunner,
+	pfacts *podfacts.PodFacts, dispatcher vadmin.Dispatcher, passwordManager security.PasswordManager) controllers.ReconcileActor {
 	return &PasswordSecretReconciler{
-		VRec:       vdbrecon,
-		Log:        log.WithName("PasswordSecretReconciler"),
-		Vdb:        vdb,
-		PFacts:     pfacts,
-		PRunner:    prunner,
-		Dispatcher: dispatcher,
+		VRec:            vdbrecon,
+		Log:             log.WithName("PasswordSecretReconciler"),
+		Vdb:             vdb,
+		PFacts:          pfacts,
+		PRunner:         prunner,
+		Dispatcher:      dispatcher,
+		PasswordManager: passwordManager,
 	}
 }
 
@@ -86,26 +90,48 @@ func (a *PasswordSecretReconciler) statusMatchesSpec() bool {
 	return a.Vdb.Spec.PasswordSecret == *a.Vdb.Status.PasswordSecret
 }
 
-// updatePasswordSecret will update the password secret in the database
+// updatePasswordSecret will update the password secret in the database. It starts with the main cluster,
+// then cycles through the sandboxes.
 func (a *PasswordSecretReconciler) updatePasswordSecret(ctx context.Context) (ctrl.Result, error) {
-	// The password to be updated to
+	// Get new password; don't look in cache because it has old secret
 	newPasswd, err := vk8s.GetCustomSuperuserPassword(ctx, a.VRec.Client, a.Log, a.VRec, a.Vdb,
-		a.Vdb.Spec.PasswordSecret, names.SuperuserPasswordKey)
+		a.Vdb.Spec.PasswordSecret, names.SuperuserPasswordKey, a.PasswordManager, true)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 
+	res, err := a.updatePasswordSecretInSandbox(ctx, a.PFacts, newPasswd, "")
+	if verrors.IsReconcileAborted(res, err) {
+		return res, err
+	}
+	for _, sb := range a.Vdb.Spec.Sandboxes {
+		a.Log.Info("Updating password in sandbox", "sandbox", sb.Name)
+		pfcopy := a.PFacts.Copy(sb.Name)
+		res, err := a.updatePasswordSecretInSandbox(ctx, &pfcopy, newPasswd, sb.Name)
+		if verrors.IsReconcileAborted(res, err) {
+			return res, err
+		}
+	}
+
+	// reset password used in vdb and PasswordManager
+	a.resetVDBPassword(*newPasswd)
+	return ctrl.Result{}, nil
+}
+
+// updateOnePasswordSecret will update the password for the main cluster or for one sandbox.
+func (a *PasswordSecretReconciler) updatePasswordSecretInSandbox(ctx context.Context,
+	pfacts *podfacts.PodFacts, newPasswd *string, sandbox string) (ctrl.Result, error) {
 	// No-op if password is the same
-	if *a.PFacts.VerticaSUPassword == *newPasswd {
+	if *pfacts.VerticaSUPassword == *newPasswd {
 		a.Log.Info("WARNING: password in secret is the same as current password", "current password secret",
 			a.Vdb.Status.PasswordSecret, "new password secret", a.Vdb.Spec.PasswordSecret)
 		return ctrl.Result{}, nil
 	}
 
-	if pErr := a.PFacts.Collect(ctx, a.Vdb); pErr != nil {
+	if pErr := pfacts.Collect(ctx, a.Vdb); pErr != nil {
 		return ctrl.Result{}, pErr
 	}
-	pf, found := a.PFacts.FindFirstPrimaryUpPod()
+	pf, found := pfacts.FindInitiatorInSB(sandbox, "")
 	if !found {
 		a.Log.Info("No Up nodes found. Requeue dbadmin password secret reconciliation.")
 		return ctrl.Result{Requeue: true}, nil
@@ -114,7 +140,7 @@ func (a *PasswordSecretReconciler) updatePasswordSecret(ctx context.Context) (ct
 	sb := strings.Builder{}
 	sb.WriteString(fmt.Sprintf(`ALTER USER %s IDENTIFIED BY '%s';`, a.Vdb.GetVerticaUser(), *newPasswd))
 	cmd := []string{"-tAc", sb.String()}
-	stdout, stderr, err := a.PRunner.ExecVSQL(ctx, pf.GetName(), names.ServerContainer, cmd...)
+	stdout, stderr, err := pfacts.PRunner.ExecVSQL(ctx, pf.GetName(), names.ServerContainer, cmd...)
 	if err != nil {
 		a.VRec.Eventf(a.Vdb, corev1.EventTypeNormal, events.SuperuserPasswordSecretUpdateFailed,
 			"Superuser password update failed")
@@ -122,12 +148,15 @@ func (a *PasswordSecretReconciler) updatePasswordSecret(ctx context.Context) (ct
 		return ctrl.Result{}, err
 	}
 
-	a.VRec.Eventf(a.Vdb, corev1.EventTypeNormal, events.SuperuserPasswordSecretUpdateSucceeded,
-		"Superuser password update succeeded")
-	a.VRec.Log.Info("Successfully updated superuser password secret", "stdout", stdout, "new secret", a.Vdb.Spec.PasswordSecret)
-
-	// reset password used in vdb
-	a.resetVDBPassword(*newPasswd)
+	if sandbox == "" {
+		a.VRec.Eventf(a.Vdb, corev1.EventTypeNormal, events.SuperuserPasswordSecretUpdateSucceeded,
+			"Superuser password update succeeded")
+	} else {
+		a.VRec.Eventf(a.Vdb, corev1.EventTypeNormal, events.SuperuserPasswordSecretUpdateSucceeded,
+			"Superuser password update succeeded in sandbox %q", sandbox)
+	}
+	a.VRec.Log.Info("Successfully updated superuser password secret",
+		"stdout", stdout, "new secret", a.Vdb.Spec.PasswordSecret, "sandbox", sandbox)
 	return ctrl.Result{}, nil
 }
 
@@ -143,9 +172,14 @@ func (a *PasswordSecretReconciler) updatePasswordSecretStatus(ctx context.Contex
 	return vdbstatus.Update(ctx, a.VRec.GetClient(), a.Vdb, updateStatus)
 }
 
-// resetVDBPassword will reset the password used in prunner, pfacts, and dispatcher
+// resetVDBPassword will reset the password used in prunner, pfacts, dispatcher, and PasswordManager.
 func (a *PasswordSecretReconciler) resetVDBPassword(newPasswd string) {
 	// prunner, podfacts and dispatcher share the pointer
 	// reset one of them will also reset the password in the others
+	nsName := types.NamespacedName{
+		Namespace: a.Vdb.Namespace,
+		Name:      a.Vdb.Name,
+	}
 	a.PFacts.SetSUPassword(newPasswd)
+	a.PasswordManager.Set(nsName, newPasswd)
 }
