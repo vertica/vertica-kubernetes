@@ -1080,6 +1080,11 @@ type VerticaDBStatus struct {
 	// +optional
 	// The DB level TLS config
 	DBTLSConfig *DBTLSConfig `json:"dbTlsConfig,omitempty"`
+
+	// +operator-sdk:csv:customresourcedefinitions:type=status
+	// +optional
+	// Current retry attempt for HTTPS polling after failed cert rotation
+	HTTPSPollingCurrentRetry int `json:"httpsPollingCurrentRetry,omitempty"`
 }
 
 const (

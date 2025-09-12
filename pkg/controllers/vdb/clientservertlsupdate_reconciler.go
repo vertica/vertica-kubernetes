@@ -51,7 +51,7 @@ func MakeClientServerTLSUpdateReconciler(vdbrecon *VerticaDBReconciler, log logr
 		Log:          log.WithName("ClientServerTLSUpdateReconciler"),
 		Dispatcher:   dispatcher,
 		PFacts:       pfacts,
-		Manager:      MakeTLSConfigManager(vdbrecon, log, vdb, tlsConfigServer, dispatcher),
+		Manager:      MakeTLSConfigManager(vdbrecon, log, vdb, tlsConfigServer, dispatcher, pfacts),
 		FromRollback: fromRollback,
 	}
 }
@@ -105,8 +105,8 @@ func (h *ClientServerTLSUpdateReconciler) Reconcile(ctx context.Context, req *ct
 	if len(upPods) == 0 {
 		h.Log.Info("No up pod found to update tls config. Restarting.")
 		restartReconciler := MakeRestartReconciler(h.VRec, h.Log, h.Vdb, h.PFacts.PRunner, h.PFacts, true, h.Dispatcher)
-		res, err2 := restartReconciler.Reconcile(ctx, req)
-		return res, err2
+		res, err = restartReconciler.Reconcile(ctx, req)
+		return res, err
 	}
 
 	upHostToSandbox := make(map[string]string)
@@ -115,9 +115,9 @@ func (h *ClientServerTLSUpdateReconciler) Reconcile(ctx context.Context, req *ct
 		upHostToSandbox[p.GetPodIP()] = p.GetSandbox()
 	}
 
-	err = h.Manager.updateTLSConfig(ctx, initiator, upHostToSandbox)
-	if err != nil || h.Vdb.IsTLSCertRollbackNeeded() {
-		return ctrl.Result{}, err
+	res, err = h.Manager.updateTLSConfig(ctx, initiator, upHostToSandbox)
+	if verrors.IsReconcileAborted(res, err) || h.Vdb.IsTLSCertRollbackNeeded() {
+		return res, err
 	}
 
 	cond = vapi.MakeCondition(vapi.ClientServerTLSConfigUpdateFinished, metav1.ConditionTrue, "Completed")
