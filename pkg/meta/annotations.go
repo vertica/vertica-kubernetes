@@ -475,6 +475,10 @@ const (
 
 	// This is an internal annotation. It is used to indicate we've set HTTPS TLS in offline upgrade.
 	OfflineUpgradeHTTPSSetAnnotation = "vertica.com/offline-https-set"
+
+	// The interval in minutes, the time between two successful license validations
+	// If omitted, we use the default interval of 1 day (60 * 24). That is also the maximum interval.
+	LicenseCheckIntervalAnnotation = "vertica.com/license-check-interval"
 )
 
 // IsPauseAnnotationSet will check the annotations for a special value that will
@@ -533,6 +537,15 @@ func GetRestartTimeout(annotations map[string]string) int {
 // 0 is returned, this means to use the default.
 func GetCreateDBNodeStartTimeout(annotations map[string]string) int {
 	return lookupIntAnnotation(annotations, CreateDBTimeoutAnnotation, 0 /* default value */)
+}
+
+func GetLicenseCheckIntervalInMinutes(annotations map[string]string) int {
+	const defaultValue = 60 * 24
+	interval := lookupIntAnnotation(annotations, LicenseCheckIntervalAnnotation, defaultValue /* default value */)
+	if interval > defaultValue {
+		interval = defaultValue
+	}
+	return interval
 }
 
 // getShutdownDrainSeconds returns the time in seconds to wait for a subcluster/database users' disconnection

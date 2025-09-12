@@ -1080,6 +1080,10 @@ type VerticaDBStatus struct {
 	// +optional
 	// The DB level TLS config
 	DBTLSConfig *DBTLSConfig `json:"dbTlsConfig,omitempty"`
+	// +operator-sdk:csv:customresourcedefinitions:type=status
+	// +optional
+	// Timestamp of last successful license validation
+	LastLicenseValidation metav1.Time `json:"lastLicenseValidation,omitempty"`
 }
 
 const (
