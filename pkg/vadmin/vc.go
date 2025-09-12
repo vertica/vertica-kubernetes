@@ -125,7 +125,7 @@ func (v *VClusterOps) setAuthentication(opts *vops.DatabaseOptions, username str
 // when tls cert is used, it returns secert name saved in annotation
 func getHTTPSTLSSecretName(vdb *vapi.VerticaDB) (string, error) {
 	secretName := ""
-	if vdb.IsSetForTLS() {
+	if vdb.IsSetForTLS() && !vdb.IsHTTPSTLSAuthDisabled() {
 		secretName = vdb.GetHTTPSNMATLSSecretInUse()
 	}
 	if secretName == "" {
