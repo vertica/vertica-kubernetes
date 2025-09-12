@@ -1395,6 +1395,7 @@ jobs:
           operator-image: ${{ needs.build.outputs.operator-image }}
           vertica-image: ${{ needs.build.outputs.minimal-vertica-image }}
           vertica-deployment-method: vclusterops
+          controllers-scope: namespace
           communal-storage-type: s3
           vertica-superuser-name: dbadmin
 
