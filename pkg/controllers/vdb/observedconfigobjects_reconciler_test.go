@@ -207,31 +207,31 @@ var _ = Describe("ObservedConfigObjsReconciler", func() {
 		Expect(reconciler.getReferencedResources(false)).To(ConsistOf("cm1", "cm2"))
 	})
 
-	It("equalSets should return true for two empty slices", func() {
-		Expect(equalSets(nil, []string{})).To(BeTrue())
+	It("should return true for two empty slices", func() {
+		Expect(EqualStringSlices(nil, []string{})).To(BeTrue())
 	})
 
-	It("equalSets should return true for slices with same elements in same order", func() {
-		Expect(equalSets([]string{"a", "b", "c"}, []string{"a", "b", "c"})).To(BeTrue())
+	It("should return true for two identical slices", func() {
+		Expect(EqualStringSlices([]string{"a", "b", "c"}, []string{"a", "b", "c"})).To(BeTrue())
 	})
 
-	It("equalSets should return true for slices with same elements in different order", func() {
-		Expect(equalSets([]string{"a", "b", "c"}, []string{"c", "a", "b"})).To(BeTrue())
+	It("should return false for slices with different lengths", func() {
+		Expect(EqualStringSlices([]string{"a", "b"}, []string{"a", "b", "c"})).To(BeFalse())
 	})
 
-	It("equalSets should return false for slices with different lengths", func() {
-		Expect(equalSets([]string{"a", "b"}, []string{"a", "b", "c"})).To(BeFalse())
+	It("should return false for slices with same length but different elements", func() {
+		Expect(EqualStringSlices([]string{"a", "b", "c"}, []string{"a", "x", "c"})).To(BeFalse())
 	})
 
-	It("equalSets should return false for slices with different elements", func() {
-		Expect(equalSets([]string{"a", "b", "c"}, []string{"a", "b", "d"})).To(BeFalse())
+	It("should return false for slices with same elements but different order", func() {
+		Expect(EqualStringSlices([]string{"a", "b", "c"}, []string{"c", "b", "a"})).To(BeFalse())
 	})
 
-	It("equalSets should return false if one slice has duplicates and the other does not", func() {
-		Expect(equalSets([]string{"a", "b", "b"}, []string{"a", "b"})).To(BeFalse())
+	It("should return true for slices with one identical element", func() {
+		Expect(EqualStringSlices([]string{"a"}, []string{"a"})).To(BeTrue())
 	})
 
-	It("equalSets should return true for slices with same elements and duplicates in both", func() {
-		Expect(equalSets([]string{"a", "b", "b"}, []string{"b", "a", "b"})).To(BeTrue())
+	It("should return false for slices with one different element", func() {
+		Expect(EqualStringSlices([]string{"a"}, []string{"b"})).To(BeFalse())
 	})
 })

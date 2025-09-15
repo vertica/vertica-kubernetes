@@ -47,7 +47,7 @@ func (l *ObservedConfigObjsReconciler) Reconcile(ctx context.Context, _ *ctrl.Re
 	secrets := l.getReferencedSecret()
 	configmaps := l.getReferencedConfigmap()
 	if len(secrets) > 0 || len(configmaps) > 0 {
-		if equalSets(secrets, l.Vdb.Status.ObservedSecrets) && equalSets(configmaps, l.Vdb.Status.ObservedConfigMaps) {
+		if EqualStringSlices(secrets, l.Vdb.Status.ObservedSecrets) && EqualStringSlices(configmaps, l.Vdb.Status.ObservedConfigMaps) {
 			// Nothing has changed, so no need to update labels or status.
 			return ctrl.Result{}, nil
 		}
@@ -113,21 +113,14 @@ func (l *ObservedConfigObjsReconciler) getReferencedSecret() []string {
 	return l.getReferencedResources(true)
 }
 
-func equalSets(a, b []string) bool {
+func EqualStringSlices(a, b []string) bool {
 	if len(a) != len(b) {
 		return false
 	}
-
-	m := make(map[string]struct{}, len(a))
-	for _, v := range a {
-		m[v] = struct{}{}
-	}
-
-	for _, v := range b {
-		if _, ok := m[v]; !ok {
+	for i := range a {
+		if a[i] != b[i] {
 			return false
 		}
 	}
-
 	return true
 }
