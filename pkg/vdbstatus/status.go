@@ -119,3 +119,12 @@ func SetSandboxUpgradeState(ctx context.Context, clnt client.Client, vdb *vapi.V
 		return nil
 	})
 }
+
+// UpdateObservedConfigObjects will update the observed configmaps and secrets in status.
+func UpdateObservedConfigObjects(ctx context.Context, clnt client.Client, vdb *vapi.VerticaDB, cms, secrets []string) error {
+	return Update(ctx, clnt, vdb, func(vdb *vapi.VerticaDB) error {
+		vdb.Status.ObservedSecrets = secrets
+		vdb.Status.ObservedConfigMaps = cms
+		return nil
+	})
+}
