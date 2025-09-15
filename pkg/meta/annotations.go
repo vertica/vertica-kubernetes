@@ -80,14 +80,10 @@ const (
 	MountNMACertsAnnotationTrue  = "true"
 	MountNMACertsAnnotationFalse = "false"
 
-	// This is a feature flag for enables authentication via Mutual TLS
+	// This is a feature flag for enables authentication via Mutual TLS.
+	// Deprecated: TLS auth should now be set per TLS config, within the spec.
+	// For example, httpsNMATLS.enabled and clientServerTLS.enabled
 	EnableTLSAuthAnnotation = "vertica.com/enable-tls-auth"
-
-	// Disable TLS auth for one TLS config. enable-tls-auth above will enable for entire VDB.
-	// When that is set, these flags can be used to disable for HTTPS or Client-Server
-	// (while leaving the other enabled). They are mutually exclusive.
-	DisableTLSAuthForHTTPSAnnotation        = "vertica.com/disable-https-tls-auth"
-	DisableTLSAuthForClientServerAnnotation = "vertica.com/disable-client-server-tls-auth"
 
 	// Two annotations that are set by the operator when creating objects.
 	OperatorDeploymentMethodAnnotation = "vertica.com/operator-deployment-method"
@@ -516,14 +512,6 @@ func UseNMACertsMount(annotations map[string]string) bool {
 
 func UseTLSAuth(annotations map[string]string) bool {
 	return lookupBoolAnnotation(annotations, EnableTLSAuthAnnotation, false /* default value */)
-}
-
-func DisableTLSAuthForHTTPS(annotations map[string]string) bool {
-	return lookupBoolAnnotation(annotations, DisableTLSAuthForHTTPSAnnotation, false)
-}
-
-func DisableTLSAuthForClientServer(annotations map[string]string) bool {
-	return lookupBoolAnnotation(annotations, DisableTLSAuthForClientServerAnnotation, false)
 }
 
 // IgnoreClusterLease returns true if revive/start should ignore the cluster lease

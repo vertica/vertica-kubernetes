@@ -2690,7 +2690,7 @@ var _ = Describe("verticadb_webhook", func() {
 		vdb.Annotations[vmeta.MountNMACertsAnnotation] = trueString
 		allErrs := vdb.hasNoConflictbetweenTLSAndCertMount(field.ErrorList{})
 		Expect(allErrs).ShouldNot(BeEmpty())
-		Expect(allErrs[0].Error()).To(ContainSubstring("cannot set enable-tls-auth and mount-nma-certs to true at the same time"))
+		Expect(allErrs[0].Error()).To(ContainSubstring("cannot set TLS auth and mount-nma-certs to true at the same time"))
 	})
 
 	It("should return error if TLS is enabled and vcluster-ops is disabled", func() {
@@ -2699,7 +2699,7 @@ var _ = Describe("verticadb_webhook", func() {
 		vdb.Annotations[vmeta.VClusterOpsAnnotation] = falseString
 		allErrs := vdb.hasNoConflictbetweenTLSAndAdmintool(field.ErrorList{})
 		Expect(allErrs).ShouldNot(BeEmpty())
-		Expect(allErrs[0].Error()).To(ContainSubstring("cannot set enable-tls-auth to true and vcluster-ops to false at the same time"))
+		Expect(allErrs[0].Error()).To(ContainSubstring("cannot set any TLS config to true and vcluster-ops to false at the same time"))
 	})
 
 	It("should not return error if only TLS is enabled", func() {
@@ -2724,73 +2724,6 @@ var _ = Describe("verticadb_webhook", func() {
 		delete(vdb.Annotations, vmeta.MountNMACertsAnnotation)
 		allErrs := vdb.hasNoConflictbetweenTLSAndCertMount(field.ErrorList{})
 		Expect(allErrs).Should(BeEmpty())
-	})
-
-	It("should return error if TLS is not empty but TLS Auth is disabled", func() {
-		vdb := MakeVDB()
-		delete(vdb.Annotations, vmeta.EnableTLSAuthAnnotation)
-		vdb.Spec.HTTPSNMATLS.Secret = "secret"
-		allErrs := vdb.hasValidTLSWithKnob(field.ErrorList{})
-		Expect(allErrs).ShouldNot(BeEmpty())
-		Expect(allErrs[0].Error()).To(ContainSubstring("cannot set httpsNMATLS when %s is set to false", vmeta.EnableTLSAuthAnnotation))
-
-		vdb.Spec.HTTPSNMATLS = nil
-		vdb.Spec.ClientServerTLS.Mode = "verify_ca"
-		allErrs = vdb.hasValidTLSWithKnob(field.ErrorList{})
-		Expect(allErrs).ShouldNot(BeEmpty())
-		Expect(allErrs[0].Error()).To(ContainSubstring("cannot set clientServerTLS when %s is set to false", vmeta.EnableTLSAuthAnnotation))
-	})
-
-	It("should return error if TLS is not empty but TLS Auth for that config is disabled", func() {
-		vdb := MakeVDB()
-		vdb.Annotations[vmeta.DisableTLSAuthForHTTPSAnnotation] = trueString
-		vdb.Spec.HTTPSNMATLS.Secret = "secret"
-		allErrs := vdb.hasValidTLSWithKnob(field.ErrorList{})
-		Expect(allErrs).ShouldNot(BeEmpty())
-		Expect(allErrs[0].Error()).To(ContainSubstring("cannot set httpsNMATLS when %s is set to true",
-			vmeta.DisableTLSAuthForHTTPSAnnotation))
-
-		vdb.Spec.HTTPSNMATLS = nil
-		vdb.Annotations[vmeta.DisableTLSAuthForClientServerAnnotation] = trueString
-		vdb.Spec.ClientServerTLS.Mode = "verify_ca"
-		allErrs = vdb.hasValidTLSWithKnob(field.ErrorList{})
-		Expect(allErrs).ShouldNot(BeEmpty())
-		Expect(allErrs[0].Error()).To(ContainSubstring("cannot set clientServerTLS when %s is set to true",
-			vmeta.DisableTLSAuthForClientServerAnnotation))
-	})
-
-	It("should return error if client-server TLS disable is set when TLS auth is disabled", func() {
-		vdb := MakeVDB()
-		vdb.Annotations[vmeta.DisableTLSAuthForClientServerAnnotation] = trueString
-		delete(vdb.Annotations, vmeta.EnableTLSAuthAnnotation) // TLS auth disabled
-		allErrs := vdb.hasValidDisabledTLS(field.ErrorList{})
-		Expect(allErrs).ShouldNot(BeEmpty())
-		Expect(allErrs[0].Error()).To(ContainSubstring(
-			fmt.Sprintf("cannot set %s to true when %s is false",
-				vmeta.DisableTLSAuthForClientServerAnnotation, vmeta.EnableTLSAuthAnnotation)))
-	})
-
-	It("should return error if HTTPS TLS disable is set when TLS auth is disabled", func() {
-		vdb := MakeVDB()
-		vdb.Annotations[vmeta.DisableTLSAuthForHTTPSAnnotation] = trueString
-		delete(vdb.Annotations, vmeta.EnableTLSAuthAnnotation) // TLS auth disabled
-		allErrs := vdb.hasValidDisabledTLS(field.ErrorList{})
-		Expect(allErrs).ShouldNot(BeEmpty())
-		Expect(allErrs[0].Error()).To(ContainSubstring(
-			fmt.Sprintf("cannot set %s to true when %s is false",
-				vmeta.DisableTLSAuthForHTTPSAnnotation, vmeta.EnableTLSAuthAnnotation)))
-	})
-
-	It("should return error if both HTTPS and client-server TLS disable are set", func() {
-		vdb := MakeVDB()
-		vdb.Annotations[vmeta.EnableTLSAuthAnnotation] = trueString
-		vdb.Annotations[vmeta.DisableTLSAuthForClientServerAnnotation] = trueString
-		vdb.Annotations[vmeta.DisableTLSAuthForHTTPSAnnotation] = trueString
-		allErrs := vdb.hasValidDisabledTLS(field.ErrorList{})
-		Expect(allErrs).ShouldNot(BeEmpty())
-		Expect(allErrs[0].Error()).To(ContainSubstring(
-			fmt.Sprintf("cannot set both %s and %s to true",
-				vmeta.DisableTLSAuthForHTTPSAnnotation, vmeta.DisableTLSAuthForClientServerAnnotation)))
 	})
 
 	It("should return no error if nothing changes", func() {

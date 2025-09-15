@@ -95,7 +95,7 @@ func (h *ClientServerTLSUpdateReconciler) Reconcile(ctx context.Context, req *ct
 		return ctrl.Result{}, err2
 	}
 
-	if !h.Vdb.IsHTTPSTLSAuthDisabled() {
+	if h.Vdb.IsHTTPSNMATLSAuthEnabled() {
 		res, err1 := h.Manager.setPollingCertMetadata(ctx)
 		if verrors.IsReconcileAborted(res, err1) {
 			return res, err1

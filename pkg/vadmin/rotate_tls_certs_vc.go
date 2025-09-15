@@ -44,7 +44,7 @@ func (v *VClusterOps) RotateTLSCerts(ctx context.Context, opts ...rotatetlscerts
 		v.Log.Info("HTTPS cert rotation has occurred but the status is not up to date yet. Using secret from spec")
 		secretName = v.VDB.GetHTTPSNMATLSSecret()
 	}
-	if v.VDB.IsHTTPSTLSAuthDisabled() {
+	if !v.VDB.IsHTTPSNMATLSAuthEnabled() {
 		secretName = v.VDB.GetNMATLSSecret()
 	}
 	certCache := v.CacheManager.GetCertCacheForVdb(v.VDB.Namespace, v.VDB.Name)

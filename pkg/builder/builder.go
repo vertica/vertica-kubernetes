@@ -953,7 +953,7 @@ func BuildBasicAuthSecret(vdb *vapi.VerticaDB, name, username, password string) 
 }
 
 func makeBasicAuthForServiceMonitor(vdb *vapi.VerticaDB, secret string) *monitoringv1.BasicAuth {
-	if vdb.IsSetForTLS() {
+	if vdb.IsAnyTLSAuthEnabledWithMinVersion() {
 		return nil
 	}
 
@@ -975,7 +975,7 @@ func makeBasicAuthForServiceMonitor(vdb *vapi.VerticaDB, secret string) *monitor
 
 func makeTLSConfigForServiceMonitor(vdb *vapi.VerticaDB) *monitoringv1.TLSConfig {
 	insecureSkipVerify := false
-	if !vdb.IsSetForTLS() {
+	if !vdb.IsAnyTLSAuthEnabledWithMinVersion() {
 		insecureSkipVerify = true
 		return &monitoringv1.TLSConfig{
 			SafeTLSConfig: monitoringv1.SafeTLSConfig{
@@ -2162,7 +2162,7 @@ func buildCanaryQuerySQL(vdb *vapi.VerticaDB) string {
 		passwd = fmt.Sprintf("-w $(cat %s/%s)", paths.PodInfoPath, SuperuserPasswordPath)
 	}
 
-	if vmeta.UseTLSAuth(vdb.Annotations) {
+	if vdb.IsAnyTLSAuthEnabled() {
 		return fmt.Sprintf("vsql %s -m allow -c 'select 1'", passwd)
 	}
 	return fmt.Sprintf("vsql %s -c 'select 1'", passwd)
@@ -2367,10 +2367,10 @@ func BuildNMATLSConfigMap(nm types.NamespacedName, vdb *vapi.VerticaDB) *corev1.
 	clientSecretNamespace := vdb.ObjectMeta.Namespace
 	clientSecretTLSMode := vdb.GetNMAClientServerTLSMode()
 	// for backward compatibility, we cannot leave NMAClient* env var empty even when tls is disabled
-	if !vmeta.UseTLSAuth(vdb.Annotations) {
+	if !vdb.IsAnyTLSAuthEnabled() {
 		clientSecretName = vdb.GetNMATLSSecret()
 		clientSecretTLSMode = "enable"
-	} else if vdb.IsClientServerTLSAuthDisabled() {
+	} else if !vdb.IsClientServerTLSAuthEnabled() {
 		clientSecretTLSMode = "disable"
 	}
 	secretMap := map[string]string{

@@ -19,12 +19,13 @@ metadata:
     vertica.com/k-safety: "1"
     vertica.com/include-uid-in-path: "true"
     vertica.com/enable-tls-auth: "true"
-    vertica.com/disable-https-tls-auth: "true"
 spec:
   initPolicy: CreateSkipPackageInstall
   image: kustomize-vertica-image
   passwordSecret: su-passwd
   communal: {}
+  httpsNMATLS:
+    enabled: false
   local:
     requestSize: 100Mi
     catalogPath: /catalog

@@ -992,6 +992,14 @@ type TLSConfigSpec struct {
 	// +kubebuilder:validation:Optional
 	// Allow auto-rotation of a list of secrets, using a certain interval
 	AutoRotate *TLSAutoRotate `json:"autoRotate,omitempty"`
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:booleanSwitch","urn:alm:descriptor:com.tectonic.ui:advanced"}
+	// +kubebuilder:validation:Optional
+	// Whether to enable TLS auth for this config. This replaces the
+	// "vertica.com/enable-tls-auth" annotation, which applied at the DB level.
+	// If 'enabled' is not specified for any  TLS configs, and the annotation is set,
+	// the operator will continue to honor the annotation (for backwards compatibility).
+	// Otherwise, 'enabled' takes precedence.
+	Enabled *bool `json:"enabled,omitempty"`
 }
 
 type TLSAutoRotate struct {

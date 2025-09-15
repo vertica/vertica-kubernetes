@@ -26,7 +26,6 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/builder"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
-	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	"github.com/vertica/vertica-kubernetes/pkg/secrets"
@@ -88,7 +87,7 @@ func (h *TLSServerCertGenReconciler) reconcileSecrets(ctx context.Context) error
 			continue
 		}
 		// when nma secret is not empty, we can assign it to https and client TLS
-		if h.Vdb.Spec.NMATLSSecret != "" && !vmeta.UseTLSAuth(h.Vdb.Annotations) && (secretFieldName != nmaTLSSecret && secretName == "") {
+		if h.Vdb.Spec.NMATLSSecret != "" && !h.Vdb.IsAnyTLSAuthEnabled() && (secretFieldName != nmaTLSSecret && secretName == "") {
 			nm := names.GenNamespacedName(h.Vdb, h.Vdb.Spec.NMATLSSecret)
 			secret := corev1.Secret{}
 			err = h.VRec.Client.Get(ctx, nm, &secret)
@@ -309,21 +308,21 @@ func (h *TLSServerCertGenReconciler) ValidateSecretCertificate(
 func (h *TLSServerCertGenReconciler) ShouldGenerateCert() bool {
 	httpsNMACertNeeded := h.Vdb.ShouldGenCertForTLSConfig(vapi.HTTPSNMATLSConfigName)
 	clientServerCertNeeded := h.Vdb.ShouldGenCertForTLSConfig(vapi.ClientServerTLSConfigName)
-	nmaCertNeeded := !vmeta.UseTLSAuth(h.Vdb.Annotations) && h.Vdb.Spec.NMATLSSecret == ""
+	nmaCertNeeded := !h.Vdb.IsAnyTLSAuthEnabled() && h.Vdb.Spec.NMATLSSecret == ""
 	return httpsNMACertNeeded || clientServerCertNeeded || nmaCertNeeded
 }
 
 // ShouldSkipThisConfig determines whether an individual config (NMA, HTTPS, or Server) should skipped.
 func (h *TLSServerCertGenReconciler) ShouldSkipThisConfig(secretFieldName string) bool {
-	if secretFieldName == nmaTLSSecret && (vmeta.UseTLSAuth(h.Vdb.Annotations) && !h.Vdb.IsHTTPSTLSAuthDisabled()) {
+	if secretFieldName == nmaTLSSecret && h.Vdb.IsHTTPSNMATLSAuthEnabled() {
 		h.Log.Info("TLS auth is enabled. Skipping NMA secret validation and generation")
 		return true
 	}
-	if secretFieldName == httpsNMATLSSecret && (!vmeta.UseTLSAuth(h.Vdb.Annotations) || h.Vdb.IsHTTPSTLSAuthDisabled()) {
+	if secretFieldName == httpsNMATLSSecret && !h.Vdb.IsHTTPSNMATLSAuthEnabled() {
 		h.Log.Info("HTTPS TLS config disabled. Skipping secret validation and generation")
 		return true
 	}
-	if secretFieldName == clientServerTLSSecret && (!vmeta.UseTLSAuth(h.Vdb.Annotations) || h.Vdb.IsClientServerTLSAuthDisabled()) {
+	if secretFieldName == clientServerTLSSecret && !h.Vdb.IsClientServerTLSAuthEnabled() {
 		h.Log.Info("Client-server TLS config disabled. Skipping secret validation and generation")
 		return true
 	}

@@ -28,7 +28,6 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
-	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
@@ -182,7 +181,7 @@ func (r *ReplicationReconciler) determineUsernameAndPassword(ctx context.Context
 		return err
 	}
 
-	if r.TargetInfo.Vdb.IsSetForTLS() && *r.TargetInfo.Password == "" && r.Vrep.Spec.TLSConfig == "" {
+	if r.TargetInfo.Vdb.IsAnyTLSAuthEnabledWithMinVersion() && *r.TargetInfo.Password == "" && r.Vrep.Spec.TLSConfig == "" {
 		return fmt.Errorf("cannot use empty password when tls is enabled in target vdb %q",
 			r.TargetInfo.Vdb.Name)
 	}
@@ -287,7 +286,7 @@ func (r *ReplicationReconciler) makePodFacts(ctx context.Context, vdb *vapi.Vert
 	if err != nil {
 		return nil, err
 	}
-	prunner := cmds.MakeClusterPodRunner(r.Log, r.VRec.Cfg, username, password, vmeta.UseTLSAuth(vdb.Annotations))
+	prunner := cmds.MakeClusterPodRunner(r.Log, r.VRec.Cfg, username, password, vdb.IsAnyTLSAuthEnabled())
 	pFacts := podfacts.MakePodFactsForSandboxWithCacheManager(r.VRec, prunner, r.Log, password, sandboxName, r.VRec.CacheManager)
 	return &pFacts, nil
 }
