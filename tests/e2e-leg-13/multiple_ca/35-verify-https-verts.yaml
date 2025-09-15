@@ -29,7 +29,7 @@ data:
       # kubectl get secret $ceer -o jsonpath='{.data.ca\.crt}' | base64 -d > /tmp/${cert}_ca.crt
       line=$(kubectl get pod -o wide | grep v-multiple-ca-sc1-0)
       array=($line)
-      curl -k --cert /etc/${cert}/tls.crt --key /etc/${cert}/tls.key --cacert /etc/${cert}/ca.crt https://${array[5]}:8443/api/v1/nodes
+      curl -k --cert /etc/${cert}/tls.crt --key /etc/${cert}/tls.key https://${array[5]}:8443/v1/nodes
       res=$?
       if [ $res -ne 0 ]
       then 
