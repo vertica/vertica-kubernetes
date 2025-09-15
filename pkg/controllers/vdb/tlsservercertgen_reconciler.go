@@ -347,7 +347,14 @@ func (h *TLSServerCertGenReconciler) InvalidCertRollback(ctx context.Context, me
 			reason = vapi.RollbackAfterServerCertRotationReason
 		}
 		cond := vapi.MakeCondition(vapi.TLSCertRollbackNeeded, metav1.ConditionTrue, reason)
-		return vdbstatus.UpdateCondition(ctx, h.VRec.GetClient(), h.Vdb, cond)
+		if err := vdbstatus.UpdateCondition(ctx, h.VRec.GetClient(), h.Vdb, cond); err != nil {
+			return err
+		}
 	}
-	return nil
+
+	// Run rollback now; otherwise, we will run all subsequent reconcilers with invalid cert.
+	// Podfacts and dispatcher can be nil, since they are only required when re-running cert rotation
+	rollbackRecon := MakeRollbackAfterCertRotationReconciler(h.VRec, h.Log, h.Vdb, nil, nil)
+	_, err := rollbackRecon.Reconcile(ctx, nil)
+	return err
 }
