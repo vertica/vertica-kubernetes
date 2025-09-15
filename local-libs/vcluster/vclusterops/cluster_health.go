@@ -204,8 +204,22 @@ func (vcc VClusterCommands) VClusterHealth(options *VClusterHealthOptions) error
 		runError = options.buildLockCascadeGraph(vcc.Log, vdb.PrimaryUpNodes)
 	case getMissingReleases:
 		runError = options.getMissingReleases(vcc.Log, vdb.PrimaryUpNodes, options.StartTime, options.EndTime)
-	default: // by default, we will build a cascade graph
+	default: // by default, we will execute all three analysis
+		sTime := options.StartTime
+		eTime := options.EndTime
 		runError = options.buildCascadeGraph(vcc.Log, vdb.PrimaryUpNodes)
+		if runError != nil {
+			return runError
+		}
+		options.StartTime = sTime
+		options.EndTime = eTime
+		runError = options.buildLockCascadeGraph(vcc.Log, vdb.PrimaryUpNodes)
+		if runError != nil {
+			return runError
+		}
+		options.StartTime = sTime
+		options.EndTime = eTime
+		runError = options.getMissingReleases(vcc.Log, vdb.PrimaryUpNodes, options.StartTime, options.EndTime)
 	}
 
 	return runError
