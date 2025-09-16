@@ -21,5 +21,5 @@ commands:
   - script: ./scripts/extract.sh cert1
   - script: ./scripts/extract.sh cert2
   - script: ./scripts/extract.sh cert3
-  - script: ./scripts/combine_update.sh
+  - script: ./scripts/combine_update.sh cert1 cert2 cert3
   
