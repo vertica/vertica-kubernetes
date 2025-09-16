@@ -18,22 +18,41 @@ metadata:
 data:
   entrypoint.sh: |-
     #!/bin/bash
-    set -o errexit
     set -o xtrace
     set -x 
-
+    cd /root
+    curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+    chmod a+rx ./kubectl
+    podIp=$(./kubectl get pod v-multiple-ca-sc1-0  -o=jsonpath='{.status.podIP}')
     for cert in cert1 cert2 cert3 
     do
-      # kubectl get secret $cert -o jsonpath='{.data.tls\.crt}' | base64 -d > /tmp/${cert}.crt
-      # kubectl get secret $cert -o jsonpath='{.data.tls\.key}' | base64 -d > /tmp/${cert}.key
-      # kubectl get secret $ceer -o jsonpath='{.data.ca\.crt}' | base64 -d > /tmp/${cert}_ca.crt
-      podIp=$(kubectl get pod v-multiple-ca-sc1-0  -o=jsonpath='{.status.podIP}')
       curl -k --cert /etc/${cert}/tls.crt --key /etc/${cert}/tls.key https://${podIp}:8443/v1/nodes
       res=$?
       if [ $res -ne 0 ]
       then 
         exit 1
       fi
+    done
+    dnf install libxcrypt-compat -y
+    mkdir vsql
+    curl https://www.vertica.com/client_drivers/24.2.x/24.2.0-1/vertica-client-24.2.0-1.x86_64.rpm -o /root/vsql/vertica-client-24.2.0-1.x86_64.rpm
+    rpm -ivh /root/vsql/vertica-client-24.2.0-1.x86_64.rpm
+    mkdir .vsql
+    # export LANG=C.UTF-8
+    # localectl set-locale LANG=en_CA.UTF-8
+    for cert in cert1 cert2 cert3 
+    do
+        cp /etc/${cert}/tls.crt .vsql/client.crt
+        cp /etc/${cert}/tls.key .vsql/client.key
+        chmod -R 600 .vsql
+        /opt/vertica/bin/vsql -h ${podIp} -U dbadmin -w '' -c "select 1;"
+        if [ $? -ne 0 ]
+        then 
+          sleep 7200
+          exit 1
+        fi
+        rm .vsql/client.crt
+        rm .vsql/client.key
     done
     exit 0
 ---
@@ -47,7 +66,13 @@ spec:
   restartPolicy: Never
   containers:
     - name: test
-      image: bitnami/kubectl:1.20.4
+      image: fedora:40
+      securityContext:
+        runAsUser: 0 # This sets the user ID to root (0)
+        allowPrivilegeEscalation: true      
+      env:
+      - name: LANG
+        value: "C.UTF-8"        
       command: ["/bin/entrypoint.sh"]
       volumeMounts:
         - name: entrypoint-volume
