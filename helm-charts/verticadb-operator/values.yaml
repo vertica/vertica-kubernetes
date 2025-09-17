@@ -607,7 +607,7 @@ alloy:
   # Use self-created service account for Alloy deployment
   serviceAccount:
     create: false
-    name: vdb-op-alloy
+    name: alloy-vertica-sa
 
   # Grafana Alloy specific configuration
   alloy:

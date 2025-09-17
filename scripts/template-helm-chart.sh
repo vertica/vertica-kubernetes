@@ -268,11 +268,11 @@ perl -i -0777 -pe 's/name: \{\{ include "vdb-op.name" \. \}\}-alloy/name: vdb-op
 echo "{{- end }}" >> $TEMPLATE_DIR/verticadb-operator-alloy-cm.yaml
 
 # 28. Conditionally create alloy rbac resources
-for f in $TEMPLATE_DIR/verticadb-operator-alloy-sa.yaml \
-  $TEMPLATE_DIR/verticadb-operator-alloy-cr.yaml \
-  $TEMPLATE_DIR/verticadb-operator-alloy-crb.yaml
+for f in $TEMPLATE_DIR/verticadb-operator-alloy-sa-sa.yaml \
+  $TEMPLATE_DIR/verticadb-operator-alloy-role-cr.yaml \
+  $TEMPLATE_DIR/verticadb-operator-alloy-role-binding-crb.yaml
 do
   perl -i -0777 -pe 's/^/{{- if and .Values.alloy.enabled (not .Values.alloy.alloy.configMap.create) -}}\n/ if 1 .. 1' $f
-  perl -i -0777 -pe 's/name: \{\{ include "vdb-op.name" \. \}\}-alloy/name: vdb-op-alloy/g' $f
+  perl -i -0777 -pe 's/name: \{\{ include "vdb-op.name" \. \}\}-alloy/name: alloy-vertica/g' $f
   echo "{{- end }}" >> $f
 done
