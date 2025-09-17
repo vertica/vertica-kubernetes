@@ -216,6 +216,7 @@ runs:
           fi
 
           if [[ "${{ inputs.leg-identifier }}" == "leg-14" || \
+                "${{ inputs.leg-identifier }}" == "leg-14-namespace" || \
                 "${{ inputs.leg-identifier }}" == "leg-14-tls" ]]; then
             export GRAFANA_ENABLED=true
             export PROMETHEUS_ENABLED=true

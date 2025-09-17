@@ -154,7 +154,14 @@ func MakeLabelsForSandboxConfigMap(vdb *vapi.VerticaDB) map[string]string {
 // MakeLabelsForServiceMonitor constructs the labels of the service monitor
 func MakeLabelsForServiceMonitor(vdb *vapi.VerticaDB) map[string]string {
 	labels := MakeOperatorLabels(vdb)
-	labels[vmeta.SvcMonitorLabel] = opcfg.GetReleaseName()
+	releaseName := opcfg.GetReleaseName()
+	// If the operator is namespace scoped and prometheus is disabled, then we
+	// want to use the cluster scope release name.  This is because the
+	// prometheus instance is associated with the cluster scope operator.
+	if opcfg.IsPrometheusEnabled() && !opcfg.IsPrometheusEnvVarTrue() {
+		releaseName = opcfg.GetClusterScopeReleaseName()
+	}
+	labels[vmeta.SvcMonitorLabel] = releaseName
 
 	return labels
 }
