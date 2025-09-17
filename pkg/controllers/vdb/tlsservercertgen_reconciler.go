@@ -332,6 +332,7 @@ func (h *TLSServerCertGenReconciler) ShouldGenerateCert() bool {
 	}
 
 	return vmeta.UseTLSAuth(h.Vdb.Annotations) &&
+		h.Vdb.GetHTTPSPollingCurrentRetries() == 0 &&
 		(h.Vdb.GetHTTPSNMATLSSecretInUse() == "" ||
 			h.Vdb.GetClientServerTLSSecretInUse() == "" ||
 			h.Vdb.GetHTTPSNMATLSSecretInUse() != h.Vdb.GetHTTPSNMATLSSecret() ||
