@@ -18,7 +18,6 @@ package vdb
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -275,9 +274,8 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		// preserving other things.
 		MakeObjReconciler(r, log, vdb, pfacts,
 			ObjReconcileModePreserveScaling|ObjReconcileModePreserveUpdateStrategy),
-		// Save referenced configmaps/secrets in labels in vdb. Those labels will then be
-		// used to reconcile vdb when a config changes
-		MakeLabelsForReferencedObjsReconciler(r, log, vdb),
+		// Save referenced configmaps/secrets in status.
+		MakeObservedConfigObjsReconciler(r, log, vdb),
 		// Add annotations/labels to each pod about the host running them
 		MakeAnnotateAndLabelPodReconciler(r, log, vdb, pfacts),
 		// Set up TLS config if users turn it on
@@ -412,16 +410,15 @@ func (r *VerticaDBReconciler) findObjectsForSecretOrConfigMap(_ context.Context,
 		return []reconcile.Request{}
 	}
 
-	labelSelector := vmeta.ConfigMapSelectorLabel
-	if _, ok := obj.(*corev1.Secret); ok {
-		labelSelector = vmeta.SecretSelectorLabel
-	}
 	requests := []reconcile.Request{}
 	for i := range verticadbs.Items {
 		vdb := &verticadbs.Items[i]
-		cmNames := strings.Split(vdb.Labels[labelSelector], ",")
-		for _, name := range cmNames {
-			if strings.TrimSpace(name) == obj.GetName() {
+		objs := vdb.Status.ObservedConfigMaps
+		if _, ok := obj.(*corev1.Secret); ok {
+			objs = vdb.Status.ObservedSecrets
+		}
+		for _, name := range objs {
+			if name == obj.GetName() {
 				requests = append(requests, reconcile.Request{
 					NamespacedName: types.NamespacedName{
 						Namespace: vdb.Namespace,

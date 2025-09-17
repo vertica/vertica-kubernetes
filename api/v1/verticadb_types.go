@@ -1080,6 +1080,21 @@ type VerticaDBStatus struct {
 	// +optional
 	// The DB level TLS config
 	DBTLSConfig *DBTLSConfig `json:"dbTlsConfig,omitempty"`
+
+	// +operator-sdk:csv:customresourcedefinitions:type=status
+	// +optional
+	// Current retry attempt for HTTPS polling after failed cert rotation
+	HTTPSPollingCurrentRetry int `json:"httpsPollingCurrentRetry,omitempty"`
+
+	// The names of configmaps that have been observed by the operator.
+	// This is used to trigger a rolling restart of the pods when these resources change.
+	ObservedConfigMaps []string `json:"observedConfigMaps,omitempty"`
+
+	// +operator-sdk:csv:customresourcedefinitions:type=status
+	// +optional
+	// The names of secrets that have been observed by the operator.
+	// This is used to trigger a rolling restart of the pods when these resources change.
+	ObservedSecrets []string `json:"observedSecrets,omitempty"`
 }
 
 const (

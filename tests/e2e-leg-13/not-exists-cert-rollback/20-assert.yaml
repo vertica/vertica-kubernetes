@@ -1,0 +1,45 @@
+apiVersion: v1
+kind: Event
+reason: TLSCertValidationFailed
+source:
+  component: verticadb-operator
+involvedObject:
+  apiVersion: vertica.com/v1
+  kind: VerticaDB
+  name: v-not-exists-cert-rollback
+message: Validation of TLS Certificate "httpsNMA" failed; secret "bad-cert" does not exist
+---
+apiVersion: v1
+kind: Event
+reason: TLSCertRollbackStarted
+source:
+  component: verticadb-operator
+involvedObject:
+  apiVersion: vertica.com/v1
+  kind: VerticaDB
+  name: v-not-exists-cert-rollback
+message: Starting HTTP TLS cert rollback after failed update
+---
+apiVersion: v1
+kind: Event
+reason: TLSCertRollbackSucceeded
+source:
+  component: verticadb-operator
+involvedObject:
+  apiVersion: vertica.com/v1
+  kind: VerticaDB
+  name: v-not-exists-cert-rollback
+message: HTTP TLS cert rollback completed successfully
+---
+apiVersion: vertica.com/v1
+kind: VerticaDB
+metadata:
+  name: v-not-exists-cert-rollback
+spec:
+  httpsNMATLS:
+    secret: cert1
+status: 
+  tlsConfigs:
+  - name: httpsNMA
+    secret: cert1
+  - name: clientServer

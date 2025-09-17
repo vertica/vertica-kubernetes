@@ -1,0 +1,82 @@
+apiVersion: v1
+kind: Event
+reason: HTTPSTLSUpdateStarted
+source:
+  component: verticadb-operator
+involvedObject:
+  apiVersion: vertica.com/v1
+  kind: VerticaDB
+  name: v-cert-rotate-rollback-retry-polling
+---
+apiVersion: v1
+kind: Event
+reason: HTTPSTLSUpdateRetry
+source:
+  component: verticadb-operator
+involvedObject:
+  apiVersion: vertica.com/v1
+  kind: VerticaDB
+  name: v-cert-rotate-rollback-retry-polling
+message: Retrying HTTPS polling after failure, attempt 1 of 2 for secret custom-cert
+---
+apiVersion: v1
+kind: Event
+reason: HTTPSTLSUpdateRetry
+source:
+  component: verticadb-operator
+involvedObject:
+  apiVersion: vertica.com/v1
+  kind: VerticaDB
+  name: v-cert-rotate-rollback-retry-polling
+message: Retrying HTTPS polling after failure, attempt 2 of 2 for secret custom-cert
+---
+apiVersion: v1
+kind: Event
+reason: HTTPSTLSUpdateSucceeded
+source:
+  component: verticadb-operator
+involvedObject:
+  apiVersion: vertica.com/v1
+  kind: VerticaDB
+  name: v-cert-rotate-rollback-retry-polling
+message: Successfully rotated HTTP tls cert with secret name custom-cert and mode verify_ca (after retries)
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: v-cert-rotate-rollback-retry-polling-nma-tls-config
+data:
+  NMA_SECRET_NAME: custom-cert
+---
+apiVersion: v1
+kind: Event
+reason: NMATLSCertRotationStarted
+source:
+  component: verticadb-operator
+involvedObject:
+  apiVersion: vertica.com/v1
+  kind: VerticaDB
+  name: v-cert-rotate-rollback-retry-polling
+---
+apiVersion: v1
+kind: Event
+reason: NMATLSCertRotationSucceeded
+source:
+  component: verticadb-operator
+involvedObject:
+  apiVersion: vertica.com/v1
+  kind: VerticaDB
+  name: v-cert-rotate-rollback-retry-polling
+---
+apiVersion: vertica.com/v1
+kind: VerticaDB
+metadata:
+  name: v-cert-rotate-rollback-retry-polling
+spec:
+  httpsNMATLS:
+    secret: custom-cert
+status:
+  tlsConfigs:
+    - name: httpsNMA
+      secret: custom-cert
+    - name: clientServer
