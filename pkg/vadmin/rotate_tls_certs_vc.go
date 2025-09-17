@@ -18,6 +18,7 @@ package vadmin
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	vops "github.com/vertica/vcluster/vclusterops"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
@@ -52,12 +53,11 @@ func (v *VClusterOps) RotateTLSCerts(ctx context.Context, opts ...rotatetlscerts
 
 	// In order to test TLS rollback after failed rotate, this is a backdoor set via
 	// annotation to force a failure BEFORE the TLS cert has been updated in the DB
-	if s.TLSConfig != tlsConfigServer &&
-		vmeta.GetTriggerTLSUpdateFailureAnnotation(v.VDB.Annotations) == vmeta.TriggerTLSUpdateFailureBeforeHTTPSTLSUpdate {
+	triggeredFailure := strings.Split(vmeta.GetTriggerTLSUpdateFailureAnnotation(v.VDB.Annotations), ",")[0]
+	if s.TLSConfig != tlsConfigServer && triggeredFailure == vmeta.TriggerTLSUpdateFailureBeforeHTTPSTLSUpdate {
 		return fmt.Errorf("forced error in HTTPS TLS cert rotation before updating TLS config")
 	}
-	if s.TLSConfig == tlsConfigServer &&
-		vmeta.GetTriggerTLSUpdateFailureAnnotation(v.VDB.Annotations) == vmeta.TriggerTLSUpdateFailureDuringClientServerTLSUpdate {
+	if s.TLSConfig == tlsConfigServer && triggeredFailure == vmeta.TriggerTLSUpdateFailureDuringClientServerTLSUpdate {
 		return fmt.Errorf("forced error in Server TLS cert rotation before updating TLS config")
 	}
 
@@ -73,8 +73,7 @@ func (v *VClusterOps) RotateTLSCerts(ctx context.Context, opts ...rotatetlscerts
 	// annotation to force a failure AFTER the TLS cert has been updated in the DB.
 	// This failure is only relevant for HTTPS cert rotation, since Client-Server does
 	// not use polling (thus it will either update TLS successfully or error)
-	if s.TLSConfig != tlsConfigServer &&
-		vmeta.GetTriggerTLSUpdateFailureAnnotation(v.VDB.Annotations) == vmeta.TriggerTLSUpdateFailureAfterHTTPSTLSUpdate {
+	if s.TLSConfig != tlsConfigServer && triggeredFailure == vmeta.TriggerTLSUpdateFailureAfterHTTPSTLSUpdate {
 		return fmt.Errorf("forced error in TLS cert rotation during HTTPSPollCertificateHealthOp after updating TLS config")
 	}
 	v.Log.Info("Successfully rotate tls cert")

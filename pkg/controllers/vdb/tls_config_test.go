@@ -25,6 +25,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
+	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
 	"github.com/vertica/vertica-kubernetes/pkg/test"
 )
 
@@ -45,7 +46,8 @@ var _ = Describe("tls_config", func() {
 
 		fpr := &cmds.FakePodRunner{}
 		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, &testPassword)
-		recon := MakeTLSConfigManager(vdbRec, logger, vdb, "HTTP", dispatcher)
+		pfacts := podfacts.MakePodFacts(vdbRec, fpr, logger, &testPassword)
+		recon := MakeTLSConfigManager(vdbRec, logger, vdb, "HTTP", dispatcher, &pfacts)
 
 		recon.CurrentSecret = "secret1"
 		recon.NewSecret = "secret1"
@@ -62,7 +64,8 @@ var _ = Describe("tls_config", func() {
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
 		fpr := &cmds.FakePodRunner{}
 		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, &testPassword)
-		manager := MakeTLSConfigManager(vdbRec, logger, vdb, tlsConfigHTTPS, dispatcher)
+		pfacts := podfacts.MakePodFacts(vdbRec, fpr, logger, &testPassword)
+		manager := MakeTLSConfigManager(vdbRec, logger, vdb, tlsConfigHTTPS, dispatcher, &pfacts)
 
 		manager.CurrentSecret = oldSecret
 		manager.NewSecret = newSecret
@@ -77,7 +80,8 @@ var _ = Describe("tls_config", func() {
 		vdb := vapi.MakeVDB()
 		fpr := &cmds.FakePodRunner{}
 		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, &testPassword)
-		manager := MakeTLSConfigManager(vdbRec, logger, vdb, tlsConfigHTTPS, dispatcher)
+		pfacts := podfacts.MakePodFacts(vdbRec, fpr, logger, &testPassword)
+		manager := MakeTLSConfigManager(vdbRec, logger, vdb, tlsConfigHTTPS, dispatcher, &pfacts)
 
 		manager.CurrentSecret = newSecret
 		manager.NewSecret = newSecret
@@ -91,7 +95,9 @@ var _ = Describe("tls_config", func() {
 
 	It("should return valid k8s certs config", func() {
 		vdb := vapi.MakeVDB()
-		tlsMgr := MakeTLSConfigManager(vdbRec, logger, vdb, tlsConfigServer, nil)
+		fpr := &cmds.FakePodRunner{}
+		pfacts := podfacts.MakePodFacts(vdbRec, fpr, logger, &testPassword)
+		tlsMgr := MakeTLSConfigManager(vdbRec, logger, vdb, tlsConfigServer, nil, &pfacts)
 
 		cacheDuration := fmt.Sprintf(",\"cache-duration\":%d", 10)
 		keyConfig, certConfig, caCertConfig := tlsMgr.getK8sCertsConfig(cacheDuration)
@@ -104,7 +110,9 @@ var _ = Describe("tls_config", func() {
 	})
 
 	It("should parse TLS config from DB correctly", func() {
-		manager := MakeTLSConfigManager(vdbRec, logger, vapi.MakeVDB(), "HTTP", nil)
+		fpr := &cmds.FakePodRunner{}
+		pfacts := podfacts.MakePodFacts(vdbRec, fpr, logger, &testPassword)
+		manager := MakeTLSConfigManager(vdbRec, logger, vapi.MakeVDB(), "HTTP", nil, &pfacts)
 		out := "https_cert_abc|try_verify"
 
 		cert, mode, err := manager.parseConfig(out)
@@ -167,7 +175,8 @@ var _ = Describe("tls_config", func() {
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
 		fpr := &cmds.FakePodRunner{}
 		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, &testPassword)
-		manager := MakeTLSConfigManager(vdbRec, logger, vdb, tlsConfigHTTPS, dispatcher)
+		pfacts := podfacts.MakePodFacts(vdbRec, fpr, logger, &testPassword)
+		manager := MakeTLSConfigManager(vdbRec, logger, vdb, tlsConfigHTTPS, dispatcher, &pfacts)
 
 		err := fmt.Errorf("random error")
 		err1 := manager.triggerRollback(ctx, err)
@@ -182,7 +191,7 @@ var _ = Describe("tls_config", func() {
 		Expect(err1).Should(Equal(err))
 		Expect(manager.Vdb.IsHTTPSRollbackFailureAfterCertHealthPolling()).Should(BeTrue())
 
-		manager = MakeTLSConfigManager(vdbRec, logger, vdb, tlsConfigServer, dispatcher)
+		manager = MakeTLSConfigManager(vdbRec, logger, vdb, tlsConfigServer, dispatcher, &pfacts)
 		err = fmt.Errorf("random error")
 		err1 = manager.triggerRollback(ctx, err)
 		Expect(err1).Should(Equal(err))
