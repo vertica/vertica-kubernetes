@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"slices"
 	"strings"
 
 	mapset "github.com/deckarep/golang-set/v2"
@@ -148,9 +147,7 @@ func (vdb *VCoordinationDatabase) updateSandboxNodeInfo(sandVdb *VCoordinationDa
 	for _, vnode := range sandVdb.HostNodeMap {
 		if vnode.Sandbox == sandboxName {
 			vdb.HostNodeMap[vnode.Address] = vnode
-			if !slices.Contains(vdb.HostList, vnode.Address) {
-				vdb.HostList = append(vdb.HostList, vnode.Address)
-			}
+			vdb.HostList = append(vdb.HostList, vnode.Address)
 		}
 	}
 }
@@ -170,9 +167,7 @@ func (vdb *VCoordinationDatabase) setMainCluster(mainVdb *VCoordinationDatabase)
 	for _, vnode := range mainVdb.HostNodeMap {
 		if vnode.Sandbox == util.MainClusterSandbox {
 			vdb.HostNodeMap[vnode.Address] = vnode
-			if !slices.Contains(vdb.HostList, vnode.Address) {
-				vdb.HostList = append(vdb.HostList, vnode.Address)
-			}
+			vdb.HostList = append(vdb.HostList, vnode.Address)
 		} else if !allSandboxes.Contains(vnode.Sandbox) {
 			allSandboxes.Add(vnode.Sandbox)
 		}
