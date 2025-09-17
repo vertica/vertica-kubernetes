@@ -19,16 +19,17 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
 type nmaCheckLicenseOp struct {
 	opBase
-	hostRequestBody      string
-	initiator            string
-	CheckLicenseResponse map[string]string
-	logger               vlog.Printer
+	hostRequestBody     string
+	initiator           string
+	ceLicenseDisallowed bool
+	logger              vlog.Printer
 }
 
 // http request model
@@ -40,21 +41,17 @@ type checkLicenseData struct {
 type CheckLicenseResponse map[string]string
 
 func makeNMACheckLicenseOp(hosts []string, username, dbName, licenseFile string, password *string, useHTTPPassword bool,
-	checkLicenseResponse map[string]string, logger vlog.Printer) (nmaCheckLicenseOp, error) {
+	ceLicenseDisallowed bool, logger vlog.Printer) (nmaCheckLicenseOp, error) {
 	op := nmaCheckLicenseOp{}
 	op.name = "NMACheckLicenseOp"
 	op.description = "Check license"
 	op.hosts = hosts
 	op.logger = logger
+	op.ceLicenseDisallowed = ceLicenseDisallowed
 	err := op.setupRequestBody(username, dbName, licenseFile, password, useHTTPPassword)
 	if err != nil {
 		return op, err
 	}
-	if checkLicenseResponse == nil {
-		// really an assertion - this should never fail
-		return op, errors.New("cannot hold check license output")
-	}
-	op.CheckLicenseResponse = checkLicenseResponse
 	return op, nil
 }
 
@@ -74,7 +71,13 @@ func (op *nmaCheckLicenseOp) setupRequestBody(
 		return fmt.Errorf("[%s] fail to marshal request data to JSON string, detail %w", op.name, err)
 	}
 	op.hostRequestBody = string(dataBytes)
-	op.logger.Info("request data", "op name", op.name, "hostRequestBody", op.hostRequestBody)
+
+	checkLicenseData.LicenseFile = "******"
+	maskedDataBytes, err := json.Marshal(checkLicenseData)
+	if err != nil {
+		return nil
+	}
+	op.logger.Info("request data", "op name", op.name, "hostRequestBody", string(maskedDataBytes))
 	return nil
 }
 
@@ -104,7 +107,12 @@ func (op *nmaCheckLicenseOp) execute(execContext *opEngineExecContext) error {
 		return err
 	}
 
-	return op.processResult(execContext)
+	err := op.processResult(execContext)
+	if err != nil {
+		return err
+	}
+	op.logger.Info("Vertica License has been valicated successfully")
+	return nil
 }
 
 func (op *nmaCheckLicenseOp) finalize(_ *opEngineExecContext) error {
@@ -118,13 +126,19 @@ func (op *nmaCheckLicenseOp) processResult(_ *opEngineExecContext) error {
 		op.logResponse(host, result)
 
 		if result.isPassing() {
-			checkLicenseResponse := op.CheckLicenseResponse
+			op.logger.Info("Check license rest call is a success", "response", result.content)
+			checkLicenseResponse := CheckLicenseResponse{}
 			err := json.Unmarshal([]byte(result.content), &checkLicenseResponse)
 			if err != nil {
 				allErrs = errors.Join(allErrs, err)
-			}
-			if len(checkLicenseResponse) == 0 {
-				allErrs = errors.Join(allErrs, errors.New("license info is missing from response"))
+			} else if op.ceLicenseDisallowed {
+				companyName, ok := checkLicenseResponse["company_name"]
+				if ok {
+					companyName = strings.Trim(companyName, " ")
+					if companyName == "Vertica Community Edition" {
+						allErrs = errors.Join(allErrs, fmt.Errorf("vertica Community Edition license has been disallowed"))
+					}
+				}
 			}
 		} else {
 			allErrs = errors.Join(allErrs, result.err)

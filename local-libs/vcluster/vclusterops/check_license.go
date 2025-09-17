@@ -24,7 +24,8 @@ import (
 
 type VCheckLicenseOptions struct {
 	DatabaseOptions
-	LicenseFile string
+	LicenseFile         string
+	CELicenseDisallowed bool
 }
 
 func VCheckLicenseOptionsFactory() VCheckLicenseOptions {
@@ -43,6 +44,9 @@ func (opt *VCheckLicenseOptions) analyzeOptions() (err error) {
 		}
 		opt.normalizePaths()
 	}
+	if opt.LicenseFile == "" {
+		return fmt.Errorf("LicenseFile field of VCheckLicenseOptions cannot be empty")
+	}
 	return nil
 }
 
@@ -57,27 +61,29 @@ func (opt *VCheckLicenseOptions) validateAnalyzeOptions(log vlog.Printer) error 
 	return nil
 }
 
-func (vcc VClusterCommands) VCheckLicense(options *VCheckLicenseOptions) (CheckLicenseResponse, error) {
+func (vcc VClusterCommands) VCheckLicense(options *VCheckLicenseOptions) error {
 	// validate and analyze all options
 	optError := options.validateAnalyzeOptions(vcc.Log)
 	if optError != nil {
-		return nil, optError
+		return optError
 	}
-	checkLicenseResponse := CheckLicenseResponse{}
 	nmaCheckLicenseOp, err := makeNMACheckLicenseOp(options.Hosts, options.UserName, options.DBName, options.LicenseFile,
-		options.Password, options.usePassword, checkLicenseResponse, vcc.Log)
+		options.Password, options.usePassword, options.CELicenseDisallowed, vcc.Log)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	var instructions []clusterOp
-	instructions = append(instructions, &nmaCheckLicenseOp)
+	nmaHealthOp := makeNMAHealthOp(options.Hosts)
+	instructions = append(instructions,
+		&nmaHealthOp,
+		&nmaCheckLicenseOp,
+	)
 	clusterOpEngine := makeClusterOpEngine(instructions, options)
 	vcc.Log.Info("Checking Vertica License ", "hosts", options.Hosts)
 	runError := clusterOpEngine.run(vcc.Log)
 	if runError != nil {
-		return nil, fmt.Errorf("failed to check Vertica License: %w", runError)
+		return fmt.Errorf("failed to check Vertica License: %w", runError)
 	}
-	vcc.Log.Info("Checking Vertica License succeeded.", "response", checkLicenseResponse)
-	return checkLicenseResponse, nil
+	return nil
 }

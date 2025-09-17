@@ -19,7 +19,6 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -125,25 +124,13 @@ func (r *LicenseReconciler) isLicenseValid(ctx context.Context) (licenseValid bo
 	opts := []checklicense.Option{
 		checklicense.WithInitiators([]string{initiatorPodIP}),
 		checklicense.WithLicenseFile(base64.StdEncoding.EncodeToString(licenseFile)),
+		checklicense.WithCELienseDisallowed(true),
 	}
 	r.log.Info("check license in secret - " + r.vdb.Spec.LicenseSecret)
-	resp, err := r.dispatcher.CheckLicense(ctx, opts...)
-	if err != nil {
-		r.log.Info("invalid Vertica license - " + err.Error())
-		return false, err.Error(), err
-	}
-	r.log.Info("check license resp - " + fmt.Sprintf("%v", resp))
-	licenseStr, ok := resp["company_name"]
-	if !ok {
-		errMsg = "field company_name is missing"
-		r.log.Info(errMsg)
-		return licenseValid, errMsg, err
-	}
-	licenseStr = strings.Trim(licenseStr, " ")
-	if licenseStr == "Vertica Community Edition" {
-		errMsg = "Vertica Community Edition license is no longer supported"
-		r.log.Info(errMsg)
-		return licenseValid, errMsg, err
+	err2 := r.dispatcher.CheckLicense(ctx, opts...)
+	if err2 != nil {
+		r.log.Info("invalid Vertica license - " + err2.Error())
+		return false, err2.Error(), err
 	}
 	licenseValid = true
 	return licenseValid, errMsg, err

@@ -19,10 +19,9 @@ import (
 	"context"
 	"errors"
 
-	"github.com/vertica/vcluster/vclusterops"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/checklicense"
 )
 
-func (a *Admintools) CheckLicense(_ context.Context, _ ...checklicense.Option) (vclusterops.CheckLicenseResponse, error) {
-	return nil, errors.New("check license is not supported when the database uses admintools deployments")
+func (a *Admintools) CheckLicense(_ context.Context, _ ...checklicense.Option) error {
+	return errors.New("check license is not supported when the database uses admintools deployments")
 }

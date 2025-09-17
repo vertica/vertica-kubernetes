@@ -375,8 +375,8 @@ func (m *MockVClusterOps) VPollSubclusterState(_ *vops.VPollSubclusterStateOptio
 	return nil
 }
 
-func (m *MockVClusterOps) VCheckLicense(_ *vops.VCheckLicenseOptions) (vops.CheckLicenseResponse, error) {
-	return nil, nil
+func (m *MockVClusterOps) VCheckLicense(_ *vops.VCheckLicenseOptions) error {
+	return nil
 }
 
 // mockVClusterOpsDispatcher will create an vcluster-ops dispatcher for test

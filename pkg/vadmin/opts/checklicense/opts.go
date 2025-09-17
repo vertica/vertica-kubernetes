@@ -16,8 +16,9 @@
 package checklicense
 
 type Parms struct {
-	InitiatorIPs []string
-	LicenseFile  string
+	InitiatorIPs        []string
+	LicenseFile         string
+	CELicenseDisallowed bool
 }
 
 // Option is a function that configures a Parms instance.
@@ -39,5 +40,11 @@ func WithLicenseFile(licenseFile string) Option {
 func WithInitiators(podIPs []string) Option {
 	return func(p *Parms) {
 		p.InitiatorIPs = podIPs
+	}
+}
+
+func WithCELienseDisallowed(ceLicenseDisallowed bool) Option {
+	return func(p *Parms) {
+		p.CELicenseDisallowed = ceLicenseDisallowed
 	}
 }
