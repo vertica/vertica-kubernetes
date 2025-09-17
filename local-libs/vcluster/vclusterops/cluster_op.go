@@ -375,7 +375,7 @@ func (op *opBase) logResponse(host string, result hostHTTPResult) {
 		op.logger.PrintError("[%s] result from host %s summary %s, details: %+v",
 			op.name, host, result.status.getStatusString(), result.err)
 	} else {
-		op.logger.Log.Info("Request succeeded",
+		op.logger.Info("Request succeeded",
 			"op name", op.name, "host", host, "details", result)
 	}
 }

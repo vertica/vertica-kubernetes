@@ -60,6 +60,7 @@ func (p *Printer) WithName(logName string) Printer {
 		LogToFileOnly: p.LogToFileOnly,
 		ForCli:        p.ForCli,
 		Writer:        p.Writer,
+		Mute:          p.Mute,
 	}
 }
 
@@ -90,7 +91,7 @@ func (p *Printer) Info(msg string, keysAndValues ...any) {
 func (p *Printer) PrintInfo(msg string, v ...any) {
 	fmsg := fmt.Sprintf(msg, v...)
 	escapedFmsg := escapeSpecialCharacters(fmsg)
-	p.Log.Info(escapedFmsg)
+	p.Info(escapedFmsg)
 	p.printlnCond(InfoLog, fmsg)
 }
 
@@ -99,7 +100,7 @@ func (p *Printer) PrintInfo(msg string, v ...any) {
 func (p *Printer) PrintError(msg string, v ...any) {
 	fmsg := fmt.Sprintf(msg, v...)
 	escapedFmsg := escapeSpecialCharacters(fmsg)
-	p.Log.Error(nil, escapedFmsg)
+	p.Error(nil, escapedFmsg)
 	p.printlnCond(ErrorLog, fmsg)
 }
 
@@ -108,7 +109,7 @@ func (p *Printer) PrintError(msg string, v ...any) {
 func (p *Printer) PrintWarning(msg string, v ...any) {
 	fmsg := fmt.Sprintf(msg, v...)
 	escapedFmsg := escapeSpecialCharacters(fmsg)
-	p.Log.Info(escapedFmsg)
+	p.Info(escapedFmsg)
 	p.printlnCond(WarningLog, fmsg)
 }
 
@@ -118,7 +119,7 @@ func (p *Printer) DisplayInfo(msg string, v ...any) {
 	fmsg := fmt.Sprintf(msg, v...)
 	fmsg = firstLetterToUpper(fmsg)
 	escapedFmsg := escapeSpecialCharacters(fmsg)
-	p.Log.Info(escapedFmsg)
+	p.Info(escapedFmsg)
 	p.println(InfoLog, fmsg)
 }
 
@@ -128,7 +129,7 @@ func (p *Printer) DisplayError(msg string, v ...any) {
 	fmsg := fmt.Sprintf(msg, v...)
 	fmsg = firstLetterToLower(fmsg)
 	escapedFmsg := escapeSpecialCharacters(fmsg)
-	p.Log.Error(nil, escapedFmsg)
+	p.Error(nil, escapedFmsg)
 	p.println(ErrorLog, fmsg)
 }
 
@@ -138,7 +139,7 @@ func (p *Printer) DisplayWarning(msg string, v ...any) {
 	fmsg := fmt.Sprintf(msg, v...)
 	fmsg = firstLetterToUpper(fmsg)
 	escapedFmsg := escapeSpecialCharacters(fmsg)
-	p.Log.Info(escapedFmsg)
+	p.Info(escapedFmsg)
 	p.println(WarningLog, fmsg)
 }
 
@@ -185,7 +186,7 @@ func (p *Printer) println(label, msg string) {
 func (p *Printer) LogMaskedArgParse(inputArgv []string) {
 	maskedPairs := logMaskedArgParseHelper(inputArgv)
 	fmsg := fmt.Sprintf("Called method Parse with Masked args: %q.", maskedPairs)
-	p.Log.Info(fmsg)
+	p.Info(fmsg)
 }
 
 func logMaskedArgParseHelper(inputArgv []string) (maskedPairs []string) {
@@ -272,7 +273,7 @@ func (p *Printer) SetupOrDie(logFile string) {
 		os.Exit(1)
 	}
 	p.Log = zapr.NewLogger(zapLg)
-	p.Log.Info("Successfully started logger", "logFile", logFile)
+	p.Info("Successfully started logger", "logFile", logFile)
 }
 
 func isVerboseOutputEnabled() bool {
