@@ -77,20 +77,18 @@ This table below describes monitoring configuration parameters including Grafana
 | prometheusServer.defaultRules.create | Create default recording/alerting rules | false |
 | loki.enabled | Deploy Loki as part of the chart | false |
 | loki.loki.compactor.retention_enabled | Enable log retention | false |
-| loki.loki.compactor.working_directory | Specify a working directory for the compactor | |
-| loki.loki.compactor.compaction_interval | How frequently the compactor performs compaction and retention tasks | 20m |
-| loki.loki.compactor.retention_delete_delay | A delay between the time a log block is marked for deletion by the retention policy and when it is actually removed from storage. | 2h |
 | loki.loki.limits_config.retention_period | Set the global retention period | 720h |
 | loki.loki.commonConfig.replication_factor | Stores multiple copies of logs in the ingester component | 3 |
-| loki.loki.schemaConfig.configs | How Loki stores and indexes log data over time. ref: https://grafana.com/docs/loki/latest/configuration/#schema_config | {} |
-| loki.loki.storage.type | Storage for Loki chunks. | s3 |
+| loki.loki.schemaConfig.configs.object_store | Type of object storage for schema config | s3 |
+| loki.loki.storage.type | Storage for Loki chunks | s3 |
+| loki.minio.enabled | Whether to use minio as the object storage backend | true |
 | loki.lokiCanary.enabled | The Loki canary pushes logs to and queries from this loki installation to test that it's working correctly | true |
 | loki.test.enabled | To test if a Loki data source is enabled and working | true |
 | alloy.enabled | Deploy Alloy as part of the chart | false |
 | alloy.replicaCount | Define the number of replicas for the Alloy deployment | 3 |
-| alloy.rbac.create | Whether to create RBAC resources for Alloy | true |
-| alloy.serviceAccount.create | Whether to create a service account for Alloy | true |
-| alloy.serviceAccount.name | The name of the existing service account to use when serviceAccount.create is false | |
 | alloy.configMap.create | Whether to create a new ConfigMap for the config file | true |
 | alloy.configMap.name | Name of existing ConfigMap to use when configMap.create is false | |
 | alloy.configMap.key | Key in ConfigMap to get config from when using existing ConfigMap | |
+| alloy.rbac.create | Whether to create RBAC resources for Alloy | true |
+| alloy.serviceAccount.create | Whether to create a service account for Alloy | true |
+| alloy.serviceAccount.name | The name of the existing service account to use when serviceAccount.create is false | |

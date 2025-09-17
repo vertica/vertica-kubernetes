@@ -37,6 +37,8 @@ spec:
   envFrom:
     - configMapRef:
         name: db-config
+    - configMapRef:
+        name: db-config-2
     - secretRef:
         name: db-secret
   subclusters:
