@@ -106,8 +106,8 @@ func (h *ClientServerTLSUpdateReconciler) Reconcile(ctx context.Context, req *ct
 	if len(upPods) == 0 {
 		h.Log.Info("No up pod found to update tls config. Restarting.")
 		restartReconciler := MakeRestartReconciler(h.VRec, h.Log, h.Vdb, h.PFacts.PRunner, h.PFacts, true, h.Dispatcher)
-		res, err = restartReconciler.Reconcile(ctx, req)
-		return res, err
+		res, err1 := restartReconciler.Reconcile(ctx, req)
+		return res, err1
 	}
 
 	upHostToSandbox := make(map[string]string)
@@ -116,7 +116,7 @@ func (h *ClientServerTLSUpdateReconciler) Reconcile(ctx context.Context, req *ct
 		upHostToSandbox[p.GetPodIP()] = p.GetSandbox()
 	}
 
-	res, err = h.Manager.updateTLSConfig(ctx, initiator, upHostToSandbox)
+	res, err := h.Manager.updateTLSConfig(ctx, initiator, upHostToSandbox)
 	if verrors.IsReconcileAborted(res, err) || h.Vdb.IsTLSCertRollbackNeeded() {
 		return res, err
 	}

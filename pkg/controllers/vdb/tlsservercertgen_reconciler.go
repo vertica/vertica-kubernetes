@@ -67,7 +67,7 @@ func MakeTLSServerCertGenReconciler(vdbrecon *VerticaDBReconciler, log logr.Logg
 func (h *TLSServerCertGenReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
 	// Verify that at least one secret need generation
 	// If not, skip this reconciler
-	if !h.ShouldGenerateCert() || h.Vdb.IsTLSCertRollbackNeeded() || h.Vdb.GetHTTPSPollingCurrentRetries() == 0 {
+	if !h.ShouldGenerateCert() || h.Vdb.IsTLSCertRollbackNeeded() || h.Vdb.GetHTTPSPollingCurrentRetries() > 0 {
 		return ctrl.Result{}, nil
 	}
 
@@ -86,6 +86,7 @@ func (h *TLSServerCertGenReconciler) reconcileSecrets(ctx context.Context) error
 		if h.ShouldSkipThisConfig(secretFieldName) {
 			continue
 		}
+		h.Log.Info("Reconciling TLS secret", "TLS secret", secretFieldName, "secretName", secretName)
 		// when nma secret is not empty, we can assign it to https and client TLS
 		if h.Vdb.Spec.NMATLSSecret != "" && !h.Vdb.IsAnyTLSAuthEnabled() && (secretFieldName != nmaTLSSecret && secretName == "") {
 			nm := names.GenNamespacedName(h.Vdb, h.Vdb.Spec.NMATLSSecret)
