@@ -1,0 +1,90 @@
+apiVersion: v1
+kind: Event
+reason: TLSAutoRotateSucceeded
+source:
+  component: verticadb-operator
+involvedObject:
+  apiVersion: vertica.com/v1
+  kind: VerticaDB
+  name: v-not-exists-cert-rollback
+message: Auto-rotate triggered for TLS config clientServer with secret bad-cert
+---
+apiVersion: v1
+kind: Event
+reason: TLSCertValidationFailed
+source:
+  component: verticadb-operator
+involvedObject:
+  apiVersion: vertica.com/v1
+  kind: VerticaDB
+  name: v-not-exists-cert-rollback
+message: Validation of TLS Certificate "clientServer" failed; secret "bad-cert" does not exist
+---
+apiVersion: v1
+kind: Event
+reason: TLSCertRollbackStarted
+source:
+  component: verticadb-operator
+involvedObject:
+  apiVersion: vertica.com/v1
+  kind: VerticaDB
+  name: v-not-exists-cert-rollback
+message: Starting Server TLS cert rollback after failed update
+---
+apiVersion: v1
+kind: Event
+reason: TLSCertRollbackSucceeded
+source:
+  component: verticadb-operator
+involvedObject:
+  apiVersion: vertica.com/v1
+  kind: VerticaDB
+  name: v-not-exists-cert-rollback
+message: Server TLS cert rollback completed successfully
+---
+apiVersion: v1
+kind: Event
+reason: TLSAutoRotateSucceeded
+source:
+  component: verticadb-operator
+involvedObject:
+  apiVersion: vertica.com/v1
+  kind: VerticaDB
+  name: v-not-exists-cert-rollback
+message: Auto-rotate triggered for TLS config clientServer with secret cert3
+---
+apiVersion: v1
+kind: Event
+reason: ClientServerTLSUpdateStarted
+source:
+  component: verticadb-operator
+involvedObject:
+  apiVersion: vertica.com/v1
+  kind: VerticaDB
+  name: v-not-exists-cert-rollback
+message: Starting tls cert rotation for Server with secret name cert3 and mode try_verify
+---
+apiVersion: v1
+kind: Event
+reason: ClientServerTLSUpdateSucceeded
+source:
+  component: verticadb-operator
+involvedObject:
+  apiVersion: vertica.com/v1
+  kind: VerticaDB
+  name: v-not-exists-cert-rollback
+message: Successfully rotated Server tls cert with secret name cert3 and mode try_verify
+---
+apiVersion: vertica.com/v1
+kind: VerticaDB
+metadata:
+  name: v-not-exists-cert-rollback
+spec:
+  clientServerTLS:
+    secret: cert3
+status:
+  tlsConfigs:
+  - name: httpsNMA
+    secret: cert2
+  - name: clientServer
+    secret: cert3
