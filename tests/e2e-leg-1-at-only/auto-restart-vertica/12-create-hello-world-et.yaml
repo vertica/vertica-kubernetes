@@ -43,5 +43,5 @@ spec:
           restartPolicy: Never
           containers:
             - name: test
-              image: bitnami/kubectl:1.20.4
+              image: bitnamisecure/kubectl:latest
               command: ["echo", "Hello World!"]
