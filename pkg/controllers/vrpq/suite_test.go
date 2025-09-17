@@ -160,6 +160,6 @@ func mockVClusterOpsDispatcherWithCustomSetup(vdb *v1.VerticaDB,
 		Obj:      vclusterops.VDB,
 		EVWriter: vclusterops.EVWriter,
 	}
-	cacheManager.InitCertCacheForVdb(vdb, fetcher)
+	cacheManager.InitCacheForVdb(vdb, fetcher)
 	return vclusterops
 }

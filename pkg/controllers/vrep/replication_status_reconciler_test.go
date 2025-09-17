@@ -24,8 +24,8 @@ import (
 	. "github.com/onsi/gomega"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	v1beta1 "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	"github.com/vertica/vertica-kubernetes/pkg/cache"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
-	"github.com/vertica/vertica-kubernetes/pkg/security"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/replicationstatus"
 	vrepstatus "github.com/vertica/vertica-kubernetes/pkg/vrepstatus"
@@ -84,13 +84,13 @@ var _ = Describe("query_reconcile", func() {
 				metav1.ConditionTrue, "Started")}, stateReplicating, testTransactionID)
 		Expect(err).ShouldNot(HaveOccurred())
 
-		pm := security.NewPasswordManager()
+		cache := cache.MakeCacheManager(true)
 		r := &ReplicationStatusReconciler{
-			Client:          k8sClient,
-			VRec:            vrepRec,
-			Vrep:            vrep,
-			Log:             logger,
-			PasswordManager: pm,
+			Client:       k8sClient,
+			VRec:         vrepRec,
+			Vrep:         vrep,
+			Log:          logger,
+			CacheManager: cache,
 		}
 		err = r.runReplicationStatus(ctx, dispatcher, []replicationstatus.Option{})
 		Expect(err).ShouldNot(HaveOccurred())
@@ -120,8 +120,8 @@ var _ = Describe("query_reconcile", func() {
 		Expect(k8sClient.Create(ctx, vrep)).Should(Succeed())
 		defer func() { Expect(k8sClient.Delete(ctx, vrep)).Should(Succeed()) }()
 
-		pm := security.NewPasswordManager()
-		recon := MakeReplicationStatusReconciler(k8sClient, vrepRec, vrep, logger, pm)
+		cache := cache.MakeCacheManager(true)
+		recon := MakeReplicationStatusReconciler(k8sClient, vrepRec, vrep, logger, cache)
 
 		// Case 1: replication complete
 		err := vrepstatus.Update(ctx, vrepRec.Client, vrepRec.Log, vrep,
@@ -131,12 +131,12 @@ var _ = Describe("query_reconcile", func() {
 		result, err := recon.Reconcile(ctx, &ctrl.Request{})
 
 		expected := &ReplicationStatusReconciler{
-			Client:          k8sClient,
-			VRec:            vrepRec,
-			Vrep:            vrep,
-			Log:             logger.WithName("ReplicationStatusReconciler"),
-			TargetInfo:      &ReplicationInfo{},
-			PasswordManager: pm,
+			Client:       k8sClient,
+			VRec:         vrepRec,
+			Vrep:         vrep,
+			Log:          logger.WithName("ReplicationStatusReconciler"),
+			TargetInfo:   &ReplicationInfo{},
+			CacheManager: cache,
 		}
 		original, ok := recon.(*ReplicationStatusReconciler)
 		Expect(ok).Should(BeTrue())
@@ -216,8 +216,8 @@ var _ = Describe("query_reconcile", func() {
 		Expect(k8sClient.Create(ctx, vrep)).Should(Succeed())
 		defer func() { Expect(k8sClient.Delete(ctx, vrep)).Should(Succeed()) }()
 
-		pm := security.NewPasswordManager()
-		recon := MakeReplicationStatusReconciler(k8sClient, vrepRec, vrep, logger, pm)
+		cache := cache.MakeCacheManager(true)
+		recon := MakeReplicationStatusReconciler(k8sClient, vrepRec, vrep, logger, cache)
 		err := vrepstatus.Update(ctx, vrepRec.Client, vrepRec.Log, vrep,
 			[]*metav1.Condition{vapi.MakeCondition(v1beta1.Replicating,
 				metav1.ConditionTrue, "Started")}, stateReplicating, 0)
@@ -225,12 +225,12 @@ var _ = Describe("query_reconcile", func() {
 		result, err := recon.Reconcile(ctx, &ctrl.Request{})
 
 		expected := &ReplicationStatusReconciler{
-			Client:          k8sClient,
-			VRec:            vrepRec,
-			Vrep:            vrep,
-			Log:             logger.WithName("ReplicationStatusReconciler"),
-			TargetInfo:      &ReplicationInfo{},
-			PasswordManager: pm,
+			Client:       k8sClient,
+			VRec:         vrepRec,
+			Vrep:         vrep,
+			Log:          logger.WithName("ReplicationStatusReconciler"),
+			TargetInfo:   &ReplicationInfo{},
+			CacheManager: cache,
 		}
 
 		original, ok := recon.(*ReplicationStatusReconciler)
