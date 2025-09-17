@@ -228,9 +228,9 @@ func (o *ObjReconciler) checkMountedObjs(ctx context.Context) (ctrl.Result, erro
 		}
 		dbReconciler := o.Rec.(*VerticaDBReconciler)
 		certCache := dbReconciler.CacheManager.GetCertCacheForVdb(o.Vdb.Namespace, o.Vdb.Name)
-		if !certCache.IsCertInCache(o.Vdb.GetNMATLSSecret()) {
+		if !certCache.IsCertInCache(o.Vdb.GetHTTPSNMATLSSecretForConfigMap()) {
 			_, res, err := o.SecretFetcher.FetchAllowRequeue(ctx,
-				names.GenNamespacedName(o.Vdb, o.Vdb.GetNMATLSSecret()))
+				names.GenNamespacedName(o.Vdb, o.Vdb.GetHTTPSNMATLSSecretForConfigMap()))
 			if verrors.IsReconcileAborted(res, err) {
 				return res, err
 			}
@@ -259,10 +259,10 @@ func (o *ObjReconciler) checkMountedObjs(ctx context.Context) (ctrl.Result, erro
 
 func (o *ObjReconciler) checkTLSSecrets(ctx context.Context) (ctrl.Result, error) {
 	tlsSecrets := map[string]string{
-		"NMA TLS": o.Vdb.GetNMATLSSecret(),
+		"NMA TLS": o.Vdb.GetHTTPSNMATLSSecretForConfigMap(),
 	}
 	if o.Vdb.IsClientServerTLSAuthEnabled() {
-		tlsSecrets["Client Server TLS"] = o.Vdb.GetClientServerTLSSecret()
+		tlsSecrets["Client Server TLS"] = o.Vdb.GetClientServerTLSSecretForConfigMap()
 	}
 	dbReconciler := o.Rec.(*VerticaDBReconciler)
 	certCache := dbReconciler.CacheManager.GetCertCacheForVdb(o.Vdb.Namespace, o.Vdb.Name)
@@ -841,8 +841,8 @@ func (o *ObjReconciler) reconcileTLSSecrets(ctx context.Context) error {
 	}
 
 	tlsSecrets := []string{
-		o.Vdb.GetNMATLSSecret(),
-		o.Vdb.GetClientServerTLSSecret(),
+		o.Vdb.GetHTTPSNMATLSSecretForConfigMap(),
+		o.Vdb.GetClientServerTLSSecretForConfigMap(),
 	}
 	for _, tlsSecret := range tlsSecrets {
 		// non-k8s secrets are ignored

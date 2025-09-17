@@ -165,6 +165,8 @@ VDB_NAMESPACE?=default
 MINIMAL_VERTICA_IMG ?=
 # Name of the helm release that we will install/uninstall
 HELM_RELEASE_NAME?=vdb-op
+# Name of the cluster scope release that will be used for prometheus in the namespace scope release
+CLUSTER_SCOPE_RELEASE_NAME?=
 # Can be used to specify additional overrides when doing the helm install.
 # For example to specify a custom webhook tls cert when deploying use this command:
 #   HELM_OVERRIDES="--set webhook.tlsSecret=custom-cert" make deploy-operator
@@ -719,7 +721,7 @@ endif
 
 deploy-webhook: manifests kustomize ## Using helm, deploy just the webhook in the k8s cluster
 ifeq ($(DEPLOY_WITH), helm)
-	helm install $(DEPLOY_WAIT) -n $(NAMESPACE) --create-namespace $(HELM_RELEASE_NAME) $(OPERATOR_CHART) --set image.repo=null --set image.name=${OPERATOR_IMG} --set image.pullPolicy=$(HELM_IMAGE_PULL_POLICY) --set imagePullSecrets[0].name=priv-reg-cred --set webhook.enable=true,controllers.enable=false $(HELM_OVERRIDES)
+	helm install $(DEPLOY_WAIT) -n $(NAMESPACE) --create-namespace $(HELM_RELEASE_NAME) $(OPERATOR_CHART) --set image.repo=null --set image.name=${OPERATOR_IMG} --set image.pullPolicy=$(HELM_IMAGE_PULL_POLICY) --set imagePullSecrets[0].name=priv-reg-cred --set webhook.enable=true,controllers.enable=false --set grafana.enabled=${GRAFANA_ENABLED} --set prometheusServer.enabled=${PROMETHEUS_ENABLED} $(HELM_OVERRIDES)
 	scripts/wait-for-webhook.sh -n $(NAMESPACE) -t 60
 else
 	$(error Unsupported deployment method for webhook only: $(DEPLOY_WITH))
