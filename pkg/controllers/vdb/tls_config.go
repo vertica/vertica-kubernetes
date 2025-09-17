@@ -151,8 +151,8 @@ func (t *TLSConfigManager) updateTLSConfig(ctx context.Context, initiator string
 
 	var keyConfig, certConfig, caCertConfig, secretName, secretManager string
 	var cacheDuration string
-	if t.Vdb.GetTLSCacheDuration() > 0 {
-		cacheDuration = fmt.Sprintf(",\"cache-duration\":%d", t.Vdb.GetTLSCacheDuration())
+	if t.Vdb.GetCacheDuration() > 0 {
+		cacheDuration = fmt.Sprintf(",\"cache-duration\":%d", t.Vdb.GetCacheDuration())
 	}
 
 	switch {

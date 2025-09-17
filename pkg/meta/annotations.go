@@ -459,9 +459,9 @@ const (
 	// This is currently used internally for K8s stress test.
 	PreserveDBDirectoryAnnotation = "vertica.com/preserve-db-dir"
 
-	// This annotation controls how long the TLS cache should be kept.
-	TLSCacheDurationAnnotation = "vertica.com/tls-cache-duration"
-	TLSCacheDefaultDuration    = 1 * 24 * 3600 // 1 day
+	// This annotation controls how long the cache should be kept.
+	CacheDurationAnnotation = "vertica.com/cache-duration"
+	CacheDefaultDuration    = 1 * 24 * 3600 // 1 day
 
 	// This annotation ensures the tls secrets are removed after the VDB is removed.
 	RemoveTLSSecretOnVDBDeleteAnnotation = "vertica.com/remove-tls-secret-on-vdb-delete" // #nosec G101
@@ -886,9 +886,9 @@ func GetPreserveDBDirectory(annotations map[string]string) bool {
 	return lookupBoolAnnotation(annotations, PreserveDBDirectoryAnnotation, false)
 }
 
-// GetTLSCacheDuration returns the duration (in seconds) to keep the TLS cache
-func GetTLSCacheDuration(annotations map[string]string) int {
-	return lookupIntAnnotation(annotations, TLSCacheDurationAnnotation, TLSCacheDefaultDuration)
+// GetCacheDuration returns the duration (in seconds) to keep the cache
+func GetCacheDuration(annotations map[string]string) int {
+	return lookupIntAnnotation(annotations, CacheDurationAnnotation, CacheDefaultDuration)
 }
 
 // ShouldRemoveTLSSecret returns true if a tls secret must be removed on VDB delete

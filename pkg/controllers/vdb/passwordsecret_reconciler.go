@@ -22,43 +22,42 @@ import (
 
 	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
+	"github.com/vertica/vertica-kubernetes/pkg/cache"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
-	"github.com/vertica/vertica-kubernetes/pkg/security"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	"github.com/vertica/vertica-kubernetes/pkg/vdbstatus"
 	"github.com/vertica/vertica-kubernetes/pkg/vk8s"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 // PasswordSecretReconciler will update admin password in the database
 type PasswordSecretReconciler struct {
-	VRec            *VerticaDBReconciler
-	Log             logr.Logger
-	Vdb             *vapi.VerticaDB // Vdb is the CRD we are acting on.
-	PFacts          *podfacts.PodFacts
-	PRunner         cmds.PodRunner
-	Dispatcher      vadmin.Dispatcher
-	PasswordManager security.PasswordManager
+	VRec         *VerticaDBReconciler
+	Log          logr.Logger
+	Vdb          *vapi.VerticaDB // Vdb is the CRD we are acting on.
+	PFacts       *podfacts.PodFacts
+	PRunner      cmds.PodRunner
+	Dispatcher   vadmin.Dispatcher
+	CacheManager cache.CacheManager
 }
 
 // MakePasswordSecretReconciler will build an PasswordSecretReconciler object
 func MakePasswordSecretReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger, vdb *vapi.VerticaDB, prunner cmds.PodRunner,
-	pfacts *podfacts.PodFacts, dispatcher vadmin.Dispatcher, passwordManager security.PasswordManager) controllers.ReconcileActor {
+	pfacts *podfacts.PodFacts, dispatcher vadmin.Dispatcher, cacheManager cache.CacheManager) controllers.ReconcileActor {
 	return &PasswordSecretReconciler{
-		VRec:            vdbrecon,
-		Log:             log.WithName("PasswordSecretReconciler"),
-		Vdb:             vdb,
-		PFacts:          pfacts,
-		PRunner:         prunner,
-		Dispatcher:      dispatcher,
-		PasswordManager: passwordManager,
+		VRec:         vdbrecon,
+		Log:          log.WithName("PasswordSecretReconciler"),
+		Vdb:          vdb,
+		PFacts:       pfacts,
+		PRunner:      prunner,
+		Dispatcher:   dispatcher,
+		CacheManager: cacheManager,
 	}
 }
 
@@ -95,7 +94,7 @@ func (a *PasswordSecretReconciler) statusMatchesSpec() bool {
 func (a *PasswordSecretReconciler) updatePasswordSecret(ctx context.Context) (ctrl.Result, error) {
 	// Get new password; don't look in cache because it has old secret
 	newPasswd, err := vk8s.GetCustomSuperuserPassword(ctx, a.VRec.Client, a.Log, a.VRec, a.Vdb,
-		a.Vdb.Spec.PasswordSecret, names.SuperuserPasswordKey, a.PasswordManager, true)
+		a.Vdb.Spec.PasswordSecret, names.SuperuserPasswordKey, a.CacheManager, true)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -113,7 +112,7 @@ func (a *PasswordSecretReconciler) updatePasswordSecret(ctx context.Context) (ct
 		}
 	}
 
-	// reset password used in vdb and PasswordManager
+	// reset password used in vdb and CacheManager
 	a.resetVDBPassword(*newPasswd)
 	return ctrl.Result{}, nil
 }
@@ -172,14 +171,10 @@ func (a *PasswordSecretReconciler) updatePasswordSecretStatus(ctx context.Contex
 	return vdbstatus.Update(ctx, a.VRec.GetClient(), a.Vdb, updateStatus)
 }
 
-// resetVDBPassword will reset the password used in prunner, pfacts, dispatcher, and PasswordManager.
+// resetVDBPassword will reset the password used in prunner, pfacts, dispatcher, and CacheManager.
 func (a *PasswordSecretReconciler) resetVDBPassword(newPasswd string) {
 	// prunner, podfacts and dispatcher share the pointer
 	// reset one of them will also reset the password in the others
-	nsName := types.NamespacedName{
-		Namespace: a.Vdb.Namespace,
-		Name:      a.Vdb.Name,
-	}
 	a.PFacts.SetSUPassword(newPasswd)
-	a.PasswordManager.Set(nsName, newPasswd)
+	a.CacheManager.SetPassword(a.Vdb.Namespace, a.Vdb.Name, newPasswd)
 }

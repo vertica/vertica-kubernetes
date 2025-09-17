@@ -32,7 +32,6 @@ import (
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
-	"github.com/vertica/vertica-kubernetes/pkg/security"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	"github.com/vertica/vertica-kubernetes/pkg/vk8s"
 	appsv1 "k8s.io/api/apps/v1"
@@ -56,13 +55,12 @@ import (
 // SandboxConfigMapReconciler reconciles a ConfigMap for sandboxing
 type SandboxConfigMapReconciler struct {
 	client.Client
-	Log             logr.Logger
-	Scheme          *runtime.Scheme
-	Cfg             *rest.Config
-	EVRec           record.EventRecorder
-	Concurrency     int
-	CacheManager    cache.CacheManager
-	PasswordManager security.PasswordManager
+	Log          logr.Logger
+	Scheme       *runtime.Scheme
+	Cfg          *rest.Config
+	EVRec        record.EventRecorder
+	Concurrency  int
+	CacheManager cache.CacheManager
 }
 
 // +kubebuilder:rbac:groups="",resources=configmaps,verbs=get;list;watch
@@ -130,7 +128,7 @@ func (r *SandboxConfigMapReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	sandboxName := configMap.Data[v1.SandboxNameKey]
 	log = log.WithValues("verticadb", vdb.Name, "sandbox", sandboxName)
 
-	passwd, err := vk8s.GetSuperuserPassword(ctx, r.Client, log, r, vdb, r.PasswordManager)
+	passwd, err := vk8s.GetSuperuserPassword(ctx, r.Client, log, r, vdb, r.CacheManager)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -143,7 +141,7 @@ func (r *SandboxConfigMapReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		Obj:      vdb,
 		EVWriter: r.EVRec,
 	}
-	r.CacheManager.InitCertCacheForVdb(vdb, fetcher)
+	r.CacheManager.InitCacheForVdb(vdb, fetcher)
 	// Iterate over each actor
 	actors := r.constructActors(vdb, log, prunner, &pfacts, dispatcher, configMap)
 	for _, act := range actors {

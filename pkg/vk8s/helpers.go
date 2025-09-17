@@ -21,11 +21,10 @@ import (
 
 	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
+	"github.com/vertica/vertica-kubernetes/pkg/cache"
 	"github.com/vertica/vertica-kubernetes/pkg/cloud"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
-	"github.com/vertica/vertica-kubernetes/pkg/security"
-	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -42,21 +41,26 @@ func getPasswordFromSecret(secret map[string][]byte, key string) (*string, error
 
 // GetSuperuserPassword returns the superuser password if it has been provided
 func GetSuperuserPassword(ctx context.Context, cl client.Client, log logr.Logger,
-	e events.EVWriter, vdb *vapi.VerticaDB, pm security.PasswordManager) (*string, error) {
+	e events.EVWriter, vdb *vapi.VerticaDB, cacheManager cache.CacheManager) (*string, error) {
 	return GetCustomSuperuserPassword(ctx, cl, log, e, vdb,
-		vdb.GetPasswordSecret(), names.SuperuserPasswordKey, pm, false)
+		vdb.GetPasswordSecret(), names.SuperuserPasswordKey, cacheManager, false)
 }
 
 // GetCustomSuperuserPassword returns the superuser password stored in a custom secret.
-// It first checks the PasswordManager cache; if not found, it fetches from K8s.
+// It first checks the Password cache; if not found, it fetches from K8s.
 func GetCustomSuperuserPassword(ctx context.Context, cl client.Client, log logr.Logger,
 	e events.EVWriter, vdb *vapi.VerticaDB,
 	customPasswordSecret, customPasswordSecretKey string,
-	pm security.PasswordManager, skipCache bool) (*string, error) {
-	nsName := types.NamespacedName{Namespace: vdb.Namespace, Name: vdb.Name}
-
+	cacheManager cache.CacheManager, skipCache bool) (*string, error) {
 	// Check the cache first
-	if cachedPw, ok := pm.Get(nsName); !skipCache && ok {
+	fetcher := &cloud.SecretFetcher{
+		Client:   cl,
+		Log:      log,
+		Obj:      vdb,
+		EVWriter: e,
+	}
+	cacheManager.InitCacheForVdb(vdb, fetcher)
+	if cachedPw, ok := cacheManager.GetPassword(vdb.Namespace, vdb.Name); !skipCache && ok {
 		return &cachedPw, nil
 	}
 
@@ -64,14 +68,6 @@ func GetCustomSuperuserPassword(ctx context.Context, cl client.Client, log logr.
 	if customPasswordSecret == "" {
 		emptyPassword := ""
 		return &emptyPassword, nil
-	}
-
-	// Fetch the secret from K8s
-	fetcher := cloud.SecretFetcher{
-		Client:   cl,
-		Log:      log,
-		Obj:      vdb,
-		EVWriter: e,
 	}
 
 	secret, err := fetcher.Fetch(ctx, names.GenNamespacedName(vdb, customPasswordSecret))
@@ -85,5 +81,6 @@ func GetCustomSuperuserPassword(ctx context.Context, cl client.Client, log logr.
 	}
 
 	// Cache the fetched password
+	cacheManager.SetPassword(vdb.Namespace, vdb.Name, *passwd)
 	return passwd, nil
 }

@@ -35,19 +35,17 @@ import (
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/meta"
-	"github.com/vertica/vertica-kubernetes/pkg/security"
 )
 
 // VerticaReplicatorReconciler reconciles a VerticaReplicator object
 type VerticaReplicatorReconciler struct {
 	client.Client
-	Scheme          *runtime.Scheme
-	Log             logr.Logger
-	Cfg             *rest.Config
-	EVRec           record.EventRecorder
-	Concurrency     int
-	CacheManager    cache.CacheManager
-	PasswordManager security.PasswordManager
+	Scheme       *runtime.Scheme
+	Log          logr.Logger
+	Cfg          *rest.Config
+	EVRec        record.EventRecorder
+	Concurrency  int
+	CacheManager cache.CacheManager
 }
 
 // +kubebuilder:rbac:groups=vertica.com,resources=verticareplicators,verbs=get;list;watch;create;update;patch;delete
@@ -126,9 +124,9 @@ func (r *VerticaReplicatorReconciler) constructActors(vrep *vapi.VerticaReplicat
 		// Verify some checks before starting a replication
 		MakeVdbVerifyReconciler(r, vrep, log),
 		// Start a replication and update status accordingly upon its completion
-		MakeReplicationReconciler(r.Client, r, vrep, log, r.PasswordManager),
+		MakeReplicationReconciler(r.Client, r, vrep, log, r.CacheManager),
 		// Update async replication status (if needed)
-		MakeReplicationStatusReconciler(r.Client, r, vrep, log, r.PasswordManager),
+		MakeReplicationStatusReconciler(r.Client, r, vrep, log, r.CacheManager),
 	}
 	return actors
 }

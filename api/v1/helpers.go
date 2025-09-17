@@ -1441,8 +1441,8 @@ func (v *VerticaDB) IsFetchNodeDetailsLogDisabled() bool {
 	return vmeta.IsFetchNodeDetailsLogDisabled(v.Annotations)
 }
 
-func (v *VerticaDB) GetTLSCacheDuration() uint64 {
-	duration := vmeta.GetTLSCacheDuration(v.Annotations)
+func (v *VerticaDB) GetCacheDuration() uint64 {
+	duration := vmeta.GetCacheDuration(v.Annotations)
 	if duration < 0 {
 		return 0
 	}

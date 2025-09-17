@@ -41,8 +41,8 @@ var _ = Describe("vdb_context", func() {
 			Obj:      dispatcher.VDB,
 			EVWriter: dispatcher.EVWriter,
 		}
-		dispatcher.CacheManager.InitCertCacheForVdb(dispatcher.VDB, fetcher)
-		defer dispatcher.CacheManager.DestroyCertCacheForVdb(dispatcher.VDB.Namespace, dispatcher.VDB.Name)
+		dispatcher.CacheManager.InitCacheForVdb(dispatcher.VDB, fetcher)
+		defer dispatcher.CacheManager.DestroyCacheForVdb(dispatcher.VDB.Namespace, dispatcher.VDB.Name)
 
 		vdbCertCache := dispatcher.CacheManager.GetCertCacheForVdb(dispatcher.VDB.Namespace, dispatcher.VDB.Name)
 		Expect(vdbCertCache).ShouldNot(Equal(nil))
@@ -108,8 +108,8 @@ var _ = Describe("vdb_context", func() {
 				Obj:      dispatcher.VDB,
 				EVWriter: dispatcher.EVWriter,
 			}
-			dispatcher.CacheManager.InitCertCacheForVdb(dispatcher.VDB, fetcher)
-			defer dispatcher.CacheManager.DestroyCertCacheForVdb(dispatcher.VDB.Namespace, dispatcher.VDB.Name)
+			dispatcher.CacheManager.InitCacheForVdb(dispatcher.VDB, fetcher)
+			defer dispatcher.CacheManager.DestroyCacheForVdb(dispatcher.VDB.Namespace, dispatcher.VDB.Name)
 
 			vdbCertCache := dispatcher.CacheManager.GetCertCacheForVdb(dispatcher.VDB.Namespace, dispatcher.VDB.Name)
 			Expect(vdbCertCache).ShouldNot(Equal(nil))
@@ -143,8 +143,8 @@ var _ = Describe("vdb_context", func() {
 				Obj:      dispatcher.VDB,
 				EVWriter: dispatcher.EVWriter,
 			}
-			dispatcher.CacheManager.InitCertCacheForVdb(dispatcher.VDB, fetcher)
-			defer dispatcher.CacheManager.DestroyCertCacheForVdb(dispatcher.VDB.Namespace, dispatcher.VDB.Name)
+			dispatcher.CacheManager.InitCacheForVdb(dispatcher.VDB, fetcher)
+			defer dispatcher.CacheManager.DestroyCacheForVdb(dispatcher.VDB.Namespace, dispatcher.VDB.Name)
 
 			vdbCertCache := dispatcher.CacheManager.GetCertCacheForVdb(dispatcher.VDB.Namespace, dispatcher.VDB.Name)
 			Expect(vdbCertCache).ShouldNot(Equal(nil))
