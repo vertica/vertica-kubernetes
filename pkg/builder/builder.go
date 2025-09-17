@@ -953,7 +953,7 @@ func BuildBasicAuthSecret(vdb *vapi.VerticaDB, name, username, password string) 
 }
 
 func makeBasicAuthForServiceMonitor(vdb *vapi.VerticaDB, secret string) *monitoringv1.BasicAuth {
-	if vdb.IsAnyTLSAuthEnabledWithMinVersion() {
+	if vdb.IsHTTPSNMATLSAuthEnabledWithMinVersion() {
 		return nil
 	}
 
@@ -975,7 +975,7 @@ func makeBasicAuthForServiceMonitor(vdb *vapi.VerticaDB, secret string) *monitor
 
 func makeTLSConfigForServiceMonitor(vdb *vapi.VerticaDB) *monitoringv1.TLSConfig {
 	insecureSkipVerify := false
-	if !vdb.IsAnyTLSAuthEnabledWithMinVersion() {
+	if !vdb.IsHTTPSNMATLSAuthEnabledWithMinVersion() {
 		insecureSkipVerify = true
 		return &monitoringv1.TLSConfig{
 			SafeTLSConfig: monitoringv1.SafeTLSConfig{
@@ -2162,7 +2162,7 @@ func buildCanaryQuerySQL(vdb *vapi.VerticaDB) string {
 		passwd = fmt.Sprintf("-w $(cat %s/%s)", paths.PodInfoPath, SuperuserPasswordPath)
 	}
 
-	if vdb.IsAnyTLSAuthEnabled() {
+	if vdb.IsHTTPSNMATLSAuthEnabled() {
 		return fmt.Sprintf("vsql %s -m allow -c 'select 1'", passwd)
 	}
 	return fmt.Sprintf("vsql %s -c 'select 1'", passwd)
