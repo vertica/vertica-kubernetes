@@ -76,3 +76,17 @@ This table below describes monitoring configuration parameters including Grafana
 | prometheusServer.prometheusOperator.enabled | Enable Prometheus Operator (required for Prometheus) | true |
 | prometheusServer.prometheusOperator.admissionWebhooks.enabled | Enable admission webhooks for Prometheus Operator | false |
 | prometheusServer.defaultRules.create | Create default recording/alerting rules | false |
+| loki.enabled | Deploy Loki as part of the chart | false |
+| loki.loki.compactor.retention_enabled | Enable log retention | false |
+| loki.loki.limits_config.retention_period | Set the global retention period | 720h |
+| loki.loki.commonConfig.replication_factor | Stores multiple copies of logs in the ingester component | 3 |
+| loki.loki.schemaConfig.configs.object_store | Type of object storage for schema config | s3 |
+| loki.loki.storage.type | Storage for Loki chunks | s3 |
+| loki.minio.enabled | Whether to use minio as the object storage backend | true |
+| loki.lokiCanary.enabled | The Loki canary pushes logs to and queries from this loki installation to test that it's working correctly | true |
+| loki.test.enabled | To test if a Loki data source is enabled and working | true |
+| alloy.enabled | Deploy Alloy as part of the chart | false |
+| alloy.replicaCount | Define the number of replicas for the Alloy deployment | 3 |
+| alloy.configMap.create | Whether to create a new ConfigMap for the config file | true |
+| alloy.configMap.name | Name of existing ConfigMap to use when configMap.create is false | |
+| alloy.configMap.key | Key in ConfigMap to get config from when using existing ConfigMap | |
