@@ -75,7 +75,7 @@ func (d *DeploymentMethodReconciler) Reconcile(ctx context.Context, _ *ctrl.Requ
 	}
 
 	// when deployment is switching to vclusterOps, enable HTTPS TLS if needed
-	if d.Vdb.Status.DeploymentMethod != vapi.DeploymentMethodVC && d.Vdb.IsHTTPSNMATLSAuthEnabled() {
+	if d.Vdb.Status.DeploymentMethod != vapi.DeploymentMethodVC {
 		res, err := d.reconcileHTTPSTLS(ctx)
 		if verrors.IsReconcileAborted(res, err) {
 			return res, err
