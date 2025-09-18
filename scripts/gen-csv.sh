@@ -100,6 +100,8 @@ rm -f bundle/manifests/*servicemonitor.yaml
 # the clusterrole would get removed but not the clusterrolebinding. We provide
 # this as an arifact anyway, so it doesn't need to be part of the bundle.
 rm -f bundle/manifests/*metrics-reader*yaml
+# Remove any prometheus related objects.
+rm -f bundle/manifests/*prometheus*yaml
 
 # Add the supported versions at the end of annotations.yaml
 cat <<EOT >> bundle/metadata/annotations.yaml
