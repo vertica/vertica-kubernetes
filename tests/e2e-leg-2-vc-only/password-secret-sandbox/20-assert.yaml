@@ -19,6 +19,22 @@ status:
   replicas: 1
   readyReplicas: 1
 ---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: v-password-secret-sandbox-sc2
+status:
+  replicas: 1
+  readyReplicas: 1
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: v-password-secret-sandbox-sc3
+status:
+  replicas: 1
+  readyReplicas: 1
+---
 apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:

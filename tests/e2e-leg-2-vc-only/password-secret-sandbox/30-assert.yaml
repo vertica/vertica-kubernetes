@@ -19,12 +19,55 @@ status:
   replicas: 1
   readyReplicas: 1
 ---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: v-password-secret-sandbox-sc2
+status:
+  replicas: 1
+  readyReplicas: 1
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: v-password-secret-sandbox-sc3
+status:
+  replicas: 1
+  readyReplicas: 1
+---
+apiVersion: v1
+kind: Event
+reason: SandboxSubclusterSucceeded
+source:
+  component: verticadb-operator
+involvedObject:
+  apiVersion: vertica.com/v1
+  kind: VerticaDB
+  name: v-password-secret-sandbox
+---
+apiVersion: v1
+kind: Event
+reason: AlterSubclusterSucceeded
+source:
+  component: verticadb-operator
+involvedObject:
+  apiVersion: vertica.com/v1
+  kind: VerticaDB
+  name: v-password-secret-sandbox
+---
 apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
   name: v-password-secret-sandbox
 status:
+  sandboxes:
+  - name: sand1
+    subclusters:
+    - sc2
+    - sc3
   subclusters:
+    - addedToDBCount: 1
+      upNodeCount: 1
     - addedToDBCount: 1
       upNodeCount: 1
     - addedToDBCount: 1
