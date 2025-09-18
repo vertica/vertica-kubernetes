@@ -43,13 +43,8 @@ perl -i -0777 -pe 's/verticadb-operator-system/{{ .Release.Namespace }}/g' $TEMP
 perl -i -0777 -pe "s|image: controller|image: '{{ with .Values.image }}{{ join \"/\" (list .repo .name) }}{{ end }}'|" $TEMPLATE_DIR/verticadb-operator-manager-deployment.yaml
 # 3. Template imagePullPolicy
 perl -i -0777 -pe 's/imagePullPolicy: IfNotPresent/imagePullPolicy: {{ default "IfNotPresent" .Values.image.pullPolicy }}/' $TEMPLATE_DIR/verticadb-operator-manager-deployment.yaml
-# 4. Append imagePullSecrets
-cat >>$TEMPLATE_DIR/verticadb-operator-manager-deployment.yaml << END
-{{ if .Values.imagePullSecrets }}
-      imagePullSecrets:
-{{ .Values.imagePullSecrets | toYaml | indent 8 }}
-{{ end }}
-END
+# 4. Template imagePullSecrets
+perl -i -0777 -pe 's/      imagePullSecrets:\n(?:\s*- name: [^\n]*\n)*/{{- if .Values.imagePullSecrets }}\n      imagePullSecrets:\n{{ .Values.imagePullSecrets | toYaml | indent 6 }}\n{{- end }}\n/g'  $TEMPLATE_DIR/verticadb-operator-manager-deployment.yaml
 # 5. Template the tls secret name
 for fn in verticadb-operator-manager-deployment.yaml \
     verticadb-operator-serving-cert-certificate.yaml

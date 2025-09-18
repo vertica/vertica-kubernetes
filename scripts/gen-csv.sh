@@ -100,6 +100,8 @@ rm -f bundle/manifests/*servicemonitor.yaml
 # the clusterrole would get removed but not the clusterrolebinding. We provide
 # this as an arifact anyway, so it doesn't need to be part of the bundle.
 rm -f bundle/manifests/*metrics-reader*yaml
+# Remove any prometheus related objects.
+rm -f bundle/manifests/*prometheus*yaml
 # Remove the alloy related configurations. Alloy is used only when DEPLOY_WITH
 # is helm.
 rm -f bundle/manifests/*alloy*.yaml

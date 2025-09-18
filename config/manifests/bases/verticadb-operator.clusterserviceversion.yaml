@@ -1266,6 +1266,44 @@ spec:
         path: clientServerTLS
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:advanced
+      - description: Allow auto-rotation of a list of secrets, using a certain interval
+        displayName: Auto Rotate
+        path: clientServerTLS.autoRotate
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+      - description: This will determine on what interval (in minutes) to auto-rotate
+          to the next secret in the list. Default is 30 days.
+        displayName: Interval
+        path: clientServerTLS.autoRotate.interval
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:number
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+      - description: |-
+          When we reach the end of the list, this will determine whether to loop back to the first element of the list
+          or to finish (giving a warning). Default is false, meaning finish auto-rotate.
+        displayName: Restart At End
+        path: clientServerTLS.autoRotate.restartAtEnd
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+      - description: |-
+          This will trigger operator to automatically rotate between a list of pre-defined secrets. When set, the
+          first secret will be applied. After a set rotation interval (defined by "autoRotate.interval"; default 30 days),
+          it will automatically rotate to next secret in the list, until the list has been exhausted. If "autoRotate.restart"
+          is true, it will resume back at the first secret; otherwise, it will emit a warning and remain on the last secret.
+        displayName: Secrets
+        path: clientServerTLS.autoRotate.secrets
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:arrayField
+      - description: |-
+          This field defines the common-name that should be required for the TLS certificate of this TLS secret.
+          The operator will validate that your certificate contains this value in the common-name field.
+          If not specified, it will use the Vertica DB admin username, defined by annotation vertica.com/superuser-name.
+        displayName: Common Name
+        path: clientServerTLS.commonName
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:text
+        - urn:alm:descriptor:com.tectonic.ui:advanced
       - description: |-
           This field configures the Vertica's connection mode for HTTPS/NMA or client-server TLS.
           Choose one of the following TLSMODEs, listed in ascending security:
@@ -1278,7 +1316,11 @@ spec:
         displayName: Mode
         path: clientServerTLS.mode
         x-descriptors:
-        - urn:alm:descriptor:com.tectonic.ui:hidden
+        - urn:alm:descriptor:com.tectonic.ui:select:disable
+        - urn:alm:descriptor:com.tectonic.ui:select:enable
+        - urn:alm:descriptor:com.tectonic.ui:select:TRY_VERIFY
+        - urn:alm:descriptor:com.tectonic.ui:select:VERIFY_CA
+        - urn:alm:descriptor:com.tectonic.ui:select:VERIFY_FULL
       - description: |-
           A secret that contains the TLS credentials; this can be used either by Vertica's
           embedded https service and node management agent (NMA) or to authenticate Vertica
@@ -1379,6 +1421,24 @@ spec:
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:advanced
       - description: |-
+          Allow users to specify TLS version and cipher suites. Version 2 (TLS1.2) and 3 (TLS1.3) are supported.
+          The cipher suites must match the TLS version. This field will be empty when tls is not enabled and configured
+        displayName: DBTLSConfig
+        path: dbTlsConfig
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+      - description: |-
+          CipherSuites is a comma-separated list of cipher suites. TLS 1.2 and 1.3 use different cipher suites. The value for
+          this field must match that of TLSVersion.
+        displayName: Cipher Suites
+        path: dbTlsConfig.cipherSuites
+      - description: TLSVersion can be 2 or 3. By default, version 2 is used.
+        displayName: TLSVersion
+        path: dbTlsConfig.tlsVersion
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:select:2
+        - urn:alm:descriptor:com.tectonic.ui:select:3
+      - description: |-
           Controls if the spread communication between pods is encrypted.  Valid
           values are 'vertica', 'disabled', or an empty string.  By default,
           the value is set to 'vertica' unless the user explicitly set it to
@@ -1388,6 +1448,20 @@ spec:
           initPolicy other than Create, then it has no effect.
         displayName: Encrypt Spread Comm
         path: encryptSpreadComm
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+      - description: |-
+          A list of environment variables to set in all containers in vertica pods. They will be set in a container through the
+          envFrom field. All the key-value pairs in the configmap/secret are added to the environment as-is.
+        displayName: Env From
+        path: envFrom
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+      - description: |-
+          A list of environment variables to set in all containers in vertica pods. They will be set in a container through the
+          env field.
+        displayName: Extra Env
+        path: extraEnv
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:advanced
       - description: |-
@@ -1404,6 +1478,44 @@ spec:
         path: httpsNMATLS
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:advanced
+      - description: Allow auto-rotation of a list of secrets, using a certain interval
+        displayName: Auto Rotate
+        path: httpsNMATLS.autoRotate
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+      - description: This will determine on what interval (in minutes) to auto-rotate
+          to the next secret in the list. Default is 30 days.
+        displayName: Interval
+        path: httpsNMATLS.autoRotate.interval
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:number
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+      - description: |-
+          When we reach the end of the list, this will determine whether to loop back to the first element of the list
+          or to finish (giving a warning). Default is false, meaning finish auto-rotate.
+        displayName: Restart At End
+        path: httpsNMATLS.autoRotate.restartAtEnd
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+      - description: |-
+          This will trigger operator to automatically rotate between a list of pre-defined secrets. When set, the
+          first secret will be applied. After a set rotation interval (defined by "autoRotate.interval"; default 30 days),
+          it will automatically rotate to next secret in the list, until the list has been exhausted. If "autoRotate.restart"
+          is true, it will resume back at the first secret; otherwise, it will emit a warning and remain on the last secret.
+        displayName: Secrets
+        path: httpsNMATLS.autoRotate.secrets
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:arrayField
+      - description: |-
+          This field defines the common-name that should be required for the TLS certificate of this TLS secret.
+          The operator will validate that your certificate contains this value in the common-name field.
+          If not specified, it will use the Vertica DB admin username, defined by annotation vertica.com/superuser-name.
+        displayName: Common Name
+        path: httpsNMATLS.commonName
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:text
+        - urn:alm:descriptor:com.tectonic.ui:advanced
       - description: |-
           This field configures the Vertica's connection mode for HTTPS/NMA or client-server TLS.
           Choose one of the following TLSMODEs, listed in ascending security:
@@ -1416,7 +1528,11 @@ spec:
         displayName: Mode
         path: httpsNMATLS.mode
         x-descriptors:
-        - urn:alm:descriptor:com.tectonic.ui:hidden
+        - urn:alm:descriptor:com.tectonic.ui:select:disable
+        - urn:alm:descriptor:com.tectonic.ui:select:enable
+        - urn:alm:descriptor:com.tectonic.ui:select:TRY_VERIFY
+        - urn:alm:descriptor:com.tectonic.ui:select:VERIFY_CA
+        - urn:alm:descriptor:com.tectonic.ui:select:VERIFY_FULL
       - description: |-
           A secret that contains the TLS credentials; this can be used either by Vertica's
           embedded https service and node management agent (NMA) or to authenticate Vertica
@@ -1573,8 +1689,9 @@ spec:
           When set, the secret must have the following keys defined: tls.key,
           tls.crt and ca.crt.  To store this secret outside of Kubernetes, you can
           use a secret path reference prefix, such as gsm://. Everything after the
-          prefix is the name of the secret in the service you are storing.
-          This field has been deprecated. HTTPSNMATLSSecret field is the replacement.
+          prefix is the name of the secret in the service you are storing. Once
+          TLS authentication is enabled, this secret will be ignored; HTTPSNMATLS.secret
+          will be used instead.
         displayName: NMATLSSecret
         path: nmaTLSSecret
         x-descriptors:
@@ -1605,6 +1722,8 @@ spec:
           All incoming connections to the subclusters will be routed through the proxy pods
         displayName: Proxy
         path: proxy
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
       - description: The docker image name that contains the Vertica proxy server.
         displayName: Image
         path: proxy.image
@@ -2291,6 +2410,31 @@ spec:
       - description: Conditions for VerticaDB
         displayName: Conditions
         path: conditions
+      - description: The DB level TLS config
+        displayName: DBTLSConfig
+        path: dbTlsConfig
+      - description: |-
+          Deployment method used to operate the database.
+          Determined by the "vertica.com/vcluster-ops" annotation:
+            - "true" → use "vclusterops"
+            - any other value → use "admintools".
+        displayName: Deployment Method
+        path: deploymentMethod
+      - description: |-
+          The names of configmaps that have been observed by the operator.
+          This is used to trigger a rolling restart of the pods when these resources change.
+        displayName: Observed Config Maps
+        path: observedConfigMaps
+      - description: |-
+          The names of secrets that have been observed by the operator.
+          This is used to trigger a rolling restart of the pods when these resources change.
+        displayName: Observed Secrets
+        path: observedSecrets
+      - description: |-
+          The secret name that contains the current password for the
+          database's superuser
+        displayName: Password Secret
+        path: passwordSecret
       - description: The details about the last created restore point
         displayName: Restore Point
         path: restorePoint
@@ -2376,6 +2520,16 @@ spec:
       - description: The list of current TLS configurations for different components
         displayName: TLSConfigs
         path: tlsConfigs
+      - description: When an auto-rotation fails, this field contains the name of
+          the secret that failed to be applied.
+        displayName: Auto Rotate Failed Secret
+        path: tlsConfigs[0].autoRotateFailedSecret
+      - description: List of secrets to be used for auto-rotate
+        displayName: Auto Rotate Secrets
+        path: tlsConfigs[0].autoRotateSecrets
+      - description: Timestamp of last successful cert rotation
+        displayName: Last Update
+        path: tlsConfigs[0].lastUpdate
       - description: The TLS mode being used
         displayName: Mode
         path: tlsConfigs[0].mode
