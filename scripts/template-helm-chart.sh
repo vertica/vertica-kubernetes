@@ -231,6 +231,7 @@ do
   perl -i -0777 -pe 's/(CONTROLLERS_ENABLED:).*/$1 {{ quote .Values.controllers.enable }}/g' $fn
   perl -i -0777 -pe 's/(PROMETHEUS_ENABLED:).*/$1 {{ quote .Values.prometheusServer.enabled }}/g' $fn
   perl -i -0777 -pe 's/(RELEASE_NAME:).*/$1 {{ quote .Release.Name }}/g' $fn
+  perl -i -0777 -pe 's/(CLUSTER_SCOPE_RELEASE_NAME:).*/$1 {{ quote .Values.clusterScopeReleaseName }}/g' $fn
   perl -i -0777 -pe 's/(CONTROLLERS_SCOPE:).*/$1 {{ quote .Values.controllers.scope }}/g' $fn
   perl -i -0777 -pe 's/(VDB_MAX_BACKOFF_DURATION:).*/$1 {{ quote .Values.controllers.vdbMaxBackoffDuration }}/g' $fn
   perl -i -0777 -pe 's/(SANDBOX_MAX_BACKOFF_DURATION:).*/$1 {{ quote .Values.controllers.sandboxMaxBackoffDuration }}/g' $fn
@@ -245,7 +246,7 @@ perl -i -0777 -pe 's/(- apiGroups:\n\s+- keda\.sh.*?)\n(?=- apiGroups:|\Z)/{{- i
 perl -i -0777 -pe 's/(- apiGroups:\n\s+- ""\n\s+resources:\n\s+- namespaces\n\s+verbs:\n(?:\s+- \w+\n)+)/\{\{- if eq .Values.controllers.scope "cluster" \}\}\n\1\{\{- end \}\}\n/sg' $TEMPLATE_DIR/verticadb-operator-manager-role-cr.yaml
 
 # 26. Conditionally add rules for prometheus objects
-perl -i -0777 -pe 's/(- apiGroups:\n\s+- monitoring\.coreos\.com.*?)\n(?=- apiGroups:|\Z)/{{- if .Values.prometheusServer.enabled }}\n\1\n{{- end }}\n/sg' $TEMPLATE_DIR/verticadb-operator-manager-role-cr.yaml
+perl -i -0777 -pe 's/(- apiGroups:\n\s+- monitoring\.coreos\.com.*?)\n(?=- apiGroups:|\Z)/{{- if (or .Values.prometheusServer.enabled (and (eq .Values.controllers.scope "namespace") (ne .Values.clusterScopeReleaseName ""))) }}\n\1\n{{- end }}\n/sg' $TEMPLATE_DIR/verticadb-operator-manager-role-cr.yaml
 
 perl -i -0777 -pe  's/name: \{\{ include "vdb-op.name" \. \}\}-prometheus-sa/name: prometheus-vertica-sa/' $TEMPLATE_DIR/verticadb-operator-prometheus-sa-sa.yaml
 perl -i -0777 -pe  's/name: \{\{ include "vdb-op.name" \. \}\}-prometheus-sa/name: prometheus-vertica-sa/' $TEMPLATE_DIR/verticadb-operator-prometheus-role-binding-crb.yaml
@@ -256,3 +257,8 @@ do
   perl -i -pe 's/^/{{- if and .Values.prometheusServer.enabled (not .Values.prometheusServer.prometheus.serviceAccount.create) (eq .Values.prometheusServer.prometheus.serviceAccount.name "prometheus-vertica-sa") -}}\n/ if 1 .. 1' $f
   echo "{{- end }}" >> $f
 done
+
+# 27. Conditionally create alloy configmap
+perl -i -0777 -pe 's/^/{{- if and .Values.alloy.enabled (not .Values.alloy.alloy.configMap.create) -}}\n/ if 1 .. 1' $TEMPLATE_DIR/verticadb-operator-alloy-cm.yaml
+perl -i -0777 -pe 's/name: \{\{ include "vdb-op.name" \. \}\}-alloy/name: vdb-op-alloy/' $TEMPLATE_DIR/verticadb-operator-alloy-cm.yaml
+echo "{{- end }}" >> $TEMPLATE_DIR/verticadb-operator-alloy-cm.yaml

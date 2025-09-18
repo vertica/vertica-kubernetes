@@ -102,6 +102,9 @@ rm -f bundle/manifests/*servicemonitor.yaml
 rm -f bundle/manifests/*metrics-reader*yaml
 # Remove any prometheus related objects.
 rm -f bundle/manifests/*prometheus*yaml
+# Remove the alloy related configurations. Alloy is used only when DEPLOY_WITH
+# is helm.
+rm -f bundle/manifests/*alloy*.yaml
 
 # Add the supported versions at the end of annotations.yaml
 cat <<EOT >> bundle/metadata/annotations.yaml
