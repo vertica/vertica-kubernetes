@@ -223,7 +223,7 @@ func (r *ReplicationStatusReconciler) makePodFacts(ctx context.Context, vdb *vap
 	if err != nil {
 		return nil, err
 	}
-	prunner := cmds.MakeClusterPodRunner(r.Log, r.VRec.Cfg, username, password, vdb.IsAnyTLSAuthEnabled())
+	prunner := cmds.MakeClusterPodRunner(r.Log, r.VRec.Cfg, username, password, vdb.IsClientServerTLSAuthEnabled())
 	pFacts := podfacts.MakePodFactsForSandboxWithCacheManager(r.VRec, prunner, r.Log, password, sandboxName, r.VRec.CacheManager)
 	return &pFacts, nil
 }

@@ -181,7 +181,7 @@ func (r *ReplicationReconciler) determineUsernameAndPassword(ctx context.Context
 		return err
 	}
 
-	if r.TargetInfo.Vdb.IsAnyTLSAuthEnabledWithMinVersion() && *r.TargetInfo.Password == "" && r.Vrep.Spec.TLSConfig == "" {
+	if r.TargetInfo.Vdb.IsClientServerTLSAuthEnabledWithMinVersion() && *r.TargetInfo.Password == "" && r.Vrep.Spec.TLSConfig == "" {
 		return fmt.Errorf("cannot use empty password when tls is enabled in target vdb %q",
 			r.TargetInfo.Vdb.Name)
 	}
@@ -286,7 +286,7 @@ func (r *ReplicationReconciler) makePodFacts(ctx context.Context, vdb *vapi.Vert
 	if err != nil {
 		return nil, err
 	}
-	prunner := cmds.MakeClusterPodRunner(r.Log, r.VRec.Cfg, username, password, vdb.IsAnyTLSAuthEnabled())
+	prunner := cmds.MakeClusterPodRunner(r.Log, r.VRec.Cfg, username, password, vdb.IsClientServerTLSAuthEnabled())
 	pFacts := podfacts.MakePodFactsForSandboxWithCacheManager(r.VRec, prunner, r.Log, password, sandboxName, r.VRec.CacheManager)
 	return &pFacts, nil
 }

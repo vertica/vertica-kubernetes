@@ -87,8 +87,8 @@ func (h *TLSServerCertGenReconciler) reconcileSecrets(ctx context.Context) error
 			continue
 		}
 		h.Log.Info("Reconciling TLS secret", "TLS secret", secretFieldName, "secretName", secretName)
-		// when nma secret is not empty, we can assign it to https and client TLS
-		if h.Vdb.Spec.NMATLSSecret != "" && !h.Vdb.IsAnyTLSAuthEnabled() && (secretFieldName != nmaTLSSecret && secretName == "") {
+		// when nma secret is not empty, we can assign it to https TLS
+		if h.Vdb.Spec.NMATLSSecret != "" && secretFieldName == httpsNMATLSSecret && secretName == "" {
 			nm := names.GenNamespacedName(h.Vdb, h.Vdb.Spec.NMATLSSecret)
 			secret := corev1.Secret{}
 			err = h.VRec.Client.Get(ctx, nm, &secret)
@@ -323,7 +323,7 @@ func (h *TLSServerCertGenReconciler) ValidateSecretCertificate(
 func (h *TLSServerCertGenReconciler) ShouldGenerateCert() bool {
 	httpsNMACertNeeded := h.Vdb.ShouldGenCertForTLSConfig(vapi.HTTPSNMATLSConfigName)
 	clientServerCertNeeded := h.Vdb.ShouldGenCertForTLSConfig(vapi.ClientServerTLSConfigName)
-	nmaCertNeeded := !h.Vdb.IsAnyTLSAuthEnabled() && h.Vdb.Spec.NMATLSSecret == ""
+	nmaCertNeeded := !h.Vdb.IsHTTPSNMATLSAuthEnabled() && h.Vdb.Spec.NMATLSSecret == ""
 	return httpsNMACertNeeded || clientServerCertNeeded || nmaCertNeeded
 }
 
