@@ -168,6 +168,8 @@ func (r *SandboxConfigMapReconciler) constructActors(vdb *v1.VerticaDB, log logr
 		MakeVerifyDeploymentReconciler(r, vdb, log),
 		// Move the subclusters from a sandbox to the main cluster
 		MakeUnsandboxSubclusterReconciler(r, vdb, log, r.Client, pfacts, dispatcher, configMap, prunner),
+		// Create the password secret if it doesn't already exist
+		vdbcontroller.MakePasswordSecretReconciler(r, log, vdb, prunner, pfacts, dispatcher, r.CacheManager),
 		// Update the vdb status for the sandbox nodes/pods
 		vdbcontroller.MakeStatusReconciler(r.Client, r.Scheme, log, vdb, pfacts),
 		// Upgrade the sandbox using the offline method

@@ -35,16 +35,16 @@ import (
     As operator code runs in multiple threads, it is not
 	thread safe to define a variable at package level and
 	share it. This file offers thread safe sharing/caching of
-	certificate.
+	certificate and other items, like password.
 
-    Here is an example about how to get a reference to the cache
+    Here is an example about how to get a reference to the cert cache
  	certCache := cache.GetCertCacheForVdb(vdb.Namespace, vdb.Name)
 
 */
 
 type dbToCacheMap map[types.NamespacedName]*VdbCacheStruct
 
-type CacheManangerStruct struct {
+type CacheManagerStruct struct {
 	allCacheMap  dbToCacheMap // map each vdb to a VdbContext
 	guardAllLock *sync.Mutex  // guards allContextMap
 	enabled      bool
@@ -85,12 +85,12 @@ func NewItemCache[T any](ttl time.Duration, enabled bool) *ItemCache[T] {
 }
 
 func (c *ItemCache[T]) Get(key string) (T, bool) {
+	c.lock.Lock()
+	defer c.lock.Unlock()
 	if !c.enabled {
 		var zero T
 		return zero, false
 	}
-	c.lock.Lock()
-	defer c.lock.Unlock()
 	item, ok := c.items[key]
 	if !ok {
 		var zero T
@@ -108,37 +108,39 @@ func (c *ItemCache[T]) Get(key string) (T, bool) {
 }
 
 func (c *ItemCache[T]) Set(key string, value T) {
+	c.lock.Lock()
+	defer c.lock.Unlock()
 	if !c.enabled {
 		return
 	}
-	c.lock.Lock()
-	defer c.lock.Unlock()
 	c.items[key] = value
 	c.creationTime[key] = time.Now()
 }
 
 func (c *ItemCache[T]) Delete(key string) {
+	c.lock.Lock()
+	defer c.lock.Unlock()
 	if !c.enabled {
 		return
 	}
-	c.lock.Lock()
-	defer c.lock.Unlock()
 	delete(c.items, key)
 	delete(c.creationTime, key)
 }
 
 type VdbCacheStruct struct {
-	namespace     string // save namespace so it is not required to be passed
-	fetcher       *cloud.SecretFetcher
-	enabled       bool
-	certCache     *ItemCache[map[string][]byte]
-	passwordCache *ItemCache[string]
+	namespace    string // save namespace so it is not required to be passed
+	fetcher      *cloud.SecretFetcher
+	enabled      bool
+	certCache    *ItemCache[map[string][]byte]
+	genericCache *ItemCache[string] // Generic cache for single-value items like password
 }
 
 var log = ctrl.Log.WithName("vdb_cache")
 
+const GenericPasswordKey = "password"
+
 func MakeCacheManager(enabled bool) CacheManager {
-	c := &CacheManangerStruct{}
+	c := &CacheManagerStruct{}
 	c.guardAllLock = &sync.Mutex{}
 	c.allCacheMap = make(dbToCacheMap)
 	c.enabled = enabled
@@ -147,27 +149,27 @@ func MakeCacheManager(enabled bool) CacheManager {
 }
 
 // InitCacheForVdb will initialize a Cache from a vdb
-func (c *CacheManangerStruct) InitCacheForVdb(vdb *v1.VerticaDB, fetcher *cloud.SecretFetcher) {
+func (c *CacheManagerStruct) InitCacheForVdb(vdb *v1.VerticaDB, fetcher *cloud.SecretFetcher) {
 	c.guardAllLock.Lock()
 	defer c.guardAllLock.Unlock()
 	vdbName := types.NamespacedName{
 		Name:      vdb.Name,
 		Namespace: vdb.Namespace,
 	}
-	singleCertCache, ok := c.allCacheMap[vdbName]
+	vdbCache, ok := c.allCacheMap[vdbName]
 	tlsCacheDuration := meta.GetCacheDuration(vdb.Annotations)
 	if !ok {
-		singleCertCache = makeVdbCertCache(vdbName.Namespace, tlsCacheDuration, fetcher, c.enabled)
-		c.allCacheMap[vdbName] = singleCertCache
+		vdbCache = makeVdbCache(vdbName.Namespace, tlsCacheDuration, fetcher, c.enabled)
+		c.allCacheMap[vdbName] = vdbCache
 		log.Info("initialized cert cache for vdb", "vdbname", vdbName.Namespace, "vdbnamespace", vdbName.Name, "enabled", c.enabled)
-	} else if singleCertCache.certCache.ttl != time.Duration(tlsCacheDuration)*time.Second {
-		singleCertCache.certCache.ttl = time.Duration(tlsCacheDuration) * time.Second
+	} else if vdbCache.certCache.ttl != time.Duration(tlsCacheDuration)*time.Second {
+		vdbCache.certCache.ttl = time.Duration(tlsCacheDuration) * time.Second
 		log.Info("cache expire duration has been updated", "new duration", vdb.GetCacheDuration())
 	}
 }
 
 // GetCertCacheForVdb will return a CertCache from a vdb's name and namespace
-func (c *CacheManangerStruct) GetCertCacheForVdb(namespace, name string) CertCache {
+func (c *CacheManagerStruct) GetCertCacheForVdb(namespace, name string) CertCache {
 	c.guardAllLock.Lock()
 	defer c.guardAllLock.Unlock()
 	vdbName := types.NamespacedName{
@@ -180,7 +182,7 @@ func (c *CacheManangerStruct) GetCertCacheForVdb(namespace, name string) CertCac
 
 // DestroyCacheForVdb will remove the cache for a vdb
 // This is used when the vdb is deleted and we want to free up memory
-func (c *CacheManangerStruct) DestroyCacheForVdb(namespace, name string) {
+func (c *CacheManagerStruct) DestroyCacheForVdb(namespace, name string) {
 	c.guardAllLock.Lock()
 	defer c.guardAllLock.Unlock()
 	vdbName := types.NamespacedName{
@@ -192,15 +194,15 @@ func (c *CacheManangerStruct) DestroyCacheForVdb(namespace, name string) {
 	}
 }
 
-// makeVdbCertCache instantiates a VdbCacheStruct and saves
+// makeVdbCache instantiates a VdbCacheStruct and saves
 // vdb's namespace in it for convenience
-func makeVdbCertCache(namespace string, ttl int, fetcher *cloud.SecretFetcher, enabled bool) *VdbCacheStruct {
+func makeVdbCache(namespace string, ttl int, fetcher *cloud.SecretFetcher, enabled bool) *VdbCacheStruct {
 	singleContext := &VdbCacheStruct{}
 	singleContext.namespace = namespace
 	singleContext.fetcher = fetcher
 	singleContext.enabled = enabled
 	singleContext.certCache = NewItemCache[map[string][]byte](time.Duration(ttl)*time.Second, enabled)
-	singleContext.passwordCache = NewItemCache[string](time.Duration(ttl)*time.Second, enabled)
+	singleContext.genericCache = NewItemCache[string](time.Duration(ttl)*time.Second, enabled)
 	return singleContext
 }
 
@@ -278,17 +280,17 @@ func retrieveSecretByName(ctx context.Context, namespace, secretName string, fet
 	return fetcher.Fetch(ctx, fetchName)
 }
 
-func (c *CacheManangerStruct) SetPassword(namespace, name, password string) {
+func (c *CacheManagerStruct) SetPassword(namespace, name, password string) {
 	vdbCache := c.GetCertCacheForVdb(namespace, name).(*VdbCacheStruct)
-	vdbCache.passwordCache.Set("dbadmin", password)
+	vdbCache.genericCache.Set(GenericPasswordKey, password)
 }
 
-func (c *CacheManangerStruct) GetPassword(namespace, name string) (string, bool) {
+func (c *CacheManagerStruct) GetPassword(namespace, name string) (string, bool) {
 	vdbCache := c.GetCertCacheForVdb(namespace, name).(*VdbCacheStruct)
-	return vdbCache.passwordCache.Get("dbadmin")
+	return vdbCache.genericCache.Get(GenericPasswordKey)
 }
 
-func (c *CacheManangerStruct) DeletePassword(namespace, name string) {
+func (c *CacheManagerStruct) DeletePassword(namespace, name string) {
 	vdbCache := c.GetCertCacheForVdb(namespace, name).(*VdbCacheStruct)
-	vdbCache.passwordCache.Delete("dbadmin")
+	vdbCache.genericCache.Delete(GenericPasswordKey)
 }

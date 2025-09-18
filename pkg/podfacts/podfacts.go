@@ -1816,7 +1816,7 @@ func (p *PodFacts) FindSecondarySubclustersWithDifferentImage(vdb *vapi.VerticaD
 // excluding a specific subcluster if excludeSCName is non-empty.
 func (p *PodFacts) FindInitiatorInSB(sbName, excludeSCName string) (*PodFact, bool) {
 	initiator, ok := p.FindFirstPodSorted(func(v *PodFact) bool {
-		return v.isPrimary && v.upNode && v.sandbox == sbName &&
+		return v.isPrimary && v.upNode && v.sandbox == sbName && !v.readOnly &&
 			(excludeSCName == "" || v.subclusterName != excludeSCName)
 	})
 	return initiator, ok

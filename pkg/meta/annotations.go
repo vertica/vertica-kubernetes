@@ -404,6 +404,9 @@ const (
 	// This will  be set in a sandbox configMap by the vdb controller to wake up the sandbox
 	// controller for alter subcluster type in a sandbox
 	SandboxControllerAlterSubclusterTypeTriggerID = "vertica.com/sandbox-controller-alter-subcluster-type-trigger-id"
+	// This will be set in a sandbox configMap by the vdb controller to wake up the sandbox
+	// controller for password change in a sandbox
+	SandboxControllerPasswordChangeTriggerID = "vertica.com/sandbox-controller-password-change-trigger-id"
 
 	// Use this to override the name of the statefulset and its pods. This needs
 	// to be set in the spec.subclusters[].annotations field to take effect. If
