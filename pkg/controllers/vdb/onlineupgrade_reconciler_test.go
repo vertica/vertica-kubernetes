@@ -607,7 +607,7 @@ func createOnlineUpgradeReconciler(ctx context.Context, vdb *vapi.VerticaDB) *On
 		Obj:      vClusterOps.VDB,
 		EVWriter: vClusterOps.EVWriter,
 	}
-	vdbRec.CacheManager.InitCertCacheForVdb(vdb, fetcher)
+	vdbRec.CacheManager.InitCacheForVdb(vdb, fetcher)
 	// Add client-routing labels to all pods that exist
 	cr := MakeClientRoutingLabelReconciler(vdbRec, logger, vdb, pfacts, AddNodeApplyMethod, "")
 	Ω(cr.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
@@ -674,6 +674,6 @@ func mockVClusterOpsDispatcher(vdb *vapi.VerticaDB) vadmin.Dispatcher {
 		Obj:      vclusterops.VDB,
 		EVWriter: vclusterops.EVWriter,
 	}
-	cacheManager.InitCertCacheForVdb(vdb, fetcher)
+	cacheManager.InitCacheForVdb(vdb, fetcher)
 	return dispatcher
 }
