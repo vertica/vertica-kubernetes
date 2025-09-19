@@ -52,7 +52,7 @@ func MakeTLSReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger, vdb *vapi
 
 // Reconcile will create a TLS secret for the http server if one is missing
 func (h *TLSReconciler) Reconcile(ctx context.Context, request *ctrl.Request) (ctrl.Result, error) {
-	if !h.Vdb.IsSetForTLS() {
+	if !h.Vdb.IsAnyTLSAuthEnabledWithMinVersion() {
 		return ctrl.Result{}, nil
 	}
 

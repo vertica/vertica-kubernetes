@@ -71,8 +71,7 @@ var _ = Describe("drop_db_vc", func() {
 		dispatcher.VDB.Spec.Local.CatalogPath = TestCatalogPath
 		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.HTTPSNMATLS.Secret)
 		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.HTTPSNMATLS.Secret)
-		dispatcher.VDB.Annotations = map[string]string{vmeta.PreserveDBDirectoryAnnotation: vmeta.AnnotationTrue,
-			vmeta.EnableTLSAuthAnnotation: vmeta.AnnotationTrue}
+		dispatcher.VDB.Annotations = map[string]string{vmeta.PreserveDBDirectoryAnnotation: vmeta.AnnotationTrue}
 
 		var hosts []dropdb.Host
 		for i := 1; i <= 3; i++ {

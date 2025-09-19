@@ -1,0 +1,53 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: v-just-https-nma-auth-sc1-0
+status:
+  containerStatuses:
+  - name: nma
+    ready: true
+    restartCount: 1
+    started: true
+  - name: server
+    ready: true
+    restartCount: 0
+    started: true
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: v-just-https-nma-auth-sc1-1
+status:
+  containerStatuses:
+  - name: nma
+    ready: true
+    restartCount: 1
+    started: true
+  - name: server
+    ready: true
+    restartCount: 0
+    started: true
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: v-just-https-nma-auth-sc1-2
+status:
+  containerStatuses:
+  - name: nma
+    ready: true
+    restartCount: 1
+    started: true
+  - name: server
+    ready: true
+    restartCount: 0
+    started: true
+---
+apiVersion: vertica.com/v1
+kind: VerticaDB
+metadata:
+  name: v-just-https-nma-auth
+status:
+  tlsConfigs:
+    - secret: custom-cert
+      name: httpsNMA

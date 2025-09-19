@@ -170,7 +170,7 @@ func (r *VerticaDBReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	}
 	log.Info("VerticaDB details", "uid", vdb.UID, "resourceVersion", vdb.ResourceVersion,
 		"vclusterOps", vdb.UseVClusterOpsDeployment(), "user", vdb.GetVerticaUser(),
-		"tls cert rotate enabled", vmeta.UseTLSAuth(vdb.Annotations))
+		"tls cert rotate enabled", vdb.IsAnyTLSAuthEnabled())
 	if vmeta.IsPauseAnnotationSet(vdb.Annotations) {
 		log.Info(fmt.Sprintf("The pause annotation %s is set. Suspending the iteration", vmeta.PauseOperatorAnnotation),
 			"result", ctrl.Result{}, "err", nil)
@@ -181,7 +181,7 @@ func (r *VerticaDBReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	prunner := cmds.MakeClusterPodRunner(log, r.Cfg, vdb.GetVerticaUser(), passwd, vmeta.UseTLSAuth(vdb.Annotations))
+	prunner := cmds.MakeClusterPodRunner(log, r.Cfg, vdb.GetVerticaUser(), passwd, vdb.IsClientServerTLSAuthEnabled())
 	// We use the same pod facts for all reconcilers. This allows to reuse as
 	// much as we can. Some reconcilers will purposely invalidate the facts if
 	// it is known they did something to make them stale.

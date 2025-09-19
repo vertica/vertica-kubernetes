@@ -678,7 +678,7 @@ var _ = Describe("obj_reconcile", func() {
 			vdb := vapi.MakeVDB()
 			vdb.Spec.NMATLSSecret = ""
 			vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
-			vdb.Annotations[vmeta.EnableTLSAuthAnnotation] = vmeta.AnnotationFalse
+			vdb.Spec.HTTPSNMATLS.Enabled = vapi.BoolPtr(false)
 			createCrd(vdb, false)
 			defer deleteCrd(vdb)
 
@@ -827,7 +827,8 @@ var _ = Describe("obj_reconcile", func() {
 			vdb := vapi.MakeVDB()
 			vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
 			vdb.Annotations[vmeta.VersionAnnotation] = vapi.VcluseropsAsDefaultDeploymentMethodMinVersion
-			vdb.Annotations[vmeta.EnableTLSAuthAnnotation] = vmeta.AnnotationFalse
+			vdb.Spec.HTTPSNMATLS.Enabled = vapi.BoolPtr(false)
+			vdb.Spec.ClientServerTLS.Enabled = vapi.BoolPtr(false)
 			vdb.Spec.NMATLSSecret = "tls-abcdef"
 			test.CreateFakeTLSSecret(ctx, vdb, k8sClient, vdb.GetNMATLSSecret())
 			defer test.DeleteSecret(ctx, k8sClient, vdb.GetNMATLSSecret())
@@ -1003,7 +1004,6 @@ var _ = Describe("obj_reconcile", func() {
 		It("should remove ownerReference from tls secret", func() {
 			vdb := vapi.MakeVDB()
 			vdb.Spec.HTTPSNMATLS.Secret = "test-secret"
-			vdb.Annotations[vmeta.EnableTLSAuthAnnotation] = trueStr
 			createCrd(vdb, false)
 			defer deleteCrd(vdb)
 			secret := test.BuildTLSSecret(vdb, vdb.GetNMATLSSecret(), test.TestKeyValue, test.TestCertValue, test.TestCaCertValue)
