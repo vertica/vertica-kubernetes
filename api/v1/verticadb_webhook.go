@@ -186,6 +186,7 @@ func (v *VerticaDB) validateImmutableFields(old runtime.Object) field.ErrorList 
 	allErrs = v.checkImmutableClientProxy(oldObj, allErrs)
 	allErrs = v.checkImmutableTLSConfig(oldObj, allErrs)
 	allErrs = v.checkValidTLSConfigUpdate(oldObj, allErrs)
+	allErrs = v.checkValidTLSEnabled(oldObj, allErrs)
 	allErrs = v.checkTLSModeCaseInsensitiveChange(oldObj, allErrs)
 	allErrs = v.checkValidSubclusterTypeTransition(oldObj, allErrs)
 	allErrs = v.checkSubclusterTypeChangeInShutdownSandbox(oldObj, allErrs)
@@ -1910,9 +1911,9 @@ func (v *VerticaDB) validateSubclustersInSandboxes(allErrs field.ErrorList) fiel
 
 // hasNoConflictbetweenTLSAndCertMount checks if both TLS and NMA certs mount are used at the same time
 func (v *VerticaDB) hasNoConflictbetweenTLSAndCertMount(allErrs field.ErrorList) field.ErrorList {
-	if v.IsAnyTLSAuthEnabled() && vmeta.UseNMACertsMount(v.Annotations) {
+	if v.IsHTTPSNMATLSAuthEnabled() && vmeta.UseNMACertsMount(v.Annotations) {
 		err := field.Forbidden(field.NewPath("metadata").Child("annotations"),
-			"cannot set TLS auth and mount-nma-certs to true at the same time")
+			"cannot set HTTPS TLS auth and mount-nma-certs to true at the same time")
 		allErrs = append(allErrs, err)
 	}
 
@@ -2909,25 +2910,18 @@ func (v *VerticaDB) checkValidTLSConfigUpdate(oldObj *VerticaDB, allErrs field.E
 	}
 
 	// Rule 2: TLS Auth transition restrictions
-	if vmeta.UseTLSAuth(oldObj.Annotations) {
-		if !vmeta.UseTLSAuth(v.Annotations) {
-			prefix := field.NewPath("metadata").Child("annotations")
-			allErrs = append(allErrs, field.Invalid(prefix.Key(vmeta.EnableTLSAuthAnnotation),
-				v.Annotations[vmeta.EnableTLSAuthAnnotation],
-				"cannot disable mutual TLS after it's enabled"))
+	if !oldObj.IsHTTPSNMATLSAuthEnabled() && v.IsHTTPSNMATLSAuthEnabled() {
+		if oldObj.GetHTTPSNMATLSSecret() != "" && oldObj.GetHTTPSNMATLSSecret() != v.GetHTTPSNMATLSSecret() {
+			// Before the user enables mutual TLS, nma is already using the secret at httpsNMATLS.secret.
+			// If the user wants to change the secret, they have to do it after set tls config through
+			// cert rotation
+			allErrs = append(allErrs, field.Forbidden(specFld.Child("httpsNMATLS").Child("secret"),
+				"cannot change httpsNMATLS.secret and enable HTTPS TLS at the same time"))
 		}
-	} else {
-		if vmeta.UseTLSAuth(v.Annotations) {
-			if oldObj.GetHTTPSNMATLSSecret() != "" && oldObj.GetHTTPSNMATLSSecret() != v.GetHTTPSNMATLSSecret() {
-				// Before the user enables mutual TLS, nma is already using the secret at httpsNMATLS.secret.
-				// If the user wants to change the secret, they have to do it after set tls config through
-				// cert rotation
-				allErrs = append(allErrs, field.Forbidden(specFld.Child("httpsNMATLS").Child("secret"),
-					"cannot change httpsNMATLS.secret and enable mutual TLS at the same time"))
-			}
-		} else {
-			allErrs = append(allErrs, v.checkDisallowedMutualTLSChanges(oldObj)...)
-		}
+	}
+
+	if v.Spec.HTTPSNMATLS != nil || v.Spec.ClientServerTLS != nil {
+		allErrs = append(allErrs, v.checkDisallowedMutualTLSChanges(oldObj)...)
 	}
 
 	// Rule 3: cannot change a secret to empty string
@@ -2938,10 +2932,28 @@ func (v *VerticaDB) checkValidTLSConfigUpdate(oldObj *VerticaDB, allErrs field.E
 		allErrs = append(allErrs, field.Forbidden(specFld.Child("nmaTLSSecret"),
 			"nmaTLSSecret cannot be changed"))
 	}
-	if vmeta.UseTLSAuth(v.Annotations) && v.IsHTTPSNMATLSAuthEnabled() &&
+	if v.IsHTTPSNMATLSAuthEnabled() &&
 		(oldObj.Spec.NMATLSSecret == "" && v.Spec.NMATLSSecret != "") {
 		allErrs = append(allErrs, field.Forbidden(specFld.Child("nmaTLSSecret"),
 			"nmaTLSSecret cannot be set when TLS is enabled, please use httpsNMATLS.secret instead"))
+	}
+
+	return allErrs
+}
+
+// checkValidTLSEnabled TLS configs are properly enabled/disabled:
+// 1. Cannot disable a TLS config after it's enabled.
+func (v *VerticaDB) checkValidTLSEnabled(oldObj *VerticaDB, allErrs field.ErrorList) field.ErrorList {
+	specFld := field.NewPath("spec")
+
+	// Rule 1: cannot disable a TLS config after it's enabled
+	if oldObj.IsHTTPSNMATLSAuthEnabled() && !v.IsHTTPSNMATLSAuthEnabled() {
+		allErrs = append(allErrs, field.Forbidden(specFld.Child("httpsNMATLS"),
+			"httpsNMATLS cannot be disabled after it's enabled"))
+	}
+	if oldObj.IsClientServerTLSAuthEnabled() && !v.IsClientServerTLSAuthEnabled() {
+		allErrs = append(allErrs, field.Forbidden(specFld.Child("clientServerTLS"),
+			"clientServerTLS cannot be disabled after it's enabled"))
 	}
 
 	return allErrs
@@ -2975,26 +2987,30 @@ func (v *VerticaDB) checkTLSModeCaseInsensitiveChange(oldObj *VerticaDB, allErrs
 func (v *VerticaDB) checkDisallowedMutualTLSChanges(oldObj *VerticaDB) field.ErrorList {
 	var errs field.ErrorList
 
-	check := func(path *field.Path, oldVal, newVal string, message string) {
-		if oldVal != "" && oldVal != newVal {
+	check := func(path *field.Path, oldVal, newVal string, configDisabled bool, message string) {
+		if oldVal != "" && oldVal != newVal && configDisabled {
 			errs = append(errs, field.Forbidden(path, message))
 		}
 	}
 
 	check(field.NewPath("spec").Child("httpsNMATLS").Child("secret"),
 		oldObj.GetHTTPSNMATLSSecret(), v.GetHTTPSNMATLSSecret(),
+		!v.IsHTTPSNMATLSAuthEnabled(),
 		"cannot change httpsNMATLS.secret when httpsNMATLS is disabled")
 
 	check(field.NewPath("spec").Child("httpsNMATLS").Child("mode"),
 		oldObj.GetHTTPSNMATLSMode(), v.GetHTTPSNMATLSMode(),
+		!v.IsHTTPSNMATLSAuthEnabled(),
 		"cannot change httpsNMATLS.mode when httpsNMATLS is disabled")
 
 	check(field.NewPath("spec").Child("clientServerTLS").Child("secret"),
 		oldObj.GetClientServerTLSSecret(), v.GetClientServerTLSSecret(),
+		!v.IsClientServerTLSAuthEnabled(),
 		"cannot change clientServerTLS.secret when clientServerTLS is disabled")
 
 	check(field.NewPath("spec").Child("clientServerTLS").Child("mode"),
 		oldObj.GetClientServerTLSMode(), v.GetClientServerTLSMode(),
+		!v.IsClientServerTLSAuthEnabled(),
 		"cannot change clientServerTLS.mode when clientServerTLS is disabled")
 
 	return errs
@@ -3100,7 +3116,9 @@ func (v *VerticaDB) checkIfAnyOpInProgressBeforeTLSChange(oldObj *VerticaDB, all
 	}
 
 	// we cannot rotate certs when there are sandboxes
-	tlsConfigChanged := len(errMsgs) != 0 && vmeta.UseTLSAuth(v.Annotations) == vmeta.UseTLSAuth(oldObj.Annotations)
+	tlsConfigChanged := len(errMsgs) != 0 &&
+		v.IsClientServerTLSAuthEnabled() == oldObj.IsClientServerTLSAuthEnabled() &&
+		v.IsHTTPSNMATLSAuthEnabled() == oldObj.IsHTTPSNMATLSAuthEnabled()
 	if tlsConfigChanged && len(v.Spec.Sandboxes) > 0 {
 		allErrs = append(allErrs, field.Invalid(
 			field.NewPath("spec").Child("sandboxes"), "", "while there are sandboxes, we cannot update TLS fields: "+
@@ -3136,9 +3154,14 @@ func (v *VerticaDB) checkIfUpgradeInProgress() bool {
 
 func (v *VerticaDB) findChangedTLSFields(oldObj *VerticaDB) []string {
 	errMsgs := []string{}
-	if vmeta.UseTLSAuth(v.Annotations) != vmeta.UseTLSAuth(oldObj.Annotations) {
-		errMsgs = append(errMsgs, fmt.Sprintf("annotation %q is changed from %q to %q",
-			vmeta.EnableTLSAuthAnnotation, oldObj.Annotations[vmeta.EnableTLSAuthAnnotation], v.Annotations[vmeta.EnableTLSAuthAnnotation]))
+	if v.IsClientServerTLSAuthEnabled() != oldObj.IsClientServerTLSAuthEnabled() {
+		errMsgs = append(errMsgs, fmt.Sprintf("spec.clientServerTLS is changed from %t to %t", oldObj.IsClientServerTLSAuthEnabled(), v.IsClientServerTLSAuthEnabled()))
+	}
+	if v.IsHTTPSNMATLSAuthEnabled() != oldObj.IsHTTPSNMATLSAuthEnabled() {
+		errMsgs = append(errMsgs, fmt.Sprintf("spec.httpsNMATLS is changed from %t to %t", oldObj.IsHTTPSNMATLSAuthEnabled(), v.IsHTTPSNMATLSAuthEnabled()))
+	}
+	if oldObj.GetHTTPSNMATLSSecret() != "" && v.GetHTTPSNMATLSSecret() != oldObj.GetHTTPSNMATLSSecret() {
+		errMsgs = append(errMsgs, fmt.Sprintf("spec.httpsNMATLS.Secret is changed from %q to %q", oldObj.GetHTTPSNMATLSSecret(), v.GetHTTPSNMATLSSecret()))
 	}
 	if oldObj.GetHTTPSNMATLSSecret() != "" && v.GetHTTPSNMATLSSecret() != oldObj.GetHTTPSNMATLSSecret() {
 		errMsgs = append(errMsgs, fmt.Sprintf("spec.httpsNMATLS.Secret is changed from %q to %q", oldObj.GetHTTPSNMATLSSecret(), v.GetHTTPSNMATLSSecret()))

@@ -247,9 +247,9 @@ func testNMATLSSecretWithVersion(ctx context.Context, secretName, oldVersion, ne
 	vdb := vapi.MakeVDB()
 	vdb.Spec.Subclusters[0].Size = 1
 	vdb.ObjectMeta.Annotations = map[string]string{
-		vmeta.VClusterOpsAnnotation:   vmeta.VClusterOpsAnnotationTrue,
-		vmeta.EnableTLSAuthAnnotation: vmeta.AnnotationFalse,
+		vmeta.VClusterOpsAnnotation: vmeta.VClusterOpsAnnotationTrue,
 	}
+	vdb.Spec.HTTPSNMATLS.Enabled = vapi.BoolPtr(false)
 	vdb.Spec.NMATLSSecret = secretName
 	test.CreateVDB(ctx, k8sClient, vdb)
 	defer test.DeleteVDB(ctx, k8sClient, vdb)

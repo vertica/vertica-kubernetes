@@ -111,9 +111,20 @@ func (v *VerticaDB) FindTransientSubcluster() *Subcluster {
 }
 
 func SetVDBForTLS(v *VerticaDB) {
-	v.Annotations[vmeta.EnableTLSAuthAnnotation] = trueString
 	v.Annotations[vmeta.VersionAnnotation] = TLSAuthMinVersion
 	v.Annotations[vmeta.VClusterOpsAnnotation] = trueString
+
+	if v.Spec.ClientServerTLS == nil {
+		v.Spec.ClientServerTLS = &TLSConfigSpec{Enabled: BoolPtr(true)}
+	} else {
+		v.Spec.ClientServerTLS.Enabled = BoolPtr(true)
+	}
+
+	if v.Spec.HTTPSNMATLS == nil {
+		v.Spec.HTTPSNMATLS = &TLSConfigSpec{Enabled: BoolPtr(true)}
+	} else {
+		v.Spec.HTTPSNMATLS.Enabled = BoolPtr(true)
+	}
 }
 
 func SetVDBWithHTTPSTLSConfigSet(v *VerticaDB, secretName string) {
@@ -142,9 +153,8 @@ func MakeVDB() *VerticaDB {
 			Namespace: nm.Namespace,
 			UID:       "abcdef-ghi",
 			Annotations: map[string]string{
-				vmeta.VClusterOpsAnnotation:   vmeta.VClusterOpsAnnotationFalse,
-				vmeta.VersionAnnotation:       "v23.4.0",
-				vmeta.EnableTLSAuthAnnotation: trueString,
+				vmeta.VClusterOpsAnnotation: vmeta.VClusterOpsAnnotationFalse,
+				vmeta.VersionAnnotation:     "v23.4.0",
 			},
 		},
 		Spec: VerticaDBSpec{
@@ -184,10 +194,14 @@ func MakeVDB() *VerticaDB {
 			},
 			ServiceHTTPSPort:  DefaultServiceHTTPSPort,
 			ServiceClientPort: DefaultServiceClientPort,
-			HTTPSNMATLS:       &TLSConfigSpec{},
-			ClientServerTLS:   &TLSConfigSpec{},
+			HTTPSNMATLS:       &TLSConfigSpec{Enabled: BoolPtr(true)},
+			ClientServerTLS:   &TLSConfigSpec{Enabled: BoolPtr(true)},
 		},
 	}
+}
+
+func BoolPtr(boolval bool) *bool {
+	return &boolval
 }
 
 // MakeVDBForTLS is a helper that constructs a VerticaDB struct with TLS enabled.
@@ -202,7 +216,6 @@ func MakeVDBForTLS() *VerticaDB {
 func MakeVDBForHTTP(httpServerTLSSecretName string) *VerticaDB {
 	vdb := MakeVDB()
 	vdb.Annotations[vmeta.VersionAnnotation] = HTTPServerMinVersion
-	vdb.Annotations[vmeta.EnableTLSAuthAnnotation] = vmeta.AnnotationTrue
 	vdb.Spec.HTTPSNMATLS.Secret = httpServerTLSSecretName
 	return vdb
 }
@@ -234,7 +247,8 @@ func MakeVDBForCertRotationEnabled() *VerticaDB {
 
 func MakeTLSWithAutoRotate(secrets []string, interval int, secret string) *TLSConfigSpec {
 	return &TLSConfigSpec{
-		Secret: secret,
+		Secret:  secret,
+		Enabled: BoolPtr(true),
 		AutoRotate: &TLSAutoRotate{
 			Secrets:  secrets,
 			Interval: interval,
@@ -1526,48 +1540,35 @@ func (v *VerticaDB) IsHTTPSTLSConfGenerationEnabled() (bool, error) {
 	return !inf.IsEqualOrNewer(AutoGenerateHTTPSCertsForNewDatabasesMinVersion), nil
 }
 
-// IsTLSAuthAnnotationEnabled checks if use-tls-auth annotation is set. This annotation is
-// deprecated and only used as a fallback, when "enable" is not set in the spec for a TLS config.
-func (v *VerticaDB) IsTLSAuthAnnotationEnabled() bool {
-	return vmeta.UseTLSAuth(v.Annotations)
-}
-
-// IsTLSAuthEnabledInSpec checks if "enable" is found in the spec for a TLS config.
-// It returns the boolean value and if it was found.
-func (v *VerticaDB) IsTLSAuthEnabledInSpec(configName string) (value, found bool) {
-	tlsConfig := v.GetTLSConfigSpecByName(configName)
-	if tlsConfig != nil && tlsConfig.Enabled != nil {
-		return *tlsConfig.Enabled, true
-	}
-	return false, false
-}
-
 // IsTLSAuthEnabledForConfig checks if TLS auth is enabled for a given TLS config.
-// It is considered "enabled" if:
-// 1) enabled: true is set in the spec
-// 2) enable is not set in the spec but use-tls-auth annotation is set to true (legacy case; will be deprecated)
+// It is considered enabled if:
+// 1) "enabled" is set to true in the spec for the config
+// 2) TLS config is defined in spec but "enabled" is not set
+// 3) TLS config is not defined in spec but use-tls-auth annotation is set to true (this is a rare case)
 func (v *VerticaDB) IsTLSAuthEnabledForConfig(configName string) bool {
-	value, found := v.IsTLSAuthEnabledInSpec(configName)
-	if !found {
-		return v.IsTLSAuthAnnotationEnabled()
+	tlsConfig := v.GetTLSConfigSpecByName(configName)
+	if tlsConfig == nil {
+		// The case where the config does not exist in the spec but annotation is set is rare;
+		// however, we want to support it for backward compatibility.
+		return vmeta.UseTLSAuth(v.Annotations)
 	}
-	return value
+	if tlsConfig.Enabled == nil {
+		return true
+	}
+	return *tlsConfig.Enabled
 }
 
 // IsHTTPSNMATLSAuthEnabled returns true if httpsNMA TLS auth is enabled
-// (either directly via spec or indirectly via use-tls-auth annotation)
 func (v *VerticaDB) IsHTTPSNMATLSAuthEnabled() bool {
 	return v.IsTLSAuthEnabledForConfig(HTTPSNMATLSConfigName)
 }
 
 // IsClientServerTLSAuthEnabled returns true if clientServer TLS auth is enabled
-// (either directly via spec or indirectly via use-tls-auth annotation)
 func (v *VerticaDB) IsClientServerTLSAuthEnabled() bool {
 	return v.IsTLSAuthEnabledForConfig(ClientServerTLSConfigName)
 }
 
 // IsAnyTLSAuthEnabled returns true if any TLS config is enabled
-// (either directly via spec or indirectly via use-tls-auth annotation)
 func (v *VerticaDB) IsAnyTLSAuthEnabled() bool {
 	return v.IsHTTPSNMATLSAuthEnabled() || v.IsClientServerTLSAuthEnabled()
 }

@@ -996,9 +996,8 @@ type TLSConfigSpec struct {
 	// +kubebuilder:validation:Optional
 	// Whether to enable TLS auth for this config. This replaces the
 	// "vertica.com/enable-tls-auth" annotation, which applied at the DB level.
-	// If 'enabled' is not specified for any  TLS configs, and the annotation is set,
-	// the operator will continue to honor the annotation (for backwards compatibility).
-	// Otherwise, 'enabled' takes precedence.
+	// If TLSConfigSpec is not defined, this TLS config is disabled. If TLSConfigSpec is
+	// defined but "enabled" is not set, it defaults to true.
 	Enabled *bool `json:"enabled,omitempty"`
 }
 
