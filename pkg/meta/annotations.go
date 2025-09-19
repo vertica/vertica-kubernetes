@@ -406,6 +406,7 @@ const (
 	SandboxControllerAlterSubclusterTypeTriggerID = "vertica.com/sandbox-controller-alter-subcluster-type-trigger-id"
 	// This will be set in a sandbox configMap by the vdb controller to wake up the sandbox
 	// controller for password change in a sandbox
+	// #nosec G101 -- this is an annotation key, not a credential.
 	SandboxControllerPasswordChangeTriggerID = "vertica.com/sandbox-controller-password-change-trigger-id"
 
 	// Use this to override the name of the statefulset and its pods. This needs
