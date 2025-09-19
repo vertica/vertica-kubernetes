@@ -29,8 +29,9 @@ import (
 // database.
 type VRemoveScOptions struct {
 	DatabaseOptions
-	SCName      string // subcluster to remove from database
-	ForceDelete bool   // whether force delete directories
+	SCName         string // subcluster to remove from database
+	ForceDelete    bool   // whether force delete directories
+	RetainDepotDir bool   // whether to retain depot dir for the nodes of the subcluster
 	// The expected node names with their IPs in the subcluster, the user of vclusterOps needs
 	// to make sure the provided values are correct. This option will be used to do re-ip in
 	// the cluster that contains the subcluster.
@@ -207,6 +208,8 @@ func (vcc VClusterCommands) VRemoveSubcluster(removeScOpt *VRemoveScOptions) (VC
 		removeNodeOpt.ForceDelete = removeScOpt.ForceDelete
 		removeNodeOpt.IsSubcluster = true
 		removeNodeOpt.NodesToPullSubs = removeScOpt.NodesToPullSubs
+		removeNodeOpt.RetainDepotDir = removeScOpt.RetainDepotDir
+
 		// Get a set of initiators for removing nodes
 		// The initiators are selected strictly from a sandbox if we are removing the sc from a sandbox
 		// else it is a set of primary up nodes from the main cluster.

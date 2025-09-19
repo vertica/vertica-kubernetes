@@ -65,8 +65,15 @@ Examples:
 	// require name of subcluster to remove
 	markFlagsRequired(cmd, subclusterFlag)
 
+	cmd.Flags().BoolVar(
+		&newCmd.removeScOptions.RetainDepotDir,
+		retainDepotDirFlag,
+		false,
+		"Retain existing depot directories",
+	)
+
 	// hide eon mode flag since we expect it to come from config file, not from user input
-	hideLocalFlags(cmd, []string{eonModeFlag})
+	hideLocalFlags(cmd, []string{eonModeFlag, retainDepotDirFlag})
 
 	return cmd
 }

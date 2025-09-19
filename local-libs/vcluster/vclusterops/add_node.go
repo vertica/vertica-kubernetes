@@ -56,6 +56,9 @@ type VAddNodeOptions struct {
 	// timeout for polling nodes in seconds when we add Nodes
 	TimeOut int
 
+	// Use existing depot dir for faster adding nodes
+	UseExistingDepotDir bool
+
 	// Is the target subcluster already sandboxed?
 	AlreadySandboxed bool
 
@@ -432,8 +435,8 @@ func (vcc VClusterCommands) produceAddNodeInstructions(vdb *VCoordinationDatabas
 	// this is a copy of the original HostNodeMap that only
 	// contains the hosts to add.
 	newHostNodeMap := vdb.copyHostNodeMap(options.NewHosts)
-	nmaPrepareDirectoriesOp, err := makeNMAPrepareDirectoriesOp(newHostNodeMap,
-		options.ForceRemoval /*force cleanup*/, false /*for db revive*/)
+	nmaPrepareDirectoriesOp, err := makeNMAPrepareDirsUseExistingDirOp(newHostNodeMap,
+		options.ForceRemoval /*force cleanup*/, false /*for db revive*/, false /*useExistingCatalogDir?*/, options.UseExistingDepotDir)
 	if err != nil {
 		return instructions, err
 	}

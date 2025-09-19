@@ -90,8 +90,15 @@ Examples:
 	// require name of subcluster to add
 	markFlagsRequired(cmd, subclusterFlag)
 
+	cmd.Flags().BoolVar(
+		&newCmd.addSubclusterOptions.UseExistingDepotDir,
+		useExistingDepotDirFlag,
+		false,
+		"Use existing depot directories for the new subcluster, must enforce same number of host with the existing depot dirs",
+	)
+
 	// hide eon mode flag since we expect it to come from config file, not from user input
-	hideLocalFlags(cmd, []string{eonModeFlag})
+	hideLocalFlags(cmd, []string{eonModeFlag, useExistingDepotDirFlag})
 
 	return cmd
 }
@@ -265,6 +272,7 @@ func (c *CmdAddSubcluster) Run(vcc vclusterops.ClusterCommands) error {
 		options.VAddNodeOptions.Sls = c.addSubclusterOptions.Sls
 		options.VAddNodeOptions.SaveRp = c.addSubclusterOptions.SaveRp
 		options.VAddNodeOptions.ForUpgrade = c.addSubclusterOptions.ForUpgrade
+		options.VAddNodeOptions.UseExistingDepotDir = c.addSubclusterOptions.UseExistingDepotDir
 		vdb, err := vcc.VAddNode(&options.VAddNodeOptions)
 		if err != nil {
 			const msg = "Failed to add nodes to the new subcluster"
