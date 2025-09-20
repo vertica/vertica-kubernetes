@@ -273,7 +273,7 @@ for f in $TEMPLATE_DIR/verticadb-operator-alloy-sa-sa.yaml \
   $TEMPLATE_DIR/verticadb-operator-alloy-role-cr.yaml \
   $TEMPLATE_DIR/verticadb-operator-alloy-role-binding-crb.yaml
 do
-  perl -i -0777 -pe 's/^/{{- if and .Values.alloy.enabled (not .Values.alloy.alloy.configMap.create) -}}\n/ if 1 .. 1' $f
+  perl -i -0777 -pe 's/^/{{- if and .Values.alloy.enabled (not .Values.alloy.serviceAccount.create) (eq .Values.alloy.serviceAccount.name "alloy-vertica-sa") -}}\n/ if 1 .. 1' $f
   perl -i -0777 -pe 's/name: \{\{ include "vdb-op.name" \. \}\}-alloy-sa/name: alloy-vertica-sa/g' $f
   echo "{{- end }}" >> $f
 done
