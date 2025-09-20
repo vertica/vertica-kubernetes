@@ -96,6 +96,11 @@ func (d *DeploymentMethodReconciler) reconcileHTTPSTLS(ctx context.Context) (ctr
 		if verrors.IsReconcileAborted(res, err) {
 			return res, err
 		}
+		// after restart, we need to recollect pfacts
+		err = d.PFacts.Collect(ctx, d.Vdb)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
 	}
 
 	return d.Manager.enableHTTPSTLSIfNeeded(ctx, d.PFacts, pf)
