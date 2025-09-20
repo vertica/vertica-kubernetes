@@ -605,6 +605,15 @@ alloy:
   # Define the number of replicas for the deployment.
   replicaCount: 1
   
+  # Use self-created RBAC resources for Alloy deployment
+  rbac:
+    create: false
+
+  # Use self-created service account for Alloy deployment
+  serviceAccount:
+    create: false
+    name: alloy-vertica-sa
+
   # Grafana Alloy specific configuration
   alloy:
     configMap:

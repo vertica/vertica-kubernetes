@@ -1,0 +1,57 @@
+suite: skip-alloy-rbac tests
+templates:
+  - verticadb-operator-alloy-sa-sa.yaml
+  - verticadb-operator-alloy-role-binding-crb.yaml
+  - verticadb-operator-alloy-role-cr.yaml
+tests:
+  - it: rbac objects should be created
+    set:
+      alloy:
+        enabled: true
+        serviceAccount:
+          create: false
+          name: alloy-vertica-sa
+    asserts:
+      - hasDocuments:
+          count: 1
+  - it: rbac objects should not be created if alloy is disabled
+    set:
+      alloy:
+        enabled: false
+        serviceAccount:
+          create: false
+          name: alloy-vertica-sa
+    asserts:
+      - hasDocuments:
+          count: 0
+  - it: rbac objects should not be created if serviceAccount.create is true
+    set:
+      alloy:
+        enabled: true
+        serviceAccount:
+          create: true
+          name: alloy-vertica-sa
+    asserts:
+      - hasDocuments:
+          count: 0
+  - it: rbac objects should not be created if there is a custom serviceAccount.name 
+    set:
+      alloy:
+        enabled: true
+        serviceAccount:
+          create: false
+          name: new-sa
+    asserts:
+      - hasDocuments:
+          count: 0
+  - it: rbac objects should not be created if serviceAccount.create is true and a custom name is provided
+    set:
+      alloy:
+        enabled: true
+        serviceAccount:
+          create: true
+          name: new-sa
+    asserts:
+      - hasDocuments:
+          count: 0
+
