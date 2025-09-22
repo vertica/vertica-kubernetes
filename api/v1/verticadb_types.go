@@ -694,13 +694,13 @@ type SandboxSubcluster struct {
 	// The name of a subcluster.
 	Name string `json:"name"`
 
-	// +kubebuilder:default:=primary
+	// +kubebuilder:default:=secondary
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:select:primary","urn:alm:descriptor:com.tectonic.ui:select:secondary"}
 	// Indicates the type of subcluster in a sandbox. Valid values are: primary,
 	// secondary. Types are case-sensitive.
 	// You must have at least one primary subcluster in the sandbox.
-	// If type is omitted, it will default to a primary.
+	// If type is omitted, it will default to secondary.
 	Type string `json:"type"`
 }
 
@@ -955,7 +955,7 @@ type TLSConfigSpec struct {
 	// This field defines the common-name that should be required for the TLS certificate of this TLS secret.
 	// The operator will validate that your certificate contains this value in the common-name field.
 	// If not specified, it will use the Vertica DB admin username, defined by annotation vertica.com/superuser-name.
-	CommonName string `json:"commonName,omitempty"`
+	CommonName string         `json:"commonName,omitempty"`
 	AutoRotate *TLSAutoRotate `json:"-"`
 }
 
@@ -1053,9 +1053,9 @@ type TLSConfigStatus struct {
 	Secret string `json:"secret"`
 	// +operator-sdk:csv:customresourcedefinitions:type=status
 	// The TLS mode being used
-	Mode string `json:"mode"`
-	LastUpdate metav1.Time `json:"-"`
-	AutoRotateSecrets []string `json:"-"`
+	Mode              string      `json:"mode"`
+	LastUpdate        metav1.Time `json:"-"`
+	AutoRotateSecrets []string    `json:"-"`
 }
 
 type RestorePointInfo struct {
