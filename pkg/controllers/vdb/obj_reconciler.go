@@ -18,12 +18,9 @@ package vdb
 
 import (
 	"context"
-	"crypto/sha256"
 	"fmt"
-	"hash"
 	"path/filepath"
 	"reflect"
-	"sort"
 
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
@@ -59,11 +56,6 @@ const (
 	ObjReconcileModePreserveUpdateStrategy
 	// Reconcile for annotation only
 	ObjReconcileModeAnnotation
-	// Reconcile all objects except config changes. This is used for
-	// when we do not want to check for changes in configMaps and secrets
-	// used to inject env vars into the pods, but still want to reconcile
-	// all other objects.
-	ObjReconcileModeAllButConfigChange
 	// Reconcile to consider every change. Without this we will skip svc objects.
 	ObjReconcileModeAll
 )
@@ -398,7 +390,7 @@ func (o *ObjReconciler) reconcileHlSvc(ctx context.Context) error {
 // reconcileSvc verifies the service object exists and creates it if necessary.
 func (o *ObjReconciler) reconcileSvc(ctx context.Context, expSvc *corev1.Service, svcName types.NamespacedName,
 	sc *vapi.Subcluster, reconcileFieldsFunc func(*corev1.Service, *corev1.Service, *vapi.Subcluster) *corev1.Service) error {
-	if o.Mode&ObjReconcileModeAll == 0 && o.Mode&ObjReconcileModeAllButConfigChange == 0 {
+	if o.Mode&ObjReconcileModeAll == 0 {
 		// Bypass this check since we are doing changes to statefulsets only
 		return nil
 	}
@@ -621,6 +613,20 @@ func (o *ObjReconciler) updateVProxyDeployment(ctx context.Context, sts *appsv1.
 	return o.updateDep(ctx, curDep, expDep)
 }
 
+// ensureStsExists checks if the sts exists and will create it if it does not.
+func (o *ObjReconciler) ensureStsExists(ctx context.Context, nm types.NamespacedName, curSts, expSts *appsv1.StatefulSet) (bool, error) {
+	err := o.Rec.GetClient().Get(ctx, nm, curSts)
+	if err != nil && kerrors.IsNotFound(err) {
+		o.Log.Info("Creating statefulset", "Name", nm, "Size", expSts.Spec.Replicas, "Image", expSts.Spec.Template.Spec.Containers[0].Image)
+		o.PFacts.Invalidate()
+		if stsErr := createSts(ctx, o.Rec, expSts, o.Vdb); stsErr != nil {
+			return false, stsErr
+		}
+		return true, nil
+	}
+	return false, nil
+}
+
 // reconcileVproxy will check if the deployment and its configmap exist and create
 // them.
 func (o *ObjReconciler) reconcileVProxy(ctx context.Context, sc *vapi.Subcluster) (*appsv1.Deployment, error) {
@@ -681,7 +687,6 @@ func (o *ObjReconciler) reconcileSts(ctx context.Context, sc *vapi.Subcluster) (
 	curSts := &appsv1.StatefulSet{}
 	err := o.Rec.GetClient().Get(ctx, nm, curSts)
 	curStsNotExist := err != nil && kerrors.IsNotFound(err)
-	create := curStsNotExist
 	podsNotRunning := false
 	// After DB is initialized and we have the sts, we can get vertica version from its pods
 	if o.Vdb.IsStatusConditionTrue(vapi.DBInitialized) && !curStsNotExist {
@@ -693,16 +698,9 @@ func (o *ObjReconciler) reconcileSts(ctx context.Context, sc *vapi.Subcluster) (
 	}
 	// Create or update the statefulset
 	expSts := builder.BuildStsSpec(nm, o.Vdb, sc, version)
-	err = o.setConfigHashLabel(ctx, expSts, curSts)
+	stsCreated, err := o.ensureStsExists(ctx, nm, curSts, expSts)
 	if err != nil {
 		return ctrl.Result{}, err
-	}
-	if curStsNotExist {
-		o.Log.Info("Creating statefulset", "Name", nm, "Size", expSts.Spec.Replicas, "Image", expSts.Spec.Template.Spec.Containers[0].Image)
-		o.PFacts.Invalidate()
-		if stsErr := createSts(ctx, o.Rec, expSts, o.Vdb); stsErr != nil {
-			return ctrl.Result{}, stsErr
-		}
 	}
 
 	var curDep *appsv1.Deployment
@@ -716,7 +714,7 @@ func (o *ObjReconciler) reconcileSts(ctx context.Context, sc *vapi.Subcluster) (
 	}
 
 	// we can return here in case of create
-	if create {
+	if stsCreated {
 		return ctrl.Result{}, nil
 	}
 
@@ -742,8 +740,17 @@ func (o *ObjReconciler) handleStatefulSetUpdate(ctx context.Context, sc *vapi.Su
 	//
 	// Both the NMA and server container have the same image, but the server
 	// container is guaranteed to be their for all deployments.
-	if err := o.syncImage(curSts, expSts); err != nil {
+	curImage, err := vk8s.GetServerImage(curSts.Spec.Template.Spec.Containers)
+	if err != nil {
 		return ctrl.Result{}, err
+	}
+	expSvrCnt := vk8s.GetServerContainer(expSts.Spec.Template.Spec.Containers)
+	if expSvrCnt == nil {
+		return ctrl.Result{}, fmt.Errorf("could not find server container in sts %s", expSts.Name)
+	}
+	expSvrCnt.Image = curImage
+	if expNMACnt := vk8s.GetNMAContainer(expSts.Spec.Template.Spec.Containers); expNMACnt != nil {
+		expNMACnt.Image = curImage
 	}
 
 	// Preserve scaling if told to do so. This is used when doing early
@@ -766,9 +773,13 @@ func (o *ObjReconciler) handleStatefulSetUpdate(ctx context.Context, sc *vapi.Su
 	// When pods are not running, we cannot get vertica version so we don't update
 	// health probes
 	if podsNotRunning {
-		if err := o.copyHealthProbes(curSts, expSts); err != nil {
-			return ctrl.Result{}, err
+		curSvrCnt := vk8s.GetServerContainer(curSts.Spec.Template.Spec.Containers)
+		if curSvrCnt == nil {
+			return ctrl.Result{}, fmt.Errorf("could not find server container in sts %s", curSts.Name)
 		}
+		expSvrCnt.StartupProbe = curSvrCnt.StartupProbe
+		expSvrCnt.LivenessProbe = curSvrCnt.LivenessProbe
+		expSvrCnt.ReadinessProbe = curSvrCnt.ReadinessProbe
 	}
 
 	// If the NMA deployment type or health check setting is changing,
@@ -781,46 +792,12 @@ func (o *ObjReconciler) handleStatefulSetUpdate(ctx context.Context, sc *vapi.Su
 		return ctrl.Result{}, recreateSts(ctx, o.Rec, curSts, expSts, o.Vdb)
 	}
 
-	o.checkConfigChanges(expSts, curSts)
-
-	err := o.updateSts(ctx, curSts, expSts)
+	err = o.updateSts(ctx, curSts, expSts)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 
 	return ctrl.Result{}, o.updateVProxyDeployment(ctx, expSts, curDep, sc)
-}
-
-func (o *ObjReconciler) syncImage(curSts, expSts *appsv1.StatefulSet) error {
-	curImage, err := vk8s.GetServerImage(curSts.Spec.Template.Spec.Containers)
-	if err != nil {
-		return err
-	}
-	expSvrCnt := vk8s.GetServerContainer(expSts.Spec.Template.Spec.Containers)
-	if expSvrCnt == nil {
-		return fmt.Errorf("could not find server container in sts %s", expSts.Name)
-	}
-	expSvrCnt.Image = curImage
-
-	if expNMACnt := vk8s.GetNMAContainer(expSts.Spec.Template.Spec.Containers); expNMACnt != nil {
-		expNMACnt.Image = curImage
-	}
-	return nil
-}
-
-func (o *ObjReconciler) copyHealthProbes(curSts, expSts *appsv1.StatefulSet) error {
-	curSvrCnt := vk8s.GetServerContainer(curSts.Spec.Template.Spec.Containers)
-	if curSvrCnt == nil {
-		return fmt.Errorf("could not find server container in sts %s", curSts.Name)
-	}
-	expSvrCnt := vk8s.GetServerContainer(expSts.Spec.Template.Spec.Containers)
-	if expSvrCnt == nil {
-		return fmt.Errorf("could not find server container in expected sts %s", expSts.Name)
-	}
-	expSvrCnt.StartupProbe = curSvrCnt.StartupProbe
-	expSvrCnt.LivenessProbe = curSvrCnt.LivenessProbe
-	expSvrCnt.ReadinessProbe = curSvrCnt.ReadinessProbe
-	return nil
 }
 
 // shouldPreserveStsSize returns true if the current sts size should be preserved.
@@ -1051,189 +1028,4 @@ func (o *ObjReconciler) removeOwnerReference(secret *corev1.Secret) bool {
 	}
 
 	return changed
-}
-
-func (o *ObjReconciler) calculateConfigHash(ctx context.Context, sts *appsv1.StatefulSet) (string, error) {
-	hasher := sha256.New()
-	atLeastOne := false
-
-	svrCnt := vk8s.GetServerContainer(sts.Spec.Template.Spec.Containers)
-	if svrCnt == nil {
-		return "", fmt.Errorf("could not find server container for sts %s", sts.Name)
-	}
-
-	// Hash all EnvFrom refs
-	if hashed, err := o.hashEnvFromSources(ctx, sts.Namespace, svrCnt.EnvFrom, hasher); err != nil {
-		return "", err
-	} else {
-		atLeastOne = atLeastOne || hashed
-	}
-
-	// Hash individual Env var refs
-	if hashed, err := o.hashEnvVarSources(ctx, sts.Namespace, svrCnt.Env, hasher); err != nil {
-		return "", err
-	} else {
-		atLeastOne = atLeastOne || hashed
-	}
-
-	if !atLeastOne {
-		return "", nil
-	}
-
-	// Return first 16 hex characters of hash
-	return fmt.Sprintf("%x", hasher.Sum(nil))[:16], nil
-}
-
-func (o *ObjReconciler) hashEnvFromSources(ctx context.Context, ns string, envFrom []corev1.EnvFromSource, hasher hash.Hash) (bool, error) {
-	atLeastOne := false
-	for _, from := range envFrom {
-		if from.ConfigMapRef != nil {
-			hashed, err := o.hashConfigMap(ctx, ns, from.ConfigMapRef.Name, "", hasher)
-			if err != nil {
-				return false, err
-			}
-			atLeastOne = atLeastOne || hashed
-		}
-		if from.SecretRef != nil {
-			hashed, err := o.hashSecret(ctx, ns, from.SecretRef.Name, "", hasher)
-			if err != nil {
-				return false, err
-			}
-			atLeastOne = atLeastOne || hashed
-		}
-	}
-	return atLeastOne, nil
-}
-
-func (o *ObjReconciler) hashEnvVarSources(ctx context.Context, ns string, envVars []corev1.EnvVar, hasher hash.Hash) (bool, error) {
-	atLeastOne := false
-	for _, env := range envVars {
-		if env.ValueFrom == nil {
-			continue
-		}
-		if ref := env.ValueFrom.ConfigMapKeyRef; ref != nil {
-			hashed, err := o.hashConfigMap(ctx, ns, ref.Name, ref.Key, hasher)
-			if err != nil {
-				return false, err
-			}
-			atLeastOne = atLeastOne || hashed
-		}
-		if ref := env.ValueFrom.SecretKeyRef; ref != nil {
-			hashed, err := o.hashSecret(ctx, ns, ref.Name, ref.Key, hasher)
-			if err != nil {
-				return false, err
-			}
-			atLeastOne = atLeastOne || hashed
-		}
-	}
-	return atLeastOne, nil
-}
-
-func (o *ObjReconciler) hashConfigMap(ctx context.Context, namespace, name, key string, hasher hash.Hash) (bool, error) {
-	hashed := false
-	var cm corev1.ConfigMap
-	if err := o.Rec.GetClient().Get(ctx, types.NamespacedName{Name: name, Namespace: namespace}, &cm); err != nil {
-		return false, err
-	}
-	if !vmeta.IsWatchedByVDB(cm.Labels) {
-		// If the configmap is not watched by the vdb, we don't hash it.
-		o.Log.Info("Skipping hashing configmap", "Name", name, "Namespace", namespace)
-		return false, nil
-	}
-
-	if key != "" {
-		value, found := cm.Data[key]
-		if found {
-			hashed = true
-			hasher.Write([]byte(key + "=" + value))
-		}
-
-		return hashed, nil
-	}
-
-	keys := make([]string, 0, len(cm.Data))
-	for k := range cm.Data {
-		keys = append(keys, k)
-	}
-
-	// Sort keys
-	sort.Strings(keys)
-
-	// Hash the data
-	for _, k := range keys {
-		hashed = true
-		hasher.Write([]byte(k + "=" + cm.Data[k]))
-	}
-
-	return hashed, nil
-}
-
-func (o *ObjReconciler) hashSecret(ctx context.Context, namespace, name, key string, hasher hash.Hash) (bool, error) {
-	hashed := false
-	var secret corev1.Secret
-	if err := o.Rec.GetClient().Get(ctx, types.NamespacedName{Name: name, Namespace: namespace}, &secret); err != nil {
-		return false, err
-	}
-	if !vmeta.IsWatchedByVDB(secret.Labels) {
-		// If the secret is not watched by the vdb, we don't hash it.
-		o.Log.Info("Skipping hashing secret", "Name", name, "Namespace", namespace)
-		return false, nil
-	}
-
-	if key != "" {
-		value, found := secret.Data[key]
-		if found {
-			hashed = true
-			hasher.Write([]byte(key + "="))
-			hasher.Write(value)
-		}
-		return hashed, nil
-	}
-	keys := make([]string, 0, len(secret.Data))
-	for k := range secret.Data {
-		keys = append(keys, k)
-	}
-
-	// Sort keys
-	sort.Strings(keys)
-
-	// Hash the data
-	for _, k := range keys {
-		hashed = true
-		hasher.Write([]byte(k + "="))
-		hasher.Write(secret.Data[k])
-	}
-
-	return hashed, nil
-}
-
-func (o *ObjReconciler) setConfigHashLabel(ctx context.Context, expSts, curSts *appsv1.StatefulSet) error {
-	if o.Vdb.HasNoExtraEnv() {
-		return nil
-	}
-	if o.Mode&ObjReconcileModeAll == 0 && curSts.ResourceVersion != "" {
-		// If we are not in full reconcile mode, we just copy the current config hash
-		// annotation to the expected statefulset. This is useful when we are not
-		// changing the config hash, but we still want to update the statefulset.
-		expSts.Spec.Template.Annotations[vmeta.ConfigHashAnnotation] = curSts.Spec.Template.Annotations[vmeta.ConfigHashAnnotation]
-		return nil
-	}
-
-	newHash, err := o.calculateConfigHash(ctx, expSts)
-	if err != nil || newHash == "" {
-		return err
-	}
-
-	expSts.Spec.Template.Annotations[vmeta.ConfigHashAnnotation] = newHash
-
-	return nil
-}
-
-func (o *ObjReconciler) checkConfigChanges(expSts, curSts *appsv1.StatefulSet) {
-	currentHash := curSts.Spec.Template.Annotations[vmeta.ConfigHashAnnotation]
-	newHash := expSts.Spec.Template.Annotations[vmeta.ConfigHashAnnotation]
-
-	if currentHash != newHash {
-		o.Log.Info("Config hash changed", "currentHash", currentHash, "newHash", newHash)
-	}
 }

@@ -276,7 +276,7 @@ func (o *ReadOnlyOnlineUpgradeReconciler) createTransientSts(ctx context.Context
 		return ctrl.Result{}, nil
 	}
 
-	actor := MakeObjReconciler(o.VRec, o.Log, o.Vdb, o.PFacts, ObjReconcileModeAllButConfigChange)
+	actor := MakeObjReconciler(o.VRec, o.Log, o.Vdb, o.PFacts, ObjReconcileModeAll)
 	o.Manager.traceActorReconcile(actor)
 	or := actor.(*ObjReconciler)
 
@@ -778,7 +778,7 @@ func (o *ReadOnlyOnlineUpgradeReconciler) deleteTransientSts(ctx context.Context
 		return ctrl.Result{}, nil
 	}
 
-	actor := MakeObjReconciler(o.VRec, o.Log, o.Vdb, o.PFacts, ObjReconcileModeAllButConfigChange)
+	actor := MakeObjReconciler(o.VRec, o.Log, o.Vdb, o.PFacts, ObjReconcileModeAll)
 	o.Manager.traceActorReconcile(actor)
 	return actor.Reconcile(ctx, &ctrl.Request{})
 }

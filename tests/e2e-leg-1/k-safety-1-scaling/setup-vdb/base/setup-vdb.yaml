@@ -29,16 +29,6 @@ spec:
   local:
     requestSize: 100Mi
   encryptSpreadComm: vertica
-  extraEnv:
-    - name: ENV1
-      value: val1
-    - name: ENV2
-      value: val2
-  envFrom:
-    - configMapRef:
-        name: db-config
-    - secretRef:
-        name: db-secret
   subclusters:
     - name: main
       size: 3

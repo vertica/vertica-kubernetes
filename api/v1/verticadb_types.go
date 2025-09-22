@@ -358,18 +358,6 @@ type VerticaDBSpec struct {
 	// Create client proxy pods for the subcluster if defined
 	// All incoming connections to the subclusters will be routed through the proxy pods
 	Proxy *Proxy `json:"proxy,omitempty"`
-
-	// +kubebuilder:validation:Optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:advanced"
-	// A list of environment variables to set in all containers in vertica pods. They will be set in a container through the
-	// env field.
-	ExtraEnv []corev1.EnvVar `json:"extraEnv,omitempty"`
-
-	// +kubebuilder:validation:Optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:advanced"
-	// A list of environment variables to set in all containers in vertica pods. They will be set in a container through the
-	// envFrom field. All the key-value pairs in the configmap/secret are added to the environment as-is.
-	EnvFrom []corev1.EnvFromSource `json:"envFrom,omitempty"`
 }
 
 // LocalObjectReference is used instead of corev1.LocalObjectReference and behaves the same.
