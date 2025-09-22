@@ -257,9 +257,6 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		MakeAnnotateAndLabelPodReconciler(r, log, vdb, pfacts),
 		// Set up TLS config if users turn it on
 		MakeTLSReconciler(r, log, vdb, prunner, dispatcher, pfacts),
-		// Update the service monitor that will allow prometheus to scrape the
-		// metrics from the vertica pods.
-		MakeServiceMonitorReconciler(vdb, r, log),
 		// Trigger sandbox shutdown when the shutdown field of the sandbox
 		// is changed
 		MakeSandboxShutdownReconciler(r, log, vdb, true),
@@ -313,9 +310,6 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		// Update deployment method and enable HTTPS TLS
 		MakeDeploymentMethodReconciler(r, log, vdb, prunner, pfacts, dispatcher),
 		MakeTLSReconciler(r, log, vdb, prunner, dispatcher, pfacts),
-		// Update the service monitor that will allow prometheus to scrape the
-		// metrics from the vertica pods.
-		MakeServiceMonitorReconciler(vdb, r, log),
 		// Add additional buckets for data replication
 		MakeAddtionalBucketsReconciler(r, log, vdb, prunner, pfacts),
 		MakeMetricReconciler(r, log, vdb, prunner, pfacts),

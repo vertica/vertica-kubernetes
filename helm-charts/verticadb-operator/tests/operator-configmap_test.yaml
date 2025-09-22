@@ -18,11 +18,3 @@ tests:
       - equal:
           path: data.METRICS_ADDR
           value: 0.0.0.0:8443
-  - it: should set prometheus_enabled
-    set:
-      prometheusServer:
-        enabled: true
-    asserts:
-      - equal:
-          path: data.PROMETHEUS_ENABLED
-          value: "true"

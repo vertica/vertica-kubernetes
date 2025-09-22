@@ -1,0 +1,5 @@
+kind: Fixed
+body: Avoid unsandboxing an already unsandboxed subcluster.
+time: 2025-09-22T16:46:58.664510261Z
+custom:
+  Issue: "1342"

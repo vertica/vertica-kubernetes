@@ -690,7 +690,7 @@ uninstall-cert-manager: ## Uninstall the cert-manager
 	kubectl delete -f https://github.com/jetstack/cert-manager/releases/download/v$(CERT_MANAGER_VER)/cert-manager.yaml
 
 .PHONY: config-transformer
-config-transformer: manifests kustomize kubernetes-split-yaml helm-dependency-update ## Generate release artifacts and helm charts from config/
+config-transformer: manifests kustomize kubernetes-split-yaml ## Generate release artifacts and helm charts from config/
 	scripts/config-transformer.sh
 
 .PHONY: install
@@ -707,8 +707,7 @@ uninstall: manifests kustomize ## Uninstall CRDs from the K8s cluster specified 
 # If this secret does not exist then it is simply ignored.
 deploy-operator: manifests kustomize ## Using helm or olm, deploy the operator in the K8s cluster
 ifeq ($(DEPLOY_WITH), helm)
-	$(MAKE) helm-dependency-update
-	helm install $(DEPLOY_WAIT) -n $(NAMESPACE) --create-namespace $(HELM_RELEASE_NAME) $(OPERATOR_CHART) --set image.repo=null --set image.name=${OPERATOR_IMG} --set image.pullPolicy=$(HELM_IMAGE_PULL_POLICY) --set imagePullSecrets[0].name=priv-reg-cred --set controllers.scope=$(CONTROLLERS_SCOPE) --set controllers.vdbMaxBackoffDuration=$(VDB_MAX_BACKOFF_DURATION) --set controllers.sandboxMaxBackoffDuration=$(SANDBOX_MAX_BACKOFF_DURATION) --set grafana.enabled=${GRAFANA_ENABLED} --set prometheusServer.enabled=${PROMETHEUS_ENABLED} --set loki.enabled=${LOKI_ENABLED} --set alloy.enabled=${ALLOY_ENABLED} --set cache.enable=$(CACHE_ENABLED) $(HELM_OVERRIDES)
+	helm install $(DEPLOY_WAIT) -n $(NAMESPACE) --create-namespace $(HELM_RELEASE_NAME) $(OPERATOR_CHART) --set image.repo=null --set image.name=${OPERATOR_IMG} --set image.pullPolicy=$(HELM_IMAGE_PULL_POLICY) --set imagePullSecrets[0].name=priv-reg-cred --set controllers.scope=$(CONTROLLERS_SCOPE) --set controllers.vdbMaxBackoffDuration=$(VDB_MAX_BACKOFF_DURATION) --set controllers.sandboxMaxBackoffDuration=$(SANDBOX_MAX_BACKOFF_DURATION) --set cache.enable=$(CACHE_ENABLED) $(HELM_OVERRIDES)
 	scripts/wait-for-webhook.sh -n $(NAMESPACE) -t 60
 else ifeq ($(DEPLOY_WITH), olm)
 	scripts/deploy-olm.sh -n $(NAMESPACE) $(OLM_TEST_CATALOG_SOURCE)
@@ -897,16 +896,6 @@ $(ISTIOCTL):
 	chmod +x $(ISTIOCTL)
 
 CHARTS_DIR = $(OPERATOR_CHART)/charts
-
-.PHONY: helm-dependency-update
-helm-dependency-update: ## Update helm chart dependencies
-	@if [ -d "$(CHARTS_DIR)" ] && ls $(CHARTS_DIR)/*.tgz >/dev/null 2>&1; then \
-		echo "Helm dependencies already present in $(CHARTS_DIR), skipping update."; \
-	else \
-		echo "Helm dependencies missing, running helm dependency update..."; \
-		helm dependency update $(OPERATOR_CHART); \
-	fi
-
 
 ##@ Release
 

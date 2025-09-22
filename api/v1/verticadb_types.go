@@ -956,10 +956,7 @@ type TLSConfigSpec struct {
 	// The operator will validate that your certificate contains this value in the common-name field.
 	// If not specified, it will use the Vertica DB admin username, defined by annotation vertica.com/superuser-name.
 	CommonName string `json:"commonName,omitempty"`
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:advanced"
-	// +kubebuilder:validation:Optional
-	// Allow auto-rotation of a list of secrets, using a certain interval
-	AutoRotate *TLSAutoRotate `json:"autoRotate,omitempty"`
+	AutoRotate *TLSAutoRotate `json:"-"`
 }
 
 type TLSAutoRotate struct {
@@ -1057,14 +1054,8 @@ type TLSConfigStatus struct {
 	// +operator-sdk:csv:customresourcedefinitions:type=status
 	// The TLS mode being used
 	Mode string `json:"mode"`
-	// +operator-sdk:csv:customresourcedefinitions:type=status
-	// +optional
-	// Timestamp of last successful cert rotation
-	LastUpdate metav1.Time `json:"lastUpdate,omitempty"`
-	// +operator-sdk:csv:customresourcedefinitions:type=status
-	// +optional
-	// List of secrets to be used for auto-rotate
-	AutoRotateSecrets []string `json:"autoRotateSecrets,omitempty"`
+	LastUpdate metav1.Time `json:"-"`
+	AutoRotateSecrets []string `json:"-"`
 }
 
 type RestorePointInfo struct {

@@ -234,8 +234,6 @@ do
   perl -i -0777 -pe 's/(CACHE_ENABLED:).*/$1 {{ quote .Values.cache.enable }}/g' $fn
   perl -i -0777 -pe 's/(BROADCASTER_BURST_SIZE:).*/$1 {{ quote .Values.controllers.burstSize }}/g' $fn
   perl -i -0777 -pe 's/(CONTROLLERS_ENABLED:).*/$1 {{ quote .Values.controllers.enable }}/g' $fn
-  perl -i -0777 -pe 's/(PROMETHEUS_ENABLED:).*/$1 {{ quote .Values.prometheusServer.enabled }}/g' $fn
-  perl -i -0777 -pe 's/(RELEASE_NAME:).*/$1 {{ quote .Release.Name }}/g' $fn
   perl -i -0777 -pe 's/(CONTROLLERS_SCOPE:).*/$1 {{ quote .Values.controllers.scope }}/g' $fn
   perl -i -0777 -pe 's/(VDB_MAX_BACKOFF_DURATION:).*/$1 {{ quote .Values.controllers.vdbMaxBackoffDuration }}/g' $fn
   perl -i -0777 -pe 's/(SANDBOX_MAX_BACKOFF_DURATION:).*/$1 {{ quote .Values.controllers.sandboxMaxBackoffDuration }}/g' $fn
@@ -244,20 +242,7 @@ do
   perl -i -0777 -pe 's/(LOG_LEVEL: )(.*)/$1\{{ quote .Values.logging.level }}\n  LOG_FILE_PATH: {{ default "" .Values.logging.filePath | quote }}\n  LOG_MAX_FILE_SIZE: {{ default "" .Values.logging.maxFileSize | quote }}\n  LOG_MAX_FILE_AGE: {{ default "" .Values.logging.maxFileAge | quote }}\n  LOG_MAX_FILE_ROTATION: {{ default "" .Values.logging.maxFileRotation | quote }}\n  DEV_MODE: {{ default "" .Values.logging.dev | quote }}/g' $fn
 done
 
-# 24. Conditionally add rules for keda objects
+# Conditionally add rules for keda objects
 perl -i -0777 -pe 's/(- apiGroups:\n\s+- keda\.sh.*?)\n(?=- apiGroups:|\Z)/{{- if .Values.keda.createRBACRules }}\n\1\n{{- end }}\n/sg' $TEMPLATE_DIR/verticadb-operator-manager-role-cr.yaml
-# 25. Conditionally add a rule for namespaces if the controller scope is cluster
+# Conditionally add a rule for namespaces if the controller scope is cluster
 perl -i -0777 -pe 's/(- apiGroups:\n\s+- ""\n\s+resources:\n\s+- namespaces\n\s+verbs:\n(?:\s+- \w+\n)+)/\{\{- if eq .Values.controllers.scope "cluster" \}\}\n\1\{\{- end \}\}\n/sg' $TEMPLATE_DIR/verticadb-operator-manager-role-cr.yaml
-
-# 26. Conditionally add rules for prometheus objects
-perl -i -0777 -pe 's/(- apiGroups:\n\s+- monitoring\.coreos\.com.*?)\n(?=- apiGroups:|\Z)/{{- if .Values.prometheusServer.enabled }}\n\1\n{{- end }}\n/sg' $TEMPLATE_DIR/verticadb-operator-manager-role-cr.yaml
-
-perl -i -0777 -pe  's/name: \{\{ include "vdb-op.name" \. \}\}-prometheus-sa/name: prometheus-vertica-sa/' $TEMPLATE_DIR/verticadb-operator-prometheus-sa-sa.yaml
-perl -i -0777 -pe  's/name: \{\{ include "vdb-op.name" \. \}\}-prometheus-sa/name: prometheus-vertica-sa/' $TEMPLATE_DIR/verticadb-operator-prometheus-role-binding-crb.yaml
-for f in $TEMPLATE_DIR/verticadb-operator-prometheus-sa-sa.yaml \
-  $TEMPLATE_DIR/verticadb-operator-prometheus-role-binding-crb.yaml \
-  $TEMPLATE_DIR/verticadb-operator-prometheus-role-cr.yaml
-do
-  perl -i -pe 's/^/{{- if and .Values.prometheusServer.enabled (not .Values.prometheusServer.prometheus.serviceAccount.create) (eq .Values.prometheusServer.prometheus.serviceAccount.name "prometheus-vertica-sa") -}}\n/ if 1 .. 1' $f
-  echo "{{- end }}" >> $f
-done

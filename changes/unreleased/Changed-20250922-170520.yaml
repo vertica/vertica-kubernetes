@@ -1,0 +1,5 @@
+kind: Changed
+body: Support updating both TLS secrets (httpsNMA and clientServer) simultaneously.
+time: 2025-09-22T17:05:20.813093323Z
+custom:
+  Issue: "1380"

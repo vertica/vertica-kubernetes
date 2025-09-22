@@ -1,0 +1,5 @@
+kind: Fixed
+body: Restarting a subcluster after shutdown fails.
+time: 2025-09-22T16:55:39.188852721Z
+custom:
+  Issue: "1356"

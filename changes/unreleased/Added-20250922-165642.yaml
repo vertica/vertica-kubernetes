@@ -1,0 +1,5 @@
+kind: Added
+body: Support for pulling the Vertica image for the scrutinize pod from private repositories.
+time: 2025-09-22T16:56:42.373565607Z
+custom:
+  Issue: "1361"

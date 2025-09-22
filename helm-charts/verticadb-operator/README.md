@@ -42,15 +42,3 @@ This helm chart will install the operator and an admission controller webhook.  
 | securityContext | Holds pod-level security attributes and common container settings. | <pre>fsGroup: 65532 <br>runAsGroup: 65532<br>runAsNonRoot: true <br>runAsUser: 65532 <br>seccompProfile:<br>  type: RuntimeDefault</pre> |
 | containerSecurityContext | Defines the security options the manager container should be run with. | <pre>allowPrivilegeEscalation: false <br>readOnlyRootFilesystem: true <br>capabilities:<br>  drop: <br>  - ALL</pre> |
 | keda.createRBACRules | Controls the creation of ClusterRole rules for KEDA objects. | true |
-
-&nbsp;  
-&nbsp; 
-
-This table below describes monitoring configuration parameters including Grafana, Prometheus and Loki:
-
-| Parameter Name | Description | Default Value |
-|----------------|-------------|---------------|
-| grafana.enabled | Set to true if you want to deploy Grafana with the operator | false |
-| prometheusServer.enabled | Set to true if you want to deploy Prometheus server. | false |
-| loki.enabled | Set to true if you want to deploy loki and alloy. | false |
-

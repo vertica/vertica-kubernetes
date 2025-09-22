@@ -1,0 +1,5 @@
+kind: Changed
+body: NMATLSSecret is no longer deprecated, and TLS secrets are no longer auto-generated when TLS is disabled. 
+time: 2025-09-22T16:52:12.932424043Z
+custom:
+  Issue: "1355"
