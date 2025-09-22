@@ -68,19 +68,22 @@ type CertCache interface {
 }
 
 type ItemCache[T any] struct {
-	lock         sync.Mutex
-	items        map[string]T
-	creationTime map[string]time.Time
-	ttl          time.Duration
-	enabled      bool
+	lock    sync.Mutex
+	items   map[string]itemWithTime[T]
+	ttl     time.Duration
+	enabled bool
+}
+
+type itemWithTime[T any] struct {
+	value        T
+	creationTime time.Time
 }
 
 func NewItemCache[T any](ttl time.Duration, enabled bool) *ItemCache[T] {
 	return &ItemCache[T]{
-		items:        make(map[string]T),
-		creationTime: make(map[string]time.Time),
-		ttl:          ttl,
-		enabled:      enabled,
+		items:   make(map[string]itemWithTime[T]),
+		ttl:     ttl,
+		enabled: enabled,
 	}
 }
 
@@ -91,20 +94,18 @@ func (c *ItemCache[T]) Get(key string) (T, bool) {
 		var zero T
 		return zero, false
 	}
-	item, ok := c.items[key]
+	entry, ok := c.items[key]
 	if !ok {
 		var zero T
 		return zero, false
 	}
-	creation, okTime := c.creationTime[key]
-	if !okTime || (c.ttl > 0 && time.Since(creation) > c.ttl) {
+	if c.ttl > 0 && time.Since(entry.creationTime) > c.ttl {
 		// Item expired, remove from cache
 		delete(c.items, key)
-		delete(c.creationTime, key)
 		var zero T
 		return zero, false
 	}
-	return item, true
+	return entry.value, true
 }
 
 func (c *ItemCache[T]) Set(key string, value T) {
@@ -113,8 +114,10 @@ func (c *ItemCache[T]) Set(key string, value T) {
 	if !c.enabled {
 		return
 	}
-	c.items[key] = value
-	c.creationTime[key] = time.Now()
+	c.items[key] = itemWithTime[T]{
+		value:        value,
+		creationTime: time.Now(),
+	}
 }
 
 func (c *ItemCache[T]) Delete(key string) {
@@ -124,7 +127,6 @@ func (c *ItemCache[T]) Delete(key string) {
 		return
 	}
 	delete(c.items, key)
-	delete(c.creationTime, key)
 }
 
 type VdbCacheStruct struct {
@@ -258,7 +260,6 @@ func (c *VdbCacheStruct) CleanCacheForVdb(secretsInUse []string) {
 	for key := range c.certCache.items {
 		if !slices.Contains(secretsInUse, key) {
 			delete(c.certCache.items, key)
-			delete(c.certCache.creationTime, key)
 		}
 	}
 }
