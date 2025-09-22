@@ -1553,7 +1553,8 @@ func (v *VerticaDB) IsTLSAuthEnabledForConfig(configName string) bool {
 		return vmeta.UseTLSAuth(v.Annotations)
 	}
 	if tlsConfig.Enabled == nil {
-		return true
+		// If "enabled" is not set, we consider it enabled if we are using vclusterOps deployment
+		return v.UseVClusterOpsDeployment()
 	}
 	return *tlsConfig.Enabled
 }
