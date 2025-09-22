@@ -21,34 +21,31 @@ data:
     set -o xtrace
     set -x 
     cd /root
-    curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
-    chmod a+rx ./kubectl
-    podIp=$(./kubectl get pod v-multiple-ca-sc1-0  -o=jsonpath='{.status.podIP}')
+    SERVICE=v-multiple-ca
     for cert in cert1 cert2 cert3 
     do
-      curl -k --cert /etc/${cert}/tls.crt --key /etc/${cert}/tls.key https://${podIp}:8443/v1/nodes
+      curl -k --cert /etc/${cert}/tls.crt --key /etc/${cert}/tls.key https://${SERVICE}:8443/v1/nodes
       res=$?
       if [ $res -ne 0 ]
       then 
+        echo "failed to connect to https with ${cert}"
         exit 1
       fi
     done
     dnf install libxcrypt-compat -y
     mkdir vsql
-    curl https://www.vertica.com/client_drivers/24.2.x/24.2.0-1/vertica-client-24.2.0-1.x86_64.rpm -o /root/vsql/vertica-client-24.2.0-1.x86_64.rpm
+    curl -k https://www.vertica.com/client_drivers/24.2.x/24.2.0-1/vertica-client-24.2.0-1.x86_64.rpm -o /root/vsql/vertica-client-24.2.0-1.x86_64.rpm
     rpm -ivh /root/vsql/vertica-client-24.2.0-1.x86_64.rpm
     mkdir .vsql
-    # export LANG=C.UTF-8
-    # localectl set-locale LANG=en_CA.UTF-8
     for cert in cert1 cert2 cert3 
     do
         cp /etc/${cert}/tls.crt .vsql/client.crt
         cp /etc/${cert}/tls.key .vsql/client.key
         chmod -R 600 .vsql
-        /opt/vertica/bin/vsql -h ${podIp} -U dbadmin -w '' -c "select 1;"
+        /opt/vertica/bin/vsql -h ${SERVICE} -U dbadmin -w '' -c "select 1;"
         if [ $? -ne 0 ]
         then 
-          sleep 7200
+          echo "failed vsql connection with ${cert}"
           exit 1
         fi
         rm .vsql/client.crt
