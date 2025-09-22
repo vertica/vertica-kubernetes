@@ -1,5 +1,0 @@
-kind: Fixed
-body: Re-IP operation failed because of quorum check.
-time: 2025-09-22T17:14:39.938578526Z
-custom:
-  Issue: "1385"

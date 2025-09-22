@@ -1,5 +1,0 @@
-kind: Changed
-body: Support upgrading from an admintools-managed database to a vclusterops-managed database.
-time: 2025-09-22T17:06:14.59214363Z
-custom:
-  Issue: "1383"

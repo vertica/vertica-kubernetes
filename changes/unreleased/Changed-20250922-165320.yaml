@@ -1,5 +1,0 @@
-kind: Changed
-body: TLS mode is now case-insensitive.
-time: 2025-09-22T16:53:20.080358066Z
-custom:
-  Issue: "1347"
