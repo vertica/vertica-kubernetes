@@ -77,9 +77,9 @@ func (h *TLSServerCertGenReconciler) Reconcile(ctx context.Context, _ *ctrl.Requ
 // reconcileSecrets will check three secrets: NMA secret, https secret, and client server secret
 func (h *TLSServerCertGenReconciler) reconcileSecrets(ctx context.Context) error {
 	secretFieldNameMap := map[string]string{
+		clientServerTLSSecret: h.Vdb.GetClientServerTLSSecret(),
 		nmaTLSSecret:          h.Vdb.Spec.NMATLSSecret,
 		httpsNMATLSSecret:     h.Vdb.GetHTTPSNMATLSSecret(),
-		clientServerTLSSecret: h.Vdb.GetClientServerTLSSecret(),
 	}
 	err := error(nil)
 	for secretFieldName, secretName := range secretFieldNameMap {
@@ -87,8 +87,9 @@ func (h *TLSServerCertGenReconciler) reconcileSecrets(ctx context.Context) error
 			continue
 		}
 		h.Log.Info("Reconciling TLS secret", "TLS secret", secretFieldName, "secretName", secretName)
-		// when nma secret is not empty, we can assign it to https TLS
-		if h.Vdb.Spec.NMATLSSecret != "" && secretFieldName == httpsNMATLSSecret && secretName == "" {
+
+		// when nma secret is not empty, we can assign it to https and/or clientserver TLS
+		if h.Vdb.Spec.NMATLSSecret != "" && secretFieldName != nmaTLSSecret && secretName == "" {
 			nm := names.GenNamespacedName(h.Vdb, h.Vdb.Spec.NMATLSSecret)
 			secret := corev1.Secret{}
 			err = h.VRec.Client.Get(ctx, nm, &secret)
