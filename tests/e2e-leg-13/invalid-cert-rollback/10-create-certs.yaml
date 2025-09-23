@@ -14,9 +14,12 @@
 apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 commands:
-  - command: sh -c "CERT_NAME=cert-no-client-auth1 envsubst < cert-no-client-auth.yaml | kubectl apply -n $NAMESPACE -f -"
-  - command: sh -c "CERT_NAME=cert-no-client-auth2 envsubst < cert-no-client-auth.yaml | kubectl apply -n $NAMESPACE -f -"
-  - command: sh -c "CERT_NAME=cert-no-client-auth3 envsubst < cert-no-client-auth.yaml | kubectl apply -n $NAMESPACE -f -"
+  - command: >
+      sh -c '
+        CERT_NAME=cert-no-client-auth1 envsubst < cert-no-client-auth.yaml | kubectl apply -n $NAMESPACE -f - &&
+        CERT_NAME=cert-no-client-auth2 envsubst < cert-no-client-auth.yaml | kubectl apply -n $NAMESPACE -f - &&
+        CERT_NAME=cert-no-client-auth3 envsubst < cert-no-client-auth.yaml | kubectl apply -n $NAMESPACE -f -
+      '
   - script: cd ../../.. && make create-tls-secret SECRET_NAME=custom-cert1 SECRET_NAMESPACE=$NAMESPACE DB_USER=$VERTICA_SUPERUSER_NAME
   - script: cd ../../.. && make create-tls-secret SECRET_NAME=custom-cert2 SECRET_NAMESPACE=$NAMESPACE DB_USER=$VERTICA_SUPERUSER_NAME
   - script: cd ../../.. && make create-tls-secret SECRET_NAME=custom-cert3 SECRET_NAMESPACE=$NAMESPACE DB_USER=$VERTICA_SUPERUSER_NAME
