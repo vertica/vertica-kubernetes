@@ -146,6 +146,27 @@ func (vcc *VClusterCommands) produceSandboxSubclusterInstructions(options *VSand
 
 	username := options.UserName
 
+	// In environments like Kubernetes, if sandbox nodes are re-IPed before sandboxing a new subcluster,
+	// the new subcluster might not have the latest config files. We need to ensure it retrieves them
+	// from the sandbox primary nodes.
+	if options.SandboxPrimaryUpHost != "" && len(options.NodeNameAddressMap) > 0 {
+		scHosts := []string{}
+		for _, ip := range options.NodeNameAddressMap {
+			scHosts = append(scHosts, ip)
+		}
+
+		vdb := makeVCoordinationDatabase()
+		// Override Hosts to only include the primary up host in the sandbox.
+		// This reduces the number of HTTPS calls by targeting a single, known-available node.
+		dbOptions := options.DatabaseOptions
+		dbOptions.Hosts = []string{options.SandboxPrimaryUpHost}
+		err := vcc.getVDBFromRunningDBIncludeSandbox(&vdb, &dbOptions, options.SandboxName)
+		if err != nil {
+			return instructions, err
+		}
+		produceTransferConfigOps(&instructions, dbOptions.Hosts, scHosts, &vdb, &options.SandboxName)
+	}
+
 	// Get all up nodes
 	httpsGetUpNodesOp, err := makeHTTPSGetUpScNodesOp(options.DBName, options.Hosts,
 		usePassword, username, options.Password, SandboxSCCmd, options.SCName)
