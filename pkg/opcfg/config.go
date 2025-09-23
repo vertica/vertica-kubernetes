@@ -221,11 +221,11 @@ func GetReleaseName() string {
 	return lookupStringEnvVar("RELEASE_NAME", envCanNotExist)
 }
 
-// GetClusterScopeReleaseName returns the name of the cluster level operator release. When the
-// operator is deployed in namespace scope and you want to enable prometheus or loki, you would
+// GetClusterScopeReleaseName returns the name of the cluster level operator release.
+// When the operator is deployed in namespace scope and you want to enable prometheus, you would
 // first deploy the operator in cluster scope with controllers disabled, then deploy the operator
 // in namespace scope with controllers enabled. The cluster scope deployment would have a release
-// name that can be different from the namespace scope deployment. This allows prometheus or loki
+// name that can be different from the namespace scope deployment. This allows prometheus
 // to be created in the cluster scope deployment and have it monitor the operator namespace scope
 // deployments. If this is not set, then we assume the operator is deployed in cluster scope and
 // return an empty string.
