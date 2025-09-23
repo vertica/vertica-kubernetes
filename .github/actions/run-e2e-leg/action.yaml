@@ -230,7 +230,8 @@ runs:
             export HELM_OVERRIDES="${HELM_OVERRIDES} --set grafana.admin.existingSecret=grafana-admin-credentials --set grafana.admin.userKey=admin-user --set grafana.admin.passwordKey=admin-password"
           fi
 
-          if [[ "${{ inputs.leg-identifier }}" == "leg-14-loki" ]]; then
+          if [[ "${{ inputs.leg-identifier }}" == "leg-14-loki" || \
+              "${{ inputs.leg-identifier }}" == "leg-14-loki-namespace" ]]; then
             export GRAFANA_ENABLED=true
             export LOKI_ENABLED=true
           fi

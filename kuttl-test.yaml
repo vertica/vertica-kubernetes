@@ -51,6 +51,7 @@ testDirs:
   - tests/e2e-leg-14-loki
   - tests/e2e-leg-14-tls
   - tests/e2e-leg-14-namespace
+  - tests/e2e-leg-14-loki-namespace
   - tests/e2e-udx
   - tests/e2e-server-upgrade
   - tests/e2e-server-upgrade-at-only

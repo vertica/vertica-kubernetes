@@ -213,8 +213,8 @@ keda:
   createRBACRules: true
 
 # If the operator is deployed in namespace scope, and you want to use  
-# prometheus, then you must set this to the release name of the cluster
-# scope operator that has prometheus enabled.
+# prometheus or loki, then you must set this to the release name of the cluster
+# scope operator that has prometheus or loki enabled.
 clusterScopeReleaseName: ""
 
 ## Using default values from https://github.com/grafana/helm-charts/blob/main/charts/grafana/values.yaml
