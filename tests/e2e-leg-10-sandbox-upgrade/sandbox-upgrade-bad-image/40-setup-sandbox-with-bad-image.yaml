@@ -25,3 +25,4 @@ spec:
     image: wrong-image
     subclusters:
       - name: sec1
+        type: primary
