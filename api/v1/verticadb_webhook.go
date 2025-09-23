@@ -954,14 +954,14 @@ func (v *VerticaDB) validateKsafety(allErrs field.ErrorList) field.ErrorList {
 		if sizeSum < KSafety0MinHosts || sizeSum > KSafety0MaxHosts {
 			err := field.Invalid(field.NewPath("spec").Child("subclusters"),
 				fmt.Sprintf("subcluster hosts size %d", sizeSum),
-				fmt.Sprintf("with kSafety 0, the total size of the cluster must have between %d and %d primary hosts", KSafety0MinHosts, KSafety0MaxHosts))
+				fmt.Sprintf("with kSafety 0, the cluster must have between %d and %d primary hosts", KSafety0MinHosts, KSafety0MaxHosts))
 			allErrs = append(allErrs, err)
 		}
 	case false:
 		if sizeSum < KSafety1MinHosts {
 			err := field.Invalid(field.NewPath("spec").Child("subclusters"),
 				fmt.Sprintf("subcluster hosts size %d", sizeSum),
-				fmt.Sprintf("with kSafety 1, the total size of the cluster must have at least %d primary hosts", KSafety1MinHosts))
+				fmt.Sprintf("with kSafety 1, the cluster must have at least %d primary hosts", KSafety1MinHosts))
 			allErrs = append(allErrs, err)
 		}
 	}
