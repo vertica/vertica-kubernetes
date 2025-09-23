@@ -21,6 +21,7 @@ import (
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/builder"
+	"github.com/vertica/vertica-kubernetes/pkg/cache"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/test"
 	corev1 "k8s.io/api/core/v1"
@@ -38,9 +39,10 @@ var _ = Describe("servicemonitor_reconciler", func() {
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
 
 		rec := &ServiceMonitorReconciler{
-			VRec: vdbRec,
-			Vdb:  vdb,
-			Log:  logger,
+			VRec:         vdbRec,
+			Vdb:          vdb,
+			Log:          logger,
+			CacheManager: cache.MakeCacheManager(true),
 		}
 
 		// Ensure ServiceMonitor does not exist
@@ -64,9 +66,10 @@ var _ = Describe("servicemonitor_reconciler", func() {
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
 
 		rec := &ServiceMonitorReconciler{
-			VRec: vdbRec,
-			Vdb:  vdb,
-			Log:  logger,
+			VRec:         vdbRec,
+			Vdb:          vdb,
+			Log:          logger,
+			CacheManager: cache.MakeCacheManager(true),
 		}
 
 		// Pre-create ServiceMonitor
@@ -85,9 +88,10 @@ var _ = Describe("servicemonitor_reconciler", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Namespace = "nonexistent-ns"
 		rec := &ServiceMonitorReconciler{
-			VRec: vdbRec,
-			Vdb:  vdb,
-			Log:  logger,
+			VRec:         vdbRec,
+			Vdb:          vdb,
+			Log:          logger,
+			CacheManager: cache.MakeCacheManager(true),
 		}
 		Expect(rec.reconcileServiceMonitor(ctx)).ShouldNot(Succeed())
 	})
@@ -95,9 +99,10 @@ var _ = Describe("servicemonitor_reconciler", func() {
 	It("should do nothing if Vdb is set for TLS", func() {
 		vdb := vapi.MakeVDBForTLS()
 		rec := &ServiceMonitorReconciler{
-			VRec: vdbRec,
-			Vdb:  vdb,
-			Log:  logger,
+			VRec:         vdbRec,
+			Vdb:          vdb,
+			Log:          logger,
+			CacheManager: cache.MakeCacheManager(true),
 		}
 		Expect(rec.reconcileBasicAuth(ctx)).Should(Succeed())
 	})
@@ -107,10 +112,12 @@ var _ = Describe("servicemonitor_reconciler", func() {
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
 		rec := &ServiceMonitorReconciler{
-			VRec: vdbRec,
-			Vdb:  vdb,
-			Log:  logger,
+			VRec:         vdbRec,
+			Vdb:          vdb,
+			Log:          logger,
+			CacheManager: cache.MakeCacheManager(true),
 		}
+		rec.CacheManager.InitCacheForVdb(vdb, nil)
 		secName := names.GenBasicauthSecretName(vdb)
 		sec := &corev1.Secret{}
 		_ = k8sClient.Delete(ctx, sec) // Ensure it doesn't exist
@@ -129,10 +136,12 @@ var _ = Describe("servicemonitor_reconciler", func() {
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
 		defer test.DeleteSecret(ctx, k8sClient, *vdb.Status.PasswordSecret)
 		rec := &ServiceMonitorReconciler{
-			VRec: vdbRec,
-			Vdb:  vdb,
-			Log:  logger,
+			VRec:         vdbRec,
+			Vdb:          vdb,
+			Log:          logger,
+			CacheManager: cache.MakeCacheManager(true),
 		}
+		rec.CacheManager.InitCacheForVdb(vdb, nil)
 		secName := names.GenBasicauthSecretName(vdb)
 		sec := &corev1.Secret{}
 		_ = k8sClient.Delete(ctx, sec) // Ensure it doesn't exist
@@ -146,10 +155,12 @@ var _ = Describe("servicemonitor_reconciler", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Namespace = "nonexistent-ns"
 		rec := &ServiceMonitorReconciler{
-			VRec: vdbRec,
-			Vdb:  vdb,
-			Log:  logger,
+			VRec:         vdbRec,
+			Vdb:          vdb,
+			Log:          logger,
+			CacheManager: cache.MakeCacheManager(true),
 		}
+		rec.CacheManager.InitCacheForVdb(vdb, nil)
 		Expect(rec.reconcileBasicAuth(ctx)).ShouldNot(Succeed())
 	})
 
@@ -158,9 +169,10 @@ var _ = Describe("servicemonitor_reconciler", func() {
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
 		rec := &ServiceMonitorReconciler{
-			VRec: vdbRec,
-			Vdb:  vdb,
-			Log:  logger,
+			VRec:         vdbRec,
+			Vdb:          vdb,
+			Log:          logger,
+			CacheManager: cache.MakeCacheManager(true),
 		}
 		secName := names.GenBasicauthSecretName(vdb)
 		sec := builder.BuildBasicAuthSecret(vdb, secName.Name, vdb.GetVerticaUser(), testPassword)

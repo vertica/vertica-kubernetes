@@ -178,10 +178,16 @@ func (s *ScrutinizePodReconciler) buildScrutinizeCmdArgs(vdb *v1.VerticaDB) []st
 		}
 	}
 
-	// if there is no password, we need to explicitly
-	// set the password flag with empty string as value,
-	// to still assume password as the authentication method
-	if vdb.GetPasswordSecret() == "" {
+	// Prefer password from CacheManager if available
+	pw := ""
+	if s.VRec != nil && s.VRec.CacheManager != nil {
+		if cachePw, ok := s.VRec.CacheManager.GetPassword(vdb.Namespace, vdb.Name); ok {
+			pw = cachePw
+		}
+	}
+	if pw != "" {
+		cmd = append(cmd, "--password="+pw)
+	} else if vdb.GetPasswordSecret() == "" {
 		cmd = append(cmd, "--password=")
 	} else if secrets.IsK8sSecret(vdb.GetPasswordSecret()) {
 		// when the password secret is on k8s, we mount it into the

@@ -137,7 +137,7 @@ func (a *PasswordSecretReconciler) updatePasswordSecret(ctx context.Context) (ct
 func (a *PasswordSecretReconciler) updatePasswordSecretInSandbox(ctx context.Context,
 	pfacts *podfacts.PodFacts, newPasswd *string, sandbox string) (ctrl.Result, error) {
 	// No-op if password is the same
-	if *pfacts.VerticaSUPassword == *newPasswd {
+	if pass, ok := a.CacheManager.GetPassword(a.Vdb.Namespace, a.Vdb.Name); ok && pass == *newPasswd {
 		a.Log.Info("WARNING: password in secret is the same as current password", "current password secret",
 			a.Vdb.Status.PasswordSecret, "new password secret", a.Vdb.Spec.PasswordSecret)
 		return ctrl.Result{}, nil

@@ -470,7 +470,13 @@ func (r *OnlineUpgradeReconciler) queryOriginalConfigParamDisableNonReplicatable
 		r.Log.Info("No Up nodes found. Requeue reconciliation.")
 		return ctrl.Result{Requeue: true}, nil
 	}
-	vc := catalog.MakeVCluster(r.VDB, pf.VerticaSUPassword, initiator.GetPodIP(), r.Log, r.VRec.Client, r.VRec.EVRec, r.VRec.CacheManager)
+	pw := ""
+	if r.VRec.CacheManager != nil {
+		if cachePw, ok := r.VRec.CacheManager.GetPassword(r.VDB.Namespace, r.VDB.Name); ok {
+			pw = cachePw
+		}
+	}
+	vc := catalog.MakeVCluster(r.VDB, &pw, initiator.GetPodIP(), r.Log, r.VRec.Client, r.VRec.EVRec, r.VRec.CacheManager)
 	r.originalConfigParamDisableNonReplicatableQueriesValue, err = vc.GetConfigurationParameter(ConfigParamDisableNonReplicatableQueries,
 		ConfigParamLevelDatabase, vapi.MainCluster, ctx)
 	return ctrl.Result{}, err
@@ -533,7 +539,13 @@ func (r *OnlineUpgradeReconciler) setConfigParamDisableNonReplicatableQueriesImp
 		r.Log.Info("No Up nodes found. Requeue reconciliation.")
 		return ctrl.Result{Requeue: true}, nil
 	}
-	vc := catalog.MakeVCluster(r.VDB, pf.VerticaSUPassword, initiator.GetPodIP(), r.Log, r.VRec.Client, r.VRec.EVRec, r.VRec.CacheManager)
+	pw := ""
+	if r.VRec.CacheManager != nil {
+		if cachePw, ok := r.VRec.CacheManager.GetPassword(r.VDB.Namespace, r.VDB.Name); ok {
+			pw = cachePw
+		}
+	}
+	vc := catalog.MakeVCluster(r.VDB, &pw, initiator.GetPodIP(), r.Log, r.VRec.Client, r.VRec.EVRec, r.VRec.CacheManager)
 	err := vc.SetConfigurationParameter(ConfigParamDisableNonReplicatableQueries, value, ConfigParamLevelDatabase, clusterName, ctx)
 	return ctrl.Result{}, err
 }
