@@ -231,7 +231,7 @@ runs:
           fi
 
           if [[ "${{ inputs.leg-identifier }}" == "leg-14-loki" || \
-              "${{ inputs.leg-identifier }}" == "leg-14-loki-namespace" ]]; then
+              "${{ inputs.leg-identifier }}" == "leg-14-namespace" ]]; then
             export GRAFANA_ENABLED=true
             export LOKI_ENABLED=true
             export ALLOY_ENABLED=true
