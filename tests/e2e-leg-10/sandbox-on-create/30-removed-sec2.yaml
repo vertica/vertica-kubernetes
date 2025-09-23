@@ -20,6 +20,7 @@ spec:
   - name: sand_1
     subclusters:
       - name: sec1
+        type: primary
   subclusters:
     - name: pri1
       size: 3
