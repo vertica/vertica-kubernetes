@@ -158,11 +158,11 @@ func (t *DBTLSConfigReconciler) updateTLSVersionAndReadCipherSuites(ctx context.
 			"Failed to update tls version to %d", newTLSVersion)
 		return err
 	}
-	hosts, mainClusterHosts := t.Pfacts.GetHostGroups()
-	if len(hosts) == 0 || mainClusterHosts == "" {
+	hosts, mainClusterHost := t.Pfacts.GetHostGroups()
+	if len(hosts) == 0 || mainClusterHost == "" {
 		return fmt.Errorf("failed to find up host in the cluster")
 	}
-	err = t.pollHTTPS(ctx, hosts, mainClusterHosts)
+	err = t.pollHTTPS(ctx, hosts, mainClusterHost)
 	if err != nil {
 		t.VRec.Eventf(t.Vdb, corev1.EventTypeWarning, events.DBTLSUpdateFailed,
 			"Failed to update tls version to %d", newTLSVersion)
@@ -198,7 +198,7 @@ func (t *DBTLSConfigReconciler) updateCipherSuites(ctx context.Context, initiato
 		return err
 	}
 	hosts, mainClusterHost := t.Pfacts.GetHostGroups()
-	if mainClusterHost == "" {
+	if len(hosts) == 0 || mainClusterHost == "" {
 		return fmt.Errorf("failed to find up host in main cluster")
 	}
 	err = t.pollHTTPS(ctx, hosts, mainClusterHost)

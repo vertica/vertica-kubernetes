@@ -146,9 +146,9 @@ func (vcc *VClusterCommands) produceSandboxSubclusterInstructions(options *VSand
 
 	username := options.UserName
 
-	// When the caller like K8s operator frequently re-ips the pods before sandboxing,
-	// we need to sync the latest config files from Sandbox initiator to the new nodes
-	// that are about to join the sandbox.
+	// In environments like Kubernetes, if sandbox nodes are re-IPed before sandboxing a new subcluster,
+	// the new subcluster might not have the latest config files. We need to ensure it retrieves them
+	// from the sandbox primary nodes.
 	if options.SandboxPrimaryUpHost != "" && len(options.NodeNameAddressMap) > 0 {
 		scHosts := []string{}
 		for _, ip := range options.NodeNameAddressMap {
