@@ -107,10 +107,10 @@ var _ = Describe("tlsservercertgen_reconcile", func() {
 		Expect(vdb.GetHTTPSNMATLSSecret()).Should(Equal(TLSSecretName))
 	})
 
-	It("should keep empty when enable-tls annotation is not set", func() {
+	It("should stay empty when TLS is not enabled", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
-		vdb.Annotations[vmeta.EnableTLSAuthAnnotation] = vmeta.AnnotationFalse
+		vdb.Spec.HTTPSNMATLS.Enabled = vapi.BoolPtr(false)
 		vdb.Spec.HTTPSNMATLS.Secret = ""
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)

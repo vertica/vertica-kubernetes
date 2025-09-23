@@ -60,15 +60,18 @@ func MakeTLSConfigReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger, vdb
 
 // Reconcile will create a TLS secret for the http server if one is missing
 func (h *TLSConfigReconciler) Reconcile(ctx context.Context, request *ctrl.Request) (ctrl.Result, error) {
-	if h.Vdb.IsSetForTLS() && h.Vdb.GetSecretInUse(h.TLSConfigName) != "" ||
-		!h.Vdb.IsSetForTLS() || !h.Vdb.IsStatusConditionTrue(vapi.DBInitialized) ||
-		h.Vdb.IsStatusConditionTrue(vapi.UpgradeInProgress) ||
-		h.Vdb.IsStatusConditionTrue(vapi.VerticaRestartNeeded) {
+	if h.shouldSkipTLSConfigReconcile() {
+		return ctrl.Result{}, nil
+	}
+
+	// If this config's TLS auth is disabled, then we skip the TLS configuration.
+	if !h.Vdb.IsTLSAuthEnabledForConfig(h.TLSConfigName) {
+		h.Log.Info("TLS auth is disabled. Skipping TLS configuration", "tlsConfigName", h.TLSConfigName)
 		return ctrl.Result{}, nil
 	}
 
 	h.Log.Info("Starting TLS reconciliation",
-		"certRotationEnabled", h.Vdb.IsSetForTLS(),
+		"certRotationEnabled", h.Vdb.IsAnyTLSAuthEnabledWithMinVersion(),
 		"secretName", h.Vdb.GetSecretInUse(h.TLSConfigName),
 		"dbInitialized", h.Vdb.IsStatusConditionTrue(vapi.DBInitialized),
 	)
@@ -101,6 +104,12 @@ func (h *TLSConfigReconciler) Reconcile(ctx context.Context, request *ctrl.Reque
 		if err2 != nil {
 			h.Log.Error(err2, "failed to check TLS authentication before running DDL")
 			return ctrl.Result{}, err2
+		}
+		// If HTTPS auth is disabled, this is client-server auth. Since vcluster defaults HTTPS
+		// to GrantAuth true, setting client-server to GrantTrue will result in an error, since both
+		// cannot have GrantAuth true. Thus, we set GrantAuth false in this case.
+		if !authCreated && !h.Vdb.IsHTTPSNMATLSAuthEnabled() {
+			authCreated = true
 		}
 		h.Log.Info("Run DDL to set up TLS")
 		err = h.runDDLToConfigureTLS(ctx, initiatorPod, !authCreated)
@@ -153,4 +162,15 @@ func (h *TLSConfigReconciler) checkIfTLSAuthenticationCreatedInDB(ctx context.Co
 	lines := strings.Split(stdout, "\n")
 	res := strings.Trim(lines[0], " ")
 	return res == "True", nil
+}
+
+// shouldSkipTLSConfigReconcile will determine when we should skip this reconciler. Rules are:
+//  1. If TLS auth is disabled
+//  2. If TLS is enabled but secret is not set in status yet
+//  3. If DB is not ready (not initialized, upgrading, or restarting)
+func (h *TLSConfigReconciler) shouldSkipTLSConfigReconcile() bool {
+	return (h.Vdb.IsAnyTLSAuthEnabledWithMinVersion() && h.Vdb.GetSecretInUse(h.TLSConfigName) != "") ||
+		!h.Vdb.IsAnyTLSAuthEnabledWithMinVersion() || !h.Vdb.IsStatusConditionTrue(vapi.DBInitialized) ||
+		h.Vdb.IsStatusConditionTrue(vapi.UpgradeInProgress) ||
+		h.Vdb.IsStatusConditionTrue(vapi.VerticaRestartNeeded)
 }

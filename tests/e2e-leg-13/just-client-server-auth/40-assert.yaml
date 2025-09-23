@@ -1,0 +1,8 @@
+apiVersion: vertica.com/v1
+kind: VerticaDB
+metadata:
+  name: v-just-client-server-auth
+status:
+  tlsConfigs:
+    - name: clientServer
+      secret: custom-cert

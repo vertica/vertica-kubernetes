@@ -2,5 +2,8 @@ apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
   name: v-create-enable-rotate-add
-  annotations:
-    vertica.com/enable-tls-auth: "true"
+spec:
+  httpsNMATLS:
+    enabled: true
+  clientServerTLS:
+    enabled: true
