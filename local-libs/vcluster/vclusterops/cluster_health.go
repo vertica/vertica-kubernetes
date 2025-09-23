@@ -49,12 +49,12 @@ type VClusterHealthOptions struct {
 	LockReleaseThresHold string
 
 	// hidden option
-	SlowEventCascade        []SlowEventNode
-	SessionStartsResult     *[]dcSessionStarts
-	TransactionStartsResult *[]dcTransactionStarts
-	SlowEventsResult        *[]dcSlowEvent
-	LockEventCascade        []NodeLockEvents
-	MissingReleasesResult   *[]DcLockAttempts
+	SlowEventCascade          []SlowEventNode
+	SessionStartsResult       *[]dcSessionStarts
+	TransactionStartsResult   *[]dcTransactionStarts
+	SlowEventsResult          *[]dcSlowEvent
+	LockEventCascade          []NodeLockEvents
+	MissingLockReleasesResult *[]MissingLockReleases
 }
 
 const (
@@ -302,13 +302,13 @@ func (opt *VClusterHealthOptions) getMissingReleases(logger vlog.Printer, upHost
 	startTime, endTime string) (err error) {
 	var instructions []clusterOp
 
-	nmaMissingReleasesOp, err := makeNMAMissingReleasesOp(upHosts, opt.DatabaseOptions.UserName,
+	nmaMissingLockReleasesOp, err := makeNMAMissingLockReleasesOp(upHosts, opt.DatabaseOptions.UserName,
 		opt.DatabaseOptions.DBName, opt.DatabaseOptions.Password,
 		startTime, endTime, opt.IsDebug)
 	if err != nil {
 		return fmt.Errorf("fail to construct missing releases op, %w", err)
 	}
-	instructions = append(instructions, &nmaMissingReleasesOp)
+	instructions = append(instructions, &nmaMissingLockReleasesOp)
 
 	clusterOpEngine := makeClusterOpEngine(instructions, &opt.DatabaseOptions)
 	err = clusterOpEngine.run(logger)
@@ -316,6 +316,6 @@ func (opt *VClusterHealthOptions) getMissingReleases(logger vlog.Printer, upHost
 		return fmt.Errorf("fail to get missing releases, %w", err)
 	}
 
-	opt.MissingReleasesResult = clusterOpEngine.execContext.dcMissingReleasesList
+	opt.MissingLockReleasesResult = clusterOpEngine.execContext.dcMissingReleasesList
 	return nil
 }

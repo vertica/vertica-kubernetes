@@ -221,7 +221,7 @@ func (c *CmdClusterHealth) Run(vcc vclusterops.ClusterCommands) error {
 	case getTxnStarts:
 		bytes, err = json.MarshalIndent(options.TransactionStartsResult, "" /*prefix*/, " " /* indent for one space*/)
 	case getMissingReleases:
-		bytes, err = json.MarshalIndent(options.MissingReleasesResult, "", "")
+		bytes, err = json.MarshalIndent(options.MissingLockReleasesResult, "", "")
 	case slowEventCascade:
 		bytes, err = json.MarshalIndent(options.SlowEventCascade, "", " ")
 	case lockCascade:
@@ -231,7 +231,7 @@ func (c *CmdClusterHealth) Run(vcc vclusterops.ClusterCommands) error {
 			SlowEventCascade any `json:"slow_event_cascade"`
 			LockEventCascade any `json:"lock_event_cascade"`
 			MissingReleases  any `json:"missing_releases"`
-		}{options.SlowEventCascade, options.LockEventCascade, options.MissingReleasesResult}
+		}{options.SlowEventCascade, options.LockEventCascade, options.MissingLockReleasesResult}
 		bytes, err = json.MarshalIndent(resultSet, "", " ")
 	}
 
