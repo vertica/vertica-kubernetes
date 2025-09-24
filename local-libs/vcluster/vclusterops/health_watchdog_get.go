@@ -26,6 +26,7 @@ import (
 type healthWatchdogGetOptions struct {
 	ParameterName string
 	Action        string
+	OpType        string
 }
 
 type VHealthWatchdogGetOptions struct {
@@ -166,7 +167,7 @@ func (vcc VClusterCommands) produceHealthWatchdogGetInstructions(options *VHealt
 	}
 
 	nmaHealthOp := makeNMAHealthOp(hosts)
-
+	nmaHealthOp.opType = options.OpType
 	nmaHealthWatchdogGetData := nmaHealthWatchdogGetData{}
 	nmaHealthWatchdogGetData.DBName = options.DBName
 	nmaHealthWatchdogGetData.UserName = options.UserName
@@ -179,6 +180,7 @@ func (vcc VClusterCommands) produceHealthWatchdogGetInstructions(options *VHealt
 	if err != nil {
 		return instructions, err
 	}
+	nmaHealthWatchdogGetOp.opType = options.OpType
 
 	instructions = append(instructions,
 		&nmaHealthOp,

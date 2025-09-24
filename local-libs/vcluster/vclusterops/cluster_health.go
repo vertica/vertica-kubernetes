@@ -47,6 +47,7 @@ type VClusterHealthOptions struct {
 	LockAttemptThresHold string
 	// duration threshold for lock release
 	LockReleaseThresHold string
+	OpType               string
 
 	// hidden option
 	SlowEventCascade        []SlowEventNode
@@ -229,6 +230,7 @@ func (opt *VClusterHealthOptions) checkNMAHealth(logger vlog.Printer, upHosts []
 	var instructions []clusterOp
 
 	nmaHealthOp := makeNMAHealthOp(upHosts)
+	nmaHealthOp.opType = opt.OpType
 	instructions = append(instructions, &nmaHealthOp)
 
 	clusterOpEngine := makeClusterOpEngine(instructions, &opt.DatabaseOptions)
@@ -247,6 +249,7 @@ func (opt *VClusterHealthOptions) getSlowEvents(logger vlog.Printer, upHosts []s
 	if err != nil {
 		return nil, err
 	}
+	nmaSlowEventOp.opType = opt.OpType
 	instructions = append(instructions, &nmaSlowEventOp)
 
 	clusterOpEngine := makeClusterOpEngine(instructions, &opt.DatabaseOptions)
@@ -267,6 +270,7 @@ func (opt *VClusterHealthOptions) getSessionStarts(logger vlog.Printer, upHosts 
 	if err != nil {
 		return nil, err
 	}
+	nmaSessionStartsOp.opType = opt.OpType
 	instructions = append(instructions, &nmaSessionStartsOp)
 
 	clusterOpEngine := makeClusterOpEngine(instructions, &opt.DatabaseOptions)
@@ -287,6 +291,7 @@ func (opt *VClusterHealthOptions) getTransactionStarts(logger vlog.Printer, upHo
 	if err != nil {
 		return nil, fmt.Errorf("fail to construct transaction starts op, %w", err)
 	}
+	nmaTransactionStartsOp.opType = opt.OpType
 	instructions = append(instructions, &nmaTransactionStartsOp)
 
 	clusterOpEngine := makeClusterOpEngine(instructions, &opt.DatabaseOptions)
@@ -308,6 +313,7 @@ func (opt *VClusterHealthOptions) getMissingReleases(logger vlog.Printer, upHost
 	if err != nil {
 		return fmt.Errorf("fail to construct missing releases op, %w", err)
 	}
+	nmaMissingReleasesOp.opType = opt.OpType
 	instructions = append(instructions, &nmaMissingReleasesOp)
 
 	clusterOpEngine := makeClusterOpEngine(instructions, &opt.DatabaseOptions)

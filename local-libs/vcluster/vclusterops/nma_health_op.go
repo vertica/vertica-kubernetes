@@ -58,6 +58,7 @@ func (op *nmaHealthOp) setupClusterHTTPRequest(hosts []string) error {
 }
 
 func (op *nmaHealthOp) prepare(execContext *opEngineExecContext) error {
+	execContext.dispatcher.opBase = op.opBase
 	execContext.dispatcher.setup(op.hosts)
 
 	return op.setupClusterHTTPRequest(op.hosts)
