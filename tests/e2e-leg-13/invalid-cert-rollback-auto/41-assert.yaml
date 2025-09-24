@@ -3,10 +3,10 @@ kind: VerticaDB
 metadata:
   name: v-tls-certs
 spec:
-  httpsNMATLS:
-    secret: custom-cert3
+  clientServerTLS:
+    secret: custom-cert1
 status:
   tlsConfigs:
   - name: httpsNMA
-    secret: custom-cert3
   - name: clientServer
+    secret: custom-cert1

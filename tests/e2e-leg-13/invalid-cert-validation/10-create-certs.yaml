@@ -17,8 +17,8 @@ commands:
   - command: >
       sh -c '
         envsubst < cert-cn-dbadmin.yaml | kubectl apply -n $NAMESPACE -f - &&
-        envsubst < cert-no-client-auth.yaml | kubectl apply -n $NAMESPACE -f - &&
         ./gen-expired-cert.sh | kubectl apply -n $NAMESPACE -f - &&
+        envsubst < cert-no-client-auth.yaml | kubectl apply -n $NAMESPACE -f - &&
         ./gen-mismatched-cert.sh | kubectl apply -n $NAMESPACE -f - &&
         envsubst < cert-cn-test.yaml | kubectl apply -n $NAMESPACE -f -
       '
