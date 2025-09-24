@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/vertica/vcluster/rfc7807"
 	"golang.org/x/exp/maps"
@@ -32,6 +33,8 @@ type nmaPrepareDirectoriesOp struct {
 	// Hidden option for internal use
 	// Used in db revive - re-use existing catalog directories for reviving if true
 	useExistingCatalogDir bool
+	// used for add_subcluster to reuse existing depot dirs
+	useExistingDepotDirOnly bool
 }
 
 type prepareDirectoriesRequestData struct {
@@ -52,6 +55,7 @@ func makeNMAPrepareDirectoriesOp(hostNodeMap vHostNodeMap,
 	op.forceCleanup = forceCleanup
 	op.forRevive = forRevive
 	op.useExistingCatalogDir = false
+	op.useExistingDepotDirOnly = false
 
 	err := op.setupRequestBody(hostNodeMap)
 	if err != nil {
@@ -63,20 +67,32 @@ func makeNMAPrepareDirectoriesOp(hostNodeMap vHostNodeMap,
 	return op, nil
 }
 
-func makeNMAPrepareDirsUseExistingCatalogDirOp(hostNodeMap vHostNodeMap,
-	forceCleanup, forRevive bool, useExistingCatalogDir bool) (nmaPrepareDirectoriesOp, error) {
+func makeNMAPrepareDirsUseExistingDirOp(hostNodeMap vHostNodeMap,
+	forceCleanup, forRevive bool, useExistingCatalogDir, useExistingDepotDir bool) (nmaPrepareDirectoriesOp, error) {
 	op, err := makeNMAPrepareDirectoriesOp(hostNodeMap, forceCleanup, forRevive)
 	if err != nil {
 		return op, err
 	}
 	op.useExistingCatalogDir = useExistingCatalogDir
-	// overwrite the descriptions
-	if op.useExistingCatalogDir {
-		op.name = "NMAPrepareDirsAllowUsingExistingCatalogDirOp"
-		op.description = "Create necessary directories on Vertica hosts, allowing using existing catalog directories"
-	}
+	op.useExistingDepotDirOnly = useExistingDepotDir
+	if op.useExistingDirs() {
+		op.name = "NMAPrepareDirsAllowUsingExistingDirOp"
+		op.description = "Create necessary directories on Vertica hosts, allowing using existing directories: "
 
+		existingDirList := []string{}
+		if op.useExistingCatalogDir {
+			existingDirList = append(existingDirList, "all non /Catalog dirs")
+		}
+		if op.useExistingDepotDirOnly {
+			existingDirList = append(existingDirList, "depot dir")
+		}
+		op.description += strings.Join(existingDirList, ",")
+	}
 	return op, nil
+}
+
+func (op *nmaPrepareDirectoriesOp) useExistingDirs() bool {
+	return op.useExistingCatalogDir || op.useExistingDepotDirOnly
 }
 
 func (op *nmaPrepareDirectoriesOp) setupRequestBody(hostNodeMap vHostNodeMap) error {
@@ -91,6 +107,12 @@ func (op *nmaPrepareDirectoriesOp) setupRequestBody(hostNodeMap vHostNodeMap) er
 		prepareDirData.ForceCleanup = op.forceCleanup
 		prepareDirData.ForRevive = op.forRevive
 		prepareDirData.IgnoreParent = false
+		// this option is hidden from user interface
+		// we have to ignore parent in this case for re-using depot dir
+		// because otherwise the NMA will error out
+		if op.useExistingDepotDirOnly {
+			prepareDirData.IgnoreParent = true
+		}
 
 		dataBytes, err := json.Marshal(prepareDirData)
 		if err != nil {
@@ -152,11 +174,24 @@ func (op *nmaPrepareDirectoriesOp) processResult(_ *opEngineExecContext) error {
 			}
 		} else {
 			// if catalog directory exists and user specified using existing dir, skip the error
-			if op.useExistingCatalogDir {
+			if op.useExistingDirs() {
 				rfcError := &rfc7807.VProblem{}
-				if isRFCError := errors.As(result.err, &rfcError); isRFCError && (rfcError.ProblemID == rfc7807.CreateDirectoryExistError) {
-					op.logger.Info("using existing catalog directory", "details", result.err.Error())
-					continue
+
+				if op.useExistingCatalogDir {
+					if isRFCError := errors.As(result.err, &rfcError); isRFCError && (rfcError.ProblemID == rfc7807.CreateDirectoryExistError) {
+						op.logger.Info("using existing catalog directory", "details", result.err.Error())
+						continue
+					}
+				}
+				if op.useExistingDepotDirOnly {
+					isRFCError := errors.As(result.err, &rfcError)
+					if isRFCError && (rfcError.ProblemID == rfc7807.CreateDirectoryExistError) {
+						op.logger.Info("using existing depot directory", "details", result.err.Error())
+						continue
+					} else if isRFCError && (rfcError.ProblemID == rfc7807.CreateDirectoryParentDirectoryExists) {
+						op.logger.Info("using existing depot parent directory", "details", result.err.Error())
+						continue
+					}
 				}
 			}
 
