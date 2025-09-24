@@ -63,3 +63,5 @@ spec:
         emptyDir:
           sizeLimit: "10Mi"
           medium: "Memory"
+      imagePullSecrets:
+      - name: verticadb-operator-pull-secret
