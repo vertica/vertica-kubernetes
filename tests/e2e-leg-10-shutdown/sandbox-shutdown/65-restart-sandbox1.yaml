@@ -21,7 +21,9 @@ spec:
     shutdown: false
     subclusters:
       - name: sec1
+        type: primary
       - name: sec3
+        type: secondary
   - name: sandbox2
     subclusters:
       - name: sec2
