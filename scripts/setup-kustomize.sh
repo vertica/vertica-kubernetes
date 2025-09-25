@@ -415,7 +415,7 @@ replacements:
           - spec.sidecars.[name=vlogger].image
       - select:
           kind: VerticaDB
-          name: v-with-loki-namespace
+          name: v-with-prom-namespace
         fieldPaths:
           - spec.sidecars.[name=vlogger].image
 EOF
