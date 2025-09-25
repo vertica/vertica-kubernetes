@@ -32,11 +32,12 @@ type VAddSubclusterOptions struct {
 	// part 1: basic db info
 	DatabaseOptions
 	// part 2: subcluster info
-	SCName         string
-	IsPrimary      bool
-	ControlSetSize int
-	CloneSC        string
-	SandboxName    string
+	SCName              string
+	IsPrimary           bool
+	ControlSetSize      int
+	CloneSC             string
+	SandboxName         string
+	UseExistingDepotDir bool
 	// part 3: add node info
 	VAddNodeOptions
 }
