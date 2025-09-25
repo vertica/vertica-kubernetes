@@ -151,7 +151,8 @@ func (vcc VClusterCommands) produceDropDBInstructions(vdb *VCoordinationDatabase
 		return instructions, err
 	}
 
-	nmaDeleteDirectoriesOp, err := makeNMADeleteDirsRetainCatalogDirOp(vdb, options.ForceDelete, options.RetainCatalogDir)
+	nmaDeleteDirectoriesOp, err := makeNMADeleteDirectoriesOp(vdb, options.ForceDelete,
+		options.RetainCatalogDir, false /*retainOnlyDepotDir?*/)
 	if err != nil {
 		return instructions, err
 	}

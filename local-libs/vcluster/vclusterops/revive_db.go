@@ -431,8 +431,8 @@ func (vcc VClusterCommands) produceReviveDBInstructions(options *VReviveDatabase
 	}
 
 	// prepare all directories
-	nmaPrepareDirectoriesOp, err := makeNMAPrepareDirsUseExistingCatalogDirOp(hostNodeMap, options.ForceRemoval,
-		true /*for db revive*/, options.UseExistingCatalogDir /*use existing dir*/)
+	nmaPrepareDirectoriesOp, err := makeNMAPrepareDirsUseExistingDirOp(hostNodeMap, options.ForceRemoval,
+		true /*for db revive*/, options.UseExistingCatalogDir /*use existing dir*/, false /*useExistingDepotDirOnly?*/)
 	if err != nil {
 		return instructions, err
 	}
