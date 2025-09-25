@@ -35,7 +35,14 @@ func makeHTTPRequestDispatcher(logger vlog.Printer) requestDispatcher {
 
 // set up the pool connection for each host
 func (dispatcher *requestDispatcher) setup(hosts []string) {
-	dispatcher.pool = getPoolInstance(dispatcher.logger)
+	switch dispatcher.poolType {
+	case PoolTypeHealthWatchdog:
+		dispatcher.pool = getHealthWatchdogPoolInstance(dispatcher.logger)
+	case PoolTypeClusterHealth:
+		dispatcher.pool = getClusterHealthPoolInstance(dispatcher.logger)
+	default:
+		dispatcher.pool = getPoolInstance(dispatcher.logger)
+	}
 
 	dispatcher.pool.connections = make(map[string]adapter)
 	for _, host := range hosts {
