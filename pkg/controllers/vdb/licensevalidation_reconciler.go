@@ -18,6 +18,7 @@ package vdb
 import (
 	"context"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"time"
 
@@ -39,8 +40,8 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-// LicenseReconciler will check the license
-type LicenseReconciler struct {
+// LicenseValidationReconciler will check the license
+type LicenseValidationReconciler struct {
 	vRec       config.ReconcilerInterface
 	log        logr.Logger
 	vdb        *vapi.VerticaDB
@@ -48,19 +49,19 @@ type LicenseReconciler struct {
 	pFacts     *podfacts.PodFacts
 }
 
-// MakeLicenseReconciler will build a LicenseReconciler object
-func MakeLicenseReconciler(recon config.ReconcilerInterface, log logr.Logger,
+// MakeLicenseValidationReconciler will build a LicenseReconciler object
+func MakeLicenseValidationReconciler(recon config.ReconcilerInterface, log logr.Logger,
 	vdb *vapi.VerticaDB, dispatcher vadmin.Dispatcher, pfacts *podfacts.PodFacts) controllers.ReconcileActor {
-	return &LicenseReconciler{
+	return &LicenseValidationReconciler{
 		vRec:       recon,
-		log:        log.WithName("LicenseReconciler"),
+		log:        log.WithName("LicenseValidationReconciler"),
 		vdb:        vdb,
 		dispatcher: dispatcher,
 		pFacts:     pfacts,
 	}
 }
 
-func (r *LicenseReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
+func (r *LicenseValidationReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
 	var toValidate = false
 	lastSuccessfulValidation := r.vdb.Status.LastLicenseValidation
 	if lastSuccessfulValidation.IsZero() {
@@ -74,27 +75,30 @@ func (r *LicenseReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctr
 	if !toValidate {
 		return ctrl.Result{}, nil
 	}
-	r.log.Info("will check license at " + time.Now().String() + ", last checked at " + lastSuccessfulValidation.String())
-	licenseValid, errMsg, err := r.isLicenseValid(ctx)
+	r.log.Info("will validate licenses at " + time.Now().String() + ", validated last time at " + lastSuccessfulValidation.String())
+	validLicenses, errMsg, err := r.validateLicenses(ctx)
 	if err != nil {
-		r.log.Info("requeue to wait to check license")
-		return ctrl.Result{RequeueAfter: 60 * time.Second}, nil // if no pod, re-check in 1 minute
+		r.log.Info("requeue to wait to validate license")
+		return ctrl.Result{Requeue: true}, nil // if no pod, requeue
 	}
-	if !licenseValid {
+	if len(validLicenses) == 0 {
 		r.vRec.Event(r.vdb, corev1.EventTypeNormal, events.LicenseValidationFail, errMsg)
-		return ctrl.Result{}, fmt.Errorf("invalid Vertica license: %s", errMsg)
+		return ctrl.Result{}, fmt.Errorf("no valid Vertica license found from the license secret. Details: %s", errMsg)
 	}
+	r.log.Info("number of valid licenses found from the license secret", len(validLicenses),
+		"error messages from validation", errMsg)
+
 	updateTime := metav1.Now()
 	r.vdb.Status.LastLicenseValidation = updateTime
 	err = r.updateStatus(ctx, updateTime)
 	if err != nil {
 		r.log.Error(err, "failed to update last license check time")
 	}
-	r.log.Info("status lastLicenseValidation - " + updateTime.String())
+	r.log.Info("lastLicenseValidation in Status has been set to " + updateTime.String())
 	return ctrl.Result{}, nil
 }
 
-func (r *LicenseReconciler) isLicenseValid(ctx context.Context) (licenseValid bool, errMsg string, err error) {
+func (r *LicenseValidationReconciler) validateLicenses(ctx context.Context) (validLicenses []string, errMsg string, err error) {
 	namespacedLicenseSecretName := types.NamespacedName{
 		Name:      r.vdb.Spec.LicenseSecret,
 		Namespace: r.vdb.Namespace,
@@ -107,36 +111,42 @@ func (r *LicenseReconciler) isLicenseValid(ctx context.Context) (licenseValid bo
 	}
 	licenseData, _, err := secretFetcher.FetchAllowRequeue(ctx, namespacedLicenseSecretName)
 	if err != nil {
-		return licenseValid, errMsg, err
+		return validLicenses, errMsg, err
 	}
-	licenseFile := licenseData["license.dat"]
 	err = r.pFacts.Collect(ctx, r.vdb)
 	if err != nil {
-		return licenseValid, errMsg, err
+		return validLicenses, errMsg, err
 	}
 	initiatorPod, ok := r.pFacts.FindRunningPod()
 	if !ok {
 		err = fmt.Errorf("failed to find an installed pod to verify license")
-		return licenseValid, errMsg, err
+		return validLicenses, errMsg, err
 	}
 	initiatorPodIP := initiatorPod.GetPodIP()
-
-	opts := []checklicense.Option{
-		checklicense.WithInitiators([]string{initiatorPodIP}),
-		checklicense.WithLicenseFile(base64.StdEncoding.EncodeToString(licenseFile)),
-		checklicense.WithCELienseDisallowed(true),
+	var allErrors error
+	for licenseKey, licenseFile := range licenseData {
+		opts := []checklicense.Option{
+			checklicense.WithInitiators([]string{initiatorPodIP}),
+			checklicense.WithLicenseFile(base64.StdEncoding.EncodeToString(licenseFile)),
+			checklicense.WithCELienseDisallowed(true),
+		}
+		r.log.Info("To validate license", "licenseKey", licenseKey, "licenseSecret", r.vdb.Spec.LicenseSecret)
+		err2 := r.dispatcher.CheckLicense(ctx, opts...)
+		if err2 != nil {
+			r.log.Error(err2, "invalid Vertica license", "licenseKey", licenseKey, "licenseSecret", r.vdb.Spec.LicenseSecret)
+			allErrors = errors.Join(allErrors, err2)
+		} else {
+			validLicenses = append(validLicenses, licenseKey)
+		}
 	}
-	r.log.Info("check license in secret - " + r.vdb.Spec.LicenseSecret)
-	err2 := r.dispatcher.CheckLicense(ctx, opts...)
-	if err2 != nil {
-		r.log.Info("invalid Vertica license - " + err2.Error())
-		return false, err2.Error(), err
+	if allErrors != nil {
+		return validLicenses, allErrors.Error(), nil
+	} else {
+		return validLicenses, "", nil
 	}
-	licenseValid = true
-	return licenseValid, errMsg, err
 }
 
-func (r *LicenseReconciler) updateStatus(ctx context.Context, lastValicationTime metav1.Time) error {
+func (r *LicenseValidationReconciler) updateStatus(ctx context.Context, lastValicationTime metav1.Time) error {
 	updateStatus := func(vdbChg *vapi.VerticaDB) error {
 		vdbChg.Status.LastLicenseValidation = lastValicationTime
 		return nil
