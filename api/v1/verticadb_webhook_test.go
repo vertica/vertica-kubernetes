@@ -36,8 +36,8 @@ var _ = Describe("verticadb_webhook", func() {
 	const (
 		oldSecret = "old-secret"
 		newSecret = "new-secret"
-		oldMode   = "verify_ca"
-		newMode   = "verify_full"
+		oldMode   = tlsModeVerifyCA
+		newMode   = tlsModeVerifyFull
 	)
 
 	var (
@@ -48,14 +48,11 @@ var _ = Describe("verticadb_webhook", func() {
 	BeforeEach(func() {
 		oldVdb1 = MakeVDB()
 		newVdb1 = oldVdb1.DeepCopy()
-		// Enable TLS
-		oldVdb1.Annotations[vmeta.EnableTLSAuthAnnotation] = trueString
-		newVdb1.Annotations[vmeta.EnableTLSAuthAnnotation] = trueString
 		// Set initial TLS secrets and modes
-		oldVdb1.Spec.HTTPSNMATLS = &TLSConfigSpec{Secret: oldSecret, Mode: oldMode}
-		oldVdb1.Spec.ClientServerTLS = &TLSConfigSpec{Secret: oldSecret, Mode: oldMode}
-		newVdb1.Spec.HTTPSNMATLS = &TLSConfigSpec{Secret: oldSecret, Mode: oldMode}
-		newVdb1.Spec.ClientServerTLS = &TLSConfigSpec{Secret: oldSecret, Mode: oldMode}
+		oldVdb1.Spec.HTTPSNMATLS = &TLSConfigSpec{Secret: oldSecret, Mode: oldMode, Enabled: BoolPtr(true)}
+		oldVdb1.Spec.ClientServerTLS = &TLSConfigSpec{Secret: oldSecret, Mode: oldMode, Enabled: BoolPtr(true)}
+		newVdb1.Spec.HTTPSNMATLS = &TLSConfigSpec{Secret: oldSecret, Mode: oldMode, Enabled: BoolPtr(true)}
+		newVdb1.Spec.ClientServerTLS = &TLSConfigSpec{Secret: oldSecret, Mode: oldMode, Enabled: BoolPtr(true)}
 		// Set status fields to match spec
 		oldVdb1.Status.TLSConfigs = []TLSConfigStatus{
 			{Name: HTTPSNMATLSConfigName, Secret: oldSecret, Mode: oldMode},
@@ -624,7 +621,8 @@ var _ = Describe("verticadb_webhook", func() {
 
 	It("should not allow cert-rotation-related changes when cert rotation is disabled", func() {
 		oldVdb := MakeVDB()
-		oldVdb.Annotations[vmeta.EnableTLSAuthAnnotation] = vmeta.AnnotationFalse
+		oldVdb.Spec.HTTPSNMATLS.Enabled = BoolPtr(false)
+		oldVdb.Spec.ClientServerTLS.Enabled = BoolPtr(false)
 
 		oldVdb.Spec.HTTPSNMATLS.Secret = "old-secret"
 		oldVdb.Spec.ClientServerTLS.Secret = "old-secret"
@@ -689,7 +687,7 @@ var _ = Describe("verticadb_webhook", func() {
 
 	It("should not allow changing nmaTLSSecret", func() {
 		oldVdb := MakeVDB()
-		oldVdb.Annotations[vmeta.EnableTLSAuthAnnotation] = vmeta.AnnotationFalse
+		oldVdb.Spec.HTTPSNMATLS.Enabled = BoolPtr(false)
 		oldVdb.Spec.NMATLSSecret = "old-nma"
 		newVdb := oldVdb.DeepCopy()
 		newVdb.Spec.NMATLSSecret = "new-nma"
@@ -698,20 +696,19 @@ var _ = Describe("verticadb_webhook", func() {
 		oldVdb.Spec.NMATLSSecret = ""
 		allErrs = newVdb.checkValidTLSConfigUpdate(oldVdb, nil)
 		Ω(allErrs).Should(HaveLen(0))
-		newVdb.Annotations[vmeta.EnableTLSAuthAnnotation] = vmeta.AnnotationTrue
+		newVdb.Spec.HTTPSNMATLS.Enabled = BoolPtr(true)
 		allErrs = newVdb.checkValidTLSConfigUpdate(oldVdb, nil)
 		Ω(allErrs).Should(HaveLen(1))
 
 		allErrs = newVdb.validateNMASecret(nil)
 		Ω(allErrs).Should(HaveLen(1))
-		delete(newVdb.Annotations, vmeta.EnableTLSAuthAnnotation)
+		newVdb.Spec.HTTPSNMATLS.Enabled = BoolPtr(false)
 		allErrs = newVdb.validateNMASecret(nil)
 		Ω(allErrs).Should(HaveLen(0))
 	})
 
 	It("should not set dbTlsConfig when the deployment method is not vcluster-ops", func() {
 		vdb := MakeVDBForTLS()
-		vdb.Annotations[vmeta.EnableTLSAuthAnnotation] = falseString
 		vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.AnnotationFalse
 		vdb.Spec.HTTPSNMATLS = nil
 		vdb.Spec.ClientServerTLS = nil
@@ -719,17 +716,17 @@ var _ = Describe("verticadb_webhook", func() {
 			TLSVersion:   2,
 			CipherSuites: "",
 		}
-		allErrs := vdb.validateVerticaDBSpec()
+		allErrs := vdb.hasValidDBTLSConfig(nil)
 		Ω(allErrs).Should(HaveLen(1))
 		vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.AnnotationTrue
-		vdb.Annotations[vmeta.EnableTLSAuthAnnotation] = trueString
-		allErrs = vdb.validateVerticaDBSpec()
+		vdb.Spec.HTTPSNMATLS = &TLSConfigSpec{Enabled: BoolPtr(true)}
+		allErrs = vdb.hasValidDBTLSConfig(nil)
 		Ω(allErrs).Should(HaveLen(0))
 
 		vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.AnnotationFalse
-		vdb.Annotations[vmeta.EnableTLSAuthAnnotation] = falseString
+		vdb.Spec.HTTPSNMATLS.Enabled = BoolPtr(false)
 		vdb.Spec.DBTLSConfig = nil
-		allErrs = vdb.validateVerticaDBSpec()
+		allErrs = vdb.hasValidDBTLSConfig(nil)
 		Ω(allErrs).Should(HaveLen(0))
 	})
 
@@ -2593,7 +2590,7 @@ var _ = Describe("verticadb_webhook", func() {
 		SetVDBForTLS(newVdb)
 		newVdb.Spec.ClientServerTLS.Mode = "TRY_VERIFY"
 		Ω(newVdb.validateVerticaDBSpec()).Should(HaveLen(0))
-		newVdb.Spec.ClientServerTLS.Mode = "try_verify"
+		newVdb.Spec.ClientServerTLS.Mode = tlsModeTryVerify
 		Ω(newVdb.validateVerticaDBSpec()).Should(HaveLen(0))
 		newVdb.Spec.ClientServerTLS.Mode = "try_VERIFY"
 		Ω(newVdb.validateVerticaDBSpec()).Should(HaveLen(0))
@@ -2631,19 +2628,10 @@ var _ = Describe("verticadb_webhook", func() {
 		Ω(allErrs[0].Error()).Should(ContainSubstring("no changes allowed while TLS config update is in progress"))
 	})
 
-	It("should not allow disabling mutual TLS after it's enabled", func() {
-		oldVdb := MakeVDB()
-		oldVdb.Annotations[vmeta.EnableTLSAuthAnnotation] = "true"
-		newVdb := oldVdb.DeepCopy()
-		newVdb.Annotations[vmeta.EnableTLSAuthAnnotation] = falseString
-		allErrs := newVdb.checkValidTLSConfigUpdate(oldVdb, nil)
-		Ω(allErrs).ShouldNot(BeEmpty())
-		Ω(allErrs[0].Error()).Should(ContainSubstring("cannot disable mutual TLS after it's enabled"))
-	})
-
 	It("should call checkDisallowedMutualTLSChanges when mutual TLS is not enabled", func() {
 		oldVdb := MakeVDB()
-		oldVdb.Annotations[vmeta.EnableTLSAuthAnnotation] = falseString
+		oldVdb.Spec.HTTPSNMATLS.Enabled = BoolPtr(false)
+		oldVdb.Spec.ClientServerTLS.Enabled = BoolPtr(false)
 		oldVdb.Spec.HTTPSNMATLS.Secret = oldSecret
 		newVdb := oldVdb.DeepCopy()
 		newVdb.Spec.HTTPSNMATLS.Secret = "changed"
@@ -2651,14 +2639,15 @@ var _ = Describe("verticadb_webhook", func() {
 		Ω(allErrs).ShouldNot(BeEmpty())
 	})
 
-	It("should not allow changing https secret while enabling mutual", func() {
+	It("should not allow changing https secret while enabling HTTPS TLS", func() {
 		oldVdb := MakeVDB()
-		oldVdb.Annotations[vmeta.EnableTLSAuthAnnotation] = falseString
+		oldVdb.Spec.HTTPSNMATLS.Enabled = BoolPtr(false)
+		oldVdb.Spec.ClientServerTLS.Enabled = BoolPtr(false)
 		oldVdb.Spec.HTTPSNMATLS.Secret = oldSecret
 
 		newVdb := oldVdb.DeepCopy()
 
-		newVdb.Annotations[vmeta.EnableTLSAuthAnnotation] = trueString
+		newVdb.Spec.HTTPSNMATLS.Enabled = BoolPtr(true)
 		allErrs := newVdb.checkValidTLSConfigUpdate(oldVdb, nil)
 		Ω(allErrs).Should(BeEmpty())
 
@@ -2686,25 +2675,22 @@ var _ = Describe("verticadb_webhook", func() {
 
 	It("should return error if both TLS and NMA certs mount are enabled", func() {
 		vdb := MakeVDB()
-		vdb.Annotations[vmeta.EnableTLSAuthAnnotation] = trueString
 		vdb.Annotations[vmeta.MountNMACertsAnnotation] = trueString
 		allErrs := vdb.hasNoConflictbetweenTLSAndCertMount(field.ErrorList{})
 		Expect(allErrs).ShouldNot(BeEmpty())
-		Expect(allErrs[0].Error()).To(ContainSubstring("cannot set enable-tls-auth and mount-nma-certs to true at the same time"))
+		Expect(allErrs[0].Error()).To(ContainSubstring("cannot set HTTPS TLS auth and mount-nma-certs to true at the same time"))
 	})
 
 	It("should return error if TLS is enabled and vcluster-ops is disabled", func() {
 		vdb := MakeVDB()
-		vdb.Annotations[vmeta.EnableTLSAuthAnnotation] = trueString
 		vdb.Annotations[vmeta.VClusterOpsAnnotation] = falseString
 		allErrs := vdb.hasNoConflictbetweenTLSAndAdmintool(field.ErrorList{})
 		Expect(allErrs).ShouldNot(BeEmpty())
-		Expect(allErrs[0].Error()).To(ContainSubstring("cannot set enable-tls-auth to true and vcluster-ops to false at the same time"))
+		Expect(allErrs[0].Error()).To(ContainSubstring("cannot set any TLS config to true and vcluster-ops to false at the same time"))
 	})
 
 	It("should not return error if only TLS is enabled", func() {
 		vdb := MakeVDB()
-		vdb.Annotations[vmeta.EnableTLSAuthAnnotation] = trueString
 		delete(vdb.Annotations, vmeta.MountNMACertsAnnotation)
 		allErrs := vdb.hasNoConflictbetweenTLSAndCertMount(field.ErrorList{})
 		Expect(allErrs).Should(BeEmpty())
@@ -2712,7 +2698,7 @@ var _ = Describe("verticadb_webhook", func() {
 
 	It("should not return error if only NMA certs mount is enabled", func() {
 		vdb := MakeVDB()
-		delete(vdb.Annotations, vmeta.EnableTLSAuthAnnotation)
+		vdb.Spec.HTTPSNMATLS = nil
 		vdb.Annotations[vmeta.MountNMACertsAnnotation] = trueString
 		allErrs := vdb.hasNoConflictbetweenTLSAndCertMount(field.ErrorList{})
 		Expect(allErrs).Should(BeEmpty())
@@ -2720,25 +2706,11 @@ var _ = Describe("verticadb_webhook", func() {
 
 	It("should not return error if neither TLS nor NMA certs mount is enabled", func() {
 		vdb := MakeVDB()
-		delete(vdb.Annotations, vmeta.EnableTLSAuthAnnotation)
+		vdb.Spec.HTTPSNMATLS.Enabled = BoolPtr(false)
+		vdb.Spec.ClientServerTLS.Enabled = BoolPtr(false)
 		delete(vdb.Annotations, vmeta.MountNMACertsAnnotation)
 		allErrs := vdb.hasNoConflictbetweenTLSAndCertMount(field.ErrorList{})
 		Expect(allErrs).Should(BeEmpty())
-	})
-
-	It("should return error if TLS is not empty but TLS Auth is disabled", func() {
-		vdb := MakeVDB()
-		delete(vdb.Annotations, vmeta.EnableTLSAuthAnnotation)
-		vdb.Spec.HTTPSNMATLS.Secret = "secret"
-		allErrs := vdb.hasValidTLSWithKnob(field.ErrorList{})
-		Expect(allErrs).ShouldNot(BeEmpty())
-		Expect(allErrs[0].Error()).To(ContainSubstring("cannot set httpsNMATLS when %s is set to false", vmeta.EnableTLSAuthAnnotation))
-
-		vdb.Spec.HTTPSNMATLS = nil
-		vdb.Spec.ClientServerTLS.Mode = "verify_ca"
-		allErrs = vdb.hasValidTLSWithKnob(field.ErrorList{})
-		Expect(allErrs).ShouldNot(BeEmpty())
-		Expect(allErrs[0].Error()).To(ContainSubstring("cannot set clientServerTLS when %s is set to false", vmeta.EnableTLSAuthAnnotation))
 	})
 
 	It("should return no error if nothing changes", func() {
@@ -2781,7 +2753,6 @@ var _ = Describe("verticadb_webhook", func() {
 	It("should return no error if initPolicy is not Revive", func() {
 		vdb := MakeVDB()
 		vdb.Spec.InitPolicy = CommunalInitPolicyCreate
-		vdb.Annotations[vmeta.EnableTLSAuthAnnotation] = trueString
 		vdb.Spec.HTTPSNMATLS.Secret = ""
 		vdb.Spec.ClientServerTLS.Secret = ""
 		allErrs := vdb.hasTLSSecretsSetForRevive(field.ErrorList{})
@@ -2791,9 +2762,8 @@ var _ = Describe("verticadb_webhook", func() {
 	It("should return no error if TLS is not enabled", func() {
 		vdb := MakeVDB()
 		vdb.Spec.InitPolicy = CommunalInitPolicyRevive
-		delete(vdb.Annotations, vmeta.EnableTLSAuthAnnotation)
-		vdb.Spec.HTTPSNMATLS.Secret = ""
-		vdb.Spec.ClientServerTLS.Secret = ""
+		vdb.Spec.HTTPSNMATLS = nil
+		vdb.Spec.ClientServerTLS = nil
 		allErrs := vdb.hasTLSSecretsSetForRevive(field.ErrorList{})
 		Expect(allErrs).Should(BeEmpty())
 	})
@@ -2801,7 +2771,6 @@ var _ = Describe("verticadb_webhook", func() {
 	It("should return error if HTTPSNMATLS.Secret is empty when TLS is enabled and initPolicy is Revive", func() {
 		vdb := MakeVDB()
 		vdb.Spec.InitPolicy = CommunalInitPolicyRevive
-		vdb.Annotations[vmeta.EnableTLSAuthAnnotation] = trueString
 		vdb.Spec.HTTPSNMATLS.Secret = ""
 		vdb.Spec.ClientServerTLS.Secret = "client-secret"
 		allErrs := vdb.hasTLSSecretsSetForRevive(field.ErrorList{})
@@ -2813,7 +2782,6 @@ var _ = Describe("verticadb_webhook", func() {
 	It("should return error if ClientServerTLS.Secret is empty when TLS is enabled and initPolicy is Revive", func() {
 		vdb := MakeVDB()
 		vdb.Spec.InitPolicy = CommunalInitPolicyRevive
-		vdb.Annotations[vmeta.EnableTLSAuthAnnotation] = trueString
 		vdb.Spec.HTTPSNMATLS.Secret = newSecret
 		vdb.Spec.ClientServerTLS.Secret = ""
 		allErrs := vdb.hasTLSSecretsSetForRevive(field.ErrorList{})
@@ -2825,7 +2793,6 @@ var _ = Describe("verticadb_webhook", func() {
 	It("should return errors for both secrets if both are empty", func() {
 		vdb := MakeVDB()
 		vdb.Spec.InitPolicy = CommunalInitPolicyRevive
-		vdb.Annotations[vmeta.EnableTLSAuthAnnotation] = trueString
 		vdb.Spec.HTTPSNMATLS.Secret = ""
 		vdb.Spec.ClientServerTLS.Secret = ""
 		allErrs := vdb.hasTLSSecretsSetForRevive(field.ErrorList{})
@@ -2837,7 +2804,6 @@ var _ = Describe("verticadb_webhook", func() {
 	It("should return no error if both secrets are set and TLS is enabled and initPolicy is Revive", func() {
 		vdb := MakeVDB()
 		vdb.Spec.InitPolicy = CommunalInitPolicyRevive
-		vdb.Annotations[vmeta.EnableTLSAuthAnnotation] = trueString
 		vdb.Spec.HTTPSNMATLS.Secret = newSecret
 		vdb.Spec.ClientServerTLS.Secret = newSecret
 		allErrs := vdb.hasTLSSecretsSetForRevive(field.ErrorList{})
@@ -2855,7 +2821,6 @@ var _ = Describe("verticadb_webhook", func() {
 		const tryVerify = "TRY_VERIFY"
 		newVdb.Annotations[vmeta.VersionAnnotation] = TLSAuthMinVersion
 		newVdb.Annotations[vmeta.VClusterOpsAnnotation] = trueString
-		newVdb.Annotations[vmeta.EnableTLSAuthAnnotation] = trueString
 		newVdb.Spec.Subclusters = []Subcluster{
 			{Name: "sc1", Type: PrimarySubcluster, Size: 3, ServiceType: v1.ServiceTypeClusterIP},
 			{Name: "sc2", Type: SecondarySubcluster, Size: 3, ServiceType: v1.ServiceTypeClusterIP},
@@ -2916,9 +2881,9 @@ var _ = Describe("verticadb_webhook", func() {
 		Ω(newVdb.validateImmutableFields(oldVdb)).Should(HaveLen(0))
 
 		// tls auth cannot be disabled
-		newVdb.Annotations[vmeta.EnableTLSAuthAnnotation] = falseString
+		newVdb.Spec.HTTPSNMATLS.Enabled = BoolPtr(false)
 		Ω(newVdb.validateImmutableFields(oldVdb)).Should(HaveLen(1))
-		newVdb.Annotations[vmeta.EnableTLSAuthAnnotation] = trueString
+		newVdb.Spec.HTTPSNMATLS.Enabled = BoolPtr(true)
 		Ω(newVdb.validateImmutableFields(oldVdb)).Should(HaveLen(0))
 	})
 
@@ -2932,7 +2897,7 @@ var _ = Describe("verticadb_webhook", func() {
 
 	It("should return no errors for valid HTTPSNMATLS mode", func() {
 		vdb := MakeVDBForTLS()
-		vdb.Spec.HTTPSNMATLS = &TLSConfigSpec{Mode: "verify_ca"}
+		vdb.Spec.HTTPSNMATLS.Mode = tlsModeVerifyCA
 		vdb.Spec.ClientServerTLS = nil
 		allErrs := vdb.hasValidTLSModes(field.ErrorList{})
 		Expect(allErrs).To(BeEmpty())
@@ -2941,14 +2906,14 @@ var _ = Describe("verticadb_webhook", func() {
 	It("should return no errors for valid ClientServerTLS mode", func() {
 		vdb := MakeVDBForTLS()
 		vdb.Spec.HTTPSNMATLS = nil
-		vdb.Spec.ClientServerTLS = &TLSConfigSpec{Mode: "verify_full"}
+		vdb.Spec.ClientServerTLS.Mode = tlsModeVerifyFull
 		allErrs := vdb.hasValidTLSModes(field.ErrorList{})
 		Expect(allErrs).To(BeEmpty())
 	})
 
 	It("should return errors for invalid HTTPSNMATLS mode", func() {
 		vdb := MakeVDBForTLS()
-		vdb.Spec.HTTPSNMATLS = &TLSConfigSpec{Mode: "invalid_mode"}
+		vdb.Spec.HTTPSNMATLS.Mode = "invalid_mode"
 		vdb.Spec.ClientServerTLS = nil
 		allErrs := vdb.hasValidTLSModes(field.ErrorList{})
 		Expect(allErrs).ToNot(BeEmpty())
@@ -2957,15 +2922,15 @@ var _ = Describe("verticadb_webhook", func() {
 	It("should return errors for invalid ClientServerTLS mode", func() {
 		vdb := MakeVDBForTLS()
 		vdb.Spec.HTTPSNMATLS = nil
-		vdb.Spec.ClientServerTLS = &TLSConfigSpec{Mode: "bad_mode"}
+		vdb.Spec.ClientServerTLS.Mode = "bad_mode"
 		allErrs := vdb.hasValidTLSModes(field.ErrorList{})
 		Expect(allErrs).ToNot(BeEmpty())
 	})
 
 	It("should return errors for both invalid modes", func() {
 		vdb := MakeVDBForTLS()
-		vdb.Spec.HTTPSNMATLS = &TLSConfigSpec{Mode: "foo"}
-		vdb.Spec.ClientServerTLS = &TLSConfigSpec{Mode: "bar"}
+		vdb.Spec.HTTPSNMATLS.Mode = "foo"
+		vdb.Spec.ClientServerTLS.Mode = "bar"
 		allErrs := vdb.hasValidTLSModes(field.ErrorList{})
 		Expect(allErrs).To(HaveLen(2))
 	})
@@ -2973,8 +2938,8 @@ var _ = Describe("verticadb_webhook", func() {
 	It("should return error if httpsNMATLS mode changes only in case", func() {
 		oldVdb := MakeVDBForTLS()
 		newVdb := oldVdb.DeepCopy()
-		oldVdb.Spec.HTTPSNMATLS = &TLSConfigSpec{Mode: "verify_ca"}
-		newVdb.Spec.HTTPSNMATLS = &TLSConfigSpec{Mode: "VERIFY_CA"}
+		oldVdb.Spec.HTTPSNMATLS.Mode = tlsModeVerifyCA
+		newVdb.Spec.HTTPSNMATLS.Mode = "VERIFY_CA"
 		// Modes differ in case, but normalized value is the same
 		allErrs := newVdb.checkTLSModeCaseInsensitiveChange(oldVdb, field.ErrorList{})
 		Expect(allErrs).To(HaveLen(1))
@@ -2984,8 +2949,8 @@ var _ = Describe("verticadb_webhook", func() {
 	It("should return error if clientServerTLS mode changes only in case", func() {
 		oldVdb := MakeVDBForTLS()
 		newVdb := oldVdb.DeepCopy()
-		oldVdb.Spec.ClientServerTLS = &TLSConfigSpec{Mode: "verify_full"}
-		newVdb.Spec.ClientServerTLS = &TLSConfigSpec{Mode: "VERIFY_FULL"}
+		oldVdb.Spec.ClientServerTLS.Mode = tlsModeVerifyFull
+		newVdb.Spec.ClientServerTLS.Mode = "VERIFY_FULL"
 		allErrs := newVdb.checkTLSModeCaseInsensitiveChange(oldVdb, field.ErrorList{})
 		Expect(allErrs).To(HaveLen(1))
 		Expect(allErrs[0].Error()).To(ContainSubstring("case insensitive mode change is not allowed for clientServerTLS"))
@@ -2994,10 +2959,10 @@ var _ = Describe("verticadb_webhook", func() {
 	It("should return errors for both httpsNMATLS and clientServerTLS if both change only in case", func() {
 		oldVdb := MakeVDBForTLS()
 		newVdb := oldVdb.DeepCopy()
-		oldVdb.Spec.HTTPSNMATLS = &TLSConfigSpec{Mode: "try_verify"}
-		newVdb.Spec.HTTPSNMATLS = &TLSConfigSpec{Mode: "TRY_VERIFY"}
-		oldVdb.Spec.ClientServerTLS = &TLSConfigSpec{Mode: "enable"}
-		newVdb.Spec.ClientServerTLS = &TLSConfigSpec{Mode: "ENABLE"}
+		oldVdb.Spec.HTTPSNMATLS.Mode = tlsModeTryVerify
+		newVdb.Spec.HTTPSNMATLS.Mode = "TRY_VERIFY"
+		oldVdb.Spec.ClientServerTLS.Mode = tlsModeEnable
+		newVdb.Spec.ClientServerTLS.Mode = "ENABLE"
 		allErrs := newVdb.checkTLSModeCaseInsensitiveChange(oldVdb, field.ErrorList{})
 		Expect(allErrs).To(HaveLen(2))
 		Expect(allErrs[0].Error()).To(ContainSubstring("case insensitive mode change is not allowed for httpsNMATLS"))
@@ -3007,8 +2972,8 @@ var _ = Describe("verticadb_webhook", func() {
 	It("should not return error if httpsNMATLS mode changes to a different value", func() {
 		oldVdb := MakeVDBForTLS()
 		newVdb := oldVdb.DeepCopy()
-		oldVdb.Spec.HTTPSNMATLS = &TLSConfigSpec{Mode: "verify_ca"}
-		newVdb.Spec.HTTPSNMATLS = &TLSConfigSpec{Mode: "verify_full"}
+		oldVdb.Spec.HTTPSNMATLS.Mode = tlsModeVerifyCA
+		newVdb.Spec.HTTPSNMATLS.Mode = tlsModeVerifyFull
 		allErrs := newVdb.checkTLSModeCaseInsensitiveChange(oldVdb, field.ErrorList{})
 		Expect(allErrs).To(BeEmpty())
 	})
@@ -3016,8 +2981,8 @@ var _ = Describe("verticadb_webhook", func() {
 	It("should not return error if clientServerTLS mode changes to a different value", func() {
 		oldVdb := MakeVDBForTLS()
 		newVdb := oldVdb.DeepCopy()
-		oldVdb.Spec.ClientServerTLS = &TLSConfigSpec{Mode: "try_verify"}
-		newVdb.Spec.ClientServerTLS = &TLSConfigSpec{Mode: "verify_ca"}
+		oldVdb.Spec.ClientServerTLS.Mode = tlsModeTryVerify
+		newVdb.Spec.ClientServerTLS.Mode = tlsModeVerifyCA
 		allErrs := newVdb.checkTLSModeCaseInsensitiveChange(oldVdb, field.ErrorList{})
 		Expect(allErrs).To(BeEmpty())
 	})
@@ -3025,10 +2990,10 @@ var _ = Describe("verticadb_webhook", func() {
 	It("should not return error if modes are unchanged", func() {
 		oldVdb := MakeVDBForTLS()
 		newVdb := oldVdb.DeepCopy()
-		oldVdb.Spec.HTTPSNMATLS = &TLSConfigSpec{Mode: "verify_ca"}
-		newVdb.Spec.HTTPSNMATLS = &TLSConfigSpec{Mode: "verify_ca"}
-		oldVdb.Spec.ClientServerTLS = &TLSConfigSpec{Mode: "enable"}
-		newVdb.Spec.ClientServerTLS = &TLSConfigSpec{Mode: "enable"}
+		oldVdb.Spec.HTTPSNMATLS.Mode = tlsModeVerifyCA
+		newVdb.Spec.HTTPSNMATLS.Mode = tlsModeVerifyCA
+		oldVdb.Spec.ClientServerTLS.Mode = tlsModeEnable
+		newVdb.Spec.ClientServerTLS.Mode = tlsModeEnable
 		allErrs := newVdb.checkTLSModeCaseInsensitiveChange(oldVdb, field.ErrorList{})
 		Expect(allErrs).To(BeEmpty())
 	})
@@ -3071,6 +3036,34 @@ var _ = Describe("verticadb_webhook", func() {
 		allErrs := vdb.validateAutoRotateConfig(field.ErrorList{})
 		Expect(allErrs).To(HaveLen(0))
 		Expect(allErrs).To(BeEmpty())
+	})
+
+	It("should not allow disabling TLS after it is enabled", func() {
+		oldVdb := MakeVDB()
+		oldVdb.Spec.HTTPSNMATLS = &TLSConfigSpec{Enabled: BoolPtr(true)}
+		newVdb := oldVdb.DeepCopy()
+		newVdb.Spec.HTTPSNMATLS = &TLSConfigSpec{Enabled: BoolPtr(false)}
+		allErrs := newVdb.checkValidTLSEnabled(oldVdb, nil)
+		Expect(allErrs).ShouldNot(BeEmpty())
+		Expect(allErrs[0].Error()).To(ContainSubstring("cannot be disabled after it's enabled"))
+	})
+
+	It("should allow enabling TLS when it was previously disabled", func() {
+		oldVdb := MakeVDB()
+		oldVdb.Spec.HTTPSNMATLS = &TLSConfigSpec{Enabled: BoolPtr(false)}
+		newVdb := oldVdb.DeepCopy()
+		newVdb.Spec.HTTPSNMATLS = &TLSConfigSpec{Enabled: BoolPtr(true)}
+		allErrs := newVdb.checkValidTLSEnabled(oldVdb, nil)
+		Expect(allErrs).Should(BeEmpty())
+	})
+
+	It("should allow unchanged TLS enabled state", func() {
+		oldVdb := MakeVDB()
+		oldVdb.Spec.HTTPSNMATLS = &TLSConfigSpec{Enabled: BoolPtr(true)}
+		newVdb := oldVdb.DeepCopy()
+		newVdb.Spec.HTTPSNMATLS = &TLSConfigSpec{Enabled: BoolPtr(true)}
+		allErrs := newVdb.checkValidTLSEnabled(oldVdb, nil)
+		Expect(allErrs).Should(BeEmpty())
 	})
 })
 

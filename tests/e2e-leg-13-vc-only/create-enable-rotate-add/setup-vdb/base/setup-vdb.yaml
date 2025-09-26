@@ -31,6 +31,7 @@ spec:
   encryptSpreadComm: vertica
   clientServerTLS:
     secret: custom-cert
+    enabled: false
   subclusters:
     - name: sc1
       size: 3

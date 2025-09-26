@@ -31,8 +31,6 @@ spec:
   subclusters:
     - name: main
       size: 1
-  httpsNMATLS:
-    secret: custom-cert
   certSecrets: []
   imagePullSecrets: []
   volumes: []

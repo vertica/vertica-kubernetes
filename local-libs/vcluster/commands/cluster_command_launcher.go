@@ -119,6 +119,8 @@ const (
 	startHostFlag                   = "start-hosts"
 	useExistingCatalogDirFlag       = "use-existing-catalog-directory"
 	retainCatalogDirFlag            = "retain-catalog-directory"
+	retainDepotDirFlag              = "retain-depot-directory"
+	useExistingDepotDirFlag         = "use-existing-depot-directory"
 	nodeNameToHostFlag              = "nodename-to-host"
 )
 

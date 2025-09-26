@@ -953,7 +953,7 @@ func BuildBasicAuthSecret(vdb *vapi.VerticaDB, name, username, password string) 
 }
 
 func makeBasicAuthForServiceMonitor(vdb *vapi.VerticaDB, secret string) *monitoringv1.BasicAuth {
-	if vdb.IsSetForTLS() {
+	if vdb.IsHTTPSNMATLSAuthEnabledWithMinVersion() {
 		return nil
 	}
 
@@ -975,7 +975,7 @@ func makeBasicAuthForServiceMonitor(vdb *vapi.VerticaDB, secret string) *monitor
 
 func makeTLSConfigForServiceMonitor(vdb *vapi.VerticaDB) *monitoringv1.TLSConfig {
 	insecureSkipVerify := false
-	if !vdb.IsSetForTLS() {
+	if !vdb.IsHTTPSNMATLSAuthEnabledWithMinVersion() {
 		insecureSkipVerify = true
 		return &monitoringv1.TLSConfig{
 			SafeTLSConfig: monitoringv1.SafeTLSConfig{
@@ -2162,7 +2162,7 @@ func buildCanaryQuerySQL(vdb *vapi.VerticaDB) string {
 		passwd = fmt.Sprintf("-w $(cat %s/%s)", paths.PodInfoPath, SuperuserPasswordPath)
 	}
 
-	if vmeta.UseTLSAuth(vdb.Annotations) {
+	if vdb.IsHTTPSNMATLSAuthEnabled() {
 		return fmt.Sprintf("vsql %s -m allow -c 'select 1'", passwd)
 	}
 	return fmt.Sprintf("vsql %s -c 'select 1'", passwd)
@@ -2361,15 +2361,17 @@ func GetTarballName(cmd []string) string {
 }
 
 // BuildNMATLSConfigMap builds a configmap with tls secret name in it.
-// The configmap will be mapped to two environmental variables in NMA pod
+// The configmap will be mapped to environmental variables in NMA pod
 func BuildNMATLSConfigMap(nm types.NamespacedName, vdb *vapi.VerticaDB) *corev1.ConfigMap {
 	clientSecretName := vdb.GetClientServerTLSSecretForConfigMap()
 	clientSecretNamespace := vdb.ObjectMeta.Namespace
 	clientSecretTLSMode := vdb.GetNMAClientServerTLSMode()
 	// for backward compatibility, we cannot leave NMAClient* env var empty even when tls is disabled
-	if !vmeta.UseTLSAuth(vdb.Annotations) {
+	if !vdb.IsAnyTLSAuthEnabled() {
 		clientSecretName = vdb.GetNMATLSSecret()
 		clientSecretTLSMode = "enable"
+	} else if !vdb.IsClientServerTLSAuthEnabled() {
+		clientSecretTLSMode = "disable"
 	}
 	secretMap := map[string]string{
 		NMASecretNamespaceEnv:       vdb.ObjectMeta.Namespace,

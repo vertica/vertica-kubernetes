@@ -30,6 +30,7 @@ spec:
   encryptSpreadComm: vertica
   httpsNMATLS:
     mode: VERIFY_CA
+    enabled: false
   subclusters:
     - name: sc1
       size: 3
