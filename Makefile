@@ -751,7 +751,7 @@ port-forward-prometheus:  ## Expose the prometheus endpoint so that you can conn
 
 .PHONY: port-forward-prometheus-server
 port-forward-prometheus-server:  ## Expose the prometheus endpoint so that you can connect to it through http://localhost:9090
-	kubectl port-forward -n $(NAMESPACE) svc/$(HELM_RELEASE_NAME)-prometheus-server-prometheus 9090
+	kubectl port-forward -n $(NAMESPACE) svc/verticadb-operator-prom-prometheus 9090
 
 .PHONY: port-forward-grafana
 port-forward-grafana:  ## Expose the grafana endpoint so that you can connect to it through http://localhost:3000
