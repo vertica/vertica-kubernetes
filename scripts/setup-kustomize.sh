@@ -413,6 +413,11 @@ replacements:
           name: v-with-loki
         fieldPaths:
           - spec.sidecars.[name=vlogger].image
+      - select:
+          kind: VerticaDB
+          name: v-with-prom-namespace
+        fieldPaths:
+          - spec.sidecars.[name=vlogger].image
 EOF
 
     if [ -n "$COMMUNAL_EP_CERT_SECRET" ]

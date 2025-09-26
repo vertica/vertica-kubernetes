@@ -22,6 +22,10 @@ metadata:
 spec:
   image: kustomize-vertica-image
   communal: {}
+  # redirect vertica.log to vlogger pod log
+  sidecars:
+    - name: vlogger
+      image: kustomize-vlogger-image
   local:
     requestSize: 250Mi
   imagePullPolicy: IfNotPresent
