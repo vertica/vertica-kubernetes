@@ -32,8 +32,10 @@ type adapterPool struct {
 }
 
 var (
-	poolInstance adapterPool
-	once         sync.Once
+	poolInstance               adapterPool
+	healthWatchdogPoolInstance adapterPool
+	clusterHealthPoolInstance  adapterPool
+	once                       sync.Once
 )
 
 // return a new instance of an adapterPool. The adapterPool cannot be shared
@@ -51,6 +53,27 @@ func getPoolInstance(logger vlog.Printer) adapterPool {
 	})
 
 	return poolInstance
+}
+
+// Health watchdog and cluster health perform polling that can execute
+// at the same time as other ops. Since adapterPool is not thread safe, ops for
+// both health watchdog and cluster health will use their own adapterPool to
+// avoid conflicts between threads
+// This is a temporary fix - VE ticket for a permanent solution: VE5009792
+func getHealthWatchdogPoolInstance(logger vlog.Printer) adapterPool {
+	once.Do(func() {
+		healthWatchdogPoolInstance = makeAdapterPool(logger)
+	})
+
+	return healthWatchdogPoolInstance
+}
+
+func getClusterHealthPoolInstance(logger vlog.Printer) adapterPool {
+	once.Do(func() {
+		clusterHealthPoolInstance = makeAdapterPool(logger)
+	})
+
+	return clusterHealthPoolInstance
 }
 
 func makeAdapterPool(logger vlog.Printer) adapterPool {
