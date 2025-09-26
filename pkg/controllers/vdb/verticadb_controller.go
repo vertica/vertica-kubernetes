@@ -302,7 +302,7 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		// Handles restart + re_ip of vertica
 		MakeRestartReconciler(r, log, vdb, prunner, pfacts, true, dispatcher),
 		// Check the password secret and update it if needed
-		MakePasswordSecretReconciler(r, log, vdb, prunner, pfacts, dispatcher, r.CacheManager),
+		MakePasswordSecretReconciler(r, log, vdb, prunner, pfacts, dispatcher, r.CacheManager, nil /* configMap */),
 		MakeMetricReconciler(r, log, vdb, prunner, pfacts),
 		MakeStatusReconcilerWithShutdown(r.Client, r.Scheme, log, vdb, pfacts),
 		// Ensure we add labels to any pod rescheduled so that Service objects route traffic to it.
@@ -455,7 +455,7 @@ func (r *VerticaDBReconciler) containsWatchedByLabel(labs map[string]string) boo
 
 // GetSuperuserPassword returns the superuser password if it has been provided
 func (r *VerticaDBReconciler) GetSuperuserPassword(ctx context.Context, log logr.Logger, vdb *vapi.VerticaDB) (*string, error) {
-	return vk8s.GetSuperuserPassword(ctx, r.Client, log, r, vdb, r.CacheManager)
+	return vk8s.GetSuperuserPassword(ctx, r.Client, log, r, vdb, r.CacheManager, vapi.MainCluster)
 }
 
 // checkShardToNodeRatio will check the subclusters ratio of shards to node.  If

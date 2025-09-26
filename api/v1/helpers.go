@@ -1424,6 +1424,23 @@ func (v *VerticaDB) GetPasswordSecret() string {
 	return v.Spec.PasswordSecret
 }
 
+// GetPasswordSecretForSandbox returns the password secret for a sandbox.
+// The bool return value indicates if the password secret is set.
+func (v *VerticaDB) GetPasswordSecretForSandbox(sbName string) (found bool, secret string) {
+	if sbName == MainCluster {
+		if v.Status.PasswordSecret == nil {
+			return false, ""
+		}
+		return true, v.GetPasswordSecret()
+	}
+
+	sandbox := v.GetSandboxStatus(sbName)
+	if sandbox != nil {
+		return true, sandbox.PasswordSecret
+	}
+	return false, ""
+}
+
 // GetEncryptSpreadComm will return "vertica" if encryptSpreadComm is set to
 // an empty string, otherwise return the value of encryptSpreadComm
 func (v *VerticaDB) GetEncryptSpreadComm() string {

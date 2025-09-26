@@ -128,7 +128,7 @@ func (r *SandboxConfigMapReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	sandboxName := configMap.Data[v1.SandboxNameKey]
 	log = log.WithValues("verticadb", vdb.Name, "sandbox", sandboxName)
 
-	passwd, err := vk8s.GetSuperuserPassword(ctx, r.Client, log, r, vdb, r.CacheManager)
+	passwd, err := vk8s.GetSuperuserPassword(ctx, r.Client, log, r, vdb, r.CacheManager, sandboxName)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -168,8 +168,6 @@ func (r *SandboxConfigMapReconciler) constructActors(vdb *v1.VerticaDB, log logr
 		MakeVerifyDeploymentReconciler(r, vdb, log),
 		// Move the subclusters from a sandbox to the main cluster
 		MakeUnsandboxSubclusterReconciler(r, vdb, log, r.Client, pfacts, dispatcher, configMap, prunner),
-		// Create the password secret if it doesn't already exist
-		vdbcontroller.MakePasswordSecretReconciler(r, log, vdb, prunner, pfacts, dispatcher, r.CacheManager),
 		// Update the vdb status for the sandbox nodes/pods
 		vdbcontroller.MakeStatusReconciler(r.Client, r.Scheme, log, vdb, pfacts),
 		// Upgrade the sandbox using the offline method
@@ -182,6 +180,8 @@ func (r *SandboxConfigMapReconciler) constructActors(vdb *v1.VerticaDB, log logr
 		vdbcontroller.MakeSubclusterShutdownReconciler(r, log, vdb, dispatcher, pfacts),
 		// Restart any down pods
 		vdbcontroller.MakeRestartReconciler(r, log, vdb, prunner, pfacts, true, dispatcher),
+		// Create the password secret if it doesn't already exist
+		vdbcontroller.MakePasswordSecretReconciler(r, log, vdb, prunner, pfacts, dispatcher, r.CacheManager, configMap),
 		// Update subcluster type in db according to its type in sandbox
 		vdbcontroller.MakeAlterSubclusterTypeReconciler(r, log, vdb, pfacts, dispatcher, configMap),
 		// Update the vdb status including subclusters[].shutdown, after a stop_db, stop_sc

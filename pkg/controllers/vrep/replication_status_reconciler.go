@@ -220,7 +220,7 @@ func (r *ReplicationStatusReconciler) determineTargetHosts() (err error) {
 func (r *ReplicationStatusReconciler) makePodFacts(ctx context.Context, vdb *vapi.VerticaDB,
 	sandboxName string) (*podfacts.PodFacts, error) {
 	username := vdb.GetVerticaUser()
-	password, err := vk8s.GetSuperuserPassword(ctx, r.Client, r.Log, r.VRec, vdb, r.CacheManager)
+	password, err := vk8s.GetSuperuserPassword(ctx, r.Client, r.Log, r.VRec, vdb, r.CacheManager, sandboxName)
 	if err != nil {
 		return nil, err
 	}

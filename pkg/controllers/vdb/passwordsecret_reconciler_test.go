@@ -40,7 +40,7 @@ var _ = Describe("passwordsecret_reconcile", func() {
 		vdb.Spec.PasswordSecret = suPassword1
 		vdb.Status.PasswordSecret = &suPassword2
 		a := PasswordSecretReconciler{Vdb: vdb, Log: logger}
-		Expect(a.statusMatchesSpec()).To(BeFalse())
+		Expect(a.statusMatchesSpec(vapi.MainCluster)).To(BeFalse())
 	})
 
 	It("should return true if spec and status have the same password secret", func() {
@@ -48,7 +48,7 @@ var _ = Describe("passwordsecret_reconcile", func() {
 		vdb.Spec.PasswordSecret = suPassword1
 		vdb.Status.PasswordSecret = &suPassword1
 		a := PasswordSecretReconciler{Vdb: vdb, Log: logger}
-		Expect(a.statusMatchesSpec()).To(BeTrue())
+		Expect(a.statusMatchesSpec(vapi.MainCluster)).To(BeTrue())
 	})
 
 	It("should update status when status.passwordSecret is nil", func() {
@@ -77,7 +77,7 @@ var _ = Describe("passwordsecret_reconcile", func() {
 		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, &secret1.Name)
 		prunner := &cmds.FakePodRunner{}
 		cache := cache.MakeCacheManager(true)
-		rec := MakePasswordSecretReconciler(vdbRec, logger, vdb, prunner, &pFacts, dispatcher, cache)
+		rec := MakePasswordSecretReconciler(vdbRec, logger, vdb, prunner, &pFacts, dispatcher, cache, nil)
 		r := rec.(*PasswordSecretReconciler)
 		Expect(r.updatePasswordSecretStatus(ctx)).Should(BeNil())
 

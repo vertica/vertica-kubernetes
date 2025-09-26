@@ -228,7 +228,7 @@ var _ = Describe("query_reconcile", func() {
 		Expect(*password).Should(Equal(""))
 
 		vrep.Spec.Source.PasswordSecret = testCustomPasswordSecretName
-		cache.SetPassword(vrep.Namespace, sourceVdb.Name, testPassword)
+		cache.SetPassword(vrep.Namespace, sourceVdb.Name, testCustomPasswordSecretName, testPassword)
 		Expect(k8sClient.Update(ctx, vrep)).Should(Succeed())
 
 		// username and password secret provided

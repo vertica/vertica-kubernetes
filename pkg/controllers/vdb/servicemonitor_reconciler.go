@@ -80,7 +80,7 @@ func (s *ServiceMonitorReconciler) reconcileBasicAuth(ctx context.Context) error
 	if err != nil && kerrors.IsNotFound(err) {
 		password := ""
 		if s.CacheManager != nil {
-			if pw, ok := s.CacheManager.GetPassword(s.Vdb.Namespace, s.Vdb.Name); ok {
+			if pw, ok := s.CacheManager.GetPassword(s.Vdb.Namespace, s.Vdb.Name, s.Vdb.GetPasswordSecret()); ok {
 				password = pw
 			}
 		}

@@ -202,7 +202,7 @@ func setUsernameAndPassword(ctx context.Context, cli client.Client, log logr.Log
 	if dbInfo.UserName == "" {
 		// database superuser is assumed
 		username := vdb.GetVerticaUser()
-		password, err := vk8s.GetSuperuserPassword(ctx, cli, log, vRec, vdb, cacheManager)
+		password, err := vk8s.GetSuperuserPassword(ctx, cli, log, vRec, vdb, cacheManager, vapi.MainCluster)
 		if err != nil {
 			return "", &emptyPassword, err
 		}
@@ -285,7 +285,7 @@ func (r *ReplicationReconciler) determineSourceAndTargetHosts() (err error) {
 func (r *ReplicationReconciler) makePodFacts(ctx context.Context, vdb *vapi.VerticaDB,
 	sandboxName string, cacheManager cache.CacheManager) (*podfacts.PodFacts, error) {
 	username := vdb.GetVerticaUser()
-	password, err := vk8s.GetSuperuserPassword(ctx, r.Client, r.Log, r.VRec, vdb, cacheManager)
+	password, err := vk8s.GetSuperuserPassword(ctx, r.Client, r.Log, r.VRec, vdb, cacheManager, sandboxName)
 	if err != nil {
 		return nil, err
 	}

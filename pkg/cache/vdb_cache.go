@@ -54,9 +54,9 @@ type CacheManager interface {
 	InitCacheForVdb(*v1.VerticaDB, *cloud.SecretFetcher)
 	GetCertCacheForVdb(string, string) CertCache
 	DestroyCacheForVdb(string, string)
-	SetPassword(namespace, name, password string)
-	GetPassword(namespace, name string) (string, bool)
-	DeletePassword(namespace, name string)
+	SetPassword(namespace, name, passwordSecret, passwordValue string)
+	GetPassword(namespace, name, passwordSecret string) (string, bool)
+	DeletePassword(namespace, name, passwordSecret string)
 }
 
 // These are the functions that can set/read a bool/secert
@@ -130,16 +130,14 @@ func (c *ItemCache[T]) Delete(key string) {
 }
 
 type VdbCacheStruct struct {
-	namespace    string // save namespace so it is not required to be passed
-	fetcher      *cloud.SecretFetcher
-	enabled      bool
-	certCache    *ItemCache[map[string][]byte]
-	genericCache *ItemCache[string] // Generic cache for single-value items like password
+	namespace     string // save namespace so it is not required to be passed
+	fetcher       *cloud.SecretFetcher
+	enabled       bool
+	certCache     *ItemCache[map[string][]byte]
+	passwordCache *ItemCache[string] // Cache for passwords, keyed by passwordSecret
 }
 
 var log = ctrl.Log.WithName("vdb_cache")
-
-const GenericPasswordKey = "password"
 
 func MakeCacheManager(enabled bool) CacheManager {
 	c := &CacheManagerStruct{}
@@ -204,7 +202,7 @@ func makeVdbCache(namespace string, ttl int, fetcher *cloud.SecretFetcher, enabl
 	singleContext.fetcher = fetcher
 	singleContext.enabled = enabled
 	singleContext.certCache = NewItemCache[map[string][]byte](time.Duration(ttl)*time.Second, enabled)
-	singleContext.genericCache = NewItemCache[string](time.Duration(ttl)*time.Second, enabled)
+	singleContext.passwordCache = NewItemCache[string](time.Duration(ttl)*time.Second, enabled)
 	return singleContext
 }
 
@@ -281,17 +279,20 @@ func retrieveSecretByName(ctx context.Context, namespace, secretName string, fet
 	return fetcher.Fetch(ctx, fetchName)
 }
 
-func (c *CacheManagerStruct) SetPassword(namespace, name, password string) {
+// SetPassword stores a password in the cache, keyed by passwordSecret
+func (c *CacheManagerStruct) SetPassword(namespace, name, passwordSecret, passwordValue string) {
 	vdbCache := c.GetCertCacheForVdb(namespace, name).(*VdbCacheStruct)
-	vdbCache.genericCache.Set(GenericPasswordKey, password)
+	vdbCache.passwordCache.Set(passwordSecret, passwordValue)
 }
 
-func (c *CacheManagerStruct) GetPassword(namespace, name string) (string, bool) {
+// GetPassword retrieves a password from the cache by passwordSecret
+func (c *CacheManagerStruct) GetPassword(namespace, name, passwordSecret string) (string, bool) {
 	vdbCache := c.GetCertCacheForVdb(namespace, name).(*VdbCacheStruct)
-	return vdbCache.genericCache.Get(GenericPasswordKey)
+	return vdbCache.passwordCache.Get(passwordSecret)
 }
 
-func (c *CacheManagerStruct) DeletePassword(namespace, name string) {
+// DeletePassword removes a password from the cache by passwordSecret
+func (c *CacheManagerStruct) DeletePassword(namespace, name, passwordSecret string) {
 	vdbCache := c.GetCertCacheForVdb(namespace, name).(*VdbCacheStruct)
-	vdbCache.genericCache.Delete(GenericPasswordKey)
+	vdbCache.passwordCache.Delete(passwordSecret)
 }
