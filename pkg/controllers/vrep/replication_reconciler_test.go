@@ -24,6 +24,7 @@ import (
 	. "github.com/onsi/gomega"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	v1beta1 "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	"github.com/vertica/vertica-kubernetes/pkg/cache"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/mockvops"
 	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
@@ -77,11 +78,13 @@ var _ = Describe("query_reconcile", func() {
 		Expect(k8sClient.Create(ctx, vrep)).Should(Succeed())
 		defer func() { Expect(k8sClient.Delete(ctx, vrep)).Should(Succeed()) }()
 
+		cache := cache.MakeCacheManager(true)
 		r := &ReplicationReconciler{
-			Client: k8sClient,
-			VRec:   vrepRec,
-			Vrep:   vrep,
-			Log:    logger,
+			Client:       k8sClient,
+			VRec:         vrepRec,
+			Vrep:         vrep,
+			Log:          logger,
+			CacheManager: cache,
 		}
 		err := r.runReplicateDB(ctx, dispatcher, []replicationstart.Option{})
 		Expect(err).ShouldNot(HaveOccurred())
@@ -122,7 +125,8 @@ var _ = Describe("query_reconcile", func() {
 		Expect(k8sClient.Create(ctx, vrep)).Should(Succeed())
 		defer func() { Expect(k8sClient.Delete(ctx, vrep)).Should(Succeed()) }()
 
-		recon := MakeReplicationReconciler(k8sClient, vrepRec, vrep, logger)
+		cache := cache.MakeCacheManager(true)
+		recon := MakeReplicationReconciler(k8sClient, vrepRec, vrep, logger, cache)
 		err := vrepstatus.Update(ctx, vrepRec.Client, vrepRec.Log, vrep,
 			[]*metav1.Condition{vapi.MakeCondition(v1beta1.ReplicationComplete,
 				metav1.ConditionTrue, "Succeeded")}, stateSucceededReplication, 0)
@@ -130,12 +134,13 @@ var _ = Describe("query_reconcile", func() {
 		result, err := recon.Reconcile(ctx, &ctrl.Request{})
 
 		expected := &ReplicationReconciler{
-			Client:     k8sClient,
-			VRec:       vrepRec,
-			Vrep:       vrep,
-			Log:        logger.WithName("ReplicationReconciler"),
-			SourceInfo: &ReplicationInfo{},
-			TargetInfo: &ReplicationInfo{},
+			Client:       k8sClient,
+			VRec:         vrepRec,
+			Vrep:         vrep,
+			Log:          logger.WithName("ReplicationReconciler"),
+			SourceInfo:   &ReplicationInfo{},
+			TargetInfo:   &ReplicationInfo{},
+			CacheManager: cache,
 		}
 		original, ok := recon.(*ReplicationReconciler)
 		Expect(ok).Should(BeTrue())
@@ -205,8 +210,9 @@ var _ = Describe("query_reconcile", func() {
 		defer deleteSecret(ctx, sourceVdb, testCustomPasswordSecretName)
 
 		// no username provided
+		cache := cache.MakeCacheManager(true)
 		username, password, err := setUsernameAndPassword(ctx, k8sClient, logger, vrepRec, sourceVdb,
-			&vrep.Spec.Source.VerticaReplicatorDatabaseInfo)
+			&vrep.Spec.Source.VerticaReplicatorDatabaseInfo, cache)
 		Expect(err).ShouldNot(HaveOccurred())
 		Expect(username).Should(Equal(vapi.SuperUser))
 		Expect(*password).Should(Equal(""))
@@ -216,17 +222,18 @@ var _ = Describe("query_reconcile", func() {
 
 		// username provided, password secret not provided
 		username, password, err = setUsernameAndPassword(ctx, k8sClient, logger, vrepRec, sourceVdb,
-			&vrep.Spec.Source.VerticaReplicatorDatabaseInfo)
+			&vrep.Spec.Source.VerticaReplicatorDatabaseInfo, cache)
 		Expect(err).ShouldNot(HaveOccurred())
 		Expect(username).Should(Equal(testCustomUserName))
 		Expect(*password).Should(Equal(""))
 
 		vrep.Spec.Source.PasswordSecret = testCustomPasswordSecretName
+		cache.SetPassword(vrep.Namespace, sourceVdb.Name, testCustomPasswordSecretName, testPassword)
 		Expect(k8sClient.Update(ctx, vrep)).Should(Succeed())
 
 		// username and password secret provided
 		username, password, err = setUsernameAndPassword(ctx, k8sClient, logger, vrepRec, sourceVdb,
-			&vrep.Spec.Source.VerticaReplicatorDatabaseInfo)
+			&vrep.Spec.Source.VerticaReplicatorDatabaseInfo, cache)
 		Expect(err).ShouldNot(HaveOccurred())
 		Expect(username).Should(Equal(testCustomUserName))
 		Expect(*password).Should(Equal(testPassword))
@@ -295,11 +302,13 @@ var _ = Describe("query_reconcile", func() {
 		Expect(k8sClient.Create(ctx, vrep)).Should(Succeed())
 		defer func() { Expect(k8sClient.Delete(ctx, vrep)).Should(Succeed()) }()
 
+		cache := cache.MakeCacheManager(true)
 		r := &ReplicationReconciler{
-			Client: k8sClient,
-			VRec:   vrepRec,
-			Vrep:   vrep,
-			Log:    logger,
+			Client:       k8sClient,
+			VRec:         vrepRec,
+			Vrep:         vrep,
+			Log:          logger,
+			CacheManager: cache,
 		}
 		err := r.runReplicateDB(ctx, dispatcher, []replicationstart.Option{})
 		Expect(err).ShouldNot(HaveOccurred())
@@ -343,7 +352,8 @@ var _ = Describe("query_reconcile", func() {
 		Expect(k8sClient.Create(ctx, vrep)).Should(Succeed())
 		defer func() { Expect(k8sClient.Delete(ctx, vrep)).Should(Succeed()) }()
 
-		recon := MakeReplicationReconciler(k8sClient, vrepRec, vrep, logger)
+		cache := cache.MakeCacheManager(true)
+		recon := MakeReplicationReconciler(k8sClient, vrepRec, vrep, logger, cache)
 
 		// Case 1: replication complete
 		err := vrepstatus.Update(ctx, vrepRec.Client, vrepRec.Log, vrep,
@@ -353,12 +363,13 @@ var _ = Describe("query_reconcile", func() {
 		result, err := recon.Reconcile(ctx, &ctrl.Request{})
 
 		expected := &ReplicationReconciler{
-			Client:     k8sClient,
-			VRec:       vrepRec,
-			Vrep:       vrep,
-			Log:        logger.WithName("ReplicationReconciler"),
-			SourceInfo: &ReplicationInfo{},
-			TargetInfo: &ReplicationInfo{},
+			Client:       k8sClient,
+			VRec:         vrepRec,
+			Vrep:         vrep,
+			Log:          logger.WithName("ReplicationReconciler"),
+			SourceInfo:   &ReplicationInfo{},
+			TargetInfo:   &ReplicationInfo{},
+			CacheManager: cache,
 		}
 		original, ok := recon.(*ReplicationReconciler)
 		Expect(ok).Should(BeTrue())

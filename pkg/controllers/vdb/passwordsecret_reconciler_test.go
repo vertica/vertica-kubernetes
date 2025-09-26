@@ -21,6 +21,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
+	"github.com/vertica/vertica-kubernetes/pkg/cache"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
@@ -39,7 +40,7 @@ var _ = Describe("passwordsecret_reconcile", func() {
 		vdb.Spec.PasswordSecret = suPassword1
 		vdb.Status.PasswordSecret = &suPassword2
 		a := PasswordSecretReconciler{Vdb: vdb, Log: logger}
-		Expect(a.statusMatchesSpec()).To(BeFalse())
+		Expect(a.statusMatchesSpec(vapi.MainCluster)).To(BeFalse())
 	})
 
 	It("should return true if spec and status have the same password secret", func() {
@@ -47,7 +48,7 @@ var _ = Describe("passwordsecret_reconcile", func() {
 		vdb.Spec.PasswordSecret = suPassword1
 		vdb.Status.PasswordSecret = &suPassword1
 		a := PasswordSecretReconciler{Vdb: vdb, Log: logger}
-		Expect(a.statusMatchesSpec()).To(BeTrue())
+		Expect(a.statusMatchesSpec(vapi.MainCluster)).To(BeTrue())
 	})
 
 	It("should update status when status.passwordSecret is nil", func() {
@@ -75,7 +76,8 @@ var _ = Describe("passwordsecret_reconcile", func() {
 		pFacts := podfacts.MakePodFacts(vdbRec, fpr, logger, &secret1.Name)
 		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, &secret1.Name)
 		prunner := &cmds.FakePodRunner{}
-		rec := MakePasswordSecretReconciler(vdbRec, logger, vdb, prunner, &pFacts, dispatcher)
+		cache := cache.MakeCacheManager(true)
+		rec := MakePasswordSecretReconciler(vdbRec, logger, vdb, prunner, &pFacts, dispatcher, cache, nil)
 		r := rec.(*PasswordSecretReconciler)
 		Expect(r.updatePasswordSecretStatus(ctx)).Should(BeNil())
 

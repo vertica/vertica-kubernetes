@@ -37,6 +37,7 @@ import (
 	"github.com/go-logr/logr"
 	v1 "github.com/vertica/vertica-kubernetes/api/v1"
 	v1beta1 "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	"github.com/vertica/vertica-kubernetes/pkg/cache"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
@@ -46,10 +47,11 @@ import (
 // VerticaScrutinizeReconciler reconciles a VerticaScrutinize object
 type VerticaScrutinizeReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
-	Cfg    *rest.Config
-	Log    logr.Logger
-	EVRec  record.EventRecorder
+	Scheme       *runtime.Scheme
+	Cfg          *rest.Config
+	Log          logr.Logger
+	EVRec        record.EventRecorder
+	CacheManager cache.CacheManager
 }
 
 const (

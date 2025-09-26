@@ -23,6 +23,7 @@ import (
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/builder"
+	"github.com/vertica/vertica-kubernetes/pkg/cache"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/opcfg"
@@ -34,19 +35,20 @@ import (
 
 // ServiceMonitorReconciler reconciles the ServiceMonitor for a VerticaDB.
 type ServiceMonitorReconciler struct {
-	VRec   *VerticaDBReconciler
-	Vdb    *vapi.VerticaDB // Vdb is the CRD we are acting on.
-	Log    logr.Logger
-	PFacts *podfacts.PodFacts
+	VRec         *VerticaDBReconciler
+	Vdb          *vapi.VerticaDB // Vdb is the CRD we are acting on.
+	Log          logr.Logger
+	CacheManager cache.CacheManager
 }
 
 func MakeServiceMonitorReconciler(vdb *vapi.VerticaDB, vrec *VerticaDBReconciler,
 	log logr.Logger, pfacts *podfacts.PodFacts) controllers.ReconcileActor {
+	// pfacts is no longer needed for password
 	return &ServiceMonitorReconciler{
-		VRec:   vrec,
-		Vdb:    vdb,
-		Log:    log.WithName("ServiceMonitorReconciler"),
-		PFacts: pfacts,
+		VRec:         vrec,
+		Vdb:          vdb,
+		Log:          log.WithName("ServiceMonitorReconciler"),
+		CacheManager: vrec.CacheManager,
 	}
 }
 
@@ -77,8 +79,10 @@ func (s *ServiceMonitorReconciler) reconcileBasicAuth(ctx context.Context) error
 	err := s.VRec.GetClient().Get(ctx, nm, curSec)
 	if err != nil && kerrors.IsNotFound(err) {
 		password := ""
-		if s.PFacts != nil && s.PFacts.VerticaSUPassword != nil {
-			password = *s.PFacts.VerticaSUPassword
+		if s.CacheManager != nil {
+			if pw, ok := s.CacheManager.GetPassword(s.Vdb.Namespace, s.Vdb.Name, s.Vdb.GetPasswordSecret()); ok {
+				password = pw
+			}
 		}
 		expSec := builder.BuildBasicAuthSecret(s.Vdb, nm.Name, s.Vdb.GetVerticaUser(), password)
 		return s.VRec.GetClient().Create(ctx, expSec)
