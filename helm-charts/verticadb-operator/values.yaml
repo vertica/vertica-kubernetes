@@ -330,11 +330,11 @@ grafana:
       datasources:
         - name: Prometheus
           type: prometheus
-          url: http://{{ .Release.Name }}-prometheus-server-prometheus.{{ .Release.Namespace }}.svc.cluster.local:9090
+          url: http://verticadb-operator-prom-prometheus.{{ .Release.Namespace }}.svc.cluster.local:9090
           access: proxy
           isDefault: true
           jsonData:
-            tlsSkipVerify: true 
+            tlsSkipVerify: true
         - name: Loki
           type: loki
           url: http://{{ .Release.Name }}-loki-gateway.{{ .Release.Namespace }}.svc.cluster.local:80
@@ -384,6 +384,10 @@ prometheusServer:
         enabled: false
 
   nameOverride: prometheus-server
+
+  # Override the full name of the Prometheus server deployment.
+  # This allow you to  control the name of the service created for Prometheus.
+  fullnameOverride: verticadb-operator-prom
   
   # Prometheus Operator - keep minimal
   prometheusOperator:
