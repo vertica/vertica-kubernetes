@@ -20,9 +20,12 @@ spec:
     - name: sandbox1
       subclusters:
         - name: sc2
+          type: primary
     - name: sandbox3
       subclusters:
         - name: sc4
+          type: primary
     - name: sandbox4
       subclusters:
         - name: sc5
+          type: primary

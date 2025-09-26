@@ -712,13 +712,13 @@ type SandboxSubcluster struct {
 	// The name of a subcluster.
 	Name string `json:"name"`
 
-	// +kubebuilder:default:=primary
+	// +kubebuilder:default:=secondary
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:select:primary","urn:alm:descriptor:com.tectonic.ui:select:secondary"}
 	// Indicates the type of subcluster in a sandbox. Valid values are: primary,
 	// secondary. Types are case-sensitive.
 	// You must have at least one primary subcluster in the sandbox.
-	// If type is omitted, it will default to a primary.
+	// If type is omitted, it will default to secondary.
 	Type string `json:"type"`
 }
 
