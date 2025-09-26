@@ -16,7 +16,35 @@ kind: VerticaDB
 metadata:
   name: v-tls-certs
   annotations:
-    vertica.com/enable-tls-rotation-failure-rollback: "false"
+    vertica.com/k-safety: "0"
+    vertica.com/include-uid-in-path: "true"
+    vertica.com/enable-tls-auth: "true"
 spec:
   httpsNMATLS:
-    secret: cert-no-client-auth3
+    mode: verify_ca
+    secret: custom-cert2
+    autoRotate:
+      secrets:
+      - custom-cert2
+      - cert-no-client-auth
+      - custom-cert3
+  clientServerTLS:
+    secret: custom-cert1
+  initPolicy: CreateSkipPackageInstall
+  image: kustomize-vertica-image
+  communal: {}
+  local:
+    requestSize: 100Mi
+    catalogPath: /catalog
+  dbName: vertdb
+  encryptSpreadComm: vertica
+  subclusters:
+    - name: sc1
+      size: 1
+  securityContext:
+    capabilities:
+      add: ["SYS_PTRACE"]
+  certSecrets: []
+  imagePullSecrets: []
+  volumes: []
+  volumeMounts: []

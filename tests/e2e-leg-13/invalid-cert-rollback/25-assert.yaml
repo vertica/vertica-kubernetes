@@ -20,7 +20,7 @@ involvedObject:
   apiVersion: vertica.com/v1
   kind: VerticaDB
   name: v-tls-certs
-message: Validation of TLS Certificate "httpsNMA" failed with secret "cert-no-client-auth1"
+message: Validation of TLS Certificate "httpsNMA" failed with secret "cert-no-client-auth"
 ---
 apiVersion: v1
 kind: Event

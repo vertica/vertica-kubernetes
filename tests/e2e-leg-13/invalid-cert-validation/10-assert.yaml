@@ -15,7 +15,23 @@ apiVersion: v1
 kind: Secret
 metadata:
   name: cert-cn-dbadmin
+---
+apiVersion: v1
+kind: Secret
+metadata:
   name: cert-cn-test
+---
+apiVersion: v1
+kind: Secret
+metadata:
   name: cert-no-client-auth
+---
+apiVersion: v1
+kind: Secret
+metadata:
   name: expired-cert
-  name: mismatched-cert
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: mismatched-cert  
