@@ -1171,7 +1171,7 @@ type SandboxStatus struct {
 	// +optional
 	// The secret name that contains the current password for the
 	// database's for this sandbox
-	PasswordSecret string `json:"passwordSecret,omitempty"`
+	PasswordSecret *string `json:"passwordSecret,omitempty"`
 }
 
 const (

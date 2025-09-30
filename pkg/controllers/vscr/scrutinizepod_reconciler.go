@@ -181,8 +181,7 @@ func (s *ScrutinizePodReconciler) buildScrutinizeCmdArgs(vdb *v1.VerticaDB) []st
 	// Prefer password from CacheManager if available
 	pw := ""
 	if s.VRec != nil && s.VRec.CacheManager != nil {
-		_, passSecret := vdb.GetPasswordSecretForSandbox(s.Vscr.Spec.Sandbox)
-		if cachePw, ok := s.VRec.CacheManager.GetPassword(vdb.Namespace, vdb.Name, passSecret); ok {
+		if cachePw, ok := s.VRec.CacheManager.GetPassword(vdb.Namespace, vdb.Name, vdb.GetPasswordSecretForSandbox(s.Vscr.Spec.Sandbox)); ok {
 			pw = cachePw
 		}
 	}

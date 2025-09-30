@@ -541,11 +541,7 @@ func (r *OnlineUpgradeReconciler) setConfigParamDisableNonReplicatableQueriesImp
 	}
 	pw := ""
 	if r.VRec.CacheManager != nil {
-		found, passSecret := r.VDB.GetPasswordSecretForSandbox(clusterName)
-		if !found {
-			return ctrl.Result{}, fmt.Errorf("could not find password secret for sandbox %s", clusterName)
-		}
-		if cachePw, ok := r.VRec.CacheManager.GetPassword(r.VDB.Namespace, r.VDB.Name, passSecret); ok {
+		if cachePw, ok := r.VRec.CacheManager.GetPassword(r.VDB.Namespace, r.VDB.Name, r.VDB.GetPasswordSecretForSandbox(clusterName)); ok {
 			pw = cachePw
 		}
 	}

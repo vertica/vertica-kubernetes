@@ -42,9 +42,8 @@ func getPasswordFromSecret(secret map[string][]byte, key string) (*string, error
 // GetSuperuserPassword returns the superuser password if it has been provided
 func GetSuperuserPassword(ctx context.Context, cl client.Client, log logr.Logger,
 	e events.EVWriter, vdb *vapi.VerticaDB, cacheManager cache.CacheManager, sandbox string) (*string, error) {
-	_, passSecret := vdb.GetPasswordSecretForSandbox(sandbox)
 	return GetCustomSuperuserPassword(ctx, cl, log, e, vdb,
-		passSecret, names.SuperuserPasswordKey, cacheManager, false)
+		vdb.GetPasswordSecretForSandbox(sandbox), names.SuperuserPasswordKey, cacheManager)
 }
 
 // GetCustomSuperuserPassword returns the superuser password stored in a custom secret.
@@ -52,7 +51,7 @@ func GetSuperuserPassword(ctx context.Context, cl client.Client, log logr.Logger
 func GetCustomSuperuserPassword(ctx context.Context, cl client.Client, log logr.Logger,
 	e events.EVWriter, vdb *vapi.VerticaDB,
 	customPasswordSecret, customPasswordSecretKey string,
-	cacheManager cache.CacheManager, skipCache bool) (*string, error) {
+	cacheManager cache.CacheManager) (*string, error) {
 	// Check the cache first
 	fetcher := &cloud.SecretFetcher{
 		Client:   cl,
@@ -61,7 +60,7 @@ func GetCustomSuperuserPassword(ctx context.Context, cl client.Client, log logr.
 		EVWriter: e,
 	}
 	cacheManager.InitCacheForVdb(vdb, fetcher)
-	if cachedPw, ok := cacheManager.GetPassword(vdb.Namespace, vdb.Name, customPasswordSecret); !skipCache && ok {
+	if cachedPw, ok := cacheManager.GetPassword(vdb.Namespace, vdb.Name, customPasswordSecret); ok {
 		return &cachedPw, nil
 	}
 

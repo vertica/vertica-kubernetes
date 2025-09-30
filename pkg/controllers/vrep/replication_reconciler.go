@@ -217,7 +217,7 @@ func setUsernameAndPassword(ctx context.Context, cli client.Client, log logr.Log
 			// fetch custom password
 			// assuming the password secret key is default
 			password, err := vk8s.GetCustomSuperuserPassword(ctx, cli, log,
-				vRec, vdb, dbInfo.PasswordSecret, names.SuperuserPasswordKey, cacheManager, false)
+				vRec, vdb, dbInfo.PasswordSecret, names.SuperuserPasswordKey, cacheManager)
 			if err != nil {
 				return "", &emptyPassword, err
 			}

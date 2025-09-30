@@ -79,9 +79,12 @@ func (a *PasswordSecretReconciler) Reconcile(ctx context.Context, _ *ctrl.Reques
 		return ctrl.Result{}, err
 	}
 
-	// If we are reconciling a sandbox and it matches spec → nothing to do
-	if sbName != vapi.MainCluster && a.statusMatchesSpec(sbName) {
-		return ctrl.Result{}, nil
+	// If we are reconciling a sandbox and it matches spec, no-op
+	// Also, if we are reconciling a sandbox and main cluster is not updated yet, no-op
+	if sbName != vapi.MainCluster {
+		if a.statusMatchesSpec(sbName) || !a.statusMatchesSpec(vapi.MainCluster) {
+			return ctrl.Result{}, nil
+		}
 	}
 
 	// If everything is up-to-date, no-op
@@ -124,7 +127,11 @@ func (a *PasswordSecretReconciler) ensureStatusInitialized(ctx context.Context, 
 		return a.updatePasswordSecretStatus(ctx)
 	}
 	if sbName != vapi.MainCluster {
-		if ok, _ := a.Vdb.GetPasswordSecretForSandbox(sbName); !ok {
+		sandboxStatus := a.Vdb.GetSandboxStatus(sbName)
+		if sandboxStatus == nil {
+			return fmt.Errorf("could not find sandbox %q in status", sbName)
+		}
+		if sandboxStatus.PasswordSecret == nil {
 			return a.updatePasswordSecretStatusForSandbox(ctx, sbName)
 		}
 	}
@@ -141,18 +148,14 @@ func (a *PasswordSecretReconciler) statusMatchesSpec(sbName string) bool {
 		return a.Vdb.Spec.PasswordSecret == *a.Vdb.Status.PasswordSecret
 	}
 
-	if ok, secret := a.Vdb.GetPasswordSecretForSandbox(sbName); ok {
-		return a.Vdb.Spec.PasswordSecret == secret
-	}
-	return false
+	return a.Vdb.Spec.PasswordSecret == a.Vdb.GetPasswordSecretForSandbox(sbName)
 }
 
 // getSandboxesNeedingUpdating returns sandboxes where secret in status does not match secret in spec
 func (a *PasswordSecretReconciler) getSandboxesNeedingUpdating() []vapi.Sandbox {
 	sandboxes := []vapi.Sandbox{}
 	for _, sb := range a.Vdb.Spec.Sandboxes {
-		ok, secret := a.Vdb.GetPasswordSecretForSandbox(sb.Name)
-		if !ok || secret != a.Vdb.Spec.PasswordSecret {
+		if a.Vdb.GetPasswordSecretForSandbox(sb.Name) != a.Vdb.Spec.PasswordSecret {
 			sandboxes = append(sandboxes, sb)
 		}
 	}
@@ -162,25 +165,15 @@ func (a *PasswordSecretReconciler) getSandboxesNeedingUpdating() []vapi.Sandbox 
 
 // updatePasswordSecret will update the password secret in the database.
 func (a *PasswordSecretReconciler) updatePasswordSecret(ctx context.Context) (ctrl.Result, error) {
-	// Get new password; don't look in cache because it has old secret
-	newPasswd, err := vk8s.GetCustomSuperuserPassword(ctx, a.Rec.GetClient(), a.Log, a.Rec, a.Vdb,
-		a.Vdb.Spec.PasswordSecret, names.SuperuserPasswordKey, a.CacheManager, true)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-
 	sbName := a.PFacts.GetSandboxName()
-	if a.statusMatchesSpec(sbName) {
-		return ctrl.Result{}, nil
-	}
-
-	res, err := a.updateOnePasswordSecret(ctx, a.PFacts, newPasswd, sbName)
-	if verrors.IsReconcileAborted(res, err) {
-		return res, err
+	if !a.statusMatchesSpec(sbName) {
+		if res, err := a.updateOnePasswordSecret(ctx, a.PFacts, sbName); verrors.IsReconcileAborted(res, err) {
+			return res, err
+		}
 	}
 
 	// reset password used in vdb and CacheManager
-	return a.resetVDBPassword(*newPasswd, sbName)
+	return a.resetVDBPassword(ctx)
 }
 
 // triggerOutOfDateSandboxes will trigger password change for any sandboxes that don't match spec.
@@ -202,13 +195,16 @@ func (a *PasswordSecretReconciler) triggerOutOfDateSandboxes(ctx context.Context
 
 // updateOnePasswordSecret will update the password for the main cluster or for one sandbox.
 func (a *PasswordSecretReconciler) updateOnePasswordSecret(ctx context.Context,
-	pfacts *podfacts.PodFacts, newPasswd *string, sandbox string) (ctrl.Result, error) {
-	// No-op if password is the same
-	found, passSecret := a.Vdb.GetPasswordSecretForSandbox(sandbox)
-	if !found {
-		return ctrl.Result{}, fmt.Errorf("could not find password secret for sandbox %s", sandbox)
+	pfacts *podfacts.PodFacts, sandbox string) (ctrl.Result, error) {
+	newPasswd, err := vk8s.GetCustomSuperuserPassword(ctx, a.Rec.GetClient(), a.Log, a.Rec, a.Vdb,
+		a.Vdb.Spec.PasswordSecret, names.SuperuserPasswordKey, a.CacheManager)
+	if err != nil {
+		return ctrl.Result{}, err
 	}
-	if pass, ok := a.CacheManager.GetPassword(a.Vdb.Namespace, a.Vdb.Name, passSecret); ok && pass == *newPasswd {
+
+	// No-op if password is the same
+	pass, ok := a.CacheManager.GetPassword(a.Vdb.Namespace, a.Vdb.Name, a.Vdb.GetPasswordSecretForSandbox(sandbox))
+	if ok && pass == *newPasswd {
 		a.Log.Info("WARNING: password in secret is the same as current password", "current password secret",
 			a.Vdb.Status.PasswordSecret, "new password secret", a.Vdb.Spec.PasswordSecret, "sandbox", sandbox)
 		return ctrl.Result{}, nil
@@ -267,13 +263,13 @@ func (a *PasswordSecretReconciler) updatePasswordSecretStatusForSandbox(ctx cont
 	updateStatus := func(vdbChg *vapi.VerticaDB) error {
 		for i := range vdbChg.Status.Sandboxes {
 			if vdbChg.Status.Sandboxes[i].Name == sbName {
-				vdbChg.Status.Sandboxes[i].PasswordSecret = a.Vdb.Spec.PasswordSecret
+				vdbChg.Status.Sandboxes[i].PasswordSecret = &a.Vdb.Spec.PasswordSecret
 				return nil
 			}
 		}
 		vdbChg.Status.Sandboxes = append(vdbChg.Status.Sandboxes, vapi.SandboxStatus{
 			Name:           sbName,
-			PasswordSecret: a.Vdb.Spec.PasswordSecret,
+			PasswordSecret: &a.Vdb.Spec.PasswordSecret,
 		})
 		return nil
 	}
@@ -281,14 +277,16 @@ func (a *PasswordSecretReconciler) updatePasswordSecretStatusForSandbox(ctx cont
 }
 
 // resetVDBPassword will reset the password used in prunner, pfacts, dispatcher, and CacheManager.
-func (a *PasswordSecretReconciler) resetVDBPassword(newPasswd, sandbox string) (ctrl.Result, error) {
+func (a *PasswordSecretReconciler) resetVDBPassword(ctx context.Context) (ctrl.Result, error) {
+	// Getting the password will automatically update the cache
+	newPasswd, err := vk8s.GetCustomSuperuserPassword(ctx, a.Rec.GetClient(), a.Log, a.Rec, a.Vdb,
+		a.Vdb.Spec.PasswordSecret, names.SuperuserPasswordKey, a.CacheManager)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
 	// prunner, podfacts and dispatcher share the pointer
 	// reset one of them will also reset the password in the others
-	a.PFacts.SetSUPassword(newPasswd)
-	found, passSecret := a.Vdb.GetPasswordSecretForSandbox(sandbox)
-	if !found {
-		return ctrl.Result{}, fmt.Errorf("could not find password secret for sandbox %s", sandbox)
-	}
-	a.CacheManager.SetPassword(a.Vdb.Namespace, a.Vdb.Name, passSecret, newPasswd)
+	a.PFacts.SetSUPassword(*newPasswd)
 	return ctrl.Result{}, nil
 }
