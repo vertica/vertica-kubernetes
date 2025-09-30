@@ -38,7 +38,9 @@ spec:
   - name: sand_1
     subclusters:
     - name: sec1
+      type: primary
     - name: sec2
+      type: primary
   certSecrets: []
   imagePullSecrets: []
   volumes: []

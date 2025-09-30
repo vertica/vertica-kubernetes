@@ -20,5 +20,6 @@ spec:
   - name: sandbox1
     subclusters:
       - name: sec1
+        type: primary
       - name: sec3
         type: secondary
