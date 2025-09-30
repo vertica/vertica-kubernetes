@@ -31,6 +31,7 @@ import (
 type SlowEventNode struct {
 	Depth int          `json:"depth"`
 	Event *dcSlowEvent `json:"slow_event"`
+	// TODO: should we remove these?
 	// Session         *dcSessionStart     `json:"session"`
 	// Transaction     *dcTransactionStart `json:"transaction"`
 	PriorHoldEvents *[]dcSlowEvent   `json:"prior_hold_events"`

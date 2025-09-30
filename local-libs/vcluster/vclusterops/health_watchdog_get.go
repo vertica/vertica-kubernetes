@@ -26,6 +26,9 @@ import (
 type healthWatchdogGetOptions struct {
 	ParameterName string
 	Action        string
+	// Health watchdog polling should run with its own adapter pool
+	// PoolType lets HTTP request dispatcher know which adapter pool to use
+	PoolType string
 }
 
 type VHealthWatchdogGetOptions struct {
@@ -166,7 +169,7 @@ func (vcc VClusterCommands) produceHealthWatchdogGetInstructions(options *VHealt
 	}
 
 	nmaHealthOp := makeNMAHealthOp(hosts)
-
+	nmaHealthOp.poolType = options.PoolType
 	nmaHealthWatchdogGetData := nmaHealthWatchdogGetData{}
 	nmaHealthWatchdogGetData.DBName = options.DBName
 	nmaHealthWatchdogGetData.UserName = options.UserName
@@ -179,6 +182,7 @@ func (vcc VClusterCommands) produceHealthWatchdogGetInstructions(options *VHealt
 	if err != nil {
 		return instructions, err
 	}
+	nmaHealthWatchdogGetOp.poolType = options.PoolType
 
 	instructions = append(instructions,
 		&nmaHealthOp,
