@@ -71,17 +71,16 @@ func (h *TLSServerCertGenReconciler) Reconcile(ctx context.Context, _ *ctrl.Requ
 		return ctrl.Result{}, nil
 	}
 
-	return h.reconcileSecrets(ctx)
+	return ctrl.Result{}, h.reconcileSecrets(ctx)
 }
 
 // reconcileSecrets will check three secrets: NMA secret, https secret, and client server secret
-func (h *TLSServerCertGenReconciler) reconcileSecrets(ctx context.Context) (ctrl.Result, error) {
+func (h *TLSServerCertGenReconciler) reconcileSecrets(ctx context.Context) error {
 	secretFieldNameMap := map[string]string{
 		clientServerTLSSecret: h.Vdb.GetClientServerTLSSecret(),
 		nmaTLSSecret:          h.Vdb.Spec.NMATLSSecret,
 		httpsNMATLSSecret:     h.Vdb.GetHTTPSNMATLSSecret(),
 	}
-	res := ctrl.Result{}
 	err := error(nil)
 	for secretFieldName, secretName := range secretFieldNameMap {
 		if h.ShouldSkipThisConfig(secretFieldName) {
@@ -95,29 +94,28 @@ func (h *TLSServerCertGenReconciler) reconcileSecrets(ctx context.Context) (ctrl
 			secret := corev1.Secret{}
 			err = h.VRec.Client.Get(ctx, nm, &secret)
 			// Validate if nma secret can be used as TLS secret first
-			_, validateErr := h.ValidateSecretCertificate(ctx, &secret, vapi.NMATLSConfigName, h.Vdb.Spec.NMATLSSecret)
-			if err == nil && validateErr == nil {
+			if err == nil && h.ValidateSecretCertificate(ctx, &secret, vapi.NMATLSConfigName, h.Vdb.Spec.NMATLSSecret) == nil {
 				h.Log.Info("TLS secret is initialized from nmaTLSSecret", "TLS secret", secretFieldName)
 				err = h.setSecretNameInVDB(ctx, secretFieldName, h.Vdb.Spec.NMATLSSecret)
 				if err != nil {
 					h.Log.Error(err, "failed to initialize TLS secret from nmaTLSSecret", "TLS secret", secretFieldName)
-					return res, err
+					return err
 				}
 				continue
 			}
 		}
-		res, err = h.reconcileOneSecret(secretFieldName, secretName, ctx)
+		err = h.reconcileOneSecret(secretFieldName, secretName, ctx)
 		if err != nil {
 			h.Log.Error(err, fmt.Sprintf("failed to reconcile secret for %s", secretFieldName))
-			return res, err
+			return err
 		}
 	}
-	return res, err
+	return nil
 }
 
 // reconcileOneSecret will create a TLS secret for the http server if one is missing
 func (h *TLSServerCertGenReconciler) reconcileOneSecret(secretFieldName, secretName string,
-	ctx context.Context) (ctrl.Result, error) {
+	ctx context.Context) error {
 	tlsConfigName := vapi.HTTPSNMATLSConfigName
 	if secretFieldName == clientServerTLSSecret {
 		tlsConfigName = vapi.ClientServerTLSConfigName
@@ -129,7 +127,7 @@ func (h *TLSServerCertGenReconciler) reconcileOneSecret(secretFieldName, secretN
 		// for a different secret store.
 		if !secrets.IsK8sSecret(secretName) {
 			h.Log.Info(secretName + " is set but uses a path reference that isn't for k8s.")
-			return ctrl.Result{}, nil
+			return nil
 		}
 		nm := names.GenNamespacedName(h.Vdb, secretName)
 		secret := corev1.Secret{}
@@ -146,38 +144,37 @@ func (h *TLSServerCertGenReconciler) reconcileOneSecret(secretFieldName, secretN
 				}
 			}
 			h.Log.Error(err, secretName+" does not exist", "name", nm)
-			return ctrl.Result{}, err
+			return err
 			// Secret found but could not be read
 		} else if err != nil {
 			h.Log.Error(err, "failed to read tls secret", "secretName", secretName)
-			return ctrl.Result{}, err
+			return err
 			// Successfully read secret
 		} else {
 			// we do not need to verify nma tls secret
 			if secretFieldName != nmaTLSSecret {
 				// Validate secret certificate
-				res, err := h.ValidateSecretCertificate(ctx, &secret, tlsConfigName, secretName)
+				err = h.ValidateSecretCertificate(ctx, &secret, tlsConfigName, secretName)
 				if err != nil {
-					return res, err
+					return err
 				}
 			}
 			// Secret is filled in, exists, and is valid. We can exit.
-			return ctrl.Result{}, nil
+			return err
 		}
 	}
 	secret, err := h.createNewSecret(ctx, secretFieldName, secretName)
 	if err != nil {
-		return ctrl.Result{}, err
+		return err
 	}
 	if secretFieldName != nmaTLSSecret {
-		res, err := h.ValidateSecretCertificate(ctx, secret, tlsConfigName, secret.Name)
-		if err != nil {
-			return res, err
+		if err := h.ValidateSecretCertificate(ctx, secret, tlsConfigName, secret.Name); err != nil {
+			return err
 		}
 	}
 
 	h.Log.Info(fmt.Sprintf("created certificate and secret %s for %s", secret.Name, secretFieldName))
-	return ctrl.Result{}, h.setSecretNameInVDB(ctx, secretFieldName, secret.ObjectMeta.Name)
+	return h.setSecretNameInVDB(ctx, secretFieldName, secret.ObjectMeta.Name)
 }
 
 func (h *TLSServerCertGenReconciler) createNewSecret(ctx context.Context, secretFieldName, secretName string) (*corev1.Secret, error) {
@@ -267,56 +264,51 @@ func (h *TLSServerCertGenReconciler) ValidateSecretCertificate(
 	secret *corev1.Secret,
 	tlsConfigName string,
 	secretName string,
-) (ctrl.Result, error) {
+) error {
 	h.Log.Info("validating TLS certificate for existing secret", "secretName", secretName)
 
 	// Check if secret exists
 	nm := names.GenNamespacedName(h.Vdb, secretName)
 	err := h.VRec.Client.Get(ctx, nm, secret)
 	if kerrors.IsNotFound(err) {
-		res, err1 := h.InvalidCertRollback(ctx, "Validation of TLS Certificate %q failed; secret %q does not exist", tlsConfigName, secretName)
+		err1 := h.InvalidCertRollback(ctx, "Validation of TLS Certificate %q failed; secret %q does not exist", tlsConfigName, secretName)
 		if err1 != nil || h.Vdb.IsTLSCertRollbackNeeded() {
-			return res, err1
+			return err1
 		}
-		return res, err
+		return err
 	}
 
 	certPEM := secret.Data[TLSCertName]
 	if certPEM == nil {
-		return ctrl.Result{}, errors.New("failed to decode PEM block containing certificate")
+		return errors.New("failed to decode PEM block containing certificate")
 	}
 	keyPEM := secret.Data[TLSKeyName]
 	if keyPEM == nil {
-		return ctrl.Result{}, errors.New("failed to decode PEM block containing key")
+		return errors.New("failed to decode PEM block containing key")
 	}
 
 	err = security.ValidateTLSSecret(certPEM, keyPEM)
 	if err != nil {
-		res, err1 := h.InvalidCertRollback(ctx, "Validation of TLS Certificate %q failed with secret %q", tlsConfigName, secretName)
+		err1 := h.InvalidCertRollback(ctx, "Validation of TLS Certificate %q failed with secret %q", tlsConfigName, secretName)
 		if err1 != nil || h.Vdb.IsTLSCertRollbackNeeded() {
-			return res, err1
+			return err1
 		}
-		return res, err
+		return err
 	}
 
 	err = security.ValidateCertificateCommonName(certPEM, h.Vdb.GetExpectedCertCommonName(tlsConfigName))
 	if err != nil {
-		res, err1 := h.InvalidCertRollback(
-			ctx,
-			"Validation of common name for TLS Certificate %q failed with secret %q",
-			tlsConfigName,
-			secretName,
-		)
+		err1 := h.InvalidCertRollback(ctx, "Validation of common name for TLS Certificate %q failed with secret %q", tlsConfigName, secretName)
 		if err1 != nil || h.Vdb.IsTLSCertRollbackNeeded() {
-			return res, err1
+			return err1
 		}
-		return res, err
+		return err
 	}
 
 	expiringSoon, expireTime, err := security.CheckCertificateExpiringSoon(certPEM)
 
 	if err != nil {
-		return ctrl.Result{}, err
+		return err
 	}
 
 	if expiringSoon {
@@ -324,7 +316,7 @@ func (h *TLSServerCertGenReconciler) ValidateSecretCertificate(
 	}
 
 	h.Log.Info("successfully completed validating TLS certificate for existing secret", "secretName", secretName)
-	return ctrl.Result{}, nil
+	return nil
 }
 
 // ShouldGenerateCert determines whether generating TLS server certificates should run at all.
@@ -354,12 +346,7 @@ func (h *TLSServerCertGenReconciler) ShouldSkipThisConfig(secretFieldName string
 }
 
 // InvalidCertRollback handles failures in cert validation, by producing an event and (if relevant) trigerring rollback
-func (h *TLSServerCertGenReconciler) InvalidCertRollback(
-	ctx context.Context,
-	message string,
-	tlsConfigName string,
-	secretName string,
-) (ctrl.Result, error) {
+func (h *TLSServerCertGenReconciler) InvalidCertRollback(ctx context.Context, message, tlsConfigName, secretName string) error {
 	h.VRec.Eventf(h.Vdb, corev1.EventTypeWarning, events.TLSCertValidationFailed, message, tlsConfigName, secretName)
 	if h.Vdb.IsTLSCertRollbackEnabled() && h.Vdb.GetSecretInUse(tlsConfigName) != "" {
 		reason := vapi.FailureBeforeHTTPSCertHealthPollingReason
@@ -368,7 +355,7 @@ func (h *TLSServerCertGenReconciler) InvalidCertRollback(
 		}
 		cond := vapi.MakeCondition(vapi.TLSCertRollbackNeeded, metav1.ConditionTrue, reason)
 		if err := vdbstatus.UpdateCondition(ctx, h.VRec.GetClient(), h.Vdb, cond); err != nil {
-			return ctrl.Result{}, err
+			return err
 		}
 	}
 
@@ -380,5 +367,5 @@ func (h *TLSServerCertGenReconciler) InvalidCertRollback(
 	_, err := rollbackRecon.Reconcile(ctx, nil)
 	h.Log.Info("Finished running rollback", "tlsConfigName", tlsConfigName, "secretName",
 		h.Vdb.GetTLSConfigSpecByName(tlsConfigName).Secret)
-	return ctrl.Result{}, err
+	return err
 }
