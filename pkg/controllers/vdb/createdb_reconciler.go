@@ -17,6 +17,7 @@ package vdb
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"sort"
 	"strings"
@@ -25,17 +26,18 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
+	"github.com/vertica/vertica-kubernetes/pkg/cloud"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
-	"github.com/vertica/vertica-kubernetes/pkg/license"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
 	vtypes "github.com/vertica/vertica-kubernetes/pkg/types"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/checklicense"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/createdb"
 	config "github.com/vertica/vertica-kubernetes/pkg/vdbconfig"
 	"github.com/vertica/vertica-kubernetes/pkg/vdbstatus"
@@ -64,6 +66,7 @@ type CreateDBReconciler struct {
 	Dispatcher          vadmin.Dispatcher
 	ConfigurationParams *vtypes.CiMap
 	VInf                *version.Info
+	initiatorIP         string
 }
 
 // MakeCreateDBReconciler will build a CreateDBReconciler object
@@ -142,7 +145,7 @@ func (c *CreateDBReconciler) execCmd(ctx context.Context, initiatorPod types.Nam
 // preCmdSetup will generate the file we include with the create_db.
 // This file runs any custom SQL for the create_db.
 func (c *CreateDBReconciler) preCmdSetup(ctx context.Context, initiatorPod types.NamespacedName,
-	_ string) (ctrl.Result, error) {
+	initiatorIP string) (ctrl.Result, error) {
 	// If the communal path is a POSIX file path, we need to create the communal
 	// path directory as the server won't create it. It handles that for other
 	// communal types though.
@@ -166,7 +169,7 @@ func (c *CreateDBReconciler) preCmdSetup(ctx context.Context, initiatorPod types
 			return ctrl.Result{}, err
 		}
 	}
-
+	c.initiatorIP = initiatorIP
 	return c.generatePostDBCreateSQL(ctx, initiatorPod)
 }
 
@@ -297,10 +300,33 @@ func (c *CreateDBReconciler) getFirstPrimarySubcluster() *vapi.Subcluster {
 // genOptions will return the options to use for the create db command
 func (c *CreateDBReconciler) genOptions(ctx context.Context, initiatorPod types.NamespacedName, podNames []types.NamespacedName,
 	hostList []string) ([]createdb.Option, error) {
-	licPath, err := license.GetPath(ctx, c.VRec.Client, c.Vdb)
+	secretFetcher := &cloud.SecretFetcher{
+		Client:   c.VRec.GetClient(),
+		Log:      c.Log,
+		Obj:      c.Vdb,
+		EVWriter: c.VRec.GetEventRecorder(),
+	}
+	namespacedLicenseSecretName := types.NamespacedName{
+		Name:      c.Vdb.Spec.LicenseSecret,
+		Namespace: c.Vdb.Namespace,
+	}
+	licenseData, _, err := secretFetcher.FetchAllowRequeue(ctx, namespacedLicenseSecretName)
 	if err != nil {
 		return nil, err
 	}
+	/* for licenseKey, licenseFile := range licenseData { */
+	licenseKey := c.Vdb.Status.LicenseStatus.Licenses[0].Key
+	checkLicenseOpts := []checklicense.Option{
+		checklicense.WithInitiators([]string{c.initiatorIP}),
+		checklicense.WithLicenseFile(base64.StdEncoding.EncodeToString(licenseData[licenseKey])),
+		checklicense.WithCELienseDisallowed(true),
+		checklicense.WithCreateTempFile(true),
+	}
+	licPath, err2 := c.Dispatcher.CheckLicense(ctx, checkLicenseOpts...)
+	if err2 != nil {
+		return nil, err
+	}
+	c.Log.Info("Validated license", "licenseKey", licenseKey, "licenseSecret", c.Vdb.Spec.LicenseSecret, "tempLicenseFile", licPath)
 
 	opts := []createdb.Option{
 		createdb.WithInitiator(initiatorPod),

@@ -17,7 +17,9 @@ package vdb
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/base64"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"time"
@@ -62,8 +64,14 @@ func MakeLicenseValidationReconciler(recon config.ReconcilerInterface, log logr.
 }
 
 func (r *LicenseValidationReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
+	if r.vdb.Spec.LicenseSecret != "" && (r.vdb.Status.LicenseStatus == nil || r.vdb.Status.LicenseStatus != nil &&
+		r.vdb.Spec.LicenseSecret != r.vdb.Status.LicenseStatus.LicenseSecret) {
+		res, err := r.validateLicenseSecret(ctx)
+		return res, err
+	}
+	// another scenario
 	var toValidate = false
-	lastSuccessfulValidation := r.vdb.Status.LastLicenseValidation
+	lastSuccessfulValidation := r.vdb.Status.LicenseStatus.LastLicenseValidation
 	if lastSuccessfulValidation.IsZero() {
 		toValidate = true
 	}
@@ -76,20 +84,20 @@ func (r *LicenseValidationReconciler) Reconcile(ctx context.Context, _ *ctrl.Req
 		return ctrl.Result{}, nil
 	}
 	r.log.Info("will validate licenses at " + time.Now().String() + ", validated last time at " + lastSuccessfulValidation.String())
-	validLicenses, errMsg, err := r.validateLicenses(ctx)
+	validLicenses, errMsg, err := r.validateLicenseStatus(ctx)
 	if err != nil {
 		r.log.Info("requeue to wait to validate license")
 		return ctrl.Result{Requeue: true}, nil // if no pod, requeue
 	}
 	if len(validLicenses) == 0 {
-		r.vRec.Event(r.vdb, corev1.EventTypeNormal, events.LicenseValidationFail, errMsg)
+		r.vRec.Event(r.vdb, corev1.EventTypeNormal, events.LicenseValidationFail, fmt.Sprintf("no valid Vertica license found from secret %s", r.vdb.Spec.LicenseSecret))
 		return ctrl.Result{}, fmt.Errorf("no valid Vertica license found from the license secret. Details: %s", errMsg)
 	}
-	r.log.Info("number of valid licenses found from the license secret", len(validLicenses),
+	r.log.Info("Successfully validated licenses in license status", "number of valid licenses", len(validLicenses),
 		"error messages from validation", errMsg)
-
+	r.vRec.Event(r.vdb, corev1.EventTypeNormal, events.LicenseValidationSucceeded, fmt.Sprintf("%d valid Vertica license found from license status", len(validLicenses)))
 	updateTime := metav1.Now()
-	r.vdb.Status.LastLicenseValidation = updateTime
+	r.vdb.Status.LicenseStatus.LastLicenseValidation = updateTime
 	err = r.updateStatus(ctx, updateTime)
 	if err != nil {
 		r.log.Error(err, "failed to update last license check time")
@@ -98,7 +106,69 @@ func (r *LicenseValidationReconciler) Reconcile(ctx context.Context, _ *ctrl.Req
 	return ctrl.Result{}, nil
 }
 
-func (r *LicenseValidationReconciler) validateLicenses(ctx context.Context) (validLicenses []string, errMsg string, err error) {
+func (r *LicenseValidationReconciler) validateLicenseSecret(ctx context.Context) (ctrl.Result, error) {
+	validLicenses, errMsg, err := r.validateLicenseStatus(ctx)
+	if err != nil {
+		r.log.Info("requeue to wait to validate license")
+		return ctrl.Result{Requeue: true}, nil // if no pod, requeue
+	}
+	if len(validLicenses) == 0 {
+		r.vRec.Event(r.vdb, corev1.EventTypeNormal, events.LicenseValidationFail, fmt.Sprintf("no valid Vertica license found from secret %s", r.vdb.Spec.LicenseSecret))
+		return ctrl.Result{}, fmt.Errorf("no valid Vertica license found from the license secret. Details: %s", errMsg)
+	}
+	r.log.Info("Successfully validated license secret", "secret name", r.vdb.Spec.LicenseSecret, "number of valid licenses", len(validLicenses),
+		"error messages from validation", errMsg)
+	r.vRec.Event(r.vdb, corev1.EventTypeNormal, events.LicenseValidationSucceeded, fmt.Sprintf("%d valid Vertica license found from secret %s", len(validLicenses), r.vdb.Spec.LicenseSecret))
+	newLicenseStatus := vapi.LicenseStatus{}
+	if r.vdb.Status.LicenseStatus != nil {
+		validLicenses, err = r.mergeLicenses(r.vdb.Status.LicenseStatus.Licenses, validLicenses)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+		newLicenseStatus.LastLicenseValidation = r.vdb.Status.LicenseStatus.LastLicenseValidation
+	} else {
+		newLicenseStatus.LastLicenseValidation = metav1.Now()
+	}
+	newLicenseStatus.LicenseSecret = r.vdb.Spec.LicenseSecret
+	newLicenseStatus.Licenses = validLicenses
+	r.saveLicenseStatusInStatus(ctx, &newLicenseStatus)
+	return ctrl.Result{}, nil
+}
+
+func (r *LicenseValidationReconciler) mergeLicenses(statusLicenses, specLicenses []vapi.LicenseInfo) ([]vapi.LicenseInfo, error) {
+	licenseMap := map[string]vapi.LicenseInfo{}
+	for _, licenseInfo := range statusLicenses {
+		licenseMap[licenseInfo.Key] = licenseInfo
+	}
+	for _, specLicenseInfo := range specLicenses {
+		if statusLicenseInfo, ok := licenseMap[specLicenseInfo.Key]; ok {
+			if !statusLicenseInfo.Installed {
+				licenseMap[specLicenseInfo.Key] = specLicenseInfo
+				r.log.Info("A license has been updated in license secret", "license key", specLicenseInfo.Key)
+			} else {
+				r.log.Info("cannot update a valid installed license. Use a new license key")
+				return nil, fmt.Errorf("cannot update license %s. It is a valid installed license. Use a new license key", statusLicenseInfo.Key)
+			}
+		} else {
+			licenseMap[specLicenseInfo.Key] = specLicenseInfo
+		}
+	}
+	licenseSlice := make([]vapi.LicenseInfo, 0, len(licenseMap))
+	for _, licenseInfo := range licenseMap {
+		licenseSlice = append(licenseSlice, licenseInfo)
+	}
+	return licenseSlice, nil
+}
+
+func (r *LicenseValidationReconciler) saveLicenseStatusInStatus(ctx context.Context, licenseStatus *vapi.LicenseStatus) error {
+	refreshStatusInPlace := func(vdb *vapi.VerticaDB) error {
+		vdb.Status.LicenseStatus = licenseStatus
+		return nil
+	}
+	return vdbstatus.Update(ctx, r.vRec.GetClient(), r.vdb, refreshStatusInPlace)
+}
+
+func (r *LicenseValidationReconciler) validateLicenseStatus(ctx context.Context) (validLicenses []vapi.LicenseInfo, errMsg string, err error) {
 	namespacedLicenseSecretName := types.NamespacedName{
 		Name:      r.vdb.Spec.LicenseSecret,
 		Namespace: r.vdb.Namespace,
@@ -123,6 +193,7 @@ func (r *LicenseValidationReconciler) validateLicenses(ctx context.Context) (val
 		return validLicenses, errMsg, err
 	}
 	initiatorPodIP := initiatorPod.GetPodIP()
+
 	var allErrors error
 	for licenseKey, licenseFile := range licenseData {
 		opts := []checklicense.Option{
@@ -131,12 +202,16 @@ func (r *LicenseValidationReconciler) validateLicenses(ctx context.Context) (val
 			checklicense.WithCELienseDisallowed(true),
 		}
 		r.log.Info("To validate license", "licenseKey", licenseKey, "licenseSecret", r.vdb.Spec.LicenseSecret)
-		err2 := r.dispatcher.CheckLicense(ctx, opts...)
+		_, err2 := r.dispatcher.CheckLicense(ctx, opts...)
 		if err2 != nil {
 			r.log.Error(err2, "invalid Vertica license", "licenseKey", licenseKey, "licenseSecret", r.vdb.Spec.LicenseSecret)
 			allErrors = errors.Join(allErrors, err2)
 		} else {
-			validLicenses = append(validLicenses, licenseKey)
+			licenseInfo := vapi.LicenseInfo{}
+			licenseInfo.Key = licenseKey
+			licenseInfo.Digest = r.getDigest(string(licenseFile))
+			licenseInfo.Valid = true
+			validLicenses = append(validLicenses, licenseInfo)
 		}
 	}
 	if allErrors != nil {
@@ -146,9 +221,17 @@ func (r *LicenseValidationReconciler) validateLicenses(ctx context.Context) (val
 	}
 }
 
+func (r *LicenseValidationReconciler) getDigest(input string) string {
+	hasher := sha256.New()
+	hasher.Write([]byte(input))
+	hashInBytes := hasher.Sum(nil)
+	hexHash := hex.EncodeToString(hashInBytes)
+	return hexHash
+}
+
 func (r *LicenseValidationReconciler) updateStatus(ctx context.Context, lastValicationTime metav1.Time) error {
 	updateStatus := func(vdbChg *vapi.VerticaDB) error {
-		vdbChg.Status.LastLicenseValidation = lastValicationTime
+		vdbChg.Status.LicenseStatus.LastLicenseValidation = lastValicationTime
 		return nil
 	}
 	return vdbstatus.Update(ctx, r.vRec.GetClient(), r.vdb, updateStatus)

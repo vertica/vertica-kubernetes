@@ -26,22 +26,22 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/checklicense"
 )
 
-func (v *VClusterOps) CheckLicense(ctx context.Context, opts ...checklicense.Option) error {
+func (v *VClusterOps) CheckLicense(ctx context.Context, opts ...checklicense.Option) (string, error) {
 	v.setupForAPICall("CheckLicense")
 	defer v.tearDownForAPICall()
 	v.Log.Info("Starting vcluster CheckLicense")
 	certs, err := v.retrieveHTTPSCerts(ctx)
 	if err != nil {
-		return err
+		return "", err
 	}
 	s := checklicense.Parms{}
 	s.Make(opts...)
 	vcOpts := v.genCheckLicenseOptions(&s, certs)
-	err = v.VCheckLicense(vcOpts)
+	tempLicenseFile, err := v.VCheckLicense(vcOpts)
 	if err != nil {
-		return fmt.Errorf("failed to check vertica license: %w", err)
+		return "", fmt.Errorf("failed to check vertica license: %w", err)
 	}
-	return nil
+	return tempLicenseFile, nil
 }
 
 func (v *VClusterOps) genCheckLicenseOptions(s *checklicense.Parms,
@@ -57,6 +57,6 @@ func (v *VClusterOps) genCheckLicenseOptions(s *checklicense.Parms,
 	v.setAuthentication(&opts.DatabaseOptions, v.VDB.GetVerticaUser(), v.Password, certs)
 	opts.LicenseFile = s.LicenseFile
 	opts.CELicenseDisallowed = s.CELicenseDisallowed
-
+	opts.CreateTempFile = s.CreateTempFile
 	return &opts
 }

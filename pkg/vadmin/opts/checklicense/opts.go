@@ -19,6 +19,7 @@ type Parms struct {
 	InitiatorIPs        []string
 	LicenseFile         string
 	CELicenseDisallowed bool
+	CreateTempFile      bool
 }
 
 // Option is a function that configures a Parms instance.
@@ -46,5 +47,11 @@ func WithInitiators(podIPs []string) Option {
 func WithCELienseDisallowed(ceLicenseDisallowed bool) Option {
 	return func(p *Parms) {
 		p.CELicenseDisallowed = ceLicenseDisallowed
+	}
+}
+
+func WithCreateTempFile(createTempFile bool) Option {
+	return func(p *Parms) {
+		p.CreateTempFile = createTempFile
 	}
 }
