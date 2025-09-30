@@ -1,0 +1,104 @@
+# (c) Copyright [2021-2024] Open Text.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# You may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: script-verify-multiple-ca-2
+data:
+  entrypoint.sh: |-
+    #!/bin/bash
+    set -o xtrace
+    set -x 
+    cd /root
+    SERVICE=v-multiple-ca
+    for cert in cert4 cert5 cert6 
+    do
+      curl -k --cert /etc/${cert}/tls.crt --key /etc/${cert}/tls.key https://${SERVICE}:8443/v1/nodes
+      res=$?
+      if [ $res -ne 0 ]
+      then 
+        echo "failed to connect to https with ${cert}"
+        exit 1
+      fi
+    done
+    dnf install libxcrypt-compat -y
+    mkdir vsql
+    curl -k https://www.vertica.com/client_drivers/24.2.x/24.2.0-1/vertica-client-24.2.0-1.x86_64.rpm -o /root/vsql/vertica-client-24.2.0-1.x86_64.rpm
+    rpm -ivh /root/vsql/vertica-client-24.2.0-1.x86_64.rpm
+    mkdir .vsql
+
+    for cert in cert4 cert5 cert6 
+    do
+        cp /etc/${cert}/tls.crt .vsql/client.crt
+        cp /etc/${cert}/tls.key .vsql/client.key
+        chmod -R 600 .vsql
+        /opt/vertica/bin/vsql -h ${SERVICE} -U dbadmin -w '' -c "select 1;"
+        if [ $? -ne 0 ]
+        then 
+          echo "failed vsql connection with ${cert}"
+          exit 1
+        fi
+        rm .vsql/client.crt
+        rm .vsql/client.key
+    done    
+    exit 0
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: script-verify-multiple-ca-2
+  labels:
+    stern: include
+spec:
+  restartPolicy: Never
+  containers:
+    - name: test
+      image: fedora:40
+      securityContext:
+        runAsUser: 0 # This sets the user ID to root (0)
+        allowPrivilegeEscalation: true      
+      env:
+      - name: LANG
+        value: "C.UTF-8"        
+      command: ["/bin/entrypoint.sh"]
+      volumeMounts:
+        - name: entrypoint-volume
+          mountPath: /bin/entrypoint.sh
+          readOnly: true
+          subPath: entrypoint.sh
+        - name: cert4
+          readOnly: true
+          mountPath: "/etc/cert4"          
+        - name: cert5
+          readOnly: true
+          mountPath: "/etc/cert5"
+        - name: cert6
+          readOnly: true
+          mountPath: "/etc/cert6"                    
+  volumes:
+    - name: entrypoint-volume
+      configMap:
+        defaultMode: 0777
+        name: script-verify-multiple-ca-2
+    - name: cert4
+      secret:
+        secretName: cert4
+    - name: cert5
+      secret:
+        secretName: cert5
+    - name: cert6
+      secret:
+        secretName: cert6
+
+
