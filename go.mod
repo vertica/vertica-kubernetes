@@ -1,6 +1,6 @@
 module github.com/vertica/vertica-kubernetes
 
-go 1.23.5
+go 1.23.12
 
 require (
 	cloud.google.com/go/secretmanager v1.14.2

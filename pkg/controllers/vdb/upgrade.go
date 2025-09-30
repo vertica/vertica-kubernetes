@@ -613,17 +613,17 @@ func (i *UpgradeManager) enableHTTPSTLS(ctx context.Context, pfacts *podfacts.Po
 
 	// Compose the SQL to create keys, certs, and alter HTTPS TLS config
 	sql := fmt.Sprintf(`
-CREATE KEY k_ca TYPE 'RSA' LENGTH 4096;
-CREATE KEY k_server TYPE 'RSA' LENGTH 2048;
+CREATE KEY httpCAKey TYPE 'RSA' LENGTH 4096;
+CREATE KEY httpServerKey TYPE 'RSA' LENGTH 2048;
 CREATE CA CERTIFICATE httpServerRootca
    SUBJECT '/C=US/ST=Massachusetts/L=Cambridge/O=Micro Focus/OU=Vertica/CN=Vertica Root CA'
    VALID FOR 3650
    EXTENSIONS 'nsComment' = 'Vertica generated root CA cert'
-   KEY k_ca;
+   KEY httpCAKey;
 CREATE CERTIFICATE httpServerCert
    SUBJECT '/C=US/ST=Massachusetts/L=Cambridge/O=Micro Focus/OU=Vertica/CN=Eng Vertica Cluster/emailAddress=Vertica-IT@microfocus.com'
    SIGNED BY httpServerRootca
-   KEY k_server;
+   KEY httpServerKey;
 ALTER TLS CONFIGURATION %s
 CERTIFICATE httpServerCert ADD CA CERTIFICATES httpServerRootca TLSMODE 'TRY_VERIFY';
 SELECT SYNC_CATALOG();
