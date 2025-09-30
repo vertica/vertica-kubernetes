@@ -70,7 +70,7 @@ func (s *ServiceMonitorReconciler) Reconcile(ctx context.Context, _ *ctrl.Reques
 // reconcileBasicAuth creates the basic auth secret if it does not exist.
 // The secret contaons the username and password to authenticate to the DB.
 func (s *ServiceMonitorReconciler) reconcileBasicAuth(ctx context.Context) error {
-	if s.Vdb.IsSetForTLS() {
+	if s.Vdb.IsAnyTLSAuthEnabledWithMinVersion() {
 		return nil
 	}
 	nm := names.GenBasicauthSecretName(s.Vdb)

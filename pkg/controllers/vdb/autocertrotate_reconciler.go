@@ -76,7 +76,7 @@ func (r *AutoCertRotateReconciler) Reconcile(ctx context.Context, _ *ctrl.Reques
 // for next rotation.
 func (r *AutoCertRotateReconciler) autoRotateByTLSConfig(ctx context.Context, tlsConfig string) (ctrl.Result, error) {
 	// If user has cleared autoRotate from spec, remove status fields
-	if vmeta.UseTLSAuth(r.Vdb.Annotations) && r.Vdb.GetTLSConfigSpecByName(tlsConfig) != nil &&
+	if r.Vdb.IsTLSAuthEnabledForConfig(tlsConfig) && r.Vdb.GetTLSConfigSpecByName(tlsConfig) != nil &&
 		r.Vdb.GetTLSConfigSpecByName(tlsConfig).AutoRotate == nil && len(r.Vdb.GetAutoRotateSecrets(tlsConfig)) > 0 {
 		r.Log.Info("autoRotate has been removed from spec; clearing status fields", "tlsConfig", tlsConfig)
 		return ctrl.Result{}, r.updateTLSStatus(ctx, tlsConfig, func(status *vapi.TLSConfigStatus) {

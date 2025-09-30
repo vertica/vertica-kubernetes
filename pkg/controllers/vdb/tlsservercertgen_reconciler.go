@@ -26,7 +26,6 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/builder"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
-	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	"github.com/vertica/vertica-kubernetes/pkg/secrets"
@@ -66,10 +65,9 @@ func MakeTLSServerCertGenReconciler(vdbrecon *VerticaDBReconciler, log logr.Logg
 
 // Reconcile will create a TLS secret for the http server if one is missing
 func (h *TLSServerCertGenReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
-	nmaCertNeeded := !vmeta.UseTLSAuth(h.Vdb.Annotations) && h.Vdb.Spec.NMATLSSecret == ""
-	// Verify that at least one secret has changed
+	// Verify that at least one secret need generation
 	// If not, skip this reconciler
-	if !h.ShouldGenerateCert() && !nmaCertNeeded {
+	if !h.ShouldGenerateCert() || h.Vdb.IsTLSCertRollbackNeeded() || h.Vdb.GetHTTPSPollingCurrentRetries() > 0 {
 		return ctrl.Result{}, nil
 	}
 
@@ -79,22 +77,19 @@ func (h *TLSServerCertGenReconciler) Reconcile(ctx context.Context, _ *ctrl.Requ
 // reconcileSecrets will check three secrets: NMA secret, https secret, and client server secret
 func (h *TLSServerCertGenReconciler) reconcileSecrets(ctx context.Context) error {
 	secretFieldNameMap := map[string]string{
+		clientServerTLSSecret: h.Vdb.GetClientServerTLSSecret(),
 		nmaTLSSecret:          h.Vdb.Spec.NMATLSSecret,
 		httpsNMATLSSecret:     h.Vdb.GetHTTPSNMATLSSecret(),
-		clientServerTLSSecret: h.Vdb.GetClientServerTLSSecret(),
 	}
 	err := error(nil)
 	for secretFieldName, secretName := range secretFieldNameMap {
-		if !vmeta.UseTLSAuth(h.Vdb.Annotations) && secretFieldName != nmaTLSSecret {
-			h.Log.Info("TLS auth is not enabled. Skipping TLS secret validation and generation")
+		if h.ShouldSkipThisConfig(secretFieldName) {
 			continue
 		}
-		if vmeta.UseTLSAuth(h.Vdb.Annotations) && secretFieldName == nmaTLSSecret {
-			h.Log.Info("TLS auth is enabled. Skipping NMA secret validation and generation")
-			continue
-		}
-		// when nma secret is not empty, we can assign it to https and client TLS
-		if h.Vdb.Spec.NMATLSSecret != "" && (secretFieldName != nmaTLSSecret && secretName == "") {
+		h.Log.Info("Reconciling TLS secret", "TLS secret", secretFieldName, "secretName", secretName)
+
+		// when nma secret is not empty, we can assign it to https and/or clientserver TLS
+		if h.Vdb.Spec.NMATLSSecret != "" && secretFieldName != nmaTLSSecret && secretName == "" {
 			nm := names.GenNamespacedName(h.Vdb, h.Vdb.Spec.NMATLSSecret)
 			secret := corev1.Secret{}
 			err = h.VRec.Client.Get(ctx, nm, &secret)
@@ -324,19 +319,30 @@ func (h *TLSServerCertGenReconciler) ValidateSecretCertificate(
 	return nil
 }
 
-// ShouldGenerateCert determines whether TLS server certificates should be generated.
-// Returns true if either TLS config is missing in status or the expected secret differs from what's currently recorded.
+// ShouldGenerateCert determines whether generating TLS server certificates should run at all.
+// Returns true if any secret (NMA, HTTPS, or Server) needs to be generated.
 func (h *TLSServerCertGenReconciler) ShouldGenerateCert() bool {
-	if h.Vdb.IsTLSCertRollbackNeeded() {
-		return false
-	}
+	httpsNMACertNeeded := h.Vdb.ShouldGenCertForTLSConfig(vapi.HTTPSNMATLSConfigName)
+	clientServerCertNeeded := h.Vdb.ShouldGenCertForTLSConfig(vapi.ClientServerTLSConfigName)
+	nmaCertNeeded := !h.Vdb.IsHTTPSNMATLSAuthEnabled() && h.Vdb.Spec.NMATLSSecret == ""
+	return httpsNMACertNeeded || clientServerCertNeeded || nmaCertNeeded
+}
 
-	return vmeta.UseTLSAuth(h.Vdb.Annotations) &&
-		h.Vdb.GetHTTPSPollingCurrentRetries() == 0 &&
-		(h.Vdb.GetHTTPSNMATLSSecretInUse() == "" ||
-			h.Vdb.GetClientServerTLSSecretInUse() == "" ||
-			h.Vdb.GetHTTPSNMATLSSecretInUse() != h.Vdb.GetHTTPSNMATLSSecret() ||
-			h.Vdb.GetClientServerTLSSecretInUse() != h.Vdb.GetClientServerTLSSecret())
+// ShouldSkipThisConfig determines whether an individual config (NMA, HTTPS, or Server) should skipped.
+func (h *TLSServerCertGenReconciler) ShouldSkipThisConfig(secretFieldName string) bool {
+	if secretFieldName == nmaTLSSecret && h.Vdb.IsHTTPSNMATLSAuthEnabled() {
+		h.Log.Info("TLS auth is enabled. Skipping NMA secret validation and generation")
+		return true
+	}
+	if secretFieldName == httpsNMATLSSecret && !h.Vdb.IsHTTPSNMATLSAuthEnabled() {
+		h.Log.Info("HTTPS TLS config disabled. Skipping secret validation and generation")
+		return true
+	}
+	if secretFieldName == clientServerTLSSecret && !h.Vdb.IsClientServerTLSAuthEnabled() {
+		h.Log.Info("Client-server TLS config disabled. Skipping secret validation and generation")
+		return true
+	}
+	return false
 }
 
 // InvalidCertRollback handles failures in cert validation, by producing an event and (if relevant) trigerring rollback

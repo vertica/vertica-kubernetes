@@ -60,7 +60,7 @@ func MakeClientServerTLSUpdateReconciler(vdbrecon *VerticaDBReconciler, log logr
 func (h *ClientServerTLSUpdateReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (ctrl.Result, error) {
 	// Skip if TLS not enabled, DB not initialized, or rotate has failed.
 	// However, if called from rollback reconciler, always run.
-	if h.Vdb.ShouldSkipTLSUpdateReconcile() && !h.FromRollback {
+	if h.Vdb.ShouldSkipClientServerTLSUpdateReconcile(h.FromRollback) {
 		return ctrl.Result{}, nil
 	}
 
@@ -78,8 +78,7 @@ func (h *ClientServerTLSUpdateReconciler) Reconcile(ctx context.Context, req *ct
 		return rec.Reconcile(ctx, req)
 	}
 
-	if !h.Vdb.IsClientServerConfigEnabled() ||
-		h.Vdb.IsStatusConditionTrue(vapi.ClientServerTLSConfigUpdateFinished) {
+	if !h.Vdb.IsClientServerConfigEnabled() {
 		return ctrl.Result{}, nil
 	}
 
@@ -96,17 +95,19 @@ func (h *ClientServerTLSUpdateReconciler) Reconcile(ctx context.Context, req *ct
 		return ctrl.Result{}, err2
 	}
 
-	res, err := h.Manager.setPollingCertMetadata(ctx)
-	if verrors.IsReconcileAborted(res, err) {
-		return res, err
+	if h.Vdb.IsHTTPSNMATLSAuthEnabled() {
+		res, err1 := h.Manager.setPollingCertMetadata(ctx)
+		if verrors.IsReconcileAborted(res, err1) {
+			return res, err1
+		}
 	}
 
 	upPods := h.PFacts.FindUpPods("")
 	if len(upPods) == 0 {
 		h.Log.Info("No up pod found to update tls config. Restarting.")
 		restartReconciler := MakeRestartReconciler(h.VRec, h.Log, h.Vdb, h.PFacts.PRunner, h.PFacts, true, h.Dispatcher)
-		res, err = restartReconciler.Reconcile(ctx, req)
-		return res, err
+		res, err1 := restartReconciler.Reconcile(ctx, req)
+		return res, err1
 	}
 
 	upHostToSandbox := make(map[string]string)
@@ -115,7 +116,7 @@ func (h *ClientServerTLSUpdateReconciler) Reconcile(ctx context.Context, req *ct
 		upHostToSandbox[p.GetPodIP()] = p.GetSandbox()
 	}
 
-	res, err = h.Manager.updateTLSConfig(ctx, initiator, upHostToSandbox)
+	res, err := h.Manager.updateTLSConfig(ctx, initiator, upHostToSandbox)
 	if verrors.IsReconcileAborted(res, err) || h.Vdb.IsTLSCertRollbackNeeded() {
 		return res, err
 	}

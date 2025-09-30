@@ -80,7 +80,9 @@ const (
 	MountNMACertsAnnotationTrue  = "true"
 	MountNMACertsAnnotationFalse = "false"
 
-	// This is a feature flag for enables authentication via Mutual TLS
+	// This is a feature flag for enables authentication via Mutual TLS.
+	// Deprecated: TLS auth should now be set per TLS config, within the spec.
+	// For example, httpsNMATLS.enabled and clientServerTLS.enabled
 	EnableTLSAuthAnnotation = "vertica.com/enable-tls-auth"
 
 	// Two annotations that are set by the operator when creating objects.

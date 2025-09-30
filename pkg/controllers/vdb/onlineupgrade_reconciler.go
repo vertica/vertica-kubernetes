@@ -892,7 +892,7 @@ func (r *OnlineUpgradeReconciler) startReplicationToReplicaGroupB(ctx context.Co
 	}
 
 	tlsConfig := ""
-	if r.VDB.IsSetForTLS() {
+	if r.VDB.IsClientServerTLSAuthEnabledWithMinVersion() {
 		tlsConfig = "server"
 	}
 
