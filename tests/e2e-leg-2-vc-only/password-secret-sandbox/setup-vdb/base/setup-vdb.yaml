@@ -41,4 +41,5 @@ spec:
     - name: sand1
       subclusters:
       - name: sc2
+        type: primary
 
