@@ -19,7 +19,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"strings"
 
 	"github.com/vertica/vcluster/vclusterops/vlog"
 )
@@ -29,26 +28,31 @@ type nmaCheckLicenseOp struct {
 	hostRequestBody     string
 	initiator           string
 	ceLicenseDisallowed bool
+	createtempfile      bool
+	licenseTempFile     *string
 	logger              vlog.Printer
 }
 
 // http request model
 type checkLicenseData struct {
 	sqlEndpointData
-	LicenseFile string `json:"license_file"`
+	LicenseFile         string `json:"license_file"`
+	CreateTempFile      bool   `json:"create_temp_file"`
+	CeLicenseDisallowed bool   `json:"ce_license_disallowed"`
 }
 
 type CheckLicenseResponse map[string]string
 
 func makeNMACheckLicenseOp(hosts []string, username, dbName, licenseFile string, password *string, useHTTPPassword bool,
-	ceLicenseDisallowed bool, logger vlog.Printer) (nmaCheckLicenseOp, error) {
+	ceLicenseDisallowed bool, createTempFile bool, logger vlog.Printer) (nmaCheckLicenseOp, error) {
 	op := nmaCheckLicenseOp{}
 	op.name = "NMACheckLicenseOp"
 	op.description = "Check license"
 	op.hosts = hosts
 	op.logger = logger
 	op.ceLicenseDisallowed = ceLicenseDisallowed
-	err := op.setupRequestBody(username, dbName, licenseFile, password, useHTTPPassword)
+	op.createtempfile = createTempFile
+	err := op.setupRequestBody(username, dbName, licenseFile, ceLicenseDisallowed, createTempFile, password, useHTTPPassword)
 	if err != nil {
 		return op, err
 	}
@@ -56,7 +60,7 @@ func makeNMACheckLicenseOp(hosts []string, username, dbName, licenseFile string,
 }
 
 func (op *nmaCheckLicenseOp) setupRequestBody(
-	username, dbName, licenseFile string, password *string,
+	username, dbName, licenseFile string, ceLicenseDisallowed bool, createTempFile bool, password *string,
 	useDBPassword bool) error {
 	err := ValidateSQLEndpointData(op.name,
 		useDBPassword, username, password, dbName)
@@ -66,6 +70,8 @@ func (op *nmaCheckLicenseOp) setupRequestBody(
 	checkLicenseData := &checkLicenseData{}
 	checkLicenseData.sqlEndpointData = createSQLEndpointData(username, dbName, useDBPassword, password)
 	checkLicenseData.LicenseFile = licenseFile
+	checkLicenseData.CreateTempFile = createTempFile
+	checkLicenseData.CeLicenseDisallowed = ceLicenseDisallowed
 	dataBytes, err := json.Marshal(checkLicenseData)
 	if err != nil {
 		return fmt.Errorf("[%s] fail to marshal request data to JSON string, detail %w", op.name, err)
@@ -131,14 +137,10 @@ func (op *nmaCheckLicenseOp) processResult(_ *opEngineExecContext) error {
 			err := json.Unmarshal([]byte(result.content), &checkLicenseResponse)
 			if err != nil {
 				allErrs = errors.Join(allErrs, err)
-			} else if op.ceLicenseDisallowed {
-				companyName, ok := checkLicenseResponse["company_name"]
-				if ok {
-					companyName = strings.Trim(companyName, " ")
-					if companyName == "Vertica Community Edition" {
-						allErrs = errors.Join(allErrs, fmt.Errorf("vertica Community Edition license has been disallowed"))
-					}
-				}
+			} else if op.createtempfile {
+				licenseTempFile := checkLicenseResponse["license_temp_file"]
+				op.logger.Info("libo: returned license temp file " + licenseTempFile)
+				op.licenseTempFile = &licenseTempFile
 			}
 		} else {
 			allErrs = errors.Join(allErrs, result.err)

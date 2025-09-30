@@ -26,6 +26,7 @@ type VCheckLicenseOptions struct {
 	DatabaseOptions
 	LicenseFile         string
 	CELicenseDisallowed bool
+	CreateTempFile      bool
 }
 
 func VCheckLicenseOptionsFactory() VCheckLicenseOptions {
@@ -61,16 +62,16 @@ func (opt *VCheckLicenseOptions) validateAnalyzeOptions(log vlog.Printer) error 
 	return nil
 }
 
-func (vcc VClusterCommands) VCheckLicense(options *VCheckLicenseOptions) error {
+func (vcc VClusterCommands) VCheckLicense(options *VCheckLicenseOptions) (string, error) {
 	// validate and analyze all options
 	optError := options.validateAnalyzeOptions(vcc.Log)
 	if optError != nil {
-		return optError
+		return "", optError
 	}
 	nmaCheckLicenseOp, err := makeNMACheckLicenseOp(options.Hosts, options.UserName, options.DBName, options.LicenseFile,
-		options.Password, options.usePassword, options.CELicenseDisallowed, vcc.Log)
+		options.Password, options.usePassword, options.CELicenseDisallowed, options.CreateTempFile, vcc.Log)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	var instructions []clusterOp
@@ -83,7 +84,12 @@ func (vcc VClusterCommands) VCheckLicense(options *VCheckLicenseOptions) error {
 	vcc.Log.Info("Checking Vertica License ", "hosts", options.Hosts)
 	runError := clusterOpEngine.run(vcc.Log)
 	if runError != nil {
-		return fmt.Errorf("failed to check Vertica License: %w", runError)
+		return "", fmt.Errorf("failed to check Vertica License: %w", runError)
 	}
-	return nil
+	if options.CreateTempFile {
+		return *nmaCheckLicenseOp.licenseTempFile, nil
+	} else {
+		return "", nil
+	}
+
 }
