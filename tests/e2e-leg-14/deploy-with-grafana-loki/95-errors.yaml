@@ -11,26 +11,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1
-kind: VerticaDB
+apiVersion: apps/v1
+kind: StatefulSet
+---
+apiVersion: v1
+kind: Service
 metadata:
-  name: v-with-prom-namespace
-  annotations:
-    vertica.com/include-uid-in-path: true
-    vertica.com/vcluster-ops: true
-    vertica.com/prometheus-scrape-interval: "5"
-spec:
-  image: kustomize-vertica-image
-  communal: {}
-  local:
-    requestSize: 250Mi
-  imagePullPolicy: IfNotPresent
-  passwordSecret: su-passwd
-  subclusters:
-    - name: pri1
-      size: 3
-      type: primary
-  certSecrets: []
-  imagePullSecrets: []
-  volumes: []
-  volumeMounts: []
+  labels:
+    app.kubernetes.io/managed-by: verticadb-operator

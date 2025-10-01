@@ -38,7 +38,7 @@ var _ = Describe("nmacertconfigmap_reconcile", func() {
 		const existing = "existing-secret"
 		vdb := vapi.MakeVDBForHTTP(existing)
 		vdb.Annotations[vmeta.MountNMACertsAnnotation] = trueStr
-		vdb.Annotations[vmeta.EnableTLSAuthAnnotation] = falseStr
+		vdb.Spec.HTTPSNMATLS.Enabled = vapi.BoolPtr(false)
 
 		configMapName := names.GenNMACertConfigMap(vdb)
 		configMap := &corev1.ConfigMap{}
@@ -64,7 +64,6 @@ var _ = Describe("nmacertconfigmap_reconcile", func() {
 	It("should create the ConfigMap if it does not exist", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Annotations[vmeta.MountNMACertsAnnotation] = falseStr
-		vdb.Annotations[vmeta.EnableTLSAuthAnnotation] = trueStr
 		const existing = "existing-secret"
 		vdb.Spec.HTTPSNMATLS.Secret = existing
 		test.CreateVDB(ctx, k8sClient, vdb)

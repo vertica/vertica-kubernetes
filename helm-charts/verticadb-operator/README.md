@@ -90,3 +90,6 @@ This table below describes monitoring configuration parameters including Grafana
 | alloy.configMap.create | Whether to create a new ConfigMap for the config file | true |
 | alloy.configMap.name | Name of existing ConfigMap to use when configMap.create is false | |
 | alloy.configMap.key | Key in ConfigMap to get config from when using existing ConfigMap | |
+| alloy.rbac.create | Whether to create RBAC resources for Alloy | true |
+| alloy.serviceAccount.create | Whether to create a service account for Alloy | true |
+| alloy.serviceAccount.name | The name of the existing service account to use when serviceAccount.create is false | |

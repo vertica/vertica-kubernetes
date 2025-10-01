@@ -26,3 +26,7 @@ resources:
 - prometheus_role.yaml
 - prometheus_role_binding.yaml
 - prometheus_sa.yaml
+# The following RBAC configurations are used for prometheus
+- alloy_role.yaml
+- alloy_role_binding.yaml
+- alloy_sa.yaml

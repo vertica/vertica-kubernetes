@@ -125,7 +125,7 @@ func (h *NMACertRotationReconciler) Reconcile(ctx context.Context, _ *ctrl.Reque
 
 // nmaCertRotationNeeded returns true if nma cert rotation is needed
 func (h *NMACertRotationReconciler) nmaCertRotationNeeded() bool {
-	if !h.Vdb.IsSetForTLS() {
+	if !h.Vdb.IsAnyTLSAuthEnabledWithMinVersion() {
 		return false
 	}
 	// no-op if tls update has not occurred
@@ -154,6 +154,12 @@ func (h *NMACertRotationReconciler) rotateNmaTLSCert(ctx context.Context, newSec
 	}
 	newSecretName := h.Vdb.GetHTTPSNMATLSSecret()
 
+	// If HTTPS is disabled, we are just doing a restart for Client-Server cert rotate
+	if !h.Vdb.IsHTTPSNMATLSAuthEnabled() {
+		currentSecretName = h.Vdb.GetNMATLSSecret()
+		newSecretName = currentSecretName
+	}
+
 	if currentSecretName == newSecretName {
 		// If the current and new secrets are the same, then we are just restarting
 		h.VRec.Eventf(h.Vdb, corev1.EventTypeNormal, events.NMATLSCertRotationStarted,
@@ -163,7 +169,7 @@ func (h *NMACertRotationReconciler) rotateNmaTLSCert(ctx context.Context, newSec
 			"Start rotating nma cert from %s to %s", currentSecretName, newSecretName)
 	}
 	h.Log.Info("Rotating NMA certificate", "from", currentSecretName, "to", newSecretName,
-		"tlsEnabled", h.Vdb.IsSetForTLS(),
+		"tlsEnabled", h.Vdb.IsAnyTLSAuthEnabledWithMinVersion(),
 	)
 
 	hosts := []string{}
