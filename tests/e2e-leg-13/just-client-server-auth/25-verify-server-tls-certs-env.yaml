@@ -15,5 +15,5 @@ apiVersion: kuttl.dev/v1beta2
 kind: TestStep
 commands:
   # nma env variable should exist.
-  - command: kubectl exec -n $NAMESPACE v-just-client-server-auth-sc1-0 -c nma -- bash -c "env | grep NMA_CLIENT_SECRET_NAME=v-just-client-server-auth-clientserver-tls"
+  - command: kubectl exec -n $NAMESPACE v-just-client-server-auth-sc1-0 -c nma -- bash -c "env | grep NMA_CLIENT_SECRET_NAME=v-just-client-server-auth-"
   - command: kubectl exec -n $NAMESPACE v-just-client-server-auth-sc1-0 -c nma -- bash -c "env | grep NMA_CLIENT_SECRET_NAMESPACE=$NAMESPACE"

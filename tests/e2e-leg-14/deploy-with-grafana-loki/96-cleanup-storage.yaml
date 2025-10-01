@@ -11,22 +11,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: v1
-kind: Secret
-metadata:
-  name: cert-no-client-auth
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: custom-cert1
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: custom-cert2
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: custom-cert3
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - command: bash -c "kustomize build clean-communal/overlay | kubectl -n $NAMESPACE apply -f - "

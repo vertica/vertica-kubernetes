@@ -74,7 +74,7 @@ on:
         - vcluster leg 13
         - vcluster leg 14
         - vcluster leg 14 tls
-        - vcluster leg 14 loki
+        - vcluster leg 14 namespace
         - vcluster server upgrade
         - vcluster udx
       e2e_retry_times:
@@ -1338,26 +1338,6 @@ jobs:
           communal-storage-type: s3
           vertica-superuser-name: dbadmin
 
-  e2e-leg-14-loki-vcluster:
-    if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'vcluster leg 14 loki' || inputs.e2e_test_suites == '')}}
-    needs: [build]
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Test
-        uses: ./.github/actions/run-e2e-leg
-        with:
-          leg-identifier: 'leg-14-loki'
-          dockerhub-username: ${{ secrets.DOCKERHUB_USERNAME }}
-          dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}
-          vlogger-image: ${{ needs.build.outputs.vlogger-image }}
-          operator-image: ${{ needs.build.outputs.operator-image }}
-          vertica-image: ${{ needs.build.outputs.minimal-vertica-image }}
-          vertica-deployment-method: vclusterops
-          communal-storage-type: s3
-          vertica-superuser-name: dbadmin
-  
   e2e-leg-14-tls-vcluster:
     if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'vcluster leg 14 tls' || inputs.e2e_test_suites == '')}}
     needs: [build]
