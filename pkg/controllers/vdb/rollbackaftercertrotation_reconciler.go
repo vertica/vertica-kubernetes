@@ -157,9 +157,7 @@ func (r *RollbackAfterCertRotationReconciler) updateTLSConfigInVdb(ctx context.C
 			return err
 		}
 		mode := ""
-		tlsConfigName := ""
 		if r.Vdb.GetTLSCertRollbackReason() == vapi.RollbackAfterServerCertRotationReason {
-			tlsConfigName = vapi.ClientServerTLSConfigName
 			mode = r.Vdb.GetClientServerTLSModeInUse()
 			if strings.EqualFold(r.Vdb.GetClientServerTLSMode(), mode) {
 				mode = r.Vdb.GetSpecClientServerTLSMode()
@@ -173,7 +171,6 @@ func (r *RollbackAfterCertRotationReconciler) updateTLSConfigInVdb(ctx context.C
 			spec.Mode = mode
 			r.Vdb.Spec.ClientServerTLS = spec
 		} else {
-			tlsConfigName = vapi.HTTPSNMATLSConfigName
 			mode = r.Vdb.GetHTTPSTLSModeInUse()
 			if strings.EqualFold(r.Vdb.GetHTTPSNMATLSMode(), mode) {
 				mode = r.Vdb.GetSpecHTTPSNMATLSMode()
@@ -187,8 +184,6 @@ func (r *RollbackAfterCertRotationReconciler) updateTLSConfigInVdb(ctx context.C
 			spec.Mode = mode
 			r.Vdb.Spec.HTTPSNMATLS = spec
 		}
-		r.Log.Info("Updating VDB spec during rollback", "tlsConfigName", tlsConfigName, "secret",
-			r.Vdb.GetTLSConfigSpecByName(tlsConfigName).Secret)
 		return r.VRec.Client.Update(ctx, r.Vdb)
 	})
 }
