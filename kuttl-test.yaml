@@ -86,8 +86,9 @@ commands:
   # specific namespace. When deploying the operator at the namespace scope, we
   # only deploy the webhook here.
   - script: make undeploy || true
-  - script: if [ "$LEG" = "leg-14" ]; then kubectl create namespace verticadb-operator || true; fi
+  - script: kubectl create namespace verticadb-operator || true
   - script: if [ "$LEG" = "leg-14" ]; then kubectl apply -n verticadb-operator -f tests/e2e-leg-14/deploy-with-grafana-prometheus/admin.yaml; fi
+  - script: if [ "$LEG" = "leg-14-tls" ]; then kubectl apply -n verticadb-operator -f tests/e2e-leg-14-tls/prometheus-with-tls/tls-secret.yaml; fi
   - script: if [ "$CONTROLLERS_SCOPE" != "namespace" ]; then NAMESPACE=verticadb-operator make deploy; fi
   - script: if [ "$CONTROLLERS_SCOPE" = "namespace" ]; then NAMESPACE=verticadb-operator make deploy-webhook; fi
   - script: make undeploy-prometheus || true

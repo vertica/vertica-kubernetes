@@ -29,7 +29,7 @@ data:
     # Setup start and end time for query, e.g: 2024-09-14
     START_TIME=$(date +%Y-%m-%d) 
     END_TIME=$(date +%Y-%m-%d --date "$curr +1 day")
-    CMD="curl -g --cert /tmp/tls.crt --key /tmp/tls.key https://vdb-op-prometheus-server-prometheus.verticadb-operator.svc.cluster.local:9090/api/v1/query?query=vertica_build_info&start=${START_TIME}&end=${END_TIME}"
+    CMD="curl -g --cert /tmp/tls.crt --key /tmp/tls.key https://verticadb-operator-prom-prometheus.verticadb-operator.svc.cluster.local:9090/api/v1/query?query=vertica_build_info&start=${START_TIME}&end=${END_TIME}"
     RESULT=$(eval $CMD)
     METRICS=$(echo $RESULT) 
     
@@ -41,7 +41,7 @@ data:
       exit 1
     fi
 
-    CMD="curl -g --cert /tmp/tls.crt --key /tmp/tls.key --cacert /tmp/ca.crt https://vdb-op-prometheus-server-prometheus.verticadb-operator.svc.cluster.local:9090/api/v1/query?query=vertica_build_info&start=${START_TIME}&end=${END_TIME}"
+    CMD="curl -g --cert /tmp/tls.crt --key /tmp/tls.key --cacert /tmp/ca.crt https://verticadb-operator-prom-prometheus.verticadb-operator.svc.cluster.local:9090/api/v1/query?query=vertica_build_info&start=${START_TIME}&end=${END_TIME}"
     echo $?
     RESULT=$(eval $CMD)
     METRICS=$(echo $RESULT | jq -r '.data.result')
