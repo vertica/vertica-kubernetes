@@ -277,13 +277,6 @@ func buildVolumeMounts(vdb *vapi.VerticaDB) []corev1.VolumeMount {
 		})
 	}
 
-	if vdb.Spec.LicenseSecret != "" {
-		volMnts = append(volMnts, corev1.VolumeMount{
-			Name:      vapi.LicensingMountName,
-			MountPath: paths.MountedLicensePath,
-		})
-	}
-
 	if vdb.Spec.HadoopConfig != "" {
 		volMnts = append(volMnts, corev1.VolumeMount{
 			Name:      vapi.HadoopConfigMountName,
@@ -509,9 +502,6 @@ func buildCertSecretVolumeMounts(vdb *vapi.VerticaDB) []corev1.VolumeMount {
 func buildVolumes(vdb *vapi.VerticaDB) []corev1.Volume {
 	vols := []corev1.Volume{}
 	vols = append(vols, buildPodInfoVolume(vdb))
-	if vdb.Spec.LicenseSecret != "" {
-		vols = append(vols, buildLicenseVolume(vdb))
-	}
 	if vdb.Spec.HadoopConfig != "" {
 		vols = append(vols, buildHadoopConfigVolume(vdb))
 	}
@@ -578,18 +568,6 @@ func buildVolumeFromSecret(volName, secretName string) corev1.Volume {
 		VolumeSource: corev1.VolumeSource{
 			Secret: &corev1.SecretVolumeSource{
 				SecretName: secretName,
-			},
-		},
-	}
-}
-
-// buildLicenseVolume returns a volume that contains any licenses
-func buildLicenseVolume(vdb *vapi.VerticaDB) corev1.Volume {
-	return corev1.Volume{
-		Name: vapi.LicensingMountName,
-		VolumeSource: corev1.VolumeSource{
-			Secret: &corev1.SecretVolumeSource{
-				SecretName: vdb.Spec.LicenseSecret,
 			},
 		},
 	}

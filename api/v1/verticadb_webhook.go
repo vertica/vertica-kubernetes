@@ -46,7 +46,6 @@ const (
 	portUpperBound        = 32767
 	LocalDataPVC          = "local-data"
 	PodInfoMountName      = "podinfo"
-	LicensingMountName    = "licensing"
 	HadoopConfigMountName = "hadoop-conf"
 	Krb5SecretMountName   = "krb5"
 	SSHMountName          = "ssh"
@@ -1189,7 +1188,7 @@ func (v *VerticaDB) hasTLSSecretsSetForRevive(allErrs field.ErrorList) field.Err
 func (v *VerticaDB) hasValidVolumeName(allErrs field.ErrorList) field.ErrorList {
 	for i := range v.Spec.Volumes {
 		vol := v.Spec.Volumes[i]
-		if (vol.Name == LocalDataPVC) || (vol.Name == PodInfoMountName) || (vol.Name == LicensingMountName) || (vol.Name == HadoopConfigMountName) {
+		if (vol.Name == LocalDataPVC) || (vol.Name == PodInfoMountName) || (vol.Name == HadoopConfigMountName) {
 			err := field.Invalid(field.NewPath("spec").Child("volumes").Index(i).Child("name"),
 				v.Spec.Volumes[i].Name,
 				"conflicts with the name of one of the internally generated volumes")

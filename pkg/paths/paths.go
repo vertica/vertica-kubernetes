@@ -22,7 +22,6 @@ const (
 	InstallerIndicatorFile    = "/opt/vertica/config/update_vertica.called.for.uid."
 	LocalDataPath             = "/home/dbadmin/local-data"
 	CELicensePath             = "/home/dbadmin/licensing/ce/vertica_community_edition.license.key"
-	MountedLicensePath        = "/home/dbadmin/licensing/mnt"
 	HadoopConfPath            = "/etc/hadoop"
 	ConfigPath                = "/opt/vertica/config"
 	ConfigSharePath           = "/opt/vertica/config/share"
@@ -64,7 +63,7 @@ const (
 )
 
 // MountPaths lists all of the paths for internally generated mounts.
-var MountPaths = []string{LocalDataPath, CELicensePath, MountedLicensePath,
+var MountPaths = []string{LocalDataPath, CELicensePath,
 	HadoopConfPath, ConfigPath, ConfigSharePath, ConfigLogrotatePath,
 	LogPath, PodInfoPath, AdminToolsConf, AuthParmsFile, EulaAcceptanceFile,
 	EulaAcceptanceScript, CertsRoot, Krb5Conf, Krb5Keytab, DBAdminSSHPath, RootSSHPath}

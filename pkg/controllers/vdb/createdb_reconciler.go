@@ -314,7 +314,9 @@ func (c *CreateDBReconciler) genOptions(ctx context.Context, initiatorPod types.
 	if err != nil {
 		return nil, err
 	}
-	/* for licenseKey, licenseFile := range licenseData { */
+	if c.Vdb.Status.LicenseStatus == nil || len(c.Vdb.Status.LicenseStatus.Licenses) == 0 {
+		return nil, fmt.Errorf("failed to find a valid license to create database")
+	}
 	licenseKey := c.Vdb.Status.LicenseStatus.Licenses[0].Key
 	checkLicenseOpts := []checklicense.Option{
 		checklicense.WithInitiators([]string{c.initiatorIP}),

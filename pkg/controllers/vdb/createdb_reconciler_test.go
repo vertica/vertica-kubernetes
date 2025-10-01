@@ -50,6 +50,17 @@ var _ = Describe("createdb_reconciler", func() {
 		fpr := &cmds.FakePodRunner{}
 		pfacts := createPodFactsWithNoDB(ctx, vdb, fpr, 3)
 		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, &testPassword)
+		vdb.Spec.LicenseSecret = "test-license-secret"
+		vdb.Status.LicenseStatus = &vapi.LicenseStatus{
+			LicenseSecret: "test-license-secret",
+			Licenses: []vapi.LicenseInfo{
+				{
+					Key:    "licenseA",
+					Valid:  true,
+					Digest: "test-sha",
+				},
+			},
+		}
 		r := MakeCreateDBReconciler(vdbRec, logger, vdb, fpr, pfacts, dispatcher)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 		hist := fpr.FindCommands("/opt/vertica/bin/admintools -t create_db")
@@ -116,6 +127,17 @@ var _ = Describe("createdb_reconciler", func() {
 		pfacts := createPodFactsWithNoDB(ctx, vdb, fpr, int(vdb.Spec.Subclusters[0].Size))
 		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, &testPassword)
 		r := MakeCreateDBReconciler(vdbRec, logger, vdb, fpr, pfacts, dispatcher)
+		vdb.Spec.LicenseSecret = "test-license-secret"
+		vdb.Status.LicenseStatus = &vapi.LicenseStatus{
+			LicenseSecret: "test-license-secret",
+			Licenses: []vapi.LicenseInfo{
+				{
+					Key:    "licenseA",
+					Valid:  true,
+					Digest: "test-sha",
+				},
+			},
+		}
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: true}))
 		// No config setting can be set since we are on a version that needs to
 		// restart the database for the setting to take effect.
