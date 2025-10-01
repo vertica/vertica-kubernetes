@@ -11,7 +11,28 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: kuttl.dev/v1beta1
-kind: TestStep
-commands:
-  - command: bash -c "../../../scripts/wait-for-verticadb-steady-state.sh -n verticadb-operator -t 360 $NAMESPACE"
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: v-tls-certs-sc1
+status:
+  replicas: 1
+  readyReplicas: 1
+---
+apiVersion: vertica.com/v1
+kind: VerticaDB
+metadata:
+  name: v-tls-certs
+status:
+  tlsConfigs:
+    - autoRotateSecrets:
+      - custom-cert2
+      - cert-no-client-auth
+      - custom-cert3
+      name: httpsNMA
+      secret: custom-cert2
+    - name: clientServer
+      secret: custom-cert1
+  subclusters:
+    - addedToDBCount: 1
+      upNodeCount: 1
