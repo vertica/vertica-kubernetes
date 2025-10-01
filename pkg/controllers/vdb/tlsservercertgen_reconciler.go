@@ -361,7 +361,11 @@ func (h *TLSServerCertGenReconciler) InvalidCertRollback(ctx context.Context, me
 
 	// Run rollback now; otherwise, we will run all subsequent reconcilers with invalid cert.
 	// Podfacts and dispatcher can be nil, since they are only required when re-running cert rotation
+	h.Log.Info("Running rollback due to invalid cert", "tlsConfigName", tlsConfigName, "secretName",
+		h.Vdb.GetTLSConfigSpecByName(tlsConfigName).Secret)
 	rollbackRecon := MakeRollbackAfterCertRotationReconciler(h.VRec, h.Log, h.Vdb, nil, nil)
 	_, err := rollbackRecon.Reconcile(ctx, nil)
+	h.Log.Info("Finished running rollback", "tlsConfigName", tlsConfigName, "secretName",
+		h.Vdb.GetTLSConfigSpecByName(tlsConfigName).Secret)
 	return err
 }
