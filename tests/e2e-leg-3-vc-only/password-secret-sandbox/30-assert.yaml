@@ -44,16 +44,7 @@ involvedObject:
   apiVersion: vertica.com/v1
   kind: VerticaDB
   name: v-password-secret-sandbox
----
-apiVersion: v1
-kind: Event
-reason: AlterSubclusterSucceeded
-source:
-  component: verticadb-operator
-involvedObject:
-  apiVersion: vertica.com/v1
-  kind: VerticaDB
-  name: v-password-secret-sandbox
+message: Successfully added subcluster "sc3" to sandbox "sand1"
 ---
 apiVersion: vertica.com/v1
 kind: VerticaDB
