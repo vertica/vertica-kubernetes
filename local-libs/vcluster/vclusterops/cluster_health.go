@@ -47,14 +47,17 @@ type VClusterHealthOptions struct {
 	LockAttemptThresHold string
 	// duration threshold for lock release
 	LockReleaseThresHold string
+	// Cluster health polling should run with its own adapter pool
+	// PoolType lets HTTP request dispatcher know which adapter pool to use
+	PoolType string
 
 	// hidden option
-	SlowEventCascade        []SlowEventNode
-	SessionStartsResult     *[]dcSessionStarts
-	TransactionStartsResult *[]dcTransactionStarts
-	SlowEventsResult        *[]dcSlowEvent
-	LockEventCascade        []NodeLockEvents
-	MissingReleasesResult   *[]DcLockAttempts
+	SlowEventCascade          []SlowEventNode
+	SessionStartsResult       *[]dcSessionStarts
+	TransactionStartsResult   *[]dcTransactionStarts
+	SlowEventsResult          *[]dcSlowEvent
+	LockEventCascade          []NodeLockEvents
+	MissingLockReleasesResult *[]MissingLockReleases
 }
 
 const (
@@ -64,13 +67,13 @@ const (
 )
 
 const (
-	timeLayout         = "2006-01-02 15:04:05.999999"
-	lockCascade        = "lock_cascade"
-	slowEventCascade   = "slow_event_cascade"
-	getTxnStarts       = "get_transaction_starts"
-	getSessionStarts   = "get_session_starts"
-	getSlowEvents      = "get_slow_events"
-	getMissingReleases = "get_missing_releases"
+	timeLayout             = "2006-01-02 15:04:05.999999"
+	lockCascade            = "lock_cascade"
+	slowEventCascade       = "slow_event_cascade"
+	getTxnStarts           = "get_transaction_starts"
+	getSessionStarts       = "get_session_starts"
+	getSlowEvents          = "get_slow_events"
+	getMissingLockReleases = "get_missing_lock_releases"
 )
 
 // VClusterHealthFactory creates and returns a VClusterHealthOptions instance with default values set.
@@ -202,7 +205,7 @@ func (vcc VClusterCommands) VClusterHealth(options *VClusterHealthOptions) error
 		runError = options.buildCascadeGraph(vcc.Log, vdb.PrimaryUpNodes)
 	case lockCascade:
 		runError = options.buildLockCascadeGraph(vcc.Log, vdb.PrimaryUpNodes)
-	case getMissingReleases:
+	case getMissingLockReleases:
 		runError = options.getMissingReleases(vcc.Log, vdb.PrimaryUpNodes, options.StartTime, options.EndTime)
 	default: // by default, we will execute all three analysis
 		sTime := options.StartTime
@@ -229,6 +232,7 @@ func (opt *VClusterHealthOptions) checkNMAHealth(logger vlog.Printer, upHosts []
 	var instructions []clusterOp
 
 	nmaHealthOp := makeNMAHealthOp(upHosts)
+	nmaHealthOp.poolType = opt.PoolType
 	instructions = append(instructions, &nmaHealthOp)
 
 	clusterOpEngine := makeClusterOpEngine(instructions, &opt.DatabaseOptions)
@@ -247,6 +251,7 @@ func (opt *VClusterHealthOptions) getSlowEvents(logger vlog.Printer, upHosts []s
 	if err != nil {
 		return nil, err
 	}
+	nmaSlowEventOp.poolType = opt.PoolType
 	instructions = append(instructions, &nmaSlowEventOp)
 
 	clusterOpEngine := makeClusterOpEngine(instructions, &opt.DatabaseOptions)
@@ -267,6 +272,7 @@ func (opt *VClusterHealthOptions) getSessionStarts(logger vlog.Printer, upHosts 
 	if err != nil {
 		return nil, err
 	}
+	nmaSessionStartsOp.poolType = opt.PoolType
 	instructions = append(instructions, &nmaSessionStartsOp)
 
 	clusterOpEngine := makeClusterOpEngine(instructions, &opt.DatabaseOptions)
@@ -287,6 +293,7 @@ func (opt *VClusterHealthOptions) getTransactionStarts(logger vlog.Printer, upHo
 	if err != nil {
 		return nil, fmt.Errorf("fail to construct transaction starts op, %w", err)
 	}
+	nmaTransactionStartsOp.poolType = opt.PoolType
 	instructions = append(instructions, &nmaTransactionStartsOp)
 
 	clusterOpEngine := makeClusterOpEngine(instructions, &opt.DatabaseOptions)
@@ -302,13 +309,14 @@ func (opt *VClusterHealthOptions) getMissingReleases(logger vlog.Printer, upHost
 	startTime, endTime string) (err error) {
 	var instructions []clusterOp
 
-	nmaMissingReleasesOp, err := makeNMAMissingReleasesOp(upHosts, opt.DatabaseOptions.UserName,
+	nmaMissingLockReleasesOp, err := makeNMAMissingLockReleasesOp(upHosts, opt.DatabaseOptions.UserName,
 		opt.DatabaseOptions.DBName, opt.DatabaseOptions.Password,
 		startTime, endTime, opt.IsDebug)
 	if err != nil {
 		return fmt.Errorf("fail to construct missing releases op, %w", err)
 	}
-	instructions = append(instructions, &nmaMissingReleasesOp)
+	nmaMissingLockReleasesOp.poolType = opt.PoolType
+	instructions = append(instructions, &nmaMissingLockReleasesOp)
 
 	clusterOpEngine := makeClusterOpEngine(instructions, &opt.DatabaseOptions)
 	err = clusterOpEngine.run(logger)
@@ -316,6 +324,6 @@ func (opt *VClusterHealthOptions) getMissingReleases(logger vlog.Printer, upHost
 		return fmt.Errorf("fail to get missing releases, %w", err)
 	}
 
-	opt.MissingReleasesResult = clusterOpEngine.execContext.dcMissingReleasesList
+	opt.MissingLockReleasesResult = clusterOpEngine.execContext.dcMissingReleasesList
 	return nil
 }

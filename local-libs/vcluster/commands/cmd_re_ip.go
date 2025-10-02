@@ -28,6 +28,7 @@ import (
 type CmdReIP struct {
 	reIPOptions  *vclusterops.VReIPOptions
 	reIPFilePath string
+	ksafety      int
 
 	CmdBase
 }
@@ -94,6 +95,13 @@ func (c *CmdReIP) setLocalFlags(cmd *cobra.Command) {
 		"",
 		"The name of the sandbox. Required if the re-ip hosts are in a sandbox.",
 	)
+	cmd.Flags().IntVarP(
+		&c.ksafety,
+		ksafetyFlag,
+		"k",
+		-1,
+		"K-safety value for the database. Set to 0 to bypass quorum checks.",
+	)
 }
 
 func (c *CmdReIP) Parse(inputArgv []string, logger vlog.Printer) error {
@@ -124,6 +132,12 @@ func (c *CmdReIP) validateParse(logger vlog.Printer) error {
 	if err != nil {
 		return err
 	}
+
+	// Set ksafety if provided
+	if c.ksafety >= 0 {
+		c.reIPOptions.Ksafety = &c.ksafety
+	}
+
 	return c.reIPOptions.ReadReIPFile(c.reIPFilePath)
 }
 

@@ -38,6 +38,8 @@ type VReIPOptions struct {
 	// perform an additional HTTPS check (checkRunningDB operation) to verify that the database is running.
 	// This is useful when Re-IP should only be applied to down db.
 	CheckDBRunning bool
+	// optional ksafety parameter
+	Ksafety *int
 }
 
 func VReIPFactory() VReIPOptions {
@@ -289,7 +291,7 @@ func (vcc VClusterCommands) produceReIPInstructions(options *VReIPOptions, vdb *
 	// re-ip
 	// at this stage the re-ip info should either by provided by
 	// the re-ip file (for vcluster CLI) or the Kubernetes operator
-	nmaReIPOP := makeNMAReIPOp(options.ReIPList, vdb, options.TrimReIPList)
+	nmaReIPOP := makeNMAReIPOp(options.ReIPList, vdb, options.TrimReIPList, options.Ksafety)
 	instructions = append(instructions, &nmaReIPOP)
 	// Load Catalog from communal location on primary nodes in case we lose quorum during reip
 	if options.IsEon {

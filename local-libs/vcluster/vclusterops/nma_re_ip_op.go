@@ -30,18 +30,21 @@ type nmaReIPOp struct {
 	mapHostToNodeName    map[string]string
 	mapHostToCatalogPath map[string]string
 	trimReIPData         bool
+	ksafety              *int
 }
 
 func makeNMAReIPOp(
 	reIPList []ReIPInfo,
 	vdb *VCoordinationDatabase,
-	trimReIPData bool) nmaReIPOp {
+	trimReIPData bool,
+	ksafety *int) nmaReIPOp {
 	op := nmaReIPOp{}
 	op.name = "NMAReIPOp"
 	op.description = "Update node IPs in catalog"
 	op.reIPList = reIPList
 	op.vdb = vdb
 	op.trimReIPData = trimReIPData
+	op.ksafety = ksafety
 	return op
 }
 
@@ -217,7 +220,7 @@ func (op *nmaReIPOp) prepare(execContext *opEngineExecContext) error {
 	op.primaryNodeCount = execContext.nmaVDatabase.PrimaryNodeCount
 
 	// quorum check
-	if !op.hasQuorum(uint(len(op.hosts)), op.primaryNodeCount) {
+	if !op.hasQuorum(uint(len(op.hosts)), op.primaryNodeCount) || (op.ksafety != nil && *op.ksafety == 0) {
 		execContext.hasNoQuorum = true
 		op.skipExecute = true
 		op.logger.Info("failed quorum check, not enough primary nodes exist: ", "primary node count", len(op.hosts))
