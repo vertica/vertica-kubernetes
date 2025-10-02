@@ -314,7 +314,7 @@ OLM_TEST_CATALOG_SOURCE=e2e-test-catalog
 NAMESPACE?=verticadb-operator
 
 # The Go version that we will build the operator with
-GO_VERSION?=1.23.5
+GO_VERSION?=1.23.12
 GOPATH?=${HOME}/go
 TMPDIR?=$(PWD)
 HELM_UNITTEST_VERSION?=3.9.3-0.2.11
@@ -751,7 +751,7 @@ port-forward-prometheus:  ## Expose the prometheus endpoint so that you can conn
 
 .PHONY: port-forward-prometheus-server
 port-forward-prometheus-server:  ## Expose the prometheus endpoint so that you can connect to it through http://localhost:9090
-	kubectl port-forward -n $(NAMESPACE) svc/$(HELM_RELEASE_NAME)-prometheus-server-prometheus 9090
+	kubectl port-forward -n $(NAMESPACE) svc/verticadb-operator-prom-prometheus 9090
 
 .PHONY: port-forward-grafana
 port-forward-grafana:  ## Expose the grafana endpoint so that you can connect to it through http://localhost:3000

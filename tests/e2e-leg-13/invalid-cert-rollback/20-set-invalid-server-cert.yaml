@@ -17,4 +17,4 @@ metadata:
   name: v-tls-certs
 spec:
   clientServerTLS:
-    secret: cert-no-client-auth1
+    secret: cert-no-client-auth

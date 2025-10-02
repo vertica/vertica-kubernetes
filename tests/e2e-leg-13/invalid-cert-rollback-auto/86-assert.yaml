@@ -12,21 +12,8 @@
 # limitations under the License.
 
 apiVersion: v1
-kind: Secret
+kind: Pod
 metadata:
-  name: cert-no-client-auth
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: custom-cert1
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: custom-cert2
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: custom-cert3
+  name: clean-communal
+status:
+  phase: Succeeded
