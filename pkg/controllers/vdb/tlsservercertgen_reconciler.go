@@ -76,13 +76,22 @@ func (h *TLSServerCertGenReconciler) Reconcile(ctx context.Context, _ *ctrl.Requ
 
 // reconcileSecrets will check three secrets: NMA secret, https secret, and client server secret
 func (h *TLSServerCertGenReconciler) reconcileSecrets(ctx context.Context) error {
-	secretFieldNameMap := map[string]string{
-		clientServerTLSSecret: h.Vdb.GetClientServerTLSSecret(),
-		nmaTLSSecret:          h.Vdb.Spec.NMATLSSecret,
-		httpsNMATLSSecret:     h.Vdb.GetHTTPSNMATLSSecret(),
+	secrets := []struct {
+		Field string
+		Name  string
+	}{
+		{clientServerTLSSecret, h.Vdb.GetClientServerTLSSecret()},
+		{nmaTLSSecret, h.Vdb.Spec.NMATLSSecret},
+		{httpsNMATLSSecret, h.Vdb.GetHTTPSNMATLSSecret()},
 	}
-	err := error(nil)
-	for secretFieldName, secretName := range secretFieldNameMap {
+
+	h.Log.Info("Starting TLS secret reconciliation", "secrets", secrets)
+
+	var err error
+	for _, s := range secrets {
+		secretFieldName := s.Field
+		secretName := s.Name
+
 		if h.ShouldSkipThisConfig(secretFieldName) {
 			continue
 		}
@@ -349,14 +358,16 @@ func (h *TLSServerCertGenReconciler) ShouldSkipThisConfig(secretFieldName string
 // InvalidCertRollback handles failures in cert validation, by producing an event and (if relevant) trigerring rollback
 func (h *TLSServerCertGenReconciler) InvalidCertRollback(ctx context.Context, message, tlsConfigName, secretName string,
 	originalErr error) error {
+
+	h.VRec.Eventf(h.Vdb, corev1.EventTypeWarning, events.TLSCertValidationFailed, message, tlsConfigName, secretName)
+
 	if h.Vdb.GetTLSConfigByName(tlsConfigName) == nil || h.Vdb.GetTLSConfigByName(tlsConfigName).Secret == "" ||
 		h.Vdb.GetTLSConfigSpecByName(tlsConfigName) == nil || h.Vdb.GetTLSConfigSpecByName(tlsConfigName).Secret == "" {
 		// No cert was configured, so no need to do rollback
 		return originalErr
 	}
 
-	h.VRec.Eventf(h.Vdb, corev1.EventTypeWarning, events.TLSCertValidationFailed, message, tlsConfigName, secretName)
-	if h.Vdb.IsTLSCertRollbackEnabled() && h.Vdb.GetSecretInUse(tlsConfigName) != "" {
+	if h.Vdb.IsTLSCertRollbackEnabled() {
 		reason := vapi.FailureBeforeHTTPSCertHealthPollingReason
 		if tlsConfigName == vapi.ClientServerTLSConfigName {
 			reason = vapi.RollbackAfterServerCertRotationReason
