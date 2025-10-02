@@ -76,13 +76,22 @@ func (h *TLSServerCertGenReconciler) Reconcile(ctx context.Context, _ *ctrl.Requ
 
 // reconcileSecrets will check three secrets: NMA secret, https secret, and client server secret
 func (h *TLSServerCertGenReconciler) reconcileSecrets(ctx context.Context) error {
-	secretFieldNameMap := map[string]string{
-		clientServerTLSSecret: h.Vdb.GetClientServerTLSSecret(),
-		nmaTLSSecret:          h.Vdb.Spec.NMATLSSecret,
-		httpsNMATLSSecret:     h.Vdb.GetHTTPSNMATLSSecret(),
+	secretStruct := []struct {
+		Field string
+		Name  string
+	}{
+		{clientServerTLSSecret, h.Vdb.GetClientServerTLSSecret()},
+		{nmaTLSSecret, h.Vdb.Spec.NMATLSSecret},
+		{httpsNMATLSSecret, h.Vdb.GetHTTPSNMATLSSecret()},
 	}
-	err := error(nil)
-	for secretFieldName, secretName := range secretFieldNameMap {
+
+	h.Log.Info("Starting TLS secret reconciliation", "secrets", secretStruct)
+
+	var err error
+	for _, s := range secretStruct {
+		secretFieldName := s.Field
+		secretName := s.Name
+
 		if h.ShouldSkipThisConfig(secretFieldName) {
 			continue
 		}
@@ -140,7 +149,7 @@ func (h *TLSServerCertGenReconciler) reconcileOneSecret(secretFieldName, secretN
 					// we do not recreate the secret as there is already
 					// a secret of this type in the status.
 					return h.InvalidCertRollback(ctx, "Validation of TLS Certificate %q failed; secret %q does not exist",
-						tlsConfigName, secretName)
+						tlsConfigName, secretName, err)
 				}
 			}
 			h.Log.Error(err, secretName+" does not exist", "name", nm)
@@ -271,7 +280,7 @@ func (h *TLSServerCertGenReconciler) ValidateSecretCertificate(
 	nm := names.GenNamespacedName(h.Vdb, secretName)
 	err := h.VRec.Client.Get(ctx, nm, secret)
 	if kerrors.IsNotFound(err) {
-		err1 := h.InvalidCertRollback(ctx, "Validation of TLS Certificate %q failed; secret %q does not exist", tlsConfigName, secretName)
+		err1 := h.InvalidCertRollback(ctx, "Validation of TLS Certificate %q failed; secret %q does not exist", tlsConfigName, secretName, err)
 		if err1 != nil || h.Vdb.IsTLSCertRollbackNeeded() {
 			return err1
 		}
@@ -289,7 +298,7 @@ func (h *TLSServerCertGenReconciler) ValidateSecretCertificate(
 
 	err = security.ValidateTLSSecret(certPEM, keyPEM)
 	if err != nil {
-		err1 := h.InvalidCertRollback(ctx, "Validation of TLS Certificate %q failed with secret %q", tlsConfigName, secretName)
+		err1 := h.InvalidCertRollback(ctx, "Validation of TLS Certificate %q failed with secret %q", tlsConfigName, secretName, err)
 		if err1 != nil || h.Vdb.IsTLSCertRollbackNeeded() {
 			return err1
 		}
@@ -298,7 +307,8 @@ func (h *TLSServerCertGenReconciler) ValidateSecretCertificate(
 
 	err = security.ValidateCertificateCommonName(certPEM, h.Vdb.GetExpectedCertCommonName(tlsConfigName))
 	if err != nil {
-		err1 := h.InvalidCertRollback(ctx, "Validation of common name for TLS Certificate %q failed with secret %q", tlsConfigName, secretName)
+		err1 := h.InvalidCertRollback(ctx, "Validation of common name for TLS Certificate %q failed with secret %q",
+			tlsConfigName, secretName, err)
 		if err1 != nil || h.Vdb.IsTLSCertRollbackNeeded() {
 			return err1
 		}
@@ -346,9 +356,17 @@ func (h *TLSServerCertGenReconciler) ShouldSkipThisConfig(secretFieldName string
 }
 
 // InvalidCertRollback handles failures in cert validation, by producing an event and (if relevant) trigerring rollback
-func (h *TLSServerCertGenReconciler) InvalidCertRollback(ctx context.Context, message, tlsConfigName, secretName string) error {
+func (h *TLSServerCertGenReconciler) InvalidCertRollback(ctx context.Context, message, tlsConfigName, secretName string,
+	originalErr error) error {
 	h.VRec.Eventf(h.Vdb, corev1.EventTypeWarning, events.TLSCertValidationFailed, message, tlsConfigName, secretName)
-	if h.Vdb.IsTLSCertRollbackEnabled() && h.Vdb.GetSecretInUse(tlsConfigName) != "" {
+
+	if h.Vdb.GetTLSConfigByName(tlsConfigName) == nil || h.Vdb.GetTLSConfigByName(tlsConfigName).Secret == "" ||
+		h.Vdb.GetTLSConfigSpecByName(tlsConfigName) == nil || h.Vdb.GetTLSConfigSpecByName(tlsConfigName).Secret == "" {
+		// No cert was configured, so no need to do rollback
+		return originalErr
+	}
+
+	if h.Vdb.IsTLSCertRollbackEnabled() {
 		reason := vapi.FailureBeforeHTTPSCertHealthPollingReason
 		if tlsConfigName == vapi.ClientServerTLSConfigName {
 			reason = vapi.RollbackAfterServerCertRotationReason
@@ -361,7 +379,11 @@ func (h *TLSServerCertGenReconciler) InvalidCertRollback(ctx context.Context, me
 
 	// Run rollback now; otherwise, we will run all subsequent reconcilers with invalid cert.
 	// Podfacts and dispatcher can be nil, since they are only required when re-running cert rotation
+	h.Log.Info("Running rollback due to invalid cert", "tlsConfigName", tlsConfigName, "secretName",
+		h.Vdb.GetTLSConfigSpecByName(tlsConfigName).Secret)
 	rollbackRecon := MakeRollbackAfterCertRotationReconciler(h.VRec, h.Log, h.Vdb, nil, nil)
 	_, err := rollbackRecon.Reconcile(ctx, nil)
+	h.Log.Info("Finished running rollback", "tlsConfigName", tlsConfigName, "secretName",
+		h.Vdb.GetTLSConfigSpecByName(tlsConfigName).Secret)
 	return err
 }
