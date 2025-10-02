@@ -72,14 +72,11 @@ func MakeLicenseValidationReconciler(recon config.ReconcilerInterface, log logr.
 }
 
 func (r *LicenseValidationReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
-	r.log.Info("libo: pass 0")
 	if r.vdb.Spec.LicenseSecret != "" && (r.vdb.Status.LicenseStatus == nil || r.vdb.Status.LicenseStatus != nil &&
 		r.vdb.Spec.LicenseSecret != r.vdb.Status.LicenseStatus.LicenseSecret) {
-		r.log.Info("libo: pass 1")
 		res, err := r.validateLicenses(ctx)
 		return res, err
 	}
-	r.log.Info("libo: pass 2")
 	// another scenario
 	var toValidate bool
 	lastSuccessfulValidation := r.getLastValidattionTimeFromCache()
@@ -87,14 +84,13 @@ func (r *LicenseValidationReconciler) Reconcile(ctx context.Context, _ *ctrl.Req
 		toValidate = true
 	} else {
 		currentTime := time.Now()
-		if currentTime.After(lastSuccessfulValidation.Time.Add(time.Duration(24) * time.Hour)) {
+		if currentTime.After(lastSuccessfulValidation.Time.Add(time.Duration(2) * time.Minute)) {
 			toValidate = true
 		}
 	}
 	if !toValidate {
 		return ctrl.Result{}, nil
 	}
-	r.log.Info("libo: pass 3")
 	r.log.Info("Validate licenses at " + time.Now().String() + ", validated last time at " + lastSuccessfulValidation.String())
 	return r.validateLicenses(ctx)
 }
