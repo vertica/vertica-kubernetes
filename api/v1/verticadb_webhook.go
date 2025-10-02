@@ -554,8 +554,7 @@ func (v *VerticaDB) checkPasswordSecretUpdateWithSandbox(oldObj *VerticaDB, allE
 	}
 
 	// 3) Check if sandboxing/unsandboxing is being attempted while passwordSecret is being changed
-	if v.IsSandboxOpNeeded() && ((v.Status.PasswordSecret == nil && v.Spec.PasswordSecret != "") ||
-		(v.Status.PasswordSecret != nil && *v.Status.PasswordSecret != v.Spec.PasswordSecret)) {
+	if v.IsSandboxOpNeeded() && v.IsPasswordChangeInProgress() {
 		err := field.Invalid(field.NewPath("spec").Child("sandboxes"),
 			v.Spec.Sandboxes,
 			"Cannot sandbox/unsandbox while passwordSecret change is in progress")

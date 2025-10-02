@@ -35,20 +35,20 @@ var _ = Describe("passwordsecret_reconcile", func() {
 	suPassword2 := "su_password2"
 	ctx := context.Background()
 
-	It("should return false if spec and status have different password secret", func() {
+	It("should return true if spec and status have different password secret", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Spec.PasswordSecret = suPassword1
 		vdb.Status.PasswordSecret = &suPassword2
 		a := PasswordSecretReconciler{Vdb: vdb, Log: logger}
-		Expect(a.statusMatchesSpec(vapi.MainCluster)).To(BeFalse())
+		Expect(a.Vdb.IsPasswordSecretChanged(vapi.MainCluster)).To(BeTrue())
 	})
 
-	It("should return true if spec and status have the same password secret", func() {
+	It("should return false if spec and status have the same password secret", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Spec.PasswordSecret = suPassword1
 		vdb.Status.PasswordSecret = &suPassword1
 		a := PasswordSecretReconciler{Vdb: vdb, Log: logger}
-		Expect(a.statusMatchesSpec(vapi.MainCluster)).To(BeTrue())
+		Expect(a.Vdb.IsPasswordSecretChanged(vapi.MainCluster)).To(BeFalse())
 	})
 
 	It("should update status when status.passwordSecret is nil", func() {

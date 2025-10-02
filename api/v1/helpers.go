@@ -1452,6 +1452,35 @@ func (v *VerticaDB) GetPasswordSecretForSandbox(sbName string) (secret string) {
 	return v.GetPasswordSecret()
 }
 
+// IsPasswordSecretChanged returns true if password secret in spec is different
+// for main cluster or one sandbox
+func (v *VerticaDB) IsPasswordSecretChanged(sbName string) bool {
+	if sbName == MainCluster {
+		if v.Status.PasswordSecret == nil {
+			return v.Spec.PasswordSecret != ""
+		}
+		return v.Spec.PasswordSecret != *v.Status.PasswordSecret
+	}
+
+	return v.Spec.PasswordSecret != v.GetPasswordSecretForSandbox(sbName)
+}
+
+// GetSandboxesWithPasswordChange returns a list of sandboxes that have password secret changed
+func (v *VerticaDB) GetSandboxesWithPasswordChange() []SandboxStatus {
+	sandboxes := []SandboxStatus{}
+	for _, sb := range v.Status.Sandboxes {
+		if v.IsPasswordSecretChanged(sb.Name) {
+			sandboxes = append(sandboxes, sb)
+		}
+	}
+	return sandboxes
+}
+
+// IsPasswordChangeInProgress returns true if any password change is in progress (main or sandbox)
+func (v *VerticaDB) IsPasswordChangeInProgress() bool {
+	return v.IsPasswordSecretChanged(MainCluster) || len(v.GetSandboxesWithPasswordChange()) > 0
+}
+
 // GetEncryptSpreadComm will return "vertica" if encryptSpreadComm is set to
 // an empty string, otherwise return the value of encryptSpreadComm
 func (v *VerticaDB) GetEncryptSpreadComm() string {

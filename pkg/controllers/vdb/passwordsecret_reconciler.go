@@ -81,15 +81,18 @@ func (a *PasswordSecretReconciler) Reconcile(ctx context.Context, _ *ctrl.Reques
 
 	// If we are reconciling a sandbox and it matches spec, no-op
 	// Also, if we are reconciling a sandbox and main cluster is not updated yet, no-op
+	outdatedSandboxes := []vapi.SandboxStatus{}
 	if sbName != vapi.MainCluster {
-		if a.statusMatchesSpec(sbName) || !a.statusMatchesSpec(vapi.MainCluster) {
+		if !a.Vdb.IsPasswordSecretChanged(sbName) || a.Vdb.IsPasswordSecretChanged(vapi.MainCluster) {
 			return ctrl.Result{}, nil
 		}
+	} else {
+		// Get outdated sandbox (only when using main)
+		outdatedSandboxes = a.Vdb.GetSandboxesWithPasswordChange()
 	}
 
 	// If everything is up-to-date, no-op
-	outdatedSandboxes := a.getSandboxesNeedingUpdating()
-	if a.statusMatchesSpec(vapi.MainCluster) && len(outdatedSandboxes) == 0 {
+	if !a.Vdb.IsPasswordChangeInProgress() {
 		return ctrl.Result{}, nil
 	}
 
@@ -138,35 +141,10 @@ func (a *PasswordSecretReconciler) ensureStatusInitialized(ctx context.Context, 
 	return nil
 }
 
-// statusMatchesSpec checks if the password secret status is the same as spec for either main cluster
-// or a specific sandbox.
-func (a *PasswordSecretReconciler) statusMatchesSpec(sbName string) bool {
-	if sbName == vapi.MainCluster {
-		if a.Vdb.Status.PasswordSecret == nil {
-			return false
-		}
-		return a.Vdb.Spec.PasswordSecret == *a.Vdb.Status.PasswordSecret
-	}
-
-	return a.Vdb.Spec.PasswordSecret == a.Vdb.GetPasswordSecretForSandbox(sbName)
-}
-
-// getSandboxesNeedingUpdating returns sandboxes where secret in status does not match secret in spec
-func (a *PasswordSecretReconciler) getSandboxesNeedingUpdating() []vapi.Sandbox {
-	sandboxes := []vapi.Sandbox{}
-	for _, sb := range a.Vdb.Spec.Sandboxes {
-		if a.Vdb.GetPasswordSecretForSandbox(sb.Name) != a.Vdb.Spec.PasswordSecret {
-			sandboxes = append(sandboxes, sb)
-		}
-	}
-
-	return sandboxes
-}
-
 // updatePasswordSecret will update the password secret in the database.
 func (a *PasswordSecretReconciler) updatePasswordSecret(ctx context.Context) (ctrl.Result, error) {
 	sbName := a.PFacts.GetSandboxName()
-	if !a.statusMatchesSpec(sbName) {
+	if a.Vdb.IsPasswordSecretChanged(sbName) {
 		if res, err := a.updateOnePasswordSecret(ctx, a.PFacts, sbName); verrors.IsReconcileAborted(res, err) {
 			return res, err
 		}
@@ -177,7 +155,7 @@ func (a *PasswordSecretReconciler) updatePasswordSecret(ctx context.Context) (ct
 }
 
 // triggerOutOfDateSandboxes will trigger password change for any sandboxes that don't match spec.
-func (a *PasswordSecretReconciler) triggerOutOfDateSandboxes(ctx context.Context, sandboxes []vapi.Sandbox) (ctrl.Result, error) {
+func (a *PasswordSecretReconciler) triggerOutOfDateSandboxes(ctx context.Context, sandboxes []vapi.SandboxStatus) (ctrl.Result, error) {
 	for _, sb := range sandboxes {
 		triggerUUID := uuid.NewString()
 		sbMan := MakeSandboxConfigMapManager(a.Rec, a.Vdb, sb.Name, triggerUUID)
@@ -188,6 +166,7 @@ func (a *PasswordSecretReconciler) triggerOutOfDateSandboxes(ctx context.Context
 		}
 		if err != nil {
 			a.Log.Error(err, "Failed to trigger sandbox password change", "sandbox", sb.Name)
+			return ctrl.Result{}, nil
 		}
 	}
 	return ctrl.Result{}, nil

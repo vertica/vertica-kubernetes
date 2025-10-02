@@ -11,31 +11,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: apps/v1
-kind: StatefulSet
+apiVersion: v1
+kind: Pod
 metadata:
-  name: v-password-secret-sandbox-sc1
+  name: test-verify-password-secret-delete-sandbox-subcluster
 status:
-  replicas: 1
-  readyReplicas: 1
----
-apiVersion: apps/v1
-kind: StatefulSet
-metadata:
-  name: v-password-secret-sandbox-sc2
-status:
-  replicas: 1
-  readyReplicas: 1
----
-apiVersion: vertica.com/v1
-kind: VerticaDB
-metadata:
-  name: v-password-secret-sandbox
-status:
-  subclusters:
-    - addedToDBCount: 1
-      upNodeCount: 1
-    - addedToDBCount: 1
-      upNodeCount: 1
-    - addedToDBCount: 0
-      upNodeCount: 0
+  containerStatuses:
+    - name: test
+      state:
+        terminated:
+          exitCode: 0 
