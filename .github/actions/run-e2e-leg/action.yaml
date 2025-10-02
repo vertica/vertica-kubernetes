@@ -188,7 +188,7 @@ runs:
             # These legs have some tests that only run with vclusterops deployment
             if [[ "${{ inputs.leg-identifier }}" == "leg-1" || \
                   "${{ inputs.leg-identifier }}" == "leg-2" || \
-                  "${{ inputs.leg-identifier }}" == "leg-3" || \
+                  ( "${{ inputs.leg-identifier }}" == "leg-3" && "${{ inputs.artifact-suffix }}" != "-24.1.0-release" ) || \
                   ( "${{ inputs.leg-identifier }}" == "leg-6" && "${{ inputs.use-cert }}" != "true" ) ]]; then            
               if [[ "${VERTICA_DEPLOYMENT_METHOD}" == "vclusterops" ]]; then
                 E2E_TEST_DIRS+=" tests/e2e-${{ inputs.leg-identifier }}-vc-only";
