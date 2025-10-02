@@ -51,6 +51,7 @@ const (
 	OperatorVersion100 = "1.0.0"
 	OperatorVersion220 = "2.2.0"
 	OperatorVersion253 = "25.3.0"
+	OperatorVersion254 = "25.4.0"
 
 	// Service objects
 	//

@@ -1544,13 +1544,12 @@ func (v *VerticaDB) IsHTTPSTLSConfGenerationEnabled() (bool, error) {
 // It is considered enabled if:
 // 1) "enabled" is set to true in the spec for the config
 // 2) TLS config is defined in spec but "enabled" is not set
-// 3) TLS config is not defined in spec but use-tls-auth annotation is set to true (this is a rare case)
+// 3) TLS config is not defined in spec (means always disabled)
 func (v *VerticaDB) IsTLSAuthEnabledForConfig(configName string) bool {
 	tlsConfig := v.GetTLSConfigSpecByName(configName)
 	if tlsConfig == nil {
-		// The case where the config does not exist in the spec but annotation is set is rare;
-		// however, we want to support it for backward compatibility.
-		return vmeta.UseTLSAuth(v.Annotations)
+		// The case where TLS config is not defined in spec. We consider it disabled.
+		return false
 	}
 	if tlsConfig.Enabled == nil {
 		// If "enabled" is not set, we consider it enabled if we are using vclusterOps deployment
