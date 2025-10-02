@@ -76,7 +76,7 @@ func (h *TLSServerCertGenReconciler) Reconcile(ctx context.Context, _ *ctrl.Requ
 
 // reconcileSecrets will check three secrets: NMA secret, https secret, and client server secret
 func (h *TLSServerCertGenReconciler) reconcileSecrets(ctx context.Context) error {
-	secrets := []struct {
+	secretStruct := []struct {
 		Field string
 		Name  string
 	}{
@@ -85,10 +85,10 @@ func (h *TLSServerCertGenReconciler) reconcileSecrets(ctx context.Context) error
 		{httpsNMATLSSecret, h.Vdb.GetHTTPSNMATLSSecret()},
 	}
 
-	h.Log.Info("Starting TLS secret reconciliation", "secrets", secrets)
+	h.Log.Info("Starting TLS secret reconciliation", "secrets", secretStruct)
 
 	var err error
-	for _, s := range secrets {
+	for _, s := range secretStruct {
 		secretFieldName := s.Field
 		secretName := s.Name
 
@@ -358,7 +358,6 @@ func (h *TLSServerCertGenReconciler) ShouldSkipThisConfig(secretFieldName string
 // InvalidCertRollback handles failures in cert validation, by producing an event and (if relevant) trigerring rollback
 func (h *TLSServerCertGenReconciler) InvalidCertRollback(ctx context.Context, message, tlsConfigName, secretName string,
 	originalErr error) error {
-
 	h.VRec.Eventf(h.Vdb, corev1.EventTypeWarning, events.TLSCertValidationFailed, message, tlsConfigName, secretName)
 
 	if h.Vdb.GetTLSConfigByName(tlsConfigName) == nil || h.Vdb.GetTLSConfigByName(tlsConfigName).Secret == "" ||
