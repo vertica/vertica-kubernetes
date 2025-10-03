@@ -106,19 +106,25 @@ func (r *LicenseValidationReconciler) validateLicenses(ctx context.Context) (ctr
 		return ctrl.Result{Requeue: true}, nil // if no pod, requeue
 	}
 	if len(validLicenses) == 0 {
-		r.vRec.Event(r.vdb, corev1.EventTypeNormal, events.LicenseValidationFail, fmt.Sprintf("no valid Vertica license found from secret %s", r.vdb.Spec.LicenseSecret))
+		r.vRec.Event(r.vdb, corev1.EventTypeNormal, events.LicenseValidationFail, fmt.Sprintf("no valid Vertica license found from secret %s",
+			r.vdb.Spec.LicenseSecret))
 		return ctrl.Result{}, fmt.Errorf("no valid Vertica license found from the license secret. Details: %s", errMsg)
 	}
 	if !r.vdb.IsDBInitialized() && meta.GetValidLicenseKey(r.vdb.Annotations) == "" {
 		r.vdb.Annotations[meta.ValidLicenseKeyAnnotation] = validLicenses[0].Key
 	}
-	r.vRec.GetClient().Update(ctx, r.vdb)
-	r.log.Info("Successfully validated license secret", "secret name", r.vdb.Spec.LicenseSecret, "number of valid licenses", len(validLicenses), "keys of invalid licenses",
-		strings.Join(invalidLicenses, ","), "error messages from validation", errMsg)
-	r.vRec.Event(r.vdb, corev1.EventTypeNormal, events.LicenseValidationSucceeded, fmt.Sprintf("%d valid Vertica license found from secret '%s'", len(validLicenses), r.vdb.Spec.LicenseSecret))
-
+	err = r.vRec.GetClient().Update(ctx, r.vdb)
+	if err != nil {
+		r.log.Info("failed to update vdb after license validation")
+		return ctrl.Result{}, err
+	}
+	r.log.Info("Successfully validated license secret", "secret name", r.vdb.Spec.LicenseSecret, "number of valid licenses",
+		len(validLicenses), "keys of invalid licenses", strings.Join(invalidLicenses, ","),
+		"error messages from validation", errMsg)
+	r.vRec.Event(r.vdb, corev1.EventTypeNormal, events.LicenseValidationSucceeded,
+		fmt.Sprintf("%d valid Vertica license found from secret '%s'",
+			len(validLicenses), r.vdb.Spec.LicenseSecret))
 	newLicenseStatus := &vapi.LicenseStatus{}
-
 	newLicenseStatus.LicenseSecret = r.vdb.Spec.LicenseSecret
 	newLicenseStatus.Licenses = r.convert(validLicenses)
 	err = r.saveLicenseStatusInStatus(ctx, newLicenseStatus)
@@ -130,7 +136,8 @@ func (r *LicenseValidationReconciler) validateLicenses(ctx context.Context) (ctr
 	return ctrl.Result{}, nil
 }
 
-func (r *LicenseValidationReconciler) validateLicensesInSecret(ctx context.Context) (validLicenses []LicenseDetail, invalidLicenses []string, errMsg string, err error) {
+func (r *LicenseValidationReconciler) validateLicensesInSecret(ctx context.Context) (validLicenses []LicenseDetail,
+	invalidLicenses []string, errMsg string, err error) {
 	namespacedLicenseSecretName := types.NamespacedName{
 		Name:      r.vdb.Spec.LicenseSecret,
 		Namespace: r.vdb.Namespace,
