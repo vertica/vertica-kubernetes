@@ -15,7 +15,7 @@ name: verticadb-operator
 description: An operator that can deploy and manage Vertica clusters
 type: application
 # Versions follow Semantic Versioning (https://semver.org/)
-version: 25.3.1-0-0
+version: 25.3.1-0
 dependencies:
   - name: grafana
     version: "9.2.10"
