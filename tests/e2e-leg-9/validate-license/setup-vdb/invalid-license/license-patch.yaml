@@ -1,0 +1,3 @@
+        - op: add
+          path: /spec/licenseSecret
+          value: invalid-license
