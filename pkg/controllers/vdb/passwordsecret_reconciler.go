@@ -74,7 +74,8 @@ func (a *PasswordSecretReconciler) Reconcile(ctx context.Context, _ *ctrl.Reques
 
 	sbName := a.PFacts.GetSandboxName()
 
-	// Ensure status initialized for main cluster or sandbox
+	// passwordSecret in status will only be nil during DB/sandbox init.
+	// In this case, password is already set in DB so we just need to update the status.
 	if err := a.ensureStatusInitialized(ctx, sbName); err != nil {
 		return ctrl.Result{}, err
 	}
@@ -111,6 +112,11 @@ func (a *PasswordSecretReconciler) Reconcile(ctx context.Context, _ *ctrl.Reques
 		return a.triggerOutOfDateSandboxes(ctx, outdatedSandboxes)
 	}
 
+	// Update sandbox secret in status
+	if err := a.updatePasswordSecretStatusForSandbox(ctx, sbName); err != nil {
+		return ctrl.Result{}, err
+	}
+
 	// Unset sandbox annotation
 	if _, ok := a.ConfigMap.Annotations[vmeta.SandboxControllerPasswordChangeTriggerID]; ok {
 		delete(a.ConfigMap.Annotations, vmeta.SandboxControllerPasswordChangeTriggerID)
@@ -121,7 +127,7 @@ func (a *PasswordSecretReconciler) Reconcile(ctx context.Context, _ *ctrl.Reques
 		a.Log.Info("Removed password change trigger annotation from sandbox configmap")
 	}
 
-	return ctrl.Result{}, a.updatePasswordSecretStatusForSandbox(ctx, sbName)
+	return ctrl.Result{}, nil
 }
 
 // ensureStatusInitialized sets up initial status if not yet populated for main cluster or sandbox.
@@ -166,7 +172,7 @@ func (a *PasswordSecretReconciler) triggerOutOfDateSandboxes(ctx context.Context
 		}
 		if err != nil {
 			a.Log.Error(err, "Failed to trigger sandbox password change", "sandbox", sb.Name)
-			return ctrl.Result{}, nil
+			return ctrl.Result{}, err
 		}
 	}
 	return ctrl.Result{}, nil

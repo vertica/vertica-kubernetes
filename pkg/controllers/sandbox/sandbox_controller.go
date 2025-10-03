@@ -128,13 +128,6 @@ func (r *SandboxConfigMapReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	sandboxName := configMap.Data[v1.SandboxNameKey]
 	log = log.WithValues("verticadb", vdb.Name, "sandbox", sandboxName)
 
-	passwd, err := vk8s.GetSuperuserPassword(ctx, r.Client, log, r, vdb, r.CacheManager, sandboxName)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-	prunner := cmds.MakeClusterPodRunner(log, r.Cfg, vdb.GetVerticaUser(), passwd, vdb.IsClientServerTLSAuthEnabled())
-	pfacts := podfacts.MakePodFactsForSandboxWithCacheManager(r, prunner, log, passwd, sandboxName, r.CacheManager)
-	dispatcher := vadmin.MakeVClusterOps(log, vdb, r.Client, passwd, r.EVRec, vadmin.SetupVClusterOps, r.CacheManager)
 	fetcher := &cloud.SecretFetcher{
 		Client:   r.Client,
 		Log:      r.Log,
@@ -142,6 +135,14 @@ func (r *SandboxConfigMapReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		EVWriter: r.EVRec,
 	}
 	r.CacheManager.InitCacheForVdb(vdb, fetcher)
+
+	passwd, err := vk8s.GetSuperuserPassword(ctx, r.Client, log, r, vdb, r.CacheManager, sandboxName)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	prunner := cmds.MakeClusterPodRunner(log, r.Cfg, vdb.GetVerticaUser(), passwd, vdb.IsClientServerTLSAuthEnabled())
+	pfacts := podfacts.MakePodFactsForSandboxWithCacheManager(r, prunner, log, passwd, sandboxName, r.CacheManager)
+	dispatcher := vadmin.MakeVClusterOps(log, vdb, r.Client, passwd, r.EVRec, vadmin.SetupVClusterOps, r.CacheManager)
 	// Iterate over each actor
 	actors := r.constructActors(vdb, log, prunner, &pfacts, dispatcher, configMap)
 	for _, act := range actors {
@@ -180,7 +181,7 @@ func (r *SandboxConfigMapReconciler) constructActors(vdb *v1.VerticaDB, log logr
 		vdbcontroller.MakeSubclusterShutdownReconciler(r, log, vdb, dispatcher, pfacts),
 		// Restart any down pods
 		vdbcontroller.MakeRestartReconciler(r, log, vdb, prunner, pfacts, true, dispatcher),
-		// Create the password secret if it doesn't already exist
+		// Update the password secret if needed
 		vdbcontroller.MakePasswordSecretReconciler(r, log, vdb, prunner, pfacts, dispatcher, r.CacheManager, configMap),
 		// Update subcluster type in db according to its type in sandbox
 		vdbcontroller.MakeAlterSubclusterTypeReconciler(r, log, vdb, pfacts, dispatcher, configMap),
