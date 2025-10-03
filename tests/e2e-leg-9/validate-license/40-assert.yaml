@@ -29,3 +29,5 @@ apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
   name: v-license
+status:
+  addedToDBCount: 6
