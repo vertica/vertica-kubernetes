@@ -241,6 +241,5 @@ func (a *AlterSubclusterTypeReconciler) getInitiatorIP(scs []string) (string, bo
 		a.Log.Info("No Up nodes found. Requeue reconciliation.")
 		return "", true
 	}
-	a.Log.Info("DEBUG:Initiator ip found", "initiatorIP", initiator.GetPodIP())
 	return initiator.GetPodIP(), false
 }

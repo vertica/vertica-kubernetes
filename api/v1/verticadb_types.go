@@ -1173,6 +1173,12 @@ type SandboxStatus struct {
 	// +optional
 	// State of the current running upgrade in the sandbox
 	UpgradeState SandboxUpgradeState `json:"upgradeState,omitempty"`
+
+	// +operator-sdk:csv:customresourcedefinitions:type=status
+	// +optional
+	// The secret name that contains the current password for the
+	// database's for this sandbox
+	PasswordSecret *string `json:"passwordSecret,omitempty"`
 }
 
 const (
