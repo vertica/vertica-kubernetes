@@ -234,6 +234,9 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		// Modify or record the annotations in the vdb so later reconcilers can
 		// get the correct information.
 		MakeObjReconciler(r, log, vdb, pfacts, ObjReconcileModeAnnotation),
+		// Handle upgrade actions for any k8s objects created in prior versions
+		// of the operator.
+		MakeUpgradeOperatorReconciler(r, log, vdb),
 		// Validate the vdb after operator upgraded
 		MakeValidateVDBReconciler(r, log, vdb),
 		// Initialize TLS secret if autoRotation is set
@@ -257,9 +260,6 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		MakeMetricReconciler(r, log, vdb, prunner, pfacts),
 		// Report any pods that have low disk space
 		MakeLocalDataCheckReconciler(r, vdb, pfacts),
-		// Handle upgrade actions for any k8s objects created in prior versions
-		// of the operator.
-		MakeUpgradeOperatorReconciler(r, log, vdb),
 		// Create ServiceAcount, Role and RoleBindings needed for vertica pods
 		MakeServiceAccountReconciler(r, log, vdb),
 		// Handle setting up the pod security context. This picks the
