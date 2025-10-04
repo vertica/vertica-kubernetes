@@ -23,7 +23,7 @@ import (
 	"github.com/vertica/vcluster/vclusterops/util"
 )
 
-type nmaMissingReleasesOp struct {
+type nmaMissingLockReleasesOp struct {
 	opBase
 	hostRequestBodyMap map[string]string
 	startTime          string
@@ -31,16 +31,16 @@ type nmaMissingReleasesOp struct {
 	isDebug            bool
 }
 
-type missingReleasesRequestData struct {
+type missingLockReleasesRequestData struct {
 	sqlEndpointData
 	Params map[string]any `json:"params"`
 }
 
-func makeNMAMissingReleasesOp(upHosts []string, userName string,
+func makeNMAMissingLockReleasesOp(upHosts []string, userName string,
 	dbName string, password *string,
-	startTime, endTime string, isDebug bool) (nmaMissingReleasesOp, error) {
-	op := nmaMissingReleasesOp{}
-	op.name = "NMAMissingReleasesOp"
+	startTime, endTime string, isDebug bool) (nmaMissingLockReleasesOp, error) {
+	op := nmaMissingLockReleasesOp{}
+	op.name = "NMAMissingLockReleasesOp"
 	op.description = "Check missing lock release events"
 	op.hosts = upHosts[:1] // set up the request for one of the up hosts only
 	op.startTime = startTime
@@ -58,12 +58,12 @@ func makeNMAMissingReleasesOp(upHosts []string, userName string,
 	return op, err
 }
 
-func (op *nmaMissingReleasesOp) setupRequestBody(username, dbName string, useDBPassword bool,
+func (op *nmaMissingLockReleasesOp) setupRequestBody(username, dbName string, useDBPassword bool,
 	password *string) error {
 	op.hostRequestBodyMap = make(map[string]string)
 
 	for _, host := range op.hosts {
-		requestData := missingReleasesRequestData{}
+		requestData := missingLockReleasesRequestData{}
 
 		requestData.sqlEndpointData = createSQLEndpointData(username, dbName, useDBPassword, password)
 		requestData.Params = make(map[string]any)
@@ -91,7 +91,7 @@ func (op *nmaMissingReleasesOp) setupRequestBody(username, dbName string, useDBP
 }
 
 // setupClusterHTTPRequest works as the module setup in Admintools
-func (op *nmaMissingReleasesOp) setupClusterHTTPRequest(hosts []string) error {
+func (op *nmaMissingLockReleasesOp) setupClusterHTTPRequest(hosts []string) error {
 	for _, host := range hosts {
 		httpRequest := hostHTTPRequest{}
 		httpRequest.Method = PostMethod
@@ -103,7 +103,8 @@ func (op *nmaMissingReleasesOp) setupClusterHTTPRequest(hosts []string) error {
 	return nil
 }
 
-func (op *nmaMissingReleasesOp) prepare(execContext *opEngineExecContext) error {
+func (op *nmaMissingLockReleasesOp) prepare(execContext *opEngineExecContext) error {
+	execContext.dispatcher.opBase = op.opBase
 	execContext.dispatcher.setup(op.hosts)
 	// Disable the spinner for this op as the op can be called multiple times.
 	// This way would avoid repetitive and confusing information.
@@ -112,7 +113,7 @@ func (op *nmaMissingReleasesOp) prepare(execContext *opEngineExecContext) error 
 	return op.setupClusterHTTPRequest(op.hosts)
 }
 
-func (op *nmaMissingReleasesOp) execute(execContext *opEngineExecContext) error {
+func (op *nmaMissingLockReleasesOp) execute(execContext *opEngineExecContext) error {
 	if err := op.runExecute(execContext); err != nil {
 		return err
 	}
@@ -120,22 +121,34 @@ func (op *nmaMissingReleasesOp) execute(execContext *opEngineExecContext) error 
 	return op.processResult(execContext)
 }
 
-func (op *nmaMissingReleasesOp) finalize(_ *opEngineExecContext) error {
+func (op *nmaMissingLockReleasesOp) finalize(_ *opEngineExecContext) error {
 	return nil
 }
 
-func (op *nmaMissingReleasesOp) processResult(execContext *opEngineExecContext) error {
+type MissingLockReleases struct {
+	TxnID       string `json:"transaction_id"`
+	GrantTime   string `json:"grant_time"`
+	HoldTime    string `json:"hold_time"`
+	WaitTime    string `json:"wait_time"`
+	Description string `json:"description"`
+	UserName    string `json:"user_name"`
+	NodeName    string `json:"node_name"`
+	SessionID   string `json:"session_id"`
+	ObjectName  string `json:"object_name"`
+}
+
+func (op *nmaMissingLockReleasesOp) processResult(execContext *opEngineExecContext) error {
 	var allErrs error
 	for host, result := range op.clusterHTTPRequest.ResultCollection {
 		// for any passing result, directly return
 		if result.isPassing() {
-			var missingReleasesList []DcLockAttempts
-			err := op.parseAndCheckResponse(host, result.content, &missingReleasesList)
+			var missingLockReleasesList []MissingLockReleases
+			err := op.parseAndCheckResponse(host, result.content, &missingLockReleasesList)
 			if err != nil {
 				return errors.Join(allErrs, err)
 			}
 
-			execContext.dcMissingReleasesList = &missingReleasesList
+			execContext.dcMissingReleasesList = &missingLockReleasesList
 			return nil
 		}
 
