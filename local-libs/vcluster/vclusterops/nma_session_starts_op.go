@@ -110,6 +110,7 @@ func (op *nmaSessionStartsOp) setupClusterHTTPRequest(hosts []string) error {
 }
 
 func (op *nmaSessionStartsOp) prepare(execContext *opEngineExecContext) error {
+	execContext.dispatcher.opBase = op.opBase
 	execContext.dispatcher.setup(op.hosts)
 	// Disable the spinner for this op as the op can be called multiple times.
 	// This way would avoid repetive and confusing information.
