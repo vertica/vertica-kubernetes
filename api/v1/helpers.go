@@ -1462,6 +1462,11 @@ func (v *VerticaDB) IsPasswordSecretChanged(sbName string) bool {
 		return v.Spec.PasswordSecret != *v.Status.PasswordSecret
 	}
 
+	sandbox := v.GetSandboxStatus(sbName)
+	if sandbox == nil || sandbox.PasswordSecret == nil {
+		return v.Spec.PasswordSecret != ""
+	}
+
 	return v.Spec.PasswordSecret != v.GetPasswordSecretForSandbox(sbName)
 }
 

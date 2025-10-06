@@ -43,3 +43,6 @@ spec:
   passwordSecret: su-passwd
 status:
   passwordSecret: su-passwd
+  sandboxes:
+    - name: sand1
+      passwordSecret: su-passwd

@@ -68,48 +68,53 @@ func MakePasswordSecretReconciler(recon vdbconfig.ReconcilerInterface, log logr.
 }
 
 func (a *PasswordSecretReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
+	sbName := a.PFacts.GetSandboxName()
+
+	a.Log.Info("DEBUG1")
 	if !a.Vdb.IsDBInitialized() {
 		return ctrl.Result{}, nil
 	}
 
-	sbName := a.PFacts.GetSandboxName()
-
-	// passwordSecret in status will only be nil during DB/sandbox init.
-	// In this case, password is already set in DB so we just need to update the status.
-	if err := a.ensureStatusInitialized(ctx, sbName); err != nil {
-		return ctrl.Result{}, err
-	}
-
-	// If we are reconciling a sandbox and it matches spec, no-op
-	// Also, if we are reconciling a sandbox and main cluster is not updated yet, no-op
-	outdatedSandboxes := []vapi.SandboxStatus{}
-	if sbName != vapi.MainCluster {
-		if !a.Vdb.IsPasswordSecretChanged(sbName) || a.Vdb.IsPasswordSecretChanged(vapi.MainCluster) {
-			return ctrl.Result{}, nil
-		}
-	} else {
-		// Get outdated sandbox (only when using main)
-		outdatedSandboxes = a.Vdb.GetSandboxesWithPasswordChange()
-	}
-
+	a.Log.Info("DEBUG2", "curr", a.Vdb.GetPasswordSecretForSandbox(sbName), "new", a.Vdb.Spec.PasswordSecret)
 	// If everything is up-to-date, no-op
 	if !a.Vdb.IsPasswordChangeInProgress() {
-		return ctrl.Result{}, nil
+		return ctrl.Result{}, a.unsetSandboxAnnotion(ctx, sbName)
+	}
+
+	a.Log.Info("DEBUG3")
+	// For main cluster, always trigger any out-of-date sandboxes
+	if sbName == vapi.MainCluster {
+		if err := a.triggerOutOfDateSandboxes(ctx, a.Vdb.GetSandboxesWithPasswordChange()); err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+
+	a.Log.Info("DEBUG4")
+	// passwordSecret in status will only be nil during DB/sandbox init.
+	// In this case, password is already set in DB so we just need to update the status.
+	err, initRan := a.ensureStatusInitialized(ctx, sbName)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	if initRan {
+		a.Log.Info("Initialized password secret in status", "sandbox", sbName)
+		return ctrl.Result{}, a.unsetSandboxAnnotion(ctx, sbName)
+	}
+	a.Log.Info("DEBUG5")
+
+	// no-op if this password is not changed
+	if !a.Vdb.IsPasswordSecretChanged(sbName) {
+		return ctrl.Result{}, a.unsetSandboxAnnotion(ctx, sbName)
 	}
 
 	// Perform password update (main cluster or sandbox)
-	res, err := a.updatePasswordSecret(ctx)
-	if verrors.IsReconcileAborted(res, err) {
+	if res, err := a.updatePasswordSecret(ctx); verrors.IsReconcileAborted(res, err) {
 		return res, err
 	}
 
-	// For main cluster, ensure status and trigger follow-ups
+	// Update main cluster secret in status
 	if sbName == vapi.MainCluster {
-		if err := a.updatePasswordSecretStatus(ctx); err != nil {
-			return ctrl.Result{}, err
-		}
-		// Always trigger any out-of-date sandboxes
-		return a.triggerOutOfDateSandboxes(ctx, outdatedSandboxes)
+		return ctrl.Result{}, a.updatePasswordSecretStatus(ctx)
 	}
 
 	// Update sandbox secret in status
@@ -118,33 +123,24 @@ func (a *PasswordSecretReconciler) Reconcile(ctx context.Context, _ *ctrl.Reques
 	}
 
 	// Unset sandbox annotation
-	if _, ok := a.ConfigMap.Annotations[vmeta.SandboxControllerPasswordChangeTriggerID]; ok {
-		delete(a.ConfigMap.Annotations, vmeta.SandboxControllerPasswordChangeTriggerID)
-		if err := a.Rec.GetClient().Update(ctx, a.ConfigMap); err != nil {
-			a.Log.Error(err, "failed to remove password change trigger annotation")
-			return ctrl.Result{}, err
-		}
-		a.Log.Info("Removed password change trigger annotation from sandbox configmap")
-	}
-
-	return ctrl.Result{}, nil
+	return ctrl.Result{}, a.unsetSandboxAnnotion(ctx, sbName)
 }
 
 // ensureStatusInitialized sets up initial status if not yet populated for main cluster or sandbox.
-func (a *PasswordSecretReconciler) ensureStatusInitialized(ctx context.Context, sbName string) error {
+func (a *PasswordSecretReconciler) ensureStatusInitialized(ctx context.Context, sbName string) (err error, initRan bool) {
 	if sbName == vapi.MainCluster && a.Vdb.Status.PasswordSecret == nil {
-		return a.updatePasswordSecretStatus(ctx)
+		return a.updatePasswordSecretStatus(ctx), true
 	}
 	if sbName != vapi.MainCluster {
 		sandboxStatus := a.Vdb.GetSandboxStatus(sbName)
 		if sandboxStatus == nil {
-			return fmt.Errorf("could not find sandbox %q in status", sbName)
+			return fmt.Errorf("could not find sandbox %q in status", sbName), false
 		}
 		if sandboxStatus.PasswordSecret == nil {
-			return a.updatePasswordSecretStatusForSandbox(ctx, sbName)
+			return a.updatePasswordSecretStatusForSandbox(ctx, sbName), true
 		}
 	}
-	return nil
+	return nil, false
 }
 
 // updatePasswordSecret will update the password secret in the database.
@@ -161,7 +157,7 @@ func (a *PasswordSecretReconciler) updatePasswordSecret(ctx context.Context) (ct
 }
 
 // triggerOutOfDateSandboxes will trigger password change for any sandboxes that don't match spec.
-func (a *PasswordSecretReconciler) triggerOutOfDateSandboxes(ctx context.Context, sandboxes []vapi.SandboxStatus) (ctrl.Result, error) {
+func (a *PasswordSecretReconciler) triggerOutOfDateSandboxes(ctx context.Context, sandboxes []vapi.SandboxStatus) error {
 	for _, sb := range sandboxes {
 		triggerUUID := uuid.NewString()
 		sbMan := MakeSandboxConfigMapManager(a.Rec, a.Vdb, sb.Name, triggerUUID)
@@ -172,10 +168,10 @@ func (a *PasswordSecretReconciler) triggerOutOfDateSandboxes(ctx context.Context
 		}
 		if err != nil {
 			a.Log.Error(err, "Failed to trigger sandbox password change", "sandbox", sb.Name)
-			return ctrl.Result{}, err
+			return err
 		}
 	}
-	return ctrl.Result{}, nil
+	return nil
 }
 
 // updateOnePasswordSecret will update the password for the main cluster or for one sandbox.
@@ -186,6 +182,9 @@ func (a *PasswordSecretReconciler) updateOnePasswordSecret(ctx context.Context,
 	if err != nil {
 		return ctrl.Result{}, err
 	}
+
+	a.Log.Info("Updating password secret", "sandbox", sandbox, "newSecret", a.Vdb.Spec.PasswordSecret,
+		"oldSecret", a.Vdb.GetPasswordSecretForSandbox(sandbox))
 
 	// No-op if password is the same
 	pass, ok := a.CacheManager.GetPassword(a.Vdb.Namespace, a.Vdb.Name, a.Vdb.GetPasswordSecretForSandbox(sandbox))
@@ -274,4 +273,20 @@ func (a *PasswordSecretReconciler) resetVDBPassword(ctx context.Context) (ctrl.R
 	// reset one of them will also reset the password in the others
 	a.PFacts.SetSUPassword(*newPasswd)
 	return ctrl.Result{}, nil
+}
+
+// unsetSandboxAnnotion will unset the annotation to trigger sandbox
+func (a *PasswordSecretReconciler) unsetSandboxAnnotion(ctx context.Context, sbName string) error {
+	if sbName == vapi.MainCluster {
+		return nil
+	}
+	if _, ok := a.ConfigMap.Annotations[vmeta.SandboxControllerPasswordChangeTriggerID]; ok {
+		delete(a.ConfigMap.Annotations, vmeta.SandboxControllerPasswordChangeTriggerID)
+		if err := a.Rec.GetClient().Update(ctx, a.ConfigMap); err != nil {
+			a.Log.Error(err, "failed to remove password change trigger annotation")
+			return err
+		}
+		a.Log.Info("Removed password change trigger annotation from sandbox configmap")
+	}
+	return nil
 }
