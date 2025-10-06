@@ -177,6 +177,7 @@ func (r *VerticaDBReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		return ctrl.Result{}, nil
 	}
 
+	r.InitCacheForVdb(vdb)
 	passwd, err := r.GetSuperuserPassword(ctx, log, vdb)
 	if err != nil {
 		return ctrl.Result{}, err
@@ -189,7 +190,6 @@ func (r *VerticaDBReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	dispatcher := r.makeDispatcher(log, vdb, prunner, passwd)
 	var res ctrl.Result
 
-	r.InitCertCacheForVdb(vdb)
 	// Iterate over each actor
 	actors := r.constructActors(log, vdb, prunner, &pfacts, dispatcher)
 	for _, act := range actors {
@@ -518,7 +518,7 @@ func (r *VerticaDBReconciler) GetConfig() *rest.Config {
 	return r.Cfg
 }
 
-func (r *VerticaDBReconciler) InitCertCacheForVdb(vdb *vapi.VerticaDB) {
+func (r *VerticaDBReconciler) InitCacheForVdb(vdb *vapi.VerticaDB) {
 	fetcher := &cloud.SecretFetcher{
 		Client:   r.Client,
 		Log:      r.Log,
