@@ -70,18 +70,15 @@ func MakePasswordSecretReconciler(recon vdbconfig.ReconcilerInterface, log logr.
 func (a *PasswordSecretReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
 	sbName := a.PFacts.GetSandboxName()
 
-	a.Log.Info("DEBUG1")
 	if !a.Vdb.IsDBInitialized() {
 		return ctrl.Result{}, nil
 	}
 
-	a.Log.Info("DEBUG2", "curr", a.Vdb.GetPasswordSecretForSandbox(sbName), "new", a.Vdb.Spec.PasswordSecret)
 	// If everything is up-to-date, no-op
 	if !a.Vdb.IsPasswordChangeInProgress() {
 		return ctrl.Result{}, a.unsetSandboxAnnotion(ctx, sbName)
 	}
 
-	a.Log.Info("DEBUG3")
 	// For main cluster, always trigger any out-of-date sandboxes
 	if sbName == vapi.MainCluster {
 		if err := a.triggerOutOfDateSandboxes(ctx, a.Vdb.GetSandboxesWithPasswordChange()); err != nil {
@@ -89,7 +86,6 @@ func (a *PasswordSecretReconciler) Reconcile(ctx context.Context, _ *ctrl.Reques
 		}
 	}
 
-	a.Log.Info("DEBUG4")
 	// passwordSecret in status will only be nil during DB/sandbox init.
 	// In this case, password is already set in DB so we just need to update the status.
 	err, initRan := a.ensureStatusInitialized(ctx, sbName)
@@ -100,7 +96,6 @@ func (a *PasswordSecretReconciler) Reconcile(ctx context.Context, _ *ctrl.Reques
 		a.Log.Info("Initialized password secret in status", "sandbox", sbName)
 		return ctrl.Result{}, a.unsetSandboxAnnotion(ctx, sbName)
 	}
-	a.Log.Info("DEBUG5")
 
 	// no-op if this password is not changed
 	if !a.Vdb.IsPasswordSecretChanged(sbName) {
