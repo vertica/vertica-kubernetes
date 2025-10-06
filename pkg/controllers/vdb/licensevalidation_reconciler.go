@@ -84,7 +84,7 @@ func (r *LicenseValidationReconciler) Reconcile(ctx context.Context, _ *ctrl.Req
 		toValidate = true
 	} else {
 		currentTime := time.Now()
-		if currentTime.After(lastSuccessfulValidation.Time.Add(time.Duration(2) * time.Minute)) {
+		if currentTime.After(lastSuccessfulValidation.Time.Add(time.Duration(24) * time.Hour)) {
 			toValidate = true
 		}
 	}
