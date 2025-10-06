@@ -80,6 +80,12 @@ const (
 	InternalErrorCode      = 500
 )
 
+const (
+	PoolTypeSequential     = "SEQUENTIAL"
+	PoolTypeHealthWatchdog = "HEALTH_WATCHDOG"
+	PoolTypeClusterHealth  = "CLUSTER_HEALTH"
+)
+
 // hostHTTPResult is used to save result of an Adapter's sendRequest(...) function
 // it is the element of the adapter pool's channel
 type hostHTTPResult struct {
@@ -234,6 +240,7 @@ type opBase struct {
 	clusterHTTPRequest clusterHTTPRequest
 	skipExecute        bool // This can be set during prepare if we determine no work is needed
 	spinner            *yacspin.Spinner
+	poolType           string
 }
 
 type opResponseMap map[string]string
@@ -375,7 +382,7 @@ func (op *opBase) logResponse(host string, result hostHTTPResult) {
 		op.logger.PrintError("[%s] result from host %s summary %s, details: %+v",
 			op.name, host, result.status.getStatusString(), result.err)
 	} else {
-		op.logger.Log.Info("Request succeeded",
+		op.logger.Info("Request succeeded",
 			"op name", op.name, "host", host, "details", result)
 	}
 }
