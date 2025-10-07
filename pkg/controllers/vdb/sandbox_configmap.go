@@ -58,6 +58,7 @@ const (
 	Unsandbox
 	Shutdown
 	AlterSubclusterType
+	PasswordChange
 )
 
 // triggerSandboxController will wake up the sandbox controller by setting
@@ -80,6 +81,8 @@ func (s *SandboxConfigMapManager) triggerSandboxController(ctx context.Context, 
 		anns[vmeta.SandboxControllerShutdownTriggerID] = triggerID
 	case AlterSubclusterType:
 		anns[vmeta.SandboxControllerAlterSubclusterTypeTriggerID] = triggerID
+	case PasswordChange:
+		anns[vmeta.SandboxControllerPasswordChangeTriggerID] = triggerID
 	}
 	chgs := vk8s.MetaChanges{
 		NewAnnotations: anns,

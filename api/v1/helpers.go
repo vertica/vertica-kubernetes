@@ -1438,6 +1438,54 @@ func (v *VerticaDB) GetPasswordSecret() string {
 	return v.Spec.PasswordSecret
 }
 
+// GetPasswordSecretForSandbox returns the password secret for a sandbox.
+// It will return the main cluster secret if the sandbox does not have its own secret.
+func (v *VerticaDB) GetPasswordSecretForSandbox(sbName string) (secret string) {
+	if sbName == MainCluster {
+		return v.GetPasswordSecret()
+	}
+
+	sandbox := v.GetSandboxStatus(sbName)
+	if sandbox != nil && sandbox.PasswordSecret != nil {
+		return *sandbox.PasswordSecret
+	}
+	return v.GetPasswordSecret()
+}
+
+// IsPasswordSecretChanged returns true if password secret in spec is different
+// for main cluster or one sandbox
+func (v *VerticaDB) IsPasswordSecretChanged(sbName string) bool {
+	if sbName == MainCluster {
+		if v.Status.PasswordSecret == nil {
+			return v.Spec.PasswordSecret != ""
+		}
+		return v.Spec.PasswordSecret != *v.Status.PasswordSecret
+	}
+
+	sandbox := v.GetSandboxStatus(sbName)
+	if sandbox == nil || sandbox.PasswordSecret == nil {
+		return v.Spec.PasswordSecret != ""
+	}
+
+	return v.Spec.PasswordSecret != v.GetPasswordSecretForSandbox(sbName)
+}
+
+// GetSandboxesWithPasswordChange returns a list of sandboxes that have password secret changed
+func (v *VerticaDB) GetSandboxesWithPasswordChange() []SandboxStatus {
+	sandboxes := []SandboxStatus{}
+	for _, sb := range v.Status.Sandboxes {
+		if v.IsPasswordSecretChanged(sb.Name) {
+			sandboxes = append(sandboxes, sb)
+		}
+	}
+	return sandboxes
+}
+
+// IsPasswordChangeInProgress returns true if any password change is in progress (main or sandbox)
+func (v *VerticaDB) IsPasswordChangeInProgress() bool {
+	return v.IsPasswordSecretChanged(MainCluster) || len(v.GetSandboxesWithPasswordChange()) > 0
+}
+
 // GetEncryptSpreadComm will return "vertica" if encryptSpreadComm is set to
 // an empty string, otherwise return the value of encryptSpreadComm
 func (v *VerticaDB) GetEncryptSpreadComm() string {
@@ -1455,8 +1503,8 @@ func (v *VerticaDB) IsFetchNodeDetailsLogDisabled() bool {
 	return vmeta.IsFetchNodeDetailsLogDisabled(v.Annotations)
 }
 
-func (v *VerticaDB) GetTLSCacheDuration() uint64 {
-	duration := vmeta.GetTLSCacheDuration(v.Annotations)
+func (v *VerticaDB) GetCacheDuration() uint64 {
+	duration := vmeta.GetCacheDuration(v.Annotations)
 	if duration < 0 {
 		return 0
 	}

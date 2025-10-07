@@ -124,9 +124,9 @@ func (r *VerticaReplicatorReconciler) constructActors(vrep *vapi.VerticaReplicat
 		// Verify some checks before starting a replication
 		MakeVdbVerifyReconciler(r, vrep, log),
 		// Start a replication and update status accordingly upon its completion
-		MakeReplicationReconciler(r.Client, r, vrep, log),
+		MakeReplicationReconciler(r.Client, r, vrep, log, r.CacheManager),
 		// Update async replication status (if needed)
-		MakeReplicationStatusReconciler(r.Client, r, vrep, log),
+		MakeReplicationStatusReconciler(r.Client, r, vrep, log, r.CacheManager),
 	}
 	return actors
 }

@@ -160,7 +160,7 @@ func (r *VerticaDBReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		if errors.IsNotFound(err) {
 			// Remove any metrics for the vdb that we found to be deleted
 			metrics.HandleVDBDelete(req.NamespacedName.Namespace, req.NamespacedName.Name, log)
-			r.CacheManager.DestroyCertCacheForVdb(req.NamespacedName.Namespace, req.NamespacedName.Name)
+			r.CacheManager.DestroyCacheForVdb(req.NamespacedName.Namespace, req.NamespacedName.Name)
 			// Request object not found, cound have been deleted after reconcile request.
 			log.Info("VerticaDB resource not found.  Ignoring since object must be deleted")
 			return ctrl.Result{}, nil
@@ -177,6 +177,7 @@ func (r *VerticaDBReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		return ctrl.Result{}, nil
 	}
 
+	r.InitCacheForVdb(vdb)
 	passwd, err := r.GetSuperuserPassword(ctx, log, vdb)
 	if err != nil {
 		return ctrl.Result{}, err
@@ -189,7 +190,6 @@ func (r *VerticaDBReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	dispatcher := r.makeDispatcher(log, vdb, prunner, passwd)
 	var res ctrl.Result
 
-	r.InitCertCacheForVdb(vdb)
 	// Iterate over each actor
 	actors := r.constructActors(log, vdb, prunner, &pfacts, dispatcher)
 	for _, act := range actors {
@@ -302,7 +302,7 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		// Handles restart + re_ip of vertica
 		MakeRestartReconciler(r, log, vdb, prunner, pfacts, true, dispatcher),
 		// Check the password secret and update it if needed
-		MakePasswordSecretReconciler(r, log, vdb, prunner, pfacts, dispatcher),
+		MakePasswordSecretReconciler(r, log, vdb, prunner, pfacts, dispatcher, r.CacheManager, nil /* configMap */),
 		MakeMetricReconciler(r, log, vdb, prunner, pfacts),
 		MakeStatusReconcilerWithShutdown(r.Client, r.Scheme, log, vdb, pfacts),
 		// Ensure we add labels to any pod rescheduled so that Service objects route traffic to it.
@@ -455,7 +455,7 @@ func (r *VerticaDBReconciler) containsWatchedByLabel(labs map[string]string) boo
 
 // GetSuperuserPassword returns the superuser password if it has been provided
 func (r *VerticaDBReconciler) GetSuperuserPassword(ctx context.Context, log logr.Logger, vdb *vapi.VerticaDB) (*string, error) {
-	return vk8s.GetSuperuserPassword(ctx, r.Client, log, r, vdb)
+	return vk8s.GetSuperuserPassword(ctx, r.Client, log, r, vdb, r.CacheManager, vapi.MainCluster)
 }
 
 // checkShardToNodeRatio will check the subclusters ratio of shards to node.  If
@@ -518,14 +518,14 @@ func (r *VerticaDBReconciler) GetConfig() *rest.Config {
 	return r.Cfg
 }
 
-func (r *VerticaDBReconciler) InitCertCacheForVdb(vdb *vapi.VerticaDB) {
+func (r *VerticaDBReconciler) InitCacheForVdb(vdb *vapi.VerticaDB) {
 	fetcher := &cloud.SecretFetcher{
 		Client:   r.Client,
 		Log:      r.Log,
 		Obj:      vdb,
 		EVWriter: r.EVRec,
 	}
-	r.CacheManager.InitCertCacheForVdb(vdb, fetcher)
+	r.CacheManager.InitCacheForVdb(vdb, fetcher)
 }
 
 func (r *VerticaDBReconciler) CleanCacheForVdb(vdb *vapi.VerticaDB) {
