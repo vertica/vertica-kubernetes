@@ -20,8 +20,9 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
-	"errors"
 	"fmt"
+	"maps"
+	"slices"
 	"strings"
 	"time"
 
@@ -72,6 +73,9 @@ func MakeLicenseValidationReconciler(recon config.ReconcilerInterface, log logr.
 }
 
 func (r *LicenseValidationReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
+	if !r.vdb.UseVClusterOpsDeployment() {
+		return ctrl.Result{}, nil
+	}
 	if r.vdb.Spec.LicenseSecret != "" && (r.vdb.Status.LicenseStatus == nil || r.vdb.Status.LicenseStatus != nil &&
 		r.vdb.Spec.LicenseSecret != r.vdb.Status.LicenseStatus.LicenseSecret) {
 		res, err := r.validateLicenses(ctx)
@@ -84,7 +88,7 @@ func (r *LicenseValidationReconciler) Reconcile(ctx context.Context, _ *ctrl.Req
 		toValidate = true
 	} else {
 		currentTime := time.Now()
-		if currentTime.After(lastSuccessfulValidation.Time.Add(time.Duration(24) * time.Hour)) {
+		if currentTime.After(lastSuccessfulValidation.Time.Add(time.Duration(2) * time.Minute)) {
 			toValidate = true
 		}
 	}
@@ -100,15 +104,20 @@ func (r *LicenseValidationReconciler) validateLicenses(ctx context.Context) (ctr
 		r.vRec.Event(r.vdb, corev1.EventTypeNormal, events.LicenseValidationFail, "license secret field is empty")
 		return ctrl.Result{}, fmt.Errorf("license secret is empty")
 	}
-	validLicenses, invalidLicenses, errMsg, err := r.validateLicensesInSecret(ctx)
+	validLicenses, invalidLicenses, err := r.validateLicensesInSecret(ctx)
 	if err != nil {
 		r.log.Info("requeue to wait to validate license")
 		return ctrl.Result{Requeue: true}, nil // if no pod, requeue
 	}
 	if len(validLicenses) == 0 {
-		r.vRec.Event(r.vdb, corev1.EventTypeNormal, events.LicenseValidationFail, fmt.Sprintf("no valid Vertica license found from secret %s",
-			r.vdb.Spec.LicenseSecret))
-		return ctrl.Result{}, fmt.Errorf("no valid Vertica license found from the license secret. Details: %s", errMsg)
+		eventContent := fmt.Sprintf("no valid Vertica license found from secret %s", r.vdb.Spec.LicenseSecret)
+		for key, err := range invalidLicenses {
+			if strings.Contains(err, "Community Edition") {
+				eventContent = fmt.Sprintf("CE license is not allowed and was found in key '%s' of secret '%s'.", key, r.vdb.Spec.LicenseSecret)
+			}
+		}
+		r.vRec.Event(r.vdb, corev1.EventTypeNormal, events.LicenseValidationFail, eventContent)
+		return ctrl.Result{}, fmt.Errorf("no valid Vertica license found from the license secret.")
 	}
 	if !r.vdb.IsDBInitialized() && meta.GetValidLicenseKey(r.vdb.Annotations) == "" {
 		r.vdb.Annotations[meta.ValidLicenseKeyAnnotation] = validLicenses[0].Key
@@ -119,8 +128,8 @@ func (r *LicenseValidationReconciler) validateLicenses(ctx context.Context) (ctr
 		return ctrl.Result{}, err
 	}
 	r.log.Info("Successfully validated license secret", "secret name", r.vdb.Spec.LicenseSecret, "number of valid licenses",
-		len(validLicenses), "keys of invalid licenses", strings.Join(invalidLicenses, ","),
-		"error messages from validation", errMsg)
+		len(validLicenses), "keys of invalid licenses", strings.Join(slices.Collect(maps.Keys(invalidLicenses)), ","),
+		"error messages from validation", strings.Join(slices.Collect(maps.Values(invalidLicenses)), ","))
 	r.vRec.Event(r.vdb, corev1.EventTypeNormal, events.LicenseValidationSucceeded,
 		fmt.Sprintf("%d valid Vertica license found from secret '%s'",
 			len(validLicenses), r.vdb.Spec.LicenseSecret))
@@ -137,7 +146,7 @@ func (r *LicenseValidationReconciler) validateLicenses(ctx context.Context) (ctr
 }
 
 func (r *LicenseValidationReconciler) validateLicensesInSecret(ctx context.Context) (validLicenses []LicenseDetail,
-	invalidLicenses []string, errMsg string, err error) {
+	invalidLicenses map[string]string, err error) {
 	namespacedLicenseSecretName := types.NamespacedName{
 		Name:      r.vdb.Spec.LicenseSecret,
 		Namespace: r.vdb.Namespace,
@@ -150,20 +159,19 @@ func (r *LicenseValidationReconciler) validateLicensesInSecret(ctx context.Conte
 	}
 	licenseData, _, err := secretFetcher.FetchAllowRequeue(ctx, namespacedLicenseSecretName)
 	if err != nil {
-		return validLicenses, invalidLicenses, errMsg, err
+		return validLicenses, invalidLicenses, err
 	}
 	err = r.pFacts.Collect(ctx, r.vdb)
 	if err != nil {
-		return validLicenses, invalidLicenses, errMsg, err
+		return validLicenses, invalidLicenses, err
 	}
 	initiatorPod, ok := r.pFacts.FindRunningPod()
 	if !ok {
 		err = fmt.Errorf("failed to find an installed pod to verify license")
-		return validLicenses, invalidLicenses, errMsg, err
+		return validLicenses, invalidLicenses, err
 	}
 	initiatorPodIP := initiatorPod.GetPodIP()
-
-	var allErrors error
+	invalidLicenses = make(map[string]string, len(licenseData))
 	for licenseKey, licenseFile := range licenseData {
 		opts := []checklicense.Option{
 			checklicense.WithInitiators([]string{initiatorPodIP}),
@@ -173,9 +181,8 @@ func (r *LicenseValidationReconciler) validateLicensesInSecret(ctx context.Conte
 		r.log.Info("To validate license", "licenseKey", licenseKey, "licenseSecret", r.vdb.Spec.LicenseSecret)
 		err2 := r.dispatcher.CheckLicense(ctx, opts...)
 		if err2 != nil {
-			invalidLicenses = append(invalidLicenses, licenseKey)
+			invalidLicenses[licenseKey] = err2.Error()
 			r.log.Error(err2, "invalid Vertica license", "licenseKey", licenseKey, "licenseSecret", r.vdb.Spec.LicenseSecret)
-			allErrors = errors.Join(allErrors, err2)
 		} else {
 			licenseDetail := LicenseDetail{}
 			licenseDetail.Key = licenseKey
@@ -184,11 +191,7 @@ func (r *LicenseValidationReconciler) validateLicensesInSecret(ctx context.Conte
 			validLicenses = append(validLicenses, licenseDetail)
 		}
 	}
-	if allErrors != nil {
-		return validLicenses, invalidLicenses, allErrors.Error(), nil
-	} else {
-		return validLicenses, invalidLicenses, "", nil
-	}
+	return validLicenses, invalidLicenses, nil
 }
 
 func (r *LicenseValidationReconciler) getDigest(input string) string {
