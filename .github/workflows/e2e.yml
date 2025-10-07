@@ -149,6 +149,7 @@ jobs:
           operator-image: ${{ needs.build.outputs.operator-image }}
           vertica-image: ${{ needs.build.outputs.legacy-vertica-image }}
           vertica-deployment-method: admintools
+          vertica-license: ${{ secrets.VERTICA_LICENSE }}
           communal-storage-type: azb
           deploy-with: olm
           need-legacy-image: true
@@ -170,6 +171,7 @@ jobs:
           vlogger-image: ${{ needs.build.outputs.vlogger-image }}
           operator-image: ${{ needs.build.outputs.operator-image }}
           vertica-image: "docker.io/opentext/vertica-k8s:23.4.0-0-minimal"
+          vertica-license: ${{ secrets.VERTICA_LICENSE }}
           artifact-suffix: "-23.4.0-release"
           vertica-deployment-method: admintools
           communal-storage-type: azb
@@ -192,6 +194,7 @@ jobs:
           vlogger-image: ${{ needs.build.outputs.vlogger-image }}
           operator-image: ${{ needs.build.outputs.operator-image }}
           vertica-image: ${{ needs.build.outputs.full-vertica-image }}
+          vertica-license: ${{ secrets.VERTICA_LICENSE }}
           vertica-deployment-method: vclusterops
           communal-storage-type: azb
           deploy-with: olm
@@ -213,6 +216,7 @@ jobs:
           vlogger-image: ${{ needs.build.outputs.vlogger-image }}
           operator-image: ${{ needs.build.outputs.operator-image }}
           vertica-image: ${{ needs.build.outputs.full-vertica-image }}
+          vertica-license: ${{ secrets.VERTICA_LICENSE }}
           vertica-deployment-method: vclusterops
           use-cert: true
           cert-suffix: cert
@@ -237,6 +241,7 @@ jobs:
           vlogger-image: ${{ needs.build.outputs.vlogger-image }}
           operator-image: ${{ needs.build.outputs.operator-image }}
           vertica-image: ${{ needs.build.outputs.legacy-vertica-image }}
+          vertica-license: ${{ secrets.VERTICA_LICENSE }}
           vertica-deployment-method: admintools
           communal-storage-type: hostpath
           controllers-scope: namespace
@@ -259,6 +264,7 @@ jobs:
           vlogger-image: ${{ needs.build.outputs.vlogger-image }}
           operator-image: ${{ needs.build.outputs.operator-image }}
           vertica-image: "docker.io/opentext/vertica-k8s:12.0.4-0-minimal"
+          vertica-license: ${{ secrets.VERTICA_LICENSE }}
           artifact-suffix: "-12.0.4-release"
           vertica-deployment-method: admintools
           communal-storage-type: hostpath
@@ -281,6 +287,7 @@ jobs:
           vlogger-image: ${{ needs.build.outputs.vlogger-image }}
           operator-image: ${{ needs.build.outputs.operator-image }}
           vertica-image: "docker.io/opentext/vertica-k8s:12.0.4-0-minimal"
+          vertica-license: ${{ secrets.VERTICA_LICENSE }}
           artifact-suffix: "-12.0.4-release"
           vertica-deployment-method: admintools
           communal-storage-type: hostpath
@@ -303,6 +310,7 @@ jobs:
           vlogger-image: ${{ needs.build.outputs.vlogger-image }}
           operator-image: ${{ needs.build.outputs.operator-image }}
           vertica-image: ${{ needs.build.outputs.minimal-vertica-image }}
+          vertica-license: ${{ secrets.VERTICA_LICENSE }}
           vertica-deployment-method: vclusterops
           communal-storage-type: hostpath
           controllers-scope: namespace
@@ -324,6 +332,7 @@ jobs:
           vlogger-image: ${{ needs.build.outputs.vlogger-image }}
           operator-image: ${{ needs.build.outputs.operator-image }}
           vertica-image: ${{ needs.build.outputs.minimal-vertica-image }}
+          vertica-license: ${{ secrets.VERTICA_LICENSE }}
           use-cert: true
           cert-suffix: cert
           vertica-deployment-method: vclusterops
@@ -347,6 +356,7 @@ jobs:
           vlogger-image: ${{ needs.build.outputs.vlogger-image }}
           operator-image: ${{ needs.build.outputs.operator-image }}
           vertica-image: ${{ needs.build.outputs.legacy-vertica-image }}
+          vertica-license: ${{ secrets.VERTICA_LICENSE }}
           vertica-deployment-method: admintools
           communal-storage-type: hostpath
           need-legacy-image: true
@@ -368,6 +378,7 @@ jobs:
           vlogger-image: ${{ needs.build.outputs.vlogger-image }}
           operator-image: ${{ needs.build.outputs.operator-image }}
           vertica-image: "docker.io/opentext/vertica-k8s:24.1.0-0-minimal"
+          vertica-license: ${{ secrets.VERTICA_LICENSE }}
           artifact-suffix: "-24.1.0-release"
           vertica-deployment-method: vclusterops
           communal-storage-type: hostpath
@@ -389,6 +400,7 @@ jobs:
           vlogger-image: ${{ needs.build.outputs.vlogger-image }}
           operator-image: ${{ needs.build.outputs.operator-image }}
           vertica-image: ${{ needs.build.outputs.full-vertica-image }}
+          vertica-license: ${{ secrets.VERTICA_LICENSE }}
           vertica-deployment-method: vclusterops
           communal-storage-type: hostpath
           e2e-retry-times: ${{ inputs.e2e_retry_times || 2 }}
@@ -409,6 +421,7 @@ jobs:
           vlogger-image: ${{ needs.build.outputs.vlogger-image }}
           operator-image: ${{ needs.build.outputs.operator-image }}
           vertica-image: ${{ needs.build.outputs.full-vertica-image }}
+          vertica-license: ${{ secrets.VERTICA_LICENSE }}
           use-cert: true
           cert-suffix: cert
           use-cache: true
@@ -432,6 +445,7 @@ jobs:
           vlogger-image: ${{ needs.build.outputs.vlogger-image }}
           operator-image: ${{ needs.build.outputs.operator-image }}
           vertica-image: ${{ needs.build.outputs.legacy-vertica-image }}
+          vertica-license: ${{ secrets.VERTICA_LICENSE }}
           vertica-deployment-method: admintools
           communal-storage-type: s3
           vertica-superuser-name: dbadmin
@@ -456,6 +470,7 @@ jobs:
           vlogger-image: ${{ needs.build.outputs.vlogger-image }}
           operator-image: ${{ needs.build.outputs.operator-image }}
           vertica-image: ${{ needs.build.outputs.minimal-vertica-image }}
+          vertica-license: ${{ secrets.VERTICA_LICENSE }}
           vertica-deployment-method: vclusterops
           communal-storage-type: s3
           vertica-superuser-name: myadmin
@@ -479,6 +494,7 @@ jobs:
           vlogger-image: ${{ needs.build.outputs.vlogger-image }}
           operator-image: ${{ needs.build.outputs.operator-image }}
           vertica-image: ${{ needs.build.outputs.minimal-vertica-image }}
+          vertica-license: ${{ secrets.VERTICA_LICENSE }}
           vertica-deployment-method: vclusterops
           use-cert: true
           cert-suffix: cert
@@ -504,6 +520,7 @@ jobs:
           vlogger-image: ${{ needs.build.outputs.vlogger-image }}
           operator-image: ${{ needs.build.outputs.operator-image }}
           vertica-image: ${{ needs.build.outputs.legacy-vertica-image }}
+          vertica-license: ${{ secrets.VERTICA_LICENSE }}
           vertica-deployment-method: admintools
           communal-storage-type: s3
           vertica-superuser-name: dbadmin
@@ -528,6 +545,7 @@ jobs:
           vlogger-image: ${{ needs.build.outputs.vlogger-image }}
           operator-image: ${{ needs.build.outputs.operator-image }}
           vertica-image: ${{ needs.build.outputs.minimal-vertica-image }}
+          vertica-license: ${{ secrets.VERTICA_LICENSE }}
           vertica-deployment-method: vclusterops
           communal-storage-type: s3
           vertica-superuser-name: myadmin
@@ -551,6 +569,7 @@ jobs:
           vlogger-image: ${{ needs.build.outputs.vlogger-image }}
           operator-image: ${{ needs.build.outputs.operator-image }}
           vertica-image: ${{ needs.build.outputs.legacy-vertica-image }}
+          vertica-license: ${{ secrets.VERTICA_LICENSE }}
           vertica-deployment-method: admintools
           communal-storage-type: hostpath
           # We cannot parallelize these tests because they each deploy/undeploy
@@ -577,6 +596,7 @@ jobs:
           vlogger-image: ${{ needs.build.outputs.vlogger-image }}
           operator-image: ${{ needs.build.outputs.operator-image }}
           vertica-image: ${{ needs.build.outputs.minimal-vertica-image }}
+          vertica-license: ${{ secrets.VERTICA_LICENSE }}
           vertica-deployment-method: vclusterops
           communal-storage-type: hostpath
           use-cache: true
@@ -603,6 +623,7 @@ jobs:
           vlogger-image: ${{ needs.build.outputs.vlogger-image }}
           operator-image: ${{ needs.build.outputs.operator-image }}
           vertica-image: ${{ needs.build.outputs.full-vertica-image }}
+          vertica-license: ${{ secrets.VERTICA_LICENSE }}
           vertica-deployment-method: vclusterops
           communal-storage-type: hostpath
           minimum-vertica-image: '24.2.0'
@@ -624,6 +645,7 @@ jobs:
           vlogger-image: ${{ needs.build.outputs.vlogger-image }}
           operator-image: ${{ needs.build.outputs.operator-image }}
           vertica-image: ${{ needs.build.outputs.full-vertica-image }}
+          vertica-license: ${{ secrets.VERTICA_LICENSE }}
           vertica-deployment-method: vclusterops
           communal-storage-type: hostpath
           minimum-vertica-image: '24.2.0'
@@ -647,6 +669,7 @@ jobs:
           vlogger-image: ${{ needs.build.outputs.vlogger-image }}
           operator-image: ${{ needs.build.outputs.operator-image }}
           vertica-image: ${{ needs.build.outputs.full-vertica-image }}
+          vertica-license: ${{ secrets.VERTICA_LICENSE }}
           vertica-deployment-method: vclusterops
           communal-storage-type: hostpath
           minimum-vertica-image: '24.2.0'
@@ -668,6 +691,7 @@ jobs:
           vlogger-image: ${{ needs.build.outputs.vlogger-image }}
           operator-image: ${{ needs.build.outputs.operator-image }}
           vertica-image: ${{ needs.build.outputs.full-vertica-image }}
+          vertica-license: ${{ secrets.VERTICA_LICENSE }}
           vertica-deployment-method: vclusterops
           communal-storage-type: hostpath
           minimum-vertica-image: '24.2.0'
@@ -691,6 +715,7 @@ jobs:
           vlogger-image: ${{ needs.build.outputs.vlogger-image }}
           operator-image: ${{ needs.build.outputs.operator-image }}
           vertica-image: ${{ needs.build.outputs.full-vertica-image }}
+          vertica-license: ${{ secrets.VERTICA_LICENSE }}
           vertica-deployment-method: vclusterops
           use-cache: true
           communal-storage-type: hostpath
@@ -713,6 +738,7 @@ jobs:
           vlogger-image: ${{ needs.build.outputs.vlogger-image }}
           operator-image: ${{ needs.build.outputs.operator-image }}
           vertica-image: ${{ needs.build.outputs.full-vertica-image }}
+          vertica-license: ${{ secrets.VERTICA_LICENSE }}
           vertica-deployment-method: vclusterops
           communal-storage-type: hostpath
           minimum-vertica-image: '24.2.0'
@@ -737,6 +763,7 @@ jobs:
           vlogger-image: ${{ needs.build.outputs.vlogger-image }}
           operator-image: ${{ needs.build.outputs.operator-image }}
           vertica-image: ${{ needs.build.outputs.full-vertica-image }}
+          vertica-license: ${{ secrets.VERTICA_LICENSE }}
           # The initial deployment method is admintools, and it eventually changes
           # to vclusterops as the operator upgrades the server version
           vertica-deployment-method: admintools
@@ -760,6 +787,7 @@ jobs:
           vlogger-image: ${{ needs.build.outputs.vlogger-image }}
           operator-image: ${{ needs.build.outputs.operator-image }}
           vertica-image: ${{ needs.build.outputs.full-vertica-image }}
+          vertica-license: ${{ secrets.VERTICA_LICENSE }}
           # The initial deployment method is admintools, and it eventually changes
           # to vclusterops as the operator upgrades the server version
           vertica-deployment-method: admintools
@@ -783,6 +811,7 @@ jobs:
           vlogger-image: ${{ needs.build.outputs.vlogger-image }}
           operator-image: ${{ needs.build.outputs.operator-image }}
           vertica-image: ${{ needs.build.outputs.minimal-vertica-image }}
+          vertica-license: ${{ secrets.VERTICA_LICENSE }}
           vertica-deployment-method: vclusterops
           communal-storage-type: hostpath
           minimum-vertica-image: '24.2.0'
@@ -806,6 +835,7 @@ jobs:
           vlogger-image: ${{ needs.build.outputs.vlogger-image }}
           operator-image: ${{ needs.build.outputs.operator-image }}
           vertica-image: ${{ needs.build.outputs.minimal-vertica-image }}
+          vertica-license: ${{ secrets.VERTICA_LICENSE }}
           vertica-deployment-method: vclusterops
           communal-storage-type: hostpath
           minimum-vertica-image: '24.2.0'
@@ -1308,6 +1338,7 @@ jobs:
           vlogger-image: ${{ needs.build.outputs.vlogger-image }}
           operator-image: ${{ needs.build.outputs.operator-image }}
           vertica-image: ${{ needs.build.outputs.minimal-vertica-image }}
+          vertica-license: ${{ secrets.VERTICA_LICENSE }}
           vertica-deployment-method: vclusterops
           communal-storage-type: s3
           vertica-superuser-name: dbadmin
@@ -1334,6 +1365,7 @@ jobs:
           vlogger-image: ${{ needs.build.outputs.vlogger-image }}
           operator-image: ${{ needs.build.outputs.operator-image }}
           vertica-image: ${{ needs.build.outputs.minimal-vertica-image }}
+          vertica-license: ${{ secrets.VERTICA_LICENSE }}
           vertica-deployment-method: vclusterops
           communal-storage-type: s3
           vertica-superuser-name: dbadmin
@@ -1354,6 +1386,7 @@ jobs:
           vlogger-image: ${{ needs.build.outputs.vlogger-image }}
           operator-image: ${{ needs.build.outputs.operator-image }}
           vertica-image: ${{ needs.build.outputs.minimal-vertica-image }}
+          vertica-license: ${{ secrets.VERTICA_LICENSE }}
           vertica-deployment-method: vclusterops
           communal-storage-type: s3
           vertica-superuser-name: dbadmin
@@ -1374,6 +1407,7 @@ jobs:
           vlogger-image: ${{ needs.build.outputs.vlogger-image }}
           operator-image: ${{ needs.build.outputs.operator-image }}
           vertica-image: ${{ needs.build.outputs.minimal-vertica-image }}
+          vertica-license: ${{ secrets.VERTICA_LICENSE }}
           vertica-deployment-method: vclusterops
           controllers-scope: namespace
           communal-storage-type: s3
@@ -1395,6 +1429,7 @@ jobs:
           vlogger-image: ${{ needs.build.outputs.vlogger-image }}
           operator-image: ${{ needs.build.outputs.operator-image }}
           vertica-image: ${{ needs.build.outputs.legacy-vertica-image }}
+          vertica-license: ${{ secrets.VERTICA_LICENSE }}
           vertica-deployment-method: admintools
           communal-storage-type: s3
           need-base-vertica-image: 'true'
@@ -1417,6 +1452,7 @@ jobs:
           vlogger-image: ${{ needs.build.outputs.vlogger-image }}
           operator-image: ${{ needs.build.outputs.operator-image }}
           vertica-image: ${{ needs.build.outputs.full-vertica-image }}
+          vertica-license: ${{ secrets.VERTICA_LICENSE }}
           use-cache: true
           vertica-deployment-method: vclusterops
           communal-storage-type: s3
@@ -1439,6 +1475,7 @@ jobs:
           vlogger-image: ${{ needs.build.outputs.vlogger-image }}
           operator-image: ${{ needs.build.outputs.operator-image }}
           vertica-image: ${{ needs.build.outputs.full-vertica-image }}
+          vertica-license: ${{ secrets.VERTICA_LICENSE }}
           vertica-deployment-method: vclusterops
           communal-storage-type: s3
           use-cert: true
@@ -1463,6 +1500,7 @@ jobs:
           vlogger-image: ${{ needs.build.outputs.vlogger-image }}
           operator-image: ${{ needs.build.outputs.operator-image }}
           vertica-image: ${{ needs.build.outputs.legacy-vertica-image }}
+          vertica-license: ${{ secrets.VERTICA_LICENSE }}
           communal-storage-type: s3
           # We cannot parallelize these tests because they each deploy/undeploy
           # the cluster scoped operator. You can only have a single verticadb
@@ -1488,6 +1526,7 @@ jobs:
           vlogger-image: ${{ needs.build.outputs.vlogger-image }}
           operator-image: ${{ needs.build.outputs.operator-image }}
           vertica-image: ${{ needs.build.outputs.legacy-vertica-image }}
+          vertica-license: ${{ secrets.VERTICA_LICENSE }}
           vertica-deployment-method: admintools
           communal-storage-type: s3
           need-legacy-image: true
@@ -1513,6 +1552,7 @@ jobs:
           operator-image: ${{ needs.build.outputs.operator-image }}
           # We must pass the full image since the minimal image cannot run Java UDx's
           vertica-image: ${{ needs.build.outputs.full-vertica-image }}
+          vertica-license: ${{ secrets.VERTICA_LICENSE }}
           vertica-deployment-method: vclusterops
           communal-storage-type: s3
           e2e-retry-times: ${{ inputs.e2e_retry_times || 2 }}
