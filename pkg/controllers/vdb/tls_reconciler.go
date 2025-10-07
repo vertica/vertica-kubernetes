@@ -59,7 +59,6 @@ func (h *TLSReconciler) Reconcile(ctx context.Context, request *ctrl.Request) (c
 	if !h.Vdb.IsAnyTLSAuthEnabledWithMinVersion() {
 		return ctrl.Result{}, nil
 	}
-
 	actors := []controllers.ReconcileActor{}
 	// when we first set tls config and nma tls secret is different than https tls secret,
 	// we need to restart nma
@@ -93,6 +92,8 @@ func (h *TLSReconciler) constructActors(log logr.Logger, vdb *vapi.VerticaDB, pf
 		MakeNMACertRotationReconciler(h.VRec, log, vdb, dispatcher, pfacts, false),
 		// update client server tls by setting the tls config, rotating the cert and/or changing tls mode
 		MakeClientServerTLSUpdateReconciler(h.VRec, log, vdb, dispatcher, pfacts, false),
+		// update inter node tls by setting the tls config, rotating the cert and/or changing tls mode
+		MakeInterNodeTLSUpdateReconciler(h.VRec, log, vdb, dispatcher, pfacts, false),
 		// Update NMA config map for values related to ClientServer
 		MakeNMACertConfigMapReconciler(h.VRec, log, vdb),
 		// rotate nma tls cert only if clientServer secret name is changed in vdb.spec

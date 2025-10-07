@@ -27,6 +27,8 @@ type VSetTLSConfigOptions struct {
 	ServerTLSConfig TLSConfig
 	// HTTPS TLS Configuration
 	HTTPSTLSConfig TLSConfig
+	// Inter Node TLS configuraton
+	InterNodeTLSConfig TLSConfig
 }
 
 const DefaultCacheDuration = 0
@@ -46,7 +48,12 @@ func VSetTLSConfigOptionsFactory() VSetTLSConfigOptions {
 		GrantAuth:     true,
 		CacheDuration: uint64(DefaultCacheDuration),
 	}
-
+	options.InterNodeTLSConfig = TLSConfig{
+		ConfigMap:     make(map[string]string),
+		ConfigType:    InterNodeTLSKeyPrefix,
+		GrantAuth:     false,
+		CacheDuration: uint64(DefaultCacheDuration),
+	}
 	return options
 }
 
@@ -55,12 +62,14 @@ func VSetTLSConfigOptionsFactory() VSetTLSConfigOptions {
 func (options *VSetTLSConfigOptions) validateTLSConfig(logger vlog.Printer) error {
 	var err error
 
-	if !options.ServerTLSConfig.hasConfigParam() && !options.HTTPSTLSConfig.hasConfigParam() {
-		return fmt.Errorf("missing TLS configuration: specify settings for at least one of server or HTTPS")
+	if !options.ServerTLSConfig.hasConfigParam() && !options.HTTPSTLSConfig.hasConfigParam() &&
+		!options.InterNodeTLSConfig.hasConfigParam() {
+		return fmt.Errorf("missing TLS configuration: specify settings for at least one of server, HTTPS or InterNode")
 	}
 
-	if options.ServerTLSConfig.GrantAuth && options.HTTPSTLSConfig.GrantAuth {
-		return fmt.Errorf("server and https TLS configurations cannot both set GrantAuth to true")
+	if options.ServerTLSConfig.GrantAuth && options.HTTPSTLSConfig.GrantAuth || options.ServerTLSConfig.GrantAuth &&
+		options.InterNodeTLSConfig.GrantAuth || options.InterNodeTLSConfig.GrantAuth && options.HTTPSTLSConfig.GrantAuth {
+		return fmt.Errorf("only one of server, https and internode TLS configurations can set GrantAuth to true")
 	}
 
 	err = options.ServerTLSConfig.validate(logger)
@@ -68,6 +77,10 @@ func (options *VSetTLSConfigOptions) validateTLSConfig(logger vlog.Printer) erro
 		return err
 	}
 
+	err = options.InterNodeTLSConfig.validate(logger)
+	if err != nil {
+		return err
+	}
 	return options.HTTPSTLSConfig.validate(logger)
 }
 
@@ -134,6 +147,17 @@ func (vcc VClusterCommands) produceSetTLSConfigInstructions(options *VSetTLSConf
 			true, // syncCatalog
 			options.ServerTLSConfig.CacheDuration,
 			options.ServerTLSConfig.ConfigMap)
+		if err != nil {
+			return instructions, err
+		}
+		instructions = append(instructions, &nmaSetServerTLSOp)
+	}
+	if options.InterNodeTLSConfig.hasConfigParam() {
+		nmaSetServerTLSOp, err := makeNMASetTLSOp(&options.DatabaseOptions, string(options.InterNodeTLSConfig.ConfigType),
+			options.InterNodeTLSConfig.GrantAuth,
+			true, // syncCatalog
+			options.InterNodeTLSConfig.CacheDuration,
+			options.InterNodeTLSConfig.ConfigMap)
 		if err != nil {
 			return instructions, err
 		}
