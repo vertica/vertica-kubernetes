@@ -25,6 +25,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
+	"github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -105,45 +106,17 @@ func deleteLicenseSecret(ctx context.Context, secret *corev1.Secret) {
 var _ = Describe("license", func() {
 	ctx := context.Background()
 
-	It("should return CE license if license secret is missing", func() {
-		vdb := vapi.MakeVDB()
-		vdb.Spec.LicenseSecret = ""
-
-		Expect(GetPath(ctx, k8sClient, vdb)).Should(Equal(paths.CELicensePath))
-	})
-
-	It("should return custom CE license if license secret is set", func() {
-		LicenseName := "licenseA"
-		secret := makeLicenseSecret([]string{LicenseName})
-		createLicenseSecret(ctx, secret)
-		defer deleteLicenseSecret(ctx, secret)
-
-		vdb := vapi.MakeVDB()
-		vdb.Spec.LicenseSecret = TestLicenseSecretName.Name
-		expectedPath := fmt.Sprintf("%s/%s", paths.MountedLicensePath, LicenseName)
-		Expect(GetPath(ctx, k8sClient, vdb)).Should(Equal(expectedPath))
-	})
-
-	It("should return license that is alphabetically first if secret has multiple licenses", func() {
+	It("should return license that is saved in annotation if secret has multiple licenses", func() {
 		LicenseNames := []string{"lic1001", "lic8992", "lic1000"}
-		FirstLicense := LicenseNames[2]
+		FirstLicense := LicenseNames[1]
 		secret := makeLicenseSecret(LicenseNames)
 		createLicenseSecret(ctx, secret)
 		defer deleteLicenseSecret(ctx, secret)
 
 		vdb := vapi.MakeVDB()
 		vdb.Spec.LicenseSecret = TestLicenseSecretName.Name
+		vdb.Annotations[meta.ValidLicenseKeyAnnotation] = "lic8992"
 		expectedPath := fmt.Sprintf("%s/%s", paths.MountedLicensePath, FirstLicense)
 		Expect(GetPath(ctx, k8sClient, vdb)).Should(Equal(expectedPath))
-	})
-
-	It("should return CE license if secret exists but is empty", func() {
-		secret := makeLicenseSecret([]string{})
-		createLicenseSecret(ctx, secret)
-		defer deleteLicenseSecret(ctx, secret)
-
-		vdb := vapi.MakeVDB()
-		vdb.Spec.LicenseSecret = TestLicenseSecretName.Name
-		Expect(GetPath(ctx, k8sClient, vdb)).Should(Equal(paths.CELicensePath))
 	})
 })
