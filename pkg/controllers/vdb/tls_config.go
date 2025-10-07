@@ -48,6 +48,7 @@ import (
 const (
 	tlsConfigServer      = "Server"
 	tlsConfigHTTPS       = "HTTP"
+	tlsConfigInterNode   = "InterNode"
 	certicatePrefixHTTPS = ""
 )
 
@@ -297,6 +298,10 @@ func (t *TLSConfigManager) isClientServerTLSConfig() bool {
 	return t.TLSConfig == tlsConfigServer
 }
 
+func (t *TLSConfigManager) isInterNodeTLSConfig() bool {
+	return t.TLSConfig == tlsConfigInterNode
+}
+
 func (t *TLSConfigManager) isHTTPSTLSConfig() bool {
 	return t.TLSConfig == tlsConfigHTTPS
 }
@@ -396,6 +401,12 @@ func (t *TLSConfigManager) setTLSUpdatedata() {
 		t.CurrentTLSMode = t.Vdb.GetClientServerTLSModeInUse()
 		t.NewTLSMode = t.Vdb.GetClientServerTLSMode()
 		t.tlsConfigName = vapi.ClientServerTLSConfigName
+	case tlsConfigInterNode:
+		t.CurrentSecret = t.Vdb.GetInterNodeTLSSecretInUse()
+		t.NewSecret = t.Vdb.GetInterNodeTLSSecret()
+		t.CurrentTLSMode = t.Vdb.GetInterNodeTLSModeInUse()
+		t.NewTLSMode = t.Vdb.GetInterNodeTLSMode()
+		t.tlsConfigName = vapi.InterNodeTLSConfigName
 	}
 }
 
@@ -403,7 +414,9 @@ func (t *TLSConfigManager) getTLSConfigName() string {
 	if t.isHTTPSTLSConfig() {
 		return "https"
 	}
-
+	if t.isInterNodeTLSConfig() {
+		return "data_channel"
+	}
 	return "server"
 }
 

@@ -929,6 +929,11 @@ func (in *VerticaDBSpec) DeepCopyInto(out *VerticaDBSpec) {
 		*out = new(TLSConfigSpec)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.InterNodeTLS != nil {
+		in, out := &in.InterNodeTLS, &out.InterNodeTLS
+		*out = new(TLSConfigSpec)
+		(*in).DeepCopyInto(*out)
+	}
 	if in.ReadinessProbeOverride != nil {
 		in, out := &in.ReadinessProbeOverride, &out.ReadinessProbeOverride
 		*out = new(corev1.Probe)
