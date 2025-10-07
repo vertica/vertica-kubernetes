@@ -741,7 +741,7 @@ func (v *VerticaDB) hasValidSaveRestorePointConfig(allErrs field.ErrorList) fiel
 }
 
 func (v *VerticaDB) hasNonEmptyLicenseSecret(allErrs field.ErrorList) field.ErrorList {
-	if v.Spec.InitPolicy == CommunalInitPolicyCreate {
+	if v.Spec.InitPolicy == CommunalInitPolicyCreate && v.UseVClusterOpsDeployment() {
 		if v.Spec.LicenseSecret == "" {
 			err := field.Invalid(field.NewPath("spec").Child("licenseSecret"),
 				v.Spec.LicenseSecret,
