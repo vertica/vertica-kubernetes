@@ -121,6 +121,7 @@ func (v *VerticaDB) Default() {
 	v.setDefaultServiceName()
 	v.setDefaultSandboxImages()
 	v.setDefaultProxy()
+	v.setDefaultTLSEnabled()
 }
 
 var _ webhook.Validator = &VerticaDB{}
@@ -2947,11 +2948,11 @@ func (v *VerticaDB) checkValidTLSEnabled(oldObj *VerticaDB, allErrs field.ErrorL
 	specFld := field.NewPath("spec")
 
 	// Rule 1: cannot disable a TLS config after it's enabled
-	if oldObj.IsHTTPSNMATLSAuthEnabled() && !v.IsHTTPSNMATLSAuthEnabled() {
+	if oldObj.IsHTTPSNMATLSAuthEnabledForWebhook() && !v.IsHTTPSNMATLSAuthEnabledForWebhook() {
 		allErrs = append(allErrs, field.Forbidden(specFld.Child("httpsNMATLS"),
 			"httpsNMATLS cannot be disabled after it's enabled"))
 	}
-	if oldObj.IsClientServerTLSAuthEnabled() && !v.IsClientServerTLSAuthEnabled() {
+	if oldObj.IsClientServerTLSAuthEnabledForWebhook() && !v.IsClientServerTLSAuthEnabledForWebhook() {
 		allErrs = append(allErrs, field.Forbidden(specFld.Child("clientServerTLS"),
 			"clientServerTLS cannot be disabled after it's enabled"))
 	}
@@ -3100,6 +3101,28 @@ func (v *VerticaDB) setDefaultProxy() {
 	for i := range v.Spec.Subclusters {
 		sc := &v.Spec.Subclusters[i]
 		sc.setDefaultProxySubcluster(useProxy)
+	}
+}
+
+// setDefaultTLSEnabled sets the default value of Enabled field to true if the user
+// has specified HTTPSNMATLS or ClientServerTLS but did not set the Enabled field.
+func (v *VerticaDB) setDefaultTLSEnabled() {
+	if v.Spec.HTTPSNMATLS == nil && v.Spec.ClientServerTLS == nil {
+		return
+	}
+	if v.Spec.HTTPSNMATLS != nil && v.Spec.HTTPSNMATLS.Enabled == nil {
+		enable := true
+		if vmeta.ShouldSetDefaultTLSEnabledToFalse(v.Annotations) {
+			enable = false
+		}
+		v.Spec.HTTPSNMATLS.Enabled = &enable
+	}
+	if v.Spec.ClientServerTLS != nil && v.Spec.ClientServerTLS.Enabled == nil {
+		enable := true
+		if vmeta.ShouldSetDefaultTLSEnabledToFalse(v.Annotations) {
+			enable = false
+		}
+		v.Spec.ClientServerTLS.Enabled = &enable
 	}
 }
 

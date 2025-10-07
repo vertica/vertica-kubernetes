@@ -1542,9 +1542,12 @@ func (v *VerticaDB) IsHTTPSTLSConfGenerationEnabled() (bool, error) {
 
 // IsTLSAuthEnabledForConfig checks if TLS auth is enabled for a given TLS config.
 // It is considered enabled if:
-// 1) "enabled" is set to true in the spec for the config
-// 2) TLS config is defined in spec but "enabled" is not set
-// 3) TLS config is not defined in spec (means always disabled)
+//  1. "enabled" is set to true in the spec for the config
+//  2. TLS config is defined in spec but "enabled" is not set
+//
+// It is considered disabled if:
+//  1. TLS config is not defined in spec (means always disabled)
+//  2. "enabled" is set to false in the spec for the config
 func (v *VerticaDB) IsTLSAuthEnabledForConfig(configName string) bool {
 	tlsConfig := v.GetTLSConfigSpecByName(configName)
 	if tlsConfig == nil {
@@ -1558,14 +1561,41 @@ func (v *VerticaDB) IsTLSAuthEnabledForConfig(configName string) bool {
 	return *tlsConfig.Enabled
 }
 
+// IsTLSAuthEnabledForConfigForWebhook checks if TLS auth is enabled for a given TLS config.
+// It is used only in the webhook to validate TLS config changes.
+func (v *VerticaDB) IsTLSAuthEnabledForConfigForWebhook(configName string) bool {
+	tlsConfig := v.GetTLSConfigSpecByName(configName)
+	if tlsConfig == nil {
+		// The case where TLS config is not defined in spec. We consider it disabled.
+		return false
+	}
+	if tlsConfig.Enabled == nil {
+		// If "enabled" is not set, we consider it enabled if we are using vclusterOps deployment
+		return false
+	}
+	return *tlsConfig.Enabled
+}
+
 // IsHTTPSNMATLSAuthEnabled returns true if httpsNMA TLS auth is enabled
 func (v *VerticaDB) IsHTTPSNMATLSAuthEnabled() bool {
 	return v.IsTLSAuthEnabledForConfig(HTTPSNMATLSConfigName)
 }
 
+// IsHTTPSNMATLSAuthEnabledForWebhook returns true if httpsNMA TLS auth is enabled
+// It is used only in the webhook to validate TLS config changes.
+func (v *VerticaDB) IsHTTPSNMATLSAuthEnabledForWebhook() bool {
+	return v.IsTLSAuthEnabledForConfigForWebhook(HTTPSNMATLSConfigName)
+}
+
 // IsClientServerTLSAuthEnabled returns true if clientServer TLS auth is enabled
 func (v *VerticaDB) IsClientServerTLSAuthEnabled() bool {
 	return v.IsTLSAuthEnabledForConfig(ClientServerTLSConfigName)
+}
+
+// IsClientServerTLSAuthEnabledForWebhook returns true if clientServer TLS auth is enabled
+// It is used only in the webhook to validate TLS config changes.
+func (v *VerticaDB) IsClientServerTLSAuthEnabledForWebhook() bool {
+	return v.IsTLSAuthEnabledForConfigForWebhook(ClientServerTLSConfigName)
 }
 
 // IsAnyTLSAuthEnabled returns true if any TLS config is enabled
