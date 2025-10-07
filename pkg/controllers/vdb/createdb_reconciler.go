@@ -89,7 +89,7 @@ func (c *CreateDBReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ct
 		return ctrl.Result{}, nil
 	}
 
-	if c.Vdb.Spec.LicenseSecret == "" {
+	if c.Vdb.Spec.LicenseSecret == "" && c.Vdb.UseVClusterOpsDeployment() {
 		return ctrl.Result{}, fmt.Errorf("failed to create database because of empty licenseSecret")
 	}
 
