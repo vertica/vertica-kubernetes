@@ -88,7 +88,7 @@ func (r *LicenseValidationReconciler) Reconcile(ctx context.Context, _ *ctrl.Req
 		toValidate = true
 	} else {
 		currentTime := time.Now()
-		if currentTime.After(lastSuccessfulValidation.Time.Add(time.Duration(2) * time.Minute)) {
+		if currentTime.After(lastSuccessfulValidation.Time.Add(time.Duration(24) * time.Hour)) {
 			toValidate = true
 		}
 	}
@@ -117,7 +117,7 @@ func (r *LicenseValidationReconciler) validateLicenses(ctx context.Context) (ctr
 			}
 		}
 		r.vRec.Event(r.vdb, corev1.EventTypeNormal, events.LicenseValidationFail, eventContent)
-		return ctrl.Result{}, fmt.Errorf("no valid Vertica license found from the license secret.")
+		return ctrl.Result{}, fmt.Errorf("no valid Vertica license found from the license secret")
 	}
 	if !r.vdb.IsDBInitialized() && meta.GetValidLicenseKey(r.vdb.Annotations) == "" {
 		r.vdb.Annotations[meta.ValidLicenseKeyAnnotation] = validLicenses[0].Key
