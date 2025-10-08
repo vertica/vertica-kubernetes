@@ -165,6 +165,7 @@ jobs:
           echo "full_image=$FULL_IMAGE" >> $GITHUB_OUTPUT
   build:
     needs: [get-image-name]
+    if: ${{ always() }}
     uses: ./.github/workflows/build-images.yml
     with:
       vlogger_image: ${{ inputs.vlogger_image }}
