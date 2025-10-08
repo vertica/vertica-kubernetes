@@ -143,7 +143,7 @@ func SetVDBWithHTTPSTLSConfigSet(v *VerticaDB, secretName string) {
 func MakeVDB() *VerticaDB {
 	nm := MakeVDBName()
 	replicas := int32(1)
-	return &VerticaDB{
+	vdb := &VerticaDB{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: GroupVersion.String(),
 			Kind:       VerticaDBKind,
@@ -199,6 +199,8 @@ func MakeVDB() *VerticaDB {
 			ClientServerTLS:   &TLSConfigSpec{Enabled: BoolPtr(true)},
 		},
 	}
+	vdb.Annotations["vertica.com/valid-license-key"] = "license.dat"
+	return vdb
 }
 
 func BoolPtr(boolval bool) *bool {

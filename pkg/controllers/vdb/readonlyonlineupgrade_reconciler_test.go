@@ -40,6 +40,14 @@ var _ = Describe("readonlyonlineupgrade_reconcile", func() {
 	const OldImage = "old-image"
 	const NewImageName = "different-image"
 
+	BeforeEach(func() {
+		createSecret(ctx, "test-license-secret", "default", map[string][]byte{"license.dat": []byte("dummy")})
+	})
+
+	AfterEach(func() {
+		deleteTestSecret(ctx, "test-license-secret", "default")
+	})
+
 	It("should skip transient subcluster setup only when primaries have matching image", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Spec.TemporarySubclusterRouting = &vapi.SubclusterSelection{
