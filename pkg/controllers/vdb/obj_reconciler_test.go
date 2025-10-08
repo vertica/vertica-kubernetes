@@ -53,11 +53,11 @@ var _ = Describe("obj_reconcile", func() {
 	const extraKey = "extra_key"
 
 	BeforeEach(func() {
-		createSecret(ctx, "test-license-secret", "default", map[string][]byte{"license.dat": []byte("dummy")})
+		createSecret(ctx, map[string][]byte{"license.dat": []byte("dummy")})
 	})
 
 	AfterEach(func() {
-		deleteTestSecret(ctx, "test-license-secret", "default")
+		deleteTestSecret(ctx)
 	})
 
 	runReconciler := func(vdb *vapi.VerticaDB, expResult ctrl.Result, mode ObjReconcileModeType) {

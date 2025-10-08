@@ -46,11 +46,11 @@ var _ = Describe("onlineupgrade_reconciler", func() {
 	const NewImageName = "different-image"
 
 	BeforeEach(func() {
-		createSecret(ctx, "test-license-secret", "default", map[string][]byte{"license.dat": []byte("dummy")})
+		createSecret(ctx, map[string][]byte{"license.dat": []byte("dummy")})
 	})
 
 	AfterEach(func() {
-		deleteTestSecret(ctx, "test-license-secret", "default")
+		deleteTestSecret(ctx)
 	})
 
 	It("should correctly assign replica groups for both subcluster types", func() {
