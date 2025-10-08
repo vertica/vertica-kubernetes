@@ -104,6 +104,7 @@ func (op *nmaHealthWatchdogGetOp) prepare(execContext *opEngineExecContext) erro
 		return err
 	}
 
+	execContext.dispatcher.opBase = op.opBase
 	execContext.dispatcher.setup(op.hosts)
 
 	return op.setupClusterHTTPRequest(op.hosts)

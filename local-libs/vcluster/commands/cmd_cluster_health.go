@@ -197,7 +197,7 @@ const (
 	getTxnStarts       = "get_transaction_starts"
 	slowEventCascade   = "slow_event_cascade"
 	lockCascade        = "lock_cascade"
-	getMissingReleases = "get_missing_releases"
+	getMissingReleases = "get_missing_lock_releases"
 )
 
 func (c *CmdClusterHealth) Run(vcc vclusterops.ClusterCommands) error {
@@ -221,17 +221,17 @@ func (c *CmdClusterHealth) Run(vcc vclusterops.ClusterCommands) error {
 	case getTxnStarts:
 		bytes, err = json.MarshalIndent(options.TransactionStartsResult, "" /*prefix*/, " " /* indent for one space*/)
 	case getMissingReleases:
-		bytes, err = json.MarshalIndent(options.MissingReleasesResult, "", "")
+		bytes, err = json.MarshalIndent(options.MissingLockReleasesResult, "" /*prefix*/, " " /* indent for one space*/)
 	case slowEventCascade:
-		bytes, err = json.MarshalIndent(options.SlowEventCascade, "", " ")
+		bytes, err = json.MarshalIndent(options.SlowEventCascade, "" /*prefix*/, " " /* indent for one space*/)
 	case lockCascade:
-		bytes, err = json.MarshalIndent(options.LockEventCascade, "", " ")
+		bytes, err = json.MarshalIndent(options.LockEventCascade, "" /*prefix*/, " " /* indent for one space*/)
 	default: // by default, we will build a super result which contains all three analysis results
 		resultSet := struct {
 			SlowEventCascade any `json:"slow_event_cascade"`
 			LockEventCascade any `json:"lock_event_cascade"`
-			MissingReleases  any `json:"missing_releases"`
-		}{options.SlowEventCascade, options.LockEventCascade, options.MissingReleasesResult}
+			MissingReleases  any `json:"missing_lock_releases"`
+		}{options.SlowEventCascade, options.LockEventCascade, options.MissingLockReleasesResult}
 		bytes, err = json.MarshalIndent(resultSet, "", " ")
 	}
 
