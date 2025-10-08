@@ -40,11 +40,11 @@ var _ = Describe("createdb_reconciler", func() {
 	ctx := context.Background()
 
 	BeforeEach(func() {
-		createSecret(ctx, "test-license-secret", "default", map[string][]byte{"license.dat": []byte("dummy")})
+		createSecret(ctx, map[string][]byte{"license.dat": []byte("dummy")})
 	})
 
 	AfterEach(func() {
-		deleteTestSecret(ctx, "test-license-secret", "default")
+		deleteTestSecret(ctx)
 	})
 
 	It("should run create db if db doesn't exist", func() {
@@ -228,21 +228,21 @@ func createMultiPodSubclusterForKsafe(ctx context.Context, ksafe string, firstSc
 	return len(hostList)
 }
 
-func createSecret(ctx context.Context, secretName, namespace string, data map[string][]byte) {
+func createSecret(ctx context.Context, data map[string][]byte) {
 	secret := corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      secretName,
-			Namespace: namespace,
+			Name:      "test-license-secret",
+			Namespace: "default",
 		},
 		Data: data,
 	}
 	Expect(k8sClient.Create(ctx, &secret)).Should(Succeed())
 }
 
-func deleteTestSecret(ctx context.Context, secretName, namespace string) {
+func deleteTestSecret(ctx context.Context) {
 	nm := types.NamespacedName{
-		Name:      secretName,
-		Namespace: namespace,
+		Name:      "test-license-secret",
+		Namespace: "default",
 	}
 	secret := &corev1.Secret{}
 	Expect(k8sClient.Get(ctx, nm, secret)).Should(Succeed())
