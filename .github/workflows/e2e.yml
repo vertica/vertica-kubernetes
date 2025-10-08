@@ -108,7 +108,6 @@ jobs:
   # we use specific image names for K8s CICD branches
   get-image-name:
     runs-on: ubuntu-latest
-    if: ${{ contains(github.ref, 'k8s-sync') || contains(github.ref, 'k8s-test') }}
     outputs:
       minimal_vertica_image: ${{ steps.compute_images.outputs.minimal_image }}
       full_vertica_image: ${{ steps.compute_images.outputs.full_image }}
@@ -118,6 +117,12 @@ jobs:
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Conditional branch check
+        run: |
+          if [[ "${GITHUB_REF_NAME}" != k8s-sync* && "${GITHUB_REF_NAME}" != k8s-test* ]]; then
+            echo "Skipping computing images for non-CICD branch"
+            exit 0
+          fi
       - name: Compute image names
         id: compute_images
         run: |
@@ -126,7 +131,7 @@ jobs:
           # Get dockerhub image tags
           BRANCH_NAME="${GITHUB_REF_NAME}"
           GITLAB_COMMIT_SHA="${BRANCH_NAME##*-}"
-          DOCKERHUB_FULL="opentext/vertica-k8s-private:${GITLAB_COMMIT_SHA}"
+          DOCKERHUB_FULL="docker.io/opentext/vertica-k8s-private:${GITLAB_COMMIT_SHA}"
           DOCKERHUB_MINIMAL="${DOCKERHUB_FULL}-minimal"
 
           # Default to input values
@@ -165,7 +170,6 @@ jobs:
           echo "full_image=$FULL_IMAGE" >> $GITHUB_OUTPUT
   build:
     needs: [get-image-name]
-    if: ${{ always() }}
     uses: ./.github/workflows/build-images.yml
     with:
       vlogger_image: ${{ inputs.vlogger_image }}
