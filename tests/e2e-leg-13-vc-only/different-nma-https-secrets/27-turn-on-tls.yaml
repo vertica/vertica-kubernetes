@@ -6,3 +6,5 @@ spec:
   httpsNMATLS:
     secret: https-cert
     enabled: true
+  clientServerTLS:
+    enabled: true
