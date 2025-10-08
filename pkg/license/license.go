@@ -18,6 +18,7 @@ package license
 import (
 	"context"
 	"fmt"
+	"sort"
 
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/meta"
@@ -31,7 +32,10 @@ import (
 // user provided a custom license secret.
 func GetPath(ctx context.Context, clnt client.Client, vdb *vapi.VerticaDB) (string, error) {
 	if vdb.Spec.LicenseSecret == "" {
-		return "", fmt.Errorf("license error. Field Spec.LicenseSecret is not set")
+		if vdb.UseVClusterOpsDeployment() {
+			return "", fmt.Errorf("license error. Field Spec.LicenseSecret is not set")
+		}
+		return paths.CELicensePath, nil
 	}
 
 	secret := &corev1.Secret{}
@@ -45,6 +49,15 @@ func GetPath(ctx context.Context, clnt client.Client, vdb *vapi.VerticaDB) (stri
 
 	if len(secret.Data) == 0 {
 		return "", fmt.Errorf("license error. Secret %s has no license data in it", vdb.Spec.LicenseSecret)
+	}
+
+	if !vdb.UseVClusterOpsDeployment() {
+		licenseNames := make([]string, 0, len(secret.Data))
+		for k := range secret.Data {
+			licenseNames = append(licenseNames, k)
+		}
+		sort.Strings(licenseNames)
+		return fmt.Sprintf("%s/%s", paths.MountedLicensePath, licenseNames[0]), nil
 	}
 
 	// This function only returns a single license -- to be used with

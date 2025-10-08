@@ -114,6 +114,7 @@ var _ = Describe("license", func() {
 		defer deleteLicenseSecret(ctx, secret)
 
 		vdb := vapi.MakeVDB()
+		vdb.Annotations[meta.VClusterOpsAnnotation] = meta.VClusterOpsAnnotationTrue
 		vdb.Spec.LicenseSecret = TestLicenseSecretName.Name
 		vdb.Annotations[meta.ValidLicenseKeyAnnotation] = "lic8992"
 		expectedPath := fmt.Sprintf("%s/%s", paths.MountedLicensePath, FirstLicense)
