@@ -24,6 +24,10 @@ spec:
   passwordSecret: su-passwd
   initPolicy: CreateSkipPackageInstall
   communal: {}
+  httpsNMATLS:
+    mode: TRY_VERIFY
+  clientServerTLS:
+    mode: TRY_VERIFY
   local:
     requestSize: 250Mi
   subclusters:

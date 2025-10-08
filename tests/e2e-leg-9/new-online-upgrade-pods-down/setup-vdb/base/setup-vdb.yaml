@@ -27,6 +27,10 @@ spec:
     - name: vlogger
       image: kustomize-vlogger-image
   communal: {}
+  httpsNMATLS:
+    mode: TRY_VERIFY
+  clientServerTLS:
+    mode: TRY_VERIFY
   local:
     requestSize: 250Mi
   # We pick a cluster size that is too big for the CE license. This relies on

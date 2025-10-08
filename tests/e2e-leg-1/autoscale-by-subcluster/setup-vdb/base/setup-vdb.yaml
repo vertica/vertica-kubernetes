@@ -27,6 +27,10 @@ spec:
     requestSize: 100Mi
   dbName: vert
   shardCount: 3
+  httpsNMATLS:
+    mode: TRY_VERIFY
+  clientServerTLS:
+    mode: TRY_VERIFY
   subclusters:
     - name: pri
       size: 3

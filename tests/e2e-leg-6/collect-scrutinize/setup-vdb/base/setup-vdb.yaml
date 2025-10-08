@@ -20,6 +20,10 @@ metadata:
 spec:
   image: kustomize-vertica-image
   communal: {}
+  httpsNMATLS:
+    mode: TRY_VERIFY
+  clientServerTLS:
+    mode: TRY_VERIFY
   local:
     requestSize: 100Mi
   initPolicy: CreateSkipPackageInstall

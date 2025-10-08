@@ -28,6 +28,10 @@ spec:
   local:
     requestSize: 100Mi
   initPolicy: CreateSkipPackageInstall
+  httpsNMATLS:
+    mode: TRY_VERIFY
+  clientServerTLS:
+    mode: TRY_VERIFY
   dbName: vertdb
   restorePoint:
     archive: test

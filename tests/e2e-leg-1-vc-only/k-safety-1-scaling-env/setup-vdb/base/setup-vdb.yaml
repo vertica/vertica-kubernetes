@@ -26,6 +26,10 @@ spec:
     - name: vlogger
       image: kustomize-vlogger-image
   communal: {}
+  httpsNMATLS:
+    mode: TRY_VERIFY
+  clientServerTLS:
+    mode: TRY_VERIFY
   local:
     requestSize: 100Mi
   encryptSpreadComm: vertica
