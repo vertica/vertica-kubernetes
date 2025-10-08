@@ -126,7 +126,7 @@ jobs:
           # Get dockerhub image tags
           BRANCH_NAME="${GITHUB_REF_NAME}"
           GITLAB_COMMIT_SHA="${BRANCH_NAME##*-}"
-          DOCKERHUB_FULL="opentext/vertica-k8s-private:${GITLAB_COMMIT_SHA}"
+          DOCKERHUB_FULL="docker.io/opentext/vertica-k8s-private:${GITLAB_COMMIT_SHA}"
           DOCKERHUB_MINIMAL="${DOCKERHUB_FULL}-minimal"
 
           # Default to input values
