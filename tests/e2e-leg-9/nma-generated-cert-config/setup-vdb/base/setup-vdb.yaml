@@ -29,8 +29,10 @@ spec:
   encryptSpreadComm: vertica
   httpsNMATLS:
     mode: TRY_VERIFY
+    enabled: true
   clientServerTLS:
     mode: TRY_VERIFY
+    enabled: true
   subclusters:
     - name: sc1
       size: 1

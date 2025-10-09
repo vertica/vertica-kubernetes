@@ -33,9 +33,11 @@ spec:
   httpsNMATLS:
     secret: nma-cert
     mode: VERIFY_CA
+    enabled: true
   clientServerTLS:
     secret: client-cert
     mode: VERIFY_CA
+    enabled: true
   securityContext:
     capabilities:
       add: ["SYS_PTRACE"]
