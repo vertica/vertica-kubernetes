@@ -496,6 +496,8 @@ const (
 	DefaultTLSEnabledIsFalseAnnotation = "vertica.com/default-tls-enabled-is-false"
 	// This is an internal annotation. It is used to store the license key used to create a new db
 	ValidLicenseKeyAnnotation = "vertica.com/valid-license-key"
+
+	AllowCELicenseAnnotation = "vertica.com/allow-ce-license"
 )
 
 // IsPauseAnnotationSet will check the annotations for a special value that will
@@ -954,6 +956,10 @@ func GetHTTPSPollingMaxRetries(annotations map[string]string) int {
 // GetValidLicenseKey returns a valid license key
 func GetValidLicenseKey(annotations map[string]string) string {
 	return lookupStringAnnotation(annotations, ValidLicenseKeyAnnotation, "")
+}
+
+func GetAllowCELicense(annotations map[string]string) bool {
+	return lookupBoolAnnotation(annotations, AllowCELicenseAnnotation, false)
 }
 
 // lookupBoolAnnotation is a helper function to lookup a specific annotation and
