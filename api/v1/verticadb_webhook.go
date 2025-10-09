@@ -24,7 +24,6 @@ import (
 	"strings"
 
 	vutil "github.com/vertica/vcluster/vclusterops/util"
-	"github.com/vertica/vertica-kubernetes/pkg/meta"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	vversion "github.com/vertica/vertica-kubernetes/pkg/version"
@@ -742,7 +741,7 @@ func (v *VerticaDB) hasValidSaveRestorePointConfig(allErrs field.ErrorList) fiel
 }
 
 func (v *VerticaDB) hasNonEmptyLicenseSecret(allErrs field.ErrorList) field.ErrorList {
-	if v.Spec.InitPolicy == CommunalInitPolicyCreate && v.UseVClusterOpsDeployment() && !meta.GetAllowCELicense(v.Annotations) {
+	if v.Spec.InitPolicy == CommunalInitPolicyCreate && v.UseVClusterOpsDeployment() && !vmeta.GetAllowCELicense(v.Annotations) {
 		if v.Spec.LicenseSecret == "" {
 			err := field.Invalid(field.NewPath("spec").Child("licenseSecret"),
 				v.Spec.LicenseSecret,
