@@ -28,6 +28,7 @@ import (
 
 	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
+	"github.com/vertica/vertica-kubernetes/pkg/cache"
 	"github.com/vertica/vertica-kubernetes/pkg/cloud"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
@@ -44,15 +45,18 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-var lastLicenseValidation metav1.Time
+const (
+	lastValidationTimeKey = "lastValidationTime"
+)
 
 // LicenseValidationReconciler will check the license
 type LicenseValidationReconciler struct {
-	vRec       config.ReconcilerInterface
-	log        logr.Logger
-	vdb        *vapi.VerticaDB
-	dispatcher vadmin.Dispatcher
-	pFacts     *podfacts.PodFacts
+	vRec         config.ReconcilerInterface
+	log          logr.Logger
+	vdb          *vapi.VerticaDB
+	dispatcher   vadmin.Dispatcher
+	pFacts       *podfacts.PodFacts
+	cacheManager cache.CacheManager
 }
 
 type LicenseDetail struct {
@@ -62,13 +66,14 @@ type LicenseDetail struct {
 
 // MakeLicenseValidationReconciler will build a LicenseReconciler object
 func MakeLicenseValidationReconciler(recon config.ReconcilerInterface, log logr.Logger,
-	vdb *vapi.VerticaDB, dispatcher vadmin.Dispatcher, pfacts *podfacts.PodFacts) controllers.ReconcileActor {
+	vdb *vapi.VerticaDB, dispatcher vadmin.Dispatcher, pfacts *podfacts.PodFacts, cacheManager cache.CacheManager) controllers.ReconcileActor {
 	return &LicenseValidationReconciler{
-		vRec:       recon,
-		log:        log.WithName("LicenseValidationReconciler"),
-		vdb:        vdb,
-		dispatcher: dispatcher,
-		pFacts:     pfacts,
+		vRec:         recon,
+		log:          log.WithName("LicenseValidationReconciler"),
+		vdb:          vdb,
+		dispatcher:   dispatcher,
+		pFacts:       pfacts,
+		cacheManager: cacheManager,
 	}
 }
 
@@ -203,10 +208,17 @@ func (r *LicenseValidationReconciler) getDigest(input string) string {
 }
 
 func (r *LicenseValidationReconciler) saveLastValidattionTimeInCache(lastValidationTime metav1.Time) {
-	lastLicenseValidation = lastValidationTime
+	timestampCache := r.cacheManager.GetTimestampCacheForVdb(r.vdb.Namespace, r.vdb.Name)
+	timestampCache.Set(lastValidationTimeKey, lastValidationTime)
 }
 
 func (r *LicenseValidationReconciler) getLastValidattionTimeFromCache() metav1.Time {
+	timestampCache := r.cacheManager.GetTimestampCacheForVdb(r.vdb.Namespace, r.vdb.Name)
+	timestamp, ok := timestampCache.Get(lastValidationTimeKey)
+	if ok {
+		return timestamp
+	}
+	var lastLicenseValidation metav1.Time
 	return lastLicenseValidation
 }
 
