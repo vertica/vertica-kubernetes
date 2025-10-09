@@ -2,4 +2,4 @@ kind: Fixed
 body: Fix for CVE-2025-22871 and CVE-2025-47907
 time: 2025-09-30T20:22:29.879233583Z
 custom:
-  Issue: "1427"
+  Issue: "1429"
