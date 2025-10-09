@@ -73,7 +73,7 @@ func MakeLicenseValidationReconciler(recon config.ReconcilerInterface, log logr.
 }
 
 func (r *LicenseValidationReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
-	if !r.vdb.UseVClusterOpsDeployment() {
+	if !r.vdb.UseVClusterOpsDeployment() || meta.GetAllowCELicense(r.vdb.Annotations) {
 		return ctrl.Result{}, nil
 	}
 	if r.vdb.Spec.LicenseSecret != "" && (r.vdb.Status.LicenseStatus == nil || r.vdb.Status.LicenseStatus != nil &&
