@@ -105,13 +105,73 @@ on:
 run-name: ${{ inputs.reason }}
 
 jobs:
+  # we use specific image names for K8s CICD branches
+  get-image-name:
+    runs-on: ubuntu-latest
+    outputs:
+      minimal_vertica_image: ${{ steps.compute_images.outputs.minimal_image }}
+      full_vertica_image: ${{ steps.compute_images.outputs.full_image }}
+    steps:
+      - name: Login to DockerHub
+        if: ${{ contains(github.ref, 'k8s-sync') || contains(github.ref, 'k8s-test') }}
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Compute image names
+        id: compute_images
+        if: ${{ contains(github.ref, 'k8s-sync') || contains(github.ref, 'k8s-test') }}
+        run: |
+          set -e
+
+          # Get dockerhub image tags
+          BRANCH_NAME="${GITHUB_REF_NAME}"
+          GITLAB_COMMIT_SHA="${BRANCH_NAME##*-}"
+          DOCKERHUB_FULL="docker.io/opentext/vertica-k8s-private:${GITLAB_COMMIT_SHA}"
+          DOCKERHUB_MINIMAL="${DOCKERHUB_FULL}-minimal"
+
+          # Default to input values
+          MINIMAL_IMAGE="${{ inputs.minimal_vertica_image }}"
+          FULL_IMAGE="${{ inputs.full_vertica_image }}"
+
+          FULL_EXISTS=0
+          MINIMAL_EXISTS=0
+          # Check full image
+          if docker manifest inspect "$DOCKERHUB_FULL" > /dev/null 2>&1; then
+            echo "Full image exists: $DOCKERHUB_FULL"
+            FULL_EXISTS=1
+          else
+            echo "Full image does NOT exist: $DOCKERHUB_FULL"
+          fi
+          # Check minimal image
+          if docker manifest inspect "$DOCKERHUB_MINIMAL" > /dev/null 2>&1; then
+            echo "Minimal image exists: $DOCKERHUB_MINIMAL"
+            MINIMAL_EXISTS=1
+          else
+            echo "Minimal image does NOT exist: $DOCKERHUB_MINIMAL"
+          fi
+
+          # if both of them exists, set the image names to the dockerhub images
+          # otherwise, leave them as the input values
+          if [ $FULL_EXISTS -eq 1 ] && [ $MINIMAL_EXISTS -eq 1 ]; then
+            echo "Both images exist, using them"
+            MINIMAL_IMAGE="$DOCKERHUB_MINIMAL"
+            FULL_IMAGE="$DOCKERHUB_FULL"
+          else
+            echo "One or both images do not exist, using default images"
+          fi
+
+          # Export outputs for use in other jobs
+          echo "minimal_image=$MINIMAL_IMAGE" >> $GITHUB_OUTPUT
+          echo "full_image=$FULL_IMAGE" >> $GITHUB_OUTPUT
   build:
+    needs: [get-image-name]
     uses: ./.github/workflows/build-images.yml
     with:
       vlogger_image: ${{ inputs.vlogger_image }}
       operator_image: ${{ inputs.operator_image }}
-      minimal_vertica_image: ${{ inputs.minimal_vertica_image }}
-      full_vertica_image: ${{ inputs.full_vertica_image }}
+      minimal_vertica_image: ${{ needs.get-image-name.outputs.minimal_vertica_image || inputs.minimal_vertica_image }}
+      full_vertica_image: ${{ needs.get-image-name.outputs.full_vertica_image || inputs.full_vertica_image }}
       legacy_vertica_image: ${{ inputs.legacy_vertica_image }}
       run_security_scan: ${{ inputs.run_security_scan }}
       build-retry-times: ${{ inputs.e2e_retry_times || 3 }}

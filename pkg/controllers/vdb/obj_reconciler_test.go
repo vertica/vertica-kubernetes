@@ -63,7 +63,7 @@ var _ = Describe("obj_reconcile", func() {
 			EVWriter: vdbRec.EVRec,
 			// &aterrors.TestEVWriter{},
 		}
-		vdbRec.CacheManager.InitCertCacheForVdb(vdb, fetcher)
+		vdbRec.CacheManager.InitCacheForVdb(vdb, fetcher)
 		objr := MakeObjReconciler(vdbRec, logger, vdb, &pfacts, mode)
 		Expect(objr.Reconcile(ctx, &ctrl.Request{})).Should(Equal(expResult))
 	}

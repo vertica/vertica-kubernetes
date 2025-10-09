@@ -519,20 +519,49 @@ func (v *VerticaDB) checkValidSubclusterTypeTransition(oldObj *VerticaDB, allErr
 	return allErrs
 }
 
-// checkPasswordSecretUpdateInShutdownSandbox checks if password secrets are being updated in shutdown sandboxes
+// checkPasswordSecretUpdateWithSandbox checks for interactions between passwordSecret changes and sandboxes
+// 1) Prevent passwordSecret changes if there are any shutdown sandbox
+// 2) Prevent passwordSecret changes if there are any sandboxing/unsandboxing operations in progress
+// 3) Prevent sandboxing/unsandboxing operations if passwordSecret is being changed
 func (v *VerticaDB) checkPasswordSecretUpdateWithSandbox(oldObj *VerticaDB, allErrs field.ErrorList) field.ErrorList {
 	// if vdb does not have any sandboxes, skip this check
 	if len(v.Spec.Sandboxes) == 0 {
 		return allErrs
 	}
 
-	if oldObj.Spec.PasswordSecret != v.Spec.PasswordSecret {
+	// 1) Check if there are any shutdown sandbox
+	shutdownSandbox := ""
+	for _, sandbox := range v.Spec.Sandboxes {
+		if sandbox.Shutdown {
+			shutdownSandbox = sandbox.Name
+			break
+		}
+	}
+
+	if shutdownSandbox != "" && oldObj.Spec.PasswordSecret != v.Spec.PasswordSecret {
 		err := field.Invalid(field.NewPath("spec").Child("passwordSecret"),
 			v.Spec.PasswordSecret,
-			fmt.Sprintf("Cannot change passwordSecret from %q to %q as the vdb has sandbox",
-				oldObj.Spec.PasswordSecret, v.Spec.PasswordSecret))
+			fmt.Sprintf("Cannot change passwordSecret from %q to %q as the vdb has shutdown sandbox %q",
+				oldObj.Spec.PasswordSecret, v.Spec.PasswordSecret, shutdownSandbox))
 		allErrs = append(allErrs, err)
 	}
+
+	// 2) Check if passwordSecret is being changed while sandboxing/unsandboxing is in progress
+	if v.IsSandboxOpNeeded() && oldObj.Spec.PasswordSecret != v.Spec.PasswordSecret {
+		err := field.Invalid(field.NewPath("spec").Child("passwordSecret"),
+			v.Spec.PasswordSecret,
+			"Cannot change passwordSecret while sandboxing/unsandboxing is in progress")
+		allErrs = append(allErrs, err)
+	}
+
+	// 3) Check if sandboxing/unsandboxing is being attempted while passwordSecret is being changed
+	if v.IsSandboxOpNeeded() && v.IsPasswordChangeInProgress() {
+		err := field.Invalid(field.NewPath("spec").Child("sandboxes"),
+			v.Spec.Sandboxes,
+			"Cannot sandbox/unsandbox while passwordSecret change is in progress")
+		allErrs = append(allErrs, err)
+	}
+
 	return allErrs
 }
 
@@ -1887,7 +1916,7 @@ func (v *VerticaDB) validateSubclustersInSandboxes(allErrs field.ErrorList) fiel
 			seenScWithSbIndex[sc] = index
 		}
 
-		// sandboxHasPrimarySubcluster checks if there is a primary subcluster in the sandboxe
+		// sandboxHasPrimarySubcluster checks if there is a primary subcluster in the sandbox
 		allErrs = v.validateSandboxPrimarySubcluster(allErrs, i)
 	}
 

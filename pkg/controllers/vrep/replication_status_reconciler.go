@@ -25,6 +25,7 @@ import (
 	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/api/v1beta1"
+	"github.com/vertica/vertica-kubernetes/pkg/cache"
 	"github.com/vertica/vertica-kubernetes/pkg/cloud"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
@@ -61,16 +62,18 @@ type ReplicationStatusReconciler struct {
 	TargetPFacts *podfacts.PodFacts
 	Log          logr.Logger
 	TargetInfo   *ReplicationInfo
+	CacheManager cache.CacheManager
 }
 
 func MakeReplicationStatusReconciler(cli client.Client, r *VerticaReplicatorReconciler, vrep *v1beta1.VerticaReplicator,
-	log logr.Logger) controllers.ReconcileActor {
+	log logr.Logger, cacheManager cache.CacheManager) controllers.ReconcileActor {
 	return &ReplicationStatusReconciler{
-		Client:     cli,
-		VRec:       r,
-		Vrep:       vrep,
-		Log:        log.WithName("ReplicationStatusReconciler"),
-		TargetInfo: &ReplicationInfo{},
+		Client:       cli,
+		VRec:         r,
+		Vrep:         vrep,
+		Log:          log.WithName("ReplicationStatusReconciler"),
+		TargetInfo:   &ReplicationInfo{},
+		CacheManager: cacheManager,
 	}
 }
 
@@ -146,7 +149,7 @@ func (r *ReplicationStatusReconciler) Reconcile(ctx context.Context, _ *ctrl.Req
 		Obj:      r.TargetInfo.Vdb,
 		EVWriter: vclusterops.EVWriter,
 	}
-	r.VRec.CacheManager.InitCertCacheForVdb(r.TargetInfo.Vdb, fetcher)
+	r.VRec.CacheManager.InitCacheForVdb(r.TargetInfo.Vdb, fetcher)
 	err = r.runReplicationStatus(ctx, r.dispatcher, opts)
 
 	return ctrl.Result{}, err
@@ -178,7 +181,7 @@ func (r *ReplicationStatusReconciler) makeDispatcher() error {
 // determine usernames and passwords for target VerticaDB
 func (r *ReplicationStatusReconciler) determineUsernameAndPassword(ctx context.Context) (err error) {
 	r.TargetInfo.Username, r.TargetInfo.Password, err = setUsernameAndPassword(ctx,
-		r.Client, r.Log, r.VRec, r.TargetInfo.Vdb, &r.Vrep.Spec.Target.VerticaReplicatorDatabaseInfo)
+		r.Client, r.Log, r.VRec, r.TargetInfo.Vdb, &r.Vrep.Spec.Target.VerticaReplicatorDatabaseInfo, r.CacheManager)
 	if err != nil {
 		return err
 	}
@@ -214,12 +217,10 @@ func (r *ReplicationStatusReconciler) determineTargetHosts() (err error) {
 }
 
 // make podfacts for a cluster (either main or a sandbox) of a vdb
-//
-//nolint:dupl
 func (r *ReplicationStatusReconciler) makePodFacts(ctx context.Context, vdb *vapi.VerticaDB,
 	sandboxName string) (*podfacts.PodFacts, error) {
 	username := vdb.GetVerticaUser()
-	password, err := vk8s.GetSuperuserPassword(ctx, r.Client, r.Log, r.VRec, vdb)
+	password, err := vk8s.GetSuperuserPassword(ctx, r.Client, r.Log, r.VRec, vdb, r.CacheManager, sandboxName)
 	if err != nil {
 		return nil, err
 	}

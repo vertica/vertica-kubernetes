@@ -22,6 +22,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
+	"github.com/vertica/vertica-kubernetes/pkg/cache"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/vk8s"
@@ -49,11 +50,12 @@ type VerticaDBReconciler struct {
 	Scheme *runtime.Scheme
 	Cfg    *rest.Config
 	EVRec  record.EventRecorder
+	CM     cache.CacheManager
 }
 
 // GetSuperuserPassword returns the superuser password if it has been provided
 func (r *VerticaDBReconciler) GetSuperuserPassword(ctx context.Context, log logr.Logger, vdb *vapi.VerticaDB) (*string, error) {
-	return vk8s.GetSuperuserPassword(ctx, r.Client, log, r, vdb)
+	return vk8s.GetSuperuserPassword(ctx, r.Client, log, r, vdb, r.CM, vapi.MainCluster)
 }
 
 // Event a wrapper for Event() that also writes a log entry

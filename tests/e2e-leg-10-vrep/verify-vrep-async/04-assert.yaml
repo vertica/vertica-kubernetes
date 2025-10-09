@@ -73,6 +73,7 @@ kind: VerticaDB
 metadata:
   name: v-target
 status:
+  passwordSecret: su-passwd
   subclusters:
     - addedToDBCount: 1
       upNodeCount: 1

@@ -20,8 +20,11 @@ metadata:
     vertica.com/include-uid-in-path: "true"
 spec:
   clientServerTLS:
+    enabled: true
     commonName: test
+    secret: cert-cn-test
   httpsNMATLS:
+    enabled: true
     secret: cert-no-client-auth
   initPolicy: CreateSkipPackageInstall
   image: kustomize-vertica-image

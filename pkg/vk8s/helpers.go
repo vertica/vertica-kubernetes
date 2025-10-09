@@ -21,6 +21,7 @@ import (
 
 	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
+	"github.com/vertica/vertica-kubernetes/pkg/cache"
 	"github.com/vertica/vertica-kubernetes/pkg/cloud"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
@@ -40,34 +41,46 @@ func getPasswordFromSecret(secret map[string][]byte, key string) (*string, error
 
 // GetSuperuserPassword returns the superuser password if it has been provided
 func GetSuperuserPassword(ctx context.Context, cl client.Client, log logr.Logger,
-	e events.EVWriter, vdb *vapi.VerticaDB) (*string, error) {
+	e events.EVWriter, vdb *vapi.VerticaDB, cacheManager cache.CacheManager, sandbox string) (*string, error) {
 	return GetCustomSuperuserPassword(ctx, cl, log, e, vdb,
-		vdb.GetPasswordSecret(), names.SuperuserPasswordKey)
+		vdb.GetPasswordSecretForSandbox(sandbox), names.SuperuserPasswordKey, cacheManager)
 }
 
-// GetCustomSuperuserPassword returns the superuser password stored in a custom secret
+// GetCustomSuperuserPassword returns the superuser password stored in a custom secret.
+// It first checks the Password cache; if not found, it fetches from K8s.
 func GetCustomSuperuserPassword(ctx context.Context, cl client.Client, log logr.Logger,
 	e events.EVWriter, vdb *vapi.VerticaDB,
-	customPasswordSecret,
-	customPasswordSecretKey string) (*string, error) {
-	// in case no secret defined
-	emptyPassword := ""
-	if customPasswordSecret == "" {
-		return &emptyPassword, nil
-	}
-
-	// fetch the secret
-	fetcher := cloud.SecretFetcher{
+	customPasswordSecret, customPasswordSecretKey string,
+	cacheManager cache.CacheManager) (*string, error) {
+	// Check the cache first
+	fetcher := &cloud.SecretFetcher{
 		Client:   cl,
 		Log:      log,
 		Obj:      vdb,
 		EVWriter: e,
 	}
-	secret, err := fetcher.Fetch(ctx,
-		names.GenNamespacedName(vdb, customPasswordSecret))
+	cacheManager.InitCacheForVdb(vdb, fetcher)
+	if cachedPw, ok := cacheManager.GetPassword(vdb.Namespace, vdb.Name, customPasswordSecret); ok {
+		return &cachedPw, nil
+	}
+
+	// Handle empty secret case
+	if customPasswordSecret == "" {
+		emptyPassword := ""
+		return &emptyPassword, nil
+	}
+
+	secret, err := fetcher.Fetch(ctx, names.GenNamespacedName(vdb, customPasswordSecret))
 	if err != nil {
 		return nil, err
 	}
 
-	return getPasswordFromSecret(secret, customPasswordSecretKey)
+	passwd, err := getPasswordFromSecret(secret, customPasswordSecretKey)
+	if err != nil {
+		return nil, err
+	}
+
+	// Cache the fetched password
+	cacheManager.SetPassword(vdb.Namespace, vdb.Name, customPasswordSecret, *passwd)
+	return passwd, nil
 }
