@@ -3141,6 +3141,9 @@ func (v *VerticaDB) setDefaultTLSEnabled() {
 	}
 	if v.Spec.HTTPSNMATLS != nil && v.Spec.HTTPSNMATLS.Enabled == nil {
 		enable := true
+		if v.IsDBInitialized() {
+			enable = vmeta.UseTLSAuth(v.Annotations)
+		}
 		if vmeta.ShouldSetDefaultTLSEnabledToFalse(v.Annotations) {
 			enable = false
 		}
@@ -3148,6 +3151,14 @@ func (v *VerticaDB) setDefaultTLSEnabled() {
 	}
 	if v.Spec.ClientServerTLS != nil && v.Spec.ClientServerTLS.Enabled == nil {
 		enable := true
+		if v.IsDBInitialized() {
+			// if the db is initialized, we follow the annotation to set the default value
+			// of Enabled field. This is useful to catch the case where the user has upgraded
+			// from an older operator version that does not have the Enabled field.
+			// We want to respect the annotation in this case. This is not a problem for
+			// new vdbs because a default value of true is set in the webhook.
+			enable = vmeta.UseTLSAuth(v.Annotations)
+		}
 		if vmeta.ShouldSetDefaultTLSEnabledToFalse(v.Annotations) {
 			enable = false
 		}

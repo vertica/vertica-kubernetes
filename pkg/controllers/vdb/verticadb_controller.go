@@ -231,12 +231,12 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		// reconcile actor that depends on running pods should not be before
 		// this one.
 		MakeCrashLoopReconciler(r, log, vdb),
-		// Modify or record the annotations in the vdb so later reconcilers can
-		// get the correct information.
-		MakeObjReconciler(r, log, vdb, pfacts, ObjReconcileModeAnnotation),
 		// Handle upgrade actions for any k8s objects created in prior versions
 		// of the operator.
 		MakeUpgradeOperatorReconciler(r, log, vdb),
+		// Modify or record the annotations in the vdb so later reconcilers can
+		// get the correct information.
+		MakeObjReconciler(r, log, vdb, pfacts, ObjReconcileModeAnnotation),
 		// Validate the vdb after operator upgraded
 		MakeValidateVDBReconciler(r, log, vdb),
 		// Initialize TLS secret if autoRotation is set

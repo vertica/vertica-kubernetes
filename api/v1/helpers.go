@@ -1618,7 +1618,9 @@ func (v *VerticaDB) IsTLSAuthEnabledForConfigForWebhook(configName string) bool 
 		return false
 	}
 	if tlsConfig.Enabled == nil {
-		// If "enabled" is not set, we consider it enabled if we are using vclusterOps deployment
+		// This case is very rare and can only happen when you upgrade the operator
+		// (from a version that does not have "TLS config enabled" in the spec)
+		// with an existing vdb.
 		return false
 	}
 	return *tlsConfig.Enabled
@@ -1702,6 +1704,12 @@ func (v *VerticaDB) IsHTTPSConfigEnabledWithCreate() bool {
 // exists in the db
 func (v *VerticaDB) IsClientServerConfigEnabled() bool {
 	return v.IsClientServerTLSAuthEnabledWithMinVersion() && v.GetClientServerTLSSecretInUse() != ""
+}
+
+// ShouldSetTLSEnabled returns true if a TLS config is defined but "enabled" is not set.
+func (v *VerticaDB) ShouldSetTLSEnabled() bool {
+	return (v.Spec.HTTPSNMATLS != nil && v.Spec.HTTPSNMATLS.Enabled == nil) ||
+		(v.Spec.ClientServerTLS != nil && v.Spec.ClientServerTLS.Enabled == nil)
 }
 
 // IsValidVersionForTLS returns true if the server version

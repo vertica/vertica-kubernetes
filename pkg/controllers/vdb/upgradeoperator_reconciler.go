@@ -92,7 +92,7 @@ func (u *UpgradeOperatorReconciler) deleteOldSts(ctx context.Context, stss []app
 // are nil and the operator version is older than 25.4.0.  This was added
 // in 25.4.0 to make it easier to pick the right tls settings during an upgrade.
 func (u *UpgradeOperatorReconciler) SetTLSEnabled(ctx context.Context, stss []appsv1.StatefulSet) error {
-	if !u.shouldSetTLSEnabled() {
+	if !u.Vdb.ShouldSetTLSEnabled() {
 		return nil
 	}
 	for i := range stss {
@@ -143,9 +143,4 @@ func (u *UpgradeOperatorReconciler) updateTLSInVdb(ctx context.Context) error {
 
 		return u.VRec.Client.Update(ctx, u.Vdb)
 	})
-}
-
-func (u *UpgradeOperatorReconciler) shouldSetTLSEnabled() bool {
-	return (u.Vdb.Spec.HTTPSNMATLS != nil && u.Vdb.Spec.HTTPSNMATLS.Enabled == nil) ||
-		(u.Vdb.Spec.ClientServerTLS != nil && u.Vdb.Spec.ClientServerTLS.Enabled == nil)
 }
