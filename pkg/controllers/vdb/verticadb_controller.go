@@ -231,6 +231,9 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		// reconcile actor that depends on running pods should not be before
 		// this one.
 		MakeCrashLoopReconciler(r, log, vdb),
+		// Handle upgrade actions for any k8s objects created in prior versions
+		// of the operator.
+		MakeUpgradeOperatorReconciler(r, log, vdb),
 		// Modify or record the annotations in the vdb so later reconcilers can
 		// get the correct information.
 		MakeObjReconciler(r, log, vdb, pfacts, ObjReconcileModeAnnotation),
@@ -257,9 +260,6 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		MakeMetricReconciler(r, log, vdb, prunner, pfacts),
 		// Report any pods that have low disk space
 		MakeLocalDataCheckReconciler(r, vdb, pfacts),
-		// Handle upgrade actions for any k8s objects created in prior versions
-		// of the operator.
-		MakeUpgradeOperatorReconciler(r, log, vdb),
 		// Create ServiceAcount, Role and RoleBindings needed for vertica pods
 		MakeServiceAccountReconciler(r, log, vdb),
 		// Handle setting up the pod security context. This picks the

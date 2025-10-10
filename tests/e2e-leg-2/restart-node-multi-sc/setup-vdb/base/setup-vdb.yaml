@@ -32,6 +32,10 @@ spec:
     catalogPath: /vertica/catalog
   dbName: vertdb
   shardCount: 16
+  httpsNMATLS:
+    mode: TRY_VERIFY
+  clientServerTLS:
+    mode: TRY_VERIFY
   subclusters:
     - name: sc1
       size: 1

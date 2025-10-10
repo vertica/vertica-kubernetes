@@ -256,9 +256,15 @@ func (h *TLSServerCertGenReconciler) setSecretNameInVDB(ctx context.Context, sec
 		}
 		switch secretFieldName {
 		case clientServerTLSSecret:
-			h.Vdb.Spec.ClientServerTLS = &vapi.TLSConfigSpec{Secret: secretName, Mode: h.Vdb.GetSpecClientServerTLSMode()}
+			if h.Vdb.Spec.ClientServerTLS == nil {
+				return errors.New("ClientServerTLS is not enabled but trying to set secret")
+			}
+			h.Vdb.Spec.ClientServerTLS.Secret = secretName
 		case httpsNMATLSSecret:
-			h.Vdb.Spec.HTTPSNMATLS = &vapi.TLSConfigSpec{Secret: secretName, Mode: h.Vdb.GetSpecHTTPSNMATLSMode()}
+			if h.Vdb.Spec.HTTPSNMATLS == nil {
+				return errors.New("HTTPSNMATLS is not enabled but trying to set secret")
+			}
+			h.Vdb.Spec.HTTPSNMATLS.Secret = secretName
 		case nmaTLSSecret:
 			h.Vdb.Spec.NMATLSSecret = secretName
 		}

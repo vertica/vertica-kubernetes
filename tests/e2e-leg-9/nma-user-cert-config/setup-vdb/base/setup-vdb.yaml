@@ -18,7 +18,6 @@ metadata:
   annotations:
     vertica.com/k-safety: "0"
     vertica.com/include-uid-in-path: "true"
-    vertica.com/enable-tls-auth: "true"
 spec:
   initPolicy: CreateSkipPackageInstall
   image: kustomize-vertica-image
@@ -34,9 +33,11 @@ spec:
   httpsNMATLS:
     secret: nma-cert
     mode: VERIFY_CA
+    enabled: true
   clientServerTLS:
     secret: client-cert
     mode: VERIFY_CA
+    enabled: true
   securityContext:
     capabilities:
       add: ["SYS_PTRACE"]

@@ -18,7 +18,6 @@ metadata:
   annotations:
     vertica.com/k-safety: "0"
     vertica.com/include-uid-in-path: "true"
-    vertica.com/enable-tls-auth: "true"
 spec:
   httpsNMATLS:
     mode: verify_ca

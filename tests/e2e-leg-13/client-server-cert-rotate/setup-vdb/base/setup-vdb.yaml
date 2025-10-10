@@ -18,7 +18,6 @@ metadata:
   annotations:
     vertica.com/k-safety: "1"
     vertica.com/include-uid-in-path: "true"
-    vertica.com/enable-tls-auth: "true"
 spec:
   initPolicy: CreateSkipPackageInstall
   image: kustomize-vertica-image
@@ -29,6 +28,8 @@ spec:
     catalogPath: /catalog
   dbName: vertdb
   clientServerTLS:
+    mode: TRY_VERIFY
+  httpsNMATLS:
     mode: TRY_VERIFY
   subclusters:
     - name: sc1

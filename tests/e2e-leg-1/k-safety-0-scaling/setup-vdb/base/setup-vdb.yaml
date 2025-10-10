@@ -27,6 +27,10 @@ spec:
       image: kustomize-vlogger-image
   dbName: MYDB
   communal: {}
+  httpsNMATLS:
+    mode: TRY_VERIFY
+  clientServerTLS:
+    mode: TRY_VERIFY
   local:
     requestSize: 100Mi
   subclusters:

@@ -31,6 +31,8 @@ spec:
   httpsNMATLS:
     mode: VERIFY_CA
     secret: cert1
+  clientServerTLS:
+    mode: TRY_VERIFY
   subclusters:
     - name: sc1
       size: 3

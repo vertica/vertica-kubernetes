@@ -25,6 +25,10 @@ spec:
     path: "s3://nimbusdb/db"
     endpoint: "http://minio"
     credentialSecret: s3-auth
+  httpsNMATLS:
+    mode: TRY_VERIFY
+  clientServerTLS:
+    mode: TRY_VERIFY
   local:
     requestSize: 100Mi
   initPolicy: CreateSkipPackageInstall

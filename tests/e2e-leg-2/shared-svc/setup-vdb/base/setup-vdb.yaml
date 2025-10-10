@@ -26,6 +26,10 @@ spec:
   local:
     requestSize: 100Mi
   dbName: vertdb
+  httpsNMATLS:
+    mode: TRY_VERIFY
+  clientServerTLS:
+    mode: TRY_VERIFY
   subclusters:
     - name: sc1
       size: 1

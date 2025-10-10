@@ -24,6 +24,10 @@ spec:
   image: kustomize-vertica-image
   passwordSecret: su-passwd
   communal: {}
+  httpsNMATLS:
+    mode: TRY_VERIFY
+  clientServerTLS:
+    mode: TRY_VERIFY
   local:
     depotVolume: EmptyDir
     requestSize: 100Mi

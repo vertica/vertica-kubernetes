@@ -20,7 +20,6 @@ metadata:
     vertica.com/include-uid-in-path: "false"
     vertica.com/ignore-cluster-lease: "true"
     vertica.com/vcluster-ops: "true"
-    vertica.com/enable-tls-auth: "true"
 spec:
   initPolicy: Revive
   image: kustomize-vertica-image
@@ -36,9 +35,11 @@ spec:
   clientServerTLS:
     secret: custom-cert
     mode: TRY_VERIFY
+    enabled: true
   httpsNMATLS:
     secret: custom-cert
     mode: VERIFY_CA
+    enabled: true
   securityContext:
     capabilities:
       add: ["SYS_PTRACE"]

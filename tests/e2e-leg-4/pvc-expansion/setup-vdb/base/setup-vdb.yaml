@@ -27,6 +27,10 @@ spec:
   dbName: data_base
   initPolicy: CreateSkipPackageInstall
   communal: {}
+  httpsNMATLS:
+    mode: TRY_VERIFY
+  clientServerTLS:
+    mode: TRY_VERIFY
   local:
     requestSize: 1Gi
   subclusters:

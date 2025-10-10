@@ -30,6 +30,10 @@ spec:
   dbName: Db
   initPolicy: CreateSkipPackageInstall
   communal: {}
+  httpsNMATLS:
+    mode: TRY_VERIFY
+  clientServerTLS:
+    mode: TRY_VERIFY
   local:
     requestSize: 100Mi
     catalogPath: /vertica/catalog

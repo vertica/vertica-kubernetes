@@ -29,6 +29,10 @@ spec:
     requestSize: 100Mi
   dbName: vd
   shardCount: 17
+  httpsNMATLS:
+    mode: TRY_VERIFY
+  clientServerTLS:
+    mode: TRY_VERIFY
   subclusters:
     - name: defsc
       size: 3

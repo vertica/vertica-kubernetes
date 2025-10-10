@@ -26,6 +26,10 @@ spec:
   initPolicy: CreateSkipPackageInstall
   upgradePolicy: Online
   communal: {}
+  httpsNMATLS:
+    mode: TRY_VERIFY
+  clientServerTLS:
+    mode: TRY_VERIFY
   local:
     requestSize: 250Mi
   sidecars:

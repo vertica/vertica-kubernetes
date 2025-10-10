@@ -480,12 +480,13 @@ const (
 	// If empty, Prometheus uses the global scrape interval.
 	PrometheusScrapeIntervalAnnotation = "vertica.com/prometheus-scrape-interval"
 
-	// This annotation disables the webhook check performed by hasValidTLSWithKnob().
-	// It is intended for internal testing purposes only.
-	SkipTLSWebhookCheck = "vertica.com/skip-tls-webhook-check"
-
 	// This is an internal annotation. It is used to indicate we've set HTTPS TLS in offline upgrade.
 	OfflineUpgradeHTTPSSetAnnotation = "vertica.com/offline-https-set"
+
+	// This annotation indicates that tls should be explicitly set to false.
+	// This is used to override the default behavior of setting tls to true.
+	// For testing purposes only.
+	DefaultTLSEnabledIsFalseAnnotation = "vertica.com/default-tls-enabled-is-false"
 )
 
 // IsPauseAnnotationSet will check the annotations for a special value that will
@@ -906,8 +907,8 @@ func GetPrometheusScrapeInterval(annotations map[string]string) int {
 	return lookupIntAnnotation(annotations, PrometheusScrapeIntervalAnnotation, 0)
 }
 
-func ShouldSkipTLSWebhookCheck(annotations map[string]string) bool {
-	return lookupBoolAnnotation(annotations, SkipTLSWebhookCheck, false)
+func ShouldSetDefaultTLSEnabledToFalse(annotations map[string]string) bool {
+	return lookupBoolAnnotation(annotations, DefaultTLSEnabledIsFalseAnnotation, false)
 }
 
 func IsHTTPSTLSSetInOfflineUpgrade(annotations map[string]string) bool {

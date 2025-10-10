@@ -27,6 +27,10 @@ spec:
     depotPath: "/depot"
     requestSize: 100Mi
   dbName: vertdb
+  httpsNMATLS:
+    mode: TRY_VERIFY
+  clientServerTLS:
+    mode: TRY_VERIFY
   subclusters:
     - name: main
       size: 2
