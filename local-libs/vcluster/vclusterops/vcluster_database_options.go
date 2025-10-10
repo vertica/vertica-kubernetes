@@ -361,6 +361,7 @@ func (opt *DatabaseOptions) getVDBFromSandboxWhenDBIsDown(vcc VClusterCommands,
 
 	// step 3: build vdb for input hosts using node names from step 1 and node details from step 2
 	// this step can map input hosts with node details
+	vdb.Name = opt.DBName
 	vdb.HostList = vdb2.HostList
 	vdb.HostNodeMap = makeVHostNodeMap()
 	nodeNameVNodeMap := make(map[string]*VCoordinationNode)
