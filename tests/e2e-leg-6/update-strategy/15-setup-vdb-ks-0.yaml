@@ -14,4 +14,5 @@
 apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 commands:
+  - command: bash -c "rm setup-vdb-ks-0/overlaylicense-patch.yaml"
   - command: bash -c "kustomize build setup-vdb-ks-0/overlay | kubectl -n $NAMESPACE apply -f - "
