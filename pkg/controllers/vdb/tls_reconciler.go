@@ -110,7 +110,6 @@ func (h *TLSReconciler) updateTLSConfigEnabledInVdb(ctx context.Context) error {
 	if !h.Vdb.ShouldSetTLSEnabled() {
 		return nil
 	}
-	enabled := true
 	nm := h.Vdb.ExtractNamespacedName()
 	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 		// Always fetch the latest in case we are in the retry loop
@@ -119,9 +118,11 @@ func (h *TLSReconciler) updateTLSConfigEnabledInVdb(ctx context.Context) error {
 		}
 
 		if h.Vdb.Spec.HTTPSNMATLS != nil && h.Vdb.Spec.HTTPSNMATLS.Enabled == nil {
+			enabled := true
 			h.Vdb.Spec.HTTPSNMATLS.Enabled = &enabled
 		}
 		if h.Vdb.Spec.ClientServerTLS != nil && h.Vdb.Spec.ClientServerTLS.Enabled == nil {
+			enabled := true
 			h.Vdb.Spec.ClientServerTLS.Enabled = &enabled
 		}
 
