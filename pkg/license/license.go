@@ -50,8 +50,8 @@ func GetPath(ctx context.Context, clnt client.Client, vdb *vapi.VerticaDB) (stri
 	if len(secret.Data) == 0 {
 		return "", fmt.Errorf("license error. Secret %s has no license data in it", vdb.Spec.LicenseSecret)
 	}
-
-	if !vdb.UseVClusterOpsDeployment() && !meta.GetAllowCELicense(vdb.Annotations) {
+	// if admintools is used or allow-ce-license annotation is set to true
+	if !vdb.UseVClusterOpsDeployment() || meta.GetAllowCELicense(vdb.Annotations) {
 		licenseNames := make([]string, 0, len(secret.Data))
 		for k := range secret.Data {
 			licenseNames = append(licenseNames, k)
