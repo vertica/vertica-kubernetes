@@ -78,7 +78,8 @@ func MakeLicenseValidationReconciler(recon config.ReconcilerInterface, log logr.
 }
 
 func (r *LicenseValidationReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
-	if !r.vdb.UseVClusterOpsDeployment() || meta.GetAllowCELicense(r.vdb.Annotations) {
+	if !r.vdb.UseVClusterOpsDeployment() || meta.GetAllowCELicense(r.vdb.Annotations) ||
+		r.vdb.IsStatusConditionTrue(vapi.UpgradeInProgress) || r.vdb.IsStatusConditionTrue(vapi.VerticaRestartNeeded) {
 		return ctrl.Result{}, nil
 	}
 	if r.vdb.Spec.LicenseSecret != "" && (r.vdb.Status.LicenseStatus == nil || r.vdb.Status.LicenseStatus != nil &&
