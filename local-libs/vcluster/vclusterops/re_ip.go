@@ -38,6 +38,13 @@ type VReIPOptions struct {
 	// perform an additional HTTPS check (checkRunningDB operation) to verify that the database is running.
 	// This is useful when Re-IP should only be applied to down db.
 	CheckDBRunning bool
+	// optional ksafety parameter
+	// TODO: change this to int, rather than a pointer
+	// Also, set the default value as 1
+	Ksafety *int
+
+	// hidden option
+	newAddresses []string
 }
 
 func VReIPFactory() VReIPOptions {
@@ -207,6 +214,33 @@ func (vcc VClusterCommands) VReIP(options *VReIPOptions) error {
 		}
 	}
 
+	// if re-ip failed due to quorum check, run load Catalog from communal location on primary nodes
+	if clusterOpEngine.execContext.hasNoQuorum {
+		extraStepInstructions, err := vcc.produceExtraReIPInstructions(options, pVDB)
+		if err != nil {
+			return fmt.Errorf("fail to produce extra instructions, %w", err)
+		}
+		extraStepclusterOpEngine := makeClusterOpEngine(extraStepInstructions, options)
+
+		if options.SandboxName == util.MainClusterSandbox {
+			runError := extraStepclusterOpEngine.run(vcc.Log)
+			if runError != nil {
+				return fmt.Errorf("fail to run extra steps of re-ip: %w", runError)
+			}
+		} else {
+			vcc.LogInfo("Extra steps of re-IP the sandbox", "sandbox", options.SandboxName)
+			runError := extraStepclusterOpEngine.runInSandbox(vcc.Log, pVDB, options.SandboxName)
+			if runError != nil {
+				return fmt.Errorf("fail to run extra steps of re-ip: %w", runError)
+			}
+		}
+
+		runError := extraStepclusterOpEngine.run(vcc.Log)
+		if runError != nil {
+			return fmt.Errorf("fail to reload catalog after losing quorum: %w", runError)
+		}
+	}
+
 	return nil
 }
 
@@ -253,6 +287,7 @@ func (vcc VClusterCommands) produceReIPInstructions(options *VReIPOptions, vdb *
 	for _, info := range options.ReIPList {
 		newAddresses = append(newAddresses, info.TargetAddress)
 	}
+	options.newAddresses = newAddresses
 	nmaNetworkProfileOp := makeNMANetworkProfileOp(newAddresses)
 
 	instructions = append(instructions, &nmaNetworkProfileOp)
@@ -289,23 +324,28 @@ func (vcc VClusterCommands) produceReIPInstructions(options *VReIPOptions, vdb *
 	// re-ip
 	// at this stage the re-ip info should either by provided by
 	// the re-ip file (for vcluster CLI) or the Kubernetes operator
-	nmaReIPOP := makeNMAReIPOp(options.ReIPList, vdb, options.TrimReIPList)
-	instructions = append(instructions, &nmaReIPOP)
-	// Load Catalog from communal location on primary nodes in case we lose quorum during reip
-	if options.IsEon {
-		oldHosts, newVdb := options.genNewVdb(vdb, vcc.Log)
-		if len(oldHosts) != len(newVdb.HostList) {
-			return instructions, fmt.Errorf("the number of new hosts does not match the number of nodes in original database")
-		}
-		nmaNetworkProfilePostReip := makeNMANetworkProfileOp(newVdb.HostList)
-		nmaLoadRemoteCatalogOp := makeNMALoadRemoteCatalogForInPlaceRevive(oldHosts, options.ConfigurationParameters,
-			newVdb, options.SandboxName)
-		nmaReadCatEdOp, err := makeNMAReadCatalogEditorOpForInPlaceRevive(newVdb, options.SandboxName, newAddresses)
-		if err != nil {
-			return instructions, err
-		}
-		instructions = append(instructions, &nmaNetworkProfilePostReip, &nmaLoadRemoteCatalogOp, &nmaReadCatEdOp)
+	nmaReIPOp := makeNMAReIPOp(options.ReIPList, vdb, options.TrimReIPList, options.Ksafety)
+	instructions = append(instructions, &nmaReIPOp)
+
+	return instructions, nil
+}
+
+// TODO: add comment
+func (vcc VClusterCommands) produceExtraReIPInstructions(options *VReIPOptions, vdb *VCoordinationDatabase) ([]clusterOp, error) {
+	var instructions []clusterOp
+
+	oldHosts, newVdb := options.genNewVdb(vdb, vcc.Log)
+	if len(oldHosts) != len(newVdb.HostList) {
+		return instructions, fmt.Errorf("the number of new hosts does not match the number of nodes in original database")
 	}
+	nmaNetworkProfilePostReip := makeNMANetworkProfileOp(newVdb.HostList)
+	nmaLoadRemoteCatalogOp := makeNMALoadRemoteCatalogForInPlaceRevive(oldHosts, options.ConfigurationParameters,
+		newVdb, options.SandboxName)
+	nmaReadCatEdOp, err := makeNMAReadCatalogEditorOpForInPlaceRevive(newVdb, options.SandboxName, options.newAddresses)
+	if err != nil {
+		return instructions, err
+	}
+	instructions = append(instructions, &nmaNetworkProfilePostReip, &nmaLoadRemoteCatalogOp, &nmaReadCatEdOp)
 
 	return instructions, nil
 }

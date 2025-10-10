@@ -113,6 +113,7 @@ const (
 	connKey                         = "conn"
 	stopNodeFlag                    = "stop-hosts"
 	reIPFileFlag                    = "re-ip-file"
+	ksafetyFlag                     = "ksafety"
 	removeNodeFlag                  = "remove"
 	removeUnboundNodesFlag          = "remove-unbound-nodes"
 	startNodeFlag                   = "start"
