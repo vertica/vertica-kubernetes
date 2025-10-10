@@ -29,7 +29,7 @@ spec:
   communal: {}
   local:
     depotVolume: EmptyDir
-    requestSize: 100Mi
+    requestSize: 200Mi
     catalogPath: /vertica/catalog
   dbName: vertdb
   shardCount: 16
