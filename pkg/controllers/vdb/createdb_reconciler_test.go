@@ -28,6 +28,9 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
 	"github.com/vertica/vertica-kubernetes/pkg/test"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
@@ -35,6 +38,14 @@ var testPassword = "test-pw"
 
 var _ = Describe("createdb_reconciler", func() {
 	ctx := context.Background()
+
+	BeforeEach(func() {
+		createSecret(ctx, map[string][]byte{"license.dat": []byte("dummy")})
+	})
+
+	AfterEach(func() {
+		deleteTestSecret(ctx)
+	})
 
 	It("should run create db if db doesn't exist", func() {
 		vdb := vapi.MakeVDB()
@@ -215,4 +226,25 @@ func createMultiPodSubclusterForKsafe(ctx context.Context, ksafe string, firstSc
 	Expect(ok).Should(BeTrue())
 
 	return len(hostList)
+}
+
+func createSecret(ctx context.Context, data map[string][]byte) {
+	secret := corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-license-secret",
+			Namespace: "default",
+		},
+		Data: data,
+	}
+	Expect(k8sClient.Create(ctx, &secret)).Should(Succeed())
+}
+
+func deleteTestSecret(ctx context.Context) {
+	nm := types.NamespacedName{
+		Name:      "test-license-secret",
+		Namespace: "default",
+	}
+	secret := &corev1.Secret{}
+	Expect(k8sClient.Get(ctx, nm, secret)).Should(Succeed())
+	Expect(k8sClient.Delete(ctx, secret)).Should(Succeed())
 }

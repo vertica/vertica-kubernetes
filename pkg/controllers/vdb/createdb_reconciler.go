@@ -30,6 +30,8 @@ import (
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/license"
+
+	// "github.com/vertica/vertica-kubernetes/pkg/meta"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
@@ -87,6 +89,10 @@ func (c *CreateDBReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ct
 	if c.Vdb.Spec.InitPolicy != vapi.CommunalInitPolicyCreate &&
 		c.Vdb.Spec.InitPolicy != vapi.CommunalInitPolicyCreateSkipPackageInstall {
 		return ctrl.Result{}, nil
+	}
+
+	if c.Vdb.Spec.LicenseSecret == "" && c.Vdb.UseVClusterOpsDeployment() && !vmeta.GetAllowCELicense(c.Vdb.Annotations) {
+		return ctrl.Result{}, fmt.Errorf("failed to create database because of empty licenseSecret")
 	}
 
 	var err error

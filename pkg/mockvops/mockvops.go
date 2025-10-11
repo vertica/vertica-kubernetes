@@ -131,6 +131,10 @@ func (*MockVClusterOps) VSetTLSConfig(_ *vclusterops.VSetTLSConfigOptions) error
 	return nil
 }
 
+func (*MockVClusterOps) VCheckLicense(_ *vclusterops.VCheckLicenseOptions) error {
+	return nil
+}
+
 func (*MockVClusterOps) VDropDatabase(_ *vclusterops.VDropDatabaseOptions) error {
 	return nil
 }
