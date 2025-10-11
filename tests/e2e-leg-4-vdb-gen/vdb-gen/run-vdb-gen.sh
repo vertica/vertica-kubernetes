@@ -35,7 +35,7 @@ then
 fi
 
 /tmp/vdb-gen \
-    -license /home/dbadmin/licensing/ce/vertica_community_edition.license.key \
+    -license /home/dbadmin/licensing/mnt/license.dat \
     -image $VERTICA_IMG \
     -user $VDB_USER \
     -name $VDB_NAME \
