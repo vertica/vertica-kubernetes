@@ -580,6 +580,7 @@ jobs:
           vlogger-image: ${{ needs.build.outputs.vlogger-image }}
           operator-image: ${{ needs.build.outputs.operator-image }}
           vertica-image: ${{ needs.build.outputs.legacy-vertica-image }}
+          vertica-license: ${{ secrets.VERTICA_LICENSE }}
           vertica-deployment-method: admintools
           communal-storage-type: s3
           vertica-superuser-name: dbadmin
@@ -604,6 +605,7 @@ jobs:
           vlogger-image: ${{ needs.build.outputs.vlogger-image }}
           operator-image: ${{ needs.build.outputs.operator-image }}
           vertica-image: ${{ needs.build.outputs.minimal-vertica-image }}
+          vertica-license: ${{ secrets.VERTICA_LICENSE }}
           vertica-deployment-method: vclusterops
           communal-storage-type: s3
           vertica-superuser-name: myadmin
