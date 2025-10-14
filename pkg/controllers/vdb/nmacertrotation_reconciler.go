@@ -17,6 +17,7 @@ package vdb
 
 import (
 	"context"
+	"strconv"
 
 	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
@@ -61,37 +62,45 @@ func MakeNMACertRotationReconciler(vdbrecon *VerticaDBReconciler, log logr.Logge
 
 // Reconcile will rotate TLS certificate.
 func (h *NMACertRotationReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
+	h.Log.Info("libo: nma rec 1")
 	if !h.nmaCertRotationNeeded() {
+		h.Log.Info("libo: nma rec 2")
 		return ctrl.Result{}, nil
 	}
-
+	h.Log.Info("libo: nma rec 3")
 	// we want to be sure nma tls configmap exists and has the freshest values
 	if res, errCheck := h.Manager.checkNMATLSConfigMap(ctx); verrors.IsReconcileAborted(res, errCheck) {
+		h.Log.Info("libo: nma rec 4")
 		return res, errCheck
 	}
-
+	h.Log.Info("libo: nma rec 5")
 	// nma secret
 	newSecretName := h.Vdb.GetHTTPSNMATLSSecretForConfigMap()
 
 	newSecret, res, err := readSecret(h.Vdb, h.VRec, h.VRec.GetClient(), h.Log, ctx, newSecretName)
 	if verrors.IsReconcileAborted(res, err) {
+		h.Log.Info("libo: nma rec 6")
 		return res, err
 	}
+	h.Log.Info("libo: nma rec 7")
 	h.Log.Info("Starting NMA TLS certificate rotation")
 	err, calledVclusterops := h.rotateNmaTLSCert(ctx, newSecret)
 	if err != nil {
+		h.Log.Info("libo: nma rec 8")
 		h.Log.Error(err, "Failed to rotate NMA TLS certificate")
 		if calledVclusterops && !h.RestartOnly {
+			h.Log.Info("libo: nma rec 9")
 			cond := vapi.MakeCondition(vapi.TLSCertRollbackNeeded, metav1.ConditionTrue, vapi.RollbackAfterNMACertRotationReason)
 			return res, vdbstatus.UpdateCondition(ctx, h.VRec.GetClient(), h.Vdb, cond)
 		}
 		return res, err
 	}
-
+	h.Log.Info("libo: nma rec 10")
 	if h.RestartOnly {
+		h.Log.Info("libo: nma rec 11")
 		return ctrl.Result{}, nil
 	}
-
+	h.Log.Info("libo: nma rec 12")
 	updateConds := func(conds []*metav1.Condition) error {
 		if err := vdbstatus.UpdateConditions(ctx, h.VRec.GetClient(), h.Vdb, conds); err != nil {
 			return err
@@ -105,10 +114,12 @@ func (h *NMACertRotationReconciler) Reconcile(ctx context.Context, _ *ctrl.Reque
 	// Clear TLSConfigUpdateInProgress only when the ClientServer rotation is finished
 	// or when no ClientServer rotation is required at all.
 	if h.Vdb.IsStatusConditionTrue(vapi.ClientServerTLSConfigUpdateFinished) || h.Vdb.NoClientServerRotationNeeded() {
+		h.Log.Info("libo: nma rec 13")
 		conds = append(conds, vapi.MakeCondition(vapi.TLSConfigUpdateInProgress, metav1.ConditionFalse, "Completed"))
 	}
 
 	if h.Vdb.IsStatusConditionTrue(vapi.HTTPSTLSConfigUpdateFinished) {
+		h.Log.Info("libo: nma rec 14")
 		conds = append(conds, vapi.MakeCondition(vapi.HTTPSTLSConfigUpdateFinished, metav1.ConditionFalse, "Completed"))
 	}
 
@@ -118,24 +129,36 @@ func (h *NMACertRotationReconciler) Reconcile(ctx context.Context, _ *ctrl.Reque
 	// by updating the mode only when client server tls config update
 	// was done successfully.
 	if h.Vdb.IsStatusConditionTrue(vapi.ClientServerTLSConfigUpdateFinished) {
+		h.Log.Info("libo: nma rec 15")
 		conds = append(conds, vapi.MakeCondition(vapi.ClientServerTLSConfigUpdateFinished, metav1.ConditionFalse, "Completed"))
 	}
+	h.Log.Info("libo: nma rec 16")
 	return ctrl.Result{}, updateConds(conds)
 }
 
 // nmaCertRotationNeeded returns true if nma cert rotation is needed
 func (h *NMACertRotationReconciler) nmaCertRotationNeeded() bool {
+	h.Log.Info("libo: nma needed 1")
 	if !h.Vdb.IsAnyTLSAuthEnabledWithMinVersion() {
+		h.Log.Info("libo: nma needed 2")
 		return false
 	}
+	h.Log.Info("libo: nma needed 3")
 	// no-op if tls update has not occurred
 	if !h.RestartOnly &&
 		((!h.Vdb.IsStatusConditionTrue(vapi.HTTPSTLSConfigUpdateFinished) &&
-			!h.Vdb.IsStatusConditionTrue(vapi.ClientServerTLSConfigUpdateFinished)) ||
+			!h.Vdb.IsStatusConditionTrue(vapi.ClientServerTLSConfigUpdateFinished) &&
+			!h.Vdb.IsStatusConditionTrue(vapi.InterNodeTLSConfigUpdateFinished)) ||
 			!h.Vdb.IsStatusConditionTrue(vapi.TLSConfigUpdateInProgress) ||
 			h.Vdb.IsTLSCertRollbackNeeded()) {
+		h.Log.Info("libo: nma needed 4")
 		return false
 	}
+	h.Log.Info("libo: nma needed 5, 3 bool ? " + strconv.FormatBool(!h.Vdb.IsStatusConditionTrue(vapi.HTTPSTLSConfigUpdateFinished)) +
+		", " + strconv.FormatBool(!h.Vdb.IsStatusConditionTrue(vapi.ClientServerTLSConfigUpdateFinished)) + ", " +
+		strconv.FormatBool(!h.Vdb.IsStatusConditionTrue(vapi.InterNodeTLSConfigUpdateFinished)) + ", config update in progress ? " +
+		strconv.FormatBool(!h.Vdb.IsStatusConditionTrue(vapi.TLSConfigUpdateInProgress)) + ", cert rollback needed ? " +
+		strconv.FormatBool(h.Vdb.IsTLSCertRollbackNeeded()))
 	return true
 }
 

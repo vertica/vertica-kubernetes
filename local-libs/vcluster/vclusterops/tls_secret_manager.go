@@ -71,7 +71,7 @@ type TLSConfigType string
 const (
 	ServerTLSKeyPrefix    TLSConfigType = "server"
 	HTTPSTLSKeyPrefix     TLSConfigType = "https"
-	InterNodeTLSKeyPrefix TLSConfigType = "datachannel"
+	InterNodeTLSKeyPrefix TLSConfigType = "data_channel"
 )
 
 type TLSConfig struct {

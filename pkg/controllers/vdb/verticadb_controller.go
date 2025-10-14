@@ -278,6 +278,8 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		MakeObservedConfigObjsReconciler(r, log, vdb),
 		// Add annotations/labels to each pod about the host running them
 		MakeAnnotateAndLabelPodReconciler(r, log, vdb, pfacts),
+		// update inter node tls by setting the tls config, rotating the cert and/or changing tls mode
+		MakeInterNodeTLSUpdateReconciler(r, log, vdb, dispatcher, pfacts, false),
 		// Set up TLS config if users turn it on
 		MakeTLSReconciler(r, log, vdb, prunner, dispatcher, pfacts),
 		// Update the service monitor that will allow prometheus to scrape the
