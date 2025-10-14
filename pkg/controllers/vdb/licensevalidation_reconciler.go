@@ -77,19 +77,44 @@ func MakeLicenseValidationReconciler(recon config.ReconcilerInterface, log logr.
 	}
 }
 
+// Reconcile validates licenses saved in license secret. If no valid license found, an error will be returned.
 func (r *LicenseValidationReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
-	if !r.vdb.UseVClusterOpsDeployment() || meta.GetAllowCELicense(r.vdb.Annotations) ||
-		r.vdb.IsStatusConditionTrue(vapi.UpgradeInProgress) || r.vdb.IsStatusConditionTrue(vapi.VerticaRestartNeeded) {
+	if r.shouldSkipLicenseValidattion() {
 		return ctrl.Result{}, nil
 	}
-	if r.vdb.Spec.LicenseSecret != "" && (r.vdb.Status.LicenseStatus == nil || r.vdb.Status.LicenseStatus != nil &&
-		r.vdb.Spec.LicenseSecret != r.vdb.Status.LicenseStatus.LicenseSecret) {
+	// do validation for new license secret
+	if r.licenseValidattionRequired() {
 		res, err := r.validateLicenses(ctx)
 		return res, err
 	}
-	// another scenario
-	var toValidate bool
 	lastSuccessfulValidation := r.getLastValidattionTimeFromCache()
+
+	// routine license validation on a daily basis
+	if !r.shouldDoDailyValidation(lastSuccessfulValidation) {
+		return ctrl.Result{}, nil
+	}
+	r.log.Info("Validate licenses at " + time.Now().String() + ", validated last time at " + lastSuccessfulValidation.String())
+	return r.validateLicenses(ctx)
+}
+
+// shouldSkipLicenseValidattion() will return true when license validation should be skipped.
+func (r *LicenseValidationReconciler) shouldSkipLicenseValidattion() bool {
+	return !r.vdb.UseVClusterOpsDeployment() || meta.GetAllowCELicense(r.vdb.Annotations) ||
+		r.vdb.IsStatusConditionTrue(vapi.UpgradeInProgress) || r.vdb.IsStatusConditionTrue(vapi.VerticaRestartNeeded)
+}
+
+// licenseValidattionRequired() will return true when license validation is required.
+func (r *LicenseValidationReconciler) licenseValidattionRequired() bool {
+	return r.vdb.Spec.LicenseSecret != "" && (r.vdb.Status.LicenseStatus == nil || r.vdb.Status.LicenseStatus != nil &&
+		r.vdb.Spec.LicenseSecret != r.vdb.Status.LicenseStatus.LicenseSecret)
+}
+
+// shouldDoDailyValidation() will return true when it is time to do a daily license validation.
+// The last successful license validation time is saved in cache. This function compares the current time with
+// the cached time. If the interval is longer than a day, it will return true. If no cached time found, it
+// also returns true.
+func (r *LicenseValidationReconciler) shouldDoDailyValidation(lastSuccessfulValidation metav1.Time) bool {
+	var toValidate bool
 	if lastSuccessfulValidation.IsZero() {
 		toValidate = true
 	} else {
@@ -98,13 +123,12 @@ func (r *LicenseValidationReconciler) Reconcile(ctx context.Context, _ *ctrl.Req
 			toValidate = true
 		}
 	}
-	if !toValidate {
-		return ctrl.Result{}, nil
-	}
-	r.log.Info("Validate licenses at " + time.Now().String() + ", validated last time at " + lastSuccessfulValidation.String())
-	return r.validateLicenses(ctx)
+	return toValidate
 }
 
+// validateLicenses() will call validateLicensesInSecret() to validate all licenses found in the license secret
+// and save their validness into status. If no valid license found from the secret, it will return an error.
+// That will fail the reconciliation loop. The validation time will be saved into the cache.
 func (r *LicenseValidationReconciler) validateLicenses(ctx context.Context) (ctrl.Result, error) {
 	if r.vdb.Spec.LicenseSecret == "" {
 		r.vRec.Event(r.vdb, corev1.EventTypeNormal, events.LicenseValidationFail, "license secret field is empty")
@@ -112,8 +136,8 @@ func (r *LicenseValidationReconciler) validateLicenses(ctx context.Context) (ctr
 	}
 	validLicenses, invalidLicenses, err := r.validateLicensesInSecret(ctx)
 	if err != nil {
-		r.log.Info("requeue to wait to validate license")
-		return ctrl.Result{Requeue: true}, nil // if no pod, requeue
+		r.log.Info("wait to get an initiator pod to validate license")
+		return ctrl.Result{}, err // if no pod, return an error
 	}
 	if len(validLicenses) == 0 {
 		eventContent := fmt.Sprintf("no valid Vertica license found from secret %s", r.vdb.Spec.LicenseSecret)
@@ -151,6 +175,8 @@ func (r *LicenseValidationReconciler) validateLicenses(ctx context.Context) (ctr
 	return ctrl.Result{}, nil
 }
 
+// validateLicensesInSecret() load licenses from the secret and calls vcluster API to validate all licenses
+// It returns valid licenses, invalid licenses and the error messages.
 func (r *LicenseValidationReconciler) validateLicensesInSecret(ctx context.Context) (validLicenses []LicenseDetail,
 	invalidLicenses map[string]string, err error) {
 	namespacedLicenseSecretName := types.NamespacedName{
@@ -185,10 +211,10 @@ func (r *LicenseValidationReconciler) validateLicensesInSecret(ctx context.Conte
 			checklicense.WithCELienseDisallowed(true),
 		}
 		r.log.Info("To validate license", "licenseKey", licenseKey, "licenseSecret", r.vdb.Spec.LicenseSecret)
-		err2 := r.dispatcher.CheckLicense(ctx, opts...)
-		if err2 != nil {
-			invalidLicenses[licenseKey] = err2.Error()
-			r.log.Error(err2, "invalid Vertica license", "licenseKey", licenseKey, "licenseSecret", r.vdb.Spec.LicenseSecret)
+		errCheckLicense := r.dispatcher.CheckLicense(ctx, opts...)
+		if errCheckLicense != nil {
+			invalidLicenses[licenseKey] = errCheckLicense.Error()
+			r.log.Error(errCheckLicense, "invalid Vertica license", "licenseKey", licenseKey, "licenseSecret", r.vdb.Spec.LicenseSecret)
 		} else {
 			licenseDetail := LicenseDetail{}
 			licenseDetail.Key = licenseKey
@@ -200,6 +226,7 @@ func (r *LicenseValidationReconciler) validateLicensesInSecret(ctx context.Conte
 	return validLicenses, invalidLicenses, nil
 }
 
+// getDigest() calculates sha256 digest from the string.
 func (r *LicenseValidationReconciler) getDigest(input string) string {
 	hasher := sha256.New()
 	hasher.Write([]byte(input))
@@ -208,11 +235,13 @@ func (r *LicenseValidationReconciler) getDigest(input string) string {
 	return hexHash
 }
 
+// saveLastValidattionTimeInCache() saves the validation time into the cache
 func (r *LicenseValidationReconciler) saveLastValidattionTimeInCache(lastValidationTime metav1.Time) {
 	timestampCache := r.cacheManager.GetTimestampCacheForVdb(r.vdb.Namespace, r.vdb.Name)
 	timestampCache.Set(lastValidationTimeKey, lastValidationTime)
 }
 
+// getLastValidattionTimeFromCache() loads last successful validation time from the cache
 func (r *LicenseValidationReconciler) getLastValidattionTimeFromCache() metav1.Time {
 	timestampCache := r.cacheManager.GetTimestampCacheForVdb(r.vdb.Namespace, r.vdb.Name)
 	timestamp, ok := timestampCache.Get(lastValidationTimeKey)
@@ -223,6 +252,7 @@ func (r *LicenseValidationReconciler) getLastValidattionTimeFromCache() metav1.T
 	return lastLicenseValidation
 }
 
+// saveLicenseStatusInStatus saves licenses' validness status into Status
 func (r *LicenseValidationReconciler) saveLicenseStatusInStatus(ctx context.Context, licenseStatus *vapi.LicenseStatus) error {
 	refreshStatusInPlace := func(vdb *vapi.VerticaDB) error {
 		vdb.Status.LicenseStatus = licenseStatus
@@ -231,6 +261,7 @@ func (r *LicenseValidationReconciler) saveLicenseStatusInStatus(ctx context.Cont
 	return vdbstatus.Update(ctx, r.vRec.GetClient(), r.vdb, refreshStatusInPlace)
 }
 
+// convert() converts LicenseDetail slice into LicenseInfo slice
 func (r *LicenseValidationReconciler) convert(licenseDetails []LicenseDetail) []vapi.LicenseInfo {
 	licenseInfoSlice := []vapi.LicenseInfo{}
 	for _, licenseDetail := range licenseDetails {
