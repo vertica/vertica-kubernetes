@@ -20,6 +20,7 @@ import (
 	"strconv"
 
 	"github.com/go-logr/logr"
+	v1 "github.com/vertica/vertica-kubernetes/api/v1"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	"github.com/vertica/vertica-kubernetes/pkg/vdbstatus"
@@ -62,7 +63,8 @@ func (h *InterNodeTLSUpdateReconciler) Reconcile(ctx context.Context, req *ctrl.
 	h.Log.Info("libo: inter 1")
 	// Skip if TLS not enabled, DB not initialized, or rotate has failed.
 	// However, if called from rollback reconciler, always run.
-	h.Log.Info("libo: is internode tls enabled " + strconv.FormatBool(h.Vdb.IsInterNodeTLSAuthEnabledWithMinVersion()))
+	h.Log.Info("libo: is internode tls enabled " + strconv.FormatBool(h.Vdb.IsInterNodeTLSAuthEnabledWithMinVersion()) + " " +
+		strconv.FormatBool(h.Vdb.IsTLSAuthEnabledForConfig(v1.InterNodeTLSConfigName)))
 	if h.Vdb.ShouldSkipInterNodeTLSUpdateReconcile(h.FromRollback) {
 		h.Log.Info("libo: inter 2")
 		return ctrl.Result{}, nil
@@ -77,11 +79,17 @@ func (h *InterNodeTLSUpdateReconciler) Reconcile(ctx context.Context, req *ctrl.
 	h.Manager.setTLSUpdatedata()
 	h.Manager.setTLSUpdateType()
 
+	h.Log.Info("libo: tls update type " + strconv.FormatInt(int64(h.Manager.TLSUpdateType), 10))
 	if h.Vdb.GetInterNodeTLSSecretInUse() == "" {
 		h.Log.Info("libo: inter 5")
 		rec := MakeTLSConfigReconciler(h.VRec, h.Log, h.Vdb, h.PFacts.PRunner, h.Dispatcher, h.PFacts, vapi.InterNodeTLSConfigName, h.Manager)
 		h.Log.Info("libo: inter 6")
-		return rec.Reconcile(ctx, req)
+		res, err := rec.Reconcile(ctx, req)
+		h.Log.Info("libo: inter 6 done")
+		if err != nil {
+			h.Log.Info("libo: inter 6 done, err - " + err.Error())
+		}
+		return res, err
 	}
 	h.Log.Info("libo: inter 7")
 	if !h.Vdb.IsInterNodeConfigEnabled() {
@@ -95,18 +103,18 @@ func (h *InterNodeTLSUpdateReconciler) Reconcile(ctx context.Context, req *ctrl.
 	}
 
 	h.Log.Info("start inter node tls config update")
-	cond := vapi.MakeCondition(vapi.TLSConfigUpdateInProgress, metav1.ConditionTrue, "InProgress")
+	/* cond := vapi.MakeCondition(vapi.TLSConfigUpdateInProgress, metav1.ConditionTrue, "InProgress")
 	if err2 := vdbstatus.UpdateCondition(ctx, h.VRec.GetClient(), h.Vdb, cond); err2 != nil {
 		h.Log.Error(err2, "Failed to set condition to true", "conditionType", vapi.TLSConfigUpdateInProgress)
 		return ctrl.Result{}, err2
-	}
+	} */
 	h.Log.Info("libo: inter 9")
-	if h.Vdb.IsHTTPSNMATLSAuthEnabled() {
+	/* if h.Vdb.IsHTTPSNMATLSAuthEnabled() {
 		res, err1 := h.Manager.setPollingCertMetadata(ctx)
 		if verrors.IsReconcileAborted(res, err1) {
 			return res, err1
 		}
-	}
+	} */
 
 	upPods := h.PFacts.FindUpPods("")
 	if len(upPods) == 0 {
@@ -127,7 +135,7 @@ func (h *InterNodeTLSUpdateReconciler) Reconcile(ctx context.Context, req *ctrl.
 		return res, err
 	}
 
-	cond = vapi.MakeCondition(vapi.InterNodeTLSConfigUpdateFinished, metav1.ConditionTrue, "Completed")
+	cond := vapi.MakeCondition(vapi.InterNodeTLSConfigUpdateFinished, metav1.ConditionTrue, "Completed")
 	if err := vdbstatus.UpdateCondition(ctx, h.VRec.GetClient(), h.Vdb, cond); err != nil {
 		h.Log.Error(err, "failed to set condition "+vapi.InterNodeTLSConfigUpdateFinished+" to true")
 		return ctrl.Result{}, err

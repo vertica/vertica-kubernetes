@@ -60,16 +60,17 @@ func MakeTLSConfigReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger, vdb
 
 // Reconcile will create a TLS secret for the http server if one is missing
 func (h *TLSConfigReconciler) Reconcile(ctx context.Context, request *ctrl.Request) (ctrl.Result, error) {
+	h.Log.Info("libo: tcr 1")
 	if h.shouldSkipTLSConfigReconcile() {
 		return ctrl.Result{}, nil
 	}
-
+	h.Log.Info("libo: tcr 2")
 	// If this config's TLS auth is disabled, then we skip the TLS configuration.
 	if !h.Vdb.IsTLSAuthEnabledForConfig(h.TLSConfigName) {
 		h.Log.Info("TLS auth is disabled. Skipping TLS configuration", "tlsConfigName", h.TLSConfigName)
 		return ctrl.Result{}, nil
 	}
-
+	h.Log.Info("libo: tcr 3")
 	h.Log.Info("Starting TLS reconciliation",
 		"certRotationEnabled", h.Vdb.IsAnyTLSAuthEnabledWithMinVersion(),
 		"secretName", h.Vdb.GetSecretInUse(h.TLSConfigName),
@@ -92,13 +93,13 @@ func (h *TLSConfigReconciler) Reconcile(ctx context.Context, request *ctrl.Reque
 
 	h.VRec.Eventf(h.Vdb, corev1.EventTypeNormal, events.TLSConfigurationStarted,
 		"Starting to configure TLS for %s", h.TLSConfigName)
-
+	h.Log.Info("libo: tcr 4")
 	configured, tlsMode, err := h.checkIfTLSConfiguredInDB(ctx, initiatorPod)
 	if err != nil {
 		h.Log.Error(err, "failed to check TLS configuration before setting up TLS")
 		return ctrl.Result{}, err
 	}
-
+	h.Log.Info("libo: tcr 5")
 	if !configured {
 		authCreated, err2 := h.checkIfTLSAuthenticationCreatedInDB(ctx, initiatorPod)
 		if err2 != nil {
@@ -115,7 +116,7 @@ func (h *TLSConfigReconciler) Reconcile(ctx context.Context, request *ctrl.Reque
 		err = h.runDDLToConfigureTLS(ctx, initiatorPod, !authCreated)
 		if err != nil {
 			h.VRec.Eventf(h.Vdb, corev1.EventTypeWarning, events.TLSConfigurationFailed,
-				"Failed to set %s tls config with secret name %s and mode %s", h.Manager.TLSConfig, h.Manager.NewSecret, tlsMode)
+				"Failed to set %s tls config with secret name %s and mode %s", h.Manager.TLSConfig, h.Manager.NewSecret, h.Manager.NewTLSMode)
 			return ctrl.Result{}, err
 		}
 		tlsMode = h.Manager.NewTLSMode
@@ -169,8 +170,8 @@ func (h *TLSConfigReconciler) checkIfTLSAuthenticationCreatedInDB(ctx context.Co
 //  2. If TLS is enabled but secret is not set in status yet
 //  3. If DB is not ready (not initialized, upgrading, or restarting)
 func (h *TLSConfigReconciler) shouldSkipTLSConfigReconcile() bool {
-	return (h.Vdb.IsAnyTLSAuthEnabledWithMinVersion() && h.Vdb.GetSecretInUse(h.TLSConfigName) != "") ||
-		!h.Vdb.IsAnyTLSAuthEnabledWithMinVersion() || !h.Vdb.IsStatusConditionTrue(vapi.DBInitialized) ||
+	return ((h.Vdb.IsAnyTLSAuthEnabledWithMinVersion() || h.Vdb.IsInterNodeTLSAuthEnabledWithMinVersion()) && h.Vdb.GetSecretInUse(h.TLSConfigName) != "") ||
+		!h.Vdb.IsAnyTLSAuthEnabledWithMinVersion() && !h.Vdb.IsInterNodeTLSAuthEnabledWithMinVersion() || !h.Vdb.IsStatusConditionTrue(vapi.DBInitialized) ||
 		h.Vdb.IsStatusConditionTrue(vapi.UpgradeInProgress) ||
 		h.Vdb.IsStatusConditionTrue(vapi.VerticaRestartNeeded)
 }

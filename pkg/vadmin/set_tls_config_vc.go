@@ -21,6 +21,7 @@ import (
 	"maps"
 
 	vops "github.com/vertica/vcluster/vclusterops"
+	v1 "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/net"
 	"github.com/vertica/vertica-kubernetes/pkg/tls"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/settlsconfig"
@@ -30,6 +31,12 @@ import (
 // in the database.
 //
 //nolint:dupl
+var configNameMap = map[string]string{
+	"Server":    v1.ClientServerTLSConfigName,
+	"HTTP":      v1.HTTPSNMATLSConfigName,
+	"InterNode": v1.InterNodeTLSConfigName,
+}
+
 func (v *VClusterOps) SetTLSConfig(ctx context.Context, opts ...settlsconfig.Option) error {
 	v.setupForAPICall("SetTLSConfig")
 	defer v.tearDownForAPICall()
@@ -68,15 +75,20 @@ func (v *VClusterOps) genSetTLSConfigOptions(s *settlsconfig.Parms,
 	}
 
 	configMap := genTLSConfigurationMap(s.TLSMode, s.TLSSecretName, s.Namespace)
-	if s.IsHTTPSTLSConfig {
+	configName, _ := configNameMap[s.TLSConfigName]
+	switch configName {
+	case v1.HTTPSNMATLSConfigName:
 		opts.HTTPSTLSConfig.SetConfigMap(maps.Clone(configMap))
 		opts.HTTPSTLSConfig.GrantAuth = s.GrantAuth
-		opts.HTTPSTLSConfig.CacheDuration = v.VDB.GetCacheDuration()
-	} else {
+		opts.HTTPSTLSConfig.CacheDuration = v.VDB.GetTLSCacheDuration()
+	case v1.ClientServerTLSConfigName:
 		opts.ServerTLSConfig.SetConfigMap(maps.Clone(configMap))
 		opts.ServerTLSConfig.GrantAuth = s.GrantAuth
-		opts.ServerTLSConfig.CacheDuration = v.VDB.GetCacheDuration()
+		opts.ServerTLSConfig.CacheDuration = v.VDB.GetTLSCacheDuration()
+	case v1.InterNodeTLSConfigName:
+		opts.InterNodeTLSConfig.SetConfigMap(maps.Clone(configMap))
+		opts.InterNodeTLSConfig.GrantAuth = s.GrantAuth
+		opts.InterNodeTLSConfig.CacheDuration = v.VDB.GetTLSCacheDuration()
 	}
-
 	return &opts
 }

@@ -92,8 +92,6 @@ func (h *TLSReconciler) constructActors(log logr.Logger, vdb *vapi.VerticaDB, pf
 		MakeNMACertRotationReconciler(h.VRec, log, vdb, dispatcher, pfacts, false),
 		// update client server tls by setting the tls config, rotating the cert and/or changing tls mode
 		MakeClientServerTLSUpdateReconciler(h.VRec, log, vdb, dispatcher, pfacts, false),
-		// update inter node tls by setting the tls config, rotating the cert and/or changing tls mode
-		MakeInterNodeTLSUpdateReconciler(h.VRec, log, vdb, dispatcher, pfacts, false),
 		// Update NMA config map for values related to ClientServer
 		MakeNMACertConfigMapReconciler(h.VRec, log, vdb),
 		// rotate nma tls cert only if clientServer secret name is changed in vdb.spec

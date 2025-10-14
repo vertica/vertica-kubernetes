@@ -153,7 +153,7 @@ func (vcc VClusterCommands) produceSetTLSConfigInstructions(options *VSetTLSConf
 		instructions = append(instructions, &nmaSetServerTLSOp)
 	}
 	if options.InterNodeTLSConfig.hasConfigParam() {
-		nmaSetServerTLSOp, err := makeNMASetTLSOp(&options.DatabaseOptions, string(options.InterNodeTLSConfig.ConfigType),
+		nmaSetInterNodeTLSOp, err := makeNMASetTLSOp(&options.DatabaseOptions, string(options.InterNodeTLSConfig.ConfigType),
 			options.InterNodeTLSConfig.GrantAuth,
 			true, // syncCatalog
 			options.InterNodeTLSConfig.CacheDuration,
@@ -161,7 +161,7 @@ func (vcc VClusterCommands) produceSetTLSConfigInstructions(options *VSetTLSConf
 		if err != nil {
 			return instructions, err
 		}
-		instructions = append(instructions, &nmaSetServerTLSOp)
+		instructions = append(instructions, &nmaSetInterNodeTLSOp)
 	}
 
 	if options.HTTPSTLSConfig.hasConfigParam() {
