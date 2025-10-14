@@ -199,7 +199,7 @@ func MakeVDB() *VerticaDB {
 			ClientServerTLS:   &TLSConfigSpec{Enabled: BoolPtr(true)},
 		},
 	}
-	vdb.Annotations["vertica.com/valid-license-key"] = "license.dat"
+	vdb.Annotations[vmeta.ValidLicenseKeyAnnotation] = "license.dat"
 	return vdb
 }
 
