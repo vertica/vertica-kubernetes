@@ -40,6 +40,10 @@ kind: VerticaDB
 metadata:
   name: v-password-secret-on-install
 status:
+  passwordSecret: su-passwd
+  sandboxes:
+    - name: sand1
+      passwordSecret: su-passwd
   subclusters:
     - addedToDBCount: 1
       upNodeCount: 1

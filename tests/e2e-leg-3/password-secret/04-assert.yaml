@@ -24,6 +24,7 @@ kind: VerticaDB
 metadata:
   name: v-password-secret
 status:
+  passwordSecret: ""
   subclusters:
     - addedToDBCount: 3
       upNodeCount: 3

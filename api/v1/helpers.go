@@ -1452,19 +1452,19 @@ func (v *VerticaDB) GetPasswordSecretForSandbox(sbName string) (secret string) {
 	return v.GetPasswordSecret()
 }
 
-// IsPasswordSecretChanged returns true if password secret in spec is different
+// IsPasswordSecretChanged returns true if password secret in spec is different from status
 // for main cluster or one sandbox
 func (v *VerticaDB) IsPasswordSecretChanged(sbName string) bool {
 	if sbName == MainCluster {
 		if v.Status.PasswordSecret == nil {
-			return v.Spec.PasswordSecret != ""
+			return false
 		}
 		return v.Spec.PasswordSecret != *v.Status.PasswordSecret
 	}
 
 	sandbox := v.GetSandboxStatus(sbName)
 	if sandbox == nil || sandbox.PasswordSecret == nil {
-		return v.Spec.PasswordSecret != ""
+		return false
 	}
 
 	return v.Spec.PasswordSecret != v.GetPasswordSecretForSandbox(sbName)
@@ -1481,8 +1481,22 @@ func (v *VerticaDB) GetSandboxesWithPasswordChange() []SandboxStatus {
 	return sandboxes
 }
 
-// IsPasswordChangeInProgress returns true if any password change is in progress (main or sandbox)
+// IsPasswordChangeInProgress returns true if any password change is in progress (main or sandbox).
+// This includes the case where the main cluster or any sandbox is uninitialized.
 func (v *VerticaDB) IsPasswordChangeInProgress() bool {
+	// 1. Main cluster uninitialized?
+	if v.Status.PasswordSecret == nil {
+		return true
+	}
+
+	// 2. Any sandbox uninitialized?
+	for _, sbStatus := range v.Status.Sandboxes {
+		if sbStatus.PasswordSecret == nil {
+			return true
+		}
+	}
+
+	// 3. Normal change detection
 	return v.IsPasswordSecretChanged(MainCluster) || len(v.GetSandboxesWithPasswordChange()) > 0
 }
 
