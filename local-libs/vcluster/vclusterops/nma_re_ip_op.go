@@ -30,18 +30,21 @@ type nmaReIPOp struct {
 	mapHostToNodeName    map[string]string
 	mapHostToCatalogPath map[string]string
 	trimReIPData         bool
+	ksafety              *int
 }
 
 func makeNMAReIPOp(
 	reIPList []ReIPInfo,
 	vdb *VCoordinationDatabase,
-	trimReIPData bool) nmaReIPOp {
+	trimReIPData bool,
+	ksafety *int) nmaReIPOp {
 	op := nmaReIPOp{}
 	op.name = "NMAReIPOp"
 	op.description = "Update node IPs in catalog"
 	op.reIPList = reIPList
 	op.vdb = vdb
 	op.trimReIPData = trimReIPData
+	op.ksafety = ksafety
 	return op
 }
 
@@ -184,6 +187,9 @@ func (op *nmaReIPOp) whetherSkipReIP(execContext *opEngineExecContext) bool {
 	return true
 }
 
+// TODO: we need to remove this nolint
+//
+//nolint:gocyclo
 func (op *nmaReIPOp) prepare(execContext *opEngineExecContext) error {
 	// build mapHostToNodeName and catalogPathMap from vdb
 	op.mapHostToNodeName = make(map[string]string)
@@ -216,8 +222,26 @@ func (op *nmaReIPOp) prepare(execContext *opEngineExecContext) error {
 	// get primary node count
 	op.primaryNodeCount = execContext.nmaVDatabase.PrimaryNodeCount
 
+	// TODO: move this to the hasQuorum(...) function
+	// where we may pass in the execContext
+	nodeCountMatchforZeroKsafety := true
+	if op.ksafety != nil && *op.ksafety == 0 {
+		var primaryNodeCountWithLatestCatalog uint
+
+		for i := range execContext.nmaVDatabase.Nodes {
+			vnode := execContext.nmaVDatabase.Nodes[i]
+			if vnode.IsPrimary {
+				primaryNodeCountWithLatestCatalog++
+			}
+		}
+
+		if op.primaryNodeCount != primaryNodeCountWithLatestCatalog {
+			nodeCountMatchforZeroKsafety = false
+		}
+	}
+
 	// quorum check
-	if !op.hasQuorum(uint(len(op.hosts)), op.primaryNodeCount) {
+	if !op.hasQuorum(uint(len(op.hosts)), op.primaryNodeCount) || !nodeCountMatchforZeroKsafety {
 		execContext.hasNoQuorum = true
 		op.skipExecute = true
 		op.logger.Info("failed quorum check, not enough primary nodes exist: ", "primary node count", len(op.hosts))
