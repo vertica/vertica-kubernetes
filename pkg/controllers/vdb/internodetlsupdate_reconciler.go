@@ -108,17 +108,16 @@ func (h *InterNodeTLSUpdateReconciler) Reconcile(ctx context.Context, req *ctrl.
 		h.Log.Error(err2, "Failed to set condition to true", "conditionType", vapi.TLSConfigUpdateInProgress)
 		return ctrl.Result{}, err2
 	} */
-	h.Log.Info("libo: inter 9")
-	/* if h.Vdb.IsHTTPSNMATLSAuthEnabled() {
-		res, err1 := h.Manager.setPollingCertMetadata(ctx)
-		if verrors.IsReconcileAborted(res, err1) {
-			return res, err1
-		}
+
+	/* res, err1 := h.Manager.setPollingCertMetadata(ctx)
+	if verrors.IsReconcileAborted(res, err1) {
+		return res, err1
 	} */
+	h.Log.Info("libo: inter 9")
 
 	upPods := h.PFacts.FindUpPods("")
 	if len(upPods) == 0 {
-		h.Log.Info("No up pod found to update tls config. Restarting.")
+		h.Log.Info("No up pod found to update internode tls config. Restarting.")
 		restartReconciler := MakeRestartReconciler(h.VRec, h.Log, h.Vdb, h.PFacts.PRunner, h.PFacts, true, h.Dispatcher)
 		res, err1 := restartReconciler.Reconcile(ctx, req)
 		return res, err1

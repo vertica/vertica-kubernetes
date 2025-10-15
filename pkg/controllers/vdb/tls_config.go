@@ -48,7 +48,7 @@ import (
 const (
 	tlsConfigServer      = "Server"
 	tlsConfigHTTPS       = "HTTP"
-	tlsConfigInterNode   = "InterNode"
+	tlsConfigInterNode   = "Internode"
 	certicatePrefixHTTPS = ""
 )
 
