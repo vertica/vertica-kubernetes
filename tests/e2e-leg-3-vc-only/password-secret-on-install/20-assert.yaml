@@ -14,7 +14,7 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: v-password-secret-sandbox-sc1
+  name: v-password-secret-on-install-sc1
 status:
   replicas: 1
   readyReplicas: 1
@@ -22,7 +22,7 @@ status:
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: v-password-secret-sandbox-sc2
+  name: v-password-secret-on-install-sc2
 status:
   replicas: 1
   readyReplicas: 1
@@ -30,7 +30,7 @@ status:
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: v-password-secret-sandbox-sc3
+  name: v-password-secret-on-install-sc3
 status:
   replicas: 1
   readyReplicas: 1
@@ -43,7 +43,7 @@ source:
 involvedObject:
   apiVersion: vertica.com/v1
   kind: VerticaDB
-  name: v-password-secret-sandbox
+  name: v-password-secret-on-install
 message: Superuser password update succeeded
 ---
 apiVersion: v1
@@ -54,13 +54,13 @@ source:
 involvedObject:
   apiVersion: vertica.com/v1
   kind: VerticaDB
-  name: v-password-secret-sandbox
+  name: v-password-secret-on-install
 message: Superuser password update succeeded in sandbox "sand1"
 ---
 apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
-  name: v-password-secret-sandbox
+  name: v-password-secret-on-install
 spec:
   passwordSecret: su-passwd-custom
 status:
