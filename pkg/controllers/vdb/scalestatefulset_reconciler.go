@@ -13,7 +13,7 @@
  limitations under the License.
 */
 
-package sandbox
+package vdb
 
 import (
 	"context"
@@ -22,27 +22,30 @@ import (
 	"github.com/go-logr/logr"
 	v1 "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
+	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/iter"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
+	config "github.com/vertica/vertica-kubernetes/pkg/vdbconfig"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-// ScaleStafulsetReconciler will make sure that the sandbox's subclusters that are
+// ScaleStafulsetReconciler will make sure that the subclusters that are
 // shut down have their pods removed.
 type ScaleStafulsetReconciler struct {
-	VRec   *SandboxConfigMapReconciler
+	Rec    config.ReconcilerInterface
 	Vdb    *v1.VerticaDB
 	Log    logr.Logger
 	PFacts *podfacts.PodFacts
 }
 
-func MakeScaleStafulsetReconciler(r *SandboxConfigMapReconciler,
+func MakeScaleStafulsetReconciler(r config.ReconcilerInterface,
 	vdb *v1.VerticaDB, pfacts *podfacts.PodFacts) controllers.ReconcileActor {
 	return &ScaleStafulsetReconciler{
-		VRec:   r,
+		Rec:    r,
 		Vdb:    vdb,
 		PFacts: pfacts,
 	}
@@ -50,7 +53,7 @@ func MakeScaleStafulsetReconciler(r *SandboxConfigMapReconciler,
 
 func (s *ScaleStafulsetReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
 	scMap := s.Vdb.GenSubclusterMap()
-	finder := iter.MakeSubclusterFinder(s.VRec.GetClient(), s.Vdb)
+	finder := iter.MakeSubclusterFinder(s.Rec.GetClient(), s.Vdb)
 	stss, err := finder.FindStatefulSets(ctx, iter.FindInVdb, s.PFacts.SandboxName)
 	if err != nil {
 		return ctrl.Result{}, err
@@ -59,7 +62,7 @@ func (s *ScaleStafulsetReconciler) Reconcile(ctx context.Context, _ *ctrl.Reques
 		sts := &stss.Items[inx]
 		err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 			nm := names.GenNamespacedName(s.Vdb, sts.Name)
-			err := s.VRec.GetClient().Get(ctx, nm, sts)
+			err := s.Rec.GetClient().Get(ctx, nm, sts)
 			if err != nil {
 				return err
 			}
@@ -72,13 +75,16 @@ func (s *ScaleStafulsetReconciler) Reconcile(ctx context.Context, _ *ctrl.Reques
 			if *oldSize == newSize {
 				return nil
 			}
+			msg := ""
 			if newSize == 0 {
-				s.Log.Info("scaling in sts to zero", "sts", sts.Name)
+				msg = fmt.Sprintf("Terminating all pods of subcluster %s in %s", sc.Name, s.PFacts.GetClusterExtendedName())
 			} else {
-				s.Log.Info("scaling out sts back to its original size", "sts", sts.Name, "size", newSize)
+				msg = fmt.Sprintf("Restarting all pods of subcluster %s in %s", sc.Name, s.PFacts.GetClusterExtendedName())
 			}
+			s.Rec.Event(s.Vdb, corev1.EventTypeNormal, events.ScalingSubclusterPods, msg)
+			// Update the StatefulSet to the new size.
 			sts.Spec.Replicas = &newSize
-			return s.VRec.GetClient().Update(ctx, sts)
+			return s.Rec.GetClient().Update(ctx, sts)
 		})
 		if err != nil {
 			return ctrl.Result{}, err

@@ -247,7 +247,7 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		MakeSandboxUpgradeReconciler(r, log, vdb, false),
 		// Update the sandbox/subclusters' shutdown field to match the value of
 		// the spec.
-		MakeShutdownSpecReconciler(r, vdb),
+		MakeShutdownSpecReconciler(r, vdb, log),
 		// Update sandbox subcluster type in db according to its type in vdb spec
 		MakeAlterSandboxTypeReconciler(r, log, vdb, pfacts),
 		// Update the vertica image for unsandboxed subclusters
@@ -305,6 +305,8 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		MakePasswordSecretReconciler(r, log, vdb, prunner, pfacts, dispatcher, r.CacheManager, nil /* configMap */),
 		MakeMetricReconciler(r, log, vdb, prunner, pfacts),
 		MakeStatusReconcilerWithShutdown(r.Client, r.Scheme, log, vdb, pfacts),
+		// Scale in the subclusters' statefulsets to zero after the subclusters are shut down
+		MakeScaleStafulsetReconciler(r, vdb, pfacts),
 		// Ensure we add labels to any pod rescheduled so that Service objects route traffic to it.
 		MakeClientRoutingLabelReconciler(r, log, vdb, pfacts, PodRescheduleApplyMethod, ""),
 		// Remove Service label for any pods that are pending delete.  This will
@@ -376,7 +378,7 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		MakeSandboxUpgradeReconciler(r, log, vdb, true),
 		// Update the sandbox/subclusters' shutdown field to match the value of
 		// the spec.
-		MakeShutdownSpecReconciler(r, vdb),
+		MakeShutdownSpecReconciler(r, vdb, log),
 		// Trigger sandbox shutdown when the shutdown field of the sandbox
 		// is changed
 		MakeSandboxShutdownReconciler(r, log, vdb, false),

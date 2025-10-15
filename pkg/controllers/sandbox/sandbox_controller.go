@@ -192,7 +192,7 @@ func (r *SandboxConfigMapReconciler) constructActors(vdb *v1.VerticaDB, log logr
 		vdbcontroller.MakeClientRoutingLabelReconcilerWithDisableRouting(r, log, vdb, pfacts, vdbcontroller.PodRescheduleApplyMethod, "",
 			vmeta.GetDisableRouting(configMap.Annotations)),
 		// Scale in the subclusters' statefulsets to zero after the subclusters are shut down
-		MakeScaleStafulsetReconciler(r, vdb, pfacts),
+		vdbcontroller.MakeScaleStafulsetReconciler(r, vdb, pfacts),
 	}
 }
 

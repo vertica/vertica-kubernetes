@@ -97,7 +97,7 @@ func (s *StopDBReconciler) stopVertica(ctx context.Context) error {
 		return nil
 	}
 
-	if err := s.PFacts.RemoveStartupFileInSandboxPods(ctx, s.Vdb, "removed startup.json before stop_db"); err != nil {
+	if err := s.PFacts.RemoveStartupFileInPods(ctx, s.Vdb, "removed startup.json before stop_db"); err != nil {
 		return err
 	}
 
@@ -124,30 +124,42 @@ func (s *StopDBReconciler) runATCmd(ctx context.Context, initiatorName types.Nam
 		return err
 	}
 	s.VRec.Eventf(s.Vdb, corev1.EventTypeNormal, events.StopDBSucceeded,
-		"Successfully stopped the database.  It took %s", time.Since(start).Truncate(time.Second))
+		"Successfully stopped the database on %s.  It took %s", s.PFacts.GetClusterExtendedName(), time.Since(start).Truncate(time.Second))
 	return nil
 }
 
 // skipStopDB returns true if stop_db is not needed.
 func (s *StopDBReconciler) skipStopDB() bool {
-	if s.PFacts.SandboxName == vapi.MainCluster {
-		return !s.Vdb.IsStatusConditionTrue(vapi.VerticaRestartNeeded)
+	if s.PFacts.SandboxName == vapi.MainCluster && s.Vdb.IsStatusConditionTrue(vapi.VerticaRestartNeeded) {
+		return false
 	}
-	sb := s.Vdb.GetSandbox(s.PFacts.SandboxName)
-	if sb != nil && sb.Shutdown {
-		scMap := s.Vdb.GenSubclusterMap()
-		scStatusMap := s.Vdb.GenSubclusterStatusMap()
-		for i := range sb.Subclusters {
-			scStatus := scStatusMap[sb.Subclusters[i].Name]
-			sc := scMap[sb.Subclusters[i].Name]
-			if sc == nil || scStatus == nil {
-				break
+	scStatusMap := s.Vdb.GenSubclusterStatusMap()
+	scSbStatusMap := s.Vdb.GenSubclusterSandboxStatusMap()
+
+	for i := range s.Vdb.Spec.Subclusters {
+		sc := &s.Vdb.Spec.Subclusters[i]
+		sbName := scSbStatusMap[sc.Name]
+		if sbName != s.PFacts.SandboxName {
+			continue
+		}
+		scStatus := scStatusMap[sc.Name]
+		if scStatus == nil {
+			continue
+		}
+		clusterShutdown := s.Vdb.Spec.Shutdown
+		if sbName != vapi.MainCluster {
+			sb := s.Vdb.GetSandbox(sbName)
+			if sb == nil {
+				continue
 			}
-			// If spec.subclusters[].shutdown is not equal to spec.sandboxes[].shutdown,
+			clusterShutdown = sb.Shutdown
+		}
+		if clusterShutdown && sc.Shutdown && !scStatus.Shutdown {
+			// We need to stop the subcluster if it is marked for shutdown
+			// and it is not already shutdown.
+			// If spec.subclusters[].shutdown is not equal to spec.sandboxes[].shutdown or spec.shutdown,
 			// we skip stopdb. A separate reconciler will update the subcluster spec first.
-			if sc.Shutdown && !scStatus.Shutdown {
-				return false
-			}
+			return false
 		}
 	}
 	return true

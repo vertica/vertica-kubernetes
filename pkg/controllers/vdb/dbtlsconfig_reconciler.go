@@ -57,7 +57,7 @@ func (t *DBTLSConfigReconciler) shouldSkipReconcile() bool {
 // Reconcile will compare TLS version and cipher suites in Spec with those in Status.
 // If they are different, it will call vcluster API to update them.
 func (t *DBTLSConfigReconciler) Reconcile(ctx context.Context, request *ctrl.Request) (ctrl.Result, error) {
-	if t.shouldSkipReconcile() || t.Vdb.Spec.DBTLSConfig == nil {
+	if t.shouldSkipReconcile() || t.Vdb.Spec.DBTLSConfig == nil || t.Vdb.IsMainClusterStopped() {
 		return ctrl.Result{}, nil
 	}
 	var updateTLSVersion, updateCipherSuites bool

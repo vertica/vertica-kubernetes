@@ -150,6 +150,7 @@ const (
 	DBTLSUpdateSucceeded                   = "DBTLSUpdateSucceeded"
 	DBTLSUpdateFailed                      = "DBTLSUpdateFailed"
 	DeploymentMethodMismatch               = "DeploymentMethodMismatch"
+	ScalingSubclusterPods                  = "ScalingSubclusterPods"
 )
 
 // Constants for VerticaAutoscaler reconciler

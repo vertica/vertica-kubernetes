@@ -3098,6 +3098,120 @@ var _ = Describe("verticadb_webhook", func() {
 		allErrs := newVdb.checkValidTLSEnabled(oldVdb, nil)
 		Expect(allErrs).Should(BeEmpty())
 	})
+
+	It("should not allow any changes except shutdown when main cluster is shutdown", func() {
+		oldVdb := MakeVDB()
+		oldVdb.Spec.Shutdown = true
+		oldVdb.Spec.Image = "vertica:old"
+		newVdb := oldVdb.DeepCopy()
+		newVdb.Spec.Shutdown = true
+
+		// No changes except shutdown: should not error
+		allErrs := newVdb.checkAnyChangeWhenMainIsShutdown(oldVdb, field.ErrorList{})
+		Expect(allErrs).To(BeEmpty())
+
+		// Change a field other than shutdown: should error
+		newVdb.Spec.Image = "vertica:new"
+		allErrs = newVdb.checkAnyChangeWhenMainIsShutdown(oldVdb, field.ErrorList{})
+		Expect(allErrs).To(HaveLen(1))
+		Expect(allErrs[0].Error()).To(ContainSubstring("when spec.shutdown is true, no other changes are allowed"))
+
+		// Change shutdown to false: should not error
+		newVdb = oldVdb.DeepCopy()
+		newVdb.Spec.Shutdown = false
+		allErrs = newVdb.checkAnyChangeWhenMainIsShutdown(oldVdb, field.ErrorList{})
+		Expect(allErrs).To(BeEmpty())
+
+		// Change subcluster size: should error
+		newVdb = oldVdb.DeepCopy()
+		newVdb.Spec.Shutdown = true
+		newVdb.Spec.Subclusters[0].Size = oldVdb.Spec.Subclusters[0].Size + 1
+		allErrs = newVdb.checkAnyChangeWhenMainIsShutdown(oldVdb, field.ErrorList{})
+		Expect(allErrs).To(HaveLen(1))
+
+		// Change subcluster type: should error
+		newVdb = oldVdb.DeepCopy()
+		newVdb.Spec.Shutdown = true
+		newVdb.Spec.Subclusters[0].Type = SecondarySubcluster
+		allErrs = newVdb.checkAnyChangeWhenMainIsShutdown(oldVdb, field.ErrorList{})
+		Expect(allErrs).To(HaveLen(1))
+	})
+
+	It("should allow shutdown when DB is initialized, no sandboxes, no restart needed, no upgrade in progress", func() {
+		vdb := MakeVDB()
+		vdb.Spec.Shutdown = true
+		vdb.Status.Conditions = append(vdb.Status.Conditions, *MakeCondition(DBInitialized, metav1.ConditionTrue, ""))
+		allErrs := vdb.validateMainClusterShutdown(field.ErrorList{})
+		Expect(allErrs).To(BeEmpty())
+	})
+
+	It("should error if shutdown is set when DB is not initialized", func() {
+		vdb := MakeVDB()
+		vdb.Spec.Shutdown = true
+		// DBInitialized condition is not set
+		allErrs := vdb.validateMainClusterShutdown(field.ErrorList{})
+		Expect(allErrs).To(HaveLen(1))
+		Expect(allErrs[0].Error()).To(ContainSubstring("cannot set shutdown to true when the database is not initialized"))
+	})
+
+	It("should error if shutdown is set when sandboxes exist in spec", func() {
+		vdb := MakeVDB()
+		vdb.Spec.Shutdown = true
+		vdb.Status.Conditions = append(vdb.Status.Conditions, *MakeCondition(DBInitialized, metav1.ConditionTrue, ""))
+		vdb.Spec.Sandboxes = []Sandbox{{Name: "sandbox1"}}
+		allErrs := vdb.validateMainClusterShutdown(field.ErrorList{})
+		Expect(allErrs).To(HaveLen(1))
+		Expect(allErrs[0].Error()).To(ContainSubstring("cannot set shutdown to true when there are sandboxes"))
+	})
+
+	It("should error if shutdown is set when sandboxes exist in status", func() {
+		vdb := MakeVDB()
+		vdb.Spec.Shutdown = true
+		vdb.Status.Conditions = append(vdb.Status.Conditions, *MakeCondition(DBInitialized, metav1.ConditionTrue, ""))
+		vdb.Status.Sandboxes = []SandboxStatus{{Name: "sandbox1"}}
+		allErrs := vdb.validateMainClusterShutdown(field.ErrorList{})
+		Expect(allErrs).To(HaveLen(1))
+		Expect(allErrs[0].Error()).To(ContainSubstring("cannot set shutdown to true when there are sandboxes"))
+	})
+
+	It("should error if shutdown is set when VerticaRestartNeeded condition is true", func() {
+		vdb := MakeVDB()
+		vdb.Spec.Shutdown = true
+		vdb.Status.Conditions = append(vdb.Status.Conditions, *MakeCondition(DBInitialized, metav1.ConditionTrue, ""))
+		vdb.Status.Conditions = append(vdb.Status.Conditions, *MakeCondition(VerticaRestartNeeded, metav1.ConditionTrue, ""))
+		allErrs := vdb.validateMainClusterShutdown(field.ErrorList{})
+		Expect(allErrs).To(HaveLen(1))
+		Expect(allErrs[0].Error()).To(ContainSubstring("cannot set shutdown to true when a restart is needed"))
+	})
+
+	It("should error if shutdown is set when upgrade is in progress", func() {
+		vdb := MakeVDB()
+		vdb.Spec.Shutdown = true
+		vdb.Status.Conditions = append(vdb.Status.Conditions, *MakeCondition(DBInitialized, metav1.ConditionTrue, ""))
+		vdb.Status.Conditions = append(vdb.Status.Conditions, *MakeCondition(UpgradeInProgress, metav1.ConditionTrue, ""))
+		allErrs := vdb.validateMainClusterShutdown(field.ErrorList{})
+		Expect(allErrs).To(HaveLen(1))
+		Expect(allErrs[0].Error()).To(ContainSubstring("cannot set shutdown to true when an upgrade is in progress"))
+	})
+
+	It("should accumulate multiple errors if multiple conditions are not met", func() {
+		vdb := MakeVDB()
+		vdb.Spec.Shutdown = true
+		vdb.Spec.Sandboxes = []Sandbox{{Name: "sandbox1"}}
+		vdb.Status.Conditions = append(vdb.Status.Conditions, *MakeCondition(VerticaRestartNeeded, metav1.ConditionTrue, ""))
+		allErrs := vdb.validateMainClusterShutdown(field.ErrorList{})
+		Expect(allErrs).To(HaveLen(3))
+		Expect(allErrs[0].Error()).To(ContainSubstring("cannot set shutdown to true when the database is not initialized"))
+		Expect(allErrs[1].Error()).To(ContainSubstring("cannot set shutdown to true when there are sandboxes"))
+		Expect(allErrs[2].Error()).To(ContainSubstring("cannot set shutdown to true when a restart is needed"))
+	})
+
+	It("should not error if shutdown is not set", func() {
+		vdb := MakeVDB()
+		vdb.Spec.Shutdown = false
+		allErrs := vdb.validateMainClusterShutdown(field.ErrorList{})
+		Expect(allErrs).To(BeEmpty())
+	})
 })
 
 func createVDBHelper() *VerticaDB {

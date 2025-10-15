@@ -21,9 +21,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
-	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
-	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
 	"github.com/vertica/vertica-kubernetes/pkg/test"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -63,11 +61,7 @@ var _ = Describe("shutdownspec_reconciler", func() {
 
 		Ω(k8sClient.Status().Update(ctx, vdb)).Should(Succeed())
 
-		fpr := &cmds.FakePodRunner{}
-		pfacts := podfacts.MakePodFacts(vdbRec, fpr, logger, &testPassword)
-		pfacts.SandboxName = sandbox1
-
-		r := MakeShutdownSpecReconciler(vdbRec, vdb)
+		r := MakeShutdownSpecReconciler(vdbRec, vdb, logger)
 		res, err := r.Reconcile(ctx, &ctrl.Request{})
 		Expect(err).Should(BeNil())
 		Expect(res).Should(Equal(ctrl.Result{}))
@@ -80,7 +74,7 @@ var _ = Describe("shutdownspec_reconciler", func() {
 
 		newVdb.Spec.Sandboxes[0].Shutdown = false
 		Expect(k8sClient.Update(ctx, newVdb)).Should(Succeed())
-		r = MakeShutdownSpecReconciler(vdbRec, newVdb)
+		r = MakeShutdownSpecReconciler(vdbRec, newVdb, logger)
 		res, err = r.Reconcile(ctx, &ctrl.Request{})
 		Expect(err).Should(BeNil())
 		Expect(res).Should(Equal(ctrl.Result{}))
@@ -90,5 +84,16 @@ var _ = Describe("shutdownspec_reconciler", func() {
 		Expect(vmeta.GetShutdownDrivenBySandbox(newVdb2.Spec.Subclusters[2].Annotations)).Should(BeFalse())
 		Expect(newVdb2.Spec.Subclusters[1].Shutdown).Should(BeFalse())
 		Expect(newVdb.Spec.Subclusters[2].Shutdown).Should(BeFalse())
+
+		newVdb2.Spec.Shutdown = true
+		newVdb2.Spec.Subclusters[0].Shutdown = false
+		Expect(k8sClient.Update(ctx, newVdb2)).Should(Succeed())
+		r = MakeShutdownSpecReconciler(vdbRec, newVdb2, logger)
+		res, err = r.Reconcile(ctx, &ctrl.Request{})
+		Expect(err).Should(BeNil())
+		Expect(res).Should(Equal(ctrl.Result{}))
+		newVdb3 := &vapi.VerticaDB{}
+		Expect(k8sClient.Get(ctx, vapi.MakeVDBName(), newVdb3)).Should(Succeed())
+		Expect(newVdb3.Spec.Subclusters[0].Shutdown).Should(BeTrue())
 	})
 })

@@ -13,7 +13,7 @@
  limitations under the License.
 */
 
-package sandbox
+package vdb
 
 import (
 	"context"
@@ -32,7 +32,7 @@ import (
 var _ = Describe("scalestatefulset_reconciler", func() {
 	ctx := context.Background()
 
-	It("should scale the sts to zero if subcluster is shut down", func() {
+	It("should scale the sandbox sts to zero if subcluster is shut down", func() {
 		vdb := v1.MakeVDB()
 		const sc1 = "sc1"
 		vdb.Spec.Subclusters = []v1.Subcluster{
@@ -56,9 +56,39 @@ var _ = Describe("scalestatefulset_reconciler", func() {
 
 		vdb.Spec.Subclusters[0].Shutdown = true
 		fpr := &cmds.FakePodRunner{}
-		pfacts := podfacts.MakePodFacts(sbRec, fpr, logger, &testPassword)
+		pfacts := podfacts.MakePodFacts(vdbRec, fpr, logger, &testPassword)
 		pfacts.SandboxName = sc1
-		r := MakeScaleStafulsetReconciler(sbRec, vdb, &pfacts)
+		r := MakeScaleStafulsetReconciler(vdbRec, vdb, &pfacts)
+		res, err := r.Reconcile(ctx, &ctrl.Request{})
+		Expect(err).Should(Succeed())
+		Expect(res).Should(Equal(ctrl.Result{}))
+
+		newSts := &appsv1.StatefulSet{}
+		Expect(k8sClient.Get(ctx, names.GenStsName(vdb, &vdb.Spec.Subclusters[0]), newSts)).Should(Succeed())
+		Expect(*newSts.Spec.Replicas).Should(Equal(int32(0)))
+	})
+
+	It("should scale main cluster sts to zero if subcluster is shut down", func() {
+		vdb := v1.MakeVDB()
+		const sc1 = "sc1"
+		vdb.Spec.Subclusters = []v1.Subcluster{
+			{Name: sc1, Size: 3, Shutdown: false},
+		}
+		vdb.Status.Subclusters = []v1.SubclusterStatus{
+			{Name: sc1, Shutdown: true},
+		}
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
+
+		sts := &appsv1.StatefulSet{}
+		Expect(k8sClient.Get(ctx, names.GenStsName(vdb, &vdb.Spec.Subclusters[0]), sts)).Should(Succeed())
+		Expect(*sts.Spec.Replicas).Should(Equal(vdb.Spec.Subclusters[0].Size))
+
+		vdb.Spec.Subclusters[0].Shutdown = true
+		fpr := &cmds.FakePodRunner{}
+		pfacts := podfacts.MakePodFacts(vdbRec, fpr, logger, &testPassword)
+		pfacts.SandboxName = v1.MainCluster
+		r := MakeScaleStafulsetReconciler(vdbRec, vdb, &pfacts)
 		res, err := r.Reconcile(ctx, &ctrl.Request{})
 		Expect(err).Should(Succeed())
 		Expect(res).Should(Equal(ctrl.Result{}))
