@@ -204,17 +204,11 @@ EOF
           exit 1
         fi
 
-        if [ "$USE_CERT" == "true" ]
+        if [ "$USE_CERT" != "true" ]
         then
             cat <<EOF >> kustomization.yaml
     - op: add
-      path: /metadata/annotations/vertica.com~1enable-tls-auth
-      value: "true"
-EOF
-        else
-            cat <<EOF >> kustomization.yaml
-    - op: add
-      path: /metadata/annotations/vertica.com~1skip-tls-webhook-check
+      path: /metadata/annotations/vertica.com~1default-tls-enabled-is-false
       value: "true"
 EOF
         fi

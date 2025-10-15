@@ -25,6 +25,7 @@ import (
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
+	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
@@ -52,6 +53,9 @@ func MakeTLSReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger, vdb *vapi
 
 // Reconcile will create a TLS secret for the http server if one is missing
 func (h *TLSReconciler) Reconcile(ctx context.Context, request *ctrl.Request) (ctrl.Result, error) {
+	if err := h.updateTLSConfigEnabledInVdb(ctx); err != nil {
+		return ctrl.Result{}, err
+	}
 	if !h.Vdb.IsAnyTLSAuthEnabledWithMinVersion() || h.Vdb.IsMainClusterStopped() {
 		return ctrl.Result{}, nil
 	}
@@ -96,4 +100,32 @@ func (h *TLSReconciler) constructActors(log logr.Logger, vdb *vapi.VerticaDB, pf
 		// rollback, in case of failure, any cert rotation op related to https or client-server TLS
 		MakeRollbackAfterCertRotationReconciler(h.VRec, log, vdb, dispatcher, pfacts),
 	}
+}
+
+// updateTLSConfigEnabledInVdb will set the TLS Enabled fields in the vdb spec if they
+// are nil. This is to handle the case where a user created a vdb with webhook
+// disabled and enabled field nil. In case the turn on the webhook later, we
+// do not want it to alter the enabled field.
+func (h *TLSReconciler) updateTLSConfigEnabledInVdb(ctx context.Context) error {
+	if !h.Vdb.ShouldSetTLSEnabled() {
+		return nil
+	}
+	nm := h.Vdb.ExtractNamespacedName()
+	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		// Always fetch the latest in case we are in the retry loop
+		if err := h.VRec.Client.Get(ctx, nm, h.Vdb); err != nil {
+			return err
+		}
+
+		if h.Vdb.Spec.HTTPSNMATLS != nil && h.Vdb.Spec.HTTPSNMATLS.Enabled == nil {
+			enabled := true
+			h.Vdb.Spec.HTTPSNMATLS.Enabled = &enabled
+		}
+		if h.Vdb.Spec.ClientServerTLS != nil && h.Vdb.Spec.ClientServerTLS.Enabled == nil {
+			enabled := true
+			h.Vdb.Spec.ClientServerTLS.Enabled = &enabled
+		}
+
+		return h.VRec.Client.Update(ctx, h.Vdb)
+	})
 }

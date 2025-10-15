@@ -27,6 +27,10 @@ spec:
   communal: {}
   local:
     requestSize: 100Mi
+  httpsNMATLS:
+    mode: TRY_VERIFY
+  clientServerTLS:
+    mode: TRY_VERIFY
   dbName: vertdb
   shardCount: 12
   encryptSpreadComm: disabled

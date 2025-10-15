@@ -21,6 +21,10 @@ spec:
   initPolicy: CreateSkipPackageInstall
   image: kustomize-vertica-image
   communal: {}
+  httpsNMATLS:
+    mode: TRY_VERIFY
+  clientServerTLS:
+    mode: TRY_VERIFY
   local:
     requestSize: 100Mi
   labels:

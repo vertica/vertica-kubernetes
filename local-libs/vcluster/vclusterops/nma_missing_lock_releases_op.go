@@ -126,20 +126,15 @@ func (op *nmaMissingLockReleasesOp) finalize(_ *opEngineExecContext) error {
 }
 
 type MissingLockReleases struct {
-	TxnID     string `json:"transaction_id"`
-	SessionID string `json:"session_id"`
-	UserName  string `json:"user_name"`
-	StartTime string `json:"start_time"`
-	WaitTime  string `json:"wait_time"`
-	// TODO: fill HoldTime
+	TxnID       string `json:"transaction_id"`
+	GrantTime   string `json:"grant_time"`
 	HoldTime    string `json:"hold_time"`
-	Mode        string `json:"mode"`
-	Scope       string `json:"scope"`
-	ObjectName  string `json:"object_name"`
-	NodeName    string `json:"node_name"`
+	WaitTime    string `json:"wait_time"`
 	Description string `json:"description"`
-	// TODO: fill TxnInfo
-	TxnInfo *dcTransactionStarts `json:"transaction_info"`
+	UserName    string `json:"user_name"`
+	NodeName    string `json:"node_name"`
+	SessionID   string `json:"session_id"`
+	ObjectName  string `json:"object_name"`
 }
 
 func (op *nmaMissingLockReleasesOp) processResult(execContext *opEngineExecContext) error {

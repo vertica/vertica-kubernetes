@@ -23,6 +23,10 @@ spec:
   image: kustomize-vertica-image
   initPolicy: CreateSkipPackageInstall
   communal: {}
+  httpsNMATLS:
+    mode: TRY_VERIFY
+  clientServerTLS:
+    mode: TRY_VERIFY
   subclusters:
     - name: sc1
       size: 1

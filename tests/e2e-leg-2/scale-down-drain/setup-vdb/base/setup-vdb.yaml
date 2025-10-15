@@ -24,6 +24,10 @@ spec:
   communal: {}
   local:
     requestSize: 100Mi
+  httpsNMATLS:
+    mode: TRY_VERIFY
+  clientServerTLS:
+    mode: TRY_VERIFY
   subclusters:
     - name: pri1
       size: 1

@@ -23,6 +23,10 @@ spec:
   image: kustomize-vertica-image
   passwordSecret: su-passwd
   communal: {}
+  httpsNMATLS:
+    mode: TRY_VERIFY
+  clientServerTLS:
+    mode: TRY_VERIFY
   local:
     requestSize: 100Mi
   subclusters:
