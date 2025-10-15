@@ -34,7 +34,7 @@ import (
 var configNameMap = map[string]string{
 	"Server":    v1.ClientServerTLSConfigName,
 	"HTTP":      v1.HTTPSNMATLSConfigName,
-	"InterNode": v1.InterNodeTLSConfigName,
+	"Internode": v1.InterNodeTLSConfigName,
 }
 
 func (v *VClusterOps) SetTLSConfig(ctx context.Context, opts ...settlsconfig.Option) error {
