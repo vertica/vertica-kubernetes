@@ -33,26 +33,27 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-// ScaleStafulsetReconciler will make sure that the subclusters that are
+// ScaleInStatefulsetToZeroReconciler will make sure that the subclusters that are
 // shut down have their pods removed.
-type ScaleStafulsetReconciler struct {
+type ScaleInStatefulsetToZeroReconciler struct {
 	Rec    config.ReconcilerInterface
 	Vdb    *v1.VerticaDB
 	Log    logr.Logger
 	PFacts *podfacts.PodFacts
 }
 
-func MakeScaleStafulsetReconciler(r config.ReconcilerInterface,
+func MakeScaleInStatefulsetToZeroReconciler(r config.ReconcilerInterface,
 	vdb *v1.VerticaDB, pfacts *podfacts.PodFacts) controllers.ReconcileActor {
-	return &ScaleStafulsetReconciler{
+	return &ScaleInStatefulsetToZeroReconciler{
 		Rec:    r,
 		Vdb:    vdb,
 		PFacts: pfacts,
 	}
 }
 
-func (s *ScaleStafulsetReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
+func (s *ScaleInStatefulsetToZeroReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
 	scMap := s.Vdb.GenSubclusterMap()
+	scStatusMap := s.Vdb.GenSubclusterStatusMap()
 	finder := iter.MakeSubclusterFinder(s.Rec.GetClient(), s.Vdb)
 	stss, err := finder.FindStatefulSets(ctx, iter.FindInVdb, s.PFacts.SandboxName)
 	if err != nil {
@@ -60,28 +61,33 @@ func (s *ScaleStafulsetReconciler) Reconcile(ctx context.Context, _ *ctrl.Reques
 	}
 	for inx := range stss.Items {
 		sts := &stss.Items[inx]
+		sc := scMap[sts.Labels[vmeta.SubclusterNameLabel]]
+		scStatus := scStatusMap[sts.Labels[vmeta.SubclusterNameLabel]]
+		if sc == nil || scStatus == nil {
+			// We just continue. If there is any issue with a subcluster, there are
+			// other reconcilers that will catch it.
+			continue
+		}
+		if !sc.Shutdown || !scStatus.Shutdown {
+			// Nothing to do if the subcluster is not shutdown.
+			continue
+		}
 		err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 			nm := names.GenNamespacedName(s.Vdb, sts.Name)
 			err := s.Rec.GetClient().Get(ctx, nm, sts)
 			if err != nil {
 				return err
 			}
+
 			oldSize := sts.Spec.Replicas
-			sc := scMap[sts.Labels[vmeta.SubclusterNameLabel]]
-			if sc == nil {
-				return fmt.Errorf("subcluster %s not found in vdb", sts.Labels[vmeta.SubclusterNameLabel])
-			}
 			newSize := sc.GetStsSize(s.Vdb)
-			if *oldSize == newSize {
+			// No need to update if the size is already correct or if we are not
+			// scaling to zero.
+			if *oldSize == newSize || newSize != 0 {
 				return nil
 			}
-			msg := ""
-			if newSize == 0 {
-				msg = fmt.Sprintf("Terminating all pods of subcluster %s in %s", sc.Name, s.PFacts.GetClusterExtendedName())
-			} else {
-				msg = fmt.Sprintf("Restarting all pods of subcluster %s in %s", sc.Name, s.PFacts.GetClusterExtendedName())
-			}
-			s.Rec.Event(s.Vdb, corev1.EventTypeNormal, events.ScalingSubclusterPods, msg)
+			msg := fmt.Sprintf("Terminating all pods of subcluster %s in %s", sc.Name, s.PFacts.GetClusterExtendedName())
+			s.Rec.Event(s.Vdb, corev1.EventTypeNormal, events.TerminatingSubclusterPods, msg)
 			// Update the StatefulSet to the new size.
 			sts.Spec.Replicas = &newSize
 			return s.Rec.GetClient().Update(ctx, sts)

@@ -23,7 +23,7 @@ involvedObject:
 ---
 apiVersion: v1
 kind: Event
-reason: ScalingSubclusterPods
+reason: TerminatingSubclusterPods
 source:
   component: verticadb-operator
 involvedObject:

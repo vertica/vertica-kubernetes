@@ -58,7 +58,7 @@ var _ = Describe("scalestatefulset_reconciler", func() {
 		fpr := &cmds.FakePodRunner{}
 		pfacts := podfacts.MakePodFacts(vdbRec, fpr, logger, &testPassword)
 		pfacts.SandboxName = sc1
-		r := MakeScaleStafulsetReconciler(vdbRec, vdb, &pfacts)
+		r := MakeScaleInStatefulsetToZeroReconciler(vdbRec, vdb, &pfacts)
 		res, err := r.Reconcile(ctx, &ctrl.Request{})
 		Expect(err).Should(Succeed())
 		Expect(res).Should(Equal(ctrl.Result{}))
@@ -88,7 +88,7 @@ var _ = Describe("scalestatefulset_reconciler", func() {
 		fpr := &cmds.FakePodRunner{}
 		pfacts := podfacts.MakePodFacts(vdbRec, fpr, logger, &testPassword)
 		pfacts.SandboxName = v1.MainCluster
-		r := MakeScaleStafulsetReconciler(vdbRec, vdb, &pfacts)
+		r := MakeScaleInStatefulsetToZeroReconciler(vdbRec, vdb, &pfacts)
 		res, err := r.Reconcile(ctx, &ctrl.Request{})
 		Expect(err).Should(Succeed())
 		Expect(res).Should(Equal(ctrl.Result{}))
