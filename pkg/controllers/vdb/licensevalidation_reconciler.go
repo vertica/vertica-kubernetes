@@ -139,15 +139,21 @@ func (r *LicenseValidationReconciler) validateLicenses(ctx context.Context) (ctr
 		r.log.Info("wait to get an initiator pod to validate license")
 		return ctrl.Result{}, err // if no pod, return an error
 	}
-	if len(validLicenses) == 0 {
-		eventContent := fmt.Sprintf("no valid Vertica license found from secret %s", r.vdb.Spec.LicenseSecret)
-		for key, err := range invalidLicenses {
-			if strings.Contains(err, "Community Edition") {
-				eventContent = fmt.Sprintf("CE license is not allowed and was found in key '%s' of secret '%s'.", key, r.vdb.Spec.LicenseSecret)
-			}
+	var eventContent string
+	var hasCELicense bool
+	for key, err := range invalidLicenses {
+		if strings.Contains(err, "Community Edition") {
+			eventContent = fmt.Sprintf("CE license is not allowed and was found in key '%s' of secret '%s'.", key, r.vdb.Spec.LicenseSecret)
+			hasCELicense = true
+		}
+	}
+
+	if hasCELicense || len(validLicenses) == 0 {
+		if !hasCELicense {
+			eventContent = fmt.Sprintf("no valid Vertica license found from secret %s", r.vdb.Spec.LicenseSecret)
 		}
 		r.vRec.Event(r.vdb, corev1.EventTypeNormal, events.LicenseValidationFail, eventContent)
-		return ctrl.Result{}, fmt.Errorf("no valid Vertica license found from the license secret")
+		return ctrl.Result{}, fmt.Errorf("%s", eventContent)
 	}
 	if !r.vdb.IsDBInitialized() && meta.GetValidLicenseKey(r.vdb.Annotations) == "" {
 		r.vdb.Annotations[meta.ValidLicenseKeyAnnotation] = validLicenses[0].Key
