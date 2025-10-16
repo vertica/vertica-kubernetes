@@ -115,7 +115,7 @@ func (h *TLSServerCertGenReconciler) reconcileSecrets(ctx context.Context) error
 		}
 
 		if secretFieldName == nmaTLSSecret && !h.Vdb.IsHTTPSNMATLSAuthEnabled() {
-			if h.Vdb.Spec.HTTPSNMATLS != nil && h.Vdb.Spec.HTTPSNMATLS.Secret != "" {
+			if h.Vdb.Spec.HTTPSNMATLS != nil && h.Vdb.Spec.HTTPSNMATLS.Secret != "" && h.Vdb.Spec.NMATLSSecret == "" {
 				// In older operator versions like v25.3.0, spec.nmaTLSSecret was deprecated.
 				// We would always set spec.httpsNMATLS.secret even when tls is disabled.
 				// If you upgrade to 25.4.0 or later with tls disabled, spec.nmaTLSSecret is back and is autogerated
