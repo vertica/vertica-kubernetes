@@ -57,23 +57,18 @@ func (r *ShutdownSpecReconciler) updateSubclustersShutdownState(ctx context.Cont
 
 func (r *ShutdownSpecReconciler) updateSubclustersShutdownStateCallback() (bool, error) {
 	needUpdate := false
-
 	scStatusMap := r.Vdb.GenSubclusterStatusMap()
 	scSbStatusMap := r.Vdb.GenSubclusterSandboxStatusMap()
 
 	for i := range r.Vdb.Spec.Subclusters {
+		scUpdate := false
 		sc := &r.Vdb.Spec.Subclusters[i]
 		sbName := scSbStatusMap[sc.Name]
 
 		// Handle main cluster shutdown
 		if sbName == v1.MainCluster {
-			// Sync shutdown state with main cluster
-			if r.Vdb.Spec.Shutdown != sc.Shutdown {
-				r.Log.Info("Syncing main cluster shutdown state to subcluster",
-					"subcluster", sc.Name, "shutdown", r.Vdb.Spec.Shutdown)
-				sc.Shutdown = r.Vdb.Spec.Shutdown
-				needUpdate = true
-			}
+			scUpdate = r.setSubclusterShutdownState(sc, sbName, r.Vdb.Spec.Shutdown)
+			needUpdate = needUpdate || scUpdate
 			continue
 		}
 
@@ -85,36 +80,52 @@ func (r *ShutdownSpecReconciler) updateSubclustersShutdownStateCallback() (bool,
 			continue
 		}
 
-		// Ensure annotations map exists when needed
-		if sc.Annotations == nil && sb.Shutdown {
-			sc.Annotations = make(map[string]string, 1)
-		}
+		scUpdate = r.setSubclusterShutdownState(sc, sbName, sb.Shutdown)
+		// If the subcluster is not in sync with the sandbox, we need to update
+		needUpdate = needUpdate || scUpdate
+	}
+	return needUpdate, nil
+}
 
-		// Sync shutdown-driven-by-sandbox annotation
-		drivenBySandbox := vmeta.GetShutdownDrivenBySandbox(sc.Annotations)
-
-		switch {
-		case sb.Shutdown && !drivenBySandbox:
-			// Add an annotation that indicates the shutdown/restart is controlled
-			// by the sandbox as opposed to the subcluster. It helps
-			// differentiate this case from when the user is explicitly
-			// changing the subcluster's shutdown field.
-			sc.Annotations[vmeta.ShutdownDrivenBySandbox] = vmeta.AnnotationTrue
-			needUpdate = true
-		case !sb.Shutdown && drivenBySandbox:
-			delete(sc.Annotations, vmeta.ShutdownDrivenBySandbox)
-			needUpdate = true
-		}
-
-		// Sync shutdown state with sandbox
-		if sb.Shutdown != sc.Shutdown {
-			r.Log.Info("Syncing sandbox shutdown state to subcluster",
-				"subcluster", sc.Name, "sandbox", sb.Name, "shutdown", sb.Shutdown)
-			// Update the subcluster shutdown field to match the sandbox
-			sc.Shutdown = sb.Shutdown
-			needUpdate = true
-		}
+// setSubclusterShutdownState sets the subcluster shutdown state based on the sandbox/main cluster shutdown state.
+func (r *ShutdownSpecReconciler) setSubclusterShutdownState(sc *v1.Subcluster, sbName string, clusterShutdown bool) bool {
+	needUpdate := false
+	if sc.Annotations == nil && clusterShutdown {
+		sc.Annotations = make(map[string]string, 1)
+	}
+	isClusterDrivenShutdown := vmeta.IsShutdownDrivenByMain(sc.Annotations)
+	shutdownAnn := vmeta.ShutdownDrivenByMainAnnotation
+	clusterName := "main cluster"
+	if sbName != v1.MainCluster {
+		isClusterDrivenShutdown = vmeta.IsShutdownDrivenBySandbox(sc.Annotations)
+		shutdownAnn = vmeta.ShutdownDrivenBySandboxAnnotation
+		clusterName = "sandbox"
+	}
+	// There are 3 cases to handle:
+	switch {
+	case clusterShutdown && !isClusterDrivenShutdown:
+		// Add an annotation that indicates the shutdown/restart is controlled
+		// by the sandbox/main as opposed to the subcluster. It helps
+		// differentiate this case from when the user is explicitly
+		// changing the subcluster's shutdown field.
+		sc.Annotations[shutdownAnn] = vmeta.AnnotationTrue
+		needUpdate = true
+	case !clusterShutdown && isClusterDrivenShutdown:
+		delete(sc.Annotations, shutdownAnn)
+		needUpdate = true
+	case !clusterShutdown && !isClusterDrivenShutdown:
+		// Nothing to do if the sandbox/main is not shutdown and the
+		// subcluster is not driven by the sandbox/main.
+		return false
 	}
 
-	return needUpdate, nil
+	// Sync shutdown state with sandbox/main
+	if clusterShutdown != sc.Shutdown {
+		r.Log.Info("Syncing "+clusterName+" shutdown state to subcluster",
+			"subcluster", sc.Name, "sandbox", sbName, "shutdown", clusterShutdown)
+		// Update the subcluster shutdown field to match the sandbox
+		sc.Shutdown = clusterShutdown
+		needUpdate = true
+	}
+	return needUpdate
 }

@@ -67,8 +67,8 @@ var _ = Describe("shutdownspec_reconciler", func() {
 		Expect(res).Should(Equal(ctrl.Result{}))
 		newVdb := &vapi.VerticaDB{}
 		Expect(k8sClient.Get(ctx, vapi.MakeVDBName(), newVdb)).Should(Succeed())
-		Expect(vmeta.GetShutdownDrivenBySandbox(newVdb.Spec.Subclusters[1].Annotations)).Should(BeTrue())
-		Expect(vmeta.GetShutdownDrivenBySandbox(newVdb.Spec.Subclusters[2].Annotations)).Should(BeTrue())
+		Expect(vmeta.IsShutdownDrivenBySandbox(newVdb.Spec.Subclusters[1].Annotations)).Should(BeTrue())
+		Expect(vmeta.IsShutdownDrivenBySandbox(newVdb.Spec.Subclusters[2].Annotations)).Should(BeTrue())
 		Expect(newVdb.Spec.Subclusters[1].Shutdown).Should(BeTrue())
 		Expect(newVdb.Spec.Subclusters[2].Shutdown).Should(BeTrue())
 
@@ -80,8 +80,8 @@ var _ = Describe("shutdownspec_reconciler", func() {
 		Expect(res).Should(Equal(ctrl.Result{}))
 		newVdb2 := &vapi.VerticaDB{}
 		Expect(k8sClient.Get(ctx, vapi.MakeVDBName(), newVdb2)).Should(Succeed())
-		Expect(vmeta.GetShutdownDrivenBySandbox(newVdb2.Spec.Subclusters[1].Annotations)).Should(BeFalse())
-		Expect(vmeta.GetShutdownDrivenBySandbox(newVdb2.Spec.Subclusters[2].Annotations)).Should(BeFalse())
+		Expect(vmeta.IsShutdownDrivenBySandbox(newVdb2.Spec.Subclusters[1].Annotations)).Should(BeFalse())
+		Expect(vmeta.IsShutdownDrivenBySandbox(newVdb2.Spec.Subclusters[2].Annotations)).Should(BeFalse())
 		Expect(newVdb2.Spec.Subclusters[1].Shutdown).Should(BeFalse())
 		Expect(newVdb.Spec.Subclusters[2].Shutdown).Should(BeFalse())
 
@@ -94,6 +94,18 @@ var _ = Describe("shutdownspec_reconciler", func() {
 		Expect(res).Should(Equal(ctrl.Result{}))
 		newVdb3 := &vapi.VerticaDB{}
 		Expect(k8sClient.Get(ctx, vapi.MakeVDBName(), newVdb3)).Should(Succeed())
+		Expect(vmeta.IsShutdownDrivenByMain(newVdb3.Spec.Subclusters[0].Annotations)).Should(BeTrue())
 		Expect(newVdb3.Spec.Subclusters[0].Shutdown).Should(BeTrue())
+
+		newVdb3.Spec.Shutdown = false
+		Expect(k8sClient.Update(ctx, newVdb3)).Should(Succeed())
+		r = MakeShutdownSpecReconciler(vdbRec, newVdb3, logger)
+		res, err = r.Reconcile(ctx, &ctrl.Request{})
+		Expect(err).Should(BeNil())
+		Expect(res).Should(Equal(ctrl.Result{}))
+		newVdb4 := &vapi.VerticaDB{}
+		Expect(k8sClient.Get(ctx, vapi.MakeVDBName(), newVdb4)).Should(Succeed())
+		Expect(vmeta.IsShutdownDrivenByMain(newVdb4.Spec.Subclusters[0].Annotations)).Should(BeFalse())
+		Expect(newVdb4.Spec.Subclusters[0].Shutdown).Should(BeFalse())
 	})
 })
