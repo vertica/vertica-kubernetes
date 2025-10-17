@@ -26,7 +26,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/checklicense"
 )
 
-// CheckLicense will validate a license. If the licenseis invalid, expired or a CE license,
+// CheckLicense will validate a license. If the license is invalid, expired or a CE license,
 // an error will be returned.
 //
 //nolint:dupl

@@ -61,9 +61,8 @@ func GetPath(ctx context.Context, clnt client.Client, vdb *vapi.VerticaDB) (stri
 	}
 
 	// This function only returns a single license -- to be used with
-	// create DB call. In case the secret has multiple licenses, we will pick
-	// the one that comes first alphabetically.  The rest of the licenses will
-	// be mounted in the container that the customer can then install.
+	// create DB call. In case the secret has multiple licenses, after
+	// license validation, a valid license key will be saved into annotation for db creation
 	validLicenseKey := meta.GetValidLicenseKey(vdb.Annotations)
 	if _, ok := secret.Data[validLicenseKey]; !ok {
 		return "", fmt.Errorf("cannot find license key %s in secret %s", validLicenseKey, vdb.Spec.LicenseSecret)

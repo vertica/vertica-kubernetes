@@ -153,8 +153,9 @@ func MakeVDB() *VerticaDB {
 			Namespace: nm.Namespace,
 			UID:       "abcdef-ghi",
 			Annotations: map[string]string{
-				vmeta.VClusterOpsAnnotation: vmeta.VClusterOpsAnnotationFalse,
-				vmeta.VersionAnnotation:     "v23.4.0",
+				vmeta.VClusterOpsAnnotation:     vmeta.VClusterOpsAnnotationFalse,
+				vmeta.VersionAnnotation:         "v23.4.0",
+				vmeta.ValidLicenseKeyAnnotation: "license.dat",
 			},
 		},
 		Spec: VerticaDBSpec{
@@ -199,7 +200,6 @@ func MakeVDB() *VerticaDB {
 			ClientServerTLS:   &TLSConfigSpec{Enabled: BoolPtr(true)},
 		},
 	}
-	vdb.Annotations[vmeta.ValidLicenseKeyAnnotation] = "license.dat"
 	return vdb
 }
 
