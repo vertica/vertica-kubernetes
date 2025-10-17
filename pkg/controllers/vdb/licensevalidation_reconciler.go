@@ -98,7 +98,7 @@ func (r *LicenseValidationReconciler) Reconcile(ctx context.Context, _ *ctrl.Req
 }
 
 // shouldSkipLicenseValidattion() will return true when license validation should be skipped.
-func (r *LicenseValidationReconciler) shouldSkipLicenseValidattion() bool {
+func (r *LicenseValidationReconciler) shouldSkipLicenseValidation() bool {
 	return !r.vdb.UseVClusterOpsDeployment() || meta.GetAllowCELicense(r.vdb.Annotations) ||
 		r.vdb.IsStatusConditionTrue(vapi.UpgradeInProgress) || r.vdb.IsStatusConditionTrue(vapi.VerticaRestartNeeded)
 }
