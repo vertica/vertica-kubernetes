@@ -1229,6 +1229,8 @@ const (
 	RollbackAfterServerCertRotationReason = "ServerCertRotationFailed"
 	// RollbackAfterNMACertRotationReason indicates failure during NMA cert rotation
 	RollbackAfterNMACertRotationReason = "NMACertRotationFailed"
+	// RollbackAfterInterNodeCertRotationReason indicates failure during internode cert rotation
+	RollbackAfterInterNodeCertRotationReason = "InterNodeCertRotationFailed"
 )
 
 const (

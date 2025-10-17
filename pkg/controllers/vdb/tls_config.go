@@ -431,7 +431,6 @@ func (t *TLSConfigManager) triggerRollback(ctx context.Context, err error) error
 	if err == nil || !t.Vdb.IsTLSCertRollbackEnabled() || t.Vdb.IsTLSCertRollbackInProgress() {
 		return err
 	}
-
 	// Unset the force failure annotation (used for testing) if it has been set. This needs to be
 	// done so that subsequent rotations, like rollback rotation, will work.
 	err1 := t.unsetForceTLSUpdateFailure(ctx)
@@ -439,7 +438,6 @@ func (t *TLSConfigManager) triggerRollback(ctx context.Context, err error) error
 	if err1 != nil {
 		return err1
 	}
-
 	reason := t.getRollbackReason(err)
 	cond := vapi.MakeCondition(vapi.TLSCertRollbackNeeded, metav1.ConditionTrue, reason)
 	err1 = vdbstatus.UpdateCondition(ctx, t.Rec.GetClient(), t.Vdb, cond)
@@ -452,6 +450,9 @@ func (t *TLSConfigManager) triggerRollback(ctx context.Context, err error) error
 }
 
 func (t *TLSConfigManager) getRollbackReason(err error) string {
+	if t.isInterNodeTLSConfig() {
+		return vapi.RollbackAfterInterNodeCertRotationReason
+	}
 	if t.isClientServerTLSConfig() {
 		return vapi.RollbackAfterServerCertRotationReason
 	}
