@@ -120,6 +120,9 @@ func (v *VerticaDB) ValidateCreate() (admission.Warnings, error) {
 	allErrs := v.validateVerticaDBSpec()
 	// Validate the sandbox type on create
 	allErrs = v.hasNoSandboxTypeOnCreate(allErrs)
+	// Thanks to this, users cannot create vdb with tls fields unset
+	// if tls is enabled. This does not apply to an existing vdb.
+	allErrs = v.hasValidTLSWithKnob(allErrs)
 	if len(allErrs) == 0 {
 		return nil, nil
 	}
@@ -171,6 +174,11 @@ func (v *VerticaDB) validateImmutableFields(old runtime.Object) field.ErrorList 
 	allErrs = v.checkImmutableStsName(oldObj, allErrs)
 	allErrs = v.checkImmutableClientProxy(oldObj, allErrs)
 	allErrs = v.checkImmutableTLSConfig(oldObj, allErrs)
+	// Thanks to this, users cannot set tls fields after vdb creation,
+	// if they were not set before. The only exception is after operator
+	// upgrade from 25.3.0-0. Because tls fields are already set, we skip
+	// this check.
+	allErrs = v.checkTLSFieldsChangeWhenTLSDisabled(oldObj, allErrs)
 	allErrs = v.checkValidTLSConfigUpdate(oldObj, allErrs)
 	allErrs = v.checkTLSModeCaseInsensitiveChange(oldObj, allErrs)
 	allErrs = v.checkValidSubclusterTypeTransition(oldObj, allErrs)
@@ -238,7 +246,6 @@ func (v *VerticaDB) validateVerticaDBSpec() field.ErrorList {
 	allErrs := v.hasAtLeastOneSC(field.ErrorList{})
 	allErrs = v.hasValidSubclusterTypes(allErrs)
 	allErrs = v.hasNoConflictbetweenTLSAndCertMount(allErrs)
-	allErrs = v.hasValidTLSWithKnob(allErrs)
 	allErrs = v.hasValidInitPolicy(allErrs)
 	allErrs = v.hasValidRestorePolicy(allErrs)
 	allErrs = v.hasValidSaveRestorePointConfig(allErrs)
@@ -2651,6 +2658,25 @@ func (v *VerticaDB) checkDisallowedMutualTLSChanges(oldObj *VerticaDB) field.Err
 		"cannot change clientServerTLS.mode when mutual TLS is disabled")
 
 	return errs
+}
+
+// checkTLSFieldsChangeWhenTLSDisabled ensures no TLS fields are set when TLS is disabled.
+func (v *VerticaDB) checkTLSFieldsChangeWhenTLSDisabled(oldObj *VerticaDB, allErrs field.ErrorList) field.ErrorList {
+	if vmeta.UseTLSAuth(v.Annotations) || (oldObj.Spec.HTTPSNMATLS != nil && oldObj.Spec.ClientServerTLS != nil) {
+		return allErrs
+	}
+	if v.Spec.HTTPSNMATLS != nil {
+		err := field.Forbidden(field.NewPath("spec").Child("httpsNMATLS"),
+			fmt.Sprintf("cannot set httpsNMATLS when %s is set to false", vmeta.EnableTLSAuthAnnotation))
+		allErrs = append(allErrs, err)
+	}
+	if v.Spec.ClientServerTLS != nil {
+		err := field.Forbidden(field.NewPath("spec").Child("clientServerTLS"),
+			fmt.Sprintf("cannot set clientServerTLS when %s is set to false", vmeta.EnableTLSAuthAnnotation))
+		allErrs = append(allErrs, err)
+	}
+
+	return allErrs
 }
 
 // isOnlyTLSConfigUpdateChange allows only tls config changes when tls config update is in progress
