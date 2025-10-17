@@ -3078,9 +3078,11 @@ func (v *VerticaDB) nothingChangedWhenMainIsShutdown(oldObj *VerticaDB) bool {
 	newCopy.Shutdown = false
 	for i := range oldCopy.Subclusters {
 		oldCopy.Subclusters[i].Shutdown = false
+		oldCopy.Subclusters[i].Annotations = nil
 	}
 	for i := range newCopy.Subclusters {
 		newCopy.Subclusters[i].Shutdown = false
+		newCopy.Subclusters[i].Annotations = nil
 	}
 
 	return reflect.DeepEqual(oldCopy, newCopy)

@@ -176,6 +176,11 @@ func (r *VerticaDBReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 			"result", ctrl.Result{}, "err", nil)
 		return ctrl.Result{}, nil
 	}
+	// If the main cluster is stopped, we abort the reconciliation until spec.shutdown is set back to false.
+	if vdb.ShouldKeepMainClusterShutdown() {
+		log.Info("The main cluster is stopped. Skipping reconciliation.", "result", ctrl.Result{}, "err", nil)
+		return ctrl.Result{}, nil
+	}
 
 	r.InitCacheForVdb(vdb)
 	passwd, err := r.GetSuperuserPassword(ctx, log, vdb)

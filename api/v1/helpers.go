@@ -1864,10 +1864,19 @@ func (v *VerticaDB) UseVClusterOpsDeployment() bool {
 	return vmeta.UseVClusterOps(v.Annotations)
 }
 
+// IsMainClusterStopped returns true if the main cluster is shutdown
+// or is marked for shutdown.
 func (v *VerticaDB) IsMainClusterStopped() bool {
-	if v.Spec.Shutdown {
-		return true
-	}
+	return v.Spec.Shutdown || v.areAllSubclustersShutdown()
+}
+
+// ShouldKeepMainClusterShutdown returns true if the main cluster is
+// effectively shutdown and should remain so.
+func (v *VerticaDB) ShouldKeepMainClusterShutdown() bool {
+	return v.Spec.Shutdown && v.areAllSubclustersShutdown()
+}
+
+func (v *VerticaDB) areAllSubclustersShutdown() bool {
 	scSbMap := v.GenSubclusterSandboxStatusMap()
 	for i := range v.Spec.Subclusters {
 		scName := v.Spec.Subclusters[i].Name
