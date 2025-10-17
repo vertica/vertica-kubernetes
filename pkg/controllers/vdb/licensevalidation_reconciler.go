@@ -79,15 +79,15 @@ func MakeLicenseValidationReconciler(recon config.ReconcilerInterface, log logr.
 
 // Reconcile validates licenses saved in license secret. If no valid license found, an error will be returned.
 func (r *LicenseValidationReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
-	if r.shouldSkipLicenseValidattion() {
+	if r.shouldSkipLicenseValidation() {
 		return ctrl.Result{}, nil
 	}
 	// do validation for new license secret
-	if r.licenseValidattionRequired() {
+	if r.licenseValidationRequired() {
 		res, err := r.validateLicenses(ctx)
 		return res, err
 	}
-	lastSuccessfulValidation := r.getLastValidattionTimeFromCache()
+	lastSuccessfulValidation := r.getLastValidationTimeFromCache()
 
 	// routine license validation on a daily basis
 	if !r.shouldDoDailyValidation(lastSuccessfulValidation) {
@@ -146,7 +146,7 @@ func (r *LicenseValidationReconciler) validateLicenses(ctx context.Context) (ctr
 	}
 	validLicenses, invalidLicenses, err := r.validateLicensesInSecret(ctx)
 	if err != nil {
-		r.log.Info("wait to get an initiator pod to validate license")
+		r.log.Info("cannot find an initiator pod to validate license")
 		return ctrl.Result{}, err // if no pod, return an error
 	}
 	var eventContent string
@@ -165,6 +165,7 @@ func (r *LicenseValidationReconciler) validateLicenses(ctx context.Context) (ctr
 		r.vRec.Event(r.vdb, corev1.EventTypeNormal, events.LicenseValidationFail, eventContent)
 		return ctrl.Result{}, fmt.Errorf("%s", eventContent)
 	}
+	// When db is not created yet, save a valid license key into annotation for db creation
 	if !r.vdb.IsDBInitialized() && meta.GetValidLicenseKey(r.vdb.Annotations) == "" {
 		r.vdb.Annotations[meta.ValidLicenseKeyAnnotation] = validLicenses[0].Key
 	}
@@ -187,7 +188,7 @@ func (r *LicenseValidationReconciler) validateLicenses(ctx context.Context) (ctr
 		r.log.Info("failed to save license status into Status")
 		return ctrl.Result{}, err
 	}
-	r.saveLastValidattionTimeInCache(metav1.Now())
+	r.saveLastValidationTimeInCache(metav1.Now())
 	return ctrl.Result{}, nil
 }
 
@@ -252,13 +253,13 @@ func (r *LicenseValidationReconciler) getDigest(input string) string {
 }
 
 // saveLastValidattionTimeInCache() saves the validation time into the cache
-func (r *LicenseValidationReconciler) saveLastValidattionTimeInCache(lastValidationTime metav1.Time) {
+func (r *LicenseValidationReconciler) saveLastValidationTimeInCache(lastValidationTime metav1.Time) {
 	timestampCache := r.cacheManager.GetTimestampCacheForVdb(r.vdb.Namespace, r.vdb.Name)
 	timestampCache.Set(lastValidationTimeKey, lastValidationTime)
 }
 
 // getLastValidattionTimeFromCache() loads last successful validation time from the cache
-func (r *LicenseValidationReconciler) getLastValidattionTimeFromCache() metav1.Time {
+func (r *LicenseValidationReconciler) getLastValidationTimeFromCache() metav1.Time {
 	timestampCache := r.cacheManager.GetTimestampCacheForVdb(r.vdb.Namespace, r.vdb.Name)
 	timestamp, ok := timestampCache.Get(lastValidationTimeKey)
 	if ok {

@@ -1123,12 +1123,12 @@ type LicenseStatus struct {
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:io.kubernetes:Secret"
 	// The name of a secret that contains the contents of license files. The
-	// secret must be in the same namespace as the CRD. Each of the keys in the
+	// secret must be in the same namespace as the VDB. Each of the keys in the
 	// secret will be mounted as files in /home/dbadmin/licensing/mnt. If this
 	// is set prior to creating a database, it will include one of the licenses
 	// from the secret -- if there are multiple licenses it will pick one by
 	// selecting the first one alphabetically.  The user is responsible for
-	// installing any additional licenses or if the license was added to the
+	// installing any additional licenses if the license was added to the
 	// secret after DB creation.
 	LicenseSecret string `json:"licenseSecret,omitempty"`
 	// +operator-sdk:csv:customresourcedefinitions:type=status
@@ -1139,7 +1139,7 @@ type LicenseStatus struct {
 
 type LicenseInfo struct {
 	// +operator-sdk:csv:customresourcedefinitions:type=status
-	// the sha256 calculated fromthe license content
+	// the sha256 calculated from the license content
 	Digest string `json:"digest"`
 	// +operator-sdk:csv:customresourcedefinitions:type=status
 	// populated after the license is validated
