@@ -104,9 +104,19 @@ func (r *LicenseValidationReconciler) shouldSkipLicenseValidation() bool {
 }
 
 // licenseValidattionRequired() will return true when license validation is required.
-func (r *LicenseValidationReconciler) licenseValidattionRequired() bool {
-	return r.vdb.Spec.LicenseSecret != "" && (r.vdb.Status.LicenseStatus == nil || r.vdb.Status.LicenseStatus != nil &&
-		r.vdb.Spec.LicenseSecret != r.vdb.Status.LicenseStatus.LicenseSecret)
+func (r *LicenseValidationReconciler) licenseValidationRequired() bool {
+	// If no license secret is specified, no validation needed
+	if r.vdb.Spec.LicenseSecret == "" {
+		return false
+	}
+
+	// If no previous status, validation required
+	if r.vdb.Status.LicenseStatus == nil {
+		return true
+	}
+
+	// Validate if the secret name changed
+	return r.vdb.Spec.LicenseSecret != r.vdb.Status.LicenseStatus.LicenseSecret
 }
 
 // shouldDoDailyValidation() will return true when it is time to do a daily license validation.
