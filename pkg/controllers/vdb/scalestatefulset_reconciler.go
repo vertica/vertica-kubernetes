@@ -28,7 +28,10 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
 	config "github.com/vertica/vertica-kubernetes/pkg/vdbconfig"
+	"github.com/vertica/vertica-kubernetes/pkg/vdbstatus"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -43,15 +46,20 @@ type ScaleInStatefulsetToZeroReconciler struct {
 }
 
 func MakeScaleInStatefulsetToZeroReconciler(r config.ReconcilerInterface,
-	vdb *v1.VerticaDB, pfacts *podfacts.PodFacts) controllers.ReconcileActor {
+	vdb *v1.VerticaDB, pfacts *podfacts.PodFacts, log logr.Logger) controllers.ReconcileActor {
 	return &ScaleInStatefulsetToZeroReconciler{
 		Rec:    r,
 		Vdb:    vdb,
 		PFacts: pfacts,
+		Log:    log.WithName("ScaleInStatefulsetToZeroReconciler"),
 	}
 }
 
 func (s *ScaleInStatefulsetToZeroReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
+	if s.Vdb.IsStatusConditionTrue(v1.MainClusterPodsTerminated) {
+		// Already done.
+		return ctrl.Result{}, nil
+	}
 	scMap := s.Vdb.GenSubclusterMap()
 	scStatusMap := s.Vdb.GenSubclusterStatusMap()
 	finder := iter.MakeSubclusterFinder(s.Rec.GetClient(), s.Vdb)
@@ -59,6 +67,7 @@ func (s *ScaleInStatefulsetToZeroReconciler) Reconcile(ctx context.Context, _ *c
 	if err != nil {
 		return ctrl.Result{}, err
 	}
+	var scaledStsCount int
 	for inx := range stss.Items {
 		sts := &stss.Items[inx]
 		sc := scMap[sts.Labels[vmeta.SubclusterNameLabel]]
@@ -72,29 +81,52 @@ func (s *ScaleInStatefulsetToZeroReconciler) Reconcile(ctx context.Context, _ *c
 			// Nothing to do if the subcluster is not shutdown.
 			continue
 		}
-		err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-			nm := names.GenNamespacedName(s.Vdb, sts.Name)
-			err := s.Rec.GetClient().Get(ctx, nm, sts)
-			if err != nil {
-				return err
-			}
-
-			oldSize := sts.Spec.Replicas
-			newSize := sc.GetStsSize(s.Vdb)
-			// No need to update if the size is already correct or if we are not
-			// scaling to zero.
-			if *oldSize == newSize || newSize != 0 {
-				return nil
-			}
-			msg := fmt.Sprintf("Terminating all pods of subcluster %s in %s", sc.Name, s.PFacts.GetClusterExtendedName())
-			s.Rec.Event(s.Vdb, corev1.EventTypeNormal, events.TerminatingSubclusterPods, msg)
-			// Update the StatefulSet to the new size.
-			sts.Spec.Replicas = &newSize
-			return s.Rec.GetClient().Update(ctx, sts)
-		})
+		scaled, err := s.scaleStsToZero(ctx, sts, sc)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+		if scaled {
+			scaledStsCount++
+		}
+	}
+	mainScCount := len(s.Vdb.GetSubclustersInSandbox(v1.MainCluster))
+	if s.PFacts.SandboxName == v1.MainCluster && scaledStsCount == mainScCount {
+		s.Log.Info("All statefulsets in the main cluster have been scaled to zero")
+		err := vdbstatus.UpdateCondition(ctx, s.Rec.GetClient(), s.Vdb, v1.MakeCondition(
+			v1.MainClusterPodsTerminated,
+			metav1.ConditionTrue,
+			"AllStatefulsetsScaledToZero",
+		))
 		if err != nil {
 			return ctrl.Result{}, err
 		}
 	}
 	return ctrl.Result{}, nil
+}
+
+func (s *ScaleInStatefulsetToZeroReconciler) scaleStsToZero(ctx context.Context, sts *appsv1.StatefulSet,
+	sc *v1.Subcluster) (bool, error) {
+	scaledToZero := false
+	err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		nm := names.GenNamespacedName(s.Vdb, sts.Name)
+		err := s.Rec.GetClient().Get(ctx, nm, sts)
+		if err != nil {
+			return err
+		}
+
+		oldSize := sts.Spec.Replicas
+		newSize := sc.GetStsSize(s.Vdb)
+		scaledToZero = newSize == 0
+		// No need to update if the size is already correct or if we are not
+		// scaling to zero.
+		if *oldSize == newSize || newSize != 0 {
+			return nil
+		}
+		msg := fmt.Sprintf("Terminating all pods of subcluster %s in %s", sc.Name, s.PFacts.GetClusterExtendedName())
+		s.Rec.Event(s.Vdb, corev1.EventTypeNormal, events.TerminatingSubclusterPods, msg)
+		// Update the StatefulSet to the new size.
+		sts.Spec.Replicas = &newSize
+		return s.Rec.GetClient().Update(ctx, sts)
+	})
+	return scaledToZero, err
 }

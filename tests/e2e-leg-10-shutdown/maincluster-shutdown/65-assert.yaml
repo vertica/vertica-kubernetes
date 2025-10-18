@@ -32,6 +32,16 @@ kind: VerticaDB
 metadata:
   name: v-main-shutdown
 status:
+  conditions:
+  - reason: Detected
+    status: "True"
+    type: AutoRestartVertica
+  - reason: Initialized
+    status: "True"
+    type: DBInitialized
+  - reason: StatefulsetsBackToOriginalSize
+    status: "False"
+    type: MainClusterPodsTerminated
   subclusters:
     - addedToDBCount: 3
       upNodeCount: 3

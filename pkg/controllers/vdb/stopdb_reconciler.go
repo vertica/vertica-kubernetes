@@ -78,7 +78,7 @@ func (s *StopDBReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl
 			}
 		}
 
-		if s.PFacts.SandboxName == vapi.MainCluster {
+		if s.PFacts.SandboxName == vapi.MainCluster && s.Vdb.IsStatusConditionTrue(vapi.VerticaRestartNeeded) {
 			// Clear the condition now that we stopped the cluster.  We rely on the
 			// restart reconciler that follows this to bring up vertica.
 			err = vdbstatus.UpdateCondition(ctx, s.VRec.GetClient(), s.Vdb,

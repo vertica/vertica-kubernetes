@@ -58,6 +58,16 @@ spec:
     type: secondary
     shutdown: true
 status:
+  conditions:
+  - reason: Detected
+    status: "True"
+    type: AutoRestartVertica
+  - reason: Initialized
+    status: "True"
+    type: DBInitialized
+  - reason: AllStatefulsetsScaledToZero
+    status: "True"
+    type: MainClusterPodsTerminated
   subclusters:
     - addedToDBCount: 0
       upNodeCount: 0

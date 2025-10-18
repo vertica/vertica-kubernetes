@@ -1215,6 +1215,8 @@ const (
 	TLSCertRollbackNeeded = "TLSCertRollbackNeeded"
 	// TLSCertRollbackInProgress indicates that user has triggered TLS rollback
 	TLSCertRollbackInProgress = "TLSCertRollbackInProgress"
+	// MainClusterPodsTerminated indicates that all main cluster pods have been terminated
+	MainClusterPodsTerminated = "MainClusterPodsTerminated"
 )
 
 const (

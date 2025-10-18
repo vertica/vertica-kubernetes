@@ -58,7 +58,7 @@ var _ = Describe("scalestatefulset_reconciler", func() {
 		fpr := &cmds.FakePodRunner{}
 		pfacts := podfacts.MakePodFacts(vdbRec, fpr, logger, &testPassword)
 		pfacts.SandboxName = sc1
-		r := MakeScaleInStatefulsetToZeroReconciler(vdbRec, vdb, &pfacts)
+		r := MakeScaleInStatefulsetToZeroReconciler(vdbRec, vdb, &pfacts, logger)
 		res, err := r.Reconcile(ctx, &ctrl.Request{})
 		Expect(err).Should(Succeed())
 		Expect(res).Should(Equal(ctrl.Result{}))
@@ -71,30 +71,44 @@ var _ = Describe("scalestatefulset_reconciler", func() {
 	It("should scale main cluster sts to zero if subcluster is shut down", func() {
 		vdb := v1.MakeVDB()
 		const sc1 = "sc1"
+		const sc2 = "sc2"
 		vdb.Spec.Subclusters = []v1.Subcluster{
-			{Name: sc1, Size: 3, Shutdown: false},
+			{Name: sc1, Size: 3, Shutdown: true},
+			{Name: sc2, Size: 3, Shutdown: true},
 		}
-		vdb.Status.Subclusters = []v1.SubclusterStatus{
-			{Name: sc1, Shutdown: true},
-		}
+
+		test.CreateVDB(ctx, k8sClient, vdb)
+		defer test.DeleteVDB(ctx, k8sClient, vdb)
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
+		vdb.Status.Subclusters = []v1.SubclusterStatus{
+			{Name: sc1, Shutdown: true},
+			{Name: sc2, Shutdown: true},
+		}
 
-		sts := &appsv1.StatefulSet{}
-		Expect(k8sClient.Get(ctx, names.GenStsName(vdb, &vdb.Spec.Subclusters[0]), sts)).Should(Succeed())
-		Expect(*sts.Spec.Replicas).Should(Equal(vdb.Spec.Subclusters[0].Size))
+		sts1 := &appsv1.StatefulSet{}
+		Expect(k8sClient.Get(ctx, names.GenStsName(vdb, &vdb.Spec.Subclusters[0]), sts1)).Should(Succeed())
+		Expect(*sts1.Spec.Replicas).Should(Equal(vdb.Spec.Subclusters[0].Size))
+		sts2 := &appsv1.StatefulSet{}
+		Expect(k8sClient.Get(ctx, names.GenStsName(vdb, &vdb.Spec.Subclusters[1]), sts2)).Should(Succeed())
+		Expect(*sts2.Spec.Replicas).Should(Equal(vdb.Spec.Subclusters[1].Size))
 
-		vdb.Spec.Subclusters[0].Shutdown = true
 		fpr := &cmds.FakePodRunner{}
 		pfacts := podfacts.MakePodFacts(vdbRec, fpr, logger, &testPassword)
 		pfacts.SandboxName = v1.MainCluster
-		r := MakeScaleInStatefulsetToZeroReconciler(vdbRec, vdb, &pfacts)
+		r := MakeScaleInStatefulsetToZeroReconciler(vdbRec, vdb, &pfacts, logger)
 		res, err := r.Reconcile(ctx, &ctrl.Request{})
 		Expect(err).Should(Succeed())
 		Expect(res).Should(Equal(ctrl.Result{}))
 
-		newSts := &appsv1.StatefulSet{}
-		Expect(k8sClient.Get(ctx, names.GenStsName(vdb, &vdb.Spec.Subclusters[0]), newSts)).Should(Succeed())
-		Expect(*newSts.Spec.Replicas).Should(Equal(int32(0)))
+		newSts1 := &appsv1.StatefulSet{}
+		Expect(k8sClient.Get(ctx, names.GenStsName(vdb, &vdb.Spec.Subclusters[0]), newSts1)).Should(Succeed())
+		Expect(*newSts1.Spec.Replicas).Should(Equal(int32(0)))
+		newSts2 := &appsv1.StatefulSet{}
+		Expect(k8sClient.Get(ctx, names.GenStsName(vdb, &vdb.Spec.Subclusters[1]), newSts2)).Should(Succeed())
+		Expect(*newSts2.Spec.Replicas).Should(Equal(int32(0)))
+		newVdb := &v1.VerticaDB{}
+		Expect(k8sClient.Get(ctx, vdb.ExtractNamespacedName(), newVdb)).Should(Succeed())
+		Expect(newVdb.IsStatusConditionTrue(v1.MainClusterPodsTerminated)).Should(Equal(true))
 	})
 })

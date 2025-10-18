@@ -1871,9 +1871,9 @@ func (v *VerticaDB) IsMainClusterStopped() bool {
 }
 
 // ShouldKeepMainClusterShutdown returns true if the main cluster is
-// effectively shutdown and should remain so.
+// effectively shutdown and its pods are terminated.
 func (v *VerticaDB) ShouldKeepMainClusterShutdown() bool {
-	return v.Spec.Shutdown && v.areAllSubclustersShutdown()
+	return v.Spec.Shutdown && v.IsStatusConditionTrue(MainClusterPodsTerminated)
 }
 
 func (v *VerticaDB) areAllSubclustersShutdown() bool {
