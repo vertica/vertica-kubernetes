@@ -113,7 +113,6 @@ const (
 	connKey                         = "conn"
 	stopNodeFlag                    = "stop-hosts"
 	reIPFileFlag                    = "re-ip-file"
-	ksafetyFlag                     = "ksafety"
 	removeNodeFlag                  = "remove"
 	removeUnboundNodesFlag          = "remove-unbound-nodes"
 	startNodeFlag                   = "start"
@@ -268,6 +267,7 @@ const (
 	upgradeLicenseCmd       = "upgrade_license"
 	checkConnectionSubCmd   = "check"
 	clusterHealth           = "cluster_health"
+	listPkgSubCmd           = "list_packages"
 )
 
 // cmdGlobals holds global variables shared by multiple
@@ -655,6 +655,7 @@ func constructCmds() []*cobra.Command {
 		makeCmdSaveRestorePoint(),
 		makeCmdUpgradeLicense(),
 		makeCmdClusterHealth(),
+		makeCmdListPackages(),
 	}
 }
 

@@ -28,7 +28,6 @@ import (
 type CmdReIP struct {
 	reIPOptions  *vclusterops.VReIPOptions
 	reIPFilePath string
-	ksafety      int
 
 	CmdBase
 }
@@ -68,8 +67,7 @@ Examples:
     --config /opt/vertica/config/vertica_cluster.yaml \
     --password "PASSWORD"
 `,
-		[]string{dbNameFlag, hostsFlag, ipv6Flag, catalogPathFlag, configParamFlag,
-			configFlag, sandboxFlag, eonModeFlag, communalStorageLocationFlag},
+		[]string{dbNameFlag, hostsFlag, ipv6Flag, catalogPathFlag, configParamFlag, configFlag, sandboxFlag},
 	)
 
 	// local flags
@@ -95,13 +93,6 @@ func (c *CmdReIP) setLocalFlags(cmd *cobra.Command) {
 		sandboxFlag,
 		"",
 		"The name of the sandbox. Required if the re-ip hosts are in a sandbox.",
-	)
-	cmd.Flags().IntVarP(
-		&c.ksafety,
-		ksafetyFlag,
-		"k",
-		-1,
-		"K-safety value for the database. Set to 0 to bypass quorum checks.",
 	)
 }
 
@@ -133,12 +124,6 @@ func (c *CmdReIP) validateParse(logger vlog.Printer) error {
 	if err != nil {
 		return err
 	}
-
-	// Set ksafety if provided
-	if c.ksafety >= 0 {
-		c.reIPOptions.Ksafety = &c.ksafety
-	}
-
 	return c.reIPOptions.ReadReIPFile(c.reIPFilePath)
 }
 

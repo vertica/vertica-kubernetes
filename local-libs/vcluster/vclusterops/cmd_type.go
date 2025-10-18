@@ -54,6 +54,7 @@ const (
 	RotateNMACertsCmd
 	RotateVerticaCertsCmd
 	SetTLSConfigCmd
+	ListPackagesCmd
 )
 
 var cmdStringMap = map[CmdType]string{
@@ -104,6 +105,7 @@ var cmdStringMap = map[CmdType]string{
 	RotateNMACertsCmd:            "rotate_nma_certs",
 	RotateVerticaCertsCmd:        "rotate_vertica_certs",
 	SetTLSConfigCmd:              "set_tls_config",
+	ListPackagesCmd:              "list_packages",
 }
 
 func (cmd CmdType) CmdString() string {

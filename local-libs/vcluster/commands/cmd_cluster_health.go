@@ -221,11 +221,11 @@ func (c *CmdClusterHealth) Run(vcc vclusterops.ClusterCommands) error {
 	case getTxnStarts:
 		bytes, err = json.MarshalIndent(options.TransactionStartsResult, "" /*prefix*/, " " /* indent for one space*/)
 	case getMissingReleases:
-		bytes, err = json.MarshalIndent(options.MissingLockReleasesResult, "" /*prefix*/, " " /* indent for one space*/)
+		bytes, err = json.MarshalIndent(options.MissingLockReleasesResult, "", "")
 	case slowEventCascade:
-		bytes, err = json.MarshalIndent(options.SlowEventCascade, "" /*prefix*/, " " /* indent for one space*/)
+		bytes, err = json.MarshalIndent(options.SlowEventCascade, "", " ")
 	case lockCascade:
-		bytes, err = json.MarshalIndent(options.LockEventCascade, "" /*prefix*/, " " /* indent for one space*/)
+		bytes, err = json.MarshalIndent(options.LockEventCascade, "", " ")
 	default: // by default, we will build a super result which contains all three analysis results
 		resultSet := struct {
 			SlowEventCascade any `json:"slow_event_cascade"`
