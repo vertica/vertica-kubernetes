@@ -75,8 +75,8 @@ func (h *InterNodeTLSUpdateReconciler) Reconcile(ctx context.Context, req *ctrl.
 	h.Manager.setTLSUpdateType()
 	if h.Vdb.GetInterNodeTLSSecretInUse() == "" {
 		rec := MakeTLSConfigReconciler(h.VRec, h.Log, h.Vdb, h.PFacts.PRunner, h.Dispatcher, h.PFacts, vapi.InterNodeTLSConfigName, h.Manager)
-		res, err := rec.Reconcile(ctx, req)
-		return res, err
+		res, err2 := rec.Reconcile(ctx, req)
+		return res, err2
 	}
 	if !h.Vdb.IsInterNodeConfigEnabled() {
 		return ctrl.Result{}, nil
@@ -126,15 +126,15 @@ func (h *InterNodeTLSUpdateReconciler) rollback(ctx context.Context) (ctrl.Resul
 		cond = &metav1.Condition{Type: vapi.TLSConfigUpdateInProgress, Status: metav1.ConditionFalse, Reason: "Completed"}
 
 		h.Log.Info("Clearing condition", "type", cond.Type)
-		if err := vdbstatus.UpdateCondition(ctx, h.VRec.GetClient(), h.Vdb, cond); err != nil {
+		if err = vdbstatus.UpdateCondition(ctx, h.VRec.GetClient(), h.Vdb, cond); err != nil {
 			h.Log.Error(err, "Failed to clear condition", "type", cond.Type)
 			return ctrl.Result{}, err
 		}
 		nm := h.Vdb.ExtractNamespacedName()
 		err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 			// Always fetch the latest in case we are in the retry loop
-			if err := h.VRec.Client.Get(ctx, nm, h.Vdb); err != nil {
-				return err
+			if err2 := h.VRec.Client.Get(ctx, nm, h.Vdb); err2 != nil {
+				return err2
 			}
 			spec := &vapi.TLSConfigSpec{}
 			spec.Secret = h.Vdb.GetInterNodeTLSSecretInUse()
@@ -142,6 +142,9 @@ func (h *InterNodeTLSUpdateReconciler) rollback(ctx context.Context) (ctrl.Resul
 			h.Vdb.Spec.InterNodeTLS = spec
 			return h.VRec.Client.Update(ctx, h.Vdb)
 		})
+		if err != nil {
+			return ctrl.Result{}, err
+		}
 		conds := []metav1.Condition{
 			{Type: vapi.TLSCertRollbackInProgress, Status: metav1.ConditionFalse, Reason: "Completed"},
 			{Type: vapi.TLSCertRollbackNeeded, Status: metav1.ConditionFalse, Reason: "Completed"},

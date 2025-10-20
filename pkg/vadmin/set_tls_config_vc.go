@@ -29,14 +29,13 @@ import (
 
 // SetTLSConfig given an https and client server secret, will set tls configuration
 // in the database.
-//
-//nolint:dupl
 var configNameMap = map[string]string{
 	"Server":    v1.ClientServerTLSConfigName,
 	"HTTP":      v1.HTTPSNMATLSConfigName,
 	"Internode": v1.InterNodeTLSConfigName,
 }
 
+//nolint:dupl
 func (v *VClusterOps) SetTLSConfig(ctx context.Context, opts ...settlsconfig.Option) error {
 	v.setupForAPICall("SetTLSConfig")
 	defer v.tearDownForAPICall()
@@ -75,20 +74,20 @@ func (v *VClusterOps) genSetTLSConfigOptions(s *settlsconfig.Parms,
 	}
 
 	configMap := genTLSConfigurationMap(s.TLSMode, s.TLSSecretName, s.Namespace)
-	configName, _ := configNameMap[s.TLSConfigName]
+	configName := configNameMap[s.TLSConfigName]
 	switch configName {
 	case v1.HTTPSNMATLSConfigName:
 		opts.HTTPSTLSConfig.SetConfigMap(maps.Clone(configMap))
 		opts.HTTPSTLSConfig.GrantAuth = s.GrantAuth
-		opts.HTTPSTLSConfig.CacheDuration = v.VDB.GetTLSCacheDuration()
+		opts.HTTPSTLSConfig.CacheDuration = v.VDB.GetCacheDuration()
 	case v1.ClientServerTLSConfigName:
 		opts.ServerTLSConfig.SetConfigMap(maps.Clone(configMap))
 		opts.ServerTLSConfig.GrantAuth = s.GrantAuth
-		opts.ServerTLSConfig.CacheDuration = v.VDB.GetTLSCacheDuration()
+		opts.ServerTLSConfig.CacheDuration = v.VDB.GetCacheDuration()
 	case v1.InterNodeTLSConfigName:
 		opts.InterNodeTLSConfig.SetConfigMap(maps.Clone(configMap))
 		opts.InterNodeTLSConfig.GrantAuth = s.GrantAuth
-		opts.InterNodeTLSConfig.CacheDuration = v.VDB.GetTLSCacheDuration()
+		opts.InterNodeTLSConfig.CacheDuration = v.VDB.GetCacheDuration()
 	}
 	return &opts
 }

@@ -170,8 +170,9 @@ func (h *TLSConfigReconciler) checkIfTLSAuthenticationCreatedInDB(ctx context.Co
 //  2. If TLS is enabled but secret is not set in status yet
 //  3. If DB is not ready (not initialized, upgrading, or restarting)
 func (h *TLSConfigReconciler) shouldSkipTLSConfigReconcile() bool {
-	return ((h.Vdb.IsAnyTLSAuthEnabledWithMinVersion() || h.Vdb.IsInterNodeTLSAuthEnabledWithMinVersion()) && h.Vdb.GetSecretInUse(h.TLSConfigName) != "") ||
-		!h.Vdb.IsAnyTLSAuthEnabledWithMinVersion() && !h.Vdb.IsInterNodeTLSAuthEnabledWithMinVersion() || !h.Vdb.IsStatusConditionTrue(vapi.DBInitialized) ||
+	return ((h.Vdb.IsAnyTLSAuthEnabledWithMinVersion() || h.Vdb.IsInterNodeTLSAuthEnabledWithMinVersion()) &&
+		h.Vdb.GetSecretInUse(h.TLSConfigName) != "") || !h.Vdb.IsAnyTLSAuthEnabledWithMinVersion() &&
+		!h.Vdb.IsInterNodeTLSAuthEnabledWithMinVersion() || !h.Vdb.IsStatusConditionTrue(vapi.DBInitialized) ||
 		h.Vdb.IsStatusConditionTrue(vapi.UpgradeInProgress) ||
 		h.Vdb.IsStatusConditionTrue(vapi.VerticaRestartNeeded)
 }
