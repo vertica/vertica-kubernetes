@@ -380,14 +380,15 @@ func (op *httpsGetUpNodesOp) populateScNodes(node *nodeStateInfo, upScNodes, scN
 	// we will get two duplicate NodeInfo entries if we do not ignore "UNKNOWN" nodes:
 	// one with state "UNKNOWN" from main cluster, and the other with state "UP"
 	// from sandboxes.
-	if node.State == util.NodeUpState {
+	switch node.State {
+	case util.NodeUpState:
 		if n, err := node.asNodeInfo(); err != nil {
 			op.logger.PrintError("[%s] %s", op.name, err.Error())
 		} else {
 			upScNodes.Add(n)
 			scNodes.Add(n)
 		}
-	} else if node.State == util.NodeDownState {
+	case util.NodeDownState:
 		// for "DOWN" node, we cannot get its version from https response
 		n := node.asNodeInfoWithoutVer()
 		scNodes.Add(n)
