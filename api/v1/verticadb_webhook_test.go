@@ -2618,6 +2618,33 @@ var _ = Describe("verticadb_webhook", func() {
 		Expect(allErrs[0].Error()).To(ContainSubstring("Cannot change passwordSecret while sandboxing/unsandboxing is in progress"))
 	})
 
+	It("should prevent changing passwordSecret and sandboxes at the same time", func() {
+		oldVdb := MakeVDB()
+		oldVdb.Spec.Subclusters = []Subcluster{
+			{Name: "sc1", Type: PrimarySubcluster, Size: 3},
+			{Name: "sc2", Type: SecondarySubcluster, Size: 3},
+		}
+		sandbox := &Sandbox{
+			Name: "sandbox1",
+			Subclusters: []SandboxSubcluster{
+				{Name: "sc2", Type: PrimarySubcluster},
+			},
+		}
+		oldVdb.Spec.PasswordSecret = oldSecret
+		oldVdb.Status.PasswordSecret = &oldVdb.Spec.PasswordSecret
+		oldVdb.Spec.Sandboxes = []Sandbox{*sandbox}
+		oldVdb.Status.Sandboxes = []SandboxStatus{
+			{Name: "sandbox1", Subclusters: []string{"sc2"}},
+		}
+		// unsandboxing sc2 and changing passwordSecret at the same time
+		newVdb := oldVdb.DeepCopy()
+		newVdb.Spec.PasswordSecret = newSecret
+		newVdb.Spec.Sandboxes = []Sandbox{}
+		allErrs := newVdb.checkPasswordSecretUpdateWithSandbox(oldVdb, field.ErrorList{})
+		Expect(allErrs).ToNot(BeEmpty())
+		Expect(allErrs[0].Error()).To(ContainSubstring("Cannot change passwordSecret while sandboxing/unsandboxing is in progress"))
+	})
+
 	It("should not accept invalid client server tls modes", func() {
 		newVdb := MakeVDB()
 		SetVDBForTLS(newVdb)
