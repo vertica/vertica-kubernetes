@@ -43,6 +43,7 @@ const (
 	nmaTLSSecret          = "NMATLSSecret"
 	httpsNMATLSSecret     = "HTTPSNMATLSSecret" //nolint:gosec
 	clientServerTLSSecret = "ClientServerTLSSecret"
+	interNodeTLSSecret    = "interNodeTLSSecret"
 	TLSCertName           = "tls.crt"
 	TLSKeyName            = "tls.key"
 )
@@ -83,6 +84,7 @@ func (h *TLSServerCertGenReconciler) reconcileSecrets(ctx context.Context) error
 		{clientServerTLSSecret, h.Vdb.GetClientServerTLSSecret()},
 		{nmaTLSSecret, h.Vdb.Spec.NMATLSSecret},
 		{httpsNMATLSSecret, h.Vdb.GetHTTPSNMATLSSecret()},
+		{interNodeTLSSecret, h.Vdb.GetInterNodeTLSSecret()},
 	}
 
 	h.Log.Info("Starting TLS secret reconciliation", "secrets", secretStruct)
@@ -166,6 +168,9 @@ func (h *TLSServerCertGenReconciler) reconcileOneSecret(secretFieldName, secretN
 	tlsConfigName := vapi.HTTPSNMATLSConfigName
 	if secretFieldName == clientServerTLSSecret {
 		tlsConfigName = vapi.ClientServerTLSConfigName
+	}
+	if secretFieldName == interNodeTLSSecret {
+		tlsConfigName = vapi.InterNodeTLSConfigName
 	}
 	// If the secret name is set, check that it exists.
 	if secretName != "" {
@@ -276,6 +281,8 @@ func (h *TLSServerCertGenReconciler) createSecret(secretFieldName, secretName st
 			secret.GenerateName = fmt.Sprintf("%s-clientserver-tls-", h.Vdb.Name)
 		case nmaTLSSecret:
 			secret.GenerateName = fmt.Sprintf("%s-nma-tls-", h.Vdb.Name)
+		case interNodeTLSSecret:
+			secret.GenerateName = fmt.Sprintf("%s-internode-tls-", h.Vdb.Name)
 		}
 	} else {
 		secret.Name = secretName
@@ -298,6 +305,11 @@ func (h *TLSServerCertGenReconciler) setSecretNameInVDB(ctx context.Context, sec
 				return errors.New("ClientServerTLS is not enabled but trying to set secret")
 			}
 			h.Vdb.Spec.ClientServerTLS.Secret = secretName
+		case interNodeTLSSecret:
+			if h.Vdb.Spec.InterNodeTLS == nil {
+				return errors.New("InterNodeTLS is not enabled but trying to set secret")
+			}
+			h.Vdb.Spec.InterNodeTLS.Secret = secretName
 		case httpsNMATLSSecret:
 			if h.Vdb.Spec.HTTPSNMATLS == nil {
 				return errors.New("HTTPSNMATLS is not enabled but trying to set secret")
@@ -394,6 +406,10 @@ func (h *TLSServerCertGenReconciler) ShouldSkipThisConfig(secretFieldName string
 	}
 	if secretFieldName == clientServerTLSSecret && !h.Vdb.IsClientServerTLSAuthEnabled() {
 		h.Log.Info("Client-server TLS config disabled. Skipping secret validation and generation")
+		return true
+	}
+	if secretFieldName == interNodeTLSSecret && !h.Vdb.IsInterNodeTLSAuthEnabled() {
+		h.Log.Info("InterNode TLS config disabled. Skipping secret validation and generation")
 		return true
 	}
 	return false
