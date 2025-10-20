@@ -340,8 +340,6 @@ func (t *TLSConfigManager) getEvents() (started, failed, succeeded string) {
 func (t *TLSConfigManager) setTLSUpdateType() {
 	certChanged := t.CurrentSecret != "" && t.NewSecret != t.CurrentSecret
 	modeChanged := t.NewTLSMode != t.CurrentTLSMode
-	t.Log.Info("libo: set tls update type: current cert - " + t.CurrentSecret + ", new cert - " + t.NewSecret)
-	t.Log.Info("libo: set tls update type: current mode - " + t.CurrentTLSMode + ", new mode - " + t.NewTLSMode)
 	switch {
 	case modeChanged && certChanged:
 		t.TLSUpdateType = tlsModeAndCertChange

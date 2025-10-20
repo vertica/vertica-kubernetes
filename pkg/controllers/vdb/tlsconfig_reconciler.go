@@ -60,17 +60,14 @@ func MakeTLSConfigReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger, vdb
 
 // Reconcile will create a TLS secret for the http server if one is missing
 func (h *TLSConfigReconciler) Reconcile(ctx context.Context, request *ctrl.Request) (ctrl.Result, error) {
-	h.Log.Info("libo: tcr 1")
 	if h.shouldSkipTLSConfigReconcile() {
 		return ctrl.Result{}, nil
 	}
-	h.Log.Info("libo: tcr 2")
 	// If this config's TLS auth is disabled, then we skip the TLS configuration.
 	if !h.Vdb.IsTLSAuthEnabledForConfig(h.TLSConfigName) {
 		h.Log.Info("TLS auth is disabled. Skipping TLS configuration", "tlsConfigName", h.TLSConfigName)
 		return ctrl.Result{}, nil
 	}
-	h.Log.Info("libo: tcr 3")
 	h.Log.Info("Starting TLS reconciliation",
 		"certRotationEnabled", h.Vdb.IsAnyTLSAuthEnabledWithMinVersion(),
 		"secretName", h.Vdb.GetSecretInUse(h.TLSConfigName),
@@ -93,13 +90,11 @@ func (h *TLSConfigReconciler) Reconcile(ctx context.Context, request *ctrl.Reque
 
 	h.VRec.Eventf(h.Vdb, corev1.EventTypeNormal, events.TLSConfigurationStarted,
 		"Starting to configure TLS for %s", h.TLSConfigName)
-	h.Log.Info("libo: tcr 4")
 	configured, tlsMode, err := h.checkIfTLSConfiguredInDB(ctx, initiatorPod)
 	if err != nil {
 		h.Log.Error(err, "failed to check TLS configuration before setting up TLS")
 		return ctrl.Result{}, err
 	}
-	h.Log.Info("libo: tcr 5")
 	if !configured {
 		authCreated, err2 := h.checkIfTLSAuthenticationCreatedInDB(ctx, initiatorPod)
 		if err2 != nil {
