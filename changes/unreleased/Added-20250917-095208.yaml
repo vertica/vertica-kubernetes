@@ -1,5 +1,0 @@
-kind: Added
-body: DBTLSConfig has been added to Vertica DB definition. Users can customize TLS version and cipher suites.
-time: 2025-09-17T09:52:08.045986982-04:00
-custom:
-    Issue: "1364"
