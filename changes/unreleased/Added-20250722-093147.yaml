@@ -1,5 +1,0 @@
-kind: Added
-body: 'Cache has been used to store tls certificates. The cache expiry duration is configurable and the cache can be disabled.'
-time: 2025-07-22T09:31:47.811440156-04:00
-custom:
-    Issue: "1343"
