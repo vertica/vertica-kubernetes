@@ -63,9 +63,9 @@ func WithInitiatorIP(initiatorIP string) Option {
 }
 
 // WithTLSConfigName specifies the tls config name
-func WithTLSConfigName(TLSConfigName string) Option {
+func WithTLSConfigName(tlsConfigName string) Option {
 	return func(p *Parms) {
-		p.TLSConfigName = TLSConfigName
+		p.TLSConfigName = tlsConfigName
 	}
 }
 

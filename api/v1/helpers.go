@@ -1664,6 +1664,7 @@ func (v *VerticaDB) IsClientServerTLSAuthEnabled() bool {
 // It is used only in the webhook to validate TLS config changes.
 func (v *VerticaDB) IsClientServerTLSAuthEnabledForWebhook() bool {
 	return v.IsTLSAuthEnabledForConfigForWebhook(ClientServerTLSConfigName)
+}
 
 // IsInterNodeTLSAuthEnabled returns true if interNode TLS auth is enabled
 func (v *VerticaDB) IsInterNodeTLSAuthEnabled() bool {

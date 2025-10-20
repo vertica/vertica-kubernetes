@@ -50,10 +50,11 @@ func MakeAutoCertRotateReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger
 
 func (r *AutoCertRotateReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
 	// No-op if auto-rotate is not enabled at all
-	if !r.Vdb.IsAutoCertRotationEnabled(vapi.ClientServerTLSConfigName) && !r.Vdb.IsAutoCertRotationEnabled(vapi.HTTPSNMATLSConfigName) {
+	if !r.Vdb.IsDBInitialized() || !r.Vdb.IsAutoCertRotationEnabled(vapi.ClientServerTLSConfigName) &&
+		!r.Vdb.IsAutoCertRotationEnabled(vapi.HTTPSNMATLSConfigName) &&
+		!r.Vdb.IsAutoCertRotationEnabled(vapi.InterNodeTLSConfigName) {
 		return ctrl.Result{}, nil
 	}
-
 	// Check HTTPS/NMA auto-rotate
 	httpsRes, err := r.autoRotateByTLSConfig(ctx, vapi.HTTPSNMATLSConfigName)
 	if err != nil {
@@ -65,9 +66,15 @@ func (r *AutoCertRotateReconciler) Reconcile(ctx context.Context, _ *ctrl.Reques
 	if err != nil {
 		return clientServerRes, err
 	}
-
+	// Check Inter Node auto-rotate
+	interNodeRes, err := r.autoRotateByTLSConfig(ctx, vapi.InterNodeTLSConfigName)
+	if err != nil {
+		return interNodeRes, err
+	}
 	// Compare results; requeue for shortest time
-	return r.mergeResults(httpsRes, clientServerRes), nil
+	mergedRes := r.mergeResults(httpsRes, clientServerRes)
+
+	return r.mergeResults(mergedRes, interNodeRes), nil
 }
 
 // autoRotateByTLSConfig will check if a certain TLS config (httpsNMA or clientServer) requires auto-rotation.
@@ -84,12 +91,10 @@ func (r *AutoCertRotateReconciler) autoRotateByTLSConfig(ctx context.Context, tl
 			status.LastUpdate = v1.NewTime(time.Time{})
 		})
 	}
-
 	// no-op if auto-rotate disabled
 	if !r.Vdb.IsAutoCertRotationEnabled(tlsConfig) {
 		return ctrl.Result{}, nil
 	}
-
 	// If next update is not set, no auto-rotate is scheduled. This is likely right after auto-rotate has been
 	// first set up. So, set first secret and configure status.
 	nextUpdate := r.Vdb.GetTLSNextUpdate(tlsConfig)
@@ -97,12 +102,10 @@ func (r *AutoCertRotateReconciler) autoRotateByTLSConfig(ctx context.Context, tl
 		r.Log.Info("Initializing TLS auto-rotation", "tlsConfig", tlsConfig)
 		return r.initializeAutoRotate(ctx, tlsConfig)
 	}
-
 	// exit if we are here for initialization
 	if r.Init {
 		return ctrl.Result{}, nil
 	}
-
 	// Get current secret in use and the failed secret (if any)
 	current := r.Vdb.GetSecretInUse(tlsConfig)
 	failedSecret := r.Vdb.GetTLSConfigByName(tlsConfig).AutoRotateFailedSecret
@@ -123,14 +126,12 @@ func (r *AutoCertRotateReconciler) autoRotateByTLSConfig(ctx context.Context, tl
 			})
 		}
 	}
-
 	// If last auto-rotate failed, we will immediately rotate to the next secret in the list.
 	if failedSecret != "" {
 		r.Log.Info("Previous TLS rotation with secret failed; triggering retry with next secret",
 			"failedSecret", failedSecret, "tlsConfig", tlsConfig)
 		return r.rotateToNextTLSSecret(ctx, tlsConfig, failedSecret)
 	}
-
 	// Check if we are after nextUpdate.
 	// Since this can take a long time, for testing purposes, we have added an annotation to
 	// automatically trigger the auto-rotation now.
@@ -138,7 +139,6 @@ func (r *AutoCertRotateReconciler) autoRotateByTLSConfig(ctx context.Context, tl
 		r.Log.Info("Next update time for auto cert rotation has passed; triggering auto-rotation", "tlsConfig", tlsConfig)
 		return r.rotateToNextTLSSecret(ctx, tlsConfig, current)
 	}
-
 	// Otherwise, requeue to next update
 	requeueAfter := time.Until(nextUpdate.Time)
 	return ctrl.Result{RequeueAfter: requeueAfter}, nil
@@ -277,6 +277,8 @@ func (r *AutoCertRotateReconciler) updateTLSSecretSpec(
 			r.Vdb.Spec.ClientServerTLS.Secret = secretToRotateTo
 		case vapi.HTTPSNMATLSConfigName:
 			r.Vdb.Spec.HTTPSNMATLS.Secret = secretToRotateTo
+		case vapi.InterNodeTLSConfigName:
+			r.Vdb.Spec.InterNodeTLS.Secret = secretToRotateTo
 		default:
 			r.Log.Info("Unknown TLS config name", "tlsConfig", tlsConfig)
 			return nil

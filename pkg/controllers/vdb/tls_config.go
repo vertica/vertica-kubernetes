@@ -205,16 +205,13 @@ func (t *TLSConfigManager) updateTLSConfig(ctx context.Context, initiator string
 // updateTLSModeInStatus updates the tls mode in the status after it was updated
 // in the database
 func (t *TLSConfigManager) updateTLSModeInStatus(ctx context.Context) error {
-	if t.CurrentTLSMode != t.NewTLSMode {
-		t.Log.Info("Starting tls mode update in status", "old", t.CurrentTLSMode, "new", t.NewTLSMode)
-		httpsTLSConfig := vapi.MakeTLSConfig(t.tlsConfigName, t.Vdb.GetSecretInUse(t.tlsConfigName), t.NewTLSMode)
-		err := vdbstatus.UpdateTLSConfigs(ctx, t.Rec.GetClient(), t.Vdb, []*vapi.TLSConfigStatus{httpsTLSConfig})
-		if err != nil {
-			t.Log.Error(err, "failed to update tls mode in status after tls mode update in db")
-			return err
-		}
+	t.Log.Info("Starting tls mode update in status", "old", t.CurrentTLSMode, "new", t.NewTLSMode)
+	httpsTLSConfig := vapi.MakeTLSConfig(t.tlsConfigName, t.Vdb.GetTLSConfigSpecByName(t.tlsConfigName).Secret, t.NewTLSMode)
+	err := vdbstatus.UpdateTLSConfigs(ctx, t.Rec.GetClient(), t.Vdb, []*vapi.TLSConfigStatus{httpsTLSConfig})
+	if err != nil {
+		t.Log.Error(err, "failed to update tls mode in status after tls mode update in db")
+		return err
 	}
-
 	return nil
 }
 
