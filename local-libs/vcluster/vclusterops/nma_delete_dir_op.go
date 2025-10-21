@@ -123,8 +123,9 @@ func (op *nmaDeleteDirectoriesOp) buildRequestBody(
 				p.Directories = append(p.Directories, vnode.CatalogPath+nodeCatalogSubDirSuffix)
 				op.logger.Info("user specified retaining catalog directory of the database")
 			} else if op.retainOnlyDepotDir {
-				// remove everything except for depot dirs
-				p.Directories = append(p.Directories, vnode.CatalogPath)
+				// remove every dir except for depot dirs
+				parentCatDir := filepath.Dir(vnode.CatalogPath)
+				p.Directories = append(p.Directories, parentCatDir)
 				if dbDepotPath != dbCatalogPath {
 					p.Directories = append(p.Directories, dbCatalogPath)
 				}
