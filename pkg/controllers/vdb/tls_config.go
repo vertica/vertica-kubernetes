@@ -329,6 +329,10 @@ func (t *TLSConfigManager) getEvents() (started, failed, succeeded string) {
 		started = events.ClientServerTLSUpdateStarted
 		failed = events.ClientServerTLSUpdateFailed
 		succeeded = events.ClientServerTLSUpdateSucceeded
+	case tlsConfigInterNode:
+		started = events.InterNodeTLSUpdateStarted
+		failed = events.InterNodeTLSUpdateFailed
+		succeeded = events.InterNodeTLSUpdateSucceeded
 	}
 
 	return
