@@ -115,6 +115,8 @@ func (v *VClusterOps) genRotateTLSCertsOptions(s *rotatetlscerts.Params, certs *
 	opts.UserName = v.VDB.GetVerticaUser()
 	v.setAuthentication(&opts.DatabaseOptions, v.VDB.GetVerticaUser(), v.Password, certs)
 	opts.TLSSecretManager = s.NewSecretManager
-
+	if s.TLSConfig == tlsConfigInterNode {
+		opts.Password = v.Password
+	}
 	return opts
 }
