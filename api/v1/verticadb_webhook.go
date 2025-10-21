@@ -2665,12 +2665,12 @@ func (v *VerticaDB) checkTLSFieldsChangeWhenTLSDisabled(oldObj *VerticaDB, allEr
 	if vmeta.UseTLSAuth(v.Annotations) || (oldObj.Spec.HTTPSNMATLS != nil && oldObj.Spec.ClientServerTLS != nil) {
 		return allErrs
 	}
-	if v.Spec.HTTPSNMATLS != nil {
+	if oldObj.Spec.HTTPSNMATLS == nil && v.Spec.HTTPSNMATLS != nil {
 		err := field.Forbidden(field.NewPath("spec").Child("httpsNMATLS"),
 			fmt.Sprintf("cannot set httpsNMATLS when %s is set to false", vmeta.EnableTLSAuthAnnotation))
 		allErrs = append(allErrs, err)
 	}
-	if v.Spec.ClientServerTLS != nil {
+	if oldObj.Spec.ClientServerTLS == nil && v.Spec.ClientServerTLS != nil {
 		err := field.Forbidden(field.NewPath("spec").Child("clientServerTLS"),
 			fmt.Sprintf("cannot set clientServerTLS when %s is set to false", vmeta.EnableTLSAuthAnnotation))
 		allErrs = append(allErrs, err)

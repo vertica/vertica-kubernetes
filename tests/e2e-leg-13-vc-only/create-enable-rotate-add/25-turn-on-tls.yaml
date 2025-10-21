@@ -4,3 +4,6 @@ metadata:
   name: v-create-enable-rotate-add
   annotations:
     vertica.com/enable-tls-auth: "true"
+spec:
+  clientServerTLS:
+    secret: custom-cert
