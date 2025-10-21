@@ -433,7 +433,7 @@ func getInitiatorsInAllDBGroups(hosts, sandboxes []string,
 // such that the initiator is also among the user provided host list
 func getInitiatorFromUpHosts(upHosts, userProvidedHosts []string) string {
 	// Create a hash set for user-provided hosts
-	userHostsSet := mapset.NewSet[string](userProvidedHosts...)
+	userHostsSet := mapset.NewSet(userProvidedHosts...)
 
 	// Iterate through upHosts and check if any host is in the userHostsSet
 	for _, upHost := range upHosts {

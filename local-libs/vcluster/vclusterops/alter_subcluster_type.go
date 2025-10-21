@@ -172,21 +172,22 @@ func (vcc VClusterCommands) produceAlterSubclusterTypeInstructions(options *VAlt
 	}
 
 	var noHosts = []string{} // We pass in no hosts so that this op picks an up node from the previous call.
-	if options.SCType == Secondary {
+	switch options.SCType {
+	case Secondary:
 		httpsPromoteScOp, err := makeHTTPSPromoteSubclusterOp(noHosts, options.usePassword,
 			options.UserName, options.Password, options.SCName, options.Sandbox, vdb)
 		if err != nil {
 			return nil, err
 		}
 		instructions = append(instructions, &httpsPromoteScOp)
-	} else if options.SCType == Primary {
+	case Primary:
 		httpsDemoteScOp, err := makeHTTPSDemoteSubclusterOp(noHosts, options.usePassword,
 			options.UserName, options.Password, options.SCName, options.Sandbox, vdb)
 		if err != nil {
 			return nil, err
 		}
 		instructions = append(instructions, &httpsDemoteScOp)
-	} else {
+	default:
 		return nil, fmt.Errorf("failed to add instructions: unsupported subcluster type '%s'", options.SCType)
 	}
 
