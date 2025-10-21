@@ -123,11 +123,12 @@ func (op *httpsMarkDesignKSafeOp) processResult(_ *opEngineExecContext) error {
 
 		// retrieve and verify the mark ksafety response
 		var ksafeValue int
-		if markDesignKSafeResponse.Detail == zeroSafeRspStr {
+		switch markDesignKSafeResponse.Detail {
+		case zeroSafeRspStr:
 			ksafeValue = 0
-		} else if markDesignKSafeResponse.Detail == oneSafeRspStr {
+		case oneSafeRspStr:
 			ksafeValue = 1
-		} else {
+		default:
 			err = fmt.Errorf(`[%s] fail to parse the ksafety value information, detail: %s`,
 				op.name, markDesignKSafeResponse.Detail)
 			allErrs = errors.Join(allErrs, err)

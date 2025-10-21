@@ -72,6 +72,7 @@ const (
 	TLSAuthEndpoint       = "authentication/tls/"
 	TLSBootstrapEndpoint  = "authentication/client"
 	TLSInfoEndpoint       = "tls/info"
+	NullVal               = "null"
 )
 
 const (
@@ -230,8 +231,8 @@ func SliceDiff[K comparable](m, n []K) []K {
 
 // calculate and sort array commonalities: m ∩ n
 func SliceCommon[K constraints.Ordered](m, n []K) []K {
-	mSet := mapset.NewSet[K](m...)
-	nSet := mapset.NewSet[K](n...)
+	mSet := mapset.NewSet(m...)
+	nSet := mapset.NewSet(n...)
 	common := mSet.Intersect(nSet).ToSlice()
 	slices.Sort(common)
 
@@ -405,7 +406,7 @@ func ResolveToOneIP(hostname string, ipv6 bool) (string, error) {
 	}
 
 	if len(addrs) > 1 {
-		return "", fmt.Errorf("%s is resolved to more than one IP addresss: %v", hostname, addrs)
+		return "", fmt.Errorf("%s is resolved to more than one IP address: %v", hostname, addrs)
 	}
 
 	return addrs[0], nil
@@ -800,16 +801,15 @@ func fillInDefaultTimeForTimestampHelper(parsedDate time.Time, hour, minute, sec
 	year, month, day := parsedDate.Year(), parsedDate.Month(), parsedDate.Day()
 	location := parsedDate.Location() // Extracting the timezone
 	datetime := time.Date(year, month, day, hour, minute, second, nanosecond, location)
-	formatedDatetime := datetime.Format(DefaultDateTimeNanoSecFormat)
-	return formatedDatetime, datetime
+	return datetime.Format(DefaultDateTimeNanoSecFormat), datetime
 }
 
 // Read date only string from argument, fill in time, overwrite argument by date time string, and return parsed time,
 // the filled in time will indicate the beginning of a day
 func FillInDefaultTimeForStartTimestamp(dateonly *string) *time.Time {
 	parsedDate, _ := time.Parse(DefaultDateOnlyFormat, *dateonly)
-	formatedDatetime, datetime := fillInDefaultTimeForTimestampHelper(parsedDate, 0, 0, 0, 0)
-	*dateonly = formatedDatetime
+	formattedDatetime, datetime := fillInDefaultTimeForTimestampHelper(parsedDate, 0, 0, 0, 0)
+	*dateonly = formattedDatetime
 	return &datetime
 }
 
@@ -821,8 +821,8 @@ func FillInDefaultTimeForEndTimestamp(dateonly *string) *time.Time {
 	const lastMin = 59
 	const lastSec = 59
 	const lastNanoSec = 999999999
-	formatedDatetime, datetime := fillInDefaultTimeForTimestampHelper(parsedDate, lastHour, lastMin, lastSec, lastNanoSec)
-	*dateonly = formatedDatetime
+	formattedDatetime, datetime := fillInDefaultTimeForTimestampHelper(parsedDate, lastHour, lastMin, lastSec, lastNanoSec)
+	*dateonly = formattedDatetime
 	return &datetime
 }
 
