@@ -43,7 +43,7 @@ const (
 	nmaTLSSecret          = "NMATLSSecret"
 	httpsNMATLSSecret     = "HTTPSNMATLSSecret" //nolint:gosec
 	clientServerTLSSecret = "ClientServerTLSSecret"
-	interNodeTLSSecret    = "interNodeTLSSecret"
+	interNodeTLSSecret    = "interNodeTLSSecret" //nolint:gosec
 	TLSCertName           = "tls.crt"
 	TLSKeyName            = "tls.key"
 )
