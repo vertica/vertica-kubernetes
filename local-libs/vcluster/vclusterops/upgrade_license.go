@@ -153,7 +153,7 @@ func (vcc VClusterCommands) VUpgradeLicense(options *VUpgradeLicenseOptions) err
 	// produce create acchive instructions
 	instructions, err := vcc.produceUpgradeLicenseInstructions(options)
 	if err != nil {
-		return fmt.Errorf("fail to produce instructions to upgrade license, %w", err)
+		return fmt.Errorf("fail to produce INSTRUCTIONS, %w", err)
 	}
 
 	// create a VClusterOpEngine, and add certs to the engine

@@ -31,7 +31,7 @@ type VClusterHealthOptions struct {
 	StartTime         string
 	EndTime           string
 	SessionID         string
-	Threshold         string
+	Threadhold        string
 	ThreadID          string
 	PhaseDurationDesc string
 	EventDesc         string
