@@ -89,13 +89,7 @@ func (c *CreateDBReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ct
 		c.Vdb.Spec.InitPolicy != vapi.CommunalInitPolicyCreateSkipPackageInstall {
 		return ctrl.Result{}, nil
 	}
-
-	// check if license secret is set for vclusterops
-	err := c.checkLisenseSecret()
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-
+	var err error
 	c.VInf, err = c.Vdb.MakeVersionInfoCheck()
 	if err != nil {
 		// The version should be in the VerticaDB. Although it could be missing
@@ -242,15 +236,6 @@ func (c *CreateDBReconciler) postCmdCleanup(ctx context.Context) (ctrl.Result, e
 		return ctrl.Result{Requeue: true}, nil
 	}
 	return ctrl.Result{}, nil
-}
-
-// checkLisenseSecret() returns an error when licenseSecret field is empty and vclusteops is used
-// when ce license is allowed by annotation, it will not return the error
-func (c *CreateDBReconciler) checkLisenseSecret() error {
-	if c.Vdb.Spec.LicenseSecret == "" && c.Vdb.UseVClusterOpsDeployment() && !vmeta.GetAllowCELicense(c.Vdb.Annotations) {
-		return fmt.Errorf("failed to create database because of empty licenseSecret")
-	}
-	return nil
 }
 
 // getPodList gets a list of all of the pods we are going to use with create db.
