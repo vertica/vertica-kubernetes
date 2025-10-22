@@ -63,7 +63,7 @@ func (h *InterNodeTLSUpdateReconciler) Reconcile(ctx context.Context, req *ctrl.
 		vapi.RollbackAfterInterNodeCertRotationReason {
 		return h.rollback(ctx)
 	}
-	if h.Vdb.ShouldSkipInterNodeTLSUpdateReconcile(h.FromRollback) {
+	if h.shouldSkipReconciler() {
 		return ctrl.Result{}, nil
 	}
 	err := h.PFacts.Collect(ctx, h.Vdb)
@@ -86,7 +86,6 @@ func (h *InterNodeTLSUpdateReconciler) Reconcile(ctx context.Context, req *ctrl.
 	if !h.Manager.needTLSConfigChange() {
 		return ctrl.Result{}, nil
 	}
-
 	h.Log.Info("start inter node tls config update")
 	upPods := h.PFacts.FindUpPods("")
 	if len(upPods) == 0 {
@@ -113,6 +112,14 @@ func (h *InterNodeTLSUpdateReconciler) Reconcile(ctx context.Context, req *ctrl.
 		return ctrl.Result{}, err
 	}
 	return ctrl.Result{}, nil
+}
+
+func (h *InterNodeTLSUpdateReconciler) shouldSkipReconciler() bool {
+	if !h.FromRollback && (!h.Vdb.IsDBInitialized() ||
+		h.Vdb.IsTLSCertRollbackNeeded() || !h.Vdb.IsInterNodeTLSAuthEnabledWithMinVersion()) {
+		return true
+	}
+	return false
 }
 
 func (h *InterNodeTLSUpdateReconciler) rollback(ctx context.Context) (ctrl.Result, error) {
