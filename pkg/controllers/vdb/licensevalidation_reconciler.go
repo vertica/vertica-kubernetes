@@ -100,16 +100,11 @@ func (r *LicenseValidationReconciler) Reconcile(ctx context.Context, _ *ctrl.Req
 // shouldSkipLicenseValidattion() will return true when license validation should be skipped.
 func (r *LicenseValidationReconciler) shouldSkipLicenseValidation() bool {
 	return !r.vdb.UseVClusterOpsDeployment() || meta.GetAllowCELicense(r.vdb.Annotations) ||
-		r.vdb.IsStatusConditionTrue(vapi.UpgradeInProgress) || r.vdb.IsStatusConditionTrue(vapi.VerticaRestartNeeded)
+		r.vdb.IsStatusConditionTrue(vapi.UpgradeInProgress)
 }
 
 // licenseValidattionRequired() will return true when license validation is required.
 func (r *LicenseValidationReconciler) licenseValidationRequired() bool {
-	// If no license secret is specified, no validation needed
-	if r.vdb.Spec.LicenseSecret == "" {
-		return false
-	}
-
 	// If no previous status, validation required
 	if r.vdb.Status.LicenseStatus == nil {
 		return true
@@ -146,7 +141,7 @@ func (r *LicenseValidationReconciler) validateLicenses(ctx context.Context) (ctr
 	}
 	validLicenses, invalidLicenses, err := r.validateLicensesInSecret(ctx)
 	if err != nil {
-		r.log.Info("cannot find an initiator pod to validate license")
+		r.log.Info("failed to validate license")
 		return ctrl.Result{}, err // if no pod, return an error
 	}
 	var eventContent string
@@ -166,7 +161,7 @@ func (r *LicenseValidationReconciler) validateLicenses(ctx context.Context) (ctr
 		return ctrl.Result{}, fmt.Errorf("%s", eventContent)
 	}
 	// When db is not created yet, save a valid license key into annotation for db creation
-	if !r.vdb.IsDBInitialized() && meta.GetValidLicenseKey(r.vdb.Annotations) == "" {
+	if !r.vdb.IsDBInitialized() {
 		r.vdb.Annotations[meta.ValidLicenseKeyAnnotation] = validLicenses[0].Key
 	}
 	err = r.vRec.GetClient().Update(ctx, r.vdb)
