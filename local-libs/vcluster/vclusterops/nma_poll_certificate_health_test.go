@@ -78,7 +78,7 @@ func TestNMAPollCertHealthOp(t *testing.T) {
 	hosts := []string{host, extraHost}
 
 	// test positive case of nma certs passing
-	opSuccess := makeNMAPollCertHealthOp(hosts)
+	opSuccess := makeNMAPollCertHealthOp(hosts, 0)
 	opSuccess.setupBasicInfo()
 	err := opSuccess.prepare(&execContext)
 	assert.NoError(t, err)
@@ -91,7 +91,7 @@ func TestNMAPollCertHealthOp(t *testing.T) {
 	assert.True(t, doStop)
 
 	// test that error unrelated to where we are in the restart process is fatal
-	opError := makeNMAPollCertHealthOp(hosts)
+	opError := makeNMAPollCertHealthOp(hosts, 0)
 	opError.setupBasicInfo()
 	err = opError.prepare(&execContext)
 	assert.NoError(t, err)
@@ -101,7 +101,7 @@ func TestNMAPollCertHealthOp(t *testing.T) {
 	assert.Error(t, err)
 
 	// test a potential client-side TLS error indicating NMA hasn't restarted with the right certs yet
-	opException := makeNMAPollCertHealthOp(hosts)
+	opException := makeNMAPollCertHealthOp(hosts, 0)
 	opException.setupBasicInfo()
 	err = opException.prepare(&execContext)
 	assert.NoError(t, err)
@@ -112,7 +112,7 @@ func TestNMAPollCertHealthOp(t *testing.T) {
 	assert.False(t, doStop)
 
 	// test the server-side error indicating NMA hasn't restarted with the right certs yet
-	opUnauthorized := makeNMAPollCertHealthOp(hosts)
+	opUnauthorized := makeNMAPollCertHealthOp(hosts, 0)
 	opUnauthorized.setupBasicInfo()
 	err = opUnauthorized.prepare(&execContext)
 	assert.NoError(t, err)
@@ -123,7 +123,7 @@ func TestNMAPollCertHealthOp(t *testing.T) {
 	assert.False(t, doStop)
 
 	// test a reset connection when the NMA server dies abruptly during an endpoint call
-	opEOF := makeNMAPollCertHealthOp(hosts)
+	opEOF := makeNMAPollCertHealthOp(hosts, 0)
 	opEOF.setupBasicInfo()
 	err = opEOF.prepare(&execContext)
 	assert.NoError(t, err)

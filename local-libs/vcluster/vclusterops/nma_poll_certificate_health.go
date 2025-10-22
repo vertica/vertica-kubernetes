@@ -26,13 +26,19 @@ type nmaPollCertHealthOp struct {
 	opBase
 	// while processing results, store responsive hosts for later reporting
 	okHosts []string
+	timeout int
 }
 
-func makeNMAPollCertHealthOp(hosts []string) nmaPollCertHealthOp {
+func makeNMAPollCertHealthOp(hosts []string, timeout int) nmaPollCertHealthOp {
 	op := nmaPollCertHealthOp{}
 	op.name = "NMAPollCertHealthOp"
 	op.description = "Check NMA service certificate health"
 	op.hosts = hosts
+	op.timeout = timeout
+	if op.timeout == 0 {
+		const sixMinutes = OneMinute * 6 // make the linter happy
+		op.timeout = sixMinutes
+	}
 	return op
 }
 
@@ -81,8 +87,7 @@ func (op *nmaPollCertHealthOp) processResult(execContext *opEngineExecContext) e
 }
 
 func (op *nmaPollCertHealthOp) getPollingTimeout() int {
-	const sixMinutes = OneMinute * 6 // make the linter happy
-	return sixMinutes
+	return op.timeout
 }
 
 func (op *nmaPollCertHealthOp) shouldStopPolling() (bool, error) {

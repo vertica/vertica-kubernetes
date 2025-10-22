@@ -45,7 +45,7 @@ func makeCmdClusterHealth() *cobra.Command {
 		clusterHealth,
 		"Checks the database cluster health. This is used for testing and debugging only.",
 		`Checks the database cluster health.
-
+		
 This is used for testing and debugging only.
 
 Examples:
@@ -102,10 +102,10 @@ func (c *CmdClusterHealth) setLocalFlags(cmd *cobra.Command) {
 		"The session id (for session start and slow event).",
 	)
 	cmd.Flags().StringVar(
-		&c.clusterHealthOptions.Threshold,
-		"threshold",
+		&c.clusterHealthOptions.Threadhold,
+		"threadhold",
 		"",
-		"The threshold of seconds for slow events (for get_slow_events).",
+		"The threadhold of seconds for slow events (for get_slow_events).",
 	)
 	cmd.Flags().StringVar(
 		&c.clusterHealthOptions.ThreadID,
@@ -129,7 +129,7 @@ func (c *CmdClusterHealth) setLocalFlags(cmd *cobra.Command) {
 		&c.clusterHealthOptions.Display,
 		"display",
 		false,
-		"Whether display the cascade graph in console",
+		"Wheather display the cascade graph in console",
 	)
 	cmd.Flags().StringVar(
 		&c.clusterHealthOptions.Timezone,
@@ -246,10 +246,9 @@ func (c *CmdClusterHealth) Run(vcc vclusterops.ClusterCommands) error {
 	vcc.LogInfo("event traceback: ", "slow events", string(bytes))
 
 	if options.Display {
-		switch options.Operation {
-		case "", slowEventCascade:
+		if options.Operation == "" || options.Operation == slowEventCascade {
 			options.DisplayMutexEventsCascade()
-		case lockCascade:
+		} else if options.Operation == lockCascade {
 			options.DisplayLockEventsCascade()
 		}
 	}

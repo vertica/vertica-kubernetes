@@ -16,13 +16,10 @@
 package vclusterops
 
 import (
-	"errors"
 	"fmt"
 	"path/filepath"
 	"regexp"
 	"strings"
-
-	"github.com/go-logr/logr"
 )
 
 // A VWorkloadPreprocessParams model.
@@ -49,44 +46,21 @@ type vWorkloadPreprocessCall struct {
 	response   VWorkloadPreprocessResponse
 }
 
-var (
-	reCopyFromFileOrStdin = regexp.MustCompile(`(?is)^\s*COPY\s+.*\s+FROM\s+(STDIN\b|'[^']+')`)
-	reCopyFromKafkaSource = regexp.MustCompile(`(?is)^\s*COPY\s+.*\s+SOURCE\s+\w+\s*\(`)
-)
-
 // PreprocessQuery implements the main logic
-func (p *vWorkloadPreprocessCall) PreprocessQuery(logger logr.Logger) error {
+func (p *vWorkloadPreprocessCall) PreprocessQuery() error {
 	err := p.validateParams()
 	if err != nil {
 		return err
 	}
 
-	query := strings.TrimSpace(p.bodyParams.VRequest)
-	logger.Info("Preprocessing query", "query", query)
+	// commented out GenerateCopyQuery as COPY statement is not supported
+	// if strings.Contains(strings.ToLower(p.bodyParams.VRequest), "copy") {
+	// 	p.GenerateCopyQuery(p.bodyParams.VRequest)
+	// } else {
+	// 	p.DefaultQuery()
+	// }
 
-	switch {
-	case reCopyFromFileOrStdin.MatchString(query):
-		// Traditional COPY FROM 'file.csv'
-		logger.Info("Detected COPY FROM file/stdin", "query", query)
-
-		if err := p.GenerateCopyQueryFromFile(query, logger); err != nil {
-			logger.Error(err, "Failed to preprocess COPY FROM file/stdin query")
-			return err
-		}
-
-	case reCopyFromKafkaSource.MatchString(query):
-		// COPY SOURCE KafkaSource(...)
-		logger.Info("Detected COPY SOURCE (Kafka)", "query", query)
-		if err := p.GenerateCopyQueryFromKafkaSource(query, logger); err != nil {
-			logger.Error(err, "Failed to preprocess COPY FROM Kafka source query")
-			return err
-		}
-
-	default:
-		// Not a COPY statement at all
-		logger.Info("Detected non-COPY statement", "query", query)
-		p.DefaultQuery()
-	}
+	p.DefaultQuery()
 
 	return nil
 }
@@ -104,97 +78,32 @@ func (p *vWorkloadPreprocessCall) validateParams() error {
 	return nil
 }
 
-// GenerateCopyQueryFromFile if statement is of type COPY
-func (p *vWorkloadPreprocessCall) GenerateCopyQueryFromFile(query string, logger logr.Logger) error {
-	logger.Info("Preprocessing COPY query", "query", query)
-	// Extract the full COPY ... FROM ... clause (case-insensitive)
-	rePre := regexp.MustCompile(`(?i)copy.*from`)
-	preMatches := rePre.FindString(query)
-	if preMatches == "" {
-		err := errors.New("unsupported COPY statement")
-		logger.Error(err, "query", query)
-		return err
-	}
+// GenerateCopyQuery if statement is of type COPY
+// TODO: This is adding a forward slash at the end of catalog path - should be removed
+func (p *vWorkloadPreprocessCall) GenerateCopyQuery(query string) {
+	// prefix query
+	rePre := regexp.MustCompile(`(?i)copy.*from`) // Panics if the pattern is invalid
+	preMatches := rePre.FindAllStringSubmatch(query, -1)
 
-	// Extract the DELIMITER clause (case-insensitive)
-	rePost := regexp.MustCompile(`(?i)delimiter.*`)
-	postMatches := rePost.FindString(query)
-	if postMatches == "" {
-		logger.Info("WARNING: DELIMITER clause not found; continuing without it")
-	}
+	// postfix query
+	rePost := regexp.MustCompile(`(?i)delimiter.*`) // Panics if the pattern is invalid
+	postMatches := rePost.FindAllStringSubmatch(query, -1)
 
-	// Construct COPY ... FROM STDIN statement
-	stdinQuery := fmt.Sprintf("%s stdin %s", preMatches, postMatches)
-	logger.Info("VWorkloadPreprocess Copy stdin SQL", "sql", stdinQuery)
+	stdinQuery := fmt.Sprintf("%s stdin %s", strings.Join(preMatches[0], " "), strings.Join(postMatches[0], " "))
+	fmt.Println("VWorkloadPreprocess Copy stdin SQL: " + stdinQuery)
 
-	// Extract file path inside single quotes
-	reFile := regexp.MustCompile(`'(.*?)'`)
-	fileMatch := reFile.FindStringSubmatch(query)
-	const expectedFileMatchParts = 2 // 2: full match + captured group
-
-	if len(fileMatch) < expectedFileMatchParts {
-		err := errors.New("could not extract file path from COPY statement")
-		logger.Error(err, "query", query)
-		return err
-	}
-	absFilePath := fileMatch[1]
-	logger.Info("Preprocess path:", absFilePath)
-
-	// Split file path into directory and file name
+	reFile := regexp.MustCompile(`'(.*?)'`) // Panics if the pattern is invalid
+	absFilePath := reFile.FindStringSubmatch(query)[1]
+	fmt.Println("Preprocess path: " + absFilePath)
 	fileDir, fileName := filepath.Split(absFilePath)
-
 	if fileDir == "" {
-		fileDir = filepath.Clean(p.bodyParams.VCatalogPath)
-		logger.Info("No directory in file path; falling back to VCatalogPath", "path", fileDir)
+		fileDir = p.bodyParams.VCatalogPath // default catalog path
 	}
 
-	// Populate response object
 	p.response.VStmtType = "copy"
 	p.response.VParsedQuery = stdinQuery
 	p.response.VFileName = fileName
 	p.response.VFileDir = fileDir
-	return nil
-}
-
-func (p *vWorkloadPreprocessCall) GenerateCopyQueryFromKafkaSource(query string, logger logr.Logger) error {
-	// Confirm this is a COPY SOURCE query
-	reCopySource := regexp.MustCompile(`(?i)^\s*COPY\s+.*\s+SOURCE\s+\w+\s*\(`)
-	if !reCopySource.MatchString(query) {
-		err := fmt.Errorf("invalid COPY SOURCE statement")
-		logger.Error(err, "Query did not match expected COPY SOURCE pattern", "query", query)
-		return err
-	}
-
-	// Extract stream='...' — required
-	reStream := regexp.MustCompile(`(?i)stream\s*=\s*'(.*?)'`)
-	streamMatch := reStream.FindStringSubmatch(query)
-	if len(streamMatch) < 2 || streamMatch[1] == "" {
-		err := fmt.Errorf("missing required 'stream' parameter in COPY SOURCE")
-		logger.Error(err, "stream=... not found", "query", query)
-		return err
-	}
-	streamValue := streamMatch[1]
-	logger.Info("Extracted Kafka stream", "stream", streamValue)
-
-	// Extract brokers='...' — optional
-	reBrokers := regexp.MustCompile(`(?i)brokers\s*=\s*'(.*?)'`)
-	brokerMatch := reBrokers.FindStringSubmatch(query)
-	brokerValue := ""
-	const expectedBrokerMatchParts = 2
-
-	if len(brokerMatch) >= expectedBrokerMatchParts {
-		brokerValue = brokerMatch[1]
-		logger.Info("Extracted Kafka brokers", "brokers", brokerValue)
-	} else {
-		logger.Info("No brokers=... found in COPY SOURCE", "query", query)
-	}
-
-	// Populate response
-	p.response.VStmtType = "kafka_copy"
-	p.response.VParsedQuery = query
-	p.response.VFileName = streamValue // store stream
-	p.response.VFileDir = brokerValue  // store brokers
-	return nil
 }
 
 // DefaultQuery if statement is not of type COPY
