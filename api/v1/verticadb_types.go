@@ -1139,8 +1139,8 @@ type LicenseStatus struct {
 
 type LicenseInfo struct {
 	// +operator-sdk:csv:customresourcedefinitions:type=status
-	// the sha256 calculated from the license content
-	Digest string `json:"digest"`
+	// the license key used in the license secret
+	Key string `json:"license_key"`
 	// +operator-sdk:csv:customresourcedefinitions:type=status
 	// populated after the license is validated
 	Valid bool `json:"valid"`
