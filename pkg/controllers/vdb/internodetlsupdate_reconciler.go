@@ -66,6 +66,9 @@ func (h *InterNodeTLSUpdateReconciler) Reconcile(ctx context.Context, req *ctrl.
 	if h.shouldSkipReconciler() {
 		return ctrl.Result{}, nil
 	}
+	if err := h.updateTLSConfigEnabledInVdb(ctx); err != nil {
+		return ctrl.Result{}, err
+	}
 	err := h.PFacts.Collect(ctx, h.Vdb)
 	if err != nil {
 		return ctrl.Result{}, err
@@ -165,4 +168,28 @@ func (h *InterNodeTLSUpdateReconciler) rollback(ctx context.Context) (ctrl.Resul
 		}
 	}
 	return ctrl.Result{}, nil
+}
+
+// updateTLSConfigEnabledInVdb will set the TLS Enabled fields in the vdb spec if they
+// are nil. This is to handle the case where a user created a vdb with webhook
+// disabled and enabled field nil. In case the turn on the webhook later, we
+// do not want it to alter the enabled field.
+func (h *InterNodeTLSUpdateReconciler) updateTLSConfigEnabledInVdb(ctx context.Context) error {
+	h.Log.Info("libo: should set tls 1")
+	if !(h.Vdb.Spec.InterNodeTLS != nil && h.Vdb.Spec.InterNodeTLS.Enabled == nil) {
+		return nil
+	}
+	h.Log.Info("libo: should set tls 2")
+	nm := h.Vdb.ExtractNamespacedName()
+	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		// Always fetch the latest in case we are in the retry loop
+		if err := h.VRec.Client.Get(ctx, nm, h.Vdb); err != nil {
+			return err
+		}
+		if h.Vdb.Spec.InterNodeTLS != nil && h.Vdb.Spec.InterNodeTLS.Enabled == nil {
+			enabled := true
+			h.Vdb.Spec.InterNodeTLS.Enabled = &enabled
+		}
+		return h.VRec.Client.Update(ctx, h.Vdb)
+	})
 }

@@ -10,3 +10,4 @@ status:
     autoRotateSecrets:
     - cert1
     - cert2
+  - name: interNode

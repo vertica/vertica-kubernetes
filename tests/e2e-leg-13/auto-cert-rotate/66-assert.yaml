@@ -7,49 +7,40 @@ involvedObject:
   apiVersion: vertica.com/v1
   kind: VerticaDB
   name: v-auto-cert-rotate
-message: Auto-rotate triggered for TLS config httpsNMA with secret cert1
+message: Auto-rotate triggered for TLS config interNode with secret cert1
 ---
 apiVersion: v1
 kind: Event
-reason: HTTPSTLSUpdateStarted
+reason: InterNodeTLSUpdateStarted
 source:
   component: verticadb-operator
 involvedObject:
   apiVersion: vertica.com/v1
   kind: VerticaDB
   name: v-auto-cert-rotate
-message: Starting tls cert rotation for HTTP with secret name cert1 and mode verify_ca
+message: Starting tls cert rotation for Internode with secret name cert1 and mode verify_ca
 ---
 apiVersion: v1
 kind: Event
-reason: HTTPSTLSUpdateSucceeded
+reason: InterNodeTLSUpdateSucceeded
 source:
   component: verticadb-operator
 involvedObject:
   apiVersion: vertica.com/v1
   kind: VerticaDB
   name: v-auto-cert-rotate
-message: Successfully rotated HTTP tls cert with secret name cert1 and mode verify_ca
+message: Successfully rotated Internode tls cert with secret name cert1 and mode verify_ca
 ---
 apiVersion: v1
 kind: Event
-reason: NMATLSCertRotationStarted
+reason: TLSAutoRotateFailed
 source:
   component: verticadb-operator
 involvedObject:
   apiVersion: vertica.com/v1
   kind: VerticaDB
   name: v-auto-cert-rotate
----
-apiVersion: v1
-kind: Event
-reason: NMATLSCertRotationSucceeded
-source:
-  component: verticadb-operator
-involvedObject:
-  apiVersion: vertica.com/v1
-  kind: VerticaDB
-  name: v-auto-cert-rotate
+message: Completed all secrets for TLS Config interNode. Auto-rotation is stopped; update the secrets list to resume.
 ---
 apiVersion: vertica.com/v1
 kind: VerticaDB
@@ -58,10 +49,10 @@ metadata:
 status:
   tlsConfigs:
   - name: httpsNMA
-    secret: cert1
-    autoRotateSecrets:
-    - cert1
-    - cert2
-    - cert3
   - name: clientServer
   - name: interNode
+    secret: cert1
+    autoRotateSecrets:
+    - cert2
+    - cert3
+    - cert1
