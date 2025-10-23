@@ -17,9 +17,7 @@ package vdb
 
 import (
 	"context"
-	"crypto/sha256"
 	"encoding/base64"
-	"encoding/hex"
 	"fmt"
 	"maps"
 	"slices"
@@ -57,11 +55,6 @@ type LicenseValidationReconciler struct {
 	dispatcher   vadmin.Dispatcher
 	pFacts       *podfacts.PodFacts
 	cacheManager cache.CacheManager
-}
-
-type LicenseDetail struct {
-	Key string `json:"key"`
-	vapi.LicenseInfo
 }
 
 // MakeLicenseValidationReconciler will build a LicenseReconciler object
@@ -177,7 +170,7 @@ func (r *LicenseValidationReconciler) validateLicenses(ctx context.Context) (ctr
 			len(validLicenses), r.vdb.Spec.LicenseSecret))
 	newLicenseStatus := &vapi.LicenseStatus{}
 	newLicenseStatus.LicenseSecret = r.vdb.Spec.LicenseSecret
-	newLicenseStatus.Licenses = r.convert(validLicenses)
+	newLicenseStatus.Licenses = validLicenses
 	err = r.saveLicenseStatusInStatus(ctx, newLicenseStatus)
 	if err != nil {
 		r.log.Info("failed to save license status into Status")
@@ -189,7 +182,7 @@ func (r *LicenseValidationReconciler) validateLicenses(ctx context.Context) (ctr
 
 // validateLicensesInSecret() load licenses from the secret and calls vcluster API to validate all licenses
 // It returns valid licenses, invalid licenses and the error messages.
-func (r *LicenseValidationReconciler) validateLicensesInSecret(ctx context.Context) (validLicenses []LicenseDetail,
+func (r *LicenseValidationReconciler) validateLicensesInSecret(ctx context.Context) (validLicenses []vapi.LicenseInfo,
 	invalidLicenses map[string]string, err error) {
 	namespacedLicenseSecretName := types.NamespacedName{
 		Name:      r.vdb.Spec.LicenseSecret,
@@ -228,23 +221,13 @@ func (r *LicenseValidationReconciler) validateLicensesInSecret(ctx context.Conte
 			invalidLicenses[licenseKey] = errCheckLicense.Error()
 			r.log.Error(errCheckLicense, "invalid Vertica license", "licenseKey", licenseKey, "licenseSecret", r.vdb.Spec.LicenseSecret)
 		} else {
-			licenseDetail := LicenseDetail{}
-			licenseDetail.Key = licenseKey
-			licenseDetail.Digest = r.getDigest(string(licenseFile))
-			licenseDetail.Valid = true
-			validLicenses = append(validLicenses, licenseDetail)
+			licenseInfo := vapi.LicenseInfo{}
+			licenseInfo.Key = licenseKey
+			licenseInfo.Valid = true
+			validLicenses = append(validLicenses, licenseInfo)
 		}
 	}
 	return validLicenses, invalidLicenses, nil
-}
-
-// getDigest() calculates sha256 digest from the string.
-func (r *LicenseValidationReconciler) getDigest(input string) string {
-	hasher := sha256.New()
-	hasher.Write([]byte(input))
-	hashInBytes := hasher.Sum(nil)
-	hexHash := hex.EncodeToString(hashInBytes)
-	return hexHash
 }
 
 // saveLastValidattionTimeInCache() saves the validation time into the cache
@@ -271,13 +254,4 @@ func (r *LicenseValidationReconciler) saveLicenseStatusInStatus(ctx context.Cont
 		return nil
 	}
 	return vdbstatus.Update(ctx, r.vRec.GetClient(), r.vdb, refreshStatusInPlace)
-}
-
-// convert() converts LicenseDetail slice into LicenseInfo slice
-func (r *LicenseValidationReconciler) convert(licenseDetails []LicenseDetail) []vapi.LicenseInfo {
-	licenseInfoSlice := []vapi.LicenseInfo{}
-	for _, licenseDetail := range licenseDetails {
-		licenseInfoSlice = append(licenseInfoSlice, licenseDetail.LicenseInfo)
-	}
-	return licenseInfoSlice
 }
