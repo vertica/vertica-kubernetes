@@ -607,6 +607,7 @@ type ClusterCommands interface {
 	VFetchNodeState(options *VFetchNodeStateOptions) ([]NodeInfo, error)
 	VGetDrainingStatus(options *VGetDrainingStatusOptions) (DrainingStatusList, error)
 	VInstallPackages(options *VInstallPackagesOptions) (*InstallPackageStatus, error)
+	VPollConnectionDraining(options *VPollConnectionDrainingOptions) error
 	VManageConnectionDraining(options *VManageConnectionDrainingOptions) error
 	VPollSubclusterState(options *VPollSubclusterStateOptions) error
 	VPromoteSandboxToMain(options *VPromoteSandboxToMainOptions) error
