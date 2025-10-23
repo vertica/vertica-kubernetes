@@ -1,5 +1,0 @@
-kind: Added
-body: '`enabled` field in TLS configs; overrides and deprecates `vertica.com/enable-tls-auth`.'
-time: 2025-09-18T11:52:24.070848361-04:00
-custom:
-    Issue: "1400"

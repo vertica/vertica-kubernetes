@@ -59,9 +59,10 @@ func makeNMAUploadConfigOp(
 	op := nmaUploadConfigOp{}
 	op.name = opName
 	op.endpoint = endpoint
-	if op.endpoint == verticaConf {
+	switch op.endpoint {
+	case verticaConf:
 		op.description = "Send contents of vertica.conf to nodes"
-	} else if op.endpoint == spreadConf {
+	case spreadConf:
 		op.description = "Send contents of spread.conf to nodes"
 	}
 
