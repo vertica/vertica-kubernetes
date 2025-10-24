@@ -23,6 +23,7 @@ metadata:
     vertica.com/requeue-time: "5"
 spec:
   image: wrong-image
+  licenseSecret: license
   imagePullPolicy: IfNotPresent
   communal:
     path: "s3://upgrade-vertica"
