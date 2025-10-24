@@ -252,6 +252,7 @@ const (
 	TriggerTLSUpdateFailureBeforeHTTPSTLSUpdate        = "https_before_tls_update"
 	TriggerTLSUpdateFailureAfterHTTPSTLSUpdate         = "https_after_tls_update"
 	TriggerTLSUpdateFailureDuringClientServerTLSUpdate = "client_server"
+	TriggerTLSUpdateFailureDuringInterNodeTLSUpdate    = "inter_node"
 
 	// This annotation forces the automatic cert rotation to trigger now, instead of on
 	// a timer. It is internal and should be used only for testing.

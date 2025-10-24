@@ -776,10 +776,14 @@ func (v *VerticaDB) IsRollbackAfterNMACertRotation() bool {
 
 // GetTLSConfigSpecByName returns the TLSConfigSpec object for a certain tlsconfig (clientServer or httpsNMA)
 func (v *VerticaDB) GetTLSConfigSpecByName(tlsConfig string) *TLSConfigSpec {
-	if tlsConfig == ClientServerTLSConfigName {
+	switch tlsConfig {
+	case ClientServerTLSConfigName:
 		return v.Spec.ClientServerTLS
+	case InterNodeTLSConfigName:
+		return v.Spec.InterNodeTLS
+	default:
+		return v.Spec.HTTPSNMATLS
 	}
-	return v.Spec.HTTPSNMATLS
 }
 
 // IsAutoCertRotationEnabled checks if automatic cert rotation is enabled for
@@ -1662,6 +1666,11 @@ func (v *VerticaDB) IsClientServerTLSAuthEnabledForWebhook() bool {
 	return v.IsTLSAuthEnabledForConfigForWebhook(ClientServerTLSConfigName)
 }
 
+// IsInterNodeTLSAuthEnabled returns true if interNode TLS auth is enabled
+func (v *VerticaDB) IsInterNodeTLSAuthEnabled() bool {
+	return v.IsTLSAuthEnabledForConfig(InterNodeTLSConfigName)
+}
+
 // IsAnyTLSAuthEnabled returns true if any TLS config is enabled
 func (v *VerticaDB) IsAnyTLSAuthEnabled() bool {
 	return v.IsHTTPSNMATLSAuthEnabled() || v.IsClientServerTLSAuthEnabled()
@@ -1697,6 +1706,12 @@ func (v *VerticaDB) IsClientServerTLSAuthEnabledWithMinVersion() bool {
 	return v.IsTLSAuthEnabledWithMinVersionForConfig(ClientServerTLSConfigName)
 }
 
+// IsInterNodeTLSAuthEnabledWithMinVersion returns true if inter node TLS is enabled and operator meets the minimum version for TLS.
+// This check can only be run when DB has been initialized.
+func (v *VerticaDB) IsInterNodeTLSAuthEnabledWithMinVersion() bool {
+	return v.IsTLSAuthEnabledWithMinVersionForConfig(InterNodeTLSConfigName)
+}
+
 // IsHTTPSConfigEnabled returns true if tls is enabled and https tls config
 // exists in the db. It means the db ops can start using tls
 func (v *VerticaDB) IsHTTPSConfigEnabled() bool {
@@ -1712,6 +1727,12 @@ func (v *VerticaDB) IsHTTPSConfigEnabledWithCreate() bool {
 	}
 
 	return v.IsHTTPSNMATLSAuthEnabledWithMinVersion()
+}
+
+// IsInterNodeConfigEnabled returns true if tls is enabled and inter-node tls config
+// exists in the db
+func (v *VerticaDB) IsInterNodeConfigEnabled() bool {
+	return v.IsInterNodeTLSAuthEnabledWithMinVersion() && v.GetInterNodeTLSSecretInUse() != ""
 }
 
 // IsClientServerConfigEnabled returns true if tls is enabled and client-server tls config
@@ -2124,6 +2145,10 @@ func (v *VerticaDB) GetClientServerTLSSecretInUse() string {
 	return v.GetSecretInUse(ClientServerTLSConfigName)
 }
 
+func (v *VerticaDB) GetInterNodeTLSSecretInUse() string {
+	return v.GetSecretInUse(InterNodeTLSConfigName)
+}
+
 // GetValueForTLSConfigMap determines which value (spec or status) should be written to the NMA TLS ConfigMap.
 // The decision is made per certificate type (https or clientServer) to avoid prematurely updating NMA
 // with a new cert that hasn’t been rotated yet.
@@ -2285,6 +2310,10 @@ func (v *VerticaDB) GetClientServerTLSModeInUse() string {
 	return strings.ToLower(v.GetTLSModeInUse(ClientServerTLSConfigName))
 }
 
+func (v *VerticaDB) GetInterNodeTLSModeInUse() string {
+	return strings.ToLower(v.GetTLSModeInUse(InterNodeTLSConfigName))
+}
+
 // SetTLSConfigs updates the slice with a new TLSConfig by Name, and returns true if any changes occurred.
 func SetTLSConfigs(refs *[]TLSConfigStatus, newRef *TLSConfigStatus) (changed bool) {
 	existing := FindTLSConfig(*refs, "Name", newRef.Name)
@@ -2396,8 +2425,19 @@ func (v *VerticaDB) GetSpecClientServerTLSMode() string {
 	return v.Spec.ClientServerTLS.Mode
 }
 
+func (v *VerticaDB) GetSpecInterNodeTLSMode() string {
+	if v.Spec.InterNodeTLS == nil {
+		return ""
+	}
+	return v.Spec.InterNodeTLS.Mode
+}
+
 func (v *VerticaDB) GetClientServerTLSMode() string {
 	return strings.ToLower(v.GetSpecClientServerTLSMode())
+}
+
+func (v *VerticaDB) GetInterNodeTLSMode() string {
+	return strings.ToLower(v.GetSpecInterNodeTLSMode())
 }
 
 // Get ClientServerTLS secret from spec or return "" if not found
@@ -2408,12 +2448,29 @@ func (v *VerticaDB) GetClientServerTLSSecret() string {
 	return v.Spec.ClientServerTLS.Secret
 }
 
+// Get InterNodeTLS secret from spec or return "" if not found
+func (v *VerticaDB) GetInterNodeTLSSecret() string {
+	if v.Spec.InterNodeTLS == nil {
+		return ""
+	}
+	return v.Spec.InterNodeTLS.Secret
+}
+
 // ShouldSkipHTTPSTLSUpdateReconcile will check if TLS Update can be skipped for ClientServer.
 func (v *VerticaDB) ShouldSkipClientServerTLSUpdateReconcile(isRollback bool) bool {
 	return v.ShouldSkipTLSUpdateReconcile(
 		isRollback,
 		!v.IsClientServerTLSAuthEnabledWithMinVersion(),
 		v.IsStatusConditionTrue(ClientServerTLSConfigUpdateFinished),
+	)
+}
+
+// ShouldSkipInterNodeTLSUpdateReconcile will check if TLS Update can be skipped for InterNodee.
+func (v *VerticaDB) ShouldSkipInterNodeTLSUpdateReconcile(isRollback bool) bool {
+	return v.ShouldSkipTLSUpdateReconcile(
+		isRollback,
+		!v.IsInterNodeTLSAuthEnabledWithMinVersion(),
+		v.IsStatusConditionTrue(InterNodeTLSConfigUpdateFinished),
 	)
 }
 
