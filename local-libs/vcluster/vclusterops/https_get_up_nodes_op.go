@@ -218,6 +218,8 @@ func isCompleteScanRequired(cmdType CmdType) bool {
 		cmdType == SetConfigurationParameterCmd ||
 		cmdType == GetConfigurationParameterCmd ||
 		cmdType == GetDrainingStatusCmd ||
+		cmdType == GetRedirectStateCmd ||
+		cmdType == SetRedirectStateCmd ||
 		// need to find an up node from the sandbox if we're starting sandbox
 		// nodes, to handle identifying compute nodes in the sandbox
 		cmdType == StartNodeCmd
@@ -401,6 +403,8 @@ func (op *httpsGetUpNodesOp) requiresSandboxInfo() bool {
 		op.cmdType == GetConfigurationParameterCmd ||
 		op.cmdType == StopDBCmd ||
 		op.cmdType == GetDrainingStatusCmd ||
+		op.cmdType == GetRedirectStateCmd ||
+		op.cmdType == SetRedirectStateCmd ||
 		op.cmdType == StartNodeCmd
 }
 
