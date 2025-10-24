@@ -20,15 +20,30 @@ import (
 	"fmt"
 )
 
+type ShutdownType string
+
 const (
 	nmaShutdownOpMsgKey     = "shutdown_message"
 	nmaShutdownOpErrorKey   = "shutdown_error"
 	nmaShutdownOpMsgSuccess = "NMA server stopped"
 	nmaShutdownOpMsgFail    = "NMA server shutdown failed"
+
+	restart  ShutdownType = "restart"
+	shutdown ShutdownType = "shutdown"
 )
 
 type nmaShutdownOp struct {
 	opBase
+	shutdownType ShutdownType
+}
+
+func makeNMARestartOp(hosts []string) nmaShutdownOp {
+	op := nmaShutdownOp{}
+	op.name = "NMARestartOp"
+	op.description = "Restart NMA service"
+	op.hosts = hosts
+	op.shutdownType = restart
+	return op
 }
 
 func makeNMAShutdownOp(hosts []string) nmaShutdownOp {
@@ -36,6 +51,7 @@ func makeNMAShutdownOp(hosts []string) nmaShutdownOp {
 	op.name = "NMAShutdownOp"
 	op.description = "Shut down NMA service"
 	op.hosts = hosts
+	op.shutdownType = shutdown
 	return op
 }
 
@@ -43,7 +59,7 @@ func (op *nmaShutdownOp) setupClusterHTTPRequest(hosts []string) error {
 	for _, host := range hosts {
 		httpRequest := hostHTTPRequest{}
 		httpRequest.Method = PutMethod
-		httpRequest.buildNMAEndpoint("nma/shutdown")
+		httpRequest.buildNMAEndpoint("nma/" + string(op.shutdownType))
 		op.clusterHTTPRequest.RequestCollection[host] = httpRequest
 	}
 
@@ -88,6 +104,22 @@ func (op *nmaShutdownOp) processResult(_ *opEngineExecContext) error {
 			//     'shutdown_message':  'NMA server shutdown failed',
 			//     'shutdown_error':  '<errmsg>'
 			// }
+			//
+			// OR
+			//
+			// {
+			//     'restart_scheduled':  'NMA server restart scheduled',
+			//     'shutdown_message':  'NMA server stopped',
+			//     'shutdown_error':  'Null'
+			// }
+			//
+			// OR
+			//
+			// {
+			//     'restart_scheduled':  'NMA server restart scheduled',
+			//     'shutdown_message':  'NMA server shutdown failed',
+			//     'shutdown_error':  '<errmsg>'
+			// }
 			responseObj, err := op.parseAndCheckMapResponse(host, result.content)
 			if err != nil {
 				allErrs = errors.Join(allErrs, err)
@@ -109,7 +141,7 @@ func (op *nmaShutdownOp) processResult(_ *opEngineExecContext) error {
 				allErrs = errors.Join(allErrs, err)
 				continue
 			}
-			allErrs = errors.Join(allErrs, fmt.Errorf("nma shutdown failed, details: %s", shutdownErrMsg))
+			allErrs = errors.Join(allErrs, fmt.Errorf("nma "+string(op.shutdownType)+" failed, details: %s", shutdownErrMsg))
 		} else {
 			allErrs = errors.Join(allErrs, result.err)
 		}
