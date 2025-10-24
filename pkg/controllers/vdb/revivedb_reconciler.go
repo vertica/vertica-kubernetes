@@ -87,6 +87,10 @@ func (r *ReviveDBReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ct
 		return ctrl.Result{}, nil
 	}
 
+	if r.Vdb.IsMainClusterStopped() {
+		return ctrl.Result{}, fmt.Errorf("cannot revive database with spec.shutdown set to true")
+	}
+
 	// Check if restoring from a restore point is supported
 	if r.Vdb.IsRestoreDuringReviveEnabled() {
 		if err := r.hasCompatibleVersionForRestore(); err != nil {

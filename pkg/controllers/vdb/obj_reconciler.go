@@ -40,6 +40,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
 	"github.com/vertica/vertica-kubernetes/pkg/secrets"
 	config "github.com/vertica/vertica-kubernetes/pkg/vdbconfig"
+	"github.com/vertica/vertica-kubernetes/pkg/vdbstatus"
 	"github.com/vertica/vertica-kubernetes/pkg/vk8s"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -317,6 +318,18 @@ func (o *ObjReconciler) checkForCreatedSubclusters(ctx context.Context) (ctrl.Re
 		o.SandPFactsMap = make(map[string]podfacts.PodFacts)
 		if res, err := o.reconcileSts(ctx, sc); verrors.IsReconcileAborted(res, err) {
 			return res, err
+		}
+	}
+	// If we are scaling statefulsets back up from zero, we need to clear
+	// the MainClusterPodsTerminated condition.
+	if !o.Vdb.Spec.Shutdown && o.Vdb.IsStatusConditionTrue(vapi.MainClusterPodsTerminated) {
+		err := vdbstatus.UpdateCondition(ctx, o.Rec.GetClient(), o.Vdb, vapi.MakeCondition(
+			vapi.MainClusterPodsTerminated,
+			metav1.ConditionFalse,
+			"StatefulsetsBackToOriginalSize",
+		))
+		if err != nil {
+			return ctrl.Result{}, err
 		}
 	}
 	return ctrl.Result{}, nil

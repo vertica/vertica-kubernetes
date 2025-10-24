@@ -59,8 +59,8 @@ func MakeDBAddNodeReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
 
 // Reconcile will ensure a DB exists and create one if it doesn't
 func (d *DBAddNodeReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
-	// no-op for ScheduleOnly init policy
-	if d.Vdb.Spec.InitPolicy == vapi.CommunalInitPolicyScheduleOnly {
+	// no-op for ScheduleOnly init policy or when main cluster is stopped
+	if d.Vdb.Spec.InitPolicy == vapi.CommunalInitPolicyScheduleOnly || d.Vdb.IsMainClusterStopped() {
 		return ctrl.Result{}, nil
 	}
 

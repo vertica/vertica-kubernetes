@@ -57,7 +57,7 @@ func MakeSubclusterShutdownReconciler(recon config.ReconcilerInterface, log logr
 
 func (s *SubclusterShutdownReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
 	// no-op for ScheduleOnly init policy or enterprise db
-	if s.Vdb.Spec.InitPolicy == vapi.CommunalInitPolicyScheduleOnly || !s.Vdb.IsEON() {
+	if s.Vdb.Spec.InitPolicy == vapi.CommunalInitPolicyScheduleOnly || !s.Vdb.IsEON() || s.Vdb.IsMainClusterStopped() {
 		return ctrl.Result{}, nil
 	}
 
@@ -125,9 +125,8 @@ func (s *SubclusterShutdownReconciler) getSubclustersToShutdown() (map[string]st
 		}
 		hostIP, ok := s.PFacts.FindFirstUpPodIP(false, sc.Name)
 		if !ok {
-			if !scStatus.Shutdown {
-				s.Log.Info("Subcluster nodes are already all down, and were not shutdown gracefully.", "subcluster", sc.Name)
-			}
+			s.Log.Info(fmt.Sprintf("Skipping subcluster because it has no up nodes in %s", s.PFacts.GetClusterExtendedName()),
+				"subcluster", sc.Name)
 			continue
 		}
 		if sc.IsPrimary(s.Vdb) {

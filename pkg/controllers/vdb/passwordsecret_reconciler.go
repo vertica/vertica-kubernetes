@@ -70,7 +70,7 @@ func MakePasswordSecretReconciler(recon vdbconfig.ReconcilerInterface, log logr.
 func (a *PasswordSecretReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
 	sbName := a.PFacts.GetSandboxName()
 
-	if !a.Vdb.IsDBInitialized() {
+	if !a.Vdb.IsDBInitialized() || a.Vdb.IsMainClusterStopped() {
 		return ctrl.Result{}, nil
 	}
 

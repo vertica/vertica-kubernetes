@@ -68,9 +68,9 @@ func MakeSandboxSubclusterReconciler(vdbrecon *VerticaDBReconciler, log logr.Log
 
 // Reconcile will add subclusters to sandboxes if we found any qualified subclusters
 func (s *SandboxSubclusterReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
-	// no-op for ScheduleOnly init policy or enterprise db or no sandboxes
+	// no-op for ScheduleOnly init policy or enterprise db or no sandboxes defined or when main cluster is stopped
 	if s.Vdb.Spec.InitPolicy == vapi.CommunalInitPolicyScheduleOnly ||
-		!s.Vdb.IsEON() || len(s.Vdb.Spec.Sandboxes) == 0 {
+		!s.Vdb.IsEON() || len(s.Vdb.Spec.Sandboxes) == 0 || s.Vdb.IsMainClusterStopped() {
 		return ctrl.Result{}, nil
 	}
 
@@ -304,48 +304,35 @@ func (s *SandboxSubclusterReconciler) updateSandboxConfigMapFields(curCM, newCM 
 	// exclude sandbox controller upgrade, unsandbox, shutdown trigger ID from the annotations
 	// because vdb controller will set this in current config map, and the new
 	// config map cannot get it
-	upgradeTriggerID, hasUpgradeTriggerID := curCM.Annotations[vmeta.SandboxControllerUpgradeTriggerID]
-	delete(curCM.Annotations, vmeta.SandboxControllerUpgradeTriggerID)
-	delete(newCM.Annotations, vmeta.SandboxControllerUpgradeTriggerID)
-	unsandboxTriggerID, hasUnsandboxTriggerID := curCM.Annotations[vmeta.SandboxControllerUnsandboxTriggerID]
-	delete(curCM.Annotations, vmeta.SandboxControllerUnsandboxTriggerID)
-	delete(newCM.Annotations, vmeta.SandboxControllerUnsandboxTriggerID)
-	shutdownTriggerID, hasShutdownTriggerID := curCM.Annotations[vmeta.SandboxControllerShutdownTriggerID]
-	delete(curCM.Annotations, vmeta.SandboxControllerShutdownTriggerID)
-	delete(newCM.Annotations, vmeta.SandboxControllerShutdownTriggerID)
-	alterSubclusterID, hasAlterSubclusterID := curCM.Annotations[vmeta.SandboxControllerAlterSubclusterTypeTriggerID]
-	delete(curCM.Annotations, vmeta.SandboxControllerAlterSubclusterTypeTriggerID)
-	delete(newCM.Annotations, vmeta.SandboxControllerAlterSubclusterTypeTriggerID)
-
-	// exclude version annotation because vdb controller can set a different
-	// vertica version annotation for a sandbox in current config map
-	version, hasVersion := curCM.Annotations[vmeta.VersionAnnotation]
-	if hasVersion {
-		delete(curCM.Annotations, vmeta.VersionAnnotation)
+	excludedKeys := []string{
+		vmeta.SandboxControllerUpgradeTriggerID,
+		vmeta.SandboxControllerUnsandboxTriggerID,
+		vmeta.SandboxControllerShutdownTriggerID,
+		vmeta.SandboxControllerAlterSubclusterTypeTriggerID,
+		vmeta.SandboxControllerPasswordChangeTriggerID,
+		// exclude version annotation because vdb controller can set a different
+		// vertica version annotation for a sandbox in current config map
+		vmeta.VersionAnnotation,
 	}
-	delete(newCM.Annotations, vmeta.VersionAnnotation)
+
+	// Save and remove excluded annotations from both maps
+	saved := make(map[string]string)
+	for _, key := range excludedKeys {
+		if val, ok := curCM.Annotations[key]; ok {
+			saved[key] = val
+		}
+		delete(curCM.Annotations, key)
+		delete(newCM.Annotations, key)
+	}
 
 	if stringMapDiffer(curCM.ObjectMeta.Annotations, newCM.ObjectMeta.Annotations) {
 		updated = true
 		curCM.ObjectMeta.Annotations = newCM.ObjectMeta.Annotations
 	}
 
-	// add sandbox controller upgrade & unsandbox trigger ID back to the annotations
-	if hasUpgradeTriggerID {
-		curCM.Annotations[vmeta.SandboxControllerUpgradeTriggerID] = upgradeTriggerID
-	}
-	if hasUnsandboxTriggerID {
-		curCM.Annotations[vmeta.SandboxControllerUnsandboxTriggerID] = unsandboxTriggerID
-	}
-	if hasShutdownTriggerID {
-		curCM.Annotations[vmeta.SandboxControllerShutdownTriggerID] = shutdownTriggerID
-	}
-	if hasAlterSubclusterID {
-		curCM.Annotations[vmeta.SandboxControllerAlterSubclusterTypeTriggerID] = alterSubclusterID
-	}
-	// add vertica version back to the annotations
-	if hasVersion {
-		curCM.Annotations[vmeta.VersionAnnotation] = version
+	// Restore excluded annotations
+	for key, val := range saved {
+		curCM.Annotations[key] = val
 	}
 
 	if stringMapDiffer(curCM.ObjectMeta.Labels, newCM.ObjectMeta.Labels) {

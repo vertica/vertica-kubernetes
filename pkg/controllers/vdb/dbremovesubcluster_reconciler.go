@@ -67,8 +67,8 @@ func MakeDBRemoveSubclusterReconciler(vdbrecon *VerticaDBReconciler, log logr.Lo
 
 // Reconcile will remove any subcluster that no longer exists in the vdb.
 func (d *DBRemoveSubclusterReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
-	// no-op for ScheduleOnly init policy
-	if d.Vdb.Spec.InitPolicy == vapi.CommunalInitPolicyScheduleOnly {
+	// no-op for ScheduleOnly init policy or when main cluster is stopped
+	if d.Vdb.Spec.InitPolicy == vapi.CommunalInitPolicyScheduleOnly || d.Vdb.IsMainClusterStopped() {
 		return ctrl.Result{}, nil
 	}
 

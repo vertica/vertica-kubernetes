@@ -156,6 +156,13 @@ func MakeOnlineUpgradeReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
 //
 //nolint:funlen
 func (r *OnlineUpgradeReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
+	// No-op if the main cluster is shutdown. Normally, we would not get here if the webhook is enabled
+	// because it would prevent any changes that would require a restart when the main cluster is shutdown.
+	// However, if the webhook is disabled, we can still get here if the user changes the image.
+	if r.VDB.IsMainClusterStopped() {
+		r.Log.Info("Skipping online upgrade reconciler because main cluster is shutdown")
+		return ctrl.Result{}, nil
+	}
 	if ok, err := r.Manager.IsUpgradeNeeded(ctx, vapi.MainCluster); !ok || err != nil {
 		return ctrl.Result{}, err
 	}

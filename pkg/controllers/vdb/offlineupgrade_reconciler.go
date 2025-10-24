@@ -94,6 +94,13 @@ func makeUpgradeManagerForOfflineUpgrade(recon config.ReconcilerInterface, log l
 // Reconcile will handle the process of the vertica image changing.  For
 // example, this can automate the process for an upgrade.
 func (o *OfflineUpgradeReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
+	// No-op if the main cluster is shutdown. Normally, we would not get here if the webhook is enabled
+	// because it would prevent any changes that would require a restart when the main cluster is shutdown.
+	// However, if the webhook is disabled, we can still get here if the user changes the image.
+	if o.Vdb.IsMainClusterStopped() {
+		o.Log.Info("Skipping offline upgrade reconciler because main cluster is shutdown")
+		return ctrl.Result{}, nil
+	}
 	sandbox := o.PFacts.GetSandboxName()
 	if ok, err := o.Manager.IsUpgradeNeeded(ctx, sandbox); !ok || err != nil {
 		return ctrl.Result{}, err

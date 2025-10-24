@@ -89,6 +89,10 @@ func (c *CreateDBReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ct
 		return ctrl.Result{}, nil
 	}
 
+	if c.Vdb.IsMainClusterStopped() {
+		return ctrl.Result{}, fmt.Errorf("cannot create database with spec.shutdown set to true")
+	}
+
 	var err error
 	c.VInf, err = c.Vdb.MakeVersionInfoCheck()
 	if err != nil {

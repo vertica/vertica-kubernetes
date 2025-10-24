@@ -60,6 +60,9 @@ func MakeAlterSubclusterTypeReconciler(vdbrecon config.ReconcilerInterface, log 
 }
 
 func (a *AlterSubclusterTypeReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
+	if a.Vdb.IsMainClusterStopped() {
+		return ctrl.Result{}, nil
+	}
 	if err := a.PFacts.Collect(ctx, a.Vdb); err != nil {
 		return ctrl.Result{}, err
 	}

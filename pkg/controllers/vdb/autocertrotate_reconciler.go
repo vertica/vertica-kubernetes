@@ -50,7 +50,8 @@ func MakeAutoCertRotateReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger
 
 func (r *AutoCertRotateReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
 	// No-op if auto-rotate is not enabled at all
-	if !r.Vdb.IsAutoCertRotationEnabled(vapi.ClientServerTLSConfigName) && !r.Vdb.IsAutoCertRotationEnabled(vapi.HTTPSNMATLSConfigName) {
+	if (!r.Vdb.IsAutoCertRotationEnabled(vapi.ClientServerTLSConfigName) && !r.Vdb.IsAutoCertRotationEnabled(vapi.HTTPSNMATLSConfigName)) ||
+		r.Vdb.IsMainClusterStopped() {
 		return ctrl.Result{}, nil
 	}
 
