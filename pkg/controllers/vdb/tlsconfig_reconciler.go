@@ -104,10 +104,13 @@ func (h *TLSConfigReconciler) Reconcile(ctx context.Context, request *ctrl.Reque
 		// If HTTPS auth is disabled, this is client-server auth. Since vcluster defaults HTTPS
 		// to GrantAuth true, setting client-server to GrantTrue will result in an error, since both
 		// cannot have GrantAuth true. Thus, we set GrantAuth false in this case.
-		if !authCreated && !h.Vdb.IsHTTPSNMATLSAuthEnabled() {
+		if !authCreated && (!h.Vdb.IsHTTPSNMATLSAuthEnabled() || h.TLSConfigName == vapi.InterNodeTLSConfigName) {
 			authCreated = true
 		}
 		h.Log.Info("Run DDL to set up TLS")
+		if h.Manager.TLSConfig == vapi.InterNodeTLSConfigName {
+			h.Log.Info("libo: intd manger new secret " + h.Manager.NewSecret + " spec secret " + h.Vdb.Spec.InterNodeTLS.Secret)
+		}
 		err = h.runDDLToConfigureTLS(ctx, initiatorPod, !authCreated)
 		if err != nil {
 			h.VRec.Eventf(h.Vdb, corev1.EventTypeWarning, events.TLSConfigurationFailed,

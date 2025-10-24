@@ -43,7 +43,7 @@ const (
 	nmaTLSSecret          = "NMATLSSecret"
 	httpsNMATLSSecret     = "HTTPSNMATLSSecret" //nolint:gosec
 	clientServerTLSSecret = "ClientServerTLSSecret"
-	interNodeTLSSecret    = "interNodeTLSSecret" //nolint:gosec
+	interNodeTLSSecret    = "InterNodeTLSSecret" //nolint:gosec
 	TLSCertName           = "tls.crt"
 	TLSKeyName            = "tls.key"
 )
@@ -68,10 +68,11 @@ func MakeTLSServerCertGenReconciler(vdbrecon *VerticaDBReconciler, log logr.Logg
 func (h *TLSServerCertGenReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
 	// Verify that at least one secret need generation
 	// If not, skip this reconciler
+	h.Log.Info("libo: certgen 1")
 	if !h.ShouldGenerateCert() || h.Vdb.IsTLSCertRollbackNeeded() || h.Vdb.GetHTTPSPollingCurrentRetries() > 0 {
 		return ctrl.Result{}, nil
 	}
-
+	h.Log.Info("libo: certgen 2")
 	return ctrl.Result{}, h.reconcileSecrets(ctx)
 }
 
@@ -93,26 +94,37 @@ func (h *TLSServerCertGenReconciler) reconcileSecrets(ctx context.Context) error
 	for _, s := range secretStruct {
 		secretFieldName := s.Field
 		secretName := s.Name
-
+		h.Log.Info("libo: certgen 3 fieldName " + secretFieldName)
 		if h.ShouldSkipThisConfig(secretFieldName) {
 			continue
 		}
 		h.Log.Info("Reconciling TLS secret", "TLS secret", secretFieldName, "secretName", secretName)
 
 		// when nma secret is not empty, we can assign it to https and/or clientserver TLS
-		if skipToNext, errInit := h.tryInitializeFromNMATLSSecret(ctx, secretFieldName, secretName); errInit != nil || skipToNext {
+		skipToNext, errInit := h.tryInitializeFromNMATLSSecret(ctx, secretFieldName, secretName)
+		if errInit != nil {
 			return err
+		}
+		if skipToNext {
+			continue
 		}
 
 		// Initialize nmaTLSSecret for legacy compatibility
-		if skipToNext, errHandle := h.handleLegacyNMATLSSecret(ctx, secretFieldName); errHandle != nil || skipToNext {
+		skipToNext, errHandle := h.handleLegacyNMATLSSecret(ctx, secretFieldName)
+		if errHandle != nil {
 			return err
 		}
-
+		if skipToNext {
+			continue
+		}
+		h.Log.Info("libo: certgen 4 fieldName " + secretFieldName)
 		err = h.reconcileOneSecret(secretFieldName, secretName, ctx)
 		if err != nil {
 			h.Log.Error(err, fmt.Sprintf("failed to reconcile secret for %s", secretFieldName))
 			return err
+		}
+		if secretFieldName == interNodeTLSSecret {
+			h.Log.Info("libo: aft cert gen, secret " + h.Vdb.Spec.InterNodeTLS.Secret)
 		}
 	}
 	return nil
@@ -120,7 +132,7 @@ func (h *TLSServerCertGenReconciler) reconcileSecrets(ctx context.Context) error
 
 // tryInitializeFromNMATLSSecret tries to initialize https/clientserver TLS secret from nmaTLSSecret
 func (h *TLSServerCertGenReconciler) tryInitializeFromNMATLSSecret(ctx context.Context, secretFieldName, secretName string) (bool, error) {
-	if h.Vdb.Spec.NMATLSSecret == "" || secretFieldName == nmaTLSSecret || secretName != "" {
+	if h.Vdb.Spec.NMATLSSecret == "" || secretFieldName == nmaTLSSecret || secretFieldName == interNodeTLSSecret || secretName != "" {
 		return false, nil
 	}
 
@@ -310,6 +322,7 @@ func (h *TLSServerCertGenReconciler) setSecretNameInVDB(ctx context.Context, sec
 				return errors.New("InterNodeTLS is not enabled but trying to set secret")
 			}
 			h.Vdb.Spec.InterNodeTLS.Secret = secretName
+			h.Log.Info("libo: itnd secret set to " + secretName)
 		case httpsNMATLSSecret:
 			if h.Vdb.Spec.HTTPSNMATLS == nil {
 				return errors.New("HTTPSNMATLS is not enabled but trying to set secret")
@@ -390,8 +403,9 @@ func (h *TLSServerCertGenReconciler) ValidateSecretCertificate(
 func (h *TLSServerCertGenReconciler) ShouldGenerateCert() bool {
 	httpsNMACertNeeded := h.Vdb.ShouldGenCertForTLSConfig(vapi.HTTPSNMATLSConfigName)
 	clientServerCertNeeded := h.Vdb.ShouldGenCertForTLSConfig(vapi.ClientServerTLSConfigName)
+	interNodeCertNeeded := h.Vdb.ShouldGenCertForTLSConfig(vapi.InterNodeTLSConfigName)
 	nmaCertNeeded := !h.Vdb.IsHTTPSNMATLSAuthEnabled() && h.Vdb.Spec.NMATLSSecret == ""
-	return httpsNMACertNeeded || clientServerCertNeeded || nmaCertNeeded
+	return httpsNMACertNeeded || clientServerCertNeeded || interNodeCertNeeded || nmaCertNeeded
 }
 
 // ShouldSkipThisConfig determines whether an individual config (NMA, HTTPS, or Server) should skipped.

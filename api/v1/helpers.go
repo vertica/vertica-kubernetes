@@ -2230,9 +2230,14 @@ func (v *VerticaDB) IsCertNeededForClientServerAuth() bool {
 
 // ShouldGenCertForTLSConfig returns true if a specific TLS config is enabled and has changed.
 func (v *VerticaDB) ShouldGenCertForTLSConfig(tlsConfigName string) bool {
-	secret := v.GetHTTPSNMATLSSecret()
-	if tlsConfigName == ClientServerTLSConfigName {
+	var secret string
+	switch tlsConfigName {
+	case ClientServerTLSConfigName:
 		secret = v.GetClientServerTLSSecret()
+	case InterNodeTLSConfigName:
+		secret = v.GetInterNodeTLSSecret()
+	default:
+		secret = v.GetHTTPSNMATLSSecret()
 	}
 	return v.IsTLSAuthEnabledForConfig(tlsConfigName) &&
 		(secret == "" || secret != v.GetSecretInUse(tlsConfigName))
