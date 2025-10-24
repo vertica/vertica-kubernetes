@@ -47,15 +47,15 @@ type prepareDirectoriesRequestData struct {
 	IgnoreParent         bool     `json:"ignore_parent"`
 }
 
-func makeNMAPrepareDirectoriesOpHelper(hostNodeMap vHostNodeMap,
-	forceCleanup, forRevive, useExistingCatalogDir, useExistingDepotDir bool) (nmaPrepareDirectoriesOp, error) {
+func makeNMAPrepareDirectoriesOp(hostNodeMap vHostNodeMap,
+	forceCleanup, forRevive bool) (nmaPrepareDirectoriesOp, error) {
 	op := nmaPrepareDirectoriesOp{}
 	op.name = "NMAPrepareDirectoriesOp"
 	op.description = "Create necessary directories on Vertica hosts"
 	op.forceCleanup = forceCleanup
 	op.forRevive = forRevive
-	op.useExistingCatalogDir = useExistingCatalogDir
-	op.useExistingDepotDirOnly = useExistingDepotDir
+	op.useExistingCatalogDir = false
+	op.useExistingDepotDirOnly = false
 
 	err := op.setupRequestBody(hostNodeMap)
 	if err != nil {
@@ -67,26 +67,14 @@ func makeNMAPrepareDirectoriesOpHelper(hostNodeMap vHostNodeMap,
 	return op, nil
 }
 
-func makeNMAPrepareDirectoriesOp(hostNodeMap vHostNodeMap,
-	forceCleanup, forRevive bool) (nmaPrepareDirectoriesOp, error) {
-	op, err := makeNMAPrepareDirectoriesOpHelper(hostNodeMap, forceCleanup, forRevive,
-		false /*useExistingCatalogDir?*/, false /*useExistingDepotDir?*/)
-
-	if err != nil {
-		return op, err
-	}
-
-	return op, nil
-}
-
 func makeNMAPrepareDirsUseExistingDirOp(hostNodeMap vHostNodeMap,
 	forceCleanup, forRevive bool, useExistingCatalogDir, useExistingDepotDir bool) (nmaPrepareDirectoriesOp, error) {
-	op, err := makeNMAPrepareDirectoriesOpHelper(hostNodeMap, forceCleanup, forRevive,
-		useExistingCatalogDir, useExistingDepotDir)
-
+	op, err := makeNMAPrepareDirectoriesOp(hostNodeMap, forceCleanup, forRevive)
 	if err != nil {
 		return op, err
 	}
+	op.useExistingCatalogDir = useExistingCatalogDir
+	op.useExistingDepotDirOnly = useExistingDepotDir
 	if op.useExistingDirs() {
 		op.name = "NMAPrepareDirsAllowUsingExistingDirOp"
 		op.description = "Create necessary directories on Vertica hosts, allowing using existing directories: "
@@ -119,7 +107,6 @@ func (op *nmaPrepareDirectoriesOp) setupRequestBody(hostNodeMap vHostNodeMap) er
 		prepareDirData.ForceCleanup = op.forceCleanup
 		prepareDirData.ForRevive = op.forRevive
 		prepareDirData.IgnoreParent = false
-
 		// this option is hidden from user interface
 		// we have to ignore parent in this case for re-using depot dir
 		// because otherwise the NMA will error out

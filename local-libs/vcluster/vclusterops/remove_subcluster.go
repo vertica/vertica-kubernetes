@@ -262,7 +262,7 @@ func (options *VRemoveScOptions) getAllInitiatorsOfTheOperatingDBGroup(vdb *VCoo
 	// This check ensures that the subcluster to be removed, does not exist on main cluster
 	// If there are duplicate subcluster names existing on sandbox and main cluster (with different set of nodes),
 	// we should not incorrectly flag the sandbox subcluster to be known by the main cluster.
-	removeHostsSet := mapset.NewSet(removeHosts...)
+	removeHostsSet := mapset.NewSet[string](removeHosts...)
 	for _, vnode := range vdb.HostNodeMap {
 		if vnode.Subcluster == options.SCName &&
 			vnode.Sandbox == util.MainClusterSandbox &&

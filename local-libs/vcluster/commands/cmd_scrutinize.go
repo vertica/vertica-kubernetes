@@ -273,8 +273,7 @@ func (c *CmdScrutinize) Run(vcc vclusterops.ClusterCommands) error {
 		vcc.LogError(err, "scrutinize run failed")
 		return err
 	}
-	tarballPath := c.sOptions.GetScrutinizeOutputPath()
-	vcc.DisplayInfo("Successfully completed scrutinize run for the database %s at %s", c.sOptions.DBName, tarballPath)
+	vcc.DisplayInfo("Successfully completed scrutinize run for the database %s", c.sOptions.DBName)
 	return err
 }
 
