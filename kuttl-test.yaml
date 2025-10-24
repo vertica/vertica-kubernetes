@@ -55,6 +55,7 @@ testDirs:
   - tests/e2e-server-upgrade
   - tests/e2e-server-upgrade-at-only
   - tests/e2e-operator-upgrade-overlays
+  - tests/e2e-operator-upgrade-v1-overlays
 parallel: 1
 timeout: 400
 commands:

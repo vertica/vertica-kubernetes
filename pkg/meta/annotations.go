@@ -348,6 +348,13 @@ const (
 	// attempted, should issue an error indicating so.
 	ScrutinizeLogAgeHours = "vertica.com/scrutinize-log-age-hours"
 
+	ScrutinizeExcludeActiveQueriesAnnotation        = "vertica.com/scrutinize-exclude-active-queries"
+	ScrutinizeExcludeContainersAnnotation           = "vertica.com/scrutinize-exclude-containers"
+	ScrutinizeIncludeExternalTableDetailsAnnotation = "vertica.com/scrutinize-include-external-table-details"
+	ScrutinizeIncludeRosAnnotation                  = "vertica.com/scrutinize-include-ros"
+	ScrutinizeIncludeUDXDetailsAnnotation           = "vertica.com/scrutinize-include-udx-details"
+	ScrutinizeSkipCollectLibrariesAnnotation        = "vertica.com/scrutinize-skip-collect-libraries"
+
 	// This is applied to the statefulset to identify what replica group it is
 	// in. Replica groups are assigned during online upgrade. Valid values
 	// are defined under the annotation name.
@@ -796,6 +803,30 @@ func GetScrutinizeLogAgeNewestTime(annotations map[string]string) string {
 // GetScrutinizeLogAgeHours returns scrutinize log age hours
 func GetScrutinizeLogAgeHours(annotations map[string]string) int {
 	return lookupIntAnnotation(annotations, ScrutinizeLogAgeHours, 0 /* default value */)
+}
+
+func GetScrutinizeExcludeActiveQueries(annotations map[string]string) bool {
+	return lookupBoolAnnotation(annotations, ScrutinizeExcludeActiveQueriesAnnotation, false /* default value */)
+}
+
+func GetScrutinizeExcludeContainers(annotations map[string]string) bool {
+	return lookupBoolAnnotation(annotations, ScrutinizeExcludeContainersAnnotation, false /* default value */)
+}
+
+func GetScrutinizeIncludeExternalTableDetails(annotations map[string]string) bool {
+	return lookupBoolAnnotation(annotations, ScrutinizeIncludeExternalTableDetailsAnnotation, false /* default value */)
+}
+
+func GetScrutinizeIncludeRos(annotations map[string]string) bool {
+	return lookupBoolAnnotation(annotations, ScrutinizeIncludeRosAnnotation, false /* default value */)
+}
+
+func GetScrutinizeIncludeUDXDetails(annotations map[string]string) bool {
+	return lookupBoolAnnotation(annotations, ScrutinizeIncludeUDXDetailsAnnotation, false /* default value */)
+}
+
+func GetScrutinizeSkipCollectLibraries(annotations map[string]string) bool {
+	return lookupBoolAnnotation(annotations, ScrutinizeSkipCollectLibrariesAnnotation, false /* default value */)
 }
 
 // GetOnlineUpgradeSandbox returns the name of the sandbox used for online upgrade.

@@ -25,6 +25,7 @@ hadoop-conf.json
 
 # Generate files from setup-operator-upgrade-testsuite.sh
 tests/e2e-operator-upgrade-overlays/*/
+tests/e2e-operator-upgrade-v1-overlays/*/
 
 # Generated file copied from tests/e2e-leg-6/http-generated-certs/delete-cr-errors*.yaml
 tests/e2e-leg-6-vc-only/http-generated-certs/95-errors.yaml
