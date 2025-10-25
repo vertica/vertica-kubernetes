@@ -295,6 +295,7 @@ func (r *AutoCertRotateReconciler) updateTLSStatus(
 ) error {
 	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 		if r.Vdb.GetTLSConfigByName(tlsConfig) == nil {
+			r.Log.Info("libo: null tls config, name " + tlsConfig)
 			r.Vdb.Status.TLSConfigs = append(r.Vdb.Status.TLSConfigs,
 				vapi.TLSConfigStatus{Name: tlsConfig})
 		}
