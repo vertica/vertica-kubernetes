@@ -174,7 +174,7 @@ runs:
           # Set E2E_TEST_DIRS
           if [[ "${{ inputs.leg-identifier }}" == "operator-upgrade" ]]; then
             export E2E_TEST_DIRS="tests/e2e-operator-upgrade-overlays";
-          elif [[ "${{ inputs.leg.identifier }}" == "operator-upgrade-v1" ]]; then
+          elif [[ "${{ inputs.leg-identifier }}" == "operator-upgrade-v1" ]]; then
             export E2E_TEST_DIRS="tests/e2e-operator-upgrade-v1-overlays";
           else
             export E2E_TEST_DIRS="tests/e2e-${{ inputs.leg-identifier }}"
