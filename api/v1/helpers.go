@@ -2284,7 +2284,7 @@ func FindTLSConfig(configs []TLSConfigStatus, configField, value string) *TLSCon
 	for i := range configs {
 		switch configField {
 		case "Name":
-			if configs[i].Name == value {
+			if strings.EqualFold(configs[i].Name, value) {
 				return &configs[i]
 			}
 		case "Secret":

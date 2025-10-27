@@ -415,6 +415,7 @@ func (t *TLSConfigManager) setTLSUpdatedata() {
 		t.tlsConfigName = vapi.ClientServerTLSConfigName
 	case tlsConfigInterNode:
 		t.CurrentSecret = t.Vdb.GetInterNodeTLSSecretInUse()
+		t.Log.Info("libo: internode tls secret " + t.Vdb.GetInterNodeTLSSecret())
 		t.NewSecret = t.Vdb.GetInterNodeTLSSecret()
 		t.CurrentTLSMode = t.Vdb.GetInterNodeTLSModeInUse()
 		t.NewTLSMode = t.Vdb.GetInterNodeTLSMode()

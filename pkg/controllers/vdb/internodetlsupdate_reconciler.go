@@ -63,9 +63,11 @@ func (h *InterNodeTLSUpdateReconciler) Reconcile(ctx context.Context, req *ctrl.
 		vapi.RollbackAfterInterNodeCertRotationReason {
 		return h.rollback(ctx)
 	}
+	h.Log.Info("libo: itnd rec 1")
 	if h.shouldSkipReconciler() {
 		return ctrl.Result{}, nil
 	}
+	h.Log.Info("libo: itnd rec 2")
 	if err := h.updateTLSConfigEnabledInVdb(ctx); err != nil {
 		return ctrl.Result{}, err
 	}
@@ -77,8 +79,10 @@ func (h *InterNodeTLSUpdateReconciler) Reconcile(ctx context.Context, req *ctrl.
 	h.Manager.setTLSUpdatedata()
 	h.Manager.setTLSUpdateType()
 	if h.Vdb.GetInterNodeTLSSecretInUse() == "" {
+		h.Log.Info("libo: itnd rec 3, initialize")
 		rec := MakeTLSConfigReconciler(h.VRec, h.Log, h.Vdb, h.PFacts.PRunner, h.Dispatcher, h.PFacts, vapi.InterNodeTLSConfigName, h.Manager)
 		res, err2 := rec.Reconcile(ctx, req)
+		h.Log.Info("libo: itnd rec 3, done")
 		return res, err2
 	}
 	if !h.Vdb.IsInterNodeConfigEnabled() {
