@@ -1555,6 +1555,7 @@ jobs:
           # operator running in the k8s cluster.
           e2e-parallelism: 1
           e2e-retry-times: ${{ inputs.e2e_retry_times || 2 }}
+          vertica-license: ${{ secrets.VERTICA_LICENSE }}
 
   e2e-operator-upgrade-vcluster-cert:
     if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'vcluster operator upgrade cert' || inputs.e2e_test_suites == '')}}
@@ -1581,6 +1582,7 @@ jobs:
           # operator running in the k8s cluster.
           e2e-parallelism: 1
           e2e-retry-times: ${{ inputs.e2e_retry_times || 2 }}
+          vertica-license: ${{ secrets.VERTICA_LICENSE }}
 
   e2e-udx-admintools:
     if: ${{ ! (contains(github.ref, 'k8s-sync') || contains(github.ref, 'k8s-test'))  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools udx' || inputs.e2e_test_suites == '') }}
