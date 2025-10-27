@@ -56,6 +56,8 @@ const (
 	SetTLSConfigCmd
 	GetRedirectStateCmd
 	SetRedirectStateCmd
+	RestartNMACmd
+	PollConnectionDrainingCmd
 )
 
 var cmdStringMap = map[CmdType]string{
@@ -108,6 +110,8 @@ var cmdStringMap = map[CmdType]string{
 	SetTLSConfigCmd:              "set_tls_config",
 	GetRedirectStateCmd:          "get_redirect_state",
 	SetRedirectStateCmd:          "set_redirect_state",
+	RestartNMACmd:                "restart_nma",
+	PollConnectionDrainingCmd:    "poll_connection_draining",
 }
 
 func (cmd CmdType) CmdString() string {

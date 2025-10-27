@@ -607,6 +607,7 @@ type ClusterCommands interface {
 	VFetchNodeState(options *VFetchNodeStateOptions) ([]NodeInfo, error)
 	VGetDrainingStatus(options *VGetDrainingStatusOptions) (DrainingStatusList, error)
 	VInstallPackages(options *VInstallPackagesOptions) (*InstallPackageStatus, error)
+	VPollConnectionDraining(options *VPollConnectionDrainingOptions) error
 	VManageConnectionDraining(options *VManageConnectionDrainingOptions) error
 	VPollSubclusterState(options *VPollSubclusterStateOptions) error
 	VPromoteSandboxToMain(options *VPromoteSandboxToMainOptions) error
@@ -616,6 +617,7 @@ type ClusterCommands interface {
 	VRenameSubcluster(options *VRenameSubclusterOptions) error
 	VReplicateDatabase(options *VReplicationDatabaseOptions) (int64, error)
 	VReplicationStatus(options *VReplicationStatusDatabaseOptions) (*ReplicationStatusResponse, error)
+	VRestartNMA(options *VRestartNMAOptions) error
 	VReviveDatabase(options *VReviveDatabaseOptions) (dbInfo string, vdbPtr *VCoordinationDatabase, err error)
 	VSandbox(options *VSandboxOptions) error
 	VSaveRestorePoint(options *VSaveRestorePointOptions) (err error)
