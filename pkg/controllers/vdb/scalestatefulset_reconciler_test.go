@@ -99,7 +99,7 @@ var _ = Describe("scalestatefulset_reconciler", func() {
 		r := MakeScaleInStatefulsetToZeroReconciler(vdbRec, vdb, &pfacts, logger)
 		res, err := r.Reconcile(ctx, &ctrl.Request{})
 		Expect(err).Should(Succeed())
-		Expect(res).Should(Equal(ctrl.Result{}))
+		Expect(res).Should(Equal(ctrl.Result{Requeue: true}))
 
 		newSts1 := &appsv1.StatefulSet{}
 		Expect(k8sClient.Get(ctx, names.GenStsName(vdb, &vdb.Spec.Subclusters[0]), newSts1)).Should(Succeed())

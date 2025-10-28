@@ -48,12 +48,12 @@ status:
       upNodeCount: 3
       name: sec1
       type: sandboxprimary
-    - addedToDBCount: 0
+    - addedToDBCount: 1
       upNodeCount: 0
       shutdown: true
       name: sec2
       type: secondary
-    - addedToDBCount: 0
+    - addedToDBCount: 1
       upNodeCount: 0
       shutdown: true
       name: sec3

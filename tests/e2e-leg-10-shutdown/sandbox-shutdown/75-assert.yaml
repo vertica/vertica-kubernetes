@@ -54,7 +54,7 @@ status:
       upNodeCount: 1
       name: sec2
       type: secondary
-    - addedToDBCount: 0
+    - addedToDBCount: 1
       upNodeCount: 0
       shutdown: true
       name: sec3

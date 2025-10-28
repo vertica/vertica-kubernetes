@@ -1,4 +1,4 @@
-# (c) Copyright [2021-2024] Open Text.
+# (c) Copyright [2021-2025] Open Text.
 # Licensed under the Apache License, Version 2.0 (the "License");
 # You may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -11,68 +11,70 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: apps/v1
-kind: StatefulSet
-metadata:
-  name: v-sandbox-shutdown-pri1
-status:
-  replicas: 3
+apiVersion: v1
+kind: Event
+reason: StopDBSucceeded 
+source:
+  component: verticadb-operator
+involvedObject:
+  apiVersion: vertica.com/v1
+  kind: VerticaDB
+  name: v-main-shutdown
+---
+apiVersion: v1
+kind: Event
+reason: TerminatingSubclusterPods
+source:
+  component: verticadb-operator
+involvedObject:
+  apiVersion: vertica.com/v1
+  kind: VerticaDB
+  name: v-main-shutdown
 ---
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: v-sandbox-shutdown-sec1
-status:
-  replicas: 3
----
-apiVersion: apps/v1
-kind: StatefulSet
-metadata:
-  name: v-sandbox-shutdown-sec2
+  name: v-main-shutdown-pri1
 status:
   replicas: 0
 ---
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: v-sandbox-shutdown-sec3
+  name: v-main-shutdown-sec1
 status:
-  replicas: 0
+  replicas: 3
 ---
 apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
-  name: v-sandbox-shutdown
+  name: v-main-shutdown
 spec:
   subclusters:
   - name: pri1
     type: primary
+    shutdown: true
   - name: sec1
     type: secondary
-  - name: sec2
-    shutdown: true
-    type: secondary
-  - name: sec3
-    shutdown: true
-    type: secondary
 status:
+  conditions:
+  - reason: Detected
+    status: "True"
+    type: AutoRestartVertica
+  - reason: Initialized
+    status: "True"
+    type: DBInitialized
+  - reason: AllStatefulsetsScaledToZero
+    status: "True"
+    type: MainClusterPodsTerminated
   subclusters:
     - addedToDBCount: 3
-      upNodeCount: 3
-      shutdown: false
+      upNodeCount: 0
+      shutdown: true
       name: pri1
       type: primary
     - addedToDBCount: 3
       upNodeCount: 3
-      shutdown: false
       name: sec1
+      shutdown: false
       type: sandboxprimary
-    - addedToDBCount: 1
-      upNodeCount: 0
-      name: sec2
-      type: secondary
-    - addedToDBCount: 1
-      upNodeCount: 0
-      shutdown: true
-      name: sec3
-      type: sandboxsecondary

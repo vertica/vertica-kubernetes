@@ -14,65 +14,21 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: v-sandbox-shutdown-pri1
+  name: v-main-shutdown-sec1
 status:
-  replicas: 3
----
-apiVersion: apps/v1
-kind: StatefulSet
-metadata:
-  name: v-sandbox-shutdown-sec1
-status:
-  replicas: 3
----
-apiVersion: apps/v1
-kind: StatefulSet
-metadata:
-  name: v-sandbox-shutdown-sec2
-status:
-  replicas: 0
----
-apiVersion: apps/v1
-kind: StatefulSet
-metadata:
-  name: v-sandbox-shutdown-sec3
-status:
-  replicas: 0
+  readyReplicas: 3
 ---
 apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
-  name: v-sandbox-shutdown
-spec:
-  subclusters:
-  - name: pri1
-    type: primary
-  - name: sec1
-    type: secondary
-  - name: sec2
-    shutdown: true
-    type: secondary
-  - name: sec3
-    shutdown: true
-    type: secondary
+  name: v-main-shutdown
 status:
   subclusters:
     - addedToDBCount: 3
-      upNodeCount: 3
-      shutdown: false
+      upNodeCount: 0
       name: pri1
       type: primary
     - addedToDBCount: 3
       upNodeCount: 3
-      shutdown: false
       name: sec1
       type: sandboxprimary
-    - addedToDBCount: 1
-      upNodeCount: 0
-      name: sec2
-      type: secondary
-    - addedToDBCount: 1
-      upNodeCount: 0
-      shutdown: true
-      name: sec3
-      type: sandboxsecondary

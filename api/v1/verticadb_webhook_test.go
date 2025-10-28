@@ -3181,26 +3181,6 @@ var _ = Describe("verticadb_webhook", func() {
 		Expect(allErrs[0].Error()).To(ContainSubstring("cannot set shutdown to true when the database is not initialized"))
 	})
 
-	It("should error if shutdown is set when sandboxes exist in spec", func() {
-		vdb := MakeVDB()
-		vdb.Spec.Shutdown = true
-		vdb.Status.Conditions = append(vdb.Status.Conditions, *MakeCondition(DBInitialized, metav1.ConditionTrue, ""))
-		vdb.Spec.Sandboxes = []Sandbox{{Name: "sandbox1"}}
-		allErrs := vdb.validateMainClusterShutdown(field.ErrorList{})
-		Expect(allErrs).To(HaveLen(1))
-		Expect(allErrs[0].Error()).To(ContainSubstring("cannot set shutdown to true when there are sandboxes"))
-	})
-
-	It("should error if shutdown is set when sandboxes exist in status", func() {
-		vdb := MakeVDB()
-		vdb.Spec.Shutdown = true
-		vdb.Status.Conditions = append(vdb.Status.Conditions, *MakeCondition(DBInitialized, metav1.ConditionTrue, ""))
-		vdb.Status.Sandboxes = []SandboxStatus{{Name: "sandbox1"}}
-		allErrs := vdb.validateMainClusterShutdown(field.ErrorList{})
-		Expect(allErrs).To(HaveLen(1))
-		Expect(allErrs[0].Error()).To(ContainSubstring("cannot set shutdown to true when there are sandboxes"))
-	})
-
 	It("should error if shutdown is set when VerticaRestartNeeded condition is true", func() {
 		vdb := MakeVDB()
 		vdb.Spec.Shutdown = true
@@ -3227,10 +3207,9 @@ var _ = Describe("verticadb_webhook", func() {
 		vdb.Spec.Sandboxes = []Sandbox{{Name: "sandbox1"}}
 		vdb.Status.Conditions = append(vdb.Status.Conditions, *MakeCondition(VerticaRestartNeeded, metav1.ConditionTrue, ""))
 		allErrs := vdb.validateMainClusterShutdown(field.ErrorList{})
-		Expect(allErrs).To(HaveLen(3))
+		Expect(allErrs).To(HaveLen(2))
 		Expect(allErrs[0].Error()).To(ContainSubstring("cannot set shutdown to true when the database is not initialized"))
-		Expect(allErrs[1].Error()).To(ContainSubstring("cannot set shutdown to true when there are sandboxes"))
-		Expect(allErrs[2].Error()).To(ContainSubstring("cannot set shutdown to true when a restart is needed"))
+		Expect(allErrs[1].Error()).To(ContainSubstring("cannot set shutdown to true when a restart is needed"))
 	})
 
 	It("should not error if shutdown is not set", func() {

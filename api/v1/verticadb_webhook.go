@@ -3329,12 +3329,6 @@ func (v *VerticaDB) validateMainClusterShutdown(allErrs field.ErrorList) field.E
 					"cannot set shutdown to true when the database is not initialized"),
 			)
 		}
-		if len(v.Spec.Sandboxes) > 0 || len(v.Status.Sandboxes) > 0 {
-			allErrs = append(allErrs,
-				field.Invalid(field.NewPath("spec").Child("shutdown"), v.Spec.Shutdown,
-					"cannot set shutdown to true when there are sandboxes"),
-			)
-		}
 		if v.IsStatusConditionTrue(VerticaRestartNeeded) {
 			allErrs = append(allErrs,
 				field.Invalid(field.NewPath("spec").Child("shutdown"), v.Spec.Shutdown,

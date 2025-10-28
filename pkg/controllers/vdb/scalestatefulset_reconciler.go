@@ -77,17 +77,16 @@ func (s *ScaleInStatefulsetToZeroReconciler) Reconcile(ctx context.Context, _ *c
 			// other reconcilers that will catch it.
 			continue
 		}
-		if !sc.Shutdown || !scStatus.Shutdown {
+		// Check if the subcluster is shut down or has no up nodes.
+		if !sc.Shutdown || (!scStatus.Shutdown && s.PFacts.GetSubclusterUpNodeCount(sc.Name) > 0) {
 			// Nothing to do if the subcluster is not shutdown.
 			continue
 		}
-		scaled, err := s.scaleStsToZero(ctx, sts, sc)
+		err := s.scaleStsToZero(ctx, sts, sc)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
-		if scaled {
-			scaledStsCount++
-		}
+		scaledStsCount++
 	}
 	mainScCount := len(s.Vdb.GetSubclustersInSandbox(v1.MainCluster))
 	if s.PFacts.SandboxName == v1.MainCluster && scaledStsCount == mainScCount {
@@ -100,13 +99,15 @@ func (s *ScaleInStatefulsetToZeroReconciler) Reconcile(ctx context.Context, _ *c
 		if err != nil {
 			return ctrl.Result{}, err
 		}
+		// We requeue because there is no point in continuing the reconciliation
+		// until the main cluster is started again.
+		return ctrl.Result{Requeue: true}, nil
 	}
 	return ctrl.Result{}, nil
 }
 
 func (s *ScaleInStatefulsetToZeroReconciler) scaleStsToZero(ctx context.Context, sts *appsv1.StatefulSet,
-	sc *v1.Subcluster) (bool, error) {
-	scaledToZero := false
+	sc *v1.Subcluster) error {
 	err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 		nm := names.GenNamespacedName(s.Vdb, sts.Name)
 		err := s.Rec.GetClient().Get(ctx, nm, sts)
@@ -115,11 +116,9 @@ func (s *ScaleInStatefulsetToZeroReconciler) scaleStsToZero(ctx context.Context,
 		}
 
 		oldSize := sts.Spec.Replicas
-		newSize := sc.GetStsSize(s.Vdb)
-		scaledToZero = newSize == 0
-		// No need to update if the size is already correct or if we are not
-		// scaling to zero.
-		if *oldSize == newSize || newSize != 0 {
+		newSize := int32(0)
+		// No need to update if the size is already correct
+		if *oldSize == newSize {
 			return nil
 		}
 		msg := fmt.Sprintf("Terminating all pods of subcluster %s in %s", sc.Name, s.PFacts.GetClusterExtendedName())
@@ -128,5 +127,5 @@ func (s *ScaleInStatefulsetToZeroReconciler) scaleStsToZero(ctx context.Context,
 		sts.Spec.Replicas = &newSize
 		return s.Rec.GetClient().Update(ctx, sts)
 	})
-	return scaledToZero, err
+	return err
 }

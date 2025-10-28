@@ -57,7 +57,7 @@ status:
       upNodeCount: 4
       name: pri1
       type: primary
-    - addedToDBCount: 0
+    - addedToDBCount: 3
       upNodeCount: 0
       shutdown: true
       name: pri2

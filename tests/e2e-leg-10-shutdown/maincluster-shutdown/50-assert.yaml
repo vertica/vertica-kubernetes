@@ -69,12 +69,12 @@ status:
     status: "True"
     type: MainClusterPodsTerminated
   subclusters:
-    - addedToDBCount: 0
+    - addedToDBCount: 3
       upNodeCount: 0
       shutdown: true
       name: pri1
       type: primary
-    - addedToDBCount: 0
+    - addedToDBCount: 3
       upNodeCount: 0
       shutdown: true
       name: sec1
