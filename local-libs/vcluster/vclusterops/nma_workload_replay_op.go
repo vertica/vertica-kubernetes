@@ -86,12 +86,7 @@ func (op *nmaWorkloadReplayOp) updateRequestBody(hosts []string, query VWorkload
 		op.nmaWorkloadReplayRequestData.StmtType = query.VStmtType
 		op.nmaWorkloadReplayRequestData.FileName = query.VFileName
 		op.nmaWorkloadReplayRequestData.JobID = op.JobID
-
-		if query.VFileDir != "" {
-			op.nmaWorkloadReplayRequestData.FileDir = op.hostNodeMap[host].CatalogPath
-		} else {
-			op.nmaWorkloadReplayRequestData.FileDir = query.VFileDir
-		}
+		op.nmaWorkloadReplayRequestData.FileDir = query.VFileDir
 
 		dataBytes, err := json.Marshal(op.nmaWorkloadReplayRequestData)
 		if err != nil {
@@ -178,8 +173,13 @@ func (op *nmaWorkloadReplayOp) prepareRequest(originalQuery *workloadQuery, quer
 }
 
 func parseWorkloadTime(timestamp string) (time.Time, error) {
-	const dateFormat = "2006-01-02T15:04:05.999999-07:00"
-	parsedTime, err := time.Parse(dateFormat, timestamp)
+	parsedTime, err := time.Parse(time.RFC3339Nano, timestamp)
+	if err == nil {
+		return parsedTime, nil
+	}
+	// Fallback to legacy format
+	const fallbackFormat = "2006-01-02T15:04:05.999999-07:00"
+	parsedTime, err = time.Parse(fallbackFormat, timestamp)
 	if err != nil {
 		return time.Time{}, fmt.Errorf("fail to parse workload timestamp: %w", err)
 	}
@@ -247,7 +247,7 @@ func (op *nmaWorkloadReplayOp) executeWorkloadReplay(execContext *opEngineExecCo
 				bodyParams: VWorkloadPreprocessParams{
 					VRequest:     workloadQuery.Request,
 					VCatalogPath: "/"}}
-			err = w.PreprocessQuery()
+			err = w.PreprocessQuery(op.logger.Log)
 			if err != nil {
 				op.appendReplayErrorRow(err)
 				continue
