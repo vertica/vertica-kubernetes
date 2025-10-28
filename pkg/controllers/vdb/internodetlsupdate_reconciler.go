@@ -35,31 +35,29 @@ import (
 
 // InterNodeTLSUpdateReconciler will compare the inter node tls secret or tls mode with the one saved in
 // status. If different, it will try to rotate the
-// cert currently used with the one saved the inter node tls secret, and/or will update tls mode
+// cert/mode currently used with the one(s) saved the spec inter node tls.
 type InterNodeTLSUpdateReconciler struct {
-	VRec         *VerticaDBReconciler
-	Vdb          *vapi.VerticaDB // Vdb is the CRD we are acting on.
-	Log          logr.Logger
-	Dispatcher   vadmin.Dispatcher
-	PFacts       *podfacts.PodFacts
-	Manager      *TLSConfigManager
-	FromRollback bool // Whether or not this has been called from the rollback reconciler
+	VRec       *VerticaDBReconciler
+	Vdb        *vapi.VerticaDB // Vdb is the CRD we are acting on.
+	Log        logr.Logger
+	Dispatcher vadmin.Dispatcher
+	PFacts     *podfacts.PodFacts
+	Manager    *TLSConfigManager
 }
 
 func MakeInterNodeTLSUpdateReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger, vdb *vapi.VerticaDB, dispatcher vadmin.Dispatcher,
-	pfacts *podfacts.PodFacts, fromRollback bool) controllers.ReconcileActor {
+	pfacts *podfacts.PodFacts) controllers.ReconcileActor {
 	return &InterNodeTLSUpdateReconciler{
-		VRec:         vdbrecon,
-		Vdb:          vdb,
-		Log:          log.WithName("InterNodeTLSUpdateReconciler"),
-		Dispatcher:   dispatcher,
-		PFacts:       pfacts,
-		Manager:      MakeTLSConfigManager(vdbrecon, log, vdb, tlsConfigInterNode, dispatcher, pfacts),
-		FromRollback: fromRollback,
+		VRec:       vdbrecon,
+		Vdb:        vdb,
+		Log:        log.WithName("InterNodeTLSUpdateReconciler"),
+		Dispatcher: dispatcher,
+		PFacts:     pfacts,
+		Manager:    MakeTLSConfigManager(vdbrecon, log, vdb, tlsConfigInterNode, dispatcher, pfacts),
 	}
 }
 
-// Reconcile will rotate TLS certificate.
+// Reconcile will rotate TLS certificate or mode.
 func (h *InterNodeTLSUpdateReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (ctrl.Result, error) {
 	if h.Vdb.IsTLSCertRollbackNeeded() && h.Vdb.IsTLSCertRollbackEnabled() && h.Vdb.GetTLSCertRollbackReason() ==
 		vapi.RollbackAfterInterNodeCertRotationReason {
@@ -91,7 +89,6 @@ func (h *InterNodeTLSUpdateReconciler) Reconcile(ctx context.Context, req *ctrl.
 	if !h.Manager.needTLSConfigChange() {
 		return ctrl.Result{}, nil
 	}
-	h.Log.Info("start inter node tls config update")
 	upPods := h.PFacts.FindUpPods("")
 	if len(upPods) == 0 {
 		h.Log.Info("No up pod found to update internode tls config. Restarting.")
@@ -120,11 +117,7 @@ func (h *InterNodeTLSUpdateReconciler) Reconcile(ctx context.Context, req *ctrl.
 }
 
 func (h *InterNodeTLSUpdateReconciler) shouldSkipReconciler() bool {
-	if !h.FromRollback && (!h.Vdb.IsDBInitialized() ||
-		h.Vdb.IsTLSCertRollbackNeeded() || !h.Vdb.IsInterNodeTLSAuthEnabledWithMinVersion()) {
-		return true
-	}
-	return false
+	return !h.Vdb.IsDBInitialized() || h.Vdb.IsTLSCertRollbackNeeded() || !h.Vdb.IsInterNodeTLSAuthEnabledWithMinVersion()
 }
 
 func (h *InterNodeTLSUpdateReconciler) rollback(ctx context.Context) (ctrl.Result, error) {

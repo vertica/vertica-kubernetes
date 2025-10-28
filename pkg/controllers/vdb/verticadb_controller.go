@@ -281,7 +281,7 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		// Set up TLS config if users turn it on
 		MakeTLSReconciler(r, log, vdb, prunner, dispatcher, pfacts),
 		// update inter node tls by setting the tls config, rotating the cert and/or changing tls mode
-		MakeInterNodeTLSUpdateReconciler(r, log, vdb, dispatcher, pfacts, false),
+		MakeInterNodeTLSUpdateReconciler(r, log, vdb, dispatcher, pfacts),
 		// Update the service monitor that will allow prometheus to scrape the
 		// metrics from the vertica pods.
 		MakeServiceMonitorReconciler(vdb, r, log, pfacts),
