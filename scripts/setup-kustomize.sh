@@ -211,6 +211,23 @@ EOF
       path: /metadata/annotations/vertica.com~1default-tls-enabled-is-false
       value: "true"
 EOF
+            if [ "$LEG" == "operator-upgrade-v1" ]
+            then
+                cat <<EOF >> kustomization.yaml
+    - op: add
+      path: /metadata/annotations/vertica.com~1enable-tls-auth
+      value: "false"
+EOF
+            fi
+        else
+            if [ "$LEG" == "operator-upgrade-v1" ]
+            then
+                cat <<EOF >> kustomization.yaml
+    - op: add
+      path: /metadata/annotations/vertica.com~1enable-tls-auth
+      value: "true"
+EOF
+            fi
         fi
 
         if [ "$VERTICA_DEPLOYMENT_METHOD" == "vclusterops" ]
@@ -962,11 +979,11 @@ create_license_secret
 
 # Descend into each test and create the overlay kustomization.
 # The overlay is created in a directory like: overlay/<tc-name>
-for tdir in e2e-leg-*/*/*/base e2e-server-upgrade*/*/*/base e2e-operator-upgrade-overlays/*/*/base e2e-udx*/*/*/base
+for tdir in e2e-leg-*/*/*/base e2e-server-upgrade*/*/*/base e2e-operator-upgrade-overlays/*/*/base e2e-operator-upgrade-v1-overlays/*/*/base e2e-udx*/*/*/base
 do
     create_vdb_pod_kustomization $(dirname $tdir) $(basename $(realpath $tdir/../..))
 done
-for tdir in e2e-leg-*/* e2e-server-upgrade*/* e2e-operator-upgrade-overlays/* e2e-udx*/*
+for tdir in e2e-leg-*/* e2e-server-upgrade*/* e2e-operator-upgrade-overlays/* e2e-operator-upgrade-v1-overlays/* e2e-udx*/*
 do
     clean_communal_kustomization $tdir
 done
