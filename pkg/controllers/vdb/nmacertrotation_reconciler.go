@@ -70,7 +70,6 @@ func (h *NMACertRotationReconciler) Reconcile(ctx context.Context, _ *ctrl.Reque
 	}
 	// nma secret
 	newSecretName := h.Vdb.GetHTTPSNMATLSSecretForConfigMap()
-	h.Log.Info("libo: nma cert rotate new secret " + newSecretName)
 	newSecret, res, err := readSecret(h.Vdb, h.VRec, h.VRec.GetClient(), h.Log, ctx, newSecretName)
 	if verrors.IsReconcileAborted(res, err) {
 		return res, err
@@ -121,11 +120,9 @@ func (h *NMACertRotationReconciler) Reconcile(ctx context.Context, _ *ctrl.Reque
 
 // nmaCertRotationNeeded returns true if nma cert rotation is needed
 func (h *NMACertRotationReconciler) nmaCertRotationNeeded() bool {
-	h.Log.Info("libo: nma cert rotate needed 1")
 	if !h.Vdb.IsAnyTLSAuthEnabledWithMinVersion() {
 		return false
 	}
-	h.Log.Info("libo: nma cert rotate needed 2")
 	// no-op if tls update has not occurred
 	if !h.RestartOnly &&
 		((!h.Vdb.IsStatusConditionTrue(vapi.HTTPSTLSConfigUpdateFinished) &&
@@ -134,7 +131,6 @@ func (h *NMACertRotationReconciler) nmaCertRotationNeeded() bool {
 			h.Vdb.IsTLSCertRollbackNeeded()) {
 		return false
 	}
-	h.Log.Info("libo: nma cert rotate needed 3")
 	return true
 }
 

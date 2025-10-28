@@ -108,9 +108,6 @@ func (h *TLSConfigReconciler) Reconcile(ctx context.Context, request *ctrl.Reque
 			authCreated = true
 		}
 		h.Log.Info("Run DDL to set up TLS")
-		if h.Manager.TLSConfig == vapi.InterNodeTLSConfigName {
-			h.Log.Info("libo: intd manger new secret " + h.Manager.NewSecret + " spec secret " + h.Vdb.Spec.InterNodeTLS.Secret)
-		}
 		err = h.runDDLToConfigureTLS(ctx, initiatorPod, !authCreated)
 		if err != nil {
 			h.VRec.Eventf(h.Vdb, corev1.EventTypeWarning, events.TLSConfigurationFailed,

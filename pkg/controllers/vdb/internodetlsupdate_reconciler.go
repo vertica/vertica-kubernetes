@@ -21,7 +21,9 @@ import (
 	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
+	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/vdbstatus"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/util/retry"
 
@@ -131,12 +133,16 @@ func (h *InterNodeTLSUpdateReconciler) shouldSkipReconciler() bool {
 
 func (h *InterNodeTLSUpdateReconciler) rollback(ctx context.Context) (ctrl.Result, error) {
 	if !h.Vdb.IsTLSCertRollbackInProgress() {
+		h.VRec.Eventf(h.Vdb, corev1.EventTypeNormal, events.TLSCertRollbackStarted,
+			"Starting %s TLS cert rollback after failed update", tlsConfigInterNode)
 		// Set TLSCertRollbackInProgress and rollback
+		h.Log.Info("libo: rbl 1 a")
 		cond := vapi.MakeCondition(vapi.TLSCertRollbackInProgress, metav1.ConditionTrue, "InProgress")
 		err := vdbstatus.UpdateCondition(ctx, h.VRec.GetClient(), h.Vdb, cond)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
+		h.Log.Info("libo: rbl 2")
 		cond = &metav1.Condition{Type: vapi.TLSConfigUpdateInProgress, Status: metav1.ConditionFalse, Reason: "Completed"}
 
 		h.Log.Info("Clearing condition", "type", cond.Type)
@@ -144,6 +150,7 @@ func (h *InterNodeTLSUpdateReconciler) rollback(ctx context.Context) (ctrl.Resul
 			h.Log.Error(err, "Failed to clear condition", "type", cond.Type)
 			return ctrl.Result{}, err
 		}
+		h.Log.Info("libo: rbl 3")
 		nm := h.Vdb.ExtractNamespacedName()
 		err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 			// Always fetch the latest in case we are in the retry loop
@@ -159,6 +166,7 @@ func (h *InterNodeTLSUpdateReconciler) rollback(ctx context.Context) (ctrl.Resul
 		if err != nil {
 			return ctrl.Result{}, err
 		}
+		h.Log.Info("libo: rbl 4")
 		conds := []metav1.Condition{
 			{Type: vapi.TLSCertRollbackInProgress, Status: metav1.ConditionFalse, Reason: "Completed"},
 			{Type: vapi.TLSCertRollbackNeeded, Status: metav1.ConditionFalse, Reason: "Completed"},
@@ -170,6 +178,10 @@ func (h *InterNodeTLSUpdateReconciler) rollback(ctx context.Context) (ctrl.Resul
 				return ctrl.Result{}, err
 			}
 		}
+		h.VRec.Eventf(h.Vdb, corev1.EventTypeNormal, events.TLSCertRollbackSucceeded,
+			"%s TLS cert rollback completed successfully", tlsConfigInterNode)
+
+		h.Log.Info("libo: rbl 5")
 	}
 	return ctrl.Result{}, nil
 }

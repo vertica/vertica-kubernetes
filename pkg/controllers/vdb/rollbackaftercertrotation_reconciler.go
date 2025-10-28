@@ -59,6 +59,10 @@ func (r *RollbackAfterCertRotationReconciler) Reconcile(ctx context.Context, _ *
 		return ctrl.Result{}, nil
 	}
 
+	if r.Vdb.GetTLSCertRollbackReason() == vapi.RollbackAfterInterNodeCertRotationReason {
+		return ctrl.Result{}, nil
+	}
+
 	if !r.Vdb.IsTLSCertRollbackInProgress() {
 		// Set TLSCertRollbackInProgress and rollback
 		cond := vapi.MakeCondition(vapi.TLSCertRollbackInProgress, metav1.ConditionTrue, "InProgress")

@@ -1,0 +1,7 @@
+apiVersion: vertica.com/v1
+kind: VerticaDB
+metadata:
+  name: v-auto-cert-rotate
+  annotations:
+    vertica.com/trigger-auto-tls-rotate: "true"
+    vertica.com/trigger-tls-update-failure: "inter_node"

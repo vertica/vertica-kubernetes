@@ -68,11 +68,9 @@ func MakeTLSServerCertGenReconciler(vdbrecon *VerticaDBReconciler, log logr.Logg
 func (h *TLSServerCertGenReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
 	// Verify that at least one secret need generation
 	// If not, skip this reconciler
-	h.Log.Info("libo: certgen 1")
 	if !h.ShouldGenerateCert() || h.Vdb.IsTLSCertRollbackNeeded() || h.Vdb.GetHTTPSPollingCurrentRetries() > 0 {
 		return ctrl.Result{}, nil
 	}
-	h.Log.Info("libo: certgen 2")
 	return ctrl.Result{}, h.reconcileSecrets(ctx)
 }
 
@@ -94,7 +92,6 @@ func (h *TLSServerCertGenReconciler) reconcileSecrets(ctx context.Context) error
 	for _, s := range secretStruct {
 		secretFieldName := s.Field
 		secretName := s.Name
-		h.Log.Info("libo: certgen 3 fieldName " + secretFieldName)
 		if h.ShouldSkipThisConfig(secretFieldName) {
 			continue
 		}
@@ -117,14 +114,10 @@ func (h *TLSServerCertGenReconciler) reconcileSecrets(ctx context.Context) error
 		if skipToNext {
 			continue
 		}
-		h.Log.Info("libo: certgen 4 fieldName " + secretFieldName)
 		err = h.reconcileOneSecret(secretFieldName, secretName, ctx)
 		if err != nil {
 			h.Log.Error(err, fmt.Sprintf("failed to reconcile secret for %s", secretFieldName))
 			return err
-		}
-		if secretFieldName == interNodeTLSSecret {
-			h.Log.Info("libo: aft cert gen, secret " + h.Vdb.Spec.InterNodeTLS.Secret)
 		}
 	}
 	return nil
@@ -322,7 +315,6 @@ func (h *TLSServerCertGenReconciler) setSecretNameInVDB(ctx context.Context, sec
 				return errors.New("InterNodeTLS is not enabled but trying to set secret")
 			}
 			h.Vdb.Spec.InterNodeTLS.Secret = secretName
-			h.Log.Info("libo: itnd secret set to " + secretName)
 		case httpsNMATLSSecret:
 			if h.Vdb.Spec.HTTPSNMATLS == nil {
 				return errors.New("HTTPSNMATLS is not enabled but trying to set secret")
