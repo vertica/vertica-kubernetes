@@ -268,6 +268,7 @@ const (
 	upgradeLicenseCmd       = "upgrade_license"
 	checkConnectionSubCmd   = "check"
 	clusterHealth           = "cluster_health"
+	listPkgSubCmd           = "list_packages"
 )
 
 // cmdGlobals holds global variables shared by multiple
@@ -655,6 +656,7 @@ func constructCmds() []*cobra.Command {
 		makeCmdSaveRestorePoint(),
 		makeCmdUpgradeLicense(),
 		makeCmdClusterHealth(),
+		makeCmdListPackages(),
 	}
 }
 

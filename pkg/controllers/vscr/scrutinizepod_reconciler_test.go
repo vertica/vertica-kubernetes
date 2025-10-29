@@ -213,4 +213,31 @@ var _ = Describe("scrutinizepod_reconciler", func() {
 		checkStatusConditionAndStateAfterReconcile(ctx, vscr, v1beta1.ScrutinizePodCreated, metav1.ConditionTrue,
 			"PodCreated", "PodCreated")
 	})
+
+	It("should append flags for exclude/include options based on annotations", func() {
+		const trueString = "true"
+		vdb := v1.MakeVDB()
+		vscr := v1beta1.MakeVscr()
+		vscr.Annotations[vmeta.ScrutinizeExcludeActiveQueriesAnnotation] = trueString
+		vscr.Annotations[vmeta.ScrutinizeExcludeContainersAnnotation] = trueString
+		vscr.Annotations[vmeta.ScrutinizeIncludeExternalTableDetailsAnnotation] = trueString
+		vscr.Annotations[vmeta.ScrutinizeIncludeRosAnnotation] = trueString
+		vscr.Annotations[vmeta.ScrutinizeIncludeUDXDetailsAnnotation] = trueString
+		vscr.Annotations[vmeta.ScrutinizeSkipCollectLibrariesAnnotation] = trueString
+		s := &ScrutinizePodReconciler{
+			ScrArgs: &ScrutinizeCmdArgs{
+				hosts:       []string{"h1"},
+				username:    "dbadmin",
+				tarballName: "file.tar",
+			},
+			Vscr: vscr,
+		}
+		args := s.buildScrutinizeCmdArgs(vdb)
+		Expect(args).To(ContainElement("--exclude-active-queries"))
+		Expect(args).To(ContainElement("--exclude-containers"))
+		Expect(args).To(ContainElement("--include-external-table-details"))
+		Expect(args).To(ContainElement("--include-ros"))
+		Expect(args).To(ContainElement("--include-udx-details"))
+		Expect(args).To(ContainElement("--skip-collect-libraries"))
+	})
 })

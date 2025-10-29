@@ -178,6 +178,8 @@ func (s *ScrutinizePodReconciler) buildScrutinizeCmdArgs(vdb *v1.VerticaDB) []st
 		}
 	}
 
+	cmd = appendFlags(cmd, s.Vscr.Annotations)
+
 	// Prefer password from CacheManager if available
 	pw := ""
 	if s.VRec != nil && s.VRec.CacheManager != nil {
@@ -193,6 +195,28 @@ func (s *ScrutinizePodReconciler) buildScrutinizeCmdArgs(vdb *v1.VerticaDB) []st
 		// when the password secret is on k8s, we mount it into the
 		// container and have scrutinize read the password from the mounted file
 		cmd = append(cmd, "--password-file", paths.ScrutinizeDBPasswordFile)
+	}
+	return cmd
+}
+
+func appendFlags(cmd []string, annotations map[string]string) []string {
+	if vmeta.GetScrutinizeExcludeActiveQueries(annotations) {
+		cmd = append(cmd, "--exclude-active-queries")
+	}
+	if vmeta.GetScrutinizeExcludeContainers(annotations) {
+		cmd = append(cmd, "--exclude-containers")
+	}
+	if vmeta.GetScrutinizeIncludeExternalTableDetails(annotations) {
+		cmd = append(cmd, "--include-external-table-details")
+	}
+	if vmeta.GetScrutinizeIncludeRos(annotations) {
+		cmd = append(cmd, "--include-ros")
+	}
+	if vmeta.GetScrutinizeIncludeUDXDetails(annotations) {
+		cmd = append(cmd, "--include-udx-details")
+	}
+	if vmeta.GetScrutinizeSkipCollectLibraries(annotations) {
+		cmd = append(cmd, "--skip-collect-libraries")
 	}
 	return cmd
 }
