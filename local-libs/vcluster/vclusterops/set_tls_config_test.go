@@ -61,4 +61,29 @@ func TestVSetTLSConfig_validateParseOptions(t *testing.T) {
 
 	assert.Equal(t, opt.ServerTLSConfig.ConfigType, ServerTLSKeyPrefix, "client server ConfigType is server")
 	assert.Equal(t, opt.HTTPSTLSConfig.ConfigType, HTTPSTLSKeyPrefix, "HTTPS ConfigType is https")
+
+	// negative: empty SecretName
+	opt.InterNodeTLSConfig.SetConfigMap(map[string]string{
+		"TLSMode":       "verify_ca",
+		"SecretManager": "kubernetes",
+	})
+	err = opt.validateParseOptions(logger)
+	assert.Error(t, err)
+
+	// positive
+	opt.InterNodeTLSConfig.SetConfigMap(map[string]string{
+		"TLSMode":       "verify_ca",
+		"SecretManager": "kubernetes",
+		"SecretName":    "test-secret",
+	})
+	err = opt.validateParseOptions(logger)
+	assert.Error(t, err)
+
+	assert.Equal(t, opt.InterNodeTLSConfig.GrantAuth, false, "by default internode's GrantAuth is set to false")
+	// negative: only one tls config can set GrantAuth to true.
+	opt.InterNodeTLSConfig.GrantAuth = true
+	err = opt.validateParseOptions(logger)
+	assert.Error(t, err)
+
+	assert.Equal(t, opt.InterNodeTLSConfig.ConfigType, InterNodeTLSKeyPrefix, "internode ConfigType is data_channel")
 }
